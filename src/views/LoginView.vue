@@ -43,17 +43,6 @@
           </a-button>
         </a-form-item>
       </a-form>
-
-      <a-divider />
-
-      <div class="login-info">
-        <p><strong>Demo Accounts:</strong></p>
-        <ul>
-          <li>User: <code>user / user123</code></li>
-          <li>Admin: <code>admin / admin123</code></li>
-          <li>Super Admin: <code>superadmin / super123</code></li>
-        </ul>
-      </div>
     </a-card>
   </div>
 </template>
@@ -104,27 +93,5 @@ const handleLogin = async () => {
   width: 100%;
   max-width: 400px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-}
-
-.login-info {
-  font-size: 12px;
-  color: #666;
-}
-
-.login-info ul {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0 0 0;
-}
-
-.login-info li {
-  margin: 4px 0;
-}
-
-.login-info code {
-  background: #f5f5f5;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-family: monospace;
 }
 </style>
