@@ -14,19 +14,72 @@
       </div>
     </a-layout-header>
 
-    <a-layout-content class="content">
-      <router-view />
-    </a-layout-content>
+    <a-layout>
+      <a-layout-sider width="220" class="sider">
+        <a-menu
+          mode="inline"
+          :selected-keys="[selectedMenuKey]"
+          @click="handleMenuClick"
+          :items="menuItems"
+        />
+      </a-layout-sider>
+
+      <a-layout-content class="content">
+        <router-view />
+      </a-layout-content>
+    </a-layout>
   </a-layout>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { DatabaseOutlined, LogoutOutlined } from '@ant-design/icons-vue'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
+
+const menuItems = computed(() => {
+  const items = [
+    {
+      key: '/reestr',
+      label: 'Reestr',
+    },
+  ]
+
+  if (authStore.hasPermission('roles.manage')) {
+    items.push({
+      key: '/roles',
+      label: 'Roles',
+    })
+  }
+
+  if (authStore.hasPermission('users.write')) {
+    items.push({
+      key: '/users',
+      label: 'Users',
+    })
+  }
+
+  return items
+})
+
+const selectedMenuKey = computed(() => {
+  if (route.path.startsWith('/roles')) {
+    return '/roles'
+  }
+  if (route.path.startsWith('/users')) {
+    return '/users'
+  }
+  return '/reestr'
+})
+
+const handleMenuClick = ({ key }: { key: string }) => {
+  router.push(key)
+}
 
 const handleLogout = () => {
   authStore.logout()
@@ -69,5 +122,9 @@ const handleLogout = () => {
 .content {
   padding: 24px;
   background: #f0f2f5;
+}
+
+.sider {
+  background: #fff;
 }
 </style>

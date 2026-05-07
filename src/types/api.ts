@@ -18,6 +18,7 @@ export interface User {
   id: string
   username: string
   role: string
+  createdAtUtc?: string
 }
 
 export interface ReestrEntry {
@@ -47,4 +48,24 @@ export interface UpsertReestrEntryRequest {
 export interface ImportResponse {
   imported: number
   fileName?: string
+}
+
+export interface RoleItem {
+  name: string
+  permissions: string[]
+}
+
+export interface CreateRoleRequest {
+  name: string
+  permissions: string[]
+}
+
+export interface UpdateRolePermissionsRequest {
+  permissions: string[]
+}
+
+export interface RegisterRequest {
+  username: string
+  password: string
+  role: string
 }

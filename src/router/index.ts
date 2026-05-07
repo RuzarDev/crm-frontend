@@ -24,6 +24,18 @@ const router = createRouter({
           name: 'reestr',
           component: () => import('@/views/ReestrView.vue'),
         },
+        {
+          path: '/roles',
+          name: 'roles',
+          component: () => import('@/views/RolesView.vue'),
+          meta: { requiresPermission: 'roles.manage' },
+        },
+        {
+          path: '/users',
+          name: 'users',
+          component: () => import('@/views/UsersView.vue'),
+          meta: { requiresPermission: 'users.write' },
+        },
       ],
     },
   ],
@@ -33,9 +45,12 @@ router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   authStore.checkAuth()
   const requiresAuth = to.meta.requiresAuth !== false
+  const requiredPermission = to.meta.requiresPermission as string | undefined
 
   if (requiresAuth && !authStore.isAuthenticated) {
     next('/login')
+  } else if (requiredPermission && !authStore.hasPermission(requiredPermission)) {
+    next('/')
   } else if (to.path === '/login' && authStore.isAuthenticated) {
     next('/')
   } else {

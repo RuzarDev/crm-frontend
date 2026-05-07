@@ -2,7 +2,7 @@ import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axio
 import { message } from 'ant-design-vue'
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -12,7 +12,7 @@ const apiClient: AxiosInstance = axios.create({
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const requestUrl = config.url ?? ''
-    const isAuthRequest = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register')
+    const isAuthRequest = requestUrl.includes('/auth/login')
     const token = localStorage.getItem('authToken')
     if (!isAuthRequest && token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
