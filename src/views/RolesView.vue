@@ -1,10 +1,10 @@
 <template>
   <div class="roles-view">
-    <a-card title="Roles" :bordered="false">
+    <a-card title="Роли" :bordered="false">
       <template #extra>
         <a-button type="primary" @click="openCreateModal">
           <PlusOutlined />
-          Add role
+          Добавить роль
         </a-button>
       </template>
 
@@ -16,10 +16,14 @@
         :row-key="(record: RoleItem) => record.name"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'permissions'">
+          <template v-if="column.key === 'name'">
+            {{ formatRole(record.name) }}
+            <span class="role-slug">({{ record.name }})</span>
+          </template>
+          <template v-else-if="column.key === 'permissions'">
             <a-space wrap>
               <a-tag v-for="permission in record.permissions" :key="permission" color="blue">
-                {{ permission }}
+                {{ formatPermission(permission) }}
               </a-tag>
             </a-space>
           </template>
@@ -28,17 +32,17 @@
             <a-space>
               <a-button type="link" size="small" @click="openEditModal(record)">
                 <EditOutlined />
-                Edit
+                Изменить
               </a-button>
               <a-popconfirm
-                title="Delete this role?"
-                ok-text="Yes"
-                cancel-text="No"
+                title="Удалить эту роль?"
+                ok-text="Да"
+                cancel-text="Нет"
                 @confirm="handleDelete(record.name)"
               >
                 <a-button type="link" danger size="small">
                   <DeleteOutlined />
-                  Delete
+                  Удалить
                 </a-button>
               </a-popconfirm>
             </a-space>
@@ -49,20 +53,22 @@
 
     <a-modal
       v-model:open="modalOpen"
-      :title="isEditMode ? 'Edit role permissions' : 'Add role'"
+      :title="isEditMode ? 'Права роли' : 'Новая роль'"
+      ok-text="Сохранить"
+      cancel-text="Отмена"
       :confirm-loading="saving"
       @ok="handleSave"
       @cancel="handleCancel"
     >
       <a-form layout="vertical">
-        <a-form-item label="Role name">
+        <a-form-item label="Имя роли (код)">
           <a-input
             v-model:value="form.name"
-            placeholder="Enter role name"
+            placeholder="Например: broker"
             :disabled="isEditMode"
           />
         </a-form-item>
-        <a-form-item label="Permissions">
+        <a-form-item label="Права доступа">
           <a-checkbox-group v-model:value="form.permissions" style="width: 100%">
             <a-space direction="vertical" style="width: 100%">
               <a-checkbox
@@ -70,7 +76,8 @@
                 :key="permission"
                 :value="permission"
               >
-                {{ permission }}
+                {{ formatPermission(permission) }}
+                <span class="perm-slug">({{ permission }})</span>
               </a-checkbox>
             </a-space>
           </a-checkbox-group>
@@ -84,6 +91,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRolesStore } from '@/stores/roles'
 import type { RoleItem } from '@/types/api'
+import { formatPermission, formatRole } from '@/utils/labels'
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 
@@ -100,19 +108,19 @@ const form = reactive({
 
 const columns = computed(() => [
   {
-    title: 'Role',
+    title: 'Роль',
     dataIndex: 'name',
     key: 'name',
-    width: 220,
+    width: 260,
   },
   {
-    title: 'Permissions',
+    title: 'Права',
     key: 'permissions',
   },
   {
-    title: 'Actions',
+    title: 'Действия',
     key: 'actions',
-    width: 180,
+    width: 200,
   },
 ])
 
@@ -138,7 +146,7 @@ const openEditModal = (role: RoleItem) => {
 
 const handleSave = async () => {
   if (!form.name.trim()) {
-    message.error('Role name is required')
+    message.error('Укажите имя роли')
     return
   }
   saving.value = true
@@ -173,5 +181,12 @@ const handleDelete = async (name: string) => {
 .roles-view {
   max-width: 1400px;
   margin: 0 auto;
+}
+
+.role-slug,
+.perm-slug {
+  margin-left: 4px;
+  font-size: 12px;
+  color: #8c8c8c;
 }
 </style>

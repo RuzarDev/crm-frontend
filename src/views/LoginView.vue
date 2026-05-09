@@ -1,16 +1,16 @@
 <template>
   <div class="login-container">
-    <a-card class="login-card" title="CRM Login">
+    <a-card class="login-card" title="Вход в CRM">
       <a-form
         :model="formState"
         :rules="rules"
         @finish="handleLogin"
         layout="vertical"
       >
-        <a-form-item label="Username" name="username">
+        <a-form-item label="Логин" name="username">
           <a-input
             v-model:value="formState.username"
-            placeholder="Enter username"
+            placeholder="Введите логин"
             size="large"
           >
             <template #prefix>
@@ -19,10 +19,10 @@
           </a-input>
         </a-form-item>
 
-        <a-form-item label="Password" name="password">
+        <a-form-item label="Пароль" name="password">
           <a-input-password
             v-model:value="formState.password"
-            placeholder="Enter password"
+            placeholder="Введите пароль"
             size="large"
           >
             <template #prefix>
@@ -39,7 +39,7 @@
             block
             :loading="loading"
           >
-            Login
+            Войти
           </a-button>
         </a-form-item>
       </a-form>
@@ -63,8 +63,8 @@ const formState = reactive({
 })
 
 const rules = {
-  username: [{ required: true, message: 'Please enter username' }],
-  password: [{ required: true, message: 'Please enter password' }],
+  username: [{ required: true, message: 'Введите логин' }],
+  password: [{ required: true, message: 'Введите пароль' }],
 }
 
 const handleLogin = async () => {

@@ -33,7 +33,7 @@ export const useRolesStore = defineStore('roles', () => {
   const createRole = async (name: string, selectedPermissions: string[]) => {
     try {
       await rolesApi.createRole({ name, permissions: selectedPermissions })
-      message.success('Role created')
+      message.success('Роль создана')
       await fetchRoles()
       return true
     } catch (error) {
@@ -44,7 +44,7 @@ export const useRolesStore = defineStore('roles', () => {
   const updateRolePermissions = async (name: string, selectedPermissions: string[]) => {
     try {
       await rolesApi.updateRolePermissions(name, { permissions: selectedPermissions })
-      message.success('Role updated')
+      message.success('Роль обновлена')
       await fetchRoles()
       return true
     } catch (error) {
@@ -55,7 +55,7 @@ export const useRolesStore = defineStore('roles', () => {
   const deleteRole = async (name: string) => {
     try {
       await rolesApi.deleteRole(name)
-      message.success('Role deleted')
+      message.success('Роль удалена')
       await fetchRoles()
       return true
     } catch (error) {

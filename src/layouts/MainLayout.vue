@@ -3,13 +3,13 @@
     <a-layout-header class="header">
       <div class="logo">
         <DatabaseOutlined />
-        <span>CRM System</span>
+        <span>CRM</span>
       </div>
       <div class="header-right">
         <span class="username">{{ authStore.username }}</span>
         <a-button type="link" @click="handleLogout">
           <LogoutOutlined />
-          Logout
+          Выйти
         </a-button>
       </div>
     </a-layout-header>
@@ -46,21 +46,21 @@ const menuItems = computed(() => {
   const items = [
     {
       key: '/reestr',
-      label: 'Reestr',
+      label: 'Реестр',
     },
   ]
 
   if (authStore.hasPermission('roles.manage')) {
     items.push({
       key: '/roles',
-      label: 'Roles',
+      label: 'Роли',
     })
   }
 
   if (authStore.hasPermission('users.write')) {
     items.push({
       key: '/users',
-      label: 'Users',
+      label: 'Пользователи',
     })
   }
 

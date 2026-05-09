@@ -8,9 +8,9 @@
     <p class="ant-upload-drag-icon">
       <InboxOutlined />
     </p>
-    <p class="ant-upload-text">Click or drag Excel file to this area to upload</p>
+    <p class="ant-upload-text">Нажмите или перетащите файл Excel сюда</p>
     <p class="ant-upload-hint">
-      Support for .xlsx and .xls files. The first row should contain field names.
+      Форматы .xlsx и .xls. Первая строка — названия полей.
     </p>
   </a-upload-dragger>
 </template>
@@ -34,13 +34,13 @@ const beforeUpload: UploadProps['beforeUpload'] = (file) => {
     file.name.endsWith('.xls')
 
   if (!isExcel) {
-    message.error('You can only upload Excel files (.xlsx, .xls)')
+    message.error('Допустимы только файлы Excel (.xlsx, .xls)')
     return false
   }
 
   const isLt10M = file.size / 1024 / 1024 < 10
   if (!isLt10M) {
-    message.error('File must be smaller than 10MB')
+    message.error('Размер файла не должен превышать 10 МБ')
     return false
   }
 

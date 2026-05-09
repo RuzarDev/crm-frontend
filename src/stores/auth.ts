@@ -26,14 +26,14 @@ export const useAuthStore = defineStore('auth', () => {
       token.value = normalizeToken(resolvedToken)
       username.value = credentials.username
       if (!token.value) {
-        message.error('Login failed: token is missing in response')
+        message.error('Ошибка входа: в ответе нет токена')
         return false
       }
       localStorage.setItem('authToken', token.value)
       localStorage.setItem('username', credentials.username)
       permissions.value = response.permissions || []
       localStorage.setItem('permissions', JSON.stringify(permissions.value))
-      message.success('Login successful')
+      message.success('Вход выполнен')
       return true
     } catch (error) {
       return false
@@ -47,7 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('username')
     localStorage.removeItem('permissions')
     permissions.value = []
-    message.info('Logged out successfully')
+    message.info('Вы вышли из системы')
   }
 
   const checkAuth = () => {

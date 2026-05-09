@@ -2,6 +2,8 @@
   <a-modal
     :open="open"
     :title="isEdit ? 'Изменить запись' : 'Создать запись'"
+    ok-text="Сохранить"
+    cancel-text="Отмена"
     :confirm-loading="loading"
     @ok="handleSubmit"
     @cancel="handleCancel"

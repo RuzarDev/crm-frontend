@@ -37,24 +37,24 @@ apiClient.interceptors.response.use(
 
       if (status === 401) {
         if (isLoginRequest) {
-          message.error('Invalid username or password')
+          message.error('Неверный логин или пароль')
         } else {
           localStorage.removeItem('authToken')
           localStorage.removeItem('username')
           window.location.href = '/login'
-          message.error('Authentication required. Please login.')
+          message.error('Требуется вход в систему')
         }
       } else if (status === 403) {
-        message.error('You do not have permission to perform this action')
+        message.error('Недостаточно прав для этого действия')
       } else if (status === 404) {
-        message.error('Resource not found')
+        message.error('Ресурс не найден')
       } else if (status >= 500) {
-        message.error('Server error. Please try again later.')
+        message.error('Ошибка сервера. Попробуйте позже.')
       } else {
         message.error(errorMessage)
       }
     } else if (error.request) {
-      message.error('Network error. Please check your connection.')
+      message.error('Ошибка сети. Проверьте подключение.')
     } else {
       message.error(error.message)
     }

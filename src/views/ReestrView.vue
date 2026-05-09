@@ -35,7 +35,7 @@
         <a-input-search
           v-model:value="searchValue"
           placeholder="Поиск по всем полям..."
-          enter-button
+          enter-button="Найти"
           @search="handleSearch"
           style="max-width: 400px"
         />

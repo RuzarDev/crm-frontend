@@ -14,11 +14,55 @@ export interface BulkDeleteResponse {
   deleted: number
 }
 
-export interface User {
+export interface CatalogLinkedPerson {
   id: string
   username: string
   role: string
-  createdAtUtc?: string
+}
+
+export interface CatalogAdministratorRow {
+  id: string
+  username: string
+  role: string
+  createdAtUtc: string
+}
+
+export interface CatalogBrokerRow {
+  id: string
+  username: string
+  role: string
+  createdAtUtc: string
+  clients: CatalogLinkedPerson[]
+}
+
+export interface CatalogClientRow {
+  id: string
+  username: string
+  role: string
+  createdAtUtc: string
+  brokers: CatalogLinkedPerson[]
+  expeditors: CatalogLinkedPerson[]
+}
+
+export interface CatalogExpeditorRow {
+  id: string
+  username: string
+  role: string
+  createdAtUtc: string
+  clients: CatalogLinkedPerson[]
+}
+
+export type CatalogTabKey = 'administrators' | 'brokers' | 'clients' | 'expeditors'
+
+export type CatalogTableRow =
+  | CatalogAdministratorRow
+  | CatalogBrokerRow
+  | CatalogClientRow
+  | CatalogExpeditorRow
+
+export interface LinkUsersRequest {
+  staffUserId: string
+  clientUserId: string
 }
 
 export interface ReestrEntry {
