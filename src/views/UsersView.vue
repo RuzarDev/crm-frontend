@@ -43,18 +43,29 @@
             <span class="relations-cell">{{ formatLinkedPeople('clients' in record ? record.clients : undefined) }}</span>
           </template>
           <template v-else-if="column.key === 'actions'">
-            <a-popconfirm
-              v-if="canDeleteUser(record)"
-              title="Удалить этого пользователя?"
-              ok-text="Да"
-              cancel-text="Нет"
-              @confirm="handleDelete(record)"
-            >
-              <a-button type="link" danger size="small">
-                <DeleteOutlined />
-                Удалить
+            <a-space>
+              <a-button
+                v-if="catalogTab === 'brokers' && canEditBroker"
+                type="link"
+                size="small"
+                @click="openEditBroker(record as CatalogBrokerRow)"
+              >
+                <EditOutlined />
+                Изменить
               </a-button>
-            </a-popconfirm>
+              <a-popconfirm
+                v-if="canDeleteUser(record)"
+                title="Удалить этого пользователя?"
+                ok-text="Да"
+                cancel-text="Нет"
+                @confirm="handleDelete(record)"
+              >
+                <a-button type="link" danger size="small">
+                  <DeleteOutlined />
+                  Удалить
+                </a-button>
+              </a-popconfirm>
+            </a-space>
           </template>
         </template>
       </a-table>
@@ -81,6 +92,33 @@
             v-model:value="form.role"
             placeholder="Выберите роль"
             :options="roleOptions"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal
+      v-model:open="editBrokerModalOpen"
+      title="Редактирование брокера"
+      ok-text="Сохранить"
+      cancel-text="Отмена"
+      :confirm-loading="editBrokerSaving"
+      @ok="handleEditBrokerSave"
+      @cancel="closeEditBrokerModal"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="Логин">
+          <a-input v-model:value="editBrokerForm.username" placeholder="Логин" />
+        </a-form-item>
+        <a-form-item label="Клиенты">
+          <a-select
+            v-model:value="editBrokerForm.clientIds"
+            mode="multiple"
+            placeholder="Клиенты брокера (пусто — отвязать всех)"
+            :options="clientLinkOptions"
+            show-search
+            option-filter-prop="label"
+            allow-clear
           />
         </a-form-item>
       </a-form>
@@ -126,9 +164,14 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useUsersStore } from '@/stores/users'
 import { useRolesStore } from '@/stores/roles'
 import { useAuthStore } from '@/stores/auth'
-import type { CatalogLinkedPerson, CatalogTabKey, CatalogTableRow } from '@/types/api'
+import type {
+  CatalogBrokerRow,
+  CatalogLinkedPerson,
+  CatalogTabKey,
+  CatalogTableRow,
+} from '@/types/api'
 import { formatRole } from '@/utils/labels'
-import { DeleteOutlined, LinkOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import { DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 
 const usersStore = useUsersStore()
@@ -160,6 +203,7 @@ const formatLinkedPeople = (list: CatalogLinkedPerson[] | undefined) => {
 }
 
 const canLinkUsers = computed(() => authStore.hasPermission('clients.manage'))
+const canEditBroker = computed(() => authStore.hasPermission('clients.manage'))
 
 const staffLinkOptions = computed(() => {
   const brokerOpts = usersStore.brokers.map((u) => ({
@@ -180,6 +224,15 @@ const clientLinkOptions = computed(() =>
   })),
 )
 
+const editBrokerModalOpen = ref(false)
+const editBrokerSaving = ref(false)
+const editingBrokerOriginalUsername = ref('')
+const editingBrokerId = ref<string | null>(null)
+const editBrokerForm = reactive({
+  username: '',
+  clientIds: [] as string[],
+})
+
 const tableRows = computed((): CatalogTableRow[] => {
   switch (catalogTab.value) {
     case 'administrators':
@@ -196,8 +249,18 @@ const tableRows = computed((): CatalogTableRow[] => {
 })
 
 const tableColumns = computed(() => {
-  const actionsColumn = authStore.hasPermission('users.delete')
-    ? [{ title: 'Действия', key: 'actions', width: 120 }]
+  const showActionsColumn =
+    authStore.hasPermission('users.delete') ||
+    (catalogTab.value === 'brokers' && canEditBroker.value)
+
+  const actionsColumn = showActionsColumn
+    ? [
+        {
+          title: 'Действия',
+          key: 'actions',
+          width: catalogTab.value === 'brokers' && canEditBroker.value ? 200 : 120,
+        },
+      ]
     : []
 
   const usernameColumn = {
@@ -326,6 +389,39 @@ const handleCancel = () => {
 
 const handleDelete = async (record: CatalogTableRow) => {
   await usersStore.deleteUser(record.id)
+}
+
+const openEditBroker = (record: CatalogBrokerRow) => {
+  editingBrokerId.value = record.id
+  editingBrokerOriginalUsername.value = record.username
+  editBrokerForm.username = record.username
+  editBrokerForm.clientIds = record.clients.map((c) => c.id)
+  editBrokerModalOpen.value = true
+}
+
+const closeEditBrokerModal = () => {
+  editBrokerModalOpen.value = false
+}
+
+const handleEditBrokerSave = async () => {
+  if (!editingBrokerId.value) {
+    return
+  }
+  editBrokerSaving.value = true
+  try {
+    const trimmed = editBrokerForm.username.trim()
+    const username =
+      trimmed === editingBrokerOriginalUsername.value ? null : trimmed || null
+    const ok = await usersStore.editBroker(editingBrokerId.value, {
+      username,
+      clientIds: [...(editBrokerForm.clientIds ?? [])],
+    })
+    if (ok) {
+      closeEditBrokerModal()
+    }
+  } finally {
+    editBrokerSaving.value = false
+  }
 }
 </script>
 

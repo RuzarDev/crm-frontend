@@ -65,6 +65,11 @@ export interface LinkUsersRequest {
   clientUserId: string
 }
 
+export interface EditBrokerRequest {
+  username: string | null
+  clientIds: string[]
+}
+
 export interface ReestrEntry {
   id: string
   createdAtUtc: string

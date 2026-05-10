@@ -4,6 +4,7 @@ import type {
   CatalogBrokerRow,
   CatalogClientRow,
   CatalogExpeditorRow,
+  EditBrokerRequest,
   LinkUsersRequest,
   RegisterRequest,
 } from '@/types/api'
@@ -41,6 +42,13 @@ export const usersApi = {
     await apiClient.post('/users/links', {
       staffUserId: data.staffUserId,
       clientUserId: data.clientUserId,
+    })
+  },
+
+  editBroker: async (brokerId: string, data: EditBrokerRequest): Promise<void> => {
+    await apiClient.put(`/users/brokers/${encodeURIComponent(brokerId)}`, {
+      username: data.username,
+      clientIds: data.clientIds,
     })
   },
 
