@@ -7,6 +7,7 @@ import type {
   CatalogClientRow,
   CatalogExpeditorRow,
   EditBrokerRequest,
+  EditExpeditorRequest,
   LinkUsersRequest,
   RegisterRequest,
 } from '@/types/api'
@@ -88,6 +89,17 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
+  const editExpeditor = async (expeditorId: string, payload: EditExpeditorRequest) => {
+    try {
+      await usersApi.editExpeditor(expeditorId, payload)
+      message.success('Экспедитор обновлён')
+      await fetchCatalogs()
+      return true
+    } catch {
+      return false
+    }
+  }
+
   return {
     administrators,
     brokers,
@@ -99,5 +111,6 @@ export const useUsersStore = defineStore('users', () => {
     deleteUser,
     linkUsers,
     editBroker,
+    editExpeditor,
   }
 })

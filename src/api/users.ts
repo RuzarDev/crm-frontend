@@ -5,6 +5,7 @@ import type {
   CatalogClientRow,
   CatalogExpeditorRow,
   EditBrokerRequest,
+  EditExpeditorRequest,
   LinkUsersRequest,
   RegisterRequest,
 } from '@/types/api'
@@ -49,6 +50,13 @@ export const usersApi = {
     await apiClient.put(`/users/brokers/${encodeURIComponent(brokerId)}`, {
       username: data.username,
       clientIds: data.clientIds,
+    })
+  },
+
+  editExpeditor: async (expeditorId: string, data: EditExpeditorRequest): Promise<void> => {
+    await apiClient.put(`/users/expeditors/${encodeURIComponent(expeditorId)}`, {
+      username: data.username,
+      clientsId: data.clientsId,
     })
   },
 

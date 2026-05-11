@@ -1,54 +1,41 @@
 import apiClient from './client'
 import type {
   ReestrEntry,
+  ReestrEntryDto,
   ReestrListRequest,
   ReestrListResponse,
-  UpsertReestrEntryRequest,
+  ReestrUpsertBody,
   ImportResponse,
   BulkDeleteResponse,
 } from '@/types/api'
-
-interface RawReestrEntry {
-  id: string
-  createdAtUtc: string
-  data?: Record<string, string | null>
-  fields?: Record<string, string | null>
-}
-
-interface RawReestrListResponse {
-  items: RawReestrEntry[]
-  totalCount: number
-  page: number
-  pageSize: number
-  totalPages: number
-}
-
-const mapRawEntry = (entry: RawReestrEntry): ReestrEntry => ({
-  id: entry.id,
-  createdAtUtc: entry.createdAtUtc,
-  fields: entry.data ?? entry.fields ?? {},
-})
+import { reestrDtoToEntry } from '@/utils/reestrDtoMap'
 
 export const reestrApi = {
   getList: async (params: ReestrListRequest): Promise<ReestrListResponse> => {
-    const response = await apiClient.get<RawReestrListResponse>('/reestr', { params })
+    const response = await apiClient.get<{
+      items: ReestrEntryDto[]
+      totalCount: number
+      page: number
+      pageSize: number
+      totalPages: number
+    }>('/reestr', { params })
     return {
       ...response.data,
-      items: response.data.items.map(mapRawEntry),
+      items: response.data.items.map(reestrDtoToEntry),
     }
   },
 
   getById: async (id: string): Promise<ReestrEntry> => {
-    const response = await apiClient.get<RawReestrEntry>(`/reestr/${id}`)
-    return mapRawEntry(response.data)
+    const response = await apiClient.get<ReestrEntryDto>(`/reestr/${id}`)
+    return reestrDtoToEntry(response.data)
   },
 
-  create: async (data: UpsertReestrEntryRequest): Promise<{ id: string }> => {
+  create: async (data: ReestrUpsertBody): Promise<{ id: string }> => {
     const response = await apiClient.post<{ id: string }>('/reestr', data)
     return response.data
   },
 
-  update: async (id: string, data: UpsertReestrEntryRequest): Promise<void> => {
+  update: async (id: string, data: ReestrUpsertBody): Promise<void> => {
     await apiClient.put(`/reestr/${id}`, data)
   },
 

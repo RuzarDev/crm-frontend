@@ -18,6 +18,15 @@
           show-icon
         />
 
+        <a-form-item label="Статус">
+          <a-select
+            v-model:value="formState.status"
+            :options="reestrStatusOptions"
+            placeholder="Статус"
+            style="width: 100%"
+          />
+        </a-form-item>
+
         <div v-for="(value, key) in formState.fields" :key="key" class="field-row">
           <a-row :gutter="10" align="middle">
             <a-col :span="8">
@@ -40,30 +49,11 @@
 
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
-import type { ReestrEntry } from '@/types/api'
+import type { ReestrEntry, ReestrEntryStatus } from '@/types/api'
+import { REESTR_COLUMN_KEYS } from '@/types/api'
+import { formatReestrDateForForm, normalizeReestrFieldsForSubmit } from '@/utils/reestrFormat'
+import { REESTR_STATUS_OPTIONS } from '@/utils/reestrDtoMap'
 import { message } from 'ant-design-vue'
-
-const fixedFieldKeys = [
-  '№',
-  'Дата',
-  'Контейнер',
-  'Получатель',
-  'Станция назначения',
-  'Отправитель',
-  'Отправка',
-  'Груз',
-  'Подкод',
-  'Код ТНВЭД',
-  'Количество мест',
-  'Вес',
-  'ТД',
-  'Кол-во ТД',
-  'Цена одной ТД, с НДС',
-  'Количество доп.листов',
-  'Цена одного доп.листа, с НДС',
-  'Всего, ДЛ с НДС',
-  'Итого, с НДС',
-]
 
 interface Props {
   open: boolean
@@ -72,15 +62,21 @@ interface Props {
 }
 
 interface Emits {
-  (e: 'submit', fields: Record<string, string | null>): void
+  (e: 'submit', payload: { data: Record<string, string | null>; status: ReestrEntryStatus }): void
   (e: 'cancel'): void
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const formState = reactive<{ fields: Record<string, string | null> }>({
+const reestrStatusOptions = REESTR_STATUS_OPTIONS
+
+const formState = reactive<{
+  fields: Record<string, string | null>
+  status: ReestrEntryStatus
+}>({
   fields: {},
+  status: 'release',
 })
 
 const isEdit = computed(() => !!props.entry)
@@ -90,12 +86,14 @@ watch(
   (newVal) => {
     if (newVal) {
       const nextFields: Record<string, string | null> = {}
-      for (const key of fixedFieldKeys) {
-        nextFields[key] = props.entry?.fields[key] ?? null
+      for (const key of REESTR_COLUMN_KEYS) {
+        const raw = props.entry?.data[key] ?? null
+        nextFields[key] = key === 'Дата' ? formatReestrDateForForm(raw) : raw
       }
       formState.fields = nextFields
+      formState.status = props.entry?.status ?? 'release'
     }
-  }
+  },
 )
 
 const handleSubmit = () => {
@@ -105,7 +103,10 @@ const handleSubmit = () => {
     return
   }
 
-  emit('submit', formState.fields)
+  emit('submit', {
+    data: normalizeReestrFieldsForSubmit(formState.fields),
+    status: formState.status,
+  })
 }
 
 const handleCancel = () => {

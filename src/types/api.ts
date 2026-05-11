@@ -3,6 +3,11 @@ export interface LoginRequest {
   password: string
 }
 
+export interface RegisterClientRequest {
+  username: string
+  password: string
+}
+
 export interface LoginResponse {
   accessToken: string
   expiresAtUtc: string
@@ -70,10 +75,98 @@ export interface EditBrokerRequest {
   clientIds: string[]
 }
 
+export interface EditExpeditorRequest {
+  username: string
+  clientsId: string[]
+}
+
+export const REESTR_COLUMN_KEYS = [
+  '№',
+  'Дата',
+  'Контейнер',
+  'Получатель',
+  'Станция назначения',
+  'Отправитель',
+  'Отправка',
+  'Груз',
+  'Подкод',
+  'Код ТНВЭД',
+  'Количество мест',
+  'Вес',
+  'ТД',
+  'Кол-во ТД',
+  'Цена одной ТД, с НДС',
+  'Количество доп.листов',
+  'Цена одного доп.листа, с НДС',
+  'Всего, ДЛ с НДС',
+  'Итого, с НДС',
+] as const
+
+export type ReestrColumnKey = (typeof REESTR_COLUMN_KEYS)[number]
+
+export type ReestrEntryStatus =
+  | 'release'
+  | 'problematic'
+  | 'inspectionNotice'
+  | 'inspectionAct'
+  | 'submittedToCustoms'
+  | 'pendingClarification'
+  | 'exit'
+  | 'abbreviated'
+
+export interface ReestrEntryDto {
+  id: string
+  createdAtUtc: string
+  rowNumber: string | null
+  documentDate: string | null
+  container: string | null
+  consignee: string | null
+  destinationStation: string | null
+  shipper: string | null
+  shipmentInfo: string | null
+  cargoDescription: string | null
+  subcode: string | null
+  commodityCode: string | null
+  packagesCount: number | null
+  weightKg: number | null
+  customsDeclarationNumber: string | null
+  customsDeclarationCount: number | null
+  pricePerDeclarationWithVat: number | null
+  supplementalSheetsCount: number | null
+  pricePerSupplementalSheetWithVat: number | null
+  supplementalSheetsTotalWithVat: number | null
+  grandTotalWithVat: number | null
+  status: ReestrEntryStatus
+}
+
 export interface ReestrEntry {
   id: string
   createdAtUtc: string
-  fields: Record<string, string | null>
+  status: ReestrEntryStatus
+  data: Record<string, string | null>
+}
+
+export interface ReestrUpsertBody {
+  rowNumber?: string | null
+  documentDate?: string | null
+  container?: string | null
+  consignee?: string | null
+  destinationStation?: string | null
+  shipper?: string | null
+  shipmentInfo?: string | null
+  cargoDescription?: string | null
+  subcode?: string | null
+  commodityCode?: string | null
+  packagesCount?: number | null
+  weightKg?: number | null
+  customsDeclarationNumber?: string | null
+  customsDeclarationCount?: number | null
+  pricePerDeclarationWithVat?: number | null
+  supplementalSheetsCount?: number | null
+  pricePerSupplementalSheetWithVat?: number | null
+  supplementalSheetsTotalWithVat?: number | null
+  grandTotalWithVat?: number | null
+  status: ReestrEntryStatus
 }
 
 export interface ReestrListRequest {
@@ -90,9 +183,6 @@ export interface ReestrListResponse {
   totalPages: number
 }
 
-export interface UpsertReestrEntryRequest {
-  fields: Record<string, string | null>
-}
 
 export interface ImportResponse {
   imported: number

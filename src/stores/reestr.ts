@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { reestrApi } from '@/api/reestr'
-import type { ReestrEntry, ReestrListRequest, UpsertReestrEntryRequest } from '@/types/api'
+import type { ReestrEntry, ReestrListRequest, ReestrUpsertBody } from '@/types/api'
 import { message } from 'ant-design-vue'
 
 export const useReestrStore = defineStore('reestr', () => {
@@ -42,7 +42,7 @@ export const useReestrStore = defineStore('reestr', () => {
     }
   }
 
-  const create = async (data: UpsertReestrEntryRequest): Promise<boolean> => {
+  const create = async (data: ReestrUpsertBody): Promise<boolean> => {
     try {
       await reestrApi.create(data)
       message.success('Запись успешно создана')
@@ -53,7 +53,7 @@ export const useReestrStore = defineStore('reestr', () => {
     }
   }
 
-  const update = async (id: string, data: UpsertReestrEntryRequest): Promise<boolean> => {
+  const update = async (id: string, data: ReestrUpsertBody): Promise<boolean> => {
     try {
       await reestrApi.update(id, data)
       message.success('Запись успешно обновлена')

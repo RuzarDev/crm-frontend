@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
-import type { LoginRequest } from '@/types/api'
+import type { LoginRequest, RegisterClientRequest } from '@/types/api'
 import { message } from 'ant-design-vue'
 
 const normalizeToken = (value: string | null) => {
@@ -34,6 +34,16 @@ export const useAuthStore = defineStore('auth', () => {
       permissions.value = response.permissions || []
       localStorage.setItem('permissions', JSON.stringify(permissions.value))
       message.success('Вход выполнен')
+      return true
+    } catch (error) {
+      return false
+    }
+  }
+
+  const registerClient = async (payload: RegisterClientRequest) => {
+    try {
+      await authApi.registerClient(payload)
+      message.success('Регистрация выполнена. Теперь войдите в систему')
       return true
     } catch (error) {
       return false
@@ -73,6 +83,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     hasPermission,
     login,
+    registerClient,
     logout,
     checkAuth,
   }

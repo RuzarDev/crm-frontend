@@ -34,7 +34,7 @@
       <a-space direction="vertical" style="width: 100%" :size="16">
         <a-input-search
           v-model:value="searchValue"
-          placeholder="Поиск по всем полям..."
+          placeholder="Поиск по текстовым полям строки…"
           enter-button="Найти"
           @search="handleSearch"
           style="max-width: 400px"
@@ -56,7 +56,16 @@
             </template>
 
             <template v-else-if="String(column.key).startsWith('field:')">
-              {{ record.fields[String(column.key).slice(6)] || '-' }}
+              {{
+                formatReestrCellForDisplay(
+                  String(column.key).slice(6),
+                  record.data[String(column.key).slice(6)] ?? null,
+                )
+              }}
+            </template>
+
+            <template v-else-if="column.key === 'reestrStatus'">
+              {{ formatReestrStatus(record.status) }}
             </template>
 
             <template v-else-if="column.key === 'actions'">
@@ -115,7 +124,11 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from '@ant-design/icons-vue'
-import type { ReestrEntry } from '@/types/api'
+import type { ReestrEntry, ReestrEntryStatus } from '@/types/api'
+import { REESTR_COLUMN_KEYS } from '@/types/api'
+import { formatReestrCellForDisplay } from '@/utils/reestrFormat'
+import { reestrDataToUpsertBody } from '@/utils/reestrDtoMap'
+import { formatReestrStatus } from '@/utils/reestrDtoMap'
 import type { TableProps } from 'ant-design-vue'
 
 const reestrStore = useReestrStore()
@@ -128,32 +141,12 @@ const uploadModalOpen = ref(false)
 const formLoading = ref(false)
 const currentEntry = ref<ReestrEntry | null>(null)
 
-const orderedFieldColumns = [
-  '№',
-  'Дата',
-  'Контейнер',
-  'Получатель',
-  'Станция назначения',
-  'Отправитель',
-  'Отправка',
-  'Груз',
-  'Подкод',
-  'Код ТНВЭД',
-  'Количество мест',
-  'Вес',
-  'ТД',
-  'Кол-во ТД',
-  'Цена одной ТД, с НДС',
-  'Количество доп.листов',
-  'Цена одного доп.листа, с НДС',
-  'Всего, ДЛ с НДС',
-  'Итого, с НДС',
-]
+const orderedFieldColumns: string[] = [...REESTR_COLUMN_KEYS]
 
 const dynamicFieldColumns = computed(() => {
   const keysFromData = new Set<string>()
   for (const entry of reestrStore.entries) {
-    Object.keys(entry.fields).forEach((key) => keysFromData.add(key))
+    Object.keys(entry.data).forEach((key) => keysFromData.add(key))
   }
   const ordered = orderedFieldColumns.filter((key) => keysFromData.has(key))
   const extra = [...keysFromData].filter((key) => !orderedFieldColumns.includes(key))
@@ -165,24 +158,41 @@ const dynamicFieldColumns = computed(() => {
   }))
 })
 
-const columns = computed(() => [
-  {
-    title: '№',
-    key: 'rowNumber',
-    width: 70,
-    fixed: 'left',
-  },
-  ...dynamicFieldColumns.value,
-  {
-    title: 'Действия',
-    key: 'actions',
-    width: 180,
-    fixed: 'right',
-  },
-])
-
 const canWrite = computed(() => authStore.hasPermission('reestr.write'))
 const canDelete = computed(() => authStore.hasPermission('reestr.delete'))
+const canShowActions = computed(() => canWrite.value || canDelete.value)
+
+const columns = computed(() => {
+  const baseColumns = [
+    {
+      title: '№',
+      key: 'rowNumber',
+      width: 70,
+      fixed: 'left',
+    },
+    ...dynamicFieldColumns.value,
+    {
+      title: 'Статус',
+      key: 'reestrStatus',
+      width: 150,
+      ellipsis: true,
+    },
+  ]
+
+  if (!canShowActions.value) {
+    return baseColumns
+  }
+
+  return [
+    ...baseColumns,
+    {
+      title: 'Действия',
+      key: 'actions',
+      width: 180,
+      fixed: 'right',
+    },
+  ]
+})
 
 const rowSelection = computed(() => {
   if (!canDelete.value) {
@@ -243,14 +253,18 @@ const handleEdit = (record: ReestrEntry) => {
   formModalOpen.value = true
 }
 
-const handleFormSubmit = async (fields: Record<string, string | null>) => {
+const handleFormSubmit = async (payload: {
+  data: Record<string, string | null>
+  status: ReestrEntryStatus
+}) => {
   formLoading.value = true
   try {
+    const body = reestrDataToUpsertBody(payload.data, payload.status)
     let success = false
     if (currentEntry.value) {
-      success = await reestrStore.update(currentEntry.value.id, { fields })
+      success = await reestrStore.update(currentEntry.value.id, body)
     } else {
-      success = await reestrStore.create({ fields })
+      success = await reestrStore.create(body)
     }
 
     if (success) {

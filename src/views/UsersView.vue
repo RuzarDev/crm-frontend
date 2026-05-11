@@ -53,6 +53,15 @@
                 <EditOutlined />
                 Изменить
               </a-button>
+              <a-button
+                v-if="catalogTab === 'expeditors' && canEditExpeditor"
+                type="link"
+                size="small"
+                @click="openEditExpeditor(record as CatalogExpeditorRow)"
+              >
+                <EditOutlined />
+                Изменить
+              </a-button>
               <a-popconfirm
                 v-if="canDeleteUser(record)"
                 title="Удалить этого пользователя?"
@@ -125,6 +134,33 @@
     </a-modal>
 
     <a-modal
+      v-model:open="editExpeditorModalOpen"
+      title="Редактирование экспедитора"
+      ok-text="Сохранить"
+      cancel-text="Отмена"
+      :confirm-loading="editExpeditorSaving"
+      @ok="handleEditExpeditorSave"
+      @cancel="closeEditExpeditorModal"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="Логин">
+          <a-input v-model:value="editExpeditorForm.username" placeholder="Логин" />
+        </a-form-item>
+        <a-form-item label="Клиенты">
+          <a-select
+            v-model:value="editExpeditorForm.clientIds"
+            mode="multiple"
+            placeholder="Клиенты экспедитора (пусто — отвязать всех)"
+            :options="clientLinkOptions"
+            show-search
+            option-filter-prop="label"
+            allow-clear
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal
       v-model:open="linkModalOpen"
       title="Привязка брокера или экспедитора к клиенту"
       ok-text="Привязать"
@@ -166,6 +202,7 @@ import { useRolesStore } from '@/stores/roles'
 import { useAuthStore } from '@/stores/auth'
 import type {
   CatalogBrokerRow,
+  CatalogExpeditorRow,
   CatalogLinkedPerson,
   CatalogTabKey,
   CatalogTableRow,
@@ -204,6 +241,7 @@ const formatLinkedPeople = (list: CatalogLinkedPerson[] | undefined) => {
 
 const canLinkUsers = computed(() => authStore.hasPermission('clients.manage'))
 const canEditBroker = computed(() => authStore.hasPermission('clients.manage'))
+const canEditExpeditor = computed(() => authStore.hasPermission('clients.manage'))
 
 const staffLinkOptions = computed(() => {
   const brokerOpts = usersStore.brokers.map((u) => ({
@@ -233,6 +271,15 @@ const editBrokerForm = reactive({
   clientIds: [] as string[],
 })
 
+const editExpeditorModalOpen = ref(false)
+const editExpeditorSaving = ref(false)
+const editingExpeditorOriginalUsername = ref('')
+const editingExpeditorId = ref<string | null>(null)
+const editExpeditorForm = reactive({
+  username: '',
+  clientIds: [] as string[],
+})
+
 const tableRows = computed((): CatalogTableRow[] => {
   switch (catalogTab.value) {
     case 'administrators':
@@ -251,14 +298,19 @@ const tableRows = computed((): CatalogTableRow[] => {
 const tableColumns = computed(() => {
   const showActionsColumn =
     authStore.hasPermission('users.delete') ||
-    (catalogTab.value === 'brokers' && canEditBroker.value)
+    (catalogTab.value === 'brokers' && canEditBroker.value) ||
+    (catalogTab.value === 'expeditors' && canEditExpeditor.value)
 
   const actionsColumn = showActionsColumn
     ? [
         {
           title: 'Действия',
           key: 'actions',
-          width: catalogTab.value === 'brokers' && canEditBroker.value ? 200 : 120,
+          width:
+            (catalogTab.value === 'brokers' && canEditBroker.value) ||
+            (catalogTab.value === 'expeditors' && canEditExpeditor.value)
+              ? 200
+              : 120,
         },
       ]
     : []
@@ -421,6 +473,38 @@ const handleEditBrokerSave = async () => {
     }
   } finally {
     editBrokerSaving.value = false
+  }
+}
+
+const openEditExpeditor = (record: CatalogExpeditorRow) => {
+  editingExpeditorId.value = record.id
+  editingExpeditorOriginalUsername.value = record.username
+  editExpeditorForm.username = record.username
+  editExpeditorForm.clientIds = record.clients.map((c) => c.id)
+  editExpeditorModalOpen.value = true
+}
+
+const closeEditExpeditorModal = () => {
+  editExpeditorModalOpen.value = false
+}
+
+const handleEditExpeditorSave = async () => {
+  if (!editingExpeditorId.value) {
+    return
+  }
+  editExpeditorSaving.value = true
+  try {
+    const trimmed = editExpeditorForm.username.trim()
+    const username = trimmed || editingExpeditorOriginalUsername.value
+    const ok = await usersStore.editExpeditor(editingExpeditorId.value, {
+      username,
+      clientsId: [...(editExpeditorForm.clientIds ?? [])],
+    })
+    if (ok) {
+      closeEditExpeditorModal()
+    }
+  } finally {
+    editExpeditorSaving.value = false
   }
 }
 </script>
