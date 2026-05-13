@@ -2,6 +2,7 @@ import apiClient from './client'
 import type {
   ReestrEntry,
   ReestrEntryDto,
+  ReestrEntryStatus,
   ReestrListRequest,
   ReestrListResponse,
   ReestrUpsertBody,
@@ -18,7 +19,16 @@ export const reestrApi = {
       page: number
       pageSize: number
       totalPages: number
-    }>('/reestr', { params })
+    }>('/reestr', {
+      params: {
+        page: params.page,
+        pageSize: params.pageSize,
+        ...(params.search ? { search: params.search } : {}),
+        ...(params.status != null ? { status: params.status } : {}),
+        ...(params.sortBy ? { sortBy: params.sortBy } : {}),
+        sortDescending: params.sortDescending ?? true,
+      },
+    })
     return {
       ...response.data,
       items: response.data.items.map(reestrDtoToEntry),
@@ -59,5 +69,9 @@ export const reestrApi = {
       },
     })
     return response.data
+  },
+
+  changeStatus: async (id: string, status: ReestrEntryStatus): Promise<void> => {
+    await apiClient.patch(`/reestr/${encodeURIComponent(id)}/status`, { status })
   },
 }

@@ -35,6 +35,7 @@ declare module 'vue' {
     AUploadDragger: typeof import('ant-design-vue/es')['UploadDragger']
     ExcelUpload: typeof import('./src/components/ExcelUpload.vue')['default']
     ReestrForm: typeof import('./src/components/ReestrForm.vue')['default']
+    ReestrStatusCell: typeof import('./src/components/ReestrStatusCell.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

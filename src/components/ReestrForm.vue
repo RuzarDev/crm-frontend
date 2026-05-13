@@ -24,6 +24,7 @@
             :options="reestrStatusOptions"
             placeholder="Статус"
             style="width: 100%"
+            :disabled="isEdit && !canPickStatusInForm"
           />
         </a-form-item>
 
@@ -51,6 +52,8 @@
 import { computed, reactive, watch } from 'vue'
 import type { ReestrEntry, ReestrEntryStatus } from '@/types/api'
 import { REESTR_COLUMN_KEYS } from '@/types/api'
+import { ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
+import { useAuthStore } from '@/stores/auth'
 import { formatReestrDateForForm, normalizeReestrFieldsForSubmit } from '@/utils/reestrFormat'
 import { REESTR_STATUS_OPTIONS } from '@/utils/reestrDtoMap'
 import { message } from 'ant-design-vue'
@@ -68,18 +71,23 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+const authStore = useAuthStore()
 
 const reestrStatusOptions = REESTR_STATUS_OPTIONS
+
+const isEdit = computed(() => !!props.entry)
+
+const canPickStatusInForm = computed(
+  () => !isEdit.value || authStore.hasPermission('status.change'),
+)
 
 const formState = reactive<{
   fields: Record<string, string | null>
   status: ReestrEntryStatus
 }>({
   fields: {},
-  status: 'release',
+  status: ReestrEntryStatusValues.Release,
 })
-
-const isEdit = computed(() => !!props.entry)
 
 watch(
   () => props.open,
@@ -91,7 +99,7 @@ watch(
         nextFields[key] = key === 'Дата' ? formatReestrDateForForm(raw) : raw
       }
       formState.fields = nextFields
-      formState.status = props.entry?.status ?? 'release'
+      formState.status = props.entry?.status ?? ReestrEntryStatusValues.Release
     }
   },
 )
@@ -105,7 +113,7 @@ const handleSubmit = () => {
 
   emit('submit', {
     data: normalizeReestrFieldsForSubmit(formState.fields),
-    status: formState.status,
+    status: canPickStatusInForm.value ? formState.status : (props.entry?.status ?? ReestrEntryStatusValues.Release),
   })
 }
 

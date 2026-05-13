@@ -104,15 +104,19 @@ export const REESTR_COLUMN_KEYS = [
 
 export type ReestrColumnKey = (typeof REESTR_COLUMN_KEYS)[number]
 
-export type ReestrEntryStatus =
-  | 'release'
-  | 'problematic'
-  | 'inspectionNotice'
-  | 'inspectionAct'
-  | 'submittedToCustoms'
-  | 'pendingClarification'
-  | 'exit'
-  | 'abbreviated'
+/** CRM.API.Entities.ReestrEntryStatus */
+export const ReestrEntryStatus = {
+  Release: 0,
+  Problematic: 1,
+  InspectionNotice: 2,
+  InspectionAct: 3,
+  SubmittedToCustoms: 4,
+  PendingClarification: 5,
+  Exit: 6,
+  Abbreviated: 7,
+} as const
+
+export type ReestrEntryStatus = (typeof ReestrEntryStatus)[keyof typeof ReestrEntryStatus]
 
 export interface ReestrEntryDto {
   id: string
@@ -136,7 +140,7 @@ export interface ReestrEntryDto {
   pricePerSupplementalSheetWithVat: number | null
   supplementalSheetsTotalWithVat: number | null
   grandTotalWithVat: number | null
-  status: ReestrEntryStatus
+  status: string | ReestrEntryStatus
 }
 
 export interface ReestrEntry {
@@ -169,10 +173,17 @@ export interface ReestrUpsertBody {
   status: ReestrEntryStatus
 }
 
+export interface ChangeReestrEntryStatusRequest {
+  status: ReestrEntryStatus
+}
+
 export interface ReestrListRequest {
   page?: number
   pageSize?: number
   search?: string
+  status?: ReestrEntryStatus | null
+  sortBy?: string | null
+  sortDescending?: boolean
 }
 
 export interface ReestrListResponse {

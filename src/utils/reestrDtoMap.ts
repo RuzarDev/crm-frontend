@@ -1,26 +1,39 @@
 import dayjs from 'dayjs'
-import type {
-  ReestrColumnKey,
-  ReestrEntry,
-  ReestrEntryDto,
-  ReestrEntryStatus,
-  ReestrUpsertBody,
-} from '@/types/api'
-import { REESTR_COLUMN_KEYS } from '@/types/api'
+import type { ReestrColumnKey, ReestrEntry, ReestrEntryDto, ReestrUpsertBody, ReestrEntryStatus } from '@/types/api'
+import { REESTR_COLUMN_KEYS, ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
 
 export const REESTR_STATUS_OPTIONS: { value: ReestrEntryStatus; label: string }[] = [
-  { value: 'release', label: 'Выпуск' },
-  { value: 'problematic', label: 'Проблемный' },
-  { value: 'inspectionNotice', label: 'Уведомление о досмотре' },
-  { value: 'inspectionAct', label: 'Акт досмотра' },
-  { value: 'submittedToCustoms', label: 'Подано в таможню' },
-  { value: 'pendingClarification', label: 'Ожидает уточнения' },
-  { value: 'exit', label: 'Выход' },
-  { value: 'abbreviated', label: 'Сокращённый' },
+  { value: ReestrEntryStatusValues.Release, label: 'Выпуск' },
+  { value: ReestrEntryStatusValues.Problematic, label: 'Проблемный' },
+  { value: ReestrEntryStatusValues.InspectionNotice, label: 'Уведомление о досмотре' },
+  { value: ReestrEntryStatusValues.InspectionAct, label: 'Акт досмотра' },
+  { value: ReestrEntryStatusValues.SubmittedToCustoms, label: 'Подано в таможню' },
+  { value: ReestrEntryStatusValues.PendingClarification, label: 'Ожидает уточнения' },
+  { value: ReestrEntryStatusValues.Exit, label: 'Выход' },
+  { value: ReestrEntryStatusValues.Abbreviated, label: 'Сокращённый' },
 ]
 
-export function formatReestrStatus(status: string): string {
-  return REESTR_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status
+const dtoStatusFromJson: Record<string, ReestrEntryStatus> = {
+  release: ReestrEntryStatusValues.Release,
+  problematic: ReestrEntryStatusValues.Problematic,
+  inspectionNotice: ReestrEntryStatusValues.InspectionNotice,
+  inspectionAct: ReestrEntryStatusValues.InspectionAct,
+  submittedToCustoms: ReestrEntryStatusValues.SubmittedToCustoms,
+  pendingClarification: ReestrEntryStatusValues.PendingClarification,
+  exit: ReestrEntryStatusValues.Exit,
+  abbreviated: ReestrEntryStatusValues.Abbreviated,
+}
+
+export function dtoStatusToEntryStatus(raw: ReestrEntryDto['status']): ReestrEntryStatus {
+  if (typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 && raw <= 7) {
+    return raw as ReestrEntryStatus
+  }
+  const s = String(raw).trim()
+  return dtoStatusFromJson[s] ?? ReestrEntryStatusValues.Release
+}
+
+export function formatReestrStatus(status: ReestrEntryStatus): string {
+  return REESTR_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? String(status)
 }
 
 function formatNum(n: number | null | undefined): string | null {
@@ -66,7 +79,7 @@ export function reestrDtoToEntry(dto: ReestrEntryDto): ReestrEntry {
   return {
     id: dto.id,
     createdAtUtc: dto.createdAtUtc,
-    status: dto.status,
+    status: dtoStatusToEntryStatus(dto.status),
     data: reestrDtoToData(dto),
   }
 }

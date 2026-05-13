@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { reestrApi } from '@/api/reestr'
-import type { ReestrEntry, ReestrListRequest, ReestrUpsertBody } from '@/types/api'
+import type { ReestrEntry, ReestrListRequest, ReestrEntryStatus, ReestrUpsertBody } from '@/types/api'
 import { message } from 'ant-design-vue'
 
 export const useReestrStore = defineStore('reestr', () => {
@@ -12,14 +12,20 @@ export const useReestrStore = defineStore('reestr', () => {
   const pageSize = ref(20)
   const totalPages = ref(0)
   const searchQuery = ref('')
+  const statusFilter = ref<ReestrEntryStatus | null>(null)
 
   const fetchList = async (params?: ReestrListRequest) => {
     loading.value = true
     try {
+      const status =
+        params?.status !== undefined ? params.status : statusFilter.value
       const response = await reestrApi.getList({
         page: params?.page || currentPage.value,
         pageSize: params?.pageSize || pageSize.value,
         search: params?.search || searchQuery.value,
+        status: status ?? undefined,
+        sortBy: params?.sortBy,
+        sortDescending: params?.sortDescending,
       })
       entries.value = response.items
       totalCount.value = response.totalCount
@@ -103,6 +109,17 @@ export const useReestrStore = defineStore('reestr', () => {
     }
   }
 
+  const changeStatus = async (id: string, status: ReestrEntryStatus): Promise<boolean> => {
+    try {
+      await reestrApi.changeStatus(id, status)
+      message.success('Статус обновлён')
+      await fetchList()
+      return true
+    } catch {
+      return false
+    }
+  }
+
   const setSearch = (query: string) => {
     searchQuery.value = query
     currentPage.value = 1
@@ -125,6 +142,7 @@ export const useReestrStore = defineStore('reestr', () => {
     pageSize,
     totalPages,
     searchQuery,
+    statusFilter,
     fetchList,
     getById,
     create,
@@ -132,6 +150,7 @@ export const useReestrStore = defineStore('reestr', () => {
     deleteEntry,
     deleteEntries,
     uploadFile,
+    changeStatus,
     setSearch,
     setPage,
     setPageSize,

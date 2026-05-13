@@ -16,6 +16,7 @@ const permissionMap: Record<string, string> = {
   'clients.manage': 'Клиенты: привязки',
   'endpoints.read': 'Система: каталог API',
   'roles.manage': 'Роли: управление',
+  'status.change': 'Реестр: смена статуса',
 }
 
 export function formatRole(role: string): string {
