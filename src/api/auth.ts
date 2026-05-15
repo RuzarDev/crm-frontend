@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { LoginRequest, LoginResponse, RegisterClientRequest } from '@/types/api'
+import type { ExpeditorOption, LoginRequest, LoginResponse, RegisterClientRequest } from '@/types/api'
 
 export const authApi = {
   login: async (data: LoginRequest): Promise<LoginResponse> => {
@@ -9,5 +9,10 @@ export const authApi = {
 
   registerClient: async (data: RegisterClientRequest): Promise<void> => {
     await apiClient.post('/auth/register', data)
+  },
+
+  listExpeditorsForRegistration: async (): Promise<ExpeditorOption[]> => {
+    const response = await apiClient.get<ExpeditorOption[]>('/auth/register/expeditors')
+    return response.data
   },
 }

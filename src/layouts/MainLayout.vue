@@ -50,7 +50,14 @@ const menuItems = computed(() => {
     },
   ]
 
-  if (authStore.hasPermission('roles.manage')) {
+  if ((authStore.role || '').trim().toLowerCase() === 'client') {
+    items.push({
+      key: '/my-documents',
+      label: 'Мои документы',
+    })
+  }
+
+  if (authStore.hasPermission('users.read')) {
     items.push({
       key: '/roles',
       label: 'Роли',
@@ -68,6 +75,9 @@ const menuItems = computed(() => {
 })
 
 const selectedMenuKey = computed(() => {
+  if (route.path.startsWith('/my-documents')) {
+    return '/my-documents'
+  }
   if (route.path.startsWith('/roles')) {
     return '/roles'
   }

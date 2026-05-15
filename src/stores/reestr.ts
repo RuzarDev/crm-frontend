@@ -13,6 +13,9 @@ export const useReestrStore = defineStore('reestr', () => {
   const totalPages = ref(0)
   const searchQuery = ref('')
   const statusFilter = ref<ReestrEntryStatus | null>(null)
+  const clientFilter = ref<string | null>(null)
+  const documentDateFrom = ref<string | null>(null)
+  const documentDateTo = ref<string | null>(null)
 
   const fetchList = async (params?: ReestrListRequest) => {
     loading.value = true
@@ -24,6 +27,16 @@ export const useReestrStore = defineStore('reestr', () => {
         pageSize: params?.pageSize || pageSize.value,
         search: params?.search || searchQuery.value,
         status: status ?? undefined,
+        clientId:
+          params?.clientId !== undefined ? params.clientId ?? undefined : clientFilter.value ?? undefined,
+        documentDateFrom:
+          params?.documentDateFrom !== undefined
+            ? params.documentDateFrom ?? undefined
+            : documentDateFrom.value ?? undefined,
+        documentDateTo:
+          params?.documentDateTo !== undefined
+            ? params.documentDateTo ?? undefined
+            : documentDateTo.value ?? undefined,
         sortBy: params?.sortBy,
         sortDescending: params?.sortDescending,
       })
@@ -95,10 +108,10 @@ export const useReestrStore = defineStore('reestr', () => {
     }
   }
 
-  const uploadFile = async (file: File): Promise<boolean> => {
+  const uploadFile = async (file: File, clientId?: string): Promise<boolean> => {
     loading.value = true
     try {
-      const response = await reestrApi.uploadFile(file)
+      const response = await reestrApi.uploadFile(file, clientId)
       message.success(`Успешно импортировано записей: ${response.imported}`)
       await fetchList()
       return true
@@ -143,6 +156,9 @@ export const useReestrStore = defineStore('reestr', () => {
     totalPages,
     searchQuery,
     statusFilter,
+    clientFilter,
+    documentDateFrom,
+    documentDateTo,
     fetchList,
     getById,
     create,

@@ -4,6 +4,19 @@ import { authApi } from '@/api/auth'
 import type { LoginRequest, RegisterClientRequest } from '@/types/api'
 import { message } from 'ant-design-vue'
 
+const parseJwtPayload = (token: string): { sub?: string } | null => {
+  try {
+    const part = token.split('.')[1]
+    if (!part) {
+      return null
+    }
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'))
+    return JSON.parse(json) as { sub?: string }
+  } catch {
+    return null
+  }
+}
+
 const normalizeToken = (value: string | null) => {
   if (!value || value === 'undefined' || value === 'null') {
     return null
@@ -14,6 +27,8 @@ const normalizeToken = (value: string | null) => {
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(normalizeToken(localStorage.getItem('authToken')))
   const username = ref<string | null>(localStorage.getItem('username'))
+  const role = ref<string | null>(localStorage.getItem('role'))
+  const userId = ref<string | null>(localStorage.getItem('userId'))
   const permissions = ref<string[]>(JSON.parse(localStorage.getItem('permissions') || '[]'))
 
   const isAuthenticated = computed(() => !!token.value)
@@ -25,14 +40,23 @@ export const useAuthStore = defineStore('auth', () => {
       const resolvedToken = response.accessToken
       token.value = normalizeToken(resolvedToken)
       username.value = credentials.username
+      role.value = response.role || null
       if (!token.value) {
         message.error('Ошибка входа: в ответе нет токена')
         return false
       }
       localStorage.setItem('authToken', token.value)
       localStorage.setItem('username', credentials.username)
+      localStorage.setItem('role', response.role || '')
       permissions.value = response.permissions || []
       localStorage.setItem('permissions', JSON.stringify(permissions.value))
+      const tokenPayload = parseJwtPayload(token.value)
+      userId.value = tokenPayload?.sub ?? null
+      if (userId.value) {
+        localStorage.setItem('userId', userId.value)
+      } else {
+        localStorage.removeItem('userId')
+      }
       message.success('Вход выполнен')
       return true
     } catch (error) {
@@ -53,8 +77,12 @@ export const useAuthStore = defineStore('auth', () => {
   const logout = () => {
     token.value = null
     username.value = null
+    role.value = null
+    userId.value = null
     localStorage.removeItem('authToken')
     localStorage.removeItem('username')
+    localStorage.removeItem('role')
+    localStorage.removeItem('userId')
     localStorage.removeItem('permissions')
     permissions.value = []
     message.info('Вы вышли из системы')
@@ -65,12 +93,18 @@ export const useAuthStore = defineStore('auth', () => {
     if (storedToken) {
       token.value = storedToken
       username.value = localStorage.getItem('username')
+      role.value = localStorage.getItem('role')
+      userId.value = localStorage.getItem('userId')
       permissions.value = JSON.parse(localStorage.getItem('permissions') || '[]')
     } else {
       token.value = null
       username.value = null
+      role.value = null
+      userId.value = null
       localStorage.removeItem('authToken')
       localStorage.removeItem('username')
+      localStorage.removeItem('role')
+      localStorage.removeItem('userId')
       localStorage.removeItem('permissions')
       permissions.value = []
     }
@@ -79,6 +113,8 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     token,
     username,
+    role,
+    userId,
     permissions,
     isAuthenticated,
     hasPermission,

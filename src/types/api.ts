@@ -6,6 +6,12 @@ export interface LoginRequest {
 export interface RegisterClientRequest {
   username: string
   password: string
+  expeditorId: string
+}
+
+export interface ExpeditorOption {
+  id: string
+  username: string
 }
 
 export interface LoginResponse {
@@ -106,14 +112,14 @@ export type ReestrColumnKey = (typeof REESTR_COLUMN_KEYS)[number]
 
 /** CRM.API.Entities.ReestrEntryStatus */
 export const ReestrEntryStatus = {
-  Release: 0,
-  Problematic: 1,
-  InspectionNotice: 2,
-  InspectionAct: 3,
-  SubmittedToCustoms: 4,
-  PendingClarification: 5,
-  Exit: 6,
-  Abbreviated: 7,
+  InProgress: 0,
+  Submitted: 1,
+  Released: 2,
+  ConditionallyReleased: 3,
+  Problematic: 4,
+  Rejected: 5,
+  Withdrawn: 6,
+  Archived: 7,
 } as const
 
 export type ReestrEntryStatus = (typeof ReestrEntryStatus)[keyof typeof ReestrEntryStatus]
@@ -141,12 +147,16 @@ export interface ReestrEntryDto {
   supplementalSheetsTotalWithVat: number | null
   grandTotalWithVat: number | null
   status: string | ReestrEntryStatus
+  clientId: string
+  createdByUserId?: string | null
+  createdByRole?: string | null
 }
 
 export interface ReestrEntry {
   id: string
   createdAtUtc: string
   status: ReestrEntryStatus
+  clientId: string
   data: Record<string, string | null>
 }
 
@@ -171,6 +181,7 @@ export interface ReestrUpsertBody {
   supplementalSheetsTotalWithVat?: number | null
   grandTotalWithVat?: number | null
   status: ReestrEntryStatus
+  clientId: string
 }
 
 export interface ChangeReestrEntryStatusRequest {
@@ -182,6 +193,9 @@ export interface ReestrListRequest {
   pageSize?: number
   search?: string
   status?: ReestrEntryStatus | null
+  clientId?: string | null
+  documentDateFrom?: string | null
+  documentDateTo?: string | null
   sortBy?: string | null
   sortDescending?: boolean
 }
@@ -198,6 +212,57 @@ export interface ReestrListResponse {
 export interface ImportResponse {
   imported: number
   fileName?: string
+}
+
+export type ReestrDocumentSection = 'client' | 'broker'
+
+export interface ReestrDocumentDto {
+  id: string
+  reestrEntryId: string
+  section: ReestrDocumentSection
+  originalFileName: string
+  contentType: string
+  sizeBytes: number
+  uploadedByUserId: string
+  uploadedByRole: string
+  createdAtUtc: string
+}
+
+export type MyReestrDocumentListItem = {
+  id: string
+  reestrEntryId: string
+  container: string | null
+  reestrStatus: ReestrEntryStatus
+  section: ReestrDocumentSection
+  originalFileName: string
+  contentType: string
+  sizeBytes: number
+  createdAtUtc: string
+}
+
+export interface MyReestrDocumentsListRequest {
+  page?: number
+  pageSize?: number
+  section?: ReestrDocumentSection | null
+  search?: string
+}
+
+export interface MyReestrDocumentsListResponse {
+  items: MyReestrDocumentListItem[]
+  totalCount: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface ReestrStatusHistoryDto {
+  id: string
+  oldStatus: ReestrEntryStatus | null
+  newStatus: ReestrEntryStatus
+  changedByUserId: string
+  changedByRole: string
+  changedByUsername: string | null
+  changedAtUtc: string
 }
 
 export interface RoleItem {

@@ -14,12 +14,12 @@ import { ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
-  BellOutlined,
-  FileSearchOutlined,
-  CloudUploadOutlined,
   ClockCircleOutlined,
-  ExportOutlined,
+  CloudUploadOutlined,
+  ExclamationCircleOutlined,
   MinusCircleOutlined,
+  StopOutlined,
+  FolderOutlined,
 } from '@ant-design/icons-vue'
 
 const props = defineProps<{
@@ -29,19 +29,19 @@ const props = defineProps<{
 type StatusVisual = { icon: Component; color: string }
 
 const statusVisuals: Record<ReestrEntryStatus, StatusVisual> = {
-  [ReestrEntryStatusValues.Release]: { icon: CheckCircleOutlined, color: '#52c41a' },
-  [ReestrEntryStatusValues.Problematic]: { icon: CloseCircleOutlined, color: '#ff4d4f' },
-  [ReestrEntryStatusValues.InspectionNotice]: { icon: BellOutlined, color: '#fa8c16' },
-  [ReestrEntryStatusValues.InspectionAct]: { icon: FileSearchOutlined, color: '#1677ff' },
-  [ReestrEntryStatusValues.SubmittedToCustoms]: { icon: CloudUploadOutlined, color: '#722ed1' },
-  [ReestrEntryStatusValues.PendingClarification]: { icon: ClockCircleOutlined, color: '#faad14' },
-  [ReestrEntryStatusValues.Exit]: { icon: ExportOutlined, color: '#13c2c2' },
-  [ReestrEntryStatusValues.Abbreviated]: { icon: MinusCircleOutlined, color: '#8c8c8c' },
+  [ReestrEntryStatusValues.InProgress]: { icon: ClockCircleOutlined, color: '#5b6b8c' },
+  [ReestrEntryStatusValues.Submitted]: { icon: CloudUploadOutlined, color: '#8c8c8c' },
+  [ReestrEntryStatusValues.Released]: { icon: CheckCircleOutlined, color: '#52c41a' },
+  [ReestrEntryStatusValues.ConditionallyReleased]: { icon: ExclamationCircleOutlined, color: '#faad14' },
+  [ReestrEntryStatusValues.Problematic]: { icon: ExclamationCircleOutlined, color: '#fa8c16' },
+  [ReestrEntryStatusValues.Rejected]: { icon: CloseCircleOutlined, color: '#ff4d4f' },
+  [ReestrEntryStatusValues.Withdrawn]: { icon: MinusCircleOutlined, color: '#bfbfbf' },
+  [ReestrEntryStatusValues.Archived]: { icon: FolderOutlined, color: '#595959' },
 }
 
 const meta = computed(
   (): StatusVisual =>
-    statusVisuals[props.status] ?? statusVisuals[ReestrEntryStatusValues.Abbreviated],
+    statusVisuals[props.status] ?? statusVisuals[ReestrEntryStatusValues.InProgress],
 )
 </script>
 

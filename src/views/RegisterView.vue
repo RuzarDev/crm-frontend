@@ -22,6 +22,16 @@
           </a-input-password>
         </a-form-item>
 
+        <a-form-item label="Ваш экспедитор" name="expeditorId">
+          <a-select
+            v-model:value="formState.expeditorId"
+            placeholder="Выберите экспедитора"
+            size="large"
+            :loading="expeditorsLoading"
+            :options="expeditorOptions"
+          />
+        </a-form-item>
+
         <a-form-item label="Повторите пароль" name="confirmPassword">
           <a-input-password
             v-model:value="formState.confirmPassword"
@@ -48,27 +58,42 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { authApi } from '@/api/auth'
 import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const loading = ref(false)
+const expeditorsLoading = ref(false)
+const expeditorOptions = ref<{ value: string; label: string }[]>([])
 
 const formState = reactive({
   username: '',
   password: '',
   confirmPassword: '',
+  expeditorId: undefined as string | undefined,
 })
 
 const rules = {
   username: [{ required: true, message: 'Введите логин' }],
   password: [{ required: true, message: 'Введите пароль' }],
+  expeditorId: [{ required: true, message: 'Выберите экспедитора' }],
   confirmPassword: [{ required: true, message: 'Повторите пароль' }],
 }
+
+onMounted(async () => {
+  expeditorsLoading.value = true
+  try {
+    const items = await authApi.listExpeditorsForRegistration()
+    expeditorOptions.value = items.map((x) => ({ value: x.id, label: x.username }))
+  } finally {
+    expeditorsLoading.value = false
+  }
+})
 
 const handleRegister = async () => {
   if (formState.password !== formState.confirmPassword) {
@@ -78,9 +103,15 @@ const handleRegister = async () => {
 
   loading.value = true
   try {
+    if (!formState.expeditorId) {
+      message.error('Выберите экспедитора')
+      return
+    }
+
     const success = await authStore.registerClient({
       username: formState.username.trim(),
       password: formState.password,
+      expeditorId: formState.expeditorId,
     })
     if (success) {
       router.push('/login')

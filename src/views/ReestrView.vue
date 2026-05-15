@@ -46,8 +46,24 @@
             placeholder="Все статусы"
             style="width: 240px"
             :options="reestrStatusSelectOptions"
-            @change="handleStatusFilterChange"
+            @change="handleFiltersChange"
           />
+          <template v-if="showPortfolioFilters">
+            <a-select
+              v-model:value="reestrStore.clientFilter"
+              allow-clear
+              placeholder="Все клиенты"
+              style="width: 220px"
+              :options="filterClientOptions"
+              @change="handleFiltersChange"
+            />
+            <a-range-picker
+              v-model:value="documentDateRange"
+              format="DD.MM.YYYY"
+              :placeholder="['Дата с', 'Дата по']"
+              @change="handleDateRangeChange"
+            />
+          </template>
         </a-space>
 
         <a-table
@@ -79,7 +95,16 @@
             </template>
 
             <template v-else-if="column.key === 'actions'">
-              <a-space v-if="canWrite || canDelete || canChangeStatus" size="small" wrap>
+              <a-space v-if="canShowActions" size="small" wrap>
+                <a-button
+                  v-if="isClient"
+                  type="link"
+                  size="small"
+                  @click="openClientView(record, 'documents')"
+                >
+                  <FileOutlined />
+                  Документы
+                </a-button>
                 <a-button v-if="canWrite" type="link" size="small" @click="handleEdit(record)">
                   <EditOutlined />
                   Изменить
@@ -117,6 +142,10 @@
       :open="formModalOpen"
       :loading="formLoading"
       :entry="currentEntry"
+      :client-options="createClientOptions"
+      :status-history-refresh-key="statusHistoryRefreshKey"
+      :view-mode="formViewMode"
+      :initial-tab="formInitialTab"
       @submit="handleFormSubmit"
       @cancel="handleFormCancel"
     />
@@ -127,7 +156,17 @@
       :footer="null"
       width="600px"
     >
-      <ExcelUpload @upload="handleFileUpload" />
+      <a-space direction="vertical" style="width: 100%" :size="16">
+        <a-form-item v-if="needsUploadClient" label="Клиент для импорта">
+          <a-select
+            v-model:value="uploadClientId"
+            :options="createClientOptions"
+            placeholder="Выберите клиента"
+            style="width: 100%"
+          />
+        </a-form-item>
+        <ExcelUpload @upload="handleFileUpload" />
+      </a-space>
     </a-modal>
 
     <a-modal
@@ -156,6 +195,8 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
+import type { Dayjs } from 'dayjs'
+import dayjs from 'dayjs'
 import { useReestrStore } from '@/stores/reestr'
 import { useAuthStore } from '@/stores/auth'
 import ReestrForm from '@/components/ReestrForm.vue'
@@ -167,15 +208,22 @@ import {
   EditOutlined,
   DeleteOutlined,
   SwapOutlined,
+  FileOutlined,
 } from '@ant-design/icons-vue'
 import type { ReestrEntry, ReestrEntryStatus } from '@/types/api'
 import { REESTR_COLUMN_KEYS, ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
 import { formatReestrCellForDisplay } from '@/utils/reestrFormat'
 import { reestrDataToUpsertBody, REESTR_STATUS_OPTIONS } from '@/utils/reestrDtoMap'
+import { reestrApi } from '@/api/reestr'
 import type { TableProps } from 'ant-design-vue'
 
 const reestrStore = useReestrStore()
 const authStore = useAuthStore()
+const createClientOptions = ref<{ value: string; label: string }[]>([])
+const filterClientOptions = ref<{ value: string; label: string }[]>([])
+const uploadClientId = ref<string | undefined>()
+const statusHistoryRefreshKey = ref(0)
+const documentDateRange = ref<[Dayjs, Dayjs] | null>(null)
 
 const searchValue = ref('')
 const selectedRowKeys = ref<string[]>([])
@@ -183,11 +231,13 @@ const formModalOpen = ref(false)
 const uploadModalOpen = ref(false)
 const formLoading = ref(false)
 const currentEntry = ref<ReestrEntry | null>(null)
+const formViewMode = ref<'default' | 'client'>('default')
+const formInitialTab = ref<'data' | 'documents'>('data')
 
 const statusModalOpen = ref(false)
 const statusModalSaving = ref(false)
 const statusModalEntry = ref<ReestrEntry | null>(null)
-const statusModalValue = ref<ReestrEntryStatus>(ReestrEntryStatusValues.Release)
+const statusModalValue = ref<ReestrEntryStatus>(ReestrEntryStatusValues.Released)
 
 const reestrStatusSelectOptions = REESTR_STATUS_OPTIONS
 
@@ -211,8 +261,15 @@ const dynamicFieldColumns = computed(() => {
 const canWrite = computed(() => authStore.hasPermission('reestr.write'))
 const canDelete = computed(() => authStore.hasPermission('reestr.delete'))
 const canChangeStatus = computed(() => authStore.hasPermission('status.change'))
+const isClient = computed(() => (authStore.role || '').trim().toLowerCase() === 'client')
+const showPortfolioFilters = computed(() => authStore.role === 'expeditor')
+
+const needsUploadClient = computed(() => {
+  const role = (authStore.role || '').trim().toLowerCase()
+  return role !== 'client' && createClientOptions.value.length > 0
+})
 const canShowActions = computed(
-  () => canWrite.value || canDelete.value || canChangeStatus.value,
+  () => canWrite.value || canDelete.value || canChangeStatus.value || isClient.value,
 )
 
 const columns = computed(() => {
@@ -242,7 +299,7 @@ const columns = computed(() => {
     {
       title: 'Действия',
       key: 'actions',
-      width: canChangeStatus.value ? 220 : 180,
+      width: isClient.value ? 120 : canChangeStatus.value ? 220 : 180,
       fixed: 'right' as const,
     },
   ]
@@ -269,8 +326,16 @@ const pagination = computed(() => ({
   pageSizeOptions: ['10', '20', '50', '100'],
 }))
 
-onMounted(() => {
+onMounted(async () => {
   reestrStore.fetchList()
+  if (authStore.hasPermission('reestr.write')) {
+    const clients = await reestrApi.listClientsForCreate()
+    createClientOptions.value = clients.map((c) => ({ value: c.id, label: c.username }))
+  }
+  if (showPortfolioFilters.value) {
+    const clients = await reestrApi.listFilterClients()
+    filterClientOptions.value = clients.map((c) => ({ value: c.id, label: c.username }))
+  }
 })
 
 const getRowNumber = (index: number) => {
@@ -282,10 +347,25 @@ const handleSearch = () => {
   reestrStore.fetchList()
 }
 
-const handleStatusFilterChange = () => {
+const handleFiltersChange = () => {
   reestrStore.setPage(1)
   selectedRowKeys.value = []
   reestrStore.fetchList()
+}
+
+const handleDateRangeChange = (range: [Dayjs, Dayjs] | [string, string] | null) => {
+  if (!range || !Array.isArray(range) || range.length !== 2) {
+    reestrStore.documentDateFrom = null
+    reestrStore.documentDateTo = null
+    documentDateRange.value = null
+  } else {
+    const from = range[0] as Dayjs
+    const to = range[1] as Dayjs
+    reestrStore.documentDateFrom = from.format('YYYY-MM-DD')
+    reestrStore.documentDateTo = to.format('YYYY-MM-DD')
+    documentDateRange.value = [from, to]
+  }
+  handleFiltersChange()
 }
 
 const handleTableChange: TableProps['onChange'] = (pagination) => {
@@ -299,16 +379,31 @@ const handleTableChange: TableProps['onChange'] = (pagination) => {
   reestrStore.fetchList()
 }
 
+const resetFormModalMode = () => {
+  formViewMode.value = 'default'
+  formInitialTab.value = 'data'
+}
+
 const showCreateModal = () => {
+  resetFormModalMode()
   currentEntry.value = null
   formModalOpen.value = true
 }
 
+const openClientView = (record: ReestrEntry, tab: 'data' | 'documents' = 'documents') => {
+  currentEntry.value = record
+  formViewMode.value = 'client'
+  formInitialTab.value = tab
+  formModalOpen.value = true
+}
+
 const showUploadModal = () => {
+  uploadClientId.value = createClientOptions.value[0]?.value
   uploadModalOpen.value = true
 }
 
 const handleEdit = (record: ReestrEntry) => {
+  resetFormModalMode()
   currentEntry.value = record
   formModalOpen.value = true
 }
@@ -337,6 +432,7 @@ const handleStatusModalSave = async () => {
   try {
     const ok = await reestrStore.changeStatus(entry.id, statusModalValue.value)
     if (ok) {
+      statusHistoryRefreshKey.value += 1
       closeStatusModal()
     }
   } finally {
@@ -347,10 +443,15 @@ const handleStatusModalSave = async () => {
 const handleFormSubmit = async (payload: {
   data: Record<string, string | null>
   status: ReestrEntryStatus
+  clientId?: string
 }) => {
   formLoading.value = true
   try {
-    const body = reestrDataToUpsertBody(payload.data, payload.status)
+    const clientId = payload.clientId ?? currentEntry.value?.clientId
+    if (!clientId) {
+      return
+    }
+    const body = reestrDataToUpsertBody(payload.data, payload.status, clientId)
     let success = false
     if (currentEntry.value) {
       success = await reestrStore.update(currentEntry.value.id, body)
@@ -370,6 +471,7 @@ const handleFormSubmit = async (payload: {
 const handleFormCancel = () => {
   formModalOpen.value = false
   currentEntry.value = null
+  resetFormModalMode()
 }
 
 const handleDelete = async (id: string) => {
@@ -394,7 +496,11 @@ const handleDeleteSelected = async () => {
 }
 
 const handleFileUpload = async (file: File) => {
-  const success = await reestrStore.uploadFile(file)
+  if (needsUploadClient.value && !uploadClientId.value) {
+    return
+  }
+  const clientId = needsUploadClient.value ? uploadClientId.value : undefined
+  const success = await reestrStore.uploadFile(file, clientId)
   if (success) {
     uploadModalOpen.value = false
   }

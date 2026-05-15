@@ -31,10 +31,15 @@ const router = createRouter({
           component: () => import('@/views/ReestrView.vue'),
         },
         {
+          path: '/my-documents',
+          name: 'my-documents',
+          component: () => import('@/views/MyDocumentsView.vue'),
+        },
+        {
           path: '/roles',
           name: 'roles',
           component: () => import('@/views/RolesView.vue'),
-          meta: { requiresPermission: 'roles.manage' },
+          meta: { requiresPermission: 'users.read' },
         },
         {
           path: '/users',

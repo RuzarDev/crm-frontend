@@ -3,25 +3,25 @@ import type { ReestrColumnKey, ReestrEntry, ReestrEntryDto, ReestrUpsertBody, Re
 import { REESTR_COLUMN_KEYS, ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
 
 export const REESTR_STATUS_OPTIONS: { value: ReestrEntryStatus; label: string }[] = [
-  { value: ReestrEntryStatusValues.Release, label: 'Выпуск' },
+  { value: ReestrEntryStatusValues.InProgress, label: 'В работе' },
+  { value: ReestrEntryStatusValues.Submitted, label: 'Подан' },
+  { value: ReestrEntryStatusValues.Released, label: 'Выпущено' },
+  { value: ReestrEntryStatusValues.ConditionallyReleased, label: 'Условно выпущено' },
   { value: ReestrEntryStatusValues.Problematic, label: 'Проблемный' },
-  { value: ReestrEntryStatusValues.InspectionNotice, label: 'Уведомление о досмотре' },
-  { value: ReestrEntryStatusValues.InspectionAct, label: 'Акт досмотра' },
-  { value: ReestrEntryStatusValues.SubmittedToCustoms, label: 'Подано в таможню' },
-  { value: ReestrEntryStatusValues.PendingClarification, label: 'Ожидает уточнения' },
-  { value: ReestrEntryStatusValues.Exit, label: 'Выход' },
-  { value: ReestrEntryStatusValues.Abbreviated, label: 'Сокращённый' },
+  { value: ReestrEntryStatusValues.Rejected, label: 'Отказ' },
+  { value: ReestrEntryStatusValues.Withdrawn, label: 'Отзыв' },
+  { value: ReestrEntryStatusValues.Archived, label: 'Архив' },
 ]
 
 const dtoStatusFromJson: Record<string, ReestrEntryStatus> = {
-  release: ReestrEntryStatusValues.Release,
+  inProgress: ReestrEntryStatusValues.InProgress,
+  submitted: ReestrEntryStatusValues.Submitted,
+  released: ReestrEntryStatusValues.Released,
+  conditionallyReleased: ReestrEntryStatusValues.ConditionallyReleased,
   problematic: ReestrEntryStatusValues.Problematic,
-  inspectionNotice: ReestrEntryStatusValues.InspectionNotice,
-  inspectionAct: ReestrEntryStatusValues.InspectionAct,
-  submittedToCustoms: ReestrEntryStatusValues.SubmittedToCustoms,
-  pendingClarification: ReestrEntryStatusValues.PendingClarification,
-  exit: ReestrEntryStatusValues.Exit,
-  abbreviated: ReestrEntryStatusValues.Abbreviated,
+  rejected: ReestrEntryStatusValues.Rejected,
+  withdrawn: ReestrEntryStatusValues.Withdrawn,
+  archived: ReestrEntryStatusValues.Archived,
 }
 
 export function dtoStatusToEntryStatus(raw: ReestrEntryDto['status']): ReestrEntryStatus {
@@ -29,7 +29,7 @@ export function dtoStatusToEntryStatus(raw: ReestrEntryDto['status']): ReestrEnt
     return raw as ReestrEntryStatus
   }
   const s = String(raw).trim()
-  return dtoStatusFromJson[s] ?? ReestrEntryStatusValues.Release
+  return dtoStatusFromJson[s] ?? ReestrEntryStatusValues.InProgress
 }
 
 export function formatReestrStatus(status: ReestrEntryStatus): string {
@@ -80,73 +80,75 @@ export function reestrDtoToEntry(dto: ReestrEntryDto): ReestrEntry {
     id: dto.id,
     createdAtUtc: dto.createdAtUtc,
     status: dtoStatusToEntryStatus(dto.status),
+    clientId: dto.clientId,
     data: reestrDtoToData(dto),
   }
-}
-
-function parseDecimal(raw: string | null | undefined): number | null {
-  if (raw == null) {
-    return null
-  }
-  const s = String(raw).trim().replace(/\s/g, '').replace(',', '.')
-  if (!s) {
-    return null
-  }
-  const n = Number(s)
-  return Number.isFinite(n) ? n : null
 }
 
 export function reestrDataToUpsertBody(
   data: Record<string, string | null>,
   status: ReestrEntryStatus,
+  clientId: string,
 ): ReestrUpsertBody {
-  const d = (k: ReestrColumnKey) => data[k] ?? null
-  const t = (k: ReestrColumnKey) => {
-    const v = d(k)
-    if (v == null) {
-      return null
-    }
-    const s = String(v).trim()
-    return s === '' ? null : s
-  }
-  const dateStr = t('Дата')
-  const documentDate =
-    dateStr && dateStr.trim()
-      ? dayjs(dateStr.trim(), 'YYYY-MM-DD', true).isValid()
-        ? dateStr.trim()
-        : dayjs(dateStr.trim(), 'DD.MM.YYYY', true).isValid()
-          ? dayjs(dateStr.trim(), 'DD.MM.YYYY', true).format('YYYY-MM-DD')
-          : dateStr.trim()
-      : null
-
   return {
-    rowNumber: t('№'),
-    documentDate,
-    container: t('Контейнер'),
-    consignee: t('Получатель'),
-    destinationStation: t('Станция назначения'),
-    shipper: t('Отправитель'),
-    shipmentInfo: t('Отправка'),
-    cargoDescription: t('Груз'),
-    subcode: t('Подкод'),
-    commodityCode: t('Код ТНВЭД'),
-    packagesCount: parseDecimal(d('Количество мест')),
-    weightKg: parseDecimal(d('Вес')),
-    customsDeclarationNumber: t('ТД'),
-    customsDeclarationCount: parseDecimal(d('Кол-во ТД')),
-    pricePerDeclarationWithVat: parseDecimal(d('Цена одной ТД, с НДС')),
-    supplementalSheetsCount: parseDecimal(d('Количество доп.листов')),
-    pricePerSupplementalSheetWithVat: parseDecimal(d('Цена одного доп.листа, с НДС')),
-    supplementalSheetsTotalWithVat: parseDecimal(d('Всего, ДЛ с НДС')),
-    grandTotalWithVat: parseDecimal(d('Итого, с НДС')),
-    status,
+    ...reestrEntryToUpsertBody({
+      id: '',
+      createdAtUtc: '',
+      status,
+      clientId,
+      data,
+    }),
   }
 }
 
-export function emptyReestrDataRow(): Record<ReestrColumnKey, string | null> {
-  const row = {} as Record<ReestrColumnKey, string | null>
-  for (const k of REESTR_COLUMN_KEYS) {
-    row[k] = null
+export function reestrEntryToUpsertBody(entry: ReestrEntry): ReestrUpsertBody {
+  const d = entry.data
+  return {
+    rowNumber: d['№'],
+    documentDate: d['Дата'],
+    container: d['Контейнер'],
+    consignee: d['Получатель'],
+    destinationStation: d['Станция назначения'],
+    shipper: d['Отправитель'],
+    shipmentInfo: d['Отправка'],
+    cargoDescription: d['Груз'],
+    subcode: d['Подкод'],
+    commodityCode: d['Код ТНВЭД'],
+    packagesCount: d['Количество мест'] ? Number(d['Количество мест']) : null,
+    weightKg: d['Вес'] ? Number(d['Вес']) : null,
+    customsDeclarationNumber: d['ТД'],
+    customsDeclarationCount: d['Кол-во ТД'] ? Number(d['Кол-во ТД']) : null,
+    pricePerDeclarationWithVat: d['Цена одной ТД, с НДС'] ? Number(d['Цена одной ТД, с НДС']) : null,
+    supplementalSheetsCount: d['Количество доп.листов'] ? Number(d['Количество доп.листов']) : null,
+    pricePerSupplementalSheetWithVat: d['Цена одного доп.листа, с НДС']
+      ? Number(d['Цена одного доп.листа, с НДС'])
+      : null,
+    supplementalSheetsTotalWithVat: d['Всего, ДЛ с НДС'] ? Number(d['Всего, ДЛ с НДС']) : null,
+    grandTotalWithVat: d['Итого, с НДС'] ? Number(d['Итого, с НДС']) : null,
+    status: entry.status,
+    clientId: entry.clientId,
   }
-  return row
+}
+
+export function isMeaningfulReestrData(data: Record<string, string | null>): boolean {
+  return Boolean(
+    data['№']?.trim() ||
+      data['Контейнер']?.trim() ||
+      data['Получатель']?.trim() ||
+      data['Отправитель']?.trim() ||
+      data['Груз']?.trim(),
+  )
+}
+
+export function collectExtraColumnKeys(entries: ReestrEntry[]): ReestrColumnKey[] {
+  const known = new Set<string>(REESTR_COLUMN_KEYS)
+  const extras = new Set<string>()
+  for (const entry of entries) {
+    for (const key of Object.keys(entry.data)) {
+      if (!known.has(key)) {
+        extras.add(key)
+      }
+    }
+  }
+  return [...extras] as ReestrColumnKey[]
 }
