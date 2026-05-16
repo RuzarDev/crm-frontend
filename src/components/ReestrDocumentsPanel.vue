@@ -139,8 +139,9 @@ const brokerSlots = [
   },
 ] as const
 
+// Клиент всегда может грузить свои документы — readonly касается только полей данных
 const clientCanUpload = computed(
-  () => !props.readonly && (role.value === 'client' || role.value === 'administrator'),
+  () => role.value === 'client' || role.value === 'administrator',
 )
 
 // Брокер грузит по роли — не требуем reestr.write, это его основная работа
