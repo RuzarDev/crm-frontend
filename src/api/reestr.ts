@@ -10,9 +10,29 @@ import type {
   BulkDeleteResponse,
   ReestrDocumentDto,
   ReestrDocumentSection,
+  ReestrBrokerDocumentType,
+  ReestrClientOption,
   ReestrStatusHistoryDto,
 } from '@/types/api'
 import { reestrDtoToEntry } from '@/utils/reestrDtoMap'
+
+const brokerDocumentTypeFromApi = (
+  value: string | number | null | undefined,
+): ReestrBrokerDocumentType | null => {
+  if (value == null) {
+    return null
+  }
+  if (typeof value === 'number') {
+    return value as ReestrBrokerDocumentType
+  }
+  const map: Record<string, ReestrBrokerDocumentType> = {
+    customsDeclaration: 0,
+    conformityCertificates: 1,
+    permitsAndLicenses: 2,
+    other: 3,
+  }
+  return map[value] ?? null
+}
 
 export const reestrApi = {
   getList: async (params: ReestrListRequest): Promise<ReestrListResponse> => {
@@ -81,27 +101,54 @@ export const reestrApi = {
   },
 
   listDocuments: async (reestrId: string): Promise<ReestrDocumentDto[]> => {
-    const response = await apiClient.get<ReestrDocumentDto[]>(`/reestr/${reestrId}/documents`)
-    return response.data
+    const response = await apiClient.get<
+      (Omit<ReestrDocumentDto, 'brokerDocumentType'> & {
+        brokerDocumentType?: string | number | null
+      })[]
+    >(`/reestr/${reestrId}/documents`)
+    return response.data.map((doc) => ({
+      ...doc,
+      brokerDocumentType: brokerDocumentTypeFromApi(doc.brokerDocumentType),
+    }))
   },
 
   uploadDocument: async (
     reestrId: string,
     section: ReestrDocumentSection,
     file: File,
+    brokerDocumentType?: ReestrBrokerDocumentType,
   ): Promise<ReestrDocumentDto> => {
     const formData = new FormData()
     formData.append('file', file)
-    const path =
-      section === 'client'
-        ? `/reestr/${reestrId}/documents/client`
-        : `/reestr/${reestrId}/documents/broker`
-    const response = await apiClient.post<ReestrDocumentDto>(path, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
+    if (section === 'client') {
+      const response = await apiClient.post<ReestrDocumentDto>(
+        `/reestr/${reestrId}/documents/client`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        },
+      )
+      return response.data
+    }
+    const response = await apiClient.post<ReestrDocumentDto>(
+      `/reestr/${reestrId}/documents/broker`,
+      formData,
+      {
+        params: { documentType: brokerDocumentType },
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       },
-    })
-    return response.data
+    )
+    const doc = response.data as Omit<ReestrDocumentDto, 'brokerDocumentType'> & {
+      brokerDocumentType?: string | number | null
+    }
+    return {
+      ...doc,
+      brokerDocumentType: brokerDocumentTypeFromApi(doc.brokerDocumentType),
+    }
   },
 
   downloadDocument: async (reestrId: string, documentId: string): Promise<Blob> => {
@@ -126,13 +173,18 @@ export const reestrApi = {
     await apiClient.patch(`/reestr/${encodeURIComponent(id)}/status`, { status })
   },
 
-  listClientsForCreate: async (): Promise<{ id: string; username: string }[]> => {
-    const response = await apiClient.get<{ id: string; username: string }[]>('/reestr/clients')
+  listClientsForCreate: async (): Promise<ReestrClientOption[]> => {
+    const response = await apiClient.get<ReestrClientOption[]>('/reestr/clients')
     return response.data
   },
 
-  listFilterClients: async (): Promise<{ id: string; username: string }[]> => {
-    const response = await apiClient.get<{ id: string; username: string }[]>('/reestr/clients')
+  listFilterClients: async (): Promise<ReestrClientOption[]> => {
+    const response = await apiClient.get<ReestrClientOption[]>('/reestr/clients')
+    return response.data
+  },
+
+  listPortfolioClients: async (): Promise<ReestrClientOption[]> => {
+    const response = await apiClient.get<ReestrClientOption[]>('/reestr/clients')
     return response.data
   },
 

@@ -28,7 +28,12 @@
         </div>
       </a-tab-pane>
       <a-tab-pane key="documents" tab="Документы">
-        <ReestrDocumentsPanel v-if="entry?.id" :reestr-id="entry.id" />
+        <ReestrDocumentsPanel
+          v-if="entry?.id"
+          :reestr-id="entry.id"
+          :entry-status="entry.status"
+          :readonly="isReadonlyView"
+        />
       </a-tab-pane>
       <a-tab-pane v-if="!isClientView" key="history" tab="История статусов">
         <ReestrStatusHistoryPanel
@@ -63,7 +68,7 @@ import ReestrDocumentsPanel from '@/components/ReestrDocumentsPanel.vue'
 import ReestrStatusHistoryPanel from '@/components/ReestrStatusHistoryPanel.vue'
 import ReestrFormFields from '@/components/ReestrFormFields.vue'
 
-type ViewMode = 'default' | 'client'
+type ViewMode = 'default' | 'client' | 'readonly'
 type FormTab = 'data' | 'documents'
 
 interface Props {
@@ -94,7 +99,10 @@ const authStore = useAuthStore()
 const reestrStatusOptions = REESTR_STATUS_OPTIONS
 const activeTab = ref<FormTab | 'history'>('data')
 
-const isClientView = computed(() => props.viewMode === 'client')
+const isReadonlyView = computed(
+  () => props.viewMode === 'client' || props.viewMode === 'readonly',
+)
+const isClientView = isReadonlyView
 const isEdit = computed(() => !!props.entry)
 const showTabs = computed(() => isEdit.value || isClientView.value)
 

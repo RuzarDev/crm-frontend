@@ -36,6 +36,12 @@ const router = createRouter({
           component: () => import('@/views/MyDocumentsView.vue'),
         },
         {
+          path: '/clients',
+          name: 'clients',
+          component: () => import('@/views/ClientsView.vue'),
+          meta: { requiresRole: 'expeditor' },
+        },
+        {
           path: '/roles',
           name: 'roles',
           component: () => import('@/views/RolesView.vue'),
@@ -57,9 +63,12 @@ router.beforeEach((to, from, next) => {
   authStore.checkAuth()
   const requiresAuth = to.meta.requiresAuth !== false
   const requiredPermission = to.meta.requiresPermission as string | undefined
+  const requiredRole = to.meta.requiresRole as string | undefined
 
   if (requiresAuth && !authStore.isAuthenticated) {
     next('/login')
+  } else if (requiredRole && (authStore.role || '').trim().toLowerCase() !== requiredRole) {
+    next('/')
   } else if (requiredPermission && !authStore.hasPermission(requiredPermission)) {
     next('/')
   } else if (to.path === '/login' && authStore.isAuthenticated) {

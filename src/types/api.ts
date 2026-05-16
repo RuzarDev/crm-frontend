@@ -216,10 +216,21 @@ export interface ImportResponse {
 
 export type ReestrDocumentSection = 'client' | 'broker'
 
+export const ReestrBrokerDocumentType = {
+  CustomsDeclaration: 0,
+  ConformityCertificates: 1,
+  PermitsAndLicenses: 2,
+  Other: 3,
+} as const
+
+export type ReestrBrokerDocumentType =
+  (typeof ReestrBrokerDocumentType)[keyof typeof ReestrBrokerDocumentType]
+
 export interface ReestrDocumentDto {
   id: string
   reestrEntryId: string
   section: ReestrDocumentSection
+  brokerDocumentType: ReestrBrokerDocumentType | null
   originalFileName: string
   contentType: string
   sizeBytes: number
@@ -253,6 +264,12 @@ export interface MyReestrDocumentsListResponse {
   page: number
   pageSize: number
   totalPages: number
+}
+
+export interface ReestrClientOption {
+  id: string
+  username: string
+  declarationCount: number
 }
 
 export interface ReestrStatusHistoryDto {

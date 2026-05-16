@@ -100,10 +100,19 @@
                   v-if="isClient"
                   type="link"
                   size="small"
-                  @click="openClientView(record, 'documents')"
+                  @click="openReadonlyView(record, 'documents')"
                 >
                   <FileOutlined />
                   Документы
+                </a-button>
+                <a-button
+                  v-if="isExpeditor"
+                  type="link"
+                  size="small"
+                  @click="openReadonlyView(record, 'documents')"
+                >
+                  <EyeOutlined />
+                  Просмотр
                 </a-button>
                 <a-button v-if="canWrite" type="link" size="small" @click="handleEdit(record)">
                   <EditOutlined />
@@ -209,6 +218,7 @@ import {
   DeleteOutlined,
   SwapOutlined,
   FileOutlined,
+  EyeOutlined,
 } from '@ant-design/icons-vue'
 import type { ReestrEntry, ReestrEntryStatus } from '@/types/api'
 import { REESTR_COLUMN_KEYS, ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
@@ -231,7 +241,7 @@ const formModalOpen = ref(false)
 const uploadModalOpen = ref(false)
 const formLoading = ref(false)
 const currentEntry = ref<ReestrEntry | null>(null)
-const formViewMode = ref<'default' | 'client'>('default')
+const formViewMode = ref<'default' | 'client' | 'readonly'>('default')
 const formInitialTab = ref<'data' | 'documents'>('data')
 
 const statusModalOpen = ref(false)
@@ -262,6 +272,7 @@ const canWrite = computed(() => authStore.hasPermission('reestr.write'))
 const canDelete = computed(() => authStore.hasPermission('reestr.delete'))
 const canChangeStatus = computed(() => authStore.hasPermission('status.change'))
 const isClient = computed(() => (authStore.role || '').trim().toLowerCase() === 'client')
+const isExpeditor = computed(() => (authStore.role || '').trim().toLowerCase() === 'expeditor')
 const showPortfolioFilters = computed(() => authStore.role === 'expeditor')
 
 const needsUploadClient = computed(() => {
@@ -269,7 +280,12 @@ const needsUploadClient = computed(() => {
   return role !== 'client' && createClientOptions.value.length > 0
 })
 const canShowActions = computed(
-  () => canWrite.value || canDelete.value || canChangeStatus.value || isClient.value,
+  () =>
+    canWrite.value ||
+    canDelete.value ||
+    canChangeStatus.value ||
+    isClient.value ||
+    isExpeditor.value,
 )
 
 const columns = computed(() => {
@@ -299,7 +315,7 @@ const columns = computed(() => {
     {
       title: 'Действия',
       key: 'actions',
-      width: isClient.value ? 120 : canChangeStatus.value ? 220 : 180,
+      width: isClient.value || isExpeditor.value ? 120 : canChangeStatus.value ? 220 : 180,
       fixed: 'right' as const,
     },
   ]
@@ -390,9 +406,9 @@ const showCreateModal = () => {
   formModalOpen.value = true
 }
 
-const openClientView = (record: ReestrEntry, tab: 'data' | 'documents' = 'documents') => {
+const openReadonlyView = (record: ReestrEntry, tab: 'data' | 'documents' = 'documents') => {
   currentEntry.value = record
-  formViewMode.value = 'client'
+  formViewMode.value = isExpeditor.value ? 'readonly' : 'client'
   formInitialTab.value = tab
   formModalOpen.value = true
 }

@@ -2,13 +2,13 @@
   <div class="reestr-documents">
     <a-spin :spinning="loading">
       <a-space direction="vertical" style="width: 100%" :size="16">
-        <div v-for="section in sections" :key="section.key" class="doc-section">
+        <div class="doc-section">
           <div class="doc-section-header">
-            <span class="doc-section-title">{{ section.title }}</span>
+            <span class="doc-section-title">Документы клиента</span>
             <a-upload
-              v-if="section.canUpload"
+              v-if="clientCanUpload"
               :show-upload-list="false"
-              :before-upload="beforeUpload(section.key)"
+              :before-upload="beforeUpload('client')"
               :custom-request="() => {}"
             >
               <a-button size="small" type="primary" ghost>
@@ -17,40 +17,41 @@
               </a-button>
             </a-upload>
           </div>
-          <a-list
-            v-if="documentsBySection(section.key).length"
-            size="small"
-            :data-source="documentsBySection(section.key)"
-            bordered
-          >
-            <template #renderItem="{ item }">
-              <a-list-item>
-                <a-list-item-meta>
-                  <template #title>
-                    <a-button type="link" size="small" @click="handleDownload(item)">
-                      {{ item.originalFileName }}
-                    </a-button>
-                  </template>
-                  <template #description>
-                    {{ formatRole(item.uploadedByRole) }} · {{ formatDate(item.createdAtUtc) }} ·
-                    {{ formatSize(item.sizeBytes) }}
-                  </template>
-                </a-list-item-meta>
-                <template #actions>
-                  <a-popconfirm
-                    v-if="canDeleteDocument(item)"
-                    title="Удалить документ?"
-                    ok-text="Да"
-                    cancel-text="Нет"
-                    @confirm="handleDelete(item)"
-                  >
-                    <a-button type="link" danger size="small">Удалить</a-button>
-                  </a-popconfirm>
-                </template>
-              </a-list-item>
-            </template>
-          </a-list>
-          <a-empty v-else :image="simpleImage" description="Нет документов" />
+          <reestr-document-list
+            :documents="documentsBySection('client')"
+            :can-delete="canDeleteDocument"
+            @download="handleDownload"
+            @delete="handleDelete"
+          />
+        </div>
+
+        <div class="doc-section">
+          <div class="doc-section-title broker-root-title">Документы брокера</div>
+          <div v-for="slot in brokerSlots" :key="slot.type" class="broker-slot">
+            <div class="doc-section-header">
+              <span class="doc-section-title">
+                {{ slot.label }}
+                <span v-if="slot.required" class="required-mark">*</span>
+              </span>
+              <a-upload
+                v-if="brokerCanUpload"
+                :show-upload-list="false"
+                :before-upload="beforeUpload('broker', slot.type)"
+                :custom-request="() => {}"
+              >
+                <a-button size="small" type="primary" ghost>
+                  <UploadOutlined />
+                  Загрузить
+                </a-button>
+              </a-upload>
+            </div>
+            <reestr-document-list
+              :documents="documentsByBrokerType(slot.type)"
+              :can-delete="canDeleteDocument"
+              @download="handleDownload"
+              @delete="handleDelete"
+            />
+          </div>
         </div>
       </a-space>
     </a-spin>
@@ -59,22 +60,30 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Empty, message } from 'ant-design-vue'
+import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
 import { UploadOutlined } from '@ant-design/icons-vue'
-import dayjs from 'dayjs'
 import { reestrApi } from '@/api/reestr'
 import { useAuthStore } from '@/stores/auth'
-import type { ReestrDocumentDto, ReestrDocumentSection } from '@/types/api'
-import { formatRole } from '@/utils/labels'
+import type {
+  ReestrDocumentDto,
+  ReestrDocumentSection,
+  ReestrBrokerDocumentType,
+  ReestrEntryStatus,
+} from '@/types/api'
+import { ReestrBrokerDocumentType as BrokerDocTypes, ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
+import ReestrDocumentList from '@/components/ReestrDocumentList.vue'
 
 interface Props {
   reestrId: string
+  entryStatus?: ReestrEntryStatus
+  readonly?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  readonly: false,
+})
 const authStore = useAuthStore()
-const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE
 
 const loading = ref(false)
 const documents = ref<ReestrDocumentDto[]>([])
@@ -83,41 +92,63 @@ const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.docx', '.xlsx']
 
 const role = computed(() => (authStore.role || '').trim().toLowerCase())
 
-const sections = computed(() => [
+const brokerSectionClosed = computed(
+  () =>
+    props.entryStatus === ReestrEntryStatusValues.Archived ||
+    props.entryStatus === ReestrEntryStatusValues.Released,
+)
+
+const brokerSlots = [
   {
-    key: 'client' as ReestrDocumentSection,
-    title: 'Документы клиента',
-    canUpload: role.value === 'client' || role.value === 'administrator',
+    type: BrokerDocTypes.CustomsDeclaration,
+    label: 'Таможенная декларация',
+    required: true,
   },
   {
-    key: 'broker' as ReestrDocumentSection,
-    title: 'Документы брокера',
-    canUpload:
-      (role.value === 'broker' && authStore.hasPermission('reestr.write')) ||
-      role.value === 'administrator',
+    type: BrokerDocTypes.ConformityCertificates,
+    label: 'Сертификаты соответствия',
+    required: false,
   },
-])
+  {
+    type: BrokerDocTypes.PermitsAndLicenses,
+    label: 'Разрешения и лицензии',
+    required: false,
+  },
+  {
+    type: BrokerDocTypes.Other,
+    label: 'Иные документы',
+    required: false,
+  },
+] as const
+
+const clientCanUpload = computed(
+  () => !props.readonly && (role.value === 'client' || role.value === 'administrator'),
+)
+
+const brokerCanUpload = computed(
+  () =>
+    !props.readonly &&
+    !brokerSectionClosed.value &&
+    ((role.value === 'broker' && authStore.hasPermission('reestr.write')) ||
+      role.value === 'administrator'),
+)
 
 const documentsBySection = (section: ReestrDocumentSection) =>
   documents.value.filter((d) => d.section === section)
 
-const formatDate = (iso: string) => dayjs(iso).format('DD.MM.YYYY HH:mm')
-
-const formatSize = (bytes: number) => {
-  if (bytes < 1024) {
-    return `${bytes} Б`
-  }
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} КБ`
-  }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
-}
+const documentsByBrokerType = (type: ReestrBrokerDocumentType) =>
+  documents.value.filter(
+    (d) => d.section === 'broker' && (d.brokerDocumentType ?? BrokerDocTypes.Other) === type,
+  )
 
 const canDeleteDocument = (doc: ReestrDocumentDto) => {
   if (!authStore.hasPermission('reestr.write')) {
     return false
   }
   if (role.value === 'client') {
+    return false
+  }
+  if (doc.section === 'broker' && brokerSectionClosed.value) {
     return false
   }
   if (role.value === 'broker') {
@@ -149,7 +180,10 @@ watch(
 )
 
 const beforeUpload =
-  (section: ReestrDocumentSection): UploadProps['beforeUpload'] =>
+  (
+    section: ReestrDocumentSection,
+    brokerDocumentType?: ReestrBrokerDocumentType,
+  ): UploadProps['beforeUpload'] =>
   (file) => {
     const name = file.name.toLowerCase()
     const ok = allowedExtensions.some((ext) => name.endsWith(ext))
@@ -161,14 +195,18 @@ const beforeUpload =
       message.error('Размер файла не должен превышать 10 МБ')
       return false
     }
-    void uploadFile(file as File, section)
+    void uploadFile(file as File, section, brokerDocumentType)
     return false
   }
 
-const uploadFile = async (file: File, section: ReestrDocumentSection) => {
+const uploadFile = async (
+  file: File,
+  section: ReestrDocumentSection,
+  brokerDocumentType?: ReestrBrokerDocumentType,
+) => {
   loading.value = true
   try {
-    await reestrApi.uploadDocument(props.reestrId, section, file)
+    await reestrApi.uploadDocument(props.reestrId, section, file, brokerDocumentType)
     message.success('Документ загружен')
     await fetchDocuments()
   } catch {
@@ -217,5 +255,19 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
 .doc-section-title {
   font-weight: 600;
   color: #262626;
+}
+
+.broker-root-title {
+  margin-bottom: 12px;
+}
+
+.broker-slot {
+  margin-bottom: 16px;
+  padding-left: 8px;
+  border-left: 2px solid #f0f0f0;
+}
+
+.required-mark {
+  color: #ff4d4f;
 }
 </style>

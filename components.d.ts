@@ -39,6 +39,7 @@ declare module 'vue' {
     AUpload: typeof import('ant-design-vue/es')['Upload']
     AUploadDragger: typeof import('ant-design-vue/es')['UploadDragger']
     ExcelUpload: typeof import('./src/components/ExcelUpload.vue')['default']
+    ReestrDocumentList: typeof import('./src/components/ReestrDocumentList.vue')['default']
     ReestrDocumentsPanel: typeof import('./src/components/ReestrDocumentsPanel.vue')['default']
     ReestrForm: typeof import('./src/components/ReestrForm.vue')['default']
     ReestrFormFields: typeof import('./src/components/ReestrFormFields.vue')['default']
