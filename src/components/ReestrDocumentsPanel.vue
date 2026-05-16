@@ -143,12 +143,12 @@ const clientCanUpload = computed(
   () => !props.readonly && (role.value === 'client' || role.value === 'administrator'),
 )
 
+// Брокер грузит по роли — не требуем reestr.write, это его основная работа
 const brokerCanUpload = computed(
   () =>
     !props.readonly &&
     !brokerSectionClosed.value &&
-    ((role.value === 'broker' && authStore.hasPermission('reestr.write')) ||
-      role.value === 'administrator'),
+    (role.value === 'broker' || role.value === 'administrator'),
 )
 
 const documentsBySection = (section: ReestrDocumentSection) =>

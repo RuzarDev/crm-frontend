@@ -113,6 +113,16 @@
                     <FileOutlined />
                   </a-button>
                 </a-tooltip>
+                <a-tooltip v-if="isBroker" title="Документы">
+                  <a-button
+                    type="text"
+                    size="small"
+                    class="action-btn"
+                    @click="openBrokerDocuments(record)"
+                  >
+                    <FileOutlined />
+                  </a-button>
+                </a-tooltip>
                 <a-tooltip v-if="isExpeditor" title="Просмотр">
                   <a-button
                     type="text"
@@ -337,6 +347,7 @@ const canDelete = computed(() => authStore.hasPermission('reestr.delete'))
 const canChangeStatus = computed(() => authStore.hasPermission('status.change'))
 const isClient = computed(() => (authStore.role || '').trim().toLowerCase() === 'client')
 const isExpeditor = computed(() => (authStore.role || '').trim().toLowerCase() === 'expeditor')
+const isBroker = computed(() => (authStore.role || '').trim().toLowerCase() === 'broker')
 const isNonClient = computed(() => (authStore.role || '').trim().toLowerCase() !== 'client')
 const showPortfolioFilters = computed(() => authStore.role === 'expeditor')
 
@@ -347,7 +358,8 @@ const canShowActions = computed(
     canDelete.value ||
     canChangeStatus.value ||
     isClient.value ||
-    isExpeditor.value,
+    isExpeditor.value ||
+    isBroker.value,
 )
 
 const columns = computed(() => {
@@ -375,7 +387,8 @@ const columns = computed(() => {
     {
       title: 'Действия',
       key: 'actions',
-      width: isClient.value || isExpeditor.value ? 60 : canChangeStatus.value ? 120 : 90,
+      // клиент/экспедитор: 1 кнопка=50px; брокер: Документы+Изменить+Статус=3 кнопки; admin: Изменить+Статус+Удалить=3
+      width: isClient.value || isExpeditor.value ? 50 : 130,
       fixed: 'right' as const,
     },
   ]
@@ -468,6 +481,14 @@ const resetFormModalMode = () => {
 const showCreateModal = () => {
   resetFormModalMode()
   currentEntry.value = null
+  formModalOpen.value = true
+}
+
+// Брокер — открывает форму на вкладке документов (не readonly, может загружать)
+const openBrokerDocuments = (record: ReestrEntry) => {
+  resetFormModalMode()
+  currentEntry.value = record
+  formInitialTab.value = 'documents'
   formModalOpen.value = true
 }
 
@@ -607,16 +628,16 @@ const handleFileUpload = async (file: File) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px !important;
-  height: 28px !important;
-  min-width: 28px !important;
-  min-height: 28px !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
   padding: 0 !important;
-  border-radius: 6px !important;
+  border-radius: 7px !important;
   color: var(--atg-muted) !important;
   background: transparent !important;
   border: none !important;
-  font-size: 14px !important;
+  font-size: 16px !important;
   transition: color var(--atg-transition), background var(--atg-transition) !important;
 }
 
