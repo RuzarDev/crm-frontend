@@ -654,32 +654,50 @@ a {
 /* ─── Responsive ─────────────────────────────────────────── */
 
 @media (max-width: 900px) {
+  /* ── Auth mobile layout ─────────────────────────────────── */
   .crm-auth-page {
-    grid-template-columns: 1fr;
-    background: var(--atg-bg);
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    grid-template-columns: unset;
+    background: #f6f5f1;
   }
 
+  /* Тёмная шапка — только логотип + название + короткий заголовок */
   .crm-auth-brand {
+    flex-shrink: 0;
     min-height: auto;
-    padding: 28px 24px 0;
-    color: var(--atg-ink);
+    padding: 20px 20px 24px;
+    background: linear-gradient(145deg, #161210 0%, #111413 55%, #1b201d 100%);
+    border-bottom: 1px solid rgba(245, 231, 201, 0.1);
+    color: #fff8ea;
+    justify-content: flex-start;
+    gap: 16px;
   }
 
-  .crm-auth-brand p {
-    color: var(--atg-muted);
+  .crm-brand-mark {
+    width: 42px !important;
+    height: 42px !important;
+    font-size: 13px !important;
   }
 
-  .crm-auth-brand h1 {
-    font-size: 28px;
-  }
-
+  /* Форма — flex 1, прижата к низу экрана */
   .crm-auth-form-wrap {
+    flex: 1;
+    display: flex;
     align-items: flex-start;
     justify-content: center;
+    padding: 24px 16px 32px;
     min-height: auto;
-    padding: 24px;
   }
 
+  .crm-auth-card {
+    max-width: 100%;
+    border-radius: var(--atg-radius) !important;
+    box-shadow: 0 2px 12px rgba(20, 28, 24, 0.08);
+  }
+
+  /* Page layout */
   .crm-page-header {
     align-items: stretch;
     flex-direction: column;

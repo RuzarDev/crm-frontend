@@ -218,15 +218,23 @@ const goToLogin = () => {
 
 @media (max-width: 900px) {
   .crm-auth-lockup strong {
-    color: var(--atg-ink);
+    color: #fff8ea;
+    font-size: 14px;
   }
 
   .crm-auth-lockup span {
-    color: var(--atg-muted);
+    color: rgba(255, 248, 234, 0.5);
   }
 
+  .crm-auth-hero h1 {
+    font-size: 19px;
+    line-height: 1.3;
+    color: rgba(255, 248, 234, 0.9);
+  }
+
+  .crm-auth-hero p,
   .crm-auth-steps {
-    display: none;
+    display: none !important;
   }
 }
 

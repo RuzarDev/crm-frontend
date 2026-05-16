@@ -187,16 +187,45 @@ const goToRegister = () => {
 }
 
 @media (max-width: 900px) {
+  /* Текст в тёмной шапке */
   .crm-auth-lockup strong {
-    color: var(--atg-ink);
+    color: #fff8ea;
+    font-size: 14px;
   }
 
   .crm-auth-lockup span {
-    color: var(--atg-muted);
+    color: rgba(255, 248, 234, 0.5);
   }
 
+  /* Заголовок — компактный, 2 строки максимум */
+  .crm-auth-hero h1 {
+    font-size: 19px;
+    line-height: 1.3;
+    margin-bottom: 0;
+    color: rgba(255, 248, 234, 0.9);
+  }
+
+  /* Описание убираем — лишнее на мобиле */
+  .crm-auth-hero p {
+    display: none !important;
+  }
+
+  /* Фичи — оставляем, адаптируем под мобилку */
   .crm-auth-features {
-    display: none;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .crm-auth-feature {
+    font-size: 12px;
+    padding: 9px 10px;
+    gap: 7px;
+  }
+
+  .crm-auth-feature-icon {
+    font-size: 13px;
   }
 }
 
