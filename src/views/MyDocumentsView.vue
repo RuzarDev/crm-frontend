@@ -1,8 +1,18 @@
 <template>
-  <div class="my-documents-view">
-    <a-card title="Мои документы" :bordered="false">
+  <div class="my-documents-view crm-page">
+    <div class="crm-page-header">
+      <div>
+        <div class="crm-page-kicker">Клиентский кабинет</div>
+        <h1 class="crm-page-title">Мои документы</h1>
+        <p class="crm-page-subtitle">
+          Файлы по контейнерам, декларациям и брокерским документам с быстрым доступом к скачиванию.
+        </p>
+      </div>
+    </div>
+
+    <a-card class="crm-shell-card" :bordered="false">
       <a-space direction="vertical" style="width: 100%" :size="16">
-        <a-space wrap :size="12">
+        <div class="crm-toolbar crm-toolbar-surface">
           <a-input-search
             v-model:value="search"
             placeholder="Поиск по файлу или контейнеру…"
@@ -18,7 +28,7 @@
             :options="sectionOptions"
             @change="handleFilterChange"
           />
-        </a-space>
+        </div>
 
         <a-table
           :columns="columns"

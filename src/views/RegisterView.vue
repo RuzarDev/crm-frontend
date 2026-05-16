@@ -1,6 +1,37 @@
 <template>
-  <div class="register-container">
-    <a-card class="register-card" title="Регистрация клиента">
+  <div class="crm-auth-page">
+    <section class="crm-auth-brand">
+      <div class="crm-auth-lockup">
+        <div class="crm-brand-mark">ATG</div>
+        <div>
+          <strong>Aqniet Trans Group</strong>
+          <span>Client Access</span>
+        </div>
+      </div>
+      <div class="crm-auth-hero">
+        <h1>Регистрация клиента в CRM</h1>
+        <p>
+          Создайте доступ и выберите экспедитора, чтобы работать с реестром и документами через ATG.
+        </p>
+      </div>
+      <div class="crm-auth-steps">
+        <div class="crm-auth-step">
+          <span class="crm-auth-step-num">01</span>
+          <span>Создайте логин и пароль</span>
+        </div>
+        <div class="crm-auth-step">
+          <span class="crm-auth-step-num">02</span>
+          <span>Выберите своего экспедитора</span>
+        </div>
+        <div class="crm-auth-step">
+          <span class="crm-auth-step-num">03</span>
+          <span>Войдите и работайте с реестром</span>
+        </div>
+      </div>
+    </section>
+
+    <main class="crm-auth-form-wrap">
+      <a-card class="crm-auth-card" title="Регистрация клиента">
       <a-form :model="formState" :rules="rules" @finish="handleRegister" layout="vertical">
         <a-form-item label="Логин" name="username">
           <a-input v-model:value="formState.username" placeholder="Введите логин" size="large">
@@ -53,7 +84,8 @@
           <a-button type="link" block @click="goToLogin"> Уже есть аккаунт? Войти </a-button>
         </a-form-item>
       </a-form>
-    </a-card>
+      </a-card>
+    </main>
   </div>
 </template>
 
@@ -127,17 +159,87 @@ const goToLogin = () => {
 </script>
 
 <style scoped>
+.crm-auth-lockup strong,
+.crm-auth-lockup span {
+  display: block;
+}
+
+.crm-auth-lockup strong {
+  font-size: 15px;
+  font-weight: 750;
+  color: #fff8ea;
+}
+
+.crm-auth-lockup span {
+  margin-top: 3px;
+  color: rgba(255, 248, 234, 0.55);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.crm-auth-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.crm-auth-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.crm-auth-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: rgba(255, 248, 234, 0.72);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.crm-auth-step-num {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(245, 211, 141, 0.3);
+  border-radius: 6px;
+  background: rgba(200, 149, 53, 0.1);
+  color: #f5d38d;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 900px) {
+  .crm-auth-lockup strong {
+    color: var(--atg-ink);
+  }
+
+  .crm-auth-lockup span {
+    color: var(--atg-muted);
+  }
+
+  .crm-auth-steps {
+    display: none;
+  }
+}
+
+/* legacy class kept for older browser snapshots */
 .register-container {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .register-card {
   width: 100%;
   max-width: 420px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 </style>

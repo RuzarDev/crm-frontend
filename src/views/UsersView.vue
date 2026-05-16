@@ -1,8 +1,14 @@
 <template>
-  <div class="users-view">
-    <a-card title="Пользователи" :bordered="false">
-      <template #extra>
-        <a-space>
+  <div class="users-view crm-page">
+    <div class="crm-page-header">
+      <div>
+        <div class="crm-page-kicker">Команда и доступы</div>
+        <h1 class="crm-page-title">Пользователи</h1>
+        <p class="crm-page-subtitle">
+          Управление администраторами, брокерами, клиентами и экспедиторами с привязкой к клиентскому портфелю.
+        </p>
+      </div>
+      <div class="crm-page-actions">
           <a-button v-if="canLinkUsers" @click="openLinkModal">
             <LinkOutlined />
             Привязать к клиенту
@@ -11,9 +17,10 @@
             <PlusOutlined />
             Добавить пользователя
           </a-button>
-        </a-space>
-      </template>
+      </div>
+    </div>
 
+    <a-card class="crm-shell-card" :bordered="false">
       <a-tabs v-model:activeKey="catalogTab" class="catalog-tabs">
         <a-tab-pane key="administrators" tab="Администраторы" />
         <a-tab-pane key="brokers" tab="Брокеры" />
@@ -31,7 +38,7 @@
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'role'">
-            <a-tag color="blue">{{ formatRole(record.role) }}</a-tag>
+            <span class="role-tag" :class="`role-tag--${record.role}`">{{ formatRole(record.role) }}</span>
           </template>
           <template v-else-if="column.key === 'brokers'">
             <span class="relations-cell">{{ formatLinkedPeople('brokers' in record ? record.brokers : undefined) }}</span>
@@ -280,6 +287,15 @@ const editExpeditorForm = reactive({
   clientIds: [] as string[],
 })
 
+const systemRoleOrder = ['client', 'broker', 'expeditor', 'administrator']
+
+const defaultRoleByTab: Record<CatalogTabKey, string> = {
+  administrators: 'administrator',
+  brokers: 'broker',
+  clients: 'client',
+  expeditors: 'expeditor',
+}
+
 const tableRows = computed((): CatalogTableRow[] => {
   switch (catalogTab.value) {
     case 'administrators':
@@ -364,10 +380,13 @@ const canDeleteUser = (record: CatalogTableRow) => {
 }
 
 const roleOptions = computed(() =>
-  rolesStore.roles.map((role) => ({
-    label: `${formatRole(role.name)} (${role.name})`,
-    value: role.name,
-  })),
+  rolesStore.roles
+    .filter((role) => systemRoleOrder.includes(role.name))
+    .sort((a, b) => systemRoleOrder.indexOf(a.name) - systemRoleOrder.indexOf(b.name))
+    .map((role) => ({
+      label: `${formatRole(role.name)} (${role.name})`,
+      value: role.name,
+    })),
 )
 
 onMounted(async () => {
@@ -377,7 +396,7 @@ onMounted(async () => {
 const openCreateModal = () => {
   form.username = ''
   form.password = ''
-  form.role = rolesStore.roles[0]?.name || ''
+  form.role = defaultRoleByTab[catalogTab.value]
   modalOpen.value = true
 }
 
@@ -511,7 +530,6 @@ const handleEditExpeditorSave = async () => {
 
 <style scoped>
 .users-view {
-  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -521,6 +539,40 @@ const handleEditExpeditorSave = async () => {
 
 .relations-cell {
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.75);
+  color: var(--atg-muted);
+}
+
+.role-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.role-tag--administrator {
+  background: rgba(17, 20, 19, 0.08);
+  border-color: rgba(17, 20, 19, 0.15);
+  color: var(--atg-ink);
+}
+
+.role-tag--broker {
+  background: rgba(37, 95, 143, 0.08);
+  border-color: rgba(37, 95, 143, 0.2);
+  color: var(--atg-blue);
+}
+
+.role-tag--expeditor {
+  background: rgba(40, 107, 75, 0.08);
+  border-color: rgba(40, 107, 75, 0.2);
+  color: var(--atg-green);
+}
+
+.role-tag--client {
+  background: var(--atg-accent-soft);
+  border-color: rgba(200, 149, 53, 0.25);
+  color: var(--atg-accent-strong);
 }
 </style>

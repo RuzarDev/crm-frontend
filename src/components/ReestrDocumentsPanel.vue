@@ -1,17 +1,22 @@
 <template>
   <div class="reestr-documents">
     <a-spin :spinning="loading">
-      <a-space direction="vertical" style="width: 100%" :size="16">
+      <a-space direction="vertical" style="width: 100%" :size="12">
+
+        <!-- Client documents section -->
         <div class="doc-section">
           <div class="doc-section-header">
-            <span class="doc-section-title">Документы клиента</span>
+            <div class="doc-section-title-wrap">
+              <span class="doc-section-dot doc-section-dot--client"></span>
+              <span class="doc-section-title">Документы клиента</span>
+            </div>
             <a-upload
               v-if="clientCanUpload"
               :show-upload-list="false"
               :before-upload="beforeUpload('client')"
               :custom-request="() => {}"
             >
-              <a-button size="small" type="primary" ghost>
+              <a-button size="small" class="upload-btn">
                 <UploadOutlined />
                 Загрузить
               </a-button>
@@ -25,21 +30,28 @@
           />
         </div>
 
-        <div class="doc-section">
-          <div class="doc-section-title broker-root-title">Документы брокера</div>
+        <!-- Broker documents section -->
+        <div class="doc-section doc-section--broker">
+          <div class="doc-section-title-wrap broker-root-title">
+            <span class="doc-section-dot doc-section-dot--broker"></span>
+            <span class="doc-section-title">Документы брокера</span>
+          </div>
+
           <div v-for="slot in brokerSlots" :key="slot.type" class="broker-slot">
             <div class="doc-section-header">
-              <span class="doc-section-title">
-                {{ slot.label }}
-                <span v-if="slot.required" class="required-mark">*</span>
-              </span>
+              <div class="doc-section-title-wrap">
+                <span class="doc-slot-label">
+                  {{ slot.label }}
+                  <span v-if="slot.required" class="required-mark">*</span>
+                </span>
+              </div>
               <a-upload
                 v-if="brokerCanUpload"
                 :show-upload-list="false"
                 :before-upload="beforeUpload('broker', slot.type)"
                 :custom-request="() => {}"
               >
-                <a-button size="small" type="primary" ghost>
+                <a-button size="small" class="upload-btn">
                   <UploadOutlined />
                   Загрузить
                 </a-button>
@@ -52,7 +64,13 @@
               @delete="handleDelete"
             />
           </div>
+
+          <div v-if="brokerSectionClosed" class="section-closed-notice">
+            <LockOutlined />
+            Секция закрыта — статус не допускает загрузку
+          </div>
         </div>
+
       </a-space>
     </a-spin>
   </div>
@@ -62,7 +80,7 @@
 import { computed, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
-import { UploadOutlined } from '@ant-design/icons-vue'
+import { UploadOutlined, LockOutlined } from '@ant-design/icons-vue'
 import { reestrApi } from '@/api/reestr'
 import { useAuthStore } from '@/stores/auth'
 import type {
@@ -142,15 +160,9 @@ const documentsByBrokerType = (type: ReestrBrokerDocumentType) =>
   )
 
 const canDeleteDocument = (doc: ReestrDocumentDto) => {
-  if (!authStore.hasPermission('reestr.write')) {
-    return false
-  }
-  if (role.value === 'client') {
-    return false
-  }
-  if (doc.section === 'broker' && brokerSectionClosed.value) {
-    return false
-  }
+  if (!authStore.hasPermission('reestr.write')) return false
+  if (role.value === 'client') return false
+  if (doc.section === 'broker' && brokerSectionClosed.value) return false
   if (role.value === 'broker') {
     return doc.section === 'broker' && doc.uploadedByUserId === authStore.userId
   }
@@ -158,9 +170,7 @@ const canDeleteDocument = (doc: ReestrDocumentDto) => {
 }
 
 const fetchDocuments = async () => {
-  if (!props.reestrId) {
-    return
-  }
+  if (!props.reestrId) return
   loading.value = true
   try {
     documents.value = await reestrApi.listDocuments(props.reestrId)
@@ -171,13 +181,7 @@ const fetchDocuments = async () => {
   }
 }
 
-watch(
-  () => props.reestrId,
-  () => {
-    fetchDocuments()
-  },
-  { immediate: true },
-)
+watch(() => props.reestrId, () => { fetchDocuments() }, { immediate: true })
 
 const beforeUpload =
   (
@@ -245,29 +249,116 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
 </script>
 
 <style scoped>
+.doc-section {
+  padding: 14px 16px;
+  border: 1px solid var(--atg-line);
+  border-radius: var(--atg-radius);
+  background: var(--atg-surface);
+}
+
+.doc-section--broker {
+  background: #fdfbf7;
+}
+
 .doc-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.doc-section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.doc-section-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.doc-section-dot--client {
+  background: var(--atg-blue);
+}
+
+.doc-section-dot--broker {
+  background: var(--atg-accent);
 }
 
 .doc-section-title {
-  font-weight: 600;
-  color: #262626;
+  font-size: 13.5px;
+  font-weight: 750;
+  color: var(--atg-ink);
 }
 
 .broker-root-title {
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .broker-slot {
-  margin-bottom: 16px;
-  padding-left: 8px;
-  border-left: 2px solid #f0f0f0;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--atg-line);
+  border-radius: 7px;
+  background: var(--atg-surface);
+}
+
+.broker-slot:last-child {
+  margin-bottom: 0;
+}
+
+.doc-slot-label {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--atg-charcoal);
 }
 
 .required-mark {
   color: #ff4d4f;
+  margin-left: 2px;
+}
+
+.upload-btn {
+  color: var(--atg-accent-strong);
+  border-color: rgba(200, 149, 53, 0.35);
+  background: var(--atg-accent-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.upload-btn:hover {
+  color: var(--atg-ink) !important;
+  border-color: var(--atg-accent) !important;
+  background: var(--atg-accent-soft) !important;
+}
+
+.section-closed-notice {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--atg-surface-muted);
+  color: var(--atg-muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.doc-section :deep(.ant-list) {
+  border-color: var(--atg-line);
+  border-radius: var(--atg-radius-sm);
+}
+
+.doc-section :deep(.ant-list-item-meta-title) {
+  margin-bottom: 0;
+}
+
+.doc-section :deep(.ant-empty) {
+  margin: 12px 0 4px;
 }
 </style>

@@ -4,14 +4,725 @@
   box-sizing: border-box;
 }
 
+:root {
+  --atg-ink: #111413;
+  --atg-ink-soft: #1a1714;
+  --atg-charcoal: #303a35;
+  --atg-text: #1f2421;
+  --atg-muted: #68706a;
+  --atg-line: #e2ddd4;
+  --atg-line-strong: #d1c8b9;
+  --atg-bg: #f6f5f1;
+  --atg-surface: #fffdfa;
+  --atg-surface-muted: #eee9df;
+  --atg-accent: #c89535;
+  --atg-accent-strong: #a86e12;
+  --atg-accent-soft: #f5e7c9;
+  --atg-green: #286b4b;
+  --atg-green-soft: #dcebe3;
+  --atg-blue: #255f8f;
+  --atg-red: #b84a3c;
+  --atg-shadow: 0 4px 20px rgba(20, 28, 24, 0.07), 0 1px 4px rgba(20, 28, 24, 0.04);
+  --atg-shadow-md: 0 8px 32px rgba(20, 28, 24, 0.1), 0 2px 8px rgba(20, 28, 24, 0.05);
+  --atg-shadow-lg: 0 20px 56px rgba(20, 28, 24, 0.13);
+  --atg-radius: 8px;
+  --atg-radius-sm: 6px;
+  --atg-radius-lg: 12px;
+  --atg-ease: cubic-bezier(0.22, 0.68, 0, 1.12);
+  --atg-transition: 0.16s ease;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
     'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
     'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color: var(--atg-text);
+  background:
+    linear-gradient(135deg, rgba(200, 149, 53, 0.08), transparent 26%),
+    var(--atg-bg);
 }
 
 #app {
   min-height: 100vh;
+}
+
+a {
+  color: var(--atg-accent-strong);
+  transition: color var(--atg-transition);
+}
+
+/* ─── Custom Scrollbar ───────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--atg-line-strong);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--atg-muted);
+}
+
+/* ─── CRM Page Layout ────────────────────────────────────── */
+
+.crm-page {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+.crm-page-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+}
+
+.crm-page-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  color: var(--atg-accent-strong);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.crm-page-kicker::before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+.crm-page-title {
+  margin: 0;
+  color: var(--atg-ink);
+  font-size: 26px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.crm-page-subtitle {
+  max-width: 760px;
+  margin-top: 6px;
+  margin-bottom: 0;
+  color: var(--atg-muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.crm-page-actions,
+.crm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.crm-shell-card {
+  border: 1px solid var(--atg-line);
+  border-top: 3px solid var(--atg-accent);
+  border-radius: var(--atg-radius-lg);
+  box-shadow: var(--atg-shadow-md);
+  overflow: hidden;
+  transition: box-shadow var(--atg-transition);
+}
+
+.crm-shell-card .ant-card-body {
+  padding: 20px;
+}
+
+.crm-toolbar-surface {
+  padding: 10px 14px;
+  border: 1px solid var(--atg-line-strong);
+  border-radius: var(--atg-radius);
+  background: linear-gradient(to right, #edeae2, #f0ece3);
+}
+
+/* ─── Stat Badge ─────────────────────────────────────────── */
+
+.crm-stat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px 10px;
+  border: 1px solid var(--atg-line-strong);
+  border-radius: 999px;
+  background: var(--atg-surface);
+  color: var(--atg-charcoal);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.crm-stat-badge-count {
+  font-size: 15px;
+  font-weight: 750;
+  color: var(--atg-ink);
+}
+
+/* ─── Auth Pages ─────────────────────────────────────────── */
+
+.crm-auth-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(420px, 0.92fr) minmax(520px, 1fr);
+  background:
+    radial-gradient(circle at 18% 10%, rgba(200, 149, 53, 0.18), transparent 30%),
+    linear-gradient(135deg, #101412 0%, #18201c 56%, #f6f5f1 56.2%, #f6f5f1 100%);
+}
+
+.crm-auth-brand {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100vh;
+  padding: clamp(34px, 4vw, 72px);
+  color: #fff8ea;
+}
+
+.crm-auth-lockup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.crm-brand-mark {
+  display: grid;
+  place-items: center;
+  width: clamp(48px, 3vw, 62px);
+  height: clamp(48px, 3vw, 62px);
+  border: 1px solid rgba(245, 231, 201, 0.45);
+  border-radius: 8px;
+  background: rgba(200, 149, 53, 0.16);
+  color: #f5d38d;
+  font-size: clamp(14px, 0.9vw, 18px);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.crm-auth-brand h1 {
+  max-width: 560px;
+  margin: 0 0 14px;
+  font-size: clamp(42px, 3.3vw, 68px);
+  line-height: 1.08;
+  font-weight: 760;
+}
+
+.crm-auth-brand p {
+  max-width: 460px;
+  color: rgba(255, 248, 234, 0.74);
+  font-size: clamp(15px, 1vw, 18px);
+  line-height: 1.65;
+}
+
+.crm-auth-form-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 100vh;
+  padding: clamp(28px, 5vw, 96px);
+}
+
+.crm-auth-card {
+  width: 100%;
+  max-width: 560px;
+  border: 1px solid var(--atg-line);
+  border-radius: var(--atg-radius-lg);
+  box-shadow: var(--atg-shadow-md);
+}
+
+.crm-auth-card .ant-card-body {
+  padding: clamp(24px, 2.2vw, 40px);
+}
+
+.crm-auth-card .ant-card-head {
+  min-height: 64px;
+  border-bottom: 1px solid var(--atg-line);
+  padding: 0 clamp(24px, 2.2vw, 40px);
+}
+
+.crm-auth-card .ant-card-head-title {
+  color: var(--atg-ink);
+  font-size: clamp(20px, 1.35vw, 26px);
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+
+.crm-auth-card .ant-form-item {
+  margin-bottom: 20px;
+}
+
+.crm-auth-card .ant-form-item-label > label {
+  height: auto;
+  color: var(--atg-charcoal);
+  font-size: 14.5px;
+  font-weight: 650;
+}
+
+.crm-auth-card .ant-input-lg,
+.crm-auth-card .ant-input-affix-wrapper-lg,
+.crm-auth-card .ant-select-lg .ant-select-selector {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.crm-auth-card .ant-btn-lg {
+  min-height: 50px;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+/* ─── Ant Design Vue Overrides ───────────────────────────── */
+
+.ant-layout,
+.ant-layout-content {
+  background: transparent;
+}
+
+/* Buttons */
+.ant-btn {
+  min-height: 36px;
+  border-radius: 7px;
+  font-weight: 600;
+  box-shadow: none;
+  transition:
+    background var(--atg-transition),
+    border-color var(--atg-transition),
+    color var(--atg-transition),
+    opacity var(--atg-transition);
+}
+
+.ant-btn-primary {
+  background: var(--atg-ink);
+  border-color: var(--atg-ink);
+}
+
+.ant-btn-primary:not(:disabled):hover,
+.ant-btn-primary:not(:disabled):focus {
+  background: var(--atg-accent-strong);
+  border-color: var(--atg-accent-strong);
+}
+
+.ant-btn-link {
+  color: var(--atg-accent-strong);
+  font-weight: 650;
+}
+
+.ant-btn-link:not(:disabled):hover {
+  color: var(--atg-ink);
+}
+
+.ant-btn-dangerous {
+  color: var(--atg-red);
+}
+
+/* Inputs */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select:not(.ant-select-customize-input) .ant-select-selector,
+.ant-picker {
+  border-color: var(--atg-line-strong);
+  border-radius: 7px;
+  transition:
+    border-color var(--atg-transition),
+    box-shadow var(--atg-transition);
+}
+
+.ant-input:hover,
+.ant-input-affix-wrapper:hover,
+.ant-select:not(.ant-select-disabled):hover .ant-select-selector,
+.ant-picker:hover {
+  border-color: var(--atg-accent);
+}
+
+.ant-input:focus,
+.ant-input-focused,
+.ant-input-affix-wrapper-focused,
+.ant-select-focused:not(.ant-select-disabled) .ant-select-selector,
+.ant-picker-focused {
+  border-color: var(--atg-accent);
+  box-shadow: 0 0 0 3px rgba(200, 149, 53, 0.15);
+}
+
+/* Cards */
+.ant-card {
+  color: var(--atg-text);
+  background: var(--atg-surface);
+}
+
+/* Form */
+.ant-form-item-label > label {
+  font-weight: 600;
+  color: var(--atg-charcoal);
+}
+
+/* ─── Table — full custom override ──────────────────────── */
+
+.ant-table {
+  color: var(--atg-text);
+  font-size: 13.5px;
+}
+
+/* Header */
+.ant-table-thead > tr > th {
+  background: #ddd8ce !important;
+  color: var(--atg-ink) !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  border-bottom: 1px solid #c4bdb0 !important;
+  border-top: none !important;
+  border-right: none !important;
+  border-left: none !important;
+  padding: 9px 12px !important;
+  white-space: nowrap;
+}
+
+/* Rows */
+.ant-table-tbody > tr > td {
+  background: #ffffff;
+  border-bottom: 1px solid #edeae3 !important;
+  border-top: none !important;
+  border-right: none !important;
+  border-left: none !important;
+  padding: 8px 12px !important;
+  transition: background var(--atg-transition);
+}
+
+/* Remove any extra top border on first data row */
+.ant-table-tbody > tr:first-child > td {
+  border-top: none !important;
+}
+
+/* Remove table container border */
+.ant-table-container {
+  border: none !important;
+  border-top: none !important;
+}
+
+.ant-table-container table > thead > tr:first-child > *:first-child,
+.ant-table-container table > thead > tr:first-child > *:last-child {
+  border-radius: 0 !important;
+}
+
+
+.ant-table-tbody > tr:hover > td {
+  background: #fdf5e4 !important;
+}
+
+.ant-table-tbody > tr.ant-table-row-selected > td {
+  background: #fef0cc !important;
+}
+
+/* Fixed left column */
+.ant-table-cell-fix-left {
+  background: #ffffff !important;
+}
+
+.ant-table-tbody > tr:hover .ant-table-cell-fix-left {
+  background: #fdf5e4 !important;
+}
+
+.ant-table-tbody > tr.ant-table-row-selected .ant-table-cell-fix-left {
+  background: #fef0cc !important;
+}
+
+/* Fixed right column */
+.ant-table-cell-fix-right {
+  background: #ffffff !important;
+}
+
+.ant-table-tbody > tr:hover .ant-table-cell-fix-right {
+  background: #fdf5e4 !important;
+}
+
+.ant-table-tbody > tr.ant-table-row-selected .ant-table-cell-fix-right {
+  background: #fef0cc !important;
+}
+
+/* Remove fixed column shadows completely */
+.ant-table-cell-fix-left-last::after {
+  box-shadow: none !important;
+}
+
+.ant-table-cell-fix-right-first::before {
+  box-shadow: none !important;
+}
+
+/* Remove Ant Design's default outer border */
+.ant-table-wrapper .ant-table {
+  border-radius: 0;
+}
+
+/* Checkbox column */
+.ant-table-selection-column {
+  padding-left: 14px !important;
+}
+
+/* Sorter icons */
+.ant-table-column-sorter {
+  color: var(--atg-muted);
+}
+
+.ant-table-column-sorter-up.active,
+.ant-table-column-sorter-down.active {
+  color: var(--atg-accent);
+}
+
+/* Pagination */
+.ant-pagination .ant-pagination-item-active {
+  border-color: var(--atg-accent);
+}
+
+.ant-pagination .ant-pagination-item-active a {
+  color: var(--atg-accent-strong);
+}
+
+/* Tabs */
+.ant-tabs .ant-tabs-tab {
+  font-weight: 650;
+  transition: color var(--atg-transition);
+}
+
+.ant-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn,
+.ant-tabs .ant-tabs-tab:hover {
+  color: var(--atg-accent-strong);
+}
+
+.ant-tabs .ant-tabs-ink-bar {
+  background: var(--atg-accent);
+}
+
+/* Tags */
+.ant-tag {
+  border-radius: 999px;
+  font-weight: 650;
+}
+
+/* Modal */
+.ant-modal .ant-modal-content {
+  border-radius: var(--atg-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--atg-shadow-lg);
+}
+
+.ant-modal .ant-modal-header {
+  border-bottom: 1px solid var(--atg-line);
+  padding-bottom: 16px;
+}
+
+.ant-modal .ant-modal-title {
+  font-size: 17px;
+  font-weight: 750;
+  color: var(--atg-ink);
+  letter-spacing: -0.01em;
+}
+
+.ant-modal .ant-modal-footer {
+  border-top: 1px solid var(--atg-line);
+  padding-top: 14px;
+}
+
+/* Upload */
+.ant-upload-wrapper .ant-upload-drag {
+  border-color: var(--atg-line-strong);
+  border-radius: var(--atg-radius);
+  background: #fbf8f1;
+  transition:
+    border-color var(--atg-transition),
+    background var(--atg-transition);
+}
+
+.ant-upload-wrapper .ant-upload-drag:not(.ant-upload-disabled):hover {
+  border-color: var(--atg-accent);
+  background: var(--atg-accent-soft);
+}
+
+/* Spin */
+.ant-spin-dot-item {
+  background: var(--atg-accent) !important;
+}
+
+/* Select dropdown */
+.ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background: var(--atg-accent-soft) !important;
+  font-weight: 650;
+}
+
+/* Table action link buttons */
+.ant-table .ant-btn-link {
+  font-size: 12.5px;
+  font-weight: 650;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 5px;
+  transition: background var(--atg-transition), color var(--atg-transition);
+}
+
+.ant-table .ant-btn-link:not(:disabled):hover {
+  background: var(--atg-accent-soft);
+  color: var(--atg-accent-strong) !important;
+}
+
+.ant-table .ant-btn-link.ant-btn-dangerous {
+  color: var(--atg-red);
+}
+
+.ant-table .ant-btn-link.ant-btn-dangerous:hover {
+  background: rgba(184, 74, 60, 0.08);
+  color: var(--atg-red) !important;
+}
+
+/* Input search button */
+.ant-input-search .ant-input-search-button {
+  background: var(--atg-ink);
+  border-color: var(--atg-ink);
+  color: #fff;
+  transition:
+    background var(--atg-transition),
+    border-color var(--atg-transition);
+}
+
+.ant-input-search .ant-input-search-button:hover {
+  background: var(--atg-accent-strong);
+  border-color: var(--atg-accent-strong);
+}
+
+/* Drawer — mobile nav */
+.atg-mobile-drawer .ant-drawer-header {
+  background: #1a1714;
+  border-bottom: 1px solid rgba(245, 231, 201, 0.12);
+  padding: 16px 18px;
+}
+
+.atg-mobile-drawer .ant-drawer-title {
+  color: #fff8ea;
+}
+
+.atg-mobile-drawer .ant-drawer-close {
+  color: rgba(255, 248, 234, 0.55);
+}
+
+.atg-mobile-drawer .ant-drawer-close:hover {
+  color: #fff8ea;
+}
+
+.atg-mobile-drawer .ant-drawer-body {
+  background: #211e1a;
+  padding: 12px;
+}
+
+/* ─── Mobile Hamburger ───────────────────────────────────── */
+
+.menu-toggle-btn {
+  display: none;
+  color: #fff8ea;
+  border-color: rgba(255, 248, 234, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  min-height: 38px;
+  min-width: 38px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.menu-toggle-btn:hover {
+  color: #161412 !important;
+  border-color: #f5d38d !important;
+  background: #f5d38d !important;
+}
+
+/* ─── Responsive ─────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .crm-auth-page {
+    grid-template-columns: 1fr;
+    background: var(--atg-bg);
+  }
+
+  .crm-auth-brand {
+    min-height: auto;
+    padding: 28px 24px 0;
+    color: var(--atg-ink);
+  }
+
+  .crm-auth-brand p {
+    color: var(--atg-muted);
+  }
+
+  .crm-auth-brand h1 {
+    font-size: 28px;
+  }
+
+  .crm-auth-form-wrap {
+    align-items: flex-start;
+    justify-content: center;
+    min-height: auto;
+    padding: 24px;
+  }
+
+  .crm-page-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+}
+
+@media (max-width: 860px) {
+  .menu-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .crm-page-title {
+    font-size: 22px;
+  }
+
+  .crm-shell-card .ant-card-body {
+    padding: 14px;
+  }
+
+  .crm-auth-form-wrap {
+    padding: 16px;
+  }
+
+  .crm-auth-card .ant-card-head-title {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .crm-toolbar-surface {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .crm-toolbar-surface .ant-input-search,
+  .crm-toolbar-surface .ant-select,
+  .crm-toolbar-surface .ant-picker-range {
+    width: 100% !important;
+    max-width: none !important;
+  }
 }

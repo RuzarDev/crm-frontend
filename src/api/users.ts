@@ -32,6 +32,14 @@ export const usersApi = {
   },
 
   createUser: async (data: RegisterRequest): Promise<void> => {
+    if (data.role === 'client') {
+      await apiClient.post('/auth/register', {
+        username: data.username,
+        password: data.password,
+      })
+      return
+    }
+
     await apiClient.post('/auth/register/staff', {
       username: data.username,
       password: data.password,

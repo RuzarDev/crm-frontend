@@ -1,14 +1,6 @@
 <template>
   <a-form layout="vertical">
-    <a-space direction="vertical" style="width: 100%" :size="16">
-      <a-alert
-        v-if="!readonly"
-        message="Поля записи"
-        description="Состав полей фиксированный."
-        type="info"
-        show-icon
-      />
-
+    <div class="form-fields-wrap">
       <a-form-item v-if="!readonly && !isEdit && clientOptions?.length" label="Клиент">
         <a-select
           v-model:value="formState.clientId"
@@ -28,23 +20,22 @@
         />
       </a-form-item>
 
-      <div v-for="(_value, key) in formState.fields" :key="key" class="field-row">
-        <a-row :gutter="10" align="middle">
-          <a-col :span="8">
-            <div class="field-label">{{ key }}</div>
-          </a-col>
-          <a-col :span="14">
-            <a-input
-              v-model:value="formState.fields[key]"
-              placeholder="Значение"
-              size="small"
-              :disabled="readonly"
-            />
-          </a-col>
-          <a-col :span="2" />
-        </a-row>
+      <div class="fields-grid">
+        <div
+          v-for="(_value, key) in formState.fields"
+          :key="key"
+          class="field-row"
+        >
+          <div class="field-label">{{ key }}</div>
+          <a-input
+            v-model:value="formState.fields[key]"
+            placeholder="—"
+            size="small"
+            :disabled="readonly"
+          />
+        </div>
       </div>
-    </a-space>
+    </div>
   </a-form>
 </template>
 
@@ -68,17 +59,63 @@ defineProps<{
 </script>
 
 <style scoped>
+.form-fields-wrap {
+  padding: 2px 0;
+}
+
+.fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .field-row {
-  padding: 6px 8px;
-  background: #fafafa;
-  border-radius: 4px;
-  margin-bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  background: var(--atg-bg);
+  border: 1px solid var(--atg-line);
+  border-radius: var(--atg-radius-sm);
+  transition: border-color var(--atg-transition), background var(--atg-transition);
+}
+
+.field-row:focus-within {
+  border-color: var(--atg-accent);
+  background: #fffdf6;
 }
 
 .field-label {
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.2;
-  color: #595959;
-  word-break: break-word;
+  color: var(--atg-muted);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.field-row :deep(.ant-input-sm) {
+  min-height: 28px;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none !important;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--atg-text);
+}
+
+.field-row :deep(.ant-input-sm:focus) {
+  box-shadow: none !important;
+}
+
+.field-row :deep(.ant-input-sm[disabled]) {
+  background: transparent;
+  color: var(--atg-text);
+  cursor: default;
 }
 </style>

@@ -1,8 +1,14 @@
 <template>
-  <div class="reestr-view">
-    <a-card title="Реестр" :bordered="false">
-      <template #extra>
-        <a-space>
+  <div class="reestr-view crm-page">
+    <div class="crm-page-header">
+      <div>
+        <div class="crm-page-kicker">ATG Customs CRM</div>
+        <h1 class="crm-page-title">Реестр</h1>
+        <p class="crm-page-subtitle">
+          Основная рабочая таблица по заявкам, документам, статусам и клиентским декларациям.
+        </p>
+      </div>
+      <div class="crm-page-actions">
           <a-button v-if="canWrite" type="primary" @click="showCreateModal">
             <PlusOutlined />
             Добавить запись
@@ -28,14 +34,15 @@
               Удалить выбранные
             </a-button>
           </a-popconfirm>
-        </a-space>
-      </template>
+      </div>
+    </div>
 
+    <a-card class="crm-shell-card" :bordered="false">
       <a-space direction="vertical" style="width: 100%" :size="16">
-        <a-space wrap align="center" :size="12">
+        <div class="crm-toolbar crm-toolbar-surface">
           <a-input-search
             v-model:value="searchValue"
-            placeholder="Поиск по текстовым полям строки…"
+            placeholder="Поиск по реестру…"
             enter-button="Найти"
             @search="handleSearch"
             style="width: 320px; max-width: 100%"
@@ -64,7 +71,7 @@
               @change="handleDateRangeChange"
             />
           </template>
-        </a-space>
+        </div>
 
         <a-table
           :columns="columns"
@@ -95,39 +102,47 @@
             </template>
 
             <template v-else-if="column.key === 'actions'">
-              <a-space v-if="canShowActions" size="small" wrap>
-                <a-button
-                  v-if="isClient"
-                  type="link"
-                  size="small"
-                  @click="openReadonlyView(record, 'documents')"
-                >
-                  <FileOutlined />
-                  Документы
-                </a-button>
-                <a-button
-                  v-if="isExpeditor"
-                  type="link"
-                  size="small"
-                  @click="openReadonlyView(record, 'documents')"
-                >
-                  <EyeOutlined />
-                  Просмотр
-                </a-button>
-                <a-button v-if="canWrite" type="link" size="small" @click="handleEdit(record)">
-                  <EditOutlined />
-                  Изменить
-                </a-button>
-                <a-button
-                  v-if="canChangeStatus"
-                  type="link"
-                  size="small"
-                  title="Сменить статус"
-                  @click="openStatusModal(record)"
-                >
-                  <SwapOutlined />
-                  Статус
-                </a-button>
+              <div v-if="canShowActions" class="row-actions">
+                <a-tooltip v-if="isClient" title="Документы">
+                  <a-button
+                    type="text"
+                    size="small"
+                    class="action-btn"
+                    @click="openReadonlyView(record, 'documents')"
+                  >
+                    <FileOutlined />
+                  </a-button>
+                </a-tooltip>
+                <a-tooltip v-if="isExpeditor" title="Просмотр">
+                  <a-button
+                    type="text"
+                    size="small"
+                    class="action-btn"
+                    @click="openReadonlyView(record, 'documents')"
+                  >
+                    <EyeOutlined />
+                  </a-button>
+                </a-tooltip>
+                <a-tooltip v-if="canWrite" title="Изменить">
+                  <a-button
+                    type="text"
+                    size="small"
+                    class="action-btn"
+                    @click="handleEdit(record)"
+                  >
+                    <EditOutlined />
+                  </a-button>
+                </a-tooltip>
+                <a-tooltip v-if="canChangeStatus" title="Сменить статус">
+                  <a-button
+                    type="text"
+                    size="small"
+                    class="action-btn"
+                    @click="openStatusModal(record)"
+                  >
+                    <SwapOutlined />
+                  </a-button>
+                </a-tooltip>
                 <a-popconfirm
                   v-if="canDelete"
                   title="Удалить эту запись?"
@@ -135,12 +150,13 @@
                   cancel-text="Нет"
                   @confirm="handleDelete(record.id)"
                 >
-                  <a-button type="link" danger size="small">
-                    <DeleteOutlined />
-                    Удалить
-                  </a-button>
+                  <a-tooltip title="Удалить">
+                    <a-button type="text" size="small" class="action-btn action-btn--danger">
+                      <DeleteOutlined />
+                    </a-button>
+                  </a-tooltip>
                 </a-popconfirm>
-              </a-space>
+              </div>
             </template>
           </template>
         </a-table>
@@ -226,6 +242,7 @@ import { formatReestrCellForDisplay } from '@/utils/reestrFormat'
 import { reestrDataToUpsertBody, REESTR_STATUS_OPTIONS } from '@/utils/reestrDtoMap'
 import { reestrApi } from '@/api/reestr'
 import type { TableProps } from 'ant-design-vue'
+import { message } from 'ant-design-vue'
 
 const reestrStore = useReestrStore()
 const authStore = useAuthStore()
@@ -253,6 +270,53 @@ const reestrStatusSelectOptions = REESTR_STATUS_OPTIONS
 
 const orderedFieldColumns: string[] = [...REESTR_COLUMN_KEYS]
 
+// Колонки где важно видеть полное значение — без обрезания
+const fullWidthFields = new Set(['ТД', 'Подкод'])
+
+const fieldColumnWidths: Record<string, number> = {
+  '№':                                  60,
+  'Дата':                               108,
+  'Контейнер':                          148,
+  'Получатель':                         190,
+  'Станция назначения':                 150,
+  'Отправитель':                        170,
+  'Отправка':                           108,
+  'Груз':                               150,
+  'Подкод':                             210,
+  'Код ТНВЭД':                          110,
+  'Количество мест':                    90,
+  'Вес':                                80,
+  'ТД':                                 210,
+  'Кол-во ТД':                          110,
+  'Цена одной ТД, с НДС':              120,
+  'Количество доп.листов':              110,
+  'Цена одного доп.листа, с НДС':      140,
+  'Всего, ДЛ с НДС':                   120,
+  'Итого, с НДС':                       110,
+}
+
+const fieldColumnLabels: Record<string, string> = {
+  '№':                                  '№',
+  'Дата':                               'Дата',
+  'Контейнер':                          'Контейнер',
+  'Получатель':                         'Получатель',
+  'Станция назначения':                 'Ст. назнач.',
+  'Отправитель':                        'Отправитель',
+  'Отправка':                           'Отправка',
+  'Груз':                               'Груз',
+  'Подкод':                             'Подкод',
+  'Код ТНВЭД':                          'ТНВЭД',
+  'Количество мест':                    'Мест',
+  'Вес':                                'Вес',
+  'ТД':                                 'ТД',
+  'Кол-во ТД':                          'Кол-во ТД',
+  'Цена одной ТД, с НДС':              'Цена ТД',
+  'Количество доп.листов':              'Доп. листы',
+  'Цена одного доп.листа, с НДС':      'Цена доп.листа',
+  'Всего, ДЛ с НДС':                   'Всего ДЛ',
+  'Итого, с НДС':                       'Итого',
+}
+
 const dynamicFieldColumns = computed(() => {
   const keysFromData = new Set<string>()
   for (const entry of reestrStore.entries) {
@@ -261,10 +325,10 @@ const dynamicFieldColumns = computed(() => {
   const ordered = orderedFieldColumns.filter((key) => keysFromData.has(key))
   const extra = [...keysFromData].filter((key) => !orderedFieldColumns.includes(key))
   return [...ordered, ...extra].map((key) => ({
-    title: key,
+    title: fieldColumnLabels[key] ?? key,
     key: `field:${key}`,
-    width: 180,
-    ellipsis: true,
+    width: fieldColumnWidths[key] ?? 150,
+    ellipsis: !fullWidthFields.has(key),
   }))
 })
 
@@ -273,12 +337,10 @@ const canDelete = computed(() => authStore.hasPermission('reestr.delete'))
 const canChangeStatus = computed(() => authStore.hasPermission('status.change'))
 const isClient = computed(() => (authStore.role || '').trim().toLowerCase() === 'client')
 const isExpeditor = computed(() => (authStore.role || '').trim().toLowerCase() === 'expeditor')
+const isNonClient = computed(() => (authStore.role || '').trim().toLowerCase() !== 'client')
 const showPortfolioFilters = computed(() => authStore.role === 'expeditor')
 
-const needsUploadClient = computed(() => {
-  const role = (authStore.role || '').trim().toLowerCase()
-  return role !== 'client' && createClientOptions.value.length > 0
-})
+const needsUploadClient = computed(() => isNonClient.value)
 const canShowActions = computed(
   () =>
     canWrite.value ||
@@ -293,17 +355,15 @@ const columns = computed(() => {
     {
       title: '№',
       key: 'rowNumber',
-      width: 70,
+      width: 56,
       fixed: 'left' as const,
     },
-    ...dynamicFieldColumns.value,
     {
       title: 'Статус',
       key: 'reestrStatus',
-      width: 148,
-      align: 'center' as const,
-      ellipsis: true,
+      width: 186,
     },
+    ...dynamicFieldColumns.value,
   ]
 
   if (!canShowActions.value) {
@@ -315,7 +375,7 @@ const columns = computed(() => {
     {
       title: 'Действия',
       key: 'actions',
-      width: isClient.value || isExpeditor.value ? 120 : canChangeStatus.value ? 220 : 180,
+      width: isClient.value || isExpeditor.value ? 60 : canChangeStatus.value ? 120 : 90,
       fixed: 'right' as const,
     },
   ]
@@ -342,12 +402,17 @@ const pagination = computed(() => ({
   pageSizeOptions: ['10', '20', '50', '100'],
 }))
 
+const loadCreateClients = async () => {
+  if (!authStore.hasPermission('reestr.write') || !isNonClient.value) {
+    return
+  }
+  const clients = await reestrApi.listClientsForCreate()
+  createClientOptions.value = clients.map((c) => ({ value: c.id, label: c.username }))
+}
+
 onMounted(async () => {
   reestrStore.fetchList()
-  if (authStore.hasPermission('reestr.write')) {
-    const clients = await reestrApi.listClientsForCreate()
-    createClientOptions.value = clients.map((c) => ({ value: c.id, label: c.username }))
-  }
+  await loadCreateClients()
   if (showPortfolioFilters.value) {
     const clients = await reestrApi.listFilterClients()
     filterClientOptions.value = clients.map((c) => ({ value: c.id, label: c.username }))
@@ -413,7 +478,10 @@ const openReadonlyView = (record: ReestrEntry, tab: 'data' | 'documents' = 'docu
   formModalOpen.value = true
 }
 
-const showUploadModal = () => {
+const showUploadModal = async () => {
+  if (needsUploadClient.value && createClientOptions.value.length === 0) {
+    await loadCreateClients()
+  }
   uploadClientId.value = createClientOptions.value[0]?.value
   uploadModalOpen.value = true
 }
@@ -513,6 +581,7 @@ const handleDeleteSelected = async () => {
 
 const handleFileUpload = async (file: File) => {
   if (needsUploadClient.value && !uploadClientId.value) {
+    message.error('Выберите клиента для импорта')
     return
   }
   const clientId = needsUploadClient.value ? uploadClientId.value : undefined
@@ -525,7 +594,43 @@ const handleFileUpload = async (file: File) => {
 
 <style scoped>
 .reestr-view {
-  max-width: 1400px;
   margin: 0 auto;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  border-radius: 6px !important;
+  color: var(--atg-muted) !important;
+  background: transparent !important;
+  border: none !important;
+  font-size: 14px !important;
+  transition: color var(--atg-transition), background var(--atg-transition) !important;
+}
+
+.action-btn:hover {
+  color: var(--atg-accent-strong) !important;
+  background: var(--atg-accent-soft) !important;
+}
+
+.action-btn--danger {
+  color: var(--atg-muted) !important;
+}
+
+.action-btn--danger:hover {
+  color: var(--atg-red) !important;
+  background: rgba(184, 74, 60, 0.08) !important;
 }
 </style>
