@@ -2,11 +2,7 @@
   <div class="crm-auth-page">
     <section class="crm-auth-brand">
       <div class="crm-auth-lockup">
-        <div class="crm-brand-mark">ATG</div>
-        <div>
-          <strong>Aqniet Trans Group</strong>
-          <span>Client Access</span>
-        </div>
+        <AtgLogo :dark="true" :height="42" />
       </div>
       <div class="crm-auth-hero">
         <h1>Регистрация клиента в CRM</h1>
@@ -96,6 +92,7 @@ import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api/auth'
 import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
+import AtgLogo from '@/components/AtgLogo.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -159,24 +156,8 @@ const goToLogin = () => {
 </script>
 
 <style scoped>
-.crm-auth-lockup strong,
-.crm-auth-lockup span {
-  display: block;
-}
-
-.crm-auth-lockup strong {
-  font-size: 15px;
-  font-weight: 750;
-  color: #fff8ea;
-}
-
-.crm-auth-lockup span {
-  margin-top: 3px;
-  color: rgba(255, 248, 234, 0.55);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+.crm-auth-lockup {
+  padding-bottom: 4px;
 }
 
 .crm-auth-hero {
@@ -196,7 +177,7 @@ const goToLogin = () => {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: rgba(255, 248, 234, 0.72);
+  color: rgba(240, 243, 255, 0.72);
   font-size: 14px;
   font-weight: 600;
 }
@@ -206,10 +187,10 @@ const goToLogin = () => {
   place-items: center;
   width: 28px;
   height: 28px;
-  border: 1px solid rgba(245, 211, 141, 0.3);
+  border: 1px solid rgba(2, 171, 201, 0.35);
   border-radius: 6px;
-  background: rgba(200, 149, 53, 0.1);
-  color: #f5d38d;
+  background: rgba(2, 171, 201, 0.12);
+  color: #02abc9;
   font-size: 11px;
   font-weight: 800;
   flex-shrink: 0;
@@ -217,19 +198,10 @@ const goToLogin = () => {
 }
 
 @media (max-width: 900px) {
-  .crm-auth-lockup strong {
-    color: #fff8ea;
-    font-size: 14px;
-  }
-
-  .crm-auth-lockup span {
-    color: rgba(255, 248, 234, 0.5);
-  }
-
   .crm-auth-hero h1 {
     font-size: 19px;
     line-height: 1.3;
-    color: rgba(255, 248, 234, 0.9);
+    color: rgba(240, 243, 255, 0.9);
   }
 
   .crm-auth-hero p,

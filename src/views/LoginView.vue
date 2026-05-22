@@ -2,12 +2,7 @@
   <div class="crm-auth-page">
     <section class="crm-auth-brand">
       <div class="crm-auth-lockup">
-        <div class="crm-brand-mark">ATG</div>
-        <div>
-          <strong>Aqniet Trans Group</strong>
-          <span>Customs CRM</span>
-        </div>
-      </div>
+        <AtgLogo :dark="true" :height="42" /></div>
       <div class="crm-auth-hero">
         <h1>Операционная CRM для таможенной логистики</h1>
         <p>
@@ -100,6 +95,7 @@ import {
   SafetyCertificateOutlined,
   FileExcelOutlined,
 } from '@ant-design/icons-vue'
+import AtgLogo from '@/components/AtgLogo.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -133,24 +129,8 @@ const goToRegister = () => {
 </script>
 
 <style scoped>
-.crm-auth-lockup strong,
-.crm-auth-lockup span {
-  display: block;
-}
-
-.crm-auth-lockup strong {
-  font-size: 15px;
-  font-weight: 750;
-  color: #fff8ea;
-}
-
-.crm-auth-lockup span {
-  margin-top: 3px;
-  color: rgba(255, 248, 234, 0.55);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+.crm-auth-lockup {
+  padding-bottom: 4px;
 }
 
 .crm-auth-hero {
@@ -182,21 +162,11 @@ const goToRegister = () => {
 .crm-auth-feature-icon {
   font-size: 15px;
   flex-shrink: 0;
-  color: #f5d38d;
-  opacity: 0.85;
+  color: #02abc9;
+  opacity: 0.9;
 }
 
 @media (max-width: 900px) {
-  /* Текст в тёмной шапке */
-  .crm-auth-lockup strong {
-    color: #fff8ea;
-    font-size: 14px;
-  }
-
-  .crm-auth-lockup span {
-    color: rgba(255, 248, 234, 0.5);
-  }
-
   /* Заголовок — компактный, 2 строки максимум */
   .crm-auth-hero h1 {
     font-size: 19px;

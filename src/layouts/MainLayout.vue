@@ -2,7 +2,7 @@
   <a-layout class="main-layout app-shell">
     <a-layout-header class="app-header">
       <div class="brand">
-        <div class="brand-mark">ATG</div>
+        <AtgLogo :dark="true" :compact="true" :height="34" />
         <div class="brand-text">
           <div class="brand-title">Aqniet Trans Group</div>
           <div class="brand-subtitle">CRM Operations</div>
@@ -54,7 +54,7 @@
   >
     <template #title>
       <div class="drawer-brand">
-        <div class="drawer-brand-mark">ATG</div>
+        <AtgLogo :dark="true" :compact="true" :height="28" />
         <div>
           <div class="drawer-brand-title">Aqniet Trans Group</div>
           <div class="drawer-brand-sub">CRM Operations</div>
@@ -95,6 +95,7 @@ import {
   TeamOutlined,
 } from '@ant-design/icons-vue'
 import { formatRole } from '@/utils/labels'
+import AtgLogo from '@/components/AtgLogo.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -181,7 +182,7 @@ const handleLogout = () => {
 
 .app-shell {
   background:
-    linear-gradient(148deg, rgba(200, 149, 53, 0.06), transparent 24%),
+    linear-gradient(148deg, rgba(2, 171, 201, 0.04), transparent 26%),
     var(--atg-bg);
 }
 
@@ -198,35 +199,19 @@ const handleLogout = () => {
   min-height: 64px;
   padding: 0 24px;
   line-height: normal;
-  background: linear-gradient(135deg, #161210 0%, #111413 60%, #1a1f1c 100%);
-  border-bottom: 1px solid rgba(245, 231, 201, 0.1);
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(135deg, #1d213d 0%, #252944 60%, #2d3260 100%);
+  border-bottom: 1px solid rgba(2, 171, 201, 0.15);
+  box-shadow: 0 2px 20px rgba(29, 33, 61, 0.5);
 }
 
 /* Brand */
 .brand {
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: 14px;
   min-width: 0;
-  color: #fff8ea;
+  color: #f0f3ff;
   flex-shrink: 0;
-}
-
-.brand-mark {
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border: 1px solid rgba(245, 211, 141, 0.4);
-  border-radius: 8px;
-  background: linear-gradient(135deg, rgba(200, 149, 53, 0.25), rgba(200, 149, 53, 0.1));
-  color: #f5d38d;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  box-shadow: 0 0 12px rgba(200, 149, 53, 0.2), inset 0 1px 0 rgba(255, 248, 234, 0.1);
 }
 
 .brand-text {
@@ -235,7 +220,7 @@ const handleLogout = () => {
 
 .brand-title {
   display: block;
-  color: #fff8ea;
+  color: #f0f3ff;
   font-size: 15px;
   font-weight: 760;
   line-height: 1.25;
@@ -245,7 +230,7 @@ const handleLogout = () => {
 .brand-subtitle {
   display: block;
   margin-top: 3px;
-  color: rgba(255, 248, 234, 0.52);
+  color: rgba(240, 243, 255, 0.48);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -263,7 +248,7 @@ const handleLogout = () => {
 }
 
 .username {
-  color: rgba(255, 248, 234, 0.85);
+  color: rgba(240, 243, 255, 0.82);
   font-size: 13.5px;
   font-weight: 650;
   white-space: nowrap;
@@ -277,10 +262,10 @@ const handleLogout = () => {
   align-items: center;
   min-height: 30px;
   padding: 0 13px;
-  border: 1px solid rgba(245, 211, 141, 0.35);
+  border: 1px solid rgba(2, 171, 201, 0.35);
   border-radius: 999px;
-  color: #e8b94a;
-  background: rgba(200, 149, 53, 0.12);
+  color: #02abc9;
+  background: rgba(2, 171, 201, 0.1);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -289,8 +274,8 @@ const handleLogout = () => {
 }
 
 .logout-button {
-  color: rgba(255, 248, 234, 0.8);
-  border-color: rgba(255, 248, 234, 0.16);
+  color: rgba(240, 243, 255, 0.75);
+  border-color: rgba(240, 243, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
   transition:
     color var(--atg-transition),
@@ -299,19 +284,19 @@ const handleLogout = () => {
 }
 
 .logout-button:hover {
-  color: #161412 !important;
-  border-color: #f5d38d !important;
-  background: #f5d38d !important;
+  color: #1d213d !important;
+  border-color: #fdc31a !important;
+  background: #fdc31a !important;
 }
 
 /* ─── Sider ──────────────────────────────────────────────── */
 
 .sider {
-  background: linear-gradient(180deg, #1d1a16 0%, #181510 100%);
-  border-right: 1px solid rgba(245, 231, 201, 0.08);
+  background: linear-gradient(180deg, #1d213d 0%, #252944 100%);
+  border-right: 1px solid rgba(2, 171, 201, 0.1);
   display: flex;
   flex-direction: column;
-  box-shadow: 2px 0 16px rgba(0, 0, 0, 0.18);
+  box-shadow: 2px 0 16px rgba(29, 33, 61, 0.25);
 }
 
 .sider :deep(.ant-layout-sider-children) {
@@ -328,14 +313,14 @@ const handleLogout = () => {
 .sider :deep(.ant-menu) {
   border-inline-end: 0;
   background: transparent;
-  color: rgba(255, 248, 234, 0.65);
+  color: rgba(240, 243, 255, 0.6);
 }
 
 .sider :deep(.ant-menu-item) {
   height: 42px;
   margin: 3px 0;
   border-radius: 8px;
-  color: rgba(255, 248, 234, 0.65);
+  color: rgba(240, 243, 255, 0.6);
   font-size: 14px;
   font-weight: 600;
   transition:
@@ -350,8 +335,8 @@ const handleLogout = () => {
 }
 
 .sider :deep(.ant-menu-item:hover) {
-  color: #fff8ea !important;
-  background: rgba(255, 248, 234, 0.07) !important;
+  color: #f0f3ff !important;
+  background: rgba(240, 243, 255, 0.07) !important;
 }
 
 .sider :deep(.ant-menu-item:hover .anticon) {
@@ -359,10 +344,10 @@ const handleLogout = () => {
 }
 
 .sider :deep(.ant-menu-item-selected) {
-  color: #1a1714 !important;
-  background: linear-gradient(90deg, #f5d38d, #e8b94a) !important;
+  color: #1d213d !important;
+  background: linear-gradient(90deg, #fdc31a, #f0b500) !important;
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(200, 149, 53, 0.35);
+  box-shadow: 0 2px 8px rgba(253, 195, 26, 0.35);
 }
 
 .sider :deep(.ant-menu-item-selected .anticon) {
@@ -372,7 +357,7 @@ const handleLogout = () => {
 /* Sider footer */
 .sider-footer {
   padding: 12px 10px;
-  border-top: 1px solid rgba(245, 231, 201, 0.1);
+  border-top: 1px solid rgba(2, 171, 201, 0.12);
   margin-top: 8px;
 }
 
@@ -381,14 +366,14 @@ const handleLogout = () => {
   font-weight: 750;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--atg-accent);
+  color: #02abc9;
   margin-bottom: 3px;
 }
 
 .sider-footer-user {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 248, 234, 0.6);
+  color: rgba(240, 243, 255, 0.55);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -410,25 +395,10 @@ const handleLogout = () => {
   gap: 12px;
 }
 
-.drawer-brand-mark {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgba(245, 231, 201, 0.3);
-  border-radius: 7px;
-  background: rgba(200, 149, 53, 0.15);
-  color: #f5d38d;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  flex-shrink: 0;
-}
-
 .drawer-brand-title {
   font-size: 14px;
   font-weight: 760;
-  color: #fff8ea;
+  color: #f0f3ff;
   line-height: 1.3;
 }
 
@@ -437,33 +407,33 @@ const handleLogout = () => {
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 248, 234, 0.5);
+  color: rgba(240, 243, 255, 0.45);
   margin-top: 2px;
 }
 
 .drawer-menu {
   border-inline-end: 0 !important;
   background: transparent !important;
-  color: rgba(255, 248, 234, 0.65) !important;
+  color: rgba(240, 243, 255, 0.6) !important;
 }
 
 .drawer-menu :deep(.ant-menu-item) {
   height: 44px;
   margin: 3px 0;
   border-radius: 8px;
-  color: rgba(255, 248, 234, 0.65);
+  color: rgba(240, 243, 255, 0.6);
   font-size: 14px;
   font-weight: 600;
 }
 
 .drawer-menu :deep(.ant-menu-item:hover) {
-  color: #fff8ea !important;
-  background: rgba(255, 248, 234, 0.07) !important;
+  color: #f0f3ff !important;
+  background: rgba(240, 243, 255, 0.07) !important;
 }
 
 .drawer-menu :deep(.ant-menu-item-selected) {
-  color: #1a1714 !important;
-  background: #f5d38d !important;
+  color: #1d213d !important;
+  background: #fdc31a !important;
   font-weight: 700;
 }
 
@@ -473,8 +443,8 @@ const handleLogout = () => {
   left: 0;
   right: 0;
   padding: 14px 12px 18px;
-  border-top: 1px solid rgba(245, 231, 201, 0.1);
-  background: #1d1a16;
+  border-top: 1px solid rgba(2, 171, 201, 0.12);
+  background: #1d213d;
 }
 
 .drawer-footer-role {
@@ -482,14 +452,14 @@ const handleLogout = () => {
   font-weight: 750;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--atg-accent);
+  color: #02abc9;
   margin-bottom: 2px;
 }
 
 .drawer-footer-user {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 248, 234, 0.55);
+  color: rgba(240, 243, 255, 0.5);
   margin-bottom: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -497,15 +467,15 @@ const handleLogout = () => {
 }
 
 .drawer-logout {
-  color: rgba(255, 248, 234, 0.75);
-  border-color: rgba(255, 248, 234, 0.15);
+  color: rgba(240, 243, 255, 0.7);
+  border-color: rgba(240, 243, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
 }
 
 .drawer-logout:hover {
-  color: #161412 !important;
-  border-color: #f5d38d !important;
-  background: #f5d38d !important;
+  color: #1d213d !important;
+  border-color: #fdc31a !important;
+  background: #fdc31a !important;
 }
 
 /* ─── Responsive ─────────────────────────────────────────── */
