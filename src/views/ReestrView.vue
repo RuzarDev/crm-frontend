@@ -128,9 +128,19 @@
                     type="text"
                     size="small"
                     class="action-btn"
-                    @click="openReadonlyView(record, 'documents')"
+                    @click="openReadonlyView(record, 'data')"
                   >
                     <EyeOutlined />
+                  </a-button>
+                </a-tooltip>
+                <a-tooltip v-if="isExpeditor" title="Документы">
+                  <a-button
+                    type="text"
+                    size="small"
+                    class="action-btn"
+                    @click="openExpeditorDocuments(record)"
+                  >
+                    <FileOutlined />
                   </a-button>
                 </a-tooltip>
                 <a-tooltip v-if="canWrite" title="Изменить">
@@ -486,6 +496,14 @@ const showCreateModal = () => {
 
 // Брокер — открывает форму на вкладке документов (не readonly, может загружать)
 const openBrokerDocuments = (record: ReestrEntry) => {
+  resetFormModalMode()
+  currentEntry.value = record
+  formInitialTab.value = 'documents'
+  formModalOpen.value = true
+}
+
+// Экспедитор — открывает форму на вкладке документов (может загружать в секцию клиента)
+const openExpeditorDocuments = (record: ReestrEntry) => {
   resetFormModalMode()
   currentEntry.value = record
   formInitialTab.value = 'documents'

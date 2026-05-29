@@ -187,10 +187,10 @@ const goToLogin = () => {
   place-items: center;
   width: 28px;
   height: 28px;
-  border: 1px solid rgba(2, 171, 201, 0.35);
+  border: 1px solid rgba(43, 188, 212, 0.35);
   border-radius: 6px;
-  background: rgba(2, 171, 201, 0.12);
-  color: #02abc9;
+  background: rgba(43, 188, 212, 0.12);
+  color: #2BBCD4;
   font-size: 11px;
   font-weight: 800;
   flex-shrink: 0;

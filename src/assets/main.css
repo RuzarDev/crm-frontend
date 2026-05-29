@@ -5,49 +5,72 @@
 }
 
 :root {
-  --atg-ink: #1d213d;
-  --atg-ink-soft: #252944;
-  --atg-charcoal: #3d4267;
-  --atg-text: #1d213d;
-  --atg-muted: #666665;
-  --atg-line: #dde1ec;
-  --atg-line-strong: #c4cad9;
-  --atg-bg: #f2f4fa;
-  --atg-surface: #ffffff;
+  /* ── Brandbook official colors (ATG_Brandbook.pdf) ──────── */
+  --atg-navy:          #1B2A4A;   /* Основной синий — sidebar, header     */
+  --atg-teal:          #2BBCD4;   /* Бирюзовый — primary accent, buttons  */
+  --atg-teal-dark:     #1FA8C0;   /* Бирюзовый тёмный                     */
+  --atg-teal-soft:     #DFF5FA;   /* Бирюзовый очень светлый              */
+  --atg-gold:          #C9A84C;   /* Золотой — secondary accent           */
+  --atg-gold-soft:     #F5EDD9;   /* Золотой светлый                      */
+  --atg-gray:          #8C8C8C;   /* Серый                                */
+
+  /* ── Semantic aliases ───────────────────────────────────── */
+  --atg-ink:           #1B2A4A;
+  --atg-ink-soft:      #243560;
+  --atg-charcoal:      #2D3F6A;
+  --atg-text:          #1B2A4A;
+  --atg-muted:         #8C8C8C;
+  --atg-line:          #dde1ec;
+  --atg-line-strong:   #c4cad9;
+  --atg-bg:            #f3f5f9;
+  --atg-surface:       #ffffff;
   --atg-surface-muted: #eaecf5;
-  --atg-accent: #fdc31a;
-  --atg-accent-strong: #c99300;
-  --atg-accent-soft: #fff8d9;
-  --atg-cyan: #02abc9;
-  --atg-cyan-soft: #ddf5fa;
-  --atg-green: #286b4b;
-  --atg-green-soft: #dcebe3;
-  --atg-blue: #02abc9;
-  --atg-red: #b84a3c;
-  --atg-shadow: 0 4px 20px rgba(29, 33, 61, 0.07), 0 1px 4px rgba(29, 33, 61, 0.04);
-  --atg-shadow-md: 0 8px 32px rgba(29, 33, 61, 0.1), 0 2px 8px rgba(29, 33, 61, 0.05);
-  --atg-shadow-lg: 0 20px 56px rgba(29, 33, 61, 0.14);
-  --atg-radius: 8px;
+
+  /* Primary accent = Teal */
+  --atg-accent:        #2BBCD4;
+  --atg-accent-strong: #1FA8C0;
+  --atg-accent-soft:   #DFF5FA;
+
+  /* Legacy aliases */
+  --atg-cyan:          #2BBCD4;
+  --atg-cyan-soft:     #DFF5FA;
+  --atg-blue:          #2BBCD4;
+  --atg-green:         #286b4b;
+  --atg-green-soft:    #dcebe3;
+  --atg-red:           #b84a3c;
+
+  --atg-shadow:    0 4px 20px rgba(27, 42, 74, 0.07), 0 1px 4px rgba(27, 42, 74, 0.04);
+  --atg-shadow-md: 0 8px 32px rgba(27, 42, 74, 0.1),  0 2px 8px rgba(27, 42, 74, 0.05);
+  --atg-shadow-lg: 0 20px 56px rgba(27, 42, 74, 0.14);
+  --atg-radius:    8px;
   --atg-radius-sm: 6px;
   --atg-radius-lg: 12px;
-  --atg-ease: cubic-bezier(0.22, 0.68, 0, 1.12);
+  --atg-ease:      cubic-bezier(0.22, 0.68, 0, 1.12);
   --atg-transition: 0.16s ease;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
     'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
     'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: var(--atg-text);
   background:
-    linear-gradient(135deg, rgba(2, 171, 201, 0.05), transparent 28%),
+    linear-gradient(135deg, rgba(43, 188, 212, 0.04), transparent 28%),
     var(--atg-bg);
 }
 
 #app {
   min-height: 100vh;
+}
+
+/* Force Manrope for all Ant Design components */
+.ant-btn, .ant-input, .ant-select, .ant-table, .ant-menu, .ant-modal,
+.ant-form, .ant-typography, .ant-tag, .ant-dropdown, .ant-tooltip,
+.ant-card, .ant-tabs, .ant-pagination, .ant-checkbox-wrapper, .ant-radio-wrapper,
+.ant-message, .ant-notification, .ant-drawer, .ant-popover {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 
 a {
@@ -187,8 +210,8 @@ a {
   display: grid;
   grid-template-columns: minmax(420px, 0.92fr) minmax(520px, 1fr);
   background:
-    radial-gradient(circle at 18% 10%, rgba(2, 171, 201, 0.22), transparent 32%),
-    linear-gradient(135deg, #1d213d 0%, #252944 56%, #f2f4fa 56.2%, #f2f4fa 100%);
+    radial-gradient(circle at 18% 10%, rgba(43, 188, 212, 0.22), transparent 32%),
+    linear-gradient(135deg, #1B2A4A 0%, #243560 56%, #f3f5f9 56.2%, #f3f5f9 100%);
 }
 
 .crm-auth-brand {
@@ -211,10 +234,10 @@ a {
   place-items: center;
   width: clamp(48px, 3vw, 62px);
   height: clamp(48px, 3vw, 62px);
-  border: 1px solid rgba(2, 171, 201, 0.35);
+  border: 1px solid rgba(43, 188, 212, 0.35);
   border-radius: 8px;
-  background: rgba(2, 171, 201, 0.12);
-  color: #02abc9;
+  background: rgba(43, 188, 212, 0.12);
+  color: #2BBCD4;
   font-size: clamp(14px, 0.9vw, 18px);
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -314,14 +337,15 @@ a {
 }
 
 .ant-btn-primary {
-  background: var(--atg-ink);
-  border-color: var(--atg-ink);
+  background: var(--atg-teal);
+  border-color: var(--atg-teal);
+  color: #ffffff;
 }
 
 .ant-btn-primary:not(:disabled):hover,
 .ant-btn-primary:not(:disabled):focus {
-  background: var(--atg-accent-strong);
-  border-color: var(--atg-accent-strong);
+  background: var(--atg-teal-dark);
+  border-color: var(--atg-teal-dark);
 }
 
 .ant-btn-link {
@@ -362,7 +386,7 @@ a {
 .ant-select-focused:not(.ant-select-disabled) .ant-select-selector,
 .ant-picker-focused {
   border-color: var(--atg-cyan);
-  box-shadow: 0 0 0 3px rgba(2, 171, 201, 0.15);
+  box-shadow: 0 0 0 3px rgba(43, 188, 212, 0.15);
 }
 
 /* Cards */
@@ -612,8 +636,8 @@ a {
 
 /* Drawer — mobile nav */
 .atg-mobile-drawer .ant-drawer-header {
-  background: #1d213d;
-  border-bottom: 1px solid rgba(2, 171, 201, 0.15);
+  background: #1B2A4A;
+  border-bottom: 1px solid rgba(43, 188, 212, 0.18);
   padding: 16px 18px;
 }
 
@@ -630,7 +654,7 @@ a {
 }
 
 .atg-mobile-drawer .ant-drawer-body {
-  background: #252944;
+  background: #1E3060;
   padding: 12px;
 }
 
@@ -648,9 +672,9 @@ a {
 }
 
 .menu-toggle-btn:hover {
-  color: #1d213d !important;
-  border-color: #fdc31a !important;
-  background: #fdc31a !important;
+  color: #1B2A4A !important;
+  border-color: #C9A84C !important;
+  background: #C9A84C !important;
 }
 
 /* ─── Responsive ─────────────────────────────────────────── */
@@ -670,8 +694,8 @@ a {
     flex-shrink: 0;
     min-height: auto;
     padding: 20px 20px 24px;
-    background: linear-gradient(145deg, #1d213d 0%, #252944 55%, #2d3260 100%);
-    border-bottom: 1px solid rgba(2, 171, 201, 0.15);
+    background: linear-gradient(145deg, #1B2A4A 0%, #1E3060 55%, #243575 100%);
+    border-bottom: 1px solid rgba(43, 188, 212, 0.18);
     color: #f0f3ff;
     justify-content: flex-start;
     gap: 16px;

@@ -88,6 +88,7 @@ import { useAuthStore } from '@/stores/auth'
 import {
   DatabaseOutlined,
   FileDoneOutlined,
+  ForkOutlined,
   LogoutOutlined,
   MenuOutlined,
   SafetyCertificateOutlined,
@@ -111,6 +112,14 @@ const menuItems = computed(() => {
       label: 'Реестр',
     },
   ]
+
+  if ((authStore.role || '').trim().toLowerCase() === 'admin') {
+    items.splice(1, 0, {
+      key: '/process-flow',
+      icon: () => h(ForkOutlined),
+      label: 'Процесс',
+    })
+  }
 
   if ((authStore.role || '').trim().toLowerCase() === 'client') {
     items.push({
@@ -152,6 +161,7 @@ const roleLabel = computed(() => formatRole(authStore.role || ''))
 const selectedMenuKey = computed(() => {
   if (route.path.startsWith('/my-documents')) return '/my-documents'
   if (route.path.startsWith('/clients')) return '/clients'
+  if (route.path.startsWith('/process-flow')) return '/process-flow'
   if (route.path.startsWith('/roles')) return '/roles'
   if (route.path.startsWith('/users')) return '/users'
   return '/reestr'
@@ -182,7 +192,7 @@ const handleLogout = () => {
 
 .app-shell {
   background:
-    linear-gradient(148deg, rgba(2, 171, 201, 0.04), transparent 26%),
+    linear-gradient(148deg, rgba(43, 188, 212, 0.04), transparent 26%),
     var(--atg-bg);
 }
 
@@ -199,9 +209,9 @@ const handleLogout = () => {
   min-height: 64px;
   padding: 0 24px;
   line-height: normal;
-  background: linear-gradient(135deg, #1d213d 0%, #252944 60%, #2d3260 100%);
-  border-bottom: 1px solid rgba(2, 171, 201, 0.15);
-  box-shadow: 0 2px 20px rgba(29, 33, 61, 0.5);
+  background: linear-gradient(135deg, #1B2A4A 0%, #1E3060 60%, #243575 100%);
+  border-bottom: 2px solid #2BBCD4;
+  box-shadow: 0 2px 20px rgba(27, 42, 74, 0.5);
 }
 
 /* Brand */
@@ -262,10 +272,10 @@ const handleLogout = () => {
   align-items: center;
   min-height: 30px;
   padding: 0 13px;
-  border: 1px solid rgba(2, 171, 201, 0.35);
+  border: 1px solid rgba(43, 188, 212, 0.45);
   border-radius: 999px;
-  color: #02abc9;
-  background: rgba(2, 171, 201, 0.1);
+  color: #2BBCD4;
+  background: rgba(43, 188, 212, 0.12);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -284,30 +294,37 @@ const handleLogout = () => {
 }
 
 .logout-button:hover {
-  color: #1d213d !important;
-  border-color: #fdc31a !important;
-  background: #fdc31a !important;
+  color: #1B2A4A !important;
+  border-color: #2BBCD4 !important;
+  background: #2BBCD4 !important;
 }
 
 /* ─── Sider ──────────────────────────────────────────────── */
 
 .sider {
-  background: linear-gradient(180deg, #1d213d 0%, #252944 100%);
-  border-right: 1px solid rgba(2, 171, 201, 0.1);
+  position: sticky;
+  top: 64px;
+  align-self: flex-start;
+  height: calc(100vh - 64px);
+  overflow: hidden;
+  background: linear-gradient(180deg, #1B2A4A 0%, #132040 100%);
+  border-right: 1px solid rgba(43, 188, 212, 0.14);
   display: flex;
   flex-direction: column;
-  box-shadow: 2px 0 16px rgba(29, 33, 61, 0.25);
+  box-shadow: 2px 0 16px rgba(27, 42, 74, 0.25);
 }
 
 .sider :deep(.ant-layout-sider-children) {
   display: flex;
   flex-direction: column;
   padding: 12px;
-  height: 100%;
+  height: calc(100vh - 64px);
 }
 
 .sider-nav {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .sider :deep(.ant-menu) {
@@ -344,10 +361,10 @@ const handleLogout = () => {
 }
 
 .sider :deep(.ant-menu-item-selected) {
-  color: #1d213d !important;
-  background: linear-gradient(90deg, #fdc31a, #f0b500) !important;
+  color: #ffffff !important;
+  background: linear-gradient(90deg, #2BBCD4, #1FA8C0) !important;
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(253, 195, 26, 0.35);
+  box-shadow: 0 2px 8px rgba(43, 188, 212, 0.35);
 }
 
 .sider :deep(.ant-menu-item-selected .anticon) {
@@ -357,7 +374,7 @@ const handleLogout = () => {
 /* Sider footer */
 .sider-footer {
   padding: 12px 10px;
-  border-top: 1px solid rgba(2, 171, 201, 0.12);
+  border-top: 1px solid rgba(43, 188, 212, 0.18);
   margin-top: 8px;
 }
 
@@ -366,7 +383,7 @@ const handleLogout = () => {
   font-weight: 750;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #02abc9;
+  color: #2BBCD4;
   margin-bottom: 3px;
 }
 
@@ -432,8 +449,8 @@ const handleLogout = () => {
 }
 
 .drawer-menu :deep(.ant-menu-item-selected) {
-  color: #1d213d !important;
-  background: #fdc31a !important;
+  color: #ffffff !important;
+  background: linear-gradient(90deg, #2BBCD4, #1FA8C0) !important;
   font-weight: 700;
 }
 
@@ -443,8 +460,8 @@ const handleLogout = () => {
   left: 0;
   right: 0;
   padding: 14px 12px 18px;
-  border-top: 1px solid rgba(2, 171, 201, 0.12);
-  background: #1d213d;
+  border-top: 1px solid rgba(43, 188, 212, 0.18);
+  background: #1B2A4A;
 }
 
 .drawer-footer-role {
@@ -452,7 +469,7 @@ const handleLogout = () => {
   font-weight: 750;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #02abc9;
+  color: #2BBCD4;
   margin-bottom: 2px;
 }
 
@@ -473,9 +490,9 @@ const handleLogout = () => {
 }
 
 .drawer-logout:hover {
-  color: #1d213d !important;
-  border-color: #fdc31a !important;
-  background: #fdc31a !important;
+  color: #1B2A4A !important;
+  border-color: #2BBCD4 !important;
+  background: #2BBCD4 !important;
 }
 
 /* ─── Responsive ─────────────────────────────────────────── */

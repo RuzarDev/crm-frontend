@@ -162,7 +162,7 @@ const goToRegister = () => {
 .crm-auth-feature-icon {
   font-size: 15px;
   flex-shrink: 0;
-  color: #02abc9;
+  color: #2BBCD4;
   opacity: 0.9;
 }
 

@@ -42,6 +42,12 @@ const router = createRouter({
           meta: { requiresRole: 'expeditor' },
         },
         {
+          path: '/process-flow',
+          name: 'process-flow',
+          component: () => import('@/views/ProcessFlowView.vue'),
+          meta: { requiresRole: 'admin' },
+        },
+        {
           path: '/roles',
           name: 'roles',
           component: () => import('@/views/RolesView.vue'),
