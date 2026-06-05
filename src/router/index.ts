@@ -31,6 +31,21 @@ const router = createRouter({
           component: () => import('@/views/ReestrView.vue'),
         },
         {
+          path: '/document-packages',
+          name: 'document-packages',
+          component: () => import('@/views/DocumentPackagesView.vue'),
+        },
+        {
+          path: '/import-40',
+          name: 'import-40',
+          component: () => import('@/views/Import40ListView.vue'),
+        },
+        {
+          path: '/import-40/:id',
+          name: 'import-40-detail',
+          component: () => import('@/views/Import40View.vue'),
+        },
+        {
           path: '/my-documents',
           name: 'my-documents',
           component: () => import('@/views/MyDocumentsView.vue'),
@@ -40,12 +55,6 @@ const router = createRouter({
           name: 'clients',
           component: () => import('@/views/ClientsView.vue'),
           meta: { requiresRole: 'expeditor' },
-        },
-        {
-          path: '/process-flow',
-          name: 'process-flow',
-          component: () => import('@/views/ProcessFlowView.vue'),
-          meta: { requiresRole: 'admin' },
         },
         {
           path: '/roles',

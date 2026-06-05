@@ -18,6 +18,7 @@ export interface LoginResponse {
   accessToken: string
   expiresAtUtc: string
   role: string
+  businessRole: string
   permissions: string[]
 }
 
@@ -280,6 +281,48 @@ export interface ReestrStatusHistoryDto {
   changedByRole: string
   changedByUsername: string | null
   changedAtUtc: string
+}
+
+export type DocumentPackageStatus = 'uploaded' | 'accepted' | 'needsFix' | 'processed'
+
+export interface DocumentPackageFileDto {
+  id: string
+  packageId: string
+  originalFileName: string
+  contentType: string
+  sizeBytes: number
+  uploadedByUserId: string
+  uploadedAtUtc: string
+}
+
+export interface DocumentPackageDto {
+  id: string
+  trainNumber: string
+  comment: string | null
+  status: DocumentPackageStatus
+  createdByExpeditorId: string
+  createdByExpeditorUsername: string
+  createdAtUtc: string
+  updatedAtUtc: string
+  reviewedByUserId: string | null
+  reviewedAtUtc: string | null
+  reviewComment: string | null
+  files: DocumentPackageFileDto[]
+}
+
+export interface DocumentPackageListResponse {
+  items: DocumentPackageDto[]
+  totalCount: number
+}
+
+export interface CreateDocumentPackageRequest {
+  trainNumber: string
+  comment?: string | null
+}
+
+export interface ChangeDocumentPackageStatusRequest {
+  status: DocumentPackageStatus
+  reviewComment?: string | null
 }
 
 export interface RoleItem {

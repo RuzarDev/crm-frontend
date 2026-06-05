@@ -87,8 +87,9 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import {
   DatabaseOutlined,
+  FileAddOutlined,
   FileDoneOutlined,
-  ForkOutlined,
+  ImportOutlined,
   LogoutOutlined,
   MenuOutlined,
   SafetyCertificateOutlined,
@@ -105,6 +106,7 @@ const authStore = useAuthStore()
 const mobileNavOpen = ref(false)
 
 const menuItems = computed(() => {
+  const role = (authStore.role || '').trim().toLowerCase()
   const items = [
     {
       key: '/reestr',
@@ -113,15 +115,21 @@ const menuItems = computed(() => {
     },
   ]
 
-  if ((authStore.role || '').trim().toLowerCase() === 'admin') {
-    items.splice(1, 0, {
-      key: '/process-flow',
-      icon: () => h(ForkOutlined),
-      label: 'Процесс',
+  if (['expeditor', 'broker', 'administrator'].includes(role)) {
+    items.push({
+      key: '/document-packages',
+      icon: () => h(FileAddOutlined),
+      label: 'Пакеты документов',
     })
   }
 
-  if ((authStore.role || '').trim().toLowerCase() === 'client') {
+  items.push({
+    key: '/import-40',
+    icon: () => h(ImportOutlined),
+    label: 'Импорт',
+  })
+
+  if (role === 'client') {
     items.push({
       key: '/my-documents',
       icon: () => h(FileDoneOutlined),
@@ -129,7 +137,7 @@ const menuItems = computed(() => {
     })
   }
 
-  if ((authStore.role || '').trim().toLowerCase() === 'expeditor') {
+  if (role === 'expeditor') {
     items.push({
       key: '/clients',
       icon: () => h(SolutionOutlined),
@@ -161,7 +169,8 @@ const roleLabel = computed(() => formatRole(authStore.role || ''))
 const selectedMenuKey = computed(() => {
   if (route.path.startsWith('/my-documents')) return '/my-documents'
   if (route.path.startsWith('/clients')) return '/clients'
-  if (route.path.startsWith('/process-flow')) return '/process-flow'
+  if (route.path.startsWith('/document-packages')) return '/document-packages'
+  if (route.path.startsWith('/import-40')) return '/import-40'
   if (route.path.startsWith('/roles')) return '/roles'
   if (route.path.startsWith('/users')) return '/users'
   return '/reestr'
