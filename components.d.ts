@@ -7,9 +7,16 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
+    AAlert: typeof import('ant-design-vue/es')['Alert']
+    ABreadcrumb: typeof import('ant-design-vue/es')['Breadcrumb']
+    ABreadcrumbItem: typeof import('ant-design-vue/es')['BreadcrumbItem']
     AButton: typeof import('ant-design-vue/es')['Button']
     ACard: typeof import('ant-design-vue/es')['Card']
     ACheckbox: typeof import('ant-design-vue/es')['Checkbox']
+    ACol: typeof import('ant-design-vue/es')['Col']
+    ADescriptions: typeof import('ant-design-vue/es')['Descriptions']
+    ADescriptionsItem: typeof import('ant-design-vue/es')['DescriptionsItem']
+    ADivider: typeof import('ant-design-vue/es')['Divider']
     ADrawer: typeof import('ant-design-vue/es')['Drawer']
     AEmpty: typeof import('ant-design-vue/es')['Empty']
     AForm: typeof import('ant-design-vue/es')['Form']
@@ -29,6 +36,8 @@ declare module 'vue' {
     APopconfirm: typeof import('ant-design-vue/es')['Popconfirm']
     AProgress: typeof import('ant-design-vue/es')['Progress']
     ARangePicker: typeof import('ant-design-vue/es')['RangePicker']
+    AResult: typeof import('ant-design-vue/es')['Result']
+    ARow: typeof import('ant-design-vue/es')['Row']
     ASelect: typeof import('ant-design-vue/es')['Select']
     ASpace: typeof import('ant-design-vue/es')['Space']
     ASpin: typeof import('ant-design-vue/es')['Spin']
@@ -38,6 +47,7 @@ declare module 'vue' {
     ATag: typeof import('ant-design-vue/es')['Tag']
     AtgLogo: typeof import('./src/components/AtgLogo.vue')['default']
     ATooltip: typeof import('ant-design-vue/es')['Tooltip']
+    ATypographyText: typeof import('ant-design-vue/es')['TypographyText']
     AUpload: typeof import('ant-design-vue/es')['Upload']
     AUploadDragger: typeof import('ant-design-vue/es')['UploadDragger']
     ExcelUpload: typeof import('./src/components/ExcelUpload.vue')['default']
@@ -49,5 +59,6 @@ declare module 'vue' {
     ReestrStatusHistoryPanel: typeof import('./src/components/ReestrStatusHistoryPanel.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    TnvedDeprecationAlert: typeof import('./src/components/TnvedDeprecationAlert.vue')['default']
   }
 }

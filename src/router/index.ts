@@ -48,6 +48,11 @@ const router = createRouter({
           meta: { requiresRole: 'admin' },
         },
         {
+          path: '/tnved/export',
+          name: 'tnved-export',
+          component: () => import('@/views/TnvedExportView.vue'),
+        },
+        {
           path: '/roles',
           name: 'roles',
           component: () => import('@/views/RolesView.vue'),

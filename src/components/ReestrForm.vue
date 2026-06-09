@@ -17,6 +17,7 @@
     <a-tabs v-if="showTabs" v-model:activeKey="activeTab">
       <a-tab-pane key="data" tab="Данные">
         <div class="form-body">
+          <TnvedDeprecationAlert :warning="entry?.deprecationWarning" />
           <ReestrFormFields
             :form-state="formState"
             :is-edit="isEdit"
@@ -67,6 +68,7 @@ import { message } from 'ant-design-vue'
 import ReestrDocumentsPanel from '@/components/ReestrDocumentsPanel.vue'
 import ReestrStatusHistoryPanel from '@/components/ReestrStatusHistoryPanel.vue'
 import ReestrFormFields from '@/components/ReestrFormFields.vue'
+import TnvedDeprecationAlert from '@/components/TnvedDeprecationAlert.vue'
 
 type ViewMode = 'default' | 'client' | 'readonly'
 type FormTab = 'data' | 'documents'

@@ -124,6 +124,32 @@ export const ReestrEntryStatus = {
 
 export type ReestrEntryStatus = (typeof ReestrEntryStatus)[keyof typeof ReestrEntryStatus]
 
+export interface TnvedDeprecationWarningDto {
+  deprecatedCode: string
+  replacementCodes: string[]
+  sourceVersion: string | null
+}
+
+export interface TnvedNodeDto {
+  id: number
+  code: string
+  treeName: string
+  name: string
+  parentId: number | null
+  is10: boolean
+  isLast: boolean
+  unitShort: string | null
+  nodeLevel: number
+}
+
+export interface TnvedTransitionDto {
+  oldCode: string
+  newCodes: string[]
+  isDeprecated: boolean
+  sourceVersion: string | null
+  effectiveDate: string | null
+}
+
 export interface ReestrEntryDto {
   id: string
   createdAtUtc: string
@@ -150,6 +176,7 @@ export interface ReestrEntryDto {
   clientId: string
   createdByUserId?: string | null
   createdByRole?: string | null
+  deprecationWarning?: TnvedDeprecationWarningDto | null
 }
 
 export interface ReestrEntry {
@@ -158,6 +185,7 @@ export interface ReestrEntry {
   status: ReestrEntryStatus
   clientId: string
   data: Record<string, string | null>
+  deprecationWarning?: TnvedDeprecationWarningDto | null
 }
 
 export interface ReestrUpsertBody {

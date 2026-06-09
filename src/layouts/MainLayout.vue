@@ -89,6 +89,7 @@ import {
   DatabaseOutlined,
   FileDoneOutlined,
   ForkOutlined,
+  GlobalOutlined,
   LogoutOutlined,
   MenuOutlined,
   SafetyCertificateOutlined,
@@ -137,6 +138,12 @@ const menuItems = computed(() => {
     })
   }
 
+  items.push({
+    key: '/tnved/export',
+    icon: () => h(GlobalOutlined),
+    label: 'ТН ВЭД Экспорт',
+  })
+
   if (authStore.hasPermission('users.read')) {
     items.push({
       key: '/roles',
@@ -162,6 +169,7 @@ const selectedMenuKey = computed(() => {
   if (route.path.startsWith('/my-documents')) return '/my-documents'
   if (route.path.startsWith('/clients')) return '/clients'
   if (route.path.startsWith('/process-flow')) return '/process-flow'
+  if (route.path.startsWith('/tnved/export')) return '/tnved/export'
   if (route.path.startsWith('/roles')) return '/roles'
   if (route.path.startsWith('/users')) return '/users'
   return '/reestr'
