@@ -10,6 +10,31 @@
       </div>
 
       <div class="header-right">
+        <a-dropdown
+          trigger="click"
+          placement="bottomRight"
+          @open-change="(o: boolean) => o && loadNotifications()"
+        >
+          <a-badge :count="unreadCount" :offset="[-2, 4]">
+            <a-button type="text" class="bell-btn"><BellOutlined /></a-button>
+          </a-badge>
+          <template #overlay>
+            <div class="notif-dropdown">
+              <div class="notif-head">Уведомления</div>
+              <div v-if="!notifications.length" class="notif-empty">Нет уведомлений</div>
+              <div
+                v-for="n in notifications"
+                :key="n.id"
+                class="notif-item"
+                :class="{ 'notif-unread': !n.isRead }"
+                @click="onNotificationClick(n)"
+              >
+                <div class="notif-title">{{ n.title }}</div>
+                <div class="notif-body">{{ n.body }}</div>
+              </div>
+            </div>
+          </template>
+        </a-dropdown>
         <span class="role-badge">{{ roleLabel }}</span>
         <span class="username">{{ authStore.username }}</span>
         <a-button class="logout-button" @click="handleLogout">
@@ -82,10 +107,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref } from 'vue'
+import { computed, h, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import {
+  BankOutlined,
+  BellOutlined,
+  DashboardOutlined,
   DatabaseOutlined,
   FileAddOutlined,
   FileDoneOutlined,
@@ -95,17 +123,55 @@ import {
   SafetyCertificateOutlined,
   SolutionOutlined,
   TeamOutlined,
-  DashboardOutlined,
-  BankOutlined,
 } from '@ant-design/icons-vue'
 import { formatRole } from '@/utils/labels'
 import AtgLogo from '@/components/AtgLogo.vue'
+import { notificationsApi } from '@/api/notifications'
+import type { AppNotification } from '@/types/api'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
 const mobileNavOpen = ref(false)
+
+const notifications = ref<AppNotification[]>([])
+const unreadCount = ref(0)
+let pollTimer: number | undefined
+
+const refreshUnread = async () => {
+  try {
+    unreadCount.value = await notificationsApi.unreadCount()
+  } catch {
+    /* ignore */
+  }
+}
+const loadNotifications = async () => {
+  try {
+    notifications.value = await notificationsApi.list()
+    unreadCount.value = notifications.value.filter((n) => !n.isRead).length
+  } catch {
+    /* ignore */
+  }
+}
+const onNotificationClick = async (n: AppNotification) => {
+  try {
+    await notificationsApi.markRead(n.id)
+  } catch {
+    /* ignore */
+  }
+  await refreshUnread()
+  if (n.reestrEntryId) router.push({ path: '/reestr', query: { highlight: n.reestrEntryId } })
+  else router.push('/reestr')
+}
+
+onMounted(() => {
+  refreshUnread()
+  pollTimer = window.setInterval(refreshUnread, 60000)
+})
+onUnmounted(() => {
+  if (pollTimer) window.clearInterval(pollTimer)
+})
 
 const menuItems = computed(() => {
   const role = (authStore.role || '').trim().toLowerCase()
@@ -328,6 +394,66 @@ const handleLogout = () => {
   color: #1B2A4A !important;
   border-color: #2BBCD4 !important;
   background: #2BBCD4 !important;
+}
+
+/* ─── Notifications ──────────────────────────────────────── */
+
+.bell-btn {
+  font-size: 18px;
+  color: rgba(240, 243, 255, 0.82);
+}
+
+.bell-btn:hover,
+.bell-btn:focus {
+  color: #2bbcd4;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.notif-dropdown {
+  width: 320px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--atg-line);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(27, 42, 74, 0.12);
+}
+
+.notif-head {
+  padding: 10px 14px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--atg-line);
+}
+
+.notif-empty {
+  padding: 18px;
+  text-align: center;
+  color: var(--atg-muted);
+}
+
+.notif-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--atg-line);
+  cursor: pointer;
+}
+
+.notif-item:hover {
+  background: var(--atg-bg);
+}
+
+.notif-unread {
+  background: rgba(43, 188, 212, 0.06);
+}
+
+.notif-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.notif-body {
+  font-size: 12px;
+  color: var(--atg-charcoal);
+  margin-top: 2px;
 }
 
 /* ─── Sider ──────────────────────────────────────────────── */
