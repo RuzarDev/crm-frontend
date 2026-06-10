@@ -95,6 +95,8 @@ import {
   SafetyCertificateOutlined,
   SolutionOutlined,
   TeamOutlined,
+  DashboardOutlined,
+  BankOutlined,
 } from '@ant-design/icons-vue'
 import { formatRole } from '@/utils/labels'
 import AtgLogo from '@/components/AtgLogo.vue'
@@ -107,13 +109,21 @@ const mobileNavOpen = ref(false)
 
 const menuItems = computed(() => {
   const role = (authStore.role || '').trim().toLowerCase()
-  const items = [
-    {
-      key: '/reestr',
-      icon: () => h(DatabaseOutlined),
-      label: 'Реестр',
-    },
-  ]
+  const items = []
+
+  if (role === 'administrator') {
+    items.push({
+      key: '/analytics',
+      icon: () => h(DashboardOutlined),
+      label: 'Аналитика',
+    })
+  }
+
+  items.push({
+    key: '/reestr',
+    icon: () => h(DatabaseOutlined),
+    label: 'Реестр',
+  })
 
   if (['expeditor', 'broker', 'administrator'].includes(role)) {
     items.push({
@@ -123,11 +133,21 @@ const menuItems = computed(() => {
     })
   }
 
-  items.push({
-    key: '/import-40',
-    icon: () => h(ImportOutlined),
-    label: 'Импорт',
-  })
+  if (role === 'administrator') {
+    items.push({
+      key: '/import-40',
+      icon: () => h(ImportOutlined),
+      label: 'Импорт',
+    })
+  }
+
+  if (role === 'administrator') {
+    items.push({
+      key: '/references',
+      icon: () => h(BankOutlined),
+      label: 'Справочники',
+    })
+  }
 
   if (role === 'client') {
     items.push({
@@ -167,10 +187,12 @@ const menuItems = computed(() => {
 const roleLabel = computed(() => formatRole(authStore.role || ''))
 
 const selectedMenuKey = computed(() => {
+  if (route.path.startsWith('/analytics')) return '/analytics'
   if (route.path.startsWith('/my-documents')) return '/my-documents'
   if (route.path.startsWith('/clients')) return '/clients'
   if (route.path.startsWith('/document-packages')) return '/document-packages'
   if (route.path.startsWith('/import-40')) return '/import-40'
+  if (route.path.startsWith('/references')) return '/references'
   if (route.path.startsWith('/roles')) return '/roles'
   if (route.path.startsWith('/users')) return '/users'
   return '/reestr'
@@ -241,7 +263,7 @@ const handleLogout = () => {
   display: block;
   color: #f0f3ff;
   font-size: 15px;
-  font-weight: 760;
+  font-weight: 700;
   line-height: 1.25;
   white-space: nowrap;
 }
@@ -269,7 +291,7 @@ const handleLogout = () => {
 .username {
   color: rgba(240, 243, 255, 0.82);
   font-size: 13.5px;
-  font-weight: 650;
+  font-weight: 600;
   white-space: nowrap;
   max-width: 160px;
   overflow: hidden;
@@ -389,7 +411,7 @@ const handleLogout = () => {
 
 .sider-footer-role {
   font-size: 10.5px;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #2BBCD4;
@@ -423,14 +445,14 @@ const handleLogout = () => {
 
 .drawer-brand-title {
   font-size: 14px;
-  font-weight: 760;
+  font-weight: 700;
   color: #f0f3ff;
   line-height: 1.3;
 }
 
 .drawer-brand-sub {
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(240, 243, 255, 0.45);
@@ -475,7 +497,7 @@ const handleLogout = () => {
 
 .drawer-footer-role {
   font-size: 10px;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: #2BBCD4;

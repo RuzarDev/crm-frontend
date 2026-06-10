@@ -26,6 +26,12 @@ const router = createRouter({
           redirect: '/reestr',
         },
         {
+          path: '/analytics',
+          name: 'analytics',
+          component: () => import('@/views/AnalyticsView.vue'),
+          meta: { requiresRole: 'administrator' },
+        },
+        {
           path: '/reestr',
           name: 'reestr',
           component: () => import('@/views/ReestrView.vue'),
@@ -36,14 +42,21 @@ const router = createRouter({
           component: () => import('@/views/DocumentPackagesView.vue'),
         },
         {
+          path: '/document-packages/:id/workspace',
+          name: 'document-packages-workspace',
+          component: () => import('@/views/DocumentPackageWorkspaceView.vue'),
+        },
+        {
           path: '/import-40',
           name: 'import-40',
           component: () => import('@/views/Import40ListView.vue'),
+          meta: { requiresRole: 'administrator' },
         },
         {
           path: '/import-40/:id',
           name: 'import-40-detail',
           component: () => import('@/views/Import40View.vue'),
+          meta: { requiresRole: 'administrator' },
         },
         {
           path: '/my-documents',
@@ -67,6 +80,12 @@ const router = createRouter({
           name: 'users',
           component: () => import('@/views/UsersView.vue'),
           meta: { requiresPermission: 'users.write' },
+        },
+        {
+          path: '/references',
+          name: 'references',
+          component: () => import('@/views/ReferencesView.vue'),
+          meta: { requiresRole: 'administrator' },
         },
       ],
     },

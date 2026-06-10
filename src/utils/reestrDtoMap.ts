@@ -58,6 +58,7 @@ export function reestrDtoToData(dto: ReestrEntryDto): Record<string, string | nu
   m['Контейнер'] = dto.container
   m['Получатель'] = dto.consignee
   m['Станция назначения'] = dto.destinationStation
+  m['Пост'] = dto.customsPost ?? null
   m['Отправитель'] = dto.shipper
   m['Отправка'] = dto.shipmentInfo
   m['Груз'] = dto.cargoDescription
@@ -109,6 +110,7 @@ export function reestrEntryToUpsertBody(entry: ReestrEntry): ReestrUpsertBody {
     container: d['Контейнер'],
     consignee: d['Получатель'],
     destinationStation: d['Станция назначения'],
+    customsPost: d['Пост'],
     shipper: d['Отправитель'],
     shipmentInfo: d['Отправка'],
     cargoDescription: d['Груз'],
