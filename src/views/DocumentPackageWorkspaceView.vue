@@ -36,7 +36,24 @@
     </div>
 
     <a-spin :spinning="loading">
-      <div v-if="packageData" class="workspace-grid">
+      <div v-if="packageData" class="workspace-split" :class="{ 'split-active': splitOpen }">
+        <div v-if="splitOpen" class="split-file-pane">
+          <div class="split-file-head">
+            <span class="split-file-name">{{ previewFile?.originalFileName }}</span>
+            <a-button size="small" @click="closeSplit">Закрыть просмотр</a-button>
+          </div>
+          <div class="split-file-body">
+            <a-spin v-if="previewLoading" />
+            <iframe v-else-if="isPdf(previewFile) && previewUrl" :src="previewUrl" class="split-frame"></iframe>
+            <img v-else-if="isImage(previewFile) && previewUrl" :src="previewUrl" class="split-img" />
+            <div v-else class="split-fallback">
+              <p>Предпросмотр недоступен.</p>
+              <a-button type="primary" @click="downloadPreviewFile">Скачать файл</a-button>
+            </div>
+          </div>
+        </div>
+        <div class="split-content-pane">
+      <div class="workspace-grid">
         <!-- LEFT SIDE: Files list -->
         <a-card class="crm-shell-card files-card" :bordered="false">
           <template #title>
@@ -87,13 +104,23 @@
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
                       <a-tooltip title="Просмотр документа">
-                        <a-button 
-                          size="small" 
-                          type="text" 
+                        <a-button
+                          size="small"
+                          type="text"
                           style="padding: 0 4px; height: 20px; line-height: 20px; display: inline-flex; align-items: center; justify-content: center;"
                           @click.stop="openPreview(item)"
                         >
                           <template #icon><EyeOutlined /></template>
+                        </a-button>
+                      </a-tooltip>
+                      <a-tooltip title="Открыть рядом">
+                        <a-button
+                          size="small"
+                          type="text"
+                          style="padding: 0 4px; height: 20px; line-height: 20px; display: inline-flex; align-items: center; justify-content: center;"
+                          @click.stop="openSplit(item)"
+                        >
+                          <template #icon><ColumnWidthOutlined /></template>
                         </a-button>
                       </a-tooltip>
                       <a-tag v-if="isLinked(item)" color="green" style="font-size: 10px; margin: 0; padding: 0 4px; border-radius: 4px;">
@@ -371,6 +398,8 @@
           </div>
         </div>
       </div>
+        </div>
+      </div>
     </a-spin>
 
     <!-- Modal: Add Container -->
@@ -538,6 +567,7 @@ import {
   InboxOutlined,
   AuditOutlined,
   EyeOutlined,
+  ColumnWidthOutlined,
 } from '@ant-design/icons-vue'
 import { documentPackagesApi } from '@/api/documentPackages'
 import { reestrApi } from '@/api/reestr'
@@ -1103,6 +1133,34 @@ onUnmounted(() => {
     URL.revokeObjectURL(previewUrl.value)
   }
 })
+
+// Split "file ‖ form" view state
+const splitOpen = ref(false)
+
+const openSplit = async (file: DocumentPackageFileDto) => {
+  previewFile.value = file
+  previewLoading.value = true
+  previewUrl.value = null
+  splitOpen.value = true
+  try {
+    const blob = await documentPackagesApi.downloadFile(packageId, file.id)
+    previewUrl.value = URL.createObjectURL(blob)
+  } catch {
+    message.error('Не удалось загрузить файл для просмотра')
+    splitOpen.value = false
+  } finally {
+    previewLoading.value = false
+  }
+}
+
+const closeSplit = () => {
+  splitOpen.value = false
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value)
+    previewUrl.value = null
+  }
+  previewFile.value = null
+}
 
 // Simulated AI Auto-Parsing
 const aiParsing = ref(false)
@@ -1751,5 +1809,26 @@ const runAiParse = async () => {
   background: var(--atg-gold-soft);
   color: #a17f2a;
   border: 1px solid rgba(201, 168, 76, 0.25);
+}
+
+/* Split "file ‖ form" view */
+.workspace-split { display: flex; gap: 20px; align-items: flex-start; }
+.workspace-split.split-active .split-file-pane {
+  width: 42%; position: sticky; top: 16px; max-height: calc(100vh - 100px);
+  display: flex; flex-direction: column; border: 1px solid var(--atg-line);
+  border-radius: 12px; background: #fff; overflow: hidden;
+}
+.split-content-pane { flex: 1; min-width: 0; }
+.split-file-head { display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px; border-bottom: 1px solid var(--atg-line); gap: 8px; }
+.split-file-name { font-weight: 600; font-size: 13px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.split-file-body { flex: 1; min-height: 0; display: flex; }
+.split-frame { width: 100%; height: 100%; border: none; }
+.split-img { max-width: 100%; max-height: 100%; object-fit: contain; margin: auto; }
+.split-fallback { margin: auto; text-align: center; padding: 24px; }
+@media (max-width: 1100px) {
+  .workspace-split { flex-direction: column; }
+  .workspace-split.split-active .split-file-pane { width: 100%; position: static; max-height: 60vh; }
 }
 </style>
