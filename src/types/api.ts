@@ -133,6 +133,7 @@ export interface ReestrEntryDto {
   container: string | null
   consignee: string | null
   destinationStation: string | null
+  customsPost?: string | null
   shipper: string | null
   shipmentInfo: string | null
   cargoDescription: string | null
@@ -167,6 +168,7 @@ export interface ReestrUpsertBody {
   container?: string | null
   consignee?: string | null
   destinationStation?: string | null
+  customsPost?: string | null
   shipper?: string | null
   shipmentInfo?: string | null
   cargoDescription?: string | null
@@ -288,11 +290,41 @@ export type DocumentPackageStatus = 'uploaded' | 'accepted' | 'needsFix' | 'proc
 export interface DocumentPackageFileDto {
   id: string
   packageId: string
+  containerId?: string | null
+  clientConsolidationId?: string | null
   originalFileName: string
   contentType: string
   sizeBytes: number
   uploadedByUserId: string
   uploadedAtUtc: string
+}
+
+export interface DocumentPackageClientConsolidationDto {
+  id: string
+  containerId: string
+  clientName: string
+  cargoDescription: string | null
+  shipper?: string | null
+  consignee?: string | null
+  destinationStation?: string | null
+  customsPost?: string | null
+  subcode?: string | null
+  commodityCode?: string | null
+  packagesCount?: string | null
+  weight?: string | null
+}
+
+export interface DocumentPackageContainerDto {
+  id: string
+  packageId: string
+  containerNumber: string
+  sealNumber: string | null
+  weight: string | null
+  shipper?: string | null
+  consignee?: string | null
+  destinationStation?: string | null
+  customsPost?: string | null
+  consolidations: DocumentPackageClientConsolidationDto[]
 }
 
 export interface DocumentPackageDto {
@@ -308,6 +340,7 @@ export interface DocumentPackageDto {
   reviewedAtUtc: string | null
   reviewComment: string | null
   files: DocumentPackageFileDto[]
+  containers: DocumentPackageContainerDto[]
 }
 
 export interface DocumentPackageListResponse {
@@ -318,6 +351,7 @@ export interface DocumentPackageListResponse {
 export interface CreateDocumentPackageRequest {
   trainNumber: string
   comment?: string | null
+  containerNumbers?: string[]
 }
 
 export interface ChangeDocumentPackageStatusRequest {
@@ -343,4 +377,10 @@ export interface RegisterRequest {
   username: string
   password: string
   role: string
+}
+
+export interface RefItem {
+  id: string
+  name: string
+  isActive: boolean
 }
