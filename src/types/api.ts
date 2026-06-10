@@ -384,3 +384,12 @@ export interface RefItem {
   name: string
   isActive: boolean
 }
+
+export interface AppNotification {
+  id: string
+  title: string
+  body: string
+  reestrEntryId: string | null
+  isRead: boolean
+  createdAtUtc: string
+}
