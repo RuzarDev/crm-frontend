@@ -404,14 +404,12 @@
 
     <!-- Modal: Add Container -->
     <a-modal
+      v-if="!splitOpen"
       v-model:open="containerModalOpen"
       :title="isEditingContainer ? 'Редактировать контейнер' : 'Добавить контейнер в состав'"
       :ok-text="isEditingContainer ? 'Сохранить' : 'Добавить'"
       cancel-text="Отмена"
       :confirm-loading="containerSaving"
-      :mask="!splitOpen"
-      :width="460"
-      :wrap-class-name="splitOpen ? 'workspace-side-modal' : ''"
       @ok="handleAddContainer"
     >
       <a-form layout="vertical">
@@ -443,14 +441,12 @@
 
     <!-- Modal: Add Client Consolidation -->
     <a-modal
+      v-if="!splitOpen"
       v-model:open="clientModalOpen"
       :title="isEditingClient ? 'Редактировать клиента / партию' : 'Добавить клиента / партию в контейнер'"
       :ok-text="isEditingClient ? 'Сохранить' : 'Добавить'"
       cancel-text="Отмена"
       :confirm-loading="clientSaving"
-      :mask="!splitOpen"
-      :width="460"
-      :wrap-class-name="splitOpen ? 'workspace-side-modal' : ''"
       @ok="handleAddClient"
     >
       <a-form layout="vertical">
@@ -499,6 +495,121 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- Full-width split: edit form (left half) + open file (right half) -->
+    <div v-if="splitOpen && (containerModalOpen || clientModalOpen)" class="edit-split-overlay">
+      <div class="edit-split-form-pane">
+        <div class="edit-split-card">
+          <div class="edit-split-head">
+            <span class="edit-split-title">
+              {{ containerModalOpen
+                ? (isEditingContainer ? 'Редактировать контейнер' : 'Добавить контейнер в состав')
+                : (isEditingClient ? 'Редактировать клиента / партию' : 'Добавить клиента / партию в контейнер') }}
+            </span>
+            <a-button size="small" @click="cancelEdit">Закрыть</a-button>
+          </div>
+          <div class="edit-split-body">
+            <a-form v-if="containerModalOpen" layout="vertical">
+              <a-form-item label="Номер контейнера" required>
+                <a-input v-model:value="containerForm.containerNumber" placeholder="Например: MSCU1234567" />
+              </a-form-item>
+              <a-form-item label="Номер пломбы">
+                <a-input v-model:value="containerForm.sealNumber" placeholder="Например: LL123456" />
+              </a-form-item>
+              <a-form-item label="Вес">
+                <a-input v-model:value="containerForm.weight" placeholder="Например: 12 500 кг" />
+              </a-form-item>
+              <a-form-item label="Отправитель по ЖДН">
+                <a-input v-model:value="containerForm.shipper" placeholder="Отправитель по накладной" />
+              </a-form-item>
+              <a-form-item label="Получатель по ЖДН">
+                <a-input v-model:value="containerForm.consignee" placeholder="Получатель по накладной" />
+              </a-form-item>
+              <a-form-item label="Станция назначения по ЖДН">
+                <a-select v-model:value="containerStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
+                  :options="stationOptions" placeholder="Выберите или введите станцию" />
+              </a-form-item>
+              <a-form-item label="Пост">
+                <a-select v-model:value="containerPostModel" show-search allow-clear mode="tags" :max-tag-count="1"
+                  :options="postOptions" placeholder="Выберите или введите пост" />
+              </a-form-item>
+            </a-form>
+            <a-form v-else-if="clientModalOpen" layout="vertical">
+              <a-form-item label="Клиент (Username получателя в CRM)" required>
+                <a-select
+                  v-model:value="clientForm.clientName"
+                  show-search
+                  :options="clientOptions"
+                  placeholder="Выберите или введите имя клиента"
+                />
+              </a-form-item>
+              <a-form-item label="Описание груза по ТСД">
+                <a-textarea v-model:value="clientForm.cargoDescription" :rows="2" placeholder="Описание перевозимого товара" />
+              </a-form-item>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <a-form-item label="Отправитель по ТСД">
+                  <a-input v-model:value="clientForm.shipper" placeholder="Отправитель" />
+                </a-form-item>
+                <a-form-item label="Получатель по ТСД">
+                  <a-input v-model:value="clientForm.consignee" placeholder="Получатель" />
+                </a-form-item>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <a-form-item label="Количество мест">
+                  <a-input v-model:value="clientForm.packagesCount" placeholder="Например: 45 мест" />
+                </a-form-item>
+                <a-form-item label="Вес по ТСД">
+                  <a-input v-model:value="clientForm.weight" placeholder="Например: 2450 кг" />
+                </a-form-item>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <a-form-item label="Подкод">
+                  <a-input v-model:value="clientForm.subcode" placeholder="Например: S-12" />
+                </a-form-item>
+                <a-form-item label="Код ТНВЭД">
+                  <a-input v-model:value="clientForm.commodityCode" placeholder="Код товара" />
+                </a-form-item>
+              </div>
+              <a-form-item label="Станция назначения по ТСД">
+                <a-select v-model:value="clientStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
+                  :options="stationOptions" placeholder="Выберите или введите станцию" />
+              </a-form-item>
+              <a-form-item label="Пост">
+                <a-select v-model:value="clientPostModel" show-search allow-clear mode="tags" :max-tag-count="1"
+                  :options="postOptions" placeholder="Выберите или введите пост" />
+              </a-form-item>
+            </a-form>
+          </div>
+          <div class="edit-split-footer">
+            <a-button @click="cancelEdit">Отмена</a-button>
+            <a-button
+              type="primary"
+              :loading="containerModalOpen ? containerSaving : clientSaving"
+              @click="containerModalOpen ? handleAddContainer() : handleAddClient()"
+            >
+              {{ containerModalOpen
+                ? (isEditingContainer ? 'Сохранить' : 'Добавить')
+                : (isEditingClient ? 'Сохранить' : 'Добавить') }}
+            </a-button>
+          </div>
+        </div>
+      </div>
+      <div class="edit-split-file-pane">
+        <div class="split-file-head">
+          <span class="split-file-name">{{ previewFile?.originalFileName }}</span>
+          <a-button size="small" @click="closeSplit">Закрыть просмотр</a-button>
+        </div>
+        <div class="split-file-body">
+          <a-spin v-if="previewLoading" />
+          <iframe v-else-if="isPdf(previewFile) && previewUrl" :src="previewUrl" class="split-frame"></iframe>
+          <img v-else-if="isImage(previewFile) && previewUrl" :src="previewUrl" class="split-img" />
+          <div v-else class="split-fallback">
+            <p>Предпросмотр недоступен.</p>
+            <a-button type="primary" @click="downloadPreviewFile">Скачать файл</a-button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- AI Parsing Modal -->
     <a-modal
@@ -1166,6 +1277,11 @@ const closeSplit = () => {
     previewUrl.value = null
   }
   previewFile.value = null
+}
+
+const cancelEdit = () => {
+  containerModalOpen.value = false
+  clientModalOpen.value = false
 }
 
 // Simulated AI Auto-Parsing
@@ -1838,27 +1954,41 @@ const runAiParse = async () => {
   .workspace-split.split-active .split-file-pane { width: 100%; position: static; max-height: 60vh; }
 }
 
-/* When a file is open beside, container/client modals dock to the right
-   without a dimming mask, so the file stays visible and readable. */
-:global(.workspace-side-modal) {
-  pointer-events: none;
-  overflow: visible;
+/* Full-width edit split: form on the left half, open file on the right half */
+.edit-split-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  background: #fff;
 }
-:global(.workspace-side-modal .ant-modal) {
-  margin: 0;
-  position: absolute;
-  top: 76px;
-  right: 28px;
-  padding-bottom: 0;
-  pointer-events: auto;
-}
-:global(.workspace-side-modal .ant-modal-content) {
-  max-height: calc(100vh - 110px);
+.edit-split-form-pane {
+  width: 50%;
+  height: 100vh;
   overflow-y: auto;
-  box-shadow: 0 14px 44px rgba(27, 42, 74, 0.3);
-  border: 1px solid var(--atg-line);
+  border-right: 1px solid var(--atg-line);
+  padding: 24px;
+  box-sizing: border-box;
+}
+.edit-split-card { max-width: 640px; margin: 0 auto; }
+.edit-split-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+}
+.edit-split-title { font-size: 17px; font-weight: 700; color: var(--atg-navy); }
+.edit-split-footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--atg-line);
+}
+.edit-split-file-pane {
+  width: 50%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
 }
 @media (max-width: 1100px) {
-  :global(.workspace-side-modal .ant-modal) { right: 12px; left: 12px; margin: 0 auto; }
+  .edit-split-overlay { flex-direction: column; overflow-y: auto; }
+  .edit-split-form-pane, .edit-split-file-pane { width: 100%; height: auto; min-height: 50vh; }
 }
 </style>

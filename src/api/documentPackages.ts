@@ -68,4 +68,123 @@ export const documentPackagesApi = {
     )
     return response.data
   },
+
+  createContainer: async (
+    id: string,
+    data: {
+      containerNumber: string
+      sealNumber?: string | null
+      weight?: string | null
+      shipper?: string | null
+      consignee?: string | null
+      destinationStation?: string | null
+    },
+  ): Promise<DocumentPackageDto> => {
+    const response = await apiClient.post<DocumentPackageDto>(
+      `/document-packages/${id}/containers`,
+      data,
+    )
+    return response.data
+  },
+
+  updateContainer: async (
+    id: string,
+    containerId: string,
+    data: {
+      containerNumber: string
+      sealNumber?: string | null
+      weight?: string | null
+      shipper?: string | null
+      consignee?: string | null
+      destinationStation?: string | null
+    },
+  ): Promise<DocumentPackageDto> => {
+    const response = await apiClient.put<DocumentPackageDto>(
+      `/document-packages/${id}/containers/${containerId}`,
+      data
+    )
+    return response.data
+  },
+
+  deleteContainer: async (id: string, containerId: string): Promise<DocumentPackageDto> => {
+    const response = await apiClient.delete<DocumentPackageDto>(
+      `/document-packages/${id}/containers/${containerId}`
+    )
+    return response.data
+  },
+
+  createClientConsolidation: async (
+    id: string,
+    containerId: string,
+    data: {
+      clientName: string
+      cargoDescription?: string | null
+      shipper?: string | null
+      consignee?: string | null
+      destinationStation?: string | null
+      subcode?: string | null
+      commodityCode?: string | null
+      packagesCount?: string | null
+      weight?: string | null
+    },
+  ): Promise<DocumentPackageDto> => {
+    const response = await apiClient.post<DocumentPackageDto>(
+      `/document-packages/${id}/containers/${containerId}/clients`,
+      data,
+    )
+    return response.data
+  },
+
+  updateClientConsolidation: async (
+    id: string,
+    containerId: string,
+    clientId: string,
+    data: {
+      clientName: string
+      cargoDescription?: string | null
+      shipper?: string | null
+      consignee?: string | null
+      destinationStation?: string | null
+      subcode?: string | null
+      commodityCode?: string | null
+      packagesCount?: string | null
+      weight?: string | null
+    },
+  ): Promise<DocumentPackageDto> => {
+    const response = await apiClient.put<DocumentPackageDto>(
+      `/document-packages/${id}/containers/${containerId}/clients/${clientId}`,
+      data
+    )
+    return response.data
+  },
+
+  deleteClientConsolidation: async (
+    id: string,
+    containerId: string,
+    clientId: string,
+  ): Promise<DocumentPackageDto> => {
+    const response = await apiClient.delete<DocumentPackageDto>(
+      `/document-packages/${id}/containers/${containerId}/clients/${clientId}`
+    )
+    return response.data
+  },
+
+  linkFile: async (
+    id: string,
+    fileId: string,
+    data: { containerId: string | null; clientConsolidationId: string | null },
+  ): Promise<DocumentPackageDto> => {
+    const response = await apiClient.patch<DocumentPackageDto>(
+      `/document-packages/${id}/files/${fileId}/link`,
+      data,
+    )
+    return response.data
+  },
+
+  generateRows: async (id: string): Promise<{ generatedRowsCount: number }> => {
+    const response = await apiClient.post<{ generatedRowsCount: number }>(
+      `/document-packages/${id}/generate-rows`,
+    )
+    return response.data
+  },
 }
