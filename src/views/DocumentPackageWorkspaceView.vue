@@ -409,6 +409,9 @@
       :ok-text="isEditingContainer ? 'Сохранить' : 'Добавить'"
       cancel-text="Отмена"
       :confirm-loading="containerSaving"
+      :mask="!splitOpen"
+      :width="460"
+      :wrap-class-name="splitOpen ? 'workspace-side-modal' : ''"
       @ok="handleAddContainer"
     >
       <a-form layout="vertical">
@@ -445,6 +448,9 @@
       :ok-text="isEditingClient ? 'Сохранить' : 'Добавить'"
       cancel-text="Отмена"
       :confirm-loading="clientSaving"
+      :mask="!splitOpen"
+      :width="460"
+      :wrap-class-name="splitOpen ? 'workspace-side-modal' : ''"
       @ok="handleAddClient"
     >
       <a-form layout="vertical">
@@ -1830,5 +1836,29 @@ const runAiParse = async () => {
 @media (max-width: 1100px) {
   .workspace-split { flex-direction: column; }
   .workspace-split.split-active .split-file-pane { width: 100%; position: static; max-height: 60vh; }
+}
+
+/* When a file is open beside, container/client modals dock to the right
+   without a dimming mask, so the file stays visible and readable. */
+:global(.workspace-side-modal) {
+  pointer-events: none;
+  overflow: visible;
+}
+:global(.workspace-side-modal .ant-modal) {
+  margin: 0;
+  position: absolute;
+  top: 76px;
+  right: 28px;
+  padding-bottom: 0;
+  pointer-events: auto;
+}
+:global(.workspace-side-modal .ant-modal-content) {
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  box-shadow: 0 14px 44px rgba(27, 42, 74, 0.3);
+  border: 1px solid var(--atg-line);
+}
+@media (max-width: 1100px) {
+  :global(.workspace-side-modal .ant-modal) { right: 12px; left: 12px; margin: 0 auto; }
 }
 </style>
