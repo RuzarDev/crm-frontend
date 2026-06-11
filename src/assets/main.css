@@ -65,7 +65,32 @@ body {
   min-height: 100vh;
 }
 
-/* Force Manrope for all Ant Design components */
+/* ─── Global Typography Scale ────────────────────────────── */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--atg-ink);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+h1 { font-size: 26px;  font-weight: 800; }
+h2 { font-size: 20px;  font-weight: 800; }
+h3 { font-size: 17px;  font-weight: 700; }
+h4 { font-size: 14px;  font-weight: 700; }
+
+p {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--atg-text);
+}
+
+small {
+  font-size: 11.5px;
+  color: var(--atg-muted);
+}
+
+/* ─── Force Manrope for all Ant Design components ─────────── */
 .ant-btn, .ant-input, .ant-select, .ant-table, .ant-menu, .ant-modal,
 .ant-form, .ant-typography, .ant-tag, .ant-dropdown, .ant-tooltip,
 .ant-card, .ant-tabs, .ant-pagination, .ant-checkbox-wrapper, .ant-radio-wrapper,
@@ -176,10 +201,11 @@ a {
 }
 
 .crm-toolbar-surface {
-  padding: 10px 14px;
-  border: 1px solid var(--atg-line-strong);
-  border-radius: var(--atg-radius);
-  background: linear-gradient(to right, #e4e8f2, #e8ecf5);
+  padding: 12px 16px;
+  border: 1px solid var(--atg-line);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(27, 42, 74, 0.05);
 }
 
 /* ─── Stat Badge ─────────────────────────────────────────── */
@@ -194,12 +220,12 @@ a {
   background: var(--atg-surface);
   color: var(--atg-charcoal);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .crm-stat-badge-count {
   font-size: 15px;
-  font-weight: 750;
+  font-weight: 700;
   color: var(--atg-ink);
 }
 
@@ -248,7 +274,7 @@ a {
   margin: 0 0 14px;
   font-size: clamp(42px, 3.3vw, 68px);
   line-height: 1.08;
-  font-weight: 760;
+  font-weight: 800;
 }
 
 .crm-auth-brand p {
@@ -287,7 +313,7 @@ a {
 .crm-auth-card .ant-card-head-title {
   color: var(--atg-ink);
   font-size: clamp(20px, 1.35vw, 26px);
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 
@@ -299,7 +325,7 @@ a {
   height: auto;
   color: var(--atg-charcoal);
   font-size: 14.5px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .crm-auth-card .ant-input-lg,
@@ -312,7 +338,7 @@ a {
 .crm-auth-card .ant-btn-lg {
   min-height: 50px;
   font-size: 16px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.01em;
 }
 
@@ -350,7 +376,7 @@ a {
 
 .ant-btn-link {
   color: var(--atg-accent-strong);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .ant-btn-link:not(:disabled):hover {
@@ -526,7 +552,7 @@ a {
 
 /* Tabs */
 .ant-tabs .ant-tabs-tab {
-  font-weight: 650;
+  font-weight: 600;
   transition: color var(--atg-transition);
 }
 
@@ -542,38 +568,193 @@ a {
 /* Tags */
 .ant-tag {
   border-radius: 999px;
-  font-weight: 650;
+  font-weight: 600;
+  padding: 2px 10px;
 }
 
-/* Modal */
+/* Custom Buttons Styling */
+.ant-btn {
+  border-radius: var(--atg-radius) !important;
+  font-weight: 600 !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 1px 2px rgba(27, 42, 74, 0.05) !important;
+}
+
+.ant-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(27, 42, 74, 0.08);
+}
+
+.ant-btn:active {
+  transform: translateY(0);
+}
+
+.ant-btn-primary {
+  background: linear-gradient(135deg, var(--atg-teal) 0%, var(--atg-teal-dark) 100%) !important;
+  border: none !important;
+  color: #fff !important;
+  box-shadow: 0 3px 10px rgba(43, 188, 212, 0.28) !important;
+}
+
+.ant-btn-primary:hover {
+  background: linear-gradient(135deg, #3acde5 0%, var(--atg-teal) 100%) !important;
+  box-shadow: 0 5px 16px rgba(43, 188, 212, 0.45) !important;
+  color: #fff !important;
+}
+
+.ant-btn-dangerous {
+  background: linear-gradient(135deg, #d35a4a 0%, #b84a3c 100%) !important;
+  border: none !important;
+  color: #fff !important;
+}
+
+/* Custom Input and Select Fields */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector,
+.ant-picker {
+  border: 1.5px solid var(--atg-line) !important;
+  border-radius: var(--atg-radius) !important;
+  background-color: var(--atg-surface) !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-input:focus,
+.ant-input-focused,
+.ant-input-affix-wrapper-focused,
+.ant-select-focused .ant-select-selector,
+.ant-picker-focused {
+  border-color: var(--atg-teal) !important;
+  box-shadow: 0 0 0 3px rgba(43, 188, 212, 0.15) !important;
+}
+
+/* Reset inner input inside affix wrappers to prevent double borders/backgrounds */
+.ant-input-affix-wrapper .ant-input {
+  border: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.ant-input::placeholder,
+.ant-select-selection-placeholder {
+  color: var(--atg-muted) !important;
+}
+
+/* Select Dropdown Menu */
+.ant-select-dropdown {
+  background: var(--atg-surface) !important;
+  border: 1px solid var(--atg-line) !important;
+  border-radius: var(--atg-radius) !important;
+  box-shadow: var(--atg-shadow-md) !important;
+  padding: 6px !important;
+}
+
+.ant-select-item {
+  border-radius: 6px !important;
+  padding: 7px 12px !important;
+  font-weight: 500 !important;
+  transition: all var(--atg-transition) !important;
+}
+
+.ant-select-item-option-active {
+  background: var(--atg-bg) !important;
+  color: var(--atg-ink) !important;
+}
+
+.ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background: var(--atg-teal-soft) !important;
+  color: var(--atg-accent-strong) !important;
+  font-weight: 700 !important;
+}
+
+/* Table Custom Design — compact modern look */
+.ant-table-wrapper {
+  border: 1px solid var(--atg-line) !important;
+  border-radius: var(--atg-radius-lg) !important;
+  overflow: hidden !important;
+  box-shadow: var(--atg-shadow) !important;
+}
+
+.ant-table {
+  background: var(--atg-surface) !important;
+}
+
+/* NOTE: Table header compact style already set above (lines 412-425). */
+/* Override to reconcile: keep compact sizing but use bg token */
+.ant-table-thead > tr > th {
+  background: #e4e8f2 !important;
+  color: var(--atg-ink) !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  border-bottom: 2px solid var(--atg-line-strong) !important;
+  padding: 10px 14px !important;
+  white-space: nowrap;
+}
+
+.ant-table-tbody > tr > td {
+  background: #ffffff;
+  padding: 9px 14px !important;
+  border-bottom: 1px solid #e8ebf2 !important;
+  border-top: none !important;
+  border-right: none !important;
+  border-left: none !important;
+  color: var(--atg-text) !important;
+  font-size: 13px !important;
+  transition: background var(--atg-transition);
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: rgba(43, 188, 212, 0.04) !important;
+}
+
+.ant-pagination-item-active {
+  border-color: var(--atg-teal) !important;
+}
+
+.ant-pagination-item-active a {
+  color: var(--atg-teal) !important;
+}
+
+/* Modal Custom Design */
 .ant-modal .ant-modal-content {
-  border-radius: var(--atg-radius-lg);
-  overflow: hidden;
-  box-shadow: var(--atg-shadow-lg);
+  background: var(--atg-surface) !important;
+  border-radius: var(--atg-radius-lg) !important;
+  border: 1px solid var(--atg-line) !important;
+  box-shadow: var(--atg-shadow-lg) !important;
 }
 
 .ant-modal .ant-modal-header {
-  border-bottom: 1px solid var(--atg-line);
+  background: var(--atg-surface) !important;
+  border-bottom: 1px solid var(--atg-line) !important;
+  padding: 20px 24px !important;
   padding-bottom: 16px;
 }
 
 .ant-modal .ant-modal-title {
-  font-size: 17px;
-  font-weight: 750;
+  font-size: 18px;
+  font-weight: 800;
   color: var(--atg-ink);
   letter-spacing: -0.01em;
 }
 
+.ant-modal .ant-modal-body {
+  padding: 24px !important;
+}
+
 .ant-modal .ant-modal-footer {
   border-top: 1px solid var(--atg-line);
+  padding: 16px 24px !important;
   padding-top: 14px;
 }
 
-/* Upload */
+/* Upload Custom Design */
 .ant-upload-wrapper .ant-upload-drag {
   border-color: var(--atg-line-strong);
   border-radius: var(--atg-radius);
-  background: #f4f6fb;
+  background: var(--atg-bg);
   transition:
     border-color var(--atg-transition),
     background var(--atg-transition);
@@ -584,21 +765,29 @@ a {
   background: var(--atg-cyan-soft);
 }
 
-/* Spin */
+/* Spin Custom Design */
 .ant-spin-dot-item {
   background: var(--atg-cyan) !important;
 }
 
-/* Select dropdown */
-.ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
-  background: var(--atg-cyan-soft) !important;
-  font-weight: 650;
+/* Alert Custom Design */
+.ant-alert {
+  border-radius: var(--atg-radius-lg) !important;
+  padding: 14px 20px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+.ant-alert-warning {
+  background-color: var(--atg-gold-soft) !important;
+  border: 1px solid rgba(201, 168, 76, 0.25) !important;
+  color: var(--atg-charcoal) !important;
 }
 
 /* Table action link buttons */
 .ant-table .ant-btn-link {
   font-size: 12.5px;
-  font-weight: 650;
+  font-weight: 600;
   height: 28px;
   padding: 0 10px;
   border-radius: 5px;
@@ -621,41 +810,73 @@ a {
 
 /* Input search button */
 .ant-input-search .ant-input-search-button {
-  background: var(--atg-ink);
-  border-color: var(--atg-ink);
-  color: #fff;
+  background: var(--atg-ink) !important;
+  border-color: var(--atg-ink) !important;
+  color: #fff !important;
   transition:
     background var(--atg-transition),
     border-color var(--atg-transition);
 }
 
 .ant-input-search .ant-input-search-button:hover {
-  background: var(--atg-cyan);
-  border-color: var(--atg-cyan);
+  background: var(--atg-cyan) !important;
+  border-color: var(--atg-cyan) !important;
 }
 
-/* Drawer — mobile nav */
+/* Drawer & Side Drawer Design */
+.ant-drawer-content {
+  background: var(--atg-surface) !important;
+}
+
+.ant-drawer-header {
+  border-bottom: 1px solid var(--atg-line) !important;
+  padding: 20px 24px !important;
+}
+
+.ant-drawer-title {
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  color: var(--atg-ink) !important;
+}
+
+.ant-drawer-close {
+  color: var(--atg-muted) !important;
+  transition: color 0.2s ease !important;
+}
+
+.ant-drawer-close:hover {
+  color: var(--atg-ink) !important;
+  background: var(--atg-bg) !important;
+  border-radius: 50% !important;
+}
+
+.ant-drawer-body {
+  padding: 24px !important;
+}
+
+/* Drawer — mobile nav override */
 .atg-mobile-drawer .ant-drawer-header {
-  background: #1B2A4A;
-  border-bottom: 1px solid rgba(43, 188, 212, 0.18);
-  padding: 16px 18px;
+  background: #1B2A4A !important;
+  border-bottom: 1px solid rgba(43, 188, 212, 0.18) !important;
+  padding: 16px 18px !important;
 }
 
 .atg-mobile-drawer .ant-drawer-title {
-  color: #f0f3ff;
+  color: #f0f3ff !important;
 }
 
 .atg-mobile-drawer .ant-drawer-close {
-  color: rgba(240, 243, 255, 0.5);
+  color: rgba(240, 243, 255, 0.5) !important;
 }
 
 .atg-mobile-drawer .ant-drawer-close:hover {
-  color: #f0f3ff;
+  color: #f0f3ff !important;
+  background: transparent !important;
 }
 
 .atg-mobile-drawer .ant-drawer-body {
-  background: #1E3060;
-  padding: 12px;
+  background: #1E3060 !important;
+  padding: 12px !important;
 }
 
 /* ─── Mobile Hamburger ───────────────────────────────────── */

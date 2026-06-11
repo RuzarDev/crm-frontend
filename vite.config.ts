@@ -5,6 +5,8 @@ import { AntDesignVueResolver } from 'unplugin-vue-components/resolvers'
 import AutoImport from 'unplugin-auto-import/vite'
 import { fileURLToPath, URL } from 'node:url'
 
+const proxyTarget = process.env.VITE_PROXY_TARGET || 'http://localhost:5110'
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -29,8 +31,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:5085',
+        target: proxyTarget,
         changeOrigin: true,
+        secure: proxyTarget.startsWith('https://'),
       }
     }
   }

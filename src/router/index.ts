@@ -31,9 +31,37 @@ const router = createRouter({
           component: () => import('@/views/DashboardView.vue'),
         },
         {
+          path: '/analytics',
+          name: 'analytics',
+          component: () => import('@/views/AnalyticsView.vue'),
+          meta: { requiresRole: 'administrator' },
+        },
+        {
           path: '/reestr',
           name: 'reestr',
           component: () => import('@/views/ReestrView.vue'),
+        },
+        {
+          path: '/document-packages',
+          name: 'document-packages',
+          component: () => import('@/views/DocumentPackagesView.vue'),
+        },
+        {
+          path: '/document-packages/:id/workspace',
+          name: 'document-packages-workspace',
+          component: () => import('@/views/DocumentPackageWorkspaceView.vue'),
+        },
+        {
+          path: '/import-40',
+          name: 'import-40',
+          component: () => import('@/views/Import40ListView.vue'),
+          meta: { requiresImport40: true },
+        },
+        {
+          path: '/import-40/:id',
+          name: 'import-40-detail',
+          component: () => import('@/views/Import40View.vue'),
+          meta: { requiresImport40: true },
         },
         {
           path: '/my-documents',
@@ -45,12 +73,6 @@ const router = createRouter({
           name: 'clients',
           component: () => import('@/views/ClientsView.vue'),
           meta: { requiresRole: 'expeditor' },
-        },
-        {
-          path: '/process-flow',
-          name: 'process-flow',
-          component: () => import('@/views/ProcessFlowView.vue'),
-          meta: { requiresRole: 'admin' },
         },
         {
           path: '/tnved/tree',
@@ -111,6 +133,12 @@ const router = createRouter({
           component: () => import('@/views/SystemEndpointsView.vue'),
           meta: { requiresPermission: 'endpoints.read' },
         },
+        {
+          path: '/references',
+          name: 'references',
+          component: () => import('@/views/ReferencesView.vue'),
+          meta: { requiresRole: 'administrator' },
+        },
       ],
     },
   ],
@@ -122,10 +150,17 @@ router.beforeEach((to, from, next) => {
   const requiresAuth = to.meta.requiresAuth !== false
   const requiredPermission = to.meta.requiresPermission as string | undefined
   const requiredRole = to.meta.requiresRole as string | undefined
+  const requiresImport40 = to.meta.requiresImport40 === true
+
+  const normalizedRole = (authStore.role || '').trim().toLowerCase()
 
   if (requiresAuth && !authStore.isAuthenticated) {
     next('/login')
-  } else if (requiredRole && (authStore.role || '').trim().toLowerCase() !== requiredRole) {
+  } else if (normalizedRole === 'importer' && to.path === '/reestr') {
+    next('/import-40')
+  } else if (requiredRole && normalizedRole !== requiredRole) {
+    next('/')
+  } else if (requiresImport40 && !authStore.canUseImport40) {
     next('/')
   } else if (requiredPermission && !authStore.hasPermission(requiredPermission)) {
     next('/')

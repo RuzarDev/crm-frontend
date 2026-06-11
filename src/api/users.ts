@@ -4,6 +4,7 @@ import type {
   CatalogBrokerRow,
   CatalogClientRow,
   CatalogExpeditorRow,
+  CatalogImporterRow,
   EditBrokerRequest,
   EditExpeditorRequest,
   LinkUsersRequest,
@@ -31,6 +32,11 @@ export const usersApi = {
     return response.data
   },
 
+  getCatalogImporters: async (): Promise<CatalogImporterRow[]> => {
+    const response = await apiClient.get<CatalogImporterRow[]>('/catalog/importers')
+    return response.data
+  },
+
   createUser: async (data: RegisterRequest): Promise<void> => {
     if (data.role === 'client') {
       await apiClient.post('/auth/register', {
@@ -44,6 +50,13 @@ export const usersApi = {
       username: data.username,
       password: data.password,
       role: data.role,
+      ...(data.businessRole ? { businessRole: data.businessRole } : {}),
+    })
+  },
+
+  changeBusinessRole: async (userId: string, businessRole: string): Promise<void> => {
+    await apiClient.patch(`/users/${encodeURIComponent(userId)}/business-role`, {
+      businessRole,
     })
   },
 

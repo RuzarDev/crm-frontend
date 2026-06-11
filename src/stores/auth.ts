@@ -28,11 +28,17 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(normalizeToken(localStorage.getItem('authToken')))
   const username = ref<string | null>(localStorage.getItem('username'))
   const role = ref<string | null>(localStorage.getItem('role'))
+  const businessRole = ref<string | null>(localStorage.getItem('businessRole'))
   const userId = ref<string | null>(localStorage.getItem('userId'))
   const permissions = ref<string[]>(JSON.parse(localStorage.getItem('permissions') || '[]'))
 
   const isAuthenticated = computed(() => !!token.value)
   const hasPermission = (permission: string) => permissions.value.includes(permission)
+
+  const canUseImport40 = computed(() => {
+    const systemRole = (role.value || '').trim().toLowerCase()
+    return systemRole === 'administrator' || systemRole === 'importer' || systemRole === 'client'
+  })
 
   const login = async (credentials: LoginRequest) => {
     try {
@@ -41,6 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
       token.value = normalizeToken(resolvedToken)
       username.value = credentials.username
       role.value = response.role || null
+      businessRole.value = response.businessRole || null
       if (!token.value) {
         message.error('Ошибка входа: в ответе нет токена')
         return false
@@ -48,6 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('authToken', token.value)
       localStorage.setItem('username', credentials.username)
       localStorage.setItem('role', response.role || '')
+      localStorage.setItem('businessRole', response.businessRole || '')
       permissions.value = response.permissions || []
       localStorage.setItem('permissions', JSON.stringify(permissions.value))
       const tokenPayload = parseJwtPayload(token.value)
@@ -78,10 +86,12 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = null
     username.value = null
     role.value = null
+    businessRole.value = null
     userId.value = null
     localStorage.removeItem('authToken')
     localStorage.removeItem('username')
     localStorage.removeItem('role')
+    localStorage.removeItem('businessRole')
     localStorage.removeItem('userId')
     localStorage.removeItem('permissions')
     permissions.value = []
@@ -94,16 +104,19 @@ export const useAuthStore = defineStore('auth', () => {
       token.value = storedToken
       username.value = localStorage.getItem('username')
       role.value = localStorage.getItem('role')
+      businessRole.value = localStorage.getItem('businessRole')
       userId.value = localStorage.getItem('userId')
       permissions.value = JSON.parse(localStorage.getItem('permissions') || '[]')
     } else {
       token.value = null
       username.value = null
       role.value = null
+      businessRole.value = null
       userId.value = null
       localStorage.removeItem('authToken')
       localStorage.removeItem('username')
       localStorage.removeItem('role')
+      localStorage.removeItem('businessRole')
       localStorage.removeItem('userId')
       localStorage.removeItem('permissions')
       permissions.value = []
@@ -114,10 +127,12 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     username,
     role,
+    businessRole,
     userId,
     permissions,
     isAuthenticated,
     hasPermission,
+    canUseImport40,
     login,
     registerClient,
     logout,

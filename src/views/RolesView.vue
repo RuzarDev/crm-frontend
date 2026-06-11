@@ -121,7 +121,7 @@ onMounted(async () => {
 }
 
 .role-name-label {
-  font-weight: 650;
+  font-weight: 700;
   color: var(--atg-ink);
 }
 
@@ -142,11 +142,11 @@ onMounted(async () => {
 }
 
 .perm-tag {
-  background: rgba(37, 95, 143, 0.08);
-  border-color: rgba(37, 95, 143, 0.2);
-  color: var(--atg-blue);
+  background: rgba(43, 188, 212, 0.08);
+  border-color: rgba(43, 188, 212, 0.22);
+  color: var(--atg-accent-strong);
   font-size: 11.5px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 :deep(.crm-shell-card.ant-card) {

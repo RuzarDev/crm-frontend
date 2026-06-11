@@ -18,6 +18,7 @@ export interface LoginResponse {
   accessToken: string
   expiresAtUtc: string
   role: string
+  businessRole: string
   permissions: string[]
 }
 
@@ -35,6 +36,7 @@ export interface CatalogAdministratorRow {
   id: string
   username: string
   role: string
+  businessRole: string
   createdAtUtc: string
 }
 
@@ -42,6 +44,7 @@ export interface CatalogBrokerRow {
   id: string
   username: string
   role: string
+  businessRole: string
   createdAtUtc: string
   clients: CatalogLinkedPerson[]
 }
@@ -63,13 +66,22 @@ export interface CatalogExpeditorRow {
   clients: CatalogLinkedPerson[]
 }
 
-export type CatalogTabKey = 'administrators' | 'brokers' | 'clients' | 'expeditors'
+export interface CatalogImporterRow {
+  id: string
+  username: string
+  role: string
+  businessRole: string
+  createdAtUtc: string
+}
+
+export type CatalogTabKey = 'administrators' | 'brokers' | 'clients' | 'expeditors' | 'importers'
 
 export type CatalogTableRow =
   | CatalogAdministratorRow
   | CatalogBrokerRow
   | CatalogClientRow
   | CatalogExpeditorRow
+  | CatalogImporterRow
 
 export interface LinkUsersRequest {
   staffUserId: string
@@ -158,6 +170,7 @@ export interface ReestrEntryDto {
   container: string | null
   consignee: string | null
   destinationStation: string | null
+  customsPost?: string | null
   shipper: string | null
   shipmentInfo: string | null
   cargoDescription: string | null
@@ -194,6 +207,7 @@ export interface ReestrUpsertBody {
   container?: string | null
   consignee?: string | null
   destinationStation?: string | null
+  customsPost?: string | null
   shipper?: string | null
   shipmentInfo?: string | null
   cargoDescription?: string | null
@@ -310,6 +324,80 @@ export interface ReestrStatusHistoryDto {
   changedAtUtc: string
 }
 
+export type DocumentPackageStatus = 'uploaded' | 'accepted' | 'needsFix' | 'processed'
+
+export interface DocumentPackageFileDto {
+  id: string
+  packageId: string
+  containerId?: string | null
+  clientConsolidationId?: string | null
+  originalFileName: string
+  contentType: string
+  sizeBytes: number
+  uploadedByUserId: string
+  uploadedAtUtc: string
+}
+
+export interface DocumentPackageClientConsolidationDto {
+  id: string
+  containerId: string
+  clientName: string
+  cargoDescription: string | null
+  shipper?: string | null
+  consignee?: string | null
+  destinationStation?: string | null
+  customsPost?: string | null
+  subcode?: string | null
+  commodityCode?: string | null
+  packagesCount?: string | null
+  weight?: string | null
+}
+
+export interface DocumentPackageContainerDto {
+  id: string
+  packageId: string
+  containerNumber: string
+  sealNumber: string | null
+  weight: string | null
+  shipper?: string | null
+  consignee?: string | null
+  destinationStation?: string | null
+  customsPost?: string | null
+  consolidations: DocumentPackageClientConsolidationDto[]
+}
+
+export interface DocumentPackageDto {
+  id: string
+  trainNumber: string
+  comment: string | null
+  status: DocumentPackageStatus
+  createdByExpeditorId: string
+  createdByExpeditorUsername: string
+  createdAtUtc: string
+  updatedAtUtc: string
+  reviewedByUserId: string | null
+  reviewedAtUtc: string | null
+  reviewComment: string | null
+  files: DocumentPackageFileDto[]
+  containers: DocumentPackageContainerDto[]
+}
+
+export interface DocumentPackageListResponse {
+  items: DocumentPackageDto[]
+  totalCount: number
+}
+
+export interface CreateDocumentPackageRequest {
+  trainNumber: string
+  comment?: string | null
+  containerNumbers?: string[]
+}
+
+export interface ChangeDocumentPackageStatusRequest {
+  status: DocumentPackageStatus
+  reviewComment?: string | null
+}
+
 export interface RoleItem {
   name: string
   permissions: string[]
@@ -328,6 +416,22 @@ export interface RegisterRequest {
   username: string
   password: string
   role: string
+  businessRole?: string
+}
+
+export interface RefItem {
+  id: string
+  name: string
+  isActive: boolean
+}
+
+export interface AppNotification {
+  id: string
+  title: string
+  body: string
+  reestrEntryId: string | null
+  isRead: boolean
+  createdAtUtc: string
 }
 
 // ── TNVED extended types ──────────────────────────────────────────────────────

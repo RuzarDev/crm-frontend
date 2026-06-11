@@ -131,15 +131,17 @@ import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import {
   ApiOutlined,
+  BankOutlined,
   BarChartOutlined,
   BellOutlined,
   CalendarOutlined,
   DashboardOutlined,
   DatabaseOutlined,
+  FileAddOutlined,
   FileDoneOutlined,
   FileTextOutlined,
-  ForkOutlined,
   GlobalOutlined,
+  ImportOutlined,
   LogoutOutlined,
   MenuOutlined,
   SafetyCertificateOutlined,
@@ -170,6 +172,7 @@ const onNotifOpen = (open: boolean) => {
 const formatNotifTime = (iso: string) => dayjs(iso).format('DD.MM HH:mm')
 
 const menuItems = computed(() => {
+  const role = (authStore.role || '').trim().toLowerCase()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const items: any[] = [
     {
@@ -177,22 +180,49 @@ const menuItems = computed(() => {
       icon: () => h(DashboardOutlined),
       label: 'Дашборд',
     },
-    {
-      key: '/reestr',
-      icon: () => h(DatabaseOutlined),
-      label: 'Реестр',
-    },
   ]
 
-  if ((authStore.role || '').trim().toLowerCase() === 'admin') {
-    items.splice(1, 0, {
-      key: '/process-flow',
-      icon: () => h(ForkOutlined),
-      label: 'Процесс',
+  if (role === 'administrator') {
+    items.push({
+      key: '/analytics',
+      icon: () => h(BarChartOutlined),
+      label: 'Аналитика',
     })
   }
 
-  if ((authStore.role || '').trim().toLowerCase() === 'client') {
+  if (role !== 'importer') {
+    items.push({
+      key: '/reestr',
+      icon: () => h(DatabaseOutlined),
+      label: 'Реестр',
+    })
+  }
+
+  if (['expeditor', 'broker', 'administrator'].includes(role)) {
+    items.push({
+      key: '/document-packages',
+      icon: () => h(FileAddOutlined),
+      label: 'Пакеты документов',
+    })
+  }
+
+  if (authStore.canUseImport40) {
+    items.push({
+      key: '/import-40',
+      icon: () => h(ImportOutlined),
+      label: 'Импорт',
+    })
+  }
+
+  if (role === 'administrator') {
+    items.push({
+      key: '/references',
+      icon: () => h(BankOutlined),
+      label: 'Справочники',
+    })
+  }
+
+  if (role === 'client') {
     items.push({
       key: '/my-documents',
       icon: () => h(FileDoneOutlined),
@@ -200,7 +230,7 @@ const menuItems = computed(() => {
     })
   }
 
-  if ((authStore.role || '').trim().toLowerCase() === 'expeditor') {
+  if (role === 'expeditor') {
     items.push({
       key: '/clients',
       icon: () => h(SolutionOutlined),
@@ -278,9 +308,12 @@ watch(
 
 const selectedMenuKey = computed(() => {
   if (route.path.startsWith('/dashboard')) return '/dashboard'
+  if (route.path.startsWith('/analytics')) return '/analytics'
   if (route.path.startsWith('/my-documents')) return '/my-documents'
   if (route.path.startsWith('/clients')) return '/clients'
-  if (route.path.startsWith('/process-flow')) return '/process-flow'
+  if (route.path.startsWith('/document-packages')) return '/document-packages'
+  if (route.path.startsWith('/import-40')) return '/import-40'
+  if (route.path.startsWith('/references')) return '/references'
   if (route.path.startsWith('/tnved/')) return route.path
   if (route.path.startsWith('/roles')) return '/roles'
   if (route.path.startsWith('/users')) return '/users'
@@ -354,7 +387,7 @@ const handleLogout = () => {
   display: block;
   color: #f0f3ff;
   font-size: 15px;
-  font-weight: 760;
+  font-weight: 700;
   line-height: 1.25;
   white-space: nowrap;
 }
@@ -382,7 +415,7 @@ const handleLogout = () => {
 .username {
   color: rgba(240, 243, 255, 0.82);
   font-size: 13.5px;
-  font-weight: 650;
+  font-weight: 600;
   white-space: nowrap;
   max-width: 160px;
   overflow: hidden;
@@ -532,6 +565,66 @@ const handleLogout = () => {
   background: #2BBCD4 !important;
 }
 
+/* ─── Notifications ──────────────────────────────────────── */
+
+.bell-btn {
+  font-size: 18px;
+  color: rgba(240, 243, 255, 0.82);
+}
+
+.bell-btn:hover,
+.bell-btn:focus {
+  color: #2bbcd4;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.notif-dropdown {
+  width: 320px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--atg-line);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(27, 42, 74, 0.12);
+}
+
+.notif-head {
+  padding: 10px 14px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--atg-line);
+}
+
+.notif-empty {
+  padding: 18px;
+  text-align: center;
+  color: var(--atg-muted);
+}
+
+.notif-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--atg-line);
+  cursor: pointer;
+}
+
+.notif-item:hover {
+  background: var(--atg-bg);
+}
+
+.notif-unread {
+  background: rgba(43, 188, 212, 0.06);
+}
+
+.notif-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.notif-body {
+  font-size: 12px;
+  color: var(--atg-charcoal);
+  margin-top: 2px;
+}
+
 /* ─── Sider ──────────────────────────────────────────────── */
 
 .sider {
@@ -613,7 +706,7 @@ const handleLogout = () => {
 
 .sider-footer-role {
   font-size: 10.5px;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #2BBCD4;
@@ -647,14 +740,14 @@ const handleLogout = () => {
 
 .drawer-brand-title {
   font-size: 14px;
-  font-weight: 760;
+  font-weight: 700;
   color: #f0f3ff;
   line-height: 1.3;
 }
 
 .drawer-brand-sub {
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(240, 243, 255, 0.45);
@@ -699,7 +792,7 @@ const handleLogout = () => {
 
 .drawer-footer-role {
   font-size: 10px;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: #2BBCD4;
