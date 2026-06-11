@@ -25,7 +25,6 @@
         </a-button>
         <a-button
           type="primary"
-          :disabled="packageData?.status === 'processed'"
           :loading="generating"
           @click="handleGenerateRows"
         >
@@ -595,19 +594,39 @@
         </div>
       </div>
       <div class="edit-split-file-pane">
-        <div class="split-file-head">
-          <span class="split-file-name">{{ previewFile?.originalFileName }}</span>
-          <a-button size="small" @click="closeSplit">Закрыть просмотр</a-button>
-        </div>
-        <div class="split-file-body">
-          <a-spin v-if="previewLoading" />
-          <iframe v-else-if="isPdf(previewFile) && previewUrl" :src="previewUrl" class="split-frame"></iframe>
-          <img v-else-if="isImage(previewFile) && previewUrl" :src="previewUrl" class="split-img" />
-          <div v-else class="split-fallback">
-            <p>Предпросмотр недоступен.</p>
-            <a-button type="primary" @click="downloadPreviewFile">Скачать файл</a-button>
+        <template v-if="previewFile">
+          <div class="split-file-head">
+            <span class="split-file-name">{{ previewFile?.originalFileName }}</span>
+            <a-button size="small" @click="backToFileList">← К списку файлов</a-button>
           </div>
-        </div>
+          <div class="split-file-body">
+            <a-spin v-if="previewLoading" />
+            <iframe v-else-if="isPdf(previewFile) && previewUrl" :src="previewUrl" class="split-frame"></iframe>
+            <img v-else-if="isImage(previewFile) && previewUrl" :src="previewUrl" class="split-img" />
+            <div v-else class="split-fallback">
+              <p>Предпросмотр недоступен.</p>
+              <a-button type="primary" @click="downloadPreviewFile">Скачать файл</a-button>
+            </div>
+          </div>
+        </template>
+        <template v-else>
+          <div class="split-file-head">
+            <span class="split-file-name">Прикрепленные файлы</span>
+          </div>
+          <div class="split-file-picker">
+            <a-empty v-if="!editPaneFiles.length" description="К этому контейнеру/клиенту файлы еще не прикреплены" />
+            <div
+              v-for="file in editPaneFiles"
+              :key="file.id"
+              class="split-file-picker-item"
+              @click="openSplit(file)"
+            >
+              <FileOutlined />
+              <span class="split-file-picker-name" :title="file.originalFileName">{{ file.originalFileName }}</span>
+              <span class="split-file-picker-meta">{{ formatFileSize(file.sizeBytes) }}</span>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -987,6 +1006,7 @@ const openAddContainerModal = () => {
   containerForm.consignee = ''
   containerForm.destinationStation = ''
   containerForm.customsPost = ''
+  ensureSplitForEdit()
   containerModalOpen.value = true
 }
 
@@ -1000,6 +1020,7 @@ const openEditContainerModal = (container: any) => {
   containerForm.consignee = container.consignee || ''
   containerForm.destinationStation = container.destinationStation || ''
   containerForm.customsPost = container.customsPost || ''
+  ensureSplitForEdit()
   containerModalOpen.value = true
 }
 
@@ -1026,7 +1047,7 @@ const handleAddContainer = async () => {
       packageData.value = await documentPackagesApi.createContainer(packageId, payload)
       message.success('Контейнер добавлен в состав')
     }
-    containerModalOpen.value = false
+    closeEditModals()
   } catch (err) {
     message.error(isEditingContainer.value ? 'Ошибка обновления контейнера' : 'Ошибка добавления контейнера')
   } finally {
@@ -1060,6 +1081,7 @@ const openAddClientModal = (containerId: string) => {
   clientForm.commodityCode = ''
   clientForm.packagesCount = ''
   clientForm.weight = ''
+  ensureSplitForEdit()
   clientModalOpen.value = true
 }
 
@@ -1077,6 +1099,7 @@ const openEditClientModal = (containerId: string, consolidation: any) => {
   clientForm.commodityCode = consolidation.commodityCode || ''
   clientForm.packagesCount = consolidation.packagesCount || ''
   clientForm.weight = consolidation.weight || ''
+  ensureSplitForEdit()
   clientModalOpen.value = true
 }
 
@@ -1116,7 +1139,7 @@ const handleAddClient = async () => {
       )
       message.success('Клиент добавлен в контейнер')
     }
-    clientModalOpen.value = false
+    closeEditModals()
   } catch (err) {
     message.error(isEditingClient.value ? 'Ошибка обновления партии' : 'Ошибка добавления клиента')
   } finally {
@@ -1140,8 +1163,12 @@ const handleGenerateRows = async () => {
   generating.value = true
   try {
     const res = await documentPackagesApi.generateRows(packageId)
-    message.success(`Реестр успешно сгенерирован: создано ${res.generatedRowsCount} строк(и).`)
-    router.push('/reestr')
+    if (res.generatedRowsCount > 0) {
+      message.success(`Реестр успешно сгенерирован: создано ${res.generatedRowsCount} строк(и).`)
+      router.push('/reestr')
+    } else {
+      message.info('Новых контейнеров/клиентов для генерации не найдено — все строки уже созданы ранее.')
+    }
   } catch (err) {
     message.error('Ошибка генерации реестра')
   } finally {
@@ -1253,8 +1280,14 @@ onUnmounted(() => {
 
 // Split "file ‖ form" view state
 const splitOpen = ref(false)
+// Tracks whether the split was opened automatically when an edit form was opened
+// (so closing the form can also close the split, instead of leaving it open).
+const splitOpenedForEdit = ref(false)
 
 const openSplit = async (file: DocumentPackageFileDto) => {
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value)
+  }
   previewFile.value = file
   previewLoading.value = true
   previewUrl.value = null
@@ -1279,10 +1312,58 @@ const closeSplit = () => {
   previewFile.value = null
 }
 
-const cancelEdit = () => {
+// Returns to the file picker within the edit split, without closing the edit form
+const backToFileList = () => {
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value)
+    previewUrl.value = null
+  }
+  previewFile.value = null
+}
+
+// Opens the edit split automatically if no file is currently open in split view
+const ensureSplitForEdit = () => {
+  if (!splitOpen.value) {
+    splitOpen.value = true
+    splitOpenedForEdit.value = true
+  }
+}
+
+const closeEditModals = () => {
   containerModalOpen.value = false
   clientModalOpen.value = false
+  if (splitOpenedForEdit.value) {
+    splitOpen.value = false
+    splitOpenedForEdit.value = false
+    if (previewUrl.value) {
+      URL.revokeObjectURL(previewUrl.value)
+      previewUrl.value = null
+    }
+    previewFile.value = null
+  }
 }
+
+const cancelEdit = closeEditModals
+
+// Files relevant to the form currently open in the edit split, available to preview
+const editPaneFiles = computed(() => {
+  if (!packageData.value) return []
+  if (containerModalOpen.value) {
+    if (isEditingContainer.value && editingContainerId.value) {
+      return getContainerFiles(editingContainerId.value)
+    }
+    return packageData.value.files.filter((f) => !f.containerId && !f.clientConsolidationId)
+  }
+  if (clientModalOpen.value) {
+    if (isEditingClient.value && editingClientId.value) {
+      return getClientFiles(editingClientId.value)
+    }
+    if (targetContainerId.value) {
+      return getContainerFiles(targetContainerId.value)
+    }
+  }
+  return []
+})
 
 // Simulated AI Auto-Parsing
 const aiParsing = ref(false)
@@ -1987,6 +2068,15 @@ const runAiParse = async () => {
   flex-direction: column;
   background: #fff;
 }
+.split-file-picker { padding: 12px; overflow-y: auto; }
+.split-file-picker-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--atg-line); border-radius: 8px;
+  margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.split-file-picker-item:hover { border-color: var(--atg-accent); background: var(--atg-teal-soft); }
+.split-file-picker-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.split-file-picker-meta { font-size: 12px; color: var(--atg-muted); flex-shrink: 0; }
 @media (max-width: 1100px) {
   .edit-split-overlay { flex-direction: column; overflow-y: auto; }
   .edit-split-form-pane, .edit-split-file-pane { width: 100%; height: auto; min-height: 50vh; }

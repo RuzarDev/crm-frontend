@@ -36,6 +36,7 @@ export interface CatalogAdministratorRow {
   id: string
   username: string
   role: string
+  businessRole: string
   createdAtUtc: string
 }
 
@@ -43,6 +44,7 @@ export interface CatalogBrokerRow {
   id: string
   username: string
   role: string
+  businessRole: string
   createdAtUtc: string
   clients: CatalogLinkedPerson[]
 }
@@ -64,13 +66,22 @@ export interface CatalogExpeditorRow {
   clients: CatalogLinkedPerson[]
 }
 
-export type CatalogTabKey = 'administrators' | 'brokers' | 'clients' | 'expeditors'
+export interface CatalogImporterRow {
+  id: string
+  username: string
+  role: string
+  businessRole: string
+  createdAtUtc: string
+}
+
+export type CatalogTabKey = 'administrators' | 'brokers' | 'clients' | 'expeditors' | 'importers'
 
 export type CatalogTableRow =
   | CatalogAdministratorRow
   | CatalogBrokerRow
   | CatalogClientRow
   | CatalogExpeditorRow
+  | CatalogImporterRow
 
 export interface LinkUsersRequest {
   staffUserId: string
@@ -377,6 +388,7 @@ export interface RegisterRequest {
   username: string
   password: string
   role: string
+  businessRole?: string
 }
 
 export interface RefItem {

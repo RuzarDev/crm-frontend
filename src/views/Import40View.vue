@@ -1,220 +1,124 @@
 <template>
   <div class="import40-page crm-page">
+    <input ref="fileInputRef" type="file" style="display: none" @change="onFileSelected" />
     <div class="crm-page-header">
       <div>
-        <div class="crm-page-kicker">Рабочий модуль</div>
-        <h1 class="crm-page-title">Импорт 40</h1>
-        <p class="crm-page-subtitle">
-          Прототип жизненного цикла ДТ: коммерческий блок, договор, транспорт,
-          пост, декларирование, СВХ и закрытие.
+        <div class="crm-page-kicker">Импорт 40 · Заявка</div>
+        <h1 class="crm-page-title">{{ activeCase ? activeCase.client : 'Импорт 40' }}</h1>
+        <p v-if="activeCase" class="crm-page-subtitle">
+          {{ activeCase.cargo }} · {{ activeCase.post }} · {{ activeCase.clientType }}
         </p>
       </div>
       <div class="crm-page-actions">
         <a-button @click="router.push('/import-40')">
-          Назад к списку
+          <LeftOutlined />
+          К списку
         </a-button>
         <a-button :loading="loading" @click="loadCases">
-          <FileAddOutlined />
+          <ReloadOutlined />
           Обновить
         </a-button>
-        <span class="crm-stat-badge">
-          <ImportOutlined />
-          ДТ:&nbsp;<span class="crm-stat-badge-count">{{ cases.length }}</span>
-        </span>
       </div>
     </div>
 
-    <section class="import40-hero">
-      <div>
-        <span class="module-pill">ИМ 40</span>
-        <h2>1 заявка = 1 декларация</h2>
-        <p>
-          Рабочая область процесса. Данные хранятся на сервере и доступны
-          пользователям по их роли.
-        </p>
-      </div>
-      <div class="hero-metrics">
-        <div v-for="metric in metrics" :key="metric.label" class="metric-card">
-          <span>{{ metric.label }}</span>
-          <strong>{{ metric.value }}</strong>
+    <section v-if="activeCase" class="case-board">
+      <a-card class="crm-shell-card case-card" :bordered="false">
+        <div class="case-head">
+          <div class="case-status-row">
+            <span class="status-chip">{{ currentStatus(activeCase).short }}</span>
+            <span class="case-phase">{{ currentStatus(activeCase).phase }}</span>
+            <span class="corridor-chip" :class="`corridor-${activeCase.corridor}`">
+              {{ corridorLabel(activeCase.corridor) }}
+            </span>
+          </div>
+          <div class="case-controls">
+            <label v-if="canEditCorridor" class="side-field">
+              <span>Коридор</span>
+              <a-select
+                :value="activeCase.corridor"
+                :options="corridorOptions"
+                class="corridor-select"
+                @change="setCorridor"
+              />
+            </label>
+            <div class="side-field">
+              <span>Ваша роль</span>
+              <span class="role-chip">{{ roleLabel }}</span>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
 
-    <section class="role-strip">
-      <div>
-        <span>Ваша роль в процессе</span>
-        <strong>{{ roleLabel }}</strong>
-      </div>
-      <a-segmented v-model:value="roleMode" :options="roleModeOptions" disabled />
-    </section>
+        <div class="case-meta">
+          <div class="meta-item">
+            <span>Груз</span>
+            <strong>{{ activeCase.cargo || '—' }}</strong>
+          </div>
+          <div class="meta-item">
+            <span>Пост / СВХ</span>
+            <strong>{{ activeCase.post || '—' }}</strong>
+          </div>
+          <div class="meta-item">
+            <span>Менеджер</span>
+            <strong>{{ activeCase.manager || '—' }}</strong>
+          </div>
+          <div class="meta-item">
+            <span>Номер ДТ</span>
+            <strong>{{ activeCase.declarationNumber || '—' }}</strong>
+          </div>
+        </div>
 
-    <section v-if="false" class="import40-workspace">
-      <a-card class="crm-shell-card create-card" :bordered="false">
+        <div class="case-progress">
+          <a-progress :percent="caseProgress(activeCase)" :show-info="false" stroke-color="#2BBCD4" />
+          <span>Этап {{ activeCase.status }} из {{ statuses.length }}</span>
+        </div>
+
+        <div class="pipeline">
+          <div
+            v-for="status in statuses"
+            :key="status.id"
+            class="pipeline-step"
+            :class="{ done: isStatusDone(status.id), active: activeCase.status === status.id }"
+          >
+            <span class="step-dot">
+              <CheckOutlined v-if="isStatusDone(status.id)" />
+              <template v-else>{{ status.id }}</template>
+            </span>
+            <span class="step-label">{{ status.short }}</span>
+          </div>
+        </div>
+      </a-card>
+
+      <a-card class="crm-shell-card actions-card" :bordered="false">
         <template #title>
           <div class="card-title">
-            <FileAddOutlined />
-            Новая ДТ
+            <ThunderboltOutlined />
+            Действия — {{ roleLabel }}
           </div>
         </template>
-
-        <div class="create-grid">
-          <label>
-            <span>Клиент</span>
-            <a-select
-              v-model:value="draft.clientId"
-              show-search
-              :options="clientOptions"
-              :loading="clientsLoading"
-              placeholder="Выберите клиента"
-              @change="syncDraftClientName"
-            />
-          </label>
-          <label>
-            <span>Тип клиента</span>
-            <a-select v-model:value="draft.clientType" :options="clientTypeOptions" />
-          </label>
-          <label>
-            <span>Груз</span>
-            <a-input v-model:value="draft.cargo" placeholder="Описание товара" />
-          </label>
-          <label>
-            <span>Пост / СВХ</span>
-            <a-input v-model:value="draft.post" placeholder="Таможенный пост" />
-          </label>
-          <label>
-            <span>Менеджер</span>
-            <a-select v-model:value="draft.manager" :options="employeeOptions" />
-          </label>
+        <p class="actions-help">{{ roleHelpText }}</p>
+        <div class="quick-actions">
           <a-button
-            type="primary"
-            class="create-btn"
-            :disabled="!canCreate"
-            @click="createCase"
+            v-for="action in visibleActions"
+            :key="action.key"
+            :disabled="action.disabled"
+            @click="runAction(action.key)"
           >
-            <PlusOutlined />
-            Создать заявку
+            <component :is="action.icon" />
+            {{ action.label }}
           </a-button>
         </div>
-      </a-card>
-
-      <a-card class="crm-shell-card list-card" :bordered="false">
-        <template #title>
-          <div class="card-title">
-            <FolderOpenOutlined />
-            Заявки Импорт 40
-          </div>
-        </template>
-
-        <a-input v-model:value="search" allow-clear placeholder="Поиск по клиенту, ДТ, грузу">
-          <template #prefix>
-            <SearchOutlined />
-          </template>
-        </a-input>
-
-        <a-table
-          :columns="columns"
-          :data-source="filteredCases"
-          :pagination="filteredCases.length > 6 ? { pageSize: 6, showSizeChanger: false } : false"
-          :scroll="{ x: 860 }"
-          row-key="id"
-          size="small"
-          class="import-table"
-          :row-class-name="rowClassName"
-        >
-          <template #emptyText>
-            <a-empty description="Заявок пока нет" />
-          </template>
-
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'case'">
-              <div class="case-cell">
-                <strong>{{ record.client }}</strong>
-                <span>{{ record.cargo }}</span>
-              </div>
-            </template>
-            <template v-else-if="column.key === 'status'">
-              <span class="status-chip">{{ currentStatus(record).short }}</span>
-            </template>
-            <template v-else-if="column.key === 'corridor'">
-              <span class="corridor-chip" :class="`corridor-${record.corridor}`">
-                {{ corridorLabel(record.corridor) }}
-              </span>
-            </template>
-            <template v-else-if="column.key === 'progress'">
-              <div class="progress-cell">
-                <a-progress :percent="caseProgress(record)" :show-info="false" stroke-color="#2BBCD4" />
-                <span>{{ caseProgress(record) }}%</span>
-              </div>
-            </template>
-            <template v-else-if="column.key === 'action'">
-              <a-button size="small" @click="router.push(`/import-40/${record.id}`)">Открыть</a-button>
-            </template>
-          </template>
-        </a-table>
+        <div v-if="validationWarnings.length" class="validation-box">
+          <strong>Для перехода на следующий этап</strong>
+          <ul>
+            <li v-for="warning in validationWarnings" :key="warning">{{ warning }}</li>
+          </ul>
+        </div>
       </a-card>
     </section>
 
-    <section v-if="activeCase" class="active-case">
-      <div>
-        <span class="module-pill">Активная ДТ</span>
-        <h2>{{ activeCase.client }}</h2>
-        <p>{{ activeCase.cargo }} · {{ activeCase.post }} · {{ activeCase.clientType }}</p>
-      </div>
-      <div class="active-controls">
-        <label>
-          <span>Текущий статус</span>
-          <a-select :value="activeCase.status" :options="statusOptions" disabled />
-        </label>
-        <label>
-          <span>Коридор</span>
-          <a-select :value="activeCase.corridor" :options="corridorOptions" @change="setCorridor" />
-        </label>
-      </div>
-    </section>
-
-    <section v-if="activeCase" class="action-panel">
-      <div>
-        <span class="module-pill">Действия роли</span>
-        <h3>{{ roleLabel }}</h3>
-        <p>{{ roleHelpText }}</p>
-      </div>
-      <div class="quick-actions">
-        <a-button
-          v-for="action in visibleActions"
-          :key="action.key"
-          :disabled="action.disabled"
-          @click="runAction(action.key)"
-        >
-          <component :is="action.icon" />
-          {{ action.label }}
-        </a-button>
-      </div>
-      <div v-if="validationWarnings.length" class="validation-box">
-        <strong>Что мешает следующему этапу</strong>
-        <ul>
-          <li v-for="warning in validationWarnings" :key="warning">{{ warning }}</li>
-        </ul>
-      </div>
-    </section>
-
-    <section class="status-timeline">
-      <button
-        v-for="status in statuses"
-        :key="status.id"
-        class="status-step"
-        :class="{ active: activeCase?.status === status.id, done: isStatusDone(status.id) }"
-        type="button"
-        :disabled="!activeCase"
-        @click="setStatus(status.id)"
-      >
-        <span>{{ status.id }}</span>
-        <strong>{{ status.short }}</strong>
-        <small>{{ status.phase }}</small>
-      </button>
-    </section>
-
-    <a-tabs v-if="activeCase" v-model:activeKey="activeTab" class="import-tabs" :items="visibleTabs" />
+    <a-tabs v-if="activeCase" v-model:activeKey="activeTab" class="import-tabs">
+      <a-tab-pane v-for="tab in visibleTabs" :key="tab.key" :tab="tab.label" />
+    </a-tabs>
 
     <section v-if="activeCase" class="detail-grid">
       <a-card v-if="roleMode === 'legs' && activeTab === 'post'" class="crm-shell-card mobile-card" :bordered="false">
@@ -245,6 +149,88 @@
         </div>
       </a-card>
 
+      <a-card v-if="isClient && activeTab === 'offer'" class="crm-shell-card" :bordered="false">
+        <template #title>
+          <div class="card-title">
+            <FileDoneOutlined />
+            КП и договор
+          </div>
+        </template>
+
+        <div class="flow-blocks">
+          <div class="flow-block">
+            <div class="flow-block-head">
+              <strong>1. Коммерческое предложение</strong>
+              <a-tag v-if="activeCase.clientAcceptedOffer" color="success">КП принято</a-tag>
+              <a-tag v-else-if="activeCase.status >= 3" color="processing">Ожидает вашего решения</a-tag>
+              <a-tag v-else>Готовится</a-tag>
+            </div>
+            <p v-if="activeCase.status >= 3 && activeCase.costCalculation" class="flow-sum">
+              Стоимость услуг: <strong>{{ activeCase.costCalculation }}</strong>
+            </p>
+            <p v-else class="flow-hint">МПП готовит расчет стоимости — он появится здесь.</p>
+            <FileChips :items="filesBySection('offer')" empty="" @download="downloadCaseFile" />
+            <div class="flow-actions">
+              <a-button
+                type="primary"
+                :disabled="activeCase.status < 3 || activeCase.clientAcceptedOffer"
+                @click="runAction('acceptOffer')"
+              >
+                Принять КП
+              </a-button>
+              <a-button :disabled="!hasFile('offer')" @click="runAction('downloadOffer')">
+                <DownloadOutlined />
+                Скачать КП
+              </a-button>
+            </div>
+          </div>
+
+          <div class="flow-block">
+            <div class="flow-block-head">
+              <strong>2. Договор</strong>
+              <a-tag v-if="activeCase.contractSigned" color="success">Заключен</a-tag>
+              <a-tag v-else-if="hasFile('contract')" color="processing">Ожидает подписания</a-tag>
+              <a-tag v-else>Готовится</a-tag>
+            </div>
+            <p class="flow-hint">
+              Скачайте договор, подпишите и принесите в офис — после заключения менеджер отметит его в системе.
+            </p>
+            <FileChips :items="filesBySection('contract')" empty="" @download="downloadCaseFile" />
+            <div class="flow-actions">
+              <a-button :disabled="!hasFile('contract')" @click="runAction('downloadContract')">
+                <DownloadOutlined />
+                Скачать договор
+              </a-button>
+            </div>
+          </div>
+
+          <div class="flow-block">
+            <div class="flow-block-head">
+              <strong>3. Доверенность</strong>
+              <a-tag v-if="activeCase.powerOfAttorneyReturned" color="success">Возвращена</a-tag>
+              <a-tag v-else-if="activeCase.powerOfAttorneyGenerated" color="processing">Ожидает возврата</a-tag>
+              <a-tag v-else>Готовится</a-tag>
+            </div>
+            <p class="flow-hint">
+              Скачайте доверенность, подпишите и верните — нажмите «Вернуть подписанную», когда передадите её менеджеру.
+            </p>
+            <FileChips :items="filesBySection('power-of-attorney')" empty="" @download="downloadCaseFile" />
+            <div class="flow-actions">
+              <a-button :disabled="!hasFile('power-of-attorney')" @click="runAction('downloadPowerOfAttorney')">
+                <DownloadOutlined />
+                Скачать
+              </a-button>
+              <a-button
+                :disabled="!activeCase.powerOfAttorneyGenerated || activeCase.powerOfAttorneyReturned"
+                @click="runAction('returnPowerOfAttorney')"
+              >
+                Вернуть подписанную
+              </a-button>
+            </div>
+          </div>
+        </div>
+      </a-card>
+
       <a-card v-if="canSeeCommercial && activeTab === 'commercial'" class="crm-shell-card" :bordered="false">
         <template #title>
           <div class="card-title">
@@ -271,6 +257,71 @@
             <a-input :value="activeCase.riskNote" placeholder="КТС, ГДУ, нетарифка..." @change="updateFromInput('riskNote', $event)" />
           </label>
         </div>
+
+        <div class="flow-block files-inline">
+          <div class="flow-block-head">
+            <strong>Файл КП для клиента</strong>
+          </div>
+          <FileChips :items="filesBySection('offer')" empty="КП еще не загружено" @download="downloadCaseFile" />
+        </div>
+      </a-card>
+
+      <a-card v-if="roleMode === 'rop' && activeTab === 'legal'" class="crm-shell-card" :bordered="false">
+        <template #title>
+          <div class="card-title">
+            <FileProtectOutlined />
+            Договор и доверенность
+          </div>
+        </template>
+
+        <div class="flow-blocks">
+          <div class="flow-block">
+            <div class="flow-block-head">
+              <strong>Договор</strong>
+              <a-tag v-if="activeCase.contractSigned" color="success">Заключен</a-tag>
+              <a-tag v-else-if="activeCase.clientAcceptedOffer" color="processing">Клиент принял КП</a-tag>
+              <a-tag v-else>Ожидает КП</a-tag>
+            </div>
+            <p class="flow-hint">
+              Загрузите договор — клиент скачает его, подпишет и принесет в офис. После заключения отметьте договор в действиях.
+            </p>
+            <FileChips :items="filesBySection('contract')" empty="Договор не загружен" @download="downloadCaseFile" />
+          </div>
+
+          <div class="flow-block">
+            <div class="flow-block-head">
+              <strong>Доверенность</strong>
+              <a-tag v-if="activeCase.powerOfAttorneyReturned" color="success">Возвращена клиентом</a-tag>
+              <a-tag v-else-if="activeCase.powerOfAttorneyGenerated" color="processing">Передана клиенту</a-tag>
+              <a-tag v-else>Не сформирована</a-tag>
+            </div>
+            <p class="flow-hint">Загрузите доверенность — она станет доступна клиенту и ногам для скачивания.</p>
+            <FileChips :items="filesBySection('power-of-attorney')" empty="Доверенность не загружена" @download="downloadCaseFile" />
+          </div>
+        </div>
+      </a-card>
+
+      <a-card v-if="roleMode === 'declarant' && activeTab === 'declare'" class="crm-shell-card" :bordered="false">
+        <template #title>
+          <div class="card-title">
+            <ImportOutlined />
+            Декларирование
+          </div>
+        </template>
+
+        <div class="form-grid">
+          <label>
+            <span>Номер ДТ</span>
+            <a-input :value="activeCase.declarationNumber" placeholder="55301/______/_______" @change="updateFromInput('declarationNumber', $event)" />
+          </label>
+          <label>
+            <span>Риск / комментарий</span>
+            <a-input :value="activeCase.riskNote" placeholder="КТС, ГДУ, нетарифка..." @change="updateFromInput('riskNote', $event)" />
+          </label>
+        </div>
+        <p class="flow-hint">
+          Укажите номер ДТ и подайте её через панель действий. Коридор меняется в шапке заявки.
+        </p>
       </a-card>
 
       <a-card v-if="canSeeTransport && activeTab === 'post'" class="crm-shell-card" :bordered="false">
@@ -301,23 +352,98 @@
         </div>
       </a-card>
 
-      <a-card v-if="canSeeDocuments && activeTab === 'documents'" class="crm-shell-card" :bordered="false">
+      <a-card v-if="activeTab === 'documents'" class="crm-shell-card" :bordered="false">
         <template #title>
           <div class="card-title">
             <FileProtectOutlined />
-            Документы и контроль
+            {{ isClient ? 'Документы по заявке' : 'Документы и контроль' }}
           </div>
         </template>
 
-        <div class="document-grid">
+        <div v-if="!isClient" class="document-grid">
           <label v-for="doc in documentTypes" :key="doc" class="doc-check">
             <a-checkbox :checked="activeCase.documents.includes(doc)" @change="toggleDocument(doc)" />
             <span>{{ doc }}</span>
           </label>
         </div>
+
+        <div class="files-section">
+          <div class="files-section-header">
+            <strong>Файлы заявки</strong>
+            <a-tag v-if="uploadingSection">Загрузка: {{ sectionLabels[uploadingSection] }}…</a-tag>
+          </div>
+          <a-spin :spinning="filesLoading">
+            <a-empty v-if="!files.length" description="Файлов пока нет" />
+            <div v-else class="file-list">
+              <div v-for="file in files" :key="file.id" class="file-item">
+                <span class="file-section-tag">{{ sectionLabels[file.section] || file.section }}</span>
+                <span class="file-name">{{ file.originalFileName }}</span>
+                <span class="file-meta">{{ formatLogTime(file.createdAtUtc) }}</span>
+                <a-button type="link" size="small" @click="downloadCaseFile(file)">
+                  <DownloadOutlined />
+                  Скачать
+                </a-button>
+                <a-popconfirm
+                  v-if="canDeleteFile(file)"
+                  title="Удалить файл?"
+                  ok-text="Да"
+                  cancel-text="Нет"
+                  @confirm="removeCaseFile(file)"
+                >
+                  <a-button type="link" danger size="small">
+                    <DeleteOutlined />
+                  </a-button>
+                </a-popconfirm>
+              </div>
+            </div>
+          </a-spin>
+        </div>
       </a-card>
 
-      <a-card v-if="canSeeFinance && activeTab === 'finance'" class="crm-shell-card" :bordered="false">
+      <a-card v-if="isClient && activeTab === 'finance'" class="crm-shell-card" :bordered="false">
+        <template #title>
+          <div class="card-title">
+            <DollarOutlined />
+            СВХ и оплата
+          </div>
+        </template>
+
+        <div class="flow-blocks">
+          <div class="flow-block">
+            <div class="flow-block-head">
+              <strong>1. Счет СВХ</strong>
+              <a-tag v-if="hasFile('svh-invoice')" color="processing">Выставлен</a-tag>
+              <a-tag v-else>Еще не выставлен</a-tag>
+            </div>
+            <p v-if="activeCase.svhInvoice" class="flow-sum">
+              К оплате: <strong>{{ activeCase.svhInvoice }}</strong>
+            </p>
+            <p class="flow-hint">Скачайте счет, оплатите его и загрузите чек об оплате.</p>
+            <FileChips :items="filesBySection('svh-invoice')" empty="" @download="downloadCaseFile" />
+          </div>
+
+          <div class="flow-block">
+            <div class="flow-block-head">
+              <strong>2. Чек оплаты</strong>
+              <a-tag v-if="activeCase.svhPaymentConfirmed" color="success">Оплата подтверждена</a-tag>
+              <a-tag v-else-if="hasFile('payment-check')" color="processing">На проверке</a-tag>
+              <a-tag v-else>Ожидается</a-tag>
+            </div>
+            <FileChips :items="filesBySection('payment-check')" empty="" @download="downloadCaseFile" />
+            <div class="flow-actions">
+              <a-button
+                type="primary"
+                :disabled="activeCase.status < 10"
+                @click="runAction('confirmPayment')"
+              >
+                Загрузить чек оплаты
+              </a-button>
+            </div>
+          </div>
+        </div>
+      </a-card>
+
+      <a-card v-if="!isClient && activeTab === 'finance'" class="crm-shell-card" :bordered="false">
         <template #title>
           <div class="card-title">
             <DollarOutlined />
@@ -325,23 +451,41 @@
           </div>
         </template>
 
-        <div class="form-grid">
-          <label>
-            <span>Счет СВХ</span>
-            <a-input :value="activeCase.svhInvoice" placeholder="№ счета / сумма" @change="updateFromInput('svhInvoice', $event)" />
-          </label>
-          <label>
-            <span>Оплата клиента</span>
-            <a-input :value="activeCase.paymentCheck" placeholder="Чек / дата оплаты" @change="updateFromInput('paymentCheck', $event)" />
-          </label>
-          <label>
-            <span>Номер ДТ</span>
-            <a-input :value="activeCase.declarationNumber" placeholder="После подачи" @change="updateFromInput('declarationNumber', $event)" />
-          </label>
-          <label>
-            <span>Финальная ДТ</span>
-            <a-input :value="activeCase.finalDeclarationFile" placeholder="Файл будет подключен через backend" @change="updateFromInput('finalDeclarationFile', $event)" />
-          </label>
+        <div class="flow-blocks">
+          <div class="flow-block">
+            <div class="flow-block-head">
+              <strong>Счет СВХ</strong>
+              <a-tag v-if="hasFile('svh-invoice')" color="processing">Выставлен</a-tag>
+              <a-tag v-else>Не выставлен</a-tag>
+            </div>
+            <label v-if="roleMode === 'rop'" class="flow-field">
+              <span>Сумма / № счета</span>
+              <a-input :value="activeCase.svhInvoice" placeholder="№ счета / сумма" @change="updateFromInput('svhInvoice', $event)" />
+            </label>
+            <p v-else-if="activeCase.svhInvoice" class="flow-sum">
+              Сумма: <strong>{{ activeCase.svhInvoice }}</strong>
+            </p>
+            <FileChips :items="filesBySection('svh-invoice')" empty="Счет не загружен" @download="downloadCaseFile" />
+          </div>
+
+          <div class="flow-block">
+            <div class="flow-block-head">
+              <strong>Оплата клиента</strong>
+              <a-tag v-if="activeCase.svhPaymentConfirmed" color="success">Подтверждена</a-tag>
+              <a-tag v-else-if="hasFile('payment-check')" color="processing">Чек на проверке</a-tag>
+              <a-tag v-else>Ожидается</a-tag>
+            </div>
+            <FileChips :items="filesBySection('payment-check')" empty="Чек не загружен" @download="downloadCaseFile" />
+          </div>
+
+          <div class="flow-block">
+            <div class="flow-block-head">
+              <strong>Закрытая ДТ</strong>
+              <a-tag v-if="activeCase.closedDeclarationUploaded" color="success">Загружена</a-tag>
+              <a-tag v-else>Ожидается</a-tag>
+            </div>
+            <FileChips :items="filesBySection('closed-declaration')" empty="Закрытая ДТ не загружена" @download="downloadCaseFile" />
+          </div>
         </div>
       </a-card>
     </section>
@@ -371,23 +515,30 @@ import { message } from 'ant-design-vue'
 import {
   CalculatorOutlined,
   CarOutlined,
+  CheckOutlined,
   DollarOutlined,
   DownloadOutlined,
   CameraOutlined,
-  FileAddOutlined,
   FileDoneOutlined,
   FileProtectOutlined,
   FileTextOutlined,
-  FolderOpenOutlined,
+  DeleteOutlined,
   HistoryOutlined,
   ImportOutlined,
+  LeftOutlined,
   MobileOutlined,
-  PlusOutlined,
-  SearchOutlined,
+  ReloadOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons-vue'
-import { import40Api, type Import40Action, type Import40CaseDto } from '@/api/import40'
-import { reestrApi } from '@/api/reestr'
+import {
+  import40Api,
+  type Import40Action,
+  type Import40CaseDto,
+  type Import40FileDto,
+  type Import40FileSection,
+} from '@/api/import40'
 import { useAuthStore } from '@/stores/auth'
+import FileChips from '@/components/Import40FileChips.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -456,8 +607,10 @@ type ActionKey =
   | 'approveOffer'
   | 'acceptOffer'
   | 'signContract'
-  | 'generatePowerOfAttorney'
   | 'downloadPowerOfAttorney'
+  | 'downloadContract'
+  | 'downloadOffer'
+  | 'downloadSvhInvoice'
   | 'returnPowerOfAttorney'
   | 'photoControl'
   | 'submitDeclaration'
@@ -466,6 +619,9 @@ type ActionKey =
   | 'confirmPayment'
   | 'verifyPayment'
   | 'uploadClosedDeclaration'
+  | 'uploadOffer'
+  | 'uploadContract'
+  | 'uploadPowerOfAttorney'
 
 const statuses: ImportStatus[] = [
   { id: 1, short: 'Черновик', phase: 'Коммерческий' },
@@ -482,74 +638,72 @@ const statuses: ImportStatus[] = [
   { id: 12, short: 'Выполнено', phase: 'Архив' },
 ]
 
-const draft = reactive({
-  clientId: undefined as string | undefined,
-  client: '',
-  clientType: 'Одноразовый' as Import40Case['clientType'],
-  cargo: '',
-  post: '',
-  manager: 'Фурхат',
-})
-
 const cases = ref<Import40Case[]>([])
 const activeCaseId = ref<string | null>(null)
-const search = ref('')
+const files = ref<Import40FileDto[]>([])
+const filesLoading = ref(false)
+const uploadingSection = ref<Import40FileSection | null>(null)
+const pendingSection = ref<Import40FileSection | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+const sectionLabels: Record<Import40FileSection, string> = {
+  photo: 'Фото контроля',
+  'svh-invoice': 'Счет СВХ',
+  'payment-check': 'Чек оплаты',
+  'closed-declaration': 'Закрытая ДТ',
+  offer: 'Коммерческое предложение',
+  contract: 'Договор',
+  'power-of-attorney': 'Доверенность',
+}
 const authStore = useAuthStore()
 const roleMode = ref<RoleMode>('rop')
 const activeTab = ref('overview')
 const loading = ref(false)
-const clientsLoading = ref(false)
-const clientOptions = ref<{ value: string; label: string }[]>([])
-
-const importRoleByUsername: Record<string, RoleMode> = {
-  im40_client: 'client',
-  im40_rop: 'rop',
-  im40_mpp: 'sales',
-  im40_nogi: 'legs',
-  im40_declarant: 'declarant',
-}
-
-const roleModeOptions = [
-  { label: 'Клиент', value: 'client' },
-  { label: 'РОП', value: 'rop' },
-  { label: 'МПП', value: 'sales' },
-  { label: 'Ноги', value: 'legs' },
-  { label: 'Декларант', value: 'declarant' },
-]
 
 const canSeeCommercial = computed(() => ['rop', 'sales'].includes(roleMode.value))
 const canSeeTransport = computed(() => ['client', 'legs', 'rop'].includes(roleMode.value))
-const canSeeDocuments = computed(() => ['client', 'legs', 'declarant', 'rop'].includes(roleMode.value))
-const canSeeFinance = computed(() => ['client', 'legs', 'rop', 'declarant'].includes(roleMode.value))
+const isClient = computed(() => roleMode.value === 'client')
+const canEditCorridor = computed(() => ['rop', 'declarant'].includes(roleMode.value))
 const visibleTabs = computed(() => {
-  const tabs = [{ key: 'overview', label: 'Обзор' }]
-  if (canSeeCommercial.value) tabs.push({ key: 'commercial', label: 'Коммерция' })
-  if (canSeeTransport.value) tabs.push({ key: 'post', label: roleMode.value === 'legs' ? 'Пост' : 'Транспорт' })
-  if (canSeeFinance.value) tabs.push({ key: 'finance', label: 'СВХ / Оплата' })
-  if (canSeeDocuments.value) tabs.push({ key: 'documents', label: 'Документы' })
+  const tabs: { key: string; label: string }[] = []
+  if (isClient.value) {
+    tabs.push({ key: 'offer', label: 'КП и договор' })
+    tabs.push({ key: 'post', label: 'Транспорт' })
+    tabs.push({ key: 'finance', label: 'СВХ / Оплата' })
+  } else {
+    if (canSeeCommercial.value) tabs.push({ key: 'commercial', label: 'Коммерция' })
+    if (roleMode.value === 'rop') tabs.push({ key: 'legal', label: 'Договор и доверенность' })
+    if (canSeeTransport.value) tabs.push({ key: 'post', label: roleMode.value === 'legs' ? 'Пост' : 'Транспорт' })
+    if (roleMode.value === 'declarant') tabs.push({ key: 'declare', label: 'Декларирование' })
+    if (['rop', 'legs'].includes(roleMode.value)) tabs.push({ key: 'finance', label: 'СВХ / Оплата' })
+  }
+  tabs.push({ key: 'documents', label: 'Документы' })
   tabs.push({ key: 'history', label: 'История' })
   return tabs
 })
 
+watch(
+  visibleTabs,
+  (tabs) => {
+    if (tabs.length && !tabs.some((tab) => tab.key === activeTab.value)) {
+      activeTab.value = tabs[0].key
+    }
+  },
+  { immediate: true },
+)
+
 const applyRoleFromLogin = () => {
   const businessRole = authStore.businessRole?.trim().toLowerCase()
+  const systemRole = (authStore.role || '').trim().toLowerCase()
   if (businessRole === 'mpp') roleMode.value = 'sales'
   else if (businessRole === 'legs') roleMode.value = 'legs'
   else if (businessRole === 'declarant') roleMode.value = 'declarant'
   else if (businessRole === 'client') roleMode.value = 'client'
   else if (businessRole === 'rop') roleMode.value = 'rop'
-  else {
-    const username = authStore.username?.trim().toLowerCase()
-    if (username) {
-      roleMode.value = importRoleByUsername[username] ?? roleMode.value
-    }
-  }
+  else if (systemRole === 'administrator') roleMode.value = 'rop'
+  else if (systemRole === 'client') roleMode.value = 'client'
+  else if (systemRole === 'importer') roleMode.value = 'sales'
 }
-
-const clientTypeOptions = [
-  { label: 'Одноразовый', value: 'Одноразовый' },
-  { label: 'Постоянный', value: 'Постоянный' },
-]
 
 const employeeOptions = [
   { label: 'Фурхат', value: 'Фурхат' },
@@ -588,13 +742,6 @@ const documentTypes = [
   'Закрытая ДТ',
 ]
 
-const statusOptions = computed(() =>
-  statuses.map((status) => ({
-    label: `${status.id}. ${status.short}`,
-    value: status.id,
-  })),
-)
-
 const activeCase = computed(() => cases.value.find((item) => item.id === activeCaseId.value) || null)
 
 const roleLabel = computed(
@@ -619,26 +766,8 @@ const roleHelpText = computed(
     })[roleMode.value],
 )
 
-const filteredCases = computed(() => {
-  const query = search.value.trim().toLowerCase()
-  if (!query) return cases.value
-
-  return cases.value.filter((item) =>
-    [item.client, item.cargo, item.post, item.declarationNumber, currentStatus(item).short]
-      .join(' ')
-      .toLowerCase()
-      .includes(query),
-  )
-})
-
-const metrics = computed(() => [
-  { label: 'Статусов', value: String(statuses.length) },
-  { label: 'Активные ДТ', value: String(cases.value.filter((item) => item.status < 12).length) },
-  { label: 'Красный коридор', value: String(cases.value.filter((item) => item.corridor === 'red').length) },
-])
-
 const validationWarnings = computed(() => {
-  if (!activeCase.value) return []
+  if (!activeCase.value || activeCase.value.status >= 12) return []
   return validateStatus(activeCase.value, Math.min(activeCase.value.status + 1, 12))
 })
 
@@ -653,19 +782,33 @@ const visibleActions = computed(() => {
   }[] = []
 
   if (roleMode.value === 'sales') {
-    actions.push({
-      key: 'submitCalculation',
-      label: 'Отправить расчет РОПу',
-      icon: CalculatorOutlined,
-      disabled: !activeCase.value.costCalculation,
-    })
+    actions.push(
+      { key: 'uploadOffer', label: 'Загрузить КП (файл)', icon: FileTextOutlined },
+      {
+        key: 'submitCalculation',
+        label: 'Отправить расчет РОПу',
+        icon: CalculatorOutlined,
+        disabled: !activeCase.value.costCalculation,
+      },
+    )
   }
 
   if (roleMode.value === 'rop') {
     actions.push(
-      { key: 'approveOffer', label: 'Утвердить тариф', icon: FileDoneOutlined },
-      { key: 'signContract', label: 'Подписать договор', icon: FileProtectOutlined },
-      { key: 'generatePowerOfAttorney', label: 'Сгенерировать доверенность', icon: FileTextOutlined },
+      {
+        key: 'approveOffer',
+        label: 'Утвердить тариф',
+        icon: FileDoneOutlined,
+        disabled: !activeCase.value.costCalculation || activeCase.value.ropApproved,
+      },
+      { key: 'uploadContract', label: 'Загрузить договор', icon: FileTextOutlined },
+      {
+        key: 'signContract',
+        label: 'Отметить договор заключенным',
+        icon: FileProtectOutlined,
+        disabled: !activeCase.value.clientAcceptedOffer || activeCase.value.contractSigned,
+      },
+      { key: 'uploadPowerOfAttorney', label: 'Загрузить доверенность', icon: FileTextOutlined },
       {
         key: 'verifyPayment',
         label: 'Проверить оплату',
@@ -678,23 +821,47 @@ const visibleActions = computed(() => {
   if (roleMode.value === 'client') {
     actions.push(
       {
+        key: 'downloadOffer',
+        label: 'Скачать КП',
+        icon: DownloadOutlined,
+        disabled: !hasFile('offer'),
+      },
+      {
         key: 'acceptOffer',
         label: 'Принять КП',
         icon: FileDoneOutlined,
+        disabled: activeCase.value.status < 3 || activeCase.value.clientAcceptedOffer,
+      },
+      {
+        key: 'downloadContract',
+        label: 'Скачать договор',
+        icon: DownloadOutlined,
+        disabled: !hasFile('contract'),
       },
       {
         key: 'downloadPowerOfAttorney',
         label: 'Скачать доверенность',
         icon: DownloadOutlined,
-        disabled: !activeCase.value.powerOfAttorneyGenerated,
+        disabled: !hasFile('power-of-attorney'),
       },
       {
         key: 'returnPowerOfAttorney',
         label: 'Вернуть подписанную',
         icon: FileProtectOutlined,
-        disabled: !activeCase.value.powerOfAttorneyGenerated,
+        disabled: !activeCase.value.powerOfAttorneyGenerated || activeCase.value.powerOfAttorneyReturned,
       },
-      { key: 'confirmPayment', label: 'Загрузить чек оплаты', icon: DollarOutlined },
+      {
+        key: 'downloadSvhInvoice',
+        label: 'Скачать счет СВХ',
+        icon: DownloadOutlined,
+        disabled: !hasFile('svh-invoice'),
+      },
+      {
+        key: 'confirmPayment',
+        label: 'Загрузить чек оплаты',
+        icon: DollarOutlined,
+        disabled: activeCase.value.status < 10,
+      },
     )
   }
 
@@ -704,7 +871,7 @@ const visibleActions = computed(() => {
         key: 'downloadPowerOfAttorney',
         label: 'Скачать доверенность',
         icon: DownloadOutlined,
-        disabled: !activeCase.value.powerOfAttorneyReturned,
+        disabled: !hasFile('power-of-attorney'),
       },
       { key: 'photoControl', label: 'Добавить фото контроля', icon: CameraOutlined },
       { key: 'uploadSvhInvoice', label: 'Загрузить счет СВХ', icon: FileTextOutlined },
@@ -719,30 +886,40 @@ const visibleActions = computed(() => {
 
   if (roleMode.value === 'declarant') {
     actions.push(
-      { key: 'submitDeclaration', label: 'Подать ДТ', icon: ImportOutlined },
-      { key: 'releaseDeclaration', label: 'Зафиксировать выпуск', icon: FileDoneOutlined },
+      {
+        key: 'submitDeclaration',
+        label: 'Подать ДТ',
+        icon: ImportOutlined,
+        disabled: !activeCase.value.declarationNumber,
+      },
+      {
+        key: 'releaseDeclaration',
+        label: 'Зафиксировать выпуск',
+        icon: FileDoneOutlined,
+        disabled: activeCase.value.status < 8,
+      },
     )
   }
 
   return actions
 })
 
-const canCreate = computed(
-  () =>
-    Boolean(draft.clientId) &&
-    draft.cargo.trim().length > 1 &&
-    draft.post.trim().length > 1,
-)
+const filesBySection = (section: Import40FileSection) =>
+  files.value.filter((file) => file.section === section)
 
-const columns = [
-  { title: 'Заявка', key: 'case', width: 240 },
-  { title: 'Статус', key: 'status', width: 150 },
-  { title: 'Менеджер', dataIndex: 'manager', key: 'manager', width: 120 },
-  { title: 'Декларант', dataIndex: 'declarant', key: 'declarant', width: 130 },
-  { title: 'Коридор', key: 'corridor', width: 110 },
-  { title: 'Прогресс', key: 'progress', width: 120 },
-  { title: '', key: 'action', width: 92, align: 'right' as const },
-]
+const hasFile = (section: Import40FileSection) => filesBySection(section).length > 0
+
+const roleBusinessMap: Record<RoleMode, string> = {
+  client: 'client',
+  rop: 'rop',
+  sales: 'mpp',
+  legs: 'legs',
+  declarant: 'declarant',
+}
+
+const canDeleteFile = (file: Import40FileDto) =>
+  (authStore.role || '').trim().toLowerCase() === 'administrator' ||
+  file.uploadedByBusinessRole === roleBusinessMap[roleMode.value]
 
 const fromDto = (dto: Import40CaseDto): Import40Case => ({
   id: dto.id,
@@ -811,27 +988,6 @@ const loadCases = async () => {
   }
 }
 
-const loadClients = async () => {
-  clientsLoading.value = true
-  try {
-    const clients = await reestrApi.listClientsForCreate()
-    clientOptions.value = clients.map((client) => ({
-      value: client.id,
-      label: client.username,
-    }))
-    if (!draft.clientId && clientOptions.value.length === 1) {
-      draft.clientId = clientOptions.value[0].value
-      syncDraftClientName()
-    }
-  } finally {
-    clientsLoading.value = false
-  }
-}
-
-const syncDraftClientName = () => {
-  draft.client = clientOptions.value.find((client) => client.value === draft.clientId)?.label || ''
-}
-
 const currentStatus = (item: Import40Case) =>
   statuses.find((status) => status.id === item.status) || statuses[0]
 
@@ -839,40 +995,6 @@ const corridorLabel = (corridor: Import40Case['corridor']) =>
   corridorOptions.find((item) => item.value === corridor)?.label || 'Не выбран'
 
 const caseProgress = (item: Import40Case) => Math.round((item.status / statuses.length) * 100)
-
-const rowClassName = (record: Import40Case) =>
-  record.id === activeCaseId.value ? 'import-row-active' : ''
-
-const selectCase = (id: string) => {
-  activeCaseId.value = id
-}
-
-const createCase = async () => {
-  if (!canCreate.value) return
-
-  const created = await import40Api.create({
-    clientId: draft.clientId!,
-    clientName: draft.client.trim(),
-    clientType: draft.clientType,
-    cargo: draft.cargo.trim(),
-    post: draft.post.trim(),
-    manager: draft.manager,
-  })
-  replaceCase(created)
-  message.success('Заявка Импорт 40 создана')
-
-  draft.clientId = undefined
-  draft.client = ''
-  draft.clientType = 'Одноразовый'
-  draft.cargo = ''
-  draft.post = ''
-  draft.manager = 'Фурхат'
-}
-
-const setStatus = (status: number) => {
-  if (!activeCase.value || activeCase.value.status === status) return
-  message.info('Статус меняется через действия роли, вручную выбирать этап не нужно')
-}
 
 const setCorridor = async (corridor: Import40Case['corridor']) => {
   if (!activeCase.value || activeCase.value.corridor === corridor) return
@@ -910,38 +1032,131 @@ const toggleDocument = (documentType: string) => {
   }
 }
 
-const actionMap: Record<Exclude<ActionKey, 'downloadPowerOfAttorney'>, Import40Action> = {
+const actionMap: Partial<Record<ActionKey, Import40Action>> = {
   submitCalculation: 'submit-calculation',
   approveOffer: 'approve-offer',
   acceptOffer: 'accept-offer',
   signContract: 'sign-contract',
-  generatePowerOfAttorney: 'generate-power-of-attorney',
   returnPowerOfAttorney: 'return-power-of-attorney',
-  photoControl: 'photo-control',
   submitDeclaration: 'submit-declaration',
   releaseDeclaration: 'release-declaration',
-  uploadSvhInvoice: 'upload-svh-invoice',
-  confirmPayment: 'confirm-payment',
   verifyPayment: 'verify-payment',
-  uploadClosedDeclaration: 'upload-closed-declaration',
+}
+
+const uploadSections: Partial<Record<ActionKey, Import40FileSection>> = {
+  photoControl: 'photo',
+  uploadSvhInvoice: 'svh-invoice',
+  confirmPayment: 'payment-check',
+  uploadClosedDeclaration: 'closed-declaration',
+  uploadOffer: 'offer',
+  uploadContract: 'contract',
+  uploadPowerOfAttorney: 'power-of-attorney',
+}
+
+const downloadSections: Partial<Record<ActionKey, Import40FileSection>> = {
+  downloadPowerOfAttorney: 'power-of-attorney',
+  downloadContract: 'contract',
+  downloadOffer: 'offer',
+  downloadSvhInvoice: 'svh-invoice',
 }
 
 const runAction = async (action: ActionKey) => {
   if (!activeCase.value) return
 
-  if (action === 'downloadPowerOfAttorney') {
-    message.info('Скачивание доверенности будет подключено в блоке файлов. Статус заявки не меняется.')
+  const downloadSection = downloadSections[action]
+  if (downloadSection) {
+    const latest = filesBySection(downloadSection)[0]
+    if (!latest) {
+      message.warning(`${sectionLabels[downloadSection]}: файл еще не загружен`)
+      return
+    }
+    await downloadCaseFile(latest)
     return
   }
 
-  const updated = await import40Api.action(activeCase.value.id, actionMap[action])
+  const section = uploadSections[action]
+  if (section) {
+    triggerUpload(section)
+    return
+  }
+
+  const apiAction = actionMap[action]
+  if (!apiAction) return
+  const updated = await import40Api.action(activeCase.value.id, apiAction)
   replaceCase(updated)
   message.success('Действие выполнено')
 }
 
-const addDocumentIfMissing = (item: Import40Case, documentType: string) => {
-  if (!item.documents.includes(documentType)) {
-    item.documents = [...item.documents, documentType]
+const triggerUpload = (section: Import40FileSection) => {
+  const input = fileInputRef.value
+  if (!input) return
+  pendingSection.value = section
+  input.accept = section === 'photo' ? 'image/jpeg,image/png' : '.pdf,.jpg,.jpeg,.png,.docx,.xlsx'
+  input.click()
+}
+
+const onFileSelected = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  const section = pendingSection.value
+  input.value = ''
+  if (!file || !section || !activeCase.value) return
+
+  uploadingSection.value = section
+  try {
+    await import40Api.uploadFile(activeCase.value.id, section, file)
+    message.success(`${sectionLabels[section]}: файл загружен`)
+    const updated = await import40Api.get(activeCase.value.id)
+    replaceCase(updated)
+    await loadFiles()
+  } catch {
+    message.error('Не удалось загрузить файл')
+  } finally {
+    uploadingSection.value = null
+    pendingSection.value = null
+  }
+}
+
+const loadFiles = async () => {
+  if (!activeCase.value) {
+    files.value = []
+    return
+  }
+  filesLoading.value = true
+  try {
+    files.value = await import40Api.listFiles(activeCase.value.id)
+  } finally {
+    filesLoading.value = false
+  }
+}
+
+const downloadCaseFile = async (file: Import40FileDto) => {
+  if (!activeCase.value) return
+  try {
+    const blob = await import40Api.downloadFile(activeCase.value.id, file.id)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = file.originalFileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  } catch {
+    message.error('Не удалось скачать файл')
+  }
+}
+
+const removeCaseFile = async (file: Import40FileDto) => {
+  if (!activeCase.value) return
+  try {
+    await import40Api.deleteFile(activeCase.value.id, file.id)
+    message.success('Файл удалён')
+    const updated = await import40Api.get(activeCase.value.id)
+    replaceCase(updated)
+    await loadFiles()
+  } catch {
+    message.error('Не удалось удалить файл')
   }
 }
 
@@ -993,30 +1208,17 @@ const formatLogTime = (value: string) =>
     month: '2-digit',
   }).format(new Date(value))
 
-const normalizeCase = (item: Import40Case) => {
-  item.documents ||= []
-  item.logs ||= []
-  item.powerOfAttorneyGenerated ||= false
-  item.powerOfAttorneyReturned ||= false
-  item.controlPhotosCount ||= 0
-  item.closedDeclarationUploaded ||= false
-  item.ropApproved ||= false
-  item.clientAcceptedOffer ||= false
-  item.contractSigned ||= false
-  item.svhPaymentConfirmed ||= false
-  item.transportType ||= 'Тент / Штора'
-  item.corridor ||= 'green'
-  item.status ||= 1
-}
-
-onMounted(() => {
+onMounted(async () => {
   applyRoleFromLogin()
-  void loadClients()
-  void loadCases()
+  await loadCases()
+  void loadFiles()
 })
 
 watch(() => authStore.username, applyRoleFromLogin)
 watch(() => authStore.businessRole, applyRoleFromLogin)
+watch(activeCaseId, () => {
+  void loadFiles()
+})
 </script>
 
 <style scoped>
@@ -1027,197 +1229,35 @@ watch(() => authStore.businessRole, applyRoleFromLogin)
   padding-bottom: 24px;
 }
 
-.import40-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
-  gap: 18px;
-  padding: 22px;
-  border-radius: var(--atg-radius-lg);
-  background: linear-gradient(135deg, #1b2a4a, #243575);
-  color: #f0f3ff;
-  box-shadow: var(--atg-shadow-md);
-}
-
-.module-pill {
-  display: inline-flex;
-  min-height: 26px;
-  align-items: center;
-  padding: 0 10px;
-  border: 1px solid rgba(43, 188, 212, 0.5);
-  border-radius: 999px;
-  color: #2bbcd4;
-  background: rgba(43, 188, 212, 0.12);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.import40-hero h2 {
-  margin: 14px 0 8px;
-  color: #fff;
-  font-size: clamp(26px, 2.4vw, 38px);
-  font-weight: 850;
-  line-height: 1.1;
-}
-
-.import40-hero p {
-  max-width: 680px;
-  margin: 0;
-  color: rgba(240, 243, 255, 0.72);
-  line-height: 1.65;
-}
-
-.hero-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  align-self: end;
-}
-
-.metric-card {
-  min-height: 82px;
-  padding: 13px;
-  border: 1px solid rgba(240, 243, 255, 0.14);
-  border-radius: var(--atg-radius);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.metric-card span {
-  display: block;
-  color: rgba(240, 243, 255, 0.6);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.metric-card strong {
-  display: block;
-  margin-top: 10px;
-  color: #2bbcd4;
-  font-size: 24px;
-}
-
-.role-strip {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-  padding: 14px 16px;
-  border: 1px solid var(--atg-line);
-  border-radius: var(--atg-radius-lg);
-  background: #fff;
-  box-shadow: var(--atg-shadow);
-}
-
-.role-strip > div {
-  display: grid;
-  gap: 3px;
-}
-
-.role-strip span {
-  color: var(--atg-muted);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.role-strip strong {
-  color: var(--atg-ink);
-  font-size: 16px;
-  font-weight: 850;
-}
-
-.import40-workspace {
-  display: grid;
-  grid-template-columns: minmax(360px, 0.78fr) minmax(0, 1.22fr);
-  gap: 18px;
-  align-items: start;
-}
-
 .card-title {
   display: flex;
   align-items: center;
   gap: 9px;
   color: var(--atg-ink);
-  font-weight: 820;
+  font-weight: 800;
 }
 
 .card-title :deep(.anticon) {
   color: var(--atg-accent-strong);
 }
 
-.create-grid,
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.create-grid label,
-.form-grid label,
-.active-controls label {
+.form-grid label {
   display: flex;
   flex-direction: column;
   gap: 7px;
   min-width: 0;
 }
 
-.create-grid label span,
-.form-grid label span,
-.active-controls label span {
+.form-grid label span {
   color: var(--atg-charcoal);
   font-size: 12px;
-  font-weight: 780;
-}
-
-.create-btn {
-  min-height: 40px;
-  align-self: end;
-  font-weight: 780;
-}
-
-.list-card :deep(.ant-card-body) {
-  display: grid;
-  gap: 12px;
-}
-
-.import-table {
-  border: 1px solid var(--atg-line);
-  border-radius: var(--atg-radius);
-  overflow: hidden;
-}
-
-.import-table :deep(.ant-table-thead > tr > th) {
-  background: #e4e8f2;
-  color: var(--atg-ink);
-  font-size: 11px;
-  font-weight: 850;
-  text-transform: uppercase;
-}
-
-.import-table :deep(.import-row-active > td) {
-  background: var(--atg-cyan-soft) !important;
-}
-
-.case-cell strong,
-.case-cell span {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.case-cell strong {
-  color: var(--atg-ink);
-  font-size: 13px;
-  font-weight: 820;
-}
-
-.case-cell span {
-  margin-top: 3px;
-  color: var(--atg-muted);
-  font-size: 12px;
+  font-weight: 700;
 }
 
 .status-chip,
@@ -1228,7 +1268,7 @@ watch(() => authStore.businessRole, applyRoleFromLogin)
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 820;
+  font-weight: 800;
   white-space: nowrap;
 }
 
@@ -1257,73 +1297,218 @@ watch(() => authStore.businessRole, applyRoleFromLogin)
   background: #b84a3c;
 }
 
-.progress-cell {
+.case-board {
   display: grid;
-  grid-template-columns: minmax(66px, 1fr) 38px;
-  gap: 8px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.55fr);
+  gap: 18px;
+  align-items: start;
 }
 
-.progress-cell span {
+.case-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.case-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.case-phase {
   color: var(--atg-muted);
   font-size: 12px;
-  font-weight: 780;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.active-case {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.52fr);
-  gap: 18px;
-  align-items: center;
-  padding: 18px;
-  border: 1px solid var(--atg-line);
-  border-left: 4px solid var(--atg-accent);
-  border-radius: var(--atg-radius-lg);
-  background: #fff;
-  box-shadow: var(--atg-shadow);
-}
-
-.active-case h2 {
-  margin: 12px 0 5px;
-  color: var(--atg-ink);
-  font-size: 24px;
-  font-weight: 850;
-}
-
-.active-case p {
-  margin: 0;
-  color: var(--atg-muted);
-}
-
-.active-controls {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.action-panel {
-  display: grid;
-  grid-template-columns: minmax(260px, 0.45fr) minmax(0, 1fr);
+.case-controls {
+  display: flex;
   gap: 16px;
-  align-items: start;
-  padding: 16px;
-  border: 1px solid var(--atg-line);
-  border-radius: var(--atg-radius-lg);
-  background: linear-gradient(135deg, #fff, #f7f9fc);
-  box-shadow: var(--atg-shadow);
+  align-items: flex-start;
 }
 
-.action-panel h3 {
-  margin: 10px 0 5px;
-  color: var(--atg-ink);
-  font-size: 18px;
-  font-weight: 850;
+.side-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 130px;
 }
 
-.action-panel p {
-  margin: 0;
+.side-field > span:first-child {
   color: var(--atg-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 2px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(43, 188, 212, 0.4);
+  background: rgba(43, 188, 212, 0.1);
+  color: var(--atg-accent-strong);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.case-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--atg-line);
+  border-radius: var(--atg-radius);
+  background: var(--atg-surface-muted, #f6f8fb);
+}
+
+.meta-item {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.meta-item span {
+  color: var(--atg-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.meta-item strong {
+  color: var(--atg-ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.case-progress :deep(.ant-progress) {
+  flex: 1;
+  margin: 0;
+}
+
+.case-progress span {
+  flex-shrink: 0;
+  color: var(--atg-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pipeline {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.pipeline-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid var(--atg-line);
+  border-radius: var(--atg-radius);
+  background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.step-dot {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--atg-surface-muted, #eef1f6);
+  color: var(--atg-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.step-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--atg-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pipeline-step.done {
+  border-color: rgba(43, 188, 212, 0.35);
+  background: rgba(43, 188, 212, 0.06);
+}
+
+.pipeline-step.done .step-dot {
+  background: var(--atg-accent);
+  color: #fff;
+}
+
+.pipeline-step.done .step-label {
+  color: var(--atg-ink);
+}
+
+.pipeline-step.active {
+  border-color: var(--atg-accent);
+  box-shadow: 0 0 0 3px rgba(43, 188, 212, 0.15);
+}
+
+.pipeline-step.active .step-dot {
+  background: var(--atg-accent);
+  color: #fff;
+}
+
+.pipeline-step.active .step-label {
+  color: var(--atg-ink);
+  font-weight: 800;
+}
+
+.actions-card {
+  position: sticky;
+  top: 76px;
+}
+
+.actions-help {
+  margin: 0 0 12px;
+  color: var(--atg-muted);
+  font-size: 13px;
   line-height: 1.55;
+}
+
+.actions-card .quick-actions {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.actions-card .quick-actions .ant-btn {
+  justify-content: flex-start;
+}
+
+.validation-box {
+  margin-top: 14px;
 }
 
 .quick-actions {
@@ -1334,7 +1519,7 @@ watch(() => authStore.businessRole, applyRoleFromLogin)
 
 .quick-actions .ant-btn {
   min-height: 38px;
-  font-weight: 760;
+  font-weight: 700;
 }
 
 .validation-box {
@@ -1350,7 +1535,7 @@ watch(() => authStore.businessRole, applyRoleFromLogin)
   margin-bottom: 6px;
   color: var(--atg-red);
   font-size: 13px;
-  font-weight: 850;
+  font-weight: 800;
 }
 
 .validation-box ul {
@@ -1364,86 +1549,77 @@ watch(() => authStore.businessRole, applyRoleFromLogin)
   line-height: 1.45;
 }
 
-.status-timeline {
-  position: sticky;
-  top: 76px;
-  z-index: 20;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
-  padding: 10px 0;
-  background: rgba(243, 245, 249, 0.94);
-  backdrop-filter: blur(10px);
-}
-
-.status-step {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 4px 8px;
-  align-items: center;
-  min-height: 62px;
-  padding: 9px;
-  border: 1px solid var(--atg-line);
-  border-radius: var(--atg-radius);
-  background: #fff;
-  color: var(--atg-ink);
-  text-align: left;
-  cursor: pointer;
-}
-
-.status-step:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.status-step span {
-  display: grid;
-  grid-row: span 2;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  background: var(--atg-surface-muted);
-  color: var(--atg-muted);
-  font-size: 12px;
-  font-weight: 850;
-}
-
-.status-step strong,
-.status-step small {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.status-step strong {
-  font-size: 12px;
-  font-weight: 850;
-}
-
-.status-step small {
-  color: var(--atg-muted);
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.status-step.done span,
-.status-step.active span {
-  color: #fff;
-  background: var(--atg-accent);
-}
-
-.status-step.active {
-  border-color: var(--atg-accent);
-  box-shadow: var(--atg-shadow-md);
-}
-
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
   align-items: start;
+}
+
+.flow-blocks {
+  display: grid;
+  gap: 14px;
+}
+
+.flow-block {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--atg-line);
+  border-radius: var(--atg-radius);
+  background: var(--atg-surface, #fff);
+}
+
+.flow-block.files-inline {
+  margin-top: 14px;
+}
+
+.flow-block-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.flow-block-head strong {
+  color: var(--atg-ink);
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.flow-hint {
+  margin: 0;
+  color: var(--atg-muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.flow-sum {
+  margin: 0;
+  color: var(--atg-ink);
+  font-size: 14px;
+}
+
+.flow-sum strong {
+  font-weight: 800;
+}
+
+.flow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.flow-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flow-field span {
+  color: var(--atg-charcoal);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .mobile-card {
@@ -1498,27 +1674,87 @@ watch(() => authStore.businessRole, applyRoleFromLogin)
 .log-item span {
   color: var(--atg-muted);
   font-size: 12px;
-  font-weight: 780;
+  font-weight: 700;
 }
 
 .log-item strong {
   color: var(--atg-ink);
   font-size: 13px;
-  font-weight: 720;
+  font-weight: 700;
 }
 
 @media (max-width: 1180px) {
-  .import40-hero,
-  .import40-workspace,
-  .active-case,
-  .action-panel,
+  .case-board,
   .detail-grid {
     grid-template-columns: 1fr;
   }
 
-  .status-timeline {
+  .actions-card {
+    position: static;
+  }
+
+  .pipeline {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+
+  .case-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.files-section {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.files-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(17, 20, 19, 0.08);
+  border-radius: 10px;
+  background: rgba(17, 20, 19, 0.02);
+}
+
+.file-section-tag {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(37, 95, 143, 0.08);
+  border: 1px solid rgba(37, 95, 143, 0.2);
+  color: var(--atg-blue, #255f8f);
+}
+
+.file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.file-meta {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--atg-muted, #8a8f8d);
 }
 
 @media (max-width: 720px) {
@@ -1537,6 +1773,10 @@ watch(() => authStore.businessRole, applyRoleFromLogin)
     padding: 0;
     background: transparent;
     backdrop-filter: none;
+  }
+
+  .file-item {
+    flex-wrap: wrap;
   }
 }
 </style>

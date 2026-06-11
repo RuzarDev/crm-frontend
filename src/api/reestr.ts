@@ -86,6 +86,22 @@ export const reestrApi = {
     return response.data
   },
 
+  exportFile: async (params: Omit<ReestrListRequest, 'page' | 'pageSize'>): Promise<Blob> => {
+    const response = await apiClient.get('/reestr/export', {
+      params: {
+        ...(params.search ? { search: params.search } : {}),
+        ...(params.status != null ? { status: params.status } : {}),
+        ...(params.clientId ? { clientId: params.clientId } : {}),
+        ...(params.documentDateFrom ? { documentDateFrom: params.documentDateFrom } : {}),
+        ...(params.documentDateTo ? { documentDateTo: params.documentDateTo } : {}),
+        ...(params.sortBy ? { sortBy: params.sortBy } : {}),
+        sortDescending: params.sortDescending ?? true,
+      },
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
   uploadFile: async (file: File, clientId?: string): Promise<ImportResponse> => {
     const formData = new FormData()
     formData.append('file', file)

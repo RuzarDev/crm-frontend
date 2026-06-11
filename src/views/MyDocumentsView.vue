@@ -13,13 +13,18 @@
     <a-card class="crm-shell-card" :bordered="false">
       <a-space direction="vertical" style="width: 100%" :size="16">
         <div class="crm-toolbar crm-toolbar-surface">
-          <a-input-search
+          <a-input
             v-model:value="search"
             placeholder="Поиск по файлу или контейнеру…"
-            enter-button="Найти"
+            allow-clear
             style="width: 320px; max-width: 100%"
-            @search="handleSearch"
-          />
+            @pressEnter="handleSearch"
+            @change="handleSearch"
+          >
+            <template #prefix>
+              <SearchOutlined style="color: var(--atg-muted)" />
+            </template>
+          </a-input>
           <a-select
             v-model:value="sectionFilter"
             allow-clear
@@ -87,6 +92,7 @@ import type { MyReestrDocumentListItem, ReestrDocumentSection, ReestrEntry } fro
 import { dtoStatusToEntryStatus } from '@/utils/reestrDtoMap'
 import ReestrStatusCell from '@/components/ReestrStatusCell.vue'
 import ReestrForm from '@/components/ReestrForm.vue'
+import { SearchOutlined } from '@ant-design/icons-vue'
 
 const loading = ref(false)
 const items = ref<MyReestrDocumentListItem[]>([])

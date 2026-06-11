@@ -114,7 +114,7 @@ onMounted(async () => {
   border: 1px solid var(--atg-line-strong);
   color: var(--atg-charcoal);
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .declaration-count {
@@ -129,7 +129,7 @@ onMounted(async () => {
   border: 1px solid rgba(200, 149, 53, 0.25);
   color: var(--atg-accent-strong);
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .declaration-count.count-zero {

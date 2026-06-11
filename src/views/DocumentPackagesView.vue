@@ -1,18 +1,20 @@
 <template>
   <div class="document-packages-view crm-page">
-    <section class="page-hero">
+    <div class="crm-page-header">
       <div>
-        <p class="eyebrow">Документы экспедитора</p>
-        <h1>Пакеты документов</h1>
-        <p class="hero-copy">
+        <div class="crm-page-kicker">Документы экспедитора</div>
+        <h1 class="crm-page-title">Пакеты документов</h1>
+        <p class="crm-page-subtitle">
           Входящие файлы по поездам и составам до разбора брокером в строки реестра.
         </p>
       </div>
-      <a-button v-if="canCreate" type="primary" size="large" @click="openCreateModal">
-        <PlusOutlined />
-        Создать пакет
-      </a-button>
-    </section>
+      <div class="crm-page-actions">
+        <a-button v-if="canCreate" type="primary" @click="openCreateModal">
+          <PlusOutlined />
+          Создать пакет
+        </a-button>
+      </div>
+    </div>
 
     <a-alert
       v-if="isClient"
@@ -42,24 +44,29 @@
 
       <a-card class="crm-shell-card" :bordered="false">
         <div class="toolbar">
-          <a-input-search
+          <a-input
             v-model:value="search"
             allow-clear
             placeholder="Найти по номеру поезда"
             class="search-input"
-            @search="fetchPackages"
-          />
+            @pressEnter="fetchPackages"
+            @change="fetchPackages"
+          >
+            <template #prefix>
+              <SearchOutlined style="color: var(--atg-muted)" />
+            </template>
+          </a-input>
+          <div class="toolbar-sep"></div>
           <a-select
             v-model:value="statusFilter"
             allow-clear
-            placeholder="Статус"
+            placeholder="Фильтр: статус"
             class="status-filter"
             :options="statusOptions"
             @change="fetchPackages"
           />
-          <a-button @click="fetchPackages">
+          <a-button class="refresh-btn" title="Обновить" @click="fetchPackages">
             <ReloadOutlined />
-            Обновить
           </a-button>
         </div>
 
@@ -108,6 +115,12 @@
               </a-space>
             </template>
           </template>
+          <template #emptyText>
+            <a-empty
+              description="Пакеты документов не найдены"
+              :image-size="64"
+            />
+          </template>
         </a-table>
       </a-card>
     </template>
@@ -127,8 +140,15 @@
         <a-form-item label="Комментарий">
           <a-textarea
             v-model:value="createForm.comment"
-            :rows="3"
+            :rows="2"
             placeholder="Необязательно"
+          />
+        </a-form-item>
+        <a-form-item label="Номера контейнеров (черновик)">
+          <a-textarea
+            v-model:value="createForm.containersInput"
+            :rows="3"
+            placeholder="Введите номера контейнеров, каждый с новой строки (необязательно)"
           />
         </a-form-item>
         <a-form-item label="Файлы">
@@ -147,6 +167,9 @@
       class="package-drawer"
     >
       <template v-if="selectedPackage">
+        <a-button v-if="canReview" type="primary" block @click="goToWorkspace(selectedPackage.id)" style="margin-bottom: 20px;">
+          Открыть рабочую область разбора (Broker Workspace)
+        </a-button>
         <div class="details-head">
           <div>
             <p class="eyebrow">Поезд / состав</p>
@@ -201,6 +224,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
   DeleteOutlined,
@@ -208,6 +232,7 @@ import {
   DownOutlined,
   PlusOutlined,
   ReloadOutlined,
+  SearchOutlined,
   TeamOutlined,
 } from '@ant-design/icons-vue'
 import { documentPackagesApi } from '@/api/documentPackages'
@@ -220,7 +245,13 @@ import type {
   ReestrClientOption,
 } from '@/types/api'
 
+const router = useRouter()
 const authStore = useAuthStore()
+
+const goToWorkspace = (id: string) => {
+  detailsOpen.value = false
+  router.push(`/document-packages/${id}/workspace`)
+}
 
 const role = computed(() => (authStore.role || '').trim().toLowerCase())
 const isExpeditor = computed(() => role.value === 'expeditor')
@@ -243,6 +274,7 @@ const createFiles = ref<File[]>([])
 const createForm = reactive({
   trainNumber: '',
   comment: '',
+  containersInput: '',
 })
 
 const statusOptions = [
@@ -303,6 +335,7 @@ const fetchClients = async () => {
 const openCreateModal = () => {
   createForm.trainNumber = ''
   createForm.comment = ''
+  createForm.containersInput = ''
   createFiles.value = []
   createOpen.value = true
 }
@@ -328,9 +361,15 @@ const createPackage = async () => {
 
   creating.value = true
   try {
+    const containerNumbers = (createForm.containersInput || '')
+      .split('\n')
+      .map(c => c.trim())
+      .filter(c => c.length > 0)
+
     const created = await documentPackagesApi.create({
       trainNumber: createForm.trainNumber.trim(),
       comment: createForm.comment.trim() || null,
+      containerNumbers,
     })
     if (createFiles.value.length) {
       await uploadFiles(created.id, createFiles.value, false)
@@ -430,38 +469,34 @@ const formatFileSize = (bytes: number) => {
   gap: 20px;
 }
 
-.page-hero {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
+/* Remove any left-border artifact — crm-shell-card should only have top teal border */
+.document-packages-view :deep(.crm-shell-card),
+.document-packages-view :deep(.ant-card) {
+  border-left: 1px solid var(--atg-line) !important;
+  border-right: 1px solid var(--atg-line) !important;
+  border-bottom: 1px solid var(--atg-line) !important;
 }
 
-.eyebrow {
-  margin: 0 0 6px;
-  color: var(--atg-accent);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+/* Make packages-table fill card without extra wrapper border */
+.document-packages-view :deep(.ant-table-wrapper) {
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
 }
 
-h1,
-h2 {
-  margin: 0;
-  color: var(--atg-text);
-}
-
-.hero-copy,
 .muted {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: var(--atg-muted);
+  font-size: 12.5px;
 }
 
 .card-title {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--atg-ink);
 }
 
 .client-chips {
@@ -474,26 +509,69 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 8px 14px;
   border: 1px solid rgba(43, 188, 212, 0.28);
   border-radius: 8px;
   color: var(--atg-text);
-  background: rgba(43, 188, 212, 0.08);
+  background: rgba(43, 188, 212, 0.06);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .client-chip small {
   color: var(--atg-muted);
+  font-size: 11.5px;
 }
 
 .toolbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--atg-line);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(27, 42, 74, 0.05);
+}
+
+.toolbar-sep {
+  width: 1px;
+  height: 22px;
+  background: var(--atg-line-strong);
+  flex-shrink: 0;
 }
 
 .search-input {
+  flex: 1;
+  min-width: 180px;
   max-width: 360px;
+}
+
+.status-filter {
+  width: 190px;
+  flex-shrink: 0;
+}
+
+.refresh-btn {
+  flex-shrink: 0;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-color: var(--atg-line) !important;
+  color: var(--atg-muted) !important;
+  transition: color 0.15s, background 0.15s !important;
+}
+
+.refresh-btn:hover {
+  color: var(--atg-accent-strong) !important;
+  background: var(--atg-teal-soft) !important;
+  border-color: var(--atg-accent-strong) !important;
 }
 
 .status-filter {
@@ -503,19 +581,31 @@ h2 {
 .link-button {
   padding: 0;
   border: 0;
-  color: var(--atg-accent);
+  color: var(--atg-accent-strong);
   font: inherit;
   font-weight: 700;
   background: transparent;
   cursor: pointer;
+  transition: color var(--atg-transition);
+}
+
+.link-button:hover {
+  color: var(--atg-teal-dark);
+  text-decoration: underline;
 }
 
 .native-file {
   width: 100%;
   padding: 12px;
-  border: 1px dashed rgba(15, 23, 42, 0.25);
+  border: 1.5px dashed var(--atg-line-strong);
   border-radius: 8px;
-  background: #fff;
+  background: var(--atg-bg);
+  cursor: pointer;
+  transition: border-color var(--atg-transition);
+}
+
+.native-file:hover {
+  border-color: var(--atg-teal);
 }
 
 .selected-files {
@@ -524,24 +614,55 @@ h2 {
   gap: 4px;
   margin-top: 10px;
   color: var(--atg-muted);
+  font-size: 12px;
 }
 
 .details-head {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 12px;
   margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--atg-line);
+}
+
+.details-head h2 {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--atg-ink);
+}
+
+.details-head p {
+  font-size: 12.5px;
+  color: var(--atg-muted);
+  margin: 2px 0 0;
+}
+
+.details-head .eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--atg-accent-strong);
 }
 
 .comment,
 .review-comment {
-  padding: 12px;
+  padding: 12px 16px;
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.04);
+  background: var(--atg-bg);
+  border: 1px solid var(--atg-line);
+  margin-bottom: 12px;
+  font-size: 13.5px;
+  color: var(--atg-charcoal);
 }
 
 .review-comment {
-  border-left: 3px solid #d79d3a;
+  border-left: 3px solid var(--atg-gold);
+  background: var(--atg-gold-soft);
 }
 
 .detail-upload {
@@ -549,11 +670,6 @@ h2 {
 }
 
 @media (max-width: 768px) {
-  .page-hero {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
   .search-input,
   .status-filter {
     width: 100%;

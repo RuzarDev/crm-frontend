@@ -291,7 +291,7 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
 
 .doc-section-title {
   font-size: 13.5px;
-  font-weight: 750;
+  font-weight: 700;
   color: var(--atg-ink);
 }
 
@@ -313,7 +313,7 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
 
 .doc-slot-label {
   font-size: 12.5px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--atg-charcoal);
 }
 
@@ -327,7 +327,7 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
   border-color: rgba(200, 149, 53, 0.35);
   background: var(--atg-accent-soft);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .upload-btn:hover {

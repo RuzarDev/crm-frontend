@@ -6,6 +6,7 @@ import type {
   CatalogBrokerRow,
   CatalogClientRow,
   CatalogExpeditorRow,
+  CatalogImporterRow,
   EditBrokerRequest,
   EditExpeditorRequest,
   LinkUsersRequest,
@@ -18,16 +19,18 @@ export const useUsersStore = defineStore('users', () => {
   const brokers = ref<CatalogBrokerRow[]>([])
   const clients = ref<CatalogClientRow[]>([])
   const expeditors = ref<CatalogExpeditorRow[]>([])
+  const importers = ref<CatalogImporterRow[]>([])
   const loading = ref(false)
 
   const fetchCatalogs = async () => {
     loading.value = true
     try {
-      const [a, b, c, e] = await Promise.all([
+      const [a, b, c, e, i] = await Promise.all([
         usersApi.getCatalogAdministrators(),
         usersApi.getCatalogBrokers(),
         usersApi.getCatalogClients(),
         usersApi.getCatalogExpeditors(),
+        usersApi.getCatalogImporters(),
       ])
       administrators.value = a
       brokers.value = b.map((r) => ({ ...r, clients: r.clients ?? [] }))
@@ -37,6 +40,7 @@ export const useUsersStore = defineStore('users', () => {
         expeditors: r.expeditors ?? [],
       }))
       expeditors.value = e.map((r) => ({ ...r, clients: r.clients ?? [] }))
+      importers.value = i
     } catch {
       return false
     } finally {
@@ -89,6 +93,17 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
+  const changeBusinessRole = async (userId: string, businessRole: string) => {
+    try {
+      await usersApi.changeBusinessRole(userId, businessRole)
+      message.success('Бизнес-роль обновлена')
+      await fetchCatalogs()
+      return true
+    } catch {
+      return false
+    }
+  }
+
   const editExpeditor = async (expeditorId: string, payload: EditExpeditorRequest) => {
     try {
       await usersApi.editExpeditor(expeditorId, payload)
@@ -105,6 +120,7 @@ export const useUsersStore = defineStore('users', () => {
     brokers,
     clients,
     expeditors,
+    importers,
     loading,
     fetchCatalogs,
     createUser,
@@ -112,5 +128,6 @@ export const useUsersStore = defineStore('users', () => {
     linkUsers,
     editBroker,
     editExpeditor,
+    changeBusinessRole,
   }
 })

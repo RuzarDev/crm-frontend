@@ -60,6 +60,25 @@ export interface Import40ListResponse {
   items: Import40CaseDto[]
 }
 
+export type Import40FileSection =
+  | 'photo'
+  | 'svh-invoice'
+  | 'payment-check'
+  | 'closed-declaration'
+  | 'offer'
+  | 'contract'
+  | 'power-of-attorney'
+
+export interface Import40FileDto {
+  id: string
+  section: Import40FileSection
+  originalFileName: string
+  contentType: string
+  sizeBytes: number
+  uploadedByBusinessRole: string
+  createdAtUtc: string
+}
+
 export interface Import40CreateRequest {
   clientId: string
   clientName: string
@@ -119,5 +138,49 @@ export const import40Api = {
       { value: value ?? null },
     )
     return response.data
+  },
+
+  listClients: async (): Promise<{ id: string; username: string }[]> => {
+    const response = await apiClient.get<{ id: string; username: string }[]>('/import40/clients')
+    return response.data
+  },
+
+  listFiles: async (id: string): Promise<Import40FileDto[]> => {
+    const response = await apiClient.get<Import40FileDto[]>(
+      `/import40/${encodeURIComponent(id)}/files`,
+    )
+    return response.data
+  },
+
+  uploadFile: async (
+    id: string,
+    section: Import40FileSection,
+    file: File,
+  ): Promise<Import40FileDto> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await apiClient.post<Import40FileDto>(
+      `/import40/${encodeURIComponent(id)}/files`,
+      formData,
+      {
+        params: { section },
+        headers: { 'Content-Type': 'multipart/form-data' },
+      },
+    )
+    return response.data
+  },
+
+  downloadFile: async (id: string, fileId: string): Promise<Blob> => {
+    const response = await apiClient.get(
+      `/import40/${encodeURIComponent(id)}/files/${encodeURIComponent(fileId)}/download`,
+      { responseType: 'blob' },
+    )
+    return response.data
+  },
+
+  deleteFile: async (id: string, fileId: string): Promise<void> => {
+    await apiClient.delete(
+      `/import40/${encodeURIComponent(id)}/files/${encodeURIComponent(fileId)}`,
+    )
   },
 }

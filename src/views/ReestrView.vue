@@ -17,36 +17,44 @@
             <UploadOutlined />
             Загрузить Excel
           </a-button>
-          <a-button v-if="canDelete" @click="selectAllCurrentPage">
-            Выбрать все
+          <a-button :loading="exporting" @click="handleExport">
+            <DownloadOutlined />
+            Выгрузить реестр
           </a-button>
-          <a-button v-if="canDelete" @click="clearSelection">
-            Снять выбор
-          </a-button>
-          <a-popconfirm
-            v-if="canDelete"
-            title="Удалить выбранные записи?"
-            ok-text="Да"
-            cancel-text="Нет"
-            @confirm="handleDeleteSelected"
-          >
-            <a-button danger :disabled="selectedRowKeys.length === 0">
-              Удалить выбранные
-            </a-button>
-          </a-popconfirm>
+          <template v-if="canDelete">
+            <a-button @click="selectAllCurrentPage">Выбрать все</a-button>
+            <a-button @click="clearSelection">Снять выбор</a-button>
+            <span class="reestr-action-sep"></span>
+            <a-popconfirm
+              title="Удалить выбранные записи?"
+              ok-text="Да"
+              cancel-text="Нет"
+              @confirm="handleDeleteSelected"
+            >
+              <a-button danger :disabled="selectedRowKeys.length === 0">
+                <DeleteOutlined />
+                Удалить ({{ selectedRowKeys.length }})
+              </a-button>
+            </a-popconfirm>
+          </template>
       </div>
     </div>
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-space direction="vertical" style="width: 100%" :size="16">
         <div class="crm-toolbar crm-toolbar-surface">
-          <a-input-search
+          <a-input
             v-model:value="searchValue"
             placeholder="Поиск по реестру…"
-            enter-button="Найти"
-            @search="handleSearch"
+            allow-clear
+            @pressEnter="handleSearch"
+            @change="handleSearch"
             style="width: 320px; max-width: 100%"
-          />
+          >
+            <template #prefix>
+              <SearchOutlined style="color: var(--atg-muted)" />
+            </template>
+          </a-input>
           <a-select
             v-model:value="reestrStore.statusFilter"
             allow-clear
@@ -250,11 +258,13 @@ import ExcelUpload from '@/components/ExcelUpload.vue'
 import {
   PlusOutlined,
   UploadOutlined,
+  DownloadOutlined,
   EditOutlined,
   DeleteOutlined,
   SwapOutlined,
   FileOutlined,
   EyeOutlined,
+  SearchOutlined,
 } from '@ant-design/icons-vue'
 import type { ReestrEntry, ReestrEntryStatus } from '@/types/api'
 import { REESTR_COLUMN_KEYS, ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
@@ -276,6 +286,7 @@ const searchValue = ref('')
 const selectedRowKeys = ref<string[]>([])
 const formModalOpen = ref(false)
 const uploadModalOpen = ref(false)
+const exporting = ref(false)
 const formLoading = ref(false)
 const currentEntry = ref<ReestrEntry | null>(null)
 const formViewMode = ref<'default' | 'client' | 'readonly'>('default')
@@ -359,7 +370,7 @@ const isClient = computed(() => (authStore.role || '').trim().toLowerCase() === 
 const isExpeditor = computed(() => (authStore.role || '').trim().toLowerCase() === 'expeditor')
 const isBroker = computed(() => (authStore.role || '').trim().toLowerCase() === 'broker')
 const isNonClient = computed(() => (authStore.role || '').trim().toLowerCase() !== 'client')
-const showPortfolioFilters = computed(() => authStore.role === 'expeditor')
+const showPortfolioFilters = computed(() => isExpeditor.value || isBroker.value)
 
 const needsUploadClient = computed(() => isNonClient.value)
 const canShowActions = computed(
@@ -618,6 +629,31 @@ const handleDeleteSelected = async () => {
   }
 }
 
+const handleExport = async () => {
+  exporting.value = true
+  try {
+    const blob = await reestrApi.exportFile({
+      search: searchValue.value || undefined,
+      status: reestrStore.statusFilter ?? undefined,
+      clientId: showPortfolioFilters.value ? (reestrStore.clientFilter ?? undefined) : undefined,
+      documentDateFrom: reestrStore.documentDateFrom ?? undefined,
+      documentDateTo: reestrStore.documentDateTo ?? undefined,
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `reestr-${dayjs().format('YYYY-MM-DD')}.xlsx`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  } catch {
+    message.error('Не удалось выгрузить реестр')
+  } finally {
+    exporting.value = false
+  }
+}
+
 const handleFileUpload = async (file: File) => {
   if (needsUploadClient.value && !uploadClientId.value) {
     message.error('Выберите клиента для импорта')
@@ -671,5 +707,21 @@ const handleFileUpload = async (file: File) => {
 .action-btn--danger:hover {
   color: var(--atg-red) !important;
   background: rgba(184, 74, 60, 0.08) !important;
+}
+
+/* Separator between select-actions and danger delete */
+.reestr-action-sep {
+  display: inline-block;
+  width: 1px;
+  height: 24px;
+  background: var(--atg-line-strong);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+/* Keep all actions on one line — no wrap */
+.reestr-view .crm-page-actions {
+  flex-wrap: nowrap;
+  align-items: center;
 }
 </style>

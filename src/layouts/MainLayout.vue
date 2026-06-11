@@ -185,11 +185,13 @@ const menuItems = computed(() => {
     })
   }
 
-  items.push({
-    key: '/reestr',
-    icon: () => h(DatabaseOutlined),
-    label: 'Реестр',
-  })
+  if (role !== 'importer') {
+    items.push({
+      key: '/reestr',
+      icon: () => h(DatabaseOutlined),
+      label: 'Реестр',
+    })
+  }
 
   if (['expeditor', 'broker', 'administrator'].includes(role)) {
     items.push({
@@ -199,7 +201,7 @@ const menuItems = computed(() => {
     })
   }
 
-  if (role === 'administrator') {
+  if (authStore.canUseImport40) {
     items.push({
       key: '/import-40',
       icon: () => h(ImportOutlined),

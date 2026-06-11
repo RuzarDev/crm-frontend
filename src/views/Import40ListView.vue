@@ -22,7 +22,7 @@
     <a-card v-if="canCreate" class="crm-shell-card create-card" :bordered="false">
       <template #title>Новая заявка</template>
       <div class="create-grid">
-        <label>
+        <label v-if="!isClientRole">
           <span>Клиент</span>
           <a-select
             v-model:value="draft.clientId"
@@ -96,7 +96,6 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import { import40Api, type Import40CaseDto } from '@/api/import40'
-import { reestrApi } from '@/api/reestr'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -130,7 +129,17 @@ const statuses: Record<number, string> = {
   12: 'Выполнено',
 }
 
-const canCreate = computed(() => ['rop', 'mpp', 'client'].includes((authStore.businessRole || '').toLowerCase()))
+const isClientRole = computed(
+  () =>
+    (authStore.businessRole || '').toLowerCase() === 'client' ||
+    (authStore.role || '').toLowerCase() === 'client',
+)
+const canCreate = computed(
+  () =>
+    isClientRole.value ||
+    ['rop', 'mpp'].includes((authStore.businessRole || '').toLowerCase()) ||
+    (authStore.role || '').toLowerCase() === 'administrator',
+)
 const canSubmit = computed(() => Boolean(draft.clientId) && draft.cargo.trim().length > 1 && draft.post.trim().length > 1)
 const clientTypeOptions = [
   { label: 'Одноразовый', value: 'Одноразовый' },
@@ -180,8 +189,12 @@ const loadCases = async () => {
 const loadClients = async () => {
   clientsLoading.value = true
   try {
-    const clients = await reestrApi.listClientsForCreate()
+    const clients = await import40Api.listClients()
     clientOptions.value = clients.map((client) => ({ value: client.id, label: client.username }))
+    if (isClientRole.value && clients.length) {
+      draft.clientId = clients[0].id
+      draft.clientName = clients[0].username
+    }
   } finally {
     clientsLoading.value = false
   }
@@ -215,34 +228,52 @@ onMounted(() => {
   flex-direction: column;
   gap: 18px;
 }
+
 .import40-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
+
 .summary-card {
-  border: 1px solid rgba(43, 188, 212, 0.18);
-  background: #fff;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--atg-line);
+  border-top: 3px solid var(--atg-teal);
+  background: var(--atg-surface);
+  border-radius: var(--atg-radius-lg);
+  padding: 16px 20px;
+  box-shadow: var(--atg-shadow);
+  transition: box-shadow var(--atg-transition), transform var(--atg-transition);
 }
+
+.summary-card:hover {
+  box-shadow: var(--atg-shadow-md);
+  transform: translateY(-1px);
+}
+
 .summary-card span {
-  color: #64748b;
-  font-size: 13px;
+  color: var(--atg-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
+
 .summary-card strong {
   display: block;
-  margin-top: 6px;
-  color: #0f172a;
-  font-size: 24px;
+  margin-top: 8px;
+  color: var(--atg-ink);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
+
 .create-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   align-items: end;
 }
+
 .create-grid label,
 .case-cell,
 .progress-cell {
@@ -250,25 +281,35 @@ onMounted(() => {
   flex-direction: column;
   gap: 6px;
 }
+
 .create-grid label span {
-  color: #334155;
+  color: var(--atg-charcoal);
+  font-size: 12px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
+
 .case-cell span {
-  color: #64748b;
-  font-size: 13px;
+  color: var(--atg-muted);
+  font-size: 12.5px;
 }
+
 .status-chip {
   display: inline-flex;
   border-radius: 999px;
-  background: rgba(43, 188, 212, 0.12);
-  color: #0f6f7f;
-  padding: 4px 10px;
-  font-weight: 800;
+  background: var(--atg-teal-soft);
+  color: var(--atg-accent-strong);
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
+
 .progress-cell {
   min-width: 100px;
 }
+
 @media (max-width: 900px) {
   .import40-summary,
   .create-grid {

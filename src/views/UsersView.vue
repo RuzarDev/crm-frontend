@@ -26,6 +26,7 @@
         <a-tab-pane key="brokers" tab="Брокеры" />
         <a-tab-pane key="clients" tab="Клиенты" />
         <a-tab-pane key="expeditors" tab="Экспедиторы" />
+        <a-tab-pane key="importers" tab="Импорт" />
       </a-tabs>
 
       <a-table
@@ -40,6 +41,9 @@
           <template v-if="column.key === 'role'">
             <span class="role-tag" :class="`role-tag--${record.role}`">{{ formatRole(record.role) }}</span>
           </template>
+          <template v-else-if="column.key === 'businessRole'">
+            <span class="role-tag">{{ formatBusinessRole('businessRole' in record ? record.businessRole : '') }}</span>
+          </template>
           <template v-else-if="column.key === 'brokers'">
             <span class="relations-cell">{{ formatLinkedPeople('brokers' in record ? record.brokers : undefined) }}</span>
           </template>
@@ -51,6 +55,14 @@
           </template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
+              <a-button
+                v-if="canChangeBusinessRole && ['brokers', 'administrators', 'importers'].includes(catalogTab)"
+                type="link"
+                size="small"
+                @click="openBusinessRoleModal(record)"
+              >
+                Бизнес-роль
+              </a-button>
               <a-button
                 v-if="catalogTab === 'brokers' && canEditBroker"
                 type="link"
@@ -108,6 +120,33 @@
             v-model:value="form.role"
             placeholder="Выберите роль"
             :options="roleOptions"
+          />
+        </a-form-item>
+        <a-form-item v-if="showBusinessRoleField" label="Бизнес-роль (Импорт 40)">
+          <a-select
+            v-model:value="form.businessRole"
+            placeholder="Выберите бизнес-роль"
+            :options="businessRoleOptions"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal
+      v-model:open="businessRoleModalOpen"
+      title="Смена бизнес-роли"
+      ok-text="Сохранить"
+      cancel-text="Отмена"
+      :confirm-loading="businessRoleSaving"
+      @ok="handleBusinessRoleSave"
+      @cancel="businessRoleModalOpen = false"
+    >
+      <a-form layout="vertical">
+        <a-form-item :label="`Пользователь: ${businessRoleForm.username}`">
+          <a-select
+            v-model:value="businessRoleForm.businessRole"
+            placeholder="Выберите бизнес-роль"
+            :options="businessRoleOptions"
           />
         </a-form-item>
       </a-form>
@@ -232,7 +271,62 @@ const form = reactive({
   username: '',
   password: '',
   role: '',
+  businessRole: '',
 })
+
+const businessRoleOptions = [
+  { label: 'РОП', value: 'rop' },
+  { label: 'МПП', value: 'mpp' },
+  { label: 'Декларант', value: 'declarant' },
+  { label: 'Ноги', value: 'legs' },
+]
+
+const businessRoleLabels: Record<string, string> = {
+  rop: 'РОП',
+  mpp: 'МПП',
+  declarant: 'Декларант',
+  legs: 'Ноги',
+  client: 'Клиент',
+  expeditor: 'Экспедитор',
+}
+
+const formatBusinessRole = (value: string) => businessRoleLabels[(value || '').toLowerCase()] || value || '—'
+
+const showBusinessRoleField = computed(() => ['broker', 'administrator', 'importer'].includes(form.role))
+
+const canChangeBusinessRole = computed(() => authStore.hasPermission('users.write'))
+
+const businessRoleModalOpen = ref(false)
+const businessRoleSaving = ref(false)
+const businessRoleForm = reactive({
+  userId: '',
+  username: '',
+  businessRole: '' as string,
+})
+
+const openBusinessRoleModal = (record: CatalogTableRow) => {
+  businessRoleForm.userId = record.id
+  businessRoleForm.username = record.username
+  businessRoleForm.businessRole =
+    'businessRole' in record && record.businessRole ? record.businessRole.toLowerCase() : ''
+  businessRoleModalOpen.value = true
+}
+
+const handleBusinessRoleSave = async () => {
+  if (!businessRoleForm.businessRole) {
+    message.error('Выберите бизнес-роль')
+    return
+  }
+  businessRoleSaving.value = true
+  try {
+    const ok = await usersStore.changeBusinessRole(businessRoleForm.userId, businessRoleForm.businessRole)
+    if (ok) {
+      businessRoleModalOpen.value = false
+    }
+  } finally {
+    businessRoleSaving.value = false
+  }
+}
 
 const linkForm = reactive({
   staffUserId: undefined as string | undefined,
@@ -287,13 +381,14 @@ const editExpeditorForm = reactive({
   clientIds: [] as string[],
 })
 
-const systemRoleOrder = ['client', 'broker', 'expeditor', 'administrator']
+const systemRoleOrder = ['client', 'broker', 'expeditor', 'importer', 'administrator']
 
 const defaultRoleByTab: Record<CatalogTabKey, string> = {
   administrators: 'administrator',
   brokers: 'broker',
   clients: 'client',
   expeditors: 'expeditor',
+  importers: 'importer',
 }
 
 const tableRows = computed((): CatalogTableRow[] => {
@@ -306,6 +401,8 @@ const tableRows = computed((): CatalogTableRow[] => {
       return usersStore.clients
     case 'expeditors':
       return usersStore.expeditors
+    case 'importers':
+      return usersStore.importers
     default:
       return []
   }
@@ -315,7 +412,8 @@ const tableColumns = computed(() => {
   const showActionsColumn =
     authStore.hasPermission('users.delete') ||
     (catalogTab.value === 'brokers' && canEditBroker.value) ||
-    (catalogTab.value === 'expeditors' && canEditExpeditor.value)
+    (catalogTab.value === 'expeditors' && canEditExpeditor.value) ||
+    (canChangeBusinessRole.value && ['administrators', 'brokers', 'importers'].includes(catalogTab.value))
 
   const actionsColumn = showActionsColumn
     ? [
@@ -343,11 +441,13 @@ const tableColumns = computed(() => {
       return [
         usernameColumn,
         { title: 'Роль', key: 'role', width: 140 },
+        { title: 'Бизнес-роль', key: 'businessRole', width: 140 },
         ...actionsColumn,
       ]
     case 'brokers':
       return [
         usernameColumn,
+        { title: 'Бизнес-роль', key: 'businessRole', width: 140 },
         { title: 'Клиенты', key: 'clients', ellipsis: true },
         ...actionsColumn,
       ]
@@ -362,6 +462,13 @@ const tableColumns = computed(() => {
       return [
         usernameColumn,
         { title: 'Клиенты', key: 'clients', ellipsis: true },
+        ...actionsColumn,
+      ]
+    case 'importers':
+      return [
+        usernameColumn,
+        { title: 'Роль', key: 'role', width: 140 },
+        { title: 'Бизнес-роль', key: 'businessRole', width: 160 },
         ...actionsColumn,
       ]
     default:
@@ -397,6 +504,7 @@ const openCreateModal = () => {
   form.username = ''
   form.password = ''
   form.role = defaultRoleByTab[catalogTab.value]
+  form.businessRole = ''
   modalOpen.value = true
 }
 
@@ -445,6 +553,7 @@ const handleCreate = async () => {
       username: form.username.trim(),
       password: form.password,
       role: form.role,
+      businessRole: showBusinessRoleField.value && form.businessRole ? form.businessRole : undefined,
     })
     if (success) {
       modalOpen.value = false

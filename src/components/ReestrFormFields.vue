@@ -90,7 +90,7 @@ defineProps<{
   font-size: 11px;
   line-height: 1.2;
   color: var(--atg-muted);
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;

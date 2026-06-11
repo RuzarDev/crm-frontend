@@ -50,13 +50,13 @@ const router = createRouter({
           path: '/import-40',
           name: 'import-40',
           component: () => import('@/views/Import40ListView.vue'),
-          meta: { requiresRole: 'administrator' },
+          meta: { requiresImport40: true },
         },
         {
           path: '/import-40/:id',
           name: 'import-40-detail',
           component: () => import('@/views/Import40View.vue'),
-          meta: { requiresRole: 'administrator' },
+          meta: { requiresImport40: true },
         },
         {
           path: '/my-documents',
@@ -98,10 +98,17 @@ router.beforeEach((to, from, next) => {
   const requiresAuth = to.meta.requiresAuth !== false
   const requiredPermission = to.meta.requiresPermission as string | undefined
   const requiredRole = to.meta.requiresRole as string | undefined
+  const requiresImport40 = to.meta.requiresImport40 === true
+
+  const normalizedRole = (authStore.role || '').trim().toLowerCase()
 
   if (requiresAuth && !authStore.isAuthenticated) {
     next('/login')
-  } else if (requiredRole && (authStore.role || '').trim().toLowerCase() !== requiredRole) {
+  } else if (normalizedRole === 'importer' && to.path === '/reestr') {
+    next('/import-40')
+  } else if (requiredRole && normalizedRole !== requiredRole) {
+    next('/')
+  } else if (requiresImport40 && !authStore.canUseImport40) {
     next('/')
   } else if (requiredPermission && !authStore.hasPermission(requiredPermission)) {
     next('/')

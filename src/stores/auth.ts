@@ -35,6 +35,11 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!token.value)
   const hasPermission = (permission: string) => permissions.value.includes(permission)
 
+  const canUseImport40 = computed(() => {
+    const systemRole = (role.value || '').trim().toLowerCase()
+    return systemRole === 'administrator' || systemRole === 'importer' || systemRole === 'client'
+  })
+
   const login = async (credentials: LoginRequest) => {
     try {
       const response = await authApi.login(credentials)
@@ -127,6 +132,7 @@ export const useAuthStore = defineStore('auth', () => {
     permissions,
     isAuthenticated,
     hasPermission,
+    canUseImport40,
     login,
     registerClient,
     logout,
