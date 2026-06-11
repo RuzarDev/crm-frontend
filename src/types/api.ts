@@ -329,3 +329,278 @@ export interface RegisterRequest {
   password: string
   role: string
 }
+
+// ── TNVED extended types ──────────────────────────────────────────────────────
+
+export interface TnvedPathNodeDto {
+  id: number
+  code: string
+  treeName: string
+  nodeLevel: number
+}
+
+export interface TnvedRateDto {
+  code: string
+  treeName: string | null
+  rateStr: string | null
+  rateSourceName: string | null
+  rateSourceUrl: string | null
+  vtoStatus: string | null
+  unitCode: string | null
+  unitName: string | null
+  updatedAtUtc: string | null
+}
+
+export interface TnvedGroupDto {
+  code: string
+  name: string
+}
+
+export interface TnvedSuggestDto {
+  suggestions: string[]
+  group: TnvedGroupDto | null
+}
+
+export interface TnvedClassifyMatch {
+  code: string
+  description: string
+  probability: number
+  rateStr: string | null
+  unitName: string | null
+}
+
+export interface TnvedClassifyResponse {
+  matches: TnvedClassifyMatch[]
+  exactCodeInfo: TnvedRateDto | null
+  suggestedGroup: TnvedGroupDto | null
+}
+
+export interface TnvedCalculateRequest {
+  code: string
+  customsValue: number
+  currencyCode: string
+  weightKg?: number | null
+  quantity?: number | null
+  engineVolumeCm3?: number | null
+  onDate?: string | null
+}
+
+export interface TnvedCalculateResult {
+  code: string
+  codeName: string | null
+  rateStr: string | null
+  customsValueKzt: number
+  importDutyKzt: number
+  customsFeeKzt: number
+  exciseKzt: number
+  vatKzt: number
+  totalKzt: number
+  notes: string | null
+  explanation: string | null
+  nonTariffMeasures: TnvedNonTariffMeasureDto[]
+}
+
+export interface TnvedNonTariffMeasureDto {
+  docType: string
+  name: string
+  comment: string | null
+  resolutionNumber: string | null
+  resolutionName: string | null
+  resolutionUrl: string | null
+}
+
+export interface TnvedCurrencyDto {
+  codeLat: string
+  name: string
+  rate: number
+  updatedAtUtc: string
+}
+
+export interface TnvedNewsDto {
+  title: string
+  url: string
+  publicationType: string
+  itemDate: string | null
+  isImportant: boolean
+}
+
+export interface TnvedRegulationDto {
+  id: number
+  number: string
+  dateStr: string | null
+  date: string | null
+  url: string | null
+}
+
+export interface TnvedTimelineDto {
+  typeId: number
+  description: string
+  showDate: string
+}
+
+export interface TnvedExplanationDto {
+  code: string
+  nodeType: string
+  htmlContent: string | null
+  updatedAtUtc: string | null
+}
+
+export interface TnvedVtoGroupDto {
+  code: string
+  hint: string
+}
+
+export interface TnvedVtoSectionDto {
+  name: string
+  totalCodes: number
+  groups: TnvedVtoGroupDto[]
+}
+
+export interface TnvedTopCodeDto {
+  code: string
+  treeName: string | null
+  rateStr: string | null
+  declarationCount: number
+}
+
+export interface TnvedRateChangeDto {
+  code: string
+  treeName: string | null
+  oldRateStr: string | null
+  newRateStr: string | null
+  changedAtUtc: string
+}
+
+export interface TnvedSyncLogDto {
+  id: number
+  startedAtUtc: string
+  finishedAtUtc: string | null
+  status: string
+  triggeredBy: string
+  nodesAdded: number
+  nodesUpdated: number
+  nodesRemoved: number
+  ratesUpdated: number
+  errorMessage: string | null
+}
+
+export interface TnvedReferenceDto {
+  code: string
+  success: boolean
+  description: string | null
+  rawJson: string | null
+  hasRestrictions: boolean
+  hasPreferences: boolean
+  errorMessage: string | null
+  updatedAtUtc: string
+  nonTariffMeasures: TnvedNonTariffMeasureDto[]
+}
+
+export interface TnvedExportReferenceDto {
+  code: string
+  success: boolean
+  rateValue: string | null
+  hasRestrictions: boolean
+  hasPreferences: boolean
+  errorMessage: string | null
+  updatedAtUtc: string
+  nonTariffMeasures: TnvedNonTariffMeasureDto[]
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
+export interface DashboardStatusCountDto {
+  status: string
+  count: number
+}
+
+export interface DashboardTopClientDto {
+  clientId: string
+  username: string
+  displayName: string | null
+  count: number
+}
+
+export interface DashboardTopCodeDto {
+  code: string
+  treeName: string | null
+  count: number
+}
+
+export interface DashboardDto {
+  totalEntries: number
+  byStatus: DashboardStatusCountDto[]
+  totalWeightKg: number
+  totalGrandTotal: number
+  entriesThisMonth: number
+  topClients: DashboardTopClientDto[]
+  topCodes: DashboardTopCodeDto[]
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export interface NotificationDto {
+  id: string
+  message: string
+  relatedCode: string | null
+  isRead: boolean
+  createdAtUtc: string
+}
+
+// ── Profile ───────────────────────────────────────────────────────────────────
+
+export interface ProfileDto {
+  userId: string
+  username: string
+  displayName: string | null
+  phone: string | null
+  companyName: string | null
+  innBin: string | null
+  role: string
+}
+
+export interface UpdateProfileRequest {
+  displayName: string | null
+  phone: string | null
+  companyName: string | null
+  innBin: string | null
+}
+
+// ── Reestr Comments ───────────────────────────────────────────────────────────
+
+export interface ReestrCommentDto {
+  id: string
+  reestrEntryId: string
+  authorId: string
+  authorRole: string
+  authorUsername: string
+  text: string
+  createdAtUtc: string
+  editedAtUtc: string | null
+}
+
+// ── System ─────────────────────────────────────────────────────────────────────
+
+export interface EndpointRow {
+  route: string
+  methods: string[]
+  allowsAnonymous: boolean
+  policies: string[]
+  roles: string[]
+}
+
+export interface RolePermissionsRow {
+  name: string
+  permissions: string[]
+}
+
+export interface PermissionMatrixResponse {
+  roles: RolePermissionsRow[]
+  permissions: string[]
+}
+
+export interface TnvedTransitionSeedResult {
+  inserted: number
+  total: number
+  sourceVersion: string
+}

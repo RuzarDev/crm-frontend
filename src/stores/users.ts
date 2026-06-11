@@ -100,6 +100,10 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
+  const changeUserRole = async (id: string, role: string) => {
+    await usersApi.changeUserRole(id, role)
+  }
+
   return {
     administrators,
     brokers,
@@ -112,5 +116,6 @@ export const useUsersStore = defineStore('users', () => {
     linkUsers,
     editBroker,
     editExpeditor,
+    changeUserRole,
   }
 })

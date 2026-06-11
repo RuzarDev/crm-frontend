@@ -29,9 +29,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://crm.aqnietcustoms.kz',
+        target: 'http://localhost:5085',
         changeOrigin: true,
-        secure: true,
       }
     }
   }

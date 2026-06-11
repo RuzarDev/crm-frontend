@@ -12,6 +12,47 @@
       <div class="header-right">
         <span class="role-badge">{{ roleLabel }}</span>
         <span class="username">{{ authStore.username }}</span>
+
+        <!-- Notifications bell -->
+        <a-dropdown :trigger="['click']" placement="bottomRight" @open-change="onNotifOpen">
+          <a-badge :count="notifStore.unreadCount" :overflow-count="99" class="notif-badge">
+            <a-button class="notif-btn" :title="'Уведомления'">
+              <BellOutlined />
+            </a-button>
+          </a-badge>
+          <template #overlay>
+            <div class="notif-dropdown">
+              <div class="notif-header">
+                <span class="notif-title">Уведомления</span>
+                <a-button
+                  v-if="notifStore.items.length"
+                  type="link"
+                  size="small"
+                  @click.stop="notifStore.markAllRead()"
+                >
+                  Прочитать все
+                </a-button>
+              </div>
+              <a-spin :spinning="notifStore.loading">
+                <div v-if="notifStore.items.length" class="notif-list">
+                  <div
+                    v-for="n in notifStore.items"
+                    :key="n.id"
+                    class="notif-item"
+                    :class="{ 'notif-item--unread': !n.isRead }"
+                    @click="notifStore.markRead(n.id)"
+                  >
+                    <div class="notif-msg">{{ n.message }}</div>
+                    <div v-if="n.relatedCode" class="notif-code">{{ n.relatedCode }}</div>
+                    <div class="notif-time">{{ formatNotifTime(n.createdAtUtc) }}</div>
+                  </div>
+                </div>
+                <div v-else class="notif-empty">Нет новых уведомлений</div>
+              </a-spin>
+            </div>
+          </template>
+        </a-dropdown>
+
         <a-button class="logout-button" @click="handleLogout">
           <LogoutOutlined />
           <span class="logout-label">Выйти</span>
@@ -28,6 +69,8 @@
           <a-menu
             mode="inline"
             :selected-keys="[selectedMenuKey]"
+            :open-keys="openKeys"
+            @open-change="onOpenChange"
             @click="handleMenuClick"
             :items="menuItems"
           />
@@ -82,31 +125,58 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref } from 'vue'
+import { computed, h, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationsStore } from '@/stores/notifications'
 import {
+  ApiOutlined,
+  BarChartOutlined,
+  BellOutlined,
+  CalendarOutlined,
+  DashboardOutlined,
   DatabaseOutlined,
   FileDoneOutlined,
+  FileTextOutlined,
   ForkOutlined,
   GlobalOutlined,
   LogoutOutlined,
   MenuOutlined,
   SafetyCertificateOutlined,
   SolutionOutlined,
+  SyncOutlined,
   TeamOutlined,
+  UnorderedListOutlined,
+  UserOutlined,
 } from '@ant-design/icons-vue'
 import { formatRole } from '@/utils/labels'
 import AtgLogo from '@/components/AtgLogo.vue'
+import dayjs from 'dayjs'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const notifStore = useNotificationsStore()
 
 const mobileNavOpen = ref(false)
+const openKeys = ref<string[]>([])
+
+onMounted(() => notifStore.fetch())
+
+const onNotifOpen = (open: boolean) => {
+  if (open) notifStore.fetch()
+}
+
+const formatNotifTime = (iso: string) => dayjs(iso).format('DD.MM HH:mm')
 
 const menuItems = computed(() => {
-  const items = [
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const items: any[] = [
+    {
+      key: '/dashboard',
+      icon: () => h(DashboardOutlined),
+      label: 'Дашборд',
+    },
     {
       key: '/reestr',
       icon: () => h(DatabaseOutlined),
@@ -138,10 +208,25 @@ const menuItems = computed(() => {
     })
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tnvedChildren: any[] = [
+    { key: '/tnved/tree', icon: () => h(UnorderedListOutlined), label: 'Классификатор' },
+    { key: '/tnved/news', icon: () => h(FileTextOutlined), label: 'Новости' },
+    { key: '/tnved/regulations', icon: () => h(FileDoneOutlined), label: 'НПА' },
+    { key: '/tnved/currencies', icon: () => h(DatabaseOutlined), label: 'Валюты' },
+    { key: '/tnved/timeline', icon: () => h(CalendarOutlined), label: 'Таймлайн' },
+    { key: '/tnved/analytics', icon: () => h(BarChartOutlined), label: 'Аналитика' },
+  ]
+
+  if (authStore.hasPermission('tnved.manage')) {
+    tnvedChildren.push({ key: '/tnved/sync', icon: () => h(SyncOutlined), label: 'Синхронизация' })
+  }
+
   items.push({
-    key: '/tnved/export',
+    key: 'tnved-group',
     icon: () => h(GlobalOutlined),
-    label: 'ТН ВЭД Экспорт',
+    label: 'ТН ВЭД',
+    children: tnvedChildren,
   })
 
   if (authStore.hasPermission('users.read')) {
@@ -160,18 +245,47 @@ const menuItems = computed(() => {
     })
   }
 
+  if (authStore.hasPermission('endpoints.read')) {
+    items.push({
+      key: '/system/endpoints',
+      icon: () => h(ApiOutlined),
+      label: 'API',
+    })
+  }
+
+  items.push({
+    key: '/profile',
+    icon: () => h(UserOutlined),
+    label: 'Профиль',
+  })
+
   return items
 })
 
 const roleLabel = computed(() => formatRole(authStore.role || ''))
 
+function onOpenChange(keys: string[]) {
+  openKeys.value = keys
+}
+
+watch(
+  () => route.path,
+  (path) => {
+    if (path.startsWith('/tnved/')) openKeys.value = ['tnved-group']
+  },
+  { immediate: true },
+)
+
 const selectedMenuKey = computed(() => {
+  if (route.path.startsWith('/dashboard')) return '/dashboard'
   if (route.path.startsWith('/my-documents')) return '/my-documents'
   if (route.path.startsWith('/clients')) return '/clients'
   if (route.path.startsWith('/process-flow')) return '/process-flow'
-  if (route.path.startsWith('/tnved/export')) return '/tnved/export'
+  if (route.path.startsWith('/tnved/')) return route.path
   if (route.path.startsWith('/roles')) return '/roles'
   if (route.path.startsWith('/users')) return '/users'
+  if (route.path.startsWith('/system/endpoints')) return '/system/endpoints'
+  if (route.path.startsWith('/profile')) return '/profile'
   return '/reestr'
 })
 
@@ -289,6 +403,117 @@ const handleLogout = () => {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+/* Notifications */
+.notif-badge :deep(.ant-badge-count) {
+  box-shadow: none;
+  font-size: 10px;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  padding: 0 4px;
+}
+
+.notif-btn {
+  color: rgba(240, 243, 255, 0.75);
+  border-color: rgba(240, 243, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  min-height: 36px;
+  min-width: 36px;
+  padding: 0;
+  transition:
+    color var(--atg-transition),
+    border-color var(--atg-transition),
+    background var(--atg-transition);
+}
+
+.notif-btn:hover {
+  color: #1B2A4A !important;
+  border-color: #2BBCD4 !important;
+  background: #2BBCD4 !important;
+}
+
+.notif-dropdown {
+  width: 320px;
+  background: #fff;
+  border-radius: var(--atg-radius-lg);
+  border: 1px solid var(--atg-line);
+  box-shadow: var(--atg-shadow-lg);
+  overflow: hidden;
+}
+
+.notif-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--atg-line);
+}
+
+.notif-title {
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--atg-ink);
+  letter-spacing: -0.01em;
+}
+
+.notif-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.notif-item {
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--atg-line);
+  transition: background var(--atg-transition);
+}
+
+.notif-item:last-child {
+  border-bottom: none;
+}
+
+.notif-item:hover {
+  background: var(--atg-accent-soft);
+}
+
+.notif-item--unread {
+  border-left: 3px solid var(--atg-teal);
+  padding-left: 13px;
+}
+
+.notif-msg {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--atg-charcoal);
+  line-height: 1.5;
+}
+
+.notif-code {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 7px;
+  background: var(--atg-teal-soft);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+  color: var(--atg-teal-dark);
+  letter-spacing: 0.04em;
+}
+
+.notif-time {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--atg-muted);
+}
+
+.notif-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--atg-muted);
 }
 
 .logout-button {

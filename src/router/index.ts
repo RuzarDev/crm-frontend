@@ -23,7 +23,12 @@ const router = createRouter({
       children: [
         {
           path: '',
-          redirect: '/reestr',
+          redirect: '/dashboard',
+        },
+        {
+          path: '/dashboard',
+          name: 'dashboard',
+          component: () => import('@/views/DashboardView.vue'),
         },
         {
           path: '/reestr',
@@ -48,9 +53,40 @@ const router = createRouter({
           meta: { requiresRole: 'admin' },
         },
         {
-          path: '/tnved/export',
-          name: 'tnved-export',
-          component: () => import('@/views/TnvedExportView.vue'),
+          path: '/tnved/tree',
+          name: 'tnved-tree',
+          component: () => import('@/views/TnvedTreeView.vue'),
+        },
+        {
+          path: '/tnved/news',
+          name: 'tnved-news',
+          component: () => import('@/views/TnvedNewsView.vue'),
+        },
+        {
+          path: '/tnved/regulations',
+          name: 'tnved-regulations',
+          component: () => import('@/views/TnvedRegulationsView.vue'),
+        },
+        {
+          path: '/tnved/currencies',
+          name: 'tnved-currencies',
+          component: () => import('@/views/TnvedCurrenciesView.vue'),
+        },
+        {
+          path: '/tnved/timeline',
+          name: 'tnved-timeline',
+          component: () => import('@/views/TnvedTimelineView.vue'),
+        },
+        {
+          path: '/tnved/analytics',
+          name: 'tnved-analytics',
+          component: () => import('@/views/TnvedAnalyticsView.vue'),
+        },
+        {
+          path: '/tnved/sync',
+          name: 'tnved-sync',
+          component: () => import('@/views/TnvedSyncView.vue'),
+          meta: { requiresPermission: 'tnved.manage' },
         },
         {
           path: '/roles',
@@ -63,6 +99,17 @@ const router = createRouter({
           name: 'users',
           component: () => import('@/views/UsersView.vue'),
           meta: { requiresPermission: 'users.write' },
+        },
+        {
+          path: '/profile',
+          name: 'profile',
+          component: () => import('@/views/ProfileView.vue'),
+        },
+        {
+          path: '/system/endpoints',
+          name: 'system-endpoints',
+          component: () => import('@/views/SystemEndpointsView.vue'),
+          meta: { requiresPermission: 'endpoints.read' },
         },
       ],
     },

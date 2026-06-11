@@ -43,6 +43,13 @@
           :refresh-key="statusHistoryRefreshKey"
         />
       </a-tab-pane>
+      <a-tab-pane key="comments" tab="Комментарии">
+        <ReestrCommentsPanel
+          v-if="entry?.id"
+          :reestr-id="entry.id"
+          :readonly="isClientView"
+        />
+      </a-tab-pane>
     </a-tabs>
     <div v-else class="form-body">
       <ReestrFormFields
@@ -69,9 +76,10 @@ import ReestrDocumentsPanel from '@/components/ReestrDocumentsPanel.vue'
 import ReestrStatusHistoryPanel from '@/components/ReestrStatusHistoryPanel.vue'
 import ReestrFormFields from '@/components/ReestrFormFields.vue'
 import TnvedDeprecationAlert from '@/components/TnvedDeprecationAlert.vue'
+import ReestrCommentsPanel from '@/components/ReestrCommentsPanel.vue'
 
 type ViewMode = 'default' | 'client' | 'readonly'
-type FormTab = 'data' | 'documents'
+type FormTab = 'data' | 'documents' | 'comments'
 
 interface Props {
   open: boolean
