@@ -112,16 +112,6 @@
                           <template #icon><EyeOutlined /></template>
                         </a-button>
                       </a-tooltip>
-                      <a-tooltip title="Открыть рядом">
-                        <a-button
-                          size="small"
-                          type="text"
-                          style="padding: 0 4px; height: 20px; line-height: 20px; display: inline-flex; align-items: center; justify-content: center;"
-                          @click.stop="openSplit(item)"
-                        >
-                          <template #icon><ColumnWidthOutlined /></template>
-                        </a-button>
-                      </a-tooltip>
                       <a-tag v-if="isLinked(item)" color="green" style="font-size: 10px; margin: 0; padding: 0 4px; border-radius: 4px;">
                         ✓
                       </a-tag>
@@ -703,7 +693,6 @@ import {
   InboxOutlined,
   AuditOutlined,
   EyeOutlined,
-  ColumnWidthOutlined,
 } from '@ant-design/icons-vue'
 import { documentPackagesApi } from '@/api/documentPackages'
 import { reestrApi } from '@/api/reestr'
