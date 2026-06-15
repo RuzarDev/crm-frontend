@@ -83,6 +83,7 @@ export function reestrDtoToEntry(dto: ReestrEntryDto): ReestrEntry {
     status: dtoStatusToEntryStatus(dto.status),
     clientId: dto.clientId,
     data: reestrDtoToData(dto),
+    deprecationWarning: dto.deprecationWarning ?? null,
   }
 }
 

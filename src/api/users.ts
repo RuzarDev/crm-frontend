@@ -84,4 +84,8 @@ export const usersApi = {
   deleteUser: async (id: string): Promise<void> => {
     await apiClient.delete(`/users/${encodeURIComponent(id)}`)
   },
+
+  changeUserRole: async (id: string, role: string): Promise<void> => {
+    await apiClient.patch(`/users/${encodeURIComponent(id)}/role`, { role })
+  },
 }

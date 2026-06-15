@@ -218,4 +218,23 @@ export const reestrApi = {
     )
     return response.data
   },
+
+  listComments: async (reestrId: string): Promise<import('@/types/api').ReestrCommentDto[]> => {
+    const response = await apiClient.get<import('@/types/api').ReestrCommentDto[]>(
+      `/reestr/${reestrId}/comments`,
+    )
+    return response.data
+  },
+
+  addComment: async (reestrId: string, text: string): Promise<import('@/types/api').ReestrCommentDto> => {
+    const response = await apiClient.post<import('@/types/api').ReestrCommentDto>(
+      `/reestr/${reestrId}/comments`,
+      { text },
+    )
+    return response.data
+  },
+
+  deleteComment: async (reestrId: string, commentId: string): Promise<void> => {
+    await apiClient.delete(`/reestr/${reestrId}/comments/${commentId}`)
+  },
 }

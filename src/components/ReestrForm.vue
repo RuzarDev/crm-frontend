@@ -17,6 +17,7 @@
     <a-tabs v-if="showTabs" v-model:activeKey="activeTab">
       <a-tab-pane key="data" tab="Данные">
         <div class="form-body">
+          <TnvedDeprecationAlert :warning="entry?.deprecationWarning" />
           <ReestrFormFields
             :form-state="formState"
             :is-edit="isEdit"
@@ -40,6 +41,13 @@
           v-if="entry?.id"
           :reestr-id="entry.id"
           :refresh-key="statusHistoryRefreshKey"
+        />
+      </a-tab-pane>
+      <a-tab-pane key="comments" tab="Комментарии">
+        <ReestrCommentsPanel
+          v-if="entry?.id"
+          :reestr-id="entry.id"
+          :readonly="isClientView"
         />
       </a-tab-pane>
     </a-tabs>
@@ -67,9 +75,11 @@ import { message } from 'ant-design-vue'
 import ReestrDocumentsPanel from '@/components/ReestrDocumentsPanel.vue'
 import ReestrStatusHistoryPanel from '@/components/ReestrStatusHistoryPanel.vue'
 import ReestrFormFields from '@/components/ReestrFormFields.vue'
+import TnvedDeprecationAlert from '@/components/TnvedDeprecationAlert.vue'
+import ReestrCommentsPanel from '@/components/ReestrCommentsPanel.vue'
 
 type ViewMode = 'default' | 'client' | 'readonly'
-type FormTab = 'data' | 'documents'
+type FormTab = 'data' | 'documents' | 'comments'
 
 interface Props {
   open: boolean

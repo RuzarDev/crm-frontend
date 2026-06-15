@@ -18,6 +18,7 @@ const permissionMap: Record<string, string> = {
   'endpoints.read': 'Система: каталог API',
   'roles.manage': 'Роли: управление',
   'status.change': 'Реестр: смена статуса',
+  'tnved.manage': 'ТН ВЭД: администрирование',
 }
 
 export function formatRole(role: string): string {

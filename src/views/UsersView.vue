@@ -81,6 +81,15 @@
                 <EditOutlined />
                 Изменить
               </a-button>
+              <a-button
+                v-if="canAssignRole"
+                type="link"
+                size="small"
+                @click="openChangeRole(record)"
+              >
+                <SwapOutlined />
+                Роль
+              </a-button>
               <a-popconfirm
                 v-if="canDeleteUser(record)"
                 title="Удалить этого пользователя?"
@@ -207,6 +216,29 @@
     </a-modal>
 
     <a-modal
+      v-model:open="changeRoleModalOpen"
+      title="Сменить роль пользователя"
+      ok-text="Сохранить"
+      cancel-text="Отмена"
+      :confirm-loading="changeRoleSaving"
+      @ok="handleChangeRoleSave"
+      @cancel="changeRoleModalOpen = false"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="Пользователь">
+          <a-input :value="changeRoleForm.username" disabled />
+        </a-form-item>
+        <a-form-item label="Новая роль">
+          <a-select
+            v-model:value="changeRoleForm.role"
+            placeholder="Выберите роль"
+            :options="roleOptions"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal
       v-model:open="linkModalOpen"
       title="Привязка брокера или экспедитора к клиенту"
       ok-text="Привязать"
@@ -254,7 +286,7 @@ import type {
   CatalogTableRow,
 } from '@/types/api'
 import { formatRole } from '@/utils/labels'
-import { DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import { DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 
 const usersStore = useUsersStore()
@@ -343,6 +375,7 @@ const formatLinkedPeople = (list: CatalogLinkedPerson[] | undefined) => {
 const canLinkUsers = computed(() => authStore.hasPermission('clients.manage'))
 const canEditBroker = computed(() => authStore.hasPermission('clients.manage'))
 const canEditExpeditor = computed(() => authStore.hasPermission('clients.manage'))
+const canAssignRole = computed(() => authStore.hasPermission('users.assign_role'))
 
 const staffLinkOptions = computed(() => {
   const brokerOpts = usersStore.brokers.map((u) => ({
@@ -379,6 +412,14 @@ const editingExpeditorId = ref<string | null>(null)
 const editExpeditorForm = reactive({
   username: '',
   clientIds: [] as string[],
+})
+
+const changeRoleModalOpen = ref(false)
+const changeRoleSaving = ref(false)
+const changeRoleTargetId = ref<string | null>(null)
+const changeRoleForm = reactive({
+  username: '',
+  role: '',
 })
 
 const systemRoleOrder = ['client', 'broker', 'expeditor', 'importer', 'administrator']
@@ -633,6 +674,31 @@ const handleEditExpeditorSave = async () => {
     }
   } finally {
     editExpeditorSaving.value = false
+  }
+}
+
+const openChangeRole = (record: CatalogTableRow) => {
+  changeRoleTargetId.value = record.id
+  changeRoleForm.username = record.username
+  changeRoleForm.role = record.role
+  changeRoleModalOpen.value = true
+}
+
+const handleChangeRoleSave = async () => {
+  if (!changeRoleTargetId.value || !changeRoleForm.role) {
+    message.error('Выберите роль')
+    return
+  }
+  changeRoleSaving.value = true
+  try {
+    await usersStore.changeUserRole(changeRoleTargetId.value, changeRoleForm.role)
+    message.success('Роль изменена')
+    changeRoleModalOpen.value = false
+    await usersStore.fetchCatalogs()
+  } catch {
+    // error handled in store/api
+  } finally {
+    changeRoleSaving.value = false
   }
 }
 </script>
