@@ -1,19 +1,29 @@
 import apiClient from './client'
 
 export type Import40Action =
-  | 'submit-calculation'
-  | 'approve-offer'
-  | 'accept-offer'
-  | 'sign-contract'
-  | 'generate-power-of-attorney'
-  | 'return-power-of-attorney'
-  | 'photo-control'
+  | 'submit-for-processing'
+  | 'border-passed'
   | 'submit-declaration'
   | 'release-declaration'
-  | 'upload-svh-invoice'
+  | 'close-svh'
+  | 'issue-invoice'
   | 'confirm-payment'
-  | 'verify-payment'
-  | 'upload-closed-declaration'
+  | 'complete'
+  | 'set-problem'
+  | 'clear-problem'
+
+// Статусы заявки (совпадают с Import40Status на бэке)
+export const IMPORT40_STATUSES = [
+  { id: 0, key: 'Draft', short: 'Новая', phase: 'Заявка' },
+  { id: 1, key: 'AtBorder', short: 'На границе', phase: 'КПП' },
+  { id: 2, key: 'Declaring', short: 'Декларирование', phase: 'Декларант' },
+  { id: 3, key: 'Submitted', short: 'ДТ подана', phase: 'Декларант' },
+  { id: 4, key: 'Released', short: 'ДТ выпущена', phase: 'Декларант' },
+  { id: 5, key: 'SvhClosing', short: 'Закрытие СВХ', phase: 'КПП' },
+  { id: 6, key: 'Invoiced', short: 'Счёт выставлен', phase: 'Финансы' },
+  { id: 7, key: 'Paid', short: 'Оплата получена', phase: 'Финансы' },
+  { id: 8, key: 'Done', short: 'Выполнено', phase: 'Архив' },
+] as const
 
 export interface Import40LogDto {
   id: string
@@ -22,37 +32,54 @@ export interface Import40LogDto {
   changedByBusinessRole: string
 }
 
+export interface Import40DeclarationDto {
+  id: string
+  containerId: string
+  declarationNumber: string
+  corridor: string
+  commodityCode: string
+  cargoDescription: string
+  countryOfOrigin: string
+  invoiceValue: number | null
+  currency: string
+  weightKg: number | null
+  dutyAmount: number | null
+  vatAmount: number | null
+  feesAmount: number | null
+  svhCost: number | null
+  releasedAtUtc: string | null
+}
+
+export interface Import40ContainerDto {
+  id: string
+  containerNumber: string
+  containerType: string
+  notes: string
+  declarations: Import40DeclarationDto[]
+}
+
 export interface Import40CaseDto {
   id: string
   createdAtUtc: string
   updatedAtUtc: string
   clientId: string
   clientName: string
-  clientType: 'Одноразовый' | 'Постоянный'
   cargo: string
   post: string
-  manager: string
-  declarant: string
   status: number
-  corridor: 'green' | 'yellow' | 'blue' | 'red'
-  costCalculation: string
-  riskNote: string
+  isProblem: boolean
+  problemNote: string
+  assignedKppId: string | null
+  assignedDeclarantId: string | null
   vehicleNumber: string
   driverName: string
   driverPhone: string
-  transportType: string
-  svhInvoice: string
-  paymentCheck: string
-  declarationNumber: string
-  finalDeclarationFile: string
   powerOfAttorneyGenerated: boolean
   powerOfAttorneyReturned: boolean
-  controlPhotosCount: number
-  closedDeclarationUploaded: boolean
-  ropApproved: boolean
-  clientAcceptedOffer: boolean
-  contractSigned: boolean
-  svhPaymentConfirmed: boolean
+  svhInvoiceNote: string
+  svhClosed: boolean
+  paymentConfirmed: boolean
+  containers: Import40ContainerDto[]
   logs: Import40LogDto[]
 }
 
@@ -61,13 +88,11 @@ export interface Import40ListResponse {
 }
 
 export type Import40FileSection =
-  | 'photo'
+  | 'documents'
+  | 'power-of-attorney'
   | 'svh-invoice'
   | 'payment-check'
-  | 'closed-declaration'
-  | 'offer'
-  | 'contract'
-  | 'power-of-attorney'
+  | 'declaration-stamp'
 
 export interface Import40FileDto {
   id: string
@@ -82,38 +107,50 @@ export interface Import40FileDto {
 export interface Import40CreateRequest {
   clientId: string
   clientName: string
-  clientType: 'Одноразовый' | 'Постоянный'
   cargo: string
   post: string
-  manager: string
 }
 
-export type Import40UpdateRequest = Partial<
-  Pick<
-    Import40CaseDto,
-    | 'clientName'
-    | 'clientType'
-    | 'cargo'
-    | 'post'
-    | 'manager'
-    | 'declarant'
-    | 'corridor'
-    | 'costCalculation'
-    | 'riskNote'
-    | 'vehicleNumber'
-    | 'driverName'
-    | 'driverPhone'
-    | 'transportType'
-    | 'svhInvoice'
-    | 'paymentCheck'
-    | 'declarationNumber'
-    | 'finalDeclarationFile'
-  >
->
+export interface Import40UpdateRequest {
+  cargo?: string
+  post?: string
+  vehicleNumber?: string
+  driverName?: string
+  driverPhone?: string
+  svhInvoiceNote?: string
+  assignedKppId?: string | null
+  assignedDeclarantId?: string | null
+}
+
+export interface Import40ContainerUpsertRequest {
+  containerNumber: string
+  containerType?: string
+  notes?: string
+}
+
+export interface Import40DeclarationUpsertRequest {
+  declarationNumber?: string
+  corridor?: string
+  commodityCode?: string
+  cargoDescription?: string
+  countryOfOrigin?: string
+  invoiceValue?: number | null
+  currency?: string
+  weightKg?: number | null
+  dutyAmount?: number | null
+  vatAmount?: number | null
+  feesAmount?: number | null
+  svhCost?: number | null
+}
 
 export const import40Api = {
   list: async (): Promise<Import40CaseDto[]> => {
     const response = await apiClient.get<Import40ListResponse>('/import40')
+    return response.data.items
+  },
+
+  myTasks: async (): Promise<Import40CaseDto[]> => {
+    const response = await apiClient.get<Import40ListResponse>('/import40/my-tasks')
     return response.data.items
   },
 
@@ -128,7 +165,7 @@ export const import40Api = {
   },
 
   update: async (id: string, data: Import40UpdateRequest): Promise<Import40CaseDto> => {
-    const response = await apiClient.patch<Import40CaseDto>(`/import40/${encodeURIComponent(id)}`, data)
+    const response = await apiClient.put<Import40CaseDto>(`/import40/${encodeURIComponent(id)}`, data)
     return response.data
   },
 
@@ -136,6 +173,72 @@ export const import40Api = {
     const response = await apiClient.post<Import40CaseDto>(
       `/import40/${encodeURIComponent(id)}/actions/${action}`,
       { value: value ?? null },
+    )
+    return response.data
+  },
+
+  addContainer: async (
+    id: string,
+    data: Import40ContainerUpsertRequest,
+  ): Promise<Import40CaseDto> => {
+    const response = await apiClient.post<Import40CaseDto>(
+      `/import40/${encodeURIComponent(id)}/containers`,
+      data,
+    )
+    return response.data
+  },
+
+  updateContainer: async (
+    id: string,
+    containerId: string,
+    data: Import40ContainerUpsertRequest,
+  ): Promise<Import40CaseDto> => {
+    const response = await apiClient.put<Import40CaseDto>(
+      `/import40/${encodeURIComponent(id)}/containers/${encodeURIComponent(containerId)}`,
+      data,
+    )
+    return response.data
+  },
+
+  deleteContainer: async (id: string, containerId: string): Promise<Import40CaseDto> => {
+    const response = await apiClient.delete<Import40CaseDto>(
+      `/import40/${encodeURIComponent(id)}/containers/${encodeURIComponent(containerId)}`,
+    )
+    return response.data
+  },
+
+  addDeclaration: async (
+    id: string,
+    containerId: string,
+    data: Import40DeclarationUpsertRequest,
+  ): Promise<Import40CaseDto> => {
+    const response = await apiClient.post<Import40CaseDto>(
+      `/import40/${encodeURIComponent(id)}/containers/${encodeURIComponent(containerId)}/declarations`,
+      data,
+    )
+    return response.data
+  },
+
+  updateDeclaration: async (
+    id: string,
+    containerId: string,
+    declarationId: string,
+    data: Import40DeclarationUpsertRequest,
+  ): Promise<Import40CaseDto> => {
+    const response = await apiClient.put<Import40CaseDto>(
+      `/import40/${encodeURIComponent(id)}/containers/${encodeURIComponent(containerId)}/declarations/${encodeURIComponent(declarationId)}`,
+      data,
+    )
+    return response.data
+  },
+
+  deleteDeclaration: async (
+    id: string,
+    containerId: string,
+    declarationId: string,
+  ): Promise<Import40CaseDto> => {
+    const response = await apiClient.delete<Import40CaseDto>(
+      `/import40/${encodeURIComponent(id)}/containers/${encodeURIComponent(containerId)}/declarations/${encodeURIComponent(declarationId)}`,
     )
     return response.data
   },
