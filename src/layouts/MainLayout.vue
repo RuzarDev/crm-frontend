@@ -214,6 +214,14 @@ const menuItems = computed(() => {
     })
   }
 
+  if (role === 'client') {
+    items.push({
+      key: '/import-40/company',
+      icon: () => h(SolutionOutlined),
+      label: 'Моя компания',
+    })
+  }
+
   if (role === 'administrator') {
     items.push({
       key: '/references',

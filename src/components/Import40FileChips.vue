@@ -15,17 +15,16 @@
   <p v-else-if="empty" class="file-chips-empty">{{ empty }}</p>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" generic="T extends { id: string; originalFileName: string }">
 import { DownloadOutlined, PaperClipOutlined } from '@ant-design/icons-vue'
-import type { Import40FileDto } from '@/api/import40'
 
 defineProps<{
-  items: Import40FileDto[]
+  items: T[]
   empty?: string
 }>()
 
 const emit = defineEmits<{
-  (e: 'download', file: Import40FileDto): void
+  (e: 'download', file: T): void
 }>()
 </script>
 

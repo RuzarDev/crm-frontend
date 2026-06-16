@@ -58,6 +58,12 @@ const router = createRouter({
           meta: { requiresImport40: true },
         },
         {
+          path: '/import-40/company',
+          name: 'import-40-company',
+          component: () => import('@/views/Import40CompanyView.vue'),
+          meta: { requiresImport40: true },
+        },
+        {
           path: '/import-40/:id',
           name: 'import-40-detail',
           component: () => import('@/views/Import40View.vue'),
