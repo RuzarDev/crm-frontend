@@ -70,6 +70,12 @@ const router = createRouter({
           meta: { requiresImport40: true },
         },
         {
+          path: '/sales',
+          name: 'sales',
+          component: () => import('@/views/SalesView.vue'),
+          meta: { requiresSales: true },
+        },
+        {
           path: '/my-documents',
           name: 'my-documents',
           component: () => import('@/views/MyDocumentsView.vue'),
@@ -157,6 +163,7 @@ router.beforeEach((to, from, next) => {
   const requiredPermission = to.meta.requiresPermission as string | undefined
   const requiredRole = to.meta.requiresRole as string | undefined
   const requiresImport40 = to.meta.requiresImport40 === true
+  const requiresSales = to.meta.requiresSales === true
 
   const normalizedRole = (authStore.role || '').trim().toLowerCase()
 
@@ -164,9 +171,13 @@ router.beforeEach((to, from, next) => {
     next('/login')
   } else if (normalizedRole === 'importer' && to.path === '/reestr') {
     next('/import-40')
+  } else if (normalizedRole === 'sales' && (to.path === '/reestr' || to.path === '/dashboard')) {
+    next('/sales')
   } else if (requiredRole && normalizedRole !== requiredRole) {
     next('/')
   } else if (requiresImport40 && !authStore.canUseImport40) {
+    next('/')
+  } else if (requiresSales && !authStore.canUseSales) {
     next('/')
   } else if (requiredPermission && !authStore.hasPermission(requiredPermission)) {
     next('/')

@@ -39,6 +39,10 @@ export const useAuthStore = defineStore('auth', () => {
     const systemRole = (role.value || '').trim().toLowerCase()
     return systemRole === 'administrator' || systemRole === 'importer' || systemRole === 'client'
   })
+  const canUseSales = computed(() => {
+    const systemRole = (role.value || '').trim().toLowerCase()
+    return systemRole === 'administrator' || systemRole === 'sales'
+  })
 
   const login = async (credentials: LoginRequest) => {
     try {
@@ -133,6 +137,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     hasPermission,
     canUseImport40,
+    canUseSales,
     login,
     registerClient,
     logout,

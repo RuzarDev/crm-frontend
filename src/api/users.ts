@@ -5,6 +5,7 @@ import type {
   CatalogClientRow,
   CatalogExpeditorRow,
   CatalogImporterRow,
+  CatalogSalespersonRow,
   EditBrokerRequest,
   EditExpeditorRequest,
   LinkUsersRequest,
@@ -34,6 +35,11 @@ export const usersApi = {
 
   getCatalogImporters: async (): Promise<CatalogImporterRow[]> => {
     const response = await apiClient.get<CatalogImporterRow[]>('/catalog/importers')
+    return response.data
+  },
+
+  getCatalogSalespersons: async (): Promise<CatalogSalespersonRow[]> => {
+    const response = await apiClient.get<CatalogSalespersonRow[]>('/catalog/salespersons')
     return response.data
   },
 

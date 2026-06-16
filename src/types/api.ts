@@ -74,7 +74,15 @@ export interface CatalogImporterRow {
   createdAtUtc: string
 }
 
-export type CatalogTabKey = 'administrators' | 'brokers' | 'clients' | 'expeditors' | 'importers'
+export interface CatalogSalespersonRow {
+  id: string
+  username: string
+  role: string
+  businessRole: string
+  createdAtUtc: string
+}
+
+export type CatalogTabKey = 'administrators' | 'brokers' | 'clients' | 'expeditors' | 'importers' | 'salespersons'
 
 export type CatalogTableRow =
   | CatalogAdministratorRow
@@ -82,6 +90,7 @@ export type CatalogTableRow =
   | CatalogClientRow
   | CatalogExpeditorRow
   | CatalogImporterRow
+  | CatalogSalespersonRow
 
 export interface LinkUsersRequest {
   staffUserId: string

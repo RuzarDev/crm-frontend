@@ -4,6 +4,7 @@ const roleMap: Record<string, string> = {
   expeditor: 'Экспедитор',
   administrator: 'Администратор',
   importer: 'Импорт',
+  sales: 'Продажи',
 }
 
 const permissionMap: Record<string, string> = {

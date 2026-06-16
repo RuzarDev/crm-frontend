@@ -7,6 +7,7 @@ import type {
   CatalogClientRow,
   CatalogExpeditorRow,
   CatalogImporterRow,
+  CatalogSalespersonRow,
   EditBrokerRequest,
   EditExpeditorRequest,
   LinkUsersRequest,
@@ -20,17 +21,19 @@ export const useUsersStore = defineStore('users', () => {
   const clients = ref<CatalogClientRow[]>([])
   const expeditors = ref<CatalogExpeditorRow[]>([])
   const importers = ref<CatalogImporterRow[]>([])
+  const salespersons = ref<CatalogSalespersonRow[]>([])
   const loading = ref(false)
 
   const fetchCatalogs = async () => {
     loading.value = true
     try {
-      const [a, b, c, e, i] = await Promise.all([
+      const [a, b, c, e, i, sp] = await Promise.all([
         usersApi.getCatalogAdministrators(),
         usersApi.getCatalogBrokers(),
         usersApi.getCatalogClients(),
         usersApi.getCatalogExpeditors(),
         usersApi.getCatalogImporters(),
+        usersApi.getCatalogSalespersons(),
       ])
       administrators.value = a
       brokers.value = b.map((r) => ({ ...r, clients: r.clients ?? [] }))
@@ -41,6 +44,7 @@ export const useUsersStore = defineStore('users', () => {
       }))
       expeditors.value = e.map((r) => ({ ...r, clients: r.clients ?? [] }))
       importers.value = i
+      salespersons.value = sp
     } catch {
       return false
     } finally {
@@ -125,6 +129,7 @@ export const useUsersStore = defineStore('users', () => {
     clients,
     expeditors,
     importers,
+    salespersons,
     loading,
     fetchCatalogs,
     createUser,

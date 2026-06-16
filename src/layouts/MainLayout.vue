@@ -174,13 +174,15 @@ const formatNotifTime = (iso: string) => dayjs(iso).format('DD.MM HH:mm')
 const menuItems = computed(() => {
   const role = (authStore.role || '').trim().toLowerCase()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const items: any[] = [
-    {
+  const items: any[] = []
+
+  if (role !== 'sales') {
+    items.push({
       key: '/dashboard',
       icon: () => h(DashboardOutlined),
       label: 'Дашборд',
-    },
-  ]
+    })
+  }
 
   if (role === 'administrator') {
     items.push({
@@ -190,7 +192,15 @@ const menuItems = computed(() => {
     })
   }
 
-  if (role !== 'importer') {
+  if (authStore.canUseSales) {
+    items.push({
+      key: '/sales',
+      icon: () => h(BarChartOutlined),
+      label: 'Продажи',
+    })
+  }
+
+  if (!['importer', 'sales'].includes(role)) {
     items.push({
       key: '/reestr',
       icon: () => h(DatabaseOutlined),

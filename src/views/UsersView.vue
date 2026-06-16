@@ -27,6 +27,7 @@
         <a-tab-pane key="clients" tab="Клиенты" />
         <a-tab-pane key="expeditors" tab="Экспедиторы" />
         <a-tab-pane key="importers" tab="Импорт" />
+        <a-tab-pane key="salespersons" tab="Продажи" />
       </a-tabs>
 
       <a-table
@@ -56,7 +57,7 @@
           <template v-else-if="column.key === 'actions'">
             <a-space>
               <a-button
-                v-if="canChangeBusinessRole && ['brokers', 'administrators', 'importers'].includes(catalogTab)"
+                v-if="canChangeBusinessRole && ['brokers', 'administrators', 'importers', 'salespersons'].includes(catalogTab)"
                 type="link"
                 size="small"
                 @click="openBusinessRoleModal(record)"
@@ -131,7 +132,7 @@
             :options="roleOptions"
           />
         </a-form-item>
-        <a-form-item v-if="showBusinessRoleField" label="Бизнес-роль (Импорт 40)">
+        <a-form-item v-if="showBusinessRoleField" label="Бизнес-роль">
           <a-select
             v-model:value="form.businessRole"
             placeholder="Выберите бизнес-роль"
@@ -306,17 +307,24 @@ const form = reactive({
   businessRole: '',
 })
 
-const businessRoleOptions = [
-  { label: 'РОП', value: 'rop' },
-  { label: 'МПП', value: 'mpp' },
-  { label: 'Декларант', value: 'declarant' },
-  { label: 'Ноги', value: 'legs' },
-]
+const businessRoleOptions = computed(() => {
+  if (catalogTab.value === 'salespersons' || form.role === 'sales') {
+    return [
+      { label: 'РОП', value: 'rop' },
+      { label: 'МПП', value: 'mpp' },
+    ]
+  }
+  return [
+    { label: 'Менеджер КПП', value: 'kpp' },
+    { label: 'Декларант', value: 'declarant' },
+  ]
+})
 
 const businessRoleLabels: Record<string, string> = {
   rop: 'РОП',
   mpp: 'МПП',
   declarant: 'Декларант',
+  kpp: 'Менеджер КПП',
   legs: 'Ноги',
   client: 'Клиент',
   expeditor: 'Экспедитор',
@@ -324,7 +332,7 @@ const businessRoleLabels: Record<string, string> = {
 
 const formatBusinessRole = (value: string) => businessRoleLabels[(value || '').toLowerCase()] || value || '—'
 
-const showBusinessRoleField = computed(() => ['broker', 'administrator', 'importer'].includes(form.role))
+const showBusinessRoleField = computed(() => ['broker', 'administrator', 'importer', 'sales'].includes(form.role))
 
 const canChangeBusinessRole = computed(() => authStore.hasPermission('users.write'))
 
@@ -422,7 +430,7 @@ const changeRoleForm = reactive({
   role: '',
 })
 
-const systemRoleOrder = ['client', 'broker', 'expeditor', 'importer', 'administrator']
+const systemRoleOrder = ['client', 'broker', 'expeditor', 'importer', 'sales', 'administrator']
 
 const defaultRoleByTab: Record<CatalogTabKey, string> = {
   administrators: 'administrator',
@@ -430,6 +438,7 @@ const defaultRoleByTab: Record<CatalogTabKey, string> = {
   clients: 'client',
   expeditors: 'expeditor',
   importers: 'importer',
+  salespersons: 'sales',
 }
 
 const tableRows = computed((): CatalogTableRow[] => {
@@ -444,6 +453,8 @@ const tableRows = computed((): CatalogTableRow[] => {
       return usersStore.expeditors
     case 'importers':
       return usersStore.importers
+    case 'salespersons':
+      return usersStore.salespersons
     default:
       return []
   }
@@ -454,7 +465,7 @@ const tableColumns = computed(() => {
     authStore.hasPermission('users.delete') ||
     (catalogTab.value === 'brokers' && canEditBroker.value) ||
     (catalogTab.value === 'expeditors' && canEditExpeditor.value) ||
-    (canChangeBusinessRole.value && ['administrators', 'brokers', 'importers'].includes(catalogTab.value))
+    (canChangeBusinessRole.value && ['administrators', 'brokers', 'importers', 'salespersons'].includes(catalogTab.value))
 
   const actionsColumn = showActionsColumn
     ? [
@@ -506,6 +517,7 @@ const tableColumns = computed(() => {
         ...actionsColumn,
       ]
     case 'importers':
+    case 'salespersons':
       return [
         usernameColumn,
         { title: 'Роль', key: 'role', width: 140 },
