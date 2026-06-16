@@ -242,6 +242,14 @@
         <label><span>СВХ (себест.)</span><a-input-number v-model:value="declForm.svhCost" style="width: 100%" :min="0" /></label>
       </div>
     </a-modal>
+
+    <!-- Модалка ввода значения для действия (вместо window.prompt) -->
+    <a-modal v-model:open="promptModal.open" :title="promptModal.title" ok-text="Подтвердить" cancel-text="Отмена" @ok="confirmPromptAction">
+      <label class="prompt-field">
+        <span>{{ promptModal.label }}</span>
+        <a-input v-model:value="promptModal.value" autofocus @press-enter="confirmPromptAction" />
+      </label>
+    </a-modal>
   </div>
 
   <a-spin v-else style="display: block; margin: 80px auto" />
@@ -426,14 +434,38 @@ const roleBiz: Record<RoleMode, string> = { client: 'client', kpp: 'kpp', declar
 const canDeleteFile = (f: Import40FileDto) =>
   isAdmin.value || f.uploadedByBusinessRole === roleBiz[roleMode.value]
 
+const promptModal = reactive({
+  open: false,
+  title: '',
+  label: '',
+  value: '',
+  action: null as Import40Action | null,
+})
+
 const runAction = async (action: Import40Action, prompt?: string) => {
   if (!activeCase.value) return
-  let value: string | undefined
   if (prompt) {
-    const input = window.prompt(prompt)
-    if (input === null) return
-    value = input
+    // действия, требующие ввода — через CRM-модалку, не window.prompt
+    promptModal.action = action
+    promptModal.title = prompt
+    promptModal.label = prompt
+    promptModal.value = ''
+    promptModal.open = true
+    return
   }
+  await executeAction(action)
+}
+
+const confirmPromptAction = async () => {
+  if (!promptModal.action) return
+  const action = promptModal.action
+  const value = promptModal.value.trim()
+  promptModal.open = false
+  await executeAction(action, value || undefined)
+}
+
+const executeAction = async (action: Import40Action, value?: string) => {
+  if (!activeCase.value) return
   try {
     activeCase.value = await import40Api.action(activeCase.value.id, action, value)
     await loadFiles()
@@ -643,6 +675,8 @@ onMounted(reload)
 .flow-block .ant-btn { justify-self: start; }
 
 .decl-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.prompt-field { display: flex; flex-direction: column; gap: 6px; }
+.prompt-field span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; }
 
 .file-list { display: grid; gap: 8px; }
 .file-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--atg-line); border-radius: var(--atg-radius); }
