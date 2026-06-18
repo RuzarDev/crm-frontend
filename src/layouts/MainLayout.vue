@@ -293,6 +293,14 @@ const menuItems = computed(() => {
     })
   }
 
+  if (authStore.hasPermission('users.read')) {
+    items.push({
+      key: '/notifications',
+      icon: () => h(BellOutlined),
+      label: 'Уведомления',
+    })
+  }
+
   if (authStore.hasPermission('endpoints.read')) {
     items.push({
       key: '/system/endpoints',
@@ -333,6 +341,7 @@ const selectedMenuKey = computed(() => {
   if (route.path.startsWith('/import-40')) return '/import-40'
   if (route.path.startsWith('/references')) return '/references'
   if (route.path.startsWith('/tnved/')) return route.path
+  if (route.path.startsWith('/notifications')) return '/notifications'
   if (route.path.startsWith('/roles')) return '/roles'
   if (route.path.startsWith('/users')) return '/users'
   if (route.path.startsWith('/system/endpoints')) return '/system/endpoints'

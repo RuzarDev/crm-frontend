@@ -287,11 +287,14 @@ export const ReestrBrokerDocumentType = {
 export type ReestrBrokerDocumentType =
   (typeof ReestrBrokerDocumentType)[keyof typeof ReestrBrokerDocumentType]
 
+export type ClientReestrDocumentType = 'invoice' | 'packingList' | 'cmr' | 'other'
+
 export interface ReestrDocumentDto {
   id: string
   reestrEntryId: string
   section: ReestrDocumentSection
   brokerDocumentType: ReestrBrokerDocumentType | null
+  clientDocumentType: ClientReestrDocumentType | null
   originalFileName: string
   contentType: string
   sizeBytes: number
@@ -446,6 +449,71 @@ export interface ChangeDocumentPackageStatusRequest {
 export interface RoleItem {
   name: string
   permissions: string[]
+}
+
+export interface ExtractionHeaderValuesDto {
+  consignee: string | null
+  shipper: string | null
+  currencyCode: string | null
+}
+
+export interface ExtractionItemValuesDto {
+  commodityCode: string | null
+  customsValue: number | null
+  weightKg: number | null
+  quantity: number | null
+}
+
+export interface TnvedDeprecationWarningDto {
+  deprecatedCode: string
+  replacementCodes: string[]
+  sourceVersion: string | null
+}
+
+export interface ExtractionItemSuggestionDto extends ExtractionItemValuesDto {
+  commodityCodeDeprecation: TnvedDeprecationWarningDto | null
+}
+
+export type DocumentExtractionStatus =
+  | 'queued'
+  | 'templateHit'
+  | 'awaitingAiConfirmation'
+  | 'needsManualEntry'
+  | 'applied'
+  | 'error'
+
+export type ExtractionMatchResult =
+  | 'templateHitClientSpecific'
+  | 'templateHitGlobal'
+  | 'miss'
+  | 'notDigital'
+  | 'error'
+  | 'nonDigitalAi'
+
+export interface ExtractionResultDto {
+  status: DocumentExtractionStatus
+  matchResult: ExtractionMatchResult
+  aiUsed: boolean
+  confidence: number | null
+  source: 'template' | 'ai'
+  header: ExtractionHeaderValuesDto
+  items: ExtractionItemSuggestionDto[]
+  runId: string
+}
+
+export interface ApplyExtractionRequest {
+  header: ExtractionHeaderValuesDto
+  items: ExtractionItemValuesDto[]
+}
+
+export interface AppliedEntryDto {
+  entry: ReestrEntryDto
+  customsValue: number | null
+  currencyCode: string | null
+}
+
+export interface ApplyExtractionResponse {
+  entries: AppliedEntryDto[]
 }
 
 export interface CreateRoleRequest {
@@ -808,3 +876,14 @@ export interface TnvedTransitionSeedResult {
   total: number
   sourceVersion: string
 }
+
+export type TnvedNode = TnvedNodeDto
+export type TnvedCurrency = TnvedCurrencyDto
+
+export interface ReestrComment { id: string; reestrEntryId: string; authorId: string; authorRole: string; authorUsername: string; text: string; createdAtUtc: string; editedAtUtc: string | null }
+
+export interface ProfileDto { userId: string; username: string; displayName: string | null; phone: string | null; companyName: string | null; innBin: string | null; role: string }
+
+export interface NotificationDto { id: string; message: string; relatedCode: string | null; isRead: boolean; createdAtUtc: string }
+
+export interface TnvedTopCode { code: string; treeName: string | null; rateStr: string | null; declarationCount: number }

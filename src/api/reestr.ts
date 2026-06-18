@@ -11,8 +11,12 @@ import type {
   ReestrDocumentDto,
   ReestrDocumentSection,
   ReestrBrokerDocumentType,
+  ClientReestrDocumentType,
   ReestrClientOption,
   ReestrStatusHistoryDto,
+  ExtractionResultDto,
+  ApplyExtractionRequest,
+  ApplyExtractionResponse,
 } from '@/types/api'
 import { reestrDtoToEntry } from '@/utils/reestrDtoMap'
 
@@ -133,10 +137,14 @@ export const reestrApi = {
     section: ReestrDocumentSection,
     file: File,
     brokerDocumentType?: ReestrBrokerDocumentType,
+    clientDocumentType?: ClientReestrDocumentType,
   ): Promise<ReestrDocumentDto> => {
     const formData = new FormData()
     formData.append('file', file)
     if (section === 'client') {
+      if (clientDocumentType) {
+        formData.append('documentType', clientDocumentType)
+      }
       const response = await apiClient.post<ReestrDocumentDto>(
         `/reestr/${reestrId}/documents/client`,
         formData,
@@ -176,6 +184,27 @@ export const reestrApi = {
 
   deleteDocument: async (reestrId: string, documentId: string): Promise<void> => {
     await apiClient.delete(`/reestr/${reestrId}/documents/${documentId}`)
+  },
+
+  /** Returns null while the extraction run has not finished yet (404). */
+  getExtraction: async (reestrId: string, documentId: string): Promise<ExtractionResultDto | null> => {
+    const response = await apiClient.get<ExtractionResultDto>(
+      `/reestr/${reestrId}/documents/${documentId}/extraction`,
+      { validateStatus: (status) => status === 200 || status === 404 },
+    )
+    return response.status === 200 ? response.data : null
+  },
+
+  applyExtraction: async (
+    reestrId: string,
+    documentId: string,
+    payload: ApplyExtractionRequest,
+  ): Promise<ApplyExtractionResponse> => {
+    const response = await apiClient.post<ApplyExtractionResponse>(
+      `/reestr/${reestrId}/documents/${documentId}/extraction/apply`,
+      payload,
+    )
+    return response.data
   },
 
   getStatusHistory: async (reestrId: string): Promise<ReestrStatusHistoryDto[]> => {

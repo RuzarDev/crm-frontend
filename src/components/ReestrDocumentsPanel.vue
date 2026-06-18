@@ -10,17 +10,19 @@
               <span class="doc-section-dot doc-section-dot--client"></span>
               <span class="doc-section-title">Документы клиента</span>
             </div>
-            <a-upload
-              v-if="clientCanUpload"
-              :show-upload-list="false"
-              :before-upload="beforeUpload('client')"
-              :custom-request="() => {}"
-            >
-              <a-button size="small" class="upload-btn">
-                <UploadOutlined />
-                Загрузить
-              </a-button>
-            </a-upload>
+            <a-space v-if="clientCanUpload">
+              <InvoiceAutofillButton :reestr-id="props.reestrId" @applied="handleExtractionApplied" />
+              <a-upload
+                :show-upload-list="false"
+                :before-upload="beforeUpload('client')"
+                :custom-request="() => {}"
+              >
+                <a-button size="small" class="upload-btn">
+                  <UploadOutlined />
+                  Загрузить
+                </a-button>
+              </a-upload>
+            </a-space>
           </div>
           <reestr-document-list
             :documents="documentsBySection('client')"
@@ -91,6 +93,7 @@ import type {
 } from '@/types/api'
 import { ReestrBrokerDocumentType as BrokerDocTypes, ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
 import ReestrDocumentList from '@/components/ReestrDocumentList.vue'
+import InvoiceAutofillButton from '@/components/InvoiceAutofillButton.vue'
 
 interface Props {
   reestrId: string
@@ -101,6 +104,8 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   readonly: false,
 })
+
+const emit = defineEmits<{ (e: 'applied', count: number): void }>()
 const authStore = useAuthStore()
 
 const loading = ref(false)
@@ -232,6 +237,11 @@ const handleDownload = async (doc: ReestrDocumentDto) => {
   } catch {
     //
   }
+}
+
+const handleExtractionApplied = async (count: number) => {
+  await fetchDocuments()
+  emit('applied', count)
 }
 
 const handleDelete = async (doc: ReestrDocumentDto) => {

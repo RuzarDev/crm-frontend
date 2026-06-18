@@ -17,6 +17,11 @@
             <UploadOutlined />
             Загрузить Excel
           </a-button>
+          <ImportInvoiceButton
+            v-if="canWrite"
+            :client-options="createClientOptions"
+            @imported="reestrStore.fetchList()"
+          />
           <a-button :loading="exporting" @click="handleExport">
             <DownloadOutlined />
             Выгрузить реестр
@@ -201,6 +206,7 @@
       :initial-tab="formInitialTab"
       @submit="handleFormSubmit"
       @cancel="handleFormCancel"
+      @applied="reestrStore.fetchList()"
     />
 
     <a-modal
@@ -255,6 +261,7 @@ import { useAuthStore } from '@/stores/auth'
 import ReestrForm from '@/components/ReestrForm.vue'
 import ReestrStatusCell from '@/components/ReestrStatusCell.vue'
 import ExcelUpload from '@/components/ExcelUpload.vue'
+import ImportInvoiceButton from '@/components/ImportInvoiceButton.vue'
 import {
   PlusOutlined,
   UploadOutlined,
@@ -667,6 +674,8 @@ const handleFileUpload = async (file: File) => {
     uploadModalOpen.value = false
   }
 }
+
+
 </script>
 
 <style scoped>

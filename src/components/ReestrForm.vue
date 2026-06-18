@@ -34,6 +34,7 @@
           :reestr-id="entry.id"
           :entry-status="entry.status"
           :readonly="isReadonlyView"
+          @applied="emit('applied')"
         />
       </a-tab-pane>
       <a-tab-pane v-if="!isClientView" key="history" tab="История статусов">
@@ -103,6 +104,7 @@ interface Emits {
     },
   ): void
   (e: 'cancel'): void
+  (e: 'applied'): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -113,7 +115,7 @@ const emit = defineEmits<Emits>()
 const authStore = useAuthStore()
 
 const reestrStatusOptions = REESTR_STATUS_OPTIONS
-const activeTab = ref<FormTab | 'history'>('data')
+const activeTab = ref<FormTab | 'history' | 'comments'>('data')
 
 const isReadonlyView = computed(
   () => props.viewMode === 'client' || props.viewMode === 'readonly',

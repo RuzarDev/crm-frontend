@@ -76,6 +76,11 @@ const router = createRouter({
           meta: { requiresSales: true },
         },
         {
+          path: '/notifications',
+          name: 'notifications',
+          component: () => import('@/views/NotificationsView.vue'),
+        },
+        {
           path: '/my-documents',
           name: 'my-documents',
           component: () => import('@/views/MyDocumentsView.vue'),
