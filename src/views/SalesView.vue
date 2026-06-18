@@ -144,6 +144,7 @@ import {
 } from '@/api/sales'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedCurrencyDto } from '@/types/api'
+import atgLogoAsset from '@/assets/atg-logo-color.png'
 
 const tab = ref<'calc' | 'quotes'>('calc')
 
@@ -278,6 +279,7 @@ const statusLabel = (s: number) => SALES_QUOTE_STATUS[s] ?? '—'
 const statusColor = (s: number) => (['default', 'processing', 'success', 'error'][s] ?? 'default')
 
 // печать КП в изолированном окне
+const logoUrl = new URL(atgLogoAsset, window.location.origin).href
 const printQuote = (q: SalesQuoteDto) => {
   const svc = q.serviceLines
     .map((s) => `<tr><td>${esc(s.name)}</td><td style="text-align:right">${money(s.unitPrice)}</td><td style="text-align:center">${s.quantity} ${esc(s.unit)}</td><td style="text-align:center">${s.discountPercent}%</td><td style="text-align:right">${money(s.total)} ₸</td></tr>`)
@@ -296,7 +298,11 @@ const printQuote = (q: SalesQuoteDto) => {
     .totals div{margin:4px 0} .grand{font-size:18px;font-weight:800;color:#1a2332}
     .muted{color:#6b7280} .foot{margin-top:30px;color:#6b7280;font-size:12px}
   </style></head><body>
-    <div class="brand"><div><b>Aqniet Trans Group</b><div class="muted">Таможенный представитель</div></div>
+    <div class="brand">
+      <div style="display:flex;align-items:center;gap:12px">
+        <img src="${logoUrl}" alt="ATG" style="height:56px;width:auto;object-fit:contain" />
+        <div class="muted" style="font-size:13px">Таможенный представитель</div>
+      </div>
       <div style="text-align:right"><b>КП № ${q.number}/КП/${q.year}</b><div class="muted">${formatDate(q.createdAtUtc)}</div></div></div>
     <h1>Коммерческое предложение</h1>
     <div class="sub">Для: <b>${esc(q.clientName)}</b>${q.clientContact ? ' · ' + esc(q.clientContact) : ''}</div>
