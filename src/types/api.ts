@@ -357,6 +357,29 @@ export interface DocumentPackageFileDto {
   uploadedAtUtc: string
 }
 
+export interface DocumentPackageConsolidationGoodsItemDto {
+  id: string
+  sortOrder: number
+  description?: string | null
+  tnvedCode?: string | null
+  countryOfOrigin?: string | null
+  quantity?: number | null
+  unit?: string | null
+  grossWeightKg?: number | null
+  netWeightKg?: number | null
+  customsValue?: number | null
+  currency?: string | null
+}
+
+export interface DocumentPackageConsolidationDoc44ItemDto {
+  id: string
+  sortOrder: number
+  docTypeCode?: string | null
+  docTypeName?: string | null
+  docNumber?: string | null
+  docDate?: string | null
+}
+
 export interface DocumentPackageClientConsolidationDto {
   id: string
   containerId: string
@@ -370,6 +393,9 @@ export interface DocumentPackageClientConsolidationDto {
   commodityCode?: string | null
   packagesCount?: string | null
   weight?: string | null
+  packagingType?: string | null
+  goodsItems: DocumentPackageConsolidationGoodsItemDto[]
+  doc44Items: DocumentPackageConsolidationDoc44ItemDto[]
 }
 
 export interface DocumentPackageContainerDto {

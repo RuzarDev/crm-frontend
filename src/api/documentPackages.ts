@@ -126,6 +126,9 @@ export const documentPackagesApi = {
       commodityCode?: string | null
       packagesCount?: string | null
       weight?: string | null
+      packagingType?: string | null
+      goodsItems?: unknown[] | null
+      doc44Items?: unknown[] | null
     },
   ): Promise<DocumentPackageDto> => {
     const response = await apiClient.post<DocumentPackageDto>(
@@ -149,6 +152,9 @@ export const documentPackagesApi = {
       commodityCode?: string | null
       packagesCount?: string | null
       weight?: string | null
+      packagingType?: string | null
+      goodsItems?: unknown[] | null
+      doc44Items?: unknown[] | null
     },
   ): Promise<DocumentPackageDto> => {
     const response = await apiClient.put<DocumentPackageDto>(

@@ -482,6 +482,15 @@
           <a-select v-model:value="clientPostModel" show-search allow-clear mode="tags" :max-tag-count="1"
             :options="postOptions" placeholder="Выберите или введите пост" />
         </a-form-item>
+        <a-form-item label="Вид упаковки">
+          <a-input v-model:value="clientForm.packagingType" placeholder="Например: коробки, паллеты" />
+        </a-form-item>
+        <a-divider style="margin: 12px 0;" />
+        <div style="margin-bottom: 8px; font-weight: 600;">Товары (список)</div>
+        <ReestrGoodsSection v-model="clientForm.goodsItems" />
+        <a-divider style="margin: 12px 0;" />
+        <div style="margin-bottom: 8px; font-weight: 600;">44 Графа ТД</div>
+        <ReestrDoc44Section v-model="clientForm.doc44Items" />
       </a-form>
     </a-modal>
 
@@ -567,6 +576,15 @@
                 <a-select v-model:value="clientPostModel" show-search allow-clear mode="tags" :max-tag-count="1"
                   :options="postOptions" placeholder="Выберите или введите пост" />
               </a-form-item>
+              <a-form-item label="Вид упаковки">
+                <a-input v-model:value="clientForm.packagingType" placeholder="Например: коробки, паллеты" />
+              </a-form-item>
+              <a-divider style="margin: 12px 0;" />
+              <div style="margin-bottom: 8px; font-weight: 600;">Товары (список)</div>
+              <ReestrGoodsSection v-model="clientForm.goodsItems" />
+              <a-divider style="margin: 12px 0;" />
+              <div style="margin-bottom: 8px; font-weight: 600;">44 Графа ТД</div>
+              <ReestrDoc44Section v-model="clientForm.doc44Items" />
             </a-form>
           </div>
           <div class="edit-split-footer">
@@ -698,7 +716,9 @@ import { documentPackagesApi } from '@/api/documentPackages'
 import { reestrApi } from '@/api/reestr'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
-import type { DocumentPackageDto, DocumentPackageFileDto } from '@/types/api'
+import type { DocumentPackageDto, DocumentPackageFileDto, ReestrGoodsItemInput, ReestrDoc44ItemInput } from '@/types/api'
+import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
+import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -754,6 +774,9 @@ const clientForm = reactive({
   commodityCode: '',
   packagesCount: '',
   weight: '',
+  packagingType: '',
+  goodsItems: [] as ReestrGoodsItemInput[],
+  doc44Items: [] as ReestrDoc44ItemInput[],
 })
 
 // Drag and Drop state
@@ -1070,6 +1093,9 @@ const openAddClientModal = (containerId: string) => {
   clientForm.commodityCode = ''
   clientForm.packagesCount = ''
   clientForm.weight = ''
+  clientForm.packagingType = ''
+  clientForm.goodsItems = []
+  clientForm.doc44Items = []
   ensureSplitForEdit()
   clientModalOpen.value = true
 }
@@ -1088,6 +1114,24 @@ const openEditClientModal = (containerId: string, consolidation: any) => {
   clientForm.commodityCode = consolidation.commodityCode || ''
   clientForm.packagesCount = consolidation.packagesCount || ''
   clientForm.weight = consolidation.weight || ''
+  clientForm.packagingType = consolidation.packagingType || ''
+  clientForm.goodsItems = (consolidation.goodsItems ?? []).map((g: any) => ({
+    description: g.description ?? null,
+    tnvedCode: g.tnvedCode ?? null,
+    countryOfOrigin: g.countryOfOrigin ?? null,
+    quantity: g.quantity ?? null,
+    unit: g.unit ?? null,
+    grossWeightKg: g.grossWeightKg ?? null,
+    netWeightKg: g.netWeightKg ?? null,
+    customsValue: g.customsValue ?? null,
+    currency: g.currency ?? null,
+  }))
+  clientForm.doc44Items = (consolidation.doc44Items ?? []).map((d: any) => ({
+    docTypeCode: d.docTypeCode ?? null,
+    docTypeName: d.docTypeName ?? null,
+    docNumber: d.docNumber ?? null,
+    docDate: d.docDate ? new Date(d.docDate).toISOString().split('T')[0] : null,
+  }))
   ensureSplitForEdit()
   clientModalOpen.value = true
 }
@@ -1111,6 +1155,9 @@ const handleAddClient = async () => {
       commodityCode: clientForm.commodityCode.trim() || null,
       packagesCount: clientForm.packagesCount.trim() || null,
       weight: clientForm.weight.trim() || null,
+      packagingType: clientForm.packagingType.trim() || null,
+      goodsItems: clientForm.goodsItems.length ? clientForm.goodsItems : null,
+      doc44Items: clientForm.doc44Items.length ? clientForm.doc44Items : null,
     }
     if (isEditingClient.value && editingClientId.value) {
       packageData.value = await documentPackagesApi.updateClientConsolidation(
