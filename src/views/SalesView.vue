@@ -56,7 +56,12 @@
             <template v-if="column.key === 'desc'"><a-input v-model:value="record.description" placeholder="Наименование" /></template>
             <template v-else-if="column.key === 'code'"><a-input v-model:value="record.code" placeholder="10 знаков" style="width: 130px" /></template>
             <template v-else-if="column.key === 'val'"><a-input-number v-model:value="record.customsValue" :min="0" style="width: 120px" /></template>
-            <template v-else-if="column.key === 'cur'"><a-input v-model:value="record.currencyCode" style="width: 70px" /></template>
+            <template v-else-if="column.key === 'cur'">
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <a-select v-model:value="record.currencyCode" style="width: 100px" show-search :options="currencyOptions" />
+                <span v-if="rateFor(record.currencyCode)" style="font-size:11px;color:var(--atg-muted)">{{ rateFor(record.currencyCode) }} ₸</span>
+              </div>
+            </template>
             <template v-else-if="column.key === 'weight'"><a-input-number v-model:value="record.weightKg" :min="0" style="width: 90px" /></template>
             <template v-else-if="column.key === 'del'"><a-button type="text" danger size="small" @click="goodsLines.splice(index, 1)"><DeleteOutlined /></a-button></template>
           </template>
@@ -137,6 +142,8 @@ import {
   salesApi, SALES_QUOTE_STATUS,
   type SalesCalcResponse, type SalesQuoteDto, type SalesQuoteListItem, type SalesServiceItem,
 } from '@/api/sales'
+import { tnvedApi } from '@/api/tnved'
+import type { TnvedCurrencyDto } from '@/types/api'
 
 const tab = ref<'calc' | 'quotes'>('calc')
 
@@ -251,6 +258,19 @@ const updateStatus = async (id: string, status: number) => {
   message.success('Статус обновлён')
 }
 
+// валюты НБ РК
+const currencies = ref<TnvedCurrencyDto[]>([])
+const currencyOptions = computed(() =>
+  currencies.value.map((c) => ({
+    value: c.codeLat,
+    label: `${c.codeLat} — ${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(c.rate)} ₸`,
+  })),
+)
+const rateFor = (code: string) => {
+  const c = currencies.value.find((x) => x.codeLat === code)
+  return c ? new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(c.rate) : null
+}
+
 // утилиты
 const money = (v: number) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(v ?? 0)
 const formatDate = (v: string) => new Intl.DateTimeFormat('ru-RU').format(new Date(v))
@@ -259,16 +279,13 @@ const statusColor = (s: number) => (['default', 'processing', 'success', 'error'
 
 // печать КП в изолированном окне
 const printQuote = (q: SalesQuoteDto) => {
-  const rows = (arr: { c: string }[]) => arr.map((r) => r.c).join('')
   const svc = q.serviceLines
     .map((s) => `<tr><td>${esc(s.name)}</td><td style="text-align:right">${money(s.unitPrice)}</td><td style="text-align:center">${s.quantity} ${esc(s.unit)}</td><td style="text-align:center">${s.discountPercent}%</td><td style="text-align:right">${money(s.total)} ₸</td></tr>`)
     .join('')
   const goods = q.goodsLines
     .map((g) => `<tr><td>${esc(g.description || g.code)}</td><td>${esc(g.code)}</td><td style="text-align:right">${money(g.importDutyKzt)}</td><td style="text-align:right">${money(g.vatKzt)}</td><td style="text-align:right">${money(g.customsFeeKzt)}</td><td style="text-align:right">${money(g.tpinTotalKzt)} ₸</td></tr>`)
     .join('')
-  const w = window.open('', '_blank', 'width=820,height=1000')
-  if (!w) return
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>КП ${q.number}/КП/${q.year}</title>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>КП ${q.number}/КП/${q.year}</title>
   <style>
     body{font-family:Arial,sans-serif;color:#1a2332;padding:40px;max-width:760px;margin:0 auto}
     h1{font-size:22px;margin:0 0 4px} .sub{color:#6b7280;font-size:13px;margin-bottom:24px}
@@ -292,14 +309,23 @@ const printQuote = (q: SalesQuoteDto) => {
       <div class="grand">Итого: ${money(q.grandTotal)} ₸</div>
     </div>
     <div class="foot">Предложение носит предварительный характер. Окончательная стоимость определяется по факту оформления.</div>
-    <script>window.onload=function(){window.print()}<\/script>
-  </body></html>`)
-  w.document.close()
+    <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const w = window.open(url, '_blank')
+  if (!w) {
+    message.warning('Разрешите всплывающие окна в браузере для печати КП')
+    URL.revokeObjectURL(url)
+    return
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000)
 }
 const esc = (s: string) => (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 
 onMounted(async () => {
   try { services.value = await salesApi.listServices() } catch { /* ignore */ }
+  try { currencies.value = (await tnvedApi.currencies()).data } catch { /* ignore */ }
   await loadQuotes()
 })
 </script>
