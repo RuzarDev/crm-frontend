@@ -898,6 +898,174 @@ a {
   background: #C9A84C !important;
 }
 
+/* ─── Checkbox ───────────────────────────────────────────── */
+
+.ant-checkbox-wrapper {
+  color: var(--atg-text);
+  font-size: 13.5px;
+  font-weight: 500;
+  gap: 8px;
+}
+
+.ant-checkbox .ant-checkbox-inner {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid var(--atg-line-strong);
+  background: var(--atg-surface);
+  transition:
+    border-color var(--atg-transition),
+    background var(--atg-transition);
+}
+
+.ant-checkbox:hover .ant-checkbox-inner,
+.ant-checkbox-wrapper:hover .ant-checkbox-inner {
+  border-color: var(--atg-teal) !important;
+}
+
+.ant-checkbox-checked .ant-checkbox-inner {
+  background: var(--atg-teal) !important;
+  border-color: var(--atg-teal) !important;
+}
+
+.ant-checkbox-checked:after {
+  border-color: var(--atg-teal) !important;
+}
+
+.ant-checkbox-indeterminate .ant-checkbox-inner::after {
+  background: var(--atg-teal) !important;
+}
+
+/* ─── Radio ───────────────────────────────────────────────── */
+
+.ant-radio-wrapper {
+  color: var(--atg-text);
+  font-size: 13.5px;
+  font-weight: 500;
+  gap: 8px;
+}
+
+.ant-radio .ant-radio-inner {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--atg-line-strong);
+  background: var(--atg-surface);
+  transition:
+    border-color var(--atg-transition),
+    background var(--atg-transition);
+}
+
+.ant-radio:hover .ant-radio-inner,
+.ant-radio-wrapper:hover .ant-radio-inner {
+  border-color: var(--atg-teal) !important;
+}
+
+.ant-radio-checked .ant-radio-inner {
+  border-color: var(--atg-teal) !important;
+  background: var(--atg-surface) !important;
+}
+
+.ant-radio-checked .ant-radio-inner::after {
+  background: var(--atg-teal) !important;
+  transform: scale(0.55);
+}
+
+.ant-radio-group .ant-radio-button-wrapper {
+  border-color: var(--atg-line);
+  color: var(--atg-muted);
+  font-size: 13px;
+  font-weight: 600;
+  height: 34px;
+  line-height: 32px;
+  transition:
+    background var(--atg-transition),
+    color var(--atg-transition),
+    border-color var(--atg-transition);
+}
+
+.ant-radio-group .ant-radio-button-wrapper:hover {
+  color: var(--atg-teal);
+}
+
+.ant-radio-group .ant-radio-button-wrapper-checked {
+  background: var(--atg-teal-soft) !important;
+  border-color: var(--atg-teal) !important;
+  color: var(--atg-teal) !important;
+  box-shadow: none !important;
+}
+
+.ant-radio-group .ant-radio-button-wrapper-checked::before {
+  background: var(--atg-teal) !important;
+}
+
+/* ─── Tree ────────────────────────────────────────────────── */
+
+.ant-tree {
+  background: transparent;
+  color: var(--atg-text);
+  font-size: 13.5px;
+}
+
+.ant-tree .ant-tree-treenode {
+  padding: 1px 0;
+  border-radius: var(--atg-radius-sm);
+  transition: background var(--atg-transition);
+}
+
+.ant-tree .ant-tree-node-content-wrapper {
+  border-radius: var(--atg-radius-sm) !important;
+  padding: 3px 8px !important;
+  transition: background var(--atg-transition), color var(--atg-transition);
+  color: var(--atg-text);
+  font-weight: 500;
+}
+
+.ant-tree .ant-tree-node-content-wrapper:hover {
+  background: var(--atg-teal-soft) !important;
+  color: var(--atg-teal-dark) !important;
+}
+
+.ant-tree .ant-tree-node-content-wrapper.ant-tree-node-selected {
+  background: var(--atg-teal-soft) !important;
+  color: var(--atg-teal-dark) !important;
+  font-weight: 600;
+}
+
+.ant-tree .ant-tree-switcher {
+  color: var(--atg-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--atg-transition);
+}
+
+.ant-tree .ant-tree-switcher:hover {
+  color: var(--atg-teal);
+}
+
+.ant-tree-title {
+  line-height: 1.5;
+}
+
+/* ─── Switch ──────────────────────────────────────────────── */
+
+.ant-switch {
+  background: var(--atg-line-strong);
+  transition: background var(--atg-transition);
+}
+
+.ant-switch:hover:not(.ant-switch-disabled) {
+  background: var(--atg-muted) !important;
+}
+
+.ant-switch.ant-switch-checked {
+  background: var(--atg-teal) !important;
+}
+
+.ant-switch.ant-switch-checked:hover:not(.ant-switch-disabled) {
+  background: var(--atg-teal-dark) !important;
+}
+
 /* ─── Responsive ─────────────────────────────────────────── */
 
 @media (max-width: 900px) {
