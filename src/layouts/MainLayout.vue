@@ -337,6 +337,7 @@ const selectedMenuKey = computed(() => {
   if (route.path.startsWith('/users')) return '/users'
   if (route.path.startsWith('/system/endpoints')) return '/system/endpoints'
   if (route.path.startsWith('/profile')) return '/profile'
+  if (route.path.startsWith('/sales')) return '/sales'
   return '/reestr'
 })
 
