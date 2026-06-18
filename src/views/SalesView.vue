@@ -299,7 +299,7 @@ const printQuote = (q: SalesQuoteDto) => {
     .muted{color:#6b7280} .foot{margin-top:30px;color:#6b7280;font-size:12px}
   </style></head><body>
     <div class="brand">
-      <div><img src="${logoDataUri}" alt="" style="height:100px;width:auto;display:block"></div>
+      <div><img src="${logoDataUri}" alt="" style="height:160px;width:auto;display:block"></div>
       <div style="text-align:right"><b>КП № ${q.number}/КП/${q.year}</b><div class="muted">${formatDate(q.createdAtUtc)}</div></div></div>
     <h1>Коммерческое предложение</h1>
     <div class="sub">Для: <b>${esc(q.clientName)}</b>${q.clientContact ? ' · ' + esc(q.clientContact) : ''}</div>
