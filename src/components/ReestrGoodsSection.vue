@@ -68,11 +68,15 @@
         </div>
         <div class="field f-narrow">
           <div class="field-label">Ед. изм.</div>
-          <a-input
+          <a-select
             v-model:value="item.unit"
             size="small"
             :disabled="readonly"
-            placeholder="шт, кг…"
+            show-search
+            allow-clear
+            style="width: 100%"
+            :options="unitOptions"
+            placeholder="шт"
             @change="emit('update:modelValue', items.map(fromRow))"
           />
         </div>
@@ -149,6 +153,24 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: ReestrGoodsItemInput[]): void
 }>()
+
+const UNITS = [
+  { value: 'шт', label: 'шт — штука' },
+  { value: 'кг', label: 'кг — килограмм' },
+  { value: 'г', label: 'г — грамм' },
+  { value: 'л', label: 'л — литр' },
+  { value: 'м', label: 'м — метр' },
+  { value: 'м²', label: 'м² — квадратный метр' },
+  { value: 'м³', label: 'м³ — кубический метр' },
+  { value: 'упак', label: 'упак — упаковка' },
+  { value: 'кор', label: 'кор — коробка' },
+  { value: 'паллет', label: 'паллет — паллет' },
+  { value: 'рулон', label: 'рулон — рулон' },
+  { value: 'компл', label: 'компл — комплект' },
+  { value: 'пара', label: 'пара — пара' },
+  { value: 'т', label: 'т — тонна' },
+]
+const unitOptions = UNITS
 
 const CURRENCIES = [
   { value: 'USD', label: 'USD — Доллар США' },
