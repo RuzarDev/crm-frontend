@@ -1,8 +1,8 @@
 <template>
   <div class="reestr-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">ATG Customs CRM</div>
+    <div class="reestr-page-header">
+      <div class="reestr-page-title-row">
+        <div class="crm-page-kicker">Таможенный реестр</div>
         <h1 class="crm-page-title">Реестр</h1>
         <p class="crm-page-subtitle">
           Основная рабочая таблица по заявкам, документам, статусам и клиентским декларациям.
@@ -681,6 +681,17 @@ const handleFileUpload = async (file: File) => {
 <style scoped>
 .reestr-view {
   margin: 0 auto;
+}
+
+.reestr-page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.reestr-page-title-row {
+  /* title block — no flex constraint */
 }
 
 .row-actions {
