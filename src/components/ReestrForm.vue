@@ -65,7 +65,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import type { ReestrEntry, ReestrEntryStatus } from '@/types/api'
+import type { ReestrEntry, ReestrEntryStatus, ReestrGoodsItemInput, ReestrDoc44ItemInput } from '@/types/api'
 import { REESTR_COLUMN_KEYS } from '@/types/api'
 import { ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
 import { useAuthStore } from '@/stores/auth'
@@ -94,7 +94,13 @@ interface Props {
 interface Emits {
   (
     e: 'submit',
-    payload: { data: Record<string, string | null>; status: ReestrEntryStatus; clientId?: string },
+    payload: {
+      data: Record<string, string | null>
+      status: ReestrEntryStatus
+      clientId?: string
+      goods: ReestrGoodsItemInput[]
+      doc44: ReestrDoc44ItemInput[]
+    },
   ): void
   (e: 'cancel'): void
 }
@@ -131,10 +137,18 @@ const formState = reactive<{
   fields: Record<string, string | null>
   status: ReestrEntryStatus
   clientId?: string
+  sealNumber: string | null
+  packagingType: string | null
+  goods: ReestrGoodsItemInput[]
+  doc44: ReestrDoc44ItemInput[]
 }>({
   fields: {},
   status: ReestrEntryStatusValues.InProgress,
   clientId: undefined,
+  sealNumber: null,
+  packagingType: null,
+  goods: [],
+  doc44: [],
 })
 
 watch(
@@ -150,6 +164,10 @@ watch(
       formState.fields = nextFields
       formState.status = props.entry?.status ?? ReestrEntryStatusValues.InProgress
       formState.clientId = props.entry?.clientId ?? props.clientOptions?.[0]?.value
+      formState.sealNumber = props.entry?.data['№ Пломбы'] ?? null
+      formState.packagingType = props.entry?.data['Вид упаковки'] ?? null
+      formState.goods = [...(props.entry?.goods ?? [])]
+      formState.doc44 = [...(props.entry?.doc44 ?? [])]
     }
   },
 )
@@ -179,11 +197,17 @@ const handleSubmit = () => {
   }
 
   emit('submit', {
-    data: normalizeReestrFieldsForSubmit(formState.fields),
+    data: normalizeReestrFieldsForSubmit({
+      ...formState.fields,
+      '№ Пломбы': formState.sealNumber,
+      'Вид упаковки': formState.packagingType,
+    }),
     status: canPickStatusInForm.value
       ? formState.status
       : (props.entry?.status ?? ReestrEntryStatusValues.InProgress),
     clientId: formState.clientId,
+    goods: formState.goods,
+    doc44: formState.doc44,
   })
 }
 

@@ -1,5 +1,13 @@
 import dayjs from 'dayjs'
-import type { ReestrColumnKey, ReestrEntry, ReestrEntryDto, ReestrUpsertBody, ReestrEntryStatus } from '@/types/api'
+import type {
+  ReestrColumnKey,
+  ReestrEntry,
+  ReestrEntryDto,
+  ReestrUpsertBody,
+  ReestrEntryStatus,
+  ReestrGoodsItemInput,
+  ReestrDoc44ItemInput,
+} from '@/types/api'
 import { REESTR_COLUMN_KEYS, ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
 
 export const REESTR_STATUS_OPTIONS: { value: ReestrEntryStatus; label: string }[] = [
@@ -84,6 +92,23 @@ export function reestrDtoToEntry(dto: ReestrEntryDto): ReestrEntry {
     clientId: dto.clientId,
     data: reestrDtoToData(dto),
     deprecationWarning: dto.deprecationWarning ?? null,
+    goods: (dto.goodsItems ?? []).map((g) => ({
+      description: g.description,
+      tnvedCode: g.tnvedCode,
+      countryOfOrigin: g.countryOfOrigin,
+      quantity: g.quantity,
+      unit: g.unit,
+      grossWeightKg: g.grossWeightKg,
+      netWeightKg: g.netWeightKg,
+      customsValue: g.customsValue,
+      currency: g.currency,
+    })),
+    doc44: (dto.doc44Items ?? []).map((d) => ({
+      docTypeCode: d.docTypeCode,
+      docTypeName: d.docTypeName,
+      docNumber: d.docNumber,
+      docDate: d.docDate,
+    })),
   }
 }
 
@@ -91,16 +116,18 @@ export function reestrDataToUpsertBody(
   data: Record<string, string | null>,
   status: ReestrEntryStatus,
   clientId: string,
+  goods: ReestrGoodsItemInput[] = [],
+  doc44: ReestrDoc44ItemInput[] = [],
 ): ReestrUpsertBody {
-  return {
-    ...reestrEntryToUpsertBody({
-      id: '',
-      createdAtUtc: '',
-      status,
-      clientId,
-      data,
-    }),
-  }
+  return reestrEntryToUpsertBody({
+    id: '',
+    createdAtUtc: '',
+    status,
+    clientId,
+    data,
+    goods,
+    doc44,
+  })
 }
 
 export function reestrEntryToUpsertBody(entry: ReestrEntry): ReestrUpsertBody {
@@ -128,8 +155,12 @@ export function reestrEntryToUpsertBody(entry: ReestrEntry): ReestrUpsertBody {
       : null,
     supplementalSheetsTotalWithVat: d['Всего, ДЛ с НДС'] ? Number(d['Всего, ДЛ с НДС']) : null,
     grandTotalWithVat: d['Итого, с НДС'] ? Number(d['Итого, с НДС']) : null,
+    sealNumber: d['№ Пломбы'] ?? null,
+    packagingType: d['Вид упаковки'] ?? null,
     status: entry.status,
     clientId: entry.clientId,
+    goodsItems: entry.goods,
+    doc44Items: entry.doc44,
   }
 }
 

@@ -35,17 +35,54 @@
           />
         </div>
       </div>
+
+      <!-- ЖДН section -->
+      <div class="subsection-title">ЖД накладная</div>
+      <div class="fields-grid">
+        <div class="field-row">
+          <div class="field-label">№ Пломбы</div>
+          <a-input
+            v-model:value="formState.sealNumber"
+            placeholder="—"
+            size="small"
+            :disabled="readonly"
+          />
+        </div>
+        <div class="field-row">
+          <div class="field-label">Вид упаковки</div>
+          <a-input
+            v-model:value="formState.packagingType"
+            placeholder="—"
+            size="small"
+            :disabled="readonly"
+          />
+        </div>
+      </div>
+
+      <!-- Товары section -->
+      <div class="subsection-title">Товары</div>
+      <ReestrGoodsSection v-model="formState.goods" :readonly="readonly" />
+
+      <!-- 44 графа section -->
+      <div class="subsection-title">44 Графа ТД</div>
+      <ReestrDoc44Section v-model="formState.doc44" :readonly="readonly" />
     </div>
   </a-form>
 </template>
 
 <script setup lang="ts">
-import type { ReestrEntryStatus } from '@/types/api'
+import type { ReestrEntryStatus, ReestrGoodsItemInput, ReestrDoc44ItemInput } from '@/types/api'
+import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
+import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
 
 interface FormState {
   fields: Record<string, string | null>
   status: ReestrEntryStatus
   clientId?: string
+  sealNumber: string | null
+  packagingType: string | null
+  goods: ReestrGoodsItemInput[]
+  doc44: ReestrDoc44ItemInput[]
 }
 
 defineProps<{
@@ -61,13 +98,24 @@ defineProps<{
 <style scoped>
 .form-fields-wrap {
   padding: 2px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.subsection-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--atg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
 }
 
 .fields-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 8px;
-  margin-top: 4px;
 }
 
 .field-row {

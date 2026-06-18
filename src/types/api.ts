@@ -198,6 +198,10 @@ export interface ReestrEntryDto {
   clientId: string
   createdByUserId?: string | null
   createdByRole?: string | null
+  sealNumber?: string | null
+  packagingType?: string | null
+  goodsItems?: ReestrGoodsItemDto[] | null
+  doc44Items?: ReestrDoc44ItemDto[] | null
   deprecationWarning?: TnvedDeprecationWarningDto | null
 }
 
@@ -208,6 +212,8 @@ export interface ReestrEntry {
   clientId: string
   data: Record<string, string | null>
   deprecationWarning?: TnvedDeprecationWarningDto | null
+  goods: ReestrGoodsItemInput[]
+  doc44: ReestrDoc44ItemInput[]
 }
 
 export interface ReestrUpsertBody {
@@ -231,8 +237,12 @@ export interface ReestrUpsertBody {
   pricePerSupplementalSheetWithVat?: number | null
   supplementalSheetsTotalWithVat?: number | null
   grandTotalWithVat?: number | null
+  sealNumber?: string | null
+  packagingType?: string | null
   status: ReestrEntryStatus
   clientId: string
+  goodsItems?: ReestrGoodsItemInput[] | null
+  doc44Items?: ReestrDoc44ItemInput[] | null
 }
 
 export interface ChangeReestrEntryStatusRequest {
@@ -691,6 +701,61 @@ export interface ReestrCommentDto {
   createdAtUtc: string
   editedAtUtc: string | null
 }
+
+// ── Reestr Goods + Doc44 ──────────────────────────────────────────────────────
+
+export interface ReestrGoodsItemDto {
+  id: string
+  sortOrder: number
+  description: string | null
+  tnvedCode: string | null
+  countryOfOrigin: string | null
+  quantity: number | null
+  unit: string | null
+  grossWeightKg: number | null
+  netWeightKg: number | null
+  customsValue: number | null
+  currency: string | null
+}
+
+export interface ReestrDoc44ItemDto {
+  id: string
+  sortOrder: number
+  docTypeCode: string | null
+  docTypeName: string | null
+  docNumber: string | null
+  docDate: string | null
+}
+
+export interface ReestrGoodsItemInput {
+  description: string | null
+  tnvedCode: string | null
+  countryOfOrigin: string | null
+  quantity: number | null
+  unit: string | null
+  grossWeightKg: number | null
+  netWeightKg: number | null
+  customsValue: number | null
+  currency: string | null
+}
+
+export interface ReestrDoc44ItemInput {
+  docTypeCode: string | null
+  docTypeName: string | null
+  docNumber: string | null
+  docDate: string | null
+}
+
+export const EAES_DOC_CODES: { code: string; name: string }[] = [
+  { code: '02191', name: 'ЖД накладная' },
+  { code: '01191', name: 'Авиа накладная (AWB)' },
+  { code: '04021', name: 'Инвойс (счёт-фактура)' },
+  { code: '04022', name: 'Упаковочный лист (пакинг-лист)' },
+  { code: '04023', name: 'Счёт-проформа' },
+  { code: '09015', name: 'Сертификат соответствия' },
+  { code: '09020', name: 'Декларация о соответствии' },
+  { code: '10011', name: 'Договор (контракт)' },
+]
 
 // ── System ─────────────────────────────────────────────────────────────────────
 

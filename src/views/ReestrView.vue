@@ -578,6 +578,8 @@ const handleFormSubmit = async (payload: {
   data: Record<string, string | null>
   status: ReestrEntryStatus
   clientId?: string
+  goods?: import('@/types/api').ReestrGoodsItemInput[]
+  doc44?: import('@/types/api').ReestrDoc44ItemInput[]
 }) => {
   formLoading.value = true
   try {
@@ -585,7 +587,7 @@ const handleFormSubmit = async (payload: {
     if (!clientId) {
       return
     }
-    const body = reestrDataToUpsertBody(payload.data, payload.status, clientId)
+    const body = reestrDataToUpsertBody(payload.data, payload.status, clientId, payload.goods ?? [], payload.doc44 ?? [])
     let success = false
     if (currentEntry.value) {
       success = await reestrStore.update(currentEntry.value.id, body)
