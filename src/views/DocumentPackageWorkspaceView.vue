@@ -480,13 +480,7 @@
           @uploaded="loadPackage"
           @deleted="loadPackage"
         />
-        <a-alert
-          v-else
-          type="info"
-          show-icon
-          message="Сохраните партию, чтобы прикрепить инвойс"
-          style="margin-top: 8px;"
-        />
+        <PendingInvoicePicker v-else v-model="clientForm.pendingInvoiceFiles" />
         <a-divider style="margin: 12px 0;" />
         <div style="margin-bottom: 8px; font-weight: 600;">44 Графа ТД</div>
         <ReestrDoc44Section v-model="clientForm.doc44Items" />
@@ -573,13 +567,7 @@
                 @uploaded="loadPackage"
                 @deleted="loadPackage"
               />
-              <a-alert
-                v-else
-                type="info"
-                show-icon
-                message="Сохраните партию, чтобы прикрепить инвойс"
-                style="margin-top: 8px;"
-              />
+              <PendingInvoicePicker v-else v-model="clientForm.pendingInvoiceFiles" />
               <a-divider style="margin: 12px 0;" />
               <div style="margin-bottom: 8px; font-weight: 600;">44 Графа ТД</div>
               <ReestrDoc44Section v-model="clientForm.doc44Items" />
@@ -718,6 +706,7 @@ import type { DocumentPackageDto, DocumentPackageFileDto, ReestrGoodsItemInput, 
 import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
 import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
 import InvoiceFileSection from '@/components/InvoiceFileSection.vue'
+import PendingInvoicePicker from '@/components/PendingInvoicePicker.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -776,6 +765,7 @@ const clientForm = reactive({
   packagingType: '',
   goodsItems: [] as ReestrGoodsItemInput[],
   doc44Items: [] as ReestrDoc44ItemInput[],
+  pendingInvoiceFiles: [] as File[],
 })
 
 // Drag and Drop state
@@ -913,6 +903,22 @@ const uploadFiles = async (files: File[]) => {
 
 const isLinked = (file: DocumentPackageFileDto) => {
   return !!(file.containerId || file.clientConsolidationId)
+}
+
+const uploadPendingInvoiceFiles = async (consolidationId: string, files: File[]) => {
+  try {
+    for (const file of files) {
+      const uploaded = await documentPackagesApi.uploadFile(packageId, file)
+      await documentPackagesApi.linkFile(packageId, uploaded.id, {
+        containerId: null,
+        clientConsolidationId: consolidationId,
+        documentType: 'invoice',
+      })
+    }
+    await loadPackage()
+  } catch {
+    message.error('Не удалось прикрепить инвойс')
+  }
 }
 
 // Review Comment & Status updates logic
@@ -1102,6 +1108,7 @@ const openAddClientModal = (containerId: string) => {
   clientForm.packagingType = ''
   clientForm.goodsItems = []
   clientForm.doc44Items = []
+  clientForm.pendingInvoiceFiles = []
   ensureSplitForEdit()
   clientModalOpen.value = true
 }
@@ -1138,6 +1145,7 @@ const openEditClientModal = (containerId: string, consolidation: any) => {
     docNumber: d.docNumber ?? null,
     docDate: d.docDate ? new Date(d.docDate).toISOString().split('T')[0] : null,
   }))
+  clientForm.pendingInvoiceFiles = []
   ensureSplitForEdit()
   clientModalOpen.value = true
 }
@@ -1174,12 +1182,24 @@ const handleAddClient = async () => {
       )
       message.success('Партия успешно обновлена')
     } else {
+      const previousIds = new Set(
+        packageData.value?.containers.find((c) => c.id === targetContainerId.value)?.consolidations.map((c) => c.id) ?? [],
+      )
       packageData.value = await documentPackagesApi.createClientConsolidation(
         packageId,
         targetContainerId.value,
         payload
       )
       message.success('Клиент добавлен в контейнер')
+
+      if (clientForm.pendingInvoiceFiles.length) {
+        const newConsolidation = packageData.value.containers
+          .find((c) => c.id === targetContainerId.value)
+          ?.consolidations.find((c) => !previousIds.has(c.id))
+        if (newConsolidation) {
+          await uploadPendingInvoiceFiles(newConsolidation.id, clientForm.pendingInvoiceFiles)
+        }
+      }
     }
     closeEditModals()
   } catch (err) {
