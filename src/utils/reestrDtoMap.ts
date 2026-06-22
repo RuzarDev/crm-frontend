@@ -76,11 +76,7 @@ export function reestrDtoToData(dto: ReestrEntryDto): Record<string, string | nu
   m['Вес'] = formatNum(dto.weightKg)
   m['ТД'] = dto.customsDeclarationNumber
   m['Кол-во ТД'] = formatNum(dto.customsDeclarationCount)
-  m['Цена одной ТД, с НДС'] = formatNum(dto.pricePerDeclarationWithVat)
   m['Количество доп.листов'] = formatNum(dto.supplementalSheetsCount)
-  m['Цена одного доп.листа, с НДС'] = formatNum(dto.pricePerSupplementalSheetWithVat)
-  m['Всего, ДЛ с НДС'] = formatNum(dto.supplementalSheetsTotalWithVat)
-  m['Итого, с НДС'] = formatNum(dto.grandTotalWithVat)
   return m
 }
 
@@ -148,13 +144,7 @@ export function reestrEntryToUpsertBody(entry: ReestrEntry): ReestrUpsertBody {
     weightKg: d['Вес'] ? Number(d['Вес']) : null,
     customsDeclarationNumber: d['ТД'],
     customsDeclarationCount: d['Кол-во ТД'] ? Number(d['Кол-во ТД']) : null,
-    pricePerDeclarationWithVat: d['Цена одной ТД, с НДС'] ? Number(d['Цена одной ТД, с НДС']) : null,
     supplementalSheetsCount: d['Количество доп.листов'] ? Number(d['Количество доп.листов']) : null,
-    pricePerSupplementalSheetWithVat: d['Цена одного доп.листа, с НДС']
-      ? Number(d['Цена одного доп.листа, с НДС'])
-      : null,
-    supplementalSheetsTotalWithVat: d['Всего, ДЛ с НДС'] ? Number(d['Всего, ДЛ с НДС']) : null,
-    grandTotalWithVat: d['Итого, с НДС'] ? Number(d['Итого, с НДС']) : null,
     sealNumber: d['№ Пломбы'] ?? null,
     packagingType: d['Вид упаковки'] ?? null,
     status: entry.status,

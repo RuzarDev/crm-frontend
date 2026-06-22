@@ -7,11 +7,7 @@ export const REESTR_DECIMAL_COLUMN_KEYS = new Set<string>([
   'Количество мест',
   'Вес',
   'Кол-во ТД',
-  'Цена одной ТД, с НДС',
   'Количество доп.листов',
-  'Цена одного доп.листа, с НДС',
-  'Всего, ДЛ с НДС',
-  'Итого, с НДС',
 ])
 
 export function formatReestrDateForForm(value: string | null): string | null {

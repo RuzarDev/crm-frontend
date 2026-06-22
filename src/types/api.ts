@@ -122,11 +122,7 @@ export const REESTR_COLUMN_KEYS = [
   'Вес',
   'ТД',
   'Кол-во ТД',
-  'Цена одной ТД, с НДС',
   'Количество доп.листов',
-  'Цена одного доп.листа, с НДС',
-  'Всего, ДЛ с НДС',
-  'Итого, с НДС',
 ] as const
 
 export type ReestrColumnKey = (typeof REESTR_COLUMN_KEYS)[number]
@@ -353,6 +349,7 @@ export interface DocumentPackageFileDto {
   packageId: string
   containerId?: string | null
   clientConsolidationId?: string | null
+  documentType?: string | null
   originalFileName: string
   contentType: string
   sizeBytes: number
