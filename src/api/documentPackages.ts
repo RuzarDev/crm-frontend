@@ -178,7 +178,7 @@ export const documentPackagesApi = {
   linkFile: async (
     id: string,
     fileId: string,
-    data: { containerId: string | null; clientConsolidationId: string | null },
+    data: { containerId: string | null; clientConsolidationId: string | null; documentType?: string | null },
   ): Promise<DocumentPackageDto> => {
     const response = await apiClient.patch<DocumentPackageDto>(
       `/document-packages/${id}/files/${fileId}/link`,

@@ -67,6 +67,7 @@ declare module 'vue' {
     Import40FileChips: typeof import('./src/components/Import40FileChips.vue')['default']
     ImportInvoiceButton: typeof import('./src/components/ImportInvoiceButton.vue')['default']
     InvoiceAutofillButton: typeof import('./src/components/InvoiceAutofillButton.vue')['default']
+    InvoiceFileSection: typeof import('./src/components/InvoiceFileSection.vue')['default']
     NonTariffMeasureGroups: typeof import('./src/components/NonTariffMeasureGroups.vue')['default']
     ReestrCommentsPanel: typeof import('./src/components/ReestrCommentsPanel.vue')['default']
     ReestrDoc44Section: typeof import('./src/components/ReestrDoc44Section.vue')['default']

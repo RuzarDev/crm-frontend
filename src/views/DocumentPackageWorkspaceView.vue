@@ -451,30 +451,14 @@
           <a-textarea v-model:value="clientForm.cargoDescription" :rows="2" placeholder="Описание перевозимого товара" />
         </a-form-item>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <a-form-item label="Отправитель по ТСД">
+          <a-form-item label="Отправитель">
             <a-input v-model:value="clientForm.shipper" placeholder="Отправитель" />
           </a-form-item>
-          <a-form-item label="Получатель по ТСД">
+          <a-form-item label="Получатель">
             <a-input v-model:value="clientForm.consignee" placeholder="Получатель" />
           </a-form-item>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <a-form-item label="Количество мест">
-            <a-input v-model:value="clientForm.packagesCount" placeholder="Например: 45 мест" />
-          </a-form-item>
-          <a-form-item label="Вес по ТСД">
-            <a-input v-model:value="clientForm.weight" placeholder="Например: 2450 кг" />
-          </a-form-item>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <a-form-item label="Подкод">
-            <a-input v-model:value="clientForm.subcode" placeholder="Например: S-12" />
-          </a-form-item>
-          <a-form-item label="Код ТНВЭД">
-            <a-input v-model:value="clientForm.commodityCode" placeholder="Код товара" />
-          </a-form-item>
-        </div>
-        <a-form-item label="Станция назначения по ТСД">
+        <a-form-item label="Станция назначения">
           <a-select v-model:value="clientStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
             :options="stationOptions" placeholder="Выберите или введите станцию" />
         </a-form-item>
@@ -488,6 +472,21 @@
         <a-divider style="margin: 12px 0;" />
         <div style="margin-bottom: 8px; font-weight: 600;">Товары (список)</div>
         <ReestrGoodsSection v-model="clientForm.goodsItems" />
+        <InvoiceFileSection
+          v-if="editingClientId"
+          :package-id="packageId"
+          :consolidation-id="editingClientId"
+          :files="getInvoiceFiles(editingClientId)"
+          @uploaded="loadPackage"
+          @deleted="loadPackage"
+        />
+        <a-alert
+          v-else
+          type="info"
+          show-icon
+          message="Сохраните партию, чтобы прикрепить инвойс"
+          style="margin-top: 8px;"
+        />
         <a-divider style="margin: 12px 0;" />
         <div style="margin-bottom: 8px; font-weight: 600;">44 Графа ТД</div>
         <ReestrDoc44Section v-model="clientForm.doc44Items" />
@@ -545,30 +544,14 @@
                 <a-textarea v-model:value="clientForm.cargoDescription" :rows="2" placeholder="Описание перевозимого товара" />
               </a-form-item>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <a-form-item label="Отправитель по ТСД">
+                <a-form-item label="Отправитель">
                   <a-input v-model:value="clientForm.shipper" placeholder="Отправитель" />
                 </a-form-item>
-                <a-form-item label="Получатель по ТСД">
+                <a-form-item label="Получатель">
                   <a-input v-model:value="clientForm.consignee" placeholder="Получатель" />
                 </a-form-item>
               </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <a-form-item label="Количество мест">
-                  <a-input v-model:value="clientForm.packagesCount" placeholder="Например: 45 мест" />
-                </a-form-item>
-                <a-form-item label="Вес по ТСД">
-                  <a-input v-model:value="clientForm.weight" placeholder="Например: 2450 кг" />
-                </a-form-item>
-              </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <a-form-item label="Подкод">
-                  <a-input v-model:value="clientForm.subcode" placeholder="Например: S-12" />
-                </a-form-item>
-                <a-form-item label="Код ТНВЭД">
-                  <a-input v-model:value="clientForm.commodityCode" placeholder="Код товара" />
-                </a-form-item>
-              </div>
-              <a-form-item label="Станция назначения по ТСД">
+              <a-form-item label="Станция назначения">
                 <a-select v-model:value="clientStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
                   :options="stationOptions" placeholder="Выберите или введите станцию" />
               </a-form-item>
@@ -582,6 +565,21 @@
               <a-divider style="margin: 12px 0;" />
               <div style="margin-bottom: 8px; font-weight: 600;">Товары (список)</div>
               <ReestrGoodsSection v-model="clientForm.goodsItems" />
+              <InvoiceFileSection
+                v-if="editingClientId"
+                :package-id="packageId"
+                :consolidation-id="editingClientId"
+                :files="getInvoiceFiles(editingClientId)"
+                @uploaded="loadPackage"
+                @deleted="loadPackage"
+              />
+              <a-alert
+                v-else
+                type="info"
+                show-icon
+                message="Сохраните партию, чтобы прикрепить инвойс"
+                style="margin-top: 8px;"
+              />
               <a-divider style="margin: 12px 0;" />
               <div style="margin-bottom: 8px; font-weight: 600;">44 Графа ТД</div>
               <ReestrDoc44Section v-model="clientForm.doc44Items" />
@@ -719,6 +717,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { DocumentPackageDto, DocumentPackageFileDto, ReestrGoodsItemInput, ReestrDoc44ItemInput } from '@/types/api'
 import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
 import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
+import InvoiceFileSection from '@/components/InvoiceFileSection.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -975,6 +974,13 @@ const getContainerFiles = (containerId: string) => {
 const getClientFiles = (consolidationId: string) => {
   if (!packageData.value) return []
   return packageData.value.files.filter((f) => f.clientConsolidationId === consolidationId)
+}
+
+const getInvoiceFiles = (consolidationId: string) => {
+  if (!packageData.value) return []
+  return packageData.value.files.filter(
+    (f) => f.clientConsolidationId === consolidationId && f.documentType === 'invoice',
+  )
 }
 
 const handleLinkFile = async (fileId: string, value: string) => {
