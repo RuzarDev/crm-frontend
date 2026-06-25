@@ -20,6 +20,20 @@ export type ClientCompanyProfileUpsert = Partial<
   Omit<ClientCompanyProfileDto, 'clientId' | 'isComplete' | 'updatedAtUtc'>
 >
 
+export interface SigexStartDto {
+  qrCode: string
+  eGovMobileLaunchLink: string
+  eGovBusinessLaunchLink: string
+  dataUrl: string
+  qrId: string
+  expireAt: number
+}
+
+export interface SigexPollDto {
+  pending: boolean
+  sign: string | null
+}
+
 export interface Import40ContractFileDto {
   id: string
   section: string
@@ -85,6 +99,30 @@ export const import40ContractApi = {
       `${base(clientId)}/contract/sign`,
       formData,
       { params: { side }, headers: { 'Content-Type': 'multipart/form-data' } },
+    )
+    return response.data
+  },
+
+  sigexStartSigning: async (clientId: string): Promise<SigexStartDto> => {
+    const response = await apiClient.post<SigexStartDto>(`${base(clientId)}/contract/sigex/start-signing`)
+    return response.data
+  },
+
+  sigexPoll: async (clientId: string, qrId: string): Promise<SigexPollDto> => {
+    const response = await apiClient.get<SigexPollDto>(
+      `${base(clientId)}/contract/sigex/${encodeURIComponent(qrId)}/poll`,
+    )
+    return response.data
+  },
+
+  sigexComplete: async (
+    clientId: string,
+    qrId: string,
+    side: 'client' | 'provider',
+  ): Promise<Import40ContractDto> => {
+    const response = await apiClient.post<Import40ContractDto>(
+      `${base(clientId)}/contract/sigex/${encodeURIComponent(qrId)}/complete`,
+      { side },
     )
     return response.data
   },

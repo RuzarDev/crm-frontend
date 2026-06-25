@@ -2,6 +2,14 @@
   <div class="company-page crm-page">
     <input ref="fileInputRef" type="file" style="display: none" @change="onFileSelected" />
 
+    <SigexSignModal
+      :open="sigexOpen"
+      :client-id="clientId"
+      :side="sigexSide"
+      @cancel="sigexOpen = false"
+      @signed="onSigexSigned"
+    />
+
     <div class="crm-page-header">
       <div>
         <div class="crm-page-kicker">Импорт 40</div>
@@ -66,11 +74,16 @@
                 <a-tag v-if="contract.clientSigned" color="success">Подписано</a-tag>
                 <a-tag v-else color="default">Ожидается</a-tag>
               </div>
-              <p class="muted">Скачайте договор, подпишите ЭЦП и загрузите подписанный файл.</p>
+              <p class="muted">Подпишите договор через eGov Mobile или загрузите подписанный файл.</p>
               <FileChips :items="filesOf('client-signed')" empty="" @download="downloadSignedFile" />
-              <a-button v-if="!contract.clientSigned" type="primary" @click="triggerSign('client')">
-                <UploadOutlined /> Загрузить подписанный
-              </a-button>
+              <div v-if="!contract.clientSigned" class="sign-actions">
+                <a-button type="primary" @click="openSigex('client')">
+                  <SafetyCertificateOutlined /> Подписать через eGov
+                </a-button>
+                <a-button @click="triggerSign('client')">
+                  <UploadOutlined /> Загрузить файл
+                </a-button>
+              </div>
             </div>
 
             <div class="sign-block">
@@ -81,9 +94,14 @@
               </div>
               <p class="muted">Подписывает таможенный представитель со своей стороны.</p>
               <FileChips :items="filesOf('provider-signed')" empty="" @download="downloadSignedFile" />
-              <a-button v-if="isAdmin && !contract.providerSigned" @click="triggerSign('provider')">
-                <UploadOutlined /> Загрузить нашу подпись
-              </a-button>
+              <div v-if="isAdmin && !contract.providerSigned" class="sign-actions">
+                <a-button type="primary" @click="openSigex('provider')">
+                  <SafetyCertificateOutlined /> Подписать через eGov
+                </a-button>
+                <a-button @click="triggerSign('provider')">
+                  <UploadOutlined /> Загрузить файл
+                </a-button>
+              </div>
             </div>
           </div>
 
@@ -108,6 +126,7 @@ import {
   DownloadOutlined,
   FileAddOutlined,
   FileProtectOutlined,
+  SafetyCertificateOutlined,
   UploadOutlined,
 } from '@ant-design/icons-vue'
 import {
@@ -119,6 +138,7 @@ import {
 import { import40Api } from '@/api/import40'
 import { useAuthStore } from '@/stores/auth'
 import FileChips from '@/components/Import40FileChips.vue'
+import SigexSignModal from '@/components/SigexSignModal.vue'
 
 const authStore = useAuthStore()
 const loading = ref(false)
@@ -253,6 +273,21 @@ const onFileSelected = async (e: Event) => {
   }
 }
 
+// eGov Sigex
+const sigexOpen = ref(false)
+const sigexSide = ref<'client' | 'provider'>('client')
+
+const openSigex = (side: 'client' | 'provider') => {
+  sigexSide.value = side
+  sigexOpen.value = true
+}
+
+const onSigexSigned = async () => {
+  sigexOpen.value = false
+  message.success('Договор подписан через eGov!')
+  contract.value = await import40ContractApi.getContract(clientId.value)
+}
+
 onMounted(load)
 </script>
 
@@ -275,6 +310,7 @@ onMounted(load)
 .sign-head { display: flex; align-items: center; gap: 10px; }
 .sign-head strong { color: var(--atg-ink); font-size: 13.5px; font-weight: 800; }
 .sign-block .ant-btn { justify-self: start; }
+.sign-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 @media (max-width: 900px) {
   .form-grid, .sign-grid { grid-template-columns: 1fr; }
 }

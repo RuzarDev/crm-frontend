@@ -68,6 +68,7 @@ declare module 'vue' {
     ImportInvoiceButton: typeof import('./src/components/ImportInvoiceButton.vue')['default']
     InvoiceAutofillButton: typeof import('./src/components/InvoiceAutofillButton.vue')['default']
     InvoiceFileSection: typeof import('./src/components/InvoiceFileSection.vue')['default']
+    InvoiceGoodsImporter: typeof import('./src/components/InvoiceGoodsImporter.vue')['default']
     NonTariffMeasureGroups: typeof import('./src/components/NonTariffMeasureGroups.vue')['default']
     PendingInvoicePicker: typeof import('./src/components/PendingInvoicePicker.vue')['default']
     ReestrCommentsPanel: typeof import('./src/components/ReestrCommentsPanel.vue')['default']
@@ -81,6 +82,7 @@ declare module 'vue' {
     ReestrStatusHistoryPanel: typeof import('./src/components/ReestrStatusHistoryPanel.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SigexSignModal: typeof import('./src/components/SigexSignModal.vue')['default']
     TnvedDeprecationAlert: typeof import('./src/components/TnvedDeprecationAlert.vue')['default']
   }
 }
