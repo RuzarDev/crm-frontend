@@ -6,6 +6,7 @@ import type {
   DocumentPackageFileDto,
   DocumentPackageListResponse,
   DocumentPackageStatus,
+  PartyAddress,
 } from '@/types/api'
 
 export const documentPackagesApi = {
@@ -75,9 +76,11 @@ export const documentPackagesApi = {
       containerNumber: string
       sealNumber?: string | null
       weight?: string | null
-      shipper?: string | null
-      consignee?: string | null
+      wagonNumber?: string | null
       destinationStation?: string | null
+      destinationCustomsAuthority?: string | null
+      shipper?: PartyAddress | null
+      consignee?: PartyAddress | null
     },
   ): Promise<DocumentPackageDto> => {
     const response = await apiClient.post<DocumentPackageDto>(
@@ -94,9 +97,11 @@ export const documentPackagesApi = {
       containerNumber: string
       sealNumber?: string | null
       weight?: string | null
-      shipper?: string | null
-      consignee?: string | null
+      wagonNumber?: string | null
       destinationStation?: string | null
+      destinationCustomsAuthority?: string | null
+      shipper?: PartyAddress | null
+      consignee?: PartyAddress | null
     },
   ): Promise<DocumentPackageDto> => {
     const response = await apiClient.put<DocumentPackageDto>(
@@ -118,15 +123,14 @@ export const documentPackagesApi = {
     containerId: string,
     data: {
       clientName: string
-      cargoDescription?: string | null
-      shipper?: string | null
-      consignee?: string | null
       destinationStation?: string | null
+      destinationCustomsAuthority?: string | null
       subcode?: string | null
       commodityCode?: string | null
       packagesCount?: string | null
       weight?: string | null
-      packagingType?: string | null
+      shipper?: PartyAddress | null
+      consignee?: PartyAddress | null
       goodsItems?: unknown[] | null
       doc44Items?: unknown[] | null
     },
@@ -144,15 +148,14 @@ export const documentPackagesApi = {
     clientId: string,
     data: {
       clientName: string
-      cargoDescription?: string | null
-      shipper?: string | null
-      consignee?: string | null
       destinationStation?: string | null
+      destinationCustomsAuthority?: string | null
       subcode?: string | null
       commodityCode?: string | null
       packagesCount?: string | null
       weight?: string | null
-      packagingType?: string | null
+      shipper?: PartyAddress | null
+      consignee?: PartyAddress | null
       goodsItems?: unknown[] | null
       doc44Items?: unknown[] | null
     },

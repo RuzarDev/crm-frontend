@@ -69,6 +69,7 @@ declare module 'vue' {
     InvoiceAutofillButton: typeof import('./src/components/InvoiceAutofillButton.vue')['default']
     InvoiceFileSection: typeof import('./src/components/InvoiceFileSection.vue')['default']
     NonTariffMeasureGroups: typeof import('./src/components/NonTariffMeasureGroups.vue')['default']
+    PartyAddressFields: typeof import('./src/components/PartyAddressFields.vue')['default']
     PendingInvoicePicker: typeof import('./src/components/PendingInvoicePicker.vue')['default']
     ReestrCommentsPanel: typeof import('./src/components/ReestrCommentsPanel.vue')['default']
     ReestrDoc44Section: typeof import('./src/components/ReestrDoc44Section.vue')['default']
