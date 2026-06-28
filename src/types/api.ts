@@ -415,6 +415,7 @@ export interface DocumentPackageContainerDto {
   id: string
   packageId: string
   containerNumber: string
+  secondaryContainerNumber?: string | null
   consolidations: DocumentPackageClientConsolidationDto[]
 }
 

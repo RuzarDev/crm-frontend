@@ -74,6 +74,7 @@ export const documentPackagesApi = {
     id: string,
     data: {
       containerNumber: string
+      secondaryContainerNumber?: string | null
     },
   ): Promise<DocumentPackageDto> => {
     const response = await apiClient.post<DocumentPackageDto>(
@@ -88,6 +89,7 @@ export const documentPackagesApi = {
     containerId: string,
     data: {
       containerNumber: string
+      secondaryContainerNumber?: string | null
     },
   ): Promise<DocumentPackageDto> => {
     const response = await apiClient.put<DocumentPackageDto>(

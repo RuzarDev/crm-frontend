@@ -392,6 +392,9 @@
         <a-form-item label="Номер контейнера" required>
           <a-input v-model:value="containerForm.containerNumber" placeholder="Например: MSCU1234567" />
         </a-form-item>
+        <a-form-item label="Номер контейнера">
+          <a-input v-model:value="containerForm.secondaryContainerNumber" placeholder="Например: MSCU1234567" />
+        </a-form-item>
       </a-form>
     </a-modal>
 
@@ -465,6 +468,9 @@
             <a-form v-if="containerModalOpen" layout="vertical">
               <a-form-item label="Номер контейнера" required>
                 <a-input v-model:value="containerForm.containerNumber" placeholder="Например: MSCU1234567" />
+              </a-form-item>
+              <a-form-item label="Номер контейнера">
+                <a-input v-model:value="containerForm.secondaryContainerNumber" placeholder="Например: MSCU1234567" />
               </a-form-item>
             </a-form>
             <a-form v-else-if="clientModalOpen" layout="vertical">
@@ -671,6 +677,7 @@ const isEditingContainer = ref(false)
 const editingContainerId = ref<string | null>(null)
 const containerForm = reactive({
   containerNumber: '',
+  secondaryContainerNumber: '',
 })
 
 // Reference dropdowns
@@ -963,6 +970,7 @@ const openAddContainerModal = () => {
   isEditingContainer.value = false
   editingContainerId.value = null
   containerForm.containerNumber = ''
+  containerForm.secondaryContainerNumber = ''
   ensureSplitForEdit()
   containerModalOpen.value = true
 }
@@ -971,6 +979,7 @@ const openEditContainerModal = (container: any) => {
   isEditingContainer.value = true
   editingContainerId.value = container.id
   containerForm.containerNumber = container.containerNumber
+  containerForm.secondaryContainerNumber = container.secondaryContainerNumber || ''
   ensureSplitForEdit()
   containerModalOpen.value = true
 }
@@ -984,6 +993,7 @@ const handleAddContainer = async () => {
   try {
     const payload = {
       containerNumber: containerForm.containerNumber.trim(),
+      secondaryContainerNumber: containerForm.secondaryContainerNumber.trim() || null,
     }
     if (isEditingContainer.value && editingContainerId.value) {
       packageData.value = await documentPackagesApi.updateContainer(packageId, editingContainerId.value, payload)
