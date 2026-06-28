@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { ReestrGoodsItemInput, ReestrDoc44ItemInput } from '@/types/api'
 
 export type Import40Action =
   | 'submit-for-processing'
@@ -32,30 +33,94 @@ export interface Import40LogDto {
   changedByBusinessRole: string
 }
 
+export interface Import40Party {
+  name?: string | null
+  countryCode?: string | null
+  region?: string | null
+  city?: string | null
+  street?: string | null
+}
+
+export interface Import40GoodsItemDto {
+  id: string
+  sortOrder: number
+  description?: string | null
+  tnvedCode?: string | null
+  tnvedDescription?: string | null
+  countryOfOrigin?: string | null
+  quantity?: number | null
+  unit?: string | null
+  unitCode?: string | null
+  grossWeightKg?: number | null
+  netWeightKg?: number | null
+  packagesCount?: number | null
+  quantityTypeCode?: string | null
+  customsValue?: number | null
+  currency?: string | null
+  procedureCode?: string | null
+  dutyAmount?: number | null
+  vatAmount?: number | null
+  feesAmount?: number | null
+}
+
+export interface Import40Doc44ItemDto {
+  id: string
+  sortOrder: number
+  docTypeCode?: string | null
+  docTypeName?: string | null
+  docNumber?: string | null
+  docDate?: string | null
+}
+
 export interface Import40DeclarationDto {
   id: string
-  containerId: string
+  caseId: string
   declarationNumber: string
   corridor: string
-  commodityCode: string
-  cargoDescription: string
-  countryOfOrigin: string
-  invoiceValue: number | null
-  currency: string
-  weightKg: number | null
-  dutyAmount: number | null
-  vatAmount: number | null
-  feesAmount: number | null
-  svhCost: number | null
-  releasedAtUtc: string | null
+  procedureCode: string
+  sender?: Import40Party | null
+  receiver?: Import40Party | null
+  departureCountryCode?: string | null
+  destinationCountryCode?: string | null
+  incoterms?: string | null
+  currency?: string | null
+  totalInvoiceValue?: number | null
+  exchangeRate?: number | null
+  svhCost?: number | null
+  releasedAtUtc?: string | null
+  goodsItems: Import40GoodsItemDto[]
+  doc44Items: Import40Doc44ItemDto[]
 }
+
+export interface Import40DeclarationUpsert {
+  declarationNumber?: string | null
+  corridor?: string | null
+  procedureCode?: string | null
+  sender?: Import40Party | null
+  receiver?: Import40Party | null
+  departureCountryCode?: string | null
+  destinationCountryCode?: string | null
+  incoterms?: string | null
+  currency?: string | null
+  totalInvoiceValue?: number | null
+  exchangeRate?: number | null
+  svhCost?: number | null
+  goodsItems?: ReestrGoodsItemInput[]
+  doc44Items?: ReestrDoc44ItemInput[]
+}
+
+export const IMPORT40_TRANSPORT_MODES: { value: number; label: string }[] = [
+  { value: 0, label: 'ЖД' },
+  { value: 1, label: 'Авто' },
+  { value: 2, label: 'Авиа' },
+  { value: 3, label: 'Море' },
+]
 
 export interface Import40ContainerDto {
   id: string
   containerNumber: string
   containerType: string
   notes: string
-  declarations: Import40DeclarationDto[]
 }
 
 export interface Import40CaseDto {
@@ -79,7 +144,16 @@ export interface Import40CaseDto {
   svhInvoiceNote: string
   svhClosed: boolean
   paymentConfirmed: boolean
+  transportMode: number
+  wagonNumber: string
+  station: string
+  trailerNumber: string
+  flightNumber: string
+  airWaybill: string
+  vesselName: string
+  billOfLading: string
   containers: Import40ContainerDto[]
+  declarations: Import40DeclarationDto[]
   logs: Import40LogDto[]
 }
 
@@ -126,21 +200,6 @@ export interface Import40ContainerUpsertRequest {
   containerNumber: string
   containerType?: string
   notes?: string
-}
-
-export interface Import40DeclarationUpsertRequest {
-  declarationNumber?: string
-  corridor?: string
-  commodityCode?: string
-  cargoDescription?: string
-  countryOfOrigin?: string
-  invoiceValue?: number | null
-  currency?: string
-  weightKg?: number | null
-  dutyAmount?: number | null
-  vatAmount?: number | null
-  feesAmount?: number | null
-  svhCost?: number | null
 }
 
 export const import40Api = {
@@ -207,40 +266,33 @@ export const import40Api = {
     return response.data
   },
 
-  addDeclaration: async (
-    id: string,
-    containerId: string,
-    data: Import40DeclarationUpsertRequest,
-  ): Promise<Import40CaseDto> => {
-    const response = await apiClient.post<Import40CaseDto>(
-      `/import40/${encodeURIComponent(id)}/containers/${encodeURIComponent(containerId)}/declarations`,
+  createDeclaration: async (
+    caseId: string,
+    data: Import40DeclarationUpsert,
+  ): Promise<Import40DeclarationDto> => {
+    const response = await apiClient.post<Import40DeclarationDto>(
+      `/import40/${encodeURIComponent(caseId)}/declarations`,
       data,
     )
     return response.data
   },
 
   updateDeclaration: async (
-    id: string,
-    containerId: string,
+    caseId: string,
     declarationId: string,
-    data: Import40DeclarationUpsertRequest,
-  ): Promise<Import40CaseDto> => {
-    const response = await apiClient.put<Import40CaseDto>(
-      `/import40/${encodeURIComponent(id)}/containers/${encodeURIComponent(containerId)}/declarations/${encodeURIComponent(declarationId)}`,
+    data: Import40DeclarationUpsert,
+  ): Promise<Import40DeclarationDto> => {
+    const response = await apiClient.put<Import40DeclarationDto>(
+      `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}`,
       data,
     )
     return response.data
   },
 
-  deleteDeclaration: async (
-    id: string,
-    containerId: string,
-    declarationId: string,
-  ): Promise<Import40CaseDto> => {
-    const response = await apiClient.delete<Import40CaseDto>(
-      `/import40/${encodeURIComponent(id)}/containers/${encodeURIComponent(containerId)}/declarations/${encodeURIComponent(declarationId)}`,
+  deleteDeclaration: async (caseId: string, declarationId: string): Promise<void> => {
+    await apiClient.delete(
+      `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}`,
     )
-    return response.data
   },
 
   listClients: async (): Promise<{ id: string; username: string }[]> => {
