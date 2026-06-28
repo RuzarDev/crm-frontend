@@ -435,7 +435,13 @@
             :options="postOptions" placeholder="Выберите или введите орган назначения" />
         </a-form-item>
         <a-divider style="margin: 12px 0;" />
-        <div style="margin-bottom: 8px; font-weight: 600;">Товары (список)</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span style="font-weight: 600;">Товары (список)</span>
+          <InvoiceGoodsImporter
+            :client-id="currentClientUuid"
+            @imported="(items) => { clientForm.goodsItems = items }"
+          />
+        </div>
         <ReestrGoodsSection v-model="clientForm.goodsItems" />
         <InvoiceFileSection
           v-if="editingClientId"
@@ -500,7 +506,13 @@
                   :options="postOptions" placeholder="Выберите или введите орган назначения" />
               </a-form-item>
               <a-divider style="margin: 12px 0;" />
-              <div style="margin-bottom: 8px; font-weight: 600;">Товары (список)</div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-weight: 600;">Товары (список)</span>
+                <InvoiceGoodsImporter
+                  :client-id="currentClientUuid"
+                  @imported="(items) => { clientForm.goodsItems = items }"
+                />
+              </div>
               <ReestrGoodsSection v-model="clientForm.goodsItems" />
               <InvoiceFileSection
                 v-if="editingClientId"
@@ -651,6 +663,7 @@ import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
 import InvoiceFileSection from '@/components/InvoiceFileSection.vue'
 import PendingInvoicePicker from '@/components/PendingInvoicePicker.vue'
 import PartyAddressFields from '@/components/PartyAddressFields.vue'
+import InvoiceGoodsImporter from '@/components/InvoiceGoodsImporter.vue'
 
 const emptyParty = (): PartyAddress => ({
   name: null,
@@ -704,6 +717,7 @@ const isEditingClient = ref(false)
 const editingClientId = ref<string | null>(null)
 const targetContainerId = ref<string | null>(null)
 const clientOptions = ref<{ value: string; label: string }[]>([])
+const clientUuidByUsername = ref<Map<string, string>>(new Map())
 const clientForm = reactive({
   clientName: '',
   destinationStation: '',
@@ -795,10 +809,15 @@ const loadClients = async () => {
       value: c.username,
       label: c.username,
     }))
+    clientUuidByUsername.value = new Map(clientsList.map((c) => [c.username, c.id]))
   } catch (err) {
     console.error('Failed to load clients options', err)
   }
 }
+
+const currentClientUuid = computed(() =>
+  clientForm.clientName ? (clientUuidByUsername.value.get(clientForm.clientName) ?? undefined) : undefined
+)
 
 const goBack = () => {
   router.push('/document-packages')
