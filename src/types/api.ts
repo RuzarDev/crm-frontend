@@ -362,9 +362,8 @@ export interface PartyAddress {
   countryCode?: string | null
   region?: string | null
   city?: string | null
+  // Улица, номер дома, номер офиса — одной строкой
   street?: string | null
-  house?: string | null
-  office?: string | null
 }
 
 export interface DocumentPackageConsolidationGoodsItemDto {
@@ -400,9 +399,6 @@ export interface DocumentPackageClientConsolidationDto {
   clientName: string
   destinationStation?: string | null
   destinationCustomsAuthority?: string | null
-  subcode?: string | null
-  commodityCode?: string | null
-  packagesCount?: string | null
   weight?: string | null
   sealNumber?: string | null
   shipper?: PartyAddress | null

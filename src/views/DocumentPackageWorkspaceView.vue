@@ -15,13 +15,13 @@
           Обновить
         </a-button>
         <a-button
-          v-if="canReview"
+          v-if="canReview && isDev"
           type="default"
           style="border-color: var(--atg-accent); color: var(--atg-accent-strong); font-weight: 700; background: var(--atg-teal-soft);"
           :loading="aiParsing"
           @click="runAiParse"
         >
-          ✨ Авто-разбор (AI)
+          ✨ Авто-разбор (демо)
         </a-button>
         <a-button
           type="primary"
@@ -260,6 +260,9 @@
                   <div class="container-title">
                     <span class="node-badge">Контейнер</span>
                     <strong>{{ container.containerNumber }}</strong>
+                    <span class="container-meta" v-if="container.secondaryContainerNumber">
+                      / {{ container.secondaryContainerNumber }}
+                    </span>
                   </div>
                 </div>
                 <a-space>
@@ -333,14 +336,11 @@
                         </a-popconfirm>
                       </a-space>
                     </div>
-                    <div class="consolidation-document-meta" v-if="consolidation.shipper?.name || consolidation.consignee?.name || consolidation.weight || consolidation.sealNumber || consolidation.packagesCount || consolidation.subcode || consolidation.commodityCode || consolidation.destinationStation">
+                    <div class="consolidation-document-meta" v-if="consolidation.shipper?.name || consolidation.consignee?.name || consolidation.weight || consolidation.sealNumber || consolidation.destinationStation">
                       <span class="meta-inline-tag" v-if="consolidation.shipper?.name"><strong>Отп:</strong> {{ consolidation.shipper.name }}</span>
                       <span class="meta-inline-tag" v-if="consolidation.consignee?.name"><strong>Пол:</strong> {{ consolidation.consignee.name }}</span>
                       <span class="meta-inline-tag text-green" v-if="consolidation.weight"><strong>Вес:</strong> {{ consolidation.weight }}</span>
                       <span class="meta-inline-tag" v-if="consolidation.sealNumber"><strong>Пломба:</strong> {{ consolidation.sealNumber }}</span>
-                      <span class="meta-inline-tag text-gold" v-if="consolidation.packagesCount"><strong>Мест:</strong> {{ consolidation.packagesCount }}</span>
-                      <span class="meta-inline-tag" v-if="consolidation.subcode"><strong>Подкод:</strong> {{ consolidation.subcode }}</span>
-                      <span class="meta-inline-tag" v-if="consolidation.commodityCode"><strong>ТНВЭД:</strong> {{ consolidation.commodityCode }}</span>
                       <span class="meta-inline-tag" v-if="consolidation.destinationStation"><strong>Ст:</strong> {{ consolidation.destinationStation }}</span>
                     </div>
                   </div>
@@ -392,8 +392,8 @@
         <a-form-item label="Номер контейнера" required>
           <a-input v-model:value="containerForm.containerNumber" placeholder="Например: MSCU1234567" />
         </a-form-item>
-        <a-form-item label="Номер контейнера">
-          <a-input v-model:value="containerForm.secondaryContainerNumber" placeholder="Например: MSCU1234567" />
+        <a-form-item label="Номер контейнера (китайский / внутренний)">
+          <a-input v-model:value="containerForm.secondaryContainerNumber" placeholder="Доп. номер, если отличается" />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -469,8 +469,8 @@
               <a-form-item label="Номер контейнера" required>
                 <a-input v-model:value="containerForm.containerNumber" placeholder="Например: MSCU1234567" />
               </a-form-item>
-              <a-form-item label="Номер контейнера">
-                <a-input v-model:value="containerForm.secondaryContainerNumber" placeholder="Например: MSCU1234567" />
+              <a-form-item label="Номер контейнера (китайский / внутренний)">
+                <a-input v-model:value="containerForm.secondaryContainerNumber" placeholder="Доп. номер, если отличается" />
               </a-form-item>
             </a-form>
             <a-form v-else-if="clientModalOpen" layout="vertical">
@@ -658,8 +658,6 @@ const emptyParty = (): PartyAddress => ({
   region: null,
   city: null,
   street: null,
-  house: null,
-  office: null,
 })
 
 const route = useRoute()
@@ -710,9 +708,6 @@ const clientForm = reactive({
   clientName: '',
   destinationStation: '',
   destinationCustomsAuthority: '',
-  subcode: '',
-  commodityCode: '',
-  packagesCount: '',
   weight: '',
   sealNumber: '',
   shipper: emptyParty(),
@@ -790,6 +785,8 @@ const clientAuthorityModel = computed<string[]>({
 const authStore = useAuthStore()
 const role = computed(() => (authStore.role || '').trim().toLowerCase())
 const canReview = computed(() => role.value === 'broker' || role.value === 'administrator')
+// Демо-кнопка авто-разбора фабрикует данные — показываем только в dev-сборке.
+const isDev = import.meta.env.DEV
 
 const loadClients = async () => {
   try {
@@ -1029,9 +1026,6 @@ const openAddClientModal = (containerId: string) => {
   clientForm.clientName = ''
   clientForm.destinationStation = ''
   clientForm.destinationCustomsAuthority = ''
-  clientForm.subcode = ''
-  clientForm.commodityCode = ''
-  clientForm.packagesCount = ''
   clientForm.weight = ''
   clientForm.sealNumber = ''
   clientForm.shipper = emptyParty()
@@ -1050,9 +1044,6 @@ const openEditClientModal = (containerId: string, consolidation: any) => {
   clientForm.clientName = consolidation.clientName
   clientForm.destinationStation = consolidation.destinationStation || ''
   clientForm.destinationCustomsAuthority = consolidation.destinationCustomsAuthority || ''
-  clientForm.subcode = consolidation.subcode || ''
-  clientForm.commodityCode = consolidation.commodityCode || ''
-  clientForm.packagesCount = consolidation.packagesCount || ''
   clientForm.weight = consolidation.weight || ''
   clientForm.sealNumber = consolidation.sealNumber || ''
   clientForm.shipper = { ...emptyParty(), ...(consolidation.shipper || {}) }
@@ -1095,9 +1086,6 @@ const handleAddClient = async () => {
       clientName: clientForm.clientName.trim(),
       destinationStation: clientForm.destinationStation.trim() || null,
       destinationCustomsAuthority: clientForm.destinationCustomsAuthority.trim() || null,
-      subcode: clientForm.subcode.trim() || null,
-      commodityCode: clientForm.commodityCode.trim() || null,
-      packagesCount: clientForm.packagesCount.trim() || null,
       weight: clientForm.weight.trim() || null,
       sealNumber: clientForm.sealNumber.trim() || null,
       shipper: clientForm.shipper,
@@ -1408,9 +1396,6 @@ const runAiParse = async () => {
         destinationStation: 'Алматы-1',
         weight: '4 850 кг',
         sealNumber: 'SL-' + Math.floor(100000 + Math.random() * 900000),
-        packagesCount: '12 мест',
-        subcode: 'SUB-' + Math.floor(10 + Math.random() * 90),
-        commodityCode: '8708299009'
       })
     }
     

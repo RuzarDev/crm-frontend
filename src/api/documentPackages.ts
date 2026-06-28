@@ -113,9 +113,6 @@ export const documentPackagesApi = {
       clientName: string
       destinationStation?: string | null
       destinationCustomsAuthority?: string | null
-      subcode?: string | null
-      commodityCode?: string | null
-      packagesCount?: string | null
       weight?: string | null
       sealNumber?: string | null
       shipper?: PartyAddress | null
@@ -139,9 +136,6 @@ export const documentPackagesApi = {
       clientName: string
       destinationStation?: string | null
       destinationCustomsAuthority?: string | null
-      subcode?: string | null
-      commodityCode?: string | null
-      packagesCount?: string | null
       weight?: string | null
       sealNumber?: string | null
       shipper?: PartyAddress | null

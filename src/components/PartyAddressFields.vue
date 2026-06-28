@@ -58,36 +58,42 @@ const emit = defineEmits<{
 
 const expanded = ref(!!props.defaultExpanded)
 
-const local = reactive<PartyAddress>({
-  name: props.modelValue?.name ?? null,
-  countryCode: props.modelValue?.countryCode ?? null,
-  region: props.modelValue?.region ?? null,
-  city: props.modelValue?.city ?? null,
-  street: props.modelValue?.street ?? null,
-  house: props.modelValue?.house ?? null,
-  office: props.modelValue?.office ?? null,
-})
+function normalize(v?: PartyAddress | null): PartyAddress {
+  return {
+    name: v?.name ?? null,
+    countryCode: v?.countryCode ?? null,
+    region: v?.region ?? null,
+    city: v?.city ?? null,
+    street: v?.street ?? null,
+  }
+}
+
+const local = reactive<PartyAddress>(normalize(props.modelValue))
 
 const hasData = computed(() => Object.values(local).some((v) => !!v))
+
+// Guard so that syncing the parent's value into `local` doesn't immediately
+// re-emit it back (parent → local → emit → parent loop / cursor-jump risk).
+let syncingFromParent = false
 
 watch(
   () => props.modelValue,
   (v) => {
-    Object.assign(local, {
-      name: v?.name ?? null,
-      countryCode: v?.countryCode ?? null,
-      region: v?.region ?? null,
-      city: v?.city ?? null,
-      street: v?.street ?? null,
-      house: v?.house ?? null,
-      office: v?.office ?? null,
-    })
+    const next = normalize(v)
+    // Skip if nothing actually changed — avoids needless emit churn.
+    if (JSON.stringify(next) === JSON.stringify({ ...local })) return
+    syncingFromParent = true
+    Object.assign(local, next)
   },
 )
 
 watch(
   local,
   (v) => {
+    if (syncingFromParent) {
+      syncingFromParent = false
+      return
+    }
     emit('update:modelValue', { ...v })
   },
   { deep: true },
