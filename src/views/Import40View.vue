@@ -76,9 +76,9 @@
       <a-tab-pane v-for="t in visibleTabs" :key="t.key" :tab="t.label" />
     </a-tabs>
 
-    <!-- Контейнеры / ДТ -->
+    <!-- Контейнеры -->
     <a-card v-if="activeTab === 'containers'" class="crm-shell-card" :bordered="false">
-      <template #title><div class="card-title"><GoldOutlined /> Контейнеры и ДТ</div></template>
+      <template #title><div class="card-title"><GoldOutlined /> Контейнеры</div></template>
 
       <div v-if="canEditContent" class="add-container">
         <a-input v-model:value="newContainer.number" placeholder="Номер контейнера" style="max-width: 240px" />
@@ -97,50 +97,140 @@
             <span v-if="cont.containerType" class="container-type">{{ cont.containerType }}</span>
           </div>
           <div class="container-actions">
-            <a-button v-if="canEditContent" size="small" @click="openDeclaration(cont.id)">
-              <PlusOutlined /> ДТ
-            </a-button>
             <a-popconfirm v-if="canEditContent" title="Удалить контейнер?" ok-text="Да" cancel-text="Нет" @confirm="removeContainer(cont.id)">
               <a-button size="small" type="text" danger><DeleteOutlined /></a-button>
             </a-popconfirm>
           </div>
         </div>
+      </div>
+    </a-card>
 
-        <a-empty v-if="!cont.declarations.length" :image="false" description="ДТ нет" />
-        <a-table
-          v-else
-          :columns="declColumns"
-          :data-source="cont.declarations"
-          :pagination="false"
-          row-key="id"
-          size="small"
-          :scroll="{ x: 720 }"
-        >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'corridor'">
-              <span class="corridor-chip" :class="`corridor-${record.corridor}`">{{ corridorLabel(record.corridor) }}</span>
-            </template>
-            <template v-else-if="column.key === 'tpin'">
-              {{ money(record.dutyAmount) }} / {{ money(record.vatAmount) }} / {{ money(record.feesAmount) }}
-            </template>
-            <template v-else-if="column.key === 'act'">
-              <a-button v-if="canEditDeclaration" size="small" type="link" @click="openDeclaration(cont.id, record)">Изм.</a-button>
-              <a-popconfirm v-if="canEditContent" title="Удалить ДТ?" ok-text="Да" cancel-text="Нет" @confirm="removeDeclaration(cont.id, record.id)">
-                <a-button size="small" type="link" danger>Удал.</a-button>
+    <!-- Декларирование (ДТ) -->
+    <a-card v-if="activeTab === 'declaring'" class="crm-shell-card" :bordered="false">
+      <template #title><div class="card-title"><FileProtectOutlined /> Декларирование (ДТ)</div></template>
+
+      <div class="dt-toolbar">
+        <a-button v-if="canEditDeclaration" type="primary" @click="addDeclaration">
+          <PlusOutlined /> Добавить ДТ
+        </a-button>
+      </div>
+
+      <a-empty v-if="!activeCase.declarations.length" description="ДТ пока нет" />
+
+      <div v-for="dt in activeCase.declarations" :key="dt.id" class="dt-block">
+        <div class="dt-row">
+          <div class="dt-row-main">
+            <strong>{{ dt.declarationNumber || 'ДТ без номера' }}</strong>
+            <span class="dt-meta">товаров: {{ dt.goodsItems.length }}</span>
+          </div>
+          <div class="dt-row-actions">
+            <a-button v-if="canEditDeclaration" size="small" @click="openDtEditor(dt)">Редактировать</a-button>
+            <a-popconfirm v-if="canEditDeclaration" title="Удалить ДТ?" ok-text="Да" cancel-text="Нет" @confirm="removeDeclaration(dt.id)">
+              <a-button size="small" type="text" danger>Удалить</a-button>
+            </a-popconfirm>
+          </div>
+        </div>
+
+        <div v-if="editingDtId === dt.id" class="dt-editor">
+          <a-form layout="vertical">
+            <div class="dt-grid-2">
+              <a-form-item label="Номер ДТ">
+                <a-input v-model:value="dtForm.declarationNumber" placeholder="55301/…" />
+              </a-form-item>
+              <a-form-item label="Процедура (гр.1)">
+                <a-input v-model:value="dtForm.procedureCode" placeholder="40" />
+              </a-form-item>
+            </div>
+
+            <div class="dt-grid-2">
+              <a-form-item label="Страна отправления (ОКСМ)">
+                <a-select
+                  v-model:value="dtForm.departureCountryCode"
+                  show-search
+                  allow-clear
+                  :options="countryOptions"
+                  :filter-option="filterCountry"
+                  placeholder="Выберите страну по коду"
+                />
+              </a-form-item>
+              <a-form-item label="Страна назначения (ОКСМ)">
+                <a-select
+                  v-model:value="dtForm.destinationCountryCode"
+                  show-search
+                  allow-clear
+                  :options="countryOptions"
+                  :filter-option="filterCountry"
+                  placeholder="Выберите страну по коду"
+                />
+              </a-form-item>
+            </div>
+
+            <div class="dt-grid-3">
+              <a-form-item label="Условия поставки">
+                <a-input v-model:value="dtForm.incoterms" placeholder="FOB / CIF" />
+              </a-form-item>
+              <a-form-item label="Валюта">
+                <a-input v-model:value="dtForm.currency" placeholder="USD" />
+              </a-form-item>
+              <a-form-item label="Курс">
+                <a-input-number v-model:value="dtForm.exchangeRate" style="width: 100%" :min="0" />
+              </a-form-item>
+            </div>
+
+            <PartyAddressFields v-model="dtForm.sender" title="Отправитель" :country-options="countryOptions" />
+            <PartyAddressFields v-model="dtForm.receiver" title="Получатель" :country-options="countryOptions" />
+
+            <a-divider />
+            <ReestrGoodsSection v-model="dtForm.goodsItems" />
+
+            <a-divider />
+            <ReestrDoc44Section v-model="dtForm.doc44Items" />
+
+            <div class="dt-editor-actions">
+              <a-button type="primary" :loading="dtSaving" @click="saveDt">Сохранить ДТ</a-button>
+              <a-button @click="closeDtEditor">Свернуть</a-button>
+              <a-popconfirm title="Удалить ДТ?" ok-text="Да" cancel-text="Нет" @confirm="removeDeclaration(dt.id)">
+                <a-button danger>Удалить ДТ</a-button>
               </a-popconfirm>
-            </template>
-          </template>
-        </a-table>
+            </div>
+          </a-form>
+        </div>
       </div>
     </a-card>
 
     <!-- Транспорт и доверенность (клиент) -->
     <a-card v-if="activeTab === 'transport'" class="crm-shell-card" :bordered="false">
       <template #title><div class="card-title"><CarOutlined /> Транспорт и доверенность</div></template>
+
       <div class="form-grid">
-        <label><span>Машина / прицеп</span><a-input :value="activeCase.vehicleNumber" :disabled="!isClient" @change="updateField('vehicleNumber', $event)" /></label>
-        <label><span>Водитель</span><a-input :value="activeCase.driverName" :disabled="!isClient" @change="updateField('driverName', $event)" /></label>
-        <label><span>Телефон водителя</span><a-input :value="activeCase.driverPhone" :disabled="!isClient" @change="updateField('driverPhone', $event)" /></label>
+        <label><span>Вид транспорта</span>
+          <a-select v-model:value="transportForm.transportMode" :options="transportModes" :disabled="!isClient && !isAdmin" />
+        </label>
+        <!-- 0 — ЖД -->
+        <template v-if="transportForm.transportMode === 0">
+          <label><span>Номер вагона</span><a-input v-model:value="transportForm.wagonNumber" :disabled="!isClient && !isAdmin" /></label>
+          <label><span>Станция</span><a-input v-model:value="transportForm.station" :disabled="!isClient && !isAdmin" /></label>
+        </template>
+        <!-- 1 — Авто -->
+        <template v-else-if="transportForm.transportMode === 1">
+          <label><span>Машина</span><a-input :value="activeCase.vehicleNumber" :disabled="!isClient" @change="updateField('vehicleNumber', $event)" /></label>
+          <label><span>Прицеп</span><a-input v-model:value="transportForm.trailerNumber" :disabled="!isClient && !isAdmin" /></label>
+          <label><span>Водитель</span><a-input :value="activeCase.driverName" :disabled="!isClient" @change="updateField('driverName', $event)" /></label>
+          <label><span>Телефон водителя</span><a-input :value="activeCase.driverPhone" :disabled="!isClient" @change="updateField('driverPhone', $event)" /></label>
+        </template>
+        <!-- 2 — Авиа -->
+        <template v-else-if="transportForm.transportMode === 2">
+          <label><span>Номер рейса</span><a-input v-model:value="transportForm.flightNumber" :disabled="!isClient && !isAdmin" /></label>
+          <label><span>Авианакладная (AWB)</span><a-input v-model:value="transportForm.airWaybill" :disabled="!isClient && !isAdmin" /></label>
+        </template>
+        <!-- 3 — Море -->
+        <template v-else-if="transportForm.transportMode === 3">
+          <label><span>Название судна</span><a-input v-model:value="transportForm.vesselName" :disabled="!isClient && !isAdmin" /></label>
+          <label><span>Коносамент (B/L)</span><a-input v-model:value="transportForm.billOfLading" :disabled="!isClient && !isAdmin" /></label>
+        </template>
+      </div>
+      <div v-if="isClient || isAdmin" class="transport-save">
+        <a-button type="primary" :loading="transportSaving" @click="saveTransport">Сохранить транспорт</a-button>
       </div>
       <div class="flow-block">
         <div class="flow-block-head">
@@ -221,28 +311,6 @@
       </div>
     </a-card>
 
-    <!-- Модалка ДТ -->
-    <a-modal v-model:open="declModalOpen" :title="declForm.id ? 'Редактировать ДТ' : 'Новая ДТ'" :confirm-loading="declSaving" @ok="saveDeclaration">
-      <div class="decl-form">
-        <label><span>Номер ДТ</span><a-input v-model:value="declForm.declarationNumber" placeholder="55301/…" /></label>
-        <label><span>Коридор</span><a-select v-model:value="declForm.corridor" :options="corridorOptions" :disabled="!canEditDeclaration" /></label>
-        <label><span>Код ТНВЭД</span><a-input v-model:value="declForm.commodityCode" /></label>
-        <label><span>Описание</span><a-input v-model:value="declForm.cargoDescription" /></label>
-        <label><span>Страна</span><a-input v-model:value="declForm.countryOfOrigin" /></label>
-        <label><span>Стоимость / валюта</span>
-          <a-input-group compact>
-            <a-input-number v-model:value="declForm.invoiceValue" style="width: 70%" :min="0" />
-            <a-input v-model:value="declForm.currency" style="width: 30%" placeholder="USD" />
-          </a-input-group>
-        </label>
-        <label><span>Вес, кг</span><a-input-number v-model:value="declForm.weightKg" style="width: 100%" :min="0" /></label>
-        <label><span>Пошлина</span><a-input-number v-model:value="declForm.dutyAmount" style="width: 100%" :min="0" /></label>
-        <label><span>НДС</span><a-input-number v-model:value="declForm.vatAmount" style="width: 100%" :min="0" /></label>
-        <label><span>Сборы</span><a-input-number v-model:value="declForm.feesAmount" style="width: 100%" :min="0" /></label>
-        <label><span>СВХ (себест.)</span><a-input-number v-model:value="declForm.svhCost" style="width: 100%" :min="0" /></label>
-      </div>
-    </a-modal>
-
     <!-- Модалка ввода значения для действия (вместо window.prompt) -->
     <a-modal v-model:open="promptModal.open" :title="promptModal.title" ok-text="Подтвердить" cancel-text="Отмена" @ok="confirmPromptAction">
       <label class="prompt-field">
@@ -277,14 +345,22 @@ import {
 import {
   import40Api,
   IMPORT40_STATUSES,
+  IMPORT40_TRANSPORT_MODES,
   type Import40Action,
   type Import40CaseDto,
   type Import40DeclarationDto,
+  type Import40DeclarationUpsert,
   type Import40FileDto,
   type Import40FileSection,
+  type Import40Party,
 } from '@/api/import40'
 import { useAuthStore } from '@/stores/auth'
+import { referencesApi } from '@/api/references'
 import FileChips from '@/components/Import40FileChips.vue'
+import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
+import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
+import PartyAddressFields from '@/components/PartyAddressFields.vue'
+import type { ReestrGoodsItemInput, ReestrDoc44ItemInput } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -324,22 +400,11 @@ const roleHelp = computed(
     })[roleMode.value],
 )
 
-const declCount = computed(
-  () => activeCase.value?.containers.reduce((s, c) => s + c.declarations.length, 0) ?? 0,
-)
+const declCount = computed(() => activeCase.value?.declarations.length ?? 0)
 const progress = computed(() => Math.round(((activeCase.value?.status ?? 0) / 8) * 100))
 
 const statusLabel = (s: number) => statuses.find((x) => x.id === s)?.short || '—'
 const statusPhase = (s: number) => statuses.find((x) => x.id === s)?.phase || ''
-
-const corridorOptions = [
-  { label: 'Зелёный', value: 'green' },
-  { label: 'Жёлтый', value: 'yellow' },
-  { label: 'Синий', value: 'blue' },
-  { label: 'Красный', value: 'red' },
-]
-const corridorLabel = (c: string) => corridorOptions.find((o) => o.value === c)?.label || c
-const money = (v: number | null) => (v == null ? '—' : new Intl.NumberFormat('ru-RU').format(v))
 
 const sectionLabels: Record<Import40FileSection, string> = {
   documents: 'Документ',
@@ -350,8 +415,9 @@ const sectionLabels: Record<Import40FileSection, string> = {
 }
 
 const visibleTabs = computed(() => {
-  const tabs = [{ key: 'containers', label: 'Контейнеры и ДТ' }]
+  const tabs = [{ key: 'containers', label: 'Контейнеры' }]
   if (isClient.value || isAdmin.value) tabs.push({ key: 'transport', label: 'Транспорт и доверенность' })
+  if (canSeeDeclaring.value) tabs.push({ key: 'declaring', label: 'Декларирование' })
   tabs.push({ key: 'finance', label: 'СВХ / Оплата' })
   tabs.push({ key: 'documents', label: 'Документы' })
   tabs.push({ key: 'history', label: 'История' })
@@ -365,14 +431,10 @@ const canEditContent = computed(
 const canEditDeclaration = computed(
   () => isAdmin.value || roleMode.value === 'declarant' || canEditContent.value,
 )
-
-const declColumns = [
-  { title: 'Номер ДТ', dataIndex: 'declarationNumber', key: 'num', width: 160 },
-  { title: 'ТНВЭД', dataIndex: 'commodityCode', key: 'code', width: 110 },
-  { title: 'Коридор', key: 'corridor', width: 110 },
-  { title: 'Пошлина/НДС/Сборы', key: 'tpin', width: 220 },
-  { title: '', key: 'act', width: 130 },
-]
+// Кому показывать раздел декларирования (ДТ)
+const canSeeDeclaring = computed(
+  () => isAdmin.value || roleMode.value === 'declarant' || roleMode.value === 'kpp',
+)
 
 const availableActions = computed(() => {
   const c = activeCase.value
@@ -497,69 +559,194 @@ const removeContainer = async (cid: string) => {
   activeCase.value = await import40Api.deleteContainer(activeCase.value.id, cid)
 }
 
-// ДТ модалка
-const declModalOpen = ref(false)
-const declSaving = ref(false)
-const declContainerId = ref('')
-const declForm = reactive<Record<string, unknown>>({})
-const blankDecl = () => ({
+// Перезагрузка кейса после мутаций ДТ/транспорта (методы ДТ возвращают одну ДТ, не кейс)
+const reloadCase = async () => {
+  if (!activeCase.value) return
+  activeCase.value = await import40Api.get(activeCase.value.id)
+}
+
+// Справочник стран (ОКСМ)
+const countryOptions = ref<{ value: string; label: string }[]>([])
+function filterCountry(input: string, option: { label: string }) {
+  return option.label.toLowerCase().includes(input.toLowerCase())
+}
+
+// --- Транспорт ---
+const transportModes = IMPORT40_TRANSPORT_MODES
+const transportForm = reactive({
+  transportMode: 1,
+  wagonNumber: '',
+  station: '',
+  trailerNumber: '',
+  flightNumber: '',
+  airWaybill: '',
+  vesselName: '',
+  billOfLading: '',
+})
+const transportSaving = ref(false)
+const syncTransportForm = () => {
+  const c = activeCase.value
+  if (!c) return
+  transportForm.transportMode = c.transportMode ?? 1
+  transportForm.wagonNumber = c.wagonNumber ?? ''
+  transportForm.station = c.station ?? ''
+  transportForm.trailerNumber = c.trailerNumber ?? ''
+  transportForm.flightNumber = c.flightNumber ?? ''
+  transportForm.airWaybill = c.airWaybill ?? ''
+  transportForm.vesselName = c.vesselName ?? ''
+  transportForm.billOfLading = c.billOfLading ?? ''
+}
+const saveTransport = async () => {
+  if (!activeCase.value) return
+  transportSaving.value = true
+  try {
+    activeCase.value = await import40Api.update(activeCase.value.id, {
+      transportMode: transportForm.transportMode,
+      wagonNumber: transportForm.wagonNumber,
+      station: transportForm.station,
+      trailerNumber: transportForm.trailerNumber,
+      flightNumber: transportForm.flightNumber,
+      airWaybill: transportForm.airWaybill,
+      vesselName: transportForm.vesselName,
+      billOfLading: transportForm.billOfLading,
+    })
+    await reloadCase()
+    message.success('Транспорт сохранён')
+  } catch {
+    message.error('Не удалось сохранить транспорт')
+  } finally {
+    transportSaving.value = false
+  }
+}
+
+// --- ДТ редактор ---
+const emptyParty = (): Import40Party => ({
+  name: null,
+  countryCode: null,
+  region: null,
+  city: null,
+  street: null,
+})
+
+const editingDtId = ref<string | null>(null)
+const dtSaving = ref(false)
+const dtForm = reactive<{
+  id: string
+  declarationNumber: string
+  procedureCode: string
+  departureCountryCode: string | null
+  destinationCountryCode: string | null
+  incoterms: string
+  currency: string
+  exchangeRate: number | null
+  sender: Import40Party
+  receiver: Import40Party
+  goodsItems: ReestrGoodsItemInput[]
+  doc44Items: ReestrDoc44ItemInput[]
+}>({
   id: '',
   declarationNumber: '',
-  corridor: 'green',
-  commodityCode: '',
-  cargoDescription: '',
-  countryOfOrigin: '',
-  invoiceValue: null,
+  procedureCode: '',
+  departureCountryCode: null,
+  destinationCountryCode: null,
+  incoterms: '',
   currency: '',
-  weightKg: null,
-  dutyAmount: null,
-  vatAmount: null,
-  feesAmount: null,
-  svhCost: null,
+  exchangeRate: null,
+  sender: emptyParty(),
+  receiver: emptyParty(),
+  goodsItems: [],
+  doc44Items: [],
 })
-const openDeclaration = (containerId: string, decl?: Import40DeclarationDto) => {
-  declContainerId.value = containerId
-  Object.assign(declForm, blankDecl(), decl ?? {})
-  declModalOpen.value = true
+
+const openDtEditor = (decl: Import40DeclarationDto) => {
+  dtForm.id = decl.id
+  dtForm.declarationNumber = decl.declarationNumber ?? ''
+  dtForm.procedureCode = decl.procedureCode ?? ''
+  dtForm.departureCountryCode = decl.departureCountryCode ?? null
+  dtForm.destinationCountryCode = decl.destinationCountryCode ?? null
+  dtForm.incoterms = decl.incoterms ?? ''
+  dtForm.currency = decl.currency ?? ''
+  dtForm.exchangeRate = decl.exchangeRate ?? null
+  dtForm.sender = decl.sender ? { ...emptyParty(), ...decl.sender } : emptyParty()
+  dtForm.receiver = decl.receiver ? { ...emptyParty(), ...decl.receiver } : emptyParty()
+  dtForm.goodsItems = (decl.goodsItems ?? []).map((g) => ({
+    description: g.description ?? null,
+    tnvedCode: g.tnvedCode ?? null,
+    tnvedDescription: g.tnvedDescription ?? null,
+    countryOfOrigin: g.countryOfOrigin ?? null,
+    quantity: g.quantity ?? null,
+    unit: g.unit ?? null,
+    unitCode: g.unitCode ?? null,
+    grossWeightKg: g.grossWeightKg ?? null,
+    netWeightKg: g.netWeightKg ?? null,
+    packagesCount: g.packagesCount ?? null,
+    quantityTypeCode: g.quantityTypeCode ?? null,
+    customsValue: g.customsValue ?? null,
+    currency: g.currency ?? null,
+  }))
+  dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({
+    docTypeCode: d.docTypeCode ?? null,
+    docTypeName: d.docTypeName ?? null,
+    docNumber: d.docNumber ?? null,
+    docDate: d.docDate ?? null,
+  }))
+  editingDtId.value = decl.id
 }
-const saveDeclaration = async () => {
+
+const closeDtEditor = () => {
+  editingDtId.value = null
+}
+
+const addDeclaration = async () => {
   if (!activeCase.value) return
-  declSaving.value = true
   try {
-    const payload = {
-      declarationNumber: declForm.declarationNumber as string,
-      corridor: declForm.corridor as string,
-      commodityCode: declForm.commodityCode as string,
-      cargoDescription: declForm.cargoDescription as string,
-      countryOfOrigin: declForm.countryOfOrigin as string,
-      invoiceValue: declForm.invoiceValue as number | null,
-      currency: declForm.currency as string,
-      weightKg: declForm.weightKg as number | null,
-      dutyAmount: declForm.dutyAmount as number | null,
-      vatAmount: declForm.vatAmount as number | null,
-      feesAmount: declForm.feesAmount as number | null,
-      svhCost: declForm.svhCost as number | null,
+    const created = await import40Api.createDeclaration(activeCase.value.id, {})
+    await reloadCase()
+    const fresh = activeCase.value?.declarations.find((d) => d.id === created.id)
+    if (fresh) openDtEditor(fresh)
+    else openDtEditor(created)
+  } catch {
+    message.error('Не удалось создать ДТ')
+  }
+}
+
+const saveDt = async () => {
+  if (!activeCase.value || !dtForm.id) return
+  dtSaving.value = true
+  try {
+    const payload: Import40DeclarationUpsert = {
+      declarationNumber: dtForm.declarationNumber || null,
+      procedureCode: dtForm.procedureCode || null,
+      departureCountryCode: dtForm.departureCountryCode || null,
+      destinationCountryCode: dtForm.destinationCountryCode || null,
+      incoterms: dtForm.incoterms || null,
+      currency: dtForm.currency || null,
+      exchangeRate: dtForm.exchangeRate,
+      sender: dtForm.sender,
+      receiver: dtForm.receiver,
+      goodsItems: dtForm.goodsItems,
+      doc44Items: dtForm.doc44Items,
     }
-    if (declForm.id) {
-      activeCase.value = await import40Api.updateDeclaration(
-        activeCase.value.id,
-        declContainerId.value,
-        declForm.id as string,
-        payload,
-      )
-    } else {
-      activeCase.value = await import40Api.addDeclaration(activeCase.value.id, declContainerId.value, payload)
-    }
-    declModalOpen.value = false
+    await import40Api.updateDeclaration(activeCase.value.id, dtForm.id, payload)
+    await reloadCase()
+    message.success('ДТ сохранена')
+    closeDtEditor()
   } catch {
     message.error('Не удалось сохранить ДТ')
   } finally {
-    declSaving.value = false
+    dtSaving.value = false
   }
 }
-const removeDeclaration = async (containerId: string, declarationId: string) => {
+
+const removeDeclaration = async (declarationId: string) => {
   if (!activeCase.value) return
-  activeCase.value = await import40Api.deleteDeclaration(activeCase.value.id, containerId, declarationId)
+  try {
+    await import40Api.deleteDeclaration(activeCase.value.id, declarationId)
+    if (editingDtId.value === declarationId) closeDtEditor()
+    await reloadCase()
+  } catch {
+    message.error('Не удалось удалить ДТ')
+  }
 }
 
 // файлы
@@ -611,7 +798,18 @@ watch(visibleTabs, (tabs) => {
   if (tabs.length && !tabs.some((t) => t.key === activeTab.value)) activeTab.value = tabs[0].key
 })
 
-onMounted(reload)
+// держим форму транспорта в синхроне с кейсом
+watch(activeCase, syncTransportForm)
+
+onMounted(async () => {
+  try {
+    const countries = await referencesApi.listCountries()
+    countryOptions.value = countries.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+  } catch (e) {
+    console.error('Failed to load countries', e)
+  }
+  await reload()
+})
 </script>
 
 <style scoped>
@@ -657,15 +855,22 @@ onMounted(reload)
 .container-type { margin-left: 8px; color: var(--atg-muted); font-size: 12px; }
 .container-actions { display: flex; gap: 6px; }
 
-.corridor-chip { display: inline-flex; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; }
-.corridor-green { color: #286b4b; background: #dcebe3; }
-.corridor-yellow { color: #8a6500; background: #fff1c7; }
-.corridor-blue { color: #255f8f; background: #e3edf8; }
-.corridor-red { color: #fff; background: #b84a3c; }
-
 .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
-.form-grid label, .decl-form label { display: flex; flex-direction: column; gap: 6px; }
-.form-grid label span, .decl-form label span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; }
+.form-grid label { display: flex; flex-direction: column; gap: 6px; }
+.form-grid label span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; }
+.transport-save { margin-top: 4px; }
+
+.dt-toolbar { margin-bottom: 14px; }
+.dt-block { border: 1px solid var(--atg-line); border-radius: var(--atg-radius); padding: 12px 14px; margin-bottom: 12px; }
+.dt-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dt-row-main { display: flex; align-items: center; gap: 10px; }
+.dt-row-main strong { font-size: 14px; font-weight: 800; color: var(--atg-ink); }
+.dt-meta { color: var(--atg-muted); font-size: 12px; }
+.dt-row-actions { display: flex; gap: 6px; }
+.dt-editor { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--atg-line); }
+.dt-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.dt-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+.dt-editor-actions { display: flex; gap: 10px; margin-top: 12px; }
 
 .flow-blocks { display: grid; gap: 14px; }
 .flow-block { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--atg-line); border-radius: var(--atg-radius); }
@@ -674,7 +879,6 @@ onMounted(reload)
 .flow-sum { margin: 0; font-size: 14px; color: var(--atg-ink); }
 .flow-block .ant-btn { justify-self: start; }
 
-.decl-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .prompt-field { display: flex; flex-direction: column; gap: 6px; }
 .prompt-field span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; }
 
@@ -692,6 +896,6 @@ onMounted(reload)
   .case-board { grid-template-columns: 1fr; }
   .actions-card { position: static; }
   .pipeline { grid-template-columns: repeat(3, minmax(0,1fr)); }
-  .case-meta, .form-grid, .decl-form { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .case-meta, .form-grid, .dt-grid-3 { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
 </style>

@@ -194,6 +194,14 @@ export interface Import40UpdateRequest {
   svhInvoiceNote?: string
   assignedKppId?: string | null
   assignedDeclarantId?: string | null
+  transportMode?: number
+  wagonNumber?: string
+  station?: string
+  trailerNumber?: string
+  flightNumber?: string
+  airWaybill?: string
+  vesselName?: string
+  billOfLading?: string
 }
 
 export interface Import40ContainerUpsertRequest {
