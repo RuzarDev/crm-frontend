@@ -404,6 +404,7 @@ export interface DocumentPackageClientConsolidationDto {
   commodityCode?: string | null
   packagesCount?: string | null
   weight?: string | null
+  sealNumber?: string | null
   shipper?: PartyAddress | null
   consignee?: PartyAddress | null
   goodsItems: DocumentPackageConsolidationGoodsItemDto[]
@@ -414,13 +415,6 @@ export interface DocumentPackageContainerDto {
   id: string
   packageId: string
   containerNumber: string
-  sealNumber: string | null
-  weight: string | null
-  wagonNumber?: string | null
-  destinationStation?: string | null
-  destinationCustomsAuthority?: string | null
-  shipper?: PartyAddress | null
-  consignee?: PartyAddress | null
   consolidations: DocumentPackageClientConsolidationDto[]
 }
 

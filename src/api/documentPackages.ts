@@ -74,13 +74,6 @@ export const documentPackagesApi = {
     id: string,
     data: {
       containerNumber: string
-      sealNumber?: string | null
-      weight?: string | null
-      wagonNumber?: string | null
-      destinationStation?: string | null
-      destinationCustomsAuthority?: string | null
-      shipper?: PartyAddress | null
-      consignee?: PartyAddress | null
     },
   ): Promise<DocumentPackageDto> => {
     const response = await apiClient.post<DocumentPackageDto>(
@@ -95,13 +88,6 @@ export const documentPackagesApi = {
     containerId: string,
     data: {
       containerNumber: string
-      sealNumber?: string | null
-      weight?: string | null
-      wagonNumber?: string | null
-      destinationStation?: string | null
-      destinationCustomsAuthority?: string | null
-      shipper?: PartyAddress | null
-      consignee?: PartyAddress | null
     },
   ): Promise<DocumentPackageDto> => {
     const response = await apiClient.put<DocumentPackageDto>(
@@ -129,6 +115,7 @@ export const documentPackagesApi = {
       commodityCode?: string | null
       packagesCount?: string | null
       weight?: string | null
+      sealNumber?: string | null
       shipper?: PartyAddress | null
       consignee?: PartyAddress | null
       goodsItems?: unknown[] | null
@@ -154,6 +141,7 @@ export const documentPackagesApi = {
       commodityCode?: string | null
       packagesCount?: string | null
       weight?: string | null
+      sealNumber?: string | null
       shipper?: PartyAddress | null
       consignee?: PartyAddress | null
       goodsItems?: unknown[] | null
