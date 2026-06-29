@@ -142,6 +142,11 @@
               </a-form-item>
             </div>
 
+            <a-form-item label="Коридор">
+              <a-select v-if="canEditCorridor" v-model:value="dtForm.corridor" :options="CORRIDOR_OPTIONS" style="max-width: 240px" />
+              <a-tag v-else>{{ (CORRIDOR_OPTIONS.find(c => c.value === dtForm.corridor)?.label) || dtForm.corridor }}</a-tag>
+            </a-form-item>
+
             <div class="dt-grid-2">
               <a-form-item label="Страна отправления (ОКСМ)">
                 <a-select
@@ -182,6 +187,21 @@
 
             <a-divider />
             <ReestrGoodsSection v-model="dtForm.goodsItems" />
+
+            <div v-if="dtForm.goodsItems.length" class="dt-tpin">
+              <div class="dt-tpin-bar">
+                <span class="dt-section-label">ПЛАТЕЖИ ТПиН ПО ТОВАРАМ (гр.37 / гр.47), ₸</span>
+                <a-button size="small" :loading="tpinCalculating" @click="calcTpin">Рассчитать ТПиН (авто)</a-button>
+              </div>
+              <div v-for="(g, i) in dtForm.goodsItems" :key="i" class="dt-tpin-row">
+                <span class="dt-tpin-idx">{{ i + 1 }}</span>
+                <span class="dt-tpin-tnved">{{ g.tnvedCode || '— код ТНВЭД —' }}</span>
+                <a-input v-model:value="dtForm.goodsPayments[i].procedureCode" size="small" placeholder="Проц. 4000" style="width: 90px" />
+                <a-input-number v-model:value="dtForm.goodsPayments[i].dutyAmount" size="small" :min="0" placeholder="Пошлина" style="width: 110px" />
+                <a-input-number v-model:value="dtForm.goodsPayments[i].vatAmount" size="small" :min="0" placeholder="НДС" style="width: 110px" />
+                <a-input-number v-model:value="dtForm.goodsPayments[i].feesAmount" size="small" :min="0" placeholder="Сборы" style="width: 110px" />
+              </div>
+            </div>
 
             <a-divider />
             <ReestrDoc44Section v-model="dtForm.doc44Items" />
@@ -354,7 +374,16 @@ import {
   type Import40FileSection,
   type Import40Party,
 } from '@/api/import40'
+import { tnvedApi } from '@/api/tnved'
 import { useAuthStore } from '@/stores/auth'
+
+type GoodsPayment = {
+  procedureCode: string | null
+  dutyAmount: number | null
+  vatAmount: number | null
+  feesAmount: number | null
+}
+const emptyPayment = (): GoodsPayment => ({ procedureCode: '4000', dutyAmount: null, vatAmount: null, feesAmount: null })
 import { referencesApi } from '@/api/references'
 import FileChips from '@/components/Import40FileChips.vue'
 import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
@@ -633,6 +662,7 @@ const dtSaving = ref(false)
 const dtForm = reactive<{
   id: string
   declarationNumber: string
+  corridor: string
   procedureCode: string
   departureCountryCode: string | null
   destinationCountryCode: string | null
@@ -642,10 +672,12 @@ const dtForm = reactive<{
   sender: Import40Party
   receiver: Import40Party
   goodsItems: ReestrGoodsItemInput[]
+  goodsPayments: GoodsPayment[]
   doc44Items: ReestrDoc44ItemInput[]
 }>({
   id: '',
   declarationNumber: '',
+  corridor: 'green',
   procedureCode: '',
   departureCountryCode: null,
   destinationCountryCode: null,
@@ -655,12 +687,64 @@ const dtForm = reactive<{
   sender: emptyParty(),
   receiver: emptyParty(),
   goodsItems: [],
+  goodsPayments: [],
   doc44Items: [],
 })
+
+const CORRIDOR_OPTIONS = [
+  { value: 'green', label: '🟢 Зелёный' },
+  { value: 'yellow', label: '🟡 Жёлтый' },
+  { value: 'red', label: '🔴 Красный' },
+]
+const canEditCorridor = computed(() => {
+  const sys = (authStore.role || '').toLowerCase()
+  const biz = (authStore.businessRole || '').toLowerCase()
+  return sys === 'administrator' || biz === 'declarant' || biz === 'rop'
+})
+
+// goodsPayments идёт параллельно goodsItems по индексу; держим длину синхронной.
+const ensurePaymentsLength = () => {
+  const n = dtForm.goodsItems.length
+  while (dtForm.goodsPayments.length < n) dtForm.goodsPayments.push(emptyPayment())
+  if (dtForm.goodsPayments.length > n) dtForm.goodsPayments.splice(n)
+}
+watch(() => dtForm.goodsItems.length, ensurePaymentsLength)
+
+const tpinCalculating = ref(false)
+const calcTpin = async () => {
+  ensurePaymentsLength()
+  tpinCalculating.value = true
+  try {
+    for (let i = 0; i < dtForm.goodsItems.length; i++) {
+      const g = dtForm.goodsItems[i]
+      const code = (g.tnvedCode || '').trim()
+      if (!code || g.customsValue == null) continue
+      try {
+        const { data: r } = await tnvedApi.calculate({
+          code,
+          customsValue: g.customsValue,
+          currencyCode: (g.currency || dtForm.currency || 'USD').trim(),
+          weightKg: g.grossWeightKg ?? undefined,
+          quantity: g.quantity ?? undefined,
+        })
+        dtForm.goodsPayments[i].dutyAmount = r.importDutyKzt
+        dtForm.goodsPayments[i].vatAmount = r.vatKzt
+        // сборы графы 47 = таможенный сбор + акциз (в нашей модели одно поле)
+        dtForm.goodsPayments[i].feesAmount = r.customsFeeKzt + r.exciseKzt
+      } catch {
+        // конкретный товар не посчитался — пропускаем, остальные считаем
+      }
+    }
+    message.success('ТПиН рассчитан по товарам (в тенге)')
+  } finally {
+    tpinCalculating.value = false
+  }
+}
 
 const openDtEditor = (decl: Import40DeclarationDto) => {
   dtForm.id = decl.id
   dtForm.declarationNumber = decl.declarationNumber ?? ''
+  dtForm.corridor = decl.corridor ?? 'green'
   dtForm.procedureCode = decl.procedureCode ?? ''
   dtForm.departureCountryCode = decl.departureCountryCode ?? null
   dtForm.destinationCountryCode = decl.destinationCountryCode ?? null
@@ -683,6 +767,12 @@ const openDtEditor = (decl: Import40DeclarationDto) => {
     quantityTypeCode: g.quantityTypeCode ?? null,
     customsValue: g.customsValue ?? null,
     currency: g.currency ?? null,
+  }))
+  dtForm.goodsPayments = (decl.goodsItems ?? []).map((g) => ({
+    procedureCode: g.procedureCode ?? '4000',
+    dutyAmount: g.dutyAmount ?? null,
+    vatAmount: g.vatAmount ?? null,
+    feesAmount: g.feesAmount ?? null,
   }))
   dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({
     docTypeCode: d.docTypeCode ?? null,
@@ -714,8 +804,10 @@ const saveDt = async () => {
   if (!activeCase.value || !dtForm.id) return
   dtSaving.value = true
   try {
+    ensurePaymentsLength()
     const payload: Import40DeclarationUpsert = {
       declarationNumber: dtForm.declarationNumber || null,
+      corridor: dtForm.corridor || null,
       procedureCode: dtForm.procedureCode || null,
       departureCountryCode: dtForm.departureCountryCode || null,
       destinationCountryCode: dtForm.destinationCountryCode || null,
@@ -724,7 +816,13 @@ const saveDt = async () => {
       exchangeRate: dtForm.exchangeRate,
       sender: dtForm.sender,
       receiver: dtForm.receiver,
-      goodsItems: dtForm.goodsItems,
+      goodsItems: dtForm.goodsItems.map((g, i) => ({
+        ...g,
+        procedureCode: dtForm.goodsPayments[i]?.procedureCode ?? null,
+        dutyAmount: dtForm.goodsPayments[i]?.dutyAmount ?? null,
+        vatAmount: dtForm.goodsPayments[i]?.vatAmount ?? null,
+        feesAmount: dtForm.goodsPayments[i]?.feesAmount ?? null,
+      })),
       doc44Items: dtForm.doc44Items,
     }
     await import40Api.updateDeclaration(activeCase.value.id, dtForm.id, payload)
@@ -898,4 +996,11 @@ onMounted(async () => {
   .pipeline { grid-template-columns: repeat(3, minmax(0,1fr)); }
   .case-meta, .form-grid, .dt-grid-3 { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
+
+.dt-tpin { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.dt-tpin-bar { display: flex; align-items: center; justify-content: space-between; }
+.dt-section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: var(--atg-muted, #888); }
+.dt-tpin-row { display: flex; align-items: center; gap: 8px; }
+.dt-tpin-idx { width: 18px; text-align: right; color: var(--atg-muted, #888); font-size: 12px; }
+.dt-tpin-tnved { flex: 1; min-width: 0; font-family: monospace; font-size: 12px; color: var(--atg-text, #333); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

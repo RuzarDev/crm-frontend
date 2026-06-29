@@ -92,6 +92,14 @@ export interface Import40DeclarationDto {
   doc44Items: Import40Doc44ItemDto[]
 }
 
+// Товар ДТ = базовые поля (как у реестра) + платежи ТПиН (гр.47) и процедура (гр.37)
+export type Import40GoodsUpsert = ReestrGoodsItemInput & {
+  procedureCode?: string | null
+  dutyAmount?: number | null
+  vatAmount?: number | null
+  feesAmount?: number | null
+}
+
 export interface Import40DeclarationUpsert {
   declarationNumber?: string | null
   corridor?: string | null
@@ -105,7 +113,7 @@ export interface Import40DeclarationUpsert {
   totalInvoiceValue?: number | null
   exchangeRate?: number | null
   svhCost?: number | null
-  goodsItems?: ReestrGoodsItemInput[]
+  goodsItems?: Import40GoodsUpsert[]
   doc44Items?: ReestrDoc44ItemInput[]
 }
 
