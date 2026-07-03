@@ -15,13 +15,13 @@
           Обновить
         </a-button>
         <a-button
-          v-if="canReview"
+          v-if="canReview && isDev"
           type="default"
           style="border-color: var(--atg-accent); color: var(--atg-accent-strong); font-weight: 700; background: var(--atg-teal-soft);"
           :loading="aiParsing"
           @click="runAiParse"
         >
-          ✨ Авто-разбор (AI)
+          ✨ Авто-разбор (демо)
         </a-button>
         <a-button
           type="primary"
@@ -260,17 +260,9 @@
                   <div class="container-title">
                     <span class="node-badge">Контейнер</span>
                     <strong>{{ container.containerNumber }}</strong>
-                    <span class="container-meta" v-if="container.sealNumber">
-                      Пломба: {{ container.sealNumber }}
+                    <span class="container-meta" v-if="container.secondaryContainerNumber">
+                      / {{ container.secondaryContainerNumber }}
                     </span>
-                    <span class="container-meta" v-if="container.weight">
-                      Вес: {{ container.weight }}
-                    </span>
-                  </div>
-                  <div class="container-document-meta" v-if="container.shipper || container.consignee || container.destinationStation">
-                    <span class="meta-inline-tag" v-if="container.shipper"><strong>Отп:</strong> {{ container.shipper }}</span>
-                    <span class="meta-inline-tag" v-if="container.consignee"><strong>Пол:</strong> {{ container.consignee }}</span>
-                    <span class="meta-inline-tag" v-if="container.destinationStation"><strong>Ст:</strong> {{ container.destinationStation }}</span>
                   </div>
                 </div>
                 <a-space>
@@ -327,9 +319,6 @@
                       <div style="display: flex; align-items: center; gap: 10px;">
                         <span class="node-badge badge-client">Клиент</span>
                         <strong>{{ consolidation.clientName }}</strong>
-                        <span class="con-cargo" v-if="consolidation.cargoDescription">
-                          · {{ consolidation.cargoDescription }}
-                        </span>
                       </div>
                       <a-space>
                         <a-button type="text" size="small" @click="openEditClientModal(container.id, consolidation)">
@@ -347,13 +336,11 @@
                         </a-popconfirm>
                       </a-space>
                     </div>
-                    <div class="consolidation-document-meta" v-if="consolidation.shipper || consolidation.consignee || consolidation.weight || consolidation.packagesCount || consolidation.subcode || consolidation.commodityCode || consolidation.destinationStation">
-                      <span class="meta-inline-tag" v-if="consolidation.shipper"><strong>Отп:</strong> {{ consolidation.shipper }}</span>
-                      <span class="meta-inline-tag" v-if="consolidation.consignee"><strong>Пол:</strong> {{ consolidation.consignee }}</span>
+                    <div class="consolidation-document-meta" v-if="consolidation.shipper?.name || consolidation.consignee?.name || consolidation.weight || consolidation.sealNumber || consolidation.destinationStation">
+                      <span class="meta-inline-tag" v-if="consolidation.shipper?.name"><strong>Отп:</strong> {{ consolidation.shipper.name }}</span>
+                      <span class="meta-inline-tag" v-if="consolidation.consignee?.name"><strong>Пол:</strong> {{ consolidation.consignee.name }}</span>
                       <span class="meta-inline-tag text-green" v-if="consolidation.weight"><strong>Вес:</strong> {{ consolidation.weight }}</span>
-                      <span class="meta-inline-tag text-gold" v-if="consolidation.packagesCount"><strong>Мест:</strong> {{ consolidation.packagesCount }}</span>
-                      <span class="meta-inline-tag" v-if="consolidation.subcode"><strong>Подкод:</strong> {{ consolidation.subcode }}</span>
-                      <span class="meta-inline-tag" v-if="consolidation.commodityCode"><strong>ТНВЭД:</strong> {{ consolidation.commodityCode }}</span>
+                      <span class="meta-inline-tag" v-if="consolidation.sealNumber"><strong>Пломба:</strong> {{ consolidation.sealNumber }}</span>
                       <span class="meta-inline-tag" v-if="consolidation.destinationStation"><strong>Ст:</strong> {{ consolidation.destinationStation }}</span>
                     </div>
                   </div>
@@ -405,25 +392,8 @@
         <a-form-item label="Номер контейнера" required>
           <a-input v-model:value="containerForm.containerNumber" placeholder="Например: MSCU1234567" />
         </a-form-item>
-        <a-form-item label="Номер пломбы">
-          <a-input v-model:value="containerForm.sealNumber" placeholder="Например: LL123456" />
-        </a-form-item>
-        <a-form-item label="Вес">
-          <a-input v-model:value="containerForm.weight" placeholder="Например: 12 500 кг" />
-        </a-form-item>
-        <a-form-item label="Отправитель по ЖДН">
-          <a-input v-model:value="containerForm.shipper" placeholder="Отправитель по накладной" />
-        </a-form-item>
-        <a-form-item label="Получатель по ЖДН">
-          <a-input v-model:value="containerForm.consignee" placeholder="Получатель по накладной" />
-        </a-form-item>
-        <a-form-item label="Станция назначения по ЖДН">
-          <a-select v-model:value="containerStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
-            :options="stationOptions" placeholder="Выберите или введите станцию" />
-        </a-form-item>
-        <a-form-item label="Пост">
-          <a-select v-model:value="containerPostModel" show-search allow-clear mode="tags" :max-tag-count="1"
-            :options="postOptions" placeholder="Выберите или введите пост" />
+        <a-form-item label="Номер контейнера (китайский / внутренний)">
+          <a-input v-model:value="containerForm.secondaryContainerNumber" placeholder="Доп. номер, если отличается" />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -447,27 +417,22 @@
             placeholder="Выберите или введите имя клиента"
           />
         </a-form-item>
-        <a-form-item label="Описание груза по ТСД">
-          <a-textarea v-model:value="clientForm.cargoDescription" :rows="2" placeholder="Описание перевозимого товара" />
+        <PartyAddressFields v-model="clientForm.shipper" title="Отправитель" :country-options="countryOptions" />
+        <PartyAddressFields v-model="clientForm.consignee" title="Получатель" :country-options="countryOptions" />
+        <a-divider style="margin: 12px 0;" />
+        <a-form-item label="Номер пломбы">
+          <a-input v-model:value="clientForm.sealNumber" placeholder="Например: LL123456" />
         </a-form-item>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <a-form-item label="Отправитель">
-            <a-input v-model:value="clientForm.shipper" placeholder="Отправитель" />
-          </a-form-item>
-          <a-form-item label="Получатель">
-            <a-input v-model:value="clientForm.consignee" placeholder="Получатель" />
-          </a-form-item>
-        </div>
+        <a-form-item label="Вес">
+          <a-input v-model:value="clientForm.weight" placeholder="Например: 12 500 кг" />
+        </a-form-item>
         <a-form-item label="Станция назначения">
           <a-select v-model:value="clientStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
             :options="stationOptions" placeholder="Выберите или введите станцию" />
         </a-form-item>
-        <a-form-item label="Пост">
-          <a-select v-model:value="clientPostModel" show-search allow-clear mode="tags" :max-tag-count="1"
-            :options="postOptions" placeholder="Выберите или введите пост" />
-        </a-form-item>
-        <a-form-item label="Вид упаковки">
-          <a-input v-model:value="clientForm.packagingType" placeholder="Например: коробки, паллеты" />
+        <a-form-item label="Орган назначения">
+          <a-select v-model:value="clientAuthorityModel" show-search allow-clear mode="tags" :max-tag-count="1"
+            :options="postOptions" placeholder="Выберите или введите орган назначения" />
         </a-form-item>
         <a-divider style="margin: 12px 0;" />
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -510,25 +475,8 @@
               <a-form-item label="Номер контейнера" required>
                 <a-input v-model:value="containerForm.containerNumber" placeholder="Например: MSCU1234567" />
               </a-form-item>
-              <a-form-item label="Номер пломбы">
-                <a-input v-model:value="containerForm.sealNumber" placeholder="Например: LL123456" />
-              </a-form-item>
-              <a-form-item label="Вес">
-                <a-input v-model:value="containerForm.weight" placeholder="Например: 12 500 кг" />
-              </a-form-item>
-              <a-form-item label="Отправитель по ЖДН">
-                <a-input v-model:value="containerForm.shipper" placeholder="Отправитель по накладной" />
-              </a-form-item>
-              <a-form-item label="Получатель по ЖДН">
-                <a-input v-model:value="containerForm.consignee" placeholder="Получатель по накладной" />
-              </a-form-item>
-              <a-form-item label="Станция назначения по ЖДН">
-                <a-select v-model:value="containerStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
-                  :options="stationOptions" placeholder="Выберите или введите станцию" />
-              </a-form-item>
-              <a-form-item label="Пост">
-                <a-select v-model:value="containerPostModel" show-search allow-clear mode="tags" :max-tag-count="1"
-                  :options="postOptions" placeholder="Выберите или введите пост" />
+              <a-form-item label="Номер контейнера (китайский / внутренний)">
+                <a-input v-model:value="containerForm.secondaryContainerNumber" placeholder="Доп. номер, если отличается" />
               </a-form-item>
             </a-form>
             <a-form v-else-if="clientModalOpen" layout="vertical">
@@ -540,27 +488,22 @@
                   placeholder="Выберите или введите имя клиента"
                 />
               </a-form-item>
-              <a-form-item label="Описание груза по ТСД">
-                <a-textarea v-model:value="clientForm.cargoDescription" :rows="2" placeholder="Описание перевозимого товара" />
+              <PartyAddressFields v-model="clientForm.shipper" title="Отправитель" :country-options="countryOptions" />
+              <PartyAddressFields v-model="clientForm.consignee" title="Получатель" :country-options="countryOptions" />
+              <a-divider style="margin: 12px 0;" />
+              <a-form-item label="Номер пломбы">
+                <a-input v-model:value="clientForm.sealNumber" placeholder="Например: LL123456" />
               </a-form-item>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <a-form-item label="Отправитель">
-                  <a-input v-model:value="clientForm.shipper" placeholder="Отправитель" />
-                </a-form-item>
-                <a-form-item label="Получатель">
-                  <a-input v-model:value="clientForm.consignee" placeholder="Получатель" />
-                </a-form-item>
-              </div>
+              <a-form-item label="Вес">
+                <a-input v-model:value="clientForm.weight" placeholder="Например: 12 500 кг" />
+              </a-form-item>
               <a-form-item label="Станция назначения">
                 <a-select v-model:value="clientStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
                   :options="stationOptions" placeholder="Выберите или введите станцию" />
               </a-form-item>
-              <a-form-item label="Пост">
-                <a-select v-model:value="clientPostModel" show-search allow-clear mode="tags" :max-tag-count="1"
-                  :options="postOptions" placeholder="Выберите или введите пост" />
-              </a-form-item>
-              <a-form-item label="Вид упаковки">
-                <a-input v-model:value="clientForm.packagingType" placeholder="Например: коробки, паллеты" />
+              <a-form-item label="Орган назначения">
+                <a-select v-model:value="clientAuthorityModel" show-search allow-clear mode="tags" :max-tag-count="1"
+                  :options="postOptions" placeholder="Выберите или введите орган назначения" />
               </a-form-item>
               <a-divider style="margin: 12px 0;" />
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -714,12 +657,21 @@ import { documentPackagesApi } from '@/api/documentPackages'
 import { reestrApi } from '@/api/reestr'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
-import type { DocumentPackageDto, DocumentPackageFileDto, ReestrGoodsItemInput, ReestrDoc44ItemInput } from '@/types/api'
+import type { DocumentPackageDto, DocumentPackageFileDto, ReestrGoodsItemInput, ReestrDoc44ItemInput, PartyAddress } from '@/types/api'
 import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
 import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
 import InvoiceFileSection from '@/components/InvoiceFileSection.vue'
 import PendingInvoicePicker from '@/components/PendingInvoicePicker.vue'
+import PartyAddressFields from '@/components/PartyAddressFields.vue'
 import InvoiceGoodsImporter from '@/components/InvoiceGoodsImporter.vue'
+
+const emptyParty = (): PartyAddress => ({
+  name: null,
+  countryCode: null,
+  region: null,
+  city: null,
+  street: null,
+})
 
 const route = useRoute()
 const router = useRouter()
@@ -736,22 +688,23 @@ const isEditingContainer = ref(false)
 const editingContainerId = ref<string | null>(null)
 const containerForm = reactive({
   containerNumber: '',
-  sealNumber: '',
-  weight: '',
-  shipper: '',
-  consignee: '',
-  destinationStation: '',
-  customsPost: '',
+  secondaryContainerNumber: '',
 })
 
 // Reference dropdowns
 const stationOptions = ref<{ value: string; label: string }[]>([])
 const postOptions = ref<{ value: string; label: string }[]>([])
+const countryOptions = ref<{ value: string; label: string }[]>([])
 const loadReferences = async () => {
   try {
-    const [stations, posts] = await Promise.all([referencesApi.listStations(), referencesApi.listCustomsPosts()])
+    const [stations, posts, countries] = await Promise.all([
+      referencesApi.listStations(),
+      referencesApi.listCustomsPosts(),
+      referencesApi.listCountries(),
+    ])
     stationOptions.value = stations.map((s) => ({ value: s.name, label: s.name }))
     postOptions.value = posts.map((p) => ({ value: p.name, label: p.name }))
+    countryOptions.value = countries.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
   } catch (e) {
     console.error('Failed to load references', e)
   }
@@ -767,16 +720,12 @@ const clientOptions = ref<{ value: string; label: string }[]>([])
 const clientUuidByUsername = ref<Map<string, string>>(new Map())
 const clientForm = reactive({
   clientName: '',
-  cargoDescription: '',
-  shipper: '',
-  consignee: '',
   destinationStation: '',
-  customsPost: '',
-  subcode: '',
-  commodityCode: '',
-  packagesCount: '',
+  destinationCustomsAuthority: '',
   weight: '',
-  packagingType: '',
+  sealNumber: '',
+  shipper: emptyParty(),
+  consignee: emptyParty(),
   goodsItems: [] as ReestrGoodsItemInput[],
   doc44Items: [] as ReestrDoc44ItemInput[],
   pendingInvoiceFiles: [] as File[],
@@ -838,26 +787,20 @@ const loadPackage = async () => {
   }
 }
 
-const containerStationModel = computed<string[]>({
-  get: () => (containerForm.destinationStation ? [containerForm.destinationStation] : []),
-  set: (v) => { containerForm.destinationStation = v[v.length - 1] ?? '' },
-})
-const containerPostModel = computed<string[]>({
-  get: () => (containerForm.customsPost ? [containerForm.customsPost] : []),
-  set: (v) => { containerForm.customsPost = v[v.length - 1] ?? '' },
-})
 const clientStationModel = computed<string[]>({
   get: () => (clientForm.destinationStation ? [clientForm.destinationStation] : []),
   set: (v) => { clientForm.destinationStation = v[v.length - 1] ?? '' },
 })
-const clientPostModel = computed<string[]>({
-  get: () => (clientForm.customsPost ? [clientForm.customsPost] : []),
-  set: (v) => { clientForm.customsPost = v[v.length - 1] ?? '' },
+const clientAuthorityModel = computed<string[]>({
+  get: () => (clientForm.destinationCustomsAuthority ? [clientForm.destinationCustomsAuthority] : []),
+  set: (v) => { clientForm.destinationCustomsAuthority = v[v.length - 1] ?? '' },
 })
 
 const authStore = useAuthStore()
 const role = computed(() => (authStore.role || '').trim().toLowerCase())
 const canReview = computed(() => role.value === 'broker' || role.value === 'administrator')
+// Демо-кнопка авто-разбора фабрикует данные — показываем только в dev-сборке.
+const isDev = import.meta.env.DEV
 
 const loadClients = async () => {
   try {
@@ -1043,12 +986,7 @@ const openAddContainerModal = () => {
   isEditingContainer.value = false
   editingContainerId.value = null
   containerForm.containerNumber = ''
-  containerForm.sealNumber = ''
-  containerForm.weight = ''
-  containerForm.shipper = ''
-  containerForm.consignee = ''
-  containerForm.destinationStation = ''
-  containerForm.customsPost = ''
+  containerForm.secondaryContainerNumber = ''
   ensureSplitForEdit()
   containerModalOpen.value = true
 }
@@ -1057,12 +995,7 @@ const openEditContainerModal = (container: any) => {
   isEditingContainer.value = true
   editingContainerId.value = container.id
   containerForm.containerNumber = container.containerNumber
-  containerForm.sealNumber = container.sealNumber || ''
-  containerForm.weight = container.weight || ''
-  containerForm.shipper = container.shipper || ''
-  containerForm.consignee = container.consignee || ''
-  containerForm.destinationStation = container.destinationStation || ''
-  containerForm.customsPost = container.customsPost || ''
+  containerForm.secondaryContainerNumber = container.secondaryContainerNumber || ''
   ensureSplitForEdit()
   containerModalOpen.value = true
 }
@@ -1076,12 +1009,7 @@ const handleAddContainer = async () => {
   try {
     const payload = {
       containerNumber: containerForm.containerNumber.trim(),
-      sealNumber: containerForm.sealNumber.trim() || null,
-      weight: containerForm.weight.trim() || null,
-      shipper: containerForm.shipper.trim() || null,
-      consignee: containerForm.consignee.trim() || null,
-      destinationStation: containerForm.destinationStation.trim() || null,
-      customsPost: containerForm.customsPost.trim() || null,
+      secondaryContainerNumber: containerForm.secondaryContainerNumber.trim() || null,
     }
     if (isEditingContainer.value && editingContainerId.value) {
       packageData.value = await documentPackagesApi.updateContainer(packageId, editingContainerId.value, payload)
@@ -1115,16 +1043,12 @@ const openAddClientModal = (containerId: string) => {
   editingClientId.value = null
   targetContainerId.value = containerId
   clientForm.clientName = ''
-  clientForm.cargoDescription = ''
-  clientForm.shipper = ''
-  clientForm.consignee = ''
   clientForm.destinationStation = ''
-  clientForm.customsPost = ''
-  clientForm.subcode = ''
-  clientForm.commodityCode = ''
-  clientForm.packagesCount = ''
+  clientForm.destinationCustomsAuthority = ''
   clientForm.weight = ''
-  clientForm.packagingType = ''
+  clientForm.sealNumber = ''
+  clientForm.shipper = emptyParty()
+  clientForm.consignee = emptyParty()
   clientForm.goodsItems = []
   clientForm.doc44Items = []
   clientForm.pendingInvoiceFiles = []
@@ -1137,24 +1061,24 @@ const openEditClientModal = (containerId: string, consolidation: any) => {
   editingClientId.value = consolidation.id
   targetContainerId.value = containerId
   clientForm.clientName = consolidation.clientName
-  clientForm.cargoDescription = consolidation.cargoDescription || ''
-  clientForm.shipper = consolidation.shipper || ''
-  clientForm.consignee = consolidation.consignee || ''
   clientForm.destinationStation = consolidation.destinationStation || ''
-  clientForm.customsPost = consolidation.customsPost || ''
-  clientForm.subcode = consolidation.subcode || ''
-  clientForm.commodityCode = consolidation.commodityCode || ''
-  clientForm.packagesCount = consolidation.packagesCount || ''
+  clientForm.destinationCustomsAuthority = consolidation.destinationCustomsAuthority || ''
   clientForm.weight = consolidation.weight || ''
-  clientForm.packagingType = consolidation.packagingType || ''
+  clientForm.sealNumber = consolidation.sealNumber || ''
+  clientForm.shipper = { ...emptyParty(), ...(consolidation.shipper || {}) }
+  clientForm.consignee = { ...emptyParty(), ...(consolidation.consignee || {}) }
   clientForm.goodsItems = (consolidation.goodsItems ?? []).map((g: any) => ({
     description: g.description ?? null,
     tnvedCode: g.tnvedCode ?? null,
+    tnvedDescription: g.tnvedDescription ?? null,
     countryOfOrigin: g.countryOfOrigin ?? null,
     quantity: g.quantity ?? null,
     unit: g.unit ?? null,
+    unitCode: g.unitCode ?? null,
     grossWeightKg: g.grossWeightKg ?? null,
     netWeightKg: g.netWeightKg ?? null,
+    packagesCount: g.packagesCount ?? null,
+    quantityTypeCode: g.quantityTypeCode ?? null,
     customsValue: g.customsValue ?? null,
     currency: g.currency ?? null,
   }))
@@ -1179,16 +1103,12 @@ const handleAddClient = async () => {
   try {
     const payload = {
       clientName: clientForm.clientName.trim(),
-      cargoDescription: clientForm.cargoDescription.trim() || null,
-      shipper: clientForm.shipper.trim() || null,
-      consignee: clientForm.consignee.trim() || null,
       destinationStation: clientForm.destinationStation.trim() || null,
-      customsPost: clientForm.customsPost.trim() || null,
-      subcode: clientForm.subcode.trim() || null,
-      commodityCode: clientForm.commodityCode.trim() || null,
-      packagesCount: clientForm.packagesCount.trim() || null,
+      destinationCustomsAuthority: clientForm.destinationCustomsAuthority.trim() || null,
       weight: clientForm.weight.trim() || null,
-      packagingType: clientForm.packagingType.trim() || null,
+      sealNumber: clientForm.sealNumber.trim() || null,
+      shipper: clientForm.shipper,
+      consignee: clientForm.consignee,
       goodsItems: clientForm.goodsItems.length ? clientForm.goodsItems : null,
       doc44Items: clientForm.doc44Items.length ? clientForm.doc44Items : null,
     }
@@ -1478,31 +1398,23 @@ const runAiParse = async () => {
       const containerNo = 'SWFU' + Math.floor(1000000 + Math.random() * 9000000)
       currentData = await documentPackagesApi.createContainer(packageId, {
         containerNumber: containerNo,
-        sealNumber: 'SL-' + Math.floor(100000 + Math.random() * 900000),
-        weight: '21 500 кг',
-        shipper: 'Orient Express Logistics',
-        consignee: 'Aqniet Trans Group',
-        destinationStation: 'Алматы-1'
       })
     }
-    
+
     // Make sure we have at least one client consolidation in the first container
     const firstContainer = currentData.containers[0]
     if (!firstContainer.consolidations.length) {
-      const clientName = clientOptions.value.length > 0 
-        ? clientOptions.value[0].value 
+      const clientName = clientOptions.value.length > 0
+        ? clientOptions.value[0].value
         : 'ТОО «Aqniet Import»'
-        
+
       currentData = await documentPackagesApi.createClientConsolidation(packageId, firstContainer.id, {
         clientName,
-        cargoDescription: 'Запчасти для спецтехники',
-        shipper: 'Shenzhen Industrial Co.',
-        consignee: clientName,
+        shipper: { ...emptyParty(), name: 'Shenzhen Industrial Co.' },
+        consignee: { ...emptyParty(), name: clientName },
         destinationStation: 'Алматы-1',
         weight: '4 850 кг',
-        packagesCount: '12 мест',
-        subcode: 'SUB-' + Math.floor(10 + Math.random() * 90),
-        commodityCode: '8708299009'
+        sealNumber: 'SL-' + Math.floor(100000 + Math.random() * 900000),
       })
     }
     

@@ -181,11 +181,15 @@ const handleApply = () => {
   const mapped: ReestrGoodsItemInput[] = items.value.map((item) => ({
     description: item.description || null,
     tnvedCode: item.tnvedCode || null,
+    tnvedDescription: null,
     countryOfOrigin: null,
     quantity: item.quantity,
     unit: null,
+    unitCode: null,
     grossWeightKg: item.grossWeightKg,
     netWeightKg: null,
+    packagesCount: null,
+    quantityTypeCode: null,
     customsValue: item.customsValue,
     currency: currency.value || null,
   }))

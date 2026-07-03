@@ -144,8 +144,7 @@ const columns = [
 
 const statusLabel = (status: number) =>
   IMPORT40_STATUSES.find((s) => s.id === status)?.short || 'Неизвестно'
-const declCount = (c: Import40CaseDto) =>
-  c.containers.reduce((sum, ct) => sum + ct.declarations.length, 0)
+const declCount = (c: Import40CaseDto) => c.declarations.length
 const progress = (c: Import40CaseDto) => Math.round((c.status / 8) * 100)
 
 const metrics = computed(() => [

@@ -357,16 +357,29 @@ export interface DocumentPackageFileDto {
   uploadedAtUtc: string
 }
 
+export interface PartyAddress {
+  name?: string | null
+  countryCode?: string | null
+  region?: string | null
+  city?: string | null
+  // Улица, номер дома, номер офиса — одной строкой
+  street?: string | null
+}
+
 export interface DocumentPackageConsolidationGoodsItemDto {
   id: string
   sortOrder: number
   description?: string | null
   tnvedCode?: string | null
+  tnvedDescription?: string | null
   countryOfOrigin?: string | null
   quantity?: number | null
   unit?: string | null
+  unitCode?: string | null
   grossWeightKg?: number | null
   netWeightKg?: number | null
+  packagesCount?: number | null
+  quantityTypeCode?: string | null
   customsValue?: number | null
   currency?: string | null
 }
@@ -384,16 +397,12 @@ export interface DocumentPackageClientConsolidationDto {
   id: string
   containerId: string
   clientName: string
-  cargoDescription: string | null
-  shipper?: string | null
-  consignee?: string | null
   destinationStation?: string | null
-  customsPost?: string | null
-  subcode?: string | null
-  commodityCode?: string | null
-  packagesCount?: string | null
+  destinationCustomsAuthority?: string | null
   weight?: string | null
-  packagingType?: string | null
+  sealNumber?: string | null
+  shipper?: PartyAddress | null
+  consignee?: PartyAddress | null
   goodsItems: DocumentPackageConsolidationGoodsItemDto[]
   doc44Items: DocumentPackageConsolidationDoc44ItemDto[]
 }
@@ -402,12 +411,7 @@ export interface DocumentPackageContainerDto {
   id: string
   packageId: string
   containerNumber: string
-  sealNumber: string | null
-  weight: string | null
-  shipper?: string | null
-  consignee?: string | null
-  destinationStation?: string | null
-  customsPost?: string | null
+  secondaryContainerNumber?: string | null
   consolidations: DocumentPackageClientConsolidationDto[]
 }
 
@@ -531,6 +535,13 @@ export interface RegisterRequest {
 
 export interface RefItem {
   id: string
+  name: string
+  isActive: boolean
+}
+
+export interface RefCodeItem {
+  id: string
+  code: string
   name: string
   isActive: boolean
 }
@@ -800,11 +811,15 @@ export interface ReestrGoodsItemDto {
   sortOrder: number
   description: string | null
   tnvedCode: string | null
+  tnvedDescription: string | null
   countryOfOrigin: string | null
   quantity: number | null
   unit: string | null
+  unitCode: string | null
   grossWeightKg: number | null
   netWeightKg: number | null
+  packagesCount: number | null
+  quantityTypeCode: string | null
   customsValue: number | null
   currency: string | null
 }
@@ -821,11 +836,15 @@ export interface ReestrDoc44ItemDto {
 export interface ReestrGoodsItemInput {
   description: string | null
   tnvedCode: string | null
+  tnvedDescription: string | null
   countryOfOrigin: string | null
   quantity: number | null
   unit: string | null
+  unitCode: string | null
   grossWeightKg: number | null
   netWeightKg: number | null
+  packagesCount: number | null
+  quantityTypeCode: string | null
   customsValue: number | null
   currency: string | null
 }
@@ -838,14 +857,28 @@ export interface ReestrDoc44ItemInput {
 }
 
 export const EAES_DOC_CODES: { code: string; name: string }[] = [
-  { code: '02191', name: 'ЖД накладная' },
-  { code: '01191', name: 'Авиа накладная (AWB)' },
+  { code: '01401', name: 'Сертификат соответствия техническому регламенту ЕАЭС' },
+  { code: '01402', name: 'Декларация о соответствии техническому регламенту ЕАЭС' },
+  { code: '02011', name: 'Коносамент (морская накладная)' },
+  { code: '02013', name: 'ЖД накладная' },
+  { code: '02015', name: 'Автотранспортная накладная (CMR)' },
+  { code: '02016', name: 'Товарно-транспортная накладная' },
+  { code: '02017', name: 'Авиационная накладная (AWB)' },
+  { code: '03011', name: 'Договор (контракт)' },
+  { code: '03012', name: 'Спецификация / доп. соглашение к договору' },
   { code: '04021', name: 'Инвойс (счёт-фактура)' },
-  { code: '04022', name: 'Упаковочный лист (пакинг-лист)' },
-  { code: '04023', name: 'Счёт-проформа' },
-  { code: '09015', name: 'Сертификат соответствия' },
-  { code: '09020', name: 'Декларация о соответствии' },
-  { code: '10011', name: 'Договор (контракт)' },
+  { code: '04023', name: 'Банковские и платёжные документы' },
+  { code: '04025', name: 'Счёт-проформа' },
+  { code: '04113', name: 'Страховой полис' },
+  { code: '04131', name: 'Упаковочный лист (пакинг-лист)' },
+  { code: '06011', name: 'Сертификат о происхождении товара (форма СТ-1)' },
+  { code: '06013', name: 'Сертификат о происхождении товара (форма А)' },
+  { code: '11004', name: 'Доверенность' },
+]
+
+export const OKEI_QUANTITY_TYPE_CODES: { code: string; name: string }[] = [
+  { code: 'РК', name: 'Упаковка' },
+  { code: 'РР', name: 'Штука' },
 ]
 
 // ── System ─────────────────────────────────────────────────────────────────────

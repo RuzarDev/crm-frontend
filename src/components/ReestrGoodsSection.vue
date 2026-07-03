@@ -12,49 +12,76 @@
 
     <div v-for="(item, idx) in items" :key="idx" class="goods-card">
       <div class="card-top">
-        <span class="card-num">{{ idx + 1 }}</span>
+        <span class="card-num" title="Порядковый номер товара">{{ idx + 1 }}</span>
         <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)">✕</a-button>
       </div>
 
-      <!-- Row 1: наименование (wide) -->
+      <!-- Row: код тнвэд + найти + описание из тнвэд -->
+      <div class="field-row">
+        <div class="field f-2">
+          <div class="field-label">Код ТНВЭД</div>
+          <a-input-group compact style="display: flex">
+            <a-input
+              v-model:value="item.tnvedCode"
+              size="small"
+              :disabled="readonly"
+              placeholder="0000000000"
+              @change="emit('update:modelValue', items.map(fromRow))"
+            />
+            <a-button
+              v-if="!readonly"
+              size="small"
+              :loading="item.tnvedLoading"
+              @click="lookupTnved(item)"
+            >Найти</a-button>
+          </a-input-group>
+        </div>
+        <div class="field f-2">
+          <div class="field-label">Описание товара из ТНВЭД</div>
+          <a-input
+            v-model:value="item.tnvedDescription"
+            size="small"
+            :disabled="readonly"
+            placeholder="Автозаполнение по коду ТНВЭД"
+            @change="emit('update:modelValue', items.map(fromRow))"
+          />
+        </div>
+      </div>
+
+      <!-- Row: описание из инвойса (wide) -->
       <div class="field-row">
         <div class="field f-grow">
-          <div class="field-label">Наименование товара</div>
+          <div class="field-label">Описание из инвойса</div>
           <a-input
             v-model:value="item.description"
             size="small"
             :disabled="readonly"
-            placeholder="Описание товара"
+            placeholder="Описание товара из инвойса"
             @change="emit('update:modelValue', items.map(fromRow))"
           />
         </div>
       </div>
 
-      <!-- Row 2: код тнвэд + страна -->
+      <!-- Row: страна происхождения -->
       <div class="field-row">
         <div class="field f-2">
-          <div class="field-label">Код ТНВЭД</div>
-          <a-input
-            v-model:value="item.tnvedCode"
-            size="small"
-            :disabled="readonly"
-            placeholder="0000000000"
-            @change="emit('update:modelValue', items.map(fromRow))"
-          />
-        </div>
-        <div class="field f-2">
           <div class="field-label">Страна происхождения</div>
-          <a-input
+          <a-select
             v-model:value="item.countryOfOrigin"
             size="small"
             :disabled="readonly"
-            placeholder="CN, KZ, RU…"
+            show-search
+            allow-clear
+            style="width: 100%"
+            :options="countryOptions"
+            :filter-option="filterCountry"
+            placeholder="Выберите страну по коду"
             @change="emit('update:modelValue', items.map(fromRow))"
           />
         </div>
       </div>
 
-      <!-- Row 3: кол-во + ед.изм + брутто + нетто -->
+      <!-- Row: кол-во + код ОКЕИ + тип количества -->
       <div class="field-row">
         <div class="field f-narrow">
           <div class="field-label">Кол-во</div>
@@ -67,19 +94,36 @@
           />
         </div>
         <div class="field f-narrow">
-          <div class="field-label">Ед. изм.</div>
+          <div class="field-label">Код ДЕИ (ОКЕИ)</div>
           <a-select
-            v-model:value="item.unit"
+            v-model:value="item.unitCode"
             size="small"
             :disabled="readonly"
             show-search
             allow-clear
             style="width: 100%"
-            :options="unitOptions"
-            placeholder="шт"
+            :options="okeiOptions"
+            placeholder="796"
+            @change="(v: string) => onUnitCodeChange(item, v)"
+          />
+        </div>
+        <div class="field f-narrow">
+          <div class="field-label">Код типа кол-ва</div>
+          <a-select
+            v-model:value="item.quantityTypeCode"
+            size="small"
+            :disabled="readonly"
+            allow-clear
+            style="width: 100%"
+            :options="quantityTypeOptions"
+            placeholder="РК / РР"
             @change="emit('update:modelValue', items.map(fromRow))"
           />
         </div>
+      </div>
+
+      <!-- Row: брутто + нетто + кол-во мест -->
+      <div class="field-row">
         <div class="field f-narrow">
           <div class="field-label">Брутто, кг</div>
           <a-input
@@ -100,9 +144,19 @@
             @blur="syncNum(item, 'netWeightKg', item.netWeightStr)"
           />
         </div>
+        <div class="field f-narrow">
+          <div class="field-label">Кол-во грузовых мест</div>
+          <a-input
+            v-model:value="item.packagesCountStr"
+            size="small"
+            :disabled="readonly"
+            placeholder="—"
+            @blur="syncNum(item, 'packagesCount', item.packagesCountStr)"
+          />
+        </div>
       </div>
 
-      <!-- Row 4: там.стоимость + валюта -->
+      <!-- Row: там.стоимость + валюта -->
       <div class="field-row">
         <div class="field f-2">
           <div class="field-label">Таможенная стоимость</div>
@@ -135,14 +189,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
+import { tnvedApi } from '@/api/tnved'
+import { referencesApi } from '@/api/references'
 import type { ReestrGoodsItemInput } from '@/types/api'
+import { OKEI_QUANTITY_TYPE_CODES } from '@/types/api'
 
 interface GoodsRow extends ReestrGoodsItemInput {
   quantityStr: string
   grossWeightStr: string
   netWeightStr: string
+  packagesCountStr: string
   customsValueStr: string
+  tnvedLoading?: boolean
 }
 
 const props = defineProps<{
@@ -154,23 +213,57 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: ReestrGoodsItemInput[]): void
 }>()
 
-const UNITS = [
-  { value: 'шт', label: 'шт — штука' },
-  { value: 'кг', label: 'кг — килограмм' },
-  { value: 'г', label: 'г — грамм' },
-  { value: 'л', label: 'л — литр' },
-  { value: 'м', label: 'м — метр' },
-  { value: 'м²', label: 'м² — квадратный метр' },
-  { value: 'м³', label: 'м³ — кубический метр' },
-  { value: 'упак', label: 'упак — упаковка' },
-  { value: 'кор', label: 'кор — коробка' },
-  { value: 'паллет', label: 'паллет — паллет' },
-  { value: 'рулон', label: 'рулон — рулон' },
-  { value: 'компл', label: 'компл — комплект' },
-  { value: 'пара', label: 'пара — пара' },
-  { value: 'т', label: 'т — тонна' },
-]
-const unitOptions = UNITS
+const quantityTypeOptions = OKEI_QUANTITY_TYPE_CODES.map((c) => ({
+  value: c.code,
+  label: `${c.code} — ${c.name}`,
+}))
+
+const okeiOptions = ref<{ value: string; label: string }[]>([])
+const okeiByCode = ref<Record<string, string>>({})
+const countryOptions = ref<{ value: string; label: string }[]>([])
+
+onMounted(async () => {
+  try {
+    const units = await referencesApi.listOkeiUnits()
+    okeiOptions.value = units.map((u) => ({ value: u.code, label: `${u.code} — ${u.name}` }))
+    okeiByCode.value = Object.fromEntries(units.map((u) => [u.code, u.name]))
+  } catch (e) {
+    console.error('Failed to load OKEI units', e)
+  }
+  try {
+    const countries = await referencesApi.listCountries()
+    countryOptions.value = countries.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+  } catch (e) {
+    console.error('Failed to load countries', e)
+  }
+})
+
+function filterCountry(input: string, option: { label: string }) {
+  return option.label.toLowerCase().includes(input.toLowerCase())
+}
+
+function onUnitCodeChange(item: GoodsRow, code: string | undefined) {
+  item.unitCode = code || null
+  if (code && okeiByCode.value[code]) {
+    item.unit = okeiByCode.value[code]
+  }
+  emit('update:modelValue', items.value.map(fromRow))
+}
+
+async function lookupTnved(item: GoodsRow) {
+  const code = (item.tnvedCode || '').trim()
+  if (!code) return
+  item.tnvedLoading = true
+  try {
+    const res = await tnvedApi.node(code)
+    item.tnvedDescription = res.data.name
+    emit('update:modelValue', items.value.map(fromRow))
+  } catch (e) {
+    console.error('Failed to look up TNVED code', e)
+  } finally {
+    item.tnvedLoading = false
+  }
+}
 
 const CURRENCIES = [
   { value: 'USD', label: 'USD — Доллар США' },
@@ -198,6 +291,7 @@ function toRow(g: ReestrGoodsItemInput): GoodsRow {
     quantityStr: g.quantity != null ? String(g.quantity) : '',
     grossWeightStr: g.grossWeightKg != null ? String(g.grossWeightKg) : '',
     netWeightStr: g.netWeightKg != null ? String(g.netWeightKg) : '',
+    packagesCountStr: g.packagesCount != null ? String(g.packagesCount) : '',
     customsValueStr: g.customsValue != null ? String(g.customsValue) : '',
   }
 }
@@ -206,11 +300,15 @@ function fromRow(r: GoodsRow): ReestrGoodsItemInput {
   return {
     description: r.description || null,
     tnvedCode: r.tnvedCode || null,
+    tnvedDescription: r.tnvedDescription || null,
     countryOfOrigin: r.countryOfOrigin || null,
     quantity: r.quantity,
     unit: r.unit || null,
+    unitCode: r.unitCode || null,
     grossWeightKg: r.grossWeightKg,
     netWeightKg: r.netWeightKg,
+    packagesCount: r.packagesCount,
+    quantityTypeCode: r.quantityTypeCode || null,
     customsValue: r.customsValue,
     currency: r.currency || null,
   }
@@ -218,7 +316,7 @@ function fromRow(r: GoodsRow): ReestrGoodsItemInput {
 
 function syncNum(
   item: GoodsRow,
-  key: 'quantity' | 'grossWeightKg' | 'netWeightKg' | 'customsValue',
+  key: 'quantity' | 'grossWeightKg' | 'netWeightKg' | 'packagesCount' | 'customsValue',
   str: string,
 ) {
   const n = parseFloat(str.replace(',', '.'))
@@ -238,16 +336,21 @@ function addItem() {
   items.value.push({
     description: null,
     tnvedCode: null,
+    tnvedDescription: null,
     countryOfOrigin: null,
     quantity: null,
     unit: null,
+    unitCode: null,
     grossWeightKg: null,
     netWeightKg: null,
+    packagesCount: null,
+    quantityTypeCode: null,
     customsValue: null,
     currency: 'USD',
     quantityStr: '',
     grossWeightStr: '',
     netWeightStr: '',
+    packagesCountStr: '',
     customsValueStr: '',
   })
   emit('update:modelValue', items.value.map(fromRow))
