@@ -70,6 +70,18 @@ const router = createRouter({
           meta: { requiresImport40: true },
         },
         {
+          path: '/keden',
+          name: 'keden',
+          component: () => import('@/views/KedenListView.vue'),
+          meta: { requiresRole: 'administrator' },
+        },
+        {
+          path: '/keden/:id',
+          name: 'keden-detail',
+          component: () => import('@/views/KedenView.vue'),
+          meta: { requiresRole: 'administrator' },
+        },
+        {
           path: '/sales',
           name: 'sales',
           component: () => import('@/views/SalesView.vue'),
