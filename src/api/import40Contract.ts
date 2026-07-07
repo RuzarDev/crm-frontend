@@ -212,4 +212,31 @@ export const import40ContractApi = {
     )
     return response.data
   },
+
+  sigexStartSigningDocument: async (clientId: string, docId: string): Promise<SigexStartDto> => {
+    const response = await apiClient.post<SigexStartDto>(
+      `${base(clientId)}/documents/${encodeURIComponent(docId)}/sigex/start-signing`,
+    )
+    return response.data
+  },
+
+  sigexPollDocument: async (clientId: string, docId: string, qrId: string): Promise<SigexPollDto> => {
+    const response = await apiClient.get<SigexPollDto>(
+      `${base(clientId)}/documents/${encodeURIComponent(docId)}/sigex/${encodeURIComponent(qrId)}/poll`,
+    )
+    return response.data
+  },
+
+  sigexCompleteDocument: async (
+    clientId: string,
+    docId: string,
+    qrId: string,
+    side: 'client' | 'provider',
+  ): Promise<Import40DocumentDto> => {
+    const response = await apiClient.post<Import40DocumentDto>(
+      `${base(clientId)}/documents/${encodeURIComponent(docId)}/sigex/${encodeURIComponent(qrId)}/complete`,
+      { side },
+    )
+    return response.data
+  },
 }

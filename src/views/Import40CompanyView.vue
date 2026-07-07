@@ -2,6 +2,15 @@
   <div class="company-page crm-page">
     <input ref="fileInputRef" type="file" style="display: none" @change="onFileSelected" />
 
+    <SigexSignModal
+      :open="sigexOpen"
+      :client-id="clientId"
+      :doc-id="sigexDoc?.id ?? null"
+      :side="sigexSide"
+      @cancel="sigexOpen = false"
+      @signed="onSigexSigned"
+    />
+
     <div class="crm-page-header">
       <div>
         <div class="crm-page-kicker">Импорт 40</div>
@@ -58,6 +67,7 @@
             @generate="(opts: GenerateOpts) => generate('contract', opts)"
             @download="downloadDoc"
             @sign="(doc: Import40DocumentDto, side: 'client' | 'provider') => triggerSign(doc, side)"
+            @sigex="(doc: Import40DocumentDto, side: 'client' | 'provider') => openSigex(doc, side)"
           />
 
           <!-- ③ Доверенность -->
@@ -73,6 +83,7 @@
             @generate="(opts: GenerateOpts) => generate('poa', opts)"
             @download="downloadDoc"
             @sign="(doc: Import40DocumentDto, side: 'client' | 'provider') => triggerSign(doc, side)"
+            @sigex="(doc: Import40DocumentDto, side: 'client' | 'provider') => openSigex(doc, side)"
           />
 
           <div class="step-nav">
@@ -100,6 +111,7 @@ import {
 import { import40Api } from '@/api/import40'
 import { useAuthStore } from '@/stores/auth'
 import DocumentStep, { type GenerateOpts } from '@/components/Import40DocumentStep.vue'
+import SigexSignModal from '@/components/SigexSignModal.vue'
 
 const authStore = useAuthStore()
 const loading = ref(false)
@@ -285,6 +297,23 @@ const onFileSelected = async (e: Event) => {
     pendingDoc.value = null
     pendingSide.value = null
   }
+}
+
+// eGov Sigex (QR)
+const sigexOpen = ref(false)
+const sigexDoc = ref<Import40DocumentDto | null>(null)
+const sigexSide = ref<'client' | 'provider'>('client')
+
+const openSigex = (doc: Import40DocumentDto, side: 'client' | 'provider') => {
+  sigexDoc.value = doc
+  sigexSide.value = side
+  sigexOpen.value = true
+}
+
+const onSigexSigned = async () => {
+  sigexOpen.value = false
+  message.success('Документ подписан через eGov!')
+  await loadDocuments()
 }
 
 onMounted(load)

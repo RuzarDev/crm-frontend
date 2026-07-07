@@ -93,6 +93,8 @@ const props = defineProps<{
   open: boolean
   clientId: string
   side: 'client' | 'provider'
+  /** Если указан — подписываем конкретный документ (договор/доверенность нового образца), иначе — legacy-договор. */
+  docId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -122,7 +124,9 @@ async function start() {
   qrCode.value = ''
   currentQrId.value = ''
   try {
-    const data = await import40ContractApi.sigexStartSigning(props.clientId)
+    const data = props.docId
+      ? await import40ContractApi.sigexStartSigningDocument(props.clientId, props.docId)
+      : await import40ContractApi.sigexStartSigning(props.clientId)
     qrCode.value = data.qrCode
     eGovMobileLink.value = data.eGovMobileLaunchLink
     eGovBusinessLink.value = data.eGovBusinessLaunchLink
@@ -138,12 +142,18 @@ async function poll() {
   if (!currentQrId.value) return
   polling.value = true
   try {
-    const result = await import40ContractApi.sigexPoll(props.clientId, currentQrId.value)
+    const result = props.docId
+      ? await import40ContractApi.sigexPollDocument(props.clientId, props.docId, currentQrId.value)
+      : await import40ContractApi.sigexPoll(props.clientId, currentQrId.value)
     if (result.pending) {
       message.warning('Документ ещё не подписан. Подпишите через eGov Mobile и повторите.')
       return
     }
-    await import40ContractApi.sigexComplete(props.clientId, currentQrId.value, props.side)
+    if (props.docId) {
+      await import40ContractApi.sigexCompleteDocument(props.clientId, props.docId, currentQrId.value, props.side)
+    } else {
+      await import40ContractApi.sigexComplete(props.clientId, currentQrId.value, props.side)
+    }
     step.value = 'success'
   } catch (e: any) {
     errorMsg.value = e?.response?.data?.error ?? 'Ошибка при проверке подписи'

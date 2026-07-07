@@ -50,6 +50,9 @@
               <a-tag v-else color="default">Ожидается</a-tag>
             </div>
             <div v-if="!doc.clientSigned" class="sign-actions">
+              <a-button size="small" type="primary" @click="emit('sigex', doc, 'client')">
+                <SafetyCertificateOutlined /> Подписать через eGov (QR)
+              </a-button>
               <a-button size="small" @click="emit('sign', doc, 'client')">
                 <UploadOutlined /> Загрузить подписанный файл
               </a-button>
@@ -63,6 +66,9 @@
               <a-tag v-else color="default">Ожидается</a-tag>
             </div>
             <div v-if="isAdmin && !doc.providerSigned" class="sign-actions">
+              <a-button size="small" type="primary" @click="emit('sigex', doc, 'provider')">
+                <SafetyCertificateOutlined /> Подписать через eGov (QR)
+              </a-button>
               <a-button size="small" @click="emit('sign', doc, 'provider')">
                 <UploadOutlined /> Загрузить подписанный файл
               </a-button>
@@ -80,6 +86,7 @@ import {
   DownloadOutlined,
   FileAddOutlined,
   FileProtectOutlined,
+  SafetyCertificateOutlined,
   UploadOutlined,
 } from '@ant-design/icons-vue'
 import type { Dayjs } from 'dayjs'
@@ -104,6 +111,7 @@ const emit = defineEmits<{
   (e: 'generate', opts: GenerateOpts): void
   (e: 'download', doc: Import40DocumentDto): void
   (e: 'sign', doc: Import40DocumentDto, side: 'client' | 'provider'): void
+  (e: 'sigex', doc: Import40DocumentDto, side: 'client' | 'provider'): void
 }>()
 
 const singleUse = ref(false)
