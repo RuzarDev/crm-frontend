@@ -2,116 +2,83 @@
   <div class="company-page crm-page">
     <input ref="fileInputRef" type="file" style="display: none" @change="onFileSelected" />
 
-    <SigexSignModal
-      :open="sigexOpen"
-      :client-id="clientId"
-      :side="sigexSide"
-      @cancel="sigexOpen = false"
-      @signed="onSigexSigned"
-    />
-
     <div class="crm-page-header">
       <div>
         <div class="crm-page-kicker">Импорт 40</div>
         <h1 class="crm-page-title">Моя компания</h1>
-        <p class="crm-page-subtitle">Реквизиты для договора таможенного представителя.</p>
+        <p class="crm-page-subtitle">Реквизиты, договор и доверенность таможенного представителя.</p>
       </div>
+      <a-tag v-if="onboardingComplete" color="success" class="onboarding-badge">
+        <CheckCircleOutlined /> Онбординг завершён
+      </a-tag>
+      <a-tooltip v-else :title="missingHint">
+        <a-tag color="warning" class="onboarding-badge">
+          <ExclamationCircleOutlined /> Онбординг не завершён
+        </a-tag>
+      </a-tooltip>
     </div>
 
     <a-spin :spinning="loading">
-      <!-- Реквизиты -->
       <a-card class="crm-shell-card" :bordered="false">
-        <template #title><div class="card-title"><BankOutlined /> Реквизиты компании</div></template>
-        <div class="form-grid">
-          <label class="full"><span>Наименование компании *</span><a-input v-model:value="form.companyName" placeholder="ТОО «…»" /></label>
-          <label><span>БИН *</span><a-input v-model:value="form.bin" placeholder="12 цифр" /></label>
-          <label><span>ФИО руководителя *</span><a-input v-model:value="form.directorName" placeholder="Иванов И.И." /></label>
-          <label><span>Действует на основании</span><a-input v-model:value="form.directorBasis" placeholder="устава" /></label>
-          <label class="full"><span>Юридический адрес</span><a-input v-model:value="form.legalAddress" /></label>
-          <label><span>Банк</span><a-input v-model:value="form.bank" /></label>
-          <label><span>ИИК</span><a-input v-model:value="form.iik" /></label>
-          <label><span>БИК</span><a-input v-model:value="form.bik" /></label>
-          <label><span>Телефон</span><a-input v-model:value="form.phone" /></label>
-          <label><span>E-mail</span><a-input v-model:value="form.email" /></label>
-        </div>
-        <div class="form-footer">
-          <a-tag v-if="profile?.isComplete" color="success">Заполнено</a-tag>
-          <a-tag v-else color="warning">Заполните обязательные поля (*)</a-tag>
-          <a-button type="primary" :loading="saving" @click="saveProfile">Сохранить реквизиты</a-button>
-        </div>
-      </a-card>
+        <a-steps :current="current" :items="stepItems" @change="(v: number) => (current = v)" />
 
-      <!-- Договор -->
-      <a-card class="crm-shell-card" :bordered="false" style="margin-top: 18px">
-        <template #title><div class="card-title"><FileProtectOutlined /> Договор таможенного представителя</div></template>
-
-        <div v-if="!contract" class="contract-empty">
-          <p class="muted">
-            Договор формируется автоматически из ваших реквизитов. Заполните реквизиты выше и нажмите «Сформировать договор».
-          </p>
-          <a-button type="primary" :disabled="!profile?.isComplete" :loading="generating" @click="generate">
-            <FileAddOutlined /> Сформировать договор
-          </a-button>
-        </div>
-
-        <div v-else class="contract-body">
-          <div class="contract-head">
-            <div>
-              <div class="contract-number">№ {{ contract.number }}/ТП/{{ contract.year }}</div>
-              <div class="muted">Сформирован {{ formatDate(contract.generatedAtUtc) }}</div>
+        <div class="step-body">
+          <!-- ① Реквизиты -->
+          <div v-if="current === 0">
+            <div class="form-grid">
+              <label class="full"><span>Наименование компании *</span><a-input v-model:value="form.companyName" placeholder="ТОО «…»" /></label>
+              <label><span>БИН *</span><a-input v-model:value="form.bin" placeholder="12 цифр" /></label>
+              <label><span>ФИО руководителя *</span><a-input v-model:value="form.directorName" placeholder="Иванов И.И." /></label>
+              <label><span>Действует на основании</span><a-input v-model:value="form.directorBasis" placeholder="устава" /></label>
+              <label class="full"><span>Юридический адрес</span><a-input v-model:value="form.legalAddress" /></label>
+              <label><span>Банк</span><a-input v-model:value="form.bank" /></label>
+              <label><span>ИИК</span><a-input v-model:value="form.iik" /></label>
+              <label><span>БИК</span><a-input v-model:value="form.bik" /></label>
+              <label><span>Телефон</span><a-input v-model:value="form.phone" /></label>
+              <label><span>E-mail</span><a-input v-model:value="form.email" /></label>
             </div>
-            <a-tag :color="statusColor">{{ statusLabel }}</a-tag>
-          </div>
-
-          <div class="contract-actions">
-            <a-button @click="download"><DownloadOutlined /> Скачать договор (.docx)</a-button>
-          </div>
-
-          <div class="sign-grid">
-            <div class="sign-block">
-              <div class="sign-head">
-                <strong>Ваша подпись</strong>
-                <a-tag v-if="contract.clientSigned" color="success">Подписано</a-tag>
-                <a-tag v-else color="default">Ожидается</a-tag>
-              </div>
-              <p class="muted">Подпишите договор через eGov Mobile или загрузите подписанный файл.</p>
-              <FileChips :items="filesOf('client-signed')" empty="" @download="downloadSignedFile" />
-              <div v-if="!contract.clientSigned" class="sign-actions">
-                <a-button type="primary" @click="openSigex('client')">
-                  <SafetyCertificateOutlined /> Подписать через eGov
-                </a-button>
-                <a-button @click="triggerSign('client')">
-                  <UploadOutlined /> Загрузить файл
-                </a-button>
-              </div>
-            </div>
-
-            <div class="sign-block">
-              <div class="sign-head">
-                <strong>Подпись AQNIET</strong>
-                <a-tag v-if="contract.providerSigned" color="success">Подписано</a-tag>
-                <a-tag v-else color="default">Ожидается</a-tag>
-              </div>
-              <p class="muted">Подписывает таможенный представитель со своей стороны.</p>
-              <FileChips :items="filesOf('provider-signed')" empty="" @download="downloadSignedFile" />
-              <div v-if="isAdmin && !contract.providerSigned" class="sign-actions">
-                <a-button type="primary" @click="openSigex('provider')">
-                  <SafetyCertificateOutlined /> Подписать через eGov
-                </a-button>
-                <a-button @click="triggerSign('provider')">
-                  <UploadOutlined /> Загрузить файл
-                </a-button>
-              </div>
+            <div class="form-footer">
+              <a-tag v-if="profile?.isComplete" color="success">Заполнено</a-tag>
+              <a-tag v-else color="warning">Заполните обязательные поля (*)</a-tag>
+              <a-button type="primary" :loading="saving" @click="saveProfile">Сохранить реквизиты</a-button>
+              <a-button type="link" :disabled="!profile?.isComplete" @click="current = 1">Далее: договор →</a-button>
             </div>
           </div>
 
-          <a-alert
-            v-if="contract.status === 2"
-            type="success"
-            show-icon
-            message="Договор подписан обеими сторонами. Можно создавать заявки."
-            style="margin-top: 14px"
+          <!-- ② Договор -->
+          <DocumentStep
+            v-else-if="current === 1"
+            title="Договор таможенного представителя"
+            :profile-complete="!!profile?.isComplete"
+            :documents="contractDocs"
+            :generating="generatingKind === 'contract'"
+            :is-admin="isAdmin"
+            :is-effective="isDocumentEffective"
+            empty-hint="Договор формируется автоматически из ваших реквизитов. Заполните реквизиты и нажмите «Сформировать»."
+            @generate="(opts: GenerateOpts) => generate('contract', opts)"
+            @download="downloadDoc"
+            @sign="(doc: Import40DocumentDto, side: 'client' | 'provider') => triggerSign(doc, side)"
           />
+
+          <!-- ③ Доверенность -->
+          <DocumentStep
+            v-else
+            title="Доверенность"
+            :profile-complete="!!profile?.isComplete"
+            :documents="poaDocs"
+            :generating="generatingKind === 'poa'"
+            :is-admin="isAdmin"
+            :is-effective="isDocumentEffective"
+            empty-hint="Доверенность формируется автоматически из ваших реквизитов. Заполните реквизиты и нажмите «Сформировать»."
+            @generate="(opts: GenerateOpts) => generate('poa', opts)"
+            @download="downloadDoc"
+            @sign="(doc: Import40DocumentDto, side: 'client' | 'provider') => triggerSign(doc, side)"
+          />
+
+          <div class="step-nav">
+            <a-button v-if="current > 0" @click="current -= 1">← Назад</a-button>
+            <a-button v-if="current < 2" type="link" @click="current += 1">Далее →</a-button>
+          </div>
         </div>
       </a-card>
     </a-spin>
@@ -122,31 +89,27 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import {
-  BankOutlined,
-  DownloadOutlined,
-  FileAddOutlined,
-  FileProtectOutlined,
-  SafetyCertificateOutlined,
-  UploadOutlined,
+  CheckCircleOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons-vue'
 import {
   import40ContractApi,
   type ClientCompanyProfileDto,
-  type Import40ContractDto,
-  type Import40ContractFileDto,
+  type Import40DocumentDto,
 } from '@/api/import40Contract'
 import { import40Api } from '@/api/import40'
 import { useAuthStore } from '@/stores/auth'
-import FileChips from '@/components/Import40FileChips.vue'
-import SigexSignModal from '@/components/SigexSignModal.vue'
+import DocumentStep, { type GenerateOpts } from '@/components/Import40DocumentStep.vue'
 
 const authStore = useAuthStore()
 const loading = ref(false)
 const saving = ref(false)
-const generating = ref(false)
+const generatingKind = ref<'contract' | 'poa' | null>(null)
 const clientId = ref('')
 const profile = ref<ClientCompanyProfileDto | null>(null)
-const contract = ref<Import40ContractDto | null>(null)
+const contractDocs = ref<Import40DocumentDto[]>([])
+const poaDocs = ref<Import40DocumentDto[]>([])
+const current = ref(0)
 
 const isAdmin = computed(() => (authStore.role || '').toLowerCase() === 'administrator')
 
@@ -163,17 +126,48 @@ const form = reactive({
   email: '',
 })
 
-const statusLabel = computed(() =>
-  contract.value?.status === 2 ? 'Активен' : contract.value?.status === 1 ? 'Ожидает подписей' : 'Черновик',
-)
-const statusColor = computed(() =>
-  contract.value?.status === 2 ? 'success' : contract.value?.status === 1 ? 'processing' : 'default',
-)
+// документ считается ДЕЙСТВУЮЩИМ, если он активен, не истёк по сроку
+// и (для разовых) ещё не израсходован на заявку
+const isDocumentEffective = (doc: Import40DocumentDto | null | undefined): boolean => {
+  if (!doc) return false
+  if (doc.status !== 2) return false
+  if (doc.validUntilUtc && new Date(doc.validUntilUtc).getTime() <= Date.now()) return false
+  if (doc.isSingleUse && doc.consumedByCaseId) return false
+  return true
+}
 
-const formatDate = (v: string) =>
-  new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(v))
+const effectiveContract = computed(() => contractDocs.value.find(isDocumentEffective) ?? null)
+const effectivePoa = computed(() => poaDocs.value.find(isDocumentEffective) ?? null)
+const onboardingComplete = computed(() => !!effectiveContract.value && !!effectivePoa.value)
 
-const filesOf = (section: string) => contract.value?.files.filter((f) => f.section === section) ?? []
+const missingHint = computed(() => {
+  const missing: string[] = []
+  if (!profile.value?.isComplete) missing.push('реквизиты')
+  if (!effectiveContract.value) missing.push('действующий договор')
+  if (!effectivePoa.value) missing.push('действующая доверенность')
+  return missing.length ? `Не хватает: ${missing.join(', ')}` : ''
+})
+
+const stepStatus = (done: boolean, index: number): 'finish' | 'process' | 'wait' =>
+  done ? 'finish' : current.value === index ? 'process' : 'wait'
+
+const stepItems = computed(() => [
+  {
+    title: 'Реквизиты',
+    description: profile.value?.isComplete ? 'Заполнено' : 'Не заполнено',
+    status: stepStatus(!!profile.value?.isComplete, 0),
+  },
+  {
+    title: 'Договор',
+    description: effectiveContract.value ? 'Действует' : 'Требуется',
+    status: stepStatus(!!effectiveContract.value, 1),
+  },
+  {
+    title: 'Доверенность',
+    description: effectivePoa.value ? 'Действует' : 'Требуется',
+    status: stepStatus(!!effectivePoa.value, 2),
+  },
+])
 
 const applyProfile = (p: ClientCompanyProfileDto) => {
   profile.value = p
@@ -189,6 +183,15 @@ const applyProfile = (p: ClientCompanyProfileDto) => {
   form.email = p.email
 }
 
+const loadDocuments = async () => {
+  const [contracts, poas] = await Promise.all([
+    import40ContractApi.listDocuments(clientId.value, 'contract'),
+    import40ContractApi.listDocuments(clientId.value, 'poa'),
+  ])
+  contractDocs.value = contracts
+  poaDocs.value = poas
+}
+
 const load = async () => {
   loading.value = true
   try {
@@ -199,7 +202,12 @@ const load = async () => {
     }
     clientId.value = clients[0].id
     applyProfile(await import40ContractApi.getProfile(clientId.value))
-    contract.value = await import40ContractApi.getContract(clientId.value)
+    await loadDocuments()
+    // открываем первый незавершённый шаг
+    if (!profile.value?.isComplete) current.value = 0
+    else if (!effectiveContract.value) current.value = 1
+    else if (!effectivePoa.value) current.value = 2
+    else current.value = 2
   } finally {
     loading.value = false
   }
@@ -217,26 +225,27 @@ const saveProfile = async () => {
   }
 }
 
-const generate = async () => {
-  generating.value = true
+const generate = async (kind: 'contract' | 'poa', opts: GenerateOpts) => {
+  generatingKind.value = kind
   try {
-    contract.value = await import40ContractApi.generate(clientId.value)
-    message.success('Договор сформирован')
+    await import40ContractApi.generateDocument(clientId.value, {
+      kind,
+      isSingleUse: opts.isSingleUse,
+      validUntilUtc: opts.validUntilUtc,
+    })
+    await loadDocuments()
+    message.success(kind === 'contract' ? 'Договор сформирован' : 'Доверенность сформирована')
   } catch {
-    message.error('Не удалось сформировать договор')
+    message.error('Не удалось сформировать документ')
   } finally {
-    generating.value = false
+    generatingKind.value = null
   }
 }
 
-const download = async () => {
-  const blob = await import40ContractApi.download(clientId.value)
-  triggerDownload(blob, `Договор-${contract.value?.number}-ТП-${contract.value?.year}.docx`)
-}
-
-const downloadSignedFile = async (f: Import40ContractFileDto) => {
-  const blob = await import40ContractApi.downloadSignedFile(clientId.value, f.id)
-  triggerDownload(blob, f.originalFileName)
+const downloadDoc = async (doc: Import40DocumentDto) => {
+  const blob = await import40ContractApi.downloadDocument(clientId.value, doc.id)
+  const ext = doc.kind === 'contract' ? 'Договор' : 'Доверенность'
+  triggerDownload(blob, `${ext}-${doc.number}-${doc.year}.docx`)
 }
 
 const triggerDownload = (blob: Blob, name: string) => {
@@ -250,42 +259,32 @@ const triggerDownload = (blob: Blob, name: string) => {
   URL.revokeObjectURL(url)
 }
 
-// загрузка подписанного
+// загрузка подписанного файла
 const fileInputRef = ref<HTMLInputElement | null>(null)
+const pendingDoc = ref<Import40DocumentDto | null>(null)
 const pendingSide = ref<'client' | 'provider' | null>(null)
-const triggerSign = (side: 'client' | 'provider') => {
+const triggerSign = (doc: Import40DocumentDto, side: 'client' | 'provider') => {
+  pendingDoc.value = doc
   pendingSide.value = side
   fileInputRef.value?.click()
 }
 const onFileSelected = async (e: Event) => {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
+  const doc = pendingDoc.value
   const side = pendingSide.value
   input.value = ''
-  if (!file || !side) return
+  if (!file || !doc || !side) return
   try {
-    contract.value = await import40ContractApi.sign(clientId.value, side, file)
+    await import40ContractApi.signDocument(clientId.value, doc.id, side, file)
+    await loadDocuments()
     message.success('Подписанный файл загружен')
   } catch {
     message.error('Не удалось загрузить файл')
   } finally {
+    pendingDoc.value = null
     pendingSide.value = null
   }
-}
-
-// eGov Sigex
-const sigexOpen = ref(false)
-const sigexSide = ref<'client' | 'provider'>('client')
-
-const openSigex = (side: 'client' | 'provider') => {
-  sigexSide.value = side
-  sigexOpen.value = true
-}
-
-const onSigexSigned = async () => {
-  sigexOpen.value = false
-  message.success('Договор подписан через eGov!')
-  contract.value = await import40ContractApi.getContract(clientId.value)
 }
 
 onMounted(load)
@@ -293,25 +292,16 @@ onMounted(load)
 
 <style scoped>
 .company-page { display: flex; flex-direction: column; gap: 18px; }
-.card-title { display: flex; align-items: center; gap: 9px; color: var(--atg-ink); font-weight: 800; }
-.card-title :deep(.anticon) { color: var(--atg-accent-strong); }
+.crm-page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.onboarding-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 12px; margin-top: 4px; }
+.step-body { margin-top: 24px; }
+.step-nav { display: flex; justify-content: space-between; margin-top: 20px; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
 .form-grid label { display: flex; flex-direction: column; gap: 6px; }
 .form-grid label.full { grid-column: 1 / -1; }
 .form-grid label span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; }
 .form-footer { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
-.muted { color: var(--atg-muted); font-size: 13px; line-height: 1.55; }
-.contract-empty { display: grid; gap: 12px; justify-items: start; }
-.contract-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.contract-number { font-size: 18px; font-weight: 800; color: var(--atg-ink); }
-.contract-actions { margin: 14px 0; }
-.sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.sign-block { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--atg-line); border-radius: var(--atg-radius); align-content: start; }
-.sign-head { display: flex; align-items: center; gap: 10px; }
-.sign-head strong { color: var(--atg-ink); font-size: 13.5px; font-weight: 800; }
-.sign-block .ant-btn { justify-self: start; }
-.sign-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 @media (max-width: 900px) {
-  .form-grid, .sign-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
 }
 </style>
