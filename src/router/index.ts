@@ -190,6 +190,11 @@ router.beforeEach((to, from, next) => {
     next('/import-40')
   } else if (normalizedRole === 'sales' && (to.path === '/reestr' || to.path === '/dashboard')) {
     next('/sales')
+  } else if (
+    to.path.startsWith('/document-packages') &&
+    !['administrator', 'broker', 'expeditor'].includes(normalizedRole)
+  ) {
+    next('/')
   } else if (requiredRole && normalizedRole !== requiredRole) {
     next('/')
   } else if (requiresImport40 && !authStore.canUseImport40) {
