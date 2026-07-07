@@ -19,6 +19,21 @@
       </div>
     </section>
 
+    <a-alert
+      v-if="showOnboardingGate"
+      class="onboarding-alert"
+      type="warning"
+      show-icon
+      message="Онбординг не завершён"
+      description="Чтобы создавать заявки на таможенное оформление, подпишите договор и доверенность таможенного представителя в разделе «Моя компания»."
+    >
+      <template #action>
+        <a-button size="small" type="primary" @click="router.push('/import-40/company')">
+          Перейти к «Моей компании»
+        </a-button>
+      </template>
+    </a-alert>
+
     <a-card v-if="canCreate" class="crm-shell-card create-card" :bordered="false">
       <template #title>Новая заявка</template>
       <div class="create-grid">
@@ -42,7 +57,14 @@
           <span>Пост / СВХ</span>
           <a-input v-model:value="draft.post" placeholder="Таможенный пост" />
         </label>
-        <a-button type="primary" :disabled="!canSubmit" :loading="creating" @click="createCase">Создать</a-button>
+        <a-tooltip v-if="showOnboardingGate" title="Сначала подпишите договор и доверенность (Моя компания)">
+          <span>
+            <a-button type="primary" disabled style="pointer-events: none">Создать</a-button>
+          </span>
+        </a-tooltip>
+        <a-button v-else type="primary" :disabled="!canSubmit" :loading="creating" @click="createCase">
+          Создать
+        </a-button>
       </div>
     </a-card>
 
@@ -103,6 +125,11 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import { import40Api, IMPORT40_STATUSES, type Import40CaseDto } from '@/api/import40'
+import {
+  import40ContractApi,
+  isDocumentEffective,
+  type Import40DocumentDto,
+} from '@/api/import40Contract'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -114,6 +141,10 @@ const cases = ref<Import40CaseDto[]>([])
 const clientOptions = ref<{ value: string; label: string }[]>([])
 const search = ref('')
 const tab = ref<'my' | 'all'>('my')
+
+const onboardingChecked = ref(false)
+const contractDocs = ref<Import40DocumentDto[]>([])
+const poaDocs = ref<Import40DocumentDto[]>([])
 
 const draft = reactive({
   clientId: undefined as string | undefined,
@@ -132,6 +163,13 @@ const canCreate = computed(
 )
 const canSubmit = computed(
   () => Boolean(draft.clientId) && draft.cargo.trim().length > 1 && draft.post.trim().length > 1,
+)
+const onboardingReady = computed(
+  () => contractDocs.value.some(isDocumentEffective) && poaDocs.value.some(isDocumentEffective),
+)
+// клиент прошёл онбординг ещё не проверен/не завершён — показываем гейт вместо обычного UI создания заявки
+const showOnboardingGate = computed(
+  () => isClientRole.value && onboardingChecked.value && !onboardingReady.value,
 )
 
 const columns = [
@@ -183,9 +221,25 @@ const loadClients = async () => {
     if (isClientRole.value && clients.length) {
       draft.clientId = clients[0].id
       draft.clientName = clients[0].username
+      void loadOnboardingStatus(clients[0].id)
     }
   } finally {
     clientsLoading.value = false
+  }
+}
+
+// для роли client — проверяем, что договор и доверенность действуют,
+// чтобы не пускать в форму создания заявки клиента, которого сервер всё равно отклонит (403)
+const loadOnboardingStatus = async (clientId: string) => {
+  try {
+    const [contracts, poas] = await Promise.all([
+      import40ContractApi.listDocuments(clientId, 'contract'),
+      import40ContractApi.listDocuments(clientId, 'poa'),
+    ])
+    contractDocs.value = contracts
+    poaDocs.value = poas
+  } finally {
+    onboardingChecked.value = true
   }
 }
 
@@ -219,6 +273,10 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.onboarding-alert {
+  border-radius: var(--atg-radius-lg);
 }
 
 .import40-summary {

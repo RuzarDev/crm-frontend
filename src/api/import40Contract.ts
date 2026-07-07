@@ -86,6 +86,16 @@ export interface Import40DocumentGenerateRequest {
   validUntilUtc?: string | null
 }
 
+// документ считается ДЕЙСТВУЮЩИМ, если он активен, не истёк по сроку
+// и (для разовых) ещё не израсходован на заявку
+export const isDocumentEffective = (doc: Import40DocumentDto | null | undefined): boolean => {
+  if (!doc) return false
+  if (doc.status !== 2) return false
+  if (doc.validUntilUtc && new Date(doc.validUntilUtc).getTime() <= Date.now()) return false
+  if (doc.isSingleUse && doc.consumedByCaseId) return false
+  return true
+}
+
 const base = (clientId: string) => `/import40/company/${encodeURIComponent(clientId)}`
 
 export const import40ContractApi = {
