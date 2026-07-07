@@ -14,6 +14,15 @@
       </div>
     </div>
 
+    <a-alert
+      v-if="activeCase.returnReason && activeCase.status === 0"
+      type="warning"
+      show-icon
+      class="return-banner"
+      message="Возвращено на доработку"
+      :description="`Причина: ${activeCase.returnReason}`"
+    />
+
     <section class="case-board">
       <a-card class="crm-shell-card case-card" :bordered="false">
         <div class="case-head">
@@ -39,7 +48,7 @@
 
         <div class="pipeline">
           <div
-            v-for="s in statuses"
+            v-for="s in pipelineStatuses"
             :key="s.id"
             class="pipeline-step"
             :class="{ done: activeCase.status > s.id, active: activeCase.status === s.id }"
@@ -56,18 +65,43 @@
       <a-card class="crm-shell-card actions-card" :bordered="false">
         <template #title><div class="card-title"><ThunderboltOutlined /> Действия — {{ roleLabel }}</div></template>
         <p class="actions-help">{{ roleHelp }}</p>
+
+        <div v-if="assignedTag" class="claim-row">
+          <a-tag v-if="assignedTag === 'me'" color="processing">В работе у меня</a-tag>
+          <a-tag v-else>Занято коллегой</a-tag>
+        </div>
+
         <div class="quick-actions">
-          <a-button
-            v-for="a in availableActions"
-            :key="a.key"
-            :type="a.primary ? 'primary' : 'default'"
-            :danger="a.danger"
-            :disabled="a.disabled"
-            @click="runAction(a.key, a.prompt)"
-          >
-            {{ a.label }}
-          </a-button>
-          <span v-if="!availableActions.length" class="no-actions">Сейчас ход за другой ролью</span>
+          <div v-for="a in availableActions" :key="a.key" class="action-item">
+            <a-button
+              :type="a.primary ? 'primary' : 'default'"
+              :danger="a.danger"
+              :disabled="a.disabled"
+              @click="runAction(a.key, a.prompt)"
+            >
+              {{ a.label }}
+            </a-button>
+            <span v-if="a.disabled && a.hint" class="action-hint">{{ a.hint }}</span>
+          </div>
+          <span v-if="!availableActions.length && !canReturnToClient" class="no-actions">Сейчас ход за другой ролью</span>
+        </div>
+
+        <a-button v-if="canReturnToClient" class="return-btn" danger @click="openReturnModal">
+          Вернуть клиенту
+        </a-button>
+
+        <div v-if="canManageAssignments" class="assign-block">
+          <div class="assign-title">Назначения</div>
+          <template v-if="!staffLoadError">
+            <label><span>КПП</span><a-select v-model:value="assignForm.kppId" allow-clear placeholder="Не назначен" :options="kppOptions" /></label>
+            <label><span>Декларант</span><a-select v-model:value="assignForm.declarantId" allow-clear placeholder="Не назначен" :options="declarantOptions" /></label>
+          </template>
+          <template v-else>
+            <label><span>КПП (ID)</span><a-input v-model:value="assignForm.kppId" placeholder="ID сотрудника" /></label>
+            <label><span>Декларант (ID)</span><a-input v-model:value="assignForm.declarantId" placeholder="ID сотрудника" /></label>
+            <span class="assign-hint">Список сотрудников недоступен для вашей роли</span>
+          </template>
+          <a-button size="small" :loading="assignSaving" @click="saveAssignment">Сохранить назначения</a-button>
         </div>
       </a-card>
     </section>
@@ -338,6 +372,22 @@
         <a-input v-model:value="promptModal.value" autofocus @press-enter="confirmPromptAction" />
       </label>
     </a-modal>
+
+    <!-- Модалка возврата заявки клиенту (причина обязательна) -->
+    <a-modal
+      v-model:open="returnModal.open"
+      title="Вернуть заявку клиенту"
+      ok-text="Вернуть"
+      cancel-text="Отмена"
+      :confirm-loading="returnModal.loading"
+      :ok-button-props="{ danger: true }"
+      @ok="confirmReturn"
+    >
+      <label class="prompt-field">
+        <span>Причина возврата (обязательно)</span>
+        <a-textarea v-model:value="returnModal.value" :rows="3" autofocus />
+      </label>
+    </a-modal>
   </div>
 
   <a-spin v-else style="display: block; margin: 80px auto" />
@@ -375,6 +425,7 @@ import {
   type Import40Party,
 } from '@/api/import40'
 import { tnvedApi } from '@/api/tnved'
+import { usersApi } from '@/api/users'
 import { useAuthStore } from '@/stores/auth'
 
 type GoodsPayment = {
@@ -396,6 +447,8 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const statuses = IMPORT40_STATUSES
+// Paid(7) — технический статус, в пайплайне не показываем (оплата+завершение — одним действием)
+const pipelineStatuses = statuses.filter((s) => s.id !== 7)
 const activeCase = ref<Import40CaseDto | null>(null)
 const files = ref<Import40FileDto[]>([])
 const filesLoading = ref(false)
@@ -469,7 +522,15 @@ const availableActions = computed(() => {
   const c = activeCase.value
   if (!c) return []
   const r = roleMode.value
-  const list: { key: Import40Action; label: string; primary?: boolean; danger?: boolean; disabled?: boolean; prompt?: string }[] = []
+  const list: {
+    key: Import40Action
+    label: string
+    primary?: boolean
+    danger?: boolean
+    disabled?: boolean
+    hint?: string
+    prompt?: string
+  }[] = []
   const can = (role: RoleMode) => r === 'admin' || r === role
 
   if (can('client') && c.status === 0)
@@ -485,7 +546,19 @@ const availableActions = computed(() => {
   if (can('kpp') && c.status === 5)
     list.push({ key: 'issue-invoice', label: 'Выставить счёт СВХ', primary: true, prompt: 'Сумма счёта СВХ' })
   if (can('kpp') && c.status === 6)
-    list.push({ key: 'confirm-payment-and-complete', label: 'Подтвердить оплату и завершить', primary: true })
+    list.push({
+      key: 'confirm-payment-and-complete',
+      label: 'Подтвердить оплату и завершить',
+      primary: true,
+      disabled: !hasFile('payment-check'),
+      hint: 'Клиент ещё не загрузил чек',
+    })
+
+  // самозахват — только реальные kpp/declarant (не админ), заявка ещё не в пуле "своя"
+  if (r === 'kpp' && [1, 4, 5, 6].includes(c.status) && !c.assignedKppId)
+    list.push({ key: 'claim', label: 'Взять в работу' })
+  if (r === 'declarant' && [2, 3].includes(c.status) && !c.assignedDeclarantId)
+    list.push({ key: 'claim', label: 'Взять в работу' })
 
   // проблема — КПП/декларант/админ, на активной заявке
   if ((r === 'kpp' || r === 'declarant' || r === 'admin') && c.status < 8) {
@@ -494,6 +567,104 @@ const availableActions = computed(() => {
   }
   return list
 })
+
+// «В работе у меня» / «Занято коллегой» — бейдж рядом с действиями (kpp/declarant)
+const assignedTag = computed<'me' | 'other' | null>(() => {
+  const c = activeCase.value
+  const uid = authStore.userId
+  if (!c || !uid) return null
+  if (roleMode.value === 'kpp') {
+    if (!c.assignedKppId) return null
+    return c.assignedKppId === uid ? 'me' : 'other'
+  }
+  if (roleMode.value === 'declarant') {
+    if (!c.assignedDeclarantId) return null
+    return c.assignedDeclarantId === uid ? 'me' : 'other'
+  }
+  return null
+})
+
+// «Вернуть клиенту» — любой сотрудник (kpp/declarant/rop/admin), не в Draft и не в Done
+const canReturnToClient = computed(() => {
+  const c = activeCase.value
+  if (!c) return false
+  return roleMode.value !== 'client' && c.status !== 0 && c.status !== 8
+})
+
+// --- Возврат клиенту (модалка с обязательной причиной) ---
+const returnModal = reactive({ open: false, value: '', loading: false })
+const openReturnModal = () => {
+  returnModal.value = ''
+  returnModal.open = true
+}
+const confirmReturn = async () => {
+  const reason = returnModal.value.trim()
+  if (!reason) {
+    message.warning('Укажите причину возврата')
+    return
+  }
+  returnModal.loading = true
+  try {
+    await executeAction('return-to-client', reason)
+    returnModal.open = false
+  } finally {
+    returnModal.loading = false
+  }
+}
+
+// --- Назначение КПП/декларанта (administrator/importer/rop) ---
+type StaffOption = { id: string; username: string; businessRole: string }
+const canManageAssignments = computed(() => isAdmin.value)
+const staffList = ref<StaffOption[]>([])
+const staffLoadError = ref(false)
+const loadStaffOptions = async () => {
+  if (!canManageAssignments.value) return
+  try {
+    const [admins, importers] = await Promise.all([
+      usersApi.getCatalogAdministrators(),
+      usersApi.getCatalogImporters(),
+    ])
+    staffList.value = [...admins, ...importers].map((u) => ({
+      id: u.id,
+      username: u.username,
+      businessRole: (u.businessRole || '').toLowerCase(),
+    }))
+  } catch {
+    staffLoadError.value = true
+  }
+}
+const kppOptions = computed(() =>
+  staffList.value.filter((u) => u.businessRole === 'kpp').map((u) => ({ value: u.id, label: u.username })),
+)
+const declarantOptions = computed(() =>
+  staffList.value.filter((u) => u.businessRole === 'declarant').map((u) => ({ value: u.id, label: u.username })),
+)
+const assignForm = reactive<{ kppId: string | null; declarantId: string | null }>({
+  kppId: null,
+  declarantId: null,
+})
+const syncAssignForm = () => {
+  const c = activeCase.value
+  if (!c) return
+  assignForm.kppId = c.assignedKppId
+  assignForm.declarantId = c.assignedDeclarantId
+}
+const assignSaving = ref(false)
+const saveAssignment = async () => {
+  if (!activeCase.value) return
+  assignSaving.value = true
+  try {
+    activeCase.value = await import40Api.update(activeCase.value.id, {
+      assignedKppId: assignForm.kppId || null,
+      assignedDeclarantId: assignForm.declarantId || null,
+    })
+    message.success('Назначения сохранены')
+  } catch {
+    message.error('Не удалось сохранить назначения')
+  } finally {
+    assignSaving.value = false
+  }
+}
 
 const reload = async () => {
   loading.value = true
@@ -894,8 +1065,9 @@ watch(visibleTabs, (tabs) => {
   if (tabs.length && !tabs.some((t) => t.key === activeTab.value)) activeTab.value = tabs[0].key
 })
 
-// держим форму транспорта в синхроне с кейсом
+// держим форму транспорта и форму назначений в синхроне с кейсом
 watch(activeCase, syncTransportForm)
+watch(activeCase, syncAssignForm)
 
 onMounted(async () => {
   try {
@@ -904,6 +1076,7 @@ onMounted(async () => {
   } catch (e) {
     console.error('Failed to load countries', e)
   }
+  await loadStaffOptions()
   await reload()
 })
 </script>
@@ -943,6 +1116,18 @@ onMounted(async () => {
 .quick-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
 .quick-actions .ant-btn { justify-content: flex-start; }
 .no-actions { color: var(--atg-muted); font-size: 13px; }
+.action-item { display: flex; flex-direction: column; gap: 3px; }
+.action-item .ant-btn { width: 100%; }
+.action-hint { color: var(--atg-muted); font-size: 11.5px; }
+.claim-row { margin-bottom: 10px; }
+.return-btn { width: 100%; justify-content: center; margin-top: 12px; }
+.assign-block { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--atg-line); }
+.assign-title { color: var(--atg-muted); font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.assign-block label { display: flex; flex-direction: column; gap: 4px; }
+.assign-block label span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; }
+.assign-block .ant-select { width: 100%; }
+.assign-hint { color: var(--atg-muted); font-size: 11.5px; }
+.return-banner { margin: 0; }
 
 .add-container { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .container-block { border: 1px solid var(--atg-line); border-radius: var(--atg-radius); padding: 12px 14px; margin-bottom: 12px; }
