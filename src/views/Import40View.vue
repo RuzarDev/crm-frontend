@@ -655,8 +655,8 @@ const saveAssignment = async () => {
   assignSaving.value = true
   try {
     activeCase.value = await import40Api.update(activeCase.value.id, {
-      assignedKppId: assignForm.kppId || null,
-      assignedDeclarantId: assignForm.declarantId || null,
+      assignedKppId: assignForm.kppId || '00000000-0000-0000-0000-000000000000',
+      assignedDeclarantId: assignForm.declarantId || '00000000-0000-0000-0000-000000000000',
     })
     message.success('Назначения сохранены')
   } catch {
