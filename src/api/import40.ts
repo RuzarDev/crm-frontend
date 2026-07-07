@@ -8,8 +8,9 @@ export type Import40Action =
   | 'release-declaration'
   | 'close-svh'
   | 'issue-invoice'
-  | 'confirm-payment'
-  | 'complete'
+  | 'confirm-payment-and-complete'
+  | 'return-to-client'
+  | 'claim'
   | 'set-problem'
   | 'clear-problem'
 
@@ -142,6 +143,7 @@ export interface Import40CaseDto {
   status: number
   isProblem: boolean
   problemNote: string
+  returnReason: string
   assignedKppId: string | null
   assignedDeclarantId: string | null
   vehicleNumber: string

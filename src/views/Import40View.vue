@@ -484,10 +484,8 @@ const availableActions = computed(() => {
     list.push({ key: 'close-svh', label: 'Закрыть ДТ на СВХ', primary: true })
   if (can('kpp') && c.status === 5)
     list.push({ key: 'issue-invoice', label: 'Выставить счёт СВХ', primary: true, prompt: 'Сумма счёта СВХ' })
-  if (can('client') && c.status === 6)
-    list.push({ key: 'confirm-payment', label: 'Подтвердить оплату', primary: true })
-  if (can('kpp') && c.status === 7)
-    list.push({ key: 'complete', label: 'Груз выпущен (завершить)', primary: true })
+  if (can('kpp') && c.status === 6)
+    list.push({ key: 'confirm-payment-and-complete', label: 'Подтвердить оплату и завершить', primary: true })
 
   // проблема — КПП/декларант/админ, на активной заявке
   if ((r === 'kpp' || r === 'declarant' || r === 'admin') && c.status < 8) {
