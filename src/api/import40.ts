@@ -85,9 +85,6 @@ export interface Import40GoodsItemDto {
   valuationMethodCode?: string | null
   prohibitionCode?: string | null
   ipoCode?: string | null
-  dutyAmount?: number | null
-  vatAmount?: number | null
-  feesAmount?: number | null
   payments?: Import40GoodsPayment[]
 }
 
