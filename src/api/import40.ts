@@ -1,7 +1,5 @@
 import apiClient from './client'
 import type {
-  ReestrGoodsItemInput,
-  ReestrDoc44ItemInput,
   Import40TransportMeans,
   Import40GoodsPayment,
   Import40FactPayment,
@@ -146,12 +144,10 @@ export interface Import40DeclarationDto {
   doc44Items: Import40Doc44ItemDto[]
 }
 
-// Товар ДТ = базовые поля (как у реестра) + платежи ТПиН (гр.47) и процедура (гр.37)
-export type Import40GoodsUpsert = ReestrGoodsItemInput & {
-  procedureCode?: string | null
-  dutyAmount?: number | null
-  vatAmount?: number | null
-  feesAmount?: number | null
+// Товар ДТ на отправку = поля формы (Import40GoodsItemInput) без customsValue,
+// вместо которого бэкенд ждёт invoiceValue (см. маппинг в Import40View.saveDt)
+export type Import40GoodsUpsert = Omit<Import40GoodsItemInput, 'customsValue'> & {
+  invoiceValue?: number | null
 }
 
 export interface Import40DeclarationUpsert {

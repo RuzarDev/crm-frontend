@@ -8,6 +8,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AAlert: typeof import('ant-design-vue/es')['Alert']
+    AAutoComplete: typeof import('ant-design-vue/es')['AutoComplete']
     ABadge: typeof import('ant-design-vue/es')['Badge']
     ABreadcrumb: typeof import('ant-design-vue/es')['Breadcrumb']
     ABreadcrumbItem: typeof import('ant-design-vue/es')['BreadcrumbItem']
@@ -66,7 +67,9 @@ declare module 'vue' {
     ExcelUpload: typeof import('./src/components/ExcelUpload.vue')['default']
     ExtractionReviewModal: typeof import('./src/components/ExtractionReviewModal.vue')['default']
     Import40DocumentStep: typeof import('./src/components/Import40DocumentStep.vue')['default']
+    Import40FactPaymentsSection: typeof import('./src/components/Import40FactPaymentsSection.vue')['default']
     Import40FileChips: typeof import('./src/components/Import40FileChips.vue')['default']
+    Import40GoodsKedenPanel: typeof import('./src/components/Import40GoodsKedenPanel.vue')['default']
     ImportInvoiceButton: typeof import('./src/components/ImportInvoiceButton.vue')['default']
     InvoiceAutofillButton: typeof import('./src/components/InvoiceAutofillButton.vue')['default']
     InvoiceFileSection: typeof import('./src/components/InvoiceFileSection.vue')['default']

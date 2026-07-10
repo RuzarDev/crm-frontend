@@ -216,37 +216,149 @@
               </a-form-item>
             </div>
 
+            <div class="dt-grid-3">
+              <a-form-item label="Характер сделки">
+                <a-auto-complete v-model:value="dtForm.transactionNatureCode" :options="transactionNatureOptions" placeholder="021" style="width: 100%" />
+              </a-form-item>
+              <a-form-item label="Особенность сделки">
+                <a-input v-model:value="dtForm.transactionFeatureCode" placeholder="000" />
+              </a-form-item>
+              <a-form-item label="Место Инкотермс">
+                <a-input v-model:value="dtForm.incotermsPlace" placeholder="Алматы" />
+              </a-form-item>
+            </div>
+
+            <div class="dt-grid-2">
+              <a-form-item label="Торгующая страна (ОКСМ)">
+                <a-select
+                  v-model:value="dtForm.tradeCountryCode"
+                  show-search
+                  allow-clear
+                  :options="countryOptions"
+                  :filter-option="filterCountry"
+                  placeholder="Выберите страну по коду"
+                />
+              </a-form-item>
+              <a-form-item label="Страна происхождения (шапка)">
+                <a-select
+                  v-model:value="dtForm.originCountryCode"
+                  show-search
+                  allow-clear
+                  :options="countryOptions"
+                  :filter-option="filterCountry"
+                  placeholder="Выберите страну по коду"
+                />
+              </a-form-item>
+            </div>
+
+            <div class="dt-grid-2">
+              <a-checkbox v-model:checked="dtForm.consigneeEqualsDeclarant">Получатель = декларант</a-checkbox>
+              <a-checkbox v-model:checked="dtForm.financialSubjectEqualsDeclarant">Лицо, ответственное за фин. урегулирование = декларант</a-checkbox>
+            </div>
+
             <PartyAddressFields v-model="dtForm.sender" title="Отправитель" :country-options="countryOptions" />
             <PartyAddressFields v-model="dtForm.receiver" title="Получатель" :country-options="countryOptions" />
 
             <a-divider />
-            <ReestrGoodsSection v-model="dtForm.goodsItems" />
-
-            <div v-if="dtForm.goodsItems.length" class="dt-tpin">
+            <div class="dt-transport-block">
               <div class="dt-tpin-bar">
-                <span class="dt-section-label">ПЛАТЕЖИ ТПиН ПО ТОВАРАМ (гр.37 / гр.47), ₸</span>
-                <a-button size="small" :loading="tpinCalculating" @click="calcTpin">Рассчитать ТПиН (авто)</a-button>
+                <span class="dt-section-label">ТРАНСПОРТ И ОРГАНЫ</span>
+                <a-button size="small" @click="fillTransportFromCase">Заполнить из заявки</a-button>
               </div>
-              <div v-for="(g, i) in dtForm.goodsItems" :key="i" class="dt-tpin-row">
-                <span class="dt-tpin-idx">{{ i + 1 }}</span>
-                <span class="dt-tpin-tnved">{{ g.tnvedCode || '— код ТНВЭД —' }}</span>
-                <a-input v-model:value="dtForm.goodsPayments[i].procedureCode" size="small" placeholder="Проц. 4000" style="width: 90px" />
-                <a-input-number v-model:value="dtForm.goodsPayments[i].dutyAmount" size="small" :min="0" placeholder="Пошлина" style="width: 110px" />
-                <a-input-number v-model:value="dtForm.goodsPayments[i].vatAmount" size="small" :min="0" placeholder="НДС" style="width: 110px" />
-                <a-input-number v-model:value="dtForm.goodsPayments[i].feesAmount" size="small" :min="0" placeholder="Сборы" style="width: 110px" />
+
+              <div class="dt-grid-2">
+                <a-form-item label="Вид транспорта на границе">
+                  <a-auto-complete v-model:value="dtForm.borderTransportModeCode" :options="transportModeOptions" placeholder="30" style="width: 100%" />
+                </a-form-item>
+                <a-form-item label="Страна регистрации ТС (граница)">
+                  <a-input v-model:value="dtForm.borderTransportNationality" placeholder="KZ" />
+                </a-form-item>
               </div>
+              <div class="transport-list">
+                <div v-for="(m, i) in dtForm.borderTransportNumbers" :key="i" class="transport-list-row">
+                  <a-input v-model:value="m.number" placeholder="Номер ТС" style="max-width: 220px" />
+                  <a-input v-model:value="m.typeCode" placeholder="Код типа (319)" style="max-width: 160px" />
+                  <a-button type="text" danger size="small" @click="removeBorderTransport(i)">✕</a-button>
+                </div>
+                <a-button type="dashed" size="small" @click="addBorderTransport"><PlusOutlined /> Номер ТС (граница)</a-button>
+              </div>
+
+              <div class="dt-grid-2">
+                <a-form-item label="Вид транспорта прибытия">
+                  <a-auto-complete v-model:value="dtForm.arrivalTransportModeCode" :options="transportModeOptions" placeholder="30" style="width: 100%" />
+                </a-form-item>
+                <a-form-item label="Страна регистрации ТС (прибытие)">
+                  <a-input v-model:value="dtForm.arrivalTransportNationality" placeholder="KZ" />
+                </a-form-item>
+              </div>
+              <div class="transport-list">
+                <div v-for="(m, i) in dtForm.arrivalTransportNumbers" :key="i" class="transport-list-row">
+                  <a-input v-model:value="m.number" placeholder="Номер ТС" style="max-width: 220px" />
+                  <a-input v-model:value="m.typeCode" placeholder="Код типа (319)" style="max-width: 160px" />
+                  <a-button type="text" danger size="small" @click="removeArrivalTransport(i)">✕</a-button>
+                </div>
+                <a-button type="dashed" size="small" @click="addArrivalTransport"><PlusOutlined /> Номер ТС (прибытие)</a-button>
+              </div>
+
+              <div class="dt-grid-2">
+                <a-form-item label="Пост на границе (код)">
+                  <a-input v-model:value="dtForm.borderCustomsOfficeCode" placeholder="код поста" />
+                </a-form-item>
+                <a-form-item label="Пост на границе (название)">
+                  <a-input v-model:value="dtForm.borderCustomsOfficeName" placeholder="название" />
+                </a-form-item>
+              </div>
+              <a-form-item label="Орган подачи (код)">
+                <a-input v-model:value="dtForm.submissionCustomsOfficeCode" placeholder="код органа подачи" style="max-width: 260px" />
+              </a-form-item>
+
+              <div class="dt-grid-3">
+                <a-form-item label="Место нахождения товаров">
+                  <a-auto-complete v-model:value="dtForm.goodsLocationCode" :options="goodsLocationOptions" placeholder="11" style="width: 100%" />
+                </a-form-item>
+                <a-form-item label="Номер СВХ">
+                  <a-input v-model:value="dtForm.goodsLocationRegisterNumber" placeholder="Рег. номер СВХ" />
+                </a-form-item>
+                <a-form-item label="Страна места товаров">
+                  <a-input v-model:value="dtForm.goodsLocationCountryCode" placeholder="KZ" />
+                </a-form-item>
+              </div>
+
+              <a-form-item label="Тип ставок">
+                <a-auto-complete v-model:value="dtForm.rateType" :options="rateTypeOptions" placeholder="ETT" style="max-width: 260px" />
+              </a-form-item>
             </div>
 
             <a-divider />
-            <ReestrDoc44Section v-model="dtForm.doc44Items" />
+            <ReestrGoodsSection v-model="dtForm.goodsItems" />
+
+            <Import40GoodsKedenPanel v-model="dtForm.goodsItems" @calc-tpin="calcTpin" />
+
+            <a-divider />
+            <ReestrDoc44Section
+              v-model="dtForm.doc44Items"
+              extended
+              :goods-options="dtForm.goodsItems.map((g, i) => ({ value: i, label: `Товар ${i + 1}: ${g.tnvedCode || g.description || ''}` }))"
+            />
+
+            <a-divider />
+            <Import40FactPaymentsSection v-model="dtForm.factPayments" />
 
             <div class="dt-editor-actions">
               <a-button type="primary" :loading="dtSaving" @click="saveDt">Сохранить ДТ</a-button>
+              <a-button :loading="kedenExporting" @click="exportKedenXml(dt.id)">Сформировать XML для КЕДЕН</a-button>
               <a-button @click="closeDtEditor">Свернуть</a-button>
               <a-popconfirm title="Удалить ДТ?" ok-text="Да" cancel-text="Нет" @confirm="removeDeclaration(dt.id)">
                 <a-button danger>Удалить ДТ</a-button>
               </a-popconfirm>
             </div>
+
+            <a-alert v-if="kedenMissing.length" type="warning" show-icon class="keden-missing">
+              <template #message>Для XML не хватает данных:</template>
+              <template #description>
+                <ul><li v-for="m in kedenMissing" :key="m">{{ m }}</li></ul>
+              </template>
+            </a-alert>
           </a-form>
         </div>
       </div>
@@ -427,20 +539,26 @@ import {
 import { tnvedApi } from '@/api/tnved'
 import { usersApi } from '@/api/users'
 import { useAuthStore } from '@/stores/auth'
-
-type GoodsPayment = {
-  procedureCode: string | null
-  dutyAmount: number | null
-  vatAmount: number | null
-  feesAmount: number | null
-}
-const emptyPayment = (): GoodsPayment => ({ procedureCode: '4000', dutyAmount: null, vatAmount: null, feesAmount: null })
 import { referencesApi } from '@/api/references'
 import FileChips from '@/components/Import40FileChips.vue'
 import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
 import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
 import PartyAddressFields from '@/components/PartyAddressFields.vue'
-import type { ReestrGoodsItemInput, ReestrDoc44ItemInput } from '@/types/api'
+import Import40GoodsKedenPanel from '@/components/Import40GoodsKedenPanel.vue'
+import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
+import type {
+  Import40GoodsItemInput,
+  Import40Doc44ItemInput,
+  Import40FactPayment,
+  Import40TransportMeans,
+} from '@/types/api'
+import {
+  KEDEN_TRANSPORT_MODES_2004,
+  KEDEN_TRANSACTION_NATURES,
+  KEDEN_GOODS_LOCATIONS,
+  KEDEN_RATE_TYPES,
+  kedenOptions,
+} from '@/constants/keden'
 
 const route = useRoute()
 const router = useRouter()
@@ -840,9 +958,29 @@ const dtForm = reactive<{
   exchangeRate: number | null
   sender: Import40Party
   receiver: Import40Party
-  goodsItems: ReestrGoodsItemInput[]
-  goodsPayments: GoodsPayment[]
-  doc44Items: ReestrDoc44ItemInput[]
+  goodsItems: Import40GoodsItemInput[]
+  doc44Items: Import40Doc44ItemInput[]
+  transactionNatureCode: string
+  transactionFeatureCode: string
+  tradeCountryCode: string
+  originCountryCode: string
+  incotermsPlace: string
+  consigneeEqualsDeclarant: boolean
+  financialSubjectEqualsDeclarant: boolean
+  goodsLocationCode: string
+  goodsLocationRegisterNumber: string
+  goodsLocationCountryCode: string
+  borderCustomsOfficeCode: string
+  borderCustomsOfficeName: string
+  submissionCustomsOfficeCode: string
+  borderTransportModeCode: string
+  borderTransportNationality: string
+  borderTransportNumbers: Import40TransportMeans[]
+  arrivalTransportModeCode: string
+  arrivalTransportNationality: string
+  arrivalTransportNumbers: Import40TransportMeans[]
+  rateType: string
+  factPayments: Import40FactPayment[]
 }>({
   id: '',
   declarationNumber: '',
@@ -856,8 +994,28 @@ const dtForm = reactive<{
   sender: emptyParty(),
   receiver: emptyParty(),
   goodsItems: [],
-  goodsPayments: [],
   doc44Items: [],
+  transactionNatureCode: '',
+  transactionFeatureCode: '',
+  tradeCountryCode: '',
+  originCountryCode: '',
+  incotermsPlace: '',
+  consigneeEqualsDeclarant: true,
+  financialSubjectEqualsDeclarant: true,
+  goodsLocationCode: '',
+  goodsLocationRegisterNumber: '',
+  goodsLocationCountryCode: 'KZ',
+  borderCustomsOfficeCode: '',
+  borderCustomsOfficeName: '',
+  submissionCustomsOfficeCode: '',
+  borderTransportModeCode: '',
+  borderTransportNationality: 'KZ',
+  borderTransportNumbers: [],
+  arrivalTransportModeCode: '',
+  arrivalTransportNationality: 'KZ',
+  arrivalTransportNumbers: [],
+  rateType: 'ETT',
+  factPayments: [],
 })
 
 const CORRIDOR_OPTIONS = [
@@ -871,21 +1029,54 @@ const canEditCorridor = computed(() => {
   return sys === 'administrator' || biz === 'declarant' || biz === 'rop'
 })
 
-// goodsPayments идёт параллельно goodsItems по индексу; держим длину синхронной.
-const ensurePaymentsLength = () => {
-  const n = dtForm.goodsItems.length
-  while (dtForm.goodsPayments.length < n) dtForm.goodsPayments.push(emptyPayment())
-  if (dtForm.goodsPayments.length > n) dtForm.goodsPayments.splice(n)
+// Классификаторы КЕДЕН — селекты этого редактора
+const transactionNatureOptions = kedenOptions(KEDEN_TRANSACTION_NATURES)
+const transportModeOptions = kedenOptions(KEDEN_TRANSPORT_MODES_2004)
+const goodsLocationOptions = kedenOptions(KEDEN_GOODS_LOCATIONS)
+const rateTypeOptions = kedenOptions(KEDEN_RATE_TYPES)
+
+// Редактируемые списки номеров ТС (border/arrival) — по паттерну контейнеров этого view
+const addBorderTransport = () => {
+  dtForm.borderTransportNumbers.push({ number: '', typeCode: null })
 }
-watch(() => dtForm.goodsItems.length, ensurePaymentsLength)
+const removeBorderTransport = (idx: number) => {
+  dtForm.borderTransportNumbers.splice(idx, 1)
+}
+const addArrivalTransport = () => {
+  dtForm.arrivalTransportNumbers.push({ number: '', typeCode: null })
+}
+const removeArrivalTransport = (idx: number) => {
+  dtForm.arrivalTransportNumbers.splice(idx, 1)
+}
+
+// Заполнение вида/номеров транспорта из данных заявки (шапка кейса)
+const fillTransportFromCase = () => {
+  const c = activeCase.value
+  if (!c) return
+  const modeCodeByMode: Record<number, string> = { 0: '20', 1: '31', 2: '40', 3: '10' }
+  const modeCode = modeCodeByMode[c.transportMode] ?? ''
+  const numbers: Import40TransportMeans[] = []
+  if (c.transportMode === 0) {
+    if (c.wagonNumber) numbers.push({ number: c.wagonNumber, typeCode: null })
+  } else if (c.transportMode === 1) {
+    if (c.vehicleNumber) numbers.push({ number: c.vehicleNumber, typeCode: null })
+    if (c.trailerNumber) numbers.push({ number: c.trailerNumber, typeCode: '319' })
+  } else if (c.transportMode === 2) {
+    if (c.flightNumber) numbers.push({ number: c.flightNumber, typeCode: null })
+  } else if (c.transportMode === 3) {
+    if (c.vesselName) numbers.push({ number: c.vesselName, typeCode: null })
+  }
+  dtForm.borderTransportModeCode = modeCode
+  dtForm.borderTransportNumbers = numbers.map((n) => ({ ...n }))
+  dtForm.arrivalTransportModeCode = modeCode
+  dtForm.arrivalTransportNumbers = numbers.map((n) => ({ ...n }))
+}
 
 const tpinCalculating = ref(false)
 const calcTpin = async () => {
-  ensurePaymentsLength()
   tpinCalculating.value = true
   try {
-    for (let i = 0; i < dtForm.goodsItems.length; i++) {
-      const g = dtForm.goodsItems[i]
+    for (const g of dtForm.goodsItems) {
       const code = (g.tnvedCode || '').trim()
       if (!code || g.customsValue == null) continue
       try {
@@ -896,15 +1087,19 @@ const calcTpin = async () => {
           weightKg: g.grossWeightKg ?? undefined,
           quantity: g.quantity ?? undefined,
         })
-        dtForm.goodsPayments[i].dutyAmount = r.importDutyKzt
-        dtForm.goodsPayments[i].vatAmount = r.vatKzt
-        // сборы графы 47 = таможенный сбор + акциз (в нашей модели одно поле)
-        dtForm.goodsPayments[i].feesAmount = r.customsFeeKzt + r.exciseKzt
+        g.customsValueKzt = g.customsValueKzt ?? r.customsValueKzt
+        const today = new Date().toISOString().slice(0, 10)
+        g.payments = [
+          { taxModeCode: '1010', taxBase: null, rateKindCode: 'S', rateValue: null, rateUnitCode: null, rateCurrencyCode: null, weightRatio: null, rateDate: today, paymentFeatureCode: 'ИУ', amountKzt: r.customsFeeKzt },
+          { taxModeCode: '2010', taxBase: r.customsValueKzt, rateKindCode: '%', rateValue: null, rateUnitCode: null, rateCurrencyCode: null, weightRatio: null, rateDate: today, paymentFeatureCode: 'ИУ', amountKzt: r.importDutyKzt },
+          ...(r.exciseKzt > 0 ? [{ taxModeCode: '4010', taxBase: null, rateKindCode: 'S' as const, rateValue: null, rateUnitCode: null, rateCurrencyCode: null, weightRatio: null, rateDate: today, paymentFeatureCode: 'ИУ', amountKzt: r.exciseKzt }] : []),
+          { taxModeCode: '5060', taxBase: r.customsValueKzt + r.importDutyKzt + r.exciseKzt, rateKindCode: '%', rateValue: null, rateUnitCode: null, rateCurrencyCode: null, weightRatio: null, rateDate: today, paymentFeatureCode: 'ИУ', amountKzt: r.vatKzt },
+        ]
       } catch {
-        // конкретный товар не посчитался — пропускаем, остальные считаем
+        // товар не посчитался — пропускаем
       }
     }
-    message.success('ТПиН рассчитан по товарам (в тенге)')
+    message.success('ТПиН рассчитан по товарам — проверьте ставки и суммы')
   } finally {
     tpinCalculating.value = false
   }
@@ -922,6 +1117,27 @@ const openDtEditor = (decl: Import40DeclarationDto) => {
   dtForm.exchangeRate = decl.exchangeRate ?? null
   dtForm.sender = decl.sender ? { ...emptyParty(), ...decl.sender } : emptyParty()
   dtForm.receiver = decl.receiver ? { ...emptyParty(), ...decl.receiver } : emptyParty()
+  dtForm.transactionNatureCode = decl.transactionNatureCode ?? ''
+  dtForm.transactionFeatureCode = decl.transactionFeatureCode ?? ''
+  dtForm.tradeCountryCode = decl.tradeCountryCode ?? ''
+  dtForm.originCountryCode = decl.originCountryCode ?? ''
+  dtForm.incotermsPlace = decl.incotermsPlace ?? ''
+  dtForm.consigneeEqualsDeclarant = decl.consigneeEqualsDeclarant ?? true
+  dtForm.financialSubjectEqualsDeclarant = decl.financialSubjectEqualsDeclarant ?? true
+  dtForm.goodsLocationCode = decl.goodsLocationCode ?? ''
+  dtForm.goodsLocationRegisterNumber = decl.goodsLocationRegisterNumber ?? ''
+  dtForm.goodsLocationCountryCode = decl.goodsLocationCountryCode ?? 'KZ'
+  dtForm.borderCustomsOfficeCode = decl.borderCustomsOfficeCode ?? ''
+  dtForm.borderCustomsOfficeName = decl.borderCustomsOfficeName ?? ''
+  dtForm.submissionCustomsOfficeCode = decl.submissionCustomsOfficeCode ?? ''
+  dtForm.borderTransportModeCode = decl.borderTransportModeCode ?? ''
+  dtForm.borderTransportNationality = decl.borderTransportNationality ?? 'KZ'
+  dtForm.borderTransportNumbers = (decl.borderTransportNumbers ?? []).map((m) => ({ ...m }))
+  dtForm.arrivalTransportModeCode = decl.arrivalTransportModeCode ?? ''
+  dtForm.arrivalTransportNationality = decl.arrivalTransportNationality ?? 'KZ'
+  dtForm.arrivalTransportNumbers = (decl.arrivalTransportNumbers ?? []).map((m) => ({ ...m }))
+  dtForm.rateType = decl.rateType ?? 'ETT'
+  dtForm.factPayments = (decl.factPayments ?? []).map((p) => ({ ...p }))
   dtForm.goodsItems = (decl.goodsItems ?? []).map((g) => ({
     description: g.description ?? null,
     tnvedCode: g.tnvedCode ?? null,
@@ -937,20 +1153,40 @@ const openDtEditor = (decl: Import40DeclarationDto) => {
     // на бэкенде фактурная стоимость товара называется invoiceValue; в форме — customsValue
     customsValue: g.invoiceValue ?? null,
     currency: g.currency ?? null,
-  }))
-  dtForm.goodsPayments = (decl.goodsItems ?? []).map((g) => ({
-    procedureCode: g.procedureCode ?? '4000',
-    dutyAmount: g.dutyAmount ?? null,
-    vatAmount: g.vatAmount ?? null,
-    feesAmount: g.feesAmount ?? null,
+    procedureCode: g.procedureCode ?? null,
+    previousProcedureCode: g.previousProcedureCode ?? null,
+    goodsMoveFeatureCode: g.goodsMoveFeatureCode ?? null,
+    tradeMarkName: g.tradeMarkName ?? null,
+    productMarkName: g.productMarkName ?? null,
+    productModelName: g.productModelName ?? null,
+    productArticle: g.productArticle ?? null,
+    manufacturerName: g.manufacturerName ?? null,
+    packageAvailabilityCode: g.packageAvailabilityCode ?? null,
+    cargoPlacesQuantity: g.cargoPlacesQuantity ?? null,
+    packageKindCode: g.packageKindCode ?? null,
+    packageQuantity: g.packageQuantity ?? null,
+    prefClearanceCode: g.prefClearanceCode ?? null,
+    prefDutyCode: g.prefDutyCode ?? null,
+    prefExciseCode: g.prefExciseCode ?? null,
+    prefVatCode: g.prefVatCode ?? null,
+    customsValueKzt: g.customsValueKzt ?? null,
+    statisticValueUsd: g.statisticValueUsd ?? null,
+    valuationMethodCode: g.valuationMethodCode ?? null,
+    prohibitionCode: g.prohibitionCode ?? null,
+    ipoCode: g.ipoCode ?? null,
+    payments: (g.payments ?? []).map((p) => ({ ...p })),
   }))
   dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({
     docTypeCode: d.docTypeCode ?? null,
     docTypeName: d.docTypeName ?? null,
     docNumber: d.docNumber ?? null,
     docDate: d.docDate ?? null,
+    goodsItemIndex: d.goodsItemIndex ?? null,
+    docStartDate: d.docStartDate ?? null,
+    docValidityDate: d.docValidityDate ?? null,
   }))
   editingDtId.value = decl.id
+  kedenMissing.value = []
 }
 
 const closeDtEditor = () => {
@@ -974,7 +1210,6 @@ const saveDt = async () => {
   if (!activeCase.value || !dtForm.id) return
   dtSaving.value = true
   try {
-    ensurePaymentsLength()
     const payload: Import40DeclarationUpsert = {
       declarationNumber: dtForm.declarationNumber || null,
       corridor: dtForm.corridor || null,
@@ -986,13 +1221,32 @@ const saveDt = async () => {
       exchangeRate: dtForm.exchangeRate,
       sender: dtForm.sender,
       receiver: dtForm.receiver,
-      goodsItems: dtForm.goodsItems.map((g, i) => ({
-        ...g,
-        procedureCode: dtForm.goodsPayments[i]?.procedureCode ?? null,
-        dutyAmount: dtForm.goodsPayments[i]?.dutyAmount ?? null,
-        vatAmount: dtForm.goodsPayments[i]?.vatAmount ?? null,
-        feesAmount: dtForm.goodsPayments[i]?.feesAmount ?? null,
-      })),
+      transactionNatureCode: dtForm.transactionNatureCode || null,
+      transactionFeatureCode: dtForm.transactionFeatureCode || null,
+      tradeCountryCode: dtForm.tradeCountryCode || null,
+      originCountryCode: dtForm.originCountryCode || null,
+      incotermsPlace: dtForm.incotermsPlace || null,
+      consigneeEqualsDeclarant: dtForm.consigneeEqualsDeclarant,
+      financialSubjectEqualsDeclarant: dtForm.financialSubjectEqualsDeclarant,
+      goodsLocationCode: dtForm.goodsLocationCode || null,
+      goodsLocationRegisterNumber: dtForm.goodsLocationRegisterNumber || null,
+      goodsLocationCountryCode: dtForm.goodsLocationCountryCode || null,
+      borderCustomsOfficeCode: dtForm.borderCustomsOfficeCode || null,
+      borderCustomsOfficeName: dtForm.borderCustomsOfficeName || null,
+      submissionCustomsOfficeCode: dtForm.submissionCustomsOfficeCode || null,
+      borderTransportModeCode: dtForm.borderTransportModeCode || null,
+      borderTransportNationality: dtForm.borderTransportNationality || null,
+      borderTransportNumbers: dtForm.borderTransportNumbers,
+      arrivalTransportModeCode: dtForm.arrivalTransportModeCode || null,
+      arrivalTransportNationality: dtForm.arrivalTransportNationality || null,
+      arrivalTransportNumbers: dtForm.arrivalTransportNumbers,
+      rateType: dtForm.rateType || null,
+      factPayments: dtForm.factPayments,
+      goodsItems: dtForm.goodsItems.map((g) => {
+        // на бэкенде фактурная стоимость товара называется invoiceValue; в форме — customsValue
+        const { customsValue, ...rest } = g
+        return { ...rest, invoiceValue: customsValue, payments: g.payments ?? [] }
+      }),
       doc44Items: dtForm.doc44Items,
     }
     await import40Api.updateDeclaration(activeCase.value.id, dtForm.id, payload)
@@ -1003,6 +1257,33 @@ const saveDt = async () => {
     message.error('Не удалось сохранить ДТ')
   } finally {
     dtSaving.value = false
+  }
+}
+
+const kedenExporting = ref(false)
+const kedenMissing = ref<string[]>([])
+const exportKedenXml = async (declarationId: string) => {
+  if (!activeCase.value) return
+  kedenExporting.value = true
+  kedenMissing.value = []
+  try {
+    const res = await import40Api.downloadKedenXml(activeCase.value.id, declarationId)
+    if ('errors' in res) {
+      kedenMissing.value = res.errors
+      message.warning('XML не сформирован: заполните обязательные поля')
+      return
+    }
+    const url = URL.createObjectURL(res.blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = res.fileName
+    a.click()
+    URL.revokeObjectURL(url)
+    message.success('XML для КЕДЕН сформирован')
+  } catch {
+    message.error('Не удалось сформировать XML')
+  } finally {
+    kedenExporting.value = false
   }
 }
 
@@ -1181,10 +1462,10 @@ onMounted(async () => {
   .case-meta, .form-grid, .dt-grid-3 { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
 
-.dt-tpin { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
-.dt-tpin-bar { display: flex; align-items: center; justify-content: space-between; }
+.dt-tpin-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .dt-section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: var(--atg-muted, #888); }
-.dt-tpin-row { display: flex; align-items: center; gap: 8px; }
-.dt-tpin-idx { width: 18px; text-align: right; color: var(--atg-muted, #888); font-size: 12px; }
-.dt-tpin-tnved { flex: 1; min-width: 0; font-family: monospace; font-size: 12px; color: var(--atg-text, #333); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dt-transport-block { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.transport-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.transport-list-row { display: flex; align-items: center; gap: 8px; }
+.keden-missing { margin-top: 12px; }
 </style>
