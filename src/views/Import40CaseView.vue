@@ -127,10 +127,55 @@
       </Import40Step>
       <Import40Step :index="3" title="Декларирование" :state="stepState(3)" executor="декларант"
         :summary="stepState(3) === 'done' ? `ДТ: ${activeCase.declarations.length}` : undefined">
-        <div class="step-placeholder">Содержимое шага — Task 5</div>
+        <div v-if="!activeCase.declarations.length" class="muted">ДТ ещё не создана</div>
+
+        <div v-for="(dt, i) in activeCase.declarations" :key="dt.id" class="dt-row">
+          <div class="dt-row-main">
+            <strong>{{ dt.declarationNumber || `ДТ ${i + 1}` }}</strong>
+            <span class="muted">товаров: {{ dt.goodsItems.length }}</span>
+            <a-tag v-if="readiness[dt.id]" :color="readiness[dt.id].missing.length ? 'warning' : 'success'">
+              {{ readiness[dt.id].filled }}/{{ readiness[dt.id].total }} полей
+            </a-tag>
+          </div>
+          <div class="dt-row-actions">
+            <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+              <a-button size="small" :disabled="!can('declarant')" @click="$router.push(`/import-40/${activeCase.id}/dt/${dt.id}`)">Заполнить</a-button>
+            </a-tooltip>
+            <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+              <a-button size="small" :disabled="!can('declarant')" :loading="xmlLoading === dt.id" @click="exportXml(dt.id)">XML для КЕДЕН</a-button>
+            </a-tooltip>
+            <a-popconfirm v-if="can('declarant')" title="Удалить ДТ?" ok-text="Да" cancel-text="Нет" @confirm="removeDt(dt.id)">
+              <a-button size="small" type="text" danger>✕</a-button>
+            </a-popconfirm>
+          </div>
+        </div>
+
+        <a-alert v-if="kedenMissing.length" type="warning" show-icon class="keden-missing">
+          <template #message>Для XML не хватает данных:</template>
+          <template #description><ul><li v-for="m in kedenMissing" :key="m">{{ m }}</li></ul></template>
+        </a-alert>
+
+        <div v-if="stepState(3) === 'current'" class="step-actions">
+          <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+            <a-button :disabled="!can('declarant')" @click="addDt">Добавить ДТ</a-button>
+          </a-tooltip>
+          <a-button v-if="roleMode === 'declarant' && !activeCase.assignedDeclarantId" @click="runAction('claim')">Взять в работу</a-button>
+          <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+            <a-button type="primary" :disabled="!can('declarant') || !activeCase.declarations.length" @click="runAction('submit-declaration')">Подать ДТ</a-button>
+          </a-tooltip>
+          <a-tooltip :title="can('kpp') || can('declarant') ? '' : hintFor('declarant')">
+            <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">Вернуть клиенту</a-button>
+          </a-tooltip>
+        </div>
       </Import40Step>
-      <Import40Step :index="4" title="Выпуск ДТ" :state="stepState(4)" executor="декларант">
-        <div class="step-placeholder">Содержимое шага — Task 5</div>
+      <Import40Step :index="4" title="Выпуск ДТ" :state="stepState(4)" executor="декларант"
+        :summary="stepState(4) === 'done' ? 'выпущена' : undefined">
+        <p class="muted">ДТ подана в КЕДЕН. После выпуска зафиксируйте его здесь.</p>
+        <div v-if="stepState(4) === 'current'" class="step-actions">
+          <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+            <a-button type="primary" :disabled="!can('declarant')" @click="runAction('release-declaration')">Зафиксировать выпуск</a-button>
+          </a-tooltip>
+        </div>
       </Import40Step>
       <Import40Step :index="5" title="СВХ и счёт" :state="stepState(5)" executor="менеджер КПП"
         :summary="stepState(5) === 'done' && activeCase.svhInvoiceNote ? `счёт: ${activeCase.svhInvoiceNote}` : undefined">
@@ -172,6 +217,7 @@ import {
   type Import40CaseDto,
   type Import40FileDto,
   type Import40FileSection,
+  type KedenReadinessDto,
 } from '@/api/import40'
 import { useAuthStore } from '@/stores/auth'
 import Import40Step from '@/components/Import40Step.vue'
@@ -224,6 +270,7 @@ const reload = async () => {
   const id = String(route.params.id)
   activeCase.value = await import40Api.get(id)
   files.value = await import40Api.listFiles(id)
+  void loadReadiness()
 }
 
 const filesBySection = (s: Import40FileSection | string) => files.value.filter((f) => f.section === s)
@@ -310,6 +357,58 @@ const transportSummary = computed(() => {
   const detail = [c.wagonNumber, c.vehicleNumber, c.flightNumber, c.vesselName].filter(Boolean).join(', ')
   return `${kind}${detail ? ' · ' + detail : ''}`
 })
+
+const readiness = ref<Record<string, KedenReadinessDto>>({})
+const xmlLoading = ref<string | null>(null)
+const kedenMissing = ref<string[]>([])
+
+// readiness виден только сотрудникам (эндпоинт клиенту 404) — молча пропускаем
+const loadReadiness = async () => {
+  const c = activeCase.value
+  if (!c || roleMode.value === 'client' || roleMode.value === 'other') return
+  for (const dt of c.declarations) {
+    try {
+      readiness.value[dt.id] = await import40Api.kedenReadiness(c.id, dt.id)
+    } catch {
+      /* нет прав или сеть — тег просто не показываем */
+    }
+  }
+}
+
+const addDt = async () => {
+  if (!activeCase.value) return
+  await import40Api.createDeclaration(activeCase.value.id, {})
+  await reload()
+}
+
+const removeDt = async (dtId: string) => {
+  if (!activeCase.value) return
+  await import40Api.deleteDeclaration(activeCase.value.id, dtId)
+  await reload()
+}
+
+const exportXml = async (dtId: string) => {
+  if (!activeCase.value) return
+  xmlLoading.value = dtId
+  kedenMissing.value = []
+  try {
+    const res = await import40Api.downloadKedenXml(activeCase.value.id, dtId)
+    if ('errors' in res) {
+      kedenMissing.value = res.errors
+      message.warning('XML не сформирован: заполните обязательные поля')
+      return
+    }
+    const url = URL.createObjectURL(res.blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = res.fileName
+    a.click()
+    URL.revokeObjectURL(url)
+    message.success('XML сформирован')
+  } finally {
+    xmlLoading.value = null
+  }
+}
 
 const promptReturn = () => {
   let reason = ''
@@ -415,6 +514,28 @@ onMounted(() => void reload())
   gap: 10px;
   margin-top: 14px;
   flex-wrap: wrap;
+}
+.dt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--atg-line);
+  flex-wrap: wrap;
+}
+.dt-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dt-row-actions {
+  display: flex;
+  gap: 6px;
+}
+.keden-missing {
+  margin-top: 10px;
+  border-radius: var(--atg-radius-lg);
 }
 .case-bottom {
   background: transparent;
