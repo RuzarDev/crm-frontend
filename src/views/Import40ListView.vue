@@ -192,6 +192,7 @@ const createdCaseId = ref<string | null>(null)
 const uploadedFiles = ref<Import40FileDto[]>([])
 const uploading = ref(false)
 const submitting = ref(false)
+const pendingUploads = ref(0)
 
 const draft = reactive({
   clientId: undefined as string | undefined,
@@ -305,32 +306,42 @@ const createCase = async () => {
       // клиент: шаг 2 — документы в том же окне
       createStep.value = 2
       message.success('Заявка создана — прикрепите документы')
+      void reload()
     } else {
       // сотрудник: прежнее поведение
       message.success('Заявка создана')
       router.push(`/import-40/${created.id}`)
     }
-  } catch {
-    message.error('Не удалось создать заявку')
+  } catch (e: any) {
+    message.error(e?.response?.data?.error ?? 'Не удалось создать заявку')
   } finally {
     creating.value = false
   }
 }
 
-const uploadDocs = async (files: File[]) => {
+// customRequest вызывается конкурентно на каждый файл при multi-file drop —
+// счётчик in-flight гарантирует один финальный listFiles-снапшот и что uploading
+// не сбросится, пока соседние загрузки ещё выполняются
+const uploadDocs = async (file: File) => {
   if (!createdCaseId.value) return
+  const caseId = createdCaseId.value
+  pendingUploads.value += 1
   uploading.value = true
   try {
-    for (const f of files) {
-      await import40Api.uploadFile(createdCaseId.value, 'documents', f)
-    }
-    uploadedFiles.value = (await import40Api.listFiles(createdCaseId.value)).filter(
-      (x) => x.section === 'documents',
-    )
-  } catch {
-    message.error('Не удалось загрузить файл')
+    await import40Api.uploadFile(caseId, 'documents', file)
+  } catch (e: any) {
+    message.error(e?.response?.data?.error ?? `Не удалось загрузить файл: ${file.name}`)
   } finally {
-    uploading.value = false
+    pendingUploads.value -= 1
+    if (pendingUploads.value === 0) {
+      try {
+        uploadedFiles.value = (await import40Api.listFiles(caseId)).filter(
+          (x) => x.section === 'documents',
+        )
+      } finally {
+        uploading.value = false
+      }
+    }
   }
 }
 
@@ -341,8 +352,8 @@ const submitCase = async () => {
     await import40Api.action(createdCaseId.value, 'submit-for-processing')
     message.success('Заявка отправлена на оформление')
     router.push(`/import-40/${createdCaseId.value}`)
-  } catch {
-    message.error('Не удалось отправить заявку')
+  } catch (e: any) {
+    message.error(e?.response?.data?.error ?? 'Не удалось отправить заявку')
   } finally {
     submitting.value = false
   }
@@ -353,7 +364,7 @@ const finishLater = () => {
 }
 
 const handleDocUpload: UploadProps['customRequest'] = ({ file }) => {
-  void uploadDocs([file as File])
+  void uploadDocs(file as File)
 }
 
 onMounted(() => {
