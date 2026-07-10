@@ -69,6 +69,39 @@
             />
           </div>
         </div>
+
+        <!-- Строка 3 (расширенный режим): товар + сроки действия -->
+        <div v-if="extended" class="field-row">
+          <div class="field">
+            <div class="field-label">Товар</div>
+            <a-select
+              :value="(item as Import40Doc44ItemInput).goodsItemIndex ?? null"
+              size="small"
+              :disabled="readonly"
+              allow-clear
+              style="width: 160px"
+              placeholder="Все товары"
+              :options="goodsOptions ?? []"
+              @change="(v: number | null) => { (item as Import40Doc44ItemInput).goodsItemIndex = v ?? null; emitChange() }"
+            />
+          </div>
+          <div class="field" style="flex: 0 0 120px;">
+            <div class="field-label">Действует с</div>
+            <a-input
+              :value="(item as Import40Doc44ItemInput).docStartDate"
+              size="small" :disabled="readonly" placeholder="ГГГГ-ММ-ДД" style="width: 120px"
+              @update:value="(v: string) => { (item as Import40Doc44ItemInput).docStartDate = v || null; emitChange() }"
+            />
+          </div>
+          <div class="field" style="flex: 0 0 120px;">
+            <div class="field-label">Действует по</div>
+            <a-input
+              :value="(item as Import40Doc44ItemInput).docValidityDate"
+              size="small" :disabled="readonly" placeholder="ГГГГ-ММ-ДД" style="width: 120px"
+              @update:value="(v: string) => { (item as Import40Doc44ItemInput).docValidityDate = v || null; emitChange() }"
+            />
+          </div>
+        </div>
       </div>
 
       <a-button
@@ -85,12 +118,14 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import type { ReestrDoc44ItemInput } from '@/types/api'
+import type { ReestrDoc44ItemInput, Import40Doc44ItemInput } from '@/types/api'
 import { EAES_DOC_CODES } from '@/types/api'
 
 const props = defineProps<{
   modelValue: ReestrDoc44ItemInput[]
   readonly?: boolean
+  extended?: boolean
+  goodsOptions?: { value: number; label: string }[]
 }>()
 
 const emit = defineEmits<{
@@ -102,7 +137,9 @@ const eaesOptions = EAES_DOC_CODES.map((c) => ({
   label: `${c.code} — ${c.name}`,
 }))
 
-const items = ref<ReestrDoc44ItemInput[]>([])
+// Import40Doc44ItemInput расширяет ReestrDoc44ItemInput опциональными полями —
+// items хранит их, даже когда компонент используется в транзитном (не extended) режиме
+const items = ref<Import40Doc44ItemInput[]>([])
 
 watch(
   () => props.modelValue,
@@ -124,7 +161,15 @@ function onTypeCodeChange(item: ReestrDoc44ItemInput, code: string | null) {
 }
 
 function addItem() {
-  items.value.push({ docTypeCode: null, docTypeName: null, docNumber: null, docDate: null })
+  items.value.push({
+    docTypeCode: null,
+    docTypeName: null,
+    docNumber: null,
+    docDate: null,
+    goodsItemIndex: null,
+    docStartDate: null,
+    docValidityDate: null,
+  })
   emitChange()
 }
 

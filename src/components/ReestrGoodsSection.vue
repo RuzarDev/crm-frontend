@@ -297,19 +297,18 @@ function toRow(g: ReestrGoodsItemInput): GoodsRow {
 }
 
 function fromRow(r: GoodsRow): ReestrGoodsItemInput {
+  // rest сохраняет расширенные поля (например КЕДЕН-поля Импорта 40),
+  // которые этот компонент не знает и не должен терять
+  const { quantityStr, grossWeightStr, netWeightStr, packagesCountStr, customsValueStr, tnvedLoading, ...rest } = r
   return {
+    ...rest,
     description: r.description || null,
     tnvedCode: r.tnvedCode || null,
     tnvedDescription: r.tnvedDescription || null,
     countryOfOrigin: r.countryOfOrigin || null,
-    quantity: r.quantity,
     unit: r.unit || null,
     unitCode: r.unitCode || null,
-    grossWeightKg: r.grossWeightKg,
-    netWeightKg: r.netWeightKg,
-    packagesCount: r.packagesCount,
     quantityTypeCode: r.quantityTypeCode || null,
-    customsValue: r.customsValue,
     currency: r.currency || null,
   }
 }
