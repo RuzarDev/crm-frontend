@@ -151,10 +151,10 @@
 
       <a-empty v-if="!activeCase.declarations.length" description="ДТ пока нет" />
 
-      <div v-for="dt in activeCase.declarations" :key="dt.id" class="dt-block">
+      <div v-for="(dt, dtIdx) in activeCase.declarations" :key="dt.id" class="dt-block">
         <div class="dt-row">
           <div class="dt-row-main">
-            <strong>{{ dt.declarationNumber || 'ДТ без номера' }}</strong>
+            <strong>{{ dt.declarationNumber || `ДТ ${dtIdx + 1}` }}</strong>
             <span class="dt-meta">товаров: {{ dt.goodsItems.length }}</span>
           </div>
           <div class="dt-row-actions">
@@ -167,19 +167,13 @@
 
         <div v-if="editingDtId === dt.id" class="dt-editor">
           <a-form layout="vertical">
+            <!-- Номер ДТ и коридор присваивает КЕДЕН/таможня — декларант их не заполняет.
+                 Поля остаются в модели и ронд-трипятся без изменений. -->
             <div class="dt-grid-2">
-              <a-form-item label="Номер ДТ">
-                <a-input v-model:value="dtForm.declarationNumber" placeholder="55301/…" />
-              </a-form-item>
               <a-form-item label="Процедура (гр.1)">
                 <a-input v-model:value="dtForm.procedureCode" placeholder="40" />
               </a-form-item>
             </div>
-
-            <a-form-item label="Коридор">
-              <a-select v-if="canEditCorridor" v-model:value="dtForm.corridor" :options="CORRIDOR_OPTIONS" style="max-width: 240px" />
-              <a-tag v-else>{{ (CORRIDOR_OPTIONS.find(c => c.value === dtForm.corridor)?.label) || dtForm.corridor }}</a-tag>
-            </a-form-item>
 
             <div class="dt-grid-2">
               <a-form-item label="Страна отправления (ОКСМ)">
@@ -1021,17 +1015,6 @@ const dtForm = reactive<{
   arrivalTransportNumbers: [],
   rateType: 'ETT',
   factPayments: [],
-})
-
-const CORRIDOR_OPTIONS = [
-  { value: 'green', label: '🟢 Зелёный' },
-  { value: 'yellow', label: '🟡 Жёлтый' },
-  { value: 'red', label: '🔴 Красный' },
-]
-const canEditCorridor = computed(() => {
-  const sys = (authStore.role || '').toLowerCase()
-  const biz = (authStore.businessRole || '').toLowerCase()
-  return sys === 'administrator' || biz === 'declarant' || biz === 'rop'
 })
 
 // Классификаторы КЕДЕН — селекты этого редактора
