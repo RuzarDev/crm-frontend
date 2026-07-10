@@ -214,6 +214,9 @@
               <a-form-item label="Курс">
                 <a-input-number v-model:value="dtForm.exchangeRate" style="width: 100%" :min="0" />
               </a-form-item>
+              <a-form-item label="Общая фактурная стоимость (гр.22)">
+                <a-input-number v-model:value="dtForm.totalInvoiceValue" style="width: 100%" :min="0" />
+              </a-form-item>
             </div>
 
             <div class="dt-grid-3">
@@ -956,6 +959,7 @@ const dtForm = reactive<{
   incoterms: string
   currency: string
   exchangeRate: number | null
+  totalInvoiceValue: number | null
   sender: Import40Party
   receiver: Import40Party
   goodsItems: Import40GoodsItemInput[]
@@ -991,6 +995,7 @@ const dtForm = reactive<{
   incoterms: '',
   currency: '',
   exchangeRate: null,
+  totalInvoiceValue: null,
   sender: emptyParty(),
   receiver: emptyParty(),
   goodsItems: [],
@@ -1115,6 +1120,7 @@ const openDtEditor = (decl: Import40DeclarationDto) => {
   dtForm.incoterms = decl.incoterms ?? ''
   dtForm.currency = decl.currency ?? ''
   dtForm.exchangeRate = decl.exchangeRate ?? null
+  dtForm.totalInvoiceValue = decl.totalInvoiceValue ?? null
   dtForm.sender = decl.sender ? { ...emptyParty(), ...decl.sender } : emptyParty()
   dtForm.receiver = decl.receiver ? { ...emptyParty(), ...decl.receiver } : emptyParty()
   dtForm.transactionNatureCode = decl.transactionNatureCode ?? ''
@@ -1219,6 +1225,7 @@ const saveDt = async () => {
       incoterms: dtForm.incoterms || null,
       currency: dtForm.currency || null,
       exchangeRate: dtForm.exchangeRate,
+      totalInvoiceValue: dtForm.totalInvoiceValue,
       sender: dtForm.sender,
       receiver: dtForm.receiver,
       transactionNatureCode: dtForm.transactionNatureCode || null,
