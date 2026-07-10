@@ -934,7 +934,8 @@ const openDtEditor = (decl: Import40DeclarationDto) => {
     netWeightKg: g.netWeightKg ?? null,
     packagesCount: g.packagesCount ?? null,
     quantityTypeCode: g.quantityTypeCode ?? null,
-    customsValue: g.customsValue ?? null,
+    // на бэкенде фактурная стоимость товара называется invoiceValue; в форме — customsValue
+    customsValue: g.invoiceValue ?? null,
     currency: g.currency ?? null,
   }))
   dtForm.goodsPayments = (decl.goodsItems ?? []).map((g) => ({

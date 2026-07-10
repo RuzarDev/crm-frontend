@@ -856,6 +856,72 @@ export interface ReestrDoc44ItemInput {
   docDate: string | null
 }
 
+// ── Import40 КЕДЕН-типы ───────────────────────────────────────────────────────
+
+export interface Import40TransportMeans {
+  number: string
+  typeCode: string | null
+}
+
+export interface Import40GoodsPayment {
+  sortOrder?: number
+  taxModeCode: string | null
+  taxBase: number | null
+  rateKindCode: string | null // '%' | 'S' | '*'
+  rateValue: number | null
+  rateUnitCode: string | null
+  rateCurrencyCode: string | null
+  weightRatio: number | null
+  rateDate: string | null // yyyy-MM-dd
+  paymentFeatureCode: string | null
+  amountKzt: number | null
+}
+
+export interface Import40FactPayment {
+  sortOrder?: number
+  taxModeCode: string | null
+  amount: number | null
+  exchangeRate: number | null
+  paymentDocDate: string | null
+  payerTaxpayerId: string | null
+  paymentDate: string | null
+  paymentMethodCode: string | null
+}
+
+// Товар ДТ Импорт 40: базовые поля общие с транзитом + КЕДЕН-поля
+export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
+  // ВАЖНО: на бэкенде фактурная стоимость называется invoiceValue;
+  // в общий компонент товаров она едет как customsValue (см. маппинг в Import40View)
+  procedureCode?: string | null
+  previousProcedureCode?: string | null
+  goodsMoveFeatureCode?: string | null
+  tradeMarkName?: string | null
+  productMarkName?: string | null
+  productModelName?: string | null
+  productArticle?: string | null
+  manufacturerName?: string | null
+  packageAvailabilityCode?: string | null
+  cargoPlacesQuantity?: number | null
+  packageKindCode?: string | null
+  packageQuantity?: number | null
+  prefClearanceCode?: string | null
+  prefDutyCode?: string | null
+  prefExciseCode?: string | null
+  prefVatCode?: string | null
+  customsValueKzt?: number | null
+  statisticValueUsd?: number | null
+  valuationMethodCode?: string | null
+  prohibitionCode?: string | null
+  ipoCode?: string | null
+  payments?: Import40GoodsPayment[]
+}
+
+export interface Import40Doc44ItemInput extends ReestrDoc44ItemInput {
+  goodsItemIndex?: number | null
+  docStartDate?: string | null
+  docValidityDate?: string | null
+}
+
 export const EAES_DOC_CODES: { code: string; name: string }[] = [
   { code: '01401', name: 'Сертификат соответствия техническому регламенту ЕАЭС' },
   { code: '01402', name: 'Декларация о соответствии техническому регламенту ЕАЭС' },

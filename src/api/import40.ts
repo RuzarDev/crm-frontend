@@ -1,5 +1,13 @@
 import apiClient from './client'
-import type { ReestrGoodsItemInput, ReestrDoc44ItemInput } from '@/types/api'
+import type {
+  ReestrGoodsItemInput,
+  ReestrDoc44ItemInput,
+  Import40TransportMeans,
+  Import40GoodsPayment,
+  Import40FactPayment,
+  Import40GoodsItemInput,
+  Import40Doc44ItemInput,
+} from '@/types/api'
 
 export type Import40Action =
   | 'submit-for-processing'
@@ -56,12 +64,33 @@ export interface Import40GoodsItemDto {
   netWeightKg?: number | null
   packagesCount?: number | null
   quantityTypeCode?: string | null
-  customsValue?: number | null
+  invoiceValue?: number | null
   currency?: string | null
   procedureCode?: string | null
+  previousProcedureCode?: string | null
+  goodsMoveFeatureCode?: string | null
+  tradeMarkName?: string | null
+  productMarkName?: string | null
+  productModelName?: string | null
+  productArticle?: string | null
+  manufacturerName?: string | null
+  packageAvailabilityCode?: string | null
+  cargoPlacesQuantity?: number | null
+  packageKindCode?: string | null
+  packageQuantity?: number | null
+  prefClearanceCode?: string | null
+  prefDutyCode?: string | null
+  prefExciseCode?: string | null
+  prefVatCode?: string | null
+  customsValueKzt?: number | null
+  statisticValueUsd?: number | null
+  valuationMethodCode?: string | null
+  prohibitionCode?: string | null
+  ipoCode?: string | null
   dutyAmount?: number | null
   vatAmount?: number | null
   feesAmount?: number | null
+  payments?: Import40GoodsPayment[]
 }
 
 export interface Import40Doc44ItemDto {
@@ -71,6 +100,9 @@ export interface Import40Doc44ItemDto {
   docTypeName?: string | null
   docNumber?: string | null
   docDate?: string | null
+  goodsItemIndex?: number | null
+  docStartDate?: string | null
+  docValidityDate?: string | null
 }
 
 export interface Import40DeclarationDto {
@@ -89,6 +121,27 @@ export interface Import40DeclarationDto {
   exchangeRate?: number | null
   svhCost?: number | null
   releasedAtUtc?: string | null
+  transactionNatureCode?: string | null
+  transactionFeatureCode?: string | null
+  tradeCountryCode?: string | null
+  originCountryCode?: string | null
+  incotermsPlace?: string | null
+  consigneeEqualsDeclarant?: boolean | null
+  financialSubjectEqualsDeclarant?: boolean | null
+  goodsLocationCode?: string | null
+  goodsLocationRegisterNumber?: string | null
+  goodsLocationCountryCode?: string | null
+  borderCustomsOfficeCode?: string | null
+  borderCustomsOfficeName?: string | null
+  submissionCustomsOfficeCode?: string | null
+  borderTransportModeCode?: string | null
+  borderTransportNationality?: string | null
+  borderTransportNumbers?: Import40TransportMeans[]
+  arrivalTransportModeCode?: string | null
+  arrivalTransportNationality?: string | null
+  arrivalTransportNumbers?: Import40TransportMeans[]
+  rateType?: string | null
+  factPayments?: Import40FactPayment[]
   goodsItems: Import40GoodsItemDto[]
   doc44Items: Import40Doc44ItemDto[]
 }
@@ -114,8 +167,29 @@ export interface Import40DeclarationUpsert {
   totalInvoiceValue?: number | null
   exchangeRate?: number | null
   svhCost?: number | null
+  transactionNatureCode?: string | null
+  transactionFeatureCode?: string | null
+  tradeCountryCode?: string | null
+  originCountryCode?: string | null
+  incotermsPlace?: string | null
+  consigneeEqualsDeclarant?: boolean | null
+  financialSubjectEqualsDeclarant?: boolean | null
+  goodsLocationCode?: string | null
+  goodsLocationRegisterNumber?: string | null
+  goodsLocationCountryCode?: string | null
+  borderCustomsOfficeCode?: string | null
+  borderCustomsOfficeName?: string | null
+  submissionCustomsOfficeCode?: string | null
+  borderTransportModeCode?: string | null
+  borderTransportNationality?: string | null
+  borderTransportNumbers?: Import40TransportMeans[]
+  arrivalTransportModeCode?: string | null
+  arrivalTransportNationality?: string | null
+  arrivalTransportNumbers?: Import40TransportMeans[]
+  rateType?: string | null
+  factPayments?: Import40FactPayment[]
   goodsItems?: Import40GoodsUpsert[]
-  doc44Items?: ReestrDoc44ItemInput[]
+  doc44Items?: Import40Doc44ItemInput[]
 }
 
 export const IMPORT40_TRANSPORT_MODES: { value: number; label: string }[] = [
@@ -311,6 +385,25 @@ export const import40Api = {
     await apiClient.delete(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}`,
     )
+  },
+
+  // 200 → файл; 400 → { errors: string[] } с перечнем незаполненного
+  downloadKedenXml: async (
+    caseId: string,
+    declarationId: string,
+  ): Promise<{ blob: Blob; fileName: string } | { errors: string[] }> => {
+    const res = await apiClient.get(`/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/keden-xml`, {
+      responseType: 'blob',
+      validateStatus: (s) => s === 200 || s === 400,
+    })
+    if (res.status === 400) {
+      const text = await (res.data as Blob).text()
+      const parsed = JSON.parse(text) as { errors: string[] }
+      return { errors: parsed.errors ?? ['Не удалось сформировать XML'] }
+    }
+    const cd = String(res.headers['content-disposition'] ?? '')
+    const m = /filename\*?=(?:UTF-8'')?"?([^";]+)/i.exec(cd)
+    return { blob: res.data as Blob, fileName: m ? decodeURIComponent(m[1]) : 'declaration.xml' }
   },
 
   listClients: async (): Promise<{ id: string; username: string }[]> => {
