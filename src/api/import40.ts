@@ -258,6 +258,12 @@ export interface Import40FileDto {
   createdAtUtc: string
 }
 
+export interface KedenReadinessDto {
+  missing: string[]
+  filled: number
+  total: number
+}
+
 export interface Import40CreateRequest {
   clientId: string
   clientName: string
@@ -400,6 +406,13 @@ export const import40Api = {
     const cd = String(res.headers['content-disposition'] ?? '')
     const m = /filename\*?=(?:UTF-8'')?"?([^";]+)/i.exec(cd)
     return { blob: res.data as Blob, fileName: m ? decodeURIComponent(m[1]) : 'declaration.xml' }
+  },
+
+  kedenReadiness: async (caseId: string, declarationId: string): Promise<KedenReadinessDto> => {
+    const { data } = await apiClient.get<KedenReadinessDto>(
+      `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/keden-readiness`,
+    )
+    return data
   },
 
   listClients: async (): Promise<{ id: string; username: string }[]> => {
