@@ -851,8 +851,8 @@ const executeAction = async (action: Import40Action, value?: string) => {
     activeCase.value = await import40Api.action(activeCase.value.id, action, value)
     await loadFiles()
     message.success('Готово')
-  } catch {
-    message.error('Действие недоступно')
+  } catch (e: any) {
+    message.error(e?.response?.data?.error ?? 'Действие недоступно')
   }
 }
 

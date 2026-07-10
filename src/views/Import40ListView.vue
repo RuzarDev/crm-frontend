@@ -35,37 +35,72 @@
     </a-alert>
 
     <a-card v-if="canCreate" class="crm-shell-card create-card" :bordered="false">
-      <template #title>Новая заявка</template>
-      <div class="create-grid">
-        <label v-if="!isClientRole">
-          <span>Клиент</span>
-          <a-select
-            v-model:value="draft.clientId"
-            show-search
-            option-filter-prop="label"
-            :options="clientOptions"
-            :loading="clientsLoading"
-            placeholder="Выберите клиента"
-            @change="syncClientName"
-          />
-        </label>
-        <label>
-          <span>Груз</span>
-          <a-input v-model:value="draft.cargo" placeholder="Описание груза" />
-        </label>
-        <label>
-          <span>Пост / СВХ</span>
-          <a-input v-model:value="draft.post" placeholder="Таможенный пост" />
-        </label>
-        <a-tooltip v-if="showOnboardingGate" title="Сначала подпишите договор и доверенность (Моя компания)">
-          <span>
-            <a-button type="primary" disabled style="pointer-events: none">Создать</a-button>
-          </span>
-        </a-tooltip>
-        <a-button v-else type="primary" :disabled="!canSubmit" :loading="creating" @click="createCase">
-          Создать
-        </a-button>
-      </div>
+      <template #title>{{ createStep === 1 ? 'Новая заявка' : 'Документы к заявке' }}</template>
+      <template v-if="createStep === 1">
+        <div class="create-grid">
+          <label v-if="!isClientRole">
+            <span>Клиент</span>
+            <a-select
+              v-model:value="draft.clientId"
+              show-search
+              option-filter-prop="label"
+              :options="clientOptions"
+              :loading="clientsLoading"
+              placeholder="Выберите клиента"
+              @change="syncClientName"
+            />
+          </label>
+          <label>
+            <span>Груз</span>
+            <a-input v-model:value="draft.cargo" placeholder="Описание груза" />
+          </label>
+          <label>
+            <span>Пост / СВХ</span>
+            <a-input v-model:value="draft.post" placeholder="Таможенный пост" />
+          </label>
+          <a-tooltip v-if="showOnboardingGate" title="Сначала подпишите договор и доверенность (Моя компания)">
+            <span>
+              <a-button type="primary" disabled style="pointer-events: none">Создать</a-button>
+            </span>
+          </a-tooltip>
+          <a-button v-else type="primary" :disabled="!canSubmit" :loading="creating" @click="createCase">
+            Создать
+          </a-button>
+        </div>
+      </template>
+      <template v-if="createStep === 2">
+        <a-alert
+          type="info"
+          show-icon
+          class="onboarding-alert"
+          message="Прикрепите документы для оформления"
+          description="Инвойс, упаковочный лист, транспортные документы — всё, что есть по поставке. Для отправки нужен минимум один файл."
+        />
+        <a-upload-dragger
+          :multiple="true"
+          :show-upload-list="false"
+          :custom-request="handleDocUpload"
+          :disabled="uploading"
+        >
+          <p>Перетащите файлы сюда или нажмите для выбора</p>
+        </a-upload-dragger>
+        <ul v-if="uploadedFiles.length" class="uploaded-list">
+          <li v-for="f in uploadedFiles" :key="f.id">{{ f.originalFileName }}</li>
+        </ul>
+        <div class="submit-actions">
+          <a-tooltip :title="uploadedFiles.length ? '' : 'Прикрепите хотя бы один документ'">
+            <a-button
+              type="primary"
+              :disabled="!uploadedFiles.length"
+              :loading="submitting"
+              @click="submitCase"
+            >
+              Отправить заявку
+            </a-button>
+          </a-tooltip>
+          <a-button type="link" @click="finishLater">Дозаполнить позже (останется черновиком)</a-button>
+        </div>
+      </template>
     </a-card>
 
     <a-card class="crm-shell-card" :bordered="false">
@@ -123,8 +158,14 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
+import type { UploadProps } from 'ant-design-vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
-import { import40Api, IMPORT40_STATUSES, type Import40CaseDto } from '@/api/import40'
+import {
+  import40Api,
+  IMPORT40_STATUSES,
+  type Import40CaseDto,
+  type Import40FileDto,
+} from '@/api/import40'
 import {
   import40ContractApi,
   isDocumentEffective,
@@ -145,6 +186,12 @@ const tab = ref<'my' | 'all'>('my')
 const onboardingChecked = ref(false)
 const contractDocs = ref<Import40DocumentDto[]>([])
 const poaDocs = ref<Import40DocumentDto[]>([])
+
+const createStep = ref<1 | 2>(1)
+const createdCaseId = ref<string | null>(null)
+const uploadedFiles = ref<Import40FileDto[]>([])
+const uploading = ref(false)
+const submitting = ref(false)
 
 const draft = reactive({
   clientId: undefined as string | undefined,
@@ -253,13 +300,60 @@ const createCase = async () => {
       cargo: draft.cargo.trim(),
       post: draft.post.trim(),
     })
-    message.success('Заявка создана')
-    router.push(`/import-40/${created.id}`)
+    createdCaseId.value = created.id
+    if (isClientRole.value) {
+      // клиент: шаг 2 — документы в том же окне
+      createStep.value = 2
+      message.success('Заявка создана — прикрепите документы')
+    } else {
+      // сотрудник: прежнее поведение
+      message.success('Заявка создана')
+      router.push(`/import-40/${created.id}`)
+    }
   } catch {
     message.error('Не удалось создать заявку')
   } finally {
     creating.value = false
   }
+}
+
+const uploadDocs = async (files: File[]) => {
+  if (!createdCaseId.value) return
+  uploading.value = true
+  try {
+    for (const f of files) {
+      await import40Api.uploadFile(createdCaseId.value, 'documents', f)
+    }
+    uploadedFiles.value = (await import40Api.listFiles(createdCaseId.value)).filter(
+      (x) => x.section === 'documents',
+    )
+  } catch {
+    message.error('Не удалось загрузить файл')
+  } finally {
+    uploading.value = false
+  }
+}
+
+const submitCase = async () => {
+  if (!createdCaseId.value || uploadedFiles.value.length === 0) return
+  submitting.value = true
+  try {
+    await import40Api.action(createdCaseId.value, 'submit-for-processing')
+    message.success('Заявка отправлена на оформление')
+    router.push(`/import-40/${createdCaseId.value}`)
+  } catch {
+    message.error('Не удалось отправить заявку')
+  } finally {
+    submitting.value = false
+  }
+}
+
+const finishLater = () => {
+  if (createdCaseId.value) router.push(`/import-40/${createdCaseId.value}`)
+}
+
+const handleDocUpload: UploadProps['customRequest'] = ({ file }) => {
+  void uploadDocs([file as File])
 }
 
 onMounted(() => {
@@ -332,6 +426,9 @@ onMounted(() => {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
+.uploaded-list { margin: 10px 0 0; padding-left: 18px; font-size: 13px; }
+.submit-actions { display: flex; gap: 10px; margin-top: 14px; align-items: center; }
 
 .case-cell span {
   color: var(--atg-muted);
