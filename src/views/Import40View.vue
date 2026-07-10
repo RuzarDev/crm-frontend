@@ -402,7 +402,7 @@
           <a-tag v-else>Не загружена</a-tag>
         </div>
         <FileChips :items="filesBySection('power-of-attorney')" empty="Доверенность не загружена" @download="downloadFile" />
-        <a-button v-if="isClient" type="primary" @click="triggerUpload('power-of-attorney')"><UploadOutlined /> Загрузить доверенность</a-button>
+        <a-button v-if="isClient || isAdmin" type="primary" @click="triggerUpload('power-of-attorney')"><UploadOutlined /> Загрузить доверенность</a-button>
       </div>
     </a-card>
 
@@ -418,7 +418,7 @@
           </div>
           <p v-if="activeCase.svhInvoiceNote" class="flow-sum">Сумма: <strong>{{ activeCase.svhInvoiceNote }}</strong></p>
           <FileChips :items="filesBySection('svh-invoice')" empty="" @download="downloadFile" />
-          <a-button v-if="isKpp" @click="triggerUpload('svh-invoice')"><UploadOutlined /> Загрузить счёт СВХ</a-button>
+          <a-button v-if="isKpp || isAdmin" @click="triggerUpload('svh-invoice')"><UploadOutlined /> Загрузить счёт СВХ</a-button>
         </div>
         <div class="flow-block">
           <div class="flow-block-head">
@@ -428,7 +428,7 @@
             <a-tag v-else>Ожидается</a-tag>
           </div>
           <FileChips :items="filesBySection('payment-check')" empty="" @download="downloadFile" />
-          <a-button v-if="isClient && activeCase.status >= 6" type="primary" @click="triggerUpload('payment-check')"><UploadOutlined /> Загрузить чек</a-button>
+          <a-button v-if="(isClient || isAdmin) && activeCase.status >= 6" type="primary" @click="triggerUpload('payment-check')"><UploadOutlined /> Загрузить чек</a-button>
         </div>
         <div class="flow-block">
           <div class="flow-block-head">
@@ -437,7 +437,7 @@
             <a-tag v-else>Ожидается</a-tag>
           </div>
           <FileChips :items="filesBySection('declaration-stamp')" empty="" @download="downloadFile" />
-          <a-button v-if="isKpp" @click="triggerUpload('declaration-stamp')"><UploadOutlined /> Загрузить штамп ДТ</a-button>
+          <a-button v-if="isKpp || isAdmin" @click="triggerUpload('declaration-stamp')"><UploadOutlined /> Загрузить штамп ДТ</a-button>
         </div>
       </div>
     </a-card>
@@ -445,7 +445,7 @@
     <!-- Документы -->
     <a-card v-if="activeTab === 'documents'" class="crm-shell-card" :bordered="false">
       <template #title><div class="card-title"><FileProtectOutlined /> Документы заявки</div></template>
-      <a-button v-if="isClient" type="primary" style="margin-bottom: 12px" @click="triggerUpload('documents')">
+      <a-button v-if="isClient || isAdmin" type="primary" style="margin-bottom: 12px" @click="triggerUpload('documents')">
         <UploadOutlined /> Загрузить документ
       </a-button>
       <a-spin :spinning="filesLoading">
