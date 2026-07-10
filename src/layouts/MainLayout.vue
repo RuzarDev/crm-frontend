@@ -208,6 +208,14 @@ const menuItems = computed(() => {
     })
   }
 
+  if (!['sales'].includes(role)) {
+    items.push({
+      key: '/requests-registry',
+      icon: () => h(DatabaseOutlined),
+      label: 'Реестр заявок',
+    })
+  }
+
   if (['expeditor', 'broker', 'administrator'].includes(role)) {
     items.push({
       key: '/document-packages',
@@ -354,6 +362,7 @@ const selectedMenuKey = computed(() => {
   if (route.path.startsWith('/system/endpoints')) return '/system/endpoints'
   if (route.path.startsWith('/profile')) return '/profile'
   if (route.path.startsWith('/sales')) return '/sales'
+  if (route.path.startsWith('/requests-registry')) return '/requests-registry'
   return '/reestr'
 })
 
