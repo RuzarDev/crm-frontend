@@ -891,7 +891,7 @@ export interface Import40FactPayment {
 // Товар ДТ Импорт 40: базовые поля общие с транзитом + КЕДЕН-поля
 export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   // ВАЖНО: на бэкенде фактурная стоимость называется invoiceValue;
-  // в общий компонент товаров она едет как customsValue (см. маппинг в Import40View)
+  // в общий компонент товаров она едет как customsValue (см. маппинг в Import40DtView)
   procedureCode?: string | null
   previousProcedureCode?: string | null
   goodsMoveFeatureCode?: string | null

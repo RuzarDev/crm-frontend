@@ -8,13 +8,28 @@
           <div class="case-meta">
             <span>Клиент: <strong>{{ activeCase.clientName }}</strong></span>
             <span>Пост: <strong>{{ activeCase.post || '—' }}</strong></span>
-            <span v-if="activeCase.assignedKppId">КПП: <a-tag>назначен</a-tag></span>
-            <span v-if="activeCase.assignedDeclarantId">Декларант: <a-tag>назначен</a-tag></span>
+            <span v-if="activeCase.assignedKppId">КПП: <a-tag>{{ staffName(activeCase.assignedKppId) }}</a-tag></span>
+            <span v-if="activeCase.assignedDeclarantId">Декларант: <a-tag>{{ staffName(activeCase.assignedDeclarantId) }}</a-tag></span>
           </div>
         </div>
         <div class="case-head-step">
           <div class="step-counter">Шаг {{ currentStep }} из 7</div>
           <div class="step-name">{{ STEP_TITLES[currentStep - 1] }}</div>
+          <a-tag v-if="assignedTag === 'me'" color="success">в работе у меня</a-tag>
+          <a-tag v-else-if="assignedTag === 'other'" color="warning">занято коллегой</a-tag>
+        </div>
+      </div>
+
+      <div class="case-head-tools">
+        <a-button
+          v-if="(can('kpp') || can('declarant')) && !activeCase.isProblem && activeCase.status < 8"
+          danger size="small" @click="promptProblem"
+        >Запрос таможни / проблема</a-button>
+
+        <div v-if="roleMode === 'admin'" class="assign-inline">
+          <a-select v-model:value="assignForm.kppId" allow-clear placeholder="КПП не назначен" :options="kppOptions" size="small" style="min-width: 170px" />
+          <a-select v-model:value="assignForm.declarantId" allow-clear placeholder="Декларант не назначен" :options="declarantOptions" size="small" style="min-width: 170px" />
+          <a-button size="small" :loading="assignSaving" @click="saveAssignment">Назначить</a-button>
         </div>
       </div>
     </a-card>
@@ -175,6 +190,7 @@
           <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
             <a-button type="primary" :disabled="!can('declarant')" @click="runAction('release-declaration')">Зафиксировать выпуск</a-button>
           </a-tooltip>
+          <a-button v-if="roleMode === 'declarant' && !activeCase.assignedDeclarantId" @click="runAction('claim')">Взять в работу</a-button>
         </div>
       </Import40Step>
       <Import40Step :index="5" title="СВХ и счёт" :state="stepState(5)" executor="менеджер КПП"
@@ -194,6 +210,7 @@
           <a-tooltip v-if="activeCase.status === 5" :title="can('kpp') ? '' : hintFor('kpp')">
             <a-button type="primary" :disabled="!can('kpp')" @click="promptInvoice">Выставить счёт СВХ</a-button>
           </a-tooltip>
+          <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">Взять в работу</a-button>
         </div>
       </Import40Step>
       <Import40Step :index="6" title="Оплата" :state="stepState(6)" executor="клиент и КПП"
@@ -210,6 +227,7 @@
             <a-button type="primary" :disabled="!can('kpp') || !filesBySection('payment-check').length"
               @click="runAction('confirm-payment-and-complete')">Подтвердить оплату и завершить</a-button>
           </a-tooltip>
+          <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">Взять в работу</a-button>
         </div>
       </Import40Step>
       <Import40Step :index="7" title="Выполнено" :state="stepState(7)">
@@ -241,7 +259,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Input, message, Modal } from 'ant-design-vue'
 import {
@@ -254,6 +272,7 @@ import {
   type KedenReadinessDto,
 } from '@/api/import40'
 import { useAuthStore } from '@/stores/auth'
+import { usersApi } from '@/api/users'
 import Import40Step from '@/components/Import40Step.vue'
 import Import40FilesBlock from '@/components/Import40FilesBlock.vue'
 
@@ -304,6 +323,8 @@ const reload = async () => {
   const id = String(route.params.id)
   activeCase.value = await import40Api.get(id)
   files.value = await import40Api.listFiles(id)
+  assignForm.kppId = activeCase.value?.assignedKppId ?? null
+  assignForm.declarantId = activeCase.value?.assignedDeclarantId ?? null
   void loadReadiness()
 }
 
@@ -459,6 +480,83 @@ const promptReturn = () => {
   })
 }
 
+const promptProblem = () => {
+  let note = ''
+  Modal.confirm({
+    title: 'Запрос таможни / проблема',
+    content: h(Input.TextArea, {
+      rows: 3,
+      placeholder: 'Опишите проблему',
+      onChange: (e: any) => (note = e.target.value),
+    }),
+    okText: 'Отметить',
+    cancelText: 'Отмена',
+    onOk: () => runAction('set-problem', note),
+  })
+}
+
+// Бейдж «в работе у меня / занято коллегой» (kpp/declarant)
+const assignedTag = computed<'me' | 'other' | null>(() => {
+  const c = activeCase.value
+  const uid = authStore.userId
+  if (!c || !uid) return null
+  if (roleMode.value === 'kpp') {
+    if (!c.assignedKppId) return null
+    return c.assignedKppId === uid ? 'me' : 'other'
+  }
+  if (roleMode.value === 'declarant') {
+    if (!c.assignedDeclarantId) return null
+    return c.assignedDeclarantId === uid ? 'me' : 'other'
+  }
+  return null
+})
+
+// Назначения (админ): каталог сотрудников + селекты в шапке
+type StaffOption = { id: string; username: string; businessRole: string }
+const staffList = ref<StaffOption[]>([])
+const loadStaffOptions = async () => {
+  if (roleMode.value !== 'admin') return
+  try {
+    const [admins, importers] = await Promise.all([
+      usersApi.getCatalogAdministrators(),
+      usersApi.getCatalogImporters(),
+    ])
+    staffList.value = [...admins, ...importers].map((u) => ({
+      id: u.id,
+      username: u.username,
+      businessRole: (u.businessRole || '').toLowerCase(),
+    }))
+  } catch {
+    /* каталог недоступен — селекты будут пустыми, назначение по ID через легаси не переносим */
+  }
+}
+const kppOptions = computed(() =>
+  staffList.value.filter((u) => u.businessRole === 'kpp').map((u) => ({ value: u.id, label: u.username })),
+)
+const declarantOptions = computed(() =>
+  staffList.value.filter((u) => u.businessRole === 'declarant').map((u) => ({ value: u.id, label: u.username })),
+)
+const staffName = (id: string) => staffList.value.find((u) => u.id === id)?.username ?? 'назначен'
+
+const assignForm = reactive<{ kppId: string | null; declarantId: string | null }>({ kppId: null, declarantId: null })
+const assignSaving = ref(false)
+const saveAssignment = async () => {
+  if (!activeCase.value) return
+  assignSaving.value = true
+  try {
+    await import40Api.update(activeCase.value.id, {
+      assignedKppId: assignForm.kppId || '00000000-0000-0000-0000-000000000000',
+      assignedDeclarantId: assignForm.declarantId || '00000000-0000-0000-0000-000000000000',
+    } as never)
+    message.success('Назначения сохранены')
+    await reload()
+  } catch (e: any) {
+    message.error(e?.response?.data?.error ?? 'Не удалось сохранить назначения')
+  } finally {
+    assignSaving.value = false
+  }
+}
+
 const promptInvoice = () => {
   let amount = ''
   Modal.confirm({
@@ -473,7 +571,10 @@ const promptInvoice = () => {
   })
 }
 
-onMounted(() => void reload())
+onMounted(() => {
+  void reload()
+  void loadStaffOptions()
+})
 </script>
 
 <style scoped>
@@ -513,6 +614,20 @@ onMounted(() => void reload())
 }
 .case-banner {
   border-radius: var(--atg-radius-lg);
+}
+.case-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.assign-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
 }
 .steps {
   display: flex;

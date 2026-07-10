@@ -75,12 +75,6 @@ const router = createRouter({
           meta: { requiresImport40: true },
         },
         {
-          path: '/import-40/:id/legacy',
-          name: 'import-40-detail-legacy',
-          component: () => import('@/views/Import40View.vue'),
-          meta: { requiresImport40: true },
-        },
-        {
           path: '/import-40/:caseId/dt/:dtId',
           name: 'import-40-dt',
           component: () => import('@/views/Import40DtView.vue'),
