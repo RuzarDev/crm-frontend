@@ -81,6 +81,12 @@ const router = createRouter({
           meta: { requiresImport40: true },
         },
         {
+          path: '/import-40/:caseId/dt/:dtId',
+          name: 'import-40-dt',
+          component: () => import('@/views/Import40DtView.vue'),
+          meta: { requiresImport40: true },
+        },
+        {
           path: '/keden',
           name: 'keden',
           component: () => import('@/views/KedenListView.vue'),
