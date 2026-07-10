@@ -46,10 +46,84 @@
     <!-- Лестница шагов -->
     <div class="steps">
       <Import40Step :index="1" title="Заявка и документы" :state="stepState(1)" executor="клиент" :summary="step1Summary">
-        <div class="step-placeholder">Содержимое шага — Task 4</div>
+        <div class="grid-2">
+          <label><span>Груз</span>
+            <a-input :value="activeCase.cargo" :disabled="!canEditStep1" @change="(e: any) => saveField({ cargo: e.target.value })" />
+          </label>
+          <label><span>Пост</span>
+            <a-input :value="activeCase.post" :disabled="!canEditStep1" @change="(e: any) => saveField({ post: e.target.value })" />
+          </label>
+        </div>
+        <div class="grid-2">
+          <label><span>Вид транспорта</span>
+            <a-select :value="activeCase.transportMode" :options="IMPORT40_TRANSPORT_MODES" :disabled="!canEditStep1"
+              style="width: 100%" @change="(v: number) => saveField({ transportMode: v })" />
+          </label>
+        </div>
+        <div class="grid-2">
+          <template v-if="activeCase.transportMode === 0">
+            <label><span>Номер вагона</span><a-input :value="activeCase.wagonNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ wagonNumber: e.target.value })" /></label>
+            <label><span>Станция</span><a-input :value="activeCase.station" :disabled="!canEditStep1" @change="(e: any) => saveField({ station: e.target.value })" /></label>
+          </template>
+          <template v-else-if="activeCase.transportMode === 1">
+            <label><span>Машина</span><a-input :value="activeCase.vehicleNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ vehicleNumber: e.target.value })" /></label>
+            <label><span>Прицеп</span><a-input :value="activeCase.trailerNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ trailerNumber: e.target.value })" /></label>
+            <label><span>Водитель</span><a-input :value="activeCase.driverName" :disabled="!canEditStep1" @change="(e: any) => saveField({ driverName: e.target.value })" /></label>
+            <label><span>Телефон</span><a-input :value="activeCase.driverPhone" :disabled="!canEditStep1" @change="(e: any) => saveField({ driverPhone: e.target.value })" /></label>
+          </template>
+          <template v-else-if="activeCase.transportMode === 2">
+            <label><span>Рейс</span><a-input :value="activeCase.flightNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ flightNumber: e.target.value })" /></label>
+            <label><span>AWB</span><a-input :value="activeCase.airWaybill" :disabled="!canEditStep1" @change="(e: any) => saveField({ airWaybill: e.target.value })" /></label>
+          </template>
+          <template v-else>
+            <label><span>Судно</span><a-input :value="activeCase.vesselName" :disabled="!canEditStep1" @change="(e: any) => saveField({ vesselName: e.target.value })" /></label>
+            <label><span>Коносамент</span><a-input :value="activeCase.billOfLading" :disabled="!canEditStep1" @change="(e: any) => saveField({ billOfLading: e.target.value })" /></label>
+          </template>
+        </div>
+
+        <div class="sub-label">Контейнеры</div>
+        <div v-for="c in activeCase.containers" :key="c.id" class="container-row">
+          <strong>{{ c.containerNumber }}</strong><span class="muted">{{ c.containerType }}</span>
+          <a-button v-if="canEditStep1" type="text" danger size="small" @click="removeContainer(c.id)">✕</a-button>
+        </div>
+        <div v-if="canEditStep1" class="container-add">
+          <a-input v-model:value="newContainer.number" placeholder="Номер контейнера" style="max-width: 220px" />
+          <a-input v-model:value="newContainer.type" placeholder="Тип (40HC…)" style="max-width: 140px" />
+          <a-button :disabled="!newContainer.number.trim()" @click="addContainer">Добавить</a-button>
+        </div>
+
+        <div class="sub-label">Документы (инвойс, упаковочный, накладные)</div>
+        <Import40FilesBlock
+          :files="filesBySection('documents')"
+          :can-upload="canEditStep1 || roleMode === 'admin'"
+          :can-remove="canEditStep1"
+          :uploading="uploading"
+          empty-text="Прикрепите минимум один документ для отправки"
+          @upload="(f: File) => uploadTo('documents', f)"
+          @download="download"
+          @remove="removeFile"
+        />
+
+        <div v-if="stepState(1) === 'current'" class="step-actions">
+          <a-tooltip :title="can('client') ? '' : hintFor('client')">
+            <a-button type="primary" :disabled="!can('client')" @click="runAction('submit-for-processing')">
+              Отправить на оформление
+            </a-button>
+          </a-tooltip>
+        </div>
       </Import40Step>
-      <Import40Step :index="2" title="Граница" :state="stepState(2)" executor="менеджер КПП">
-        <div class="step-placeholder">Содержимое шага — Task 4</div>
+      <Import40Step :index="2" title="Граница" :state="stepState(2)" executor="менеджер КПП"
+        :summary="stepState(2) === 'done' ? 'пройдена' : undefined">
+        <p class="muted">Транспорт: {{ transportSummary }}</p>
+        <div v-if="stepState(2) === 'current'" class="step-actions">
+          <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">Взять в работу</a-button>
+          <a-tooltip :title="can('kpp') ? '' : hintFor('kpp')">
+            <a-button type="primary" :disabled="!can('kpp')" @click="runAction('border-passed')">Граница пройдена</a-button>
+          </a-tooltip>
+          <a-tooltip :title="can('kpp') || can('declarant') ? '' : hintFor('kpp')">
+            <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">Вернуть клиенту</a-button>
+          </a-tooltip>
+        </div>
       </Import40Step>
       <Import40Step :index="3" title="Декларирование" :state="stepState(3)" executor="декларант"
         :summary="stepState(3) === 'done' ? `ДТ: ${activeCase.declarations.length}` : undefined">
@@ -88,10 +162,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, h, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { Input, message, Modal } from 'ant-design-vue'
 import {
+  IMPORT40_TRANSPORT_MODES,
   import40Api,
   type Import40Action,
   type Import40CaseDto,
@@ -197,10 +272,59 @@ const removeFile = async (f: Import40FileDto) => {
   }
 }
 
-// Используются в шагах (Tasks 4-6); экспорт заглушает предупреждения об unused до их подключения
-void uploadTo
-void removeFile
-void hintFor
+const canEditStep1 = computed(() => stepState(1) === 'current' && can('client'))
+
+// Текстовые поля шага 1 сохраняются по blur/@change через saveField
+const saveField = async (patch: Record<string, unknown>) => {
+  if (!activeCase.value || !canEditStep1.value) return
+  try {
+    await import40Api.update(activeCase.value.id, patch as never)
+    await reload()
+  } catch (e: any) {
+    message.error(e?.response?.data?.error ?? 'Не удалось сохранить')
+  }
+}
+
+const newContainer = ref({ number: '', type: '' })
+const addContainer = async () => {
+  if (!activeCase.value) return
+  await import40Api.addContainer(activeCase.value.id, {
+    containerNumber: newContainer.value.number.trim(),
+    containerType: newContainer.value.type.trim() || null,
+    notes: null,
+  } as never)
+  newContainer.value = { number: '', type: '' }
+  await reload()
+}
+const removeContainer = async (containerId: string) => {
+  if (!activeCase.value) return
+  await import40Api.deleteContainer(activeCase.value.id, containerId)
+  await reload()
+}
+
+const TRANSPORT_LABELS = ['ЖД', 'Авто', 'Авиа', 'Море']
+const transportSummary = computed(() => {
+  const c = activeCase.value
+  if (!c) return ''
+  const kind = TRANSPORT_LABELS[c.transportMode] ?? '—'
+  const detail = [c.wagonNumber, c.vehicleNumber, c.flightNumber, c.vesselName].filter(Boolean).join(', ')
+  return `${kind}${detail ? ' · ' + detail : ''}`
+})
+
+const promptReturn = () => {
+  let reason = ''
+  Modal.confirm({
+    title: 'Вернуть заявку клиенту',
+    content: h(Input.TextArea, {
+      rows: 3,
+      placeholder: 'Причина возврата',
+      onChange: (e: any) => (reason = e.target.value),
+    }),
+    okText: 'Вернуть',
+    cancelText: 'Отмена',
+    onOk: () => runAction('return-to-client', reason),
+  })
+}
 
 onMounted(() => void reload())
 </script>
@@ -251,6 +375,46 @@ onMounted(() => void reload())
 .step-placeholder {
   color: var(--atg-muted);
   font-size: 12px;
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  margin-bottom: 10px;
+}
+.grid-2 label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--atg-muted);
+}
+.sub-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--atg-muted);
+  margin: 12px 0 6px;
+}
+.container-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.container-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.muted {
+  color: var(--atg-muted);
+}
+.step-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
 }
 .case-bottom {
   background: transparent;
