@@ -8,16 +8,12 @@
       </div>
       <div class="crm-page-actions">
         <a-button :loading="loading" @click="reload">Обновить</a-button>
+        <a-tooltip v-if="canCreate" :title="showOnboardingGate ? 'Сначала подпишите договор и доверенность (Моя компания)' : ''">
+          <a-button type="primary" :disabled="showOnboardingGate" @click="openCreate">Новая заявка</a-button>
+        </a-tooltip>
         <span class="crm-stat-badge">Заявок:&nbsp;<span class="crm-stat-badge-count">{{ cases.length }}</span></span>
       </div>
     </div>
-
-    <section class="import40-summary">
-      <div v-for="metric in metrics" :key="metric.label" class="summary-card">
-        <span>{{ metric.label }}</span>
-        <strong>{{ metric.value }}</strong>
-      </div>
-    </section>
 
     <a-alert
       v-if="showOnboardingGate"
@@ -34,8 +30,12 @@
       </template>
     </a-alert>
 
-    <a-card v-if="canCreate" class="crm-shell-card create-card" :bordered="false">
-      <template #title>{{ createStep === 1 ? 'Новая заявка' : 'Документы к заявке' }}</template>
+    <a-modal
+      v-model:open="createOpen"
+      :title="createStep === 1 ? 'Новая заявка' : 'Документы к заявке'"
+      :footer="null"
+      @cancel="resetCreate"
+    >
       <template v-if="createStep === 1">
         <div class="create-grid">
           <label v-if="!isClientRole">
@@ -101,7 +101,7 @@
           <a-button type="link" @click="finishLater">Дозаполнить позже (останется черновиком)</a-button>
         </div>
       </template>
-    </a-card>
+    </a-modal>
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-tabs v-model:activeKey="tab" @change="reload">
@@ -121,6 +121,7 @@
         :scroll="{ x: 820 }"
         row-key="id"
         class="import-table"
+        :custom-row="(r: Import40CaseDto) => ({ onClick: () => router.push(`/import-40/${r.id}`), style: 'cursor: pointer' })"
       >
         <template #emptyText>
           <a-empty :description="tab === 'my' ? 'Заявок, ждущих вас, нет' : 'Заявок пока нет'" />
@@ -133,20 +134,16 @@
             </div>
           </template>
           <template v-else-if="column.key === 'status'">
-            <span class="status-chip">{{ statusLabel(record.status) }}</span>
+            <a-tag :color="record.isProblem ? 'error' : record.status === 8 ? 'success' : 'processing'">
+              шаг {{ stepForStatus(record.status) }}/7 · {{ statusLabel(record.status) }}
+            </a-tag>
             <span v-if="record.isProblem" class="problem-chip">Проблема</span>
           </template>
           <template v-else-if="column.key === 'containers'">
             {{ record.containers.length }} конт. / {{ declCount(record) }} ДТ
           </template>
-          <template v-else-if="column.key === 'progress'">
-            <div class="progress-cell">
-              <a-progress :percent="progress(record)" :show-info="false" stroke-color="#2BBCD4" />
-              <span>{{ progress(record) }}%</span>
-            </div>
-          </template>
-          <template v-else-if="column.key === 'action'">
-            <a-button size="small" @click="router.push(`/import-40/${record.id}`)">Открыть</a-button>
+          <template v-else-if="column.key === 'updated'">
+            {{ new Date(record.updatedAtUtc).toLocaleDateString('ru-RU') }}
           </template>
         </template>
       </a-table>
@@ -222,23 +219,31 @@ const showOnboardingGate = computed(
 
 const columns = [
   { title: 'Заявка', key: 'case', width: 240 },
-  { title: 'Статус', key: 'status', width: 200 },
+  { title: 'Шаг', key: 'status', width: 220 },
   { title: 'Состав', key: 'containers', width: 140 },
-  { title: 'Прогресс', key: 'progress', width: 130 },
-  { title: '', key: 'action', width: 100, align: 'right' as const },
+  { title: 'Обновлена', key: 'updated', width: 110 },
 ]
 
 const statusLabel = (status: number) =>
   IMPORT40_STATUSES.find((s) => s.id === status)?.short || 'Неизвестно'
 const declCount = (c: Import40CaseDto) => c.declarations.length
-const progress = (c: Import40CaseDto) => Math.round((c.status / 8) * 100)
 
-const metrics = computed(() => [
-  { label: 'Всего', value: String(cases.value.length) },
-  { label: 'В работе', value: String(cases.value.filter((c) => c.status < 8).length) },
-  { label: 'Проблемные', value: String(cases.value.filter((c) => c.isProblem).length) },
-  { label: 'Выполнено', value: String(cases.value.filter((c) => c.status === 8).length) },
-])
+// Шаг ↔ статус — как в Import40CaseView (Paid=7 технический → шаг 6)
+const stepForStatus = (s: number) =>
+  s === 0 ? 1 : s === 1 ? 2 : s === 2 ? 3 : s === 3 ? 4 : s === 4 || s === 5 ? 5 : s === 6 || s === 7 ? 6 : 7
+
+const createOpen = ref(false)
+const openCreate = () => {
+  resetCreate()
+  createOpen.value = true
+}
+const resetCreate = () => {
+  createStep.value = 1
+  createdCaseId.value = null
+  uploadedFiles.value = []
+  draft.cargo = ''
+  draft.post = ''
+}
 
 const filteredCases = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -309,6 +314,7 @@ const createCase = async () => {
       void reload()
     } else {
       // сотрудник: прежнее поведение
+      createOpen.value = false
       message.success('Заявка создана')
       router.push(`/import-40/${created.id}`)
     }
@@ -384,47 +390,15 @@ onMounted(() => {
   border-radius: var(--atg-radius-lg);
 }
 
-.import40-summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.summary-card {
-  border: 1px solid var(--atg-line);
-  border-top: 3px solid var(--atg-teal);
-  background: var(--atg-surface);
-  border-radius: var(--atg-radius-lg);
-  padding: 16px 20px;
-  box-shadow: var(--atg-shadow);
-}
-
-.summary-card span {
-  color: var(--atg-muted);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.summary-card strong {
-  display: block;
-  margin-top: 8px;
-  color: var(--atg-ink);
-  font-size: 26px;
-  font-weight: 800;
-}
-
 .create-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 12px;
   align-items: end;
 }
 
 .create-grid label,
-.case-cell,
-.progress-cell {
+.case-cell {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -444,16 +418,6 @@ onMounted(() => {
 .case-cell span {
   color: var(--atg-muted);
   font-size: 12.5px;
-}
-
-.status-chip {
-  display: inline-flex;
-  border-radius: 999px;
-  background: var(--atg-teal-soft);
-  color: var(--atg-accent-strong);
-  padding: 4px 12px;
-  font-size: 12px;
-  font-weight: 700;
 }
 
 .problem-chip {
