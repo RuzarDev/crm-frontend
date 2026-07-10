@@ -178,14 +178,48 @@
         </div>
       </Import40Step>
       <Import40Step :index="5" title="СВХ и счёт" :state="stepState(5)" executor="менеджер КПП"
-        :summary="stepState(5) === 'done' && activeCase.svhInvoiceNote ? `счёт: ${activeCase.svhInvoiceNote}` : undefined">
-        <div class="step-placeholder">Содержимое шага — Task 6</div>
+        :summary="stepState(5) === 'done' ? (activeCase.svhInvoiceNote ? `счёт: ${activeCase.svhInvoiceNote}` : 'закрыт') : undefined">
+        <div class="sub-label">Закрытая ДТ (штамп)</div>
+        <Import40FilesBlock :files="filesBySection('declaration-stamp')" :can-upload="stepState(5) === 'current' && can('kpp')"
+          :uploading="uploading" empty-text="Штамп не загружен"
+          @upload="(f: File) => uploadTo('declaration-stamp', f)" @download="download" />
+        <div class="sub-label">Счёт СВХ <a-tag v-if="activeCase.svhInvoiceNote">{{ activeCase.svhInvoiceNote }}</a-tag></div>
+        <Import40FilesBlock :files="filesBySection('svh-invoice')" :can-upload="stepState(5) === 'current' && can('kpp')"
+          :uploading="uploading" empty-text="Счёт не выставлен"
+          @upload="(f: File) => uploadTo('svh-invoice', f)" @download="download" />
+        <div v-if="stepState(5) === 'current'" class="step-actions">
+          <a-tooltip v-if="activeCase.status === 4" :title="can('kpp') ? '' : hintFor('kpp')">
+            <a-button type="primary" :disabled="!can('kpp')" @click="runAction('close-svh')">Закрыть ДТ на СВХ</a-button>
+          </a-tooltip>
+          <a-tooltip v-if="activeCase.status === 5" :title="can('kpp') ? '' : hintFor('kpp')">
+            <a-button type="primary" :disabled="!can('kpp')" @click="promptInvoice">Выставить счёт СВХ</a-button>
+          </a-tooltip>
+        </div>
       </Import40Step>
-      <Import40Step :index="6" title="Оплата" :state="stepState(6)" executor="клиент и КПП">
-        <div class="step-placeholder">Содержимое шага — Task 6</div>
+      <Import40Step :index="6" title="Оплата" :state="stepState(6)" executor="клиент и КПП"
+        :summary="stepState(6) === 'done' ? 'оплачена' : undefined">
+        <div class="sub-label">Чек оплаты
+          <a-tag v-if="activeCase.paymentConfirmed" color="success">подтверждена</a-tag>
+          <a-tag v-else-if="filesBySection('payment-check').length" color="processing">на проверке</a-tag>
+        </div>
+        <Import40FilesBlock :files="filesBySection('payment-check')" :can-upload="stepState(6) === 'current' && can('client')"
+          :uploading="uploading" empty-text="Клиент ещё не загрузил чек"
+          @upload="(f: File) => uploadTo('payment-check', f)" @download="download" />
+        <div v-if="stepState(6) === 'current'" class="step-actions">
+          <a-tooltip :title="can('kpp') ? (filesBySection('payment-check').length ? '' : 'Клиент ещё не загрузил чек') : hintFor('kpp')">
+            <a-button type="primary" :disabled="!can('kpp') || !filesBySection('payment-check').length"
+              @click="runAction('confirm-payment-and-complete')">Подтвердить оплату и завершить</a-button>
+          </a-tooltip>
+        </div>
       </Import40Step>
       <Import40Step :index="7" title="Выполнено" :state="stepState(7)">
-        <div class="step-placeholder">Содержимое шага — Task 6</div>
+        <template v-if="stepState(7) === 'current'">
+          <p>Заявка выполнена. Все файлы и история — в секциях ниже.</p>
+          <div class="grid-2">
+            <div><span class="muted">ДТ:</span> {{ activeCase.declarations.length }}</div>
+            <div><span class="muted">Файлов:</span> {{ files.length }}</div>
+          </div>
+        </template>
       </Import40Step>
     </div>
 
@@ -422,6 +456,20 @@ const promptReturn = () => {
     okText: 'Вернуть',
     cancelText: 'Отмена',
     onOk: () => runAction('return-to-client', reason),
+  })
+}
+
+const promptInvoice = () => {
+  let amount = ''
+  Modal.confirm({
+    title: 'Выставить счёт СВХ',
+    content: h(Input, {
+      placeholder: 'Сумма счёта СВХ',
+      onChange: (e: any) => (amount = e.target.value),
+    }),
+    okText: 'Выставить',
+    cancelText: 'Отмена',
+    onOk: () => runAction('issue-invoice', amount),
   })
 }
 

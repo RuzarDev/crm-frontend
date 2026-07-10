@@ -71,13 +71,13 @@ const router = createRouter({
         {
           path: '/import-40/:id',
           name: 'import-40-detail',
-          component: () => import('@/views/Import40View.vue'),
+          component: () => import('@/views/Import40CaseView.vue'),
           meta: { requiresImport40: true },
         },
         {
-          path: '/import-40/:id/steps',
-          name: 'import-40-case-steps',
-          component: () => import('@/views/Import40CaseView.vue'),
+          path: '/import-40/:id/legacy',
+          name: 'import-40-detail-legacy',
+          component: () => import('@/views/Import40View.vue'),
           meta: { requiresImport40: true },
         },
         {
