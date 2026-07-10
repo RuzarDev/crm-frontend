@@ -75,6 +75,12 @@ const router = createRouter({
           meta: { requiresImport40: true },
         },
         {
+          path: '/import-40/:id/steps',
+          name: 'import-40-case-steps',
+          component: () => import('@/views/Import40CaseView.vue'),
+          meta: { requiresImport40: true },
+        },
+        {
           path: '/keden',
           name: 'keden',
           component: () => import('@/views/KedenListView.vue'),
