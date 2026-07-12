@@ -484,7 +484,14 @@ export const import40Api = {
     const response = await apiClient.post<Import40ExtractionResult>(
       `/import40/${encodeURIComponent(caseId)}/declarations/extract-batch`,
       formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } },
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        // apiClient's default 30s timeout is fine for ordinary requests but too short
+        // here: Aqniet runs OCR (PaddleOCR) over every scanned PDF in the batch, which
+        // for a handful of files can genuinely take a couple of minutes, especially on
+        // a cold model cache.
+        timeout: 180000,
+      },
     )
     return response.data
   },
