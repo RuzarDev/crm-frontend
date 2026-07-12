@@ -174,6 +174,18 @@
           <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
             <a-button :disabled="!can('declarant')" @click="addDt">Добавить ДТ</a-button>
           </a-tooltip>
+          <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+            <a-button :disabled="!can('declarant')" :loading="batchUploading" @click="triggerBatchUpload">
+              Загрузить пакет документов
+            </a-button>
+          </a-tooltip>
+          <input
+            ref="batchFileInput"
+            type="file"
+            multiple
+            style="display: none"
+            @change="handleBatchFilesSelected"
+          />
           <a-button v-if="roleMode === 'declarant' && !activeCase.assignedDeclarantId" @click="runAction('claim')">Взять в работу</a-button>
           <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
             <a-button type="primary" :disabled="!can('declarant') || !activeCase.declarations.length" @click="runAction('submit-declaration')">Подать ДТ</a-button>
@@ -260,13 +272,16 @@
 
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Input, message, Modal } from 'ant-design-vue'
 import {
   IMPORT40_TRANSPORT_MODES,
   import40Api,
   type Import40Action,
   type Import40CaseDto,
+  type Import40DeclarationUpsert,
+  type Import40ExtractionPreview,
+  type Import40ExtractionResult,
   type Import40FileDto,
   type Import40FileSection,
   type KedenReadinessDto,
@@ -277,6 +292,7 @@ import Import40Step from '@/components/Import40Step.vue'
 import Import40FilesBlock from '@/components/Import40FilesBlock.vue'
 
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 
 const activeCase = ref<Import40CaseDto | null>(null)
@@ -434,6 +450,111 @@ const addDt = async () => {
   if (!activeCase.value) return
   await import40Api.createDeclaration(activeCase.value.id, {})
   await reload()
+}
+
+// --- батч-загрузка пакета документов (автозаполнение ДТ через Aqniet) ---
+const batchUploading = ref(false)
+const batchFileInput = ref<HTMLInputElement | null>(null)
+
+const triggerBatchUpload = () => {
+  batchFileInput.value?.click()
+}
+
+const previewToUpsert = (preview: Import40ExtractionPreview): Import40DeclarationUpsert => ({
+  declarationNumber: preview.declarationNumber ?? null,
+  corridor: preview.corridor ?? null,
+  procedureCode: preview.procedureCode ?? null,
+  sender: preview.sender ?? null,
+  receiver: preview.receiver ?? null,
+  departureCountryCode: preview.departureCountryCode ?? null,
+  destinationCountryCode: preview.destinationCountryCode ?? null,
+  incoterms: preview.incoterms ?? null,
+  incotermsPlace: preview.incotermsPlace ?? null,
+  originCountryCode: preview.originCountryCode ?? null,
+  currency: preview.currency ?? null,
+  totalInvoiceValue: preview.totalInvoiceValue ?? null,
+  exchangeRate: preview.exchangeRate ?? null,
+  borderTransportNumbers: preview.borderTransportNumbers?.length ? preview.borderTransportNumbers : undefined,
+  arrivalTransportNumbers: preview.arrivalTransportNumbers?.length ? preview.arrivalTransportNumbers : undefined,
+  goodsItems: preview.goodsItems?.length
+    ? preview.goodsItems.map((g) => ({
+        description: g.description ?? null,
+        tnvedCode: g.tnvedCode ?? null,
+        tnvedDescription: null,
+        countryOfOrigin: g.countryOfOrigin ?? null,
+        quantity: g.quantity ?? null,
+        unit: null,
+        unitCode: null,
+        grossWeightKg: g.grossWeightKg ?? null,
+        netWeightKg: g.netWeightKg ?? null,
+        packagesCount: g.packagesCount ?? null,
+        quantityTypeCode: null,
+        invoiceValue: g.invoiceValue ?? null,
+        currency: g.currency ?? null,
+        tradeMarkName: g.tradeMarkName ?? null,
+        productMarkName: g.productMarkName ?? null,
+        manufacturerName: g.manufacturerName ?? null,
+      }))
+    : undefined,
+})
+
+// Documents in one batch can disagree (e.g. two files giving different receiver BINs) —
+// the server keeps the picked value plus the alternatives instead of silently choosing.
+// Shown before the redirect so the broker knows which fields to double-check in the form,
+// rather than trusting a pre-filled value that was actually a coin flip between sources.
+const showExtractionIssues = (result: Import40ExtractionResult) => {
+  if (result.conflicts.length === 0 && result.warnings.length === 0) return
+
+  const conflictItems = result.conflicts.map((c) =>
+    h('li', {}, [
+      h('strong', {}, c.fieldLabel),
+      `: "${c.value ?? '—'}"${c.sourceDocument ? ` (${c.sourceDocument})` : ''} — есть другие варианты: `,
+      c.alternatives
+        .map((a) => `"${a.value ?? '—'}"${a.sourceDocument ? ` (${a.sourceDocument})` : ''}`)
+        .join(', '),
+    ]),
+  )
+  const warningItems = result.warnings.map((w) => h('li', {}, w))
+
+  Modal.warning({
+    title: 'Проверьте пакет документов перед сохранением',
+    width: 640,
+    content: h('div', {}, [
+      result.conflicts.length > 0
+        ? h('div', {}, [
+            h('p', {}, 'Источники дали разные значения — выбрано одно, сверьте вручную:'),
+            h('ul', { style: 'padding-left: 20px' }, conflictItems),
+          ])
+        : null,
+      result.warnings.length > 0
+        ? h('div', {}, [
+            h('p', {}, 'Другие замечания по пакету:'),
+            h('ul', { style: 'padding-left: 20px' }, warningItems),
+          ])
+        : null,
+    ]),
+    okText: 'Понятно, проверю в форме',
+  })
+}
+
+const handleBatchFilesSelected = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const selected = input.files ? Array.from(input.files) : []
+  input.value = '' // разрешаем повторный выбор тех же файлов
+  if (!activeCase.value || selected.length === 0) return
+
+  batchUploading.value = true
+  try {
+    const result = await import40Api.extractBatch(activeCase.value.id, selected)
+    const created = await import40Api.createDeclaration(activeCase.value.id, previewToUpsert(result.declaration))
+    message.success('Пакет обработан — откройте ДТ, чтобы проверить предзаполненные поля')
+    showExtractionIssues(result)
+    await router.push(`/import-40/${activeCase.value.id}/dt/${created.id}`)
+  } catch {
+    message.error('Не удалось обработать пакет документов')
+  } finally {
+    batchUploading.value = false
+  }
 }
 
 const removeDt = async (dtId: string) => {
