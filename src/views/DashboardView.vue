@@ -2,7 +2,7 @@
   <div class="dashboard-view crm-page">
     <div class="crm-page-header">
       <div>
-        <div class="crm-page-kicker">ATG CRM</div>
+        <div class="crm-page-kicker">Zircon CRM</div>
         <h1 class="crm-page-title">Дашборд</h1>
         <p class="crm-page-subtitle">Сводная статистика по реестру и клиентскому портфелю.</p>
       </div>

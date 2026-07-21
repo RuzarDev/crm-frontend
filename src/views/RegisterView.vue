@@ -9,17 +9,13 @@
       <div class="auth-orb auth-orb-3" aria-hidden="true"></div>
 
       <div class="auth-left-inner">
-        <div class="auth-logo">
-          <AtgLogo :dark="true" :height="38" />
-        </div>
-
         <div class="auth-hero">
           <div class="auth-eyebrow">
             <span class="auth-eyebrow-dot"></span>
             Регистрация клиента
           </div>
           <h1 class="auth-headline">
-            Начните работу<br>с ATG CRM
+            Начните работу<br>с Zircon CRM
           </h1>
           <p class="auth-desc">
             Создайте аккаунт клиента,<br>
@@ -61,7 +57,7 @@
     <main class="auth-right">
       <div class="auth-form-wrap">
         <div class="auth-form-header">
-          <div class="auth-form-badge">ATG CRM</div>
+          <div class="auth-form-badge">Zircon CRM</div>
           <h2 class="auth-form-title">Регистрация</h2>
           <p class="auth-form-sub">Заполните данные для создания аккаунта</p>
         </div>
@@ -134,7 +130,6 @@ import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api/auth'
 import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
-import AtgLogo from '@/components/AtgLogo.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

@@ -12,11 +12,6 @@
       <div class="auth-orb auth-orb-3" aria-hidden="true"></div>
 
       <div class="auth-left-inner">
-        <!-- Logo -->
-        <div class="auth-logo">
-          <AtgLogo :dark="true" :height="38" />
-        </div>
-
         <!-- Hero -->
         <div class="auth-hero">
           <div class="auth-eyebrow">
@@ -29,13 +24,13 @@
           <p class="auth-desc">
             Реестр, документы, роли брокеров,<br>
             экспедиторов и клиентов — в едином<br>
-            рабочем контуре ATG.
+            рабочем контуре Zircon.
           </p>
         </div>
 
         <!-- Copyright -->
         <div class="auth-copyright">
-          © {{ new Date().getFullYear() }} Aqniet Trans Group. Все права защищены.
+          © {{ new Date().getFullYear() }} Zircon Trans Group. Все права защищены.
         </div>
       </div>
     </section>
@@ -44,7 +39,7 @@
     <main class="auth-right">
       <div class="auth-form-wrap">
         <div class="auth-form-header">
-          <div class="auth-form-badge">ATG CRM</div>
+          <div class="auth-form-badge">Zircon CRM</div>
           <h2 class="auth-form-title">Добро пожаловать</h2>
           <p class="auth-form-sub">Войдите в свой аккаунт</p>
         </div>
@@ -109,7 +104,6 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
-import AtgLogo from '@/components/AtgLogo.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

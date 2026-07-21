@@ -2,9 +2,8 @@
   <a-layout class="main-layout app-shell">
     <a-layout-header class="app-header">
       <div class="brand">
-        <AtgLogo :dark="true" :compact="true" :height="34" />
         <div class="brand-text">
-          <div class="brand-title">Aqniet Trans Group</div>
+          <div class="brand-title">Zircon Trans Group</div>
           <div class="brand-subtitle">CRM Operations</div>
         </div>
       </div>
@@ -97,9 +96,8 @@
   >
     <template #title>
       <div class="drawer-brand">
-        <AtgLogo :dark="true" :compact="true" :height="28" />
         <div>
-          <div class="drawer-brand-title">Aqniet Trans Group</div>
+          <div class="drawer-brand-title">Zircon Trans Group</div>
           <div class="drawer-brand-sub">CRM Operations</div>
         </div>
       </div>
@@ -152,7 +150,6 @@ import {
   UserOutlined,
 } from '@ant-design/icons-vue'
 import { formatRole } from '@/utils/labels'
-import AtgLogo from '@/components/AtgLogo.vue'
 import dayjs from 'dayjs'
 
 const router = useRouter()
