@@ -87,10 +87,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Import40GoodsItemInput, Import40GoodsPayment } from '@/types/api'
-import {
-  KEDEN_PACKAGE_KINDS, KEDEN_PREFERENCES, KEDEN_RATE_KINDS,
-  KEDEN_TAX_MODES, KEDEN_VALUATION_METHODS, kedenOptions,
-} from '@/constants/keden'
+import { useClassifiersStore } from '@/stores/classifiers'
 
 const props = defineProps<{
   modelValue: Import40GoodsItemInput[]
@@ -114,11 +111,12 @@ const sync = () =>
     props.modelValue.map((g) => ({ ...g, payments: (g.payments ?? []).map((p) => ({ ...p })) })),
   )
 
-const pkgOptions = kedenOptions(KEDEN_PACKAGE_KINDS)
-const prefOptions = kedenOptions(KEDEN_PREFERENCES)
-const taxModeOptions = kedenOptions(KEDEN_TAX_MODES)
-const rateKindOptions = kedenOptions(KEDEN_RATE_KINDS)
-const valuationOptions = kedenOptions(KEDEN_VALUATION_METHODS)
+const classifiers = useClassifiersStore()
+const pkgOptions = computed(() => classifiers.options('2013'))
+const prefOptions = computed(() => classifiers.options('2008'))
+const taxModeOptions = computed(() => classifiers.options('tax-modes'))
+const rateKindOptions = computed(() => classifiers.options('rate-kinds'))
+const valuationOptions = computed(() => classifiers.options('2005'))
 
 const emptyPayment = (): Import40GoodsPayment => ({
   taxModeCode: null, taxBase: null, rateKindCode: '%', rateValue: null,

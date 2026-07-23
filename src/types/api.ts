@@ -983,3 +983,23 @@ export interface ProfileDto { userId: string; username: string; displayName: str
 export interface NotificationDto { id: string; message: string; relatedCode: string | null; isRead: boolean; createdAtUtc: string }
 
 export interface TnvedTopCode { code: string; treeName: string | null; rateStr: string | null; declarationCount: number }
+
+export interface ClassifierItem {
+  id: string
+  classifierCode: string
+  code: string
+  nameRu: string
+  sortOrder: number
+  isActive: boolean
+}
+
+export interface ClassifierGroup {
+  classifierCode: string
+  count: number
+}
+
+export interface DtGuideEntry {
+  graph: string
+  title: string
+  html: string
+}

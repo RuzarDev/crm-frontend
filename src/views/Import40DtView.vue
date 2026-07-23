@@ -204,13 +204,7 @@ import type {
 import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
-import {
-  KEDEN_GOODS_LOCATIONS,
-  KEDEN_RATE_TYPES,
-  KEDEN_TRANSACTION_NATURES,
-  KEDEN_TRANSPORT_MODES_2004,
-  kedenOptions,
-} from '@/constants/keden'
+import { useClassifiersStore } from '@/stores/classifiers'
 import PartyAddressFields from '@/components/PartyAddressFields.vue'
 import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
 import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
@@ -220,6 +214,23 @@ import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSectio
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const classifiers = useClassifiersStore()
+
+// Классификаторы КЕДЕН, которые использует форма ДТ (коды на сервере).
+const DT_CLASSIFIERS = [
+  '2004',                // виды транспорта (гр.25, 26)
+  '2024',                // типы ТС
+  '2005',                // методы определения таможенной стоимости (гр.43)
+  '2008',                // преференции (гр.36)
+  '2013',                // виды упаковки (гр.31)
+  'tax-modes',           // виды платежа (гр.47)
+  'rate-kinds',          // тип ставки (гр.47)
+  'payment-features',    // особенность платежа (гр.47)
+  'payment-methods',     // способ уплаты
+  'transaction-natures', // характер сделки (гр.24)
+  'goods-locations',     // место нахождения товаров (гр.30)
+  'rate-types',          // тип ставок
+]
 
 const caseId = String(route.params.caseId)
 const dtId = String(route.params.dtId)
@@ -240,10 +251,10 @@ const xmlLoading = ref(false)
 const kedenMissing = ref<string[]>([])
 const readiness = ref<KedenReadinessDto | null>(null)
 
-const transactionNatureOptions = kedenOptions(KEDEN_TRANSACTION_NATURES)
-const transportModeOptions = kedenOptions(KEDEN_TRANSPORT_MODES_2004)
-const goodsLocationOptions = kedenOptions(KEDEN_GOODS_LOCATIONS)
-const rateTypeOptions = kedenOptions(KEDEN_RATE_TYPES)
+const transactionNatureOptions = computed(() => classifiers.options('transaction-natures'))
+const transportModeOptions = computed(() => classifiers.options('2004'))
+const goodsLocationOptions = computed(() => classifiers.options('goods-locations'))
+const rateTypeOptions = computed(() => classifiers.options('rate-types'))
 
 const countryOptions = ref<{ value: string; label: string }[]>([])
 function filterCountry(input: string, option: { label: string }) {
@@ -643,6 +654,7 @@ const exportXml = async () => {
 }
 
 onMounted(async () => {
+  await classifiers.loadMany(DT_CLASSIFIERS)
   try {
     const countries = await referencesApi.listCountries()
     countryOptions.value = countries.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))

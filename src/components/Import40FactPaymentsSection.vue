@@ -20,9 +20,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { Import40FactPayment } from '@/types/api'
-import { KEDEN_PAYMENT_METHODS, KEDEN_TAX_MODES, kedenOptions } from '@/constants/keden'
+import { useClassifiersStore } from '@/stores/classifiers'
 
 const props = defineProps<{
   modelValue: Import40FactPayment[]
@@ -41,8 +41,9 @@ watch(
   { immediate: true },
 )
 
-const taxModeOptions = kedenOptions(KEDEN_TAX_MODES)
-const methodOptions = kedenOptions(KEDEN_PAYMENT_METHODS)
+const classifiers = useClassifiersStore()
+const taxModeOptions = computed(() => classifiers.options('tax-modes'))
+const methodOptions = computed(() => classifiers.options('payment-methods'))
 
 const emitChange = () => emit('update:modelValue', items.value.map((p) => ({ ...p })))
 
