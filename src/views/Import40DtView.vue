@@ -39,12 +39,14 @@
         <a-form layout="vertical" :disabled="readOnly">
           <section v-show="activeSection === 'header'">
             <div class="dt-grid-2">
-              <a-form-item label="Процедура (гр.1)">
+              <a-form-item>
+                <template #label><DtGraphLabel graph="1" text="Процедура" /></template>
                 <a-input v-model:value="dtForm.procedureCode" placeholder="40" />
               </a-form-item>
             </div>
             <div class="dt-grid-3">
-              <a-form-item label="Условия поставки">
+              <a-form-item>
+                <template #label><DtGraphLabel graph="20" text="Условия поставки" /></template>
                 <a-input v-model:value="dtForm.incoterms" placeholder="FOB / CIF" />
               </a-form-item>
               <a-form-item label="Валюта">
@@ -53,7 +55,8 @@
               <a-form-item label="Курс">
                 <a-input-number v-model:value="dtForm.exchangeRate" style="width: 100%" :min="0" />
               </a-form-item>
-              <a-form-item label="Общая фактурная стоимость (гр.22)">
+              <a-form-item>
+                <template #label><DtGraphLabel graph="22" text="Общая фактурная стоимость" /></template>
                 <a-input-number v-model:value="dtForm.totalInvoiceValue" style="width: 100%" :min="0" />
               </a-form-item>
               <a-form-item label="Место Инкотермс">
@@ -75,19 +78,23 @@
 
           <section v-show="activeSection === 'parties'">
             <div class="dt-grid-2">
-              <a-form-item label="Страна отправления (ОКСМ)">
+              <a-form-item>
+                <template #label><DtGraphLabel graph="15" text="Страна отправления (ОКСМ)" /></template>
                 <a-select v-model:value="dtForm.departureCountryCode" show-search allow-clear
                   :options="countryOptions" :filter-option="filterCountry" placeholder="Выберите страну по коду" />
               </a-form-item>
-              <a-form-item label="Страна назначения (ОКСМ)">
+              <a-form-item>
+                <template #label><DtGraphLabel graph="17" text="Страна назначения (ОКСМ)" /></template>
                 <a-select v-model:value="dtForm.destinationCountryCode" show-search allow-clear
                   :options="countryOptions" :filter-option="filterCountry" placeholder="Выберите страну по коду" />
               </a-form-item>
-              <a-form-item label="Торгующая страна (ОКСМ)">
+              <a-form-item>
+                <template #label><DtGraphLabel graph="11" text="Торгующая страна (ОКСМ)" /></template>
                 <a-select v-model:value="dtForm.tradeCountryCode" show-search allow-clear
                   :options="countryOptions" :filter-option="filterCountry" placeholder="Выберите страну по коду" />
               </a-form-item>
-              <a-form-item label="Страна происхождения (шапка)">
+              <a-form-item>
+                <template #label><DtGraphLabel graph="16" text="Страна происхождения (шапка)" /></template>
                 <a-select v-model:value="dtForm.originCountryCode" show-search allow-clear
                   :options="countryOptions" :filter-option="filterCountry" placeholder="Выберите страну по коду" />
               </a-form-item>
@@ -149,7 +156,8 @@
               <a-input v-model:value="dtForm.submissionCustomsOfficeCode" placeholder="код органа подачи" style="max-width: 260px" />
             </a-form-item>
             <div class="dt-grid-3">
-              <a-form-item label="Место нахождения товаров">
+              <a-form-item>
+                <template #label><DtGraphLabel graph="30" text="Место нахождения товаров" /></template>
                 <a-auto-complete v-model:value="dtForm.goodsLocationCode" :options="goodsLocationOptions" placeholder="11" style="width: 100%" />
               </a-form-item>
               <a-form-item label="Номер СВХ">
@@ -205,6 +213,7 @@ import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
 import { useClassifiersStore } from '@/stores/classifiers'
+import DtGraphLabel from '@/components/import40/dt/DtGraphLabel.vue'
 import PartyAddressFields from '@/components/PartyAddressFields.vue'
 import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
 import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
