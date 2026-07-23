@@ -252,6 +252,7 @@ const menuItems = computed(() => {
     })
   }
 
+  // Только те, кто заполняет ДТ. canUseImport40 здесь не подходит — в него входит client.
   if (role === 'administrator' || role === 'importer') {
     items.push({
       key: '/dt-guide',
