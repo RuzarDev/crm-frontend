@@ -654,7 +654,12 @@ const exportXml = async () => {
 }
 
 onMounted(async () => {
-  await classifiers.loadMany(DT_CLASSIFIERS)
+  // Не блокируем загрузку самой ДТ: селекты читают классификаторы через computed
+  // и дозаполнятся, когда кэш приедет. Иначе один упавший запрос из 12 оставлял бы
+  // пользователя перед пустой формой декларации без объяснения.
+  classifiers.loadMany(DT_CLASSIFIERS).catch(() => {
+    message.warning('Справочники кодов не загрузились — коды можно ввести вручную')
+  })
   try {
     const countries = await referencesApi.listCountries()
     countryOptions.value = countries.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
