@@ -87,4 +87,9 @@ onMounted(async () => {
   max-height: 70vh;
   overflow-y: auto;
 }
+.dt-guide-body :deep(img),
+.dt-guide-body :deep(table) {
+  max-width: 100%;
+  height: auto;
+}
 </style>

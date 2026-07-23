@@ -206,9 +206,11 @@ const removeClassifier = async (record: ClassifierItem) => {
   }
 }
 
+// Вкладки грузятся независимо: падение одной не должно оставлять другую пустой без объяснения.
 onMounted(async () => {
-  await load()
-  // Классификаторы — вторая вкладка: их падение не должно ронять станции и посты.
+  try {
+    await load()
+  } catch { message.error('Не удалось загрузить станции и посты') }
   try {
     await loadClassifierGroups()
   } catch { message.error('Не удалось загрузить классификаторы') }

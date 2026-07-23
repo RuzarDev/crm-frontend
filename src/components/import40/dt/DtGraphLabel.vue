@@ -69,6 +69,12 @@ const onOpenChange = async (open: boolean) => {
   font-size: 13px;
   line-height: 1.6;
 }
+/* В КТС 257 есть иллюстрации шире поповера (до 534px) — ужимаем по ширине. */
+.dt-guide-body :deep(img),
+.dt-guide-body :deep(table) {
+  max-width: 100%;
+  height: auto;
+}
 .dt-guide-error {
   color: rgba(0, 0, 0, 0.45);
 }
