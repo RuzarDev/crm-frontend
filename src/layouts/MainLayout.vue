@@ -142,6 +142,7 @@ import {
   ImportOutlined,
   LogoutOutlined,
   MenuOutlined,
+  ReadOutlined,
   SafetyCertificateOutlined,
   SolutionOutlined,
   SyncOutlined,
@@ -248,6 +249,14 @@ const menuItems = computed(() => {
       key: '/keden',
       icon: () => h(SafetyCertificateOutlined),
       label: 'KEDEN',
+    })
+  }
+
+  if (role === 'administrator' || role === 'importer') {
+    items.push({
+      key: '/dt-guide',
+      icon: () => h(ReadOutlined),
+      label: 'Справочник ДТ',
     })
   }
 
