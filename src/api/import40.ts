@@ -185,6 +185,66 @@ export interface Import40DeclarationUpsert {
   doc44Items?: Import40Doc44ItemInput[]
 }
 
+// Shape actually returned by POST .../declarations/extract-batch (server-side
+// Import40Endpoints.ToUpsertPreview). Deliberately a separate type from
+// Import40DeclarationUpsert: the backend's goods-item request contract uses
+// `invoiceValue`, not the `customsValue` field the goods table UI edits — see
+// applyExtractionPreview in Import40View.vue for the translation.
+export interface Import40ExtractionPreviewGoodsItem {
+  description?: string | null
+  tnvedCode?: string | null
+  countryOfOrigin?: string | null
+  quantity?: number | null
+  packagesCount?: number | null
+  grossWeightKg?: number | null
+  netWeightKg?: number | null
+  invoiceValue?: number | null
+  currency?: string | null
+  tradeMarkName?: string | null
+  productMarkName?: string | null
+  manufacturerName?: string | null
+}
+
+export interface Import40ExtractionPreview {
+  declarationNumber?: string | null
+  corridor?: string | null
+  procedureCode?: string | null
+  sender?: Import40Party | null
+  receiver?: Import40Party | null
+  departureCountryCode?: string | null
+  destinationCountryCode?: string | null
+  incoterms?: string | null
+  incotermsPlace?: string | null
+  originCountryCode?: string | null
+  currency?: string | null
+  totalInvoiceValue?: number | null
+  exchangeRate?: number | null
+  borderTransportNumbers?: Import40TransportMeans[] | null
+  arrivalTransportNumbers?: Import40TransportMeans[] | null
+  goodsItems?: Import40ExtractionPreviewGoodsItem[] | null
+}
+
+// A declaration field where the uploaded documents disagreed (e.g. two files giving
+// different receiver BINs) — server picked `value`, but `alternatives` weren't discarded.
+export interface Import40ExtractionConflictAlternative {
+  value?: string | null
+  sourceDocument?: string | null
+}
+
+export interface Import40ExtractionConflict {
+  field: string
+  fieldLabel: string
+  value?: string | null
+  sourceDocument?: string | null
+  alternatives: Import40ExtractionConflictAlternative[]
+}
+
+export interface Import40ExtractionResult {
+  declaration: Import40ExtractionPreview
+  warnings: string[]
+  conflicts: Import40ExtractionConflict[]
+}
+
 export const IMPORT40_TRANSPORT_MODES: { value: number; label: string }[] = [
   { value: 0, label: 'ЖД' },
   { value: 1, label: 'Авто' },
@@ -410,6 +470,30 @@ export const import40Api = {
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/keden-readiness`,
     )
     return data
+  },
+
+  // Batch-uploads a shipment's document package (invoice/packing-list Excel, CMR,
+  // quarantine act, certs — Excel and/or PDF/scans). Aqniet merges what it can
+  // extract into one record; the server maps it into an Import40ExtractionPreview,
+  // plus any warnings/conflicts spotted between source documents (e.g. two files
+  // giving different receiver BINs) — nothing is persisted until the broker
+  // reviews/edits and calls createDeclaration explicitly.
+  extractBatch: async (caseId: string, files: File[]): Promise<Import40ExtractionResult> => {
+    const formData = new FormData()
+    files.forEach((file) => formData.append('files', file))
+    const response = await apiClient.post<Import40ExtractionResult>(
+      `/import40/${encodeURIComponent(caseId)}/declarations/extract-batch`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        // apiClient's default 30s timeout is fine for ordinary requests but too short
+        // here: Aqniet runs OCR (PaddleOCR) over every scanned PDF in the batch, which
+        // for a handful of files can genuinely take a couple of minutes, especially on
+        // a cold model cache.
+        timeout: 180000,
+      },
+    )
+    return response.data
   },
 
   listClients: async (): Promise<{ id: string; username: string }[]> => {
