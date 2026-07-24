@@ -4,37 +4,37 @@
       <a-form-item>
         <template #label><DtGraphLabel graph="1" text="Тип декларации" /></template>
         <a-auto-complete v-model:value="form.declarationTypeCode" :options="classifiers.options('declaration-types')"
-          placeholder="ИМ" style="width: 100%" @change="emitChange" />
+          :disabled="readonly" placeholder="ИМ" style="width: 100%" @change="emitChange" />
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="1" text="Процедура" /></template>
-        <a-input v-model:value="form.procedureCode" placeholder="40" @change="emitChange" />
+        <a-input v-model:value="form.procedureCode" :disabled="readonly" placeholder="40" @change="emitChange" />
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="1" text="Признак" /></template>
-        <a-input v-model:value="form.declarationFeatureCode" placeholder="ЭД" @change="emitChange" />
+        <a-input v-model:value="form.declarationFeatureCode" :disabled="readonly" placeholder="ЭД" @change="emitChange" />
       </a-form-item>
     </div>
 
     <div class="dt-grid-3">
       <a-form-item>
         <template #label><DtGraphLabel graph="3" text="Лист номер" /></template>
-        <a-input-number v-model:value="form.sheetNumber" style="width: 100%" :min="1" @change="emitChange" />
+        <a-input-number v-model:value="form.sheetNumber" :disabled="readonly" style="width: 100%" :min="1" @change="emitChange" />
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="3" text="Всего листов" /></template>
-        <a-input-number v-model:value="form.totalSheets" style="width: 100%" :min="1" @change="emitChange" />
+        <a-input-number v-model:value="form.totalSheets" :disabled="readonly" style="width: 100%" :min="1" @change="emitChange" />
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="4" text="Отгрузочные спецификации" /></template>
-        <a-input-number v-model:value="form.shippingSpecSheets" style="width: 100%" :min="0" @change="emitChange" />
+        <a-input-number v-model:value="form.shippingSpecSheets" :disabled="readonly" style="width: 100%" :min="0" @change="emitChange" />
       </a-form-item>
     </div>
 
     <div class="dt-grid-3">
       <a-form-item>
         <template #label><DtGraphLabel graph="7" text="Справочный номер" /></template>
-        <a-input v-model:value="form.referenceNumber" @change="emitChange" />
+        <a-input v-model:value="form.referenceNumber" :disabled="readonly" @change="emitChange" />
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="5" text="Всего товаров" /></template>
@@ -53,6 +53,7 @@ import { reactive, watch } from 'vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import type { Import40DtFormState } from '@/api/import40'
+import './dt-sections.css'
 
 const props = defineProps<{
   modelValue: Import40DtFormState

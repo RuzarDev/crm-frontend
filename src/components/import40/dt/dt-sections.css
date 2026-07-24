@@ -1,0 +1,29 @@
+/* Общие стили секций ДТ (гр. Import40DtView.vue). Скопировано из
+   <style scoped> Import40DtView.vue — эти классы используются в дочерних
+   компонентах секций (DtSection*.vue), куда scoped-стили родителя не
+   дотягиваются. Не менять значения без синхронизации с исходником. */
+
+.dt-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+.dt-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 14px;
+}
+.dt-checkboxes {
+  margin-bottom: 14px;
+}
+.dt-section-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.dt-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--atg-muted);
+}
