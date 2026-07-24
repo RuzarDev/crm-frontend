@@ -27,3 +27,14 @@
   font-weight: 600;
   color: var(--atg-muted);
 }
+.transport-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.transport-list-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
