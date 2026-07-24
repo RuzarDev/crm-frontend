@@ -83,6 +83,7 @@ export interface Import40GoodsItemDto {
   customsValueKzt?: number | null
   statisticValueUsd?: number | null
   valuationMethodCode?: string | null
+  quotaAmount?: number | null
   prohibitionCode?: string | null
   ipoCode?: string | null
   payments?: Import40GoodsPayment[]

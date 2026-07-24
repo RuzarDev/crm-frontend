@@ -48,6 +48,8 @@
             <a-input v-model:value="g.goodsMoveFeatureCode" size="small" :disabled="readonly" placeholder="000" @change="sync" /></div>
           <div class="field"><div class="field-label">Метод ТС (гр.43)</div>
             <a-auto-complete v-model:value="g.valuationMethodCode" size="small" :disabled="readonly" :options="valuationOptions" placeholder="1" @change="sync" /></div>
+          <div class="field"><div class="field-label">Квота (гр.39)</div>
+            <a-input-number v-model:value="g.quotaAmount" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
         </div>
         <div class="field-row">
           <div class="field"><div class="field-label">Таможенная стоимость, ₸ (гр.45)</div>

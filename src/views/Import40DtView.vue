@@ -545,6 +545,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     customsValueKzt: g.customsValueKzt ?? null,
     statisticValueUsd: g.statisticValueUsd ?? null,
     valuationMethodCode: g.valuationMethodCode ?? null,
+    quotaAmount: g.quotaAmount ?? null,
     prohibitionCode: g.prohibitionCode ?? null,
     ipoCode: g.ipoCode ?? null,
     payments: (g.payments ?? []).map((p) => ({ ...p })),
