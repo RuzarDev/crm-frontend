@@ -17,6 +17,10 @@
       </a-form-item>
     </div>
 
+    <a-form-item label="Страна регистрации ТС (граница)">
+      <a-input v-model:value="form.borderTransportNationality" :disabled="readonly" placeholder="KZ" style="max-width: 260px" @change="emitChange" />
+    </a-form-item>
+
     <div class="dt-section-bar"><DtGraphLabel graph="21" text="Транспортное средство на границе" /></div>
     <div class="transport-list">
       <div v-for="(m, i) in form.borderTransportNumbers" :key="i" class="transport-list-row">
@@ -26,6 +30,16 @@
         <a-button v-if="!readonly" type="text" danger size="small" @click="removeBorderTransport(i)">✕</a-button>
       </div>
       <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport">+ Номер ТС (граница)</a-button>
+    </div>
+
+    <div class="dt-grid-2">
+      <a-form-item label="Вид транспорта прибытия">
+        <a-auto-complete v-model:value="form.arrivalTransportModeCode" :options="classifiers.options('2004')"
+          :disabled="readonly" placeholder="30" style="width: 100%" @change="emitChange" />
+      </a-form-item>
+      <a-form-item label="Страна регистрации ТС (прибытие)">
+        <a-input v-model:value="form.arrivalTransportNationality" :disabled="readonly" placeholder="KZ" @change="emitChange" />
+      </a-form-item>
     </div>
 
     <div class="dt-section-bar"><DtGraphLabel graph="18" text="Транспортное средство при прибытии" /></div>
