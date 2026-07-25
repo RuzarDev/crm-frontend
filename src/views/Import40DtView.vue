@@ -1,24 +1,25 @@
 <template>
   <div class="dt-page">
-    <div class="dt-topbar">
-      <a-button type="link" @click="$router.push(`/import-40/${caseId}`)">← Заявка</a-button>
-      <div class="dt-title">
-        <strong>{{ dtForm.declarationNumber || 'Декларация' }}</strong>
-        <span class="muted">{{ caseTitle }}</span>
-      </div>
-      <div class="dt-top-actions">
+    <a-breadcrumb class="dt-crumbs">
+      <a-breadcrumb-item><router-link to="/import-40">Импорт 40</router-link></a-breadcrumb-item>
+      <a-breadcrumb-item><router-link :to="`/import-40/${caseId}`">{{ caseTitle || 'Заявка' }}</router-link></a-breadcrumb-item>
+      <a-breadcrumb-item>{{ dtForm.declarationNumber || 'Декларация' }}</a-breadcrumb-item>
+    </a-breadcrumb>
+
+    <PageHeader kicker="Импорт 40" :title="dtForm.declarationNumber || 'Декларация'" :subtitle="caseTitle">
+      <template #meta>
         <a-tag :color="blankPct === 100 ? 'green' : 'orange'">
           Бланк: {{ readiness?.blankFilled ?? 0 }} из {{ readiness?.blankTotal ?? 46 }} граф
         </a-tag>
         <a-tag :color="kedenMissing.length ? 'orange' : 'green'">
           {{ kedenMissing.length ? `КЕДЕН-XML: не хватает ${kedenMissing.length}` : 'КЕДЕН-XML: готово' }}
         </a-tag>
-        <template v-if="!readOnly">
-          <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
-          <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
-        </template>
-      </div>
-    </div>
+      </template>
+      <template v-if="!readOnly" #actions>
+        <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
+        <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
+      </template>
+    </PageHeader>
 
     <a-alert v-if="kedenMissing.length" type="warning" show-icon class="dt-missing">
       <template #message>Не хватает данных — клик ведёт к секции:</template>
@@ -88,6 +89,7 @@ import DtSectionGoods from '@/components/import40/dt/DtSectionGoods.vue'
 import DtSectionDocs from '@/components/import40/dt/DtSectionDocs.vue'
 import DtSectionClosing from '@/components/import40/dt/DtSectionClosing.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -606,21 +608,8 @@ onMounted(async () => {
   flex-direction: column;
   gap: 12px;
 }
-.dt-topbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.dt-title {
-  display: flex;
-  flex-direction: column;
-}
-.dt-top-actions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.dt-crumbs {
+  margin-bottom: 12px;
 }
 .dt-missing {
   border-radius: var(--atg-radius-lg);

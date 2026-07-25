@@ -1,29 +1,19 @@
 <template>
   <div v-if="activeCase" class="case-page">
-    <!-- Шапка -->
-    <a-card class="crm-shell-card" :bordered="false">
-      <div class="case-head">
-        <div class="case-head-main">
-          <h2>{{ activeCase.cargo || 'Заявка Импорт 40' }}</h2>
-          <div class="case-meta">
-            <span>Клиент: <strong>{{ activeCase.clientName }}</strong></span>
-            <span>Пост: <strong>{{ activeCase.post || '—' }}</strong></span>
-            <span v-if="activeCase.assignedKppId">КПП: <a-tag>{{ staffName(activeCase.assignedKppId) }}</a-tag></span>
-            <span v-if="activeCase.assignedDeclarantId">Декларант: <a-tag>{{ staffName(activeCase.assignedDeclarantId) }}</a-tag></span>
-          </div>
-        </div>
-        <div class="case-head-step">
-          <a-tag v-if="isCompleted(activeCase.status)" color="success">Выполнено</a-tag>
-          <template v-else>
-            <div class="step-counter">Шаг {{ currentStep }} из {{ TOTAL_STEPS }}</div>
-            <div class="step-name">{{ STEP_TITLES[currentStep - 1] }}</div>
-          </template>
-          <a-tag v-if="assignedTag === 'me'" color="success">в работе у меня</a-tag>
-          <a-tag v-else-if="assignedTag === 'other'" color="warning">занято коллегой</a-tag>
-        </div>
-      </div>
-
-      <div class="case-head-tools">
+    <PageHeader kicker="Импорт 40" :title="activeCase.cargo || 'Заявка Импорт 40'">
+      <template #meta>
+        <span>Клиент: <strong>{{ activeCase.clientName }}</strong></span>
+        <span>Пост: <strong>{{ activeCase.post || '—' }}</strong></span>
+        <span v-if="activeCase.assignedKppId">КПП: <a-tag>{{ staffName(activeCase.assignedKppId) }}</a-tag></span>
+        <span v-if="activeCase.assignedDeclarantId">Декларант: <a-tag>{{ staffName(activeCase.assignedDeclarantId) }}</a-tag></span>
+        <a-tag v-if="isCompleted(activeCase.status)" color="success">Выполнено</a-tag>
+        <template v-else>
+          <a-tag color="processing">Шаг {{ currentStep }} из {{ TOTAL_STEPS }} · {{ STEP_TITLES[currentStep - 1] }}</a-tag>
+        </template>
+        <a-tag v-if="assignedTag === 'me'" color="success">в работе у меня</a-tag>
+        <a-tag v-else-if="assignedTag === 'other'" color="warning">занято коллегой</a-tag>
+      </template>
+      <template #actions>
         <a-button
           v-if="(can('kpp') || can('declarant')) && !activeCase.isProblem && activeCase.status < 8"
           danger size="small" @click="promptProblem"
@@ -34,8 +24,8 @@
           <a-select v-model:value="assignForm.declarantId" allow-clear placeholder="Декларант не назначен" :options="declarantOptions" size="small" style="min-width: 170px" />
           <a-button size="small" :loading="assignSaving" @click="saveAssignment">Назначить</a-button>
         </div>
-      </div>
-    </a-card>
+      </template>
+    </PageHeader>
 
     <!-- Баннеры -->
     <a-alert
@@ -280,6 +270,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usersApi } from '@/api/users'
 import Import40Step from '@/components/Import40Step.vue'
 import Import40FilesBlock from '@/components/Import40FilesBlock.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import { STEP_TITLES, TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
 
 const route = useRoute()
@@ -682,44 +673,8 @@ onMounted(() => {
   flex-direction: column;
   gap: 14px;
 }
-.case-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.case-head-main h2 {
-  margin: 0 0 6px;
-}
-.case-meta {
-  display: flex;
-  gap: 16px;
-  color: var(--atg-muted);
-  font-size: 13px;
-  flex-wrap: wrap;
-}
-.case-head-step {
-  text-align: right;
-}
-.step-counter {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--atg-teal);
-}
-.step-name {
-  color: var(--atg-muted);
-  font-size: 13px;
-}
 .case-banner {
   border-radius: var(--atg-radius-lg);
-}
-.case-head-tools {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 12px;
-  flex-wrap: wrap;
 }
 .assign-inline {
   display: flex;
