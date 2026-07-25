@@ -1,5 +1,8 @@
 <template>
   <div class="tnved-view">
+    <PageHeader kicker="Справочники" title="ТН ВЭД"
+      subtitle="Дерево кодов, ставки пошлин и подбор кода товара." />
+
     <a-layout style="background: #fff; border-radius: 8px; overflow: hidden; min-height: 80vh">
       <a-layout-sider width="320" style="background: #fafafa; border-right: 1px solid #f0f0f0; overflow: hidden; display: flex; flex-direction: column">
         <div style="padding: 12px">
@@ -268,6 +271,7 @@ import dayjs from 'dayjs'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedNode, TnvedRateDto, TnvedExplanationDto, TnvedClassifyResponse, TnvedCalculateResult, TnvedCurrency } from '@/types/api'
 import { RightOutlined, FileSearchOutlined } from '@ant-design/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const treeNodes = ref<TnvedNode[]>([])
 const treeLoading = ref(false)
