@@ -134,8 +134,9 @@
             </div>
           </template>
           <template v-else-if="column.key === 'status'">
-            <a-tag :color="record.isProblem ? 'error' : record.status === 8 ? 'success' : 'processing'">
-              шаг {{ stepForStatus(record.status) }}/{{ TOTAL_STEPS }} · {{ statusLabel(record.status) }}
+            <a-tag :color="record.isProblem ? 'error' : isCompleted(record.status) ? 'success' : 'processing'">
+              <template v-if="isCompleted(record.status)">{{ statusLabel(record.status) }}</template>
+              <template v-else>шаг {{ stepForStatus(record.status) }}/{{ TOTAL_STEPS }} · {{ statusLabel(record.status) }}</template>
             </a-tag>
             <span v-if="record.isProblem" class="problem-chip">Проблема</span>
           </template>
@@ -169,7 +170,7 @@ import {
   type Import40DocumentDto,
 } from '@/api/import40Contract'
 import { useAuthStore } from '@/stores/auth'
-import { TOTAL_STEPS, stepForStatus } from '@/utils/import40Steps'
+import { TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
 
 const router = useRouter()
 const authStore = useAuthStore()

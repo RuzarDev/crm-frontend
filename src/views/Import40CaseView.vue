@@ -164,23 +164,25 @@
         </a-alert>
 
         <div v-if="stepState(3) === 'current'" class="step-actions">
-          <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
-            <a-button :disabled="!can('declarant')" @click="addDt">Добавить ДТ</a-button>
-          </a-tooltip>
-          <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
-            <a-button :disabled="!can('declarant')" :loading="batchUploading" @click="triggerBatchUpload">
-              Загрузить пакет документов
-            </a-button>
-          </a-tooltip>
-          <input
-            ref="batchFileInput"
-            type="file"
-            multiple
-            style="display: none"
-            @change="handleBatchFilesSelected"
-          />
+          <template v-if="activeCase.status === 2">
+            <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+              <a-button :disabled="!can('declarant')" @click="addDt">Добавить ДТ</a-button>
+            </a-tooltip>
+            <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+              <a-button :disabled="!can('declarant')" :loading="batchUploading" @click="triggerBatchUpload">
+                Загрузить пакет документов
+              </a-button>
+            </a-tooltip>
+            <input
+              ref="batchFileInput"
+              type="file"
+              multiple
+              style="display: none"
+              @change="handleBatchFilesSelected"
+            />
+          </template>
           <a-button v-if="roleMode === 'declarant' && !activeCase.assignedDeclarantId" @click="runAction('claim')">Взять в работу</a-button>
-          <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+          <a-tooltip v-if="activeCase.status === 2" :title="can('declarant') ? '' : hintFor('declarant')">
             <a-button type="primary" :disabled="!can('declarant') || !activeCase.declarations.length" @click="runAction('submit-declaration')">Подать ДТ</a-button>
           </a-tooltip>
           <a-tooltip :title="can('kpp') || can('declarant') ? '' : hintFor('declarant')">
@@ -259,9 +261,9 @@
       <a-input v-model:value="invoiceAmount" placeholder="Сумма счёта СВХ" />
     </a-modal>
 
-    <a-modal v-model:open="issuesOpen" title="Проверьте пакет документов перед сохранением"
+    <a-modal :open="issuesOpen" title="Проверьте пакет документов перед сохранением"
       :width="640" ok-text="Понятно, проверю в форме" :cancel-button-props="{ style: { display: 'none' } }"
-      @ok="issuesOpen = false">
+      @ok="closeIssuesDialog" @update:open="onIssuesOpenChange">
       <div v-if="issues?.conflicts.length">
         <p>Источники дали разные значения — выбрано одно, сверьте вручную:</p>
         <ul style="padding-left: 20px">
@@ -326,6 +328,7 @@ const invoiceAmount = ref('')
 
 const issuesOpen = ref(false)
 const issues = ref<Import40ExtractionResult | null>(null)
+const pendingDtNavigation = ref<string | null>(null)
 
 type RoleMode = 'client' | 'kpp' | 'declarant' | 'admin' | 'other'
 const roleMode = computed<RoleMode>(() => {
@@ -517,10 +520,30 @@ const previewToUpsert = (preview: Import40ExtractionPreview): Import40Declaratio
 // the server keeps the picked value plus the alternatives instead of silently choosing.
 // Shown before the redirect so the broker knows which fields to double-check in the form,
 // rather than trusting a pre-filled value that was actually a coin flip between sources.
-const showExtractionIssues = (result: Import40ExtractionResult) => {
-  if (result.conflicts.length === 0 && result.warnings.length === 0) return
+// The redirect to the DT page is deferred until the dialog actually closes (any way —
+// button, cross, or backdrop) since this view unmounts on navigation and would take a
+// programmatic Modal.warning-style dialog with it otherwise.
+const showExtractionIssues = (result: Import40ExtractionResult, dtId: string): boolean => {
+  if (result.conflicts.length === 0 && result.warnings.length === 0) return false
   issues.value = result
+  pendingDtNavigation.value = dtId
   issuesOpen.value = true
+  return true
+}
+
+// Единая точка закрытия диалога — вызывается и из @ok, и из @update:open (крестик/фон),
+// поэтому переход на ДТ гарантированно случится один раз, каким бы способом ни закрыли.
+const closeIssuesDialog = () => {
+  issuesOpen.value = false
+  const dtId = pendingDtNavigation.value
+  if (!dtId) return
+  pendingDtNavigation.value = null
+  if (activeCase.value) router.push(`/import-40/${activeCase.value.id}/dt/${dtId}`)
+}
+
+const onIssuesOpenChange = (open: boolean) => {
+  issuesOpen.value = open
+  if (!open) closeIssuesDialog()
 }
 
 const handleBatchFilesSelected = async (event: Event) => {
@@ -534,8 +557,10 @@ const handleBatchFilesSelected = async (event: Event) => {
     const result = await import40Api.extractBatch(activeCase.value.id, selected)
     const created = await import40Api.createDeclaration(activeCase.value.id, previewToUpsert(result.declaration))
     message.success('Пакет обработан — откройте ДТ, чтобы проверить предзаполненные поля')
-    showExtractionIssues(result)
-    await router.push(`/import-40/${activeCase.value.id}/dt/${created.id}`)
+    const hasIssues = showExtractionIssues(result, created.id)
+    if (!hasIssues) {
+      await router.push(`/import-40/${activeCase.value.id}/dt/${created.id}`)
+    }
   } catch {
     message.error('Не удалось обработать пакет документов')
   } finally {
