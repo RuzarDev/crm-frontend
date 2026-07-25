@@ -13,8 +13,11 @@
           </div>
         </div>
         <div class="case-head-step">
-          <div class="step-counter">Шаг {{ currentStep }} из 7</div>
-          <div class="step-name">{{ STEP_TITLES[currentStep - 1] }}</div>
+          <a-tag v-if="isCompleted(activeCase.status)" color="success">Выполнено</a-tag>
+          <template v-else>
+            <div class="step-counter">Шаг {{ currentStep }} из {{ TOTAL_STEPS }}</div>
+            <div class="step-name">{{ STEP_TITLES[currentStep - 1] }}</div>
+          </template>
           <a-tag v-if="assignedTag === 'me'" color="success">в работе у меня</a-tag>
           <a-tag v-else-if="assignedTag === 'other'" color="warning">занято коллегой</a-tag>
         </div>
@@ -140,7 +143,7 @@
           </a-tooltip>
         </div>
       </Import40Step>
-      <Import40Step :index="3" title="Декларирование" :state="stepState(3)" executor="декларант"
+      <Import40Step :index="3" title="Декларирование и выпуск" :state="stepState(3)" executor="декларант"
         :summary="stepState(3) === 'done' ? `ДТ: ${activeCase.declarations.length}` : undefined">
         <div v-if="!activeCase.declarations.length" class="muted">ДТ ещё не создана</div>
 
@@ -194,28 +197,24 @@
             <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">Вернуть клиенту</a-button>
           </a-tooltip>
         </div>
-      </Import40Step>
-      <Import40Step :index="4" title="Выпуск ДТ" :state="stepState(4)" executor="декларант"
-        :summary="stepState(4) === 'done' ? 'выпущена' : undefined">
-        <p class="muted">ДТ подана в КЕДЕН. После выпуска зафиксируйте его здесь.</p>
-        <div v-if="stepState(4) === 'current'" class="step-actions">
+        <div v-if="activeCase.status === 3" class="step-actions">
+          <p class="muted">ДТ подана в КЕДЕН. После выпуска зафиксируйте его здесь.</p>
           <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
             <a-button type="primary" :disabled="!can('declarant')" @click="runAction('release-declaration')">Зафиксировать выпуск</a-button>
           </a-tooltip>
-          <a-button v-if="roleMode === 'declarant' && !activeCase.assignedDeclarantId" @click="runAction('claim')">Взять в работу</a-button>
         </div>
       </Import40Step>
-      <Import40Step :index="5" title="СВХ и счёт" :state="stepState(5)" executor="менеджер КПП"
-        :summary="stepState(5) === 'done' ? (activeCase.svhInvoiceNote ? `счёт: ${activeCase.svhInvoiceNote}` : 'закрыт') : undefined">
+      <Import40Step :index="4" title="СВХ и счёт" :state="stepState(4)" executor="менеджер КПП"
+        :summary="stepState(4) === 'done' ? (activeCase.svhInvoiceNote ? `счёт: ${activeCase.svhInvoiceNote}` : 'закрыт') : undefined">
         <div class="sub-label">Закрытая ДТ (штамп)</div>
-        <Import40FilesBlock :files="filesBySection('declaration-stamp')" :can-upload="stepState(5) === 'current' && can('kpp')"
+        <Import40FilesBlock :files="filesBySection('declaration-stamp')" :can-upload="stepState(4) === 'current' && can('kpp')"
           :uploading="uploading" empty-text="Штамп не загружен"
           @upload="(f: File) => uploadTo('declaration-stamp', f)" @download="download" />
         <div class="sub-label">Счёт СВХ <a-tag v-if="activeCase.svhInvoiceNote">{{ activeCase.svhInvoiceNote }}</a-tag></div>
-        <Import40FilesBlock :files="filesBySection('svh-invoice')" :can-upload="stepState(5) === 'current' && can('kpp')"
+        <Import40FilesBlock :files="filesBySection('svh-invoice')" :can-upload="stepState(4) === 'current' && can('kpp')"
           :uploading="uploading" empty-text="Счёт не выставлен"
           @upload="(f: File) => uploadTo('svh-invoice', f)" @download="download" />
-        <div v-if="stepState(5) === 'current'" class="step-actions">
+        <div v-if="stepState(4) === 'current'" class="step-actions">
           <a-tooltip v-if="activeCase.status === 4" :title="can('kpp') ? '' : hintFor('kpp')">
             <a-button type="primary" :disabled="!can('kpp')" @click="runAction('close-svh')">Закрыть ДТ на СВХ</a-button>
           </a-tooltip>
@@ -225,31 +224,22 @@
           <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">Взять в работу</a-button>
         </div>
       </Import40Step>
-      <Import40Step :index="6" title="Оплата" :state="stepState(6)" executor="клиент и КПП"
-        :summary="stepState(6) === 'done' ? 'оплачена' : undefined">
+      <Import40Step :index="5" title="Оплата" :state="stepState(5)" executor="клиент и КПП"
+        :summary="stepState(5) === 'done' ? 'оплачена' : undefined">
         <div class="sub-label">Чек оплаты
           <a-tag v-if="activeCase.paymentConfirmed" color="success">подтверждена</a-tag>
           <a-tag v-else-if="filesBySection('payment-check').length" color="processing">на проверке</a-tag>
         </div>
-        <Import40FilesBlock :files="filesBySection('payment-check')" :can-upload="stepState(6) === 'current' && can('client')"
+        <Import40FilesBlock :files="filesBySection('payment-check')" :can-upload="stepState(5) === 'current' && can('client')"
           :uploading="uploading" empty-text="Клиент ещё не загрузил чек"
           @upload="(f: File) => uploadTo('payment-check', f)" @download="download" />
-        <div v-if="stepState(6) === 'current'" class="step-actions">
+        <div v-if="stepState(5) === 'current'" class="step-actions">
           <a-tooltip :title="can('kpp') ? (filesBySection('payment-check').length ? '' : 'Клиент ещё не загрузил чек') : hintFor('kpp')">
             <a-button type="primary" :disabled="!can('kpp') || !filesBySection('payment-check').length"
               @click="runAction('confirm-payment-and-complete')">Подтвердить оплату и завершить</a-button>
           </a-tooltip>
           <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">Взять в работу</a-button>
         </div>
-      </Import40Step>
-      <Import40Step :index="7" title="Выполнено" :state="stepState(7)">
-        <template v-if="stepState(7) === 'current'">
-          <p>Заявка выполнена. Все файлы и история — в секциях ниже.</p>
-          <div class="grid-2">
-            <div><span class="muted">ДТ:</span> {{ activeCase.declarations.length }}</div>
-            <div><span class="muted">Файлов:</span> {{ files.length }}</div>
-          </div>
-        </template>
       </Import40Step>
     </div>
 
@@ -290,6 +280,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usersApi } from '@/api/users'
 import Import40Step from '@/components/Import40Step.vue'
 import Import40FilesBlock from '@/components/Import40FilesBlock.vue'
+import { STEP_TITLES, TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
 
 const route = useRoute()
 const router = useRouter()
@@ -314,22 +305,9 @@ const can = (role: RoleMode) => roleMode.value === 'admin' || roleMode.value ===
 const ROLE_LABELS: Record<string, string> = { client: 'клиент', kpp: 'менеджер КПП', declarant: 'декларант' }
 const hintFor = (role: string) => `Действие выполняет ${ROLE_LABELS[role] ?? role}`
 
-// Шаг ↔ статус (Paid=7 технический → шаг 6)
-const stepForStatus = (s: number) =>
-  s === 0 ? 1 : s === 1 ? 2 : s === 2 ? 3 : s === 3 ? 4 : s === 4 || s === 5 ? 5 : s === 6 || s === 7 ? 6 : 7
 const currentStep = computed(() => (activeCase.value ? stepForStatus(activeCase.value.status) : 1))
 const stepState = (n: number): 'done' | 'current' | 'future' =>
   n < currentStep.value ? 'done' : n === currentStep.value ? 'current' : 'future'
-
-const STEP_TITLES = [
-  'Заявка и документы',
-  'Граница',
-  'Декларирование',
-  'Выпуск ДТ',
-  'СВХ и счёт',
-  'Оплата',
-  'Выполнено',
-]
 
 const step1Summary = computed(() =>
   activeCase.value ? `${activeCase.value.cargo || '—'} · файлов: ${filesBySection('documents').length}` : undefined,
