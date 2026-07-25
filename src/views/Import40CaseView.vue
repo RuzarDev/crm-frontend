@@ -246,14 +246,46 @@
         </div>
       </a-collapse-panel>
     </a-collapse>
+
+    <a-modal v-model:open="returnOpen" title="Вернуть заявку клиенту" ok-text="Вернуть" cancel-text="Отмена" @ok="confirmReturn">
+      <a-textarea v-model:value="returnReason" :rows="3" placeholder="Причина возврата" />
+    </a-modal>
+
+    <a-modal v-model:open="problemOpen" title="Запрос таможни / проблема" ok-text="Отметить" cancel-text="Отмена" @ok="confirmProblem">
+      <a-textarea v-model:value="problemNote" :rows="3" placeholder="Опишите проблему" />
+    </a-modal>
+
+    <a-modal v-model:open="invoiceOpen" title="Выставить счёт СВХ" ok-text="Выставить" cancel-text="Отмена" @ok="confirmInvoice">
+      <a-input v-model:value="invoiceAmount" placeholder="Сумма счёта СВХ" />
+    </a-modal>
+
+    <a-modal v-model:open="issuesOpen" title="Проверьте пакет документов перед сохранением"
+      :width="640" ok-text="Понятно, проверю в форме" :cancel-button-props="{ style: { display: 'none' } }"
+      @ok="issuesOpen = false">
+      <div v-if="issues?.conflicts.length">
+        <p>Источники дали разные значения — выбрано одно, сверьте вручную:</p>
+        <ul style="padding-left: 20px">
+          <li v-for="(c, i) in issues.conflicts" :key="`c${i}`">
+            <strong>{{ c.fieldLabel }}</strong>: "{{ c.value ?? '—' }}"{{ c.sourceDocument ? ` (${c.sourceDocument})` : '' }} — есть другие варианты:
+            {{ c.alternatives.map((a) => `"${a.value ?? '—'}"${a.sourceDocument ? ` (${a.sourceDocument})` : ''}`).join(', ') }}
+          </li>
+        </ul>
+      </div>
+      <div v-if="issues?.warnings.length">
+        <p>Другие замечания по пакету:</p>
+        <ul style="padding-left: 20px">
+          <li v-for="(w, i) in issues.warnings" :key="`w${i}`">{{ w }}</li>
+        </ul>
+      </div>
+    </a-modal>
   </div>
   <a-spin v-else class="case-loading" />
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Input, message, Modal } from 'ant-design-vue'
+import { message } from 'ant-design-vue'
 import {
   IMPORT40_TRANSPORT_MODES,
   import40Api,
@@ -280,6 +312,20 @@ const authStore = useAuthStore()
 const activeCase = ref<Import40CaseDto | null>(null)
 const files = ref<Import40FileDto[]>([])
 const uploading = ref(false)
+
+// Диалоги объявлены в шаблоне, а не собраны через Modal.confirm + h():
+// программные модалки не подхватывают стили CRM и живут в скрипте строками.
+const returnOpen = ref(false)
+const returnReason = ref('')
+
+const problemOpen = ref(false)
+const problemNote = ref('')
+
+const invoiceOpen = ref(false)
+const invoiceAmount = ref('')
+
+const issuesOpen = ref(false)
+const issues = ref<Import40ExtractionResult | null>(null)
 
 type RoleMode = 'client' | 'kpp' | 'declarant' | 'admin' | 'other'
 const roleMode = computed<RoleMode>(() => {
@@ -473,37 +519,8 @@ const previewToUpsert = (preview: Import40ExtractionPreview): Import40Declaratio
 // rather than trusting a pre-filled value that was actually a coin flip between sources.
 const showExtractionIssues = (result: Import40ExtractionResult) => {
   if (result.conflicts.length === 0 && result.warnings.length === 0) return
-
-  const conflictItems = result.conflicts.map((c) =>
-    h('li', {}, [
-      h('strong', {}, c.fieldLabel),
-      `: "${c.value ?? '—'}"${c.sourceDocument ? ` (${c.sourceDocument})` : ''} — есть другие варианты: `,
-      c.alternatives
-        .map((a) => `"${a.value ?? '—'}"${a.sourceDocument ? ` (${a.sourceDocument})` : ''}`)
-        .join(', '),
-    ]),
-  )
-  const warningItems = result.warnings.map((w) => h('li', {}, w))
-
-  Modal.warning({
-    title: 'Проверьте пакет документов перед сохранением',
-    width: 640,
-    content: h('div', {}, [
-      result.conflicts.length > 0
-        ? h('div', {}, [
-            h('p', {}, 'Источники дали разные значения — выбрано одно, сверьте вручную:'),
-            h('ul', { style: 'padding-left: 20px' }, conflictItems),
-          ])
-        : null,
-      result.warnings.length > 0
-        ? h('div', {}, [
-            h('p', {}, 'Другие замечания по пакету:'),
-            h('ul', { style: 'padding-left: 20px' }, warningItems),
-          ])
-        : null,
-    ]),
-    okText: 'Понятно, проверю в форме',
-  })
+  issues.value = result
+  issuesOpen.value = true
 }
 
 const handleBatchFilesSelected = async (event: Event) => {
@@ -556,33 +573,21 @@ const exportXml = async (dtId: string) => {
 }
 
 const promptReturn = () => {
-  let reason = ''
-  Modal.confirm({
-    title: 'Вернуть заявку клиенту',
-    content: h(Input.TextArea, {
-      rows: 3,
-      placeholder: 'Причина возврата',
-      onChange: (e: any) => (reason = e.target.value),
-    }),
-    okText: 'Вернуть',
-    cancelText: 'Отмена',
-    onOk: () => runAction('return-to-client', reason),
-  })
+  returnReason.value = ''
+  returnOpen.value = true
+}
+const confirmReturn = async () => {
+  returnOpen.value = false
+  await runAction('return-to-client', returnReason.value)
 }
 
 const promptProblem = () => {
-  let note = ''
-  Modal.confirm({
-    title: 'Запрос таможни / проблема',
-    content: h(Input.TextArea, {
-      rows: 3,
-      placeholder: 'Опишите проблему',
-      onChange: (e: any) => (note = e.target.value),
-    }),
-    okText: 'Отметить',
-    cancelText: 'Отмена',
-    onOk: () => runAction('set-problem', note),
-  })
+  problemNote.value = ''
+  problemOpen.value = true
+}
+const confirmProblem = async () => {
+  problemOpen.value = false
+  await runAction('set-problem', problemNote.value)
 }
 
 // Бейдж «в работе у меня / занято коллегой» (kpp/declarant)
@@ -648,17 +653,12 @@ const saveAssignment = async () => {
 }
 
 const promptInvoice = () => {
-  let amount = ''
-  Modal.confirm({
-    title: 'Выставить счёт СВХ',
-    content: h(Input, {
-      placeholder: 'Сумма счёта СВХ',
-      onChange: (e: any) => (amount = e.target.value),
-    }),
-    okText: 'Выставить',
-    cancelText: 'Отмена',
-    onOk: () => runAction('issue-invoice', amount),
-  })
+  invoiceAmount.value = ''
+  invoiceOpen.value = true
+}
+const confirmInvoice = async () => {
+  invoiceOpen.value = false
+  await runAction('issue-invoice', invoiceAmount.value)
 }
 
 onMounted(() => {
