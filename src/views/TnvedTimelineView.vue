@@ -1,12 +1,6 @@
 <template>
   <div class="tnved-timeline-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">ТН ВЭД ЕАЭС</div>
-        <h1 class="crm-page-title">Таймлайн изменений</h1>
-        <p class="crm-page-subtitle">История изменений ставок и классификатора.</p>
-      </div>
-    </div>
+    <PageHeader kicker="ТН ВЭД ЕАЭС" title="Таймлайн изменений" subtitle="История изменений ставок и классификатора." />
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-spin :spinning="loading">
@@ -33,6 +27,7 @@
 import { ref, onMounted } from 'vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedTimelineDto } from '@/types/api'
+import PageHeader from '@/components/PageHeader.vue'
 
 const items = ref<TnvedTimelineDto[]>([])
 const loading = ref(false)

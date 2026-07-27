@@ -1,5 +1,5 @@
 <template>
-  <div class="crm-page-header">
+  <div class="crm-page-header" :class="{ 'crm-page-header--stacked': stacked }">
     <div>
       <div v-if="kicker" class="crm-page-kicker">{{ kicker }}</div>
       <h1 class="crm-page-title">{{ title }}</h1>
@@ -18,6 +18,9 @@ defineProps<{
   kicker?: string
   title: string
   subtitle?: string
+  // Класть действия под заголовок, а не справа от него. Нужно там, где кнопок
+  // столько, что в одну строку с заголовком они не помещаются (реестр).
+  stacked?: boolean
 }>()
 </script>
 
@@ -31,5 +34,16 @@ defineProps<{
   align-items: center;
   gap: 12px;
   margin-top: 10px;
+  /* Приглушённый мелкий текст — как было у .case-meta до выноса в компонент:
+     мета-строка не должна спорить с заголовком. Теги внутри задают свой
+     размер сами, поэтому наследование их не задевает. */
+  color: var(--atg-muted);
+  font-size: 13px;
+}
+
+.crm-page-header--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
 }
 </style>

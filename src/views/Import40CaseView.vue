@@ -263,7 +263,7 @@
 
     <a-modal :open="issuesOpen" title="Проверьте пакет документов перед сохранением"
       :width="640" ok-text="Понятно, проверю в форме" :cancel-button-props="{ style: { display: 'none' } }"
-      @ok="closeIssuesDialog" @update:open="onIssuesOpenChange">
+      @ok="closeIssuesDialog" @update:open="onIssuesOpenChange" @after-close="issues = null">
       <div v-if="issues?.conflicts.length">
         <p>Источники дали разные значения — выбрано одно, сверьте вручную:</p>
         <ul style="padding-left: 20px">
@@ -538,11 +538,10 @@ const closeIssuesDialog = () => {
   const dtId = pendingDtNavigation.value
   if (!dtId) return
   pendingDtNavigation.value = null
-  if (activeCase.value) router.push(`/import-40/${activeCase.value.id}/dt/${dtId}`)
+  if (activeCase.value) void router.push(`/import-40/${activeCase.value.id}/dt/${dtId}`)
 }
 
 const onIssuesOpenChange = (open: boolean) => {
-  issuesOpen.value = open
   if (!open) closeIssuesDialog()
 }
 

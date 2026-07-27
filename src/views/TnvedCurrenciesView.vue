@@ -1,12 +1,6 @@
 <template>
   <div class="tnved-currencies-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">ТН ВЭД ЕАЭС</div>
-        <h1 class="crm-page-title">Курсы валют</h1>
-        <p class="crm-page-subtitle">Официальные курсы для таможенных расчётов.</p>
-      </div>
-    </div>
+    <PageHeader kicker="ТН ВЭД ЕАЭС" title="Курсы валют" subtitle="Официальные курсы для таможенных расчётов." />
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-spin :spinning="loading">
@@ -46,6 +40,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedCurrencyDto } from '@/types/api'
+import PageHeader from '@/components/PageHeader.vue'
 
 const currencies = ref<TnvedCurrencyDto[]>([])
 const loading = ref(false)

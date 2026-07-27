@@ -1,20 +1,17 @@
 <template>
   <div class="document-packages-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Документы экспедитора</div>
-        <h1 class="crm-page-title">Пакеты документов</h1>
-        <p class="crm-page-subtitle">
-          Входящие файлы по поездам и составам до разбора брокером в строки реестра.
-        </p>
-      </div>
-      <div class="crm-page-actions">
+    <PageHeader
+      kicker="Документы экспедитора"
+      title="Пакеты документов"
+      subtitle="Входящие файлы по поездам и составам до разбора брокером в строки реестра."
+    >
+      <template #actions>
         <a-button v-if="canCreate" type="primary" @click="openCreateModal">
           <PlusOutlined />
           Создать пакет
         </a-button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <a-alert
       v-if="isClient"
@@ -244,6 +241,7 @@ import type {
   DocumentPackageStatus,
   ReestrClientOption,
 } from '@/types/api'
+import PageHeader from '@/components/PageHeader.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

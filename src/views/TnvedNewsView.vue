@@ -1,12 +1,6 @@
 <template>
   <div class="tnved-news-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">ТН ВЭД ЕАЭС</div>
-        <h1 class="crm-page-title">Новости</h1>
-        <p class="crm-page-subtitle">Актуальные новости таможенного регулирования.</p>
-      </div>
-    </div>
+    <PageHeader kicker="ТН ВЭД ЕАЭС" title="Новости" subtitle="Актуальные новости таможенного регулирования." />
 
     <a-card class="crm-shell-card" :bordered="false">
       <div class="toolbar">
@@ -41,6 +35,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedNewsDto } from '@/types/api'
+import PageHeader from '@/components/PageHeader.vue'
 
 const news = ref<TnvedNewsDto[]>([])
 const loading = ref(false)

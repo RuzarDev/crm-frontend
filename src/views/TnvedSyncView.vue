@@ -1,12 +1,11 @@
 <template>
   <div class="tnved-sync-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">ТН ВЭД ЕАЭС — Администрирование</div>
-        <h1 class="crm-page-title">Синхронизация данных</h1>
-        <p class="crm-page-subtitle">Управление синхронизацией дерева ТН ВЭД с tnved.info.</p>
-      </div>
-      <div class="crm-page-actions">
+    <PageHeader
+      kicker="ТН ВЭД ЕАЭС — Администрирование"
+      title="Синхронизация данных"
+      subtitle="Управление синхронизацией дерева ТН ВЭД с tnved.info."
+    >
+      <template #actions>
         <a-button :loading="explanationsRunning" @click="triggerExplanations">
           <template #icon><FileTextOutlined /></template>
           Загрузить пояснения
@@ -19,8 +18,8 @@
           <template #icon><SyncOutlined /></template>
           Запустить синхронизацию
         </a-button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
       <div class="section-title">История синхронизаций</div>
@@ -67,6 +66,7 @@ import { message } from 'ant-design-vue'
 import { DatabaseOutlined, FileTextOutlined, SyncOutlined } from '@ant-design/icons-vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedSyncLogDto } from '@/types/api'
+import PageHeader from '@/components/PageHeader.vue'
 
 const logs = ref<TnvedSyncLogDto[]>([])
 const loading = ref(false)

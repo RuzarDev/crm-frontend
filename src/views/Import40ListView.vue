@@ -1,19 +1,14 @@
 <template>
   <div class="import40-list-page crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Рабочий модуль</div>
-        <h1 class="crm-page-title">Импорт 40</h1>
-        <p class="crm-page-subtitle">Заявки на таможенное оформление: контейнеры, ДТ, статусы.</p>
-      </div>
-      <div class="crm-page-actions">
+    <PageHeader kicker="Рабочий модуль" title="Импорт 40" subtitle="Заявки на таможенное оформление: контейнеры, ДТ, статусы.">
+      <template #actions>
         <a-button :loading="loading" @click="reload">Обновить</a-button>
         <a-tooltip v-if="canCreate" :title="showOnboardingGate ? 'Сначала подпишите договор и доверенность (Моя компания)' : ''">
           <a-button type="primary" :disabled="showOnboardingGate" @click="openCreate">Новая заявка</a-button>
         </a-tooltip>
         <span class="crm-stat-badge">Заявок:&nbsp;<span class="crm-stat-badge-count">{{ cases.length }}</span></span>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <a-alert
       v-if="showOnboardingGate"
@@ -171,6 +166,7 @@ import {
 } from '@/api/import40Contract'
 import { useAuthStore } from '@/stores/auth'
 import { TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
+import PageHeader from '@/components/PageHeader.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

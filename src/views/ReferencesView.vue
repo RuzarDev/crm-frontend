@@ -1,11 +1,6 @@
 <template>
   <div class="crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Настройки системы</div>
-        <h1 class="crm-page-title">Справочники</h1>
-      </div>
-    </div>
+    <PageHeader kicker="Настройки системы" title="Справочники" />
 
     <a-tabs v-model:activeKey="activeTab">
       <a-tab-pane key="base" tab="Станции и посты">
@@ -75,6 +70,7 @@ import { message, Button } from 'ant-design-vue'
 import { referencesApi } from '@/api/references'
 import type { RefItem, ClassifierItem, ClassifierGroup } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
+import PageHeader from '@/components/PageHeader.vue'
 
 const stations = ref<RefItem[]>([])
 const posts = ref<RefItem[]>([])

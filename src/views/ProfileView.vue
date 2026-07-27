@@ -1,12 +1,6 @@
 <template>
   <div class="profile-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Аккаунт</div>
-        <h1 class="crm-page-title">Профиль</h1>
-        <p class="crm-page-subtitle">Личные данные и контактная информация.</p>
-      </div>
-    </div>
+    <PageHeader kicker="Аккаунт" title="Профиль" subtitle="Личные данные и контактная информация." />
 
     <a-spin :spinning="store.loading">
       <div class="profile-layout">
@@ -88,6 +82,7 @@ import { onMounted, reactive, watch } from 'vue'
 import { useProfileStore } from '@/stores/profile'
 import { formatRole } from '@/utils/labels'
 import { SaveOutlined, UserOutlined } from '@ant-design/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const store = useProfileStore()
 

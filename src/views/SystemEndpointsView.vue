@@ -1,20 +1,19 @@
 <template>
   <div class="system-endpoints-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Система</div>
-        <h1 class="crm-page-title">Каталог API</h1>
-        <p class="crm-page-subtitle">Все маршруты REST API сервера — методы, политики авторизации и анонимный доступ.</p>
-      </div>
-      <div class="crm-page-actions">
+    <PageHeader
+      kicker="Система"
+      title="Каталог API"
+      subtitle="Все маршруты REST API сервера — методы, политики авторизации и анонимный доступ."
+    >
+      <template #actions>
         <a-input-search
           v-model:value="search"
           placeholder="Поиск по маршруту…"
           style="width: 280px"
           allow-clear
         />
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-spin :spinning="loading">
@@ -62,6 +61,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { systemApi } from '@/api/system'
 import type { EndpointRow } from '@/types/api'
+import PageHeader from '@/components/PageHeader.vue'
 
 const endpoints = ref<EndpointRow[]>([])
 const loading = ref(false)

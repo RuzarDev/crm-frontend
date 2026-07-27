@@ -1,12 +1,6 @@
 <template>
   <div class="sales-page crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Модуль продаж</div>
-        <h1 class="crm-page-title">Продажи</h1>
-        <p class="crm-page-subtitle">Калькулятор услуг и ТПиН, коммерческие предложения.</p>
-      </div>
-    </div>
+    <PageHeader kicker="Модуль продаж" title="Продажи" subtitle="Калькулятор услуг и ТПиН, коммерческие предложения." />
 
     <a-tabs v-model:activeKey="tab">
       <a-tab-pane key="calc" tab="Калькулятор" />
@@ -145,6 +139,7 @@ import {
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedCurrencyDto } from '@/types/api'
 import atgLogoSvgRaw from '@/assets/atg-logo-group.svg?raw'
+import PageHeader from '@/components/PageHeader.vue'
 
 const tab = ref<'calc' | 'quotes'>('calc')
 

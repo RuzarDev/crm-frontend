@@ -1,12 +1,6 @@
 <template>
   <div class="tnved-regulations-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">ТН ВЭД ЕАЭС</div>
-        <h1 class="crm-page-title">Нормативные акты</h1>
-        <p class="crm-page-subtitle">Решения, постановления и иные НПА в сфере ВТО.</p>
-      </div>
-    </div>
+    <PageHeader kicker="ТН ВЭД ЕАЭС" title="Нормативные акты" subtitle="Решения, постановления и иные НПА в сфере ВТО." />
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-input-search
@@ -48,6 +42,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedRegulationDto } from '@/types/api'
+import PageHeader from '@/components/PageHeader.vue'
 
 const regs = ref<TnvedRegulationDto[]>([])
 const loading = ref(false)

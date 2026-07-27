@@ -1,14 +1,11 @@
 <template>
   <div class="document-package-workspace crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Рабочая область брокера</div>
-        <h1 class="crm-page-title">Разбор поезда: {{ packageData?.trainNumber }}</h1>
-        <p class="crm-page-subtitle">
-          Распределите файлы по контейнерам и клиентам для консолидации, затем сгенерируйте строки реестра.
-        </p>
-      </div>
-      <div class="crm-page-actions">
+    <PageHeader
+      kicker="Рабочая область брокера"
+      :title="`Разбор поезда: ${packageData?.trainNumber ?? ''}`"
+      subtitle="Распределите файлы по контейнерам и клиентам для консолидации, затем сгенерируйте строки реестра."
+    >
+      <template #actions>
         <a-button @click="goBack">Назад к списку</a-button>
         <a-button :loading="loading" @click="loadPackage">
           <ReloadOutlined />
@@ -31,8 +28,8 @@
           <BuildOutlined />
           Сгенерировать строки реестра
         </a-button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <a-spin :spinning="loading">
       <div v-if="packageData" class="workspace-split" :class="{ 'split-active': splitOpen }">
@@ -664,6 +661,7 @@ import InvoiceFileSection from '@/components/InvoiceFileSection.vue'
 import PendingInvoicePicker from '@/components/PendingInvoicePicker.vue'
 import PartyAddressFields from '@/components/PartyAddressFields.vue'
 import InvoiceGoodsImporter from '@/components/InvoiceGoodsImporter.vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const emptyParty = (): PartyAddress => ({
   name: null,

@@ -1,14 +1,10 @@
 <template>
   <div class="roles-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Безопасность</div>
-        <h1 class="crm-page-title">Роли и права</h1>
-        <p class="crm-page-subtitle">
-          Матрица доступов CRM: просмотр, редактирование, документы, статусы и управление пользователями.
-        </p>
-      </div>
-    </div>
+    <PageHeader
+      kicker="Безопасность"
+      title="Роли и права"
+      subtitle="Матрица доступов CRM: просмотр, редактирование, документы, статусы и управление пользователями."
+    />
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-tabs v-model:activeKey="activeTab">
@@ -84,6 +80,7 @@ import { useRolesStore } from '@/stores/roles'
 import { systemApi } from '@/api/system'
 import type { RoleItem, PermissionMatrixResponse } from '@/types/api'
 import { formatPermission, formatRole } from '@/utils/labels'
+import PageHeader from '@/components/PageHeader.vue'
 
 const rolesStore = useRolesStore()
 const activeTab = ref('roles')

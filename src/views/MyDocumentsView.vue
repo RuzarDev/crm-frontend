@@ -1,14 +1,10 @@
 <template>
   <div class="my-documents-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Клиентский кабинет</div>
-        <h1 class="crm-page-title">Мои документы</h1>
-        <p class="crm-page-subtitle">
-          Файлы по контейнерам, декларациям и брокерским документам с быстрым доступом к скачиванию.
-        </p>
-      </div>
-    </div>
+    <PageHeader
+      kicker="Клиентский кабинет"
+      title="Мои документы"
+      subtitle="Файлы по контейнерам, декларациям и брокерским документам с быстрым доступом к скачиванию."
+    />
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-space direction="vertical" style="width: 100%" :size="16">
@@ -93,6 +89,7 @@ import { dtoStatusToEntryStatus } from '@/utils/reestrDtoMap'
 import ReestrStatusCell from '@/components/ReestrStatusCell.vue'
 import ReestrForm from '@/components/ReestrForm.vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const loading = ref(false)
 const items = ref<MyReestrDocumentListItem[]>([])

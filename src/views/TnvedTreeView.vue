@@ -1,18 +1,17 @@
 <template>
   <div class="tnved-tree-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">ТН ВЭД ЕАЭС</div>
-        <h1 class="crm-page-title">Классификатор (импорт)</h1>
-        <p class="crm-page-subtitle">Единая товарная номенклатура внешнеэкономической деятельности ЕАЭС.</p>
-      </div>
-      <div class="header-actions">
+    <PageHeader
+      kicker="ТН ВЭД ЕАЭС"
+      title="Классификатор (импорт)"
+      subtitle="Единая товарная номенклатура внешнеэкономической деятельности ЕАЭС."
+    >
+      <template #actions>
         <a-button @click="classifyModalOpen = true">
           <template #icon><RobotOutlined /></template>
           ИИ-классификация
         </a-button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
       <!-- Search bar -->
@@ -333,6 +332,7 @@ import type {
   TnvedExportReferenceDto,
   TnvedNonTariffMeasureDto,
 } from '@/types/api'
+import PageHeader from '@/components/PageHeader.vue'
 
 // ── Tree state ───────────────────────────────────────────────────────────────
 const currentNodes = ref<TnvedNodeDto[]>([])
@@ -601,12 +601,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .search-row {
   display: flex;
   align-items: center;
