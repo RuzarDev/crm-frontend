@@ -77,7 +77,7 @@ import {
 } from '@/api/import40'
 import type { Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
 import { referencesApi } from '@/api/references'
-import { salesApi } from '@/api/sales'
+import { salesApi, type SalesCalcGoodsResult } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { useClassifiersStore } from '@/stores/classifiers'
 import DtSectionGeneral from '@/components/import40/dt/DtSectionGeneral.vue'
@@ -452,6 +452,47 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   }))
 }
 
+// Коды видов платежа гр.47, в которые раскладывает суммы КП→ДТ маппер на
+// бэкенде (см. KpToDtMapper.AddPayment) — держим тот же порядок/коды здесь,
+// чтобы пересчёт на фронте не разошёлся с тем, что уже могло прийти при
+// импорте КП.
+const TPIN_PAYMENT_CODES: Array<{ code: string; pick: (r: SalesCalcGoodsResult) => number }> = [
+  { code: '2010', pick: (r) => r.importDutyKzt },
+  { code: '4010', pick: (r) => r.exciseKzt },
+  { code: '1010', pick: (r) => r.customsFeeKzt },
+  { code: '5060', pick: (r) => r.vatKzt },
+]
+
+// Заносит суммы платежа в g.payments: обновляет существующую строку с тем же
+// taxModeCode или добавляет новую (paymentFeatureCode: 'ИУ' — как на бэкенде).
+// Суммы <= 0 пропускаются целиком, зеркаля AddPayment на бэкенде (там строка
+// с нулевой/отрицательной суммой вообще не создаётся) — если для этого кода
+// уже была строка с прошлым (устаревшим) значением, она намеренно НЕ трогается
+// здесь: это тот же простой, предсказуемый путь, что и на бэкенде, а не
+// отдельная логика "обнулить старое" только для фронтового пересчёта.
+const upsertGoodsPayment = (g: Import40GoodsItemInput, code: string, amountKzt: number) => {
+  if (amountKzt <= 0) return
+  const rows = g.payments ?? []
+  const existing = rows.find((p) => p.taxModeCode === code)
+  if (existing) {
+    existing.amountKzt = amountKzt
+  } else {
+    rows.push({
+      taxModeCode: code,
+      taxBase: null,
+      rateKindCode: null,
+      rateValue: null,
+      rateUnitCode: null,
+      rateCurrencyCode: null,
+      weightRatio: null,
+      rateDate: null,
+      paymentFeatureCode: 'ИУ',
+      amountKzt,
+    })
+  }
+  g.payments = rows
+}
+
 // Автопересчёт ТПиН для товаров, пришедших из КП без веса/количества
 // (см. needsTpinRecalc на Import40GoodsItemInput). Переиспользуем тот же
 // расчётный эндпоинт, что и КП (salesApi.calculate/SalesView.vue) — не дублируем
@@ -488,6 +529,7 @@ const calcTpin = async () => {
       const r = res.goods[idx]
       if (r && !r.error) {
         g.customsValueKzt = r.customsValueKzt
+        TPIN_PAYMENT_CODES.forEach(({ code, pick }) => upsertGoodsPayment(g, code, pick(r)))
         g.needsTpinRecalc = false
         recalculated += 1
       }
