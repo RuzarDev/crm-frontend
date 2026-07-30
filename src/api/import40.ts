@@ -87,6 +87,9 @@ export interface Import40GoodsItemDto {
   prohibitionCode?: string | null
   ipoCode?: string | null
   payments?: Import40GoodsPayment[]
+  // Товар пришёл из КП без веса/количества (см. KpToDtMapper.MapGoods на бэке) —
+  // сумма ТПиН требует проверки декларантом перед подачей.
+  needsTpinRecalc?: boolean
 }
 
 export interface Import40Doc44ItemDto {
@@ -447,6 +450,12 @@ export interface Import40ContainerUpsertRequest {
   notes?: string
 }
 
+export interface ImportQuotePayload {
+  quoteId: string
+  targetDeclarationId?: string | null
+  force?: boolean
+}
+
 export const import40Api = {
   list: async (): Promise<Import40CaseDto[]> => {
     const response = await apiClient.get<Import40ListResponse>('/import40')
@@ -538,6 +547,17 @@ export const import40Api = {
     await apiClient.delete(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}`,
     )
+  },
+
+  importQuote: async (
+    caseId: string,
+    payload: ImportQuotePayload,
+  ): Promise<{ declarationId: string; addedGoods: number }> => {
+    const response = await apiClient.post<{ declarationId: string; addedGoods: number }>(
+      `/import40/${encodeURIComponent(caseId)}/import-quote`,
+      payload,
+    )
+    return response.data
   },
 
   // 200 → файл; 400 → { errors: string[] } с перечнем незаполненного
