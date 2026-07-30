@@ -47,7 +47,7 @@
           <DtSectionTransport v-show="activeSection === 'transport'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
           <DtSectionFinance v-show="activeSection === 'finance'" :model-value="dtForm" :readonly="readOnly" :totals="totals" @update:model-value="onDtUpdate" />
           <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
-          <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" />
+          <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" @calc-tpin="calcTpin" />
           <DtSectionDocs v-show="activeSection === 'docs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
           <DtSectionClosing v-show="activeSection === 'closing'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
         </a-form>
@@ -77,6 +77,7 @@ import {
 } from '@/api/import40'
 import type { Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
 import { referencesApi } from '@/api/references'
+import { salesApi } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { useClassifiersStore } from '@/stores/classifiers'
 import DtSectionGeneral from '@/components/import40/dt/DtSectionGeneral.vue'
@@ -438,6 +439,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     prohibitionCode: g.prohibitionCode ?? null,
     ipoCode: g.ipoCode ?? null,
     payments: (g.payments ?? []).map((p) => ({ ...p })),
+    needsTpinRecalc: g.needsTpinRecalc ?? false,
   }))
   dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({
     docTypeCode: d.docTypeCode ?? null,
@@ -448,6 +450,53 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     docStartDate: d.docStartDate ?? null,
     docValidityDate: d.docValidityDate ?? null,
   }))
+}
+
+// Автопересчёт ТПиН для товаров, пришедших из КП без веса/количества
+// (см. needsTpinRecalc на Import40GoodsItemInput). Переиспользуем тот же
+// расчётный эндпоинт, что и КП (salesApi.calculate/SalesView.vue) — не дублируем
+// логику пошлин/акциза/сбора/НДС на фронте. Флаг снимается только для товаров,
+// по которым расчёт реально прошёл (есть код ТНВЭД, стоимость, валюта и вес
+// или количество); остальные остаются с бейджем до ручного заполнения данных.
+const calcTpin = async () => {
+  const targets = dtForm.goodsItems.filter(
+    (g) =>
+      g.needsTpinRecalc &&
+      g.tnvedCode &&
+      g.customsValue != null &&
+      g.currency &&
+      (g.netWeightKg != null || g.quantity != null),
+  )
+  if (!targets.length) {
+    message.info('Нет товаров с недостающими данными для пересчёта')
+    return
+  }
+  try {
+    const res = await salesApi.calculate({
+      services: [],
+      goods: targets.map((g) => ({
+        description: g.description ?? '',
+        code: g.tnvedCode ?? '',
+        customsValue: g.customsValue ?? 0,
+        currencyCode: g.currency ?? 'USD',
+        weightKg: g.netWeightKg ?? null,
+        quantity: g.quantity ?? null,
+      })),
+    })
+    let recalculated = 0
+    targets.forEach((g, idx) => {
+      const r = res.goods[idx]
+      if (r && !r.error) {
+        g.customsValueKzt = r.customsValueKzt
+        g.needsTpinRecalc = false
+        recalculated += 1
+      }
+    })
+    if (recalculated) message.success(`ТПиН пересчитан для товаров: ${recalculated}`)
+    else message.warning('Не удалось пересчитать ни один товар — проверьте код ТНВЭД и стоимость')
+  } catch {
+    message.error('Не удалось пересчитать ТПиН')
+  }
 }
 
 const loadDt = async () => {

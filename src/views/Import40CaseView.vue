@@ -173,6 +173,9 @@
                 Загрузить пакет документов
               </a-button>
             </a-tooltip>
+            <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+              <a-button :disabled="!can('declarant')" @click="openImportQuote">Импорт из КП</a-button>
+            </a-tooltip>
             <input
               ref="batchFileInput"
               type="file"
@@ -261,6 +264,44 @@
       <a-input v-model:value="invoiceAmount" placeholder="Сумма счёта СВХ" />
     </a-modal>
 
+    <a-modal
+      v-model:open="importQuoteOpen"
+      title="Импорт из КП"
+      ok-text="Импортировать"
+      cancel-text="Отмена"
+      :confirm-loading="importQuoteLoading"
+      :ok-button-props="{ disabled: !imp.quoteId || (imp.target === 'existing' && !imp.declarationId) }"
+      @ok="doImportQuote"
+    >
+      <div class="import-quote-form">
+        <label><span>Коммерческое предложение</span>
+          <a-select
+            v-model:value="imp.quoteId"
+            show-search
+            placeholder="Найдите КП по номеру или клиенту"
+            style="width: 100%"
+            :options="quoteOptions"
+            :filter-option="filterQuoteOption"
+            :loading="quotesLoading"
+          />
+        </label>
+        <label><span>Куда добавить товары</span>
+          <a-radio-group v-model:value="imp.target">
+            <a-radio value="new">Новая ДТ</a-radio>
+            <a-radio value="existing" :disabled="!activeCase.declarations.length">Существующая ДТ</a-radio>
+          </a-radio-group>
+        </label>
+        <label v-if="imp.target === 'existing'"><span>Декларация</span>
+          <a-select
+            v-model:value="imp.declarationId"
+            style="width: 100%"
+            placeholder="Выберите ДТ"
+            :options="declarationOptions"
+          />
+        </label>
+      </div>
+    </a-modal>
+
     <a-modal :open="issuesOpen" title="Проверьте пакет документов перед сохранением"
       :width="640" ok-text="Понятно, проверю в форме" :cancel-button-props="{ style: { display: 'none' } }"
       @ok="closeIssuesDialog" @update:open="onIssuesOpenChange" @after-close="issues = null">
@@ -287,7 +328,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import {
   IMPORT40_TRANSPORT_MODES,
   import40Api,
@@ -300,6 +341,7 @@ import {
   type Import40FileSection,
   type KedenReadinessDto,
 } from '@/api/import40'
+import { salesApi, type SalesQuoteListItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { usersApi } from '@/api/users'
 import Import40Step from '@/components/Import40Step.vue'
@@ -685,6 +727,84 @@ const confirmInvoice = async () => {
   await runAction('issue-invoice', invoiceAmount.value)
 }
 
+// --- Импорт из КП (переиспользуем данные принятого коммерческого предложения
+// вместо ручного набора товаров в ДТ, см. import40Api.importQuote / Task 4) ---
+const importQuoteOpen = ref(false)
+const importQuoteLoading = ref(false)
+const quotes = ref<SalesQuoteListItem[]>([])
+const quotesLoading = ref(false)
+const imp = reactive<{
+  quoteId: string | null
+  target: 'new' | 'existing'
+  declarationId: string | null
+  force: boolean
+}>({ quoteId: null, target: 'new', declarationId: null, force: false })
+
+const quoteOptions = computed(() =>
+  quotes.value.map((q) => ({
+    value: q.id,
+    label: `№${q.number}/${q.year} — ${q.clientName}`,
+  })),
+)
+const filterQuoteOption = (input: string, option: { label?: string }) =>
+  (option.label ?? '').toLowerCase().includes(input.toLowerCase())
+
+const declarationOptions = computed(() =>
+  (activeCase.value?.declarations ?? []).map((dt, i) => ({
+    value: dt.id,
+    label: dt.declarationNumber || `ДТ ${i + 1}`,
+  })),
+)
+
+const openImportQuote = async () => {
+  imp.quoteId = null
+  imp.target = 'new'
+  imp.declarationId = null
+  imp.force = false
+  importQuoteOpen.value = true
+  quotesLoading.value = true
+  try {
+    quotes.value = await salesApi.listQuotes()
+  } catch {
+    message.error('Не удалось загрузить список КП')
+  } finally {
+    quotesLoading.value = false
+  }
+}
+
+const doImportQuote = async () => {
+  if (!activeCase.value || !imp.quoteId) return
+  importQuoteLoading.value = true
+  try {
+    const { declarationId, addedGoods } = await import40Api.importQuote(activeCase.value.id, {
+      quoteId: imp.quoteId,
+      targetDeclarationId: imp.target === 'new' ? null : imp.declarationId,
+      force: imp.force,
+    })
+    message.success(`Добавлено товаров: ${addedGoods}`)
+    importQuoteOpen.value = false
+    await reload()
+    await router.push(`/import-40/${activeCase.value.id}/dt/${declarationId}`)
+  } catch (e: any) {
+    if (e?.response?.status === 409) {
+      Modal.confirm({
+        title: 'КП уже импортирован',
+        content: 'Добавить ещё раз?',
+        okText: 'Добавить',
+        cancelText: 'Отмена',
+        onOk: () => {
+          imp.force = true
+          return doImportQuote()
+        },
+      })
+    } else {
+      message.error(e?.response?.data?.error ?? 'Не удалось импортировать КП')
+    }
+  } finally {
+    importQuoteLoading.value = false
+  }
+}
+
 onMounted(() => {
   void reload()
   void loadStaffOptions()
@@ -796,5 +916,17 @@ onMounted(() => {
 .case-loading {
   display: block;
   margin: 60px auto;
+}
+.import-quote-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.import-quote-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--atg-muted);
 }
 </style>

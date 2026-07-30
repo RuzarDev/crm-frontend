@@ -8,6 +8,9 @@
 
     <a-collapse v-if="items.length" ghost>
       <a-collapse-panel v-for="(g, i) in items" :key="i" :header="`Товар ${i + 1}: ${g.tnvedCode || 'без кода'} — ${g.description || ''}`">
+        <template #extra>
+          <a-tag v-if="g.needsTpinRecalc" color="orange" @click.stop>Пересчитать ТПиН</a-tag>
+        </template>
         <div class="field-row">
           <div class="field"><div class="field-label">Торговая марка</div>
             <a-input v-model:value="g.tradeMarkName" size="small" :disabled="readonly" @change="sync" /></div>
