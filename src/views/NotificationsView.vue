@@ -1,11 +1,15 @@
 <template>
   <div class="notifications-view">
-    <a-card title="Уведомления" :bordered="false">
-      <template #extra>
-        <a-button @click="handleMarkAllRead" :disabled="notificationsStore.unreadCount === 0">
+    <PageHeader kicker="Рабочий стол" title="Уведомления"
+      subtitle="События по вашим заявкам, документам и задачам.">
+      <template #actions>
+        <a-button :disabled="notificationsStore.unreadCount === 0" @click="handleMarkAllRead">
           Отметить все как прочитанные
         </a-button>
       </template>
+    </PageHeader>
+
+    <a-card :bordered="false">
 
       <div v-if="notificationsStore.items.length === 0" style="text-align: center; padding: 48px; color: #999">
         Уведомлений нет
@@ -57,6 +61,7 @@
 import { onMounted } from 'vue'
 import dayjs from 'dayjs'
 import { useNotificationsStore } from '@/stores/notifications'
+import PageHeader from '@/components/PageHeader.vue'
 
 const notificationsStore = useNotificationsStore()
 

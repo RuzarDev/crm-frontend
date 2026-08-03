@@ -1,21 +1,18 @@
 <template>
   <div class="analytics-view crm-page">
     <!-- Page Header -->
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Операционные метрики</div>
-        <h1 class="crm-page-title">Панель аналитики</h1>
-        <p class="crm-page-subtitle">
-          Общие показатели эффективности: обработка составов, статистика декларирования и скорость работы брокеров.
-        </p>
-      </div>
-      <div class="crm-page-actions">
+    <PageHeader
+      kicker="Операционные метрики"
+      title="Панель аналитики"
+      subtitle="Общие показатели эффективности: обработка составов, статистика декларирования и скорость работы брокеров."
+    >
+      <template #actions>
         <a-button type="primary" @click="refreshData" :loading="loading">
           <ReloadOutlined />
           Обновить данные
         </a-button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- KPI Widgets Grid -->
     <div class="kpi-grid">
@@ -152,6 +149,7 @@ import {
   PieChartOutlined,
   HistoryOutlined,
 } from '@ant-design/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const loading = ref(false)
 

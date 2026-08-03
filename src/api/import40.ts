@@ -83,9 +83,13 @@ export interface Import40GoodsItemDto {
   customsValueKzt?: number | null
   statisticValueUsd?: number | null
   valuationMethodCode?: string | null
+  quotaAmount?: number | null
   prohibitionCode?: string | null
   ipoCode?: string | null
   payments?: Import40GoodsPayment[]
+  // Товар пришёл из КП без веса/количества (см. KpToDtMapper.MapGoods на бэке) —
+  // сумма ТПиН требует проверки декларантом перед подачей.
+  needsTpinRecalc?: boolean
 }
 
 export interface Import40Doc44ItemDto {
@@ -98,6 +102,19 @@ export interface Import40Doc44ItemDto {
   goodsItemIndex?: number | null
   docStartDate?: string | null
   docValidityDate?: string | null
+}
+
+// Гр.40 "Предшествующий документ". Один тип на чтение/запись — сервер отдаёт
+// id при чтении, но не требует его на upsert (см. Import40PrevDocItemDto /
+// Import40PrevDocItemRequest в Import40Contracts.cs).
+export interface Import40PrevDocItem {
+  id?: string
+  docTypeCode: string | null
+  docNumber: string | null
+  docDate: string | null
+  goodsNumber: string | null
+  goodsItemIndex: number | null
+  sortOrder: number
 }
 
 export interface Import40DeclarationDto {
@@ -137,8 +154,42 @@ export interface Import40DeclarationDto {
   arrivalTransportNumbers?: Import40TransportMeans[]
   rateType?: string | null
   factPayments?: Import40FactPayment[]
+  declarationTypeCode: string
+  declarationFeatureCode: string | null
+  sheetNumber: number | null
+  totalSheets: number | null
+  shippingSpecSheets: number | null
+  referenceNumber: string | null
+  financialSubjectName: string | null
+  financialSubjectBin: string | null
+  financialSubjectCountryCode: string | null
+  financialSubjectRegion: string | null
+  financialSubjectCity: string | null
+  financialSubjectStreet: string | null
+  declarantName: string | null
+  declarantBin: string | null
+  declarantCountryCode: string | null
+  declarantRegion: string | null
+  declarantCity: string | null
+  declarantStreet: string | null
+  containerIndicator: boolean
+  inlandTransportModeCode: string | null
+  deferralDocType: string | null
+  deferralNumber: string | null
+  deferralDate: string | null
+  deferralDueDate: string | null
+  guaranteeInvalidFor: string | null
+  signatoryFullName: string | null
+  signatoryPosition: string | null
+  signatoryDocument: string | null
+  signatoryPhone: string | null
+  signedDate: string | null
+  totalGoodsCount: number
+  totalPackagesCount: number
+  totalCustomsValue: number
   goodsItems: Import40GoodsItemDto[]
   doc44Items: Import40Doc44ItemDto[]
+  prevDocItems: Import40PrevDocItem[]
 }
 
 // Товар ДТ на отправку = поля формы (Import40GoodsItemInput) без customsValue,
@@ -181,9 +232,50 @@ export interface Import40DeclarationUpsert {
   arrivalTransportNumbers?: Import40TransportMeans[]
   rateType?: string | null
   factPayments?: Import40FactPayment[]
+  // Nullable в контракте (Import40DeclarationUpsertRequest.DeclarationTypeCode),
+  // в отличие от required-строки в Import40DeclarationDto — сервер сам подставит
+  // дефолт, если не передано.
+  declarationTypeCode?: string | null
+  declarationFeatureCode?: string | null
+  sheetNumber?: number | null
+  totalSheets?: number | null
+  shippingSpecSheets?: number | null
+  referenceNumber?: string | null
+  financialSubjectName?: string | null
+  financialSubjectBin?: string | null
+  financialSubjectCountryCode?: string | null
+  financialSubjectRegion?: string | null
+  financialSubjectCity?: string | null
+  financialSubjectStreet?: string | null
+  declarantName?: string | null
+  declarantBin?: string | null
+  declarantCountryCode?: string | null
+  declarantRegion?: string | null
+  declarantCity?: string | null
+  declarantStreet?: string | null
+  // Как соседние consigneeEqualsDeclarant/financialSubjectEqualsDeclarant:
+  // в C# non-nullable bool с дефолтом, но тип формы делаем optional-nullable
+  // для единообразия остального интерфейса.
+  containerIndicator?: boolean | null
+  inlandTransportModeCode?: string | null
+  deferralDocType?: string | null
+  deferralNumber?: string | null
+  deferralDate?: string | null
+  deferralDueDate?: string | null
+  guaranteeInvalidFor?: string | null
+  signatoryFullName?: string | null
+  signatoryPosition?: string | null
+  signatoryDocument?: string | null
+  signatoryPhone?: string | null
+  signedDate?: string | null
   goodsItems?: Import40GoodsUpsert[]
   doc44Items?: Import40Doc44ItemInput[]
+  prevDocItems?: Import40PrevDocItem[]
 }
+
+// Состояние редактора ДТ. Секционные компоненты Task 5-7 принимают именно
+// его, чтобы не плодить девять разных inline-типов пропсов.
+export type Import40DtFormState = Import40DeclarationUpsert & { id: string }
 
 // Shape actually returned by POST .../declarations/extract-batch (server-side
 // Import40Endpoints.ToUpsertPreview). Deliberately a separate type from
@@ -319,6 +411,11 @@ export interface KedenReadinessDto {
   missing: string[]
   filled: number
   total: number
+  // Полнота ДТ как бланка (46 граф) — отдельный счётчик от готовности к
+  // выгрузке KEDEN-XML выше, см. DtBlankCompleteness.cs на сервере.
+  blankFilled: number
+  blankTotal: number
+  blankEmptyGraphs: string[]
 }
 
 export interface Import40CreateRequest {
@@ -351,6 +448,12 @@ export interface Import40ContainerUpsertRequest {
   containerNumber: string
   containerType?: string
   notes?: string
+}
+
+export interface ImportQuotePayload {
+  quoteId: string
+  targetDeclarationId?: string | null
+  force?: boolean
 }
 
 export const import40Api = {
@@ -444,6 +547,17 @@ export const import40Api = {
     await apiClient.delete(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}`,
     )
+  },
+
+  importQuote: async (
+    caseId: string,
+    payload: ImportQuotePayload,
+  ): Promise<{ declarationId: string; addedGoods: number }> => {
+    const response = await apiClient.post<{ declarationId: string; addedGoods: number }>(
+      `/import40/${encodeURIComponent(caseId)}/import-quote`,
+      payload,
+    )
+    return response.data
   },
 
   // 200 → файл; 400 → { errors: string[] } с перечнем незаполненного

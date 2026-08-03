@@ -1,16 +1,11 @@
 <template>
   <div class="keden-list-page crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">ИС «KEDEN»</div>
-        <h1 class="crm-page-title">Декларации KEDEN</h1>
-        <p class="crm-page-subtitle">Статусы деклараций, синхронизированные с keden.kgd.gov.kz.</p>
-      </div>
-      <div class="crm-page-actions">
+    <PageHeader kicker="ИС «KEDEN»" title="Декларации KEDEN" subtitle="Статусы деклараций, синхронизированные с keden.kgd.gov.kz.">
+      <template #actions>
         <a-button :loading="loading" @click="reload">Обновить</a-button>
         <span class="crm-stat-badge">Всего:&nbsp;<span class="crm-stat-badge-count">{{ total }}</span></span>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
       <div class="filters-row">
@@ -70,6 +65,7 @@ import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import { kedenApi, KEDEN_DECLARATION_TYPES, type KedenDeclarationListItemDto } from '@/api/keden'
+import PageHeader from '@/components/PageHeader.vue'
 
 const router = useRouter()
 const loading = ref(false)

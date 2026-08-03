@@ -1,21 +1,25 @@
 <template>
   <div class="dt-page">
-    <div class="dt-topbar">
-      <a-button type="link" @click="$router.push(`/import-40/${caseId}`)">← Заявка</a-button>
-      <div class="dt-title">
-        <strong>{{ dtForm.declarationNumber || 'Декларация' }}</strong>
-        <span class="muted">{{ caseTitle }}</span>
-      </div>
-      <div class="dt-top-actions">
-        <a-tag v-if="readiness" :color="readiness.missing.length ? 'warning' : 'success'">
-          заполнено {{ readiness.filled }} из {{ readiness.total }}
+    <a-breadcrumb class="dt-crumbs">
+      <a-breadcrumb-item><router-link to="/import-40">Импорт 40</router-link></a-breadcrumb-item>
+      <a-breadcrumb-item><router-link :to="`/import-40/${caseId}`">{{ caseTitle || 'Заявка' }}</router-link></a-breadcrumb-item>
+      <a-breadcrumb-item>{{ dtForm.declarationNumber || 'Декларация' }}</a-breadcrumb-item>
+    </a-breadcrumb>
+
+    <PageHeader kicker="Импорт 40" :title="dtForm.declarationNumber || 'Декларация'" :subtitle="caseTitle">
+      <template #meta>
+        <a-tag :color="blankPct === 100 ? 'green' : 'orange'">
+          Бланк: {{ readiness?.blankFilled ?? 0 }} из {{ readiness?.blankTotal ?? 46 }} граф
         </a-tag>
-        <template v-if="!readOnly">
-          <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
-          <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
-        </template>
-      </div>
-    </div>
+        <a-tag :color="kedenMissing.length ? 'orange' : 'green'">
+          {{ kedenMissing.length ? `КЕДЕН-XML: не хватает ${kedenMissing.length}` : 'КЕДЕН-XML: готово' }}
+        </a-tag>
+      </template>
+      <template v-if="!readOnly" #actions>
+        <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
+        <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
+      </template>
+    </PageHeader>
 
     <a-alert v-if="kedenMissing.length" type="warning" show-icon class="dt-missing">
       <template #message>Не хватает данных — клик ведёт к секции:</template>
@@ -37,155 +41,21 @@
 
       <div class="dt-content">
         <a-form layout="vertical" :disabled="readOnly">
-          <section v-show="activeSection === 'header'">
-            <div class="dt-grid-2">
-              <a-form-item>
-                <template #label><DtGraphLabel graph="1" text="Процедура" /></template>
-                <a-input v-model:value="dtForm.procedureCode" placeholder="40" />
-              </a-form-item>
-            </div>
-            <div class="dt-grid-3">
-              <a-form-item>
-                <template #label><DtGraphLabel graph="20" text="Условия поставки" /></template>
-                <a-input v-model:value="dtForm.incoterms" placeholder="FOB / CIF" />
-              </a-form-item>
-              <a-form-item label="Валюта">
-                <a-input v-model:value="dtForm.currency" placeholder="USD" />
-              </a-form-item>
-              <a-form-item label="Курс">
-                <a-input-number v-model:value="dtForm.exchangeRate" style="width: 100%" :min="0" />
-              </a-form-item>
-              <a-form-item>
-                <template #label><DtGraphLabel graph="22" text="Общая фактурная стоимость" /></template>
-                <a-input-number v-model:value="dtForm.totalInvoiceValue" style="width: 100%" :min="0" />
-              </a-form-item>
-              <a-form-item label="Место Инкотермс">
-                <a-input v-model:value="dtForm.incotermsPlace" placeholder="Алматы" />
-              </a-form-item>
-            </div>
-            <div class="dt-grid-3">
-              <a-form-item label="Характер сделки">
-                <a-auto-complete v-model:value="dtForm.transactionNatureCode" :options="transactionNatureOptions" placeholder="021" style="width: 100%" />
-              </a-form-item>
-              <a-form-item label="Особенность сделки">
-                <a-input v-model:value="dtForm.transactionFeatureCode" placeholder="000" />
-              </a-form-item>
-              <a-form-item label="Тип ставок">
-                <a-auto-complete v-model:value="dtForm.rateType" :options="rateTypeOptions" placeholder="ETT" style="width: 100%" />
-              </a-form-item>
-            </div>
-          </section>
-
-          <section v-show="activeSection === 'parties'">
-            <div class="dt-grid-2">
-              <a-form-item>
-                <template #label><DtGraphLabel graph="15" text="Страна отправления (ОКСМ)" /></template>
-                <a-select v-model:value="dtForm.departureCountryCode" show-search allow-clear
-                  :options="countryOptions" :filter-option="filterCountry" placeholder="Выберите страну по коду" />
-              </a-form-item>
-              <a-form-item>
-                <template #label><DtGraphLabel graph="17" text="Страна назначения (ОКСМ)" /></template>
-                <a-select v-model:value="dtForm.destinationCountryCode" show-search allow-clear
-                  :options="countryOptions" :filter-option="filterCountry" placeholder="Выберите страну по коду" />
-              </a-form-item>
-              <a-form-item>
-                <template #label><DtGraphLabel graph="11" text="Торгующая страна (ОКСМ)" /></template>
-                <a-select v-model:value="dtForm.tradeCountryCode" show-search allow-clear
-                  :options="countryOptions" :filter-option="filterCountry" placeholder="Выберите страну по коду" />
-              </a-form-item>
-              <a-form-item>
-                <template #label><DtGraphLabel graph="16" text="Страна происхождения (шапка)" /></template>
-                <a-select v-model:value="dtForm.originCountryCode" show-search allow-clear
-                  :options="countryOptions" :filter-option="filterCountry" placeholder="Выберите страну по коду" />
-              </a-form-item>
-            </div>
-            <div class="dt-grid-2 dt-checkboxes">
-              <a-checkbox v-model:checked="dtForm.consigneeEqualsDeclarant" :disabled="readOnly">Получатель = декларант</a-checkbox>
-              <a-checkbox v-model:checked="dtForm.financialSubjectEqualsDeclarant" :disabled="readOnly">Лицо, ответственное за фин. урегулирование = декларант</a-checkbox>
-            </div>
-            <PartyAddressFields v-model="dtForm.sender" title="Отправитель" :country-options="countryOptions" />
-            <PartyAddressFields v-model="dtForm.receiver" title="Получатель" :country-options="countryOptions" />
-          </section>
-
-          <section v-show="activeSection === 'transport'">
-            <div class="dt-section-bar">
-              <span class="dt-section-label">ТРАНСПОРТ И ОРГАНЫ</span>
-              <a-button v-if="!readOnly" size="small" @click="fillTransportFromCase">Заполнить из заявки</a-button>
-            </div>
-            <div class="dt-grid-2">
-              <a-form-item label="Вид транспорта на границе">
-                <a-auto-complete v-model:value="dtForm.borderTransportModeCode" :options="transportModeOptions" placeholder="30" style="width: 100%" />
-              </a-form-item>
-              <a-form-item label="Страна регистрации ТС (граница)">
-                <a-input v-model:value="dtForm.borderTransportNationality" placeholder="KZ" />
-              </a-form-item>
-            </div>
-            <div class="transport-list">
-              <div v-for="(m, i) in dtForm.borderTransportNumbers" :key="i" class="transport-list-row">
-                <a-input v-model:value="m.number" placeholder="Номер ТС" style="max-width: 220px" />
-                <a-input v-model:value="m.typeCode" placeholder="Код типа (319)" style="max-width: 160px" />
-                <a-button v-if="!readOnly" type="text" danger size="small" @click="removeBorderTransport(i)">✕</a-button>
-              </div>
-              <a-button v-if="!readOnly" type="dashed" size="small" @click="addBorderTransport">+ Номер ТС (граница)</a-button>
-            </div>
-            <div class="dt-grid-2">
-              <a-form-item label="Вид транспорта прибытия">
-                <a-auto-complete v-model:value="dtForm.arrivalTransportModeCode" :options="transportModeOptions" placeholder="30" style="width: 100%" />
-              </a-form-item>
-              <a-form-item label="Страна регистрации ТС (прибытие)">
-                <a-input v-model:value="dtForm.arrivalTransportNationality" placeholder="KZ" />
-              </a-form-item>
-            </div>
-            <div class="transport-list">
-              <div v-for="(m, i) in dtForm.arrivalTransportNumbers" :key="i" class="transport-list-row">
-                <a-input v-model:value="m.number" placeholder="Номер ТС" style="max-width: 220px" />
-                <a-input v-model:value="m.typeCode" placeholder="Код типа (319)" style="max-width: 160px" />
-                <a-button v-if="!readOnly" type="text" danger size="small" @click="removeArrivalTransport(i)">✕</a-button>
-              </div>
-              <a-button v-if="!readOnly" type="dashed" size="small" @click="addArrivalTransport">+ Номер ТС (прибытие)</a-button>
-            </div>
-            <div class="dt-grid-2">
-              <a-form-item label="Пост на границе (код)">
-                <a-input v-model:value="dtForm.borderCustomsOfficeCode" placeholder="код поста" />
-              </a-form-item>
-              <a-form-item label="Пост на границе (название)">
-                <a-input v-model:value="dtForm.borderCustomsOfficeName" placeholder="название" />
-              </a-form-item>
-            </div>
-            <a-form-item label="Орган подачи (код)">
-              <a-input v-model:value="dtForm.submissionCustomsOfficeCode" placeholder="код органа подачи" style="max-width: 260px" />
-            </a-form-item>
-            <div class="dt-grid-3">
-              <a-form-item>
-                <template #label><DtGraphLabel graph="30" text="Место нахождения товаров" /></template>
-                <a-auto-complete v-model:value="dtForm.goodsLocationCode" :options="goodsLocationOptions" placeholder="11" style="width: 100%" />
-              </a-form-item>
-              <a-form-item label="Номер СВХ">
-                <a-input v-model:value="dtForm.goodsLocationRegisterNumber" placeholder="Рег. номер СВХ" />
-              </a-form-item>
-              <a-form-item label="Страна места товаров">
-                <a-input v-model:value="dtForm.goodsLocationCountryCode" placeholder="KZ" />
-              </a-form-item>
-            </div>
-          </section>
-
-          <section v-show="activeSection === 'goods'">
-            <ReestrGoodsSection v-model="dtForm.goodsItems" :readonly="readOnly" />
-            <a-divider />
-            <Import40GoodsKedenPanel v-model="dtForm.goodsItems" :readonly="readOnly" @calc-tpin="calcTpin" />
-          </section>
-
-          <section v-show="activeSection === 'doc44'">
-            <ReestrDoc44Section
-              v-model="dtForm.doc44Items" :readonly="readOnly" extended
-              :goods-options="dtForm.goodsItems.map((g, i) => ({ value: i, label: `Товар ${i + 1}: ${g.tnvedCode || g.description || ''}` }))"
-            />
-          </section>
-
-          <section v-show="activeSection === 'factPayments'">
-            <Import40FactPaymentsSection v-model="dtForm.factPayments" :readonly="readOnly" />
-          </section>
+          <DtSectionGeneral v-show="activeSection === 'general'" :model-value="dtForm" :readonly="readOnly" :totals="totals" @update:model-value="onDtUpdate" />
+          <DtSectionParties v-show="activeSection === 'parties'" :model-value="dtForm" :readonly="readOnly" :country-options="countryOptions" @update:model-value="onDtUpdate" />
+          <DtSectionCountries v-show="activeSection === 'countries'" :model-value="dtForm" :readonly="readOnly" :country-options="countryOptions" @update:model-value="onDtUpdate" />
+          <DtSectionTransport v-show="activeSection === 'transport'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
+          <DtSectionFinance v-show="activeSection === 'finance'" :model-value="dtForm" :readonly="readOnly" :totals="totals" @update:model-value="onDtUpdate" />
+          <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
+          <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" @calc-tpin="calcTpin" />
+          <DtSectionDocs v-show="activeSection === 'docs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
+          <DtSectionClosing v-show="activeSection === 'closing'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
         </a-form>
+
+        <section v-show="activeSection === 'closing'" class="dt-fact-payments">
+          <div class="dt-section-bar"><span class="dt-section-label">ФАКТИЧЕСКИЕ ПЛАТЕЖИ</span></div>
+          <Import40FactPaymentsSection v-model="dtForm.factPayments" :readonly="readOnly" />
+        </section>
       </div>
     </div>
   </div>
@@ -200,25 +70,27 @@ import {
   type Import40CaseDto,
   type Import40DeclarationDto,
   type Import40DeclarationUpsert,
+  type Import40DtFormState,
   type Import40Party,
+  type Import40PrevDocItem,
   type KedenReadinessDto,
 } from '@/api/import40'
-import type {
-  Import40Doc44ItemInput,
-  Import40FactPayment,
-  Import40GoodsItemInput,
-  Import40TransportMeans,
-} from '@/types/api'
-import { tnvedApi } from '@/api/tnved'
+import type { Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
 import { referencesApi } from '@/api/references'
+import { salesApi, type SalesCalcGoodsResult } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { useClassifiersStore } from '@/stores/classifiers'
-import DtGraphLabel from '@/components/import40/dt/DtGraphLabel.vue'
-import PartyAddressFields from '@/components/PartyAddressFields.vue'
-import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
-import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
-import Import40GoodsKedenPanel from '@/components/Import40GoodsKedenPanel.vue'
+import DtSectionGeneral from '@/components/import40/dt/DtSectionGeneral.vue'
+import DtSectionParties from '@/components/import40/dt/DtSectionParties.vue'
+import DtSectionCountries from '@/components/import40/dt/DtSectionCountries.vue'
+import DtSectionTransport from '@/components/import40/dt/DtSectionTransport.vue'
+import DtSectionFinance from '@/components/import40/dt/DtSectionFinance.vue'
+import DtSectionCustoms from '@/components/import40/dt/DtSectionCustoms.vue'
+import DtSectionGoods from '@/components/import40/dt/DtSectionGoods.vue'
+import DtSectionDocs from '@/components/import40/dt/DtSectionDocs.vue'
+import DtSectionClosing from '@/components/import40/dt/DtSectionClosing.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -239,6 +111,8 @@ const DT_CLASSIFIERS = [
   'transaction-natures', // характер сделки (гр.24)
   'goods-locations',     // место нахождения товаров (гр.30)
   'rate-types',          // тип ставок
+  'declaration-types',   // тип декларации (гр.1)
+  'prev-doc-types',      // виды предшествующих документов (гр.40)
 ]
 
 const caseId = String(route.params.caseId)
@@ -260,15 +134,12 @@ const xmlLoading = ref(false)
 const kedenMissing = ref<string[]>([])
 const readiness = ref<KedenReadinessDto | null>(null)
 
-const transactionNatureOptions = computed(() => classifiers.options('transaction-natures'))
-const transportModeOptions = computed(() => classifiers.options('2004'))
-const goodsLocationOptions = computed(() => classifiers.options('goods-locations'))
-const rateTypeOptions = computed(() => classifiers.options('rate-types'))
+const blankPct = computed(() => {
+  const t = readiness.value?.blankTotal ?? 0
+  return t ? Math.round(((readiness.value?.blankFilled ?? 0) / t) * 100) : 0
+})
 
 const countryOptions = ref<{ value: string; label: string }[]>([])
-function filterCountry(input: string, option: { label: string }) {
-  return option.label.toLowerCase().includes(input.toLowerCase())
-}
 
 const emptyParty = (): Import40Party => ({
   name: null,
@@ -278,43 +149,21 @@ const emptyParty = (): Import40Party => ({
   street: null,
 })
 
-const dtForm = reactive<{
-  id: string
-  declarationNumber: string
-  corridor: string
-  procedureCode: string
-  departureCountryCode: string | null
-  destinationCountryCode: string | null
-  incoterms: string
-  currency: string
-  exchangeRate: number | null
-  totalInvoiceValue: number | null
-  sender: Import40Party
-  receiver: Import40Party
+// Состояние редактора ДТ = общий тип секций (Task 4) с двумя точечными
+// уточнениями: DtSectionGoods/Import40FactPaymentsSection (Task 5-7, готовы,
+// используем как есть) типизируют свои v-model как конкретные непустые
+// массивы (Import40GoodsItemInput[]/Import40FactPayment[]), тогда как
+// Import40DeclarationUpsert объявляет их опциональными, а товар вдобавок
+// на бэкенд-контракте называет фактурную стоимость invoiceValue, а не
+// customsValue, которым оперирует общий компонент товаров. Поэтому здесь —
+// override на эти два поля; перевод customsValue → invoiceValue остаётся
+// в saveDt(), как и раньше.
+type DtFormState = Omit<Import40DtFormState, 'goodsItems' | 'factPayments'> & {
   goodsItems: Import40GoodsItemInput[]
-  doc44Items: Import40Doc44ItemInput[]
-  transactionNatureCode: string
-  transactionFeatureCode: string
-  tradeCountryCode: string
-  originCountryCode: string
-  incotermsPlace: string
-  consigneeEqualsDeclarant: boolean
-  financialSubjectEqualsDeclarant: boolean
-  goodsLocationCode: string
-  goodsLocationRegisterNumber: string
-  goodsLocationCountryCode: string
-  borderCustomsOfficeCode: string
-  borderCustomsOfficeName: string
-  submissionCustomsOfficeCode: string
-  borderTransportModeCode: string
-  borderTransportNationality: string
-  borderTransportNumbers: Import40TransportMeans[]
-  arrivalTransportModeCode: string
-  arrivalTransportNationality: string
-  arrivalTransportNumbers: Import40TransportMeans[]
-  rateType: string
   factPayments: Import40FactPayment[]
-}>({
+}
+
+const dtForm = reactive<DtFormState>({
   id: '',
   declarationNumber: '',
   corridor: 'green',
@@ -329,6 +178,7 @@ const dtForm = reactive<{
   receiver: emptyParty(),
   goodsItems: [],
   doc44Items: [],
+  prevDocItems: [],
   transactionNatureCode: '',
   transactionFeatureCode: '',
   tradeCountryCode: '',
@@ -350,7 +200,55 @@ const dtForm = reactive<{
   arrivalTransportNumbers: [],
   rateType: 'ETT',
   factPayments: [],
+  // Фаза 2 — новые графы бланка (Task 4)
+  declarationTypeCode: 'ИМ',
+  declarationFeatureCode: null,
+  sheetNumber: null,
+  totalSheets: null,
+  shippingSpecSheets: null,
+  referenceNumber: null,
+  financialSubjectName: null,
+  financialSubjectBin: null,
+  financialSubjectCountryCode: null,
+  financialSubjectRegion: null,
+  financialSubjectCity: null,
+  financialSubjectStreet: null,
+  declarantName: null,
+  declarantBin: null,
+  declarantCountryCode: null,
+  declarantRegion: null,
+  declarantCity: null,
+  declarantStreet: null,
+  containerIndicator: false,
+  inlandTransportModeCode: null,
+  deferralDocType: null,
+  deferralNumber: null,
+  deferralDate: null,
+  deferralDueDate: null,
+  guaranteeInvalidFor: null,
+  signatoryFullName: null,
+  signatoryPosition: null,
+  signatoryDocument: null,
+  signatoryPhone: null,
+  signedDate: null,
 })
+
+// Секции эмитят полный объект формы (см. emitChange в каждой DtSection*).
+// dtForm — const reactive(), поэтому мёржим свойства на месте, а не
+// переприсваиваем идентификатор (переприсваивание топ-уровневого reactive()
+// через v-model превращает const в let и роняет реактивность после первого
+// же события — Vue предупреждает об этом в консоли компиляции).
+const onDtUpdate = (v: Import40DtFormState) => Object.assign(dtForm, v)
+
+// Графы 5, 6, 12 не хранятся в БД — сервер считает их на чтении,
+// поэтому держим последний ответ отдельно от редактируемой формы.
+const loadedDto = ref<Import40DeclarationDto | null>(null)
+
+const totals = computed(() => ({
+  goods: loadedDto.value?.totalGoodsCount ?? 0,
+  places: loadedDto.value?.totalPackagesCount ?? 0,
+  customsValue: loadedDto.value?.totalCustomsValue ?? 0,
+}))
 
 // Чек-лист секций
 interface SectionDef {
@@ -358,24 +256,33 @@ interface SectionDef {
   title: string
 }
 const sections: SectionDef[] = [
-  { key: 'header', title: 'Шапка' },
-  { key: 'parties', title: 'Стороны и страны' },
-  { key: 'transport', title: 'Транспорт и органы' },
-  { key: 'goods', title: 'Товары и платежи' },
-  { key: 'doc44', title: 'Документы (гр.44)' },
-  { key: 'factPayments', title: 'Фактические платежи' },
+  { key: 'general', title: 'Тип и общие сведения' },
+  { key: 'parties', title: 'Стороны' },
+  { key: 'countries', title: 'Страны' },
+  { key: 'transport', title: 'Транспорт' },
+  { key: 'finance', title: 'Условия поставки и финансы' },
+  { key: 'customs', title: 'Таможенные органы' },
+  { key: 'goods', title: 'Товары' },
+  { key: 'docs', title: 'Документы' },
+  { key: 'closing', title: 'Завершение' },
 ]
-const activeSection = ref('header')
+const activeSection = ref('general')
 
 // Индикатор секции — по локальным данным формы (обязательные поля секции)
 const sectionDone = (key: string): boolean => {
   switch (key) {
-    case 'header':
-      return !!(dtForm.currency && dtForm.totalInvoiceValue != null && dtForm.incoterms && dtForm.incotermsPlace)
+    case 'general':
+      return !!(dtForm.declarationTypeCode && dtForm.procedureCode && dtForm.sheetNumber != null && dtForm.totalSheets != null)
     case 'parties':
-      return !!(dtForm.sender.name && dtForm.departureCountryCode && dtForm.destinationCountryCode)
+      return !!(dtForm.sender?.name && dtForm.receiver?.name && dtForm.declarantName)
+    case 'countries':
+      return !!(dtForm.departureCountryCode && dtForm.destinationCountryCode)
     case 'transport':
-      return !!(dtForm.borderTransportModeCode && dtForm.borderTransportNumbers.length && dtForm.submissionCustomsOfficeCode)
+      return !!(dtForm.borderTransportModeCode && (dtForm.borderTransportNumbers?.length ?? 0) > 0)
+    case 'finance':
+      return !!(dtForm.currency && dtForm.totalInvoiceValue != null && dtForm.incoterms)
+    case 'customs':
+      return !!(dtForm.submissionCustomsOfficeCode && dtForm.goodsLocationCode)
     case 'goods':
       return (
         dtForm.goodsItems.length > 0 &&
@@ -393,22 +300,30 @@ const sectionDone = (key: string): boolean => {
             (g.payments?.length ?? 0) > 0,
         )
       )
-    case 'doc44':
-      return dtForm.doc44Items.some((d) => d.docTypeCode && d.docNumber)
-    case 'factPayments':
-      return true // опциональная секция
+    case 'docs':
+      return (dtForm.doc44Items?.some((d) => d.docTypeCode && d.docNumber) ?? false) ||
+        (dtForm.prevDocItems?.some((p) => p.docTypeCode && p.docNumber) ?? false)
+    case 'closing':
+      return !!(dtForm.signatoryFullName && dtForm.signedDate)
     default:
       return false
   }
 }
 
 // Клик по недостающему полю → секция (по подстрокам серверных сообщений)
+const sectionForMessage = (m: string) => {
+  if (m.includes('гр.22') || m.includes('гр.20') || m.includes('гр.23') || m.includes('гр.24')) return 'finance'
+  if (m.includes('гр.15') || m.includes('гр.17') || m.includes('гр.11') || m.includes('гр.16')) return 'countries'
+  if (m.includes('гр.2)') || m.includes('гр.8') || m.includes('гр.14') || m.includes('гр.9')) return 'parties'
+  if (m.includes('гр.21') || m.includes('гр.18') || m.includes('гр.25') || m.includes('гр.26')) return 'transport'
+  if (m.includes('Орган подачи') || m.includes('гр.29') || m.includes('гр.30')) return 'customs'
+  if (m.includes('графы 44') || m.includes('гр.40')) return 'docs'
+  if (m.includes('Товар') || m.includes('гр.31')) return 'goods'
+  return 'general'
+}
+
 const goToMissing = (m: string) => {
-  if (m.includes('гр.22') || m.includes('гр.20')) activeSection.value = 'header'
-  else if (m.includes('гр.15') || m.includes('гр.17') || m.includes('гр.2)') || m.includes('гр.14')) activeSection.value = 'parties'
-  else if (m.includes('гр.21') || m.includes('Орган подачи')) activeSection.value = 'transport'
-  else if (m.includes('Товар') || m.includes('гр.31')) activeSection.value = 'goods'
-  else if (m.includes('графы 44')) activeSection.value = 'doc44'
+  activeSection.value = sectionForMessage(m)
 }
 
 const refreshReadiness = async () => {
@@ -418,63 +333,6 @@ const refreshReadiness = async () => {
   } catch {
     readiness.value = null
   }
-}
-
-// Транспортные списки
-const addBorderTransport = () => dtForm.borderTransportNumbers.push({ number: '', typeCode: null })
-const removeBorderTransport = (idx: number) => dtForm.borderTransportNumbers.splice(idx, 1)
-const addArrivalTransport = () => dtForm.arrivalTransportNumbers.push({ number: '', typeCode: null })
-const removeArrivalTransport = (idx: number) => dtForm.arrivalTransportNumbers.splice(idx, 1)
-
-// Заполнение вида/номеров транспорта из данных заявки
-const fillTransportFromCase = () => {
-  const c = activeCase.value
-  if (!c) return
-  const modeCodeByMode: Record<number, string> = { 0: '20', 1: '31', 2: '40', 3: '10' }
-  const modeCode = modeCodeByMode[c.transportMode] ?? ''
-  const numbers: Import40TransportMeans[] = []
-  if (c.transportMode === 0) {
-    if (c.wagonNumber) numbers.push({ number: c.wagonNumber, typeCode: null })
-  } else if (c.transportMode === 1) {
-    if (c.vehicleNumber) numbers.push({ number: c.vehicleNumber, typeCode: null })
-    if (c.trailerNumber) numbers.push({ number: c.trailerNumber, typeCode: '319' })
-  } else if (c.transportMode === 2) {
-    if (c.flightNumber) numbers.push({ number: c.flightNumber, typeCode: null })
-  } else if (c.transportMode === 3) {
-    if (c.vesselName) numbers.push({ number: c.vesselName, typeCode: null })
-  }
-  dtForm.borderTransportModeCode = modeCode
-  dtForm.borderTransportNumbers = numbers.map((n) => ({ ...n }))
-  dtForm.arrivalTransportModeCode = modeCode
-  dtForm.arrivalTransportNumbers = numbers.map((n) => ({ ...n }))
-}
-
-// Расчёт ТПиН по товарам (структурированные строки гр.47)
-const calcTpin = async () => {
-  for (const g of dtForm.goodsItems) {
-    const code = (g.tnvedCode || '').trim()
-    if (!code || g.customsValue == null) continue
-    try {
-      const { data: r } = await tnvedApi.calculate({
-        code,
-        customsValue: g.customsValue,
-        currencyCode: (g.currency || dtForm.currency || 'USD').trim(),
-        weightKg: g.grossWeightKg ?? undefined,
-        quantity: g.quantity ?? undefined,
-      })
-      g.customsValueKzt = g.customsValueKzt ?? r.customsValueKzt
-      const today = new Date().toISOString().slice(0, 10)
-      g.payments = [
-        { taxModeCode: '1010', taxBase: null, rateKindCode: 'S', rateValue: null, rateUnitCode: null, rateCurrencyCode: null, weightRatio: null, rateDate: today, paymentFeatureCode: 'ИУ', amountKzt: r.customsFeeKzt },
-        { taxModeCode: '2010', taxBase: r.customsValueKzt, rateKindCode: '%', rateValue: null, rateUnitCode: null, rateCurrencyCode: null, weightRatio: null, rateDate: today, paymentFeatureCode: 'ИУ', amountKzt: r.importDutyKzt },
-        ...(r.exciseKzt > 0 ? [{ taxModeCode: '4010', taxBase: null, rateKindCode: 'S' as const, rateValue: null, rateUnitCode: null, rateCurrencyCode: null, weightRatio: null, rateDate: today, paymentFeatureCode: 'ИУ', amountKzt: r.exciseKzt }] : []),
-        { taxModeCode: '5060', taxBase: r.customsValueKzt + r.importDutyKzt + r.exciseKzt, rateKindCode: '%', rateValue: null, rateUnitCode: null, rateCurrencyCode: null, weightRatio: null, rateDate: today, paymentFeatureCode: 'ИУ', amountKzt: r.vatKzt },
-      ]
-    } catch {
-      // товар не посчитался — пропускаем
-    }
-  }
-  message.success('ТПиН рассчитан по товарам — проверьте ставки и суммы')
 }
 
 const applyDeclaration = (decl: Import40DeclarationDto) => {
@@ -511,6 +369,38 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.arrivalTransportNumbers = (decl.arrivalTransportNumbers ?? []).map((m) => ({ ...m }))
   dtForm.rateType = decl.rateType ?? 'ETT'
   dtForm.factPayments = (decl.factPayments ?? []).map((p) => ({ ...p }))
+  // Фаза 2 — новые графы бланка
+  dtForm.declarationTypeCode = decl.declarationTypeCode ?? 'ИМ'
+  dtForm.declarationFeatureCode = decl.declarationFeatureCode ?? null
+  dtForm.sheetNumber = decl.sheetNumber ?? null
+  dtForm.totalSheets = decl.totalSheets ?? null
+  dtForm.shippingSpecSheets = decl.shippingSpecSheets ?? null
+  dtForm.referenceNumber = decl.referenceNumber ?? null
+  dtForm.financialSubjectName = decl.financialSubjectName ?? null
+  dtForm.financialSubjectBin = decl.financialSubjectBin ?? null
+  dtForm.financialSubjectCountryCode = decl.financialSubjectCountryCode ?? null
+  dtForm.financialSubjectRegion = decl.financialSubjectRegion ?? null
+  dtForm.financialSubjectCity = decl.financialSubjectCity ?? null
+  dtForm.financialSubjectStreet = decl.financialSubjectStreet ?? null
+  dtForm.declarantName = decl.declarantName ?? null
+  dtForm.declarantBin = decl.declarantBin ?? null
+  dtForm.declarantCountryCode = decl.declarantCountryCode ?? null
+  dtForm.declarantRegion = decl.declarantRegion ?? null
+  dtForm.declarantCity = decl.declarantCity ?? null
+  dtForm.declarantStreet = decl.declarantStreet ?? null
+  dtForm.containerIndicator = decl.containerIndicator ?? false
+  dtForm.inlandTransportModeCode = decl.inlandTransportModeCode ?? null
+  dtForm.deferralDocType = decl.deferralDocType ?? null
+  dtForm.deferralNumber = decl.deferralNumber ?? null
+  dtForm.deferralDate = decl.deferralDate ?? null
+  dtForm.deferralDueDate = decl.deferralDueDate ?? null
+  dtForm.guaranteeInvalidFor = decl.guaranteeInvalidFor ?? null
+  dtForm.signatoryFullName = decl.signatoryFullName ?? null
+  dtForm.signatoryPosition = decl.signatoryPosition ?? null
+  dtForm.signatoryDocument = decl.signatoryDocument ?? null
+  dtForm.signatoryPhone = decl.signatoryPhone ?? null
+  dtForm.signedDate = decl.signedDate ?? null
+  dtForm.prevDocItems = (decl.prevDocItems ?? []).map((p: Import40PrevDocItem) => ({ ...p }))
   dtForm.goodsItems = (decl.goodsItems ?? []).map((g) => ({
     description: g.description ?? null,
     tnvedCode: g.tnvedCode ?? null,
@@ -545,9 +435,11 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     customsValueKzt: g.customsValueKzt ?? null,
     statisticValueUsd: g.statisticValueUsd ?? null,
     valuationMethodCode: g.valuationMethodCode ?? null,
+    quotaAmount: g.quotaAmount ?? null,
     prohibitionCode: g.prohibitionCode ?? null,
     ipoCode: g.ipoCode ?? null,
     payments: (g.payments ?? []).map((p) => ({ ...p })),
+    needsTpinRecalc: g.needsTpinRecalc ?? false,
   }))
   dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({
     docTypeCode: d.docTypeCode ?? null,
@@ -558,6 +450,95 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     docStartDate: d.docStartDate ?? null,
     docValidityDate: d.docValidityDate ?? null,
   }))
+}
+
+// Коды видов платежа гр.47, в которые раскладывает суммы КП→ДТ маппер на
+// бэкенде (см. KpToDtMapper.AddPayment) — держим тот же порядок/коды здесь,
+// чтобы пересчёт на фронте не разошёлся с тем, что уже могло прийти при
+// импорте КП.
+const TPIN_PAYMENT_CODES: Array<{ code: string; pick: (r: SalesCalcGoodsResult) => number }> = [
+  { code: '2010', pick: (r) => r.importDutyKzt },
+  { code: '4010', pick: (r) => r.exciseKzt },
+  { code: '1010', pick: (r) => r.customsFeeKzt },
+  { code: '5060', pick: (r) => r.vatKzt },
+]
+
+// Заносит суммы платежа в g.payments: обновляет существующую строку с тем же
+// taxModeCode или добавляет новую (paymentFeatureCode: 'ИУ' — как на бэкенде).
+// Суммы <= 0 пропускаются целиком, зеркаля AddPayment на бэкенде (там строка
+// с нулевой/отрицательной суммой вообще не создаётся) — если для этого кода
+// уже была строка с прошлым (устаревшим) значением, она намеренно НЕ трогается
+// здесь: это тот же простой, предсказуемый путь, что и на бэкенде, а не
+// отдельная логика "обнулить старое" только для фронтового пересчёта.
+const upsertGoodsPayment = (g: Import40GoodsItemInput, code: string, amountKzt: number) => {
+  if (amountKzt <= 0) return
+  const rows = g.payments ?? []
+  const existing = rows.find((p) => p.taxModeCode === code)
+  if (existing) {
+    existing.amountKzt = amountKzt
+  } else {
+    rows.push({
+      taxModeCode: code,
+      taxBase: null,
+      rateKindCode: null,
+      rateValue: null,
+      rateUnitCode: null,
+      rateCurrencyCode: null,
+      weightRatio: null,
+      rateDate: null,
+      paymentFeatureCode: 'ИУ',
+      amountKzt,
+    })
+  }
+  g.payments = rows
+}
+
+// Автопересчёт ТПиН для товаров, пришедших из КП без веса/количества
+// (см. needsTpinRecalc на Import40GoodsItemInput). Переиспользуем тот же
+// расчётный эндпоинт, что и КП (salesApi.calculate/SalesView.vue) — не дублируем
+// логику пошлин/акциза/сбора/НДС на фронте. Флаг снимается только для товаров,
+// по которым расчёт реально прошёл (есть код ТНВЭД, стоимость, валюта и вес
+// или количество); остальные остаются с бейджем до ручного заполнения данных.
+const calcTpin = async () => {
+  const targets = dtForm.goodsItems.filter(
+    (g) =>
+      g.needsTpinRecalc &&
+      g.tnvedCode &&
+      g.customsValue != null &&
+      g.currency &&
+      (g.netWeightKg != null || g.quantity != null),
+  )
+  if (!targets.length) {
+    message.info('Нет товаров с недостающими данными для пересчёта')
+    return
+  }
+  try {
+    const res = await salesApi.calculate({
+      services: [],
+      goods: targets.map((g) => ({
+        description: g.description ?? '',
+        code: g.tnvedCode ?? '',
+        customsValue: g.customsValue ?? 0,
+        currencyCode: g.currency ?? 'USD',
+        weightKg: g.netWeightKg ?? null,
+        quantity: g.quantity ?? null,
+      })),
+    })
+    let recalculated = 0
+    targets.forEach((g, idx) => {
+      const r = res.goods[idx]
+      if (r && !r.error) {
+        g.customsValueKzt = r.customsValueKzt
+        TPIN_PAYMENT_CODES.forEach(({ code, pick }) => upsertGoodsPayment(g, code, pick(r)))
+        g.needsTpinRecalc = false
+        recalculated += 1
+      }
+    })
+    if (recalculated) message.success(`ТПиН пересчитан для товаров: ${recalculated}`)
+    else message.warning('Не удалось пересчитать ни один товар — проверьте код ТНВЭД и стоимость')
+  } catch {
+    message.error('Не удалось пересчитать ТПиН')
+  }
 }
 
 const loadDt = async () => {
@@ -574,6 +555,7 @@ const loadDt = async () => {
     void router.push('/import-40')
     return
   }
+  loadedDto.value = decl
   applyDeclaration(decl)
   void refreshReadiness()
 }
@@ -615,14 +597,46 @@ const saveDt = async (): Promise<boolean> => {
       arrivalTransportNumbers: dtForm.arrivalTransportNumbers,
       rateType: dtForm.rateType || null,
       factPayments: dtForm.factPayments,
+      declarationTypeCode: dtForm.declarationTypeCode || null,
+      declarationFeatureCode: dtForm.declarationFeatureCode || null,
+      sheetNumber: dtForm.sheetNumber,
+      totalSheets: dtForm.totalSheets,
+      shippingSpecSheets: dtForm.shippingSpecSheets,
+      referenceNumber: dtForm.referenceNumber || null,
+      financialSubjectName: dtForm.financialSubjectName || null,
+      financialSubjectBin: dtForm.financialSubjectBin || null,
+      financialSubjectCountryCode: dtForm.financialSubjectCountryCode || null,
+      financialSubjectRegion: dtForm.financialSubjectRegion || null,
+      financialSubjectCity: dtForm.financialSubjectCity || null,
+      financialSubjectStreet: dtForm.financialSubjectStreet || null,
+      declarantName: dtForm.declarantName || null,
+      declarantBin: dtForm.declarantBin || null,
+      declarantCountryCode: dtForm.declarantCountryCode || null,
+      declarantRegion: dtForm.declarantRegion || null,
+      declarantCity: dtForm.declarantCity || null,
+      declarantStreet: dtForm.declarantStreet || null,
+      containerIndicator: dtForm.containerIndicator,
+      inlandTransportModeCode: dtForm.inlandTransportModeCode || null,
+      deferralDocType: dtForm.deferralDocType || null,
+      deferralNumber: dtForm.deferralNumber || null,
+      deferralDate: dtForm.deferralDate || null,
+      deferralDueDate: dtForm.deferralDueDate || null,
+      guaranteeInvalidFor: dtForm.guaranteeInvalidFor || null,
+      signatoryFullName: dtForm.signatoryFullName || null,
+      signatoryPosition: dtForm.signatoryPosition || null,
+      signatoryDocument: dtForm.signatoryDocument || null,
+      signatoryPhone: dtForm.signatoryPhone || null,
+      signedDate: dtForm.signedDate || null,
       goodsItems: dtForm.goodsItems.map((g) => {
         // на бэкенде фактурная стоимость товара называется invoiceValue; в форме — customsValue
         const { customsValue, ...rest } = g
         return { ...rest, invoiceValue: customsValue, payments: g.payments ?? [] }
       }),
       doc44Items: dtForm.doc44Items,
+      prevDocItems: dtForm.prevDocItems,
     }
-    await import40Api.updateDeclaration(caseId, dtForm.id, payload)
+    const updated = await import40Api.updateDeclaration(caseId, dtForm.id, payload)
+    loadedDto.value = updated
     message.success('ДТ сохранена')
     void refreshReadiness()
     return true
@@ -685,21 +699,8 @@ onMounted(async () => {
   flex-direction: column;
   gap: 12px;
 }
-.dt-topbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.dt-title {
-  display: flex;
-  flex-direction: column;
-}
-.dt-top-actions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.dt-crumbs {
+  margin-bottom: 12px;
 }
 .dt-missing {
   border-radius: var(--atg-radius-lg);
@@ -754,19 +755,6 @@ onMounted(async () => {
   background: var(--atg-surface);
   padding: 16px 20px;
 }
-.dt-grid-2 {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 14px;
-}
-.dt-grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0 14px;
-}
-.dt-checkboxes {
-  margin-bottom: 14px;
-}
 .dt-section-bar {
   display: flex;
   align-items: center;
@@ -778,16 +766,8 @@ onMounted(async () => {
   font-weight: 600;
   color: var(--atg-muted);
 }
-.transport-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-.transport-list-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.dt-fact-payments {
+  margin-top: 20px;
 }
 .muted {
   color: var(--atg-muted);

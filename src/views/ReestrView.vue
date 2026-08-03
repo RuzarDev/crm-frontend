@@ -1,14 +1,12 @@
 <template>
   <div class="reestr-view crm-page">
-    <div class="reestr-page-header">
-      <div class="reestr-page-title-row">
-        <div class="crm-page-kicker">Таможенный реестр</div>
-        <h1 class="crm-page-title">Реестр</h1>
-        <p class="crm-page-subtitle">
-          Основная рабочая таблица по заявкам, документам, статусам и клиентским декларациям.
-        </p>
-      </div>
-      <div class="crm-page-actions">
+    <PageHeader
+      stacked
+      kicker="Таможенный реестр"
+      title="Реестр"
+      subtitle="Основная рабочая таблица по заявкам, документам, статусам и клиентским декларациям."
+    >
+      <template #actions>
           <a-button v-if="canWrite" type="primary" @click="showCreateModal">
             <PlusOutlined />
             Добавить запись
@@ -42,8 +40,8 @@
               </a-button>
             </a-popconfirm>
           </template>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-space direction="vertical" style="width: 100%" :size="16">
@@ -280,6 +278,7 @@ import { reestrDataToUpsertBody, REESTR_STATUS_OPTIONS } from '@/utils/reestrDto
 import { reestrApi } from '@/api/reestr'
 import type { TableProps } from 'ant-design-vue'
 import { message } from 'ant-design-vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const reestrStore = useReestrStore()
 const authStore = useAuthStore()
@@ -675,17 +674,6 @@ const handleFileUpload = async (file: File) => {
   margin: 0 auto;
 }
 
-.reestr-page-header {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.reestr-page-title-row {
-  /* title block — no flex constraint */
-}
-
 .row-actions {
   display: flex;
   align-items: center;
@@ -733,8 +721,9 @@ const handleFileUpload = async (file: File) => {
   flex-shrink: 0;
 }
 
-/* Keep all actions on one line — no wrap */
-.reestr-view .crm-page-actions {
+/* Keep all actions on one line — no wrap.
+   :deep, потому что .crm-page-actions живёт внутри PageHeader. */
+.reestr-view :deep(.crm-page-actions) {
   flex-wrap: nowrap;
   align-items: center;
 }

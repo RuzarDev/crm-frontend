@@ -911,9 +911,14 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   customsValueKzt?: number | null
   statisticValueUsd?: number | null
   valuationMethodCode?: string | null
+  quotaAmount?: number | null
   prohibitionCode?: string | null
   ipoCode?: string | null
   payments?: Import40GoodsPayment[]
+  // Товар пришёл из КП без веса/количества (см. KpToDtMapper.MapGoods на бэке) —
+  // сумма ТПиН требует пересчёта декларантом. Пробрасываем через форму,
+  // чтобы бейдж и снятие флага (Import40GoodsKedenPanel/calcTpin) переживали save.
+  needsTpinRecalc?: boolean | null
 }
 
 export interface Import40Doc44ItemInput extends ReestrDoc44ItemInput {

@@ -1,20 +1,17 @@
 <template>
   <div class="clients-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Клиентский портфель</div>
-        <h1 class="crm-page-title">Клиенты</h1>
-        <p class="crm-page-subtitle">
-          Список клиентов вашего портфеля с количеством таможенных деклараций по каждому.
-        </p>
-      </div>
-      <div v-if="!loading" class="crm-page-actions">
-        <span class="crm-stat-badge">
+    <PageHeader
+      kicker="Клиентский портфель"
+      title="Клиенты"
+      subtitle="Список клиентов вашего портфеля с количеством таможенных деклараций по каждому."
+    >
+      <template #actions>
+        <span v-if="!loading" class="crm-stat-badge">
           <SolutionOutlined />
           Всего:&nbsp;<span class="crm-stat-badge-count">{{ clients.length }}</span>
         </span>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-table
@@ -55,6 +52,7 @@ import { onMounted, ref } from 'vue'
 import { SolutionOutlined } from '@ant-design/icons-vue'
 import { reestrApi } from '@/api/reestr'
 import type { ReestrClientOption } from '@/types/api'
+import PageHeader from '@/components/PageHeader.vue'
 
 const loading = ref(false)
 const clients = ref<ReestrClientOption[]>([])

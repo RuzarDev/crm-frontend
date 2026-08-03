@@ -1,16 +1,13 @@
 <template>
   <div class="dashboard-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Zircon CRM</div>
-        <h1 class="crm-page-title">Дашборд</h1>
-        <p class="crm-page-subtitle">Сводная статистика по реестру и клиентскому портфелю.</p>
-      </div>
-      <a-button @click="store.fetch" :loading="store.loading">
-        <ReloadOutlined />
-        Обновить
-      </a-button>
-    </div>
+    <PageHeader kicker="Zircon CRM" title="Дашборд" subtitle="Сводная статистика по реестру и клиентскому портфелю.">
+      <template #actions>
+        <a-button @click="store.fetch" :loading="store.loading">
+          <ReloadOutlined />
+          Обновить
+        </a-button>
+      </template>
+    </PageHeader>
 
     <a-spin :spinning="store.loading">
       <div v-if="store.data" class="dashboard-grid">
@@ -143,6 +140,7 @@ import {
   InboxOutlined,
   ReloadOutlined,
 } from '@ant-design/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const store = useDashboardStore()
 

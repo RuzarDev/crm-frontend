@@ -1,9 +1,11 @@
 <!-- crm-frontend/src/views/RequestsRegistryView.vue -->
 <template>
-  <div class="registry-page">
-    <div class="page-header">
-      <h2>Реестр заявок</h2>
-    </div>
+  <div class="registry-page crm-page">
+    <PageHeader
+      kicker="Заявки"
+      title="Реестр заявок"
+      subtitle="Сводный список заявок по всем услугам — импорт и транзит."
+    />
 
     <div class="filters">
       <a-select
@@ -58,6 +60,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
+import PageHeader from '@/components/PageHeader.vue'
 import { registryApi, type RegistryRowDto } from '@/api/registry'
 import { IMPORT40_STATUSES } from '@/api/import40'
 

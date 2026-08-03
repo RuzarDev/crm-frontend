@@ -1,16 +1,15 @@
 <template>
   <div v-if="declaration" class="keden-page crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">ИС «KEDEN» · Декларация</div>
-        <h1 class="crm-page-title">{{ declaration.registrationNumber || declaration.kedenId }}</h1>
-        <p class="crm-page-subtitle">{{ typeLabel }}</p>
-      </div>
-      <div class="crm-page-actions">
+    <PageHeader
+      kicker="ИС «KEDEN» · Декларация"
+      :title="declaration.registrationNumber || declaration.kedenId"
+      :subtitle="typeLabel"
+    >
+      <template #actions>
         <a-button @click="router.push('/keden')"><LeftOutlined /> К списку</a-button>
         <a-button :loading="loading" @click="reload"><ReloadOutlined /> Обновить</a-button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
       <div class="status-row">
@@ -45,6 +44,7 @@ import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { LeftOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import { kedenApi, KEDEN_DECLARATION_TYPES, type KedenDeclarationDetailDto } from '@/api/keden'
+import PageHeader from '@/components/PageHeader.vue'
 
 const route = useRoute()
 const router = useRouter()

@@ -1,12 +1,6 @@
 <template>
   <div class="tnved-analytics-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">ТН ВЭД ЕАЭС</div>
-        <h1 class="crm-page-title">Аналитика</h1>
-        <p class="crm-page-subtitle">Топ кодов по вашим декларациям и разделы ВТО.</p>
-      </div>
-    </div>
+    <PageHeader kicker="ТН ВЭД ЕАЭС" title="Аналитика" subtitle="Топ кодов по вашим декларациям и разделы ВТО." />
 
     <a-row :gutter="16">
       <!-- Top codes -->
@@ -94,6 +88,7 @@
 import { ref, onMounted } from 'vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedTopCodeDto, TnvedVtoSectionDto, TnvedRateChangeDto } from '@/types/api'
+import PageHeader from '@/components/PageHeader.vue'
 
 const topCodes = ref<TnvedTopCodeDto[]>([])
 const topLoading = ref(false)

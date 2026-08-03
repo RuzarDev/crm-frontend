@@ -11,21 +11,22 @@
       @signed="onSigexSigned"
     />
 
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Импорт 40</div>
-        <h1 class="crm-page-title">Моя компания</h1>
-        <p class="crm-page-subtitle">Реквизиты, договор и доверенность таможенного представителя.</p>
-      </div>
-      <a-tag v-if="onboardingComplete" color="success" class="onboarding-badge">
-        <CheckCircleOutlined /> Онбординг завершён
-      </a-tag>
-      <a-tooltip v-else :title="missingHint">
-        <a-tag color="warning" class="onboarding-badge">
-          <ExclamationCircleOutlined /> Онбординг не завершён
+    <PageHeader
+      kicker="Импорт 40"
+      title="Моя компания"
+      subtitle="Реквизиты, договор и доверенность таможенного представителя."
+    >
+      <template #actions>
+        <a-tag v-if="onboardingComplete" color="success" class="onboarding-badge">
+          <CheckCircleOutlined /> Онбординг завершён
         </a-tag>
-      </a-tooltip>
-    </div>
+        <a-tooltip v-else :title="missingHint">
+          <a-tag color="warning" class="onboarding-badge">
+            <ExclamationCircleOutlined /> Онбординг не завершён
+          </a-tag>
+        </a-tooltip>
+      </template>
+    </PageHeader>
 
     <a-spin :spinning="loading">
       <a-card class="crm-shell-card" :bordered="false">
@@ -113,6 +114,7 @@ import { import40Api } from '@/api/import40'
 import { useAuthStore } from '@/stores/auth'
 import DocumentStep, { type GenerateOpts } from '@/components/Import40DocumentStep.vue'
 import SigexSignModal from '@/components/SigexSignModal.vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const authStore = useAuthStore()
 const loading = ref(false)
@@ -312,8 +314,7 @@ onMounted(load)
 
 <style scoped>
 .company-page { display: flex; flex-direction: column; gap: 18px; }
-.crm-page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.onboarding-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 12px; margin-top: 4px; }
+.onboarding-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 12px; }
 .step-body { margin-top: 24px; }
 .step-nav { display: flex; justify-content: space-between; margin-top: 20px; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }

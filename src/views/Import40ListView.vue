@@ -1,19 +1,14 @@
 <template>
   <div class="import40-list-page crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Рабочий модуль</div>
-        <h1 class="crm-page-title">Импорт 40</h1>
-        <p class="crm-page-subtitle">Заявки на таможенное оформление: контейнеры, ДТ, статусы.</p>
-      </div>
-      <div class="crm-page-actions">
+    <PageHeader kicker="Рабочий модуль" title="Импорт 40" subtitle="Заявки на таможенное оформление: контейнеры, ДТ, статусы.">
+      <template #actions>
         <a-button :loading="loading" @click="reload">Обновить</a-button>
         <a-tooltip v-if="canCreate" :title="showOnboardingGate ? 'Сначала подпишите договор и доверенность (Моя компания)' : ''">
           <a-button type="primary" :disabled="showOnboardingGate" @click="openCreate">Новая заявка</a-button>
         </a-tooltip>
         <span class="crm-stat-badge">Заявок:&nbsp;<span class="crm-stat-badge-count">{{ cases.length }}</span></span>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <a-alert
       v-if="showOnboardingGate"
@@ -134,8 +129,9 @@
             </div>
           </template>
           <template v-else-if="column.key === 'status'">
-            <a-tag :color="record.isProblem ? 'error' : record.status === 8 ? 'success' : 'processing'">
-              шаг {{ stepForStatus(record.status) }}/7 · {{ statusLabel(record.status) }}
+            <a-tag :color="record.isProblem ? 'error' : isCompleted(record.status) ? 'success' : 'processing'">
+              <template v-if="isCompleted(record.status)">{{ statusLabel(record.status) }}</template>
+              <template v-else>шаг {{ stepForStatus(record.status) }}/{{ TOTAL_STEPS }} · {{ statusLabel(record.status) }}</template>
             </a-tag>
             <span v-if="record.isProblem" class="problem-chip">Проблема</span>
           </template>
@@ -169,6 +165,8 @@ import {
   type Import40DocumentDto,
 } from '@/api/import40Contract'
 import { useAuthStore } from '@/stores/auth'
+import { TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
+import PageHeader from '@/components/PageHeader.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -227,10 +225,6 @@ const columns = [
 const statusLabel = (status: number) =>
   IMPORT40_STATUSES.find((s) => s.id === status)?.short || 'Неизвестно'
 const declCount = (c: Import40CaseDto) => c.declarations.length
-
-// Шаг ↔ статус — как в Import40CaseView (Paid=7 технический → шаг 6)
-const stepForStatus = (s: number) =>
-  s === 0 ? 1 : s === 1 ? 2 : s === 2 ? 3 : s === 3 ? 4 : s === 4 || s === 5 ? 5 : s === 6 || s === 7 ? 6 : 7
 
 const createOpen = ref(false)
 const openCreate = () => {

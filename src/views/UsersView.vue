@@ -1,24 +1,21 @@
 <template>
   <div class="users-view crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Команда и доступы</div>
-        <h1 class="crm-page-title">Пользователи</h1>
-        <p class="crm-page-subtitle">
-          Управление администраторами, брокерами, клиентами и экспедиторами с привязкой к клиентскому портфелю.
-        </p>
-      </div>
-      <div class="crm-page-actions">
-          <a-button v-if="canLinkUsers" @click="openLinkModal">
-            <LinkOutlined />
-            Привязать к клиенту
-          </a-button>
-          <a-button type="primary" @click="openCreateModal">
-            <PlusOutlined />
-            Добавить пользователя
-          </a-button>
-      </div>
-    </div>
+    <PageHeader
+      kicker="Команда и доступы"
+      title="Пользователи"
+      subtitle="Управление администраторами, брокерами, клиентами и экспедиторами с привязкой к клиентскому портфелю."
+    >
+      <template #actions>
+        <a-button v-if="canLinkUsers" @click="openLinkModal">
+          <LinkOutlined />
+          Привязать к клиенту
+        </a-button>
+        <a-button type="primary" @click="openCreateModal">
+          <PlusOutlined />
+          Добавить пользователя
+        </a-button>
+      </template>
+    </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-tabs v-model:activeKey="catalogTab" class="catalog-tabs">
@@ -289,6 +286,7 @@ import type {
 import { formatRole } from '@/utils/labels'
 import { DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const usersStore = useUsersStore()
 const rolesStore = useRolesStore()

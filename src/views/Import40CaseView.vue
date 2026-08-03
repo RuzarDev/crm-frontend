@@ -1,26 +1,19 @@
 <template>
   <div v-if="activeCase" class="case-page">
-    <!-- Шапка -->
-    <a-card class="crm-shell-card" :bordered="false">
-      <div class="case-head">
-        <div class="case-head-main">
-          <h2>{{ activeCase.cargo || 'Заявка Импорт 40' }}</h2>
-          <div class="case-meta">
-            <span>Клиент: <strong>{{ activeCase.clientName }}</strong></span>
-            <span>Пост: <strong>{{ activeCase.post || '—' }}</strong></span>
-            <span v-if="activeCase.assignedKppId">КПП: <a-tag>{{ staffName(activeCase.assignedKppId) }}</a-tag></span>
-            <span v-if="activeCase.assignedDeclarantId">Декларант: <a-tag>{{ staffName(activeCase.assignedDeclarantId) }}</a-tag></span>
-          </div>
-        </div>
-        <div class="case-head-step">
-          <div class="step-counter">Шаг {{ currentStep }} из 7</div>
-          <div class="step-name">{{ STEP_TITLES[currentStep - 1] }}</div>
-          <a-tag v-if="assignedTag === 'me'" color="success">в работе у меня</a-tag>
-          <a-tag v-else-if="assignedTag === 'other'" color="warning">занято коллегой</a-tag>
-        </div>
-      </div>
-
-      <div class="case-head-tools">
+    <PageHeader kicker="Импорт 40" :title="activeCase.cargo || 'Заявка Импорт 40'">
+      <template #meta>
+        <span>Клиент: <strong>{{ activeCase.clientName }}</strong></span>
+        <span>Пост: <strong>{{ activeCase.post || '—' }}</strong></span>
+        <span v-if="activeCase.assignedKppId">КПП: <a-tag>{{ staffName(activeCase.assignedKppId) }}</a-tag></span>
+        <span v-if="activeCase.assignedDeclarantId">Декларант: <a-tag>{{ staffName(activeCase.assignedDeclarantId) }}</a-tag></span>
+        <a-tag v-if="isCompleted(activeCase.status)" color="success">Выполнено</a-tag>
+        <template v-else>
+          <a-tag color="processing">Шаг {{ currentStep }} из {{ TOTAL_STEPS }} · {{ STEP_TITLES[currentStep - 1] }}</a-tag>
+        </template>
+        <a-tag v-if="assignedTag === 'me'" color="success">в работе у меня</a-tag>
+        <a-tag v-else-if="assignedTag === 'other'" color="warning">занято коллегой</a-tag>
+      </template>
+      <template #actions>
         <a-button
           v-if="(can('kpp') || can('declarant')) && !activeCase.isProblem && activeCase.status < 8"
           danger size="small" @click="promptProblem"
@@ -31,8 +24,8 @@
           <a-select v-model:value="assignForm.declarantId" allow-clear placeholder="Декларант не назначен" :options="declarantOptions" size="small" style="min-width: 170px" />
           <a-button size="small" :loading="assignSaving" @click="saveAssignment">Назначить</a-button>
         </div>
-      </div>
-    </a-card>
+      </template>
+    </PageHeader>
 
     <!-- Баннеры -->
     <a-alert
@@ -140,7 +133,7 @@
           </a-tooltip>
         </div>
       </Import40Step>
-      <Import40Step :index="3" title="Декларирование" :state="stepState(3)" executor="декларант"
+      <Import40Step :index="3" title="Декларирование и выпуск" :state="stepState(3)" executor="декларант"
         :summary="stepState(3) === 'done' ? `ДТ: ${activeCase.declarations.length}` : undefined">
         <div v-if="!activeCase.declarations.length" class="muted">ДТ ещё не создана</div>
 
@@ -171,51 +164,52 @@
         </a-alert>
 
         <div v-if="stepState(3) === 'current'" class="step-actions">
-          <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
-            <a-button :disabled="!can('declarant')" @click="addDt">Добавить ДТ</a-button>
-          </a-tooltip>
-          <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
-            <a-button :disabled="!can('declarant')" :loading="batchUploading" @click="triggerBatchUpload">
-              Загрузить пакет документов
-            </a-button>
-          </a-tooltip>
-          <input
-            ref="batchFileInput"
-            type="file"
-            multiple
-            style="display: none"
-            @change="handleBatchFilesSelected"
-          />
+          <template v-if="activeCase.status === 2">
+            <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+              <a-button :disabled="!can('declarant')" @click="addDt">Добавить ДТ</a-button>
+            </a-tooltip>
+            <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+              <a-button :disabled="!can('declarant')" :loading="batchUploading" @click="triggerBatchUpload">
+                Загрузить пакет документов
+              </a-button>
+            </a-tooltip>
+            <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+              <a-button :disabled="!can('declarant')" @click="openImportQuote">Импорт из КП</a-button>
+            </a-tooltip>
+            <input
+              ref="batchFileInput"
+              type="file"
+              multiple
+              style="display: none"
+              @change="handleBatchFilesSelected"
+            />
+          </template>
           <a-button v-if="roleMode === 'declarant' && !activeCase.assignedDeclarantId" @click="runAction('claim')">Взять в работу</a-button>
-          <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
+          <a-tooltip v-if="activeCase.status === 2" :title="can('declarant') ? '' : hintFor('declarant')">
             <a-button type="primary" :disabled="!can('declarant') || !activeCase.declarations.length" @click="runAction('submit-declaration')">Подать ДТ</a-button>
           </a-tooltip>
           <a-tooltip :title="can('kpp') || can('declarant') ? '' : hintFor('declarant')">
             <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">Вернуть клиенту</a-button>
           </a-tooltip>
         </div>
-      </Import40Step>
-      <Import40Step :index="4" title="Выпуск ДТ" :state="stepState(4)" executor="декларант"
-        :summary="stepState(4) === 'done' ? 'выпущена' : undefined">
-        <p class="muted">ДТ подана в КЕДЕН. После выпуска зафиксируйте его здесь.</p>
-        <div v-if="stepState(4) === 'current'" class="step-actions">
+        <div v-if="activeCase.status === 3" class="step-actions">
+          <p class="muted">ДТ подана в КЕДЕН. После выпуска зафиксируйте его здесь.</p>
           <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
             <a-button type="primary" :disabled="!can('declarant')" @click="runAction('release-declaration')">Зафиксировать выпуск</a-button>
           </a-tooltip>
-          <a-button v-if="roleMode === 'declarant' && !activeCase.assignedDeclarantId" @click="runAction('claim')">Взять в работу</a-button>
         </div>
       </Import40Step>
-      <Import40Step :index="5" title="СВХ и счёт" :state="stepState(5)" executor="менеджер КПП"
-        :summary="stepState(5) === 'done' ? (activeCase.svhInvoiceNote ? `счёт: ${activeCase.svhInvoiceNote}` : 'закрыт') : undefined">
+      <Import40Step :index="4" title="СВХ и счёт" :state="stepState(4)" executor="менеджер КПП"
+        :summary="stepState(4) === 'done' ? (activeCase.svhInvoiceNote ? `счёт: ${activeCase.svhInvoiceNote}` : 'закрыт') : undefined">
         <div class="sub-label">Закрытая ДТ (штамп)</div>
-        <Import40FilesBlock :files="filesBySection('declaration-stamp')" :can-upload="stepState(5) === 'current' && can('kpp')"
+        <Import40FilesBlock :files="filesBySection('declaration-stamp')" :can-upload="stepState(4) === 'current' && can('kpp')"
           :uploading="uploading" empty-text="Штамп не загружен"
           @upload="(f: File) => uploadTo('declaration-stamp', f)" @download="download" />
         <div class="sub-label">Счёт СВХ <a-tag v-if="activeCase.svhInvoiceNote">{{ activeCase.svhInvoiceNote }}</a-tag></div>
-        <Import40FilesBlock :files="filesBySection('svh-invoice')" :can-upload="stepState(5) === 'current' && can('kpp')"
+        <Import40FilesBlock :files="filesBySection('svh-invoice')" :can-upload="stepState(4) === 'current' && can('kpp')"
           :uploading="uploading" empty-text="Счёт не выставлен"
           @upload="(f: File) => uploadTo('svh-invoice', f)" @download="download" />
-        <div v-if="stepState(5) === 'current'" class="step-actions">
+        <div v-if="stepState(4) === 'current'" class="step-actions">
           <a-tooltip v-if="activeCase.status === 4" :title="can('kpp') ? '' : hintFor('kpp')">
             <a-button type="primary" :disabled="!can('kpp')" @click="runAction('close-svh')">Закрыть ДТ на СВХ</a-button>
           </a-tooltip>
@@ -225,31 +219,22 @@
           <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">Взять в работу</a-button>
         </div>
       </Import40Step>
-      <Import40Step :index="6" title="Оплата" :state="stepState(6)" executor="клиент и КПП"
-        :summary="stepState(6) === 'done' ? 'оплачена' : undefined">
+      <Import40Step :index="5" title="Оплата" :state="stepState(5)" executor="клиент и КПП"
+        :summary="stepState(5) === 'done' ? 'оплачена' : undefined">
         <div class="sub-label">Чек оплаты
           <a-tag v-if="activeCase.paymentConfirmed" color="success">подтверждена</a-tag>
           <a-tag v-else-if="filesBySection('payment-check').length" color="processing">на проверке</a-tag>
         </div>
-        <Import40FilesBlock :files="filesBySection('payment-check')" :can-upload="stepState(6) === 'current' && can('client')"
+        <Import40FilesBlock :files="filesBySection('payment-check')" :can-upload="stepState(5) === 'current' && can('client')"
           :uploading="uploading" empty-text="Клиент ещё не загрузил чек"
           @upload="(f: File) => uploadTo('payment-check', f)" @download="download" />
-        <div v-if="stepState(6) === 'current'" class="step-actions">
+        <div v-if="stepState(5) === 'current'" class="step-actions">
           <a-tooltip :title="can('kpp') ? (filesBySection('payment-check').length ? '' : 'Клиент ещё не загрузил чек') : hintFor('kpp')">
             <a-button type="primary" :disabled="!can('kpp') || !filesBySection('payment-check').length"
               @click="runAction('confirm-payment-and-complete')">Подтвердить оплату и завершить</a-button>
           </a-tooltip>
           <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">Взять в работу</a-button>
         </div>
-      </Import40Step>
-      <Import40Step :index="7" title="Выполнено" :state="stepState(7)">
-        <template v-if="stepState(7) === 'current'">
-          <p>Заявка выполнена. Все файлы и история — в секциях ниже.</p>
-          <div class="grid-2">
-            <div><span class="muted">ДТ:</span> {{ activeCase.declarations.length }}</div>
-            <div><span class="muted">Файлов:</span> {{ files.length }}</div>
-          </div>
-        </template>
       </Import40Step>
     </div>
 
@@ -266,14 +251,84 @@
         </div>
       </a-collapse-panel>
     </a-collapse>
+
+    <a-modal v-model:open="returnOpen" title="Вернуть заявку клиенту" ok-text="Вернуть" cancel-text="Отмена" @ok="confirmReturn">
+      <a-textarea v-model:value="returnReason" :rows="3" placeholder="Причина возврата" />
+    </a-modal>
+
+    <a-modal v-model:open="problemOpen" title="Запрос таможни / проблема" ok-text="Отметить" cancel-text="Отмена" @ok="confirmProblem">
+      <a-textarea v-model:value="problemNote" :rows="3" placeholder="Опишите проблему" />
+    </a-modal>
+
+    <a-modal v-model:open="invoiceOpen" title="Выставить счёт СВХ" ok-text="Выставить" cancel-text="Отмена" @ok="confirmInvoice">
+      <a-input v-model:value="invoiceAmount" placeholder="Сумма счёта СВХ" />
+    </a-modal>
+
+    <a-modal
+      v-model:open="importQuoteOpen"
+      title="Импорт из КП"
+      ok-text="Импортировать"
+      cancel-text="Отмена"
+      :confirm-loading="importQuoteLoading"
+      :ok-button-props="{ disabled: !imp.quoteId || (imp.target === 'existing' && !imp.declarationId) }"
+      @ok="doImportQuote"
+    >
+      <div class="import-quote-form">
+        <label><span>Коммерческое предложение</span>
+          <a-select
+            v-model:value="imp.quoteId"
+            show-search
+            placeholder="Найдите КП по номеру или клиенту"
+            style="width: 100%"
+            :options="quoteOptions"
+            :filter-option="filterQuoteOption"
+            :loading="quotesLoading"
+          />
+        </label>
+        <label><span>Куда добавить товары</span>
+          <a-radio-group v-model:value="imp.target">
+            <a-radio value="new">Новая ДТ</a-radio>
+            <a-radio value="existing" :disabled="!activeCase.declarations.length">Существующая ДТ</a-radio>
+          </a-radio-group>
+        </label>
+        <label v-if="imp.target === 'existing'"><span>Декларация</span>
+          <a-select
+            v-model:value="imp.declarationId"
+            style="width: 100%"
+            placeholder="Выберите ДТ"
+            :options="declarationOptions"
+          />
+        </label>
+      </div>
+    </a-modal>
+
+    <a-modal :open="issuesOpen" title="Проверьте пакет документов перед сохранением"
+      :width="640" ok-text="Понятно, проверю в форме" :cancel-button-props="{ style: { display: 'none' } }"
+      @ok="closeIssuesDialog" @update:open="onIssuesOpenChange" @after-close="issues = null">
+      <div v-if="issues?.conflicts.length">
+        <p>Источники дали разные значения — выбрано одно, сверьте вручную:</p>
+        <ul style="padding-left: 20px">
+          <li v-for="(c, i) in issues.conflicts" :key="`c${i}`">
+            <strong>{{ c.fieldLabel }}</strong>: "{{ c.value ?? '—' }}"{{ c.sourceDocument ? ` (${c.sourceDocument})` : '' }} — есть другие варианты:
+            {{ c.alternatives.map((a) => `"${a.value ?? '—'}"${a.sourceDocument ? ` (${a.sourceDocument})` : ''}`).join(', ') }}
+          </li>
+        </ul>
+      </div>
+      <div v-if="issues?.warnings.length">
+        <p>Другие замечания по пакету:</p>
+        <ul style="padding-left: 20px">
+          <li v-for="(w, i) in issues.warnings" :key="`w${i}`">{{ w }}</li>
+        </ul>
+      </div>
+    </a-modal>
   </div>
   <a-spin v-else class="case-loading" />
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Input, message, Modal } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import {
   IMPORT40_TRANSPORT_MODES,
   import40Api,
@@ -286,10 +341,13 @@ import {
   type Import40FileSection,
   type KedenReadinessDto,
 } from '@/api/import40'
+import { salesApi, type SalesQuoteListItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { usersApi } from '@/api/users'
 import Import40Step from '@/components/Import40Step.vue'
 import Import40FilesBlock from '@/components/Import40FilesBlock.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import { STEP_TITLES, TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
 
 const route = useRoute()
 const router = useRouter()
@@ -298,6 +356,21 @@ const authStore = useAuthStore()
 const activeCase = ref<Import40CaseDto | null>(null)
 const files = ref<Import40FileDto[]>([])
 const uploading = ref(false)
+
+// Диалоги объявлены в шаблоне, а не собраны через Modal.confirm + h():
+// программные модалки не подхватывают стили CRM и живут в скрипте строками.
+const returnOpen = ref(false)
+const returnReason = ref('')
+
+const problemOpen = ref(false)
+const problemNote = ref('')
+
+const invoiceOpen = ref(false)
+const invoiceAmount = ref('')
+
+const issuesOpen = ref(false)
+const issues = ref<Import40ExtractionResult | null>(null)
+const pendingDtNavigation = ref<string | null>(null)
 
 type RoleMode = 'client' | 'kpp' | 'declarant' | 'admin' | 'other'
 const roleMode = computed<RoleMode>(() => {
@@ -314,22 +387,9 @@ const can = (role: RoleMode) => roleMode.value === 'admin' || roleMode.value ===
 const ROLE_LABELS: Record<string, string> = { client: 'клиент', kpp: 'менеджер КПП', declarant: 'декларант' }
 const hintFor = (role: string) => `Действие выполняет ${ROLE_LABELS[role] ?? role}`
 
-// Шаг ↔ статус (Paid=7 технический → шаг 6)
-const stepForStatus = (s: number) =>
-  s === 0 ? 1 : s === 1 ? 2 : s === 2 ? 3 : s === 3 ? 4 : s === 4 || s === 5 ? 5 : s === 6 || s === 7 ? 6 : 7
 const currentStep = computed(() => (activeCase.value ? stepForStatus(activeCase.value.status) : 1))
 const stepState = (n: number): 'done' | 'current' | 'future' =>
   n < currentStep.value ? 'done' : n === currentStep.value ? 'current' : 'future'
-
-const STEP_TITLES = [
-  'Заявка и документы',
-  'Граница',
-  'Декларирование',
-  'Выпуск ДТ',
-  'СВХ и счёт',
-  'Оплата',
-  'Выполнено',
-]
 
 const step1Summary = computed(() =>
   activeCase.value ? `${activeCase.value.cargo || '—'} · файлов: ${filesBySection('documents').length}` : undefined,
@@ -502,39 +562,29 @@ const previewToUpsert = (preview: Import40ExtractionPreview): Import40Declaratio
 // the server keeps the picked value plus the alternatives instead of silently choosing.
 // Shown before the redirect so the broker knows which fields to double-check in the form,
 // rather than trusting a pre-filled value that was actually a coin flip between sources.
-const showExtractionIssues = (result: Import40ExtractionResult) => {
-  if (result.conflicts.length === 0 && result.warnings.length === 0) return
+// The redirect to the DT page is deferred until the dialog actually closes (any way —
+// button, cross, or backdrop) since this view unmounts on navigation and would take a
+// programmatic Modal.warning-style dialog with it otherwise.
+const showExtractionIssues = (result: Import40ExtractionResult, dtId: string): boolean => {
+  if (result.conflicts.length === 0 && result.warnings.length === 0) return false
+  issues.value = result
+  pendingDtNavigation.value = dtId
+  issuesOpen.value = true
+  return true
+}
 
-  const conflictItems = result.conflicts.map((c) =>
-    h('li', {}, [
-      h('strong', {}, c.fieldLabel),
-      `: "${c.value ?? '—'}"${c.sourceDocument ? ` (${c.sourceDocument})` : ''} — есть другие варианты: `,
-      c.alternatives
-        .map((a) => `"${a.value ?? '—'}"${a.sourceDocument ? ` (${a.sourceDocument})` : ''}`)
-        .join(', '),
-    ]),
-  )
-  const warningItems = result.warnings.map((w) => h('li', {}, w))
+// Единая точка закрытия диалога — вызывается и из @ok, и из @update:open (крестик/фон),
+// поэтому переход на ДТ гарантированно случится один раз, каким бы способом ни закрыли.
+const closeIssuesDialog = () => {
+  issuesOpen.value = false
+  const dtId = pendingDtNavigation.value
+  if (!dtId) return
+  pendingDtNavigation.value = null
+  if (activeCase.value) void router.push(`/import-40/${activeCase.value.id}/dt/${dtId}`)
+}
 
-  Modal.warning({
-    title: 'Проверьте пакет документов перед сохранением',
-    width: 640,
-    content: h('div', {}, [
-      result.conflicts.length > 0
-        ? h('div', {}, [
-            h('p', {}, 'Источники дали разные значения — выбрано одно, сверьте вручную:'),
-            h('ul', { style: 'padding-left: 20px' }, conflictItems),
-          ])
-        : null,
-      result.warnings.length > 0
-        ? h('div', {}, [
-            h('p', {}, 'Другие замечания по пакету:'),
-            h('ul', { style: 'padding-left: 20px' }, warningItems),
-          ])
-        : null,
-    ]),
-    okText: 'Понятно, проверю в форме',
-  })
+const onIssuesOpenChange = (open: boolean) => {
+  if (!open) closeIssuesDialog()
 }
 
 const handleBatchFilesSelected = async (event: Event) => {
@@ -548,8 +598,10 @@ const handleBatchFilesSelected = async (event: Event) => {
     const result = await import40Api.extractBatch(activeCase.value.id, selected)
     const created = await import40Api.createDeclaration(activeCase.value.id, previewToUpsert(result.declaration))
     message.success('Пакет обработан — откройте ДТ, чтобы проверить предзаполненные поля')
-    showExtractionIssues(result)
-    await router.push(`/import-40/${activeCase.value.id}/dt/${created.id}`)
+    const hasIssues = showExtractionIssues(result, created.id)
+    if (!hasIssues) {
+      await router.push(`/import-40/${activeCase.value.id}/dt/${created.id}`)
+    }
   } catch {
     message.error('Не удалось обработать пакет документов')
   } finally {
@@ -587,33 +639,21 @@ const exportXml = async (dtId: string) => {
 }
 
 const promptReturn = () => {
-  let reason = ''
-  Modal.confirm({
-    title: 'Вернуть заявку клиенту',
-    content: h(Input.TextArea, {
-      rows: 3,
-      placeholder: 'Причина возврата',
-      onChange: (e: any) => (reason = e.target.value),
-    }),
-    okText: 'Вернуть',
-    cancelText: 'Отмена',
-    onOk: () => runAction('return-to-client', reason),
-  })
+  returnReason.value = ''
+  returnOpen.value = true
+}
+const confirmReturn = async () => {
+  returnOpen.value = false
+  await runAction('return-to-client', returnReason.value)
 }
 
 const promptProblem = () => {
-  let note = ''
-  Modal.confirm({
-    title: 'Запрос таможни / проблема',
-    content: h(Input.TextArea, {
-      rows: 3,
-      placeholder: 'Опишите проблему',
-      onChange: (e: any) => (note = e.target.value),
-    }),
-    okText: 'Отметить',
-    cancelText: 'Отмена',
-    onOk: () => runAction('set-problem', note),
-  })
+  problemNote.value = ''
+  problemOpen.value = true
+}
+const confirmProblem = async () => {
+  problemOpen.value = false
+  await runAction('set-problem', problemNote.value)
 }
 
 // Бейдж «в работе у меня / занято коллегой» (kpp/declarant)
@@ -679,17 +719,90 @@ const saveAssignment = async () => {
 }
 
 const promptInvoice = () => {
-  let amount = ''
-  Modal.confirm({
-    title: 'Выставить счёт СВХ',
-    content: h(Input, {
-      placeholder: 'Сумма счёта СВХ',
-      onChange: (e: any) => (amount = e.target.value),
-    }),
-    okText: 'Выставить',
-    cancelText: 'Отмена',
-    onOk: () => runAction('issue-invoice', amount),
-  })
+  invoiceAmount.value = ''
+  invoiceOpen.value = true
+}
+const confirmInvoice = async () => {
+  invoiceOpen.value = false
+  await runAction('issue-invoice', invoiceAmount.value)
+}
+
+// --- Импорт из КП (переиспользуем данные принятого коммерческого предложения
+// вместо ручного набора товаров в ДТ, см. import40Api.importQuote / Task 4) ---
+const importQuoteOpen = ref(false)
+const importQuoteLoading = ref(false)
+const quotes = ref<SalesQuoteListItem[]>([])
+const quotesLoading = ref(false)
+const imp = reactive<{
+  quoteId: string | null
+  target: 'new' | 'existing'
+  declarationId: string | null
+  force: boolean
+}>({ quoteId: null, target: 'new', declarationId: null, force: false })
+
+const quoteOptions = computed(() =>
+  quotes.value.map((q) => ({
+    value: q.id,
+    label: `№${q.number}/${q.year} — ${q.clientName}`,
+  })),
+)
+const filterQuoteOption = (input: string, option: { label?: string }) =>
+  (option.label ?? '').toLowerCase().includes(input.toLowerCase())
+
+const declarationOptions = computed(() =>
+  (activeCase.value?.declarations ?? []).map((dt, i) => ({
+    value: dt.id,
+    label: dt.declarationNumber || `ДТ ${i + 1}`,
+  })),
+)
+
+const openImportQuote = async () => {
+  imp.quoteId = null
+  imp.target = 'new'
+  imp.declarationId = null
+  imp.force = false
+  importQuoteOpen.value = true
+  quotesLoading.value = true
+  try {
+    quotes.value = await salesApi.listQuotes()
+  } catch {
+    message.error('Не удалось загрузить список КП')
+  } finally {
+    quotesLoading.value = false
+  }
+}
+
+const doImportQuote = async () => {
+  if (!activeCase.value || !imp.quoteId) return
+  importQuoteLoading.value = true
+  try {
+    const { declarationId, addedGoods } = await import40Api.importQuote(activeCase.value.id, {
+      quoteId: imp.quoteId,
+      targetDeclarationId: imp.target === 'new' ? null : imp.declarationId,
+      force: imp.force,
+    })
+    message.success(`Добавлено товаров: ${addedGoods}`)
+    importQuoteOpen.value = false
+    await reload()
+    await router.push(`/import-40/${activeCase.value.id}/dt/${declarationId}`)
+  } catch (e: any) {
+    if (e?.response?.status === 409) {
+      Modal.confirm({
+        title: 'КП уже импортирован',
+        content: 'Добавить ещё раз?',
+        okText: 'Добавить',
+        cancelText: 'Отмена',
+        onOk: () => {
+          imp.force = true
+          return doImportQuote()
+        },
+      })
+    } else {
+      message.error(e?.response?.data?.error ?? 'Не удалось импортировать КП')
+    }
+  } finally {
+    importQuoteLoading.value = false
+  }
 }
 
 onMounted(() => {
@@ -704,44 +817,8 @@ onMounted(() => {
   flex-direction: column;
   gap: 14px;
 }
-.case-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.case-head-main h2 {
-  margin: 0 0 6px;
-}
-.case-meta {
-  display: flex;
-  gap: 16px;
-  color: var(--atg-muted);
-  font-size: 13px;
-  flex-wrap: wrap;
-}
-.case-head-step {
-  text-align: right;
-}
-.step-counter {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--atg-teal);
-}
-.step-name {
-  color: var(--atg-muted);
-  font-size: 13px;
-}
 .case-banner {
   border-radius: var(--atg-radius-lg);
-}
-.case-head-tools {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 12px;
-  flex-wrap: wrap;
 }
 .assign-inline {
   display: flex;
@@ -839,5 +916,17 @@ onMounted(() => {
 .case-loading {
   display: block;
   margin: 60px auto;
+}
+.import-quote-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.import-quote-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--atg-muted);
 }
 </style>

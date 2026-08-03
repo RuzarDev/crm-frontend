@@ -1,11 +1,6 @@
 <template>
   <div class="crm-page">
-    <div class="crm-page-header">
-      <div>
-        <div class="crm-page-kicker">Справочники</div>
-        <h1 class="crm-page-title">Порядок заполнения ДТ</h1>
-      </div>
-    </div>
+    <PageHeader kicker="Справочники" title="Порядок заполнения ДТ" />
 
     <a-alert
       type="info"
@@ -40,6 +35,7 @@ import { ref, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { referencesApi } from '@/api/references'
 import type { DtGuideEntry } from '@/types/api'
+import PageHeader from '@/components/PageHeader.vue'
 
 const entries = ref<DtGuideEntry[]>([])
 const loading = ref(false)
