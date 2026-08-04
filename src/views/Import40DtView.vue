@@ -109,6 +109,7 @@ const DT_CLASSIFIERS = [
   'payment-features',    // особенность платежа (гр.47)
   'payment-methods',     // способ уплаты
   'transaction-natures', // характер сделки (гр.24)
+  'incoterms',           // условия поставки Инкотермс (гр.20)
   'goods-locations',     // место нахождения товаров (гр.30)
   'rate-types',          // тип ставок
   'declaration-types',   // тип декларации (гр.1)
