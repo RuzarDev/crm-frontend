@@ -5,6 +5,7 @@ import type {
   Import40FactPayment,
   Import40GoodsItemInput,
   Import40Doc44ItemInput,
+  Import40DeclarationExpense,
 } from '@/types/api'
 
 export type Import40Action =
@@ -190,6 +191,7 @@ export interface Import40DeclarationDto {
   goodsItems: Import40GoodsItemDto[]
   doc44Items: Import40Doc44ItemDto[]
   prevDocItems: Import40PrevDocItem[]
+  expenses: Import40DeclarationExpense[]
 }
 
 // Товар ДТ на отправку = поля формы (Import40GoodsItemInput) без customsValue,
@@ -271,6 +273,7 @@ export interface Import40DeclarationUpsert {
   goodsItems?: Import40GoodsUpsert[]
   doc44Items?: Import40Doc44ItemInput[]
   prevDocItems?: Import40PrevDocItem[]
+  expenses?: Import40DeclarationExpense[]
 }
 
 // Состояние редактора ДТ. Секционные компоненты Task 5-7 принимают именно
@@ -454,6 +457,39 @@ export interface ImportQuotePayload {
   quoteId: string
   targetDeclarationId?: string | null
   force?: boolean
+}
+
+// POST /import40/calculate-customs-value (Spec 4a Task 2) — распределяет
+// расходы (`expenses`) по товарам и возвращает таможенную стоимость (гр.45)
+// для каждого. `index` в запросе/ответе — 0-based позиция товара в массиве
+// goodsItems декларации (см. ApplyGoods на бэке: sortOrder присваивается по
+// позиции в массиве при сохранении, без отдельного поля sortOrder в форме).
+export interface Import40CvGoodsInput {
+  index: number
+  grossWeightKg?: number | null
+  invoiceValue?: number | null
+  currency?: string | null
+}
+
+export interface Import40CvExpenseInput {
+  expenseTypeCode: string
+  amount: number
+  currencyCode: string
+}
+
+export interface Import40CalculateCustomsValueRequest {
+  goods: Import40CvGoodsInput[]
+  expenses: Import40CvExpenseInput[]
+}
+
+export interface Import40CvGoodsResult {
+  index: number
+  customsValueKzt: number
+  distributedExpensesKzt: number
+}
+
+export interface Import40CalculateCustomsValueResult {
+  goods: Import40CvGoodsResult[]
 }
 
 export const import40Api = {
@@ -652,5 +688,15 @@ export const import40Api = {
     await apiClient.delete(
       `/import40/${encodeURIComponent(id)}/files/${encodeURIComponent(fileId)}`,
     )
+  },
+
+  calculateCustomsValue: async (
+    payload: Import40CalculateCustomsValueRequest,
+  ): Promise<Import40CalculateCustomsValueResult> => {
+    const response = await apiClient.post<Import40CalculateCustomsValueResult>(
+      '/import40/calculate-customs-value',
+      payload,
+    )
+    return response.data
   },
 }

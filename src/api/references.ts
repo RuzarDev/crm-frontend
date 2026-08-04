@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { RefItem, RefCodeItem, ClassifierItem, ClassifierGroup, DtGuideEntry } from '@/types/api'
+import type { RefItem, RefCodeItem, ClassifierItem, ClassifierGroup, DtGuideEntry, RefExpenseTypeDto } from '@/types/api'
 
 export const referencesApi = {
   listStations: async (): Promise<RefItem[]> => (await apiClient.get('/ref/stations')).data,
@@ -40,4 +40,7 @@ export const referencesApi = {
   getDtGuide: async (): Promise<DtGuideEntry[]> => (await apiClient.get('/ref/dt-guide')).data,
   getDtGuideGraph: async (graph: string): Promise<DtGuideEntry> =>
     (await apiClient.get(`/ref/dt-guide/${graph}`)).data,
+
+  listExpenseTypes: async (): Promise<RefExpenseTypeDto[]> =>
+    (await apiClient.get('/ref/expense-types')).data,
 }

@@ -545,6 +545,15 @@ export interface RefCodeItem {
   isActive: boolean
 }
 
+// ref/expense-types — статьи расходов ДТ (см. Spec 4a Task 1-2 на бэке),
+// используются для таблицы расходов и распределения на таможенную стоимость.
+export interface RefExpenseTypeDto {
+  code: string
+  nameRu: string
+  distributionBase: 'GrossWeight' | 'CustomsValue'
+  sortOrder: number
+}
+
 export interface AppNotification {
   id: string
   title: string
@@ -885,6 +894,16 @@ export interface Import40FactPayment {
   payerTaxpayerId: string | null
   paymentDate: string | null
   paymentMethodCode: string | null
+}
+
+// Строка расхода ДТ (Spec 4a) — один тип на чтение/запись, как Import40FactPayment
+// выше: сервер отдаёт sortOrder при чтении, но порядок на upsert определяется
+// позицией в массиве (см. Import40Endpoints.ApplyExpenses на бэке).
+export interface Import40DeclarationExpense {
+  sortOrder?: number
+  expenseTypeCode: string | null
+  amount: number | null
+  currencyCode: string | null
 }
 
 // Товар ДТ Импорт 40: базовые поля общие с транзитом + КЕДЕН-поля
