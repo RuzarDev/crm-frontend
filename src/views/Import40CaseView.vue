@@ -104,7 +104,7 @@
         <Import40FilesBlock
           :files="filesBySection('documents')"
           :can-upload="canEditStep1 || roleMode === 'admin'"
-          :can-remove="canEditStep1"
+          :can-remove="roleMode === 'admin'"
           :uploading="uploading"
           empty-text="Прикрепите минимум один документ для отправки"
           @upload="(f: File) => uploadTo('documents', f)"

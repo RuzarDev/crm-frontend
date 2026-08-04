@@ -119,13 +119,23 @@ const DT_CLASSIFIERS = [
 const caseId = String(route.params.caseId)
 const dtId = String(route.params.dtId)
 
+const activeCase = ref<Import40CaseDto | null>(null)
+
+// Зеркалит серверный гейт CanEditCaseData: до «Декларирования» (status < 2) редактирует клиент,
+// с «Декларирования» — только админ или назначенный декларант (assignedDeclarantId).
+// assignedDeclarantId + authStore.userId доступны на фронте, поэтому используем точный сигнал,
+// а не упрощение can('declarant') — сервер всё равно финальный гейт.
 const readOnly = computed(() => {
   const sys = (authStore.role || '').toLowerCase()
   const biz = (authStore.businessRole || '').toLowerCase()
-  return sys === 'client' || biz === 'client'
-}).value
-
-const activeCase = ref<Import40CaseDto | null>(null)
+  if (sys === 'client' || biz === 'client') return true
+  if (sys === 'administrator') return false
+  const c = activeCase.value
+  if (!c || c.status < 2) return false
+  const isDeclarant = biz === 'declarant' || biz === 'rop'
+  const uid = authStore.userId
+  return !(isDeclarant && (!c.assignedDeclarantId || c.assignedDeclarantId === uid))
+})
 const caseTitle = computed(() =>
   activeCase.value ? `${activeCase.value.clientName} · ${activeCase.value.cargo}` : '',
 )
@@ -328,7 +338,7 @@ const goToMissing = (m: string) => {
 }
 
 const refreshReadiness = async () => {
-  if (readOnly) return
+  if (readOnly.value) return
   try {
     readiness.value = await import40Api.kedenReadiness(caseId, dtId)
   } catch {
