@@ -333,11 +333,9 @@
                         </a-popconfirm>
                       </a-space>
                     </div>
-                    <div class="consolidation-document-meta" v-if="consolidation.shipper?.name || consolidation.consignee?.name || consolidation.weight || consolidation.sealNumber || consolidation.destinationStation">
+                    <div class="consolidation-document-meta" v-if="consolidation.shipper?.name || consolidation.consignee?.name || consolidation.sealNumber || consolidation.destinationStation">
                       <span class="meta-inline-tag" v-if="consolidation.shipper?.name"><strong>Отп:</strong> {{ consolidation.shipper.name }}</span>
-                      <span class="meta-inline-tag" v-if="consolidation.consignee?.name"><strong>Пол:</strong> {{ consolidation.consignee.name }}</span>
-                      <span class="meta-inline-tag text-green" v-if="consolidation.weight"><strong>Вес:</strong> {{ consolidation.weight }}</span>
-                      <span class="meta-inline-tag" v-if="consolidation.sealNumber"><strong>Пломба:</strong> {{ consolidation.sealNumber }}</span>
+                      <span class="meta-inline-tag" v-if="consolidation.consignee?.name"><strong>Пол:</strong> {{ consolidation.consignee.name }}</span>                      <span class="meta-inline-tag" v-if="consolidation.sealNumber"><strong>Пломба:</strong> {{ consolidation.sealNumber }}</span>
                       <span class="meta-inline-tag" v-if="consolidation.destinationStation"><strong>Ст:</strong> {{ consolidation.destinationStation }}</span>
                     </div>
                   </div>
@@ -420,9 +418,6 @@
         <a-form-item label="Номер пломбы">
           <a-input v-model:value="clientForm.sealNumber" placeholder="Например: LL123456" />
         </a-form-item>
-        <a-form-item label="Вес">
-          <a-input v-model:value="clientForm.weight" placeholder="Например: 12 500 кг" />
-        </a-form-item>
         <a-form-item label="Станция назначения">
           <a-select v-model:value="clientStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
             :options="stationOptions" placeholder="Выберите или введите станцию" />
@@ -490,9 +485,6 @@
               <a-divider style="margin: 12px 0;" />
               <a-form-item label="Номер пломбы">
                 <a-input v-model:value="clientForm.sealNumber" placeholder="Например: LL123456" />
-              </a-form-item>
-              <a-form-item label="Вес">
-                <a-input v-model:value="clientForm.weight" placeholder="Например: 12 500 кг" />
               </a-form-item>
               <a-form-item label="Станция назначения">
                 <a-select v-model:value="clientStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
@@ -720,7 +712,6 @@ const clientForm = reactive({
   clientName: '',
   destinationStation: '',
   destinationCustomsAuthority: '',
-  weight: '',
   sealNumber: '',
   shipper: emptyParty(),
   consignee: emptyParty(),
@@ -1043,7 +1034,6 @@ const openAddClientModal = (containerId: string) => {
   clientForm.clientName = ''
   clientForm.destinationStation = ''
   clientForm.destinationCustomsAuthority = ''
-  clientForm.weight = ''
   clientForm.sealNumber = ''
   clientForm.shipper = emptyParty()
   clientForm.consignee = emptyParty()
@@ -1061,7 +1051,6 @@ const openEditClientModal = (containerId: string, consolidation: any) => {
   clientForm.clientName = consolidation.clientName
   clientForm.destinationStation = consolidation.destinationStation || ''
   clientForm.destinationCustomsAuthority = consolidation.destinationCustomsAuthority || ''
-  clientForm.weight = consolidation.weight || ''
   clientForm.sealNumber = consolidation.sealNumber || ''
   clientForm.shipper = { ...emptyParty(), ...(consolidation.shipper || {}) }
   clientForm.consignee = { ...emptyParty(), ...(consolidation.consignee || {}) }
@@ -1103,7 +1092,6 @@ const handleAddClient = async () => {
       clientName: clientForm.clientName.trim(),
       destinationStation: clientForm.destinationStation.trim() || null,
       destinationCustomsAuthority: clientForm.destinationCustomsAuthority.trim() || null,
-      weight: clientForm.weight.trim() || null,
       sealNumber: clientForm.sealNumber.trim() || null,
       shipper: clientForm.shipper,
       consignee: clientForm.consignee,
@@ -1411,7 +1399,6 @@ const runAiParse = async () => {
         shipper: { ...emptyParty(), name: 'Shenzhen Industrial Co.' },
         consignee: { ...emptyParty(), name: clientName },
         destinationStation: 'Алматы-1',
-        weight: '4 850 кг',
         sealNumber: 'SL-' + Math.floor(100000 + Math.random() * 900000),
       })
     }

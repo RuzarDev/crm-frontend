@@ -399,7 +399,6 @@ export interface DocumentPackageClientConsolidationDto {
   clientName: string
   destinationStation?: string | null
   destinationCustomsAuthority?: string | null
-  weight?: string | null
   sealNumber?: string | null
   shipper?: PartyAddress | null
   consignee?: PartyAddress | null
