@@ -25,6 +25,7 @@ export interface SalesCalcGoodsLine {
   weightKg?: number | null
   quantity?: number | null
   engineVolumeCm3?: number | null
+  unit?: string | null
 }
 
 export interface SalesCalcServiceResult {
@@ -83,6 +84,9 @@ export interface SalesQuoteDto {
   createdAtUtc: string
   serviceLines: SalesCalcServiceResult[]
   goodsLines: SalesCalcGoodsResult[]
+  incoterms?: string | null
+  transportCost?: number | null
+  transportCurrency?: string | null
 }
 
 export const SALES_QUOTE_STATUS = ['Черновик', 'Отправлено', 'Принято', 'Отклонено']
@@ -126,6 +130,9 @@ export const salesApi = {
     comment?: string
     services: SalesCalcServiceLine[]
     goods: SalesCalcGoodsLine[]
+    incoterms?: string | null
+    transportCost?: number | null
+    transportCurrency?: string | null
   }): Promise<SalesQuoteDto> => {
     const response = await apiClient.post<SalesQuoteDto>('/sales/quotes', data)
     return response.data

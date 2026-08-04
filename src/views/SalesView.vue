@@ -15,6 +15,15 @@
           <label><span>Клиент *</span><a-input v-model:value="clientName" placeholder="Название компании" /></label>
           <label><span>Контакт</span><a-input v-model:value="clientContact" placeholder="Телефон / e-mail" /></label>
           <label class="full"><span>Комментарий</span><a-input v-model:value="comment" placeholder="Примечание к расчёту" /></label>
+          <label><span>Условия поставки</span>
+            <a-select v-model:value="incoterms" allow-clear placeholder="Инкотермс" :options="classifiers.options('incoterms')" />
+          </label>
+          <label><span>Стоимость транспортировки</span>
+            <div style="display:flex;gap:8px">
+              <a-input-number v-model:value="transportCost" :min="0" style="flex:1" />
+              <a-select v-model:value="transportCurrency" style="width: 110px" show-search :options="currencyOptions" />
+            </div>
+          </label>
         </div>
       </a-card>
 
@@ -48,7 +57,9 @@
         <a-table v-if="goodsLines.length" :columns="goodsCols" :data-source="goodsLines" :pagination="false" row-key="_k" size="small" :scroll="{ x: 760 }">
           <template #bodyCell="{ column, record, index }">
             <template v-if="column.key === 'desc'"><a-input v-model:value="record.description" placeholder="Наименование" /></template>
-            <template v-else-if="column.key === 'code'"><a-input v-model:value="record.code" placeholder="10 знаков" style="width: 130px" /></template>
+            <template v-else-if="column.key === 'code'">
+              <a-input v-model:value="record.code" placeholder="10 знаков" style="width: 130px" @blur="fillUnit(record)" />
+            </template>
             <template v-else-if="column.key === 'val'"><a-input-number v-model:value="record.customsValue" :min="0" style="width: 120px" /></template>
             <template v-else-if="column.key === 'cur'">
               <div style="display:flex;flex-direction:column;gap:2px">
@@ -57,6 +68,7 @@
               </div>
             </template>
             <template v-else-if="column.key === 'weight'"><a-input-number v-model:value="record.weightKg" :min="0" style="width: 90px" /></template>
+            <template v-else-if="column.key === 'unit'"><a-input v-model:value="record.unit" placeholder="шт." style="width: 80px" /></template>
             <template v-else-if="column.key === 'del'"><a-button type="text" danger size="small" @click="goodsLines.splice(index, 1)"><DeleteOutlined /></a-button></template>
           </template>
         </a-table>
@@ -138,8 +150,11 @@ import {
 } from '@/api/sales'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedCurrencyDto } from '@/types/api'
+import { useClassifiersStore } from '@/stores/classifiers'
 import atgLogoSvgRaw from '@/assets/atg-logo-group.svg?raw'
 import PageHeader from '@/components/PageHeader.vue'
+
+const classifiers = useClassifiersStore()
 
 const tab = ref<'calc' | 'quotes'>('calc')
 
@@ -147,6 +162,9 @@ const tab = ref<'calc' | 'quotes'>('calc')
 const clientName = ref('')
 const clientContact = ref('')
 const comment = ref('')
+const incoterms = ref<string | undefined>()
+const transportCost = ref<number | null>(null)
+const transportCurrency = ref<string>('USD')
 
 // услуги
 const services = ref<SalesServiceItem[]>([])
@@ -166,9 +184,19 @@ const addCustomService = () =>
   serviceLines.value.push({ _k: lineKey++, name: '', unit: 'услуга', unitPrice: 0, quantity: 1, discountPercent: 0 })
 
 // товары
-const goodsLines = ref<Array<{ _k: number; description: string; code: string; customsValue: number; currencyCode: string; weightKg: number | null }>>([])
+const goodsLines = ref<Array<{ _k: number; description: string; code: string; customsValue: number; currencyCode: string; weightKg: number | null; unit: string }>>([])
 const addGoods = () =>
-  goodsLines.value.push({ _k: lineKey++, description: '', code: '', customsValue: 0, currencyCode: 'USD', weightKg: null })
+  goodsLines.value.push({ _k: lineKey++, description: '', code: '', customsValue: 0, currencyCode: 'USD', weightKg: null, unit: '' })
+
+// автоподстановка единицы измерения по коду ТНВЭД (не перезатирает ручной ввод)
+const fillUnit = async (record: { code: string; unit: string }) => {
+  const code = record.code?.trim()
+  if (!code || record.unit) return
+  try {
+    const { data } = await tnvedApi.node(code)
+    if (data?.unitShort) record.unit = data.unitShort
+  } catch { /* код не найден — оставляем пустым */ }
+}
 
 const serviceCols = [
   { title: 'Услуга', key: 'name' }, { title: 'Ед.', key: 'unit' }, { title: 'Цена', key: 'price' },
@@ -176,7 +204,8 @@ const serviceCols = [
 ]
 const goodsCols = [
   { title: 'Наименование', key: 'desc' }, { title: 'ТНВЭД', key: 'code' }, { title: 'Стоимость', key: 'val' },
-  { title: 'Валюта', key: 'cur' }, { title: 'Вес, кг', key: 'weight' }, { title: '', key: 'del', width: 50 },
+  { title: 'Валюта', key: 'cur' }, { title: 'Вес, кг', key: 'weight' }, { title: 'Ед.', key: 'unit' },
+  { title: '', key: 'del', width: 50 },
 ]
 const resGoodsCols = [
   { title: 'Товар', dataIndex: 'description', key: 'descr' }, { title: 'ТНВЭД', dataIndex: 'code', key: 'codec' },
@@ -214,6 +243,9 @@ const saveQuote = async () => {
       clientName: clientName.value.trim(),
       clientContact: clientContact.value.trim(),
       comment: comment.value.trim(),
+      incoterms: incoterms.value ?? null,
+      transportCost: transportCost.value,
+      transportCurrency: transportCurrency.value,
       ...buildPayload(),
     })
     message.success('КП сохранено')
@@ -324,6 +356,7 @@ const esc = (s: string) => (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', 
 onMounted(async () => {
   try { services.value = await salesApi.listServices() } catch { /* ignore */ }
   try { currencies.value = (await tnvedApi.currencies()).data } catch { /* ignore */ }
+  try { await classifiers.load('incoterms') } catch { /* ignore */ }
   await loadQuotes()
 })
 </script>
