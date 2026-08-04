@@ -3,7 +3,7 @@
     <a-layout-header class="app-header">
       <div class="brand">
         <div class="brand-text">
-          <div class="brand-title">Zircon Trans Group</div>
+          <div class="brand-title">Zircon</div>
           <div class="brand-subtitle">CRM Operations</div>
         </div>
       </div>
@@ -97,7 +97,7 @@
     <template #title>
       <div class="drawer-brand">
         <div>
-          <div class="drawer-brand-title">Zircon Trans Group</div>
+          <div class="drawer-brand-title">Zircon</div>
           <div class="drawer-brand-sub">CRM Operations</div>
         </div>
       </div>

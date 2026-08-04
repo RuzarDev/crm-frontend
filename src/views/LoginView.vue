@@ -30,7 +30,7 @@
 
         <!-- Copyright -->
         <div class="auth-copyright">
-          © {{ new Date().getFullYear() }} Zircon Trans Group. Все права защищены.
+          © {{ new Date().getFullYear() }} Zircon. Все права защищены.
         </div>
       </div>
     </section>
