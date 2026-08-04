@@ -3,7 +3,8 @@
     <div class="dt-grid-3">
       <a-form-item>
         <template #label><DtGraphLabel graph="20" text="Условия поставки" /></template>
-        <a-input v-model:value="form.incoterms" :disabled="readonly" placeholder="FOB / CIF" @change="emitChange" />
+        <a-auto-complete v-model:value="form.incoterms" :options="classifiers.options('incoterms')"
+          :disabled="readonly" placeholder="FOB / CIF" style="width: 100%" @change="emitChange" />
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="20" text="Место Инкотермс" /></template>
