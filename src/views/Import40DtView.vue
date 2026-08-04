@@ -45,7 +45,11 @@
           <DtSectionParties v-show="activeSection === 'parties'" :model-value="dtForm" :readonly="readOnly" :country-options="countryOptions" @update:model-value="onDtUpdate" />
           <DtSectionCountries v-show="activeSection === 'countries'" :model-value="dtForm" :readonly="readOnly" :country-options="countryOptions" @update:model-value="onDtUpdate" />
           <DtSectionTransport v-show="activeSection === 'transport'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
-          <DtSectionFinance v-show="activeSection === 'finance'" :model-value="dtForm" :readonly="readOnly" :totals="totals" @update:model-value="onDtUpdate" />
+          <DtSectionFinance
+            v-show="activeSection === 'finance'" :model-value="dtForm" :readonly="readOnly" :totals="totals"
+            :expense-type-options="expenseTypeOptions" :currency-options="currencyOptions"
+            @update:model-value="onDtUpdate" @calc-customs-value="calcCustomsValue"
+          />
           <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
           <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" @calc-tpin="calcTpin" />
           <DtSectionDocs v-show="activeSection === 'docs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
@@ -75,9 +79,10 @@ import {
   type Import40PrevDocItem,
   type KedenReadinessDto,
 } from '@/api/import40'
-import type { Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
+import type { Import40FactPayment, Import40GoodsItemInput, Import40DeclarationExpense } from '@/types/api'
 import { referencesApi } from '@/api/references'
 import { salesApi, type SalesCalcGoodsResult } from '@/api/sales'
+import { tnvedApi } from '@/api/tnved'
 import { useAuthStore } from '@/stores/auth'
 import { useClassifiersStore } from '@/stores/classifiers'
 import DtSectionGeneral from '@/components/import40/dt/DtSectionGeneral.vue'
@@ -152,6 +157,13 @@ const blankPct = computed(() => {
 
 const countryOptions = ref<{ value: string; label: string }[]>([])
 
+// Spec 4a: справочник статей расходов и валюты НБ РК для таблицы расходов
+// ДТ и кнопки расчёта таможенной стоимости (DtSectionFinance). Как и
+// countryOptions, грузятся отдельно от decl/classifiers — один упавший
+// запрос не должен блокировать саму форму.
+const expenseTypeOptions = ref<{ value: string; label: string }[]>([])
+const currencyOptions = ref<{ value: string; label: string }[]>([])
+
 const emptyParty = (): Import40Party => ({
   name: null,
   countryCode: null,
@@ -190,6 +202,7 @@ const dtForm = reactive<DtFormState>({
   goodsItems: [],
   doc44Items: [],
   prevDocItems: [],
+  expenses: [],
   transactionNatureCode: '',
   transactionFeatureCode: '',
   tradeCountryCode: '',
@@ -412,6 +425,11 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.signatoryPhone = decl.signatoryPhone ?? null
   dtForm.signedDate = decl.signedDate ?? null
   dtForm.prevDocItems = (decl.prevDocItems ?? []).map((p: Import40PrevDocItem) => ({ ...p }))
+  dtForm.expenses = (decl.expenses ?? []).map((e) => ({
+    expenseTypeCode: e.expenseTypeCode ?? null,
+    amount: e.amount ?? null,
+    currencyCode: e.currencyCode ?? null,
+  }))
   dtForm.goodsItems = (decl.goodsItems ?? []).map((g) => ({
     description: g.description ?? null,
     tnvedCode: g.tnvedCode ?? null,
@@ -552,6 +570,50 @@ const calcTpin = async () => {
   }
 }
 
+// «Рассчитать там. стоимость» (Spec 4a Task 3): распределяет расходы
+// dtForm.expenses по товарам dtForm.goodsItems и проставляет гр.45
+// (customsValueKzt) каждому — по index = позиции товара в массиве
+// goodsItems (см. комментарий у Import40CvGoodsInput в api/import40.ts).
+// Живёт в родителе, а не в DtSectionFinance, т.к. только здесь dtForm.goodsItems
+// корректно типизирован как Import40GoodsItemInput[] (с полем customsValue) —
+// в дочерних Dt-секциях modelValue типизирован общим Import40DtFormState,
+// где то же поле называется invoiceValue (см. комментарий у DtFormState выше).
+const calcCustomsValue = async () => {
+  if (!dtForm.goodsItems.length) {
+    message.warning('Нет товаров для расчёта')
+    return
+  }
+  const goods = dtForm.goodsItems.map((g, index) => ({
+    index,
+    grossWeightKg: g.grossWeightKg ?? null,
+    invoiceValue: g.customsValue ?? null,
+    currency: g.currency ?? null,
+  }))
+  const expenses = (dtForm.expenses ?? [])
+    .filter((e) => e.expenseTypeCode && e.amount != null && e.currencyCode)
+    .map((e) => ({
+      expenseTypeCode: e.expenseTypeCode as string,
+      amount: e.amount as number,
+      currencyCode: e.currencyCode as string,
+    }))
+  try {
+    const res = await import40Api.calculateCustomsValue({ goods, expenses })
+    let updated = 0
+    res.goods.forEach((r) => {
+      const g = dtForm.goodsItems[r.index]
+      if (g) {
+        g.customsValueKzt = r.customsValueKzt
+        updated += 1
+      }
+    })
+    message.success(`Таможенная стоимость рассчитана для товаров: ${updated}`)
+  } catch (e: any) {
+    message.error(
+      e?.response?.data?.message ?? e?.response?.data?.error ?? 'Не удалось рассчитать таможенную стоимость',
+    )
+  }
+}
+
 const loadDt = async () => {
   try {
     activeCase.value = await import40Api.get(caseId)
@@ -645,6 +707,7 @@ const saveDt = async (): Promise<boolean> => {
       }),
       doc44Items: dtForm.doc44Items,
       prevDocItems: dtForm.prevDocItems,
+      expenses: dtForm.expenses,
     }
     const updated = await import40Api.updateDeclaration(caseId, dtForm.id, payload)
     loadedDto.value = updated
@@ -699,6 +762,18 @@ onMounted(async () => {
     countryOptions.value = countries.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
   } catch {
     /* справочник стран не загрузился — селекты позволят ручной ввод через allow-clear */
+  }
+  try {
+    const expenseTypes = await referencesApi.listExpenseTypes()
+    expenseTypeOptions.value = expenseTypes.map((t) => ({ value: t.code, label: `${t.code} — ${t.nameRu}` }))
+  } catch {
+    /* справочник статей расходов не загрузился — таблица расходов не блокирует форму */
+  }
+  try {
+    const currencies = (await tnvedApi.currencies()).data
+    currencyOptions.value = currencies.map((c) => ({ value: c.codeLat, label: c.codeLat }))
+  } catch {
+    /* справочник валют НБ РК не загрузился — таблица расходов не блокирует форму */
   }
   await loadDt()
 })
