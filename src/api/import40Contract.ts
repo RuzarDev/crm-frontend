@@ -12,6 +12,17 @@ export interface ClientCompanyProfileDto {
   bik: string
   phone: string
   email: string
+  legalCountryCode: string | null
+  legalRegion: string | null
+  legalCity: string | null
+  legalStreet: string | null
+  kbe: string | null
+  okpo: string | null
+  ownershipType: string | null
+  contactPersonName: string | null
+  contactPersonPosition: string | null
+  contactPhone: string | null
+  contactEmail: string | null
   isComplete: boolean
   updatedAtUtc: string | null
 }
