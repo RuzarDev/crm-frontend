@@ -257,6 +257,18 @@ async function lookupTnved(item: GoodsRow) {
   try {
     const res = await tnvedApi.node(code)
     item.tnvedDescription = res.data.name
+    // Автоподстановка единицы измерения по ТНВЭД — только если поле ещё не заполнено вручную
+    if (!item.unitCode && !item.unit) {
+      try {
+        const ratesRes = await tnvedApi.rates(code)
+        if (ratesRes.data.unitCode) {
+          item.unitCode = ratesRes.data.unitCode
+          item.unit = ratesRes.data.unitName || okeiByCode.value[ratesRes.data.unitCode] || item.unit
+        }
+      } catch (e) {
+        console.error('Failed to look up TNVED unit', e)
+      }
+    }
     emit('update:modelValue', items.value.map(fromRow))
   } catch (e) {
     console.error('Failed to look up TNVED code', e)
