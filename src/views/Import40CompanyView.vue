@@ -47,6 +47,40 @@
               <label><span>Телефон</span><a-input v-model:value="form.phone" /></label>
               <label><span>E-mail</span><a-input v-model:value="form.email" /></label>
             </div>
+
+            <div class="form-section-title">Юр. адрес (структурно)</div>
+            <div class="form-grid">
+              <label>
+                <span>Страна</span>
+                <a-select
+                  v-model:value="form.legalCountryCode"
+                  show-search
+                  allow-clear
+                  :options="countryOptions"
+                  :filter-option="filterCountry"
+                  placeholder="Выберите страну по коду"
+                />
+              </label>
+              <label><span>Регион / область</span><a-input v-model:value="form.legalRegion" /></label>
+              <label><span>Город</span><a-input v-model:value="form.legalCity" /></label>
+              <label class="full"><span>Улица, дом, офис</span><a-input v-model:value="form.legalStreet" /></label>
+            </div>
+
+            <div class="form-section-title">Реквизиты</div>
+            <div class="form-grid">
+              <label><span>КБе</span><a-input v-model:value="form.kbe" /></label>
+              <label><span>ОКПО</span><a-input v-model:value="form.okpo" /></label>
+              <label><span>Код/тип собственности</span><a-input v-model:value="form.ownershipType" /></label>
+            </div>
+
+            <div class="form-section-title">Контактное лицо</div>
+            <div class="form-grid">
+              <label><span>ФИО</span><a-input v-model:value="form.contactPersonName" /></label>
+              <label><span>Должность</span><a-input v-model:value="form.contactPersonPosition" /></label>
+              <label><span>Телефон</span><a-input v-model:value="form.contactPhone" /></label>
+              <label><span>E-mail</span><a-input v-model:value="form.contactEmail" /></label>
+            </div>
+
             <div class="form-footer">
               <a-tag v-if="profile?.isComplete" color="success">Заполнено</a-tag>
               <a-tag v-else color="warning">Заполните обязательные поля (*)</a-tag>
@@ -111,6 +145,7 @@ import {
   type Import40DocumentDto,
 } from '@/api/import40Contract'
 import { import40Api } from '@/api/import40'
+import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
 import DocumentStep, { type GenerateOpts } from '@/components/Import40DocumentStep.vue'
 import SigexSignModal from '@/components/SigexSignModal.vue'
@@ -125,6 +160,7 @@ const profile = ref<ClientCompanyProfileDto | null>(null)
 const contractDocs = ref<Import40DocumentDto[]>([])
 const poaDocs = ref<Import40DocumentDto[]>([])
 const current = ref(0)
+const countryOptions = ref<{ value: string; label: string }[]>([])
 
 const isAdmin = computed(() => (authStore.role || '').toLowerCase() === 'administrator')
 
@@ -139,7 +175,21 @@ const form = reactive({
   bik: '',
   phone: '',
   email: '',
+  legalCountryCode: '398' as string | null,
+  legalRegion: '' as string | null,
+  legalCity: '' as string | null,
+  legalStreet: '' as string | null,
+  kbe: '' as string | null,
+  okpo: '' as string | null,
+  ownershipType: '' as string | null,
+  contactPersonName: '' as string | null,
+  contactPersonPosition: '' as string | null,
+  contactPhone: '' as string | null,
+  contactEmail: '' as string | null,
 })
+
+const filterCountry = (input: string, option: { label: string }) =>
+  option.label.toLowerCase().includes(input.toLowerCase())
 
 const effectiveContract = computed(() => contractDocs.value.find(isDocumentEffective) ?? null)
 const effectivePoa = computed(() => poaDocs.value.find(isDocumentEffective) ?? null)
@@ -186,6 +236,17 @@ const applyProfile = (p: ClientCompanyProfileDto) => {
   form.bik = p.bik
   form.phone = p.phone
   form.email = p.email
+  form.legalCountryCode = p.legalCountryCode ?? '398'
+  form.legalRegion = p.legalRegion ?? ''
+  form.legalCity = p.legalCity ?? ''
+  form.legalStreet = p.legalStreet ?? ''
+  form.kbe = p.kbe ?? ''
+  form.okpo = p.okpo ?? ''
+  form.ownershipType = p.ownershipType ?? ''
+  form.contactPersonName = p.contactPersonName ?? ''
+  form.contactPersonPosition = p.contactPersonPosition ?? ''
+  form.contactPhone = p.contactPhone ?? ''
+  form.contactEmail = p.contactEmail ?? ''
 }
 
 const loadDocuments = async () => {
@@ -208,6 +269,10 @@ const load = async () => {
     clientId.value = clients[0].id
     applyProfile(await import40ContractApi.getProfile(clientId.value))
     await loadDocuments()
+    if (!countryOptions.value.length) {
+      const countries = await referencesApi.listCountries()
+      countryOptions.value = countries.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+    }
     // открываем первый незавершённый шаг
     if (!profile.value?.isComplete) current.value = 0
     else if (!effectiveContract.value) current.value = 1
@@ -317,6 +382,7 @@ onMounted(load)
 .onboarding-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 12px; }
 .step-body { margin-top: 24px; }
 .step-nav { display: flex; justify-content: space-between; margin-top: 20px; }
+.form-section-title { margin-top: 20px; margin-bottom: 10px; font-size: 13px; font-weight: 700; color: var(--atg-charcoal); text-transform: uppercase; letter-spacing: 0.02em; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
 .form-grid label { display: flex; flex-direction: column; gap: 6px; }
 .form-grid label.full { grid-column: 1 / -1; }
