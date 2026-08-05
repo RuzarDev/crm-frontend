@@ -252,8 +252,8 @@ const menuItems = computed(() => {
     })
   }
 
-  // Статусы КЕДЕН по БИН — брокер/декларант(importer)/админ/клиент
-  if (['administrator', 'broker', 'importer', 'client'].includes(role)) {
+  // Статусы КЕДЕН по БИН — брокер/экспедитор/декларант(importer)/админ/клиент
+  if (['administrator', 'broker', 'expeditor', 'importer', 'client'].includes(role)) {
     items.push({
       key: '/keden-status',
       icon: () => h(SafetyCertificateOutlined),

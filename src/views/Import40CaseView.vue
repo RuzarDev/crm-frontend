@@ -551,6 +551,8 @@ const exportBatchXml = async () => {
     a.click()
     URL.revokeObjectURL(url)
     message.success('Готовые ДТ выгружены')
+  } catch {
+    message.error('Не удалось выгрузить ДТ')
   } finally {
     batchXmlLoading.value = false
   }
