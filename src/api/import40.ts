@@ -6,6 +6,7 @@ import type {
   Import40GoodsItemInput,
   Import40Doc44ItemInput,
   Import40DeclarationExpense,
+  DeclarationReadiness,
 } from '@/types/api'
 
 export type Import40Action =
@@ -638,6 +639,36 @@ export const import40Api = {
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/keden-readiness`,
     )
     return data
+  },
+
+  // Готовность всех ДТ заявки к пакетной выгрузке KEDEN-XML (P6).
+  kedenReadinessSummary: async (caseId: string): Promise<DeclarationReadiness[]> => {
+    const { data } = await apiClient.get<DeclarationReadiness[]>(
+      `/import40/${encodeURIComponent(caseId)}/keden-readiness-summary`,
+    )
+    return data
+  },
+
+  // Пакетная выгрузка всех готовых ДТ заявки одним ZIP. 200 → zip-blob;
+  // 400 → { message } (нет ни одной готовой ДТ). Зеркалит downloadKedenXml выше.
+  downloadKedenBatch: async (
+    caseId: string,
+  ): Promise<{ blob: Blob; fileName: string } | { error: string }> => {
+    const res = await apiClient.get(
+      `/import40/${encodeURIComponent(caseId)}/declarations/keden-xml-batch`,
+      {
+        responseType: 'blob',
+        validateStatus: (s) => s === 200 || s === 400,
+      },
+    )
+    if (res.status === 400) {
+      const text = await (res.data as Blob).text()
+      const parsed = JSON.parse(text) as { message?: string }
+      return { error: parsed.message ?? 'Нет готовых ДТ для выгрузки' }
+    }
+    const cd = String(res.headers['content-disposition'] ?? '')
+    const m = /filename\*?=(?:UTF-8'')?"?([^";]+)/i.exec(cd)
+    return { blob: res.data as Blob, fileName: m ? decodeURIComponent(m[1]) : 'keden-batch.zip' }
   },
 
   // Batch-uploads a shipment's document package (invoice/packing-list Excel, CMR,

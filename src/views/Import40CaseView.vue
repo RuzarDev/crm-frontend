@@ -158,6 +158,21 @@
           </div>
         </div>
 
+        <div v-if="activeCase.declarations.length && can('declarant')" class="keden-batch-row">
+          <a-tag :color="readyDtCount > 0 ? 'success' : 'default'">
+            Готово {{ readyDtCount }} из {{ totalDtCount }} ДТ
+          </a-tag>
+          <a-button
+            size="small"
+            type="primary"
+            :loading="batchXmlLoading"
+            :disabled="readyDtCount === 0"
+            @click="exportBatchXml"
+          >
+            Выгрузить все готовые ДТ (КЕДЕН)
+          </a-button>
+        </div>
+
         <a-alert v-if="kedenMissing.length" type="warning" show-icon class="keden-missing">
           <template #message>Для XML не хватает данных:</template>
           <template #description><ul><li v-for="m in kedenMissing" :key="m">{{ m }}</li></ul></template>
@@ -341,6 +356,7 @@ import {
   type Import40FileSection,
   type KedenReadinessDto,
 } from '@/api/import40'
+import type { DeclarationReadiness } from '@/types/api'
 import { salesApi, type SalesQuoteListItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { usersApi } from '@/api/users'
@@ -493,6 +509,14 @@ const readiness = ref<Record<string, KedenReadinessDto>>({})
 const xmlLoading = ref<string | null>(null)
 const kedenMissing = ref<string[]>([])
 
+// Сводка готовности всех ДТ к пакетной выгрузке KEDEN-XML (P6)
+const readinessSummary = ref<DeclarationReadiness[]>([])
+const readyDtCount = computed(() => readinessSummary.value.filter((r) => r.isReady).length)
+const totalDtCount = computed(
+  () => readinessSummary.value.length || (activeCase.value?.declarations.length ?? 0),
+)
+const batchXmlLoading = ref(false)
+
 // readiness виден только сотрудникам (эндпоинт клиенту 404) — молча пропускаем
 const loadReadiness = async () => {
   const c = activeCase.value
@@ -503,6 +527,32 @@ const loadReadiness = async () => {
     } catch {
       /* нет прав или сеть — тег просто не показываем */
     }
+  }
+  try {
+    readinessSummary.value = await import40Api.kedenReadinessSummary(c.id)
+  } catch {
+    readinessSummary.value = []
+  }
+}
+
+const exportBatchXml = async () => {
+  if (!activeCase.value) return
+  batchXmlLoading.value = true
+  try {
+    const res = await import40Api.downloadKedenBatch(activeCase.value.id)
+    if ('error' in res) {
+      message.warning(res.error)
+      return
+    }
+    const url = URL.createObjectURL(res.blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = res.fileName
+    a.click()
+    URL.revokeObjectURL(url)
+    message.success('Готовые ДТ выгружены')
+  } finally {
+    batchXmlLoading.value = false
   }
 }
 
@@ -897,6 +947,13 @@ onMounted(() => {
 .keden-missing {
   margin-top: 10px;
   border-radius: var(--atg-radius-lg);
+}
+.keden-batch-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
 }
 .case-bottom {
   background: transparent;

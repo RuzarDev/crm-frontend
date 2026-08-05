@@ -98,6 +98,11 @@ const router = createRouter({
           meta: { requiresRole: 'administrator' },
         },
         {
+          path: '/keden-status',
+          name: 'keden-status',
+          component: () => import('@/views/KedenStatusView.vue'),
+        },
+        {
           path: '/sales',
           name: 'sales',
           component: () => import('@/views/SalesView.vue'),

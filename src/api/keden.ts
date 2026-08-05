@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { KedenDeclarationStatus } from '@/types/api'
 
 export interface KedenDeclarationListItemDto {
   id: string
@@ -55,6 +56,13 @@ export const kedenApi = {
     const response = await apiClient.get<KedenDeclarationDetailDto>(
       `/keden-declarations/${encodeURIComponent(id)}`,
     )
+    return response.data
+  },
+
+  // Статусы деклараций КЕДЕН, отфильтрованные по БИН текущего пользователя
+  // (broker/declarant/client/admin — раздел «Статусы КЕДЕН»).
+  mine: async (): Promise<KedenDeclarationStatus[]> => {
+    const response = await apiClient.get<KedenDeclarationStatus[]>('/keden-declarations/mine')
     return response.data
   },
 }
