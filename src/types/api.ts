@@ -1026,3 +1026,28 @@ export interface DtGuideEntry {
   title: string
   html: string
 }
+
+// Готовность одной ДТ к пакетной выгрузке KEDEN-XML (P6 КЕДЕН-цикл).
+// Возвращается массивом из GET /import40/{caseId}/keden-readiness-summary.
+export interface DeclarationReadiness {
+  declarationId: string
+  declarationNumber: string
+  isReady: boolean
+  missing: string[]
+  filled: number
+  total: number
+}
+
+// Статус декларации в КЕДЕН, отфильтрованный по БИН текущего пользователя
+// (GET /keden-declarations/mine). Всё, кроме id, может быть null.
+export interface KedenDeclarationStatus {
+  id: string
+  registrationNumber: string | null
+  referenceCode: string | null
+  statusName: string | null
+  statusDateTimeUtc: string | null
+  registeredDateTimeUtc: string | null
+  customsPost: string | null
+  declarantXin: string | null
+  declarantName: string | null
+}

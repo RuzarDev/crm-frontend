@@ -252,6 +252,15 @@ const menuItems = computed(() => {
     })
   }
 
+  // Статусы КЕДЕН по БИН — брокер/экспедитор/декларант(importer)/админ/клиент
+  if (['administrator', 'broker', 'expeditor', 'importer', 'client'].includes(role)) {
+    items.push({
+      key: '/keden-status',
+      icon: () => h(SafetyCertificateOutlined),
+      label: 'Статусы КЕДЕН',
+    })
+  }
+
   // Только те, кто заполняет ДТ. canUseImport40 здесь не подходит — в него входит client.
   if (role === 'administrator' || role === 'importer') {
     items.push({
@@ -361,6 +370,7 @@ const selectedMenuKey = computed(() => {
   if (route.path.startsWith('/document-packages')) return '/document-packages'
   if (route.path.startsWith('/import-40')) return '/import-40'
   if (route.path.startsWith('/references')) return '/references'
+  if (route.path.startsWith('/keden-status')) return '/keden-status'
   if (route.path.startsWith('/keden')) return '/keden'
   if (route.path.startsWith('/tnved/')) return route.path
   if (route.path.startsWith('/notifications')) return '/notifications'
