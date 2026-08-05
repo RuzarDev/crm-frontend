@@ -16,6 +16,7 @@
         </a-tag>
       </template>
       <template v-if="!readOnly" #actions>
+        <a-button v-if="canSplit" @click="openSplitModal">Разделить на ЕТТ/ВТО</a-button>
         <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
         <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
       </template>
@@ -62,6 +63,38 @@
         </section>
       </div>
     </div>
+
+    <a-modal
+      v-model:open="splitModalOpen"
+      title="Разделить на ЕТТ/ВТО"
+      :confirm-loading="splitting"
+      ok-text="Разделить"
+      cancel-text="Отмена"
+      width="720px"
+      @ok="doSplit"
+    >
+      <a-spin :spinning="splitLoading">
+        <p class="muted">Отметьте товары, которые должны войти в декларацию ВТО. Остальные останутся в ЕТТ.</p>
+        <a-table
+          :data-source="splitRows"
+          :columns="splitColumns"
+          :pagination="false"
+          row-key="sortOrder"
+          size="small"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'vto'">
+              <a-checkbox v-model:checked="record.vto" />
+            </template>
+            <template v-else-if="column.key === 'vtoStatus'">
+              <a-tooltip :title="record.vtoStatus || ''">
+                <span class="dt-split-status">{{ record.vtoStatus || '—' }}</span>
+              </a-tooltip>
+            </template>
+          </template>
+        </a-table>
+      </a-spin>
+    </a-modal>
   </div>
 </template>
 
@@ -78,6 +111,7 @@ import {
   type Import40Party,
   type Import40PrevDocItem,
   type KedenReadinessDto,
+  type Import40SplitSuggestionRow,
 } from '@/api/import40'
 import type { Import40FactPayment, Import40GoodsItemInput, Import40DeclarationExpense } from '@/types/api'
 import { referencesApi } from '@/api/references'
@@ -144,6 +178,11 @@ const readOnly = computed(() => {
 const caseTitle = computed(() =>
   activeCase.value ? `${activeCase.value.clientName} · ${activeCase.value.cargo}` : '',
 )
+
+// Spec 4b Task 3: кнопка «Разделить на ЕТТ/ВТО» видна тому, кто может править
+// декларацию (инверсия readOnly), и только при ≥ 2 товарах — разделять нечего
+// иначе.
+const canSplit = computed(() => !readOnly.value && dtForm.goodsItems.length >= 2)
 
 const saving = ref(false)
 const xmlLoading = ref(false)
@@ -750,6 +789,52 @@ const exportXml = async () => {
   }
 }
 
+// Spec 4b Task 3: разделение ДТ на ЕТТ/ВТО
+interface SplitRow extends Import40SplitSuggestionRow {
+  vto: boolean
+}
+const splitModalOpen = ref(false)
+const splitLoading = ref(false)
+const splitting = ref(false)
+const splitRows = ref<SplitRow[]>([])
+const splitColumns = [
+  { title: 'ТНВЭД', dataIndex: 'tnvedCode', key: 'tnvedCode', width: 140 },
+  { title: 'Статус ВТО', dataIndex: 'vtoStatus', key: 'vtoStatus', ellipsis: true },
+  { title: 'ВТО', key: 'vto', width: 70 },
+]
+
+const openSplitModal = async () => {
+  splitModalOpen.value = true
+  splitLoading.value = true
+  try {
+    const rows = await import40Api.splitSuggestion(caseId, dtId)
+    splitRows.value = rows.map((r) => ({ ...r, vto: r.isVtoCandidate }))
+  } catch (e: any) {
+    message.error(e?.response?.data?.message ?? 'Не удалось получить рекомендацию по разделению')
+    splitModalOpen.value = false
+  } finally {
+    splitLoading.value = false
+  }
+}
+
+const doSplit = async () => {
+  const vtoGoodSortOrders = splitRows.value.filter((r) => r.vto).map((r) => r.sortOrder)
+  splitting.value = true
+  try {
+    await import40Api.splitDeclaration(caseId, dtId, { vtoGoodSortOrders })
+    message.success('ДТ разделена на ЕТТ и ВТО')
+    splitModalOpen.value = false
+    // Обе новые декларации видны в списке ДТ заявки — переходим туда, а не
+    // остаёмся на текущей странице (текущий dtId после разделения перестаёт
+    // существовать как единая декларация).
+    await router.push(`/import-40/${caseId}`)
+  } catch (e: any) {
+    message.error(e?.response?.data?.message ?? 'Не удалось разделить декларацию')
+  } finally {
+    splitting.value = false
+  }
+}
+
 onMounted(async () => {
   // Не блокируем загрузку самой ДТ: селекты читают классификаторы через computed
   // и дозаполнятся, когда кэш приедет. Иначе один упавший запрос из 12 оставлял бы
@@ -858,6 +943,14 @@ onMounted(async () => {
 .muted {
   color: var(--atg-muted);
   font-size: 12px;
+}
+.dt-split-status {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 @media (max-width: 900px) {
   .dt-layout {

@@ -492,6 +492,24 @@ export interface Import40CalculateCustomsValueResult {
   goods: Import40CvGoodsResult[]
 }
 
+// Spec 4b Task 3: разделение ДТ на ЕТТ/ВТО. `vtoStatus` — длинная человекочитаемая
+// подсказка с сервера (см. split-suggestion), не код — показываем как есть, с усечением/tooltip.
+export interface Import40SplitSuggestionRow {
+  sortOrder: number
+  tnvedCode?: string | null
+  vtoStatus?: string | null
+  isVtoCandidate: boolean
+}
+
+export interface Import40SplitRequest {
+  vtoGoodSortOrders: number[]
+}
+
+export interface Import40SplitResult {
+  ettDeclarationId: string
+  vtoDeclarationId: string
+}
+
 export const import40Api = {
   list: async (): Promise<Import40CaseDto[]> => {
     const response = await apiClient.get<Import40ListResponse>('/import40')
@@ -696,6 +714,28 @@ export const import40Api = {
     const response = await apiClient.post<Import40CalculateCustomsValueResult>(
       '/import40/calculate-customs-value',
       payload,
+    )
+    return response.data
+  },
+
+  splitSuggestion: async (
+    caseId: string,
+    declarationId: string,
+  ): Promise<Import40SplitSuggestionRow[]> => {
+    const response = await apiClient.get<Import40SplitSuggestionRow[]>(
+      `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/split-suggestion`,
+    )
+    return response.data
+  },
+
+  splitDeclaration: async (
+    caseId: string,
+    declarationId: string,
+    data: Import40SplitRequest,
+  ): Promise<Import40SplitResult> => {
+    const response = await apiClient.post<Import40SplitResult>(
+      `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/split`,
+      data,
     )
     return response.data
   },
