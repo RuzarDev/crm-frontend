@@ -101,6 +101,7 @@ const router = createRouter({
           path: '/keden-status',
           name: 'keden-status',
           component: () => import('@/views/KedenStatusView.vue'),
+          meta: { requiresAnyRole: ['administrator', 'broker', 'importer', 'client'] },
         },
         {
           path: '/sales',
@@ -200,6 +201,7 @@ router.beforeEach((to, from, next) => {
   const requiresAuth = to.meta.requiresAuth !== false
   const requiredPermission = to.meta.requiresPermission as string | undefined
   const requiredRole = to.meta.requiresRole as string | undefined
+  const requiredAnyRole = to.meta.requiresAnyRole as string[] | undefined
   const requiresImport40 = to.meta.requiresImport40 === true
   const requiresSales = to.meta.requiresSales === true
 
@@ -217,6 +219,8 @@ router.beforeEach((to, from, next) => {
   ) {
     next('/')
   } else if (requiredRole && normalizedRole !== requiredRole) {
+    next('/')
+  } else if (requiredAnyRole && !requiredAnyRole.includes(normalizedRole)) {
     next('/')
   } else if (requiresImport40 && !authStore.canUseImport40) {
     next('/')
