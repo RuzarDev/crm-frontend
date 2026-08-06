@@ -155,6 +155,7 @@ const DT_CLASSIFIERS = [
   'rate-types',          // тип ставок
   'declaration-types',   // тип декларации (гр.1)
   'prev-doc-types',      // виды предшествующих документов (гр.40)
+  'customs-procedures',  // виды таможенных процедур (гр.1, 37)
 ]
 
 const caseId = String(route.params.caseId)

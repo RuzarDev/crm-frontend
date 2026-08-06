@@ -8,7 +8,8 @@
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="1" text="Процедура" /></template>
-        <a-input v-model:value="form.procedureCode" :disabled="readonly" placeholder="40" @change="emitChange" />
+        <a-auto-complete v-model:value="form.procedureCode" :options="classifiers.options('customs-procedures')"
+          :disabled="readonly" placeholder="40" style="width: 100%" @change="emitChange" />
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="1" text="Признак" /></template>
