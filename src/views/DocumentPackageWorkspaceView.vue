@@ -422,10 +422,6 @@
           <a-select v-model:value="clientStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
             :options="stationOptions" placeholder="Выберите или введите станцию" />
         </a-form-item>
-        <a-form-item label="Орган назначения">
-          <a-select v-model:value="clientAuthorityModel" show-search allow-clear mode="tags" :max-tag-count="1"
-            :options="postOptions" placeholder="Выберите или введите орган назначения" />
-        </a-form-item>
         <a-divider style="margin: 12px 0;" />
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
           <span style="font-weight: 600;">Товары (список)</span>
@@ -489,10 +485,6 @@
               <a-form-item label="Станция назначения">
                 <a-select v-model:value="clientStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
                   :options="stationOptions" placeholder="Выберите или введите станцию" />
-              </a-form-item>
-              <a-form-item label="Орган назначения">
-                <a-select v-model:value="clientAuthorityModel" show-search allow-clear mode="tags" :max-tag-count="1"
-                  :options="postOptions" placeholder="Выберите или введите орган назначения" />
               </a-form-item>
               <a-divider style="margin: 12px 0;" />
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -779,10 +771,6 @@ const loadPackage = async () => {
 const clientStationModel = computed<string[]>({
   get: () => (clientForm.destinationStation ? [clientForm.destinationStation] : []),
   set: (v) => { clientForm.destinationStation = v[v.length - 1] ?? '' },
-})
-const clientAuthorityModel = computed<string[]>({
-  get: () => (clientForm.destinationCustomsAuthority ? [clientForm.destinationCustomsAuthority] : []),
-  set: (v) => { clientForm.destinationCustomsAuthority = v[v.length - 1] ?? '' },
 })
 
 const authStore = useAuthStore()
