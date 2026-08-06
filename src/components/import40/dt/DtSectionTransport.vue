@@ -18,7 +18,8 @@
     </div>
 
     <a-form-item label="Страна регистрации ТС (граница)">
-      <a-input v-model:value="form.borderTransportNationality" :disabled="readonly" placeholder="KZ" style="max-width: 260px" @change="emitChange" />
+      <a-select v-model:value="form.borderTransportNationality" :options="countryAlpha2Options" :disabled="readonly"
+        show-search allow-clear :filter-option="filterAlpha2" placeholder="KZ" style="max-width: 260px" @change="emitChange" />
     </a-form-item>
 
     <div class="dt-section-bar"><DtGraphLabel graph="21" text="Транспортное средство на границе" /></div>
@@ -38,7 +39,8 @@
           :disabled="readonly" placeholder="30" style="width: 100%" @change="emitChange" />
       </a-form-item>
       <a-form-item label="Страна регистрации ТС (прибытие)">
-        <a-input v-model:value="form.arrivalTransportNationality" :disabled="readonly" placeholder="KZ" @change="emitChange" />
+        <a-select v-model:value="form.arrivalTransportNationality" :options="countryAlpha2Options" :disabled="readonly"
+          show-search allow-clear :filter-option="filterAlpha2" placeholder="KZ" style="width: 100%" @change="emitChange" />
       </a-form-item>
     </div>
 
@@ -60,6 +62,7 @@ import { reactive, watch } from 'vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import type { Import40DtFormState } from '@/api/import40'
+import { ALPHA2_COUNTRIES } from '@/types/api'
 import './dt-sections.css'
 
 const props = defineProps<{
@@ -69,6 +72,11 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:modelValue': [Import40DtFormState] }>()
 
 const classifiers = useClassifiersStore()
+
+// Национальность ТС (гр.21/18) — 2-буквенный код страны (KZ/CN/RU), в КЕДЕН уходит буквами.
+const countryAlpha2Options = ALPHA2_COUNTRIES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+const filterAlpha2 = (input: string, option: { value: string; label: string }) =>
+  option.label.toLowerCase().includes(input.toLowerCase())
 
 // borderTransportNumbers/arrivalTransportNumbers — массивы объектов, поэтому
 // buildForm делает свежие копии массива и каждого элемента (та же дисциплина,

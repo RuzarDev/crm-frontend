@@ -975,6 +975,34 @@ export const EAES_DOC_CODES: { code: string; name: string }[] = [
   { code: '10022', name: 'Иные сведения при таможенном декларировании (законодательство РК)' },
 ]
 
+// 2-буквенные коды стран (ЕАЭС «Классификатор стран мира», codeListId 2021) —
+// для полей национальности ТС (гр.21/18) и страны места товаров (гр.30),
+// которые в КЕДЕН уходят буквами (KZ/CN/RU), а не числовым ОКСМ.
+export const ALPHA2_COUNTRIES: { code: string; name: string }[] = [
+  { code: 'KZ', name: 'Казахстан' }, { code: 'RU', name: 'Россия' }, { code: 'CN', name: 'Китай' },
+  { code: 'BY', name: 'Беларусь' }, { code: 'KG', name: 'Кыргызстан' }, { code: 'UZ', name: 'Узбекистан' },
+  { code: 'TJ', name: 'Таджикистан' }, { code: 'TM', name: 'Туркменистан' }, { code: 'AM', name: 'Армения' },
+  { code: 'AZ', name: 'Азербайджан' }, { code: 'GE', name: 'Грузия' }, { code: 'MD', name: 'Молдова' },
+  { code: 'UA', name: 'Украина' }, { code: 'TR', name: 'Турция' }, { code: 'IR', name: 'Иран' },
+  { code: 'AE', name: 'ОАЭ' }, { code: 'DE', name: 'Германия' }, { code: 'US', name: 'США' },
+  { code: 'JP', name: 'Япония' }, { code: 'KR', name: 'Республика Корея' }, { code: 'GB', name: 'Великобритания' },
+  { code: 'FR', name: 'Франция' }, { code: 'IT', name: 'Италия' }, { code: 'NL', name: 'Нидерланды' },
+  { code: 'PL', name: 'Польша' }, { code: 'CZ', name: 'Чехия' }, { code: 'ES', name: 'Испания' },
+  { code: 'IN', name: 'Индия' }, { code: 'PK', name: 'Пакистан' }, { code: 'AF', name: 'Афганистан' },
+  { code: 'MN', name: 'Монголия' }, { code: 'VN', name: 'Вьетнам' }, { code: 'TH', name: 'Таиланд' },
+  { code: 'MY', name: 'Малайзия' }, { code: 'SG', name: 'Сингапур' }, { code: 'ID', name: 'Индонезия' },
+  { code: 'HK', name: 'Гонконг' }, { code: 'TW', name: 'Тайвань' }, { code: 'LT', name: 'Литва' },
+  { code: 'LV', name: 'Латвия' }, { code: 'EE', name: 'Эстония' }, { code: 'FI', name: 'Финляндия' },
+  { code: 'SE', name: 'Швеция' }, { code: 'BE', name: 'Бельгия' }, { code: 'AT', name: 'Австрия' },
+  { code: 'CH', name: 'Швейцария' }, { code: 'HU', name: 'Венгрия' }, { code: 'RO', name: 'Румыния' },
+  { code: 'BG', name: 'Болгария' }, { code: 'GR', name: 'Греция' }, { code: 'SK', name: 'Словакия' },
+  { code: 'SI', name: 'Словения' }, { code: 'PT', name: 'Португалия' }, { code: 'CA', name: 'Канада' },
+  { code: 'BR', name: 'Бразилия' }, { code: 'MX', name: 'Мексика' }, { code: 'EG', name: 'Египет' },
+  { code: 'ZA', name: 'ЮАР' }, { code: 'SA', name: 'Саудовская Аравия' }, { code: 'IL', name: 'Израиль' },
+  { code: 'QA', name: 'Катар' }, { code: 'KW', name: 'Кувейт' }, { code: 'BD', name: 'Бангладеш' },
+  { code: 'LK', name: 'Шри-Ланка' }, { code: 'PH', name: 'Филиппины' }, { code: 'AU', name: 'Австралия' },
+]
+
 export const OKEI_QUANTITY_TYPE_CODES: { code: string; name: string }[] = [
   { code: 'РК', name: 'Упаковка' },
   { code: 'РР', name: 'Штука' },
