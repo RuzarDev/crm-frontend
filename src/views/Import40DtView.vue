@@ -50,7 +50,7 @@
           <DtSectionTransport v-show="activeSection === 'transport'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
           <DtSectionFinance
             v-show="activeSection === 'finance'" :model-value="dtForm" :readonly="readOnly" :totals="totals"
-            :expense-type-options="expenseTypeOptions" :currency-options="currencyOptions"
+            :expense-type-options="expenseTypeOptions" :currency-options="currencyOptions" :currency-rates="currencyRates"
             @update:model-value="onDtUpdate" @calc-customs-value="calcCustomsValue"
           />
           <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
@@ -204,6 +204,8 @@ const countryOptions = ref<{ value: string; label: string }[]>([])
 // запрос не должен блокировать саму форму.
 const expenseTypeOptions = ref<{ value: string; label: string }[]>([])
 const currencyOptions = ref<{ value: string; label: string }[]>([])
+// Курсы НБ РК по коду валюты (на момент заполнения) — для автоподстановки гр.23.
+const currencyRates = ref<Record<string, { rate: number; date: string }>>({})
 
 const emptyParty = (): Import40Party => ({
   name: null,
@@ -858,7 +860,10 @@ onMounted(async () => {
   }
   try {
     const currencies = (await tnvedApi.currencies()).data
-    currencyOptions.value = currencies.map((c) => ({ value: c.codeLat, label: c.codeLat }))
+    currencyOptions.value = currencies.map((c) => ({ value: c.codeLat, label: `${c.codeLat} — ${c.name}` }))
+    const rates: Record<string, { rate: number; date: string }> = { KZT: { rate: 1, date: '' } }
+    for (const c of currencies) rates[c.codeLat] = { rate: c.rate, date: c.updatedAtUtc }
+    currencyRates.value = rates
   } catch {
     /* справочник валют НБ РК не загрузился — таблица расходов не блокирует форму */
   }
