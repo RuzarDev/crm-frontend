@@ -16,7 +16,9 @@
         </a-tag>
       </template>
       <template v-if="!readOnly" #actions>
-        <a-button v-if="canSplit" @click="openSplitModal">Разделить на ЕТТ/ВТО</a-button>
+        <a-tooltip :title="canSplit ? '' : 'Нужно минимум 2 товара в ДТ для разделения на ЕТТ/ВТО'">
+          <a-button :disabled="!canSplit" @click="openSplitModal">Разделить на ЕТТ/ВТО</a-button>
+        </a-tooltip>
         <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
         <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
       </template>
