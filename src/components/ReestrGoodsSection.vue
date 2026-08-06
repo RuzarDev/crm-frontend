@@ -84,7 +84,7 @@
       <!-- Row: кол-во + код ОКЕИ + тип количества -->
       <div class="field-row">
         <div class="field f-narrow">
-          <div class="field-label">Кол-во</div>
+          <div class="field-label">Кол-во ДЕИ</div>
           <a-input
             v-model:value="item.quantityStr"
             size="small"
