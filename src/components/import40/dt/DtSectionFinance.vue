@@ -12,7 +12,8 @@
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="22" text="Валюта" /></template>
-        <a-input v-model:value="form.currency" :disabled="readonly" placeholder="USD" @change="emitChange" />
+        <a-select v-model:value="form.currency" :options="currencyOptions" :disabled="readonly"
+          show-search allow-clear :filter-option="filterOption" style="width: 100%" placeholder="USD" @change="emitChange" />
       </a-form-item>
     </div>
 
