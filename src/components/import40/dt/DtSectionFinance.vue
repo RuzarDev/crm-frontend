@@ -13,7 +13,7 @@
       <a-form-item>
         <template #label><DtGraphLabel graph="22" text="Валюта" /></template>
         <a-select v-model:value="form.currency" :options="currencyOptions" :disabled="readonly"
-          show-search allow-clear :filter-option="filterOption" style="width: 100%" placeholder="USD" @change="emitChange" />
+          show-search allow-clear :filter-option="filterOption" style="width: 100%" placeholder="USD" @change="onCurrencyChange" />
       </a-form-item>
     </div>
 
@@ -25,6 +25,11 @@
       <a-form-item>
         <template #label><DtGraphLabel graph="23" text="Курс" /></template>
         <a-input-number v-model:value="form.exchangeRate" :disabled="readonly" style="width: 100%" :min="0" @change="emitChange" />
+        <div v-if="currentRateInfo" class="dt-rate-hint">
+          Курс НБ РК<span v-if="currentRateInfo.date"> на {{ formatRateDate(currentRateInfo.date) }}</span>:
+          <strong>{{ currentRateInfo.rate }}</strong>
+          <a v-if="!readonly && form.exchangeRate !== currentRateInfo.rate" @click="applyCurrentRate"> подставить</a>
+        </div>
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="12" text="Общая таможенная стоимость" /></template>
@@ -81,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import type { Import40DtFormState } from '@/api/import40'
@@ -93,6 +98,7 @@ const props = defineProps<{
   totals: { goods: number; places: number; customsValue: number }
   expenseTypeOptions: { value: string; label: string }[]
   currencyOptions: { value: string; label: string }[]
+  currencyRates?: Record<string, { rate: number; date: string }>
 }>()
 const emit = defineEmits<{
   'update:modelValue': [Import40DtFormState]
@@ -105,6 +111,19 @@ const form = reactive({ ...props.modelValue })
 watch(() => props.modelValue, (v) => Object.assign(form, v), { deep: true })
 
 const emitChange = () => emit('update:modelValue', { ...props.modelValue, ...form })
+
+// Курс НБ РК для выбранной валюты (гр.23) — на момент заполнения.
+const currentRateInfo = computed(() => props.currencyRates?.[form.currency ?? ''] ?? null)
+const formatRateDate = (iso: string) => (iso ? new Date(iso).toLocaleDateString('ru-RU') : '')
+// При выборе валюты подставляем текущий курс НБ РК (KZT → 1).
+const onCurrencyChange = (v: string) => {
+  const info = props.currencyRates?.[v]
+  if (info) form.exchangeRate = info.rate
+  emitChange()
+}
+const applyCurrentRate = () => {
+  if (currentRateInfo.value) { form.exchangeRate = currentRateInfo.value.rate; emitChange() }
+}
 
 const filterOption = (input: string, option: { label?: string }) =>
   (option.label ?? '').toLowerCase().includes(input.toLowerCase())
