@@ -34,8 +34,9 @@
 
     <div class="dt-grid-3">
       <a-form-item>
-        <template #label><DtGraphLabel graph="7" text="Справочный номер" /></template>
-        <a-input v-model:value="form.referenceNumber" :disabled="readonly" @change="emitChange" />
+        <template #label><DtGraphLabel graph="7" text="Особенности декларирования" /></template>
+        <a-auto-complete v-model:value="form.referenceNumber" :options="classifiers.options('declaring-features')"
+          :disabled="readonly" placeholder="ПТД / НТД / ПДТ" style="width: 100%" @change="emitChange" />
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="5" text="Всего товаров" /></template>
