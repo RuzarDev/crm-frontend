@@ -45,7 +45,8 @@
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="24" text="Особенность сделки" /></template>
-        <a-input v-model:value="form.transactionFeatureCode" :disabled="readonly" placeholder="000" @change="emitChange" />
+        <a-auto-complete v-model:value="form.transactionFeatureCode" :options="classifiers.options('movement-features')"
+          :disabled="readonly" placeholder="000" style="width: 100%" @change="emitChange" />
       </a-form-item>
       <a-form-item label="Тип ставок (КЕДЕН)">
         <a-auto-complete v-model:value="form.rateType" :options="classifiers.options('rate-types')"
