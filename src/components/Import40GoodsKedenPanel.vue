@@ -46,9 +46,9 @@
           <div class="field"><div class="field-label">Процедура (гр.37)</div>
             <a-input v-model:value="g.procedureCode" size="small" :disabled="readonly" placeholder="4000" @change="sync" /></div>
           <div class="field"><div class="field-label">Предш. процедура</div>
-            <a-input v-model:value="g.previousProcedureCode" size="small" :disabled="readonly" placeholder="00" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.previousProcedureCode" size="small" :disabled="readonly" :options="procOptions" placeholder="00" @change="sync" /></div>
           <div class="field"><div class="field-label">Особенность перемещения</div>
-            <a-input v-model:value="g.goodsMoveFeatureCode" size="small" :disabled="readonly" placeholder="000" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.goodsMoveFeatureCode" size="small" :disabled="readonly" :options="moveFeatureOptions" placeholder="000" @change="sync" /></div>
           <div class="field"><div class="field-label">Метод ТС (гр.43)</div>
             <a-auto-complete v-model:value="g.valuationMethodCode" size="small" :disabled="readonly" :options="valuationOptions" placeholder="1" @change="sync" /></div>
           <div class="field"><div class="field-label">Квота (гр.39)</div>
@@ -122,6 +122,8 @@ const prefOptions = computed(() => classifiers.options('2008'))
 const taxModeOptions = computed(() => classifiers.options('tax-modes'))
 const rateKindOptions = computed(() => classifiers.options('rate-kinds'))
 const valuationOptions = computed(() => classifiers.options('2005'))
+const procOptions = computed(() => classifiers.options('customs-procedures'))
+const moveFeatureOptions = computed(() => classifiers.options('movement-features'))
 
 const emptyPayment = (): Import40GoodsPayment => ({
   taxModeCode: null, taxBase: null, rateKindCode: '%', rateValue: null,
