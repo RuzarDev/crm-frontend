@@ -614,8 +614,8 @@ const calcTpin = async () => {
         recalculated += 1
       }
     })
-    if (recalculated) message.success(`ТПиН пересчитан для товаров: ${recalculated}`)
-    else message.warning('Не удалось пересчитать ни один товар — проверьте код ТНВЭД и стоимость')
+    if (recalculated) message.success(`ТПиН рассчитан для ${recalculated} тов. Платежи — в панели «Данные КЕДЕН» (гр.47) у каждого товара.`)
+    else message.warning('Не удалось рассчитать — проверьте код ТНВЭД, стоимость, валюту и вес/кол-во товара')
   } catch {
     message.error('Не удалось пересчитать ТПиН')
   }
@@ -650,14 +650,18 @@ const calcCustomsValue = async () => {
   try {
     const res = await import40Api.calculateCustomsValue({ goods, expenses })
     let updated = 0
+    let total = 0
     res.goods.forEach((r) => {
       const g = dtForm.goodsItems[r.index]
       if (g) {
         g.customsValueKzt = r.customsValueKzt
+        total += r.customsValueKzt ?? 0
         updated += 1
       }
     })
-    message.success(`Таможенная стоимость рассчитана для товаров: ${updated}`)
+    // показываем итог в сообщении — результат (гр.45) в свёрнутой панели КЕДЕН, брокер его иначе не видит
+    const totalStr = total.toLocaleString('ru-RU', { maximumFractionDigits: 2 })
+    message.success(`Таможенная стоимость рассчитана (${updated} тов.): итого ${totalStr} ₸. См. гр.45 в панели «Данные КЕДЕН».`)
   } catch (e: any) {
     message.error(
       e?.response?.data?.message ?? e?.response?.data?.error ?? 'Не удалось рассчитать таможенную стоимость',
