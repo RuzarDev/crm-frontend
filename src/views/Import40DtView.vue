@@ -157,8 +157,9 @@ const DT_CLASSIFIERS = [
   'declaration-types',   // тип декларации (гр.1)
   'prev-doc-types',      // виды предшествующих документов (гр.40)
   'customs-procedures',  // виды таможенных процедур (гр.1, 37)
-  'movement-features',   // особенности перемещения товаров (гр.24)
+  'movement-features',   // особенности перемещения товаров (товарное поле)
   'declaring-features',   // особенности таможенного декларирования (гр.7)
+  'settlement-terms',    // формы расчётов / условия оплаты (гр.24)
 ]
 
 const caseId = String(route.params.caseId)
