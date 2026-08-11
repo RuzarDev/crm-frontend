@@ -104,6 +104,7 @@ export interface Import40Doc44ItemDto {
   goodsItemIndex?: number | null
   docStartDate?: string | null
   docValidityDate?: string | null
+  issueCountryCode?: string | null
 }
 
 // Гр.40 "Предшествующий документ". Один тип на чтение/запись — сервер отдаёт
