@@ -79,7 +79,7 @@
             <a-input v-model:value="p.rateCurrencyCode" size="small" :disabled="readonly" placeholder="Валюта N3 (978)" style="width: 110px" @change="sync" />
             <a-input-number v-model:value="p.weightRatio" size="small" :disabled="readonly" placeholder="Коэф." style="width: 80px" @change="sync" />
           </template>
-          <a-input v-model:value="p.rateDate" size="small" :disabled="readonly" placeholder="Дата ГГГГ-ММ-ДД" style="width: 130px" @change="sync" />
+          <a-date-picker v-model:value="p.rateDate" size="small" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD" placeholder="Дата" style="width: 130px" allow-clear @change="sync" />
           <a-input-number v-model:value="p.amountKzt" size="small" :disabled="readonly" placeholder="Сумма, ₸" style="width: 130px" @change="sync" />
           <a-button v-if="!readonly" type="text" danger size="small" @click="removePayment(g, pi)">✕</a-button>
         </div>
