@@ -116,6 +116,7 @@ import {
   type Import40SplitSuggestionRow,
 } from '@/api/import40'
 import type { Import40FactPayment, Import40GoodsItemInput, Import40DeclarationExpense } from '@/types/api'
+import { CURRENCY_NUMERIC } from '@/types/api'
 import { referencesApi } from '@/api/references'
 import { salesApi, type SalesCalcGoodsResult } from '@/api/sales'
 import { tnvedApi } from '@/api/tnved'
@@ -575,16 +576,18 @@ const upsertGoodsPayment = (g: Import40GoodsItemInput, code: string, amountKzt: 
 // по которым расчёт реально прошёл (есть код ТНВЭД, стоимость, валюта и вес
 // или количество); остальные остаются с бейджем до ручного заполнения данных.
 const calcTpin = async () => {
+  // Считаем все товары с достаточными данными (код ТНВЭД + стоимость + валюта + вес/кол-во),
+  // а не только помеченные needsTpinRecalc — флаг ставится при импорте из КП/сплите,
+  // при ручном заполнении ДТ его нет, из-за чего у брокеров расчёт «не работал».
   const targets = dtForm.goodsItems.filter(
     (g) =>
-      g.needsTpinRecalc &&
       g.tnvedCode &&
       g.customsValue != null &&
       g.currency &&
       (g.netWeightKg != null || g.quantity != null),
   )
   if (!targets.length) {
-    message.info('Нет товаров с недостающими данными для пересчёта')
+    message.info('Нет товаров с достаточными данными (нужны код ТНВЭД, стоимость, валюта, вес или кол-во)')
     return
   }
   try {
@@ -863,7 +866,11 @@ onMounted(async () => {
   }
   try {
     const currencies = (await tnvedApi.currencies()).data
-    currencyOptions.value = currencies.map((c) => ({ value: c.codeLat, label: `${c.codeLat} — ${c.name}` }))
+    currencyOptions.value = currencies.map((c) => {
+      const num = CURRENCY_NUMERIC[c.codeLat]
+      // В label — и буквенный, и цифровой код: поиск по label находит и «USD», и «840»
+      return { value: c.codeLat, label: `${c.codeLat}${num ? ' / ' + num : ''} — ${c.name}` }
+    })
     const rates: Record<string, { rate: number; date: string }> = { KZT: { rate: 1, date: '' } }
     for (const c of currencies) rates[c.codeLat] = { rate: c.rate, date: c.updatedAtUtc }
     currencyRates.value = rates

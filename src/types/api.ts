@@ -1003,6 +1003,18 @@ export const ALPHA2_COUNTRIES: { code: string; name: string }[] = [
   { code: 'LK', name: 'Шри-Ланка' }, { code: 'PH', name: 'Филиппины' }, { code: 'AU', name: 'Австралия' },
 ]
 
+// Цифровые коды валют (Классификатор валют, ОКВ / ISO 4217 numeric) — чтобы искать
+// валюту и по буквенному коду (USD), и по цифровому (840). Ключ — codeLat.
+export const CURRENCY_NUMERIC: Record<string, string> = {
+  USD: '840', EUR: '978', RUB: '643', KZT: '398', CNY: '156', GBP: '826',
+  JPY: '392', KRW: '410', TRY: '949', AED: '784', CHF: '756', BYN: '933',
+  UAH: '980', KGS: '417', UZS: '860', TJS: '972', AZN: '944', AMD: '051',
+  GEL: '981', INR: '356', SGD: '702', HKD: '344', CAD: '124', AUD: '036',
+  PLN: '985', CZK: '203', SEK: '752', NOK: '578', DKK: '208', HUF: '348',
+  BRL: '986', ZAR: '710', SAR: '682', THB: '764', MYR: '458', IDR: '360',
+  VND: '704', PKR: '586', EGP: '818', ILS: '376', QAR: '634', KWD: '414',
+}
+
 export const OKEI_QUANTITY_TYPE_CODES: { code: string; name: string }[] = [
   { code: 'РК', name: 'Упаковка' },
   { code: 'РР', name: 'Штука' },
