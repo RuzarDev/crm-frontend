@@ -34,6 +34,11 @@
               :loading="item.tnvedLoading"
               @click="lookupTnved(item)"
             >Найти</a-button>
+            <a-button
+              v-if="!readonly"
+              size="small"
+              @click="openPicker(item)"
+            >Справочник</a-button>
           </a-input-group>
         </div>
         <div class="field f-2">
@@ -185,6 +190,8 @@
         </div>
       </div>
     </div>
+
+    <TnvedPickerModal v-model:open="pickerOpen" @select="onPickerSelect" />
   </div>
 </template>
 
@@ -192,6 +199,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
+import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
 import type { ReestrGoodsItemInput } from '@/types/api'
 import { OKEI_QUANTITY_TYPE_CODES } from '@/types/api'
 
@@ -212,6 +220,18 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: ReestrGoodsItemInput[]): void
 }>()
+
+// Пикер ТН ВЭД (поиск по дереву/коду + ставки/разрешения) для конкретной строки товара
+const pickerOpen = ref(false)
+const pickerTarget = ref<GoodsRow | null>(null)
+const openPicker = (item: GoodsRow) => { pickerTarget.value = item; pickerOpen.value = true }
+const onPickerSelect = (payload: { code: string; name: string }) => {
+  const t = pickerTarget.value
+  if (!t) return
+  t.tnvedCode = payload.code
+  if (!t.tnvedDescription) t.tnvedDescription = payload.name
+  emit('update:modelValue', items.value.map(fromRow))
+}
 
 const quantityTypeOptions = OKEI_QUANTITY_TYPE_CODES.map((c) => ({
   value: c.code,
