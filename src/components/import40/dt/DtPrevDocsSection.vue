@@ -12,6 +12,7 @@
       <a-input v-model:value="p.docNumber" :disabled="readonly" placeholder="Номер" style="width: 200px" @change="emitChange" />
       <a-date-picker
         v-model:value="p.docDate"
+        format="DD.MM.YYYY"
         value-format="YYYY-MM-DD"
         :disabled="readonly"
         placeholder="Дата"

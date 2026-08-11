@@ -9,10 +9,10 @@
         <a-input v-model:value="form.deferralNumber" :disabled="readonly" @change="emitChange" />
       </a-form-item>
       <a-form-item label="Дата">
-        <a-date-picker v-model:value="form.deferralDate" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
+        <a-date-picker v-model:value="form.deferralDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
       </a-form-item>
       <a-form-item label="Срок">
-        <a-date-picker v-model:value="form.deferralDueDate" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
+        <a-date-picker v-model:value="form.deferralDueDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
       </a-form-item>
     </div>
 
@@ -36,7 +36,7 @@
         <a-input v-model:value="form.signatoryPhone" :disabled="readonly" @change="emitChange" />
       </a-form-item>
       <a-form-item label="Дата подписания">
-        <a-date-picker v-model:value="form.signedDate" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
+        <a-date-picker v-model:value="form.signedDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
       </a-form-item>
     </div>
   </div>

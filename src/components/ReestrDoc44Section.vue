@@ -85,19 +85,21 @@
               @change="(v: number | null) => { (item as Import40Doc44ItemInput).goodsItemIndex = v ?? null; emitChange() }"
             />
           </div>
-          <div class="field" style="flex: 0 0 120px;">
+          <div class="field" style="flex: 0 0 130px;">
             <div class="field-label">Действует с</div>
-            <a-input
+            <a-date-picker
               :value="(item as Import40Doc44ItemInput).docStartDate"
-              size="small" :disabled="readonly" placeholder="ГГГГ-ММ-ДД" style="width: 120px"
+              size="small" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD"
+              placeholder="дд.мм.гггг" style="width: 130px" allow-clear
               @update:value="(v: string) => { (item as Import40Doc44ItemInput).docStartDate = v || null; emitChange() }"
             />
           </div>
-          <div class="field" style="flex: 0 0 120px;">
+          <div class="field" style="flex: 0 0 130px;">
             <div class="field-label">Действует по</div>
-            <a-input
+            <a-date-picker
               :value="(item as Import40Doc44ItemInput).docValidityDate"
-              size="small" :disabled="readonly" placeholder="ГГГГ-ММ-ДД" style="width: 120px"
+              size="small" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD"
+              placeholder="дд.мм.гггг" style="width: 130px" allow-clear
               @update:value="(v: string) => { (item as Import40Doc44ItemInput).docValidityDate = v || null; emitChange() }"
             />
           </div>

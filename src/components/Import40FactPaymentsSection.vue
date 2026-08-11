@@ -10,9 +10,9 @@
       <a-auto-complete v-model:value="p.taxModeCode" size="small" :disabled="readonly" :options="taxModeOptions" placeholder="Вид (2010)" style="width: 140px" @change="emitChange" />
       <a-input-number v-model:value="p.amount" size="small" :disabled="readonly" placeholder="Сумма" style="width: 140px" @change="emitChange" />
       <a-input-number v-model:value="p.exchangeRate" size="small" :disabled="readonly" placeholder="Курс" style="width: 90px" @change="emitChange" />
-      <a-input v-model:value="p.paymentDocDate" size="small" :disabled="readonly" placeholder="Дата платёжки ГГГГ-ММ-ДД" style="width: 170px" @change="emitChange" />
+      <a-date-picker v-model:value="p.paymentDocDate" size="small" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD" placeholder="Дата платёжки" style="width: 150px" allow-clear @change="emitChange" />
       <a-input v-model:value="p.payerTaxpayerId" size="small" :disabled="readonly" placeholder="ИИН/БИН плательщика" style="width: 150px" @change="emitChange" />
-      <a-input v-model:value="p.paymentDate" size="small" :disabled="readonly" placeholder="Дата оплаты" style="width: 120px" @change="emitChange" />
+      <a-date-picker v-model:value="p.paymentDate" size="small" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD" placeholder="Дата оплаты" style="width: 140px" allow-clear @change="emitChange" />
       <a-select v-model:value="p.paymentMethodCode" size="small" :disabled="readonly" :options="methodOptions" style="width: 100px" @change="emitChange" />
       <a-button v-if="!readonly" type="text" danger size="small" @click="removeItem(i)">✕</a-button>
     </div>
