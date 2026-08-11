@@ -30,7 +30,10 @@
           :disabled="readonly" placeholder="319" style="max-width: 200px" @change="emitChange" />
         <a-button v-if="!readonly" type="text" danger size="small" @click="removeBorderTransport(i)">✕</a-button>
       </div>
-      <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport">+ Номер ТС (граница)</a-button>
+      <div class="transport-actions">
+        <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport">+ Номер ТС (граница)</a-button>
+        <a-button v-if="!readonly && form.borderTransportNumbers.length" size="small" @click="copyBorderToArrival">Скопировать в гр.18 ↓</a-button>
+      </div>
     </div>
 
     <div class="dt-grid-2">
@@ -52,7 +55,10 @@
           :disabled="readonly" placeholder="319" style="max-width: 200px" @change="emitChange" />
         <a-button v-if="!readonly" type="text" danger size="small" @click="removeArrivalTransport(i)">✕</a-button>
       </div>
-      <a-button v-if="!readonly" type="dashed" size="small" @click="addArrivalTransport">+ Номер ТС (прибытие)</a-button>
+      <div class="transport-actions">
+        <a-button v-if="!readonly" type="dashed" size="small" @click="addArrivalTransport">+ Номер ТС (прибытие)</a-button>
+        <a-button v-if="!readonly && form.arrivalTransportNumbers.length" size="small" @click="copyArrivalToBorder">Скопировать в гр.21 ↑</a-button>
+      </div>
     </div>
   </div>
 </template>
@@ -120,6 +126,20 @@ function addArrivalTransport() {
 }
 function removeArrivalTransport(idx: number) {
   form.arrivalTransportNumbers.splice(idx, 1)
+  emitChange()
+}
+// Для авто-перевозки ТС на границе (гр.21) обычно = ТС при прибытии (гр.18):
+// копируем номера/типы между графами, чтобы не вводить дважды.
+function copyBorderToArrival() {
+  form.arrivalTransportNumbers = form.borderTransportNumbers.map((m) => ({ ...m }))
+  if (!form.arrivalTransportModeCode) form.arrivalTransportModeCode = form.borderTransportModeCode
+  if (!form.arrivalTransportNationality) form.arrivalTransportNationality = form.borderTransportNationality
+  emitChange()
+}
+function copyArrivalToBorder() {
+  form.borderTransportNumbers = form.arrivalTransportNumbers.map((m) => ({ ...m }))
+  if (!form.borderTransportModeCode) form.borderTransportModeCode = form.arrivalTransportModeCode
+  if (!form.borderTransportNationality) form.borderTransportNationality = form.arrivalTransportNationality
   emitChange()
 }
 </script>
