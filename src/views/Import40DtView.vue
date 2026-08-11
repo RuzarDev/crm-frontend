@@ -526,6 +526,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     goodsItemIndex: d.goodsItemIndex ?? null,
     docStartDate: d.docStartDate ?? null,
     docValidityDate: d.docValidityDate ?? null,
+    issueCountryCode: d.issueCountryCode ?? null,
   }))
 }
 

@@ -943,6 +943,7 @@ export interface Import40Doc44ItemInput extends ReestrDoc44ItemInput {
   goodsItemIndex?: number | null
   docStartDate?: string | null
   docValidityDate?: string | null
+  issueCountryCode?: string | null
 }
 
 export const EAES_DOC_CODES: { code: string; name: string }[] = [

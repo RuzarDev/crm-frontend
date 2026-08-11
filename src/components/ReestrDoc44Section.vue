@@ -103,6 +103,15 @@
               @update:value="(v: string) => { (item as Import40Doc44ItemInput).docValidityDate = v || null; emitChange() }"
             />
           </div>
+          <div class="field" style="flex: 0 0 200px;">
+            <div class="field-label">Страна выдачи (для сертификатов)</div>
+            <a-select
+              :value="(item as Import40Doc44ItemInput).issueCountryCode ?? null"
+              size="small" :disabled="readonly" show-search allow-clear :options="countryOptions"
+              :filter-option="filterCountry" placeholder="KZ / CN…" style="width: 200px"
+              @change="(v: string | null) => { (item as Import40Doc44ItemInput).issueCountryCode = v ?? null; emitChange() }"
+            />
+          </div>
         </div>
       </div>
 
@@ -121,7 +130,11 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { ReestrDoc44ItemInput, Import40Doc44ItemInput } from '@/types/api'
-import { EAES_DOC_CODES } from '@/types/api'
+import { EAES_DOC_CODES, ALPHA2_COUNTRIES } from '@/types/api'
+
+const countryOptions = ALPHA2_COUNTRIES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+const filterCountry = (input: string, option: { label: string }) =>
+  option.label.toLowerCase().includes(input.toLowerCase())
 
 const props = defineProps<{
   modelValue: ReestrDoc44ItemInput[]
@@ -171,6 +184,7 @@ function addItem() {
     goodsItemIndex: null,
     docStartDate: null,
     docValidityDate: null,
+    issueCountryCode: null,
   })
   emitChange()
 }
