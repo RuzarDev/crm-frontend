@@ -214,6 +214,7 @@ a {
 .crm-page-title {
   margin: 0;
   color: var(--atg-ink);
+  font-family: var(--font-heading);
   font-size: 26px;
   line-height: 1.15;
   font-weight: 800;
@@ -1208,4 +1209,25 @@ a {
     width: 100% !important;
     max-width: none !important;
   }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Слой полировки — утилиты Zircon (Task 4)
+   ══════════════════════════════════════════════════════════ */
+
+.z-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.z-label {
+  font: 600 10.5px/1 var(--font-body);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--z-muted);
+}
+
+/* Карточки: единый радиус/тень (консервативно — не переопределяет цвет/фон) */
+.ant-card {
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-1);
 }
