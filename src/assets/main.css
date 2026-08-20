@@ -5,54 +5,97 @@
 }
 
 :root {
+  /* ══════════════════════════════════════════════════════════
+     Zircon design tokens — source of truth (--z-*)
+     См. docs/superpowers/specs/2026-08-20-zircon-ui-redesign-design.md §1
+     ══════════════════════════════════════════════════════════ */
+
+  /* Бренд */
+  --z-navy:        #1B2A4A;   --z-navy-2:   #26385C;   --z-navy-3: #2b3f6b;
+  --z-teal:        #2BBCD4;   --z-teal-d:   #1FA8C0;   --z-teal-soft: #E4F6FB;
+  --z-gold:        #C9A84C;   --z-gold-soft:#F6ECD2;
+
+  /* Нейтральные (основная масса интерфейса) */
+  --z-ink:         #1B2A4A;   /* текст первичный   */
+  --z-ink-2:       #475569;   /* текст вторичный   */
+  --z-muted:       #8C95A6;   /* подписи/плейсхолдер */
+  --z-line:        #E8EBF2;   /* границы           */
+  --z-line-strong: #CBD5E1;
+  --z-bg:          #F5F7FB;   /* фон приложения    */
+  --z-surface:     #FFFFFF;   /* карточки/панели   */
+  --z-surface-2:   #EEF1F7;   /* приглушённые блоки */
+
+  /* Семантика статусов (функциональный цвет) */
+  --z-success:  #1F9D6A;  --z-success-soft: #E4F2EA;   /* Выпущено          */
+  --z-warning:  #B78A1E;  --z-warning-soft: #F6ECD2;   /* Подан/внимание    */
+  --z-danger:   #C4483B;  --z-danger-soft:  #FBE9E7;   /* Ошибка/проблемный */
+  --z-info:     #1FA8C0;  --z-info-soft:    #E4F6FB;   /* В работе/инфо     */
+  --z-neutral:  #64748B;  --z-neutral-soft: #EEF1F7;   /* Черновик/архив    */
+
+  /* Ритм (сетка 4px) */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
+
+  /* Скругления и тени */
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 18px; --r-pill: 999px;
+  --sh-1: 0 1px 2px rgba(16, 24, 40, .06);
+  --sh-2: 0 4px 12px -4px rgba(27, 42, 74, .12);
+  --sh-3: 0 14px 32px -12px rgba(27, 42, 74, .20);
+
+  /* Типографика */
+  --font-heading: 'Manrope', 'Inter', system-ui, sans-serif;   /* заголовки, цифры KPI */
+  --font-body:    'Inter', system-ui, sans-serif;              /* текст, данные        */
+
+  /* ══════════════════════════════════════════════════════════
+     Legacy --atg-* aliases — НЕ удалять (много потребителей).
+     Значения указывают на --z-* — источник правды выше.
+     ══════════════════════════════════════════════════════════ */
+
   /* ── Brandbook official colors (ATG_Brandbook.pdf) ──────── */
-  --atg-navy:          #1B2A4A;   /* Основной синий — sidebar, header     */
-  --atg-teal:          #2BBCD4;   /* Бирюзовый — primary accent, buttons  */
-  --atg-teal-dark:     #1FA8C0;   /* Бирюзовый тёмный                     */
-  --atg-teal-soft:     #DFF5FA;   /* Бирюзовый очень светлый              */
-  --atg-gold:          #C9A84C;   /* Золотой — secondary accent           */
-  --atg-gold-soft:     #F5EDD9;   /* Золотой светлый                      */
-  --atg-gray:          #8C8C8C;   /* Серый                                */
+  --atg-navy:          var(--z-navy);        /* Основной синий — sidebar, header     */
+  --atg-teal:          var(--z-teal);        /* Бирюзовый — primary accent, buttons  */
+  --atg-teal-dark:     var(--z-teal-d);      /* Бирюзовый тёмный                     */
+  --atg-teal-soft:     var(--z-teal-soft);   /* Бирюзовый очень светлый              */
+  --atg-gold:          var(--z-gold);        /* Золотой — secondary accent           */
+  --atg-gold-soft:     var(--z-gold-soft);   /* Золотой светлый                      */
+  --atg-gray:          var(--z-muted);       /* Серый                                */
 
   /* ── Semantic aliases ───────────────────────────────────── */
-  --atg-ink:           #1B2A4A;
-  --atg-ink-soft:      #243560;
-  --atg-charcoal:      #2D3F6A;
-  --atg-text:          #1B2A4A;
-  --atg-muted:         #8C8C8C;
-  --atg-line:          #dde1ec;
-  --atg-line-strong:   #c4cad9;
-  --atg-bg:            #f3f5f9;
-  --atg-surface:       #ffffff;
-  --atg-surface-muted: #eaecf5;
+  --atg-ink:           var(--z-ink);
+  --atg-ink-soft:      var(--z-navy-2);
+  --atg-charcoal:      var(--z-navy-3);
+  --atg-text:          var(--z-ink);
+  --atg-muted:         var(--z-muted);
+  --atg-line:          var(--z-line);
+  --atg-line-strong:   var(--z-line-strong);
+  --atg-bg:            var(--z-bg);
+  --atg-surface:       var(--z-surface);
+  --atg-surface-muted: var(--z-surface-2);
 
   /* Primary accent = Teal */
-  --atg-accent:        #2BBCD4;
-  --atg-accent-strong: #1FA8C0;
-  --atg-accent-soft:   #DFF5FA;
+  --atg-accent:        var(--z-teal);
+  --atg-accent-strong: var(--z-teal-d);
+  --atg-accent-soft:   var(--z-teal-soft);
 
   /* Legacy aliases */
-  --atg-cyan:          #2BBCD4;
-  --atg-cyan-soft:     #DFF5FA;
-  --atg-blue:          #2BBCD4;
-  --atg-green:         #286b4b;
-  --atg-green-soft:    #dcebe3;
-  --atg-red:           #b84a3c;
+  --atg-cyan:          var(--z-teal);
+  --atg-cyan-soft:     var(--z-teal-soft);
+  --atg-blue:          var(--z-teal);
+  --atg-green:         var(--z-success);
+  --atg-green-soft:    var(--z-success-soft);
+  --atg-red:           var(--z-danger);
 
-  --atg-shadow:    0 4px 20px rgba(27, 42, 74, 0.07), 0 1px 4px rgba(27, 42, 74, 0.04);
-  --atg-shadow-md: 0 8px 32px rgba(27, 42, 74, 0.1),  0 2px 8px rgba(27, 42, 74, 0.05);
-  --atg-shadow-lg: 0 20px 56px rgba(27, 42, 74, 0.14);
-  --atg-radius:    8px;
-  --atg-radius-sm: 6px;
-  --atg-radius-lg: 12px;
+  --atg-shadow:    var(--sh-1);
+  --atg-shadow-md: var(--sh-2);
+  --atg-shadow-lg: var(--sh-3);
+  --atg-radius:    var(--r-md);
+  --atg-radius-sm: var(--r-sm);
+  --atg-radius-lg: var(--r-lg);
   --atg-ease:      cubic-bezier(0.22, 0.68, 0, 1.12);
   --atg-transition: 0.16s ease;
 }
 
 body {
-  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-    'Noto Color Emoji';
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: var(--atg-text);
@@ -67,8 +110,9 @@ body {
 
 /* ─── Global Typography Scale ────────────────────────────── */
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+h1, h2, h3, h4, h5, h6,
+.page-title {
+  font-family: var(--font-heading);
   color: var(--atg-ink);
   line-height: 1.2;
   letter-spacing: -0.01em;
@@ -90,12 +134,18 @@ small {
   color: var(--atg-muted);
 }
 
-/* ─── Force Manrope for all Ant Design components ─────────── */
+/* Числовые данные (суммы, коды, колонки) — моноширинные цифры */
+.tabular-nums,
+.z-tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Force Inter for all Ant Design components ─────────── */
 .ant-btn, .ant-input, .ant-select, .ant-table, .ant-menu, .ant-modal,
 .ant-form, .ant-typography, .ant-tag, .ant-dropdown, .ant-tooltip,
 .ant-card, .ant-tabs, .ant-pagination, .ant-checkbox-wrapper, .ant-radio-wrapper,
 .ant-message, .ant-notification, .ant-drawer, .ant-popover {
-  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family: var(--font-body) !important;
 }
 
 a {
