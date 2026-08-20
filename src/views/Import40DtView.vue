@@ -37,7 +37,10 @@
           v-for="s in sections" :key="s.key" class="dt-nav-item"
           :class="{ active: activeSection === s.key }" @click.prevent="activeSection = s.key"
         >
-          <span class="dt-nav-mark" :class="{ done: sectionDone(s.key) }">{{ sectionDone(s.key) ? '✔' : '○' }}</span>
+          <span class="dt-nav-mark" :class="{ done: sectionDone(s.key) }">
+            <CheckCircleFilled v-if="sectionDone(s.key)" />
+            <span v-else class="dt-nav-mark-empty" />
+          </span>
           {{ s.title }}
         </a>
       </nav>
@@ -104,6 +107,7 @@
 import { computed, onMounted, ref, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
+import { CheckCircleFilled } from '@ant-design/icons-vue'
 import {
   import40Api,
   type Import40CaseDto,
@@ -936,9 +940,18 @@ onMounted(async () => {
 .dt-nav-mark {
   font-size: 12px;
   color: var(--atg-muted);
+  display: inline-flex;
+  align-items: center;
 }
 .dt-nav-mark.done {
   color: #52c41a;
+}
+.dt-nav-mark-empty {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
 }
 .dt-nav-item.active .dt-nav-mark {
   color: #fff;

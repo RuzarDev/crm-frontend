@@ -81,7 +81,7 @@
           </template>
           <a-date-picker v-model:value="p.rateDate" size="small" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD" placeholder="Дата" style="width: 130px" allow-clear @change="sync" />
           <a-input-number v-model:value="p.amountKzt" size="small" :disabled="readonly" placeholder="Сумма, ₸" style="width: 130px" @change="sync" />
-          <a-button v-if="!readonly" type="text" danger size="small" @click="removePayment(g, pi)">✕</a-button>
+          <a-button v-if="!readonly" type="text" danger size="small" @click="removePayment(g, pi)"><CloseOutlined /></a-button>
         </div>
       </a-collapse-panel>
     </a-collapse>
@@ -91,6 +91,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { CloseOutlined } from '@ant-design/icons-vue'
 import type { Import40GoodsItemInput, Import40GoodsPayment } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 

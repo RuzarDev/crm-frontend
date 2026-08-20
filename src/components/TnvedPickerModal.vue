@@ -11,7 +11,7 @@
           <template v-if="results !== null">
             <div class="picker-hint">
               Результаты поиска
-              <a class="picker-reset" @click="clearSearch">← дерево</a>
+              <a class="picker-reset" @click="clearSearch"><LeftOutlined /> дерево</a>
             </div>
             <div v-if="results.length === 0" class="picker-empty">Ничего не найдено</div>
             <div v-for="n in results" :key="n.id" class="picker-node" :class="{ active: selected?.id === n.id }"
@@ -79,6 +79,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { LeftOutlined } from '@ant-design/icons-vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedNodeDto, TnvedRateDto } from '@/types/api'
 

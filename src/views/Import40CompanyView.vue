@@ -85,7 +85,7 @@
               <a-tag v-if="profile?.isComplete" color="success">Заполнено</a-tag>
               <a-tag v-else color="warning">Заполните обязательные поля (*)</a-tag>
               <a-button type="primary" :loading="saving" @click="saveProfile">Сохранить реквизиты</a-button>
-              <a-button type="link" :disabled="!profile?.isComplete" @click="current = 1">Далее: договор →</a-button>
+              <a-button type="link" :disabled="!profile?.isComplete" @click="current = 1">Далее: договор <RightOutlined /></a-button>
             </div>
           </div>
 
@@ -122,8 +122,8 @@
           />
 
           <div class="step-nav">
-            <a-button v-if="current > 0" @click="current -= 1">← Назад</a-button>
-            <a-button v-if="current < 2" type="link" @click="current += 1">Далее →</a-button>
+            <a-button v-if="current > 0" @click="current -= 1"><LeftOutlined /> Назад</a-button>
+            <a-button v-if="current < 2" type="link" @click="current += 1">Далее <RightOutlined /></a-button>
           </div>
         </div>
       </a-card>
@@ -137,6 +137,8 @@ import { message } from 'ant-design-vue'
 import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
+  LeftOutlined,
+  RightOutlined,
 } from '@ant-design/icons-vue'
 import {
   import40ContractApi,

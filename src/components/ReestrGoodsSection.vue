@@ -13,7 +13,7 @@
     <div v-for="(item, idx) in items" :key="idx" class="goods-card">
       <div class="card-top">
         <span class="card-num" title="Порядковый номер товара">{{ idx + 1 }}</span>
-        <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)">✕</a-button>
+        <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /></a-button>
       </div>
 
       <!-- Row: код тнвэд + найти + описание из тнвэд -->
@@ -197,6 +197,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
+import { CloseOutlined } from '@ant-design/icons-vue'
 import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
 import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
