@@ -45,6 +45,8 @@ declare module 'vue' {
     APopconfirm: typeof import('ant-design-vue/es')['Popconfirm']
     APopover: typeof import('ant-design-vue/es')['Popover']
     AProgress: typeof import('ant-design-vue/es')['Progress']
+    ARadio: typeof import('ant-design-vue/es')['Radio']
+    ARadioGroup: typeof import('ant-design-vue/es')['RadioGroup']
     ARangePicker: typeof import('ant-design-vue/es')['RangePicker']
     ARow: typeof import('ant-design-vue/es')['Row']
     ASelect: typeof import('ant-design-vue/es')['Select']
@@ -106,5 +108,6 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     SigexSignModal: typeof import('./src/components/SigexSignModal.vue')['default']
     TnvedDeprecationAlert: typeof import('./src/components/TnvedDeprecationAlert.vue')['default']
+    TnvedPickerModal: typeof import('./src/components/TnvedPickerModal.vue')['default']
   }
 }

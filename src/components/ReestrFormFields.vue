@@ -27,7 +27,16 @@
           class="field-row"
         >
           <div class="field-label">{{ key }}</div>
+          <a-auto-complete
+            v-if="key === 'Пост' || key === 'Станция назначения'"
+            v-model:value="formState.fields[key]"
+            :options="key === 'Пост' ? postOptions : stationOptions"
+            :filter-option="filterRefOption"
+            :placeholder="key === 'Пост' ? 'Код/название поста' : 'Код/название станции'"
+            size="small" :disabled="readonly" style="width: 100%"
+          />
           <a-input
+            v-else
             v-model:value="formState.fields[key]"
             placeholder="—"
             size="small"
@@ -71,9 +80,31 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import type { ReestrEntryStatus, ReestrGoodsItemInput, ReestrDoc44ItemInput } from '@/types/api'
 import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
 import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
+import { referencesApi } from '@/api/references'
+
+type RefOption = { value: string; label: string }
+const postOptions = ref<RefOption[]>([])
+const stationOptions = ref<RefOption[]>([])
+
+const filterRefOption = (input: string, option: RefOption) =>
+  (option.label ?? '').toLowerCase().includes(input.toLowerCase())
+
+onMounted(async () => {
+  try {
+    const [posts, stations] = await Promise.all([
+      referencesApi.listCustomsPosts(),
+      referencesApi.listStations(),
+    ])
+    postOptions.value = posts.map((p) => ({ value: p.name, label: p.name }))
+    stationOptions.value = stations.map((s) => ({ value: s.name, label: s.name }))
+  } catch {
+    // справочники недоступны — поля остаются свободным вводом
+  }
+})
 
 interface FormState {
   fields: Record<string, string | null>
