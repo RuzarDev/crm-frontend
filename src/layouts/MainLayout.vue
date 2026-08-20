@@ -469,7 +469,7 @@ const handleLogout = () => {
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--sp-3, 12px);
+  gap: 14px;
   min-width: 0;
   color: #f0f3ff;
   flex-shrink: 0;
@@ -504,7 +504,7 @@ const handleLogout = () => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: var(--sp-2, 10px);
+  gap: 10px;
   min-width: 0;
   flex-shrink: 0;
 }

@@ -1,5 +1,9 @@
 import { theme } from 'ant-design-vue'
 
+// ВНИМАНИЕ: значения цветов/радиусов здесь — «сырые» хексы, продублированные из
+// дизайн-токенов --z-* в src/assets/main.css (AntD ConfigProvider не читает CSS-переменные).
+// При изменении бренд-токенов в main.css СИНХРОНИЗИРУЙТЕ значения здесь вручную.
+
 export const zirconTheme = {
   token: {
     colorPrimary: '#2BBCD4',
