@@ -154,7 +154,7 @@ import { tnvedApi } from '@/api/tnved'
 import type { TnvedCurrencyDto } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 import atgLogoSvgRaw from '@/assets/atg-logo-group.svg?raw'
-import PageHeader from '@/components/ui/PageHeader.vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const classifiers = useClassifiersStore()
 

@@ -135,7 +135,7 @@ import {
   InboxOutlined,
   ReloadOutlined,
 } from '@ant-design/icons-vue'
-import PageHeader from '@/components/ui/PageHeader.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import StatTile from '@/components/ui/StatTile.vue'
 import StatusPill from '@/components/ui/StatusPill.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
