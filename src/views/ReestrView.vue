@@ -86,34 +86,50 @@
 
         <a-table
           :columns="columns"
-          :data-source="reestrStore.entries"
+          :data-source="tableDataSource"
           :loading="reestrStore.loading"
           :pagination="pagination"
           :row-selection="rowSelection"
-          :row-key="(record: ReestrEntry) => record.id"
+          :row-key="(record: ReestrTableRow) => record.id"
           @change="handleTableChange"
           :scroll="{ x: 1000 }"
         >
           <template #bodyCell="{ column, record, index }">
             <template v-if="column.key === 'rowNumber'">
-              {{ getRowNumber(index) }}
+              <template v-if="record.isConsolidationGroup">—</template>
+              <template v-else-if="record.isConsolidationChild">↳</template>
+              <template v-else>{{ getRowNumber(index) }}</template>
             </template>
 
             <template v-else-if="String(column.key).startsWith('field:')">
-              {{
-                formatReestrCellForDisplay(
-                  String(column.key).slice(6),
-                  record.data[String(column.key).slice(6)] ?? null,
-                )
-              }}
+              <template v-if="record.isConsolidationGroup">
+                <template v-if="String(column.key).slice(6) === 'Количество мест'">
+                  {{ record.groupPlaces ?? '—' }}
+                </template>
+                <template v-else-if="String(column.key).slice(6) === 'Вес'">
+                  {{ record.groupWeight ?? '—' }}
+                </template>
+                <template v-else>—</template>
+              </template>
+              <template v-else>
+                {{
+                  formatReestrCellForDisplay(
+                    String(column.key).slice(6),
+                    record.data[String(column.key).slice(6)] ?? null,
+                  )
+                }}
+              </template>
             </template>
 
             <template v-else-if="column.key === 'reestrStatus'">
-              <ReestrStatusCell :status="record.status" />
+              <a-tag v-if="record.isConsolidationGroup" color="blue">
+                Консолидация · {{ record.groupCount }} поз.
+              </a-tag>
+              <ReestrStatusCell v-else :status="record.status" />
             </template>
 
             <template v-else-if="column.key === 'actions'">
-              <div v-if="canShowActions" class="row-actions">
+              <div v-if="canShowActions && !record.isConsolidationGroup" class="row-actions">
                 <a-tooltip v-if="isClient" title="Документы">
                   <a-button
                     type="text"
@@ -305,6 +321,87 @@ const statusModalValue = ref<ReestrEntryStatus>(ReestrEntryStatusValues.Released
 
 const reestrStatusSelectOptions = REESTR_STATUS_OPTIONS
 
+// --- Консолидация в реестре ---
+// Клиентская группировка строк текущей страницы по sourceConsolidationId.
+// ВНИМАНИЕ: бэк пока НЕ отдаёт это поле в ответе списка (см. types/api.ts,
+// ReestrEntryDto.sourceConsolidationId) — до тех пор группы не формируются,
+// все строки рендерятся как раньше.
+interface ReestrTableRow extends ReestrEntry {
+  isConsolidationGroup?: boolean
+  isConsolidationChild?: boolean
+  groupCount?: number
+  groupPlaces?: number | null
+  groupWeight?: number | null
+  children?: ReestrTableRow[]
+}
+
+const parseNumericField = (value: string | null | undefined): number | null => {
+  if (value == null || value === '') {
+    return null
+  }
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+const sumField = (entries: ReestrEntry[], key: string): number | null => {
+  let sum = 0
+  let hasValue = false
+  for (const entry of entries) {
+    const n = parseNumericField(entry.data[key])
+    if (n != null) {
+      sum += n
+      hasValue = true
+    }
+  }
+  return hasValue ? sum : null
+}
+
+const tableDataSource = computed<ReestrTableRow[]>(() => {
+  const list = reestrStore.entries
+  const membersByGroup = new Map<string, ReestrEntry[]>()
+  for (const entry of list) {
+    const cid = entry.sourceConsolidationId
+    if (!cid) {
+      continue
+    }
+    if (!membersByGroup.has(cid)) {
+      membersByGroup.set(cid, [])
+    }
+    membersByGroup.get(cid)!.push(entry)
+  }
+
+  const seenGroups = new Set<string>()
+  const result: ReestrTableRow[] = []
+  for (const entry of list) {
+    const cid = entry.sourceConsolidationId
+    if (!cid) {
+      result.push(entry)
+      continue
+    }
+    const members = membersByGroup.get(cid) ?? [entry]
+    if (members.length < 2) {
+      // Одиночная запись — консолидация её не касается визуально.
+      result.push(entry)
+      continue
+    }
+    if (seenGroups.has(cid)) {
+      // Остальные члены группы уже показаны как дочерние строки.
+      continue
+    }
+    seenGroups.add(cid)
+    result.push({
+      ...members[0],
+      id: `consolidation:${cid}`,
+      isConsolidationGroup: true,
+      groupCount: members.length,
+      groupPlaces: sumField(members, 'Количество мест'),
+      groupWeight: sumField(members, 'Вес'),
+      children: members.map((member) => ({ ...member, isConsolidationChild: true })),
+    })
+  }
+  return result
+})
+
 const orderedFieldColumns: string[] = [...REESTR_COLUMN_KEYS]
 
 // Колонки где важно видеть полное значение — без обрезания
@@ -422,6 +519,7 @@ const rowSelection = computed(() => {
     onChange: (keys: (string | number)[]) => {
       selectedRowKeys.value = keys.map((key) => String(key))
     },
+    getCheckboxProps: (record: ReestrTableRow) => ({ disabled: !!record.isConsolidationGroup }),
   }
 })
 

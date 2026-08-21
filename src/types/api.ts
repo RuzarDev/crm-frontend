@@ -239,6 +239,10 @@ export interface ReestrEntryDto {
   cargoOperations?: ReestrCargoOperationDto[] | null
   guarantees?: ReestrGuaranteeDto[] | null
   deprecationWarning?: TnvedDeprecationWarningDto | null
+  // Заполняется бэком при создании из консолидации пакета документов; в ответе
+  // списка реестра пока НЕ сериализуется (см. ReestrEntryMapper.ToDto) — поле
+  // добавлено заранее для клиентской группировки, как только бэк начнёт его отдавать.
+  sourceConsolidationId?: string | null
 }
 
 export interface ReestrEntry {
@@ -246,6 +250,8 @@ export interface ReestrEntry {
   createdAtUtc: string
   status: ReestrEntryStatus
   clientId: string
+  /** См. комментарий у ReestrEntryDto.sourceConsolidationId — сейчас всегда null/undefined. */
+  sourceConsolidationId?: string | null
   data: Record<string, string | null>
   deprecationWarning?: TnvedDeprecationWarningDto | null
   goods: ReestrGoodsItemInput[]
