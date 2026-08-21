@@ -68,6 +68,7 @@ declare module 'vue' {
     ATypographyText: typeof import('ant-design-vue/es')['TypographyText']
     AUpload: typeof import('ant-design-vue/es')['Upload']
     AUploadDragger: typeof import('ant-design-vue/es')['UploadDragger']
+    ContainersBlock: typeof import('./src/components/reestr/ContainersBlock.vue')['default']
     DtGraphLabel: typeof import('./src/components/import40/dt/DtGraphLabel.vue')['default']
     DtPrevDocsSection: typeof import('./src/components/import40/dt/DtPrevDocsSection.vue')['default']
     DtSectionClosing: typeof import('./src/components/import40/dt/DtSectionClosing.vue')['default']
@@ -82,6 +83,9 @@ declare module 'vue' {
     EmptyState: typeof import('./src/components/ui/EmptyState.vue')['default']
     ExcelUpload: typeof import('./src/components/ExcelUpload.vue')['default']
     ExtractionReviewModal: typeof import('./src/components/ExtractionReviewModal.vue')['default']
+    GeneralInfoBlock: typeof import('./src/components/reestr/GeneralInfoBlock.vue')['default']
+    GoodsShipmentBlock: typeof import('./src/components/reestr/GoodsShipmentBlock.vue')['default']
+    IdentificationMeansBlock: typeof import('./src/components/reestr/IdentificationMeansBlock.vue')['default']
     Import40DocumentStep: typeof import('./src/components/Import40DocumentStep.vue')['default']
     Import40FactPaymentsSection: typeof import('./src/components/Import40FactPaymentsSection.vue')['default']
     Import40FileChips: typeof import('./src/components/Import40FileChips.vue')['default']
@@ -93,6 +97,7 @@ declare module 'vue' {
     InvoiceFileSection: typeof import('./src/components/InvoiceFileSection.vue')['default']
     InvoiceGoodsImporter: typeof import('./src/components/InvoiceGoodsImporter.vue')['default']
     NonTariffMeasureGroups: typeof import('./src/components/NonTariffMeasureGroups.vue')['default']
+    PackagingBlock: typeof import('./src/components/reestr/PackagingBlock.vue')['default']
     PageHeader: typeof import('./src/components/PageHeader.vue')['default']
     PartyAddressFields: typeof import('./src/components/PartyAddressFields.vue')['default']
     PendingInvoicePicker: typeof import('./src/components/PendingInvoicePicker.vue')['default']
@@ -112,5 +117,6 @@ declare module 'vue' {
     StatusPill: typeof import('./src/components/ui/StatusPill.vue')['default']
     TnvedDeprecationAlert: typeof import('./src/components/TnvedDeprecationAlert.vue')['default']
     TnvedPickerModal: typeof import('./src/components/TnvedPickerModal.vue')['default']
+    TransportMeansBlock: typeof import('./src/components/reestr/TransportMeansBlock.vue')['default']
   }
 }
