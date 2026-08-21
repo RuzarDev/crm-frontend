@@ -578,6 +578,16 @@ const handleFormSubmit = async (payload: {
   clientId?: string
   goods?: import('@/types/api').ReestrGoodsItemInput[]
   doc44?: import('@/types/api').ReestrDoc44ItemInput[]
+  transit?: import('@/types/api').ReestrTransitFields
+  organizations?: import('@/types/api').ReestrOrganizationInput[]
+  carriers?: import('@/types/api').ReestrCarrierInput[]
+  transportMeans?: import('@/types/api').ReestrTransportMeansInput[]
+  identificationMeans?: import('@/types/api').ReestrIdentificationMeansInput[]
+  packages?: import('@/types/api').ReestrPackageInput[]
+  containers?: import('@/types/api').ReestrContainerInput[]
+  precedingDocs?: import('@/types/api').ReestrPrecedingDocInput[]
+  cargoOperations?: import('@/types/api').ReestrCargoOperationInput[]
+  guarantees?: import('@/types/api').ReestrGuaranteeInput[]
 }) => {
   formLoading.value = true
   try {
@@ -585,7 +595,23 @@ const handleFormSubmit = async (payload: {
     if (!clientId) {
       return
     }
-    const body = reestrDataToUpsertBody(payload.data, payload.status, clientId, payload.goods ?? [], payload.doc44 ?? [])
+    const body = reestrDataToUpsertBody(
+      payload.data,
+      payload.status,
+      clientId,
+      payload.goods ?? [],
+      payload.doc44 ?? [],
+      payload.transit,
+      payload.organizations ?? [],
+      payload.carriers ?? [],
+      payload.transportMeans ?? [],
+      payload.identificationMeans ?? [],
+      payload.packages ?? [],
+      payload.containers ?? [],
+      payload.precedingDocs ?? [],
+      payload.cargoOperations ?? [],
+      payload.guarantees ?? [],
+    )
     let success = false
     if (currentEntry.value) {
       success = await reestrStore.update(currentEntry.value.id, body)

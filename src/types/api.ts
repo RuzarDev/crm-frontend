@@ -196,8 +196,48 @@ export interface ReestrEntryDto {
   createdByRole?: string | null
   sealNumber?: string | null
   packagingType?: string | null
+  // --- КЕДЕН-транзит: § 1 Общие сведения ---
+  purposeCode?: string | null
+  departureCustomsOffice?: string | null
+  entryMethodCode?: string | null
+  movementDirectionCode?: string | null
+  usedAsDeclarationCode?: string | null
+  goodsQuantity?: number | null
+  cargoPlacesCount?: number | null
+  departureCountryCode?: string | null
+  destinationCountryCode?: string | null
+  grossWeightKg?: number | null
+  totalValue?: number | null
+  docCurrencyCode?: string | null
+  transportDocTypeCode?: string | null
+  transportDocNumber?: string | null
+  transportDocDate?: string | null
+  // --- КЕДЕН-транзит: § 5 Товарная партия ---
+  isMultimodal?: boolean
+  transportModeCode?: string | null
+  loadingCountryCode?: string | null
+  loadingRailStation?: string | null
+  unloadingCountryCode?: string | null
+  unloadingRailStation?: string | null
+  destinationCustomsOffice?: string | null
+  packagingInfoCode?: string | null
+  // --- КЕДЕН-транзит: § 8-12 ---
+  tempStoragePlace?: string | null
+  destinationPlace?: string | null
+  submitterType?: string | null
+  submitterBin?: string | null
+  submitterName?: string | null
   goodsItems?: ReestrGoodsItemDto[] | null
   doc44Items?: ReestrDoc44ItemDto[] | null
+  organizations?: ReestrOrganizationDto[] | null
+  carriers?: ReestrCarrierDto[] | null
+  transportMeans?: ReestrTransportMeansDto[] | null
+  identificationMeans?: ReestrIdentificationMeansDto[] | null
+  packages?: ReestrPackageDto[] | null
+  containers?: ReestrContainerDto[] | null
+  precedingDocs?: ReestrPrecedingDocDto[] | null
+  cargoOperations?: ReestrCargoOperationDto[] | null
+  guarantees?: ReestrGuaranteeDto[] | null
   deprecationWarning?: TnvedDeprecationWarningDto | null
 }
 
@@ -210,6 +250,50 @@ export interface ReestrEntry {
   deprecationWarning?: TnvedDeprecationWarningDto | null
   goods: ReestrGoodsItemInput[]
   doc44: ReestrDoc44ItemInput[]
+  // --- КЕДЕН-транзит ---
+  transit: ReestrTransitFields
+  organizations: ReestrOrganizationInput[]
+  carriers: ReestrCarrierInput[]
+  transportMeans: ReestrTransportMeansInput[]
+  identificationMeans: ReestrIdentificationMeansInput[]
+  packages: ReestrPackageInput[]
+  containers: ReestrContainerInput[]
+  precedingDocs: ReestrPrecedingDocInput[]
+  cargoOperations: ReestrCargoOperationInput[]
+  guarantees: ReestrGuaranteeInput[]
+}
+
+// Скалярные поля КЕДЕН-транзита, вынесенные из ReestrEntry.data (которое
+// исторически строковая мапа под старые Excel-колонки реестра).
+export interface ReestrTransitFields {
+  purposeCode: string | null
+  departureCustomsOffice: string | null
+  entryMethodCode: string | null
+  movementDirectionCode: string | null
+  usedAsDeclarationCode: string | null
+  goodsQuantity: number | null
+  cargoPlacesCount: number | null
+  departureCountryCode: string | null
+  destinationCountryCode: string | null
+  grossWeightKg: number | null
+  totalValue: number | null
+  docCurrencyCode: string | null
+  transportDocTypeCode: string | null
+  transportDocNumber: string | null
+  transportDocDate: string | null
+  isMultimodal: boolean
+  transportModeCode: string | null
+  loadingCountryCode: string | null
+  loadingRailStation: string | null
+  unloadingCountryCode: string | null
+  unloadingRailStation: string | null
+  destinationCustomsOffice: string | null
+  packagingInfoCode: string | null
+  tempStoragePlace: string | null
+  destinationPlace: string | null
+  submitterType: string | null
+  submitterBin: string | null
+  submitterName: string | null
 }
 
 export interface ReestrUpsertBody {
@@ -239,6 +323,46 @@ export interface ReestrUpsertBody {
   clientId: string
   goodsItems?: ReestrGoodsItemInput[] | null
   doc44Items?: ReestrDoc44ItemInput[] | null
+  // --- КЕДЕН-транзит: § 1 Общие сведения ---
+  purposeCode?: string | null
+  departureCustomsOffice?: string | null
+  entryMethodCode?: string | null
+  movementDirectionCode?: string | null
+  usedAsDeclarationCode?: string | null
+  goodsQuantity?: number | null
+  cargoPlacesCount?: number | null
+  departureCountryCode?: string | null
+  destinationCountryCode?: string | null
+  grossWeightKg?: number | null
+  totalValue?: number | null
+  docCurrencyCode?: string | null
+  transportDocTypeCode?: string | null
+  transportDocNumber?: string | null
+  transportDocDate?: string | null
+  // --- КЕДЕН-транзит: § 5 Товарная партия ---
+  isMultimodal?: boolean
+  transportModeCode?: string | null
+  loadingCountryCode?: string | null
+  loadingRailStation?: string | null
+  unloadingCountryCode?: string | null
+  unloadingRailStation?: string | null
+  destinationCustomsOffice?: string | null
+  packagingInfoCode?: string | null
+  // --- КЕДЕН-транзит: § 8-12 ---
+  tempStoragePlace?: string | null
+  destinationPlace?: string | null
+  submitterType?: string | null
+  submitterBin?: string | null
+  submitterName?: string | null
+  organizations?: ReestrOrganizationInput[] | null
+  carriers?: ReestrCarrierInput[] | null
+  transportMeans?: ReestrTransportMeansInput[] | null
+  identificationMeans?: ReestrIdentificationMeansInput[] | null
+  packages?: ReestrPackageInput[] | null
+  containers?: ReestrContainerInput[] | null
+  precedingDocs?: ReestrPrecedingDocInput[] | null
+  cargoOperations?: ReestrCargoOperationInput[] | null
+  guarantees?: ReestrGuaranteeInput[] | null
 }
 
 export interface ChangeReestrEntryStatusRequest {
@@ -542,6 +666,16 @@ export interface RefCodeItem {
   id: string
   code: string
   name: string
+  isActive: boolean
+}
+
+// ref/foreign-customs-offices — иностранные таможенные органы назначения
+// (§5 DestinationCustomsOffice в КЕДЕН-транзите).
+export interface RefForeignCustomsOfficeDto {
+  id: string
+  code: string
+  name: string
+  countryCode: string | null
   isActive: boolean
 }
 
@@ -862,6 +996,172 @@ export interface ReestrDoc44ItemInput {
   docTypeName: string | null
   docNumber: string | null
   docDate: string | null
+}
+
+// ── Reestr КЕДЕН-транзит: дочерние коллекции ──────────────────────────────────
+// Зеркалируют CRM.API.Contracts.ReestrContracts (Organizations/Carriers/…).
+
+// § 2. Организации (декларант / отправитель / получатель).
+export interface ReestrOrganizationDto {
+  id: string
+  sortOrder: number
+  role: string
+  subjectType: string | null
+  bin: string | null
+  name: string | null
+  shortName: string | null
+  address: string | null
+  phone: string | null
+  email: string | null
+}
+
+export interface ReestrOrganizationInput {
+  role: string
+  subjectType: string | null
+  bin: string | null
+  name: string | null
+  shortName: string | null
+  address: string | null
+  phone: string | null
+  email: string | null
+}
+
+// § 3. Перевозчики и представители при транзите.
+export interface ReestrCarrierDto {
+  id: string
+  sortOrder: number
+  role: string
+  subjectType: string | null
+  bin: string | null
+  name: string | null
+  countryCode: string | null
+  phone: string | null
+  email: string | null
+}
+
+export interface ReestrCarrierInput {
+  role: string
+  subjectType: string | null
+  bin: string | null
+  name: string | null
+  countryCode: string | null
+  phone: string | null
+  email: string | null
+}
+
+// § 4. ТС на границе.
+export interface ReestrTransportMeansDto {
+  id: string
+  sortOrder: number
+  transportModeCode: string | null
+  purposeCode: string | null
+  vehicleTypeCode: string | null
+  wagonOrContainerNumber: string | null
+  isEmpty: boolean
+  isWagonReturn: boolean
+  inContainer: boolean
+  matchesTransitVehicle: boolean
+}
+
+export interface ReestrTransportMeansInput {
+  transportModeCode: string | null
+  purposeCode: string | null
+  vehicleTypeCode: string | null
+  wagonOrContainerNumber: string | null
+  isEmpty: boolean
+  isWagonReturn: boolean
+  inContainer: boolean
+  matchesTransitVehicle: boolean
+}
+
+// § 5. Средства идентификации.
+export interface ReestrIdentificationMeansDto {
+  id: string
+  sortOrder: number
+  noSeal: boolean
+  meansTypeCode: string | null
+  quantity: number | null
+  number: string | null
+}
+
+export interface ReestrIdentificationMeansInput {
+  noSeal: boolean
+  meansTypeCode: string | null
+  quantity: number | null
+  number: string | null
+}
+
+// § 5. Упаковка.
+export interface ReestrPackageDto {
+  id: string
+  sortOrder: number
+  packagingInfoKindCode: string | null
+  packageTypeCode: string | null
+  packageCount: number | null
+  description: string | null
+}
+
+export interface ReestrPackageInput {
+  packagingInfoKindCode: string | null
+  packageTypeCode: string | null
+  packageCount: number | null
+  description: string | null
+}
+
+// § 5. Контейнеры.
+export interface ReestrContainerDto {
+  id: string
+  sortOrder: number
+  containerNumber: string | null
+  note: string | null
+}
+
+export interface ReestrContainerInput {
+  containerNumber: string | null
+  note: string | null
+}
+
+// § 5. Предшествующие документы.
+export interface ReestrPrecedingDocDto {
+  id: string
+  sortOrder: number
+  docTypeCode: string | null
+  number: string | null
+  date: string | null
+}
+
+export interface ReestrPrecedingDocInput {
+  docTypeCode: string | null
+  number: string | null
+  date: string | null
+}
+
+// § 8. Грузовые операции.
+export interface ReestrCargoOperationDto {
+  id: string
+  sortOrder: number
+  operationTypeCode: string | null
+}
+
+export interface ReestrCargoOperationInput {
+  operationTypeCode: string | null
+}
+
+// § 10. Обеспечение.
+export interface ReestrGuaranteeDto {
+  id: string
+  sortOrder: number
+  guaranteeTypeCode: string | null
+  amount: number | null
+  currencyCode: string | null
+  number: string | null
+}
+
+export interface ReestrGuaranteeInput {
+  guaranteeTypeCode: string | null
+  amount: number | null
+  currencyCode: string | null
+  number: string | null
 }
 
 // ── Import40 КЕДЕН-типы ───────────────────────────────────────────────────────

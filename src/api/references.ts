@@ -1,5 +1,13 @@
 import apiClient from './client'
-import type { RefItem, RefCodeItem, ClassifierItem, ClassifierGroup, DtGuideEntry, RefExpenseTypeDto } from '@/types/api'
+import type {
+  RefItem,
+  RefCodeItem,
+  RefForeignCustomsOfficeDto,
+  ClassifierItem,
+  ClassifierGroup,
+  DtGuideEntry,
+  RefExpenseTypeDto,
+} from '@/types/api'
 
 export const referencesApi = {
   listStations: async (): Promise<RefItem[]> => (await apiClient.get('/ref/stations')).data,
@@ -19,6 +27,9 @@ export const referencesApi = {
   updateCountry: async (id: string, code: string, name: string, isActive: boolean): Promise<RefCodeItem> =>
     (await apiClient.put(`/ref/countries/${id}`, { code, name, isActive })).data,
   deleteCountry: async (id: string): Promise<void> => { await apiClient.delete(`/ref/countries/${id}`) },
+
+  listForeignCustomsOffices: async (): Promise<RefForeignCustomsOfficeDto[]> =>
+    (await apiClient.get('/ref/foreign-customs-offices')).data,
 
   listOkeiUnits: async (): Promise<RefCodeItem[]> => (await apiClient.get('/ref/okei-units')).data,
   createOkeiUnit: async (code: string, name: string): Promise<RefCodeItem> =>
