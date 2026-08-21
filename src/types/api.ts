@@ -1244,6 +1244,13 @@ export interface Import40Doc44ItemInput extends ReestrDoc44ItemInput {
   docStartDate?: string | null
   docValidityDate?: string | null
   issueCountryCode?: string | null
+  // КЕДЕН-транзит §7 (гр.44): расширение уровня UI. ВАЖНО — на бэкенде
+  // (ReestrDoc44Item/Import40DeclarationDoc44Item) колонок для этих трёх
+  // полей и файла-вложения пока нет, поэтому значения не персистятся
+  // (см. ReestrDoc44Section.vue "transitExtended" + отчёт Task 6).
+  authorizedBody?: string | null
+  authorizedBodyId?: string | null
+  formBlankNumber?: string | null
 }
 
 export const EAES_DOC_CODES: { code: string; name: string }[] = [

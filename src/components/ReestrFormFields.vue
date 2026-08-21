@@ -74,15 +74,20 @@
 
       <!-- 44 графа section -->
       <div class="subsection-title">44 Графа ТД</div>
-      <ReestrDoc44Section v-model="formState.doc44" :readonly="readonly" />
+      <ReestrDoc44Section v-model="formState.doc44" :readonly="readonly" transit-extended />
 
       <!-- КЕДЕН-транзит: сворачиваемые блоки, добавлены ниже существующей вёрстки -->
       <GeneralInfoBlock :transit="formState.transit" :readonly="readonly" />
       <GoodsShipmentBlock :transit="formState.transit" :readonly="readonly" />
+      <OrganizationsBlock v-model="formState.organizations" :readonly="readonly" />
+      <CarriersBlock v-model="formState.carriers" :readonly="readonly" />
       <TransportMeansBlock v-model="formState.transportMeans" :readonly="readonly" />
       <IdentificationMeansBlock v-model="formState.identificationMeans" :readonly="readonly" />
       <PackagingBlock v-model="formState.packages" :transit="formState.transit" :readonly="readonly" />
       <ContainersBlock v-model="formState.containers" :readonly="readonly" />
+      <PrecedingDocsBlock v-model="formState.precedingDocs" :readonly="readonly" />
+      <GuaranteeBlock v-model="formState.guarantees" :readonly="readonly" />
+      <MiscSectionsBlock v-model="formState.cargoOperations" :transit="formState.transit" :readonly="readonly" />
     </div>
   </a-form>
 </template>
@@ -94,19 +99,29 @@ import type {
   ReestrGoodsItemInput,
   ReestrDoc44ItemInput,
   ReestrTransitFields,
+  ReestrOrganizationInput,
+  ReestrCarrierInput,
   ReestrTransportMeansInput,
   ReestrIdentificationMeansInput,
   ReestrPackageInput,
   ReestrContainerInput,
+  ReestrPrecedingDocInput,
+  ReestrCargoOperationInput,
+  ReestrGuaranteeInput,
 } from '@/types/api'
 import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
 import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
 import GeneralInfoBlock from '@/components/reestr/GeneralInfoBlock.vue'
 import GoodsShipmentBlock from '@/components/reestr/GoodsShipmentBlock.vue'
+import OrganizationsBlock from '@/components/reestr/OrganizationsBlock.vue'
+import CarriersBlock from '@/components/reestr/CarriersBlock.vue'
 import TransportMeansBlock from '@/components/reestr/TransportMeansBlock.vue'
 import IdentificationMeansBlock from '@/components/reestr/IdentificationMeansBlock.vue'
 import PackagingBlock from '@/components/reestr/PackagingBlock.vue'
 import ContainersBlock from '@/components/reestr/ContainersBlock.vue'
+import PrecedingDocsBlock from '@/components/reestr/PrecedingDocsBlock.vue'
+import GuaranteeBlock from '@/components/reestr/GuaranteeBlock.vue'
+import MiscSectionsBlock from '@/components/reestr/MiscSectionsBlock.vue'
 import { referencesApi } from '@/api/references'
 
 type RefOption = { value: string; label: string }
@@ -138,10 +153,15 @@ interface FormState {
   goods: ReestrGoodsItemInput[]
   doc44: ReestrDoc44ItemInput[]
   transit: ReestrTransitFields
+  organizations: ReestrOrganizationInput[]
+  carriers: ReestrCarrierInput[]
   transportMeans: ReestrTransportMeansInput[]
   identificationMeans: ReestrIdentificationMeansInput[]
   packages: ReestrPackageInput[]
   containers: ReestrContainerInput[]
+  precedingDocs: ReestrPrecedingDocInput[]
+  cargoOperations: ReestrCargoOperationInput[]
+  guarantees: ReestrGuaranteeInput[]
 }
 
 defineProps<{
