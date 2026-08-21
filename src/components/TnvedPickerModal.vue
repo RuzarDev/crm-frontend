@@ -83,7 +83,7 @@ import { LeftOutlined } from '@ant-design/icons-vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedNodeDto, TnvedRateDto } from '@/types/api'
 
-const props = defineProps<{ open: boolean }>()
+const props = defineProps<{ open: boolean; initialQuery?: string }>()
 const emit = defineEmits<{
   (e: 'update:open', v: boolean): void
   (e: 'select', payload: { code: string; name: string }): void
@@ -167,6 +167,9 @@ watch(() => props.open, (v) => {
     // сброс + загрузка корня при открытии
     clearSearch(); selected.value = null; rates.value = []; measures.value = []; crumbs.value = []
     loadChildren(0)
+    // если передан начальный запрос (напр. неполный 6-значный код) — сразу ищем
+    const iq = (props.initialQuery || '').trim()
+    if (iq) { query.value = iq; doSearch() }
   }
 })
 </script>

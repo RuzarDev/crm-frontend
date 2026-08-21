@@ -191,7 +191,7 @@
       </div>
     </div>
 
-    <TnvedPickerModal v-model:open="pickerOpen" @select="onPickerSelect" />
+    <TnvedPickerModal v-model:open="pickerOpen" :initial-query="pickerQuery" @select="onPickerSelect" />
   </div>
 </template>
 
@@ -225,7 +225,8 @@ const emit = defineEmits<{
 // Пикер ТН ВЭД (поиск по дереву/коду + ставки/разрешения) для конкретной строки товара
 const pickerOpen = ref(false)
 const pickerTarget = ref<GoodsRow | null>(null)
-const openPicker = (item: GoodsRow) => { pickerTarget.value = item; pickerOpen.value = true }
+const pickerQuery = ref('')
+const openPicker = (item: GoodsRow) => { pickerTarget.value = item; pickerQuery.value = ''; pickerOpen.value = true }
 const onPickerSelect = (payload: { code: string; name: string }) => {
   const t = pickerTarget.value
   if (!t) return
@@ -277,6 +278,15 @@ async function lookupTnved(item: GoodsRow) {
   item.tnvedLoading = true
   try {
     const res = await tnvedApi.node(code)
+    // Неполный код (напр. 6 знаков = субпозиция) — не лист: открываем справочник
+    // с этим кодом, чтобы декларант выбрал конкретный 10-значный код.
+    if (!res.data.is10) {
+      item.tnvedLoading = false
+      pickerTarget.value = item
+      pickerQuery.value = code
+      pickerOpen.value = true
+      return
+    }
     item.tnvedDescription = res.data.name
     // Автоподстановка единицы измерения по ТНВЭД — только если поле ещё не заполнено вручную
     if (!item.unitCode && !item.unit) {
@@ -292,7 +302,11 @@ async function lookupTnved(item: GoodsRow) {
     }
     emit('update:modelValue', items.value.map(fromRow))
   } catch (e) {
+    // Код не найден точным совпадением (частичный/6-значный) — открываем справочник с поиском по нему
     console.error('Failed to look up TNVED code', e)
+    pickerTarget.value = item
+    pickerQuery.value = code
+    pickerOpen.value = true
   } finally {
     item.tnvedLoading = false
   }

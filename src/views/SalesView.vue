@@ -59,7 +59,12 @@
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'desc'"><a-input v-model:value="record.description" placeholder="Наименование" /></template>
               <template v-else-if="column.key === 'code'">
-                <a-input v-model:value="record.code" placeholder="10 знаков" style="width: 130px" @blur="fillUnit(record)" />
+                <a-input-group compact style="display: flex; width: 172px">
+                  <a-input v-model:value="record.code" placeholder="10 знаков" style="width: 130px" @blur="fillUnit(record)" />
+                  <a-button style="width: 42px" title="Справочник ТН ВЭД (поиск по коду/названию)" @click="openTnvedPicker(index)">
+                    <BookOutlined />
+                  </a-button>
+                </a-input-group>
               </template>
               <template v-else-if="column.key === 'val'"><a-input-number v-model:value="record.customsValue" :min="0" style="width: 120px" /></template>
               <template v-else-if="column.key === 'cur'">
@@ -75,6 +80,8 @@
           </a-table>
           <p class="muted" style="margin-top: 8px">Пошлина, НДС и сборы считаются автоматически по коду ТНВЭД.</p>
         </a-card>
+
+        <TnvedPickerModal v-model:open="tnvedPickerOpen" :initial-query="tnvedPickerQuery" @select="onTnvedPick" />
 
         <div class="calc-actions">
           <a-button type="primary" size="large" :loading="calculating" @click="calculate"><CalculatorOutlined /> Рассчитать</a-button>
@@ -143,9 +150,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import {
-  CalculatorOutlined, DeleteOutlined, FileDoneOutlined, GoldOutlined, PlusOutlined,
+  BookOutlined, CalculatorOutlined, DeleteOutlined, FileDoneOutlined, GoldOutlined, PlusOutlined,
   PrinterOutlined, SaveOutlined, ToolOutlined, UserOutlined,
 } from '@ant-design/icons-vue'
+import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
 import {
   salesApi, SALES_QUOTE_STATUS,
   type SalesCalcResponse, type SalesQuoteDto, type SalesQuoteListItem, type SalesServiceItem,
@@ -189,6 +197,24 @@ const addCustomService = () =>
 const goodsLines = ref<Array<{ _k: number; description: string; code: string; customsValue: number; currencyCode: string; weightKg: number | null; unit: string }>>([])
 const addGoods = () =>
   goodsLines.value.push({ _k: lineKey++, description: '', code: '', customsValue: 0, currencyCode: 'USD', weightKg: null, unit: '' })
+
+// Справочник ТН ВЭД для строки товара: открываем поиск, предзаполняя текущим кодом
+// (в т.ч. неполным 6-значным — пикер сразу покажет подходящие 10-значные коды).
+const tnvedPickerOpen = ref(false)
+const tnvedPickerQuery = ref('')
+const tnvedPickerIndex = ref(-1)
+const openTnvedPicker = (index: number) => {
+  tnvedPickerIndex.value = index
+  tnvedPickerQuery.value = (goodsLines.value[index]?.code || '').trim()
+  tnvedPickerOpen.value = true
+}
+const onTnvedPick = (payload: { code: string; name: string }) => {
+  const row = goodsLines.value[tnvedPickerIndex.value]
+  if (!row) return
+  row.code = payload.code
+  if (!row.description) row.description = payload.name
+  fillUnit(row)
+}
 
 // автоподстановка единицы измерения по коду ТНВЭД (не перезатирает ручной ввод)
 const fillUnit = async (record: { code: string; unit: string }) => {
