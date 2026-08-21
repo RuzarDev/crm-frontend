@@ -28,11 +28,11 @@
         <a-input v-model:value="m.number" :disabled="readonly" placeholder="Номер ТС" style="max-width: 220px" @change="emitChange" />
         <a-auto-complete v-model:value="m.typeCode" :options="classifiers.options('2024')"
           :disabled="readonly" placeholder="319" style="max-width: 200px" @change="emitChange" />
-        <a-button v-if="!readonly" type="text" danger size="small" @click="removeBorderTransport(i)">✕</a-button>
+        <a-button v-if="!readonly" type="text" danger size="small" @click="removeBorderTransport(i)"><CloseOutlined /></a-button>
       </div>
       <div class="transport-actions">
         <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport">+ Номер ТС (граница)</a-button>
-        <a-button v-if="!readonly && form.borderTransportNumbers.length" size="small" @click="copyBorderToArrival">Скопировать в гр.18 ↓</a-button>
+        <a-button v-if="!readonly && form.borderTransportNumbers.length" size="small" @click="copyBorderToArrival">Скопировать в гр.18 <ArrowDownOutlined /></a-button>
       </div>
     </div>
 
@@ -53,11 +53,11 @@
         <a-input v-model:value="m.number" :disabled="readonly" placeholder="Номер ТС" style="max-width: 220px" @change="emitChange" />
         <a-auto-complete v-model:value="m.typeCode" :options="classifiers.options('2024')"
           :disabled="readonly" placeholder="319" style="max-width: 200px" @change="emitChange" />
-        <a-button v-if="!readonly" type="text" danger size="small" @click="removeArrivalTransport(i)">✕</a-button>
+        <a-button v-if="!readonly" type="text" danger size="small" @click="removeArrivalTransport(i)"><CloseOutlined /></a-button>
       </div>
       <div class="transport-actions">
         <a-button v-if="!readonly" type="dashed" size="small" @click="addArrivalTransport">+ Номер ТС (прибытие)</a-button>
-        <a-button v-if="!readonly && form.arrivalTransportNumbers.length" size="small" @click="copyArrivalToBorder">Скопировать в гр.21 ↑</a-button>
+        <a-button v-if="!readonly && form.arrivalTransportNumbers.length" size="small" @click="copyArrivalToBorder">Скопировать в гр.21 <ArrowUpOutlined /></a-button>
       </div>
     </div>
   </div>
@@ -65,6 +65,7 @@
 
 <script setup lang="ts">
 import { reactive, watch } from 'vue'
+import { ArrowDownOutlined, ArrowUpOutlined, CloseOutlined } from '@ant-design/icons-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import type { Import40DtFormState } from '@/api/import40'

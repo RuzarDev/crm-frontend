@@ -122,13 +122,14 @@
         size="small"
         class="del-btn"
         @click="removeItem(idx)"
-      >✕</a-button>
+      ><CloseOutlined /></a-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { CloseOutlined } from '@ant-design/icons-vue'
 import type { ReestrDoc44ItemInput, Import40Doc44ItemInput } from '@/types/api'
 import { EAES_DOC_CODES, ALPHA2_COUNTRIES } from '@/types/api'
 

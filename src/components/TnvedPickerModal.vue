@@ -11,7 +11,7 @@
           <template v-if="results !== null">
             <div class="picker-hint">
               Результаты поиска
-              <a class="picker-reset" @click="clearSearch">← дерево</a>
+              <a class="picker-reset" @click="clearSearch"><LeftOutlined /> дерево</a>
             </div>
             <div v-if="results.length === 0" class="picker-empty">Ничего не найдено</div>
             <div v-for="n in results" :key="n.id" class="picker-node" :class="{ active: selected?.id === n.id }"
@@ -79,10 +79,11 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { LeftOutlined } from '@ant-design/icons-vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedNodeDto, TnvedRateDto } from '@/types/api'
 
-const props = defineProps<{ open: boolean }>()
+const props = defineProps<{ open: boolean; initialQuery?: string }>()
 const emit = defineEmits<{
   (e: 'update:open', v: boolean): void
   (e: 'select', payload: { code: string; name: string }): void
@@ -166,6 +167,9 @@ watch(() => props.open, (v) => {
     // сброс + загрузка корня при открытии
     clearSearch(); selected.value = null; rates.value = []; measures.value = []; crumbs.value = []
     loadChildren(0)
+    // если передан начальный запрос (напр. неполный 6-значный код) — сразу ищем
+    const iq = (props.initialQuery || '').trim()
+    if (iq) { query.value = iq; doSearch() }
   }
 })
 </script>

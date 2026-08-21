@@ -1,6 +1,6 @@
 <template>
   <div class="dashboard-view crm-page">
-    <PageHeader kicker="Zircon CRM" title="Дашборд" subtitle="Сводная статистика по реестру и клиентскому портфелю.">
+    <PageHeader title="Дашборд" subtitle="Сводная статистика по реестру и клиентскому портфелю.">
       <template #actions>
         <a-button @click="store.fetch" :loading="store.loading">
           <ReloadOutlined />
@@ -13,44 +13,30 @@
       <div v-if="store.data" class="dashboard-grid">
         <!-- KPI row -->
         <div class="kpi-row">
-          <a-card class="kpi-card" :bordered="false">
-            <a-statistic
-              title="Всего записей"
-              :value="store.data.totalEntries"
-              :value-style="{ color: 'var(--atg-ink)', fontWeight: 800 }"
-            >
-              <template #prefix><DatabaseOutlined /></template>
-            </a-statistic>
-          </a-card>
-          <a-card class="kpi-card" :bordered="false">
-            <a-statistic
-              title="В этом месяце"
-              :value="store.data.entriesThisMonth"
-              :value-style="{ color: 'var(--atg-teal)', fontWeight: 800 }"
-            >
-              <template #prefix><CalendarOutlined /></template>
-            </a-statistic>
-          </a-card>
-          <a-card class="kpi-card" :bordered="false">
-            <a-statistic
-              title="Общий вес (кг)"
-              :value="store.data.totalWeightKg"
-              :precision="2"
-              :value-style="{ color: 'var(--atg-ink)', fontWeight: 800 }"
-            >
-              <template #prefix><InboxOutlined /></template>
-            </a-statistic>
-          </a-card>
-          <a-card class="kpi-card" :bordered="false">
-            <a-statistic
-              title="Итого с НДС"
-              :value="store.data.totalGrandTotal"
-              :precision="2"
-              :value-style="{ color: 'var(--atg-green)', fontWeight: 800 }"
-            >
-              <template #prefix><DollarOutlined /></template>
-            </a-statistic>
-          </a-card>
+          <StatTile
+            :icon="DatabaseOutlined"
+            :value="formatInt(store.data.totalEntries)"
+            label="Всего записей"
+            tone="teal"
+          />
+          <StatTile
+            :icon="CalendarOutlined"
+            :value="formatInt(store.data.entriesThisMonth)"
+            label="В этом месяце"
+            tone="gold"
+          />
+          <StatTile
+            :icon="InboxOutlined"
+            :value="formatDecimal(store.data.totalWeightKg)"
+            label="Общий вес (кг)"
+            tone="neutral"
+          />
+          <StatTile
+            :icon="DollarOutlined"
+            :value="formatDecimal(store.data.totalGrandTotal)"
+            label="Итого с НДС"
+            tone="success"
+          />
         </div>
 
         <!-- Status breakdown -->
@@ -62,8 +48,7 @@
               class="status-bar-row"
             >
               <div class="status-bar-label">
-                <span class="status-dot" :style="{ background: statusColor(item.status) }" />
-                {{ formatStatus(item.status) }}
+                <StatusPill :status="item.status" />
               </div>
               <div class="status-bar-track">
                 <div
@@ -82,7 +67,12 @@
         <!-- Top clients + top codes -->
         <div class="bottom-row">
           <a-card class="crm-shell-card" :bordered="false" title="Топ клиентов">
+            <EmptyState
+              v-if="!store.data.topClients?.length"
+              title="Нет данных по клиентам"
+            />
             <a-table
+              v-else
               :data-source="store.data.topClients"
               :columns="clientColumns"
               :pagination="false"
@@ -95,14 +85,19 @@
                   <span v-if="record.displayName" class="top-sub">@{{ record.username }}</span>
                 </template>
                 <template v-else-if="column.key === 'count'">
-                  <span class="top-count">{{ record.count }}</span>
+                  <span class="top-count z-num">{{ record.count }}</span>
                 </template>
               </template>
             </a-table>
           </a-card>
 
           <a-card class="crm-shell-card" :bordered="false" title="Топ ТНВЭД кодов">
+            <EmptyState
+              v-if="!store.data.topCodes?.length"
+              title="Нет данных по кодам ТН ВЭД"
+            />
             <a-table
+              v-else
               :data-source="store.data.topCodes"
               :columns="codeColumns"
               :pagination="false"
@@ -115,7 +110,7 @@
                   <span v-if="record.treeName" class="top-sub">{{ record.treeName }}</span>
                 </template>
                 <template v-else-if="column.key === 'count'">
-                  <span class="top-count">{{ record.count }}</span>
+                  <span class="top-count z-num">{{ record.count }}</span>
                 </template>
               </template>
             </a-table>
@@ -141,21 +136,16 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
+import StatTile from '@/components/ui/StatTile.vue'
+import StatusPill from '@/components/ui/StatusPill.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
 
 const store = useDashboardStore()
 
 onMounted(() => store.fetch())
 
-const STATUS_LABELS: Record<string, string> = {
-  InProgress: 'В работе',
-  Submitted: 'Подано',
-  Released: 'Выпущено',
-  ConditionallyReleased: 'Условно выпущено',
-  Problematic: 'Проблемный',
-  Rejected: 'Отказано',
-  Withdrawn: 'Отозвано',
-  Archived: 'Архив',
-}
+const formatInt = (n?: number) => String(n ?? 0)
+const formatDecimal = (n?: number) => (n ?? 0).toFixed(2)
 
 const STATUS_COLORS: Record<string, string> = {
   InProgress: '#2BBCD4',
@@ -168,7 +158,6 @@ const STATUS_COLORS: Record<string, string> = {
   Archived: '#c4cad9',
 }
 
-const formatStatus = (s: string) => STATUS_LABELS[s] ?? s
 const statusColor = (s: string) => STATUS_COLORS[s] ?? '#8C8C8C'
 
 const maxCount = () =>
@@ -191,75 +180,44 @@ const codeColumns = [
 .dashboard-grid {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--sp-5);
 }
 
 .kpi-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-.kpi-card {
-  border: 1px solid var(--atg-line);
-  border-top: 3px solid var(--atg-teal);
-  border-radius: var(--atg-radius-lg);
-  box-shadow: var(--atg-shadow);
-}
-
-.kpi-card :deep(.ant-statistic-title) {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--atg-muted);
-  margin-bottom: 8px;
-}
-
-.kpi-card :deep(.ant-statistic-content) {
-  font-size: 28px;
+  gap: var(--sp-4);
 }
 
 /* Status bars */
 .status-bars {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--sp-3);
 }
 
 .status-bar-row {
   display: grid;
-  grid-template-columns: 160px 1fr 48px;
+  grid-template-columns: 168px 1fr 48px;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .status-bar-label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--atg-charcoal);
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 
 .status-bar-track {
   height: 8px;
-  border-radius: 999px;
-  background: var(--atg-line);
+  border-radius: var(--r-pill);
+  background: var(--z-line);
   overflow: hidden;
 }
 
 .status-bar-fill {
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   transition: width 0.5s var(--atg-ease);
 }
 
@@ -274,7 +232,7 @@ const codeColumns = [
 .bottom-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: var(--sp-4);
 }
 
 .top-name {

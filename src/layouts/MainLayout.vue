@@ -65,14 +65,17 @@
     <a-layout>
       <a-layout-sider width="248" class="sider">
         <nav class="sider-nav">
-          <a-menu
-            mode="inline"
-            :selected-keys="[selectedMenuKey]"
-            :open-keys="openKeys"
-            @open-change="onOpenChange"
-            @click="handleMenuClick"
-            :items="menuItems"
-          />
+          <a-config-provider :theme="zirconDarkSiderTheme">
+            <a-menu
+              mode="inline"
+              theme="dark"
+              :selected-keys="[selectedMenuKey]"
+              :open-keys="openKeys"
+              @open-change="onOpenChange"
+              @click="handleMenuClick"
+              :items="menuItems"
+            />
+          </a-config-provider>
         </nav>
         <div class="sider-footer">
           <div class="sider-footer-role">{{ roleLabel }}</div>
@@ -103,13 +106,16 @@
       </div>
     </template>
 
-    <a-menu
-      mode="inline"
-      :selected-keys="[selectedMenuKey]"
-      @click="handleMobileMenuClick"
-      :items="menuItems"
-      class="drawer-menu"
-    />
+    <a-config-provider :theme="zirconDarkSiderTheme">
+      <a-menu
+        mode="inline"
+        theme="dark"
+        :selected-keys="[selectedMenuKey]"
+        @click="handleMobileMenuClick"
+        :items="menuItems"
+        class="drawer-menu"
+      />
+    </a-config-provider>
 
     <div class="drawer-footer">
       <div class="drawer-footer-role">{{ roleLabel }}</div>
@@ -151,6 +157,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons-vue'
 import { formatRole } from '@/utils/labels'
+import { zirconDarkSiderTheme } from '@/theme/antdTheme'
 import dayjs from 'dayjs'
 
 const router = useRouter()
@@ -172,34 +179,25 @@ const formatNotifTime = (iso: string) => dayjs(iso).format('DD.MM HH:mm')
 const menuItems = computed(() => {
   const role = (authStore.role || '').trim().toLowerCase()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const items: any[] = []
+  const operationsItems: any[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const salesItems: any[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const referenceItems: any[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adminItems: any[] = []
 
+  // ─── Операции ───────────────────────────────────────────
   if (role !== 'sales') {
-    items.push({
+    operationsItems.push({
       key: '/dashboard',
       icon: () => h(DashboardOutlined),
       label: 'Дашборд',
     })
   }
 
-  if (role === 'administrator') {
-    items.push({
-      key: '/analytics',
-      icon: () => h(BarChartOutlined),
-      label: 'Аналитика',
-    })
-  }
-
-  if (authStore.canUseSales) {
-    items.push({
-      key: '/sales',
-      icon: () => h(BarChartOutlined),
-      label: 'Продажи',
-    })
-  }
-
   if (!['importer', 'sales'].includes(role)) {
-    items.push({
+    operationsItems.push({
       key: '/reestr',
       icon: () => h(DatabaseOutlined),
       label: 'Реестр',
@@ -207,7 +205,7 @@ const menuItems = computed(() => {
   }
 
   if (!['sales'].includes(role)) {
-    items.push({
+    operationsItems.push({
       key: '/requests-registry',
       icon: () => h(DatabaseOutlined),
       label: 'Реестр заявок',
@@ -215,7 +213,7 @@ const menuItems = computed(() => {
   }
 
   if (['expeditor', 'broker', 'administrator'].includes(role)) {
-    items.push({
+    operationsItems.push({
       key: '/document-packages',
       icon: () => h(FileAddOutlined),
       label: 'Пакеты документов',
@@ -223,29 +221,15 @@ const menuItems = computed(() => {
   }
 
   if (authStore.canUseImport40) {
-    items.push({
+    operationsItems.push({
       key: '/import-40',
       icon: () => h(ImportOutlined),
       label: 'Импорт',
     })
   }
 
-  if (role === 'client') {
-    items.push({
-      key: '/import-40/company',
-      icon: () => h(SolutionOutlined),
-      label: 'Моя компания',
-    })
-  }
-
   if (role === 'administrator') {
-    items.push({
-      key: '/references',
-      icon: () => h(BankOutlined),
-      label: 'Справочники',
-    })
-
-    items.push({
+    operationsItems.push({
       key: '/keden',
       icon: () => h(SafetyCertificateOutlined),
       label: 'KEDEN',
@@ -254,35 +238,53 @@ const menuItems = computed(() => {
 
   // Статусы КЕДЕН по БИН — брокер/экспедитор/декларант(importer)/админ/клиент
   if (['administrator', 'broker', 'expeditor', 'importer', 'client'].includes(role)) {
-    items.push({
+    operationsItems.push({
       key: '/keden-status',
       icon: () => h(SafetyCertificateOutlined),
       label: 'Статусы КЕДЕН',
     })
   }
 
+  // ─── Продажи ────────────────────────────────────────────
+  if (authStore.canUseSales) {
+    salesItems.push({
+      key: '/sales',
+      icon: () => h(BarChartOutlined),
+      label: 'Продажи',
+    })
+  }
+
+  if (role === 'administrator') {
+    salesItems.push({
+      key: '/analytics',
+      icon: () => h(BarChartOutlined),
+      label: 'Аналитика',
+    })
+  }
+
+  if (role === 'expeditor') {
+    salesItems.push({
+      key: '/clients',
+      icon: () => h(SolutionOutlined),
+      label: 'Клиенты',
+    })
+  }
+
+  // ─── Справочники ────────────────────────────────────────
   // Только те, кто заполняет ДТ. canUseImport40 здесь не подходит — в него входит client.
   if (role === 'administrator' || role === 'importer') {
-    items.push({
+    referenceItems.push({
       key: '/dt-guide',
       icon: () => h(ReadOutlined),
       label: 'Справочник ДТ',
     })
   }
 
-  if (role === 'client') {
-    items.push({
-      key: '/my-documents',
-      icon: () => h(FileDoneOutlined),
-      label: 'Мои документы',
-    })
-  }
-
-  if (role === 'expeditor') {
-    items.push({
-      key: '/clients',
-      icon: () => h(SolutionOutlined),
-      label: 'Клиенты',
+  if (role === 'administrator') {
+    referenceItems.push({
+      key: '/references',
+      icon: () => h(BankOutlined),
+      label: 'Справочники',
     })
   }
 
@@ -300,23 +302,32 @@ const menuItems = computed(() => {
     tnvedChildren.push({ key: '/tnved/sync', icon: () => h(SyncOutlined), label: 'Синхронизация' })
   }
 
-  items.push({
+  referenceItems.push({
     key: 'tnved-group',
     icon: () => h(GlobalOutlined),
     label: 'ТН ВЭД',
     children: tnvedChildren,
   })
 
-  if (authStore.hasPermission('users.read')) {
-    items.push({
-      key: '/roles',
-      icon: () => h(SafetyCertificateOutlined),
-      label: 'Роли',
+  if (role === 'client') {
+    referenceItems.push({
+      key: '/my-documents',
+      icon: () => h(FileDoneOutlined),
+      label: 'Мои документы',
     })
   }
 
+  if (role === 'client') {
+    referenceItems.push({
+      key: '/import-40/company',
+      icon: () => h(SolutionOutlined),
+      label: 'Моя компания',
+    })
+  }
+
+  // ─── Администрирование ──────────────────────────────────
   if (authStore.hasPermission('users.write')) {
-    items.push({
+    adminItems.push({
       key: '/users',
       icon: () => h(TeamOutlined),
       label: 'Пользователи',
@@ -324,7 +335,15 @@ const menuItems = computed(() => {
   }
 
   if (authStore.hasPermission('users.read')) {
-    items.push({
+    adminItems.push({
+      key: '/roles',
+      icon: () => h(SafetyCertificateOutlined),
+      label: 'Роли',
+    })
+  }
+
+  if (authStore.hasPermission('users.read')) {
+    adminItems.push({
       key: '/notifications',
       icon: () => h(BellOutlined),
       label: 'Уведомления',
@@ -332,20 +351,36 @@ const menuItems = computed(() => {
   }
 
   if (authStore.hasPermission('endpoints.read')) {
-    items.push({
+    adminItems.push({
       key: '/system/endpoints',
       icon: () => h(ApiOutlined),
       label: 'API',
     })
   }
 
-  items.push({
+  adminItems.push({
     key: '/profile',
     icon: () => h(UserOutlined),
     label: 'Профиль',
   })
 
-  return items
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const groups: any[] = []
+
+  if (operationsItems.length) {
+    groups.push({ key: 'group-operations', type: 'group', label: 'Операции', children: operationsItems })
+  }
+  if (salesItems.length) {
+    groups.push({ key: 'group-sales', type: 'group', label: 'Продажи', children: salesItems })
+  }
+  if (referenceItems.length) {
+    groups.push({ key: 'group-references', type: 'group', label: 'Справочники', children: referenceItems })
+  }
+  if (adminItems.length) {
+    groups.push({ key: 'group-admin', type: 'group', label: 'Администрирование', children: adminItems })
+  }
+
+  return groups
 })
 
 const roleLabel = computed(() => formatRole(authStore.role || ''))
@@ -423,7 +458,7 @@ const handleLogout = () => {
   align-items: center;
   height: 64px;
   min-height: 64px;
-  padding: 0 24px;
+  padding: 0 var(--sp-5, 24px);
   line-height: normal;
   background: linear-gradient(135deg, #1B2A4A 0%, #1E3060 60%, #243575 100%);
   border-bottom: 2px solid #2BBCD4;
@@ -447,6 +482,7 @@ const handleLogout = () => {
 .brand-title {
   display: block;
   color: #f0f3ff;
+  font-family: var(--font-heading);
   font-size: 15px;
   font-weight: 700;
   line-height: 1.25;
@@ -720,6 +756,19 @@ const handleLogout = () => {
   color: rgba(240, 243, 255, 0.6);
 }
 
+.sider :deep(.ant-menu-item-group-title) {
+  padding: 12px 12px 4px;
+  color: rgba(240, 243, 255, 0.38);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sider :deep(.ant-menu-item-group:first-child .ant-menu-item-group-title) {
+  padding-top: 4px;
+}
+
 .sider :deep(.ant-menu-item) {
   height: 42px;
   margin: 3px 0;
@@ -821,6 +870,15 @@ const handleLogout = () => {
   color: rgba(240, 243, 255, 0.6) !important;
 }
 
+.drawer-menu :deep(.ant-menu-item-group-title) {
+  padding: 12px 12px 4px;
+  color: rgba(240, 243, 255, 0.38);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .drawer-menu :deep(.ant-menu-item) {
   height: 44px;
   margin: 3px 0;
@@ -888,7 +946,7 @@ const handleLogout = () => {
   .app-header {
     height: 60px;
     min-height: 60px;
-    padding: 0 16px;
+    padding: 0 var(--sp-4, 16px);
   }
 
   .sider {

@@ -19,7 +19,7 @@
         @change="emitChange"
       />
       <a-input v-model:value="p.goodsNumber" :disabled="readonly" placeholder="№ товара" style="width: 120px" @change="emitChange" />
-      <a-button v-if="!readonly" type="text" danger size="small" @click="remove(i)">✕</a-button>
+      <a-button v-if="!readonly" type="text" danger size="small" @click="remove(i)"><CloseOutlined /></a-button>
     </div>
     <div v-if="items.length === 0" class="empty-state">
       <span v-if="!readonly">Нажмите «+ Предшествующий документ» чтобы добавить позицию</span>
@@ -31,6 +31,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { CloseOutlined } from '@ant-design/icons-vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import type { Import40PrevDocItem } from '@/api/import40'
 import './dt-sections.css'

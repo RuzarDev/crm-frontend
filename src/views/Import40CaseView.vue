@@ -92,7 +92,7 @@
         <div class="sub-label">Контейнеры</div>
         <div v-for="c in activeCase.containers" :key="c.id" class="container-row">
           <strong>{{ c.containerNumber }}</strong><span class="muted">{{ c.containerType }}</span>
-          <a-button v-if="canEditStep1" type="text" danger size="small" @click="removeContainer(c.id)">✕</a-button>
+          <a-button v-if="canEditStep1" type="text" danger size="small" @click="removeContainer(c.id)"><CloseOutlined /></a-button>
         </div>
         <div v-if="canEditStep1" class="container-add">
           <a-input v-model:value="newContainer.number" placeholder="Номер контейнера" style="max-width: 220px" />
@@ -153,7 +153,7 @@
               <a-button size="small" :disabled="!can('declarant')" :loading="xmlLoading === dt.id" @click="exportXml(dt.id)">XML для КЕДЕН</a-button>
             </a-tooltip>
             <a-popconfirm v-if="can('declarant')" title="Удалить ДТ?" ok-text="Да" cancel-text="Нет" @confirm="removeDt(dt.id)">
-              <a-button size="small" type="text" danger>✕</a-button>
+              <a-button size="small" type="text" danger><CloseOutlined /></a-button>
             </a-popconfirm>
           </div>
         </div>
@@ -344,6 +344,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
+import { CloseOutlined } from '@ant-design/icons-vue'
 import {
   IMPORT40_TRANSPORT_MODES,
   import40Api,

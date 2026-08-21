@@ -18,7 +18,7 @@
           :loading="aiParsing"
           @click="runAiParse"
         >
-          ✨ Авто-разбор (демо)
+          <ThunderboltOutlined /> Авто-разбор (демо)
         </a-button>
         <a-button
           type="primary"
@@ -110,7 +110,7 @@
                         </a-button>
                       </a-tooltip>
                       <a-tag v-if="isLinked(item)" color="green" style="font-size: 10px; margin: 0; padding: 0 4px; border-radius: 4px;">
-                        ✓
+                        <CheckOutlined />
                       </a-tag>
                     </div>
                   </div>
@@ -527,7 +527,7 @@
         <template v-if="previewFile">
           <div class="split-file-head">
             <span class="split-file-name">{{ previewFile?.originalFileName }}</span>
-            <a-button size="small" @click="backToFileList">← К списку файлов</a-button>
+            <a-button size="small" @click="backToFileList"><LeftOutlined /> К списку файлов</a-button>
           </div>
           <div class="split-file-body">
             <a-spin v-if="previewLoading" />
@@ -573,7 +573,7 @@
       <div style="text-align: center; padding: 30px 20px;">
         <a-spin size="large" style="margin-bottom: 20px;" />
         <div style="font-size: 16px; font-weight: 700; color: var(--atg-navy); margin-bottom: 10px;">
-          ✨ Интеллектуальный анализ...
+          <ThunderboltOutlined /> Интеллектуальный анализ...
         </div>
         <div style="font-size: 13.5px; color: var(--atg-muted);">
           {{ aiStatusText }}
@@ -633,6 +633,9 @@ import {
   InboxOutlined,
   AuditOutlined,
   EyeOutlined,
+  ThunderboltOutlined,
+  CheckOutlined,
+  LeftOutlined,
 } from '@ant-design/icons-vue'
 import { documentPackagesApi } from '@/api/documentPackages'
 import { reestrApi } from '@/api/reestr'

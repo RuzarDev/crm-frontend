@@ -72,7 +72,7 @@
               <a-input-number v-model:value="record.quantity" style="width: 100%" size="small" :min="0" />
             </template>
             <template v-else-if="column.dataIndex === 'actions'">
-              <a-button type="link" danger size="small" @click="removeItem(index)">✕</a-button>
+              <a-button type="link" danger size="small" @click="removeItem(index)"><CloseOutlined /></a-button>
             </template>
           </template>
         </a-table>
@@ -86,7 +86,7 @@
 import { ref } from 'vue'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
-import { UploadOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { invoiceApi } from '@/api/invoice'
 import type { ExtractionResultDto, ReestrGoodsItemInput, TnvedDeprecationWarningDto } from '@/types/api'
 

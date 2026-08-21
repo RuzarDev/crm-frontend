@@ -22,7 +22,7 @@
     <div v-for="(file, idx) in modelValue" :key="idx" class="invoice-file-chip">
       <PaperClipOutlined />
       <span class="file-name">{{ file.name }}</span>
-      <a-button type="text" size="small" danger class="del-btn" @click="removeFile(idx)">✕</a-button>
+      <a-button type="text" size="small" danger class="del-btn" @click="removeFile(idx)"><CloseOutlined /></a-button>
     </div>
   </div>
 </template>
@@ -30,7 +30,7 @@
 <script setup lang="ts">
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
-import { PaperClipOutlined, UploadOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, PaperClipOutlined, UploadOutlined } from '@ant-design/icons-vue'
 
 const props = defineProps<{
   modelValue: File[]

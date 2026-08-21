@@ -1,6 +1,6 @@
 <template>
   <div class="sales-page crm-page">
-    <PageHeader kicker="Модуль продаж" title="Продажи" subtitle="Калькулятор услуг и ТПиН, коммерческие предложения." />
+    <PageHeader title="Коммерческое предложение" subtitle="Расчёт стоимости услуг и ТПиН, формирование КП." />
 
     <a-tabs v-model:activeKey="tab">
       <a-tab-pane key="calc" tab="Калькулятор" />
@@ -9,93 +9,102 @@
 
     <!-- КАЛЬКУЛЯТОР -->
     <template v-if="tab === 'calc'">
-      <a-card class="crm-shell-card" :bordered="false">
-        <template #title><div class="card-title"><UserOutlined /> Клиент</div></template>
-        <div class="client-grid">
-          <label><span>Клиент *</span><a-input v-model:value="clientName" placeholder="Название компании" /></label>
-          <label><span>Контакт</span><a-input v-model:value="clientContact" placeholder="Телефон / e-mail" /></label>
-          <label class="full"><span>Комментарий</span><a-input v-model:value="comment" placeholder="Примечание к расчёту" /></label>
-          <label><span>Условия поставки</span>
-            <a-select v-model:value="incoterms" allow-clear placeholder="Инкотермс" :options="classifiers.options('incoterms')" />
-          </label>
-          <label><span>Стоимость транспортировки</span>
-            <div style="display:flex;gap:8px">
-              <a-input-number v-model:value="transportCost" :min="0" style="flex:1" />
-              <a-select v-model:value="transportCurrency" style="width: 110px" show-search :options="currencyOptions" />
-            </div>
-          </label>
-        </div>
-      </a-card>
-
-      <a-card class="crm-shell-card" :bordered="false" style="margin-top: 16px">
-        <template #title><div class="card-title"><ToolOutlined /> Услуги</div></template>
-        <div class="add-line">
-          <a-select
-            v-model:value="serviceToAdd"
-            show-search option-filter-prop="label" style="min-width: 320px"
-            placeholder="Выберите услугу из прайса"
-            :options="serviceOptions"
-          />
-          <a-button type="primary" :disabled="!serviceToAdd" @click="addServiceFromCatalog"><PlusOutlined /> Добавить</a-button>
-          <a-button @click="addCustomService">Своя услуга</a-button>
-        </div>
-        <a-table v-if="serviceLines.length" :columns="serviceCols" :data-source="serviceLines" :pagination="false" row-key="_k" size="small">
-          <template #bodyCell="{ column, record, index }">
-            <template v-if="column.key === 'name'"><a-input v-model:value="record.name" /></template>
-            <template v-else-if="column.key === 'unit'"><a-input v-model:value="record.unit" style="width: 80px" /></template>
-            <template v-else-if="column.key === 'price'"><a-input-number v-model:value="record.unitPrice" :min="0" style="width: 120px" /></template>
-            <template v-else-if="column.key === 'qty'"><a-input-number v-model:value="record.quantity" :min="0" style="width: 80px" /></template>
-            <template v-else-if="column.key === 'disc'"><a-input-number v-model:value="record.discountPercent" :min="0" :max="100" style="width: 70px" /></template>
-            <template v-else-if="column.key === 'del'"><a-button type="text" danger size="small" @click="serviceLines.splice(index, 1)"><DeleteOutlined /></a-button></template>
-          </template>
-        </a-table>
-      </a-card>
-
-      <a-card class="crm-shell-card" :bordered="false" style="margin-top: 16px">
-        <template #title><div class="card-title"><GoldOutlined /> Товары (ТПиН)</div></template>
-        <a-button type="primary" style="margin-bottom: 12px" @click="addGoods"><PlusOutlined /> Добавить товар</a-button>
-        <a-table v-if="goodsLines.length" :columns="goodsCols" :data-source="goodsLines" :pagination="false" row-key="_k" size="small" :scroll="{ x: 760 }">
-          <template #bodyCell="{ column, record, index }">
-            <template v-if="column.key === 'desc'"><a-input v-model:value="record.description" placeholder="Наименование" /></template>
-            <template v-else-if="column.key === 'code'">
-              <a-input v-model:value="record.code" placeholder="10 знаков" style="width: 130px" @blur="fillUnit(record)" />
-            </template>
-            <template v-else-if="column.key === 'val'"><a-input-number v-model:value="record.customsValue" :min="0" style="width: 120px" /></template>
-            <template v-else-if="column.key === 'cur'">
-              <div style="display:flex;flex-direction:column;gap:2px">
-                <a-select v-model:value="record.currencyCode" style="width: 100px" show-search :options="currencyOptions" />
-                <span v-if="rateFor(record.currencyCode)" style="font-size:11px;color:var(--atg-muted)">{{ rateFor(record.currencyCode) }} ₸</span>
+      <div class="sales-stack">
+        <a-card class="crm-shell-card" :bordered="false">
+          <template #title><div class="card-title"><UserOutlined /> Клиент и условия поставки</div></template>
+          <div class="client-grid">
+            <label><span>Клиент *</span><a-input v-model:value="clientName" placeholder="Название компании" /></label>
+            <label><span>Контакт</span><a-input v-model:value="clientContact" placeholder="Телефон / e-mail" /></label>
+            <label class="full"><span>Комментарий</span><a-input v-model:value="comment" placeholder="Примечание к расчёту" /></label>
+            <label><span>Условия поставки</span>
+              <a-select v-model:value="incoterms" allow-clear placeholder="Инкотермс" :options="classifiers.options('incoterms')" />
+            </label>
+            <label><span>Стоимость транспортировки</span>
+              <div class="inline-field">
+                <a-input-number v-model:value="transportCost" :min="0" style="flex:1" />
+                <a-select v-model:value="transportCurrency" style="width: 110px" show-search :options="currencyOptions" />
               </div>
+            </label>
+          </div>
+        </a-card>
+
+        <a-card class="crm-shell-card" :bordered="false">
+          <template #title><div class="card-title"><ToolOutlined /> Услуги</div></template>
+          <div class="add-line">
+            <a-select
+              v-model:value="serviceToAdd"
+              show-search option-filter-prop="label" style="min-width: 320px"
+              placeholder="Выберите услугу из прайса"
+              :options="serviceOptions"
+            />
+            <a-button type="primary" :disabled="!serviceToAdd" @click="addServiceFromCatalog"><PlusOutlined /> Добавить</a-button>
+            <a-button @click="addCustomService">Своя услуга</a-button>
+          </div>
+          <a-table v-if="serviceLines.length" :columns="serviceCols" :data-source="serviceLines" :pagination="false" row-key="_k" size="small">
+            <template #bodyCell="{ column, record, index }">
+              <template v-if="column.key === 'name'"><a-input v-model:value="record.name" /></template>
+              <template v-else-if="column.key === 'unit'"><a-input v-model:value="record.unit" style="width: 80px" /></template>
+              <template v-else-if="column.key === 'price'"><a-input-number v-model:value="record.unitPrice" :min="0" style="width: 120px" /></template>
+              <template v-else-if="column.key === 'qty'"><a-input-number v-model:value="record.quantity" :min="0" style="width: 80px" /></template>
+              <template v-else-if="column.key === 'disc'"><a-input-number v-model:value="record.discountPercent" :min="0" :max="100" style="width: 70px" /></template>
+              <template v-else-if="column.key === 'del'"><a-button type="text" danger size="small" @click="serviceLines.splice(index, 1)"><DeleteOutlined /></a-button></template>
             </template>
-            <template v-else-if="column.key === 'weight'"><a-input-number v-model:value="record.weightKg" :min="0" style="width: 90px" /></template>
-            <template v-else-if="column.key === 'unit'"><a-input v-model:value="record.unit" placeholder="шт." style="width: 80px" /></template>
-            <template v-else-if="column.key === 'del'"><a-button type="text" danger size="small" @click="goodsLines.splice(index, 1)"><DeleteOutlined /></a-button></template>
-          </template>
-        </a-table>
-        <p class="muted" style="margin-top: 8px">Пошлина, НДС и сборы считаются автоматически по коду ТНВЭД.</p>
-      </a-card>
+          </a-table>
+        </a-card>
 
-      <div class="calc-actions">
-        <a-button type="primary" size="large" :loading="calculating" @click="calculate"><CalculatorOutlined /> Рассчитать</a-button>
-        <a-button v-if="result" size="large" :disabled="!clientName.trim()" :loading="saving" @click="saveQuote"><SaveOutlined /> Сохранить как КП</a-button>
+        <a-card class="crm-shell-card" :bordered="false">
+          <template #title><div class="card-title"><GoldOutlined /> Товары (ТПиН)</div></template>
+          <a-button type="primary" style="margin-bottom: 12px" @click="addGoods"><PlusOutlined /> Добавить товар</a-button>
+          <a-table v-if="goodsLines.length" :columns="goodsCols" :data-source="goodsLines" :pagination="false" row-key="_k" size="small" :scroll="{ x: 760 }">
+            <template #bodyCell="{ column, record, index }">
+              <template v-if="column.key === 'desc'"><a-input v-model:value="record.description" placeholder="Наименование" /></template>
+              <template v-else-if="column.key === 'code'">
+                <a-input-group compact style="display: flex; width: 172px">
+                  <a-input v-model:value="record.code" placeholder="10 знаков" style="width: 130px" @blur="fillUnit(record)" />
+                  <a-button style="width: 42px" title="Справочник ТН ВЭД (поиск по коду/названию)" @click="openTnvedPicker(index)">
+                    <BookOutlined />
+                  </a-button>
+                </a-input-group>
+              </template>
+              <template v-else-if="column.key === 'val'"><a-input-number v-model:value="record.customsValue" :min="0" style="width: 120px" /></template>
+              <template v-else-if="column.key === 'cur'">
+                <div class="inline-field inline-field--stack">
+                  <a-select v-model:value="record.currencyCode" style="width: 100px" show-search :options="currencyOptions" />
+                  <span v-if="rateFor(record.currencyCode)" class="rate-hint z-num">{{ rateFor(record.currencyCode) }} ₸</span>
+                </div>
+              </template>
+              <template v-else-if="column.key === 'weight'"><a-input-number v-model:value="record.weightKg" :min="0" style="width: 90px" /></template>
+              <template v-else-if="column.key === 'unit'"><a-input v-model:value="record.unit" placeholder="шт." style="width: 80px" /></template>
+              <template v-else-if="column.key === 'del'"><a-button type="text" danger size="small" @click="goodsLines.splice(index, 1)"><DeleteOutlined /></a-button></template>
+            </template>
+          </a-table>
+          <p class="muted" style="margin-top: 8px">Пошлина, НДС и сборы считаются автоматически по коду ТНВЭД.</p>
+        </a-card>
+
+        <TnvedPickerModal v-model:open="tnvedPickerOpen" :initial-query="tnvedPickerQuery" @select="onTnvedPick" />
+
+        <div class="calc-actions">
+          <a-button type="primary" size="large" :loading="calculating" @click="calculate"><CalculatorOutlined /> Рассчитать</a-button>
+          <a-button v-if="result" size="large" :disabled="!clientName.trim()" :loading="saving" @click="saveQuote"><SaveOutlined /> Сохранить как КП</a-button>
+        </div>
+
+        <a-card v-if="result" class="crm-shell-card result-card" :bordered="false">
+          <template #title><div class="card-title"><FileDoneOutlined /> Итог</div></template>
+          <div class="result-totals">
+            <div class="total-box"><span>Услуги</span><strong class="z-num">{{ money(result.servicesTotal) }} ₸</strong></div>
+            <div class="total-box"><span>ТПиН</span><strong class="z-num">{{ money(result.tpinTotal) }} ₸</strong></div>
+            <div class="total-box grand"><span>Итого</span><strong class="z-num">{{ money(result.grandTotal) }} ₸</strong></div>
+          </div>
+          <div v-if="result.goods.some(g => g.error)" class="calc-errors">
+            <a-alert v-for="(g, i) in result.goods.filter(x => x.error)" :key="i" type="warning" show-icon :message="`${g.code || 'Товар'}: ${g.error}`" style="margin-bottom: 6px" />
+          </div>
+          <a-table v-if="result.goods.length" :columns="resGoodsCols" :data-source="result.goods" :pagination="false" row-key="code" size="small" :scroll="{ x: 700 }">
+            <template #bodyCell="{ column, record }">
+              <template v-if="['duty','excise','fee','vat','tpin','val'].includes(column.key)"><span class="z-num">{{ money(record[colField(column.key)]) }}</span></template>
+            </template>
+          </a-table>
+        </a-card>
       </div>
-
-      <a-card v-if="result" class="crm-shell-card result-card" :bordered="false" style="margin-top: 16px">
-        <template #title><div class="card-title"><FileDoneOutlined /> Результат расчёта</div></template>
-        <div class="result-totals">
-          <div class="total-box"><span>Услуги</span><strong>{{ money(result.servicesTotal) }} ₸</strong></div>
-          <div class="total-box"><span>ТПиН</span><strong>{{ money(result.tpinTotal) }} ₸</strong></div>
-          <div class="total-box grand"><span>Итого</span><strong>{{ money(result.grandTotal) }} ₸</strong></div>
-        </div>
-        <div v-if="result.goods.some(g => g.error)" class="calc-errors">
-          <a-alert v-for="(g, i) in result.goods.filter(x => x.error)" :key="i" type="warning" show-icon :message="`${g.code || 'Товар'}: ${g.error}`" style="margin-bottom: 6px" />
-        </div>
-        <a-table v-if="result.goods.length" :columns="resGoodsCols" :data-source="result.goods" :pagination="false" row-key="code" size="small" :scroll="{ x: 700 }">
-          <template #bodyCell="{ column, record }">
-            <template v-if="['duty','excise','fee','vat','tpin','val'].includes(column.key)">{{ money(record[colField(column.key)]) }}</template>
-          </template>
-        </a-table>
-      </a-card>
     </template>
 
     <!-- МОИ КП -->
@@ -105,7 +114,7 @@
           <template #emptyText><a-empty description="КП пока нет" /></template>
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'num'">{{ record.number }}/КП/{{ record.year }}</template>
-            <template v-else-if="column.key === 'total'">{{ money(record.grandTotal) }} ₸</template>
+            <template v-else-if="column.key === 'total'"><span class="z-num">{{ money(record.grandTotal) }} ₸</span></template>
             <template v-else-if="column.key === 'status'"><a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag></template>
             <template v-else-if="column.key === 'date'">{{ formatDate(record.createdAtUtc) }}</template>
             <template v-else-if="column.key === 'act'">
@@ -123,9 +132,9 @@
           <p><strong>Клиент:</strong> {{ activeQuote.clientName }} <span v-if="activeQuote.clientContact">· {{ activeQuote.clientContact }}</span></p>
           <p v-if="activeQuote.comment" class="muted">{{ activeQuote.comment }}</p>
           <div class="result-totals">
-            <div class="total-box"><span>Услуги</span><strong>{{ money(activeQuote.servicesTotal) }} ₸</strong></div>
-            <div class="total-box"><span>ТПиН</span><strong>{{ money(activeQuote.tpinTotal) }} ₸</strong></div>
-            <div class="total-box grand"><span>Итого</span><strong>{{ money(activeQuote.grandTotal) }} ₸</strong></div>
+            <div class="total-box"><span>Услуги</span><strong class="z-num">{{ money(activeQuote.servicesTotal) }} ₸</strong></div>
+            <div class="total-box"><span>ТПиН</span><strong class="z-num">{{ money(activeQuote.tpinTotal) }} ₸</strong></div>
+            <div class="total-box grand"><span>Итого</span><strong class="z-num">{{ money(activeQuote.grandTotal) }} ₸</strong></div>
           </div>
           <div class="quote-modal-actions">
             <a-button type="primary" @click="printQuote(activeQuote)"><PrinterOutlined /> Печать / PDF</a-button>
@@ -141,9 +150,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import {
-  CalculatorOutlined, DeleteOutlined, FileDoneOutlined, GoldOutlined, PlusOutlined,
+  BookOutlined, CalculatorOutlined, DeleteOutlined, FileDoneOutlined, GoldOutlined, PlusOutlined,
   PrinterOutlined, SaveOutlined, ToolOutlined, UserOutlined,
 } from '@ant-design/icons-vue'
+import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
 import {
   salesApi, SALES_QUOTE_STATUS,
   type SalesCalcResponse, type SalesQuoteDto, type SalesQuoteListItem, type SalesServiceItem,
@@ -187,6 +197,24 @@ const addCustomService = () =>
 const goodsLines = ref<Array<{ _k: number; description: string; code: string; customsValue: number; currencyCode: string; weightKg: number | null; unit: string }>>([])
 const addGoods = () =>
   goodsLines.value.push({ _k: lineKey++, description: '', code: '', customsValue: 0, currencyCode: 'USD', weightKg: null, unit: '' })
+
+// Справочник ТН ВЭД для строки товара: открываем поиск, предзаполняя текущим кодом
+// (в т.ч. неполным 6-значным — пикер сразу покажет подходящие 10-значные коды).
+const tnvedPickerOpen = ref(false)
+const tnvedPickerQuery = ref('')
+const tnvedPickerIndex = ref(-1)
+const openTnvedPicker = (index: number) => {
+  tnvedPickerIndex.value = index
+  tnvedPickerQuery.value = (goodsLines.value[index]?.code || '').trim()
+  tnvedPickerOpen.value = true
+}
+const onTnvedPick = (payload: { code: string; name: string }) => {
+  const row = goodsLines.value[tnvedPickerIndex.value]
+  if (!row) return
+  row.code = payload.code
+  if (!row.description) row.description = payload.name
+  fillUnit(row)
+}
 
 // автоподстановка единицы измерения по коду ТНВЭД (не перезатирает ручной ввод)
 const fillUnit = async (record: { code: string; unit: string }) => {
@@ -362,21 +390,32 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.sales-page { display: flex; flex-direction: column; gap: 14px; }
-.card-title { display: flex; align-items: center; gap: 9px; color: var(--atg-ink); font-weight: 800; }
+.sales-page { display: flex; flex-direction: column; gap: var(--sp-4); }
+.sales-stack { display: flex; flex-direction: column; gap: var(--sp-4); }
+.card-title { display: flex; align-items: center; gap: 9px; color: var(--z-ink); font-family: var(--font-heading); font-weight: 800; }
 .card-title :deep(.anticon) { color: var(--atg-accent-strong); }
-.client-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.client-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
 .client-grid label { display: flex; flex-direction: column; gap: 6px; }
 .client-grid label.full { grid-column: 1 / -1; }
 .client-grid span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; }
-.add-line { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.inline-field { display: flex; gap: 8px; }
+.inline-field--stack { flex-direction: column; gap: 2px; }
+.rate-hint { font-size: 11px; color: var(--atg-muted); }
+.add-line { display: flex; gap: 10px; margin-bottom: var(--sp-3); flex-wrap: wrap; }
 .muted { color: var(--atg-muted); font-size: 12.5px; }
-.calc-actions { display: flex; gap: 12px; margin-top: 16px; }
-.result-totals { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-.total-box { flex: 1; min-width: 160px; padding: 14px 16px; border: 1px solid var(--atg-line); border-radius: var(--atg-radius); background: var(--atg-surface-muted, #f6f8fb); }
-.total-box span { display: block; color: var(--atg-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; }
-.total-box strong { display: block; margin-top: 6px; font-size: 20px; color: var(--atg-ink); }
-.total-box.grand { border-color: var(--atg-accent); background: rgba(43,188,212,0.08); }
+.calc-actions { display: flex; gap: var(--sp-3); }
+.z-num { font-variant-numeric: tabular-nums; }
+
+/* Панель "Итог" — акцентный фокус экрана */
+.result-card { border: 1px solid var(--z-teal) !important; background: var(--z-teal-soft); box-shadow: var(--sh-2); }
+.result-card :deep(.ant-card-head) { border-bottom-color: rgba(31, 168, 192, 0.25); }
+.result-card .card-title :deep(.anticon) { color: var(--z-teal-d); }
+.result-totals { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4); }
+.total-box { flex: 1; min-width: 160px; padding: var(--sp-4); border: 1px solid var(--atg-line); border-radius: var(--r-lg); background: var(--z-surface); }
+.total-box span { display: block; color: var(--atg-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+.total-box strong { display: block; margin-top: 6px; font-family: var(--font-heading); font-size: 20px; font-weight: 800; color: var(--z-ink); }
+.total-box.grand { border-color: var(--z-teal); border-width: 2px; background: var(--z-surface); box-shadow: var(--sh-1); }
+.total-box.grand strong { font-size: 28px; color: var(--z-teal-d); }
 .quote-detail p { margin: 4px 0; }
 .quote-modal-actions { display: flex; gap: 12px; align-items: center; margin-top: 16px; }
 @media (max-width: 900px) { .client-grid { grid-template-columns: 1fr; } }

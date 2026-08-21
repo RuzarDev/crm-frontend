@@ -74,7 +74,7 @@
         v-model:value="e.currencyCode" :options="currencyOptions" :disabled="readonly"
         show-search :filter-option="filterOption" placeholder="Валюта" @change="emitChange"
       />
-      <a-button v-if="!readonly" type="text" danger size="small" @click="removeExpense(i)">✕</a-button>
+      <a-button v-if="!readonly" type="text" danger size="small" @click="removeExpense(i)"><CloseOutlined /></a-button>
     </div>
     <div v-if="!(form.expenses ?? []).length" class="muted">Расходов нет</div>
 
@@ -88,6 +88,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
+import { CloseOutlined } from '@ant-design/icons-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import type { Import40DtFormState } from '@/api/import40'

@@ -23,7 +23,7 @@
       <PaperClipOutlined />
       <span class="file-name" @click="download(file)">{{ file.originalFileName }}</span>
       <a-popconfirm title="Удалить файл инвойса?" ok-text="Да" cancel-text="Нет" @confirm="remove(file)">
-        <a-button type="text" size="small" danger class="del-btn">✕</a-button>
+        <a-button type="text" size="small" danger class="del-btn"><CloseOutlined /></a-button>
       </a-popconfirm>
     </div>
   </div>
@@ -33,7 +33,7 @@
 import { ref } from 'vue'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
-import { PaperClipOutlined, UploadOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, PaperClipOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { documentPackagesApi } from '@/api/documentPackages'
 import type { DocumentPackageFileDto } from '@/types/api'
 

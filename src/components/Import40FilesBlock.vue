@@ -8,7 +8,7 @@
           <PaperClipOutlined /> {{ f.originalFileName }}
         </a>
         <span class="file-meta">{{ formatSize(f.sizeBytes) }} · {{ roleLabel(f.uploadedByBusinessRole) }}</span>
-        <a-button v-if="canRemove" type="text" danger size="small" @click="emit('remove', f)">✕</a-button>
+        <a-button v-if="canRemove" type="text" danger size="small" @click="emit('remove', f)"><CloseOutlined /></a-button>
       </div>
     </div>
     <a-button v-if="canUpload" size="small" :loading="uploading" @click="inputRef?.click()">
@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { PaperClipOutlined, UploadOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, PaperClipOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import type { Import40FileDto } from '@/api/import40'
 
 defineProps<{

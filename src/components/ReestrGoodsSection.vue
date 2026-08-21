@@ -13,7 +13,7 @@
     <div v-for="(item, idx) in items" :key="idx" class="goods-card">
       <div class="card-top">
         <span class="card-num" title="Порядковый номер товара">{{ idx + 1 }}</span>
-        <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)">✕</a-button>
+        <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /></a-button>
       </div>
 
       <!-- Row: код тнвэд + найти + описание из тнвэд -->
@@ -191,12 +191,13 @@
       </div>
     </div>
 
-    <TnvedPickerModal v-model:open="pickerOpen" @select="onPickerSelect" />
+    <TnvedPickerModal v-model:open="pickerOpen" :initial-query="pickerQuery" @select="onPickerSelect" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
+import { CloseOutlined } from '@ant-design/icons-vue'
 import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
 import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
@@ -224,7 +225,8 @@ const emit = defineEmits<{
 // Пикер ТН ВЭД (поиск по дереву/коду + ставки/разрешения) для конкретной строки товара
 const pickerOpen = ref(false)
 const pickerTarget = ref<GoodsRow | null>(null)
-const openPicker = (item: GoodsRow) => { pickerTarget.value = item; pickerOpen.value = true }
+const pickerQuery = ref('')
+const openPicker = (item: GoodsRow) => { pickerTarget.value = item; pickerQuery.value = ''; pickerOpen.value = true }
 const onPickerSelect = (payload: { code: string; name: string }) => {
   const t = pickerTarget.value
   if (!t) return
@@ -276,6 +278,15 @@ async function lookupTnved(item: GoodsRow) {
   item.tnvedLoading = true
   try {
     const res = await tnvedApi.node(code)
+    // Неполный код (напр. 6 знаков = субпозиция) — не лист: открываем справочник
+    // с этим кодом, чтобы декларант выбрал конкретный 10-значный код.
+    if (!res.data.is10) {
+      item.tnvedLoading = false
+      pickerTarget.value = item
+      pickerQuery.value = code
+      pickerOpen.value = true
+      return
+    }
     item.tnvedDescription = res.data.name
     // Автоподстановка единицы измерения по ТНВЭД — только если поле ещё не заполнено вручную
     if (!item.unitCode && !item.unit) {
@@ -291,7 +302,11 @@ async function lookupTnved(item: GoodsRow) {
     }
     emit('update:modelValue', items.value.map(fromRow))
   } catch (e) {
+    // Код не найден точным совпадением (частичный/6-значный) — открываем справочник с поиском по нему
     console.error('Failed to look up TNVED code', e)
+    pickerTarget.value = item
+    pickerQuery.value = code
+    pickerOpen.value = true
   } finally {
     item.tnvedLoading = false
   }
