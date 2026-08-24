@@ -534,6 +534,8 @@ export interface DocumentPackageClientConsolidationDto {
   consignee?: PartyAddress | null
   goodsItems: DocumentPackageConsolidationGoodsItemDto[]
   doc44Items: DocumentPackageConsolidationDoc44ItemDto[]
+  // --- КЕДЕН-транзит: сериализованный ConsolidationTransitData (скаляры §1/§5/§8-12 + 9 коллекций) ---
+  transitDataJson?: string | null
 }
 
 export interface DocumentPackageContainerDto {
