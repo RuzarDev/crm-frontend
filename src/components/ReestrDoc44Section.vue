@@ -85,6 +85,10 @@
               @change="(v: number | null) => { (item as Import40Doc44ItemInput).goodsItemIndex = v ?? null; emitChange() }"
             />
           </div>
+        </div>
+
+        <!-- Строка 4 (extended или transitExtended): сроки действия + страна (§7 гр.44) -->
+        <div v-if="extended || transitExtended" class="field-row">
           <div class="field" style="flex: 0 0 130px;">
             <div class="field-label">Действует с</div>
             <a-date-picker
@@ -104,13 +108,45 @@
             />
           </div>
           <div class="field" style="flex: 0 0 200px;">
-            <div class="field-label">Страна выдачи (для сертификатов)</div>
+            <div class="field-label">Страна (выдачи / гр.44)</div>
             <a-select
               :value="(item as Import40Doc44ItemInput).issueCountryCode ?? null"
               size="small" :disabled="readonly" show-search allow-clear :options="countryOptions"
               :filter-option="filterCountry" placeholder="KZ / CN…" style="width: 200px"
               @change="(v: string | null) => { (item as Import40Doc44ItemInput).issueCountryCode = v ?? null; emitChange() }"
             />
+          </div>
+        </div>
+
+        <!-- Строка 5 (transitExtended): уполномоченный орган + номер бланка + вложение (§7) -->
+        <div v-if="transitExtended" class="field-row">
+          <div class="field f-grow">
+            <div class="field-label">Уполномоченный орган</div>
+            <a-input
+              :value="(item as Import40Doc44ItemInput).authorizedBody ?? null"
+              size="small" :disabled="readonly" placeholder="—"
+              @change="(e: Event) => { (item as Import40Doc44ItemInput).authorizedBody = (e.target as HTMLInputElement).value || null; emitChange() }"
+            />
+          </div>
+          <div class="field" style="flex: 0 0 160px;">
+            <div class="field-label">ID уполном. органа</div>
+            <a-input
+              :value="(item as Import40Doc44ItemInput).authorizedBodyId ?? null"
+              size="small" :disabled="readonly" placeholder="—"
+              @change="(e: Event) => { (item as Import40Doc44ItemInput).authorizedBodyId = (e.target as HTMLInputElement).value || null; emitChange() }"
+            />
+          </div>
+          <div class="field" style="flex: 0 0 160px;">
+            <div class="field-label">Номер бланка</div>
+            <a-input
+              :value="(item as Import40Doc44ItemInput).formBlankNumber ?? null"
+              size="small" :disabled="readonly" placeholder="—"
+              @change="(e: Event) => { (item as Import40Doc44ItemInput).formBlankNumber = (e.target as HTMLInputElement).value || null; emitChange() }"
+            />
+          </div>
+          <div class="field" style="flex: 0 0 220px;">
+            <div class="field-label">Файл документа</div>
+            <a-input disabled size="small" placeholder="Загружается во вкладке «Документы»" />
           </div>
         </div>
       </div>
@@ -141,6 +177,9 @@ const props = defineProps<{
   modelValue: ReestrDoc44ItemInput[]
   readonly?: boolean
   extended?: boolean
+  // КЕДЕН-транзит §7: страна/сроки действия/уполном.орган/номер бланка —
+  // независимо от extended (Import40), чтобы не тянуть в транзит поле «Товар».
+  transitExtended?: boolean
   goodsOptions?: { value: number; label: string }[]
 }>()
 
@@ -186,6 +225,9 @@ function addItem() {
     docStartDate: null,
     docValidityDate: null,
     issueCountryCode: null,
+    authorizedBody: null,
+    authorizedBodyId: null,
+    formBlankNumber: null,
   })
   emitChange()
 }

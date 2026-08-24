@@ -66,12 +66,27 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import type { ReestrEntry, ReestrEntryStatus, ReestrGoodsItemInput, ReestrDoc44ItemInput } from '@/types/api'
+import type {
+  ReestrEntry,
+  ReestrEntryStatus,
+  ReestrGoodsItemInput,
+  ReestrDoc44ItemInput,
+  ReestrTransitFields,
+  ReestrOrganizationInput,
+  ReestrCarrierInput,
+  ReestrTransportMeansInput,
+  ReestrIdentificationMeansInput,
+  ReestrPackageInput,
+  ReestrContainerInput,
+  ReestrPrecedingDocInput,
+  ReestrCargoOperationInput,
+  ReestrGuaranteeInput,
+} from '@/types/api'
 import { REESTR_COLUMN_KEYS } from '@/types/api'
 import { ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
 import { useAuthStore } from '@/stores/auth'
 import { formatReestrDateForForm, normalizeReestrFieldsForSubmit } from '@/utils/reestrFormat'
-import { REESTR_STATUS_OPTIONS } from '@/utils/reestrDtoMap'
+import { REESTR_STATUS_OPTIONS, REESTR_TRANSIT_DEFAULTS } from '@/utils/reestrDtoMap'
 import { message } from 'ant-design-vue'
 import ReestrDocumentsPanel from '@/components/ReestrDocumentsPanel.vue'
 import ReestrStatusHistoryPanel from '@/components/ReestrStatusHistoryPanel.vue'
@@ -101,6 +116,16 @@ interface Emits {
       clientId?: string
       goods: ReestrGoodsItemInput[]
       doc44: ReestrDoc44ItemInput[]
+      transit: ReestrTransitFields
+      organizations: ReestrOrganizationInput[]
+      carriers: ReestrCarrierInput[]
+      transportMeans: ReestrTransportMeansInput[]
+      identificationMeans: ReestrIdentificationMeansInput[]
+      packages: ReestrPackageInput[]
+      containers: ReestrContainerInput[]
+      precedingDocs: ReestrPrecedingDocInput[]
+      cargoOperations: ReestrCargoOperationInput[]
+      guarantees: ReestrGuaranteeInput[]
     },
   ): void
   (e: 'cancel'): void
@@ -143,6 +168,16 @@ const formState = reactive<{
   packagingType: string | null
   goods: ReestrGoodsItemInput[]
   doc44: ReestrDoc44ItemInput[]
+  transit: ReestrTransitFields
+  organizations: ReestrOrganizationInput[]
+  carriers: ReestrCarrierInput[]
+  transportMeans: ReestrTransportMeansInput[]
+  identificationMeans: ReestrIdentificationMeansInput[]
+  packages: ReestrPackageInput[]
+  containers: ReestrContainerInput[]
+  precedingDocs: ReestrPrecedingDocInput[]
+  cargoOperations: ReestrCargoOperationInput[]
+  guarantees: ReestrGuaranteeInput[]
 }>({
   fields: {},
   status: ReestrEntryStatusValues.InProgress,
@@ -151,6 +186,16 @@ const formState = reactive<{
   packagingType: null,
   goods: [],
   doc44: [],
+  transit: { ...REESTR_TRANSIT_DEFAULTS },
+  organizations: [],
+  carriers: [],
+  transportMeans: [],
+  identificationMeans: [],
+  packages: [],
+  containers: [],
+  precedingDocs: [],
+  cargoOperations: [],
+  guarantees: [],
 })
 
 watch(
@@ -170,6 +215,20 @@ watch(
       formState.packagingType = props.entry?.data['Вид упаковки'] ?? null
       formState.goods = [...(props.entry?.goods ?? [])]
       formState.doc44 = [...(props.entry?.doc44 ?? [])]
+      // Дефолты КЕДЕН-транзита предзаполняются только для новой записи;
+      // при редактировании — значения из существующей записи.
+      formState.transit = props.entry
+        ? { ...props.entry.transit }
+        : { ...REESTR_TRANSIT_DEFAULTS }
+      formState.organizations = [...(props.entry?.organizations ?? [])]
+      formState.carriers = [...(props.entry?.carriers ?? [])]
+      formState.transportMeans = [...(props.entry?.transportMeans ?? [])]
+      formState.identificationMeans = [...(props.entry?.identificationMeans ?? [])]
+      formState.packages = [...(props.entry?.packages ?? [])]
+      formState.containers = [...(props.entry?.containers ?? [])]
+      formState.precedingDocs = [...(props.entry?.precedingDocs ?? [])]
+      formState.cargoOperations = [...(props.entry?.cargoOperations ?? [])]
+      formState.guarantees = [...(props.entry?.guarantees ?? [])]
     }
   },
 )
@@ -210,6 +269,16 @@ const handleSubmit = () => {
     clientId: formState.clientId,
     goods: formState.goods,
     doc44: formState.doc44,
+    transit: formState.transit,
+    organizations: formState.organizations,
+    carriers: formState.carriers,
+    transportMeans: formState.transportMeans,
+    identificationMeans: formState.identificationMeans,
+    packages: formState.packages,
+    containers: formState.containers,
+    precedingDocs: formState.precedingDocs,
+    cargoOperations: formState.cargoOperations,
+    guarantees: formState.guarantees,
   })
 }
 
