@@ -118,6 +118,7 @@ export const documentPackagesApi = {
       consignee?: PartyAddress | null
       goodsItems?: unknown[] | null
       doc44Items?: unknown[] | null
+      transitDataJson?: string | null
     },
   ): Promise<DocumentPackageDto> => {
     const response = await apiClient.post<DocumentPackageDto>(
@@ -140,6 +141,7 @@ export const documentPackagesApi = {
       consignee?: PartyAddress | null
       goodsItems?: unknown[] | null
       doc44Items?: unknown[] | null
+      transitDataJson?: string | null
     },
   ): Promise<DocumentPackageDto> => {
     const response = await apiClient.put<DocumentPackageDto>(

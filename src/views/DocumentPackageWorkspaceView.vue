@@ -443,6 +443,19 @@
         <a-divider style="margin: 12px 0;" />
         <div style="margin-bottom: 8px; font-weight: 600;">44 Графа ТД</div>
         <ReestrDoc44Section v-model="clientForm.doc44Items" />
+        <a-divider style="margin: 12px 0;" />
+        <!-- КЕДЕН-транзит: сворачиваемые блоки, добавлены ниже существующей вёрстки консолидации -->
+        <GeneralInfoBlock :transit="clientForm.transit" />
+        <GoodsShipmentBlock :transit="clientForm.transit" />
+        <OrganizationsBlock v-model="clientForm.organizations" />
+        <CarriersBlock v-model="clientForm.carriers" />
+        <TransportMeansBlock v-model="clientForm.transportMeans" />
+        <IdentificationMeansBlock v-model="clientForm.identificationMeans" />
+        <PackagingBlock v-model="clientForm.packages" :transit="clientForm.transit" />
+        <ContainersBlock v-model="clientForm.containers" />
+        <PrecedingDocsBlock v-model="clientForm.precedingDocs" />
+        <GuaranteeBlock v-model="clientForm.guarantees" />
+        <MiscSectionsBlock v-model="clientForm.cargoOperations" :transit="clientForm.transit" />
       </a-form>
     </a-modal>
 
@@ -507,6 +520,19 @@
               <a-divider style="margin: 12px 0;" />
               <div style="margin-bottom: 8px; font-weight: 600;">44 Графа ТД</div>
               <ReestrDoc44Section v-model="clientForm.doc44Items" />
+              <a-divider style="margin: 12px 0;" />
+              <!-- КЕДЕН-транзит: сворачиваемые блоки, добавлены ниже существующей вёрстки консолидации -->
+              <GeneralInfoBlock :transit="clientForm.transit" />
+              <GoodsShipmentBlock :transit="clientForm.transit" />
+              <OrganizationsBlock v-model="clientForm.organizations" />
+              <CarriersBlock v-model="clientForm.carriers" />
+              <TransportMeansBlock v-model="clientForm.transportMeans" />
+              <IdentificationMeansBlock v-model="clientForm.identificationMeans" />
+              <PackagingBlock v-model="clientForm.packages" :transit="clientForm.transit" />
+              <ContainersBlock v-model="clientForm.containers" />
+              <PrecedingDocsBlock v-model="clientForm.precedingDocs" />
+              <GuaranteeBlock v-model="clientForm.guarantees" />
+              <MiscSectionsBlock v-model="clientForm.cargoOperations" :transit="clientForm.transit" />
             </a-form>
           </div>
           <div class="edit-split-footer">
@@ -641,7 +667,23 @@ import { documentPackagesApi } from '@/api/documentPackages'
 import { reestrApi } from '@/api/reestr'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
-import type { DocumentPackageDto, DocumentPackageFileDto, ReestrGoodsItemInput, ReestrDoc44ItemInput, PartyAddress } from '@/types/api'
+import type {
+  DocumentPackageDto,
+  DocumentPackageFileDto,
+  ReestrGoodsItemInput,
+  ReestrDoc44ItemInput,
+  PartyAddress,
+  ReestrTransitFields,
+  ReestrOrganizationInput,
+  ReestrCarrierInput,
+  ReestrTransportMeansInput,
+  ReestrIdentificationMeansInput,
+  ReestrPackageInput,
+  ReestrContainerInput,
+  ReestrPrecedingDocInput,
+  ReestrCargoOperationInput,
+  ReestrGuaranteeInput,
+} from '@/types/api'
 import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
 import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
 import InvoiceFileSection from '@/components/InvoiceFileSection.vue'
@@ -649,6 +691,18 @@ import PendingInvoicePicker from '@/components/PendingInvoicePicker.vue'
 import PartyAddressFields from '@/components/PartyAddressFields.vue'
 import InvoiceGoodsImporter from '@/components/InvoiceGoodsImporter.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import { REESTR_TRANSIT_DEFAULTS } from '@/utils/reestrDtoMap'
+import GeneralInfoBlock from '@/components/reestr/GeneralInfoBlock.vue'
+import GoodsShipmentBlock from '@/components/reestr/GoodsShipmentBlock.vue'
+import OrganizationsBlock from '@/components/reestr/OrganizationsBlock.vue'
+import CarriersBlock from '@/components/reestr/CarriersBlock.vue'
+import TransportMeansBlock from '@/components/reestr/TransportMeansBlock.vue'
+import IdentificationMeansBlock from '@/components/reestr/IdentificationMeansBlock.vue'
+import PackagingBlock from '@/components/reestr/PackagingBlock.vue'
+import ContainersBlock from '@/components/reestr/ContainersBlock.vue'
+import PrecedingDocsBlock from '@/components/reestr/PrecedingDocsBlock.vue'
+import GuaranteeBlock from '@/components/reestr/GuaranteeBlock.vue'
+import MiscSectionsBlock from '@/components/reestr/MiscSectionsBlock.vue'
 
 const emptyParty = (): PartyAddress => ({
   name: null,
@@ -703,6 +757,18 @@ const editingClientId = ref<string | null>(null)
 const targetContainerId = ref<string | null>(null)
 const clientOptions = ref<{ value: string; label: string }[]>([])
 const clientUuidByUsername = ref<Map<string, string>>(new Map())
+const emptyTransitCollections = () => ({
+  organizations: [] as ReestrOrganizationInput[],
+  carriers: [] as ReestrCarrierInput[],
+  transportMeans: [] as ReestrTransportMeansInput[],
+  identificationMeans: [] as ReestrIdentificationMeansInput[],
+  packages: [] as ReestrPackageInput[],
+  containers: [] as ReestrContainerInput[],
+  precedingDocs: [] as ReestrPrecedingDocInput[],
+  cargoOperations: [] as ReestrCargoOperationInput[],
+  guarantees: [] as ReestrGuaranteeInput[],
+})
+
 const clientForm = reactive({
   clientName: '',
   destinationStation: '',
@@ -713,6 +779,9 @@ const clientForm = reactive({
   goodsItems: [] as ReestrGoodsItemInput[],
   doc44Items: [] as ReestrDoc44ItemInput[],
   pendingInvoiceFiles: [] as File[],
+  // --- КЕДЕН-транзит: сохраняется на консолидацию как transitDataJson ---
+  transit: { ...REESTR_TRANSIT_DEFAULTS } as ReestrTransitFields,
+  ...emptyTransitCollections(),
 })
 
 // Drag and Drop state
@@ -1031,6 +1100,8 @@ const openAddClientModal = (containerId: string) => {
   clientForm.goodsItems = []
   clientForm.doc44Items = []
   clientForm.pendingInvoiceFiles = []
+  clientForm.transit = { ...REESTR_TRANSIT_DEFAULTS }
+  Object.assign(clientForm, emptyTransitCollections())
   ensureSplitForEdit()
   clientModalOpen.value = true
 }
@@ -1067,6 +1138,28 @@ const openEditClientModal = (containerId: string, consolidation: any) => {
     docDate: d.docDate ? new Date(d.docDate).toISOString().split('T')[0] : null,
   }))
   clientForm.pendingInvoiceFiles = []
+  // --- КЕДЕН-транзит: разбор transitDataJson с консолидации (фолбэк на дефолты/пустые массивы) ---
+  clientForm.transit = { ...REESTR_TRANSIT_DEFAULTS }
+  Object.assign(clientForm, emptyTransitCollections())
+  if (consolidation.transitDataJson) {
+    try {
+      const parsed = JSON.parse(consolidation.transitDataJson) ?? {}
+      clientForm.transit = { ...REESTR_TRANSIT_DEFAULTS, ...parsed }
+      clientForm.organizations = parsed.organizations ?? []
+      clientForm.carriers = parsed.carriers ?? []
+      clientForm.transportMeans = parsed.transportMeans ?? []
+      clientForm.identificationMeans = parsed.identificationMeans ?? []
+      clientForm.packages = parsed.packages ?? []
+      clientForm.containers = parsed.containers ?? []
+      clientForm.precedingDocs = parsed.precedingDocs ?? []
+      clientForm.cargoOperations = parsed.cargoOperations ?? []
+      clientForm.guarantees = parsed.guarantees ?? []
+    } catch (e) {
+      console.error('Failed to parse transitDataJson', e)
+      clientForm.transit = { ...REESTR_TRANSIT_DEFAULTS }
+      Object.assign(clientForm, emptyTransitCollections())
+    }
+  }
   ensureSplitForEdit()
   clientModalOpen.value = true
 }
@@ -1079,6 +1172,19 @@ const handleAddClient = async () => {
   }
   clientSaving.value = true
   try {
+    // --- КЕДЕН-транзит: скаляры + 9 коллекций сериализуются в transitDataJson (ConsolidationTransitData на бэке) ---
+    const transitData = {
+      ...clientForm.transit,
+      organizations: clientForm.organizations,
+      carriers: clientForm.carriers,
+      transportMeans: clientForm.transportMeans,
+      identificationMeans: clientForm.identificationMeans,
+      packages: clientForm.packages,
+      containers: clientForm.containers,
+      precedingDocs: clientForm.precedingDocs,
+      cargoOperations: clientForm.cargoOperations,
+      guarantees: clientForm.guarantees,
+    }
     const payload = {
       clientName: clientForm.clientName.trim(),
       destinationStation: clientForm.destinationStation.trim() || null,
@@ -1088,6 +1194,7 @@ const handleAddClient = async () => {
       consignee: clientForm.consignee,
       goodsItems: clientForm.goodsItems.length ? clientForm.goodsItems : null,
       doc44Items: clientForm.doc44Items.length ? clientForm.doc44Items : null,
+      transitDataJson: JSON.stringify(transitData),
     }
     if (isEditingClient.value && editingClientId.value) {
       packageData.value = await documentPackagesApi.updateClientConsolidation(
