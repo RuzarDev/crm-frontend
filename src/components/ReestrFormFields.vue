@@ -93,7 +93,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, toRef } from 'vue'
 import type {
   ReestrEntryStatus,
   ReestrGoodsItemInput,
@@ -123,6 +123,7 @@ import PrecedingDocsBlock from '@/components/reestr/PrecedingDocsBlock.vue'
 import GuaranteeBlock from '@/components/reestr/GuaranteeBlock.vue'
 import MiscSectionsBlock from '@/components/reestr/MiscSectionsBlock.vue'
 import { referencesApi } from '@/api/references'
+import { useTransitTotals } from '@/composables/useTransitTotals'
 
 type RefOption = { value: string; label: string }
 const postOptions = ref<RefOption[]>([])
@@ -164,7 +165,7 @@ interface FormState {
   guarantees: ReestrGuaranteeInput[]
 }
 
-defineProps<{
+const props = defineProps<{
   formState: FormState
   isEdit: boolean
   readonly?: boolean
@@ -172,6 +173,12 @@ defineProps<{
   canPickStatus: boolean
   statusOptions: { value: ReestrEntryStatus; label: string }[]
 }>()
+
+// КЕДЕН-транзит: автопересчёт §1 «Общие сведения» из списка товаров
+useTransitTotals(
+  toRef(() => props.formState.goods),
+  toRef(() => props.formState.transit),
+)
 </script>
 
 <style scoped>

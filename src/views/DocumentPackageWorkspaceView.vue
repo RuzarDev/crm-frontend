@@ -644,7 +644,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, onUnmounted, watch } from 'vue'
+import { computed, onMounted, reactive, ref, onUnmounted, watch, toRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
@@ -667,6 +667,7 @@ import { documentPackagesApi } from '@/api/documentPackages'
 import { reestrApi } from '@/api/reestr'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
+import { useTransitTotals } from '@/composables/useTransitTotals'
 import type {
   DocumentPackageDto,
   DocumentPackageFileDto,
@@ -783,6 +784,12 @@ const clientForm = reactive({
   transit: { ...REESTR_TRANSIT_DEFAULTS } as ReestrTransitFields,
   ...emptyTransitCollections(),
 })
+
+// КЕДЕН-транзит: автопересчёт §1 «Общие сведения» из списка товаров
+useTransitTotals(
+  toRef(() => clientForm.goodsItems),
+  toRef(() => clientForm.transit),
+)
 
 // Drag and Drop state
 const dragOverTarget = ref<{ type: string; id: string } | null>(null)
