@@ -2,7 +2,20 @@
   <div class="goods-section">
     <div class="section-bar">
       <span class="section-label">ТОВАРЫ</span>
-      <a-button v-if="!readonly" type="dashed" size="small" @click="addItem">+ Добавить товар</a-button>
+      <a-space v-if="!readonly" size="small">
+        <a-upload
+          :show-upload-list="false"
+          :before-upload="onExcelFile"
+          :custom-request="() => {}"
+          accept=".xlsx,.xls"
+        >
+          <a-button size="small" :loading="excelBusy">
+            <UploadOutlined />
+            Загрузить из Excel
+          </a-button>
+        </a-upload>
+        <a-button type="dashed" size="small" @click="addItem">+ Добавить товар</a-button>
+      </a-space>
     </div>
 
     <div v-if="items.length === 0" class="empty-state">
@@ -197,7 +210,10 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { CloseOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, UploadOutlined } from '@ant-design/icons-vue'
+import { message } from 'ant-design-vue'
+import type { UploadProps } from 'ant-design-vue'
+import * as XLSX from 'xlsx'
 import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
 import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
@@ -405,6 +421,132 @@ function addItem() {
 function removeItem(idx: number) {
   items.value.splice(idx, 1)
   emit('update:modelValue', items.value.map(fromRow))
+}
+
+// ── Импорт товаров из Excel «КЕДЕН ШАПКА» ────────────────────────────────────
+// Столбцы источника нестабильны по написанию (пробелы/регистр/лишние слова),
+// поэтому матчим заголовки по нормализованной подстроке, а не точным именам.
+type ExcelField = 'tnvedCode' | 'description' | 'grossWeightKg' | 'quantity' | 'unit' | 'packagesCount'
+
+const EXCEL_COLUMN_MATCHERS: { field: ExcelField; patterns: string[] }[] = [
+  { field: 'tnvedCode', patterns: ['кодтнвэд'] },
+  { field: 'description', patterns: ['коммерческоеописание'] },
+  { field: 'grossWeightKg', patterns: ['брутто'] },
+  { field: 'quantity', patterns: ['количествотовара'] },
+  { field: 'unit', patterns: ['видупаковкитовара'] },
+  { field: 'packagesCount', patterns: ['количествогрузовыхмест'] },
+]
+
+function normalizeHeader(v: unknown): string {
+  return String(v ?? '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]/gu, '')
+}
+
+function excelToStr(v: unknown): string | null {
+  if (v == null || v === '') return null
+  const s = String(v).trim()
+  return s || null
+}
+
+function excelToNum(v: unknown): number | null {
+  if (v == null || v === '') return null
+  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'))
+  return isNaN(n) ? null : n
+}
+
+const excelBusy = ref(false)
+
+async function importGoodsFromExcel(file: File) {
+  excelBusy.value = true
+  try {
+    const buf = await file.arrayBuffer()
+    const wb = XLSX.read(buf, { type: 'array' })
+    const sheetName = wb.SheetNames[0]
+    if (!sheetName) {
+      message.warning('В файле нет листов')
+      return
+    }
+    const ws = wb.Sheets[sheetName]
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: null, raw: true })
+    if (!rows.length) {
+      message.warning('Файл пуст')
+      return
+    }
+
+    const headerRow = rows[0] ?? []
+    const colIndex: Partial<Record<ExcelField, number>> = {}
+    headerRow.forEach((cell, idx) => {
+      const norm = normalizeHeader(cell)
+      if (!norm) return
+      for (const matcher of EXCEL_COLUMN_MATCHERS) {
+        if (colIndex[matcher.field] != null) continue
+        if (matcher.patterns.some((p) => norm.includes(p))) {
+          colIndex[matcher.field] = idx
+          break
+        }
+      }
+    })
+
+    const added: GoodsRow[] = []
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i]
+      if (!row || row.every((c) => c == null || c === '')) continue
+
+      const tnvedCode = colIndex.tnvedCode != null ? excelToStr(row[colIndex.tnvedCode]) : null
+      const description = colIndex.description != null ? excelToStr(row[colIndex.description]) : null
+      const grossWeightKg = colIndex.grossWeightKg != null ? excelToNum(row[colIndex.grossWeightKg]) : null
+      const quantity = colIndex.quantity != null ? excelToNum(row[colIndex.quantity]) : null
+      const unit = colIndex.unit != null ? excelToStr(row[colIndex.unit]) : null
+      const packagesCount = colIndex.packagesCount != null ? excelToNum(row[colIndex.packagesCount]) : null
+
+      const isEmptyRow =
+        !tnvedCode && !description && grossWeightKg == null && quantity == null && unit == null && packagesCount == null
+      if (isEmptyRow) continue
+
+      added.push(
+        toRow({
+          description,
+          tnvedCode,
+          tnvedDescription: description,
+          countryOfOrigin: null,
+          quantity,
+          unit,
+          unitCode: null,
+          grossWeightKg,
+          netWeightKg: null,
+          packagesCount,
+          quantityTypeCode: null,
+          customsValue: null,
+          currency: null,
+        }),
+      )
+    }
+
+    if (!added.length) {
+      message.warning('Не найдено товаров для импорта')
+      return
+    }
+
+    items.value = [...items.value, ...added]
+    emit('update:modelValue', items.value.map(fromRow))
+    message.success(`Загружено ${added.length} товаров`)
+  } catch (e) {
+    console.error('Failed to import goods from Excel', e)
+    message.error('Не удалось прочитать файл Excel')
+  } finally {
+    excelBusy.value = false
+  }
+}
+
+const onExcelFile: UploadProps['beforeUpload'] = (file) => {
+  const name = file.name.toLowerCase()
+  if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) {
+    message.error('Допустим только Excel-файл (.xlsx)')
+    return false
+  }
+  void importGoodsFromExcel(file as File)
+  return false
 }
 </script>
 
