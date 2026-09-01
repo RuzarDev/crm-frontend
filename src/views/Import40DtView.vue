@@ -20,6 +20,7 @@
           <a-button :disabled="!canSplit" @click="openSplitModal">Разделить на ЕТТ/ВТО</a-button>
         </a-tooltip>
         <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
+        <a-button :loading="paymentsLoading" @click="openPaymentsModal">Рассчитать платежи</a-button>
         <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
       </template>
     </PageHeader>
@@ -108,6 +109,17 @@
         </a-table>
       </a-spin>
     </a-modal>
+
+    <DtPaymentsCalcModal
+      v-model:open="paymentsModalOpen"
+      :loading="paymentsLoading"
+      :applying="paymentsApplying"
+      :readonly="readOnly"
+      :result="paymentsResult"
+      :goods="dtForm.goodsItems"
+      @toggle-medical="onToggleMedical"
+      @apply="onApplyPayments"
+    />
   </div>
 </template>
 
@@ -126,6 +138,7 @@ import {
   type Import40PrevDocItem,
   type KedenReadinessDto,
   type Import40SplitSuggestionRow,
+  type Import40CalculatePaymentsResponse,
 } from '@/api/import40'
 import type { Import40FactPayment, Import40GoodsItemInput, Import40DeclarationExpense } from '@/types/api'
 import { CURRENCY_NUMERIC } from '@/types/api'
@@ -145,6 +158,7 @@ import DtSectionDocs from '@/components/import40/dt/DtSectionDocs.vue'
 import DtSectionClosing from '@/components/import40/dt/DtSectionClosing.vue'
 import DtDeclarationNumberBar from '@/components/import40/dt/DtDeclarationNumberBar.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
+import DtPaymentsCalcModal from '@/components/import40/dt/DtPaymentsCalcModal.vue'
 import PageHeader from '@/components/PageHeader.vue'
 
 const route = useRoute()
@@ -707,6 +721,120 @@ const calcTpin = async () => {
   }
 }
 
+// Task 10: «Рассчитать платежи» — светлая модалка гр.47/гр.B (POST
+// calculate-payments), которая заменяет прежний нечитаемый попап. Эндпоинт
+// не принимает тело — сервер читает товары из уже СОХРАНЁННОЙ декларации
+// (см. комментарий у import40Api.calculatePayments), поэтому перед каждым
+// вызовом обязателен saveDt().
+const paymentsModalOpen = ref(false)
+const paymentsLoading = ref(false)
+const paymentsApplying = ref(false)
+const paymentsResult = ref<Import40CalculatePaymentsResponse | null>(null)
+
+const runPaymentsCalc = async (): Promise<boolean> => {
+  const saved = await saveDt(true)
+  if (!saved) return false
+  paymentsLoading.value = true
+  try {
+    paymentsResult.value = await import40Api.calculatePayments(caseId, dtId)
+    return true
+  } catch (e: any) {
+    message.error(e?.response?.data?.error ?? 'Не удалось рассчитать платежи')
+    return false
+  } finally {
+    paymentsLoading.value = false
+  }
+}
+
+const openPaymentsModal = async () => {
+  paymentsResult.value = null
+  paymentsModalOpen.value = true
+  const ok = await runPaymentsCalc()
+  if (!ok) paymentsModalOpen.value = false
+}
+
+// Переключатель «Медизделие (НДС 5%)» в модалке: льготная ставка НДС товара
+// живёт на самом товаре (vatRatePreferential), поэтому переключение требует
+// пересохранить ДТ и пересчитать заново — тот же save→calc, что и открытие
+// модалки, только тихо (silent saveDt), чтобы не заваливать тостами.
+const onToggleMedical = async (index: number, checked: boolean) => {
+  const g = dtForm.goodsItems[index]
+  if (!g) return
+  g.vatRatePreferential = checked ? 0.05 : null
+  await runPaymentsCalc()
+}
+
+// Записывает последний расчёт (paymentsResult) в гр.47 товаров и гр.B
+// (dtForm.factPayments) — зеркалит upsertGoodsPayment/TPIN_PAYMENT_CODES выше:
+// та же логика "обновить существующую строку по taxModeCode или добавить
+// новую", только источник сумм — calculate-payments, а не salesApi.calculate,
+// и здесь дополнительно пишем base/rate (calc их возвращает), а не только сумму.
+const applyPaymentsResult = () => {
+  const res = paymentsResult.value
+  if (!res) return
+  res.goodsRows.forEach((row) => {
+    const g = dtForm.goodsItems[row.index]
+    if (!g) return
+    const rows = g.payments ?? []
+    row.rows.forEach((pr) => {
+      const existing = rows.find((p) => p.taxModeCode === pr.taxModeCode)
+      if (existing) {
+        existing.taxBase = pr.base ?? null
+        existing.rateValue = pr.rate ?? null
+        existing.amountKzt = pr.amount
+      } else {
+        rows.push({
+          taxModeCode: pr.taxModeCode,
+          taxBase: pr.base ?? null,
+          rateKindCode: '%',
+          rateValue: pr.rate ?? null,
+          rateUnitCode: null,
+          rateCurrencyCode: null,
+          weightRatio: null,
+          rateDate: null,
+          paymentFeatureCode: 'ИУ',
+          amountKzt: pr.amount,
+        })
+      }
+    })
+    g.payments = rows
+  })
+
+  const factRows = dtForm.factPayments ?? []
+  Object.entries(res.totalsByTaxMode).forEach(([code, amount]) => {
+    const existing = factRows.find((p) => p.taxModeCode === code)
+    if (existing) {
+      existing.amount = amount
+    } else {
+      factRows.push({
+        taxModeCode: code,
+        amount,
+        exchangeRate: 1,
+        paymentDocDate: null,
+        payerTaxpayerId: null,
+        paymentDate: null,
+        paymentMethodCode: 'БН',
+      })
+    }
+  })
+  dtForm.factPayments = factRows
+}
+
+const onApplyPayments = async () => {
+  if (!paymentsResult.value) return
+  paymentsApplying.value = true
+  try {
+    applyPaymentsResult()
+    const saved = await saveDt(true)
+    if (saved) {
+      message.success('Платежи записаны в гр.47 и гр.B')
+      paymentsModalOpen.value = false
+    }
+  } finally {
+    paymentsApplying.value = false
+  }
+}
+
 // «Рассчитать там. стоимость» (Spec 4a Task 3): распределяет расходы
 // dtForm.expenses по товарам dtForm.goodsItems и проставляет гр.45
 // (customsValueKzt) каждому — по index = позиции товара в массиве
@@ -774,7 +902,11 @@ const loadDt = async () => {
   void refreshReadiness()
 }
 
-const saveDt = async (): Promise<boolean> => {
+// silent=true пропускает тост "ДТ сохранена" — нужен для промежуточных
+// автосохранений перед расчётом платежей (Task 10: save → calc → save при
+// каждом переключении «Медизделие»), чтобы не заваливать декларанта одинаковыми
+// уведомлениями об одном и том же действии.
+const saveDt = async (silent = false): Promise<boolean> => {
   if (!dtForm.id) return false
   saving.value = true
   try {
@@ -866,7 +998,7 @@ const saveDt = async (): Promise<boolean> => {
     }
     const updated = await import40Api.updateDeclaration(caseId, dtForm.id, payload)
     loadedDto.value = updated
-    message.success('ДТ сохранена')
+    if (!silent) message.success('ДТ сохранена')
     void refreshReadiness()
     return true
   } catch (e: any) {

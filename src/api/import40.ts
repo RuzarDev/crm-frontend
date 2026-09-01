@@ -82,6 +82,9 @@ export interface Import40GoodsItemDto {
   prefDutyCode?: string | null
   prefExciseCode?: string | null
   prefVatCode?: string | null
+  // Льготная ставка НДС товара (напр. 0.05 для медизделий) — см. одноимённое
+  // поле в Import40GoodsItemInput (types/api.ts) для контекста Task 10.
+  vatRatePreferential?: number | null
   customsValueKzt?: number | null
   statisticValueUsd?: number | null
   valuationMethodCode?: string | null
@@ -524,6 +527,32 @@ export interface Import40CalculateCustomsValueResult {
   goods: Import40CvGoodsResult[]
 }
 
+// Task 9 (бэк) / Task 10 (фронт): расчёт платежей гр.47 (по товару) и гр.B
+// (итог по ДТ) — POST .../declarations/{id}/calculate-payments. Товары
+// берутся сервером из уже СОХРАНЁННОЙ декларации (см. CalculatePayments в
+// Import40Endpoints.cs), запрос без тела не нужен — поэтому вызывающая
+// сторона обязана сперва saveDt(). Зеркалит C#-контракты 1:1
+// (Import40Contracts.cs: PaymentRowDto/PaymentGoodsRowDto/CalculatePaymentsResponse) —
+// camelCase JSON, имена полей совпадают с C# после сериализации.
+export interface Import40PaymentRowDto {
+  taxModeCode: string
+  base?: number | null
+  rate?: number | null
+  amount: number
+}
+
+export interface Import40PaymentGoodsRowDto {
+  index: number
+  rows: Import40PaymentRowDto[]
+  excisePossible: boolean
+}
+
+export interface Import40CalculatePaymentsResponse {
+  goodsRows: Import40PaymentGoodsRowDto[]
+  totalsByTaxMode: Record<string, number>
+  grandTotalB: number
+}
+
 // Spec 4b Task 3: разделение ДТ на ЕТТ/ВТО. `vtoStatus` — длинная человекочитаемая
 // подсказка с сервера (см. split-suggestion), не код — показываем как есть, с усечением/tooltip.
 export interface Import40SplitSuggestionRow {
@@ -798,6 +827,20 @@ export const import40Api = {
     const response = await apiClient.post<Import40SplitResult>(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/split`,
       data,
+    )
+    return response.data
+  },
+
+  // Task 10: расчёт платежей гр.47/гр.B. Никакого тела запроса — сервер сам
+  // читает товары из сохранённой декларации (см. комментарий у
+  // Import40CalculatePaymentsResponse выше). Вызывающая сторона должна
+  // сохранить ДТ непосредственно перед вызовом.
+  calculatePayments: async (
+    caseId: string,
+    declarationId: string,
+  ): Promise<Import40CalculatePaymentsResponse> => {
+    const response = await apiClient.post<Import40CalculatePaymentsResponse>(
+      `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/calculate-payments`,
     )
     return response.data
   },

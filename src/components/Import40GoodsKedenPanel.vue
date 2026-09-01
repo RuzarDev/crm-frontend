@@ -6,6 +6,32 @@
       <a-button v-if="!readonly" size="small" @click="emit('calc-tpin')">Рассчитать ТПиН (авто)</a-button>
     </div>
 
+    <!-- Гр.47 — платежи: явная, всегда развёрнутая подсекция (не внутри свёрнутого
+         a-collapse ниже) — раньше платежи были видны только после раскрытия панели
+         товара, декларант их не находила. Показываем то, что реально записано в
+         g.payments; редактирование строк остаётся в панели товара ниже. -->
+    <div v-if="items.length" class="section-bar payments-summary-bar">
+      <span class="section-label">ГР.47 — ПЛАТЕЖИ</span>
+    </div>
+    <a-table
+      v-if="paymentsSummaryRows.length"
+      class="payments-summary-table"
+      :data-source="paymentsSummaryRows"
+      :columns="paymentsSummaryColumns"
+      :pagination="false"
+      size="small"
+      row-key="key"
+    >
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'base' || column.key === 'rate' || column.key === 'amount'">
+          {{ fmtAmount(record[column.key]) }}
+        </template>
+      </template>
+    </a-table>
+    <div v-else-if="items.length" class="empty-state payments-summary-empty">
+      Платежи гр.47 не рассчитаны — нажмите «Рассчитать ТПиН (авто)» выше или «Рассчитать платежи» в шапке ДТ.
+    </div>
+
     <a-collapse v-if="items.length" ghost>
       <a-collapse-panel v-for="(g, i) in items" :key="i" :header="`Товар ${i + 1}: ${g.tnvedCode || 'без кода'} — ${g.description || ''}`">
         <template #extra>
@@ -114,6 +140,54 @@ const emit = defineEmits<{
 
 const items = computed(() => props.modelValue)
 
+// Русские названия видов платежа гр.47 (см. tax-modes в DatabaseExtensions.cs
+// на бэке) — для явной, не-кодовой подписи в сводной таблице ниже.
+const TAX_MODE_LABELS: Record<string, string> = {
+  '2010': 'Пошлина',
+  '4010': 'Акциз',
+  '1010': 'Сбор',
+  '5060': 'НДС',
+}
+const taxModeLabel = (code: string | null | undefined) =>
+  code ? (TAX_MODE_LABELS[code] ?? code) : '—'
+
+interface PaymentsSummaryRow {
+  key: string
+  goods: string
+  taxMode: string
+  base: number | null
+  rate: number | null
+  amount: number | null
+}
+
+const paymentsSummaryColumns = [
+  { title: 'Товар', dataIndex: 'goods', key: 'goods', width: 220, ellipsis: true },
+  { title: 'Вид платежа', dataIndex: 'taxMode', key: 'taxMode', width: 140 },
+  { title: 'Основа', dataIndex: 'base', key: 'base', width: 130 },
+  { title: 'Ставка', dataIndex: 'rate', key: 'rate', width: 110 },
+  { title: 'Сумма, ₸', dataIndex: 'amount', key: 'amount', width: 140 },
+]
+
+const fmtAmount = (v: number | null | undefined) =>
+  v == null ? '—' : v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const paymentsSummaryRows = computed<PaymentsSummaryRow[]>(() => {
+  const rows: PaymentsSummaryRow[] = []
+  items.value.forEach((g, gi) => {
+    ;(g.payments ?? []).forEach((p, pi) => {
+      rows.push({
+        key: `${gi}-${pi}`,
+        goods: `Товар ${gi + 1}: ${g.tnvedCode || 'без кода'} — ${g.description || ''}`,
+        taxMode: taxModeLabel(p.taxModeCode),
+        base: p.taxBase ?? null,
+        rate: p.rateValue ?? null,
+        amount: p.amountKzt ?? null,
+      })
+    })
+  })
+  return rows
+})
+
 // ВАЖНО: эмитим НОВЫЙ массив с копиями объектов. ReestrGoodsSection выше по форме
 // держит внутренние копии строк и пересинхронизируется только по watch на modelValue;
 // эмит той же ссылки не триггерит watch — его копии остались бы без КЕДЕН-правок,
@@ -155,6 +229,9 @@ const removePayment = (g: Import40GoodsItemInput, idx: number) => {
 .section-bar { display: flex; align-items: center; justify-content: space-between; }
 .section-label { font-size: 12px; font-weight: 600; color: var(--atg-muted); }
 .payments-bar { margin-top: 12px; }
+.payments-summary-bar { margin-top: 4px; }
+.payments-summary-table { margin-bottom: 8px; }
+.payments-summary-empty { margin-bottom: 8px; }
 .field-row { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
 .field { flex: 1; min-width: 140px; }
 .field.f-2 { flex: 2; }

@@ -1238,6 +1238,10 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   prefDutyCode?: string | null
   prefExciseCode?: string | null
   prefVatCode?: string | null
+  // Льготная ставка НДС товара (напр. 0.05 для медизделий) — Task 9 (бэк), used
+  // by calculate-payments (Task 10): при выставлении сервер считает НДС по ней
+  // вместо стандартной ставки. null/не задано → стандартная ставка.
+  vatRatePreferential?: number | null
   customsValueKzt?: number | null
   statisticValueUsd?: number | null
   valuationMethodCode?: string | null
