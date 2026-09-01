@@ -120,17 +120,20 @@ function buildForm(v: Import40DtFormState) {
 
 const form = reactive(buildForm(props.modelValue))
 
-// applyingAutocopy защищает от повторного входа: пока копируем поля
-// декларанта в получателя/фин.лицо, эмит и watch на props.modelValue не
-// должны запускать ещё один цикл копирования.
-let applyingAutocopy = false
-
+// Реентерабельность копирования декларант→получатель/фин.лицо не защищена
+// флагом-guard'ом — она и не нужна: поток данных однонаправленный.
+// - Этот watch на props.modelValue только присваивает в локальный `form`,
+//   он никогда не вызывает emitChange(), поэтому не может сам запустить
+//   ещё один цикл копирования.
+// - copyDeclarantToReceiver()/copyDeclarantToFinancialSubject() пишут
+//   только в receiver*/financialSubject*-поля и никогда — в declarant*-поля,
+//   поэтому watch на declarant-поля ниже не перезапускается их же копированием.
+// Если это свойство когда-нибудь изменится (например, копирование начнёт
+// писать в declarant* или этот watch начнёт эмитить), нужно будет вернуть
+// guard явно.
 watch(
   () => props.modelValue,
-  (v) => {
-    if (applyingAutocopy) return
-    Object.assign(form, buildForm(v))
-  },
+  (v) => Object.assign(form, buildForm(v)),
   { deep: true },
 )
 
@@ -173,13 +176,8 @@ function copyDeclarantToFinancialSubject() {
 }
 
 function runAutocopy(fn: () => void) {
-  applyingAutocopy = true
-  try {
-    fn()
-    emitChange()
-  } finally {
-    applyingAutocopy = false
-  }
+  fn()
+  emitChange()
 }
 
 const onConsigneeEqualsDeclarantChange = () => {
@@ -209,7 +207,9 @@ watch(
     form.declarantKatoCode,
   ],
   () => {
-    if (applyingAutocopy) return
+    // copyDeclarantTo*() ниже не трогает declarant*-поля, так что этот watch
+    // не может сам себя перезапустить — guard не нужен (см. комментарий
+    // у watch(() => props.modelValue, …) выше).
     if (form.consigneeEqualsDeclarant) runAutocopy(copyDeclarantToReceiver)
     if (form.financialSubjectEqualsDeclarant) runAutocopy(copyDeclarantToFinancialSubject)
   },
@@ -218,9 +218,13 @@ watch(
 // На загрузке существующей ДТ с уже включённой галочкой держим гр.8/9
 // в актуальном состоянии на случай, если декларант поменялся, пока
 // значения не пересохранялись (readonly-поля иначе могли бы показать
-// устаревшие данные).
+// устаревшие данные). Обязательно через runAutocopy()/emitChange() —
+// иначе исправление остаётся только в локальном `form` и не долетает до
+// dtForm родителя (Import40DtView.saveDt() читает из dtForm, а не из form
+// этого компонента), и при сохранении без правки других полей в базу
+// уйдут устаревшие receiver/financialSubject значения.
 onMounted(() => {
-  if (form.consigneeEqualsDeclarant) copyDeclarantToReceiver()
-  if (form.financialSubjectEqualsDeclarant) copyDeclarantToFinancialSubject()
+  if (form.consigneeEqualsDeclarant) runAutocopy(copyDeclarantToReceiver)
+  if (form.financialSubjectEqualsDeclarant) runAutocopy(copyDeclarantToFinancialSubject)
 })
 </script>
