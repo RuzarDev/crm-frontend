@@ -126,6 +126,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, reactive, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import dayjs from 'dayjs'
 import { message } from 'ant-design-vue'
 import { CheckCircleFilled } from '@ant-design/icons-vue'
 import {
@@ -495,7 +496,11 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.borderCustomsOfficeCode = decl.borderCustomsOfficeCode ?? ''
   dtForm.borderCustomsOfficeName = decl.borderCustomsOfficeName ?? ''
   dtForm.submissionCustomsOfficeCode = decl.submissionCustomsOfficeCode ?? ''
-  dtForm.submissionDate = decl.submissionDate ?? null
+  // decl.submissionDate === null для свежей ДТ (ещё не сохранялась) — в этом
+  // случае подставляем сегодняшнюю дату по умолчанию, т.к. DtDeclarationNumberBar
+  // выставляет её в своём onMounted, который отрабатывает РАНЬШЕ applyDeclaration
+  // (родительский onMounted → loadDt → applyDeclaration) и потому перезаписывается.
+  dtForm.submissionDate = decl.submissionDate || dayjs().format('YYYY-MM-DD')
   dtForm.borderTransportModeCode = decl.borderTransportModeCode ?? ''
   dtForm.borderTransportNationality = decl.borderTransportNationality ?? 'KZ'
   dtForm.borderTransportNumbers = (decl.borderTransportNumbers ?? []).map((m) => ({ ...m }))
@@ -587,6 +592,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     payments: (g.payments ?? []).map((p) => ({ ...p })),
     needsTpinRecalc: g.needsTpinRecalc ?? false,
     containerNumber: g.containerNumber ?? null,
+    vatRatePreferential: g.vatRatePreferential ?? null,
   }))
   dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({
     docTypeCode: d.docTypeCode ?? null,
