@@ -64,7 +64,7 @@
             :expense-type-options="expenseTypeOptions" :currency-options="currencyOptions" :currency-rates="currencyRates"
             @update:model-value="onDtUpdate" @calc-customs-value="calcCustomsValue"
           />
-          <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
+          <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" :post-options="customsPostOptions" @update:model-value="onDtUpdate" />
           <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" @calc-tpin="calcTpin" />
           <DtSectionDocs v-show="activeSection === 'docs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
           <DtSectionClosing v-show="activeSection === 'closing'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
@@ -284,6 +284,8 @@ const dtForm = reactive<DtFormState>({
   goodsLocationCode: '',
   goodsLocationRegisterNumber: '',
   goodsLocationCountryCode: 'KZ',
+  goodsLocationStation: '',
+  goodsLocationAddress: '',
   borderCustomsOfficeCode: '',
   borderCustomsOfficeName: '',
   submissionCustomsOfficeCode: '',
@@ -465,6 +467,8 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.goodsLocationCode = decl.goodsLocationCode ?? ''
   dtForm.goodsLocationRegisterNumber = decl.goodsLocationRegisterNumber ?? ''
   dtForm.goodsLocationCountryCode = decl.goodsLocationCountryCode ?? 'KZ'
+  dtForm.goodsLocationStation = decl.goodsLocationStation ?? ''
+  dtForm.goodsLocationAddress = decl.goodsLocationAddress ?? ''
   dtForm.borderCustomsOfficeCode = decl.borderCustomsOfficeCode ?? ''
   dtForm.borderCustomsOfficeName = decl.borderCustomsOfficeName ?? ''
   dtForm.submissionCustomsOfficeCode = decl.submissionCustomsOfficeCode ?? ''
@@ -761,6 +765,8 @@ const saveDt = async (): Promise<boolean> => {
       goodsLocationCode: dtForm.goodsLocationCode || null,
       goodsLocationRegisterNumber: dtForm.goodsLocationRegisterNumber || null,
       goodsLocationCountryCode: dtForm.goodsLocationCountryCode || null,
+      goodsLocationStation: dtForm.goodsLocationStation || null,
+      goodsLocationAddress: dtForm.goodsLocationAddress || null,
       borderCustomsOfficeCode: dtForm.borderCustomsOfficeCode || null,
       borderCustomsOfficeName: dtForm.borderCustomsOfficeName || null,
       submissionCustomsOfficeCode: dtForm.submissionCustomsOfficeCode || null,

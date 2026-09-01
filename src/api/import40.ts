@@ -151,6 +151,8 @@ export interface Import40DeclarationDto {
   goodsLocationCode?: string | null
   goodsLocationRegisterNumber?: string | null
   goodsLocationCountryCode?: string | null
+  goodsLocationStation?: string | null
+  goodsLocationAddress?: string | null
   borderCustomsOfficeCode?: string | null
   borderCustomsOfficeName?: string | null
   submissionCustomsOfficeCode?: string | null
@@ -242,6 +244,8 @@ export interface Import40DeclarationUpsert {
   goodsLocationCode?: string | null
   goodsLocationRegisterNumber?: string | null
   goodsLocationCountryCode?: string | null
+  goodsLocationStation?: string | null
+  goodsLocationAddress?: string | null
   borderCustomsOfficeCode?: string | null
   borderCustomsOfficeName?: string | null
   submissionCustomsOfficeCode?: string | null
