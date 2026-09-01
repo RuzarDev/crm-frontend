@@ -127,7 +127,12 @@ export interface Import40DeclarationDto {
   corridor: string
   procedureCode: string
   sender?: Import40Party | null
+  senderHouse?: string | null
   receiver?: Import40Party | null
+  receiverHouse?: string | null
+  receiverBin?: string | null
+  receiverCategoryCode?: string | null
+  receiverKatoCode?: string | null
   departureCountryCode?: string | null
   destinationCountryCode?: string | null
   incoterms?: string | null
@@ -169,12 +174,18 @@ export interface Import40DeclarationDto {
   financialSubjectRegion: string | null
   financialSubjectCity: string | null
   financialSubjectStreet: string | null
+  financialSubjectHouse: string | null
+  financialSubjectCategoryCode: string | null
+  financialSubjectKatoCode: string | null
   declarantName: string | null
   declarantBin: string | null
   declarantCountryCode: string | null
   declarantRegion: string | null
   declarantCity: string | null
   declarantStreet: string | null
+  declarantHouse: string | null
+  declarantCategoryCode: string | null
+  declarantKatoCode: string | null
   containerIndicator: boolean
   inlandTransportModeCode: string | null
   deferralDocType: string | null
@@ -207,7 +218,12 @@ export interface Import40DeclarationUpsert {
   corridor?: string | null
   procedureCode?: string | null
   sender?: Import40Party | null
+  senderHouse?: string | null
   receiver?: Import40Party | null
+  receiverHouse?: string | null
+  receiverBin?: string | null
+  receiverCategoryCode?: string | null
+  receiverKatoCode?: string | null
   departureCountryCode?: string | null
   destinationCountryCode?: string | null
   incoterms?: string | null
@@ -251,12 +267,18 @@ export interface Import40DeclarationUpsert {
   financialSubjectRegion?: string | null
   financialSubjectCity?: string | null
   financialSubjectStreet?: string | null
+  financialSubjectHouse?: string | null
+  financialSubjectCategoryCode?: string | null
+  financialSubjectKatoCode?: string | null
   declarantName?: string | null
   declarantBin?: string | null
   declarantCountryCode?: string | null
   declarantRegion?: string | null
   declarantCity?: string | null
   declarantStreet?: string | null
+  declarantHouse?: string | null
+  declarantCategoryCode?: string | null
+  declarantKatoCode?: string | null
   // Как соседние consigneeEqualsDeclarant/financialSubjectEqualsDeclarant:
   // в C# non-nullable bool с дефолтом, но тип формы делаем optional-nullable
   // для единообразия остального интерфейса.
