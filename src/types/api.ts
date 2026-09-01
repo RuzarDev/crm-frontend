@@ -1177,6 +1177,10 @@ export interface ReestrGuaranteeInput {
 export interface Import40TransportMeans {
   number: string
   typeCode: string | null
+  nationality?: string | null
+  mark?: string | null
+  isTrailer?: boolean | null
+  headNumber?: string | null
 }
 
 export interface Import40GoodsPayment {

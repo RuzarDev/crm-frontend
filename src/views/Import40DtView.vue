@@ -175,6 +175,7 @@ const DT_CLASSIFIERS = [
   'settlement-terms',    // формы расчётов / условия оплаты (гр.24)
   'itn-categories',       // категория лица (гр.8, 9, 14)
   'kato',                 // КАТО (гр.8, 9, 14)
+  'vehicle-marks',        // марки ТС (гр.18, 21)
 ]
 
 const caseId = String(route.params.caseId)

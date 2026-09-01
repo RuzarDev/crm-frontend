@@ -22,19 +22,29 @@
         show-search allow-clear :filter-option="filterAlpha2" placeholder="KZ" style="max-width: 260px" @change="emitChange" />
     </a-form-item>
 
-    <div class="dt-section-bar"><DtGraphLabel graph="21" text="Транспортное средство на границе" /></div>
-    <div class="transport-list">
-      <div v-for="(m, i) in form.borderTransportNumbers" :key="i" class="transport-list-row">
-        <a-input v-model:value="m.number" :disabled="readonly" placeholder="Номер ТС" style="max-width: 220px" @change="emitChange" />
-        <a-auto-complete v-model:value="m.typeCode" :options="classifiers.options('2024')"
-          :disabled="readonly" placeholder="319" style="max-width: 200px" @change="emitChange" />
-        <a-button v-if="!readonly" type="text" danger size="small" @click="removeBorderTransport(i)"><CloseOutlined /></a-button>
+    <template v-if="form.borderTransportModeCode !== '20'">
+      <div class="dt-section-bar"><DtGraphLabel graph="21" text="Транспортное средство на границе" /></div>
+      <div class="transport-list">
+        <div v-for="(m, i) in form.borderTransportNumbers" :key="i" class="transport-list-row transport-list-row-wrap">
+          <a-switch v-model:checked="m.isTrailer" :disabled="readonly" checked-children="Прицеп" un-checked-children="Голова" @change="emitChange" />
+          <a-input v-uppercase v-model:value="m.number" :disabled="readonly" placeholder="Номер ТС" style="max-width: 200px" @change="emitChange" />
+          <a-auto-complete v-model:value="m.typeCode" :options="classifiers.options('2024')"
+            :disabled="readonly" placeholder="319" style="max-width: 160px" @change="emitChange" />
+          <a-select v-model:value="m.mark" :options="classifiers.options('vehicle-marks')" :disabled="readonly"
+            show-search allow-clear placeholder="Марка" style="min-width: 180px" @change="emitChange" />
+          <a-select v-model:value="m.nationality" :options="countryAlpha2Options" :disabled="readonly"
+            show-search allow-clear :filter-option="filterAlpha2" placeholder="Нац." style="max-width: 140px" @change="emitChange" />
+          <a-select v-if="m.isTrailer" v-model:value="m.headNumber" :options="borderHeadOptions" :disabled="readonly"
+            allow-clear placeholder="Голова" style="min-width: 160px" @change="emitChange" />
+          <a-button v-if="!readonly" type="text" danger size="small" @click="removeBorderTransport(i)"><CloseOutlined /></a-button>
+        </div>
+        <div class="transport-actions">
+          <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport(false)">+ Голова</a-button>
+          <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport(true)">+ Прицеп</a-button>
+          <a-button v-if="!readonly && form.borderTransportNumbers.length" size="small" @click="copyBorderToArrival">Скопировать в гр.18 <ArrowDownOutlined /></a-button>
+        </div>
       </div>
-      <div class="transport-actions">
-        <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport">+ Номер ТС (граница)</a-button>
-        <a-button v-if="!readonly && form.borderTransportNumbers.length" size="small" @click="copyBorderToArrival">Скопировать в гр.18 <ArrowDownOutlined /></a-button>
-      </div>
-    </div>
+    </template>
 
     <div class="dt-grid-2">
       <a-form-item label="Вид транспорта прибытия">
@@ -49,14 +59,22 @@
 
     <div class="dt-section-bar"><DtGraphLabel graph="18" text="Транспортное средство при прибытии" /></div>
     <div class="transport-list">
-      <div v-for="(m, i) in form.arrivalTransportNumbers" :key="i" class="transport-list-row">
-        <a-input v-model:value="m.number" :disabled="readonly" placeholder="Номер ТС" style="max-width: 220px" @change="emitChange" />
+      <div v-for="(m, i) in form.arrivalTransportNumbers" :key="i" class="transport-list-row transport-list-row-wrap">
+        <a-switch v-model:checked="m.isTrailer" :disabled="readonly" checked-children="Прицеп" un-checked-children="Голова" @change="emitChange" />
+        <a-input v-uppercase v-model:value="m.number" :disabled="readonly" placeholder="Номер ТС" style="max-width: 200px" @change="emitChange" />
         <a-auto-complete v-model:value="m.typeCode" :options="classifiers.options('2024')"
-          :disabled="readonly" placeholder="319" style="max-width: 200px" @change="emitChange" />
+          :disabled="readonly" placeholder="319" style="max-width: 160px" @change="emitChange" />
+        <a-select v-model:value="m.mark" :options="classifiers.options('vehicle-marks')" :disabled="readonly"
+          show-search allow-clear placeholder="Марка" style="min-width: 180px" @change="emitChange" />
+        <a-select v-model:value="m.nationality" :options="countryAlpha2Options" :disabled="readonly"
+          show-search allow-clear :filter-option="filterAlpha2" placeholder="Нац." style="max-width: 140px" @change="emitChange" />
+        <a-select v-if="m.isTrailer" v-model:value="m.headNumber" :options="arrivalHeadOptions" :disabled="readonly"
+          allow-clear placeholder="Голова" style="min-width: 160px" @change="emitChange" />
         <a-button v-if="!readonly" type="text" danger size="small" @click="removeArrivalTransport(i)"><CloseOutlined /></a-button>
       </div>
       <div class="transport-actions">
-        <a-button v-if="!readonly" type="dashed" size="small" @click="addArrivalTransport">+ Номер ТС (прибытие)</a-button>
+        <a-button v-if="!readonly" type="dashed" size="small" @click="addArrivalTransport(false)">+ Голова</a-button>
+        <a-button v-if="!readonly" type="dashed" size="small" @click="addArrivalTransport(true)">+ Прицеп</a-button>
         <a-button v-if="!readonly && form.arrivalTransportNumbers.length" size="small" @click="copyArrivalToBorder">Скопировать в гр.21 <ArrowUpOutlined /></a-button>
       </div>
     </div>
@@ -64,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { ArrowDownOutlined, ArrowUpOutlined, CloseOutlined } from '@ant-design/icons-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
@@ -113,16 +131,28 @@ const emitChange = () =>
     arrivalTransportNumbers: form.arrivalTransportNumbers.map((m) => ({ ...m })),
   })
 
-function addBorderTransport() {
-  form.borderTransportNumbers.push({ number: '', typeCode: null })
+// «Голова» у прицепа выбирается из номеров головных ТС (isTrailer=false) той же графы.
+const borderHeadOptions = computed(() =>
+  form.borderTransportNumbers
+    .filter((m) => !m.isTrailer && m.number)
+    .map((m) => ({ value: m.number, label: m.number })),
+)
+const arrivalHeadOptions = computed(() =>
+  form.arrivalTransportNumbers
+    .filter((m) => !m.isTrailer && m.number)
+    .map((m) => ({ value: m.number, label: m.number })),
+)
+
+function addBorderTransport(isTrailer: boolean) {
+  form.borderTransportNumbers.push({ number: '', typeCode: null, nationality: null, mark: null, isTrailer, headNumber: null })
   emitChange()
 }
 function removeBorderTransport(idx: number) {
   form.borderTransportNumbers.splice(idx, 1)
   emitChange()
 }
-function addArrivalTransport() {
-  form.arrivalTransportNumbers.push({ number: '', typeCode: null })
+function addArrivalTransport(isTrailer: boolean) {
+  form.arrivalTransportNumbers.push({ number: '', typeCode: null, nationality: null, mark: null, isTrailer, headNumber: null })
   emitChange()
 }
 function removeArrivalTransport(idx: number) {
@@ -144,3 +174,9 @@ function copyArrivalToBorder() {
   emitChange()
 }
 </script>
+
+<style scoped>
+.transport-list-row-wrap {
+  flex-wrap: wrap;
+}
+</style>
