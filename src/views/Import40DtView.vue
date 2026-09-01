@@ -920,7 +920,15 @@ onMounted(async () => {
   }
   try {
     const posts = await referencesApi.listCustomsPosts()
-    customsPostOptions.value = posts.map((p) => ({ value: p.name, label: p.name }))
+    // RefCustomsPost.Name — комбинированная строка вида «57505 — ТАМОЖЕННЫЙ
+    // ПОСТ «НҰР ЖОЛЫ»» (отдельного поля кода нет). Для declarationNumber
+    // (DtDeclarationNumberBar.register()) нужен голый числовой код, поэтому
+    // value — распарсенный ведущий код, label — полная строка справочника;
+    // без парсинга submissionCustomsOfficeCode хранил бы всю строку целиком.
+    customsPostOptions.value = posts.map((p) => ({
+      value: p.name.match(/^\d+/)?.[0] ?? p.name,
+      label: p.name,
+    }))
   } catch {
     /* справочник постов не загрузился — код поста можно ввести вручную */
   }
