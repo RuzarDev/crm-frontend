@@ -31,6 +31,14 @@
       </template>
     </a-alert>
 
+    <DtDeclarationNumberBar
+      :model-value="dtForm"
+      :readonly="readOnly"
+      :post-options="customsPostOptions"
+      @update:model-value="onDtUpdate"
+      @register="saveDt()"
+    />
+
     <div class="dt-layout">
       <nav class="dt-nav">
         <a
@@ -135,6 +143,7 @@ import DtSectionCustoms from '@/components/import40/dt/DtSectionCustoms.vue'
 import DtSectionGoods from '@/components/import40/dt/DtSectionGoods.vue'
 import DtSectionDocs from '@/components/import40/dt/DtSectionDocs.vue'
 import DtSectionClosing from '@/components/import40/dt/DtSectionClosing.vue'
+import DtDeclarationNumberBar from '@/components/import40/dt/DtDeclarationNumberBar.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
 import PageHeader from '@/components/PageHeader.vue'
 
@@ -209,6 +218,9 @@ const blankPct = computed(() => {
 
 const countryOptions = ref<{ value: string; label: string }[]>([])
 
+// Task 5: коды таможенных постов для DtDeclarationNumberBar (гр.А «Орган подачи ДТ»)
+const customsPostOptions = ref<{ value: string; label: string }[]>([])
+
 // Spec 4a: справочник статей расходов и валюты НБ РК для таблицы расходов
 // ДТ и кнопки расчёта таможенной стоимости (DtSectionFinance). Как и
 // countryOptions, грузятся отдельно от decl/classifiers — один упавший
@@ -275,6 +287,7 @@ const dtForm = reactive<DtFormState>({
   borderCustomsOfficeCode: '',
   borderCustomsOfficeName: '',
   submissionCustomsOfficeCode: '',
+  submissionDate: null,
   borderTransportModeCode: '',
   borderTransportNationality: 'KZ',
   borderTransportNumbers: [],
@@ -455,6 +468,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.borderCustomsOfficeCode = decl.borderCustomsOfficeCode ?? ''
   dtForm.borderCustomsOfficeName = decl.borderCustomsOfficeName ?? ''
   dtForm.submissionCustomsOfficeCode = decl.submissionCustomsOfficeCode ?? ''
+  dtForm.submissionDate = decl.submissionDate ?? null
   dtForm.borderTransportModeCode = decl.borderTransportModeCode ?? ''
   dtForm.borderTransportNationality = decl.borderTransportNationality ?? 'KZ'
   dtForm.borderTransportNumbers = (decl.borderTransportNumbers ?? []).map((m) => ({ ...m }))
@@ -750,6 +764,7 @@ const saveDt = async (): Promise<boolean> => {
       borderCustomsOfficeCode: dtForm.borderCustomsOfficeCode || null,
       borderCustomsOfficeName: dtForm.borderCustomsOfficeName || null,
       submissionCustomsOfficeCode: dtForm.submissionCustomsOfficeCode || null,
+      submissionDate: dtForm.submissionDate || null,
       borderTransportModeCode: dtForm.borderTransportModeCode || null,
       borderTransportNationality: dtForm.borderTransportNationality || null,
       borderTransportNumbers: dtForm.borderTransportNumbers,
@@ -902,6 +917,12 @@ onMounted(async () => {
     countryOptions.value = countries.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
   } catch {
     /* справочник стран не загрузился — селекты позволят ручной ввод через allow-clear */
+  }
+  try {
+    const posts = await referencesApi.listCustomsPosts()
+    customsPostOptions.value = posts.map((p) => ({ value: p.name, label: p.name }))
+  } catch {
+    /* справочник постов не загрузился — код поста можно ввести вручную */
   }
   try {
     const expenseTypes = await referencesApi.listExpenseTypes()

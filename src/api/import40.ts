@@ -154,6 +154,7 @@ export interface Import40DeclarationDto {
   borderCustomsOfficeCode?: string | null
   borderCustomsOfficeName?: string | null
   submissionCustomsOfficeCode?: string | null
+  submissionDate?: string | null
   borderTransportModeCode?: string | null
   borderTransportNationality?: string | null
   borderTransportNumbers?: Import40TransportMeans[]
@@ -244,6 +245,7 @@ export interface Import40DeclarationUpsert {
   borderCustomsOfficeCode?: string | null
   borderCustomsOfficeName?: string | null
   submissionCustomsOfficeCode?: string | null
+  submissionDate?: string | null
   borderTransportModeCode?: string | null
   borderTransportNationality?: string | null
   borderTransportNumbers?: Import40TransportMeans[]

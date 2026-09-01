@@ -137,7 +137,15 @@
         :summary="stepState(3) === 'done' ? `ДТ: ${activeCase.declarations.length}` : undefined">
         <div v-if="!activeCase.declarations.length" class="muted">ДТ ещё не создана</div>
 
-        <div v-for="(dt, i) in activeCase.declarations" :key="dt.id" class="dt-row">
+        <a-input
+          v-if="activeCase.declarations.length > 1"
+          v-model:value="dtSearch"
+          allow-clear
+          placeholder="Поиск ДТ по номеру"
+          style="max-width: 320px; margin-bottom: 8px"
+        />
+
+        <div v-for="(dt, i) in filteredDeclarations" :key="dt.id" class="dt-row">
           <div class="dt-row-main">
             <strong>{{ dt.declarationNumber || `ДТ ${i + 1}` }}</strong>
             <span class="muted">товаров: {{ dt.goodsItems.length }}</span>
@@ -504,6 +512,16 @@ const transportSummary = computed(() => {
   const kind = TRANSPORT_LABELS[c.transportMode] ?? '—'
   const detail = [c.wagonNumber, c.vehicleNumber, c.flightNumber, c.vesselName].filter(Boolean).join(', ')
   return `${kind}${detail ? ' · ' + detail : ''}`
+})
+
+// Task 5: поиск ДТ по номеру внутри заявки — декларации уже в памяти
+// (activeCase.declarations), отдельный API-параметр не нужен.
+const dtSearch = ref('')
+const filteredDeclarations = computed(() => {
+  const q = dtSearch.value.trim().toLowerCase()
+  const list = activeCase.value?.declarations ?? []
+  if (!q) return list
+  return list.filter((dt) => (dt.declarationNumber || '').toLowerCase().includes(q))
 })
 
 const readiness = ref<Record<string, KedenReadinessDto>>({})

@@ -70,6 +70,7 @@ declare module 'vue' {
     AUploadDragger: typeof import('ant-design-vue/es')['UploadDragger']
     CarriersBlock: typeof import('./src/components/reestr/CarriersBlock.vue')['default']
     ContainersBlock: typeof import('./src/components/reestr/ContainersBlock.vue')['default']
+    DtDeclarationNumberBar: typeof import('./src/components/import40/dt/DtDeclarationNumberBar.vue')['default']
     DtGraphLabel: typeof import('./src/components/import40/dt/DtGraphLabel.vue')['default']
     DtPrevDocsSection: typeof import('./src/components/import40/dt/DtPrevDocsSection.vue')['default']
     DtSectionClosing: typeof import('./src/components/import40/dt/DtSectionClosing.vue')['default']
