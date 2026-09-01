@@ -20,6 +20,7 @@
           <a-button :disabled="!canSplit" @click="openSplitModal">Разделить на ЕТТ/ВТО</a-button>
         </a-tooltip>
         <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
+        <a-button :loading="paymentsLoading" @click="openPaymentsModal">Рассчитать платежи</a-button>
         <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
       </template>
     </PageHeader>
@@ -30,6 +31,14 @@
         <ul><li v-for="m in kedenMissing" :key="m"><a @click.prevent="goToMissing(m)">{{ m }}</a></li></ul>
       </template>
     </a-alert>
+
+    <DtDeclarationNumberBar
+      :model-value="dtForm"
+      :readonly="readOnly"
+      :post-options="customsPostOptions"
+      @update:model-value="onDtUpdate"
+      @register="saveDt()"
+    />
 
     <div class="dt-layout">
       <nav class="dt-nav">
@@ -56,8 +65,8 @@
             :expense-type-options="expenseTypeOptions" :currency-options="currencyOptions" :currency-rates="currencyRates"
             @update:model-value="onDtUpdate" @calc-customs-value="calcCustomsValue"
           />
-          <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
-          <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" @calc-tpin="calcTpin" />
+          <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" :post-options="customsPostOptions" @update:model-value="onDtUpdate" />
+          <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" :container-indicator="!!dtForm.containerIndicator" @calc-tpin="calcTpin" />
           <DtSectionDocs v-show="activeSection === 'docs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
           <DtSectionClosing v-show="activeSection === 'closing'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
         </a-form>
@@ -100,12 +109,24 @@
         </a-table>
       </a-spin>
     </a-modal>
+
+    <DtPaymentsCalcModal
+      v-model:open="paymentsModalOpen"
+      :loading="paymentsLoading"
+      :applying="paymentsApplying"
+      :readonly="readOnly"
+      :result="paymentsResult"
+      :goods="dtForm.goodsItems"
+      @toggle-medical="onToggleMedical"
+      @apply="onApplyPayments"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, reactive } from 'vue'
+import { computed, onMounted, ref, reactive, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import dayjs from 'dayjs'
 import { message } from 'ant-design-vue'
 import { CheckCircleFilled } from '@ant-design/icons-vue'
 import {
@@ -118,6 +139,7 @@ import {
   type Import40PrevDocItem,
   type KedenReadinessDto,
   type Import40SplitSuggestionRow,
+  type Import40CalculatePaymentsResponse,
 } from '@/api/import40'
 import type { Import40FactPayment, Import40GoodsItemInput, Import40DeclarationExpense } from '@/types/api'
 import { CURRENCY_NUMERIC } from '@/types/api'
@@ -135,7 +157,9 @@ import DtSectionCustoms from '@/components/import40/dt/DtSectionCustoms.vue'
 import DtSectionGoods from '@/components/import40/dt/DtSectionGoods.vue'
 import DtSectionDocs from '@/components/import40/dt/DtSectionDocs.vue'
 import DtSectionClosing from '@/components/import40/dt/DtSectionClosing.vue'
+import DtDeclarationNumberBar from '@/components/import40/dt/DtDeclarationNumberBar.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
+import DtPaymentsCalcModal from '@/components/import40/dt/DtPaymentsCalcModal.vue'
 import PageHeader from '@/components/PageHeader.vue'
 
 const route = useRoute()
@@ -164,6 +188,9 @@ const DT_CLASSIFIERS = [
   'movement-features',   // особенности перемещения товаров (товарное поле)
   'declaring-features',   // особенности таможенного декларирования (гр.7)
   'settlement-terms',    // формы расчётов / условия оплаты (гр.24)
+  'itn-categories',       // категория лица (гр.8, 9, 14)
+  'kato',                 // КАТО (гр.8, 9, 14)
+  'vehicle-marks',        // марки ТС (гр.18, 21)
 ]
 
 const caseId = String(route.params.caseId)
@@ -206,6 +233,9 @@ const blankPct = computed(() => {
 })
 
 const countryOptions = ref<{ value: string; label: string }[]>([])
+
+// Task 5: коды таможенных постов для DtDeclarationNumberBar (гр.А «Орган подачи ДТ»)
+const customsPostOptions = ref<{ value: string; label: string }[]>([])
 
 // Spec 4a: справочник статей расходов и валюты НБ РК для таблицы расходов
 // ДТ и кнопки расчёта таможенной стоимости (DtSectionFinance). Как и
@@ -250,7 +280,12 @@ const dtForm = reactive<DtFormState>({
   exchangeRate: null,
   totalInvoiceValue: null,
   sender: emptyParty(),
+  senderHouse: null,
   receiver: emptyParty(),
+  receiverHouse: null,
+  receiverBin: null,
+  receiverCategoryCode: null,
+  receiverKatoCode: null,
   goodsItems: [],
   doc44Items: [],
   prevDocItems: [],
@@ -265,9 +300,12 @@ const dtForm = reactive<DtFormState>({
   goodsLocationCode: '',
   goodsLocationRegisterNumber: '',
   goodsLocationCountryCode: 'KZ',
+  goodsLocationStation: '',
+  goodsLocationAddress: '',
   borderCustomsOfficeCode: '',
   borderCustomsOfficeName: '',
   submissionCustomsOfficeCode: '',
+  submissionDate: null,
   borderTransportModeCode: '',
   borderTransportNationality: 'KZ',
   borderTransportNumbers: [],
@@ -289,12 +327,18 @@ const dtForm = reactive<DtFormState>({
   financialSubjectRegion: null,
   financialSubjectCity: null,
   financialSubjectStreet: null,
+  financialSubjectHouse: null,
+  financialSubjectCategoryCode: null,
+  financialSubjectKatoCode: null,
   declarantName: null,
   declarantBin: null,
   declarantCountryCode: null,
   declarantRegion: null,
   declarantCity: null,
   declarantStreet: null,
+  declarantHouse: null,
+  declarantCategoryCode: null,
+  declarantKatoCode: null,
   containerIndicator: false,
   inlandTransportModeCode: null,
   deferralDocType: null,
@@ -411,7 +455,15 @@ const refreshReadiness = async () => {
   }
 }
 
+// Task 8a: пока true — watch авто-гр.16 (см. ниже) не трогает originCountryCode.
+// Нужен только на время applyDeclaration(): без него watch на goodsOriginKey
+// среагировал бы на массовую подстановку dtForm.goodsItems при загрузке ДТ
+// и тут же перезаписал бы originCountryCode, только что взятый из decl,
+// авто-подсчитанным значением — даже если декларант раньше сохранил другое.
+const applyingDeclaration = ref(false)
+
 const applyDeclaration = (decl: Import40DeclarationDto) => {
+  applyingDeclaration.value = true
   dtForm.id = decl.id
   dtForm.declarationNumber = decl.declarationNumber ?? ''
   dtForm.corridor = decl.corridor ?? 'green'
@@ -423,7 +475,12 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.exchangeRate = decl.exchangeRate ?? null
   dtForm.totalInvoiceValue = decl.totalInvoiceValue ?? null
   dtForm.sender = decl.sender ? { ...emptyParty(), ...decl.sender } : emptyParty()
+  dtForm.senderHouse = decl.senderHouse ?? null
   dtForm.receiver = decl.receiver ? { ...emptyParty(), ...decl.receiver } : emptyParty()
+  dtForm.receiverHouse = decl.receiverHouse ?? null
+  dtForm.receiverBin = decl.receiverBin ?? null
+  dtForm.receiverCategoryCode = decl.receiverCategoryCode ?? null
+  dtForm.receiverKatoCode = decl.receiverKatoCode ?? null
   dtForm.transactionNatureCode = decl.transactionNatureCode ?? ''
   dtForm.transactionFeatureCode = decl.transactionFeatureCode ?? ''
   dtForm.tradeCountryCode = decl.tradeCountryCode ?? ''
@@ -434,9 +491,16 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.goodsLocationCode = decl.goodsLocationCode ?? ''
   dtForm.goodsLocationRegisterNumber = decl.goodsLocationRegisterNumber ?? ''
   dtForm.goodsLocationCountryCode = decl.goodsLocationCountryCode ?? 'KZ'
+  dtForm.goodsLocationStation = decl.goodsLocationStation ?? ''
+  dtForm.goodsLocationAddress = decl.goodsLocationAddress ?? ''
   dtForm.borderCustomsOfficeCode = decl.borderCustomsOfficeCode ?? ''
   dtForm.borderCustomsOfficeName = decl.borderCustomsOfficeName ?? ''
   dtForm.submissionCustomsOfficeCode = decl.submissionCustomsOfficeCode ?? ''
+  // decl.submissionDate === null для свежей ДТ (ещё не сохранялась) — в этом
+  // случае подставляем сегодняшнюю дату по умолчанию, т.к. DtDeclarationNumberBar
+  // выставляет её в своём onMounted, который отрабатывает РАНЬШЕ applyDeclaration
+  // (родительский onMounted → loadDt → applyDeclaration) и потому перезаписывается.
+  dtForm.submissionDate = decl.submissionDate || dayjs().format('YYYY-MM-DD')
   dtForm.borderTransportModeCode = decl.borderTransportModeCode ?? ''
   dtForm.borderTransportNationality = decl.borderTransportNationality ?? 'KZ'
   dtForm.borderTransportNumbers = (decl.borderTransportNumbers ?? []).map((m) => ({ ...m }))
@@ -458,12 +522,18 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.financialSubjectRegion = decl.financialSubjectRegion ?? null
   dtForm.financialSubjectCity = decl.financialSubjectCity ?? null
   dtForm.financialSubjectStreet = decl.financialSubjectStreet ?? null
+  dtForm.financialSubjectHouse = decl.financialSubjectHouse ?? null
+  dtForm.financialSubjectCategoryCode = decl.financialSubjectCategoryCode ?? null
+  dtForm.financialSubjectKatoCode = decl.financialSubjectKatoCode ?? null
   dtForm.declarantName = decl.declarantName ?? null
   dtForm.declarantBin = decl.declarantBin ?? null
   dtForm.declarantCountryCode = decl.declarantCountryCode ?? null
   dtForm.declarantRegion = decl.declarantRegion ?? null
   dtForm.declarantCity = decl.declarantCity ?? null
   dtForm.declarantStreet = decl.declarantStreet ?? null
+  dtForm.declarantHouse = decl.declarantHouse ?? null
+  dtForm.declarantCategoryCode = decl.declarantCategoryCode ?? null
+  dtForm.declarantKatoCode = decl.declarantKatoCode ?? null
   dtForm.containerIndicator = decl.containerIndicator ?? false
   dtForm.inlandTransportModeCode = decl.inlandTransportModeCode ?? null
   dtForm.deferralDocType = decl.deferralDocType ?? null
@@ -521,6 +591,8 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     ipoCode: g.ipoCode ?? null,
     payments: (g.payments ?? []).map((p) => ({ ...p })),
     needsTpinRecalc: g.needsTpinRecalc ?? false,
+    containerNumber: g.containerNumber ?? null,
+    vatRatePreferential: g.vatRatePreferential ?? null,
   }))
   dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({
     docTypeCode: d.docTypeCode ?? null,
@@ -532,7 +604,37 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     docValidityDate: d.docValidityDate ?? null,
     issueCountryCode: d.issueCountryCode ?? null,
   }))
+  // watch на goodsOriginKey срабатывает асинхронно (после этого синхронного
+  // присвоения всех полей формы) — снимаем guard через nextTick, чтобы он
+  // успел увидеть true во время своего срабатывания и пропустить его.
+  void nextTick(() => {
+    applyingDeclaration.value = false
+  })
 }
+
+// Task 8a: авто гр.16 (страна происхождения, шапка) из товаров.
+// Ключ — отсортированный список уникальных непустых countryOfOrigin, склеенный
+// в строку: watch реагирует только на изменение этого набора (значение, а не
+// ссылка на массив), поэтому не перетирает originCountryCode на не связанных
+// с товарами ре-рендерах формы. Поле остаётся редактируемым (DtSectionCountries) —
+// после ручной правки гр.16 watch снова сработает, только если сам набор стран
+// у товаров изменится.
+const goodsOriginKey = computed(() =>
+  Array.from(
+    new Set(dtForm.goodsItems.map((g) => (g.countryOfOrigin ?? '').trim()).filter(Boolean)),
+  )
+    .sort()
+    .join('|'),
+)
+
+watch(goodsOriginKey, (key) => {
+  if (applyingDeclaration.value) return
+  if (!key) return
+  const codes = key.split('|')
+  // Разные страны происхождения у товаров ДТ — гр.16 заполняется кодом «000»
+  // (условность бланка для «страна происхождения не определена/разные»).
+  dtForm.originCountryCode = codes.length === 1 ? codes[0] : '000'
+})
 
 // Коды видов платежа гр.47, в которые раскладывает суммы КП→ДТ маппер на
 // бэкенде (см. KpToDtMapper.AddPayment) — держим тот же порядок/коды здесь,
@@ -625,6 +727,120 @@ const calcTpin = async () => {
   }
 }
 
+// Task 10: «Рассчитать платежи» — светлая модалка гр.47/гр.B (POST
+// calculate-payments), которая заменяет прежний нечитаемый попап. Эндпоинт
+// не принимает тело — сервер читает товары из уже СОХРАНЁННОЙ декларации
+// (см. комментарий у import40Api.calculatePayments), поэтому перед каждым
+// вызовом обязателен saveDt().
+const paymentsModalOpen = ref(false)
+const paymentsLoading = ref(false)
+const paymentsApplying = ref(false)
+const paymentsResult = ref<Import40CalculatePaymentsResponse | null>(null)
+
+const runPaymentsCalc = async (): Promise<boolean> => {
+  const saved = await saveDt(true)
+  if (!saved) return false
+  paymentsLoading.value = true
+  try {
+    paymentsResult.value = await import40Api.calculatePayments(caseId, dtId)
+    return true
+  } catch (e: any) {
+    message.error(e?.response?.data?.error ?? 'Не удалось рассчитать платежи')
+    return false
+  } finally {
+    paymentsLoading.value = false
+  }
+}
+
+const openPaymentsModal = async () => {
+  paymentsResult.value = null
+  paymentsModalOpen.value = true
+  const ok = await runPaymentsCalc()
+  if (!ok) paymentsModalOpen.value = false
+}
+
+// Переключатель «Медизделие (НДС 5%)» в модалке: льготная ставка НДС товара
+// живёт на самом товаре (vatRatePreferential), поэтому переключение требует
+// пересохранить ДТ и пересчитать заново — тот же save→calc, что и открытие
+// модалки, только тихо (silent saveDt), чтобы не заваливать тостами.
+const onToggleMedical = async (index: number, checked: boolean) => {
+  const g = dtForm.goodsItems[index]
+  if (!g) return
+  g.vatRatePreferential = checked ? 0.05 : null
+  await runPaymentsCalc()
+}
+
+// Записывает последний расчёт (paymentsResult) в гр.47 товаров и гр.B
+// (dtForm.factPayments) — зеркалит upsertGoodsPayment/TPIN_PAYMENT_CODES выше:
+// та же логика "обновить существующую строку по taxModeCode или добавить
+// новую", только источник сумм — calculate-payments, а не salesApi.calculate,
+// и здесь дополнительно пишем base/rate (calc их возвращает), а не только сумму.
+const applyPaymentsResult = () => {
+  const res = paymentsResult.value
+  if (!res) return
+  res.goodsRows.forEach((row) => {
+    const g = dtForm.goodsItems[row.index]
+    if (!g) return
+    const rows = g.payments ?? []
+    row.rows.forEach((pr) => {
+      const existing = rows.find((p) => p.taxModeCode === pr.taxModeCode)
+      if (existing) {
+        existing.taxBase = pr.base ?? null
+        existing.rateValue = pr.rate ?? null
+        existing.amountKzt = pr.amount
+      } else {
+        rows.push({
+          taxModeCode: pr.taxModeCode,
+          taxBase: pr.base ?? null,
+          rateKindCode: '%',
+          rateValue: pr.rate ?? null,
+          rateUnitCode: null,
+          rateCurrencyCode: null,
+          weightRatio: null,
+          rateDate: null,
+          paymentFeatureCode: 'ИУ',
+          amountKzt: pr.amount,
+        })
+      }
+    })
+    g.payments = rows
+  })
+
+  const factRows = dtForm.factPayments ?? []
+  Object.entries(res.totalsByTaxMode).forEach(([code, amount]) => {
+    const existing = factRows.find((p) => p.taxModeCode === code)
+    if (existing) {
+      existing.amount = amount
+    } else {
+      factRows.push({
+        taxModeCode: code,
+        amount,
+        exchangeRate: 1,
+        paymentDocDate: null,
+        payerTaxpayerId: null,
+        paymentDate: null,
+        paymentMethodCode: 'БН',
+      })
+    }
+  })
+  dtForm.factPayments = factRows
+}
+
+const onApplyPayments = async () => {
+  if (!paymentsResult.value) return
+  paymentsApplying.value = true
+  try {
+    applyPaymentsResult()
+    const saved = await saveDt(true)
+    if (saved) {
+      message.success('Платежи записаны в гр.47 и гр.B')
+      paymentsModalOpen.value = false
+    }
+  } finally {
+    paymentsApplying.value = false
+  }
+}
+
 // «Рассчитать там. стоимость» (Spec 4a Task 3): распределяет расходы
 // dtForm.expenses по товарам dtForm.goodsItems и проставляет гр.45
 // (customsValueKzt) каждому — по index = позиции товара в массиве
@@ -692,7 +908,11 @@ const loadDt = async () => {
   void refreshReadiness()
 }
 
-const saveDt = async (): Promise<boolean> => {
+// silent=true пропускает тост "ДТ сохранена" — нужен для промежуточных
+// автосохранений перед расчётом платежей (Task 10: save → calc → save при
+// каждом переключении «Медизделие»), чтобы не заваливать декларанта одинаковыми
+// уведомлениями об одном и том же действии.
+const saveDt = async (silent = false): Promise<boolean> => {
   if (!dtForm.id) return false
   saving.value = true
   try {
@@ -707,7 +927,12 @@ const saveDt = async (): Promise<boolean> => {
       exchangeRate: dtForm.exchangeRate,
       totalInvoiceValue: dtForm.totalInvoiceValue,
       sender: dtForm.sender,
+      senderHouse: dtForm.senderHouse || null,
       receiver: dtForm.receiver,
+      receiverHouse: dtForm.receiverHouse || null,
+      receiverBin: dtForm.receiverBin || null,
+      receiverCategoryCode: dtForm.receiverCategoryCode || null,
+      receiverKatoCode: dtForm.receiverKatoCode || null,
       transactionNatureCode: dtForm.transactionNatureCode || null,
       transactionFeatureCode: dtForm.transactionFeatureCode || null,
       tradeCountryCode: dtForm.tradeCountryCode || null,
@@ -718,9 +943,12 @@ const saveDt = async (): Promise<boolean> => {
       goodsLocationCode: dtForm.goodsLocationCode || null,
       goodsLocationRegisterNumber: dtForm.goodsLocationRegisterNumber || null,
       goodsLocationCountryCode: dtForm.goodsLocationCountryCode || null,
+      goodsLocationStation: dtForm.goodsLocationStation || null,
+      goodsLocationAddress: dtForm.goodsLocationAddress || null,
       borderCustomsOfficeCode: dtForm.borderCustomsOfficeCode || null,
       borderCustomsOfficeName: dtForm.borderCustomsOfficeName || null,
       submissionCustomsOfficeCode: dtForm.submissionCustomsOfficeCode || null,
+      submissionDate: dtForm.submissionDate || null,
       borderTransportModeCode: dtForm.borderTransportModeCode || null,
       borderTransportNationality: dtForm.borderTransportNationality || null,
       borderTransportNumbers: dtForm.borderTransportNumbers,
@@ -741,12 +969,18 @@ const saveDt = async (): Promise<boolean> => {
       financialSubjectRegion: dtForm.financialSubjectRegion || null,
       financialSubjectCity: dtForm.financialSubjectCity || null,
       financialSubjectStreet: dtForm.financialSubjectStreet || null,
+      financialSubjectHouse: dtForm.financialSubjectHouse || null,
+      financialSubjectCategoryCode: dtForm.financialSubjectCategoryCode || null,
+      financialSubjectKatoCode: dtForm.financialSubjectKatoCode || null,
       declarantName: dtForm.declarantName || null,
       declarantBin: dtForm.declarantBin || null,
       declarantCountryCode: dtForm.declarantCountryCode || null,
       declarantRegion: dtForm.declarantRegion || null,
       declarantCity: dtForm.declarantCity || null,
       declarantStreet: dtForm.declarantStreet || null,
+      declarantHouse: dtForm.declarantHouse || null,
+      declarantCategoryCode: dtForm.declarantCategoryCode || null,
+      declarantKatoCode: dtForm.declarantKatoCode || null,
       containerIndicator: dtForm.containerIndicator,
       inlandTransportModeCode: dtForm.inlandTransportModeCode || null,
       deferralDocType: dtForm.deferralDocType || null,
@@ -770,7 +1004,7 @@ const saveDt = async (): Promise<boolean> => {
     }
     const updated = await import40Api.updateDeclaration(caseId, dtForm.id, payload)
     loadedDto.value = updated
-    message.success('ДТ сохранена')
+    if (!silent) message.success('ДТ сохранена')
     void refreshReadiness()
     return true
   } catch (e: any) {
@@ -867,6 +1101,20 @@ onMounted(async () => {
     countryOptions.value = countries.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
   } catch {
     /* справочник стран не загрузился — селекты позволят ручной ввод через allow-clear */
+  }
+  try {
+    const posts = await referencesApi.listCustomsPosts()
+    // RefCustomsPost.Name — комбинированная строка вида «57505 — ТАМОЖЕННЫЙ
+    // ПОСТ «НҰР ЖОЛЫ»» (отдельного поля кода нет). Для declarationNumber
+    // (DtDeclarationNumberBar.register()) нужен голый числовой код, поэтому
+    // value — распарсенный ведущий код, label — полная строка справочника;
+    // без парсинга submissionCustomsOfficeCode хранил бы всю строку целиком.
+    customsPostOptions.value = posts.map((p) => ({
+      value: p.name.match(/^\d+/)?.[0] ?? p.name,
+      label: p.name,
+    }))
+  } catch {
+    /* справочник постов не загрузился — код поста можно ввести вручную */
   }
   try {
     const expenseTypes = await referencesApi.listExpenseTypes()

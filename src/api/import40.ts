@@ -82,6 +82,9 @@ export interface Import40GoodsItemDto {
   prefDutyCode?: string | null
   prefExciseCode?: string | null
   prefVatCode?: string | null
+  // Льготная ставка НДС товара (напр. 0.05 для медизделий) — см. одноимённое
+  // поле в Import40GoodsItemInput (types/api.ts) для контекста Task 10.
+  vatRatePreferential?: number | null
   customsValueKzt?: number | null
   statisticValueUsd?: number | null
   valuationMethodCode?: string | null
@@ -92,6 +95,8 @@ export interface Import40GoodsItemDto {
   // Товар пришёл из КП без веса/количества (см. KpToDtMapper.MapGoods на бэке) —
   // сумма ТПиН требует проверки декларантом перед подачей.
   needsTpinRecalc?: boolean
+  // Номер контейнера (гр.31.3) — Task 1 (бэк).
+  containerNumber?: string | null
 }
 
 export interface Import40Doc44ItemDto {
@@ -127,7 +132,12 @@ export interface Import40DeclarationDto {
   corridor: string
   procedureCode: string
   sender?: Import40Party | null
+  senderHouse?: string | null
   receiver?: Import40Party | null
+  receiverHouse?: string | null
+  receiverBin?: string | null
+  receiverCategoryCode?: string | null
+  receiverKatoCode?: string | null
   departureCountryCode?: string | null
   destinationCountryCode?: string | null
   incoterms?: string | null
@@ -146,9 +156,12 @@ export interface Import40DeclarationDto {
   goodsLocationCode?: string | null
   goodsLocationRegisterNumber?: string | null
   goodsLocationCountryCode?: string | null
+  goodsLocationStation?: string | null
+  goodsLocationAddress?: string | null
   borderCustomsOfficeCode?: string | null
   borderCustomsOfficeName?: string | null
   submissionCustomsOfficeCode?: string | null
+  submissionDate?: string | null
   borderTransportModeCode?: string | null
   borderTransportNationality?: string | null
   borderTransportNumbers?: Import40TransportMeans[]
@@ -169,12 +182,18 @@ export interface Import40DeclarationDto {
   financialSubjectRegion: string | null
   financialSubjectCity: string | null
   financialSubjectStreet: string | null
+  financialSubjectHouse: string | null
+  financialSubjectCategoryCode: string | null
+  financialSubjectKatoCode: string | null
   declarantName: string | null
   declarantBin: string | null
   declarantCountryCode: string | null
   declarantRegion: string | null
   declarantCity: string | null
   declarantStreet: string | null
+  declarantHouse: string | null
+  declarantCategoryCode: string | null
+  declarantKatoCode: string | null
   containerIndicator: boolean
   inlandTransportModeCode: string | null
   deferralDocType: string | null
@@ -207,7 +226,12 @@ export interface Import40DeclarationUpsert {
   corridor?: string | null
   procedureCode?: string | null
   sender?: Import40Party | null
+  senderHouse?: string | null
   receiver?: Import40Party | null
+  receiverHouse?: string | null
+  receiverBin?: string | null
+  receiverCategoryCode?: string | null
+  receiverKatoCode?: string | null
   departureCountryCode?: string | null
   destinationCountryCode?: string | null
   incoterms?: string | null
@@ -225,9 +249,12 @@ export interface Import40DeclarationUpsert {
   goodsLocationCode?: string | null
   goodsLocationRegisterNumber?: string | null
   goodsLocationCountryCode?: string | null
+  goodsLocationStation?: string | null
+  goodsLocationAddress?: string | null
   borderCustomsOfficeCode?: string | null
   borderCustomsOfficeName?: string | null
   submissionCustomsOfficeCode?: string | null
+  submissionDate?: string | null
   borderTransportModeCode?: string | null
   borderTransportNationality?: string | null
   borderTransportNumbers?: Import40TransportMeans[]
@@ -251,12 +278,18 @@ export interface Import40DeclarationUpsert {
   financialSubjectRegion?: string | null
   financialSubjectCity?: string | null
   financialSubjectStreet?: string | null
+  financialSubjectHouse?: string | null
+  financialSubjectCategoryCode?: string | null
+  financialSubjectKatoCode?: string | null
   declarantName?: string | null
   declarantBin?: string | null
   declarantCountryCode?: string | null
   declarantRegion?: string | null
   declarantCity?: string | null
   declarantStreet?: string | null
+  declarantHouse?: string | null
+  declarantCategoryCode?: string | null
+  declarantKatoCode?: string | null
   // Как соседние consigneeEqualsDeclarant/financialSubjectEqualsDeclarant:
   // в C# non-nullable bool с дефолтом, но тип формы делаем optional-nullable
   // для единообразия остального интерфейса.
@@ -492,6 +525,32 @@ export interface Import40CvGoodsResult {
 
 export interface Import40CalculateCustomsValueResult {
   goods: Import40CvGoodsResult[]
+}
+
+// Task 9 (бэк) / Task 10 (фронт): расчёт платежей гр.47 (по товару) и гр.B
+// (итог по ДТ) — POST .../declarations/{id}/calculate-payments. Товары
+// берутся сервером из уже СОХРАНЁННОЙ декларации (см. CalculatePayments в
+// Import40Endpoints.cs), запрос без тела не нужен — поэтому вызывающая
+// сторона обязана сперва saveDt(). Зеркалит C#-контракты 1:1
+// (Import40Contracts.cs: PaymentRowDto/PaymentGoodsRowDto/CalculatePaymentsResponse) —
+// camelCase JSON, имена полей совпадают с C# после сериализации.
+export interface Import40PaymentRowDto {
+  taxModeCode: string
+  base?: number | null
+  rate?: number | null
+  amount: number
+}
+
+export interface Import40PaymentGoodsRowDto {
+  index: number
+  rows: Import40PaymentRowDto[]
+  excisePossible: boolean
+}
+
+export interface Import40CalculatePaymentsResponse {
+  goodsRows: Import40PaymentGoodsRowDto[]
+  totalsByTaxMode: Record<string, number>
+  grandTotalB: number
 }
 
 // Spec 4b Task 3: разделение ДТ на ЕТТ/ВТО. `vtoStatus` — длинная человекочитаемая
@@ -768,6 +827,20 @@ export const import40Api = {
     const response = await apiClient.post<Import40SplitResult>(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/split`,
       data,
+    )
+    return response.data
+  },
+
+  // Task 10: расчёт платежей гр.47/гр.B. Никакого тела запроса — сервер сам
+  // читает товары из сохранённой декларации (см. комментарий у
+  // Import40CalculatePaymentsResponse выше). Вызывающая сторона должна
+  // сохранить ДТ непосредственно перед вызовом.
+  calculatePayments: async (
+    caseId: string,
+    declarationId: string,
+  ): Promise<Import40CalculatePaymentsResponse> => {
+    const response = await apiClient.post<Import40CalculatePaymentsResponse>(
+      `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/calculate-payments`,
     )
     return response.data
   },

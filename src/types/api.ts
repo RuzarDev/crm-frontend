@@ -1177,6 +1177,10 @@ export interface ReestrGuaranteeInput {
 export interface Import40TransportMeans {
   number: string
   typeCode: string | null
+  nationality?: string | null
+  mark?: string | null
+  isTrailer?: boolean | null
+  headNumber?: string | null
 }
 
 export interface Import40GoodsPayment {
@@ -1234,6 +1238,10 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   prefDutyCode?: string | null
   prefExciseCode?: string | null
   prefVatCode?: string | null
+  // Льготная ставка НДС товара (напр. 0.05 для медизделий) — Task 9 (бэк), used
+  // by calculate-payments (Task 10): при выставлении сервер считает НДС по ней
+  // вместо стандартной ставки. null/не задано → стандартная ставка.
+  vatRatePreferential?: number | null
   customsValueKzt?: number | null
   statisticValueUsd?: number | null
   valuationMethodCode?: string | null
@@ -1245,6 +1253,9 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   // сумма ТПиН требует пересчёта декларантом. Пробрасываем через форму,
   // чтобы бейдж и снятие флага (Import40GoodsKedenPanel/calcTpin) переживали save.
   needsTpinRecalc?: boolean | null
+  // Номер контейнера (гр.31.3), актуален при заполненном признаке контейнерных
+  // перевозок гр.19 (containerIndicator на декларации) — Task 1 (бэк).
+  containerNumber?: string | null
 }
 
 export interface Import40Doc44ItemInput extends ReestrDoc44ItemInput {
