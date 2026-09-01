@@ -92,6 +92,8 @@ export interface Import40GoodsItemDto {
   // Товар пришёл из КП без веса/количества (см. KpToDtMapper.MapGoods на бэке) —
   // сумма ТПиН требует проверки декларантом перед подачей.
   needsTpinRecalc?: boolean
+  // Номер контейнера (гр.31.3) — Task 1 (бэк).
+  containerNumber?: string | null
 }
 
 export interface Import40Doc44ItemDto {

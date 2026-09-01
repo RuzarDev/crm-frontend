@@ -1249,6 +1249,9 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   // сумма ТПиН требует пересчёта декларантом. Пробрасываем через форму,
   // чтобы бейдж и снятие флага (Import40GoodsKedenPanel/calcTpin) переживали save.
   needsTpinRecalc?: boolean | null
+  // Номер контейнера (гр.31.3), актуален при заполненном признаке контейнерных
+  // перевозок гр.19 (containerIndicator на декларации) — Task 1 (бэк).
+  containerNumber?: string | null
 }
 
 export interface Import40Doc44ItemInput extends ReestrDoc44ItemInput {

@@ -65,7 +65,7 @@
             @update:model-value="onDtUpdate" @calc-customs-value="calcCustomsValue"
           />
           <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" :post-options="customsPostOptions" @update:model-value="onDtUpdate" />
-          <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" @calc-tpin="calcTpin" />
+          <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" :container-indicator="!!dtForm.containerIndicator" @calc-tpin="calcTpin" />
           <DtSectionDocs v-show="activeSection === 'docs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
           <DtSectionClosing v-show="activeSection === 'closing'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
         </a-form>
@@ -112,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, reactive } from 'vue'
+import { computed, onMounted, ref, reactive, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { CheckCircleFilled } from '@ant-design/icons-vue'
@@ -440,7 +440,15 @@ const refreshReadiness = async () => {
   }
 }
 
+// Task 8a: пока true — watch авто-гр.16 (см. ниже) не трогает originCountryCode.
+// Нужен только на время applyDeclaration(): без него watch на goodsOriginKey
+// среагировал бы на массовую подстановку dtForm.goodsItems при загрузке ДТ
+// и тут же перезаписал бы originCountryCode, только что взятый из decl,
+// авто-подсчитанным значением — даже если декларант раньше сохранил другое.
+const applyingDeclaration = ref(false)
+
 const applyDeclaration = (decl: Import40DeclarationDto) => {
+  applyingDeclaration.value = true
   dtForm.id = decl.id
   dtForm.declarationNumber = decl.declarationNumber ?? ''
   dtForm.corridor = decl.corridor ?? 'green'
@@ -564,6 +572,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     ipoCode: g.ipoCode ?? null,
     payments: (g.payments ?? []).map((p) => ({ ...p })),
     needsTpinRecalc: g.needsTpinRecalc ?? false,
+    containerNumber: g.containerNumber ?? null,
   }))
   dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({
     docTypeCode: d.docTypeCode ?? null,
@@ -575,7 +584,37 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     docValidityDate: d.docValidityDate ?? null,
     issueCountryCode: d.issueCountryCode ?? null,
   }))
+  // watch на goodsOriginKey срабатывает асинхронно (после этого синхронного
+  // присвоения всех полей формы) — снимаем guard через nextTick, чтобы он
+  // успел увидеть true во время своего срабатывания и пропустить его.
+  void nextTick(() => {
+    applyingDeclaration.value = false
+  })
 }
+
+// Task 8a: авто гр.16 (страна происхождения, шапка) из товаров.
+// Ключ — отсортированный список уникальных непустых countryOfOrigin, склеенный
+// в строку: watch реагирует только на изменение этого набора (значение, а не
+// ссылка на массив), поэтому не перетирает originCountryCode на не связанных
+// с товарами ре-рендерах формы. Поле остаётся редактируемым (DtSectionCountries) —
+// после ручной правки гр.16 watch снова сработает, только если сам набор стран
+// у товаров изменится.
+const goodsOriginKey = computed(() =>
+  Array.from(
+    new Set(dtForm.goodsItems.map((g) => (g.countryOfOrigin ?? '').trim()).filter(Boolean)),
+  )
+    .sort()
+    .join('|'),
+)
+
+watch(goodsOriginKey, (key) => {
+  if (applyingDeclaration.value) return
+  if (!key) return
+  const codes = key.split('|')
+  // Разные страны происхождения у товаров ДТ — гр.16 заполняется кодом «000»
+  // (условность бланка для «страна происхождения не определена/разные»).
+  dtForm.originCountryCode = codes.length === 1 ? codes[0] : '000'
+})
 
 // Коды видов платежа гр.47, в которые раскладывает суммы КП→ДТ маппер на
 // бэкенде (см. KpToDtMapper.AddPayment) — держим тот же порядок/коды здесь,

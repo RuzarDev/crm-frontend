@@ -67,10 +67,25 @@
       </div>
 
       <!-- Row: описание из инвойса (wide) -->
+      <!-- uppercase — опция только для Import40 ДТ (DtSectionGoods передаёт true);
+           транзитные вызовы (ReestrFormFields/DocumentPackageWorkspaceView) её не
+           передают и остаются без принудительного верхнего регистра. Директиву
+           v-uppercase нельзя переключить динамически (mounted/unmounted only),
+           поэтому два варианта инпута вместо одного условного :class/directive. -->
       <div class="field-row">
         <div class="field f-grow">
           <div class="field-label">Описание из инвойса</div>
           <a-input
+            v-if="uppercase"
+            v-uppercase
+            v-model:value="item.description"
+            size="small"
+            :disabled="readonly"
+            placeholder="Описание товара из инвойса"
+            @change="emit('update:modelValue', items.map(fromRow))"
+          />
+          <a-input
+            v-else
             v-model:value="item.description"
             size="small"
             :disabled="readonly"
@@ -232,6 +247,10 @@ interface GoodsRow extends ReestrGoodsItemInput {
 const props = defineProps<{
   modelValue: ReestrGoodsItemInput[]
   readonly?: boolean
+  // Опт-ин UPPERCASE для описания товара (Task 8c) — компонент общий с
+  // транзитом (ReestrFormFields/DocumentPackageWorkspaceView), поэтому
+  // по умолчанию выключено и не влияет на транзитное поведение.
+  uppercase?: boolean
 }>()
 
 const emit = defineEmits<{

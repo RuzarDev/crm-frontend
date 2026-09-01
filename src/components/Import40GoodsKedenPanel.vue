@@ -42,6 +42,10 @@
           <div class="field"><div class="field-label">НДС</div>
             <a-auto-complete v-model:value="g.prefVatCode" size="small" :disabled="readonly" :options="prefOptions" placeholder="ОО" @change="sync" /></div>
         </div>
+        <div v-if="containerIndicator" class="field-row">
+          <div class="field"><div class="field-label">Номер контейнера (гр.31.3)</div>
+            <a-input v-uppercase v-model:value="g.containerNumber" size="small" :disabled="readonly" placeholder="GLDU9071686" @change="sync" /></div>
+        </div>
         <div class="field-row">
           <div class="field"><div class="field-label">Процедура (гр.37)</div>
             <a-input v-model:value="g.procedureCode" size="small" :disabled="readonly" placeholder="4000" @change="sync" /></div>
@@ -98,6 +102,9 @@ import { useClassifiersStore } from '@/stores/classifiers'
 const props = defineProps<{
   modelValue: Import40GoodsItemInput[]
   readonly?: boolean
+  // гр.19: показываем поле «Номер контейнера» (гр.31.3) только при контейнерных
+  // перевозках — иначе поле не заполняется и загромождает панель.
+  containerIndicator?: boolean
 }>()
 
 const emit = defineEmits<{
