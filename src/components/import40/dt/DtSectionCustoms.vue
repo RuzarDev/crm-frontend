@@ -7,7 +7,7 @@
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="29" text="Пост на границе (название)" /></template>
-        <a-input v-model:value="form.borderCustomsOfficeName" :disabled="readonly" placeholder="название" @change="emitChange" />
+        <a-input v-uppercase v-model:value="form.borderCustomsOfficeName" :disabled="readonly" placeholder="название" @change="emitChange" />
       </a-form-item>
     </div>
 
@@ -23,7 +23,7 @@
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="30" text="Номер СВХ" /></template>
-        <a-input v-model:value="form.goodsLocationRegisterNumber" :disabled="readonly" placeholder="Рег. номер СВХ" @change="emitChange" />
+        <a-input v-uppercase v-model:value="form.goodsLocationRegisterNumber" :disabled="readonly" placeholder="Рег. номер СВХ" @change="emitChange" />
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="30" text="Страна места товаров" /></template>
