@@ -48,6 +48,11 @@ export const referencesApi = {
     (await apiClient.put(`/ref/classifiers/${id}`, { code, nameRu, sortOrder, isActive })).data,
   deleteClassifier: async (id: string): Promise<void> => { await apiClient.delete(`/ref/classifiers/${id}`) },
 
+  // Пополнение расширяемых справочников пользователем (сейчас разрешено только для
+  // goods-locations, гр.30) — POST /api/ref/classifiers/{code}/items, allow-list на бэкенде.
+  addGoodsLocation: async (code: string, nameRu: string): Promise<ClassifierItem> =>
+    (await apiClient.post('/ref/classifiers/goods-locations/items', { code, nameRu })).data,
+
   getDtGuide: async (): Promise<DtGuideEntry[]> => (await apiClient.get('/ref/dt-guide')).data,
   getDtGuideGraph: async (graph: string): Promise<DtGuideEntry> =>
     (await apiClient.get(`/ref/dt-guide/${graph}`)).data,
