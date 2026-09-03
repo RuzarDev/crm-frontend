@@ -1256,6 +1256,10 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   // Номер контейнера (гр.31.3), актуален при заполненном признаке контейнерных
   // перевозок гр.19 (containerIndicator на декларации) — Task 1 (бэк).
   containerNumber?: string | null
+  // Временный ввоз: количество месяцев для расчёта платежей по ставке
+  // 3%×мес (calculate-payments на бэке) — Task 1 (бэк)/Task 6 (фронт).
+  // 0/null → обычный импорт.
+  tempImportMonths?: number | null
 }
 
 export interface Import40Doc44ItemInput extends ReestrDoc44ItemInput {

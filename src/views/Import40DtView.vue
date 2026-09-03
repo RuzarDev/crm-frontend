@@ -592,6 +592,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     payments: (g.payments ?? []).map((p) => ({ ...p })),
     needsTpinRecalc: g.needsTpinRecalc ?? false,
     containerNumber: g.containerNumber ?? null,
+    tempImportMonths: g.tempImportMonths ?? null,
     vatRatePreferential: g.vatRatePreferential ?? null,
   }))
   dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({

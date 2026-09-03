@@ -24,6 +24,7 @@
         <div v-for="row in result.goodsRows" :key="row.index" class="goods-block">
           <div class="goods-block-header">
             <span class="goods-title">{{ goodsLabel(row.index) }}</span>
+            <a-tag v-if="tempImportMonths(row.index)" color="blue">Врем. ввоз: 3%×{{ tempImportMonths(row.index) }} мес</a-tag>
             <a-tag v-if="row.excisePossible" color="orange">Возможен акциз — проверьте ТНВЭД</a-tag>
           </div>
 
@@ -105,6 +106,10 @@ const goodsLabel = (index: number) => {
 }
 
 const isMedical = (index: number) => (props.goods[index]?.vatRatePreferential ?? null) === 0.05
+
+// Task 6c: подпись множителя для временного ввоза — суммы в rows уже посчитаны
+// backend'ом (Task 3, ×3%×мес), здесь только показываем это декларанту.
+const tempImportMonths = (index: number) => props.goods[index]?.tempImportMonths ?? null
 
 const goodsColumns = [
   { title: 'Вид платежа', dataIndex: 'taxModeCode', key: 'taxModeCode', width: 140,

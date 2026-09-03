@@ -97,6 +97,8 @@ export interface Import40GoodsItemDto {
   needsTpinRecalc?: boolean
   // Номер контейнера (гр.31.3) — Task 1 (бэк).
   containerNumber?: string | null
+  // Временный ввоз: месяцев для расчёта 3%×мес (calculate-payments) — Task 1 (бэк).
+  tempImportMonths?: number | null
 }
 
 export interface Import40Doc44ItemDto {
