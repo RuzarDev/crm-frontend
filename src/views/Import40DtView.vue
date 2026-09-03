@@ -22,6 +22,7 @@
         <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
         <a-button :loading="paymentsLoading" @click="openPaymentsModal">Рассчитать платежи</a-button>
         <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
+        <a-button :loading="pdfLoading" @click="printBlank">Принтер</a-button>
       </template>
     </PageHeader>
 
@@ -225,6 +226,7 @@ const canSplit = computed(() => !readOnly.value && dtForm.goodsItems.length >= 2
 
 const saving = ref(false)
 const xmlLoading = ref(false)
+const pdfLoading = ref(false)
 const kedenMissing = ref<string[]>([])
 const readiness = ref<KedenReadinessDto | null>(null)
 
@@ -1044,6 +1046,24 @@ const exportXml = async () => {
     message.error('Не удалось сформировать XML')
   } finally {
     xmlLoading.value = false
+  }
+}
+
+// Task 9: факсимиле бланка ДТ (печать) — работает на любой стадии, в т.ч. на пустой ДТ.
+const printBlank = async () => {
+  // несохранённое не должно теряться при печати
+  const saved = await saveDt()
+  if (!saved) return
+  pdfLoading.value = true
+  try {
+    const { blob, fileName } = await import40Api.blankPdf(caseId, dtId)
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  } catch {
+    message.error('Не удалось сформировать бланк ДТ')
+  } finally {
+    pdfLoading.value = false
   }
 }
 

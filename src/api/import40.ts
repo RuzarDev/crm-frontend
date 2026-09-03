@@ -700,6 +700,17 @@ export const import40Api = {
     return { blob: res.data as Blob, fileName: m ? decodeURIComponent(m[1]) : 'declaration.xml' }
   },
 
+  // Факсимиле бланка ДТ (печать) — работает на любой стадии, без проверки готовности.
+  blankPdf: async (caseId: string, declarationId: string): Promise<{ blob: Blob; fileName: string }> => {
+    const res = await apiClient.get(
+      `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/blank-pdf`,
+      { responseType: 'blob' },
+    )
+    const cd = String(res.headers['content-disposition'] ?? '')
+    const m = /filename\*?=(?:UTF-8'')?"?([^";]+)/i.exec(cd)
+    return { blob: res.data as Blob, fileName: m ? decodeURIComponent(m[1]) : 'declaration.pdf' }
+  },
+
   kedenReadiness: async (caseId: string, declarationId: string): Promise<KedenReadinessDto> => {
     const { data } = await apiClient.get<KedenReadinessDto>(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/keden-readiness`,
