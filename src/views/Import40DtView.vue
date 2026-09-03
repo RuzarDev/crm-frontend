@@ -295,8 +295,8 @@ const dtForm = reactive<DtFormState>({
   tradeCountryCode: '',
   originCountryCode: '',
   incotermsPlace: '',
-  consigneeEqualsDeclarant: true,
-  financialSubjectEqualsDeclarant: true,
+  consigneeEqualsDeclarant: false,
+  financialSubjectEqualsDeclarant: false,
   goodsLocationCode: '',
   goodsLocationRegisterNumber: '',
   goodsLocationCountryCode: 'KZ',
@@ -486,8 +486,8 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.tradeCountryCode = decl.tradeCountryCode ?? ''
   dtForm.originCountryCode = decl.originCountryCode ?? ''
   dtForm.incotermsPlace = decl.incotermsPlace ?? ''
-  dtForm.consigneeEqualsDeclarant = decl.consigneeEqualsDeclarant ?? true
-  dtForm.financialSubjectEqualsDeclarant = decl.financialSubjectEqualsDeclarant ?? true
+  dtForm.consigneeEqualsDeclarant = decl.consigneeEqualsDeclarant ?? false
+  dtForm.financialSubjectEqualsDeclarant = decl.financialSubjectEqualsDeclarant ?? false
   dtForm.goodsLocationCode = decl.goodsLocationCode ?? ''
   dtForm.goodsLocationRegisterNumber = decl.goodsLocationRegisterNumber ?? ''
   dtForm.goodsLocationCountryCode = decl.goodsLocationCountryCode ?? 'KZ'
