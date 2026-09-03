@@ -191,6 +191,7 @@ const DT_CLASSIFIERS = [
   'itn-categories',       // категория лица (гр.8, 9, 14)
   'kato',                 // КАТО (гр.8, 9, 14)
   'vehicle-marks',        // марки ТС (гр.18, 21)
+  'nis-registry',         // признак реестра запретов/ограничений (товарное поле)
 ]
 
 const caseId = String(route.params.caseId)
@@ -594,6 +595,8 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     containerNumber: g.containerNumber ?? null,
     tempImportMonths: g.tempImportMonths ?? null,
     vatRatePreferential: g.vatRatePreferential ?? null,
+    nisRegistryFlag: g.nisRegistryFlag ?? null,
+    certificationNote: g.certificationNote ?? null,
   }))
   dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({
     docTypeCode: d.docTypeCode ?? null,

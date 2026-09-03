@@ -55,9 +55,9 @@
         <div class="field-row">
           <div class="field f-2"><div class="field-label">Производитель</div>
             <a-input v-model:value="g.manufacturerName" size="small" :disabled="readonly" @change="sync" /></div>
-          <div class="field"><div class="field-label">Вид упаковки</div>
+          <div class="field field-wide"><div class="field-label">Вид упаковки</div>
             <a-auto-complete v-model:value="g.packageKindCode" size="small" :disabled="readonly"
-              :options="pkgOptions" placeholder="PK" @change="sync" /></div>
+              :options="pkgOptions" :dropdown-match-select-width="false" placeholder="PK" @change="sync" /></div>
           <div class="field"><div class="field-label">Грузовых мест</div>
             <a-input-number v-model:value="g.cargoPlacesQuantity" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
           <div class="field"><div class="field-label">Упаковок</div>
@@ -80,10 +80,10 @@
         <div class="field-row">
           <div class="field"><div class="field-label">Процедура (гр.37)</div>
             <a-input v-model:value="g.procedureCode" size="small" :disabled="readonly" placeholder="4000" @change="sync" /></div>
-          <div class="field"><div class="field-label">Предш. процедура</div>
-            <a-auto-complete v-model:value="g.previousProcedureCode" size="small" :disabled="readonly" :options="procOptions" placeholder="00" @change="sync" /></div>
-          <div class="field"><div class="field-label">Особенность перемещения</div>
-            <a-auto-complete v-model:value="g.goodsMoveFeatureCode" size="small" :disabled="readonly" :options="moveFeatureOptions" placeholder="000" @change="sync" /></div>
+          <div class="field field-wide"><div class="field-label">Предш. процедура (гр.37)</div>
+            <a-auto-complete v-model:value="g.previousProcedureCode" size="small" :disabled="readonly" :options="procOptions" :dropdown-match-select-width="false" placeholder="00" @change="sync" /></div>
+          <div class="field field-wide"><div class="field-label">Особенность перемещения</div>
+            <a-auto-complete v-model:value="g.goodsMoveFeatureCode" size="small" :disabled="readonly" :options="moveFeatureOptions" :dropdown-match-select-width="false" placeholder="000" @change="sync" /></div>
           <div class="field"><div class="field-label">Метод ТС (гр.43)</div>
             <a-auto-complete v-model:value="g.valuationMethodCode" size="small" :disabled="readonly" :options="valuationOptions" placeholder="1" @change="sync" /></div>
           <div class="field"><div class="field-label">Квота (гр.39)</div>
@@ -100,6 +100,14 @@
             <a-input v-model:value="g.prohibitionCode" size="small" :disabled="readonly" placeholder="D0110" @change="sync" /></div>
           <div class="field"><div class="field-label">Код ИС</div>
             <a-input v-model:value="g.ipoCode" size="small" :disabled="readonly" placeholder="N" @change="sync" /></div>
+        </div>
+        <div class="field-row">
+          <div class="field field-wide"><div class="field-label">Запреты/ограничения (реестр)</div>
+            <a-select v-model:value="g.nisRegistryFlag" size="small" :disabled="readonly" show-search
+              :options="nisRegistryOptions" :dropdown-match-select-width="false" allow-clear
+              placeholder="Не выбрано" @change="sync" /></div>
+          <div class="field f-2"><div class="field-label">Сертификация / эксп. контроль</div>
+            <a-input v-uppercase v-model:value="g.certificationNote" size="small" :disabled="readonly" @change="sync" /></div>
         </div>
 
         <div class="section-bar payments-bar">
@@ -224,6 +232,7 @@ const rateKindOptions = computed(() => classifiers.options('rate-kinds'))
 const valuationOptions = computed(() => classifiers.options('2005'))
 const procOptions = computed(() => classifiers.options('customs-procedures'))
 const moveFeatureOptions = computed(() => classifiers.options('movement-features'))
+const nisRegistryOptions = computed(() => classifiers.options('nis-registry'))
 
 const emptyPayment = (): Import40GoodsPayment => ({
   taxModeCode: null, taxBase: null, rateKindCode: '%', rateValue: null,
@@ -264,6 +273,10 @@ const applyMonthsToAll = () => {
 .field-row { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
 .field { flex: 1; min-width: 140px; }
 .field.f-2 { flex: 2; }
+/* гр.31 (упаковка) / гр.37 (процедура) селекты: коды короткие, но названия в
+   выпадающем списке длинные — узкое поле обрезает список. Даём полю больше
+   места и снимаем dropdown-match-select-width на самом контроле (см. шаблон). */
+.field.field-wide { flex: 2; min-width: 260px; }
 .field-label { font-size: 11px; color: var(--atg-muted); margin-bottom: 2px; }
 .payment-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .empty-state { color: var(--atg-muted); font-size: 12px; }

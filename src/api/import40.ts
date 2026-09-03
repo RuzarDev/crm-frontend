@@ -99,6 +99,10 @@ export interface Import40GoodsItemDto {
   containerNumber?: string | null
   // Временный ввоз: месяцев для расчёта 3%×мес (calculate-payments) — Task 1 (бэк).
   tempImportMonths?: number | null
+  // Признак реестра запретов/ограничений (классификатор nis-registry) — Task 1 (бэк).
+  nisRegistryFlag?: string | null
+  // Сертификация / экспортный контроль — свободный текст — Task 1 (бэк).
+  certificationNote?: string | null
 }
 
 export interface Import40Doc44ItemDto {
