@@ -14,8 +14,18 @@
     <div class="dt-grid-3">
       <a-form-item>
         <template #label><DtGraphLabel graph="30" text="Место нахождения товаров" /></template>
-        <a-auto-complete v-model:value="form.goodsLocationCode" :options="classifiers.options('goods-locations')"
-          :disabled="readonly" placeholder="11" style="width: 100%" @change="emitChange" />
+        <a-input-group compact style="display: flex">
+          <a-auto-complete
+            v-model:value="form.goodsLocationCode" :options="classifiers.options('goods-locations')"
+            :disabled="readonly" placeholder="11" style="flex: 1" @change="emitChange"
+          />
+          <a-button
+            v-if="!readonly && canAddGoodsLocation" :loading="addingGoodsLocation" title="Сохранить в справочник"
+            @click="addGoodsLocation"
+          >
+            + Сохранить в справочник
+          </a-button>
+        </a-input-group>
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="30" text="Номер СВХ" /></template>
@@ -43,13 +53,27 @@
         <a-input v-uppercase v-model:value="form.goodsLocationAddress" :disabled="readonly" placeholder="адрес" @change="emitChange" />
       </a-form-item>
     </div>
+
+    <!-- Товар лежит на самом ТС (напр. вагон/цистерна) — переносим номера ТС из гр.18
+         (form.arrivalTransportNumbers) в гр.30 "Станция" одним действием, без ручного
+         перепечатывания. Пишем именно в goodsLocationStation, а не Address — поле
+         подписано "Станция" и по смыслу гр.30 ближе всего к транспортному признаку места. -->
+    <div class="dt-grid-2">
+      <a-form-item>
+        <a-checkbox v-model:checked="transferVehicleNumbers" :disabled="readonly" @change="onTransferVehicleNumbersChange">
+          Товар на транспортном средстве — перенести номера ТС (гр.18) в гр.30
+        </a-checkbox>
+      </a-form-item>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
+import { message } from 'ant-design-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
+import { referencesApi } from '@/api/references'
 import type { Import40DtFormState } from '@/api/import40'
 import { ALPHA2_COUNTRIES } from '@/types/api'
 import './dt-sections.css'
@@ -85,6 +109,51 @@ const filterPost = (input: string, option: { label?: string }) =>
   (option.label ?? '').toLowerCase().includes(input.toLowerCase())
 const onBorderPostChange = (value: string | undefined) => {
   form.borderCustomsOfficeCode = value ? (value.match(/^\d+/)?.[0] ?? value) : ''
+  emitChange()
+}
+
+// Гр.30 — расширяемый справочник goods-locations. Код берём как есть из того,
+// что пользователь ввёл в само поле (a-auto-complete уже хранит код в
+// form.goodsLocationCode) — отдельного поля "код нового элемента" не заводим,
+// чтобы не дублировать ввод. Название запрашиваем одним window.prompt —
+// действие редкое (справочник пополняется, когда для места нет готового
+// кода), полноценная модалка избыточна.
+const addingGoodsLocation = ref(false)
+const canAddGoodsLocation = computed(() => {
+  const code = (form.goodsLocationCode ?? '').trim()
+  if (!code) return false
+  return !classifiers.options('goods-locations').some((o) => o.value === code)
+})
+const addGoodsLocation = async () => {
+  const code = (form.goodsLocationCode ?? '').trim()
+  if (!code) return
+  const nameRu = window.prompt(`Название для кода "${code}" в справочнике "Место нахождения товаров" (гр.30):`)
+  if (!nameRu || !nameRu.trim()) return
+  addingGoodsLocation.value = true
+  try {
+    await referencesApi.addGoodsLocation(code, nameRu.trim())
+    classifiers.invalidate('goods-locations')
+    await classifiers.load('goods-locations')
+    form.goodsLocationCode = code
+    emitChange()
+    message.success('Добавлено в справочник «Место нахождения товаров»')
+  } catch {
+    message.error('Не удалось сохранить в справочник')
+  } finally {
+    addingGoodsLocation.value = false
+  }
+}
+
+// Товар лежит на самом ТС (вагон/цистерна и т.п.) — переносим номера ТС из
+// гр.18 (form.arrivalTransportNumbers, приходят вместе с остальным dtForm
+// через props.modelValue) в гр.30 "Станция" одним действием.
+const transferVehicleNumbers = ref(false)
+const onTransferVehicleNumbersChange = () => {
+  if (!transferVehicleNumbers.value) return
+  const numbers = (props.modelValue.arrivalTransportNumbers ?? [])
+    .map((m) => m.number?.trim())
+    .filter((n): n is string => !!n)
+  form.goodsLocationStation = numbers.join(', ')
   emitChange()
 }
 </script>

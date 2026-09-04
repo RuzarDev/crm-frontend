@@ -3,7 +3,12 @@
   <div class="keden-panel">
     <div class="section-bar">
       <span class="section-label">ДАННЫЕ КЕДЕН ПО ТОВАРАМ (гр.31/36/43–47)</span>
-      <a-button v-if="!readonly" size="small" @click="emit('calc-tpin')">Рассчитать ТПиН (авто)</a-button>
+      <div class="header-buttons">
+        <a-button v-if="!readonly && items.length > 1" size="small" @click="applyMonthsToAll">
+          Проставить месяцы всем товарам
+        </a-button>
+        <a-button v-if="!readonly" size="small" @click="emit('calc-tpin')">Рассчитать ТПиН (авто)</a-button>
+      </div>
     </div>
 
     <!-- Гр.47 — платежи: явная, всегда развёрнутая подсекция (не внутри свёрнутого
@@ -50,9 +55,9 @@
         <div class="field-row">
           <div class="field f-2"><div class="field-label">Производитель</div>
             <a-input v-model:value="g.manufacturerName" size="small" :disabled="readonly" @change="sync" /></div>
-          <div class="field"><div class="field-label">Вид упаковки</div>
+          <div class="field field-wide"><div class="field-label">Вид упаковки</div>
             <a-auto-complete v-model:value="g.packageKindCode" size="small" :disabled="readonly"
-              :options="pkgOptions" placeholder="PK" @change="sync" /></div>
+              :options="pkgOptions" :dropdown-match-select-width="false" placeholder="PK" @change="sync" /></div>
           <div class="field"><div class="field-label">Грузовых мест</div>
             <a-input-number v-model:value="g.cargoPlacesQuantity" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
           <div class="field"><div class="field-label">Упаковок</div>
@@ -75,14 +80,16 @@
         <div class="field-row">
           <div class="field"><div class="field-label">Процедура (гр.37)</div>
             <a-input v-model:value="g.procedureCode" size="small" :disabled="readonly" placeholder="4000" @change="sync" /></div>
-          <div class="field"><div class="field-label">Предш. процедура</div>
-            <a-auto-complete v-model:value="g.previousProcedureCode" size="small" :disabled="readonly" :options="procOptions" placeholder="00" @change="sync" /></div>
-          <div class="field"><div class="field-label">Особенность перемещения</div>
-            <a-auto-complete v-model:value="g.goodsMoveFeatureCode" size="small" :disabled="readonly" :options="moveFeatureOptions" placeholder="000" @change="sync" /></div>
+          <div class="field field-wide"><div class="field-label">Предш. процедура (гр.37)</div>
+            <a-auto-complete v-model:value="g.previousProcedureCode" size="small" :disabled="readonly" :options="procOptions" :dropdown-match-select-width="false" placeholder="00" @change="sync" /></div>
+          <div class="field field-wide"><div class="field-label">Особенность перемещения</div>
+            <a-auto-complete v-model:value="g.goodsMoveFeatureCode" size="small" :disabled="readonly" :options="moveFeatureOptions" :dropdown-match-select-width="false" placeholder="000" @change="sync" /></div>
           <div class="field"><div class="field-label">Метод ТС (гр.43)</div>
             <a-auto-complete v-model:value="g.valuationMethodCode" size="small" :disabled="readonly" :options="valuationOptions" placeholder="1" @change="sync" /></div>
           <div class="field"><div class="field-label">Квота (гр.39)</div>
             <a-input-number v-model:value="g.quotaAmount" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
+          <div class="field"><div class="field-label">Кол-во месяцев (врем. ввоз)</div>
+            <a-input-number v-model:value="g.tempImportMonths" size="small" :disabled="readonly" :min="0" :precision="0" style="width: 100%" placeholder="0" @change="sync" /></div>
         </div>
         <div class="field-row">
           <div class="field"><div class="field-label">Таможенная стоимость, ₸ (гр.45)</div>
@@ -94,12 +101,21 @@
           <div class="field"><div class="field-label">Код ИС</div>
             <a-input v-model:value="g.ipoCode" size="small" :disabled="readonly" placeholder="N" @change="sync" /></div>
         </div>
+        <div class="field-row">
+          <div class="field field-wide"><div class="field-label">Запреты/ограничения (реестр)</div>
+            <a-select v-model:value="g.nisRegistryFlag" size="small" :disabled="readonly" show-search
+              :options="nisRegistryOptions" :dropdown-match-select-width="false" allow-clear
+              placeholder="Не выбрано" @change="sync" /></div>
+          <div class="field f-2"><div class="field-label">Сертификация / эксп. контроль</div>
+            <a-input v-uppercase v-model:value="g.certificationNote" size="small" :disabled="readonly" @change="sync" /></div>
+        </div>
 
         <div class="section-bar payments-bar">
           <span class="section-label">ПЛАТЕЖИ гр.47</span>
+          <a-tag v-if="g.tempImportMonths" color="blue">Врем. ввоз: 3%×{{ g.tempImportMonths }} мес</a-tag>
           <a-button v-if="!readonly" type="dashed" size="small" @click="addPayment(g)">+ Строка</a-button>
         </div>
-        <div v-for="(p, pi) in g.payments ?? []" :key="pi" class="payment-row">
+        <div v-for="(p, pi) in sortedPayments(g)" :key="pi" class="payment-row">
           <a-auto-complete v-model:value="p.taxModeCode" size="small" :disabled="readonly" :options="taxModeOptions" placeholder="Вид (2010)" style="width: 140px" @change="sync" />
           <a-input-number v-model:value="p.taxBase" size="small" :disabled="readonly" placeholder="Основа" style="width: 130px" @change="sync" />
           <a-select v-model:value="p.rateKindCode" size="small" :disabled="readonly" :options="rateKindOptions" placeholder="Вид ставки" style="width: 130px" @change="sync" />
@@ -111,7 +127,7 @@
           </template>
           <a-date-picker v-model:value="p.rateDate" size="small" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD" placeholder="Дата" style="width: 130px" allow-clear @change="sync" />
           <a-input-number v-model:value="p.amountKzt" size="small" :disabled="readonly" placeholder="Сумма, ₸" style="width: 130px" @change="sync" />
-          <a-button v-if="!readonly" type="text" danger size="small" @click="removePayment(g, pi)"><CloseOutlined /></a-button>
+          <a-button v-if="!readonly" type="text" danger size="small" @click="removePayment(g, p)"><CloseOutlined /></a-button>
         </div>
       </a-collapse-panel>
     </a-collapse>
@@ -151,6 +167,16 @@ const TAX_MODE_LABELS: Record<string, string> = {
 const taxModeLabel = (code: string | null | undefined) =>
   code ? (TAX_MODE_LABELS[code] ?? code) : '—'
 
+// Порядок гр.47 в отображении: Сборы (1010) → Пошлина (2010) → НДС (5060) → прочие,
+// как их уже отдаёт backend calculate-payments (Task 3) — сортируем то же самое, что
+// пришло в g.payments, чтобы визуальный порядок совпадал с ответом расчёта.
+const TAX_MODE_PRIORITY: Record<string, number> = { '1010': 0, '2010': 1, '5060': 2 }
+const taxModePriority = (code: string | null | undefined) =>
+  code != null && code in TAX_MODE_PRIORITY ? TAX_MODE_PRIORITY[code] : 99
+
+const sortedPayments = (g: Import40GoodsItemInput): Import40GoodsPayment[] =>
+  [...(g.payments ?? [])].sort((a, b) => taxModePriority(a.taxModeCode) - taxModePriority(b.taxModeCode))
+
 interface PaymentsSummaryRow {
   key: string
   goods: string
@@ -174,7 +200,7 @@ const fmtAmount = (v: number | null | undefined) =>
 const paymentsSummaryRows = computed<PaymentsSummaryRow[]>(() => {
   const rows: PaymentsSummaryRow[] = []
   items.value.forEach((g, gi) => {
-    ;(g.payments ?? []).forEach((p, pi) => {
+    sortedPayments(g).forEach((p, pi) => {
       rows.push({
         key: `${gi}-${pi}`,
         goods: `Товар ${gi + 1}: ${g.tnvedCode || 'без кода'} — ${g.description || ''}`,
@@ -206,6 +232,7 @@ const rateKindOptions = computed(() => classifiers.options('rate-kinds'))
 const valuationOptions = computed(() => classifiers.options('2005'))
 const procOptions = computed(() => classifiers.options('customs-procedures'))
 const moveFeatureOptions = computed(() => classifiers.options('movement-features'))
+const nisRegistryOptions = computed(() => classifiers.options('nis-registry'))
 
 const emptyPayment = (): Import40GoodsPayment => ({
   taxModeCode: null, taxBase: null, rateKindCode: '%', rateValue: null,
@@ -218,8 +245,18 @@ const addPayment = (g: Import40GoodsItemInput) => {
   sync()
 }
 
-const removePayment = (g: Import40GoodsItemInput, idx: number) => {
-  g.payments = (g.payments ?? []).filter((_, i) => i !== idx)
+// Принимает саму строку платежа (а не индекс) — строки рендерятся из
+// sortedPayments(g), отсортированной копии, чей порядок индексов не совпадает
+// с исходным g.payments; сравниваем по ссылке на объект.
+const removePayment = (g: Import40GoodsItemInput, payment: Import40GoodsPayment) => {
+  g.payments = (g.payments ?? []).filter((p) => p !== payment)
+  sync()
+}
+
+// Task 6b: копирует g.tempImportMonths первого товара во все остальные.
+const applyMonthsToAll = () => {
+  const months = items.value[0]?.tempImportMonths ?? null
+  items.value.forEach((g) => { g.tempImportMonths = months })
   sync()
 }
 </script>
@@ -227,6 +264,7 @@ const removePayment = (g: Import40GoodsItemInput, idx: number) => {
 <style scoped>
 .keden-panel { display: flex; flex-direction: column; gap: 8px; }
 .section-bar { display: flex; align-items: center; justify-content: space-between; }
+.header-buttons { display: flex; align-items: center; gap: 8px; }
 .section-label { font-size: 12px; font-weight: 600; color: var(--atg-muted); }
 .payments-bar { margin-top: 12px; }
 .payments-summary-bar { margin-top: 4px; }
@@ -235,6 +273,10 @@ const removePayment = (g: Import40GoodsItemInput, idx: number) => {
 .field-row { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
 .field { flex: 1; min-width: 140px; }
 .field.f-2 { flex: 2; }
+/* гр.31 (упаковка) / гр.37 (процедура) селекты: коды короткие, но названия в
+   выпадающем списке длинные — узкое поле обрезает список. Даём полю больше
+   места и снимаем dropdown-match-select-width на самом контроле (см. шаблон). */
+.field.field-wide { flex: 2; min-width: 260px; }
 .field-label { font-size: 11px; color: var(--atg-muted); margin-bottom: 2px; }
 .payment-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .empty-state { color: var(--atg-muted); font-size: 12px; }

@@ -2,10 +2,10 @@
   <div class="dt-section">
     <div class="dt-grid-2 dt-checkboxes">
       <a-checkbox v-model:checked="form.consigneeEqualsDeclarant" :disabled="readonly" @change="onConsigneeEqualsDeclarantChange">
-        Гр.8 · Получатель = декларант
+        Гр.8 · Согласно гр.14 (получатель)
       </a-checkbox>
       <a-checkbox v-model:checked="form.financialSubjectEqualsDeclarant" :disabled="readonly" @change="onFinancialSubjectEqualsDeclarantChange">
-        Гр.9 · Лицо, ответственное за фин. урегулирование = декларант
+        Гр.9 · Согласно гр.14 (лицо, отв. за фин. урегулирование)
       </a-checkbox>
     </div>
 

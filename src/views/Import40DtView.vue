@@ -22,6 +22,7 @@
         <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
         <a-button :loading="paymentsLoading" @click="openPaymentsModal">Рассчитать платежи</a-button>
         <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
+        <a-button :loading="pdfLoading" @click="printBlank">Принтер</a-button>
       </template>
     </PageHeader>
 
@@ -191,6 +192,7 @@ const DT_CLASSIFIERS = [
   'itn-categories',       // категория лица (гр.8, 9, 14)
   'kato',                 // КАТО (гр.8, 9, 14)
   'vehicle-marks',        // марки ТС (гр.18, 21)
+  'nis-registry',         // признак реестра запретов/ограничений (товарное поле)
 ]
 
 const caseId = String(route.params.caseId)
@@ -224,6 +226,7 @@ const canSplit = computed(() => !readOnly.value && dtForm.goodsItems.length >= 2
 
 const saving = ref(false)
 const xmlLoading = ref(false)
+const pdfLoading = ref(false)
 const kedenMissing = ref<string[]>([])
 const readiness = ref<KedenReadinessDto | null>(null)
 
@@ -295,8 +298,8 @@ const dtForm = reactive<DtFormState>({
   tradeCountryCode: '',
   originCountryCode: '',
   incotermsPlace: '',
-  consigneeEqualsDeclarant: true,
-  financialSubjectEqualsDeclarant: true,
+  consigneeEqualsDeclarant: false,
+  financialSubjectEqualsDeclarant: false,
   goodsLocationCode: '',
   goodsLocationRegisterNumber: '',
   goodsLocationCountryCode: 'KZ',
@@ -486,8 +489,8 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.tradeCountryCode = decl.tradeCountryCode ?? ''
   dtForm.originCountryCode = decl.originCountryCode ?? ''
   dtForm.incotermsPlace = decl.incotermsPlace ?? ''
-  dtForm.consigneeEqualsDeclarant = decl.consigneeEqualsDeclarant ?? true
-  dtForm.financialSubjectEqualsDeclarant = decl.financialSubjectEqualsDeclarant ?? true
+  dtForm.consigneeEqualsDeclarant = decl.consigneeEqualsDeclarant ?? false
+  dtForm.financialSubjectEqualsDeclarant = decl.financialSubjectEqualsDeclarant ?? false
   dtForm.goodsLocationCode = decl.goodsLocationCode ?? ''
   dtForm.goodsLocationRegisterNumber = decl.goodsLocationRegisterNumber ?? ''
   dtForm.goodsLocationCountryCode = decl.goodsLocationCountryCode ?? 'KZ'
@@ -592,7 +595,10 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     payments: (g.payments ?? []).map((p) => ({ ...p })),
     needsTpinRecalc: g.needsTpinRecalc ?? false,
     containerNumber: g.containerNumber ?? null,
+    tempImportMonths: g.tempImportMonths ?? null,
     vatRatePreferential: g.vatRatePreferential ?? null,
+    nisRegistryFlag: g.nisRegistryFlag ?? null,
+    certificationNote: g.certificationNote ?? null,
   }))
   dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({
     docTypeCode: d.docTypeCode ?? null,
@@ -1040,6 +1046,24 @@ const exportXml = async () => {
     message.error('Не удалось сформировать XML')
   } finally {
     xmlLoading.value = false
+  }
+}
+
+// Task 9: факсимиле бланка ДТ (печать) — работает на любой стадии, в т.ч. на пустой ДТ.
+const printBlank = async () => {
+  // несохранённое не должно теряться при печати
+  const saved = await saveDt()
+  if (!saved) return
+  pdfLoading.value = true
+  try {
+    const { blob, fileName } = await import40Api.blankPdf(caseId, dtId)
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  } catch {
+    message.error('Не удалось сформировать бланк ДТ')
+  } finally {
+    pdfLoading.value = false
   }
 }
 

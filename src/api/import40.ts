@@ -97,6 +97,12 @@ export interface Import40GoodsItemDto {
   needsTpinRecalc?: boolean
   // Номер контейнера (гр.31.3) — Task 1 (бэк).
   containerNumber?: string | null
+  // Временный ввоз: месяцев для расчёта 3%×мес (calculate-payments) — Task 1 (бэк).
+  tempImportMonths?: number | null
+  // Признак реестра запретов/ограничений (классификатор nis-registry) — Task 1 (бэк).
+  nisRegistryFlag?: string | null
+  // Сертификация / экспортный контроль — свободный текст — Task 1 (бэк).
+  certificationNote?: string | null
 }
 
 export interface Import40Doc44ItemDto {
@@ -692,6 +698,17 @@ export const import40Api = {
     const cd = String(res.headers['content-disposition'] ?? '')
     const m = /filename\*?=(?:UTF-8'')?"?([^";]+)/i.exec(cd)
     return { blob: res.data as Blob, fileName: m ? decodeURIComponent(m[1]) : 'declaration.xml' }
+  },
+
+  // Факсимиле бланка ДТ (печать) — работает на любой стадии, без проверки готовности.
+  blankPdf: async (caseId: string, declarationId: string): Promise<{ blob: Blob; fileName: string }> => {
+    const res = await apiClient.get(
+      `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/blank-pdf`,
+      { responseType: 'blob' },
+    )
+    const cd = String(res.headers['content-disposition'] ?? '')
+    const m = /filename\*?=(?:UTF-8'')?"?([^";]+)/i.exec(cd)
+    return { blob: res.data as Blob, fileName: m ? decodeURIComponent(m[1]) : 'declaration.pdf' }
   },
 
   kedenReadiness: async (caseId: string, declarationId: string): Promise<KedenReadinessDto> => {
