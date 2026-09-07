@@ -44,17 +44,17 @@
         </template>
         <div class="field-row">
           <div class="field"><div class="field-label">Торговая марка</div>
-            <a-input v-model:value="g.tradeMarkName" size="small" :disabled="readonly" @change="sync" /></div>
+            <a-input v-model:value="g.tradeMarkName" v-uppercase size="small" :disabled="readonly" @change="sync" /></div>
           <div class="field"><div class="field-label">Знак</div>
-            <a-input v-model:value="g.productMarkName" size="small" :disabled="readonly" placeholder="НЕ УКАЗАН" @change="sync" /></div>
+            <a-input v-model:value="g.productMarkName" v-uppercase size="small" :disabled="readonly" placeholder="НЕ УКАЗАН" @change="sync" /></div>
           <div class="field"><div class="field-label">Модель</div>
-            <a-input v-model:value="g.productModelName" size="small" :disabled="readonly" placeholder="НЕ УКАЗАН" @change="sync" /></div>
+            <a-input v-model:value="g.productModelName" v-uppercase size="small" :disabled="readonly" placeholder="НЕ УКАЗАН" @change="sync" /></div>
           <div class="field"><div class="field-label">Артикул</div>
-            <a-input v-model:value="g.productArticle" size="small" :disabled="readonly" placeholder="НЕ УКАЗАН" @change="sync" /></div>
+            <a-input v-model:value="g.productArticle" v-uppercase size="small" :disabled="readonly" placeholder="НЕ УКАЗАН" @change="sync" /></div>
         </div>
         <div class="field-row">
           <div class="field f-2"><div class="field-label">Производитель</div>
-            <a-input v-model:value="g.manufacturerName" size="small" :disabled="readonly" @change="sync" /></div>
+            <a-input v-model:value="g.manufacturerName" v-uppercase size="small" :disabled="readonly" @change="sync" /></div>
           <div class="field field-wide"><div class="field-label">Вид упаковки</div>
             <a-auto-complete v-model:value="g.packageKindCode" size="small" :disabled="readonly"
               :options="pkgOptions" :dropdown-match-select-width="false" placeholder="PK" @change="sync" /></div>

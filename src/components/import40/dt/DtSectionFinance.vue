@@ -8,7 +8,7 @@
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="20" text="Место Инкотермс" /></template>
-        <a-input v-model:value="form.incotermsPlace" :disabled="readonly" placeholder="Алматы" @change="emitChange" />
+        <a-input v-model:value="form.incotermsPlace" v-uppercase :disabled="readonly" placeholder="Алматы" @change="emitChange" />
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="22" text="Валюта" /></template>
