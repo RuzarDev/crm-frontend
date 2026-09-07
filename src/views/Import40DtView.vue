@@ -64,6 +64,7 @@
           <DtSectionFinance
             v-show="activeSection === 'finance'" :model-value="dtForm" :readonly="readOnly" :totals="totals"
             :expense-type-options="expenseTypeOptions" :currency-options="currencyOptions" :currency-rates="currencyRates"
+            :expense-distribution-by-code="expenseDistributionByCode"
             @update:model-value="onDtUpdate" @calc-customs-value="calcCustomsValue"
           />
           <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" :post-options="customsPostOptions" @update:model-value="onDtUpdate" />
@@ -149,6 +150,7 @@ import { salesApi, type SalesCalcGoodsResult } from '@/api/sales'
 import { tnvedApi } from '@/api/tnved'
 import { useAuthStore } from '@/stores/auth'
 import { useClassifiersStore } from '@/stores/classifiers'
+import { useDtTotals } from '@/composables/useDtTotals'
 import DtSectionGeneral from '@/components/import40/dt/DtSectionGeneral.vue'
 import DtSectionParties from '@/components/import40/dt/DtSectionParties.vue'
 import DtSectionCountries from '@/components/import40/dt/DtSectionCountries.vue'
@@ -248,6 +250,12 @@ const customsPostOptions = ref<{ value: string; label: string }[]>([])
 // countryOptions, грузятся отдельно от decl/classifiers — один упавший
 // запрос не должен блокировать саму форму.
 const expenseTypeOptions = ref<{ value: string; label: string }[]>([])
+// Task 11 (package 3, №5): алгоритм распределения по статье расхода — приходит
+// с сервером (RefExpenseType.DistributionBase, тот же признак, которым
+// ExpenseDistribution.Distribute на бэке реально распределяет расходы по
+// товарам), поэтому подпись в таблице расходов не гадает по коду, а берёт
+// источник истины напрямую из справочника.
+const expenseDistributionByCode = ref<Record<string, 'GrossWeight' | 'CustomsValue'>>({})
 const currencyOptions = ref<{ value: string; label: string }[]>([])
 // Курсы НБ РК по коду валюты (на момент заполнения) — для автоподстановки гр.23.
 const currencyRates = ref<Record<string, { rate: number; date: string }>>({})
@@ -374,12 +382,6 @@ const onDtUpdate = (v: Import40DtFormState) => Object.assign(dtForm, v)
 // поэтому держим последний ответ отдельно от редактируемой формы.
 const loadedDto = ref<Import40DeclarationDto | null>(null)
 
-const totals = computed(() => ({
-  goods: loadedDto.value?.totalGoodsCount ?? 0,
-  places: loadedDto.value?.totalPackagesCount ?? 0,
-  customsValue: loadedDto.value?.totalCustomsValue ?? 0,
-}))
-
 // Чек-лист секций
 interface SectionDef {
   key: string
@@ -471,6 +473,17 @@ const refreshReadiness = async () => {
 // и тут же перезаписал бы originCountryCode, только что взятый из decl,
 // авто-подсчитанным значением — даже если декларант раньше сохранил другое.
 const applyingDeclaration = ref(false)
+
+// Task 11 (package 3): автозаполнение гр.22/листов из товаров + клиентский
+// предпросмотр гр.5/гр.6/гр.12 — см. комментарий в useDtTotals.ts. Приостанавливается
+// тем же applyingDeclaration, что и авто-гр.16 выше (объявлен строкой выше).
+const dtTotals = useDtTotals(() => dtForm.goodsItems, dtForm, currencyRates, applyingDeclaration)
+
+const totals = computed(() => ({
+  goods: dtTotals.goodsCount.value,
+  places: dtTotals.packagesCount.value,
+  customsValue: dtTotals.customsValueKzt.value,
+}))
 
 const applyDeclaration = (decl: Import40DeclarationDto) => {
   applyingDeclaration.value = true
@@ -1181,6 +1194,7 @@ onMounted(async () => {
   try {
     const expenseTypes = await referencesApi.listExpenseTypes()
     expenseTypeOptions.value = expenseTypes.map((t) => ({ value: t.code, label: `${t.code} — ${t.nameRu}` }))
+    expenseDistributionByCode.value = Object.fromEntries(expenseTypes.map((t) => [t.code, t.distributionBase]))
   } catch {
     /* справочник статей расходов не загрузился — таблица расходов не блокирует форму */
   }
