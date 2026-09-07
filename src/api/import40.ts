@@ -602,6 +602,7 @@ export interface Import40SplitRequest {
 }
 
 export interface Import40SplitResult {
+  originalDeclarationId: string
   ettDeclarationId: string
   vtoDeclarationId: string
 }
