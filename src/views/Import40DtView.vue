@@ -23,8 +23,10 @@
           <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
           <a-button :loading="paymentsLoading" @click="openPaymentsModal">Рассчитать платежи</a-button>
           <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
-          <a-button :loading="pdfLoading" @click="printBlank">Принтер</a-button>
         </template>
+        <!-- Печать бланка доступна и в режиме просмотра (readOnly) — единственное действие,
+             не считающееся редактированием декларации. -->
+        <a-button :loading="pdfLoading" @click="printBlank">Принтер</a-button>
       </template>
     </PageHeader>
 
