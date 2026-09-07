@@ -15,14 +15,16 @@
           {{ kedenMissing.length ? `КЕДЕН-XML: не хватает ${kedenMissing.length}` : 'КЕДЕН-XML: готово' }}
         </a-tag>
       </template>
-      <template v-if="!readOnly" #actions>
-        <a-tooltip :title="canSplit ? '' : 'Нужно минимум 2 товара в ДТ для разделения на ЕТТ/ВТО'">
+      <template #actions>
+        <a-tooltip v-if="showSplitButton" :title="splitBlockedReason">
           <a-button :disabled="!canSplit" @click="openSplitModal">Разделить на ЕТТ/ВТО</a-button>
         </a-tooltip>
-        <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
-        <a-button :loading="paymentsLoading" @click="openPaymentsModal">Рассчитать платежи</a-button>
-        <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
-        <a-button :loading="pdfLoading" @click="printBlank">Принтер</a-button>
+        <template v-if="!readOnly">
+          <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
+          <a-button :loading="paymentsLoading" @click="openPaymentsModal">Рассчитать платежи</a-button>
+          <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
+          <a-button :loading="pdfLoading" @click="printBlank">Принтер</a-button>
+        </template>
       </template>
     </PageHeader>
 
@@ -91,6 +93,14 @@
     >
       <a-spin :spinning="splitLoading">
         <p class="muted">Отметьте товары, которые должны войти в декларацию ВТО. Остальные останутся в ЕТТ.</p>
+        <a-checkbox
+          :checked="allVtoSelected"
+          :indeterminate="someVtoSelected"
+          style="margin-bottom: 8px"
+          @change="toggleAllVto"
+        >
+          Выбрать все
+        </a-checkbox>
         <a-table
           :data-source="splitRows"
           :columns="splitColumns"
@@ -228,6 +238,28 @@ const caseTitle = computed(() =>
 // декларацию (инверсия readOnly), и только при ≥ 2 товарах — разделять нечего
 // иначе.
 const canSplit = computed(() => !readOnly.value && dtForm.goodsItems.length >= 2)
+
+// Task 12 (фидбек №17): раньше кнопка сплита пряталась вместе со всем блоком
+// #actions (v-if="!readOnly") — декларант, попавший на чужую/ещё не
+// закреплённую за ним ДТ, не видел кнопку вообще и не понимал, в чём дело.
+// Теперь кнопка рендерится всегда для не-клиента (просто disabled), а тултип
+// объясняет точную причину — это тот самый "чёткий хинт вместо молчаливого
+// скрытия" из задания. Сервер (splitDeclaration) всё равно остаётся финальным
+// гейтом, тут только UX.
+const showSplitButton = computed(() => {
+  const sys = (authStore.role || '').toLowerCase()
+  const biz = (authStore.businessRole || '').toLowerCase()
+  return sys !== 'client' && biz !== 'client'
+})
+const splitBlockedReason = computed(() => {
+  if (dtForm.goodsItems.length < 2) return 'Нужно минимум 2 товара в ДТ для разделения на ЕТТ/ВТО'
+  if (!readOnly.value) return ''
+  const c = activeCase.value
+  if (c?.assignedDeclarantId && c.assignedDeclarantId !== authStore.userId) {
+    return 'Декларация закреплена за другим декларантом — разделение недоступно'
+  }
+  return 'Редактирование этой декларации сейчас недоступно вашей роли'
+})
 
 const saving = ref(false)
 const xmlLoading = ref(false)
@@ -1131,6 +1163,14 @@ const splitColumns = [
   { title: 'Статус ВТО', dataIndex: 'vtoStatus', key: 'vtoStatus', ellipsis: true },
   { title: 'ВТО', key: 'vto', width: 70 },
 ]
+
+// Task 12 (фидбек №17): «Выбрать все» — тристейт-переключатель над таблицей.
+const allVtoSelected = computed(() => splitRows.value.length > 0 && splitRows.value.every((r) => r.vto))
+const someVtoSelected = computed(() => splitRows.value.some((r) => r.vto) && !allVtoSelected.value)
+const toggleAllVto = (e: { target: { checked: boolean } }) => {
+  const checked = e.target.checked
+  splitRows.value = splitRows.value.map((r) => ({ ...r, vto: checked }))
+}
 
 const openSplitModal = async () => {
   splitModalOpen.value = true
