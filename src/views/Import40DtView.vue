@@ -284,11 +284,13 @@ const dtForm = reactive<DtFormState>({
   totalInvoiceValue: null,
   sender: emptyParty(),
   senderHouse: null,
+  senderShortName: null,
   receiver: emptyParty(),
   receiverHouse: null,
   receiverBin: null,
   receiverCategoryCode: null,
   receiverKatoCode: null,
+  receiverShortName: null,
   goodsItems: [],
   doc44Items: [],
   prevDocItems: [],
@@ -333,6 +335,7 @@ const dtForm = reactive<DtFormState>({
   financialSubjectHouse: null,
   financialSubjectCategoryCode: null,
   financialSubjectKatoCode: null,
+  financialSubjectShortName: null,
   declarantName: null,
   declarantBin: null,
   declarantCountryCode: null,
@@ -342,6 +345,7 @@ const dtForm = reactive<DtFormState>({
   declarantHouse: null,
   declarantCategoryCode: null,
   declarantKatoCode: null,
+  declarantShortName: null,
   containerIndicator: false,
   inlandTransportModeCode: null,
   deferralDocType: null,
@@ -479,11 +483,13 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.totalInvoiceValue = decl.totalInvoiceValue ?? null
   dtForm.sender = decl.sender ? { ...emptyParty(), ...decl.sender } : emptyParty()
   dtForm.senderHouse = decl.senderHouse ?? null
+  dtForm.senderShortName = decl.senderShortName ?? null
   dtForm.receiver = decl.receiver ? { ...emptyParty(), ...decl.receiver } : emptyParty()
   dtForm.receiverHouse = decl.receiverHouse ?? null
   dtForm.receiverBin = decl.receiverBin ?? null
   dtForm.receiverCategoryCode = decl.receiverCategoryCode ?? null
   dtForm.receiverKatoCode = decl.receiverKatoCode ?? null
+  dtForm.receiverShortName = decl.receiverShortName ?? null
   dtForm.transactionNatureCode = decl.transactionNatureCode ?? ''
   dtForm.transactionFeatureCode = decl.transactionFeatureCode ?? ''
   dtForm.tradeCountryCode = decl.tradeCountryCode ?? ''
@@ -528,6 +534,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.financialSubjectHouse = decl.financialSubjectHouse ?? null
   dtForm.financialSubjectCategoryCode = decl.financialSubjectCategoryCode ?? null
   dtForm.financialSubjectKatoCode = decl.financialSubjectKatoCode ?? null
+  dtForm.financialSubjectShortName = decl.financialSubjectShortName ?? null
   dtForm.declarantName = decl.declarantName ?? null
   dtForm.declarantBin = decl.declarantBin ?? null
   dtForm.declarantCountryCode = decl.declarantCountryCode ?? null
@@ -537,6 +544,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.declarantHouse = decl.declarantHouse ?? null
   dtForm.declarantCategoryCode = decl.declarantCategoryCode ?? null
   dtForm.declarantKatoCode = decl.declarantKatoCode ?? null
+  dtForm.declarantShortName = decl.declarantShortName ?? null
   dtForm.containerIndicator = decl.containerIndicator ?? false
   dtForm.inlandTransportModeCode = decl.inlandTransportModeCode ?? null
   dtForm.deferralDocType = decl.deferralDocType ?? null
@@ -934,11 +942,13 @@ const saveDt = async (silent = false): Promise<boolean> => {
       totalInvoiceValue: dtForm.totalInvoiceValue,
       sender: dtForm.sender,
       senderHouse: dtForm.senderHouse || null,
+      senderShortName: dtForm.senderShortName || null,
       receiver: dtForm.receiver,
       receiverHouse: dtForm.receiverHouse || null,
       receiverBin: dtForm.receiverBin || null,
       receiverCategoryCode: dtForm.receiverCategoryCode || null,
       receiverKatoCode: dtForm.receiverKatoCode || null,
+      receiverShortName: dtForm.receiverShortName || null,
       transactionNatureCode: dtForm.transactionNatureCode || null,
       transactionFeatureCode: dtForm.transactionFeatureCode || null,
       tradeCountryCode: dtForm.tradeCountryCode || null,
@@ -978,6 +988,7 @@ const saveDt = async (silent = false): Promise<boolean> => {
       financialSubjectHouse: dtForm.financialSubjectHouse || null,
       financialSubjectCategoryCode: dtForm.financialSubjectCategoryCode || null,
       financialSubjectKatoCode: dtForm.financialSubjectKatoCode || null,
+      financialSubjectShortName: dtForm.financialSubjectShortName || null,
       declarantName: dtForm.declarantName || null,
       declarantBin: dtForm.declarantBin || null,
       declarantCountryCode: dtForm.declarantCountryCode || null,
@@ -987,6 +998,7 @@ const saveDt = async (silent = false): Promise<boolean> => {
       declarantHouse: dtForm.declarantHouse || null,
       declarantCategoryCode: dtForm.declarantCategoryCode || null,
       declarantKatoCode: dtForm.declarantKatoCode || null,
+      declarantShortName: dtForm.declarantShortName || null,
       containerIndicator: dtForm.containerIndicator,
       inlandTransportModeCode: dtForm.inlandTransportModeCode || null,
       deferralDocType: dtForm.deferralDocType || null,
