@@ -1191,11 +1191,11 @@ const doSplit = async () => {
   splitting.value = true
   try {
     await import40Api.splitDeclaration(caseId, dtId, { vtoGoodSortOrders })
-    message.success('ДТ разделена на ЕТТ и ВТО')
+    message.success('Исходная ДТ сохранена без изменений, дополнительно созданы декларации ЕТТ и ВТО')
     splitModalOpen.value = false
-    // Обе новые декларации видны в списке ДТ заявки — переходим туда, а не
-    // остаёмся на текущей странице (текущий dtId после разделения перестаёт
-    // существовать как единая декларация).
+    // Исходная декларация сохраняется как есть, плюс создаются две новые
+    // (ЕТТ и ВТО) — все три видны в списке ДТ заявки, переходим туда, а не
+    // остаёмся на текущей странице.
     await router.push(`/import-40/${caseId}`)
   } catch (e: any) {
     message.error(e?.response?.data?.message ?? 'Не удалось разделить декларацию')

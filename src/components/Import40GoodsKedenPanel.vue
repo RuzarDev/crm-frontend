@@ -56,6 +56,9 @@
       <a-collapse-panel v-for="(g, i) in items" :key="i" :header="`Товар ${i + 1}: ${g.tnvedCode || 'без кода'} — ${g.description || ''}`">
         <template #extra>
           <a-tag v-if="g.needsTpinRecalc" color="orange" @click.stop>Пересчитать ТПиН</a-tag>
+          <a-tooltip v-if="hasReducedVat(g)" title="Пониженный НДС (5%) — применяется автоматически по коду ТНВЭД или вручную">
+            <a-tag color="green" @click.stop>НДС 5%</a-tag>
+          </a-tooltip>
         </template>
         <div class="field-row">
           <div class="field"><div class="field-label">Торговая марка</div>
@@ -94,7 +97,11 @@
             <a-auto-complete v-model:value="g.prefDutyCode" size="small" :disabled="readonly" :options="prefOptions" placeholder="ОО" @change="sync" /></div>
           <div class="field"><div class="field-label">Акциз</div>
             <a-auto-complete v-model:value="g.prefExciseCode" size="small" :disabled="readonly" :options="prefOptions" placeholder="Z" @change="sync" /></div>
-          <div class="field"><div class="field-label">НДС</div>
+          <div class="field"><div class="field-label">НДС
+              <a-tooltip v-if="hasReducedVat(g)" title="Пониженный НДС (5%) — применяется автоматически по коду ТНВЭД или вручную">
+                <a-tag color="green" style="margin-left: 4px">5%</a-tag>
+              </a-tooltip>
+            </div>
             <a-auto-complete v-model:value="g.prefVatCode" size="small" :disabled="readonly" :options="prefOptions" placeholder="ОО" @change="sync" /></div>
         </div>
         <div v-if="containerIndicator" class="field-row">
@@ -241,6 +248,18 @@ const taxModePriority = (code: string | null | undefined) =>
 
 const sortedPayments = (g: Import40GoodsItemInput): Import40GoodsPayment[] =>
   [...(g.payments ?? [])].sort((a, b) => taxModePriority(a.taxModeCode) - taxModePriority(b.taxModeCode))
+
+// Task 6 (follow-ups): применённый пониженный НДС (5%) — display-only, без пересчёта
+// на клиенте. Источник истины — гр.47/5060 (НДС) с последнего расчёта (rateLabel
+// начинается с "5%": сервер сам определяет ставку по коду ТНВЭД, см. Import40PaymentCalculator
+// Task 5) ЛИБО ручной флаг vatRatePreferential=0.05 (переключатель «Медизделие»,
+// см. DtPaymentsCalcModal/Import40DtView), пока расчёт ещё не проведён. Если нет ни
+// того, ни другого — бейдж не показываем (не гадаем).
+const hasReducedVat = (g: Import40GoodsItemInput): boolean => {
+  if (g.vatRatePreferential === 0.05) return true
+  const vatPayment = (g.payments ?? []).find((p) => p.taxModeCode === '5060')
+  return !!vatPayment?.rateLabel?.startsWith('5%')
+}
 
 interface PaymentsSummaryRow {
   key: string
