@@ -189,6 +189,8 @@ export interface Import40DeclarationDto {
   arrivalTransportNationality?: string | null
   arrivalTransportNumbers?: Import40TransportMeans[]
   rateType?: string | null
+  splitRole?: string | null
+  splitSourceDeclarationId?: string | null
   factPayments?: Import40FactPayment[]
   declarationTypeCode: string
   declarationFeatureCode: string | null

@@ -148,7 +148,9 @@
         <div v-for="(dt, i) in filteredDeclarations" :key="dt.id" class="dt-row">
           <div class="dt-row-main">
             <strong>{{ dt.declarationNumber || `ДТ ${i + 1}` }}</strong>
-            <a-tag v-if="rateTypeLabel(dt.rateType)" :color="rateTypeColor(dt.rateType)">{{ rateTypeLabel(dt.rateType) }}</a-tag>
+            <a-tooltip :title="splitTagTooltip(dt)">
+              <a-tag v-if="splitTagLabel(dt)" :color="splitTagColor(dt)">{{ splitTagLabel(dt) }}</a-tag>
+            </a-tooltip>
             <span class="muted">товаров: {{ dt.goodsItems.length }}</span>
             <a-tag v-if="readiness[dt.id]" :color="readiness[dt.id].missing.length ? 'warning' : 'success'">
               {{ readiness[dt.id].filled }}/{{ readiness[dt.id].total }} полей
@@ -359,6 +361,7 @@ import {
   import40Api,
   type Import40Action,
   type Import40CaseDto,
+  type Import40DeclarationDto,
   type Import40DeclarationUpsert,
   type Import40ExtractionPreview,
   type Import40ExtractionResult,
@@ -413,27 +416,35 @@ const can = (role: RoleMode) => roleMode.value === 'admin' || roleMode.value ===
 const ROLE_LABELS: Record<string, string> = { client: 'клиент', kpp: 'менеджер КПП', declarant: 'декларант' }
 const hintFor = (role: string) => `Действие выполняет ${ROLE_LABELS[role] ?? role}`
 
-// Task 12 (фидбек №17) + follow-ups Task 2: после «Разделить на ЕТТ/ВТО»
-// бэкенд помечает результат полем rateType ('ETT' | 'EATT' — второе бэкенд
-// использует под декларацию с выбранными ВТО-товарами, см.
-// Import40Endpoints.SplitDeclaration). Разделение теперь сохраняет исходную
-// декларацию без изменений и создаёт ДВЕ новые (ЕТТ и ВТО) — в списке видны
-// все три.
+// Task 12 (фидбек №17) + follow-ups Task 2/4: после «Разделить на ЕТТ/ВТО»
+// бэкенд помечает результат полем splitRole ('ETT' | 'VTO' | null, см.
+// Import40Endpoints.SplitDeclaration). Разделение сохраняет исходную
+// декларацию без изменений (splitRole = null) и создаёт ДВЕ новые дочерние
+// (splitRole = 'ETT' и 'VTO') — в списке видны все три.
 //
-// ВАЖНО: rateType='ETT' — это одновременно и дефолт для любой обычной ДТ, и
-// значение у новой декларации ЕТТ-разделения, поэтому по одному rateType
-// нельзя отличить «исходную нетронутую ДТ» от «новую ЕТТ-декларацию после
-// split». Тег «ЕТТ» здесь показывается для любой rateType==='ETT', включая
-// обычные (неразделённые) декларации — так исходная ДТ визуально не
-// отличается от новой ЕТТ-декларации. Чтобы различать их точно, бэкенду
-// нужен явный признак (например, флаг «исходная / производная от split») —
-// вне скоупа этой задачи.
-const rateTypeLabel = (rateType?: string | null) => {
-  if (rateType === 'EATT') return 'ВТО'
-  if (rateType === 'ETT') return 'ЕТТ'
+// follow-ups Task 4: тег теперь ставится по splitRole, а не по rateType —
+// Task 2 ставил тег «ЕТТ» на rateType==='ETT', а это одновременно и дефолт
+// для ЛЮБОЙ обычной (неразделённой) ДТ, поэтому тег шёл шумом на все
+// декларации. splitRole надёжно отличает дочерние ДТ split'а: null у
+// исходной/обычных ДТ — тег не показываем вовсе.
+//
+// Фолбэк: если splitRole не пришёл (null), но rateType === 'EATT' —
+// показываем «ВТО» по старому признаку (edge case: самостоятельная ДТ с
+// выбранными ВТО-товарами вне split). rateType==='ETT' без splitRole
+// фолбэка не имеет — это обычная ДТ, шум специально убран.
+const splitTagLabel = (dt: Import40DeclarationDto) => {
+  if (dt.splitRole === 'VTO') return 'ВТО'
+  if (dt.splitRole === 'ETT') return 'ЕТТ'
+  if (!dt.splitRole && dt.rateType === 'EATT') return 'ВТО'
   return null
 }
-const rateTypeColor = (rateType?: string | null) => (rateType === 'EATT' ? 'purple' : 'blue')
+const splitTagColor = (dt: Import40DeclarationDto) => (splitTagLabel(dt) === 'ВТО' ? 'purple' : 'blue')
+const splitTagTooltip = (dt: Import40DeclarationDto) => {
+  if (!dt.splitSourceDeclarationId) return ''
+  const source = activeCase.value?.declarations.find((d) => d.id === dt.splitSourceDeclarationId)
+  const num = source?.declarationNumber || dt.splitSourceDeclarationId
+  return `часть разделения ДТ №${num}`
+}
 
 const currentStep = computed(() => (activeCase.value ? stepForStatus(activeCase.value.status) : 1))
 const stepState = (n: number): 'done' | 'current' | 'future' =>
