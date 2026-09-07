@@ -46,11 +46,27 @@
             row-key="taxModeCode"
           >
             <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'base' || column.key === 'rate' || column.key === 'amount'">
+              <template v-if="column.key === 'amount'">
                 {{ fmt2(record[column.key]) }}
+              </template>
+              <template v-else-if="column.key === 'base'">
+                {{ record.basisLabel ?? fmt2(record.base) }}
+              </template>
+              <template v-else-if="column.key === 'rate'">
+                {{ rateDisplay(record, row.index) }}
+              </template>
+              <template v-else-if="column.key === 'sp'">
+                {{ record.featureCode || '—' }}
               </template>
             </template>
           </a-table>
+
+          <!-- Task 10, №2: гр.B (детализация) — строки, которые лягут в гр.B по кнопке
+               «Записать в гр.47 и гр.B» (см. FormatBLine на бэке). -->
+          <div v-if="bLinesFor(row).length" class="b-line-row">
+            <span class="b-line-label">Гр.B:</span>
+            <span class="b-line-value">{{ bLinesFor(row).join('; ') }}</span>
+          </div>
         </div>
 
         <div class="totals-block">
@@ -111,15 +127,33 @@ const isMedical = (index: number) => (props.goods[index]?.vatRatePreferential ??
 // backend'ом (Task 3, ×3%×мес), здесь только показываем это декларанту.
 const tempImportMonths = (index: number) => props.goods[index]?.tempImportMonths ?? null
 
+// Task 10, №9: Вид / Основа начисления / Ставка / Сумма / СП.
 const goodsColumns = [
-  { title: 'Вид платежа', dataIndex: 'taxModeCode', key: 'taxModeCode', width: 140,
+  { title: 'Вид', dataIndex: 'taxModeCode', key: 'taxModeCode', width: 120,
     customRender: ({ text }: { text: string }) => taxModeLabel(text) },
-  { title: 'Основа', dataIndex: 'base', key: 'base', width: 160 },
-  { title: 'Ставка', dataIndex: 'rate', key: 'rate', width: 110 },
-  { title: 'Сумма, ₸', dataIndex: 'amount', key: 'amount', width: 150 },
+  { title: 'Основа начисления', dataIndex: 'base', key: 'base', width: 170 },
+  { title: 'Ставка', dataIndex: 'rate', key: 'rate', width: 150 },
+  { title: 'Сумма, ₸', dataIndex: 'amount', key: 'amount', width: 140 },
+  { title: 'СП', dataIndex: 'featureCode', key: 'sp', width: 60 },
 ]
 
 const rowsFor = (row: Import40PaymentGoodsRowDto) => row.rows
+
+// Task 10, №2: строки гр.B ("{код}-{сумма}-398-{дата}-БН"), присланные бэком
+// для каждой строки гр.47 этого товара.
+const bLinesFor = (row: Import40PaymentGoodsRowDto): string[] =>
+  row.rows.map((r) => r.bLine).filter((v): v is string => !!v)
+
+// Task 10, №13: RateLabel с бэка — НОМИНАЛЬНАЯ ставка (без коэфф. временного
+// ввоза, см. Import40PaymentCalculator.cs); аннотируем 2010/5060, чтобы не
+// выглядело как ошибка расчёта рядом с уже уменьшенной суммой.
+const TEMP_IMPORT_ANNOTATED_CODES = new Set(['2010', '5060'])
+const rateDisplay = (record: { taxModeCode: string; rate?: number | null; rateLabel?: string | null }, goodsIndex: number) => {
+  const label = record.rateLabel ?? fmt2(record.rate)
+  const months = tempImportMonths(goodsIndex)
+  if (!months || !TEMP_IMPORT_ANNOTATED_CODES.has(record.taxModeCode) || record.rateLabel == null) return label
+  return `${label} × 3%×${months}мес`
+}
 
 const fmt2 = (v: number | null | undefined) =>
   v == null ? '—' : v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -165,6 +199,18 @@ const fmt0 = (v: number | null | undefined) =>
 }
 .goods-vat-toggle {
   margin-bottom: 8px;
+}
+.b-line-row {
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.55);
+}
+.b-line-label {
+  font-weight: 600;
+  margin-right: 6px;
+}
+.b-line-value {
+  font-variant-numeric: tabular-nums;
 }
 
 .totals-block {

@@ -8,7 +8,7 @@
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="20" text="Место Инкотермс" /></template>
-        <a-input v-model:value="form.incotermsPlace" :disabled="readonly" placeholder="Алматы" @change="emitChange" />
+        <a-input v-model:value="form.incotermsPlace" v-uppercase :disabled="readonly" placeholder="Алматы" @change="emitChange" />
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="22" text="Валюта" /></template>
@@ -59,7 +59,7 @@
       <a-button v-if="!readonly" type="dashed" size="small" @click="addExpense">+ Расход</a-button>
     </div>
     <div v-if="(form.expenses ?? []).length" class="dt-expenses-header">
-      <span>Статья расхода</span><span>Сумма</span><span>Валюта</span><span />
+      <span>Статья расхода</span><span>Сумма</span><span>Валюта</span><span>Распределение</span><span />
     </div>
     <!-- Биндим напрямую на объекты form.expenses (не на копии) — иначе правки
          в селектах/полях теряются при следующем ререндере, см. аналогичный
@@ -74,6 +74,7 @@
         v-model:value="e.currencyCode" :options="currencyOptions" :disabled="readonly"
         show-search :filter-option="filterOption" placeholder="Валюта" @change="emitChange"
       />
+      <a-tag class="dt-expense-dist">{{ distributionLabel(e.expenseTypeCode) }}</a-tag>
       <a-button v-if="!readonly" type="text" danger size="small" @click="removeExpense(i)"><CloseOutlined /></a-button>
     </div>
     <div v-if="!(form.expenses ?? []).length" class="muted">Расходов нет</div>
@@ -101,6 +102,11 @@ const props = defineProps<{
   expenseTypeOptions: { value: string; label: string }[]
   currencyOptions: { value: string; label: string }[]
   currencyRates?: Record<string, { rate: number; date: string }>
+  // Task 11 (package 3, №5): алгоритм распределения статьи расхода на
+  // таможенную стоимость товаров — из RefExpenseType.DistributionBase
+  // (тот же признак, которым бэк реально распределяет расходы, см.
+  // ExpenseDistribution.Distribute), просто отображаем.
+  expenseDistributionByCode?: Record<string, 'GrossWeight' | 'CustomsValue'>
 }>()
 const emit = defineEmits<{
   'update:modelValue': [Import40DtFormState]
@@ -130,6 +136,15 @@ const applyCurrentRate = () => {
 const filterOption = (input: string, option: { label?: string }) =>
   (option.label ?? '').toLowerCase().includes(input.toLowerCase())
 
+// №5: подпись алгоритма распределения расхода. Источник — справочник
+// (RefExpenseType.DistributionBase), пришедший из Import40DtView; если статья
+// ещё не выбрана или справочник не загрузился — по умолчанию «по стоимости»
+// (это же дефолт DistributionBase на бэке для новых статей расходов).
+const distributionLabel = (expenseTypeCode: string | null | undefined) => {
+  const base = expenseTypeCode ? props.expenseDistributionByCode?.[expenseTypeCode] : undefined
+  return base === 'GrossWeight' ? 'по весу брутто' : 'по стоимости'
+}
+
 const addExpense = () => {
   form.expenses = [...(form.expenses ?? []), { expenseTypeCode: null, amount: null, currencyCode: null }]
   emitChange()
@@ -145,7 +160,7 @@ const removeExpense = (index: number) => {
 .dt-expenses-header,
 .dt-expense-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 32px;
+  grid-template-columns: 2fr 1fr 1fr 1fr 32px;
   gap: 8px;
   align-items: center;
 }
@@ -156,6 +171,11 @@ const removeExpense = (index: number) => {
 }
 .dt-expense-row {
   margin-bottom: 8px;
+}
+.dt-expense-dist {
+  justify-self: start;
+  white-space: normal;
+  text-align: center;
 }
 .dt-expenses-actions {
   margin-top: 8px;

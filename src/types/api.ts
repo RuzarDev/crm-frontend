@@ -1195,6 +1195,12 @@ export interface Import40GoodsPayment {
   rateDate: string | null // yyyy-MM-dd
   paymentFeatureCode: string | null
   amountKzt: number | null
+  // Task 10 (фронт): подписи из последнего calculate-payments (Основа начисления/
+  // Ставка/гр.B-строка) — только для отображения, backend их не требует и не
+  // валидирует; taxBase/rateValue остаются источником для сохранения/пересчёта.
+  basisLabel?: string | null
+  rateLabel?: string | null
+  bLine?: string | null
 }
 
 export interface Import40FactPayment {
@@ -1260,11 +1266,26 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   // 3%×мес (calculate-payments на бэке) — Task 1 (бэк)/Task 6 (фронт).
   // 0/null → обычный импорт.
   tempImportMonths?: number | null
-  // Признак реестра запретов/ограничений (классификатор nis-registry) — Task 1 (бэк)/Task 7 (фронт).
-  nisRegistryFlag?: string | null
   // Сертификация / экспортный контроль — свободный текст, заполняется декларантом
   // вручную (нет авто-маппинга от ТНВЭД) — Task 1 (бэк)/Task 7 (фронт).
   certificationNote?: string | null
+  // ОИС (объекты интеллектуальной собственности) / признаки соблюдения запретов
+  // (гр.33 «О») — Task 1 (бэк)/Task 9 (фронт).
+  oisIndicatorCode?: string | null
+  // CSV кодов классификатора restriction-marks (С/М/П) — на форме показывается
+  // multi-select, хранится строкой через запятую (см. restrictionMarksArray в
+  // Import40GoodsKedenPanel.vue).
+  restrictionMarks?: string | null
+  oisRegNumber?: string | null
+  oisCountryCode?: string | null
+  // Маркировка товаров (гр.31.13) — Task 1 (бэк)/Task 9 (фронт).
+  markingAfterRelease?: boolean | null
+  markingKizCount?: number | null
+  markingLevelCode?: string | null
+  markingIdTypeCode?: string | null
+  markingIdApplicationCode?: string | null
+  markingNumber?: string | null
+  markingAggregated?: boolean | null
 }
 
 export interface Import40Doc44ItemInput extends ReestrDoc44ItemInput {

@@ -148,6 +148,7 @@
         <div v-for="(dt, i) in filteredDeclarations" :key="dt.id" class="dt-row">
           <div class="dt-row-main">
             <strong>{{ dt.declarationNumber || `ДТ ${i + 1}` }}</strong>
+            <a-tag v-if="rateTypeLabel(dt.rateType)" color="purple">{{ rateTypeLabel(dt.rateType) }}</a-tag>
             <span class="muted">товаров: {{ dt.goodsItems.length }}</span>
             <a-tag v-if="readiness[dt.id]" :color="readiness[dt.id].missing.length ? 'warning' : 'success'">
               {{ readiness[dt.id].filled }}/{{ readiness[dt.id].total }} полей
@@ -411,6 +412,15 @@ const can = (role: RoleMode) => roleMode.value === 'admin' || roleMode.value ===
 
 const ROLE_LABELS: Record<string, string> = { client: 'клиент', kpp: 'менеджер КПП', declarant: 'декларант' }
 const hintFor = (role: string) => `Действие выполняет ${ROLE_LABELS[role] ?? role}`
+
+// Task 12 (фидбек №17): после «Разделить на ЕТТ/ВТО» бэкенд помечает
+// результат полем rateType ('ETT' | 'EATT' — второе бэкенд использует под
+// декларацию с выбранными ВТО-товарами, см. Import40Endpoints.SplitDeclaration).
+// Показываем тег в списке ДТ, чтобы результат разделения был узнаваем.
+// Декларации до разделения тоже несут rateType='ETT' по умолчанию — тег для
+// ETT не рисуем, чтобы не шуметь бейджем на каждой обычной ДТ; ВТО (EATT)
+// показываем всегда, т.к. это как раз то, что появляется после разделения.
+const rateTypeLabel = (rateType?: string | null) => (rateType === 'EATT' ? 'ВТО' : null)
 
 const currentStep = computed(() => (activeCase.value ? stepForStatus(activeCase.value.status) : 1))
 const stepState = (n: number): 'done' | 'current' | 'future' =>

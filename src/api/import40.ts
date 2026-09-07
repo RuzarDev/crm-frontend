@@ -99,10 +99,22 @@ export interface Import40GoodsItemDto {
   containerNumber?: string | null
   // Временный ввоз: месяцев для расчёта 3%×мес (calculate-payments) — Task 1 (бэк).
   tempImportMonths?: number | null
-  // Признак реестра запретов/ограничений (классификатор nis-registry) — Task 1 (бэк).
-  nisRegistryFlag?: string | null
   // Сертификация / экспортный контроль — свободный текст — Task 1 (бэк).
   certificationNote?: string | null
+  // ОИС (классификатор ois-indicators: I/N/S) / признаки соблюдения запретов
+  // (CSV кодов restriction-marks: С/М/П) — Task 1 (бэк)/Task 9 (фронт).
+  oisIndicatorCode?: string | null
+  restrictionMarks?: string | null
+  oisRegNumber?: string | null
+  oisCountryCode?: string | null
+  // Маркировка товаров (гр.31.13) — Task 1 (бэк)/Task 9 (фронт).
+  markingAfterRelease?: boolean | null
+  markingKizCount?: number | null
+  markingLevelCode?: string | null
+  markingIdTypeCode?: string | null
+  markingIdApplicationCode?: string | null
+  markingNumber?: string | null
+  markingAggregated?: boolean | null
 }
 
 export interface Import40Doc44ItemDto {
@@ -139,11 +151,13 @@ export interface Import40DeclarationDto {
   procedureCode: string
   sender?: Import40Party | null
   senderHouse?: string | null
+  senderShortName?: string | null
   receiver?: Import40Party | null
   receiverHouse?: string | null
   receiverBin?: string | null
   receiverCategoryCode?: string | null
   receiverKatoCode?: string | null
+  receiverShortName?: string | null
   departureCountryCode?: string | null
   destinationCountryCode?: string | null
   incoterms?: string | null
@@ -191,6 +205,7 @@ export interface Import40DeclarationDto {
   financialSubjectHouse: string | null
   financialSubjectCategoryCode: string | null
   financialSubjectKatoCode: string | null
+  financialSubjectShortName: string | null
   declarantName: string | null
   declarantBin: string | null
   declarantCountryCode: string | null
@@ -200,6 +215,7 @@ export interface Import40DeclarationDto {
   declarantHouse: string | null
   declarantCategoryCode: string | null
   declarantKatoCode: string | null
+  declarantShortName: string | null
   containerIndicator: boolean
   inlandTransportModeCode: string | null
   deferralDocType: string | null
@@ -233,11 +249,13 @@ export interface Import40DeclarationUpsert {
   procedureCode?: string | null
   sender?: Import40Party | null
   senderHouse?: string | null
+  senderShortName?: string | null
   receiver?: Import40Party | null
   receiverHouse?: string | null
   receiverBin?: string | null
   receiverCategoryCode?: string | null
   receiverKatoCode?: string | null
+  receiverShortName?: string | null
   departureCountryCode?: string | null
   destinationCountryCode?: string | null
   incoterms?: string | null
@@ -287,6 +305,7 @@ export interface Import40DeclarationUpsert {
   financialSubjectHouse?: string | null
   financialSubjectCategoryCode?: string | null
   financialSubjectKatoCode?: string | null
+  financialSubjectShortName?: string | null
   declarantName?: string | null
   declarantBin?: string | null
   declarantCountryCode?: string | null
@@ -296,6 +315,7 @@ export interface Import40DeclarationUpsert {
   declarantHouse?: string | null
   declarantCategoryCode?: string | null
   declarantKatoCode?: string | null
+  declarantShortName?: string | null
   // Как соседние consigneeEqualsDeclarant/financialSubjectEqualsDeclarant:
   // в C# non-nullable bool с дефолтом, но тип формы делаем optional-nullable
   // для единообразия остального интерфейса.
@@ -545,6 +565,15 @@ export interface Import40PaymentRowDto {
   base?: number | null
   rate?: number | null
   amount: number
+  // Task 3 (бэк) / Task 10 (фронт): готовые подписи "Основа начисления"/"Ставка"
+  // (например "6 МРП", "12.5%") и код способа платежа (гр.47 "СП") — показываем
+  // их вместо числовых base/rate, когда есть (у сбора/акциза база не всегда
+  // числовая — см. FeeBasisLabel на бэке).
+  basisLabel?: string | null
+  rateLabel?: string | null
+  featureCode?: string | null
+  // Детальная строка гр.B: "{код}-{сумма}-398-{дата ддммгггг}-БН".
+  bLine?: string | null
 }
 
 export interface Import40PaymentGoodsRowDto {

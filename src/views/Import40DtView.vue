@@ -15,13 +15,17 @@
           {{ kedenMissing.length ? `КЕДЕН-XML: не хватает ${kedenMissing.length}` : 'КЕДЕН-XML: готово' }}
         </a-tag>
       </template>
-      <template v-if="!readOnly" #actions>
-        <a-tooltip :title="canSplit ? '' : 'Нужно минимум 2 товара в ДТ для разделения на ЕТТ/ВТО'">
+      <template #actions>
+        <a-tooltip v-if="showSplitButton" :title="splitBlockedReason">
           <a-button :disabled="!canSplit" @click="openSplitModal">Разделить на ЕТТ/ВТО</a-button>
         </a-tooltip>
-        <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
-        <a-button :loading="paymentsLoading" @click="openPaymentsModal">Рассчитать платежи</a-button>
-        <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
+        <template v-if="!readOnly">
+          <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
+          <a-button :loading="paymentsLoading" @click="openPaymentsModal">Рассчитать платежи</a-button>
+          <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
+        </template>
+        <!-- Печать бланка доступна и в режиме просмотра (readOnly) — единственное действие,
+             не считающееся редактированием декларации. -->
         <a-button :loading="pdfLoading" @click="printBlank">Принтер</a-button>
       </template>
     </PageHeader>
@@ -64,6 +68,7 @@
           <DtSectionFinance
             v-show="activeSection === 'finance'" :model-value="dtForm" :readonly="readOnly" :totals="totals"
             :expense-type-options="expenseTypeOptions" :currency-options="currencyOptions" :currency-rates="currencyRates"
+            :expense-distribution-by-code="expenseDistributionByCode"
             @update:model-value="onDtUpdate" @calc-customs-value="calcCustomsValue"
           />
           <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" :post-options="customsPostOptions" @update:model-value="onDtUpdate" />
@@ -90,6 +95,14 @@
     >
       <a-spin :spinning="splitLoading">
         <p class="muted">Отметьте товары, которые должны войти в декларацию ВТО. Остальные останутся в ЕТТ.</p>
+        <a-checkbox
+          :checked="allVtoSelected"
+          :indeterminate="someVtoSelected"
+          style="margin-bottom: 8px"
+          @change="toggleAllVto"
+        >
+          Выбрать все
+        </a-checkbox>
         <a-table
           :data-source="splitRows"
           :columns="splitColumns"
@@ -149,6 +162,7 @@ import { salesApi, type SalesCalcGoodsResult } from '@/api/sales'
 import { tnvedApi } from '@/api/tnved'
 import { useAuthStore } from '@/stores/auth'
 import { useClassifiersStore } from '@/stores/classifiers'
+import { useDtTotals } from '@/composables/useDtTotals'
 import DtSectionGeneral from '@/components/import40/dt/DtSectionGeneral.vue'
 import DtSectionParties from '@/components/import40/dt/DtSectionParties.vue'
 import DtSectionCountries from '@/components/import40/dt/DtSectionCountries.vue'
@@ -192,7 +206,9 @@ const DT_CLASSIFIERS = [
   'itn-categories',       // категория лица (гр.8, 9, 14)
   'kato',                 // КАТО (гр.8, 9, 14)
   'vehicle-marks',        // марки ТС (гр.18, 21)
-  'nis-registry',         // признак реестра запретов/ограничений (товарное поле)
+  'ois-indicators',       // ОИС: I/N/S (гр.33 «О», товарное поле) — Task 2 (бэк)/Task 9 (фронт)
+  'restriction-marks',    // признаки соблюдения запретов: С/М/П (товарное поле) — Task 2/Task 9
+  'packaging-availability', // наличие упаковки: 0/1/2 (гр.31, товарное поле) — Task 2/Task 9
 ]
 
 const caseId = String(route.params.caseId)
@@ -224,6 +240,28 @@ const caseTitle = computed(() =>
 // иначе.
 const canSplit = computed(() => !readOnly.value && dtForm.goodsItems.length >= 2)
 
+// Task 12 (фидбек №17): раньше кнопка сплита пряталась вместе со всем блоком
+// #actions (v-if="!readOnly") — декларант, попавший на чужую/ещё не
+// закреплённую за ним ДТ, не видел кнопку вообще и не понимал, в чём дело.
+// Теперь кнопка рендерится всегда для не-клиента (просто disabled), а тултип
+// объясняет точную причину — это тот самый "чёткий хинт вместо молчаливого
+// скрытия" из задания. Сервер (splitDeclaration) всё равно остаётся финальным
+// гейтом, тут только UX.
+const showSplitButton = computed(() => {
+  const sys = (authStore.role || '').toLowerCase()
+  const biz = (authStore.businessRole || '').toLowerCase()
+  return sys !== 'client' && biz !== 'client'
+})
+const splitBlockedReason = computed(() => {
+  if (dtForm.goodsItems.length < 2) return 'Нужно минимум 2 товара в ДТ для разделения на ЕТТ/ВТО'
+  if (!readOnly.value) return ''
+  const c = activeCase.value
+  if (c?.assignedDeclarantId && c.assignedDeclarantId !== authStore.userId) {
+    return 'Декларация закреплена за другим декларантом — разделение недоступно'
+  }
+  return 'Редактирование этой декларации сейчас недоступно вашей роли'
+})
+
 const saving = ref(false)
 const xmlLoading = ref(false)
 const pdfLoading = ref(false)
@@ -245,6 +283,12 @@ const customsPostOptions = ref<{ value: string; label: string }[]>([])
 // countryOptions, грузятся отдельно от decl/classifiers — один упавший
 // запрос не должен блокировать саму форму.
 const expenseTypeOptions = ref<{ value: string; label: string }[]>([])
+// Task 11 (package 3, №5): алгоритм распределения по статье расхода — приходит
+// с сервером (RefExpenseType.DistributionBase, тот же признак, которым
+// ExpenseDistribution.Distribute на бэке реально распределяет расходы по
+// товарам), поэтому подпись в таблице расходов не гадает по коду, а берёт
+// источник истины напрямую из справочника.
+const expenseDistributionByCode = ref<Record<string, 'GrossWeight' | 'CustomsValue'>>({})
 const currencyOptions = ref<{ value: string; label: string }[]>([])
 // Курсы НБ РК по коду валюты (на момент заполнения) — для автоподстановки гр.23.
 const currencyRates = ref<Record<string, { rate: number; date: string }>>({})
@@ -284,11 +328,13 @@ const dtForm = reactive<DtFormState>({
   totalInvoiceValue: null,
   sender: emptyParty(),
   senderHouse: null,
+  senderShortName: null,
   receiver: emptyParty(),
   receiverHouse: null,
   receiverBin: null,
   receiverCategoryCode: null,
   receiverKatoCode: null,
+  receiverShortName: null,
   goodsItems: [],
   doc44Items: [],
   prevDocItems: [],
@@ -333,6 +379,7 @@ const dtForm = reactive<DtFormState>({
   financialSubjectHouse: null,
   financialSubjectCategoryCode: null,
   financialSubjectKatoCode: null,
+  financialSubjectShortName: null,
   declarantName: null,
   declarantBin: null,
   declarantCountryCode: null,
@@ -342,6 +389,7 @@ const dtForm = reactive<DtFormState>({
   declarantHouse: null,
   declarantCategoryCode: null,
   declarantKatoCode: null,
+  declarantShortName: null,
   containerIndicator: false,
   inlandTransportModeCode: null,
   deferralDocType: null,
@@ -366,12 +414,6 @@ const onDtUpdate = (v: Import40DtFormState) => Object.assign(dtForm, v)
 // Графы 5, 6, 12 не хранятся в БД — сервер считает их на чтении,
 // поэтому держим последний ответ отдельно от редактируемой формы.
 const loadedDto = ref<Import40DeclarationDto | null>(null)
-
-const totals = computed(() => ({
-  goods: loadedDto.value?.totalGoodsCount ?? 0,
-  places: loadedDto.value?.totalPackagesCount ?? 0,
-  customsValue: loadedDto.value?.totalCustomsValue ?? 0,
-}))
 
 // Чек-лист секций
 interface SectionDef {
@@ -465,6 +507,17 @@ const refreshReadiness = async () => {
 // авто-подсчитанным значением — даже если декларант раньше сохранил другое.
 const applyingDeclaration = ref(false)
 
+// Task 11 (package 3): автозаполнение гр.22/листов из товаров + клиентский
+// предпросмотр гр.5/гр.6/гр.12 — см. комментарий в useDtTotals.ts. Приостанавливается
+// тем же applyingDeclaration, что и авто-гр.16 выше (объявлен строкой выше).
+const dtTotals = useDtTotals(() => dtForm.goodsItems, dtForm, currencyRates, applyingDeclaration)
+
+const totals = computed(() => ({
+  goods: dtTotals.goodsCount.value,
+  places: dtTotals.packagesCount.value,
+  customsValue: dtTotals.customsValueKzt.value,
+}))
+
 const applyDeclaration = (decl: Import40DeclarationDto) => {
   applyingDeclaration.value = true
   dtForm.id = decl.id
@@ -479,11 +532,13 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.totalInvoiceValue = decl.totalInvoiceValue ?? null
   dtForm.sender = decl.sender ? { ...emptyParty(), ...decl.sender } : emptyParty()
   dtForm.senderHouse = decl.senderHouse ?? null
+  dtForm.senderShortName = decl.senderShortName ?? null
   dtForm.receiver = decl.receiver ? { ...emptyParty(), ...decl.receiver } : emptyParty()
   dtForm.receiverHouse = decl.receiverHouse ?? null
   dtForm.receiverBin = decl.receiverBin ?? null
   dtForm.receiverCategoryCode = decl.receiverCategoryCode ?? null
   dtForm.receiverKatoCode = decl.receiverKatoCode ?? null
+  dtForm.receiverShortName = decl.receiverShortName ?? null
   dtForm.transactionNatureCode = decl.transactionNatureCode ?? ''
   dtForm.transactionFeatureCode = decl.transactionFeatureCode ?? ''
   dtForm.tradeCountryCode = decl.tradeCountryCode ?? ''
@@ -528,6 +583,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.financialSubjectHouse = decl.financialSubjectHouse ?? null
   dtForm.financialSubjectCategoryCode = decl.financialSubjectCategoryCode ?? null
   dtForm.financialSubjectKatoCode = decl.financialSubjectKatoCode ?? null
+  dtForm.financialSubjectShortName = decl.financialSubjectShortName ?? null
   dtForm.declarantName = decl.declarantName ?? null
   dtForm.declarantBin = decl.declarantBin ?? null
   dtForm.declarantCountryCode = decl.declarantCountryCode ?? null
@@ -537,6 +593,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.declarantHouse = decl.declarantHouse ?? null
   dtForm.declarantCategoryCode = decl.declarantCategoryCode ?? null
   dtForm.declarantKatoCode = decl.declarantKatoCode ?? null
+  dtForm.declarantShortName = decl.declarantShortName ?? null
   dtForm.containerIndicator = decl.containerIndicator ?? false
   dtForm.inlandTransportModeCode = decl.inlandTransportModeCode ?? null
   dtForm.deferralDocType = decl.deferralDocType ?? null
@@ -597,8 +654,18 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     containerNumber: g.containerNumber ?? null,
     tempImportMonths: g.tempImportMonths ?? null,
     vatRatePreferential: g.vatRatePreferential ?? null,
-    nisRegistryFlag: g.nisRegistryFlag ?? null,
     certificationNote: g.certificationNote ?? null,
+    oisIndicatorCode: g.oisIndicatorCode ?? null,
+    restrictionMarks: g.restrictionMarks ?? null,
+    oisRegNumber: g.oisRegNumber ?? null,
+    oisCountryCode: g.oisCountryCode ?? null,
+    markingAfterRelease: g.markingAfterRelease ?? false,
+    markingKizCount: g.markingKizCount ?? null,
+    markingLevelCode: g.markingLevelCode ?? null,
+    markingIdTypeCode: g.markingIdTypeCode ?? null,
+    markingIdApplicationCode: g.markingIdApplicationCode ?? null,
+    markingNumber: g.markingNumber ?? null,
+    markingAggregated: g.markingAggregated ?? false,
   }))
   dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({
     docTypeCode: d.docTypeCode ?? null,
@@ -794,6 +861,15 @@ const applyPaymentsResult = () => {
         existing.taxBase = pr.base ?? null
         existing.rateValue = pr.rate ?? null
         existing.amountKzt = pr.amount
+        // Task 10: не требуем от декларанта вручную выбирать вид ставки/дату —
+        // calculate-payments сам всё посчитал; трогаем rateKindCode/rateDate,
+        // только если они ещё не заданы (не затираем то, что декларант уже
+        // выбрал вручную ранее, например rateKindCode '*' с весовым коэфф.).
+        if (!existing.rateKindCode) existing.rateKindCode = '%'
+        existing.paymentFeatureCode = pr.featureCode ?? existing.paymentFeatureCode ?? 'ИУ'
+        existing.basisLabel = pr.basisLabel ?? null
+        existing.rateLabel = pr.rateLabel ?? null
+        existing.bLine = pr.bLine ?? null
       } else {
         rows.push({
           taxModeCode: pr.taxModeCode,
@@ -804,8 +880,11 @@ const applyPaymentsResult = () => {
           rateCurrencyCode: null,
           weightRatio: null,
           rateDate: null,
-          paymentFeatureCode: 'ИУ',
+          paymentFeatureCode: pr.featureCode ?? 'ИУ',
           amountKzt: pr.amount,
+          basisLabel: pr.basisLabel ?? null,
+          rateLabel: pr.rateLabel ?? null,
+          bLine: pr.bLine ?? null,
         })
       }
     })
@@ -934,11 +1013,13 @@ const saveDt = async (silent = false): Promise<boolean> => {
       totalInvoiceValue: dtForm.totalInvoiceValue,
       sender: dtForm.sender,
       senderHouse: dtForm.senderHouse || null,
+      senderShortName: dtForm.senderShortName || null,
       receiver: dtForm.receiver,
       receiverHouse: dtForm.receiverHouse || null,
       receiverBin: dtForm.receiverBin || null,
       receiverCategoryCode: dtForm.receiverCategoryCode || null,
       receiverKatoCode: dtForm.receiverKatoCode || null,
+      receiverShortName: dtForm.receiverShortName || null,
       transactionNatureCode: dtForm.transactionNatureCode || null,
       transactionFeatureCode: dtForm.transactionFeatureCode || null,
       tradeCountryCode: dtForm.tradeCountryCode || null,
@@ -978,6 +1059,7 @@ const saveDt = async (silent = false): Promise<boolean> => {
       financialSubjectHouse: dtForm.financialSubjectHouse || null,
       financialSubjectCategoryCode: dtForm.financialSubjectCategoryCode || null,
       financialSubjectKatoCode: dtForm.financialSubjectKatoCode || null,
+      financialSubjectShortName: dtForm.financialSubjectShortName || null,
       declarantName: dtForm.declarantName || null,
       declarantBin: dtForm.declarantBin || null,
       declarantCountryCode: dtForm.declarantCountryCode || null,
@@ -987,6 +1069,7 @@ const saveDt = async (silent = false): Promise<boolean> => {
       declarantHouse: dtForm.declarantHouse || null,
       declarantCategoryCode: dtForm.declarantCategoryCode || null,
       declarantKatoCode: dtForm.declarantKatoCode || null,
+      declarantShortName: dtForm.declarantShortName || null,
       containerIndicator: dtForm.containerIndicator,
       inlandTransportModeCode: dtForm.inlandTransportModeCode || null,
       deferralDocType: dtForm.deferralDocType || null,
@@ -1081,6 +1164,14 @@ const splitColumns = [
   { title: 'ВТО', key: 'vto', width: 70 },
 ]
 
+// Task 12 (фидбек №17): «Выбрать все» — тристейт-переключатель над таблицей.
+const allVtoSelected = computed(() => splitRows.value.length > 0 && splitRows.value.every((r) => r.vto))
+const someVtoSelected = computed(() => splitRows.value.some((r) => r.vto) && !allVtoSelected.value)
+const toggleAllVto = (e: { target: { checked: boolean } }) => {
+  const checked = e.target.checked
+  splitRows.value = splitRows.value.map((r) => ({ ...r, vto: checked }))
+}
+
 const openSplitModal = async () => {
   splitModalOpen.value = true
   splitLoading.value = true
@@ -1143,6 +1234,7 @@ onMounted(async () => {
   try {
     const expenseTypes = await referencesApi.listExpenseTypes()
     expenseTypeOptions.value = expenseTypes.map((t) => ({ value: t.code, label: `${t.code} — ${t.nameRu}` }))
+    expenseDistributionByCode.value = Object.fromEntries(expenseTypes.map((t) => [t.code, t.distributionBase]))
   } catch {
     /* справочник статей расходов не загрузился — таблица расходов не блокирует форму */
   }

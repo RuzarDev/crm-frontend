@@ -11,7 +11,8 @@
 
     <div class="dt-section-bar"><DtGraphLabel graph="2" text="Отправитель" /></div>
     <div class="dt-grid-3">
-      <a-form-item label="Наименование"><a-input v-uppercase v-model:value="form.sender.name" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.sender.name" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.senderShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Страна">
         <a-select v-model:value="form.sender.countryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" @change="emitChange" />
       </a-form-item>
@@ -23,7 +24,8 @@
 
     <div class="dt-section-bar"><DtGraphLabel graph="8" text="Получатель" /></div>
     <div class="dt-grid-3">
-      <a-form-item label="Наименование"><a-input v-uppercase v-model:value="form.receiver.name" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
+      <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.receiver.name" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
+      <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.receiverShortName" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item label="БИН"><a-input v-model:value="form.receiverBin" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item label="Страна">
         <a-select v-model:value="form.receiver.countryCode" show-search allow-clear :disabled="readonly || form.consigneeEqualsDeclarant" :options="countryOptions" @change="emitChange" />
@@ -43,7 +45,8 @@
     <template v-if="!form.financialSubjectEqualsDeclarant">
       <div class="dt-section-bar"><DtGraphLabel graph="9" text="Лицо, ответственное за фин. урегулирование" /></div>
       <div class="dt-grid-3">
-        <a-form-item label="Наименование"><a-input v-uppercase v-model:value="form.financialSubjectName" :disabled="readonly" @change="emitChange" /></a-form-item>
+        <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.financialSubjectName" :disabled="readonly" @change="emitChange" /></a-form-item>
+        <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.financialSubjectShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item label="БИН"><a-input v-model:value="form.financialSubjectBin" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item label="Страна">
           <a-select v-model:value="form.financialSubjectCountryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" @change="emitChange" />
@@ -63,7 +66,8 @@
 
     <div class="dt-section-bar"><DtGraphLabel graph="14" text="Декларант" /></div>
     <div class="dt-grid-3">
-      <a-form-item label="Наименование"><a-input v-uppercase v-model:value="form.declarantName" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.declarantName" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.declarantShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="БИН"><a-input v-model:value="form.declarantBin" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Страна">
         <a-select v-model:value="form.declarantCountryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" @change="emitChange" />
@@ -159,6 +163,7 @@ function copyDeclarantToReceiver() {
   form.receiverBin = form.declarantBin ?? null
   form.receiverCategoryCode = form.declarantCategoryCode ?? null
   form.receiverKatoCode = form.declarantKatoCode ?? null
+  form.receiverShortName = form.declarantShortName ?? null
 }
 
 // Копирует набор полей декларанта (гр.14) в лицо, ответственное за
@@ -173,6 +178,7 @@ function copyDeclarantToFinancialSubject() {
   form.financialSubjectHouse = form.declarantHouse ?? null
   form.financialSubjectCategoryCode = form.declarantCategoryCode ?? null
   form.financialSubjectKatoCode = form.declarantKatoCode ?? null
+  form.financialSubjectShortName = form.declarantShortName ?? null
 }
 
 function runAutocopy(fn: () => void) {
@@ -205,6 +211,7 @@ watch(
     form.declarantHouse,
     form.declarantCategoryCode,
     form.declarantKatoCode,
+    form.declarantShortName,
   ],
   () => {
     // copyDeclarantTo*() ниже не трогает declarant*-поля, так что этот watch

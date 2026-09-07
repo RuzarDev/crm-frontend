@@ -104,7 +104,17 @@ const emitChange = () => emit('update:modelValue', { ...props.modelValue, ...for
 // (form.borderCustomsOfficeName), а код при выборе распознаём тем же
 // паттерном /^\d+/ из выбранной строки — так оба поля гр.29 проставляются
 // одним действием пользователя.
-const borderPostSelectOptions = props.postOptions.map((o) => ({ value: o.label, label: o.label }))
+//
+// ВАЖНО: это должен быть computed(), а не обычная константа с .map(). Справочник
+// постов (props.postOptions) в Import40DtView.vue грузится асинхронно и
+// заполняется ПОСЛЕ монтирования DtSectionCustoms (компонент смонтирован сразу,
+// v-show только скрывает секцию). Обычный `const ... = props.postOptions.map(...)`
+// вычисляется один раз в момент выполнения <script setup> — на пустом ещё
+// массиве — и застывает навсегда, поэтому выпадающий список гр.29 не открывал
+// вариантов и не давал ничего выбрать. DtDeclarationNumberBar.vue не ловил эту
+// проблему, т.к. использует `:options="props.postOptions"` прямо в шаблоне
+// (реактивно, без промежуточной переменной).
+const borderPostSelectOptions = computed(() => props.postOptions.map((o) => ({ value: o.label, label: o.label })))
 const filterPost = (input: string, option: { label?: string }) =>
   (option.label ?? '').toLowerCase().includes(input.toLowerCase())
 const onBorderPostChange = (value: string | undefined) => {
