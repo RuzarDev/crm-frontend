@@ -206,7 +206,6 @@ const DT_CLASSIFIERS = [
   'itn-categories',       // категория лица (гр.8, 9, 14)
   'kato',                 // КАТО (гр.8, 9, 14)
   'vehicle-marks',        // марки ТС (гр.18, 21)
-  'nis-registry',         // признак реестра запретов/ограничений (товарное поле)
   'ois-indicators',       // ОИС: I/N/S (гр.33 «О», товарное поле) — Task 2 (бэк)/Task 9 (фронт)
   'restriction-marks',    // признаки соблюдения запретов: С/М/П (товарное поле) — Task 2/Task 9
   'packaging-availability', // наличие упаковки: 0/1/2 (гр.31, товарное поле) — Task 2/Task 9
@@ -655,7 +654,6 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     containerNumber: g.containerNumber ?? null,
     tempImportMonths: g.tempImportMonths ?? null,
     vatRatePreferential: g.vatRatePreferential ?? null,
-    nisRegistryFlag: g.nisRegistryFlag ?? null,
     certificationNote: g.certificationNote ?? null,
     oisIndicatorCode: g.oisIndicatorCode ?? null,
     restrictionMarks: g.restrictionMarks ?? null,

@@ -1266,8 +1266,6 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   // 3%×мес (calculate-payments на бэке) — Task 1 (бэк)/Task 6 (фронт).
   // 0/null → обычный импорт.
   tempImportMonths?: number | null
-  // Признак реестра запретов/ограничений (классификатор nis-registry) — Task 1 (бэк)/Task 7 (фронт).
-  nisRegistryFlag?: string | null
   // Сертификация / экспортный контроль — свободный текст, заполняется декларантом
   // вручную (нет авто-маппинга от ТНВЭД) — Task 1 (бэк)/Task 7 (фронт).
   certificationNote?: string | null

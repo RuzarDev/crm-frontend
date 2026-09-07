@@ -126,10 +126,6 @@
             <a-input v-model:value="g.ipoCode" size="small" :disabled="readonly" placeholder="N" @change="sync" /></div>
         </div>
         <div class="field-row">
-          <div class="field field-wide"><div class="field-label">Запреты/ограничения (реестр)</div>
-            <a-select v-model:value="g.nisRegistryFlag" size="small" :disabled="readonly" show-search
-              :options="nisRegistryOptions" :dropdown-match-select-width="false" allow-clear
-              placeholder="Не выбрано" @change="sync" /></div>
           <div class="field f-2"><div class="field-label">Сертификация / эксп. контроль</div>
             <a-input v-uppercase v-model:value="g.certificationNote" size="small" :disabled="readonly" @change="sync" /></div>
         </div>
@@ -337,7 +333,6 @@ const rateKindOptions = computed(() => classifiers.options('rate-kinds'))
 const valuationOptions = computed(() => classifiers.options('2005'))
 const procOptions = computed(() => classifiers.options('customs-procedures'))
 const moveFeatureOptions = computed(() => classifiers.options('movement-features'))
-const nisRegistryOptions = computed(() => classifiers.options('nis-registry'))
 const packagingAvailabilityOptions = computed(() => classifiers.options('packaging-availability'))
 const oisIndicatorOptions = computed(() => classifiers.options('ois-indicators'))
 const restrictionMarksOptions = computed(() => classifiers.options('restriction-marks'))
