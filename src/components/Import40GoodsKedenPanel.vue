@@ -28,13 +28,28 @@
       row-key="key"
     >
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'base' || column.key === 'rate' || column.key === 'amount'">
+        <template v-if="column.key === 'amount'">
           {{ fmtAmount(record[column.key]) }}
+        </template>
+        <template v-else-if="column.key === 'base'">
+          {{ record.basisLabel ?? fmtAmount(record.base) }}
+        </template>
+        <template v-else-if="column.key === 'rate'">
+          {{ record.rateLabel ?? fmtAmount(record.rate) }}
+        </template>
+        <template v-else-if="column.key === 'sp'">
+          {{ record.featureCode || '—' }}
         </template>
       </template>
     </a-table>
     <div v-else-if="items.length" class="empty-state payments-summary-empty">
       Платежи гр.47 не рассчитаны — нажмите «Рассчитать ТПиН (авто)» выше или «Рассчитать платежи» в шапке ДТ.
+    </div>
+    <!-- Гр.B (детализация): строки "{код}-{сумма}-398-{дата}-БН" из последнего
+         calculate-payments — читаемая расшифровка того, что записано в гр.B. -->
+    <div v-if="bLineRows.length" class="b-line-block">
+      <span class="b-line-label">Гр.B (детализация):</span>
+      <span class="b-line-value">{{ bLineRows.join('; ') }}</span>
     </div>
 
     <a-collapse v-if="items.length" ghost>
@@ -168,14 +183,18 @@
         <div v-for="(p, pi) in sortedPayments(g)" :key="pi" class="payment-row">
           <a-auto-complete v-model:value="p.taxModeCode" size="small" :disabled="readonly" :options="taxModeOptions" placeholder="Вид (2010)" style="width: 140px" @change="sync" />
           <a-input-number v-model:value="p.taxBase" size="small" :disabled="readonly" placeholder="Основа" style="width: 130px" @change="sync" />
-          <a-select v-model:value="p.rateKindCode" size="small" :disabled="readonly" :options="rateKindOptions" placeholder="Вид ставки" style="width: 130px" @change="sync" />
+          <!-- Task 10, №13: вид ставки/дата НЕ обязательны для показа сумм — суммы гр.47
+               уже заполнены "Рассчитать платежи"/"Рассчитать ТПиН" выше (см. сводную
+               таблицу и applyPaymentsResult); эти поля — необязательное ручное уточнение
+               (например, для весовых ставок '*'), поэтому оба с allow-clear. -->
+          <a-select v-model:value="p.rateKindCode" size="small" :disabled="readonly" :options="rateKindOptions" allow-clear placeholder="Вид ставки (авто)" style="width: 130px" @change="sync" />
           <a-input-number v-model:value="p.rateValue" size="small" :disabled="readonly" placeholder="Ставка" style="width: 100px" @change="sync" />
           <template v-if="p.rateKindCode === '*'">
             <a-input v-model:value="p.rateUnitCode" size="small" :disabled="readonly" placeholder="ОКЕИ (166)" style="width: 90px" @change="sync" />
             <a-input v-model:value="p.rateCurrencyCode" size="small" :disabled="readonly" placeholder="Валюта N3 (978)" style="width: 110px" @change="sync" />
             <a-input-number v-model:value="p.weightRatio" size="small" :disabled="readonly" placeholder="Коэф." style="width: 80px" @change="sync" />
           </template>
-          <a-date-picker v-model:value="p.rateDate" size="small" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD" placeholder="Дата" style="width: 130px" allow-clear @change="sync" />
+          <a-date-picker v-model:value="p.rateDate" size="small" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD" placeholder="Дата (авто)" style="width: 130px" allow-clear @change="sync" />
           <a-input-number v-model:value="p.amountKzt" size="small" :disabled="readonly" placeholder="Сумма, ₸" style="width: 130px" @change="sync" />
           <a-button v-if="!readonly" type="text" danger size="small" @click="removePayment(g, p)"><CloseOutlined /></a-button>
         </div>
@@ -234,18 +253,44 @@ interface PaymentsSummaryRow {
   base: number | null
   rate: number | null
   amount: number | null
+  // Task 10: подписи из calculate-payments (basisLabel/rateLabel/паспорт СП) —
+  // приоритет над числовыми base/rate в отображении (см. bodyCell в шаблоне).
+  basisLabel: string | null
+  rateLabel: string | null
+  featureCode: string | null
 }
 
+// Task 10, №9: колонки гр.47 — Вид / Основа начисления / Ставка / Сумма / СП
+// (мнемоника формы — "способ платежа" гр.47).
 const paymentsSummaryColumns = [
   { title: 'Товар', dataIndex: 'goods', key: 'goods', width: 220, ellipsis: true },
-  { title: 'Вид платежа', dataIndex: 'taxMode', key: 'taxMode', width: 140 },
-  { title: 'Основа', dataIndex: 'base', key: 'base', width: 130 },
-  { title: 'Ставка', dataIndex: 'rate', key: 'rate', width: 110 },
+  { title: 'Вид', dataIndex: 'taxMode', key: 'taxMode', width: 120 },
+  { title: 'Основа начисления', dataIndex: 'base', key: 'base', width: 150 },
+  { title: 'Ставка', dataIndex: 'rate', key: 'rate', width: 130 },
   { title: 'Сумма, ₸', dataIndex: 'amount', key: 'amount', width: 140 },
+  { title: 'СП', dataIndex: 'featureCode', key: 'sp', width: 70 },
 ]
 
 const fmtAmount = (v: number | null | undefined) =>
   v == null ? '—' : v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+// Task 10, №13: при временном ввозе фактическая сумма — это 3%×мес от "обычной"
+// (нормальной) суммы, а RateLabel с бэка остаётся НОМИНАЛЬНОЙ адвалорной ставкой
+// (см. Import40PaymentCalculator.cs) — без этой пометки декларант видит, например,
+// "12.5%" рядом с суммой, посчитанной по факту как 12.5%×3%×3мес, и это выглядит
+// как ошибка расчёта. Аннотируем только 2010 (пошлина) и 5060 (НДС) — временный
+// ввоз условно начисляет именно их (сбор 1010 — без изменений, целиком).
+const TEMP_IMPORT_ANNOTATED_CODES = new Set(['2010', '5060'])
+const annotateRateLabel = (
+  taxModeCode: string | null | undefined,
+  rateLabel: string | null,
+  tempImportMonths: number | null | undefined,
+): string | null => {
+  if (!rateLabel || !tempImportMonths || !taxModeCode || !TEMP_IMPORT_ANNOTATED_CODES.has(taxModeCode)) {
+    return rateLabel
+  }
+  return `${rateLabel} × 3%×${tempImportMonths}мес`
+}
 
 const paymentsSummaryRows = computed<PaymentsSummaryRow[]>(() => {
   const rows: PaymentsSummaryRow[] = []
@@ -258,11 +303,21 @@ const paymentsSummaryRows = computed<PaymentsSummaryRow[]>(() => {
         base: p.taxBase ?? null,
         rate: p.rateValue ?? null,
         amount: p.amountKzt ?? null,
+        basisLabel: p.basisLabel ?? null,
+        rateLabel: annotateRateLabel(p.taxModeCode, p.rateLabel ?? null, g.tempImportMonths),
+        featureCode: p.paymentFeatureCode ?? null,
       })
     })
   })
   return rows
 })
+
+// Task 10, №2: детализация гр.B ("{код}-{сумма}-398-{дата}-БН") по всем строкам
+// всех товаров — из последнего calculate-payments (bLine пишется в g.payments
+// при "Записать в гр.47 и гр.B" в модалке расчёта, см. Import40DtView.applyPaymentsResult).
+const bLineRows = computed<string[]>(() =>
+  items.value.flatMap((g) => (g.payments ?? []).map((p) => p.bLine).filter((v): v is string => !!v)),
+)
 
 // ВАЖНО: эмитим НОВЫЙ массив с копиями объектов. ReestrGoodsSection выше по форме
 // держит внутренние копии строк и пересинхронизируется только по watch на modelValue;
@@ -333,6 +388,9 @@ const applyMonthsToAll = () => {
 .payments-summary-bar { margin-top: 4px; }
 .payments-summary-table { margin-bottom: 8px; }
 .payments-summary-empty { margin-bottom: 8px; }
+.b-line-block { margin-bottom: 12px; font-size: 12px; color: var(--atg-muted); }
+.b-line-label { font-weight: 600; margin-right: 6px; }
+.b-line-value { font-variant-numeric: tabular-nums; word-break: break-word; }
 .field-row { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
 .field { flex: 1; min-width: 140px; }
 .field.f-2 { flex: 2; }

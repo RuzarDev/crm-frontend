@@ -567,6 +567,15 @@ export interface Import40PaymentRowDto {
   base?: number | null
   rate?: number | null
   amount: number
+  // Task 3 (бэк) / Task 10 (фронт): готовые подписи "Основа начисления"/"Ставка"
+  // (например "6 МРП", "12.5%") и код способа платежа (гр.47 "СП") — показываем
+  // их вместо числовых base/rate, когда есть (у сбора/акциза база не всегда
+  // числовая — см. FeeBasisLabel на бэке).
+  basisLabel?: string | null
+  rateLabel?: string | null
+  featureCode?: string | null
+  // Детальная строка гр.B: "{код}-{сумма}-398-{дата ддммгггг}-БН".
+  bLine?: string | null
 }
 
 export interface Import40PaymentGoodsRowDto {

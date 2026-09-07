@@ -1195,6 +1195,12 @@ export interface Import40GoodsPayment {
   rateDate: string | null // yyyy-MM-dd
   paymentFeatureCode: string | null
   amountKzt: number | null
+  // Task 10 (фронт): подписи из последнего calculate-payments (Основа начисления/
+  // Ставка/гр.B-строка) — только для отображения, backend их не требует и не
+  // валидирует; taxBase/rateValue остаются источником для сохранения/пересчёта.
+  basisLabel?: string | null
+  rateLabel?: string | null
+  bLine?: string | null
 }
 
 export interface Import40FactPayment {

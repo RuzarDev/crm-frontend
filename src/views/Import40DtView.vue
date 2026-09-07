@@ -816,6 +816,15 @@ const applyPaymentsResult = () => {
         existing.taxBase = pr.base ?? null
         existing.rateValue = pr.rate ?? null
         existing.amountKzt = pr.amount
+        // Task 10: не требуем от декларанта вручную выбирать вид ставки/дату —
+        // calculate-payments сам всё посчитал; трогаем rateKindCode/rateDate,
+        // только если они ещё не заданы (не затираем то, что декларант уже
+        // выбрал вручную ранее, например rateKindCode '*' с весовым коэфф.).
+        if (!existing.rateKindCode) existing.rateKindCode = '%'
+        existing.paymentFeatureCode = pr.featureCode ?? existing.paymentFeatureCode ?? 'ИУ'
+        existing.basisLabel = pr.basisLabel ?? null
+        existing.rateLabel = pr.rateLabel ?? null
+        existing.bLine = pr.bLine ?? null
       } else {
         rows.push({
           taxModeCode: pr.taxModeCode,
@@ -826,8 +835,11 @@ const applyPaymentsResult = () => {
           rateCurrencyCode: null,
           weightRatio: null,
           rateDate: null,
-          paymentFeatureCode: 'ИУ',
+          paymentFeatureCode: pr.featureCode ?? 'ИУ',
           amountKzt: pr.amount,
+          basisLabel: pr.basisLabel ?? null,
+          rateLabel: pr.rateLabel ?? null,
+          bLine: pr.bLine ?? null,
         })
       }
     })
