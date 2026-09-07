@@ -103,6 +103,20 @@ export interface Import40GoodsItemDto {
   nisRegistryFlag?: string | null
   // Сертификация / экспортный контроль — свободный текст — Task 1 (бэк).
   certificationNote?: string | null
+  // ОИС (классификатор ois-indicators: I/N/S) / признаки соблюдения запретов
+  // (CSV кодов restriction-marks: С/М/П) — Task 1 (бэк)/Task 9 (фронт).
+  oisIndicatorCode?: string | null
+  restrictionMarks?: string | null
+  oisRegNumber?: string | null
+  oisCountryCode?: string | null
+  // Маркировка товаров (гр.31.13) — Task 1 (бэк)/Task 9 (фронт).
+  markingAfterRelease?: boolean | null
+  markingKizCount?: number | null
+  markingLevelCode?: string | null
+  markingIdTypeCode?: string | null
+  markingIdApplicationCode?: string | null
+  markingNumber?: string | null
+  markingAggregated?: boolean | null
 }
 
 export interface Import40Doc44ItemDto {

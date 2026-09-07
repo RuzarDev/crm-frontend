@@ -1265,6 +1265,23 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   // Сертификация / экспортный контроль — свободный текст, заполняется декларантом
   // вручную (нет авто-маппинга от ТНВЭД) — Task 1 (бэк)/Task 7 (фронт).
   certificationNote?: string | null
+  // ОИС (объекты интеллектуальной собственности) / признаки соблюдения запретов
+  // (гр.33 «О») — Task 1 (бэк)/Task 9 (фронт).
+  oisIndicatorCode?: string | null
+  // CSV кодов классификатора restriction-marks (С/М/П) — на форме показывается
+  // multi-select, хранится строкой через запятую (см. restrictionMarksArray в
+  // Import40GoodsKedenPanel.vue).
+  restrictionMarks?: string | null
+  oisRegNumber?: string | null
+  oisCountryCode?: string | null
+  // Маркировка товаров (гр.31.13) — Task 1 (бэк)/Task 9 (фронт).
+  markingAfterRelease?: boolean | null
+  markingKizCount?: number | null
+  markingLevelCode?: string | null
+  markingIdTypeCode?: string | null
+  markingIdApplicationCode?: string | null
+  markingNumber?: string | null
+  markingAggregated?: boolean | null
 }
 
 export interface Import40Doc44ItemInput extends ReestrDoc44ItemInput {

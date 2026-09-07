@@ -55,13 +55,22 @@
         <div class="field-row">
           <div class="field f-2"><div class="field-label">Производитель</div>
             <a-input v-model:value="g.manufacturerName" v-uppercase size="small" :disabled="readonly" @change="sync" /></div>
-          <div class="field field-wide"><div class="field-label">Вид упаковки</div>
+        </div>
+
+        <!-- Упаковка (гр.31) — единой строкой: наличие/вид/кол-во упаковок/грузомест -->
+        <div class="section-bar"><span class="section-label">УПАКОВКА (гр.31)</span></div>
+        <div class="field-row">
+          <div class="field"><div class="field-label">Наличие упаковки</div>
+            <a-select v-model:value="g.packageAvailabilityCode" size="small" :disabled="readonly" show-search
+              :options="packagingAvailabilityOptions" :dropdown-match-select-width="false" allow-clear
+              placeholder="0/1/2" @change="sync" /></div>
+          <div class="field field-wide" style="min-width: 260px"><div class="field-label">Вид упаковки</div>
             <a-auto-complete v-model:value="g.packageKindCode" size="small" :disabled="readonly"
               :options="pkgOptions" :dropdown-match-select-width="false" placeholder="PK" @change="sync" /></div>
-          <div class="field"><div class="field-label">Грузовых мест</div>
-            <a-input-number v-model:value="g.cargoPlacesQuantity" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
-          <div class="field"><div class="field-label">Упаковок</div>
+          <div class="field"><div class="field-label">Количество упаковок</div>
             <a-input-number v-model:value="g.packageQuantity" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
+          <div class="field"><div class="field-label">Кол-во грузовых мест</div>
+            <a-input-number v-model:value="g.cargoPlacesQuantity" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
         </div>
         <div class="field-row">
           <div class="field"><div class="field-label">Преференция: сбор</div>
@@ -109,6 +118,47 @@
           <div class="field f-2"><div class="field-label">Сертификация / эксп. контроль</div>
             <a-input v-uppercase v-model:value="g.certificationNote" size="small" :disabled="readonly" @change="sync" /></div>
         </div>
+
+        <!-- ОИС / признаки соблюдения запретов (гр.33 «О») -->
+        <div class="section-bar"><span class="section-label">ОИС / ЗАПРЕТЫ (гр.33 «О»)</span></div>
+        <div class="field-row">
+          <div class="field"><div class="field-label">ОИС</div>
+            <a-select v-model:value="g.oisIndicatorCode" size="small" :disabled="readonly" show-search
+              :options="oisIndicatorOptions" :dropdown-match-select-width="false" allow-clear
+              placeholder="I/N/S" @change="sync" /></div>
+          <div class="field field-wide"><div class="field-label">Признаки соблюдения запретов</div>
+            <a-select :value="restrictionMarksArray(g)" mode="multiple" size="small" :disabled="readonly"
+              :options="restrictionMarksOptions" :dropdown-match-select-width="false" allow-clear
+              placeholder="С/М/П" @change="(v: string[]) => onRestrictionMarksChange(g, v)" /></div>
+          <div class="field"><div class="field-label">Рег.№ по ОИС</div>
+            <a-input v-uppercase v-model:value="g.oisRegNumber" size="small" :disabled="readonly" @change="sync" /></div>
+          <div class="field"><div class="field-label">Код страны ОИС</div>
+            <a-input v-uppercase v-model:value="g.oisCountryCode" size="small" :disabled="readonly" :maxlength="2" @change="sync" /></div>
+        </div>
+
+        <!-- Маркировка товаров (гр.31.13) — сворачиваемый блок, редко нужен -->
+        <a-collapse ghost class="marking-collapse">
+          <a-collapse-panel key="marking" header="Маркировка товаров (гр.31.13)">
+            <div class="field-row">
+              <div class="field"><div class="field-label">После выпуска</div>
+                <a-checkbox v-model:checked="g.markingAfterRelease" :disabled="readonly" @change="sync">Маркировка после выпуска</a-checkbox></div>
+              <div class="field"><div class="field-label">Кол-во КИЗ</div>
+                <a-input-number v-model:value="g.markingKizCount" size="small" :disabled="readonly" :min="0" :precision="0" style="width: 100%" @change="sync" /></div>
+              <div class="field"><div class="field-label">Агрегация</div>
+                <a-checkbox v-model:checked="g.markingAggregated" :disabled="readonly" @change="sync">Агрегированная упаковка</a-checkbox></div>
+            </div>
+            <div class="field-row">
+              <div class="field"><div class="field-label">Уровень маркировки</div>
+                <a-input v-uppercase v-model:value="g.markingLevelCode" size="small" :disabled="readonly" @change="sync" /></div>
+              <div class="field"><div class="field-label">Тип идентификатора</div>
+                <a-input v-uppercase v-model:value="g.markingIdTypeCode" size="small" :disabled="readonly" @change="sync" /></div>
+              <div class="field"><div class="field-label">Способ нанесения ID</div>
+                <a-input v-uppercase v-model:value="g.markingIdApplicationCode" size="small" :disabled="readonly" @change="sync" /></div>
+              <div class="field f-2"><div class="field-label">Номер маркировки</div>
+                <a-input v-uppercase v-model:value="g.markingNumber" size="small" :disabled="readonly" @change="sync" /></div>
+            </div>
+          </a-collapse-panel>
+        </a-collapse>
 
         <div class="section-bar payments-bar">
           <span class="section-label">ПЛАТЕЖИ гр.47</span>
@@ -233,6 +283,19 @@ const valuationOptions = computed(() => classifiers.options('2005'))
 const procOptions = computed(() => classifiers.options('customs-procedures'))
 const moveFeatureOptions = computed(() => classifiers.options('movement-features'))
 const nisRegistryOptions = computed(() => classifiers.options('nis-registry'))
+const packagingAvailabilityOptions = computed(() => classifiers.options('packaging-availability'))
+const oisIndicatorOptions = computed(() => classifiers.options('ois-indicators'))
+const restrictionMarksOptions = computed(() => classifiers.options('restriction-marks'))
+
+// g.restrictionMarks хранится строкой CSV («С,М,П»), т.к. так задан контракт бэка
+// (Task 1); UI — multi-select, поэтому туда/обратно конвертируем через запятую.
+const restrictionMarksArray = (g: Import40GoodsItemInput): string[] =>
+  (g.restrictionMarks ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+
+const onRestrictionMarksChange = (g: Import40GoodsItemInput, values: string[]) => {
+  g.restrictionMarks = values.length ? values.join(',') : null
+  sync()
+}
 
 const emptyPayment = (): Import40GoodsPayment => ({
   taxModeCode: null, taxBase: null, rateKindCode: '%', rateValue: null,
@@ -279,5 +342,6 @@ const applyMonthsToAll = () => {
 .field.field-wide { flex: 2; min-width: 260px; }
 .field-label { font-size: 11px; color: var(--atg-muted); margin-bottom: 2px; }
 .payment-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+.marking-collapse { margin-top: 4px; margin-bottom: 8px; }
 .empty-state { color: var(--atg-muted); font-size: 12px; }
 </style>
