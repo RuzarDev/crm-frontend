@@ -17,38 +17,6 @@
       </a-form-item>
     </div>
 
-    <a-form-item label="Страна регистрации ТС (граница)">
-      <a-select v-model:value="form.borderTransportNationality" :options="countryAlpha2Options" :disabled="readonly"
-        show-search allow-clear :filter-option="filterAlpha2" placeholder="KZ" style="max-width: 260px" @change="emitChange" />
-    </a-form-item>
-
-    <template v-if="form.borderTransportModeCode !== '20'">
-      <div class="dt-section-bar"><DtGraphLabel graph="21" text="Транспортное средство на границе" /></div>
-      <div class="transport-list">
-        <div v-for="(m, i) in form.borderTransportNumbers" :key="i" class="transport-list-row transport-list-row-wrap">
-          <a-switch v-if="isRoadMode(form.borderTransportModeCode)" v-model:checked="m.isTrailer" :disabled="readonly" checked-children="Прицеп" un-checked-children="Голова" @change="emitChange" />
-          <a-input v-uppercase v-model:value="m.number" :disabled="readonly" placeholder="Номер ТС" style="max-width: 200px" @change="emitChange" />
-          <a-auto-complete v-model:value="m.typeCode" :options="classifiers.options('2024')"
-            :disabled="readonly" placeholder="319" style="max-width: 160px" @change="emitChange" />
-          <a-select v-model:value="m.mark" :options="classifiers.options('vehicle-marks')" :disabled="readonly"
-            show-search allow-clear placeholder="Марка" style="min-width: 180px" @change="emitChange" />
-          <a-select v-model:value="m.nationality" :options="countryAlpha2Options" :disabled="readonly"
-            show-search allow-clear :filter-option="filterAlpha2" placeholder="Нац." style="max-width: 140px" @change="emitChange" />
-          <a-select v-if="isRoadMode(form.borderTransportModeCode) && m.isTrailer" v-model:value="m.headNumber" :options="borderHeadOptions" :disabled="readonly"
-            allow-clear placeholder="Голова" style="min-width: 160px" @change="emitChange" />
-          <a-button v-if="!readonly" type="text" danger size="small" @click="removeBorderTransport(i)"><CloseOutlined /></a-button>
-        </div>
-        <div class="transport-actions">
-          <template v-if="isRoadMode(form.borderTransportModeCode)">
-            <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport(false)">+ Голова</a-button>
-            <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport(true)">+ Прицеп</a-button>
-          </template>
-          <a-button v-else-if="!readonly" type="dashed" size="small" @click="addBorderTransport(false)">+ Добавить</a-button>
-          <a-button v-if="!readonly && form.borderTransportNumbers.length" size="small" @click="copyBorderToArrival">Скопировать в гр.18 <ArrowDownOutlined /></a-button>
-        </div>
-      </div>
-    </template>
-
     <div class="dt-grid-2">
       <a-form-item label="Вид транспорта прибытия">
         <a-auto-complete v-model:value="form.arrivalTransportModeCode" :options="classifiers.options('2004')"
@@ -60,7 +28,10 @@
       </a-form-item>
     </div>
 
-    <div class="dt-section-bar"><DtGraphLabel graph="18" text="Транспортное средство при прибытии" /></div>
+    <div class="dt-section-bar">
+      <DtGraphLabel graph="18" text="Транспортное средство при прибытии" />
+      <span class="transport-count">Количество ТС: {{ form.arrivalTransportNumbers.length }}</span>
+    </div>
     <div class="transport-list">
       <div v-for="(m, i) in form.arrivalTransportNumbers" :key="i" class="transport-list-row transport-list-row-wrap">
         <a-switch v-if="isRoadMode(form.arrivalTransportModeCode)" v-model:checked="m.isTrailer" :disabled="readonly" checked-children="Прицеп" un-checked-children="Голова" @change="emitChange" />
@@ -81,9 +52,44 @@
           <a-button v-if="!readonly" type="dashed" size="small" @click="addArrivalTransport(true)">+ Прицеп</a-button>
         </template>
         <a-button v-else-if="!readonly" type="dashed" size="small" @click="addArrivalTransport(false)">+ Добавить</a-button>
-        <a-button v-if="!readonly && form.arrivalTransportNumbers.length" size="small" @click="copyArrivalToBorder">Скопировать в гр.21 <ArrowUpOutlined /></a-button>
+        <a-button v-if="!readonly && form.arrivalTransportNumbers.length" size="small" @click="copyArrivalHeadToBorder">Скопировать голову в гр.21 <ArrowDownOutlined /></a-button>
       </div>
     </div>
+
+    <a-form-item label="Страна регистрации ТС (граница)">
+      <a-select v-model:value="form.borderTransportNationality" :options="countryAlpha2Options" :disabled="readonly"
+        show-search allow-clear :filter-option="filterAlpha2" placeholder="KZ" style="max-width: 260px" @change="emitChange" />
+    </a-form-item>
+
+    <template v-if="form.borderTransportModeCode !== '20'">
+      <div class="dt-section-bar">
+        <DtGraphLabel graph="21" text="Транспортное средство на границе" />
+        <span class="transport-count">Количество ТС: {{ form.borderTransportNumbers.length }}</span>
+      </div>
+      <div class="transport-list">
+        <div v-for="(m, i) in form.borderTransportNumbers" :key="i" class="transport-list-row transport-list-row-wrap">
+          <a-switch v-if="isRoadMode(form.borderTransportModeCode)" v-model:checked="m.isTrailer" :disabled="readonly" checked-children="Прицеп" un-checked-children="Голова" @change="emitChange" />
+          <a-input v-uppercase v-model:value="m.number" :disabled="readonly" placeholder="Номер ТС" style="max-width: 200px" @change="emitChange" />
+          <a-auto-complete v-model:value="m.typeCode" :options="classifiers.options('2024')"
+            :disabled="readonly" placeholder="319" style="max-width: 160px" @change="emitChange" />
+          <a-select v-model:value="m.mark" :options="classifiers.options('vehicle-marks')" :disabled="readonly"
+            show-search allow-clear placeholder="Марка" style="min-width: 180px" @change="emitChange" />
+          <a-select v-model:value="m.nationality" :options="countryAlpha2Options" :disabled="readonly"
+            show-search allow-clear :filter-option="filterAlpha2" placeholder="Нац." style="max-width: 140px" @change="emitChange" />
+          <a-select v-if="isRoadMode(form.borderTransportModeCode) && m.isTrailer" v-model:value="m.headNumber" :options="borderHeadOptions" :disabled="readonly"
+            allow-clear placeholder="Голова" style="min-width: 160px" @change="emitChange" />
+          <a-button v-if="!readonly" type="text" danger size="small" @click="removeBorderTransport(i)"><CloseOutlined /></a-button>
+        </div>
+        <div class="transport-actions">
+          <template v-if="isRoadMode(form.borderTransportModeCode)">
+            <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport(false)">+ Голова</a-button>
+            <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport(true)">+ Прицеп</a-button>
+          </template>
+          <a-button v-else-if="!readonly" type="dashed" size="small" @click="addBorderTransport(false)">+ Добавить</a-button>
+          <a-button v-if="!readonly && form.borderTransportNumbers.length" size="small" @click="copyBorderToArrival">Скопировать в гр.18 <ArrowUpOutlined /></a-button>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -137,10 +143,11 @@ const emitChange = () =>
     arrivalTransportNumbers: form.arrivalTransportNumbers.map((m) => ({ ...m })),
   })
 
-// Голова/прицеп — только для автомобильного транспорта (30 — авто, 31 — состав ТС/тягач с прицепом).
+// Голова/прицеп — только для автомобильного транспорта (30 — авто, 31 — состав ТС/тягач
+// с прицепом, 32 — тягач/прицеп раздельно, весь автомобильный набор классификатора КЕДЕН).
 // Для воздушного (40) и прочих режимов — простой ввод номера ТС/борта без переключателя и селекта «Голова».
 function isRoadMode(code: string | null | undefined) {
-  return code === '30' || code === '31'
+  return code === '30' || code === '31' || code === '32'
 }
 
 // «Голова» у прицепа выбирается из номеров головных ТС (isTrailer=false) той же графы.
@@ -179,8 +186,12 @@ function copyBorderToArrival() {
   if (!form.arrivalTransportNationality) form.arrivalTransportNationality = form.borderTransportNationality
   emitChange()
 }
-function copyArrivalToBorder() {
-  form.borderTransportNumbers = form.arrivalTransportNumbers.map((m) => ({ ...m }))
+// Основной сценарий декларанта: заполняем гр.18 (голова+прицеп), затем копируем в гр.21
+// ТОЛЬКО голову (isTrailer=false) — на границе прицеп отдельно не декларируется как ТС.
+function copyArrivalHeadToBorder() {
+  form.borderTransportNumbers = form.arrivalTransportNumbers
+    .filter((m) => !m.isTrailer)
+    .map((m) => ({ ...m, headNumber: null }))
   if (!form.borderTransportModeCode) form.borderTransportModeCode = form.arrivalTransportModeCode
   if (!form.borderTransportNationality) form.borderTransportNationality = form.arrivalTransportNationality
   emitChange()
@@ -190,5 +201,10 @@ function copyArrivalToBorder() {
 <style scoped>
 .transport-list-row-wrap {
   flex-wrap: wrap;
+}
+.transport-count {
+  font-size: 12px;
+  color: var(--z-text-secondary, #8c8c8c);
+  white-space: nowrap;
 }
 </style>
