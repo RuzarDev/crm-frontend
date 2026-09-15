@@ -628,6 +628,9 @@ export interface Import40SplitSuggestionRow {
   tnvedCode?: string | null
   vtoStatus?: string | null
   isVtoCandidate: boolean
+  // Task 12 (item N): человекочитаемые ставки пошлины (например «10%», «0%») для сравнения ЕТТ vs ВТО.
+  ettRate?: string | null
+  vtoRate?: string | null
 }
 
 export interface Import40SplitRequest {

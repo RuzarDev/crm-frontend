@@ -45,6 +45,8 @@
       @register="saveDt()"
     />
 
+    <DtCurrencyRatesBox :rates="currencyRates" :codes="currencyBoxCodes" :as-of-date="dtForm.submissionDate ?? null" />
+
     <div class="dt-layout">
       <nav class="dt-nav">
         <a
@@ -95,6 +97,7 @@
     >
       <a-spin :spinning="splitLoading">
         <p class="muted">Отметьте товары, которые должны войти в декларацию ВТО. Остальные останутся в ЕТТ.</p>
+        <p class="muted">Показаны только товары под изъятиями ВТО. Остальные товары останутся в декларации ЕТТ.</p>
         <a-checkbox
           :checked="allVtoSelected"
           :indeterminate="someVtoSelected"
@@ -119,6 +122,8 @@
                 <span class="dt-split-status">{{ record.vtoStatus || '—' }}</span>
               </a-tooltip>
             </template>
+            <template v-else-if="column.key === 'ettRate'">{{ record.ettRate || '—' }}</template>
+            <template v-else-if="column.key === 'vtoRate'">{{ record.vtoRate || '—' }}</template>
           </template>
         </a-table>
       </a-spin>
@@ -173,6 +178,7 @@ import DtSectionGoods from '@/components/import40/dt/DtSectionGoods.vue'
 import DtSectionDocs from '@/components/import40/dt/DtSectionDocs.vue'
 import DtSectionClosing from '@/components/import40/dt/DtSectionClosing.vue'
 import DtDeclarationNumberBar from '@/components/import40/dt/DtDeclarationNumberBar.vue'
+import DtCurrencyRatesBox from '@/components/import40/dt/DtCurrencyRatesBox.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
 import DtPaymentsCalcModal from '@/components/import40/dt/DtPaymentsCalcModal.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -414,6 +420,21 @@ const dtForm = reactive<DtFormState>({
   brokerContractNumber: null,
   signatoryPhone: null,
   signedDate: null,
+})
+
+// Task 12 (item M): коды валют для панели курсов у гр.А — USD/EUR всегда плюс
+// валюта гр.22 и валюты расходов (транспорт/страховка могут быть в других валютах).
+// Дедуп, в верхнем регистре, без KZT.
+const currencyBoxCodes = computed(() => {
+  const raw = ['USD', 'EUR', dtForm.currency, ...(dtForm.expenses ?? []).map((e) => e.currencyCode)]
+  const set = new Set<string>()
+  for (const c of raw) {
+    if (!c) continue
+    const up = c.toUpperCase()
+    if (up === 'KZT') continue
+    set.add(up)
+  }
+  return Array.from(set)
 })
 
 // Секции эмитят полный объект формы (см. emitChange в каждой DtSection*).
@@ -1196,6 +1217,8 @@ const splitRows = ref<SplitRow[]>([])
 const splitColumns = [
   { title: 'ТНВЭД', dataIndex: 'tnvedCode', key: 'tnvedCode', width: 140 },
   { title: 'Статус ВТО', dataIndex: 'vtoStatus', key: 'vtoStatus', ellipsis: true },
+  { title: 'Пошлина ЕТТ', dataIndex: 'ettRate', key: 'ettRate', width: 110 },
+  { title: 'Пошлина ВТО', dataIndex: 'vtoRate', key: 'vtoRate', width: 110 },
   { title: 'ВТО', key: 'vto', width: 70 },
 ]
 
@@ -1212,7 +1235,16 @@ const openSplitModal = async () => {
   splitLoading.value = true
   try {
     const rows = await import40Api.splitSuggestion(caseId, dtId)
-    splitRows.value = rows.map((r) => ({ ...r, vto: r.isVtoCandidate }))
+    // Item N: показываем только товары под изъятиями ВТО (кандидаты); остальные
+    // не рендерим — они по умолчанию остаются в декларации ЕТТ (не попадают в
+    // vtoGoodSortOrders). Кандидаты по умолчанию отмечены.
+    const candidates = rows.filter((r) => r.isVtoCandidate)
+    if (candidates.length === 0) {
+      splitModalOpen.value = false
+      message.info('Нет товаров, попадающих под изъятия ВТО — разделять нечего')
+      return
+    }
+    splitRows.value = candidates.map((r) => ({ ...r, vto: true }))
   } catch (e: any) {
     message.error(e?.response?.data?.message ?? 'Не удалось получить рекомендацию по разделению')
     splitModalOpen.value = false
