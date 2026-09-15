@@ -84,7 +84,8 @@
               placeholder="0/1/2" @change="sync" /></div>
           <div class="field field-wide" style="min-width: 260px"><div class="field-label">Вид упаковки</div>
             <a-auto-complete v-model:value="g.packageKindCode" size="small" :disabled="readonly"
-              :options="pkgOptions" :dropdown-match-select-width="false" placeholder="PK" @change="sync" /></div>
+              :options="pkgOptions" :dropdown-match-select-width="false" placeholder="PK"
+              :get-popup-container="popupContainer" @change="sync" /></div>
           <div class="field"><div class="field-label">Количество упаковок</div>
             <a-input-number v-model:value="g.packageQuantity" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
           <div class="field"><div class="field-label">Кол-во грузовых мест</div>
@@ -184,13 +185,13 @@
           <a-button v-if="!readonly" type="dashed" size="small" @click="addPayment(g)">+ Строка</a-button>
         </div>
         <div v-for="(p, pi) in sortedPayments(g)" :key="pi" class="payment-row">
-          <a-auto-complete v-model:value="p.taxModeCode" size="small" :disabled="readonly" :options="taxModeOptions" placeholder="Вид (2010)" style="width: 140px" @change="sync" />
+          <a-auto-complete v-model:value="p.taxModeCode" size="small" :disabled="readonly" :options="taxModeOptions" placeholder="Вид (2010)" style="width: 140px" :get-popup-container="popupContainer" @change="sync" />
           <a-input-number v-model:value="p.taxBase" size="small" :disabled="readonly" placeholder="Основа" style="width: 130px" @change="sync" />
           <!-- Task 10, №13: вид ставки/дата НЕ обязательны для показа сумм — суммы гр.47
                уже заполнены "Рассчитать платежи"/"Рассчитать ТПиН" выше (см. сводную
                таблицу и applyPaymentsResult); эти поля — необязательное ручное уточнение
                (например, для весовых ставок '*'), поэтому оба с allow-clear. -->
-          <a-select v-model:value="p.rateKindCode" size="small" :disabled="readonly" :options="rateKindOptions" allow-clear placeholder="Вид ставки (авто)" style="width: 130px" @change="sync" />
+          <a-select v-model:value="p.rateKindCode" size="small" :disabled="readonly" :options="rateKindOptions" allow-clear placeholder="Вид ставки (авто)" style="width: 130px" :get-popup-container="popupContainer" @change="sync" />
           <a-input-number v-model:value="p.rateValue" size="small" :disabled="readonly" placeholder="Ставка" style="width: 100px" @change="sync" />
           <template v-if="p.rateKindCode === '*'">
             <a-input v-model:value="p.rateUnitCode" size="small" :disabled="readonly" placeholder="ОКЕИ (166)" style="width: 90px" @change="sync" />
@@ -227,6 +228,13 @@ const emit = defineEmits<{
 }>()
 
 const items = computed(() => props.modelValue)
+
+// «Вид упаковки» и селекты платежей гр.47 живут внутри вложенных a-collapse-panel
+// (карточка товара -> подсекция платежей), и их выпадающая панель рендерилась в
+// контейнер, обрезаемый анимацией/overflow сворачиваемых панелей — из-за этого
+// декларант видела исчезающий/пустой попап при клике. Рендерим попап в body,
+// вне зоны обрезки.
+const popupContainer = () => document.body
 
 // Русские названия видов платежа гр.47 (см. tax-modes в DatabaseExtensions.cs
 // на бэке) — для явной, не-кодовой подписи в сводной таблице ниже.
