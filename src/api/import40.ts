@@ -241,6 +241,13 @@ export interface Import40DeclarationDto {
   signatoryFullName: string | null
   signatoryPosition: string | null
   signatoryDocument: string | null
+  signatoryDocTypeCode: string | null
+  signatoryDocNumber: string | null
+  signatoryDocIssueDate: string | null
+  signatoryDocIssuedBy: string | null
+  signatoryDocCountryCode: string | null
+  powerOfAttorney: string | null
+  brokerContractNumber: string | null
   signatoryPhone: string | null
   signedDate: string | null
   totalGoodsCount: number
@@ -348,6 +355,13 @@ export interface Import40DeclarationUpsert {
   signatoryFullName?: string | null
   signatoryPosition?: string | null
   signatoryDocument?: string | null
+  signatoryDocTypeCode?: string | null
+  signatoryDocNumber?: string | null
+  signatoryDocIssueDate?: string | null
+  signatoryDocIssuedBy?: string | null
+  signatoryDocCountryCode?: string | null
+  powerOfAttorney?: string | null
+  brokerContractNumber?: string | null
   signatoryPhone?: string | null
   signedDate?: string | null
   goodsItems?: Import40GoodsUpsert[]

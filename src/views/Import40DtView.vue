@@ -209,6 +209,7 @@ const DT_CLASSIFIERS = [
   'ois-indicators',       // ОИС: I/N/S (гр.33 «О», товарное поле) — Task 2 (бэк)/Task 9 (фронт)
   'restriction-marks',    // признаки соблюдения запретов: С/М/П (товарное поле) — Task 2/Task 9
   'packaging-availability', // наличие упаковки: 0/1/2 (гр.31, товарное поле) — Task 2/Task 9
+  'id-doc-types',          // вид документа подписанта (гр.54) — Task 11
 ]
 
 const caseId = String(route.params.caseId)
@@ -404,6 +405,13 @@ const dtForm = reactive<DtFormState>({
   signatoryFullName: null,
   signatoryPosition: null,
   signatoryDocument: null,
+  signatoryDocTypeCode: null,
+  signatoryDocNumber: null,
+  signatoryDocIssueDate: null,
+  signatoryDocIssuedBy: null,
+  signatoryDocCountryCode: null,
+  powerOfAttorney: null,
+  brokerContractNumber: null,
   signatoryPhone: null,
   signedDate: null,
 })
@@ -617,6 +625,13 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.signatoryFullName = decl.signatoryFullName ?? null
   dtForm.signatoryPosition = decl.signatoryPosition ?? null
   dtForm.signatoryDocument = decl.signatoryDocument ?? null
+  dtForm.signatoryDocTypeCode = decl.signatoryDocTypeCode ?? null
+  dtForm.signatoryDocNumber = decl.signatoryDocNumber ?? null
+  dtForm.signatoryDocIssueDate = decl.signatoryDocIssueDate ?? null
+  dtForm.signatoryDocIssuedBy = decl.signatoryDocIssuedBy ?? null
+  dtForm.signatoryDocCountryCode = decl.signatoryDocCountryCode ?? null
+  dtForm.powerOfAttorney = decl.powerOfAttorney ?? null
+  dtForm.brokerContractNumber = decl.brokerContractNumber ?? null
   dtForm.signatoryPhone = decl.signatoryPhone ?? null
   dtForm.signedDate = decl.signedDate ?? null
   dtForm.prevDocItems = (decl.prevDocItems ?? []).map((p: Import40PrevDocItem) => ({ ...p }))
@@ -1093,6 +1108,13 @@ const saveDt = async (silent = false): Promise<boolean> => {
       signatoryFullName: dtForm.signatoryFullName || null,
       signatoryPosition: dtForm.signatoryPosition || null,
       signatoryDocument: dtForm.signatoryDocument || null,
+      signatoryDocTypeCode: dtForm.signatoryDocTypeCode || null,
+      signatoryDocNumber: dtForm.signatoryDocNumber || null,
+      signatoryDocIssueDate: dtForm.signatoryDocIssueDate || null,
+      signatoryDocIssuedBy: dtForm.signatoryDocIssuedBy || null,
+      signatoryDocCountryCode: dtForm.signatoryDocCountryCode || null,
+      powerOfAttorney: dtForm.powerOfAttorney || null,
+      brokerContractNumber: dtForm.brokerContractNumber || null,
       signatoryPhone: dtForm.signatoryPhone || null,
       signedDate: dtForm.signedDate || null,
       goodsItems: dtForm.goodsItems.map((g) => {
