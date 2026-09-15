@@ -81,7 +81,7 @@
           <div class="field"><div class="field-label">Наличие упаковки</div>
             <a-select v-model:value="g.packageAvailabilityCode" size="small" :disabled="readonly" show-search
               :options="packagingAvailabilityOptions" :dropdown-match-select-width="false" allow-clear
-              placeholder="0/1/2" @change="sync" /></div>
+              :get-popup-container="popupContainer" placeholder="0/1/2" @change="sync" /></div>
           <div class="field field-wide" style="min-width: 260px"><div class="field-label">Вид упаковки</div>
             <a-auto-complete v-model:value="g.packageKindCode" size="small" :disabled="readonly"
               :options="pkgOptions" :dropdown-match-select-width="false" placeholder="PK"
@@ -93,17 +93,17 @@
         </div>
         <div class="field-row">
           <div class="field"><div class="field-label">Преференция: сбор</div>
-            <a-auto-complete v-model:value="g.prefClearanceCode" size="small" :disabled="readonly" :options="prefOptions" placeholder="ОО" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.prefClearanceCode" size="small" :disabled="readonly" :options="prefOptions" :get-popup-container="popupContainer" placeholder="ОО" @change="sync" /></div>
           <div class="field"><div class="field-label">Пошлина</div>
-            <a-auto-complete v-model:value="g.prefDutyCode" size="small" :disabled="readonly" :options="prefOptions" placeholder="ОО" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.prefDutyCode" size="small" :disabled="readonly" :options="prefOptions" :get-popup-container="popupContainer" placeholder="ОО" @change="sync" /></div>
           <div class="field"><div class="field-label">Акциз</div>
-            <a-auto-complete v-model:value="g.prefExciseCode" size="small" :disabled="readonly" :options="prefOptions" placeholder="Z" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.prefExciseCode" size="small" :disabled="readonly" :options="prefOptions" :get-popup-container="popupContainer" placeholder="Z" @change="sync" /></div>
           <div class="field"><div class="field-label">НДС
               <a-tooltip v-if="hasReducedVat(g)" title="Пониженный НДС (5%) — применяется автоматически по коду ТНВЭД или вручную">
                 <a-tag color="green" style="margin-left: 4px">5%</a-tag>
               </a-tooltip>
             </div>
-            <a-auto-complete v-model:value="g.prefVatCode" size="small" :disabled="readonly" :options="prefOptions" placeholder="ОО" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.prefVatCode" size="small" :disabled="readonly" :options="prefOptions" :get-popup-container="popupContainer" placeholder="ОО" @change="sync" /></div>
         </div>
         <div v-if="containerIndicator" class="field-row">
           <div class="field"><div class="field-label">Номер контейнера (гр.31.3)</div>
@@ -113,11 +113,11 @@
           <div class="field"><div class="field-label">Процедура (гр.37)</div>
             <a-input v-model:value="g.procedureCode" size="small" :disabled="readonly" placeholder="4000" @change="sync" /></div>
           <div class="field field-wide"><div class="field-label">Предш. процедура (гр.37)</div>
-            <a-auto-complete v-model:value="g.previousProcedureCode" size="small" :disabled="readonly" :options="procOptions" :dropdown-match-select-width="false" placeholder="00" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.previousProcedureCode" size="small" :disabled="readonly" :options="procOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="00" @change="sync" /></div>
           <div class="field field-wide"><div class="field-label">Особенность перемещения</div>
-            <a-auto-complete v-model:value="g.goodsMoveFeatureCode" size="small" :disabled="readonly" :options="moveFeatureOptions" :dropdown-match-select-width="false" placeholder="000" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.goodsMoveFeatureCode" size="small" :disabled="readonly" :options="moveFeatureOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="000" @change="sync" /></div>
           <div class="field"><div class="field-label">Метод ТС (гр.43)</div>
-            <a-auto-complete v-model:value="g.valuationMethodCode" size="small" :disabled="readonly" :options="valuationOptions" placeholder="1" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.valuationMethodCode" size="small" :disabled="readonly" :options="valuationOptions" :get-popup-container="popupContainer" placeholder="1" @change="sync" /></div>
           <div class="field"><div class="field-label">Квота (гр.39)</div>
             <a-input-number v-model:value="g.quotaAmount" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
           <div class="field"><div class="field-label">Кол-во месяцев (врем. ввоз)</div>
@@ -144,11 +144,11 @@
           <div class="field"><div class="field-label">ОИС</div>
             <a-select v-model:value="g.oisIndicatorCode" size="small" :disabled="readonly" show-search
               :options="oisIndicatorOptions" :dropdown-match-select-width="false" allow-clear
-              placeholder="I/N/S" @change="sync" /></div>
+              :get-popup-container="popupContainer" placeholder="I/N/S" @change="sync" /></div>
           <div class="field field-wide"><div class="field-label">Признаки соблюдения запретов</div>
             <a-select :value="restrictionMarksArray(g)" mode="multiple" size="small" :disabled="readonly"
               :options="restrictionMarksOptions" :dropdown-match-select-width="false" allow-clear
-              placeholder="С/М/П" @change="(v: string[]) => onRestrictionMarksChange(g, v)" /></div>
+              :get-popup-container="popupContainer" placeholder="С/М/П" @change="(v: string[]) => onRestrictionMarksChange(g, v)" /></div>
           <div class="field"><div class="field-label">Рег.№ по ОИС</div>
             <a-input v-uppercase v-model:value="g.oisRegNumber" size="small" :disabled="readonly" @change="sync" /></div>
           <div class="field"><div class="field-label">Код страны ОИС</div>
