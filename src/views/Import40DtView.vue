@@ -72,7 +72,7 @@
             @update:model-value="onDtUpdate" @calc-customs-value="calcCustomsValue"
           />
           <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" :post-options="customsPostOptions" @update:model-value="onDtUpdate" />
-          <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" :container-indicator="!!dtForm.containerIndicator" @calc-tpin="calcTpin" />
+          <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" :container-indicator="!!dtForm.containerIndicator" :usd-rate="usdRate" @calc-tpin="calcTpin" />
           <DtSectionDocs v-show="activeSection === 'docs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
           <DtSectionClosing v-show="activeSection === 'closing'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
         </a-form>
@@ -515,6 +515,11 @@ const applyingDeclaration = ref(false)
 // предпросмотр гр.5/гр.6/гр.12 — см. комментарий в useDtTotals.ts. Приостанавливается
 // тем же applyingDeclaration, что и авто-гр.16 выше (объявлен строкой выше).
 const dtTotals = useDtTotals(() => dtForm.goodsItems, dtForm, currencyRates, applyingDeclaration)
+
+// Item I (гр.46): курс доллара (₸ за 1 USD) на дату гр.А из справочника валют НБ РК.
+// Пробрасывается в DtSectionGoods → Import40GoodsKedenPanel для авторасчёта
+// статистической стоимости = таможенная стоимость (гр.45) / курс USD.
+const usdRate = computed(() => currencyRates.value['USD']?.rate ?? null)
 
 const totals = computed(() => ({
   goods: dtTotals.goodsCount.value,
