@@ -1300,6 +1300,10 @@ export interface Import40GoodsMarking {
 
 export interface Import40Doc44ItemInput extends ReestrDoc44ItemInput {
   goodsItemIndex?: number | null
+  // гр.44 «на все товары» + мультивыбор товаров: appliesToAll (флаг) или
+  // goodsItemIndexes (CSV индексов товаров). goodsItemIndex сохранён для back-compat.
+  appliesToAll?: boolean | null
+  goodsItemIndexes?: string | null
   docStartDate?: string | null
   docValidityDate?: string | null
   issueCountryCode?: string | null

@@ -70,19 +70,29 @@
           </div>
         </div>
 
-        <!-- Строка 3 (расширенный режим): товар + сроки действия -->
+        <!-- Строка 3 (расширенный режим Import40): «на все товары» + мультивыбор товаров -->
         <div v-if="extended" class="field-row">
-          <div class="field">
-            <div class="field-label">Товар</div>
-            <a-select
-              :value="(item as Import40Doc44ItemInput).goodsItemIndex ?? null"
-              size="small"
+          <div class="field" style="flex: 0 0 auto;">
+            <div class="field-label">Применимость</div>
+            <a-checkbox
+              :checked="(item as Import40Doc44ItemInput).appliesToAll ?? false"
               :disabled="readonly"
+              @change="(e: any) => onAppliesToAllChange(item as Import40Doc44ItemInput, e.target.checked)"
+            >На все товары</a-checkbox>
+          </div>
+          <div class="field f-grow">
+            <div class="field-label">Товары</div>
+            <a-select
+              mode="multiple"
+              :value="goodsIdxArray(item as Import40Doc44ItemInput)"
+              size="small"
+              :disabled="readonly || ((item as Import40Doc44ItemInput).appliesToAll ?? false)"
               allow-clear
-              style="width: 160px"
-              placeholder="Все товары"
+              style="width: 100%"
+              placeholder="Выберите товары"
               :options="goodsOptions ?? []"
-              @change="(v: number | null) => { (item as Import40Doc44ItemInput).goodsItemIndex = v ?? null; emitChange() }"
+              :get-popup-container="popupContainer"
+              @change="(vals: number[]) => onGoodsIndexesChange(item as Import40Doc44ItemInput, vals)"
             />
           </div>
         </div>
@@ -187,6 +197,8 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: ReestrDoc44ItemInput[]): void
 }>()
 
+const popupContainer = () => document.body
+
 const eaesOptions = EAES_DOC_CODES.map((c) => ({
   value: c.code,
   label: `${c.code} — ${c.name}`,
@@ -208,6 +220,26 @@ function emitChange() {
   emit('update:modelValue', items.value.map((d) => ({ ...d })))
 }
 
+// CSV (goodsItemIndexes) ↔ number[] для мультиселекта товаров
+function goodsIdxArray(item: Import40Doc44ItemInput): number[] {
+  return (item.goodsItemIndexes ?? '')
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n))
+}
+
+function onGoodsIndexesChange(item: Import40Doc44ItemInput, vals: number[]) {
+  item.goodsItemIndexes = vals.length ? vals.join(',') : null
+  emitChange()
+}
+
+function onAppliesToAllChange(item: Import40Doc44ItemInput, checked: boolean) {
+  item.appliesToAll = checked
+  // взаимоисключение: «на все товары» очищает конкретный мультивыбор
+  if (checked) item.goodsItemIndexes = null
+  emitChange()
+}
+
 function onTypeCodeChange(item: ReestrDoc44ItemInput, code: string | null) {
   item.docTypeCode = code
   const found = EAES_DOC_CODES.find((c) => c.code === code)
@@ -222,6 +254,8 @@ function addItem() {
     docNumber: null,
     docDate: null,
     goodsItemIndex: null,
+    appliesToAll: false,
+    goodsItemIndexes: null,
     docStartDate: null,
     docValidityDate: null,
     issueCountryCode: null,

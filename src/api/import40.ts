@@ -132,6 +132,8 @@ export interface Import40Doc44ItemDto {
   docNumber?: string | null
   docDate?: string | null
   goodsItemIndex?: number | null
+  appliesToAll?: boolean | null
+  goodsItemIndexes?: string | null
   docStartDate?: string | null
   docValidityDate?: string | null
   issueCountryCode?: string | null
