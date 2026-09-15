@@ -20,6 +20,7 @@
       <a-form-item label="Область"><a-input v-uppercase v-model:value="form.sender.region" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Улица"><a-input v-uppercase v-model:value="form.sender.street" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Дом"><a-input v-uppercase v-model:value="form.senderHouse" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item label="Квартира"><a-input v-uppercase v-model:value="form.senderApt" :disabled="readonly" @change="emitChange" /></a-form-item>
     </div>
 
     <div class="dt-section-bar"><DtGraphLabel graph="8" text="Получатель" /></div>
@@ -34,6 +35,7 @@
       <a-form-item label="Область"><a-input v-uppercase v-model:value="form.receiver.region" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item label="Улица"><a-input v-uppercase v-model:value="form.receiver.street" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item label="Дом"><a-input v-uppercase v-model:value="form.receiverHouse" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
+      <a-form-item label="Квартира"><a-input v-uppercase v-model:value="form.receiverApt" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item label="Категория">
         <a-select v-model:value="form.receiverCategoryCode" show-search allow-clear :disabled="readonly || form.consigneeEqualsDeclarant" :options="classifiers.options('itn-categories')" @change="emitChange" />
       </a-form-item>
@@ -55,6 +57,7 @@
         <a-form-item label="Область"><a-input v-uppercase v-model:value="form.financialSubjectRegion" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item label="Улица"><a-input v-uppercase v-model:value="form.financialSubjectStreet" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item label="Дом"><a-input v-uppercase v-model:value="form.financialSubjectHouse" :disabled="readonly" @change="emitChange" /></a-form-item>
+        <a-form-item label="Квартира"><a-input v-uppercase v-model:value="form.financialSubjectApt" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item label="Категория">
           <a-select v-model:value="form.financialSubjectCategoryCode" show-search allow-clear :disabled="readonly" :options="classifiers.options('itn-categories')" @change="emitChange" />
         </a-form-item>
@@ -76,6 +79,7 @@
       <a-form-item label="Область"><a-input v-uppercase v-model:value="form.declarantRegion" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Улица"><a-input v-uppercase v-model:value="form.declarantStreet" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Дом"><a-input v-uppercase v-model:value="form.declarantHouse" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item label="Квартира"><a-input v-uppercase v-model:value="form.declarantApt" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Категория">
         <a-select v-model:value="form.declarantCategoryCode" show-search allow-clear :disabled="readonly" :options="classifiers.options('itn-categories')" @change="emitChange" />
       </a-form-item>
@@ -160,6 +164,7 @@ function copyDeclarantToReceiver() {
     street: form.declarantStreet ?? null,
   }
   form.receiverHouse = form.declarantHouse ?? null
+  form.receiverApt = form.declarantApt ?? null
   form.receiverBin = form.declarantBin ?? null
   form.receiverCategoryCode = form.declarantCategoryCode ?? null
   form.receiverKatoCode = form.declarantKatoCode ?? null
@@ -176,6 +181,7 @@ function copyDeclarantToFinancialSubject() {
   form.financialSubjectCity = form.declarantCity ?? null
   form.financialSubjectStreet = form.declarantStreet ?? null
   form.financialSubjectHouse = form.declarantHouse ?? null
+  form.financialSubjectApt = form.declarantApt ?? null
   form.financialSubjectCategoryCode = form.declarantCategoryCode ?? null
   form.financialSubjectKatoCode = form.declarantKatoCode ?? null
   form.financialSubjectShortName = form.declarantShortName ?? null
@@ -209,6 +215,7 @@ watch(
     form.declarantCity,
     form.declarantStreet,
     form.declarantHouse,
+    form.declarantApt,
     form.declarantCategoryCode,
     form.declarantKatoCode,
     form.declarantShortName,
