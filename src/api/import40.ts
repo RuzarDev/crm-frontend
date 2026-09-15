@@ -107,14 +107,21 @@ export interface Import40GoodsItemDto {
   restrictionMarks?: string | null
   oisRegNumber?: string | null
   oisCountryCode?: string | null
-  // Маркировка товаров (гр.31.13) — Task 1 (бэк)/Task 9 (фронт).
+  // Маркировка товаров (гр.31.13) — коллекция (Task 2 бэк / Task 9 фронт).
+  markings?: Import40GoodsMarking[]
+}
+
+// Зеркалит Import40GoodsMarkingDto / Import40GoodsMarkingRequest на бэке (Task 2).
+export interface Import40GoodsMarking {
+  id?: string | null
+  sortOrder?: number | null
   markingAfterRelease?: boolean | null
-  markingKizCount?: number | null
-  markingLevelCode?: string | null
-  markingIdTypeCode?: string | null
-  markingIdApplicationCode?: string | null
-  markingNumber?: string | null
-  markingAggregated?: boolean | null
+  kizCount?: number | null
+  levelCode?: string | null
+  idTypeCode?: string | null
+  idApplicationCode?: string | null
+  number?: string | null
+  aggregated?: boolean | null
 }
 
 export interface Import40Doc44ItemDto {

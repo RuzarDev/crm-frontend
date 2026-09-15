@@ -672,13 +672,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     restrictionMarks: g.restrictionMarks ?? null,
     oisRegNumber: g.oisRegNumber ?? null,
     oisCountryCode: g.oisCountryCode ?? null,
-    markingAfterRelease: g.markingAfterRelease ?? false,
-    markingKizCount: g.markingKizCount ?? null,
-    markingLevelCode: g.markingLevelCode ?? null,
-    markingIdTypeCode: g.markingIdTypeCode ?? null,
-    markingIdApplicationCode: g.markingIdApplicationCode ?? null,
-    markingNumber: g.markingNumber ?? null,
-    markingAggregated: g.markingAggregated ?? false,
+    markings: (g.markings ?? []).map((m) => ({ ...m })),
   }))
   dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({
     docTypeCode: d.docTypeCode ?? null,
@@ -1102,7 +1096,7 @@ const saveDt = async (silent = false): Promise<boolean> => {
       goodsItems: dtForm.goodsItems.map((g) => {
         // на бэкенде фактурная стоимость товара называется invoiceValue; в форме — customsValue
         const { customsValue, ...rest } = g
-        return { ...rest, invoiceValue: customsValue, payments: g.payments ?? [] }
+        return { ...rest, invoiceValue: customsValue, payments: g.payments ?? [], markings: g.markings ?? [] }
       }),
       doc44Items: dtForm.doc44Items,
       prevDocItems: dtForm.prevDocItems,

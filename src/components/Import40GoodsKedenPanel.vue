@@ -132,10 +132,6 @@
               </a-tooltip>
             </div>
             <a-input-number v-model:value="g.statisticValueUsd" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
-          <div class="field"><div class="field-label">Код запрета</div>
-            <a-input v-model:value="g.prohibitionCode" size="small" :disabled="readonly" placeholder="D0110" @change="sync" /></div>
-          <div class="field"><div class="field-label">Код ИС</div>
-            <a-input v-model:value="g.ipoCode" size="small" :disabled="readonly" placeholder="N" @change="sync" /></div>
         </div>
         <div class="field-row">
           <div class="field f-2"><div class="field-label">Сертификация / эксп. контроль</div>
@@ -159,27 +155,34 @@
             <a-input v-uppercase v-model:value="g.oisCountryCode" size="small" :disabled="readonly" :maxlength="2" @change="sync" /></div>
         </div>
 
-        <!-- Маркировка товаров (гр.31.13) — сворачиваемый блок, редко нужен -->
+        <!-- Маркировка товаров (гр.31.13) — коллекция: один товар может иметь
+             несколько строк маркировки (Task 2 бэк заменил одиночные скаляры) -->
         <a-collapse ghost class="marking-collapse">
-          <a-collapse-panel key="marking" header="Маркировка товаров (гр.31.13)">
-            <div class="field-row">
-              <div class="field"><div class="field-label">После выпуска</div>
-                <a-checkbox v-model:checked="g.markingAfterRelease" :disabled="readonly" @change="sync">Маркировка после выпуска</a-checkbox></div>
-              <div class="field"><div class="field-label">Кол-во КИЗ</div>
-                <a-input-number v-model:value="g.markingKizCount" size="small" :disabled="readonly" :min="0" :precision="0" style="width: 100%" @change="sync" /></div>
-              <div class="field"><div class="field-label">Агрегация</div>
-                <a-checkbox v-model:checked="g.markingAggregated" :disabled="readonly" @change="sync">Агрегированная упаковка</a-checkbox></div>
+          <a-collapse-panel key="marking" :header="`Маркировка товаров (гр.31.13)${(g.markings?.length ?? 0) ? ` — ${g.markings?.length}` : ''}`">
+            <div v-for="(m, mi) in (g.markings ?? [])" :key="mi" class="marking-block">
+              <div class="field-row">
+                <div class="field"><div class="field-label">После выпуска</div>
+                  <a-checkbox v-model:checked="m.markingAfterRelease" :disabled="readonly" @change="sync">Маркировка после выпуска</a-checkbox></div>
+                <div class="field"><div class="field-label">Кол-во КИЗ</div>
+                  <a-input-number v-model:value="m.kizCount" size="small" :disabled="readonly" :min="0" :precision="0" style="width: 100%" @change="sync" /></div>
+                <div class="field"><div class="field-label">Агрегация</div>
+                  <a-checkbox v-model:checked="m.aggregated" :disabled="readonly" @change="sync">Агрегированная упаковка</a-checkbox></div>
+                <div class="field marking-remove">
+                  <a-button v-if="!readonly" type="text" danger size="small" @click="removeMarking(g, m)"><CloseOutlined /> Удалить</a-button></div>
+              </div>
+              <div class="field-row">
+                <div class="field"><div class="field-label">Уровень маркировки</div>
+                  <a-input v-uppercase v-model:value="m.levelCode" size="small" :disabled="readonly" @change="sync" /></div>
+                <div class="field"><div class="field-label">Тип идентификатора</div>
+                  <a-input v-uppercase v-model:value="m.idTypeCode" size="small" :disabled="readonly" @change="sync" /></div>
+                <div class="field"><div class="field-label">Способ нанесения ID</div>
+                  <a-input v-uppercase v-model:value="m.idApplicationCode" size="small" :disabled="readonly" @change="sync" /></div>
+                <div class="field f-2"><div class="field-label">Номер маркировки</div>
+                  <a-input v-uppercase v-model:value="m.number" size="small" :disabled="readonly" @change="sync" /></div>
+              </div>
             </div>
-            <div class="field-row">
-              <div class="field"><div class="field-label">Уровень маркировки</div>
-                <a-input v-uppercase v-model:value="g.markingLevelCode" size="small" :disabled="readonly" @change="sync" /></div>
-              <div class="field"><div class="field-label">Тип идентификатора</div>
-                <a-input v-uppercase v-model:value="g.markingIdTypeCode" size="small" :disabled="readonly" @change="sync" /></div>
-              <div class="field"><div class="field-label">Способ нанесения ID</div>
-                <a-input v-uppercase v-model:value="g.markingIdApplicationCode" size="small" :disabled="readonly" @change="sync" /></div>
-              <div class="field f-2"><div class="field-label">Номер маркировки</div>
-                <a-input v-uppercase v-model:value="g.markingNumber" size="small" :disabled="readonly" @change="sync" /></div>
-            </div>
+            <div v-if="!(g.markings?.length)" class="marking-empty">Строк маркировки нет</div>
+            <a-button v-if="!readonly" type="dashed" size="small" @click="addMarking(g)">+ Добавить маркировку</a-button>
           </a-collapse-panel>
         </a-collapse>
 
@@ -215,7 +218,7 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { CloseOutlined, QuestionCircleOutlined } from '@ant-design/icons-vue'
-import type { Import40GoodsItemInput, Import40GoodsPayment } from '@/types/api'
+import type { Import40GoodsItemInput, Import40GoodsPayment, Import40GoodsMarking } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 
 const props = defineProps<{
@@ -375,7 +378,11 @@ const bLineRows = computed<string[]>(() =>
 const sync = () =>
   emit(
     'update:modelValue',
-    props.modelValue.map((g) => ({ ...g, payments: (g.payments ?? []).map((p) => ({ ...p })) })),
+    props.modelValue.map((g) => ({
+      ...g,
+      payments: (g.payments ?? []).map((p) => ({ ...p })),
+      markings: (g.markings ?? []).map((m) => ({ ...m })),
+    })),
   )
 
 // Item I (гр.46): первичное авто-заполнение. Когда товары/курс USD загрузились,
@@ -443,6 +450,23 @@ const removePayment = (g: Import40GoodsItemInput, payment: Import40GoodsPayment)
   sync()
 }
 
+// Маркировка (гр.31.13) — коллекция строк. По образцу addPayment/removePayment:
+// мутируем g.markings, затем sync() эмитит новый массив с копиями (в т.ч. markings).
+const emptyMarking = (): Import40GoodsMarking => ({
+  markingAfterRelease: false, kizCount: null, levelCode: null,
+  idTypeCode: null, idApplicationCode: null, number: null, aggregated: false,
+})
+
+const addMarking = (g: Import40GoodsItemInput) => {
+  g.markings = [...(g.markings ?? []), emptyMarking()]
+  sync()
+}
+
+const removeMarking = (g: Import40GoodsItemInput, marking: Import40GoodsMarking) => {
+  g.markings = (g.markings ?? []).filter((m) => m !== marking)
+  sync()
+}
+
 // Task 6b: копирует g.tempImportMonths первого товара во все остальные.
 const applyMonthsToAll = () => {
   const months = items.value[0]?.tempImportMonths ?? null
@@ -473,5 +497,9 @@ const applyMonthsToAll = () => {
 .field-label { font-size: 11px; color: var(--atg-muted); margin-bottom: 2px; }
 .payment-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .marking-collapse { margin-top: 4px; margin-bottom: 8px; }
+.marking-block { border: 1px solid var(--atg-border, #f0f0f0); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+.marking-block .field-row:last-child { margin-bottom: 0; }
+.marking-remove { display: flex; align-items: flex-end; justify-content: flex-end; }
+.marking-empty { color: var(--atg-muted); font-size: 12px; margin-bottom: 8px; }
 .empty-state { color: var(--atg-muted); font-size: 12px; }
 </style>
