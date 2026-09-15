@@ -222,9 +222,16 @@ function emitChange() {
 
 // CSV (goodsItemIndexes) ↔ number[] для мультиселекта товаров
 function goodsIdxArray(item: Import40Doc44ItemInput): number[] {
-  return (item.goodsItemIndexes ?? '')
+  // ВАЖНО: пустые сегменты отсеиваем ДО Number() — Number('') === 0 (не NaN),
+  // иначе у пустого/несохранённого документа мультивыбор показывал бы фантомный
+  // чип «Товар 1» (индекс 0). Number.isFinite(0) === true, поэтому фильтр по
+  // finite сам по себе это не ловит.
+  if (!item.goodsItemIndexes) return []
+  return item.goodsItemIndexes
     .split(',')
-    .map((s) => Number(s.trim()))
+    .map((s) => s.trim())
+    .filter((s) => s !== '')
+    .map(Number)
     .filter((n) => Number.isFinite(n))
 }
 
