@@ -127,7 +127,7 @@
           <div class="field"><div class="field-label">Таможенная стоимость, ₸ (гр.45)</div>
             <a-input-number v-model:value="g.customsValueKzt" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="onCustomsValueChange(g)" /></div>
           <div class="field"><div class="field-label">Статистическая, USD (гр.46)
-              <a-tooltip title="Авто = таможенная стоимость (гр.45) ÷ курс USD на дату гр.А. Можно изменить вручную; пересчитывается при изменении гр.45.">
+              <a-tooltip title="Авто = таможенная стоимость (гр.45) ÷ курс USD (НБ РК). Можно изменить вручную; пересчитывается при изменении гр.45.">
                 <QuestionCircleOutlined style="margin-left: 4px; color: var(--z-text-secondary, #999)" />
               </a-tooltip>
             </div>
@@ -386,6 +386,7 @@ const sync = () =>
 watch(
   () => [props.usdRate, items.value.map((g) => g.customsValueKzt ?? '').join(',')].join('|'),
   () => {
+    if (props.readonly) return
     let changed = false
     items.value.forEach((g) => {
       if ((g.statisticValueUsd == null || g.statisticValueUsd === 0) && g.customsValueKzt != null) {
