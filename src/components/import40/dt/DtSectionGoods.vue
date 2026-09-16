@@ -2,7 +2,7 @@
   <div class="dt-section">
     <div class="dt-section-bar"><DtGraphLabel graph="31–47" text="Товары" /></div>
     <ReestrGoodsSection v-model="items" :readonly="readonly" :uppercase="true" />
-    <Import40GoodsKedenPanel v-model="items" :readonly="readonly" :container-indicator="containerIndicator" @calc-tpin="emit('calc-tpin')" />
+    <Import40GoodsKedenPanel v-model="items" :readonly="readonly" :container-indicator="containerIndicator" :usd-rate="usdRate" @calc-tpin="emit('calc-tpin')" />
   </div>
 </template>
 
@@ -18,6 +18,9 @@ const props = defineProps<{
   modelValue: Import40GoodsItemInput[]
   readonly: boolean
   containerIndicator?: boolean
+  // Item I (гр.46): курс USD (₸ за 1 USD) на дату гр.А — пробрасывается в
+  // Import40GoodsKedenPanel для авторасчёта статистической стоимости.
+  usdRate?: number | null
 }>()
 const emit = defineEmits<{ 'update:modelValue': [Import40GoodsItemInput[]]; 'calc-tpin': [] }>()
 

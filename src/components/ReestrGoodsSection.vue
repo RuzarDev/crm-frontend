@@ -192,7 +192,7 @@
       <!-- Row: там.стоимость + валюта -->
       <div class="field-row">
         <div class="field f-2">
-          <div class="field-label">Таможенная стоимость</div>
+          <div class="field-label">Фактурная стоимость</div>
           <a-input
             v-model:value="item.customsValueStr"
             size="small"

@@ -18,10 +18,6 @@
     </div>
 
     <div class="dt-grid-2">
-      <a-form-item label="Вид транспорта прибытия">
-        <a-auto-complete v-model:value="form.arrivalTransportModeCode" :options="classifiers.options('2004')"
-          :disabled="readonly" placeholder="30" style="width: 100%" @change="emitChange" />
-      </a-form-item>
       <a-form-item label="Страна регистрации ТС (прибытие)">
         <a-select v-model:value="form.arrivalTransportNationality" :options="countryAlpha2Options" :disabled="readonly"
           show-search allow-clear :filter-option="filterAlpha2" placeholder="KZ" style="width: 100%" @change="emitChange" />

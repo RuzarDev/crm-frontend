@@ -107,14 +107,21 @@ export interface Import40GoodsItemDto {
   restrictionMarks?: string | null
   oisRegNumber?: string | null
   oisCountryCode?: string | null
-  // Маркировка товаров (гр.31.13) — Task 1 (бэк)/Task 9 (фронт).
+  // Маркировка товаров (гр.31.13) — коллекция (Task 2 бэк / Task 9 фронт).
+  markings?: Import40GoodsMarking[]
+}
+
+// Зеркалит Import40GoodsMarkingDto / Import40GoodsMarkingRequest на бэке (Task 2).
+export interface Import40GoodsMarking {
+  id?: string | null
+  sortOrder?: number | null
   markingAfterRelease?: boolean | null
-  markingKizCount?: number | null
-  markingLevelCode?: string | null
-  markingIdTypeCode?: string | null
-  markingIdApplicationCode?: string | null
-  markingNumber?: string | null
-  markingAggregated?: boolean | null
+  kizCount?: number | null
+  levelCode?: string | null
+  idTypeCode?: string | null
+  idApplicationCode?: string | null
+  number?: string | null
+  aggregated?: boolean | null
 }
 
 export interface Import40Doc44ItemDto {
@@ -125,6 +132,8 @@ export interface Import40Doc44ItemDto {
   docNumber?: string | null
   docDate?: string | null
   goodsItemIndex?: number | null
+  appliesToAll?: boolean | null
+  goodsItemIndexes?: string | null
   docStartDate?: string | null
   docValidityDate?: string | null
   issueCountryCode?: string | null
@@ -151,9 +160,11 @@ export interface Import40DeclarationDto {
   procedureCode: string
   sender?: Import40Party | null
   senderHouse?: string | null
+  senderApt?: string | null
   senderShortName?: string | null
   receiver?: Import40Party | null
   receiverHouse?: string | null
+  receiverApt?: string | null
   receiverBin?: string | null
   receiverCategoryCode?: string | null
   receiverKatoCode?: string | null
@@ -205,6 +216,7 @@ export interface Import40DeclarationDto {
   financialSubjectCity: string | null
   financialSubjectStreet: string | null
   financialSubjectHouse: string | null
+  financialSubjectApt: string | null
   financialSubjectCategoryCode: string | null
   financialSubjectKatoCode: string | null
   financialSubjectShortName: string | null
@@ -215,6 +227,7 @@ export interface Import40DeclarationDto {
   declarantCity: string | null
   declarantStreet: string | null
   declarantHouse: string | null
+  declarantApt: string | null
   declarantCategoryCode: string | null
   declarantKatoCode: string | null
   declarantShortName: string | null
@@ -228,6 +241,13 @@ export interface Import40DeclarationDto {
   signatoryFullName: string | null
   signatoryPosition: string | null
   signatoryDocument: string | null
+  signatoryDocTypeCode: string | null
+  signatoryDocNumber: string | null
+  signatoryDocIssueDate: string | null
+  signatoryDocIssuedBy: string | null
+  signatoryDocCountryCode: string | null
+  powerOfAttorney: string | null
+  brokerContractNumber: string | null
   signatoryPhone: string | null
   signedDate: string | null
   totalGoodsCount: number
@@ -251,9 +271,11 @@ export interface Import40DeclarationUpsert {
   procedureCode?: string | null
   sender?: Import40Party | null
   senderHouse?: string | null
+  senderApt?: string | null
   senderShortName?: string | null
   receiver?: Import40Party | null
   receiverHouse?: string | null
+  receiverApt?: string | null
   receiverBin?: string | null
   receiverCategoryCode?: string | null
   receiverKatoCode?: string | null
@@ -305,6 +327,7 @@ export interface Import40DeclarationUpsert {
   financialSubjectCity?: string | null
   financialSubjectStreet?: string | null
   financialSubjectHouse?: string | null
+  financialSubjectApt?: string | null
   financialSubjectCategoryCode?: string | null
   financialSubjectKatoCode?: string | null
   financialSubjectShortName?: string | null
@@ -315,6 +338,7 @@ export interface Import40DeclarationUpsert {
   declarantCity?: string | null
   declarantStreet?: string | null
   declarantHouse?: string | null
+  declarantApt?: string | null
   declarantCategoryCode?: string | null
   declarantKatoCode?: string | null
   declarantShortName?: string | null
@@ -331,6 +355,13 @@ export interface Import40DeclarationUpsert {
   signatoryFullName?: string | null
   signatoryPosition?: string | null
   signatoryDocument?: string | null
+  signatoryDocTypeCode?: string | null
+  signatoryDocNumber?: string | null
+  signatoryDocIssueDate?: string | null
+  signatoryDocIssuedBy?: string | null
+  signatoryDocCountryCode?: string | null
+  powerOfAttorney?: string | null
+  brokerContractNumber?: string | null
   signatoryPhone?: string | null
   signedDate?: string | null
   goodsItems?: Import40GoodsUpsert[]
@@ -597,6 +628,9 @@ export interface Import40SplitSuggestionRow {
   tnvedCode?: string | null
   vtoStatus?: string | null
   isVtoCandidate: boolean
+  // Task 12 (item N): человекочитаемые ставки пошлины (например «10%», «0%») для сравнения ЕТТ vs ВТО.
+  ettRate?: string | null
+  vtoRate?: string | null
 }
 
 export interface Import40SplitRequest {

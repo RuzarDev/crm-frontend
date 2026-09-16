@@ -1278,18 +1278,32 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   restrictionMarks?: string | null
   oisRegNumber?: string | null
   oisCountryCode?: string | null
-  // Маркировка товаров (гр.31.13) — Task 1 (бэк)/Task 9 (фронт).
+  // Маркировка товаров (гр.31.13) — коллекция (Task 2 бэк заменил одиночные
+  // marking*-скаляры дочерней коллекцией; Task 9 фронт). Один товар может иметь
+  // несколько строк маркировки.
+  markings?: Import40GoodsMarking[]
+}
+
+// Одна строка маркировки товара (гр.31.13). Зеркалит Import40GoodsMarkingDto /
+// Import40GoodsMarkingRequest на бэке (Task 2).
+export interface Import40GoodsMarking {
+  id?: string | null
+  sortOrder?: number | null
   markingAfterRelease?: boolean | null
-  markingKizCount?: number | null
-  markingLevelCode?: string | null
-  markingIdTypeCode?: string | null
-  markingIdApplicationCode?: string | null
-  markingNumber?: string | null
-  markingAggregated?: boolean | null
+  kizCount?: number | null
+  levelCode?: string | null
+  idTypeCode?: string | null
+  idApplicationCode?: string | null
+  number?: string | null
+  aggregated?: boolean | null
 }
 
 export interface Import40Doc44ItemInput extends ReestrDoc44ItemInput {
   goodsItemIndex?: number | null
+  // гр.44 «на все товары» + мультивыбор товаров: appliesToAll (флаг) или
+  // goodsItemIndexes (CSV индексов товаров). goodsItemIndex сохранён для back-compat.
+  appliesToAll?: boolean | null
+  goodsItemIndexes?: string | null
   docStartDate?: string | null
   docValidityDate?: string | null
   issueCountryCode?: string | null

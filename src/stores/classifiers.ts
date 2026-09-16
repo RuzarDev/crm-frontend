@@ -29,8 +29,19 @@ export const useClassifiersStore = defineStore('classifiers', () => {
     await Promise.all(codes.map(load))
   }
 
+  const compareByCode = (a: ClassifierItem, b: ClassifierItem) => {
+    const na = Number(a.code)
+    const nb = Number(b.code)
+    if (!Number.isNaN(na) && !Number.isNaN(nb) && a.code.trim() !== '' && b.code.trim() !== '') {
+      return na - nb
+    }
+    return a.code.localeCompare(b.code)
+  }
+
   const options = (code: string) =>
-    (cache.value[code] ?? []).map((c) => ({ value: c.code, label: `${c.code} — ${c.nameRu}` }))
+    [...(cache.value[code] ?? [])]
+      .sort(compareByCode)
+      .map((c) => ({ value: c.code, label: `${c.code} — ${c.nameRu}` }))
 
   const invalidate = (code?: string) => {
     if (code) delete cache.value[code]

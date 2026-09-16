@@ -45,6 +45,8 @@
       @register="saveDt()"
     />
 
+    <DtCurrencyRatesBox :rates="currencyRates" :codes="currencyBoxCodes" :as-of-date="dtForm.submissionDate ?? null" />
+
     <div class="dt-layout">
       <nav class="dt-nav">
         <a
@@ -72,7 +74,7 @@
             @update:model-value="onDtUpdate" @calc-customs-value="calcCustomsValue"
           />
           <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" :post-options="customsPostOptions" @update:model-value="onDtUpdate" />
-          <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" :container-indicator="!!dtForm.containerIndicator" @calc-tpin="calcTpin" />
+          <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" :container-indicator="!!dtForm.containerIndicator" :usd-rate="usdRate" @calc-tpin="calcTpin" />
           <DtSectionDocs v-show="activeSection === 'docs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
           <DtSectionClosing v-show="activeSection === 'closing'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
         </a-form>
@@ -94,7 +96,7 @@
       @ok="doSplit"
     >
       <a-spin :spinning="splitLoading">
-        <p class="muted">Отметьте товары, которые должны войти в декларацию ВТО. Остальные останутся в ЕТТ.</p>
+        <p class="muted">Показаны только товары под изъятиями ВТО — отметьте те, что должны войти в декларацию ВТО. Остальные товары останутся в декларации ЕТТ.</p>
         <a-checkbox
           :checked="allVtoSelected"
           :indeterminate="someVtoSelected"
@@ -119,6 +121,8 @@
                 <span class="dt-split-status">{{ record.vtoStatus || '—' }}</span>
               </a-tooltip>
             </template>
+            <template v-else-if="column.key === 'ettRate'">{{ record.ettRate || '—' }}</template>
+            <template v-else-if="column.key === 'vtoRate'">{{ record.vtoRate || '—' }}</template>
           </template>
         </a-table>
       </a-spin>
@@ -173,6 +177,7 @@ import DtSectionGoods from '@/components/import40/dt/DtSectionGoods.vue'
 import DtSectionDocs from '@/components/import40/dt/DtSectionDocs.vue'
 import DtSectionClosing from '@/components/import40/dt/DtSectionClosing.vue'
 import DtDeclarationNumberBar from '@/components/import40/dt/DtDeclarationNumberBar.vue'
+import DtCurrencyRatesBox from '@/components/import40/dt/DtCurrencyRatesBox.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
 import DtPaymentsCalcModal from '@/components/import40/dt/DtPaymentsCalcModal.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -209,6 +214,7 @@ const DT_CLASSIFIERS = [
   'ois-indicators',       // ОИС: I/N/S (гр.33 «О», товарное поле) — Task 2 (бэк)/Task 9 (фронт)
   'restriction-marks',    // признаки соблюдения запретов: С/М/П (товарное поле) — Task 2/Task 9
   'packaging-availability', // наличие упаковки: 0/1/2 (гр.31, товарное поле) — Task 2/Task 9
+  'id-doc-types',          // вид документа подписанта (гр.54) — Task 11
 ]
 
 const caseId = String(route.params.caseId)
@@ -328,9 +334,11 @@ const dtForm = reactive<DtFormState>({
   totalInvoiceValue: null,
   sender: emptyParty(),
   senderHouse: null,
+  senderApt: null,
   senderShortName: null,
   receiver: emptyParty(),
   receiverHouse: null,
+  receiverApt: null,
   receiverBin: null,
   receiverCategoryCode: null,
   receiverKatoCode: null,
@@ -377,6 +385,7 @@ const dtForm = reactive<DtFormState>({
   financialSubjectCity: null,
   financialSubjectStreet: null,
   financialSubjectHouse: null,
+  financialSubjectApt: null,
   financialSubjectCategoryCode: null,
   financialSubjectKatoCode: null,
   financialSubjectShortName: null,
@@ -387,6 +396,7 @@ const dtForm = reactive<DtFormState>({
   declarantCity: null,
   declarantStreet: null,
   declarantHouse: null,
+  declarantApt: null,
   declarantCategoryCode: null,
   declarantKatoCode: null,
   declarantShortName: null,
@@ -400,8 +410,30 @@ const dtForm = reactive<DtFormState>({
   signatoryFullName: null,
   signatoryPosition: null,
   signatoryDocument: null,
+  signatoryDocTypeCode: null,
+  signatoryDocNumber: null,
+  signatoryDocIssueDate: null,
+  signatoryDocIssuedBy: null,
+  signatoryDocCountryCode: null,
+  powerOfAttorney: null,
+  brokerContractNumber: null,
   signatoryPhone: null,
   signedDate: null,
+})
+
+// Task 12 (item M): коды валют для панели курсов у гр.А — USD/EUR всегда плюс
+// валюта гр.22 и валюты расходов (транспорт/страховка могут быть в других валютах).
+// Дедуп, в верхнем регистре, без KZT.
+const currencyBoxCodes = computed(() => {
+  const raw = ['USD', 'EUR', dtForm.currency, ...(dtForm.expenses ?? []).map((e) => e.currencyCode)]
+  const set = new Set<string>()
+  for (const c of raw) {
+    if (!c) continue
+    const up = c.toUpperCase()
+    if (up === 'KZT') continue
+    set.add(up)
+  }
+  return Array.from(set)
 })
 
 // Секции эмитят полный объект формы (см. emitChange в каждой DtSection*).
@@ -512,6 +544,11 @@ const applyingDeclaration = ref(false)
 // тем же applyingDeclaration, что и авто-гр.16 выше (объявлен строкой выше).
 const dtTotals = useDtTotals(() => dtForm.goodsItems, dtForm, currencyRates, applyingDeclaration)
 
+// Item I (гр.46): курс доллара (₸ за 1 USD) на дату гр.А из справочника валют НБ РК.
+// Пробрасывается в DtSectionGoods → Import40GoodsKedenPanel для авторасчёта
+// статистической стоимости = таможенная стоимость (гр.45) / курс USD.
+const usdRate = computed(() => currencyRates.value['USD']?.rate ?? null)
+
 const totals = computed(() => ({
   goods: dtTotals.goodsCount.value,
   places: dtTotals.packagesCount.value,
@@ -532,9 +569,11 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.totalInvoiceValue = decl.totalInvoiceValue ?? null
   dtForm.sender = decl.sender ? { ...emptyParty(), ...decl.sender } : emptyParty()
   dtForm.senderHouse = decl.senderHouse ?? null
+  dtForm.senderApt = decl.senderApt ?? null
   dtForm.senderShortName = decl.senderShortName ?? null
   dtForm.receiver = decl.receiver ? { ...emptyParty(), ...decl.receiver } : emptyParty()
   dtForm.receiverHouse = decl.receiverHouse ?? null
+  dtForm.receiverApt = decl.receiverApt ?? null
   dtForm.receiverBin = decl.receiverBin ?? null
   dtForm.receiverCategoryCode = decl.receiverCategoryCode ?? null
   dtForm.receiverKatoCode = decl.receiverKatoCode ?? null
@@ -581,6 +620,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.financialSubjectCity = decl.financialSubjectCity ?? null
   dtForm.financialSubjectStreet = decl.financialSubjectStreet ?? null
   dtForm.financialSubjectHouse = decl.financialSubjectHouse ?? null
+  dtForm.financialSubjectApt = decl.financialSubjectApt ?? null
   dtForm.financialSubjectCategoryCode = decl.financialSubjectCategoryCode ?? null
   dtForm.financialSubjectKatoCode = decl.financialSubjectKatoCode ?? null
   dtForm.financialSubjectShortName = decl.financialSubjectShortName ?? null
@@ -591,6 +631,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.declarantCity = decl.declarantCity ?? null
   dtForm.declarantStreet = decl.declarantStreet ?? null
   dtForm.declarantHouse = decl.declarantHouse ?? null
+  dtForm.declarantApt = decl.declarantApt ?? null
   dtForm.declarantCategoryCode = decl.declarantCategoryCode ?? null
   dtForm.declarantKatoCode = decl.declarantKatoCode ?? null
   dtForm.declarantShortName = decl.declarantShortName ?? null
@@ -604,6 +645,13 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.signatoryFullName = decl.signatoryFullName ?? null
   dtForm.signatoryPosition = decl.signatoryPosition ?? null
   dtForm.signatoryDocument = decl.signatoryDocument ?? null
+  dtForm.signatoryDocTypeCode = decl.signatoryDocTypeCode ?? null
+  dtForm.signatoryDocNumber = decl.signatoryDocNumber ?? null
+  dtForm.signatoryDocIssueDate = decl.signatoryDocIssueDate ?? null
+  dtForm.signatoryDocIssuedBy = decl.signatoryDocIssuedBy ?? null
+  dtForm.signatoryDocCountryCode = decl.signatoryDocCountryCode ?? null
+  dtForm.powerOfAttorney = decl.powerOfAttorney ?? null
+  dtForm.brokerContractNumber = decl.brokerContractNumber ?? null
   dtForm.signatoryPhone = decl.signatoryPhone ?? null
   dtForm.signedDate = decl.signedDate ?? null
   dtForm.prevDocItems = (decl.prevDocItems ?? []).map((p: Import40PrevDocItem) => ({ ...p }))
@@ -659,13 +707,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     restrictionMarks: g.restrictionMarks ?? null,
     oisRegNumber: g.oisRegNumber ?? null,
     oisCountryCode: g.oisCountryCode ?? null,
-    markingAfterRelease: g.markingAfterRelease ?? false,
-    markingKizCount: g.markingKizCount ?? null,
-    markingLevelCode: g.markingLevelCode ?? null,
-    markingIdTypeCode: g.markingIdTypeCode ?? null,
-    markingIdApplicationCode: g.markingIdApplicationCode ?? null,
-    markingNumber: g.markingNumber ?? null,
-    markingAggregated: g.markingAggregated ?? false,
+    markings: (g.markings ?? []).map((m) => ({ ...m })),
   }))
   dtForm.doc44Items = (decl.doc44Items ?? []).map((d) => ({
     docTypeCode: d.docTypeCode ?? null,
@@ -673,6 +715,8 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     docNumber: d.docNumber ?? null,
     docDate: d.docDate ?? null,
     goodsItemIndex: d.goodsItemIndex ?? null,
+    appliesToAll: d.appliesToAll ?? false,
+    goodsItemIndexes: d.goodsItemIndexes ?? null,
     docStartDate: d.docStartDate ?? null,
     docValidityDate: d.docValidityDate ?? null,
     issueCountryCode: d.issueCountryCode ?? null,
@@ -1013,9 +1057,11 @@ const saveDt = async (silent = false): Promise<boolean> => {
       totalInvoiceValue: dtForm.totalInvoiceValue,
       sender: dtForm.sender,
       senderHouse: dtForm.senderHouse || null,
+      senderApt: dtForm.senderApt || null,
       senderShortName: dtForm.senderShortName || null,
       receiver: dtForm.receiver,
       receiverHouse: dtForm.receiverHouse || null,
+      receiverApt: dtForm.receiverApt || null,
       receiverBin: dtForm.receiverBin || null,
       receiverCategoryCode: dtForm.receiverCategoryCode || null,
       receiverKatoCode: dtForm.receiverKatoCode || null,
@@ -1057,6 +1103,7 @@ const saveDt = async (silent = false): Promise<boolean> => {
       financialSubjectCity: dtForm.financialSubjectCity || null,
       financialSubjectStreet: dtForm.financialSubjectStreet || null,
       financialSubjectHouse: dtForm.financialSubjectHouse || null,
+      financialSubjectApt: dtForm.financialSubjectApt || null,
       financialSubjectCategoryCode: dtForm.financialSubjectCategoryCode || null,
       financialSubjectKatoCode: dtForm.financialSubjectKatoCode || null,
       financialSubjectShortName: dtForm.financialSubjectShortName || null,
@@ -1067,6 +1114,7 @@ const saveDt = async (silent = false): Promise<boolean> => {
       declarantCity: dtForm.declarantCity || null,
       declarantStreet: dtForm.declarantStreet || null,
       declarantHouse: dtForm.declarantHouse || null,
+      declarantApt: dtForm.declarantApt || null,
       declarantCategoryCode: dtForm.declarantCategoryCode || null,
       declarantKatoCode: dtForm.declarantKatoCode || null,
       declarantShortName: dtForm.declarantShortName || null,
@@ -1080,12 +1128,19 @@ const saveDt = async (silent = false): Promise<boolean> => {
       signatoryFullName: dtForm.signatoryFullName || null,
       signatoryPosition: dtForm.signatoryPosition || null,
       signatoryDocument: dtForm.signatoryDocument || null,
+      signatoryDocTypeCode: dtForm.signatoryDocTypeCode || null,
+      signatoryDocNumber: dtForm.signatoryDocNumber || null,
+      signatoryDocIssueDate: dtForm.signatoryDocIssueDate || null,
+      signatoryDocIssuedBy: dtForm.signatoryDocIssuedBy || null,
+      signatoryDocCountryCode: dtForm.signatoryDocCountryCode || null,
+      powerOfAttorney: dtForm.powerOfAttorney || null,
+      brokerContractNumber: dtForm.brokerContractNumber || null,
       signatoryPhone: dtForm.signatoryPhone || null,
       signedDate: dtForm.signedDate || null,
       goodsItems: dtForm.goodsItems.map((g) => {
         // на бэкенде фактурная стоимость товара называется invoiceValue; в форме — customsValue
         const { customsValue, ...rest } = g
-        return { ...rest, invoiceValue: customsValue, payments: g.payments ?? [] }
+        return { ...rest, invoiceValue: customsValue, payments: g.payments ?? [], markings: g.markings ?? [] }
       }),
       doc44Items: dtForm.doc44Items,
       prevDocItems: dtForm.prevDocItems,
@@ -1161,6 +1216,8 @@ const splitRows = ref<SplitRow[]>([])
 const splitColumns = [
   { title: 'ТНВЭД', dataIndex: 'tnvedCode', key: 'tnvedCode', width: 140 },
   { title: 'Статус ВТО', dataIndex: 'vtoStatus', key: 'vtoStatus', ellipsis: true },
+  { title: 'Пошлина ЕТТ', dataIndex: 'ettRate', key: 'ettRate', width: 110 },
+  { title: 'Пошлина ВТО', dataIndex: 'vtoRate', key: 'vtoRate', width: 110 },
   { title: 'ВТО', key: 'vto', width: 70 },
 ]
 
@@ -1177,7 +1234,16 @@ const openSplitModal = async () => {
   splitLoading.value = true
   try {
     const rows = await import40Api.splitSuggestion(caseId, dtId)
-    splitRows.value = rows.map((r) => ({ ...r, vto: r.isVtoCandidate }))
+    // Item N: показываем только товары под изъятиями ВТО (кандидаты); остальные
+    // не рендерим — они по умолчанию остаются в декларации ЕТТ (не попадают в
+    // vtoGoodSortOrders). Кандидаты по умолчанию отмечены.
+    const candidates = rows.filter((r) => r.isVtoCandidate)
+    if (candidates.length === 0) {
+      splitModalOpen.value = false
+      message.info('Нет товаров, попадающих под изъятия ВТО — разделять нечего')
+      return
+    }
+    splitRows.value = candidates.map((r) => ({ ...r, vto: true }))
   } catch (e: any) {
     message.error(e?.response?.data?.message ?? 'Не удалось получить рекомендацию по разделению')
     splitModalOpen.value = false

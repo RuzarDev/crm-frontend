@@ -81,10 +81,11 @@
           <div class="field"><div class="field-label">Наличие упаковки</div>
             <a-select v-model:value="g.packageAvailabilityCode" size="small" :disabled="readonly" show-search
               :options="packagingAvailabilityOptions" :dropdown-match-select-width="false" allow-clear
-              placeholder="0/1/2" @change="sync" /></div>
+              :get-popup-container="popupContainer" placeholder="0/1/2" @change="sync" /></div>
           <div class="field field-wide" style="min-width: 260px"><div class="field-label">Вид упаковки</div>
             <a-auto-complete v-model:value="g.packageKindCode" size="small" :disabled="readonly"
-              :options="pkgOptions" :dropdown-match-select-width="false" placeholder="PK" @change="sync" /></div>
+              :options="pkgOptions" :dropdown-match-select-width="false" placeholder="PK"
+              :get-popup-container="popupContainer" @change="sync" /></div>
           <div class="field"><div class="field-label">Количество упаковок</div>
             <a-input-number v-model:value="g.packageQuantity" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
           <div class="field"><div class="field-label">Кол-во грузовых мест</div>
@@ -92,17 +93,17 @@
         </div>
         <div class="field-row">
           <div class="field"><div class="field-label">Преференция: сбор</div>
-            <a-auto-complete v-model:value="g.prefClearanceCode" size="small" :disabled="readonly" :options="prefOptions" placeholder="ОО" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.prefClearanceCode" size="small" :disabled="readonly" :options="prefOptions" :get-popup-container="popupContainer" placeholder="ОО" @change="sync" /></div>
           <div class="field"><div class="field-label">Пошлина</div>
-            <a-auto-complete v-model:value="g.prefDutyCode" size="small" :disabled="readonly" :options="prefOptions" placeholder="ОО" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.prefDutyCode" size="small" :disabled="readonly" :options="prefOptions" :get-popup-container="popupContainer" placeholder="ОО" @change="sync" /></div>
           <div class="field"><div class="field-label">Акциз</div>
-            <a-auto-complete v-model:value="g.prefExciseCode" size="small" :disabled="readonly" :options="prefOptions" placeholder="Z" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.prefExciseCode" size="small" :disabled="readonly" :options="prefOptions" :get-popup-container="popupContainer" placeholder="Z" @change="sync" /></div>
           <div class="field"><div class="field-label">НДС
               <a-tooltip v-if="hasReducedVat(g)" title="Пониженный НДС (5%) — применяется автоматически по коду ТНВЭД или вручную">
                 <a-tag color="green" style="margin-left: 4px">5%</a-tag>
               </a-tooltip>
             </div>
-            <a-auto-complete v-model:value="g.prefVatCode" size="small" :disabled="readonly" :options="prefOptions" placeholder="ОО" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.prefVatCode" size="small" :disabled="readonly" :options="prefOptions" :get-popup-container="popupContainer" placeholder="ОО" @change="sync" /></div>
         </div>
         <div v-if="containerIndicator" class="field-row">
           <div class="field"><div class="field-label">Номер контейнера (гр.31.3)</div>
@@ -112,11 +113,11 @@
           <div class="field"><div class="field-label">Процедура (гр.37)</div>
             <a-input v-model:value="g.procedureCode" size="small" :disabled="readonly" placeholder="4000" @change="sync" /></div>
           <div class="field field-wide"><div class="field-label">Предш. процедура (гр.37)</div>
-            <a-auto-complete v-model:value="g.previousProcedureCode" size="small" :disabled="readonly" :options="procOptions" :dropdown-match-select-width="false" placeholder="00" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.previousProcedureCode" size="small" :disabled="readonly" :options="procOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="00" @change="sync" /></div>
           <div class="field field-wide"><div class="field-label">Особенность перемещения</div>
-            <a-auto-complete v-model:value="g.goodsMoveFeatureCode" size="small" :disabled="readonly" :options="moveFeatureOptions" :dropdown-match-select-width="false" placeholder="000" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.goodsMoveFeatureCode" size="small" :disabled="readonly" :options="moveFeatureOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="000" @change="sync" /></div>
           <div class="field"><div class="field-label">Метод ТС (гр.43)</div>
-            <a-auto-complete v-model:value="g.valuationMethodCode" size="small" :disabled="readonly" :options="valuationOptions" placeholder="1" @change="sync" /></div>
+            <a-auto-complete v-model:value="g.valuationMethodCode" size="small" :disabled="readonly" :options="valuationOptions" :get-popup-container="popupContainer" placeholder="1" @change="sync" /></div>
           <div class="field"><div class="field-label">Квота (гр.39)</div>
             <a-input-number v-model:value="g.quotaAmount" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
           <div class="field"><div class="field-label">Кол-во месяцев (врем. ввоз)</div>
@@ -124,13 +125,13 @@
         </div>
         <div class="field-row">
           <div class="field"><div class="field-label">Таможенная стоимость, ₸ (гр.45)</div>
-            <a-input-number v-model:value="g.customsValueKzt" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
-          <div class="field"><div class="field-label">Статистическая, USD (гр.46)</div>
+            <a-input-number v-model:value="g.customsValueKzt" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="onCustomsValueChange(g)" /></div>
+          <div class="field"><div class="field-label">Статистическая, USD (гр.46)
+              <a-tooltip title="Авто = таможенная стоимость (гр.45) ÷ курс USD (НБ РК). Можно изменить вручную; пересчитывается при изменении гр.45.">
+                <QuestionCircleOutlined style="margin-left: 4px; color: var(--z-text-secondary, #999)" />
+              </a-tooltip>
+            </div>
             <a-input-number v-model:value="g.statisticValueUsd" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="sync" /></div>
-          <div class="field"><div class="field-label">Код запрета</div>
-            <a-input v-model:value="g.prohibitionCode" size="small" :disabled="readonly" placeholder="D0110" @change="sync" /></div>
-          <div class="field"><div class="field-label">Код ИС</div>
-            <a-input v-model:value="g.ipoCode" size="small" :disabled="readonly" placeholder="N" @change="sync" /></div>
         </div>
         <div class="field-row">
           <div class="field f-2"><div class="field-label">Сертификация / эксп. контроль</div>
@@ -143,38 +144,45 @@
           <div class="field"><div class="field-label">ОИС</div>
             <a-select v-model:value="g.oisIndicatorCode" size="small" :disabled="readonly" show-search
               :options="oisIndicatorOptions" :dropdown-match-select-width="false" allow-clear
-              placeholder="I/N/S" @change="sync" /></div>
+              :get-popup-container="popupContainer" placeholder="I/N/S" @change="sync" /></div>
           <div class="field field-wide"><div class="field-label">Признаки соблюдения запретов</div>
             <a-select :value="restrictionMarksArray(g)" mode="multiple" size="small" :disabled="readonly"
               :options="restrictionMarksOptions" :dropdown-match-select-width="false" allow-clear
-              placeholder="С/М/П" @change="(v: string[]) => onRestrictionMarksChange(g, v)" /></div>
+              :get-popup-container="popupContainer" placeholder="С/М/П" @change="(v: string[]) => onRestrictionMarksChange(g, v)" /></div>
           <div class="field"><div class="field-label">Рег.№ по ОИС</div>
             <a-input v-uppercase v-model:value="g.oisRegNumber" size="small" :disabled="readonly" @change="sync" /></div>
           <div class="field"><div class="field-label">Код страны ОИС</div>
             <a-input v-uppercase v-model:value="g.oisCountryCode" size="small" :disabled="readonly" :maxlength="2" @change="sync" /></div>
         </div>
 
-        <!-- Маркировка товаров (гр.31.13) — сворачиваемый блок, редко нужен -->
+        <!-- Маркировка товаров (гр.31.13) — коллекция: один товар может иметь
+             несколько строк маркировки (Task 2 бэк заменил одиночные скаляры) -->
         <a-collapse ghost class="marking-collapse">
-          <a-collapse-panel key="marking" header="Маркировка товаров (гр.31.13)">
-            <div class="field-row">
-              <div class="field"><div class="field-label">После выпуска</div>
-                <a-checkbox v-model:checked="g.markingAfterRelease" :disabled="readonly" @change="sync">Маркировка после выпуска</a-checkbox></div>
-              <div class="field"><div class="field-label">Кол-во КИЗ</div>
-                <a-input-number v-model:value="g.markingKizCount" size="small" :disabled="readonly" :min="0" :precision="0" style="width: 100%" @change="sync" /></div>
-              <div class="field"><div class="field-label">Агрегация</div>
-                <a-checkbox v-model:checked="g.markingAggregated" :disabled="readonly" @change="sync">Агрегированная упаковка</a-checkbox></div>
+          <a-collapse-panel key="marking" :header="`Маркировка товаров (гр.31.13)${(g.markings?.length ?? 0) ? ` — ${g.markings?.length}` : ''}`">
+            <div v-for="(m, mi) in (g.markings ?? [])" :key="mi" class="marking-block">
+              <div class="field-row">
+                <div class="field"><div class="field-label">После выпуска</div>
+                  <a-checkbox v-model:checked="m.markingAfterRelease" :disabled="readonly" @change="sync">Маркировка после выпуска</a-checkbox></div>
+                <div class="field"><div class="field-label">Кол-во КИЗ</div>
+                  <a-input-number v-model:value="m.kizCount" size="small" :disabled="readonly" :min="0" :precision="0" style="width: 100%" @change="sync" /></div>
+                <div class="field"><div class="field-label">Агрегация</div>
+                  <a-checkbox v-model:checked="m.aggregated" :disabled="readonly" @change="sync">Агрегированная упаковка</a-checkbox></div>
+                <div class="field marking-remove">
+                  <a-button v-if="!readonly" type="text" danger size="small" @click="removeMarking(g, m)"><CloseOutlined /> Удалить</a-button></div>
+              </div>
+              <div class="field-row">
+                <div class="field"><div class="field-label">Уровень маркировки</div>
+                  <a-input v-uppercase v-model:value="m.levelCode" size="small" :disabled="readonly" @change="sync" /></div>
+                <div class="field"><div class="field-label">Тип идентификатора</div>
+                  <a-input v-uppercase v-model:value="m.idTypeCode" size="small" :disabled="readonly" @change="sync" /></div>
+                <div class="field"><div class="field-label">Способ нанесения ID</div>
+                  <a-input v-uppercase v-model:value="m.idApplicationCode" size="small" :disabled="readonly" @change="sync" /></div>
+                <div class="field f-2"><div class="field-label">Номер маркировки</div>
+                  <a-input v-uppercase v-model:value="m.number" size="small" :disabled="readonly" @change="sync" /></div>
+              </div>
             </div>
-            <div class="field-row">
-              <div class="field"><div class="field-label">Уровень маркировки</div>
-                <a-input v-uppercase v-model:value="g.markingLevelCode" size="small" :disabled="readonly" @change="sync" /></div>
-              <div class="field"><div class="field-label">Тип идентификатора</div>
-                <a-input v-uppercase v-model:value="g.markingIdTypeCode" size="small" :disabled="readonly" @change="sync" /></div>
-              <div class="field"><div class="field-label">Способ нанесения ID</div>
-                <a-input v-uppercase v-model:value="g.markingIdApplicationCode" size="small" :disabled="readonly" @change="sync" /></div>
-              <div class="field f-2"><div class="field-label">Номер маркировки</div>
-                <a-input v-uppercase v-model:value="g.markingNumber" size="small" :disabled="readonly" @change="sync" /></div>
-            </div>
+            <div v-if="!(g.markings?.length)" class="marking-empty">Строк маркировки нет</div>
+            <a-button v-if="!readonly" type="dashed" size="small" @click="addMarking(g)">+ Добавить маркировку</a-button>
           </a-collapse-panel>
         </a-collapse>
 
@@ -184,13 +192,13 @@
           <a-button v-if="!readonly" type="dashed" size="small" @click="addPayment(g)">+ Строка</a-button>
         </div>
         <div v-for="(p, pi) in sortedPayments(g)" :key="pi" class="payment-row">
-          <a-auto-complete v-model:value="p.taxModeCode" size="small" :disabled="readonly" :options="taxModeOptions" placeholder="Вид (2010)" style="width: 140px" @change="sync" />
+          <a-auto-complete v-model:value="p.taxModeCode" size="small" :disabled="readonly" :options="taxModeOptions" placeholder="Вид (2010)" style="width: 140px" :get-popup-container="popupContainer" @change="sync" />
           <a-input-number v-model:value="p.taxBase" size="small" :disabled="readonly" placeholder="Основа" style="width: 130px" @change="sync" />
           <!-- Task 10, №13: вид ставки/дата НЕ обязательны для показа сумм — суммы гр.47
                уже заполнены "Рассчитать платежи"/"Рассчитать ТПиН" выше (см. сводную
                таблицу и applyPaymentsResult); эти поля — необязательное ручное уточнение
                (например, для весовых ставок '*'), поэтому оба с allow-clear. -->
-          <a-select v-model:value="p.rateKindCode" size="small" :disabled="readonly" :options="rateKindOptions" allow-clear placeholder="Вид ставки (авто)" style="width: 130px" @change="sync" />
+          <a-select v-model:value="p.rateKindCode" size="small" :disabled="readonly" :options="rateKindOptions" allow-clear placeholder="Вид ставки (авто)" style="width: 130px" :get-popup-container="popupContainer" @change="sync" />
           <a-input-number v-model:value="p.rateValue" size="small" :disabled="readonly" placeholder="Ставка" style="width: 100px" @change="sync" />
           <template v-if="p.rateKindCode === '*'">
             <a-input v-model:value="p.rateUnitCode" size="small" :disabled="readonly" placeholder="ОКЕИ (166)" style="width: 90px" @change="sync" />
@@ -208,9 +216,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { CloseOutlined } from '@ant-design/icons-vue'
-import type { Import40GoodsItemInput, Import40GoodsPayment } from '@/types/api'
+import { computed, watch } from 'vue'
+import { CloseOutlined, QuestionCircleOutlined } from '@ant-design/icons-vue'
+import type { Import40GoodsItemInput, Import40GoodsPayment, Import40GoodsMarking } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 
 const props = defineProps<{
@@ -219,6 +227,9 @@ const props = defineProps<{
   // гр.19: показываем поле «Номер контейнера» (гр.31.3) только при контейнерных
   // перевозках — иначе поле не заполняется и загромождает панель.
   containerIndicator?: boolean
+  // Item I (гр.46): курс доллара (₸ за 1 USD) на дату гр.А — для авторасчёта
+  // статистической стоимости = таможенная стоимость (гр.45, ₸) / курс USD.
+  usdRate?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -227,6 +238,32 @@ const emit = defineEmits<{
 }>()
 
 const items = computed(() => props.modelValue)
+
+// «Вид упаковки» и селекты платежей гр.47 живут внутри вложенных a-collapse-panel
+// (карточка товара -> подсекция платежей), и их выпадающая панель рендерилась в
+// контейнер, обрезаемый анимацией/overflow сворачиваемых панелей — из-за этого
+// декларант видела исчезающий/пустой попап при клике. Рендерим попап в body,
+// вне зоны обрезки.
+const popupContainer = () => document.body
+
+// Item I (гр.46 статистическая стоимость, USD): авто = таможенная стоимость
+// (гр.45, ₸) / курс доллара на дату гр.А. Поле остаётся редактируемым — авто-
+// расчёт срабатывает только когда значение ещё пустое (0/null) или когда
+// декларант меняет гр.45 (явное действие). Ручной ввод в гр.46 сохраняется до
+// следующего изменения гр.45.
+const calcStatUsd = (customsValueKzt: number | null | undefined): number | null => {
+  const rate = props.usdRate
+  if (!rate || rate <= 0 || customsValueKzt == null) return null
+  return Math.round((customsValueKzt / rate) * 100) / 100
+}
+
+// Изменение гр.45 → пересчитать гр.46 (если курс известен), затем sync.
+// (sync объявлена ниже; вызывается только по событию — TDZ не задевает.)
+const onCustomsValueChange = (g: Import40GoodsItemInput) => {
+  const stat = calcStatUsd(g.customsValueKzt)
+  if (stat != null) g.statisticValueUsd = stat
+  sync()
+}
 
 // Русские названия видов платежа гр.47 (см. tax-modes в DatabaseExtensions.cs
 // на бэке) — для явной, не-кодовой подписи в сводной таблице ниже.
@@ -341,8 +378,36 @@ const bLineRows = computed<string[]>(() =>
 const sync = () =>
   emit(
     'update:modelValue',
-    props.modelValue.map((g) => ({ ...g, payments: (g.payments ?? []).map((p) => ({ ...p })) })),
+    props.modelValue.map((g) => ({
+      ...g,
+      payments: (g.payments ?? []).map((p) => ({ ...p })),
+      markings: (g.markings ?? []).map((m) => ({ ...m })),
+    })),
   )
+
+// Item I (гр.46): первичное авто-заполнение. Когда товары/курс USD загрузились,
+// проставить статистическую стоимость тем товарам, где она ещё пуста (0/null), а
+// таможенная стоимость и курс известны. Уже введённые значения не затираем.
+// Размещено после sync (immediate:true исполняется синхронно при setup — sync
+// должна быть уже инициализирована).
+watch(
+  () => [props.usdRate, items.value.map((g) => g.customsValueKzt ?? '').join(',')].join('|'),
+  () => {
+    if (props.readonly) return
+    let changed = false
+    items.value.forEach((g) => {
+      if ((g.statisticValueUsd == null || g.statisticValueUsd === 0) && g.customsValueKzt != null) {
+        const stat = calcStatUsd(g.customsValueKzt)
+        if (stat != null) {
+          g.statisticValueUsd = stat
+          changed = true
+        }
+      }
+    })
+    if (changed) sync()
+  },
+  { immediate: true },
+)
 
 const classifiers = useClassifiersStore()
 const pkgOptions = computed(() => classifiers.options('2013'))
@@ -385,6 +450,23 @@ const removePayment = (g: Import40GoodsItemInput, payment: Import40GoodsPayment)
   sync()
 }
 
+// Маркировка (гр.31.13) — коллекция строк. По образцу addPayment/removePayment:
+// мутируем g.markings, затем sync() эмитит новый массив с копиями (в т.ч. markings).
+const emptyMarking = (): Import40GoodsMarking => ({
+  markingAfterRelease: false, kizCount: null, levelCode: null,
+  idTypeCode: null, idApplicationCode: null, number: null, aggregated: false,
+})
+
+const addMarking = (g: Import40GoodsItemInput) => {
+  g.markings = [...(g.markings ?? []), emptyMarking()]
+  sync()
+}
+
+const removeMarking = (g: Import40GoodsItemInput, marking: Import40GoodsMarking) => {
+  g.markings = (g.markings ?? []).filter((m) => m !== marking)
+  sync()
+}
+
 // Task 6b: копирует g.tempImportMonths первого товара во все остальные.
 const applyMonthsToAll = () => {
   const months = items.value[0]?.tempImportMonths ?? null
@@ -415,5 +497,9 @@ const applyMonthsToAll = () => {
 .field-label { font-size: 11px; color: var(--atg-muted); margin-bottom: 2px; }
 .payment-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .marking-collapse { margin-top: 4px; margin-bottom: 8px; }
+.marking-block { border: 1px solid var(--atg-border, #f0f0f0); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+.marking-block .field-row:last-child { margin-bottom: 0; }
+.marking-remove { display: flex; align-items: flex-end; justify-content: flex-end; }
+.marking-empty { color: var(--atg-muted); font-size: 12px; margin-bottom: 8px; }
 .empty-state { color: var(--atg-muted); font-size: 12px; }
 </style>
