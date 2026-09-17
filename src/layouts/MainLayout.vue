@@ -77,10 +77,6 @@
             />
           </a-config-provider>
         </nav>
-        <div class="sider-footer">
-          <div class="sider-footer-role">{{ roleLabel }}</div>
-          <div class="sider-footer-user">{{ authStore.username }}</div>
-        </div>
       </a-layout-sider>
 
       <a-layout-content class="content">
@@ -805,31 +801,6 @@ const handleLogout = () => {
 
 .sider :deep(.ant-menu-item-selected .anticon) {
   opacity: 1;
-}
-
-/* Sider footer */
-.sider-footer {
-  padding: 12px 10px;
-  border-top: 1px solid rgba(43, 188, 212, 0.18);
-  margin-top: 8px;
-}
-
-.sider-footer-role {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #2BBCD4;
-  margin-bottom: 3px;
-}
-
-.sider-footer-user {
-  font-size: 13px;
-  font-weight: 600;
-  color: rgba(240, 243, 255, 0.55);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ─── Content ────────────────────────────────────────────── */
