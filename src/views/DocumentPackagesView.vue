@@ -165,7 +165,7 @@
     >
       <template v-if="selectedPackage">
         <a-button v-if="canReview" type="primary" block @click="goToWorkspace(selectedPackage.id)" style="margin-bottom: 20px;">
-          Открыть рабочую область разбора (Broker Workspace)
+          Открыть рабочую область разбора
         </a-button>
         <div class="details-head">
           <div>

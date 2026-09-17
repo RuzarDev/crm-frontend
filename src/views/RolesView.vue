@@ -83,7 +83,11 @@ import { formatPermission, formatRole } from '@/utils/labels'
 import PageHeader from '@/components/PageHeader.vue'
 
 const rolesStore = useRolesStore()
-const activeTab = ref('roles')
+// По умолчанию открываем «Системную матрицу» (роль × право с галочками) — она
+// быстрее всего отвечает на вопрос «у кого какой доступ». Вкладка с тегами по
+// ролям («Пользовательские роли») остаётся второй — там строки разной высоты
+// из-за пилюль-тегов, для беглого сканирования матрица удобнее.
+const activeTab = ref('matrix')
 
 const matrix = ref<PermissionMatrixResponse | null>(null)
 const matrixLoading = ref(false)

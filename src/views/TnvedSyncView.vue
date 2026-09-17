@@ -28,6 +28,7 @@
         <div v-if="!loading && logs.length === 0" class="empty-hint">Синхронизаций ещё не было</div>
 
         <a-table
+          class="ref-table"
           v-else
           :data-source="logs"
           :columns="columns"

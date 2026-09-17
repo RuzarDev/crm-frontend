@@ -39,6 +39,7 @@
                 </a-button>
               </template>
               <a-table
+                class="ref-table"
                 :data-source="classifierItems"
                 :columns="classifierColumns"
                 row-key="id"
@@ -137,7 +138,7 @@ const classifierTitle = (code: string) => CLASSIFIER_TITLES[code] ?? code
 
 const classifierColumns = [
   { title: 'Код', dataIndex: 'code', key: 'code', width: 120 },
-  { title: 'Наименование', dataIndex: 'nameRu', key: 'nameRu' },
+  { title: 'Наименование', dataIndex: 'nameRu', key: 'nameRu', width: 420 },
   {
     title: 'Действия', key: 'actions', width: 140,
     customRender: ({ record }: { record: ClassifierItem }) =>
