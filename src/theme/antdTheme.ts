@@ -66,6 +66,10 @@ export const zirconDarkSiderTheme = {
   components: {
     Menu: {
       darkItemBg: 'transparent',
+      // фон РАСКРЫТОГО подменю (inline) — по умолчанию тёмный алгоритм AntD даёт
+      // почти чёрный (#000c17), из-за чего раскрытый «ТН ВЭД» выделялся чёрным
+      // прямоугольником поверх navy-сайдбара. Делаем прозрачным, чтобы совпадал.
+      darkSubMenuItemBg: 'transparent',
       darkItemColor: '#AEB9CF',
       darkItemSelectedBg: 'rgba(255,255,255,.08)',
       darkItemSelectedColor: '#fff',

@@ -812,6 +812,14 @@ const handleLogout = () => {
   opacity: 1;
 }
 
+/* Фон раскрытого подменю (inline) — прозрачный, чтобы совпадал с navy-сайдбаром,
+   а не выделялся почти-чёрным прямоугольником (страховка к darkSubMenuItemBg). */
+.sider :deep(.ant-menu-sub),
+.sider :deep(.ant-menu-sub.ant-menu-inline),
+.sider :deep(.ant-menu.ant-menu-dark .ant-menu-sub) {
+  background: transparent !important;
+}
+
 /* ─── Content ────────────────────────────────────────────── */
 
 .content {
