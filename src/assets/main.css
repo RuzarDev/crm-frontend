@@ -174,11 +174,12 @@ small {
    Белый текст на бирюзе #2BBCD4 давал ≈2.3:1 (ниже нормы 4.5:1). Тёмно-синий
    navy-текст на той же бирюзе — ≈6.3:1, проходит AA, и сохраняет брендовый
    бирюзовый фон кнопок. Применяем к сплошным primary и к auth-CTA; НЕ трогаем
-   ghost/link/danger-варианты и выделенный пункт сайдбара (навигация на тёмном
-   фоне — отдельный контекст). */
-.ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(:disabled),
-.ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(:disabled):hover,
-.ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(:disabled):focus,
+   ghost/link/danger-варианты, выделенный пункт сайдбара (навигация на тёмном
+   фоне) и кнопку поиска .ant-input-search-button — у неё намеренно ТЁМНЫЙ
+   (navy) фон + белый текст, navy-текст сделал бы «Найти» невидимым. */
+.ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(.ant-input-search-button):not(:disabled),
+.ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(.ant-input-search-button):not(:disabled):hover,
+.ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(.ant-input-search-button):not(:disabled):focus,
 .auth-submit-btn:not(:disabled),
 .auth-submit-btn:not(:disabled):hover,
 .auth-submit-btn:not(:disabled):focus {
