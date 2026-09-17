@@ -27,6 +27,7 @@
 
     <a-modal
       v-model:open="createOpen"
+      :width="560"
       :title="createStep === 1 ? 'Новая заявка' : 'Документы к заявке'"
       :footer="null"
       @cancel="resetCreate"
@@ -72,12 +73,15 @@
           description="Инвойс, упаковочный лист, транспортные документы — всё, что есть по поставке. Для отправки нужен минимум один файл."
         />
         <a-upload-dragger
+          class="docs-dragger"
           :multiple="true"
           :show-upload-list="false"
           :custom-request="handleDocUpload"
           :disabled="uploading"
         >
-          <p>Перетащите файлы сюда или нажмите для выбора</p>
+          <p class="dz-icon"><InboxOutlined /></p>
+          <p class="dz-title">Перетащите файлы сюда или нажмите для выбора</p>
+          <p class="dz-hint">PDF, JPG, PNG, XLSX, DOCX — до 20 МБ каждый</p>
         </a-upload-dragger>
         <ul v-if="uploadedFiles.length" class="uploaded-list">
           <li v-for="f in uploadedFiles" :key="f.id">{{ f.originalFileName }}</li>
@@ -152,7 +156,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
-import { SearchOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, InboxOutlined } from '@ant-design/icons-vue'
 import {
   import40Api,
   IMPORT40_STATUSES,
@@ -407,7 +411,25 @@ onMounted(() => {
 }
 
 .uploaded-list { margin: 10px 0 0; padding-left: 18px; font-size: 13px; }
-.submit-actions { display: flex; gap: 10px; margin-top: 14px; align-items: center; }
+
+/* Дропзона: полноценная зона перетаскивания (была тонкая полоска в одну строку) */
+.docs-dragger { margin-top: 14px; }
+.docs-dragger :deep(.ant-upload-drag) { border-radius: var(--atg-radius-lg); }
+.docs-dragger :deep(.ant-upload-btn) { padding: 22px 16px !important; }
+.dz-icon { margin: 0 0 6px; line-height: 1; }
+.dz-icon :deep(.anticon) { font-size: 34px; color: var(--atg-teal, #22b8d0); }
+.dz-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--atg-ink, #182640); }
+.dz-hint { margin: 4px 0 0; font-size: 12px; color: var(--atg-muted, #95a1b7); }
+
+/* Кнопки: перенос вместо обрезки длинной ссылки «Дозаполнить позже…» */
+.submit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 16px;
+  align-items: center;
+}
+.submit-actions :deep(.ant-btn-link) { padding-left: 0; padding-right: 0; }
 
 .case-cell span {
   color: var(--atg-muted);
