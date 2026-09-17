@@ -24,6 +24,19 @@ apiClient.interceptors.request.use(
   }
 )
 
+// Одна сессия истечения — на пачку параллельных 401. Без этого флага каждый из
+// нескольких одновременных запросов, поймавших 401, и показывал свою плашку, и
+// повторно дёргал window.location.href → очередь нечитаемых тостов + гонка
+// редиректов. Флаг живёт до перезагрузки страницы (редирект её и вызовет).
+let sessionExpiredHandled = false
+
+// Показ ошибки через ФИКСИРОВАННЫЙ key на статус: AntD заменяет плашку с тем же
+// key, а не копит новую. Т.е. десять 500 подряд = одна плашка, а не стопка,
+// перекрывающая шапку.
+const errorToast = (key: string, content: string) => {
+  message.error({ content, key, duration: 4 })
+}
+
 apiClient.interceptors.response.use(
   (response) => {
     return response
@@ -37,26 +50,29 @@ apiClient.interceptors.response.use(
 
       if (status === 401) {
         if (isLoginRequest) {
-          message.error('Неверный логин или пароль')
-        } else {
+          errorToast('auth-login', 'Неверный логин или пароль')
+        } else if (!sessionExpiredHandled) {
+          // первый 401 в пачке: чистим сессию, показываем ОДНУ плашку и один раз
+          // уводим на /login; остальные параллельные 401 сюда уже не зайдут.
+          sessionExpiredHandled = true
           localStorage.removeItem('authToken')
           localStorage.removeItem('username')
+          errorToast('session-expired', 'Сессия истекла — войдите снова')
           window.location.href = '/login'
-          message.error('Требуется вход в систему')
         }
       } else if (status === 403) {
-        message.error('Недостаточно прав для этого действия')
+        errorToast('forbidden', 'Недостаточно прав для этого действия')
       } else if (status === 404) {
-        message.error('Ресурс не найден')
+        errorToast('not-found', 'Ресурс не найден')
       } else if (status >= 500) {
-        message.error('Ошибка сервера. Попробуйте позже.')
+        errorToast('server-error', 'Ошибка сервера. Попробуйте позже.')
       } else {
-        message.error(errorMessage)
+        errorToast(`http-${status}`, errorMessage)
       }
     } else if (error.request) {
-      message.error('Ошибка сети. Проверьте подключение.')
+      errorToast('network', 'Ошибка сети. Проверьте подключение.')
     } else {
-      message.error(error.message)
+      errorToast('unknown', error.message)
     }
     return Promise.reject(error)
   }

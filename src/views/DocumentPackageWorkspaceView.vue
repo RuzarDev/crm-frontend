@@ -268,7 +268,7 @@
                     Клиент/Партия
                   </a-button>
                   <a-button type="text" size="small" @click="openEditContainerModal(container)">
-                    <EditOutlined style="color: #1890ff;" />
+                    <EditOutlined style="color: var(--z-teal);" />
                   </a-button>
                   <a-popconfirm
                     title="Вы уверены, что хотите удалить этот контейнер и все его партии?"
@@ -319,7 +319,7 @@
                       </div>
                       <a-space>
                         <a-button type="text" size="small" @click="openEditClientModal(container.id, consolidation)">
-                          <EditOutlined style="color: #1890ff; font-size: 12px;" />
+                          <EditOutlined style="color: var(--z-teal); font-size: 12px;" />
                         </a-button>
                         <a-popconfirm
                           title="Вы уверены, что хотите удалить эту партию?"

@@ -19,7 +19,7 @@
           </a-menu>
         </a-col>
         <a-col :span="18">
-          <a-card v-if="current" :title="`Графа ${current.graph} — ${current.title}`">
+          <a-card v-if="current" class="dt-guide-content" :title="`Графа ${current.graph} — ${current.title}`">
             <!-- Текст нормативного акта, санитайзится при парсинге на сервере. -->
             <div class="dt-guide-body" v-html="current.html" />
           </a-card>
@@ -76,6 +76,12 @@ onMounted(async () => {
 .dt-guide-menu {
   max-height: 70vh;
   overflow-y: auto;
+}
+/* Панель контента графы: комфортная ширина чтения — норм.текст графы обычно
+   короткий (2-3 строки), а колонка span=18 ~1000px создавала ощущение пустой
+   недовёрстанной панели. Ограничиваем и прижимаем влево. */
+.dt-guide-content {
+  max-width: 820px;
 }
 .dt-guide-body {
   font-size: 14px;

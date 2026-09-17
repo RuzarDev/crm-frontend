@@ -61,7 +61,7 @@ const onOpenChange = async (open: boolean) => {
   font-size: 12px;
 }
 .dt-graph-help:hover {
-  color: #1677ff;
+  color: var(--z-teal);
 }
 .dt-guide-body {
   max-height: 420px;

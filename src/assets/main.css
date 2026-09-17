@@ -148,6 +148,57 @@ small {
   font-family: var(--font-body) !important;
 }
 
+/* ─── Читаемые тосты (message) ───────────────────────────────
+   Статический message.error рендерится вне ConfigProvider из App.vue, поэтому
+   на нём не гарантирована светлая тема — на проде плашки выходили тёмными и
+   нечитаемыми. Жёстко задаём светлый фон + navy-текст брендовыми токенами. */
+.ant-message-notice-content {
+  background: var(--z-bg, #ffffff) !important;
+  color: var(--z-navy, #1B2A4A) !important;
+  border: 1px solid var(--z-teal-soft, #E4F6FB) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 6px 20px -6px rgba(27, 42, 74, .22) !important;
+  padding: 10px 16px !important;
+}
+.ant-message-notice-content .anticon {
+  color: inherit;
+}
+/* цветные иконки статуса остаются информативными на светлом фоне */
+.ant-message-error .anticon { color: var(--z-error, #C4483B) !important; }
+.ant-message-success .anticon { color: #1F9D6A !important; }
+.ant-message-warning .anticon { color: #B78A1E !important; }
+.ant-message-info .anticon,
+.ant-message-loading .anticon { color: var(--z-teal, #2BBCD4) !important; }
+
+/* ─── Контраст primary/CTA-кнопок (WCAG AA) ──────────────────
+   Белый текст на бирюзе #2BBCD4 давал ≈2.3:1 (ниже нормы 4.5:1). Тёмно-синий
+   navy-текст на той же бирюзе — ≈6.3:1, проходит AA, и сохраняет брендовый
+   бирюзовый фон кнопок. Применяем к сплошным primary и к auth-CTA; НЕ трогаем
+   ghost/link/danger-варианты и выделенный пункт сайдбара (навигация на тёмном
+   фоне — отдельный контекст). */
+.ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(:disabled),
+.ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(:disabled):hover,
+.ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(:disabled):focus,
+.auth-submit-btn:not(:disabled),
+.auth-submit-btn:not(:disabled):hover,
+.auth-submit-btn:not(:disabled):focus {
+  color: var(--z-navy, #1B2A4A) !important;
+}
+
+/* ─── Справочные таблицы: без «растянутой» колонки ───────────
+   На широких мониторах одна колонка без width (обычно «Наименование»)
+   растягивалась на всё оставшееся место (700+px пустоты в строке). Класс
+   .ref-table на <a-table> заставляет таблицу занимать ширину контента, а
+   излишек уходит в правое поле; на узких экранах — горизонтальный скролл. */
+.ref-table .ant-table-content > table,
+.ref-table .ant-table-content table {
+  width: auto !important;
+  min-width: 0 !important;
+}
+.ref-table .ant-table-content {
+  overflow-x: auto;
+}
+
 a {
   color: var(--atg-accent-strong);
   transition: color var(--atg-transition);

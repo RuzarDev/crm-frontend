@@ -8,6 +8,7 @@
 
         <a-table
           v-else
+          class="ref-table"
           :data-source="currencies"
           :columns="columns"
           :pagination="false"
@@ -53,7 +54,7 @@ const updatedAt = computed(() => {
 
 const columns = [
   { title: 'Код', key: 'codeLat', dataIndex: 'codeLat', width: 90 },
-  { title: 'Наименование', dataIndex: 'name', key: 'name' },
+  { title: 'Наименование', dataIndex: 'name', key: 'name', width: 360 },
   { title: 'Курс (за 1 ед.)', key: 'rate', dataIndex: 'rate', width: 160 },
   { title: 'Обновлено', key: 'updatedAtUtc', dataIndex: 'updatedAtUtc', width: 150 },
 ]
