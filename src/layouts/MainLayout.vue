@@ -795,14 +795,20 @@ const handleLogout = () => {
   opacity: 1;
 }
 
-.sider :deep(.ant-menu-item-selected) {
+.sider :deep(.ant-menu-item-selected),
+.sider :deep(.ant-menu-item-selected .ant-menu-title-content),
+.sider :deep(.ant-menu-item-selected a) {
   color: #ffffff !important;
-  background: linear-gradient(90deg, #2BBCD4, #1FA8C0) !important;
   font-weight: 700;
+}
+
+.sider :deep(.ant-menu-item-selected) {
+  background: linear-gradient(90deg, #2BBCD4, #1FA8C0) !important;
   box-shadow: 0 2px 8px rgba(43, 188, 212, 0.35);
 }
 
 .sider :deep(.ant-menu-item-selected .anticon) {
+  color: #ffffff !important;
   opacity: 1;
 }
 
@@ -867,10 +873,16 @@ const handleLogout = () => {
   background: rgba(240, 243, 255, 0.07) !important;
 }
 
-.drawer-menu :deep(.ant-menu-item-selected) {
+.drawer-menu :deep(.ant-menu-item-selected),
+.drawer-menu :deep(.ant-menu-item-selected .ant-menu-title-content),
+.drawer-menu :deep(.ant-menu-item-selected a),
+.drawer-menu :deep(.ant-menu-item-selected .anticon) {
   color: #ffffff !important;
-  background: linear-gradient(90deg, #2BBCD4, #1FA8C0) !important;
   font-weight: 700;
+}
+
+.drawer-menu :deep(.ant-menu-item-selected) {
+  background: linear-gradient(90deg, #2BBCD4, #1FA8C0) !important;
 }
 
 .drawer-footer {
