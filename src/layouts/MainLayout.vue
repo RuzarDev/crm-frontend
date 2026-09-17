@@ -399,7 +399,10 @@ const selectedMenuKey = computed(() => {
   if (route.path.startsWith('/my-documents')) return '/my-documents'
   if (route.path.startsWith('/clients')) return '/clients'
   if (route.path.startsWith('/document-packages')) return '/document-packages'
+  // более специфичный /import-40/company — раньше общего /import-40, иначе его пункт не подсветится
+  if (route.path.startsWith('/import-40/company')) return '/import-40/company'
   if (route.path.startsWith('/import-40')) return '/import-40'
+  if (route.path.startsWith('/dt-guide')) return '/dt-guide'
   if (route.path.startsWith('/references')) return '/references'
   if (route.path.startsWith('/keden-status')) return '/keden-status'
   if (route.path.startsWith('/keden')) return '/keden'
