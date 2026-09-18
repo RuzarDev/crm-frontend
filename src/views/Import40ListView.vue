@@ -25,30 +25,67 @@
       </template>
     </a-alert>
 
+    <!-- ─────────── Сотрудник/админ: простое создание ─────────── -->
     <a-modal
+      v-if="!isClientRole"
       v-model:open="createOpen"
       :width="560"
-      :title="createStep === 1 ? 'Новая заявка' : 'Документы к заявке'"
+      title="Новая заявка"
       :footer="null"
       @cancel="resetCreate"
     >
-      <template v-if="createStep === 1">
+      <div class="create-grid">
+        <label>
+          <span>Клиент <span class="req-star">*</span></span>
+          <a-select
+            v-model:value="draft.clientId"
+            show-search
+            option-filter-prop="label"
+            :options="clientOptions"
+            :loading="clientsLoading"
+            placeholder="Выберите клиента"
+            @change="syncClientName"
+          />
+        </label>
+        <label>
+          <span>Груз <span class="req-star">*</span></span>
+          <a-input v-model:value="draft.cargo" placeholder="Описание груза" />
+        </label>
+        <label>
+          <span>Пост / СВХ <span class="opt-hint">необязательно</span></span>
+          <a-select
+            v-model:value="draft.post"
+            show-search
+            allow-clear
+            option-filter-prop="label"
+            :options="postOptions"
+            placeholder="Выберите пост/СВХ (поиск по названию) — можно позже"
+          />
+        </label>
+        <a-button type="primary" :disabled="!canSubmit" :loading="creating" @click="createCase">
+          Создать
+        </a-button>
+      </div>
+    </a-modal>
+
+    <!-- ─────────── Клиент: пошаговый мастер подачи ─────────── -->
+    <a-modal
+      v-else
+      v-model:open="createOpen"
+      :width="640"
+      title="Новая заявка на оформление"
+      :footer="null"
+      :mask-closable="false"
+      @cancel="resetCreate"
+    >
+      <a-steps :current="wizardStep" size="small" class="wizard-steps" :items="wizardStepItems" />
+
+      <!-- Шаг 1 · Основное -->
+      <div v-show="wizardStep === 0" class="wizard-body">
         <div class="create-grid">
-          <label v-if="!isClientRole">
-            <span>Клиент <span class="req-star">*</span></span>
-            <a-select
-              v-model:value="draft.clientId"
-              show-search
-              option-filter-prop="label"
-              :options="clientOptions"
-              :loading="clientsLoading"
-              placeholder="Выберите клиента"
-              @change="syncClientName"
-            />
-          </label>
           <label>
             <span>Груз <span class="req-star">*</span></span>
-            <a-input v-model:value="draft.cargo" placeholder="Описание груза" />
+            <a-input v-model:value="draft.cargo" placeholder="Например: комплектующие, 3 палеты" />
           </label>
           <label>
             <span>Пост / СВХ <span class="opt-hint">необязательно</span></span>
@@ -58,33 +95,93 @@
               allow-clear
               option-filter-prop="label"
               :options="postOptions"
-              placeholder="Выберите пост/СВХ (поиск по названию) — можно позже"
+              placeholder="Поиск по названию — можно указать позже"
             />
           </label>
-          <a-tooltip v-if="showOnboardingGate" title="Сначала подпишите договор и доверенность (Моя компания)">
-            <span>
-              <a-button type="primary" disabled style="pointer-events: none">Создать</a-button>
-            </span>
-          </a-tooltip>
-          <a-button v-else type="primary" :disabled="!canSubmit" :loading="creating" @click="createCase">
-            Создать
-          </a-button>
         </div>
-      </template>
-      <template v-if="createStep === 2">
-        <a-alert
-          type="info"
-          show-icon
-          class="onboarding-alert"
-          message="Прикрепите документы для оформления"
-          description="Инвойс, упаковочный лист, транспортные документы — всё, что есть по поставке. Для отправки нужен минимум один файл."
-        />
+      </div>
+
+      <!-- Шаг 2 · Транспорт -->
+      <div v-show="wizardStep === 1" class="wizard-body">
+        <label class="w-field">
+          <span>Вид транспорта</span>
+          <a-select v-model:value="draft.transportMode" :options="IMPORT40_TRANSPORT_MODES" style="width: 100%" />
+        </label>
+        <div class="create-grid">
+          <template v-if="draft.transportMode === 1">
+            <label><span>Номер машины (голова)</span><a-input v-model:value="draft.vehicleNumber" placeholder="123ABC01" /></label>
+            <label><span>Номер прицепа</span><a-input v-model:value="draft.trailerNumber" placeholder="456DEF01" /></label>
+            <label><span>Телефон водителя</span><a-input v-model:value="draft.driverPhone" placeholder="+7 700 000 00 00" /></label>
+          </template>
+          <template v-else-if="draft.transportMode === 0">
+            <label><span>Номер вагона</span><a-input v-model:value="draft.wagonNumber" placeholder="Номер вагона" /></label>
+            <label><span>Станция</span><a-input v-model:value="draft.station" placeholder="Станция назначения" /></label>
+          </template>
+          <template v-else-if="draft.transportMode === 2">
+            <label><span>Рейс</span><a-input v-model:value="draft.flightNumber" placeholder="Номер рейса" /></label>
+            <label><span>Авианакладная (AWB)</span><a-input v-model:value="draft.airWaybill" placeholder="AWB" /></label>
+          </template>
+          <template v-else>
+            <label><span>Судно</span><a-input v-model:value="draft.vesselName" placeholder="Название судна" /></label>
+            <label><span>Коносамент</span><a-input v-model:value="draft.billOfLading" placeholder="B/L" /></label>
+          </template>
+        </div>
+
+        <div class="sub-label">Контейнеры <span class="opt-hint">необязательно</span></div>
+        <div v-for="(c, i) in draft.containers" :key="i" class="wizard-container-row">
+          <a-input v-model:value="c.number" placeholder="Номер контейнера" style="max-width: 220px" />
+          <a-input v-model:value="c.type" placeholder="Тип (40HC…)" style="max-width: 140px" />
+          <a-button type="text" danger size="small" @click="draft.containers.splice(i, 1)"><CloseOutlined /></a-button>
+        </div>
+        <a-button type="dashed" size="small" @click="draft.containers.push({ number: '', type: '' })">+ Контейнер</a-button>
+      </div>
+
+      <!-- Шаг 3 · Стороны -->
+      <div v-show="wizardStep === 2" class="wizard-body">
+        <div class="party-block">
+          <div class="sub-label">Отправитель</div>
+          <div class="create-grid">
+            <label><span>Наименование</span><a-input v-model:value="draft.senderName" placeholder="Поставщик / отправитель" /></label>
+            <label>
+              <span>Страна</span>
+              <a-select v-model:value="draft.senderCountry" show-search allow-clear option-filter-prop="label" :options="countryOptions" placeholder="CN" />
+            </label>
+          </div>
+        </div>
+        <div class="party-block">
+          <div class="party-head">
+            <div class="sub-label">Получатель</div>
+            <a-button v-if="clientCompanyProfile" type="link" size="small" @click="fillReceiverFromProfile">Из моей компании</a-button>
+          </div>
+          <div class="create-grid">
+            <label><span>Наименование</span><a-input v-model:value="draft.receiverName" placeholder="Ваша компания" /></label>
+            <label><span>БИН</span><a-input v-model:value="draft.receiverBin" placeholder="БИН" /></label>
+            <label>
+              <span>Страна</span>
+              <a-select v-model:value="draft.receiverCountry" show-search allow-clear option-filter-prop="label" :options="countryOptions" placeholder="KZ" />
+            </label>
+          </div>
+        </div>
+        <div class="party-block">
+          <div class="sub-label">Стоимость</div>
+          <div class="create-grid">
+            <label>
+              <span>Валюта</span>
+              <a-select v-model:value="draft.currency" show-search option-filter-prop="label" :options="CURRENCY_OPTIONS" placeholder="USD" />
+            </label>
+            <label><span>Ориентировочная стоимость</span><a-input-number v-model:value="draft.estimatedValue" :min="0" :controls="false" style="width: 100%" placeholder="0.00" /></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Шаг 4 · Документы -->
+      <div v-show="wizardStep === 3" class="wizard-body">
         <a-upload-dragger
           class="docs-dragger"
           :multiple="true"
           :show-upload-list="false"
           :custom-request="handleDocUpload"
-          :disabled="uploading"
+          :disabled="uploading || !createdCaseId"
         >
           <p class="dz-icon"><InboxOutlined /></p>
           <p class="dz-title">Перетащите файлы сюда или нажмите для выбора</p>
@@ -93,20 +190,38 @@
         <ul v-if="uploadedFiles.length" class="uploaded-list">
           <li v-for="f in uploadedFiles" :key="f.id">{{ f.originalFileName }}</li>
         </ul>
-        <div class="submit-actions">
-          <a-tooltip :title="uploadedFiles.length ? '' : 'Прикрепите хотя бы один документ'">
-            <a-button
-              type="primary"
-              :disabled="!uploadedFiles.length"
-              :loading="submitting"
-              @click="submitCase"
-            >
-              Отправить заявку
-            </a-button>
-          </a-tooltip>
-          <a-button type="link" @click="finishLater">Дозаполнить позже (останется черновиком)</a-button>
+
+        <div class="doc-checklist">
+          <div class="sub-label">Отметьте, что приложили</div>
+          <a-checkbox v-for="d in DOC_CHECKLIST" :key="d" v-model:checked="docChecklist[d]">{{ d }}</a-checkbox>
         </div>
-      </template>
+
+        <a-alert
+          type="warning"
+          show-icon
+          class="responsibility-alert"
+          message="Ответственность за документы"
+          description="Отправляя заявку, вы подтверждаете, что предоставленные документы и сведения полные и достоверны. Ответственность за их полноту и достоверность несёт клиент."
+        />
+        <a-checkbox v-model:checked="responsibilityAccepted" class="resp-check">
+          Подтверждаю полноту и достоверность документов и сведений
+        </a-checkbox>
+      </div>
+
+      <!-- Навигация мастера -->
+      <div class="wizard-nav">
+        <a-button v-if="wizardStep > 0" @click="wizardBack">Назад</a-button>
+        <span class="wizard-nav-spacer" />
+        <a-button v-if="wizardStep < 3" type="primary" :loading="creating" :disabled="!canGoNext" @click="wizardNext">
+          Далее
+        </a-button>
+        <a-tooltip v-else :title="submitTooltip">
+          <a-button type="primary" :disabled="!canSubmitWizard" :loading="submitting" @click="submitCase">
+            Отправить заявку
+          </a-button>
+        </a-tooltip>
+        <a-button v-if="createdCaseId" type="link" @click="finishLater">Дозаполнить позже</a-button>
+      </div>
     </a-modal>
 
     <a-card class="crm-shell-card" :bordered="false">
@@ -163,10 +278,11 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
-import { SearchOutlined, InboxOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, InboxOutlined, CloseOutlined } from '@ant-design/icons-vue'
 import {
   import40Api,
   IMPORT40_STATUSES,
+  IMPORT40_TRANSPORT_MODES,
   type Import40CaseDto,
   type Import40FileDto,
 } from '@/api/import40'
@@ -174,6 +290,7 @@ import {
   import40ContractApi,
   isDocumentEffective,
   type Import40DocumentDto,
+  type ClientCompanyProfileDto,
 } from '@/api/import40Contract'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
@@ -217,7 +334,51 @@ const draft = reactive({
   clientName: '',
   cargo: '',
   post: '',
+  // Пакет 6 №1 — транспорт
+  transportMode: 1, // 1 = Авто по умолчанию
+  vehicleNumber: '',
+  trailerNumber: '',
+  driverPhone: '',
+  wagonNumber: '',
+  station: '',
+  flightNumber: '',
+  airWaybill: '',
+  vesselName: '',
+  billOfLading: '',
+  containers: [] as { number: string; type: string }[],
+  // Пакет 6 №1 — стороны/стоимость
+  senderName: '',
+  senderCountry: undefined as string | undefined,
+  receiverName: '',
+  receiverBin: '',
+  receiverCountry: 'KZ' as string | undefined,
+  currency: 'USD' as string | undefined,
+  estimatedValue: null as number | null,
 })
+
+// Мастер подачи (роль client): 0..3
+const wizardStep = ref(0)
+const wizardStepItems = [
+  { title: 'Основное' },
+  { title: 'Транспорт' },
+  { title: 'Стороны' },
+  { title: 'Документы' },
+]
+const countryOptions = ref<{ value: string; label: string }[]>([])
+const CURRENCY_OPTIONS = [
+  { value: 'USD', label: 'USD — Доллар США' },
+  { value: 'EUR', label: 'EUR — Евро' },
+  { value: 'CNY', label: 'CNY — Юань' },
+  { value: 'KZT', label: 'KZT — Тенге' },
+  { value: 'RUB', label: 'RUB — Рубль' },
+  { value: 'TRY', label: 'TRY — Турецкая лира' },
+  { value: 'AED', label: 'AED — Дирхам ОАЭ' },
+  { value: 'GBP', label: 'GBP — Фунт стерлингов' },
+]
+const DOC_CHECKLIST = ['Инвойс', 'Упаковочный лист', 'Транспортные (CMR/накладная)', 'Контракт/спецификация']
+const docChecklist = reactive<Record<string, boolean>>({})
+const responsibilityAccepted = ref(false)
+const clientCompanyProfile = ref<ClientCompanyProfileDto | null>(null)
 
 const isClientRole = computed(
   () =>
@@ -254,13 +415,151 @@ const createOpen = ref(false)
 const openCreate = () => {
   resetCreate()
   createOpen.value = true
+  if (isClientRole.value) {
+    void loadCountries()
+    void loadClientCompanyProfile()
+  }
 }
 const resetCreate = () => {
   createStep.value = 1
+  wizardStep.value = 0
   createdCaseId.value = null
   uploadedFiles.value = []
+  responsibilityAccepted.value = false
+  for (const d of DOC_CHECKLIST) docChecklist[d] = false
   draft.cargo = ''
   draft.post = ''
+  draft.transportMode = 1
+  draft.vehicleNumber = ''
+  draft.trailerNumber = ''
+  draft.driverPhone = ''
+  draft.wagonNumber = ''
+  draft.station = ''
+  draft.flightNumber = ''
+  draft.airWaybill = ''
+  draft.vesselName = ''
+  draft.billOfLading = ''
+  draft.containers = []
+  draft.senderName = ''
+  draft.senderCountry = undefined
+  draft.receiverName = ''
+  draft.receiverBin = ''
+  draft.receiverCountry = 'KZ'
+  draft.currency = 'USD'
+  draft.estimatedValue = null
+}
+
+// Справочник стран для селектов сторон в мастере.
+const loadCountries = async () => {
+  if (countryOptions.value.length) return
+  try {
+    const countries = await referencesApi.listCountries()
+    countryOptions.value = countries.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+  } catch {
+    countryOptions.value = []
+  }
+}
+
+// Профиль компании клиента — для кнопки «Из моей компании» (получатель).
+const loadClientCompanyProfile = async () => {
+  if (!draft.clientId) return
+  try {
+    clientCompanyProfile.value = await import40ContractApi.getProfile(draft.clientId)
+    // Предзаполняем получателя из профиля, если поля ещё пустые.
+    if (!draft.receiverName) fillReceiverFromProfile()
+  } catch {
+    clientCompanyProfile.value = null
+  }
+}
+
+const fillReceiverFromProfile = () => {
+  const p = clientCompanyProfile.value
+  if (!p) return
+  draft.receiverName = p.companyName || draft.receiverName
+  draft.receiverBin = p.bin || draft.receiverBin
+  draft.receiverCountry = p.legalCountryCode || draft.receiverCountry || 'KZ'
+}
+
+// ── Навигация мастера ────────────────────────────────────────────────────
+const canGoNext = computed(() => {
+  if (wizardStep.value === 0) return draft.cargo.trim().length > 1
+  return true
+})
+const canSubmitWizard = computed(
+  () => !!createdCaseId.value && uploadedFiles.value.length > 0 && responsibilityAccepted.value,
+)
+const submitTooltip = computed(() => {
+  if (!uploadedFiles.value.length) return 'Прикрепите хотя бы один документ'
+  if (!responsibilityAccepted.value) return 'Подтвердите полноту и достоверность'
+  return ''
+})
+
+const wizardBack = () => {
+  if (wizardStep.value > 0) wizardStep.value -= 1
+}
+const wizardNext = async () => {
+  if (!canGoNext.value) return
+  // Заявку создаём при переходе с шага 1 — дальше нужен id для загрузки файлов.
+  if (wizardStep.value === 0 && !createdCaseId.value) {
+    const ok = await createDraftCase()
+    if (!ok) return
+  }
+  wizardStep.value += 1
+}
+
+// Создаёт черновик заявки (клиент), возвращает успех. Транспорт/стороны/
+// стоимость сохраняются позже, при отправке (persistWizardDraft).
+const createDraftCase = async (): Promise<boolean> => {
+  if (!draft.clientId) return false
+  creating.value = true
+  try {
+    const created = await import40Api.create({
+      clientId: draft.clientId,
+      clientName: draft.clientName,
+      cargo: draft.cargo.trim(),
+      post: (draft.post || '').trim(),
+    })
+    createdCaseId.value = created.id
+    void reload()
+    return true
+  } catch (e: any) {
+    message.error(e?.response?.data?.error ?? 'Не удалось создать заявку')
+    return false
+  } finally {
+    creating.value = false
+  }
+}
+
+// Сохраняет транспорт/стороны/стоимость и контейнеры на созданной заявке.
+const persistWizardDraft = async () => {
+  if (!createdCaseId.value) return
+  const id = createdCaseId.value
+  await import40Api.update(id, {
+    cargo: draft.cargo.trim(),
+    post: (draft.post || '').trim(),
+    transportMode: draft.transportMode,
+    vehicleNumber: draft.vehicleNumber.trim(),
+    trailerNumber: draft.trailerNumber.trim(),
+    driverPhone: draft.driverPhone.trim(),
+    wagonNumber: draft.wagonNumber.trim(),
+    station: draft.station.trim(),
+    flightNumber: draft.flightNumber.trim(),
+    airWaybill: draft.airWaybill.trim(),
+    vesselName: draft.vesselName.trim(),
+    billOfLading: draft.billOfLading.trim(),
+    clientSenderName: draft.senderName.trim(),
+    clientSenderCountryCode: draft.senderCountry || '',
+    clientReceiverName: draft.receiverName.trim(),
+    clientReceiverBin: draft.receiverBin.trim(),
+    clientReceiverCountryCode: draft.receiverCountry || '',
+    clientCurrencyCode: draft.currency || '',
+    clientEstimatedValue: draft.estimatedValue,
+  })
+  for (const c of draft.containers) {
+    if (c.number.trim()) {
+      await import40Api.addContainer(id, { containerNumber: c.number.trim(), containerType: c.type.trim() })
+    }
+  }
 }
 
 const filteredCases = computed(() => {
@@ -314,6 +613,7 @@ const loadOnboardingStatus = async (clientId: string) => {
   }
 }
 
+// Сотрудник/админ: простое создание → сразу карточка ДТ (клиент идёт мастером).
 const createCase = async () => {
   if (!canSubmit.value) return
   creating.value = true
@@ -324,18 +624,9 @@ const createCase = async () => {
       cargo: draft.cargo.trim(),
       post: draft.post.trim(),
     })
-    createdCaseId.value = created.id
-    if (isClientRole.value) {
-      // клиент: шаг 2 — документы в том же окне
-      createStep.value = 2
-      message.success('Заявка создана — прикрепите документы')
-      void reload()
-    } else {
-      // сотрудник: прежнее поведение
-      createOpen.value = false
-      message.success('Заявка создана')
-      router.push(`/import-40/${created.id}`)
-    }
+    createOpen.value = false
+    message.success('Заявка создана')
+    router.push(`/import-40/${created.id}`)
   } catch (e: any) {
     message.error(e?.response?.data?.error ?? 'Не удалось создать заявку')
   } finally {
@@ -370,10 +661,12 @@ const uploadDocs = async (file: File) => {
 }
 
 const submitCase = async () => {
-  if (!createdCaseId.value || uploadedFiles.value.length === 0) return
+  if (!canSubmitWizard.value) return
   submitting.value = true
   try {
-    await import40Api.action(createdCaseId.value, 'submit-for-processing')
+    // Сохраняем транспорт/стороны/стоимость/контейнеры, затем отправляем.
+    await persistWizardDraft()
+    await import40Api.action(createdCaseId.value!, 'submit-for-processing')
     message.success('Заявка отправлена на оформление')
     router.push(`/import-40/${createdCaseId.value}`)
   } catch (e: any) {
@@ -383,8 +676,11 @@ const submitCase = async () => {
   }
 }
 
-const finishLater = () => {
-  if (createdCaseId.value) router.push(`/import-40/${createdCaseId.value}`)
+const finishLater = async () => {
+  if (!createdCaseId.value) return
+  // Сохраняем то, что уже ввёл клиент, чтобы черновик не потерялся.
+  try { await persistWizardDraft() } catch { /* оставляем как есть */ }
+  router.push(`/import-40/${createdCaseId.value}`)
 }
 
 const handleDocUpload: UploadProps['customRequest'] = ({ file }) => {
@@ -436,6 +732,21 @@ onMounted(() => {
 .create-grid .opt-hint { color: var(--atg-muted, #95a1b7); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 11px; }
 
 .uploaded-list { margin: 10px 0 0; padding-left: 18px; font-size: 13px; }
+
+/* ── Мастер подачи (клиент) ─────────────────────────────────── */
+.wizard-steps { margin: 4px 0 18px; }
+.wizard-body { min-height: 220px; }
+.w-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.w-field > span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.wizard-container-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.party-block { margin-bottom: 16px; }
+.party-head { display: flex; align-items: center; justify-content: space-between; }
+.sub-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--atg-charcoal); margin: 8px 0 8px; }
+.doc-checklist { display: flex; flex-direction: column; gap: 6px; margin: 16px 0; }
+.responsibility-alert { border-radius: var(--atg-radius-lg); margin-top: 8px; }
+.resp-check { margin-top: 10px; font-weight: 600; }
+.wizard-nav { display: flex; align-items: center; gap: 10px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--atg-line, #eef1f6); }
+.wizard-nav-spacer { flex: 1; }
 
 /* Дропзона: полноценная зона перетаскивания (была тонкая полоска в одну строку) */
 .docs-dragger { margin-top: 14px; }

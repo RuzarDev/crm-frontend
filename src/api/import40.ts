@@ -482,6 +482,14 @@ export interface Import40CaseDto {
   airWaybill: string
   vesselName: string
   billOfLading: string
+  // Пакет 6 №1: предзаполнение от клиента при подаче (мастер).
+  clientSenderName: string
+  clientSenderCountryCode: string
+  clientReceiverName: string
+  clientReceiverBin: string
+  clientReceiverCountryCode: string
+  clientCurrencyCode: string
+  clientEstimatedValue: number | null
   containers: Import40ContainerDto[]
   declarations: Import40DeclarationDto[]
   logs: Import40LogDto[]
@@ -543,6 +551,14 @@ export interface Import40UpdateRequest {
   airWaybill?: string
   vesselName?: string
   billOfLading?: string
+  // Пакет 6 №1: предзаполнение от клиента (мастер подачи).
+  clientSenderName?: string
+  clientSenderCountryCode?: string
+  clientReceiverName?: string
+  clientReceiverBin?: string
+  clientReceiverCountryCode?: string
+  clientCurrencyCode?: string
+  clientEstimatedValue?: number | null
 }
 
 export interface Import40ContainerUpsertRequest {

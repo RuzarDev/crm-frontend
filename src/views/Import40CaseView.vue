@@ -99,6 +99,15 @@
           <a-button :disabled="!newContainer.number.trim()" @click="addContainer">Добавить</a-button>
         </div>
 
+        <template v-if="hasClientPrefill">
+          <div class="sub-label">Данные от клиента (для ДТ)</div>
+          <div class="client-prefill">
+            <div v-if="activeCase.clientSenderName" class="prefill-row"><span>Отправитель</span><b>{{ activeCase.clientSenderName }}<template v-if="activeCase.clientSenderCountryCode"> · {{ activeCase.clientSenderCountryCode }}</template></b></div>
+            <div v-if="activeCase.clientReceiverName" class="prefill-row"><span>Получатель</span><b>{{ activeCase.clientReceiverName }}<template v-if="activeCase.clientReceiverBin"> · БИН {{ activeCase.clientReceiverBin }}</template><template v-if="activeCase.clientReceiverCountryCode"> · {{ activeCase.clientReceiverCountryCode }}</template></b></div>
+            <div v-if="activeCase.clientCurrencyCode || activeCase.clientEstimatedValue != null" class="prefill-row"><span>Стоимость</span><b>{{ activeCase.clientEstimatedValue != null ? activeCase.clientEstimatedValue.toLocaleString('ru-RU') : '—' }} {{ activeCase.clientCurrencyCode }}</b></div>
+          </div>
+        </template>
+
         <div class="sub-label">Документы (инвойс, упаковочный, накладные)</div>
         <Import40FilesBlock
           :files="filesBySection('documents')"
@@ -547,6 +556,14 @@ const transportSummary = computed(() => {
   return `${kind}${detail ? ' · ' + detail : ''}`
 })
 
+// Пакет 6 №1: показываем брокеру данные, которые дал клиент при подаче.
+const hasClientPrefill = computed(() => {
+  const c = activeCase.value
+  if (!c) return false
+  return !!(c.clientSenderName || c.clientReceiverName || c.clientReceiverBin
+    || c.clientCurrencyCode || c.clientEstimatedValue != null)
+})
+
 // Task 5: поиск ДТ по номеру внутри заявки — декларации уже в памяти
 // (activeCase.declarations), отдельный API-параметр не нужен.
 const dtSearch = ref('')
@@ -966,6 +983,28 @@ onMounted(() => {
   font-size: 13px;
   margin-bottom: 4px;
 }
+.client-prefill {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--atg-radius-lg, 10px);
+  background: var(--atg-surface-muted, #f5f7fb);
+  border: 1px solid var(--atg-line, #eef1f6);
+}
+.prefill-row {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+}
+.prefill-row > span {
+  min-width: 110px;
+  color: var(--atg-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.prefill-row > b { color: var(--atg-ink, #182640); }
 .container-add {
   display: flex;
   gap: 8px;
