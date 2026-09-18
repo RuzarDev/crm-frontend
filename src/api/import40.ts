@@ -814,6 +814,24 @@ export const import40Api = {
     return { blob: res.data as Blob, fileName: m ? decodeURIComponent(m[1]) : 'keden-batch.zip' }
   },
 
+  // «Скачать все документы» заявки одним ZIP. 200 → zip-blob; 400 → { error }.
+  downloadAllDocuments: async (
+    caseId: string,
+  ): Promise<{ blob: Blob; fileName: string } | { error: string }> => {
+    const res = await apiClient.get(
+      `/import40/${encodeURIComponent(caseId)}/files/all.zip`,
+      { responseType: 'blob', validateStatus: (s) => s === 200 || s === 400 },
+    )
+    if (res.status === 400) {
+      const text = await (res.data as Blob).text()
+      const parsed = JSON.parse(text) as { message?: string }
+      return { error: parsed.message ?? 'Нет документов' }
+    }
+    const cd = String(res.headers['content-disposition'] ?? '')
+    const m = /filename\*?=(?:UTF-8'')?"?([^";]+)/i.exec(cd)
+    return { blob: res.data as Blob, fileName: m ? decodeURIComponent(m[1]) : 'documents.zip' }
+  },
+
   // Batch-uploads a shipment's document package (invoice/packing-list Excel, CMR,
   // quarantine act, certs — Excel and/or PDF/scans). Aqniet merges what it can
   // extract into one record; the server maps it into an Import40ExtractionPreview,

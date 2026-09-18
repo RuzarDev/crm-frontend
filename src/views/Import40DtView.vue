@@ -19,6 +19,7 @@
         <a-tooltip v-if="showSplitButton" :title="splitBlockedReason">
           <a-button :disabled="!canSplit" @click="openSplitModal">Разделить на ЕТТ/ВТО</a-button>
         </a-tooltip>
+        <a-button :loading="docsDownloading" @click="downloadAllDocuments">Скачать все документы</a-button>
         <template v-if="!readOnly">
           <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
           <a-button :loading="paymentsLoading" @click="openPaymentsModal">Рассчитать платежи</a-button>
@@ -271,6 +272,31 @@ const splitBlockedReason = computed(() => {
 const saving = ref(false)
 const xmlLoading = ref(false)
 const pdfLoading = ref(false)
+const docsDownloading = ref(false)
+
+// «Скачать все документы» заявки одним ZIP (у кнопки «Разделить ЕТТ/ВТО»).
+const downloadAllDocuments = async () => {
+  docsDownloading.value = true
+  try {
+    const res = await import40Api.downloadAllDocuments(caseId)
+    if ('error' in res) {
+      message.info(res.error)
+      return
+    }
+    const url = URL.createObjectURL(res.blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = res.fileName
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch {
+    message.error('Не удалось скачать документы')
+  } finally {
+    docsDownloading.value = false
+  }
+}
 const kedenMissing = ref<string[]>([])
 const readiness = ref<KedenReadinessDto | null>(null)
 
