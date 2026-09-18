@@ -73,8 +73,9 @@
           </a-form>
         </a-card>
 
-        <!-- Профиль декларанта (гр.54): подставляется в ДТ кнопкой «Подставить из профиля» -->
-        <a-card class="crm-shell-card profile-card" :bordered="false">
+        <!-- Профиль декларанта (гр.54): только для декларанта (брокер/админ), НЕ для клиента.
+             Клиент не подаёт ДТ и не должен заполнять гр.54 — декларант ведёт свой профиль сам. -->
+        <a-card v-if="!isClient" class="crm-shell-card profile-card" :bordered="false">
           <template #title><div class="card-title-row"><IdcardOutlined class="card-title-icon" />Профиль декларанта (для гр.54)</div></template>
           <p class="card-hint">Заполните один раз — данные подставятся в гр.54 декларации кнопкой «Подставить из профиля».</p>
           <a-form layout="vertical">
@@ -119,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { useProfileStore } from '@/stores/profile'
 import { useClassifiersStore } from '@/stores/classifiers'
@@ -131,6 +132,9 @@ import PageHeader from '@/components/PageHeader.vue'
 
 const store = useProfileStore()
 const classifiers = useClassifiersStore()
+
+// Профиль декларанта (гр.54) скрыт у роли «клиент» — см. карточку выше.
+const isClient = computed(() => (store.profile?.role || '').toLowerCase() === 'client')
 
 // Профиль декларанта (гр.54)
 const decl = reactive<DeclarantProfileDto>({
@@ -191,11 +195,14 @@ watch(() => store.profile, syncForm)
 onMounted(async () => {
   await store.fetch()
   syncForm()
-  classifiers.loadMany(['id-doc-types'])
-  try {
-    Object.assign(decl, await declarantProfileApi.get())
-  } catch {
-    /* профиль декларанта не загрузился — форма остаётся пустой */
+  // Профиль декларанта (гр.54) не касается клиента — не грузим и не показываем.
+  if (!isClient.value) {
+    classifiers.loadMany(['id-doc-types'])
+    try {
+      Object.assign(decl, await declarantProfileApi.get())
+    } catch {
+      /* профиль декларанта не загрузился — форма остаётся пустой */
+    }
   }
 })
 

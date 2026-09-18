@@ -241,14 +241,19 @@ const applyParty = (r: PartyRefDto) => {
 const fillReceiverFromClient = () => {
   const p = props.clientProfile
   if (!p) return
+  // Пакет 6 №3: заполняем максимум доступного, чтобы поля не оставались пустыми.
+  // Профиль компании не всегда содержит разобранный адрес — если структурных
+  // частей нет, кладём свободный legalAddress в «Улицу»; страна по умолчанию KZ.
+  const hasStructured = !!(p.legalCity || p.legalStreet || p.legalRegion)
   form.receiver = {
     ...form.receiver,
     name: p.companyName ?? null,
-    countryCode: p.legalCountryCode ?? form.receiver.countryCode ?? null,
+    countryCode: p.legalCountryCode || form.receiver.countryCode || 'KZ',
     region: p.legalRegion ?? null,
     city: p.legalCity ?? null,
-    street: p.legalStreet ?? null,
+    street: p.legalStreet || (hasStructured ? null : (p.legalAddress ?? null)),
   }
+  form.receiverShortName = form.receiverShortName || p.companyName || null
   form.receiverBin = p.bin ?? null
   emitChange()
   message.success('Получатель заполнен из профиля клиента')

@@ -1,7 +1,7 @@
 <template>
   <div class="dt-section">
     <div class="dt-section-bar"><DtGraphLabel graph="31–47" text="Товары" /></div>
-    <ReestrGoodsSection v-model="items" :readonly="readonly" :uppercase="true" />
+    <ReestrGoodsSection v-model="items" :readonly="readonly" :uppercase="true" :locked-currency="dealCurrency" />
     <Import40GoodsKedenPanel v-model="items" :readonly="readonly" :container-indicator="containerIndicator" :usd-rate="usdRate" @calc-tpin="emit('calc-tpin')" />
   </div>
 </template>
@@ -21,6 +21,9 @@ const props = defineProps<{
   // Item I (гр.46): курс USD (₸ за 1 USD) на дату гр.А — пробрасывается в
   // Import40GoodsKedenPanel для авторасчёта статистической стоимости.
   usdRate?: number | null
+  // Пакет 6 №4: валюта сделки (гр.22, dtForm.currency) — блокирует поле валюты
+  // у каждого товара (read-only, синхронизируется с гр.22).
+  dealCurrency?: string | null
 }>()
 const emit = defineEmits<{ 'update:modelValue': [Import40GoodsItemInput[]]; 'calc-tpin': [] }>()
 

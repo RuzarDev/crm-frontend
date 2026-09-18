@@ -202,18 +202,18 @@
           />
         </div>
         <div class="field f-2">
-          <div class="field-label">Валюта</div>
+          <div class="field-label">Валюта<span v-if="lockedCurrency" class="lock-hint"> · из гр.22</span></div>
           <a-select
-            v-model:value="item.currency"
+            :value="lockedCurrency || item.currency"
             size="small"
-            :disabled="readonly"
+            :disabled="readonly || !!lockedCurrency"
             show-search
             allow-clear
             style="width: 100%"
             :options="currencyOptions"
             :filter-option="filterCurrency"
             placeholder="USD"
-            @change="emit('update:modelValue', items.map(fromRow))"
+            @change="(v: unknown) => setRowCurrency(item, (v as string) || null)"
           />
         </div>
       </div>
@@ -251,6 +251,10 @@ const props = defineProps<{
   // транзитом (ReestrFormFields/DocumentPackageWorkspaceView), поэтому
   // по умолчанию выключено и не влияет на транзитное поведение.
   uppercase?: boolean
+  // Пакет 6 №4: валюта сделки из гр.22 (dtForm.currency). Когда задана —
+  // поле «Валюта» у каждого товара показывает её неактивной и синхронизируется
+  // автоматически. undefined в транзите/реестре → прежнее поведение (выбор per-строка).
+  lockedCurrency?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -405,13 +409,37 @@ function syncNum(
   emit('update:modelValue', items.value.map(fromRow))
 }
 
+// Пакет 6 №4: изменение валюты одного товара (когда gr.22 не задаёт lockedCurrency).
+function setRowCurrency(item: GoodsRow, v: string | null) {
+  item.currency = v || null
+  emit('update:modelValue', items.value.map(fromRow))
+}
+
+// Синхронизирует валюту всех товаров с lockedCurrency (гр.22). Эмитит только при
+// реальном изменении → сходится за один цикл, без бесконечного watch-петли.
+function applyLockedCurrency() {
+  const locked = props.lockedCurrency
+  if (!locked) return
+  let changed = false
+  for (const it of items.value) {
+    if (it.currency !== locked) {
+      it.currency = locked
+      changed = true
+    }
+  }
+  if (changed) emit('update:modelValue', items.value.map(fromRow))
+}
+
 watch(
   () => props.modelValue,
   (v) => {
     items.value = (v ?? []).map(toRow)
+    applyLockedCurrency()
   },
   { immediate: true },
 )
+
+watch(() => props.lockedCurrency, applyLockedCurrency)
 
 function addItem() {
   items.value.push({
@@ -427,7 +455,7 @@ function addItem() {
     packagesCount: null,
     quantityTypeCode: null,
     customsValue: null,
-    currency: 'USD',
+    currency: props.lockedCurrency || 'USD',
     quantityStr: '',
     grossWeightStr: '',
     netWeightStr: '',
@@ -667,6 +695,10 @@ const onExcelFile: UploadProps['beforeUpload'] = (file) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.lock-hint {
+  color: var(--atg-teal, #22b8d0);
+  font-weight: 700;
 }
 
 .field :deep(.ant-input-sm),
