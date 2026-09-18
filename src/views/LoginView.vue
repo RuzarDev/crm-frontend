@@ -16,21 +16,19 @@
         <div class="auth-hero">
           <div class="auth-eyebrow">
             <span class="auth-eyebrow-dot"></span>
-            Операционная система
+            {{ t('login.kicker') }}
           </div>
           <h1 class="auth-headline">
-            CRM для<br>таможенной<br>логистики
+            {{ t('login.heroTitle') }}
           </h1>
           <p class="auth-desc">
-            Реестр, документы, роли брокеров,<br>
-            экспедиторов и клиентов — в едином<br>
-            рабочем контуре Zircon.
+            {{ t('login.heroSubtitle') }}
           </p>
         </div>
 
         <!-- Copyright -->
         <div class="auth-copyright">
-          © {{ new Date().getFullYear() }} Zircon. Все права защищены.
+          {{ t('login.copyright') }}
         </div>
       </div>
     </section>
@@ -38,10 +36,11 @@
     <!-- ══ RIGHT PANEL ═════════════════════════════════════════ -->
     <main class="auth-right">
       <div class="auth-form-wrap">
+        <div class="auth-lang"><LanguageSwitcher /></div>
         <div class="auth-form-header">
           <div class="auth-form-badge">Zircon CRM</div>
-          <h2 class="auth-form-title">Добро пожаловать</h2>
-          <p class="auth-form-sub">Войдите в свой аккаунт</p>
+          <h2 class="auth-form-title">{{ t('login.welcome') }}</h2>
+          <p class="auth-form-sub">{{ t('login.subtitle') }}</p>
         </div>
 
         <a-form
@@ -51,10 +50,10 @@
           layout="vertical"
           class="auth-form"
         >
-          <a-form-item label="Логин" name="username">
+          <a-form-item :label="t('login.username')" name="username">
             <a-input
               v-model:value="formState.username"
-              placeholder="Введите логин"
+              :placeholder="t('login.usernamePlaceholder')"
               size="large"
             >
               <template #prefix>
@@ -63,10 +62,10 @@
             </a-input>
           </a-form-item>
 
-          <a-form-item label="Пароль" name="password">
+          <a-form-item :label="t('login.password')" name="password">
             <a-input-password
               v-model:value="formState.password"
-              placeholder="Введите пароль"
+              :placeholder="t('login.passwordPlaceholder')"
               size="large"
             >
               <template #prefix>
@@ -84,14 +83,14 @@
               :loading="loading"
               class="auth-submit-btn"
             >
-              <span v-if="!loading">Войти в систему</span>
+              <span v-if="!loading">{{ t('login.submit') }}</span>
             </a-button>
           </a-form-item>
         </a-form>
 
         <div class="auth-footer-link">
-          Нет аккаунта?
-          <a @click="goToRegister">Зарегистрироваться</a>
+          {{ t('login.noAccount') }}
+          <a @click="goToRegister">{{ t('login.register') }}</a>
         </div>
       </div>
     </main>
@@ -102,18 +101,21 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useI18n()
 const loading = ref(false)
 
 const formState = reactive({ username: '', password: '' })
 
 const rules = {
-  username: [{ required: true, message: 'Введите логин' }],
-  password: [{ required: true, message: 'Введите пароль' }],
+  username: [{ required: true, message: () => t('login.usernamePlaceholder') }],
+  password: [{ required: true, message: () => t('login.passwordPlaceholder') }],
 }
 
 const handleLogin = async () => {
@@ -287,6 +289,7 @@ const goToRegister = () => router.push('/register')
   padding: clamp(24px, 4vw, 60px);
 }
 
+.auth-lang { display: flex; justify-content: flex-end; margin-bottom: 8px; }
 .auth-form-wrap {
   width: 100%;
   max-width: 420px;

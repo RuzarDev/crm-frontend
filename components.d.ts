@@ -101,6 +101,7 @@ declare module 'vue' {
     InvoiceAutofillButton: typeof import('./src/components/InvoiceAutofillButton.vue')['default']
     InvoiceFileSection: typeof import('./src/components/InvoiceFileSection.vue')['default']
     InvoiceGoodsImporter: typeof import('./src/components/InvoiceGoodsImporter.vue')['default']
+    LanguageSwitcher: typeof import('./src/components/LanguageSwitcher.vue')['default']
     MiscSectionsBlock: typeof import('./src/components/reestr/MiscSectionsBlock.vue')['default']
     NonTariffMeasureGroups: typeof import('./src/components/NonTariffMeasureGroups.vue')['default']
     OrganizationsBlock: typeof import('./src/components/reestr/OrganizationsBlock.vue')['default']

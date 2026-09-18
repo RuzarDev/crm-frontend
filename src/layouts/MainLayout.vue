@@ -9,27 +9,28 @@
       </div>
 
       <div class="header-right">
+        <LanguageSwitcher />
         <span class="role-badge">{{ roleLabel }}</span>
         <span class="username">{{ authStore.username }}</span>
 
         <!-- Notifications bell -->
         <a-dropdown :trigger="['click']" placement="bottomRight" @open-change="onNotifOpen">
           <a-badge :count="notifStore.unreadCount" :overflow-count="99" class="notif-badge">
-            <a-button class="notif-btn" :title="'Уведомления'">
+            <a-button class="notif-btn" :title="t('header.notifications')">
               <BellOutlined />
             </a-button>
           </a-badge>
           <template #overlay>
             <div class="notif-dropdown">
               <div class="notif-header">
-                <span class="notif-title">Уведомления</span>
+                <span class="notif-title">{{ t('header.notifications') }}</span>
                 <a-button
                   v-if="notifStore.items.length"
                   type="link"
                   size="small"
                   @click.stop="notifStore.markAllRead()"
                 >
-                  Прочитать все
+                  {{ t('header.markAllRead') }}
                 </a-button>
               </div>
               <a-spin :spinning="notifStore.loading">
@@ -46,7 +47,7 @@
                     <div class="notif-time">{{ formatNotifTime(n.createdAtUtc) }}</div>
                   </div>
                 </div>
-                <div v-else class="notif-empty">Нет новых уведомлений</div>
+                <div v-else class="notif-empty">{{ t('header.notificationsEmpty') }}</div>
               </a-spin>
             </div>
           </template>
@@ -54,7 +55,7 @@
 
         <a-button class="logout-button" @click="handleLogout">
           <LogoutOutlined />
-          <span class="logout-label">Выйти</span>
+          <span class="logout-label">{{ t('header.logout') }}</span>
         </a-button>
         <a-button class="menu-toggle-btn" @click="mobileNavOpen = true" title="Меню">
           <MenuOutlined />
@@ -118,7 +119,7 @@
       <div class="drawer-footer-user">{{ authStore.username }}</div>
       <a-button class="drawer-logout" block @click="handleLogout">
         <LogoutOutlined />
-        Выйти
+        {{ t('header.logout') }}
       </a-button>
     </div>
   </a-drawer>
@@ -127,8 +128,10 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import {
   ApiOutlined,
   BankOutlined,
@@ -160,6 +163,7 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
+const { t } = useI18n()
 
 const mobileNavOpen = ref(false)
 const openKeys = ref<string[]>([])
@@ -188,7 +192,7 @@ const menuItems = computed(() => {
     operationsItems.push({
       key: '/dashboard',
       icon: () => h(DashboardOutlined),
-      label: 'Дашборд',
+      label: t('nav.dashboard'),
     })
   }
 
@@ -196,7 +200,7 @@ const menuItems = computed(() => {
     operationsItems.push({
       key: '/reestr',
       icon: () => h(DatabaseOutlined),
-      label: 'Реестр',
+      label: t('nav.registry'),
     })
   }
 
@@ -204,7 +208,7 @@ const menuItems = computed(() => {
     operationsItems.push({
       key: '/requests-registry',
       icon: () => h(DatabaseOutlined),
-      label: 'Реестр заявок',
+      label: t('nav.requestsRegistry'),
     })
   }
 
@@ -212,7 +216,7 @@ const menuItems = computed(() => {
     operationsItems.push({
       key: '/document-packages',
       icon: () => h(FileAddOutlined),
-      label: 'Пакеты документов',
+      label: t('nav.documentPackages'),
     })
   }
 
@@ -220,7 +224,7 @@ const menuItems = computed(() => {
     operationsItems.push({
       key: '/import-40',
       icon: () => h(ImportOutlined),
-      label: 'Импорт',
+      label: t('nav.import'),
     })
   }
 
@@ -228,7 +232,7 @@ const menuItems = computed(() => {
     operationsItems.push({
       key: '/keden',
       icon: () => h(SafetyCertificateOutlined),
-      label: 'KEDEN',
+      label: t('nav.keden'),
     })
   }
 
@@ -237,7 +241,7 @@ const menuItems = computed(() => {
     operationsItems.push({
       key: '/keden-status',
       icon: () => h(SafetyCertificateOutlined),
-      label: 'Статусы КЕДЕН',
+      label: t('nav.kedenStatuses'),
     })
   }
 
@@ -246,7 +250,7 @@ const menuItems = computed(() => {
     salesItems.push({
       key: '/sales',
       icon: () => h(BarChartOutlined),
-      label: 'Продажи',
+      label: t('nav.salesModule'),
     })
   }
 
@@ -254,7 +258,7 @@ const menuItems = computed(() => {
     salesItems.push({
       key: '/analytics',
       icon: () => h(BarChartOutlined),
-      label: 'Аналитика',
+      label: t('nav.analytics'),
     })
   }
 
@@ -262,7 +266,7 @@ const menuItems = computed(() => {
     salesItems.push({
       key: '/clients',
       icon: () => h(SolutionOutlined),
-      label: 'Клиенты',
+      label: t('nav.clients'),
     })
   }
 
@@ -272,7 +276,7 @@ const menuItems = computed(() => {
     referenceItems.push({
       key: '/dt-guide',
       icon: () => h(ReadOutlined),
-      label: 'Справочник ДТ',
+      label: t('nav.dtGuide'),
     })
   }
 
@@ -280,28 +284,28 @@ const menuItems = computed(() => {
     referenceItems.push({
       key: '/references',
       icon: () => h(BankOutlined),
-      label: 'Справочники',
+      label: t('nav.referencesBook'),
     })
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tnvedChildren: any[] = [
-    { key: '/tnved/tree', icon: () => h(UnorderedListOutlined), label: 'Классификатор' },
-    { key: '/tnved/news', icon: () => h(FileTextOutlined), label: 'Новости' },
-    { key: '/tnved/regulations', icon: () => h(FileDoneOutlined), label: 'НПА' },
-    { key: '/tnved/currencies', icon: () => h(DatabaseOutlined), label: 'Валюты' },
-    { key: '/tnved/timeline', icon: () => h(CalendarOutlined), label: 'Таймлайн' },
-    { key: '/tnved/analytics', icon: () => h(BarChartOutlined), label: 'Аналитика' },
+    { key: '/tnved/tree', icon: () => h(UnorderedListOutlined), label: t('nav.tnvedClassifier') },
+    { key: '/tnved/news', icon: () => h(FileTextOutlined), label: t('nav.news') },
+    { key: '/tnved/regulations', icon: () => h(FileDoneOutlined), label: t('nav.npa') },
+    { key: '/tnved/currencies', icon: () => h(DatabaseOutlined), label: t('nav.currencies') },
+    { key: '/tnved/timeline', icon: () => h(CalendarOutlined), label: t('nav.timeline') },
+    { key: '/tnved/analytics', icon: () => h(BarChartOutlined), label: t('nav.analytics') },
   ]
 
   if (authStore.hasPermission('tnved.manage')) {
-    tnvedChildren.push({ key: '/tnved/sync', icon: () => h(SyncOutlined), label: 'Синхронизация' })
+    tnvedChildren.push({ key: '/tnved/sync', icon: () => h(SyncOutlined), label: t('nav.sync') })
   }
 
   referenceItems.push({
     key: 'tnved-group',
     icon: () => h(GlobalOutlined),
-    label: 'ТН ВЭД',
+    label: t('nav.tnved'),
     children: tnvedChildren,
   })
 
@@ -309,7 +313,7 @@ const menuItems = computed(() => {
     referenceItems.push({
       key: '/my-documents',
       icon: () => h(FileDoneOutlined),
-      label: 'Мои документы',
+      label: t('nav.myDocuments'),
     })
   }
 
@@ -317,7 +321,7 @@ const menuItems = computed(() => {
     referenceItems.push({
       key: '/import-40/company',
       icon: () => h(SolutionOutlined),
-      label: 'Моя компания',
+      label: t('nav.myCompany'),
     })
   }
 
@@ -326,7 +330,7 @@ const menuItems = computed(() => {
     adminItems.push({
       key: '/users',
       icon: () => h(TeamOutlined),
-      label: 'Пользователи',
+      label: t('nav.users'),
     })
   }
 
@@ -334,7 +338,7 @@ const menuItems = computed(() => {
     adminItems.push({
       key: '/roles',
       icon: () => h(SafetyCertificateOutlined),
-      label: 'Роли',
+      label: t('nav.roles'),
     })
   }
 
@@ -342,7 +346,7 @@ const menuItems = computed(() => {
     adminItems.push({
       key: '/notifications',
       icon: () => h(BellOutlined),
-      label: 'Уведомления',
+      label: t('nav.notifications'),
     })
   }
 
@@ -350,30 +354,30 @@ const menuItems = computed(() => {
     adminItems.push({
       key: '/system/endpoints',
       icon: () => h(ApiOutlined),
-      label: 'API',
+      label: t('nav.apiCatalog'),
     })
   }
 
   adminItems.push({
     key: '/profile',
     icon: () => h(UserOutlined),
-    label: 'Профиль',
+    label: t('nav.profile'),
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const groups: any[] = []
 
   if (operationsItems.length) {
-    groups.push({ key: 'group-operations', type: 'group', label: 'Операции', children: operationsItems })
+    groups.push({ key: 'group-operations', type: 'group', label: t('nav.operations'), children: operationsItems })
   }
   if (salesItems.length) {
-    groups.push({ key: 'group-sales', type: 'group', label: 'Продажи', children: salesItems })
+    groups.push({ key: 'group-sales', type: 'group', label: t('nav.sales'), children: salesItems })
   }
   if (referenceItems.length) {
-    groups.push({ key: 'group-references', type: 'group', label: 'Справочники', children: referenceItems })
+    groups.push({ key: 'group-references', type: 'group', label: t('nav.references'), children: referenceItems })
   }
   if (adminItems.length) {
-    groups.push({ key: 'group-admin', type: 'group', label: 'Администрирование', children: adminItems })
+    groups.push({ key: 'group-admin', type: 'group', label: t('nav.admin'), children: adminItems })
   }
 
   return groups
