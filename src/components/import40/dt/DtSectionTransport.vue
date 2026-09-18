@@ -57,8 +57,8 @@
         show-search allow-clear :filter-option="filterAlpha2" placeholder="KZ" style="max-width: 260px" @change="emitChange" />
     </a-form-item>
 
-    <template v-if="form.borderTransportModeCode !== '20'">
-      <div class="dt-section-bar">
+    <!-- Гр.21 показываем для всех видов транспорта, включая ЖД (вагоны — ТС на границе). -->
+    <div class="dt-section-bar">
         <DtGraphLabel graph="21" text="Транспортное средство на границе" />
         <span class="transport-count">Количество ТС: {{ form.borderTransportNumbers.length }}</span>
       </div>
@@ -85,7 +85,6 @@
           <a-button v-if="!readonly && form.borderTransportNumbers.length" size="small" @click="copyBorderToArrival">Скопировать в гр.18 <ArrowUpOutlined /></a-button>
         </div>
       </div>
-    </template>
   </div>
 </template>
 
