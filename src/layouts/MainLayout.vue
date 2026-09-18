@@ -9,7 +9,7 @@
       </div>
 
       <div class="header-right">
-        <LanguageSwitcher />
+        <LanguageSwitcher dark />
         <span class="role-badge">{{ roleLabel }}</span>
         <span class="username">{{ authStore.username }}</span>
 
