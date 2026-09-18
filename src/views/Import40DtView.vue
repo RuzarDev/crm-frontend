@@ -65,7 +65,7 @@
       <div class="dt-content">
         <a-form layout="vertical" :disabled="readOnly">
           <DtSectionGeneral v-show="activeSection === 'general'" :model-value="dtForm" :readonly="readOnly" :totals="totals" @update:model-value="onDtUpdate" />
-          <DtSectionParties v-show="activeSection === 'parties'" :model-value="dtForm" :readonly="readOnly" :country-options="countryOptions" @update:model-value="onDtUpdate" />
+          <DtSectionParties v-show="activeSection === 'parties'" :model-value="dtForm" :readonly="readOnly" :country-options="countryOptions" :client-profile="clientProfile" @update:model-value="onDtUpdate" />
           <DtSectionCountries v-show="activeSection === 'countries'" :model-value="dtForm" :readonly="readOnly" :country-options="countryOptions" @update:model-value="onDtUpdate" />
           <DtSectionTransport v-show="activeSection === 'transport'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
           <DtSectionFinance
@@ -160,6 +160,7 @@ import {
   type Import40SplitSuggestionRow,
   type Import40CalculatePaymentsResponse,
 } from '@/api/import40'
+import { import40ContractApi, type ClientCompanyProfileDto } from '@/api/import40Contract'
 import type { Import40FactPayment, Import40GoodsItemInput, Import40DeclarationExpense } from '@/types/api'
 import { CURRENCY_NUMERIC } from '@/types/api'
 import { referencesApi } from '@/api/references'
@@ -222,6 +223,7 @@ const caseId = String(route.params.caseId)
 const dtId = String(route.params.dtId)
 
 const activeCase = ref<Import40CaseDto | null>(null)
+const clientProfile = ref<ClientCompanyProfileDto | null>(null)
 
 // Зеркалит серверный гейт CanEditCaseData: до «Декларирования» (status < 2) редактирует клиент,
 // с «Декларирования» — только админ или назначенный декларант (assignedDeclarantId).
@@ -1092,6 +1094,13 @@ const calcCustomsValue = async () => {
 const loadDt = async () => {
   try {
     activeCase.value = await import40Api.get(caseId)
+    // №12: профиль клиента для автозаполнения получателя (гр.8) в DtSectionParties.
+    if (activeCase.value?.clientId) {
+      import40ContractApi
+        .getProfile(activeCase.value.clientId)
+        .then((p) => { clientProfile.value = p })
+        .catch(() => { clientProfile.value = null })
+    }
   } catch {
     message.error('Декларация не найдена')
     void router.push('/import-40')

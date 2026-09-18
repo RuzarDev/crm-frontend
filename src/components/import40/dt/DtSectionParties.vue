@@ -34,6 +34,7 @@
     <div class="dt-section-bar party-bar">
       <DtGraphLabel graph="8" text="Получатель" />
       <span v-if="!readonly" class="party-ref-actions">
+        <a-button v-if="clientProfile" type="link" size="small" @click="fillReceiverFromClient">Из профиля клиента</a-button>
         <a-button type="link" size="small" @click="openPartyPicker('receiver')">Из справочника</a-button>
         <a-button type="link" size="small" :loading="partySaving" @click="saveParty('receiver')">Сохранить в справочник</a-button>
       </span>
@@ -132,6 +133,7 @@ import { message } from 'ant-design-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { partyRefsApi, type PartyRefDto } from '@/api/partyRefs'
+import type { ClientCompanyProfileDto } from '@/api/import40Contract'
 import type { Import40DtFormState, Import40Party } from '@/api/import40'
 import './dt-sections.css'
 
@@ -139,6 +141,7 @@ const props = defineProps<{
   modelValue: Import40DtFormState
   readonly: boolean
   countryOptions?: { value: string; label: string }[]
+  clientProfile?: ClientCompanyProfileDto | null
 }>()
 const emit = defineEmits<{ 'update:modelValue': [Import40DtFormState] }>()
 
@@ -234,6 +237,23 @@ const applyParty = (r: PartyRefDto) => {
   emitChange()
   partyPickerOpen.value = false
 }
+// №12: заполнить получателя (гр.8) из профиля компании клиента.
+const fillReceiverFromClient = () => {
+  const p = props.clientProfile
+  if (!p) return
+  form.receiver = {
+    ...form.receiver,
+    name: p.companyName ?? null,
+    countryCode: p.legalCountryCode ?? form.receiver.countryCode ?? null,
+    region: p.legalRegion ?? null,
+    city: p.legalCity ?? null,
+    street: p.legalStreet ?? null,
+  }
+  form.receiverBin = p.bin ?? null
+  emitChange()
+  message.success('Получатель заполнен из профиля клиента')
+}
+
 const saveParty = async (target: PartyTarget) => {
   const body = target === 'sender'
     ? {
