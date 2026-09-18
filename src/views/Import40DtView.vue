@@ -753,12 +753,37 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     docValidityDate: d.docValidityDate ?? null,
     issueCountryCode: d.issueCountryCode ?? null,
   }))
+  prefillFromClientCase()
   // watch на goodsOriginKey срабатывает асинхронно (после этого синхронного
   // присвоения всех полей формы) — снимаем guard через nextTick, чтобы он
   // успел увидеть true во время своего срабатывания и пропустить его.
   void nextTick(() => {
     applyingDeclaration.value = false
   })
+}
+
+// Пакет 6 №1 (хвост): преднастройка гр.2/8/22 из данных, которые клиент дал при
+// подаче заявки (Import40Case.client*). Заполняем ТОЛЬКО пустые поля — уже
+// заполненную ДТ не трогаем. Вызывается внутри applyDeclaration (под guard'ом
+// applyingDeclaration), поэтому автосейв не срабатывает — значения сохранятся
+// при первом обычном сохранении ДТ брокером.
+const prefillFromClientCase = () => {
+  const c = activeCase.value
+  if (!c) return
+  const s = dtForm.sender
+  if (s) {
+    if (!s.name && c.clientSenderName) s.name = c.clientSenderName
+    if (!s.countryCode && c.clientSenderCountryCode) s.countryCode = c.clientSenderCountryCode
+  }
+  // гр.8 не преднастраиваем, если получатель = декларант (гр.14) — там своё копирование.
+  const r = dtForm.receiver
+  if (!dtForm.consigneeEqualsDeclarant && r) {
+    if (!r.name && c.clientReceiverName) r.name = c.clientReceiverName
+    if (!dtForm.receiverBin && c.clientReceiverBin) dtForm.receiverBin = c.clientReceiverBin
+    if (!r.countryCode && c.clientReceiverCountryCode) r.countryCode = c.clientReceiverCountryCode
+  }
+  if (!dtForm.currency && c.clientCurrencyCode) dtForm.currency = c.clientCurrencyCode
+  if (dtForm.totalInvoiceValue == null && c.clientEstimatedValue != null) dtForm.totalInvoiceValue = c.clientEstimatedValue
 }
 
 // Task 8a: авто гр.16 (страна происхождения, шапка) из товаров.
