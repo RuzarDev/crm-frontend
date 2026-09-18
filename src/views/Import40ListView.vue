@@ -1,12 +1,12 @@
 <template>
   <div class="import40-list-page crm-page">
-    <PageHeader kicker="Рабочий модуль" title="Импорт 40" subtitle="Заявки на таможенное оформление: контейнеры, ДТ, статусы.">
+    <PageHeader :kicker="t('import40List.kicker')" :title="t('import40List.title')" :subtitle="t('import40List.subtitle')">
       <template #actions>
-        <a-button :loading="loading" @click="reload">Обновить</a-button>
-        <a-tooltip v-if="canCreate" :title="showOnboardingGate ? 'Сначала подпишите договор и доверенность (Моя компания)' : ''">
-          <a-button type="primary" :disabled="showOnboardingGate" @click="openCreate">Новая заявка</a-button>
+        <a-button :loading="loading" @click="reload">{{ t('common.refresh') }}</a-button>
+        <a-tooltip v-if="canCreate" :title="showOnboardingGate ? t('import40List.onboardingTooltip') : ''">
+          <a-button type="primary" :disabled="showOnboardingGate" @click="openCreate">{{ t('import40List.newRequest') }}</a-button>
         </a-tooltip>
-        <span class="crm-stat-badge">Заявок:&nbsp;<span class="crm-stat-badge-count">{{ cases.length }}</span></span>
+        <span class="crm-stat-badge">{{ t('import40List.requestsCount') }}&nbsp;<span class="crm-stat-badge-count">{{ cases.length }}</span></span>
       </template>
     </PageHeader>
 
@@ -15,12 +15,12 @@
       class="onboarding-alert"
       type="warning"
       show-icon
-      message="Онбординг не завершён"
-      description="Чтобы создавать заявки на таможенное оформление, подпишите договор и доверенность таможенного представителя в разделе «Моя компания»."
+      :message="t('import40List.onboardingTitle')"
+      :description="t('import40List.onboardingDesc')"
     >
       <template #action>
         <a-button size="small" type="primary" @click="router.push('/import-40/company')">
-          Перейти к «Моей компании»
+          {{ t('import40List.goToCompany') }}
         </a-button>
       </template>
     </a-alert>
@@ -30,40 +30,40 @@
       v-if="!isClientRole"
       v-model:open="createOpen"
       :width="560"
-      title="Новая заявка"
+      :title="t('import40List.newRequest')"
       :footer="null"
       @cancel="resetCreate"
     >
       <div class="create-grid">
         <label>
-          <span>Клиент <span class="req-star">*</span></span>
+          <span>{{ t('import40List.client') }} <span class="req-star">*</span></span>
           <a-select
             v-model:value="draft.clientId"
             show-search
             option-filter-prop="label"
             :options="clientOptions"
             :loading="clientsLoading"
-            placeholder="Выберите клиента"
+            :placeholder="t('import40List.selectClient')"
             @change="syncClientName"
           />
         </label>
         <label>
-          <span>Груз <span class="req-star">*</span></span>
-          <a-input v-model:value="draft.cargo" placeholder="Описание груза" />
+          <span>{{ t('import40List.cargo') }} <span class="req-star">*</span></span>
+          <a-input v-model:value="draft.cargo" :placeholder="t('import40List.cargoPh')" />
         </label>
         <label>
-          <span>Пост / СВХ <span class="opt-hint">необязательно</span></span>
+          <span>{{ t('import40List.post') }} <span class="opt-hint">{{ t('import40List.optional') }}</span></span>
           <a-select
             v-model:value="draft.post"
             show-search
             allow-clear
             option-filter-prop="label"
             :options="postOptions"
-            placeholder="Выберите пост/СВХ (поиск по названию) — можно позже"
+            :placeholder="t('import40List.postPh')"
           />
         </label>
         <a-button type="primary" :disabled="!canSubmit" :loading="creating" @click="createCase">
-          Создать
+          {{ t('import40List.create') }}
         </a-button>
       </div>
     </a-modal>
@@ -73,7 +73,7 @@
       v-else
       v-model:open="createOpen"
       :width="640"
-      title="Новая заявка на оформление"
+      :title="t('import40List.wizardTitle')"
       :footer="null"
       :mask-closable="false"
       @cancel="resetCreate"
@@ -84,18 +84,18 @@
       <div v-show="wizardStep === 0" class="wizard-body">
         <div class="create-grid">
           <label>
-            <span>Груз <span class="req-star">*</span></span>
-            <a-input v-model:value="draft.cargo" placeholder="Например: комплектующие, 3 палеты" />
+            <span>{{ t('import40List.cargo') }} <span class="req-star">*</span></span>
+            <a-input v-model:value="draft.cargo" :placeholder="t('import40List.cargoExample')" />
           </label>
           <label>
-            <span>Пост / СВХ <span class="opt-hint">необязательно</span></span>
+            <span>{{ t('import40List.post') }} <span class="opt-hint">{{ t('import40List.optional') }}</span></span>
             <a-select
               v-model:value="draft.post"
               show-search
               allow-clear
               option-filter-prop="label"
               :options="postOptions"
-              placeholder="Поиск по названию — можно указать позже"
+              :placeholder="t('import40List.postPhShort')"
             />
           </label>
         </div>
@@ -104,72 +104,72 @@
       <!-- Шаг 2 · Транспорт -->
       <div v-show="wizardStep === 1" class="wizard-body">
         <label class="w-field">
-          <span>Вид транспорта</span>
-          <a-select v-model:value="draft.transportMode" :options="IMPORT40_TRANSPORT_MODES" style="width: 100%" />
+          <span>{{ t('import40List.transportMode') }}</span>
+          <a-select v-model:value="draft.transportMode" :options="transportModeOptions" style="width: 100%" />
         </label>
         <div class="create-grid">
           <template v-if="draft.transportMode === 1">
-            <label><span>Номер машины (голова)</span><a-input v-model:value="draft.vehicleNumber" placeholder="123ABC01" /></label>
-            <label><span>Номер прицепа</span><a-input v-model:value="draft.trailerNumber" placeholder="456DEF01" /></label>
-            <label><span>Телефон водителя</span><a-input v-model:value="draft.driverPhone" placeholder="+7 700 000 00 00" /></label>
+            <label><span>{{ t('import40List.vehicleHead') }}</span><a-input v-model:value="draft.vehicleNumber" placeholder="123ABC01" /></label>
+            <label><span>{{ t('import40List.trailer') }}</span><a-input v-model:value="draft.trailerNumber" placeholder="456DEF01" /></label>
+            <label><span>{{ t('import40List.driverPhone') }}</span><a-input v-model:value="draft.driverPhone" placeholder="+7 700 000 00 00" /></label>
           </template>
           <template v-else-if="draft.transportMode === 0">
-            <label><span>Номер вагона</span><a-input v-model:value="draft.wagonNumber" placeholder="Номер вагона" /></label>
-            <label><span>Станция</span><a-input v-model:value="draft.station" placeholder="Станция назначения" /></label>
+            <label><span>{{ t('import40List.wagon') }}</span><a-input v-model:value="draft.wagonNumber" :placeholder="t('import40List.wagon')" /></label>
+            <label><span>{{ t('import40List.station') }}</span><a-input v-model:value="draft.station" :placeholder="t('import40List.stationPh')" /></label>
           </template>
           <template v-else-if="draft.transportMode === 2">
-            <label><span>Рейс</span><a-input v-model:value="draft.flightNumber" placeholder="Номер рейса" /></label>
-            <label><span>Авианакладная (AWB)</span><a-input v-model:value="draft.airWaybill" placeholder="AWB" /></label>
+            <label><span>{{ t('import40List.flight') }}</span><a-input v-model:value="draft.flightNumber" :placeholder="t('import40List.flightPh')" /></label>
+            <label><span>{{ t('import40List.awb') }}</span><a-input v-model:value="draft.airWaybill" placeholder="AWB" /></label>
           </template>
           <template v-else>
-            <label><span>Судно</span><a-input v-model:value="draft.vesselName" placeholder="Название судна" /></label>
-            <label><span>Коносамент</span><a-input v-model:value="draft.billOfLading" placeholder="B/L" /></label>
+            <label><span>{{ t('import40List.vessel') }}</span><a-input v-model:value="draft.vesselName" :placeholder="t('import40List.vesselPh')" /></label>
+            <label><span>{{ t('import40List.bl') }}</span><a-input v-model:value="draft.billOfLading" placeholder="B/L" /></label>
           </template>
         </div>
 
-        <div class="sub-label">Контейнеры <span class="opt-hint">необязательно</span></div>
+        <div class="sub-label">{{ t('import40List.containers') }} <span class="opt-hint">{{ t('import40List.optional') }}</span></div>
         <div v-for="(c, i) in draft.containers" :key="i" class="wizard-container-row">
-          <a-input v-model:value="c.number" placeholder="Номер контейнера" style="max-width: 220px" />
-          <a-input v-model:value="c.type" placeholder="Тип (40HC…)" style="max-width: 140px" />
+          <a-input v-model:value="c.number" :placeholder="t('import40List.containerNumberPh')" style="max-width: 220px" />
+          <a-input v-model:value="c.type" :placeholder="t('import40List.containerTypePh')" style="max-width: 140px" />
           <a-button type="text" danger size="small" @click="draft.containers.splice(i, 1)"><CloseOutlined /></a-button>
         </div>
-        <a-button type="dashed" size="small" @click="draft.containers.push({ number: '', type: '' })">+ Контейнер</a-button>
+        <a-button type="dashed" size="small" @click="draft.containers.push({ number: '', type: '' })">{{ t('import40List.addContainer') }}</a-button>
       </div>
 
       <!-- Шаг 3 · Стороны -->
       <div v-show="wizardStep === 2" class="wizard-body">
         <div class="party-block">
-          <div class="sub-label">Отправитель</div>
+          <div class="sub-label">{{ t('import40List.sender') }}</div>
           <div class="create-grid">
-            <label><span>Наименование</span><a-input v-model:value="draft.senderName" placeholder="Поставщик / отправитель" /></label>
+            <label><span>{{ t('import40List.name') }}</span><a-input v-model:value="draft.senderName" :placeholder="t('import40List.senderNamePh')" /></label>
             <label>
-              <span>Страна</span>
+              <span>{{ t('import40List.country') }}</span>
               <a-select v-model:value="draft.senderCountry" show-search allow-clear option-filter-prop="label" :options="countryOptions" placeholder="CN" />
             </label>
           </div>
         </div>
         <div class="party-block">
           <div class="party-head">
-            <div class="sub-label">Получатель</div>
-            <a-button v-if="clientCompanyProfile" type="link" size="small" @click="fillReceiverFromProfile">Из моей компании</a-button>
+            <div class="sub-label">{{ t('import40List.receiver') }}</div>
+            <a-button v-if="clientCompanyProfile" type="link" size="small" @click="fillReceiverFromProfile">{{ t('import40List.fromMyCompany') }}</a-button>
           </div>
           <div class="create-grid">
-            <label><span>Наименование</span><a-input v-model:value="draft.receiverName" placeholder="Ваша компания" /></label>
-            <label><span>БИН</span><a-input v-model:value="draft.receiverBin" placeholder="БИН" /></label>
+            <label><span>{{ t('import40List.name') }}</span><a-input v-model:value="draft.receiverName" :placeholder="t('import40List.receiverNamePh')" /></label>
+            <label><span>{{ t('import40List.bin') }}</span><a-input v-model:value="draft.receiverBin" :placeholder="t('import40List.bin')" /></label>
             <label>
-              <span>Страна</span>
+              <span>{{ t('import40List.country') }}</span>
               <a-select v-model:value="draft.receiverCountry" show-search allow-clear option-filter-prop="label" :options="countryOptions" placeholder="KZ" />
             </label>
           </div>
         </div>
         <div class="party-block">
-          <div class="sub-label">Стоимость</div>
+          <div class="sub-label">{{ t('import40List.value') }}</div>
           <div class="create-grid">
             <label>
-              <span>Валюта</span>
+              <span>{{ t('import40List.currency') }}</span>
               <a-select v-model:value="draft.currency" show-search option-filter-prop="label" :options="CURRENCY_OPTIONS" placeholder="USD" />
             </label>
-            <label><span>Ориентировочная стоимость</span><a-input-number v-model:value="draft.estimatedValue" :min="0" :controls="false" style="width: 100%" placeholder="0.00" /></label>
+            <label><span>{{ t('import40List.estimatedValue') }}</span><a-input-number v-model:value="draft.estimatedValue" :min="0" :controls="false" style="width: 100%" placeholder="0.00" /></label>
           </div>
         </div>
       </div>
@@ -184,53 +184,53 @@
           :disabled="uploading || !createdCaseId"
         >
           <p class="dz-icon"><InboxOutlined /></p>
-          <p class="dz-title">Перетащите файлы сюда или нажмите для выбора</p>
-          <p class="dz-hint">PDF, JPG, PNG, XLSX, DOCX — до 20 МБ каждый</p>
+          <p class="dz-title">{{ t('import40List.dropTitle') }}</p>
+          <p class="dz-hint">{{ t('import40List.dropHint') }}</p>
         </a-upload-dragger>
         <ul v-if="uploadedFiles.length" class="uploaded-list">
           <li v-for="f in uploadedFiles" :key="f.id">{{ f.originalFileName }}</li>
         </ul>
 
         <div class="doc-checklist">
-          <div class="sub-label">Отметьте, что приложили</div>
-          <a-checkbox v-for="d in DOC_CHECKLIST" :key="d" v-model:checked="docChecklist[d]">{{ d }}</a-checkbox>
+          <div class="sub-label">{{ t('import40List.checklistTitle') }}</div>
+          <a-checkbox v-for="d in docChecklistItems" :key="d.key" v-model:checked="docChecklist[d.key]">{{ t('import40List.' + d.label) }}</a-checkbox>
         </div>
 
         <a-alert
           type="warning"
           show-icon
           class="responsibility-alert"
-          message="Ответственность за документы"
-          description="Отправляя заявку, вы подтверждаете, что предоставленные документы и сведения полные и достоверны. Ответственность за их полноту и достоверность несёт клиент."
+          :message="t('import40List.respTitle')"
+          :description="t('import40List.respDesc')"
         />
         <a-checkbox v-model:checked="responsibilityAccepted" class="resp-check">
-          Подтверждаю полноту и достоверность документов и сведений
+          {{ t('import40List.respConfirm') }}
         </a-checkbox>
       </div>
 
       <!-- Навигация мастера -->
       <div class="wizard-nav">
-        <a-button v-if="wizardStep > 0" @click="wizardBack">Назад</a-button>
+        <a-button v-if="wizardStep > 0" @click="wizardBack">{{ t('import40List.back') }}</a-button>
         <span class="wizard-nav-spacer" />
         <a-button v-if="wizardStep < 3" type="primary" :loading="creating" :disabled="!canGoNext" @click="wizardNext">
-          Далее
+          {{ t('import40List.next') }}
         </a-button>
         <a-tooltip v-else :title="submitTooltip">
           <a-button type="primary" :disabled="!canSubmitWizard" :loading="submitting" @click="submitCase">
-            Отправить заявку
+            {{ t('import40List.submit') }}
           </a-button>
         </a-tooltip>
-        <a-button v-if="createdCaseId" type="link" @click="finishLater">Дозаполнить позже</a-button>
+        <a-button v-if="createdCaseId" type="link" @click="finishLater">{{ t('import40List.finishLater') }}</a-button>
       </div>
     </a-modal>
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-tabs v-model:activeKey="tab" @change="reload">
-        <a-tab-pane key="my" tab="Мои задачи" />
-        <a-tab-pane key="all" tab="Все заявки" />
+        <a-tab-pane key="my" :tab="t('import40List.myTasks')" />
+        <a-tab-pane key="all" :tab="t('import40List.allRequests')" />
       </a-tabs>
 
-      <a-input v-model:value="search" allow-clear placeholder="Поиск по клиенту, грузу, посту">
+      <a-input v-model:value="search" allow-clear :placeholder="t('import40List.searchPh')">
         <template #prefix><SearchOutlined /></template>
       </a-input>
 
@@ -245,7 +245,7 @@
         :custom-row="(r: Import40CaseDto) => ({ onClick: () => router.push(`/import-40/${r.id}`), style: 'cursor: pointer' })"
       >
         <template #emptyText>
-          <a-empty :description="tab === 'my' ? 'Заявок, ждущих вас, нет' : 'Заявок пока нет'" />
+          <a-empty :description="tab === 'my' ? t('import40List.emptyMy') : t('import40List.emptyAll')" />
         </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'case'">
@@ -257,12 +257,12 @@
           <template v-else-if="column.key === 'status'">
             <a-tag :color="record.isProblem ? 'error' : isCompleted(record.status) ? 'success' : 'processing'">
               <template v-if="isCompleted(record.status)">{{ statusLabel(record.status) }}</template>
-              <template v-else>шаг {{ stepForStatus(record.status) }}/{{ TOTAL_STEPS }} · {{ statusLabel(record.status) }}</template>
+              <template v-else>{{ t('import40List.stepOf', { step: stepForStatus(record.status), total: TOTAL_STEPS }) }} · {{ statusLabel(record.status) }}</template>
             </a-tag>
-            <span v-if="record.isProblem" class="problem-chip">Проблема</span>
+            <span v-if="record.isProblem" class="problem-chip">{{ t('import40List.problem') }}</span>
           </template>
           <template v-else-if="column.key === 'containers'">
-            {{ record.containers.length }} конт. / {{ declCount(record) }} ДТ
+            {{ t('import40List.compositionCell', { containers: record.containers.length, decl: declCount(record) }) }}
           </template>
           <template v-else-if="column.key === 'updated'">
             {{ new Date(record.updatedAtUtc).toLocaleDateString('ru-RU') }}
@@ -276,6 +276,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
 import { SearchOutlined, InboxOutlined, CloseOutlined } from '@ant-design/icons-vue'
@@ -299,6 +300,7 @@ import PageHeader from '@/components/PageHeader.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useI18n()
 const loading = ref(false)
 const creating = ref(false)
 const clientsLoading = ref(false)
@@ -358,12 +360,17 @@ const draft = reactive({
 
 // Мастер подачи (роль client): 0..3
 const wizardStep = ref(0)
-const wizardStepItems = [
-  { title: 'Основное' },
-  { title: 'Транспорт' },
-  { title: 'Стороны' },
-  { title: 'Документы' },
-]
+const wizardStepItems = computed(() => [
+  { title: t('import40List.stepBasics') },
+  { title: t('import40List.stepTransport') },
+  { title: t('import40List.stepParties') },
+  { title: t('import40List.stepDocs') },
+])
+// Виды транспорта с переведёнными подписями (значения 0=ЖД,1=Авто,2=Авиа,3=Море).
+const TRANSPORT_MODE_KEYS: Record<number, string> = { 0: 'rail', 1: 'road', 2: 'air', 3: 'sea' }
+const transportModeOptions = computed(() =>
+  IMPORT40_TRANSPORT_MODES.map((m) => ({ value: m.value, label: t('enum.transportMode.' + TRANSPORT_MODE_KEYS[m.value]) })),
+)
 const countryOptions = ref<{ value: string; label: string }[]>([])
 const CURRENCY_OPTIONS = [
   { value: 'USD', label: 'USD — Доллар США' },
@@ -375,7 +382,13 @@ const CURRENCY_OPTIONS = [
   { value: 'AED', label: 'AED — Дирхам ОАЭ' },
   { value: 'GBP', label: 'GBP — Фунт стерлингов' },
 ]
-const DOC_CHECKLIST = ['Инвойс', 'Упаковочный лист', 'Транспортные (CMR/накладная)', 'Контракт/спецификация']
+// Чек-лист документов: стабильный ключ + i18n-метка (метка переводится в шаблоне).
+const docChecklistItems = [
+  { key: 'invoice', label: 'docInvoice' },
+  { key: 'packing', label: 'docPacking' },
+  { key: 'transport', label: 'docTransport' },
+  { key: 'contract', label: 'docContract' },
+]
 const docChecklist = reactive<Record<string, boolean>>({})
 const responsibilityAccepted = ref(false)
 const clientCompanyProfile = ref<ClientCompanyProfileDto | null>(null)
@@ -400,12 +413,12 @@ const showOnboardingGate = computed(
   () => isClientRole.value && onboardingChecked.value && !onboardingReady.value,
 )
 
-const columns = [
-  { title: 'Заявка', key: 'case', width: 240 },
-  { title: 'Шаг', key: 'status', width: 220 },
-  { title: 'Состав', key: 'containers', width: 140 },
-  { title: 'Обновлена', key: 'updated', width: 110 },
-]
+const columns = computed(() => [
+  { title: t('import40List.colRequest'), key: 'case', width: 240 },
+  { title: t('import40List.colStep'), key: 'status', width: 220 },
+  { title: t('import40List.colComposition'), key: 'containers', width: 140 },
+  { title: t('import40List.colUpdated'), key: 'updated', width: 110 },
+])
 
 const statusLabel = (status: number) =>
   IMPORT40_STATUSES.find((s) => s.id === status)?.short || 'Неизвестно'
@@ -426,7 +439,7 @@ const resetCreate = () => {
   createdCaseId.value = null
   uploadedFiles.value = []
   responsibilityAccepted.value = false
-  for (const d of DOC_CHECKLIST) docChecklist[d] = false
+  for (const d of docChecklistItems) docChecklist[d.key] = false
   draft.cargo = ''
   draft.post = ''
   draft.transportMode = 1
@@ -523,7 +536,7 @@ const createDraftCase = async (): Promise<boolean> => {
     void reload()
     return true
   } catch (e: any) {
-    message.error(e?.response?.data?.error ?? 'Не удалось создать заявку')
+    message.error(e?.response?.data?.error ?? t('import40List.createFailed'))
     return false
   } finally {
     creating.value = false
@@ -625,10 +638,10 @@ const createCase = async () => {
       post: draft.post.trim(),
     })
     createOpen.value = false
-    message.success('Заявка создана')
+    message.success(t('import40List.created'))
     router.push(`/import-40/${created.id}`)
   } catch (e: any) {
-    message.error(e?.response?.data?.error ?? 'Не удалось создать заявку')
+    message.error(e?.response?.data?.error ?? t('import40List.createFailed'))
   } finally {
     creating.value = false
   }
@@ -667,10 +680,10 @@ const submitCase = async () => {
     // Сохраняем транспорт/стороны/стоимость/контейнеры, затем отправляем.
     await persistWizardDraft()
     await import40Api.action(createdCaseId.value!, 'submit-for-processing')
-    message.success('Заявка отправлена на оформление')
+    message.success(t('import40List.submitted'))
     router.push(`/import-40/${createdCaseId.value}`)
   } catch (e: any) {
-    message.error(e?.response?.data?.error ?? 'Не удалось отправить заявку')
+    message.error(e?.response?.data?.error ?? t('import40List.submitFailed'))
   } finally {
     submitting.value = false
   }
