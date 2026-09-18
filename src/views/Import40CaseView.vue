@@ -76,8 +76,7 @@
           <template v-else-if="activeCase.transportMode === 1">
             <label><span>Машина</span><a-input :value="activeCase.vehicleNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ vehicleNumber: e.target.value })" /></label>
             <label><span>Прицеп</span><a-input :value="activeCase.trailerNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ trailerNumber: e.target.value })" /></label>
-            <label><span>Водитель</span><a-input :value="activeCase.driverName" :disabled="!canEditStep1" @change="(e: any) => saveField({ driverName: e.target.value })" /></label>
-            <label><span>Телефон</span><a-input :value="activeCase.driverPhone" :disabled="!canEditStep1" @change="(e: any) => saveField({ driverPhone: e.target.value })" /></label>
+            <label><span>Телефон водителя</span><a-input :value="activeCase.driverPhone" :disabled="!canEditStep1" @change="(e: any) => saveField({ driverPhone: e.target.value })" /></label>
           </template>
           <template v-else-if="activeCase.transportMode === 2">
             <label><span>Рейс</span><a-input :value="activeCase.flightNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ flightNumber: e.target.value })" /></label>

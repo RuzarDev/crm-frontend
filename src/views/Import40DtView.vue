@@ -771,27 +771,68 @@ const TPIN_PAYMENT_CODES: Array<{ code: string; pick: (r: SalesCalcGoodsResult) 
 // уже была строка с прошлым (устаревшим) значением, она намеренно НЕ трогается
 // здесь: это тот же простой, предсказуемый путь, что и на бэкенде, а не
 // отдельная логика "обнулить старое" только для фронтового пересчёта.
-const upsertGoodsPayment = (g: Import40GoodsItemInput, code: string, amountKzt: number) => {
+interface TpinPaymentMeta {
+  taxBase?: number | null
+  basisLabel?: string | null
+  rateValue?: number | null
+  rateLabel?: string | null
+}
+
+const upsertGoodsPayment = (
+  g: Import40GoodsItemInput,
+  code: string,
+  amountKzt: number,
+  meta?: TpinPaymentMeta,
+) => {
   if (amountKzt <= 0) return
   const rows = g.payments ?? []
   const existing = rows.find((p) => p.taxModeCode === code)
   if (existing) {
     existing.amountKzt = amountKzt
+    // основа/ставка гр.47: обновляем, если пересчёт их дал (не затираем непустое null'ом)
+    if (meta?.taxBase != null) existing.taxBase = meta.taxBase
+    if (meta?.basisLabel != null) existing.basisLabel = meta.basisLabel
+    if (meta?.rateValue != null) existing.rateValue = meta.rateValue
+    if (meta?.rateLabel != null) existing.rateLabel = meta.rateLabel
   } else {
     rows.push({
       taxModeCode: code,
-      taxBase: null,
-      rateKindCode: null,
-      rateValue: null,
+      taxBase: meta?.taxBase ?? null,
+      rateKindCode: meta?.rateValue != null ? '%' : null,
+      rateValue: meta?.rateValue ?? null,
       rateUnitCode: null,
       rateCurrencyCode: null,
       weightRatio: null,
       rateDate: null,
       paymentFeatureCode: 'ИУ',
       amountKzt,
+      basisLabel: meta?.basisLabel ?? null,
+      rateLabel: meta?.rateLabel ?? null,
     })
   }
   g.payments = rows
+}
+
+// Основа начисления + ставка для гр.47 по результату ТПиН-расчёта (salesApi не
+// возвращает их отдельно, выводим по правилам КЕДЕН — те же, что в
+// Import40PaymentCalculator на бэке): сбор(1010)=«6 МРП»; пошлина(2010) основа =
+// тамож.стоимость (гр.45), ставка = пошлина/стоимость; НДС(5060) основа =
+// стоимость+пошлина+акциз+сбор, ставка = НДС/база (16%/5%). Акциз(4010) —
+// основу/ставку не выводим (база зависит от подакцизной единицы).
+const fmtMoney = (v: number) => v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const tpinPaymentMeta = (code: string, r: SalesCalcGoodsResult): TpinPaymentMeta => {
+  const cv = r.customsValueKzt
+  if (code === '1010') return { basisLabel: '6 МРП' }
+  if (code === '2010') {
+    const rate = cv > 0 ? Math.round((r.importDutyKzt / cv) * 100 * 100) / 100 : null
+    return { taxBase: cv, basisLabel: fmtMoney(cv), rateValue: rate, rateLabel: rate != null ? `${rate}%` : null }
+  }
+  if (code === '5060') {
+    const base = cv + r.importDutyKzt + r.exciseKzt + r.customsFeeKzt
+    const rate = base > 0 ? Math.round((r.vatKzt / base) * 100 * 100) / 100 : null
+    return { taxBase: base, basisLabel: fmtMoney(base), rateValue: rate, rateLabel: rate != null ? `${rate}%` : null }
+  }
+  return {}
 }
 
 // Автопересчёт ТПиН для товаров, пришедших из КП без веса/количества
@@ -832,7 +873,7 @@ const calcTpin = async () => {
       const r = res.goods[idx]
       if (r && !r.error) {
         g.customsValueKzt = r.customsValueKzt
-        TPIN_PAYMENT_CODES.forEach(({ code, pick }) => upsertGoodsPayment(g, code, pick(r)))
+        TPIN_PAYMENT_CODES.forEach(({ code, pick }) => upsertGoodsPayment(g, code, pick(r), tpinPaymentMeta(code, r)))
         g.needsTpinRecalc = false
         recalculated += 1
       }

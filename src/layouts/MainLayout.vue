@@ -41,8 +41,8 @@
                     :class="{ 'notif-item--unread': !n.isRead }"
                     @click="notifStore.markRead(n.id)"
                   >
-                    <div class="notif-msg">{{ n.message }}</div>
-                    <div v-if="n.relatedCode" class="notif-code">{{ n.relatedCode }}</div>
+                    <div v-if="n.title" class="notif-title-row">{{ n.title }}</div>
+                    <div class="notif-msg">{{ n.body }}</div>
                     <div class="notif-time">{{ formatNotifTime(n.createdAtUtc) }}</div>
                   </div>
                 </div>
@@ -612,9 +612,17 @@ const handleLogout = () => {
   padding-left: 13px;
 }
 
-.notif-msg {
+.notif-title-row {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--atg-ink, #182640);
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+
+.notif-msg {
+  font-size: 12.5px;
+  font-weight: 500;
   color: var(--atg-charcoal);
   line-height: 1.5;
 }
