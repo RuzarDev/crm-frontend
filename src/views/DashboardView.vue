@@ -1,10 +1,10 @@
 <template>
   <div class="dashboard-view crm-page">
-    <PageHeader title="Дашборд" subtitle="Сводная статистика по реестру деклараций и клиентскому портфелю.">
+    <PageHeader :title="t('dashboard.title')" :subtitle="t('dashboard.subtitle')">
       <template #actions>
         <a-button @click="store.fetch" :loading="store.loading">
           <ReloadOutlined />
-          Обновить
+          {{ t('common.refresh') }}
         </a-button>
       </template>
     </PageHeader>
@@ -15,44 +15,44 @@
         <div class="kpi-row">
           <div class="kpi kpi--navy">
             <div class="kpi-top">
-              <span class="kpi-label">Всего деклараций</span>
+              <span class="kpi-label">{{ t('dashboard.totalDeclarations') }}</span>
               <span class="kpi-ic"><DatabaseOutlined /></span>
             </div>
             <div class="kpi-val tnum">{{ formatNum(store.data.totalEntries) }}</div>
-            <div class="kpi-sub">{{ formatNum(store.data.entriesThisMonth) }} в этом месяце · {{ inProgressCount }} в работе</div>
+            <div class="kpi-sub">{{ t('dashboard.thisMonthInProgress', { month: formatNum(store.data.entriesThisMonth), inProgress: inProgressCount }) }}</div>
           </div>
 
           <div class="kpi kpi--teal">
             <div class="kpi-top">
-              <span class="kpi-label">Общий вес брутто</span>
+              <span class="kpi-label">{{ t('dashboard.grossWeight') }}</span>
               <span class="kpi-ic"><InboxOutlined /></span>
             </div>
-            <div class="kpi-val tnum">{{ formatNum(Math.round(store.data.totalWeightKg)) }}<span class="kpi-unit">кг</span></div>
-            <div class="kpi-sub">≈ {{ formatNum(Math.round(store.data.totalWeightKg / 1000)) }} тонн по всем партиям</div>
+            <div class="kpi-val tnum">{{ formatNum(Math.round(store.data.totalWeightKg)) }}<span class="kpi-unit">{{ t('dashboard.unitKg') }}</span></div>
+            <div class="kpi-sub">{{ t('dashboard.weightTons', { tons: formatNum(Math.round(store.data.totalWeightKg / 1000)) }) }}</div>
           </div>
 
           <div class="kpi kpi--hero">
             <span class="kpi-strip"></span>
             <div class="kpi-top">
-              <span class="kpi-label">Итого с НДС</span>
+              <span class="kpi-label">{{ t('dashboard.grandTotal') }}</span>
               <span class="kpi-ic"><DollarOutlined /></span>
             </div>
             <div class="kpi-val tnum">{{ formatNum(Math.round(store.data.totalGrandTotal)) }}<span class="kpi-unit">₸</span></div>
-            <div class="kpi-sub">суммарная стоимость с налогами</div>
+            <div class="kpi-sub">{{ t('dashboard.grandTotalSub') }}</div>
           </div>
 
           <div class="kpi kpi--green">
             <div class="kpi-top">
-              <span class="kpi-label">Выпущено</span>
+              <span class="kpi-label">{{ t('dashboard.released') }}</span>
               <span class="kpi-ic"><CheckCircleOutlined /></span>
             </div>
             <div class="kpi-val tnum">{{ releasedCount }}<span class="kpi-unit">/ {{ store.data.totalEntries }}</span></div>
-            <div class="kpi-sub">{{ releasedPct }}% реестра выпущено в свободное обращение</div>
+            <div class="kpi-sub">{{ t('dashboard.releasedSub', { pct: releasedPct }) }}</div>
           </div>
         </div>
 
         <!-- Status distribution -->
-        <a-card class="crm-shell-card" :bordered="false" title="Декларации по статусам">
+        <a-card class="crm-shell-card" :bordered="false" :title="t('dashboard.byStatus')">
           <div v-if="statusTotal > 0" class="dist">
             <div class="distbar">
               <span
@@ -71,13 +71,13 @@
               </div>
             </div>
           </div>
-          <EmptyState v-else title="Нет данных по статусам" />
+          <EmptyState v-else :title="t('dashboard.noStatusData')" />
         </a-card>
 
         <!-- Top clients + top codes -->
         <div class="bottom-row">
-          <a-card class="crm-shell-card" :bordered="false" title="Топ клиентов">
-            <EmptyState v-if="!store.data.topClients?.length" title="Нет данных по клиентам" />
+          <a-card class="crm-shell-card" :bordered="false" :title="t('dashboard.topClients')">
+            <EmptyState v-if="!store.data.topClients?.length" :title="t('dashboard.noClientData')" />
             <div v-else class="ranklist">
               <div v-for="(c, i) in store.data.topClients" :key="c.clientId" class="rank-row">
                 <span class="rank-badge" :class="{ 'rank-badge--gold': i === 0 }">{{ i + 1 }}</span>
@@ -86,13 +86,13 @@
                   <div v-if="c.displayName" class="rank-sub">@{{ c.username }}</div>
                   <div class="mini"><span :style="{ width: rankWidth(c.count, clientMax) + '%' }" /></div>
                 </div>
-                <div class="rank-cnt tnum">{{ c.count }}<small> декл.</small></div>
+                <div class="rank-cnt tnum">{{ c.count }}<small> {{ t('dashboard.declShort') }}</small></div>
               </div>
             </div>
           </a-card>
 
-          <a-card class="crm-shell-card" :bordered="false" title="Топ кодов ТН ВЭД">
-            <EmptyState v-if="!store.data.topCodes?.length" title="Нет данных по кодам ТН ВЭД" />
+          <a-card class="crm-shell-card" :bordered="false" :title="t('dashboard.topCodes')">
+            <EmptyState v-if="!store.data.topCodes?.length" :title="t('dashboard.noCodeData')" />
             <div v-else class="ranklist">
               <div v-for="(c, i) in store.data.topCodes" :key="c.code" class="rank-row">
                 <span class="rank-badge" :class="{ 'rank-badge--gold': i === 0 }">{{ i + 1 }}</span>
@@ -108,7 +108,7 @@
       </div>
 
       <div v-else-if="!store.loading" class="empty-state">
-        <a-empty description="Нет данных" />
+        <a-empty :description="t('dashboard.noData')" />
       </div>
     </a-spin>
   </div>
@@ -116,6 +116,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useDashboardStore } from '@/stores/dashboard'
 import {
   DatabaseOutlined,
@@ -129,11 +130,13 @@ import StatusPill from '@/components/ui/StatusPill.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
 const store = useDashboardStore()
+const { t, locale } = useI18n()
 
 onMounted(() => store.fetch())
 
-// Разряды тысяч неразрывным пробелом (ru-RU), для табличных цифр.
-const formatNum = (n?: number) => (n ?? 0).toLocaleString('ru-RU')
+// Разряды тысяч по текущей локали (ru-RU / kk-KZ / en-US), для табличных цифр.
+const INTL_LOCALE: Record<string, string> = { ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }
+const formatNum = (n?: number) => (n ?? 0).toLocaleString(INTL_LOCALE[locale.value] ?? 'ru-RU')
 
 const STATUS_COLORS: Record<string, string> = {
   InProgress: '#2BBCD4',
