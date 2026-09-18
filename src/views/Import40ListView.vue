@@ -35,7 +35,7 @@
       <template v-if="createStep === 1">
         <div class="create-grid">
           <label v-if="!isClientRole">
-            <span>Клиент</span>
+            <span>Клиент <span class="req-star">*</span></span>
             <a-select
               v-model:value="draft.clientId"
               show-search
@@ -47,12 +47,12 @@
             />
           </label>
           <label>
-            <span>Груз</span>
+            <span>Груз <span class="req-star">*</span></span>
             <a-input v-model:value="draft.cargo" placeholder="Описание груза" />
           </label>
           <label>
-            <span>Пост / СВХ</span>
-            <a-input v-model:value="draft.post" placeholder="Таможенный пост" />
+            <span>Пост / СВХ <span class="opt-hint">необязательно</span></span>
+            <a-input v-model:value="draft.post" placeholder="Таможенный пост (можно позже)" />
           </label>
           <a-tooltip v-if="showOnboardingGate" title="Сначала подпишите договор и доверенность (Моя компания)">
             <span>
@@ -209,7 +209,8 @@ const canCreate = computed(
   () => isClientRole.value || (authStore.role || '').toLowerCase() === 'administrator',
 )
 const canSubmit = computed(
-  () => Boolean(draft.clientId) && draft.cargo.trim().length > 1 && draft.post.trim().length > 1,
+  // Обязательны только Клиент + Груз; Пост/СВХ необязателен (можно заполнить позже).
+  () => Boolean(draft.clientId) && draft.cargo.trim().length > 1,
 )
 const onboardingReady = computed(
   () => contractDocs.value.some(isDocumentEffective) && poaDocs.value.some(isDocumentEffective),
@@ -402,13 +403,15 @@ onMounted(() => {
   gap: 6px;
 }
 
-.create-grid label span {
+.create-grid label > span {
   color: var(--atg-charcoal);
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.create-grid .req-star { color: #cf4a3c; font-weight: 700; }
+.create-grid .opt-hint { color: var(--atg-muted, #95a1b7); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 11px; }
 
 .uploaded-list { margin: 10px 0 0; padding-left: 18px; font-size: 13px; }
 
