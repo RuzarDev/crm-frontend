@@ -9,7 +9,13 @@
       </a-checkbox>
     </div>
 
-    <div class="dt-section-bar"><DtGraphLabel graph="2" text="Отправитель" /></div>
+    <div class="dt-section-bar party-bar">
+      <DtGraphLabel graph="2" text="Отправитель" />
+      <span v-if="!readonly" class="party-ref-actions">
+        <a-button type="link" size="small" @click="openPartyPicker('sender')">Из справочника</a-button>
+        <a-button type="link" size="small" :loading="partySaving" @click="saveParty('sender')">Сохранить в справочник</a-button>
+      </span>
+    </div>
     <div class="dt-grid-3">
       <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.sender.name" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.senderShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
@@ -25,7 +31,13 @@
 
     <!-- Гр.8: как гр.9 — при «Согласно гр.14» блок скрывается целиком, а не серым -->
     <template v-if="!form.consigneeEqualsDeclarant">
-    <div class="dt-section-bar"><DtGraphLabel graph="8" text="Получатель" /></div>
+    <div class="dt-section-bar party-bar">
+      <DtGraphLabel graph="8" text="Получатель" />
+      <span v-if="!readonly" class="party-ref-actions">
+        <a-button type="link" size="small" @click="openPartyPicker('receiver')">Из справочника</a-button>
+        <a-button type="link" size="small" :loading="partySaving" @click="saveParty('receiver')">Сохранить в справочник</a-button>
+      </span>
+    </div>
     <div class="dt-grid-3">
       <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.receiver.name" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.receiverShortName" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
@@ -90,13 +102,36 @@
         <a-select v-model:value="form.declarantKatoCode" show-search allow-clear :disabled="readonly" :options="classifiers.options('kato')" @change="emitChange" />
       </a-form-item>
     </div>
+
+    <a-modal v-model:open="partyPickerOpen" :width="640"
+      :title="partyPickerTarget === 'sender' ? 'Справочник отправителей' : 'Справочник получателей'" :footer="null">
+      <a-input-search v-model:value="partyQuery" placeholder="Поиск по наименованию или БИН" allow-clear
+        :loading="partyLoading" @search="searchParties" @change="searchParties" style="margin-bottom: 12px" />
+      <a-list size="small" :data-source="partyResults" :loading="partyLoading">
+        <template #renderItem="{ item }">
+          <a-list-item class="party-ref-row" @click="applyParty(item)">
+            <div>
+              <div class="party-ref-name">{{ item.name }}</div>
+              <div class="party-ref-sub">
+                <span v-if="item.bin">БИН {{ item.bin }} · </span>{{ [item.countryCode, item.city, item.street, item.house].filter(Boolean).join(', ') || '—' }}
+              </div>
+            </div>
+          </a-list-item>
+        </template>
+        <template #footer v-if="!partyLoading && !partyResults.length">
+          <span class="party-ref-empty">Ничего не найдено — сохраните текущую сторону кнопкой «Сохранить в справочник».</span>
+        </template>
+      </a-list>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, watch } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { message } from 'ant-design-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
+import { partyRefsApi, type PartyRefDto } from '@/api/partyRefs'
 import type { Import40DtFormState, Import40Party } from '@/api/import40'
 import './dt-sections.css'
 
@@ -155,6 +190,79 @@ const emitChange = () =>
     sender: { ...form.sender },
     receiver: { ...form.receiver },
   })
+
+// ── Справочник сторон (№6): сохранить/подставить отправителя и получателя ──
+type PartyTarget = 'sender' | 'receiver'
+const partyPickerOpen = ref(false)
+const partyPickerTarget = ref<PartyTarget>('receiver')
+const partyQuery = ref('')
+const partyResults = ref<PartyRefDto[]>([])
+const partyLoading = ref(false)
+const partySaving = ref(false)
+
+const openPartyPicker = async (target: PartyTarget) => {
+  partyPickerTarget.value = target
+  partyPickerOpen.value = true
+  partyQuery.value = target === 'sender' ? (form.sender.name ?? '') : (form.receiver.name ?? '')
+  await searchParties()
+}
+const searchParties = async () => {
+  partyLoading.value = true
+  try {
+    partyResults.value = await partyRefsApi.search(partyQuery.value.trim())
+  } catch {
+    partyResults.value = []
+  } finally {
+    partyLoading.value = false
+  }
+}
+const applyParty = (r: PartyRefDto) => {
+  if (partyPickerTarget.value === 'sender') {
+    form.sender = { ...form.sender, name: r.name, countryCode: r.countryCode, region: r.region, city: r.city, street: r.street }
+    form.senderShortName = r.shortName ?? null
+    form.senderHouse = r.house ?? null
+    form.senderApt = r.apt ?? null
+  } else {
+    form.receiver = { ...form.receiver, name: r.name, countryCode: r.countryCode, region: r.region, city: r.city, street: r.street }
+    form.receiverShortName = r.shortName ?? null
+    form.receiverBin = r.bin ?? null
+    form.receiverHouse = r.house ?? null
+    form.receiverApt = r.apt ?? null
+    form.receiverCategoryCode = r.categoryCode ?? null
+    form.receiverKatoCode = r.katoCode ?? null
+  }
+  emitChange()
+  partyPickerOpen.value = false
+}
+const saveParty = async (target: PartyTarget) => {
+  const body = target === 'sender'
+    ? {
+        name: form.sender.name ?? '', shortName: form.senderShortName ?? null, bin: null,
+        countryCode: form.sender.countryCode ?? null, city: form.sender.city ?? null,
+        region: form.sender.region ?? null, street: form.sender.street ?? null,
+        house: form.senderHouse ?? null, apt: form.senderApt ?? null, categoryCode: null, katoCode: null,
+      }
+    : {
+        name: form.receiver.name ?? '', shortName: form.receiverShortName ?? null, bin: form.receiverBin ?? null,
+        countryCode: form.receiver.countryCode ?? null, city: form.receiver.city ?? null,
+        region: form.receiver.region ?? null, street: form.receiver.street ?? null,
+        house: form.receiverHouse ?? null, apt: form.receiverApt ?? null,
+        categoryCode: form.receiverCategoryCode ?? null, katoCode: form.receiverKatoCode ?? null,
+      }
+  if (!body.name.trim()) {
+    message.warning('Заполните наименование стороны перед сохранением в справочник')
+    return
+  }
+  partySaving.value = true
+  try {
+    await partyRefsApi.upsert(body)
+    message.success('Сохранено в справочник сторон')
+  } catch {
+    message.error('Не удалось сохранить в справочник')
+  } finally {
+    partySaving.value = false
+  }
+}
 
 // Копирует набор полей декларанта (гр.14) в получателя (гр.8).
 function copyDeclarantToReceiver() {
@@ -245,3 +353,13 @@ onMounted(() => {
   if (form.financialSubjectEqualsDeclarant) runAutocopy(copyDeclarantToFinancialSubject)
 })
 </script>
+
+<style scoped>
+.party-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.party-ref-actions { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.party-ref-row { cursor: pointer; border-radius: 8px; padding: 6px 8px; transition: background .12s; }
+.party-ref-row:hover { background: var(--atg-teal-soft, #e6f7fb); }
+.party-ref-name { font-weight: 600; color: var(--atg-ink, #182640); font-size: 13.5px; }
+.party-ref-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); margin-top: 1px; }
+.party-ref-empty { font-size: 12.5px; color: var(--atg-muted, #95a1b7); }
+</style>
