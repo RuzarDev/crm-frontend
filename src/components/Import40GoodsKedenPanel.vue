@@ -171,18 +171,31 @@
                   <a-button v-if="!readonly" type="text" danger size="small" @click="removeMarking(g, m)"><CloseOutlined /> Удалить</a-button></div>
               </div>
               <div class="field-row">
-                <div class="field"><div class="field-label">Уровень маркировки</div>
-                  <a-input v-uppercase v-model:value="m.levelCode" size="small" :disabled="readonly" @change="sync" /></div>
-                <div class="field"><div class="field-label">Тип идентификатора</div>
-                  <a-input v-uppercase v-model:value="m.idTypeCode" size="small" :disabled="readonly" @change="sync" /></div>
-                <div class="field"><div class="field-label">Способ нанесения ID</div>
-                  <a-input v-uppercase v-model:value="m.idApplicationCode" size="small" :disabled="readonly" @change="sync" /></div>
+                <div class="field"><div class="field-label">Код уровня маркировки</div>
+                  <a-select v-model:value="m.levelCode" size="small" :disabled="readonly" show-search allow-clear
+                    :options="MARKING_LEVEL_OPTIONS" :dropdown-match-select-width="false" option-filter-prop="label"
+                    :get-popup-container="popupContainer" placeholder="0–4" @change="sync" /></div>
+                <div class="field"><div class="field-label">Код вида идентификации</div>
+                  <a-select v-model:value="m.idTypeCode" size="small" :disabled="readonly" show-search allow-clear
+                    :options="MARKING_ID_TYPE_OPTIONS" :dropdown-match-select-width="false" option-filter-prop="label"
+                    :get-popup-container="popupContainer" placeholder="101/301…" @change="sync" /></div>
+                <div class="field"><div class="field-label">Код идентификатора применения</div>
+                  <a-select v-model:value="m.idApplicationCode" size="small" :disabled="readonly" show-search allow-clear
+                    :options="MARKING_ID_APPLICATION_OPTIONS" :dropdown-match-select-width="false" option-filter-prop="label"
+                    :get-popup-container="popupContainer" placeholder="00/01/02…" @change="sync" /></div>
                 <div class="field f-2"><div class="field-label">Номер маркировки</div>
                   <a-input v-uppercase v-model:value="m.number" size="small" :disabled="readonly" @change="sync" /></div>
               </div>
             </div>
             <div v-if="!(g.markings?.length)" class="marking-empty">Строк маркировки нет</div>
-            <a-button v-if="!readonly" type="dashed" size="small" @click="addMarking(g)">+ Добавить маркировку</a-button>
+            <div class="marking-actions">
+              <a-button v-if="!readonly" type="dashed" size="small" @click="addMarking(g)">+ Добавить маркировку</a-button>
+              <a-upload v-if="!readonly" :show-upload-list="false" accept=".xlsx,.xls"
+                :before-upload="(file: File) => importMarkingsFromExcel(g, file)">
+                <a-button type="dashed" size="small"><UploadOutlined /> Импорт из Excel</a-button>
+              </a-upload>
+              <span class="marking-hint">Excel: номер · уровень · идентификатор применения · вид идентификации</span>
+            </div>
           </a-collapse-panel>
         </a-collapse>
 
@@ -217,7 +230,9 @@
 
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { CloseOutlined, QuestionCircleOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, QuestionCircleOutlined, UploadOutlined } from '@ant-design/icons-vue'
+import { message } from 'ant-design-vue'
+import * as XLSX from 'xlsx'
 import type { Import40GoodsItemInput, Import40GoodsPayment, Import40GoodsMarking } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 
@@ -467,6 +482,67 @@ const removeMarking = (g: Import40GoodsItemInput, marking: Import40GoodsMarking)
   sync()
 }
 
+// Справочники кодов маркировки гр.31.13 (по Решению 257 / образцу КЕДЕН).
+const MARKING_LEVEL_OPTIONS = [
+  { value: '0', label: '0 — товар / потреб. упаковка' },
+  { value: '1', label: '1 — групповая упаковка' },
+  { value: '2', label: '2 — транспортная упаковка' },
+  { value: '3', label: '3 — набор для розницы' },
+  { value: '4', label: '4 — потреб. упаковка (разные коды ТНВЭД)' },
+]
+// Код вида идентификации (m.idTypeCode)
+const MARKING_ID_TYPE_OPTIONS = [
+  { value: '101', label: '101 — Линейный штрихкод Code128' },
+  { value: '301', label: '301 — DataMatrix' },
+  { value: '302', label: '302 — QR код' },
+  { value: '303', label: '303 — MicroQR' },
+  { value: '401', label: '401 — RFID-метка UHF' },
+  { value: '999', label: '999 — Прочее' },
+]
+// Код идентификатора применения (m.idApplicationCode)
+const MARKING_ID_APPLICATION_OPTIONS = [
+  { value: '00', label: '00 — SSCC (код транспортной тары)' },
+  { value: '01', label: '01 — GTIN единицы товара' },
+  { value: '02', label: '02 — GTIN внутри тары' },
+  { value: '21', label: '21 — Серийный номер' },
+  { value: '91', label: '91 — Идентификатор ключа проверки' },
+  { value: '92', label: '92 — Код проверки' },
+]
+
+// Импорт маркировок из Excel. Формат (без шапки): A=Номер маркировки,
+// B=Код уровня, C=Код идентификатора применения, D=Код вида идентификации.
+const importMarkingsFromExcel = async (g: Import40GoodsItemInput, file: File) => {
+  try {
+    const buf = await file.arrayBuffer()
+    const wb = XLSX.read(buf, { type: 'array' })
+    const sheetName = wb.SheetNames[0]
+    if (!sheetName) { message.warning('В файле нет листов'); return }
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], { header: 1, defval: null, raw: true })
+    const s = (v: unknown): string | null => (v == null || v === '' ? null : String(v).trim())
+    // idApplicationCode — 2-значный (02, 91…): дополняем ведущим нулём, если Excel потерял его как число.
+    const pad2 = (v: unknown): string | null => {
+      const t = s(v); return t == null ? null : (t.length === 1 ? '0' + t : t)
+    }
+    const parsed: Import40GoodsMarking[] = []
+    for (const r of rows) {
+      if (!Array.isArray(r)) continue
+      const number = s(r[0])
+      const levelCode = s(r[1])
+      const idApplicationCode = pad2(r[2])
+      const idTypeCode = s(r[3])
+      if (!number && !levelCode && !idApplicationCode && !idTypeCode) continue // пустая строка
+      parsed.push({ markingAfterRelease: false, kizCount: null, levelCode, idTypeCode, idApplicationCode, number, aggregated: false })
+    }
+    if (!parsed.length) { message.warning('В файле нет строк маркировки'); return }
+    g.markings = [...(g.markings ?? []), ...parsed]
+    sync()
+    message.success(`Импортировано маркировок: ${parsed.length}`)
+  } catch {
+    message.error('Не удалось прочитать Excel (ожидается .xlsx: номер, уровень, идентификатор применения, вид идентификации)')
+  }
+  return false // отменяем авто-загрузку a-upload
+}
+
 // Task 6b: копирует g.tempImportMonths первого товара во все остальные.
 const applyMonthsToAll = () => {
   const months = items.value[0]?.tempImportMonths ?? null
@@ -501,5 +577,7 @@ const applyMonthsToAll = () => {
 .marking-block .field-row:last-child { margin-bottom: 0; }
 .marking-remove { display: flex; align-items: flex-end; justify-content: flex-end; }
 .marking-empty { color: var(--atg-muted); font-size: 12px; margin-bottom: 8px; }
+.marking-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.marking-hint { font-size: 11.5px; color: var(--atg-muted, #95a1b7); }
 .empty-state { color: var(--atg-muted); font-size: 12px; }
 </style>
