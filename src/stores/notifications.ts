@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { notificationsApi } from '@/api/notifications'
-import type { NotificationDto } from '@/types/api'
+import type { AppNotification } from '@/types/api'
 
 export const useNotificationsStore = defineStore('notifications', () => {
-  const items = ref<NotificationDto[]>([])
+  const items = ref<AppNotification[]>([])
   const loading = ref(false)
 
   const unreadCount = computed(() => items.value.filter((n) => !n.isRead).length)

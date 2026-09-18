@@ -14,7 +14,7 @@
       <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.sender.name" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.senderShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Страна">
-        <a-select v-model:value="form.sender.countryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" @change="emitChange" />
+        <a-select v-model:value="form.sender.countryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
       </a-form-item>
       <a-form-item label="Город"><a-input v-uppercase v-model:value="form.sender.city" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Область"><a-input v-uppercase v-model:value="form.sender.region" :disabled="readonly" @change="emitChange" /></a-form-item>
@@ -23,13 +23,15 @@
       <a-form-item label="Квартира"><a-input v-uppercase v-model:value="form.senderApt" :disabled="readonly" @change="emitChange" /></a-form-item>
     </div>
 
+    <!-- Гр.8: как гр.9 — при «Согласно гр.14» блок скрывается целиком, а не серым -->
+    <template v-if="!form.consigneeEqualsDeclarant">
     <div class="dt-section-bar"><DtGraphLabel graph="8" text="Получатель" /></div>
     <div class="dt-grid-3">
       <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.receiver.name" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.receiverShortName" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item label="БИН"><a-input v-model:value="form.receiverBin" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item label="Страна">
-        <a-select v-model:value="form.receiver.countryCode" show-search allow-clear :disabled="readonly || form.consigneeEqualsDeclarant" :options="countryOptions" @change="emitChange" />
+        <a-select v-model:value="form.receiver.countryCode" show-search allow-clear :disabled="readonly || form.consigneeEqualsDeclarant" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
       </a-form-item>
       <a-form-item label="Город"><a-input v-uppercase v-model:value="form.receiver.city" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item label="Область"><a-input v-uppercase v-model:value="form.receiver.region" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
@@ -43,6 +45,7 @@
         <a-select v-model:value="form.receiverKatoCode" show-search allow-clear :disabled="readonly || form.consigneeEqualsDeclarant" :options="classifiers.options('kato')" @change="emitChange" />
       </a-form-item>
     </div>
+    </template>
 
     <template v-if="!form.financialSubjectEqualsDeclarant">
       <div class="dt-section-bar"><DtGraphLabel graph="9" text="Лицо, ответственное за фин. урегулирование" /></div>
@@ -51,7 +54,7 @@
         <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.financialSubjectShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item label="БИН"><a-input v-model:value="form.financialSubjectBin" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item label="Страна">
-          <a-select v-model:value="form.financialSubjectCountryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" @change="emitChange" />
+          <a-select v-model:value="form.financialSubjectCountryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
         </a-form-item>
         <a-form-item label="Город"><a-input v-uppercase v-model:value="form.financialSubjectCity" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item label="Область"><a-input v-uppercase v-model:value="form.financialSubjectRegion" :disabled="readonly" @change="emitChange" /></a-form-item>
@@ -73,7 +76,7 @@
       <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.declarantShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="БИН"><a-input v-model:value="form.declarantBin" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Страна">
-        <a-select v-model:value="form.declarantCountryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" @change="emitChange" />
+        <a-select v-model:value="form.declarantCountryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
       </a-form-item>
       <a-form-item label="Город"><a-input v-uppercase v-model:value="form.declarantCity" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Область"><a-input v-uppercase v-model:value="form.declarantRegion" :disabled="readonly" @change="emitChange" /></a-form-item>
