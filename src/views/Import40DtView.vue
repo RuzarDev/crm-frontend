@@ -1226,6 +1226,24 @@ const saveDt = async (silent = false): Promise<boolean> => {
   }
 }
 
+// №2 Автосейв черновика: любое изменение формы через 2.5с тишины сохраняется
+// без тостов (saveDt(true)). Не срабатывает во время загрузки декларации
+// (applyingDeclaration), в режиме просмотра (readOnly), до появления id, и не
+// стартует новое сохранение поверх идущего (saving) — по тишине сработает снова.
+let autosaveTimer: ReturnType<typeof setTimeout> | null = null
+watch(
+  () => dtForm,
+  () => {
+    if (applyingDeclaration.value || readOnly.value || !dtForm.id) return
+    if (autosaveTimer) clearTimeout(autosaveTimer)
+    autosaveTimer = setTimeout(() => {
+      if (applyingDeclaration.value || readOnly.value || !dtForm.id || saving.value) return
+      void saveDt(true)
+    }, 2500)
+  },
+  { deep: true },
+)
+
 const exportXml = async () => {
   // несохранённое не должно теряться при выгрузке
   const saved = await saveDt()
