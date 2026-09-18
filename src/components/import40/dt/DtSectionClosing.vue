@@ -21,7 +21,12 @@
       <a-input v-uppercase v-model:value="form.guaranteeInvalidFor" :disabled="readonly" @change="emitChange" />
     </a-form-item>
 
-    <div class="dt-section-bar"><DtGraphLabel graph="54" text="Место, дата, подписант" /></div>
+    <div class="dt-section-bar party-bar">
+      <DtGraphLabel graph="54" text="Место, дата, подписант" />
+      <a-button v-if="!readonly" type="link" size="small" :loading="profileLoading" @click="fillFromDeclarantProfile">
+        Подставить из профиля
+      </a-button>
+    </div>
     <div class="dt-grid-3">
       <a-form-item label="ФИО">
         <a-input v-uppercase v-model:value="form.signatoryFullName" :disabled="readonly" @change="emitChange" />
@@ -48,8 +53,14 @@
       <a-form-item label="Страна">
         <a-input v-uppercase v-model:value="form.signatoryDocCountryCode" :maxlength="2" :disabled="readonly" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Доверенность">
+      <a-form-item label="Доверенность (№)">
         <a-input v-uppercase v-model:value="form.powerOfAttorney" :disabled="readonly" @change="emitChange" />
+      </a-form-item>
+      <a-form-item label="Дата доверенности">
+        <a-date-picker v-model:value="form.powerOfAttorneyDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
+      </a-form-item>
+      <a-form-item label="Срок действия доверенности">
+        <a-date-picker v-model:value="form.powerOfAttorneyValidUntil" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
       </a-form-item>
       <a-form-item label="№ брокерского договора">
         <a-input v-uppercase v-model:value="form.brokerContractNumber" :disabled="readonly" @change="emitChange" />
@@ -98,6 +109,7 @@ import { message } from 'ant-design-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { getBrokerFirmByBin, upsertBrokerFirm } from '@/api/brokerFirms'
+import { declarantProfileApi } from '@/api/declarantProfile'
 import type { Import40DtFormState } from '@/api/import40'
 import './dt-sections.css'
 
@@ -119,6 +131,36 @@ const form = reactive({ ...props.modelValue })
 watch(() => props.modelValue, (v) => Object.assign(form, v), { deep: true })
 
 const emitChange = () => emit('update:modelValue', { ...props.modelValue, ...form })
+
+// №8/9: подставить гр.54 из профиля декларанта (ФИО/доверенность/удостоверение).
+const profileLoading = ref(false)
+const fillFromDeclarantProfile = async () => {
+  profileLoading.value = true
+  try {
+    const p = await declarantProfileApi.get()
+    if (p.fullName) form.signatoryFullName = p.fullName
+    if (p.position) form.signatoryPosition = p.position
+    if (p.phone) form.signatoryPhone = p.phone
+    if (p.powerOfAttorneyNumber) form.powerOfAttorney = p.powerOfAttorneyNumber
+    if (p.powerOfAttorneyDate) form.powerOfAttorneyDate = p.powerOfAttorneyDate
+    if (p.powerOfAttorneyValidUntil) form.powerOfAttorneyValidUntil = p.powerOfAttorneyValidUntil
+    if (p.idDocTypeCode) form.signatoryDocTypeCode = p.idDocTypeCode
+    if (p.idDocNumber) form.signatoryDocNumber = p.idDocNumber
+    if (p.idDocIssueDate) form.signatoryDocIssueDate = p.idDocIssueDate
+    if (p.idDocIssuedBy) form.signatoryDocIssuedBy = p.idDocIssuedBy
+    if (p.idDocCountryCode) form.signatoryDocCountryCode = p.idDocCountryCode
+    emitChange()
+    if (p.fullName || p.powerOfAttorneyNumber || p.idDocNumber) {
+      message.success('гр.54 заполнена из профиля декларанта')
+    } else {
+      message.info('Профиль декларанта пуст — заполните его в разделе «Профиль»')
+    }
+  } catch {
+    message.error('Не удалось загрузить профиль декларанта')
+  } finally {
+    profileLoading.value = false
+  }
+}
 
 // Блок-справочник фирм-брокеров. Это транзитное локальное состояние —
 // в модели ДТ фирма-брокер отдельной колонкой не хранится, персистится только
@@ -187,3 +229,7 @@ const saveBrokerFirm = async () => {
   }
 }
 </script>
+
+<style scoped>
+.party-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+</style>

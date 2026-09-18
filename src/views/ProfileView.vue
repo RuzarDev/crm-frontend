@@ -72,19 +72,104 @@
             </div>
           </a-form>
         </a-card>
+
+        <!-- Профиль декларанта (гр.54): подставляется в ДТ кнопкой «Подставить из профиля» -->
+        <a-card class="crm-shell-card profile-card" :bordered="false">
+          <template #title><div class="card-title-row"><IdcardOutlined class="card-title-icon" />Профиль декларанта (для гр.54)</div></template>
+          <p class="card-hint">Заполните один раз — данные подставятся в гр.54 декларации кнопкой «Подставить из профиля».</p>
+          <a-form layout="vertical">
+            <div class="form-grid">
+              <a-form-item label="ФИО (полностью)"><a-input v-model:value="decl.fullName" allow-clear /></a-form-item>
+              <a-form-item label="Должность"><a-input v-model:value="decl.position" allow-clear /></a-form-item>
+              <a-form-item label="Телефон"><a-input v-model:value="decl.phone" allow-clear /></a-form-item>
+              <a-form-item label="Вид документа (удостоверение)">
+                <a-select v-model:value="decl.idDocTypeCode" :options="classifiers.options('id-doc-types')" show-search allow-clear placeholder="21 — Удостоверение личности" style="width:100%" />
+              </a-form-item>
+              <a-form-item label="№ удостоверения"><a-input v-model:value="decl.idDocNumber" allow-clear /></a-form-item>
+              <a-form-item label="Дата выдачи удостоверения"><a-date-picker v-model:value="decl.idDocIssueDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" style="width:100%" /></a-form-item>
+              <a-form-item label="Кем выдан"><a-input v-model:value="decl.idDocIssuedBy" allow-clear /></a-form-item>
+              <a-form-item label="Страна (код)"><a-input v-model:value="decl.idDocCountryCode" :maxlength="3" allow-clear /></a-form-item>
+              <a-form-item label="№ доверенности (от Aqniet)"><a-input v-model:value="decl.powerOfAttorneyNumber" allow-clear /></a-form-item>
+              <a-form-item label="Дата выдачи доверенности"><a-date-picker v-model:value="decl.powerOfAttorneyDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" style="width:100%" /></a-form-item>
+              <a-form-item label="Срок действия доверенности"><a-date-picker v-model:value="decl.powerOfAttorneyValidUntil" format="DD.MM.YYYY" value-format="YYYY-MM-DD" style="width:100%" /></a-form-item>
+            </div>
+            <div class="form-actions">
+              <a-button type="primary" :loading="declSaving" @click="saveDeclarant"><SaveOutlined /> Сохранить профиль</a-button>
+            </div>
+          </a-form>
+        </a-card>
+
+        <!-- Смена пароля -->
+        <a-card class="crm-shell-card profile-card" :bordered="false">
+          <template #title><div class="card-title-row"><LockOutlined class="card-title-icon" />Смена пароля</div></template>
+          <a-form layout="vertical">
+            <div class="form-grid">
+              <a-form-item label="Текущий пароль"><a-input-password v-model:value="pwd.current" autocomplete="current-password" /></a-form-item>
+              <a-form-item label="Новый пароль (мин. 6)"><a-input-password v-model:value="pwd.next" autocomplete="new-password" /></a-form-item>
+              <a-form-item label="Повторите новый пароль"><a-input-password v-model:value="pwd.repeat" autocomplete="new-password" /></a-form-item>
+            </div>
+            <div class="form-actions">
+              <a-button type="primary" :loading="pwdSaving" @click="changePassword"><LockOutlined /> Сменить пароль</a-button>
+            </div>
+          </a-form>
+        </a-card>
       </div>
     </a-spin>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, watch } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { message } from 'ant-design-vue'
 import { useProfileStore } from '@/stores/profile'
+import { useClassifiersStore } from '@/stores/classifiers'
+import { declarantProfileApi, type DeclarantProfileDto } from '@/api/declarantProfile'
+import { authApi } from '@/api/auth'
 import { formatRole } from '@/utils/labels'
-import { SaveOutlined, UserOutlined } from '@ant-design/icons-vue'
+import { SaveOutlined, UserOutlined, IdcardOutlined, LockOutlined } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 
 const store = useProfileStore()
+const classifiers = useClassifiersStore()
+
+// Профиль декларанта (гр.54)
+const decl = reactive<DeclarantProfileDto>({
+  fullName: null, position: null, phone: null,
+  powerOfAttorneyNumber: null, powerOfAttorneyDate: null, powerOfAttorneyValidUntil: null,
+  idDocTypeCode: null, idDocNumber: null, idDocIssueDate: null, idDocIssuedBy: null, idDocCountryCode: null,
+})
+const declSaving = ref(false)
+const saveDeclarant = async () => {
+  declSaving.value = true
+  try {
+    const saved = await declarantProfileApi.update({ ...decl })
+    Object.assign(decl, saved)
+    message.success('Профиль декларанта сохранён')
+  } catch {
+    message.error('Не удалось сохранить профиль декларанта')
+  } finally {
+    declSaving.value = false
+  }
+}
+
+// Смена пароля
+const pwd = reactive({ current: '', next: '', repeat: '' })
+const pwdSaving = ref(false)
+const changePassword = async () => {
+  if (pwd.next.length < 6) { message.warning('Новый пароль — минимум 6 символов'); return }
+  if (pwd.next !== pwd.repeat) { message.warning('Пароли не совпадают'); return }
+  pwdSaving.value = true
+  try {
+    await authApi.changePassword(pwd.current, pwd.next)
+    pwd.current = ''; pwd.next = ''; pwd.repeat = ''
+    message.success('Пароль изменён')
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    message.error(err.response?.data?.error ?? 'Не удалось сменить пароль')
+  } finally {
+    pwdSaving.value = false
+  }
+}
 
 const form = reactive({
   displayName: '' as string | null,
@@ -106,6 +191,12 @@ watch(() => store.profile, syncForm)
 onMounted(async () => {
   await store.fetch()
   syncForm()
+  classifiers.loadMany(['id-doc-types'])
+  try {
+    Object.assign(decl, await declarantProfileApi.get())
+  } catch {
+    /* профиль декларанта не загрузился — форма остаётся пустой */
+  }
 })
 
 const resetForm = () => syncForm()
@@ -226,6 +317,14 @@ const handleSave = async () => {
   gap: 10px;
   margin-top: 4px;
 }
+
+.card-hint {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  color: var(--atg-muted);
+}
+
+.profile-layout > .profile-card { margin-bottom: 16px; }
 
 @media (max-width: 600px) {
   .form-grid {

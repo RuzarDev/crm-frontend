@@ -442,6 +442,8 @@ const dtForm = reactive<DtFormState>({
   signatoryDocIssuedBy: null,
   signatoryDocCountryCode: null,
   powerOfAttorney: null,
+  powerOfAttorneyDate: null,
+  powerOfAttorneyValidUntil: null,
   brokerContractNumber: null,
   signatoryPhone: null,
   signedDate: null,
@@ -677,6 +679,8 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.signatoryDocIssuedBy = decl.signatoryDocIssuedBy ?? null
   dtForm.signatoryDocCountryCode = decl.signatoryDocCountryCode ?? null
   dtForm.powerOfAttorney = decl.powerOfAttorney ?? null
+  dtForm.powerOfAttorneyDate = decl.powerOfAttorneyDate ?? null
+  dtForm.powerOfAttorneyValidUntil = decl.powerOfAttorneyValidUntil ?? null
   dtForm.brokerContractNumber = decl.brokerContractNumber ?? null
   dtForm.signatoryPhone = decl.signatoryPhone ?? null
   dtForm.signedDate = decl.signedDate ?? null
@@ -1201,6 +1205,8 @@ const saveDt = async (silent = false): Promise<boolean> => {
       signatoryDocIssuedBy: dtForm.signatoryDocIssuedBy || null,
       signatoryDocCountryCode: dtForm.signatoryDocCountryCode || null,
       powerOfAttorney: dtForm.powerOfAttorney || null,
+      powerOfAttorneyDate: dtForm.powerOfAttorneyDate || null,
+      powerOfAttorneyValidUntil: dtForm.powerOfAttorneyValidUntil || null,
       brokerContractNumber: dtForm.brokerContractNumber || null,
       signatoryPhone: dtForm.signatoryPhone || null,
       signedDate: dtForm.signedDate || null,

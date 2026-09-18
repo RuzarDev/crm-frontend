@@ -247,6 +247,8 @@ export interface Import40DeclarationDto {
   signatoryDocIssuedBy: string | null
   signatoryDocCountryCode: string | null
   powerOfAttorney: string | null
+  powerOfAttorneyDate: string | null
+  powerOfAttorneyValidUntil: string | null
   brokerContractNumber: string | null
   signatoryPhone: string | null
   signedDate: string | null
@@ -361,6 +363,8 @@ export interface Import40DeclarationUpsert {
   signatoryDocIssuedBy?: string | null
   signatoryDocCountryCode?: string | null
   powerOfAttorney?: string | null
+  powerOfAttorneyDate?: string | null
+  powerOfAttorneyValidUntil?: string | null
   brokerContractNumber?: string | null
   signatoryPhone?: string | null
   signedDate?: string | null
