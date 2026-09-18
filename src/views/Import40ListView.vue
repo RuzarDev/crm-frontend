@@ -52,7 +52,14 @@
           </label>
           <label>
             <span>Пост / СВХ <span class="opt-hint">необязательно</span></span>
-            <a-input v-model:value="draft.post" placeholder="Таможенный пост (можно позже)" />
+            <a-select
+              v-model:value="draft.post"
+              show-search
+              allow-clear
+              option-filter-prop="label"
+              :options="postOptions"
+              placeholder="Выберите пост/СВХ (поиск по названию) — можно позже"
+            />
           </label>
           <a-tooltip v-if="showOnboardingGate" title="Сначала подпишите договор и доверенность (Моя компания)">
             <span>
@@ -168,6 +175,7 @@ import {
   isDocumentEffective,
   type Import40DocumentDto,
 } from '@/api/import40Contract'
+import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
 import { TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
 import PageHeader from '@/components/PageHeader.vue'
@@ -179,7 +187,18 @@ const creating = ref(false)
 const clientsLoading = ref(false)
 const cases = ref<Import40CaseDto[]>([])
 const clientOptions = ref<{ value: string; label: string }[]>([])
+const postOptions = ref<{ value: string; label: string }[]>([])
 const search = ref('')
+
+// Справочник таможенных постов/СВХ для поля «Пост/СВХ» (value=label=полное имя).
+const loadPosts = async () => {
+  try {
+    const posts = await referencesApi.listCustomsPosts()
+    postOptions.value = posts.map((p) => ({ value: p.name, label: p.name }))
+  } catch {
+    postOptions.value = []
+  }
+}
 const tab = ref<'my' | 'all'>('my')
 
 const onboardingChecked = ref(false)
@@ -374,7 +393,10 @@ const handleDocUpload: UploadProps['customRequest'] = ({ file }) => {
 
 onMounted(() => {
   void reload()
-  if (canCreate.value) void loadClients()
+  if (canCreate.value) {
+    void loadClients()
+    void loadPosts()
+  }
 })
 </script>
 
