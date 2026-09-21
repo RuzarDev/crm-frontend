@@ -409,6 +409,8 @@ export default {
     declHint: 'Fill in once — the data is inserted into box 54 of the declaration with “Fill from profile”.',
     fullName: 'Full name',
     position: 'Position',
+    iin: 'IIN',
+    iinHint: 'Inserted into KEDEN XML as the IIN of the employee who filled in the declaration',
     idDocType: 'Document type (ID)',
     idDocTypePlaceholder: '21 — Identity card',
     idDocNumber: 'ID number',

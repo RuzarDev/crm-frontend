@@ -5,6 +5,8 @@ export interface DeclarantProfileDto {
   fullName: string | null
   position: string | null
   phone: string | null
+  /** ИИН — ccecd:PersonId в КЕДЕН-XML (кто заполнил ДТ) */
+  iin: string | null
   powerOfAttorneyNumber: string | null
   powerOfAttorneyDate: string | null
   powerOfAttorneyValidUntil: string | null

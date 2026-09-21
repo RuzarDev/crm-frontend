@@ -92,6 +92,7 @@
               <a-form-item :label="t('profile.fullName')"><a-input v-model:value="decl.fullName" allow-clear /></a-form-item>
               <a-form-item :label="t('profile.position')"><a-input v-model:value="decl.position" allow-clear /></a-form-item>
               <a-form-item :label="t('profile.phone')"><a-input v-model:value="decl.phone" allow-clear /></a-form-item>
+              <a-form-item :label="t('profile.iin')" :extra="t('profile.iinHint')"><a-input v-model:value="decl.iin" :maxlength="12" inputmode="numeric" allow-clear /></a-form-item>
               <a-form-item :label="t('profile.idDocType')">
                 <a-select v-model:value="decl.idDocTypeCode" :options="classifiers.options('id-doc-types')" show-search allow-clear :placeholder="t('profile.idDocTypePlaceholder')" style="width:100%" />
               </a-form-item>
@@ -180,7 +181,7 @@ const filterCountry = (input: string, option: { label: string }) => option.label
 
 // Профиль декларанта (гр.54)
 const decl = reactive<DeclarantProfileDto>({
-  fullName: null, position: null, phone: null,
+  fullName: null, position: null, phone: null, iin: null,
   powerOfAttorneyNumber: null, powerOfAttorneyDate: null, powerOfAttorneyValidUntil: null,
   idDocTypeCode: null, idDocNumber: null, idDocIssueDate: null, idDocIssuedBy: null, idDocCountryCode: null,
 })
