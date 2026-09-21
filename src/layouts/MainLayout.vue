@@ -196,7 +196,7 @@ const menuItems = computed(() => {
     })
   }
 
-  if (!['importer', 'sales'].includes(role)) {
+  if (role === 'administrator' || role === 'client' || authStore.hasPermission('reestr.read')) {
     operationsItems.push({
       key: '/reestr',
       icon: () => h(DatabaseOutlined),
@@ -214,7 +214,7 @@ const menuItems = computed(() => {
     })
   }
 
-  if (['expeditor', 'broker', 'administrator'].includes(role)) {
+  if (role === 'administrator' || role === 'expeditor' || authStore.hasPermission('packages.manage')) {
     operationsItems.push({
       key: '/document-packages',
       icon: () => h(FileAddOutlined),
@@ -239,7 +239,8 @@ const menuItems = computed(() => {
   }
 
   // Статусы КЕДЕН по БИН — брокер/экспедитор/декларант(importer)/админ/клиент
-  if (['administrator', 'broker', 'expeditor', 'importer', 'client'].includes(role)) {
+  if (role === 'administrator' || role === 'client' || role === 'expeditor'
+    || authStore.hasPermission('reestr.read') || authStore.hasPermission('import40.read')) {
     operationsItems.push({
       key: '/keden-status',
       icon: () => h(SafetyCertificateOutlined),
@@ -256,7 +257,7 @@ const menuItems = computed(() => {
     })
   }
 
-  if (role === 'administrator') {
+  if (authStore.hasPermission('analytics.read')) {
     salesItems.push({
       key: '/analytics',
       icon: () => h(BarChartOutlined),
@@ -264,7 +265,7 @@ const menuItems = computed(() => {
     })
   }
 
-  if (role !== 'client') {
+  if (role !== 'client' && (role === 'administrator' || authStore.hasPermission('clients.read'))) {
     salesItems.push({
       key: '/clients',
       icon: () => h(SolutionOutlined),
@@ -274,7 +275,7 @@ const menuItems = computed(() => {
 
   // ─── Справочники ────────────────────────────────────────
   // Только те, кто заполняет ДТ. canUseImport40 здесь не подходит — в него входит client.
-  if (role === 'administrator' || role === 'importer') {
+  if (role === 'administrator' || authStore.hasPermission('references.read')) {
     referenceItems.push({
       key: '/dt-guide',
       icon: () => h(ReadOutlined),
@@ -304,12 +305,14 @@ const menuItems = computed(() => {
     tnvedChildren.push({ key: '/tnved/sync', icon: () => h(SyncOutlined), label: t('nav.sync') })
   }
 
-  referenceItems.push({
-    key: 'tnved-group',
-    icon: () => h(GlobalOutlined),
-    label: t('nav.tnved'),
-    children: tnvedChildren,
-  })
+  if (role === 'administrator' || role === 'client' || authStore.hasPermission('references.read')) {
+    referenceItems.push({
+      key: 'tnved-group',
+      icon: () => h(GlobalOutlined),
+      label: t('nav.tnved'),
+      children: tnvedChildren,
+    })
+  }
 
   if (role === 'client') {
     referenceItems.push({

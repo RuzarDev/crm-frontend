@@ -29,19 +29,25 @@ export const useAuthStore = defineStore('auth', () => {
   const username = ref<string | null>(localStorage.getItem('username'))
   const role = ref<string | null>(localStorage.getItem('role'))
   const businessRole = ref<string | null>(localStorage.getItem('businessRole'))
+  // Мультироли: все бизнес-роли пользователя (первая — основная = businessRole).
+  const businessRoles = ref<string[]>(JSON.parse(localStorage.getItem('businessRoles') || '[]'))
+  const hasBusinessRole = (role: string) => businessRoles.value.includes(role) || businessRole.value === role
   const userId = ref<string | null>(localStorage.getItem('userId'))
   const permissions = ref<string[]>(JSON.parse(localStorage.getItem('permissions') || '[]'))
 
   const isAuthenticated = computed(() => !!token.value)
-  const hasPermission = (permission: string) => permissions.value.includes(permission)
+  // Администратор имеет все права всегда (в т.ч. при старой сессии без новых прав в списке).
+  const hasPermission = (permission: string) =>
+    (role.value || '').trim().toLowerCase() === 'administrator' || permissions.value.includes(permission)
 
+  // Доступ к Импорту 40 — по праву из матрицы (администратор и клиент — всегда).
   const canUseImport40 = computed(() => {
     const systemRole = (role.value || '').trim().toLowerCase()
-    return systemRole === 'administrator' || systemRole === 'importer' || systemRole === 'client'
+    return systemRole === 'administrator' || systemRole === 'client' || permissions.value.includes('import40.read')
   })
   const canUseSales = computed(() => {
     const systemRole = (role.value || '').trim().toLowerCase()
-    return systemRole === 'administrator' || systemRole === 'sales'
+    return systemRole === 'administrator' || permissions.value.includes('sales.read')
   })
 
   const login = async (credentials: LoginRequest) => {
@@ -52,6 +58,8 @@ export const useAuthStore = defineStore('auth', () => {
       username.value = credentials.username
       role.value = response.role || null
       businessRole.value = response.businessRole || null
+      businessRoles.value = response.businessRoles || (response.businessRole ? [response.businessRole] : [])
+      localStorage.setItem('businessRoles', JSON.stringify(businessRoles.value))
       if (!token.value) {
         message.error('Ошибка входа: в ответе нет токена')
         return false
@@ -96,6 +104,8 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('username')
     localStorage.removeItem('role')
     localStorage.removeItem('businessRole')
+    localStorage.removeItem('businessRoles')
+    businessRoles.value = []
     localStorage.removeItem('userId')
     localStorage.removeItem('permissions')
     permissions.value = []
@@ -121,6 +131,8 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.removeItem('username')
       localStorage.removeItem('role')
       localStorage.removeItem('businessRole')
+      localStorage.removeItem('businessRoles')
+      businessRoles.value = []
       localStorage.removeItem('userId')
       localStorage.removeItem('permissions')
       permissions.value = []
@@ -136,6 +148,8 @@ export const useAuthStore = defineStore('auth', () => {
     permissions,
     isAuthenticated,
     hasPermission,
+    businessRoles,
+    hasBusinessRole,
     canUseImport40,
     canUseSales,
     login,

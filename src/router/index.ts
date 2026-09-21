@@ -41,7 +41,7 @@ const router = createRouter({
           path: '/analytics',
           name: 'analytics',
           component: () => import('@/views/AnalyticsView.vue'),
-          meta: { requiresRole: 'administrator' },
+          meta: { requiresPermission: 'analytics.read' },
         },
         {
           path: '/reestr',
@@ -130,8 +130,7 @@ const router = createRouter({
           path: '/clients',
           name: 'clients',
           component: () => import('@/views/ClientsView.vue'),
-          // Путь клиента: список/приглашения доступны всем сотрудникам (не клиенту).
-          meta: { requiresAnyRole: ['administrator', 'expeditor', 'broker', 'importer', 'sales'] },
+          meta: { requiresPermission: 'clients.read' },
         },
         {
           path: '/tnved/tree',
@@ -217,13 +216,15 @@ router.beforeEach((to, from, next) => {
 
   if (requiresAuth && !authStore.isAuthenticated) {
     next('/login')
-  } else if (normalizedRole === 'importer' && to.path === '/reestr') {
-    next('/import-40')
-  } else if (normalizedRole === 'sales' && (to.path === '/reestr' || to.path === '/dashboard')) {
-    next('/sales')
+  } else if (
+    // Реестр (транзит) — по праву reestr.read; клиенту оставляем как было.
+    to.path === '/reestr' && normalizedRole !== 'administrator' && normalizedRole !== 'client'
+    && !authStore.hasPermission('reestr.read')
+  ) {
+    next(authStore.canUseImport40 ? '/import-40' : authStore.canUseSales ? '/sales' : '/')
   } else if (
     to.path.startsWith('/document-packages') &&
-    !['administrator', 'broker', 'expeditor'].includes(normalizedRole)
+    !(normalizedRole === 'administrator' || normalizedRole === 'expeditor' || authStore.hasPermission('packages.manage'))
   ) {
     next('/')
   } else if (requiredRole && normalizedRole !== requiredRole) {

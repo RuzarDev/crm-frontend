@@ -3,250 +3,132 @@
     <PageHeader
       kicker="Безопасность"
       title="Роли и права"
-      subtitle="Матрица доступов CRM: просмотр, редактирование, документы, статусы и управление пользователями."
-    />
+      subtitle="Что может каждая бизнес-роль. Галочка — право. У сотрудника может быть несколько ролей: права складываются. Изменения применяются при следующем входе."
+    >
+      <template #actions>
+        <a-popconfirm v-if="canManage" title="Вернуть матрицу к настройкам по умолчанию?" ok-text="Сбросить" cancel-text="Отмена" @confirm="resetAll">
+          <a-button danger>Сбросить к дефолту</a-button>
+        </a-popconfirm>
+        <a-button :loading="loading" @click="load">Обновить</a-button>
+      </template>
+    </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
-      <a-tabs v-model:activeKey="activeTab">
-        <a-tab-pane key="roles" tab="Пользовательские роли">
-          <a-table
-            :columns="columns"
-            :data-source="rolesStore.roles"
-            :loading="rolesStore.loading"
-            :pagination="false"
-            :row-key="(record: RoleItem) => record.name"
-          >
-            <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'name'">
-                <div class="role-name-cell">
-                  <span class="role-name-label">{{ formatRole(record.name) }}</span>
-                  <span class="role-slug">{{ record.name }}</span>
-                </div>
+      <a-spin :spinning="loading">
+        <div v-if="matrix" class="matrix-wrapper">
+          <table class="perm-matrix">
+            <thead>
+              <tr>
+                <th class="perm-col">Право</th>
+                <th v-for="role in matrix.roles" :key="role.code" class="role-col" :class="{ 'role-col--locked': !role.editable }">
+                  <div class="role-col-name">{{ role.label }}</div>
+                  <div class="role-col-slug">{{ role.scope }}</div>
+                  <a-button
+                    v-if="canManage && role.editable && dirty.has(role.code)"
+                    type="primary" size="small" class="role-save" :loading="saving === role.code" @click="save(role)"
+                  >Сохранить</a-button>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <template v-for="group in matrix.groups" :key="group.area">
+                <tr class="group-row"><td :colspan="matrix.roles.length + 1">{{ group.area }}</td></tr>
+                <tr v-for="perm in group.permissions" :key="perm.code" class="perm-row">
+                  <td class="perm-name">
+                    <span class="perm-label">{{ perm.label }}</span>
+                    <span class="perm-slug">{{ perm.code }}</span>
+                  </td>
+                  <td v-for="role in matrix.roles" :key="role.code" class="perm-cell" :class="{ 'has-perm': has(role, perm.code) }">
+                    <a-checkbox
+                      :checked="has(role, perm.code)"
+                      :disabled="!canManage || !role.editable"
+                      @change="toggle(role, perm.code)"
+                    />
+                  </td>
+                </tr>
               </template>
-              <template v-else-if="column.key === 'permissions'">
-                <div class="permissions-wrap">
-                  <a-tag v-for="permission in record.permissions" :key="permission" class="perm-tag">
-                    {{ formatPermission(permission) }}
-                  </a-tag>
-                </div>
-              </template>
-            </template>
-          </a-table>
-        </a-tab-pane>
-
-        <a-tab-pane key="matrix" tab="Системная матрица">
-          <a-spin :spinning="matrixLoading">
-            <div v-if="!matrixLoading && matrix" class="matrix-wrapper">
-              <table class="perm-matrix">
-                <thead>
-                  <tr>
-                    <th class="perm-col">Право</th>
-                    <th v-for="role in matrix.roles" :key="role.name" class="role-col">
-                      <div class="role-col-name">{{ formatRole(role.name) }}</div>
-                      <div class="role-col-slug">{{ role.name }}</div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="perm in matrix.permissions" :key="perm" class="perm-row">
-                    <td class="perm-name">
-                      <span class="perm-label">{{ formatPermission(perm) }}</span>
-                      <span class="perm-slug">{{ perm }}</span>
-                    </td>
-                    <td
-                      v-for="role in matrix.roles"
-                      :key="role.name"
-                      class="perm-cell"
-                      :class="{ 'has-perm': role.permissions.includes(perm) }"
-                    >
-                      <CheckCircleFilled v-if="role.permissions.includes(perm)" class="check-icon" />
-                      <span v-else class="no-icon">—</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </a-spin>
-        </a-tab-pane>
-      </a-tabs>
+            </tbody>
+          </table>
+        </div>
+      </a-spin>
+      <p class="hint">
+        Администратор всегда имеет все права — его колонка не редактируется. Роли <b>Клиент</b> и <b>Экспедитор</b> соответствуют типу аккаунта и назначаются автоматически.
+      </p>
     </a-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { CheckCircleFilled } from '@ant-design/icons-vue'
-import { useRolesStore } from '@/stores/roles'
-import { systemApi } from '@/api/system'
-import type { RoleItem, PermissionMatrixResponse } from '@/types/api'
-import { formatPermission, formatRole } from '@/utils/labels'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { message } from 'ant-design-vue'
 import PageHeader from '@/components/PageHeader.vue'
+import { useAuthStore } from '@/stores/auth'
+import { permissionsApi, type PermissionMatrix, type RoleRow } from '@/api/permissions'
 
-const rolesStore = useRolesStore()
-// По умолчанию открываем «Системную матрицу» (роль × право с галочками) — она
-// быстрее всего отвечает на вопрос «у кого какой доступ». Вкладка с тегами по
-// ролям («Пользовательские роли») остаётся второй — там строки разной высоты
-// из-за пилюль-тегов, для беглого сканирования матрица удобнее.
-const activeTab = ref('matrix')
+const auth = useAuthStore()
+const canManage = computed(() => auth.hasPermission('roles.manage'))
 
-const matrix = ref<PermissionMatrixResponse | null>(null)
-const matrixLoading = ref(false)
+const loading = ref(false)
+const saving = ref<string | null>(null)
+const matrix = ref<PermissionMatrix | null>(null)
+// Локальные правки: role → Set(permissions). Сохраняются по кнопке у колонки.
+const edits = reactive(new Map<string, Set<string>>())
+const dirty = reactive(new Set<string>())
 
-const columns = [
-  { title: 'Роль', key: 'name', dataIndex: 'name' },
-  { title: 'Права', key: 'permissions' },
-]
-
-onMounted(async () => {
-  await rolesStore.fetchRoles()
-
-  matrixLoading.value = true
+const load = async () => {
+  loading.value = true
   try {
-    const { data } = await systemApi.getPermissionMatrix()
-    matrix.value = data
+    matrix.value = await permissionsApi.matrix()
+    edits.clear(); dirty.clear()
+    for (const r of matrix.value.roles) edits.set(r.code, new Set(r.permissions))
+  } catch {
+    message.error('Не удалось загрузить матрицу прав')
   } finally {
-    matrixLoading.value = false
+    loading.value = false
   }
-})
+}
+onMounted(load)
+
+const has = (role: RoleRow, perm: string) => edits.get(role.code)?.has(perm) ?? role.permissions.includes(perm)
+const toggle = (role: RoleRow, perm: string) => {
+  const set = edits.get(role.code) ?? new Set(role.permissions)
+  if (set.has(perm)) set.delete(perm); else set.add(perm)
+  edits.set(role.code, set)
+  dirty.add(role.code)
+}
+const save = async (role: RoleRow) => {
+  saving.value = role.code
+  try {
+    await permissionsApi.updateRole(role.code, [...(edits.get(role.code) ?? [])])
+    dirty.delete(role.code)
+    message.success(`Права роли «${role.label}» сохранены. Сотрудникам нужно перезайти.`)
+  } catch {
+    message.error('Не удалось сохранить')
+  } finally {
+    saving.value = null
+  }
+}
+const resetAll = async () => {
+  try { await permissionsApi.reset(); message.success('Матрица сброшена к дефолту'); await load() } catch { message.error('Не удалось сбросить') }
+}
 </script>
 
 <style scoped>
-.roles-view {
-  margin: 0 auto;
-}
-
-.role-name-cell {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.role-name-label {
-  font-weight: 700;
-  color: var(--atg-ink);
-}
-
-.role-slug {
-  color: var(--atg-muted);
-  font-size: 11.5px;
-  font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
-  background: var(--atg-surface-muted);
-  padding: 1px 6px;
-  border-radius: 4px;
-  border: 1px solid var(--atg-line);
-}
-
-.permissions-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.perm-tag {
-  background: rgba(43, 188, 212, 0.08);
-  border-color: rgba(43, 188, 212, 0.22);
-  color: var(--atg-accent-strong);
-  font-size: 11.5px;
-  font-weight: 700;
-}
-
-:deep(.crm-shell-card.ant-card) {
-  overflow: visible;
-}
-
-.matrix-wrapper {
-  overflow-x: auto;
-}
-
-.perm-matrix {
-  min-width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.perm-matrix th,
-.perm-matrix td {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--atg-line);
-  text-align: left;
-}
-
-.perm-matrix thead th {
-  background: var(--atg-surface-muted);
-  font-weight: 700;
-  color: var(--atg-muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.perm-col {
-  min-width: 220px;
-}
-
-.role-col {
-  text-align: center !important;
-  min-width: 110px;
-}
-
-.role-col-name {
-  font-weight: 650;
-  color: var(--atg-ink);
-  font-size: 12px;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.role-col-slug {
-  font-size: 10px;
-  color: var(--atg-muted);
-  font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
-}
-
-.perm-row:hover {
-  background: var(--atg-surface-muted);
-}
-
-.perm-name {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.perm-label {
-  font-weight: 600;
-  color: var(--atg-ink);
-}
-
-.perm-slug {
-  font-size: 11px;
-  color: var(--atg-muted);
-  font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
-}
-
-.perm-cell {
-  text-align: center !important;
-}
-
-.perm-cell.has-perm {
-  background: rgba(43, 188, 212, 0.06);
-}
-
-.check-icon {
-  color: var(--atg-teal, #2BBCD4);
-  font-size: 16px;
-}
-
-.no-icon {
-  color: var(--atg-line);
-  font-size: 14px;
-}
-</style>
-
-<style>
-/* allow horizontal scroll on system matrix - ant-card overflow:hidden blocks it */
-.roles-view .ant-card {
-  overflow: visible !important;
-}
+.roles-view { display: flex; flex-direction: column; gap: 18px; }
+.matrix-wrapper { overflow-x: auto; }
+.perm-matrix { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 900px; }
+.perm-matrix th, .perm-matrix td { padding: 8px 10px; border-bottom: 1px solid var(--z-line-2, #eff2f8); }
+.perm-col { text-align: left; min-width: 260px; }
+.role-col { text-align: center; min-width: 120px; vertical-align: top; }
+.role-col--locked { opacity: .7; }
+.role-col-name { font-weight: 700; color: var(--atg-ink, #182640); font-size: 13px; }
+.role-col-slug { font-size: 11px; color: var(--atg-muted, #95a1b7); margin-top: 2px; }
+.role-save { margin-top: 6px; }
+.group-row td { background: var(--atg-surface-muted, #f5f7fb); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
+.perm-name { display: flex; flex-direction: column; }
+.perm-label { font-size: 13px; color: var(--atg-ink, #182640); }
+.perm-slug { font-size: 11px; color: var(--atg-muted, #95a1b7); font-family: ui-monospace, monospace; }
+.perm-cell { text-align: center; }
+.perm-cell.has-perm { background: rgba(43, 188, 212, 0.06); }
+.hint { margin: 14px 0 0; font-size: 12.5px; color: var(--atg-muted, #6b7891); }
 </style>

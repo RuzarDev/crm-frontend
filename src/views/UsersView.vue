@@ -141,7 +141,7 @@
 
     <a-modal
       v-model:open="businessRoleModalOpen"
-      title="Смена бизнес-роли"
+      title="Бизнес-роли сотрудника"
       ok-text="Сохранить"
       cancel-text="Отмена"
       :confirm-loading="businessRoleSaving"
@@ -151,11 +151,14 @@
       <a-form layout="vertical">
         <a-form-item :label="`Пользователь: ${businessRoleForm.username}`">
           <a-select
-            v-model:value="businessRoleForm.businessRole"
-            placeholder="Выберите бизнес-роль"
-            :options="businessRoleOptions"
+            v-model:value="businessRoleForm.roles"
+            mode="multiple"
+            placeholder="Выберите одну или несколько ролей"
+            :options="staffRoleOptions"
+            :loading="staffRolesLoading"
           />
         </a-form-item>
+        <p class="modal-hint">Права складываются из всех выбранных ролей (см. «Роли и права»). Первая роль в списке — основная. Изменения применяются при следующем входе сотрудника.</p>
       </a-form>
     </a-modal>
 
@@ -287,6 +290,7 @@ import { formatRole } from '@/utils/labels'
 import { DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import PageHeader from '@/components/PageHeader.vue'
+import { permissionsApi, businessRoleLabel } from '@/api/permissions'
 
 const usersStore = useUsersStore()
 const rolesStore = useRolesStore()
@@ -305,30 +309,24 @@ const form = reactive({
   businessRole: '',
 })
 
-const businessRoleOptions = computed(() => {
-  if (catalogTab.value === 'salespersons' || form.role === 'sales') {
-    return [
-      { label: 'РОП', value: 'rop' },
-      { label: 'МПП', value: 'mpp' },
-    ]
+// Роли при создании сотрудника — тот же каталог, что и в модалке ролей.
+const businessRoleOptions = computed(() => staffRoleOptions.value)
+
+const formatBusinessRole = (value: string) => (value ? businessRoleLabel(value) : '—')
+
+// Каталог бизнес-ролей сотрудника — с бэка (единый источник: AppBusinessRoles.Staff).
+const staffRoleOptions = ref<{ label: string; value: string }[]>([])
+const staffRolesLoading = ref(false)
+const loadStaffRoles = async () => {
+  if (staffRoleOptions.value.length) return
+  staffRolesLoading.value = true
+  try {
+    const items = await permissionsApi.catalog()
+    staffRoleOptions.value = items.map((r) => ({ value: r.code, label: `${r.label} · ${r.scope}` }))
+  } finally {
+    staffRolesLoading.value = false
   }
-  return [
-    { label: 'Менеджер КПП', value: 'kpp' },
-    { label: 'Декларант', value: 'declarant' },
-  ]
-})
-
-const businessRoleLabels: Record<string, string> = {
-  rop: 'РОП',
-  mpp: 'МПП',
-  declarant: 'Декларант',
-  kpp: 'Менеджер КПП',
-  legs: 'Ноги',
-  client: 'Клиент',
-  expeditor: 'Экспедитор',
 }
-
-const formatBusinessRole = (value: string) => businessRoleLabels[(value || '').toLowerCase()] || value || '—'
 
 const showBusinessRoleField = computed(() => ['broker', 'administrator', 'importer', 'sales'].includes(form.role))
 
@@ -339,28 +337,36 @@ const businessRoleSaving = ref(false)
 const businessRoleForm = reactive({
   userId: '',
   username: '',
-  businessRole: '' as string,
+  roles: [] as string[],
 })
 
-const openBusinessRoleModal = (record: CatalogTableRow) => {
+const openBusinessRoleModal = async (record: CatalogTableRow) => {
   businessRoleForm.userId = record.id
   businessRoleForm.username = record.username
-  businessRoleForm.businessRole =
-    'businessRole' in record && record.businessRole ? record.businessRole.toLowerCase() : ''
+  businessRoleForm.roles = []
   businessRoleModalOpen.value = true
+  void loadStaffRoles()
+  try {
+    businessRoleForm.roles = await permissionsApi.userRoles(record.id)
+  } catch {
+    businessRoleForm.roles = 'businessRole' in record && record.businessRole ? [record.businessRole.toLowerCase()] : []
+  }
 }
 
 const handleBusinessRoleSave = async () => {
-  if (!businessRoleForm.businessRole) {
-    message.error('Выберите бизнес-роль')
+  if (!businessRoleForm.roles.length) {
+    message.error('Выберите хотя бы одну роль')
     return
   }
   businessRoleSaving.value = true
   try {
-    const ok = await usersStore.changeBusinessRole(businessRoleForm.userId, businessRoleForm.businessRole)
-    if (ok) {
-      businessRoleModalOpen.value = false
-    }
+    await permissionsApi.setUserRoles(businessRoleForm.userId, businessRoleForm.roles)
+    message.success('Роли сохранены. Сотруднику нужно перезайти.')
+    businessRoleModalOpen.value = false
+    await usersStore.fetchCatalogs()
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    message.error(err.response?.data?.error ?? 'Не удалось сохранить роли')
   } finally {
     businessRoleSaving.value = false
   }
@@ -548,7 +554,7 @@ const roleOptions = computed(() =>
 )
 
 onMounted(async () => {
-  await Promise.all([usersStore.fetchCatalogs(), rolesStore.fetchRoles()])
+  await Promise.all([usersStore.fetchCatalogs(), rolesStore.fetchRoles(), loadStaffRoles()])
 })
 
 const openCreateModal = () => {

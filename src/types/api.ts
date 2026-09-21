@@ -26,6 +26,7 @@ export interface LoginResponse {
   role: string
   businessRole: string
   permissions: string[]
+  businessRoles?: string[]
 }
 
 export interface BulkDeleteResponse {
