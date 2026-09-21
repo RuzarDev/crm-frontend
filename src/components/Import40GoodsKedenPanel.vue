@@ -148,7 +148,12 @@
           <div class="field field-wide"><div class="field-label">Признаки соблюдения запретов</div>
             <a-select :value="restrictionMarksArray(g)" mode="multiple" size="small" :disabled="readonly"
               :options="restrictionMarksOptions" :dropdown-match-select-width="false" allow-clear
-              :get-popup-container="popupContainer" placeholder="С/М/П" @change="(v: string[]) => onRestrictionMarksChange(g, v)" /></div>
+              :max-tag-count="4" :get-popup-container="popupContainer" placeholder="С/М/П"
+              class="ois-marks-select" @change="(v: string[]) => onRestrictionMarksChange(g, v)">
+              <template #tag="{ value: markValue, onClose }">
+                <a-tag class="ois-mark-tag" :title="restrictionMarkLabel(markValue)" closable @close="onClose">{{ markValue }}</a-tag>
+              </template>
+            </a-select></div>
           <div class="field"><div class="field-label">Рег.№ по ОИС</div>
             <a-input v-uppercase v-model:value="g.oisRegNumber" size="small" :disabled="readonly" @change="sync" /></div>
           <div class="field"><div class="field-label">Код страны ОИС</div>
@@ -441,6 +446,11 @@ const restrictionMarksOptions = computed(() => classifiers.options('restriction-
 const restrictionMarksArray = (g: Import40GoodsItemInput): string[] =>
   (g.restrictionMarks ?? '').split(',').map((s) => s.trim()).filter(Boolean)
 
+// Полная подпись признака по коду — для tooltip на компактном теге (в теге только
+// код, иначе длинные подписи перекрывают соседние поля гр.33).
+const restrictionMarkLabel = (code: string): string =>
+  restrictionMarksOptions.value.find((o) => o.value === code)?.label ?? code
+
 const onRestrictionMarksChange = (g: Import40GoodsItemInput, values: string[]) => {
   g.restrictionMarks = values.length ? values.join(',') : null
   sync()
@@ -570,6 +580,11 @@ const applyMonthsToAll = () => {
    выпадающем списке длинные — узкое поле обрезает список. Даём полю больше
    места и снимаем dropdown-match-select-width на самом контроле (см. шаблон). */
 .field.field-wide { flex: 2; min-width: 260px; }
+/* гр.33 «Признаки соблюдения запретов»: длинные подписи вариантов раньше
+   рендерились полными тегами и вылезали на соседние поля. Теперь тег = только
+   код (полный текст в tooltip), тег компактный и не переполняет контрол. */
+.ois-marks-select :deep(.ant-select-selector) { overflow: hidden; }
+.ois-mark-tag { margin: 1px 2px; padding: 0 4px; font-weight: 600; line-height: 18px; }
 .field-label { font-size: 11px; color: var(--atg-muted); margin-bottom: 2px; }
 .payment-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .marking-collapse { margin-top: 4px; margin-bottom: 8px; }
