@@ -19,12 +19,11 @@
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-tabs v-model:activeKey="catalogTab" class="catalog-tabs">
+        <!-- Сотрудники — одна вкладка: брокер-декларант, транзит, продажи, бухгалтер… (тип аккаунта не важен, важны роли) -->
         <a-tab-pane key="administrators" tab="Администраторы" />
-        <a-tab-pane key="brokers" tab="Брокеры" />
+        <a-tab-pane key="staff" tab="Сотрудники" />
         <a-tab-pane key="clients" tab="Клиенты" />
         <a-tab-pane key="expeditors" tab="Экспедиторы" />
-        <a-tab-pane key="importers" tab="Импорт" />
-        <a-tab-pane key="salespersons" tab="Продажи" />
       </a-tabs>
 
       <a-table
@@ -57,7 +56,7 @@
           <template v-else-if="column.key === 'actions'">
             <a-space>
               <a-button
-                v-if="canChangeBusinessRole && ['brokers', 'administrators', 'importers', 'salespersons'].includes(catalogTab)"
+                v-if="canChangeBusinessRole && ['staff', 'administrators'].includes(catalogTab)"
                 type="link"
                 size="small"
                 @click="openBusinessRoleModal(record)"
@@ -65,7 +64,7 @@
                 Роли
               </a-button>
               <a-button
-                v-if="catalogTab === 'brokers' && canEditBroker"
+                v-if="catalogTab === 'staff' && record.role === 'broker' && canEditBroker"
                 type="link"
                 size="small"
                 @click="openEditBroker(record as CatalogBrokerRow)"
@@ -125,14 +124,14 @@
         <a-form-item label="Пароль">
           <a-input-password v-model:value="form.password" placeholder="Введите пароль" />
         </a-form-item>
-        <a-form-item label="Роль">
+        <a-form-item v-if="catalogTab !== 'staff'" label="Роль">
           <a-select
             v-model:value="form.role"
             placeholder="Выберите роль"
             :options="roleOptions"
           />
         </a-form-item>
-        <a-form-item v-if="showBusinessRoleField" label="Бизнес-роль">
+        <a-form-item v-if="showBusinessRoleField" label="Бизнес-роль (остальные можно добавить после создания)">
           <a-select
             v-model:value="form.businessRole"
             placeholder="Выберите бизнес-роль"
@@ -447,6 +446,7 @@ const systemRoleOrder = ['client', 'broker', 'expeditor', 'importer', 'sales', '
 
 const defaultRoleByTab: Record<CatalogTabKey, string> = {
   administrators: 'administrator',
+  staff: 'importer', // сотрудник: тип аккаунта технический, роли задаются бизнес-ролями
   brokers: 'broker',
   clients: 'client',
   expeditors: 'expeditor',
@@ -458,6 +458,9 @@ const tableRows = computed((): CatalogTableRow[] => {
   switch (catalogTab.value) {
     case 'administrators':
       return usersStore.administrators
+    case 'staff':
+      return [...usersStore.brokers, ...usersStore.importers, ...usersStore.salespersons]
+        .sort((a, b) => a.username.localeCompare(b.username, 'ru'))
     case 'brokers':
       return usersStore.brokers
     case 'clients':
@@ -476,9 +479,9 @@ const tableRows = computed((): CatalogTableRow[] => {
 const tableColumns = computed(() => {
   const showActionsColumn =
     authStore.hasPermission('users.delete') ||
-    (catalogTab.value === 'brokers' && canEditBroker.value) ||
+    (catalogTab.value === 'staff' && canEditBroker.value) ||
     (catalogTab.value === 'expeditors' && canEditExpeditor.value) ||
-    (canChangeBusinessRole.value && ['administrators', 'brokers', 'importers', 'salespersons'].includes(catalogTab.value))
+    (canChangeBusinessRole.value && ['administrators', 'staff'].includes(catalogTab.value))
 
   const actionsColumn = showActionsColumn
     ? [
@@ -486,7 +489,7 @@ const tableColumns = computed(() => {
           title: 'Действия',
           key: 'actions',
           width:
-            (catalogTab.value === 'brokers' && canEditBroker.value) ||
+            (catalogTab.value === 'staff' && canEditBroker.value) ||
             (catalogTab.value === 'expeditors' && canEditExpeditor.value)
               ? 200
               : 120,
@@ -509,11 +512,12 @@ const tableColumns = computed(() => {
         { title: 'Бизнес-роли', key: 'businessRole', width: 140 },
         ...actionsColumn,
       ]
+    case 'staff':
     case 'brokers':
       return [
         usernameColumn,
-        { title: 'Бизнес-роли', key: 'businessRole', width: 140 },
-        { title: 'Клиенты', key: 'clients', ellipsis: true },
+        { title: 'Бизнес-роли', key: 'businessRole', width: 260 },
+        { title: 'Клиенты (транзит)', key: 'clients', ellipsis: true },
         ...actionsColumn,
       ]
     case 'clients':

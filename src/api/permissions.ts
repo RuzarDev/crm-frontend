@@ -23,9 +23,9 @@ export const permissionsApi = {
 
 // Подписи бизнес-ролей для тегов (единый источник на фронте).
 export const BUSINESS_ROLE_LABELS: Record<string, string> = {
-  declarant: 'Декларант',
+  declarant: 'Брокер-декларант (импорт)',
   kpp: 'Менеджер КПП',
-  mpp: 'Брокер (транзит)',
+  mpp: 'Транзит (реестр)',
   accountant: 'Бухгалтер',
   sales: 'Продажи и клиенты',
   rop: 'Руководитель отдела',

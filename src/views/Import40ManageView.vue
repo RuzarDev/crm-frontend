@@ -113,7 +113,7 @@ const filtered = computed(() => {
 
 const staffLabel = (u: { displayName: string | null; username: string }) => u.displayName || u.username
 const declarantOptions = computed(() => (data.value?.staff ?? []).filter((u) => u.roles.includes('declarant')).map((u) => ({ value: u.id, label: staffLabel(u) })))
-const kppOptions = computed(() => (data.value?.staff ?? []).filter((u) => u.roles.includes('kpp')).map((u) => ({ value: u.id, label: staffLabel(u) })))
+const kppOptions = computed(() => (data.value?.staff ?? []).filter((u) => u.roles.includes('kpp') || u.roles.includes('declarant')).map((u) => ({ value: u.id, label: staffLabel(u) })))
 
 const staffLoad = computed(() => (data.value?.staff ?? [])
   .filter((u) => u.roles.includes('declarant') || u.roles.includes('kpp'))

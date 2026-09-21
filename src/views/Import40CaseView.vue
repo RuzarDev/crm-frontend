@@ -428,9 +428,13 @@ const roleMode = computed<RoleMode>(() => {
 })
 // Мультироли: действие доступно, если у пользователя есть соответствующая бизнес-роль
 // (любая из нескольких) или он руководитель отдела/админ.
+// …и по правам из матрицы: шаги КПП — import40.kpp, ДТ — import40.declarant (брокер-декларант
+// делает и то и другое, отдельного менеджера КПП пока нет).
+const PERM_FOR: Record<string, string> = { kpp: 'import40.kpp', declarant: 'import40.declarant' }
 const can = (role: RoleMode) =>
   roleMode.value === 'admin' || roleMode.value === role
-  || (role !== 'client' && role !== 'other' && (authStore.hasBusinessRole(role) || authStore.hasBusinessRole('rop')))
+  || (role !== 'client' && role !== 'other' && (authStore.hasBusinessRole(role) || authStore.hasBusinessRole('rop')
+      || (PERM_FOR[role] ? authStore.hasPermission(PERM_FOR[role]) : false)))
 // Назначать сотрудников — право import40.assign (руководитель отдела, админ).
 const canAssign = computed(() => roleMode.value === 'admin' || authStore.hasPermission('import40.assign'))
 
@@ -825,8 +829,9 @@ const loadStaffOptions = async () => {
   }
 }
 const staffLabel = (u: StaffMember) => u.displayName || u.username
+// Шаги КПП делает брокер-декларант (отдельного менеджера КПП пока нет) — в селект КПП попадают оба.
 const kppOptions = computed(() =>
-  staffList.value.filter((u) => u.roles.includes('kpp')).map((u) => ({ value: u.id, label: staffLabel(u) })),
+  staffList.value.filter((u) => u.roles.includes('kpp') || u.roles.includes('declarant')).map((u) => ({ value: u.id, label: staffLabel(u) })),
 )
 const declarantOptions = computed(() =>
   staffList.value.filter((u) => u.roles.includes('declarant')).map((u) => ({ value: u.id, label: staffLabel(u) })),

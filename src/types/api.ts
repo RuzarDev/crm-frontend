@@ -93,7 +93,7 @@ export interface CatalogSalespersonRow {
   createdAtUtc: string
 }
 
-export type CatalogTabKey = 'administrators' | 'brokers' | 'clients' | 'expeditors' | 'importers' | 'salespersons'
+export type CatalogTabKey = 'administrators' | 'staff' | 'brokers' | 'clients' | 'expeditors' | 'importers' | 'salespersons'
 
 export type CatalogTableRow =
   | CatalogAdministratorRow
