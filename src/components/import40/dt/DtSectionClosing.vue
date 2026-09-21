@@ -138,17 +138,20 @@ const fillFromDeclarantProfile = async () => {
   profileLoading.value = true
   try {
     const p = await declarantProfileApi.get()
-    if (p.fullName) form.signatoryFullName = p.fullName
-    if (p.position) form.signatoryPosition = p.position
+    // Текстовые поля ДТ — UPPERCASE (как при ручном вводе через v-uppercase);
+    // номера/даты/коды переносим как есть.
+    const up = (v: string) => v.toUpperCase()
+    if (p.fullName) form.signatoryFullName = up(p.fullName)
+    if (p.position) form.signatoryPosition = up(p.position)
     if (p.phone) form.signatoryPhone = p.phone
-    if (p.powerOfAttorneyNumber) form.powerOfAttorney = p.powerOfAttorneyNumber
+    if (p.powerOfAttorneyNumber) form.powerOfAttorney = up(p.powerOfAttorneyNumber)
     if (p.powerOfAttorneyDate) form.powerOfAttorneyDate = p.powerOfAttorneyDate
     if (p.powerOfAttorneyValidUntil) form.powerOfAttorneyValidUntil = p.powerOfAttorneyValidUntil
     if (p.idDocTypeCode) form.signatoryDocTypeCode = p.idDocTypeCode
-    if (p.idDocNumber) form.signatoryDocNumber = p.idDocNumber
+    if (p.idDocNumber) form.signatoryDocNumber = up(p.idDocNumber)
     if (p.idDocIssueDate) form.signatoryDocIssueDate = p.idDocIssueDate
-    if (p.idDocIssuedBy) form.signatoryDocIssuedBy = p.idDocIssuedBy
-    if (p.idDocCountryCode) form.signatoryDocCountryCode = p.idDocCountryCode
+    if (p.idDocIssuedBy) form.signatoryDocIssuedBy = up(p.idDocIssuedBy)
+    if (p.idDocCountryCode) form.signatoryDocCountryCode = up(p.idDocCountryCode)
     emitChange()
     if (p.fullName || p.powerOfAttorneyNumber || p.idDocNumber) {
       message.success('гр.54 заполнена из профиля декларанта')

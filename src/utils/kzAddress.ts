@@ -15,6 +15,7 @@ const REGION_RE = /(область|облысы|обл\.)/i
 const CITY_RE = /^(г\.|г\s|город\s|қала\s|қаласы|к\.\s)/i
 const CITY_SUFFIX_RE = /(қаласы|\sқ\.)$/i
 const DISTRICT_RE = /(район|ауданы|р-н)/i
+const CONTACT_RE = /^(тел\.?|телефон|факс|fax|phone|e-?mail|эл\.?\s*почта)\b/i
 
 export function parseKzAddress(address: string): ParsedKzAddress {
   const parts = address.split(',').map((p) => p.trim()).filter(Boolean)
@@ -24,6 +25,7 @@ export function parseKzAddress(address: string): ParsedKzAddress {
   for (const p of parts) {
     if (COUNTRY_RE.test(p)) continue
     if (/^\d{6}$/.test(p)) continue // индекс
+    if (CONTACT_RE.test(p) || /^\+?\d[\d\s\-()]{6,}$/.test(p)) continue // телефон/факс — не адрес
     if (!region && REGION_RE.test(p)) { region = p; continue }
     if (!city && (CITY_RE.test(p) || CITY_SUFFIX_RE.test(p))) {
       city = p.replace(CITY_RE, '').replace(CITY_SUFFIX_RE, '').trim()

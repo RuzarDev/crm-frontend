@@ -228,17 +228,18 @@ const searchParties = async () => {
   }
 }
 const applyParty = (r: PartyRefDto) => {
+  const up = (v: string | null | undefined) => (v ? v.toUpperCase() : null) // текст ДТ — UPPERCASE
   if (partyPickerTarget.value === 'sender') {
-    form.sender = { ...form.sender, name: r.name, countryCode: r.countryCode, region: r.region, city: r.city, street: r.street }
-    form.senderShortName = r.shortName ?? null
-    form.senderHouse = r.house ?? null
-    form.senderApt = r.apt ?? null
+    form.sender = { ...form.sender, name: up(r.name), countryCode: r.countryCode, region: up(r.region), city: up(r.city), street: up(r.street) }
+    form.senderShortName = up(r.shortName)
+    form.senderHouse = up(r.house)
+    form.senderApt = up(r.apt)
   } else {
-    form.receiver = { ...form.receiver, name: r.name, countryCode: r.countryCode, region: r.region, city: r.city, street: r.street }
-    form.receiverShortName = r.shortName ?? null
+    form.receiver = { ...form.receiver, name: up(r.name), countryCode: r.countryCode, region: up(r.region), city: up(r.city), street: up(r.street) }
+    form.receiverShortName = up(r.shortName)
     form.receiverBin = r.bin ?? null
-    form.receiverHouse = r.house ?? null
-    form.receiverApt = r.apt ?? null
+    form.receiverHouse = up(r.house)
+    form.receiverApt = up(r.apt)
     form.receiverCategoryCode = r.categoryCode ?? null
     form.receiverKatoCode = r.katoCode ?? null
   }
@@ -253,15 +254,16 @@ const fillReceiverFromClient = () => {
   // Профиль компании не всегда содержит разобранный адрес — если структурных
   // частей нет, кладём свободный legalAddress в «Улицу»; страна по умолчанию KZ.
   const hasStructured = !!(p.legalCity || p.legalStreet || p.legalRegion)
+  const up = (v: string | null | undefined) => (v ? v.toUpperCase() : null) // текст ДТ — UPPERCASE
   form.receiver = {
     ...form.receiver,
-    name: p.companyName ?? null,
+    name: up(p.companyName),
     countryCode: p.legalCountryCode || form.receiver.countryCode || 'KZ',
-    region: p.legalRegion ?? null,
-    city: p.legalCity ?? null,
-    street: p.legalStreet || (hasStructured ? null : (p.legalAddress ?? null)),
+    region: up(p.legalRegion),
+    city: up(p.legalCity),
+    street: up(p.legalStreet || (hasStructured ? null : p.legalAddress)),
   }
-  form.receiverShortName = form.receiverShortName || p.companyName || null
+  form.receiverShortName = form.receiverShortName || up(p.companyName)
   form.receiverBin = p.bin ?? null
   emitChange()
   message.success('Получатель заполнен из профиля клиента')

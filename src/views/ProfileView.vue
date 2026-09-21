@@ -43,14 +43,16 @@
                   allow-clear
                 />
               </a-form-item>
-              <a-form-item label="Компания">
+              <!-- Компания/БИН — поля клиента; сотруднику (декларанту) они не нужны,
+                   его реквизиты живут в профиле декларанта ниже. -->
+              <a-form-item v-if="isClient" label="Компания">
                 <a-input
                   v-model:value="form.companyName"
                   placeholder="ТОО «Пример»"
                   allow-clear
                 />
               </a-form-item>
-              <a-form-item label="ИИН / БИН">
+              <a-form-item v-if="isClient" label="ИИН / БИН">
                 <a-input
                   v-model:value="form.innBin"
                   placeholder="123456789012"
@@ -89,7 +91,10 @@
               <a-form-item label="№ удостоверения"><a-input v-model:value="decl.idDocNumber" allow-clear /></a-form-item>
               <a-form-item label="Дата выдачи удостоверения"><a-date-picker v-model:value="decl.idDocIssueDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" style="width:100%" /></a-form-item>
               <a-form-item label="Кем выдан"><a-input v-model:value="decl.idDocIssuedBy" allow-clear /></a-form-item>
-              <a-form-item label="Страна (код)"><a-input v-model:value="decl.idDocCountryCode" :maxlength="3" allow-clear /></a-form-item>
+              <a-form-item label="Страна выдачи удостоверения">
+                <a-select v-model:value="decl.idDocCountryCode" :options="countryAlpha2Options" show-search allow-clear
+                  :filter-option="filterCountry" placeholder="KZ — Казахстан" style="width:100%" />
+              </a-form-item>
               <a-form-item label="№ доверенности (от Aqniet)"><a-input v-model:value="decl.powerOfAttorneyNumber" allow-clear /></a-form-item>
               <a-form-item label="Дата выдачи доверенности"><a-date-picker v-model:value="decl.powerOfAttorneyDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" style="width:100%" /></a-form-item>
               <a-form-item label="Срок действия доверенности"><a-date-picker v-model:value="decl.powerOfAttorneyValidUntil" format="DD.MM.YYYY" value-format="YYYY-MM-DD" style="width:100%" /></a-form-item>
@@ -127,6 +132,7 @@ import { useClassifiersStore } from '@/stores/classifiers'
 import { declarantProfileApi, type DeclarantProfileDto } from '@/api/declarantProfile'
 import { authApi } from '@/api/auth'
 import { formatRole } from '@/utils/labels'
+import { ALPHA2_COUNTRIES } from '@/types/api'
 import { SaveOutlined, UserOutlined, IdcardOutlined, LockOutlined } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 
@@ -135,6 +141,10 @@ const classifiers = useClassifiersStore()
 
 // Профиль декларанта (гр.54) скрыт у роли «клиент» — см. карточку выше.
 const isClient = computed(() => (store.profile?.role || '').toLowerCase() === 'client')
+
+// Страна выдачи удостоверения — 2-буквенный код (как в гр.54 ДТ), выбор из справочника с поиском.
+const countryAlpha2Options = ALPHA2_COUNTRIES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+const filterCountry = (input: string, option: { label: string }) => option.label.toLowerCase().includes(input.toLowerCase())
 
 // Профиль декларанта (гр.54)
 const decl = reactive<DeclarantProfileDto>({
