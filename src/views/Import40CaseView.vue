@@ -1,28 +1,28 @@
 <template>
   <div v-if="activeCase" class="case-page">
-    <PageHeader kicker="Импорт 40" :title="activeCase.cargo || 'Заявка Импорт 40'">
+    <PageHeader :kicker="t('import40Case.kicker')" :title="activeCase.cargo || t('import40Case.caseTitleFallback')">
       <template #meta>
-        <span>Клиент: <strong>{{ activeCase.clientName }}</strong></span>
-        <span>Пост: <strong>{{ activeCase.post || '—' }}</strong></span>
-        <span v-if="activeCase.assignedKppId">КПП: <a-tag>{{ staffName(activeCase.assignedKppId) }}</a-tag></span>
-        <span v-if="activeCase.assignedDeclarantId">Декларант: <a-tag>{{ staffName(activeCase.assignedDeclarantId) }}</a-tag></span>
-        <a-tag v-if="isCompleted(activeCase.status)" color="success">Выполнено</a-tag>
+        <span>{{ t('import40Case.client') }}: <strong>{{ activeCase.clientName }}</strong></span>
+        <span>{{ t('import40Case.post') }}: <strong>{{ activeCase.post || '—' }}</strong></span>
+        <span v-if="activeCase.assignedKppId">{{ t('import40Case.kpp') }}: <a-tag>{{ staffName(activeCase.assignedKppId) }}</a-tag></span>
+        <span v-if="activeCase.assignedDeclarantId">{{ t('import40Case.declarant') }}: <a-tag>{{ staffName(activeCase.assignedDeclarantId) }}</a-tag></span>
+        <a-tag v-if="isCompleted(activeCase.status)" color="success">{{ t('import40Case.completed') }}</a-tag>
         <template v-else>
-          <a-tag color="processing">Шаг {{ currentStep }} из {{ TOTAL_STEPS }} · {{ STEP_TITLES[currentStep - 1] }}</a-tag>
+          <a-tag color="processing">{{ t('import40Case.stepOf', { step: currentStep, total: TOTAL_STEPS, title: stepTitle(currentStep) }) }}</a-tag>
         </template>
-        <a-tag v-if="assignedTag === 'me'" color="success">в работе у меня</a-tag>
-        <a-tag v-else-if="assignedTag === 'other'" color="warning">занято коллегой</a-tag>
+        <a-tag v-if="assignedTag === 'me'" color="success">{{ t('import40Case.assignedMe') }}</a-tag>
+        <a-tag v-else-if="assignedTag === 'other'" color="warning">{{ t('import40Case.assignedOther') }}</a-tag>
       </template>
       <template #actions>
         <a-button
           v-if="(can('kpp') || can('declarant')) && !activeCase.isProblem && activeCase.status < 8"
           danger size="small" @click="promptProblem"
-        >Запрос таможни / проблема</a-button>
+        >{{ t('import40Case.problemBtn') }}</a-button>
 
         <div v-if="roleMode === 'admin'" class="assign-inline">
-          <a-select v-model:value="assignForm.kppId" allow-clear placeholder="КПП не назначен" :options="kppOptions" size="small" style="min-width: 170px" />
-          <a-select v-model:value="assignForm.declarantId" allow-clear placeholder="Декларант не назначен" :options="declarantOptions" size="small" style="min-width: 170px" />
-          <a-button size="small" :loading="assignSaving" @click="saveAssignment">Назначить</a-button>
+          <a-select v-model:value="assignForm.kppId" allow-clear :placeholder="t('import40Case.kppNotAssigned')" :options="kppOptions" size="small" style="min-width: 170px" />
+          <a-select v-model:value="assignForm.declarantId" allow-clear :placeholder="t('import40Case.declarantNotAssigned')" :options="declarantOptions" size="small" style="min-width: 170px" />
+          <a-button size="small" :loading="assignSaving" @click="saveAssignment">{{ t('import40Case.assign') }}</a-button>
         </div>
       </template>
     </PageHeader>
@@ -33,12 +33,12 @@
       type="error"
       show-icon
       class="case-banner"
-      message="Запрос таможни / проблема"
+      :message="t('import40Case.problemTitle')"
       :description="activeCase.problemNote || undefined"
     >
       <template #action>
         <a-button v-if="can('kpp') || can('declarant')" size="small" @click="runAction('clear-problem')">
-          Снять проблему
+          {{ t('import40Case.clearProblem') }}
         </a-button>
       </template>
     </a-alert>
@@ -47,74 +47,74 @@
       type="warning"
       show-icon
       class="case-banner"
-      message="Заявка возвращена клиенту"
+      :message="t('import40Case.returnedTitle')"
       :description="activeCase.returnReason"
     />
 
     <!-- Лестница шагов -->
     <div class="steps">
-      <Import40Step :index="1" title="Заявка и документы" :state="stepState(1)" executor="клиент" :summary="step1Summary">
+      <Import40Step :index="1" :title="stepTitle(1)" :state="stepState(1)" :executor="t('enum.role.client')" :summary="step1Summary">
         <div class="grid-2">
-          <label><span>Груз</span>
+          <label><span>{{ t('import40Case.cargo') }}</span>
             <a-input :value="activeCase.cargo" :disabled="!canEditStep1" @change="(e: any) => saveField({ cargo: e.target.value })" />
           </label>
-          <label><span>Пост</span>
+          <label><span>{{ t('import40Case.post') }}</span>
             <a-input :value="activeCase.post" :disabled="!canEditStep1" @change="(e: any) => saveField({ post: e.target.value })" />
           </label>
         </div>
         <div class="grid-2">
-          <label><span>Вид транспорта</span>
-            <a-select :value="activeCase.transportMode" :options="IMPORT40_TRANSPORT_MODES" :disabled="!canEditStep1"
+          <label><span>{{ t('import40Case.transportMode') }}</span>
+            <a-select :value="activeCase.transportMode" :options="transportModeOptions" :disabled="!canEditStep1"
               style="width: 100%" @change="(v: number) => saveField({ transportMode: v })" />
           </label>
         </div>
         <div class="grid-2">
           <template v-if="activeCase.transportMode === 0">
-            <label><span>Номер вагона</span><a-input :value="activeCase.wagonNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ wagonNumber: e.target.value })" /></label>
-            <label><span>Станция</span><a-input :value="activeCase.station" :disabled="!canEditStep1" @change="(e: any) => saveField({ station: e.target.value })" /></label>
+            <label><span>{{ t('import40Case.wagon') }}</span><a-input :value="activeCase.wagonNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ wagonNumber: e.target.value })" /></label>
+            <label><span>{{ t('import40Case.station') }}</span><a-input :value="activeCase.station" :disabled="!canEditStep1" @change="(e: any) => saveField({ station: e.target.value })" /></label>
           </template>
           <template v-else-if="activeCase.transportMode === 1">
-            <label><span>Машина</span><a-input :value="activeCase.vehicleNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ vehicleNumber: e.target.value })" /></label>
-            <label><span>Прицеп</span><a-input :value="activeCase.trailerNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ trailerNumber: e.target.value })" /></label>
-            <label><span>Телефон водителя</span><a-input :value="activeCase.driverPhone" :disabled="!canEditStep1" @change="(e: any) => saveField({ driverPhone: e.target.value })" /></label>
+            <label><span>{{ t('import40Case.vehicle') }}</span><a-input :value="activeCase.vehicleNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ vehicleNumber: e.target.value })" /></label>
+            <label><span>{{ t('import40Case.trailer') }}</span><a-input :value="activeCase.trailerNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ trailerNumber: e.target.value })" /></label>
+            <label><span>{{ t('import40Case.driverPhone') }}</span><a-input :value="activeCase.driverPhone" :disabled="!canEditStep1" @change="(e: any) => saveField({ driverPhone: e.target.value })" /></label>
           </template>
           <template v-else-if="activeCase.transportMode === 2">
-            <label><span>Рейс</span><a-input :value="activeCase.flightNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ flightNumber: e.target.value })" /></label>
-            <label><span>AWB</span><a-input :value="activeCase.airWaybill" :disabled="!canEditStep1" @change="(e: any) => saveField({ airWaybill: e.target.value })" /></label>
+            <label><span>{{ t('import40Case.flight') }}</span><a-input :value="activeCase.flightNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ flightNumber: e.target.value })" /></label>
+            <label><span>{{ t('import40Case.awb') }}</span><a-input :value="activeCase.airWaybill" :disabled="!canEditStep1" @change="(e: any) => saveField({ airWaybill: e.target.value })" /></label>
           </template>
           <template v-else>
-            <label><span>Судно</span><a-input :value="activeCase.vesselName" :disabled="!canEditStep1" @change="(e: any) => saveField({ vesselName: e.target.value })" /></label>
-            <label><span>Коносамент</span><a-input :value="activeCase.billOfLading" :disabled="!canEditStep1" @change="(e: any) => saveField({ billOfLading: e.target.value })" /></label>
+            <label><span>{{ t('import40Case.vessel') }}</span><a-input :value="activeCase.vesselName" :disabled="!canEditStep1" @change="(e: any) => saveField({ vesselName: e.target.value })" /></label>
+            <label><span>{{ t('import40Case.bl') }}</span><a-input :value="activeCase.billOfLading" :disabled="!canEditStep1" @change="(e: any) => saveField({ billOfLading: e.target.value })" /></label>
           </template>
         </div>
 
-        <div class="sub-label">Контейнеры</div>
+        <div class="sub-label">{{ t('import40Case.containers') }}</div>
         <div v-for="c in activeCase.containers" :key="c.id" class="container-row">
           <strong>{{ c.containerNumber }}</strong><span class="muted">{{ c.containerType }}</span>
           <a-button v-if="canEditStep1" type="text" danger size="small" @click="removeContainer(c.id)"><CloseOutlined /></a-button>
         </div>
         <div v-if="canEditStep1" class="container-add">
-          <a-input v-model:value="newContainer.number" placeholder="Номер контейнера" style="max-width: 220px" />
-          <a-input v-model:value="newContainer.type" placeholder="Тип (40HC…)" style="max-width: 140px" />
-          <a-button :disabled="!newContainer.number.trim()" @click="addContainer">Добавить</a-button>
+          <a-input v-model:value="newContainer.number" :placeholder="t('import40Case.containerNumberPh')" style="max-width: 220px" />
+          <a-input v-model:value="newContainer.type" :placeholder="t('import40Case.containerTypePh')" style="max-width: 140px" />
+          <a-button :disabled="!newContainer.number.trim()" @click="addContainer">{{ t('import40Case.add') }}</a-button>
         </div>
 
         <template v-if="hasClientPrefill">
-          <div class="sub-label">Данные от клиента (для ДТ)</div>
+          <div class="sub-label">{{ t('import40Case.clientDataTitle') }}</div>
           <div class="client-prefill">
-            <div v-if="activeCase.clientSenderName" class="prefill-row"><span>Отправитель</span><b>{{ activeCase.clientSenderName }}<template v-if="activeCase.clientSenderCountryCode"> · {{ activeCase.clientSenderCountryCode }}</template></b></div>
-            <div v-if="activeCase.clientReceiverName" class="prefill-row"><span>Получатель</span><b>{{ activeCase.clientReceiverName }}<template v-if="activeCase.clientReceiverBin"> · БИН {{ activeCase.clientReceiverBin }}</template><template v-if="activeCase.clientReceiverCountryCode"> · {{ activeCase.clientReceiverCountryCode }}</template></b></div>
-            <div v-if="activeCase.clientCurrencyCode || activeCase.clientEstimatedValue != null" class="prefill-row"><span>Стоимость</span><b>{{ activeCase.clientEstimatedValue != null ? activeCase.clientEstimatedValue.toLocaleString('ru-RU') : '—' }} {{ activeCase.clientCurrencyCode }}</b></div>
+            <div v-if="activeCase.clientSenderName" class="prefill-row"><span>{{ t('import40Case.sender') }}</span><b>{{ activeCase.clientSenderName }}<template v-if="activeCase.clientSenderCountryCode"> · {{ activeCase.clientSenderCountryCode }}</template></b></div>
+            <div v-if="activeCase.clientReceiverName" class="prefill-row"><span>{{ t('import40Case.receiver') }}</span><b>{{ activeCase.clientReceiverName }}<template v-if="activeCase.clientReceiverBin"> · {{ t('import40Case.binShort') }} {{ activeCase.clientReceiverBin }}</template><template v-if="activeCase.clientReceiverCountryCode"> · {{ activeCase.clientReceiverCountryCode }}</template></b></div>
+            <div v-if="activeCase.clientCurrencyCode || activeCase.clientEstimatedValue != null" class="prefill-row"><span>{{ t('import40Case.value') }}</span><b>{{ activeCase.clientEstimatedValue != null ? localeNum(activeCase.clientEstimatedValue) : '—' }} {{ activeCase.clientCurrencyCode }}</b></div>
           </div>
         </template>
 
-        <div class="sub-label">Документы (инвойс, упаковочный, накладные)</div>
+        <div class="sub-label">{{ t('import40Case.docsTitle') }}</div>
         <Import40FilesBlock
           :files="filesBySection('documents')"
           :can-upload="canEditStep1 || roleMode === 'admin'"
           :can-remove="roleMode === 'admin'"
           :uploading="uploading"
-          empty-text="Прикрепите минимум один документ для отправки"
+          :empty-text="t('import40Case.docsEmpty')"
           @upload="(f: File) => uploadTo('documents', f)"
           @download="download"
           @remove="removeFile"
@@ -123,55 +123,55 @@
         <div v-if="stepState(1) === 'current'" class="step-actions">
           <a-tooltip :title="can('client') ? '' : hintFor('client')">
             <a-button type="primary" :disabled="!can('client')" @click="runAction('submit-for-processing')">
-              Отправить на оформление
+              {{ t('import40Case.submitForProcessing') }}
             </a-button>
           </a-tooltip>
         </div>
       </Import40Step>
-      <Import40Step :index="2" title="Граница" :state="stepState(2)" executor="менеджер КПП"
-        :summary="stepState(2) === 'done' ? 'пройдена' : undefined">
-        <p class="muted">Транспорт: {{ transportSummary }}</p>
+      <Import40Step :index="2" :title="stepTitle(2)" :state="stepState(2)" :executor="t('enum.role.kpp')"
+        :summary="stepState(2) === 'done' ? t('import40Case.passed') : undefined">
+        <p class="muted">{{ t('import40Case.transportPrefix', { summary: transportSummary }) }}</p>
         <div v-if="stepState(2) === 'current'" class="step-actions">
-          <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">Взять в работу</a-button>
+          <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
           <a-tooltip :title="can('kpp') ? '' : hintFor('kpp')">
-            <a-button type="primary" :disabled="!can('kpp')" @click="runAction('border-passed')">Граница пройдена</a-button>
+            <a-button type="primary" :disabled="!can('kpp')" @click="runAction('border-passed')">{{ t('import40Case.borderPassed') }}</a-button>
           </a-tooltip>
           <a-tooltip :title="can('kpp') || can('declarant') ? '' : hintFor('kpp')">
-            <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">Вернуть клиенту</a-button>
+            <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">{{ t('import40Case.returnToClient') }}</a-button>
           </a-tooltip>
         </div>
       </Import40Step>
-      <Import40Step :index="3" title="Декларирование и выпуск" :state="stepState(3)" executor="декларант"
-        :summary="stepState(3) === 'done' ? `ДТ: ${activeCase.declarations.length}` : undefined">
-        <div v-if="!activeCase.declarations.length" class="muted">ДТ ещё не создана</div>
+      <Import40Step :index="3" :title="stepTitle(3)" :state="stepState(3)" :executor="t('enum.role.declarant')"
+        :summary="stepState(3) === 'done' ? t('import40Case.dtCount', { n: activeCase.declarations.length }) : undefined">
+        <div v-if="!activeCase.declarations.length" class="muted">{{ t('import40Case.noDt') }}</div>
 
         <a-input
           v-if="activeCase.declarations.length > 1"
           v-model:value="dtSearch"
           allow-clear
-          placeholder="Поиск ДТ по номеру"
+          :placeholder="t('import40Case.searchDt')"
           style="max-width: 320px; margin-bottom: 8px"
         />
 
         <div v-for="(dt, i) in filteredDeclarations" :key="dt.id" class="dt-row">
           <div class="dt-row-main">
-            <strong>{{ dt.declarationNumber || `ДТ ${i + 1}` }}</strong>
+            <strong>{{ dt.declarationNumber || t('import40Case.dtFallback', { n: i + 1 }) }}</strong>
             <a-tooltip :title="splitTagTooltip(dt)">
               <a-tag v-if="splitTagLabel(dt)" :color="splitTagColor(dt)">{{ splitTagLabel(dt) }}</a-tag>
             </a-tooltip>
-            <span class="muted">товаров: {{ dt.goodsItems.length }}</span>
+            <span class="muted">{{ t('import40Case.goodsCount', { n: dt.goodsItems.length }) }}</span>
             <a-tag v-if="readiness[dt.id]" :color="readiness[dt.id].missing.length ? 'warning' : 'success'">
-              {{ readiness[dt.id].filled }}/{{ readiness[dt.id].total }} полей
+              {{ t('import40Case.fieldsFilled', { filled: readiness[dt.id].filled, total: readiness[dt.id].total }) }}
             </a-tag>
           </div>
           <div class="dt-row-actions">
             <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
-              <a-button size="small" :disabled="!can('declarant')" @click="$router.push(`/import-40/${activeCase.id}/dt/${dt.id}`)">Заполнить</a-button>
+              <a-button size="small" :disabled="!can('declarant')" @click="$router.push(`/import-40/${activeCase.id}/dt/${dt.id}`)">{{ t('import40Case.fill') }}</a-button>
             </a-tooltip>
             <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
-              <a-button size="small" :disabled="!can('declarant')" :loading="xmlLoading === dt.id" @click="exportXml(dt.id)">XML для КЕДЕН</a-button>
+              <a-button size="small" :disabled="!can('declarant')" :loading="xmlLoading === dt.id" @click="exportXml(dt.id)">{{ t('import40Case.xmlForKeden') }}</a-button>
             </a-tooltip>
-            <a-popconfirm v-if="can('declarant')" title="Удалить ДТ?" ok-text="Да" cancel-text="Нет" @confirm="removeDt(dt.id)">
+            <a-popconfirm v-if="can('declarant')" :title="t('import40Case.deleteDt')" :ok-text="t('import40Case.yes')" :cancel-text="t('import40Case.no')" @confirm="removeDt(dt.id)">
               <a-button size="small" type="text" danger><CloseOutlined /></a-button>
             </a-popconfirm>
           </div>
@@ -179,7 +179,7 @@
 
         <div v-if="activeCase.declarations.length && can('declarant')" class="keden-batch-row">
           <a-tag :color="readyDtCount > 0 ? 'success' : 'default'">
-            Готово {{ readyDtCount }} из {{ totalDtCount }} ДТ
+            {{ t('import40Case.readyCount', { ready: readyDtCount, total: totalDtCount }) }}
           </a-tag>
           <a-button
             size="small"
@@ -188,27 +188,27 @@
             :disabled="readyDtCount === 0"
             @click="exportBatchXml"
           >
-            Выгрузить все готовые ДТ (КЕДЕН)
+            {{ t('import40Case.exportAllReady') }}
           </a-button>
         </div>
 
         <a-alert v-if="kedenMissing.length" type="warning" show-icon class="keden-missing">
-          <template #message>Для XML не хватает данных:</template>
+          <template #message>{{ t('import40Case.xmlMissingTitle') }}</template>
           <template #description><ul><li v-for="m in kedenMissing" :key="m">{{ m }}</li></ul></template>
         </a-alert>
 
         <div v-if="stepState(3) === 'current'" class="step-actions">
           <template v-if="activeCase.status === 2">
             <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
-              <a-button :disabled="!can('declarant')" @click="addDt">Добавить ДТ</a-button>
+              <a-button :disabled="!can('declarant')" @click="addDt">{{ t('import40Case.addDt') }}</a-button>
             </a-tooltip>
             <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
               <a-button :disabled="!can('declarant')" :loading="batchUploading" @click="triggerBatchUpload">
-                Загрузить пакет документов
+                {{ t('import40Case.uploadBatch') }}
               </a-button>
             </a-tooltip>
             <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
-              <a-button :disabled="!can('declarant')" @click="openImportQuote">Импорт из КП</a-button>
+              <a-button :disabled="!can('declarant')" @click="openImportQuote">{{ t('import40Case.importQuote') }}</a-button>
             </a-tooltip>
             <input
               ref="batchFileInput"
@@ -218,138 +218,138 @@
               @change="handleBatchFilesSelected"
             />
           </template>
-          <a-button v-if="roleMode === 'declarant' && !activeCase.assignedDeclarantId" @click="runAction('claim')">Взять в работу</a-button>
+          <a-button v-if="roleMode === 'declarant' && !activeCase.assignedDeclarantId" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
           <a-tooltip v-if="activeCase.status === 2" :title="can('declarant') ? '' : hintFor('declarant')">
-            <a-button type="primary" :disabled="!can('declarant') || !activeCase.declarations.length" @click="runAction('submit-declaration')">Подать ДТ</a-button>
+            <a-button type="primary" :disabled="!can('declarant') || !activeCase.declarations.length" @click="runAction('submit-declaration')">{{ t('import40Case.submitDt') }}</a-button>
           </a-tooltip>
           <a-tooltip :title="can('kpp') || can('declarant') ? '' : hintFor('declarant')">
-            <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">Вернуть клиенту</a-button>
+            <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">{{ t('import40Case.returnToClient') }}</a-button>
           </a-tooltip>
         </div>
         <div v-if="activeCase.status === 3" class="step-actions">
-          <p class="muted">ДТ подана в КЕДЕН. После выпуска зафиксируйте его здесь.</p>
+          <p class="muted">{{ t('import40Case.status3Note') }}</p>
           <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
-            <a-button type="primary" :disabled="!can('declarant')" @click="runAction('release-declaration')">Зафиксировать выпуск</a-button>
+            <a-button type="primary" :disabled="!can('declarant')" @click="runAction('release-declaration')">{{ t('import40Case.fixRelease') }}</a-button>
           </a-tooltip>
         </div>
       </Import40Step>
-      <Import40Step :index="4" title="СВХ и счёт" :state="stepState(4)" executor="менеджер КПП"
-        :summary="stepState(4) === 'done' ? (activeCase.svhInvoiceNote ? `счёт: ${activeCase.svhInvoiceNote}` : 'закрыт') : undefined">
-        <div class="sub-label">Закрытая ДТ (штамп)</div>
+      <Import40Step :index="4" :title="stepTitle(4)" :state="stepState(4)" :executor="t('enum.role.kpp')"
+        :summary="stepState(4) === 'done' ? (activeCase.svhInvoiceNote ? t('import40Case.invoicePrefix', { note: activeCase.svhInvoiceNote }) : t('import40Case.closed')) : undefined">
+        <div class="sub-label">{{ t('import40Case.stampTitle') }}</div>
         <Import40FilesBlock :files="filesBySection('declaration-stamp')" :can-upload="stepState(4) === 'current' && can('kpp')"
-          :uploading="uploading" empty-text="Штамп не загружен"
+          :uploading="uploading" :empty-text="t('import40Case.stampEmpty')"
           @upload="(f: File) => uploadTo('declaration-stamp', f)" @download="download" />
-        <div class="sub-label">Счёт СВХ <a-tag v-if="activeCase.svhInvoiceNote">{{ activeCase.svhInvoiceNote }}</a-tag></div>
+        <div class="sub-label">{{ t('import40Case.svhInvoiceTitle') }} <a-tag v-if="activeCase.svhInvoiceNote">{{ activeCase.svhInvoiceNote }}</a-tag></div>
         <Import40FilesBlock :files="filesBySection('svh-invoice')" :can-upload="stepState(4) === 'current' && can('kpp')"
-          :uploading="uploading" empty-text="Счёт не выставлен"
+          :uploading="uploading" :empty-text="t('import40Case.svhInvoiceEmpty')"
           @upload="(f: File) => uploadTo('svh-invoice', f)" @download="download" />
         <div v-if="stepState(4) === 'current'" class="step-actions">
           <a-tooltip v-if="activeCase.status === 4" :title="can('kpp') ? '' : hintFor('kpp')">
-            <a-button type="primary" :disabled="!can('kpp')" @click="runAction('close-svh')">Закрыть ДТ на СВХ</a-button>
+            <a-button type="primary" :disabled="!can('kpp')" @click="runAction('close-svh')">{{ t('import40Case.closeSvh') }}</a-button>
           </a-tooltip>
           <a-tooltip v-if="activeCase.status === 5" :title="can('kpp') ? '' : hintFor('kpp')">
-            <a-button type="primary" :disabled="!can('kpp')" @click="promptInvoice">Выставить счёт СВХ</a-button>
+            <a-button type="primary" :disabled="!can('kpp')" @click="promptInvoice">{{ t('import40Case.issueInvoice') }}</a-button>
           </a-tooltip>
-          <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">Взять в работу</a-button>
+          <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
         </div>
       </Import40Step>
-      <Import40Step :index="5" title="Оплата" :state="stepState(5)" executor="клиент и КПП"
-        :summary="stepState(5) === 'done' ? 'оплачена' : undefined">
-        <div class="sub-label">Чек оплаты
-          <a-tag v-if="activeCase.paymentConfirmed" color="success">подтверждена</a-tag>
-          <a-tag v-else-if="filesBySection('payment-check').length" color="processing">на проверке</a-tag>
+      <Import40Step :index="5" :title="stepTitle(5)" :state="stepState(5)" :executor="t('enum.role.clientKpp')"
+        :summary="stepState(5) === 'done' ? t('import40Case.paid') : undefined">
+        <div class="sub-label">{{ t('import40Case.paymentCheckTitle') }}
+          <a-tag v-if="activeCase.paymentConfirmed" color="success">{{ t('import40Case.paymentConfirmed') }}</a-tag>
+          <a-tag v-else-if="filesBySection('payment-check').length" color="processing">{{ t('import40Case.paymentChecking') }}</a-tag>
         </div>
         <Import40FilesBlock :files="filesBySection('payment-check')" :can-upload="stepState(5) === 'current' && can('client')"
-          :uploading="uploading" empty-text="Клиент ещё не загрузил чек"
+          :uploading="uploading" :empty-text="t('import40Case.paymentEmpty')"
           @upload="(f: File) => uploadTo('payment-check', f)" @download="download" />
         <div v-if="stepState(5) === 'current'" class="step-actions">
-          <a-tooltip :title="can('kpp') ? (filesBySection('payment-check').length ? '' : 'Клиент ещё не загрузил чек') : hintFor('kpp')">
+          <a-tooltip :title="can('kpp') ? (filesBySection('payment-check').length ? '' : t('import40Case.clientNoCheck')) : hintFor('kpp')">
             <a-button type="primary" :disabled="!can('kpp') || !filesBySection('payment-check').length"
-              @click="runAction('confirm-payment-and-complete')">Подтвердить оплату и завершить</a-button>
+              @click="runAction('confirm-payment-and-complete')">{{ t('import40Case.confirmPayment') }}</a-button>
           </a-tooltip>
-          <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">Взять в работу</a-button>
+          <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
         </div>
       </Import40Step>
     </div>
 
     <!-- Низ: все файлы + история -->
     <a-collapse ghost class="case-bottom">
-      <a-collapse-panel key="files" :header="`Все файлы (${files.length})`">
+      <a-collapse-panel key="files" :header="t('import40Case.allFiles', { n: files.length })">
         <Import40FilesBlock :files="files" :can-upload="false" @download="download" />
       </a-collapse-panel>
-      <a-collapse-panel key="history" header="История">
+      <a-collapse-panel key="history" :header="t('import40Case.history')">
         <div v-for="l in activeCase.logs" :key="l.id" class="log-row">
-          <span class="log-date">{{ new Date(l.createdAtUtc).toLocaleString('ru-RU') }}</span>
+          <span class="log-date">{{ new Date(l.createdAtUtc).toLocaleString(INTL_LOCALE[locale] ?? 'ru-RU') }}</span>
           <span>{{ l.text }}</span>
           <a-tag>{{ l.changedByBusinessRole }}</a-tag>
         </div>
       </a-collapse-panel>
     </a-collapse>
 
-    <a-modal v-model:open="returnOpen" title="Вернуть заявку клиенту" ok-text="Вернуть" cancel-text="Отмена" @ok="confirmReturn">
-      <a-textarea v-model:value="returnReason" :rows="3" placeholder="Причина возврата" />
+    <a-modal v-model:open="returnOpen" :title="t('import40Case.returnTitle')" :ok-text="t('import40Case.returnOk')" :cancel-text="t('common.cancel')" @ok="confirmReturn">
+      <a-textarea v-model:value="returnReason" :rows="3" :placeholder="t('import40Case.returnPh')" />
     </a-modal>
 
-    <a-modal v-model:open="problemOpen" title="Запрос таможни / проблема" ok-text="Отметить" cancel-text="Отмена" @ok="confirmProblem">
-      <a-textarea v-model:value="problemNote" :rows="3" placeholder="Опишите проблему" />
+    <a-modal v-model:open="problemOpen" :title="t('import40Case.problemTitle')" :ok-text="t('import40Case.problemOk')" :cancel-text="t('common.cancel')" @ok="confirmProblem">
+      <a-textarea v-model:value="problemNote" :rows="3" :placeholder="t('import40Case.problemPh')" />
     </a-modal>
 
-    <a-modal v-model:open="invoiceOpen" title="Выставить счёт СВХ" ok-text="Выставить" cancel-text="Отмена" @ok="confirmInvoice">
-      <a-input v-model:value="invoiceAmount" placeholder="Сумма счёта СВХ" />
+    <a-modal v-model:open="invoiceOpen" :title="t('import40Case.invoiceTitle')" :ok-text="t('import40Case.invoiceOk')" :cancel-text="t('common.cancel')" @ok="confirmInvoice">
+      <a-input v-model:value="invoiceAmount" :placeholder="t('import40Case.invoicePh')" />
     </a-modal>
 
     <a-modal
       v-model:open="importQuoteOpen"
-      title="Импорт из КП"
-      ok-text="Импортировать"
-      cancel-text="Отмена"
+      :title="t('import40Case.importTitle')"
+      :ok-text="t('import40Case.importOk')"
+      :cancel-text="t('common.cancel')"
       :confirm-loading="importQuoteLoading"
       :ok-button-props="{ disabled: !imp.quoteId || (imp.target === 'existing' && !imp.declarationId) }"
       @ok="doImportQuote"
     >
       <div class="import-quote-form">
-        <label><span>Коммерческое предложение</span>
+        <label><span>{{ t('import40Case.quoteLabel') }}</span>
           <a-select
             v-model:value="imp.quoteId"
             show-search
-            placeholder="Найдите КП по номеру или клиенту"
+            :placeholder="t('import40Case.quotePh')"
             style="width: 100%"
             :options="quoteOptions"
             :filter-option="filterQuoteOption"
             :loading="quotesLoading"
           />
         </label>
-        <label><span>Куда добавить товары</span>
+        <label><span>{{ t('import40Case.targetLabel') }}</span>
           <a-radio-group v-model:value="imp.target">
-            <a-radio value="new">Новая ДТ</a-radio>
-            <a-radio value="existing" :disabled="!activeCase.declarations.length">Существующая ДТ</a-radio>
+            <a-radio value="new">{{ t('import40Case.targetNew') }}</a-radio>
+            <a-radio value="existing" :disabled="!activeCase.declarations.length">{{ t('import40Case.targetExisting') }}</a-radio>
           </a-radio-group>
         </label>
-        <label v-if="imp.target === 'existing'"><span>Декларация</span>
+        <label v-if="imp.target === 'existing'"><span>{{ t('import40Case.declarationLabel') }}</span>
           <a-select
             v-model:value="imp.declarationId"
             style="width: 100%"
-            placeholder="Выберите ДТ"
+            :placeholder="t('import40Case.selectDt')"
             :options="declarationOptions"
           />
         </label>
       </div>
     </a-modal>
 
-    <a-modal :open="issuesOpen" title="Проверьте пакет документов перед сохранением"
-      :width="640" ok-text="Понятно, проверю в форме" :cancel-button-props="{ style: { display: 'none' } }"
+    <a-modal :open="issuesOpen" :title="t('import40Case.issuesTitle')"
+      :width="640" :ok-text="t('import40Case.issuesOk')" :cancel-button-props="{ style: { display: 'none' } }"
       @ok="closeIssuesDialog" @update:open="onIssuesOpenChange" @after-close="issues = null">
       <div v-if="issues?.conflicts.length">
-        <p>Источники дали разные значения — выбрано одно, сверьте вручную:</p>
+        <p>{{ t('import40Case.conflictsIntro') }}</p>
         <ul style="padding-left: 20px">
           <li v-for="(c, i) in issues.conflicts" :key="`c${i}`">
-            <strong>{{ c.fieldLabel }}</strong>: "{{ c.value ?? '—' }}"{{ c.sourceDocument ? ` (${c.sourceDocument})` : '' }} — есть другие варианты:
+            <strong>{{ c.fieldLabel }}</strong>: "{{ c.value ?? '—' }}"{{ c.sourceDocument ? ` (${c.sourceDocument})` : '' }} —
             {{ c.alternatives.map((a) => `"${a.value ?? '—'}"${a.sourceDocument ? ` (${a.sourceDocument})` : ''}`).join(', ') }}
           </li>
         </ul>
       </div>
       <div v-if="issues?.warnings.length">
-        <p>Другие замечания по пакету:</p>
+        <p>{{ t('import40Case.warningsIntro') }}</p>
         <ul style="padding-left: 20px">
           <li v-for="(w, i) in issues.warnings" :key="`w${i}`">{{ w }}</li>
         </ul>
@@ -362,6 +362,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { message, Modal } from 'ant-design-vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import {
@@ -384,11 +385,17 @@ import { usersApi } from '@/api/users'
 import Import40Step from '@/components/Import40Step.vue'
 import Import40FilesBlock from '@/components/Import40FilesBlock.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import { STEP_TITLES, TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
+import { TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { t, locale } = useI18n()
+
+// Индекс шага (1..5) → переведённый заголовок; заменяет STEP_TITLES из utils.
+const stepTitle = (n: number) => t(`enum.step.s${n}`)
+const INTL_LOCALE: Record<string, string> = { ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }
+const localeNum = (n?: number | null) => (n ?? 0).toLocaleString(INTL_LOCALE[locale.value] ?? 'ru-RU')
 
 const activeCase = ref<Import40CaseDto | null>(null)
 const files = ref<Import40FileDto[]>([])
@@ -421,8 +428,16 @@ const roleMode = computed<RoleMode>(() => {
 })
 const can = (role: RoleMode) => roleMode.value === 'admin' || roleMode.value === role
 
-const ROLE_LABELS: Record<string, string> = { client: 'клиент', kpp: 'менеджер КПП', declarant: 'декларант' }
-const hintFor = (role: string) => `Действие выполняет ${ROLE_LABELS[role] ?? role}`
+const hintFor = (role: string) => {
+  const key = role === 'kpp' ? 'kpp' : role === 'declarant' ? 'declarant' : 'client'
+  return t('import40Case.hintFor', { role: t(`enum.role.${key}`) })
+}
+
+// Виды транспорта с переведёнными подписями (0=ЖД,1=Авто,2=Авиа,3=Море).
+const TRANSPORT_MODE_KEYS: Record<number, string> = { 0: 'rail', 1: 'road', 2: 'air', 3: 'sea' }
+const transportModeOptions = computed(() =>
+  IMPORT40_TRANSPORT_MODES.map((m) => ({ value: m.value, label: t('enum.transportMode.' + TRANSPORT_MODE_KEYS[m.value]) })),
+)
 
 // Task 12 (фидбек №17) + follow-ups Task 2/4: после «Разделить на ЕТТ/ВТО»
 // бэкенд помечает результат полем splitRole ('ETT' | 'VTO' | null, см.
@@ -451,7 +466,7 @@ const splitTagTooltip = (dt: Import40DeclarationDto) => {
   if (!dt.splitSourceDeclarationId) return ''
   const source = activeCase.value?.declarations.find((d) => d.id === dt.splitSourceDeclarationId)
   const num = source?.declarationNumber || dt.splitSourceDeclarationId
-  return `часть разделения ДТ №${num}`
+  return t('import40Case.splitTooltip', { num })
 }
 
 const currentStep = computed(() => (activeCase.value ? stepForStatus(activeCase.value.status) : 1))
@@ -479,7 +494,7 @@ const runAction = async (key: Import40Action, value?: string) => {
     await import40Api.action(activeCase.value.id, key, value)
     await reload()
   } catch (e: any) {
-    message.error(e?.response?.data?.error ?? 'Не удалось выполнить действие')
+    message.error(e?.response?.data?.error ?? t('import40Case.actionFailed'))
   }
 }
 
@@ -490,7 +505,7 @@ const uploadTo = async (section: Import40FileSection | string, file: File) => {
     await import40Api.uploadFile(activeCase.value.id, section as Import40FileSection, file)
     files.value = await import40Api.listFiles(activeCase.value.id)
   } catch (e: any) {
-    message.error(e?.response?.data?.error ?? 'Не удалось загрузить файл')
+    message.error(e?.response?.data?.error ?? t('import40Case.uploadFailed'))
   } finally {
     uploading.value = false
   }
@@ -513,7 +528,7 @@ const removeFile = async (f: Import40FileDto) => {
     await import40Api.deleteFile(activeCase.value.id, f.id)
     files.value = await import40Api.listFiles(activeCase.value.id)
   } catch (e: any) {
-    message.error(e?.response?.data?.error ?? 'Не удалось удалить файл')
+    message.error(e?.response?.data?.error ?? t('import40Case.deleteFailed'))
   }
 }
 
@@ -526,7 +541,7 @@ const saveField = async (patch: Record<string, unknown>) => {
     await import40Api.update(activeCase.value.id, patch as never)
     await reload()
   } catch (e: any) {
-    message.error(e?.response?.data?.error ?? 'Не удалось сохранить')
+    message.error(e?.response?.data?.error ?? t('import40Case.saveFailed'))
   }
 }
 
@@ -547,11 +562,10 @@ const removeContainer = async (containerId: string) => {
   await reload()
 }
 
-const TRANSPORT_LABELS = ['ЖД', 'Авто', 'Авиа', 'Море']
 const transportSummary = computed(() => {
   const c = activeCase.value
   if (!c) return ''
-  const kind = TRANSPORT_LABELS[c.transportMode] ?? '—'
+  const kind = TRANSPORT_MODE_KEYS[c.transportMode] ? t('enum.transportMode.' + TRANSPORT_MODE_KEYS[c.transportMode]) : '—'
   const detail = [c.wagonNumber, c.vehicleNumber, c.flightNumber, c.vesselName].filter(Boolean).join(', ')
   return `${kind}${detail ? ' · ' + detail : ''}`
 })
@@ -619,9 +633,9 @@ const exportBatchXml = async () => {
     a.download = res.fileName
     a.click()
     URL.revokeObjectURL(url)
-    message.success('Готовые ДТ выгружены')
+    message.success(t('import40Case.batchExported'))
   } catch {
-    message.error('Не удалось выгрузить ДТ')
+    message.error(t('import40Case.batchExportFailed'))
   } finally {
     batchXmlLoading.value = false
   }
@@ -718,13 +732,13 @@ const handleBatchFilesSelected = async (event: Event) => {
   try {
     const result = await import40Api.extractBatch(activeCase.value.id, selected)
     const created = await import40Api.createDeclaration(activeCase.value.id, previewToUpsert(result.declaration))
-    message.success('Пакет обработан — откройте ДТ, чтобы проверить предзаполненные поля')
+    message.success(t('import40Case.batchProcessed'))
     const hasIssues = showExtractionIssues(result, created.id)
     if (!hasIssues) {
       await router.push(`/import-40/${activeCase.value.id}/dt/${created.id}`)
     }
   } catch {
-    message.error('Не удалось обработать пакет документов')
+    message.error(t('import40Case.batchFailed'))
   } finally {
     batchUploading.value = false
   }
@@ -744,7 +758,7 @@ const exportXml = async (dtId: string) => {
     const res = await import40Api.downloadKedenXml(activeCase.value.id, dtId)
     if ('errors' in res) {
       kedenMissing.value = res.errors
-      message.warning('XML не сформирован: заполните обязательные поля')
+      message.warning(t('import40Case.xmlNotFormed'))
       return
     }
     const url = URL.createObjectURL(res.blob)
@@ -753,7 +767,7 @@ const exportXml = async (dtId: string) => {
     a.download = res.fileName
     a.click()
     URL.revokeObjectURL(url)
-    message.success('XML сформирован')
+    message.success(t('import40Case.xmlFormed'))
   } finally {
     xmlLoading.value = null
   }
@@ -818,7 +832,7 @@ const kppOptions = computed(() =>
 const declarantOptions = computed(() =>
   staffList.value.filter((u) => u.businessRole === 'declarant').map((u) => ({ value: u.id, label: u.username })),
 )
-const staffName = (id: string) => staffList.value.find((u) => u.id === id)?.username ?? 'назначен'
+const staffName = (id: string) => staffList.value.find((u) => u.id === id)?.username ?? t('import40Case.staffAssigned')
 
 const assignForm = reactive<{ kppId: string | null; declarantId: string | null }>({ kppId: null, declarantId: null })
 const assignSaving = ref(false)
@@ -830,10 +844,10 @@ const saveAssignment = async () => {
       assignedKppId: assignForm.kppId || '00000000-0000-0000-0000-000000000000',
       assignedDeclarantId: assignForm.declarantId || '00000000-0000-0000-0000-000000000000',
     } as never)
-    message.success('Назначения сохранены')
+    message.success(t('import40Case.assignSaved'))
     await reload()
   } catch (e: any) {
-    message.error(e?.response?.data?.error ?? 'Не удалось сохранить назначения')
+    message.error(e?.response?.data?.error ?? t('import40Case.assignFailed'))
   } finally {
     assignSaving.value = false
   }
@@ -887,7 +901,7 @@ const openImportQuote = async () => {
   try {
     quotes.value = await salesApi.listQuotes()
   } catch {
-    message.error('Не удалось загрузить список КП')
+    message.error(t('import40Case.quoteListFailed'))
   } finally {
     quotesLoading.value = false
   }
@@ -902,24 +916,24 @@ const doImportQuote = async () => {
       targetDeclarationId: imp.target === 'new' ? null : imp.declarationId,
       force: imp.force,
     })
-    message.success(`Добавлено товаров: ${addedGoods}`)
+    message.success(t('import40Case.goodsAdded', { n: addedGoods }))
     importQuoteOpen.value = false
     await reload()
     await router.push(`/import-40/${activeCase.value.id}/dt/${declarationId}`)
   } catch (e: any) {
     if (e?.response?.status === 409) {
       Modal.confirm({
-        title: 'КП уже импортирован',
-        content: 'Добавить ещё раз?',
-        okText: 'Добавить',
-        cancelText: 'Отмена',
+        title: t('import40Case.quoteImportedTitle'),
+        content: t('import40Case.quoteImportedContent'),
+        okText: t('import40Case.add'),
+        cancelText: t('common.cancel'),
         onOk: () => {
           imp.force = true
           return doImportQuote()
         },
       })
     } else {
-      message.error(e?.response?.data?.error ?? 'Не удалось импортировать КП')
+      message.error(e?.response?.data?.error ?? t('import40Case.quoteImportFailed'))
     }
   } finally {
     importQuoteLoading.value = false
