@@ -204,7 +204,9 @@ const menuItems = computed(() => {
     })
   }
 
-  if (!['sales'].includes(role)) {
+  // Сводный реестр заявок (импорт + транзит) — только владельцу/админу: остальным
+  // это дубль их рабочего списка («Реестр» или «Импорт»), а три реестра подряд путают.
+  if (role === 'administrator') {
     operationsItems.push({
       key: '/requests-registry',
       icon: () => h(DatabaseOutlined),
