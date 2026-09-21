@@ -18,9 +18,9 @@
             Начните работу<br>с Zircon CRM
           </h1>
           <p class="auth-desc">
-            Создайте аккаунт клиента,<br>
-            выберите экспедитора и получите<br>
-            доступ к реестру и документам.
+            Укажите БИН — реквизиты компании<br>
+            подтянутся из госреестра. Подпишите<br>
+            договор ЭЦП и подавайте заявки.
           </p>
         </div>
 
@@ -30,23 +30,23 @@
             <div class="auth-step-num">01</div>
             <div class="auth-step-body">
               <div class="auth-step-title">Создайте аккаунт</div>
-              <div class="auth-step-sub">Логин и надёжный пароль</div>
+              <div class="auth-step-sub">Email, БИН и надёжный пароль</div>
             </div>
           </div>
           <div class="auth-step-line"></div>
           <div class="auth-step">
             <div class="auth-step-num">02</div>
             <div class="auth-step-body">
-              <div class="auth-step-title">Выберите экспедитора</div>
-              <div class="auth-step-sub">Привяжитесь к вашему менеджеру</div>
+              <div class="auth-step-title">Подпишите документы</div>
+              <div class="auth-step-sub">Договор и доверенность через ЭЦП</div>
             </div>
           </div>
           <div class="auth-step-line"></div>
           <div class="auth-step">
             <div class="auth-step-num">03</div>
             <div class="auth-step-body">
-              <div class="auth-step-title">Войдите и работайте</div>
-              <div class="auth-step-sub">Реестр, документы, статусы</div>
+              <div class="auth-step-title">Подавайте заявки</div>
+              <div class="auth-step-sub">Таможенное оформление онлайн</div>
             </div>
           </div>
         </div>
@@ -69,31 +69,40 @@
           layout="vertical"
           class="auth-form"
         >
-          <a-form-item label="Логин" name="username">
-            <a-input v-model:value="formState.username" placeholder="Придумайте логин" size="large">
-              <template #prefix><UserOutlined class="auth-input-icon" /></template>
+          <a-form-item label="Email (будет логином)" name="email">
+            <a-input v-model:value="formState.email" placeholder="you@company.kz" size="large" autocomplete="email">
+              <template #prefix><MailOutlined class="auth-input-icon" /></template>
             </a-input>
           </a-form-item>
 
-          <a-form-item label="Ваш экспедитор" name="expeditorId">
-            <a-select
-              v-model:value="formState.expeditorId"
-              placeholder="Выберите экспедитора"
-              size="large"
-              :loading="expeditorsLoading"
-              :options="expeditorOptions"
-            />
+          <a-form-item label="БИН компании" name="bin">
+            <div class="auth-bin-row">
+              <a-input v-model:value="formState.bin" placeholder="12 цифр" size="large" :maxlength="12" inputmode="numeric">
+                <template #prefix><BankOutlined class="auth-input-icon" /></template>
+              </a-input>
+              <BinLookupButton :bin="formState.bin" size="large" anonymous @found="applyCompany" />
+            </div>
+          </a-form-item>
+
+          <a-form-item label="Наименование компании" name="companyName">
+            <a-input v-model:value="formState.companyName" placeholder="ТОО «…»" size="large" />
+          </a-form-item>
+
+          <a-form-item label="Телефон" name="phone">
+            <a-input v-model:value="formState.phone" placeholder="+7 700 000 00 00" size="large" autocomplete="tel">
+              <template #prefix><PhoneOutlined class="auth-input-icon" /></template>
+            </a-input>
           </a-form-item>
 
           <div class="auth-form-row">
             <a-form-item label="Пароль" name="password">
-              <a-input-password v-model:value="formState.password" placeholder="Пароль" size="large">
+              <a-input-password v-model:value="formState.password" placeholder="Минимум 8 символов" size="large" autocomplete="new-password">
                 <template #prefix><LockOutlined class="auth-input-icon" /></template>
               </a-input-password>
             </a-form-item>
 
             <a-form-item label="Повторите пароль" name="confirmPassword">
-              <a-input-password v-model:value="formState.confirmPassword" placeholder="Повтор" size="large">
+              <a-input-password v-model:value="formState.confirmPassword" placeholder="Повтор" size="large" autocomplete="new-password">
                 <template #prefix><LockOutlined class="auth-input-icon" /></template>
               </a-input-password>
             </a-form-item>
@@ -124,42 +133,49 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { authApi } from '@/api/auth'
-import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
+import { MailOutlined, LockOutlined, PhoneOutlined, BankOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
+import BinLookupButton from '@/components/BinLookupButton.vue'
+import type { CompanyLookupDto } from '@/api/companyLookup'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const loading = ref(false)
-const expeditorsLoading = ref(false)
-const expeditorOptions = ref<{ value: string; label: string }[]>([])
 
+// Путь клиента (2026-09-21): email = логин, БИН обязателен, реквизиты — из ГБД ЮЛ.
 const formState = reactive({
-  username: '',
+  email: '',
+  bin: '',
+  companyName: '',
+  phone: '',
   password: '',
   confirmPassword: '',
-  expeditorId: undefined as string | undefined,
+  legalAddress: '' as string | null,
+  directorName: '' as string | null,
 })
 
 const rules = {
-  username: [{ required: true, message: 'Введите логин' }],
-  password: [{ required: true, message: 'Введите пароль' }],
-  expeditorId: [{ required: true, message: 'Выберите экспедитора' }],
+  email: [
+    { required: true, message: 'Введите email' },
+    { type: 'email' as const, message: 'Некорректный email' },
+  ],
+  bin: [
+    { required: true, message: 'Введите БИН' },
+    { pattern: /^\d{12}$/, message: 'БИН — 12 цифр' },
+  ],
+  companyName: [{ required: true, message: 'Укажите наименование компании' }],
+  password: [{ required: true, message: 'Введите пароль' }, { min: 8, message: 'Минимум 8 символов' }],
   confirmPassword: [{ required: true, message: 'Повторите пароль' }],
 }
 
-onMounted(async () => {
-  expeditorsLoading.value = true
-  try {
-    const items = await authApi.listExpeditorsForRegistration()
-    expeditorOptions.value = items.map((x) => ({ value: x.id, label: x.username }))
-  } finally {
-    expeditorsLoading.value = false
-  }
-})
+const applyCompany = (c: CompanyLookupDto) => {
+  formState.companyName = c.nameRu ?? c.nameKz ?? formState.companyName
+  formState.legalAddress = c.addressRu ?? c.addressKz ?? null
+  formState.directorName = c.director ?? null
+}
 
 const handleRegister = async () => {
   if (formState.password !== formState.confirmPassword) {
@@ -168,11 +184,14 @@ const handleRegister = async () => {
   }
   loading.value = true
   try {
-    if (!formState.expeditorId) { message.error('Выберите экспедитора'); return }
     const success = await authStore.registerClient({
-      username: formState.username.trim(),
+      email: formState.email.trim().toLowerCase(),
       password: formState.password,
-      expeditorId: formState.expeditorId,
+      bin: formState.bin.trim(),
+      phone: formState.phone.trim() || null,
+      companyName: formState.companyName.trim() || null,
+      legalAddress: formState.legalAddress || null,
+      directorName: formState.directorName || null,
     })
     if (success) router.push('/login')
   } finally {
@@ -351,6 +370,9 @@ const goToLogin = () => router.push('/login')
   margin-left: 16px;
   background: rgba(43, 188, 212, 0.2);
 }
+
+.auth-bin-row { display: flex; gap: 8px; align-items: stretch; }
+.auth-bin-row .ant-input-affix-wrapper { flex: 1; }
 
 /* ── RIGHT ──────────────────────────────────────────────────── */
 .auth-right {

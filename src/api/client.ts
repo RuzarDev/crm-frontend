@@ -44,13 +44,17 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response) {
       const status = error.response.status
-      const errorMessage = error.response.data?.error || error.message
+      // Бэк отдаёт либо { error } (minimal endpoints), либо ProblemDetails { title: код, detail: текст }.
+      const errorMessage = error.response.data?.error || error.response.data?.detail || error.message
       const requestUrl = error.config?.url || ''
       const isLoginRequest = requestUrl.includes('/auth/login')
 
       if (status === 401) {
         if (isLoginRequest) {
-          errorToast('auth-login', 'Неверный логин или пароль')
+          // Путь клиента: «заблокирован» / «завершите приглашение» приходят с кодом ≠ InvalidCredentials.
+          const code = error.response.data?.title
+          const custom = code && code !== 'Auth.InvalidCredentials' ? error.response.data?.detail : null
+          errorToast('auth-login', custom || 'Неверный логин или пароль')
         } else if (!sessionExpiredHandled) {
           // первый 401 в пачке: чистим сессию, показываем ОДНУ плашку и один раз
           // уводим на /login; остальные параллельные 401 сюда уже не зайдут.

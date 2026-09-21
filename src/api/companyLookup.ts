@@ -20,6 +20,8 @@ export const isBinLike = (v: string | null | undefined) => /^\d{12}$/.test((v ??
 
 export const companyLookupApi = {
   // 200 найдено · 404 нет в реестре · 503 ключ не настроен · 502 портал недоступен
-  byBin: async (bin: string): Promise<CompanyLookupDto> =>
-    (await apiClient.get<CompanyLookupDto>(`/ref/company-by-bin/${encodeURIComponent(bin.replace(/\D/g, ''))}`)).data,
+  byBin: async (bin: string, anonymous = false): Promise<CompanyLookupDto> =>
+    (await apiClient.get<CompanyLookupDto>(
+      `/${anonymous ? 'auth' : 'ref'}/company-by-bin/${encodeURIComponent(bin.replace(/\D/g, ''))}`,
+    )).data,
 }

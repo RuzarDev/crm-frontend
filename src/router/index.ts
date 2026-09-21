@@ -17,6 +17,13 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
+      // Путь клиента: принятие приглашения от сотрудника (задать пароль).
+      path: '/invite/:token',
+      name: 'invite-accept',
+      component: () => import('@/views/InviteAcceptView.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
       path: '/',
       component: () => import('@/layouts/MainLayout.vue'),
       meta: { requiresAuth: true },
@@ -123,7 +130,8 @@ const router = createRouter({
           path: '/clients',
           name: 'clients',
           component: () => import('@/views/ClientsView.vue'),
-          meta: { requiresRole: 'expeditor' },
+          // Путь клиента: список/приглашения доступны всем сотрудникам (не клиенту).
+          meta: { requiresAnyRole: ['administrator', 'expeditor', 'broker', 'importer', 'sales'] },
         },
         {
           path: '/tnved/tree',

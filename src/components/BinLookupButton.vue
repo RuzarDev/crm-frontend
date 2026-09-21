@@ -28,7 +28,9 @@ const props = withDefaults(defineProps<{
   size?: 'small' | 'middle' | 'large'
   type?: 'default' | 'primary' | 'link' | 'dashed' | 'text'
   disabled?: boolean
-}>(), { size: 'small', type: 'default', disabled: false })
+  // Публичный эндпоинт (страница регистрации, без токена) — с rate-limit по IP.
+  anonymous?: boolean
+}>(), { size: 'small', type: 'default', disabled: false, anonymous: false })
 
 const emit = defineEmits<{ found: [company: CompanyLookupDto] }>()
 
@@ -41,7 +43,7 @@ const lookup = async () => {
   if (!isBinLike(props.bin)) return
   loading.value = true
   try {
-    const company = await companyLookupApi.byBin(props.bin!)
+    const company = await companyLookupApi.byBin(props.bin!, props.anonymous)
     emit('found', company)
     const status = company.statusRu ? ` · ${company.statusRu}` : ''
     message.success(`Найдено: ${company.nameRu ?? company.nameKz ?? company.bin}${status}. Проверьте адрес — данные реестра могут отставать.`)

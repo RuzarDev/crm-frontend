@@ -262,7 +262,7 @@ const menuItems = computed(() => {
     })
   }
 
-  if (role === 'expeditor') {
+  if (role !== 'client') {
     salesItems.push({
       key: '/clients',
       icon: () => h(SolutionOutlined),

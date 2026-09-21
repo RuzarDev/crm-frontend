@@ -3,10 +3,16 @@ export interface LoginRequest {
   password: string
 }
 
+// Путь клиента (2026-09-21): саморегистрация по email + БИН, экспедитор необязателен.
 export interface RegisterClientRequest {
-  username: string
+  email: string
   password: string
-  expeditorId: string
+  bin: string
+  phone?: string | null
+  companyName?: string | null
+  legalAddress?: string | null
+  directorName?: string | null
+  expeditorId?: string | null
 }
 
 export interface ExpeditorOption {
