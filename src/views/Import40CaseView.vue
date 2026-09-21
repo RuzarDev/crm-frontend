@@ -19,7 +19,7 @@
           danger size="small" @click="promptProblem"
         >{{ t('import40Case.problemBtn') }}</a-button>
 
-        <div v-if="roleMode === 'admin'" class="assign-inline">
+        <div v-if="canAssign" class="assign-inline">
           <a-select v-model:value="assignForm.kppId" allow-clear :placeholder="t('import40Case.kppNotAssigned')" :options="kppOptions" size="small" style="min-width: 170px" />
           <a-select v-model:value="assignForm.declarantId" allow-clear :placeholder="t('import40Case.declarantNotAssigned')" :options="declarantOptions" size="small" style="min-width: 170px" />
           <a-button size="small" :loading="assignSaving" @click="saveAssignment">{{ t('import40Case.assign') }}</a-button>
@@ -381,7 +381,7 @@ import {
 import type { DeclarationReadiness } from '@/types/api'
 import { salesApi, type SalesQuoteListItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
-import { usersApi } from '@/api/users'
+import { manageApi, type StaffMember } from '@/api/manage'
 import Import40Step from '@/components/Import40Step.vue'
 import Import40FilesBlock from '@/components/Import40FilesBlock.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -426,7 +426,13 @@ const roleMode = computed<RoleMode>(() => {
   if (biz === 'declarant' || biz === 'rop') return 'declarant'
   return 'other'
 })
-const can = (role: RoleMode) => roleMode.value === 'admin' || roleMode.value === role
+// Мультироли: действие доступно, если у пользователя есть соответствующая бизнес-роль
+// (любая из нескольких) или он руководитель отдела/админ.
+const can = (role: RoleMode) =>
+  roleMode.value === 'admin' || roleMode.value === role
+  || (role !== 'client' && role !== 'other' && (authStore.hasBusinessRole(role) || authStore.hasBusinessRole('rop')))
+// Назначать сотрудников — право import40.assign (руководитель отдела, админ).
+const canAssign = computed(() => roleMode.value === 'admin' || authStore.hasPermission('import40.assign'))
 
 const hintFor = (role: string) => {
   const key = role === 'kpp' ? 'kpp' : role === 'declarant' ? 'declarant' : 'client'
@@ -808,31 +814,24 @@ const assignedTag = computed<'me' | 'other' | null>(() => {
 })
 
 // Назначения (админ): каталог сотрудников + селекты в шапке
-type StaffOption = { id: string; username: string; businessRole: string }
-const staffList = ref<StaffOption[]>([])
+const staffList = ref<StaffMember[]>([])
+// Сотрудники с бизнес-ролями (мультироли): селекты КПП/декларанта фильтруются по roles.
 const loadStaffOptions = async () => {
-  if (roleMode.value !== 'admin') return
+  if (roleMode.value !== 'admin' && !authStore.hasPermission('import40.assign')) return
   try {
-    const [admins, importers] = await Promise.all([
-      usersApi.getCatalogAdministrators(),
-      usersApi.getCatalogImporters(),
-    ])
-    staffList.value = [...admins, ...importers].map((u) => ({
-      id: u.id,
-      username: u.username,
-      businessRole: (u.businessRole || '').toLowerCase(),
-    }))
+    staffList.value = await manageApi.staff()
   } catch {
-    /* каталог недоступен — селекты будут пустыми, назначение по ID через легаси не переносим */
+    /* каталог недоступен — селекты будут пустыми */
   }
 }
+const staffLabel = (u: StaffMember) => u.displayName || u.username
 const kppOptions = computed(() =>
-  staffList.value.filter((u) => u.businessRole === 'kpp').map((u) => ({ value: u.id, label: u.username })),
+  staffList.value.filter((u) => u.roles.includes('kpp')).map((u) => ({ value: u.id, label: staffLabel(u) })),
 )
 const declarantOptions = computed(() =>
-  staffList.value.filter((u) => u.businessRole === 'declarant').map((u) => ({ value: u.id, label: u.username })),
+  staffList.value.filter((u) => u.roles.includes('declarant')).map((u) => ({ value: u.id, label: staffLabel(u) })),
 )
-const staffName = (id: string) => staffList.value.find((u) => u.id === id)?.username ?? t('import40Case.staffAssigned')
+const staffName = (id: string) => { const u = staffList.value.find((x) => x.id === id); return u ? staffLabel(u) : t('import40Case.staffAssigned') }
 
 const assignForm = reactive<{ kppId: string | null; declarantId: string | null }>({ kppId: null, declarantId: null })
 const assignSaving = ref(false)

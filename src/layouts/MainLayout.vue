@@ -140,6 +140,7 @@ import {
   CalendarOutlined,
   DashboardOutlined,
   DatabaseOutlined,
+  DollarOutlined,
   FileAddOutlined,
   FileDoneOutlined,
   FileTextOutlined,
@@ -227,6 +228,24 @@ const menuItems = computed(() => {
       key: '/import-40',
       icon: () => h(ImportOutlined),
       label: t('nav.import'),
+    })
+  }
+
+  // Панель руководителя — назначения/проблемные (право import40.assign).
+  if (authStore.hasPermission('import40.assign')) {
+    operationsItems.push({
+      key: '/import-40/manage',
+      icon: () => h(TeamOutlined),
+      label: 'Управление заявками',
+    })
+  }
+
+  // Финансы — бухгалтер/КПП/руководитель (право finance.read).
+  if (authStore.hasPermission('finance.read')) {
+    operationsItems.push({
+      key: '/finance',
+      icon: () => h(DollarOutlined),
+      label: 'Финансы',
     })
   }
 
@@ -410,7 +429,9 @@ const selectedMenuKey = computed(() => {
   if (route.path.startsWith('/document-packages')) return '/document-packages'
   // более специфичный /import-40/company — раньше общего /import-40, иначе его пункт не подсветится
   if (route.path.startsWith('/import-40/company')) return '/import-40/company'
+  if (route.path.startsWith('/import-40/manage')) return '/import-40/manage'
   if (route.path.startsWith('/import-40')) return '/import-40'
+  if (route.path.startsWith('/finance')) return '/finance'
   if (route.path.startsWith('/dt-guide')) return '/dt-guide'
   if (route.path.startsWith('/references')) return '/references'
   if (route.path.startsWith('/keden-status')) return '/keden-status'
