@@ -1007,7 +1007,9 @@ const applyPaymentsResult = () => {
         // calculate-payments сам всё посчитал; трогаем rateKindCode/rateDate,
         // только если они ещё не заданы (не затираем то, что декларант уже
         // выбрал вручную ранее, например rateKindCode '*' с весовым коэфф.).
-        if (!existing.rateKindCode) existing.rateKindCode = '%'
+        // Вид ставки «%» ставим только строкам с числовой ставкой (пошлина/НДС).
+        // Сбор (1010) — фикс. платёж без %-ставки, поэтому вид ставки не навязываем.
+        if (!existing.rateKindCode && pr.rate != null) existing.rateKindCode = '%'
         existing.paymentFeatureCode = pr.featureCode ?? existing.paymentFeatureCode ?? 'ИУ'
         existing.basisLabel = pr.basisLabel ?? null
         existing.rateLabel = pr.rateLabel ?? null
@@ -1016,7 +1018,7 @@ const applyPaymentsResult = () => {
         rows.push({
           taxModeCode: pr.taxModeCode,
           taxBase: pr.base ?? null,
-          rateKindCode: '%',
+          rateKindCode: pr.rate != null ? '%' : null,
           rateValue: pr.rate ?? null,
           rateUnitCode: null,
           rateCurrencyCode: null,
