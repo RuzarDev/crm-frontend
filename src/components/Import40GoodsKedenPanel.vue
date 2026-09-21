@@ -11,6 +11,18 @@
       </div>
     </div>
 
+    <!-- «Сумма граф» (правка Ирины): всегда видимая полоса итогов по всем товарам. -->
+    <div v-if="items.length" class="decl-sum-strip">
+      <span class="decl-sum-title">Сумма граф</span>
+      <div class="decl-sum-items">
+        <div class="decl-sum-item"><span>Брутто</span><b>{{ fmtAmount(declTotals.brutto) }} кг</b></div>
+        <div class="decl-sum-item"><span>Нетто</span><b>{{ fmtAmount(declTotals.netto) }} кг</b></div>
+        <div class="decl-sum-item"><span>Мест</span><b>{{ fmtInt(declTotals.places) }}</b></div>
+        <div class="decl-sum-item"><span>Стоимость</span><b>{{ fmtAmount(declTotals.value) }}</b></div>
+        <div class="decl-sum-item decl-sum-item--accent"><span>ТПиН</span><b>{{ fmtAmount(declTotals.tpin) }} ₸</b></div>
+      </div>
+    </div>
+
     <!-- Гр.47 — платежи: явная, всегда развёрнутая подсекция (не внутри свёрнутого
          a-collapse ниже) — раньше платежи были видны только после раскрытия панели
          товара, декларант их не находила. Показываем то, что реально записано в
@@ -45,6 +57,23 @@
     <div v-else-if="items.length" class="empty-state payments-summary-empty">
       Платежи гр.47 не рассчитаны — нажмите «Рассчитать ТПиН (авто)» выше или «Рассчитать платежи» в шапке ДТ.
     </div>
+    <!-- Гр.В (правка Ирины): всегда видимый блок общих платежей по декларации
+         за все товары — суммы по кодам + итог. -->
+    <div v-if="grVTotals.rows.length" class="gr-v-block">
+      <div class="section-bar"><span class="section-label">ГР.В — ОБЩИЕ ПЛАТЕЖИ ПО ДЕКЛАРАЦИИ</span></div>
+      <div class="gr-v-rows">
+        <div v-for="r in grVTotals.rows" :key="r.code" class="gr-v-row">
+          <span class="gr-v-code">{{ r.code }}</span>
+          <span class="gr-v-name">{{ r.label }}</span>
+          <b class="gr-v-amount">{{ fmtAmount(r.amount) }} ₸</b>
+        </div>
+        <div class="gr-v-row gr-v-total">
+          <span class="gr-v-name">Итого гр.В</span>
+          <b class="gr-v-amount">{{ fmtAmount(grVTotals.total) }} ₸</b>
+        </div>
+      </div>
+    </div>
+
     <!-- Гр.B (детализация): строки "{код}-{сумма}-398-{дата}-БН" из последнего
          calculate-payments — читаемая расшифровка того, что записано в гр.B. -->
     <div v-if="bLineRows.length" class="b-line-block">
@@ -345,6 +374,44 @@ const paymentsSummaryColumns = [
 
 const fmtAmount = (v: number | null | undefined) =>
   v == null ? '—' : v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmtInt = (v: number) => v.toLocaleString('ru-RU')
+
+// «Сумма граф» (правка Ирины): итоги по всем товарам — вес брутто/нетто, места,
+// фактурная стоимость, ТПиН (сумма всех платежей гр.47). Считаем на лету.
+const declTotals = computed(() => {
+  let brutto = 0, netto = 0, places = 0, value = 0, tpin = 0
+  for (const g of items.value) {
+    brutto += Number(g.grossWeightKg) || 0
+    netto += Number(g.netWeightKg) || 0
+    places += Number(g.packagesCount) || 0
+    value += Number(g.customsValue) || 0
+    for (const p of g.payments ?? []) tpin += Number(p.amountKzt) || 0
+  }
+  return {
+    brutto: Math.round(brutto * 1000) / 1000,
+    netto: Math.round(netto * 1000) / 1000,
+    places,
+    value: Math.round(value * 100) / 100,
+    tpin: Math.round(tpin * 100) / 100,
+  }
+})
+
+// Гр.В (правка Ирины): общие платежи по декларации за все товары — суммы по кодам
+// (1010/2010/5060…) + итог гр.В. Агрегируем g.payments по taxModeCode.
+const grVTotals = computed(() => {
+  const byCode: Record<string, number> = {}
+  for (const g of items.value) {
+    for (const p of g.payments ?? []) {
+      if (!p.taxModeCode) continue
+      byCode[p.taxModeCode] = (byCode[p.taxModeCode] ?? 0) + (Number(p.amountKzt) || 0)
+    }
+  }
+  const rows = Object.entries(byCode)
+    .map(([code, amount]) => ({ code, label: taxModeLabel(code), amount }))
+    .sort((a, b) => (TAX_MODE_PRIORITY[a.code] ?? 99) - (TAX_MODE_PRIORITY[b.code] ?? 99))
+  const total = rows.reduce((acc, r) => acc + r.amount, 0)
+  return { rows, total: Math.round(total * 100) / 100 }
+})
 
 // Task 10, №13: при временном ввозе фактическая сумма — это 3%×мес от "обычной"
 // (нормальной) суммы, а RateLabel с бэка остаётся НОМИНАЛЬНОЙ адвалорной ставкой
@@ -585,6 +652,43 @@ const applyMonthsToAll = () => {
    код (полный текст в tooltip), тег компактный и не переполняет контрол. */
 .ois-marks-select :deep(.ant-select-selector) { overflow: hidden; }
 .ois-mark-tag { margin: 1px 2px; padding: 0 4px; font-weight: 600; line-height: 18px; }
+
+/* «Сумма граф» — полоса итогов по всем товарам */
+.decl-sum-strip {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 14px; margin-bottom: 10px;
+  border: 1px solid var(--atg-line, #e8ecf4); border-radius: 10px;
+  background: var(--atg-surface-muted, #f5f7fb);
+}
+.decl-sum-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--atg-muted, #6b7891);
+}
+.decl-sum-items { display: flex; gap: 10px 22px; flex-wrap: wrap; }
+.decl-sum-item { display: flex; flex-direction: column; gap: 1px; }
+.decl-sum-item > span { font-size: 10.5px; color: var(--atg-muted, #95a1b7); text-transform: uppercase; letter-spacing: 0.03em; }
+.decl-sum-item > b { font-size: 14px; color: var(--atg-ink, #182640); font-weight: 700; }
+.decl-sum-item--accent > b { color: var(--atg-teal-dark, #149bb2); }
+
+/* Гр.В — общие платежи по декларации */
+.gr-v-block { margin: 8px 0 10px; }
+.gr-v-rows {
+  border: 1px solid var(--atg-line, #e8ecf4); border-radius: 10px; overflow: hidden;
+}
+.gr-v-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 14px; border-bottom: 1px solid var(--atg-line-2, #eff2f8);
+}
+.gr-v-row:last-child { border-bottom: 0; }
+.gr-v-code {
+  font-family: 'SFMono-Regular', ui-monospace, monospace; font-size: 12px; font-weight: 600;
+  color: #3b6fd6; background: #e7effc; padding: 1px 7px; border-radius: 6px; flex: 0 0 auto;
+}
+.gr-v-name { flex: 1; font-size: 13px; color: var(--atg-charcoal, #384252); }
+.gr-v-amount { font-size: 13.5px; font-weight: 700; color: var(--atg-ink, #182640); }
+.gr-v-total { background: var(--atg-surface-muted, #f5f7fb); }
+.gr-v-total .gr-v-name { font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.03em; }
+.gr-v-total .gr-v-amount { color: var(--atg-teal-dark, #149bb2); font-size: 15px; }
 .field-label { font-size: 11px; color: var(--atg-muted); margin-bottom: 2px; }
 .payment-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .marking-collapse { margin-top: 4px; margin-bottom: 8px; }
