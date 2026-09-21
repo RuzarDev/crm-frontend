@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { profileApi } from '@/api/profile'
 import type { ProfileDto, UpdateProfileRequest } from '@/types/api'
 import { message } from 'ant-design-vue'
+import { i18n } from '@/i18n'
 
 export const useProfileStore = defineStore('profile', () => {
   const profile = ref<ProfileDto | null>(null)
@@ -15,7 +16,7 @@ export const useProfileStore = defineStore('profile', () => {
       const res = await profileApi.get()
       profile.value = res.data
     } catch {
-      message.error('Не удалось загрузить профиль')
+      message.error(i18n.global.t('profile.loadError'))
     } finally {
       loading.value = false
     }
@@ -26,7 +27,7 @@ export const useProfileStore = defineStore('profile', () => {
     try {
       const res = await profileApi.update(data)
       profile.value = res.data
-      message.success('Профиль сохранён')
+      message.success(i18n.global.t('profile.saved'))
       return true
     } catch {
       return false

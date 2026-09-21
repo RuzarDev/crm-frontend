@@ -3,19 +3,19 @@
     <div class="card-title"><FileProtectOutlined /> {{ title }}</div>
 
     <div class="generate-bar">
-      <a-checkbox v-model:checked="singleUse">разовый (используется на одну заявку)</a-checkbox>
+      <a-checkbox v-model:checked="singleUse">{{ t('company.singleUse') }}</a-checkbox>
       <a-date-picker
         v-model:value="validUntil"
         format="DD.MM.YYYY"
-        placeholder="действует до (необяз.)"
+        :placeholder="t('company.validUntilPlaceholder')"
         style="width: 200px"
       />
       <a-button type="primary" :disabled="!profileComplete" :loading="generating" @click="onGenerate">
-        <FileAddOutlined /> Сформировать
+        <FileAddOutlined /> {{ t('company.generate') }}
       </a-button>
     </div>
 
-    <p v-if="!profileComplete" class="muted">Сначала заполните реквизиты компании (шаг 1).</p>
+    <p v-if="!profileComplete" class="muted">{{ t('company.fillFirst') }}</p>
 
     <div v-if="!documents.length" class="doc-empty">
       <p class="muted">{{ emptyHint }}</p>
@@ -26,51 +26,51 @@
         <div class="doc-head">
           <div>
             <div class="doc-number">№ {{ doc.number }}/{{ doc.year }}</div>
-            <div class="muted">Сформирован {{ formatDate(doc.generatedAtUtc) }}</div>
+            <div class="muted">{{ t('company.generatedAt', { date: formatDate(doc.generatedAtUtc) }) }}</div>
           </div>
           <div class="doc-tags">
-            <a-tag v-if="isEffective(doc)" color="success">Действует</a-tag>
+            <a-tag v-if="isEffective(doc)" color="success">{{ t('company.effective') }}</a-tag>
             <a-tag :color="statusColor(doc)">{{ statusLabel(doc) }}</a-tag>
-            <a-tag v-if="doc.isSingleUse" color="purple">разовый{{ doc.consumedByCaseId ? ' · использован' : '' }}</a-tag>
+            <a-tag v-if="doc.isSingleUse" color="purple">{{ t('company.singleUseTag') }}{{ doc.consumedByCaseId ? ' · ' + t('company.consumed') : '' }}</a-tag>
             <a-tag v-if="doc.validUntilUtc" :color="isExpired(doc) ? 'error' : 'default'">
-              до {{ formatDate(doc.validUntilUtc) }}
+              {{ t('company.until', { date: formatDate(doc.validUntilUtc) }) }}
             </a-tag>
           </div>
         </div>
 
         <div class="doc-actions">
-          <a-button size="small" @click="emit('download', doc)"><DownloadOutlined /> Скачать (.docx)</a-button>
+          <a-button size="small" @click="emit('download', doc)"><DownloadOutlined /> {{ t('company.download') }}</a-button>
         </div>
 
         <div class="sign-grid">
           <div class="sign-block">
             <div class="sign-head">
-              <strong>Ваша подпись</strong>
-              <a-tag v-if="doc.clientSigned" color="success">Подписано</a-tag>
-              <a-tag v-else color="default">Ожидается</a-tag>
+              <strong>{{ t('company.yourSignature') }}</strong>
+              <a-tag v-if="doc.clientSigned" color="success">{{ t('company.signed') }}</a-tag>
+              <a-tag v-else color="default">{{ t('company.pending') }}</a-tag>
             </div>
             <div v-if="!doc.clientSigned" class="sign-actions">
               <a-button size="small" type="primary" @click="emit('sigex', doc, 'client')">
-                <SafetyCertificateOutlined /> Подписать через eGov (QR)
+                <SafetyCertificateOutlined /> {{ t('company.signEgov') }}
               </a-button>
               <a-button size="small" @click="emit('sign', doc, 'client')">
-                <UploadOutlined /> Загрузить подписанный файл
+                <UploadOutlined /> {{ t('company.uploadSigned') }}
               </a-button>
             </div>
           </div>
 
           <div class="sign-block">
             <div class="sign-head">
-              <strong>Подпись AQNIET</strong>
-              <a-tag v-if="doc.providerSigned" color="success">Подписано</a-tag>
-              <a-tag v-else color="default">Ожидается</a-tag>
+              <strong>{{ t('company.providerSignature') }}</strong>
+              <a-tag v-if="doc.providerSigned" color="success">{{ t('company.signed') }}</a-tag>
+              <a-tag v-else color="default">{{ t('company.pending') }}</a-tag>
             </div>
             <div v-if="isAdmin && !doc.providerSigned" class="sign-actions">
               <a-button size="small" type="primary" @click="emit('sigex', doc, 'provider')">
-                <SafetyCertificateOutlined /> Подписать через eGov (QR)
+                <SafetyCertificateOutlined /> {{ t('company.signEgov') }}
               </a-button>
               <a-button size="small" @click="emit('sign', doc, 'provider')">
-                <UploadOutlined /> Загрузить подписанный файл
+                <UploadOutlined /> {{ t('company.uploadSigned') }}
               </a-button>
             </div>
           </div>
@@ -82,6 +82,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   DownloadOutlined,
   FileAddOutlined,
@@ -107,6 +108,7 @@ defineProps<{
   isEffective: (doc: Import40DocumentDto) => boolean
 }>()
 
+const { t } = useI18n()
 const emit = defineEmits<{
   (e: 'generate', opts: GenerateOpts): void
   (e: 'download', doc: Import40DocumentDto): void
@@ -130,7 +132,7 @@ const formatDate = (v: string) =>
 const isExpired = (doc: Import40DocumentDto) => !!doc.validUntilUtc && new Date(doc.validUntilUtc).getTime() <= Date.now()
 
 const statusLabel = (doc: Import40DocumentDto) =>
-  doc.status === 2 ? 'Активен' : doc.status === 1 ? 'Ожидает подписей' : doc.status === 3 ? 'Истёк' : doc.status === 4 ? 'Отозван' : 'Черновик'
+  doc.status === 2 ? t('company.stActive') : doc.status === 1 ? t('company.stAwaiting') : doc.status === 3 ? t('company.stExpired') : doc.status === 4 ? t('company.stRevoked') : t('company.stDraft')
 
 const statusColor = (doc: Import40DocumentDto) =>
   doc.status === 2 ? 'success' : doc.status === 1 ? 'processing' : doc.status === 3 ? 'error' : doc.status === 4 ? 'error' : 'default'

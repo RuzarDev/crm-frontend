@@ -9,7 +9,7 @@
       @click="lookup"
     >
       <SearchOutlined v-if="!loading" />
-      <slot>Найти по БИН</slot>
+      <slot>{{ t('binLookup.find') }}</slot>
     </a-button>
   </a-tooltip>
 </template>
@@ -17,12 +17,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { message } from 'ant-design-vue'
+import { useI18n } from 'vue-i18n'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import { companyLookupApi, isBinLike, type CompanyLookupDto } from '@/api/companyLookup'
 
 // Кнопка «Найти по БИН»: тянет карточку юрлица из ГБД ЮЛ (data.egov.kz) и отдаёт
 // её родителю событием found — что именно подставлять, решает родитель (у профиля,
 // мастера и граф ДТ разный набор полей). Ошибки показывает сама.
+const { t } = useI18n()
 const props = withDefaults(defineProps<{
   bin: string | null | undefined
   size?: 'small' | 'middle' | 'large'
@@ -36,7 +38,7 @@ const emit = defineEmits<{ found: [company: CompanyLookupDto] }>()
 
 const loading = ref(false)
 const tooltip = computed(() =>
-  isBinLike(props.bin) ? 'Подставить наименование, адрес и руководителя из ГБД ЮЛ (data.egov.kz)' : 'Введите 12-значный БИН',
+  isBinLike(props.bin) ? t('binLookup.tipReady') : t('binLookup.tipEnter'),
 )
 
 const lookup = async () => {
@@ -46,15 +48,15 @@ const lookup = async () => {
     const company = await companyLookupApi.byBin(props.bin!, props.anonymous)
     emit('found', company)
     const status = company.statusRu ? ` · ${company.statusRu}` : ''
-    message.success(`Найдено: ${company.nameRu ?? company.nameKz ?? company.bin}${status}. Проверьте адрес — данные реестра могут отставать.`)
+    message.success(t('binLookup.found', { name: `${company.nameRu ?? company.nameKz ?? company.bin}${status}` }))
   } catch (e: unknown) {
     const err = e as { response?: { status?: number; data?: { error?: string } } }
     const st = err.response?.status
     const text = err.response?.data?.error
-    if (st === 404) message.warning(text ?? 'Юрлицо с таким БИН в ГБД ЮЛ не найдено')
-    else if (st === 503) message.error(text ?? 'Поиск по БИН не настроен (нет API-ключа data.egov.kz)')
-    else if (st === 400) message.warning(text ?? 'БИН должен содержать 12 цифр')
-    else message.error(text ?? 'data.egov.kz временно недоступен')
+    if (st === 404) message.warning(text ?? t('binLookup.notFound'))
+    else if (st === 503) message.error(text ?? t('binLookup.notConfigured'))
+    else if (st === 400) message.warning(text ?? t('binLookup.badBin'))
+    else message.error(text ?? t('binLookup.unavailable'))
   } finally {
     loading.value = false
   }

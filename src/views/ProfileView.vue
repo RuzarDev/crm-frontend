@@ -1,6 +1,6 @@
 <template>
   <div class="profile-view crm-page">
-    <PageHeader kicker="Аккаунт" title="Профиль" :subtitle="profileSubtitle" />
+    <PageHeader :kicker="t('profile.kicker')" :title="t('profile.title')" :subtitle="profileSubtitle" />
 
     <a-spin :spinning="store.loading">
       <div class="profile-layout">
@@ -8,19 +8,19 @@
           <template #title>
             <div class="card-title-row">
               <UserOutlined class="card-title-icon" />
-              Личные данные
+              {{ t('profile.personal') }}
             </div>
           </template>
 
           <div v-if="store.profile" class="profile-meta">
             <div class="meta-row">
-              <span class="meta-label">Логин</span>
+              <span class="meta-label">{{ t('profile.login') }}</span>
               <span class="meta-value meta-value--mono">{{ store.profile.username }}</span>
             </div>
             <div class="meta-row">
-              <span class="meta-label">Роль</span>
+              <span class="meta-label">{{ t('profile.role') }}</span>
               <span class="role-tag" :class="`role-tag--${store.profile.role}`">
-                {{ formatRole(store.profile.role) }}
+                {{ roleLabel(store.profile.role) }}
               </span>
             </div>
           </div>
@@ -29,14 +29,14 @@
 
           <a-form layout="vertical" :model="form" @finish="handleSave">
             <div class="form-grid">
-              <a-form-item label="Отображаемое имя">
+              <a-form-item :label="t('profile.displayName')">
                 <a-input
                   v-model:value="form.displayName"
-                  placeholder="Иван Иванов"
+                  :placeholder="t('profile.displayNamePlaceholder')"
                   allow-clear
                 />
               </a-form-item>
-              <a-form-item label="Телефон">
+              <a-form-item :label="t('profile.phone')">
                 <a-input
                   v-model:value="form.phone"
                   placeholder="+7 700 000 00 00"
@@ -45,14 +45,14 @@
               </a-form-item>
               <!-- Компания/БИН здесь — только для организаций транзита (брокер/экспедитор).
                    У клиента реквизиты живут в «Моя компания», у сотрудников Импорта — не нужны. -->
-              <a-form-item v-if="showCompanyInline" label="Компания">
+              <a-form-item v-if="showCompanyInline" :label="t('profile.company')">
                 <a-input
                   v-model:value="form.companyName"
-                  placeholder="ТОО «Пример»"
+                  :placeholder="t('profile.companyPlaceholder')"
                   allow-clear
                 />
               </a-form-item>
-              <a-form-item v-if="showCompanyInline" label="ИИН / БИН">
+              <a-form-item v-if="showCompanyInline" :label="t('profile.innBin')">
                 <a-input
                   v-model:value="form.innBin"
                   placeholder="123456789012"
@@ -68,61 +68,61 @@
                 :loading="store.saving"
               >
                 <SaveOutlined />
-                Сохранить
+                {{ t('profile.save') }}
               </a-button>
-              <a-button @click="resetForm">Сбросить</a-button>
+              <a-button @click="resetForm">{{ t('profile.reset') }}</a-button>
             </div>
           </a-form>
         </a-card>
 
         <!-- Клиент: реквизиты компании ведутся в «Моя компания» (договор/доверенность там же). -->
         <a-card v-if="isClient" class="crm-shell-card profile-card" :bordered="false">
-          <template #title><div class="card-title-row"><BankOutlined class="card-title-icon" />Компания</div></template>
-          <p class="card-hint">Реквизиты компании (БИН, адрес, руководитель, банк), договор и доверенность — в разделе «Моя компания».</p>
-          <a-button type="primary" @click="router.push('/import-40/company')">Открыть «Моя компания»</a-button>
+          <template #title><div class="card-title-row"><BankOutlined class="card-title-icon" />{{ t('profile.companyCard') }}</div></template>
+          <p class="card-hint">{{ t('profile.companyHint') }}</p>
+          <a-button type="primary" @click="router.push('/import-40/company')">{{ t('profile.openCompany') }}</a-button>
         </a-card>
 
         <!-- Профиль декларанта (гр.54): только у того, кто подаёт ДТ — бизнес-роль «декларант»
              (и администратор). КПП/брокер/продажи/клиент его не видят. -->
         <a-card v-if="showDeclarantCard" class="crm-shell-card profile-card" :bordered="false">
-          <template #title><div class="card-title-row"><IdcardOutlined class="card-title-icon" />Профиль декларанта (для гр.54)</div></template>
-          <p class="card-hint">Заполните один раз — данные подставятся в гр.54 декларации кнопкой «Подставить из профиля».</p>
+          <template #title><div class="card-title-row"><IdcardOutlined class="card-title-icon" />{{ t('profile.declCard') }}</div></template>
+          <p class="card-hint">{{ t('profile.declHint') }}</p>
           <a-form layout="vertical">
             <div class="form-grid">
-              <a-form-item label="ФИО (полностью)"><a-input v-model:value="decl.fullName" allow-clear /></a-form-item>
-              <a-form-item label="Должность"><a-input v-model:value="decl.position" allow-clear /></a-form-item>
-              <a-form-item label="Телефон"><a-input v-model:value="decl.phone" allow-clear /></a-form-item>
-              <a-form-item label="Вид документа (удостоверение)">
-                <a-select v-model:value="decl.idDocTypeCode" :options="classifiers.options('id-doc-types')" show-search allow-clear placeholder="21 — Удостоверение личности" style="width:100%" />
+              <a-form-item :label="t('profile.fullName')"><a-input v-model:value="decl.fullName" allow-clear /></a-form-item>
+              <a-form-item :label="t('profile.position')"><a-input v-model:value="decl.position" allow-clear /></a-form-item>
+              <a-form-item :label="t('profile.phone')"><a-input v-model:value="decl.phone" allow-clear /></a-form-item>
+              <a-form-item :label="t('profile.idDocType')">
+                <a-select v-model:value="decl.idDocTypeCode" :options="classifiers.options('id-doc-types')" show-search allow-clear :placeholder="t('profile.idDocTypePlaceholder')" style="width:100%" />
               </a-form-item>
-              <a-form-item label="№ удостоверения"><a-input v-model:value="decl.idDocNumber" allow-clear /></a-form-item>
-              <a-form-item label="Дата выдачи удостоверения"><a-date-picker v-model:value="decl.idDocIssueDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" style="width:100%" /></a-form-item>
-              <a-form-item label="Кем выдан"><a-input v-model:value="decl.idDocIssuedBy" allow-clear /></a-form-item>
-              <a-form-item label="Страна выдачи удостоверения">
+              <a-form-item :label="t('profile.idDocNumber')"><a-input v-model:value="decl.idDocNumber" allow-clear /></a-form-item>
+              <a-form-item :label="t('profile.idDocIssueDate')"><a-date-picker v-model:value="decl.idDocIssueDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" style="width:100%" /></a-form-item>
+              <a-form-item :label="t('profile.idDocIssuedBy')"><a-input v-model:value="decl.idDocIssuedBy" allow-clear /></a-form-item>
+              <a-form-item :label="t('profile.idDocCountry')">
                 <a-select v-model:value="decl.idDocCountryCode" :options="countryAlpha2Options" show-search allow-clear
-                  :filter-option="filterCountry" placeholder="KZ — Казахстан" style="width:100%" />
+                  :filter-option="filterCountry" :placeholder="t('profile.idDocCountryPlaceholder')" style="width:100%" />
               </a-form-item>
-              <a-form-item label="№ доверенности (от Aqniet)"><a-input v-model:value="decl.powerOfAttorneyNumber" allow-clear /></a-form-item>
-              <a-form-item label="Дата выдачи доверенности"><a-date-picker v-model:value="decl.powerOfAttorneyDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" style="width:100%" /></a-form-item>
-              <a-form-item label="Срок действия доверенности"><a-date-picker v-model:value="decl.powerOfAttorneyValidUntil" format="DD.MM.YYYY" value-format="YYYY-MM-DD" style="width:100%" /></a-form-item>
+              <a-form-item :label="t('profile.poaNumber')"><a-input v-model:value="decl.powerOfAttorneyNumber" allow-clear /></a-form-item>
+              <a-form-item :label="t('profile.poaDate')"><a-date-picker v-model:value="decl.powerOfAttorneyDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" style="width:100%" /></a-form-item>
+              <a-form-item :label="t('profile.poaValidUntil')"><a-date-picker v-model:value="decl.powerOfAttorneyValidUntil" format="DD.MM.YYYY" value-format="YYYY-MM-DD" style="width:100%" /></a-form-item>
             </div>
             <div class="form-actions">
-              <a-button type="primary" :loading="declSaving" @click="saveDeclarant"><SaveOutlined /> Сохранить профиль</a-button>
+              <a-button type="primary" :loading="declSaving" @click="saveDeclarant"><SaveOutlined /> {{ t('profile.saveDecl') }}</a-button>
             </div>
           </a-form>
         </a-card>
 
         <!-- Смена пароля -->
         <a-card class="crm-shell-card profile-card" :bordered="false">
-          <template #title><div class="card-title-row"><LockOutlined class="card-title-icon" />Смена пароля</div></template>
+          <template #title><div class="card-title-row"><LockOutlined class="card-title-icon" />{{ t('profile.pwdCard') }}</div></template>
           <a-form layout="vertical">
             <div class="form-grid">
-              <a-form-item label="Текущий пароль"><a-input-password v-model:value="pwd.current" autocomplete="current-password" /></a-form-item>
-              <a-form-item label="Новый пароль (мин. 6)"><a-input-password v-model:value="pwd.next" autocomplete="new-password" /></a-form-item>
-              <a-form-item label="Повторите новый пароль"><a-input-password v-model:value="pwd.repeat" autocomplete="new-password" /></a-form-item>
+              <a-form-item :label="t('profile.pwdCurrent')"><a-input-password v-model:value="pwd.current" autocomplete="current-password" /></a-form-item>
+              <a-form-item :label="t('profile.pwdNew')"><a-input-password v-model:value="pwd.next" autocomplete="new-password" /></a-form-item>
+              <a-form-item :label="t('profile.pwdRepeat')"><a-input-password v-model:value="pwd.repeat" autocomplete="new-password" /></a-form-item>
             </div>
             <div class="form-actions">
-              <a-button type="primary" :loading="pwdSaving" @click="changePassword"><LockOutlined /> Сменить пароль</a-button>
+              <a-button type="primary" :loading="pwdSaving" @click="changePassword"><LockOutlined /> {{ t('profile.pwdChange') }}</a-button>
             </div>
           </a-form>
         </a-card>
@@ -138,13 +138,14 @@ import { useProfileStore } from '@/stores/profile'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { declarantProfileApi, type DeclarantProfileDto } from '@/api/declarantProfile'
 import { authApi } from '@/api/auth'
-import { formatRole } from '@/utils/labels'
+import { useI18n } from 'vue-i18n'
 import { ALPHA2_COUNTRIES } from '@/types/api'
 import { SaveOutlined, UserOutlined, IdcardOutlined, LockOutlined, BankOutlined } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/PageHeader.vue'
 
+const { t, te } = useI18n()
 const store = useProfileStore()
 const classifiers = useClassifiersStore()
 
@@ -163,11 +164,15 @@ const isClient = computed(() => sysRole.value === 'client')
 const showCompanyInline = computed(() => sysRole.value === 'broker' || sysRole.value === 'expeditor')
 const showDeclarantCard = computed(() => sysRole.value === 'administrator' || bizRole.value === 'declarant')
 const profileSubtitle = computed(() => {
-  if (isClient.value) return 'Ваши контакты и доступ. Реквизиты компании — в «Моя компания».'
-  if (bizRole.value === 'declarant') return 'Контакты, данные для гр.54 декларации и пароль.'
-  if (bizRole.value === 'kpp') return 'Контакты менеджера КПП и пароль.'
-  return 'Личные данные и контактная информация.'
+  if (isClient.value) return t('profile.subClient')
+  if (bizRole.value === 'declarant') return t('profile.subDeclarant')
+  if (bizRole.value === 'kpp') return t('profile.subKpp')
+  return t('profile.subDefault')
 })
+const roleLabel = (role: string) => {
+  const key = role.trim().toLowerCase()
+  return te(`profile.roles.${key}`) ? t(`profile.roles.${key}`) : role
+}
 
 // Страна выдачи удостоверения — 2-буквенный код (как в гр.54 ДТ), выбор из справочника с поиском.
 const countryAlpha2Options = ALPHA2_COUNTRIES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
@@ -185,9 +190,9 @@ const saveDeclarant = async () => {
   try {
     const saved = await declarantProfileApi.update({ ...decl })
     Object.assign(decl, saved)
-    message.success('Профиль декларанта сохранён')
+    message.success(t('profile.declSaved'))
   } catch {
-    message.error('Не удалось сохранить профиль декларанта')
+    message.error(t('profile.declSaveError'))
   } finally {
     declSaving.value = false
   }
@@ -197,16 +202,16 @@ const saveDeclarant = async () => {
 const pwd = reactive({ current: '', next: '', repeat: '' })
 const pwdSaving = ref(false)
 const changePassword = async () => {
-  if (pwd.next.length < 6) { message.warning('Новый пароль — минимум 6 символов'); return }
-  if (pwd.next !== pwd.repeat) { message.warning('Пароли не совпадают'); return }
+  if (pwd.next.length < 6) { message.warning(t('profile.pwdMin')); return }
+  if (pwd.next !== pwd.repeat) { message.warning(t('profile.pwdMismatch')); return }
   pwdSaving.value = true
   try {
     await authApi.changePassword(pwd.current, pwd.next)
     pwd.current = ''; pwd.next = ''; pwd.repeat = ''
-    message.success('Пароль изменён')
+    message.success(t('profile.pwdChanged'))
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
-    message.error(err.response?.data?.error ?? 'Не удалось сменить пароль')
+    message.error(err.response?.data?.error ?? t('profile.pwdError'))
   } finally {
     pwdSaving.value = false
   }

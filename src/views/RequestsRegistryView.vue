@@ -63,6 +63,7 @@ import { message } from 'ant-design-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { registryApi, type RegistryRowDto } from '@/api/registry'
 import { IMPORT40_STATUSES } from '@/api/import40'
+import { useImport40Status } from '@/composables/useImport40Status'
 
 type Row = RegistryRowDto & { rowKey: string }
 
@@ -93,9 +94,10 @@ const TRANSIT_STATUSES = [
   { value: 7, label: 'Архив' },
 ]
 
+const { statusLabel } = useImport40Status()
 const statusOptions = computed(() => {
   if (filters.type === 'import40')
-    return IMPORT40_STATUSES.map((s) => ({ value: `import40:${s.id}`, label: s.short }))
+    return IMPORT40_STATUSES.map((s) => ({ value: `import40:${s.id}`, label: statusLabel(s.id) }))
   if (filters.type === 'transit')
     return TRANSIT_STATUSES.map((s) => ({ value: `transit:${s.value}`, label: s.label }))
   return []

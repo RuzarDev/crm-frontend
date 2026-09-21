@@ -87,7 +87,6 @@ export const useAuthStore = defineStore('auth', () => {
   const registerClient = async (payload: RegisterClientRequest) => {
     try {
       await authApi.registerClient(payload)
-      message.success('Регистрация выполнена. Теперь войдите в систему')
       return true
     } catch (error) {
       return false

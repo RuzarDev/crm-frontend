@@ -1,34 +1,34 @@
 <template>
   <div class="invite-page">
     <div class="invite-card">
-      <div class="invite-badge">Zircon CRM</div>
+      <div class="invite-top"><div class="invite-badge">Zircon CRM</div><LanguageSwitcher /></div>
       <template v-if="state === 'loading'">
         <a-spin />
       </template>
       <template v-else-if="state === 'invalid'">
-        <h2 class="invite-title">Ссылка недействительна</h2>
-        <p class="invite-sub">Приглашение истекло или уже использовано. Попросите вашего менеджера выслать новое.</p>
-        <a-button type="primary" size="large" block @click="router.push('/login')">На страницу входа</a-button>
+        <h2 class="invite-title">{{ t('invite.invalidTitle') }}</h2>
+        <p class="invite-sub">{{ t('invite.invalidSub') }}</p>
+        <a-button type="primary" size="large" block @click="router.push('/login')">{{ t('invite.toLogin') }}</a-button>
       </template>
       <template v-else-if="state === 'done'">
-        <h2 class="invite-title">Пароль задан</h2>
-        <p class="invite-sub">Теперь войдите с логином <b>{{ info?.email }}</b>.</p>
-        <a-button type="primary" size="large" block @click="router.push('/login')">Войти</a-button>
+        <h2 class="invite-title">{{ t('invite.doneTitle') }}</h2>
+        <p class="invite-sub">{{ t('invite.doneSub', { email: info?.email ?? '' }) }}</p>
+        <a-button type="primary" size="large" block @click="router.push('/login')">{{ t('invite.login') }}</a-button>
       </template>
       <template v-else>
-        <h2 class="invite-title">Завершите регистрацию</h2>
+        <h2 class="invite-title">{{ t('invite.title') }}</h2>
         <p class="invite-sub">
-          Вас пригласили в Zircon CRM<template v-if="info?.companyName"> для <b>{{ info.companyName }}</b></template>.
-          Логин — <b>{{ info?.email }}</b>. Задайте пароль.
+          {{ info?.companyName ? t('invite.invitedTo', { company: info.companyName }) : t('invite.invited') }}
+          {{ t('invite.loginIs', { email: info?.email ?? '' }) }}
         </p>
         <a-form layout="vertical" :model="form" @finish="submit">
-          <a-form-item label="Пароль" name="password" :rules="[{ required: true, message: 'Введите пароль' }, { min: 8, message: 'Минимум 8 символов' }]">
-            <a-input-password v-model:value="form.password" size="large" autocomplete="new-password" placeholder="Минимум 8 символов" />
+          <a-form-item :label="t('invite.password')" name="password" :rules="[{ required: true, message: t('invite.vPassword') }, { min: 8, message: t('invite.vPasswordMin') }]">
+            <a-input-password v-model:value="form.password" size="large" autocomplete="new-password" :placeholder="t('invite.passwordPlaceholder')" />
           </a-form-item>
-          <a-form-item label="Повторите пароль" name="confirm" :rules="[{ required: true, message: 'Повторите пароль' }]">
-            <a-input-password v-model:value="form.confirm" size="large" autocomplete="new-password" placeholder="Повтор" />
+          <a-form-item :label="t('invite.confirm')" name="confirm" :rules="[{ required: true, message: t('invite.vConfirm') }]">
+            <a-input-password v-model:value="form.confirm" size="large" autocomplete="new-password" :placeholder="t('invite.confirmPlaceholder')" />
           </a-form-item>
-          <a-button type="primary" html-type="submit" size="large" block :loading="saving">Задать пароль и войти</a-button>
+          <a-button type="primary" html-type="submit" size="large" block :loading="saving">{{ t('invite.submit') }}</a-button>
         </a-form>
       </template>
     </div>
@@ -39,8 +39,11 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
+import { useI18n } from 'vue-i18n'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import { clientsOnboardingApi, type InviteInfo } from '@/api/clientsOnboarding'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const token = String(route.params.token ?? '')
@@ -59,7 +62,7 @@ onMounted(async () => {
 })
 
 const submit = async () => {
-  if (form.password !== form.confirm) { message.error('Пароли не совпадают'); return }
+  if (form.password !== form.confirm) { message.error(t('invite.mismatch')); return }
   saving.value = true
   try {
     await clientsOnboardingApi.acceptInvite(token, form.password)
@@ -74,6 +77,7 @@ const submit = async () => {
 </script>
 
 <style scoped>
+.invite-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .invite-page {
   min-height: 100vh; display: grid; place-items: center; padding: 24px;
   background: linear-gradient(145deg, #0f1d36 0%, #1B2A4A 45%, #1a3050 100%);
@@ -83,7 +87,7 @@ const submit = async () => {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
 }
 .invite-badge {
-  display: inline-flex; align-items: center; height: 26px; padding: 0 10px; margin-bottom: 16px;
+  display: inline-flex; align-items: center; height: 26px; padding: 0 10px;
   border: 1px solid rgba(43, 188, 212, 0.3); border-radius: 999px; background: rgba(43, 188, 212, 0.08);
   color: #1FA8C0; font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
 }

@@ -12,17 +12,17 @@
     />
 
     <PageHeader
-      kicker="Импорт 40"
-      title="Моя компания"
-      subtitle="Реквизиты, договор и доверенность таможенного представителя."
+      :kicker="t('company.kicker')"
+      :title="t('company.title')"
+      :subtitle="t('company.subtitle')"
     >
       <template #actions>
         <a-tag v-if="onboardingComplete" color="success" class="onboarding-badge">
-          <CheckCircleOutlined /> Онбординг завершён
+          <CheckCircleOutlined /> {{ t('company.onboardingDone') }}
         </a-tag>
         <a-tooltip v-else :title="missingHint">
           <a-tag color="warning" class="onboarding-badge">
-            <ExclamationCircleOutlined /> Онбординг не завершён
+            <ExclamationCircleOutlined /> {{ t('company.onboardingPending') }}
           </a-tag>
         </a-tooltip>
       </template>
@@ -36,74 +36,74 @@
           <!-- ① Реквизиты -->
           <div v-if="current === 0">
             <div class="form-grid">
-              <label class="full"><span>Наименование компании *</span><a-input v-model:value="form.companyName" placeholder="ТОО «…»" /></label>
-              <label><span>БИН *</span>
+              <label class="full"><span>{{ t('company.companyName') }}</span><a-input v-model:value="form.companyName" placeholder="ТОО «…»" /></label>
+              <label><span>{{ t('company.bin') }}</span>
                 <div class="bin-row">
-                  <a-input v-model:value="form.bin" placeholder="12 цифр" />
+                  <a-input v-model:value="form.bin" :placeholder="t('company.binPlaceholder')" />
                   <BinLookupButton :bin="form.bin" size="middle" @found="applyCompanyLookup" />
                 </div>
               </label>
-              <label><span>ФИО руководителя *</span><a-input v-model:value="form.directorName" placeholder="Иванов И.И." /></label>
-              <label><span>Действует на основании</span><a-input v-model:value="form.directorBasis" placeholder="устава" /></label>
-              <label class="full"><span>Юридический адрес</span><a-input v-model:value="form.legalAddress" /></label>
-              <label><span>Банк</span><a-input v-model:value="form.bank" /></label>
-              <label><span>ИИК</span><a-input v-model:value="form.iik" /></label>
-              <label><span>БИК</span><a-input v-model:value="form.bik" /></label>
-              <label><span>Телефон</span><a-input v-model:value="form.phone" /></label>
-              <label><span>E-mail</span><a-input v-model:value="form.email" /></label>
+              <label><span>{{ t('company.director') }}</span><a-input v-model:value="form.directorName" :placeholder="t('company.directorPlaceholder')" /></label>
+              <label><span>{{ t('company.basis') }}</span><a-input v-model:value="form.directorBasis" :placeholder="t('company.basisPlaceholder')" /></label>
+              <label class="full"><span>{{ t('company.legalAddress') }}</span><a-input v-model:value="form.legalAddress" /></label>
+              <label><span>{{ t('company.bank') }}</span><a-input v-model:value="form.bank" /></label>
+              <label><span>{{ t('company.iik') }}</span><a-input v-model:value="form.iik" /></label>
+              <label><span>{{ t('company.bik') }}</span><a-input v-model:value="form.bik" /></label>
+              <label><span>{{ t('company.phone') }}</span><a-input v-model:value="form.phone" /></label>
+              <label><span>{{ t('company.email') }}</span><a-input v-model:value="form.email" /></label>
             </div>
 
-            <div class="form-section-title">Юр. адрес (структурно)</div>
+            <div class="form-section-title">{{ t('company.legalStructured') }}</div>
             <div class="form-grid">
               <label>
-                <span>Страна</span>
+                <span>{{ t('company.country') }}</span>
                 <a-select
                   v-model:value="form.legalCountryCode"
                   show-search
                   allow-clear
                   :options="countryOptions"
                   :filter-option="filterCountry"
-                  placeholder="Выберите страну по коду"
+                  :placeholder="t('company.countryPlaceholder')"
                 />
               </label>
-              <label><span>Регион / область</span><a-input v-model:value="form.legalRegion" /></label>
-              <label><span>Город</span><a-input v-model:value="form.legalCity" /></label>
-              <label class="full"><span>Улица, дом, офис</span><a-input v-model:value="form.legalStreet" /></label>
+              <label><span>{{ t('company.region') }}</span><a-input v-model:value="form.legalRegion" /></label>
+              <label><span>{{ t('company.city') }}</span><a-input v-model:value="form.legalCity" /></label>
+              <label class="full"><span>{{ t('company.street') }}</span><a-input v-model:value="form.legalStreet" /></label>
             </div>
 
-            <div class="form-section-title">Реквизиты</div>
+            <div class="form-section-title">{{ t('company.requisites') }}</div>
             <div class="form-grid">
-              <label><span>КБе</span><a-input v-model:value="form.kbe" /></label>
-              <label><span>ОКПО</span><a-input v-model:value="form.okpo" /></label>
-              <label><span>Код/тип собственности</span><a-input v-model:value="form.ownershipType" /></label>
+              <label><span>{{ t('company.kbe') }}</span><a-input v-model:value="form.kbe" /></label>
+              <label><span>{{ t('company.okpo') }}</span><a-input v-model:value="form.okpo" /></label>
+              <label><span>{{ t('company.ownership') }}</span><a-input v-model:value="form.ownershipType" /></label>
             </div>
 
-            <div class="form-section-title">Контактное лицо</div>
+            <div class="form-section-title">{{ t('company.contact') }}</div>
             <div class="form-grid">
-              <label><span>ФИО</span><a-input v-model:value="form.contactPersonName" /></label>
-              <label><span>Должность</span><a-input v-model:value="form.contactPersonPosition" /></label>
-              <label><span>Телефон</span><a-input v-model:value="form.contactPhone" /></label>
-              <label><span>E-mail</span><a-input v-model:value="form.contactEmail" /></label>
+              <label><span>{{ t('company.contactName') }}</span><a-input v-model:value="form.contactPersonName" /></label>
+              <label><span>{{ t('company.contactPosition') }}</span><a-input v-model:value="form.contactPersonPosition" /></label>
+              <label><span>{{ t('company.phone') }}</span><a-input v-model:value="form.contactPhone" /></label>
+              <label><span>{{ t('company.email') }}</span><a-input v-model:value="form.contactEmail" /></label>
             </div>
 
             <div class="form-footer">
-              <a-tag v-if="profile?.isComplete" color="success">Заполнено</a-tag>
-              <a-tag v-else color="warning">Заполните обязательные поля (*)</a-tag>
-              <a-button type="primary" :loading="saving" @click="saveProfile">Сохранить реквизиты</a-button>
-              <a-button type="link" :disabled="!profile?.isComplete" @click="current = 1">Далее: договор <RightOutlined /></a-button>
+              <a-tag v-if="profile?.isComplete" color="success">{{ t('company.filled') }}</a-tag>
+              <a-tag v-else color="warning">{{ t('company.fillRequired') }}</a-tag>
+              <a-button type="primary" :loading="saving" @click="saveProfile">{{ t('company.saveProfile') }}</a-button>
+              <a-button type="link" :disabled="!profile?.isComplete" @click="current = 1">{{ t('company.nextContract') }} <RightOutlined /></a-button>
             </div>
           </div>
 
           <!-- ② Договор -->
           <DocumentStep
             v-else-if="current === 1"
-            title="Договор таможенного представителя"
+            :title="t('company.contractTitle')"
             :profile-complete="!!profile?.isComplete"
             :documents="contractDocs"
             :generating="generatingKind === 'contract'"
             :is-admin="isAdmin"
             :is-effective="isDocumentEffective"
-            empty-hint="Договор формируется автоматически из ваших реквизитов. Заполните реквизиты и нажмите «Сформировать»."
+            :empty-hint="t('company.contractEmpty')"
             @generate="(opts: GenerateOpts) => generate('contract', opts)"
             @download="downloadDoc"
             @sign="(doc: Import40DocumentDto, side: 'client' | 'provider') => triggerSign(doc, side)"
@@ -113,13 +113,13 @@
           <!-- ③ Доверенность -->
           <DocumentStep
             v-else
-            title="Доверенность"
+            :title="t('company.poaTitle')"
             :profile-complete="!!profile?.isComplete"
             :documents="poaDocs"
             :generating="generatingKind === 'poa'"
             :is-admin="isAdmin"
             :is-effective="isDocumentEffective"
-            empty-hint="Доверенность формируется автоматически из ваших реквизитов. Заполните реквизиты и нажмите «Сформировать»."
+            :empty-hint="t('company.poaEmpty')"
             @generate="(opts: GenerateOpts) => generate('poa', opts)"
             @download="downloadDoc"
             @sign="(doc: Import40DocumentDto, side: 'client' | 'provider') => triggerSign(doc, side)"
@@ -127,8 +127,8 @@
           />
 
           <div class="step-nav">
-            <a-button v-if="current > 0" @click="current -= 1"><LeftOutlined /> Назад</a-button>
-            <a-button v-if="current < 2" type="link" @click="current += 1">Далее <RightOutlined /></a-button>
+            <a-button v-if="current > 0" @click="current -= 1"><LeftOutlined /> {{ t('company.back') }}</a-button>
+            <a-button v-if="current < 2" type="link" @click="current += 1">{{ t('company.next') }} <RightOutlined /></a-button>
           </div>
         </div>
       </a-card>
@@ -139,6 +139,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
+import { useI18n } from 'vue-i18n'
 import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
@@ -161,6 +162,7 @@ import BinLookupButton from '@/components/BinLookupButton.vue'
 import { parseKzAddress } from '@/utils/kzAddress'
 import type { CompanyLookupDto } from '@/api/companyLookup'
 
+const { t } = useI18n()
 const authStore = useAuthStore()
 const loading = ref(false)
 const saving = ref(false)
@@ -207,10 +209,10 @@ const onboardingComplete = computed(() => !!effectiveContract.value && !!effecti
 
 const missingHint = computed(() => {
   const missing: string[] = []
-  if (!profile.value?.isComplete) missing.push('реквизиты')
-  if (!effectiveContract.value) missing.push('действующий договор')
-  if (!effectivePoa.value) missing.push('действующая доверенность')
-  return missing.length ? `Не хватает: ${missing.join(', ')}` : ''
+  if (!profile.value?.isComplete) missing.push(t('company.missingProfile'))
+  if (!effectiveContract.value) missing.push(t('company.missingContract'))
+  if (!effectivePoa.value) missing.push(t('company.missingPoa'))
+  return missing.length ? t('company.missing', { list: missing.join(', ') }) : ''
 })
 
 const stepStatus = (done: boolean, index: number): 'finish' | 'process' | 'wait' =>
@@ -218,18 +220,18 @@ const stepStatus = (done: boolean, index: number): 'finish' | 'process' | 'wait'
 
 const stepItems = computed(() => [
   {
-    title: 'Реквизиты',
-    description: profile.value?.isComplete ? 'Заполнено' : 'Не заполнено',
+    title: t('company.stepProfile'),
+    description: profile.value?.isComplete ? t('company.filled') : t('company.notFilled'),
     status: stepStatus(!!profile.value?.isComplete, 0),
   },
   {
-    title: 'Договор',
-    description: effectiveContract.value ? 'Действует' : 'Требуется',
+    title: t('company.stepContract'),
+    description: effectiveContract.value ? t('company.effective') : t('company.required'),
     status: stepStatus(!!effectiveContract.value, 1),
   },
   {
-    title: 'Доверенность',
-    description: effectivePoa.value ? 'Действует' : 'Требуется',
+    title: t('company.stepPoa'),
+    description: effectivePoa.value ? t('company.effective') : t('company.required'),
     status: stepStatus(!!effectivePoa.value, 2),
   },
 ])
@@ -290,7 +292,7 @@ const load = async () => {
   try {
     const clients = await import40Api.listClients()
     if (!clients.length) {
-      message.error('Не найден профиль клиента')
+      message.error(t('company.noProfile'))
       return
     }
     clientId.value = clients[0].id
@@ -314,9 +316,9 @@ const saveProfile = async () => {
   saving.value = true
   try {
     applyProfile(await import40ContractApi.saveProfile(clientId.value, { ...form }))
-    message.success('Реквизиты сохранены')
+    message.success(t('company.saved'))
   } catch {
-    message.error('Не удалось сохранить')
+    message.error(t('company.saveError'))
   } finally {
     saving.value = false
   }
@@ -331,9 +333,9 @@ const generate = async (kind: 'contract' | 'poa', opts: GenerateOpts) => {
       validUntilUtc: opts.validUntilUtc,
     })
     await loadDocuments()
-    message.success(kind === 'contract' ? 'Договор сформирован' : 'Доверенность сформирована')
+    message.success(kind === 'contract' ? t('company.contractGenerated') : t('company.poaGenerated'))
   } catch {
-    message.error('Не удалось сформировать документ')
+    message.error(t('company.generateError'))
   } finally {
     generatingKind.value = null
   }
@@ -341,7 +343,7 @@ const generate = async (kind: 'contract' | 'poa', opts: GenerateOpts) => {
 
 const downloadDoc = async (doc: Import40DocumentDto) => {
   const blob = await import40ContractApi.downloadDocument(clientId.value, doc.id)
-  const ext = doc.kind === 'contract' ? 'Договор' : 'Доверенность'
+  const ext = doc.kind === 'contract' ? t('company.fileContract') : t('company.filePoa')
   triggerDownload(blob, `${ext}-${doc.number}-${doc.year}.docx`)
 }
 

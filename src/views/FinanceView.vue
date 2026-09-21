@@ -75,7 +75,8 @@ import { DownloadOutlined, SearchOutlined, PaperClipOutlined } from '@ant-design
 import * as XLSX from 'xlsx'
 import PageHeader from '@/components/PageHeader.vue'
 import { financeApi, type FinanceOverview, type FinanceRow, type FinanceFile } from '@/api/manage'
-import { import40Api, IMPORT40_STATUSES } from '@/api/import40'
+import { import40Api } from '@/api/import40'
+import { useImport40Status } from '@/composables/useImport40Status'
 
 const router = useRouter()
 const loading = ref(false)
@@ -124,7 +125,7 @@ const columns = [
 
 const money = (v: number) => Math.round(v).toLocaleString('ru-RU')
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ru-RU')
-const statusLabel = (s: number) => IMPORT40_STATUSES.find((x) => x.id === s)?.short ?? String(s)
+const { statusLabel } = useImport40Status()
 const statusColor = (s: number) => (s >= 8 ? 'success' : s === 6 ? 'warning' : 'processing')
 
 const download = async (caseId: string, f: FinanceFile) => {

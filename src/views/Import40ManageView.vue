@@ -75,7 +75,8 @@ import { message } from 'ant-design-vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { manageApi, type ManageOverview, type ManageCase } from '@/api/manage'
-import { import40Api, IMPORT40_STATUSES } from '@/api/import40'
+import { import40Api } from '@/api/import40'
+import { useImport40Status } from '@/composables/useImport40Status'
 import { TOTAL_STEPS, stepForStatus } from '@/utils/import40Steps'
 import { businessRoleLabel } from '@/api/permissions'
 
@@ -99,7 +100,7 @@ onMounted(load)
 
 const needsKpp = (s: number) => [1, 4, 5, 6].includes(s)
 const needsDeclarant = (s: number) => [2, 3].includes(s)
-const statusLabel = (s: number) => IMPORT40_STATUSES.find((x) => x.id === s)?.short ?? String(s)
+const { statusLabel } = useImport40Status()
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()

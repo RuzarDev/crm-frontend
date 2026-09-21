@@ -12,16 +12,10 @@
         <div class="auth-hero">
           <div class="auth-eyebrow">
             <span class="auth-eyebrow-dot"></span>
-            Регистрация клиента
+            {{ t('register.kicker') }}
           </div>
-          <h1 class="auth-headline">
-            Начните работу<br>с Zircon CRM
-          </h1>
-          <p class="auth-desc">
-            Укажите БИН — реквизиты компании<br>
-            подтянутся из госреестра. Подпишите<br>
-            договор ЭЦП и подавайте заявки.
-          </p>
+          <h1 class="auth-headline">{{ t('register.heroTitle') }}</h1>
+          <p class="auth-desc">{{ t('register.heroDesc') }}</p>
         </div>
 
         <!-- Steps -->
@@ -29,24 +23,24 @@
           <div class="auth-step">
             <div class="auth-step-num">01</div>
             <div class="auth-step-body">
-              <div class="auth-step-title">Создайте аккаунт</div>
-              <div class="auth-step-sub">Email, БИН и надёжный пароль</div>
+              <div class="auth-step-title">{{ t('register.step1') }}</div>
+              <div class="auth-step-sub">{{ t('register.step1sub') }}</div>
             </div>
           </div>
           <div class="auth-step-line"></div>
           <div class="auth-step">
             <div class="auth-step-num">02</div>
             <div class="auth-step-body">
-              <div class="auth-step-title">Подпишите документы</div>
-              <div class="auth-step-sub">Договор и доверенность через ЭЦП</div>
+              <div class="auth-step-title">{{ t('register.step2') }}</div>
+              <div class="auth-step-sub">{{ t('register.step2sub') }}</div>
             </div>
           </div>
           <div class="auth-step-line"></div>
           <div class="auth-step">
             <div class="auth-step-num">03</div>
             <div class="auth-step-body">
-              <div class="auth-step-title">Подавайте заявки</div>
-              <div class="auth-step-sub">Таможенное оформление онлайн</div>
+              <div class="auth-step-title">{{ t('register.step3') }}</div>
+              <div class="auth-step-sub">{{ t('register.step3sub') }}</div>
             </div>
           </div>
         </div>
@@ -56,10 +50,11 @@
     <!-- ══ RIGHT PANEL ═════════════════════════════════════════ -->
     <main class="auth-right">
       <div class="auth-form-wrap">
+        <div class="auth-lang"><LanguageSwitcher /></div>
         <div class="auth-form-header">
           <div class="auth-form-badge">Zircon CRM</div>
-          <h2 class="auth-form-title">Регистрация</h2>
-          <p class="auth-form-sub">Заполните данные для создания аккаунта</p>
+          <h2 class="auth-form-title">{{ t('register.title') }}</h2>
+          <p class="auth-form-sub">{{ t('register.subtitle') }}</p>
         </div>
 
         <a-form
@@ -69,40 +64,40 @@
           layout="vertical"
           class="auth-form"
         >
-          <a-form-item label="Email (будет логином)" name="email">
+          <a-form-item :label="t('register.email')" name="email">
             <a-input v-model:value="formState.email" placeholder="you@company.kz" size="large" autocomplete="email">
               <template #prefix><MailOutlined class="auth-input-icon" /></template>
             </a-input>
           </a-form-item>
 
-          <a-form-item label="БИН компании" name="bin">
+          <a-form-item :label="t('register.bin')" name="bin">
             <div class="auth-bin-row">
-              <a-input v-model:value="formState.bin" placeholder="12 цифр" size="large" :maxlength="12" inputmode="numeric">
+              <a-input v-model:value="formState.bin" :placeholder="t('register.binPlaceholder')" size="large" :maxlength="12" inputmode="numeric">
                 <template #prefix><BankOutlined class="auth-input-icon" /></template>
               </a-input>
               <BinLookupButton :bin="formState.bin" size="large" anonymous @found="applyCompany" />
             </div>
           </a-form-item>
 
-          <a-form-item label="Наименование компании" name="companyName">
+          <a-form-item :label="t('register.companyName')" name="companyName">
             <a-input v-model:value="formState.companyName" placeholder="ТОО «…»" size="large" />
           </a-form-item>
 
-          <a-form-item label="Телефон" name="phone">
+          <a-form-item :label="t('register.phone')" name="phone">
             <a-input v-model:value="formState.phone" placeholder="+7 700 000 00 00" size="large" autocomplete="tel">
               <template #prefix><PhoneOutlined class="auth-input-icon" /></template>
             </a-input>
           </a-form-item>
 
           <div class="auth-form-row">
-            <a-form-item label="Пароль" name="password">
-              <a-input-password v-model:value="formState.password" placeholder="Минимум 8 символов" size="large" autocomplete="new-password">
+            <a-form-item :label="t('register.password')" name="password">
+              <a-input-password v-model:value="formState.password" :placeholder="t('register.passwordPlaceholder')" size="large" autocomplete="new-password">
                 <template #prefix><LockOutlined class="auth-input-icon" /></template>
               </a-input-password>
             </a-form-item>
 
-            <a-form-item label="Повторите пароль" name="confirmPassword">
-              <a-input-password v-model:value="formState.confirmPassword" placeholder="Повтор" size="large" autocomplete="new-password">
+            <a-form-item :label="t('register.confirm')" name="confirmPassword">
+              <a-input-password v-model:value="formState.confirmPassword" :placeholder="t('register.confirmPlaceholder')" size="large" autocomplete="new-password">
                 <template #prefix><LockOutlined class="auth-input-icon" /></template>
               </a-input-password>
             </a-form-item>
@@ -117,14 +112,14 @@
               :loading="loading"
               class="auth-submit-btn"
             >
-              <span v-if="!loading">Создать аккаунт</span>
+              <span v-if="!loading">{{ t('register.submit') }}</span>
             </a-button>
           </a-form-item>
         </a-form>
 
         <div class="auth-footer-link">
-          Уже есть аккаунт?
-          <a @click="goToLogin">Войти</a>
+          {{ t('register.haveAccount') }}
+          <a @click="goToLogin">{{ t('register.login') }}</a>
         </div>
       </div>
     </main>
@@ -133,14 +128,17 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import { useAuthStore } from '@/stores/auth'
 import { MailOutlined, LockOutlined, PhoneOutlined, BankOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import BinLookupButton from '@/components/BinLookupButton.vue'
 import type { CompanyLookupDto } from '@/api/companyLookup'
 
+const { t } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
 const loading = ref(false)
@@ -157,19 +155,19 @@ const formState = reactive({
   directorName: '' as string | null,
 })
 
-const rules = {
+const rules = computed(() => ({
   email: [
-    { required: true, message: 'Введите email' },
-    { type: 'email' as const, message: 'Некорректный email' },
+    { required: true, message: t('register.vEmail') },
+    { type: 'email' as const, message: t('register.vEmailFormat') },
   ],
   bin: [
-    { required: true, message: 'Введите БИН' },
-    { pattern: /^\d{12}$/, message: 'БИН — 12 цифр' },
+    { required: true, message: t('register.vBin') },
+    { pattern: /^\d{12}$/, message: t('register.vBinFormat') },
   ],
-  companyName: [{ required: true, message: 'Укажите наименование компании' }],
-  password: [{ required: true, message: 'Введите пароль' }, { min: 8, message: 'Минимум 8 символов' }],
-  confirmPassword: [{ required: true, message: 'Повторите пароль' }],
-}
+  companyName: [{ required: true, message: t('register.vCompany') }],
+  password: [{ required: true, message: t('register.vPassword') }, { min: 8, message: t('register.vPasswordMin') }],
+  confirmPassword: [{ required: true, message: t('register.vConfirm') }],
+}))
 
 const applyCompany = (c: CompanyLookupDto) => {
   formState.companyName = c.nameRu ?? c.nameKz ?? formState.companyName
@@ -179,7 +177,7 @@ const applyCompany = (c: CompanyLookupDto) => {
 
 const handleRegister = async () => {
   if (formState.password !== formState.confirmPassword) {
-    message.error('Пароли не совпадают')
+    message.error(t('register.mismatch'))
     return
   }
   loading.value = true
@@ -193,7 +191,7 @@ const handleRegister = async () => {
       legalAddress: formState.legalAddress || null,
       directorName: formState.directorName || null,
     })
-    if (success) router.push('/login')
+    if (success) { message.success(t('register.success')); router.push('/login') }
   } finally {
     loading.value = false
   }
@@ -371,6 +369,7 @@ const goToLogin = () => router.push('/login')
   background: rgba(43, 188, 212, 0.2);
 }
 
+.auth-lang { display: flex; justify-content: flex-end; margin-bottom: 8px; }
 .auth-bin-row { display: flex; gap: 8px; align-items: stretch; }
 .auth-bin-row .ant-input-affix-wrapper { flex: 1; }
 

@@ -287,11 +287,11 @@ import type { UploadProps } from 'ant-design-vue'
 import { SearchOutlined, InboxOutlined, CloseOutlined } from '@ant-design/icons-vue'
 import {
   import40Api,
-  IMPORT40_STATUSES,
   IMPORT40_TRANSPORT_MODES,
   type Import40CaseDto,
   type Import40FileDto,
 } from '@/api/import40'
+import { useImport40Status } from '@/composables/useImport40Status'
 import {
   import40ContractApi,
   isDocumentEffective,
@@ -427,8 +427,7 @@ const columns = computed(() => [
   { title: t('import40List.colUpdated'), key: 'updated', width: 110 },
 ])
 
-const statusLabel = (status: number) =>
-  IMPORT40_STATUSES.find((s) => s.id === status)?.short || 'Неизвестно'
+const { statusLabel } = useImport40Status()
 const declCount = (c: Import40CaseDto) => c.declarations.length
 
 const createOpen = ref(false)
