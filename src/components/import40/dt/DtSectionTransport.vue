@@ -30,7 +30,7 @@
     </div>
     <div class="transport-list">
       <div v-for="(m, i) in form.arrivalTransportNumbers" :key="i" class="transport-list-row transport-list-row-wrap">
-        <a-switch v-if="isRoadMode(form.arrivalTransportModeCode)" v-model:checked="m.isTrailer" :disabled="readonly" checked-children="Прицеп" un-checked-children="Голова" @change="emitChange" />
+        <a-switch v-if="isRoadMode(arrivalModeCode)" v-model:checked="m.isTrailer" :disabled="readonly" checked-children="Прицеп" un-checked-children="Голова" @change="emitChange" />
         <a-input v-uppercase v-model:value="m.number" :disabled="readonly" placeholder="Номер ТС" style="max-width: 200px" @change="emitChange" />
         <a-auto-complete v-model:value="m.typeCode" :options="classifiers.options('2024')"
           :disabled="readonly" placeholder="319" style="max-width: 160px" @change="emitChange" />
@@ -38,12 +38,12 @@
           show-search allow-clear placeholder="Марка" style="min-width: 180px" @change="emitChange" />
         <a-select v-model:value="m.nationality" :options="countryAlpha2Options" :disabled="readonly"
           show-search allow-clear :filter-option="filterAlpha2" placeholder="Нац." style="max-width: 140px" @change="emitChange" />
-        <a-select v-if="isRoadMode(form.arrivalTransportModeCode) && m.isTrailer" v-model:value="m.headNumber" :options="arrivalHeadOptions" :disabled="readonly"
+        <a-select v-if="isRoadMode(arrivalModeCode) && m.isTrailer" v-model:value="m.headNumber" :options="arrivalHeadOptions" :disabled="readonly"
           allow-clear placeholder="Голова" style="min-width: 160px" @change="emitChange" />
         <a-button v-if="!readonly" type="text" danger size="small" @click="removeArrivalTransport(i)"><CloseOutlined /></a-button>
       </div>
       <div class="transport-actions">
-        <template v-if="isRoadMode(form.arrivalTransportModeCode)">
+        <template v-if="isRoadMode(arrivalModeCode)">
           <a-button v-if="!readonly" type="dashed" size="small" @click="addArrivalTransport(false)">+ Голова</a-button>
           <a-button v-if="!readonly" type="dashed" size="small" @click="addArrivalTransport(true)">+ Прицеп</a-button>
         </template>
@@ -145,6 +145,14 @@ function isRoadMode(code: string | null | undefined) {
   return code === '30' || code === '31' || code === '32'
 }
 
+// Вид транспорта для гр.18 (ТС при прибытии). У arrivalTransportModeCode нет своего
+// поля ввода (заполняется только копированием из гр.21), поэтому раньше гр.18 никогда
+// не включала режим «голова/прицеп». Гр.18 парна гр.26 (вид транспорта внутри
+// страны) — берём её, с фолбэком на гр.25 (граница).
+const arrivalModeCode = computed(
+  () => form.arrivalTransportModeCode || form.inlandTransportModeCode || form.borderTransportModeCode,
+)
+
 // «Голова» у прицепа выбирается из номеров головных ТС (isTrailer=false) той же графы.
 const borderHeadOptions = computed(() =>
   form.borderTransportNumbers
@@ -167,6 +175,9 @@ function removeBorderTransport(idx: number) {
 }
 function addArrivalTransport(isTrailer: boolean) {
   form.arrivalTransportNumbers.push({ number: '', typeCode: null, nationality: null, mark: null, isTrailer, headNumber: null })
+  // Фиксируем выведенный вид транспорта в сохраняемом поле, чтобы XML/готовность
+  // видели то же, что и UI (см. arrivalModeCode).
+  if (!form.arrivalTransportModeCode && arrivalModeCode.value) form.arrivalTransportModeCode = arrivalModeCode.value
   emitChange()
 }
 function removeArrivalTransport(idx: number) {
