@@ -55,7 +55,7 @@
         <a-select v-model:value="form.receiverCategoryCode" show-search allow-clear :disabled="readonly || form.consigneeEqualsDeclarant" :options="classifiers.options('itn-categories')" @change="emitChange" />
       </a-form-item>
       <a-form-item label="КАТО">
-        <a-select v-model:value="form.receiverKatoCode" show-search allow-clear :disabled="readonly || form.consigneeEqualsDeclarant" :options="classifiers.options('kato')" @change="emitChange" />
+        <KatoSelect v-model:value="form.receiverKatoCode" :disabled="readonly || !!form.consigneeEqualsDeclarant" @change="emitChange" />
       </a-form-item>
     </div>
     </template>
@@ -78,7 +78,7 @@
           <a-select v-model:value="form.financialSubjectCategoryCode" show-search allow-clear :disabled="readonly" :options="classifiers.options('itn-categories')" @change="emitChange" />
         </a-form-item>
         <a-form-item label="КАТО">
-          <a-select v-model:value="form.financialSubjectKatoCode" show-search allow-clear :disabled="readonly" :options="classifiers.options('kato')" @change="emitChange" />
+          <KatoSelect v-model:value="form.financialSubjectKatoCode" :disabled="readonly" @change="emitChange" />
         </a-form-item>
       </div>
     </template>
@@ -100,7 +100,7 @@
         <a-select v-model:value="form.declarantCategoryCode" show-search allow-clear :disabled="readonly" :options="classifiers.options('itn-categories')" @change="emitChange" />
       </a-form-item>
       <a-form-item label="КАТО">
-        <a-select v-model:value="form.declarantKatoCode" show-search allow-clear :disabled="readonly" :options="classifiers.options('kato')" @change="emitChange" />
+        <KatoSelect v-model:value="form.declarantKatoCode" :disabled="readonly" @change="emitChange" />
       </a-form-item>
     </div>
 
@@ -139,6 +139,7 @@ import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { partyRefsApi, type PartyRefDto } from '@/api/partyRefs'
 import BinLookupButton from '@/components/BinLookupButton.vue'
+import KatoSelect from '@/components/KatoSelect.vue'
 import { isBinLike, type CompanyLookupDto } from '@/api/companyLookup'
 import { parseKzAddress } from '@/utils/kzAddress'
 import type { ClientCompanyProfileDto } from '@/api/import40Contract'

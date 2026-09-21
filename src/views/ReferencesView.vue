@@ -13,7 +13,12 @@
           </a-col>
           <a-col :span="12">
             <a-card title="Таможенные посты">
-              <template #extra><a-button type="primary" size="small" @click="openAdd('post')">Добавить</a-button></template>
+              <template #extra>
+                <a-space>
+                  <a-button size="small" :loading="kgdLoading" @click="openKgdCompare">Сверить с КГД</a-button>
+                  <a-button type="primary" size="small" @click="openAdd('post')">Добавить</a-button>
+                </a-space>
+              </template>
               <a-table :data-source="posts" :columns="columns" row-key="id" size="small" :pagination="false" />
             </a-card>
           </a-col>
@@ -50,7 +55,46 @@
           </a-col>
         </a-row>
       </a-tab-pane>
+
+      <a-tab-pane key="kato" tab="КАТО">
+        <a-card title="КАТО — классификатор административно-территориальных объектов" size="small">
+          <template #extra>
+            <a-space>
+              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="onKatoFile">
+                <a-button size="small" :loading="katoBusy">Загрузить xlsx</a-button>
+              </a-upload>
+              <a-button type="primary" size="small" :loading="katoBusy" @click="syncKato">Обновить с stat.gov.kz</a-button>
+            </a-space>
+          </template>
+          <a-descriptions size="small" :column="1" bordered>
+            <a-descriptions-item label="Кодов в базе">{{ katoStatus?.total ?? '—' }}</a-descriptions-item>
+            <a-descriptions-item label="Обновлено">{{ katoStatus?.updatedAtUtc ? new Date(katoStatus.updatedAtUtc).toLocaleString('ru-RU') : '—' }}</a-descriptions-item>
+            <a-descriptions-item label="Источник">
+              <a :href="katoStatus?.sourceUrl" target="_blank" rel="noopener">{{ katoStatus?.sourceUrl }}</a>
+              <div class="muted">Бюро национальной статистики, файл «КАТО НК РК 11-2025» (xlsx). Ссылка на файл меняется с каждой редакцией — ищется на странице автоматически; если сайт недоступен, скачайте xlsx вручную и загрузите его здесь.</div>
+            </a-descriptions-item>
+          </a-descriptions>
+          <div class="kato-try">
+            <div class="muted">Проверка поиска (как в ДТ, гр. 8/9/14):</div>
+            <KatoSelect v-model:value="katoProbe" placeholder="Начните вводить название или код" style="max-width: 520px" />
+          </div>
+        </a-card>
+      </a-tab-pane>
     </a-tabs>
+
+    <a-modal v-model:open="kgdOpen" title="Сверка с каталогом КГД" width="820px" :ok-text="`Добавить выбранные (${kgdSelected.length})`" :ok-button-props="{ disabled: !kgdSelected.length }" :confirm-loading="kgdLoading" @ok="applyKgd">
+      <template v-if="kgd">
+        <p class="muted">В каталоге КГД (kgd.gov.kz/ru/nsi/ktam) актуальных постов: {{ kgd.kgdTotal }}, в нашем справочнике: {{ kgd.ourTotal }}.
+          Каталог КГД ведётся неаккуратно (закрытые посты не помечены, есть устаревшие коды упразднённых областей) — добавляйте только те, что действительно нужны.</p>
+        <h4>Есть в КГД, нет у нас ({{ kgd.newInKgd.length }})</h4>
+        <a-table :data-source="kgd.newInKgd" :columns="kgdColumns" row-key="code" size="small" :pagination="false" :scroll="{ y: 280 }"
+          :row-selection="{ selectedRowKeys: kgdSelected, onChange: (keys: (string | number)[]) => (kgdSelected = keys.map(String)) }" />
+        <h4 style="margin-top: 16px">Есть у нас, нет в КГД ({{ kgd.missingInKgd.length }})</h4>
+        <p class="muted">Возможно, закрыты или переименованы — проверьте и при необходимости деактивируйте вручную.</p>
+        <ul class="kgd-missing"><li v-for="n in kgd.missingInKgd" :key="n">{{ n }}</li></ul>
+      </template>
+      <a-spin v-else />
+    </a-modal>
 
     <a-modal v-model:open="modalOpen" :title="'Добавить'" @ok="save">
       <a-input v-model:value="nameInput" placeholder="Название" />
@@ -72,6 +116,9 @@ import { referencesApi } from '@/api/references'
 import type { RefItem, ClassifierItem, ClassifierGroup } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 import PageHeader from '@/components/PageHeader.vue'
+import KatoSelect from '@/components/KatoSelect.vue'
+import { katoApi, type KatoStatus } from '@/api/kato'
+import type { KgdCompareResult } from '@/api/references'
 
 const stations = ref<RefItem[]>([])
 const posts = ref<RefItem[]>([])
@@ -203,6 +250,54 @@ const removeClassifier = async (record: ClassifierItem) => {
   }
 }
 
+// ── КАТО (официальный классификатор, ref_kato) ──
+const katoStatus = ref<KatoStatus | null>(null)
+const katoBusy = ref(false)
+const katoProbe = ref<string | null>(null)
+const loadKatoStatus = async () => { try { katoStatus.value = await katoApi.status() } catch { /* вкладка необязательная */ } }
+const reportKato = (r: { total: number; added: number; updated: number; removed: number }) =>
+  message.success(`КАТО: ${r.total} кодов (добавлено ${r.added}, обновлено ${r.updated}, удалено ${r.removed})`)
+const syncKato = async () => {
+  katoBusy.value = true
+  try { reportKato(await katoApi.sync()); await loadKatoStatus() }
+  catch (e: unknown) { message.error((e as { response?: { data?: { error?: string } } }).response?.data?.error ?? 'Не удалось обновить КАТО') }
+  finally { katoBusy.value = false }
+}
+const onKatoFile = async (file: File) => {
+  katoBusy.value = true
+  try { reportKato(await katoApi.import(file)); await loadKatoStatus() }
+  catch (e: unknown) { message.error((e as { response?: { data?: { error?: string } } }).response?.data?.error ?? 'Не удалось загрузить файл') }
+  finally { katoBusy.value = false }
+  return false
+}
+
+// ── Сверка постов с КГД ──
+const kgdOpen = ref(false)
+const kgdLoading = ref(false)
+const kgd = ref<KgdCompareResult | null>(null)
+const kgdSelected = ref<string[]>([])
+const kgdColumns = [
+  { title: 'Код', dataIndex: 'code', key: 'code', width: 80 },
+  { title: 'Название', dataIndex: 'name', key: 'name' },
+  { title: 'Адрес', dataIndex: 'address', key: 'address', width: 260 },
+]
+const openKgdCompare = async () => {
+  kgdOpen.value = true; kgd.value = null; kgdSelected.value = []; kgdLoading.value = true
+  try { kgd.value = await referencesApi.kgdComparePosts() }
+  catch (e: unknown) { kgdOpen.value = false; message.error((e as { response?: { data?: { error?: string } } }).response?.data?.error ?? 'Не удалось получить каталог КГД') }
+  finally { kgdLoading.value = false }
+}
+const applyKgd = async () => {
+  kgdLoading.value = true
+  try {
+    const r = await referencesApi.kgdAddPosts(kgdSelected.value)
+    message.success(`Добавлено постов: ${r.added}`)
+    kgdOpen.value = false
+    await load()
+  } catch { message.error('Не удалось добавить') }
+  finally { kgdLoading.value = false }
+}
+
 // Вкладки грузятся независимо: падение одной не должно оставлять другую пустой без объяснения.
 onMounted(async () => {
   try {
@@ -211,5 +306,12 @@ onMounted(async () => {
   try {
     await loadClassifierGroups()
   } catch { message.error('Не удалось загрузить классификаторы') }
+  await loadKatoStatus()
 })
 </script>
+
+<style scoped>
+.muted { color: var(--atg-muted, #95a1b7); font-size: 12px; }
+.kato-try { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
+.kgd-missing { margin: 0; padding-left: 18px; max-height: 160px; overflow: auto; font-size: 12.5px; }
+</style>
