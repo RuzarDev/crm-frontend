@@ -1,6 +1,6 @@
 <template>
   <div class="profile-view crm-page">
-    <PageHeader kicker="Аккаунт" title="Профиль" subtitle="Личные данные и контактная информация." />
+    <PageHeader kicker="Аккаунт" title="Профиль" :subtitle="profileSubtitle" />
 
     <a-spin :spinning="store.loading">
       <div class="profile-layout">
@@ -43,16 +43,16 @@
                   allow-clear
                 />
               </a-form-item>
-              <!-- Компания/БИН — поля клиента; сотруднику (декларанту) они не нужны,
-                   его реквизиты живут в профиле декларанта ниже. -->
-              <a-form-item v-if="isClient" label="Компания">
+              <!-- Компания/БИН здесь — только для организаций транзита (брокер/экспедитор).
+                   У клиента реквизиты живут в «Моя компания», у сотрудников Импорта — не нужны. -->
+              <a-form-item v-if="showCompanyInline" label="Компания">
                 <a-input
                   v-model:value="form.companyName"
                   placeholder="ТОО «Пример»"
                   allow-clear
                 />
               </a-form-item>
-              <a-form-item v-if="isClient" label="ИИН / БИН">
+              <a-form-item v-if="showCompanyInline" label="ИИН / БИН">
                 <a-input
                   v-model:value="form.innBin"
                   placeholder="123456789012"
@@ -75,9 +75,16 @@
           </a-form>
         </a-card>
 
-        <!-- Профиль декларанта (гр.54): только для декларанта (брокер/админ), НЕ для клиента.
-             Клиент не подаёт ДТ и не должен заполнять гр.54 — декларант ведёт свой профиль сам. -->
-        <a-card v-if="!isClient" class="crm-shell-card profile-card" :bordered="false">
+        <!-- Клиент: реквизиты компании ведутся в «Моя компания» (договор/доверенность там же). -->
+        <a-card v-if="isClient" class="crm-shell-card profile-card" :bordered="false">
+          <template #title><div class="card-title-row"><BankOutlined class="card-title-icon" />Компания</div></template>
+          <p class="card-hint">Реквизиты компании (БИН, адрес, руководитель, банк), договор и доверенность — в разделе «Моя компания».</p>
+          <a-button type="primary" @click="router.push('/import-40/company')">Открыть «Моя компания»</a-button>
+        </a-card>
+
+        <!-- Профиль декларанта (гр.54): только у того, кто подаёт ДТ — бизнес-роль «декларант»
+             (и администратор). КПП/брокер/продажи/клиент его не видят. -->
+        <a-card v-if="showDeclarantCard" class="crm-shell-card profile-card" :bordered="false">
           <template #title><div class="card-title-row"><IdcardOutlined class="card-title-icon" />Профиль декларанта (для гр.54)</div></template>
           <p class="card-hint">Заполните один раз — данные подставятся в гр.54 декларации кнопкой «Подставить из профиля».</p>
           <a-form layout="vertical">
@@ -133,14 +140,34 @@ import { declarantProfileApi, type DeclarantProfileDto } from '@/api/declarantPr
 import { authApi } from '@/api/auth'
 import { formatRole } from '@/utils/labels'
 import { ALPHA2_COUNTRIES } from '@/types/api'
-import { SaveOutlined, UserOutlined, IdcardOutlined, LockOutlined } from '@ant-design/icons-vue'
+import { SaveOutlined, UserOutlined, IdcardOutlined, LockOutlined, BankOutlined } from '@ant-design/icons-vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/PageHeader.vue'
 
 const store = useProfileStore()
 const classifiers = useClassifiersStore()
 
-// Профиль декларанта (гр.54) скрыт у роли «клиент» — см. карточку выше.
-const isClient = computed(() => (store.profile?.role || '').toLowerCase() === 'client')
+const router = useRouter()
+const authStore = useAuthStore()
+
+// Профиль по ролям: у каждой роли — свой набор карточек.
+//   client     → Личные данные + «Компания» (ссылка на «Моя компания») + пароль
+//   declarant  → Личные данные + Профиль декларанта (гр.54) + пароль
+//   kpp/sales  → Личные данные + пароль
+//   broker/expeditor (транзит) → Личные данные с Компанией/БИН + пароль
+//   administrator → всё, что у декларанта (владелец может подавать ДТ)
+const sysRole = computed(() => (store.profile?.role || authStore.role || '').toLowerCase())
+const bizRole = computed(() => (authStore.businessRole || '').toLowerCase())
+const isClient = computed(() => sysRole.value === 'client')
+const showCompanyInline = computed(() => sysRole.value === 'broker' || sysRole.value === 'expeditor')
+const showDeclarantCard = computed(() => sysRole.value === 'administrator' || bizRole.value === 'declarant')
+const profileSubtitle = computed(() => {
+  if (isClient.value) return 'Ваши контакты и доступ. Реквизиты компании — в «Моя компания».'
+  if (bizRole.value === 'declarant') return 'Контакты, данные для гр.54 декларации и пароль.'
+  if (bizRole.value === 'kpp') return 'Контакты менеджера КПП и пароль.'
+  return 'Личные данные и контактная информация.'
+})
 
 // Страна выдачи удостоверения — 2-буквенный код (как в гр.54 ДТ), выбор из справочника с поиском.
 const countryAlpha2Options = ALPHA2_COUNTRIES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
@@ -206,7 +233,7 @@ onMounted(async () => {
   await store.fetch()
   syncForm()
   // Профиль декларанта (гр.54) не касается клиента — не грузим и не показываем.
-  if (!isClient.value) {
+  if (showDeclarantCard.value) {
     classifiers.loadMany(['id-doc-types'])
     try {
       Object.assign(decl, await declarantProfileApi.get())
