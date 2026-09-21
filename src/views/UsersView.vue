@@ -40,7 +40,10 @@
             <span class="role-tag" :class="`role-tag--${record.role}`">{{ formatRole(record.role) }}</span>
           </template>
           <template v-else-if="column.key === 'businessRole'">
-            <span class="role-tag">{{ formatBusinessRole('businessRole' in record ? record.businessRole : '') }}</span>
+            <!-- Мультироли: все роли сотрудника тегами (из user_business_roles), иначе роль аккаунта -->
+            <span class="roles-cell">
+              <span v-for="r in rolesOf(record)" :key="r" class="role-tag">{{ formatBusinessRole(r) }}</span>
+            </span>
           </template>
           <template v-else-if="column.key === 'brokers'">
             <span class="relations-cell">{{ formatLinkedPeople('brokers' in record ? record.brokers : undefined) }}</span>
@@ -59,7 +62,7 @@
                 size="small"
                 @click="openBusinessRoleModal(record)"
               >
-                Бизнес-роль
+                Роли
               </a-button>
               <a-button
                 v-if="catalogTab === 'brokers' && canEditBroker"
@@ -313,6 +316,12 @@ const form = reactive({
 const businessRoleOptions = computed(() => staffRoleOptions.value)
 
 const formatBusinessRole = (value: string) => (value ? businessRoleLabel(value) : '—')
+const rolesOf = (record: CatalogTableRow): string[] => {
+  const many = 'businessRoles' in record ? (record as { businessRoles?: string[] }).businessRoles : undefined
+  if (many && many.length) return many
+  const one = 'businessRole' in record ? (record as { businessRole?: string }).businessRole : ''
+  return one ? [one] : []
+}
 
 // Каталог бизнес-ролей сотрудника — с бэка (единый источник: AppBusinessRoles.Staff).
 const staffRoleOptions = ref<{ label: string; value: string }[]>([])
@@ -497,13 +506,13 @@ const tableColumns = computed(() => {
       return [
         usernameColumn,
         { title: 'Роль', key: 'role', width: 140 },
-        { title: 'Бизнес-роль', key: 'businessRole', width: 140 },
+        { title: 'Бизнес-роли', key: 'businessRole', width: 140 },
         ...actionsColumn,
       ]
     case 'brokers':
       return [
         usernameColumn,
-        { title: 'Бизнес-роль', key: 'businessRole', width: 140 },
+        { title: 'Бизнес-роли', key: 'businessRole', width: 140 },
         { title: 'Клиенты', key: 'clients', ellipsis: true },
         ...actionsColumn,
       ]
@@ -525,7 +534,7 @@ const tableColumns = computed(() => {
       return [
         usernameColumn,
         { title: 'Роль', key: 'role', width: 140 },
-        { title: 'Бизнес-роль', key: 'businessRole', width: 160 },
+        { title: 'Бизнес-роли', key: 'businessRole', width: 160 },
         ...actionsColumn,
       ]
     default:
@@ -766,4 +775,5 @@ const handleChangeRoleSave = async () => {
   border-color: rgba(200, 149, 53, 0.25);
   color: var(--atg-accent-strong);
 }
+.roles-cell { display: inline-flex; gap: 6px; flex-wrap: wrap; }
 </style>

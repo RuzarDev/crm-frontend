@@ -44,6 +44,7 @@ export interface CatalogAdministratorRow {
   username: string
   role: string
   businessRole: string
+  businessRoles?: string[]
   createdAtUtc: string
 }
 
@@ -52,6 +53,7 @@ export interface CatalogBrokerRow {
   username: string
   role: string
   businessRole: string
+  businessRoles?: string[]
   createdAtUtc: string
   clients: CatalogLinkedPerson[]
 }
@@ -78,6 +80,7 @@ export interface CatalogImporterRow {
   username: string
   role: string
   businessRole: string
+  businessRoles?: string[]
   createdAtUtc: string
 }
 
@@ -86,6 +89,7 @@ export interface CatalogSalespersonRow {
   username: string
   role: string
   businessRole: string
+  businessRoles?: string[]
   createdAtUtc: string
 }
 
