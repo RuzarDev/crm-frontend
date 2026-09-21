@@ -1,6 +1,6 @@
 <template>
   <div class="dashboard-view crm-page">
-    <PageHeader :title="t('dashboard.title')" :subtitle="t('dashboard.subtitle')">
+    <PageHeader :title="t('dashboard.title')" :subtitle="store.showImport40 && !showTransitBlock ? t('dashboard.imp.subtitle') : t('dashboard.subtitle')">
       <template #actions>
         <a-button @click="store.fetch" :loading="store.loading">
           <ReloadOutlined />
@@ -10,7 +10,97 @@
     </PageHeader>
 
     <a-spin :spinning="store.loading">
-      <div v-if="store.data" class="dashboard-grid">
+      <!-- ══ Импорт 40 ══ (декларант / КПП / клиент / админ) -->
+      <div v-if="store.showImport40 && store.import40" class="dashboard-grid block-import">
+        <div class="block-head" v-if="showTransitBlock">
+          <span class="block-title">{{ t('dashboard.imp.title') }}</span>
+          <span class="block-sub">{{ t('dashboard.imp.subtitle') }}</span>
+        </div>
+
+        <div class="kpi-row">
+          <div class="kpi kpi--navy">
+            <div class="kpi-top">
+              <span class="kpi-label">{{ t('dashboard.imp.totalCases') }}</span>
+              <span class="kpi-ic"><ImportOutlined /></span>
+            </div>
+            <div class="kpi-val tnum">{{ formatNum(imp.totalCases) }}</div>
+            <div class="kpi-sub">{{ t('dashboard.imp.thisMonth', { n: formatNum(imp.casesThisMonth) }) }}</div>
+          </div>
+
+          <div class="kpi kpi--hero">
+            <span class="kpi-strip"></span>
+            <div class="kpi-top">
+              <span class="kpi-label">{{ t('dashboard.imp.awaitingMe') }}</span>
+              <span class="kpi-ic"><ClockCircleOutlined /></span>
+            </div>
+            <div class="kpi-val tnum">{{ formatNum(imp.awaitingMe) }}</div>
+            <div class="kpi-sub">{{ t('dashboard.imp.awaitingSub') }}</div>
+          </div>
+
+          <div class="kpi kpi--teal">
+            <div class="kpi-top">
+              <span class="kpi-label">{{ t('dashboard.imp.active') }}</span>
+              <span class="kpi-ic"><SyncOutlined /></span>
+            </div>
+            <div class="kpi-val tnum">{{ formatNum(imp.activeCases) }}</div>
+            <div class="kpi-sub">{{ t('dashboard.imp.activeSub', { done: formatNum(imp.doneCases), problem: formatNum(imp.problemCases) }) }}</div>
+          </div>
+
+          <div class="kpi kpi--green">
+            <div class="kpi-top">
+              <span class="kpi-label">{{ t('dashboard.imp.payments') }}</span>
+              <span class="kpi-ic"><DollarOutlined /></span>
+            </div>
+            <div class="kpi-val tnum">{{ formatNum(Math.round(imp.paymentsTotalKzt)) }}<span class="kpi-unit">₸</span></div>
+            <div class="kpi-sub">{{ t('dashboard.imp.paymentsSub') }}</div>
+          </div>
+        </div>
+
+        <div class="bottom-row">
+          <a-card class="crm-shell-card" :bordered="false" :title="t('dashboard.imp.bySteps')">
+            <div v-if="impStepsTotal > 0" class="dist">
+              <div class="distbar">
+                <span v-for="s in imp.bySteps" :key="s.step" :style="{ width: impPct(s.count) + '%', background: stepColor(s.step) }" :title="t('dashboard.imp.step' + s.step) + ': ' + s.count" />
+              </div>
+              <div class="legend">
+                <div v-for="s in imp.bySteps" :key="s.step" class="leg">
+                  <span class="leg-sw" :style="{ background: stepColor(s.step) }" />
+                  <span class="leg-nm">{{ s.step }}. {{ t('dashboard.imp.step' + s.step) }}</span>
+                  <span class="leg-ct tnum">{{ s.count }}</span>
+                  <span class="leg-pc tnum">{{ impPct(s.count) }}%</span>
+                </div>
+              </div>
+            </div>
+            <EmptyState v-else :title="t('dashboard.imp.noSteps')" />
+            <div class="mini-kpis">
+              <div class="mini-kpi"><span>{{ t('dashboard.imp.declarations') }}</span><b class="tnum">{{ imp.totalDeclarations }}</b><small>{{ t('dashboard.imp.declarationsSub', { n: imp.declarationsWithNumber }) }}</small></div>
+              <div class="mini-kpi"><span>{{ t('dashboard.imp.avgDays') }}</span><b class="tnum">{{ imp.avgDaysToDone ?? '—' }} <em v-if="imp.avgDaysToDone != null">{{ t('dashboard.imp.avgDaysUnit') }}</em></b><small>{{ t('dashboard.imp.avgDaysSub') }}</small></div>
+            </div>
+          </a-card>
+
+          <a-card class="crm-shell-card" :bordered="false" :title="t('dashboard.imp.topClients')">
+            <EmptyState v-if="!imp.topClients.length" :title="t('dashboard.imp.noClients')" />
+            <div v-else class="ranklist">
+              <div v-for="(c, i) in imp.topClients" :key="c.clientId" class="rank-row">
+                <span class="rank-badge" :class="{ 'rank-badge--gold': i === 0 }">{{ i + 1 }}</span>
+                <div class="rank-grow">
+                  <div class="rank-name">{{ c.clientName }}</div>
+                  <div class="mini"><span :style="{ width: rankWidth(c.count, impClientMax) + '%' }" /></div>
+                </div>
+                <div class="rank-cnt tnum">{{ c.count }}<small> {{ t('dashboard.imp.caseShort') }}</small></div>
+              </div>
+            </div>
+          </a-card>
+        </div>
+      </div>
+
+      <!-- ══ Транзит ══ (кто имеет reestr.read) -->
+      <!-- Импорт-клиенту с нулевым транзитом транзитный блок не показываем (у роли client право есть формально). -->
+      <div v-if="showTransitBlock && store.data" class="dashboard-grid" :class="{ 'block-transit': store.showImport40 }">
+        <div class="block-head" v-if="store.showImport40">
+          <span class="block-title">{{ t('dashboard.transitTitle') }}</span>
+          <span class="block-sub">{{ t('dashboard.subtitle') }}</span>
+        </div>
         <!-- KPI row -->
         <div class="kpi-row">
           <div class="kpi kpi--navy">
@@ -107,7 +197,7 @@
         </div>
       </div>
 
-      <div v-else-if="!store.loading" class="empty-state">
+      <div v-if="!store.loading && !(store.showImport40 && store.import40) && !showTransitBlock" class="empty-state">
         <a-empty :description="t('dashboard.noData')" />
       </div>
     </a-spin>
@@ -124,6 +214,9 @@ import {
   InboxOutlined,
   CheckCircleOutlined,
   ReloadOutlined,
+  ImportOutlined,
+  ClockCircleOutlined,
+  SyncOutlined,
 } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusPill from '@/components/ui/StatusPill.vue'
@@ -165,6 +258,18 @@ const releasedPct = computed(() =>
     ? Math.round((releasedCount.value / store.data.totalEntries) * 100)
     : 0,
 )
+
+const showTransitBlock = computed(() =>
+  store.showTransit && !!store.data && (!store.showImport40 || store.data.totalEntries > 0),
+)
+
+// ── Импорт 40 ──
+const imp = computed(() => store.import40!)
+const impStepsTotal = computed(() => (store.import40?.bySteps ?? []).reduce((a, x) => a + x.count, 0))
+const impPct = (count: number) => (impStepsTotal.value ? Math.round((count / impStepsTotal.value) * 100) : 0)
+const STEP_COLORS: Record<number, string> = { 1: '#8896ac', 2: '#3b6fd6', 3: '#2BBCD4', 4: '#C9A84C', 5: '#1f9d6a' }
+const stepColor = (step: number) => STEP_COLORS[step] ?? '#8896ac'
+const impClientMax = computed(() => Math.max(...(store.import40?.topClients?.map((c) => c.count) ?? [1]), 1))
 
 const clientMax = computed(() =>
   Math.max(...(store.data?.topClients?.map((c) => c.count) ?? [1]), 1),
@@ -379,6 +484,18 @@ const rankWidth = (count: number, max: number) =>
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Заголовок блока услуги (когда на дашборде и Импорт, и Транзит) */
+.block-head { display: flex; align-items: baseline; gap: 12px; }
+.block-title { font-family: var(--font-display, 'Manrope', sans-serif); font-weight: 800; font-size: 18px; color: var(--atg-ink, #182640); }
+.block-sub { font-size: 12.5px; color: var(--atg-muted, #6b7891); }
+.block-transit { margin-top: var(--sp-6, 32px); padding-top: var(--sp-5, 24px); border-top: 1px solid var(--z-line, #e8ecf4); }
+.mini-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--z-line-2, #eff2f8); }
+.mini-kpi { display: flex; flex-direction: column; gap: 2px; }
+.mini-kpi > span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--atg-muted, #6b7891); font-weight: 600; }
+.mini-kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 22px; font-weight: 800; color: var(--atg-ink, #182640); line-height: 1.1; }
+.mini-kpi > b em { font-style: normal; font-size: 13px; color: var(--atg-muted, #95a1b7); font-weight: 600; }
+.mini-kpi > small { font-size: 11.5px; color: var(--atg-muted, #95a1b7); }
 
 .empty-state {
   padding: 60px 0;
