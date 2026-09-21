@@ -37,7 +37,12 @@
           <div v-if="current === 0">
             <div class="form-grid">
               <label class="full"><span>Наименование компании *</span><a-input v-model:value="form.companyName" placeholder="ТОО «…»" /></label>
-              <label><span>БИН *</span><a-input v-model:value="form.bin" placeholder="12 цифр" /></label>
+              <label><span>БИН *</span>
+                <div class="bin-row">
+                  <a-input v-model:value="form.bin" placeholder="12 цифр" />
+                  <BinLookupButton :bin="form.bin" size="middle" @found="applyCompanyLookup" />
+                </div>
+              </label>
               <label><span>ФИО руководителя *</span><a-input v-model:value="form.directorName" placeholder="Иванов И.И." /></label>
               <label><span>Действует на основании</span><a-input v-model:value="form.directorBasis" placeholder="устава" /></label>
               <label class="full"><span>Юридический адрес</span><a-input v-model:value="form.legalAddress" /></label>
@@ -152,6 +157,9 @@ import { useAuthStore } from '@/stores/auth'
 import DocumentStep, { type GenerateOpts } from '@/components/Import40DocumentStep.vue'
 import SigexSignModal from '@/components/SigexSignModal.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import BinLookupButton from '@/components/BinLookupButton.vue'
+import { parseKzAddress } from '@/utils/kzAddress'
+import type { CompanyLookupDto } from '@/api/companyLookup'
 
 const authStore = useAuthStore()
 const loading = ref(false)
@@ -249,6 +257,23 @@ const applyProfile = (p: ClientCompanyProfileDto) => {
   form.contactPersonPosition = p.contactPersonPosition ?? ''
   form.contactPhone = p.contactPhone ?? ''
   form.contactEmail = p.contactEmail ?? ''
+}
+
+// «Найти по БИН» (ГБД ЮЛ, data.egov.kz): наименование/руководитель/юр-адрес —
+// перезаписываем (пользователь явно запросил), структурные части адреса — только
+// если пусты (разбор адресной строки эвристический, см. parseKzAddress).
+const applyCompanyLookup = (c: CompanyLookupDto) => {
+  if (c.nameRu || c.nameKz) form.companyName = c.nameRu ?? c.nameKz ?? form.companyName
+  if (c.director) form.directorName = c.director
+  const address = c.addressRu ?? c.addressKz
+  if (address) {
+    form.legalAddress = address
+    const parsed = parseKzAddress(address)
+    if (!form.legalRegion && parsed.region) form.legalRegion = parsed.region
+    if (!form.legalCity && parsed.city) form.legalCity = parsed.city
+    if (!form.legalStreet && parsed.street) form.legalStreet = parsed.street
+  }
+  form.legalCountryCode = form.legalCountryCode || '398'
 }
 
 const loadDocuments = async () => {
@@ -388,6 +413,8 @@ onMounted(load)
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
 .form-grid label { display: flex; flex-direction: column; gap: 6px; }
 .form-grid label.full { grid-column: 1 / -1; }
+.bin-row { display: flex; gap: 8px; align-items: center; }
+.bin-row .ant-input { flex: 1; }
 .form-grid label span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; }
 .form-footer { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
 @media (max-width: 900px) {

@@ -155,7 +155,12 @@
           </div>
           <div class="create-grid">
             <label><span>{{ t('import40List.name') }}</span><a-input v-model:value="draft.receiverName" :placeholder="t('import40List.receiverNamePh')" /></label>
-            <label><span>{{ t('import40List.bin') }}</span><a-input v-model:value="draft.receiverBin" :placeholder="t('import40List.bin')" /></label>
+            <label><span>{{ t('import40List.bin') }}</span>
+              <div class="bin-row">
+                <a-input v-model:value="draft.receiverBin" :placeholder="t('import40List.bin')" />
+                <BinLookupButton :bin="draft.receiverBin" size="middle" @found="applyReceiverLookup" />
+              </div>
+            </label>
             <label>
               <span>{{ t('import40List.country') }}</span>
               <a-select v-model:value="draft.receiverCountry" show-search allow-clear option-filter-prop="label" :options="countryOptions" placeholder="KZ" />
@@ -297,6 +302,8 @@ import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
 import { TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
 import PageHeader from '@/components/PageHeader.vue'
+import BinLookupButton from '@/components/BinLookupButton.vue'
+import type { CompanyLookupDto } from '@/api/companyLookup'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -491,6 +498,11 @@ const fillReceiverFromProfile = () => {
   draft.receiverName = p.companyName || draft.receiverName
   draft.receiverBin = p.bin || draft.receiverBin
   draft.receiverCountry = p.legalCountryCode || draft.receiverCountry || 'KZ'
+}
+// «Найти по БИН» (ГБД ЮЛ): получатель — наименование + страна KZ.
+const applyReceiverLookup = (c: CompanyLookupDto) => {
+  draft.receiverName = c.nameRu ?? c.nameKz ?? draft.receiverName
+  draft.receiverCountry = 'KZ'
 }
 
 // ── Навигация мастера ────────────────────────────────────────────────────
@@ -752,6 +764,8 @@ onMounted(() => {
 .w-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 .w-field > span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
 .wizard-container-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.bin-row { display: flex; gap: 8px; align-items: center; }
+.bin-row .ant-input { flex: 1; }
 .party-block { margin-bottom: 16px; }
 .party-head { display: flex; align-items: center; justify-content: space-between; }
 .sub-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--atg-charcoal); margin: 8px 0 8px; }

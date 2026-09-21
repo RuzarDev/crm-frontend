@@ -68,6 +68,7 @@ declare module 'vue' {
     ATypographyText: typeof import('ant-design-vue/es')['TypographyText']
     AUpload: typeof import('ant-design-vue/es')['Upload']
     AUploadDragger: typeof import('ant-design-vue/es')['UploadDragger']
+    BinLookupButton: typeof import('./src/components/BinLookupButton.vue')['default']
     CarriersBlock: typeof import('./src/components/reestr/CarriersBlock.vue')['default']
     ContainersBlock: typeof import('./src/components/reestr/ContainersBlock.vue')['default']
     DtCurrencyRatesBox: typeof import('./src/components/import40/dt/DtCurrencyRatesBox.vue')['default']

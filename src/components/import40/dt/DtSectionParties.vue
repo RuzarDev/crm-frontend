@@ -42,7 +42,7 @@
     <div class="dt-grid-3">
       <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.receiver.name" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.receiverShortName" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
-      <a-form-item label="БИН"><a-input v-model:value="form.receiverBin" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
+      <a-form-item label="БИН"><div class="bin-row"><a-input v-model:value="form.receiverBin" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /><BinLookupButton v-if="!readonly && !form.consigneeEqualsDeclarant" :bin="form.receiverBin" @found="(c) => applyLookup('receiver', c)" /></div></a-form-item>
       <a-form-item label="Страна">
         <a-select v-model:value="form.receiver.countryCode" show-search allow-clear :disabled="readonly || form.consigneeEqualsDeclarant" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
       </a-form-item>
@@ -65,7 +65,7 @@
       <div class="dt-grid-3">
         <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.financialSubjectName" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.financialSubjectShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
-        <a-form-item label="БИН"><a-input v-model:value="form.financialSubjectBin" :disabled="readonly" @change="emitChange" /></a-form-item>
+        <a-form-item label="БИН"><div class="bin-row"><a-input v-model:value="form.financialSubjectBin" :disabled="readonly" @change="emitChange" /><BinLookupButton v-if="!readonly" :bin="form.financialSubjectBin" @found="(c) => applyLookup('financialSubject', c)" /></div></a-form-item>
         <a-form-item label="Страна">
           <a-select v-model:value="form.financialSubjectCountryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
         </a-form-item>
@@ -87,7 +87,7 @@
     <div class="dt-grid-3">
       <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.declarantName" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.declarantShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="БИН"><a-input v-model:value="form.declarantBin" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item label="БИН"><div class="bin-row"><a-input v-model:value="form.declarantBin" :disabled="readonly" @change="emitChange" /><BinLookupButton v-if="!readonly" :bin="form.declarantBin" @found="(c) => applyLookup('declarant', c)" /></div></a-form-item>
       <a-form-item label="Страна">
         <a-select v-model:value="form.declarantCountryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
       </a-form-item>
@@ -119,8 +119,13 @@
             </div>
           </a-list-item>
         </template>
-        <template #footer v-if="!partyLoading && !partyResults.length">
-          <span class="party-ref-empty">Ничего не найдено — сохраните текущую сторону кнопкой «Сохранить в справочник».</span>
+        <template #footer v-if="!partyLoading && (!partyResults.length || partyQueryIsBin)">
+          <div class="party-ref-footer">
+            <span v-if="!partyResults.length" class="party-ref-empty">Ничего не найдено — сохраните текущую сторону кнопкой «Сохранить в справочник».</span>
+            <BinLookupButton v-if="partyQueryIsBin" :bin="partyQuery" type="primary" @found="applyLookupFromPicker">
+              Найти в ГБД ЮЛ (data.egov.kz) и подставить
+            </BinLookupButton>
+          </div>
         </template>
       </a-list>
     </a-modal>
@@ -128,11 +133,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { partyRefsApi, type PartyRefDto } from '@/api/partyRefs'
+import BinLookupButton from '@/components/BinLookupButton.vue'
+import { isBinLike, type CompanyLookupDto } from '@/api/companyLookup'
+import { parseKzAddress } from '@/utils/kzAddress'
 import type { ClientCompanyProfileDto } from '@/api/import40Contract'
 import type { Import40DtFormState, Import40Party } from '@/api/import40'
 import './dt-sections.css'
@@ -257,6 +265,55 @@ const fillReceiverFromClient = () => {
   form.receiverBin = p.bin ?? null
   emitChange()
   message.success('Получатель заполнен из профиля клиента')
+}
+
+// «Найти по БИН» (ГБД ЮЛ, data.egov.kz) для гр.8/9/14: наименование — перезаписываем
+// (явный запрос), краткое наименование/адрес — только пустые (адрес разбирается
+// эвристически из строки реестра, см. parseKzAddress), страна — KZ.
+type LookupTarget = 'sender' | 'receiver' | 'financialSubject' | 'declarant'
+const applyLookup = (target: LookupTarget, c: CompanyLookupDto) => {
+  const name = (c.nameRu ?? c.nameKz ?? '').toUpperCase() || null
+  const addr = c.addressRu ?? c.addressKz ?? null
+  const p = addr ? parseKzAddress(addr) : { region: null, city: null, street: null }
+  const up = (s: string | null) => (s ? s.toUpperCase() : null)
+  if (target === 'sender' || target === 'receiver') {
+    const party = target === 'sender' ? form.sender : form.receiver
+    if (name) party.name = name
+    party.countryCode = party.countryCode || 'KZ'
+    if (!party.region && p.region) party.region = up(p.region)
+    if (!party.city && p.city) party.city = up(p.city)
+    if (!party.street && p.street) party.street = up(p.street)
+    if (target === 'receiver') {
+      form.receiverShortName = form.receiverShortName || name
+    } else {
+      form.senderShortName = form.senderShortName || name
+    }
+  } else if (target === 'financialSubject') {
+    if (name) form.financialSubjectName = name
+    form.financialSubjectShortName = form.financialSubjectShortName || name
+    form.financialSubjectCountryCode = form.financialSubjectCountryCode || 'KZ'
+    if (!form.financialSubjectRegion && p.region) form.financialSubjectRegion = up(p.region)
+    if (!form.financialSubjectCity && p.city) form.financialSubjectCity = up(p.city)
+    if (!form.financialSubjectStreet && p.street) form.financialSubjectStreet = up(p.street)
+  } else {
+    if (name) form.declarantName = name
+    form.declarantShortName = form.declarantShortName || name
+    form.declarantCountryCode = form.declarantCountryCode || 'KZ'
+    if (!form.declarantRegion && p.region) form.declarantRegion = up(p.region)
+    if (!form.declarantCity && p.city) form.declarantCity = up(p.city)
+    if (!form.declarantStreet && p.street) form.declarantStreet = up(p.street)
+  }
+  emitChange()
+}
+
+// Справочник сторон: если в строке поиска 12 цифр — предлагаем найти в ГБД ЮЛ и сразу
+// подставить в текущую сторону (sender/receiver) с БИН.
+const partyQueryIsBin = computed(() => isBinLike(partyQuery.value))
+const applyLookupFromPicker = (c: CompanyLookupDto) => {
+  applyLookup(partyPickerTarget.value, c)
+  if (partyPickerTarget.value === 'receiver') form.receiverBin = c.bin
+  emitChange()
+  partyPickerOpen.value = false
 }
 
 const saveParty = async (target: PartyTarget) => {
@@ -387,4 +444,7 @@ onMounted(() => {
 .party-ref-name { font-weight: 600; color: var(--atg-ink, #182640); font-size: 13.5px; }
 .party-ref-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); margin-top: 1px; }
 .party-ref-empty { font-size: 12.5px; color: var(--atg-muted, #95a1b7); }
+.party-ref-footer { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.bin-row { display: flex; gap: 6px; align-items: center; }
+.bin-row .ant-input { flex: 1; min-width: 0; }
 </style>
