@@ -68,6 +68,8 @@ apiClient.interceptors.response.use(
         errorToast('forbidden', 'Недостаточно прав для этого действия')
       } else if (status === 404) {
         errorToast('not-found', 'Ресурс не найден')
+      } else if (status === 429) {
+        errorToast('rate-limit', 'Слишком много попыток. Подождите минуту и повторите.')
       } else if (status >= 500) {
         errorToast('server-error', 'Ошибка сервера. Попробуйте позже.')
       } else {
