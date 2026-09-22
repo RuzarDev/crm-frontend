@@ -500,8 +500,10 @@ const splitTagTooltip = (dt: Import40DeclarationDto) => {
 }
 
 const currentStep = computed(() => (activeCase.value ? stepForStatus(activeCase.value.status) : 1))
+// Отменённая заявка: шаги не «выполнены» — показываем их как не начатые (серые), без галочек.
 const stepState = (n: number): 'done' | 'current' | 'future' =>
-  n < currentStep.value ? 'done' : n === currentStep.value ? 'current' : 'future'
+  activeCase.value?.status === 9 ? 'future'
+  : n < currentStep.value ? 'done' : n === currentStep.value ? 'current' : 'future'
 
 const step1Summary = computed(() =>
   activeCase.value ? `${activeCase.value.cargo || '—'} · файлов: ${filesBySection('documents').length}` : undefined,
