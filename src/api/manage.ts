@@ -3,7 +3,7 @@ import apiClient from './client'
 // Волна 2 ролей: сотрудники с ролями, панель руководителя, финансы.
 export interface StaffMember { id: string; username: string; displayName: string | null; roles: string[] }
 export interface ManageCase {
-  id: string; clientName: string; cargo: string; post: string; status: number; isProblem: boolean; problemNote: string
+  id: string; number: string; clientName: string; cargo: string; post: string; status: number; isProblem: boolean; problemNote: string
   assignedKppId: string | null; assignedDeclarantId: string | null; createdAtUtc: string; updatedAtUtc: string
   daysInWork: number; daysSinceUpdate: number; declarationsCount: number
 }
@@ -11,7 +11,7 @@ export interface ManageOverview { cases: ManageCase[]; staff: StaffMember[]; una
 
 export interface FinanceFile { id: string; section: 'svh-invoice' | 'payment-check'; fileName: string; createdAtUtc: string }
 export interface FinanceRow {
-  caseId: string; clientName: string; cargo: string; status: number; isProblem: boolean
+  caseId: string; number: string; clientName: string; cargo: string; status: number; isProblem: boolean
   svhInvoiceNote: string; svhInvoiceAmount: number | null; invoicedAtUtc: string | null
   paymentConfirmed: boolean; paidAtUtc: string | null; hasPaymentCheck: boolean
   customsPaymentsKzt: number; declarationsCount: number; createdAtUtc: string; updatedAtUtc: string

@@ -454,6 +454,8 @@ export interface Import40ContainerDto {
 
 export interface Import40CaseDto {
   id: string
+  /** ИМ-2026-0001 — сквозной номер заявки */
+  number: string
   createdAtUtc: string
   updatedAtUtc: string
   clientId: string

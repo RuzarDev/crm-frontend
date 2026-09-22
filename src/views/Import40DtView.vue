@@ -242,7 +242,7 @@ const readOnly = computed(() => {
   return !(isDeclarant && (!c.assignedDeclarantId || c.assignedDeclarantId === uid))
 })
 const caseTitle = computed(() =>
-  activeCase.value ? `${activeCase.value.clientName} · ${activeCase.value.cargo}` : '',
+  activeCase.value ? `${activeCase.value.number} · ${activeCase.value.clientName} · ${activeCase.value.cargo}` : '',
 )
 
 // Spec 4b Task 3: кнопка «Разделить на ЕТТ/ВТО» видна тому, кто может править

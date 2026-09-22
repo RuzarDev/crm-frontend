@@ -26,7 +26,7 @@
             :custom-row="(r: FinanceRow) => ({ onClick: () => router.push(`/import-40/${r.caseId}`), style: 'cursor:pointer' })">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'case'">
-                <div class="cell-main">{{ record.clientName }}</div>
+                <div class="cell-main"><span class="case-number">{{ record.number }}</span> {{ record.clientName }}</div>
                 <div class="cell-sub">{{ record.cargo }}</div>
               </template>
               <template v-else-if="column.key === 'status'">
@@ -109,7 +109,7 @@ const filtered = computed(() => {
     if (filter.value === 'awaiting' && !(r.status === 6 && !r.paymentConfirmed)) return false
     if (filter.value === 'paid' && !r.paymentConfirmed) return false
     if (filter.value === 'invoiced' && !(r.invoicedAtUtc || r.status >= 6)) return false
-    return !q || [r.clientName, r.cargo].join(' ').toLowerCase().includes(q)
+    return !q || [r.number, r.clientName, r.cargo].join(' ').toLowerCase().includes(q)
   })
 })
 
@@ -138,7 +138,7 @@ const download = async (caseId: string, f: FinanceFile) => {
 
 const exportXlsx = () => {
   const rows = filtered.value.map((r) => ({
-    'Клиент': r.clientName, 'Груз': r.cargo, 'Статус': statusLabel(r.status),
+    'Номер': r.number, 'Клиент': r.clientName, 'Груз': r.cargo, 'Статус': statusLabel(r.status),
     'Счёт СВХ, ₸': r.svhInvoiceAmount ?? '', 'Заметка по счёту': r.svhInvoiceNote,
     'Счёт выставлен': r.invoicedAtUtc ? fmtDate(r.invoicedAtUtc) : '',
     'Оплата': r.paymentConfirmed ? 'оплачено' : r.hasPaymentCheck ? 'чек на проверке' : r.status === 6 ? 'ждёт оплаты' : '',
@@ -161,6 +161,7 @@ const exportXlsx = () => {
 .kpi--warn > b { color: #e07a30; } .kpi--ok > b { color: #1f9d6a; } .kpi--navy > b { color: #3b6fd6; }
 .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
 .cell-main { font-weight: 600; color: var(--atg-ink, #182640); }
+.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #22b8d0); margin-right: 4px; }
 .cell-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); }
 .muted { color: var(--atg-muted, #95a1b7); }
 @media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }

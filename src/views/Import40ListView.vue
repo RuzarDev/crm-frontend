@@ -255,7 +255,7 @@
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'case'">
             <div class="case-cell">
-              <strong>{{ record.clientName }}</strong>
+              <strong><span class="case-number">{{ record.number }}</span> {{ record.clientName }}</strong>
               <span>{{ record.cargo }}</span>
             </div>
           </template>
@@ -590,7 +590,7 @@ const filteredCases = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return cases.value
   return cases.value.filter((c) =>
-    [c.clientName, c.cargo, c.post, statusLabel(c.status)].join(' ').toLowerCase().includes(q),
+    [c.number, c.clientName, c.cargo, c.post, statusLabel(c.status)].join(' ').toLowerCase().includes(q),
   )
 })
 
@@ -739,6 +739,8 @@ onMounted(() => {
 }
 
 .create-grid label,
+.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #22b8d0); margin-right: 4px; }
+
 .case-cell {
   display: flex;
   flex-direction: column;

@@ -39,6 +39,11 @@ const errorToast = (key: string, content: string) => {
 
 apiClient.interceptors.response.use(
   (response) => {
+    // Скользящая сессия: бэк присылает свежий токен, когда у текущего осталось < половины срока.
+    const refreshed = response.headers?.['x-refreshed-token']
+    if (typeof refreshed === 'string' && refreshed) {
+      try { localStorage.setItem('authToken', refreshed) } catch { /* private mode */ }
+    }
     return response
   },
   (error) => {

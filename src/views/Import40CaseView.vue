@@ -1,6 +1,6 @@
 <template>
   <div v-if="activeCase" class="case-page">
-    <PageHeader :kicker="t('import40Case.kicker')" :title="activeCase.cargo || t('import40Case.caseTitleFallback')">
+    <PageHeader :kicker="`${t('import40Case.kicker')} · ${activeCase.number}`" :title="activeCase.cargo || t('import40Case.caseTitleFallback')">
       <template #meta>
         <span>{{ t('import40Case.client') }}: <strong>{{ activeCase.clientName }}</strong></span>
         <span>{{ t('import40Case.post') }}: <strong>{{ activeCase.post || '—' }}</strong></span>

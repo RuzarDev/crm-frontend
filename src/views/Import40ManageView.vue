@@ -25,7 +25,7 @@
               :row-class-name="(r: ManageCase) => (r.isProblem ? 'row-problem' : r.daysSinceUpdate >= 5 ? 'row-stale' : '')">
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'case'">
-                  <a class="cell-main" @click="router.push(`/import-40/${record.id}`)">{{ record.clientName }}</a>
+                  <a class="cell-main" @click="router.push(`/import-40/${record.id}`)"><span class="case-number">{{ record.number }}</span> {{ record.clientName }}</a>
                   <div class="cell-sub">{{ record.cargo }}<span v-if="record.post"> · {{ record.post }}</span></div>
                 </template>
                 <template v-else-if="column.key === 'step'">
@@ -108,7 +108,7 @@ const filtered = computed(() => {
     if (filter.value === 'unassigned' && !((needsKpp(c.status) && !c.assignedKppId) || (needsDeclarant(c.status) && !c.assignedDeclarantId))) return false
     if (filter.value === 'problems' && !c.isProblem) return false
     if (filter.value === 'stale' && c.daysSinceUpdate < 5) return false
-    return !q || [c.clientName, c.cargo, c.post].join(' ').toLowerCase().includes(q)
+    return !q || [c.number, c.clientName, c.cargo, c.post].join(' ').toLowerCase().includes(q)
   })
 })
 
@@ -160,6 +160,7 @@ const clearProblem = async (c: ManageCase) => {
 .grid { display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: start; }
 .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
 .cell-main { font-weight: 600; color: var(--atg-ink, #182640); cursor: pointer; }
+.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #22b8d0); margin-right: 4px; }
 .cell-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); }
 .problem-note { color: #cf4a3c; }
 .stale-txt { color: #e07a30; font-weight: 600; }
