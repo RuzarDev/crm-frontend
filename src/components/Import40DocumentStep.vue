@@ -40,6 +40,9 @@
 
         <div class="doc-actions">
           <a-button size="small" @click="emit('download', doc)"><DownloadOutlined /> {{ t('company.download') }}</a-button>
+          <a-popconfirm v-if="isAdmin && doc.status !== 4" :title="t('company.revokeConfirm')" :ok-text="t('company.revoke')" :cancel-text="t('common.cancel')" @confirm="emit('revoke', doc)">
+            <a-button size="small" danger>{{ t('company.revoke') }}</a-button>
+          </a-popconfirm>
         </div>
 
         <div class="sign-grid">
@@ -116,6 +119,7 @@ const { t } = useI18n()
 const emit = defineEmits<{
   (e: 'generate', opts: GenerateOpts): void
   (e: 'download', doc: Import40DocumentDto): void
+  (e: 'revoke', doc: Import40DocumentDto): void
   (e: 'sign', doc: Import40DocumentDto, side: 'client' | 'provider'): void
   (e: 'sigex', doc: Import40DocumentDto, side: 'client' | 'provider'): void
 }>()

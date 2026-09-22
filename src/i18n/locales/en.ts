@@ -461,6 +461,10 @@ export default {
     },
   },
   company: {
+    revoke: 'Revoke',
+    revokeConfirm: 'Revoke this document? It will no longer be effective; the client will need to generate and sign a new one.',
+    revoked: 'Document revoked',
+    revokeError: 'Could not revoke the document',
     kicker: 'Import 40',
     title: 'My company',
     subtitle: 'Company details, customs representative contract and power of attorney.',

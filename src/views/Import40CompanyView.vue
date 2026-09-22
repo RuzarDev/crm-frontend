@@ -108,6 +108,7 @@
             :provider-signature="true"
             @generate="(opts: GenerateOpts) => generate('contract', opts)"
             @download="downloadDoc"
+            @revoke="revokeDoc"
             @sign="(doc: Import40DocumentDto, side: 'client' | 'provider') => triggerSign(doc, side)"
             @sigex="(doc: Import40DocumentDto, side: 'client' | 'provider') => openSigex(doc, side)"
           />
@@ -126,6 +127,7 @@
             :provider-signature="false"
             @generate="(opts: GenerateOpts) => generate('poa', opts)"
             @download="downloadDoc"
+            @revoke="revokeDoc"
             @sign="(doc: Import40DocumentDto, side: 'client' | 'provider') => triggerSign(doc, side)"
             @sigex="(doc: Import40DocumentDto, side: 'client' | 'provider') => openSigex(doc, side)"
           />
@@ -348,6 +350,14 @@ const generate = async (kind: 'contract' | 'poa', opts: GenerateOpts) => {
   } finally {
     generatingKind.value = null
   }
+}
+
+const revokeDoc = async (doc: Import40DocumentDto) => {
+  try {
+    await import40ContractApi.revokeDocument(clientId.value, doc.id)
+    await loadDocuments()
+    message.success(t('company.revoked'))
+  } catch { message.error(t('company.revokeError')) }
 }
 
 const downloadDoc = async (doc: Import40DocumentDto) => {

@@ -235,6 +235,9 @@ export const import40ContractApi = {
     return response.data
   },
 
+  // Отзыв документа (админ): перестаёт быть действующим, привязка к открытым заявкам снимается.
+  revokeDocument: async (clientId: string, docId: string): Promise<Import40DocumentDto> =>
+    (await apiClient.post<Import40DocumentDto>(`/import40/company/${clientId}/documents/${docId}/revoke`, {})).data,
   downloadDocument: async (clientId: string, docId: string): Promise<Blob> => {
     const response = await apiClient.get(
       `${base(clientId)}/documents/${encodeURIComponent(docId)}/download`,
