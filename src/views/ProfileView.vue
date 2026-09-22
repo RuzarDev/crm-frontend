@@ -25,10 +25,11 @@
             </div>
           </div>
 
-          <a-divider v-if="!showDeclarantCard" />
+          <a-divider v-if="!showDeclarantCard && !isClient" />
 
-          <!-- У декларанта имя/телефон живут в «Профиле декларанта» ниже — вторую форму не показываем. -->
-          <a-form v-if="!showDeclarantCard" layout="vertical" :model="form" @finish="handleSave">
+          <!-- Декларант: имя/телефон — в «Профиле декларанта» ниже. Клиент: контакты и телефон —
+               в «Моя компания» (реквизиты + контактное лицо). Вторую форму с теми же полями не показываем. -->
+          <a-form v-if="!showDeclarantCard && !isClient" layout="vertical" :model="form" @finish="handleSave">
             <div class="form-grid">
               <a-form-item :label="t('profile.displayName')">
                 <a-input
@@ -79,7 +80,7 @@
         <!-- Клиент: реквизиты компании ведутся в «Моя компания» (договор/доверенность там же). -->
         <a-card v-if="isClient" class="crm-shell-card profile-card" :bordered="false">
           <template #title><div class="card-title-row"><BankOutlined class="card-title-icon" />{{ t('profile.companyCard') }}</div></template>
-          <p class="card-hint">{{ t('profile.companyHint') }}</p>
+          <p class="card-hint">{{ t('profile.companyHint') }} {{ t('profile.companyContactsHint') }}</p>
           <a-button type="primary" @click="router.push('/import-40/company')">{{ t('profile.openCompany') }}</a-button>
         </a-card>
 

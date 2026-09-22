@@ -421,6 +421,7 @@ export default {
     save: 'Save',
     reset: 'Reset',
     companyCard: 'Company',
+    companyContactsHint: 'The contact person and phone are edited there as well.',
     companyHint: 'Company details (BIN, address, director, bank), contract and power of attorney are in “My company”.',
     openCompany: 'Open “My company”',
     declCard: 'Declarant profile (for box 54)',
