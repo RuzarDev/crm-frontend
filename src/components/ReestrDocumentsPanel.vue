@@ -8,7 +8,7 @@
           <div class="doc-section-header">
             <div class="doc-section-title-wrap">
               <span class="doc-section-dot doc-section-dot--client"></span>
-              <span class="doc-section-title">Документы клиента</span>
+              <span class="doc-section-title">{{ t('transit.dokumentyKlienta') }}</span>
             </div>
             <a-space v-if="clientCanUpload">
               <InvoiceAutofillButton :reestr-id="props.reestrId" @applied="handleExtractionApplied" />
@@ -18,9 +18,7 @@
                 :custom-request="() => {}"
               >
                 <a-button size="small" class="upload-btn">
-                  <UploadOutlined />
-                  Загрузить
-                </a-button>
+                  <UploadOutlined /> {{ t('transit.zagruzit') }} </a-button>
               </a-upload>
             </a-space>
           </div>
@@ -36,7 +34,7 @@
         <div class="doc-section doc-section--broker">
           <div class="doc-section-title-wrap broker-root-title">
             <span class="doc-section-dot doc-section-dot--broker"></span>
-            <span class="doc-section-title">Документы брокера</span>
+            <span class="doc-section-title">{{ t('transit.dokumentyBrokera') }}</span>
           </div>
 
           <div v-for="slot in brokerSlots" :key="slot.type" class="broker-slot">
@@ -54,9 +52,7 @@
                 :custom-request="() => {}"
               >
                 <a-button size="small" class="upload-btn">
-                  <UploadOutlined />
-                  Загрузить
-                </a-button>
+                  <UploadOutlined /> {{ t('transit.zagruzit') }} </a-button>
               </a-upload>
             </div>
             <reestr-document-list
@@ -68,9 +64,7 @@
           </div>
 
           <div v-if="brokerSectionClosed" class="section-closed-notice">
-            <LockOutlined />
-            Секция закрыта — статус не допускает загрузку
-          </div>
+            <LockOutlined /> {{ t('transit.sekciyaZakrytaStatusNe') }} </div>
         </div>
 
       </a-space>
@@ -79,6 +73,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
@@ -94,6 +89,8 @@ import type {
 import { ReestrBrokerDocumentType as BrokerDocTypes, ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
 import ReestrDocumentList from '@/components/ReestrDocumentList.vue'
 import InvoiceAutofillButton from '@/components/InvoiceAutofillButton.vue'
+
+const { t } = useI18n()
 
 interface Props {
   reestrId: string
@@ -121,28 +118,28 @@ const brokerSectionClosed = computed(
     props.entryStatus === ReestrEntryStatusValues.Released,
 )
 
-const brokerSlots = [
+const brokerSlots = computed(() => [
   {
     type: BrokerDocTypes.CustomsDeclaration,
-    label: 'Таможенная декларация',
+    label: t('transit.tamozhennayaDeklaraciya'),
     required: true,
   },
   {
     type: BrokerDocTypes.ConformityCertificates,
-    label: 'Сертификаты соответствия',
+    label: t('transit.sertifikatySootvetstviya'),
     required: false,
   },
   {
     type: BrokerDocTypes.PermitsAndLicenses,
-    label: 'Разрешения и лицензии',
+    label: t('transit.razresheniyaILicenzii'),
     required: false,
   },
   {
     type: BrokerDocTypes.Other,
-    label: 'Иные документы',
+    label: t('transit.inyeDokumenty'),
     required: false,
   },
-] as const
+] as const)
 
 // Клиент и экспедитор всегда могут грузить свои документы — readonly касается только полей данных
 const clientCanUpload = computed(
@@ -197,11 +194,11 @@ const beforeUpload =
     const name = file.name.toLowerCase()
     const ok = allowedExtensions.some((ext) => name.endsWith(ext))
     if (!ok) {
-      message.error('Допустимы: PDF, JPG, PNG, DOCX, XLSX')
+      message.error(t('transit.dopustimyPdfJpgPng'))
       return false
     }
     if (file.size > 10 * 1024 * 1024) {
-      message.error('Размер файла не должен превышать 10 МБ')
+      message.error(t('transit.razmerFaylaNeDolzhen'))
       return false
     }
     void uploadFile(file as File, section, brokerDocumentType)
@@ -216,7 +213,7 @@ const uploadFile = async (
   loading.value = true
   try {
     await reestrApi.uploadDocument(props.reestrId, section, file, brokerDocumentType)
-    message.success('Документ загружен')
+    message.success(t('transit.dokumentZagruzhen'))
     await fetchDocuments()
   } catch {
     //
@@ -248,7 +245,7 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
   loading.value = true
   try {
     await reestrApi.deleteDocument(props.reestrId, doc.id)
-    message.success('Документ удалён')
+    message.success(t('transit.dokumentUdalen'))
     await fetchDocuments()
   } catch {
     //

@@ -1,7 +1,7 @@
 <template>
   <div class="invoice-file-section">
     <div class="section-bar">
-      <span class="section-label">ИНВОЙС</span>
+      <span class="section-label">{{ t('transit.invoys2') }}</span>
       <a-upload
         :show-upload-list="false"
         :before-upload="beforeUpload"
@@ -9,20 +9,16 @@
         accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png"
       >
         <a-button size="small" :loading="uploading">
-          <UploadOutlined />
-          Загрузить инвойс
-        </a-button>
+          <UploadOutlined /> {{ t('transit.zagruzitInvoys') }} </a-button>
       </a-upload>
     </div>
 
-    <div v-if="!files.length" class="empty-state">
-      Инвойс еще не прикреплен
-    </div>
+    <div v-if="!files.length" class="empty-state"> {{ t('transit.invoysEscheNePrikreplen') }} </div>
 
     <div v-for="file in files" :key="file.id" class="invoice-file-chip">
       <PaperClipOutlined />
       <span class="file-name" @click="download(file)">{{ file.originalFileName }}</span>
-      <a-popconfirm title="Удалить файл инвойса?" ok-text="Да" cancel-text="Нет" @confirm="remove(file)">
+      <a-popconfirm :title="t('transit.udalitFaylInvoysa')" :ok-text="t('transit.da')" :cancel-text="t('transit.net')" @confirm="remove(file)">
         <a-button type="text" size="small" danger class="del-btn"><CloseOutlined /></a-button>
       </a-popconfirm>
     </div>
@@ -30,12 +26,15 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref } from 'vue'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
 import { CloseOutlined, PaperClipOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { documentPackagesApi } from '@/api/documentPackages'
 import type { DocumentPackageFileDto } from '@/types/api'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   packageId: string
@@ -52,7 +51,7 @@ const uploading = ref(false)
 
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   if (file.size > 10 * 1024 * 1024) {
-    message.error('Размер файла не должен превышать 10 МБ')
+    message.error(t('transit.razmerFaylaNeDolzhen'))
     return false
   }
   void upload(file as File)
@@ -68,10 +67,10 @@ const upload = async (file: File) => {
       clientConsolidationId: props.consolidationId,
       documentType: 'invoice',
     })
-    message.success('Инвойс прикреплен')
+    message.success(t('transit.invoysPrikreplen'))
     emit('uploaded')
   } catch {
-    message.error('Не удалось загрузить инвойс')
+    message.error(t('transit.neUdalosZagruzitInvoys'))
   } finally {
     uploading.value = false
   }
@@ -87,17 +86,17 @@ const download = async (file: DocumentPackageFileDto) => {
     a.click()
     URL.revokeObjectURL(url)
   } catch {
-    message.error('Не удалось скачать файл')
+    message.error(t('transit.neUdalosSkachatFayl'))
   }
 }
 
 const remove = async (file: DocumentPackageFileDto) => {
   try {
     await documentPackagesApi.deleteFile(props.packageId, file.id)
-    message.success('Файл удален')
+    message.success(t('transit.faylUdalen'))
     emit('deleted')
   } catch {
-    message.error('Не удалось удалить файл')
+    message.error(t('transit.neUdalosUdalitFayl'))
   }
 }
 </script>

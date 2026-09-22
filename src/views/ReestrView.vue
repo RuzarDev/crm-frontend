@@ -2,41 +2,35 @@
   <div class="reestr-view crm-page">
     <PageHeader
       stacked
-      kicker="Таможенный реестр"
-      title="Реестр"
-      subtitle="Основная рабочая таблица по заявкам, документам, статусам и клиентским декларациям."
+      :kicker="t('transit.tamozhennyyReestr')"
+      :title="t('transit.reestr')"
+      :subtitle="t('transit.osnovnayaRabochayaTablicaPo')"
     >
       <template #actions>
           <a-button v-if="canWrite" type="primary" @click="showCreateModal">
-            <PlusOutlined />
-            Добавить запись
-          </a-button>
+            <PlusOutlined /> {{ t('transit.dobavitZapis') }} </a-button>
           <a-button v-if="canWrite" @click="showUploadModal">
-            <UploadOutlined />
-            Загрузить Excel
-          </a-button>
+            <UploadOutlined /> {{ t('transit.zagruzitExcel') }} </a-button>
           <ImportInvoiceButton
             v-if="canWrite"
             :client-options="createClientOptions"
             @imported="reestrStore.fetchList()"
           />
           <a-button :loading="exporting" @click="handleExport">
-            <DownloadOutlined />
-            Выгрузить реестр
-          </a-button>
+            <DownloadOutlined /> {{ t('transit.vygruzitReestr') }} </a-button>
           <template v-if="canDelete">
-            <a-button @click="selectAllCurrentPage">Выбрать все</a-button>
-            <a-button @click="clearSelection">Снять выбор</a-button>
+            <a-button @click="selectAllCurrentPage">{{ t('transit.vybratVse') }}</a-button>
+            <a-button @click="clearSelection">{{ t('transit.snyatVybor') }}</a-button>
             <span class="reestr-action-sep"></span>
             <a-popconfirm
-              title="Удалить выбранные записи?"
-              ok-text="Да"
-              cancel-text="Нет"
+              :title="t('transit.udalitVybrannyeZapisi')"
+              :ok-text="t('transit.da')"
+              :cancel-text="t('transit.net')"
               @confirm="handleDeleteSelected"
             >
               <a-button danger :disabled="selectedRowKeys.length === 0">
                 <DeleteOutlined />
-                Удалить ({{ selectedRowKeys.length }})
+                {{ t('transit.udalitN', { n: selectedRowKeys.length }) }}
               </a-button>
             </a-popconfirm>
           </template>
@@ -48,7 +42,7 @@
         <div class="crm-toolbar crm-toolbar-surface">
           <a-input
             v-model:value="searchValue"
-            placeholder="Поиск по реестру…"
+            :placeholder="t('transit.poiskPoReestru')"
             allow-clear
             @pressEnter="handleSearch"
             @change="handleSearch"
@@ -61,7 +55,7 @@
           <a-select
             v-model:value="reestrStore.statusFilter"
             allow-clear
-            placeholder="Все статусы"
+            :placeholder="t('transit.vseStatusy')"
             style="width: 240px"
             :options="reestrStatusSelectOptions"
             @change="handleFiltersChange"
@@ -70,7 +64,7 @@
             <a-select
               v-model:value="reestrStore.clientFilter"
               allow-clear
-              placeholder="Все клиенты"
+              :placeholder="t('transit.vseKlienty')"
               style="width: 220px"
               :options="filterClientOptions"
               @change="handleFiltersChange"
@@ -78,7 +72,7 @@
             <a-range-picker
               v-model:value="documentDateRange"
               format="DD.MM.YYYY"
-              :placeholder="['Дата с', 'Дата по']"
+              :placeholder="[t('transit.dataS'), t('transit.dataPo')]"
               @change="handleDateRangeChange"
             />
           </template>
@@ -123,14 +117,14 @@
 
             <template v-else-if="column.key === 'reestrStatus'">
               <a-tag v-if="record.isConsolidationGroup" color="blue">
-                Консолидация · {{ record.groupCount }} поз.
+                {{ t('transit.konsolidaciyaPoz', { n: record.groupCount }) }}
               </a-tag>
               <ReestrStatusCell v-else :status="record.status" />
             </template>
 
             <template v-else-if="column.key === 'actions'">
               <div v-if="canShowActions && !record.isConsolidationGroup" class="row-actions">
-                <a-tooltip v-if="isClient" title="Документы">
+                <a-tooltip v-if="isClient" :title="t('transit.dokumenty')">
                   <a-button
                     type="text"
                     size="small"
@@ -140,7 +134,7 @@
                     <FileOutlined />
                   </a-button>
                 </a-tooltip>
-                <a-tooltip v-if="isBroker" title="Документы">
+                <a-tooltip v-if="isBroker" :title="t('transit.dokumenty')">
                   <a-button
                     type="text"
                     size="small"
@@ -150,7 +144,7 @@
                     <FileOutlined />
                   </a-button>
                 </a-tooltip>
-                <a-tooltip v-if="isExpeditor" title="Просмотр">
+                <a-tooltip v-if="isExpeditor" :title="t('transit.prosmotr')">
                   <a-button
                     type="text"
                     size="small"
@@ -160,7 +154,7 @@
                     <EyeOutlined />
                   </a-button>
                 </a-tooltip>
-                <a-tooltip v-if="isExpeditor" title="Документы">
+                <a-tooltip v-if="isExpeditor" :title="t('transit.dokumenty')">
                   <a-button
                     type="text"
                     size="small"
@@ -170,7 +164,7 @@
                     <FileOutlined />
                   </a-button>
                 </a-tooltip>
-                <a-tooltip v-if="canWrite" title="Изменить">
+                <a-tooltip v-if="canWrite" :title="t('transit.izmenit')">
                   <a-button
                     type="text"
                     size="small"
@@ -180,7 +174,7 @@
                     <EditOutlined />
                   </a-button>
                 </a-tooltip>
-                <a-tooltip v-if="canChangeStatus" title="Сменить статус">
+                <a-tooltip v-if="canChangeStatus" :title="t('transit.smenitStatus')">
                   <a-button
                     type="text"
                     size="small"
@@ -192,12 +186,12 @@
                 </a-tooltip>
                 <a-popconfirm
                   v-if="canDelete"
-                  title="Удалить эту запись?"
-                  ok-text="Да"
-                  cancel-text="Нет"
+                  :title="t('transit.udalitEtuZapis')"
+                  :ok-text="t('transit.da')"
+                  :cancel-text="t('transit.net')"
                   @confirm="handleDelete(record.id)"
                 >
-                  <a-tooltip title="Удалить">
+                  <a-tooltip :title="t('transit.udalit')">
                     <a-button type="text" size="small" class="action-btn action-btn--danger">
                       <DeleteOutlined />
                     </a-button>
@@ -225,16 +219,16 @@
 
     <a-modal
       v-model:open="uploadModalOpen"
-      title="Загрузка Excel файла"
+      :title="t('transit.zagruzkaExcelFayla')"
       :footer="null"
       width="600px"
     >
       <a-space direction="vertical" style="width: 100%" :size="16">
-        <a-form-item v-if="needsUploadClient" label="Клиент для импорта">
+        <a-form-item v-if="needsUploadClient" :label="t('transit.klientDlyaImporta')">
           <a-select
             v-model:value="uploadClientId"
             :options="createClientOptions"
-            placeholder="Выберите клиента"
+            :placeholder="t('transit.vyberiteKlienta')"
             style="width: 100%"
           />
         </a-form-item>
@@ -244,20 +238,20 @@
 
     <a-modal
       v-model:open="statusModalOpen"
-      title="Смена статуса"
-      ok-text="Сохранить"
-      cancel-text="Отмена"
+      :title="t('transit.smenaStatusa')"
+      :ok-text="t('transit.sohranit')"
+      :cancel-text="t('transit.otmena')"
       :confirm-loading="statusModalSaving"
       destroy-on-close
       @ok="handleStatusModalSave"
       @cancel="closeStatusModal"
     >
       <a-form layout="vertical">
-        <a-form-item label="Статус">
+        <a-form-item :label="t('transit.status')">
           <a-select
             v-model:value="statusModalValue"
             :options="reestrStatusSelectOptions"
-            placeholder="Выберите статус"
+            :placeholder="t('transit.vyberiteStatus')"
             style="width: 100%"
           />
         </a-form-item>
@@ -267,6 +261,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, ref, onMounted } from 'vue'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
@@ -290,11 +285,13 @@ import {
 import type { ReestrEntry, ReestrEntryStatus } from '@/types/api'
 import { REESTR_COLUMN_KEYS, ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
 import { formatReestrCellForDisplay } from '@/utils/reestrFormat'
-import { reestrDataToUpsertBody, REESTR_STATUS_OPTIONS } from '@/utils/reestrDtoMap'
+import { reestrDataToUpsertBody, reestrStatusOptions } from '@/utils/reestrDtoMap'
 import { reestrApi } from '@/api/reestr'
 import type { TableProps } from 'ant-design-vue'
 import { message } from 'ant-design-vue'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const reestrStore = useReestrStore()
 const authStore = useAuthStore()
@@ -319,7 +316,7 @@ const statusModalSaving = ref(false)
 const statusModalEntry = ref<ReestrEntry | null>(null)
 const statusModalValue = ref<ReestrEntryStatus>(ReestrEntryStatusValues.Released)
 
-const reestrStatusSelectOptions = REESTR_STATUS_OPTIONS
+const reestrStatusSelectOptions = computed(() => reestrStatusOptions())
 
 // --- Консолидация в реестре ---
 // Клиентская группировка строк текущей страницы по sourceConsolidationId.
@@ -394,8 +391,8 @@ const tableDataSource = computed<ReestrTableRow[]>(() => {
       id: `consolidation:${cid}`,
       isConsolidationGroup: true,
       groupCount: members.length,
-      groupPlaces: sumField(members, 'Количество мест'),
-      groupWeight: sumField(members, 'Вес'),
+      groupPlaces: sumField(members, t('transit.kolichestvoMest')),
+      groupWeight: sumField(members, t('transit.ves')),
       children: members.map((member) => ({ ...member, isConsolidationChild: true })),
     })
   }
@@ -425,24 +422,24 @@ const fieldColumnWidths: Record<string, number> = {
   'Количество доп.листов':              110,
 }
 
-const fieldColumnLabels: Record<string, string> = {
-  '№':                                  '№',
-  'Дата':                               'Дата',
-  'Контейнер':                          'Контейнер',
-  'Получатель':                         'Получатель',
-  'Станция назначения':                 'Ст. назнач.',
-  'Отправитель':                        'Отправитель',
-  'Отправка':                           'Отправка',
-  'Груз':                               'Груз',
-  'Подкод':                             'Подкод',
-  'Код ТНВЭД':                          'ТНВЭД',
-  'Количество мест':                    'Мест',
-  'Вес':                                'Вес',
-  'ТД':                                 'ТД',
-  'Кол-во ТД':                          'Кол-во ТД',
-  'Количество доп.листов':              'Доп. листы',
-}
+const fieldColumnLabels = computed((): Record<string, string> => ({
 
+  '№':                                  '№',
+  'Дата':                               t('transit.data'),
+  'Контейнер':                          t('transit.konteyner'),
+  'Получатель':                         t('transit.poluchatel'),
+  'Станция назначения':                 t('transit.stNaznach'),
+  'Отправитель':                        t('transit.otpravitel'),
+  'Отправка':                           t('transit.otpravka'),
+  'Груз':                               t('transit.gruz'),
+  'Подкод':                             t('transit.podkod'),
+  'Код ТНВЭД':                          t('transit.tnved'),
+  'Количество мест':                    t('transit.mest'),
+  'Вес':                                t('transit.ves'),
+  'ТД':                                 t('transit.td'),
+  'Кол-во ТД':                          t('transit.kolVoTd'),
+  'Количество доп.листов':              t('transit.dopListy'),
+}))
 const dynamicFieldColumns = computed(() => {
   const keysFromData = new Set<string>()
   for (const entry of reestrStore.entries) {
@@ -451,7 +448,7 @@ const dynamicFieldColumns = computed(() => {
   const ordered = orderedFieldColumns.filter((key) => keysFromData.has(key))
   const extra = [...keysFromData].filter((key) => !orderedFieldColumns.includes(key))
   return [...ordered, ...extra].map((key) => ({
-    title: fieldColumnLabels[key] ?? key,
+    title: fieldColumnLabels.value[key] ?? key,
     key: `field:${key}`,
     width: fieldColumnWidths[key] ?? 150,
     ellipsis: !fullWidthFields.has(key),
@@ -487,7 +484,7 @@ const columns = computed(() => {
       fixed: 'left' as const,
     },
     {
-      title: 'Статус',
+      title: t('transit.status'),
       key: 'reestrStatus',
       width: 186,
     },
@@ -501,7 +498,7 @@ const columns = computed(() => {
   return [
     ...baseColumns,
     {
-      title: 'Действия',
+      title: t('transit.deystviya'),
       key: 'actions',
       // клиент/экспедитор: 1 кнопка=50px; брокер: Документы+Изменить+Статус=3 кнопки; admin: Изменить+Статус+Удалить=3
       width: isClient.value || isExpeditor.value ? 50 : 130,
@@ -528,7 +525,7 @@ const pagination = computed(() => ({
   pageSize: reestrStore.pageSize,
   total: reestrStore.totalCount,
   showSizeChanger: true,
-  showTotal: (total: number) => `Всего записей: ${total}`,
+  showTotal: (total: number) => t('transit.vsegoZapisey', { n: total }),
   pageSizeOptions: ['10', '20', '50', '100'],
 }))
 
@@ -772,7 +769,7 @@ const handleExport = async () => {
     link.remove()
     URL.revokeObjectURL(url)
   } catch {
-    message.error('Не удалось выгрузить реестр')
+    message.error(t('transit.neUdalosVygruzitReestr'))
   } finally {
     exporting.value = false
   }
@@ -780,7 +777,7 @@ const handleExport = async () => {
 
 const handleFileUpload = async (file: File) => {
   if (needsUploadClient.value && !uploadClientId.value) {
-    message.error('Выберите клиента для импорта')
+    message.error(t('transit.vyberiteKlientaDlyaImporta'))
     return
   }
   const clientId = needsUploadClient.value ? uploadClientId.value : undefined

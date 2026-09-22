@@ -1,29 +1,29 @@
 <template>
   <div class="crm-page">
-    <PageHeader kicker="Справочники" title="Порядок заполнения ДТ" />
+    <PageHeader :kicker="t('sales.spravochniki')" :title="t('sales.poryadokZapolneniyaDt')" />
 
     <a-alert
       type="info"
       show-icon
-      message="Решение Комиссии Таможенного союза от 20.05.2010 № 257 — Порядок заполнения декларации на товары"
+      :message="t('misc.reshenie257')"
       class="dt-guide-note"
     />
 
-    <a-input-search v-model:value="query" placeholder="Поиск по графам и тексту" allow-clear class="dt-guide-search" />
+    <a-input-search v-model:value="query" :placeholder="t('sales.poiskPoGrafamI')" allow-clear class="dt-guide-search" />
 
     <a-spin :spinning="loading">
       <a-row :gutter="24">
         <a-col :span="6">
           <a-menu v-model:selectedKeys="selectedKeys" mode="inline" class="dt-guide-menu">
-            <a-menu-item v-for="e in filtered" :key="e.graph">Гр.{{ e.graph }} · {{ e.title }}</a-menu-item>
+            <a-menu-item v-for="e in filtered" :key="e.graph">{{ t('sales.grN', { n: e.graph }) }} · {{ e.title }}</a-menu-item>
           </a-menu>
         </a-col>
         <a-col :span="18">
-          <a-card v-if="current" class="dt-guide-content" :title="`Графа ${current.graph} — ${current.title}`">
+          <a-card v-if="current" class="dt-guide-content" :title="t('misc.grafaTitle', { n: current.graph, t: current.title })">
             <!-- Текст нормативного акта, санитайзится при парсинге на сервере. -->
             <div class="dt-guide-body" v-html="current.html" />
           </a-card>
-          <a-empty v-else description="Выберите графу слева" />
+          <a-empty v-else :description="t('sales.vyberiteGrafuSleva')" />
         </a-col>
       </a-row>
     </a-spin>
@@ -31,11 +31,14 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { referencesApi } from '@/api/references'
 import type { DtGuideEntry } from '@/types/api'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const entries = ref<DtGuideEntry[]>([])
 const loading = ref(false)
@@ -58,7 +61,7 @@ onMounted(async () => {
     entries.value = await referencesApi.getDtGuide()
     if (entries.value.length) selectedKeys.value = [entries.value[0].graph]
   } catch {
-    message.error('Не удалось загрузить справочник')
+    message.error(t('sales.neUdalosZagruzitSpravochnik'))
   } finally {
     loading.value = false
   }

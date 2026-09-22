@@ -1,25 +1,25 @@
 <template>
   <div class="sales-page crm-page">
-    <PageHeader title="Коммерческое предложение" subtitle="Расчёт стоимости услуг и ТПиН, формирование КП." />
+    <PageHeader :title="t('sales.kommercheskoePredlozhenie')" :subtitle="t('sales.raschetStoimostiUslugI')" />
 
     <a-tabs v-model:activeKey="tab">
-      <a-tab-pane key="calc" tab="Калькулятор" />
-      <a-tab-pane key="quotes" tab="Мои КП" />
+      <a-tab-pane key="calc" :tab="t('sales.kalkulyator')" />
+      <a-tab-pane key="quotes" :tab="t('sales.moiKp')" />
     </a-tabs>
 
     <!-- КАЛЬКУЛЯТОР -->
     <template v-if="tab === 'calc'">
       <div class="sales-stack">
         <a-card class="crm-shell-card" :bordered="false">
-          <template #title><div class="card-title"><UserOutlined /> Клиент и условия поставки</div></template>
+          <template #title><div class="card-title"><UserOutlined /> {{ t('sales.klientIUsloviyaPostavki') }}</div></template>
           <div class="client-grid">
-            <label><span>Клиент *</span><a-input v-model:value="clientName" placeholder="Название компании" /></label>
-            <label><span>Контакт</span><a-input v-model:value="clientContact" placeholder="Телефон / e-mail" /></label>
-            <label class="full"><span>Комментарий</span><a-input v-model:value="comment" placeholder="Примечание к расчёту" /></label>
-            <label><span>Условия поставки</span>
-              <a-select v-model:value="incoterms" allow-clear placeholder="Инкотермс" :options="classifiers.options('incoterms')" />
+            <label><span>{{ t('sales.klient') }}</span><a-input v-model:value="clientName" :placeholder="t('sales.nazvanieKompanii')" /></label>
+            <label><span>{{ t('sales.kontakt') }}</span><a-input v-model:value="clientContact" :placeholder="t('sales.telefonEMail')" /></label>
+            <label class="full"><span>{{ t('sales.kommentariy') }}</span><a-input v-model:value="comment" :placeholder="t('sales.primechanieKRaschetu')" /></label>
+            <label><span>{{ t('sales.usloviyaPostavki') }}</span>
+              <a-select v-model:value="incoterms" allow-clear :placeholder="t('sales.inkoterms')" :options="classifiers.options('incoterms')" />
             </label>
-            <label><span>Стоимость транспортировки</span>
+            <label><span>{{ t('sales.stoimostTransportirovki') }}</span>
               <div class="inline-field">
                 <a-input-number v-model:value="transportCost" :min="0" style="flex:1" />
                 <a-select v-model:value="transportCurrency" style="width: 110px" show-search :options="currencyOptions" />
@@ -29,16 +29,16 @@
         </a-card>
 
         <a-card class="crm-shell-card" :bordered="false">
-          <template #title><div class="card-title"><ToolOutlined /> Услуги</div></template>
+          <template #title><div class="card-title"><ToolOutlined /> {{ t('sales.uslugi') }}</div></template>
           <div class="add-line">
             <a-select
               v-model:value="serviceToAdd"
               show-search option-filter-prop="label" style="min-width: 320px"
-              placeholder="Выберите услугу из прайса"
+              :placeholder="t('sales.vyberiteUsluguIzPraysa')"
               :options="serviceOptions"
             />
-            <a-button type="primary" :disabled="!serviceToAdd" @click="addServiceFromCatalog"><PlusOutlined /> Добавить</a-button>
-            <a-button @click="addCustomService">Своя услуга</a-button>
+            <a-button type="primary" :disabled="!serviceToAdd" @click="addServiceFromCatalog"><PlusOutlined /> {{ t('sales.dobavit') }}</a-button>
+            <a-button @click="addCustomService">{{ t('sales.svoyaUsluga') }}</a-button>
           </div>
           <a-table v-if="serviceLines.length" :columns="serviceCols" :data-source="serviceLines" :pagination="false" row-key="_k" size="small">
             <template #bodyCell="{ column, record, index }">
@@ -53,15 +53,15 @@
         </a-card>
 
         <a-card class="crm-shell-card" :bordered="false">
-          <template #title><div class="card-title"><GoldOutlined /> Товары (ТПиН)</div></template>
-          <a-button type="primary" style="margin-bottom: 12px" @click="addGoods"><PlusOutlined /> Добавить товар</a-button>
+          <template #title><div class="card-title"><GoldOutlined /> {{ t('sales.tovaryTpin') }}</div></template>
+          <a-button type="primary" style="margin-bottom: 12px" @click="addGoods"><PlusOutlined /> {{ t('sales.dobavitTovar') }}</a-button>
           <a-table v-if="goodsLines.length" :columns="goodsCols" :data-source="goodsLines" :pagination="false" row-key="_k" size="small" :scroll="{ x: 760 }">
             <template #bodyCell="{ column, record, index }">
-              <template v-if="column.key === 'desc'"><a-input v-model:value="record.description" placeholder="Наименование" /></template>
+              <template v-if="column.key === 'desc'"><a-input v-model:value="record.description" :placeholder="t('sales.naimenovanie')" /></template>
               <template v-else-if="column.key === 'code'">
                 <a-input-group compact style="display: flex; width: 172px">
                   <a-input v-model:value="record.code" placeholder="10 знаков" style="width: 130px" @blur="fillUnit(record)" />
-                  <a-button style="width: 42px" title="Справочник ТН ВЭД (поиск по коду/названию)" @click="openTnvedPicker(index)">
+                  <a-button style="width: 42px" :title="t('sales.spravochnikTnVedPoisk')" @click="openTnvedPicker(index)">
                     <BookOutlined />
                   </a-button>
                 </a-input-group>
@@ -74,26 +74,26 @@
                 </div>
               </template>
               <template v-else-if="column.key === 'weight'"><a-input-number v-model:value="record.weightKg" :min="0" style="width: 90px" /></template>
-              <template v-else-if="column.key === 'unit'"><a-input v-model:value="record.unit" placeholder="шт." style="width: 80px" /></template>
+              <template v-else-if="column.key === 'unit'"><a-input v-model:value="record.unit" :placeholder="t('sales.sht')" style="width: 80px" /></template>
               <template v-else-if="column.key === 'del'"><a-button type="text" danger size="small" @click="goodsLines.splice(index, 1)"><DeleteOutlined /></a-button></template>
             </template>
           </a-table>
-          <p class="muted" style="margin-top: 8px">Пошлина, НДС и сборы считаются автоматически по коду ТНВЭД.</p>
+          <p class="muted" style="margin-top: 8px">{{ t('sales.poshlinaNdsISbory') }}</p>
         </a-card>
 
         <TnvedPickerModal v-model:open="tnvedPickerOpen" :initial-query="tnvedPickerQuery" @select="onTnvedPick" />
 
         <div class="calc-actions">
-          <a-button type="primary" size="large" :loading="calculating" @click="calculate"><CalculatorOutlined /> Рассчитать</a-button>
-          <a-button v-if="result" size="large" :disabled="!clientName.trim()" :loading="saving" @click="saveQuote"><SaveOutlined /> Сохранить как КП</a-button>
+          <a-button type="primary" size="large" :loading="calculating" @click="calculate"><CalculatorOutlined /> {{ t('sales.rasschitat') }}</a-button>
+          <a-button v-if="result" size="large" :disabled="!clientName.trim()" :loading="saving" @click="saveQuote"><SaveOutlined /> {{ t('sales.sohranitKakKp') }}</a-button>
         </div>
 
         <a-card v-if="result" class="crm-shell-card result-card" :bordered="false">
-          <template #title><div class="card-title"><FileDoneOutlined /> Итог</div></template>
+          <template #title><div class="card-title"><FileDoneOutlined /> {{ t('sales.itog') }}</div></template>
           <div class="result-totals">
-            <div class="total-box"><span>Услуги</span><strong class="z-num">{{ money(result.servicesTotal) }} ₸</strong></div>
-            <div class="total-box"><span>ТПиН</span><strong class="z-num">{{ money(result.tpinTotal) }} ₸</strong></div>
-            <div class="total-box grand"><span>Итого</span><strong class="z-num">{{ money(result.grandTotal) }} ₸</strong></div>
+            <div class="total-box"><span>{{ t('sales.uslugi') }}</span><strong class="z-num">{{ money(result.servicesTotal) }} ₸</strong></div>
+            <div class="total-box"><span>{{ t('sales.tpin') }}</span><strong class="z-num">{{ money(result.tpinTotal) }} ₸</strong></div>
+            <div class="total-box grand"><span>{{ t('sales.itogo') }}</span><strong class="z-num">{{ money(result.grandTotal) }} ₸</strong></div>
           </div>
           <div v-if="result.goods.some(g => g.error)" class="calc-errors">
             <a-alert v-for="(g, i) in result.goods.filter(x => x.error)" :key="i" type="warning" show-icon :message="`${g.code || 'Товар'}: ${g.error}`" style="margin-bottom: 6px" />
@@ -111,14 +111,14 @@
     <template v-else>
       <a-card class="crm-shell-card" :bordered="false">
         <a-table :columns="quoteCols" :data-source="quotes" :loading="quotesLoading" row-key="id" :pagination="{ pageSize: 12 }">
-          <template #emptyText><a-empty description="КП пока нет" /></template>
+          <template #emptyText><a-empty :description="t('sales.kpPokaNet')" /></template>
           <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'num'">{{ record.number }}/КП/{{ record.year }}</template>
+            <template v-if="column.key === 'num'">{{ t('sales.kpNumber', { n: record.number, y: record.year }) }}</template>
             <template v-else-if="column.key === 'total'"><span class="z-num">{{ money(record.grandTotal) }} ₸</span></template>
             <template v-else-if="column.key === 'status'"><a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag></template>
             <template v-else-if="column.key === 'date'">{{ formatDate(record.createdAtUtc) }}</template>
             <template v-else-if="column.key === 'act'">
-              <a-button size="small" @click="openQuote(record.id)">Открыть</a-button>
+              <a-button size="small" @click="openQuote(record.id)">{{ t('sales.otkryt') }}</a-button>
             </template>
           </template>
         </a-table>
@@ -126,18 +126,18 @@
     </template>
 
     <!-- Деталь КП -->
-    <a-modal v-model:open="quoteModalOpen" :title="activeQuote ? `КП № ${activeQuote.number}/КП/${activeQuote.year}` : ''" width="760px" :footer="null">
+    <a-modal v-model:open="quoteModalOpen" :title="activeQuote ? t('misc.kpNomer', { n: activeQuote.number, y: activeQuote.year }) : ''" width="760px" :footer="null">
       <template v-if="activeQuote">
         <div class="quote-detail">
-          <p><strong>Клиент:</strong> {{ activeQuote.clientName }} <span v-if="activeQuote.clientContact">· {{ activeQuote.clientContact }}</span></p>
+          <p><strong>{{ t('sales.klient2') }}</strong> {{ activeQuote.clientName }} <span v-if="activeQuote.clientContact">· {{ activeQuote.clientContact }}</span></p>
           <p v-if="activeQuote.comment" class="muted">{{ activeQuote.comment }}</p>
           <div class="result-totals">
-            <div class="total-box"><span>Услуги</span><strong class="z-num">{{ money(activeQuote.servicesTotal) }} ₸</strong></div>
-            <div class="total-box"><span>ТПиН</span><strong class="z-num">{{ money(activeQuote.tpinTotal) }} ₸</strong></div>
-            <div class="total-box grand"><span>Итого</span><strong class="z-num">{{ money(activeQuote.grandTotal) }} ₸</strong></div>
+            <div class="total-box"><span>{{ t('sales.uslugi') }}</span><strong class="z-num">{{ money(activeQuote.servicesTotal) }} ₸</strong></div>
+            <div class="total-box"><span>{{ t('sales.tpin') }}</span><strong class="z-num">{{ money(activeQuote.tpinTotal) }} ₸</strong></div>
+            <div class="total-box grand"><span>{{ t('sales.itogo') }}</span><strong class="z-num">{{ money(activeQuote.grandTotal) }} ₸</strong></div>
           </div>
           <div class="quote-modal-actions">
-            <a-button type="primary" @click="printQuote(activeQuote)"><PrinterOutlined /> Печать / PDF</a-button>
+            <a-button type="primary" @click="printQuote(activeQuote)"><PrinterOutlined /> {{ t('sales.pechatPdf') }}</a-button>
             <a-select :value="activeQuote.status" style="width: 180px" :options="statusOptions" @change="(v: number) => updateStatus(activeQuote!.id, v)" />
           </div>
         </div>
@@ -147,6 +147,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import {
@@ -163,6 +164,8 @@ import type { TnvedCurrencyDto } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 import atgLogoSvgRaw from '@/assets/atg-logo-group.svg?raw'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const classifiers = useClassifiersStore()
 
@@ -191,7 +194,7 @@ const addServiceFromCatalog = () => {
   serviceToAdd.value = undefined
 }
 const addCustomService = () =>
-  serviceLines.value.push({ _k: lineKey++, name: '', unit: 'услуга', unitPrice: 0, quantity: 1, discountPercent: 0 })
+  serviceLines.value.push({ _k: lineKey++, name: '', unit: t('sales.usluga'), unitPrice: 0, quantity: 1, discountPercent: 0 })
 
 // товары
 const goodsLines = ref<Array<{ _k: number; description: string; code: string; customsValue: number; currencyCode: string; weightKg: number | null; unit: string }>>([])
@@ -226,20 +229,23 @@ const fillUnit = async (record: { code: string; unit: string }) => {
   } catch { /* код не найден — оставляем пустым */ }
 }
 
-const serviceCols = [
-  { title: 'Услуга', key: 'name' }, { title: 'Ед.', key: 'unit' }, { title: 'Цена', key: 'price' },
-  { title: 'Кол-во', key: 'qty' }, { title: 'Скидка %', key: 'disc' }, { title: '', key: 'del', width: 50 },
-]
-const goodsCols = [
-  { title: 'Наименование', key: 'desc' }, { title: 'ТНВЭД', key: 'code' }, { title: 'Стоимость', key: 'val' },
-  { title: 'Валюта', key: 'cur' }, { title: 'Вес, кг', key: 'weight' }, { title: 'Ед.', key: 'unit' },
+const serviceCols = computed(() => ([
+
+  { title: t('sales.usluga2'), key: 'name' }, { title: t('sales.ed'), key: 'unit' }, { title: t('sales.cena'), key: 'price' },
+  { title: t('sales.kolVo'), key: 'qty' }, { title: t('sales.skidka'), key: 'disc' }, { title: '', key: 'del', width: 50 },
+]))
+const goodsCols = computed(() => ([
+
+  { title: t('sales.naimenovanie'), key: 'desc' }, { title: t('sales.tnved'), key: 'code' }, { title: t('sales.stoimost'), key: 'val' },
+  { title: t('sales.valyuta'), key: 'cur' }, { title: t('sales.vesKg'), key: 'weight' }, { title: t('sales.ed'), key: 'unit' },
   { title: '', key: 'del', width: 50 },
-]
-const resGoodsCols = [
-  { title: 'Товар', dataIndex: 'description', key: 'descr' }, { title: 'ТНВЭД', dataIndex: 'code', key: 'codec' },
-  { title: 'Стоимость ₸', key: 'val' }, { title: 'Пошлина', key: 'duty' }, { title: 'Акциз', key: 'excise' },
-  { title: 'Сбор', key: 'fee' }, { title: 'НДС', key: 'vat' }, { title: 'ТПиН', key: 'tpin' },
-]
+]))
+const resGoodsCols = computed(() => ([
+
+  { title: t('sales.tovar'), dataIndex: 'description', key: 'descr' }, { title: t('sales.tnved'), dataIndex: 'code', key: 'codec' },
+  { title: t('sales.stoimost2'), key: 'val' }, { title: t('sales.poshlina'), key: 'duty' }, { title: t('sales.akciz'), key: 'excise' },
+  { title: t('sales.sbor'), key: 'fee' }, { title: t('sales.nds'), key: 'vat' }, { title: t('sales.tpin'), key: 'tpin' },
+]))
 const colField = (k: string) =>
   ({ val: 'customsValueKzt', duty: 'importDutyKzt', excise: 'exciseKzt', fee: 'customsFeeKzt', vat: 'vatKzt', tpin: 'tpinTotalKzt' }[k] as string)
 
@@ -255,7 +261,7 @@ const calculate = async () => {
   try {
     result.value = await salesApi.calculate(buildPayload())
   } catch {
-    message.error('Ошибка расчёта')
+    message.error(t('sales.oshibkaRascheta'))
   } finally {
     calculating.value = false
   }
@@ -276,11 +282,11 @@ const saveQuote = async () => {
       transportCurrency: transportCurrency.value,
       ...buildPayload(),
     })
-    message.success('КП сохранено')
+    message.success(t('sales.kpSohraneno'))
     await loadQuotes()
     tab.value = 'quotes'
   } catch {
-    message.error('Не удалось сохранить КП')
+    message.error(t('sales.neUdalosSohranitKp'))
   } finally {
     saving.value = false
   }
@@ -289,12 +295,13 @@ const saveQuote = async () => {
 // КП список
 const quotes = ref<SalesQuoteListItem[]>([])
 const quotesLoading = ref(false)
-const quoteCols = [
-  { title: 'Номер', key: 'num', width: 140 }, { title: 'Клиент', dataIndex: 'clientName', key: 'client' },
-  { title: 'Сумма', key: 'total', width: 150 }, { title: 'Статус', key: 'status', width: 130 },
-  { title: 'Автор', dataIndex: 'createdByName', key: 'author', width: 130 },
-  { title: 'Дата', key: 'date', width: 110 }, { title: '', key: 'act', width: 100 },
-]
+const quoteCols = computed(() => ([
+
+  { title: t('sales.nomer'), key: 'num', width: 140 }, { title: t('sales.klient3'), dataIndex: 'clientName', key: 'client' },
+  { title: t('sales.summa'), key: 'total', width: 150 }, { title: t('sales.status'), key: 'status', width: 130 },
+  { title: t('sales.avtor'), dataIndex: 'createdByName', key: 'author', width: 130 },
+  { title: t('sales.data'), key: 'date', width: 110 }, { title: '', key: 'act', width: 100 },
+]))
 const loadQuotes = async () => {
   quotesLoading.value = true
   try { quotes.value = await salesApi.listQuotes() } finally { quotesLoading.value = false }
@@ -311,7 +318,7 @@ const updateStatus = async (id: string, status: number) => {
   await salesApi.changeStatus(id, status)
   if (activeQuote.value) activeQuote.value.status = status
   await loadQuotes()
-  message.success('Статус обновлён')
+  message.success(t('sales.statusObnovlen'))
 }
 
 // валюты НБ РК
@@ -359,8 +366,8 @@ const printQuote = (q: SalesQuoteDto) => {
     <h1>Коммерческое предложение</h1>
     <div class="sub">Для: <b>${esc(q.clientName)}</b>${q.clientContact ? ' · ' + esc(q.clientContact) : ''}</div>
     ${q.comment ? `<p class="muted">${esc(q.comment)}</p>` : ''}
-    ${svc ? `<h3>Услуги</h3><table><thead><tr><th>Услуга</th><th>Цена</th><th>Кол-во</th><th>Скидка</th><th>Сумма</th></tr></thead><tbody>${svc}</tbody></table>` : ''}
-    ${goods ? `<h3>Таможенные платежи (ТПиН)</h3><table><thead><tr><th>Товар</th><th>ТНВЭД</th><th>Пошлина</th><th>НДС</th><th>Сбор</th><th>Итого</th></tr></thead><tbody>${goods}</tbody></table>` : ''}
+    ${svc ? `${t('sales.printUslugiHdr')}</thead><tbody>${svc}</tbody></table>` : ''}
+    ${goods ? `${t('sales.printTpinHdr')}</thead><tbody>${goods}</tbody></table>` : ''}
     <div class="totals">
       <div>Услуги: <b>${money(q.servicesTotal)} ₸</b></div>
       <div>Таможенные платежи: <b>${money(q.tpinTotal)} ₸</b></div>
@@ -373,7 +380,7 @@ const printQuote = (q: SalesQuoteDto) => {
   const url = URL.createObjectURL(blob)
   const w = window.open(url, '_blank')
   if (!w) {
-    message.warning('Разрешите всплывающие окна в браузере для печати КП')
+    message.warning(t('sales.razreshiteVsplyvayuschieOknaV'))
     URL.revokeObjectURL(url)
     return
   }

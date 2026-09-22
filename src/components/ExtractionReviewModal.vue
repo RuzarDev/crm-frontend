@@ -1,11 +1,11 @@
 <template>
   <a-modal
     :open="open"
-    title="Заполнение из инвойса"
+    :title="t('transit.zapolnenieIzInvoysa')"
     width="900px"
     :confirm-loading="applying"
-    ok-text="Применить"
-    cancel-text="Закрыть"
+    :ok-text="t('transit.primenit')"
+    :cancel-text="t('transit.zakryt')"
     :ok-button-props="{ style: { display: errorMessage ? 'none' : undefined } }"
     @ok="handleOk"
     @cancel="handleCancel"
@@ -13,27 +13,27 @@
     <template v-if="result && !errorMessage">
       <a-space style="margin-bottom: 12px">
         <a-tag :color="result.aiUsed ? 'blue' : 'green'">
-          {{ result.aiUsed ? 'Распознано ИИ' : 'По шаблону' }}
+          {{ result.aiUsed ? t('transit.raspoznanoIi') : t('transit.poShablonu') }}
         </a-tag>
         <a-tag v-if="result.confidence != null">
-          Уверенность: {{ Math.round(result.confidence * 100) }}%
+          {{ t('transit.uverennost', { pct: Math.round(result.confidence * 100) }) }}
         </a-tag>
       </a-space>
 
       <a-form layout="vertical">
         <a-row :gutter="12">
           <a-col :span="8">
-            <a-form-item label="Получатель">
+            <a-form-item :label="t('transit.poluchatel')">
               <a-input v-model:value="header.consignee" />
             </a-form-item>
           </a-col>
           <a-col :span="8">
-            <a-form-item label="Отправитель">
+            <a-form-item :label="t('transit.otpravitel')">
               <a-input v-model:value="header.shipper" />
             </a-form-item>
           </a-col>
           <a-col :span="8">
-            <a-form-item label="Валюта">
+            <a-form-item :label="t('transit.valyuta')">
               <a-input v-model:value="header.currencyCode" />
             </a-form-item>
           </a-col>
@@ -51,7 +51,7 @@
           <template v-if="column.dataIndex === 'commodityCode'">
             <a-input v-model:value="record.commodityCode" />
             <div v-if="record.commodityCodeDeprecation" class="deprecation-warning">
-              Код устарел → {{ record.commodityCodeDeprecation.replacementCodes.join(', ') }}
+              {{ t('transit.kodUstarel', { codes: record.commodityCodeDeprecation.replacementCodes.join(', ') }) }}
             </div>
           </template>
           <template v-else-if="column.dataIndex === 'customsValue'">
@@ -64,13 +64,11 @@
             <a-input-number v-model:value="record.quantity" style="width: 100%" :min="0" />
           </template>
           <template v-else-if="column.dataIndex === 'actions'">
-            <a-button danger type="link" size="small" @click="removeItem(index)">Удалить</a-button>
+            <a-button danger type="link" size="small" @click="removeItem(index)">{{ t('transit.udalit') }}</a-button>
           </template>
         </template>
       </a-table>
-      <a-button type="dashed" block style="margin-top: 8px" @click="addItem">
-        + Добавить позицию
-      </a-button>
+      <a-button type="dashed" block style="margin-top: 8px" @click="addItem"> {{ t('transit.dobavitPoziciyu') }} </a-button>
     </template>
     <template v-else-if="errorMessage">
       <a-alert type="warning" :message="errorMessage" show-icon />
@@ -79,7 +77,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ref, reactive, watch, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import { reestrApi } from '@/api/reestr'
 import type {
@@ -88,6 +87,8 @@ import type {
   ExtractionItemSuggestionDto,
   ExtractionResultDto,
 } from '@/types/api'
+
+const { t } = useI18n()
 
 interface Props {
   open: boolean
@@ -116,14 +117,14 @@ type ItemRow = ExtractionItemSuggestionDto & { __key: number }
 const items = ref<ItemRow[]>([])
 let itemKeyCounter = 0
 
-const itemColumns = [
-  { title: 'Код ТНВЭД', dataIndex: 'commodityCode', width: 240 },
-  { title: 'Сумма', dataIndex: 'customsValue', width: 140 },
-  { title: 'Вес, кг', dataIndex: 'weightKg', width: 120 },
-  { title: 'Кол-во', dataIndex: 'quantity', width: 100 },
-  { title: '', dataIndex: 'actions', width: 80 },
-]
+const itemColumns = computed(() => ([
 
+  { title: t('transit.kodTnved'), dataIndex: 'commodityCode', width: 240 },
+  { title: t('transit.summa'), dataIndex: 'customsValue', width: 140 },
+  { title: t('transit.vesKg'), dataIndex: 'weightKg', width: 120 },
+  { title: t('transit.kolVo'), dataIndex: 'quantity', width: 100 },
+  { title: '', dataIndex: 'actions', width: 80 },
+]))
 watch(
   () => props.result,
   (res) => {
@@ -158,7 +159,7 @@ const handleOk = async () => {
     return
   }
   if (items.value.length === 0) {
-    message.error('Добавьте хотя бы одну позицию')
+    message.error(t('transit.dobavteHotyaByOdnu'))
     return
   }
 
@@ -178,7 +179,7 @@ const handleOk = async () => {
       })),
     }
     const response = await reestrApi.applyExtraction(props.reestrId, props.documentId, payload)
-    message.success(`Применено позиций: ${response.entries.length}`)
+    message.success(t('transit.primenenoPoziciy', { n: response.entries.length }))
     emit('update:open', false)
     emit('applied', response.entries.length)
   } catch {

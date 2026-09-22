@@ -1,7 +1,7 @@
 <template>
   <a-modal
     :open="open"
-    title="Подписание через eGov"
+    :title="t('transit.podpisanieCherezEgov')"
     :footer="null"
     :mask-closable="false"
     width="480px"
@@ -10,21 +10,18 @@
     <!-- Инициализация -->
     <div v-if="step === 'loading'" class="sigex-center">
       <a-spin size="large" />
-      <p class="sigex-hint">Создаём сессию подписания…</p>
+      <p class="sigex-hint">{{ t('transit.sozdaemSessiyuPodpisaniya') }}</p>
     </div>
 
     <!-- QR Code -->
     <div v-else-if="step === 'qr'" class="sigex-body">
-      <p class="sigex-desc">
-        Отсканируйте QR-код приложением <strong>eGov Mobile</strong> или перейдите
-        по ссылке для подписания документа.
-      </p>
+      <p class="sigex-desc"> {{ t('transit.otskaniruyteQrKodPrilozheniem') }} <strong>eGov Mobile</strong> {{ t('transit.iliPereyditePoSsylke') }} </p>
 
       <div class="sigex-qr-wrap">
         <img
           v-if="qrCode"
           :src="`data:image/png;base64,${qrCode}`"
-          alt="QR для подписи"
+          :alt="t('transit.qrDlyaPodpisi')"
           class="sigex-qr"
         />
         <a-spin v-else />
@@ -52,32 +49,32 @@
       <a-divider />
 
       <div class="sigex-poll-row">
-        <p class="sigex-hint">После подписания нажмите кнопку ниже.</p>
+        <p class="sigex-hint">{{ t('transit.poslePodpisaniyaNazhmiteKnopku') }}</p>
         <a-button type="primary" :loading="polling" @click="poll">
-          <CheckOutlined /> Я подписал — проверить
-        </a-button>
+          <CheckOutlined /> {{ t('transit.yaPodpisalProverit') }} </a-button>
       </div>
     </div>
 
     <!-- Успех -->
     <div v-else-if="step === 'success'" class="sigex-center sigex-success">
       <CheckCircleOutlined class="sigex-icon-ok" />
-      <h3>Документ подписан!</h3>
-      <p class="sigex-hint">Подпись eGov получена и сохранена.</p>
-      <a-button type="primary" @click="$emit('signed')">Готово</a-button>
+      <h3>{{ t('transit.dokumentPodpisan') }}</h3>
+      <p class="sigex-hint">{{ t('transit.podpisEgovPoluchenaI') }}</p>
+      <a-button type="primary" @click="$emit('signed')">{{ t('transit.gotovo') }}</a-button>
     </div>
 
     <!-- Ошибка -->
     <div v-else-if="step === 'error'" class="sigex-center sigex-error">
       <ExclamationCircleOutlined class="sigex-icon-err" />
-      <h3>Ошибка</h3>
+      <h3>{{ t('transit.oshibka') }}</h3>
       <p class="sigex-hint">{{ errorMsg }}</p>
-      <a-button @click="start">Попробовать снова</a-button>
+      <a-button @click="start">{{ t('transit.poprobovatSnova') }}</a-button>
     </div>
   </a-modal>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import {
@@ -88,6 +85,8 @@ import {
   MobileOutlined,
 } from '@ant-design/icons-vue'
 import { import40ContractApi } from '@/api/import40Contract'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   open: boolean
@@ -133,7 +132,7 @@ async function start() {
     currentQrId.value = data.qrId
     step.value = 'qr'
   } catch (e: any) {
-    errorMsg.value = e?.response?.data?.error ?? 'Не удалось создать сессию подписания'
+    errorMsg.value = e?.response?.data?.error ?? t('transit.neUdalosSozdatSessiyu')
     step.value = 'error'
   }
 }
@@ -146,7 +145,7 @@ async function poll() {
       ? await import40ContractApi.sigexPollDocument(props.clientId, props.docId, currentQrId.value)
       : await import40ContractApi.sigexPoll(props.clientId, currentQrId.value)
     if (result.pending) {
-      message.warning('Документ ещё не подписан. Подпишите через eGov Mobile и повторите.')
+      message.warning(t('transit.dokumentEscheNePodpisan'))
       return
     }
     if (props.docId) {
@@ -156,7 +155,7 @@ async function poll() {
     }
     step.value = 'success'
   } catch (e: any) {
-    errorMsg.value = e?.response?.data?.error ?? 'Ошибка при проверке подписи'
+    errorMsg.value = e?.response?.data?.error ?? t('transit.oshibkaPriProverkePodpisi')
     step.value = 'error'
   } finally {
     polling.value = false

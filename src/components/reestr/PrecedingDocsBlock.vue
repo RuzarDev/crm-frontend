@@ -3,33 +3,33 @@
 <template>
   <div class="reestr-block">
     <a-collapse ghost>
-      <a-collapse-panel key="preceding-docs" :header="`КЕДЕН-транзит: Предшествующие документы (${items.length})`">
+      <a-collapse-panel key="preceding-docs" :header="t('transit.kedenTranzitHdr', { title: t('transit.predshestvuyuschieDokumenty'), n: items.length })">
         <template #extra>
-          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">+ Документ</a-button>
+          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">{{ t('transit.dokument') }}</a-button>
         </template>
 
-        <div v-if="items.length === 0" class="empty-state">Нет предшествующих документов</div>
+        <div v-if="items.length === 0" class="empty-state">{{ t('transit.netPredshestvuyuschihDokumentov') }}</div>
 
         <div v-for="(item, idx) in items" :key="idx" class="row-card">
           <span class="row-num">{{ idx + 1 }}</span>
           <div class="field-row">
             <div class="field f-grow">
-              <div class="field-label">Тип документа</div>
+              <div class="field-label">{{ t('transit.tipDokumenta') }}</div>
               <a-select v-model:value="item.docTypeCode" size="small" :disabled="readonly"
                 show-search allow-clear style="width: 100%" :options="docTypeOptions"
-                :filter-option="filterOption" placeholder="Выберите тип" @change="emitChange" />
+                :filter-option="filterOption" :placeholder="t('transit.vyberiteTip')" @change="emitChange" />
             </div>
             <div class="field">
-              <div class="field-label">Номер</div>
+              <div class="field-label">{{ t('transit.nomer') }}</div>
               <a-input v-model:value="item.number" size="small" :disabled="readonly" placeholder="—" @change="emitChange" />
             </div>
             <div class="field" style="flex: 0 0 160px;">
-              <div class="field-label">Дата</div>
+              <div class="field-label">{{ t('transit.data') }}</div>
               <a-date-picker v-model:value="item.date" size="small" :disabled="readonly"
                 style="width: 100%" format="DD.MM.YYYY" value-format="YYYY-MM-DD" placeholder="дд.мм.гггг" allow-clear @change="emitChange" />
             </div>
           </div>
-          <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /> Удалить</a-button>
+          <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /> {{ t('transit.udalit') }}</a-button>
         </div>
       </a-collapse-panel>
     </a-collapse>
@@ -37,10 +37,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import type { ReestrPrecedingDocInput } from '@/types/api'
 import { EAES_DOC_CODES } from '@/types/api'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: ReestrPrecedingDocInput[]

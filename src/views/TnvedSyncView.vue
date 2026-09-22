@@ -1,31 +1,25 @@
 <template>
   <div class="tnved-sync-view crm-page">
     <PageHeader
-      kicker="ТН ВЭД ЕАЭС — Администрирование"
-      title="Синхронизация данных"
-      subtitle="Управление синхронизацией дерева ТН ВЭД с tnved.info."
+      :kicker="t('sales.tnVedEaesAdministrirovanie')"
+      :title="t('sales.sinhronizaciyaDannyh')"
+      :subtitle="t('sales.upravlenieSinhronizacieyDerevaTn')"
     >
       <template #actions>
         <a-button :loading="explanationsRunning" @click="triggerExplanations">
-          <template #icon><FileTextOutlined /></template>
-          Загрузить пояснения
-        </a-button>
+          <template #icon><FileTextOutlined /></template> {{ t('sales.zagruzitPoyasneniya') }} </a-button>
         <a-button :loading="seedRunning" @click="triggerSeed">
-          <template #icon><DatabaseOutlined /></template>
-          Загрузить переходы
-        </a-button>
+          <template #icon><DatabaseOutlined /></template> {{ t('sales.zagruzitPerehody') }} </a-button>
         <a-button type="primary" :loading="syncRunning" @click="triggerSync" danger>
-          <template #icon><SyncOutlined /></template>
-          Запустить синхронизацию
-        </a-button>
+          <template #icon><SyncOutlined /></template> {{ t('sales.zapustitSinhronizaciyu') }} </a-button>
       </template>
     </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
-      <div class="section-title">История синхронизаций</div>
+      <div class="section-title">{{ t('sales.istoriyaSinhronizaciy') }}</div>
 
       <a-spin :spinning="loading">
-        <div v-if="!loading && logs.length === 0" class="empty-hint">Синхронизаций ещё не было</div>
+        <div v-if="!loading && logs.length === 0" class="empty-hint">{{ t('sales.sinhronizaciyEscheNeBylo') }}</div>
 
         <a-table
           class="ref-table"
@@ -48,7 +42,7 @@
               <span class="date-cell">{{ fmtDuration(record.startedAtUtc, record.finishedAtUtc) }}</span>
             </template>
             <template v-if="column.key === 'changes'">
-              <span class="change-stat" title="Добавлено / Обновлено / Удалено">
+              <span class="change-stat" :title="t('sales.dobavlenoObnovlenoUdaleno')">
                 <a-tag color="green" style="font-size:11px">+{{ record.nodesAdded }}</a-tag>
                 <a-tag color="blue" style="font-size:11px">~{{ record.nodesUpdated }}</a-tag>
                 <a-tag color="red" style="font-size:11px">-{{ record.nodesRemoved }}</a-tag>
@@ -62,12 +56,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, h, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ref, h, onMounted, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import { DatabaseOutlined, FileTextOutlined, SyncOutlined } from '@ant-design/icons-vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedSyncLogDto } from '@/types/api'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const logs = ref<TnvedSyncLogDto[]>([])
 const loading = ref(false)
@@ -75,15 +72,15 @@ const syncRunning = ref(false)
 const seedRunning = ref(false)
 const explanationsRunning = ref(false)
 
-const columns = [
-  { title: 'Дата запуска', key: 'startedAtUtc', width: 160 },
-  { title: 'Статус', key: 'status', width: 110 },
-  { title: 'Длительность', key: 'duration', width: 110 },
-  { title: 'Узлы (имп.)', key: 'changes', width: 200 },
-  { title: 'Ставок обновлено', dataIndex: 'ratesUpdated', key: 'ratesUpdated', width: 140 },
-  { title: 'Инициатор', dataIndex: 'triggeredBy', key: 'triggeredBy', ellipsis: true },
-]
+const columns = computed(() => ([
 
+  { title: t('sales.dataZapuska'), key: 'startedAtUtc', width: 160 },
+  { title: t('sales.status'), key: 'status', width: 110 },
+  { title: t('sales.dlitelnost'), key: 'duration', width: 110 },
+  { title: t('sales.uzlyImp'), key: 'changes', width: 200 },
+  { title: t('sales.stavokObnovleno'), dataIndex: 'ratesUpdated', key: 'ratesUpdated', width: 140 },
+  { title: t('sales.iniciator'), dataIndex: 'triggeredBy', key: 'triggeredBy', ellipsis: true },
+]))
 function expandedRowRender(record: TnvedSyncLogDto) {
   return h('div', { style: 'color:#ff4d4f;font-size:12px;padding:4px 0' }, record.errorMessage ?? '')
 }
@@ -96,9 +93,9 @@ function statusColor(s: string) {
 }
 
 function statusLabel(s: string) {
-  if (s === 'Completed') return 'Успешно'
-  if (s === 'Running') return 'В процессе'
-  if (s === 'Failed') return 'Ошибка'
+  if (s === 'Completed') return t('sales.uspeshno')
+  if (s === 'Running') return t('sales.vProcesse')
+  if (s === 'Failed') return t('sales.oshibka')
   return s
 }
 
@@ -109,8 +106,8 @@ function fmtDate(d: string) {
 function fmtDuration(start: string, finish: string | null) {
   if (!finish) return '—'
   const ms = new Date(finish).getTime() - new Date(start).getTime()
-  if (ms < 60000) return `${Math.round(ms / 1000)}с`
-  return `${Math.round(ms / 60000)}м`
+  if (ms < 60000) return t('sales.sec', { n: Math.round(ms / 1000) })
+  return t('sales.min', { n: Math.round(ms / 60000) })
 }
 
 async function loadHistory() {
@@ -127,7 +124,7 @@ async function triggerSync() {
   syncRunning.value = true
   try {
     await tnvedApi.syncTrigger()
-    message.success('Синхронизация запущена')
+    message.success(t('sales.sinhronizaciyaZapuschena'))
     await loadHistory()
   } finally {
     syncRunning.value = false
@@ -138,9 +135,9 @@ async function triggerExplanations() {
   explanationsRunning.value = true
   try {
     const { data } = await tnvedApi.seedExplanations()
-    message.success(`Пояснения загружены: ${data.upserted} разделов (ошибок: ${data.failed})`)
+    message.success(t('sales.poyasneniyaZagruzheny', { n: data.upserted, f: data.failed }))
   } catch {
-    message.error('Ошибка загрузки пояснений')
+    message.error(t('sales.oshibkaZagruzkiPoyasneniy'))
   } finally {
     explanationsRunning.value = false
   }
@@ -150,9 +147,9 @@ async function triggerSeed() {
   seedRunning.value = true
   try {
     const { data } = await tnvedApi.seedTransitions()
-    message.success(`Переходы загружены: ${data.inserted} записей (${data.sourceVersion})`)
+    message.success(t('sales.perehodyZagruzheny', { n: data.inserted, v: data.sourceVersion }))
   } catch {
-    message.error('Ошибка загрузки переходов')
+    message.error(t('sales.oshibkaZagruzkiPerehodov'))
   } finally {
     seedRunning.value = false
   }

@@ -1,13 +1,13 @@
 <template>
   <div class="doc44-section">
     <div class="section-bar">
-      <span class="section-label">44 ГРАФА ТД (ДОКУМЕНТЫ)</span>
-      <a-button v-if="!readonly" type="dashed" size="small" @click="addItem">+ Добавить документ</a-button>
+      <span class="section-label">{{ t('transit.n44GrafaTdDokumenty') }}</span>
+      <a-button v-if="!readonly" type="dashed" size="small" @click="addItem">{{ t('transit.dobavitDokument') }}</a-button>
     </div>
 
     <div v-if="items.length === 0" class="empty-state">
-      <span v-if="!readonly">Нажмите «+ Добавить документ» чтобы добавить позицию</span>
-      <span v-else>Нет документов</span>
+      <span v-if="!readonly">{{ t('transit.nazhmiteDobavitDokumentChtoby') }}</span>
+      <span v-else>{{ t('transit.netDokumentov') }}</span>
     </div>
 
     <div v-for="(item, idx) in items" :key="idx" class="doc-card">
@@ -17,7 +17,7 @@
       <div class="doc-body">
         <div class="field-row">
           <div class="field f-grow">
-            <div class="field-label">Тип документа (код ЕАЭС)</div>
+            <div class="field-label">{{ t('transit.tipDokumentaKodEaes') }}</div>
             <a-select
               v-model:value="item.docTypeCode"
               size="small"
@@ -26,12 +26,12 @@
               show-search
               style="width: 100%"
               :options="eaesOptions"
-              placeholder="Выберите тип"
+              :placeholder="t('transit.vyberiteTip')"
               @change="(v: string | undefined) => onTypeCodeChange(item, v ?? null)"
             />
           </div>
           <div class="field f-grow">
-            <div class="field-label">Наименование документа</div>
+            <div class="field-label">{{ t('transit.naimenovanieDokumenta') }}</div>
             <a-input
               v-model:value="item.docTypeName"
               size="small"
@@ -45,7 +45,7 @@
         <!-- Строка 2: номер + дата -->
         <div class="field-row">
           <div class="field f-grow">
-            <div class="field-label">Номер документа</div>
+            <div class="field-label">{{ t('transit.nomerDokumenta') }}</div>
             <a-input
               v-model:value="item.docNumber"
               size="small"
@@ -55,7 +55,7 @@
             />
           </div>
           <div class="field" style="flex: 0 0 160px;">
-            <div class="field-label">Дата документа</div>
+            <div class="field-label">{{ t('transit.dataDokumenta') }}</div>
             <a-date-picker
               v-model:value="item.docDate"
               size="small"
@@ -73,15 +73,15 @@
         <!-- Строка 3 (расширенный режим Import40): «на все товары» + мультивыбор товаров -->
         <div v-if="extended" class="field-row">
           <div class="field" style="flex: 0 0 auto;">
-            <div class="field-label">Применимость</div>
+            <div class="field-label">{{ t('transit.primenimost') }}</div>
             <a-checkbox
               :checked="(item as Import40Doc44ItemInput).appliesToAll ?? false"
               :disabled="readonly"
               @change="(e: any) => onAppliesToAllChange(item as Import40Doc44ItemInput, e.target.checked)"
-            >На все товары</a-checkbox>
+            >{{ t('transit.naVseTovary') }}</a-checkbox>
           </div>
           <div class="field f-grow">
-            <div class="field-label">Товары</div>
+            <div class="field-label">{{ t('transit.tovary') }}</div>
             <a-select
               mode="multiple"
               :value="goodsIdxArray(item as Import40Doc44ItemInput)"
@@ -89,7 +89,7 @@
               :disabled="readonly || ((item as Import40Doc44ItemInput).appliesToAll ?? false)"
               allow-clear
               style="width: 100%"
-              placeholder="Выберите товары"
+              :placeholder="t('transit.vyberiteTovary')"
               :options="goodsOptions ?? []"
               :get-popup-container="popupContainer"
               @change="(vals: number[]) => onGoodsIndexesChange(item as Import40Doc44ItemInput, vals)"
@@ -100,7 +100,7 @@
         <!-- Строка 4 (extended или transitExtended): сроки действия + страна (§7 гр.44) -->
         <div v-if="extended || transitExtended" class="field-row">
           <div class="field" style="flex: 0 0 130px;">
-            <div class="field-label">Действует с</div>
+            <div class="field-label">{{ t('transit.deystvuetS') }}</div>
             <a-date-picker
               :value="(item as Import40Doc44ItemInput).docStartDate"
               size="small" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD"
@@ -109,7 +109,7 @@
             />
           </div>
           <div class="field" style="flex: 0 0 130px;">
-            <div class="field-label">Действует по</div>
+            <div class="field-label">{{ t('transit.deystvuetPo') }}</div>
             <a-date-picker
               :value="(item as Import40Doc44ItemInput).docValidityDate"
               size="small" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD"
@@ -118,7 +118,7 @@
             />
           </div>
           <div class="field" style="flex: 0 0 200px;">
-            <div class="field-label">Страна (выдачи / гр.44)</div>
+            <div class="field-label">{{ t('transit.stranaVydachiGr44') }}</div>
             <a-select
               :value="(item as Import40Doc44ItemInput).issueCountryCode ?? null"
               size="small" :disabled="readonly" show-search allow-clear :options="countryOptions"
@@ -131,7 +131,7 @@
         <!-- Строка 5 (transitExtended): уполномоченный орган + номер бланка + вложение (§7) -->
         <div v-if="transitExtended" class="field-row">
           <div class="field f-grow">
-            <div class="field-label">Уполномоченный орган</div>
+            <div class="field-label">{{ t('transit.upolnomochennyyOrgan') }}</div>
             <a-input
               :value="(item as Import40Doc44ItemInput).authorizedBody ?? null"
               size="small" :disabled="readonly" placeholder="—"
@@ -139,7 +139,7 @@
             />
           </div>
           <div class="field" style="flex: 0 0 160px;">
-            <div class="field-label">ID уполном. органа</div>
+            <div class="field-label">{{ t('transit.idUpolnomOrgana') }}</div>
             <a-input
               :value="(item as Import40Doc44ItemInput).authorizedBodyId ?? null"
               size="small" :disabled="readonly" placeholder="—"
@@ -147,7 +147,7 @@
             />
           </div>
           <div class="field" style="flex: 0 0 160px;">
-            <div class="field-label">Номер бланка</div>
+            <div class="field-label">{{ t('transit.nomerBlanka') }}</div>
             <a-input
               :value="(item as Import40Doc44ItemInput).formBlankNumber ?? null"
               size="small" :disabled="readonly" placeholder="—"
@@ -155,8 +155,8 @@
             />
           </div>
           <div class="field" style="flex: 0 0 220px;">
-            <div class="field-label">Файл документа</div>
-            <a-input disabled size="small" placeholder="Загружается во вкладке «Документы»" />
+            <div class="field-label">{{ t('transit.faylDokumenta') }}</div>
+            <a-input disabled size="small" :placeholder="t('transit.zagruzhaetsyaVoVkladkeDokumenty')" />
           </div>
         </div>
       </div>
@@ -174,10 +174,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import type { ReestrDoc44ItemInput, Import40Doc44ItemInput } from '@/types/api'
 import { EAES_DOC_CODES, ALPHA2_COUNTRIES } from '@/types/api'
+
+const { t } = useI18n()
 
 const countryOptions = ALPHA2_COUNTRIES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
 const filterCountry = (input: string, option: { label: string }) =>

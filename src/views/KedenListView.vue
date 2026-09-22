@@ -1,9 +1,9 @@
 <template>
   <div class="keden-list-page crm-page">
-    <PageHeader kicker="ИС «KEDEN»" title="Декларации KEDEN" subtitle="Статусы деклараций, синхронизированные с keden.kgd.gov.kz.">
+    <PageHeader :kicker="t('transit.isKeden')" :title="t('transit.deklaraciiKeden')" :subtitle="t('transit.statusyDeklaraciySinhronizirovannyeS')">
       <template #actions>
-        <a-button :loading="loading" @click="reload">Обновить</a-button>
-        <span class="crm-stat-badge">Всего:&nbsp;<span class="crm-stat-badge-count">{{ total }}</span></span>
+        <a-button :loading="loading" @click="reload">{{ t('transit.obnovit') }}</a-button>
+        <span class="crm-stat-badge">{{ t('transit.vsegoNbsp') }}<span class="crm-stat-badge-count">{{ total }}</span></span>
       </template>
     </PageHeader>
 
@@ -12,7 +12,7 @@
         <a-select
           v-model:value="typeFilter"
           allow-clear
-          placeholder="Тип декларации"
+          :placeholder="t('transit.tipDeklaracii')"
           style="width: 320px"
           :options="typeOptions"
           @change="reload"
@@ -20,7 +20,7 @@
         <a-input
           v-model:value="search"
           allow-clear
-          placeholder="Поиск по номеру, декларанту, статусу"
+          :placeholder="t('transit.poiskPoNomeruDeklarantu')"
           style="max-width: 360px"
         >
           <template #prefix><SearchOutlined /></template>
@@ -36,7 +36,7 @@
         row-key="id"
       >
         <template #emptyText>
-          <a-empty description="Деклараций пока нет" />
+          <a-empty :description="t('transit.deklaraciyPokaNet')" />
         </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'type'">
@@ -51,7 +51,7 @@
             {{ formatDate(record.statusDateTimeUtc) }}
           </template>
           <template v-else-if="column.key === 'action'">
-            <a-button size="small" @click="router.push(`/keden/${record.id}`)">Открыть</a-button>
+            <a-button size="small" @click="router.push(`/keden/${record.id}`)">{{ t('transit.otkryt') }}</a-button>
           </template>
         </template>
       </a-table>
@@ -60,12 +60,15 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import { kedenApi, KEDEN_DECLARATION_TYPES, type KedenDeclarationListItemDto } from '@/api/keden'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const loading = ref(false)
@@ -77,15 +80,15 @@ const typeFilter = ref<string | undefined>(undefined)
 const typeOptions = KEDEN_DECLARATION_TYPES.map((t) => ({ value: t.key, label: t.label }))
 const typeLabel = (type: string) => KEDEN_DECLARATION_TYPES.find((t) => t.key === type)?.label || type
 
-const columns = [
-  { title: 'Номер', dataIndex: 'registrationNumber', key: 'registrationNumber', width: 220 },
-  { title: 'Тип', key: 'type', width: 160 },
-  { title: 'Декларант', dataIndex: 'declarantName', key: 'declarantName', width: 200 },
-  { title: 'Статус', key: 'status', width: 180 },
-  { title: 'Дата статуса', key: 'statusDate', width: 160 },
-  { title: '', key: 'action', width: 100, align: 'right' as const },
-]
+const columns = computed(() => ([
 
+  { title: t('transit.nomer'), dataIndex: 'registrationNumber', key: 'registrationNumber', width: 220 },
+  { title: t('transit.tip'), key: 'type', width: 160 },
+  { title: t('transit.deklarant'), dataIndex: 'declarantName', key: 'declarantName', width: 200 },
+  { title: t('transit.status'), key: 'status', width: 180 },
+  { title: t('transit.dataStatusa'), key: 'statusDate', width: 160 },
+  { title: '', key: 'action', width: 100, align: 'right' as const },
+]))
 const formatDate = (iso: string | null) => (iso ? dayjs(iso).format('DD.MM.YYYY HH:mm') : '—')
 
 const statusClass = (code: string | null) => {

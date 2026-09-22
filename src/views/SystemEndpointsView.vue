@@ -1,14 +1,14 @@
 <template>
   <div class="system-endpoints-view crm-page">
     <PageHeader
-      kicker="Система"
-      title="Каталог API"
-      subtitle="Все маршруты REST API сервера — методы, политики авторизации и анонимный доступ."
+      :kicker="t('misc.sistema')"
+      :title="t('misc.katalogApi')"
+      :subtitle="t('misc.vseMarshrutyRestApi')"
     >
       <template #actions>
         <a-input-search
           v-model:value="search"
-          placeholder="Поиск по маршруту…"
+          :placeholder="t('misc.poiskPoMarshrutu')"
           style="width: 280px"
           allow-clear
         />
@@ -36,7 +36,7 @@
               </a-space>
             </template>
             <template v-else-if="column.key === 'access'">
-              <a-tag v-if="record.allowsAnonymous" color="default" style="font-size:11px">Анонимный</a-tag>
+              <a-tag v-if="record.allowsAnonymous" color="default" style="font-size:11px">{{ t('misc.anonimnyy') }}</a-tag>
               <a-space v-else :size="4" wrap>
                 <a-tag
                   v-for="p in record.policies"
@@ -44,7 +44,7 @@
                   color="blue"
                   style="font-size:11px;margin:0"
                 >{{ p }}</a-tag>
-                <a-tag v-if="!record.policies.length" color="orange" style="font-size:11px">Авторизован</a-tag>
+                <a-tag v-if="!record.policies.length" color="orange" style="font-size:11px">{{ t('misc.avtorizovan') }}</a-tag>
               </a-space>
             </template>
             <template v-else-if="column.key === 'route'">
@@ -58,19 +58,22 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref } from 'vue'
 import { systemApi } from '@/api/system'
 import type { EndpointRow } from '@/types/api'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const endpoints = ref<EndpointRow[]>([])
 const loading = ref(false)
 const search = ref('')
 
 const columns = [
-  { title: 'Маршрут', key: 'route', dataIndex: 'route', ellipsis: true },
-  { title: 'Методы', key: 'methods', width: 130 },
-  { title: 'Доступ', key: 'access', width: 260 },
+  { title: t('misc.marshrut'), key: 'route', dataIndex: 'route', ellipsis: true },
+  { title: t('misc.metody'), key: 'methods', width: 130 },
+  { title: t('misc.dostup'), key: 'access', width: 260 },
 ]
 
 const filteredEndpoints = computed(() => {

@@ -4,16 +4,16 @@
       <span class="party-toggle-left">
         {{ title }}
         <a-tag :color="hasData ? 'green' : 'default'" class="party-status-tag">
-          {{ hasData ? 'Заполнено' : 'Не заполнено' }}
+          {{ hasData ? t('sales.zapolneno') : t('sales.neZapolneno') }}
         </a-tag>
       </span>
       <DownOutlined :class="{ 'party-chevron-rotated': expanded }" class="party-chevron" />
     </a-button>
     <div v-if="expanded" class="party-fields-body">
-      <a-form-item label="Наименование">
+      <a-form-item :label="t('sales.naimenovanie')">
         <a-input v-model:value="local.name" :disabled="readonly" :placeholder="title" />
       </a-form-item>
-      <a-form-item label="Страна">
+      <a-form-item :label="t('sales.strana')">
         <a-select
           v-model:value="local.countryCode"
           show-search
@@ -21,18 +21,18 @@
           :disabled="readonly"
           :options="countryOptions"
           :filter-option="filterCountry"
-          placeholder="Выберите страну по коду"
+          :placeholder="t('sales.vyberiteStranuPoKodu')"
         />
       </a-form-item>
       <div class="party-grid-2">
-        <a-form-item label="Регион / штат">
+        <a-form-item :label="t('sales.regionShtat')">
           <a-input v-model:value="local.region" :disabled="readonly" />
         </a-form-item>
-        <a-form-item label="Город">
+        <a-form-item :label="t('sales.gorod')">
           <a-input v-model:value="local.city" :disabled="readonly" />
         </a-form-item>
       </div>
-      <a-form-item label="Улица, номер дома, номер офиса">
+      <a-form-item :label="t('sales.ulicaNomerDomaNomer')">
         <a-input v-model:value="local.street" :disabled="readonly" placeholder="Например: ул. Абая, д. 12, оф. 305" />
       </a-form-item>
     </div>
@@ -40,9 +40,12 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, reactive, ref, watch } from 'vue'
 import { DownOutlined } from '@ant-design/icons-vue'
 import type { PartyAddress } from '@/types/api'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: PartyAddress

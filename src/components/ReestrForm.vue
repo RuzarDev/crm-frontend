@@ -2,8 +2,8 @@
   <a-modal
     :open="open"
     :title="modalTitle"
-    :ok-text="isClientView ? undefined : 'Сохранить'"
-    :cancel-text="isClientView ? undefined : 'Отмена'"
+    :ok-text="isClientView ? undefined : t('transit.sohranit')"
+    :cancel-text="isClientView ? undefined : t('transit.otmena')"
     :confirm-loading="loading"
     :ok-button-props="isClientView ? { style: { display: 'none' } } : undefined"
     @ok="handleSubmit"
@@ -11,11 +11,11 @@
     :width="showTabs ? '960px' : '800px'"
   >
     <template v-if="isClientView" #footer>
-      <a-button type="primary" @click="handleCancel">Закрыть</a-button>
+      <a-button type="primary" @click="handleCancel">{{ t('transit.zakryt') }}</a-button>
     </template>
 
     <a-tabs v-if="showTabs" v-model:activeKey="activeTab">
-      <a-tab-pane key="data" tab="Данные">
+      <a-tab-pane key="data" :tab="t('transit.dannye')">
         <div class="form-body">
           <TnvedDeprecationAlert :warning="entry?.deprecationWarning" />
           <ReestrFormFields
@@ -28,7 +28,7 @@
           />
         </div>
       </a-tab-pane>
-      <a-tab-pane key="documents" tab="Документы">
+      <a-tab-pane key="documents" :tab="t('transit.dokumenty')">
         <ReestrDocumentsPanel
           v-if="entry?.id"
           :reestr-id="entry.id"
@@ -37,14 +37,14 @@
           @applied="emit('applied')"
         />
       </a-tab-pane>
-      <a-tab-pane v-if="!isClientView" key="history" tab="История статусов">
+      <a-tab-pane v-if="!isClientView" key="history" :tab="t('transit.istoriyaStatusov')">
         <ReestrStatusHistoryPanel
           v-if="entry?.id"
           :reestr-id="entry.id"
           :refresh-key="statusHistoryRefreshKey"
         />
       </a-tab-pane>
-      <a-tab-pane key="comments" tab="Комментарии">
+      <a-tab-pane key="comments" :tab="t('transit.kommentarii')">
         <ReestrCommentsPanel
           v-if="entry?.id"
           :reestr-id="entry.id"
@@ -65,6 +65,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, reactive, ref, watch } from 'vue'
 import type {
   ReestrEntry,
@@ -86,13 +87,15 @@ import { REESTR_COLUMN_KEYS } from '@/types/api'
 import { ReestrEntryStatus as ReestrEntryStatusValues } from '@/types/api'
 import { useAuthStore } from '@/stores/auth'
 import { formatReestrDateForForm, normalizeReestrFieldsForSubmit } from '@/utils/reestrFormat'
-import { REESTR_STATUS_OPTIONS, REESTR_TRANSIT_DEFAULTS } from '@/utils/reestrDtoMap'
+import { reestrStatusOptions as reestrStatusOptionsList, REESTR_TRANSIT_DEFAULTS } from '@/utils/reestrDtoMap'
 import { message } from 'ant-design-vue'
 import ReestrDocumentsPanel from '@/components/ReestrDocumentsPanel.vue'
 import ReestrStatusHistoryPanel from '@/components/ReestrStatusHistoryPanel.vue'
 import ReestrFormFields from '@/components/ReestrFormFields.vue'
 import TnvedDeprecationAlert from '@/components/TnvedDeprecationAlert.vue'
 import ReestrCommentsPanel from '@/components/ReestrCommentsPanel.vue'
+
+const { t } = useI18n()
 
 type ViewMode = 'default' | 'client' | 'readonly'
 type FormTab = 'data' | 'documents' | 'comments'
@@ -139,7 +142,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 const authStore = useAuthStore()
 
-const reestrStatusOptions = REESTR_STATUS_OPTIONS
+const reestrStatusOptions = computed(() => reestrStatusOptionsList())
 const activeTab = ref<FormTab | 'history' | 'comments'>('data')
 
 const isReadonlyView = computed(
@@ -151,9 +154,9 @@ const showTabs = computed(() => isEdit.value || isClientView.value)
 
 const modalTitle = computed(() => {
   if (isClientView.value) {
-    return 'Декларация'
+    return t('transit.deklaraciya')
   }
-  return isEdit.value ? 'Изменить запись' : 'Создать запись'
+  return isEdit.value ? t('transit.izmenitZapis') : t('transit.sozdatZapis')
 })
 
 const canPickStatusInForm = computed(
@@ -206,7 +209,7 @@ watch(
       const nextFields: Record<string, string | null> = {}
       for (const key of REESTR_COLUMN_KEYS) {
         const raw = props.entry?.data[key] ?? null
-        nextFields[key] = key === 'Дата' ? formatReestrDateForForm(raw) : raw
+        nextFields[key] = key === t('transit.data') ? formatReestrDateForForm(raw) : raw
       }
       formState.fields = nextFields
       formState.status = props.entry?.status ?? ReestrEntryStatusValues.InProgress
@@ -248,12 +251,12 @@ const handleSubmit = () => {
     Boolean(value && String(value).trim()),
   )
   if (!hasAnyValue) {
-    message.error('Заполните хотя бы одно поле')
+    message.error(t('transit.zapolniteHotyaByOdno'))
     return
   }
 
   if (!isEdit.value && props.clientOptions?.length && !formState.clientId) {
-    message.error('Выберите клиента')
+    message.error(t('transit.vyberiteKlienta'))
     return
   }
 

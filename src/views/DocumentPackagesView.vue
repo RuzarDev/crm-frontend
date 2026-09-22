@@ -1,15 +1,13 @@
 <template>
   <div class="document-packages-view crm-page">
     <PageHeader
-      kicker="Документы экспедитора"
-      title="Пакеты документов"
-      subtitle="Входящие файлы по поездам и составам до разбора брокером в строки реестра."
+      :kicker="t('transit.dokumentyEkspeditora')"
+      :title="t('transit.paketyDokumentov')"
+      :subtitle="t('transit.vhodyaschieFaylyPoPoezdam')"
     >
       <template #actions>
         <a-button v-if="canCreate" type="primary" @click="openCreateModal">
-          <PlusOutlined />
-          Создать пакет
-        </a-button>
+          <PlusOutlined /> {{ t('transit.sozdatPaket') }} </a-button>
       </template>
     </PageHeader>
 
@@ -17,16 +15,14 @@
       v-if="isClient"
       type="warning"
       show-icon
-      message="Этот раздел доступен экспедиторам, брокерам и администраторам."
+      :message="t('transit.razdelDostupen')"
     />
 
     <template v-else>
       <a-card v-if="isExpeditor" class="crm-shell-card clients-card" :bordered="false">
         <template #title>
           <span class="card-title">
-            <TeamOutlined />
-            Ваши клиенты
-          </span>
+            <TeamOutlined /> {{ t('transit.vashiKlienty') }} </span>
         </template>
         <a-spin :spinning="clientsLoading">
           <div v-if="clients.length" class="client-chips">
@@ -35,7 +31,7 @@
               <small>{{ client.declarationCount }}</small>
             </span>
           </div>
-          <a-empty v-else description="Клиенты пока не привязаны" />
+          <a-empty v-else :description="t('transit.klientyPokaNePrivyazany')" />
         </a-spin>
       </a-card>
 
@@ -44,7 +40,7 @@
           <a-input
             v-model:value="search"
             allow-clear
-            placeholder="Найти по номеру поезда"
+            :placeholder="t('transit.naytiPoNomeruPoezda')"
             class="search-input"
             @pressEnter="fetchPackages"
             @change="fetchPackages"
@@ -57,12 +53,12 @@
           <a-select
             v-model:value="statusFilter"
             allow-clear
-            placeholder="Фильтр: статус"
+            :placeholder="t('transit.filtrStatus')"
             class="status-filter"
             :options="statusOptions"
             @change="fetchPackages"
           />
-          <a-button class="refresh-btn" title="Обновить" @click="fetchPackages">
+          <a-button class="refresh-btn" :title="t('transit.obnovit')" @click="fetchPackages">
             <ReloadOutlined />
           </a-button>
         </div>
@@ -95,17 +91,15 @@
             </template>
             <template v-else-if="column.key === 'actions'">
               <a-space>
-                <a-button size="small" @click="openDetails(record)">Открыть</a-button>
+                <a-button size="small" @click="openDetails(record)">{{ t('transit.otkryt') }}</a-button>
                 <a-dropdown v-if="canReview">
-                  <a-button size="small">
-                    Статус
-                    <DownOutlined />
+                  <a-button size="small"> {{ t('transit.status') }} <DownOutlined />
                   </a-button>
                   <template #overlay>
                     <a-menu @click="handleStatusMenu(record, $event)">
-                      <a-menu-item key="accepted">Принять</a-menu-item>
-                      <a-menu-item key="needsFix">Нужно исправить</a-menu-item>
-                      <a-menu-item key="processed">Обработан</a-menu-item>
+                      <a-menu-item key="accepted">{{ t('transit.prinyat') }}</a-menu-item>
+                      <a-menu-item key="needsFix">{{ t('transit.nuzhnoIspravit') }}</a-menu-item>
+                      <a-menu-item key="processed">{{ t('transit.obrabotan') }}</a-menu-item>
                     </a-menu>
                   </template>
                 </a-dropdown>
@@ -114,7 +108,7 @@
           </template>
           <template #emptyText>
             <a-empty
-              description="Пакеты документов не найдены"
+              :description="t('transit.paketyDokumentovNeNaydeny')"
               :image-size="64"
             />
           </template>
@@ -124,31 +118,31 @@
 
     <a-modal
       v-model:open="createOpen"
-      title="Новый пакет документов"
+      :title="t('transit.novyyPaketDokumentov')"
       :confirm-loading="creating"
-      ok-text="Создать"
-      cancel-text="Отмена"
+      :ok-text="t('transit.sozdat')"
+      :cancel-text="t('transit.otmena')"
       @ok="createPackage"
     >
       <a-form layout="vertical">
-        <a-form-item label="Номер поезда / состава" required>
+        <a-form-item :label="t('transit.nomerPoezdaSostava')" required>
           <a-input v-model:value="createForm.trainNumber" placeholder="Например: 2457 / ATG-12" />
         </a-form-item>
-        <a-form-item label="Комментарий">
+        <a-form-item :label="t('transit.kommentariy')">
           <a-textarea
             v-model:value="createForm.comment"
             :rows="2"
-            placeholder="Необязательно"
+            :placeholder="t('transit.neobyazatelno')"
           />
         </a-form-item>
-        <a-form-item label="Номера контейнеров (черновик)">
+        <a-form-item :label="t('transit.nomeraKonteynerovChernovik')">
           <a-textarea
             v-model:value="createForm.containersInput"
             :rows="3"
-            placeholder="Введите номера контейнеров, каждый с новой строки (необязательно)"
+            :placeholder="t('transit.vvediteNomeraKonteynerovKazhdyy')"
           />
         </a-form-item>
-        <a-form-item label="Файлы">
+        <a-form-item :label="t('transit.fayly')">
           <input class="native-file" type="file" multiple @change="handleCreateFiles" />
           <div v-if="createFiles.length" class="selected-files">
             <span v-for="file in createFiles" :key="file.name + file.size">{{ file.name }}</span>
@@ -160,16 +154,14 @@
     <a-drawer
       v-model:open="detailsOpen"
       :width="560"
-      title="Пакет документов"
+      :title="t('transit.paketDokumentov')"
       class="package-drawer"
     >
       <template v-if="selectedPackage">
-        <a-button v-if="canReview" type="primary" block @click="goToWorkspace(selectedPackage.id)" style="margin-bottom: 20px;">
-          Открыть рабочую область разбора
-        </a-button>
+        <a-button v-if="canReview" type="primary" block @click="goToWorkspace(selectedPackage.id)" style="margin-bottom: 20px;"> {{ t('transit.otkrytRabochuyuOblastRazbora') }} </a-button>
         <div class="details-head">
           <div>
-            <p class="eyebrow">Поезд / состав</p>
+            <p class="eyebrow">{{ t('transit.poezdSostav') }}</p>
             <h2>{{ selectedPackage.trainNumber }}</h2>
             <p class="muted">{{ selectedPackage.createdByExpeditorUsername }}</p>
           </div>
@@ -213,13 +205,14 @@
           </template>
         </a-list>
 
-        <a-empty v-if="!selectedPackage.files.length" description="Файлы еще не загружены" />
+        <a-empty v-if="!selectedPackage.files.length" :description="t('transit.faylyEscheNeZagruzheny')" />
       </template>
     </a-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
@@ -242,6 +235,8 @@ import type {
   ReestrClientOption,
 } from '@/types/api'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -275,22 +270,22 @@ const createForm = reactive({
   containersInput: '',
 })
 
-const statusOptions = [
-  { value: 'uploaded', label: 'Загружен' },
-  { value: 'accepted', label: 'Принят брокером' },
-  { value: 'needsFix', label: 'Нужно исправить' },
-  { value: 'processed', label: 'Обработан' },
-]
+const statusOptions = computed(() => ([
 
+  { value: 'uploaded', label: t('transit.zagruzhen') },
+  { value: 'accepted', label: t('transit.prinyatBrokerom') },
+  { value: 'needsFix', label: t('transit.nuzhnoIspravit') },
+  { value: 'processed', label: t('transit.obrabotan') },
+]))
 const columns = computed(() => [
-  { title: 'Поезд / состав', key: 'trainNumber', dataIndex: 'trainNumber' },
+  { title: t('transit.poezdSostav'), key: 'trainNumber', dataIndex: 'trainNumber' },
   ...(canReview.value
-    ? [{ title: 'Экспедитор', key: 'createdByExpeditorUsername', dataIndex: 'createdByExpeditorUsername' }]
+    ? [{ title: t('transit.ekspeditor'), key: 'createdByExpeditorUsername', dataIndex: 'createdByExpeditorUsername' }]
     : []),
-  { title: 'Статус', key: 'status', dataIndex: 'status', width: 170 },
-  { title: 'Файлы', key: 'files', width: 90 },
-  { title: 'Создан', key: 'createdAtUtc', dataIndex: 'createdAtUtc', width: 160 },
-  { title: 'Действия', key: 'actions', width: 220 },
+  { title: t('transit.status'), key: 'status', dataIndex: 'status', width: 170 },
+  { title: t('transit.fayly'), key: 'files', width: 90 },
+  { title: t('transit.sozdan'), key: 'createdAtUtc', dataIndex: 'createdAtUtc', width: 160 },
+  { title: t('transit.deystviya'), key: 'actions', width: 220 },
 ])
 
 const canUploadToSelected = computed(() => {
@@ -353,7 +348,7 @@ const handleDetailFiles = async (event: Event) => {
 
 const createPackage = async () => {
   if (!createForm.trainNumber.trim()) {
-    message.error('Укажите номер поезда / состава')
+    message.error(t('transit.ukazhiteNomerPoezdaSostava'))
     return
   }
 
@@ -373,7 +368,7 @@ const createPackage = async () => {
       await uploadFiles(created.id, createFiles.value, false)
     }
     createOpen.value = false
-    message.success('Пакет создан')
+    message.success(t('transit.paketSozdan'))
     await fetchPackages()
   } finally {
     creating.value = false
@@ -384,7 +379,7 @@ const uploadFiles = async (packageId: string, files: File[], refresh = true) => 
   for (const file of files) {
     await documentPackagesApi.uploadFile(packageId, file)
   }
-  message.success('Файлы загружены')
+  message.success(t('transit.faylyZagruzheny'))
   if (refresh) {
     await refreshSelected(packageId)
     await fetchPackages()
@@ -403,7 +398,7 @@ const refreshSelected = async (id: string) => {
 
 const updateStatus = async (record: DocumentPackageDto, status: DocumentPackageStatus) => {
   const updated = await documentPackagesApi.changeStatus(record.id, { status })
-  message.success('Статус обновлен')
+  message.success(t('transit.statusObnovlen'))
   if (selectedPackage.value?.id === updated.id) {
     selectedPackage.value = updated
   }
@@ -433,13 +428,13 @@ const downloadFile = async (file: DocumentPackageFileDto) => {
 const deleteFile = async (file: DocumentPackageFileDto) => {
   if (!selectedPackage.value) return
   await documentPackagesApi.deleteFile(selectedPackage.value.id, file.id)
-  message.success('Файл удален')
+  message.success(t('transit.faylUdalen'))
   await refreshSelected(selectedPackage.value.id)
   await fetchPackages()
 }
 
 const statusLabel = (status: DocumentPackageStatus) =>
-  statusOptions.find((x) => x.value === status)?.label ?? status
+  statusOptions.value.find((x) => x.value === status)?.label ?? status
 
 const statusColor = (status: DocumentPackageStatus) => {
   const map: Record<DocumentPackageStatus, string> = {
@@ -454,9 +449,9 @@ const statusColor = (status: DocumentPackageStatus) => {
 const formatDate = (value: string) => new Date(value).toLocaleString('ru-RU')
 
 const formatFileSize = (bytes: number) => {
-  if (bytes < 1024) return `${bytes} Б`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} КБ`
-  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`
+  if (bytes < 1024) return `${bytes} ${t('transit.b')}`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} ${t('transit.kb')}`
+  return `${(bytes / 1024 / 1024).toFixed(1)} ${t('transit.mb')}`
 }
 </script>
 

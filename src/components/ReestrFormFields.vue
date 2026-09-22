@@ -1,20 +1,20 @@
 <template>
   <a-form layout="vertical">
     <div class="form-fields-wrap">
-      <a-form-item v-if="!readonly && !isEdit && clientOptions?.length" label="Клиент">
+      <a-form-item v-if="!readonly && !isEdit && clientOptions?.length" :label="t('transit.klient')">
         <a-select
           v-model:value="formState.clientId"
           :options="clientOptions"
-          placeholder="Выберите клиента"
+          :placeholder="t('transit.vyberiteKlienta')"
           style="width: 100%"
         />
       </a-form-item>
 
-      <a-form-item label="Статус">
+      <a-form-item :label="t('transit.status')">
         <a-select
           v-model:value="formState.status"
           :options="statusOptions"
-          placeholder="Статус"
+          :placeholder="t('transit.status')"
           style="width: 100%"
           :disabled="readonly || (isEdit && !canPickStatus)"
         />
@@ -32,7 +32,7 @@
             v-model:value="formState.fields[key]"
             :options="key === 'Пост' ? postOptions : stationOptions"
             :filter-option="filterRefOption"
-            :placeholder="key === 'Пост' ? 'Код/название поста' : 'Код/название станции'"
+            :placeholder="key === 'Пост' ? t('transit.kodNazvaniePosta') : t('transit.kodNazvanieStancii')"
             size="small" :disabled="readonly" style="width: 100%"
           />
           <a-input
@@ -46,10 +46,10 @@
       </div>
 
       <!-- ЖДН section -->
-      <div class="subsection-title">ЖД накладная</div>
+      <div class="subsection-title">{{ t('transit.zhdNakladnaya') }}</div>
       <div class="fields-grid">
         <div class="field-row">
-          <div class="field-label">№ Пломбы</div>
+          <div class="field-label">{{ t('transit.plomby') }}</div>
           <a-input
             v-model:value="formState.sealNumber"
             placeholder="—"
@@ -58,7 +58,7 @@
           />
         </div>
         <div class="field-row">
-          <div class="field-label">Вид упаковки</div>
+          <div class="field-label">{{ t('transit.vidUpakovki') }}</div>
           <a-input
             v-model:value="formState.packagingType"
             placeholder="—"
@@ -69,11 +69,11 @@
       </div>
 
       <!-- Товары section -->
-      <div class="subsection-title">Товары</div>
+      <div class="subsection-title">{{ t('transit.tovary') }}</div>
       <ReestrGoodsSection v-model="formState.goods" :readonly="readonly" />
 
       <!-- 44 графа section -->
-      <div class="subsection-title">44 Графа ТД</div>
+      <div class="subsection-title">{{ t('transit.n44GrafaTd') }}</div>
       <ReestrDoc44Section v-model="formState.doc44" :readonly="readonly" transit-extended />
 
       <!-- КЕДЕН-транзит: сворачиваемые блоки, добавлены ниже существующей вёрстки -->
@@ -93,6 +93,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, onMounted, toRef } from 'vue'
 import type {
   ReestrEntryStatus,
@@ -124,6 +125,8 @@ import GuaranteeBlock from '@/components/reestr/GuaranteeBlock.vue'
 import MiscSectionsBlock from '@/components/reestr/MiscSectionsBlock.vue'
 import { referencesApi } from '@/api/references'
 import { useTransitTotals } from '@/composables/useTransitTotals'
+
+const { t } = useI18n()
 
 type RefOption = { value: string; label: string }
 const postOptions = ref<RefOption[]>([])

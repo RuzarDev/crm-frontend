@@ -3,21 +3,21 @@
 <template>
   <div class="reestr-block">
     <a-collapse ghost>
-      <a-collapse-panel key="packaging" :header="`КЕДЕН-транзит: Упаковка (${items.length})`">
+      <a-collapse-panel key="packaging" :header="t('transit.kedenTranzitHdr', { title: t('transit.upakovkaHdr'), n: items.length })">
         <template #extra>
-          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">+ Упаковка</a-button>
+          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">{{ t('transit.upakovka') }}</a-button>
         </template>
 
         <div class="field-row">
           <div class="field">
-            <div class="field-label">Информация об упаковке</div>
+            <div class="field-label">{{ t('transit.informaciyaObUpakovke') }}</div>
             <a-select v-model:value="transit.packagingInfoCode" size="small" :disabled="readonly"
               show-search allow-clear style="width: 100%" :options="packagingInfoOptions"
               :filter-option="filterOption" placeholder="1" />
           </div>
         </div>
 
-        <div v-if="items.length === 0" class="empty-state">Нет упаковок</div>
+        <div v-if="items.length === 0" class="empty-state">{{ t('transit.netUpakovok') }}</div>
 
         <div v-for="(item, idx) in items" :key="idx" class="row-card">
           <div class="row-top">
@@ -26,26 +26,26 @@
           </div>
           <div class="field-row">
             <div class="field">
-              <div class="field-label">Вид информации об упаковке</div>
+              <div class="field-label">{{ t('transit.vidInformaciiObUpakovke') }}</div>
               <a-select v-model:value="item.packagingInfoKindCode" size="small" :disabled="readonly"
                 show-search allow-clear style="width: 100%" :options="packagingInfoKindOptions"
                 :filter-option="filterOption" placeholder="0" @change="emitChange" />
             </div>
             <div class="field">
-              <div class="field-label">Вид упаковки</div>
+              <div class="field-label">{{ t('transit.vidUpakovki') }}</div>
               <a-select v-model:value="item.packageTypeCode" size="small" :disabled="readonly"
                 show-search allow-clear style="width: 100%" :options="packageTypeOptions"
                 :filter-option="filterOption" placeholder="BG" @change="emitChange" />
             </div>
             <div class="field f-narrow">
-              <div class="field-label">Кол-во</div>
+              <div class="field-label">{{ t('transit.kolVo') }}</div>
               <a-input-number v-model:value="item.packageCount" size="small" :disabled="readonly"
                 :min="0" style="width: 100%" @change="emitChange" />
             </div>
           </div>
           <div class="field-row">
             <div class="field f-grow">
-              <div class="field-label">Описание</div>
+              <div class="field-label">{{ t('transit.opisanie') }}</div>
               <a-input v-model:value="item.description" size="small" :disabled="readonly" placeholder="—" @change="emitChange" />
             </div>
           </div>
@@ -56,10 +56,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref, watch } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import type { ReestrPackageInput, ReestrTransitFields } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: ReestrPackageInput[]

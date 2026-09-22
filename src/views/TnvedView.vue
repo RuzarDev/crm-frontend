@@ -1,14 +1,14 @@
 <template>
   <div class="tnved-view">
-    <PageHeader kicker="Справочники" title="ТН ВЭД"
-      subtitle="Дерево кодов, ставки пошлин и подбор кода товара." />
+    <PageHeader :kicker="t('sales.spravochniki')" :title="t('sales.tnVed')"
+      :subtitle="t('sales.derevoKodovStavkiPoshlin')" />
 
     <a-layout style="background: #fff; border-radius: 8px; overflow: hidden; min-height: 80vh">
       <a-layout-sider width="320" style="background: #fafafa; border-right: 1px solid #f0f0f0; overflow: hidden; display: flex; flex-direction: column">
         <div style="padding: 12px">
           <a-input-search
             v-model:value="searchQuery"
-            placeholder="Поиск по коду или названию..."
+            :placeholder="t('sales.poiskPoKoduIli2')"
             @search="handleSearch"
             allow-clear
             @change="onSearchChange"
@@ -32,9 +32,7 @@
             </div>
           </div>
 
-          <div v-else-if="searchQuery.length > 0 && !searching" style="padding: 16px; color: #999; text-align: center">
-            Ничего не найдено
-          </div>
+          <div v-else-if="searchQuery.length > 0 && !searching" style="padding: 16px; color: #999; text-align: center"> {{ t('sales.nichegoNeNaydeno') }} </div>
 
           <div v-else>
             <div v-for="section in treeNodes" :key="section.id">
@@ -123,7 +121,7 @@
       <a-layout-content style="padding: 24px; background: #fff; overflow-y: auto">
         <div v-if="!selectedNode" class="empty-state">
           <FileSearchOutlined style="font-size: 48px; color: #d9d9d9" />
-          <div style="margin-top: 12px; color: #999">Выберите код ТН ВЭД из дерева слева или воспользуйтесь поиском</div>
+          <div style="margin-top: 12px; color: #999">{{ t('sales.vyberiteKodTnVed') }}</div>
         </div>
 
         <div v-else>
@@ -137,48 +135,46 @@
           <p style="color: #666; margin-bottom: 16px">{{ selectedNode.treeName }}</p>
 
           <a-tabs v-model:active-key="activeTab">
-            <a-tab-pane key="rate" tab="Ставка">
+            <a-tab-pane key="rate" :tab="t('sales.stavka2')">
               <div v-if="rateLoading" style="padding: 24px; text-align: center"><a-spin /></div>
               <div v-else-if="rateData">
                 <a-descriptions bordered :column="1" size="small">
-                  <a-descriptions-item label="Ставка">
+                  <a-descriptions-item :label="t('sales.stavka2')">
                     {{ rateData.rateStr ?? '—' }}
                   </a-descriptions-item>
-                  <a-descriptions-item label="Статус ВТО">
+                  <a-descriptions-item :label="t('sales.statusVto')">
                     {{ rateData.vtoStatus ?? '—' }}
                   </a-descriptions-item>
-                  <a-descriptions-item label="Единица измерения">
+                  <a-descriptions-item :label="t('sales.edinicaIzmereniya')">
                     {{ rateData.unitName ?? '—' }}
                   </a-descriptions-item>
-                  <a-descriptions-item label="Источник ставки">
+                  <a-descriptions-item :label="t('sales.istochnikStavki')">
                     <a v-if="rateData.rateSourceUrl" :href="rateData.rateSourceUrl" target="_blank">
                       {{ rateData.rateSourceName ?? rateData.rateSourceUrl }}
                     </a>
                     <span v-else>{{ rateData.rateSourceName ?? '—' }}</span>
                   </a-descriptions-item>
-                  <a-descriptions-item label="Обновлено">
+                  <a-descriptions-item :label="t('sales.obnovleno')">
                     {{ rateData.updatedAtUtc ? dayjs(rateData.updatedAtUtc).format('DD.MM.YYYY') : '—' }}
                   </a-descriptions-item>
                 </a-descriptions>
               </div>
-              <a-empty v-else description="Данные о ставке недоступны" />
+              <a-empty v-else :description="t('sales.dannyeOStavkeNedostupny')" />
             </a-tab-pane>
 
-            <a-tab-pane key="notes" tab="Пояснения">
+            <a-tab-pane key="notes" :tab="t('sales.poyasneniya')">
               <div v-if="notesLoading" style="padding: 24px; text-align: center"><a-spin /></div>
               <div v-else-if="notesData" class="notes-content" v-html="notesData.htmlContent" />
-              <a-empty v-else description="Пояснения недоступны" />
+              <a-empty v-else :description="t('sales.poyasneniyaNedostupny')" />
             </a-tab-pane>
 
-            <a-tab-pane key="classify" tab="Классификатор">
+            <a-tab-pane key="classify" :tab="t('sales.klassifikator')">
               <a-space direction="vertical" style="width: 100%" :size="12">
                 <a-input
                   v-model:value="classifyDescription"
-                  placeholder="Введите описание товара для классификации..."
+                  :placeholder="t('sales.vvediteOpisanieTovaraDlya')"
                 />
-                <a-button type="primary" :loading="classifyLoading" @click="handleClassify">
-                  Классифицировать
-                </a-button>
+                <a-button type="primary" :loading="classifyLoading" @click="handleClassify"> {{ t('sales.klassificirovat') }} </a-button>
                 <a-table
                   v-if="classifyResult"
                   :data-source="classifyResult.matches"
@@ -203,12 +199,12 @@
               </a-space>
             </a-tab-pane>
 
-            <a-tab-pane key="calc" tab="Калькулятор">
+            <a-tab-pane key="calc" :tab="t('sales.kalkulyator')">
               <a-form :model="calcForm" layout="vertical" style="max-width: 500px">
-                <a-form-item label="Код ТН ВЭД">
+                <a-form-item :label="t('sales.kodTnVed')">
                   <a-input v-model:value="calcForm.code" />
                 </a-form-item>
-                <a-form-item label="Таможенная стоимость">
+                <a-form-item :label="t('sales.tamozhennayaStoimost')">
                   <a-input-number
                     v-model:value="calcForm.customsValue"
                     style="width: 100%"
@@ -216,14 +212,14 @@
                     :step="100"
                   />
                 </a-form-item>
-                <a-form-item label="Валюта">
+                <a-form-item :label="t('sales.valyuta')">
                   <a-select
                     v-model:value="calcForm.currencyCode"
                     :options="currencyOptions"
                     style="width: 100%"
                   />
                 </a-form-item>
-                <a-form-item label="Вес (кг, необязательно)">
+                <a-form-item :label="t('sales.vesKgNeobyazatelno')">
                   <a-input-number
                     v-model:value="calcForm.weightKg"
                     style="width: 100%"
@@ -231,27 +227,25 @@
                   />
                 </a-form-item>
                 <a-form-item>
-                  <a-button type="primary" :loading="calcLoading" @click="handleCalculate">
-                    Рассчитать
-                  </a-button>
+                  <a-button type="primary" :loading="calcLoading" @click="handleCalculate"> {{ t('sales.rasschitat') }} </a-button>
                 </a-form-item>
               </a-form>
 
               <div v-if="calcResult">
                 <a-descriptions bordered :column="1" size="small" style="max-width: 500px">
-                  <a-descriptions-item label="Таможенная стоимость (KZT)">
+                  <a-descriptions-item :label="t('sales.tamozhennayaStoimostKzt')">
                     {{ fmt(calcResult.customsValueKzt) }}
                   </a-descriptions-item>
-                  <a-descriptions-item label="Ввозная пошлина">
+                  <a-descriptions-item :label="t('sales.vvoznayaPoshlina')">
                     {{ fmt(calcResult.importDutyKzt) }}
                   </a-descriptions-item>
-                  <a-descriptions-item label="Таможенный сбор">
+                  <a-descriptions-item :label="t('sales.tamozhennyySbor')">
                     {{ fmt(calcResult.customsFeeKzt) }}
                   </a-descriptions-item>
-                  <a-descriptions-item label="НДС">
+                  <a-descriptions-item :label="t('sales.nds')">
                     {{ fmt(calcResult.vatKzt) }}
                   </a-descriptions-item>
-                  <a-descriptions-item label="Итого">
+                  <a-descriptions-item :label="t('sales.itogo')">
                     <strong>{{ fmt(calcResult.totalKzt) }}</strong>
                   </a-descriptions-item>
                 </a-descriptions>
@@ -265,13 +259,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedNode, TnvedRateDto, TnvedExplanationDto, TnvedClassifyResponse, TnvedCalculateResult, TnvedCurrency } from '@/types/api'
 import { RightOutlined, FileSearchOutlined } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const treeNodes = ref<TnvedNode[]>([])
 const treeLoading = ref(false)
@@ -308,13 +305,13 @@ const calcForm = reactive({
   weightKg: null as number | null,
 })
 
-const classifyColumns = [
-  { title: 'Код', key: 'code', dataIndex: 'code', width: 120 },
-  { title: 'Описание', dataIndex: 'description', key: 'description', ellipsis: true },
-  { title: 'Ставка', dataIndex: 'rateStr', key: 'rateStr', width: 100 },
-  { title: 'Вероятность', key: 'probability', width: 160 },
-]
+const classifyColumns = computed(() => ([
 
+  { title: t('sales.kod'), key: 'code', dataIndex: 'code', width: 120 },
+  { title: t('sales.opisanie'), dataIndex: 'description', key: 'description', ellipsis: true },
+  { title: t('sales.stavka2'), dataIndex: 'rateStr', key: 'rateStr', width: 100 },
+  { title: t('sales.veroyatnost'), key: 'probability', width: 160 },
+]))
 const fmt = (n: number) => new Intl.NumberFormat('ru-RU').format(Math.round(n)) + ' ₸'
 
 onMounted(async () => {
@@ -322,7 +319,7 @@ onMounted(async () => {
   try {
     treeNodes.value = (await tnvedApi.children()).data
   } catch {
-    message.error('Не удалось загрузить дерево ТН ВЭД')
+    message.error(t('sales.neUdalosZagruzitDerevo'))
   } finally {
     treeLoading.value = false
   }
@@ -355,7 +352,7 @@ const toggleNode = async (node: TnvedNode) => {
       const children = (await tnvedApi.children(node.id)).data
       childrenMap[node.id] = children
     } catch {
-      message.error('Не удалось загрузить дочерние узлы')
+      message.error(t('sales.neUdalosZagruzitDochernie'))
     } finally {
       loadingIds.delete(node.id)
     }
@@ -409,7 +406,7 @@ const loadNodeByCode = async (code: string) => {
     const node = (await tnvedApi.node(code)).data
     selectNode(node)
   } catch {
-    message.error('Не удалось загрузить узел')
+    message.error(t('sales.neUdalosZagruzitUzel'))
   }
 }
 
@@ -437,7 +434,7 @@ const handleSearch = async (val: string) => {
   try {
     searchResults.value = (await tnvedApi.search(val.trim())).data
   } catch {
-    message.error('Ошибка поиска')
+    message.error(t('sales.oshibkaPoiska'))
   } finally {
     searching.value = false
   }
@@ -445,14 +442,14 @@ const handleSearch = async (val: string) => {
 
 const handleClassify = async () => {
   if (!classifyDescription.value.trim()) {
-    message.warning('Введите описание товара')
+    message.warning(t('sales.vvediteOpisanieTovara'))
     return
   }
   classifyLoading.value = true
   try {
     classifyResult.value = (await tnvedApi.classify(classifyDescription.value.trim())).data
   } catch {
-    message.error('Ошибка классификации')
+    message.error(t('sales.oshibkaKlassifikacii'))
   } finally {
     classifyLoading.value = false
   }
@@ -460,7 +457,7 @@ const handleClassify = async () => {
 
 const handleCalculate = async () => {
   if (!calcForm.code || !calcForm.customsValue || !calcForm.currencyCode) {
-    message.warning('Заполните код, стоимость и валюту')
+    message.warning(t('sales.zapolniteKodStoimostI'))
     return
   }
   calcLoading.value = true
@@ -472,7 +469,7 @@ const handleCalculate = async () => {
       weightKg: calcForm.weightKg ?? undefined,
     })).data
   } catch {
-    message.error('Ошибка расчёта')
+    message.error(t('sales.oshibkaRascheta'))
   } finally {
     calcLoading.value = false
   }

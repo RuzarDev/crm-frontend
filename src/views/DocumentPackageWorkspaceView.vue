@@ -1,16 +1,14 @@
 <template>
   <div class="document-package-workspace crm-page">
     <PageHeader
-      kicker="Рабочая область брокера"
-      :title="`Разбор поезда: ${packageData?.trainNumber ?? ''}`"
-      subtitle="Распределите файлы по контейнерам и клиентам для консолидации, затем сгенерируйте строки реестра."
+      :kicker="t('transit.rabochayaOblastBrokera')"
+      :title="t('transit.razborPoezda', { n: packageData?.trainNumber ?? '' })"
+      :subtitle="t('transit.raspredeliteFaylyPoKonteyneram')"
     >
       <template #actions>
-        <a-button @click="goBack">Назад к списку</a-button>
+        <a-button @click="goBack">{{ t('transit.nazadKSpisku') }}</a-button>
         <a-button :loading="loading" @click="loadPackage">
-          <ReloadOutlined />
-          Обновить
-        </a-button>
+          <ReloadOutlined /> {{ t('transit.obnovit') }} </a-button>
         <a-button
           v-if="canReview && isDev"
           type="default"
@@ -18,16 +16,13 @@
           :loading="aiParsing"
           @click="runAiParse"
         >
-          <ThunderboltOutlined /> Авто-разбор (демо)
-        </a-button>
+          <ThunderboltOutlined /> {{ t('transit.avtoRazborDemo') }} </a-button>
         <a-button
           type="primary"
           :loading="generating"
           @click="handleGenerateRows"
         >
-          <BuildOutlined />
-          Сгенерировать строки реестра
-        </a-button>
+          <BuildOutlined /> {{ t('transit.sgenerirovatStrokiReestra') }} </a-button>
       </template>
     </PageHeader>
 
@@ -36,15 +31,15 @@
         <div v-if="splitOpen" class="split-file-pane">
           <div class="split-file-head">
             <span class="split-file-name">{{ previewFile?.originalFileName }}</span>
-            <a-button size="small" @click="closeSplit">Закрыть просмотр</a-button>
+            <a-button size="small" @click="closeSplit">{{ t('transit.zakrytProsmotr') }}</a-button>
           </div>
           <div class="split-file-body">
             <a-spin v-if="previewLoading" />
             <iframe v-else-if="isPdf(previewFile) && previewUrl" :src="previewUrl" class="split-frame"></iframe>
             <img v-else-if="isImage(previewFile) && previewUrl" :src="previewUrl" class="split-img" />
             <div v-else class="split-fallback">
-              <p>Предпросмотр недоступен.</p>
-              <a-button type="primary" @click="downloadPreviewFile">Скачать файл</a-button>
+              <p>{{ t('transit.predprosmotrNedostupen') }}</p>
+              <a-button type="primary" @click="downloadPreviewFile">{{ t('transit.skachatFayl') }}</a-button>
             </div>
           </div>
         </div>
@@ -55,7 +50,7 @@
           <template #title>
             <span class="card-title">
               <FileOutlined />
-              Входящие файлы ({{ packageData.files.length }})
+              {{ t('transit.vhodyaschieFayly', { n: packageData.files.length }) }}
             </span>
           </template>
 
@@ -79,8 +74,7 @@
             >
               <InboxOutlined class="dropzone-icon" />
               <div class="dropzone-text">
-                <strong>Перетащите файлы сюда</strong> или нажмите для выбора
-              </div>
+                <strong>{{ t('transit.peretaschiteFaylySyuda') }}</strong> {{ t('transit.iliNazhmiteDlyaVybora') }} </div>
             </div>
             <a-spin v-if="uploadingFiles" size="small" style="display: block; margin: 10px auto; text-align: center;" />
           </div>
@@ -99,7 +93,7 @@
                       {{ item.originalFileName }}
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                      <a-tooltip title="Просмотр документа">
+                      <a-tooltip :title="t('transit.prosmotrDokumenta')">
                         <a-button
                           size="small"
                           type="text"
@@ -120,35 +114,35 @@
                 </div>
 
                 <div class="file-assignment">
-                  <span class="assignment-label">Связать с:</span>
+                  <span class="assignment-label">{{ t('transit.svyazatS') }}</span>
                   <a-select
                     :value="getLinkValue(item)"
                     style="width: 100%"
                     size="small"
-                    placeholder="Не распределен"
+                    :placeholder="t('transit.neRaspredelen')"
                     option-label-prop="label"
                     @change="handleLinkFile(item.id, $event)"
                   >
-                    <a-select-option value="unassigned" label="Не распределен">
-                      <span class="opt-unassigned">Не распределен</span>
+                    <a-select-option value="unassigned" :label="t('transit.neRaspredelen')">
+                      <span class="opt-unassigned">{{ t('transit.neRaspredelen') }}</span>
                     </a-select-option>
                     <template v-for="container in packageData.containers" :key="container.id">
-                      <a-select-option :value="`container:${container.id}`" :label="`Контейнер ${container.containerNumber} (ЖДН)`">
+                      <a-select-option :value="`container:${container.id}`" :label="t('transit.konteynerZhdn', { n: container.containerNumber })">
                         <div class="select-opt-item container-opt">
-                          <span class="opt-badge-container">ЖДН</span>
-                          <span class="opt-text">Контейнер {{ container.containerNumber }}</span>
+                          <span class="opt-badge-container">{{ t('transit.zhdn') }}</span>
+                          <span class="opt-text">{{ t('transit.konteynerN', { n: container.containerNumber }) }}</span>
                         </div>
                       </a-select-option>
                       <a-select-option
                         v-for="con in container.consolidations"
                         :key="con.id"
                         :value="`consolidation:${con.id}`"
-                        :label="`↳ Клиент: ${con.clientName} (ТСД)`"
+                        :label="t('transit.klientTsd', { n: con.clientName }).trim()"
                       >
                         <div class="select-opt-item client-opt">
                           <span class="opt-indent">↳</span>
-                          <span class="opt-badge-client">ТСД</span>
-                          <span class="opt-text">Клиент: {{ con.clientName }}</span>
+                          <span class="opt-badge-client">{{ t('transit.tsd') }}</span>
+                          <span class="opt-text">{{ t('transit.klientN', { n: con.clientName }) }}</span>
                         </div>
                       </a-select-option>
                     </template>
@@ -157,7 +151,7 @@
               </a-list-item>
             </template>
           </a-list>
-          <a-empty v-if="!packageData.files.length" description="Экспедитор еще не загрузил файлы" />
+          <a-empty v-if="!packageData.files.length" :description="t('transit.ekspeditorEscheNeZagruzil')" />
         </a-card>
 
         <!-- CENTER: Train Hierarchy -->
@@ -166,41 +160,35 @@
           <a-card v-if="canReview" class="crm-shell-card review-panel-card" :bordered="false" style="margin-bottom: 16px;">
             <template #title>
               <span class="card-title">
-                <AuditOutlined />
-                Решение по пакету документов
-              </span>
+                <AuditOutlined /> {{ t('transit.resheniePoPaketuDokumentov') }} </span>
             </template>
             <div class="review-panel-content">
               <div class="review-status-info">
-                <span>Текущий статус поезда:</span>
+                <span>{{ t('transit.tekuschiyStatusPoezda') }}</span>
                 <a-tag :color="statusColor(packageData.status)" style="margin-left: 8px;">
                   {{ statusLabel(packageData.status) }}
                 </a-tag>
                 <div v-if="packageData.reviewComment" class="current-review-comment" style="margin-top: 8px; font-size: 13px; color: var(--atg-charcoal);">
-                  <strong>Замечания:</strong> {{ packageData.reviewComment }}
+                  <strong>{{ t('transit.zamechaniya') }}</strong> {{ packageData.reviewComment }}
                 </div>
               </div>
               <div class="review-action-form" style="margin-top: 16px; display: flex; flex-direction: column; gap: 12px;">
                 <a-textarea
                   v-model:value="reviewCommentText"
                   :rows="2"
-                  placeholder="Напишите замечания для экспедитора (например: не хватает инвойса, нечеткое фото...)"
+                  :placeholder="t('transit.napishiteZamechaniyaDlyaEkspeditora')"
                 />
                 <div style="display: flex; gap: 12px;">
                   <a-button
                     type="primary"
                     :loading="statusSaving"
                     @click="handleUpdateStatus('accepted')"
-                  >
-                    Принять поезд
-                  </a-button>
+                  > {{ t('transit.prinyatPoezd') }} </a-button>
                   <a-button
                     danger
                     :loading="statusSaving"
                     @click="handleUpdateStatus('needsFix')"
-                  >
-                    Отклонить (Нужно исправить)
-                  </a-button>
+                  > {{ t('transit.otklonitNuzhnoIspravit') }} </a-button>
                 </div>
               </div>
             </div>
@@ -221,7 +209,7 @@
                   <GoldOutlined />
                 </div>
                 <div>
-                  <h3>Состав №{{ packageData.trainNumber }}</h3>
+                  <h3>{{ t('transit.sostavN', { n: packageData.trainNumber }) }}</h3>
                   <div class="train-comment" v-if="packageData.comment">
                     {{ packageData.comment }}
                   </div>
@@ -234,9 +222,7 @@
             
             <div class="train-actions" style="margin-top: 16px;">
               <a-button type="primary" size="small" @click="openAddContainerModal">
-                <PlusOutlined />
-                Добавить контейнер
-              </a-button>
+                <PlusOutlined /> {{ t('transit.dobavitKonteyner') }} </a-button>
             </div>
           </a-card>
 
@@ -255,7 +241,7 @@
               <div class="container-node-header">
                 <div>
                   <div class="container-title">
-                    <span class="node-badge">Контейнер</span>
+                    <span class="node-badge">{{ t('transit.konteyner') }}</span>
                     <strong>{{ container.containerNumber }}</strong>
                     <span class="container-meta" v-if="container.secondaryContainerNumber">
                       / {{ container.secondaryContainerNumber }}
@@ -264,16 +250,14 @@
                 </div>
                 <a-space>
                   <a-button type="link" size="small" @click="openAddClientModal(container.id)">
-                    <PlusOutlined />
-                    Клиент/Партия
-                  </a-button>
+                    <PlusOutlined /> {{ t('transit.klientPartiya') }} </a-button>
                   <a-button type="text" size="small" @click="openEditContainerModal(container)">
                     <EditOutlined style="color: var(--z-teal);" />
                   </a-button>
                   <a-popconfirm
-                    title="Вы уверены, что хотите удалить этот контейнер и все его партии?"
-                    ok-text="Да"
-                    cancel-text="Нет"
+                    :title="t('transit.vyUverenyChtoHotite')"
+                    :ok-text="t('transit.da')"
+                    :cancel-text="t('transit.net')"
                     @confirm="handleDeleteContainer(container.id)"
                   >
                     <a-button type="text" size="small" danger>
@@ -285,7 +269,7 @@
 
               <!-- Container Files -->
               <div v-if="getContainerFiles(container.id).length" class="node-linked-files">
-                <div class="files-title">ЖДН (Железнодорожная накладная):</div>
+                <div class="files-title">{{ t('transit.zhdnZheleznodorozhnayaNakladnaya') }}</div>
                 <div class="files-chips">
                   <span
                     v-for="file in getContainerFiles(container.id)"
@@ -314,7 +298,7 @@
                   <div class="consolidation-header-wrap">
                     <div class="consolidation-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                       <div style="display: flex; align-items: center; gap: 10px;">
-                        <span class="node-badge badge-client">Клиент</span>
+                        <span class="node-badge badge-client">{{ t('transit.klient') }}</span>
                         <strong>{{ consolidation.clientName }}</strong>
                       </div>
                       <a-space>
@@ -322,9 +306,9 @@
                           <EditOutlined style="color: var(--z-teal); font-size: 12px;" />
                         </a-button>
                         <a-popconfirm
-                          title="Вы уверены, что хотите удалить эту партию?"
-                          ok-text="Да"
-                          cancel-text="Нет"
+                          :title="t('transit.vyUverenyChtoHotite2')"
+                          :ok-text="t('transit.da')"
+                          :cancel-text="t('transit.net')"
                           @confirm="handleDeleteClient(container.id, consolidation.id)"
                         >
                           <a-button type="text" size="small" danger style="font-size: 12px;">
@@ -334,15 +318,15 @@
                       </a-space>
                     </div>
                     <div class="consolidation-document-meta" v-if="consolidation.shipper?.name || consolidation.consignee?.name || consolidation.sealNumber || consolidation.destinationStation">
-                      <span class="meta-inline-tag" v-if="consolidation.shipper?.name"><strong>Отп:</strong> {{ consolidation.shipper.name }}</span>
-                      <span class="meta-inline-tag" v-if="consolidation.consignee?.name"><strong>Пол:</strong> {{ consolidation.consignee.name }}</span>                      <span class="meta-inline-tag" v-if="consolidation.sealNumber"><strong>Пломба:</strong> {{ consolidation.sealNumber }}</span>
-                      <span class="meta-inline-tag" v-if="consolidation.destinationStation"><strong>Ст:</strong> {{ consolidation.destinationStation }}</span>
+                      <span class="meta-inline-tag" v-if="consolidation.shipper?.name"><strong>{{ t('transit.otp') }}</strong> {{ consolidation.shipper.name }}</span>
+                      <span class="meta-inline-tag" v-if="consolidation.consignee?.name"><strong>{{ t('transit.pol') }}</strong> {{ consolidation.consignee.name }}</span>                      <span class="meta-inline-tag" v-if="consolidation.sealNumber"><strong>{{ t('transit.plomba') }}</strong> {{ consolidation.sealNumber }}</span>
+                      <span class="meta-inline-tag" v-if="consolidation.destinationStation"><strong>{{ t('transit.st') }}</strong> {{ consolidation.destinationStation }}</span>
                     </div>
                   </div>
 
                   <!-- Consolidation Files -->
                   <div v-if="getClientFiles(consolidation.id).length" class="node-linked-files" style="margin-top: 8px;">
-                    <div class="files-title">ТСД (Товаросопроводительные документы):</div>
+                    <div class="files-title">{{ t('transit.tsdTovarosoprovoditelnyeDokumenty') }}</div>
                     <div class="files-chips">
                       <span
                         v-for="file in getClientFiles(consolidation.id)"
@@ -357,15 +341,11 @@
                   </div>
                 </div>
 
-                <div v-if="!container.consolidations.length" class="empty-node-text">
-                  Клиенты в контейнере не созданы
-                </div>
+                <div v-if="!container.consolidations.length" class="empty-node-text"> {{ t('transit.klientyVKonteynereNe') }} </div>
               </div>
             </div>
 
-            <div v-if="!packageData.containers.length" class="empty-train-text">
-              Контейнеры еще не добавлены к составу
-            </div>
+            <div v-if="!packageData.containers.length" class="empty-train-text"> {{ t('transit.konteyneryEscheNeDobavleny') }} </div>
           </div>
         </div>
       </div>
@@ -377,18 +357,18 @@
     <a-modal
       v-if="!splitOpen"
       v-model:open="containerModalOpen"
-      :title="isEditingContainer ? 'Редактировать контейнер' : 'Добавить контейнер в состав'"
-      :ok-text="isEditingContainer ? 'Сохранить' : 'Добавить'"
-      cancel-text="Отмена"
+      :title="isEditingContainer ? t('transit.redaktirovatKonteyner') : t('transit.dobavitKonteynerVSostav')"
+      :ok-text="isEditingContainer ? t('transit.sohranit') : t('transit.dobavit')"
+      :cancel-text="t('transit.otmena')"
       :confirm-loading="containerSaving"
       @ok="handleAddContainer"
     >
       <a-form layout="vertical">
-        <a-form-item label="Номер контейнера" required>
+        <a-form-item :label="t('transit.nomerKonteynera')" required>
           <a-input v-model:value="containerForm.containerNumber" placeholder="Например: MSCU1234567" />
         </a-form-item>
-        <a-form-item label="Номер контейнера (китайский / внутренний)">
-          <a-input v-model:value="containerForm.secondaryContainerNumber" placeholder="Доп. номер, если отличается" />
+        <a-form-item :label="t('transit.nomerKonteyneraKitayskiyVnutrenniy')">
+          <a-input v-model:value="containerForm.secondaryContainerNumber" :placeholder="t('transit.dopNomerEsliOtlichaetsya')" />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -397,34 +377,34 @@
     <a-modal
       v-if="!splitOpen"
       v-model:open="clientModalOpen"
-      :title="isEditingClient ? 'Редактировать клиента / партию' : 'Добавить клиента / партию в контейнер'"
-      :ok-text="isEditingClient ? 'Сохранить' : 'Добавить'"
-      cancel-text="Отмена"
+      :title="isEditingClient ? t('transit.redaktirovatKlientaPartiyu') : t('transit.dobavitKlientaPartiyu')"
+      :ok-text="isEditingClient ? t('transit.sohranit') : t('transit.dobavit')"
+      :cancel-text="t('transit.otmena')"
       :confirm-loading="clientSaving"
       @ok="handleAddClient"
     >
       <a-form layout="vertical">
-        <a-form-item label="Клиент (Username получателя в CRM)" required>
+        <a-form-item :label="t('transit.klientUsernamePoluchatelyaV')" required>
           <a-select
             v-model:value="clientForm.clientName"
             show-search
             :options="clientOptions"
-            placeholder="Выберите или введите имя клиента"
+            :placeholder="t('transit.vyberiteIliVvediteImya')"
           />
         </a-form-item>
-        <PartyAddressFields v-model="clientForm.shipper" title="Отправитель" :country-options="countryOptions" />
-        <PartyAddressFields v-model="clientForm.consignee" title="Получатель" :country-options="countryOptions" />
+        <PartyAddressFields v-model="clientForm.shipper" :title="t('transit.otpravitel')" :country-options="countryOptions" />
+        <PartyAddressFields v-model="clientForm.consignee" :title="t('transit.poluchatel')" :country-options="countryOptions" />
         <a-divider style="margin: 12px 0;" />
-        <a-form-item label="Номер пломбы">
+        <a-form-item :label="t('transit.nomerPlomby')">
           <a-input v-model:value="clientForm.sealNumber" placeholder="Например: LL123456" />
         </a-form-item>
-        <a-form-item label="Станция назначения">
+        <a-form-item :label="t('transit.stanciyaNaznacheniya')">
           <a-select v-model:value="clientStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
-            :options="stationOptions" placeholder="Выберите или введите станцию" />
+            :options="stationOptions" :placeholder="t('transit.vyberiteIliVvediteStanciyu')" />
         </a-form-item>
         <a-divider style="margin: 12px 0;" />
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-          <span style="font-weight: 600;">Товары (список)</span>
+          <span style="font-weight: 600;">{{ t('transit.tovarySpisok') }}</span>
           <InvoiceGoodsImporter
             :client-id="currentClientUuid"
             @imported="(items) => { clientForm.goodsItems = items }"
@@ -441,7 +421,7 @@
         />
         <PendingInvoicePicker v-else v-model="clientForm.pendingInvoiceFiles" />
         <a-divider style="margin: 12px 0;" />
-        <div style="margin-bottom: 8px; font-weight: 600;">44 Графа ТД</div>
+        <div style="margin-bottom: 8px; font-weight: 600;">{{ t('transit.n44GrafaTd') }}</div>
         <ReestrDoc44Section v-model="clientForm.doc44Items" />
         <a-divider style="margin: 12px 0;" />
         <!-- КЕДЕН-транзит: сворачиваемые блоки, добавлены ниже существующей вёрстки консолидации -->
@@ -466,42 +446,42 @@
           <div class="edit-split-head">
             <span class="edit-split-title">
               {{ containerModalOpen
-                ? (isEditingContainer ? 'Редактировать контейнер' : 'Добавить контейнер в состав')
-                : (isEditingClient ? 'Редактировать клиента / партию' : 'Добавить клиента / партию в контейнер') }}
+                ? (isEditingContainer ? t('transit.redaktirovatKonteyner') : t('transit.dobavitKonteynerVSostav'))
+                : (isEditingClient ? t('transit.redaktirovatKlientaPartiyu') : t('transit.dobavitKlientaPartiyu')) }}
             </span>
-            <a-button size="small" @click="cancelEdit">Закрыть</a-button>
+            <a-button size="small" @click="cancelEdit">{{ t('transit.zakryt') }}</a-button>
           </div>
           <div class="edit-split-body">
             <a-form v-if="containerModalOpen" layout="vertical">
-              <a-form-item label="Номер контейнера" required>
+              <a-form-item :label="t('transit.nomerKonteynera')" required>
                 <a-input v-model:value="containerForm.containerNumber" placeholder="Например: MSCU1234567" />
               </a-form-item>
-              <a-form-item label="Номер контейнера (китайский / внутренний)">
-                <a-input v-model:value="containerForm.secondaryContainerNumber" placeholder="Доп. номер, если отличается" />
+              <a-form-item :label="t('transit.nomerKonteyneraKitayskiyVnutrenniy')">
+                <a-input v-model:value="containerForm.secondaryContainerNumber" :placeholder="t('transit.dopNomerEsliOtlichaetsya')" />
               </a-form-item>
             </a-form>
             <a-form v-else-if="clientModalOpen" layout="vertical">
-              <a-form-item label="Клиент (Username получателя в CRM)" required>
+              <a-form-item :label="t('transit.klientUsernamePoluchatelyaV')" required>
                 <a-select
                   v-model:value="clientForm.clientName"
                   show-search
                   :options="clientOptions"
-                  placeholder="Выберите или введите имя клиента"
+                  :placeholder="t('transit.vyberiteIliVvediteImya')"
                 />
               </a-form-item>
-              <PartyAddressFields v-model="clientForm.shipper" title="Отправитель" :country-options="countryOptions" />
-              <PartyAddressFields v-model="clientForm.consignee" title="Получатель" :country-options="countryOptions" />
+              <PartyAddressFields v-model="clientForm.shipper" :title="t('transit.otpravitel')" :country-options="countryOptions" />
+              <PartyAddressFields v-model="clientForm.consignee" :title="t('transit.poluchatel')" :country-options="countryOptions" />
               <a-divider style="margin: 12px 0;" />
-              <a-form-item label="Номер пломбы">
+              <a-form-item :label="t('transit.nomerPlomby')">
                 <a-input v-model:value="clientForm.sealNumber" placeholder="Например: LL123456" />
               </a-form-item>
-              <a-form-item label="Станция назначения">
+              <a-form-item :label="t('transit.stanciyaNaznacheniya')">
                 <a-select v-model:value="clientStationModel" show-search allow-clear mode="tags" :max-tag-count="1"
-                  :options="stationOptions" placeholder="Выберите или введите станцию" />
+                  :options="stationOptions" :placeholder="t('transit.vyberiteIliVvediteStanciyu')" />
               </a-form-item>
               <a-divider style="margin: 12px 0;" />
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                <span style="font-weight: 600;">Товары (список)</span>
+                <span style="font-weight: 600;">{{ t('transit.tovarySpisok') }}</span>
                 <InvoiceGoodsImporter
                   :client-id="currentClientUuid"
                   @imported="(items) => { clientForm.goodsItems = items }"
@@ -518,7 +498,7 @@
               />
               <PendingInvoicePicker v-else v-model="clientForm.pendingInvoiceFiles" />
               <a-divider style="margin: 12px 0;" />
-              <div style="margin-bottom: 8px; font-weight: 600;">44 Графа ТД</div>
+              <div style="margin-bottom: 8px; font-weight: 600;">{{ t('transit.n44GrafaTd') }}</div>
               <ReestrDoc44Section v-model="clientForm.doc44Items" />
               <a-divider style="margin: 12px 0;" />
               <!-- КЕДЕН-транзит: сворачиваемые блоки, добавлены ниже существующей вёрстки консолидации -->
@@ -536,14 +516,14 @@
             </a-form>
           </div>
           <div class="edit-split-footer">
-            <a-button @click="cancelEdit">Отмена</a-button>
+            <a-button @click="cancelEdit">{{ t('transit.otmena') }}</a-button>
             <a-button
               type="primary"
               :loading="containerModalOpen ? containerSaving : clientSaving"
               @click="containerModalOpen ? handleAddContainer() : handleAddClient()"
             >
               {{ containerModalOpen
-                ? (isEditingContainer ? 'Сохранить' : 'Добавить')
+                ? (isEditingContainer ? t('transit.sohranit') : t('transit.dobavit'))
                 : (isEditingClient ? 'Сохранить' : 'Добавить') }}
             </a-button>
           </div>
@@ -553,24 +533,24 @@
         <template v-if="previewFile">
           <div class="split-file-head">
             <span class="split-file-name">{{ previewFile?.originalFileName }}</span>
-            <a-button size="small" @click="backToFileList"><LeftOutlined /> К списку файлов</a-button>
+            <a-button size="small" @click="backToFileList"><LeftOutlined /> {{ t('transit.kSpiskuFaylov') }}</a-button>
           </div>
           <div class="split-file-body">
             <a-spin v-if="previewLoading" />
             <iframe v-else-if="isPdf(previewFile) && previewUrl" :src="previewUrl" class="split-frame"></iframe>
             <img v-else-if="isImage(previewFile) && previewUrl" :src="previewUrl" class="split-img" />
             <div v-else class="split-fallback">
-              <p>Предпросмотр недоступен.</p>
-              <a-button type="primary" @click="downloadPreviewFile">Скачать файл</a-button>
+              <p>{{ t('transit.predprosmotrNedostupen') }}</p>
+              <a-button type="primary" @click="downloadPreviewFile">{{ t('transit.skachatFayl') }}</a-button>
             </div>
           </div>
         </template>
         <template v-else>
           <div class="split-file-head">
-            <span class="split-file-name">Прикрепленные файлы</span>
+            <span class="split-file-name">{{ t('transit.prikreplennyeFayly') }}</span>
           </div>
           <div class="split-file-picker">
-            <a-empty v-if="!editPaneFiles.length" description="К этому контейнеру/клиенту файлы еще не прикреплены" />
+            <a-empty v-if="!editPaneFiles.length" :description="t('transit.kEtomuKonteyneruKlientu')" />
             <div
               v-for="file in editPaneFiles"
               :key="file.id"
@@ -593,14 +573,13 @@
       :closable="false"
       :keyboard="false"
       :maskClosable="false"
-      title="Машинный авто-разбор состава (AI OCR)"
+      :title="t('transit.mashinnyyAvtoRazborSostava')"
       centered
     >
       <div style="text-align: center; padding: 30px 20px;">
         <a-spin size="large" style="margin-bottom: 20px;" />
         <div style="font-size: 16px; font-weight: 700; color: var(--atg-navy); margin-bottom: 10px;">
-          <ThunderboltOutlined /> Интеллектуальный анализ...
-        </div>
+          <ThunderboltOutlined /> {{ t('transit.intellektualnyyAnaliz') }} </div>
         <div style="font-size: 13.5px; color: var(--atg-muted);">
           {{ aiStatusText }}
         </div>
@@ -632,10 +611,10 @@
         <!-- Fallback for other formats -->
         <div v-else style="text-align: center; padding: 40px;">
           <FileOutlined style="font-size: 64px; color: var(--atg-muted); margin-bottom: 20px;" />
-          <h3>Предпросмотр недоступен для этого формата</h3>
-          <p class="muted">Скачайте файл, чтобы открыть его на своем компьютере.</p>
+          <h3>{{ t('transit.predprosmotrNedostupenDlyaEtogo') }}</h3>
+          <p class="muted">{{ t('transit.skachayteFaylChtobyOtkryt') }}</p>
           <a-button type="primary" @click="downloadPreviewFile">
-            Скачать файл ({{ formatFileSize(previewFile?.sizeBytes || 0) }})
+            {{ t('transit.skachatFaylRazmer', { size: formatFileSize(previewFile?.sizeBytes || 0) }) }}
           </a-button>
         </div>
       </div>
@@ -644,6 +623,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref, onUnmounted, watch, toRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
@@ -704,6 +684,8 @@ import ContainersBlock from '@/components/reestr/ContainersBlock.vue'
 import PrecedingDocsBlock from '@/components/reestr/PrecedingDocsBlock.vue'
 import GuaranteeBlock from '@/components/reestr/GuaranteeBlock.vue'
 import MiscSectionsBlock from '@/components/reestr/MiscSectionsBlock.vue'
+
+const { t } = useI18n()
 
 const emptyParty = (): PartyAddress => ({
   name: null,
@@ -841,7 +823,7 @@ const loadPackage = async () => {
   try {
     packageData.value = await documentPackagesApi.getById(packageId)
   } catch (err) {
-    message.error('Ошибка загрузки данных состава')
+    message.error(t('transit.oshibkaZagruzkiDannyhSostava'))
   } finally {
     loading.value = false
   }
@@ -910,10 +892,10 @@ const uploadFiles = async (files: File[]) => {
     for (const file of files) {
       await documentPackagesApi.uploadFile(packageId, file)
     }
-    message.success('Файлы успешно загружены')
+    message.success(t('transit.faylyUspeshnoZagruzheny'))
     await loadPackage()
   } catch (err) {
-    message.error('Ошибка при загрузке файлов')
+    message.error(t('transit.oshibkaPriZagruzkeFaylov'))
   } finally {
     uploadingFiles.value = false
   }
@@ -935,7 +917,7 @@ const uploadPendingInvoiceFiles = async (consolidationId: string, files: File[])
     }
     await loadPackage()
   } catch {
-    message.error('Не удалось прикрепить инвойс')
+    message.error(t('transit.neUdalosPrikrepitInvoys'))
   }
 }
 
@@ -951,10 +933,10 @@ const handleUpdateStatus = async (newStatus: 'accepted' | 'needsFix' | 'processe
       status: newStatus,
       reviewComment: reviewCommentText.value.trim() || null,
     })
-    message.success('Статус пакета успешно обновлен')
+    message.success(t('transit.statusPaketaUspeshnoObnovlen'))
     reviewCommentText.value = ''
   } catch (err) {
-    message.error('Не удалось обновить статус пакета')
+    message.error(t('transit.neUdalosObnovitStatus'))
   } finally {
     statusSaving.value = false
   }
@@ -964,19 +946,19 @@ const handleUpdateStatus = async (newStatus: 'accepted' | 'needsFix' | 'processe
 const linkOptions = computed(() => {
   if (!packageData.value) return []
   const options: { value: string; label: string }[] = [
-    { value: 'unassigned', label: 'Не распределен' },
+    { value: 'unassigned', label: t('transit.neRaspredelen') },
   ]
 
   packageData.value.containers.forEach((container) => {
     options.push({
       value: `container:${container.id}`,
-      label: `Контейнер ${container.containerNumber} (ЖДН)`,
+      label: t('transit.konteynerZhdn', { n: container.containerNumber }),
     })
 
     container.consolidations.forEach((con) => {
       options.push({
         value: `consolidation:${con.id}`,
-        label: `  ↳ Клиент: ${con.clientName} (ТСД)`,
+        label: t('transit.klientTsd', { n: con.clientName }),
       })
     })
   })
@@ -1030,9 +1012,9 @@ const handleLinkFile = async (fileId: string, value: string) => {
       containerId,
       clientConsolidationId,
     })
-    message.success('Файл успешно привязан')
+    message.success(t('transit.faylUspeshnoPrivyazan'))
   } catch (err) {
-    message.error('Не удалось привязать файл')
+    message.error(t('transit.neUdalosPrivyazatFayl'))
   }
 }
 
@@ -1058,7 +1040,7 @@ const openEditContainerModal = (container: any) => {
 
 const handleAddContainer = async () => {
   if (!containerForm.containerNumber.trim()) {
-    message.error('Укажите номер контейнера')
+    message.error(t('transit.ukazhiteNomerKonteynera'))
     return
   }
   containerSaving.value = true
@@ -1069,14 +1051,14 @@ const handleAddContainer = async () => {
     }
     if (isEditingContainer.value && editingContainerId.value) {
       packageData.value = await documentPackagesApi.updateContainer(packageId, editingContainerId.value, payload)
-      message.success('Контейнер успешно обновлен')
+      message.success(t('transit.konteynerUspeshnoObnovlen'))
     } else {
       packageData.value = await documentPackagesApi.createContainer(packageId, payload)
-      message.success('Контейнер добавлен в состав')
+      message.success(t('transit.konteynerDobavlenVSostav'))
     }
     closeEditModals()
   } catch (err) {
-    message.error(isEditingContainer.value ? 'Ошибка обновления контейнера' : 'Ошибка добавления контейнера')
+    message.error(isEditingContainer.value ? t('transit.oshibkaObnovleniyaKonteynera') : t('transit.oshibkaDobavleniyaKonteynera'))
   } finally {
     containerSaving.value = false
   }
@@ -1086,9 +1068,9 @@ const handleDeleteContainer = async (containerId: string) => {
   loading.value = true
   try {
     packageData.value = await documentPackagesApi.deleteContainer(packageId, containerId)
-    message.success('Контейнер удален')
+    message.success(t('transit.konteynerUdalen'))
   } catch (err) {
-    message.error('Ошибка удаления контейнера')
+    message.error(t('transit.oshibkaUdaleniyaKonteynera'))
   } finally {
     loading.value = false
   }
@@ -1174,7 +1156,7 @@ const openEditClientModal = (containerId: string, consolidation: any) => {
 const handleAddClient = async () => {
   if (!targetContainerId.value) return
   if (!clientForm.clientName.trim()) {
-    message.error('Выберите или укажите клиента')
+    message.error(t('transit.vyberiteIliUkazhiteKlienta'))
     return
   }
   clientSaving.value = true
@@ -1210,7 +1192,7 @@ const handleAddClient = async () => {
         editingClientId.value,
         payload
       )
-      message.success('Партия успешно обновлена')
+      message.success(t('transit.partiyaUspeshnoObnovlena'))
     } else {
       const previousIds = new Set(
         packageData.value?.containers.find((c) => c.id === targetContainerId.value)?.consolidations.map((c) => c.id) ?? [],
@@ -1220,7 +1202,7 @@ const handleAddClient = async () => {
         targetContainerId.value,
         payload
       )
-      message.success('Клиент добавлен в контейнер')
+      message.success(t('transit.klientDobavlenVKonteyner'))
 
       if (clientForm.pendingInvoiceFiles.length) {
         const newConsolidation = packageData.value.containers
@@ -1233,7 +1215,7 @@ const handleAddClient = async () => {
     }
     closeEditModals()
   } catch (err) {
-    message.error(isEditingClient.value ? 'Ошибка обновления партии' : 'Ошибка добавления клиента')
+    message.error(isEditingClient.value ? t('transit.oshibkaObnovleniyaPartii') : t('transit.oshibkaDobavleniyaKlienta'))
   } finally {
     clientSaving.value = false
   }
@@ -1243,9 +1225,9 @@ const handleDeleteClient = async (containerId: string, clientId: string) => {
   loading.value = true
   try {
     packageData.value = await documentPackagesApi.deleteClientConsolidation(packageId, containerId, clientId)
-    message.success('Партия удалена')
+    message.success(t('transit.partiyaUdalena'))
   } catch (err) {
-    message.error('Ошибка удаления партии')
+    message.error(t('transit.oshibkaUdaleniyaPartii'))
   } finally {
     loading.value = false
   }
@@ -1256,13 +1238,13 @@ const handleGenerateRows = async () => {
   try {
     const res = await documentPackagesApi.generateRows(packageId)
     if (res.generatedRowsCount > 0) {
-      message.success(`Реестр успешно сгенерирован: создано ${res.generatedRowsCount} строк(и).`)
+      message.success(t('transit.reestrSgenerirovan', { n: res.generatedRowsCount }))
       router.push('/reestr')
     } else {
-      message.info('Новых контейнеров/клиентов для генерации не найдено — все строки уже созданы ранее.')
+      message.info(t('transit.novyhKonteynerovKlientovDlya'))
     }
   } catch (err) {
-    message.error('Ошибка генерации реестра')
+    message.error(t('transit.oshibkaGeneraciiReestra'))
   } finally {
     generating.value = false
   }
@@ -1280,25 +1262,25 @@ const downloadFile = async (file: DocumentPackageFileDto) => {
     link.remove()
     window.URL.revokeObjectURL(url)
   } catch (err) {
-    message.error('Не удалось скачать файл')
+    message.error(t('transit.neUdalosSkachatFayl'))
   }
 }
 
 // Format utilities
 const formatFileSize = (bytes: number) => {
-  if (bytes < 1024) return `${bytes} Б`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} КБ`
-  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`
+  if (bytes < 1024) return `${bytes} ${t('transit.b')}`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} ${t('transit.kb')}`
+  return `${(bytes / 1024 / 1024).toFixed(1)} ${t('transit.mb')}`
 }
 
 const formatDate = (value: string) => new Date(value).toLocaleString('ru-RU')
 
 const statusLabel = (status: string) => {
   const map: Record<string, string> = {
-    uploaded: 'Загружен экспедитором',
-    accepted: 'Принят брокером',
-    needsFix: 'На доработке',
-    processed: 'Строки реестра сгенерированы',
+    uploaded: t('transit.zagruzhenEkspeditorom'),
+    accepted: t('transit.prinyatBrokerom'),
+    needsFix: t('transit.naDorabotke'),
+    processed: t('transit.strokiReestraSgenerirovany'),
   }
   return map[status] ?? status
 }
@@ -1339,7 +1321,7 @@ const openPreview = async (file: DocumentPackageFileDto) => {
     const blob = await documentPackagesApi.downloadFile(packageId, file.id)
     previewUrl.value = URL.createObjectURL(blob)
   } catch (err) {
-    message.error('Не удалось загрузить файл для просмотра')
+    message.error(t('transit.neUdalosZagruzitFayl'))
     previewOpen.value = false
   } finally {
     previewLoading.value = false
@@ -1388,7 +1370,7 @@ const openSplit = async (file: DocumentPackageFileDto) => {
     const blob = await documentPackagesApi.downloadFile(packageId, file.id)
     previewUrl.value = URL.createObjectURL(blob)
   } catch {
-    message.error('Не удалось загрузить файл для просмотра')
+    message.error(t('transit.neUdalosZagruzitFayl'))
     splitOpen.value = false
   } finally {
     previewLoading.value = false
@@ -1469,11 +1451,11 @@ const runAiParse = async () => {
   aiModalOpen.value = true
   
   const steps = [
-    'Анализ структуры пакета и чтение имен файлов...',
-    'Запуск распознавания текста (OCR) и парсинг метаданных...',
-    'Поиск соответствия номеров контейнеров, пломб и инвойсов...',
-    'Создание карточек разбора состава и распределение файлов...',
-    'Завершение авто-разбора...'
+    t('transit.analizStrukturyPaketaI'),
+    t('transit.zapuskRaspoznavaniyaTekstaOcr'),
+    t('transit.poiskSootvetstviyaNomerovKonteynerov'),
+    t('transit.sozdanieKartochekRazboraSostava'),
+    t('transit.zavershenieAvtoRazbora')
   ]
   
   for (let i = 0; i < steps.length; i++) {
@@ -1546,10 +1528,10 @@ const runAiParse = async () => {
     
     // 3. Final reload
     packageData.value = currentData
-    message.success(`Авто-разбор успешно завершен! Связано файлов: ${linkCount}`)
+    message.success(t('transit.avtoRazborZavershen', { n: linkCount }))
   } catch (err) {
     console.error(err)
-    message.error('Произошла ошибка при выполнении авто-разбора')
+    message.error(t('transit.proizoshlaOshibkaPriVypolnenii'))
   } finally {
     aiParsing.value = false
     aiModalOpen.value = false

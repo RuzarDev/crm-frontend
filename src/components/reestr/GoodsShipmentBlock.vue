@@ -3,58 +3,58 @@
 <template>
   <div class="reestr-block">
     <a-collapse ghost>
-      <a-collapse-panel key="shipment" header="КЕДЕН-транзит: Товарная партия (гр.15–18/25/26)">
+      <a-collapse-panel key="shipment" :header="t('transit.kedenTranzitTovarnayaPartiya')">
         <div class="field-row">
           <div class="field f-narrow">
-            <div class="field-label">Мультимодальная перевозка</div>
+            <div class="field-label">{{ t('transit.multimodalnayaPerevozka') }}</div>
             <a-switch v-model:checked="transit.isMultimodal" size="small" :disabled="readonly" />
           </div>
           <div class="field">
-            <div class="field-label">Вид транспорта</div>
+            <div class="field-label">{{ t('transit.vidTransporta') }}</div>
             <a-select v-model:value="transit.transportModeCode" size="small" :disabled="readonly"
               show-search allow-clear style="width: 100%" :options="transportModeOptions"
               :filter-option="filterOption" placeholder="20" />
           </div>
         </div>
 
-        <div class="subsection-title">Место погрузки</div>
+        <div class="subsection-title">{{ t('transit.mestoPogruzki') }}</div>
         <div class="field-row">
           <div class="field">
-            <div class="field-label">Страна</div>
+            <div class="field-label">{{ t('transit.strana') }}</div>
             <a-select v-model:value="transit.loadingCountryCode" size="small" :disabled="readonly"
               show-search allow-clear style="width: 100%" :options="countryOptions"
               :filter-option="filterOption" placeholder="CN" />
           </div>
           <div class="field">
-            <div class="field-label">ЖД станция</div>
+            <div class="field-label">{{ t('transit.zhdStanciya') }}</div>
             <a-auto-complete v-model:value="transit.loadingRailStation" size="small" :disabled="readonly"
               :options="stationOptions" :filter-option="filterOption" style="width: 100%"
-              placeholder="Код/название станции" />
+              :placeholder="t('transit.kodNazvanieStancii')" />
           </div>
         </div>
 
-        <div class="subsection-title">Место разгрузки</div>
+        <div class="subsection-title">{{ t('transit.mestoRazgruzki') }}</div>
         <div class="field-row">
           <div class="field">
-            <div class="field-label">Страна</div>
+            <div class="field-label">{{ t('transit.strana') }}</div>
             <a-select v-model:value="transit.unloadingCountryCode" size="small" :disabled="readonly"
               show-search allow-clear style="width: 100%" :options="countryOptions"
               :filter-option="filterOption" placeholder="KZ" />
           </div>
           <div class="field">
-            <div class="field-label">ЖД станция</div>
+            <div class="field-label">{{ t('transit.zhdStanciya') }}</div>
             <a-auto-complete v-model:value="transit.unloadingRailStation" size="small" :disabled="readonly"
               :options="stationOptions" :filter-option="filterOption" style="width: 100%"
-              placeholder="Код/название станции" />
+              :placeholder="t('transit.kodNazvanieStancii')" />
           </div>
         </div>
 
         <div class="field-row">
           <div class="field f-2">
-            <div class="field-label">Таможенный орган назначения</div>
+            <div class="field-label">{{ t('transit.tamozhennyyOrganNaznacheniya') }}</div>
             <a-select v-model:value="transit.destinationCustomsOffice" size="small" :disabled="readonly"
               show-search allow-clear style="width: 100%" :options="foreignOfficeOptions"
-              :filter-option="filterOption" placeholder="Код/название органа" />
+              :filter-option="filterOption" :placeholder="t('transit.kodNazvanieOrgana')" />
           </div>
         </div>
       </a-collapse-panel>
@@ -63,10 +63,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref } from 'vue'
 import type { ReestrTransitFields } from '@/types/api'
 import { referencesApi } from '@/api/references'
 import { useClassifiersStore } from '@/stores/classifiers'
+
+const { t } = useI18n()
 
 defineProps<{
   transit: ReestrTransitFields

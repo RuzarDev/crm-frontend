@@ -16,25 +16,28 @@
         <template #actions>
           <a-popconfirm
             v-if="canDelete(item)"
-            title="Удалить документ?"
-            ok-text="Да"
-            cancel-text="Нет"
+            :title="t('sales.udalitDokument')"
+            :ok-text="t('sales.da')"
+            :cancel-text="t('sales.net')"
             @confirm="emit('delete', item)"
           >
-            <a-button type="link" danger size="small">Удалить</a-button>
+            <a-button type="link" danger size="small">{{ t('sales.udalit') }}</a-button>
           </a-popconfirm>
         </template>
       </a-list-item>
     </template>
   </a-list>
-  <a-empty v-else :image="simpleImage" description="Нет документов" />
+  <a-empty v-else :image="simpleImage" :description="t('sales.netDokumentov')" />
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { Empty } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import type { ReestrDocumentDto } from '@/types/api'
 import { formatRole } from '@/utils/labels'
+
+const { t } = useI18n()
 
 defineProps<{
   documents: ReestrDocumentDto[]
@@ -52,11 +55,11 @@ const formatDate = (iso: string) => dayjs(iso).format('DD.MM.YYYY HH:mm')
 
 const formatSize = (bytes: number) => {
   if (bytes < 1024) {
-    return `${bytes} Б`
+    return `${bytes} ${t('sales.b')}`
   }
   if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} КБ`
+    return `${(bytes / 1024).toFixed(1)} ${t('sales.kb')}`
   }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} ${t('sales.mb')}`
 }
 </script>

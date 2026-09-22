@@ -1,17 +1,15 @@
 <template>
   <div class="import-invoice">
     <a-button @click="openPicker">
-      <ImportOutlined />
-      Импорт из инвойса
-    </a-button>
+      <ImportOutlined /> {{ t('transit.importIzInvoysa') }} </a-button>
 
-    <a-modal v-model:open="pickerOpen" title="Импорт из инвойса" :footer="null" width="500px">
+    <a-modal v-model:open="pickerOpen" :title="t('transit.importIzInvoysa')" :footer="null" width="500px">
       <a-space direction="vertical" style="width: 100%" :size="16">
-        <a-form-item label="Клиент">
+        <a-form-item :label="t('transit.klient')">
           <a-select
             v-model:value="clientId"
             :options="clientOptions"
-            placeholder="Выберите клиента"
+            :placeholder="t('transit.vyberiteKlienta')"
             style="width: 100%"
           />
         </a-form-item>
@@ -22,9 +20,7 @@
           accept=".pdf,.xlsx"
         >
           <a-button :loading="busy" :disabled="!clientId">
-            <UploadOutlined />
-            Выбрать файл
-          </a-button>
+            <UploadOutlined /> {{ t('transit.vybratFayl') }} </a-button>
         </a-upload>
       </a-space>
     </a-modal>
@@ -43,6 +39,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref } from 'vue'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
@@ -53,7 +50,9 @@ import type { ExtractionResultDto } from '@/types/api'
 import { reestrEntryToUpsertBody } from '@/utils/reestrDtoMap'
 import ExtractionReviewModal from '@/components/ExtractionReviewModal.vue'
 
-const IMPORT_PLACEHOLDER = 'Импорт из инвойса'
+const { t } = useI18n()
+
+const IMPORT_PLACEHOLDER = t('transit.importIzInvoysa')
 
 interface Props {
   clientOptions: { value: string; label: string }[]
@@ -78,16 +77,16 @@ const openPicker = () => {
 
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   if (!clientId.value) {
-    message.error('Выберите клиента')
+    message.error(t('transit.vyberiteKlienta'))
     return false
   }
   const name = file.name.toLowerCase()
   if (!name.endsWith('.pdf') && !name.endsWith('.xlsx')) {
-    message.error('Допустимы только PDF и XLSX')
+    message.error(t('transit.dopustimyTolkoPdfI'))
     return false
   }
   if (file.size > 10 * 1024 * 1024) {
-    message.error('Размер файла не должен превышать 10 МБ')
+    message.error(t('transit.razmerFaylaNeDolzhen'))
     return false
   }
   void startImport(file as File)
@@ -107,10 +106,10 @@ const startImport = async (file: File) => {
     const doc = await reestrApi.uploadDocument(draftEntryId.value, 'client', file, undefined, 'invoice')
     documentId.value = doc.id
     pickerOpen.value = false
-    message.info('Документ загружен, распознаём...')
+    message.info(t('transit.dokumentZagruzhenRaspoznaem'))
     await pollExtraction()
   } catch {
-    message.error('Не удалось загрузить документ')
+    message.error(t('transit.neUdalosZagruzitDokument'))
     await cleanupDraft()
     resetState()
   } finally {
@@ -129,11 +128,11 @@ const pollExtraction = async () => {
       }
       await new Promise((resolve) => setTimeout(resolve, 2000))
     }
-    message.error('Превышено время ожидания распознавания')
+    message.error(t('transit.prevyshenoVremyaOzhidaniyaRaspoznavaniya'))
     await cleanupDraft()
     resetState()
   } catch {
-    message.error('Ошибка при получении результата распознавания')
+    message.error(t('transit.oshibkaPriPolucheniiRezultata'))
     await cleanupDraft()
     resetState()
   }
@@ -146,8 +145,8 @@ const showResult = (res: ExtractionResultDto) => {
   if (res.status === 'needsManualEntry' || res.status === 'error') {
     errorMessage.value =
       res.matchResult === 'notDigital'
-        ? 'Документ не в цифровом формате — автозаполнение недоступно, заполните данные вручную'
-        : 'Не удалось распознать документ автоматически — заполните данные вручную'
+        ? t('transit.dokumentNeVCifrovom')
+        : t('transit.neUdalosRaspoznatDokument')
   }
 
   reviewOpen.value = true
@@ -163,7 +162,7 @@ const onApplied = async (count: number) => {
 const clearPlaceholderCargoDescription = async () => {
   try {
     const entry = await reestrApi.getById(draftEntryId.value)
-    if (entry.data['Груз'] === IMPORT_PLACEHOLDER) {
+    if (entry.data[t('transit.gruz')] === IMPORT_PLACEHOLDER) {
       const body = reestrEntryToUpsertBody(entry)
       body.cargoDescription = null
       await reestrApi.update(draftEntryId.value, body)

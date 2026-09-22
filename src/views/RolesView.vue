@@ -1,15 +1,15 @@
 <template>
   <div class="roles-view crm-page">
     <PageHeader
-      kicker="Безопасность"
-      title="Роли и права"
-      subtitle="Что может каждая бизнес-роль. Галочка — право. У сотрудника может быть несколько ролей: права складываются. Изменения применяются при следующем входе."
+      :kicker="t('admin.bezopasnost')"
+      :title="t('admin.roliIPrava')"
+      :subtitle="t('admin.chtoMozhetKazhdayaBiznes')"
     >
       <template #actions>
-        <a-popconfirm v-if="canManage" title="Вернуть матрицу к настройкам по умолчанию?" ok-text="Сбросить" cancel-text="Отмена" @confirm="resetAll">
-          <a-button danger>Сбросить к дефолту</a-button>
+        <a-popconfirm v-if="canManage" :title="t('admin.vernutMatricuKNastroykam')" :ok-text="t('admin.sbrosit')" :cancel-text="t('admin.otmena')" @confirm="resetAll">
+          <a-button danger>{{ t('admin.sbrositKDefoltu') }}</a-button>
         </a-popconfirm>
-        <a-button :loading="loading" @click="load">Обновить</a-button>
+        <a-button :loading="loading" @click="load">{{ t('admin.obnovit') }}</a-button>
       </template>
     </PageHeader>
 
@@ -19,14 +19,14 @@
           <table class="perm-matrix">
             <thead>
               <tr>
-                <th class="perm-col">Право</th>
+                <th class="perm-col">{{ t('admin.pravo') }}</th>
                 <th v-for="role in matrix.roles" :key="role.code" class="role-col" :class="{ 'role-col--locked': !role.editable }">
                   <div class="role-col-name">{{ role.label }}</div>
                   <div class="role-col-slug">{{ role.scope }}</div>
                   <a-button
                     v-if="canManage && role.editable && dirty.has(role.code)"
                     type="primary" size="small" class="role-save" :loading="saving === role.code" @click="save(role)"
-                  >Сохранить</a-button>
+                  >{{ t('admin.sohranit') }}</a-button>
                 </th>
               </tr>
             </thead>
@@ -51,19 +51,20 @@
           </table>
         </div>
       </a-spin>
-      <p class="hint">
-        Администратор всегда имеет все права — его колонка не редактируется. Роли <b>Клиент</b> и <b>Экспедитор</b> соответствуют типу аккаунта и назначаются автоматически.
-      </p>
+      <p class="hint"> {{ t('admin.administratorVsegdaImeetVse') }} <b>{{ t('admin.klient') }}</b> {{ t('admin.i') }} <b>{{ t('admin.ekspeditor') }}</b> {{ t('admin.sootvetstvuyutTipuAkkauntaI') }} </p>
     </a-card>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useAuthStore } from '@/stores/auth'
 import { permissionsApi, type PermissionMatrix, type RoleRow } from '@/api/permissions'
+
+const { t } = useI18n()
 
 const auth = useAuthStore()
 const canManage = computed(() => auth.hasPermission('roles.manage'))
@@ -82,7 +83,7 @@ const load = async () => {
     edits.clear(); dirty.clear()
     for (const r of matrix.value.roles) edits.set(r.code, new Set(r.permissions))
   } catch {
-    message.error('Не удалось загрузить матрицу прав')
+    message.error(t('admin.neUdalosZagruzitMatricu'))
   } finally {
     loading.value = false
   }
@@ -101,15 +102,15 @@ const save = async (role: RoleRow) => {
   try {
     await permissionsApi.updateRole(role.code, [...(edits.get(role.code) ?? [])])
     dirty.delete(role.code)
-    message.success(`Права роли «${role.label}» сохранены. Сотрудникам нужно перезайти.`)
+    message.success(t('admin.pravaRoliSohraneny', { role: role.label }))
   } catch {
-    message.error('Не удалось сохранить')
+    message.error(t('admin.neUdalosSohranit'))
   } finally {
     saving.value = null
   }
 }
 const resetAll = async () => {
-  try { await permissionsApi.reset(); message.success('Матрица сброшена к дефолту'); await load() } catch { message.error('Не удалось сбросить') }
+  try { await permissionsApi.reset(); message.success(t('admin.matricaSbroshenaKDefoltu')); await load() } catch { message.error(t('admin.neUdalosSbrosit')) }
 }
 </script>
 

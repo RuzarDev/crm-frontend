@@ -3,38 +3,38 @@
 <template>
   <div class="reestr-block">
     <a-collapse ghost>
-      <a-collapse-panel key="guarantees" :header="`КЕДЕН-транзит: Обеспечение (${items.length})`">
+      <a-collapse-panel key="guarantees" :header="t('transit.kedenTranzitHdr', { title: t('transit.obespechenieHdr'), n: items.length })">
         <template #extra>
-          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">+ Обеспечение</a-button>
+          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">{{ t('transit.obespechenie') }}</a-button>
         </template>
 
-        <div v-if="items.length === 0" class="empty-state">Нет сведений об обеспечении</div>
+        <div v-if="items.length === 0" class="empty-state">{{ t('transit.netSvedeniyObObespechenii') }}</div>
 
         <div v-for="(item, idx) in items" :key="idx" class="row-card">
           <span class="row-num">{{ idx + 1 }}</span>
           <div class="field-row">
             <div class="field f-grow">
-              <div class="field-label">Вид</div>
+              <div class="field-label">{{ t('transit.vid') }}</div>
               <a-select v-model:value="item.guaranteeTypeCode" size="small" :disabled="readonly"
                 allow-clear style="width: 100%" :options="guaranteeTypeOptions" @change="emitChange" />
             </div>
             <div class="field">
-              <div class="field-label">Сумма</div>
+              <div class="field-label">{{ t('transit.summa') }}</div>
               <a-input-number v-model:value="item.amount" size="small" :disabled="readonly"
                 :min="0" style="width: 100%" @change="emitChange" />
             </div>
             <div class="field f-narrow">
-              <div class="field-label">Валюта</div>
+              <div class="field-label">{{ t('transit.valyuta') }}</div>
               <a-select v-model:value="item.currencyCode" size="small" :disabled="readonly"
                 show-search allow-clear style="width: 100%" :options="currencyOptions"
                 :filter-option="filterOption" placeholder="USD" @change="emitChange" />
             </div>
             <div class="field">
-              <div class="field-label">Номер</div>
+              <div class="field-label">{{ t('transit.nomer') }}</div>
               <a-input v-model:value="item.number" size="small" :disabled="readonly" placeholder="—" @change="emitChange" />
             </div>
           </div>
-          <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /> Удалить</a-button>
+          <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /> {{ t('transit.udalit') }}</a-button>
         </div>
       </a-collapse-panel>
     </a-collapse>
@@ -42,10 +42,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import type { ReestrGuaranteeInput } from '@/types/api'
 import { CURRENCY_OPTIONS, GUARANTEE_TYPE_OPTIONS } from './reestrLocalOptions'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: ReestrGuaranteeInput[]

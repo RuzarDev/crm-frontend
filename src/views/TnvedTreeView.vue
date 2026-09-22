@@ -1,15 +1,13 @@
 <template>
   <div class="tnved-tree-view crm-page">
     <PageHeader
-      kicker="ТН ВЭД ЕАЭС"
-      title="Классификатор (импорт)"
-      subtitle="Единая товарная номенклатура внешнеэкономической деятельности ЕАЭС."
+      :kicker="t('sales.tnVedEaes')"
+      :title="t('sales.klassifikatorImport')"
+      :subtitle="t('sales.edinayaTovarnayaNomenklaturaVneshneekonomicheskoy')"
     >
       <template #actions>
         <a-button @click="classifyModalOpen = true">
-          <template #icon><RobotOutlined /></template>
-          ИИ-классификация
-        </a-button>
+          <template #icon><RobotOutlined /></template> {{ t('sales.iiKlassifikaciya') }} </a-button>
       </template>
     </PageHeader>
 
@@ -18,15 +16,15 @@
       <div class="search-row">
         <a-input-search
           v-model:value="searchQuery"
-          placeholder="Поиск по коду или наименованию…"
-          enter-button="Найти"
+          :placeholder="t('sales.poiskPoKoduIli')"
+          :enter-button="t('misc.nayti')"
           allow-clear
           style="max-width: 480px"
           :loading="searchLoading"
           @search="handleSearch"
           @change="onSearchChange"
         />
-        <a-checkbox v-model:checked="leafOnly" style="margin-left:12px">Только 10-значные</a-checkbox>
+        <a-checkbox v-model:checked="leafOnly" style="margin-left:12px">{{ t('sales.tolko10Znachnye') }}</a-checkbox>
       </div>
 
       <a-row :gutter="16" style="margin-top:16px">
@@ -35,7 +33,7 @@
           <a-card size="small" class="tree-card" :bordered="true">
             <!-- Search results -->
             <template v-if="searchResults !== null">
-              <div v-if="searchResults.length === 0" class="empty-hint">Ничего не найдено</div>
+              <div v-if="searchResults.length === 0" class="empty-hint">{{ t('sales.nichegoNeNaydeno') }}</div>
               <a-list v-else size="small" :data-source="searchResults" :bordered="false">
                 <template #renderItem="{ item }">
                   <a-list-item
@@ -56,7 +54,7 @@
                 <div v-if="breadcrumb.length > 0" class="breadcrumb-bar">
                   <a-breadcrumb separator=">">
                     <a-breadcrumb-item>
-                      <a @click="resetToRoot">Разделы</a>
+                      <a @click="resetToRoot">{{ t('sales.razdely') }}</a>
                     </a-breadcrumb-item>
                     <a-breadcrumb-item v-for="(crumb, i) in breadcrumb" :key="crumb.id">
                       <a v-if="i < breadcrumb.length - 1" @click="navigateToBreadcrumb(i)">{{ crumb.code }}</a>
@@ -65,7 +63,7 @@
                   </a-breadcrumb>
                 </div>
 
-                <div v-if="currentNodes.length === 0 && !treeLoading" class="empty-hint">Нет дочерних элементов</div>
+                <div v-if="currentNodes.length === 0 && !treeLoading" class="empty-hint">{{ t('sales.netDochernihElementov') }}</div>
 
                 <div
                   v-for="node in currentNodes"
@@ -89,9 +87,7 @@
           <a-card size="small" class="detail-card" :bordered="true">
             <template v-if="!selected">
               <div class="empty-hint" style="padding-top:80px">
-                <GlobalOutlined style="font-size:40px;opacity:0.18;display:block;text-align:center;margin-bottom:12px" />
-                Выберите позицию в дереве
-              </div>
+                <GlobalOutlined style="font-size:40px;opacity:0.18;display:block;text-align:center;margin-bottom:12px" /> {{ t('sales.vyberitePoziciyuVDereve') }} </div>
             </template>
 
             <template v-else>
@@ -99,8 +95,8 @@
                 <!-- Header -->
                 <div class="detail-header">
                   <a-typography-text code style="font-size:16px">{{ selected.code }}</a-typography-text>
-                  <a-tag v-if="selected.is10" color="blue">10-зн.</a-tag>
-                  <a-tag v-if="selected.isLast" color="green">Конечный</a-tag>
+                  <a-tag v-if="selected.is10" color="blue">{{ t('sales.n10Zn') }}</a-tag>
+                  <a-tag v-if="selected.isLast" color="green">{{ t('sales.konechnyy') }}</a-tag>
                   <a-tag v-if="selected.unitShort" color="default">{{ selected.unitShort }}</a-tag>
                 </div>
                 <div class="detail-name">{{ selected.name || selected.treeName }}</div>
@@ -112,8 +108,8 @@
                 <a-tabs v-model:activeKey="detailTab" style="margin-top:12px" size="small">
 
                   <!-- Rates tab -->
-                  <a-tab-pane key="rates" tab="Ставки">
-                    <div v-if="rates.length === 0 && !detailLoading" class="empty-hint">Ставки не найдены</div>
+                  <a-tab-pane key="rates" :tab="t('sales.stavki')">
+                    <div v-if="rates.length === 0 && !detailLoading" class="empty-hint">{{ t('sales.stavkiNeNaydeny') }}</div>
                     <a-table
                       v-else
                       :data-source="rates"
@@ -133,7 +129,7 @@
                         </template>
                         <template v-if="column.key === 'source'">
                           <a v-if="record.rateSourceUrl" :href="record.rateSourceUrl" target="_blank" rel="noopener">
-                            {{ record.rateSourceName || 'Источник' }}
+                            {{ record.rateSourceName || t('sales.istochnik') }}
                           </a>
                           <span v-else class="muted">{{ record.rateSourceName || '—' }}</span>
                         </template>
@@ -142,16 +138,16 @@
                   </a-tab-pane>
 
                   <!-- Calculator tab -->
-                  <a-tab-pane key="calc" tab="Калькулятор" :disabled="!selected.is10">
+                  <a-tab-pane key="calc" :tab="t('sales.kalkulyator')" :disabled="!selected.is10">
                     <a-form layout="vertical" style="max-width:420px" :model="calcForm" @finish="runCalculate">
                       <a-row :gutter="12">
                         <a-col :span="14">
-                          <a-form-item label="Таможенная стоимость" name="customsValue">
+                          <a-form-item :label="t('sales.tamozhennayaStoimost')" name="customsValue">
                             <a-input-number v-model:value="calcForm.customsValue" :min="0" style="width:100%" />
                           </a-form-item>
                         </a-col>
                         <a-col :span="10">
-                          <a-form-item label="Валюта" name="currencyCode">
+                          <a-form-item :label="t('sales.valyuta')" name="currencyCode">
                             <a-select v-model:value="calcForm.currencyCode" style="width:100%">
                               <a-select-option v-for="c in currencies" :key="c.codeLat" :value="c.codeLat">
                                 {{ c.codeLat }} ({{ c.rate.toFixed(2) }})
@@ -162,44 +158,44 @@
                       </a-row>
                       <a-row :gutter="12">
                         <a-col :span="12">
-                          <a-form-item label="Вес, кг">
-                            <a-input-number v-model:value="calcForm.weightKg" :min="0" style="width:100%" placeholder="необяз." />
+                          <a-form-item :label="t('sales.vesKg')">
+                            <a-input-number v-model:value="calcForm.weightKg" :min="0" style="width:100%" :placeholder="t('sales.neobyaz')" />
                           </a-form-item>
                         </a-col>
                         <a-col :span="12">
-                          <a-form-item label="Кол-во / объём, л / шт">
-                            <a-input-number v-model:value="calcForm.quantity" :min="0" style="width:100%" placeholder="необяз." />
+                          <a-form-item :label="t('sales.kolVoObemL')">
+                            <a-input-number v-model:value="calcForm.quantity" :min="0" style="width:100%" :placeholder="t('sales.neobyaz')" />
                           </a-form-item>
                         </a-col>
                       </a-row>
                       <a-row :gutter="12">
                         <a-col v-if="rates[0]?.rateStr?.toLowerCase().includes('см3')" :span="12">
-                          <a-form-item label="Объём двигателя, см³">
-                            <a-input-number v-model:value="calcForm.engineVolumeCm3" :min="0" style="width:100%" placeholder="для авто" />
+                          <a-form-item :label="t('sales.obemDvigatelyaSm')">
+                            <a-input-number v-model:value="calcForm.engineVolumeCm3" :min="0" style="width:100%" :placeholder="t('sales.dlyaAvto')" />
                           </a-form-item>
                         </a-col>
                         <a-col :span="rates[0]?.rateStr?.toLowerCase().includes('см3') ? 12 : 24">
-                          <a-form-item label="На дату">
-                            <a-date-picker v-model:value="calcForm.onDate" style="width:100%" format="DD.MM.YYYY" placeholder="необяз." />
+                          <a-form-item :label="t('sales.naDatu')">
+                            <a-date-picker v-model:value="calcForm.onDate" style="width:100%" format="DD.MM.YYYY" :placeholder="t('sales.neobyaz')" />
                           </a-form-item>
                         </a-col>
                       </a-row>
-                      <a-button type="primary" html-type="submit" :loading="calcLoading" block>Рассчитать</a-button>
+                      <a-button type="primary" html-type="submit" :loading="calcLoading" block>{{ t('sales.rasschitat') }}</a-button>
                     </a-form>
 
                     <div v-if="calcResult" class="calc-result">
                       <a-descriptions bordered size="small" :column="1" style="margin-top:16px">
-                        <a-descriptions-item label="Ставка пошлины">
+                        <a-descriptions-item :label="t('sales.stavkaPoshliny')">
                           <a-tag color="orange">{{ calcResult.rateStr || '—' }}</a-tag>
                         </a-descriptions-item>
-                        <a-descriptions-item label="Таможенная стоимость (KZT)">{{ fmtKzt(calcResult.customsValueKzt) }}</a-descriptions-item>
-                        <a-descriptions-item label="Ввозная пошлина">{{ fmtKzt(calcResult.importDutyKzt) }}</a-descriptions-item>
-                        <a-descriptions-item label="Таможенный сбор">{{ fmtKzt(calcResult.customsFeeKzt) }}</a-descriptions-item>
-                        <a-descriptions-item v-if="calcResult.exciseKzt > 0" label="Акциз">
+                        <a-descriptions-item :label="t('sales.tamozhennayaStoimostKzt')">{{ fmtKzt(calcResult.customsValueKzt) }}</a-descriptions-item>
+                        <a-descriptions-item :label="t('sales.vvoznayaPoshlina')">{{ fmtKzt(calcResult.importDutyKzt) }}</a-descriptions-item>
+                        <a-descriptions-item :label="t('sales.tamozhennyySbor')">{{ fmtKzt(calcResult.customsFeeKzt) }}</a-descriptions-item>
+                        <a-descriptions-item v-if="calcResult.exciseKzt > 0" :label="t('sales.akciz')">
                           {{ fmtKzt(calcResult.exciseKzt) }}
                         </a-descriptions-item>
-                        <a-descriptions-item label="НДС (16%)">{{ fmtKzt(calcResult.vatKzt) }}</a-descriptions-item>
-                        <a-descriptions-item label="Итого">
+                        <a-descriptions-item :label="t('sales.nds16')">{{ fmtKzt(calcResult.vatKzt) }}</a-descriptions-item>
+                        <a-descriptions-item :label="t('sales.itogo')">
                           <strong>{{ fmtKzt(calcResult.totalKzt) }}</strong>
                         </a-descriptions-item>
                       </a-descriptions>
@@ -211,46 +207,40 @@
                   </a-tab-pane>
 
                   <!-- Notes/explanations tab -->
-                  <a-tab-pane key="notes" tab="Пояснения">
-                    <div v-if="!notes?.htmlContent && !detailLoading" class="empty-hint">Пояснения отсутствуют</div>
+                  <a-tab-pane key="notes" :tab="t('sales.poyasneniya')">
+                    <div v-if="!notes?.htmlContent && !detailLoading" class="empty-hint">{{ t('sales.poyasneniyaOtsutstvuyut') }}</div>
                     <div v-else-if="notes?.htmlContent" class="notes-html" v-html="notes.htmlContent" />
                   </a-tab-pane>
 
                   <!-- Reference / non-tariff measures tab -->
-                  <a-tab-pane key="reference" tab="Нетарифка" :disabled="!selected.is10">
-                    <div v-if="referenceNotFound && !detailLoading" class="empty-hint">
-                      Данные ещё не загружены — попробуйте позже
-                    </div>
+                  <a-tab-pane key="reference" :tab="t('sales.netarifka')" :disabled="!selected.is10">
+                    <div v-if="referenceNotFound && !detailLoading" class="empty-hint"> {{ t('sales.dannyeEscheNeZagruzheny') }} </div>
                     <template v-else-if="reference">
                       <div v-if="!reference.success" class="empty-hint">
-                        {{ reference.errorMessage || 'Нет данных по этому коду' }}
+                        {{ reference.errorMessage || t('sales.netDannyhPoKodu') }}
                       </div>
                       <template v-else>
                         <NonTariffMeasureGroups v-if="referenceMeasureGroups.length" :groups="referenceMeasureGroups" />
-                        <div v-else class="empty-hint">Нетарифные меры отсутствуют</div>
+                        <div v-else class="empty-hint">{{ t('sales.netarifnyeMeryOtsutstvuyut') }}</div>
                       </template>
                     </template>
                   </a-tab-pane>
 
                   <!-- Export (вывоз) tab -->
-                  <a-tab-pane key="export" tab="Экспорт" :disabled="!selected.is10">
-                    <div v-if="exportReferenceNotFound && !detailLoading" class="empty-hint">
-                      Данные ещё не загружены — попробуйте позже
-                    </div>
+                  <a-tab-pane key="export" :tab="t('sales.eksport')" :disabled="!selected.is10">
+                    <div v-if="exportReferenceNotFound && !detailLoading" class="empty-hint"> {{ t('sales.dannyeEscheNeZagruzheny') }} </div>
                     <template v-else-if="exportReference">
                       <div v-if="!exportReference.success" class="empty-hint">
-                        {{ exportReference.errorMessage || 'Нет данных по этому коду' }}
+                        {{ exportReference.errorMessage || t('sales.netDannyhPoKodu') }}
                       </div>
                       <template v-else>
                         <a-descriptions v-if="exportReference.rateValue" bordered size="small" :column="1" style="margin-bottom:12px">
-                          <a-descriptions-item label="Ставка вывозной пошлины">
+                          <a-descriptions-item :label="t('sales.stavkaVyvoznoyPoshliny')">
                             <a-tag color="orange">{{ exportReference.rateValue }}</a-tag>
                           </a-descriptions-item>
                         </a-descriptions>
                         <NonTariffMeasureGroups v-if="exportMeasureGroups.length" :groups="exportMeasureGroups" />
-                        <div v-if="!exportReference.rateValue && !exportMeasureGroups.length" class="empty-hint">
-                          Данные по вывозу отсутствуют
-                        </div>
+                        <div v-if="!exportReference.rateValue && !exportMeasureGroups.length" class="empty-hint"> {{ t('sales.dannyePoVyvozuOtsutstvuyut') }} </div>
                       </template>
                     </template>
                   </a-tab-pane>
@@ -266,12 +256,12 @@
     <!-- AI Classify modal -->
     <a-modal
       v-model:open="classifyModalOpen"
-      title="ИИ-классификация товара"
+      :title="t('sales.iiKlassifikaciyaTovara')"
       :footer="null"
       width="640px"
     >
       <a-form layout="vertical" @finish="runClassify">
-        <a-form-item label="Описание товара" name="description" :rules="[{ required: true, message: 'Введите описание' }]">
+        <a-form-item :label="t('sales.opisanieTovara')" name="description" :rules="[{ required: true, message: t('misc.vvediteOpisanie') }]">
           <a-textarea
             v-model:value="classifyDesc"
             :rows="3"
@@ -279,11 +269,11 @@
             allow-clear
           />
         </a-form-item>
-        <a-button type="primary" html-type="submit" :loading="classifyLoading" block>Классифицировать</a-button>
+        <a-button type="primary" html-type="submit" :loading="classifyLoading" block>{{ t('sales.klassificirovat') }}</a-button>
       </a-form>
 
       <div v-if="classifyResult" style="margin-top:16px">
-        <a-divider>Результаты</a-divider>
+        <a-divider>{{ t('sales.rezultaty') }}</a-divider>
         <a-list size="small" :data-source="classifyResult.matches" bordered>
           <template #renderItem="{ item }">
             <a-list-item style="cursor:pointer" @click="navigateToCode(item.code)">
@@ -293,8 +283,8 @@
                   <span style="margin-left:8px;font-size:13px">{{ item.description }}</span>
                 </template>
                 <template #description>
-                  <span v-if="item.rateStr">Ставка: <a-tag color="orange" style="font-size:11px">{{ item.rateStr }}</a-tag></span>
-                  <span v-if="item.unitName" style="margin-left:8px">Ед.: {{ item.unitName }}</span>
+                  <span v-if="item.rateStr">{{ t('sales.stavka') }} <a-tag color="orange" style="font-size:11px">{{ item.rateStr }}</a-tag></span>
+                  <span v-if="item.unitName" style="margin-left:8px">{{ t('sales.edUnit', { u: item.unitName }) }}</span>
                 </template>
               </a-list-item-meta>
               <template #extra>
@@ -314,6 +304,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, computed, watch, onMounted } from 'vue'
 import { GlobalOutlined, RightOutlined, RobotOutlined } from '@ant-design/icons-vue'
 import type { Dayjs } from 'dayjs'
@@ -333,6 +324,8 @@ import type {
   TnvedNonTariffMeasureDto,
 } from '@/types/api'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 // ── Tree state ───────────────────────────────────────────────────────────────
 const currentNodes = ref<TnvedNodeDto[]>([])
@@ -376,15 +369,15 @@ const classifyLoading = ref(false)
 const classifyResult = ref<TnvedClassifyResponse | null>(null)
 
 // ── Non-tariff measures grouping ─────────────────────────────────────────────
-const DOC_TYPE_GROUPS: { key: string; docTypes: string[]; label: string; color: string }[] = [
-  { key: 'restrictions', docTypes: ['RESTRICTION'], label: 'Ограничения', color: 'red' },
-  { key: 'preferences', docTypes: ['PREFERENCE'], label: 'Льготы', color: 'green' },
-  { key: 'others', docTypes: ['OTHER'], label: 'Прочие меры', color: 'blue' },
-  { key: 'notices', docTypes: ['NOTICE'], label: 'Уведомления', color: 'gold' },
-]
+const DOC_TYPE_GROUPS = computed((): { key: string; docTypes: string[]; label: string; color: string }[] => ([
 
+  { key: 'restrictions', docTypes: ['RESTRICTION'], label: t('sales.ogranicheniya'), color: 'red' },
+  { key: 'preferences', docTypes: ['PREFERENCE'], label: t('sales.lgoty'), color: 'green' },
+  { key: 'others', docTypes: ['OTHER'], label: t('sales.prochieMery'), color: 'blue' },
+  { key: 'notices', docTypes: ['NOTICE'], label: t('sales.uvedomleniya'), color: 'gold' },
+]))
 function groupMeasuresByDocType(measures: TnvedNonTariffMeasureDto[]): NonTariffMeasureGroup[] {
-  return DOC_TYPE_GROUPS
+  return DOC_TYPE_GROUPS.value
     .map(g => ({ key: g.key, label: g.label, color: g.color, items: measures.filter(m => g.docTypes.includes(m.docType)) }))
     .filter(g => g.items.length > 0)
 }
@@ -405,19 +398,19 @@ const calcMeasureGroups = computed(() => {
     else restrictions.push(m)
   }
   return [
-    { key: 'restrictions', label: 'Требуемые документы', color: 'red', items: restrictions },
-    { key: 'preferences', label: 'Льготы', color: 'green', items: preferences },
+    { key: 'restrictions', label: t('sales.trebuemyeDokumenty'), color: 'red', items: restrictions },
+    { key: 'preferences', label: t('sales.lgoty'), color: 'green', items: preferences },
   ].filter(g => g.items.length > 0)
 })
 
 // ── Table columns ────────────────────────────────────────────────────────────
-const ratesColumns = [
-  { title: 'Ставка', key: 'rateStr', dataIndex: 'rateStr', width: 100 },
-  { title: 'Статус ВТО', key: 'vtoStatus', dataIndex: 'vtoStatus', width: 110 },
-  { title: 'Ед. изм.', dataIndex: 'unitName', key: 'unitName', width: 90 },
-  { title: 'Источник', key: 'source', width: 110 },
-]
+const ratesColumns = computed(() => ([
 
+  { title: t('sales.stavka2'), key: 'rateStr', dataIndex: 'rateStr', width: 100 },
+  { title: t('sales.statusVto'), key: 'vtoStatus', dataIndex: 'vtoStatus', width: 110 },
+  { title: t('sales.edIzm'), dataIndex: 'unitName', key: 'unitName', width: 90 },
+  { title: t('sales.istochnik'), key: 'source', width: 110 },
+]))
 // ── Tree navigation ───────────────────────────────────────────────────────────
 async function loadChildren(parentId = 0) {
   treeLoading.value = true

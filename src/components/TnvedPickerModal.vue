@@ -1,19 +1,17 @@
 <template>
-  <a-modal :open="open" title="Справочник ТН ВЭД — выбор кода" width="820px" :footer="null"
+  <a-modal :open="open" :title="t('sales.spravochnikTnVedVybor')" width="820px" :footer="null"
     @update:open="(v: boolean) => emit('update:open', v)">
     <div class="tnved-picker">
-      <a-input-search v-model:value="query" placeholder="Поиск по наименованию или коду ТН ВЭД"
-        allow-clear enter-button="Найти" :loading="searchLoading" @search="doSearch" />
+      <a-input-search v-model:value="query" :placeholder="t('sales.poiskPoNaimenovaniyuIli')"
+        allow-clear :enter-button="t('misc.nayti')" :loading="searchLoading" @search="doSearch" />
 
       <div class="picker-body">
         <!-- Левая часть: результаты поиска или дерево -->
         <div class="picker-left">
           <template v-if="results !== null">
-            <div class="picker-hint">
-              Результаты поиска
-              <a class="picker-reset" @click="clearSearch"><LeftOutlined /> дерево</a>
+            <div class="picker-hint"> {{ t('sales.rezultatyPoiska') }} <a class="picker-reset" @click="clearSearch"><LeftOutlined /> {{ t('sales.derevo') }}</a>
             </div>
-            <div v-if="results.length === 0" class="picker-empty">Ничего не найдено</div>
+            <div v-if="results.length === 0" class="picker-empty">{{ t('sales.nichegoNeNaydeno') }}</div>
             <div v-for="n in results" :key="n.id" class="picker-node" :class="{ active: selected?.id === n.id }"
               @click="pickNode(n)">
               <span class="pn-code">{{ n.code }}</span>
@@ -24,13 +22,13 @@
 
           <template v-else>
             <div class="picker-crumbs">
-              <a @click="toRoot">Разделы</a>
+              <a @click="toRoot">{{ t('sales.razdely') }}</a>
               <template v-for="(c, i) in crumbs" :key="c.id">
                 <span class="crumb-sep">/</span>
                 <a @click="toCrumb(i)">{{ c.code }}</a>
               </template>
             </div>
-            <div v-if="treeLoading" class="picker-empty">Загрузка…</div>
+            <div v-if="treeLoading" class="picker-empty">{{ t('sales.zagruzka') }}</div>
             <div v-for="n in nodes" :key="n.id" class="picker-node" :class="{ active: selected?.id === n.id }"
               @click="clickNode(n)">
               <span class="pn-code">{{ n.code }}</span>
@@ -43,32 +41,32 @@
 
         <!-- Правая часть: детали выбранного кода -->
         <div class="picker-right">
-          <div v-if="!selected" class="picker-empty">Выберите товар — покажу ставки и разрешительные документы</div>
+          <div v-if="!selected" class="picker-empty">{{ t('sales.vyberiteTovarPokazhuStavki') }}</div>
           <template v-else>
             <div class="detail-code">{{ selected.code }}</div>
             <div class="detail-name">{{ selected.name || selected.treeName }}</div>
 
-            <div class="detail-block-title">Ставки (ТО / ТТ)</div>
-            <div v-if="detailLoading" class="picker-empty">Загрузка ставок…</div>
-            <div v-else-if="rates.length === 0" class="picker-empty">Ставки не найдены</div>
+            <div class="detail-block-title">{{ t('sales.stavkiToTt') }}</div>
+            <div v-if="detailLoading" class="picker-empty">{{ t('sales.zagruzkaStavok') }}</div>
+            <div v-else-if="rates.length === 0" class="picker-empty">{{ t('sales.stavkiNeNaydeny') }}</div>
             <div v-else class="rates">
               <div v-for="r in rates" :key="r.code" class="rate-row">
                 <span class="rate-code">{{ r.code }}</span>
                 <a-tag v-if="r.rateStr" color="orange">{{ r.rateStr }}</a-tag>
                 <span v-else class="muted">—</span>
-                <a-tag v-if="r.vtoStatus" color="purple">ВТО: {{ r.vtoStatus }}</a-tag>
+                <a-tag v-if="r.vtoStatus" color="purple">{{ t('sales.vto', { s: r.vtoStatus }) }}</a-tag>
               </div>
             </div>
 
-            <div class="detail-block-title">Разрешительные документы (нетарифные меры)</div>
+            <div class="detail-block-title">{{ t('sales.razreshitelnyeDokumentyNetarifnyeMery') }}</div>
             <div v-if="detailLoading" class="picker-empty">…</div>
-            <div v-else-if="measures.length === 0" class="picker-empty muted">Не требуются / нет данных</div>
+            <div v-else-if="measures.length === 0" class="picker-empty muted">{{ t('sales.neTrebuyutsyaNetDannyh') }}</div>
             <ul v-else class="measures">
               <li v-for="(m, i) in measures" :key="i">{{ m.docType ? m.docType + ': ' : '' }}{{ m.name || m.description }}</li>
             </ul>
 
             <a-button type="primary" block :disabled="!selected.is10" style="margin-top:14px" @click="choose">
-              {{ selected.is10 ? 'Выбрать этот код' : 'Выберите конечный 10-значный код' }}
+              {{ selected.is10 ? t('sales.vybratEtotKod') : t('sales.vyberiteKonechnyy10') }}
             </a-button>
           </template>
         </div>
@@ -78,10 +76,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
 import { LeftOutlined } from '@ant-design/icons-vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedNodeDto, TnvedRateDto } from '@/types/api'
+
+const { t } = useI18n()
 
 const props = defineProps<{ open: boolean; initialQuery?: string }>()
 const emit = defineEmits<{

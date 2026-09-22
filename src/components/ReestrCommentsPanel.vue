@@ -11,9 +11,9 @@
             <span class="comment-time">{{ formatTime(c.createdAtUtc) }}</span>
             <a-popconfirm
               v-if="canDelete(c)"
-              title="Удалить комментарий?"
-              ok-text="Да"
-              cancel-text="Нет"
+              :title="t('sales.udalitKommentariy')"
+              :ok-text="t('sales.da')"
+              :cancel-text="t('sales.net')"
               @confirm="handleDelete(c.id)"
             >
               <a-button type="text" size="small" class="comment-delete-btn" danger>
@@ -24,12 +24,12 @@
           <div class="comment-text">{{ c.text }}</div>
         </div>
       </div>
-      <a-empty v-else-if="!loading" description="Нет комментариев" class="empty" />
+      <a-empty v-else-if="!loading" :description="t('sales.netKommentariev')" class="empty" />
 
       <div v-if="!readonly" class="comment-form">
         <a-textarea
           v-model:value="newText"
-          placeholder="Написать комментарий…"
+          :placeholder="t('sales.napisatKommentariy')"
           :rows="3"
           :maxlength="2000"
           show-count
@@ -42,15 +42,14 @@
           @click="handlePost"
           style="margin-top: 8px"
         >
-          <SendOutlined />
-          Отправить
-        </a-button>
+          <SendOutlined /> {{ t('sales.otpravit') }} </a-button>
       </div>
     </a-spin>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, onMounted } from 'vue'
 import { reestrApi } from '@/api/reestr'
 import { useAuthStore } from '@/stores/auth'
@@ -59,6 +58,8 @@ import type { ReestrCommentDto } from '@/types/api'
 import { DeleteOutlined, SendOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import dayjs from 'dayjs'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   reestrId: string
@@ -98,7 +99,7 @@ const handlePost = async () => {
     comments.value.push(created)
     newText.value = ''
   } catch {
-    message.error('Не удалось отправить комментарий')
+    message.error(t('sales.neUdalosOtpravitKommentariy'))
   } finally {
     posting.value = false
   }
@@ -109,7 +110,7 @@ const handleDelete = async (commentId: string) => {
     await reestrApi.deleteComment(props.reestrId, commentId)
     comments.value = comments.value.filter((c) => c.id !== commentId)
   } catch {
-    message.error('Не удалось удалить комментарий')
+    message.error(t('sales.neUdalosUdalitKommentariy'))
   }
 }
 

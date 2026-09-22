@@ -7,9 +7,7 @@
       accept=".pdf,.xlsx"
     >
       <a-button size="small" :loading="uploading || polling">
-        <FileSearchOutlined />
-        Заполнить из инвойса
-      </a-button>
+        <FileSearchOutlined /> {{ t('sales.zapolnitIzInvoysa') }} </a-button>
     </a-upload>
 
     <ExtractionReviewModal
@@ -24,6 +22,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref } from 'vue'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
@@ -31,6 +30,8 @@ import { FileSearchOutlined } from '@ant-design/icons-vue'
 import { reestrApi } from '@/api/reestr'
 import type { ExtractionResultDto } from '@/types/api'
 import ExtractionReviewModal from '@/components/ExtractionReviewModal.vue'
+
+const { t } = useI18n()
 
 interface Props {
   reestrId: string
@@ -49,11 +50,11 @@ const documentId = ref('')
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   const name = file.name.toLowerCase()
   if (!name.endsWith('.pdf') && !name.endsWith('.xlsx')) {
-    message.error('Допустимы только PDF и XLSX')
+    message.error(t('sales.dopustimyTolkoPdfI'))
     return false
   }
   if (file.size > 10 * 1024 * 1024) {
-    message.error('Размер файла не должен превышать 10 МБ')
+    message.error(t('sales.razmerFaylaNeDolzhen'))
     return false
   }
   void startExtraction(file as File)
@@ -65,10 +66,10 @@ const startExtraction = async (file: File) => {
   try {
     const doc = await reestrApi.uploadDocument(props.reestrId, 'client', file, undefined, 'invoice')
     documentId.value = doc.id
-    message.info('Документ загружен, распознаём...')
+    message.info(t('sales.dokumentZagruzhenRaspoznaem'))
     await pollExtraction()
   } catch {
-    message.error('Не удалось загрузить документ')
+    message.error(t('sales.neUdalosZagruzitDokument'))
   } finally {
     uploading.value = false
   }
@@ -86,9 +87,9 @@ const pollExtraction = async () => {
       }
       await new Promise((resolve) => setTimeout(resolve, 2000))
     }
-    message.error('Превышено время ожидания распознавания')
+    message.error(t('sales.prevyshenoVremyaOzhidaniyaRaspoznavaniya'))
   } catch {
-    message.error('Ошибка при получении результата распознавания')
+    message.error(t('sales.oshibkaPriPolucheniiRezultata'))
   } finally {
     polling.value = false
   }
@@ -101,8 +102,8 @@ const showResult = (res: ExtractionResultDto) => {
   if (res.status === 'needsManualEntry' || res.status === 'error') {
     errorMessage.value =
       res.matchResult === 'notDigital'
-        ? 'Документ не в цифровом формате — автозаполнение недоступно, заполните данные вручную'
-        : 'Не удалось распознать документ автоматически — заполните данные вручную'
+        ? t('sales.dokumentNeVCifrovom')
+        : t('sales.neUdalosRaspoznatDokument')
   }
 
   reviewOpen.value = true

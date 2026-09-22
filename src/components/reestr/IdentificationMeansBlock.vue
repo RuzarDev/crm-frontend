@@ -3,34 +3,34 @@
 <template>
   <div class="reestr-block">
     <a-collapse ghost>
-      <a-collapse-panel key="identification-means" :header="`КЕДЕН-транзит: Средства идентификации (${items.length})`">
+      <a-collapse-panel key="identification-means" :header="t('transit.kedenTranzitHdr', { title: t('transit.sredstvaIdentifikacii'), n: items.length })">
         <template #extra>
-          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">+ Строка</a-button>
+          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">{{ t('transit.stroka') }}</a-button>
         </template>
 
-        <div v-if="items.length === 0" class="empty-state">Нет средств идентификации</div>
+        <div v-if="items.length === 0" class="empty-state">{{ t('transit.netSredstvIdentifikacii') }}</div>
 
         <div v-for="(item, idx) in items" :key="idx" class="row-card">
-          <a-checkbox v-model:checked="item.noSeal" :disabled="readonly" @change="emitChange">Без пломбы</a-checkbox>
+          <a-checkbox v-model:checked="item.noSeal" :disabled="readonly" @change="emitChange">{{ t('transit.bezPlomby') }}</a-checkbox>
           <div class="field-row">
             <div class="field">
-              <div class="field-label">Вид</div>
+              <div class="field-label">{{ t('transit.vid') }}</div>
               <a-select v-model:value="item.meansTypeCode" size="small" :disabled="readonly || item.noSeal"
                 show-search allow-clear style="width: 100%" :options="meansTypeOptions"
                 :filter-option="filterOption" placeholder="01" @change="emitChange" />
             </div>
             <div class="field f-narrow">
-              <div class="field-label">Кол-во</div>
+              <div class="field-label">{{ t('transit.kolVo') }}</div>
               <a-input-number v-model:value="item.quantity" size="small" :disabled="readonly || item.noSeal"
                 :min="0" style="width: 100%" @change="emitChange" />
             </div>
             <div class="field">
-              <div class="field-label">Номер</div>
+              <div class="field-label">{{ t('transit.nomer') }}</div>
               <a-input v-model:value="item.number" size="small" :disabled="readonly || item.noSeal"
                 placeholder="—" @change="emitChange" />
             </div>
           </div>
-          <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /> Удалить</a-button>
+          <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /> {{ t('transit.udalit') }}</a-button>
         </div>
       </a-collapse-panel>
     </a-collapse>
@@ -38,10 +38,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref, watch } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import type { ReestrIdentificationMeansInput } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: ReestrIdentificationMeansInput[]

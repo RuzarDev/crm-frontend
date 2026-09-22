@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral'
 
@@ -7,18 +8,16 @@ const props = defineProps<{
   status: string
 }>()
 
-const STATUS_MAP: Record<string, { label: string; tone: Tone }> = {
-  InProgress: { label: 'В работе', tone: 'neutral' },
-  Submitted: { label: 'Подан', tone: 'warning' },
-  Released: { label: 'Выпущено', tone: 'success' },
-  ConditionallyReleased: { label: 'Условно', tone: 'info' },
-  Problematic: { label: 'Проблемный', tone: 'danger' },
-  Rejected: { label: 'Отклонён', tone: 'danger' },
-  Withdrawn: { label: 'Отозван', tone: 'neutral' },
-  Archived: { label: 'Архив', tone: 'neutral' },
+const { t, te } = useI18n()
+const TONES: Record<string, Tone> = {
+  InProgress: 'neutral', Submitted: 'warning', Released: 'success', ConditionallyReleased: 'info',
+  Problematic: 'danger', Rejected: 'danger', Withdrawn: 'neutral', Archived: 'neutral',
 }
 
-const entry = computed(() => STATUS_MAP[props.status] ?? { label: props.status, tone: 'neutral' as Tone })
+const entry = computed(() => ({
+  label: te(`enum.reestrStatus.${props.status}`) ? t(`enum.reestrStatus.${props.status}`) : props.status,
+  tone: TONES[props.status] ?? ('neutral' as Tone),
+}))
 const label = computed(() => entry.value.label)
 const toneClass = computed(() => `z-pill--${entry.value.tone}`)
 </script>

@@ -2,30 +2,30 @@
 <template>
   <div class="registry-page crm-page">
     <PageHeader
-      kicker="Заявки"
-      title="Реестр заявок"
-      subtitle="Сводный список заявок по всем услугам — импорт и транзит."
+      :kicker="t('admin.zayavki')"
+      :title="t('admin.reestrZayavok')"
+      :subtitle="t('admin.svodnyySpisokZayavokPo')"
     />
 
     <div class="filters">
       <a-select
-        v-model:value="filters.type" allow-clear placeholder="Тип услуги" style="width: 160px"
+        v-model:value="filters.type" allow-clear :placeholder="t('admin.tipUslugi')" style="width: 160px"
         :options="[
-          { value: 'import40', label: 'Импорт 40' },
-          { value: 'transit', label: 'Транзит' },
+          { value: 'import40', label: t('admin.import40') },
+          { value: 'transit', label: t('admin.tranzit') },
         ]"
         @change="onTypeChange"
       />
       <a-select
         v-if="statusOptions.length" v-model:value="filters.status" allow-clear
-        placeholder="Статус" style="width: 200px" :options="statusOptions" @change="reload"
+        :placeholder="t('admin.status')" style="width: 200px" :options="statusOptions" @change="reload"
       />
       <a-input-search
-        v-model:value="filters.search" placeholder="Поиск: клиент, груз, контейнер, № ДТ"
+        v-model:value="filters.search" :placeholder="t('admin.poiskKlientGruzKonteyner')"
         style="width: 280px" allow-clear @search="reload"
       />
-      <a-input v-model:value="filters.from" placeholder="С даты ГГГГ-ММ-ДД" style="width: 150px" allow-clear @change="reload" />
-      <a-input v-model:value="filters.to" placeholder="По дату ГГГГ-ММ-ДД" style="width: 150px" allow-clear @change="reload" />
+      <a-input v-model:value="filters.from" :placeholder="t('admin.sDatyGgggMm')" style="width: 150px" allow-clear @change="reload" />
+      <a-input v-model:value="filters.to" :placeholder="t('admin.poDatuGgggMm')" style="width: 150px" allow-clear @change="reload" />
     </div>
 
     <a-table
@@ -42,7 +42,7 @@
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'serviceType'">
           <a-tag :color="record.serviceType === 'import40' ? 'geekblue' : 'green'">
-            {{ record.serviceType === 'import40' ? 'Импорт 40' : 'Транзит' }}
+            {{ record.serviceType === 'import40' ? t('admin.import40') : t('admin.tranzit') }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'statusLabel'">
@@ -57,6 +57,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
@@ -64,6 +65,8 @@ import PageHeader from '@/components/PageHeader.vue'
 import { registryApi, type RegistryRowDto } from '@/api/registry'
 import { IMPORT40_STATUSES } from '@/api/import40'
 import { useImport40Status } from '@/composables/useImport40Status'
+
+const { t } = useI18n()
 
 type Row = RegistryRowDto & { rowKey: string }
 
@@ -83,35 +86,35 @@ const filters = reactive({
 })
 
 // Статусы транзита — зеркало меток бэкенда (TransitStatusLabel)
-const TRANSIT_STATUSES = [
-  { value: 0, label: 'В работе' },
-  { value: 1, label: 'Подана' },
-  { value: 2, label: 'Выпущена' },
-  { value: 3, label: 'Условный выпуск' },
-  { value: 4, label: 'Проблемная' },
-  { value: 5, label: 'Отклонена' },
-  { value: 6, label: 'Отозвана' },
-  { value: 7, label: 'Архив' },
-]
+const TRANSIT_STATUSES = computed(() => ([
 
+  { value: 0, label: t('admin.vRabote') },
+  { value: 1, label: t('admin.podana') },
+  { value: 2, label: t('admin.vypuschena') },
+  { value: 3, label: t('admin.uslovnyyVypusk') },
+  { value: 4, label: t('admin.problemnaya') },
+  { value: 5, label: t('admin.otklonena') },
+  { value: 6, label: t('admin.otozvana') },
+  { value: 7, label: t('admin.arhiv') },
+]))
 const { statusLabel } = useImport40Status()
 const statusOptions = computed(() => {
   if (filters.type === 'import40')
     return IMPORT40_STATUSES.map((s) => ({ value: `import40:${s.id}`, label: statusLabel(s.id) }))
   if (filters.type === 'transit')
-    return TRANSIT_STATUSES.map((s) => ({ value: `transit:${s.value}`, label: s.label }))
+    return TRANSIT_STATUSES.value.map((s) => ({ value: `transit:${s.value}`, label: s.label }))
   return []
 })
 
-const columns = [
-  { title: 'Тип', key: 'serviceType', width: 110 },
-  { title: '№', dataIndex: 'number', key: 'number', width: 160 },
-  { title: 'Груз / описание', dataIndex: 'title', key: 'title' },
-  { title: 'Клиент', dataIndex: 'clientName', key: 'clientName', width: 180 },
-  { title: 'Статус', key: 'statusLabel', width: 150 },
-  { title: 'Создана', key: 'createdAtUtc', width: 110 },
-]
+const columns = computed(() => ([
 
+  { title: t('admin.tip'), key: 'serviceType', width: 110 },
+  { title: '№', dataIndex: 'number', key: 'number', width: 160 },
+  { title: t('admin.gruzOpisanie'), dataIndex: 'title', key: 'title' },
+  { title: t('admin.klient'), dataIndex: 'clientName', key: 'clientName', width: 180 },
+  { title: t('admin.status'), key: 'statusLabel', width: 150 },
+  { title: t('admin.sozdana'), key: 'createdAtUtc', width: 110 },
+]))
 const load = async () => {
   loading.value = true
   try {
@@ -127,7 +130,7 @@ const load = async () => {
     rows.value = res.items.map((r) => ({ ...r, rowKey: `${r.serviceType}:${r.id}` }))
     total.value = res.totalCount
   } catch {
-    message.error('Не удалось загрузить реестр')
+    message.error(t('admin.neUdalosZagruzitReestr'))
   } finally {
     loading.value = false
   }

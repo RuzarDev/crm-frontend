@@ -4,48 +4,48 @@
 <template>
   <div class="reestr-block">
     <a-collapse ghost>
-      <a-collapse-panel key="misc" header="КЕДЕН-транзит: ВХ / Пункт назначения / Лицо ПИ / Грузовые операции">
-        <div class="subsection-title">Место временного хранения</div>
+      <a-collapse-panel key="misc" :header="t('transit.kedenTranzitVhPunkt')">
+        <div class="subsection-title">{{ t('transit.mestoVremennogoHraneniya') }}</div>
         <div class="field-row">
           <div class="field f-grow">
-            <div class="field-label">Место временного хранения (код/наименование)</div>
+            <div class="field-label">{{ t('transit.mestoVremennogoHraneniyaKod') }}</div>
             <a-input v-model:value="transit.tempStoragePlace" size="small" :disabled="readonly" placeholder="—" />
           </div>
         </div>
 
-        <div class="subsection-title">Пункт назначения</div>
+        <div class="subsection-title">{{ t('transit.punktNaznacheniya') }}</div>
         <div class="field-row">
           <div class="field f-grow">
-            <div class="field-label">Пункт назначения</div>
+            <div class="field-label">{{ t('transit.punktNaznacheniya') }}</div>
             <a-input v-model:value="transit.destinationPlace" size="small" :disabled="readonly" placeholder="—" />
           </div>
         </div>
 
-        <div class="subsection-title">Лицо, представившее предварительную информацию</div>
+        <div class="subsection-title">{{ t('transit.licoPredstavivsheePredvaritelnuyuInformaciyu') }}</div>
         <div class="field-row">
           <div class="field">
-            <div class="field-label">Тип лица</div>
+            <div class="field-label">{{ t('transit.tipLica') }}</div>
             <a-select v-model:value="transit.submitterType" size="small" :disabled="readonly"
               allow-clear style="width: 100%" :options="subjectTypeOptions" />
           </div>
           <div class="field">
-            <div class="field-label">БИН/ИИН</div>
+            <div class="field-label">{{ t('transit.binIin') }}</div>
             <a-input v-model:value="transit.submitterBin" size="small" :disabled="readonly" placeholder="—" />
           </div>
           <div class="field f-grow">
-            <div class="field-label">Наименование</div>
+            <div class="field-label">{{ t('transit.naimenovanie') }}</div>
             <a-input v-model:value="transit.submitterName" size="small" :disabled="readonly" placeholder="—" />
           </div>
         </div>
 
-        <div class="subsection-title">Грузовые операции ({{ items.length }})</div>
+        <div class="subsection-title">{{ t('transit.gruzovyeOperacii', { n: items.length }) }}</div>
         <div class="cargo-ops-header">
-          <a-button v-if="!readonly" type="dashed" size="small" @click="addItem">+ Операция</a-button>
+          <a-button v-if="!readonly" type="dashed" size="small" @click="addItem">{{ t('transit.operaciya') }}</a-button>
         </div>
-        <div v-if="items.length === 0" class="empty-state">Нет грузовых операций</div>
+        <div v-if="items.length === 0" class="empty-state">{{ t('transit.netGruzovyhOperaciy') }}</div>
         <div v-for="(item, idx) in items" :key="idx" class="row-card">
           <div class="field">
-            <div class="field-label">Вид операции</div>
+            <div class="field-label">{{ t('transit.vidOperacii') }}</div>
             <a-select v-model:value="item.operationTypeCode" size="small" :disabled="readonly"
               allow-clear style="width: 100%" :options="cargoOperationOptions" @change="emitChange" />
           </div>
@@ -57,10 +57,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import type { ReestrCargoOperationInput, ReestrTransitFields } from '@/types/api'
 import { CARGO_OPERATION_OPTIONS, SUBJECT_TYPE_OPTIONS } from './reestrLocalOptions'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: ReestrCargoOperationInput[]

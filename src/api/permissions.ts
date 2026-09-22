@@ -1,4 +1,5 @@
 import apiClient from './client'
+import { i18n } from '@/i18n'
 
 // Матрица прав и мультироли (спека 2026-09-21).
 export interface PermissionInfo { code: string; label: string }
@@ -38,4 +39,8 @@ export const BUSINESS_ROLE_LABELS: Record<string, string> = {
   client: 'Клиент',
   expeditor: 'Экспедитор',
 }
-export const businessRoleLabel = (code: string) => BUSINESS_ROLE_LABELS[(code || '').toLowerCase()] ?? code
+// Локализованная подпись (enum.businessRole.*), RU-константы выше — запасной вариант.
+export const businessRoleLabel = (code: string) => {
+  const c = (code || '').toLowerCase()
+  return i18n.global.te(`enum.businessRole.${c}`) ? i18n.global.t(`enum.businessRole.${c}`) : (BUSINESS_ROLE_LABELS[c] ?? code)
+}

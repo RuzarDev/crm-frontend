@@ -1,37 +1,37 @@
 <template>
   <div v-if="declaration" class="keden-page crm-page">
     <PageHeader
-      kicker="ИС «KEDEN» · Декларация"
+      :kicker="t('transit.isKedenDeklaraciya')"
       :title="declaration.registrationNumber || declaration.kedenId"
       :subtitle="typeLabel"
     >
       <template #actions>
-        <a-button @click="router.push('/keden')"><LeftOutlined /> К списку</a-button>
-        <a-button :loading="loading" @click="reload"><ReloadOutlined /> Обновить</a-button>
+        <a-button @click="router.push('/keden')"><LeftOutlined /> {{ t('transit.kSpisku') }}</a-button>
+        <a-button :loading="loading" @click="reload"><ReloadOutlined /> {{ t('transit.obnovit') }}</a-button>
       </template>
     </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
       <div class="status-row">
         <span class="status-chip" :class="statusClass">{{ declaration.statusName || '—' }}</span>
-        <span class="synced-note">Синхронизировано: {{ formatDate(declaration.syncedAtUtc) }}</span>
+        <span class="synced-note">{{ t('transit.sinhronizirovano', { date: formatDate(declaration.syncedAtUtc) }) }}</span>
       </div>
 
       <div class="meta-grid">
-        <div class="meta-item"><span>Номер декларации</span><strong>{{ declaration.registrationNumber || '—' }}</strong></div>
-        <div class="meta-item"><span>ID в KEDEN</span><strong>{{ declaration.kedenId }}</strong></div>
-        <div class="meta-item"><span>Тип</span><strong>{{ typeLabel }}</strong></div>
-        <div class="meta-item"><span>Референс-код</span><strong>{{ declaration.referenceCode || '—' }}</strong></div>
-        <div class="meta-item"><span>Декларант</span><strong>{{ declaration.declarantName || '—' }}</strong></div>
-        <div class="meta-item"><span>БИН/ИИН декларанта</span><strong>{{ declaration.declarantXin || '—' }}</strong></div>
-        <div class="meta-item"><span>Таможенный пост</span><strong>{{ declaration.customsPost || '—' }}</strong></div>
-        <div class="meta-item"><span>Дата регистрации</span><strong>{{ formatDate(declaration.registeredDateTimeUtc) }}</strong></div>
-        <div class="meta-item"><span>Дата статуса</span><strong>{{ formatDate(declaration.statusDateTimeUtc) }}</strong></div>
+        <div class="meta-item"><span>{{ t('transit.nomerDeklaracii') }}</span><strong>{{ declaration.registrationNumber || '—' }}</strong></div>
+        <div class="meta-item"><span>{{ t('transit.idVKeden') }}</span><strong>{{ declaration.kedenId }}</strong></div>
+        <div class="meta-item"><span>{{ t('transit.tip') }}</span><strong>{{ typeLabel }}</strong></div>
+        <div class="meta-item"><span>{{ t('transit.referensKod') }}</span><strong>{{ declaration.referenceCode || '—' }}</strong></div>
+        <div class="meta-item"><span>{{ t('transit.deklarant') }}</span><strong>{{ declaration.declarantName || '—' }}</strong></div>
+        <div class="meta-item"><span>{{ t('transit.binIinDeklaranta') }}</span><strong>{{ declaration.declarantXin || '—' }}</strong></div>
+        <div class="meta-item"><span>{{ t('transit.tamozhennyyPost') }}</span><strong>{{ declaration.customsPost || '—' }}</strong></div>
+        <div class="meta-item"><span>{{ t('transit.dataRegistracii') }}</span><strong>{{ formatDate(declaration.registeredDateTimeUtc) }}</strong></div>
+        <div class="meta-item"><span>{{ t('transit.dataStatusa') }}</span><strong>{{ formatDate(declaration.statusDateTimeUtc) }}</strong></div>
       </div>
     </a-card>
 
     <a-card class="crm-shell-card" :bordered="false">
-      <template #title>Полные данные из KEDEN</template>
+      <template #title>{{ t('transit.polnyeDannyeIzKeden') }}</template>
       <pre class="raw-json">{{ rawJson }}</pre>
     </a-card>
   </div>
@@ -39,12 +39,15 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { LeftOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import { kedenApi, KEDEN_DECLARATION_TYPES, type KedenDeclarationDetailDto } from '@/api/keden'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()

@@ -1,26 +1,26 @@
 <template>
   <div class="tnved-news-view crm-page">
-    <PageHeader kicker="ТН ВЭД ЕАЭС" title="Новости" subtitle="Актуальные новости таможенного регулирования." />
+    <PageHeader :kicker="t('sales.tnVedEaes')" :title="t('sales.novosti')" :subtitle="t('sales.aktualnyeNovostiTamozhennogoRegulirovaniya')" />
 
     <a-card class="crm-shell-card" :bordered="false">
       <div class="toolbar">
         <a-input-search
           v-model:value="filterQuery"
-          placeholder="Поиск по заголовку…"
+          :placeholder="t('sales.poiskPoZagolovku')"
           allow-clear
           style="max-width:360px"
         />
-        <a-checkbox v-model:checked="onlyImportant" style="margin-left:12px">Только важные</a-checkbox>
+        <a-checkbox v-model:checked="onlyImportant" style="margin-left:12px">{{ t('sales.tolkoVazhnye') }}</a-checkbox>
       </div>
 
       <a-spin :spinning="loading">
-        <div v-if="!loading && filtered.length === 0" class="empty-hint">Нет новостей</div>
+        <div v-if="!loading && filtered.length === 0" class="empty-hint">{{ t('sales.netNovostey') }}</div>
 
         <div class="news-list">
           <div v-for="item in filtered" :key="item.url + item.title" class="news-item" :class="{ important: item.isImportant }">
             <div class="news-meta">
               <a-tag :color="typeColor(item.publicationType)" style="font-size:11px">{{ item.publicationType }}</a-tag>
-              <a-tag v-if="item.isImportant" color="red" style="font-size:11px">Важно</a-tag>
+              <a-tag v-if="item.isImportant" color="red" style="font-size:11px">{{ t('sales.vazhno') }}</a-tag>
               <span class="news-date">{{ fmtDate(item.itemDate) }}</span>
             </div>
             <a class="news-title" :href="item.url" target="_blank" rel="noopener">{{ item.title }}</a>
@@ -32,10 +32,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, computed, onMounted } from 'vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedNewsDto } from '@/types/api'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const news = ref<TnvedNewsDto[]>([])
 const loading = ref(false)

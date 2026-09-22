@@ -7,17 +7,15 @@
       accept=".pdf,.xlsx"
     >
       <a-button size="small" :loading="busy">
-        <UploadOutlined />
-        Загрузить инвойс
-      </a-button>
+        <UploadOutlined /> {{ t('transit.zagruzitInvoys') }} </a-button>
     </a-upload>
 
     <a-modal
       v-model:open="reviewOpen"
-      title="Товары из инвойса"
+      :title="t('transit.tovaryIzInvoysa')"
       width="820px"
-      ok-text="Применить"
-      cancel-text="Отмена"
+      :ok-text="t('transit.primenit')"
+      :cancel-text="t('transit.otmena')"
       :ok-button-props="{ disabled: items.length === 0 }"
       @ok="handleApply"
       @cancel="reviewOpen = false"
@@ -25,23 +23,23 @@
       <template v-if="result">
         <a-space style="margin-bottom: 12px">
           <a-tag :color="result.aiUsed ? 'blue' : 'green'">
-            {{ result.aiUsed ? 'Распознано ИИ' : 'По шаблону' }}
+            {{ result.aiUsed ? t('transit.raspoznanoIi') : t('transit.poShablonu') }}
           </a-tag>
           <a-tag v-if="result.confidence != null">
-            Уверенность: {{ Math.round(result.confidence * 100) }}%
+            {{ t('transit.uverennost', { pct: Math.round(result.confidence * 100) }) }}
           </a-tag>
         </a-space>
 
         <a-alert
           v-if="result.status === 'needsManualEntry' || result.status === 'error'"
           type="warning"
-          message="Автораспознавание не удалось — добавьте позиции вручную"
+          :message="t('transit.avtoraspoznavanieNeUdalos')"
           show-icon
           style="margin-bottom: 12px"
         />
 
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-          <span style="font-size: 13px; font-weight: 600; color: var(--atg-charcoal);">Валюта:</span>
+          <span style="font-size: 13px; font-weight: 600; color: var(--atg-charcoal);">{{ t('transit.valyuta2') }}</span>
           <a-input v-model:value="currency" style="width: 100px;" size="small" placeholder="USD" />
         </div>
 
@@ -59,7 +57,7 @@
             <template v-else-if="column.dataIndex === 'tnvedCode'">
               <a-input v-model:value="record.tnvedCode" size="small" placeholder="0000000000" />
               <div v-if="record.deprecation" style="font-size: 11px; color: #d46b08; margin-top: 2px;">
-                Код устарел → {{ record.deprecation.replacementCodes.join(', ') }}
+                {{ t('transit.kodUstarel', { codes: record.deprecation.replacementCodes.join(', ') }) }}
               </div>
             </template>
             <template v-else-if="column.dataIndex === 'customsValue'">
@@ -76,19 +74,22 @@
             </template>
           </template>
         </a-table>
-        <a-button type="dashed" block style="margin-top: 8px" @click="addItem">+ Добавить позицию</a-button>
+        <a-button type="dashed" block style="margin-top: 8px" @click="addItem">{{ t('transit.dobavitPoziciyu') }}</a-button>
       </template>
     </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ref, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
 import { CloseOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { invoiceApi } from '@/api/invoice'
 import type { ExtractionResultDto, ReestrGoodsItemInput, TnvedDeprecationWarningDto } from '@/types/api'
+
+const { t } = useI18n()
 
 interface ReviewItem {
   __key: number
@@ -115,23 +116,23 @@ const result = ref<ExtractionResultDto | null>(null)
 const currency = ref('USD')
 const items = ref<ReviewItem[]>([])
 
-const columns = [
-  { title: 'Наименование', dataIndex: 'description', width: 180 },
-  { title: 'Код ТНВЭД', dataIndex: 'tnvedCode', width: 160 },
-  { title: 'Сумма', dataIndex: 'customsValue', width: 110 },
-  { title: 'Брутто, кг', dataIndex: 'grossWeightKg', width: 110 },
-  { title: 'Кол-во', dataIndex: 'quantity', width: 100 },
-  { title: '', dataIndex: 'actions', width: 60 },
-]
+const columns = computed(() => ([
 
+  { title: t('transit.naimenovanie'), dataIndex: 'description', width: 180 },
+  { title: t('transit.kodTnved'), dataIndex: 'tnvedCode', width: 160 },
+  { title: t('transit.summa'), dataIndex: 'customsValue', width: 110 },
+  { title: t('transit.bruttoKg'), dataIndex: 'grossWeightKg', width: 110 },
+  { title: t('transit.kolVo'), dataIndex: 'quantity', width: 100 },
+  { title: '', dataIndex: 'actions', width: 60 },
+]))
 const onFile: UploadProps['beforeUpload'] = (file) => {
   const name = file.name.toLowerCase()
   if (!name.endsWith('.pdf') && !name.endsWith('.xlsx')) {
-    message.error('Допустимы только PDF и XLSX')
+    message.error(t('transit.dopustimyTolkoPdfI'))
     return false
   }
   if (file.size > 10 * 1024 * 1024) {
-    message.error('Файл превышает 10 МБ')
+    message.error(t('transit.faylPrevyshaet10Mb'))
     return false
   }
   void run(file as File)
@@ -155,7 +156,7 @@ const run = async (file: File) => {
     }))
     reviewOpen.value = true
   } catch {
-    message.error('Не удалось распознать инвойс')
+    message.error(t('transit.neUdalosRaspoznatInvoys'))
   } finally {
     busy.value = false
   }

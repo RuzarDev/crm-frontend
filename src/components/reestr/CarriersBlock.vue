@@ -3,12 +3,12 @@
 <template>
   <div class="reestr-block">
     <a-collapse ghost>
-      <a-collapse-panel key="carriers" :header="`КЕДЕН-транзит: Перевозчики и представители (${items.length})`">
+      <a-collapse-panel key="carriers" :header="t('transit.kedenTranzitHdr', { title: t('transit.perevozchikiIPredstaviteli'), n: items.length })">
         <template #extra>
-          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">+ Перевозчик</a-button>
+          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">{{ t('transit.perevozchik') }}</a-button>
         </template>
 
-        <div v-if="items.length === 0" class="empty-state">Нет перевозчиков/представителей</div>
+        <div v-if="items.length === 0" class="empty-state">{{ t('transit.netPerevozchikovPredstaviteley') }}</div>
 
         <div v-for="(item, idx) in items" :key="idx" class="row-card">
           <div class="row-top">
@@ -17,27 +17,27 @@
           </div>
           <div class="field-row">
             <div class="field">
-              <div class="field-label">Роль</div>
+              <div class="field-label">{{ t('transit.rol') }}</div>
               <a-select v-model:value="item.role" size="small" :disabled="readonly"
                 style="width: 100%" :options="roleOptions" @change="emitChange" />
             </div>
             <div class="field">
-              <div class="field-label">Тип лица</div>
+              <div class="field-label">{{ t('transit.tipLica') }}</div>
               <a-select v-model:value="item.subjectType" size="small" :disabled="readonly"
                 allow-clear style="width: 100%" :options="subjectTypeOptions" @change="emitChange" />
             </div>
             <div class="field">
-              <div class="field-label">БИН/ИИН</div>
+              <div class="field-label">{{ t('transit.binIin') }}</div>
               <a-input v-model:value="item.bin" size="small" :disabled="readonly" placeholder="—" @change="emitChange" />
             </div>
           </div>
           <div class="field-row">
             <div class="field f-grow">
-              <div class="field-label">Наименование</div>
+              <div class="field-label">{{ t('transit.naimenovanie') }}</div>
               <a-input v-model:value="item.name" size="small" :disabled="readonly" placeholder="—" @change="emitChange" />
             </div>
             <div class="field">
-              <div class="field-label">Страна</div>
+              <div class="field-label">{{ t('transit.strana') }}</div>
               <a-select v-model:value="item.countryCode" size="small" :disabled="readonly"
                 show-search allow-clear style="width: 100%" :options="countryOptions"
                 :filter-option="filterOption" placeholder="KZ / CN…" @change="emitChange" />
@@ -45,7 +45,7 @@
           </div>
           <div class="field-row">
             <div class="field">
-              <div class="field-label">Телефон</div>
+              <div class="field-label">{{ t('transit.telefon') }}</div>
               <a-input v-model:value="item.phone" size="small" :disabled="readonly" placeholder="—" @change="emitChange" />
             </div>
             <div class="field">
@@ -60,11 +60,14 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { onMounted, ref, watch } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import type { ReestrCarrierInput } from '@/types/api'
 import { referencesApi } from '@/api/references'
 import { CARRIER_ROLE_OPTIONS, SUBJECT_TYPE_OPTIONS } from './reestrLocalOptions'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: ReestrCarrierInput[]
@@ -106,7 +109,7 @@ function emitChange() {
 
 function addItem() {
   items.value.push({
-    role: 'Перевозчик',
+    role: t('transit.perevozchik2'),
     subjectType: null,
     bin: null,
     name: null,

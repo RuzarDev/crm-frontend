@@ -1,9 +1,9 @@
 <template>
   <div class="my-documents-view crm-page">
     <PageHeader
-      kicker="Клиентский кабинет"
-      title="Мои документы"
-      subtitle="Файлы по контейнерам, декларациям и брокерским документам с быстрым доступом к скачиванию."
+      :kicker="t('transit.klientskiyKabinet')"
+      :title="t('transit.moiDokumenty')"
+      :subtitle="t('transit.faylyPoKonteyneramDeklaraciyam')"
     />
 
     <a-card class="crm-shell-card" :bordered="false">
@@ -11,7 +11,7 @@
         <div class="crm-toolbar crm-toolbar-surface">
           <a-input
             v-model:value="search"
-            placeholder="Поиск по файлу или контейнеру…"
+            :placeholder="t('transit.poiskPoFayluIli')"
             allow-clear
             style="width: 320px; max-width: 100%"
             @pressEnter="handleSearch"
@@ -24,7 +24,7 @@
           <a-select
             v-model:value="sectionFilter"
             allow-clear
-            placeholder="Все секции"
+            :placeholder="t('transit.vseSekcii')"
             style="width: 200px"
             :options="sectionOptions"
             @change="handleFilterChange"
@@ -42,7 +42,7 @@
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'section'">
-              {{ record.section === 'client' ? 'Клиент' : 'Брокер' }}
+              {{ record.section === 'client' ? t('transit.klient') : t('transit.broker') }}
             </template>
             <template v-else-if="column.key === 'reestrStatus'">
               <ReestrStatusCell :status="dtoStatusToEntryStatus(record.reestrStatus)" />
@@ -55,12 +55,8 @@
             </template>
             <template v-else-if="column.key === 'actions'">
               <a-space size="small">
-                <a-button type="link" size="small" @click="handleDownload(record)">
-                  Скачать
-                </a-button>
-                <a-button type="link" size="small" @click="openDeclaration(record)">
-                  Декларация
-                </a-button>
+                <a-button type="link" size="small" @click="handleDownload(record)"> {{ t('transit.skachat') }} </a-button>
+                <a-button type="link" size="small" @click="openDeclaration(record)"> {{ t('transit.deklaraciya') }} </a-button>
               </a-space>
             </template>
           </template>
@@ -80,6 +76,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref } from 'vue'
 import dayjs from 'dayjs'
 import type { TableProps } from 'ant-design-vue'
@@ -90,6 +87,8 @@ import ReestrStatusCell from '@/components/ReestrStatusCell.vue'
 import ReestrForm from '@/components/ReestrForm.vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const items = ref<MyReestrDocumentListItem[]>([])
@@ -102,27 +101,27 @@ const sectionFilter = ref<ReestrDocumentSection | null>(null)
 const declarationModalOpen = ref(false)
 const selectedEntry = ref<ReestrEntry | null>(null)
 
-const sectionOptions = [
-  { value: 'client', label: 'Документы клиента' },
-  { value: 'broker', label: 'Документы брокера' },
-]
+const sectionOptions = computed(() => ([
 
-const columns = [
-  { title: 'Контейнер', dataIndex: 'container', key: 'container', width: 140, ellipsis: true },
-  { title: 'Статус', key: 'reestrStatus', width: 140 },
-  { title: 'Секция', key: 'section', width: 120 },
-  { title: 'Файл', dataIndex: 'originalFileName', key: 'originalFileName', ellipsis: true },
-  { title: 'Размер', key: 'sizeBytes', width: 90 },
-  { title: 'Загружен', key: 'createdAtUtc', width: 150 },
-  { title: 'Действия', key: 'actions', width: 180, fixed: 'right' as const },
-]
+  { value: 'client', label: t('transit.dokumentyKlienta') },
+  { value: 'broker', label: t('transit.dokumentyBrokera') },
+]))
+const columns = computed(() => ([
 
+  { title: t('transit.konteyner'), dataIndex: 'container', key: 'container', width: 140, ellipsis: true },
+  { title: t('transit.status'), key: 'reestrStatus', width: 140 },
+  { title: t('transit.sekciya'), key: 'section', width: 120 },
+  { title: t('transit.fayl'), dataIndex: 'originalFileName', key: 'originalFileName', ellipsis: true },
+  { title: t('transit.razmer'), key: 'sizeBytes', width: 90 },
+  { title: t('transit.zagruzhen'), key: 'createdAtUtc', width: 150 },
+  { title: t('transit.deystviya'), key: 'actions', width: 180, fixed: 'right' as const },
+]))
 const pagination = computed(() => ({
   current: currentPage.value,
   pageSize: pageSize.value,
   total: totalCount.value,
   showSizeChanger: true,
-  showTotal: (total: number) => `Всего: ${total}`,
+  showTotal: (total: number) => t('transit.vsego', { n: total }),
   pageSizeOptions: ['10', '20', '50', '100'],
 }))
 
@@ -130,12 +129,12 @@ const formatDate = (iso: string) => dayjs(iso).format('DD.MM.YYYY HH:mm')
 
 const formatSize = (bytes: number) => {
   if (bytes < 1024) {
-    return `${bytes} Б`
+    return `${bytes} ${t('transit.b')}`
   }
   if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} КБ`
+    return `${(bytes / 1024).toFixed(1)} ${t('transit.kb')}`
   }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} ${t('transit.mb')}`
 }
 
 const fetchList = async () => {

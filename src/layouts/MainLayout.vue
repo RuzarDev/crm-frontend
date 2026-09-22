@@ -57,7 +57,7 @@
           <LogoutOutlined />
           <span class="logout-label">{{ t('header.logout') }}</span>
         </a-button>
-        <a-button class="menu-toggle-btn" @click="mobileNavOpen = true" title="Меню">
+        <a-button class="menu-toggle-btn" @click="mobileNavOpen = true" :title="t('misc.menyu')">
           <MenuOutlined />
         </a-button>
       </div>

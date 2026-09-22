@@ -1,4 +1,5 @@
 import dayjs from 'dayjs'
+import { i18n } from '@/i18n'
 import type {
   ReestrColumnKey,
   ReestrEntry,
@@ -54,16 +55,20 @@ export const REESTR_TRANSIT_DEFAULTS: ReestrTransitFields = {
   submitterName: null,
 }
 
-export const REESTR_STATUS_OPTIONS: { value: ReestrEntryStatus; label: string }[] = [
-  { value: ReestrEntryStatusValues.InProgress, label: 'В работе' },
-  { value: ReestrEntryStatusValues.Submitted, label: 'Подан' },
-  { value: ReestrEntryStatusValues.Released, label: 'Выпущено' },
-  { value: ReestrEntryStatusValues.ConditionallyReleased, label: 'Условно выпущено' },
-  { value: ReestrEntryStatusValues.Problematic, label: 'Проблемный' },
-  { value: ReestrEntryStatusValues.Rejected, label: 'Отказ' },
-  { value: ReestrEntryStatusValues.Withdrawn, label: 'Отзыв' },
-  { value: ReestrEntryStatusValues.Archived, label: 'Архив' },
+// Подписи статусов — из локали (enum.reestrStatus.*); объект-геттер, чтобы реагировать на смену языка.
+const REESTR_STATUS_KEYS: { value: ReestrEntryStatus; key: string }[] = [
+  { value: ReestrEntryStatusValues.InProgress, key: 'InProgress' },
+  { value: ReestrEntryStatusValues.Submitted, key: 'Submitted' },
+  { value: ReestrEntryStatusValues.Released, key: 'Released' },
+  { value: ReestrEntryStatusValues.ConditionallyReleased, key: 'ConditionallyReleased' },
+  { value: ReestrEntryStatusValues.Problematic, key: 'Problematic' },
+  { value: ReestrEntryStatusValues.Rejected, key: 'Rejected' },
+  { value: ReestrEntryStatusValues.Withdrawn, key: 'Withdrawn' },
+  { value: ReestrEntryStatusValues.Archived, key: 'Archived' },
 ]
+export const reestrStatusOptions = (): { value: ReestrEntryStatus; label: string }[] =>
+  REESTR_STATUS_KEYS.map((s) => ({ value: s.value, label: i18n.global.t(`enum.reestrStatus.${s.key}`) }))
+export const REESTR_STATUS_OPTIONS = reestrStatusOptions()
 
 const dtoStatusFromJson: Record<string, ReestrEntryStatus> = {
   inProgress: ReestrEntryStatusValues.InProgress,
@@ -85,7 +90,8 @@ export function dtoStatusToEntryStatus(raw: ReestrEntryDto['status']): ReestrEnt
 }
 
 export function formatReestrStatus(status: ReestrEntryStatus): string {
-  return REESTR_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? String(status)
+  const s = REESTR_STATUS_KEYS.find((o) => o.value === status)
+  return s ? i18n.global.t(`enum.reestrStatus.${s.key}`) : String(status)
 }
 
 function formatNum(n: number | null | undefined): string | null {

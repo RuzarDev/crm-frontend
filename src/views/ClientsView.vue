@@ -1,23 +1,22 @@
 <template>
   <div class="clients-view crm-page">
     <PageHeader
-      kicker="Клиентский портфель"
-      title="Клиенты"
-      subtitle="Все клиенты: статус аккаунта, подписанные документы, приглашения."
+      :kicker="t('admin.klientskiyPortfel')"
+      :title="t('admin.klienty')"
+      :subtitle="t('admin.vseKlientyStatusAkkaunta')"
     >
       <template #actions>
-        <a-button v-if="canInvite" type="primary" @click="openInvite"><UserAddOutlined /> Пригласить клиента</a-button>
-        <a-button :loading="loading" @click="load">Обновить</a-button>
+        <a-button v-if="canInvite" type="primary" @click="openInvite"><UserAddOutlined /> {{ t('admin.priglasitKlienta') }}</a-button>
+        <a-button :loading="loading" @click="load">{{ t('admin.obnovit') }}</a-button>
         <span v-if="!loading" class="crm-stat-badge">
-          <SolutionOutlined />
-          Всего:&nbsp;<span class="crm-stat-badge-count">{{ clients.length }}</span>
+          <SolutionOutlined /> {{ t('admin.vsegoNbsp') }}<span class="crm-stat-badge-count">{{ clients.length }}</span>
         </span>
       </template>
     </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
       <div class="filters">
-        <a-input v-model:value="search" allow-clear placeholder="Поиск по компании, email, БИН" style="max-width: 320px">
+        <a-input v-model:value="search" allow-clear :placeholder="t('admin.poiskPoKompaniiEmail')" style="max-width: 320px">
           <template #prefix><SearchOutlined /></template>
         </a-input>
         <a-segmented v-model:value="statusFilter" :options="statusFilterOptions" />
@@ -37,76 +36,75 @@
               <div class="client-avatar">{{ getInitial(record.companyName || record.username) }}</div>
               <div>
                 <div class="client-company">{{ record.companyName || '—' }}</div>
-                <div class="client-sub">{{ record.email || record.username }}<span v-if="record.bin"> · БИН {{ record.bin }}</span></div>
+                <div class="client-sub">{{ record.email || record.username }}<span v-if="record.bin"> · {{ t('admin.bin') }} {{ record.bin }}</span></div>
               </div>
             </div>
           </template>
           <template v-else-if="column.key === 'status'">
             <a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag>
             <a-tag v-if="record.status === 'Invited' && record.inviteExpiresAtUtc" :color="isExpired(record.inviteExpiresAtUtc) ? 'error' : 'default'">
-              {{ isExpired(record.inviteExpiresAtUtc) ? 'ссылка истекла' : 'до ' + fmtDate(record.inviteExpiresAtUtc) }}
+              {{ isExpired(record.inviteExpiresAtUtc) ? t('admin.ssylkaIstekla') : t('admin.doDate', { date: fmtDate(record.inviteExpiresAtUtc) }) }}
             </a-tag>
           </template>
           <template v-else-if="column.key === 'docs'">
-            <a-tag :color="record.hasContract ? 'success' : 'default'">Договор</a-tag>
-            <a-tag :color="record.hasPoa ? 'success' : 'default'">Доверенность</a-tag>
+            <a-tag :color="record.hasContract ? 'success' : 'default'">{{ t('admin.dogovor') }}</a-tag>
+            <a-tag :color="record.hasPoa ? 'success' : 'default'">{{ t('admin.doverennost') }}</a-tag>
           </template>
           <template v-else-if="column.key === 'created'">
             {{ fmtDate(record.createdAtUtc) }}
           </template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
-              <a-button v-if="canInvite && record.status === 'Invited'" size="small" @click="reissue(record)">Новая ссылка</a-button>
-              <a-popconfirm v-if="canManage && record.status !== 'Blocked'" title="Заблокировать клиента? Он не сможет войти." ok-text="Заблокировать" cancel-text="Отмена" @confirm="block(record)">
-                <a-button size="small" danger>Заблокировать</a-button>
+              <a-button v-if="canInvite && record.status === 'Invited'" size="small" @click="reissue(record)">{{ t('admin.novayaSsylka') }}</a-button>
+              <a-popconfirm v-if="canManage && record.status !== 'Blocked'" :title="t('admin.zablokirovatKlientaOnNe')" :ok-text="t('admin.zablokirovat')" :cancel-text="t('admin.otmena')" @confirm="block(record)">
+                <a-button size="small" danger>{{ t('admin.zablokirovat') }}</a-button>
               </a-popconfirm>
-              <a-button v-if="canManage && record.status === 'Blocked'" size="small" @click="unblock(record)">Разблокировать</a-button>
+              <a-button v-if="canManage && record.status === 'Blocked'" size="small" @click="unblock(record)">{{ t('admin.razblokirovat') }}</a-button>
             </a-space>
           </template>
         </template>
-        <template #emptyText><a-empty description="Клиентов пока нет" /></template>
+        <template #emptyText><a-empty :description="t('admin.klientovPokaNet')" /></template>
       </a-table>
     </a-card>
 
     <!-- Приглашение -->
-    <a-modal v-model:open="inviteOpen" title="Пригласить клиента" :footer="null" :width="520" @cancel="resetInvite">
+    <a-modal v-model:open="inviteOpen" :title="t('admin.priglasitKlienta')" :footer="null" :width="520" @cancel="resetInvite">
       <template v-if="!inviteResult">
-        <p class="hint">Клиент получит ссылку, по которой сам задаст пароль. Логином будет email.</p>
+        <p class="hint">{{ t('admin.klientPoluchitSsylkuPo') }}</p>
         <a-form layout="vertical">
-          <a-form-item label="Email клиента" required>
+          <a-form-item :label="t('admin.emailKlienta')" required>
             <a-input v-model:value="invite.email" placeholder="client@company.kz" />
           </a-form-item>
-          <a-form-item label="БИН" required>
+          <a-form-item :label="t('admin.bin')" required>
             <div class="bin-row">
               <a-input v-model:value="invite.bin" placeholder="12 цифр" :maxlength="12" />
               <BinLookupButton :bin="invite.bin" size="middle" @found="(c) => { invite.companyName = c.nameRu ?? c.nameKz ?? invite.companyName }" />
             </div>
           </a-form-item>
-          <a-form-item label="Наименование компании">
+          <a-form-item :label="t('admin.naimenovanieKompanii')">
             <a-input v-model:value="invite.companyName" placeholder="ТОО «…»" />
           </a-form-item>
-          <a-form-item label="Телефон">
+          <a-form-item :label="t('admin.telefon')">
             <a-input v-model:value="invite.phone" placeholder="+7 700 000 00 00" />
           </a-form-item>
-          <a-button type="primary" :loading="inviting" :disabled="!invite.email || invite.bin.replace(/\D/g, '').length !== 12" @click="sendInvite">
-            Создать приглашение
-          </a-button>
+          <a-button type="primary" :loading="inviting" :disabled="!invite.email || invite.bin.replace(/\D/g, '').length !== 12" @click="sendInvite"> {{ t('admin.sozdatPriglashenie') }} </a-button>
         </a-form>
       </template>
       <template v-else>
-        <a-alert type="success" show-icon :message="inviteResult.reissued ? 'Ссылка перевыпущена' : 'Приглашение создано'"
-          description="Скопируйте ссылку и отправьте клиенту (WhatsApp, почта). Действует 7 дней." />
+        <a-alert type="success" show-icon :message="inviteResult.reissued ? t('admin.ssylkaPerevypuschena') : t('admin.priglashenieSozdano')"
+          :description="t('admin.skopiruyteSsylkuIOtpravte')" />
         <div class="invite-link">
           <a-input :value="inviteUrl" readonly />
-          <a-button type="primary" @click="copyLink"><CopyOutlined /> Скопировать</a-button>
+          <a-button type="primary" @click="copyLink"><CopyOutlined /> {{ t('admin.skopirovat') }}</a-button>
         </div>
-        <a-button type="link" @click="resetInvite">Пригласить ещё</a-button>
+        <a-button type="link" @click="resetInvite">{{ t('admin.priglasitEsche') }}</a-button>
       </template>
     </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { SolutionOutlined, SearchOutlined, UserAddOutlined, CopyOutlined } from '@ant-design/icons-vue'
@@ -114,6 +112,8 @@ import PageHeader from '@/components/PageHeader.vue'
 import BinLookupButton from '@/components/BinLookupButton.vue'
 import { useAuthStore } from '@/stores/auth'
 import { clientsOnboardingApi, type ClientOnboardingRow, type ClientStatus, type InviteClientResponse } from '@/api/clientsOnboarding'
+
+const { t } = useI18n()
 
 const authStore = useAuthStore()
 const canInvite = computed(() => authStore.hasPermission('clients.invite'))
@@ -123,22 +123,22 @@ const loading = ref(false)
 const clients = ref<ClientOnboardingRow[]>([])
 const search = ref('')
 const statusFilter = ref<'all' | ClientStatus | 'nodocs'>('all')
-const statusFilterOptions = [
-  { label: 'Все', value: 'all' },
-  { label: 'Активные', value: 'Active' },
-  { label: 'Приглашены', value: 'Invited' },
-  { label: 'Без документов', value: 'nodocs' },
-  { label: 'Заблокированы', value: 'Blocked' },
-]
+const statusFilterOptions = computed(() => ([
 
-const columns = [
-  { title: 'Клиент', key: 'company', width: 320 },
-  { title: 'Статус', key: 'status', width: 220 },
-  { title: 'Документы', key: 'docs', width: 200 },
-  { title: 'Создан', key: 'created', width: 110 },
+  { label: t('admin.vse'), value: 'all' },
+  { label: t('admin.aktivnye'), value: 'Active' },
+  { label: t('admin.priglasheny'), value: 'Invited' },
+  { label: t('admin.bezDokumentov'), value: 'nodocs' },
+  { label: t('admin.zablokirovany'), value: 'Blocked' },
+]))
+const columns = computed(() => ([
+
+  { title: t('admin.klient'), key: 'company', width: 320 },
+  { title: t('admin.status'), key: 'status', width: 220 },
+  { title: t('admin.dokumenty'), key: 'docs', width: 200 },
+  { title: t('admin.sozdan'), key: 'created', width: 110 },
   { title: '', key: 'actions', width: 260 },
-]
-
+]))
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
   return clients.value.filter((c) => {
@@ -155,7 +155,7 @@ const load = async () => {
 }
 onMounted(load)
 
-const statusLabel = (s: ClientStatus) => ({ Invited: 'Приглашён', Active: 'Активен', Blocked: 'Заблокирован' })[s] ?? s
+const statusLabel = (s: ClientStatus) => ({ Invited: t('admin.priglashen'), Active: t('admin.aktiven'), Blocked: t('admin.zablokirovan') })[s] ?? s
 const statusColor = (s: ClientStatus) => ({ Invited: 'processing', Active: 'success', Blocked: 'error' })[s] ?? 'default'
 const isExpired = (iso: string) => new Date(iso).getTime() < Date.now()
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ru-RU')
@@ -191,11 +191,11 @@ const reissue = async (row: ClientOnboardingRow) => {
   await sendInvite()
 }
 const copyLink = async () => {
-  try { await navigator.clipboard.writeText(inviteUrl.value); message.success('Ссылка скопирована') } catch { message.warning('Скопируйте ссылку вручную') }
+  try { await navigator.clipboard.writeText(inviteUrl.value); message.success(t('admin.ssylkaSkopirovana')) } catch { message.warning(t('admin.skopiruyteSsylkuVruchnuyu')) }
 }
 
-const block = async (row: ClientOnboardingRow) => { await clientsOnboardingApi.block(row.id); message.success('Клиент заблокирован'); await load() }
-const unblock = async (row: ClientOnboardingRow) => { await clientsOnboardingApi.unblock(row.id); message.success('Клиент разблокирован'); await load() }
+const block = async (row: ClientOnboardingRow) => { await clientsOnboardingApi.block(row.id); message.success(t('admin.klientZablokirovan')); await load() }
+const unblock = async (row: ClientOnboardingRow) => { await clientsOnboardingApi.unblock(row.id); message.success(t('admin.klientRazblokirovan')); await load() }
 </script>
 
 <style scoped>

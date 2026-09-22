@@ -3,20 +3,20 @@
 <template>
   <div class="reestr-block">
     <a-collapse ghost>
-      <a-collapse-panel key="containers" :header="`КЕДЕН-транзит: Контейнеры (${items.length})`">
+      <a-collapse-panel key="containers" :header="t('transit.kedenTranzitHdr', { title: t('transit.konteynery'), n: items.length })">
         <template #extra>
-          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">+ Контейнер</a-button>
+          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">{{ t('transit.konteyner2') }}</a-button>
         </template>
 
-        <div v-if="items.length === 0" class="empty-state">Нет контейнеров</div>
+        <div v-if="items.length === 0" class="empty-state">{{ t('transit.netKonteynerov') }}</div>
 
         <div v-for="(item, idx) in items" :key="idx" class="field-row">
           <div class="field">
-            <div class="field-label">№ контейнера</div>
+            <div class="field-label">{{ t('transit.konteynera') }}</div>
             <a-input v-model:value="item.containerNumber" size="small" :disabled="readonly" placeholder="—" @change="emitChange" />
           </div>
           <div class="field f-grow">
-            <div class="field-label">Примечание</div>
+            <div class="field-label">{{ t('transit.primechanie') }}</div>
             <a-input v-model:value="item.note" size="small" :disabled="readonly" placeholder="—" @change="emitChange" />
           </div>
           <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /></a-button>
@@ -27,9 +27,12 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import type { ReestrContainerInput } from '@/types/api'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: ReestrContainerInput[]

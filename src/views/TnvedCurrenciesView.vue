@@ -1,10 +1,10 @@
 <template>
   <div class="tnved-currencies-view crm-page">
-    <PageHeader kicker="ТН ВЭД ЕАЭС" title="Курсы валют" subtitle="Официальные курсы для таможенных расчётов." />
+    <PageHeader :kicker="t('sales.tnVedEaes')" :title="t('sales.kursyValyut')" :subtitle="t('sales.oficialnyeKursyDlyaTamozhennyh')" />
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-spin :spinning="loading">
-        <div v-if="!loading && currencies.length === 0" class="empty-hint">Данные о курсах не найдены</div>
+        <div v-if="!loading && currencies.length === 0" class="empty-hint">{{ t('sales.dannyeOKursahNe') }}</div>
 
         <a-table
           v-else
@@ -30,7 +30,7 @@
         </a-table>
 
         <div v-if="updatedAt" class="footer-note">
-          Обновлено: {{ updatedAt }}
+          {{ t('sales.obnovlenoDate', { d: updatedAt }) }}
         </div>
       </a-spin>
     </a-card>
@@ -38,10 +38,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, computed, onMounted } from 'vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedCurrencyDto } from '@/types/api'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const currencies = ref<TnvedCurrencyDto[]>([])
 const loading = ref(false)
@@ -52,13 +55,13 @@ const updatedAt = computed(() => {
   return fmtDate(new Date(Math.max(...dates)).toISOString())
 })
 
-const columns = [
-  { title: 'Код', key: 'codeLat', dataIndex: 'codeLat', width: 90 },
-  { title: 'Наименование', dataIndex: 'name', key: 'name', width: 360 },
-  { title: 'Курс (за 1 ед.)', key: 'rate', dataIndex: 'rate', width: 160 },
-  { title: 'Обновлено', key: 'updatedAtUtc', dataIndex: 'updatedAtUtc', width: 150 },
-]
+const columns = computed(() => ([
 
+  { title: t('sales.kod'), key: 'codeLat', dataIndex: 'codeLat', width: 90 },
+  { title: t('sales.naimenovanie'), dataIndex: 'name', key: 'name', width: 360 },
+  { title: t('sales.kursZa1Ed'), key: 'rate', dataIndex: 'rate', width: 160 },
+  { title: t('sales.obnovleno'), key: 'updatedAtUtc', dataIndex: 'updatedAtUtc', width: 150 },
+]))
 function fmtRate(rate: number) {
   return new Intl.NumberFormat('ru-KZ', { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(rate)
 }

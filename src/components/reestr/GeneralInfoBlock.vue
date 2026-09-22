@@ -3,37 +3,37 @@
 <template>
   <div class="reestr-block">
     <a-collapse ghost>
-      <a-collapse-panel key="general" header="КЕДЕН-транзит: Общие сведения (гр.1–5)">
+      <a-collapse-panel key="general" :header="t('transit.kedenTranzitObschieSvedeniya')">
         <div class="field-row">
           <div class="field">
-            <div class="field-label">Цель представления</div>
+            <div class="field-label">{{ t('transit.celPredstavleniya') }}</div>
             <a-select v-model:value="transit.purposeCode" size="small" :disabled="readonly"
               show-search allow-clear style="width: 100%" :options="purposeOptions"
               :filter-option="filterOption" placeholder="06" />
           </div>
           <div class="field">
-            <div class="field-label">Таможенный орган отправления</div>
+            <div class="field-label">{{ t('transit.tamozhennyyOrganOtpravleniya') }}</div>
             <a-auto-complete v-model:value="transit.departureCustomsOffice" size="small" :disabled="readonly"
               :options="postOptions" :filter-option="filterOption" style="width: 100%"
-              placeholder="Код/название поста" />
+              :placeholder="t('transit.kodNazvaniePosta')" />
           </div>
         </div>
 
         <div class="field-row">
           <div class="field">
-            <div class="field-label">Способ ввоза</div>
+            <div class="field-label">{{ t('transit.sposobVvoza') }}</div>
             <a-select v-model:value="transit.entryMethodCode" size="small" :disabled="readonly"
               show-search allow-clear style="width: 100%" :options="entryMethodOptions"
               :filter-option="filterOption" placeholder="RW" />
           </div>
           <div class="field">
-            <div class="field-label">Направление перемещения</div>
+            <div class="field-label">{{ t('transit.napravleniePeremescheniya') }}</div>
             <a-select v-model:value="transit.movementDirectionCode" size="small" :disabled="readonly"
               show-search allow-clear style="width: 100%" :options="movementDirectionOptions"
               :filter-option="filterOption" placeholder="ПИ" />
           </div>
           <div class="field">
-            <div class="field-label">Использование как ТД</div>
+            <div class="field-label">{{ t('transit.ispolzovanieKakTd') }}</div>
             <a-select v-model:value="transit.usedAsDeclarationCode" size="small" :disabled="readonly"
               show-search allow-clear style="width: 100%" :options="usedAsDeclarationOptions"
               :filter-option="filterOption" placeholder="СД" />
@@ -42,17 +42,17 @@
 
         <div class="field-row">
           <div class="field">
-            <div class="field-label">Количество товаров</div>
+            <div class="field-label">{{ t('transit.kolichestvoTovarov') }}</div>
             <a-input-number v-model:value="transit.goodsQuantity" size="small" :disabled="readonly"
               :min="0" style="width: 100%" />
           </div>
           <div class="field">
-            <div class="field-label">Количество грузовых мест</div>
+            <div class="field-label">{{ t('transit.kolichestvoGruzovyhMest') }}</div>
             <a-input-number v-model:value="transit.cargoPlacesCount" size="small" :disabled="readonly"
               :min="0" style="width: 100%" />
           </div>
           <div class="field">
-            <div class="field-label">Масса брутто, кг</div>
+            <div class="field-label">{{ t('transit.massaBruttoKg') }}</div>
             <a-input-number v-model:value="transit.grossWeightKg" size="small" :disabled="readonly"
               :min="0" style="width: 100%" />
           </div>
@@ -60,13 +60,13 @@
 
         <div class="field-row">
           <div class="field">
-            <div class="field-label">Страна отправления</div>
+            <div class="field-label">{{ t('transit.stranaOtpravleniya') }}</div>
             <a-select v-model:value="transit.departureCountryCode" size="small" :disabled="readonly"
               show-search allow-clear style="width: 100%" :options="countryOptions"
               :filter-option="filterOption" placeholder="CN" />
           </div>
           <div class="field">
-            <div class="field-label">Страна назначения</div>
+            <div class="field-label">{{ t('transit.stranaNaznacheniya') }}</div>
             <a-select v-model:value="transit.destinationCountryCode" size="small" :disabled="readonly"
               show-search allow-clear style="width: 100%" :options="countryOptions"
               :filter-option="filterOption" placeholder="KZ" />
@@ -75,32 +75,32 @@
 
         <div class="field-row">
           <div class="field">
-            <div class="field-label">Итоговая общая стоимость</div>
+            <div class="field-label">{{ t('transit.itogovayaObschayaStoimost') }}</div>
             <a-input-number v-model:value="transit.totalValue" size="small" :disabled="readonly"
               :min="0" style="width: 100%" />
           </div>
           <div class="field">
-            <div class="field-label">Валюта документа</div>
+            <div class="field-label">{{ t('transit.valyutaDokumenta') }}</div>
             <a-select v-model:value="transit.docCurrencyCode" size="small" :disabled="readonly"
               show-search allow-clear style="width: 100%" :options="currencyOptions"
               :filter-option="filterOption" placeholder="USD" />
           </div>
         </div>
 
-        <div class="subsection-title">Транспортный документ</div>
+        <div class="subsection-title">{{ t('transit.transportnyyDokument') }}</div>
         <div class="field-row">
           <div class="field f-2">
-            <div class="field-label">Вид</div>
+            <div class="field-label">{{ t('transit.vid') }}</div>
             <a-select v-model:value="transit.transportDocTypeCode" size="small" :disabled="readonly"
               show-search allow-clear style="width: 100%" :options="docTypeOptions"
-              :filter-option="filterOption" placeholder="Выберите вид документа" />
+              :filter-option="filterOption" :placeholder="t('transit.vyberiteVidDokumenta')" />
           </div>
           <div class="field">
-            <div class="field-label">Номер</div>
+            <div class="field-label">{{ t('transit.nomer') }}</div>
             <a-input v-model:value="transit.transportDocNumber" size="small" :disabled="readonly" placeholder="—" />
           </div>
           <div class="field" style="flex: 0 0 160px;">
-            <div class="field-label">Дата</div>
+            <div class="field-label">{{ t('transit.data') }}</div>
             <a-date-picker v-model:value="transit.transportDocDate" size="small" :disabled="readonly"
               style="width: 100%" format="DD.MM.YYYY" value-format="YYYY-MM-DD" placeholder="дд.мм.гггг" allow-clear />
           </div>
@@ -111,11 +111,14 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref } from 'vue'
 import type { ReestrTransitFields } from '@/types/api'
 import { EAES_DOC_CODES } from '@/types/api'
 import { referencesApi } from '@/api/references'
 import { useClassifiersStore } from '@/stores/classifiers'
+
+const { t } = useI18n()
 
 defineProps<{
   transit: ReestrTransitFields

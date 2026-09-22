@@ -1,29 +1,25 @@
 <template>
   <div class="users-view crm-page">
     <PageHeader
-      kicker="Команда и доступы"
-      title="Пользователи"
-      subtitle="Управление администраторами, брокерами, клиентами и экспедиторами с привязкой к клиентскому портфелю."
+      :kicker="t('admin.komandaIDostupy')"
+      :title="t('admin.polzovateli')"
+      :subtitle="t('admin.upravlenieAdministratoramiBrokeramiKlientami')"
     >
       <template #actions>
         <a-button v-if="canLinkUsers" @click="openLinkModal">
-          <LinkOutlined />
-          Привязать к клиенту
-        </a-button>
+          <LinkOutlined /> {{ t('admin.privyazatKKlientu') }} </a-button>
         <a-button type="primary" @click="openCreateModal">
-          <PlusOutlined />
-          Добавить пользователя
-        </a-button>
+          <PlusOutlined /> {{ t('admin.dobavitPolzovatelya') }} </a-button>
       </template>
     </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-tabs v-model:activeKey="catalogTab" class="catalog-tabs">
         <!-- Сотрудники — одна вкладка: брокер-декларант, транзит, продажи, бухгалтер… (тип аккаунта не важен, важны роли) -->
-        <a-tab-pane key="administrators" tab="Администраторы" />
-        <a-tab-pane key="staff" tab="Сотрудники" />
-        <a-tab-pane key="clients" tab="Клиенты" />
-        <a-tab-pane key="expeditors" tab="Экспедиторы" />
+        <a-tab-pane key="administrators" :tab="t('admin.administratory')" />
+        <a-tab-pane key="staff" :tab="t('admin.sotrudniki')" />
+        <a-tab-pane key="clients" :tab="t('admin.klienty')" />
+        <a-tab-pane key="expeditors" :tab="t('admin.ekspeditory')" />
       </a-tabs>
 
       <a-table
@@ -58,7 +54,7 @@
             <a-tooltip :title="poaTooltip(record.id)">
               <a-switch size="small" :checked="poaMap[record.id]?.enabled ?? false" :disabled="!canAssignRole" @change="(v: boolean) => togglePoa(record.id, v)" />
             </a-tooltip>
-            <a-tag v-if="poaMap[record.id]?.enabled && !poaMap[record.id]?.complete" color="warning" style="margin-left: 6px">профиль не заполнен</a-tag>
+            <a-tag v-if="poaMap[record.id]?.enabled && !poaMap[record.id]?.complete" color="warning" style="margin-left: 6px">{{ t('admin.profilNeZapolnen') }}</a-tag>
           </template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
@@ -67,56 +63,46 @@
                 type="link"
                 size="small"
                 @click="openBusinessRoleModal(record)"
-              >
-                Роли
-              </a-button>
+              > {{ t('admin.roli') }} </a-button>
               <a-button
                 v-if="catalogTab === 'staff' && record.role === 'broker' && canEditBroker"
                 type="link"
                 size="small"
                 @click="openEditBroker(record as CatalogBrokerRow)"
               >
-                <EditOutlined />
-                Изменить
-              </a-button>
+                <EditOutlined /> {{ t('admin.izmenit') }} </a-button>
               <a-button
                 v-if="catalogTab === 'expeditors' && canEditExpeditor"
                 type="link"
                 size="small"
                 @click="openEditExpeditor(record as CatalogExpeditorRow)"
               >
-                <EditOutlined />
-                Изменить
-              </a-button>
+                <EditOutlined /> {{ t('admin.izmenit') }} </a-button>
               <a-button
                 v-if="canAssignRole"
                 type="link"
                 size="small"
                 @click="openChangeRole(record)"
               >
-                <SwapOutlined />
-                Роль
-              </a-button>
+                <SwapOutlined /> {{ t('admin.rol') }} </a-button>
               <a-popconfirm
                 v-if="isAdmin"
-                title="Сбросить пароль? Старый перестанет работать, новый временный покажется один раз."
-                ok-text="Сбросить"
-                cancel-text="Нет"
+                :title="t('admin.sbrositParolStaryyPerestanet')"
+                :ok-text="t('admin.sbrosit')"
+                :cancel-text="t('admin.net')"
                 @confirm="resetPassword(record)"
               >
-                <a-button type="link" size="small"><KeyOutlined /> Пароль</a-button>
+                <a-button type="link" size="small"><KeyOutlined /> {{ t('admin.parol') }}</a-button>
               </a-popconfirm>
               <a-popconfirm
                 v-if="canDeleteUser(record)"
-                title="Удалить этого пользователя?"
-                ok-text="Да"
-                cancel-text="Нет"
+                :title="t('admin.udalitEtogoPolzovatelya')"
+                :ok-text="t('admin.da')"
+                :cancel-text="t('admin.net')"
                 @confirm="handleDelete(record)"
               >
                 <a-button type="link" danger size="small">
-                  <DeleteOutlined />
-                  Удалить
-                </a-button>
+                  <DeleteOutlined /> {{ t('admin.udalit') }} </a-button>
               </a-popconfirm>
             </a-space>
           </template>
@@ -124,41 +110,41 @@
       </a-table>
     </a-card>
 
-    <a-modal v-model:open="resetOpen" title="Временный пароль" :footer="null">
-      <p>Пользователь <b>{{ resetResult?.username }}</b>. Передайте пароль лично — повторно он не показывается; после входа пользователь сменит его в профиле.</p>
+    <a-modal v-model:open="resetOpen" :title="t('admin.vremennyyParol')" :footer="null">
+      <p>{{ t('admin.polzovatel') }} <b>{{ resetResult?.username }}</b>{{ t('admin.peredayteParolLichnoPovtorno') }}</p>
       <a-input-group compact>
         <a-input :value="resetResult?.temporaryPassword" readonly style="width: calc(100% - 130px); font-family: monospace" />
-        <a-button type="primary" @click="copyTemp">Скопировать</a-button>
+        <a-button type="primary" @click="copyTemp">{{ t('admin.skopirovat') }}</a-button>
       </a-input-group>
     </a-modal>
 
     <a-modal
       v-model:open="modalOpen"
-      title="Новый пользователь"
-      ok-text="Создать"
-      cancel-text="Отмена"
+      :title="t('admin.novyyPolzovatel')"
+      :ok-text="t('admin.sozdat')"
+      :cancel-text="t('admin.otmena')"
       :confirm-loading="saving"
       @ok="handleCreate"
       @cancel="handleCancel"
     >
       <a-form layout="vertical">
-        <a-form-item label="Логин">
-          <a-input v-model:value="form.username" placeholder="Введите логин" />
+        <a-form-item :label="t('admin.login')">
+          <a-input v-model:value="form.username" :placeholder="t('admin.vvediteLogin')" />
         </a-form-item>
-        <a-form-item label="Пароль">
-          <a-input-password v-model:value="form.password" placeholder="Введите пароль" />
+        <a-form-item :label="t('admin.parol')">
+          <a-input-password v-model:value="form.password" :placeholder="t('admin.vvediteParol')" />
         </a-form-item>
-        <a-form-item v-if="catalogTab !== 'staff'" label="Роль">
+        <a-form-item v-if="catalogTab !== 'staff'" :label="t('admin.rol')">
           <a-select
             v-model:value="form.role"
-            placeholder="Выберите роль"
+            :placeholder="t('admin.vyberiteRol')"
             :options="roleOptions"
           />
         </a-form-item>
-        <a-form-item v-if="showBusinessRoleField" label="Бизнес-роль (остальные можно добавить после создания)">
+        <a-form-item v-if="showBusinessRoleField" :label="t('admin.biznesRolOstalnyeMozhno')">
           <a-select
             v-model:value="form.businessRole"
-            placeholder="Выберите бизнес-роль"
+            :placeholder="t('admin.vyberiteBiznesRol')"
             :options="businessRoleOptions"
           />
         </a-form-item>
@@ -167,45 +153,45 @@
 
     <a-modal
       v-model:open="businessRoleModalOpen"
-      title="Бизнес-роли сотрудника"
-      ok-text="Сохранить"
-      cancel-text="Отмена"
+      :title="t('admin.biznesRoliSotrudnika')"
+      :ok-text="t('admin.sohranit')"
+      :cancel-text="t('admin.otmena')"
       :confirm-loading="businessRoleSaving"
       @ok="handleBusinessRoleSave"
       @cancel="businessRoleModalOpen = false"
     >
       <a-form layout="vertical">
-        <a-form-item :label="`Пользователь: ${businessRoleForm.username}`">
+        <a-form-item :label="`${t('admin.polzovatel')}: ${businessRoleForm.username}`">
           <a-select
             v-model:value="businessRoleForm.roles"
             mode="multiple"
-            placeholder="Выберите одну или несколько ролей"
+            :placeholder="t('admin.vyberiteOdnuIliNeskolko')"
             :options="staffRoleOptions"
             :loading="staffRolesLoading"
           />
         </a-form-item>
-        <p class="modal-hint">Права складываются из всех выбранных ролей (см. «Роли и права»). Первая роль в списке — основная. Изменения применяются при следующем входе сотрудника.</p>
+        <p class="modal-hint">{{ t('admin.pravaSkladyvayutsyaIzVseh') }}</p>
       </a-form>
     </a-modal>
 
     <a-modal
       v-model:open="editBrokerModalOpen"
-      title="Редактирование брокера"
-      ok-text="Сохранить"
-      cancel-text="Отмена"
+      :title="t('admin.redaktirovanieBrokera')"
+      :ok-text="t('admin.sohranit')"
+      :cancel-text="t('admin.otmena')"
       :confirm-loading="editBrokerSaving"
       @ok="handleEditBrokerSave"
       @cancel="closeEditBrokerModal"
     >
       <a-form layout="vertical">
-        <a-form-item label="Логин">
-          <a-input v-model:value="editBrokerForm.username" placeholder="Логин" />
+        <a-form-item :label="t('admin.login')">
+          <a-input v-model:value="editBrokerForm.username" :placeholder="t('admin.login')" />
         </a-form-item>
-        <a-form-item label="Клиенты">
+        <a-form-item :label="t('admin.klienty')">
           <a-select
             v-model:value="editBrokerForm.clientIds"
             mode="multiple"
-            placeholder="Клиенты брокера (пусто — отвязать всех)"
+            :placeholder="t('admin.klientyBrokeraPustoOtvyazat')"
             :options="clientLinkOptions"
             show-search
             option-filter-prop="label"
@@ -217,22 +203,22 @@
 
     <a-modal
       v-model:open="editExpeditorModalOpen"
-      title="Редактирование экспедитора"
-      ok-text="Сохранить"
-      cancel-text="Отмена"
+      :title="t('admin.redaktirovanieEkspeditora')"
+      :ok-text="t('admin.sohranit')"
+      :cancel-text="t('admin.otmena')"
       :confirm-loading="editExpeditorSaving"
       @ok="handleEditExpeditorSave"
       @cancel="closeEditExpeditorModal"
     >
       <a-form layout="vertical">
-        <a-form-item label="Логин">
-          <a-input v-model:value="editExpeditorForm.username" placeholder="Логин" />
+        <a-form-item :label="t('admin.login')">
+          <a-input v-model:value="editExpeditorForm.username" :placeholder="t('admin.login')" />
         </a-form-item>
-        <a-form-item label="Клиенты">
+        <a-form-item :label="t('admin.klienty')">
           <a-select
             v-model:value="editExpeditorForm.clientIds"
             mode="multiple"
-            placeholder="Клиенты экспедитора (пусто — отвязать всех)"
+            :placeholder="t('admin.klientyEkspeditoraPustoOtvyazat')"
             :options="clientLinkOptions"
             show-search
             option-filter-prop="label"
@@ -244,21 +230,21 @@
 
     <a-modal
       v-model:open="changeRoleModalOpen"
-      title="Сменить роль пользователя"
-      ok-text="Сохранить"
-      cancel-text="Отмена"
+      :title="t('admin.smenitRolPolzovatelya')"
+      :ok-text="t('admin.sohranit')"
+      :cancel-text="t('admin.otmena')"
       :confirm-loading="changeRoleSaving"
       @ok="handleChangeRoleSave"
       @cancel="changeRoleModalOpen = false"
     >
       <a-form layout="vertical">
-        <a-form-item label="Пользователь">
+        <a-form-item :label="t('admin.polzovatel')">
           <a-input :value="changeRoleForm.username" disabled />
         </a-form-item>
-        <a-form-item label="Новая роль">
+        <a-form-item :label="t('admin.novayaRol')">
           <a-select
             v-model:value="changeRoleForm.role"
-            placeholder="Выберите роль"
+            :placeholder="t('admin.vyberiteRol')"
             :options="roleOptions"
           />
         </a-form-item>
@@ -267,28 +253,28 @@
 
     <a-modal
       v-model:open="linkModalOpen"
-      title="Привязка брокера или экспедитора к клиенту"
-      ok-text="Привязать"
-      cancel-text="Отмена"
+      :title="t('admin.privyazkaBrokeraIliEkspeditora')"
+      :ok-text="t('admin.privyazat')"
+      :cancel-text="t('admin.otmena')"
       :confirm-loading="linkSaving"
       @ok="handleLink"
       @cancel="closeLinkModal"
     >
       <a-form layout="vertical">
-        <a-form-item label="Брокер или экспедитор" required>
+        <a-form-item :label="t('admin.brokerIliEkspeditor')" required>
           <a-select
             v-model:value="linkForm.staffUserId"
-            placeholder="Выберите пользователя"
+            :placeholder="t('admin.vyberitePolzovatelya')"
             :options="staffLinkOptions"
             show-search
             option-filter-prop="label"
             allow-clear
           />
         </a-form-item>
-        <a-form-item label="Клиент" required>
+        <a-form-item :label="t('admin.klient')" required>
           <a-select
             v-model:value="linkForm.clientUserId"
-            placeholder="Выберите клиента"
+            :placeholder="t('admin.vyberiteKlienta')"
             :options="clientLinkOptions"
             show-search
             option-filter-prop="label"
@@ -301,6 +287,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useUsersStore } from '@/stores/users'
 import { useRolesStore } from '@/stores/roles'
@@ -318,6 +305,8 @@ import { message } from 'ant-design-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { permissionsApi, businessRoleLabel } from '@/api/permissions'
 import { usersApi } from '@/api/users'
+
+const { t } = useI18n()
 
 const usersStore = useUsersStore()
 const rolesStore = useRolesStore()
@@ -388,18 +377,18 @@ const openBusinessRoleModal = async (record: CatalogTableRow) => {
 
 const handleBusinessRoleSave = async () => {
   if (!businessRoleForm.roles.length) {
-    message.error('Выберите хотя бы одну роль')
+    message.error(t('admin.vyberiteHotyaByOdnu'))
     return
   }
   businessRoleSaving.value = true
   try {
     await permissionsApi.setUserRoles(businessRoleForm.userId, businessRoleForm.roles)
-    message.success('Роли сохранены. Сотруднику нужно перезайти.')
+    message.success(t('admin.roliSohranenySotrudnikuNuzhno'))
     businessRoleModalOpen.value = false
     await usersStore.fetchCatalogs()
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
-    message.error(err.response?.data?.error ?? 'Не удалось сохранить роли')
+    message.error(err.response?.data?.error ?? t('admin.neUdalosSohranitRoli'))
   } finally {
     businessRoleSaving.value = false
   }
@@ -430,10 +419,10 @@ const resetPassword = async (record: { id: string }) => {
   try {
     resetResult.value = await usersApi.resetPassword(record.id)
     resetOpen.value = true
-  } catch { message.error('Не удалось сбросить пароль') }
+  } catch { message.error(t('admin.neUdalosSbrositParol')) }
 }
 const copyTemp = async () => {
-  try { await navigator.clipboard.writeText(resetResult.value?.temporaryPassword ?? ''); message.success('Скопировано') } catch { /* нет доступа к буферу */ }
+  try { await navigator.clipboard.writeText(resetResult.value?.temporaryPassword ?? ''); message.success(t('admin.skopirovano')) } catch { /* нет доступа к буферу */ }
 }
 
 // Представители по доверенности (кого клиент уполномочивает в доверенности) — переключатель админа.
@@ -446,14 +435,14 @@ const loadPoa = async () => {
 }
 const poaTooltip = (id: string) =>
   poaMap.value[id]?.enabled
-    ? (poaMap.value[id]?.complete ? 'Включён в доверенности клиентов' : 'Включён, но в профиле декларанта нет ФИО/ИИН/удостоверения — в доверенность попадёт неполная строка')
-    : 'Включить сотрудника в доверенности клиентов (представитель)'
+    ? (poaMap.value[id]?.complete ? t('admin.vklyuchenVDoverennostiKlientov') : t('admin.vklyuchenNoVProfile'))
+    : t('admin.vklyuchitSotrudnikaVDoverennosti')
 const togglePoa = async (id: string, enabled: boolean) => {
   try {
     await permissionsApi.setPoaRepresentative(id, enabled)
     await loadPoa()
-    message.success(enabled ? 'Сотрудник добавлен в доверенность' : 'Сотрудник убран из доверенности')
-  } catch { message.error('Не удалось изменить') }
+    message.success(enabled ? t('admin.sotrudnikDobavlenVDoverennost') : t('admin.sotrudnikUbranIzDoverennosti'))
+  } catch { message.error(t('admin.neUdalosIzmenit')) }
 }
 
 const staffLinkOptions = computed(() => {
@@ -545,7 +534,7 @@ const tableColumns = computed(() => {
   const actionsColumn = showActionsColumn
     ? [
         {
-          title: 'Действия',
+          title: t('admin.deystviya'),
           key: 'actions',
           width:
             (catalogTab.value === 'staff' && canEditBroker.value) ||
@@ -557,7 +546,7 @@ const tableColumns = computed(() => {
     : []
 
   const usernameColumn = {
-    title: 'Логин',
+    title: t('admin.login'),
     dataIndex: 'username',
     key: 'username',
     width: 200,
@@ -567,38 +556,38 @@ const tableColumns = computed(() => {
     case 'administrators':
       return [
         usernameColumn,
-        { title: 'Роль', key: 'role', width: 140 },
-        { title: 'Бизнес-роли', key: 'businessRole', width: 140 },
+        { title: t('admin.rol'), key: 'role', width: 140 },
+        { title: t('admin.biznesRoli'), key: 'businessRole', width: 140 },
         ...actionsColumn,
       ]
     case 'staff':
     case 'brokers':
       return [
         usernameColumn,
-        { title: 'Бизнес-роли', key: 'businessRole', width: 260 },
-        { title: 'Клиенты (транзит)', key: 'clients', ellipsis: true },
-        ...(catalogTab.value === 'staff' ? [{ title: 'В доверенности', key: 'poa', width: 150 }] : []),
+        { title: t('admin.biznesRoli'), key: 'businessRole', width: 260 },
+        { title: t('admin.klientyTranzit'), key: 'clients', ellipsis: true },
+        ...(catalogTab.value === 'staff' ? [{ title: t('admin.vDoverennosti'), key: 'poa', width: 150 }] : []),
         ...actionsColumn,
       ]
     case 'clients':
       return [
         usernameColumn,
-        { title: 'Брокеры', key: 'brokers', ellipsis: true },
-        { title: 'Экспедиторы', key: 'expeditors', ellipsis: true },
+        { title: t('admin.brokery'), key: 'brokers', ellipsis: true },
+        { title: t('admin.ekspeditory'), key: 'expeditors', ellipsis: true },
         ...actionsColumn,
       ]
     case 'expeditors':
       return [
         usernameColumn,
-        { title: 'Клиенты', key: 'clients', ellipsis: true },
+        { title: t('admin.klienty'), key: 'clients', ellipsis: true },
         ...actionsColumn,
       ]
     case 'importers':
     case 'salespersons':
       return [
         usernameColumn,
-        { title: 'Роль', key: 'role', width: 140 },
-        { title: 'Бизнес-роли', key: 'businessRole', width: 160 },
+        { title: t('admin.rol'), key: 'role', width: 140 },
+        { title: t('admin.biznesRoli'), key: 'businessRole', width: 160 },
         ...actionsColumn,
       ]
     default:
@@ -650,11 +639,11 @@ const closeLinkModal = () => {
 
 const handleLink = async () => {
   if (!linkForm.staffUserId || !linkForm.clientUserId) {
-    message.error('Выберите брокера/экспедитора и клиента')
+    message.error(t('admin.vyberiteBrokeraEkspeditoraI'))
     return
   }
   if (linkForm.staffUserId === linkForm.clientUserId) {
-    message.error('Нужны два разных пользователя')
+    message.error(t('admin.nuzhnyDvaRaznyhPolzovatelya'))
     return
   }
   linkSaving.value = true
@@ -673,7 +662,7 @@ const handleLink = async () => {
 
 const handleCreate = async () => {
   if (!form.username.trim() || !form.password || !form.role) {
-    message.error('Заполните логин, пароль и роль')
+    message.error(t('admin.zapolniteLoginParolI'))
     return
   }
 
@@ -775,13 +764,13 @@ const openChangeRole = (record: CatalogTableRow) => {
 
 const handleChangeRoleSave = async () => {
   if (!changeRoleTargetId.value || !changeRoleForm.role) {
-    message.error('Выберите роль')
+    message.error(t('admin.vyberiteRol'))
     return
   }
   changeRoleSaving.value = true
   try {
     await usersStore.changeUserRole(changeRoleTargetId.value, changeRoleForm.role)
-    message.success('Роль изменена')
+    message.success(t('admin.rolIzmenena'))
     changeRoleModalOpen.value = false
     await usersStore.fetchCatalogs()
   } catch {

@@ -1,19 +1,15 @@
 <template>
   <div class="notifications-view">
-    <PageHeader kicker="Рабочий стол" title="Уведомления"
-      subtitle="События по вашим заявкам, документам и задачам.">
+    <PageHeader :kicker="t('misc.rabochiyStol')" :title="t('misc.uvedomleniya')"
+      :subtitle="t('misc.sobytiyaPoVashimZayavkam')">
       <template #actions>
-        <a-button :disabled="notificationsStore.unreadCount === 0" @click="handleMarkAllRead">
-          Отметить все как прочитанные
-        </a-button>
+        <a-button :disabled="notificationsStore.unreadCount === 0" @click="handleMarkAllRead"> {{ t('misc.otmetitVseKakProchitannye') }} </a-button>
       </template>
     </PageHeader>
 
     <a-card :bordered="false">
 
-      <div v-if="notificationsStore.items.length === 0" style="text-align: center; padding: 48px; color: #999">
-        Уведомлений нет
-      </div>
+      <div v-if="notificationsStore.items.length === 0" style="text-align: center; padding: 48px; color: #999"> {{ t('misc.uvedomleniyNet') }} </div>
 
       <a-list
         v-else
@@ -35,8 +31,8 @@
                 <a-space size="small">
                   <a-tag v-if="item.relatedCode" color="blue">{{ item.relatedCode }}</a-tag>
                   <span>{{ formatTime(item.createdAtUtc) }}</span>
-                  <a-tag v-if="!item.isRead" color="orange">Не прочитано</a-tag>
-                  <a-tag v-else color="default">Прочитано</a-tag>
+                  <a-tag v-if="!item.isRead" color="orange">{{ t('misc.neProchitano') }}</a-tag>
+                  <a-tag v-else color="default">{{ t('misc.prochitano') }}</a-tag>
                 </a-space>
               </template>
             </a-list-item-meta>
@@ -46,9 +42,7 @@
                 type="link"
                 size="small"
                 @click="handleMarkRead(item.id)"
-              >
-                Прочитать
-              </a-button>
+              > {{ t('misc.prochitat') }} </a-button>
             </template>
           </a-list-item>
         </template>
@@ -58,10 +52,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { onMounted } from 'vue'
 import dayjs from 'dayjs'
 import { useNotificationsStore } from '@/stores/notifications'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const notificationsStore = useNotificationsStore()
 

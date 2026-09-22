@@ -3,12 +3,12 @@
 <template>
   <div class="reestr-block">
     <a-collapse ghost>
-      <a-collapse-panel key="transport-means" :header="`КЕДЕН-транзит: ТС на границе (${items.length})`">
+      <a-collapse-panel key="transport-means" :header="t('transit.kedenTranzitHdr', { title: t('transit.tsNaGranice'), n: items.length })">
         <template #extra>
-          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">+ ТС</a-button>
+          <a-button v-if="!readonly" type="dashed" size="small" @click.stop="addItem">{{ t('transit.ts') }}</a-button>
         </template>
 
-        <div v-if="items.length === 0" class="empty-state">Нет транспортных средств</div>
+        <div v-if="items.length === 0" class="empty-state">{{ t('transit.netTransportnyhSredstv') }}</div>
 
         <div v-for="(item, idx) in items" :key="idx" class="row-card">
           <div class="row-top">
@@ -17,34 +17,34 @@
           </div>
           <div class="field-row">
             <div class="field">
-              <div class="field-label">Вид транспорта</div>
+              <div class="field-label">{{ t('transit.vidTransporta') }}</div>
               <a-select v-model:value="item.transportModeCode" size="small" :disabled="readonly"
                 show-search allow-clear style="width: 100%" :options="transportModeOptions"
                 :filter-option="filterOption" placeholder="20" @change="emitChange" />
             </div>
             <div class="field">
-              <div class="field-label">Цель ввоза</div>
+              <div class="field-label">{{ t('transit.celVvoza') }}</div>
               <a-select v-model:value="item.purposeCode" size="small" :disabled="readonly"
                 show-search allow-clear style="width: 100%" :options="purposeOptions"
                 :filter-option="filterOption" placeholder="1" @change="emitChange" />
             </div>
             <div class="field">
-              <div class="field-label">Тип ТС</div>
+              <div class="field-label">{{ t('transit.tipTs') }}</div>
               <a-select v-model:value="item.vehicleTypeCode" size="small" :disabled="readonly"
                 show-search allow-clear style="width: 100%" :options="vehicleTypeOptions"
                 :filter-option="filterOption" placeholder="201" @change="emitChange" />
             </div>
             <div class="field">
-              <div class="field-label">№ вагона/контейнера</div>
+              <div class="field-label">{{ t('transit.vagonaKonteynera') }}</div>
               <a-input v-model:value="item.wagonOrContainerNumber" size="small" :disabled="readonly"
                 placeholder="—" @change="emitChange" />
             </div>
           </div>
           <div class="flags-row">
-            <a-checkbox v-model:checked="item.isEmpty" :disabled="readonly" @change="emitChange">Порожнее</a-checkbox>
-            <a-checkbox v-model:checked="item.isWagonReturn" :disabled="readonly" @change="emitChange">Возврат</a-checkbox>
-            <a-checkbox v-model:checked="item.inContainer" :disabled="readonly" @change="emitChange">В контейнере</a-checkbox>
-            <a-checkbox v-model:checked="item.matchesTransitVehicle" :disabled="readonly" @change="emitChange">Совпадает с ТС при транзите</a-checkbox>
+            <a-checkbox v-model:checked="item.isEmpty" :disabled="readonly" @change="emitChange">{{ t('transit.porozhnee') }}</a-checkbox>
+            <a-checkbox v-model:checked="item.isWagonReturn" :disabled="readonly" @change="emitChange">{{ t('transit.vozvrat') }}</a-checkbox>
+            <a-checkbox v-model:checked="item.inContainer" :disabled="readonly" @change="emitChange">{{ t('transit.vKonteynere') }}</a-checkbox>
+            <a-checkbox v-model:checked="item.matchesTransitVehicle" :disabled="readonly" @change="emitChange">{{ t('transit.sovpadaetSTsPri') }}</a-checkbox>
           </div>
         </div>
       </a-collapse-panel>
@@ -53,10 +53,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref, watch } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import type { ReestrTransportMeansInput } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: ReestrTransportMeansInput[]
