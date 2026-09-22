@@ -98,6 +98,15 @@
                 Роль
               </a-button>
               <a-popconfirm
+                v-if="isAdmin"
+                title="Сбросить пароль? Старый перестанет работать, новый временный покажется один раз."
+                ok-text="Сбросить"
+                cancel-text="Нет"
+                @confirm="resetPassword(record)"
+              >
+                <a-button type="link" size="small"><KeyOutlined /> Пароль</a-button>
+              </a-popconfirm>
+              <a-popconfirm
                 v-if="canDeleteUser(record)"
                 title="Удалить этого пользователя?"
                 ok-text="Да"
@@ -114,6 +123,14 @@
         </template>
       </a-table>
     </a-card>
+
+    <a-modal v-model:open="resetOpen" title="Временный пароль" :footer="null">
+      <p>Пользователь <b>{{ resetResult?.username }}</b>. Передайте пароль лично — повторно он не показывается; после входа пользователь сменит его в профиле.</p>
+      <a-input-group compact>
+        <a-input :value="resetResult?.temporaryPassword" readonly style="width: calc(100% - 130px); font-family: monospace" />
+        <a-button type="primary" @click="copyTemp">Скопировать</a-button>
+      </a-input-group>
+    </a-modal>
 
     <a-modal
       v-model:open="modalOpen"
@@ -296,10 +313,11 @@ import type {
   CatalogTableRow,
 } from '@/types/api'
 import { formatRole } from '@/utils/labels'
-import { DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons-vue'
+import { DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined, SwapOutlined, KeyOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { permissionsApi, businessRoleLabel } from '@/api/permissions'
+import { usersApi } from '@/api/users'
 
 const usersStore = useUsersStore()
 const rolesStore = useRolesStore()
@@ -403,6 +421,20 @@ const canLinkUsers = computed(() => authStore.hasPermission('clients.manage'))
 const canEditBroker = computed(() => authStore.hasPermission('clients.manage'))
 const canEditExpeditor = computed(() => authStore.hasPermission('clients.manage'))
 const canAssignRole = computed(() => authStore.hasPermission('users.assign_role'))
+const isAdmin = computed(() => (authStore.role || '').toLowerCase() === 'administrator')
+
+// Сброс пароля админом (почты нет — «забыли пароль» иначе не решается).
+const resetOpen = ref(false)
+const resetResult = ref<{ username: string; temporaryPassword: string } | null>(null)
+const resetPassword = async (record: { id: string }) => {
+  try {
+    resetResult.value = await usersApi.resetPassword(record.id)
+    resetOpen.value = true
+  } catch { message.error('Не удалось сбросить пароль') }
+}
+const copyTemp = async () => {
+  try { await navigator.clipboard.writeText(resetResult.value?.temporaryPassword ?? ''); message.success('Скопировано') } catch { /* нет доступа к буферу */ }
+}
 
 // Представители по доверенности (кого клиент уполномочивает в доверенности) — переключатель админа.
 const poaMap = ref<Record<string, { enabled: boolean; complete: boolean }>>({})

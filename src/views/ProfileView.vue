@@ -203,7 +203,7 @@ const saveDeclarant = async () => {
 const pwd = reactive({ current: '', next: '', repeat: '' })
 const pwdSaving = ref(false)
 const changePassword = async () => {
-  if (pwd.next.length < 6) { message.warning(t('profile.pwdMin')); return }
+  if (pwd.next.length < 8) { message.warning(t('profile.pwdMin')); return }
   if (pwd.next !== pwd.repeat) { message.warning(t('profile.pwdMismatch')); return }
   pwdSaving.value = true
   try {

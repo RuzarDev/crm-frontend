@@ -87,6 +87,9 @@ export const usersApi = {
     })
   },
 
+  // Сброс пароля админом: временный пароль показывается один раз.
+  resetPassword: async (id: string): Promise<{ username: string; temporaryPassword: string }> =>
+    (await apiClient.post(`/users/${encodeURIComponent(id)}/reset-password`)).data,
   deleteUser: async (id: string): Promise<void> => {
     await apiClient.delete(`/users/${encodeURIComponent(id)}`)
   },

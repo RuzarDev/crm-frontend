@@ -27,6 +27,8 @@ export interface LoginResponse {
   businessRole: string
   permissions: string[]
   businessRoles?: string[]
+  /** Клиент: модули для меню — 'import40' | 'transit' */
+  modules?: string[]
 }
 
 export interface BulkDeleteResponse {

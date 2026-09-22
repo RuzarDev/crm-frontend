@@ -197,7 +197,10 @@ const menuItems = computed(() => {
     })
   }
 
-  if (role === 'administrator' || role === 'client' || authStore.hasPermission('reestr.read')) {
+  // Клиенту-импортёру транзитные экраны не показываем (аудит 2026-09-22, п.11).
+  const clientTransit = role === 'client' && authStore.clientHasModule('transit')
+  const clientImport = role === 'client' && authStore.clientHasModule('import40')
+  if (role === 'administrator' || clientTransit || authStore.hasPermission('reestr.read')) {
     operationsItems.push({
       key: '/reestr',
       icon: () => h(DatabaseOutlined),
@@ -258,7 +261,7 @@ const menuItems = computed(() => {
   }
 
   // Статусы КЕДЕН по БИН — брокер/экспедитор/декларант(importer)/админ/клиент
-  if (role === 'administrator' || role === 'client' || role === 'expeditor'
+  if (role === 'administrator' || clientTransit || role === 'expeditor'
     || authStore.hasPermission('reestr.read') || authStore.hasPermission('import40.read')) {
     operationsItems.push({
       key: '/keden-status',
@@ -333,7 +336,7 @@ const menuItems = computed(() => {
     })
   }
 
-  if (role === 'client') {
+  if (clientTransit) {
     referenceItems.push({
       key: '/my-documents',
       icon: () => h(FileDoneOutlined),
@@ -341,7 +344,7 @@ const menuItems = computed(() => {
     })
   }
 
-  if (role === 'client') {
+  if (clientImport) {
     referenceItems.push({
       key: '/import-40/company',
       icon: () => h(SolutionOutlined),

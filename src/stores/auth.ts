@@ -34,6 +34,9 @@ export const useAuthStore = defineStore('auth', () => {
   const hasBusinessRole = (role: string) => businessRoles.value.includes(role) || businessRole.value === role
   const userId = ref<string | null>(localStorage.getItem('userId'))
   const permissions = ref<string[]>(JSON.parse(localStorage.getItem('permissions') || '[]'))
+  // Модули клиента (с логина): меню клиента показывает только то, чем он реально пользуется.
+  const modules = ref<string[]>(JSON.parse(localStorage.getItem('modules') || '[]'))
+  const clientHasModule = (m: 'import40' | 'transit') => modules.value.length === 0 ? m === 'import40' : modules.value.includes(m)
 
   const isAuthenticated = computed(() => !!token.value)
   // Администратор имеет все права всегда (в т.ч. при старой сессии без новых прав в списке).
@@ -43,7 +46,8 @@ export const useAuthStore = defineStore('auth', () => {
   // Доступ к Импорту 40 — по праву из матрицы (администратор и клиент — всегда).
   const canUseImport40 = computed(() => {
     const systemRole = (role.value || '').trim().toLowerCase()
-    return systemRole === 'administrator' || systemRole === 'client' || permissions.value.includes('import40.read')
+    if (systemRole === 'client') return clientHasModule('import40')
+    return systemRole === 'administrator' || permissions.value.includes('import40.read')
   })
   const canUseSales = computed(() => {
     const systemRole = (role.value || '').trim().toLowerCase()
@@ -60,6 +64,8 @@ export const useAuthStore = defineStore('auth', () => {
       businessRole.value = response.businessRole || null
       businessRoles.value = response.businessRoles || (response.businessRole ? [response.businessRole] : [])
       localStorage.setItem('businessRoles', JSON.stringify(businessRoles.value))
+      modules.value = response.modules || []
+      localStorage.setItem('modules', JSON.stringify(modules.value))
       if (!token.value) {
         message.error('Ошибка входа: в ответе нет токена')
         return false
@@ -104,6 +110,8 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('role')
     localStorage.removeItem('businessRole')
     localStorage.removeItem('businessRoles')
+    localStorage.removeItem('modules')
+    modules.value = []
     businessRoles.value = []
     localStorage.removeItem('userId')
     localStorage.removeItem('permissions')
@@ -139,6 +147,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   return {
+    modules,
+    clientHasModule,
     token,
     username,
     role,
