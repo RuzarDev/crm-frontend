@@ -22,12 +22,12 @@ export const useProfileStore = defineStore('profile', () => {
     }
   }
 
-  const update = async (data: UpdateProfileRequest): Promise<boolean> => {
+  const update = async (data: UpdateProfileRequest, silent = false): Promise<boolean> => {
     saving.value = true
     try {
       const res = await profileApi.update(data)
       profile.value = res.data
-      message.success(i18n.global.t('profile.saved'))
+      if (!silent) message.success(i18n.global.t('profile.saved'))
       return true
     } catch {
       return false

@@ -25,9 +25,10 @@
             </div>
           </div>
 
-          <a-divider />
+          <a-divider v-if="!showDeclarantCard" />
 
-          <a-form layout="vertical" :model="form" @finish="handleSave">
+          <!-- У декларанта имя/телефон живут в «Профиле декларанта» ниже — вторую форму не показываем. -->
+          <a-form v-if="!showDeclarantCard" layout="vertical" :model="form" @finish="handleSave">
             <div class="form-grid">
               <a-form-item :label="t('profile.displayName')">
                 <a-input
@@ -191,6 +192,8 @@ const saveDeclarant = async () => {
   try {
     const saved = await declarantProfileApi.update({ ...decl })
     Object.assign(decl, saved)
+    // Единая форма: ФИО и телефон декларанта — это и есть его «личные данные» в системе.
+    await store.update({ displayName: decl.fullName || null, phone: decl.phone || null, companyName: null, innBin: null }, true)
     message.success(t('profile.declSaved'))
   } catch {
     message.error(t('profile.declSaveError'))
@@ -243,6 +246,9 @@ onMounted(async () => {
     classifiers.loadMany(['id-doc-types'])
     try {
       Object.assign(decl, await declarantProfileApi.get())
+      // Пустой профиль декларанта — подставим имя/телефон из аккаунта, чтобы не вводить заново.
+      if (!decl.fullName && store.profile?.displayName) decl.fullName = store.profile.displayName
+      if (!decl.phone && store.profile?.phone) decl.phone = store.profile.phone
     } catch {
       /* профиль декларанта не загрузился — форма остаётся пустой */
     }
