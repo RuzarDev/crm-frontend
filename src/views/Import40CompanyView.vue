@@ -104,7 +104,7 @@
             :is-admin="isAdmin"
             :is-effective="isDocumentEffective"
             :empty-hint="t('company.contractEmpty')"
-            :allow-single-use="false"
+            :allow-single-use="true"
             :provider-signature="true"
             @generate="(opts: GenerateOpts) => generate('contract', opts)"
             @download="downloadDoc"
