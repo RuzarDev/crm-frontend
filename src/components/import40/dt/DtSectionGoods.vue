@@ -1,18 +1,21 @@
 <template>
   <div class="dt-section">
-    <div class="dt-section-bar"><DtGraphLabel graph="31–47" text="Товары" /></div>
+    <div class="dt-section-bar"><DtGraphLabel graph="31–47" :text="t('dt.tovary')" /></div>
     <ReestrGoodsSection v-model="items" :readonly="readonly" :uppercase="true" :locked-currency="dealCurrency" />
     <Import40GoodsKedenPanel v-model="items" :readonly="readonly" :container-indicator="containerIndicator" :usd-rate="usdRate" @calc-tpin="emit('calc-tpin')" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed } from 'vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
 import Import40GoodsKedenPanel from '@/components/Import40GoodsKedenPanel.vue'
 import type { Import40GoodsItemInput } from '@/types/api'
 import './dt-sections.css'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: Import40GoodsItemInput[]

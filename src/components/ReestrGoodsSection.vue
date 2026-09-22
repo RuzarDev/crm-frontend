@@ -1,7 +1,7 @@
 <template>
   <div class="goods-section">
     <div class="section-bar">
-      <span class="section-label">ТОВАРЫ</span>
+      <span class="section-label">{{ t('dt.tovaryUpper') }}</span>
       <a-space v-if="!readonly" size="small">
         <a-upload
           :show-upload-list="false"
@@ -10,29 +10,27 @@
           accept=".xlsx,.xls"
         >
           <a-button size="small" :loading="excelBusy">
-            <UploadOutlined />
-            Загрузить из Excel
-          </a-button>
+            <UploadOutlined /> {{ t('dt.zagruzitIzExcel') }} </a-button>
         </a-upload>
-        <a-button type="dashed" size="small" @click="addItem">+ Добавить товар</a-button>
+        <a-button type="dashed" size="small" @click="addItem">{{ t('dt.dobavitTovar') }}</a-button>
       </a-space>
     </div>
 
     <div v-if="items.length === 0" class="empty-state">
-      <span v-if="!readonly">Нажмите «+ Добавить товар» чтобы добавить позицию</span>
-      <span v-else>Нет товаров</span>
+      <span v-if="!readonly">{{ t('dt.nazhmiteDobavitTovar') }}</span>
+      <span v-else>{{ t('dt.netTovarov') }}</span>
     </div>
 
     <div v-for="(item, idx) in items" :key="idx" class="goods-card">
       <div class="card-top">
-        <span class="card-num" title="Порядковый номер товара">{{ idx + 1 }}</span>
+        <span class="card-num" :title="t('dt.poryadkovyyNomerTovara')">{{ idx + 1 }}</span>
         <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /></a-button>
       </div>
 
       <!-- Row: код тнвэд + найти + описание из тнвэд -->
       <div class="field-row">
         <div class="field f-2">
-          <div class="field-label">Код ТНВЭД</div>
+          <div class="field-label">{{ t('dt.kodTnved') }}</div>
           <a-input-group compact style="display: flex">
             <a-input
               v-model:value="item.tnvedCode"
@@ -46,21 +44,21 @@
               size="small"
               :loading="item.tnvedLoading"
               @click="lookupTnved(item)"
-            >Найти</a-button>
+            >{{ t('dt.nayti') }}</a-button>
             <a-button
               v-if="!readonly"
               size="small"
               @click="openPicker(item)"
-            >Справочник</a-button>
+            >{{ t('dt.spravochnik') }}</a-button>
           </a-input-group>
         </div>
         <div class="field f-2">
-          <div class="field-label">Описание товара из ТНВЭД</div>
+          <div class="field-label">{{ t('dt.opisanieTovaraIzTnved') }}</div>
           <a-input
             v-model:value="item.tnvedDescription"
             size="small"
             :disabled="readonly"
-            placeholder="Автозаполнение по коду ТНВЭД"
+            :placeholder="t('dt.avtozapolneniePoKoduTnved')"
             @change="emit('update:modelValue', items.map(fromRow))"
           />
         </div>
@@ -74,14 +72,14 @@
            поэтому два варианта инпута вместо одного условного :class/directive. -->
       <div class="field-row">
         <div class="field f-grow">
-          <div class="field-label">Описание из инвойса</div>
+          <div class="field-label">{{ t('dt.opisanieIzInvoysa') }}</div>
           <a-input
             v-if="uppercase"
             v-uppercase
             v-model:value="item.description"
             size="small"
             :disabled="readonly"
-            placeholder="Описание товара из инвойса"
+            :placeholder="t('dt.opisanieTovaraIzInvoysa')"
             @change="emit('update:modelValue', items.map(fromRow))"
           />
           <a-input
@@ -89,7 +87,7 @@
             v-model:value="item.description"
             size="small"
             :disabled="readonly"
-            placeholder="Описание товара из инвойса"
+            :placeholder="t('dt.opisanieTovaraIzInvoysa')"
             @change="emit('update:modelValue', items.map(fromRow))"
           />
         </div>
@@ -98,7 +96,7 @@
       <!-- Row: страна происхождения -->
       <div class="field-row">
         <div class="field f-2">
-          <div class="field-label">Страна происхождения</div>
+          <div class="field-label">{{ t('dt.stranaProishozhdeniya') }}</div>
           <a-select
             v-model:value="item.countryOfOrigin"
             size="small"
@@ -108,7 +106,7 @@
             style="width: 100%"
             :options="countryOptions"
             :filter-option="filterCountry"
-            placeholder="Выберите страну по коду"
+            :placeholder="t('dt.vyberiteStranuPoKodu')"
             @change="emit('update:modelValue', items.map(fromRow))"
           />
         </div>
@@ -117,7 +115,7 @@
       <!-- Row: кол-во + код ОКЕИ + тип количества -->
       <div class="field-row">
         <div class="field f-narrow">
-          <div class="field-label">Кол-во ДЕИ</div>
+          <div class="field-label">{{ t('dt.kolVoDei') }}</div>
           <a-input
             v-model:value="item.quantityStr"
             size="small"
@@ -127,7 +125,7 @@
           />
         </div>
         <div class="field f-narrow">
-          <div class="field-label">Код ДЕИ (ОКЕИ)</div>
+          <div class="field-label">{{ t('dt.kodDeiOkei') }}</div>
           <a-select
             v-model:value="item.unitCode"
             size="small"
@@ -141,7 +139,7 @@
           />
         </div>
         <div class="field f-narrow">
-          <div class="field-label">Код типа кол-ва</div>
+          <div class="field-label">{{ t('dt.kodTipaKolVa') }}</div>
           <a-select
             v-model:value="item.quantityTypeCode"
             size="small"
@@ -149,7 +147,7 @@
             allow-clear
             style="width: 100%"
             :options="quantityTypeOptions"
-            placeholder="РК / РР"
+            :placeholder="t('dt.rkRr')"
             @change="emit('update:modelValue', items.map(fromRow))"
           />
         </div>
@@ -158,7 +156,7 @@
       <!-- Row: брутто + нетто + кол-во мест -->
       <div class="field-row">
         <div class="field f-narrow">
-          <div class="field-label">Брутто, кг</div>
+          <div class="field-label">{{ t('dt.bruttoKg') }}</div>
           <a-input
             v-model:value="item.grossWeightStr"
             size="small"
@@ -168,7 +166,7 @@
           />
         </div>
         <div class="field f-narrow">
-          <div class="field-label">Нетто, кг</div>
+          <div class="field-label">{{ t('dt.nettoKg') }}</div>
           <a-input
             v-model:value="item.netWeightStr"
             size="small"
@@ -178,7 +176,7 @@
           />
         </div>
         <div class="field f-narrow">
-          <div class="field-label">Кол-во грузовых мест</div>
+          <div class="field-label">{{ t('dt.kolVoGruzovyhMest') }}</div>
           <a-input
             v-model:value="item.packagesCountStr"
             size="small"
@@ -192,7 +190,7 @@
       <!-- Row: там.стоимость + валюта -->
       <div class="field-row">
         <div class="field f-2">
-          <div class="field-label">Фактурная стоимость</div>
+          <div class="field-label">{{ t('dt.fakturnayaStoimost') }}</div>
           <a-input
             v-model:value="item.customsValueStr"
             size="small"
@@ -202,7 +200,7 @@
           />
         </div>
         <div class="field f-2">
-          <div class="field-label">Валюта<span v-if="lockedCurrency" class="lock-hint"> · из гр.22</span></div>
+          <div class="field-label">{{ t('dt.valyuta') }}<span v-if="lockedCurrency" class="lock-hint"> {{ t('dt.izGr22') }}</span></div>
           <a-select
             :value="lockedCurrency || item.currency"
             size="small"
@@ -224,6 +222,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { onMounted, ref, watch } from 'vue'
 import { CloseOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
@@ -234,6 +233,8 @@ import { referencesApi } from '@/api/references'
 import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
 import type { ReestrGoodsItemInput } from '@/types/api'
 import { OKEI_QUANTITY_TYPE_CODES } from '@/types/api'
+
+const { t } = useI18n()
 
 interface GoodsRow extends ReestrGoodsItemInput {
   quantityStr: string
@@ -511,13 +512,13 @@ async function importGoodsFromExcel(file: File) {
     const wb = XLSX.read(buf, { type: 'array' })
     const sheetName = wb.SheetNames[0]
     if (!sheetName) {
-      message.warning('В файле нет листов')
+      message.warning(t('dt.vFayleNetListov'))
       return
     }
     const ws = wb.Sheets[sheetName]
     const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: null, raw: true })
     if (!rows.length) {
-      message.warning('Файл пуст')
+      message.warning(t('dt.faylPust'))
       return
     }
 
@@ -571,16 +572,16 @@ async function importGoodsFromExcel(file: File) {
     }
 
     if (!added.length) {
-      message.warning('Не найдено товаров для импорта')
+      message.warning(t('dt.neNaydenoTovarovDlya'))
       return
     }
 
     items.value = [...items.value, ...added]
     emit('update:modelValue', items.value.map(fromRow))
-    message.success(`Загружено ${added.length} товаров`)
+    message.success(t('dt.zagruzhenoTovarov', { n: added.length }))
   } catch (e) {
     console.error('Failed to import goods from Excel', e)
-    message.error('Не удалось прочитать файл Excel')
+    message.error(t('dt.neUdalosProchitatFayl'))
   } finally {
     excelBusy.value = false
   }
@@ -589,7 +590,7 @@ async function importGoodsFromExcel(file: File) {
 const onExcelFile: UploadProps['beforeUpload'] = (file) => {
   const name = file.name.toLowerCase()
   if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) {
-    message.error('Допустим только Excel-файл (.xlsx)')
+    message.error(t('dt.dopustimTolkoExcel'))
     return false
   }
   void importGoodsFromExcel(file as File)

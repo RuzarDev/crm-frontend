@@ -1,19 +1,19 @@
 <template>
   <div class="dt-number-bar">
-    <a-form-item label="Код поста" class="dt-number-bar-post">
+    <a-form-item :label="t('dt.kodPosta')" class="dt-number-bar-post">
       <a-select
         v-model:value="form.submissionCustomsOfficeCode"
         show-search
         allow-clear
         :options="props.postOptions"
         :filter-option="filterOption"
-        placeholder="код/название поста"
+        :placeholder="t('dt.kodNazvaniePosta')"
         :disabled="readonly"
         style="width: 100%"
         @change="emitChange"
       />
     </a-form-item>
-    <a-form-item label="Дата" class="dt-number-bar-date">
+    <a-form-item :label="t('dt.data')" class="dt-number-bar-date">
       <a-date-picker
         v-model:value="form.submissionDate"
         format="DD.MM.YYYY"
@@ -23,7 +23,7 @@
         @change="emitChange"
       />
     </a-form-item>
-    <a-form-item label="Последние 7 цифр" class="dt-number-bar-tail">
+    <a-form-item :label="t('dt.poslednie7Cifr')" class="dt-number-bar-tail">
       <a-input
         v-model:value="tail"
         :disabled="readonly"
@@ -32,16 +32,19 @@
         @input="onTailInput"
       />
     </a-form-item>
-    <a-button type="primary" :disabled="readonly" @click="register">Зарегистрировать</a-button>
+    <a-button type="primary" :disabled="readonly" @click="register">{{ t('dt.zaregistrirovat') }}</a-button>
     <div v-if="form.declarationNumber" class="dt-number-bar-result">{{ form.declarationNumber }}</div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { onMounted, reactive, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { message } from 'ant-design-vue'
 import type { Import40DtFormState } from '@/api/import40'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: Import40DtFormState
@@ -96,15 +99,15 @@ const onTailInput = (e: Event) => {
 
 const register = () => {
   if (!form.submissionCustomsOfficeCode) {
-    message.warning('Укажите код поста')
+    message.warning(t('dt.ukazhiteKodPosta'))
     return
   }
   if (!form.submissionDate) {
-    message.warning('Укажите дату')
+    message.warning(t('dt.ukazhiteDatu'))
     return
   }
   if (tail.value.length !== 7) {
-    message.warning('Введите ровно 7 цифр номера ДТ')
+    message.warning(t('dt.vvediteRovno7Cifr'))
     return
   }
   const ddmmyy = dayjs(form.submissionDate).format('DDMMYY')

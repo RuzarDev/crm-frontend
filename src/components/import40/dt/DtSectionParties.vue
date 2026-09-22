@@ -1,112 +1,108 @@
 <template>
   <div class="dt-section">
     <div class="dt-grid-2 dt-checkboxes">
-      <a-checkbox v-model:checked="form.consigneeEqualsDeclarant" :disabled="readonly" @change="onConsigneeEqualsDeclarantChange">
-        Гр.8 · Согласно гр.14 (получатель)
-      </a-checkbox>
-      <a-checkbox v-model:checked="form.financialSubjectEqualsDeclarant" :disabled="readonly" @change="onFinancialSubjectEqualsDeclarantChange">
-        Гр.9 · Согласно гр.14 (лицо, отв. за фин. урегулирование)
-      </a-checkbox>
+      <a-checkbox v-model:checked="form.consigneeEqualsDeclarant" :disabled="readonly" @change="onConsigneeEqualsDeclarantChange"> {{ t('dt.gr8SoglasnoGr14Poluchatel') }} </a-checkbox>
+      <a-checkbox v-model:checked="form.financialSubjectEqualsDeclarant" :disabled="readonly" @change="onFinancialSubjectEqualsDeclarantChange"> {{ t('dt.gr9SoglasnoGr14Lico') }} </a-checkbox>
     </div>
 
     <div class="dt-section-bar party-bar">
-      <DtGraphLabel graph="2" text="Отправитель" />
+      <DtGraphLabel graph="2" :text="t('dt.otpravitel')" />
       <span v-if="!readonly" class="party-ref-actions">
-        <a-button type="link" size="small" @click="openPartyPicker('sender')">Из справочника</a-button>
-        <a-button type="link" size="small" :loading="partySaving" @click="saveParty('sender')">Сохранить в справочник</a-button>
+        <a-button type="link" size="small" @click="openPartyPicker('sender')">{{ t('dt.izSpravochnika') }}</a-button>
+        <a-button type="link" size="small" :loading="partySaving" @click="saveParty('sender')">{{ t('dt.sohranitVSpravochnik') }}</a-button>
       </span>
     </div>
     <div class="dt-grid-3">
-      <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.sender.name" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.senderShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="Страна">
+      <a-form-item :label="t('dt.polnoeNaimenovanie')"><a-input v-uppercase v-model:value="form.sender.name" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.kratkoeNaimenovanie')"><a-input v-uppercase v-model:value="form.senderShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.strana')">
         <a-select v-model:value="form.sender.countryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Город"><a-input v-uppercase v-model:value="form.sender.city" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="Область"><a-input v-uppercase v-model:value="form.sender.region" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="Улица"><a-input v-uppercase v-model:value="form.sender.street" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="Дом"><a-input v-uppercase v-model:value="form.senderHouse" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="Квартира"><a-input v-uppercase v-model:value="form.senderApt" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.gorod')"><a-input v-uppercase v-model:value="form.sender.city" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.oblast')"><a-input v-uppercase v-model:value="form.sender.region" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.ulica')"><a-input v-uppercase v-model:value="form.sender.street" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.dom')"><a-input v-uppercase v-model:value="form.senderHouse" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.kvartira')"><a-input v-uppercase v-model:value="form.senderApt" :disabled="readonly" @change="emitChange" /></a-form-item>
     </div>
 
     <!-- Гр.8: как гр.9 — при «Согласно гр.14» блок скрывается целиком, а не серым -->
     <template v-if="!form.consigneeEqualsDeclarant">
     <div class="dt-section-bar party-bar">
-      <DtGraphLabel graph="8" text="Получатель" />
+      <DtGraphLabel graph="8" :text="t('dt.poluchatel')" />
       <span v-if="!readonly" class="party-ref-actions">
-        <a-button v-if="clientProfile" type="link" size="small" @click="fillReceiverFromClient">Из профиля клиента</a-button>
-        <a-button type="link" size="small" @click="openPartyPicker('receiver')">Из справочника</a-button>
-        <a-button type="link" size="small" :loading="partySaving" @click="saveParty('receiver')">Сохранить в справочник</a-button>
+        <a-button v-if="clientProfile" type="link" size="small" @click="fillReceiverFromClient">{{ t('dt.izProfilyaKlienta') }}</a-button>
+        <a-button type="link" size="small" @click="openPartyPicker('receiver')">{{ t('dt.izSpravochnika') }}</a-button>
+        <a-button type="link" size="small" :loading="partySaving" @click="saveParty('receiver')">{{ t('dt.sohranitVSpravochnik') }}</a-button>
       </span>
     </div>
     <div class="dt-grid-3">
-      <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.receiver.name" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
-      <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.receiverShortName" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
-      <a-form-item label="БИН"><div class="bin-row"><a-input v-model:value="form.receiverBin" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /><BinLookupButton v-if="!readonly && !form.consigneeEqualsDeclarant" :bin="form.receiverBin" @found="(c) => applyLookup('receiver', c)" /></div></a-form-item>
-      <a-form-item label="Страна">
+      <a-form-item :label="t('dt.polnoeNaimenovanie')"><a-input v-uppercase v-model:value="form.receiver.name" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.kratkoeNaimenovanie')"><a-input v-uppercase v-model:value="form.receiverShortName" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.bin')"><div class="bin-row"><a-input v-model:value="form.receiverBin" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /><BinLookupButton v-if="!readonly && !form.consigneeEqualsDeclarant" :bin="form.receiverBin" @found="(c) => applyLookup('receiver', c)" /></div></a-form-item>
+      <a-form-item :label="t('dt.strana')">
         <a-select v-model:value="form.receiver.countryCode" show-search allow-clear :disabled="readonly || form.consigneeEqualsDeclarant" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Город"><a-input v-uppercase v-model:value="form.receiver.city" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
-      <a-form-item label="Область"><a-input v-uppercase v-model:value="form.receiver.region" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
-      <a-form-item label="Улица"><a-input v-uppercase v-model:value="form.receiver.street" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
-      <a-form-item label="Дом"><a-input v-uppercase v-model:value="form.receiverHouse" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
-      <a-form-item label="Квартира"><a-input v-uppercase v-model:value="form.receiverApt" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
-      <a-form-item label="Категория">
+      <a-form-item :label="t('dt.gorod')"><a-input v-uppercase v-model:value="form.receiver.city" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.oblast')"><a-input v-uppercase v-model:value="form.receiver.region" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.ulica')"><a-input v-uppercase v-model:value="form.receiver.street" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.dom')"><a-input v-uppercase v-model:value="form.receiverHouse" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.kvartira')"><a-input v-uppercase v-model:value="form.receiverApt" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.kategoriya')">
         <a-select v-model:value="form.receiverCategoryCode" show-search allow-clear :disabled="readonly || form.consigneeEqualsDeclarant" :options="classifiers.options('itn-categories')" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="КАТО">
+      <a-form-item :label="t('dt.kato')">
         <KatoSelect v-model:value="form.receiverKatoCode" :disabled="readonly || !!form.consigneeEqualsDeclarant" @change="emitChange" />
       </a-form-item>
     </div>
     </template>
 
     <template v-if="!form.financialSubjectEqualsDeclarant">
-      <div class="dt-section-bar"><DtGraphLabel graph="9" text="Лицо, ответственное за фин. урегулирование" /></div>
+      <div class="dt-section-bar"><DtGraphLabel graph="9" :text="t('dt.licoOtvetstvennoeZaFin')" /></div>
       <div class="dt-grid-3">
-        <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.financialSubjectName" :disabled="readonly" @change="emitChange" /></a-form-item>
-        <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.financialSubjectShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
-        <a-form-item label="БИН"><div class="bin-row"><a-input v-model:value="form.financialSubjectBin" :disabled="readonly" @change="emitChange" /><BinLookupButton v-if="!readonly" :bin="form.financialSubjectBin" @found="(c) => applyLookup('financialSubject', c)" /></div></a-form-item>
-        <a-form-item label="Страна">
+        <a-form-item :label="t('dt.polnoeNaimenovanie')"><a-input v-uppercase v-model:value="form.financialSubjectName" :disabled="readonly" @change="emitChange" /></a-form-item>
+        <a-form-item :label="t('dt.kratkoeNaimenovanie')"><a-input v-uppercase v-model:value="form.financialSubjectShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
+        <a-form-item :label="t('dt.bin')"><div class="bin-row"><a-input v-model:value="form.financialSubjectBin" :disabled="readonly" @change="emitChange" /><BinLookupButton v-if="!readonly" :bin="form.financialSubjectBin" @found="(c) => applyLookup('financialSubject', c)" /></div></a-form-item>
+        <a-form-item :label="t('dt.strana')">
           <a-select v-model:value="form.financialSubjectCountryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
         </a-form-item>
-        <a-form-item label="Город"><a-input v-uppercase v-model:value="form.financialSubjectCity" :disabled="readonly" @change="emitChange" /></a-form-item>
-        <a-form-item label="Область"><a-input v-uppercase v-model:value="form.financialSubjectRegion" :disabled="readonly" @change="emitChange" /></a-form-item>
-        <a-form-item label="Улица"><a-input v-uppercase v-model:value="form.financialSubjectStreet" :disabled="readonly" @change="emitChange" /></a-form-item>
-        <a-form-item label="Дом"><a-input v-uppercase v-model:value="form.financialSubjectHouse" :disabled="readonly" @change="emitChange" /></a-form-item>
-        <a-form-item label="Квартира"><a-input v-uppercase v-model:value="form.financialSubjectApt" :disabled="readonly" @change="emitChange" /></a-form-item>
-        <a-form-item label="Категория">
+        <a-form-item :label="t('dt.gorod')"><a-input v-uppercase v-model:value="form.financialSubjectCity" :disabled="readonly" @change="emitChange" /></a-form-item>
+        <a-form-item :label="t('dt.oblast')"><a-input v-uppercase v-model:value="form.financialSubjectRegion" :disabled="readonly" @change="emitChange" /></a-form-item>
+        <a-form-item :label="t('dt.ulica')"><a-input v-uppercase v-model:value="form.financialSubjectStreet" :disabled="readonly" @change="emitChange" /></a-form-item>
+        <a-form-item :label="t('dt.dom')"><a-input v-uppercase v-model:value="form.financialSubjectHouse" :disabled="readonly" @change="emitChange" /></a-form-item>
+        <a-form-item :label="t('dt.kvartira')"><a-input v-uppercase v-model:value="form.financialSubjectApt" :disabled="readonly" @change="emitChange" /></a-form-item>
+        <a-form-item :label="t('dt.kategoriya')">
           <a-select v-model:value="form.financialSubjectCategoryCode" show-search allow-clear :disabled="readonly" :options="classifiers.options('itn-categories')" @change="emitChange" />
         </a-form-item>
-        <a-form-item label="КАТО">
+        <a-form-item :label="t('dt.kato')">
           <KatoSelect v-model:value="form.financialSubjectKatoCode" :disabled="readonly" @change="emitChange" />
         </a-form-item>
       </div>
     </template>
 
-    <div class="dt-section-bar"><DtGraphLabel graph="14" text="Декларант" /></div>
+    <div class="dt-section-bar"><DtGraphLabel graph="14" :text="t('dt.deklarant')" /></div>
     <div class="dt-grid-3">
-      <a-form-item label="Полное наименование"><a-input v-uppercase v-model:value="form.declarantName" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="Краткое наименование"><a-input v-uppercase v-model:value="form.declarantShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="БИН"><div class="bin-row"><a-input v-model:value="form.declarantBin" :disabled="readonly" @change="emitChange" /><BinLookupButton v-if="!readonly" :bin="form.declarantBin" @found="(c) => applyLookup('declarant', c)" /></div></a-form-item>
-      <a-form-item label="Страна">
+      <a-form-item :label="t('dt.polnoeNaimenovanie')"><a-input v-uppercase v-model:value="form.declarantName" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.kratkoeNaimenovanie')"><a-input v-uppercase v-model:value="form.declarantShortName" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.bin')"><div class="bin-row"><a-input v-model:value="form.declarantBin" :disabled="readonly" @change="emitChange" /><BinLookupButton v-if="!readonly" :bin="form.declarantBin" @found="(c) => applyLookup('declarant', c)" /></div></a-form-item>
+      <a-form-item :label="t('dt.strana')">
         <a-select v-model:value="form.declarantCountryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Город"><a-input v-uppercase v-model:value="form.declarantCity" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="Область"><a-input v-uppercase v-model:value="form.declarantRegion" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="Улица"><a-input v-uppercase v-model:value="form.declarantStreet" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="Дом"><a-input v-uppercase v-model:value="form.declarantHouse" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="Квартира"><a-input v-uppercase v-model:value="form.declarantApt" :disabled="readonly" @change="emitChange" /></a-form-item>
-      <a-form-item label="Категория">
+      <a-form-item :label="t('dt.gorod')"><a-input v-uppercase v-model:value="form.declarantCity" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.oblast')"><a-input v-uppercase v-model:value="form.declarantRegion" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.ulica')"><a-input v-uppercase v-model:value="form.declarantStreet" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.dom')"><a-input v-uppercase v-model:value="form.declarantHouse" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.kvartira')"><a-input v-uppercase v-model:value="form.declarantApt" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.kategoriya')">
         <a-select v-model:value="form.declarantCategoryCode" show-search allow-clear :disabled="readonly" :options="classifiers.options('itn-categories')" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="КАТО">
+      <a-form-item :label="t('dt.kato')">
         <KatoSelect v-model:value="form.declarantKatoCode" :disabled="readonly" @change="emitChange" />
       </a-form-item>
     </div>
 
     <a-modal v-model:open="partyPickerOpen" :width="640"
-      :title="partyPickerTarget === 'sender' ? 'Справочник отправителей' : 'Справочник получателей'" :footer="null">
-      <a-input-search v-model:value="partyQuery" placeholder="Поиск по наименованию или БИН" allow-clear
+      :title="partyPickerTarget === 'sender' ? t('dt.spravochnikOtpraviteley') : t('dt.spravochnikPoluchateley')" :footer="null">
+      <a-input-search v-model:value="partyQuery" :placeholder="t('dt.poiskPoNaimenovaniyuIli')" allow-clear
         :loading="partyLoading" @search="searchParties" @change="searchParties" style="margin-bottom: 12px" />
       <a-list size="small" :data-source="partyResults" :loading="partyLoading">
         <template #renderItem="{ item }">
@@ -114,17 +110,15 @@
             <div>
               <div class="party-ref-name">{{ item.name }}</div>
               <div class="party-ref-sub">
-                <span v-if="item.bin">БИН {{ item.bin }} · </span>{{ [item.countryCode, item.city, item.street, item.house].filter(Boolean).join(', ') || '—' }}
+                <span v-if="item.bin">{{ t('dt.bin') }} {{ item.bin }} · </span>{{ [item.countryCode, item.city, item.street, item.house].filter(Boolean).join(', ') || '—' }}
               </div>
             </div>
           </a-list-item>
         </template>
         <template #footer v-if="!partyLoading && (!partyResults.length || partyQueryIsBin)">
           <div class="party-ref-footer">
-            <span v-if="!partyResults.length" class="party-ref-empty">Ничего не найдено — сохраните текущую сторону кнопкой «Сохранить в справочник».</span>
-            <BinLookupButton v-if="partyQueryIsBin" :bin="partyQuery" type="primary" @found="applyLookupFromPicker">
-              Найти в ГБД ЮЛ (data.egov.kz) и подставить
-            </BinLookupButton>
+            <span v-if="!partyResults.length" class="party-ref-empty">{{ t('dt.nichegoNeNaydenoSohranite') }}</span>
+            <BinLookupButton v-if="partyQueryIsBin" :bin="partyQuery" type="primary" @found="applyLookupFromPicker"> {{ t('dt.naytiVGbdYul') }} </BinLookupButton>
           </div>
         </template>
       </a-list>
@@ -133,6 +127,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
@@ -145,6 +140,8 @@ import { parseKzAddress } from '@/utils/kzAddress'
 import type { ClientCompanyProfileDto } from '@/api/import40Contract'
 import type { Import40DtFormState, Import40Party } from '@/api/import40'
 import './dt-sections.css'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: Import40DtFormState
@@ -267,7 +264,7 @@ const fillReceiverFromClient = () => {
   form.receiverShortName = form.receiverShortName || up(p.companyName)
   form.receiverBin = p.bin ?? null
   emitChange()
-  message.success('Получатель заполнен из профиля клиента')
+  message.success(t('dt.poluchatelZapolnenIzProfilya'))
 }
 
 // «Найти по БИН» (ГБД ЮЛ, data.egov.kz) для гр.8/9/14: наименование — перезаписываем
@@ -335,15 +332,15 @@ const saveParty = async (target: PartyTarget) => {
         categoryCode: form.receiverCategoryCode ?? null, katoCode: form.receiverKatoCode ?? null,
       }
   if (!body.name.trim()) {
-    message.warning('Заполните наименование стороны перед сохранением в справочник')
+    message.warning(t('dt.zapolniteNaimenovanieStoronyPered'))
     return
   }
   partySaving.value = true
   try {
     await partyRefsApi.upsert(body)
-    message.success('Сохранено в справочник сторон')
+    message.success(t('dt.sohranenoVSpravochnikStoron'))
   } catch {
-    message.error('Не удалось сохранить в справочник')
+    message.error(t('dt.neUdalosSohranitV'))
   } finally {
     partySaving.value = false
   }

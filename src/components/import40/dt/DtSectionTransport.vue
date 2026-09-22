@@ -2,93 +2,94 @@
   <div class="dt-section">
     <div class="dt-grid-3">
       <a-form-item>
-        <template #label><DtGraphLabel graph="25" text="Вид транспорта на границе" /></template>
+        <template #label><DtGraphLabel graph="25" :text="t('dt.vidTransportaNaGranice')" /></template>
         <a-auto-complete v-model:value="form.borderTransportModeCode" :options="classifiers.options('2004')"
           :disabled="readonly" placeholder="30" style="width: 100%" @change="emitChange" />
       </a-form-item>
       <a-form-item>
-        <template #label><DtGraphLabel graph="26" text="Вид транспорта внутри страны" /></template>
+        <template #label><DtGraphLabel graph="26" :text="t('dt.vidTransportaVnutriStrany')" /></template>
         <a-auto-complete v-model:value="form.inlandTransportModeCode" :options="classifiers.options('2004')"
           :disabled="readonly" placeholder="30" style="width: 100%" @change="emitChange" />
       </a-form-item>
       <a-form-item>
-        <template #label><DtGraphLabel graph="19" text="Контейнер" /></template>
+        <template #label><DtGraphLabel graph="19" :text="t('dt.konteyner')" /></template>
         <a-switch v-model:checked="form.containerIndicator" :disabled="readonly" @change="emitChange" />
       </a-form-item>
     </div>
 
     <div class="dt-grid-2">
-      <a-form-item label="Страна регистрации ТС (прибытие)">
+      <a-form-item :label="t('dt.stranaRegistraciiTsPribytie')">
         <a-select v-model:value="form.arrivalTransportNationality" :options="countryAlpha2Options" :disabled="readonly"
           show-search allow-clear :filter-option="filterAlpha2" placeholder="KZ" style="width: 100%" @change="emitChange" />
       </a-form-item>
     </div>
 
     <div class="dt-section-bar">
-      <DtGraphLabel graph="18" text="Транспортное средство при прибытии" />
-      <span class="transport-count">Количество ТС: {{ form.arrivalTransportNumbers.length }}</span>
+      <DtGraphLabel graph="18" :text="t('dt.transportnoeSredstvoPriPribytii')" />
+      <span class="transport-count">{{ t('dt.kolichestvoTs', { n: form.arrivalTransportNumbers.length }) }}</span>
     </div>
     <div class="transport-list">
       <div v-for="(m, i) in form.arrivalTransportNumbers" :key="i" class="transport-list-row transport-list-row-wrap">
-        <a-switch v-if="isRoadMode(arrivalModeCode)" v-model:checked="m.isTrailer" :disabled="readonly" checked-children="Прицеп" un-checked-children="Голова" @change="emitChange" />
-        <a-input v-uppercase v-model:value="m.number" :disabled="readonly" placeholder="Номер ТС" style="max-width: 200px" @change="emitChange" />
+        <a-switch v-if="isRoadMode(arrivalModeCode)" v-model:checked="m.isTrailer" :disabled="readonly" :checked-children="t('dt.pricepWord')" :un-checked-children="t('dt.golova')" @change="emitChange" />
+        <a-input v-uppercase v-model:value="m.number" :disabled="readonly" :placeholder="t('dt.nomerTs')" style="max-width: 200px" @change="emitChange" />
         <a-auto-complete v-model:value="m.typeCode" :options="classifiers.options('2024')"
           :disabled="readonly" placeholder="319" style="max-width: 160px" @change="emitChange" />
         <a-select v-model:value="m.mark" :options="classifiers.options('vehicle-marks')" :disabled="readonly"
-          show-search allow-clear placeholder="Марка" style="min-width: 180px" @change="emitChange" />
+          show-search allow-clear :placeholder="t('dt.marka')" style="min-width: 180px" @change="emitChange" />
         <a-select v-model:value="m.nationality" :options="countryAlpha2Options" :disabled="readonly"
-          show-search allow-clear :filter-option="filterAlpha2" placeholder="Нац." style="max-width: 140px" @change="emitChange" />
+          show-search allow-clear :filter-option="filterAlpha2" :placeholder="t('dt.nac')" style="max-width: 140px" @change="emitChange" />
         <a-select v-if="isRoadMode(arrivalModeCode) && m.isTrailer" v-model:value="m.headNumber" :options="arrivalHeadOptions" :disabled="readonly"
-          allow-clear placeholder="Голова" style="min-width: 160px" @change="emitChange" />
+          allow-clear :placeholder="t('dt.golova')" style="min-width: 160px" @change="emitChange" />
         <a-button v-if="!readonly" type="text" danger size="small" @click="removeArrivalTransport(i)"><CloseOutlined /></a-button>
       </div>
       <div class="transport-actions">
         <template v-if="isRoadMode(arrivalModeCode)">
-          <a-button v-if="!readonly" type="dashed" size="small" @click="addArrivalTransport(false)">+ Голова</a-button>
-          <a-button v-if="!readonly" type="dashed" size="small" @click="addArrivalTransport(true)">+ Прицеп</a-button>
+          <a-button v-if="!readonly" type="dashed" size="small" @click="addArrivalTransport(false)">{{ t('dt.golova2') }}</a-button>
+          <a-button v-if="!readonly" type="dashed" size="small" @click="addArrivalTransport(true)">{{ t('dt.pricep') }}</a-button>
         </template>
-        <a-button v-else-if="!readonly" type="dashed" size="small" @click="addArrivalTransport(false)">+ Добавить</a-button>
-        <a-button v-if="!readonly && form.arrivalTransportNumbers.length" size="small" @click="copyArrivalHeadToBorder">Скопировать голову в гр.21 <ArrowDownOutlined /></a-button>
+        <a-button v-else-if="!readonly" type="dashed" size="small" @click="addArrivalTransport(false)">{{ t('dt.dobavit') }}</a-button>
+        <a-button v-if="!readonly && form.arrivalTransportNumbers.length" size="small" @click="copyArrivalHeadToBorder">{{ t('dt.skopirovatGolovuVGr21') }} <ArrowDownOutlined /></a-button>
       </div>
     </div>
 
-    <a-form-item label="Страна регистрации ТС (граница)">
+    <a-form-item :label="t('dt.stranaRegistraciiTsGranica')">
       <a-select v-model:value="form.borderTransportNationality" :options="countryAlpha2Options" :disabled="readonly"
         show-search allow-clear :filter-option="filterAlpha2" placeholder="KZ" style="max-width: 260px" @change="emitChange" />
     </a-form-item>
 
     <!-- Гр.21 показываем для всех видов транспорта, включая ЖД (вагоны — ТС на границе). -->
     <div class="dt-section-bar">
-        <DtGraphLabel graph="21" text="Транспортное средство на границе" />
-        <span class="transport-count">Количество ТС: {{ form.borderTransportNumbers.length }}</span>
+        <DtGraphLabel graph="21" :text="t('dt.transportnoeSredstvoNaGranice')" />
+        <span class="transport-count">{{ t('dt.kolichestvoTs', { n: form.borderTransportNumbers.length }) }}</span>
       </div>
       <div class="transport-list">
         <div v-for="(m, i) in form.borderTransportNumbers" :key="i" class="transport-list-row transport-list-row-wrap">
-          <a-switch v-if="isRoadMode(form.borderTransportModeCode)" v-model:checked="m.isTrailer" :disabled="readonly" checked-children="Прицеп" un-checked-children="Голова" @change="emitChange" />
-          <a-input v-uppercase v-model:value="m.number" :disabled="readonly" placeholder="Номер ТС" style="max-width: 200px" @change="emitChange" />
+          <a-switch v-if="isRoadMode(form.borderTransportModeCode)" v-model:checked="m.isTrailer" :disabled="readonly" :checked-children="t('dt.pricepWord')" :un-checked-children="t('dt.golova')" @change="emitChange" />
+          <a-input v-uppercase v-model:value="m.number" :disabled="readonly" :placeholder="t('dt.nomerTs')" style="max-width: 200px" @change="emitChange" />
           <a-auto-complete v-model:value="m.typeCode" :options="classifiers.options('2024')"
             :disabled="readonly" placeholder="319" style="max-width: 160px" @change="emitChange" />
           <a-select v-model:value="m.mark" :options="classifiers.options('vehicle-marks')" :disabled="readonly"
-            show-search allow-clear placeholder="Марка" style="min-width: 180px" @change="emitChange" />
+            show-search allow-clear :placeholder="t('dt.marka')" style="min-width: 180px" @change="emitChange" />
           <a-select v-model:value="m.nationality" :options="countryAlpha2Options" :disabled="readonly"
-            show-search allow-clear :filter-option="filterAlpha2" placeholder="Нац." style="max-width: 140px" @change="emitChange" />
+            show-search allow-clear :filter-option="filterAlpha2" :placeholder="t('dt.nac')" style="max-width: 140px" @change="emitChange" />
           <a-select v-if="isRoadMode(form.borderTransportModeCode) && m.isTrailer" v-model:value="m.headNumber" :options="borderHeadOptions" :disabled="readonly"
-            allow-clear placeholder="Голова" style="min-width: 160px" @change="emitChange" />
+            allow-clear :placeholder="t('dt.golova')" style="min-width: 160px" @change="emitChange" />
           <a-button v-if="!readonly" type="text" danger size="small" @click="removeBorderTransport(i)"><CloseOutlined /></a-button>
         </div>
         <div class="transport-actions">
           <template v-if="isRoadMode(form.borderTransportModeCode)">
-            <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport(false)">+ Голова</a-button>
-            <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport(true)">+ Прицеп</a-button>
+            <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport(false)">{{ t('dt.golova2') }}</a-button>
+            <a-button v-if="!readonly" type="dashed" size="small" @click="addBorderTransport(true)">{{ t('dt.pricep') }}</a-button>
           </template>
-          <a-button v-else-if="!readonly" type="dashed" size="small" @click="addBorderTransport(false)">+ Добавить</a-button>
-          <a-button v-if="!readonly && form.borderTransportNumbers.length" size="small" @click="copyBorderToArrival">Скопировать в гр.18 <ArrowUpOutlined /></a-button>
+          <a-button v-else-if="!readonly" type="dashed" size="small" @click="addBorderTransport(false)">{{ t('dt.dobavit') }}</a-button>
+          <a-button v-if="!readonly && form.borderTransportNumbers.length" size="small" @click="copyBorderToArrival">{{ t('dt.skopirovatVGr18') }} <ArrowUpOutlined /></a-button>
         </div>
       </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, reactive, watch } from 'vue'
 import { ArrowDownOutlined, ArrowUpOutlined, CloseOutlined } from '@ant-design/icons-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
@@ -96,6 +97,8 @@ import { useClassifiersStore } from '@/stores/classifiers'
 import type { Import40DtFormState } from '@/api/import40'
 import { ALPHA2_COUNTRIES } from '@/types/api'
 import './dt-sections.css'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: Import40DtFormState

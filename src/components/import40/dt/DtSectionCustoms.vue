@@ -2,10 +2,10 @@
   <div class="dt-section">
     <div class="dt-grid-2">
       <a-form-item>
-        <template #label><DtGraphLabel graph="29" text="Пост на границе" /></template>
+        <template #label><DtGraphLabel graph="29" :text="t('dt.postNaGranice')" /></template>
         <a-select
           v-model:value="form.borderCustomsOfficeName" :options="borderPostSelectOptions" :disabled="readonly"
-          show-search allow-clear :filter-option="filterPost" placeholder="код или название поста" style="width: 100%"
+          show-search allow-clear :filter-option="filterPost" :placeholder="t('dt.kodIliNazvaniePosta')" style="width: 100%"
           @change="onBorderPostChange"
         />
       </a-form-item>
@@ -13,26 +13,24 @@
 
     <div class="dt-grid-3">
       <a-form-item>
-        <template #label><DtGraphLabel graph="30" text="Место нахождения товаров" /></template>
+        <template #label><DtGraphLabel graph="30" :text="t('dt.mestoNahozhdeniyaTovarov')" /></template>
         <a-input-group compact style="display: flex">
           <a-auto-complete
             v-model:value="form.goodsLocationCode" :options="classifiers.options('goods-locations')"
             :disabled="readonly" placeholder="11" style="flex: 1" @change="emitChange"
           />
           <a-button
-            v-if="!readonly && canAddGoodsLocation" :loading="addingGoodsLocation" title="Сохранить в справочник"
+            v-if="!readonly && canAddGoodsLocation" :loading="addingGoodsLocation" :title="t('dt.sohranitVSpravochnik')"
             @click="addGoodsLocation"
-          >
-            + Сохранить в справочник
-          </a-button>
+          > {{ t('dt.sohranitVSpravochnik2') }} </a-button>
         </a-input-group>
       </a-form-item>
       <a-form-item>
-        <template #label><DtGraphLabel graph="30" text="Номер СВХ" /></template>
-        <a-input v-uppercase v-model:value="form.goodsLocationRegisterNumber" :disabled="readonly" placeholder="Рег. номер СВХ" @change="emitChange" />
+        <template #label><DtGraphLabel graph="30" :text="t('dt.nomerSvh')" /></template>
+        <a-input v-uppercase v-model:value="form.goodsLocationRegisterNumber" :disabled="readonly" :placeholder="t('dt.regNomerSvh')" @change="emitChange" />
       </a-form-item>
       <a-form-item>
-        <template #label><DtGraphLabel graph="30" text="Страна места товаров" /></template>
+        <template #label><DtGraphLabel graph="30" :text="t('dt.stranaMestaTovarov')" /></template>
         <a-select v-model:value="form.goodsLocationCountryCode" :options="countryAlpha2Options" :disabled="readonly"
           show-search allow-clear :filter-option="filterAlpha2" placeholder="KZ" style="width: 100%" @change="emitChange" />
       </a-form-item>
@@ -45,12 +43,12 @@
          пустое поле, чем скрытая графа, которая понадобится. -->
     <div class="dt-grid-2">
       <a-form-item>
-        <template #label><DtGraphLabel graph="30" text="Станция" /></template>
-        <a-input v-uppercase v-model:value="form.goodsLocationStation" :disabled="readonly" placeholder="станция" @change="emitChange" />
+        <template #label><DtGraphLabel graph="30" :text="t('dt.stanciya')" /></template>
+        <a-input v-uppercase v-model:value="form.goodsLocationStation" :disabled="readonly" :placeholder="t('dt.stanciya2')" @change="emitChange" />
       </a-form-item>
       <a-form-item>
-        <template #label><DtGraphLabel graph="30" text="Адрес" /></template>
-        <a-input v-uppercase v-model:value="form.goodsLocationAddress" :disabled="readonly" placeholder="адрес" @change="emitChange" />
+        <template #label><DtGraphLabel graph="30" :text="t('dt.adres')" /></template>
+        <a-input v-uppercase v-model:value="form.goodsLocationAddress" :disabled="readonly" :placeholder="t('dt.adres2')" @change="emitChange" />
       </a-form-item>
     </div>
 
@@ -60,15 +58,14 @@
          подписано "Станция" и по смыслу гр.30 ближе всего к транспортному признаку места. -->
     <div class="dt-grid-2">
       <a-form-item>
-        <a-checkbox v-model:checked="transferVehicleNumbers" :disabled="readonly" @change="onTransferVehicleNumbersChange">
-          Товар на транспортном средстве — перенести номера ТС (гр.18) в гр.30
-        </a-checkbox>
+        <a-checkbox v-model:checked="transferVehicleNumbers" :disabled="readonly" @change="onTransferVehicleNumbersChange"> {{ t('dt.tovarNaTransportnomSredstve') }} </a-checkbox>
       </a-form-item>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
@@ -77,6 +74,8 @@ import { referencesApi } from '@/api/references'
 import type { Import40DtFormState } from '@/api/import40'
 import { ALPHA2_COUNTRIES } from '@/types/api'
 import './dt-sections.css'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: Import40DtFormState
@@ -137,7 +136,7 @@ const canAddGoodsLocation = computed(() => {
 const addGoodsLocation = async () => {
   const code = (form.goodsLocationCode ?? '').trim()
   if (!code) return
-  const nameRu = window.prompt(`Название для кода "${code}" в справочнике "Место нахождения товаров" (гр.30):`)
+  const nameRu = window.prompt(t('dt.nazvanieDlyaKodaCode', { code }))
   if (!nameRu || !nameRu.trim()) return
   addingGoodsLocation.value = true
   try {
@@ -146,9 +145,9 @@ const addGoodsLocation = async () => {
     await classifiers.load('goods-locations')
     form.goodsLocationCode = code
     emitChange()
-    message.success('Добавлено в справочник «Место нахождения товаров»')
+    message.success(t('dt.dobavlenoVSpravochnikMesto'))
   } catch {
-    message.error('Не удалось сохранить в справочник')
+    message.error(t('dt.neUdalosSohranitV'))
   } finally {
     addingGoodsLocation.value = false
   }

@@ -5,36 +5,39 @@
         v-model:value="p.docTypeCode"
         :options="classifiers.options('prev-doc-types')"
         :disabled="readonly"
-        placeholder="Вид документа"
+        :placeholder="t('dt.vidDokumenta')"
         style="width: 260px"
         @change="emitChange"
       />
-      <a-input v-uppercase v-model:value="p.docNumber" :disabled="readonly" placeholder="Номер" style="width: 200px" @change="emitChange" />
+      <a-input v-uppercase v-model:value="p.docNumber" :disabled="readonly" :placeholder="t('dt.nomer')" style="width: 200px" @change="emitChange" />
       <a-date-picker
         v-model:value="p.docDate"
         format="DD.MM.YYYY"
         value-format="YYYY-MM-DD"
         :disabled="readonly"
-        placeholder="Дата"
+        :placeholder="t('dt.data')"
         @change="emitChange"
       />
-      <a-input v-model:value="p.goodsNumber" :disabled="readonly" placeholder="№ товара" style="width: 120px" @change="emitChange" />
+      <a-input v-model:value="p.goodsNumber" :disabled="readonly" :placeholder="t('dt.tovara')" style="width: 120px" @change="emitChange" />
       <a-button v-if="!readonly" type="text" danger size="small" @click="remove(i)"><CloseOutlined /></a-button>
     </div>
     <div v-if="items.length === 0" class="empty-state">
-      <span v-if="!readonly">Нажмите «+ Предшествующий документ» чтобы добавить позицию</span>
-      <span v-else>Нет предшествующих документов</span>
+      <span v-if="!readonly">{{ t('dt.nazhmitePredshestvuyuschiyDokumentChtoby') }}</span>
+      <span v-else>{{ t('dt.netPredshestvuyuschihDokumentov') }}</span>
     </div>
-    <a-button v-if="!readonly" type="dashed" size="small" @click="add">+ Предшествующий документ</a-button>
+    <a-button v-if="!readonly" type="dashed" size="small" @click="add">{{ t('dt.predshestvuyuschiyDokument') }}</a-button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import type { Import40PrevDocItem } from '@/api/import40'
 import './dt-sections.css'
+
+const { t } = useI18n()
 
 const props = defineProps<{ modelValue: Import40PrevDocItem[]; readonly: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [Import40PrevDocItem[]] }>()

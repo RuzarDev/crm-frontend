@@ -2,16 +2,16 @@
   <div class="dt-section">
     <div class="dt-grid-3">
       <a-form-item>
-        <template #label><DtGraphLabel graph="20" text="Условия поставки" /></template>
+        <template #label><DtGraphLabel graph="20" :text="t('dt.usloviyaPostavki')" /></template>
         <a-auto-complete v-model:value="form.incoterms" :options="classifiers.options('incoterms')"
           :disabled="readonly" placeholder="FOB / CIF" style="width: 100%" @change="emitChange" />
       </a-form-item>
       <a-form-item>
-        <template #label><DtGraphLabel graph="20" text="Место Инкотермс" /></template>
+        <template #label><DtGraphLabel graph="20" :text="t('dt.mestoInkoterms')" /></template>
         <a-input v-model:value="form.incotermsPlace" v-uppercase :disabled="readonly" placeholder="Алматы" @change="emitChange" />
       </a-form-item>
       <a-form-item>
-        <template #label><DtGraphLabel graph="22" text="Валюта" /></template>
+        <template #label><DtGraphLabel graph="22" :text="t('dt.valyuta')" /></template>
         <a-select v-model:value="form.currency" :options="currencyOptions" :disabled="readonly"
           show-search allow-clear :filter-option="filterOption" style="width: 100%" placeholder="USD" @change="onCurrencyChange" />
       </a-form-item>
@@ -19,47 +19,46 @@
 
     <div class="dt-grid-3">
       <a-form-item>
-        <template #label><DtGraphLabel graph="22" text="Общая фактурная стоимость" /></template>
+        <template #label><DtGraphLabel graph="22" :text="t('dt.obschayaFakturnayaStoimost')" /></template>
         <a-input-number v-model:value="form.totalInvoiceValue" :disabled="readonly" style="width: 100%" :min="0" @change="emitChange" />
       </a-form-item>
       <a-form-item>
-        <template #label><DtGraphLabel graph="23" text="Курс" /></template>
+        <template #label><DtGraphLabel graph="23" :text="t('dt.kurs')" /></template>
         <a-input-number v-model:value="form.exchangeRate" :disabled="readonly" style="width: 100%" :min="0" @change="emitChange" />
-        <div v-if="currentRateInfo" class="dt-rate-hint">
-          Курс НБ РК<span v-if="currentRateInfo.date"> на {{ formatRateDate(currentRateInfo.date) }}</span>:
+        <div v-if="currentRateInfo" class="dt-rate-hint"> {{ t('dt.kursNbRk') }}<span v-if="currentRateInfo.date">&nbsp;{{ t('dt.naDatu', { date: formatRateDate(currentRateInfo.date) }) }}</span>:
           <strong>{{ currentRateInfo.rate }}</strong>
-          <a v-if="!readonly && form.exchangeRate !== currentRateInfo.rate" @click="applyCurrentRate"> подставить</a>
+          <a v-if="!readonly && form.exchangeRate !== currentRateInfo.rate" @click="applyCurrentRate"> {{ t('dt.podstavit') }}</a>
         </div>
       </a-form-item>
       <a-form-item>
-        <template #label><DtGraphLabel graph="12" text="Общая таможенная стоимость" /></template>
+        <template #label><DtGraphLabel graph="12" :text="t('dt.obschayaTamozhennayaStoimost')" /></template>
         <a-input :value="totals.customsValue" disabled />
       </a-form-item>
     </div>
 
     <div class="dt-grid-3">
       <a-form-item>
-        <template #label><DtGraphLabel graph="24" text="Характер сделки" /></template>
+        <template #label><DtGraphLabel graph="24" :text="t('dt.harakterSdelki')" /></template>
         <a-auto-complete v-model:value="form.transactionNatureCode" :options="classifiers.options('transaction-natures')"
           :disabled="readonly" placeholder="021" style="width: 100%" @change="emitChange" />
       </a-form-item>
       <a-form-item>
-        <template #label><DtGraphLabel graph="24" text="Особенность сделки (форма расчётов)" /></template>
+        <template #label><DtGraphLabel graph="24" :text="t('dt.osobennostSdelkiFormaRaschetov')" /></template>
         <a-auto-complete v-model:value="form.transactionFeatureCode" :options="classifiers.options('settlement-terms')"
-          :disabled="readonly" placeholder="Аккредитив / перевод / предоплата…" style="width: 100%" @change="emitChange" />
+          :disabled="readonly" :placeholder="t('dt.akkreditivPerevodPredoplata')" style="width: 100%" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Тип ставок (КЕДЕН)">
+      <a-form-item :label="t('dt.tipStavokKeden')">
         <a-auto-complete v-model:value="form.rateType" :options="classifiers.options('rate-types')"
           :disabled="readonly" placeholder="ETT" style="width: 100%" @change="emitChange" />
       </a-form-item>
     </div>
 
     <div class="dt-section-bar">
-      <span class="dt-section-label">РАСХОДЫ (для распределения на таможенную стоимость)</span>
-      <a-button v-if="!readonly" type="dashed" size="small" @click="addExpense">+ Расход</a-button>
+      <span class="dt-section-label">{{ t('dt.rashodyDlyaRaspredeleniyaNa') }}</span>
+      <a-button v-if="!readonly" type="dashed" size="small" @click="addExpense">{{ t('dt.rashod') }}</a-button>
     </div>
     <div v-if="(form.expenses ?? []).length" class="dt-expenses-header">
-      <span>Статья расхода</span><span>Сумма</span><span>Валюта</span><span>Распределение</span><span />
+      <span>{{ t('dt.statyaRashoda') }}</span><span>{{ t('dt.summa2') }}</span><span>{{ t('dt.valyuta') }}</span><span>{{ t('dt.raspredelenie') }}</span><span />
     </div>
     <!-- Биндим напрямую на объекты form.expenses (не на копии) — иначе правки
          в селектах/полях теряются при следующем ререндере, см. аналогичный
@@ -67,33 +66,34 @@
     <div v-for="(e, i) in form.expenses ?? []" :key="i" class="dt-expense-row">
       <a-select
         v-model:value="e.expenseTypeCode" :options="expenseTypeOptions" :disabled="readonly"
-        show-search :filter-option="filterOption" placeholder="Статья расхода" @change="emitChange"
+        show-search :filter-option="filterOption" :placeholder="t('dt.statyaRashoda')" @change="emitChange"
       />
       <a-input-number v-model:value="e.amount" :disabled="readonly" :min="0" @change="emitChange" />
       <a-select
         v-model:value="e.currencyCode" :options="currencyOptions" :disabled="readonly"
-        show-search :filter-option="filterOption" placeholder="Валюта" @change="emitChange"
+        show-search :filter-option="filterOption" :placeholder="t('dt.valyuta')" @change="emitChange"
       />
       <a-tag class="dt-expense-dist">{{ distributionLabel(e.expenseTypeCode) }}</a-tag>
       <a-button v-if="!readonly" type="text" danger size="small" @click="removeExpense(i)"><CloseOutlined /></a-button>
     </div>
-    <div v-if="!(form.expenses ?? []).length" class="muted">Расходов нет</div>
+    <div v-if="!(form.expenses ?? []).length" class="muted">{{ t('dt.rashodovNet') }}</div>
 
     <div class="dt-expenses-actions">
-      <a-button v-if="!readonly" @click="emit('calc-customs-value')">
-        Рассчитать там. стоимость (распределить расходы)
-      </a-button>
+      <a-button v-if="!readonly" @click="emit('calc-customs-value')"> {{ t('dt.rasschitatTamStoimostRaspredelit') }} </a-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, reactive, watch } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import type { Import40DtFormState } from '@/api/import40'
 import './dt-sections.css'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: Import40DtFormState
@@ -142,7 +142,7 @@ const filterOption = (input: string, option: { label?: string }) =>
 // (это же дефолт DistributionBase на бэке для новых статей расходов).
 const distributionLabel = (expenseTypeCode: string | null | undefined) => {
   const base = expenseTypeCode ? props.expenseDistributionByCode?.[expenseTypeCode] : undefined
-  return base === 'GrossWeight' ? 'по весу брутто' : 'по стоимости'
+  return base === 'GrossWeight' ? t('dt.poVesuBrutto') : t('dt.poStoimosti')
 }
 
 const addExpense = () => {

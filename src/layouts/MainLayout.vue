@@ -236,7 +236,7 @@ const menuItems = computed(() => {
     operationsItems.push({
       key: '/import-40/manage',
       icon: () => h(TeamOutlined),
-      label: 'Управление заявками',
+      label: t('nav.manage'),
     })
   }
 
@@ -245,7 +245,7 @@ const menuItems = computed(() => {
     operationsItems.push({
       key: '/finance',
       icon: () => h(DollarOutlined),
-      label: 'Финансы',
+      label: t('nav.finance'),
     })
   }
 

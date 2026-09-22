@@ -1,38 +1,38 @@
 <template>
   <div class="dt-page">
     <a-breadcrumb class="dt-crumbs">
-      <a-breadcrumb-item><router-link to="/import-40">Импорт 40</router-link></a-breadcrumb-item>
-      <a-breadcrumb-item><router-link :to="`/import-40/${caseId}`">{{ caseTitle || 'Заявка' }}</router-link></a-breadcrumb-item>
-      <a-breadcrumb-item>{{ dtForm.declarationNumber || 'Декларация' }}</a-breadcrumb-item>
+      <a-breadcrumb-item><router-link to="/import-40">{{ t('dt.import40') }}</router-link></a-breadcrumb-item>
+      <a-breadcrumb-item><router-link :to="`/import-40/${caseId}`">{{ caseTitle || t('dt.zayavka') }}</router-link></a-breadcrumb-item>
+      <a-breadcrumb-item>{{ dtForm.declarationNumber || t('dt.deklaraciya') }}</a-breadcrumb-item>
     </a-breadcrumb>
 
-    <PageHeader kicker="Импорт 40" :title="dtForm.declarationNumber || 'Декларация'" :subtitle="caseTitle">
+    <PageHeader :kicker="t('dt.import40')" :title="dtForm.declarationNumber || t('dt.deklaraciya')" :subtitle="caseTitle">
       <template #meta>
         <a-tag :color="blankPct === 100 ? 'green' : 'orange'">
-          Бланк: {{ readiness?.blankFilled ?? 0 }} из {{ readiness?.blankTotal ?? 46 }} граф
+          {{ t('dt.blankProgress', { filled: readiness?.blankFilled ?? 0, total: readiness?.blankTotal ?? 46 }) }}
         </a-tag>
         <a-tag :color="kedenMissing.length ? 'orange' : 'green'">
-          {{ kedenMissing.length ? `КЕДЕН-XML: не хватает ${kedenMissing.length}` : 'КЕДЕН-XML: готово' }}
+          {{ kedenMissing.length ? t('dt.kedenMissing', { n: kedenMissing.length }) : t('dt.kedenReady') }}
         </a-tag>
       </template>
       <template #actions>
         <a-tooltip v-if="showSplitButton" :title="splitBlockedReason">
-          <a-button :disabled="!canSplit" @click="openSplitModal">Разделить на ЕТТ/ВТО</a-button>
+          <a-button :disabled="!canSplit" @click="openSplitModal">{{ t('dt.razdelitNaEttVto') }}</a-button>
         </a-tooltip>
-        <a-button :loading="docsDownloading" @click="downloadAllDocuments">Скачать все документы</a-button>
+        <a-button :loading="docsDownloading" @click="downloadAllDocuments">{{ t('dt.skachatVseDokumenty') }}</a-button>
         <template v-if="!readOnly">
-          <a-button :loading="saving" @click="saveDt()">Сохранить</a-button>
-          <a-button :loading="paymentsLoading" @click="openPaymentsModal">Рассчитать платежи</a-button>
-          <a-button type="primary" :loading="xmlLoading" @click="exportXml">Сформировать XML</a-button>
+          <a-button :loading="saving" @click="saveDt()">{{ t('dt.sohranit') }}</a-button>
+          <a-button :loading="paymentsLoading" @click="openPaymentsModal">{{ t('dt.rasschitatPlatezhi') }}</a-button>
+          <a-button type="primary" :loading="xmlLoading" @click="exportXml">{{ t('dt.sformirovatXml') }}</a-button>
         </template>
         <!-- Печать бланка доступна и в режиме просмотра (readOnly) — единственное действие,
              не считающееся редактированием декларации. -->
-        <a-button :loading="pdfLoading" @click="printBlank">Принтер</a-button>
+        <a-button :loading="pdfLoading" @click="printBlank">{{ t('dt.printer') }}</a-button>
       </template>
     </PageHeader>
 
     <a-alert v-if="kedenMissing.length" type="warning" show-icon class="dt-missing">
-      <template #message>Не хватает данных — клик ведёт к секции:</template>
+      <template #message>{{ t('dt.neHvataetDannyhKlik') }}</template>
       <template #description>
         <ul><li v-for="m in kedenMissing" :key="m"><a @click.prevent="goToMissing(m)">{{ m }}</a></li></ul>
       </template>
@@ -81,7 +81,7 @@
         </a-form>
 
         <section v-show="activeSection === 'closing'" class="dt-fact-payments">
-          <div class="dt-section-bar"><span class="dt-section-label">ФАКТИЧЕСКИЕ ПЛАТЕЖИ</span></div>
+          <div class="dt-section-bar"><span class="dt-section-label">{{ t('dt.fakticheskiePlatezhi') }}</span></div>
           <Import40FactPaymentsSection v-model="dtForm.factPayments" :readonly="readOnly" />
         </section>
       </div>
@@ -89,23 +89,21 @@
 
     <a-modal
       v-model:open="splitModalOpen"
-      title="Разделить на ЕТТ/ВТО"
+      :title="t('dt.razdelitNaEttVto')"
       :confirm-loading="splitting"
-      ok-text="Разделить"
-      cancel-text="Отмена"
+      :ok-text="t('dt.razdelit')"
+      :cancel-text="t('dt.otmena')"
       width="720px"
       @ok="doSplit"
     >
       <a-spin :spinning="splitLoading">
-        <p class="muted">Показаны только товары под изъятиями ВТО — отметьте те, что должны войти в декларацию ВТО. Остальные товары останутся в декларации ЕТТ.</p>
+        <p class="muted">{{ t('dt.pokazanyTolkoTovaryPod') }}</p>
         <a-checkbox
           :checked="allVtoSelected"
           :indeterminate="someVtoSelected"
           style="margin-bottom: 8px"
           @change="toggleAllVto"
-        >
-          Выбрать все
-        </a-checkbox>
+        > {{ t('dt.vybratVse') }} </a-checkbox>
         <a-table
           :data-source="splitRows"
           :columns="splitColumns"
@@ -143,6 +141,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref, reactive, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
@@ -183,6 +182,8 @@ import DtCurrencyRatesBox from '@/components/import40/dt/DtCurrencyRatesBox.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
 import DtPaymentsCalcModal from '@/components/import40/dt/DtPaymentsCalcModal.vue'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -262,13 +263,13 @@ const showSplitButton = computed(() => {
   return sys !== 'client' && biz !== 'client'
 })
 const splitBlockedReason = computed(() => {
-  if (dtForm.goodsItems.length < 2) return 'Нужно минимум 2 товара в ДТ для разделения на ЕТТ/ВТО'
+  if (dtForm.goodsItems.length < 2) return t('dt.nuzhnoMinimum2Tovara')
   if (!readOnly.value) return ''
   const c = activeCase.value
   if (c?.assignedDeclarantId && c.assignedDeclarantId !== authStore.userId) {
-    return 'Декларация закреплена за другим декларантом — разделение недоступно'
+    return t('dt.deklaraciyaZakreplenaZaDrugim')
   }
-  return 'Редактирование этой декларации сейчас недоступно вашей роли'
+  return t('dt.redaktirovanieEtoyDeklaraciiSeychas')
 })
 
 const saving = ref(false)
@@ -294,7 +295,7 @@ const downloadAllDocuments = async () => {
     a.remove()
     URL.revokeObjectURL(url)
   } catch {
-    message.error('Не удалось скачать документы')
+    message.error(t('dt.neUdalosSkachatDokumenty'))
   } finally {
     docsDownloading.value = false
   }
@@ -482,17 +483,18 @@ interface SectionDef {
   key: string
   title: string
 }
-const sections: SectionDef[] = [
-  { key: 'general', title: 'Тип и общие сведения' },
-  { key: 'parties', title: 'Стороны' },
-  { key: 'countries', title: 'Страны' },
-  { key: 'transport', title: 'Транспорт' },
-  { key: 'finance', title: 'Условия поставки и финансы' },
-  { key: 'customs', title: 'Таможенные органы' },
-  { key: 'goods', title: 'Товары' },
-  { key: 'docs', title: 'Документы' },
-  { key: 'closing', title: 'Завершение' },
-]
+const sections = computed((): SectionDef[] => ([
+
+  { key: 'general', title: t('dt.tipIObschieSvedeniya') },
+  { key: 'parties', title: t('dt.storony') },
+  { key: 'countries', title: t('dt.strany') },
+  { key: 'transport', title: t('dt.transport') },
+  { key: 'finance', title: t('dt.usloviyaPostavkiIFinansy') },
+  { key: 'customs', title: t('dt.tamozhennyeOrgany') },
+  { key: 'goods', title: t('dt.tovary') },
+  { key: 'docs', title: t('dt.dokumenty') },
+  { key: 'closing', title: t('dt.zavershenie') },
+]))
 const activeSection = ref('general')
 
 // Индикатор секции — по локальным данным формы (обязательные поля секции)
@@ -879,7 +881,7 @@ const upsertGoodsPayment = (
 const fmtMoney = (v: number) => v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const tpinPaymentMeta = (code: string, r: SalesCalcGoodsResult): TpinPaymentMeta => {
   const cv = r.customsValueKzt
-  if (code === '1010') return { basisLabel: '6 МРП' }
+  if (code === '1010') return { basisLabel: t('dt.6Mrp') }
   if (code === '2010') {
     const rate = cv > 0 ? Math.round((r.importDutyKzt / cv) * 100 * 100) / 100 : null
     return { taxBase: cv, basisLabel: fmtMoney(cv), rateValue: rate, rateLabel: rate != null ? `${rate}%` : null }
@@ -910,7 +912,7 @@ const calcTpin = async () => {
       (g.netWeightKg != null || g.quantity != null),
   )
   if (!targets.length) {
-    message.info('Нет товаров с достаточными данными (нужны код ТНВЭД, стоимость, валюта, вес или кол-во)')
+    message.info(t('dt.netTovarovSDostatochnymi'))
     return
   }
   try {
@@ -935,10 +937,10 @@ const calcTpin = async () => {
         recalculated += 1
       }
     })
-    if (recalculated) message.success(`ТПиН рассчитан для ${recalculated} тов. Платежи — в панели «Данные КЕДЕН» (гр.47) у каждого товара.`)
-    else message.warning('Не удалось рассчитать — проверьте код ТНВЭД, стоимость, валюту и вес/кол-во товара')
+    if (recalculated) message.success(t('dt.tpinRasschitanDlyaRecalculated', { n: recalculated }))
+    else message.warning(t('dt.neUdalosRasschitatProverte'))
   } catch {
-    message.error('Не удалось пересчитать ТПиН')
+    message.error(t('dt.neUdalosPereschitatTpin'))
   }
 }
 
@@ -960,7 +962,7 @@ const runPaymentsCalc = async (): Promise<boolean> => {
     paymentsResult.value = await import40Api.calculatePayments(caseId, dtId)
     return true
   } catch (e: any) {
-    message.error(e?.response?.data?.error ?? 'Не удалось рассчитать платежи')
+    message.error(e?.response?.data?.error ?? t('dt.neUdalosRasschitatPlatezhi'))
     return false
   } finally {
     paymentsLoading.value = false
@@ -1062,7 +1064,7 @@ const onApplyPayments = async () => {
     applyPaymentsResult()
     const saved = await saveDt(true)
     if (saved) {
-      message.success('Платежи записаны в гр.47 и гр.B')
+      message.success(t('dt.platezhiZapisanyVGr47'))
       paymentsModalOpen.value = false
     }
   } finally {
@@ -1080,7 +1082,7 @@ const onApplyPayments = async () => {
 // где то же поле называется invoiceValue (см. комментарий у DtFormState выше).
 const calcCustomsValue = async () => {
   if (!dtForm.goodsItems.length) {
-    message.warning('Нет товаров для расчёта')
+    message.warning(t('dt.netTovarovDlyaRascheta'))
     return
   }
   const goods = dtForm.goodsItems.map((g, index) => ({
@@ -1110,10 +1112,10 @@ const calcCustomsValue = async () => {
     })
     // показываем итог в сообщении — результат (гр.45) в свёрнутой панели КЕДЕН, брокер его иначе не видит
     const totalStr = total.toLocaleString('ru-RU', { maximumFractionDigits: 2 })
-    message.success(`Таможенная стоимость рассчитана (${updated} тов.): итого ${totalStr} ₸. См. гр.45 в панели «Данные КЕДЕН».`)
+    message.success(t('dt.tamozhennayaStoimostRasschitanaUpdated', { n: updated, total: totalStr }))
   } catch (e: any) {
     message.error(
-      e?.response?.data?.message ?? e?.response?.data?.error ?? 'Не удалось рассчитать таможенную стоимость',
+      e?.response?.data?.message ?? e?.response?.data?.error ?? t('dt.neUdalosRasschitatTamozhennuyu'),
     )
   }
 }
@@ -1129,13 +1131,13 @@ const loadDt = async () => {
         .catch(() => { clientProfile.value = null })
     }
   } catch {
-    message.error('Декларация не найдена')
+    message.error(t('dt.deklaraciyaNeNaydena'))
     void router.push('/import-40')
     return
   }
   const decl = activeCase.value?.declarations.find((d) => d.id === dtId)
   if (!decl) {
-    message.error('Декларация не найдена')
+    message.error(t('dt.deklaraciyaNeNaydena'))
     void router.push('/import-40')
     return
   }
@@ -1257,11 +1259,11 @@ const saveDt = async (silent = false): Promise<boolean> => {
     }
     const updated = await import40Api.updateDeclaration(caseId, dtForm.id, payload)
     loadedDto.value = updated
-    if (!silent) message.success('ДТ сохранена')
+    if (!silent) message.success(t('dt.dtSohranena'))
     void refreshReadiness()
     return true
   } catch (e: any) {
-    message.error(e?.response?.data?.error ?? 'Не удалось сохранить ДТ')
+    message.error(e?.response?.data?.error ?? t('dt.neUdalosSohranitDt'))
     return false
   } finally {
     saving.value = false
@@ -1296,7 +1298,7 @@ const exportXml = async () => {
     const res = await import40Api.downloadKedenXml(caseId, dtId)
     if ('errors' in res) {
       kedenMissing.value = res.errors
-      message.warning('XML не сформирован: заполните обязательные поля')
+      message.warning(t('dt.xmlNeSformirovanZapolnite'))
       return
     }
     const url = URL.createObjectURL(res.blob)
@@ -1305,10 +1307,10 @@ const exportXml = async () => {
     a.download = res.fileName
     a.click()
     URL.revokeObjectURL(url)
-    message.success('XML для КЕДЕН сформирован')
+    message.success(t('dt.xmlDlyaKedenSformirovan'))
     void refreshReadiness()
   } catch {
-    message.error('Не удалось сформировать XML')
+    message.error(t('dt.neUdalosSformirovatXml'))
   } finally {
     xmlLoading.value = false
   }
@@ -1326,7 +1328,7 @@ const printBlank = async () => {
     window.open(url, '_blank')
     setTimeout(() => URL.revokeObjectURL(url), 60_000)
   } catch {
-    message.error('Не удалось сформировать бланк ДТ')
+    message.error(t('dt.neUdalosSformirovatBlank'))
   } finally {
     pdfLoading.value = false
   }
@@ -1340,14 +1342,14 @@ const splitModalOpen = ref(false)
 const splitLoading = ref(false)
 const splitting = ref(false)
 const splitRows = ref<SplitRow[]>([])
-const splitColumns = [
-  { title: 'ТНВЭД', dataIndex: 'tnvedCode', key: 'tnvedCode', width: 140 },
-  { title: 'Статус ВТО', dataIndex: 'vtoStatus', key: 'vtoStatus', ellipsis: true },
-  { title: 'Пошлина ЕТТ', dataIndex: 'ettRate', key: 'ettRate', width: 110 },
-  { title: 'Пошлина ВТО', dataIndex: 'vtoRate', key: 'vtoRate', width: 110 },
-  { title: 'ВТО', key: 'vto', width: 70 },
-]
+const splitColumns = computed(() => ([
 
+  { title: t('dt.tnved'), dataIndex: 'tnvedCode', key: 'tnvedCode', width: 140 },
+  { title: t('dt.statusVto'), dataIndex: 'vtoStatus', key: 'vtoStatus', ellipsis: true },
+  { title: t('dt.poshlinaEtt'), dataIndex: 'ettRate', key: 'ettRate', width: 110 },
+  { title: t('dt.poshlinaVto'), dataIndex: 'vtoRate', key: 'vtoRate', width: 110 },
+  { title: t('dt.vto'), key: 'vto', width: 70 },
+]))
 // Task 12 (фидбек №17): «Выбрать все» — тристейт-переключатель над таблицей.
 const allVtoSelected = computed(() => splitRows.value.length > 0 && splitRows.value.every((r) => r.vto))
 const someVtoSelected = computed(() => splitRows.value.some((r) => r.vto) && !allVtoSelected.value)
@@ -1367,12 +1369,12 @@ const openSplitModal = async () => {
     const candidates = rows.filter((r) => r.isVtoCandidate)
     if (candidates.length === 0) {
       splitModalOpen.value = false
-      message.info('Нет товаров, попадающих под изъятия ВТО — разделять нечего')
+      message.info(t('dt.netTovarovPopadayuschihPod'))
       return
     }
     splitRows.value = candidates.map((r) => ({ ...r, vto: true }))
   } catch (e: any) {
-    message.error(e?.response?.data?.message ?? 'Не удалось получить рекомендацию по разделению')
+    message.error(e?.response?.data?.message ?? t('dt.neUdalosPoluchitRekomendaciyu'))
     splitModalOpen.value = false
   } finally {
     splitLoading.value = false
@@ -1384,14 +1386,14 @@ const doSplit = async () => {
   splitting.value = true
   try {
     await import40Api.splitDeclaration(caseId, dtId, { vtoGoodSortOrders })
-    message.success('Исходная ДТ сохранена без изменений, дополнительно созданы декларации ЕТТ и ВТО')
+    message.success(t('dt.ishodnayaDtSohranenaBez'))
     splitModalOpen.value = false
     // Исходная декларация сохраняется как есть, плюс создаются две новые
     // (ЕТТ и ВТО) — все три видны в списке ДТ заявки, переходим туда, а не
     // остаёмся на текущей странице.
     await router.push(`/import-40/${caseId}`)
   } catch (e: any) {
-    message.error(e?.response?.data?.message ?? 'Не удалось разделить декларацию')
+    message.error(e?.response?.data?.message ?? t('dt.neUdalosRazdelitDeklaraciyu'))
   } finally {
     splitting.value = false
   }
@@ -1402,7 +1404,7 @@ onMounted(async () => {
   // и дозаполнятся, когда кэш приедет. Иначе один упавший запрос из 12 оставлял бы
   // пользователя перед пустой формой декларации без объяснения.
   classifiers.loadMany(DT_CLASSIFIERS).catch(() => {
-    message.warning('Справочники кодов не загрузились — коды можно ввести вручную')
+    message.warning(t('dt.spravochnikiKodovNeZagruzilis'))
   })
   try {
     const countries = await referencesApi.listCountries()

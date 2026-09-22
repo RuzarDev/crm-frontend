@@ -1,109 +1,108 @@
 <template>
   <div class="dt-section">
-    <div class="dt-section-bar"><DtGraphLabel graph="48" text="Отсрочка платежей" /></div>
+    <div class="dt-section-bar"><DtGraphLabel graph="48" :text="t('dt.otsrochkaPlatezhey')" /></div>
     <div class="dt-grid-4">
-      <a-form-item label="Вид документа">
+      <a-form-item :label="t('dt.vidDokumenta')">
         <a-input v-uppercase v-model:value="form.deferralDocType" :disabled="readonly" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Номер">
+      <a-form-item :label="t('dt.nomer')">
         <a-input v-uppercase v-model:value="form.deferralNumber" :disabled="readonly" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Дата">
+      <a-form-item :label="t('dt.data')">
         <a-date-picker v-model:value="form.deferralDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Срок">
+      <a-form-item :label="t('dt.srok')">
         <a-date-picker v-model:value="form.deferralDueDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
       </a-form-item>
     </div>
 
     <a-form-item>
-      <template #label><DtGraphLabel graph="52" text="Гарантия недействительна для" /></template>
+      <template #label><DtGraphLabel graph="52" :text="t('dt.garantiyaNedeystvitelnaDlya')" /></template>
       <a-input v-uppercase v-model:value="form.guaranteeInvalidFor" :disabled="readonly" @change="emitChange" />
     </a-form-item>
 
     <div class="dt-section-bar party-bar">
-      <DtGraphLabel graph="54" text="Место, дата, подписант" />
-      <a-button v-if="!readonly" type="link" size="small" :loading="profileLoading" @click="fillFromDeclarantProfile">
-        Подставить из профиля
-      </a-button>
+      <DtGraphLabel graph="54" :text="t('dt.mestoDataPodpisant')" />
+      <a-button v-if="!readonly" type="link" size="small" :loading="profileLoading" @click="fillFromDeclarantProfile"> {{ t('dt.podstavitIzProfilya') }} </a-button>
     </div>
     <div class="dt-grid-3">
-      <a-form-item label="ФИО">
+      <a-form-item :label="t('dt.fio')">
         <a-input v-uppercase v-model:value="form.signatoryFullName" :disabled="readonly" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Должность">
+      <a-form-item :label="t('dt.dolzhnost')">
         <a-input v-uppercase v-model:value="form.signatoryPosition" :disabled="readonly" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Вид документа">
+      <a-form-item :label="t('dt.vidDokumenta')">
         <a-select
           v-model:value="form.signatoryDocTypeCode" :options="classifiers.options('id-doc-types')"
           show-search allow-clear :get-popup-container="popupContainer" :disabled="readonly"
-          placeholder="21 — Удостоверение личности" style="width: 100%" @change="emitChange"
+          :placeholder="t('dt.21UdostoverenieLichnosti')" style="width: 100%" @change="emitChange"
         />
       </a-form-item>
-      <a-form-item label="№ документа">
+      <a-form-item :label="t('dt.dokumenta')">
         <a-input v-uppercase v-model:value="form.signatoryDocNumber" :disabled="readonly" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Дата выдачи">
+      <a-form-item :label="t('dt.dataVydachi')">
         <a-date-picker v-model:value="form.signatoryDocIssueDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Кем выдан">
+      <a-form-item :label="t('dt.kemVydan')">
         <a-input v-uppercase v-model:value="form.signatoryDocIssuedBy" :disabled="readonly" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Страна">
+      <a-form-item :label="t('dt.strana')">
         <a-input v-uppercase v-model:value="form.signatoryDocCountryCode" :maxlength="2" :disabled="readonly" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Доверенность (№)">
+      <a-form-item :label="t('dt.doverennost')">
         <a-input v-uppercase v-model:value="form.powerOfAttorney" :disabled="readonly" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Дата доверенности">
+      <a-form-item :label="t('dt.dataDoverennosti')">
         <a-date-picker v-model:value="form.powerOfAttorneyDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Срок действия доверенности">
+      <a-form-item :label="t('dt.srokDeystviyaDoverennosti')">
         <a-date-picker v-model:value="form.powerOfAttorneyValidUntil" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="№ брокерского договора">
+      <a-form-item :label="t('dt.brokerskogoDogovora')">
         <a-input v-uppercase v-model:value="form.brokerContractNumber" :disabled="readonly" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Документ (текст)">
+      <a-form-item :label="t('dt.dokumentTekst')">
         <a-input v-uppercase v-model:value="form.signatoryDocument" :disabled="readonly" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Телефон">
+      <a-form-item :label="t('dt.telefon')">
         <a-input v-model:value="form.signatoryPhone" :disabled="readonly" @change="emitChange" />
       </a-form-item>
-      <a-form-item label="Дата подписания">
+      <a-form-item :label="t('dt.dataPodpisaniya')">
         <a-date-picker v-model:value="form.signedDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
       </a-form-item>
     </div>
 
-    <div class="dt-section-bar"><DtGraphLabel graph="54" text="Справочник фирм-брокеров" /></div>
+    <div class="dt-section-bar"><DtGraphLabel graph="54" :text="t('dt.spravochnikFirmBrokerov')" /></div>
     <div class="dt-grid-3">
-      <a-form-item label="БИН фирмы-брокера">
+      <a-form-item :label="t('dt.binFirmyBrokera')">
         <a-input-group compact style="display: flex">
-          <a-input v-model:value="brokerFirm.bin" :disabled="readonly" placeholder="БИН" style="flex: 1" />
-          <a-button v-if="!readonly" :loading="brokerFinding" @click="findBrokerFirm">Найти</a-button>
+          <a-input v-model:value="brokerFirm.bin" :disabled="readonly" :placeholder="t('dt.bin')" style="flex: 1" />
+          <a-button v-if="!readonly" :loading="brokerFinding" @click="findBrokerFirm">{{ t('dt.nayti') }}</a-button>
         </a-input-group>
       </a-form-item>
-      <a-form-item label="Наименование фирмы">
+      <a-form-item :label="t('dt.naimenovanieFirmy')">
         <a-input v-model:value="brokerFirm.name" :disabled="readonly" />
       </a-form-item>
-      <a-form-item label="Адрес">
+      <a-form-item :label="t('dt.adres')">
         <a-input v-model:value="brokerFirm.address" :disabled="readonly" />
       </a-form-item>
-      <a-form-item label="Дата договора">
+      <a-form-item :label="t('dt.dataDogovora')">
         <a-date-picker v-model:value="brokerFirm.contractDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" />
       </a-form-item>
-      <a-form-item label="Срок действия">
+      <a-form-item :label="t('dt.srokDeystviya')">
         <a-date-picker v-model:value="brokerFirm.contractValidUntil" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" />
       </a-form-item>
       <a-form-item label=" ">
-        <a-button v-if="!readonly" :loading="brokerSaving" @click="saveBrokerFirm">Сохранить в справочник</a-button>
+        <a-button v-if="!readonly" :loading="brokerSaving" @click="saveBrokerFirm">{{ t('dt.sohranitVSpravochnik') }}</a-button>
       </a-form-item>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
@@ -112,6 +111,8 @@ import { getBrokerFirmByBin, upsertBrokerFirm } from '@/api/brokerFirms'
 import { declarantProfileApi } from '@/api/declarantProfile'
 import type { Import40DtFormState } from '@/api/import40'
 import './dt-sections.css'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: Import40DtFormState
@@ -154,12 +155,12 @@ const fillFromDeclarantProfile = async () => {
     if (p.idDocCountryCode) form.signatoryDocCountryCode = up(p.idDocCountryCode)
     emitChange()
     if (p.fullName || p.powerOfAttorneyNumber || p.idDocNumber) {
-      message.success('гр.54 заполнена из профиля декларанта')
+      message.success(t('dt.gr54ZapolnenaIzProfilya'))
     } else {
-      message.info('Профиль декларанта пуст — заполните его в разделе «Профиль»')
+      message.info(t('dt.profilDeklarantaPustZapolnite'))
     }
   } catch {
-    message.error('Не удалось загрузить профиль декларанта')
+    message.error(t('dt.neUdalosZagruzitProfil'))
   } finally {
     profileLoading.value = false
   }
@@ -182,14 +183,14 @@ const brokerSaving = ref(false)
 const findBrokerFirm = async () => {
   const bin = (brokerFirm.bin || '').trim()
   if (!bin) {
-    message.warning('Укажите БИН фирмы-брокера')
+    message.warning(t('dt.ukazhiteBinFirmyBrokera'))
     return
   }
   brokerFinding.value = true
   try {
     const firm = await getBrokerFirmByBin(bin)
     if (!firm) {
-      message.info('Фирма-брокер с таким БИН не найдена в справочнике')
+      message.info(t('dt.firmaBrokerSTakim'))
       return
     }
     brokerFirm.name = firm.name
@@ -199,9 +200,9 @@ const findBrokerFirm = async () => {
     // № договора персистится в ДТ (гр.54) — автозаполняем и уведомляем родителя.
     form.brokerContractNumber = firm.contractNumber
     emitChange()
-    message.success('Фирма-брокер найдена, № договора подставлен в гр.54')
+    message.success(t('dt.firmaBrokerNaydenaDogovora'))
   } catch {
-    message.error('Не удалось выполнить поиск фирмы-брокера')
+    message.error(t('dt.neUdalosVypolnitPoisk'))
   } finally {
     brokerFinding.value = false
   }
@@ -211,7 +212,7 @@ const saveBrokerFirm = async () => {
   const name = (brokerFirm.name || '').trim()
   const bin = (brokerFirm.bin || '').trim()
   if (!name || !bin) {
-    message.warning('Для сохранения нужны наименование и БИН фирмы-брокера')
+    message.warning(t('dt.dlyaSohraneniyaNuzhnyNaimenovanie'))
     return
   }
   brokerSaving.value = true
@@ -224,9 +225,9 @@ const saveBrokerFirm = async () => {
       contractDate: brokerFirm.contractDate || null,
       contractValidUntil: brokerFirm.contractValidUntil || null,
     })
-    message.success('Фирма-брокер сохранена в справочник')
+    message.success(t('dt.firmaBrokerSohranenaV'))
   } catch {
-    message.error('Не удалось сохранить фирму-брокера')
+    message.error(t('dt.neUdalosSohranitFirmu'))
   } finally {
     brokerSaving.value = false
   }

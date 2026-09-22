@@ -1,10 +1,10 @@
 <template>
   <span class="dt-graph-label">
-    <span class="dt-graph-num">Гр.{{ graph }}</span>
+    <span class="dt-graph-num">{{ t('dt.grShort', { n: graph }) }}</span>
     <span class="dt-graph-text">{{ text }}</span>
     <a-popover trigger="click" placement="rightTop" :overlay-style="{ maxWidth: '520px' }" @open-change="onOpenChange">
       <template #title>
-        <span>Графа {{ graph }}{{ entry?.title ? ` — ${entry.title}` : '' }}</span>
+        <span>{{ t('dt.grafa', { n: graph }) }}{{ entry?.title ? ` — ${entry.title}` : '' }}</span>
       </template>
       <template #content>
         <a-spin v-if="loading" />
@@ -18,10 +18,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ref } from 'vue'
 import { QuestionCircleOutlined } from '@ant-design/icons-vue'
 import { referencesApi } from '@/api/references'
 import type { DtGuideEntry } from '@/types/api'
+
+const { t } = useI18n()
 
 const props = defineProps<{ graph: string; text: string }>()
 
@@ -37,7 +40,7 @@ const onOpenChange = async (open: boolean) => {
   try {
     entry.value = await referencesApi.getDtGuideGraph(props.graph)
   } catch {
-    error.value = 'Порядок заполнения для этой графы не найден'
+    error.value = t('dt.poryadokZapolneniyaDlyaEtoy')
   } finally {
     loading.value = false
   }

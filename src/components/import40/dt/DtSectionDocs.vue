@@ -1,20 +1,23 @@
 <template>
   <div class="dt-section">
-    <div class="dt-section-bar"><DtGraphLabel graph="40" text="Общая декларация / предшествующий документ" /></div>
+    <div class="dt-section-bar"><DtGraphLabel graph="40" :text="t('dt.obschayaDeklaraciyaPredshestvuyuschiyDokument')" /></div>
     <DtPrevDocsSection v-model="prevDocs" :readonly="readonly" />
 
-    <div class="dt-section-bar"><DtGraphLabel graph="44" text="Дополнительная информация / представленные документы" /></div>
+    <div class="dt-section-bar"><DtGraphLabel graph="44" :text="t('dt.dopolnitelnayaInformaciyaPredstavlennyeDokumenty')" /></div>
     <ReestrDoc44Section v-model="doc44" :readonly="readonly" extended :goods-options="goodsOptions" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed } from 'vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import DtPrevDocsSection from './DtPrevDocsSection.vue'
 import ReestrDoc44Section from '@/components/ReestrDoc44Section.vue'
 import type { Import40DtFormState } from '@/api/import40'
 import './dt-sections.css'
+
+const { t } = useI18n()
 
 const props = defineProps<{ modelValue: Import40DtFormState; readonly: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [Import40DtFormState] }>()
@@ -36,7 +39,7 @@ const doc44 = computed({
 const goodsOptions = computed(() =>
   (props.modelValue.goodsItems ?? []).map((g, i) => ({
     value: i,
-    label: `Товар ${i + 1}: ${g.tnvedCode || g.description || ''}`,
+    label: t('dt.tovarI1G', { n: i + 1, text: g.tnvedCode || g.description || '' }),
   })),
 )
 </script>

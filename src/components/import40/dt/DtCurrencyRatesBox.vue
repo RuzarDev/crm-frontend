@@ -1,25 +1,27 @@
 <template>
   <div v-if="chips.length" class="dt-rates-box">
-    <span class="dt-rates-title">
-      Курсы валют (НБ РК)<template v-if="asOfLabel"> на дату гр.А ({{ asOfLabel }})</template>
+    <span class="dt-rates-title"> {{ t('dt.kursyValyutNbRk') }}<template v-if="asOfLabel">&nbsp;{{ t('dt.naDatuGrA', { date: asOfLabel }) }}</template>
     </span>
     <span v-for="c in chips" :key="c.code" class="dt-rates-chip">
       {{ c.code }}: {{ c.rate }} ₸
     </span>
     <a-tooltip
-      title="Текущий справочный курс НБ РК; привязка к историческому курсу на дату гр.А — в планах."
+      :title="t('dt.tekuschiySpravochnyyKursNb')"
     >
       <span class="dt-rates-note">?</span>
     </a-tooltip>
   </div>
   <div v-else-if="asOfLabel !== null && codes.length" class="dt-rates-box">
-    <span class="dt-rates-note-muted">нет валют</span>
+    <span class="dt-rates-note-muted">{{ t('dt.netValyut') }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { computed } from 'vue'
 import dayjs from 'dayjs'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   rates: Record<string, { rate: number; date: string }>

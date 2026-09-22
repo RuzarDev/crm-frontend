@@ -7,25 +7,25 @@
 <template>
   <a-modal
     :open="open"
-    title="Расчёт платежей (гр.47 / гр.B)"
+    :title="t('dt.raschetPlatezheyGr47Grb')"
     width="820px"
     :confirm-loading="applying"
-    ok-text="Записать в гр.47 и гр.B"
-    cancel-text="Закрыть"
+    :ok-text="t('dt.zapisatVGr47I')"
+    :cancel-text="t('dt.zakryt')"
     :ok-button-props="{ disabled: !result }"
     @update:open="(v: boolean) => emit('update:open', v)"
     @ok="emit('apply')"
     @cancel="emit('update:open', false)"
   >
     <a-spin :spinning="loading">
-      <div v-if="!result && !loading" class="calc-empty">Нет данных расчёта</div>
+      <div v-if="!result && !loading" class="calc-empty">{{ t('dt.netDannyhRascheta') }}</div>
 
       <template v-else-if="result">
         <div v-for="row in result.goodsRows" :key="row.index" class="goods-block">
           <div class="goods-block-header">
             <span class="goods-title">{{ goodsLabel(row.index) }}</span>
-            <a-tag v-if="tempImportMonths(row.index)" color="blue">Врем. ввоз: 3%×{{ tempImportMonths(row.index) }} мес</a-tag>
-            <a-tag v-if="row.excisePossible" color="orange">Возможен акциз — проверьте ТНВЭД</a-tag>
+            <a-tag v-if="tempImportMonths(row.index)" color="blue">{{ t('dt.vremVvoz', { months: tempImportMonths(row.index) }) }}</a-tag>
+            <a-tag v-if="row.excisePossible" color="orange">{{ t('dt.vozmozhenAkcizProverteTnved') }}</a-tag>
           </div>
 
           <div class="goods-vat-toggle">
@@ -33,9 +33,7 @@
               :checked="isMedical(row.index)"
               :disabled="readonly"
               @change="(e: any) => emit('toggle-medical', row.index, e.target.checked)"
-            >
-              Медизделие (НДС 5%)
-            </a-checkbox>
+            > {{ t('dt.medizdelieNds5') }} </a-checkbox>
           </div>
 
           <a-table
@@ -64,7 +62,7 @@
           <!-- Task 10, №2: гр.B (детализация) — строки, которые лягут в гр.B по кнопке
                «Записать в гр.47 и гр.B» (см. FormatBLine на бэке). -->
           <div v-if="bLinesFor(row).length" class="b-line-row">
-            <span class="b-line-label">Гр.B:</span>
+            <span class="b-line-label">{{ t('dt.grb') }}</span>
             <span class="b-line-value">{{ bLinesFor(row).join('; ') }}</span>
           </div>
         </div>
@@ -77,7 +75,7 @@
         </div>
 
         <div class="grand-total">
-          <span class="grand-total-label">Итого гр.B</span>
+          <span class="grand-total-label">{{ t('dt.itogoGrb') }}</span>
           <span class="grand-total-value">{{ fmt0(result.grandTotalB) }} ₸</span>
         </div>
       </template>
@@ -86,8 +84,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Import40CalculatePaymentsResponse, Import40PaymentGoodsRowDto } from '@/api/import40'
 import type { Import40GoodsItemInput } from '@/types/api'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   open: boolean
@@ -107,18 +109,19 @@ const emit = defineEmits<{
 // Коды видов платежа гр.47 → русские названия (см. tax-modes в
 // DatabaseExtensions.cs на бэке) — тот же список, что и в Import40GoodsKedenPanel,
 // намеренно не выносим в общий модуль ради простоты (Task 10, две небольших карты).
-const TAX_MODE_LABELS: Record<string, string> = {
-  '2010': 'Пошлина',
-  '4010': 'Акциз',
-  '1010': 'Сбор',
-  '5060': 'НДС',
-}
-const taxModeLabel = (code: string) => TAX_MODE_LABELS[code] ?? code
+const TAX_MODE_LABELS = computed((): Record<string, string> => ({
+
+  '2010': t('dt.poshlina'),
+  '4010': t('dt.akciz'),
+  '1010': t('dt.sbor'),
+  '5060': t('dt.nds'),
+}))
+const taxModeLabel = (code: string) => TAX_MODE_LABELS.value[code] ?? code
 
 const goodsLabel = (index: number) => {
   const g = props.goods[index]
-  if (!g) return `Товар ${index + 1}`
-  return `Товар ${index + 1}: ${g.tnvedCode || 'без кода'} — ${g.description || ''}`
+  if (!g) return t('dt.tovarIndex1', { n: index + 1 })
+  return t('dt.tovarIndex1G', { n: index + 1, code: g.tnvedCode || t('dt.bezKoda'), desc: g.description || '' })
 }
 
 const isMedical = (index: number) => (props.goods[index]?.vatRatePreferential ?? null) === 0.05
@@ -128,15 +131,15 @@ const isMedical = (index: number) => (props.goods[index]?.vatRatePreferential ??
 const tempImportMonths = (index: number) => props.goods[index]?.tempImportMonths ?? null
 
 // Task 10, №9: Вид / Основа начисления / Ставка / Сумма / СП.
-const goodsColumns = [
-  { title: 'Вид', dataIndex: 'taxModeCode', key: 'taxModeCode', width: 120,
-    customRender: ({ text }: { text: string }) => taxModeLabel(text) },
-  { title: 'Основа начисления', dataIndex: 'base', key: 'base', width: 170 },
-  { title: 'Ставка', dataIndex: 'rate', key: 'rate', width: 150 },
-  { title: 'Сумма, ₸', dataIndex: 'amount', key: 'amount', width: 140 },
-  { title: 'СП', dataIndex: 'featureCode', key: 'sp', width: 60 },
-]
+const goodsColumns = computed(() => ([
 
+  { title: t('dt.vid'), dataIndex: 'taxModeCode', key: 'taxModeCode', width: 120,
+    customRender: ({ text }: { text: string }) => taxModeLabel(text) },
+  { title: t('dt.osnovaNachisleniya'), dataIndex: 'base', key: 'base', width: 170 },
+  { title: t('dt.stavka'), dataIndex: 'rate', key: 'rate', width: 150 },
+  { title: t('dt.summa'), dataIndex: 'amount', key: 'amount', width: 140 },
+  { title: t('dt.sp'), dataIndex: 'featureCode', key: 'sp', width: 60 },
+]))
 const rowsFor = (row: Import40PaymentGoodsRowDto) => row.rows
 
 // Task 10, №2: строки гр.B ("{код}-{сумма}-398-{дата}-БН"), присланные бэком
@@ -152,7 +155,7 @@ const rateDisplay = (record: { taxModeCode: string; rate?: number | null; rateLa
   const label = record.rateLabel ?? fmt2(record.rate)
   const months = tempImportMonths(goodsIndex)
   if (!months || !TEMP_IMPORT_ANNOTATED_CODES.has(record.taxModeCode) || record.rateLabel == null) return label
-  return `${label} × 3%×${months}мес`
+  return t('dt.label3MonthsMes', { label, months })
 }
 
 const fmt2 = (v: number | null | undefined) =>
