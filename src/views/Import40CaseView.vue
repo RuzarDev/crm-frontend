@@ -6,7 +6,8 @@
         <span>{{ t('import40Case.post') }}: <strong>{{ activeCase.post || '—' }}</strong></span>
         <span v-if="activeCase.assignedKppId">{{ t('import40Case.kpp') }}: <a-tag>{{ staffName(activeCase.assignedKppId) }}</a-tag></span>
         <span v-if="activeCase.assignedDeclarantId">{{ t('import40Case.declarant') }}: <a-tag>{{ staffName(activeCase.assignedDeclarantId) }}</a-tag></span>
-        <a-tag v-if="isCompleted(activeCase.status)" color="success">{{ t('import40Case.completed') }}</a-tag>
+        <a-tag v-if="activeCase.status === 9" color="default">{{ t('import40Case.cancelled') }}</a-tag>
+        <a-tag v-else-if="isCompleted(activeCase.status)" color="success">{{ t('import40Case.completed') }}</a-tag>
         <template v-else>
           <a-tag color="processing">{{ t('import40Case.stepOf', { step: currentStep, total: TOTAL_STEPS, title: stepTitle(currentStep) }) }}</a-tag>
         </template>
@@ -18,6 +19,7 @@
           v-if="(can('kpp') || can('declarant')) && !activeCase.isProblem && activeCase.status < 8"
           danger size="small" @click="promptProblem"
         >{{ t('import40Case.problemBtn') }}</a-button>
+        <a-button v-if="canCancel" danger size="small" @click="promptCancel">{{ t('import40Case.cancelBtn') }}</a-button>
 
         <div v-if="canAssign" class="assign-inline">
           <a-select v-model:value="assignForm.kppId" allow-clear :placeholder="t('import40Case.kppNotAssigned')" :options="kppOptions" size="small" style="min-width: 170px" />
@@ -28,6 +30,8 @@
     </PageHeader>
 
     <!-- Баннеры -->
+    <a-alert v-if="activeCase.status === 9" type="warning" show-icon class="case-banner"
+      :message="t('import40Case.cancelledTitle')" :description="activeCase.cancelReason || undefined" />
     <a-alert
       v-if="activeCase.isProblem"
       type="error"
@@ -239,7 +243,10 @@
         <Import40FilesBlock :files="filesBySection('declaration-stamp')" :can-upload="stepState(4) === 'current' && can('kpp')"
           :uploading="uploading" :empty-text="t('import40Case.stampEmpty')"
           @upload="(f: File) => uploadTo('declaration-stamp', f)" @download="download" />
-        <div class="sub-label">{{ t('import40Case.svhInvoiceTitle') }} <a-tag v-if="activeCase.svhInvoiceNote">{{ activeCase.svhInvoiceNote }}</a-tag></div>
+        <div class="sub-label">{{ t('import40Case.svhInvoiceTitle') }}
+          <a-tag v-if="activeCase.svhInvoiceAmount != null" color="blue">{{ Math.round(activeCase.svhInvoiceAmount).toLocaleString('ru-RU') }} ₸<template v-if="activeCase.svhInvoiceNumber"> · № {{ activeCase.svhInvoiceNumber }}</template></a-tag>
+          <a-tag v-if="activeCase.svhInvoiceNote">{{ activeCase.svhInvoiceNote }}</a-tag>
+        </div>
         <Import40FilesBlock :files="filesBySection('svh-invoice')" :can-upload="stepState(4) === 'current' && can('kpp')"
           :uploading="uploading" :empty-text="t('import40Case.svhInvoiceEmpty')"
           @upload="(f: File) => uploadTo('svh-invoice', f)" @download="download" />
@@ -295,7 +302,20 @@
     </a-modal>
 
     <a-modal v-model:open="invoiceOpen" :title="t('import40Case.invoiceTitle')" :ok-text="t('import40Case.invoiceOk')" :cancel-text="t('common.cancel')" @ok="confirmInvoice">
-      <a-input v-model:value="invoiceAmount" :placeholder="t('import40Case.invoicePh')" />
+      <a-form layout="vertical">
+        <a-form-item :label="t('import40Case.invoiceAmount')" required>
+          <a-input-number v-model:value="invoiceForm.amount" :min="0" :precision="2" style="width: 100%" :placeholder="t('import40Case.invoicePh')" />
+        </a-form-item>
+        <div class="invoice-row">
+          <a-form-item :label="t('import40Case.invoiceNumber')"><a-input v-model:value="invoiceForm.number" /></a-form-item>
+          <a-form-item :label="t('import40Case.invoiceDate')"><a-date-picker v-model:value="invoiceForm.date" format="DD.MM.YYYY" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item>
+        </div>
+        <a-form-item :label="t('import40Case.invoiceNote')"><a-input v-model:value="invoiceForm.note" /></a-form-item>
+      </a-form>
+    </a-modal>
+    <a-modal v-model:open="cancelOpen" :title="t('import40Case.cancelTitle')" :ok-text="t('import40Case.cancelOk')" :cancel-text="t('common.cancel')" :ok-button-props="{ danger: true, disabled: !cancelReason.trim() }" @ok="confirmCancel">
+      <p class="muted">{{ t('import40Case.cancelHint') }}</p>
+      <a-textarea v-model:value="cancelReason" :rows="3" :placeholder="t('import40Case.cancelPh')" />
     </a-modal>
 
     <a-modal
@@ -857,13 +877,37 @@ const saveAssignment = async () => {
   }
 }
 
+const invoiceForm = reactive<{ amount: number | null; number: string; date: string | null; note: string }>({ amount: null, number: '', date: null, note: '' })
 const promptInvoice = () => {
-  invoiceAmount.value = ''
+  invoiceForm.amount = null; invoiceForm.number = ''; invoiceForm.date = new Date().toISOString().slice(0, 10); invoiceForm.note = ''
   invoiceOpen.value = true
 }
 const confirmInvoice = async () => {
+  if (!invoiceForm.amount || invoiceForm.amount <= 0) { message.warning(t('import40Case.invoiceAmountRequired')); return }
   invoiceOpen.value = false
-  await runAction('issue-invoice', invoiceAmount.value)
+  if (!activeCase.value) return
+  try {
+    await import40Api.action(activeCase.value.id, 'issue-invoice', invoiceForm.note || undefined,
+      { amount: invoiceForm.amount, number: invoiceForm.number || null, date: invoiceForm.date })
+    await reload()
+  } catch (e: any) {
+    message.error(e?.response?.data?.error ?? t('import40Case.actionFailed'))
+  }
+}
+
+// Отмена заявки: руководитель/админ — любую незавершённую, клиент — свою черновую (п.5 аудита).
+const cancelOpen = ref(false)
+const cancelReason = ref('')
+const canCancel = computed(() => {
+  const c = activeCase.value
+  if (!c || c.status >= 8) return false
+  if (roleMode.value === 'admin' || authStore.hasPermission('import40.assign')) return true
+  return roleMode.value === 'client' && c.status === 0
+})
+const promptCancel = () => { cancelReason.value = ''; cancelOpen.value = true }
+const confirmCancel = async () => {
+  cancelOpen.value = false
+  await runAction('cancel', cancelReason.value.trim())
 }
 
 // --- Импорт из КП (переиспользуем данные принятого коммерческого предложения
@@ -951,6 +995,8 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.invoice-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.muted { color: var(--atg-muted, #95a1b7); font-size: 12.5px; }
 .case-page {
   display: flex;
   flex-direction: column;

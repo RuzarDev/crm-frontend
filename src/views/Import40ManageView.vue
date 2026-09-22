@@ -9,7 +9,7 @@
     <a-spin :spinning="loading">
       <template v-if="data">
         <div class="kpi-row">
-          <div class="kpi" :class="{ 'kpi--attn': data.unassigned }" @click="filter = 'unassigned'"><span>Без назначения</span><b>{{ data.unassigned }}</b><small>на шаге сотрудника никто не назначен</small></div>
+          <div class="kpi" :class="{ 'kpi--attn': data.unassigned }" @click="filter = 'unassigned'"><span>Без назначения</span><b>{{ data.unassigned }}</b><small>ни декларант, ни КПП не назначены</small></div>
           <div class="kpi" :class="{ 'kpi--bad': data.problems }" @click="filter = 'problems'"><span>Проблемные</span><b>{{ data.problems }}</b><small>запрос таможни / проблема</small></div>
           <div class="kpi" :class="{ 'kpi--attn': data.stale }" @click="filter = 'stale'"><span>Зависли</span><b>{{ data.stale }}</b><small>без движения 5+ дней</small></div>
           <div class="kpi"><span>Активных заявок</span><b>{{ data.cases.length }}</b><small>всего в работе</small></div>
@@ -34,12 +34,12 @@
                 </template>
                 <template v-else-if="column.key === 'declarant'">
                   <a-select :value="record.assignedDeclarantId ?? undefined" :options="declarantOptions" allow-clear size="small" placeholder="—" style="width: 100%"
-                    :class="{ 'need-assign': needsDeclarant(record.status) && !record.assignedDeclarantId }"
+                    :class="{ 'need-assign': (needsDeclarant(record.status) || needsKpp(record.status)) && !record.assignedDeclarantId && !record.assignedKppId }"
                     @change="(v: string | undefined) => assign(record, 'assignedDeclarantId', v)" />
                 </template>
                 <template v-else-if="column.key === 'kpp'">
                   <a-select :value="record.assignedKppId ?? undefined" :options="kppOptions" allow-clear size="small" placeholder="—" style="width: 100%"
-                    :class="{ 'need-assign': needsKpp(record.status) && !record.assignedKppId }"
+                    :class="{ 'need-assign': false }"
                     @change="(v: string | undefined) => assign(record, 'assignedKppId', v)" />
                 </template>
                 <template v-else-if="column.key === 'days'">
@@ -105,7 +105,7 @@ const { statusLabel } = useImport40Status()
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
   return (data.value?.cases ?? []).filter((c) => {
-    if (filter.value === 'unassigned' && !((needsKpp(c.status) && !c.assignedKppId) || (needsDeclarant(c.status) && !c.assignedDeclarantId))) return false
+    if (filter.value === 'unassigned' && !((needsKpp(c.status) || needsDeclarant(c.status)) && !c.assignedKppId && !c.assignedDeclarantId)) return false
     if (filter.value === 'problems' && !c.isProblem) return false
     if (filter.value === 'stale' && c.daysSinceUpdate < 5) return false
     return !q || [c.number, c.clientName, c.cargo, c.post].join(' ').toLowerCase().includes(q)
@@ -138,7 +138,7 @@ const assign = async (c: ManageCase, field: 'assignedKppId' | 'assignedDeclarant
     await import40Api.update(c.id, { [field]: value ?? '00000000-0000-0000-0000-000000000000' })
     c[field] = value ?? null
     message.success('Назначение сохранено')
-    if (data.value) data.value.unassigned = data.value.cases.filter((x) => (needsKpp(x.status) && !x.assignedKppId) || (needsDeclarant(x.status) && !x.assignedDeclarantId)).length
+    if (data.value) data.value.unassigned = data.value.cases.filter((x) => (needsKpp(x.status) || needsDeclarant(x.status)) && !x.assignedKppId && !x.assignedDeclarantId).length
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     message.error(err.response?.data?.error ?? 'Не удалось назначить')

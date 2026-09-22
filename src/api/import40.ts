@@ -21,6 +21,7 @@ export type Import40Action =
   | 'claim'
   | 'set-problem'
   | 'clear-problem'
+  | 'cancel'
 
 // Статусы заявки (совпадают с Import40Status на бэке)
 export const IMPORT40_STATUSES = [
@@ -33,6 +34,7 @@ export const IMPORT40_STATUSES = [
   { id: 6, key: 'Invoiced', short: 'Счёт выставлен', phase: 'Финансы' },
   { id: 7, key: 'Paid', short: 'Оплата получена', phase: 'Финансы' },
   { id: 8, key: 'Done', short: 'Выполнено', phase: 'Архив' },
+  { id: 9, key: 'Cancelled', short: 'Отменена', phase: 'Архив' },
 ] as const
 
 export interface Import40LogDto {
@@ -456,6 +458,11 @@ export interface Import40CaseDto {
   id: string
   /** ИМ-2026-0001 — сквозной номер заявки */
   number: string
+  svhInvoiceAmount: number | null
+  svhInvoiceNumber: string
+  svhInvoiceDate: string | null
+  cancelReason: string
+  cancelledAtUtc: string | null
   createdAtUtc: string
   updatedAtUtc: string
   clientId: string
@@ -691,10 +698,15 @@ export const import40Api = {
     return response.data
   },
 
-  action: async (id: string, action: Import40Action, value?: string): Promise<Import40CaseDto> => {
+  action: async (
+    id: string,
+    action: Import40Action,
+    value?: string,
+    extra?: { amount?: number | null; number?: string | null; date?: string | null },
+  ): Promise<Import40CaseDto> => {
     const response = await apiClient.post<Import40CaseDto>(
       `/import40/${encodeURIComponent(id)}/actions/${action}`,
-      { value: value ?? null },
+      { value: value ?? null, ...(extra ?? {}) },
     )
     return response.data
   },

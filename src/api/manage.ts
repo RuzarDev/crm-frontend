@@ -12,7 +12,7 @@ export interface ManageOverview { cases: ManageCase[]; staff: StaffMember[]; una
 export interface FinanceFile { id: string; section: 'svh-invoice' | 'payment-check'; fileName: string; createdAtUtc: string }
 export interface FinanceRow {
   caseId: string; number: string; clientName: string; cargo: string; status: number; isProblem: boolean
-  svhInvoiceNote: string; svhInvoiceAmount: number | null; invoicedAtUtc: string | null
+  svhInvoiceNote: string; svhInvoiceAmount: number | null; svhInvoiceNumber: string; invoicedAtUtc: string | null
   paymentConfirmed: boolean; paidAtUtc: string | null; hasPaymentCheck: boolean
   customsPaymentsKzt: number; declarationsCount: number; createdAtUtc: string; updatedAtUtc: string
   files: FinanceFile[]

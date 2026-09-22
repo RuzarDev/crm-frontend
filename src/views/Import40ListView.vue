@@ -235,9 +235,12 @@
         <a-tab-pane key="all" :tab="t('import40List.allRequests')" />
       </a-tabs>
 
-      <a-input v-model:value="search" allow-clear :placeholder="t('import40List.searchPh')">
-        <template #prefix><SearchOutlined /></template>
-      </a-input>
+      <div class="list-filters">
+        <a-input v-model:value="search" allow-clear :placeholder="t('import40List.searchPh')">
+          <template #prefix><SearchOutlined /></template>
+        </a-input>
+        <a-segmented v-if="tab === 'all'" v-model:value="scope" :options="scopeOptions" />
+      </div>
 
       <a-table
         :columns="columns"
@@ -260,7 +263,7 @@
             </div>
           </template>
           <template v-else-if="column.key === 'status'">
-            <a-tag :color="record.isProblem ? 'error' : isCompleted(record.status) ? 'success' : 'processing'">
+            <a-tag :color="record.status === 9 ? 'default' : record.isProblem ? 'error' : isCompleted(record.status) ? 'success' : 'processing'">
               <template v-if="isCompleted(record.status)">{{ statusLabel(record.status) }}</template>
               <template v-else>{{ t('import40List.stepOf', { step: stepForStatus(record.status), total: TOTAL_STEPS }) }} · {{ statusLabel(record.status) }}</template>
             </a-tag>
@@ -586,10 +589,19 @@ const persistWizardDraft = async () => {
   }
 }
 
+// «Все заявки»: активные / архив (выполненные и отменённые) — раньше архив был неотличим от работы.
+const scope = ref<'active' | 'archive'>('active')
+const scopeOptions = computed(() => [
+  { label: t('import40List.scopeActive'), value: 'active' },
+  { label: t('import40List.scopeArchive'), value: 'archive' },
+])
 const filteredCases = computed(() => {
   const q = search.value.trim().toLowerCase()
-  if (!q) return cases.value
-  return cases.value.filter((c) =>
+  const byScope = tab.value === 'all'
+    ? cases.value.filter((c) => (scope.value === 'archive' ? c.status >= 8 : c.status < 8))
+    : cases.value
+  if (!q) return byScope
+  return byScope.filter((c) =>
     [c.number, c.clientName, c.cargo, c.post, statusLabel(c.status)].join(' ').toLowerCase().includes(q),
   )
 })
@@ -739,6 +751,9 @@ onMounted(() => {
 }
 
 .create-grid label,
+.list-filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.list-filters .ant-input-affix-wrapper { max-width: 360px; }
+
 .case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #22b8d0); margin-right: 4px; }
 
 .case-cell {

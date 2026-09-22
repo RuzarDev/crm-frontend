@@ -34,7 +34,7 @@
               </template>
               <template v-else-if="column.key === 'invoice'">
                 <template v-if="record.invoicedAtUtc || record.svhInvoiceNote">
-                  <div class="cell-main">{{ record.svhInvoiceAmount != null ? money(record.svhInvoiceAmount) + ' ₸' : (record.svhInvoiceNote || '—') }}</div>
+                  <div class="cell-main">{{ record.svhInvoiceAmount != null ? money(record.svhInvoiceAmount) + ' ₸' : (record.svhInvoiceNote || '—') }}<span v-if="record.svhInvoiceNumber" class="cell-sub"> · № {{ record.svhInvoiceNumber }}</span></div>
                   <div class="cell-sub">{{ record.invoicedAtUtc ? fmtDate(record.invoicedAtUtc) : '' }}<span v-if="record.svhInvoiceAmount != null && record.svhInvoiceNote"> · {{ record.svhInvoiceNote }}</span></div>
                 </template>
                 <span v-else class="muted">—</span>
@@ -139,7 +139,7 @@ const download = async (caseId: string, f: FinanceFile) => {
 const exportXlsx = () => {
   const rows = filtered.value.map((r) => ({
     'Номер': r.number, 'Клиент': r.clientName, 'Груз': r.cargo, 'Статус': statusLabel(r.status),
-    'Счёт СВХ, ₸': r.svhInvoiceAmount ?? '', 'Заметка по счёту': r.svhInvoiceNote,
+    'Счёт СВХ, ₸': r.svhInvoiceAmount ?? '', '№ счёта': r.svhInvoiceNumber, 'Заметка по счёту': r.svhInvoiceNote,
     'Счёт выставлен': r.invoicedAtUtc ? fmtDate(r.invoicedAtUtc) : '',
     'Оплата': r.paymentConfirmed ? 'оплачено' : r.hasPaymentCheck ? 'чек на проверке' : r.status === 6 ? 'ждёт оплаты' : '',
     'Оплачено': r.paidAtUtc ? fmtDate(r.paidAtUtc) : '',
