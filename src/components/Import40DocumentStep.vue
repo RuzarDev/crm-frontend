@@ -3,7 +3,7 @@
     <div class="card-title"><FileProtectOutlined /> {{ title }}</div>
 
     <div class="generate-bar">
-      <a-checkbox v-model:checked="singleUse">{{ t('company.singleUse') }}</a-checkbox>
+      <a-checkbox v-if="allowSingleUse" v-model:checked="singleUse">{{ t('company.singleUse') }}</a-checkbox>
       <a-date-picker
         v-model:value="validUntil"
         format="DD.MM.YYYY"
@@ -59,7 +59,7 @@
             </div>
           </div>
 
-          <div class="sign-block">
+          <div v-if="providerSignature" class="sign-block">
             <div class="sign-head">
               <strong>{{ t('company.providerSignature') }}</strong>
               <a-tag v-if="doc.providerSigned" color="success">{{ t('company.signed') }}</a-tag>
@@ -106,6 +106,10 @@ defineProps<{
   isAdmin: boolean
   emptyHint: string
   isEffective: (doc: Import40DocumentDto) => boolean
+  /** Разовый вариант (на одну заявку) — только для доверенности; договор всегда многоразовый. */
+  allowSingleUse?: boolean
+  /** Нужна ли подпись брокера (договор — да, доверенность — односторонний документ клиента). */
+  providerSignature?: boolean
 }>()
 
 const { t } = useI18n()

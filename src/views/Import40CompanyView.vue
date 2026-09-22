@@ -104,6 +104,8 @@
             :is-admin="isAdmin"
             :is-effective="isDocumentEffective"
             :empty-hint="t('company.contractEmpty')"
+            :allow-single-use="false"
+            :provider-signature="true"
             @generate="(opts: GenerateOpts) => generate('contract', opts)"
             @download="downloadDoc"
             @sign="(doc: Import40DocumentDto, side: 'client' | 'provider') => triggerSign(doc, side)"
@@ -120,6 +122,8 @@
             :is-admin="isAdmin"
             :is-effective="isDocumentEffective"
             :empty-hint="t('company.poaEmpty')"
+            :allow-single-use="true"
+            :provider-signature="false"
             @generate="(opts: GenerateOpts) => generate('poa', opts)"
             @download="downloadDoc"
             @sign="(doc: Import40DocumentDto, side: 'client' | 'provider') => triggerSign(doc, side)"
@@ -149,6 +153,7 @@ import {
 import {
   import40ContractApi,
   isDocumentEffective,
+  isDocumentActive,
   type ClientCompanyProfileDto,
   type Import40DocumentDto,
 } from '@/api/import40Contract'
@@ -203,15 +208,19 @@ const form = reactive({
 const filterCountry = (input: string, option: { label: string }) =>
   option.label.toLowerCase().includes(input.toLowerCase())
 
-const effectiveContract = computed(() => contractDocs.value.find(isDocumentEffective) ?? null)
+// Онбординг = подписанные и не истёкшие договор + доверенность. Расход разовой доверенности
+// заявкой онбординг не «отменяет» — для следующей заявки просто нужна новая доверенность.
+const effectiveContract = computed(() => contractDocs.value.find(isDocumentEffective) ?? contractDocs.value.find(isDocumentActive) ?? null)
+const activePoa = computed(() => poaDocs.value.find(isDocumentActive) ?? null)
 const effectivePoa = computed(() => poaDocs.value.find(isDocumentEffective) ?? null)
-const onboardingComplete = computed(() => !!effectiveContract.value && !!effectivePoa.value)
+const onboardingComplete = computed(() => !!effectiveContract.value && !!activePoa.value)
+const poaConsumed = computed(() => !!activePoa.value && !effectivePoa.value)
 
 const missingHint = computed(() => {
   const missing: string[] = []
   if (!profile.value?.isComplete) missing.push(t('company.missingProfile'))
   if (!effectiveContract.value) missing.push(t('company.missingContract'))
-  if (!effectivePoa.value) missing.push(t('company.missingPoa'))
+  if (!activePoa.value) missing.push(t('company.missingPoa'))
   return missing.length ? t('company.missing', { list: missing.join(', ') }) : ''
 })
 
@@ -231,8 +240,8 @@ const stepItems = computed(() => [
   },
   {
     title: t('company.stepPoa'),
-    description: effectivePoa.value ? t('company.effective') : t('company.required'),
-    status: stepStatus(!!effectivePoa.value, 2),
+    description: effectivePoa.value ? t('company.effective') : poaConsumed.value ? t('company.poaConsumed') : t('company.required'),
+    status: stepStatus(!!activePoa.value, 2),
   },
 ])
 
@@ -305,7 +314,7 @@ const load = async () => {
     // открываем первый незавершённый шаг
     if (!profile.value?.isComplete) current.value = 0
     else if (!effectiveContract.value) current.value = 1
-    else if (!effectivePoa.value) current.value = 2
+    else if (!activePoa.value) current.value = 2
     else current.value = 2
   } finally {
     loading.value = false

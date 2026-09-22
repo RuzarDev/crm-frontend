@@ -458,6 +458,7 @@ export default {
     missingPoa: 'действующая доверенность',
     stepProfile: 'Реквизиты',
     stepContract: 'Договор',
+    poaConsumed: 'Использована — для новой заявки нужна новая',
     stepPoa: 'Доверенность',
     filled: 'Заполнено',
     notFilled: 'Не заполнено',

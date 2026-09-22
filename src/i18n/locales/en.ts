@@ -458,6 +458,7 @@ export default {
     missingPoa: 'an effective power of attorney',
     stepProfile: 'Details',
     stepContract: 'Contract',
+    poaConsumed: 'Used — a new one is needed for the next request',
     stepPoa: 'Power of attorney',
     filled: 'Filled in',
     notFilled: 'Not filled in',

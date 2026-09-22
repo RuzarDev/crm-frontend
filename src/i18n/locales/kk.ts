@@ -458,6 +458,7 @@ export default {
     missingPoa: 'қолданыстағы сенімхат',
     stepProfile: 'Деректемелер',
     stepContract: 'Шарт',
+    poaConsumed: 'Пайдаланылды — жаңа өтінімге жаңасы қажет',
     stepPoa: 'Сенімхат',
     filled: 'Толтырылған',
     notFilled: 'Толтырылмаған',

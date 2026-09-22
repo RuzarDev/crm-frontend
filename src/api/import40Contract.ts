@@ -99,6 +99,15 @@ export interface Import40DocumentGenerateRequest {
 
 // документ считается ДЕЙСТВУЮЩИМ, если он активен, не истёк по сроку
 // и (для разовых) ещё не израсходован на заявку
+// «Действующий» без учёта расхода разовой: подписан и не истёк. Для статуса онбординга —
+// разовая доверенность, уже использованная заявкой, всё равно означает, что онбординг пройден.
+export const isDocumentActive = (doc: Import40DocumentDto | null | undefined): boolean => {
+  if (!doc) return false
+  if (doc.status !== 2) return false
+  if (doc.validUntilUtc && new Date(doc.validUntilUtc).getTime() <= Date.now()) return false
+  return true
+}
+
 export const isDocumentEffective = (doc: Import40DocumentDto | null | undefined): boolean => {
   if (!doc) return false
   if (doc.status !== 2) return false

@@ -53,6 +53,13 @@
           <template v-else-if="column.key === 'clients'">
             <span class="relations-cell">{{ formatLinkedPeople('clients' in record ? record.clients : undefined) }}</span>
           </template>
+          <template v-else-if="column.key === 'poa'">
+            <!-- Представитель по доверенности клиентов: ФИО/ИИН/удостоверение берутся из профиля декларанта -->
+            <a-tooltip :title="poaTooltip(record.id)">
+              <a-switch size="small" :checked="poaMap[record.id]?.enabled ?? false" :disabled="!canAssignRole" @change="(v: boolean) => togglePoa(record.id, v)" />
+            </a-tooltip>
+            <a-tag v-if="poaMap[record.id]?.enabled && !poaMap[record.id]?.complete" color="warning" style="margin-left: 6px">профиль не заполнен</a-tag>
+          </template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
               <a-button
@@ -397,6 +404,26 @@ const canEditBroker = computed(() => authStore.hasPermission('clients.manage'))
 const canEditExpeditor = computed(() => authStore.hasPermission('clients.manage'))
 const canAssignRole = computed(() => authStore.hasPermission('users.assign_role'))
 
+// Представители по доверенности (кого клиент уполномочивает в доверенности) — переключатель админа.
+const poaMap = ref<Record<string, { enabled: boolean; complete: boolean }>>({})
+const loadPoa = async () => {
+  try {
+    const rows = await permissionsApi.poaRepresentatives()
+    poaMap.value = Object.fromEntries(rows.map((r) => [r.userId, { enabled: r.enabled, complete: r.complete }]))
+  } catch { /* колонка необязательная */ }
+}
+const poaTooltip = (id: string) =>
+  poaMap.value[id]?.enabled
+    ? (poaMap.value[id]?.complete ? 'Включён в доверенности клиентов' : 'Включён, но в профиле декларанта нет ФИО/ИИН/удостоверения — в доверенность попадёт неполная строка')
+    : 'Включить сотрудника в доверенности клиентов (представитель)'
+const togglePoa = async (id: string, enabled: boolean) => {
+  try {
+    await permissionsApi.setPoaRepresentative(id, enabled)
+    await loadPoa()
+    message.success(enabled ? 'Сотрудник добавлен в доверенность' : 'Сотрудник убран из доверенности')
+  } catch { message.error('Не удалось изменить') }
+}
+
 const staffLinkOptions = computed(() => {
   const brokerOpts = usersStore.brokers.map((u) => ({
     label: `${u.username} (${formatRole(u.role)})`,
@@ -518,6 +545,7 @@ const tableColumns = computed(() => {
         usernameColumn,
         { title: 'Бизнес-роли', key: 'businessRole', width: 260 },
         { title: 'Клиенты (транзит)', key: 'clients', ellipsis: true },
+        ...(catalogTab.value === 'staff' ? [{ title: 'В доверенности', key: 'poa', width: 150 }] : []),
         ...actionsColumn,
       ]
     case 'clients':
@@ -567,7 +595,7 @@ const roleOptions = computed(() =>
 )
 
 onMounted(async () => {
-  await Promise.all([usersStore.fetchCatalogs(), rolesStore.fetchRoles(), loadStaffRoles()])
+  await Promise.all([usersStore.fetchCatalogs(), rolesStore.fetchRoles(), loadStaffRoles(), loadPoa()])
 })
 
 const openCreateModal = () => {
