@@ -77,6 +77,11 @@
           <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" :post-options="customsPostOptions" @update:model-value="onDtUpdate" />
           <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" :container-indicator="!!dtForm.containerIndicator" :usd-rate="usdRate" :deal-currency="dtForm.currency" @calc-tpin="calcTpin" />
           <DtSectionDocs v-show="activeSection === 'docs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
+          <DtSectionDts
+            v-show="activeSection === 'dts'" :model-value="dtForm" :readonly="readOnly" :case-id="caseId"
+            :declaration-id="dtId" :reload-key="savedCounter" :save="saveDt"
+            @update:model-value="onDtUpdate" @ready="onDtsReady"
+          />
           <DtSectionClosing v-show="activeSection === 'closing'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
         </a-form>
 
@@ -176,6 +181,7 @@ import DtSectionFinance from '@/components/import40/dt/DtSectionFinance.vue'
 import DtSectionCustoms from '@/components/import40/dt/DtSectionCustoms.vue'
 import DtSectionGoods from '@/components/import40/dt/DtSectionGoods.vue'
 import DtSectionDocs from '@/components/import40/dt/DtSectionDocs.vue'
+import DtSectionDts from '@/components/import40/dt/DtSectionDts.vue'
 import DtSectionClosing from '@/components/import40/dt/DtSectionClosing.vue'
 import DtDeclarationNumberBar from '@/components/import40/dt/DtDeclarationNumberBar.vue'
 import DtCurrencyRatesBox from '@/components/import40/dt/DtCurrencyRatesBox.vue'
@@ -508,9 +514,18 @@ const sections = computed((): SectionDef[] => ([
   { key: 'customs', title: t('dt.tamozhennyeOrgany') },
   { key: 'goods', title: t('dt.tovary') },
   { key: 'docs', title: t('dt.dokumenty') },
+  { key: 'dts', title: t('dt.dts') },
   { key: 'closing', title: t('dt.zavershenie') },
 ]))
 const activeSection = ref('general')
+
+// Task 11: готовность раздела ДТС определяется последним ответом dtsApi.get
+// (missing.length === 0) — компонент сам решает и эмитит через @ready.
+const dtsReady = ref(false)
+const onDtsReady = (v: boolean) => { dtsReady.value = v }
+// Счётчик успешных saveDt() — секция ДТС перечитывает расчёт при каждом
+// изменении (watch внутри компонента на этот проп).
+const savedCounter = ref(0)
 
 // Индикатор секции — по локальным данным формы (обязательные поля секции)
 const sectionDone = (key: string): boolean => {
@@ -547,6 +562,8 @@ const sectionDone = (key: string): boolean => {
     case 'docs':
       return (dtForm.doc44Items?.some((d) => d.docTypeCode && d.docNumber) ?? false) ||
         (dtForm.prevDocItems?.some((p) => p.docTypeCode && p.docNumber) ?? false)
+    case 'dts':
+      return dtsReady.value
     case 'closing':
       return !!(dtForm.signatoryFullName && dtForm.signedDate)
     default:
@@ -556,6 +573,7 @@ const sectionDone = (key: string): boolean => {
 
 // Клик по недостающему полю → секция (по подстрокам серверных сообщений)
 const sectionForMessage = (m: string) => {
+  if (m.startsWith('ДТС:')) return 'dts'
   if (m.includes('гр.22') || m.includes('гр.20') || m.includes('гр.23') || m.includes('гр.24')) return 'finance'
   if (m.includes('гр.15') || m.includes('гр.17') || m.includes('гр.11') || m.includes('гр.16')) return 'countries'
   if (m.includes('гр.2)') || m.includes('гр.8') || m.includes('гр.14') || m.includes('гр.9')) return 'parties'
@@ -1338,6 +1356,7 @@ const saveDt = async (silent = false): Promise<boolean> => {
     loadedDto.value = updated
     if (!silent) message.success(t('dt.dtSohranena'))
     void refreshReadiness()
+    savedCounter.value += 1
     return true
   } catch (e: any) {
     message.error(e?.response?.data?.error ?? t('dt.neUdalosSohranitDt'))

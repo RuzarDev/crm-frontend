@@ -82,6 +82,7 @@ declare module 'vue' {
     DtSectionCountries: typeof import('./src/components/import40/dt/DtSectionCountries.vue')['default']
     DtSectionCustoms: typeof import('./src/components/import40/dt/DtSectionCustoms.vue')['default']
     DtSectionDocs: typeof import('./src/components/import40/dt/DtSectionDocs.vue')['default']
+    DtSectionDts: typeof import('./src/components/import40/dt/DtSectionDts.vue')['default']
     DtSectionFinance: typeof import('./src/components/import40/dt/DtSectionFinance.vue')['default']
     DtSectionGeneral: typeof import('./src/components/import40/dt/DtSectionGeneral.vue')['default']
     DtSectionGoods: typeof import('./src/components/import40/dt/DtSectionGoods.vue')['default']
