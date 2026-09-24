@@ -451,6 +451,17 @@ const dtForm = reactive<DtFormState>({
   brokerContractNumber: null,
   signatoryPhone: null,
   signedDate: null,
+  dtsFreeOfCharge: false,
+  dtsPlaceName: null,
+  dtsRelation: false,
+  dtsRelationPriceInfluence: false,
+  dtsRelationApproxValue: false,
+  dtsRestriction: false,
+  dtsValueCondition: false,
+  dtsRoyaltyContract: false,
+  dtsRoyaltyFee: false,
+  dtsSubsequentResale: false,
+  dtsMethodReason: null,
 })
 
 // Task 12 (item M): коды валют для панели курсов у гр.А — USD/EUR всегда плюс
@@ -689,6 +700,17 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.brokerContractNumber = decl.brokerContractNumber ?? null
   dtForm.signatoryPhone = decl.signatoryPhone ?? null
   dtForm.signedDate = decl.signedDate ?? null
+  dtForm.dtsFreeOfCharge = decl.dtsFreeOfCharge ?? false
+  dtForm.dtsPlaceName = decl.dtsPlaceName ?? null
+  dtForm.dtsRelation = decl.dtsRelation ?? false
+  dtForm.dtsRelationPriceInfluence = decl.dtsRelationPriceInfluence ?? false
+  dtForm.dtsRelationApproxValue = decl.dtsRelationApproxValue ?? false
+  dtForm.dtsRestriction = decl.dtsRestriction ?? false
+  dtForm.dtsValueCondition = decl.dtsValueCondition ?? false
+  dtForm.dtsRoyaltyContract = decl.dtsRoyaltyContract ?? false
+  dtForm.dtsRoyaltyFee = decl.dtsRoyaltyFee ?? false
+  dtForm.dtsSubsequentResale = decl.dtsSubsequentResale ?? false
+  dtForm.dtsMethodReason = decl.dtsMethodReason ?? null
   dtForm.prevDocItems = (decl.prevDocItems ?? []).map((p: Import40PrevDocItem) => ({ ...p }))
   dtForm.expenses = (decl.expenses ?? []).map((e) => ({
     expenseTypeCode: e.expenseTypeCode ?? null,
@@ -1289,6 +1311,17 @@ const saveDt = async (silent = false): Promise<boolean> => {
       brokerContractNumber: dtForm.brokerContractNumber || null,
       signatoryPhone: dtForm.signatoryPhone || null,
       signedDate: dtForm.signedDate || null,
+      dtsFreeOfCharge: !!dtForm.dtsFreeOfCharge,
+      dtsPlaceName: dtForm.dtsPlaceName || null,
+      dtsRelation: !!dtForm.dtsRelation,
+      dtsRelationPriceInfluence: !!dtForm.dtsRelationPriceInfluence,
+      dtsRelationApproxValue: !!dtForm.dtsRelationApproxValue,
+      dtsRestriction: !!dtForm.dtsRestriction,
+      dtsValueCondition: !!dtForm.dtsValueCondition,
+      dtsRoyaltyContract: !!dtForm.dtsRoyaltyContract,
+      dtsRoyaltyFee: !!dtForm.dtsRoyaltyFee,
+      dtsSubsequentResale: !!dtForm.dtsSubsequentResale,
+      dtsMethodReason: dtForm.dtsMethodReason || null,
       goodsItems: dtForm.goodsItems.map((g) => {
         // на бэкенде фактурная стоимость товара называется invoiceValue; в форме — customsValue
         const { customsValue, ...rest } = g

@@ -257,6 +257,17 @@ export interface Import40DeclarationDto {
   brokerContractNumber: string | null
   signatoryPhone: string | null
   signedDate: string | null
+  dtsFreeOfCharge: boolean
+  dtsPlaceName: string | null
+  dtsRelation: boolean
+  dtsRelationPriceInfluence: boolean
+  dtsRelationApproxValue: boolean
+  dtsRestriction: boolean
+  dtsValueCondition: boolean
+  dtsRoyaltyContract: boolean
+  dtsRoyaltyFee: boolean
+  dtsSubsequentResale: boolean
+  dtsMethodReason: string | null
   totalGoodsCount: number
   totalPackagesCount: number
   totalCustomsValue: number
@@ -373,6 +384,17 @@ export interface Import40DeclarationUpsert {
   brokerContractNumber?: string | null
   signatoryPhone?: string | null
   signedDate?: string | null
+  dtsFreeOfCharge?: boolean
+  dtsPlaceName?: string | null
+  dtsRelation?: boolean
+  dtsRelationPriceInfluence?: boolean
+  dtsRelationApproxValue?: boolean
+  dtsRestriction?: boolean
+  dtsValueCondition?: boolean
+  dtsRoyaltyContract?: boolean
+  dtsRoyaltyFee?: boolean
+  dtsSubsequentResale?: boolean
+  dtsMethodReason?: string | null
   goodsItems?: Import40GoodsUpsert[]
   doc44Items?: Import40Doc44ItemInput[]
   prevDocItems?: Import40PrevDocItem[]
