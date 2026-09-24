@@ -606,6 +606,7 @@ export interface Import40CvExpenseInput {
 export interface Import40CalculateCustomsValueRequest {
   goods: Import40CvGoodsInput[]
   expenses: Import40CvExpenseInput[]
+  onDate?: string | null
 }
 
 export interface Import40CvGoodsResult {

@@ -1140,7 +1140,7 @@ const calcCustomsValue = async () => {
       currencyCode: e.currencyCode as string,
     }))
   try {
-    const res = await import40Api.calculateCustomsValue({ goods, expenses })
+    const res = await import40Api.calculateCustomsValue({ goods, expenses, onDate: dtForm.submissionDate || null })
     let updated = 0
     let total = 0
     res.goods.forEach((r) => {
