@@ -79,17 +79,21 @@
             <span class="dts-question-label">{{ t('dt.dtsQ8b') }}</span>
             <a-radio-group v-model:value="form.dtsValueCondition" :options="yesNoOptions" :disabled="readonly" @change="emitChange" />
           </div>
+          <!-- Вопрос 9 — буквы как на печатной ДТС-1 (DtsBlankPdf): 9(а) = лицензионные
+               платежи (RoyaltyFee), 9(б) = часть дохода продавцу (SubsequentResale).
+               «Договорные отношения по ОИС» (RoyaltyContract) на бланке нет — только в XML
+               R.038, поэтому последним и без печатной буквы. -->
           <div class="dts-question">
             <span class="dts-question-label">{{ t('dt.dtsQ9a') }}</span>
-            <a-radio-group v-model:value="form.dtsRoyaltyContract" :options="yesNoOptions" :disabled="readonly" @change="emitChange" />
-          </div>
-          <div class="dts-question">
-            <span class="dts-question-label">{{ t('dt.dtsQ9b') }}</span>
             <a-radio-group v-model:value="form.dtsRoyaltyFee" :options="yesNoOptions" :disabled="readonly" @change="emitChange" />
           </div>
           <div class="dts-question">
-            <span class="dts-question-label">{{ t('dt.dtsQ9c') }}</span>
+            <span class="dts-question-label">{{ t('dt.dtsQ9b') }}</span>
             <a-radio-group v-model:value="form.dtsSubsequentResale" :options="yesNoOptions" :disabled="readonly" @change="emitChange" />
+          </div>
+          <div class="dts-question">
+            <span class="dts-question-label">{{ t('dt.dtsQ9Xml') }}</span>
+            <a-radio-group v-model:value="form.dtsRoyaltyContract" :options="yesNoOptions" :disabled="readonly" @change="emitChange" />
           </div>
         </div>
 
@@ -141,6 +145,9 @@ const props = defineProps<{
   caseId: string
   declarationId: string
   reloadKey: number
+  // Раздел ДТС сейчас открыт (activeSection === 'dts' у родителя) — от него зависит,
+  // перечитывать ли расчёт после каждого сохранения ДТ (в т.ч. автосейва).
+  active: boolean
   save: (silent?: boolean) => Promise<boolean>
 }>()
 const emit = defineEmits<{
@@ -183,9 +190,13 @@ const load = async () => {
   }
 }
 
+// Первичная загрузка — сразу (по ней родитель ставит отметку готовности раздела в
+// навигации). Дальше: при каждом открытии раздела и после сохранения ДТ (родитель
+// инкрементирует reloadKey) — но только пока раздел открыт; сохранения на других
+// вкладках не дёргают GET .../dts впустую — свежий расчёт подтянется при открытии.
 onMounted(load)
-// Перезагрузка после каждого сохранения ДТ — родитель инкрементирует reloadKey.
-watch(() => props.reloadKey, load)
+watch(() => props.active, (isActive) => { if (isActive) void load() })
+watch(() => props.reloadKey, () => { if (props.active) void load() })
 
 // Названия статей расходов (гр.13а…23) — тот же справочник, что и в DtSectionFinance,
 // нужен для человекочитаемых подписей строк добавочного листа.

@@ -81,6 +81,8 @@ export interface DtsSheet {
   box10b: string | null
   usdRate: number
   goods: DtsGoodsColumn[]
+  documentDate: string | null // дата гр.А ДТ ("yyyy-MM-dd") — EDocDateTime XML
+  expenseCurrenciesWithoutRate: string[] // валюты статей расходов без курса на дату гр.А
 }
 
 export interface DtsView {

@@ -82,7 +82,7 @@
           <template v-if="showDtsSection">
             <DtSectionDts
               v-show="activeSection === 'dts'" :model-value="dtForm" :readonly="readOnly" :case-id="caseId"
-              :declaration-id="dtId" :reload-key="savedCounter" :save="saveDt"
+              :declaration-id="dtId" :reload-key="savedCounter" :active="activeSection === 'dts'" :save="saveDt"
               @update:model-value="onDtUpdate" @ready="onDtsReady"
             />
           </template>
@@ -273,15 +273,12 @@ const showSplitButton = computed(() => {
   const biz = (authStore.businessRole || '').toLowerCase()
   return sys !== 'client' && biz !== 'client'
 })
-// Task 11 review fix: GET .../dts — staff-only на бэке (Import40Endpoints.
-// CanManageDeclarations → 404 клиенту), поэтому раздел «ДТС» скрываем целиком
-// для клиента (и в табах, и в рендере ниже), но оставляем персоналу даже в
-// readonly (readOnly у персонала — это «нельзя править», не «нельзя видеть»).
-const showDtsSection = computed(() => {
-  const sys = (authStore.role || '').toLowerCase()
-  const biz = (authStore.businessRole || '').toLowerCase()
-  return sys !== 'client' && biz !== 'client'
-})
+// GET .../dts пускает только Import40Endpoints.CanManageDeclarations — админ или
+// право import40.declarant (иначе 404). Раздел «ДТС» показываем ровно тем же
+// (hasPermission уже true для админа): КПП/бухгалтер/продажи и клиент его не видят
+// и не ловят тосты ошибок на каждом открытии ДТ. Декларанту раздел виден и в
+// readonly (readOnly — это «нельзя править», не «нельзя видеть»).
+const showDtsSection = computed(() => authStore.hasPermission('import40.declarant'))
 const splitBlockedReason = computed(() => {
   if (dtForm.goodsItems.length < 2) return t('dt.nuzhnoMinimum2Tovara')
   if (!readOnly.value) return ''
@@ -344,7 +341,7 @@ const expenseTypeOptions = ref<{ value: string; label: string }[]>([])
 // товарам), поэтому подпись в таблице расходов не гадает по коду, а берёт
 // источник истины напрямую из справочника.
 const expenseDistributionByCode = ref<Record<string, 'GrossWeight' | 'CustomsValue'>>({})
-// Task 10: статьи-вычеты (гр.13а-13б, РБК Решение 257) — RefExpenseType.IsDeduction,
+// Task 10: статьи-вычеты (гр.21–23 ДТС: монтаж, перевозка и платежи после ввоза) — RefExpenseType.IsDeduction,
 // в таблице расходов подписываются тегом «вычет» рядом с базой распределения.
 const expenseDeductionByCode = ref<Record<string, boolean>>({})
 const currencyOptions = ref<{ value: string; label: string }[]>([])
@@ -540,6 +537,14 @@ const onDtsReady = (v: boolean) => { dtsReady.value = v }
 // изменении (watch внутри компонента на этот проп).
 const savedCounter = ref(0)
 
+// Дата гр.А как "YYYY-MM-DD" (date-only). Префикс ISO-строки берём как есть, без
+// dayjs(): "2026-09-23T00:00:00Z" в часовом поясе с минусом дал бы 22-е.
+const toIsoDate = (v: string | null | undefined): string | null => {
+  if (!v) return null
+  const m = /^\d{4}-\d{2}-\d{2}/.exec(v)
+  return m ? m[0] : dayjs(v).format('YYYY-MM-DD')
+}
+
 // Индикатор секции — по локальным данным формы (обязательные поля секции)
 const sectionDone = (key: string): boolean => {
   switch (key) {
@@ -675,7 +680,9 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   // случае подставляем сегодняшнюю дату по умолчанию, т.к. DtDeclarationNumberBar
   // выставляет её в своём onMounted, который отрабатывает РАНЬШЕ applyDeclaration
   // (родительский onMounted → loadDt → applyDeclaration) и потому перезаписывается.
-  dtForm.submissionDate = decl.submissionDate || dayjs().format('YYYY-MM-DD')
+  // Сервер отдаёт SubmissionDate меткой времени ("2026-09-23T00:00:00Z"), а
+  // date-picker (value-format) и calculate-customs-value (onDate) ждут "YYYY-MM-DD".
+  dtForm.submissionDate = toIsoDate(decl.submissionDate) ?? dayjs().format('YYYY-MM-DD')
   dtForm.borderTransportModeCode = decl.borderTransportModeCode ?? ''
   dtForm.borderTransportNationality = decl.borderTransportNationality ?? 'KZ'
   dtForm.borderTransportNumbers = (decl.borderTransportNumbers ?? []).map((m) => ({ ...m }))
@@ -1196,7 +1203,7 @@ const calcCustomsValue = async () => {
       currencyCode: e.currencyCode as string,
     }))
   try {
-    const res = await import40Api.calculateCustomsValue({ goods, expenses, onDate: dtForm.submissionDate || null })
+    const res = await import40Api.calculateCustomsValue({ goods, expenses, onDate: toIsoDate(dtForm.submissionDate) })
     let updated = 0
     let total = 0
     res.goods.forEach((r) => {
