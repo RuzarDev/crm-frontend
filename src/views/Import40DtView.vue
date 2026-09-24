@@ -77,11 +77,15 @@
           <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" :post-options="customsPostOptions" @update:model-value="onDtUpdate" />
           <DtSectionGoods v-show="activeSection === 'goods'" v-model="dtForm.goodsItems" :readonly="readOnly" :container-indicator="!!dtForm.containerIndicator" :usd-rate="usdRate" :deal-currency="dtForm.currency" @calc-tpin="calcTpin" />
           <DtSectionDocs v-show="activeSection === 'docs'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
-          <DtSectionDts
-            v-show="activeSection === 'dts'" :model-value="dtForm" :readonly="readOnly" :case-id="caseId"
-            :declaration-id="dtId" :reload-key="savedCounter" :save="saveDt"
-            @update:model-value="onDtUpdate" @ready="onDtsReady"
-          />
+          <!-- GET .../dts — staff-only на бэке (CanManageDeclarations → 404 клиенту),
+               поэтому раздел не рендерим вовсе для клиента (не просто прячем таб). -->
+          <template v-if="showDtsSection">
+            <DtSectionDts
+              v-show="activeSection === 'dts'" :model-value="dtForm" :readonly="readOnly" :case-id="caseId"
+              :declaration-id="dtId" :reload-key="savedCounter" :save="saveDt"
+              @update:model-value="onDtUpdate" @ready="onDtsReady"
+            />
+          </template>
           <DtSectionClosing v-show="activeSection === 'closing'" :model-value="dtForm" :readonly="readOnly" @update:model-value="onDtUpdate" />
         </a-form>
 
@@ -265,6 +269,15 @@ const canSplit = computed(() => !readOnly.value && dtForm.goodsItems.length >= 2
 // скрытия" из задания. Сервер (splitDeclaration) всё равно остаётся финальным
 // гейтом, тут только UX.
 const showSplitButton = computed(() => {
+  const sys = (authStore.role || '').toLowerCase()
+  const biz = (authStore.businessRole || '').toLowerCase()
+  return sys !== 'client' && biz !== 'client'
+})
+// Task 11 review fix: GET .../dts — staff-only на бэке (Import40Endpoints.
+// CanManageDeclarations → 404 клиенту), поэтому раздел «ДТС» скрываем целиком
+// для клиента (и в табах, и в рендере ниже), но оставляем персоналу даже в
+// readonly (readOnly у персонала — это «нельзя править», не «нельзя видеть»).
+const showDtsSection = computed(() => {
   const sys = (authStore.role || '').toLowerCase()
   const biz = (authStore.businessRole || '').toLowerCase()
   return sys !== 'client' && biz !== 'client'
@@ -514,7 +527,7 @@ const sections = computed((): SectionDef[] => ([
   { key: 'customs', title: t('dt.tamozhennyeOrgany') },
   { key: 'goods', title: t('dt.tovary') },
   { key: 'docs', title: t('dt.dokumenty') },
-  { key: 'dts', title: t('dt.dts') },
+  ...(showDtsSection.value ? [{ key: 'dts', title: t('dt.dts') }] : []),
   { key: 'closing', title: t('dt.zavershenie') },
 ]))
 const activeSection = ref('general')

@@ -9,11 +9,15 @@
         </a-tag>
       </div>
       <div class="dts-actions">
-        <a-button :loading="loading" @click="load">{{ t('dt.dtsObnovit') }}</a-button>
+        <!-- Обновить/печать/инф.лист — просмотр, не редактирование: явный :disabled
+             нужен, иначе a-form :disabled="readOnly" родителя каскадом гасит кнопки
+             (AntD прокидывает disabled формы в a-button). XML — правка/выгрузка,
+             остаётся под readonly-каскадом как есть. -->
+        <a-button :disabled="false" :loading="loading" @click="load">{{ t('dt.dtsObnovit') }}</a-button>
         <a-tooltip :title="form.dtsFreeOfCharge ? t('dt.dtsPechatForm2') : undefined">
-          <a-button :loading="pdfLoading" :disabled="form.dtsFreeOfCharge" @click="printPdf">{{ t('dt.dtsPechat') }}</a-button>
+          <a-button :disabled="form.dtsFreeOfCharge" :loading="pdfLoading" @click="printPdf">{{ t('dt.dtsPechat') }}</a-button>
         </a-tooltip>
-        <a-button :loading="infoLoading" @click="printInfoSheet">{{ t('dt.dtsInfoSheet') }}</a-button>
+        <a-button :disabled="false" :loading="infoLoading" @click="printInfoSheet">{{ t('dt.dtsInfoSheet') }}</a-button>
         <a-button type="primary" :loading="xmlLoading" @click="generateXml">{{ t('dt.dtsXml') }}</a-button>
       </div>
     </div>
@@ -303,23 +307,35 @@ const openBlobPdf = (blob: Blob) => {
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
+// В readonly (в т.ч. клиент-владелец заявки — см. GetPdf) props.save() дёргать
+// нельзя: сервер всё равно отклонит правку (или её вовсе нет для клиента), а
+// несохранённого локального состояния у DTS-раздела в readonly не бывает
+// (все поля тоже задизейблены) — просто печатаем как есть.
 const printPdf = async () => {
+  if (!props.readonly) {
+    const ok = await props.save()
+    if (!ok) return
+  }
   pdfLoading.value = true
   try {
     openBlobPdf(await dtsApi.pdf(props.caseId, props.declarationId, 'pdf'))
-  } catch {
-    message.error(t('dt.neUdalosSformirovatBlank'))
+  } catch (e: any) {
+    message.error(e?.message || t('dt.neUdalosSformirovatBlank'))
   } finally {
     pdfLoading.value = false
   }
 }
 
 const printInfoSheet = async () => {
+  if (!props.readonly) {
+    const ok = await props.save()
+    if (!ok) return
+  }
   infoLoading.value = true
   try {
     openBlobPdf(await dtsApi.pdf(props.caseId, props.declarationId, 'info-sheet-pdf'))
-  } catch {
-    message.error(t('dt.neUdalosSformirovatBlank'))
+  } catch (e: any) {
+    message.error(e?.message || t('dt.neUdalosSformirovatBlank'))
   } finally {
     infoLoading.value = false
   }

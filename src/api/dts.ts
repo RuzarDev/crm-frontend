@@ -111,6 +111,22 @@ export const dtsApi = {
     return { blob: res.data as Blob, fileName: fileName(String(res.headers['content-disposition'] ?? ''), 'dts.xml') }
   },
 
-  pdf: async (caseId: string, declId: string, kind: 'pdf' | 'info-sheet-pdf'): Promise<Blob> =>
-    (await apiClient.get(`${base(caseId, declId)}/${kind}`, { responseType: 'blob' })).data as Blob,
+  pdf: async (caseId: string, declId: string, kind: 'pdf' | 'info-sheet-pdf'): Promise<Blob> => {
+    // validateStatus: без него axios на 4xx/5xx кидает reject → срабатывает и
+    // глобальный интерцептор apiClient (общий тост), и catch в компоненте —
+    // двойной тост с разным текстом. Разбираем ошибку сами и кидаем одно
+    // сообщение (напр. «Печать ДТС-2 пока не поддерживается» для формы 2).
+    const res = await apiClient.get(`${base(caseId, declId)}/${kind}`, { responseType: 'blob', validateStatus: () => true })
+    if (res.status >= 400) {
+      let msg = `Не удалось сформировать PDF (${res.status})`
+      try {
+        const parsed = JSON.parse(await (res.data as Blob).text()) as { message?: string; error?: string }
+        msg = parsed.message ?? parsed.error ?? msg
+      } catch {
+        /* тело не JSON — оставляем сообщение по умолчанию */
+      }
+      throw new Error(msg)
+    }
+    return res.data as Blob
+  },
 }
