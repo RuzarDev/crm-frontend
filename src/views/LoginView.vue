@@ -74,6 +74,10 @@
             </a-input-password>
           </a-form-item>
 
+          <div class="auth-forgot">
+            <a @click="router.push('/forgot-password')">{{ t('login.forgot') }}</a>
+          </div>
+
           <a-form-item class="auth-submit-item">
             <a-button
               type="primary"
@@ -132,6 +136,8 @@ const goToRegister = () => router.push('/register')
 </script>
 
 <style scoped>
+.auth-forgot { text-align: right; margin-bottom: 10px; font-size: 13px; }
+.auth-forgot a { color: var(--atg-teal, #22b8d0); cursor: pointer; }
 /* ── Page shell ─────────────────────────────────────────────── */
 
 .auth-page {

@@ -26,6 +26,7 @@
       />
       <a-input v-model:value="filters.from" :placeholder="t('admin.sDatyGgggMm')" style="width: 150px" allow-clear @change="reload" />
       <a-input v-model:value="filters.to" :placeholder="t('admin.poDatuGgggMm')" style="width: 150px" allow-clear @change="reload" />
+      <a-button :disabled="!rows.length" @click="exportXlsx"><DownloadOutlined /> Excel</a-button>
     </div>
 
     <a-table
@@ -61,6 +62,8 @@ import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
+import * as XLSX from 'xlsx'
+import { DownloadOutlined } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { registryApi, type RegistryRowDto } from '@/api/registry'
 import { IMPORT40_STATUSES } from '@/api/import40'
@@ -144,6 +147,22 @@ const reload = () => {
 const onTypeChange = () => {
   filters.status = undefined
   reload()
+}
+
+// Выгрузка текущей страницы реестра (фильтры применяются на сервере).
+const exportXlsx = () => {
+  const data = rows.value.map((r) => ({
+    [t('admin.tip')]: r.serviceType === 'import40' ? t('admin.import40') : t('admin.tranzit'),
+    '№': r.number,
+    [t('admin.gruzOpisanie')]: r.title,
+    [t('admin.klient')]: r.clientName,
+    [t('admin.status')]: r.statusLabel,
+    [t('admin.sozdana')]: new Date(r.createdAtUtc).toLocaleDateString('ru-RU'),
+  }))
+  const ws = XLSX.utils.json_to_sheet(data)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, t('admin.reestrZayavok'))
+  XLSX.writeFile(wb, `requests_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 const open = (r: Row) => {

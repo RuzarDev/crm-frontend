@@ -39,11 +39,7 @@
                 />
               </a-form-item>
               <a-form-item :label="t('profile.phone')">
-                <a-input
-                  v-model:value="form.phone"
-                  placeholder="+7 700 000 00 00"
-                  allow-clear
-                />
+                <PhoneInput v-model:value="form.phone" allow-clear />
               </a-form-item>
               <!-- Компания/БИН здесь — только для организаций транзита (брокер/экспедитор).
                    У клиента реквизиты живут в «Моя компания», у сотрудников Импорта — не нужны. -->
@@ -93,7 +89,7 @@
             <div class="form-grid">
               <a-form-item :label="t('profile.fullName')"><a-input v-model:value="decl.fullName" allow-clear /></a-form-item>
               <a-form-item :label="t('profile.position')"><a-input v-model:value="decl.position" allow-clear /></a-form-item>
-              <a-form-item :label="t('profile.phone')"><a-input v-model:value="decl.phone" allow-clear /></a-form-item>
+              <a-form-item :label="t('profile.phone')"><PhoneInput v-model:value="decl.phone" allow-clear /></a-form-item>
               <a-form-item :label="t('profile.iin')" :extra="t('profile.iinHint')"><a-input v-model:value="decl.iin" :maxlength="12" inputmode="numeric" allow-clear /></a-form-item>
               <a-form-item :label="t('profile.idDocType')">
                 <a-select v-model:value="decl.idDocTypeCode" :options="classifiers.options('id-doc-types')" show-search allow-clear :placeholder="t('profile.idDocTypePlaceholder')" style="width:100%" />
@@ -147,6 +143,7 @@ import { SaveOutlined, UserOutlined, IdcardOutlined, LockOutlined, BankOutlined 
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/PageHeader.vue'
+import PhoneInput from '@/components/ui/PhoneInput.vue'
 
 const { t, te } = useI18n()
 const store = useProfileStore()

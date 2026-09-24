@@ -19,6 +19,8 @@
           v-if="(can('kpp') || can('declarant')) && !activeCase.isProblem && activeCase.status < 8"
           danger size="small" @click="promptProblem"
         >{{ t('import40Case.problemBtn') }}</a-button>
+        <a-button v-if="canSeeBilling" size="small" @click="$router.push(`/billing?caseId=${activeCase.id}`)">{{ t('import40Case.billingBtn') }}</a-button>
+        <a-button v-if="canStepBack" size="small" @click="promptStepBack">{{ t('import40Case.stepBackBtn') }}</a-button>
         <a-button v-if="canCancel" danger size="small" @click="promptCancel">{{ t('import40Case.cancelBtn') }}</a-button>
 
         <div v-if="canAssign" class="assign-inline">
@@ -80,7 +82,7 @@
           <template v-else-if="activeCase.transportMode === 1">
             <label><span>{{ t('import40Case.vehicle') }}</span><a-input :value="activeCase.vehicleNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ vehicleNumber: e.target.value })" /></label>
             <label><span>{{ t('import40Case.trailer') }}</span><a-input :value="activeCase.trailerNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ trailerNumber: e.target.value })" /></label>
-            <label><span>{{ t('import40Case.driverPhone') }}</span><a-input :value="activeCase.driverPhone" :disabled="!canEditStep1" @change="(e: any) => saveField({ driverPhone: e.target.value })" /></label>
+            <label><span>{{ t('import40Case.driverPhone') }}</span><PhoneInput :value="activeCase.driverPhone" :disabled="!canEditStep1" @change="(v: string) => saveField({ driverPhone: v })" /></label>
           </template>
           <template v-else-if="activeCase.transportMode === 2">
             <label><span>{{ t('import40Case.flight') }}</span><a-input :value="activeCase.flightNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ flightNumber: e.target.value })" /></label>
@@ -313,6 +315,18 @@
         <a-form-item :label="t('import40Case.invoiceNote')"><a-input v-model:value="invoiceForm.note" /></a-form-item>
       </a-form>
     </a-modal>
+    <a-modal
+      v-model:open="stepBackOpen"
+      :title="t('import40Case.stepBackTitle')"
+      :ok-text="t('import40Case.stepBackOk')"
+      :cancel-text="t('common.cancel')"
+      :ok-button-props="{ disabled: !stepBackReason.trim() }"
+      @ok="confirmStepBack"
+    >
+      <p class="muted">{{ t('import40Case.stepBackHint') }}</p>
+      <a-textarea v-model:value="stepBackReason" :rows="3" :placeholder="t('import40Case.stepBackPh')" />
+    </a-modal>
+
     <a-modal v-model:open="cancelOpen" :title="t('import40Case.cancelTitle')" :ok-text="t('import40Case.cancelOk')" :cancel-text="t('common.cancel')" :ok-button-props="{ danger: true, disabled: !cancelReason.trim() }" @ok="confirmCancel">
       <p class="muted">{{ t('import40Case.cancelHint') }}</p>
       <a-textarea v-model:value="cancelReason" :rows="3" :placeholder="t('import40Case.cancelPh')" />
@@ -406,6 +420,7 @@ import Import40Step from '@/components/Import40Step.vue'
 import Import40FilesBlock from '@/components/Import40FilesBlock.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
+import PhoneInput from '@/components/ui/PhoneInput.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -907,6 +922,24 @@ const canCancel = computed(() => {
   return roleMode.value === 'client' && c.status === 0
 })
 const promptCancel = () => { cancelReason.value = ''; cancelOpen.value = true }
+
+// Счета и акты по этой заявке — для тех, кто видит финансы.
+const canSeeBilling = computed(() => authStore.hasPermission('finance.read') || roleMode.value === 'admin')
+
+// Возврат на предыдущий шаг (руководитель/админ): маршрут перестал быть «только вперёд».
+const stepBackOpen = ref(false)
+const stepBackReason = ref('')
+const canStepBack = computed(() => {
+  const c = activeCase.value
+  if (!c) return false
+  if (c.status <= 0 || c.status >= 8) return false
+  return roleMode.value === 'admin' || authStore.hasPermission('import40.assign')
+})
+const promptStepBack = () => { stepBackReason.value = ''; stepBackOpen.value = true }
+const confirmStepBack = async () => {
+  stepBackOpen.value = false
+  await runAction('step-back', stepBackReason.value.trim())
+}
 const confirmCancel = async () => {
   cancelOpen.value = false
   await runAction('cancel', cancelReason.value.trim())

@@ -17,6 +17,17 @@
       :subtitle="t('company.subtitle')"
     >
       <template #actions>
+        <!-- Сотруднику страница показывала ПЕРВОГО клиента из списка (и его онбординг),
+             без возможности выбрать нужного — добавлен явный выбор. -->
+        <a-select
+          v-if="!isClientRole && clientOptions.length"
+          v-model:value="clientId"
+          :options="clientOptions"
+          show-search
+          option-filter-prop="label"
+          style="min-width: 240px"
+          @change="switchClient"
+        />
         <a-tag v-if="onboardingComplete" color="success" class="onboarding-badge">
           <CheckCircleOutlined /> {{ t('company.onboardingDone') }}
         </a-tag>
@@ -49,7 +60,7 @@
               <label><span>{{ t('company.bank') }}</span><a-input v-model:value="form.bank" /></label>
               <label><span>{{ t('company.iik') }}</span><a-input v-model:value="form.iik" /></label>
               <label><span>{{ t('company.bik') }}</span><a-input v-model:value="form.bik" /></label>
-              <label><span>{{ t('company.phone') }}</span><a-input v-model:value="form.phone" /></label>
+              <label><span>{{ t('company.phone') }}</span><PhoneInput v-model:value="form.phone" /></label>
               <label><span>{{ t('company.email') }}</span><a-input v-model:value="form.email" /></label>
             </div>
 
@@ -82,7 +93,7 @@
             <div class="form-grid">
               <label><span>{{ t('company.contactName') }}</span><a-input v-model:value="form.contactPersonName" /></label>
               <label><span>{{ t('company.contactPosition') }}</span><a-input v-model:value="form.contactPersonPosition" /></label>
-              <label><span>{{ t('company.phone') }}</span><a-input v-model:value="form.contactPhone" /></label>
+              <label><span>{{ t('company.phone') }}</span><PhoneInput v-model:value="form.contactPhone" /></label>
               <label><span>{{ t('company.email') }}</span><a-input v-model:value="form.contactEmail" /></label>
             </div>
 
@@ -106,6 +117,7 @@
             :empty-hint="t('company.contractEmpty')"
             :allow-single-use="true"
             :provider-signature="true"
+            :block-when-active="true"
             @generate="(opts: GenerateOpts) => generate('contract', opts)"
             @download="downloadDoc"
             @revoke="revokeDoc"
@@ -168,6 +180,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import BinLookupButton from '@/components/BinLookupButton.vue'
 import { parseKzAddress } from '@/utils/kzAddress'
 import type { CompanyLookupDto } from '@/api/companyLookup'
+import PhoneInput from '@/components/ui/PhoneInput.vue'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -175,6 +188,8 @@ const loading = ref(false)
 const saving = ref(false)
 const generatingKind = ref<'contract' | 'poa' | null>(null)
 const clientId = ref('')
+const clientOptions = ref<{ value: string; label: string }[]>([])
+const isClientRole = computed(() => (authStore.role || '').toLowerCase() === 'client')
 const profile = ref<ClientCompanyProfileDto | null>(null)
 const contractDocs = ref<Import40DocumentDto[]>([])
 const poaDocs = ref<Import40DocumentDto[]>([])
@@ -289,6 +304,20 @@ const applyCompanyLookup = (c: CompanyLookupDto) => {
   form.legalCountryCode = form.legalCountryCode || '398'
 }
 
+// Сотрудник переключил клиента — перечитываем профиль и документы именно его.
+const switchClient = async () => {
+  loading.value = true
+  try {
+    applyProfile(await import40ContractApi.getProfile(clientId.value))
+    await loadDocuments()
+    current.value = !profile.value?.isComplete ? 0 : !effectiveContract.value ? 1 : 2
+  } catch {
+    message.error(t('company.loadError'))
+  } finally {
+    loading.value = false
+  }
+}
+
 const loadDocuments = async () => {
   const [contracts, poas] = await Promise.all([
     import40ContractApi.listDocuments(clientId.value, 'contract'),
@@ -306,6 +335,7 @@ const load = async () => {
       message.error(t('company.noProfile'))
       return
     }
+    clientOptions.value = clients.map((c) => ({ value: c.id, label: c.username }))
     clientId.value = clients[0].id
     applyProfile(await import40ContractApi.getProfile(clientId.value))
     await loadDocuments()

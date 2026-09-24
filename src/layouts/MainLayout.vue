@@ -8,6 +8,22 @@
         </div>
       </div>
 
+      <!-- Сквозной поиск: заявки, ДТ, клиенты, документы, счета в одном поле -->
+      <div class="header-search">
+        <a-auto-complete
+          v-model:value="searchTerm"
+          :options="searchOptions"
+          :placeholder="t('header.searchPh')"
+          style="width: 100%"
+          @search="onSearch"
+          @select="onSearchSelect"
+        >
+          <template #default>
+            <a-input-search :loading="searching" allow-clear />
+          </template>
+        </a-auto-complete>
+      </div>
+
       <div class="header-right">
         <LanguageSwitcher dark />
         <span class="role-badge">{{ roleLabel }}</span>
@@ -129,6 +145,7 @@
 import { computed, h, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { systemApi } from '@/api/system'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
@@ -143,6 +160,7 @@ import {
   DollarOutlined,
   FileAddOutlined,
   FileDoneOutlined,
+  FileProtectOutlined,
   FileTextOutlined,
   GlobalOutlined,
   ImportOutlined,
@@ -188,8 +206,13 @@ const menuItems = computed(() => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const adminItems: any[] = []
 
+  // Финансист (бухгалтер): видит только платежи и документы. Операционные экраны
+  // декларанта/КПП и транзит ему не нужны — по требованию владельца 2026-09-23.
+  // Признак: есть finance.read, но нет ни одного операционного права Импорта 40 и транзита.
+  const financeOnly = authStore.isFinanceOnly
+
   // ─── Операции ───────────────────────────────────────────
-  if (role !== 'sales') {
+  if (role !== 'sales' && !financeOnly) {
     operationsItems.push({
       key: '/dashboard',
       icon: () => h(DashboardOutlined),
@@ -200,7 +223,7 @@ const menuItems = computed(() => {
   // Клиенту-импортёру транзитные экраны не показываем (аудит 2026-09-22, п.11).
   const clientTransit = role === 'client' && authStore.clientHasModule('transit')
   const clientImport = role === 'client' && authStore.clientHasModule('import40')
-  if (role === 'administrator' || clientTransit || authStore.hasPermission('reestr.read')) {
+  if (!financeOnly && (role === 'administrator' || clientTransit || authStore.hasPermission('reestr.read'))) {
     operationsItems.push({
       key: '/reestr',
       icon: () => h(DatabaseOutlined),
@@ -218,7 +241,7 @@ const menuItems = computed(() => {
     })
   }
 
-  if (role === 'administrator' || role === 'expeditor' || authStore.hasPermission('packages.manage')) {
+  if (!financeOnly && (role === 'administrator' || role === 'expeditor' || authStore.hasPermission('packages.manage'))) {
     operationsItems.push({
       key: '/document-packages',
       icon: () => h(FileAddOutlined),
@@ -226,7 +249,7 @@ const menuItems = computed(() => {
     })
   }
 
-  if (authStore.canUseImport40) {
+  if (authStore.canUseImport40 && !financeOnly) {
     operationsItems.push({
       key: '/import-40',
       icon: () => h(ImportOutlined),
@@ -252,6 +275,15 @@ const menuItems = computed(() => {
     })
   }
 
+  // Счета и акты брокера — там же, где финансы.
+  if (authStore.hasPermission('finance.read') && role !== 'client') {
+    operationsItems.push({
+      key: '/billing',
+      icon: () => h(FileDoneOutlined),
+      label: t('nav.billing'),
+    })
+  }
+
   if (role === 'administrator') {
     operationsItems.push({
       key: '/keden',
@@ -261,8 +293,8 @@ const menuItems = computed(() => {
   }
 
   // Статусы КЕДЕН по БИН — брокер/экспедитор/декларант(importer)/админ/клиент
-  if (role === 'administrator' || clientTransit || role === 'expeditor'
-    || authStore.hasPermission('reestr.read') || authStore.hasPermission('import40.read')) {
+  if (!financeOnly && (role === 'administrator' || clientTransit || role === 'expeditor'
+    || authStore.hasPermission('reestr.read') || authStore.hasPermission('import40.read'))) {
     operationsItems.push({
       key: '/keden-status',
       icon: () => h(SafetyCertificateOutlined),
@@ -297,7 +329,7 @@ const menuItems = computed(() => {
 
   // ─── Справочники ────────────────────────────────────────
   // Только те, кто заполняет ДТ. canUseImport40 здесь не подходит — в него входит client.
-  if (role === 'administrator' || authStore.hasPermission('references.read')) {
+  if (!financeOnly && (role === 'administrator' || authStore.hasPermission('references.read'))) {
     referenceItems.push({
       key: '/dt-guide',
       icon: () => h(ReadOutlined),
@@ -327,7 +359,7 @@ const menuItems = computed(() => {
     tnvedChildren.push({ key: '/tnved/sync', icon: () => h(SyncOutlined), label: t('nav.sync') })
   }
 
-  if (role === 'administrator' || role === 'client' || authStore.hasPermission('references.read')) {
+  if (!financeOnly && (role === 'administrator' || role === 'client' || authStore.hasPermission('references.read'))) {
     referenceItems.push({
       key: 'tnved-group',
       icon: () => h(GlobalOutlined),
@@ -353,6 +385,30 @@ const menuItems = computed(() => {
   }
 
   // ─── Администрирование ──────────────────────────────────
+  if (authStore.hasPermission('clients.read') && role !== 'client') {
+    referenceItems.push({
+      key: '/client-documents',
+      icon: () => h(FileProtectOutlined),
+      label: t('nav.clientDocuments'),
+    })
+  }
+
+  if (role === 'administrator') {
+    adminItems.push({
+      key: '/system/audit',
+      icon: () => h(FileDoneOutlined),
+      label: t('nav.audit'),
+    })
+  }
+
+  if (authStore.hasPermission('users.write')) {
+    adminItems.push({
+      key: '/settings/organization',
+      icon: () => h(SolutionOutlined),
+      label: t('nav.organization'),
+    })
+  }
+
   if (authStore.hasPermission('users.write')) {
     adminItems.push({
       key: '/users',
@@ -410,6 +466,41 @@ const menuItems = computed(() => {
   return groups
 })
 
+// Сквозной поиск (debounce 250 мс, показываем до 15 совпадений).
+const searchTerm = ref('')
+const searching = ref(false)
+const searchOptions = ref<{ value: string; label: string }[]>([])
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+
+const onSearch = (value: string) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  const term = value.trim()
+  if (term.length < 2) {
+    searchOptions.value = []
+    return
+  }
+  searchTimer = setTimeout(async () => {
+    searching.value = true
+    try {
+      const hits = await systemApi.search(term)
+      searchOptions.value = hits.slice(0, 15).map((h) => ({
+        value: h.url,
+        label: `${h.title} — ${h.subtitle}`,
+      }))
+    } catch {
+      searchOptions.value = []
+    } finally {
+      searching.value = false
+    }
+  }, 250)
+}
+
+const onSearchSelect = (url: string) => {
+  searchTerm.value = ''
+  searchOptions.value = []
+  router.push(url)
+}
+
 const roleLabel = computed(() => formatRole(authStore.role || ''))
 
 function onOpenChange(keys: string[]) {
@@ -435,6 +526,11 @@ const selectedMenuKey = computed(() => {
   if (route.path.startsWith('/import-40/manage')) return '/import-40/manage'
   if (route.path.startsWith('/import-40')) return '/import-40'
   if (route.path.startsWith('/finance')) return '/finance'
+  if (route.path.startsWith('/billing')) return '/billing'
+  if (route.path.startsWith('/client-documents')) return '/client-documents'
+  if (route.path.startsWith('/settings/organization')) return '/settings/organization'
+  if (route.path.startsWith('/system/audit')) return '/system/audit'
+  if (route.path.startsWith('/clients')) return '/clients'
   if (route.path.startsWith('/dt-guide')) return '/dt-guide'
   if (route.path.startsWith('/references')) return '/references'
   if (route.path.startsWith('/keden-status')) return '/keden-status'
@@ -533,6 +629,8 @@ const handleLogout = () => {
 }
 
 /* Header right */
+.header-search { flex: 1; max-width: 420px; margin: 0 18px; }
+@media (max-width: 900px) { .header-search { display: none; } }
 .header-right {
   display: flex;
   align-items: center;

@@ -49,6 +49,16 @@ export const useAuthStore = defineStore('auth', () => {
     if (systemRole === 'client') return clientHasModule('import40')
     return systemRole === 'administrator' || permissions.value.includes('import40.read')
   })
+  // Финансист (бухгалтер): только платежи и документы — операционные экраны
+  // декларанта/КПП и транзита ему не показываем (решение владельца 2026-09-23).
+  const isFinanceOnly = computed(() => {
+    const systemRole = (role.value || '').trim().toLowerCase()
+    if (systemRole === 'administrator' || systemRole === 'client') return false
+    if (!permissions.value.includes('finance.read')) return false
+    return !['import40.declarant', 'import40.kpp', 'import40.assign', 'reestr.write', 'packages.manage']
+      .some((p) => permissions.value.includes(p))
+  })
+
   const canUseSales = computed(() => {
     const systemRole = (role.value || '').trim().toLowerCase()
     return systemRole === 'administrator' || permissions.value.includes('sales.read')
@@ -160,6 +170,7 @@ export const useAuthStore = defineStore('auth', () => {
     businessRoles,
     hasBusinessRole,
     canUseImport40,
+    isFinanceOnly,
     canUseSales,
     login,
     registerClient,

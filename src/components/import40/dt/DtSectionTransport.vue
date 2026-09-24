@@ -83,6 +83,16 @@
           </template>
           <a-button v-else-if="!readonly" type="dashed" size="small" @click="addBorderTransport(false)">{{ t('dt.dobavit') }}</a-button>
           <a-button v-if="!readonly && form.borderTransportNumbers.length" size="small" @click="copyBorderToArrival">{{ t('dt.skopirovatVGr18') }} <ArrowUpOutlined /></a-button>
+          <!-- Авто/прочие: гр.18 заполнена, гр.21 пуста — КЕДЕН-XML не формируется,
+               поэтому кнопка стоит там, куда ведёт сообщение об ошибке. При ЖД гр.21
+               не заполняется (вагоны идут в гр.18) — вместо кнопки подсказка. -->
+          <a-button v-if="!readonly && !isRailMode(form.borderTransportModeCode) && !form.borderTransportNumbers.length && form.arrivalTransportNumbers.length"
+            type="primary" ghost size="small" @click="copyArrivalHeadToBorder">
+            <ArrowDownOutlined /> {{ t('dt.skopirovatIzGr18') }}
+          </a-button>
+          <span v-if="isRailMode(form.borderTransportModeCode) && !form.borderTransportNumbers.length" class="transport-hint">
+            {{ t('dt.priZhdGr21NeZapolnyaetsya') }}
+          </span>
         </div>
       </div>
   </div>
@@ -148,6 +158,12 @@ function isRoadMode(code: string | null | undefined) {
   return code === '30' || code === '31' || code === '32'
 }
 
+// ЖД (20): ТС на границе — те же вагоны, что в гр.18, поэтому гр.21 не заполняют
+// (то же правило в KedenXmlReadiness на бэке и в печатном бланке DtBlankPdf).
+function isRailMode(code: string | null | undefined) {
+  return code === '20'
+}
+
 // Вид транспорта для гр.18 (ТС при прибытии). У arrivalTransportModeCode нет своего
 // поля ввода (заполняется только копированием из гр.21), поэтому раньше гр.18 никогда
 // не включала режим «голова/прицеп». Гр.18 парна гр.26 (вид транспорта внутри
@@ -210,6 +226,11 @@ function copyArrivalHeadToBorder() {
 <style scoped>
 .transport-list-row-wrap {
   flex-wrap: wrap;
+}
+.transport-hint {
+  font-size: 12px;
+  color: var(--atg-muted);
+  align-self: center;
 }
 .transport-count {
   font-size: 12px;

@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { SalesCalcGoodsLine, SalesCalcResponse } from './sales'
 import type {
   Import40TransportMeans,
   Import40GoodsPayment,
@@ -22,6 +23,8 @@ export type Import40Action =
   | 'set-problem'
   | 'clear-problem'
   | 'cancel'
+  // Возврат на один шаг назад (руководитель/админ, с причиной).
+  | 'step-back'
 
 // Статусы заявки (совпадают с Import40Status на бэке)
 export const IMPORT40_STATUSES = [
@@ -642,6 +645,8 @@ export interface Import40PaymentGoodsRowDto {
   index: number
   rows: Import40PaymentRowDto[]
   excisePossible: boolean
+  // Почему по товару нет строк гр.47 (например, кода нет в справочнике ТН ВЭД).
+  error?: string | null
 }
 
 export interface Import40CalculatePaymentsResponse {
@@ -977,6 +982,16 @@ export const import40Api = {
     const response = await apiClient.post<Import40CalculatePaymentsResponse>(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/calculate-payments`,
     )
+    return response.data
+  },
+
+  // «Рассчитать ТПиН (авто)» в мастере ДТ. Тот же расчёт, что и в КП, но под правами
+  // Импорта 40: sales/calculate требует sales.read, которых у декларанта нет.
+  calculateTpin: async (goods: SalesCalcGoodsLine[]): Promise<SalesCalcResponse> => {
+    const response = await apiClient.post<SalesCalcResponse>('/import40/calculate-tpin', {
+      services: [],
+      goods,
+    })
     return response.data
   },
 }

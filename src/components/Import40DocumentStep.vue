@@ -2,8 +2,20 @@
   <div class="doc-step">
     <div class="card-title"><FileProtectOutlined /> {{ title }}</div>
 
+    <!-- Многоразовый договор у клиента один: пока он действует, второй такой же сервер
+         не выпустит. Разовые (на одну заявку) можно формировать сколько нужно — поэтому
+         форма остаётся доступной, просто «разовый» включён принудительно. -->
+    <a-alert
+      v-if="activeMulti"
+      type="info"
+      show-icon
+      class="generate-blocked"
+      :message="t('company.alreadyActive')"
+      :description="isAdmin ? t('company.alreadyActiveAdmin') : t('company.alreadyActiveClient')"
+    />
+
     <div class="generate-bar">
-      <a-checkbox v-if="allowSingleUse" v-model:checked="singleUse">{{ t('company.singleUse') }}</a-checkbox>
+      <a-checkbox v-if="allowSingleUse" v-model:checked="singleUse" :disabled="activeMulti">{{ t('company.singleUse') }}</a-checkbox>
       <a-date-picker
         v-model:value="validUntil"
         format="DD.MM.YYYY"
@@ -84,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   DownloadOutlined,
@@ -101,7 +113,7 @@ export interface GenerateOpts {
   validUntilUtc: string | null
 }
 
-defineProps<{
+const props = defineProps<{
   title: string
   profileComplete: boolean
   documents: Import40DocumentDto[]
@@ -113,9 +125,20 @@ defineProps<{
   allowSingleUse?: boolean
   /** Нужна ли подпись брокера (договор — да, доверенность — односторонний документ клиента). */
   providerSignature?: boolean
+  /**
+   * Второй действующий документ невозможен (правило сервера для договора: новый нельзя,
+   * пока есть действующий или ожидающий подписей). Для доверенности — false: их может
+   * быть несколько (в т.ч. разовые под отдельные заявки).
+   */
+  blockWhenActive?: boolean
 }>()
 
 const { t } = useI18n()
+
+// Действует МНОГОРАЗОВЫЙ документ: второй такой же нельзя, но разовый — можно.
+const activeMulti = computed(
+  () => !!props.blockWhenActive && props.documents.some((d) => props.isEffective(d) && !d.isSingleUse),
+)
 const emit = defineEmits<{
   (e: 'generate', opts: GenerateOpts): void
   (e: 'download', doc: Import40DocumentDto): void
@@ -126,6 +149,9 @@ const emit = defineEmits<{
 
 const singleUse = ref(false)
 const validUntil = ref<Dayjs | null>(null)
+
+// Пока действует многоразовый договор, доступен только разовый — включаем флажок сами.
+watch(activeMulti, (v) => { if (v) singleUse.value = true }, { immediate: true })
 
 const onGenerate = () => {
   emit('generate', {
@@ -150,6 +176,7 @@ const statusColor = (doc: Import40DocumentDto) =>
 .doc-step { display: flex; flex-direction: column; gap: 14px; }
 .card-title { display: flex; align-items: center; gap: 9px; color: var(--atg-ink); font-weight: 800; font-size: 15px; }
 .card-title :deep(.anticon) { color: var(--atg-accent-strong); }
+.generate-blocked { margin-bottom: 12px; }
 .generate-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 14px; border: 1px dashed var(--atg-line); border-radius: var(--atg-radius); }
 .muted { color: var(--atg-muted); font-size: 13px; line-height: 1.55; margin: 0; }
 .doc-empty { padding: 4px 0; }

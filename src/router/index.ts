@@ -17,6 +17,18 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
+      path: '/forgot-password',
+      name: 'forgot-password',
+      component: () => import('@/views/ForgotPasswordView.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
+      path: '/reset-password/:token',
+      name: 'reset-password',
+      component: () => import('@/views/ResetPasswordView.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
       // Путь клиента: принятие приглашения от сотрудника (задать пароль).
       path: '/invite/:token',
       name: 'invite-accept',
@@ -146,6 +158,36 @@ const router = createRouter({
           meta: { requiresPermission: 'clients.read' },
         },
         {
+          path: '/clients/:id',
+          name: 'client-card',
+          component: () => import('@/views/ClientCardView.vue'),
+          meta: { requiresPermission: 'clients.read' },
+        },
+        {
+          path: '/client-documents',
+          name: 'client-documents',
+          component: () => import('@/views/ClientDocumentsView.vue'),
+          meta: { requiresPermission: 'clients.read' },
+        },
+        {
+          path: '/billing',
+          name: 'billing',
+          component: () => import('@/views/BillingView.vue'),
+          meta: { requiresPermission: 'finance.read' },
+        },
+        {
+          path: '/system/audit',
+          name: 'audit-log',
+          component: () => import('@/views/AuditLogView.vue'),
+          meta: { requiresRole: 'administrator' },
+        },
+        {
+          path: '/settings/organization',
+          name: 'organization-settings',
+          component: () => import('@/views/OrganizationSettingsView.vue'),
+          meta: { requiresPermission: 'users.write' },
+        },
+        {
           path: '/tnved/tree',
           name: 'tnved-tree',
           component: () => import('@/views/TnvedTreeView.vue'),
@@ -218,6 +260,13 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   authStore.checkAuth()
+
+  // Финансист видит только платежи и документы: операционные разделы закрыты
+  // даже по прямой ссылке (решение владельца 2026-09-23).
+  const financeBlocked = ['/import-40', '/reestr', '/document-packages', '/keden', '/tnved', '/dt-guide', '/requests-registry']
+  if (authStore.isFinanceOnly && financeBlocked.some((prefix) => to.path.startsWith(prefix))) {
+    return next('/finance')
+  }
   const requiresAuth = to.meta.requiresAuth !== false
   const requiredPermission = to.meta.requiresPermission as string | undefined
   const requiredRole = to.meta.requiresRole as string | undefined

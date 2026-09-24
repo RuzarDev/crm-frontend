@@ -1,7 +1,19 @@
 <template>
   <div class="dt-section">
     <div class="dt-section-bar"><DtGraphLabel graph="31–47" :text="t('dt.tovary')" /></div>
-    <ReestrGoodsSection v-model="items" :readonly="readonly" :uppercase="true" :locked-currency="dealCurrency" />
+    <ReestrGoodsSection v-model="items" :readonly="readonly" :uppercase="true" :locked-currency="dealCurrency" :brand-fields="true">
+      <template #goods-extra="{ item, index, change }">
+        <Import40GoodsKedenFields
+          :good="item as Import40GoodsItemInput"
+          :all-goods="items"
+          :index="index"
+          :readonly="readonly"
+          :container-indicator="containerIndicator"
+          :usd-rate="usdRate"
+          @change="change"
+        />
+      </template>
+    </ReestrGoodsSection>
     <Import40GoodsKedenPanel v-model="items" :readonly="readonly" :container-indicator="containerIndicator" :usd-rate="usdRate" @calc-tpin="emit('calc-tpin')" />
   </div>
 </template>
@@ -12,6 +24,7 @@ import { computed } from 'vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
 import Import40GoodsKedenPanel from '@/components/Import40GoodsKedenPanel.vue'
+import Import40GoodsKedenFields from '@/components/Import40GoodsKedenFields.vue'
 import type { Import40GoodsItemInput } from '@/types/api'
 import './dt-sections.css'
 

@@ -23,7 +23,9 @@
             <a-segmented v-model:value="filter" :options="filterOptions" />
           </div>
           <a-table :columns="columns" :data-source="filtered" row-key="caseId" size="middle" :pagination="{ pageSize: 20, showSizeChanger: false }" :scroll="{ x: 1100 }"
-            :custom-row="(r: FinanceRow) => ({ onClick: () => router.push(`/import-40/${r.caseId}`), style: 'cursor:pointer' })">
+            :custom-row="(r: FinanceRow) => (authStore.isFinanceOnly
+              ? {}
+              : { onClick: () => router.push(`/import-40/${r.caseId}`), style: 'cursor:pointer' })">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'case'">
                 <div class="cell-main"><span class="case-number">{{ record.number }}</span> {{ record.clientName }}</div>
@@ -75,6 +77,7 @@ import { message } from 'ant-design-vue'
 import { DownloadOutlined, SearchOutlined, PaperClipOutlined } from '@ant-design/icons-vue'
 import * as XLSX from 'xlsx'
 import PageHeader from '@/components/PageHeader.vue'
+import { useAuthStore } from '@/stores/auth'
 import { financeApi, type FinanceOverview, type FinanceRow, type FinanceFile } from '@/api/manage'
 import { import40Api } from '@/api/import40'
 import { useImport40Status } from '@/composables/useImport40Status'
@@ -82,6 +85,7 @@ import { useImport40Status } from '@/composables/useImport40Status'
 const { t } = useI18n()
 
 const router = useRouter()
+const authStore = useAuthStore()
 const loading = ref(false)
 const data = ref<FinanceOverview | null>(null)
 const period = ref<[string, string] | null>(null)

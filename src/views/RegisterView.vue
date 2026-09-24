@@ -84,9 +84,9 @@
           </a-form-item>
 
           <a-form-item :label="t('register.phone')" name="phone">
-            <a-input v-model:value="formState.phone" placeholder="+7 700 000 00 00" size="large" autocomplete="tel">
+            <PhoneInput v-model:value="formState.phone" size="large">
               <template #prefix><PhoneOutlined class="auth-input-icon" /></template>
-            </a-input>
+            </PhoneInput>
           </a-form-item>
 
           <div class="auth-form-row">
@@ -137,6 +137,7 @@ import { MailOutlined, LockOutlined, PhoneOutlined, BankOutlined } from '@ant-de
 import { message } from 'ant-design-vue'
 import BinLookupButton from '@/components/BinLookupButton.vue'
 import type { CompanyLookupDto } from '@/api/companyLookup'
+import PhoneInput from '@/components/ui/PhoneInput.vue'
 
 const { t } = useI18n()
 const router = useRouter()

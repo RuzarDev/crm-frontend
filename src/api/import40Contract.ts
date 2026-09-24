@@ -85,6 +85,9 @@ export interface Import40DocumentDto {
   clientSignedAtUtc: string | null
   providerSigned: boolean
   providerSignedAtUtc: string | null
+  // 'egov' — ЭЦП через eGov/Sigex, 'upload' — загружен подписанный файл, null — не подписано
+  clientSignMethod: string | null
+  providerSignMethod: string | null
   isSingleUse: boolean
   validUntilUtc: string | null
   consumedByCaseId: string | null
@@ -241,6 +244,15 @@ export const import40ContractApi = {
   downloadDocument: async (clientId: string, docId: string): Promise<Blob> => {
     const response = await apiClient.get(
       `${base(clientId)}/documents/${encodeURIComponent(docId)}/download`,
+      { responseType: 'blob' },
+    )
+    return response.data
+  },
+
+  // Подписанный файл (ЭЦП-контейнер или скан), приложенный к документу.
+  downloadDocumentSignedFile: async (clientId: string, docId: string, fileId: string): Promise<Blob> => {
+    const response = await apiClient.get(
+      `${base(clientId)}/documents/${encodeURIComponent(docId)}/files/${encodeURIComponent(fileId)}/download`,
       { responseType: 'blob' },
     )
     return response.data

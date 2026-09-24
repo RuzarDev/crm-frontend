@@ -28,6 +28,12 @@ export const getBrokerFirmByBin = async (bin: string): Promise<BrokerFirmDto | n
   return response.data
 }
 
+// GET /broker-firms → весь справочник (для выбора фирмы без ввода БИН).
+export const listBrokerFirms = async (): Promise<BrokerFirmDto[]> => {
+  const response = await apiClient.get<BrokerFirmDto[]>('/broker-firms')
+  return Array.isArray(response.data) ? response.data : []
+}
+
 // POST /broker-firms → upsert по БИН.
 export const upsertBrokerFirm = async (body: BrokerFirmUpsertRequest): Promise<BrokerFirmDto> => {
   const response = await apiClient.post<BrokerFirmDto>('/broker-firms', body)

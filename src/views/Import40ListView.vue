@@ -111,7 +111,7 @@
           <template v-if="draft.transportMode === 1">
             <label><span>{{ t('import40List.vehicleHead') }}</span><a-input v-model:value="draft.vehicleNumber" placeholder="123ABC01" /></label>
             <label><span>{{ t('import40List.trailer') }}</span><a-input v-model:value="draft.trailerNumber" placeholder="456DEF01" /></label>
-            <label><span>{{ t('import40List.driverPhone') }}</span><a-input v-model:value="draft.driverPhone" placeholder="+7 700 000 00 00" /></label>
+            <label><span>{{ t('import40List.driverPhone') }}</span><PhoneInput v-model:value="draft.driverPhone" /></label>
           </template>
           <template v-else-if="draft.transportMode === 0">
             <label><span>{{ t('import40List.wagon') }}</span><a-input v-model:value="draft.wagonNumber" :placeholder="t('import40List.wagon')" /></label>
@@ -307,6 +307,7 @@ import { TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
 import PageHeader from '@/components/PageHeader.vue'
 import BinLookupButton from '@/components/BinLookupButton.vue'
 import type { CompanyLookupDto } from '@/api/companyLookup'
+import PhoneInput from '@/components/ui/PhoneInput.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -750,7 +751,19 @@ onMounted(() => {
   align-items: end;
 }
 
-.create-grid label,
+/* Поле формы = подпись над контролом на всю ширину. Раньше правило было склеено
+   с .list-filters (строка-флекс), из-за чего <a-select> схлопывался в узкую полоску
+   и выпадающий список постов/СВХ обрезался до одной буквы. */
+.create-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.create-grid label :deep(.ant-select),
+.create-grid label :deep(.ant-picker) { width: 100%; }
+
 .list-filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
 .list-filters .ant-input-affix-wrapper { max-width: 360px; }
 

@@ -5,7 +5,8 @@
         <template #label><DtGraphLabel graph="29" :text="t('dt.postNaGranice')" /></template>
         <a-select
           v-model:value="form.borderCustomsOfficeName" :options="borderPostSelectOptions" :disabled="readonly"
-          show-search allow-clear :filter-option="filterPost" :placeholder="t('dt.kodIliNazvaniePosta')" style="width: 100%"
+          show-search allow-clear :filter-option="filterPost" :placeholder="t('dt.kodIliNazvaniePosta')"
+          :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '560px' }" style="width: 100%"
           @change="onBorderPostChange"
         />
       </a-form-item>

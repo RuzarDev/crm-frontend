@@ -67,7 +67,7 @@
         <a-input v-uppercase v-model:value="form.signatoryDocument" :disabled="readonly" @change="emitChange" />
       </a-form-item>
       <a-form-item :label="t('dt.telefon')">
-        <a-input v-model:value="form.signatoryPhone" :disabled="readonly" @change="emitChange" />
+        <PhoneInput v-model:value="form.signatoryPhone" :disabled="readonly" @change="emitChange" />
       </a-form-item>
       <a-form-item :label="t('dt.dataPodpisaniya')">
         <a-date-picker v-model:value="form.signedDate" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :disabled="readonly" style="width: 100%" @change="emitChange" />
@@ -76,6 +76,15 @@
 
     <div class="dt-section-bar"><DtGraphLabel graph="54" :text="t('dt.spravochnikFirmBrokerov')" /></div>
     <div class="dt-grid-3">
+      <a-form-item :label="t('dt.firmaBrokerIzSpravochnika')">
+        <a-select
+          :value="brokerFirm.bin || undefined" :options="brokerFirmOptions" :disabled="readonly"
+          show-search allow-clear option-filter-prop="label" :dropdown-match-select-width="false"
+          :loading="brokerListLoading" :placeholder="t('dt.vyberiteFirmuBrokera')"
+          :get-popup-container="popupContainer" style="width: 100%"
+          @change="(v: unknown) => pickBrokerFirm((v as string) ?? null)"
+        />
+      </a-form-item>
       <a-form-item :label="t('dt.binFirmyBrokera')">
         <a-input-group compact style="display: flex">
           <a-input v-model:value="brokerFirm.bin" :disabled="readonly" :placeholder="t('dt.bin')" style="flex: 1" />
@@ -103,14 +112,16 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
-import { getBrokerFirmByBin, upsertBrokerFirm } from '@/api/brokerFirms'
+import { getBrokerFirmByBin, listBrokerFirms, upsertBrokerFirm } from '@/api/brokerFirms'
+import type { BrokerFirmDto } from '@/api/brokerFirms'
 import { declarantProfileApi } from '@/api/declarantProfile'
 import type { Import40DtFormState } from '@/api/import40'
 import './dt-sections.css'
+import PhoneInput from '@/components/ui/PhoneInput.vue'
 
 const { t } = useI18n()
 
@@ -180,6 +191,70 @@ const brokerFirm = reactive({
 const brokerFinding = ref(false)
 const brokerSaving = ref(false)
 
+// Справочник целиком: раньше блок был чисто локальным (пустые поля при каждом
+// открытии ДТ) и сохранённую фирму приходилось доставать вводом БИН вручную —
+// декларант считал, что справочник «не сохраняется». Теперь список грузится
+// сразу, фирма выбирается из выпадающего списка и подставляется автоматически.
+const brokerFirms = ref<BrokerFirmDto[]>([])
+const brokerListLoading = ref(false)
+const brokerPrefilled = ref(false)
+
+const brokerFirmOptions = computed(() =>
+  brokerFirms.value.map((f) => ({ value: f.bin, label: `${f.name} · ${f.bin}` })))
+
+// applyContract: проставлять ли № брокерского договора в саму ДТ (гр.54).
+const fillBrokerFirm = (f: BrokerFirmDto, applyContract: boolean) => {
+  brokerFirm.bin = f.bin
+  brokerFirm.name = f.name
+  brokerFirm.address = f.address
+  brokerFirm.contractDate = f.contractDate
+  brokerFirm.contractValidUntil = f.contractValidUntil
+  if (applyContract && !form.brokerContractNumber && f.contractNumber) {
+    form.brokerContractNumber = f.contractNumber
+    emitChange()
+  }
+}
+
+const pickBrokerFirm = (bin: string | null) => {
+  brokerPrefilled.value = true
+  if (!bin) {
+    brokerFirm.bin = ''
+    return
+  }
+  const firm = brokerFirms.value.find((f) => f.bin === bin)
+  if (firm) fillBrokerFirm(firm, true)
+}
+
+// Автоподстановка при открытии: фирма по уже указанному в ДТ номеру договора,
+// иначе — единственная фирма справочника (типовой случай: свой брокер один).
+const tryPrefillBrokerFirm = () => {
+  if (brokerPrefilled.value || brokerFirm.bin || !brokerFirms.value.length) return
+  const contract = (form.brokerContractNumber ?? '').trim()
+  const byContract = contract
+    ? brokerFirms.value.find((f) => (f.contractNumber ?? '').trim() === contract)
+    : undefined
+  const firm = byContract ?? (brokerFirms.value.length === 1 ? brokerFirms.value[0] : undefined)
+  if (!firm) return
+  fillBrokerFirm(firm, !byContract)
+  brokerPrefilled.value = true
+}
+
+onMounted(async () => {
+  brokerListLoading.value = true
+  try {
+    brokerFirms.value = await listBrokerFirms()
+    tryPrefillBrokerFirm()
+  } catch {
+    /* справочник не загрузился — остаётся ручной ввод БИН с кнопкой «Найти» */
+  } finally {
+    brokerListLoading.value = false
+  }
+})
+
+// ДТ приезжает асинхронно уже после монтирования секции — пробуем ещё раз,
+// когда стал известен номер брокерского договора.
+watch(() => props.modelValue.brokerContractNumber, () => tryPrefillBrokerFirm())
+
 const findBrokerFirm = async () => {
   const bin = (brokerFirm.bin || '').trim()
   if (!bin) {
@@ -225,6 +300,8 @@ const saveBrokerFirm = async () => {
       contractDate: brokerFirm.contractDate || null,
       contractValidUntil: brokerFirm.contractValidUntil || null,
     })
+    brokerFirms.value = await listBrokerFirms()
+    brokerPrefilled.value = true
     message.success(t('dt.firmaBrokerSohranenaV'))
   } catch {
     message.error(t('dt.neUdalosSohranitFirmu'))

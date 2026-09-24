@@ -7,6 +7,8 @@
         allow-clear
         :options="props.postOptions"
         :filter-option="filterOption"
+        :dropdown-match-select-width="false"
+        :dropdown-style="{ maxWidth: '560px' }"
         :placeholder="t('dt.kodNazvaniePosta')"
         :disabled="readonly"
         style="width: 100%"

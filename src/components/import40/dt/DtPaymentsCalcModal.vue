@@ -28,6 +28,10 @@
             <a-tag v-if="row.excisePossible" color="orange">{{ t('dt.vozmozhenAkcizProverteTnved') }}</a-tag>
           </div>
 
+          <!-- Товар не посчитался (нет кода в справочнике ТН ВЭД, не задана стоимость и т.п.):
+               строк гр.47 по нему нет — показываем причину вместо пустой таблицы. -->
+          <a-alert v-if="row.error" type="error" show-icon :message="row.error" class="goods-error" />
+
           <div class="goods-vat-toggle">
             <a-checkbox
               :checked="isMedical(row.index)"
@@ -37,6 +41,7 @@
           </div>
 
           <a-table
+            v-if="!row.error"
             :data-source="rowsFor(row)"
             :columns="goodsColumns"
             :pagination="false"
@@ -190,6 +195,7 @@ const fmt0 = (v: number | null | undefined) =>
 .goods-block:last-of-type {
   border-bottom: none;
 }
+.goods-error { margin-bottom: 10px; }
 .goods-block-header {
   display: flex;
   align-items: center;

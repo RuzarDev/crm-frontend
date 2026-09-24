@@ -36,8 +36,10 @@
               v-model:value="item.tnvedCode"
               size="small"
               :disabled="readonly"
+              :status="item.tnvedInvalid ? 'error' : undefined"
               placeholder="0000000000"
               @change="emit('update:modelValue', items.map(fromRow))"
+              @blur="validateTnved(item)"
             />
             <a-button
               v-if="!readonly"
@@ -51,6 +53,9 @@
               @click="openPicker(item)"
             >{{ t('dt.spravochnik') }}</a-button>
           </a-input-group>
+          <!-- Несуществующий 10-значный код (например 1902303000 вместо 1902301000)
+               раньше выявлялся только на расчёте ТПиН — помечаем сразу при вводе. -->
+          <div v-if="item.tnvedInvalid" class="field-error">{{ t('dt.kodaNetVSpravochnikeTnved') }}</div>
         </div>
         <div class="field f-2">
           <div class="field-label">{{ t('dt.opisanieTovaraIzTnved') }}</div>
@@ -93,6 +98,31 @@
         </div>
       </div>
 
+      <!-- Бланк товара (гр.31): марка/знак/модель/артикул/изготовитель — идут после
+           описаний (из ТН ВЭД и из инвойса) и ПЕРЕД страной происхождения. Показываются
+           только в ДТ Импорта 40 (brandFields), в транзите блока нет. -->
+      <template v-if="brandFields">
+        <div class="field-row">
+          <div class="field"><div class="field-label">{{ t('dt.torgovayaMarka') }}</div>
+            <a-input v-model:value="item.tradeMarkName" v-uppercase size="small" :disabled="readonly"
+              @change="emit('update:modelValue', items.map(fromRow))" /></div>
+          <div class="field"><div class="field-label">{{ t('dt.znak') }}</div>
+            <a-input v-model:value="item.productMarkName" v-uppercase size="small" :disabled="readonly"
+              :placeholder="t('dt.neUkazan')" @change="emit('update:modelValue', items.map(fromRow))" /></div>
+          <div class="field"><div class="field-label">{{ t('dt.model') }}</div>
+            <a-input v-model:value="item.productModelName" v-uppercase size="small" :disabled="readonly"
+              :placeholder="t('dt.neUkazan')" @change="emit('update:modelValue', items.map(fromRow))" /></div>
+          <div class="field"><div class="field-label">{{ t('dt.artikul') }}</div>
+            <a-input v-model:value="item.productArticle" v-uppercase size="small" :disabled="readonly"
+              :placeholder="t('dt.neUkazan')" @change="emit('update:modelValue', items.map(fromRow))" /></div>
+        </div>
+        <div class="field-row">
+          <div class="field f-2"><div class="field-label">{{ t('dt.proizvoditel') }}</div>
+            <a-input v-model:value="item.manufacturerName" v-uppercase size="small" :disabled="readonly"
+              @change="emit('update:modelValue', items.map(fromRow))" /></div>
+        </div>
+      </template>
+
       <!-- Row: страна происхождения -->
       <div class="field-row">
         <div class="field f-2">
@@ -126,16 +156,15 @@
         </div>
         <div class="field f-narrow">
           <div class="field-label">{{ t('dt.kodDeiOkei') }}</div>
+          <!-- Единица доп. измерения жёстко привязана к коду ТН ВЭД: декларант вводит
+               только количество, саму единицу править нельзя (требование 2026-09-23). -->
           <a-select
             v-model:value="item.unitCode"
             size="small"
-            :disabled="readonly"
-            show-search
-            allow-clear
+            disabled
             style="width: 100%"
             :options="okeiOptions"
-            placeholder="796"
-            @change="(v: string) => onUnitCodeChange(item, v)"
+            :placeholder="t('dt.poKoduTnved')"
           />
         </div>
         <div class="field f-narrow">
@@ -215,6 +244,12 @@
           />
         </div>
       </div>
+      <!-- Место для полей, специфичных для ДТ Импорта 40 (упаковка, преференции,
+           процедура, стоимости, ОИС, маркировка, платежи гр.47). Идут ПОСЛЕ описаний,
+           бланка товара, страны, количеств, весов и фактурной стоимости: порядок
+           карточки повторяет порядок гр.31 в ДТ (декларант, 2026-09-23). -->
+      <slot name="goods-extra" :item="item" :index="idx" :change="syncRows" />
+
     </div>
 
     <TnvedPickerModal v-model:open="pickerOpen" :initial-query="pickerQuery" @select="onPickerSelect" />
@@ -243,6 +278,14 @@ interface GoodsRow extends ReestrGoodsItemInput {
   packagesCountStr: string
   customsValueStr: string
   tnvedLoading?: boolean
+  // Код введён, но его нет в справочнике ТН ВЭД (или он не 10-значный лист).
+  tnvedInvalid?: boolean
+  // Поля «бланка товара» Импорта 40 — приходят в том же объекте (см. fromRow: rest).
+  tradeMarkName?: string | null
+  productMarkName?: string | null
+  productModelName?: string | null
+  productArticle?: string | null
+  manufacturerName?: string | null
 }
 
 const props = defineProps<{
@@ -256,6 +299,8 @@ const props = defineProps<{
   // поле «Валюта» у каждого товара показывает её неактивной и синхронизируется
   // автоматически. undefined в транзите/реестре → прежнее поведение (выбор per-строка).
   lockedCurrency?: string | null
+  /** Показывать «бланк товара» (марка/знак/модель/артикул/изготовитель) перед страной происхождения. */
+  brandFields?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -266,11 +311,18 @@ const emit = defineEmits<{
 const pickerOpen = ref(false)
 const pickerTarget = ref<GoodsRow | null>(null)
 const pickerQuery = ref('')
-const openPicker = (item: GoodsRow) => { pickerTarget.value = item; pickerQuery.value = ''; pickerOpen.value = true }
+// Справочник открываем сразу на уже введённом коде: декларант жмёт «Справочник»,
+// чтобы уточнить/досмотреть СВОЙ код, а не искать его заново (2026-09-23).
+const openPicker = (item: GoodsRow) => {
+  pickerTarget.value = item
+  pickerQuery.value = (item.tnvedCode ?? '').trim()
+  pickerOpen.value = true
+}
 const onPickerSelect = (payload: { code: string; name: string }) => {
   const t = pickerTarget.value
   if (!t) return
   t.tnvedCode = payload.code
+  t.tnvedInvalid = false
   if (!t.tnvedDescription) t.tnvedDescription = payload.name
   emit('update:modelValue', items.value.map(fromRow))
 }
@@ -298,6 +350,7 @@ onMounted(async () => {
   } catch (e) {
     console.error('Failed to load countries', e)
   }
+  void validateAllTnved()
 })
 
 function filterCountry(input: string, option: { label: string }) {
@@ -310,6 +363,37 @@ function onUnitCodeChange(item: GoodsRow, code: string | undefined) {
     item.unit = okeiByCode.value[code]
   }
   emit('update:modelValue', items.value.map(fromRow))
+}
+
+// Кэш проверок кодов на время жизни экрана: в ДТ один и тот же код обычно
+// повторяется у нескольких товаров, дёргать справочник на каждый blur незачем.
+const tnvedCodeValid = ref<Record<string, boolean>>({})
+
+async function validateTnved(item: GoodsRow) {
+  const code = (item.tnvedCode || '').trim()
+  if (!code) {
+    item.tnvedInvalid = false
+    return
+  }
+  if (code in tnvedCodeValid.value) {
+    item.tnvedInvalid = !tnvedCodeValid.value[code]
+    return
+  }
+  try {
+    const res = await tnvedApi.node(code)
+    tnvedCodeValid.value[code] = res.data.is10
+  } catch {
+    tnvedCodeValid.value[code] = false
+  }
+  item.tnvedInvalid = !tnvedCodeValid.value[code]
+}
+
+// Проверяем коды у уже сохранённых товаров при открытии — иначе ошибочный код
+// (пришедший из КП/импорта) остаётся незаметным до расчёта платежей.
+async function validateAllTnved() {
+  for (const item of items.value) {
+    if (item.tnvedCode) await validateTnved(item)
+  }
 }
 
 async function lookupTnved(item: GoodsRow) {
@@ -327,6 +411,7 @@ async function lookupTnved(item: GoodsRow) {
       pickerOpen.value = true
       return
     }
+    item.tnvedInvalid = false
     item.tnvedDescription = res.data.name
     // Автоподстановка единицы измерения по ТНВЭД — только если поле ещё не заполнено вручную
     if (!item.unitCode && !item.unit) {
@@ -381,6 +466,11 @@ function toRow(g: ReestrGoodsItemInput): GoodsRow {
     packagesCountStr: g.packagesCount != null ? String(g.packagesCount) : '',
     customsValueStr: g.customsValue != null ? String(g.customsValue) : '',
   }
+}
+
+/** Отдаёт наверх изменённый список товаров — вызывается и из слота с полями ДТ. */
+function syncRows() {
+  emit('update:modelValue', items.value.map(fromRow))
 }
 
 function fromRow(r: GoodsRow): ReestrGoodsItemInput {
@@ -687,6 +777,12 @@ const onExcelFile: UploadProps['beforeUpload'] = (file) => {
 .f-narrow {
   flex: 1;
   min-width: 60px;
+}
+
+.field-error {
+  font-size: 10.5px;
+  color: var(--z-danger, #d4380d);
+  margin-top: 2px;
 }
 
 .field-label {

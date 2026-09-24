@@ -142,10 +142,10 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed, onMounted, ref, reactive, watch, nextTick } from 'vue'
+import { computed, h, onMounted, ref, reactive, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import { CheckCircleFilled } from '@ant-design/icons-vue'
 import {
   import40Api,
@@ -163,7 +163,7 @@ import { import40ContractApi, type ClientCompanyProfileDto } from '@/api/import4
 import type { Import40FactPayment, Import40GoodsItemInput, Import40DeclarationExpense } from '@/types/api'
 import { CURRENCY_NUMERIC } from '@/types/api'
 import { referencesApi } from '@/api/references'
-import { salesApi, type SalesCalcGoodsResult } from '@/api/sales'
+import type { SalesCalcGoodsResult } from '@/api/sales'
 import { tnvedApi } from '@/api/tnved'
 import { useAuthStore } from '@/stores/auth'
 import { useClassifiersStore } from '@/stores/classifiers'
@@ -216,6 +216,7 @@ const DT_CLASSIFIERS = [
   'vehicle-marks',        // марки ТС (гр.18, 21)
   'ois-indicators',       // ОИС: I/N/S (гр.33 «О», товарное поле) — Task 2 (бэк)/Task 9 (фронт)
   'restriction-marks',    // признаки соблюдения запретов: С/М/П (товарное поле) — Task 2/Task 9
+  'certification-kinds',  // сертификация/экспортный контроль (товарное поле, гр.33) — выбор декларанта
   'packaging-availability', // наличие упаковки: 0/1/2 (гр.31, товарное поле) — Task 2/Task 9
   'id-doc-types',          // вид документа подписанта (гр.54) — Task 11
 ]
@@ -812,17 +813,6 @@ watch(goodsOriginKey, (key) => {
   dtForm.originCountryCode = codes.length === 1 ? codes[0] : '000'
 })
 
-// Коды видов платежа гр.47, в которые раскладывает суммы КП→ДТ маппер на
-// бэкенде (см. KpToDtMapper.AddPayment) — держим тот же порядок/коды здесь,
-// чтобы пересчёт на фронте не разошёлся с тем, что уже могло прийти при
-// импорте КП.
-const TPIN_PAYMENT_CODES: Array<{ code: string; pick: (r: SalesCalcGoodsResult) => number }> = [
-  { code: '2010', pick: (r) => r.importDutyKzt },
-  { code: '4010', pick: (r) => r.exciseKzt },
-  { code: '1010', pick: (r) => r.customsFeeKzt },
-  { code: '5060', pick: (r) => r.vatKzt },
-]
-
 // Заносит суммы платежа в g.payments: обновляет существующую строку с тем же
 // taxModeCode или добавляет новую (paymentFeatureCode: 'ИУ' — как на бэкенде).
 // Суммы <= 0 пропускаются целиком, зеркаля AddPayment на бэкенде (там строка
@@ -872,26 +862,60 @@ const upsertGoodsPayment = (
   g.payments = rows
 }
 
-// Основа начисления + ставка для гр.47 по результату ТПиН-расчёта (salesApi не
-// возвращает их отдельно, выводим по правилам КЕДЕН — те же, что в
-// Import40PaymentCalculator на бэке): сбор(1010)=«6 МРП»; пошлина(2010) основа =
-// тамож.стоимость (гр.45), ставка = пошлина/стоимость; НДС(5060) основа =
-// стоимость+пошлина+акциз+сбор, ставка = НДС/база (16%/5%). Акциз(4010) —
-// основу/ставку не выводим (база зависит от подакцизной единицы).
+// Строки гр.47 по результату ТПиН-расчёта — те же правила, что в
+// Import40PaymentCalculator на бэке и в бланке КЕДЕН:
+//   1010 сбор   — основа = полный сбор за ДТ (25 950 ₸), ставка «6 МРП»,
+//                 сумма = доля товара: сбор делится ПОРОВНУ по числу товаров;
+//   2010 пошлина — основа = тамож. стоимость (гр.45), ставка = пошлина/стоимость;
+//   5060 НДС     — основа = стоимость + пошлина + акциз + ДОЛЯ сбора (не полный сбор,
+//                 иначе при N товарах сбор учитывался бы N раз), ставка = НДС/база;
+//   4010 акциз   — основу/ставку не выводим (база зависит от подакцизной единицы).
 const fmtMoney = (v: number) => v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const tpinPaymentMeta = (code: string, r: SalesCalcGoodsResult): TpinPaymentMeta => {
+const round2 = (v: number) => Math.round(v * 100) / 100
+const pctOf = (part: number, base: number) => (base > 0 ? Math.round((part / base) * 100 * 100) / 100 : null)
+
+const tpinPaymentRows = (
+  r: SalesCalcGoodsResult,
+  goodsCount: number,
+): Array<{ code: string; amount: number; meta: TpinPaymentMeta }> => {
   const cv = r.customsValueKzt
-  if (code === '1010') return { basisLabel: t('dt.6Mrp') }
-  if (code === '2010') {
-    const rate = cv > 0 ? Math.round((r.importDutyKzt / cv) * 100 * 100) / 100 : null
-    return { taxBase: cv, basisLabel: fmtMoney(cv), rateValue: rate, rateLabel: rate != null ? `${rate}%` : null }
-  }
-  if (code === '5060') {
-    const base = cv + r.importDutyKzt + r.exciseKzt + r.customsFeeKzt
-    const rate = base > 0 ? Math.round((r.vatKzt / base) * 100 * 100) / 100 : null
-    return { taxBase: base, basisLabel: fmtMoney(base), rateValue: rate, rateLabel: rate != null ? `${rate}%` : null }
-  }
-  return {}
+  const feeShare = goodsCount > 0 ? round2(r.customsFeeKzt / goodsCount) : r.customsFeeKzt
+  // Ставку НДС берём из ответа движка (он считает базу с ПОЛНЫМ сбором) и применяем
+  // к правильной базе с долей сбора — так ставка остаётся той же (16% / льготные 5%).
+  const engineVatBase = cv + r.importDutyKzt + r.exciseKzt + r.customsFeeKzt
+  const vatRate = engineVatBase > 0 ? r.vatKzt / engineVatBase : 0
+  const vatBase = cv + r.importDutyKzt + r.exciseKzt + feeShare
+  const vatAmount = round2(vatBase * vatRate)
+  const dutyRate = r.importDutyKzt > 0 ? pctOf(r.importDutyKzt, cv) : null
+
+  return [
+    {
+      code: '2010',
+      amount: r.importDutyKzt,
+      meta: { taxBase: cv, basisLabel: fmtMoney(cv), rateValue: dutyRate, rateLabel: dutyRate != null ? `${dutyRate}%` : null },
+    },
+    { code: '4010', amount: r.exciseKzt, meta: {} },
+    {
+      code: '1010',
+      amount: feeShare,
+      meta: {
+        taxBase: r.customsFeeKzt,
+        basisLabel: fmtMoney(r.customsFeeKzt),
+        rateValue: 6,
+        rateLabel: t('dt.6Mrp'),
+      },
+    },
+    {
+      code: '5060',
+      amount: vatAmount,
+      meta: {
+        taxBase: vatBase,
+        basisLabel: fmtMoney(vatBase),
+        rateValue: pctOf(vatAmount, vatBase),
+        rateLabel: `${Math.round(vatRate * 100 * 100) / 100}%`,
+      },
+    },
+  ]
 }
 
 // Автопересчёт ТПиН для товаров, пришедших из КП без веса/количества
@@ -916,9 +940,10 @@ const calcTpin = async () => {
     return
   }
   try {
-    const res = await salesApi.calculate({
-      services: [],
-      goods: targets.map((g) => ({
+    // Import40-эндпоинт, а не sales/calculate: расчёт тот же, но права — Импорта 40
+    // (у декларанта нет sales.read, и кнопка падала с «Недостаточно прав»).
+    const res = await import40Api.calculateTpin(
+      targets.map((g) => ({
         description: g.description ?? '',
         code: g.tnvedCode ?? '',
         customsValue: g.customsValue ?? 0,
@@ -926,19 +951,35 @@ const calcTpin = async () => {
         weightKg: g.netWeightKg ?? null,
         quantity: g.quantity ?? null,
       })),
-    })
+    )
     let recalculated = 0
+    const failed: string[] = []
     targets.forEach((g, idx) => {
       const r = res.goods[idx]
       if (r && !r.error) {
         g.customsValueKzt = r.customsValueKzt
-        TPIN_PAYMENT_CODES.forEach(({ code, pick }) => upsertGoodsPayment(g, code, pick(r), tpinPaymentMeta(code, r)))
+        tpinPaymentRows(r, dtForm.goodsItems.length).forEach(({ code, amount, meta }) =>
+          upsertGoodsPayment(g, code, amount, meta),
+        )
         g.needsTpinRecalc = false
         recalculated += 1
+      } else {
+        // Товар не посчитался — показываем причину с номером позиции, иначе
+        // декларант видит только «не удалось» и не понимает, что править.
+        const n = dtForm.goodsItems.indexOf(g) + 1
+        failed.push(`${t('dt.tovarN', { n })}: ${r?.error ?? t('dt.neUdalosRasschitatProverte')}`)
       }
     })
     if (recalculated) message.success(t('dt.tpinRasschitanDlyaRecalculated', { n: recalculated }))
-    else message.warning(t('dt.neUdalosRasschitatProverte'))
+    if (failed.length) {
+      Modal.warning({
+        title: t('dt.tpinNePosschitanPoTovaram'),
+        content: h('div', failed.map((line) => h('div', { style: 'margin-bottom:4px' }, line))),
+        okText: t('dt.ponyatno'),
+      })
+    } else if (!recalculated) {
+      message.warning(t('dt.neUdalosRasschitatProverte'))
+    }
   } catch {
     message.error(t('dt.neUdalosPereschitatTpin'))
   }
@@ -988,7 +1029,7 @@ const onToggleMedical = async (index: number, checked: boolean) => {
 }
 
 // Записывает последний расчёт (paymentsResult) в гр.47 товаров и гр.B
-// (dtForm.factPayments) — зеркалит upsertGoodsPayment/TPIN_PAYMENT_CODES выше:
+// (dtForm.factPayments) — зеркалит upsertGoodsPayment/tpinPaymentRows выше:
 // та же логика "обновить существующую строку по taxModeCode или добавить
 // новую", только источник сумм — calculate-payments, а не salesApi.calculate,
 // и здесь дополнительно пишем base/rate (calc их возвращает), а не только сумму.
