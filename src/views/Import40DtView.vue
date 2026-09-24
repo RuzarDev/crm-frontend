@@ -71,7 +71,7 @@
           <DtSectionFinance
             v-show="activeSection === 'finance'" :model-value="dtForm" :readonly="readOnly" :totals="totals"
             :expense-type-options="expenseTypeOptions" :currency-options="currencyOptions" :currency-rates="currencyRates"
-            :expense-distribution-by-code="expenseDistributionByCode"
+            :expense-distribution-by-code="expenseDistributionByCode" :expense-deduction-by-code="expenseDeductionByCode"
             @update:model-value="onDtUpdate" @calc-customs-value="calcCustomsValue"
           />
           <DtSectionCustoms v-show="activeSection === 'customs'" :model-value="dtForm" :readonly="readOnly" :post-options="customsPostOptions" @update:model-value="onDtUpdate" />
@@ -325,6 +325,9 @@ const expenseTypeOptions = ref<{ value: string; label: string }[]>([])
 // товарам), поэтому подпись в таблице расходов не гадает по коду, а берёт
 // источник истины напрямую из справочника.
 const expenseDistributionByCode = ref<Record<string, 'GrossWeight' | 'CustomsValue'>>({})
+// Task 10: статьи-вычеты (гр.13а-13б, РБК Решение 257) — RefExpenseType.IsDeduction,
+// в таблице расходов подписываются тегом «вычет» рядом с базой распределения.
+const expenseDeductionByCode = ref<Record<string, boolean>>({})
 const currencyOptions = ref<{ value: string; label: string }[]>([])
 // Курсы НБ РК по коду валюты (на момент заполнения) — для автоподстановки гр.23.
 const currencyRates = ref<Record<string, { rate: number; date: string }>>({})
@@ -1501,9 +1504,12 @@ onMounted(async () => {
     /* справочник постов не загрузился — код поста можно ввести вручную */
   }
   try {
-    const expenseTypes = await referencesApi.listExpenseTypes()
-    expenseTypeOptions.value = expenseTypes.map((t) => ({ value: t.code, label: `${t.code} — ${t.nameRu}` }))
+    // nameRu уже содержит номер графы («17 Расходы по транспортировке»), поэтому
+    // отдельно code в подпись не дублируем; сортируем по sortOrder — порядок граф ДТС.
+    const expenseTypes = [...(await referencesApi.listExpenseTypes())].sort((a, b) => a.sortOrder - b.sortOrder)
+    expenseTypeOptions.value = expenseTypes.map((t) => ({ value: t.code, label: t.nameRu }))
     expenseDistributionByCode.value = Object.fromEntries(expenseTypes.map((t) => [t.code, t.distributionBase]))
+    expenseDeductionByCode.value = Object.fromEntries(expenseTypes.map((t) => [t.code, t.isDeduction]))
   } catch {
     /* справочник статей расходов не загрузился — таблица расходов не блокирует форму */
   }

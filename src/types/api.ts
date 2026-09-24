@@ -707,6 +707,7 @@ export interface RefExpenseTypeDto {
   nameRu: string
   distributionBase: 'GrossWeight' | 'CustomsValue'
   sortOrder: number
+  isDeduction: boolean
 }
 
 export interface AppNotification {

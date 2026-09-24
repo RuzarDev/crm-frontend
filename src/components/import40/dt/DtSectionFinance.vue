@@ -53,6 +53,11 @@
       </a-form-item>
     </div>
 
+    <a-form-item :label="t('dt.mestoDlyaDtsGr17')">
+      <a-input v-uppercase v-model:value="form.dtsPlaceName" :disabled="readonly"
+        :placeholder="form.incotermsPlace || t('dt.mestoDlyaDtsPlaceholder')" @change="emitChange" />
+    </a-form-item>
+
     <div class="dt-section-bar">
       <span class="dt-section-label">{{ t('dt.rashodyDlyaRaspredeleniyaNa') }}</span>
       <a-button v-if="!readonly" type="dashed" size="small" @click="addExpense">{{ t('dt.rashod') }}</a-button>
@@ -73,7 +78,10 @@
         v-model:value="e.currencyCode" :options="currencyOptions" :disabled="readonly"
         show-search :filter-option="filterOption" :placeholder="t('dt.valyuta')" @change="emitChange"
       />
-      <a-tag class="dt-expense-dist">{{ distributionLabel(e.expenseTypeCode) }}</a-tag>
+      <span class="dt-expense-dist-cell">
+        <a-tag class="dt-expense-dist">{{ distributionLabel(e.expenseTypeCode) }}</a-tag>
+        <a-tag v-if="isDeduction(e.expenseTypeCode)" color="orange">{{ t('dt.vychet') }}</a-tag>
+      </span>
       <a-button v-if="!readonly" type="text" danger size="small" @click="removeExpense(i)"><CloseOutlined /></a-button>
     </div>
     <div v-if="!(form.expenses ?? []).length" class="muted">{{ t('dt.rashodovNet') }}</div>
@@ -107,6 +115,10 @@ const props = defineProps<{
   // (тот же признак, которым бэк реально распределяет расходы, см.
   // ExpenseDistribution.Distribute), просто отображаем.
   expenseDistributionByCode?: Record<string, 'GrossWeight' | 'CustomsValue'>
+  // Task 10: статьи-вычеты (RefExpenseType.IsDeduction) — показываем тегом
+  // «вычет» рядом с базой распределения, чтобы декларант видел, что сумма
+  // не прибавляется, а вычитается из таможенной стоимости.
+  expenseDeductionByCode?: Record<string, boolean>
 }>()
 const emit = defineEmits<{
   'update:modelValue': [Import40DtFormState]
@@ -145,6 +157,9 @@ const distributionLabel = (expenseTypeCode: string | null | undefined) => {
   return base === 'GrossWeight' ? t('dt.poVesuBrutto') : t('dt.poStoimosti')
 }
 
+const isDeduction = (expenseTypeCode: string | null | undefined) =>
+  !!(expenseTypeCode && props.expenseDeductionByCode?.[expenseTypeCode])
+
 const addExpense = () => {
   form.expenses = [...(form.expenses ?? []), { expenseTypeCode: null, amount: null, currencyCode: null }]
   emitChange()
@@ -171,6 +186,12 @@ const removeExpense = (index: number) => {
 }
 .dt-expense-row {
   margin-bottom: 8px;
+}
+.dt-expense-dist-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
 }
 .dt-expense-dist {
   justify-self: start;
