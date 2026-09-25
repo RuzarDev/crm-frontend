@@ -576,6 +576,9 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    kursGr23NeSovpadaet: '23-баған А-баған күніне ҚРҰБ бағамымен сәйкес емес',
+    kursNbRkNedostupen: 'ҚРҰБ қолжетімсіз — ең жақын белгілі бағам көрсетілген',
+    kursNbRkNaDatuGrAPodskazka: 'А-баған күніне ҚРҰБ ресми бағамы — 23, 45, 46, 47-бағандар мен КҚД соған есептеледі',
     poKoduTnved: 'СЭҚ ТН коды бойынша',
     avtozapolneniePoKoduTnved: 'СЭҚ ТН коды бойынша автотолтыру',
     bruttoKg: 'Брутто, кг',
@@ -1245,6 +1248,10 @@ export default {
     loadError: 'Журналды жүктеу мүмкін болмады',
   },
   admin: {
+    prefFee: '36-баған — кедендік алымдар бойынша жеңілдіктер',
+    prefDuty: '36-баған — баж бойынша жеңілдіктер мен преференциялар',
+    prefExcise: '36-баған — акциз бойынша жеңілдіктер',
+    prefVat: '36-баған — ҚҚС бойынша жеңілдіктер',
     email: 'Email',
     ecpEgov: 'eGov ЭЦҚ',
     zagruzhenFayl: 'файл жүктелген',

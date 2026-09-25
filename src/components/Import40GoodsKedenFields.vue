@@ -27,16 +27,16 @@
     </div>
     <div class="field-row">
       <div class="field"><div class="field-label">{{ t('dt.preferenciyaSbor') }}</div>
-        <a-select v-model:value="good.prefClearanceCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefOptions" :get-popup-container="popupContainer" placeholder="ОО" style="width: 100%" @change="emitChange" /></div>
+        <a-select v-model:value="good.prefClearanceCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefFeeOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="ОО" style="width: 100%" @change="emitChange" /></div>
       <div class="field"><div class="field-label">{{ t('dt.poshlina') }}</div>
-        <a-select v-model:value="good.prefDutyCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefOptions" :get-popup-container="popupContainer" placeholder="ОО" style="width: 100%" @change="emitChange" /></div>
+        <a-select v-model:value="good.prefDutyCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefDutyOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="ОО" style="width: 100%" @change="emitChange" /></div>
       <div class="field"><div class="field-label">{{ t('dt.akciz') }}</div>
-        <a-select v-model:value="good.prefExciseCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefOptions" :get-popup-container="popupContainer" placeholder="Z" style="width: 100%" @change="emitChange" /></div>
+        <a-select v-model:value="good.prefExciseCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefExciseOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="Z" style="width: 100%" @change="emitChange" /></div>
       <div class="field"><div class="field-label">{{ t('dt.nds') }} <a-tooltip v-if="hasReducedVat(good)" :title="t('dt.ponizhennyyNds5Primenyaetsya')">
             <a-tag color="green" style="margin-left: 4px">5%</a-tag>
           </a-tooltip>
         </div>
-        <a-select v-model:value="good.prefVatCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefOptions" :get-popup-container="popupContainer" placeholder="ОО" style="width: 100%" @change="emitChange" /></div>
+        <a-select v-model:value="good.prefVatCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefVatOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="ОО" style="width: 100%" @change="emitChange" /></div>
     </div>
     <div v-if="containerIndicator" class="field-row">
       <div class="field"><div class="field-label">{{ t('dt.nomerKonteyneraGr313') }}</div>
@@ -290,7 +290,23 @@ const classifiers = useClassifiersStore()
 
 const pkgOptions = computed(() => classifiers.options('2013'))
 
-const prefOptions = computed(() => classifiers.options('2008'))
+// Гр.36: у каждого вида платежа свой перечень льгот (классификатор ЕЭК 2008, разделы ЕАЭС и РК) —
+// одинаковые коды значат разное (ПП, МД, БГ…). Раньше на все четыре подграфы был один список «ОО, Z».
+// «Без льгот» (ОО/О) и «Z» — первыми, остальные по коду; полный текст — в подсказке пункта.
+const PREF_PINNED = ['ОО', 'О', 'Z']
+const prefOptionsOf = (classifierCode: string) => computed(() =>
+  [...(classifiers.cache[classifierCode] ?? [])]
+    .sort((a, b) => {
+      const pa = PREF_PINNED.indexOf(a.code)
+      const pb = PREF_PINNED.indexOf(b.code)
+      if (pa !== -1 || pb !== -1) return (pa === -1 ? 99 : pa) - (pb === -1 ? 99 : pb)
+      return a.code.localeCompare(b.code, 'ru')
+    })
+    .map((c) => ({ value: c.code, label: `${c.code} — ${c.nameRu}`, title: `${c.code} — ${c.nameRu}` })))
+const prefFeeOptions = prefOptionsOf('pref-fee')
+const prefDutyOptions = prefOptionsOf('pref-duty')
+const prefExciseOptions = prefOptionsOf('pref-excise')
+const prefVatOptions = prefOptionsOf('pref-vat')
 
 const taxModeOptions = computed(() => classifiers.options('tax-modes'))
 

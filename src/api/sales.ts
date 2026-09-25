@@ -26,6 +26,8 @@ export interface SalesCalcGoodsLine {
   quantity?: number | null
   engineVolumeCm3?: number | null
   unit?: string | null
+  // ДТ Импорта 40: гр.45 (₸) как основа платежей вместо «инвойс × курс».
+  customsValueKzt?: number | null
 }
 
 export interface SalesCalcServiceResult {

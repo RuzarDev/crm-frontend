@@ -25,9 +25,12 @@
       <a-form-item>
         <template #label><DtGraphLabel graph="23" :text="t('dt.kurs')" /></template>
         <a-input-number v-model:value="form.exchangeRate" :disabled="readonly" style="width: 100%" :min="0" @change="emitChange" />
-        <div v-if="currentRateInfo" class="dt-rate-hint"> {{ t('dt.kursNbRk') }}<span v-if="currentRateInfo.date">&nbsp;{{ t('dt.naDatu', { date: formatRateDate(currentRateInfo.date) }) }}</span>:
+        <!-- Курс НБ РК на дату гр.А (не текущий): гр.45/46/47 и ДТС считаются по нему, поэтому
+             гр.23 с другим курсом подсвечивается — ДТ ИМ-2026-0003 от 24.09 стояла с курсом 23.09. -->
+        <div v-if="currentRateInfo" class="dt-rate-hint" :class="{ 'dt-rate-mismatch': rateMismatch }"> {{ t('dt.kursNbRk') }}<span v-if="currentRateInfo.date">&nbsp;{{ t('dt.naDatu', { date: formatRateDate(currentRateInfo.date) }) }}</span>:
           <strong>{{ currentRateInfo.rate }}</strong>
-          <a v-if="!readonly && form.exchangeRate !== currentRateInfo.rate" @click="applyCurrentRate"> {{ t('dt.podstavit') }}</a>
+          <span v-if="rateMismatch">&nbsp;— {{ t('dt.kursGr23NeSovpadaet') }}</span>
+          <a v-if="!readonly && rateMismatch" @click="applyCurrentRate"> {{ t('dt.podstavit') }}</a>
         </div>
       </a-form-item>
       <a-form-item>
@@ -135,6 +138,8 @@ const emitChange = () => emit('update:modelValue', { ...props.modelValue, ...for
 // Курс НБ РК для выбранной валюты (гр.23) — на момент заполнения.
 const currentRateInfo = computed(() => props.currencyRates?.[form.currency ?? ''] ?? null)
 const formatRateDate = (iso: string) => (iso ? new Date(iso).toLocaleDateString('ru-RU') : '')
+const rateMismatch = computed(() =>
+  !!currentRateInfo.value && form.exchangeRate != null && Number(form.exchangeRate) !== currentRateInfo.value.rate)
 // При выборе валюты подставляем текущий курс НБ РК (KZT → 1).
 const onCurrencyChange = (v: string) => {
   const info = props.currencyRates?.[v]
@@ -206,5 +211,8 @@ const removeExpense = (index: number) => {
   color: var(--atg-muted);
   font-size: 12px;
   margin-bottom: 12px;
+}
+.dt-rate-mismatch {
+  color: var(--z-danger, #cf1322);
 }
 </style>

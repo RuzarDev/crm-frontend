@@ -5,8 +5,9 @@
     <span v-for="c in chips" :key="c.code" class="dt-rates-chip">
       {{ c.code }}: {{ c.rate }} ₸
     </span>
+    <a-tag v-if="asOfLabel && official === false" color="orange">{{ t('dt.kursNbRkNedostupen') }}</a-tag>
     <a-tooltip
-      :title="t('dt.tekuschiySpravochnyyKursNb')"
+      :title="asOfLabel ? t('dt.kursNbRkNaDatuGrAPodskazka') : t('dt.tekuschiySpravochnyyKursNb')"
     >
       <span class="dt-rates-note">?</span>
     </a-tooltip>
@@ -27,6 +28,8 @@ const props = defineProps<{
   rates: Record<string, { rate: number; date: string }>
   codes: string[]
   asOfDate: string | null
+  // false — НБ РК на эту дату недоступен, показан ближайший известный курс.
+  official?: boolean
 }>()
 
 const rateFormatter = new Intl.NumberFormat('ru-RU', {

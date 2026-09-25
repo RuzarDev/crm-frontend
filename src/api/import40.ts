@@ -635,6 +635,16 @@ export interface Import40CvGoodsResult {
   index: number
   customsValueKzt: number
   distributedExpensesKzt: number
+  // гр.46 = гр.45 / курс USD на дату гр.А (тот же курс, что и для гр.45); null — нет курса USD.
+  statisticValueUsd?: number | null
+}
+
+// Курсы НБ РК на дату гр.А (GET /import40/rates-on-date). official = false — НБ РК недоступен,
+// показан ближайший известный курс (своя история/текущий).
+export interface Import40RatesOnDate {
+  date: string | null
+  official: boolean
+  rates: Record<string, number>
 }
 
 export interface Import40CalculateCustomsValueResult {
@@ -1010,11 +1020,20 @@ export const import40Api = {
 
   // «Рассчитать ТПиН (авто)» в мастере ДТ. Тот же расчёт, что и в КП, но под правами
   // Импорта 40: sales/calculate требует sales.read, которых у декларанта нет.
-  calculateTpin: async (goods: SalesCalcGoodsLine[]): Promise<SalesCalcResponse> => {
+  // onDate — дата гр.А: курсы на эту дату; customsValueKzt в строках — гр.45 как основа платежей.
+  calculateTpin: async (goods: SalesCalcGoodsLine[], onDate?: string | null): Promise<SalesCalcResponse> => {
     const response = await apiClient.post<SalesCalcResponse>('/import40/calculate-tpin', {
       services: [],
       goods,
+      onDate: onDate ?? null,
     })
     return response.data
+  },
+
+  ratesOnDate: async (date: string | null, codes: string[]): Promise<Import40RatesOnDate> => {
+    const { data } = await apiClient.get<Import40RatesOnDate>('/import40/rates-on-date', {
+      params: { date: date ?? undefined, codes: codes.join(',') },
+    })
+    return data
   },
 }

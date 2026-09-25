@@ -46,7 +46,7 @@
       @register="saveDt()"
     />
 
-    <DtCurrencyRatesBox :rates="currencyRates" :codes="currencyBoxCodes" :as-of-date="dtForm.submissionDate ?? null" />
+    <DtCurrencyRatesBox :rates="currencyRates" :codes="currencyBoxCodes" :as-of-date="dtForm.submissionDate ?? null" :official="ratesOfficial" />
 
     <div class="dt-layout">
       <nav class="dt-nav">
@@ -205,7 +205,11 @@ const DT_CLASSIFIERS = [
   '2004',                // виды транспорта (гр.25, 26)
   '2024',                // типы ТС
   '2005',                // методы определения таможенной стоимости (гр.43)
-  '2008',                // преференции (гр.36)
+  '2008',                // преференции (гр.36) — прежний общий список (ОО, Z)
+  'pref-fee',            // гр.36: льготы по таможенным сборам (ЕЭК 2008, раздел РК 3.1)
+  'pref-duty',           // гр.36: льготы и тарифные преференции по пошлине (1.1 + 3.2)
+  'pref-excise',         // гр.36: льготы по акцизу (1.2 + 3.3) и «Z — не облагается»
+  'pref-vat',            // гр.36: льготы по НДС (1.3 + 3.4)
   '2013',                // виды упаковки (гр.31)
   'tax-modes',           // виды платежа (гр.47)
   'rate-kinds',          // тип ставки (гр.47)
@@ -346,7 +350,12 @@ const expenseDistributionByCode = ref<Record<string, 'GrossWeight' | 'CustomsVal
 const expenseDeductionByCode = ref<Record<string, boolean>>({})
 const currencyOptions = ref<{ value: string; label: string }[]>([])
 // Курсы НБ РК по коду валюты (на момент заполнения) — для автоподстановки гр.23.
+// Курсы для экрана ДТ (гр.23, гр.46, блок курсов, итоги) — НА ДАТУ гр.А по НБ РК
+// (/import40/rates-on-date), поверх текущих из справочника валют. Раньше здесь были текущие
+// курсы с подписью «на дату гр.А»: гр.23 брала курс дня заполнения, а не дня ДТ.
 const currencyRates = ref<Record<string, { rate: number; date: string }>>({})
+const currentRates = ref<Record<string, { rate: number; date: string }>>({})
+const ratesOfficial = ref(true)
 
 const emptyParty = (): Import40Party => ({
   name: null,
@@ -631,6 +640,50 @@ const dtTotals = useDtTotals(() => dtForm.goodsItems, dtForm, currencyRates, app
 // Пробрасывается в DtSectionGoods → Import40GoodsKedenPanel для авторасчёта
 // статистической стоимости = таможенная стоимость (гр.45) / курс USD.
 const usdRate = computed(() => currencyRates.value['USD']?.rate ?? null)
+
+// Валюты, чьи курсы нужны ДТ: сделка (гр.22), товары, расходы, плюс USD (гр.46) и EUR
+// (специфические ставки).
+const rateCodes = computed(() => {
+  const set = new Set<string>(['USD', 'EUR'])
+  const add = (c: string | null | undefined) => { if (c && c.toUpperCase() !== 'KZT') set.add(c.toUpperCase()) }
+  add(dtForm.currency)
+  for (const g of dtForm.goodsItems) add(g.currency)
+  for (const e of dtForm.expenses ?? []) add(e.currencyCode)
+  return Array.from(set).sort()
+})
+
+// Смена даты гр.А пользователем → гр.23 следует за курсом НБ РК на новую дату. При загрузке
+// ДТ гр.23 не трогаем молча: расхождение подсвечивается в «Условиях поставки» (Подставить).
+let syncExchangeRateAfterRates = false
+const loadRatesOnDate = async () => {
+  const date = toIsoDate(dtForm.submissionDate)
+  if (!date) {
+    currencyRates.value = { ...currentRates.value }
+    ratesOfficial.value = true
+    syncExchangeRateAfterRates = false
+    return
+  }
+  try {
+    const res = await import40Api.ratesOnDate(date, rateCodes.value)
+    const merged = { ...currentRates.value }
+    for (const [code, rate] of Object.entries(res.rates)) merged[code] = { rate, date }
+    currencyRates.value = merged
+    ratesOfficial.value = res.official
+    const deal = dtForm.currency?.toUpperCase()
+    if (syncExchangeRateAfterRates && deal && merged[deal]) dtForm.exchangeRate = merged[deal].rate
+  } catch {
+    /* курсы на дату не загрузились — остаются текущие; расчёты на сервере всё равно по дате гр.А */
+  } finally {
+    syncExchangeRateAfterRates = false
+  }
+}
+watch(
+  () => [toIsoDate(dtForm.submissionDate), rateCodes.value.join(',')] as const,
+  (next, prev) => {
+    if (!applyingDeclaration.value && prev && next[0] !== prev[0]) syncExchangeRateAfterRates = true
+    void loadRatesOnDate()
+  },
+)
 
 const totals = computed(() => ({
   goods: dtTotals.goodsCount.value,
@@ -1002,6 +1055,15 @@ const calcTpin = async () => {
     message.info(t('dt.netTovarovSDostatochnymi'))
     return
   }
+  // Основа платежей — гр.45 (с транспортом и прочими начислениями, по курсу НБ РК на дату гр.А):
+  // сначала пересчитываем её, потом платежи от неё. Раньше ТПиН считался от «инвойс × текущий
+  // курс» и перезаписывал гр.45 без транспорта.
+  try {
+    await recalcCustomsValues()
+  } catch (e: any) {
+    message.error(serverErrorText(e, t('dt.neUdalosRasschitatTamozhennuyu')))
+    return
+  }
   try {
     // Import40-эндпоинт, а не sales/calculate: расчёт тот же, но права — Импорта 40
     // (у декларанта нет sales.read, и кнопка падала с «Недостаточно прав»).
@@ -1013,14 +1075,15 @@ const calcTpin = async () => {
         currencyCode: g.currency ?? 'USD',
         weightKg: g.netWeightKg ?? null,
         quantity: g.quantity ?? null,
+        customsValueKzt: g.customsValueKzt ?? null,
       })),
+      toIsoDate(dtForm.submissionDate),
     )
     let recalculated = 0
     const failed: string[] = []
     targets.forEach((g, idx) => {
       const r = res.goods[idx]
       if (r && !r.error) {
-        g.customsValueKzt = r.customsValueKzt
         tpinPaymentRows(r, dtForm.goodsItems.length).forEach(({ code, amount, meta }) =>
           upsertGoodsPayment(g, code, amount, meta),
         )
@@ -1180,15 +1243,9 @@ const onApplyPayments = async () => {
 // dtForm.expenses по товарам dtForm.goodsItems и проставляет гр.45
 // (customsValueKzt) каждому — по index = позиции товара в массиве
 // goodsItems (см. комментарий у Import40CvGoodsInput в api/import40.ts).
-// Живёт в родителе, а не в DtSectionFinance, т.к. только здесь dtForm.goodsItems
-// корректно типизирован как Import40GoodsItemInput[] (с полем customsValue) —
-// в дочерних Dt-секциях modelValue типизирован общим Import40DtFormState,
-// где то же поле называется invoiceValue (см. комментарий у DtFormState выше).
-const calcCustomsValue = async () => {
-  if (!dtForm.goodsItems.length) {
-    message.warning(t('dt.netTovarovDlyaRascheta'))
-    return
-  }
+// Пересчёт гр.45 (с расходами, по курсам НБ РК на дату гр.А) и гр.46 по всем товарам. Ошибку
+// сервера пробрасывает — вызывающий решает, как её показать.
+const recalcCustomsValues = async (): Promise<{ updated: number; total: number }> => {
   const goods = dtForm.goodsItems.map((g, index) => ({
     index,
     grossWeightKg: g.grossWeightKg ?? null,
@@ -1202,25 +1259,41 @@ const calcCustomsValue = async () => {
       amount: e.amount as number,
       currencyCode: e.currencyCode as string,
     }))
+  const res = await import40Api.calculateCustomsValue({ goods, expenses, onDate: toIsoDate(dtForm.submissionDate) })
+  let updated = 0
+  let total = 0
+  res.goods.forEach((r) => {
+    const g = dtForm.goodsItems[r.index]
+    if (g) {
+      g.customsValueKzt = r.customsValueKzt
+      // гр.46 — вместе с гр.45 и по тому же курсу: раньше оставалась от прошлого расчёта.
+      if (r.statisticValueUsd != null) g.statisticValueUsd = r.statisticValueUsd
+      total += r.customsValueKzt ?? 0
+      updated += 1
+    }
+  })
+  return { updated, total }
+}
+
+const serverErrorText = (e: any, fallback: string): string =>
+  e?.response?.data?.message ?? e?.response?.data?.error ?? fallback
+
+// Живёт в родителе, а не в DtSectionFinance, т.к. только здесь dtForm.goodsItems
+// корректно типизирован как Import40GoodsItemInput[] (с полем customsValue) —
+// в дочерних Dt-секциях modelValue типизирован общим Import40DtFormState,
+// где то же поле называется invoiceValue (см. комментарий у DtFormState выше).
+const calcCustomsValue = async () => {
+  if (!dtForm.goodsItems.length) {
+    message.warning(t('dt.netTovarovDlyaRascheta'))
+    return
+  }
   try {
-    const res = await import40Api.calculateCustomsValue({ goods, expenses, onDate: toIsoDate(dtForm.submissionDate) })
-    let updated = 0
-    let total = 0
-    res.goods.forEach((r) => {
-      const g = dtForm.goodsItems[r.index]
-      if (g) {
-        g.customsValueKzt = r.customsValueKzt
-        total += r.customsValueKzt ?? 0
-        updated += 1
-      }
-    })
+    const { updated, total } = await recalcCustomsValues()
     // показываем итог в сообщении — результат (гр.45) в свёрнутой панели КЕДЕН, брокер его иначе не видит
     const totalStr = total.toLocaleString('ru-RU', { maximumFractionDigits: 2 })
     message.success(t('dt.tamozhennayaStoimostRasschitanaUpdated', { n: updated, total: totalStr }))
   } catch (e: any) {
-    message.error(
-      e?.response?.data?.message ?? e?.response?.data?.error ?? t('dt.neUdalosRasschitatTamozhennuyu'),
-    )
+    message.error(serverErrorText(e, t('dt.neUdalosRasschitatTamozhennuyu')))
   }
 }
 
@@ -1561,7 +1634,8 @@ onMounted(async () => {
     })
     const rates: Record<string, { rate: number; date: string }> = { KZT: { rate: 1, date: '' } }
     for (const c of currencies) rates[c.codeLat] = { rate: c.rate, date: c.updatedAtUtc }
-    currencyRates.value = rates
+    currentRates.value = rates
+    currencyRates.value = { ...rates }
   } catch {
     /* справочник валют НБ РК не загрузился — таблица расходов не блокирует форму */
   }

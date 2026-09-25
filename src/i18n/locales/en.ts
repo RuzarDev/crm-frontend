@@ -576,6 +576,9 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    kursGr23NeSovpadaet: 'box 23 differs from the NBK rate on the box A date',
+    kursNbRkNedostupen: 'NBK unavailable — the nearest known rate is shown',
+    kursNbRkNaDatuGrAPodskazka: 'Official NBK rate on the box A date — boxes 23, 45, 46, 47 and the CVD use it',
     poKoduTnved: 'from the HS code',
     avtozapolneniePoKoduTnved: 'Auto-filled by HS code',
     bruttoKg: 'Gross, kg',
@@ -1245,6 +1248,10 @@ export default {
     loadError: 'Could not load the log',
   },
   admin: {
+    prefFee: 'Box 36 — customs fee exemptions',
+    prefDuty: 'Box 36 — duty exemptions and tariff preferences',
+    prefExcise: 'Box 36 — excise exemptions',
+    prefVat: 'Box 36 — VAT exemptions',
     email: 'Email',
     ecpEgov: 'eGov digital signature',
     zagruzhenFayl: 'file uploaded',

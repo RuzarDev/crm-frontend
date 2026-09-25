@@ -576,6 +576,9 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    kursGr23NeSovpadaet: 'гр.23 не совпадает с курсом НБ РК на дату гр.А',
+    kursNbRkNedostupen: 'НБ РК недоступен — показан ближайший известный курс',
+    kursNbRkNaDatuGrAPodskazka: 'Официальный курс НБ РК на дату гр.А — по нему считаются гр.23, 45, 46, 47 и ДТС',
     poKoduTnved: 'по коду ТН ВЭД',
     avtozapolneniePoKoduTnved: 'Автозаполнение по коду ТНВЭД',
     bruttoKg: 'Брутто, кг',
@@ -1245,6 +1248,10 @@ export default {
     loadError: 'Не удалось загрузить журнал',
   },
   admin: {
+    prefFee: 'Гр.36 — льготы по таможенным сборам',
+    prefDuty: 'Гр.36 — льготы и преференции по пошлине',
+    prefExcise: 'Гр.36 — льготы по акцизу',
+    prefVat: 'Гр.36 — льготы по НДС',
     email: 'Email',
     ecpEgov: 'ЭЦП eGov',
     zagruzhenFayl: 'загружен файл',
