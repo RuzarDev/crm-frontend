@@ -671,7 +671,6 @@ export default {
     dtsForm1: 'CVD-1 · method 1',
     dtsForm2: 'CVD-2 · method 6 (based on 1)',
     dtsPechat: 'Print CVD',
-    dtsPechatForm2: 'CVD-2 printing coming later',
     dtsInfoSheet: "Declarant's info sheet",
     dtsXml: 'Generate CVD XML',
     dtsXmlGotov: 'CVD XML generated',

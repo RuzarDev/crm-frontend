@@ -2,7 +2,7 @@
   <div class="dt-section dts-section">
     <div class="dt-section-bar dts-top-bar">
       <div class="dts-toggle">
-        <a-switch v-model:checked="form.dtsFreeOfCharge" :disabled="readonly" @change="emitChange" />
+        <a-switch v-model:checked="form.dtsFreeOfCharge" :disabled="readonly" @change="onFreeOfChargeChange" />
         <span class="dt-section-label">{{ t('dt.dtsBezvozmezdnaya') }}</span>
         <a-tag :color="form.dtsFreeOfCharge ? 'purple' : 'blue'">
           {{ form.dtsFreeOfCharge ? t('dt.dtsForm2') : t('dt.dtsForm1') }}
@@ -14,9 +14,7 @@
              (AntD прокидывает disabled формы в a-button). XML — правка/выгрузка,
              остаётся под readonly-каскадом как есть. -->
         <a-button :disabled="false" :loading="loading" @click="load">{{ t('dt.dtsObnovit') }}</a-button>
-        <a-tooltip :title="form.dtsFreeOfCharge ? t('dt.dtsPechatForm2') : undefined">
-          <a-button :disabled="form.dtsFreeOfCharge" :loading="pdfLoading" @click="printPdf">{{ t('dt.dtsPechat') }}</a-button>
-        </a-tooltip>
+        <a-button :disabled="false" :loading="pdfLoading" @click="printPdf">{{ t('dt.dtsPechat') }}</a-button>
         <a-button :disabled="false" :loading="infoLoading" @click="printInfoSheet">{{ t('dt.dtsInfoSheet') }}</a-button>
         <a-button type="primary" :loading="xmlLoading" @click="generateXml">{{ t('dt.dtsXml') }}</a-button>
       </div>
@@ -158,6 +156,18 @@ const emit = defineEmits<{
 const form = reactive({ ...props.modelValue })
 watch(() => props.modelValue, (v) => Object.assign(form, v), { deep: true })
 const emitChange = () => emit('update:modelValue', { ...props.modelValue, ...form })
+
+// ДТС-2 (бесплатная поставка) — метод 6 на основе 1 для всех товаров, и гр.43 ДТ должна говорить
+// то же: КЕДЕН сверяет ДТ с ДТС (ДТ S153340008671). Переключатель сам ставит 6 или возвращает 1;
+// товары с другим методом не трогаем — их покажет проверка готовности ДТС.
+const onFreeOfChargeChange = () => {
+  const from = form.dtsFreeOfCharge ? '1' : '6'
+  const to = form.dtsFreeOfCharge ? '6' : '1'
+  form.goodsItems = (form.goodsItems ?? []).map((g) =>
+    !g.valuationMethodCode || g.valuationMethodCode === from ? { ...g, valuationMethodCode: to } : g,
+  )
+  emitChange()
+}
 
 const yesNoOptions = computed(() => [
   { label: t('common.yes'), value: true },

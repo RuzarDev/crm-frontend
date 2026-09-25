@@ -671,7 +671,6 @@ export default {
     dtsForm1: 'КҚД-1 · 1-әдіс',
     dtsForm2: 'КҚД-2 · 6-әдіс (1 негізінде)',
     dtsPechat: 'КҚД басып шығару',
-    dtsPechatForm2: 'КҚД-2 басып шығару кейінірек қосылады',
     dtsInfoSheet: 'Декларанттың ақпараттық парағы',
     dtsXml: 'КҚД XML құру',
     dtsXmlGotov: 'КҚД XML құрылды',

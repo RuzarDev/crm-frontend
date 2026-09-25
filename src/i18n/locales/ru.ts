@@ -671,7 +671,6 @@ export default {
     dtsForm1: 'ДТС-1 · метод 1',
     dtsForm2: 'ДТС-2 · метод 6 (на основе 1)',
     dtsPechat: 'Печать ДТС',
-    dtsPechatForm2: 'Печать ДТС-2 появится позже',
     dtsInfoSheet: 'Инф. лист декларанта',
     dtsXml: 'Сформировать XML ДТС',
     dtsXmlGotov: 'XML ДТС сформирован',
