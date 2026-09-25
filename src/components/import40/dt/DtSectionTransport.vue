@@ -147,6 +147,8 @@ const emitChange = () =>
   emit('update:modelValue', {
     ...props.modelValue,
     ...form,
+    // Вид транспорта гр.18 всегда тот же, что в гр.26 (фолбэк гр.25) — см. arrivalModeCode.
+    arrivalTransportModeCode: arrivalModeCode.value || form.arrivalTransportModeCode,
     borderTransportNumbers: form.borderTransportNumbers.map((m) => ({ ...m })),
     arrivalTransportNumbers: form.arrivalTransportNumbers.map((m) => ({ ...m })),
   })
@@ -164,12 +166,13 @@ function isRailMode(code: string | null | undefined) {
   return code === '20'
 }
 
-// Вид транспорта для гр.18 (ТС при прибытии). У arrivalTransportModeCode нет своего
-// поля ввода (заполняется только копированием из гр.21), поэтому раньше гр.18 никогда
-// не включала режим «голова/прицеп». Гр.18 парна гр.26 (вид транспорта внутри
-// страны) — берём её, с фолбэком на гр.25 (граница).
+// Вид транспорта для гр.18 (ТС при прибытии). Гр.18 парна гр.26 (вид транспорта внутри
+// страны; в XML КЕДЕН это один элемент) — берём её, с фолбэком на гр.25 (граница).
+// Своего поля ввода у arrivalTransportModeCode нет, поэтому он только зеркалит гр.26/25.
+// Раньше он шёл первым и «застывал» при добавлении первого ТС: ДТ a7961279 создана по
+// заявке с «10», гр.25/26 потом сменили на «31», а переключатель голова/прицеп пропал.
 const arrivalModeCode = computed(
-  () => form.arrivalTransportModeCode || form.inlandTransportModeCode || form.borderTransportModeCode,
+  () => form.inlandTransportModeCode || form.borderTransportModeCode || form.arrivalTransportModeCode,
 )
 
 // «Голова» у прицепа выбирается из номеров головных ТС (isTrailer=false) той же графы.
@@ -194,9 +197,6 @@ function removeBorderTransport(idx: number) {
 }
 function addArrivalTransport(isTrailer: boolean) {
   form.arrivalTransportNumbers.push({ number: '', typeCode: null, nationality: null, mark: null, isTrailer, headNumber: null })
-  // Фиксируем выведенный вид транспорта в сохраняемом поле, чтобы XML/готовность
-  // видели то же, что и UI (см. arrivalModeCode).
-  if (!form.arrivalTransportModeCode && arrivalModeCode.value) form.arrivalTransportModeCode = arrivalModeCode.value
   emitChange()
 }
 function removeArrivalTransport(idx: number) {
@@ -207,7 +207,6 @@ function removeArrivalTransport(idx: number) {
 // копируем номера/типы между графами, чтобы не вводить дважды.
 function copyBorderToArrival() {
   form.arrivalTransportNumbers = form.borderTransportNumbers.map((m) => ({ ...m }))
-  if (!form.arrivalTransportModeCode) form.arrivalTransportModeCode = form.borderTransportModeCode
   if (!form.arrivalTransportNationality) form.arrivalTransportNationality = form.borderTransportNationality
   emitChange()
 }
@@ -217,7 +216,7 @@ function copyArrivalHeadToBorder() {
   form.borderTransportNumbers = form.arrivalTransportNumbers
     .filter((m) => !m.isTrailer)
     .map((m) => ({ ...m, headNumber: null }))
-  if (!form.borderTransportModeCode) form.borderTransportModeCode = form.arrivalTransportModeCode
+  if (!form.borderTransportModeCode) form.borderTransportModeCode = arrivalModeCode.value
   if (!form.borderTransportNationality) form.borderTransportNationality = form.arrivalTransportNationality
   emitChange()
 }

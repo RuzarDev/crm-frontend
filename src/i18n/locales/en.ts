@@ -576,6 +576,7 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    dobavteTovarDlyaVto: 'Add at least one goods item to the declaration',
     kursGr23NeSovpadaet: 'box 23 differs from the NBK rate on the box A date',
     kursNbRkNedostupen: 'NBK unavailable — the nearest known rate is shown',
     kursNbRkNaDatuGrAPodskazka: 'Official NBK rate on the box A date — boxes 23, 45, 46, 47 and the CVD use it',
@@ -601,9 +602,12 @@ export default {
     opisanieTovaraIzTnved: 'Goods description from HS',
     poryadkovyyNomerTovara: 'Item ordinal number',
     rkRr: 'RK / RR',
+    sozdanaDtVto: 'WTO-rate declaration created — check and record the payments at the reduced rate',
+    sozdatDtVto: 'Create WTO declaration',
     spravochnik: 'Directory',
     stranaProishozhdeniya: 'Country of origin',
     tovaryUpper: 'GOODS',
+    vseTovaryVVto: 'All goods are selected — one declaration at WTO (reduced) rates will be created; the original declaration stays unchanged',
     zagruzhenoTovarov: '{n} goods loaded',
     zagruzitIzExcel: 'Load from Excel',
     '00SsccKodTransportnoy': '00 — SSCC (transport container code)',
@@ -818,7 +822,6 @@ export default {
     nomerMarkirovki: 'Marking number',
     nomerSvh: 'Warehouse No.',
     nomerTs: 'Vehicle No.',
-    nuzhnoMinimum2Tovara: 'At least 2 goods items are needed to split into CCT/WTO',
     oblast: 'Region',
     obschayaDeklaraciyaPredshestvuyuschiyDokument: 'General declaration / previous document',
     obschayaFakturnayaStoimost: 'Total invoice value',

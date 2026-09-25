@@ -100,13 +100,14 @@
       v-model:open="splitModalOpen"
       :title="t('dt.razdelitNaEttVto')"
       :confirm-loading="splitting"
-      :ok-text="t('dt.razdelit')"
+      :ok-text="splitVtoOnly ? t('dt.sozdatDtVto') : t('dt.razdelit')"
       :cancel-text="t('dt.otmena')"
       width="720px"
       @ok="doSplit"
     >
       <a-spin :spinning="splitLoading">
         <p class="muted">{{ t('dt.pokazanyTolkoTovaryPod') }}</p>
+        <a-alert v-if="splitVtoOnly" type="info" show-icon :message="t('dt.vseTovaryVVto')" style="margin-bottom: 8px" />
         <a-checkbox
           :checked="allVtoSelected"
           :indeterminate="someVtoSelected"
@@ -261,9 +262,9 @@ const caseTitle = computed(() =>
 )
 
 // Spec 4b Task 3: кнопка «Разделить на ЕТТ/ВТО» видна тому, кто может править
-// декларацию (инверсия readOnly), и только при ≥ 2 товарах — разделять нечего
-// иначе.
-const canSplit = computed(() => !readOnly.value && dtForm.goodsItems.length >= 2)
+// декларацию (инверсия readOnly). Хватает одного товара: декларант (2026-09-25) —
+// «ЕТТ/ВТО даже если 1 товар в ДТ», тогда создаётся одна ДТ по пониженной ставке ВТО.
+const canSplit = computed(() => !readOnly.value && dtForm.goodsItems.length >= 1)
 
 // Task 12 (фидбек №17): раньше кнопка сплита пряталась вместе со всем блоком
 // #actions (v-if="!readOnly") — декларант, попавший на чужую/ещё не
@@ -284,7 +285,7 @@ const showSplitButton = computed(() => {
 // readonly (readOnly — это «нельзя править», не «нельзя видеть»).
 const showDtsSection = computed(() => authStore.hasPermission('import40.declarant'))
 const splitBlockedReason = computed(() => {
-  if (dtForm.goodsItems.length < 2) return t('dt.nuzhnoMinimum2Tovara')
+  if (dtForm.goodsItems.length < 1) return t('dt.dobavteTovarDlyaVto')
   if (!readOnly.value) return ''
   const c = activeCase.value
   if (c?.assignedDeclarantId && c.assignedDeclarantId !== authStore.userId) {
@@ -1542,6 +1543,10 @@ const splitColumns = computed(() => ([
 // Task 12 (фидбек №17): «Выбрать все» — тристейт-переключатель над таблицей.
 const allVtoSelected = computed(() => splitRows.value.length > 0 && splitRows.value.every((r) => r.vto))
 const someVtoSelected = computed(() => splitRows.value.some((r) => r.vto) && !allVtoSelected.value)
+// Отмечены все товары ДТ (в т.ч. единственный) — ЕТТ-части не будет, сервер создаст одну ДТ ВТО.
+const splitVtoOnly = computed(
+  () => splitRows.value.length > 0 && splitRows.value.filter((r) => r.vto).length === dtForm.goodsItems.length,
+)
 const toggleAllVto = (e: { target: { checked: boolean } }) => {
   const checked = e.target.checked
   splitRows.value = splitRows.value.map((r) => ({ ...r, vto: checked }))
@@ -1574,9 +1579,16 @@ const doSplit = async () => {
   const vtoGoodSortOrders = splitRows.value.filter((r) => r.vto).map((r) => r.sortOrder)
   splitting.value = true
   try {
-    await import40Api.splitDeclaration(caseId, dtId, { vtoGoodSortOrders })
-    message.success(t('dt.ishodnayaDtSohranenaBez'))
+    const res = await import40Api.splitDeclaration(caseId, dtId, { vtoGoodSortOrders })
     splitModalOpen.value = false
+    if (!res.ettDeclarationId) {
+      // Одна ДТ по ставкам ВТО: открываем её сразу с расчётом платежей — в копии остались
+      // платежи исходной ДТ по ставкам ЕТТ, пошлину надо пересчитать по пониженной ставке.
+      message.success(t('dt.sozdanaDtVto'))
+      await router.push({ path: `/import-40/${caseId}/dt/${res.vtoDeclarationId}`, query: { calc: 'payments' } })
+      return
+    }
+    message.success(t('dt.ishodnayaDtSohranenaBez'))
     // Исходная декларация сохраняется как есть, плюс создаются две новые
     // (ЕТТ и ВТО) — все три видны в списке ДТ заявки, переходим туда, а не
     // остаёмся на текущей странице.
@@ -1640,6 +1652,11 @@ onMounted(async () => {
     /* справочник валют НБ РК не загрузился — таблица расходов не блокирует форму */
   }
   await loadDt()
+  // Только что созданная ДТ ВТО (см. doSplit): сразу расчёт платежей по ставкам ВТО.
+  if (route.query.calc === 'payments') {
+    void router.replace({ path: route.path, query: {} })
+    if (!readOnly.value) void openPaymentsModal()
+  }
 })
 </script>
 

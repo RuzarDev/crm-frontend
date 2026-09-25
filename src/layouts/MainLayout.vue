@@ -97,7 +97,9 @@
       </a-layout-sider>
 
       <a-layout-content class="content">
-        <router-view />
+        <!-- Карточка ДТ читает caseId/dtId один раз при создании: переход с одной ДТ на другую
+             (например, в новую ДТ ВТО после разделения) должен пересоздавать страницу. -->
+        <router-view :key="route.name === 'import-40-dt' ? String(route.params.dtId) : undefined" />
       </a-layout-content>
     </a-layout>
   </a-layout>

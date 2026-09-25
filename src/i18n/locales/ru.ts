@@ -576,6 +576,7 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    dobavteTovarDlyaVto: 'Добавьте в ДТ хотя бы один товар',
     kursGr23NeSovpadaet: 'гр.23 не совпадает с курсом НБ РК на дату гр.А',
     kursNbRkNedostupen: 'НБ РК недоступен — показан ближайший известный курс',
     kursNbRkNaDatuGrAPodskazka: 'Официальный курс НБ РК на дату гр.А — по нему считаются гр.23, 45, 46, 47 и ДТС',
@@ -601,9 +602,12 @@ export default {
     opisanieTovaraIzTnved: 'Описание товара из ТНВЭД',
     poryadkovyyNomerTovara: 'Порядковый номер товара',
     rkRr: 'РК / РР',
+    sozdanaDtVto: 'Создана ДТ по ставкам ВТО — проверьте и запишите платежи по пониженной ставке',
+    sozdatDtVto: 'Создать ДТ ВТО',
     spravochnik: 'Справочник',
     stranaProishozhdeniya: 'Страна происхождения',
     tovaryUpper: 'ТОВАРЫ',
+    vseTovaryVVto: 'Отмечены все товары ДТ — будет создана одна ДТ по ставкам ВТО (пониженная ставка), исходная ДТ не изменится',
     zagruzhenoTovarov: 'Загружено {n} товаров',
     zagruzitIzExcel: 'Загрузить из Excel',
     '00SsccKodTransportnoy': '00 — SSCC (код транспортной тары)',
@@ -818,7 +822,6 @@ export default {
     nomerMarkirovki: 'Номер маркировки',
     nomerSvh: 'Номер СВХ',
     nomerTs: 'Номер ТС',
-    nuzhnoMinimum2Tovara: 'Нужно минимум 2 товара в ДТ для разделения на ЕТТ/ВТО',
     oblast: 'Область',
     obschayaDeklaraciyaPredshestvuyuschiyDokument: 'Общая декларация / предшествующий документ',
     obschayaFakturnayaStoimost: 'Общая фактурная стоимость',

@@ -576,6 +576,7 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    dobavteTovarDlyaVto: 'ТД-ға кемінде бір тауар қосыңыз',
     kursGr23NeSovpadaet: '23-баған А-баған күніне ҚРҰБ бағамымен сәйкес емес',
     kursNbRkNedostupen: 'ҚРҰБ қолжетімсіз — ең жақын белгілі бағам көрсетілген',
     kursNbRkNaDatuGrAPodskazka: 'А-баған күніне ҚРҰБ ресми бағамы — 23, 45, 46, 47-бағандар мен КҚД соған есептеледі',
@@ -601,9 +602,12 @@ export default {
     opisanieTovaraIzTnved: 'СЭҚ ТН бойынша тауар сипаттамасы',
     poryadkovyyNomerTovara: 'Тауардың реттік нөмірі',
     rkRr: 'РК / РР',
+    sozdanaDtVto: 'ДСҰ мөлшерлемелері бойынша ТД құрылды — төмендетілген мөлшерлеме бойынша төлемдерді тексеріп, жазыңыз',
+    sozdatDtVto: 'ДСҰ ТД құру',
     spravochnik: 'Анықтамалық',
     stranaProishozhdeniya: 'Шыққан елі',
     tovaryUpper: 'ТАУАРЛАР',
+    vseTovaryVVto: 'ТД-ның барлық тауарлары белгіленді — ДСҰ мөлшерлемелері бойынша (төмендетілген мөлшерлеме) бір ТД құрылады, бастапқы ТД өзгермейді',
     zagruzhenoTovarov: '{n} тауар жүктелді',
     zagruzitIzExcel: 'Excel-ден жүктеу',
     '00SsccKodTransportnoy': '00 — SSCC (көлік ыдысының коды)',
@@ -818,7 +822,6 @@ export default {
     nomerMarkirovki: 'Таңбалау нөмірі',
     nomerSvh: 'УҚҚ нөмірі',
     nomerTs: 'КҚ нөмірі',
-    nuzhnoMinimum2Tovara: 'БКТ/ДСҰ бойынша бөлу үшін ТД-да кемінде 2 тауар қажет',
     oblast: 'Облыс',
     obschayaDeklaraciyaPredshestvuyuschiyDokument: 'Жалпы декларация / алдыңғы құжат',
     obschayaFakturnayaStoimost: 'Жалпы шот-фактура құны',

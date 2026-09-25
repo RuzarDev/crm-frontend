@@ -706,7 +706,8 @@ export interface Import40SplitRequest {
 
 export interface Import40SplitResult {
   originalDeclarationId: string
-  ettDeclarationId: string
+  // null — в ВТО ушли все товары (в т.ч. единственный), ЕТТ-часть не создавалась.
+  ettDeclarationId: string | null
   vtoDeclarationId: string
 }
 
