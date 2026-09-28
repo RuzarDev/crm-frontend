@@ -688,6 +688,8 @@ export interface RefCodeItem {
   code: string
   name: string
   isActive: boolean
+  /** Только у стран (ref/countries) — двухбуквенный ISO-код для отображения «Китай (CN)» (аудит 5.13). */
+  alpha2?: string | null
 }
 
 // ref/foreign-customs-offices — иностранные таможенные органы назначения

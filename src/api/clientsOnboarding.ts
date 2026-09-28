@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { LoginResponse } from '@/types/api'
 
 // Путь клиента (2026-09-21): список со статусами, приглашения, блокировка.
 export type ClientStatus = 'Invited' | 'Active' | 'Blocked'
@@ -50,6 +51,7 @@ export const clientsOnboardingApi = {
   // общий тост перехватчика был бы лишним (аудит 1.2/1.11).
   inviteInfo: async (token: string): Promise<InviteInfo> =>
     (await apiClient.get<InviteInfo>(`/auth/invite/${encodeURIComponent(token)}`, { silent: true })).data,
-  acceptInvite: async (token: string, password: string): Promise<{ username: string }> =>
-    (await apiClient.post<{ username: string }>('/auth/invite/accept', { token, password })).data,
+  // Аудит 5.22: бэк отдаёт тот же AuthResponse, что и логин — сразу авто-вход после установки пароля.
+  acceptInvite: async (token: string, password: string): Promise<LoginResponse> =>
+    (await apiClient.post<LoginResponse>('/auth/invite/accept', { token, password })).data,
 }

@@ -192,7 +192,9 @@ const handleRegister = async () => {
       legalAddress: formState.legalAddress || null,
       directorName: formState.directorName || null,
     })
-    if (success) { message.success(t('register.success')); router.push('/login') }
+    // Аудит 5.22: бэк сразу отдаёт токен — не заставляем вводить только что придуманный пароль
+    // ещё раз на странице входа, ведём сразу на старт нового клиента («Моя компания»).
+    if (success) { message.success(t('register.success')); router.push('/import-40/company') }
   } finally {
     loading.value = false
   }

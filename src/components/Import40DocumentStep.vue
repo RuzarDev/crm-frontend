@@ -15,13 +15,30 @@
     />
 
     <div class="generate-bar">
-      <a-checkbox v-if="allowSingleUse" v-model:checked="singleUse" :disabled="activeMulti">{{ t('company.singleUse') }}</a-checkbox>
-      <a-date-picker
-        v-model:value="validUntil"
-        format="DD.MM.YYYY"
-        :placeholder="t('company.validUntilPlaceholder')"
-        style="width: 200px"
-      />
+      <!-- Клиенту разовый/срок действия — редкая настройка, прячем под «Дополнительно», чтобы
+           форма не выглядела сложнее, чем «нажать одну кнопку» (аудит 5.21). -->
+      <template v-if="!isClient">
+        <a-checkbox v-if="allowSingleUse" v-model:checked="singleUse" :disabled="activeMulti">{{ t('company.singleUse') }}</a-checkbox>
+        <a-date-picker
+          v-model:value="validUntil"
+          format="DD.MM.YYYY"
+          :placeholder="t('company.validUntilPlaceholder')"
+          style="width: 200px"
+        />
+      </template>
+      <a-collapse v-else ghost class="advanced-collapse">
+        <a-collapse-panel key="adv" :header="t('company.advancedParams')">
+          <div class="advanced-fields">
+            <a-checkbox v-if="allowSingleUse" v-model:checked="singleUse" :disabled="activeMulti">{{ t('company.singleUse') }}</a-checkbox>
+            <a-date-picker
+              v-model:value="validUntil"
+              format="DD.MM.YYYY"
+              :placeholder="t('company.validUntilPlaceholder')"
+              style="width: 200px"
+            />
+          </div>
+        </a-collapse-panel>
+      </a-collapse>
       <a-button type="primary" :disabled="!profileComplete" :loading="generating" @click="onGenerate">
         <FileAddOutlined /> {{ t('company.generate') }}
       </a-button>
@@ -35,63 +52,80 @@
 
     <div v-else class="doc-list">
       <div v-for="doc in documents" :key="doc.id" class="doc-card">
-        <div class="doc-head">
-          <div>
-            <div class="doc-number">№ {{ doc.number }}/{{ doc.year }}</div>
-            <div class="muted">{{ t('company.generatedAt', { date: formatDate(doc.generatedAtUtc) }) }}</div>
-          </div>
-          <div class="doc-tags">
-            <a-tag v-if="isEffective(doc)" color="success">{{ t('company.effective') }}</a-tag>
-            <a-tag :color="statusColor(doc)">{{ statusLabel(doc) }}</a-tag>
-            <a-tag v-if="doc.isSingleUse" color="purple">{{ t('company.singleUseTag') }}{{ doc.consumedByCaseId ? ' · ' + t('company.consumed') : '' }}</a-tag>
-            <a-tag v-if="doc.validUntilUtc" :color="isExpired(doc) ? 'error' : 'default'">
-              {{ t('company.until', { date: formatDate(doc.validUntilUtc) }) }}
-            </a-tag>
-          </div>
+        <!-- Клиенту после подписи документ не нужен развёрнутым каждый раз — сворачиваем в
+             строку-итог, разворачивается по клику (аудит 5.21). -->
+        <div v-if="isCollapsedForClient(doc)" class="doc-summary" @click="expand(doc.id)">
+          <span class="doc-number">№ {{ doc.number }}/{{ doc.year }}</span>
+          <a-tag :color="isEffective(doc) ? 'success' : statusColor(doc)">{{ isEffective(doc) ? t('company.effective') : statusLabel(doc) }}</a-tag>
+          <span v-if="doc.validUntilUtc" class="muted">{{ t('company.until', { date: formatDate(doc.validUntilUtc) }) }}</span>
+          <a-button type="link" size="small" class="doc-summary-toggle" @click.stop="expand(doc.id)">{{ t('company.showDetails') }}</a-button>
         </div>
-
-        <div class="doc-actions">
-          <a-button size="small" @click="emit('download', doc)"><DownloadOutlined /> {{ t('company.download') }}</a-button>
-          <a-popconfirm v-if="isAdmin && doc.status !== 4" :title="t('company.revokeConfirm')" :ok-text="t('company.revoke')" :cancel-text="t('common.cancel')" @confirm="emit('revoke', doc)">
-            <a-button size="small" danger>{{ t('company.revoke') }}</a-button>
-          </a-popconfirm>
-        </div>
-
-        <div class="sign-grid">
-          <div class="sign-block">
-            <div class="sign-head">
-              <strong>{{ t('company.yourSignature') }}</strong>
-              <a-tag v-if="doc.clientSigned" color="success">{{ t('company.signed') }}</a-tag>
-              <a-tag v-else color="default">{{ t('company.pending') }}</a-tag>
+        <template v-else>
+          <div class="doc-head">
+            <div>
+              <div class="doc-number">№ {{ doc.number }}/{{ doc.year }}</div>
+              <div class="muted">{{ t('company.generatedAt', { date: formatDate(doc.generatedAtUtc) }) }}</div>
             </div>
-            <div v-if="!doc.clientSigned" class="sign-actions">
-              <a-button size="small" type="primary" @click="emit('sigex', doc, 'client')">
-                <SafetyCertificateOutlined /> {{ t('company.signEgov') }}
-              </a-button>
-              <a-button size="small" @click="emit('sign', doc, 'client')">
-                <UploadOutlined /> {{ t('company.uploadSigned') }}
-              </a-button>
+            <div class="doc-tags">
+              <!-- Один тег статуса, не два одинаковых по смыслу («Действует» + «Активен») — аудит 5.21. -->
+              <template v-if="isClient">
+                <a-tag :color="isEffective(doc) ? 'success' : statusColor(doc)">{{ isEffective(doc) ? t('company.effective') : statusLabel(doc) }}</a-tag>
+              </template>
+              <template v-else>
+                <a-tag v-if="isEffective(doc)" color="success">{{ t('company.effective') }}</a-tag>
+                <a-tag :color="statusColor(doc)">{{ statusLabel(doc) }}</a-tag>
+              </template>
+              <a-tag v-if="doc.isSingleUse" color="purple">{{ t('company.singleUseTag') }}{{ doc.consumedByCaseId ? ' · ' + t('company.consumed') : '' }}</a-tag>
+              <a-tag v-if="doc.validUntilUtc" :color="isExpired(doc) ? 'error' : 'default'">
+                {{ t('company.until', { date: formatDate(doc.validUntilUtc) }) }}
+              </a-tag>
             </div>
-            <p v-if="!doc.clientSigned" class="muted sign-hint">{{ t('company.uploadSignedHint') }}</p>
           </div>
 
-          <div v-if="providerSignature" class="sign-block">
-            <div class="sign-head">
-              <strong>{{ t('company.providerSignature') }}</strong>
-              <a-tag v-if="doc.providerSigned" color="success">{{ t('company.signed') }}</a-tag>
-              <a-tag v-else color="default">{{ t('company.pending') }}</a-tag>
-            </div>
-            <div v-if="(canSignProvider ?? isAdmin) && !doc.providerSigned" class="sign-actions">
-              <a-button size="small" type="primary" @click="emit('sigex', doc, 'provider')">
-                <SafetyCertificateOutlined /> {{ t('company.signEgov') }}
-              </a-button>
-              <a-button size="small" @click="emit('sign', doc, 'provider')">
-                <UploadOutlined /> {{ t('company.uploadSigned') }}
-              </a-button>
-            </div>
-            <p v-if="(canSignProvider ?? isAdmin) && !doc.providerSigned" class="muted sign-hint">{{ t('company.uploadSignedHint') }}</p>
+          <div class="doc-actions">
+            <a-button size="small" @click="emit('download', doc)"><DownloadOutlined /> {{ t('company.download') }}</a-button>
+            <a-popconfirm v-if="isAdmin && doc.status !== 4" :title="t('company.revokeConfirm')" :ok-text="t('company.revoke')" :cancel-text="t('common.cancel')" @confirm="emit('revoke', doc)">
+              <a-button size="small" danger>{{ t('company.revoke') }}</a-button>
+            </a-popconfirm>
+            <a-button v-if="isClient && doc.clientSigned" type="link" size="small" @click="collapse(doc.id)">{{ t('company.hideDetails') }}</a-button>
           </div>
-        </div>
+
+          <div class="sign-grid">
+            <div class="sign-block">
+              <div class="sign-head">
+                <strong>{{ t('company.yourSignature') }}</strong>
+                <a-tag v-if="doc.clientSigned" color="success">{{ t('company.signed') }}</a-tag>
+                <a-tag v-else color="default">{{ t('company.pending') }}</a-tag>
+              </div>
+              <div v-if="!doc.clientSigned" class="sign-actions">
+                <a-button size="small" type="primary" @click="emit('sigex', doc, 'client')">
+                  <SafetyCertificateOutlined /> {{ t('company.signEgov') }}
+                </a-button>
+                <a-button size="small" @click="emit('sign', doc, 'client')">
+                  <UploadOutlined /> {{ t('company.uploadSigned') }}
+                </a-button>
+              </div>
+              <p v-if="!doc.clientSigned" class="muted sign-hint">{{ t('company.uploadSignedHint') }}</p>
+            </div>
+
+            <div v-if="providerSignature" class="sign-block">
+              <div class="sign-head">
+                <strong>{{ t('company.providerSignature') }}</strong>
+                <a-tag v-if="doc.providerSigned" color="success">{{ t('company.signed') }}</a-tag>
+                <a-tag v-else color="default">{{ t('company.pending') }}</a-tag>
+              </div>
+              <div v-if="(canSignProvider ?? isAdmin) && !doc.providerSigned" class="sign-actions">
+                <a-button size="small" type="primary" @click="emit('sigex', doc, 'provider')">
+                  <SafetyCertificateOutlined /> {{ t('company.signEgov') }}
+                </a-button>
+                <a-button size="small" @click="emit('sign', doc, 'provider')">
+                  <UploadOutlined /> {{ t('company.uploadSigned') }}
+                </a-button>
+              </div>
+              <p v-if="(canSignProvider ?? isAdmin) && !doc.providerSigned" class="muted sign-hint">{{ t('company.uploadSignedHint') }}</p>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
   </div>
@@ -135,6 +169,9 @@ const props = defineProps<{
    * быть несколько (в т.ч. разовые под отдельные заявки).
    */
   blockWhenActive?: boolean
+  /** Клиентский вид (аудит 5.21): расширенные параметры — под «Дополнительно», один тег
+   * статуса, подписанный документ сворачивается в строку-итог. Сотруднику — как раньше. */
+  isClient?: boolean
 }>()
 
 const { t } = useI18n()
@@ -143,6 +180,17 @@ const { t } = useI18n()
 const activeMulti = computed(
   () => !!props.blockWhenActive && props.documents.some((d) => props.isEffective(d) && !d.isSingleUse),
 )
+
+// Какие документы клиент сам развернул явно (после подписи блок сам не разворачивается).
+const expandedIds = ref<Set<string>>(new Set())
+const expand = (id: string) => { expandedIds.value = new Set(expandedIds.value).add(id) }
+const collapse = (id: string) => {
+  const next = new Set(expandedIds.value)
+  next.delete(id)
+  expandedIds.value = next
+}
+const isCollapsedForClient = (doc: Import40DocumentDto) =>
+  !!props.isClient && doc.clientSigned && !expandedIds.value.has(doc.id)
 const emit = defineEmits<{
   (e: 'generate', opts: GenerateOpts): void
   (e: 'download', doc: Import40DocumentDto): void
@@ -196,6 +244,12 @@ const statusColor = (doc: Import40DocumentDto) =>
 .sign-head strong { color: var(--atg-ink); font-size: 13px; font-weight: 800; }
 .sign-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .sign-hint { margin: 0; font-size: 12px; }
+.advanced-collapse { flex: 1; min-width: 240px; }
+.advanced-collapse :deep(.ant-collapse-header) { padding: 0 !important; font-size: 13px; color: var(--atg-muted); }
+.advanced-collapse :deep(.ant-collapse-content-box) { padding: 10px 0 0 !important; }
+.advanced-fields { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.doc-summary { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.doc-summary-toggle { padding: 0; height: auto; }
 @media (max-width: 900px) {
   .sign-grid { grid-template-columns: 1fr; }
   .generate-bar { flex-direction: column; align-items: stretch; }

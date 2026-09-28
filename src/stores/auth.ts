@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
-import type { LoginRequest, RegisterClientRequest } from '@/types/api'
+import type { LoginRequest, LoginResponse, RegisterClientRequest } from '@/types/api'
 import { message } from 'ant-design-vue'
 import { i18n } from '@/i18n'
 
@@ -65,38 +65,44 @@ export const useAuthStore = defineStore('auth', () => {
     return systemRole === 'administrator' || permissions.value.includes('sales.read')
   })
 
+  // Общая часть логина и авто-входа после регистрации/приглашения (аудит 5.22): те и
+  // другие эндпоинты отдают один и тот же AuthResponse — раскладываем его по стору одинаково.
+  const applyAuthResponse = (response: LoginResponse, resolvedUsername: string): boolean => {
+    const resolvedToken = response.accessToken
+    token.value = normalizeToken(resolvedToken)
+    username.value = resolvedUsername
+    role.value = response.role || null
+    businessRole.value = response.businessRole || null
+    businessRoles.value = response.businessRoles || (response.businessRole ? [response.businessRole] : [])
+    localStorage.setItem('businessRoles', JSON.stringify(businessRoles.value))
+    modules.value = response.modules || []
+    localStorage.setItem('modules', JSON.stringify(modules.value))
+    if (!token.value) {
+      message.error(i18n.global.t('errors.loginNoToken'))
+      return false
+    }
+    localStorage.setItem('authToken', token.value)
+    localStorage.setItem('username', resolvedUsername)
+    localStorage.setItem('role', response.role || '')
+    localStorage.setItem('businessRole', response.businessRole || '')
+    permissions.value = response.permissions || []
+    localStorage.setItem('permissions', JSON.stringify(permissions.value))
+    const tokenPayload = parseJwtPayload(token.value)
+    userId.value = tokenPayload?.sub ?? null
+    if (userId.value) {
+      localStorage.setItem('userId', userId.value)
+    } else {
+      localStorage.removeItem('userId')
+    }
+    return true
+  }
+
   const login = async (credentials: LoginRequest) => {
     try {
       const response = await authApi.login(credentials)
-      const resolvedToken = response.accessToken
-      token.value = normalizeToken(resolvedToken)
-      username.value = credentials.username
-      role.value = response.role || null
-      businessRole.value = response.businessRole || null
-      businessRoles.value = response.businessRoles || (response.businessRole ? [response.businessRole] : [])
-      localStorage.setItem('businessRoles', JSON.stringify(businessRoles.value))
-      modules.value = response.modules || []
-      localStorage.setItem('modules', JSON.stringify(modules.value))
-      if (!token.value) {
-        message.error(i18n.global.t('errors.loginNoToken'))
-        return false
-      }
-      localStorage.setItem('authToken', token.value)
-      localStorage.setItem('username', credentials.username)
-      localStorage.setItem('role', response.role || '')
-      localStorage.setItem('businessRole', response.businessRole || '')
-      permissions.value = response.permissions || []
-      localStorage.setItem('permissions', JSON.stringify(permissions.value))
-      const tokenPayload = parseJwtPayload(token.value)
-      userId.value = tokenPayload?.sub ?? null
-      if (userId.value) {
-        localStorage.setItem('userId', userId.value)
-      } else {
-        localStorage.removeItem('userId')
-      }
       // Тост «Вход выполнен» убран (аудит 1.12): переход на дашборд сам по себе
       // достаточное подтверждение, отдельное сообщение только мигало на экране.
-      return true
+      return applyAuthResponse(response, credentials.username)
     } catch (error) {
       return false
     }
@@ -104,12 +110,17 @@ export const useAuthStore = defineStore('auth', () => {
 
   const registerClient = async (payload: RegisterClientRequest) => {
     try {
-      await authApi.registerClient(payload)
-      return true
+      // Аудит 5.22: бэк сразу отдаёт токен, как логин — авто-вход без повторного ввода пароля.
+      const response = await authApi.registerClient(payload)
+      return applyAuthResponse(response, payload.email)
     } catch (error) {
       return false
     }
   }
+
+  // Приглашение принято, пароль задан — тот же авто-вход, что и после саморегистрации.
+  const loginFromResponse = (response: LoginResponse, resolvedUsername: string) =>
+    applyAuthResponse(response, resolvedUsername)
 
   const logout = () => {
     token.value = null
@@ -177,6 +188,7 @@ export const useAuthStore = defineStore('auth', () => {
     canUseSales,
     login,
     registerClient,
+    loginFromResponse,
     logout,
     checkAuth,
   }

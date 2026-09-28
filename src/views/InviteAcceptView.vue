@@ -42,10 +42,12 @@ import { message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import { clientsOnboardingApi, type InviteInfo } from '@/api/clientsOnboarding'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const token = String(route.params.token ?? '')
 const state = ref<'loading' | 'form' | 'invalid' | 'done'>('loading')
 const info = ref<InviteInfo | null>(null)
@@ -65,8 +67,14 @@ const submit = async () => {
   if (form.password !== form.confirm) { message.error(t('invite.mismatch')); return }
   saving.value = true
   try {
-    await clientsOnboardingApi.acceptInvite(token, form.password)
-    state.value = 'done'
+    const response = await clientsOnboardingApi.acceptInvite(token, form.password)
+    // Аудит 5.22: пароль задан — сразу авто-вход, ведём на старт клиента, а не на форму логина.
+    const loggedIn = authStore.loginFromResponse(response, info.value?.email ?? '')
+    if (loggedIn) {
+      await router.push('/import-40/company')
+    } else {
+      state.value = 'done'
+    }
   } catch (e: unknown) {
     const err = e as { response?: { status?: number } }
     if (err.response?.status === 404) state.value = 'invalid'

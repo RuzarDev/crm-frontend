@@ -101,10 +101,10 @@
       <Import40Step :index="1" :title="stepTitle(1)" :state="stepState(1)" :now-label="stepNowLabel(1)" :executor="executorLabel('client')" :summary="step1Summary">
         <div class="grid-2">
           <label><span>{{ t('import40Case.cargo') }}</span>
-            <a-input :value="activeCase.cargo" :disabled="!canEditStep1" @change="(e: any) => saveField({ cargo: e.target.value })" />
+            <a-input v-model:value="step1.cargo" :disabled="!canEditStep1" @blur="commitField('cargo', step1.cargo)" @press-enter="commitField('cargo', step1.cargo)" />
           </label>
           <label><span>{{ t('import40Case.post') }}</span>
-            <a-input :value="activeCase.post" :disabled="!canEditStep1" @change="(e: any) => saveField({ post: e.target.value })" />
+            <a-input v-model:value="step1.post" :disabled="!canEditStep1" @blur="commitField('post', step1.post)" @press-enter="commitField('post', step1.post)" />
           </label>
         </div>
         <div class="grid-2">
@@ -115,21 +115,21 @@
         </div>
         <div class="grid-2">
           <template v-if="activeCase.transportMode === 0">
-            <label><span>{{ t('import40Case.wagon') }}</span><a-input :value="activeCase.wagonNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ wagonNumber: e.target.value })" /></label>
-            <label><span>{{ t('import40Case.station') }}</span><a-input :value="activeCase.station" :disabled="!canEditStep1" @change="(e: any) => saveField({ station: e.target.value })" /></label>
+            <label><span>{{ t('import40Case.wagon') }}</span><a-input v-model:value="step1.wagonNumber" :disabled="!canEditStep1" @blur="commitField('wagonNumber', step1.wagonNumber)" @press-enter="commitField('wagonNumber', step1.wagonNumber)" /></label>
+            <label><span>{{ t('import40Case.station') }}</span><a-input v-model:value="step1.station" :disabled="!canEditStep1" @blur="commitField('station', step1.station)" @press-enter="commitField('station', step1.station)" /></label>
           </template>
           <template v-else-if="activeCase.transportMode === 1">
-            <label><span>{{ t('import40Case.vehicle') }}</span><a-input :value="activeCase.vehicleNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ vehicleNumber: e.target.value })" /></label>
-            <label><span>{{ t('import40Case.trailer') }}</span><a-input :value="activeCase.trailerNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ trailerNumber: e.target.value })" /></label>
-            <label><span>{{ t('import40Case.driverPhone') }}</span><PhoneInput :value="activeCase.driverPhone" :disabled="!canEditStep1" @change="(v: string) => saveField({ driverPhone: v })" /></label>
+            <label><span>{{ t('import40Case.vehicle') }}</span><a-input v-model:value="step1.vehicleNumber" :disabled="!canEditStep1" @blur="commitField('vehicleNumber', step1.vehicleNumber)" @press-enter="commitField('vehicleNumber', step1.vehicleNumber)" /></label>
+            <label><span>{{ t('import40Case.trailer') }}</span><a-input v-model:value="step1.trailerNumber" :disabled="!canEditStep1" @blur="commitField('trailerNumber', step1.trailerNumber)" @press-enter="commitField('trailerNumber', step1.trailerNumber)" /></label>
+            <label><span>{{ t('import40Case.driverPhone') }}</span><PhoneInput v-model:value="step1.driverPhone" :disabled="!canEditStep1" @blur="commitField('driverPhone', step1.driverPhone)" /></label>
           </template>
           <template v-else-if="activeCase.transportMode === 2">
-            <label><span>{{ t('import40Case.flight') }}</span><a-input :value="activeCase.flightNumber" :disabled="!canEditStep1" @change="(e: any) => saveField({ flightNumber: e.target.value })" /></label>
-            <label><span>{{ t('import40Case.awb') }}</span><a-input :value="activeCase.airWaybill" :disabled="!canEditStep1" @change="(e: any) => saveField({ airWaybill: e.target.value })" /></label>
+            <label><span>{{ t('import40Case.flight') }}</span><a-input v-model:value="step1.flightNumber" :disabled="!canEditStep1" @blur="commitField('flightNumber', step1.flightNumber)" @press-enter="commitField('flightNumber', step1.flightNumber)" /></label>
+            <label><span>{{ t('import40Case.awb') }}</span><a-input v-model:value="step1.airWaybill" :disabled="!canEditStep1" @blur="commitField('airWaybill', step1.airWaybill)" @press-enter="commitField('airWaybill', step1.airWaybill)" /></label>
           </template>
           <template v-else>
-            <label><span>{{ t('import40Case.vessel') }}</span><a-input :value="activeCase.vesselName" :disabled="!canEditStep1" @change="(e: any) => saveField({ vesselName: e.target.value })" /></label>
-            <label><span>{{ t('import40Case.bl') }}</span><a-input :value="activeCase.billOfLading" :disabled="!canEditStep1" @change="(e: any) => saveField({ billOfLading: e.target.value })" /></label>
+            <label><span>{{ t('import40Case.vessel') }}</span><a-input v-model:value="step1.vesselName" :disabled="!canEditStep1" @blur="commitField('vesselName', step1.vesselName)" @press-enter="commitField('vesselName', step1.vesselName)" /></label>
+            <label><span>{{ t('import40Case.bl') }}</span><a-input v-model:value="step1.billOfLading" :disabled="!canEditStep1" @blur="commitField('billOfLading', step1.billOfLading)" @press-enter="commitField('billOfLading', step1.billOfLading)" /></label>
           </template>
         </div>
 
@@ -145,10 +145,11 @@
         </div>
 
         <template v-if="hasClientPrefill">
-          <div class="sub-label">{{ t('import40Case.clientDataTitle') }}</div>
+          <!-- «Данные от клиента» не имеет смысла для самого клиента — это его же данные (аудит 5.9). -->
+          <div class="sub-label">{{ isClientView ? t('import40Case.clientDataTitleClient') : t('import40Case.clientDataTitle') }}</div>
           <div class="client-prefill">
-            <div v-if="activeCase.clientSenderName" class="prefill-row"><span>{{ t('import40Case.sender') }}</span><b>{{ activeCase.clientSenderName }}<template v-if="activeCase.clientSenderCountryCode"> · {{ activeCase.clientSenderCountryCode }}</template></b></div>
-            <div v-if="activeCase.clientReceiverName" class="prefill-row"><span>{{ t('import40Case.receiver') }}</span><b>{{ activeCase.clientReceiverName }}<template v-if="activeCase.clientReceiverBin"> · {{ t('import40Case.binShort') }} {{ activeCase.clientReceiverBin }}</template><template v-if="activeCase.clientReceiverCountryCode"> · {{ activeCase.clientReceiverCountryCode }}</template></b></div>
+            <div v-if="activeCase.clientSenderName" class="prefill-row"><span>{{ t('import40Case.sender') }}</span><b>{{ activeCase.clientSenderName }}<template v-if="activeCase.clientSenderCountryCode"> · {{ countryLabel(activeCase.clientSenderCountryCode) }}</template></b></div>
+            <div v-if="activeCase.clientReceiverName" class="prefill-row"><span>{{ t('import40Case.receiver') }}</span><b>{{ activeCase.clientReceiverName }}<template v-if="activeCase.clientReceiverBin"> · {{ t('import40Case.binShort') }} {{ activeCase.clientReceiverBin }}</template><template v-if="activeCase.clientReceiverCountryCode"> · {{ countryLabel(activeCase.clientReceiverCountryCode) }}</template></b></div>
             <div v-if="activeCase.clientCurrencyCode || activeCase.clientEstimatedValue != null" class="prefill-row"><span>{{ t('import40Case.value') }}</span><b>{{ activeCase.clientEstimatedValue != null ? localeNum(activeCase.clientEstimatedValue) : '—' }} {{ activeCase.clientCurrencyCode }}</b></div>
           </div>
         </template>
@@ -167,8 +168,10 @@
         />
 
         <div v-if="stepState(1) === 'current'" class="step-actions">
+          <!-- Мастер умеет то, чего нет прямо в карточке — отправитель/получатель/стоимость (аудит 5.9). -->
+          <a-button v-if="isClientView" @click="continueInWizard">{{ t('import40Case.continueInWizard') }}</a-button>
           <a-tooltip :title="can('client') ? '' : hintFor('client')">
-            <a-button type="primary" :disabled="!can('client')" @click="runAction('submit-for-processing')">
+            <a-button type="primary" :disabled="!can('client')" @click="promptSubmitForProcessing">
               {{ t('import40Case.submitForProcessing') }}
             </a-button>
           </a-tooltip>
@@ -371,6 +374,21 @@
       <a-textarea v-model:value="returnReason" :rows="3" :placeholder="t('import40Case.returnPh')" />
     </a-modal>
 
+    <!-- Отправка из карточки черновика — то же подтверждение ответственности, что и в мастере
+         (аудит 5.11): клиент мог попасть сюда напрямую, минуя мастер (по ссылке/дашборду). -->
+    <a-modal
+      v-model:open="submitConfirmOpen"
+      :title="t('import40List.respTitle')"
+      :ok-text="t('import40Case.submitForProcessing')"
+      :cancel-text="t('common.cancel')"
+      :ok-button-props="{ disabled: !submitResponsibilityAccepted || !filesBySection('documents').length }"
+      @ok="confirmSubmitForProcessing"
+    >
+      <a-alert type="warning" show-icon class="case-banner" :message="t('import40List.respTitle')" :description="t('import40List.respDesc')" />
+      <p v-if="!filesBySection('documents').length" class="muted">{{ t('import40Case.docsEmpty') }}</p>
+      <a-checkbox v-model:checked="submitResponsibilityAccepted" class="resp-check">{{ t('import40List.respConfirm') }}</a-checkbox>
+    </a-modal>
+
     <a-modal
       v-model:open="problemOpen" :title="t('import40Case.problemTitle')" :ok-text="t('import40Case.problemOk')"
       :cancel-text="t('common.cancel')" :ok-button-props="{ disabled: !problemNote.trim() }" @ok="confirmProblem"
@@ -410,7 +428,9 @@
     </a-modal>
 
     <a-modal v-model:open="cancelOpen" :title="t('import40Case.cancelTitle')" :ok-text="t('import40Case.cancelOk')" :cancel-text="t('common.cancel')" :ok-button-props="{ danger: true, disabled: !cancelReason.trim() }" @ok="confirmCancel">
-      <p class="muted">{{ t('import40Case.cancelHint') }}</p>
+      <!-- Клиенту отменять можно только свой черновик — «в работе и статистике» звучит как
+           внутренняя кухня сотрудников, ему это ни о чём не говорит (аудит 23/28). -->
+      <p class="muted">{{ isClientView ? t('import40Case.cancelHintClient') : t('import40Case.cancelHint') }}</p>
       <a-textarea v-model:value="cancelReason" :rows="3" :placeholder="t('import40Case.cancelPh')" />
     </a-modal>
 
@@ -507,15 +527,17 @@ import {
   type Import40FileSection,
   type KedenReadinessDto,
 } from '@/api/import40'
-import type { DeclarationReadiness } from '@/types/api'
+import type { DeclarationReadiness, RefCodeItem } from '@/types/api'
 import type { SalesQuoteListItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { manageApi, type StaffMember } from '@/api/manage'
 import { billingApi } from '@/api/billing'
+import { referencesApi } from '@/api/references'
 import Import40Step from '@/components/Import40Step.vue'
 import Import40FilesBlock from '@/components/Import40FilesBlock.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
+import { countryName } from '@/utils/countries'
 import PhoneInput from '@/components/ui/PhoneInput.vue'
 
 const route = useRoute()
@@ -708,6 +730,7 @@ const reload = async () => {
   files.value = await import40Api.listFiles(id)
   assignForm.declarantId = activeCase.value?.assignedDeclarantId ?? null
   assignForm.kppId = activeCase.value?.assignedKppId ?? null
+  syncStep1()
   try {
     caseInvoices.value = await import40Api.listBrokerInvoices(id)
   } catch {
@@ -768,15 +791,49 @@ const isClientView = computed(() => roleMode.value === 'client')
 
 const canEditStep1 = computed(() => stepState(1) === 'current' && can('client'))
 
-// Текстовые поля шага 1 сохраняются по blur/@change через saveField
+// Текстовые поля шага 1 (аудит 5.12): локальный черновик + v-model, сохраняем по blur/Enter,
+// а не на каждый символ. Ответ сервера мержим в activeCase точечно — без reload() всей заявки
+// (файлы/счета/readiness не меняются от правки груза/поста/транспорта).
+type Step1Field = 'cargo' | 'post' | 'wagonNumber' | 'station' | 'vehicleNumber' | 'trailerNumber'
+  | 'driverPhone' | 'flightNumber' | 'airWaybill' | 'vesselName' | 'billOfLading'
+const step1 = reactive<Record<Step1Field, string>>({
+  cargo: '', post: '', wagonNumber: '', station: '', vehicleNumber: '', trailerNumber: '',
+  driverPhone: '', flightNumber: '', airWaybill: '', vesselName: '', billOfLading: '',
+})
+const syncStep1 = () => {
+  const c = activeCase.value
+  if (!c) return
+  step1.cargo = c.cargo || ''
+  step1.post = c.post || ''
+  step1.wagonNumber = c.wagonNumber || ''
+  step1.station = c.station || ''
+  step1.vehicleNumber = c.vehicleNumber || ''
+  step1.trailerNumber = c.trailerNumber || ''
+  step1.driverPhone = c.driverPhone || ''
+  step1.flightNumber = c.flightNumber || ''
+  step1.airWaybill = c.airWaybill || ''
+  step1.vesselName = c.vesselName || ''
+  step1.billOfLading = c.billOfLading || ''
+}
+
 const saveField = async (patch: Record<string, unknown>) => {
   if (!activeCase.value || !canEditStep1.value) return
   try {
-    await import40Api.update(activeCase.value.id, patch as never)
-    await reload()
+    activeCase.value = await import40Api.update(activeCase.value.id, patch as never)
+    syncStep1()
   } catch {
-    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — откатываем поле к серверному.
+    syncStep1()
   }
+}
+
+// Сохраняем поле, только если значение реально изменилось — иначе blur/Enter без правки
+// (например, просто прошли табом по полям) слали бы пустой PUT.
+const commitField = (field: Step1Field, value: string) => {
+  if (!activeCase.value) return
+  const current = (activeCase.value[field] as string | null) || ''
+  if (value === current) return
+  void saveField({ [field]: value })
 }
 
 const newContainer = ref({ number: '', type: '' })
@@ -1014,6 +1071,29 @@ const promptReturn = () => {
 const confirmReturn = async () => {
   returnOpen.value = false
   await runAction('return-to-client', returnReason.value)
+}
+
+// Черновик умеет больше в мастере (отправитель/получатель/стоимость) — уводим туда (аудит 5.9).
+const continueInWizard = () => {
+  if (!activeCase.value) return
+  router.push(`/import-40?continueId=${activeCase.value.id}`)
+}
+
+// Отправка из карточки черновика требует того же подтверждения ответственности, что и мастер
+// (аудит 5.11) — клиент мог сюда попасть напрямую, а не через мастер.
+const submitConfirmOpen = ref(false)
+const submitResponsibilityAccepted = ref(false)
+const promptSubmitForProcessing = () => {
+  if (!isClientView.value) {
+    void runAction('submit-for-processing')
+    return
+  }
+  submitResponsibilityAccepted.value = false
+  submitConfirmOpen.value = true
+}
+const confirmSubmitForProcessing = async () => {
+  submitConfirmOpen.value = false
+  await runAction('submit-for-processing')
 }
 
 const promptProblem = () => {
@@ -1260,9 +1340,22 @@ const doImportQuote = async () => {
   }
 }
 
+// Справочник стран — только для отображения названия вместо кода в блоке данных клиента
+// (аудит 5.13); загружаем один раз, лениво (не блокирует основной reload()).
+const countriesRaw = ref<RefCodeItem[]>([])
+const countryLabel = (code: string | null | undefined) => (code ? countryName(code, countriesRaw.value) : '')
+const loadCountries = async () => {
+  try {
+    countriesRaw.value = await referencesApi.listCountries()
+  } catch {
+    countriesRaw.value = []
+  }
+}
+
 onMounted(() => {
   void reload()
   void loadStaffOptions()
+  void loadCountries()
 })
 </script>
 
@@ -1276,6 +1369,10 @@ onMounted(() => {
 }
 .case-banner {
   border-radius: var(--atg-radius-lg);
+}
+.resp-check {
+  margin-top: 10px;
+  font-weight: 600;
 }
 .problem-client-msg {
   margin-top: 4px;

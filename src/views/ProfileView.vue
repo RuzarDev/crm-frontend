@@ -25,11 +25,13 @@
             </div>
           </div>
 
-          <a-divider v-if="!showDeclarantCard && !isClient" />
+          <a-divider v-if="!showDeclarantCard && !isImportClient" />
 
-          <!-- Декларант: имя/телефон — в «Профиле декларанта» ниже. Клиент: контакты и телефон —
-               в «Моя компания» (реквизиты + контактное лицо). Вторую форму с теми же полями не показываем. -->
-          <a-form v-if="!showDeclarantCard && !isClient" layout="vertical" :model="form" @finish="handleSave">
+          <!-- Декларант: имя/телефон — в «Профиле декларанта» ниже. Клиент Импорта 40: контакты и
+               телефон — в «Моя компания» (реквизиты + контактное лицо), вторую форму с теми же
+               полями не показываем. Транзитному клиенту «Моей компании» нет — форма имени/телефона
+               остаётся его единственным способом их сменить (аудит 5.16). -->
+          <a-form v-if="!showDeclarantCard && !isImportClient" layout="vertical" :model="form" @finish="handleSave">
             <div class="form-grid">
               <a-form-item :label="t('profile.displayName')">
                 <a-input
@@ -73,8 +75,9 @@
           </a-form>
         </a-card>
 
-        <!-- Клиент: реквизиты компании ведутся в «Моя компания» (договор/доверенность там же). -->
-        <a-card v-if="isClient" class="crm-shell-card profile-card" :bordered="false">
+        <!-- Клиент Импорта 40: реквизиты компании ведутся в «Моя компания» (договор/доверенность
+             там же). Транзитному клиенту такого раздела нет (аудит 5.16) — карточку не показываем. -->
+        <a-card v-if="isImportClient" class="crm-shell-card profile-card" :bordered="false">
           <template #title><div class="card-title-row"><BankOutlined class="card-title-icon" />{{ t('profile.companyCard') }}</div></template>
           <p class="card-hint">{{ t('profile.companyHint') }} {{ t('profile.companyContactsHint') }}</p>
           <a-button type="primary" @click="router.push('/import-40/company')">{{ t('profile.openCompany') }}</a-button>
@@ -161,6 +164,9 @@ const authStore = useAuthStore()
 const sysRole = computed(() => (store.profile?.role || authStore.role || '').toLowerCase())
 const bizRole = computed(() => (authStore.businessRole || '').toLowerCase())
 const isClient = computed(() => sysRole.value === 'client')
+// «Моя компания» (договор/доверенность) — только клиент Импорта 40; транзитному клиенту эти
+// реквизиты не нужны, и у него не должна пропадать личная форма имени/телефона (аудит 5.16).
+const isImportClient = computed(() => isClient.value && authStore.clientHasModule('import40'))
 const showCompanyInline = computed(() => sysRole.value === 'broker' || sysRole.value === 'expeditor')
 const showDeclarantCard = computed(() => sysRole.value === 'administrator' || bizRole.value === 'declarant')
 const profileSubtitle = computed(() => {

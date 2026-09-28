@@ -4,7 +4,9 @@
       <div class="brand">
         <div class="brand-text">
           <div class="brand-title">Zircon</div>
-          <div class="brand-subtitle">CRM Operations</div>
+          <!-- Клиенту не нужен внутренний термин «CRM Operations» — это его личный кабинет
+               брокера AQNIET, а не рабочий инструмент сотрудника (аудит 5.23). -->
+          <div class="brand-subtitle">{{ isClientRole ? t('header.brandSubtitleClient') : t('header.brandSubtitle') }}</div>
         </div>
       </div>
 
@@ -26,7 +28,9 @@
 
       <div class="header-right">
         <LanguageSwitcher dark />
-        <span class="role-badge">{{ roleLabel }}</span>
+        <!-- Бейдж бизнес-роли клиенту ни о чём не говорит — это его собственный кабинет, роль тут
+             неуместна (аудит 5.23). -->
+        <span v-if="!isClientRole" class="role-badge">{{ roleLabel }}</span>
         <span class="username">{{ authStore.username }}</span>
 
         <!-- Notifications bell -->
@@ -135,7 +139,7 @@
       <div class="drawer-brand">
         <div>
           <div class="drawer-brand-title">Zircon</div>
-          <div class="drawer-brand-sub">CRM Operations</div>
+          <div class="drawer-brand-sub">{{ isClientRole ? t('header.brandSubtitleClient') : t('header.brandSubtitle') }}</div>
         </div>
       </div>
     </template>
@@ -152,7 +156,7 @@
     </a-config-provider>
 
     <div class="drawer-footer">
-      <div class="drawer-footer-role">{{ roleLabel }}</div>
+      <div v-if="!isClientRole" class="drawer-footer-role">{{ roleLabel }}</div>
       <div class="drawer-footer-user">{{ authStore.username }}</div>
       <a-button class="drawer-logout" block @click="handleLogout">
         <LogoutOutlined />
@@ -209,6 +213,7 @@ const { t } = useI18n()
 
 const mobileNavOpen = ref(false)
 const openKeys = ref<string[]>([])
+const isClientRole = computed(() => (authStore.role || '').trim().toLowerCase() === 'client')
 
 // Опрос unread-count раз в минуту (только на видимой вкладке) — раньше счётчик обновлялся
 // только при перезагрузке страницы или открытии колокольчика (аудит 2.3).
@@ -562,7 +567,8 @@ const menuItems = computed(() => {
     groups.push({ key: 'group-references', type: 'group', label: t('nav.references'), children: referenceItems })
   }
   if (adminItems.length) {
-    groups.push({ key: 'group-admin', type: 'group', label: t('nav.admin'), children: adminItems })
+    // Клиенту тут только «Профиль» — «Администрирование» ему не подходит по смыслу (аудит 5.23).
+    groups.push({ key: 'group-admin', type: 'group', label: role === 'client' ? t('nav.account') : t('nav.admin'), children: adminItems })
   }
 
   return groups

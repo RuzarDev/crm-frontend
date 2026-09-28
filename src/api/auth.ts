@@ -7,8 +7,10 @@ export const authApi = {
     return response.data
   },
 
-  registerClient: async (data: RegisterClientRequest): Promise<void> => {
-    await apiClient.post('/auth/register', data)
+  // Аудит 5.22: бэк теперь отдаёт тот же AuthResponse, что и логин — авто-вход после регистрации.
+  registerClient: async (data: RegisterClientRequest): Promise<LoginResponse> => {
+    const response = await apiClient.post<LoginResponse>('/auth/register', data)
+    return response.data
   },
 
   listExpeditorsForRegistration: async (): Promise<ExpeditorOption[]> => {

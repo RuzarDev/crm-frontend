@@ -76,13 +76,14 @@
     <!-- ─────────── Клиент: пошаговый мастер подачи ─────────── -->
     <a-modal
       v-else
-      v-model:open="createOpen"
+      :open="createOpen"
       :width="640"
       :title="t('import40List.wizardTitle')"
       :footer="null"
       :mask-closable="false"
-      @cancel="resetCreate"
+      @cancel="handleWizardCancel"
     >
+      <a-spin v-if="continuing" class="wizard-loading" />
       <a-steps :current="wizardStep" size="small" class="wizard-steps" :items="wizardStepItems" />
 
       <!-- Шаг 1 · Основное -->
@@ -93,7 +94,8 @@
             <a-input v-model:value="draft.cargo" :placeholder="t('import40List.cargoExample')" />
           </label>
           <label>
-            <span>{{ t('import40List.post') }} <span class="opt-hint">{{ t('import40List.optional') }}</span></span>
+            <!-- «Пост / СВХ» — жаргон, клиенту непонятно, что это и зачем (аудит 23/28). -->
+            <span>{{ t('import40List.postClient') }}</span>
             <a-select
               v-model:value="draft.post"
               show-search
@@ -149,7 +151,7 @@
             <label><span>{{ t('import40List.name') }}</span><a-input v-model:value="draft.senderName" :placeholder="t('import40List.senderNamePh')" /></label>
             <label>
               <span>{{ t('import40List.country') }}</span>
-              <a-select v-model:value="draft.senderCountry" show-search allow-clear option-filter-prop="label" :options="countryOptions" placeholder="CN" />
+              <a-select v-model:value="draft.senderCountry" show-search allow-clear :filter-option="filterCountryOption" :options="countryOptions" :placeholder="t('import40List.countryPh')" />
             </label>
           </div>
         </div>
@@ -168,7 +170,7 @@
             </label>
             <label>
               <span>{{ t('import40List.country') }}</span>
-              <a-select v-model:value="draft.receiverCountry" show-search allow-clear option-filter-prop="label" :options="countryOptions" placeholder="KZ" />
+              <a-select v-model:value="draft.receiverCountry" show-search allow-clear :filter-option="filterCountryOption" :options="countryOptions" :placeholder="t('import40List.countryPh')" />
             </label>
           </div>
         </div>
@@ -210,11 +212,6 @@
           </li>
         </ul>
 
-        <div class="doc-checklist">
-          <div class="sub-label">{{ t('import40List.checklistTitle') }}</div>
-          <a-checkbox v-for="d in docChecklistItems" :key="d.key" v-model:checked="docChecklist[d.key]">{{ t('import40List.' + d.label) }}</a-checkbox>
-        </div>
-
         <a-alert
           type="warning"
           show-icon
@@ -243,6 +240,22 @@
       </div>
     </a-modal>
 
+    <!-- Закрытие мастера крестиком после того, как черновик уже создан (аудит 5.10) —
+         не теряем ввод молча: сохранить сейчас или оставить черновик как есть. -->
+    <a-modal
+      v-model:open="closeConfirmOpen"
+      :title="t('import40List.closeConfirmTitle')"
+      :footer="null"
+      :width="420"
+    >
+      <p class="muted">{{ t('import40List.closeConfirmDesc') }}</p>
+      <div class="wizard-nav close-confirm-actions">
+        <a-button @click="confirmCloseDiscard">{{ t('import40List.closeConfirmDiscard') }}</a-button>
+        <span class="wizard-nav-spacer" />
+        <a-button type="primary" @click="confirmCloseSave">{{ t('import40List.closeConfirmSave') }}</a-button>
+      </div>
+    </a-modal>
+
     <a-card class="crm-shell-card" :bordered="false">
       <a-tabs v-model:activeKey="tab" @change="reload">
         <!-- Клиенту «Мои задачи» непонятно: для него это заявки, где нужен его ход
@@ -252,7 +265,7 @@
       </a-tabs>
 
       <div class="list-filters">
-        <a-input v-model:value="search" allow-clear :placeholder="t('import40List.searchPh')">
+        <a-input v-model:value="search" allow-clear :placeholder="isClientRole ? t('import40List.searchPhClient') : t('import40List.searchPh')">
           <template #prefix><SearchOutlined /></template>
         </a-input>
         <a-segmented v-if="tab === 'all'" v-model:value="scope" :options="scopeOptions" />
@@ -277,6 +290,14 @@
               <!-- Клиенту не нужно название своей же компании в каждой строке (аудит 5.28). -->
               <strong><span class="case-number">{{ record.number }}</span><template v-if="!isClientRole"> {{ record.clientName }}</template></strong>
               <span>{{ record.cargo }}</span>
+              <!-- Черновик клиента можно дозаполнить в том же мастере (аудит 5.9). -->
+              <a-button
+                v-if="isClientRole && record.status === 0"
+                type="link"
+                size="small"
+                class="continue-draft-btn"
+                @click.stop="openContinue(record.id)"
+              >{{ t('import40List.continueDraft') }}</a-button>
             </div>
           </template>
           <template v-else-if="column.key === 'status'">
@@ -325,6 +346,8 @@ import {
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
 import { TOTAL_STEPS, isCompleted, stepForStatus } from '@/utils/import40Steps'
+import { buildCountryOptions, filterCountryOption, normalizeCountryCode } from '@/utils/countries'
+import type { RefCodeItem } from '@/types/api'
 import PageHeader from '@/components/PageHeader.vue'
 import BinLookupButton from '@/components/BinLookupButton.vue'
 import type { CompanyLookupDto } from '@/api/companyLookup'
@@ -389,7 +412,8 @@ const draft = reactive({
   senderCountry: undefined as string | undefined,
   receiverName: '',
   receiverBin: '',
-  receiverCountry: 'KZ' as string | undefined,
+  // По умолчанию получатель — Казахстан, код ОКСМ (аудит 5.13); не буквенный 'KZ'.
+  receiverCountry: '398' as string | undefined,
   currency: 'USD' as string | undefined,
   estimatedValue: null as number | null,
 })
@@ -407,7 +431,8 @@ const TRANSPORT_MODE_KEYS: Record<number, string> = { 0: 'rail', 1: 'road', 2: '
 const transportModeOptions = computed(() =>
   IMPORT40_TRANSPORT_MODES.map((m) => ({ value: m.value, label: t('enum.transportMode.' + TRANSPORT_MODE_KEYS[m.value]) })),
 )
-const countryOptions = ref<{ value: string; label: string }[]>([])
+const countriesRaw = ref<RefCodeItem[]>([])
+const countryOptions = computed(() => buildCountryOptions(countriesRaw.value))
 const CURRENCY_OPTIONS = [
   { value: 'USD', label: 'USD — Доллар США' },
   { value: 'EUR', label: 'EUR — Евро' },
@@ -418,14 +443,6 @@ const CURRENCY_OPTIONS = [
   { value: 'AED', label: 'AED — Дирхам ОАЭ' },
   { value: 'GBP', label: 'GBP — Фунт стерлингов' },
 ]
-// Чек-лист документов: стабильный ключ + i18n-метка (метка переводится в шаблоне).
-const docChecklistItems = [
-  { key: 'invoice', label: 'docInvoice' },
-  { key: 'packing', label: 'docPacking' },
-  { key: 'transport', label: 'docTransport' },
-  { key: 'contract', label: 'docContract' },
-]
-const docChecklist = reactive<Record<string, boolean>>({})
 const responsibilityAccepted = ref(false)
 const clientCompanyProfile = ref<ClientCompanyProfileDto | null>(null)
 
@@ -498,7 +515,6 @@ const resetCreate = () => {
   createdCaseId.value = null
   uploadedFiles.value = []
   responsibilityAccepted.value = false
-  for (const d of docChecklistItems) docChecklist[d.key] = false
   draft.cargo = ''
   draft.post = ''
   draft.transportMode = 1
@@ -516,19 +532,18 @@ const resetCreate = () => {
   draft.senderCountry = undefined
   draft.receiverName = ''
   draft.receiverBin = ''
-  draft.receiverCountry = 'KZ'
+  draft.receiverCountry = '398'
   draft.currency = 'USD'
   draft.estimatedValue = null
 }
 
 // Справочник стран для селектов сторон в мастере.
 const loadCountries = async () => {
-  if (countryOptions.value.length) return
+  if (countriesRaw.value.length) return
   try {
-    const countries = await referencesApi.listCountries()
-    countryOptions.value = countries.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+    countriesRaw.value = await referencesApi.listCountries()
   } catch {
-    countryOptions.value = []
+    countriesRaw.value = []
   }
 }
 
@@ -549,12 +564,12 @@ const fillReceiverFromProfile = () => {
   if (!p) return
   draft.receiverName = p.companyName || draft.receiverName
   draft.receiverBin = p.bin || draft.receiverBin
-  draft.receiverCountry = p.legalCountryCode || draft.receiverCountry || 'KZ'
+  draft.receiverCountry = normalizeCountryCode(p.legalCountryCode, countriesRaw.value) || draft.receiverCountry || '398'
 }
-// «Найти по БИН» (ГБД ЮЛ): получатель — наименование + страна KZ.
+// «Найти по БИН» (ГБД ЮЛ): получатель — наименование + страна Казахстан (код ОКСМ 398).
 const applyReceiverLookup = (c: CompanyLookupDto) => {
   draft.receiverName = c.nameRu ?? c.nameKz ?? draft.receiverName
-  draft.receiverCountry = 'KZ'
+  draft.receiverCountry = '398'
 }
 
 // ── Навигация мастера ────────────────────────────────────────────────────
@@ -799,17 +814,94 @@ const finishLater = async () => {
   await reload()
 }
 
+// Закрытие мастера крестиком (аудит 5.10): если черновик уже создан (шаг 1 пройден) — не
+// закрываем молча, спрашиваем, сохранить ли текущий ввод. Ничего не создано — просто закрываем.
+const closeConfirmOpen = ref(false)
+const handleWizardCancel = () => {
+  if (createdCaseId.value) {
+    closeConfirmOpen.value = true
+    return
+  }
+  createOpen.value = false
+  resetCreate()
+}
+const confirmCloseSave = async () => {
+  closeConfirmOpen.value = false
+  try { await persistWizardDraft() } catch { /* оставляем как есть */ }
+  message.info(t('import40List.draftSaved'))
+  createOpen.value = false
+  resetCreate()
+  await reload()
+}
+const confirmCloseDiscard = () => {
+  closeConfirmOpen.value = false
+  // Ничего не отправляем на сервер — черновик остаётся таким, каким был сохранён на шаге 1
+  // (аудит 5.10: не терять его молча, явно сказать, что он не потерян).
+  message.info(t('import40List.draftKeptAsIs'))
+  createOpen.value = false
+  resetCreate()
+  void reload()
+}
+
+// Продолжить заполнение черновика (аудит 5.9) — тот же мастер, что и для новой заявки, но
+// без создания: заявка уже есть, подгружаем её поля и файлы в draft.
+const continuing = ref(false)
+const openContinue = async (id: string) => {
+  resetCreate()
+  createOpen.value = true
+  continuing.value = true
+  await loadCountries()
+  try {
+    const c = await import40Api.get(id)
+    createdCaseId.value = c.id
+    draft.cargo = c.cargo || ''
+    draft.post = c.post || ''
+    draft.transportMode = c.transportMode
+    draft.vehicleNumber = c.vehicleNumber || ''
+    draft.trailerNumber = c.trailerNumber || ''
+    draft.driverPhone = c.driverPhone || ''
+    draft.wagonNumber = c.wagonNumber || ''
+    draft.station = c.station || ''
+    draft.flightNumber = c.flightNumber || ''
+    draft.airWaybill = c.airWaybill || ''
+    draft.vesselName = c.vesselName || ''
+    draft.billOfLading = c.billOfLading || ''
+    draft.containers = c.containers.map((x) => ({ number: x.containerNumber, type: x.containerType || '' }))
+    draft.senderName = c.clientSenderName || ''
+    draft.senderCountry = normalizeCountryCode(c.clientSenderCountryCode, countriesRaw.value) || undefined
+    draft.receiverName = c.clientReceiverName || ''
+    draft.receiverBin = c.clientReceiverBin || ''
+    draft.receiverCountry = normalizeCountryCode(c.clientReceiverCountryCode, countriesRaw.value) || '398'
+    draft.currency = c.clientCurrencyCode || 'USD'
+    draft.estimatedValue = c.clientEstimatedValue ?? null
+    uploadedFiles.value = (await import40Api.listFiles(id)).filter((f) => f.section === 'documents')
+    if (!clientCompanyProfile.value) void loadClientCompanyProfile()
+  } catch {
+    message.error(t('import40List.continueFailed'))
+    createOpen.value = false
+  } finally {
+    continuing.value = false
+  }
+}
+
 const handleDocUpload: UploadProps['customRequest'] = ({ file }) => {
   void uploadDocs(file as File)
 }
 
-onMounted(() => {
+onMounted(async () => {
   // KPI дашборда ведёт сюда с ?tab=my (аудит L6) — тот же переключатель вкладок, что и ручной клик.
   if (route.query.tab === 'my' || route.query.tab === 'all') tab.value = route.query.tab
   void reload()
   if (canCreate.value) {
-    void loadClients()
+    await loadClients()
     void loadPosts()
+  }
+  // Кнопка «Продолжить заполнение» в карточке заявки ведёт сюда с ?continueId= (аудит 5.9):
+  // мастер живёт только здесь, поэтому карточка не может открыть его сама.
+  const continueId = route.query.continueId
+  if (typeof continueId === 'string' && continueId) {
+    await router.replace('/import-40')
+    void openContinue(continueId)
   }
 })
 </script>
@@ -871,6 +963,7 @@ onMounted(() => {
 .uploaded-name { overflow-wrap: anywhere; }
 
 /* ── Мастер подачи (клиент) ─────────────────────────────────── */
+.wizard-loading { display: flex; justify-content: center; margin-bottom: 12px; }
 .wizard-steps { margin: 4px 0 18px; }
 .wizard-body { min-height: 220px; }
 .w-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
@@ -886,6 +979,8 @@ onMounted(() => {
 .resp-check { margin-top: 10px; font-weight: 600; }
 .wizard-nav { display: flex; align-items: center; gap: 10px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--atg-line, #eef1f6); }
 .wizard-nav-spacer { flex: 1; }
+.close-confirm-actions { border-top: none; padding-top: 0; margin-top: 8px; }
+.muted { color: var(--atg-muted, #95a1b7); font-size: 13px; margin: 0 0 4px; }
 
 /* Дропзона: полноценная зона перетаскивания (была тонкая полоска в одну строку) */
 .docs-dragger { margin-top: 14px; }
@@ -908,6 +1003,13 @@ onMounted(() => {
 
 .case-cell span {
   color: var(--atg-muted);
+  font-size: 12.5px;
+}
+
+.continue-draft-btn {
+  align-self: flex-start;
+  padding: 0;
+  height: auto;
   font-size: 12.5px;
 }
 
