@@ -596,6 +596,7 @@ export default {
     pending: 'Ожидается',
     signEgov: 'Подписать через eGov (QR)',
     uploadSigned: 'Загрузить подписанный файл',
+    uploadSignedHint: 'Файл подписи .cms/.p7s из NCALayer или eGov',
     stActive: 'Активен',
     stAwaiting: 'Ожидает подписей',
     stExpired: 'Истёк',
