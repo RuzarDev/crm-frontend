@@ -1,6 +1,12 @@
 <template>
   <div class="company-page crm-page">
-    <input ref="fileInputRef" type="file" style="display: none" @change="onFileSelected" />
+    <input
+      ref="fileInputRef"
+      type="file"
+      accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
+      style="display: none"
+      @change="onFileSelected"
+    />
 
     <SigexSignModal
       :open="sigexOpen"
@@ -317,8 +323,9 @@ const switchClient = async () => {
     applyProfile(await import40ContractApi.getProfile(clientId.value))
     await loadDocuments()
     current.value = !profile.value?.isComplete ? 0 : !effectiveContract.value ? 1 : 2
-  } catch {
-    message.error(t('company.loadError'))
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('company.loadError'))
   } finally {
     loading.value = false
   }
@@ -377,8 +384,9 @@ const saveProfile = async () => {
     applyProfile(await import40ContractApi.saveProfile(clientId.value, { ...form }))
     message.success(t('company.saved'))
     void registration.refresh()
-  } catch {
-    message.error(t('company.saveError'))
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('company.saveError'))
   } finally {
     saving.value = false
   }
@@ -394,8 +402,9 @@ const generate = async (kind: 'contract' | 'poa', opts: GenerateOpts) => {
     })
     await loadDocuments()
     message.success(kind === 'contract' ? t('company.contractGenerated') : t('company.poaGenerated'))
-  } catch {
-    message.error(t('company.generateError'))
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('company.generateError'))
   } finally {
     generatingKind.value = null
   }
@@ -406,7 +415,10 @@ const revokeDoc = async (doc: Import40DocumentDto) => {
     await import40ContractApi.revokeDocument(clientId.value, doc.id)
     await loadDocuments()
     message.success(t('company.revoked'))
-  } catch { message.error(t('company.revokeError')) }
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('company.revokeError'))
+  }
 }
 
 const downloadDoc = async (doc: Import40DocumentDto) => {
@@ -445,9 +457,10 @@ const onFileSelected = async (e: Event) => {
   try {
     await import40ContractApi.signDocument(clientId.value, doc.id, side, file)
     await loadDocuments()
-    message.success('Подписанный файл загружен')
-  } catch {
-    message.error('Не удалось загрузить файл')
+    message.success(t('company.fileUploaded'))
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('company.fileUploadError'))
   } finally {
     pendingDoc.value = null
     pendingSide.value = null

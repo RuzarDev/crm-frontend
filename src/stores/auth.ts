@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
 import type { LoginRequest, RegisterClientRequest } from '@/types/api'
 import { message } from 'ant-design-vue'
+import { i18n } from '@/i18n'
 
 const parseJwtPayload = (token: string): { sub?: string } | null => {
   try {
@@ -77,7 +78,7 @@ export const useAuthStore = defineStore('auth', () => {
       modules.value = response.modules || []
       localStorage.setItem('modules', JSON.stringify(modules.value))
       if (!token.value) {
-        message.error('Ошибка входа: в ответе нет токена')
+        message.error(i18n.global.t('errors.loginNoToken'))
         return false
       }
       localStorage.setItem('authToken', token.value)
@@ -93,7 +94,8 @@ export const useAuthStore = defineStore('auth', () => {
       } else {
         localStorage.removeItem('userId')
       }
-      message.success('Вход выполнен')
+      // Тост «Вход выполнен» убран (аудит 1.12): переход на дашборд сам по себе
+      // достаточное подтверждение, отдельное сообщение только мигало на экране.
       return true
     } catch (error) {
       return false
@@ -126,7 +128,8 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('userId')
     localStorage.removeItem('permissions')
     permissions.value = []
-    message.info('Вы вышли из системы')
+    // Тост «Вы вышли из системы» убран (аудит 1.12): редирект на /login уже
+    // сообщает об этом однозначно.
   }
 
   const checkAuth = () => {

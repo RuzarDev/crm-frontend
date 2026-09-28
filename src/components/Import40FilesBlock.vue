@@ -1,6 +1,12 @@
 <template>
   <div class="files-block">
-    <input ref="inputRef" type="file" style="display: none" @change="onPicked" />
+    <input
+      ref="inputRef"
+      type="file"
+      accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
+      style="display: none"
+      @change="onPicked"
+    />
     <div v-if="!files.length" class="files-empty">{{ emptyText || 'Файлов нет' }}</div>
     <div v-else class="files-list">
       <div v-for="f in files" :key="f.id" class="file-chip">

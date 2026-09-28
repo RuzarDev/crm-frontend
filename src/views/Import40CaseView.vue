@@ -222,6 +222,7 @@
               ref="batchFileInput"
               type="file"
               multiple
+              accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
               style="display: none"
               @change="handleBatchFilesSelected"
             />
@@ -551,8 +552,8 @@ const runAction = async (key: Import40Action, value?: string) => {
   try {
     await import40Api.action(activeCase.value.id, key, value)
     await reload()
-  } catch (e: any) {
-    message.error(e?.response?.data?.error ?? t('import40Case.actionFailed'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   }
 }
 
@@ -562,8 +563,8 @@ const uploadTo = async (section: Import40FileSection | string, file: File) => {
   try {
     await import40Api.uploadFile(activeCase.value.id, section as Import40FileSection, file)
     files.value = await import40Api.listFiles(activeCase.value.id)
-  } catch (e: any) {
-    message.error(e?.response?.data?.error ?? t('import40Case.uploadFailed'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   } finally {
     uploading.value = false
   }
@@ -585,8 +586,8 @@ const removeFile = async (f: Import40FileDto) => {
   try {
     await import40Api.deleteFile(activeCase.value.id, f.id)
     files.value = await import40Api.listFiles(activeCase.value.id)
-  } catch (e: any) {
-    message.error(e?.response?.data?.error ?? t('import40Case.deleteFailed'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   }
 }
 
@@ -602,8 +603,8 @@ const saveField = async (patch: Record<string, unknown>) => {
   try {
     await import40Api.update(activeCase.value.id, patch as never)
     await reload()
-  } catch (e: any) {
-    message.error(e?.response?.data?.error ?? t('import40Case.saveFailed'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   }
 }
 
@@ -899,8 +900,8 @@ const saveAssignment = async () => {
     } as never)
     message.success(t('import40Case.assignSaved'))
     await reload()
-  } catch (e: any) {
-    message.error(e?.response?.data?.error ?? t('import40Case.assignFailed'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   } finally {
     assignSaving.value = false
   }
@@ -919,8 +920,8 @@ const confirmInvoice = async () => {
     await import40Api.action(activeCase.value.id, 'issue-invoice', invoiceForm.note || undefined,
       { amount: invoiceForm.amount, number: invoiceForm.number || null, date: invoiceForm.date })
     await reload()
-  } catch (e: any) {
-    message.error(e?.response?.data?.error ?? t('import40Case.actionFailed'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   }
 }
 
@@ -1028,7 +1029,7 @@ const doImportQuote = async () => {
         },
       })
     } else {
-      message.error(e?.response?.data?.error ?? t('import40Case.quoteImportFailed'))
+      // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
     }
   } finally {
     importQuoteLoading.value = false

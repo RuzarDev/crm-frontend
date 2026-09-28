@@ -211,9 +211,8 @@ const changePassword = async () => {
     await authApi.changePassword(pwd.current, pwd.next)
     pwd.current = ''; pwd.next = ''; pwd.repeat = ''
     message.success(t('profile.pwdChanged'))
-  } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    message.error(err.response?.data?.error ?? t('profile.pwdError'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   } finally {
     pwdSaving.value = false
   }

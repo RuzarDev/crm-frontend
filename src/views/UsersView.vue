@@ -386,9 +386,8 @@ const handleBusinessRoleSave = async () => {
     message.success(t('admin.roliSohranenySotrudnikuNuzhno'))
     businessRoleModalOpen.value = false
     await usersStore.fetchCatalogs()
-  } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    message.error(err.response?.data?.error ?? t('admin.neUdalosSohranitRoli'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   } finally {
     businessRoleSaving.value = false
   }

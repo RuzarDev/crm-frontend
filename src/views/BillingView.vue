@@ -162,8 +162,9 @@ const load = async () => {
   loading.value = true
   try {
     rows.value = await billingApi.list()
-  } catch {
-    message.error(t('billing.loadError'))
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('billing.loadError'))
   } finally {
     loading.value = false
   }
@@ -282,8 +283,9 @@ const submit = async () => {
     createOpen.value = false
     message.success(t('billing.created'))
     await load()
-  } catch {
-    message.error(t('billing.saveError'))
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('billing.saveError'))
   } finally {
     saving.value = false
   }
@@ -294,8 +296,9 @@ const issue = async (r: BrokerInvoice) => {
     await billingApi.issue(r.id)
     message.success(t('billing.issuedOk'))
     await load()
-  } catch {
-    message.error(t('billing.actionError'))
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('billing.actionError'))
   }
 }
 
@@ -303,8 +306,9 @@ const remind = async (r: BrokerInvoice) => {
   try {
     const res = await billingApi.remind(r.id)
     message.success(res.emailSent ? t('billing.remindSent', { to: res.to }) : t('billing.remindNoEmail'))
-  } catch {
-    message.error(t('billing.actionError'))
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('billing.actionError'))
   }
 }
 
@@ -312,8 +316,9 @@ const markPaid = async (r: BrokerInvoice) => {
   try {
     await billingApi.markPaid(r.id)
     await load()
-  } catch {
-    message.error(t('billing.actionError'))
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('billing.actionError'))
   }
 }
 
@@ -321,8 +326,9 @@ const cancelDoc = async (r: BrokerInvoice) => {
   try {
     await billingApi.cancel(r.id)
     await load()
-  } catch {
-    message.error(t('billing.actionError'))
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('billing.actionError'))
   }
 }
 
@@ -330,8 +336,9 @@ const remove = async (r: BrokerInvoice) => {
   try {
     await billingApi.remove(r.id)
     await load()
-  } catch {
-    message.error(t('billing.actionError'))
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('billing.actionError'))
   }
 }
 
@@ -344,8 +351,9 @@ const downloadPdf = async (r: BrokerInvoice) => {
     a.download = `${r.kind === 'act' ? 'Акт' : 'Счёт'}-${r.number || 'черновик'}.pdf`
     a.click()
     URL.revokeObjectURL(url)
-  } catch {
-    message.error(t('billing.actionError'))
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('billing.actionError'))
   }
 }
 

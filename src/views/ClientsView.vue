@@ -321,9 +321,8 @@ const sendInvite = async () => {
       email: invite.email.trim(), bin: invite.bin.trim(), companyName: invite.companyName.trim() || null, phone: invite.phone.trim() || null,
     })
     void load()
-  } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    if (err.response?.data?.error) message.error(err.response.data.error)
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   } finally {
     inviting.value = false
   }

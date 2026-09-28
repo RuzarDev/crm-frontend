@@ -19,9 +19,12 @@ export interface CompanyLookupDto {
 export const isBinLike = (v: string | null | undefined) => /^\d{12}$/.test((v ?? '').replace(/\D/g, ''))
 
 export const companyLookupApi = {
-  // 200 найдено · 404 нет в реестре · 503 ключ не настроен · 502 портал недоступен
+  // 200 найдено · 404 нет в реестре · 503 ключ не настроен · 502 портал недоступен.
+  // silent: BinLookupButton сам показывает результат/ошибку разными тостами по статусу
+  // (аудит 1.1) — общий тост перехватчика был бы дублем.
   byBin: async (bin: string, anonymous = false): Promise<CompanyLookupDto> =>
     (await apiClient.get<CompanyLookupDto>(
       `/${anonymous ? 'auth' : 'ref'}/company-by-bin/${encodeURIComponent(bin.replace(/\D/g, ''))}`,
+      { silent: true },
     )).data,
 }

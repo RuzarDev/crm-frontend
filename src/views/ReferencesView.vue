@@ -266,13 +266,13 @@ const reportKato = (r: { total: number; added: number; updated: number; removed:
 const syncKato = async () => {
   katoBusy.value = true
   try { reportKato(await katoApi.sync()); await loadKatoStatus() }
-  catch (e: unknown) { message.error((e as { response?: { data?: { error?: string } } }).response?.data?.error ?? t('admin.neUdalosObnovitKato')) }
+  catch { /* текст ошибки уже показал общий перехватчик — аудит 1.1 */ }
   finally { katoBusy.value = false }
 }
 const onKatoFile = async (file: File) => {
   katoBusy.value = true
   try { reportKato(await katoApi.import(file)); await loadKatoStatus() }
-  catch (e: unknown) { message.error((e as { response?: { data?: { error?: string } } }).response?.data?.error ?? t('admin.neUdalosZagruzitFayl')) }
+  catch { /* текст ошибки уже показал общий перехватчик — аудит 1.1 */ }
   finally { katoBusy.value = false }
   return false
 }
@@ -291,7 +291,7 @@ const kgdColumns = computed(() => ([
 const openKgdCompare = async () => {
   kgdOpen.value = true; kgd.value = null; kgdSelected.value = []; kgdLoading.value = true
   try { kgd.value = await referencesApi.kgdComparePosts() }
-  catch (e: unknown) { kgdOpen.value = false; message.error((e as { response?: { data?: { error?: string } } }).response?.data?.error ?? t('admin.neUdalosPoluchitKatalog')) }
+  catch { kgdOpen.value = false /* текст ошибки уже показал общий перехватчик — аудит 1.1 */ }
   finally { kgdLoading.value = false }
 }
 const applyKgd = async () => {

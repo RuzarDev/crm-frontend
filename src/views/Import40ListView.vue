@@ -189,6 +189,7 @@
           class="docs-dragger"
           :multiple="true"
           :show-upload-list="false"
+          accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
           :custom-request="handleDocUpload"
           :disabled="uploading || !createdCaseId"
         >
@@ -573,8 +574,8 @@ const createDraftCase = async (): Promise<boolean> => {
     createdCaseId.value = created.id
     void reload()
     return true
-  } catch (e: any) {
-    message.error(e?.response?.data?.error ?? t('import40List.createFailed'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
     return false
   } finally {
     creating.value = false
@@ -701,8 +702,8 @@ const createCase = async () => {
     createOpen.value = false
     message.success(t('import40List.created'))
     router.push(`/import-40/${created.id}`)
-  } catch (e: any) {
-    message.error(e?.response?.data?.error ?? t('import40List.createFailed'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   } finally {
     creating.value = false
   }
@@ -718,8 +719,8 @@ const uploadDocs = async (file: File) => {
   uploading.value = true
   try {
     await import40Api.uploadFile(caseId, 'documents', file)
-  } catch (e: any) {
-    message.error(e?.response?.data?.error ?? `Не удалось загрузить файл: ${file.name}`)
+  } catch {
+    // Текст ошибки (включая имя файла) уже показал общий перехватчик — аудит 1.1/1.6.
   } finally {
     pendingUploads.value -= 1
     if (pendingUploads.value === 0) {
@@ -742,8 +743,8 @@ const removeUploaded = async (f: Import40FileDto) => {
   try {
     await import40Api.deleteFile(caseId, f.id)
     uploadedFiles.value = uploadedFiles.value.filter((x) => x.id !== f.id)
-  } catch (e: any) {
-    message.error(e?.response?.data?.error ?? t('import40List.removeFileFailed'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   } finally {
     removingFileId.value = null
   }
@@ -761,8 +762,8 @@ const submitCase = async () => {
     createOpen.value = false
     await router.push('/import-40')
     await reload()
-  } catch (e: any) {
-    message.error(e?.response?.data?.error ?? t('import40List.submitFailed'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   } finally {
     submitting.value = false
   }

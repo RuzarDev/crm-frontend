@@ -102,8 +102,8 @@ const reload = async () => {
   loading.value = true
   try {
     items.value = await kedenApi.mine()
-  } catch (e: any) {
-    message.error(e?.response?.data?.message ?? t('transit.neUdalosZagruzitStatusy'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   } finally {
     loading.value = false
   }

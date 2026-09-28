@@ -141,13 +141,12 @@ const assign = async (c: ManageCase, field: 'assignedKppId' | 'assignedDeclarant
     if (field === 'assignedDeclarantId') c.assignedKppId = value ?? null
     message.success(t('admin.naznachenieSohraneno'))
     if (data.value) data.value.unassigned = data.value.cases.filter((x) => (needsKpp(x.status) || needsDeclarant(x.status)) && !x.assignedKppId && !x.assignedDeclarantId).length
-  } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    message.error(err.response?.data?.error ?? t('admin.neUdalosNaznachit'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   }
 }
 const clearProblem = async (c: ManageCase) => {
-  try { await import40Api.action(c.id, 'clear-problem'); message.success(t('admin.problemaSnyata')); await load() } catch { message.error(t('admin.neUdalosSnyatProblemu')) }
+  try { await import40Api.action(c.id, 'clear-problem'); message.success(t('admin.problemaSnyata')); await load() } catch { /* текст ошибки уже показал общий перехватчик — аудит 1.1 */ }
 }
 </script>
 

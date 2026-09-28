@@ -46,8 +46,10 @@ export const clientsOnboardingApi = {
   block: async (id: string) => { await apiClient.post(`/clients/${encodeURIComponent(id)}/block`) },
   unblock: async (id: string) => { await apiClient.post(`/clients/${encodeURIComponent(id)}/unblock`) },
   // публичные
+  // silent: экран сам показывает состояние «ссылка недействительна» на любую ошибку —
+  // общий тост перехватчика был бы лишним (аудит 1.2/1.11).
   inviteInfo: async (token: string): Promise<InviteInfo> =>
-    (await apiClient.get<InviteInfo>(`/auth/invite/${encodeURIComponent(token)}`)).data,
+    (await apiClient.get<InviteInfo>(`/auth/invite/${encodeURIComponent(token)}`, { silent: true })).data,
   acceptInvite: async (token: string, password: string): Promise<{ username: string }> =>
     (await apiClient.post<{ username: string }>('/auth/invite/accept', { token, password })).data,
 }

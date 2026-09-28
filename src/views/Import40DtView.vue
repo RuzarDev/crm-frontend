@@ -1061,8 +1061,8 @@ const calcTpin = async () => {
   // курс» и перезаписывал гр.45 без транспорта.
   try {
     await recalcCustomsValues()
-  } catch (e: any) {
-    message.error(serverErrorText(e, t('dt.neUdalosRasschitatTamozhennuyu')))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
     return
   }
   try {
@@ -1129,8 +1129,8 @@ const runPaymentsCalc = async (): Promise<boolean> => {
   try {
     paymentsResult.value = await import40Api.calculatePayments(caseId, dtId)
     return true
-  } catch (e: any) {
-    message.error(e?.response?.data?.error ?? t('dt.neUdalosRasschitatPlatezhi'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
     return false
   } finally {
     paymentsLoading.value = false
@@ -1276,9 +1276,6 @@ const recalcCustomsValues = async (): Promise<{ updated: number; total: number }
   return { updated, total }
 }
 
-const serverErrorText = (e: any, fallback: string): string =>
-  e?.response?.data?.message ?? e?.response?.data?.error ?? fallback
-
 // Живёт в родителе, а не в DtSectionFinance, т.к. только здесь dtForm.goodsItems
 // корректно типизирован как Import40GoodsItemInput[] (с полем customsValue) —
 // в дочерних Dt-секциях modelValue типизирован общим Import40DtFormState,
@@ -1293,8 +1290,8 @@ const calcCustomsValue = async () => {
     // показываем итог в сообщении — результат (гр.45) в свёрнутой панели КЕДЕН, брокер его иначе не видит
     const totalStr = total.toLocaleString('ru-RU', { maximumFractionDigits: 2 })
     message.success(t('dt.tamozhennayaStoimostRasschitanaUpdated', { n: updated, total: totalStr }))
-  } catch (e: any) {
-    message.error(serverErrorText(e, t('dt.neUdalosRasschitatTamozhennuyu')))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   }
 }
 
@@ -1452,8 +1449,8 @@ const saveDt = async (silent = false): Promise<boolean> => {
     void refreshReadiness()
     savedCounter.value += 1
     return true
-  } catch (e: any) {
-    message.error(e?.response?.data?.error ?? t('dt.neUdalosSohranitDt'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
     return false
   } finally {
     saving.value = false
@@ -1567,8 +1564,8 @@ const openSplitModal = async () => {
       return
     }
     splitRows.value = candidates.map((r) => ({ ...r, vto: true }))
-  } catch (e: any) {
-    message.error(e?.response?.data?.message ?? t('dt.neUdalosPoluchitRekomendaciyu'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
     splitModalOpen.value = false
   } finally {
     splitLoading.value = false
@@ -1597,8 +1594,8 @@ const doSplit = async () => {
     // (ЕТТ и ВТО) — все три видны в списке ДТ заявки, переходим туда, а не
     // остаёмся на текущей странице.
     await router.push(`/import-40/${caseId}`)
-  } catch (e: any) {
-    message.error(e?.response?.data?.message ?? t('dt.neUdalosRazdelitDeklaraciyu'))
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   } finally {
     splitting.value = false
   }

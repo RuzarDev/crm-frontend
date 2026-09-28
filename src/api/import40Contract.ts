@@ -168,13 +168,15 @@ export const import40ContractApi = {
   },
 
   sigexStartSigning: async (clientId: string): Promise<SigexStartDto> => {
-    const response = await apiClient.post<SigexStartDto>(`${base(clientId)}/contract/sigex/start-signing`)
+    // silent: SigexSignModal сам рисует шаг «error» с текстом ошибки (аудит 1.1/1.10).
+    const response = await apiClient.post<SigexStartDto>(`${base(clientId)}/contract/sigex/start-signing`, undefined, { silent: true })
     return response.data
   },
 
   sigexPoll: async (clientId: string, qrId: string): Promise<SigexPollDto> => {
     const response = await apiClient.get<SigexPollDto>(
       `${base(clientId)}/contract/sigex/${encodeURIComponent(qrId)}/poll`,
+      { silent: true },
     )
     return response.data
   },
@@ -187,6 +189,7 @@ export const import40ContractApi = {
     const response = await apiClient.post<Import40ContractDto>(
       `${base(clientId)}/contract/sigex/${encodeURIComponent(qrId)}/complete`,
       { side },
+      { silent: true },
     )
     return response.data
   },
@@ -261,6 +264,8 @@ export const import40ContractApi = {
   sigexStartSigningDocument: async (clientId: string, docId: string): Promise<SigexStartDto> => {
     const response = await apiClient.post<SigexStartDto>(
       `${base(clientId)}/documents/${encodeURIComponent(docId)}/sigex/start-signing`,
+      undefined,
+      { silent: true },
     )
     return response.data
   },
@@ -268,6 +273,7 @@ export const import40ContractApi = {
   sigexPollDocument: async (clientId: string, docId: string, qrId: string): Promise<SigexPollDto> => {
     const response = await apiClient.get<SigexPollDto>(
       `${base(clientId)}/documents/${encodeURIComponent(docId)}/sigex/${encodeURIComponent(qrId)}/poll`,
+      { silent: true },
     )
     return response.data
   },
@@ -281,6 +287,7 @@ export const import40ContractApi = {
     const response = await apiClient.post<Import40DocumentDto>(
       `${base(clientId)}/documents/${encodeURIComponent(docId)}/sigex/${encodeURIComponent(qrId)}/complete`,
       { side },
+      { silent: true },
     )
     return response.data
   },
