@@ -612,6 +612,7 @@ export default {
     pending: 'Pending',
     signEgov: 'Sign via eGov (QR)',
     uploadSigned: 'Upload signed file',
+    uploadSignedHint: 'Signature file (.cms/.p7s) from NCALayer or eGov',
     stActive: 'Active',
     stAwaiting: 'Awaiting signatures',
     stExpired: 'Expired',

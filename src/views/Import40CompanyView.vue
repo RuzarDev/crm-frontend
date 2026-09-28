@@ -3,7 +3,7 @@
     <input
       ref="fileInputRef"
       type="file"
-      accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
+      accept=".cms,.p7s,.sig"
       style="display: none"
       @change="onFileSelected"
     />

@@ -72,6 +72,7 @@
                 <UploadOutlined /> {{ t('company.uploadSigned') }}
               </a-button>
             </div>
+            <p v-if="!doc.clientSigned" class="muted sign-hint">{{ t('company.uploadSignedHint') }}</p>
           </div>
 
           <div v-if="providerSignature" class="sign-block">
@@ -88,6 +89,7 @@
                 <UploadOutlined /> {{ t('company.uploadSigned') }}
               </a-button>
             </div>
+            <p v-if="(canSignProvider ?? isAdmin) && !doc.providerSigned" class="muted sign-hint">{{ t('company.uploadSignedHint') }}</p>
           </div>
         </div>
       </div>
@@ -193,6 +195,7 @@ const statusColor = (doc: Import40DocumentDto) =>
 .sign-head { display: flex; align-items: center; gap: 10px; }
 .sign-head strong { color: var(--atg-ink); font-size: 13px; font-weight: 800; }
 .sign-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.sign-hint { margin: 0; font-size: 12px; }
 @media (max-width: 900px) {
   .sign-grid { grid-template-columns: 1fr; }
   .generate-bar { flex-direction: column; align-items: stretch; }

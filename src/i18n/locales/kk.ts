@@ -612,6 +612,7 @@ export default {
     pending: 'Күтілуде',
     signEgov: 'eGov арқылы қол қою (QR)',
     uploadSigned: 'Қол қойылған файлды жүктеу',
+    uploadSignedHint: 'NCALayer немесе eGov арқылы жасалған .cms/.p7s қолтаңба файлы',
     stActive: 'Белсенді',
     stAwaiting: 'Қолдар күтілуде',
     stExpired: 'Мерзімі өтті',
