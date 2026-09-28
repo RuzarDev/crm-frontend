@@ -136,7 +136,9 @@
         <div class="sub-label">{{ t('import40Case.containers') }}</div>
         <div v-for="c in activeCase.containers" :key="c.id" class="container-row">
           <strong>{{ c.containerNumber }}</strong><span class="muted">{{ c.containerType }}</span>
-          <a-button v-if="canEditStep1" type="text" danger size="small" @click="removeContainer(c.id)"><CloseOutlined /></a-button>
+          <a-popconfirm v-if="canEditStep1" :title="t('import40Case.deleteContainerConfirm', { number: c.containerNumber })" :ok-text="t('import40Case.yes')" :cancel-text="t('import40Case.no')" @confirm="removeContainer(c.id)">
+            <a-button type="text" danger size="small"><CloseOutlined /></a-button>
+          </a-popconfirm>
         </div>
         <div v-if="canEditStep1" class="container-add">
           <a-input v-model:value="newContainer.number" :placeholder="t('import40Case.containerNumberPh')" style="max-width: 220px" />
@@ -184,7 +186,9 @@
         <div v-if="stepState(2) === 'current' && !isClientView" class="step-actions">
           <a-button v-if="claimVisible('kpp')" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
           <a-tooltip :title="actionTooltip('kpp')">
-            <a-button type="primary" :disabled="actionDisabled('kpp')" @click="runAction('border-passed')">{{ t('import40Case.borderPassed') }}</a-button>
+            <a-popconfirm :title="t('import40Case.confirmBorderPassed')" :ok-text="t('import40Case.yes')" :cancel-text="t('import40Case.no')" :disabled="actionDisabled('kpp')" @confirm="runAction('border-passed')">
+              <a-button type="primary" :disabled="actionDisabled('kpp')">{{ t('import40Case.borderPassed') }}</a-button>
+            </a-popconfirm>
           </a-tooltip>
           <a-tooltip :title="can('kpp') || can('declarant') ? '' : hintFor('kpp')">
             <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">{{ t('import40Case.returnToClient') }}</a-button>
@@ -284,7 +288,9 @@
         <div v-if="activeCase.status === 3 && !isClientView" class="step-actions">
           <p class="muted">{{ t('import40Case.status3Note') }}</p>
           <a-tooltip :title="actionTooltip('declarant')">
-            <a-button type="primary" :disabled="actionDisabled('declarant')" @click="runAction('release-declaration')">{{ t('import40Case.fixRelease') }}</a-button>
+            <a-popconfirm :title="t('import40Case.confirmRelease')" :ok-text="t('import40Case.yes')" :cancel-text="t('import40Case.no')" :disabled="actionDisabled('declarant')" @confirm="runAction('release-declaration')">
+              <a-button type="primary" :disabled="actionDisabled('declarant')">{{ t('import40Case.fixRelease') }}</a-button>
+            </a-popconfirm>
           </a-tooltip>
         </div>
       </Import40Step>
@@ -304,7 +310,9 @@
         <p v-if="isClientView && stepState(4) === 'current'" class="muted client-wait">{{ t('import40Case.clientWaitNote') }}</p>
         <div v-if="stepState(4) === 'current' && !isClientView" class="step-actions">
           <a-tooltip v-if="activeCase.status === 4" :title="actionTooltip('kpp')">
-            <a-button type="primary" :disabled="actionDisabled('kpp')" @click="runAction('close-svh')">{{ t('import40Case.closeSvh') }}</a-button>
+            <a-popconfirm :title="t('import40Case.confirmCloseSvh')" :ok-text="t('import40Case.yes')" :cancel-text="t('import40Case.no')" :disabled="actionDisabled('kpp')" @confirm="runAction('close-svh')">
+              <a-button type="primary" :disabled="actionDisabled('kpp')">{{ t('import40Case.closeSvh') }}</a-button>
+            </a-popconfirm>
           </a-tooltip>
           <a-tooltip v-if="activeCase.status === 5" :title="actionTooltip('kpp')">
             <a-button type="primary" :disabled="actionDisabled('kpp')" @click="promptInvoice">{{ t('import40Case.issueInvoice') }}</a-button>
@@ -325,8 +333,10 @@
           @upload="(f: File) => uploadTo('payment-check', f)" @download="download" />
         <div v-if="stepState(5) === 'current' && !isClientView" class="step-actions">
           <a-tooltip :title="stepBlockedBy('kpp') ? actionTooltip('kpp') : can('kpp') ? (filesBySection('payment-check').length ? '' : t('import40Case.clientNoCheck')) : hintFor('kpp')">
-            <a-button type="primary" :disabled="actionDisabled('kpp') || !filesBySection('payment-check').length"
-              @click="runAction('confirm-svh-payment')">{{ t('import40Case.confirmPayment') }}</a-button>
+            <a-popconfirm :title="t('import40Case.confirmSvhPayment')" :ok-text="t('import40Case.yes')" :cancel-text="t('import40Case.no')"
+              :disabled="actionDisabled('kpp') || !filesBySection('payment-check').length" @confirm="runAction('confirm-svh-payment')">
+              <a-button type="primary" :disabled="actionDisabled('kpp') || !filesBySection('payment-check').length">{{ t('import40Case.confirmPayment') }}</a-button>
+            </a-popconfirm>
           </a-tooltip>
           <a-button v-if="claimVisible('kpp')" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
         </div>

@@ -58,9 +58,14 @@
           <template v-else-if="column.key === 'actions'">
             <a-space wrap>
               <a-button size="small" @click="downloadPdf(record)"><DownloadOutlined /> PDF</a-button>
-              <a-button v-if="canWrite && record.status === 0" size="small" type="primary" @click="issue(record)">{{ t('billing.issueBtn') }}</a-button>
-              <a-button v-if="canWrite && record.status === 1" size="small" @click="remind(record)">{{ t('billing.remind') }}</a-button>
-              <a-button v-if="canWrite && record.status === 1" size="small" @click="markPaid(record)">{{ t('billing.markPaid') }}</a-button>
+              <a-popconfirm v-if="canWrite && record.status === 0" :title="t('billing.issueConfirm')" :ok-text="t('billing.issueBtn')" :cancel-text="t('common.cancel')" @confirm="issue(record)">
+                <a-button size="small" type="primary">{{ t('billing.issueBtn') }}</a-button>
+              </a-popconfirm>
+              <!-- Акт не оплачивают — напоминание для него не отправляется (аудит §6, п.7). -->
+              <a-button v-if="canWrite && record.status === 1 && record.kind !== 'act'" size="small" @click="remind(record)">{{ t('billing.remind') }}</a-button>
+              <a-popconfirm v-if="canWrite && record.status === 1" :title="t('billing.markPaidConfirm')" :ok-text="t('billing.markPaid')" :cancel-text="t('common.cancel')" @confirm="markPaid(record)">
+                <a-button size="small">{{ t('billing.markPaid') }}</a-button>
+              </a-popconfirm>
               <a-popconfirm v-if="canWrite && record.status === 0" :title="t('billing.deleteConfirm')" :ok-text="t('billing.delete')" :cancel-text="t('common.cancel')" @confirm="remove(record)">
                 <a-button size="small" danger>{{ t('billing.delete') }}</a-button>
               </a-popconfirm>
@@ -201,7 +206,8 @@ onMounted(async () => {
     billingApi.organization(),
   ])
   if (clientsRes.status === 'fulfilled') {
-    clientOptions.value = clientsRes.value.map((c) => ({ value: c.id, label: c.username }))
+    // Название компании, не логин (аудит §9: «клиент подписан логином» в форме создания счёта).
+    clientOptions.value = clientsRes.value.map((c) => ({ value: c.id, label: c.companyName || c.username }))
   }
   if (casesRes.status === 'fulfilled') {
     allCases.value = casesRes.value
@@ -226,12 +232,17 @@ onMounted(async () => {
   }
 })
 
-const totals = computed(() => ({
-  issued: rows.value.filter((r) => r.status === 1 || r.status === 2).reduce((a, r) => a + r.total, 0),
-  paid: rows.value.filter((r) => r.status === 2).reduce((a, r) => a + r.total, 0),
-  awaiting: rows.value.filter((r) => r.status === 1).reduce((a, r) => a + r.total, 0),
-  drafts: rows.value.filter((r) => r.status === 0).length,
-}))
+// КПИ «Выставлено»/«Ждёт оплаты» считаем только по счетам (kind === 'invoice') — раньше сюда же
+// попадали акты за ту же услугу, и сумма считалась дважды (аудит §9).
+const totals = computed(() => {
+  const invoices = rows.value.filter((r) => r.kind === 'invoice')
+  return {
+    issued: invoices.filter((r) => r.status === 1 || r.status === 2).reduce((a, r) => a + r.total, 0),
+    paid: invoices.filter((r) => r.status === 2).reduce((a, r) => a + r.total, 0),
+    awaiting: invoices.filter((r) => r.status === 1).reduce((a, r) => a + r.total, 0),
+    drafts: rows.value.filter((r) => r.status === 0).length,
+  }
+})
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -338,7 +349,9 @@ const issue = async (r: BrokerInvoice) => {
 const remind = async (r: BrokerInvoice) => {
   try {
     const res = await billingApi.remind(r.id)
-    message.success(res.emailSent ? t('billing.remindSent', { to: res.to }) : t('billing.remindNoEmail'))
+    // Письмо не ушло — это не успех, а повод проверить email клиента/настройки почты (аудит §9).
+    if (res.emailSent) message.success(t('billing.remindSent', { to: res.to }))
+    else message.warning(t('billing.remindNoEmail'))
   } catch (e: any) {
     // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
     if (!e?.response) message.error(t('billing.actionError'))

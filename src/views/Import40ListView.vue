@@ -138,7 +138,9 @@
         <div v-for="(c, i) in draft.containers" :key="i" class="wizard-container-row">
           <a-input v-model:value="c.number" :placeholder="t('import40List.containerNumberPh')" style="max-width: 220px" />
           <a-input v-model:value="c.type" :placeholder="t('import40List.containerTypePh')" style="max-width: 140px" />
-          <a-button type="text" danger size="small" @click="draft.containers.splice(i, 1)"><CloseOutlined /></a-button>
+          <a-popconfirm :title="t('import40List.deleteContainerConfirm', { number: c.number || '—' })" :ok-text="t('import40Case.yes')" :cancel-text="t('import40Case.no')" @confirm="draft.containers.splice(i, 1)">
+            <a-button type="text" danger size="small"><CloseOutlined /></a-button>
+          </a-popconfirm>
         </div>
         <a-button type="dashed" size="small" @click="draft.containers.push({ number: '', type: '' })">{{ t('import40List.addContainer') }}</a-button>
       </div>
@@ -204,11 +206,13 @@
         <ul v-if="uploadedFiles.length" class="uploaded-list">
           <li v-for="f in uploadedFiles" :key="f.id">
             <span class="uploaded-name">{{ f.originalFileName }}</span>
-            <a-tooltip :title="t('import40List.removeFile')">
-              <a-button type="text" danger size="small" :loading="removingFileId === f.id" :aria-label="t('import40List.removeFile')" @click="removeUploaded(f)">
-                <CloseOutlined />
-              </a-button>
-            </a-tooltip>
+            <a-popconfirm :title="t('import40List.deleteFileConfirm', { name: f.originalFileName })" :ok-text="t('import40Case.yes')" :cancel-text="t('import40Case.no')" @confirm="removeUploaded(f)">
+              <a-tooltip :title="t('import40List.removeFile')">
+                <a-button type="text" danger size="small" :loading="removingFileId === f.id" :aria-label="t('import40List.removeFile')">
+                  <CloseOutlined />
+                </a-button>
+              </a-tooltip>
+            </a-popconfirm>
           </li>
         </ul>
 

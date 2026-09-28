@@ -14,7 +14,9 @@
           <PaperClipOutlined /> {{ f.originalFileName }}
         </a>
         <span class="file-meta">{{ formatSize(f.sizeBytes) }} · {{ roleLabel(f.uploadedByBusinessRole) }}<template v-if="f.uploadedByStaffName && !clientView"> ({{ t('import40Case.uploadedByStaff', { name: f.uploadedByStaffName }) }})</template></span>
-        <a-button v-if="canRemove" type="text" danger size="small" @click="emit('remove', f)"><CloseOutlined /></a-button>
+        <a-popconfirm v-if="canRemove" :title="t('import40Case.deleteFileConfirm', { name: f.originalFileName })" :ok-text="t('import40Case.yes')" :cancel-text="t('import40Case.no')" @confirm="emit('remove', f)">
+          <a-button type="text" danger size="small"><CloseOutlined /></a-button>
+        </a-popconfirm>
       </div>
     </div>
     <a-button v-if="canUpload" size="small" :loading="uploading" @click="inputRef?.click()">

@@ -11,7 +11,7 @@
     <a-spin :spinning="loading">
       <template v-if="data">
         <div class="kpi-row">
-          <div class="kpi"><span>{{ t('admin.schetovVystavleno') }}</span><b>{{ data.invoicedCount }}</b><small>{{ money(data.svhInvoicedTotal) }} ₸ {{ t('admin.poZametkam') }}</small></div>
+          <div class="kpi"><span>{{ t('admin.schetovVystavleno') }}</span><b>{{ data.invoicedCount }}</b><small>{{ money(data.svhInvoicedTotal) }} ₸</small></div>
           <div class="kpi kpi--warn"><span>{{ t('admin.zhdutOplaty') }}</span><b>{{ data.awaitingPaymentCount }}</b><small>{{ t('admin.schetVystavlenOplataNe') }}</small></div>
           <div class="kpi kpi--ok"><span>{{ t('admin.oplacheno') }}</span><b>{{ data.paidCount }}</b><small>{{ money(data.svhPaidTotal) }} ₸</small></div>
           <div class="kpi kpi--navy"><span>{{ t('admin.tamozhennyePlatezhiGrv') }}</span><b>{{ money(data.customsPaymentsTotal) }} ₸</b><small>{{ t('admin.poVsemDtVybrannyh') }}</small></div>
