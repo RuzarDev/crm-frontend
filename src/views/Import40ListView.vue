@@ -357,7 +357,7 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const registration = useClientRegistration()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const loading = ref(false)
 const creating = ref(false)
 const clientsLoading = ref(false)
@@ -437,16 +437,29 @@ const transportModeOptions = computed(() =>
 )
 const countriesRaw = ref<RefCodeItem[]>([])
 const countryOptions = computed(() => buildCountryOptions(countriesRaw.value))
-const CURRENCY_OPTIONS = [
-  { value: 'USD', label: 'USD — Доллар США' },
-  { value: 'EUR', label: 'EUR — Евро' },
-  { value: 'CNY', label: 'CNY — Юань' },
-  { value: 'KZT', label: 'KZT — Тенге' },
-  { value: 'RUB', label: 'RUB — Рубль' },
-  { value: 'TRY', label: 'TRY — Турецкая лира' },
-  { value: 'AED', label: 'AED — Дирхам ОАЭ' },
-  { value: 'GBP', label: 'GBP — Фунт стерлингов' },
-]
+// Аудит 2026-09-28, п.10: названия валют были захардкожены на русском независимо от локали.
+// Intl.DisplayNames даёт название валюты на текущем языке интерфейса; код валюты (USD, EUR…)
+// сам не переводится — это данные, а не текст интерфейса.
+const CURRENCY_CODES = ['USD', 'EUR', 'CNY', 'KZT', 'RUB', 'TRY', 'AED', 'GBP']
+const CURRENCY_LOCALE_MAP: Record<string, string> = { ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }
+const currencyDisplayNames = computed(() => {
+  try {
+    return new Intl.DisplayNames([CURRENCY_LOCALE_MAP[locale.value] || 'ru-RU'], { type: 'currency' })
+  } catch {
+    return null
+  }
+})
+const currencyName = (code: string): string | null => {
+  try {
+    return currencyDisplayNames.value?.of(code) ?? null
+  } catch {
+    return null
+  }
+}
+const CURRENCY_OPTIONS = computed(() => CURRENCY_CODES.map((code) => {
+  const name = currencyName(code)
+  return { value: code, label: name && name !== code ? `${code} — ${name}` : code }
+}))
 const responsibilityAccepted = ref(false)
 const clientCompanyProfile = ref<ClientCompanyProfileDto | null>(null)
 

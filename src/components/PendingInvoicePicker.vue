@@ -1,7 +1,7 @@
 <template>
   <div class="pending-invoice-picker">
     <div class="section-bar">
-      <span class="section-label">ИНВОЙС</span>
+      <span class="section-label">{{ t('transit.invoysLabel') }}</span>
       <a-upload
         :show-upload-list="false"
         :before-upload="beforeUpload"
@@ -10,13 +10,13 @@
       >
         <a-button size="small">
           <UploadOutlined />
-          Загрузить инвойс
+          {{ t('transit.zagruzitInvoys') }}
         </a-button>
       </a-upload>
     </div>
 
     <div v-if="!modelValue.length" class="empty-state">
-      Инвойс будет прикреплен после сохранения партии
+      {{ t('transit.invoysBudetPrikreplenPosle') }}
     </div>
 
     <div v-for="(file, idx) in modelValue" :key="idx" class="invoice-file-chip">
@@ -31,6 +31,10 @@
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
 import { CloseOutlined, PaperClipOutlined, UploadOutlined } from '@ant-design/icons-vue'
+import { useI18n } from 'vue-i18n'
+
+// Аудит 2026-09-28, п.10: строки компонента были захардкожены на русском.
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: File[]
@@ -42,7 +46,7 @@ const emit = defineEmits<{
 
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   if (file.size > 10 * 1024 * 1024) {
-    message.error('Размер файла не должен превышать 10 МБ')
+    message.error(t('transit.razmerFaylaNeDolzhen'))
     return false
   }
   emit('update:modelValue', [...props.modelValue, file as File])

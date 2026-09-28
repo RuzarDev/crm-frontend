@@ -82,13 +82,29 @@ const columns = computed(() => ([
 ]))
 const formatDate = (iso: string | null) => (iso ? dayjs(iso).format('DD.MM.YYYY HH:mm') : '—')
 
-// Цвет тега по человекочитаемому названию статуса (a-tag).
+// statusName приходит из КЕДЕН как есть и всегда на русском (это код внешней системы,
+// а не текст интерфейса) — сравнивать нужно по этим стабильным русским подстрокам,
+// а не через t(...): на kk/en локали t(...) возвращает переведённое слово, которое
+// никогда не совпадёт с русским statusName, и все строки красились в серый (аудит 2026-09-28, п.10б).
+const KEDEN_STATUS_KEYWORDS = {
+  otkaz: 'отказ',
+  uslovn: 'условн',
+  vypuschen: 'выпущен',
+  zavershen: 'завершен',
+  vypuskRazresh: 'выпуск разреш',
+}
+
+// Цвет тега по коду статуса КЕДЕН (не по локализованному отображаемому тексту).
 const statusColor = (name: string | null): string => {
   const s = (name || '').toLowerCase()
   if (!s) return 'default'
-  if (s.includes(t('transit.otkaz'))) return 'red'
-  if (s.includes(t('transit.uslovn'))) return 'orange'
-  if (s.includes(t('transit.vypuschen')) || s.includes(t('transit.zavershen')) || s.includes(t('transit.vypuskRazresh'))) return 'green'
+  if (s.includes(KEDEN_STATUS_KEYWORDS.otkaz)) return 'red'
+  if (s.includes(KEDEN_STATUS_KEYWORDS.uslovn)) return 'orange'
+  if (
+    s.includes(KEDEN_STATUS_KEYWORDS.vypuschen) ||
+    s.includes(KEDEN_STATUS_KEYWORDS.zavershen) ||
+    s.includes(KEDEN_STATUS_KEYWORDS.vypuskRazresh)
+  ) return 'green'
   return 'default'
 }
 

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { reestrApi } from '@/api/reestr'
 import type { ReestrEntry, ReestrListRequest, ReestrEntryStatus, ReestrUpsertBody } from '@/types/api'
 import { message } from 'ant-design-vue'
+import { i18n } from '@/i18n'
 
 export const useReestrStore = defineStore('reestr', () => {
   const entries = ref<ReestrEntry[]>([])
@@ -64,7 +65,7 @@ export const useReestrStore = defineStore('reestr', () => {
   const create = async (data: ReestrUpsertBody): Promise<boolean> => {
     try {
       await reestrApi.create(data)
-      message.success('Запись успешно создана')
+      message.success(i18n.global.t('transit.zapisUspeshnoSozdana'))
       await fetchList()
       return true
     } catch (error) {
@@ -75,7 +76,7 @@ export const useReestrStore = defineStore('reestr', () => {
   const update = async (id: string, data: ReestrUpsertBody): Promise<boolean> => {
     try {
       await reestrApi.update(id, data)
-      message.success('Запись успешно обновлена')
+      message.success(i18n.global.t('transit.zapisUspeshnoObnovlena'))
       await fetchList()
       return true
     } catch (error) {
@@ -86,7 +87,7 @@ export const useReestrStore = defineStore('reestr', () => {
   const deleteEntry = async (id: string): Promise<boolean> => {
     try {
       await reestrApi.delete(id)
-      message.success('Запись успешно удалена')
+      message.success(i18n.global.t('transit.zapisUspeshnoUdalena'))
       await fetchList()
       return true
     } catch (error) {
@@ -100,7 +101,7 @@ export const useReestrStore = defineStore('reestr', () => {
     }
     try {
       const response = await reestrApi.bulkDelete(ids)
-      message.success(`Удалено записей: ${response.deleted}`)
+      message.success(i18n.global.t('transit.udalenoZapisey', { n: response.deleted }))
       await fetchList()
       return true
     } catch (error) {
@@ -112,7 +113,7 @@ export const useReestrStore = defineStore('reestr', () => {
     loading.value = true
     try {
       const response = await reestrApi.uploadFile(file, clientId)
-      message.success(`Успешно импортировано записей: ${response.imported}`)
+      message.success(i18n.global.t('transit.uspeshnoImportirovanoZapisey', { n: response.imported }))
       await fetchList()
       return true
     } catch (error) {
@@ -125,7 +126,7 @@ export const useReestrStore = defineStore('reestr', () => {
   const changeStatus = async (id: string, status: ReestrEntryStatus): Promise<boolean> => {
     try {
       await reestrApi.changeStatus(id, status)
-      message.success('Статус обновлён')
+      message.success(i18n.global.t('transit.statusObnovlen'))
       await fetchList()
       return true
     } catch {

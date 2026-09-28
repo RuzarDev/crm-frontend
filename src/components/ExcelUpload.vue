@@ -8,9 +8,9 @@
     <p class="ant-upload-drag-icon">
       <InboxOutlined />
     </p>
-    <p class="ant-upload-text">Нажмите или перетащите файл Excel сюда</p>
+    <p class="ant-upload-text">{{ t('transit.nazhmiteIliPeretaschiteFayl') }}</p>
     <p class="ant-upload-hint">
-      Форматы .xlsx и .xls. Первая строка — названия полей.
+      {{ t('transit.formatyXlsxIXlsPervaya') }}
     </p>
   </a-upload-dragger>
 </template>
@@ -19,6 +19,10 @@
 import { InboxOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
+import { useI18n } from 'vue-i18n'
+
+// Аудит 2026-09-28, п.10: строки компонента были захардкожены на русском.
+const { t } = useI18n()
 
 interface Emits {
   (e: 'upload', file: File): void
@@ -34,13 +38,13 @@ const beforeUpload: UploadProps['beforeUpload'] = (file) => {
     file.name.endsWith('.xls')
 
   if (!isExcel) {
-    message.error('Допустимы только файлы Excel (.xlsx, .xls)')
+    message.error(t('transit.dopustimyTolkoFaylyExcel'))
     return false
   }
 
   const isLt10M = file.size / 1024 / 1024 < 10
   if (!isLt10M) {
-    message.error('Размер файла не должен превышать 10 МБ')
+    message.error(t('transit.razmerFaylaNeDolzhen'))
     return false
   }
 

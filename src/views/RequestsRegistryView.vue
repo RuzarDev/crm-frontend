@@ -24,8 +24,9 @@
         v-model:value="filters.search" :placeholder="t('admin.poiskKlientGruzKonteyner')"
         style="width: 280px" allow-clear @search="reload"
       />
-      <a-input v-model:value="filters.from" :placeholder="t('admin.sDatyGgggMm')" style="width: 150px" allow-clear @change="reload" />
-      <a-input v-model:value="filters.to" :placeholder="t('admin.poDatuGgggMm')" style="width: 150px" allow-clear @change="reload" />
+      <!-- Аудит 2026-09-28, п.10: текстовые поля дат слали запрос на каждое нажатие клавиши —
+           заменено на a-range-picker, запрос уходит только когда выбран полный диапазон (или он сброшен). -->
+      <a-range-picker v-model:value="dateRange" :placeholder="[t('admin.sDatyGgggMm'), t('admin.poDatuGgggMm')]" style="width: 260px" @change="onDateRangeChange" />
       <a-button :disabled="!rows.length" @click="exportXlsx"><DownloadOutlined /> Excel</a-button>
     </div>
 
@@ -62,6 +63,7 @@ import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
+import dayjs, { type Dayjs } from 'dayjs'
 import * as XLSX from 'xlsx'
 import { DownloadOutlined } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -87,6 +89,15 @@ const filters = reactive({
   from: '',
   to: '',
 })
+
+// Диапазон дат для a-range-picker (аудит 2026-09-28, п.10) — filters.from/to остаются
+// строками YYYY-MM-DD, как и ожидает registryApi.list/бэкенд (DateTime? биндинг).
+const dateRange = ref<[Dayjs, Dayjs] | null>(null)
+const onDateRangeChange = (values: [Dayjs, Dayjs] | null) => {
+  filters.from = values?.[0] ? values[0].format('YYYY-MM-DD') : ''
+  filters.to = values?.[1] ? values[1].format('YYYY-MM-DD') : ''
+  reload()
+}
 
 // Статусы транзита — зеркало меток бэкенда (TransitStatusLabel)
 const TRANSIT_STATUSES = computed(() => ([

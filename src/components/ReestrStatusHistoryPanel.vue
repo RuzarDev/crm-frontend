@@ -28,19 +28,23 @@
           </template>
         </template>
       </a-table>
-      <a-empty v-else :image="simpleImage" description="История пуста" />
+      <a-empty v-else :image="simpleImage" :description="t('transit.istoriyaPusta')" />
     </a-spin>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { Empty } from 'ant-design-vue'
 import dayjs from 'dayjs'
+import { useI18n } from 'vue-i18n'
 import { reestrApi } from '@/api/reestr'
 import type { ReestrStatusHistoryDto } from '@/types/api'
 import { dtoStatusToEntryStatus, formatReestrStatus } from '@/utils/reestrDtoMap'
 import { formatRole } from '@/utils/labels'
+
+// Аудит 2026-09-28, п.10: заголовки колонок и пустое состояние были захардкожены на русском.
+const { t } = useI18n()
 
 interface Props {
   reestrId: string
@@ -53,12 +57,12 @@ const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE
 const loading = ref(false)
 const items = ref<ReestrStatusHistoryDto[]>([])
 
-const columns = [
-  { title: 'Дата', key: 'changedAtUtc', width: 150 },
-  { title: 'Автор', key: 'author', width: 120 },
-  { title: 'Было', key: 'oldStatus', width: 140 },
-  { title: 'Стало', key: 'newStatus', width: 140 },
-]
+const columns = computed(() => [
+  { title: t('transit.data'), key: 'changedAtUtc', width: 150 },
+  { title: t('transit.avtor'), key: 'author', width: 120 },
+  { title: t('transit.bylo'), key: 'oldStatus', width: 140 },
+  { title: t('transit.stalo'), key: 'newStatus', width: 140 },
+])
 
 const formatDate = (iso: string) => dayjs(iso).format('DD.MM.YYYY HH:mm')
 

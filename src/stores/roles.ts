@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { rolesApi } from '@/api/roles'
 import type { RoleItem } from '@/types/api'
 import { message } from 'ant-design-vue'
+import { i18n } from '@/i18n'
 
 export const useRolesStore = defineStore('roles', () => {
   const roles = ref<RoleItem[]>([])
@@ -33,7 +34,7 @@ export const useRolesStore = defineStore('roles', () => {
   const createRole = async (name: string, selectedPermissions: string[]) => {
     try {
       await rolesApi.createRole({ name, permissions: selectedPermissions })
-      message.success('Роль создана')
+      message.success(i18n.global.t('admin.rolSozdana'))
       await fetchRoles()
       return true
     } catch (error) {
@@ -44,7 +45,7 @@ export const useRolesStore = defineStore('roles', () => {
   const updateRolePermissions = async (name: string, selectedPermissions: string[]) => {
     try {
       await rolesApi.updateRolePermissions(name, { permissions: selectedPermissions })
-      message.success('Роль обновлена')
+      message.success(i18n.global.t('admin.rolObnovlena'))
       await fetchRoles()
       return true
     } catch (error) {
@@ -55,7 +56,7 @@ export const useRolesStore = defineStore('roles', () => {
   const deleteRole = async (name: string) => {
     try {
       await rolesApi.deleteRole(name)
-      message.success('Роль удалена')
+      message.success(i18n.global.t('admin.rolUdalena'))
       await fetchRoles()
       return true
     } catch (error) {

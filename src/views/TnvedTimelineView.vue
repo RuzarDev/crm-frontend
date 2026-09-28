@@ -1,10 +1,10 @@
 <template>
   <div class="tnved-timeline-view crm-page">
-    <PageHeader kicker="ТН ВЭД ЕАЭС" title="Таймлайн изменений" subtitle="История изменений ставок и классификатора." />
+    <PageHeader :kicker="t('sales.tnVedEaes')" :title="t('sales.hronologiyaIzmeneniy')" :subtitle="t('sales.istoriyaIzmeneniyStavokI')" />
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-spin :spinning="loading">
-        <div v-if="!loading && items.length === 0" class="empty-hint">Записей не найдено</div>
+        <div v-if="!loading && items.length === 0" class="empty-hint">{{ t('sales.zapiseyNeNaydeno') }}</div>
 
         <a-timeline v-else mode="left">
           <a-timeline-item
@@ -25,9 +25,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedTimelineDto } from '@/types/api'
 import PageHeader from '@/components/PageHeader.vue'
+
+const { t } = useI18n()
 
 const items = ref<TnvedTimelineDto[]>([])
 const loading = ref(false)
