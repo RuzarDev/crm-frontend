@@ -91,6 +91,13 @@
                   </template>
                   <template v-else-if="column.key === 'actions'">
                     <a-space>
+                      <!-- Договор подписан клиентом, ждёт AQNIET: сразу на страницу подписи этого клиента. -->
+                      <a-button
+                        v-if="canSignProvider && record.kind === 'contract' && record.status === 1 && record.clientSigned && !record.providerSigned"
+                        size="small"
+                        type="primary"
+                        @click="router.push({ path: '/import-40/company', query: { client: clientId, step: 'contract' } })"
+                      >{{ t('clientDocs.signAqniet') }}</a-button>
                       <a-button size="small" @click="downloadBlank(record)"><DownloadOutlined /> {{ t('clientCard.download') }}</a-button>
                       <span v-if="record.filesCount" class="cell-sub">{{ t('clientCard.signedFiles', { n: record.filesCount }) }}</span>
                     </a-space>
@@ -146,11 +153,15 @@ import PageHeader from '@/components/PageHeader.vue'
 import { clientCardApi, type ClientCard, type ClientCardCase, type ClientCardDoc } from '@/api/clientCard'
 import { import40ContractApi } from '@/api/import40Contract'
 import { useImport40Status } from '@/composables/useImport40Status'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const { statusLabel } = useImport40Status()
+const authStore = useAuthStore()
+// Подпись со стороны AQNIET — администратор или руководитель отдела (как на сервере).
+const canSignProvider = computed(() => (authStore.role || '').toLowerCase() === 'administrator' || authStore.hasBusinessRole('rop'))
 
 const clientId = String(route.params.id ?? '')
 const loading = ref(false)
