@@ -576,6 +576,7 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    platezhiNePereschitany: 'Платежи в новых ДТ посчитать не удалось — откройте их и нажмите «Рассчитать платежи»',
     dobavteTovarDlyaVto: 'Добавьте в ДТ хотя бы один товар',
     kursGr23NeSovpadaet: 'гр.23 не совпадает с курсом НБ РК на дату гр.А',
     kursNbRkNedostupen: 'НБ РК недоступен — показан ближайший известный курс',
@@ -602,7 +603,7 @@ export default {
     opisanieTovaraIzTnved: 'Описание товара из ТНВЭД',
     poryadkovyyNomerTovara: 'Порядковый номер товара',
     rkRr: 'РК / РР',
-    sozdanaDtVto: 'Создана ДТ по ставкам ВТО — проверьте и запишите платежи по пониженной ставке',
+    sozdanaDtVto: 'Создана ДТ по ставкам ВТО, платежи пересчитаны по пониженной ставке',
     sozdatDtVto: 'Создать ДТ ВТО',
     spravochnik: 'Справочник',
     stranaProishozhdeniya: 'Страна происхождения',
@@ -730,7 +731,7 @@ export default {
     import40: 'Импорт 40',
     importIzExcel: 'Импорт из Excel',
     importirovanoMarkirovokParsedLength: 'Импортировано маркировок: {n}',
-    ishodnayaDtSohranenaBez: 'Исходная ДТ сохранена без изменений, дополнительно созданы декларации ЕТТ и ВТО',
+    ishodnayaDtSohranenaBez: 'Исходная ДТ сохранена без изменений, созданы декларации ЕТТ и ВТО, платежи в них пересчитаны',
     itogoGrb: 'Итого гр.B',
     itogoGrv: 'Итого гр.В',
     izProfilyaKlienta: 'Из профиля клиента',

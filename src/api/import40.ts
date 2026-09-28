@@ -709,6 +709,8 @@ export interface Import40SplitResult {
   // null — в ВТО ушли все товары (в т.ч. единственный), ЕТТ-часть не создавалась.
   ettDeclarationId: string | null
   vtoDeclarationId: string
+  // Платежи новых ДТ пересчитаны сервером по их ставкам; false — нужно «Рассчитать платежи».
+  paymentsRecalculated: boolean
 }
 
 export const import40Api = {

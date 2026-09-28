@@ -576,6 +576,7 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    platezhiNePereschitany: 'Жаңа ТД-дағы төлемдерді есептеу мүмкін болмады — оларды ашып, «Төлемдерді есептеу» түймесін басыңыз',
     dobavteTovarDlyaVto: 'ТД-ға кемінде бір тауар қосыңыз',
     kursGr23NeSovpadaet: '23-баған А-баған күніне ҚРҰБ бағамымен сәйкес емес',
     kursNbRkNedostupen: 'ҚРҰБ қолжетімсіз — ең жақын белгілі бағам көрсетілген',
@@ -602,7 +603,7 @@ export default {
     opisanieTovaraIzTnved: 'СЭҚ ТН бойынша тауар сипаттамасы',
     poryadkovyyNomerTovara: 'Тауардың реттік нөмірі',
     rkRr: 'РК / РР',
-    sozdanaDtVto: 'ДСҰ мөлшерлемелері бойынша ТД құрылды — төмендетілген мөлшерлеме бойынша төлемдерді тексеріп, жазыңыз',
+    sozdanaDtVto: 'ДСҰ мөлшерлемелері бойынша ТД құрылды, төлемдер төмендетілген мөлшерлеме бойынша қайта есептелді',
     sozdatDtVto: 'ДСҰ ТД құру',
     spravochnik: 'Анықтамалық',
     stranaProishozhdeniya: 'Шыққан елі',
@@ -730,7 +731,7 @@ export default {
     import40: 'Импорт 40',
     importIzExcel: 'Excel-ден импорт',
     importirovanoMarkirovokParsedLength: 'Импортталған таңбалаулар: {n}',
-    ishodnayaDtSohranenaBez: 'Бастапқы ТД өзгеріссіз сақталды, қосымша БКТ және ДСҰ декларациялары жасалды',
+    ishodnayaDtSohranenaBez: 'Бастапқы ТД өзгеріссіз сақталды, БКТ және ДСҰ декларациялары жасалды, олардағы төлемдер қайта есептелді',
     itogoGrb: 'Барлығы B-графа',
     itogoGrv: 'Барлығы В-графа',
     izProfilyaKlienta: 'Клиент профилінен',

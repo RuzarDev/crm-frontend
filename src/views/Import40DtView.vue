@@ -1581,11 +1581,15 @@ const doSplit = async () => {
   try {
     const res = await import40Api.splitDeclaration(caseId, dtId, { vtoGoodSortOrders })
     splitModalOpen.value = false
+    // Сервер пересчитывает платежи новых ДТ по их ставкам (ВТО — пониженная). Если не по всем
+    // товарам — просим нажать «Рассчитать платежи» (для одной ДТ ВТО окно расчёта откроется само).
+    if (!res.paymentsRecalculated) message.warning(t('dt.platezhiNePereschitany'))
     if (!res.ettDeclarationId) {
-      // Одна ДТ по ставкам ВТО: открываем её сразу с расчётом платежей — в копии остались
-      // платежи исходной ДТ по ставкам ЕТТ, пошлину надо пересчитать по пониженной ставке.
       message.success(t('dt.sozdanaDtVto'))
-      await router.push({ path: `/import-40/${caseId}/dt/${res.vtoDeclarationId}`, query: { calc: 'payments' } })
+      await router.push({
+        path: `/import-40/${caseId}/dt/${res.vtoDeclarationId}`,
+        query: res.paymentsRecalculated ? {} : { calc: 'payments' },
+      })
       return
     }
     message.success(t('dt.ishodnayaDtSohranenaBez'))

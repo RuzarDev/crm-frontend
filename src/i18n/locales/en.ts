@@ -576,6 +576,7 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    platezhiNePereschitany: 'Payments in the new declarations could not be calculated — open them and click “Calculate payments”',
     dobavteTovarDlyaVto: 'Add at least one goods item to the declaration',
     kursGr23NeSovpadaet: 'box 23 differs from the NBK rate on the box A date',
     kursNbRkNedostupen: 'NBK unavailable — the nearest known rate is shown',
@@ -602,7 +603,7 @@ export default {
     opisanieTovaraIzTnved: 'Goods description from HS',
     poryadkovyyNomerTovara: 'Item ordinal number',
     rkRr: 'RK / RR',
-    sozdanaDtVto: 'WTO-rate declaration created — check and record the payments at the reduced rate',
+    sozdanaDtVto: 'WTO-rate declaration created, payments recalculated at the reduced rate',
     sozdatDtVto: 'Create WTO declaration',
     spravochnik: 'Directory',
     stranaProishozhdeniya: 'Country of origin',
@@ -730,7 +731,7 @@ export default {
     import40: 'Import 40',
     importIzExcel: 'Import from Excel',
     importirovanoMarkirovokParsedLength: 'Markings imported: {n}',
-    ishodnayaDtSohranenaBez: 'The original declaration was kept unchanged; CCT and WTO declarations were created additionally',
+    ishodnayaDtSohranenaBez: 'The original declaration was kept unchanged; CCT and WTO declarations were created and their payments recalculated',
     itogoGrb: 'Total box B',
     itogoGrv: 'Total box B',
     izProfilyaKlienta: 'From client profile',
