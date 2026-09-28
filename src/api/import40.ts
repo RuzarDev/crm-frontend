@@ -17,7 +17,12 @@ export type Import40Action =
   | 'release-declaration'
   | 'close-svh'
   | 'issue-invoice'
+  // Подтверждение оплаты счёта СВХ (КПП) — Invoiced → Paid, заявку НЕ завершает (задача 2.3).
+  | 'confirm-svh-payment'
+  // Старое имя действия — алиас confirm-svh-payment, для обратной совместимости.
   | 'confirm-payment-and-complete'
+  // Админ: завершить старую заявку без счёта AQNIET, с обязательной причиной.
+  | 'complete-without-invoice'
   | 'return-to-client'
   | 'claim'
   | 'set-problem'
@@ -35,7 +40,7 @@ export const IMPORT40_STATUSES = [
   { id: 4, key: 'Released', short: 'ДТ выпущена', phase: 'Декларант' },
   { id: 5, key: 'SvhClosing', short: 'Закрытие СВХ', phase: 'КПП' },
   { id: 6, key: 'Invoiced', short: 'Счёт выставлен', phase: 'Финансы' },
-  { id: 7, key: 'Paid', short: 'Оплата получена', phase: 'Финансы' },
+  { id: 7, key: 'Paid', short: 'Ждёт оплаты услуг AQNIET', phase: 'Финансы' },
   { id: 8, key: 'Done', short: 'Выполнено', phase: 'Архив' },
   { id: 9, key: 'Cancelled', short: 'Отменена', phase: 'Архив' },
 ] as const
@@ -551,6 +556,21 @@ export interface Import40FileDto {
   sizeBytes: number
   uploadedByBusinessRole: string
   createdAtUtc: string
+  // ФИО сотрудника, если он загрузил файл за клиента (например, чек оплаты — задача 2.3).
+  // null, если загрузил сам клиент.
+  uploadedByStaffName?: string | null
+}
+
+// Счёт AQNIET (BrokerInvoice) в карточке заявки — шаг 6 (задача 2.3).
+export interface Import40CaseInvoiceDto {
+  id: string
+  kind: 'invoice' | 'act'
+  status: number
+  number: string
+  year: number
+  total: number
+  issuedAtUtc: string | null
+  paidAtUtc: string | null
 }
 
 export interface KedenReadinessDto {
@@ -943,6 +963,14 @@ export const import40Api = {
   listFiles: async (id: string): Promise<Import40FileDto[]> => {
     const response = await apiClient.get<Import40FileDto[]>(
       `/import40/${encodeURIComponent(id)}/files`,
+    )
+    return response.data
+  },
+
+  // Счета AQNIET по заявке — шаг 6 (задача 2.3).
+  listBrokerInvoices: async (id: string): Promise<Import40CaseInvoiceDto[]> => {
+    const response = await apiClient.get<Import40CaseInvoiceDto[]>(
+      `/import40/${encodeURIComponent(id)}/broker-invoices`,
     )
     return response.data
   },

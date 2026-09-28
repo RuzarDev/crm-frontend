@@ -274,15 +274,35 @@
           <a-tag v-else-if="filesBySection('payment-check').length" color="processing">{{ t('import40Case.paymentChecking') }}</a-tag>
         </div>
         <p v-if="isClientView && stepState(5) === 'current' && !filesBySection('payment-check').length" class="client-pay-note">{{ t('import40Case.clientPayNote') }}</p>
-        <Import40FilesBlock :files="filesBySection('payment-check')" :can-upload="stepState(5) === 'current' && can('client')"
+        <!-- КПП/руководитель может загрузить чек за клиента (аудит 3.7) — can-upload не только для клиента. -->
+        <Import40FilesBlock :files="filesBySection('payment-check')" :can-upload="stepState(5) === 'current' && (can('client') || can('kpp'))"
           :uploading="uploading" :empty-text="isClientView ? t('import40Case.clientPayEmpty') : t('import40Case.paymentEmpty')"
           @upload="(f: File) => uploadTo('payment-check', f)" @download="download" />
         <div v-if="stepState(5) === 'current' && !isClientView" class="step-actions">
           <a-tooltip :title="stepBlockedBy('kpp') ? actionTooltip('kpp') : can('kpp') ? (filesBySection('payment-check').length ? '' : t('import40Case.clientNoCheck')) : hintFor('kpp')">
             <a-button type="primary" :disabled="actionDisabled('kpp') || !filesBySection('payment-check').length"
-              @click="runAction('confirm-payment-and-complete')">{{ t('import40Case.confirmPayment') }}</a-button>
+              @click="runAction('confirm-svh-payment')">{{ t('import40Case.confirmPayment') }}</a-button>
           </a-tooltip>
           <a-button v-if="claimVisible('kpp')" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
+        </div>
+      </Import40Step>
+      <!-- Шаг 6: оплата услуг AQNIET (задача 2.3) — выставляет и отмечает оплату бухгалтер в /billing. -->
+      <Import40Step :index="6" :title="stepTitle(6)" :state="stepState(6)" :executor="executorLabel('accountant')"
+        :summary="stepState(6) === 'done' ? t('import40Case.aqnietPaid') : undefined">
+        <div v-if="!caseInvoices.length" class="muted">{{ t('import40Case.invoicesEmpty') }}</div>
+        <div v-for="inv in caseInvoices" :key="inv.id" class="invoice-list-row">
+          <span>{{ inv.kind === 'act' ? t('billing.act') : t('billing.invoice') }} {{ inv.number ? `№ ${inv.number}/${inv.year}` : t('billing.draftNo') }}</span>
+          <a-tag :color="invoiceStatusColor(inv.status)">{{ invoiceStatusLabel(inv.status) }}</a-tag>
+          <span class="muted">{{ Math.round(inv.total).toLocaleString('ru-RU') }} ₸</span>
+        </div>
+        <div v-if="stepState(6) === 'current'" class="step-actions">
+          <a-button v-if="canIssueAqnietInvoice" type="primary" @click="$router.push(`/billing?caseId=${activeCase.id}`)">
+            {{ t('import40Case.issueAqnietInvoice') }}
+          </a-button>
+          <p v-else class="muted">{{ t('import40Case.awaitingAqnietPayment') }}</p>
+          <a-button v-if="roleMode === 'admin'" danger @click="promptCompleteWithoutInvoice">
+            {{ t('import40Case.completeWithoutInvoice') }}
+          </a-button>
         </div>
       </Import40Step>
     </div>
@@ -336,6 +356,18 @@
     <a-modal v-model:open="cancelOpen" :title="t('import40Case.cancelTitle')" :ok-text="t('import40Case.cancelOk')" :cancel-text="t('common.cancel')" :ok-button-props="{ danger: true, disabled: !cancelReason.trim() }" @ok="confirmCancel">
       <p class="muted">{{ t('import40Case.cancelHint') }}</p>
       <a-textarea v-model:value="cancelReason" :rows="3" :placeholder="t('import40Case.cancelPh')" />
+    </a-modal>
+
+    <a-modal
+      v-model:open="completeWithoutInvoiceOpen"
+      :title="t('import40Case.completeWithoutInvoice')"
+      :ok-text="t('import40Case.completeWithoutInvoiceOk')"
+      :cancel-text="t('common.cancel')"
+      :ok-button-props="{ danger: true, disabled: !completeWithoutInvoiceReason.trim() }"
+      @ok="confirmCompleteWithoutInvoice"
+    >
+      <p class="muted">{{ t('import40Case.completeWithoutInvoiceHint') }}</p>
+      <a-textarea v-model:value="completeWithoutInvoiceReason" :rows="3" :placeholder="t('import40Case.completeWithoutInvoicePh')" />
     </a-modal>
 
     <a-modal
@@ -410,6 +442,7 @@ import {
   import40Api,
   type Import40Action,
   type Import40CaseDto,
+  type Import40CaseInvoiceDto,
   type Import40DeclarationDto,
   type Import40DeclarationUpsert,
   type Import40ExtractionPreview,
@@ -480,7 +513,7 @@ const canAssign = computed(() => roleMode.value === 'admin' || authStore.hasPerm
 
 // Кто выполняет шаг — словами зрителя. Клиенту «КПП»/«декларант» ни о чём не говорят:
 // для него это «вы» и «AQNIET».
-const executorLabel = (role: 'client' | 'kpp' | 'declarant' | 'clientKpp') => {
+const executorLabel = (role: 'client' | 'kpp' | 'declarant' | 'clientKpp' | 'accountant') => {
   if (roleMode.value === 'client') {
     return role === 'client' ? t('enum.role.you') : role === 'clientKpp' ? t('enum.role.youAndUs') : t('enum.role.us')
   }
@@ -570,12 +603,20 @@ const step1Summary = computed(() =>
   activeCase.value ? `${activeCase.value.cargo || '—'} · файлов: ${filesBySection('documents').length}` : undefined,
 )
 
+// Счета AQNIET по заявке — шаг 6 (задача 2.3).
+const caseInvoices = ref<Import40CaseInvoiceDto[]>([])
+
 const reload = async () => {
   const id = String(route.params.id)
   activeCase.value = await import40Api.get(id)
   files.value = await import40Api.listFiles(id)
   assignForm.declarantId = activeCase.value?.assignedDeclarantId ?? null
   assignForm.kppId = activeCase.value?.assignedKppId ?? null
+  try {
+    caseInvoices.value = await import40Api.listBrokerInvoices(id)
+  } catch {
+    caseInvoices.value = []
+  }
   void loadReadiness()
 }
 
@@ -978,6 +1019,21 @@ const promptCancel = () => { cancelReason.value = ''; cancelOpen.value = true }
 // Счета и акты по этой заявке — для тех, кто видит финансы.
 const canSeeBilling = computed(() => authStore.hasPermission('finance.read') || roleMode.value === 'admin')
 
+// Шаг 6 (задача 2.3): выставлять счёт AQNIET может только бухгалтер/руководитель (finance.write) или админ.
+const canIssueAqnietInvoice = computed(() => roleMode.value === 'admin' || authStore.hasPermission('finance.write'))
+const invoiceStatusLabel = (s: number) =>
+  s === 2 ? t('billing.paidStatus') : s === 1 ? t('billing.issuedStatus') : s === 3 ? t('billing.cancelled') : t('billing.draftNo')
+const invoiceStatusColor = (s: number) => (s === 2 ? 'success' : s === 1 ? 'processing' : s === 3 ? 'error' : 'default')
+
+// Админ: завершить старую заявку без счёта AQNIET — обязательна причина.
+const completeWithoutInvoiceOpen = ref(false)
+const completeWithoutInvoiceReason = ref('')
+const promptCompleteWithoutInvoice = () => { completeWithoutInvoiceReason.value = ''; completeWithoutInvoiceOpen.value = true }
+const confirmCompleteWithoutInvoice = async () => {
+  completeWithoutInvoiceOpen.value = false
+  await runAction('complete-without-invoice', completeWithoutInvoiceReason.value.trim())
+}
+
 // Возврат на предыдущий шаг (руководитель/админ): маршрут перестал быть «только вперёд».
 const stepBackOpen = ref(false)
 const stepBackReason = ref('')
@@ -1232,4 +1288,11 @@ onMounted(() => {
 }
 .client-wait { margin: 4px 0 0; }
 .client-pay-note { margin: 0 0 8px; font-weight: 500; }
+.invoice-list-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--atg-line);
+}
 </style>

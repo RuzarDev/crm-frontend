@@ -124,7 +124,7 @@ import { DownloadOutlined, PlusOutlined, SearchOutlined, CloseOutlined } from '@
 import * as XLSX from 'xlsx'
 import PageHeader from '@/components/PageHeader.vue'
 import { billingApi, type BrokerInvoice, type BrokerInvoiceKind } from '@/api/billing'
-import { import40Api } from '@/api/import40'
+import { import40Api, type Import40CaseDto } from '@/api/import40'
 import { salesApi, type SalesServiceItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 
@@ -144,7 +144,13 @@ const kindFilter = ref<'all' | BrokerInvoiceKind>('all')
 const statusFilter = ref<'all' | 'draft' | 'issued' | 'paid'>('all')
 
 const clientOptions = ref<{ value: string; label: string }[]>([])
-const caseOptions = ref<{ value: string; label: string }[]>([])
+// Список заявок целиком (с clientId) — форма создания фильтрует его по выбранному клиенту (M13).
+const allCases = ref<Import40CaseDto[]>([])
+const caseOptions = computed(() =>
+  allCases.value
+    .filter((c) => !draft.clientId || c.clientId === draft.clientId)
+    .map((c) => ({ value: c.id, label: `${c.number} · ${c.cargo}` })),
+)
 const tariffs = ref<SalesServiceItem[]>([])
 const vatRate = ref(16)
 
@@ -180,17 +186,23 @@ onMounted(async () => {
       billingApi.organization(),
     ])
     clientOptions.value = clients.map((c) => ({ value: c.id, label: c.username }))
-    caseOptions.value = cases.map((c) => ({ value: c.id, label: `${c.number} · ${c.cargo}` }))
+    allCases.value = cases
     tariffs.value = services.filter((s) => s.isActive)
     vatRate.value = org.vatPayer ? org.vatRate : 0
   } catch {
     // справочники не критичны — форму можно заполнить руками
   }
-  // Переход из карточки заявки: /billing?caseId=…
+  // Переход из карточки заявки: /billing?caseId=… — открываем форму создания счёта AQNIET
+  // сразу с подставленными клиентом и заявкой (M13, задача 2.3), а не просто фильтруем список.
   const caseId = route.query.caseId ? String(route.query.caseId) : ''
   if (caseId) {
-    search.value = caseOptions.value.find((c) => c.value === caseId)?.label.split(' · ')[0] ?? ''
-    draft.caseId = caseId
+    const targetCase = allCases.value.find((c) => c.id === caseId)
+    search.value = targetCase?.number ?? ''
+    if (canWrite.value) {
+      openCreate()
+      draft.caseId = caseId
+      if (targetCase) draft.clientId = targetCase.clientId
+    }
   }
 })
 

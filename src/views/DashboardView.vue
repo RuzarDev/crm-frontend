@@ -267,7 +267,7 @@ const showTransitBlock = computed(() =>
 const imp = computed(() => store.import40!)
 const impStepsTotal = computed(() => (store.import40?.bySteps ?? []).reduce((a, x) => a + x.count, 0))
 const impPct = (count: number) => (impStepsTotal.value ? Math.round((count / impStepsTotal.value) * 100) : 0)
-const STEP_COLORS: Record<number, string> = { 1: '#8896ac', 2: '#3b6fd6', 3: '#2BBCD4', 4: '#C9A84C', 5: '#1f9d6a' }
+const STEP_COLORS: Record<number, string> = { 1: '#8896ac', 2: '#3b6fd6', 3: '#2BBCD4', 4: '#C9A84C', 5: '#e07a30', 6: '#1f9d6a' }
 const stepColor = (step: number) => STEP_COLORS[step] ?? '#8896ac'
 const impClientMax = computed(() => Math.max(...(store.import40?.topClients?.map((c) => c.count) ?? [1]), 1))
 
