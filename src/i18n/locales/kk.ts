@@ -1069,6 +1069,11 @@ export default {
     downloadError: 'Құжатты жүктеу мүмкін болмады',
   },
   clientDocs: {
+    signAqniet: 'Қол қою',
+    aqnietOnly: 'AQNIET қолын күтуде',
+    showAqniet: 'Көрсету',
+    aqnietDesc: 'Клиент шартқа қол қойды. AQNIET қол қоймайынша, клиент өтінім бере алмайды.',
+    aqnietTitle: 'AQNIET қолын күтуде: {n}',
     kicker: 'Клиенттік портфель',
     title: 'Клиент құжаттары',
     subtitle: 'Барлық клиенттер бойынша шарттар мен сенімхаттар: мәртебе, қолдар, мерзімдер.',

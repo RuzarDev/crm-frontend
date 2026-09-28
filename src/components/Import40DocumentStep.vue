@@ -80,7 +80,7 @@
               <a-tag v-if="doc.providerSigned" color="success">{{ t('company.signed') }}</a-tag>
               <a-tag v-else color="default">{{ t('company.pending') }}</a-tag>
             </div>
-            <div v-if="isAdmin && !doc.providerSigned" class="sign-actions">
+            <div v-if="(canSignProvider ?? isAdmin) && !doc.providerSigned" class="sign-actions">
               <a-button size="small" type="primary" @click="emit('sigex', doc, 'provider')">
                 <SafetyCertificateOutlined /> {{ t('company.signEgov') }}
               </a-button>
@@ -125,6 +125,8 @@ const props = defineProps<{
   allowSingleUse?: boolean
   /** Нужна ли подпись брокера (договор — да, доверенность — односторонний документ клиента). */
   providerSignature?: boolean
+  /** Может подписать за AQNIET: администратор или руководитель отдела (по умолчанию — isAdmin). */
+  canSignProvider?: boolean
   /**
    * Второй действующий документ невозможен (правило сервера для договора: новый нельзя,
    * пока есть действующий или ожидающий подписей). Для доверенности — false: их может

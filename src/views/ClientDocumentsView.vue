@@ -17,6 +17,21 @@
       </template>
     </PageHeader>
 
+    <!-- Договоры, которые клиент подписал, а AQNIET ещё нет: пока их не подписать, клиент не
+         может подать заявку. Подписывают администратор и руководитель отдела. -->
+    <a-alert
+      v-if="aqnietCount"
+      type="info"
+      show-icon
+      class="expiring-alert"
+      :message="t('clientDocs.aqnietTitle', { n: aqnietCount })"
+      :description="t('clientDocs.aqnietDesc')"
+    >
+      <template #action>
+        <a-button size="small" type="primary" @click="filter = 'aqniet'">{{ t('clientDocs.showAqniet') }}</a-button>
+      </template>
+    </a-alert>
+
     <a-alert
       v-if="expiringCount"
       type="warning"
@@ -64,6 +79,13 @@
           <template v-else-if="column.key === 'signs'">
             <a-tag :color="record.clientSigned ? 'success' : 'default'">{{ t('clientDocs.client') }}</a-tag>
             <a-tag v-if="record.kind === 'contract'" :color="record.providerSigned ? 'success' : 'default'">{{ t('clientDocs.broker') }}</a-tag>
+            <a-button
+              v-if="canSignProvider && needsAqniet(record)"
+              size="small"
+              type="primary"
+              class="sign-btn"
+              @click.stop="router.push({ path: '/import-40/company', query: { client: record.clientId, step: 'contract' } })"
+            >{{ t('clientDocs.signAqniet') }}</a-button>
           </template>
           <template v-else-if="column.key === 'validity'">
             <template v-if="record.validUntilUtc">
@@ -90,6 +112,7 @@ import { DownloadOutlined, SearchOutlined, FileProtectOutlined } from '@ant-desi
 import * as XLSX from 'xlsx'
 import PageHeader from '@/components/PageHeader.vue'
 import { clientCardApi, type ClientDocumentRow } from '@/api/clientCard'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -98,7 +121,11 @@ const loading = ref(false)
 const rows = ref<ClientDocumentRow[]>([])
 const search = ref('')
 const kind = ref<'all' | 'contract' | 'poa'>('all')
-const filter = ref<'all' | 'active' | 'expiring' | 'awaiting'>('all')
+const filter = ref<'all' | 'active' | 'expiring' | 'awaiting' | 'aqniet'>('all')
+const authStore = useAuthStore()
+const canSignProvider = computed(() => (authStore.role || '').toLowerCase() === 'administrator' || authStore.hasBusinessRole('rop'))
+// Договор: клиент подписал, AQNIET — нет (и договор не отозван/не истёк).
+const needsAqniet = (r: ClientDocumentRow) => r.kind === 'contract' && r.status === 1 && r.clientSigned && !r.providerSigned
 
 const kindOptions = computed(() => [
   { label: t('clientDocs.allKinds'), value: 'all' },
@@ -111,6 +138,7 @@ const filterOptions = computed(() => [
   { label: t('clientDocs.activeOnly'), value: 'active' },
   { label: t('clientDocs.expiringOnly'), value: 'expiring' },
   { label: t('clientDocs.awaitingOnly'), value: 'awaiting' },
+  { label: `${t('clientDocs.aqnietOnly')} (${aqnietCount.value})`, value: 'aqniet' },
 ])
 
 const load = async () => {
@@ -126,6 +154,7 @@ const load = async () => {
 onMounted(load)
 
 const expiringCount = computed(() => rows.value.filter((r) => r.expiringSoon).length)
+const aqnietCount = computed(() => rows.value.filter(needsAqniet).length)
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -134,6 +163,7 @@ const filtered = computed(() => {
     if (filter.value === 'active' && r.status !== 2) return false
     if (filter.value === 'expiring' && !r.expiringSoon) return false
     if (filter.value === 'awaiting' && r.status !== 1) return false
+    if (filter.value === 'aqniet' && !needsAqniet(r)) return false
     if (!q) return true
     return [r.clientName, r.clientEmail, r.number].join(' ').toLowerCase().includes(q)
   })
@@ -177,6 +207,7 @@ const exportXlsx = () => {
 <style scoped>
 .client-docs-view { display: flex; flex-direction: column; gap: 18px; }
 .expiring-alert { border-radius: var(--atg-radius-lg, 14px); }
+.sign-btn { margin-top: 6px; }
 .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
 .cell-main { font-weight: 600; color: var(--atg-ink, #182640); }
 .cell-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); }

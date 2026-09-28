@@ -117,6 +117,7 @@
             :empty-hint="t('company.contractEmpty')"
             :allow-single-use="true"
             :provider-signature="true"
+            :can-sign-provider="canSignProvider"
             :block-when-active="true"
             @generate="(opts: GenerateOpts) => generate('contract', opts)"
             @download="downloadDoc"
@@ -155,6 +156,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRoute } from 'vue-router'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
@@ -184,6 +186,7 @@ import PhoneInput from '@/components/ui/PhoneInput.vue'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
+const route = useRoute()
 const loading = ref(false)
 const saving = ref(false)
 const generatingKind = ref<'contract' | 'poa' | null>(null)
@@ -197,6 +200,8 @@ const current = ref(0)
 const countryOptions = ref<{ value: string; label: string }[]>([])
 
 const isAdmin = computed(() => (authStore.role || '').toLowerCase() === 'administrator')
+// Подпись со стороны AQNIET — администратор или руководитель отдела (как на сервере).
+const canSignProvider = computed(() => isAdmin.value || authStore.hasBusinessRole('rop'))
 
 const form = reactive({
   companyName: '',
@@ -335,16 +340,23 @@ const load = async () => {
       message.error(t('company.noProfile'))
       return
     }
-    clientOptions.value = clients.map((c) => ({ value: c.id, label: c.username }))
-    clientId.value = clients[0].id
+    clientOptions.value = clients.map((c) => ({
+      value: c.id,
+      label: c.companyName ? `${c.companyName} (${c.username})` : c.username,
+    }))
+    // ?client=… — пришли из «Документов клиентов» («Подписать»): сразу нужный клиент,
+    // а не первый по списку.
+    const wanted = typeof route.query.client === 'string' ? route.query.client : ''
+    clientId.value = clients.some((c) => c.id === wanted) ? wanted : clients[0].id
     applyProfile(await import40ContractApi.getProfile(clientId.value))
     await loadDocuments()
     if (!countryOptions.value.length) {
       const countries = await referencesApi.listCountries()
       countryOptions.value = countries.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
     }
-    // открываем первый незавершённый шаг
-    if (!profile.value?.isComplete) current.value = 0
+    // открываем первый незавершённый шаг (или договор, если пришли его подписывать)
+    if (route.query.step === 'contract') current.value = 1
+    else if (!profile.value?.isComplete) current.value = 0
     else if (!effectiveContract.value) current.value = 1
     else if (!activePoa.value) current.value = 2
     else current.value = 2

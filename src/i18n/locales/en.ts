@@ -1069,6 +1069,11 @@ export default {
     downloadError: 'Could not download the document',
   },
   clientDocs: {
+    signAqniet: 'Sign',
+    aqnietOnly: 'Awaiting AQNIET',
+    showAqniet: 'Show',
+    aqnietDesc: 'The client has signed the contract. Until AQNIET signs it, the client cannot submit a request.',
+    aqnietTitle: 'Awaiting AQNIET signature: {n}',
     kicker: 'Client portfolio',
     title: 'Client documents',
     subtitle: 'Contracts and powers of attorney across all clients: status, signatures, expiry.',
