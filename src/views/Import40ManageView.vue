@@ -37,11 +37,6 @@
                     :class="{ 'need-assign': (needsDeclarant(record.status) || needsKpp(record.status)) && !record.assignedDeclarantId && !record.assignedKppId }"
                     @change="(v: string | undefined) => assign(record, 'assignedDeclarantId', v)" />
                 </template>
-                <template v-else-if="column.key === 'kpp'">
-                  <a-select :value="record.assignedKppId ?? undefined" :options="kppOptions" allow-clear size="small" placeholder="—" style="width: 100%"
-                    :class="{ 'need-assign': false }"
-                    @change="(v: string | undefined) => assign(record, 'assignedKppId', v)" />
-                </template>
                 <template v-else-if="column.key === 'days'">
                   <span class="tnum">{{ record.daysInWork }}</span>
                   <div class="cell-sub" :class="{ 'stale-txt': record.daysSinceUpdate >= 5 }">{{ t('admin.obnovlDnNazad', { n: record.daysSinceUpdate }) }}</div>
@@ -117,7 +112,6 @@ const filtered = computed(() => {
 
 const staffLabel = (u: { displayName: string | null; username: string }) => u.displayName || u.username
 const declarantOptions = computed(() => (data.value?.staff ?? []).filter((u) => u.roles.includes('declarant')).map((u) => ({ value: u.id, label: staffLabel(u) })))
-const kppOptions = computed(() => (data.value?.staff ?? []).filter((u) => u.roles.includes('kpp') || u.roles.includes('declarant')).map((u) => ({ value: u.id, label: staffLabel(u) })))
 
 const staffLoad = computed(() => (data.value?.staff ?? [])
   .filter((u) => u.roles.includes('declarant') || u.roles.includes('kpp'))
@@ -126,13 +120,17 @@ const staffLoad = computed(() => (data.value?.staff ?? [])
 const loadMax = computed(() => Math.max(...staffLoad.value.map((s) => s.count), 1))
 const loadPct = (n: number) => Math.max(Math.round((n / loadMax.value) * 100), n ? 6 : 0)
 
+// Колонки «КПП» нет: отдельного менеджера КПП нет, шаги КПП ведёт назначенный декларант
+// (сервер ставит его КПП сам). Сервер отдаёт новые сверху; «Заявка», «Шаг», «Дней» — сортировка кликом.
+const sortDirections: ('descend' | 'ascend')[] = ['descend', 'ascend']
 const columns = computed(() => ([
-
-  { title: t('admin.zayavka'), key: 'case', width: 260 },
-  { title: t('admin.shag'), key: 'step', width: 230 },
-  { title: t('admin.deklarant'), key: 'declarant', width: 170 },
-  { title: t('admin.kpp'), key: 'kpp', width: 170 },
-  { title: t('admin.dney'), key: 'days', width: 120 },
+  { title: t('admin.zayavka'), key: 'case', width: 260, sortDirections,
+    sorter: (a: ManageCase, b: ManageCase) => a.number.localeCompare(b.number) },
+  { title: t('admin.shag'), key: 'step', width: 230, sortDirections,
+    sorter: (a: ManageCase, b: ManageCase) => a.status - b.status },
+  { title: t('admin.deklarant'), key: 'declarant', width: 200 },
+  { title: t('admin.dney'), key: 'days', width: 120, sortDirections,
+    sorter: (a: ManageCase, b: ManageCase) => a.daysInWork - b.daysInWork },
   { title: '', key: 'actions', width: 140 },
 ]))
 const assign = async (c: ManageCase, field: 'assignedKppId' | 'assignedDeclarantId', value: string | undefined) => {
@@ -140,6 +138,7 @@ const assign = async (c: ManageCase, field: 'assignedKppId' | 'assignedDeclarant
     // Guid.Empty на бэке = «снять назначение».
     await import40Api.update(c.id, { [field]: value ?? '00000000-0000-0000-0000-000000000000' })
     c[field] = value ?? null
+    if (field === 'assignedDeclarantId') c.assignedKppId = value ?? null
     message.success(t('admin.naznachenieSohraneno'))
     if (data.value) data.value.unassigned = data.value.cases.filter((x) => (needsKpp(x.status) || needsDeclarant(x.status)) && !x.assignedKppId && !x.assignedDeclarantId).length
   } catch (e: unknown) {

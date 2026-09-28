@@ -96,7 +96,6 @@ export default {
     assignedMe: 'assigned to me',
     assignedOther: 'taken by a colleague',
     problemBtn: 'Customs query / problem',
-    kppNotAssigned: 'Checkpoint not assigned',
     declarantNotAssigned: 'Declarant not assigned',
     assign: 'Assign',
     problemTitle: 'Customs query / problem',
@@ -212,6 +211,7 @@ export default {
   import40List: {
     scopeActive: 'Active',
     scopeArchive: 'Archive',
+    scopeDrafts: 'Drafts',
     kicker: 'Working module',
     title: 'Import 40',
     subtitle: 'Customs clearance requests: containers, DT, statuses.',

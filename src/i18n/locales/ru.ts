@@ -96,7 +96,6 @@ export default {
     assignedMe: 'в работе у меня',
     assignedOther: 'занято коллегой',
     problemBtn: 'Запрос таможни / проблема',
-    kppNotAssigned: 'КПП не назначен',
     declarantNotAssigned: 'Декларант не назначен',
     assign: 'Назначить',
     problemTitle: 'Запрос таможни / проблема',
@@ -212,6 +211,7 @@ export default {
   import40List: {
     scopeActive: 'Активные',
     scopeArchive: 'Архив',
+    scopeDrafts: 'Черновики',
     kicker: 'Рабочий модуль',
     title: 'Импорт 40',
     subtitle: 'Заявки на таможенное оформление: контейнеры, ДТ, статусы.',

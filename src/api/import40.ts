@@ -929,8 +929,9 @@ export const import40Api = {
     return response.data
   },
 
-  listClients: async (): Promise<{ id: string; username: string }[]> => {
-    const response = await apiClient.get<{ id: string; username: string }[]>('/import40/clients')
+  // companyName — кратко («ТОО …»), может отсутствовать у клиента без профиля компании.
+  listClients: async (): Promise<{ id: string; username: string; companyName?: string | null }[]> => {
+    const response = await apiClient.get<{ id: string; username: string; companyName?: string | null }[]>('/import40/clients')
     return response.data
   },
 

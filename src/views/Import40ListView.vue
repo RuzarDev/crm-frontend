@@ -424,11 +424,16 @@ const showOnboardingGate = computed(
   () => isClientRole.value && onboardingChecked.value && !onboardingReady.value,
 )
 
+// Сервер отдаёт новые сверху; по «Заявка», «Шаг», «Обновлено» можно пересортировать кликом.
+const sortDirections: ('descend' | 'ascend')[] = ['descend', 'ascend']
 const columns = computed(() => [
-  { title: t('import40List.colRequest'), key: 'case', width: 240 },
-  { title: t('import40List.colStep'), key: 'status', width: 220 },
+  { title: t('import40List.colRequest'), key: 'case', width: 240, sortDirections,
+    sorter: (a: Import40CaseDto, b: Import40CaseDto) => a.number.localeCompare(b.number) },
+  { title: t('import40List.colStep'), key: 'status', width: 220, sortDirections,
+    sorter: (a: Import40CaseDto, b: Import40CaseDto) => a.status - b.status },
   { title: t('import40List.colComposition'), key: 'containers', width: 140 },
-  { title: t('import40List.colUpdated'), key: 'updated', width: 110 },
+  { title: t('import40List.colUpdated'), key: 'updated', width: 110, sortDirections,
+    sorter: (a: Import40CaseDto, b: Import40CaseDto) => Date.parse(a.updatedAtUtc) - Date.parse(b.updatedAtUtc) },
 ])
 
 const { statusLabel } = useImport40Status()
@@ -591,15 +596,23 @@ const persistWizardDraft = async () => {
 }
 
 // «Все заявки»: активные / архив (выполненные и отменённые) — раньше архив был неотличим от работы.
-const scope = ref<'active' | 'archive'>('active')
-const scopeOptions = computed(() => [
-  { label: t('import40List.scopeActive'), value: 'active' },
-  { label: t('import40List.scopeArchive'), value: 'archive' },
-])
+// «Все заявки»: в работе / черновики (клиент ещё не отправил) / архив (выполненные и отменённые) —
+// черновики больше не смешиваются с заявками в работе.
+type Scope = 'active' | 'drafts' | 'archive'
+const scope = ref<Scope>('active')
+const scopeOf = (status: number): Scope => (status === 0 ? 'drafts' : status >= 8 ? 'archive' : 'active')
+const scopeOptions = computed(() => {
+  const count = (s: Scope) => cases.value.filter((c) => scopeOf(c.status) === s).length
+  return [
+    { label: `${t('import40List.scopeActive')} (${count('active')})`, value: 'active' },
+    { label: `${t('import40List.scopeDrafts')} (${count('drafts')})`, value: 'drafts' },
+    { label: `${t('import40List.scopeArchive')} (${count('archive')})`, value: 'archive' },
+  ]
+})
 const filteredCases = computed(() => {
   const q = search.value.trim().toLowerCase()
   const byScope = tab.value === 'all'
-    ? cases.value.filter((c) => (scope.value === 'archive' ? c.status >= 8 : c.status < 8))
+    ? cases.value.filter((c) => scopeOf(c.status) === scope.value)
     : cases.value
   if (!q) return byScope
   return byScope.filter((c) =>
@@ -607,8 +620,10 @@ const filteredCases = computed(() => {
   )
 })
 
+// Название заявки — компания клиента (сервер всё равно берёт его из профиля клиента).
+const clientNames = new Map<string, string>()
 const syncClientName = () => {
-  draft.clientName = clientOptions.value.find((o) => o.value === draft.clientId)?.label || ''
+  draft.clientName = (draft.clientId && clientNames.get(draft.clientId)) || ''
 }
 
 const reload = async () => {
@@ -624,10 +639,14 @@ const loadClients = async () => {
   clientsLoading.value = true
   try {
     const clients = await import40Api.listClients()
-    clientOptions.value = clients.map((c) => ({ value: c.id, label: c.username }))
+    clients.forEach((c) => clientNames.set(c.id, c.companyName || c.username))
+    clientOptions.value = clients.map((c) => ({
+      value: c.id,
+      label: c.companyName ? `${c.companyName} (${c.username})` : c.username,
+    }))
     if (isClientRole.value && clients.length) {
       draft.clientId = clients[0].id
-      draft.clientName = clients[0].username
+      draft.clientName = clients[0].companyName || clients[0].username
       void loadOnboardingStatus(clients[0].id)
     }
   } finally {

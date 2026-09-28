@@ -4,7 +4,8 @@
       <template #meta>
         <span>{{ t('import40Case.client') }}: <strong>{{ activeCase.clientName }}</strong></span>
         <span>{{ t('import40Case.post') }}: <strong>{{ activeCase.post || '—' }}</strong></span>
-        <span v-if="activeCase.assignedKppId">{{ t('import40Case.kpp') }}: <a-tag>{{ staffName(activeCase.assignedKppId) }}</a-tag></span>
+        <!-- КПП показываем, только если это не тот же декларант (отдельного менеджера КПП нет). -->
+        <span v-if="activeCase.assignedKppId && activeCase.assignedKppId !== activeCase.assignedDeclarantId">{{ t('import40Case.kpp') }}: <a-tag>{{ staffName(activeCase.assignedKppId) }}</a-tag></span>
         <span v-if="activeCase.assignedDeclarantId">{{ t('import40Case.declarant') }}: <a-tag>{{ staffName(activeCase.assignedDeclarantId) }}</a-tag></span>
         <a-tag v-if="activeCase.status === 9" color="default">{{ t('import40Case.cancelled') }}</a-tag>
         <a-tag v-else-if="isCompleted(activeCase.status)" color="success">{{ t('import40Case.completed') }}</a-tag>
@@ -24,7 +25,6 @@
         <a-button v-if="canCancel" danger size="small" @click="promptCancel">{{ t('import40Case.cancelBtn') }}</a-button>
 
         <div v-if="canAssign" class="assign-inline">
-          <a-select v-model:value="assignForm.kppId" allow-clear :placeholder="t('import40Case.kppNotAssigned')" :options="kppOptions" size="small" style="min-width: 170px" />
           <a-select v-model:value="assignForm.declarantId" allow-clear :placeholder="t('import40Case.declarantNotAssigned')" :options="declarantOptions" size="small" style="min-width: 170px" />
           <a-button size="small" :loading="assignSaving" @click="saveAssignment">{{ t('import40Case.assign') }}</a-button>
         </div>
@@ -528,7 +528,6 @@ const reload = async () => {
   const id = String(route.params.id)
   activeCase.value = await import40Api.get(id)
   files.value = await import40Api.listFiles(id)
-  assignForm.kppId = activeCase.value?.assignedKppId ?? null
   assignForm.declarantId = activeCase.value?.assignedDeclarantId ?? null
   void loadReadiness()
 }
@@ -867,22 +866,19 @@ const loadStaffOptions = async () => {
 }
 const staffLabel = (u: StaffMember) => u.displayName || u.username
 // Шаги КПП делает брокер-декларант (отдельного менеджера КПП пока нет) — в селект КПП попадают оба.
-const kppOptions = computed(() =>
-  staffList.value.filter((u) => u.roles.includes('kpp') || u.roles.includes('declarant')).map((u) => ({ value: u.id, label: staffLabel(u) })),
-)
 const declarantOptions = computed(() =>
   staffList.value.filter((u) => u.roles.includes('declarant')).map((u) => ({ value: u.id, label: staffLabel(u) })),
 )
 const staffName = (id: string) => { const u = staffList.value.find((x) => x.id === id); return u ? staffLabel(u) : t('import40Case.staffAssigned') }
 
-const assignForm = reactive<{ kppId: string | null; declarantId: string | null }>({ kppId: null, declarantId: null })
+const assignForm = reactive<{ declarantId: string | null }>({ declarantId: null })
 const assignSaving = ref(false)
 const saveAssignment = async () => {
   if (!activeCase.value) return
   assignSaving.value = true
   try {
+    // Только декларант: шаги КПП ведёт он же — сервер назначает его и КПП заявки.
     await import40Api.update(activeCase.value.id, {
-      assignedKppId: assignForm.kppId || '00000000-0000-0000-0000-000000000000',
       assignedDeclarantId: assignForm.declarantId || '00000000-0000-0000-0000-000000000000',
     } as never)
     message.success(t('import40Case.assignSaved'))

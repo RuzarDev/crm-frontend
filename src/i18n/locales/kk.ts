@@ -96,7 +96,6 @@ export default {
     assignedMe: 'менде жұмыста',
     assignedOther: 'әріптесте',
     problemBtn: 'Кеден сұрауы / мәселе',
-    kppNotAssigned: 'ӨБ тағайындалмаған',
     declarantNotAssigned: 'Декларант тағайындалмаған',
     assign: 'Тағайындау',
     problemTitle: 'Кеден сұрауы / мәселе',
@@ -212,6 +211,7 @@ export default {
   import40List: {
     scopeActive: 'Белсенді',
     scopeArchive: 'Мұрағат',
+    scopeDrafts: 'Жобалар',
     kicker: 'Жұмыс модулі',
     title: 'Импорт 40',
     subtitle: 'Кедендік ресімдеуге өтінімдер: контейнерлер, ДТ, мәртебелер.',
