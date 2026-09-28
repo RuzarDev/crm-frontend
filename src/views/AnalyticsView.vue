@@ -117,7 +117,9 @@
           <a-card class="crm-shell-card" :bordered="false">
             <template #title><span class="card-title"><HistoryOutlined /> {{ t('admin.poslednieOperacii') }}</span></template>
             <a-table :columns="activityColumns" :data-source="a.recentActivity" :pagination="false" row-key="atUtc" size="middle" class="activity-table"
-              :custom-row="(r: AnalyticsActivity) => ({ onClick: () => router.push(`/import-40/${r.caseId}`), style: 'cursor:pointer' })">
+              :custom-row="(r: AnalyticsActivity) => (canOpenCase
+                ? { onClick: () => router.push(`/import-40/${r.caseId}`), style: 'cursor:pointer' }
+                : {})">
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'case'"><strong>{{ record.clientName }}</strong><div class="muted">{{ record.cargo }}</div></template>
                 <template v-else-if="column.key === 'role'"><a-tag>{{ roleLabel(record.role) }}</a-tag></template>
@@ -143,10 +145,15 @@ import {
 } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { analyticsApi, type AnalyticsDto, type AnalyticsActivity } from '@/api/analytics'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
 
 const router = useRouter()
+const authStore = useAuthStore()
+// Аудит §4.12: строка ведёт на карточку заявки, а её может открыть не любой, кто видит
+// аналитику (analytics.read) — без import40.read переход 404/403-ится молча.
+const canOpenCase = computed(() => authStore.hasPermission('import40.read'))
 const loading = ref(false)
 const a = ref<AnalyticsDto | null>(null)
 

@@ -138,6 +138,9 @@
           <a-form-item :label="t('admin.telefon')">
             <PhoneInput v-model:value="invite.phone" />
           </a-form-item>
+          <a-form-item :label="t('admin.uslugaDlyaKlienta')">
+            <a-select v-model:value="invite.service" :options="serviceOptions" />
+          </a-form-item>
           <a-button type="primary" :loading="inviting" :disabled="!invite.email || invite.bin.replace(/\D/g, '').length !== 12" @click="sendInvite"> {{ t('admin.sozdatPriglashenie') }} </a-button>
         </a-form>
       </template>
@@ -306,19 +309,31 @@ const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString
 const getInitial = (name: string) => (name || '?').trim().charAt(0).toUpperCase()
 
 // ── приглашение ──
+// Аудит §4.14: экспедитор по умолчанию приглашает для транзита — иначе его клиент не попадал
+// ни в ExpeditorId, ни в реестр. Остальные сотрудники — по умолчанию «Импорт 40».
+const isExpeditorInviter = computed(() => (authStore.role || '').trim().toLowerCase() === 'expeditor')
+const serviceOptions = computed(() => [
+  { value: 'import40', label: t('admin.import40') },
+  { value: 'transit', label: t('admin.tranzit') },
+])
 const inviteOpen = ref(false)
 const inviting = ref(false)
-const invite = reactive({ email: '', bin: '', companyName: '', phone: '' })
+const invite = reactive({ email: '', bin: '', companyName: '', phone: '', service: 'import40' as 'import40' | 'transit' })
 const inviteResult = ref<InviteClientResponse | null>(null)
 const inviteUrl = computed(() => (inviteResult.value ? `${window.location.origin}${inviteResult.value.invitePath}` : ''))
 
 const openInvite = () => { resetInvite(); inviteOpen.value = true }
-const resetInvite = () => { invite.email = ''; invite.bin = ''; invite.companyName = ''; invite.phone = ''; inviteResult.value = null }
+const resetInvite = () => {
+  invite.email = ''; invite.bin = ''; invite.companyName = ''; invite.phone = ''
+  invite.service = isExpeditorInviter.value ? 'transit' : 'import40'
+  inviteResult.value = null
+}
 const sendInvite = async () => {
   inviting.value = true
   try {
     inviteResult.value = await clientsOnboardingApi.invite({
       email: invite.email.trim(), bin: invite.bin.trim(), companyName: invite.companyName.trim() || null, phone: invite.phone.trim() || null,
+      service: invite.service,
     })
     void load()
   } catch {

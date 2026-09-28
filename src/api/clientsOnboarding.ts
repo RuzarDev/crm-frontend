@@ -24,6 +24,8 @@ export interface InviteClientRequest {
   bin: string
   companyName?: string | null
   phone?: string | null
+  /** Волна 5 (аудит §4.14): какой модуль нужен клиенту — 'import40' | 'transit'. */
+  service?: 'import40' | 'transit'
 }
 
 export interface InviteClientResponse {

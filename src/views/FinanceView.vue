@@ -17,6 +17,30 @@
           <div class="kpi kpi--navy"><span>{{ t('admin.tamozhennyePlatezhiGrv') }}</span><b>{{ money(data.customsPaymentsTotal) }} ₸</b><small>{{ t('admin.poVsemDtVybrannyh') }}</small></div>
         </div>
 
+        <!-- Аудит §4.4: у бухгалтера отдельно — заявки, где СВХ уже оплачен и осталось выставить
+             или получить оплату счёта AQNIET (шаг 6, Import40Status.Paid=7). Ссылка ведёт в
+             «Счета» с подставленным caseId (та же логика, что и кнопка «Выставить счёт» в карточке). -->
+        <a-card
+          v-if="awaitingAqniet.length"
+          class="crm-shell-card"
+          :bordered="false"
+          style="margin-bottom: 16px"
+        >
+          <template #title>{{ t('admin.zhdutOplatyUslugAqniet') }} ({{ awaitingAqniet.length }})</template>
+          <a-list :data-source="awaitingAqniet" size="small">
+            <template #renderItem="{ item }">
+              <a-list-item>
+                <a-list-item-meta>
+                  <template #title>
+                    <a @click="router.push(`/billing?caseId=${item.caseId}`)">{{ item.number }} · {{ item.clientName }}</a>
+                  </template>
+                  <template #description>{{ item.cargo }}</template>
+                </a-list-item-meta>
+              </a-list-item>
+            </template>
+          </a-list>
+        </a-card>
+
         <a-card class="crm-shell-card" :bordered="false">
           <div class="filters">
             <a-input v-model:value="search" allow-clear :placeholder="t('admin.poiskPoKlientuGruzu')" style="max-width: 300px"><template #prefix><SearchOutlined /></template></a-input>
@@ -91,6 +115,8 @@ const data = ref<FinanceOverview | null>(null)
 const period = ref<[string, string] | null>(null)
 const search = ref('')
 const filter = ref<'all' | 'awaiting' | 'paid' | 'invoiced'>('all')
+// Аудит §4.4: Import40Status.Paid = 7 — СВХ оплачен, заявка ждёт счёта/оплаты AQNIET.
+const awaitingAqniet = computed(() => (data.value?.rows ?? []).filter((r) => r.status === 7))
 const filterOptions = computed(() => ([
 
   { label: t('admin.vse'), value: 'all' },

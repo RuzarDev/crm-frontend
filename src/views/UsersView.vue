@@ -65,10 +65,10 @@
                 @click="openBusinessRoleModal(record)"
               > {{ t('admin.roli') }} </a-button>
               <a-button
-                v-if="catalogTab === 'staff' && record.role === 'broker' && canEditBroker"
+                v-if="catalogTab === 'staff' && canEditBroker && (record.role === 'broker' || (rolesOf(record).includes('mpp') && 'clients' in record))"
                 type="link"
                 size="small"
-                @click="openEditBroker(record as CatalogBrokerRow)"
+                @click="openEditBroker(record as CatalogBrokerRow | CatalogImporterRow)"
               >
                 <EditOutlined /> {{ t('admin.izmenit') }} </a-button>
               <a-button
@@ -176,7 +176,7 @@
 
     <a-modal
       v-model:open="editBrokerModalOpen"
-      :title="t('admin.redaktirovanieBrokera')"
+      :title="editingIsBroker ? t('admin.redaktirovanieBrokera') : t('admin.privyazkaKKlientam')"
       :ok-text="t('admin.sohranit')"
       :cancel-text="t('admin.otmena')"
       :confirm-loading="editBrokerSaving"
@@ -184,7 +184,7 @@
       @cancel="closeEditBrokerModal"
     >
       <a-form layout="vertical">
-        <a-form-item :label="t('admin.login')">
+        <a-form-item v-if="editingIsBroker" :label="t('admin.login')">
           <a-input v-model:value="editBrokerForm.username" :placeholder="t('admin.login')" />
         </a-form-item>
         <a-form-item :label="t('admin.klienty')">
@@ -295,6 +295,7 @@ import { useAuthStore } from '@/stores/auth'
 import type {
   CatalogBrokerRow,
   CatalogExpeditorRow,
+  CatalogImporterRow,
   CatalogLinkedPerson,
   CatalogTabKey,
   CatalogTableRow,
@@ -453,7 +454,15 @@ const staffLinkOptions = computed(() => {
     label: `${u.username} (${formatRole(u.role)})`,
     value: u.id,
   }))
-  return [...brokerOpts, ...expOpts]
+  // Волна 5 (аудит §4.3): мпп, заведённый не в таблице Broker (importer/salesperson), тоже
+  // должен появляться в списке для привязки к клиенту реестра транзита.
+  const mppImporterOpts = usersStore.importers
+    .filter((u) => rolesOf(u).includes('mpp'))
+    .map((u) => ({ label: `${u.username} (${businessRoleLabel('mpp')})`, value: u.id }))
+  const mppSalesOpts = usersStore.salespersons
+    .filter((u) => rolesOf(u).includes('mpp'))
+    .map((u) => ({ label: `${u.username} (${businessRoleLabel('mpp')})`, value: u.id }))
+  return [...brokerOpts, ...expOpts, ...mppImporterOpts, ...mppSalesOpts]
 })
 
 const clientLinkOptions = computed(() =>
@@ -467,6 +476,9 @@ const editBrokerModalOpen = ref(false)
 const editBrokerSaving = ref(false)
 const editingBrokerOriginalUsername = ref('')
 const editingBrokerId = ref<string | null>(null)
+// Модалка общая: для роли broker — логин + клиенты (usersStore.editBroker), для остальных
+// сотрудников с бизнес-ролью mpp (importer/salesperson) — только клиенты (editStaffClients).
+const editingIsBroker = ref(true)
 const editBrokerForm = reactive({
   username: '',
   clientIds: [] as string[],
@@ -664,13 +676,23 @@ const handleCreate = async () => {
     message.error(t('admin.zapolniteLoginParolI'))
     return
   }
+  // Аудит §4.7: на вкладке «Сотрудники» бизнес-роль обязательна — иначе сотрудник молча
+  // становился декларантом (AppBusinessRoles.DefaultForSystemRole), хотя мог быть, например, мпп.
+  if (catalogTab.value === 'staff' && !form.businessRole) {
+    message.error(t('admin.vyberiteBiznesRol'))
+    return
+  }
 
   saving.value = true
   try {
+    // Системный тип аккаунта сотрудника по бизнес-роли: mpp работает с реестром транзита
+    // через таблицу Broker (готовая инфраструктура привязок к клиентам); остальные — importer.
+    const role =
+      catalogTab.value === 'staff' && form.businessRole === 'mpp' ? 'broker' : form.role
     const success = await usersStore.createUser({
       username: form.username.trim(),
       password: form.password,
-      role: form.role,
+      role,
       businessRole: showBusinessRoleField.value && form.businessRole ? form.businessRole : undefined,
     })
     if (success) {
@@ -689,7 +711,8 @@ const handleDelete = async (record: CatalogTableRow) => {
   await usersStore.deleteUser(record.id)
 }
 
-const openEditBroker = (record: CatalogBrokerRow) => {
+const openEditBroker = (record: CatalogBrokerRow | CatalogImporterRow) => {
+  editingIsBroker.value = record.role === 'broker'
   editingBrokerId.value = record.id
   editingBrokerOriginalUsername.value = record.username
   editBrokerForm.username = record.username
@@ -707,15 +730,24 @@ const handleEditBrokerSave = async () => {
   }
   editBrokerSaving.value = true
   try {
-    const trimmed = editBrokerForm.username.trim()
-    const username =
-      trimmed === editingBrokerOriginalUsername.value ? null : trimmed || null
-    const ok = await usersStore.editBroker(editingBrokerId.value, {
-      username,
-      clientIds: [...(editBrokerForm.clientIds ?? [])],
-    })
-    if (ok) {
-      closeEditBrokerModal()
+    if (editingIsBroker.value) {
+      const trimmed = editBrokerForm.username.trim()
+      const username =
+        trimmed === editingBrokerOriginalUsername.value ? null : trimmed || null
+      const ok = await usersStore.editBroker(editingBrokerId.value, {
+        username,
+        clientIds: [...(editBrokerForm.clientIds ?? [])],
+      })
+      if (ok) {
+        closeEditBrokerModal()
+      }
+    } else {
+      const ok = await usersStore.editStaffClients(editingBrokerId.value, {
+        clientIds: [...(editBrokerForm.clientIds ?? [])],
+      })
+      if (ok) {
+        closeEditBrokerModal()
+      }
     }
   } finally {
     editBrokerSaving.value = false

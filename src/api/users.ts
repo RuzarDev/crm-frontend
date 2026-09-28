@@ -8,6 +8,7 @@ import type {
   CatalogSalespersonRow,
   EditBrokerRequest,
   EditExpeditorRequest,
+  EditStaffClientsRequest,
   LinkUsersRequest,
   RegisterRequest,
 } from '@/types/api'
@@ -84,6 +85,13 @@ export const usersApi = {
     await apiClient.put(`/users/expeditors/${encodeURIComponent(expeditorId)}`, {
       username: data.username,
       clientsId: data.clientsId,
+    })
+  },
+
+  // Волна 5: привязка клиентов реестра транзита для сотрудника не из таблицы Broker (мпп-importer).
+  editStaffClients: async (staffUserId: string, data: EditStaffClientsRequest): Promise<void> => {
+    await apiClient.put(`/users/staff/${encodeURIComponent(staffUserId)}/clients`, {
+      clientIds: data.clientIds,
     })
   },
 

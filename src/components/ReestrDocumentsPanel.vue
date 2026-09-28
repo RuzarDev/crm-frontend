@@ -146,11 +146,14 @@ const clientCanUpload = computed(
   () => role.value === 'client' || role.value === 'expeditor' || role.value === 'administrator',
 )
 
-// Брокер грузит по роли — readonly касается только полей данных, не документов брокера
+// Аудит §4.2: загрузка документов брокера — по праву reestr.write, а не по системной роли
+// broker, иначе МПП с системной ролью importer (вкладка «Сотрудники») не мог их загружать.
 const brokerCanUpload = computed(
   () =>
     !brokerSectionClosed.value &&
-    (role.value === 'broker' || role.value === 'administrator'),
+    role.value !== 'client' &&
+    role.value !== 'expeditor' &&
+    authStore.hasPermission('reestr.write'),
 )
 
 const documentsBySection = (section: ReestrDocumentSection) =>
@@ -165,10 +168,11 @@ const canDeleteDocument = (doc: ReestrDocumentDto) => {
   if (!authStore.hasPermission('reestr.write')) return false
   if (role.value === 'client') return false
   if (doc.section === 'broker' && brokerSectionClosed.value) return false
-  if (role.value === 'broker') {
+  if (role.value === 'administrator') return true
+  if (role.value !== 'expeditor' && authStore.hasPermission('reestr.write')) {
     return doc.section === 'broker' && doc.uploadedByUserId === authStore.userId
   }
-  return role.value === 'administrator'
+  return false
 }
 
 const fetchDocuments = async () => {

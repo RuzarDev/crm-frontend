@@ -1,6 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
+// Аудит §4.5: стартовая страница — по бизнес-роли, а не всегда «Дашборд Импорта», которого
+// нет в меню бухгалтера/продажника. Порядок соответствует решению владельца (Волна 5).
+const homeRouteForRole = (): string => {
+  const authStore = useAuthStore()
+  const role = (authStore.role || '').trim().toLowerCase()
+  if (role === 'administrator' || role === 'client') return '/dashboard'
+  if (authStore.hasBusinessRole('accountant')) return '/finance'
+  if (authStore.hasBusinessRole('sales')) return '/sales'
+  if (authStore.hasBusinessRole('kpp') || authStore.hasBusinessRole('declarant') || authStore.hasBusinessRole('rop')) return '/import-40'
+  if (authStore.hasBusinessRole('mpp')) return '/reestr'
+  return '/dashboard'
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -42,7 +55,7 @@ const router = createRouter({
       children: [
         {
           path: '',
-          redirect: '/dashboard',
+          redirect: homeRouteForRole,
         },
         {
           path: '/dashboard',
@@ -117,10 +130,12 @@ const router = createRouter({
           meta: { requiresRole: 'administrator' },
         },
         {
+          // Аудит §4.10: гейт был по списку системных ролей (requiresAnyRole), а меню
+          // показывает пункт по праву (reestr.read/import40.read) — продажник видел пункт,
+          // но переход тихо уводил на дашборд. Проверка — в общем guard'е, как /reestr и /billing.
           path: '/keden-status',
           name: 'keden-status',
           component: () => import('@/views/KedenStatusView.vue'),
-          meta: { requiresAnyRole: ['administrator', 'broker', 'expeditor', 'importer', 'client'] },
         },
         {
           path: '/sales',
@@ -295,6 +310,15 @@ router.beforeEach((to, from, next) => {
     // Счета — сотрудникам по finance.read, клиенту Импорта 40 (свои, только чтение).
     to.path === '/billing' && normalizedRole !== 'administrator'
     && !(normalizedRole === 'client' ? authStore.clientHasModule('import40') : authStore.hasPermission('finance.read'))
+  ) {
+    next('/')
+  } else if (
+    // Статусы КЕДЕН — то же условие, что и пункт меню (MainLayout): экспедитор/клиент транзита/
+    // reestr.read/import40.read. Раньше гейтился списком системных ролей — не совпадал с меню.
+    to.path === '/keden-status' && normalizedRole !== 'administrator' && normalizedRole !== 'expeditor'
+    && !(normalizedRole === 'client'
+      ? authStore.clientHasModule('transit')
+      : authStore.hasPermission('reestr.read') || authStore.hasPermission('import40.read'))
   ) {
     next('/')
   } else if (requiredRole && normalizedRole !== requiredRole) {

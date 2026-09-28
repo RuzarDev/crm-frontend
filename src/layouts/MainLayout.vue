@@ -201,6 +201,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons-vue'
 import { formatRole } from '@/utils/labels'
+import { businessRoleLabel } from '@/api/permissions'
 import { useClientRegistration } from '@/composables/useClientRegistration'
 import { zirconDarkSiderTheme } from '@/theme/antdTheme'
 import dayjs from 'dayjs'
@@ -609,7 +610,15 @@ const onSearchSelect = (url: string) => {
   router.push(url)
 }
 
-const roleLabel = computed(() => formatRole(authStore.role || ''))
+// Аудит §10: бейдж в шапке показывал системный тип аккаунта («Импорт») одинаково у всех
+// сотрудников — теперь показываем бизнес-роли (через enum.businessRole), администратору
+// оставляем системную метку «Администратор».
+const roleLabel = computed(() => {
+  const role = (authStore.role || '').trim().toLowerCase()
+  if (role === 'administrator') return formatRole(authStore.role || '')
+  const roles = authStore.businessRoles?.length ? authStore.businessRoles : (authStore.businessRole ? [authStore.businessRole] : [])
+  return roles.length ? roles.map((r) => businessRoleLabel(r)).join(', ') : formatRole(authStore.role || '')
+})
 
 function onOpenChange(keys: string[]) {
   openKeys.value = keys

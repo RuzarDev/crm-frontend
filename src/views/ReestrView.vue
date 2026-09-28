@@ -263,6 +263,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { computed, ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import { useReestrStore } from '@/stores/reestr'
@@ -460,7 +461,9 @@ const canDelete = computed(() => authStore.hasPermission('reestr.delete'))
 const canChangeStatus = computed(() => authStore.hasPermission('status.change'))
 const isClient = computed(() => (authStore.role || '').trim().toLowerCase() === 'client')
 const isExpeditor = computed(() => (authStore.role || '').trim().toLowerCase() === 'expeditor')
-const isBroker = computed(() => (authStore.role || '').trim().toLowerCase() === 'broker')
+// Аудит §4.2/4.13: раньше «Документы брокера» показывались только системной роли broker —
+// МПП с системной ролью importer (вкладка «Сотрудники») их не видел, хотя имеет reestr.read.
+const isBroker = computed(() => !isExpeditor.value && !isClient.value && authStore.hasPermission('reestr.read'))
 const isNonClient = computed(() => (authStore.role || '').trim().toLowerCase() !== 'client')
 const showPortfolioFilters = computed(() => isExpeditor.value || isBroker.value)
 
@@ -537,7 +540,15 @@ const loadCreateClients = async () => {
   createClientOptions.value = clients.map((c) => ({ value: c.id, label: c.username }))
 }
 
+const route = useRoute()
+
 onMounted(async () => {
+  // Переход из сквозного поиска (аудит §4.13) — приходит ?q=контейнер/получатель и сразу фильтрует список.
+  const q = route.query.q
+  if (typeof q === 'string' && q.trim()) {
+    searchValue.value = q.trim()
+    reestrStore.setSearch(searchValue.value)
+  }
   reestrStore.fetchList()
   await loadCreateClients()
   if (showPortfolioFilters.value) {

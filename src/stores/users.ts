@@ -10,6 +10,7 @@ import type {
   CatalogSalespersonRow,
   EditBrokerRequest,
   EditExpeditorRequest,
+  EditStaffClientsRequest,
   LinkUsersRequest,
   RegisterRequest,
 } from '@/types/api'
@@ -43,7 +44,7 @@ export const useUsersStore = defineStore('users', () => {
         expeditors: r.expeditors ?? [],
       }))
       expeditors.value = e.map((r) => ({ ...r, clients: r.clients ?? [] }))
-      importers.value = i
+      importers.value = i.map((r) => ({ ...r, clients: r.clients ?? [] }))
       salespersons.value = sp
     } catch {
       return false
@@ -119,6 +120,17 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
+  const editStaffClients = async (staffUserId: string, payload: EditStaffClientsRequest) => {
+    try {
+      await usersApi.editStaffClients(staffUserId, payload)
+      message.success('Привязки к клиентам обновлены')
+      await fetchCatalogs()
+      return true
+    } catch {
+      return false
+    }
+  }
+
   const changeUserRole = async (id: string, role: string) => {
     await usersApi.changeUserRole(id, role)
   }
@@ -137,6 +149,7 @@ export const useUsersStore = defineStore('users', () => {
     linkUsers,
     editBroker,
     editExpeditor,
+    editStaffClients,
     changeUserRole,
     changeBusinessRole,
   }

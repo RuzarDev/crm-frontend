@@ -19,8 +19,11 @@
             </div>
             <div class="meta-row">
               <span class="meta-label">{{ t('profile.role') }}</span>
-              <span class="role-tag" :class="`role-tag--${store.profile.role}`">
+              <span v-if="profileRoleTags.length === 0" class="role-tag" :class="`role-tag--${store.profile.role}`">
                 {{ roleLabel(store.profile.role) }}
+              </span>
+              <span v-for="r in profileRoleTags" :key="r" class="role-tag" :class="`role-tag--${store.profile.role}`">
+                {{ r }}
               </span>
             </div>
           </div>
@@ -145,6 +148,7 @@ import { ALPHA2_COUNTRIES } from '@/types/api'
 import { SaveOutlined, UserOutlined, IdcardOutlined, LockOutlined, BankOutlined } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { businessRoleLabel } from '@/api/permissions'
 import PageHeader from '@/components/PageHeader.vue'
 import PhoneInput from '@/components/ui/PhoneInput.vue'
 
@@ -179,6 +183,13 @@ const roleLabel = (role: string) => {
   const key = role.trim().toLowerCase()
   return te(`profile.roles.${key}`) ? t(`profile.roles.${key}`) : role
 }
+// Аудит §10: в профиле сотрудника — бизнес-роли (enum.businessRole), а не системный тип
+// аккаунта («Импорт»/«Брокер»). У администратора и клиента системная метка осталась как была.
+const profileRoleTags = computed(() => {
+  if (sysRole.value === 'administrator' || sysRole.value === 'client') return []
+  const roles = authStore.businessRoles?.length ? authStore.businessRoles : (bizRole.value ? [bizRole.value] : [])
+  return roles.map((r) => businessRoleLabel(r))
+})
 
 // Страна выдачи удостоверения — 2-буквенный код (как в гр.54 ДТ), выбор из справочника с поиском.
 const countryAlpha2Options = ALPHA2_COUNTRIES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))

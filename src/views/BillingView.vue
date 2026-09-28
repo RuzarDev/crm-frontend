@@ -191,19 +191,26 @@ onMounted(async () => {
   await load()
   if (isClientRole.value) return // справочники ниже — для формы создания счёта, клиенту не нужны
 
-  try {
-    const [clients, cases, services, org] = await Promise.all([
-      import40Api.listClients(),
-      import40Api.list(),
-      salesApi.listServices(),
-      billingApi.organization(),
-    ])
-    clientOptions.value = clients.map((c) => ({ value: c.id, label: c.username }))
-    allCases.value = cases
-    tariffs.value = services.filter((s) => s.isActive)
-    vatRate.value = org.vatPayer ? org.vatRate : 0
-  } catch {
-    // справочники не критичны — форму можно заполнить руками
+  // Аудит §4.4: раньше Promise.all — падение любого одного справочника (например, sales/services
+  // без права) гасило все остальные, и форма создания счёта оставалась совсем пустой.
+  // allSettled применяет то, что действительно загрузилось.
+  const [clientsRes, casesRes, servicesRes, orgRes] = await Promise.allSettled([
+    import40Api.listClients(),
+    import40Api.list(),
+    salesApi.listServices(),
+    billingApi.organization(),
+  ])
+  if (clientsRes.status === 'fulfilled') {
+    clientOptions.value = clientsRes.value.map((c) => ({ value: c.id, label: c.username }))
+  }
+  if (casesRes.status === 'fulfilled') {
+    allCases.value = casesRes.value
+  }
+  if (servicesRes.status === 'fulfilled') {
+    tariffs.value = servicesRes.value.filter((s) => s.isActive)
+  }
+  if (orgRes.status === 'fulfilled') {
+    vatRate.value = orgRes.value.vatPayer ? orgRes.value.vatRate : 0
   }
   // Переход из карточки заявки: /billing?caseId=… — открываем форму создания счёта AQNIET
   // сразу с подставленными клиентом и заявкой (M13, задача 2.3), а не просто фильтруем список.

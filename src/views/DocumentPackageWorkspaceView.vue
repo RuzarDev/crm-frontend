@@ -836,7 +836,8 @@ const clientStationModel = computed<string[]>({
 
 const authStore = useAuthStore()
 const role = computed(() => (authStore.role || '').trim().toLowerCase())
-const canReview = computed(() => role.value === 'broker' || role.value === 'administrator')
+// Аудит §4.2: разбор пакетов — по праву packages.manage, а не по системной роли broker.
+const canReview = computed(() => authStore.hasPermission('packages.manage'))
 // Демо-кнопка авто-разбора фабрикует данные — показываем только в dev-сборке.
 const isDev = import.meta.env.DEV
 

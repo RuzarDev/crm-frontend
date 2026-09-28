@@ -116,7 +116,9 @@
                 row-key="id"
                 size="middle"
                 :pagination="card.cases.length > 20 ? { pageSize: 20, showSizeChanger: false } : false"
-                :custom-row="(r: ClientCardCase) => ({ onClick: () => router.push(`/import-40/${r.id}`), style: 'cursor:pointer' })"
+                :custom-row="(r: ClientCardCase) => (canOpenCase
+                  ? { onClick: () => router.push(`/import-40/${r.id}`), style: 'cursor:pointer' }
+                  : {})"
               >
                 <template #bodyCell="{ column, record }">
                   <template v-if="column.key === 'case'">
@@ -162,6 +164,9 @@ const { statusLabel } = useImport40Status()
 const authStore = useAuthStore()
 // Подпись со стороны AQNIET — администратор или руководитель отдела (как на сервере).
 const canSignProvider = computed(() => (authStore.role || '').toLowerCase() === 'administrator' || authStore.hasBusinessRole('rop'))
+// Аудит §4.12: карточку клиента открывают все с clients.read (включая мпп), а карточку
+// заявки Импорта — только с import40.read; иначе строка вела на закрытый маршрут молча.
+const canOpenCase = computed(() => authStore.hasPermission('import40.read'))
 
 const clientId = String(route.params.id ?? '')
 const loading = ref(false)

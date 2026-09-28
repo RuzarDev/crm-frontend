@@ -375,10 +375,14 @@ const loadPosts = async () => {
     postOptions.value = []
   }
 }
-// Сотруднику по умолчанию — его задачи, клиенту — все его заявки.
+// Сотруднику по умолчанию — его задачи, клиенту — все его заявки. Аудит §4.6: у бухгалтера
+// и продажника нет своего шага в процессе («Мои задачи» для них всегда пусты) — по умолчанию
+// сразу открываем «Все», иначе выглядит как пустой список без объяснения.
 const tab = ref<'my' | 'all'>(((): 'my' | 'all' => {
   const r = (authStore.role || '').toLowerCase()
-  return r === 'client' ? 'all' : 'my'
+  if (r === 'client') return 'all'
+  if (authStore.hasBusinessRole('accountant') || authStore.hasBusinessRole('sales')) return 'all'
+  return 'my'
 })())
 
 const onboardingChecked = ref(false)

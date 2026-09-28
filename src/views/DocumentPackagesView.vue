@@ -250,7 +250,9 @@ const role = computed(() => (authStore.role || '').trim().toLowerCase())
 const isExpeditor = computed(() => role.value === 'expeditor')
 const isClient = computed(() => role.value === 'client')
 const canCreate = computed(() => role.value === 'expeditor' || role.value === 'administrator')
-const canReview = computed(() => role.value === 'broker' || role.value === 'administrator')
+// Аудит §4.2: разбор пакетов — по праву packages.manage, а не по системной роли broker,
+// иначе МПП с системной ролью importer (заведён на вкладке «Сотрудники») не мог их разбирать.
+const canReview = computed(() => authStore.hasPermission('packages.manage'))
 
 const loading = ref(false)
 const clientsLoading = ref(false)

@@ -84,6 +84,7 @@ export interface CatalogImporterRow {
   businessRole: string
   businessRoles?: string[]
   createdAtUtc: string
+  clients: CatalogLinkedPerson[]
 }
 
 export interface CatalogSalespersonRow {
@@ -118,6 +119,11 @@ export interface EditBrokerRequest {
 export interface EditExpeditorRequest {
   username: string
   clientsId: string[]
+}
+
+/** Привязка клиентов к сотруднику, заведённому не в таблице Broker (мпп на вкладке «Сотрудники»). */
+export interface EditStaffClientsRequest {
+  clientIds: string[]
 }
 
 export const REESTR_COLUMN_KEYS = [
