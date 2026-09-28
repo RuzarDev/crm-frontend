@@ -34,9 +34,10 @@
               <template v-for="group in matrix.groups" :key="group.area">
                 <tr class="group-row"><td :colspan="matrix.roles.length + 1">{{ group.area }}</td></tr>
                 <tr v-for="perm in group.permissions" :key="perm.code" class="perm-row">
+                  <!-- Аудит 2026-09-28 п.7: под подписью права печатался сырой код (например
+                       clients.invite) — показываем только человекочитаемую подпись. -->
                   <td class="perm-name">
                     <span class="perm-label">{{ perm.label }}</span>
-                    <span class="perm-slug">{{ perm.code }}</span>
                   </td>
                   <td v-for="role in matrix.roles" :key="role.code" class="perm-cell" :class="{ 'has-perm': has(role, perm.code) }">
                     <a-checkbox
@@ -128,7 +129,6 @@ const resetAll = async () => {
 .group-row td { background: var(--atg-surface-muted, #f5f7fb); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
 .perm-name { display: flex; flex-direction: column; }
 .perm-label { font-size: 13px; color: var(--atg-ink, #182640); }
-.perm-slug { font-size: 11px; color: var(--atg-muted, #95a1b7); font-family: ui-monospace, monospace; }
 .perm-cell { text-align: center; }
 .perm-cell.has-perm { background: rgba(43, 188, 212, 0.06); }
 .hint { margin: 14px 0 0; font-size: 12.5px; color: var(--atg-muted, #6b7891); }

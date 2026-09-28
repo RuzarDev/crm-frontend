@@ -78,13 +78,18 @@
                 @click="openEditExpeditor(record as CatalogExpeditorRow)"
               >
                 <EditOutlined /> {{ t('admin.izmenit') }} </a-button>
-              <a-button
-                v-if="canAssignRole"
-                type="link"
-                size="small"
-                @click="openChangeRole(record)"
-              >
-                <SwapOutlined /> {{ t('admin.rol') }} </a-button>
+              <!-- Аудит 2026-09-28 п.7: «Роль» звучало как бизнес-роль (рядом уже есть кнопка
+                   «Роли»), хотя меняет системный тип аккаунта — переименовано и убрано в «Ещё»,
+                   чтобы не плодить кнопки в строке. -->
+              <a-dropdown v-if="canAssignRole">
+                <a-button type="link" size="small">
+                  <MoreOutlined /> {{ t('admin.eshche') }} </a-button>
+                <template #overlay>
+                  <a-menu>
+                    <a-menu-item key="accountType" @click="openChangeRole(record)"><SwapOutlined /> {{ t('admin.tipAkkaunta') }}</a-menu-item>
+                  </a-menu>
+                </template>
+              </a-dropdown>
               <a-popconfirm
                 v-if="isAdmin"
                 :title="t('admin.sbrositParolStaryyPerestanet')"
@@ -230,7 +235,7 @@
 
     <a-modal
       v-model:open="changeRoleModalOpen"
-      :title="t('admin.smenitRolPolzovatelya')"
+      :title="t('admin.izmenitTipAkkauntaPolzovatelya')"
       :ok-text="t('admin.sohranit')"
       :cancel-text="t('admin.otmena')"
       :confirm-loading="changeRoleSaving"
@@ -241,7 +246,7 @@
         <a-form-item :label="t('admin.polzovatel')">
           <a-input :value="changeRoleForm.username" disabled />
         </a-form-item>
-        <a-form-item :label="t('admin.novayaRol')">
+        <a-form-item :label="t('admin.novyyTipAkkaunta')">
           <a-select
             v-model:value="changeRoleForm.role"
             :placeholder="t('admin.vyberiteRol')"
@@ -301,7 +306,7 @@ import type {
   CatalogTableRow,
 } from '@/types/api'
 import { formatRole } from '@/utils/labels'
-import { DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined, SwapOutlined, KeyOutlined } from '@ant-design/icons-vue'
+import { DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined, SwapOutlined, KeyOutlined, MoreOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { permissionsApi, businessRoleLabel } from '@/api/permissions'
@@ -351,7 +356,9 @@ const loadStaffRoles = async () => {
   }
 }
 
-const showBusinessRoleField = computed(() => ['broker', 'administrator', 'importer', 'sales'].includes(form.role))
+// Администратору бизнес-роль не нужна — у него все права всегда, поле только путает
+// при создании (аудит 2026-09-28, раздел 10).
+const showBusinessRoleField = computed(() => ['broker', 'importer', 'sales'].includes(form.role))
 
 const canChangeBusinessRole = computed(() => authStore.hasPermission('users.write'))
 
@@ -569,6 +576,9 @@ const tableColumns = computed(() => {
         usernameColumn,
         { title: t('admin.rol'), key: 'role', width: 140 },
         { title: t('admin.biznesRoli'), key: 'businessRole', width: 140 },
+        // Администратор тоже может быть привязан к клиентам транзита через staff_client_links
+        // (аудит 2026-09-28, раздел 10) — у большинства строка будет пустой, это нормально.
+        { title: t('admin.klientyTranzit'), key: 'clients', ellipsis: true },
         ...actionsColumn,
       ]
     case 'staff':
@@ -616,12 +626,14 @@ const canDeleteUser = (record: CatalogTableRow) => {
   return true
 }
 
+// Аудит 2026-09-28 п.7: селект показывал технический код в скобках («Импорт (importer)») —
+// оставляем только человекочитаемую подпись.
 const roleOptions = computed(() =>
   rolesStore.roles
     .filter((role) => systemRoleOrder.includes(role.name))
     .sort((a, b) => systemRoleOrder.indexOf(a.name) - systemRoleOrder.indexOf(b.name))
     .map((role) => ({
-      label: `${formatRole(role.name)} (${role.name})`,
+      label: formatRole(role.name),
       value: role.name,
     })),
 )

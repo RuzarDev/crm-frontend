@@ -22,9 +22,9 @@
           <template v-if="column.key === 'at'">{{ fmt(record.atUtc) }}</template>
           <template v-else-if="column.key === 'actor'">
             <div class="cell-main">{{ record.actorName }}</div>
-            <div class="cell-sub">{{ record.actorRole }}</div>
+            <div class="cell-sub">{{ formatRole(record.actorRole) }}</div>
           </template>
-          <template v-else-if="column.key === 'action'"><a-tag>{{ record.action }}</a-tag></template>
+          <template v-else-if="column.key === 'action'"><a-tag>{{ formatAuditAction(record.action) }}</a-tag></template>
         </template>
         <template #emptyText><a-empty :description="t('audit.empty')" /></template>
       </a-table>
@@ -39,6 +39,8 @@ import { message } from 'ant-design-vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { systemApi, type AuditRow } from '@/api/system'
+// Аудит 2026-09-28 п.7: журнал показывал сырые коды действия/роли — заменили на подписи.
+import { formatAuditAction, formatRole } from '@/utils/labels'
 
 const { t } = useI18n()
 const loading = ref(false)

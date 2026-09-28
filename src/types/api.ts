@@ -48,6 +48,7 @@ export interface CatalogAdministratorRow {
   businessRole: string
   businessRoles?: string[]
   createdAtUtc: string
+  clients: CatalogLinkedPerson[]
 }
 
 export interface CatalogBrokerRow {
@@ -94,6 +95,7 @@ export interface CatalogSalespersonRow {
   businessRole: string
   businessRoles?: string[]
   createdAtUtc: string
+  clients: CatalogLinkedPerson[]
 }
 
 export type CatalogTabKey = 'administrators' | 'staff' | 'brokers' | 'clients' | 'expeditors' | 'importers' | 'salespersons'

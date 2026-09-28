@@ -1,7 +1,8 @@
 <template>
   <div class="analytics-view crm-page">
+    <!-- Кикер «Владельцу» убран (аудит 2026-09-28, п.7): экран открыт всем, кому
+         выдано право analytics.read, а не только владельцу. -->
     <PageHeader
-      :kicker="t('admin.vladelcu')"
       :title="t('admin.analitika')"
       :subtitle="t('admin.realnyePokazateliImporta40')"
     >
@@ -105,9 +106,9 @@
             <a-table :columns="staffColumns" :data-source="a.staff" :pagination="false" row-key="userId" size="middle">
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'user'">
-                  <div class="broker-cell"><div class="broker-avatar">{{ record.username.charAt(0).toUpperCase() }}</div><strong>{{ record.username }}</strong></div>
+                  <div class="broker-cell"><div class="broker-avatar">{{ staffName(record).charAt(0).toUpperCase() }}</div><strong>{{ staffName(record) }}</strong></div>
                 </template>
-                <template v-else-if="column.key === 'role'"><a-tag>{{ roleLabel(record.role) }}</a-tag></template>
+                <template v-else-if="column.key === 'role'"><a-tag>{{ businessRoleLabel(record.role) }}</a-tag></template>
               </template>
               <template #emptyText><a-empty :description="t('admin.naznacheniyPokaNet')" /></template>
             </a-table>
@@ -122,7 +123,7 @@
                 : {})">
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'case'"><strong>{{ record.clientName }}</strong><div class="muted">{{ record.cargo }}</div></template>
-                <template v-else-if="column.key === 'role'"><a-tag>{{ roleLabel(record.role) }}</a-tag></template>
+                <template v-else-if="column.key === 'role'"><a-tag>{{ businessRoleLabel(record.role) }}</a-tag></template>
                 <template v-else-if="column.key === 'at'">{{ fmtTime(record.atUtc) }}</template>
               </template>
               <template #emptyText><a-empty :description="t('admin.operaciyPokaNet')" /></template>
@@ -144,8 +145,12 @@ import {
   BarChartOutlined, PieChartOutlined, HistoryOutlined, TeamOutlined,
 } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
-import { analyticsApi, type AnalyticsDto, type AnalyticsActivity } from '@/api/analytics'
+import { analyticsApi, type AnalyticsDto, type AnalyticsActivity, type AnalyticsStaff } from '@/api/analytics'
 import { useAuthStore } from '@/stores/auth'
+import { manageApi } from '@/api/manage'
+// Аудит 2026-09-28 п.7: роли сотрудников должны идти через единый businessRoleLabel
+// (enum.businessRole), а не через свой список с неверными подписями (mpp показывался как «Брокер»).
+import { businessRoleLabel } from '@/api/permissions'
 
 const { t } = useI18n()
 
@@ -156,12 +161,24 @@ const authStore = useAuthStore()
 const canOpenCase = computed(() => authStore.hasPermission('import40.read'))
 const loading = ref(false)
 const a = ref<AnalyticsDto | null>(null)
+// userId -> отображаемое имя (displayName || username), тот же справочник, что и
+// в /import-40/manage (Import40ManageView.staffLabel) — аудит 2026-09-28 п.7.
+const staffNames = ref<Record<string, string>>({})
 
 const load = async () => {
   loading.value = true
-  try { a.value = await analyticsApi.get() } catch { message.error(t('admin.neUdalosZagruzitAnalitiku')) } finally { loading.value = false }
+  try {
+    a.value = await analyticsApi.get()
+    // Справочник имён сотрудников доступен не всем, кто видит аналитику (нужен import40.assign) —
+    // подгружаем best-effort, без него просто останется username.
+    try {
+      const ov = await manageApi.overview()
+      staffNames.value = Object.fromEntries(ov.staff.map((s) => [s.id, s.displayName || s.username]))
+    } catch { /* нет прав на /import40/manage — используем username как раньше */ }
+  } catch { message.error(t('admin.neUdalosZagruzitAnalitiku')) } finally { loading.value = false }
 }
 onMounted(load)
+const staffName = (s: AnalyticsStaff) => staffNames.value[s.userId] || s.username
 
 const money = (v: number) => Math.round(v).toLocaleString('ru-RU')
 const pct = (v: number, max: number) => (max > 0 ? Math.round((v / max) * 100) : 0)
@@ -174,7 +191,6 @@ const delta = (cur: number, prev: number) => {
 const MONTHS = [t('admin.yanv'), t('admin.fev'), t('admin.mar'), t('admin.apr'), t('admin.may'), t('admin.iyun'), t('admin.iyul'), t('admin.avg'), t('admin.sen'), t('admin.okt'), t('admin.noya'), t('admin.dek')]
 const monthLabel = (ym: string) => { const [y, m] = ym.split('-'); return `${MONTHS[Number(m) - 1]} ${y!.slice(2)}` }
 const fmtTime = (iso: string) => new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-const roleLabel = (r: string) => ({ declarant: t('admin.deklarant'), kpp: t('admin.kpp'), client: t('admin.klient'), rop: t('admin.rop'), mpp: t('admin.broker'), expeditor: t('admin.ekspeditor') } as Record<string, string>)[r] ?? r
 
 const maxCases = computed(() => Math.max(...(a.value?.months.map((m) => m.cases) ?? [0]), 1))
 const maxDt = computed(() => Math.max(...(a.value?.months.map((m) => m.declarations) ?? [0]), 1))

@@ -15,6 +15,7 @@ import type {
   RegisterRequest,
 } from '@/types/api'
 import { message } from 'ant-design-vue'
+import { i18n } from '@/i18n'
 
 export const useUsersStore = defineStore('users', () => {
   const administrators = ref<CatalogAdministratorRow[]>([])
@@ -36,7 +37,10 @@ export const useUsersStore = defineStore('users', () => {
         usersApi.getCatalogImporters(),
         usersApi.getCatalogSalespersons(),
       ])
-      administrators.value = a
+      // clients — привязки staff_client_links; раньше приходили только для broker/expeditor/
+      // importer, хотя админ и продажник тоже могут быть привязаны к клиентам транзита
+      // (аудит 2026-09-28, раздел 10).
+      administrators.value = a.map((r) => ({ ...r, clients: r.clients ?? [] }))
       brokers.value = b.map((r) => ({ ...r, clients: r.clients ?? [] }))
       clients.value = c.map((r) => ({
         ...r,
@@ -45,7 +49,7 @@ export const useUsersStore = defineStore('users', () => {
       }))
       expeditors.value = e.map((r) => ({ ...r, clients: r.clients ?? [] }))
       importers.value = i.map((r) => ({ ...r, clients: r.clients ?? [] }))
-      salespersons.value = sp
+      salespersons.value = sp.map((r) => ({ ...r, clients: r.clients ?? [] }))
     } catch {
       return false
     } finally {
@@ -57,7 +61,7 @@ export const useUsersStore = defineStore('users', () => {
   const createUser = async (payload: RegisterRequest) => {
     try {
       await usersApi.createUser(payload)
-      message.success('Пользователь создан')
+      message.success(i18n.global.t('admin.polzovatelSozdan'))
       await fetchCatalogs()
       return true
     } catch {
@@ -68,7 +72,7 @@ export const useUsersStore = defineStore('users', () => {
   const deleteUser = async (id: string) => {
     try {
       await usersApi.deleteUser(id)
-      message.success('Пользователь удалён')
+      message.success(i18n.global.t('admin.polzovatelUdalen'))
       await fetchCatalogs()
       return true
     } catch {
@@ -79,7 +83,7 @@ export const useUsersStore = defineStore('users', () => {
   const linkUsers = async (payload: LinkUsersRequest) => {
     try {
       await usersApi.linkUsers(payload)
-      message.success('Связь сохранена')
+      message.success(i18n.global.t('admin.svyazSohranena'))
       await fetchCatalogs()
       return true
     } catch {
@@ -90,7 +94,7 @@ export const useUsersStore = defineStore('users', () => {
   const editBroker = async (brokerId: string, payload: EditBrokerRequest) => {
     try {
       await usersApi.editBroker(brokerId, payload)
-      message.success('Брокер обновлён')
+      message.success(i18n.global.t('admin.brokerObnovlen'))
       await fetchCatalogs()
       return true
     } catch {
@@ -101,7 +105,7 @@ export const useUsersStore = defineStore('users', () => {
   const changeBusinessRole = async (userId: string, businessRole: string) => {
     try {
       await usersApi.changeBusinessRole(userId, businessRole)
-      message.success('Бизнес-роль обновлена')
+      message.success(i18n.global.t('admin.biznesRolObnovlena'))
       await fetchCatalogs()
       return true
     } catch {
@@ -112,7 +116,7 @@ export const useUsersStore = defineStore('users', () => {
   const editExpeditor = async (expeditorId: string, payload: EditExpeditorRequest) => {
     try {
       await usersApi.editExpeditor(expeditorId, payload)
-      message.success('Экспедитор обновлён')
+      message.success(i18n.global.t('admin.ekspeditorObnovlen'))
       await fetchCatalogs()
       return true
     } catch {
@@ -123,7 +127,7 @@ export const useUsersStore = defineStore('users', () => {
   const editStaffClients = async (staffUserId: string, payload: EditStaffClientsRequest) => {
     try {
       await usersApi.editStaffClients(staffUserId, payload)
-      message.success('Привязки к клиентам обновлены')
+      message.success(i18n.global.t('admin.privyazkiKKlientamObnovleny'))
       await fetchCatalogs()
       return true
     } catch {

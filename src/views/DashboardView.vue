@@ -203,7 +203,7 @@
                 v-for="item in store.data.byStatus"
                 :key="item.status"
                 :style="{ width: pct(item.count) + '%', background: statusColor(item.status) }"
-                :title="item.status + ': ' + item.count"
+                :title="statusLabel(item.status) + ': ' + item.count"
               />
             </div>
             <div class="legend">
@@ -279,7 +279,10 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 
 const store = useDashboardStore()
 const router = useRouter()
-const { t, locale } = useI18n()
+const { t, te, locale } = useI18n()
+// Аудит 2026-09-28 п.7: тултип диаграммы показывал сырой код статуса (InProgress и т.п.) —
+// та же подпись, что и в StatusPill, с запасным вариантом на случай неизвестного кода.
+const statusLabel = (status: string) => (te(`enum.reestrStatus.${status}`) ? t(`enum.reestrStatus.${status}`) : status)
 
 // Ненулевой алиас для шаблона — блок отрисовывается только когда store.clientDashboard уже загружен.
 const clientDb = computed(() => store.clientDashboard!)
