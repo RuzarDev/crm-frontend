@@ -59,7 +59,7 @@
 
     <!-- Лестница шагов -->
     <div class="steps">
-      <Import40Step :index="1" :title="stepTitle(1)" :state="stepState(1)" :executor="t('enum.role.client')" :summary="step1Summary">
+      <Import40Step :index="1" :title="stepTitle(1)" :state="stepState(1)" :executor="executorLabel('client')" :summary="step1Summary">
         <div class="grid-2">
           <label><span>{{ t('import40Case.cargo') }}</span>
             <a-input :value="activeCase.cargo" :disabled="!canEditStep1" @change="(e: any) => saveField({ cargo: e.target.value })" />
@@ -134,7 +134,7 @@
           </a-tooltip>
         </div>
       </Import40Step>
-      <Import40Step :index="2" :title="stepTitle(2)" :state="stepState(2)" :executor="t('enum.role.kpp')"
+      <Import40Step :index="2" :title="stepTitle(2)" :state="stepState(2)" :executor="executorLabel('kpp')"
         :summary="stepState(2) === 'done' ? t('import40Case.passed') : undefined">
         <p class="muted">{{ t('import40Case.transportPrefix', { summary: transportSummary }) }}</p>
         <div v-if="stepState(2) === 'current'" class="step-actions">
@@ -147,7 +147,7 @@
           </a-tooltip>
         </div>
       </Import40Step>
-      <Import40Step :index="3" :title="stepTitle(3)" :state="stepState(3)" :executor="t('enum.role.declarant')"
+      <Import40Step :index="3" :title="stepTitle(3)" :state="stepState(3)" :executor="executorLabel('declarant')"
         :summary="stepState(3) === 'done' ? t('import40Case.dtCount', { n: activeCase.declarations.length }) : undefined">
         <div v-if="!activeCase.declarations.length" class="muted">{{ t('import40Case.noDt') }}</div>
 
@@ -239,7 +239,7 @@
           </a-tooltip>
         </div>
       </Import40Step>
-      <Import40Step :index="4" :title="stepTitle(4)" :state="stepState(4)" :executor="t('enum.role.kpp')"
+      <Import40Step :index="4" :title="stepTitle(4)" :state="stepState(4)" :executor="executorLabel('kpp')"
         :summary="stepState(4) === 'done' ? (activeCase.svhInvoiceNote ? t('import40Case.invoicePrefix', { note: activeCase.svhInvoiceNote }) : t('import40Case.closed')) : undefined">
         <div class="sub-label">{{ t('import40Case.stampTitle') }}</div>
         <Import40FilesBlock :files="filesBySection('declaration-stamp')" :can-upload="stepState(4) === 'current' && can('kpp')"
@@ -262,7 +262,7 @@
           <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
         </div>
       </Import40Step>
-      <Import40Step :index="5" :title="stepTitle(5)" :state="stepState(5)" :executor="t('enum.role.clientKpp')"
+      <Import40Step :index="5" :title="stepTitle(5)" :state="stepState(5)" :executor="executorLabel('clientKpp')"
         :summary="stepState(5) === 'done' ? t('import40Case.paid') : undefined">
         <div class="sub-label">{{ t('import40Case.paymentCheckTitle') }}
           <a-tag v-if="activeCase.paymentConfirmed" color="success">{{ t('import40Case.paymentConfirmed') }}</a-tag>
@@ -473,9 +473,17 @@ const can = (role: RoleMode) =>
 // Назначать сотрудников — право import40.assign (руководитель отдела, админ).
 const canAssign = computed(() => roleMode.value === 'admin' || authStore.hasPermission('import40.assign'))
 
+// Кто выполняет шаг — словами зрителя. Клиенту «менеджер КПП»/«декларант» ни о чём не говорят:
+// для него это «вы» и «AQNIET». Сотрудникам: шаги КПП ведёт декларант (менеджера КПП нет).
+const executorLabel = (role: 'client' | 'kpp' | 'declarant' | 'clientKpp') => {
+  if (roleMode.value === 'client') {
+    return role === 'client' ? t('enum.role.you') : role === 'clientKpp' ? t('enum.role.youAndUs') : t('enum.role.us')
+  }
+  return t(`enum.role.${role}`)
+}
 const hintFor = (role: string) => {
   const key = role === 'kpp' ? 'kpp' : role === 'declarant' ? 'declarant' : 'client'
-  return t('import40Case.hintFor', { role: t(`enum.role.${key}`) })
+  return t('import40Case.hintFor', { role: executorLabel(key) })
 }
 
 // Виды транспорта с переведёнными подписями (0=ЖД,1=Авто,2=Авиа,3=Море).

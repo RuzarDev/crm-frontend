@@ -1,6 +1,10 @@
 <template>
   <div class="import40-list-page crm-page">
-    <PageHeader :kicker="t('import40List.kicker')" :title="t('import40List.title')" :subtitle="t('import40List.subtitle')">
+    <PageHeader
+      :kicker="isClientRole ? t('import40List.kickerClient') : t('import40List.kicker')"
+      :title="isClientRole ? t('import40List.titleClient') : t('import40List.title')"
+      :subtitle="isClientRole ? t('import40List.subtitleClient') : t('import40List.subtitle')"
+    >
       <template #actions>
         <a-button :loading="loading" @click="reload">{{ t('common.refresh') }}</a-button>
         <a-tooltip v-if="canCreate" :title="showOnboardingGate ? t('import40List.onboardingTooltip') : ''">
@@ -231,8 +235,10 @@
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-tabs v-model:activeKey="tab" @change="reload">
-        <a-tab-pane key="my" :tab="t('import40List.myTasks')" />
-        <a-tab-pane key="all" :tab="t('import40List.allRequests')" />
+        <!-- Клиенту «Мои задачи» непонятно: для него это заявки, где нужен его ход
+             (дозаполнить черновик, оплатить счёт). -->
+        <a-tab-pane key="all" :tab="isClientRole ? t('import40List.allClient') : t('import40List.allRequests')" />
+        <a-tab-pane key="my" :tab="isClientRole ? t('import40List.myTasksClient') : t('import40List.myTasks')" />
       </a-tabs>
 
       <div class="list-filters">
@@ -329,7 +335,11 @@ const loadPosts = async () => {
     postOptions.value = []
   }
 }
-const tab = ref<'my' | 'all'>('my')
+// Сотруднику по умолчанию — его задачи, клиенту — все его заявки.
+const tab = ref<'my' | 'all'>(((): 'my' | 'all' => {
+  const r = (authStore.role || '').toLowerCase()
+  return r === 'client' ? 'all' : 'my'
+})())
 
 const onboardingChecked = ref(false)
 const contractDocs = ref<Import40DocumentDto[]>([])

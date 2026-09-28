@@ -14,7 +14,7 @@
     <PageHeader
       :kicker="t('company.kicker')"
       :title="t('company.title')"
-      :subtitle="t('company.subtitle')"
+      :subtitle="isClientRole && !onboardingComplete ? t('company.subtitleClient') : t('company.subtitle')"
     >
       <template #actions>
         <!-- Сотруднику страница показывала ПЕРВОГО клиента из списка (и его онбординг),
@@ -157,6 +157,7 @@
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
+import { useClientRegistration } from '@/composables/useClientRegistration'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
@@ -323,6 +324,10 @@ const switchClient = async () => {
   }
 }
 
+// Плашка «Завершите регистрацию» и точка в меню клиента читают общее состояние — обновляем его
+// после каждого шага здесь (сохранение реквизитов, формирование и подпись документов).
+const registration = useClientRegistration()
+
 const loadDocuments = async () => {
   const [contracts, poas] = await Promise.all([
     import40ContractApi.listDocuments(clientId.value, 'contract'),
@@ -330,6 +335,7 @@ const loadDocuments = async () => {
   ])
   contractDocs.value = contracts
   poaDocs.value = poas
+  if (isClientRole.value) void registration.refresh()
 }
 
 const load = async () => {
@@ -370,6 +376,7 @@ const saveProfile = async () => {
   try {
     applyProfile(await import40ContractApi.saveProfile(clientId.value, { ...form }))
     message.success(t('company.saved'))
+    void registration.refresh()
   } catch {
     message.error(t('company.saveError'))
   } finally {

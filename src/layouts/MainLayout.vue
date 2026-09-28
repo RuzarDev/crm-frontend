@@ -97,6 +97,20 @@
       </a-layout-sider>
 
       <a-layout-content class="content">
+        <!-- Клиент, не завершивший регистрацию (реквизиты → договор → доверенность), видит это на
+             любой странице: без неё заявку не подать. На самой странице регистрации — не дублируем. -->
+        <a-alert
+          v-if="registrationBanner"
+          class="registration-banner"
+          :type="registrationBanner.type"
+          show-icon
+          :message="registrationBanner.title"
+          :description="registrationBanner.text"
+        >
+          <template v-if="registrationBanner.action" #action>
+            <a-button type="primary" @click="router.push('/import-40/company')">{{ t('registration.continue') }}</a-button>
+          </template>
+        </a-alert>
         <!-- Карточка ДТ читает caseId/dtId один раз при создании: переход с одной ДТ на другую
              (например, в новую ДТ ВТО после разделения) должен пересоздавать страницу. -->
         <router-view :key="route.name === 'import-40-dt' ? String(route.params.dtId) : undefined" />
@@ -177,6 +191,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons-vue'
 import { formatRole } from '@/utils/labels'
+import { useClientRegistration } from '@/composables/useClientRegistration'
 import { zirconDarkSiderTheme } from '@/theme/antdTheme'
 import dayjs from 'dayjs'
 
@@ -190,6 +205,43 @@ const mobileNavOpen = ref(false)
 const openKeys = ref<string[]>([])
 
 onMounted(() => notifStore.fetch())
+
+const registration = useClientRegistration()
+const registrationBanner = computed(() => {
+  if (!registration.isClient.value || !registration.loaded.value || registration.complete.value) return null
+  if (route.path.startsWith('/import-40/company')) return null
+  if (!registration.nextStep.value) {
+    // Всё, что зависит от клиента, сделано — договор на подписи у AQNIET.
+    return { type: 'info' as const, title: t('registration.waitingTitle'), text: t('registration.waitingText'), action: false }
+  }
+  return {
+    type: 'warning' as const,
+    title: t('registration.title'),
+    text: t('registration.text', {
+      done: registration.doneCount.value,
+      next: t(`registration.step.${registration.nextStep.value}`),
+    }),
+    action: true,
+  }
+})
+onMounted(async () => {
+  if (!registration.isClient.value) return
+  await registration.refresh()
+  // Первый заход незарегистрированного клиента — сразу на шаги регистрации, а не на пустой дашборд.
+  let redirected = false
+  try { redirected = sessionStorage.getItem('zircon-reg-redirect') === '1' } catch { /* приватный режим */ }
+  if (!redirected && !registration.complete.value && registration.nextStep.value
+    && (route.path === '/' || route.path.startsWith('/dashboard'))) {
+    try { sessionStorage.setItem('zircon-reg-redirect', '1') } catch { /* приватный режим */ }
+    void router.replace('/import-40/company')
+  }
+})
+// Ушёл со страницы регистрации — перечитываем, чтобы плашка и точка в меню погасли.
+watch(() => route.path, (path, prev) => {
+  if (registration.isClient.value && prev?.startsWith('/import-40/company') && !path.startsWith('/import-40/company')) {
+    void registration.refresh()
+  }
+})
 
 const onNotifOpen = (open: boolean) => {
   if (open) notifStore.fetch()
@@ -255,7 +307,19 @@ const menuItems = computed(() => {
     operationsItems.push({
       key: '/import-40',
       icon: () => h(ImportOutlined),
-      label: t('nav.import'),
+      // Клиенту «Импорт 40» ни о чём не говорит — это его заявки.
+      label: role === 'client' ? t('nav.myRequests') : t('nav.import'),
+    })
+  }
+
+  // Клиенту «Моя компания» — рядом с заявками, а не в «Справочниках»; точка — регистрация не завершена.
+  if (clientImport) {
+    operationsItems.push({
+      key: '/import-40/company',
+      icon: () => h(SolutionOutlined),
+      label: registration.loaded.value && !registration.complete.value
+        ? h('span', { class: 'menu-attn' }, [t('nav.myCompany'), h('i', { class: 'menu-attn-dot' })])
+        : t('nav.myCompany'),
     })
   }
 
@@ -366,7 +430,10 @@ const menuItems = computed(() => {
       key: 'tnved-group',
       icon: () => h(GlobalOutlined),
       label: t('nav.tnved'),
-      children: tnvedChildren,
+      // Клиенту — справочная часть; хронология и аналитика справочника нужны только сотрудникам.
+      children: role === 'client'
+        ? tnvedChildren.filter((c) => ['/tnved/tree', '/tnved/news', '/tnved/regulations', '/tnved/currencies'].includes(c.key))
+        : tnvedChildren,
     })
   }
 
@@ -378,13 +445,6 @@ const menuItems = computed(() => {
     })
   }
 
-  if (clientImport) {
-    referenceItems.push({
-      key: '/import-40/company',
-      icon: () => h(SolutionOutlined),
-      label: t('nav.myCompany'),
-    })
-  }
 
   // ─── Администрирование ──────────────────────────────────
   if (authStore.hasPermission('clients.read') && role !== 'client') {
@@ -1108,5 +1168,20 @@ const handleLogout = () => {
   .content {
     padding: 12px;
   }
+}
+
+.registration-banner {
+  margin-bottom: 16px;
+}
+:deep(.menu-attn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+:deep(.menu-attn-dot) {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--z-gold, #C9A84C);
 }
 </style>
