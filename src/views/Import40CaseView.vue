@@ -4,9 +4,9 @@
       <template #meta>
         <span>{{ t('import40Case.client') }}: <strong>{{ activeCase.clientName }}</strong></span>
         <span>{{ t('import40Case.post') }}: <strong>{{ activeCase.post || '—' }}</strong></span>
-        <!-- КПП показываем, только если это не тот же декларант (отдельного менеджера КПП нет). -->
-        <span v-if="activeCase.assignedKppId && activeCase.assignedKppId !== activeCase.assignedDeclarantId">{{ t('import40Case.kpp') }}: <a-tag>{{ staffName(activeCase.assignedKppId) }}</a-tag></span>
-        <span v-if="activeCase.assignedDeclarantId">{{ t('import40Case.declarant') }}: <a-tag>{{ staffName(activeCase.assignedDeclarantId) }}</a-tag></span>
+        <!-- КПП снова отдельная роль (2026-09-28) — своя строка независимо от декларанта. -->
+        <span v-if="activeCase.assignedKppId">{{ t('import40Case.kpp') }}: <a-tag>{{ nameFor(activeCase.assignedKppId, activeCase.assignedKppName) }}</a-tag></span>
+        <span v-if="activeCase.assignedDeclarantId">{{ t('import40Case.declarant') }}: <a-tag>{{ nameFor(activeCase.assignedDeclarantId, activeCase.assignedDeclarantName) }}</a-tag></span>
         <a-tag v-if="activeCase.status === 9" color="default">{{ t('import40Case.cancelled') }}</a-tag>
         <a-tag v-else-if="isCompleted(activeCase.status)" color="success">{{ t('import40Case.completed') }}</a-tag>
         <template v-else>
@@ -26,6 +26,7 @@
 
         <div v-if="canAssign" class="assign-inline">
           <a-select v-model:value="assignForm.declarantId" allow-clear :placeholder="t('import40Case.declarantNotAssigned')" :options="declarantOptions" size="small" style="min-width: 170px" />
+          <a-select v-model:value="assignForm.kppId" allow-clear :placeholder="t('import40Case.kppNotAssigned')" :options="kppOptions" size="small" style="min-width: 170px" />
           <a-button size="small" :loading="assignSaving" @click="saveAssignment">{{ t('import40Case.assign') }}</a-button>
         </div>
       </template>
@@ -139,9 +140,9 @@
         <p class="muted">{{ t('import40Case.transportPrefix', { summary: transportSummary }) }}</p>
         <p v-if="isClientView && stepState(2) === 'current'" class="muted client-wait">{{ t('import40Case.clientWaitNote') }}</p>
         <div v-if="stepState(2) === 'current' && !isClientView" class="step-actions">
-          <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
-          <a-tooltip :title="can('kpp') ? '' : hintFor('kpp')">
-            <a-button type="primary" :disabled="!can('kpp')" @click="runAction('border-passed')">{{ t('import40Case.borderPassed') }}</a-button>
+          <a-button v-if="claimVisible('kpp')" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
+          <a-tooltip :title="actionTooltip('kpp')">
+            <a-button type="primary" :disabled="actionDisabled('kpp')" @click="runAction('border-passed')">{{ t('import40Case.borderPassed') }}</a-button>
           </a-tooltip>
           <a-tooltip :title="can('kpp') || can('declarant') ? '' : hintFor('kpp')">
             <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">{{ t('import40Case.returnToClient') }}</a-button>
@@ -227,9 +228,9 @@
               @change="handleBatchFilesSelected"
             />
           </template>
-          <a-button v-if="roleMode === 'declarant' && !activeCase.assignedDeclarantId" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
-          <a-tooltip v-if="activeCase.status === 2" :title="can('declarant') ? '' : hintFor('declarant')">
-            <a-button type="primary" :disabled="!can('declarant') || !activeCase.declarations.length" @click="runAction('submit-declaration')">{{ t('import40Case.submitDt') }}</a-button>
+          <a-button v-if="claimVisible('declarant')" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
+          <a-tooltip v-if="activeCase.status === 2" :title="actionTooltip('declarant')">
+            <a-button type="primary" :disabled="actionDisabled('declarant') || !activeCase.declarations.length" @click="runAction('submit-declaration')">{{ t('import40Case.submitDt') }}</a-button>
           </a-tooltip>
           <a-tooltip :title="can('kpp') || can('declarant') ? '' : hintFor('declarant')">
             <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">{{ t('import40Case.returnToClient') }}</a-button>
@@ -237,8 +238,8 @@
         </div>
         <div v-if="activeCase.status === 3 && !isClientView" class="step-actions">
           <p class="muted">{{ t('import40Case.status3Note') }}</p>
-          <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
-            <a-button type="primary" :disabled="!can('declarant')" @click="runAction('release-declaration')">{{ t('import40Case.fixRelease') }}</a-button>
+          <a-tooltip :title="actionTooltip('declarant')">
+            <a-button type="primary" :disabled="actionDisabled('declarant')" @click="runAction('release-declaration')">{{ t('import40Case.fixRelease') }}</a-button>
           </a-tooltip>
         </div>
       </Import40Step>
@@ -257,13 +258,13 @@
           @upload="(f: File) => uploadTo('svh-invoice', f)" @download="download" />
         <p v-if="isClientView && stepState(4) === 'current'" class="muted client-wait">{{ t('import40Case.clientWaitNote') }}</p>
         <div v-if="stepState(4) === 'current' && !isClientView" class="step-actions">
-          <a-tooltip v-if="activeCase.status === 4" :title="can('kpp') ? '' : hintFor('kpp')">
-            <a-button type="primary" :disabled="!can('kpp')" @click="runAction('close-svh')">{{ t('import40Case.closeSvh') }}</a-button>
+          <a-tooltip v-if="activeCase.status === 4" :title="actionTooltip('kpp')">
+            <a-button type="primary" :disabled="actionDisabled('kpp')" @click="runAction('close-svh')">{{ t('import40Case.closeSvh') }}</a-button>
           </a-tooltip>
-          <a-tooltip v-if="activeCase.status === 5" :title="can('kpp') ? '' : hintFor('kpp')">
-            <a-button type="primary" :disabled="!can('kpp')" @click="promptInvoice">{{ t('import40Case.issueInvoice') }}</a-button>
+          <a-tooltip v-if="activeCase.status === 5" :title="actionTooltip('kpp')">
+            <a-button type="primary" :disabled="actionDisabled('kpp')" @click="promptInvoice">{{ t('import40Case.issueInvoice') }}</a-button>
           </a-tooltip>
-          <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
+          <a-button v-if="claimVisible('kpp')" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
         </div>
       </Import40Step>
       <Import40Step :index="5" :title="stepTitle(5)" :state="stepState(5)" :executor="executorLabel('clientKpp')"
@@ -277,11 +278,11 @@
           :uploading="uploading" :empty-text="isClientView ? t('import40Case.clientPayEmpty') : t('import40Case.paymentEmpty')"
           @upload="(f: File) => uploadTo('payment-check', f)" @download="download" />
         <div v-if="stepState(5) === 'current' && !isClientView" class="step-actions">
-          <a-tooltip :title="can('kpp') ? (filesBySection('payment-check').length ? '' : t('import40Case.clientNoCheck')) : hintFor('kpp')">
-            <a-button type="primary" :disabled="!can('kpp') || !filesBySection('payment-check').length"
+          <a-tooltip :title="stepBlockedBy('kpp') ? actionTooltip('kpp') : can('kpp') ? (filesBySection('payment-check').length ? '' : t('import40Case.clientNoCheck')) : hintFor('kpp')">
+            <a-button type="primary" :disabled="actionDisabled('kpp') || !filesBySection('payment-check').length"
               @click="runAction('confirm-payment-and-complete')">{{ t('import40Case.confirmPayment') }}</a-button>
           </a-tooltip>
-          <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
+          <a-button v-if="claimVisible('kpp')" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
         </div>
       </Import40Step>
     </div>
@@ -468,8 +469,7 @@ const roleMode = computed<RoleMode>(() => {
 })
 // Мультироли: действие доступно, если у пользователя есть соответствующая бизнес-роль
 // (любая из нескольких) или он руководитель отдела/админ.
-// …и по правам из матрицы: шаги КПП — import40.kpp, ДТ — import40.declarant (брокер-декларант
-// делает и то и другое, отдельного менеджера КПП пока нет).
+// …и по правам из матрицы: шаги КПП — import40.kpp, ДТ — import40.declarant.
 const PERM_FOR: Record<string, string> = { kpp: 'import40.kpp', declarant: 'import40.declarant' }
 const can = (role: RoleMode) =>
   roleMode.value === 'admin' || roleMode.value === role
@@ -478,8 +478,8 @@ const can = (role: RoleMode) =>
 // Назначать сотрудников — право import40.assign (руководитель отдела, админ).
 const canAssign = computed(() => roleMode.value === 'admin' || authStore.hasPermission('import40.assign'))
 
-// Кто выполняет шаг — словами зрителя. Клиенту «менеджер КПП»/«декларант» ни о чём не говорят:
-// для него это «вы» и «AQNIET». Сотрудникам: шаги КПП ведёт декларант (менеджера КПП нет).
+// Кто выполняет шаг — словами зрителя. Клиенту «КПП»/«декларант» ни о чём не говорят:
+// для него это «вы» и «AQNIET».
 const executorLabel = (role: 'client' | 'kpp' | 'declarant' | 'clientKpp') => {
   if (roleMode.value === 'client') {
     return role === 'client' ? t('enum.role.you') : role === 'clientKpp' ? t('enum.role.youAndUs') : t('enum.role.us')
@@ -489,6 +489,39 @@ const executorLabel = (role: 'client' | 'kpp' | 'declarant' | 'clientKpp') => {
 const hintFor = (role: string) => {
   const key = role === 'kpp' ? 'kpp' : role === 'declarant' ? 'declarant' : 'client'
   return t('import40Case.hintFor', { role: executorLabel(key) })
+}
+
+// Право именно на роль шага, без «руководитель/админ может всё» (3.1): у руководителя вместо
+// кнопки «Взять в работу» — селекты назначения (canAssign), claim ему не нужен.
+const hasStepPermission = (role: 'kpp' | 'declarant') => authStore.hasBusinessRole(role) || authStore.hasPermission(PERM_FOR[role])
+const claimVisible = (role: 'kpp' | 'declarant') => {
+  if (canAssign.value || !activeCase.value) return false
+  const assignedId = role === 'kpp' ? activeCase.value.assignedKppId : activeCase.value.assignedDeclarantId
+  return hasStepPermission(role) && !assignedId
+}
+
+// Шаг занят другим исполнителем (3.8) — имя для подсказки и дизейбла кнопки действия.
+// Руководитель/админ не блокируются (StepOwnerOk на бэке разрешает им всегда).
+const stepBlockedBy = (role: 'kpp' | 'declarant'): string | null => {
+  const c = activeCase.value
+  if (!c || canAssign.value) return null
+  const assignedId = role === 'kpp' ? c.assignedKppId : c.assignedDeclarantId
+  if (!assignedId || assignedId === authStore.userId) return null
+  const name = role === 'kpp' ? c.assignedKppName : c.assignedDeclarantName
+  return name || t('import40Case.staffAssigned')
+}
+const actionDisabled = (role: 'kpp' | 'declarant') => !can(role) || !!stepBlockedBy(role)
+const actionTooltip = (role: 'kpp' | 'declarant') => {
+  const blocker = stepBlockedBy(role)
+  if (blocker) return t('import40Case.busyBy', { name: blocker })
+  return can(role) ? '' : hintFor(role)
+}
+
+// Имя исполнителя в шапке заявки — «вы» для себя, иначе имя из DTO (видят все сотрудники, M3).
+const nameFor = (id: string | null, name: string | null) => {
+  if (!id) return ''
+  if (id === authStore.userId) return t('import40Case.you')
+  return name || t('import40Case.staffAssigned')
 }
 
 // Виды транспорта с переведёнными подписями (0=ЖД,1=Авто,2=Авиа,3=Море).
@@ -542,6 +575,7 @@ const reload = async () => {
   activeCase.value = await import40Api.get(id)
   files.value = await import40Api.listFiles(id)
   assignForm.declarantId = activeCase.value?.assignedDeclarantId ?? null
+  assignForm.kppId = activeCase.value?.assignedKppId ?? null
   void loadReadiness()
 }
 
@@ -854,27 +888,30 @@ const confirmProblem = async () => {
   await runAction('set-problem', problemNote.value)
 }
 
-// Бейдж «в работе у меня / занято коллегой» (kpp/declarant)
+// Бейдж «в работе у меня / занято коллегой» — по роли ТЕКУЩЕГО шага (не по roleMode, чтобы
+// не путать мультиролевого сотрудника, который одновременно и декларант, и КПП).
 const assignedTag = computed<'me' | 'other' | null>(() => {
   const c = activeCase.value
   const uid = authStore.userId
   if (!c || !uid) return null
-  if (roleMode.value === 'kpp') {
+  const kppStatuses = [1, 4, 5, 6] // AtBorder, Released, SvhClosing, Invoiced
+  const declarantStatuses = [2, 3] // Declaring, Submitted
+  if (kppStatuses.includes(c.status)) {
     if (!c.assignedKppId) return null
     return c.assignedKppId === uid ? 'me' : 'other'
   }
-  if (roleMode.value === 'declarant') {
+  if (declarantStatuses.includes(c.status)) {
     if (!c.assignedDeclarantId) return null
     return c.assignedDeclarantId === uid ? 'me' : 'other'
   }
   return null
 })
 
-// Назначения (админ): каталог сотрудников + селекты в шапке
+// Назначения (руководитель/админ): каталог сотрудников + селекты в шапке
 const staffList = ref<StaffMember[]>([])
 // Сотрудники с бизнес-ролями (мультироли): селекты КПП/декларанта фильтруются по roles.
 const loadStaffOptions = async () => {
-  if (roleMode.value !== 'admin' && !authStore.hasPermission('import40.assign')) return
+  if (!canAssign.value) return
   try {
     staffList.value = await manageApi.staff()
   } catch {
@@ -882,21 +919,23 @@ const loadStaffOptions = async () => {
   }
 }
 const staffLabel = (u: StaffMember) => u.displayName || u.username
-// Шаги КПП делает брокер-декларант (отдельного менеджера КПП пока нет) — в селект КПП попадают оба.
 const declarantOptions = computed(() =>
   staffList.value.filter((u) => u.roles.includes('declarant')).map((u) => ({ value: u.id, label: staffLabel(u) })),
 )
-const staffName = (id: string) => { const u = staffList.value.find((x) => x.id === id); return u ? staffLabel(u) : t('import40Case.staffAssigned') }
+const kppOptions = computed(() =>
+  staffList.value.filter((u) => u.roles.includes('kpp')).map((u) => ({ value: u.id, label: staffLabel(u) })),
+)
 
-const assignForm = reactive<{ declarantId: string | null }>({ declarantId: null })
+const assignForm = reactive<{ declarantId: string | null; kppId: string | null }>({ declarantId: null, kppId: null })
 const assignSaving = ref(false)
 const saveAssignment = async () => {
   if (!activeCase.value) return
   assignSaving.value = true
   try {
-    // Только декларант: шаги КПП ведёт он же — сервер назначает его и КПП заявки.
+    // Декларант и КПП назначаются независимо (владелец, 2026-09-28).
     await import40Api.update(activeCase.value.id, {
       assignedDeclarantId: assignForm.declarantId || '00000000-0000-0000-0000-000000000000',
+      assignedKppId: assignForm.kppId || '00000000-0000-0000-0000-000000000000',
     } as never)
     message.success(t('import40Case.assignSaved'))
     await reload()

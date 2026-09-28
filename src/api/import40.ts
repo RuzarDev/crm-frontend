@@ -500,6 +500,9 @@ export interface Import40CaseDto {
   returnReason: string
   assignedKppId: string | null
   assignedDeclarantId: string | null
+  // ФИО исполнителей — видят все сотрудники, не только те, кто может назначать (аудит M3).
+  assignedKppName: string | null
+  assignedDeclarantName: string | null
   vehicleNumber: string
   driverName: string
   driverPhone: string

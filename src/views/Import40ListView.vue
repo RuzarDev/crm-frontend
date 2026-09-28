@@ -284,6 +284,9 @@
             </a-tag>
             <span v-if="record.isProblem" class="problem-chip">{{ t('import40List.problem') }}</span>
           </template>
+          <template v-else-if="column.key === 'executor'">
+            {{ executorCell(record) }}
+          </template>
           <template v-else-if="column.key === 'containers'">
             {{ t('import40List.compositionCell', { containers: record.containers.length, decl: declCount(record) }) }}
           </template>
@@ -450,6 +453,8 @@ const columns = computed(() => [
     sorter: (a: Import40CaseDto, b: Import40CaseDto) => a.number.localeCompare(b.number) },
   { title: t('import40List.colStep'), key: 'status', width: 220, sortDirections,
     sorter: (a: Import40CaseDto, b: Import40CaseDto) => a.status - b.status },
+  // Исполнитель — только сотрудникам, клиенту это внутренняя кухня (3.12).
+  ...(isClientRole.value ? [] : [{ title: t('import40List.colExecutor'), key: 'executor', width: 170 }]),
   { title: t('import40List.colComposition'), key: 'containers', width: 140 },
   { title: t('import40List.colUpdated'), key: 'updated', width: 110, sortDirections,
     sorter: (a: Import40CaseDto, b: Import40CaseDto) => Date.parse(a.updatedAtUtc) - Date.parse(b.updatedAtUtc) },
@@ -457,6 +462,15 @@ const columns = computed(() => [
 
 const { statusLabel } = useImport40Status()
 const declCount = (c: Import40CaseDto) => c.declarations.length
+
+// «Исполнитель»: декларант и/или КПП, «вы» для себя, «свободна» если никто не назначен (3.12).
+const executorCell = (c: Import40CaseDto) => {
+  const names = [
+    c.assignedDeclarantId ? (c.assignedDeclarantId === authStore.userId ? t('import40Case.you') : c.assignedDeclarantName || t('import40Case.staffAssigned')) : null,
+    c.assignedKppId ? (c.assignedKppId === authStore.userId ? t('import40Case.you') : c.assignedKppName || t('import40Case.staffAssigned')) : null,
+  ].filter((x): x is string => !!x)
+  return names.length ? names.join(' · ') : t('import40List.executorFree')
+}
 
 const createOpen = ref(false)
 const openCreate = () => {
