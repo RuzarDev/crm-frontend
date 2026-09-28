@@ -77,6 +77,7 @@ const router = createRouter({
           path: '/requests-registry',
           name: 'requests-registry',
           component: () => import('@/views/RequestsRegistryView.vue'),
+          meta: { requiresRole: 'administrator' },
         },
         {
           path: '/document-packages',
@@ -113,9 +114,11 @@ const router = createRouter({
           meta: { requiresImport40: true },
         },
         {
+          // Справочник ДТ — только декларанту (тот же критерий, что в меню, аудит §8).
           path: '/dt-guide',
           name: 'dt-guide',
           component: () => import('@/views/DtGuideView.vue'),
+          meta: { requiresPermission: 'import40.declarant' },
         },
         {
           path: '/keden',
@@ -149,9 +152,11 @@ const router = createRouter({
           component: () => import('@/views/NotificationsView.vue'),
         },
         {
+          // Только клиенту транзита — тот же критерий, что и в меню (MainLayout: clientTransit).
           path: '/my-documents',
           name: 'my-documents',
           component: () => import('@/views/MyDocumentsView.vue'),
+          meta: { requiresClientTransit: true },
         },
         {
           // Волна 2 ролей: финансы (бухгалтер) и панель руководителя.
@@ -205,34 +210,42 @@ const router = createRouter({
           meta: { requiresPermission: 'users.write' },
         },
         {
+          // Гейт группы ТН ВЭД — тот же критерий, что и в меню (references.read, плюс
+          // admin/client всегда): аудит §8, у маршрутов не было meta вовсе.
           path: '/tnved/tree',
           name: 'tnved-tree',
           component: () => import('@/views/TnvedTreeView.vue'),
+          meta: { requiresReferences: true },
         },
         {
           path: '/tnved/news',
           name: 'tnved-news',
           component: () => import('@/views/TnvedNewsView.vue'),
+          meta: { requiresReferences: true },
         },
         {
           path: '/tnved/regulations',
           name: 'tnved-regulations',
           component: () => import('@/views/TnvedRegulationsView.vue'),
+          meta: { requiresReferences: true },
         },
         {
           path: '/tnved/currencies',
           name: 'tnved-currencies',
           component: () => import('@/views/TnvedCurrenciesView.vue'),
+          meta: { requiresReferences: true },
         },
         {
           path: '/tnved/timeline',
           name: 'tnved-timeline',
           component: () => import('@/views/TnvedTimelineView.vue'),
+          meta: { requiresReferences: true },
         },
         {
           path: '/tnved/analytics',
           name: 'tnved-analytics',
           component: () => import('@/views/TnvedAnalyticsView.vue'),
+          meta: { requiresReferences: true },
         },
         {
           path: '/tnved/sync',
@@ -290,6 +303,8 @@ router.beforeEach((to, from, next) => {
   const requiredAnyRole = to.meta.requiresAnyRole as string[] | undefined
   const requiresImport40 = to.meta.requiresImport40 === true
   const requiresSales = to.meta.requiresSales === true
+  const requiresReferences = to.meta.requiresReferences === true
+  const requiresClientTransit = to.meta.requiresClientTransit === true
 
   const normalizedRole = (authStore.role || '').trim().toLowerCase()
 
@@ -319,6 +334,16 @@ router.beforeEach((to, from, next) => {
     && !(normalizedRole === 'client'
       ? authStore.clientHasModule('transit')
       : authStore.hasPermission('reestr.read') || authStore.hasPermission('import40.read'))
+  ) {
+    next('/')
+  } else if (
+    // ТН ВЭД — то же условие, что и группа в меню: references.read, admin и client всегда.
+    requiresReferences && !(normalizedRole === 'administrator' || normalizedRole === 'client' || authStore.hasPermission('references.read'))
+  ) {
+    next('/')
+  } else if (
+    // «Мои документы» — только клиент транзита (то же условие, что и пункт меню).
+    requiresClientTransit && !(normalizedRole === 'client' && authStore.clientHasModule('transit'))
   ) {
     next('/')
   } else if (requiredRole && normalizedRole !== requiredRole) {

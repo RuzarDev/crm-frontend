@@ -20,7 +20,7 @@
     <!-- Договоры, которые клиент подписал, а AQNIET ещё нет: пока их не подписать, клиент не
          может подать заявку. Подписывают администратор и руководитель отдела. -->
     <a-alert
-      v-if="aqnietCount"
+      v-if="aqnietCount && canSignProvider"
       type="info"
       show-icon
       class="expiring-alert"

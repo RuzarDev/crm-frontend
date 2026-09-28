@@ -28,10 +28,29 @@
 
       <div class="header-right">
         <LanguageSwitcher dark />
-        <!-- Бейдж бизнес-роли клиенту ни о чём не говорит — это его собственный кабинет, роль тут
-             неуместна (аудит 5.23). -->
-        <span v-if="!isClientRole" class="role-badge">{{ roleLabel }}</span>
-        <span class="username">{{ authStore.username }}</span>
+
+        <!-- Меню пользователя: профиль ушёл сюда из «Администрирования» — там он был единственным
+             пунктом и группа не несла смысла ни у одной роли (аудит 2026-09-28, раздел 8). -->
+        <a-dropdown :trigger="['click']" placement="bottomRight">
+          <button type="button" class="user-menu-trigger">
+            <!-- Бейдж бизнес-роли клиенту ни о чём не говорит — это его собственный кабинет, роль тут
+                 неуместна (аудит 5.23). -->
+            <span v-if="!isClientRole" class="role-badge">{{ roleLabel }}</span>
+            <span class="username">{{ authStore.username }}</span>
+            <UserOutlined class="user-menu-icon" />
+          </button>
+          <template #overlay>
+            <a-menu @click="handleUserMenuClick">
+              <a-menu-item key="/profile">
+                <UserOutlined /> {{ t('nav.profile') }}
+              </a-menu-item>
+              <a-menu-divider />
+              <a-menu-item key="logout">
+                <LogoutOutlined /> {{ t('header.logout') }}
+              </a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
 
         <!-- Notifications bell -->
         <a-dropdown :trigger="['click']" placement="bottomRight" @open-change="onNotifOpen">
@@ -78,10 +97,6 @@
           </template>
         </a-dropdown>
 
-        <a-button class="logout-button" @click="handleLogout">
-          <LogoutOutlined />
-          <span class="logout-label">{{ t('header.logout') }}</span>
-        </a-button>
         <a-button class="menu-toggle-btn" @click="mobileNavOpen = true" :title="t('misc.menyu')">
           <MenuOutlined />
         </a-button>
@@ -158,6 +173,10 @@
     <div class="drawer-footer">
       <div v-if="!isClientRole" class="drawer-footer-role">{{ roleLabel }}</div>
       <div class="drawer-footer-user">{{ authStore.username }}</div>
+      <a-button class="drawer-logout" block @click="handleMobileMenuClick({ key: '/profile' })">
+        <UserOutlined />
+        {{ t('nav.profile') }}
+      </a-button>
       <a-button class="drawer-logout" block @click="handleLogout">
         <LogoutOutlined />
         {{ t('header.logout') }}
@@ -177,19 +196,30 @@ import type { AppNotification } from '@/types/api'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import {
   ApiOutlined,
+  AuditOutlined,
   BankOutlined,
   BarChartOutlined,
   BellOutlined,
+  BuildOutlined,
+  CalculatorOutlined,
   CalendarOutlined,
+  ContainerOutlined,
   DashboardOutlined,
   DatabaseOutlined,
+  DollarCircleOutlined,
   DollarOutlined,
   FileAddOutlined,
   FileDoneOutlined,
   FileProtectOutlined,
+  FileSearchOutlined,
   FileTextOutlined,
+  FlagOutlined,
+  FolderOpenOutlined,
   GlobalOutlined,
+  IdcardOutlined,
   ImportOutlined,
+  KeyOutlined,
+  LineChartOutlined,
   LogoutOutlined,
   MenuOutlined,
   ReadOutlined,
@@ -199,6 +229,7 @@ import {
   TeamOutlined,
   UnorderedListOutlined,
   UserOutlined,
+  UserSwitchOutlined,
 } from '@ant-design/icons-vue'
 import { formatRole } from '@/utils/labels'
 import { businessRoleLabel } from '@/api/permissions'
@@ -287,6 +318,8 @@ const menuItems = computed(() => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const operationsItems: any[] = []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const clientsItems: any[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const salesItems: any[] = []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const referenceItems: any[] = []
@@ -333,7 +366,7 @@ const menuItems = computed(() => {
   if (role === 'administrator') {
     operationsItems.push({
       key: '/requests-registry',
-      icon: () => h(DatabaseOutlined),
+      icon: () => h(ContainerOutlined),
       label: t('nav.requestsRegistry'),
     })
   }
@@ -402,6 +435,9 @@ const menuItems = computed(() => {
     })
   }
 
+  // Админ видит один пункт КЕДЕН — «Декларации КЕДЕН» (полный список деклараций); отдельная
+  // «Статусы КЕДЕН» показывала те же данные под другим названием (аудит §8) — ниже она уже не
+  // выводится администратору, только остальным ролям, которым нужна была только эта страница.
   if (role === 'administrator') {
     operationsItems.push({
       key: '/keden',
@@ -410,15 +446,43 @@ const menuItems = computed(() => {
     })
   }
 
-  // Статусы КЕДЕН по БИН — брокер/экспедитор/декларант(importer)/админ/клиент транзита.
+  // Статусы КЕДЕН по БИН — брокер/экспедитор/декларант(importer)/клиент транзита.
   // Клиенту Импорта 40 без транзита не показываем (аудит 5.1) — у него нет своих ДТ в КЕДЕН,
   // а import40.read/reestr.read клиенту даются всегда и раньше срабатывали как фолбэк.
-  if (!financeOnly && (role === 'administrator' || clientTransit || role === 'expeditor'
+  if (!financeOnly && role !== 'administrator' && (clientTransit || role === 'expeditor'
     || (role !== 'client' && (authStore.hasPermission('reestr.read') || authStore.hasPermission('import40.read'))))) {
     operationsItems.push({
       key: '/keden-status',
-      icon: () => h(SafetyCertificateOutlined),
+      icon: () => h(FlagOutlined),
       label: t('nav.kedenStatuses'),
+    })
+  }
+
+  // Аналитика — среди операционных отчётов, а не в «Продажах» (аудит §8): иначе бухгалтер и
+  // экспедитор, у которых есть analytics.read/clients.read, но нет продаж, видели группу
+  // «Продажи» без единого пункта продаж.
+  if (authStore.hasPermission('analytics.read')) {
+    operationsItems.push({
+      key: '/analytics',
+      icon: () => h(BarChartOutlined),
+      label: t('nav.analytics'),
+    })
+  }
+
+  // ─── Клиенты ────────────────────────────────────────────
+  if (role !== 'client' && (role === 'administrator' || authStore.hasPermission('clients.read'))) {
+    clientsItems.push({
+      key: '/clients',
+      icon: () => h(IdcardOutlined),
+      label: t('nav.clients'),
+    })
+  }
+
+  if (authStore.hasPermission('clients.read') && role !== 'client') {
+    clientsItems.push({
+      key: '/client-documents',
+      icon: () => h(FileProtectOutlined),
+      label: t('nav.clientDocuments'),
     })
   }
 
@@ -426,30 +490,15 @@ const menuItems = computed(() => {
   if (authStore.canUseSales) {
     salesItems.push({
       key: '/sales',
-      icon: () => h(BarChartOutlined),
+      icon: () => h(CalculatorOutlined),
       label: t('nav.salesModule'),
     })
   }
 
-  if (authStore.hasPermission('analytics.read')) {
-    salesItems.push({
-      key: '/analytics',
-      icon: () => h(BarChartOutlined),
-      label: t('nav.analytics'),
-    })
-  }
-
-  if (role !== 'client' && (role === 'administrator' || authStore.hasPermission('clients.read'))) {
-    salesItems.push({
-      key: '/clients',
-      icon: () => h(SolutionOutlined),
-      label: t('nav.clients'),
-    })
-  }
-
   // ─── Справочники ────────────────────────────────────────
-  // Только те, кто заполняет ДТ. canUseImport40 здесь не подходит — в него входит client.
-  if (!financeOnly && (role === 'administrator' || authStore.hasPermission('references.read'))) {
+  // Справочник ДТ — только декларанту (аудит §8): раньше открывался по references.read,
+  // а его держат ещё и МПП/экспедитор, которым заполнение ДТ не нужно.
+  if (!financeOnly && (role === 'administrator' || authStore.hasPermission('import40.declarant'))) {
     referenceItems.push({
       key: '/dt-guide',
       icon: () => h(ReadOutlined),
@@ -469,10 +518,12 @@ const menuItems = computed(() => {
   const tnvedChildren: any[] = [
     { key: '/tnved/tree', icon: () => h(UnorderedListOutlined), label: t('nav.tnvedClassifier') },
     { key: '/tnved/news', icon: () => h(FileTextOutlined), label: t('nav.news') },
-    { key: '/tnved/regulations', icon: () => h(FileDoneOutlined), label: t('nav.npa') },
-    { key: '/tnved/currencies', icon: () => h(DatabaseOutlined), label: t('nav.currencies') },
+    { key: '/tnved/regulations', icon: () => h(FileSearchOutlined), label: t('nav.npa') },
+    { key: '/tnved/currencies', icon: () => h(DollarCircleOutlined), label: t('nav.currencies') },
     { key: '/tnved/timeline', icon: () => h(CalendarOutlined), label: t('nav.timeline') },
-    { key: '/tnved/analytics', icon: () => h(BarChartOutlined), label: t('nav.analytics') },
+    // Отдельная подпись от «Аналитики» операций (аудит §8) — это статистика по кодам ТН ВЭД,
+    // а не аналитика заявок/продаж.
+    { key: '/tnved/analytics', icon: () => h(LineChartOutlined), label: t('nav.tnvedAnalytics') },
   ]
 
   if (authStore.hasPermission('tnved.manage')) {
@@ -494,25 +545,18 @@ const menuItems = computed(() => {
   if (clientTransit) {
     referenceItems.push({
       key: '/my-documents',
-      icon: () => h(FileDoneOutlined),
+      icon: () => h(FolderOpenOutlined),
       label: t('nav.myDocuments'),
     })
   }
 
-
   // ─── Администрирование ──────────────────────────────────
-  if (authStore.hasPermission('clients.read') && role !== 'client') {
-    referenceItems.push({
-      key: '/client-documents',
-      icon: () => h(FileProtectOutlined),
-      label: t('nav.clientDocuments'),
-    })
-  }
-
+  // Профиль ушёл в меню пользователя в шапке (аудит §8) — раньше это был единственный пункт
+  // «Администрирования» у большинства ролей, и группа не несла смысла.
   if (role === 'administrator') {
     adminItems.push({
       key: '/system/audit',
-      icon: () => h(FileDoneOutlined),
+      icon: () => h(AuditOutlined),
       label: t('nav.audit'),
     })
   }
@@ -520,7 +564,7 @@ const menuItems = computed(() => {
   if (authStore.hasPermission('users.write')) {
     adminItems.push({
       key: '/settings/organization',
-      icon: () => h(SolutionOutlined),
+      icon: () => h(BuildOutlined),
       label: t('nav.organization'),
     })
   }
@@ -528,7 +572,7 @@ const menuItems = computed(() => {
   if (authStore.hasPermission('users.write')) {
     adminItems.push({
       key: '/users',
-      icon: () => h(TeamOutlined),
+      icon: () => h(UserSwitchOutlined),
       label: t('nav.users'),
     })
   }
@@ -536,7 +580,7 @@ const menuItems = computed(() => {
   if (authStore.hasPermission('users.read')) {
     adminItems.push({
       key: '/roles',
-      icon: () => h(SafetyCertificateOutlined),
+      icon: () => h(KeyOutlined),
       label: t('nav.roles'),
     })
   }
@@ -549,17 +593,14 @@ const menuItems = computed(() => {
     })
   }
 
-  adminItems.push({
-    key: '/profile',
-    icon: () => h(UserOutlined),
-    label: t('nav.profile'),
-  })
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const groups: any[] = []
 
   if (operationsItems.length) {
     groups.push({ key: 'group-operations', type: 'group', label: t('nav.operations'), children: operationsItems })
+  }
+  if (clientsItems.length) {
+    groups.push({ key: 'group-clients', type: 'group', label: t('nav.clientsGroup'), children: clientsItems })
   }
   if (salesItems.length) {
     groups.push({ key: 'group-sales', type: 'group', label: t('nav.sales'), children: salesItems })
@@ -568,8 +609,7 @@ const menuItems = computed(() => {
     groups.push({ key: 'group-references', type: 'group', label: t('nav.references'), children: referenceItems })
   }
   if (adminItems.length) {
-    // Клиенту тут только «Профиль» — «Администрирование» ему не подходит по смыслу (аудит 5.23).
-    groups.push({ key: 'group-admin', type: 'group', label: role === 'client' ? t('nav.account') : t('nav.admin'), children: adminItems })
+    groups.push({ key: 'group-admin', type: 'group', label: t('nav.admin'), children: adminItems })
   }
 
   return groups
@@ -677,6 +717,14 @@ const handleLogout = () => {
   notifStore.reset()
   authStore.logout()
   router.push('/login')
+}
+
+const handleUserMenuClick = ({ key }: { key: string }) => {
+  if (key === 'logout') {
+    handleLogout()
+    return
+  }
+  router.push(key)
 }
 </script>
 
@@ -907,20 +955,31 @@ const handleLogout = () => {
   text-align: center;
 }
 
-.logout-button {
-  color: rgba(240, 243, 255, 0.75);
-  border-color: rgba(240, 243, 255, 0.14);
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid rgba(240, 243, 255, 0.14);
+  border-radius: var(--atg-radius, 8px);
   background: rgba(255, 255, 255, 0.04);
+  color: rgba(240, 243, 255, 0.82);
+  cursor: pointer;
   transition:
     color var(--atg-transition),
     border-color var(--atg-transition),
     background var(--atg-transition);
 }
 
-.logout-button:hover {
-  color: #1B2A4A !important;
-  border-color: #2BBCD4 !important;
-  background: #2BBCD4 !important;
+.user-menu-trigger:hover {
+  color: #1B2A4A;
+  border-color: #2BBCD4;
+  background: #2BBCD4;
+}
+
+.user-menu-icon {
+  font-size: 15px;
 }
 
 /* ─── Notifications ──────────────────────────────────────── */
@@ -1216,7 +1275,7 @@ const handleLogout = () => {
 
   .role-badge,
   .username,
-  .logout-button {
+  .user-menu-trigger {
     display: none;
   }
 }

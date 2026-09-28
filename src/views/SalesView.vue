@@ -4,7 +4,7 @@
 
     <a-tabs v-model:activeKey="tab">
       <a-tab-pane key="calc" :tab="t('sales.kalkulyator')" />
-      <a-tab-pane key="quotes" :tab="t('sales.moiKp')" />
+      <a-tab-pane key="quotes" :tab="isAllQuotes ? t('sales.vseKp') : t('sales.moiKp')" />
     </a-tabs>
 
     <!-- КАЛЬКУЛЯТОР -->
@@ -156,18 +156,24 @@ import {
 } from '@ant-design/icons-vue'
 import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
 import {
-  salesApi, SALES_QUOTE_STATUS,
+  salesApi, SALES_QUOTE_STATUS_CODES,
   type SalesCalcResponse, type SalesQuoteDto, type SalesQuoteListItem, type SalesServiceItem,
 } from '@/api/sales'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedCurrencyDto } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
+import { useAuthStore } from '@/stores/auth'
 import atgLogoSvgRaw from '@/assets/atg-logo-group.svg?raw'
 import PageHeader from '@/components/PageHeader.vue'
 
 const { t } = useI18n()
 
 const classifiers = useClassifiersStore()
+const authStore = useAuthStore()
+
+// Руководителю и админу список показывает КП всех продажников, а не только свои
+// (аудит 2026-09-28, раздел 8) — вкладка так и должна называться.
+const isAllQuotes = computed(() => (authStore.role || '').trim().toLowerCase() === 'administrator' || authStore.hasBusinessRole('rop'))
 
 const tab = ref<'calc' | 'quotes'>('calc')
 
@@ -313,7 +319,7 @@ const openQuote = async (id: string) => {
   activeQuote.value = await salesApi.getQuote(id)
   quoteModalOpen.value = true
 }
-const statusOptions = SALES_QUOTE_STATUS.map((label, value) => ({ label, value }))
+const statusOptions = SALES_QUOTE_STATUS_CODES.map((code, value) => ({ label: t(`enum.salesQuoteStatus.${code}`), value }))
 const updateStatus = async (id: string, status: number) => {
   await salesApi.changeStatus(id, status)
   if (activeQuote.value) activeQuote.value.status = status
@@ -337,7 +343,10 @@ const rateFor = (code: string) => {
 // утилиты
 const money = (v: number) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(v ?? 0)
 const formatDate = (v: string) => new Intl.DateTimeFormat('ru-RU').format(new Date(v))
-const statusLabel = (s: number) => SALES_QUOTE_STATUS[s] ?? '—'
+const statusLabel = (s: number) => {
+  const code = SALES_QUOTE_STATUS_CODES[s]
+  return code ? t(`enum.salesQuoteStatus.${code}`) : '—'
+}
 const statusColor = (s: number) => (['default', 'processing', 'success', 'error'][s] ?? 'default')
 
 // печать КП в изолированном окне

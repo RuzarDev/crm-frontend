@@ -91,7 +91,10 @@ export interface SalesQuoteDto {
   transportCurrency?: string | null
 }
 
-export const SALES_QUOTE_STATUS = ['Черновик', 'Отправлено', 'Принято', 'Отклонено']
+// Коды статусов КП по индексу (0..3) — значение хранится числом в БД. Раньше здесь лежали
+// готовые русские подписи напрямую, поэтому kk/en видели русский текст (аудит 2026-09-28,
+// раздел 10). Подписи теперь берутся из enum.salesQuoteStatus.<код> в SalesView.vue.
+export const SALES_QUOTE_STATUS_CODES = ['draft', 'sent', 'accepted', 'rejected'] as const
 
 export const salesApi = {
   listServices: async (): Promise<SalesServiceItem[]> => {
