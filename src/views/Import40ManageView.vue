@@ -13,6 +13,9 @@
           <div class="kpi" :class="{ 'kpi--bad': data.problems }" @click="filter = 'problems'"><span>{{ t('admin.problemnye') }}</span><b>{{ data.problems }}</b><small>{{ t('admin.zaprosTamozhniProblema') }}</small></div>
           <div class="kpi" :class="{ 'kpi--attn': data.stale }" @click="filter = 'stale'"><span>{{ t('admin.zavisli') }}</span><b>{{ data.stale }}</b><small>{{ t('admin.bezDvizheniya5Dney') }}</small></div>
           <div class="kpi"><span>{{ t('admin.aktivnyhZayavok') }}</span><b>{{ data.cases.length }}</b><small>{{ t('admin.vsegoVRabote') }}</small></div>
+          <!-- Черновики клиентов — отдельный счётчик (аудит 3.11/M11): руководитель ничего не может
+               сделать с заявкой, пока клиент сам её не отправил, поэтому она не в «в работе»/«зависших». -->
+          <div class="kpi kpi--muted"><span>{{ t('admin.uKlienta') }}</span><b>{{ data.clientDrafts }}</b><small>{{ t('admin.chernovikiKlientov') }}</small></div>
         </div>
 
         <div class="grid">
@@ -158,7 +161,8 @@ const clearProblem = async (c: ManageCase) => {
 
 <style scoped>
 .manage-view { display: flex; flex-direction: column; gap: 18px; }
-.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 18px; }
+.kpi--muted { cursor: default; }
 .kpi { background: #fff; border: 1px solid var(--z-line, #e8ecf4); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
 .kpi > span { font-size: 11.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
 .kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 26px; font-weight: 800; color: var(--atg-ink, #182640); }
@@ -180,4 +184,5 @@ const clearProblem = async (c: ManageCase) => {
 .load-bar { height: 6px; border-radius: 4px; background: var(--z-line-2, #eff2f8); overflow: hidden; }
 .load-bar span { display: block; height: 100%; background: var(--atg-teal, #22b8d0); border-radius: 4px; }
 @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1101px) and (max-width: 1400px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
 </style>

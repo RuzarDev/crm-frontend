@@ -7,7 +7,9 @@ export interface ManageCase {
   assignedKppId: string | null; assignedDeclarantId: string | null; createdAtUtc: string; updatedAtUtc: string
   daysInWork: number; daysSinceUpdate: number; declarationsCount: number
 }
-export interface ManageOverview { cases: ManageCase[]; staff: StaffMember[]; unassigned: number; problems: number; stale: number }
+// clientDrafts — черновики клиентов, которые ждут клиента, а не сотрудника (аудит 3.11/M11):
+// не входят в cases/unassigned/stale, показываются отдельным счётчиком «У клиента».
+export interface ManageOverview { cases: ManageCase[]; staff: StaffMember[]; unassigned: number; problems: number; stale: number; clientDrafts: number }
 
 export interface FinanceFile { id: string; section: 'svh-invoice' | 'payment-check'; fileName: string; createdAtUtc: string }
 export interface FinanceRow {

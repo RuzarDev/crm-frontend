@@ -50,6 +50,9 @@ export interface Import40LogDto {
   createdAtUtc: string
   text: string
   changedByBusinessRole: string
+  // ФИО автора записи (сотрудник) или имя компании клиента — задача 2.4, M2: раньше в истории
+  // был только код роли без имени.
+  changedByName?: string | null
 }
 
 export interface Import40Party {
@@ -212,6 +215,9 @@ export interface Import40DeclarationDto {
   rateType?: string | null
   splitRole?: string | null
   splitSourceDeclarationId?: string | null
+  // Исходная ДТ после разделения ЕТТ/ВТО (задача 2.4, H5/3.3) — заменена дочерними декларациями,
+  // исключена из готовности/пакетной выгрузки, в списке показывается серой.
+  isSplitReplaced?: boolean
   factPayments?: Import40FactPayment[]
   declarationTypeCode: string
   declarationFeatureCode: string | null
@@ -832,6 +838,15 @@ export const import40Api = {
     await apiClient.delete(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}`,
     )
+  },
+
+  // КП только клиента этой заявки (задача 2.4, 3.5/H7) — право import40.declarant, а не
+  // sales.read, поэтому декларант больше не ловит 403 в модалке «Импорт из КП».
+  caseQuotes: async (caseId: string): Promise<import('./sales').SalesQuoteListItem[]> => {
+    const { data } = await apiClient.get<import('./sales').SalesQuoteListItem[]>(
+      `/import40/${encodeURIComponent(caseId)}/quotes`,
+    )
+    return data
   },
 
   importQuote: async (

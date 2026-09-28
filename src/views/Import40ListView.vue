@@ -7,8 +7,9 @@
     >
       <template #actions>
         <a-button :loading="loading" @click="reload">{{ t('common.refresh') }}</a-button>
-        <a-tooltip v-if="canCreate" :title="showOnboardingGate ? t('import40List.onboardingTooltip') : ''">
-          <a-button type="primary" :disabled="showOnboardingGate" @click="openCreate">{{ t('import40List.newRequest') }}</a-button>
+        <a-tooltip v-if="canCreate" :title="showOnboardingGate ? t('import40List.onboardingTooltip') : canCreateStaff ? t('import40List.newRequestStaffHint') : ''">
+          <!-- Основной путь — клиент подаёт заявку сам; для сотрудника (фолбэк 3.13) кнопка вторичная. -->
+          <a-button :type="canCreateStaff ? 'default' : 'primary'" :size="canCreateStaff ? 'small' : 'middle'" :disabled="showOnboardingGate" @click="openCreate">{{ t('import40List.newRequest') }}</a-button>
         </a-tooltip>
         <span class="crm-stat-badge">{{ t('import40List.requestsCount') }}&nbsp;<span class="crm-stat-badge-count">{{ cases.length }}</span></span>
       </template>
@@ -301,7 +302,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
@@ -328,6 +329,7 @@ import type { CompanyLookupDto } from '@/api/companyLookup'
 import PhoneInput from '@/components/ui/PhoneInput.vue'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const { t } = useI18n()
 const loading = ref(false)
@@ -431,9 +433,14 @@ const isClientRole = computed(
     (authStore.businessRole || '').toLowerCase() === 'client' ||
     (authStore.role || '').toLowerCase() === 'client',
 )
-const canCreate = computed(
-  () => isClientRole.value || (authStore.role || '').toLowerCase() === 'administrator',
+const isAdminRole = computed(() => (authStore.role || '').toLowerCase() === 'administrator')
+// Декларант/руководитель могут создать заявку за клиента — фолбэк, если клиент прислал всё в
+// мессенджере (аудит 3.13). Основной путь — клиент сам, поэтому кнопка для сотрудника вторичная.
+const canCreateStaff = computed(
+  () => !isClientRole.value && !isAdminRole.value
+    && (authStore.hasPermission('import40.declarant') || authStore.hasPermission('import40.assign')),
 )
+const canCreate = computed(() => isClientRole.value || isAdminRole.value || canCreateStaff.value)
 const canSubmit = computed(
   // Обязательны только Клиент + Груз; Пост/СВХ необязателен (можно заполнить позже).
   () => Boolean(draft.clientId) && draft.cargo.trim().length > 1,
@@ -797,6 +804,8 @@ const handleDocUpload: UploadProps['customRequest'] = ({ file }) => {
 }
 
 onMounted(() => {
+  // KPI дашборда ведёт сюда с ?tab=my (аудит L6) — тот же переключатель вкладок, что и ручной клик.
+  if (route.query.tab === 'my' || route.query.tab === 'all') tab.value = route.query.tab
   void reload()
   if (canCreate.value) {
     void loadClients()

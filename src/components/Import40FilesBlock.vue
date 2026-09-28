@@ -13,7 +13,7 @@
         <a class="file-name" @click.prevent="emit('download', f)">
           <PaperClipOutlined /> {{ f.originalFileName }}
         </a>
-        <span class="file-meta">{{ formatSize(f.sizeBytes) }} · {{ roleLabel(f.uploadedByBusinessRole) }}</span>
+        <span class="file-meta">{{ formatSize(f.sizeBytes) }} · {{ roleLabel(f.uploadedByBusinessRole) }}<template v-if="f.uploadedByStaffName"> ({{ t('import40Case.uploadedByStaff', { name: f.uploadedByStaffName }) }})</template></span>
         <a-button v-if="canRemove" type="text" danger size="small" @click="emit('remove', f)"><CloseOutlined /></a-button>
       </div>
     </div>
@@ -25,8 +25,11 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { CloseOutlined, PaperClipOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import type { Import40FileDto } from '@/api/import40'
+
+const { t } = useI18n()
 
 defineProps<{
   files: Import40FileDto[]
@@ -55,8 +58,9 @@ const onPicked = (ev: Event) => {
 const formatSize = (b: number) =>
   b >= 1048576 ? `${(b / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(b / 1024))} КБ`
 
-const roleLabel = (r: string) =>
-  ({ client: 'клиент', kpp: 'КПП', declarant: 'декларант', rop: 'РОП', mpp: 'МПП' })[r?.toLowerCase()] ?? r
+// Метка роли — через общий словарь ролей (аудит M18): раньше был свой мини-словарь с «РОП»/«МПП»
+// без перевода и без accountant/sales, роль kpp тоже отображается как есть (KPP снова роль — 2.1).
+const roleLabel = (r: string) => t('enum.businessRole.' + (r ?? '').toLowerCase(), r)
 </script>
 
 <style scoped>

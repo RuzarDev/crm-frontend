@@ -161,7 +161,7 @@
           style="max-width: 320px; margin-bottom: 8px"
         />
 
-        <div v-for="(dt, i) in filteredDeclarations" :key="dt.id" class="dt-row">
+        <div v-for="(dt, i) in filteredDeclarations" :key="dt.id" class="dt-row" :class="{ 'dt-row--replaced': dt.isSplitReplaced }">
           <div class="dt-row-main">
             <strong>{{ dt.declarationNumber || t('import40Case.dtFallback', { n: i + 1 }) }}</strong>
             <a-tooltip :title="splitTagTooltip(dt)">
@@ -232,7 +232,9 @@
           <a-tooltip v-if="activeCase.status === 2" :title="actionTooltip('declarant')">
             <a-button type="primary" :disabled="actionDisabled('declarant') || !activeCase.declarations.length" @click="runAction('submit-declaration')">{{ t('import40Case.submitDt') }}</a-button>
           </a-tooltip>
-          <a-tooltip :title="can('kpp') || can('declarant') ? '' : hintFor('declarant')">
+          <!-- Со статуса «ДТ подана» и дальше возврат в черновик клиента бессмыслен (аудит 3.9/M8):
+               кнопка видна только на «Декларирование» (статус 2), пока ДТ ещё не ушла в КЕДЕН. -->
+          <a-tooltip v-if="activeCase.status === 2" :title="can('kpp') || can('declarant') ? '' : hintFor('declarant')">
             <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">{{ t('import40Case.returnToClient') }}</a-button>
           </a-tooltip>
         </div>
@@ -244,7 +246,7 @@
         </div>
       </Import40Step>
       <Import40Step :index="4" :title="stepTitle(4)" :state="stepState(4)" :executor="executorLabel('kpp')"
-        :summary="stepState(4) === 'done' ? (activeCase.svhInvoiceNote ? t('import40Case.invoicePrefix', { note: activeCase.svhInvoiceNote }) : t('import40Case.closed')) : undefined">
+        :summary="stepState(4) === 'done' ? step4Summary : undefined">
         <div class="sub-label">{{ t('import40Case.stampTitle') }}</div>
         <Import40FilesBlock :files="filesBySection('declaration-stamp')" :can-upload="stepState(4) === 'current' && can('kpp')"
           :uploading="uploading" :empty-text="t('import40Case.stampEmpty')"
@@ -316,12 +318,13 @@
         <div v-for="l in activeCase.logs" :key="l.id" class="log-row">
           <span class="log-date">{{ new Date(l.createdAtUtc).toLocaleString(INTL_LOCALE[locale] ?? 'ru-RU') }}</span>
           <span>{{ l.text }}</span>
-          <a-tag>{{ l.changedByBusinessRole }}</a-tag>
+          <!-- «ФИО · роль» вместо сырого кода роли (аудит M2) — changedByName приходит с бэка. -->
+          <a-tag>{{ l.changedByName ? `${l.changedByName} · ` : '' }}{{ t('enum.businessRole.' + l.changedByBusinessRole, l.changedByBusinessRole) }}</a-tag>
         </div>
       </a-collapse-panel>
     </a-collapse>
 
-    <a-modal v-model:open="returnOpen" :title="t('import40Case.returnTitle')" :ok-text="t('import40Case.returnOk')" :cancel-text="t('common.cancel')" @ok="confirmReturn">
+    <a-modal v-model:open="returnOpen" :title="t('import40Case.returnTitle')" :ok-text="t('import40Case.returnOk')" :cancel-text="t('common.cancel')" :ok-button-props="{ disabled: !returnReason.trim() }" @ok="confirmReturn">
       <a-textarea v-model:value="returnReason" :rows="3" :placeholder="t('import40Case.returnPh')" />
     </a-modal>
 
@@ -452,7 +455,7 @@ import {
   type KedenReadinessDto,
 } from '@/api/import40'
 import type { DeclarationReadiness } from '@/types/api'
-import { salesApi, type SalesQuoteListItem } from '@/api/sales'
+import type { SalesQuoteListItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { manageApi, type StaffMember } from '@/api/manage'
 import Import40Step from '@/components/Import40Step.vue'
@@ -579,19 +582,36 @@ const transportModeOptions = computed(() =>
 // показываем «ВТО» по старому признаку (edge case: самостоятельная ДТ с
 // выбранными ВТО-товарами вне split). rateType==='ETT' без splitRole
 // фолбэка не имеет — это обычная ДТ, шум специально убран.
+// Задача 2.4 (аудит H5/3.3): исходную ДТ после разделения помечает бэк (isSplitReplaced) — она
+// заменена дочерними ЕТТ/ВТО и больше не участвует в готовности/выгрузке, показываем её серой.
 const splitTagLabel = (dt: Import40DeclarationDto) => {
+  if (dt.isSplitReplaced) return t('import40Case.splitReplaced')
   if (dt.splitRole === 'VTO') return 'ВТО'
   if (dt.splitRole === 'ETT') return 'ЕТТ'
   if (!dt.splitRole && dt.rateType === 'EATT') return 'ВТО'
   return null
 }
-const splitTagColor = (dt: Import40DeclarationDto) => (splitTagLabel(dt) === 'ВТО' ? 'purple' : 'blue')
+const splitTagColor = (dt: Import40DeclarationDto) => (dt.isSplitReplaced ? 'default' : splitTagLabel(dt) === 'ВТО' ? 'purple' : 'blue')
 const splitTagTooltip = (dt: Import40DeclarationDto) => {
+  if (dt.isSplitReplaced) return t('import40Case.splitReplacedTooltip')
   if (!dt.splitSourceDeclarationId) return ''
   const source = activeCase.value?.declarations.find((d) => d.id === dt.splitSourceDeclarationId)
   const num = source?.declarationNumber || dt.splitSourceDeclarationId
   return t('import40Case.splitTooltip', { num })
 }
+
+// Итог шага 4 показывает сумму счёта СВХ, а не только примечание (аудит L8) — без суммы «закрыт»
+// не объяснял, зачем клиент видит счёт на шаге 5.
+const step4Summary = computed(() => {
+  const c = activeCase.value
+  if (!c) return undefined
+  if (c.svhInvoiceAmount != null) {
+    const amount = `${Math.round(c.svhInvoiceAmount).toLocaleString('ru-RU')} ₸`
+    const withNumber = c.svhInvoiceNumber ? `${amount} · № ${c.svhInvoiceNumber}` : amount
+    return c.svhInvoiceNote ? `${withNumber} · ${c.svhInvoiceNote}` : withNumber
+  }
+  return c.svhInvoiceNote ? t('import40Case.invoicePrefix', { note: c.svhInvoiceNote }) : t('import40Case.closed')
+})
 
 const currentStep = computed(() => (activeCase.value ? stepForStatus(activeCase.value.status) : 1))
 // Отменённая заявка: шаги не «выполнены» — показываем их как не начатые (серые), без галочек.
@@ -1083,6 +1103,7 @@ const declarationOptions = computed(() =>
 )
 
 const openImportQuote = async () => {
+  if (!activeCase.value) return
   imp.quoteId = null
   imp.target = 'new'
   imp.declarationId = null
@@ -1090,7 +1111,9 @@ const openImportQuote = async () => {
   importQuoteOpen.value = true
   quotesLoading.value = true
   try {
-    quotes.value = await salesApi.listQuotes()
+    // КП только клиента этой заявки, через import40.declarant (аудит 3.5/H7) — раньше дёргали
+    // GET sales/quotes, куда декларанта не пускает sales.read, и модалка всегда падала.
+    quotes.value = await import40Api.caseQuotes(activeCase.value.id)
   } catch {
     message.error(t('import40Case.quoteListFailed'))
   } finally {
@@ -1235,6 +1258,8 @@ onMounted(() => {
   border-bottom: 1px dashed var(--atg-line);
   flex-wrap: wrap;
 }
+/* Исходная ДТ после разделения ЕТТ/ВТО (аудит H5/3.3) — заменена, показываем тусклой. */
+.dt-row--replaced { opacity: 0.55; }
 .dt-row-main {
   display: flex;
   align-items: center;

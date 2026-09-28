@@ -17,6 +17,10 @@ export interface Import40DashboardDto {
   paymentsTotalKzt: number
   avgDaysToDone: number | null
   topClients: Import40TopClient[]
+  // Задача 2.4 (3.10/3.11): у руководителя (rop / import40.assign без своего шага) KPI «Ждут
+  // меня» показывается как «Без назначения / Проблемные», а не общий счёт активных заявок.
+  unassignedCases: number
+  isManagerView: boolean
 }
 
 export const dashboardApi = {

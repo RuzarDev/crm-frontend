@@ -50,7 +50,7 @@
                 <a-tag :color="card.profile.isComplete ? 'success' : 'warning'">
                   {{ card.profile.isComplete ? t('clientCard.profileComplete') : t('clientCard.profileIncomplete') }}
                 </a-tag>
-                <a-button type="link" @click="router.push('/import-40/company')">{{ t('clientCard.editProfile') }}</a-button>
+                <a-button type="link" @click="router.push({ path: '/import-40/company', query: { client: clientId } })">{{ t('clientCard.editProfile') }}</a-button>
               </div>
             </a-tab-pane>
 

@@ -18,7 +18,7 @@
         </div>
 
         <div class="kpi-row">
-          <div class="kpi kpi--navy">
+          <div class="kpi kpi--navy kpi--clickable" @click="router.push('/import-40')">
             <div class="kpi-top">
               <span class="kpi-label">{{ t('dashboard.imp.totalCases') }}</span>
               <span class="kpi-ic"><ImportOutlined /></span>
@@ -27,17 +27,20 @@
             <div class="kpi-sub">{{ t('dashboard.imp.thisMonth', { n: formatNum(imp.casesThisMonth) }) }}</div>
           </div>
 
-          <div class="kpi kpi--hero">
+          <div class="kpi kpi--hero kpi--clickable" @click="goAwaitingMe">
             <span class="kpi-strip"></span>
             <div class="kpi-top">
               <span class="kpi-label">{{ t('dashboard.imp.awaitingMe') }}</span>
               <span class="kpi-ic"><ClockCircleOutlined /></span>
             </div>
-            <div class="kpi-val tnum">{{ formatNum(imp.awaitingMe) }}</div>
-            <div class="kpi-sub">{{ t('dashboard.imp.awaitingSub') }}</div>
+            <!-- У «чистого» руководителя (rop/import40.assign без своего шага) это KPI не «моя
+                 очередь», а «без назначения / проблемные» — та же сводка, что на /import-40/manage. -->
+            <div v-if="imp.isManagerView" class="kpi-val tnum">{{ formatNum(imp.unassignedCases) }} / {{ formatNum(imp.problemCases) }}</div>
+            <div v-else class="kpi-val tnum">{{ formatNum(imp.awaitingMe) }}</div>
+            <div class="kpi-sub">{{ imp.isManagerView ? t('dashboard.imp.awaitingSubManager') : t('dashboard.imp.awaitingSub') }}</div>
           </div>
 
-          <div class="kpi kpi--teal">
+          <div class="kpi kpi--teal kpi--clickable" @click="router.push('/import-40')">
             <div class="kpi-top">
               <span class="kpi-label">{{ t('dashboard.imp.active') }}</span>
               <span class="kpi-ic"><SyncOutlined /></span>
@@ -207,6 +210,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useDashboardStore } from '@/stores/dashboard'
 import {
   DatabaseOutlined,
@@ -223,7 +227,12 @@ import StatusPill from '@/components/ui/StatusPill.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
 const store = useDashboardStore()
+const router = useRouter()
 const { t, locale } = useI18n()
+
+// KPI дашборда кликабельны (аудит L6): «Ждут меня» ведёт в очередь сотрудника, а у
+// руководителя без своего шага — на панель /import-40/manage (там же «без назначения»/«проблемные»).
+const goAwaitingMe = () => router.push(store.import40?.isManagerView ? '/import-40/manage' : { path: '/import-40', query: { tab: 'my' } })
 
 onMounted(() => store.fetch())
 
@@ -347,6 +356,9 @@ const rankWidth = (count: number, max: number) =>
   font-size: 12px;
   color: var(--atg-muted, #6b7891);
 }
+
+.kpi--clickable { cursor: pointer; transition: box-shadow 0.15s, transform 0.15s; }
+.kpi--clickable:hover { box-shadow: 0 2px 4px rgba(21, 37, 65, 0.06), 0 12px 28px -12px rgba(21, 37, 65, 0.22); transform: translateY(-1px); }
 
 .kpi--navy .kpi-ic { background: #e9eefb; color: #3b6fd6; }
 .kpi--teal .kpi-ic { background: var(--z-teal-soft, #e6f7fb); color: var(--atg-teal-dark, #149bb2); }
