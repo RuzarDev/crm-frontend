@@ -369,6 +369,7 @@ const load = async () => {
     }
     // открываем первый незавершённый шаг (или договор, если пришли его подписывать)
     if (route.query.step === 'contract') current.value = 1
+    else if (route.query.step === 'poa') current.value = 2
     else if (!profile.value?.isComplete) current.value = 0
     else if (!effectiveContract.value) current.value = 1
     else if (!activePoa.value) current.value = 2

@@ -21,11 +21,11 @@
       type="warning"
       show-icon
       :message="t('import40List.onboardingTitle')"
-      :description="t('import40List.onboardingDesc')"
+      :description="registration.reason.value || t('import40List.onboardingDesc')"
     >
       <template #action>
-        <a-button size="small" type="primary" @click="router.push('/import-40/company')">
-          {{ t('import40List.goToCompany') }}
+        <a-button size="small" type="primary" @click="router.push(onboardingGateTarget)">
+          {{ registration.needNew.value ? t('import40List.formNewDoc') : t('import40List.goToCompany') }}
         </a-button>
       </template>
     </a-alert>
@@ -274,13 +274,16 @@
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'case'">
             <div class="case-cell">
-              <strong><span class="case-number">{{ record.number }}</span> {{ record.clientName }}</strong>
+              <!-- Клиенту не нужно название своей же компании в каждой строке (аудит 5.28). -->
+              <strong><span class="case-number">{{ record.number }}</span><template v-if="!isClientRole"> {{ record.clientName }}</template></strong>
               <span>{{ record.cargo }}</span>
             </div>
           </template>
           <template v-else-if="column.key === 'status'">
             <a-tag :color="record.status === 9 ? 'default' : record.isProblem ? 'error' : isCompleted(record.status) ? 'success' : 'processing'">
               <template v-if="isCompleted(record.status)">{{ statusLabel(record.status) }}</template>
+              <!-- Клиенту — клиентский словарь шагов, без «Шаг X из Y» и жаргона статусов (5.6/5.18). -->
+              <template v-else-if="isClientRole">{{ t(`enum.stepClient.s${stepForStatus(record.status)}`) }}</template>
               <template v-else>{{ t('import40List.stepOf', { step: stepForStatus(record.status), total: TOTAL_STEPS }) }} · {{ statusLabel(record.status) }}</template>
             </a-tag>
             <span v-if="record.isProblem" class="problem-chip">{{ t('import40List.problem') }}</span>
@@ -314,10 +317,9 @@ import {
   type Import40FileDto,
 } from '@/api/import40'
 import { useImport40Status } from '@/composables/useImport40Status'
+import { useClientRegistration } from '@/composables/useClientRegistration'
 import {
   import40ContractApi,
-  isDocumentEffective,
-  type Import40DocumentDto,
   type ClientCompanyProfileDto,
 } from '@/api/import40Contract'
 import { referencesApi } from '@/api/references'
@@ -331,6 +333,7 @@ import PhoneInput from '@/components/ui/PhoneInput.vue'
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const registration = useClientRegistration()
 const { t } = useI18n()
 const loading = ref(false)
 const creating = ref(false)
@@ -356,8 +359,6 @@ const tab = ref<'my' | 'all'>(((): 'my' | 'all' => {
 })())
 
 const onboardingChecked = ref(false)
-const contractDocs = ref<Import40DocumentDto[]>([])
-const poaDocs = ref<Import40DocumentDto[]>([])
 
 const createStep = ref<1 | 2>(1)
 const createdCaseId = ref<string | null>(null)
@@ -445,12 +446,13 @@ const canSubmit = computed(
   // Обязательны только Клиент + Груз; Пост/СВХ необязателен (можно заполнить позже).
   () => Boolean(draft.clientId) && draft.cargo.trim().length > 1,
 )
-const onboardingReady = computed(
-  () => contractDocs.value.some(isDocumentEffective) && poaDocs.value.some(isDocumentEffective),
-)
 // клиент прошёл онбординг ещё не проверен/не завершён — показываем гейт вместо обычного UI создания заявки
 const showOnboardingGate = computed(
-  () => isClientRole.value && onboardingChecked.value && !onboardingReady.value,
+  () => isClientRole.value && onboardingChecked.value && !registration.complete.value,
+)
+// Куда вести кнопку гейта: если дело в конкретном разовом документе — сразу на его шаг.
+const onboardingGateTarget = computed(() =>
+  registration.needNew.value ? `/import-40/company?step=${registration.needNew.value}` : '/import-40/company',
 )
 
 // Сервер отдаёт новые сверху; по «Заявка», «Шаг», «Обновлено» можно пересортировать кликом.
@@ -460,9 +462,11 @@ const columns = computed(() => [
     sorter: (a: Import40CaseDto, b: Import40CaseDto) => a.number.localeCompare(b.number) },
   { title: t('import40List.colStep'), key: 'status', width: 220, sortDirections,
     sorter: (a: Import40CaseDto, b: Import40CaseDto) => a.status - b.status },
-  // Исполнитель — только сотрудникам, клиенту это внутренняя кухня (3.12).
-  ...(isClientRole.value ? [] : [{ title: t('import40List.colExecutor'), key: 'executor', width: 170 }]),
-  { title: t('import40List.colComposition'), key: 'containers', width: 140 },
+  // Исполнитель и состав (контейнеры) — внутренняя кухня сотрудников, клиенту не нужны (3.12, 5.18).
+  ...(isClientRole.value ? [] : [
+    { title: t('import40List.colExecutor'), key: 'executor', width: 170 },
+    { title: t('import40List.colComposition'), key: 'containers', width: 140 },
+  ]),
   { title: t('import40List.colUpdated'), key: 'updated', width: 110, sortDirections,
     sorter: (a: Import40CaseDto, b: Import40CaseDto) => Date.parse(a.updatedAtUtc) - Date.parse(b.updatedAtUtc) },
 ])
@@ -687,23 +691,19 @@ const loadClients = async () => {
     if (isClientRole.value && clients.length) {
       draft.clientId = clients[0].id
       draft.clientName = clients[0].companyName || clients[0].username
-      void loadOnboardingStatus(clients[0].id)
+      void loadOnboardingStatus()
     }
   } finally {
     clientsLoading.value = false
   }
 }
 
-// для роли client — проверяем, что договор и доверенность действуют,
-// чтобы не пускать в форму создания заявки клиента, которого сервер всё равно отклонит (403)
-const loadOnboardingStatus = async (clientId: string) => {
+// Для роли client — единая проверка регистрации (аудит 5.3/5.4): та же, что у GET
+// import40/can-create и у useClientRegistration (плашка/меню/«Моя компания»), чтобы форма
+// создания не открывалась там, где сервер всё равно ответит 403.
+const loadOnboardingStatus = async () => {
   try {
-    const [contracts, poas] = await Promise.all([
-      import40ContractApi.listDocuments(clientId, 'contract'),
-      import40ContractApi.listDocuments(clientId, 'poa'),
-    ])
-    contractDocs.value = contracts
-    poaDocs.value = poas
+    await registration.refresh()
   } finally {
     onboardingChecked.value = true
   }

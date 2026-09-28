@@ -3,24 +3,31 @@
      поэтому выручка брокера нигде не считалась (аудит 2026-09-23). -->
 <template>
   <div class="billing-view crm-page">
-    <PageHeader :kicker="t('billing.kicker')" :title="t('billing.title')" :subtitle="t('billing.subtitle')">
+    <PageHeader
+      :kicker="isClientRole ? t('billing.kickerClient') : t('billing.kicker')"
+      :title="isClientRole ? t('billing.titleClient') : t('billing.title')"
+      :subtitle="isClientRole ? t('billing.subtitleClient') : t('billing.subtitle')">
       <template #actions>
         <a-button v-if="canWrite" type="primary" @click="openCreate"><PlusOutlined /> {{ t('billing.newDoc') }}</a-button>
-        <a-button :disabled="!filtered.length" @click="exportXlsx"><DownloadOutlined /> Excel</a-button>
+        <a-button v-if="!isClientRole" :disabled="!filtered.length" @click="exportXlsx"><DownloadOutlined /> Excel</a-button>
         <a-button :loading="loading" @click="load">{{ t('billing.refresh') }}</a-button>
       </template>
     </PageHeader>
 
-    <div class="kpi-row">
+    <div class="kpi-row" v-if="!isClientRole">
       <div class="kpi"><span>{{ t('billing.issued') }}</span><b>{{ money(totals.issued) }} ₸</b><small>{{ t('billing.issuedHint') }}</small></div>
       <div class="kpi kpi--ok"><span>{{ t('billing.paid') }}</span><b>{{ money(totals.paid) }} ₸</b><small>{{ t('billing.paidHint') }}</small></div>
       <div class="kpi kpi--warn"><span>{{ t('billing.awaiting') }}</span><b>{{ money(totals.awaiting) }} ₸</b><small>{{ t('billing.awaitingHint') }}</small></div>
       <div class="kpi"><span>{{ t('billing.drafts') }}</span><b>{{ totals.drafts }}</b><small>{{ t('billing.draftsHint') }}</small></div>
     </div>
+    <div class="kpi-row" v-else>
+      <div class="kpi kpi--warn"><span>{{ t('billing.awaiting') }}</span><b>{{ money(totals.awaiting) }} ₸</b><small>{{ t('billing.awaitingHintClient') }}</small></div>
+      <div class="kpi kpi--ok"><span>{{ t('billing.paid') }}</span><b>{{ money(totals.paid) }} ₸</b><small>{{ t('billing.paidHintClient') }}</small></div>
+    </div>
 
     <a-card class="crm-shell-card" :bordered="false">
       <div class="filters">
-        <a-input v-model:value="search" allow-clear :placeholder="t('billing.searchPh')" style="max-width: 300px">
+        <a-input v-model:value="search" allow-clear :placeholder="isClientRole ? t('billing.searchPhClient') : t('billing.searchPh')" style="max-width: 300px">
           <template #prefix><SearchOutlined /></template>
         </a-input>
         <a-segmented v-model:value="kindFilter" :options="kindOptions" />
@@ -135,6 +142,10 @@ const authStore = useAuthStore()
 const canWrite = computed(
   () => (authStore.role || '').toLowerCase() === 'administrator' || authStore.hasPermission('finance.write'),
 )
+// Клиент видит только свои выставленные счета, только чтение (аудит 5.2/решение владельца 4):
+// справочники ниже (клиенты, заявки всех, тарифы, реквизиты организации) ему не нужны и часть
+// из них вернёт 403 (сотрудничьи эндпоинты) — без этой проверки клиент увидел бы тосты об ошибках.
+const isClientRole = computed(() => (authStore.role || '').toLowerCase() === 'client')
 
 const loading = ref(false)
 const saving = ref(false)
@@ -178,6 +189,8 @@ const load = async () => {
 
 onMounted(async () => {
   await load()
+  if (isClientRole.value) return // справочники ниже — для формы создания счёта, клиенту не нужны
+
   try {
     const [clients, cases, services, org] = await Promise.all([
       import40Api.listClients(),
@@ -246,11 +259,12 @@ const filterTariff = (input: string, option: { label: string }) =>
 
 const columns = computed(() => [
   { title: t('billing.colDoc'), key: 'doc', width: 220 },
-  { title: t('billing.colClient'), key: 'client', width: 220 },
+  // Клиенту столбец «Клиент» не нужен — это всегда его же компания (аудит §9).
+  ...(isClientRole.value ? [] : [{ title: t('billing.colClient'), key: 'client', width: 220 }]),
   { title: t('billing.colStatus'), key: 'status', width: 140 },
   { title: t('billing.colTotal'), key: 'total', width: 170 },
   { title: t('billing.colDates'), key: 'dates', width: 190 },
-  { title: '', key: 'actions', width: 280 },
+  { title: '', key: 'actions', width: isClientRole.value ? 100 : 280 },
 ])
 
 const money = (v: number) => Math.round(v).toLocaleString('ru-RU')

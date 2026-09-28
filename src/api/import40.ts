@@ -30,6 +30,8 @@ export type Import40Action =
   | 'cancel'
   // Возврат на один шаг назад (руководитель/админ, с причиной).
   | 'step-back'
+  // Ответ клиента на «Что нужно от вас» по проблемной заявке (аудит 5.8).
+  | 'client-reply'
 
 // Статусы заявки (совпадают с Import40Status на бэке)
 export const IMPORT40_STATUSES = [
@@ -745,10 +747,26 @@ export interface Import40SplitResult {
   paymentsRecalculated: boolean
 }
 
+export interface Import40CanCreateDto {
+  canCreate: boolean
+  reason: string | null
+  needNew: 'contract' | 'poa' | null
+  profileComplete: boolean
+  contractOk: boolean
+  poaOk: boolean
+}
+
 export const import40Api = {
   list: async (): Promise<Import40CaseDto[]> => {
     const response = await apiClient.get<Import40ListResponse>('/import40')
     return response.data.items
+  },
+
+  // Единая проверка регистрации (аудит 5.3/5.4) — источник истины для плашки, «Моей компании»
+  // и мастера заявки; повторяет проверку самого POST /import40, чтобы не разъезжаться с ней.
+  canCreate: async (): Promise<Import40CanCreateDto> => {
+    const response = await apiClient.get<Import40CanCreateDto>('/import40/can-create')
+    return response.data
   },
 
   myTasks: async (): Promise<Import40CaseDto[]> => {

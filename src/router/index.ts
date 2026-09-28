@@ -170,10 +170,12 @@ const router = createRouter({
           meta: { requiresPermission: 'clients.read' },
         },
         {
+          // Раздел «Счета»: сотрудникам по finance.read, клиенту Импорта 40 — свои счета,
+          // только чтение (аудит 5.2/4). Проверка роли клиента — отдельным условием ниже,
+          // permission тут не задан специально, иначе клиента без finance.read выкинет.
           path: '/billing',
           name: 'billing',
           component: () => import('@/views/BillingView.vue'),
-          meta: { requiresPermission: 'finance.read' },
         },
         {
           path: '/system/audit',
@@ -287,6 +289,12 @@ router.beforeEach((to, from, next) => {
   } else if (
     to.path.startsWith('/document-packages') &&
     !(normalizedRole === 'administrator' || normalizedRole === 'expeditor' || authStore.hasPermission('packages.manage'))
+  ) {
+    next('/')
+  } else if (
+    // Счета — сотрудникам по finance.read, клиенту Импорта 40 (свои, только чтение).
+    to.path === '/billing' && normalizedRole !== 'administrator'
+    && !(normalizedRole === 'client' ? authStore.clientHasModule('import40') : authStore.hasPermission('finance.read'))
   ) {
     next('/')
   } else if (requiredRole && normalizedRole !== requiredRole) {

@@ -1,19 +1,28 @@
 <template>
   <div v-if="activeCase" class="case-page">
-    <PageHeader :kicker="`${t('import40Case.kicker')} · ${activeCase.number}`" :title="activeCase.cargo || t('import40Case.caseTitleFallback')">
+    <PageHeader
+      :kicker="isClientView ? t('import40Case.kickerClient', { number: activeCase.number }) : `${t('import40Case.kicker')} · ${activeCase.number}`"
+      :title="activeCase.cargo || t('import40Case.caseTitleFallback')">
       <template #meta>
-        <span>{{ t('import40Case.client') }}: <strong>{{ activeCase.clientName }}</strong></span>
-        <span>{{ t('import40Case.post') }}: <strong>{{ activeCase.post || '—' }}</strong></span>
-        <!-- КПП снова отдельная роль (2026-09-28) — своя строка независимо от декларанта. -->
-        <span v-if="activeCase.assignedKppId">{{ t('import40Case.kpp') }}: <a-tag>{{ nameFor(activeCase.assignedKppId, activeCase.assignedKppName) }}</a-tag></span>
-        <span v-if="activeCase.assignedDeclarantId">{{ t('import40Case.declarant') }}: <a-tag>{{ nameFor(activeCase.assignedDeclarantId, activeCase.assignedDeclarantName) }}</a-tag></span>
+        <!-- Клиенту — без «Клиент: своя же компания» и без КПП, только специалист AQNIET, если
+             назначен (аудит 5.6): декларант ведёт заявку, КПП клиенту не о чём не говорит. -->
+        <template v-if="isClientView">
+          <span v-if="activeCase.assignedDeclarantId">{{ t('import40Case.yourSpecialist') }}: <strong>{{ activeCase.assignedDeclarantName || t('import40Case.staffAssigned') }}</strong></span>
+        </template>
+        <template v-else>
+          <span>{{ t('import40Case.client') }}: <strong>{{ activeCase.clientName }}</strong></span>
+          <span>{{ t('import40Case.post') }}: <strong>{{ activeCase.post || '—' }}</strong></span>
+          <!-- КПП снова отдельная роль (2026-09-28) — своя строка независимо от декларанта. -->
+          <span v-if="activeCase.assignedKppId">{{ t('import40Case.kpp') }}: <a-tag>{{ nameFor(activeCase.assignedKppId, activeCase.assignedKppName) }}</a-tag></span>
+          <span v-if="activeCase.assignedDeclarantId">{{ t('import40Case.declarant') }}: <a-tag>{{ nameFor(activeCase.assignedDeclarantId, activeCase.assignedDeclarantName) }}</a-tag></span>
+        </template>
         <a-tag v-if="activeCase.status === 9" color="default">{{ t('import40Case.cancelled') }}</a-tag>
         <a-tag v-else-if="isCompleted(activeCase.status)" color="success">{{ t('import40Case.completed') }}</a-tag>
         <template v-else>
           <a-tag color="processing">{{ t('import40Case.stepOf', { step: currentStep, total: TOTAL_STEPS, title: stepTitle(currentStep) }) }}</a-tag>
         </template>
-        <a-tag v-if="assignedTag === 'me'" color="success">{{ t('import40Case.assignedMe') }}</a-tag>
-        <a-tag v-else-if="assignedTag === 'other'" color="warning">{{ t('import40Case.assignedOther') }}</a-tag>
+        <a-tag v-if="!isClientView && assignedTag === 'me'" color="success">{{ t('import40Case.assignedMe') }}</a-tag>
+        <a-tag v-else-if="!isClientView && assignedTag === 'other'" color="warning">{{ t('import40Case.assignedOther') }}</a-tag>
       </template>
       <template #actions>
         <a-button
@@ -59,18 +68,37 @@
         </a-button>
       </template>
     </a-alert>
+    <!-- «Что нужно от вас» (аудит 5.8): пока заявка «зависла» тупиком без хода для клиента —
+         можно приложить недостающий документ и ответить текстом; ответ уходит в историю и
+         уведомляет исполнителя заявки. -->
+    <a-card v-if="isClientView && activeCase.isProblem && activeCase.problemClientMessage" size="small" class="case-banner client-action-block">
+      <div class="sub-label">{{ t('import40Case.problemActionTitle') }}</div>
+      <Import40FilesBlock
+        :client-view="isClientView"
+        :files="filesBySection('documents')"
+        :can-upload="true"
+        :uploading="uploading"
+        :empty-text="t('import40Case.docsEmpty')"
+        @upload="(f: File) => uploadTo('documents', f)"
+        @download="download"
+      />
+      <a-textarea v-model:value="clientReplyText" :rows="3" :placeholder="t('import40Case.problemReplyPh')" style="margin-top: 8px" />
+      <a-button type="primary" :disabled="!clientReplyText.trim()" :loading="clientReplySaving" style="margin-top: 8px" @click="sendClientReply">
+        {{ t('import40Case.problemReplySend') }}
+      </a-button>
+    </a-card>
     <a-alert
       v-if="activeCase.returnReason && activeCase.status === 0"
       type="warning"
       show-icon
       class="case-banner"
-      :message="t('import40Case.returnedTitle')"
+      :message="isClientView ? t('import40Case.returnedTitleClient') : t('import40Case.returnedTitle')"
       :description="activeCase.returnReason"
     />
 
     <!-- Лестница шагов -->
     <div class="steps">
-      <Import40Step :index="1" :title="stepTitle(1)" :state="stepState(1)" :executor="executorLabel('client')" :summary="step1Summary">
+      <Import40Step :index="1" :title="stepTitle(1)" :state="stepState(1)" :now-label="stepNowLabel(1)" :executor="executorLabel('client')" :summary="step1Summary">
         <div class="grid-2">
           <label><span>{{ t('import40Case.cargo') }}</span>
             <a-input :value="activeCase.cargo" :disabled="!canEditStep1" @change="(e: any) => saveField({ cargo: e.target.value })" />
@@ -127,6 +155,7 @@
 
         <div class="sub-label">{{ t('import40Case.docsTitle') }}</div>
         <Import40FilesBlock
+          :client-view="isClientView"
           :files="filesBySection('documents')"
           :can-upload="canEditStep1 || roleMode === 'admin'"
           :can-remove="roleMode === 'admin' || canEditStep1"
@@ -145,7 +174,7 @@
           </a-tooltip>
         </div>
       </Import40Step>
-      <Import40Step :index="2" :title="stepTitle(2)" :state="stepState(2)" :executor="executorLabel('kpp')"
+      <Import40Step :index="2" :title="stepTitle(2)" :state="stepState(2)" :now-label="stepNowLabel(2)" :executor="executorLabel('kpp')"
         :summary="stepState(2) === 'done' ? t('import40Case.passed') : undefined">
         <p class="muted">{{ t('import40Case.transportPrefix', { summary: transportSummary }) }}</p>
         <p v-if="isClientView && stepState(2) === 'current'" class="muted client-wait">{{ t('import40Case.clientWaitNote') }}</p>
@@ -159,7 +188,7 @@
           </a-tooltip>
         </div>
       </Import40Step>
-      <Import40Step :index="3" :title="stepTitle(3)" :state="stepState(3)" :executor="executorLabel('declarant')"
+      <Import40Step :index="3" :title="stepTitle(3)" :state="stepState(3)" :now-label="stepNowLabel(3)" :executor="executorLabel('declarant')"
         :summary="stepState(3) === 'done' ? t('import40Case.dtCount', { n: activeCase.declarations.length }) : undefined">
         <div v-if="!activeCase.declarations.length" class="muted">{{ t('import40Case.noDt') }}</div>
 
@@ -175,7 +204,8 @@
           <div class="dt-row-main">
             <strong>{{ dt.declarationNumber || t('import40Case.dtFallback', { n: i + 1 }) }}</strong>
             <a-tooltip :title="splitTagTooltip(dt)">
-              <a-tag v-if="splitTagLabel(dt)" :color="splitTagColor(dt)">{{ splitTagLabel(dt) }}</a-tag>
+              <!-- ЕТТ/ВТО — внутренняя классификация декларации, клиенту скрываем (аудит 5.18). -->
+              <a-tag v-if="!isClientView && splitTagLabel(dt)" :color="splitTagColor(dt)">{{ splitTagLabel(dt) }}</a-tag>
             </a-tooltip>
             <span class="muted">{{ t('import40Case.goodsCount', { n: dt.goodsItems.length }) }}</span>
             <a-tag v-if="readiness[dt.id] && !isClientView" :color="readiness[dt.id].missing.length ? 'warning' : 'success'">
@@ -255,17 +285,17 @@
           </a-tooltip>
         </div>
       </Import40Step>
-      <Import40Step :index="4" :title="stepTitle(4)" :state="stepState(4)" :executor="executorLabel('kpp')"
+      <Import40Step :index="4" :title="stepTitle(4)" :state="stepState(4)" :now-label="stepNowLabel(4)" :executor="executorLabel('kpp')"
         :summary="stepState(4) === 'done' ? step4Summary : undefined">
         <div class="sub-label">{{ t('import40Case.stampTitle') }}</div>
-        <Import40FilesBlock :files="filesBySection('declaration-stamp')" :can-upload="stepState(4) === 'current' && can('kpp')"
+        <Import40FilesBlock :client-view="isClientView" :files="filesBySection('declaration-stamp')" :can-upload="stepState(4) === 'current' && can('kpp')"
           :uploading="uploading" :empty-text="t('import40Case.stampEmpty')"
           @upload="(f: File) => uploadTo('declaration-stamp', f)" @download="download" />
         <div class="sub-label">{{ t('import40Case.svhInvoiceTitle') }}
           <a-tag v-if="activeCase.svhInvoiceAmount != null" color="blue">{{ Math.round(activeCase.svhInvoiceAmount).toLocaleString('ru-RU') }} ₸<template v-if="activeCase.svhInvoiceNumber"> · № {{ activeCase.svhInvoiceNumber }}</template></a-tag>
           <a-tag v-if="activeCase.svhInvoiceNote">{{ activeCase.svhInvoiceNote }}</a-tag>
         </div>
-        <Import40FilesBlock :files="filesBySection('svh-invoice')" :can-upload="stepState(4) === 'current' && can('kpp')"
+        <Import40FilesBlock :client-view="isClientView" :files="filesBySection('svh-invoice')" :can-upload="stepState(4) === 'current' && can('kpp')"
           :uploading="uploading" :empty-text="t('import40Case.svhInvoiceEmpty')"
           @upload="(f: File) => uploadTo('svh-invoice', f)" @download="download" />
         <p v-if="isClientView && stepState(4) === 'current'" class="muted client-wait">{{ t('import40Case.clientWaitNote') }}</p>
@@ -279,7 +309,7 @@
           <a-button v-if="claimVisible('kpp')" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
         </div>
       </Import40Step>
-      <Import40Step :index="5" :title="stepTitle(5)" :state="stepState(5)" :executor="executorLabel('clientKpp')"
+      <Import40Step :index="5" :title="stepTitle(5)" :state="stepState(5)" :now-label="stepNowLabel(5)" :executor="executorLabel('clientKpp')"
         :summary="stepState(5) === 'done' ? t('import40Case.paid') : undefined">
         <div class="sub-label">{{ t('import40Case.paymentCheckTitle') }}
           <a-tag v-if="activeCase.paymentConfirmed" color="success">{{ t('import40Case.paymentConfirmed') }}</a-tag>
@@ -287,7 +317,7 @@
         </div>
         <p v-if="isClientView && stepState(5) === 'current' && !filesBySection('payment-check').length" class="client-pay-note">{{ t('import40Case.clientPayNote') }}</p>
         <!-- КПП/руководитель может загрузить чек за клиента (аудит 3.7) — can-upload не только для клиента. -->
-        <Import40FilesBlock :files="filesBySection('payment-check')" :can-upload="stepState(5) === 'current' && (can('client') || can('kpp'))"
+        <Import40FilesBlock :client-view="isClientView" :files="filesBySection('payment-check')" :can-upload="stepState(5) === 'current' && (can('client') || can('kpp'))"
           :uploading="uploading" :empty-text="isClientView ? t('import40Case.clientPayEmpty') : t('import40Case.paymentEmpty')"
           @upload="(f: File) => uploadTo('payment-check', f)" @download="download" />
         <div v-if="stepState(5) === 'current' && !isClientView" class="step-actions">
@@ -299,13 +329,14 @@
         </div>
       </Import40Step>
       <!-- Шаг 6: оплата услуг AQNIET (задача 2.3) — выставляет и отмечает оплату бухгалтер в /billing. -->
-      <Import40Step :index="6" :title="stepTitle(6)" :state="stepState(6)" :executor="executorLabel('accountant')"
+      <Import40Step :index="6" :title="stepTitle(6)" :state="stepState(6)" :now-label="stepNowLabel(6)" :executor="executorLabel('accountant')"
         :summary="stepState(6) === 'done' ? t('import40Case.aqnietPaid') : undefined">
         <div v-if="!caseInvoices.length" class="muted">{{ t('import40Case.invoicesEmpty') }}</div>
         <div v-for="inv in caseInvoices" :key="inv.id" class="invoice-list-row">
           <span>{{ inv.kind === 'act' ? t('billing.act') : t('billing.invoice') }} {{ inv.number ? `№ ${inv.number}/${inv.year}` : t('billing.draftNo') }}</span>
           <a-tag :color="invoiceStatusColor(inv.status)">{{ invoiceStatusLabel(inv.status) }}</a-tag>
           <span class="muted">{{ Math.round(inv.total).toLocaleString('ru-RU') }} ₸</span>
+          <a-button size="small" @click="downloadInvoicePdf(inv)"><DownloadOutlined /> PDF</a-button>
         </div>
         <div v-if="stepState(6) === 'current'" class="step-actions">
           <a-button v-if="canIssueAqnietInvoice" type="primary" @click="$router.push(`/billing?caseId=${activeCase.id}`)">
@@ -322,14 +353,16 @@
     <!-- Низ: все файлы + история -->
     <a-collapse ghost class="case-bottom">
       <a-collapse-panel key="files" :header="t('import40Case.allFiles', { n: files.length })">
-        <Import40FilesBlock :files="files" :can-upload="false" @download="download" />
+        <Import40FilesBlock :client-view="isClientView" :files="files" :can-upload="false" @download="download" />
       </a-collapse-panel>
       <a-collapse-panel key="history" :header="t('import40Case.history')">
         <div v-for="l in activeCase.logs" :key="l.id" class="log-row">
           <span class="log-date">{{ new Date(l.createdAtUtc).toLocaleString(INTL_LOCALE[locale] ?? 'ru-RU') }}</span>
           <span>{{ l.text }}</span>
-          <!-- «ФИО · роль» вместо сырого кода роли (аудит M2) — changedByName приходит с бэка. -->
-          <a-tag>{{ l.changedByName ? `${l.changedByName} · ` : '' }}{{ t('enum.businessRole.' + l.changedByBusinessRole, l.changedByBusinessRole) }}</a-tag>
+          <!-- Клиенту — только «Вы»/«AQNIET» (бэк уже фильтрует и переводит эти записи, аудит 5.5),
+               без роли и кода. Сотруднику — «ФИО · роль» (аудит M2). -->
+          <a-tag v-if="isClientView">{{ l.changedByName }}</a-tag>
+          <a-tag v-else>{{ l.changedByName ? `${l.changedByName} · ` : '' }}{{ t('enum.businessRole.' + l.changedByBusinessRole, l.changedByBusinessRole) }}</a-tag>
         </div>
       </a-collapse-panel>
     </a-collapse>
@@ -459,7 +492,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { message, Modal } from 'ant-design-vue'
-import { CloseOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import {
   IMPORT40_TRANSPORT_MODES,
   import40Api,
@@ -478,6 +511,7 @@ import type { DeclarationReadiness } from '@/types/api'
 import type { SalesQuoteListItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { manageApi, type StaffMember } from '@/api/manage'
+import { billingApi } from '@/api/billing'
 import Import40Step from '@/components/Import40Step.vue'
 import Import40FilesBlock from '@/components/Import40FilesBlock.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -490,7 +524,12 @@ const authStore = useAuthStore()
 const { t, locale } = useI18n()
 
 // Индекс шага (1..5) → переведённый заголовок; заменяет STEP_TITLES из utils.
-const stepTitle = (n: number) => t(`enum.step.s${n}`)
+// Клиентский словарь шагов (аудит 5.6/5.18): без жаргона «Граница»/«СВХ», отдельно от
+// сотрудничьего enum.step, который менять нельзя — им пользуется весь процесс.
+const stepTitle = (n: number) => t(roleMode.value === 'client' ? `enum.stepClient.s${n}` : `enum.step.s${n}`)
+// «вы здесь» ошибочно на шагах, которые делает AQNIET (аудит 5.17): клиенту — «сейчас» на своём
+// шаге (1) и «сейчас у AQNIET» на остальных; сотруднику — обычное «вы здесь» (nowLabel не передан).
+const stepNowLabel = (n: number) => (roleMode.value === 'client' ? (n === 1 ? t('import40Case.stepNowClient') : t('import40Case.stepNowClientUs')) : undefined)
 const INTL_LOCALE: Record<string, string> = { ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }
 const localeNum = (n?: number | null) => (n ?? 0).toLocaleString(INTL_LOCALE[locale.value] ?? 'ru-RU')
 
@@ -644,8 +683,24 @@ const step1Summary = computed(() =>
   activeCase.value ? `${activeCase.value.cargo || '—'} · файлов: ${filesBySection('documents').length}` : undefined,
 )
 
-// Счета AQNIET по заявке — шаг 6 (задача 2.3).
+// Счета AQNIET по заявке — шаг 6 (задача 2.3). Клиент видит их и скачивает PDF (аудит 5.2):
+// список ниже не гейтится по finance.read — бэк GetBrokerInvoices уже отдаёт клиенту только
+// свои выставленные счета.
 const caseInvoices = ref<Import40CaseInvoiceDto[]>([])
+
+const downloadInvoicePdf = async (inv: Import40CaseInvoiceDto) => {
+  try {
+    const blob = await billingApi.pdf(inv.id)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${inv.kind === 'act' ? 'Акт' : 'Счёт'}-${inv.number || 'черновик'}.pdf`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e: any) {
+    if (!e?.response) message.error(t('billing.actionError'))
+  }
+}
 
 const reload = async () => {
   const id = String(route.params.id)
@@ -978,6 +1033,25 @@ const confirmProblem = async () => {
     await reload()
   } catch {
     // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
+  }
+}
+
+// Ответ клиента на «Что нужно от вас» (аудит 5.8) — уходит в историю сотрудникам и уведомляет
+// исполнителя заявки (декларанта/КПП, иначе руководителей).
+const clientReplyText = ref('')
+const clientReplySaving = ref(false)
+const sendClientReply = async () => {
+  if (!activeCase.value || !clientReplyText.value.trim()) return
+  clientReplySaving.value = true
+  try {
+    await import40Api.action(activeCase.value.id, 'client-reply', clientReplyText.value.trim())
+    clientReplyText.value = ''
+    message.success(t('import40Case.problemReplySent'))
+    await reload()
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
+  } finally {
+    clientReplySaving.value = false
   }
 }
 

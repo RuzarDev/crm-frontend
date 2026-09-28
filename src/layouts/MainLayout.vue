@@ -13,7 +13,7 @@
         <a-auto-complete
           v-model:value="searchTerm"
           :options="searchOptions"
-          :placeholder="t('header.searchPh')"
+          :placeholder="(authStore.role || '').toLowerCase() === 'client' ? t('header.searchPhClient') : t('header.searchPh')"
           style="width: 100%"
           @search="onSearch"
           @select="onSearchSelect"
@@ -113,7 +113,7 @@
           :description="registrationBanner.text"
         >
           <template v-if="registrationBanner.action" #action>
-            <a-button type="primary" @click="router.push('/import-40/company')">{{ t('registration.continue') }}</a-button>
+            <a-button type="primary" @click="router.push(registration.needNew.value ? `/import-40/company?step=${registration.needNew.value}` : '/import-40/company')">{{ t('registration.continue') }}</a-button>
           </template>
         </a-alert>
         <!-- Карточка ДТ читает caseId/dtId один раз при создании: переход с одной ДТ на другую
@@ -309,10 +309,12 @@ const menuItems = computed(() => {
     })
   }
 
-  // Клиенту-импортёру транзитные экраны не показываем (аудит 2026-09-22, п.11).
+  // Клиенту-импортёру транзитные экраны не показываем (аудит 2026-09-22, п.11 и 2026-09-28, 5.1):
+  // меню клиента решает clientHasModule, а не право reestr.read — оно у клиента есть всегда
+  // (Auth/RolePermissions.cs), поэтому проверка ниже для роли client идёт ТОЛЬКО по модулю.
   const clientTransit = role === 'client' && authStore.clientHasModule('transit')
   const clientImport = role === 'client' && authStore.clientHasModule('import40')
-  if (!financeOnly && (role === 'administrator' || clientTransit || authStore.hasPermission('reestr.read'))) {
+  if (!financeOnly && (role === 'administrator' || clientTransit || (role !== 'client' && authStore.hasPermission('reestr.read')))) {
     operationsItems.push({
       key: '/reestr',
       icon: () => h(DatabaseOutlined),
@@ -385,6 +387,15 @@ const menuItems = computed(() => {
     })
   }
 
+  // Клиенту Импорта 40 — «Счета»: только свои, только чтение (аудит 5.2/решение владельца 4).
+  if (clientImport) {
+    operationsItems.push({
+      key: '/billing',
+      icon: () => h(FileDoneOutlined),
+      label: t('nav.myInvoices'),
+    })
+  }
+
   if (role === 'administrator') {
     operationsItems.push({
       key: '/keden',
@@ -393,9 +404,11 @@ const menuItems = computed(() => {
     })
   }
 
-  // Статусы КЕДЕН по БИН — брокер/экспедитор/декларант(importer)/админ/клиент
+  // Статусы КЕДЕН по БИН — брокер/экспедитор/декларант(importer)/админ/клиент транзита.
+  // Клиенту Импорта 40 без транзита не показываем (аудит 5.1) — у него нет своих ДТ в КЕДЕН,
+  // а import40.read/reestr.read клиенту даются всегда и раньше срабатывали как фолбэк.
   if (!financeOnly && (role === 'administrator' || clientTransit || role === 'expeditor'
-    || authStore.hasPermission('reestr.read') || authStore.hasPermission('import40.read'))) {
+    || (role !== 'client' && (authStore.hasPermission('reestr.read') || authStore.hasPermission('import40.read'))))) {
     operationsItems.push({
       key: '/keden-status',
       icon: () => h(SafetyCertificateOutlined),

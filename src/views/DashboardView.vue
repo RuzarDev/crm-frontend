@@ -1,6 +1,6 @@
 <template>
   <div class="dashboard-view crm-page">
-    <PageHeader :title="t('dashboard.title')" :subtitle="store.showImport40 && !showTransitBlock ? t('dashboard.imp.subtitle') : t('dashboard.subtitle')">
+    <PageHeader :title="t('dashboard.title')" :subtitle="store.isClient ? t('dashboard.client.subtitle') : store.showImport40 && !showTransitBlock ? t('dashboard.imp.subtitle') : t('dashboard.subtitle')">
       <template #actions>
         <a-button @click="store.fetch" :loading="store.loading">
           <ReloadOutlined />
@@ -95,6 +95,57 @@
             </div>
           </a-card>
         </div>
+      </div>
+
+      <!-- ══ Дашборд клиента (аудит 5.7) ══ — свои плитки вместо метрик сотрудника,
+           без гр.В/ДТ/топ клиентов. -->
+      <div v-if="store.isClient && store.clientDashboard" class="dashboard-grid block-import">
+        <div class="kpi-row">
+          <div class="kpi kpi--hero kpi--clickable" @click="router.push({ path: '/import-40', query: { tab: 'all' } })">
+            <span class="kpi-strip"></span>
+            <div class="kpi-top">
+              <span class="kpi-label">{{ t('dashboard.client.needsAction') }}</span>
+              <span class="kpi-ic"><ClockCircleOutlined /></span>
+            </div>
+            <div class="kpi-val tnum">{{ formatNum(clientDb.needsAction) }}</div>
+            <div class="kpi-sub">{{ t('dashboard.client.needsActionSub') }}</div>
+          </div>
+          <div class="kpi kpi--teal kpi--clickable" @click="router.push({ path: '/import-40', query: { tab: 'all' } })">
+            <div class="kpi-top">
+              <span class="kpi-label">{{ t('dashboard.client.inProgress') }}</span>
+              <span class="kpi-ic"><SyncOutlined /></span>
+            </div>
+            <div class="kpi-val tnum">{{ formatNum(clientDb.inProgress) }}</div>
+            <div class="kpi-sub">{{ t('dashboard.client.inProgressSub') }}</div>
+          </div>
+          <div class="kpi kpi--navy kpi--clickable" @click="router.push({ path: '/import-40', query: { tab: 'all' } })">
+            <div class="kpi-top">
+              <span class="kpi-label">{{ t('dashboard.client.done') }}</span>
+              <span class="kpi-ic"><CheckCircleOutlined /></span>
+            </div>
+            <div class="kpi-val tnum">{{ formatNum(clientDb.done) }}</div>
+          </div>
+          <div class="kpi kpi--green kpi--clickable" @click="router.push('/billing')">
+            <div class="kpi-top">
+              <span class="kpi-label">{{ t('dashboard.client.unpaid') }}</span>
+              <span class="kpi-ic"><DollarOutlined /></span>
+            </div>
+            <div class="kpi-val tnum">{{ formatNum(Math.round(clientDb.unpaidInvoicesTotal)) }}<span class="kpi-unit">₸</span></div>
+            <div class="kpi-sub">{{ t('dashboard.client.unpaidSub', { n: clientDb.unpaidInvoicesCount }) }}</div>
+          </div>
+        </div>
+
+        <a-card class="crm-shell-card" :bordered="false" :title="t('dashboard.client.recentTitle')">
+          <EmptyState v-if="!clientDb.recentCases.length" :title="t('dashboard.client.noCases')" />
+          <div v-else class="ranklist">
+            <div v-for="c in clientDb.recentCases" :key="c.id" class="rank-row rank-row--clickable" @click="router.push(`/import-40/${c.id}`)">
+              <div class="rank-grow">
+                <div class="rank-name">{{ c.number }}<span v-if="c.isProblem" class="problem-chip">{{ t('import40List.problem') }}</span></div>
+              </div>
+              <div class="rank-cnt">{{ t(`enum.stepClient.s${c.step || 6}`) }}</div>
+            </div>
+          </div>
+        </a-card>
       </div>
 
       <!-- ══ Транзит ══ (кто имеет reestr.read) -->
@@ -200,7 +251,7 @@
         </div>
       </div>
 
-      <div v-if="!store.loading && !(store.showImport40 && store.import40) && !showTransitBlock" class="empty-state">
+      <div v-if="!store.loading && !(store.showImport40 && store.import40) && !(store.isClient && store.clientDashboard) && !showTransitBlock" class="empty-state">
         <a-empty :description="t('dashboard.noData')" />
       </div>
     </a-spin>
@@ -229,6 +280,9 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 const store = useDashboardStore()
 const router = useRouter()
 const { t, locale } = useI18n()
+
+// Ненулевой алиас для шаблона — блок отрисовывается только когда store.clientDashboard уже загружен.
+const clientDb = computed(() => store.clientDashboard!)
 
 // KPI дашборда кликабельны (аудит L6): «Ждут меня» ведёт в очередь сотрудника, а у
 // руководителя без своего шага — на панель /import-40/manage (там же «без назначения»/«проблемные»).
@@ -435,6 +489,8 @@ const rankWidth = (count: number, max: number) =>
   border-bottom: 1px solid var(--z-line-2, #eff2f8);
 }
 .rank-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.rank-row--clickable { cursor: pointer; }
+.rank-row--clickable:hover { background: var(--z-line-2, #eff2f8); }
 .rank-badge {
   width: 24px; height: 24px;
   border-radius: 7px;

@@ -23,9 +23,22 @@ export interface Import40DashboardDto {
   isManagerView: boolean
 }
 
+// Клиентский дашборд (аудит 5.7) — свои плитки вместо метрик сотрудника.
+export interface Import40ClientRecentCase { id: string; number: string; status: number; step: number; isProblem: boolean }
+export interface Import40ClientDashboardDto {
+  needsAction: number
+  inProgress: number
+  done: number
+  unpaidInvoicesCount: number
+  unpaidInvoicesTotal: number
+  recentCases: Import40ClientRecentCase[]
+}
+
 export const dashboardApi = {
   // транзит (требует reestr.read)
   get: () => apiClient.get<DashboardDto>('/dashboard'),
-  // импорт 40 (любой авторизованный; видимость как у списка заявок)
+  // импорт 40 (сотрудники/админ; видимость как у списка заявок)
   import40: () => apiClient.get<Import40DashboardDto>('/dashboard/import40'),
+  // импорт 40 — клиент
+  client: () => apiClient.get<Import40ClientDashboardDto>('/dashboard/client'),
 }

@@ -7,8 +7,8 @@
       </span>
       <span class="step-title">{{ title }}</span>
       <span v-if="state === 'done' && summary" class="step-summary">{{ summary }}</span>
-      <span v-if="state === 'current'" class="step-now">вы здесь</span>
-      <span v-if="state === 'future' && executor" class="step-executor">выполняет: {{ executor }}</span>
+      <span v-if="state === 'current'" class="step-now">{{ nowLabel }}</span>
+      <span v-if="state === 'future' && executor" class="step-executor">{{ t('import40Case.stepExecutorPrefix') }} {{ executor }}</span>
       <DownOutlined v-if="state === 'done'" class="step-chevron" :class="{ open: expanded }" />
     </div>
     <div v-if="state === 'current' || (state === 'done' && expanded)" class="step-body">
@@ -18,16 +18,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { CheckOutlined, DownOutlined } from '@ant-design/icons-vue'
 
-defineProps<{
+const { t } = useI18n()
+
+const props = defineProps<{
   index: number
   title: string
   state: 'done' | 'current' | 'future'
   executor?: string
   summary?: string
+  // «вы здесь» некорректно, если текущий шаг делает AQNIET, а не сам зритель (аудит 5.17):
+  // родитель передаёт готовую метку («сейчас» / «сейчас у AQNIET»), захардкоженного текста
+  // и i18n-обхода в самом компоненте больше нет.
+  nowLabel?: string
 }>()
+
+const nowLabel = computed(() => props.nowLabel ?? t('import40Case.stepNow'))
 
 const expanded = ref(false)
 </script>

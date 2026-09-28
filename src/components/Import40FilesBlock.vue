@@ -13,7 +13,7 @@
         <a class="file-name" @click.prevent="emit('download', f)">
           <PaperClipOutlined /> {{ f.originalFileName }}
         </a>
-        <span class="file-meta">{{ formatSize(f.sizeBytes) }} · {{ roleLabel(f.uploadedByBusinessRole) }}<template v-if="f.uploadedByStaffName"> ({{ t('import40Case.uploadedByStaff', { name: f.uploadedByStaffName }) }})</template></span>
+        <span class="file-meta">{{ formatSize(f.sizeBytes) }} · {{ roleLabel(f.uploadedByBusinessRole) }}<template v-if="f.uploadedByStaffName && !clientView"> ({{ t('import40Case.uploadedByStaff', { name: f.uploadedByStaffName }) }})</template></span>
         <a-button v-if="canRemove" type="text" danger size="small" @click="emit('remove', f)"><CloseOutlined /></a-button>
       </div>
     </div>
@@ -31,13 +31,16 @@ import type { Import40FileDto } from '@/api/import40'
 
 const { t } = useI18n()
 
-defineProps<{
+const props = defineProps<{
   files: Import40FileDto[]
   canUpload?: boolean
   canRemove?: boolean
   uploading?: boolean
   emptyText?: string
   uploadLabel?: string
+  // Клиентский вид (аудит 5.19): вместо кода бизнес-роли — «вы»/«AQNIET», имя сотрудника,
+  // загрузившего файл за клиента, не показываем (это уже «AQNIET», без ФИО).
+  clientView?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -60,7 +63,12 @@ const formatSize = (b: number) =>
 
 // Метка роли — через общий словарь ролей (аудит M18): раньше был свой мини-словарь с «РОП»/«МПП»
 // без перевода и без accountant/sales, роль kpp тоже отображается как есть (KPP снова роль — 2.1).
-const roleLabel = (r: string) => t('enum.businessRole.' + (r ?? '').toLowerCase(), r)
+// Клиенту — только «вы»/«AQNIET» (аудит 5.19): роли и коды сотрудников ему ни о чём не говорят.
+const roleLabel = (r: string) => {
+  const role = (r ?? '').toLowerCase()
+  if (props.clientView) return role === 'client' ? t('enum.role.you') : t('enum.role.us')
+  return t('enum.businessRole.' + role, r)
+}
 </script>
 
 <style scoped>
