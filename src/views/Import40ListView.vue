@@ -196,8 +196,16 @@
           <p class="dz-title">{{ t('import40List.dropTitle') }}</p>
           <p class="dz-hint">{{ t('import40List.dropHint') }}</p>
         </a-upload-dragger>
+        <!-- До отправки заявки клиент может убрать лишний или ошибочный файл; после — нет. -->
         <ul v-if="uploadedFiles.length" class="uploaded-list">
-          <li v-for="f in uploadedFiles" :key="f.id">{{ f.originalFileName }}</li>
+          <li v-for="f in uploadedFiles" :key="f.id">
+            <span class="uploaded-name">{{ f.originalFileName }}</span>
+            <a-tooltip :title="t('import40List.removeFile')">
+              <a-button type="text" danger size="small" :loading="removingFileId === f.id" :aria-label="t('import40List.removeFile')" @click="removeUploaded(f)">
+                <CloseOutlined />
+              </a-button>
+            </a-tooltip>
+          </li>
         </ul>
 
         <div class="doc-checklist">
@@ -726,6 +734,21 @@ const uploadDocs = async (file: File) => {
   }
 }
 
+const removingFileId = ref<string | null>(null)
+const removeUploaded = async (f: Import40FileDto) => {
+  const caseId = createdCaseId.value
+  if (!caseId) return
+  removingFileId.value = f.id
+  try {
+    await import40Api.deleteFile(caseId, f.id)
+    uploadedFiles.value = uploadedFiles.value.filter((x) => x.id !== f.id)
+  } catch (e: any) {
+    message.error(e?.response?.data?.error ?? t('import40List.removeFileFailed'))
+  } finally {
+    removingFileId.value = null
+  }
+}
+
 const submitCase = async () => {
   if (!canSubmitWizard.value) return
   submitting.value = true
@@ -814,7 +837,9 @@ onMounted(() => {
 .create-grid .req-star { color: #cf4a3c; font-weight: 700; }
 .create-grid .opt-hint { color: var(--atg-muted, #95a1b7); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 11px; }
 
-.uploaded-list { margin: 10px 0 0; padding-left: 18px; font-size: 13px; }
+.uploaded-list { margin: 10px 0 0; padding: 0; list-style: none; font-size: 13px; display: grid; gap: 2px; }
+.uploaded-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.uploaded-name { overflow-wrap: anywhere; }
 
 /* ── Мастер подачи (клиент) ─────────────────────────────────── */
 .wizard-steps { margin: 4px 0 18px; }

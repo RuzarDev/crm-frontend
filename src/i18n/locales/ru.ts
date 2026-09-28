@@ -218,6 +218,8 @@ export default {
     quoteImportFailed: 'Не удалось импортировать КП',
   },
   import40List: {
+    removeFile: 'Убрать файл',
+    removeFileFailed: 'Не удалось удалить файл',
     myTasksClient: 'Нужно ваше действие',
     allClient: 'Все заявки',
     subtitleClient: 'Статус заявок, документы и счета по вашим грузам.',

@@ -218,6 +218,8 @@ export default {
     quoteImportFailed: 'Failed to import the quote',
   },
   import40List: {
+    removeFile: 'Remove file',
+    removeFileFailed: 'Could not remove the file',
     myTasksClient: 'Needs your action',
     allClient: 'All requests',
     subtitleClient: 'Status, documents and invoices for your shipments.',

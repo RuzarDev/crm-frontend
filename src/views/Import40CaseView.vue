@@ -118,7 +118,7 @@
         <Import40FilesBlock
           :files="filesBySection('documents')"
           :can-upload="canEditStep1 || roleMode === 'admin'"
-          :can-remove="roleMode === 'admin'"
+          :can-remove="roleMode === 'admin' || canEditStep1"
           :uploading="uploading"
           :empty-text="t('import40Case.docsEmpty')"
           @upload="(f: File) => uploadTo('documents', f)"

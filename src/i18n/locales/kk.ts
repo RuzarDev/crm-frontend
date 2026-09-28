@@ -218,6 +218,8 @@ export default {
     quoteImportFailed: 'КҰ импорттау мүмкін болмады',
   },
   import40List: {
+    removeFile: 'Файлды алып тастау',
+    removeFileFailed: 'Файлды жою мүмкін болмады',
     myTasksClient: 'Сіздің әрекетіңіз қажет',
     allClient: 'Барлық өтінімдер',
     subtitleClient: 'Жүктеріңіз бойынша өтінімдердің мәртебесі, құжаттар мен шоттар.',
