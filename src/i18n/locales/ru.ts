@@ -76,6 +76,9 @@ export default {
     role: { client: 'клиент', kpp: 'декларант', declarant: 'декларант', clientKpp: 'клиент и декларант', you: 'вы', us: 'AQNIET', youAndUs: 'вы и AQNIET' },
   },
   import40Case: {
+    clientPayEmpty: 'Чек ещё не загружен',
+    clientPayNote: 'Оплатите счёт и загрузите сюда чек об оплате.',
+    clientWaitNote: 'Сейчас этим шагом занимается AQNIET — от вас ничего не нужно.',
     billingBtn: 'Счета и акты',
     stepBackBtn: 'Шаг назад',
     stepBackTitle: 'Вернуть заявку на шаг назад',
@@ -218,6 +221,8 @@ export default {
     quoteImportFailed: 'Не удалось импортировать КП',
   },
   import40List: {
+    draftSaved: 'Черновик сохранён — он во вкладке «Нужно ваше действие».',
+    submittedClient: 'Заявка отправлена на оформление. Её статус — здесь, в «Мои заявки».',
     removeFile: 'Убрать файл',
     removeFileFailed: 'Не удалось удалить файл',
     myTasksClient: 'Нужно ваше действие',

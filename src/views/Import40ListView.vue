@@ -756,8 +756,11 @@ const submitCase = async () => {
     // Сохраняем транспорт/стороны/стоимость/контейнеры, затем отправляем.
     await persistWizardDraft()
     await import40Api.action(createdCaseId.value!, 'submit-for-processing')
-    message.success(t('import40List.submitted'))
-    router.push(`/import-40/${createdCaseId.value}`)
+    // Клиент после отправки — в «Мои заявки», а не в карточку с шагами сотрудников.
+    message.success({ content: t('import40List.submittedClient'), duration: 6 })
+    createOpen.value = false
+    await router.push('/import-40')
+    await reload()
   } catch (e: any) {
     message.error(e?.response?.data?.error ?? t('import40List.submitFailed'))
   } finally {
@@ -769,7 +772,9 @@ const finishLater = async () => {
   if (!createdCaseId.value) return
   // Сохраняем то, что уже ввёл клиент, чтобы черновик не потерялся.
   try { await persistWizardDraft() } catch { /* оставляем как есть */ }
-  router.push(`/import-40/${createdCaseId.value}`)
+  message.info(t('import40List.draftSaved'))
+  createOpen.value = false
+  await reload()
 }
 
 const handleDocUpload: UploadProps['customRequest'] = ({ file }) => {

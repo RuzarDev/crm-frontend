@@ -76,6 +76,9 @@ export default {
     role: { client: 'клиент', kpp: 'декларант', declarant: 'декларант', clientKpp: 'клиент және декларант', you: 'сіз', us: 'AQNIET', youAndUs: 'сіз және AQNIET' },
   },
   import40Case: {
+    clientPayEmpty: 'Чек әлі жүктелмеген',
+    clientPayNote: 'Шотты төлеп, төлем чегін осында жүктеңіз.',
+    clientWaitNote: 'Қазір бұл қадаммен AQNIET айналысуда — сізден ештеңе қажет емес.',
     billingBtn: 'Шоттар мен актілер',
     stepBackBtn: 'Бір қадам артқа',
     stepBackTitle: 'Өтінімді бір қадам артқа қайтару',
@@ -218,6 +221,8 @@ export default {
     quoteImportFailed: 'КҰ импорттау мүмкін болмады',
   },
   import40List: {
+    draftSaved: 'Жоба сақталды — ол «Сіздің әрекетіңіз қажет» қойындысында.',
+    submittedClient: 'Өтінім ресімдеуге жіберілді. Оның мәртебесі — осында, «Менің өтінімдерім» бөлімінде.',
     removeFile: 'Файлды алып тастау',
     removeFileFailed: 'Файлды жою мүмкін болмады',
     myTasksClient: 'Сіздің әрекетіңіз қажет',

@@ -137,7 +137,8 @@
       <Import40Step :index="2" :title="stepTitle(2)" :state="stepState(2)" :executor="executorLabel('kpp')"
         :summary="stepState(2) === 'done' ? t('import40Case.passed') : undefined">
         <p class="muted">{{ t('import40Case.transportPrefix', { summary: transportSummary }) }}</p>
-        <div v-if="stepState(2) === 'current'" class="step-actions">
+        <p v-if="isClientView && stepState(2) === 'current'" class="muted client-wait">{{ t('import40Case.clientWaitNote') }}</p>
+        <div v-if="stepState(2) === 'current' && !isClientView" class="step-actions">
           <a-button v-if="roleMode === 'kpp' && !activeCase.assignedKppId" @click="runAction('claim')">{{ t('import40Case.claim') }}</a-button>
           <a-tooltip :title="can('kpp') ? '' : hintFor('kpp')">
             <a-button type="primary" :disabled="!can('kpp')" @click="runAction('border-passed')">{{ t('import40Case.borderPassed') }}</a-button>
@@ -166,11 +167,11 @@
               <a-tag v-if="splitTagLabel(dt)" :color="splitTagColor(dt)">{{ splitTagLabel(dt) }}</a-tag>
             </a-tooltip>
             <span class="muted">{{ t('import40Case.goodsCount', { n: dt.goodsItems.length }) }}</span>
-            <a-tag v-if="readiness[dt.id]" :color="readiness[dt.id].missing.length ? 'warning' : 'success'">
+            <a-tag v-if="readiness[dt.id] && !isClientView" :color="readiness[dt.id].missing.length ? 'warning' : 'success'">
               {{ t('import40Case.fieldsFilled', { filled: readiness[dt.id].filled, total: readiness[dt.id].total }) }}
             </a-tag>
           </div>
-          <div class="dt-row-actions">
+          <div v-if="!isClientView" class="dt-row-actions">
             <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
               <a-button size="small" :disabled="!can('declarant')" @click="$router.push(`/import-40/${activeCase.id}/dt/${dt.id}`)">{{ t('import40Case.fill') }}</a-button>
             </a-tooltip>
@@ -198,12 +199,13 @@
           </a-button>
         </div>
 
-        <a-alert v-if="kedenMissing.length" type="warning" show-icon class="keden-missing">
+        <a-alert v-if="kedenMissing.length && !isClientView" type="warning" show-icon class="keden-missing">
           <template #message>{{ t('import40Case.xmlMissingTitle') }}</template>
           <template #description><ul><li v-for="m in kedenMissing" :key="m">{{ m }}</li></ul></template>
         </a-alert>
 
-        <div v-if="stepState(3) === 'current'" class="step-actions">
+        <p v-if="isClientView && stepState(3) === 'current'" class="muted client-wait">{{ t('import40Case.clientWaitNote') }}</p>
+        <div v-if="stepState(3) === 'current' && !isClientView" class="step-actions">
           <template v-if="activeCase.status === 2">
             <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
               <a-button :disabled="!can('declarant')" @click="addDt">{{ t('import40Case.addDt') }}</a-button>
@@ -232,7 +234,7 @@
             <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">{{ t('import40Case.returnToClient') }}</a-button>
           </a-tooltip>
         </div>
-        <div v-if="activeCase.status === 3" class="step-actions">
+        <div v-if="activeCase.status === 3 && !isClientView" class="step-actions">
           <p class="muted">{{ t('import40Case.status3Note') }}</p>
           <a-tooltip :title="can('declarant') ? '' : hintFor('declarant')">
             <a-button type="primary" :disabled="!can('declarant')" @click="runAction('release-declaration')">{{ t('import40Case.fixRelease') }}</a-button>
@@ -252,7 +254,8 @@
         <Import40FilesBlock :files="filesBySection('svh-invoice')" :can-upload="stepState(4) === 'current' && can('kpp')"
           :uploading="uploading" :empty-text="t('import40Case.svhInvoiceEmpty')"
           @upload="(f: File) => uploadTo('svh-invoice', f)" @download="download" />
-        <div v-if="stepState(4) === 'current'" class="step-actions">
+        <p v-if="isClientView && stepState(4) === 'current'" class="muted client-wait">{{ t('import40Case.clientWaitNote') }}</p>
+        <div v-if="stepState(4) === 'current' && !isClientView" class="step-actions">
           <a-tooltip v-if="activeCase.status === 4" :title="can('kpp') ? '' : hintFor('kpp')">
             <a-button type="primary" :disabled="!can('kpp')" @click="runAction('close-svh')">{{ t('import40Case.closeSvh') }}</a-button>
           </a-tooltip>
@@ -268,10 +271,11 @@
           <a-tag v-if="activeCase.paymentConfirmed" color="success">{{ t('import40Case.paymentConfirmed') }}</a-tag>
           <a-tag v-else-if="filesBySection('payment-check').length" color="processing">{{ t('import40Case.paymentChecking') }}</a-tag>
         </div>
+        <p v-if="isClientView && stepState(5) === 'current' && !filesBySection('payment-check').length" class="client-pay-note">{{ t('import40Case.clientPayNote') }}</p>
         <Import40FilesBlock :files="filesBySection('payment-check')" :can-upload="stepState(5) === 'current' && can('client')"
-          :uploading="uploading" :empty-text="t('import40Case.paymentEmpty')"
+          :uploading="uploading" :empty-text="isClientView ? t('import40Case.clientPayEmpty') : t('import40Case.paymentEmpty')"
           @upload="(f: File) => uploadTo('payment-check', f)" @download="download" />
-        <div v-if="stepState(5) === 'current'" class="step-actions">
+        <div v-if="stepState(5) === 'current' && !isClientView" class="step-actions">
           <a-tooltip :title="can('kpp') ? (filesBySection('payment-check').length ? '' : t('import40Case.clientNoCheck')) : hintFor('kpp')">
             <a-button type="primary" :disabled="!can('kpp') || !filesBySection('payment-check').length"
               @click="runAction('confirm-payment-and-complete')">{{ t('import40Case.confirmPayment') }}</a-button>
@@ -585,6 +589,10 @@ const removeFile = async (f: Import40FileDto) => {
     message.error(e?.response?.data?.error ?? t('import40Case.deleteFailed'))
   }
 }
+
+// Клиент видит ход своей заявки и только свои действия (отправка, файлы, чек) — кнопки
+// сотрудников ему не показываем вовсе, а не выключенными (владелец, 2026-09-28).
+const isClientView = computed(() => roleMode.value === 'client')
 
 const canEditStep1 = computed(() => stepState(1) === 'current' && can('client'))
 
@@ -1182,4 +1190,6 @@ onMounted(() => {
   font-size: 12px;
   color: var(--atg-muted);
 }
+.client-wait { margin: 4px 0 0; }
+.client-pay-note { margin: 0 0 8px; font-weight: 500; }
 </style>

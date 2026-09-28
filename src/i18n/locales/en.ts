@@ -76,6 +76,9 @@ export default {
     role: { client: 'client', kpp: 'declarant', declarant: 'declarant', clientKpp: 'client and declarant', you: 'you', us: 'AQNIET', youAndUs: 'you and AQNIET' },
   },
   import40Case: {
+    clientPayEmpty: 'No receipt uploaded yet',
+    clientPayNote: 'Pay the invoice and upload the payment receipt here.',
+    clientWaitNote: 'AQNIET is working on this step — nothing is needed from you.',
     billingBtn: 'Invoices & acts',
     stepBackBtn: 'Step back',
     stepBackTitle: 'Move the request one step back',
@@ -218,6 +221,8 @@ export default {
     quoteImportFailed: 'Failed to import the quote',
   },
   import40List: {
+    draftSaved: 'Draft saved — it is in the “Needs your action” tab.',
+    submittedClient: 'The request has been sent for clearance. Track its status here in “My requests”.',
     removeFile: 'Remove file',
     removeFileFailed: 'Could not remove the file',
     myTasksClient: 'Needs your action',
