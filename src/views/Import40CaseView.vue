@@ -35,14 +35,24 @@
     <!-- Баннеры -->
     <a-alert v-if="activeCase.status === 9" type="warning" show-icon class="case-banner"
       :message="t('import40Case.cancelledTitle')" :description="activeCase.cancelReason || undefined" />
+    <!-- Клиент видит только своё сообщение (и баннер вовсе скрыт, если его нет) — внутреннюю
+         заметку сотрудников клиенту не показываем (аудит 2.9, задача 2.9). -->
     <a-alert
-      v-if="activeCase.isProblem"
+      v-if="activeCase.isProblem && (!isClientView || activeCase.problemClientMessage)"
       type="error"
       show-icon
       class="case-banner"
       :message="t('import40Case.problemTitle')"
-      :description="activeCase.problemNote || undefined"
     >
+      <template #description>
+        <template v-if="isClientView">{{ activeCase.problemClientMessage }}</template>
+        <template v-else>
+          <div v-if="activeCase.problemNote">{{ activeCase.problemNote }}</div>
+          <div v-if="activeCase.problemClientMessage" class="problem-client-msg">
+            {{ t('import40Case.problemClientMessageLabel') }}: {{ activeCase.problemClientMessage }}
+          </div>
+        </template>
+      </template>
       <template #action>
         <a-button v-if="can('kpp') || can('declarant')" size="small" @click="runAction('clear-problem')">
           {{ t('import40Case.clearProblem') }}
@@ -328,8 +338,18 @@
       <a-textarea v-model:value="returnReason" :rows="3" :placeholder="t('import40Case.returnPh')" />
     </a-modal>
 
-    <a-modal v-model:open="problemOpen" :title="t('import40Case.problemTitle')" :ok-text="t('import40Case.problemOk')" :cancel-text="t('common.cancel')" @ok="confirmProblem">
-      <a-textarea v-model:value="problemNote" :rows="3" :placeholder="t('import40Case.problemPh')" />
+    <a-modal
+      v-model:open="problemOpen" :title="t('import40Case.problemTitle')" :ok-text="t('import40Case.problemOk')"
+      :cancel-text="t('common.cancel')" :ok-button-props="{ disabled: !problemNote.trim() }" @ok="confirmProblem"
+    >
+      <a-form layout="vertical">
+        <a-form-item :label="t('import40Case.problemNoteLabel')" required>
+          <a-textarea v-model:value="problemNote" :rows="3" :placeholder="t('import40Case.problemPh')" />
+        </a-form-item>
+        <a-form-item :label="t('import40Case.problemClientMessageLabel')">
+          <a-textarea v-model:value="problemClientMessage" :rows="3" :placeholder="t('import40Case.problemClientMessagePh')" />
+        </a-form-item>
+      </a-form>
     </a-modal>
 
     <a-modal v-model:open="invoiceOpen" :title="t('import40Case.invoiceTitle')" :ok-text="t('import40Case.invoiceOk')" :cancel-text="t('common.cancel')" @ok="confirmInvoice">
@@ -485,6 +505,7 @@ const returnReason = ref('')
 
 const problemOpen = ref(false)
 const problemNote = ref('')
+const problemClientMessage = ref('')
 
 const invoiceOpen = ref(false)
 const invoiceAmount = ref('')
@@ -942,11 +963,22 @@ const confirmReturn = async () => {
 
 const promptProblem = () => {
   problemNote.value = ''
+  problemClientMessage.value = ''
   problemOpen.value = true
 }
 const confirmProblem = async () => {
+  if (!problemNote.value.trim()) return
   problemOpen.value = false
-  await runAction('set-problem', problemNote.value)
+  if (!activeCase.value) return
+  try {
+    // Внутренняя заметка (Value) обязательна и видят её только сотрудники; сообщение клиенту
+    // (ClientMessage) — необязательное, уходит клиенту дословно (аудит 2.9, задача 2.9).
+    await import40Api.action(activeCase.value.id, 'set-problem', problemNote.value,
+      { clientMessage: problemClientMessage.value.trim() || null })
+    await reload()
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
+  }
 }
 
 // Бейдж «в работе у меня / занято коллегой» — по роли ТЕКУЩЕГО шага (не по roleMode, чтобы
@@ -1170,6 +1202,9 @@ onMounted(() => {
 }
 .case-banner {
   border-radius: var(--atg-radius-lg);
+}
+.problem-client-msg {
+  margin-top: 4px;
 }
 .assign-inline {
   display: flex;

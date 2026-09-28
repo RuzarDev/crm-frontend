@@ -507,7 +507,10 @@ export interface Import40CaseDto {
   post: string
   status: number
   isProblem: boolean
+  // Внутренняя заметка — сервер отдаёт клиенту пустую строку (аудит 2.9).
   problemNote: string
+  // Сообщение клиенту — видят все.
+  problemClientMessage: string
   returnReason: string
   assignedKppId: string | null
   assignedDeclarantId: string | null
@@ -772,7 +775,7 @@ export const import40Api = {
     id: string,
     action: Import40Action,
     value?: string,
-    extra?: { amount?: number | null; number?: string | null; date?: string | null },
+    extra?: { amount?: number | null; number?: string | null; date?: string | null; clientMessage?: string | null },
   ): Promise<Import40CaseDto> => {
     const response = await apiClient.post<Import40CaseDto>(
       `/import40/${encodeURIComponent(id)}/actions/${action}`,

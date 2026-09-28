@@ -56,7 +56,7 @@
                     :key="n.id"
                     class="notif-item"
                     :class="{ 'notif-item--unread': !n.isRead }"
-                    @click="notifStore.markRead(n.id)"
+                    @click="openNotification(n)"
                   >
                     <div v-if="n.title" class="notif-title-row">{{ n.title }}</div>
                     <div class="notif-msg">{{ n.body }}</div>
@@ -65,6 +65,11 @@
                 </div>
                 <div v-else class="notif-empty">{{ t('header.notificationsEmpty') }}</div>
               </a-spin>
+              <div class="notif-footer">
+                <a-button type="link" size="small" block @click.stop="openAllNotifications">
+                  {{ t('header.allNotifications') }}
+                </a-button>
+              </div>
             </div>
           </template>
         </a-dropdown>
@@ -158,12 +163,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref, watch } from 'vue'
+import { computed, h, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { systemApi } from '@/api/system'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
+import type { AppNotification } from '@/types/api'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import {
   ApiOutlined,
@@ -204,7 +210,13 @@ const { t } = useI18n()
 const mobileNavOpen = ref(false)
 const openKeys = ref<string[]>([])
 
-onMounted(() => notifStore.fetch())
+// Опрос unread-count раз в минуту (только на видимой вкладке) — раньше счётчик обновлялся
+// только при перезагрузке страницы или открытии колокольчика (аудит 2.3).
+onMounted(() => {
+  notifStore.fetch()
+  notifStore.startPolling()
+})
+onUnmounted(() => notifStore.stopPolling())
 
 const registration = useClientRegistration()
 const registrationBanner = computed(() => {
@@ -247,6 +259,21 @@ const onNotifOpen = (open: boolean) => {
   if (open) notifStore.fetch()
 }
 
+// Клик по уведомлению — читаем и ведём к заявке/реестру (аудит 2.2: раньше клик никуда не вёл,
+// в модели не было привязки к заявке).
+const openNotification = async (n: AppNotification) => {
+  if (!n.isRead) await notifStore.markRead(n.id)
+  if (n.caseId) {
+    router.push(`/import-40/${n.caseId}`)
+  } else if (n.reestrEntryId) {
+    router.push('/reestr')
+  }
+}
+
+const openAllNotifications = () => {
+  router.push('/notifications')
+}
+
 const formatNotifTime = (iso: string) => dayjs(iso).format('DD.MM HH:mm')
 
 const menuItems = computed(() => {
@@ -266,6 +293,14 @@ const menuItems = computed(() => {
   const financeOnly = authStore.isFinanceOnly
 
   // ─── Операции ───────────────────────────────────────────
+  // «Уведомления» — доступны всем ролям без ограничения по правам (аудит 2.5): раньше пункт
+  // требовал users.read и лежал в «Администрировании», хотя события есть у всех.
+  operationsItems.push({
+    key: '/notifications',
+    icon: () => h(BellOutlined),
+    label: t('nav.notifications'),
+  })
+
   if (role !== 'sales' && !financeOnly) {
     operationsItems.push({
       key: '/dashboard',
@@ -487,14 +522,6 @@ const menuItems = computed(() => {
     })
   }
 
-  if (authStore.hasPermission('users.read')) {
-    adminItems.push({
-      key: '/notifications',
-      icon: () => h(BellOutlined),
-      label: t('nav.notifications'),
-    })
-  }
-
   if (authStore.hasPermission('endpoints.read')) {
     adminItems.push({
       key: '/system/endpoints',
@@ -619,6 +646,7 @@ const handleMobileMenuClick = ({ key }: { key: string }) => {
 
 const handleLogout = () => {
   mobileNavOpen.value = false
+  notifStore.reset()
   authStore.logout()
   router.push('/login')
 }
@@ -844,6 +872,11 @@ const handleLogout = () => {
   text-align: center;
   font-size: 13px;
   color: var(--atg-muted);
+}
+
+.notif-footer {
+  border-top: 1px solid var(--atg-line);
+  text-align: center;
 }
 
 .logout-button {

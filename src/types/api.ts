@@ -714,6 +714,9 @@ export interface AppNotification {
   id: string
   title: string
   body: string
+  type: string
+  // Заявка Импорта 40, к которой относится уведомление (волна 3) — клик открывает её карточку.
+  caseId: string | null
   reestrEntryId: string | null
   isRead: boolean
   createdAtUtc: string
@@ -924,16 +927,6 @@ export interface DashboardDto {
   entriesThisMonth: number
   topClients: DashboardTopClientDto[]
   topCodes: DashboardTopCodeDto[]
-}
-
-// ── Notifications ─────────────────────────────────────────────────────────────
-
-export interface NotificationDto {
-  id: string
-  message: string
-  relatedCode: string | null
-  isRead: boolean
-  createdAtUtc: string
 }
 
 // ── Profile ───────────────────────────────────────────────────────────────────
@@ -1747,8 +1740,6 @@ export type TnvedCurrency = TnvedCurrencyDto
 export interface ReestrComment { id: string; reestrEntryId: string; authorId: string; authorRole: string; authorUsername: string; text: string; createdAtUtc: string; editedAtUtc: string | null }
 
 export interface ProfileDto { userId: string; username: string; displayName: string | null; phone: string | null; companyName: string | null; innBin: string | null; role: string }
-
-export interface NotificationDto { id: string; message: string; relatedCode: string | null; isRead: boolean; createdAtUtc: string }
 
 export interface TnvedTopCode { code: string; treeName: string | null; rateStr: string | null; declarationCount: number }
 
