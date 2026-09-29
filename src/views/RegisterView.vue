@@ -172,8 +172,9 @@ const rules = computed(() => ({
 
 const applyCompany = (c: CompanyLookupDto) => {
   formState.companyName = c.nameRu ?? c.nameKz ?? formState.companyName
-  formState.legalAddress = c.addressRu ?? c.addressKz ?? null
-  formState.directorName = c.director ?? null
+  // У ИП (КГД) адреса и руководителя нет — не затираем то, что клиент уже ввёл.
+  formState.legalAddress = c.addressRu ?? c.addressKz ?? formState.legalAddress ?? null
+  formState.directorName = c.director ?? formState.directorName ?? null
 }
 
 const handleRegister = async () => {

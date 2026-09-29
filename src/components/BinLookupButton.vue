@@ -21,7 +21,7 @@ import { useI18n } from 'vue-i18n'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import { companyLookupApi, isBinLike, type CompanyLookupDto } from '@/api/companyLookup'
 
-// Кнопка «Найти по БИН»: тянет карточку юрлица из ГБД ЮЛ (data.egov.kz) и отдаёт
+// Кнопка «Найти по БИН/ИИН»: тянет карточку юрлица из ГБД ЮЛ (data.egov.kz) или ИП из КГД и отдаёт
 // её родителю событием found — что именно подставлять, решает родитель (у профиля,
 // мастера и граф ДТ разный набор полей). Ошибки показывает сама.
 const { t } = useI18n()
@@ -47,8 +47,16 @@ const lookup = async () => {
   try {
     const company = await companyLookupApi.byBin(props.bin!, props.anonymous)
     emit('found', company)
-    const status = company.statusRu ? ` · ${company.statusRu}` : ''
-    message.success(t('binLookup.found', { name: `${company.nameRu ?? company.nameKz ?? company.bin}${status}` }))
+    const name = company.nameRu ?? company.nameKz ?? company.bin
+    if (company.isActive === false) {
+      // ИП/юрлицо прекратило деятельность — данные подставлены, но декларант должен это увидеть.
+      message.warning({ content: t('binLookup.inactive', { name, status: company.statusRu ?? '' }), duration: 8 })
+    } else if (company.kind === 'ip') {
+      message.success(t('binLookup.foundIp', { name }))
+    } else {
+      const status = company.statusRu ? ` · ${company.statusRu}` : ''
+      message.success(t('binLookup.found', { name: `${name}${status}` }))
+    }
   } catch (e: unknown) {
     const err = e as { response?: { status?: number; data?: { error?: string } } }
     const st = err.response?.status

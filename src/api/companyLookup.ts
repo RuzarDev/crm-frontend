@@ -1,7 +1,7 @@
 import apiClient from './client'
 
-// Карточка юрлица из ГБД ЮЛ (data.egov.kz) по БИН — см. CompanyLookupEndpoints на бэке.
-// Только юрлица/филиалы/представительства; ИП по ИИН в открытых данных нет.
+// Карточка по 12 цифрам — см. CompanyLookupEndpoints на бэке: юрлицо из ГБД ЮЛ (data.egov.kz),
+// а если это ИИН ИП — из КГД «Поиск налогоплательщика» (только наименование и даты, без адреса).
 export interface CompanyLookupDto {
   bin: string
   nameRu: string | null
@@ -14,6 +14,8 @@ export interface CompanyLookupDto {
   dateReg: string | null
   source: string
   fetchedAtUtc: string
+  kind?: 'ul' | 'ip'
+  isActive?: boolean
 }
 
 export const isBinLike = (v: string | null | undefined) => /^\d{12}$/.test((v ?? '').replace(/\D/g, ''))

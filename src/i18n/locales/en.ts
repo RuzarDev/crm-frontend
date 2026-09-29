@@ -676,14 +676,16 @@ export default {
     stDraft: 'Draft',
   },
   binLookup: {
-    find: 'Find by BIN',
-    tipReady: 'Fill in name, address and director from the state register (data.egov.kz)',
-    tipEnter: 'Enter a 12-digit BIN',
+    find: 'Find by BIN/IIN',
+    tipReady: 'Fill in: companies from the state register (data.egov.kz), sole proprietors from the State Revenue Committee',
+    tipEnter: 'Enter a 12-digit BIN or IIN',
     found: 'Found: {name}. Check the address — register data may lag.',
-    notFound: 'No legal entity with this BIN in the state register',
+    notFound: 'No company or sole proprietor with this BIN/IIN was found',
     notConfigured: 'BIN lookup is not configured (no data.egov.kz API key)',
-    badBin: 'BIN must be 12 digits',
+    badBin: 'BIN/IIN must have 12 digits',
     unavailable: 'data.egov.kz is temporarily unavailable',
+    foundIp: 'Found: {name}. Enter the address manually — the tax register has none.',
+    inactive: '{name}: {status}. Check whether you can work with this counterparty.',
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
