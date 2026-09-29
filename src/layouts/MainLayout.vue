@@ -2,8 +2,10 @@
   <a-layout class="main-layout app-shell">
     <a-layout-header class="app-header">
       <div class="brand">
+        <!-- Знак Zircon (циркон-шаңырақ), упрощённая версия для ≤32px — брендбук Zircon. -->
+        <img class="brand-mark" :src="zirconMark" alt="" width="30" height="30" />
         <div class="brand-text">
-          <div class="brand-title">Zircon</div>
+          <div class="brand-title">ZIRCON</div>
           <!-- Клиенту не нужен внутренний термин «CRM Operations» — это его личный кабинет
                брокера AQNIET, а не рабочий инструмент сотрудника (аудит 5.23). -->
           <div class="brand-subtitle">{{ isClientRole ? t('header.brandSubtitleClient') : t('header.brandSubtitle') }}</div>
@@ -197,6 +199,7 @@ import { systemApi } from '@/api/system'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import type { AppNotification } from '@/types/api'
+import zirconMark from '@/assets/brand/zircon-mark-small.svg'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import {
   ApiOutlined,
@@ -771,7 +774,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
   color: #f0f3ff;
   flex-shrink: 0;
@@ -781,12 +784,19 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   min-width: 0;
 }
 
+.brand-mark {
+  flex-shrink: 0;
+  display: block;
+}
+
+/* Надпись как в логотипе: Manrope 800, прописные, разрядка 0,12em (брендбук). */
 .brand-title {
   display: block;
   color: #f0f3ff;
-  font-family: var(--font-heading);
+  font-family: 'Manrope', 'Inter', system-ui, sans-serif;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   line-height: 1.25;
   white-space: nowrap;
 }

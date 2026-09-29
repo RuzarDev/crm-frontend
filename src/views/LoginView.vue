@@ -12,6 +12,7 @@
       <div class="auth-orb auth-orb-3" aria-hidden="true"></div>
 
       <div class="auth-left-inner">
+        <img class="auth-logo" :src="zirconLogo" alt="Zircon CRM" height="44" />
         <!-- Hero -->
         <div class="auth-hero">
           <div class="auth-eyebrow">
@@ -38,7 +39,7 @@
       <div class="auth-form-wrap">
         <div class="auth-lang"><LanguageSwitcher /></div>
         <div class="auth-form-header">
-          <div class="auth-form-badge">Zircon CRM</div>
+          <img class="auth-form-logo" :src="zirconLogoDark" alt="Zircon CRM" height="36" />
           <h2 class="auth-form-title">{{ t('login.welcome') }}</h2>
           <p class="auth-form-sub">{{ t('login.subtitle') }}</p>
         </div>
@@ -103,6 +104,8 @@
 </template>
 
 <script setup lang="ts">
+import zirconLogo from '@/assets/brand/zircon-crm-logo-white.svg'
+import zirconLogoDark from '@/assets/brand/zircon-crm-logo.svg'
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -221,7 +224,18 @@ const goToRegister = () => router.push('/register')
 /* Logo */
 .auth-logo {
   flex-shrink: 0;
+  display: block;
+  align-self: flex-start;
+  width: auto;
+  height: 44px;
   margin-bottom: auto;
+}
+
+.auth-form-logo {
+  display: block;
+  width: auto;
+  height: 36px;
+  margin-bottom: 20px;
 }
 
 /* Hero */

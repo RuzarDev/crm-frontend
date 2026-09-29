@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img"><title>Zircon — знак для 16–32 px</title>
+<defs><clipPath id="zc"><circle cx="50" cy="50" r="17"/></clipPath></defs>
+
+<polygon points="67.6,7.5 92.5,32.4 92.5,67.6 67.6,92.5 32.4,92.5 7.5,67.6 7.5,32.4 32.4,7.5" fill="#0E1B35"/>
+<polygon points="57.7,31.5 50,16 67.6,7.5 74,26" fill="#1580A6"/>
+<polygon points="68.5,42.3 74,26 92.5,32.4 84,50" fill="#11709A"/>
+<polygon points="68.5,57.7 84,50 92.5,67.6 74,74" fill="#1580A6"/>
+<polygon points="57.7,68.5 74,74 67.6,92.5 50,84" fill="#11709A"/>
+<polygon points="42.3,68.5 50,84 32.4,92.5 26,74" fill="#1580A6"/>
+<polygon points="31.5,57.7 26,74 7.5,67.6 16,50" fill="#11709A"/>
+<polygon points="31.5,42.3 16,50 7.5,32.4 26,26" fill="#1580A6"/>
+<polygon points="42.3,31.5 26,26 32.4,7.5 50,16" fill="#11709A"/>
+<polygon points="42.3,31.5 50,16 57.7,31.5" fill="#7FD8EA"/>
+<polygon points="57.7,31.5 74,26 68.5,42.3" fill="#A9E6F1"/>
+<polygon points="68.5,42.3 84,50 68.5,57.7" fill="#7FD8EA"/>
+<polygon points="68.5,57.7 74,74 57.7,68.5" fill="#A9E6F1"/>
+<polygon points="57.7,68.5 50,84 42.3,68.5" fill="#7FD8EA"/>
+<polygon points="42.3,68.5 26,74 31.5,57.7" fill="#A9E6F1"/>
+<polygon points="31.5,57.7 16,50 31.5,42.3" fill="#7FD8EA"/>
+<polygon points="31.5,42.3 26,26 42.3,31.5" fill="#A9E6F1"/><circle cx="50" cy="50" r="19" fill="#0E1B35"/>
+<g clip-path="url(#zc)" stroke="#F2B53A" stroke-width="4.5"><path d="M44 31 V69 M56 31 V69 M31 44 H69 M31 56 H69"/></g>
+<circle cx="50" cy="50" r="18" fill="none" stroke="#F2B53A" stroke-width="5"/>
+</svg>

@@ -24,6 +24,9 @@ export const i18n = createI18n({
   messages: { ru, kk, en },
 })
 
+// lang на <html> с первого кадра: от него зависят шрифт казахских заголовков (main.css) и переносы.
+try { document.documentElement.setAttribute('lang', getStoredLocale()) } catch { /* SSR/тесты */ }
+
 export function setLocale(locale: AppLocale) {
   ;(i18n.global.locale as unknown as { value: AppLocale }).value = locale
   try {

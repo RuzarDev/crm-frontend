@@ -94,6 +94,12 @@
   --atg-transition: 0.16s ease;
 }
 
+/* В Manrope нет казахских Ә Ғ Қ Ң Ұ — казахские заголовки набираем Inter целиком,
+   чтобы буквы в одном слове не были из разных шрифтов (брендбук Zircon, «Типографика»). */
+html[lang="kk"] {
+  --font-heading: 'Inter', system-ui, sans-serif;
+}
+
 body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
