@@ -89,7 +89,7 @@
               <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="(f: File) => onWarehouseFile('customs_warehouse', f)">
                 <a-button size="small" :loading="whBusy">{{ t('admin.svhTsNsiUploadTs') }}</a-button>
               </a-upload>
-              <a-button type="primary" size="small" :loading="whBusy" @click="importWarehouses">{{ t('admin.svhTsImport') }}</a-button>
+              <a-button type="primary" size="small" :loading="whBusy" @click="refreshFromKeden">{{ t('admin.kedenRefresh') }}</a-button>
             </a-space>
           </template>
           <a-descriptions size="small" :column="1" bordered>
@@ -98,6 +98,32 @@
             <a-descriptions-item :label="t('admin.obnovleno')">{{ whUpdated }}</a-descriptions-item>
           </a-descriptions>
           <div class="muted" style="margin-top: 8px">{{ t('admin.svhTsHint') }}</div>
+        </a-card>
+        <!-- ТРОИС: реестр ОИС из КЕДЕН — сверка торгового знака в ДТ (гр.31) -->
+        <a-card :title="t('admin.troisTitle')" size="small" style="margin-top: 12px">
+          <template #extra>
+            <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="onTroisFile">
+              <a-button size="small" :loading="troisBusy">{{ t('admin.troisUpload') }}</a-button>
+            </a-upload>
+          </template>
+          <a-descriptions size="small" :column="1" bordered>
+            <a-descriptions-item :label="t('admin.troisTotal')">{{ troisStatus?.total ?? 0 }}</a-descriptions-item>
+            <a-descriptions-item :label="t('admin.troisActive')">{{ troisStatus?.active ?? 0 }}</a-descriptions-item>
+            <a-descriptions-item :label="t('admin.obnovleno')">{{ troisUpdated }}</a-descriptions-item>
+          </a-descriptions>
+          <div class="muted" style="margin: 8px 0">{{ t('admin.troisHint') }}</div>
+          <a-input-search v-model:value="troisQuery" allow-clear :placeholder="t('admin.troisSearchPlaceholder')"
+            style="max-width: 520px" :loading="troisSearching" @search="searchTrois" @input="onTroisQuery" />
+          <a-table v-if="troisQuery.trim()" :data-source="troisRows" :columns="troisColumns" :pagination="false" size="small"
+            row-key="id" style="margin-top: 8px" :locale="{ emptyText: t('admin.troisNothing') }">
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'validUntil'">{{ troisDate(record.validUntil) }}</template>
+              <template v-else-if="column.key === 'status'">
+                <a-tag :color="record.isActive ? 'green' : 'default'">{{ record.isActive ? t('admin.troisTagActive') : t('admin.troisTagInactive') }}</a-tag>
+              </template>
+              <template v-else-if="column.key === 'objectName'">{{ record.objectName || '—' }}</template>
+            </template>
+          </a-table>
         </a-card>
         <!-- НСИ КГД: БИН → код таможенного органа (подсказка «Таможенный орган (местонахождение)» гр.30) -->
         <a-card :title="t('admin.svhTsNsiTitle')" size="small" style="margin-top: 12px">
@@ -151,7 +177,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { ref, onMounted, h, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, h, computed } from 'vue'
 import { message, Button } from 'ant-design-vue'
 import { referencesApi } from '@/api/references'
 import type { RefItem, ClassifierItem, ClassifierGroup } from '@/types/api'
@@ -159,7 +185,8 @@ import { useClassifiersStore } from '@/stores/classifiers'
 import PageHeader from '@/components/PageHeader.vue'
 import KatoSelect from '@/components/KatoSelect.vue'
 import { katoApi, type KatoStatus } from '@/api/kato'
-import { warehouseRegistryApi, warehouseNsiApi, type WarehouseKindStatus, type WarehouseKind, type WarehouseNsiImportKindResult, type WarehouseImportKindResult } from '@/api/warehouseRegistry'
+import { troisApi, troisDate, type TroisItem, type TroisStatus } from '@/api/trois'
+import { warehouseRegistryApi, warehouseNsiApi, kedenRegistriesApi, type KedenRefreshResult, type WarehouseKindStatus, type WarehouseKind, type WarehouseNsiImportKindResult, type WarehouseImportKindResult } from '@/api/warehouseRegistry'
 import type { KgdCompareResult } from '@/api/references'
 
 const { t } = useI18n()
@@ -333,14 +360,28 @@ const reportWarehouses = (kinds: WarehouseImportKindResult[]) => {
   for (const k of kinds) {
     const kind = k.kind === 'svh' ? t('admin.svhTsKindSvh') : t('admin.svhTsKindTs')
     if (k.error) message.warning(t('admin.svhTsImportError', { kind }))
+    else if (k.removed) message.success(t('admin.kedenRefreshResult', { registry: kind, total: k.total, added: k.added, updated: k.updated, removed: k.removed }))
     else message.success(t('admin.svhTsImportResult', { kind, total: k.total, added: k.added, updated: k.updated }))
   }
 }
-const importWarehouses = async () => {
+// Основной путь: сервер сам скачивает публичные xlsx СВХ, ТС и ТРОИС с keden.kgd.gov.kz (доступен только с прод-сервера).
+const registryLabel = (r: string) => r === 'svh' ? t('admin.svhTsKindSvh') : r === 'trois' ? t('admin.troisRegistry') : t('admin.svhTsKindTs')
+const refreshFromKeden = async () => {
   whBusy.value = true
-  try { reportWarehouses((await warehouseRegistryApi.importFromKgd()).kinds); await loadWarehouseStatus() }
+  try {
+    const { registries } = await kedenRegistriesApi.refresh()
+    reportKeden(registries)
+    await Promise.all([loadWarehouseStatus(), loadTroisStatus()])
+  }
   catch { /* текст ошибки уже показал общий перехватчик — аудит 1.1 */ }
   finally { whBusy.value = false }
+}
+const reportKeden = (list: KedenRefreshResult[]) => {
+  for (const r of list) {
+    const registry = registryLabel(r.registry)
+    if (r.error) message.warning(t('admin.kedenRefreshError', { registry, error: r.error }))
+    else message.success(t('admin.kedenRefreshResult', { registry, total: r.total, added: r.added, updated: r.updated, removed: r.removed }))
+  }
 }
 const onWarehouseFile = async (kind: WarehouseKind, file: File) => {
   whBusy.value = true
@@ -349,6 +390,46 @@ const onWarehouseFile = async (kind: WarehouseKind, file: File) => {
   finally { whBusy.value = false }
   return false // не даём a-upload слать файл самому
 }
+
+// ── ТРОИС (ref_trois): реестр ОИС из КЕДЕН ──
+const troisStatus = ref<TroisStatus | null>(null)
+const troisBusy = ref(false)
+const troisUpdated = computed(() => troisStatus.value?.importedAtUtc ? new Date(troisStatus.value.importedAtUtc).toLocaleString('ru-RU') : '—')
+const loadTroisStatus = async () => { try { troisStatus.value = await troisApi.status() } catch { /* вкладка необязательная */ } }
+const onTroisFile = async (file: File) => {
+  troisBusy.value = true
+  try {
+    const r = await troisApi.importFile(file)
+    message.success(t('admin.troisImportResult', { total: r.total, added: r.added, updated: r.updated, removed: r.removed }))
+    await loadTroisStatus()
+  }
+  catch { /* текст ошибки уже показал общий перехватчик */ }
+  finally { troisBusy.value = false }
+  return false
+}
+const troisQuery = ref('')
+const troisRows = ref<TroisItem[]>([])
+const troisSearching = ref(false)
+let troisTimer: number | undefined
+let troisSeq = 0
+const searchTrois = async () => {
+  const q = troisQuery.value.trim()
+  if (!q) { troisRows.value = []; return }
+  const seq = ++troisSeq
+  troisSearching.value = true
+  try { const rows = await troisApi.search(q); if (seq === troisSeq) troisRows.value = rows }
+  catch { if (seq === troisSeq) troisRows.value = [] }
+  finally { if (seq === troisSeq) troisSearching.value = false }
+}
+const onTroisQuery = () => { window.clearTimeout(troisTimer); troisTimer = window.setTimeout(searchTrois, 350) }
+onBeforeUnmount(() => window.clearTimeout(troisTimer))
+const troisColumns = computed(() => [
+  { title: t('admin.troisColNumber'), dataIndex: 'registrationNumber', key: 'registrationNumber', width: 150 },
+  { title: t('admin.troisColName'), dataIndex: 'objectName', key: 'objectName', width: 200 },
+  { title: t('admin.troisColHolder'), dataIndex: 'rightHolder', key: 'rightHolder', ellipsis: true },
+  { title: t('admin.troisColUntil'), dataIndex: 'validUntil', key: 'validUntil', width: 120 },
+  { title: t('admin.troisColStatus'), key: 'status', width: 120 },
+])
 
 // ── НСИ КГД по СВХ/ТС: коды таможенных органов (ref_warehouse_nsi) ──
 const nsiStatus = ref<WarehouseKindStatus[]>([])
@@ -418,6 +499,7 @@ onMounted(async () => {
   } catch { message.error(t('admin.neUdalosZagruzitKlassifikatory')) }
   await loadKatoStatus()
   await loadWarehouseStatus()
+  await loadTroisStatus()
   await loadNsiStatus()
 })
 </script>

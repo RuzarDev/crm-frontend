@@ -16,10 +16,14 @@ export interface WarehouseRegistryItem {
   includedDate: string | null
   isSuspended: boolean
   numberCorrected: boolean
-  /** Таможенный орган места нахождения из НСИ КГД по БИН: однозначный код или null. */
+  /** Таможенный орган места нахождения: из самой записи (выгрузка КЕДЕН), иначе из НСИ КГД по БИН; однозначный код или null. */
   customsOfficeCode?: string | null
-  /** Все органы, найденные в НСИ по БИН (лучшие по адресу — первыми). */
+  /** Все органы, найденные в НСИ по БИН (лучшие по адресу — первыми); у записей КЕДЕН пусто. */
   customsOffices?: WarehouseOfficeSuggestion[]
+  /** Только у таможенных складов из КЕДЕН: «Открытый» / «Закрытый». */
+  warehouseType?: string | null
+  /** Статус из КЕДЕН как есть («Действительный», «Приостановлен», «Возобновлен»). */
+  status?: string | null
 }
 
 export interface WarehouseOfficeSuggestion {
@@ -35,9 +39,27 @@ export interface WarehouseImportKindResult {
   total: number
   added: number
   updated: number
+  /** Выгрузка КЕДЕН заменяет вид целиком: сколько прежних записей удалено. */
+  removed?: number
   source: string
   asOfDate: string | null
   error: string | null
+}
+
+// Обновление СВХ / ТС / ТРОИС одной кнопкой с keden.kgd.gov.kz (публичные xlsx).
+export interface KedenRefreshResult {
+  /** svh | customs_warehouse | trois */
+  registry: string
+  total: number
+  added: number
+  updated: number
+  removed: number
+  error: string | null
+}
+
+export const kedenRegistriesApi = {
+  refresh: async (): Promise<{ registries: KedenRefreshResult[] }> =>
+    (await apiClient.post('/ref/keden-registries/refresh', null, { timeout: 300000 })).data,
 }
 
 export const warehouseRegistryApi = {
@@ -47,7 +69,7 @@ export const warehouseRegistryApi = {
     (await apiClient.get('/ref/warehouse-registry/status')).data,
   importFromKgd: async (): Promise<{ kinds: WarehouseImportKindResult[] }> =>
     (await apiClient.post('/ref/warehouse-registry/import', null, { timeout: 180000 })).data,
-  /** Основной путь на проде: сервер не достаёт до kgd.gov.kz — xlsx реестра скачивают со страницы КГД. */
+  /** Ручной путь: xlsx из КЕДЕН (public-customs-registry-svh/-ts.xlsx) или с сайта КГД — формат определяется автоматически. */
   importFile: async (kind: WarehouseKind, file: File): Promise<{ kinds: WarehouseImportKindResult[] }> => {
     const fd = new FormData()
     fd.append('kind', kind)

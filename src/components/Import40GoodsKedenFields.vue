@@ -85,7 +85,9 @@
       <div class="field"><div class="field-label">{{ t('dt.ois') }}</div>
         <a-select v-model:value="good.oisIndicatorCode" size="small" :disabled="readonly" show-search
           :options="oisIndicatorOptions" :dropdown-match-select-width="false" allow-clear
-          :get-popup-container="popupContainer" placeholder="I/N/S" @change="emitChange" /></div>
+          :get-popup-container="popupContainer" placeholder="I/N/S" @change="emitChange" />
+        <!-- Знак найден в ТРОИС: признак ОИС сам не ставится — декларант решает -->
+        <div v-if="troisFound" class="trois-ois-hint">{{ t('dt.troisOisHint') }}</div></div>
       <div class="field field-wide"><div class="field-label">{{ t('dt.priznakiSoblyudeniyaZapretov') }}</div>
         <a-select :value="restrictionMarksArray(good)" mode="multiple" size="small" :disabled="readonly"
           :options="restrictionMarksOptions" :dropdown-match-select-width="false" allow-clear
@@ -242,6 +244,7 @@ import * as XLSX from 'xlsx'
 import type { Import40GoodsItemInput, Import40GoodsPayment, Import40GoodsMarking } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { FEATURE_CODE_RE, invalidFeatureCodes, joinFeatureCodes, splitFeatureCodes } from '@/utils/nonTariffCodes'
+import { useTroisCheck } from '@/composables/useTroisCheck'
 import { prohibitionCodesApi, type ProhibitionCodeItem, type SuggestedProhibitionCode } from '@/api/prohibitionCodes'
 
 const { t } = useI18n()
@@ -265,6 +268,11 @@ const emit = defineEmits<{ (e: 'change'): void }>()
 const emitChange = () => emit('change')
 
 const popupContainer = () => document.body
+
+// ТРОИС: торговая марка товара найдена среди действующих знаков (точно или «похоже») — подсказка у поля ОИС.
+const trois = useTroisCheck()
+const troisFound = computed(() =>
+  !!trois?.resultFor(props.good.tradeMarkName)?.matches.some((m) => m.isActive && (m.match === 'exact' || m.match === 'similar')))
 
 // Item I (гр.46 статистическая стоимость, USD): авто = таможенная стоимость
 // (гр.45, ₸) / курс доллара на дату гр.А. Поле остаётся редактируемым — авто-
@@ -634,6 +642,7 @@ const importMarkingsFromExcel = async (g: Import40GoodsItemInput, file: File) =>
 </script>
 
 <style scoped>
+.trois-ois-hint { margin-top: 4px; font-size: 12px; font-weight: 500; color: var(--z-warning, #8a6410); }
 .field-hint-warn { margin-top: 2px; font-size: 12px; color: var(--z-warning, #d48806); }
 .sug-row { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; font-size: 12px; }
 .sug-label { color: var(--z-text-secondary, #8c8c8c); margin-right: 6px; }

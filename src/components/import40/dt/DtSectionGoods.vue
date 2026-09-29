@@ -26,6 +26,7 @@ import ReestrGoodsSection from '@/components/ReestrGoodsSection.vue'
 import Import40GoodsKedenPanel from '@/components/Import40GoodsKedenPanel.vue'
 import Import40GoodsKedenFields from '@/components/Import40GoodsKedenFields.vue'
 import type { Import40GoodsItemInput } from '@/types/api'
+import { useTroisCheckProvider } from '@/composables/useTroisCheck'
 import './dt-sections.css'
 
 const { t } = useI18n()
@@ -42,6 +43,10 @@ const props = defineProps<{
   dealCurrency?: string | null
 }>()
 const emit = defineEmits<{ 'update:modelValue': [Import40GoodsItemInput[]]; 'calc-tpin': [] }>()
+
+// ТРОИС: торговые марки товаров проверяются пакетно (с задержкой после ввода); результат читают
+// подсказка под «Торговой маркой» (ReestrGoodsSection) и подсказка у поля ОИС (Import40GoodsKedenFields).
+useTroisCheckProvider(() => props.modelValue.map((g) => g.tradeMarkName))
 
 // Тонкая обёртка: сами товарные поля живут в ReestrGoodsSection/Import40GoodsKedenPanel,
 // поэтому здесь достаточно get/set-computed без локальной копии/watch (в отличие

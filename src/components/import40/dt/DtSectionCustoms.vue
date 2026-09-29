@@ -208,8 +208,10 @@ const registryOptions = computed(() => registryRows.value.map((r) => ({
   value: `reg:${r.id}`,
   number: warehouseValue(r),
   owner: r.ownerName,
-  sub: r.address ?? '',
-  kindLabel: r.kind === 'svh' ? t('dt.svhKind') : t('dt.tsKind'),
+  // Адрес и таможенный орган из самой записи реестра КЕДЕН (у старых записей КГД органа нет).
+  sub: [r.address, r.customsOfficeCode ? t('dt.svhOfficeShort', { code: r.customsOfficeCode }) : '']
+    .filter(Boolean).join(' · '),
+  kindLabel: (r.kind === 'svh' ? t('dt.svhKind') : t('dt.tsKind')) + (r.warehouseType ? `, ${r.warehouseType.toLowerCase()}` : ''),
   suspended: r.isSuspended,
 })))
 const onRegistrySearch = (q: string) => {

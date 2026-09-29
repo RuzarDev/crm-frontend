@@ -135,5 +135,6 @@ declare module 'vue' {
     TnvedDeprecationAlert: typeof import('./src/components/TnvedDeprecationAlert.vue')['default']
     TnvedPickerModal: typeof import('./src/components/TnvedPickerModal.vue')['default']
     TransportMeansBlock: typeof import('./src/components/reestr/TransportMeansBlock.vue')['default']
+    TroisTrademarkHint: typeof import('./src/components/import40/TroisTrademarkHint.vue')['default']
   }
 }

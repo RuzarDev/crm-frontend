@@ -105,7 +105,9 @@
         <div class="field-row">
           <div class="field"><div class="field-label">{{ t('dt.torgovayaMarka') }}</div>
             <a-input v-model:value="item.tradeMarkName" v-uppercase size="small" :disabled="readonly"
-              @change="emit('update:modelValue', items.map(fromRow))" /></div>
+              @change="emit('update:modelValue', items.map(fromRow))" />
+            <!-- ТРОИС: знак есть в таможенном реестре ОИС — только подсказка, ничего не блокирует -->
+            <TroisTrademarkHint :name="item.tradeMarkName" /></div>
           <div class="field"><div class="field-label">{{ t('dt.znak') }}</div>
             <a-input v-model:value="item.productMarkName" v-uppercase size="small" :disabled="readonly"
               :placeholder="t('dt.neUkazan')" @change="emit('update:modelValue', items.map(fromRow))" /></div>
@@ -266,6 +268,7 @@ import * as XLSX from 'xlsx'
 import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
 import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
+import TroisTrademarkHint from '@/components/import40/TroisTrademarkHint.vue'
 import type { ReestrGoodsItemInput } from '@/types/api'
 import { OKEI_QUANTITY_TYPE_CODES } from '@/types/api'
 
