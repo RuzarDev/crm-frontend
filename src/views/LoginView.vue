@@ -12,7 +12,7 @@
       <div class="auth-orb auth-orb-3" aria-hidden="true"></div>
 
       <div class="auth-left-inner">
-        <img class="auth-logo" :src="zirconLogo" alt="Zircon CRM" height="44" />
+        <img class="auth-logo" :src="zirconLogo" alt="Zircon CRM" height="60" />
         <!-- Hero -->
         <div class="auth-hero">
           <div class="auth-eyebrow">
@@ -39,7 +39,7 @@
       <div class="auth-form-wrap">
         <div class="auth-lang"><LanguageSwitcher /></div>
         <div class="auth-form-header">
-          <img class="auth-form-logo" :src="zirconLogoDark" alt="Zircon CRM" height="36" />
+          <img class="auth-form-logo" :src="zirconLogoDark" alt="Zircon CRM" height="48" />
           <h2 class="auth-form-title">{{ t('login.welcome') }}</h2>
           <p class="auth-form-sub">{{ t('login.subtitle') }}</p>
         </div>
@@ -227,14 +227,14 @@ const goToRegister = () => router.push('/register')
   display: block;
   align-self: flex-start;
   width: auto;
-  height: 44px;
+  height: 60px;
   margin-bottom: auto;
 }
 
 .auth-form-logo {
   display: block;
   width: auto;
-  height: 36px;
+  height: 48px;
   margin-bottom: 20px;
 }
 

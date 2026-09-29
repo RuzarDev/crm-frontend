@@ -2,8 +2,8 @@
   <a-layout class="main-layout app-shell">
     <a-layout-header class="app-header">
       <div class="brand">
-        <!-- Знак Zircon (циркон-шаңырақ), упрощённая версия для ≤32px — брендбук Zircon. -->
-        <img class="brand-mark" :src="zirconMark" alt="" width="30" height="30" />
+        <!-- Знак Zircon (циркон-шаңырақ) 40px — полная версия (упрощённая только до 32px, брендбук Zircon). -->
+        <img class="brand-mark" :src="zirconMark" alt="" width="40" height="40" />
         <div class="brand-text">
           <div class="brand-title">ZIRCON</div>
           <!-- Клиенту не нужен внутренний термин «CRM Operations» — это его личный кабинет
@@ -199,7 +199,7 @@ import { systemApi } from '@/api/system'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import type { AppNotification } from '@/types/api'
-import zirconMark from '@/assets/brand/zircon-mark-small.svg'
+import zirconMark from '@/assets/brand/zircon-mark.svg'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import {
   ApiOutlined,
@@ -794,7 +794,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   display: block;
   color: #f0f3ff;
   font-family: 'Manrope', 'Inter', system-ui, sans-serif;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
   letter-spacing: 0.12em;
   line-height: 1.25;
