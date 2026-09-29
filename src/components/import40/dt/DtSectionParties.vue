@@ -18,7 +18,7 @@
       <a-form-item :label="t('dt.strana')">
         <a-select v-model:value="form.sender.countryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
       </a-form-item>
-      <a-form-item :label="t('dt.gorod')"><a-input v-uppercase v-model:value="form.sender.city" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.gorod')" :extra="t('dt.gorodPodskazka')"><a-input v-uppercase v-model:value="form.sender.city" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.oblast')"><a-input v-uppercase v-model:value="form.sender.region" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.ulica')"><a-input v-uppercase v-model:value="form.sender.street" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.dom')"><a-input v-uppercase v-model:value="form.senderHouse" :disabled="readonly" @change="emitChange" /></a-form-item>
@@ -42,7 +42,7 @@
       <a-form-item :label="t('dt.strana')">
         <a-select v-model:value="form.receiver.countryCode" show-search allow-clear :disabled="readonly || form.consigneeEqualsDeclarant" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
       </a-form-item>
-      <a-form-item :label="t('dt.gorod')"><a-input v-uppercase v-model:value="form.receiver.city" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.gorod')" :extra="t('dt.gorodPodskazka')"><a-input v-uppercase v-model:value="form.receiver.city" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.oblast')"><a-input v-uppercase v-model:value="form.receiver.region" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.ulica')"><a-input v-uppercase v-model:value="form.receiver.street" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.dom')"><a-input v-uppercase v-model:value="form.receiverHouse" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
@@ -65,7 +65,7 @@
         <a-form-item :label="t('dt.strana')">
           <a-select v-model:value="form.financialSubjectCountryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
         </a-form-item>
-        <a-form-item :label="t('dt.gorod')"><a-input v-uppercase v-model:value="form.financialSubjectCity" :disabled="readonly" @change="emitChange" /></a-form-item>
+        <a-form-item :label="t('dt.gorod')" :extra="t('dt.gorodPodskazka')"><a-input v-uppercase v-model:value="form.financialSubjectCity" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item :label="t('dt.oblast')"><a-input v-uppercase v-model:value="form.financialSubjectRegion" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item :label="t('dt.ulica')"><a-input v-uppercase v-model:value="form.financialSubjectStreet" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item :label="t('dt.dom')"><a-input v-uppercase v-model:value="form.financialSubjectHouse" :disabled="readonly" @change="emitChange" /></a-form-item>
@@ -87,7 +87,7 @@
       <a-form-item :label="t('dt.strana')">
         <a-select v-model:value="form.declarantCountryCode" show-search allow-clear :disabled="readonly" :options="countryOptions" option-filter-prop="label" @change="emitChange" />
       </a-form-item>
-      <a-form-item :label="t('dt.gorod')"><a-input v-uppercase v-model:value="form.declarantCity" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.gorod')" :extra="t('dt.gorodPodskazka')"><a-input v-uppercase v-model:value="form.declarantCity" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.oblast')"><a-input v-uppercase v-model:value="form.declarantRegion" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.ulica')"><a-input v-uppercase v-model:value="form.declarantStreet" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.dom')"><a-input v-uppercase v-model:value="form.declarantHouse" :disabled="readonly" @change="emitChange" /></a-form-item>
@@ -136,7 +136,7 @@ import { partyRefsApi, type PartyRefDto } from '@/api/partyRefs'
 import BinLookupButton from '@/components/BinLookupButton.vue'
 import KatoSelect from '@/components/KatoSelect.vue'
 import { isBinLike, type CompanyLookupDto } from '@/api/companyLookup'
-import { parseKzAddress } from '@/utils/kzAddress'
+import { composeRegion, EMPTY_PARSED_KZ_ADDRESS, parseKzAddress } from '@/utils/kzAddress'
 import type { ClientCompanyProfileDto } from '@/api/import40Contract'
 import type { Import40DtFormState, Import40Party } from '@/api/import40'
 import './dt-sections.css'
@@ -253,14 +253,21 @@ const fillReceiverFromClient = () => {
   // частей нет, кладём свободный legalAddress в «Улицу»; страна по умолчанию KZ.
   const hasStructured = !!(p.legalCity || p.legalStreet || p.legalRegion)
   const up = (v: string | null | undefined) => (v ? v.toUpperCase() : null) // текст ДТ — UPPERCASE
+  // Свободный адрес и «улица с домом» разбираем на район/улицу/дом/помещение (utils/kzAddress),
+  // чтобы в КЕДЕН уходили отдельные поля, а не строка целиком в «Улице».
+  const parsed = !hasStructured && p.legalAddress
+    ? parseKzAddress(p.legalAddress)
+    : p.legalStreet ? parseKzAddress(p.legalStreet) : EMPTY_PARSED_KZ_ADDRESS
   form.receiver = {
     ...form.receiver,
     name: up(p.companyName),
     countryCode: p.legalCountryCode || form.receiver.countryCode || 'KZ',
-    region: up(p.legalRegion),
-    city: up(p.legalCity),
-    street: up(p.legalStreet || (hasStructured ? null : p.legalAddress)),
+    region: up(p.legalRegion || composeRegion(parsed)),
+    city: up(p.legalCity || parsed.city),
+    street: up(parsed.street ?? (p.legalStreet || null)),
   }
+  if (parsed.house) form.receiverHouse = up(parsed.house)
+  if (parsed.apt) form.receiverApt = up(parsed.apt)
   form.receiverShortName = form.receiverShortName || up(p.companyName)
   form.receiverBin = p.bin ?? null
   emitChange()
@@ -274,34 +281,44 @@ type LookupTarget = 'sender' | 'receiver' | 'financialSubject' | 'declarant'
 const applyLookup = (target: LookupTarget, c: CompanyLookupDto) => {
   const name = (c.nameRu ?? c.nameKz ?? '').toUpperCase() || null
   const addr = c.addressRu ?? c.addressKz ?? null
-  const p = addr ? parseKzAddress(addr) : { region: null, city: null, street: null }
+  const p = addr ? parseKzAddress(addr) : EMPTY_PARSED_KZ_ADDRESS
+  // район кладём в «Область / регион» (как КЕДЕН), дом и помещение — в свои поля
+  const region = composeRegion(p)
   const up = (s: string | null) => (s ? s.toUpperCase() : null)
   if (target === 'sender' || target === 'receiver') {
     const party = target === 'sender' ? form.sender : form.receiver
     if (name) party.name = name
     party.countryCode = party.countryCode || 'KZ'
-    if (!party.region && p.region) party.region = up(p.region)
+    if (!party.region && region) party.region = up(region)
     if (!party.city && p.city) party.city = up(p.city)
     if (!party.street && p.street) party.street = up(p.street)
     if (target === 'receiver') {
       form.receiverShortName = form.receiverShortName || name
+      if (!form.receiverHouse && p.house) form.receiverHouse = up(p.house)
+      if (!form.receiverApt && p.apt) form.receiverApt = up(p.apt)
     } else {
       form.senderShortName = form.senderShortName || name
+      if (!form.senderHouse && p.house) form.senderHouse = up(p.house)
+      if (!form.senderApt && p.apt) form.senderApt = up(p.apt)
     }
   } else if (target === 'financialSubject') {
     if (name) form.financialSubjectName = name
     form.financialSubjectShortName = form.financialSubjectShortName || name
     form.financialSubjectCountryCode = form.financialSubjectCountryCode || 'KZ'
-    if (!form.financialSubjectRegion && p.region) form.financialSubjectRegion = up(p.region)
+    if (!form.financialSubjectRegion && region) form.financialSubjectRegion = up(region)
     if (!form.financialSubjectCity && p.city) form.financialSubjectCity = up(p.city)
     if (!form.financialSubjectStreet && p.street) form.financialSubjectStreet = up(p.street)
+    if (!form.financialSubjectHouse && p.house) form.financialSubjectHouse = up(p.house)
+    if (!form.financialSubjectApt && p.apt) form.financialSubjectApt = up(p.apt)
   } else {
     if (name) form.declarantName = name
     form.declarantShortName = form.declarantShortName || name
     form.declarantCountryCode = form.declarantCountryCode || 'KZ'
-    if (!form.declarantRegion && p.region) form.declarantRegion = up(p.region)
+    if (!form.declarantRegion && region) form.declarantRegion = up(region)
     if (!form.declarantCity && p.city) form.declarantCity = up(p.city)
     if (!form.declarantStreet && p.street) form.declarantStreet = up(p.street)
+    if (!form.declarantHouse && p.house) form.declarantHouse = up(p.house)
+    if (!form.declarantApt && p.apt) form.declarantApt = up(p.apt)
   }
   emitChange()
 }

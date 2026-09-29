@@ -189,7 +189,7 @@ import DocumentStep, { type GenerateOpts } from '@/components/Import40DocumentSt
 import SigexSignModal from '@/components/SigexSignModal.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import BinLookupButton from '@/components/BinLookupButton.vue'
-import { parseKzAddress } from '@/utils/kzAddress'
+import { composeRegion, parseKzAddress } from '@/utils/kzAddress'
 import type { CompanyLookupDto } from '@/api/companyLookup'
 import PhoneInput from '@/components/ui/PhoneInput.vue'
 
@@ -311,9 +311,14 @@ const applyCompanyLookup = (c: CompanyLookupDto) => {
   if (address) {
     form.legalAddress = address
     const parsed = parseKzAddress(address)
-    if (!form.legalRegion && parsed.region) form.legalRegion = parsed.region
+    const region = composeRegion(parsed) // район — в «Область / регион», как в КЕДЕН
+    if (!form.legalRegion && region) form.legalRegion = region
     if (!form.legalCity && parsed.city) form.legalCity = parsed.city
-    if (!form.legalStreet && parsed.street) form.legalStreet = parsed.street
+    // В профиле нет отдельных полей «Дом»/«Помещение» — они остаются в строке улицы, а в ДТ
+    // разбираются заново при подстановке получателя (DtSectionParties.fillReceiverFromClient).
+    const streetLine = [parsed.street, parsed.house ? `д. ${parsed.house}` : null, parsed.apt ? `пом. ${parsed.apt}` : null]
+      .filter(Boolean).join(', ')
+    if (!form.legalStreet && streetLine) form.legalStreet = streetLine
   }
   form.legalCountryCode = form.legalCountryCode || '398'
 }

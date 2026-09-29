@@ -193,6 +193,7 @@ import DtCurrencyRatesBox from '@/components/import40/dt/DtCurrencyRatesBox.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
 import DtPaymentsCalcModal from '@/components/import40/dt/DtPaymentsCalcModal.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import { placesOfGoods } from '@/utils/goodsPlaces'
 
 const { t } = useI18n()
 
@@ -822,7 +823,8 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     unitCode: g.unitCode ?? null,
     grossWeightKg: g.grossWeightKg ?? null,
     netWeightKg: g.netWeightKg ?? null,
-    packagesCount: g.packagesCount ?? null,
+    // одно видимое поле мест (packagesCount) ← приоритетное значение бэка (см. utils/goodsPlaces)
+    packagesCount: placesOfGoods(g),
     quantityTypeCode: g.quantityTypeCode ?? null,
     // на бэкенде фактурная стоимость товара называется invoiceValue; в форме — customsValue
     customsValue: g.invoiceValue ?? null,
@@ -836,7 +838,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     productArticle: g.productArticle ?? null,
     manufacturerName: g.manufacturerName ?? null,
     packageAvailabilityCode: g.packageAvailabilityCode ?? null,
-    cargoPlacesQuantity: g.cargoPlacesQuantity ?? null,
+    cargoPlacesQuantity: placesOfGoods(g),
     packageKindCode: g.packageKindCode ?? null,
     packageQuantity: g.packageQuantity ?? null,
     prefClearanceCode: g.prefClearanceCode ?? null,
@@ -1437,7 +1439,9 @@ const saveDt = async (silent = false): Promise<boolean> => {
       goodsItems: dtForm.goodsItems.map((g) => {
         // на бэкенде фактурная стоимость товара называется invoiceValue; в форме — customsValue
         const { customsValue, ...rest } = g
-        return { ...rest, invoiceValue: customsValue, payments: g.payments ?? [], markings: g.markings ?? [] }
+        // места: видимое поле packagesCount, КЕДЕН-поле — его копия (одна цифра на бланке и в XML)
+        const places = g.packagesCount ?? g.cargoPlacesQuantity ?? null
+        return { ...rest, packagesCount: places, cargoPlacesQuantity: places, invoiceValue: customsValue, payments: g.payments ?? [], markings: g.markings ?? [] }
       }),
       doc44Items: dtForm.doc44Items,
       prevDocItems: dtForm.prevDocItems,

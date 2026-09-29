@@ -22,8 +22,8 @@
           style="width: 100%" :get-popup-container="popupContainer" @change="emitChange" /></div>
       <div class="field"><div class="field-label">{{ t('dt.kolichestvoUpakovok') }}</div>
         <a-input-number v-model:value="good.packageQuantity" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="emitChange" /></div>
-      <div class="field"><div class="field-label">{{ t('dt.kolVoGruzovyhMest') }}</div>
-        <a-input-number v-model:value="good.cargoPlacesQuantity" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="emitChange" /></div>
+      <!-- «Кол-во грузовых мест» — одно поле, в карточке товара выше (packagesCount); cargoPlacesQuantity
+           синхронизируется с ним автоматически (DtSectionGoods), дубля здесь больше нет. -->
     </div>
     <div class="field-row">
       <div class="field"><div class="field-label">{{ t('dt.preferenciyaSbor') }}</div>
@@ -95,6 +95,19 @@
             <a-tag class="ois-mark-tag" :title="restrictionMarkLabel(markValue)" closable @close="onClose">{{ markValue }}</a-tag>
           </template>
         </a-select></div>
+      <div class="field f-2"><div class="field-label">{{ t('dt.priznakiNetarifnogoGr33') }}
+          <a-tooltip :title="t('dt.priznakiNetarifnogoHint')">
+            <QuestionCircleOutlined style="margin-left: 4px; color: var(--z-text-secondary, #999)" />
+          </a-tooltip>
+        </div>
+        <a-select :value="featureCodesArray(good)" mode="tags" size="small" :disabled="readonly"
+          :dropdown-match-select-width="false" allow-clear :token-separators="[',', ';']"
+          :get-popup-container="popupContainer" placeholder="D0110, C0300"
+          :status="invalidFeatureCodes(good.prohibitionCode).length ? 'warning' : undefined"
+          @change="(v: string[]) => onFeatureCodesChange(good, v)" />
+        <div v-if="invalidFeatureCodes(good.prohibitionCode).length" class="field-hint-warn">
+          {{ t('dt.priznakiNetarifnogoFormat', { codes: invalidFeatureCodes(good.prohibitionCode).join(', ') }) }}
+        </div></div>
       <div class="field"><div class="field-label">{{ t('dt.regPoOis') }}</div>
         <a-input v-uppercase v-model:value="good.oisRegNumber" size="small" :disabled="readonly" @change="emitChange" /></div>
       <div class="field"><div class="field-label">{{ t('dt.kodStranyOis') }}</div>
@@ -201,6 +214,7 @@ import { message } from 'ant-design-vue'
 import * as XLSX from 'xlsx'
 import type { Import40GoodsItemInput, Import40GoodsPayment, Import40GoodsMarking } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
+import { invalidFeatureCodes, joinFeatureCodes, splitFeatureCodes } from '@/utils/nonTariffCodes'
 
 const { t } = useI18n()
 
@@ -336,6 +350,15 @@ const restrictionMarksArray = (g: Import40GoodsItemInput): string[] =>
 const restrictionMarkLabel = (code: string): string =>
   restrictionMarksOptions.value.find((o) => o.value === code)?.label ?? code
 
+// Признаки нетарифного регулирования (гр.33, XML: ProhibitionCode) — открытый список кодов вида D0110;
+// хранится строкой через запятую в goods.prohibitionCode, нормализация — в utils/nonTariffCodes.
+const featureCodesArray = (g: Import40GoodsItemInput): string[] => splitFeatureCodes(g.prohibitionCode)
+
+const onFeatureCodesChange = (g: Import40GoodsItemInput, values: string[]) => {
+  g.prohibitionCode = joinFeatureCodes(values)
+  emitChange()
+}
+
 const onRestrictionMarksChange = (g: Import40GoodsItemInput, values: string[]) => {
   g.restrictionMarks = values.length ? values.join(',') : null
   emitChange()
@@ -398,7 +421,10 @@ const applyCopy = () => {
       target.oisRegNumber = src.oisRegNumber ?? null
       target.oisCountryCode = src.oisCountryCode ?? null
     }
-    if (copyMarks.value) target.restrictionMarks = src.restrictionMarks ?? null
+    if (copyMarks.value) {
+      target.restrictionMarks = src.restrictionMarks ?? null
+      target.prohibitionCode = src.prohibitionCode ?? null
+    }
     if (copyCert.value) target.certificationNote = src.certificationNote ?? null
   }
   emitChange()
@@ -515,6 +541,7 @@ const importMarkingsFromExcel = async (g: Import40GoodsItemInput, file: File) =>
 </script>
 
 <style scoped>
+.field-hint-warn { margin-top: 2px; font-size: 12px; color: var(--z-warning, #d48806); }
 .keden-fields { display: flex; flex-direction: column; gap: 2px; }
 .keden-flags { display: flex; gap: 6px; margin-bottom: 4px; }
 

@@ -23,8 +23,9 @@
 //      Поэтому это не «форма-поля», а чистые computed для мгновенного визуального
 //      фидбека ДО сохранения — при сохранении их пересчитает и вернёт сервер
 //      (Import40DtView.vue продолжает получать loadedDto с тем же ответом).
-//      Здесь используется тот же источник для гр.6 (CargoPlacesQuantity), что
-//      и на бэке, чтобы предпросмотр совпадал с серверным значением после save.
+//      Здесь используется тот же источник мест, что и на бэке (Import40Places.Of:
+//      CargoPlacesQuantity, затем PackagesCount — см. utils/goodsPlaces),
+//      чтобы предпросмотр совпадал с серверным значением после save.
 //      гр.12 на клиенте считается по упрощённой формуле: гр.22 * курс (гр.23) +
 //      Σ расходов, переведённых в тенге по курсу их валюты (currencyRates —
 //      тот же справочник НБ РК, что и в DtSectionFinance). Если валюта расхода
@@ -36,6 +37,7 @@
 //      чем эта клиентская оценка «в лоб».
 import { computed, watch, type Ref } from 'vue'
 import type { Import40GoodsItemInput, Import40DeclarationExpense } from '@/types/api'
+import { placesOfGoods } from '@/utils/goodsPlaces'
 
 export interface DtTotalsFormRef {
   totalInvoiceValue?: number | null
@@ -64,7 +66,7 @@ export function useDtTotals(
   // --- computed-предпросмотр гр.5/гр.6/гр.12 (не пишутся в форму, см. шапку файла) ---
   const goodsCount = computed(() => getGoods().length)
   const packagesCount = computed(() =>
-    getGoods().reduce((acc, g) => acc + (typeof g.cargoPlacesQuantity === 'number' ? g.cargoPlacesQuantity : 0), 0),
+    getGoods().reduce((acc, g) => acc + (placesOfGoods(g) ?? 0), 0),
   )
   const expensesKzt = computed(() =>
     (form.expenses ?? []).reduce((acc, e) => {

@@ -46,8 +46,17 @@ const emit = defineEmits<{ 'update:modelValue': [Import40GoodsItemInput[]]; 'cal
 // Тонкая обёртка: сами товарные поля живут в ReestrGoodsSection/Import40GoodsKedenPanel,
 // поэтому здесь достаточно get/set-computed без локальной копии/watch (в отличие
 // от DtSectionParties/Transport) — дочерние компоненты уже делают собственные копии.
+//
+// «Кол-во грузовых мест» в карточке товара одно — packagesCount (сюда же идёт Excel/реестр);
+// КЕДЕН-поле cargoPlacesQuantity, из которого бэк берёт гр.31 XML, держим равным ему на любую правку.
 const items = computed({
   get: () => props.modelValue,
-  set: (v) => emit('update:modelValue', v),
+  set: (v) => {
+    for (const g of v) {
+      const places = g.packagesCount ?? null
+      if ((g.cargoPlacesQuantity ?? null) !== places) g.cargoPlacesQuantity = places
+    }
+    emit('update:modelValue', v)
+  },
 })
 </script>
