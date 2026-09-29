@@ -1748,7 +1748,7 @@ export default {
     svhTs: 'TSW / CW',
     svhTsTitle: 'Registers of temporary storage warehouse and customs warehouse owners (KGD RK)',
     svhTsImport: 'Refresh from kgd.gov.kz',
-    svhTsHint: 'The xlsx files are taken from the kgd.gov.kz register pages and refresh automatically once a week. Used as a hint in graph 30 of the declaration.',
+    svhTsHint: 'Registers of temporary storage and customs warehouse owners from kgd.gov.kz/ru/section/reestry. The CRM server cannot reach the KGD site — download the register xlsx there and upload it with «Upload xlsx». Used as a hint in box 30 of the declaration.',
     svhTsKindSvh: 'Temporary storage warehouses',
     svhTsKindTs: 'Customs warehouses',
     svhTsImportResult: '{kind}: {total} in file, added {added}, updated {updated}',

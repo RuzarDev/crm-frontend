@@ -82,7 +82,15 @@
       <a-tab-pane key="warehouses" :tab="t('admin.svhTs')">
         <a-card :title="t('admin.svhTsTitle')" size="small">
           <template #extra>
-            <a-button type="primary" size="small" :loading="whBusy" @click="importWarehouses">{{ t('admin.svhTsImport') }}</a-button>
+            <a-space>
+              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="(f: File) => onWarehouseFile('svh', f)">
+                <a-button size="small" :loading="whBusy">{{ t('admin.svhTsNsiUploadSvh') }}</a-button>
+              </a-upload>
+              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="(f: File) => onWarehouseFile('customs_warehouse', f)">
+                <a-button size="small" :loading="whBusy">{{ t('admin.svhTsNsiUploadTs') }}</a-button>
+              </a-upload>
+              <a-button type="primary" size="small" :loading="whBusy" @click="importWarehouses">{{ t('admin.svhTsImport') }}</a-button>
+            </a-space>
           </template>
           <a-descriptions size="small" :column="1" bordered>
             <a-descriptions-item :label="t('admin.svhTsKindSvh')">{{ whCount('svh') }}</a-descriptions-item>
@@ -151,7 +159,7 @@ import { useClassifiersStore } from '@/stores/classifiers'
 import PageHeader from '@/components/PageHeader.vue'
 import KatoSelect from '@/components/KatoSelect.vue'
 import { katoApi, type KatoStatus } from '@/api/kato'
-import { warehouseRegistryApi, warehouseNsiApi, type WarehouseKindStatus, type WarehouseKind, type WarehouseNsiImportKindResult } from '@/api/warehouseRegistry'
+import { warehouseRegistryApi, warehouseNsiApi, type WarehouseKindStatus, type WarehouseKind, type WarehouseNsiImportKindResult, type WarehouseImportKindResult } from '@/api/warehouseRegistry'
 import type { KgdCompareResult } from '@/api/references'
 
 const { t } = useI18n()
@@ -321,18 +329,25 @@ const whUpdated = computed(() => {
   return times.length ? new Date(times[times.length - 1]).toLocaleString('ru-RU') : '—'
 })
 const loadWarehouseStatus = async () => { try { whStatus.value = (await warehouseRegistryApi.status()).kinds } catch { /* вкладка необязательная */ } }
+const reportWarehouses = (kinds: WarehouseImportKindResult[]) => {
+  for (const k of kinds) {
+    const kind = k.kind === 'svh' ? t('admin.svhTsKindSvh') : t('admin.svhTsKindTs')
+    if (k.error) message.warning(t('admin.svhTsImportError', { kind }))
+    else message.success(t('admin.svhTsImportResult', { kind, total: k.total, added: k.added, updated: k.updated }))
+  }
+}
 const importWarehouses = async () => {
   whBusy.value = true
-  try {
-    const r = await warehouseRegistryApi.importFromKgd()
-    for (const k of r.kinds) {
-      const kind = k.kind === 'svh' ? t('admin.svhTsKindSvh') : t('admin.svhTsKindTs')
-      if (k.error) message.warning(t('admin.svhTsImportError', { kind }))
-      else message.success(t('admin.svhTsImportResult', { kind, total: k.total, added: k.added, updated: k.updated }))
-    }
-    await loadWarehouseStatus()
-  } catch { /* текст ошибки уже показал общий перехватчик — аудит 1.1 */ }
+  try { reportWarehouses((await warehouseRegistryApi.importFromKgd()).kinds); await loadWarehouseStatus() }
+  catch { /* текст ошибки уже показал общий перехватчик — аудит 1.1 */ }
   finally { whBusy.value = false }
+}
+const onWarehouseFile = async (kind: WarehouseKind, file: File) => {
+  whBusy.value = true
+  try { reportWarehouses((await warehouseRegistryApi.importFile(kind, file)).kinds); await loadWarehouseStatus() }
+  catch { /* текст ошибки уже показал общий перехватчик */ }
+  finally { whBusy.value = false }
+  return false // не даём a-upload слать файл самому
 }
 
 // ── НСИ КГД по СВХ/ТС: коды таможенных органов (ref_warehouse_nsi) ──

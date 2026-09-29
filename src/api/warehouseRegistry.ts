@@ -47,6 +47,13 @@ export const warehouseRegistryApi = {
     (await apiClient.get('/ref/warehouse-registry/status')).data,
   importFromKgd: async (): Promise<{ kinds: WarehouseImportKindResult[] }> =>
     (await apiClient.post('/ref/warehouse-registry/import', null, { timeout: 180000 })).data,
+  /** Основной путь на проде: сервер не достаёт до kgd.gov.kz — xlsx реестра скачивают со страницы КГД. */
+  importFile: async (kind: WarehouseKind, file: File): Promise<{ kinds: WarehouseImportKindResult[] }> => {
+    const fd = new FormData()
+    fd.append('kind', kind)
+    fd.append('file', file)
+    return (await apiClient.post('/ref/warehouse-registry/import', fd, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 180000 })).data
+  },
 }
 
 // НСИ КГД по СВХ (tssbx) и таможенным складам (tsstm): БИН → код таможенного органа (гр.30).
