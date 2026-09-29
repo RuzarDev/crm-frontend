@@ -961,7 +961,7 @@ onMounted(async () => {
 .list-filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
 .list-filters .ant-input-affix-wrapper { max-width: 360px; }
 
-.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #22b8d0); margin-right: 4px; }
+.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #23B5D3); margin-right: 4px; }
 
 .case-cell {
   display: flex;
@@ -1008,7 +1008,7 @@ onMounted(async () => {
 .docs-dragger :deep(.ant-upload-drag) { border-radius: var(--atg-radius-lg); }
 .docs-dragger :deep(.ant-upload-btn) { padding: 22px 16px !important; }
 .dz-icon { margin: 0 0 6px; line-height: 1; }
-.dz-icon :deep(.anticon) { font-size: 34px; color: var(--atg-teal, #22b8d0); }
+.dz-icon :deep(.anticon) { font-size: 34px; color: var(--atg-teal, #23B5D3); }
 .dz-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--atg-ink, #182640); }
 .dz-hint { margin: 4px 0 0; font-size: 12px; color: var(--atg-muted, #95a1b7); }
 

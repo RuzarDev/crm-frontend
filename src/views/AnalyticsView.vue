@@ -201,8 +201,8 @@ const STAGE_META = computed((): Record<string, { label: string; color: string }>
 
   draft: { label: t('admin.zayavkaIDokumenty'), color: '#8896ac' },
   border: { label: t('admin.granica'), color: '#3b6fd6' },
-  declaring: { label: t('admin.deklarirovanie'), color: '#2BBCD4' },
-  svh: { label: t('admin.svhISchet'), color: '#C9A84C' },
+  declaring: { label: t('admin.deklarirovanie'), color: '#23B5D3' },
+  svh: { label: t('admin.svhISchet'), color: '#F2B53A' },
   payment: { label: t('admin.oplata'), color: '#e07a30' },
   done: { label: t('admin.vypolneno'), color: '#10b981' },
 }))
@@ -277,11 +277,11 @@ const activityColumns = computed(() => ([
   color: #a17f2a;
 }
 .navy-gradient-bg .kpi-icon-wrap {
-  background: rgba(27, 42, 74, 0.08);
+  background: rgba(14, 27, 53, 0.08);
   color: var(--atg-navy);
 }
 .accent-soft-bg .kpi-icon-wrap {
-  background: rgba(43, 188, 212, 0.08);
+  background: rgba(35, 181, 211, 0.08);
   color: var(--atg-accent);
 }
 
@@ -455,15 +455,15 @@ const activityColumns = computed(() => ([
 .month-col { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .month-bars { display: flex; align-items: flex-end; gap: 4px; height: 120px; width: 100%; justify-content: center; }
 .mbar { width: 18px; border-radius: 6px 6px 2px 2px; transition: height .2s; }
-.mbar--cases { background: var(--atg-teal, #22b8d0); }
-.mbar--dt { background: var(--z-gold, #C9A84C); }
+.mbar--cases { background: var(--atg-teal, #23B5D3); }
+.mbar--dt { background: var(--z-gold, #F2B53A); }
 .mbar--transit { background: #3b6fd6; }
 .month-label { font-size: 12px; font-weight: 700; color: var(--atg-ink, #182640); text-transform: uppercase; letter-spacing: .04em; }
 .month-nums { font-size: 12px; color: var(--atg-muted, #6b7891); }
 .month-pay { font-size: 11.5px; color: var(--atg-teal-dark, #149bb2); font-weight: 600; }
 .month-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-size: 12px; color: var(--atg-muted, #6b7891); }
 .month-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
-.sw--cases { background: var(--atg-teal, #22b8d0); } .sw--dt { background: var(--z-gold, #C9A84C); } .sw--transit { background: #3b6fd6; }
+.sw--cases { background: var(--atg-teal, #23B5D3); } .sw--dt { background: var(--z-gold, #F2B53A); } .sw--transit { background: #3b6fd6; }
 .muted { color: var(--atg-muted, #95a1b7); font-size: 12px; }
 @media (max-width: 900px) { .months { grid-template-columns: repeat(3, 1fr); } }
 </style>

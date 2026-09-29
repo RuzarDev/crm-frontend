@@ -11,12 +11,12 @@
      ══════════════════════════════════════════════════════════ */
 
   /* Бренд */
-  --z-navy:        #1B2A4A;   --z-navy-2:   #26385C;   --z-navy-3: #2b3f6b;
-  --z-teal:        #2BBCD4;   --z-teal-d:   #1FA8C0;   --z-teal-soft: #E4F6FB;
-  --z-gold:        #C9A84C;   --z-gold-soft:#F6ECD2;
+  --z-navy:        #0E1B35;   --z-navy-2:   #16264A;   --z-navy-3: #223560;
+  --z-teal:        #23B5D3;   --z-teal-d:   #1580A6;   --z-teal-soft: #E1F5FA;
+  --z-gold:        #F2B53A;   --z-gold-soft:#FDF1D8;
 
   /* Нейтральные (основная масса интерфейса) */
-  --z-ink:         #1B2A4A;   /* текст первичный   */
+  --z-ink:         #0E1B35;   /* текст первичный   */
   --z-ink-2:       #475569;   /* текст вторичный   */
   --z-muted:       #8C95A6;   /* подписи/плейсхолдер */
   --z-line:        #E8EBF2;   /* границы           */
@@ -27,9 +27,9 @@
 
   /* Семантика статусов (функциональный цвет) */
   --z-success:  #1F9D6A;  --z-success-soft: #E4F2EA;   /* Выпущено          */
-  --z-warning:  #B78A1E;  --z-warning-soft: #F6ECD2;   /* Подан/внимание    */
+  --z-warning:  #8A6410;  --z-warning-soft: #FDF1D8;   /* Подан/внимание    */
   --z-danger:   #C4483B;  --z-danger-soft:  #FBE9E7;   /* Ошибка/проблемный */
-  --z-info:     #1FA8C0;  --z-info-soft:    #E4F6FB;   /* В работе/инфо     */
+  --z-info:     #1580A6;  --z-info-soft:    #E1F5FA;   /* В работе/инфо     */
   --z-neutral:  #64748B;  --z-neutral-soft: #EEF1F7;   /* Черновик/архив    */
 
   /* Ритм (сетка 4px) */
@@ -38,8 +38,8 @@
   /* Скругления и тени */
   --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 18px; --r-pill: 999px;
   --sh-1: 0 1px 2px rgba(16, 24, 40, .06);
-  --sh-2: 0 4px 12px -4px rgba(27, 42, 74, .12);
-  --sh-3: 0 14px 32px -12px rgba(27, 42, 74, .20);
+  --sh-2: 0 4px 12px -4px rgba(14, 27, 53, .12);
+  --sh-3: 0 14px 32px -12px rgba(14, 27, 53, .20);
 
   /* Типографика */
   --font-heading: 'Manrope', 'Inter', system-ui, sans-serif;   /* заголовки, цифры KPI */
@@ -106,7 +106,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   color: var(--atg-text);
   background:
-    linear-gradient(135deg, rgba(43, 188, 212, 0.04), transparent 28%),
+    linear-gradient(135deg, rgba(35, 181, 211, 0.04), transparent 28%),
     var(--atg-bg);
 }
 
@@ -160,10 +160,10 @@ small {
    нечитаемыми. Жёстко задаём светлый фон + navy-текст брендовыми токенами. */
 .ant-message-notice-content {
   background: var(--z-bg, #ffffff) !important;
-  color: var(--z-navy, #1B2A4A) !important;
-  border: 1px solid var(--z-teal-soft, #E4F6FB) !important;
+  color: var(--z-navy, #0E1B35) !important;
+  border: 1px solid var(--z-teal-soft, #E1F5FA) !important;
   border-radius: 10px !important;
-  box-shadow: 0 6px 20px -6px rgba(27, 42, 74, .22) !important;
+  box-shadow: 0 6px 20px -6px rgba(14, 27, 53, .22) !important;
   padding: 10px 16px !important;
 }
 .ant-message-notice-content .anticon {
@@ -172,12 +172,12 @@ small {
 /* цветные иконки статуса остаются информативными на светлом фоне */
 .ant-message-error .anticon { color: var(--z-error, #C4483B) !important; }
 .ant-message-success .anticon { color: #1F9D6A !important; }
-.ant-message-warning .anticon { color: #B78A1E !important; }
+.ant-message-warning .anticon { color: #8A6410 !important; }
 .ant-message-info .anticon,
-.ant-message-loading .anticon { color: var(--z-teal, #2BBCD4) !important; }
+.ant-message-loading .anticon { color: var(--z-teal, #23B5D3) !important; }
 
 /* ─── Контраст primary/CTA-кнопок (WCAG AA) ──────────────────
-   Белый текст на бирюзе #2BBCD4 давал ≈2.3:1 (ниже нормы 4.5:1). Тёмно-синий
+   Белый текст на бирюзе #23B5D3 давал ≈2.3:1 (ниже нормы 4.5:1). Тёмно-синий
    navy-текст на той же бирюзе — ≈6.3:1, проходит AA, и сохраняет брендовый
    бирюзовый фон кнопок. Применяем к сплошным primary и к auth-CTA; НЕ трогаем
    ghost/link/danger-варианты, выделенный пункт сайдбара (навигация на тёмном
@@ -189,7 +189,7 @@ small {
 .auth-submit-btn:not(:disabled),
 .auth-submit-btn:not(:disabled):hover,
 .auth-submit-btn:not(:disabled):focus {
-  color: var(--z-navy, #1B2A4A) !important;
+  color: var(--z-navy, #0E1B35) !important;
 }
 
 /* ─── Справочные таблицы: без «растянутой» колонки ───────────
@@ -314,7 +314,7 @@ a {
   border: 1px solid var(--atg-line);
   border-radius: 12px;
   background: #ffffff;
-  box-shadow: 0 1px 4px rgba(27, 42, 74, 0.05);
+  box-shadow: 0 1px 4px rgba(14, 27, 53, 0.05);
 }
 
 /* ─── Stat Badge ─────────────────────────────────────────── */
@@ -345,8 +345,8 @@ a {
   display: grid;
   grid-template-columns: minmax(420px, 0.92fr) minmax(520px, 1fr);
   background:
-    radial-gradient(circle at 18% 10%, rgba(43, 188, 212, 0.22), transparent 32%),
-    linear-gradient(135deg, #1B2A4A 0%, #243560 56%, #f3f5f9 56.2%, #f3f5f9 100%);
+    radial-gradient(circle at 18% 10%, rgba(35, 181, 211, 0.22), transparent 32%),
+    linear-gradient(135deg, #0E1B35 0%, #243560 56%, #f3f5f9 56.2%, #f3f5f9 100%);
 }
 
 .crm-auth-brand {
@@ -369,10 +369,10 @@ a {
   place-items: center;
   width: clamp(48px, 3vw, 62px);
   height: clamp(48px, 3vw, 62px);
-  border: 1px solid rgba(43, 188, 212, 0.35);
+  border: 1px solid rgba(35, 181, 211, 0.35);
   border-radius: 8px;
-  background: rgba(43, 188, 212, 0.12);
-  color: #2BBCD4;
+  background: rgba(35, 181, 211, 0.12);
+  color: #23B5D3;
   font-size: clamp(14px, 0.9vw, 18px);
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -521,7 +521,7 @@ a {
 .ant-select-focused:not(.ant-select-disabled) .ant-select-selector,
 .ant-picker-focused {
   border-color: var(--atg-cyan);
-  box-shadow: 0 0 0 3px rgba(43, 188, 212, 0.15);
+  box-shadow: 0 0 0 3px rgba(35, 181, 211, 0.15);
 }
 
 /* Cards */
@@ -686,35 +686,39 @@ a {
   border-radius: var(--atg-radius) !important;
   font-weight: 600 !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  box-shadow: 0 1px 2px rgba(27, 42, 74, 0.05) !important;
+  box-shadow: 0 1px 2px rgba(14, 27, 53, 0.05) !important;
 }
 
 .ant-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(27, 42, 74, 0.08);
+  box-shadow: 0 4px 12px rgba(14, 27, 53, 0.08);
 }
 
 .ant-btn:active {
   transform: translateY(0);
 }
 
+/* Брендбук Zircon: главная кнопка — ровная заливка zircon, текст on-zircon (navy), без градиента.
+   Цвет текста задаёт правило выше (navy), здесь только фон. */
 .ant-btn-primary {
-  background: linear-gradient(135deg, var(--atg-teal) 0%, var(--atg-teal-dark) 100%) !important;
+  background: var(--atg-teal) !important;
   border: none !important;
-  color: #fff !important;
-  box-shadow: 0 3px 10px rgba(43, 188, 212, 0.28) !important;
+  box-shadow: none !important;
 }
 
-.ant-btn-primary:hover {
-  background: linear-gradient(135deg, #3acde5 0%, var(--atg-teal) 100%) !important;
-  box-shadow: 0 5px 16px rgba(43, 188, 212, 0.45) !important;
-  color: #fff !important;
+.ant-btn-primary:not(:disabled):not(.ant-btn-dangerous):hover {
+  background: #4FC6DE !important;
+  box-shadow: none !important;
 }
 
 .ant-btn-dangerous {
-  background: linear-gradient(135deg, #d35a4a 0%, #b84a3c 100%) !important;
+  background: #B42318 !important;
   border: none !important;
   color: #fff !important;
+}
+
+.ant-btn-dangerous:not(:disabled):hover {
+  background: #C93A2E !important;
 }
 
 /* Custom Input and Select Fields */
@@ -734,7 +738,7 @@ a {
 .ant-select-focused .ant-select-selector,
 .ant-picker-focused {
   border-color: var(--atg-teal) !important;
-  box-shadow: 0 0 0 3px rgba(43, 188, 212, 0.15) !important;
+  box-shadow: 0 0 0 3px rgba(35, 181, 211, 0.15) !important;
 }
 
 /* Reset inner input inside affix wrappers to prevent double borders/backgrounds */
@@ -816,7 +820,7 @@ a {
 }
 
 .ant-table-tbody > tr:hover > td {
-  background: rgba(43, 188, 212, 0.04) !important;
+  background: rgba(35, 181, 211, 0.04) !important;
 }
 
 .ant-pagination-item-active {
@@ -889,7 +893,7 @@ a {
 
 .ant-alert-warning {
   background-color: var(--atg-gold-soft) !important;
-  border: 1px solid rgba(201, 168, 76, 0.25) !important;
+  border: 1px solid rgba(242, 181, 58, 0.25) !important;
   color: var(--atg-charcoal) !important;
 }
 
@@ -965,8 +969,8 @@ a {
 
 /* Drawer — mobile nav override */
 .atg-mobile-drawer .ant-drawer-header {
-  background: #1B2A4A !important;
-  border-bottom: 1px solid rgba(43, 188, 212, 0.18) !important;
+  background: #0E1B35 !important;
+  border-bottom: 1px solid rgba(35, 181, 211, 0.18) !important;
   padding: 16px 18px !important;
 }
 
@@ -984,7 +988,7 @@ a {
 }
 
 .atg-mobile-drawer .ant-drawer-body {
-  background: #1E3060 !important;
+  background: #14244A !important;
   padding: 12px !important;
 }
 
@@ -1004,9 +1008,9 @@ a {
 }
 
 .menu-toggle-btn:hover {
-  color: #1B2A4A !important;
-  border-color: #2BBCD4 !important;
-  background: #2BBCD4 !important;
+  color: #0E1B35 !important;
+  border-color: #23B5D3 !important;
+  background: #23B5D3 !important;
 }
 
 /* ─── Checkbox ───────────────────────────────────────────── */
@@ -1194,8 +1198,8 @@ a {
     flex-shrink: 0;
     min-height: auto;
     padding: 20px 20px 24px;
-    background: linear-gradient(145deg, #1B2A4A 0%, #1E3060 55%, #243575 100%);
-    border-bottom: 1px solid rgba(43, 188, 212, 0.18);
+    background: linear-gradient(145deg, #0E1B35 0%, #14244A 55%, #1A2D55 100%);
+    border-bottom: 1px solid rgba(35, 181, 211, 0.18);
     color: #f0f3ff;
     justify-content: flex-start;
     gap: 16px;

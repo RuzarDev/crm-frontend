@@ -19,7 +19,7 @@
                   <div class="top-name">{{ item.treeName || '—' }}</div>
                 </div>
                 <div class="top-count">
-                  <a-badge :count="item.declarationCount" :overflow-count="9999" color="#2BBCD4" />
+                  <a-badge :count="item.declarationCount" :overflow-count="9999" color="#23B5D3" />
                   <span class="count-label">{{ t('sales.dekl') }}</span>
                 </div>
               </div>

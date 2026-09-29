@@ -748,7 +748,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 
 .app-shell {
   background:
-    linear-gradient(148deg, rgba(43, 188, 212, 0.04), transparent 26%),
+    linear-gradient(148deg, rgba(35, 181, 211, 0.04), transparent 26%),
     var(--atg-bg);
 }
 
@@ -765,9 +765,9 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   min-height: 64px;
   padding: 0 var(--sp-5, 24px);
   line-height: normal;
-  background: linear-gradient(135deg, #1B2A4A 0%, #1E3060 60%, #243575 100%);
-  border-bottom: 2px solid #2BBCD4;
-  box-shadow: 0 2px 20px rgba(27, 42, 74, 0.5);
+  background: linear-gradient(135deg, #0E1B35 0%, #14244A 60%, #1A2D55 100%);
+  border-bottom: 2px solid #23B5D3;
+  box-shadow: 0 2px 20px rgba(14, 27, 53, 0.5);
 }
 
 /* Brand */
@@ -865,9 +865,9 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 }
 
 .notif-btn:hover {
-  color: #1B2A4A !important;
-  border-color: #2BBCD4 !important;
-  background: #2BBCD4 !important;
+  color: #0E1B35 !important;
+  border-color: #23B5D3 !important;
+  background: #23B5D3 !important;
 }
 
 .notif-dropdown {
@@ -983,9 +983,9 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 }
 
 .user-menu-trigger:hover {
-  color: #1B2A4A;
-  border-color: #2BBCD4;
-  background: #2BBCD4;
+  color: #0E1B35;
+  border-color: #23B5D3;
+  background: #23B5D3;
 }
 
 .user-avatar {
@@ -995,8 +995,8 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(43, 188, 212, 0.18);
-  color: #2BBCD4;
+  background: rgba(35, 181, 211, 0.18);
+  color: #23B5D3;
   font-size: 13px;
   font-weight: 800;
   flex-shrink: 0;
@@ -1020,8 +1020,8 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   font-weight: 600;
 }
 
-.user-menu-trigger:hover .user-role { color: rgba(27, 42, 74, 0.7); }
-.user-menu-trigger:hover .user-avatar { background: rgba(27, 42, 74, 0.15); color: #1B2A4A; }
+.user-menu-trigger:hover .user-role { color: rgba(14, 27, 53, 0.7); }
+.user-menu-trigger:hover .user-avatar { background: rgba(14, 27, 53, 0.15); color: #0E1B35; }
 
 .user-menu-caret {
   font-size: 10px;
@@ -1037,7 +1037,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 
 .bell-btn:hover,
 .bell-btn:focus {
-  color: #2bbcd4;
+  color: #23B5D3;
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -1048,7 +1048,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   background: #fff;
   border: 1px solid var(--atg-line);
   border-radius: 10px;
-  box-shadow: 0 8px 28px rgba(27, 42, 74, 0.12);
+  box-shadow: 0 8px 28px rgba(14, 27, 53, 0.12);
 }
 
 .notif-head {
@@ -1074,7 +1074,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 }
 
 .notif-unread {
-  background: rgba(43, 188, 212, 0.06);
+  background: rgba(35, 181, 211, 0.06);
 }
 
 .notif-title {
@@ -1096,11 +1096,11 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   align-self: flex-start;
   height: calc(100vh - 64px);
   overflow: hidden;
-  background: linear-gradient(180deg, #1B2A4A 0%, #132040 100%);
-  border-right: 1px solid rgba(43, 188, 212, 0.14);
+  background: linear-gradient(180deg, #0E1B35 0%, #0B1426 100%);
+  border-right: 1px solid rgba(35, 181, 211, 0.14);
   display: flex;
   flex-direction: column;
-  box-shadow: 2px 0 16px rgba(27, 42, 74, 0.25);
+  box-shadow: 2px 0 16px rgba(14, 27, 53, 0.25);
 }
 
 .sider :deep(.ant-layout-sider-children) {
@@ -1172,17 +1172,18 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .sider :deep(.ant-menu-item-selected),
 .sider :deep(.ant-menu-item-selected .ant-menu-title-content),
 .sider :deep(.ant-menu-item-selected a) {
-  color: #ffffff !important;
+  color: #0E1B35 !important;
   font-weight: 700;
 }
 
+/* Брендбук: активный пункт — ровная заливка zircon, текст on-zircon (navy); белый на бирюзе не читается. */
 .sider :deep(.ant-menu-item-selected) {
-  background: linear-gradient(90deg, #2BBCD4, #1FA8C0) !important;
-  box-shadow: 0 2px 8px rgba(43, 188, 212, 0.35);
+  background: #23B5D3 !important;
+  box-shadow: none;
 }
 
 .sider :deep(.ant-menu-item-selected .anticon) {
-  color: #ffffff !important;
+  color: #0E1B35 !important;
   opacity: 1;
 }
 
@@ -1259,12 +1260,12 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .drawer-menu :deep(.ant-menu-item-selected .ant-menu-title-content),
 .drawer-menu :deep(.ant-menu-item-selected a),
 .drawer-menu :deep(.ant-menu-item-selected .anticon) {
-  color: #ffffff !important;
+  color: #0E1B35 !important;
   font-weight: 700;
 }
 
 .drawer-menu :deep(.ant-menu-item-selected) {
-  background: linear-gradient(90deg, #2BBCD4, #1FA8C0) !important;
+  background: #23B5D3 !important;
 }
 
 .drawer-footer {
@@ -1273,8 +1274,8 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   left: 0;
   right: 0;
   padding: 14px 12px 18px;
-  border-top: 1px solid rgba(43, 188, 212, 0.18);
-  background: #1B2A4A;
+  border-top: 1px solid rgba(35, 181, 211, 0.18);
+  background: #0E1B35;
 }
 
 .drawer-footer-role {
@@ -1282,7 +1283,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #2BBCD4;
+  color: #23B5D3;
   margin-bottom: 2px;
 }
 
@@ -1303,9 +1304,9 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 }
 
 .drawer-logout:hover {
-  color: #1B2A4A !important;
-  border-color: #2BBCD4 !important;
-  background: #2BBCD4 !important;
+  color: #0E1B35 !important;
+  border-color: #23B5D3 !important;
+  background: #23B5D3 !important;
 }
 
 /* ─── Responsive ─────────────────────────────────────────── */
@@ -1362,6 +1363,6 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--z-gold, #C9A84C);
+  background: var(--z-gold, #F2B53A);
 }
 </style>

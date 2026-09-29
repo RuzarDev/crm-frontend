@@ -130,6 +130,6 @@ const resetAll = async () => {
 .perm-name { display: flex; flex-direction: column; }
 .perm-label { font-size: 13px; color: var(--atg-ink, #182640); }
 .perm-cell { text-align: center; }
-.perm-cell.has-perm { background: rgba(43, 188, 212, 0.06); }
+.perm-cell.has-perm { background: rgba(35, 181, 211, 0.06); }
 .hint { margin: 14px 0 0; font-size: 12.5px; color: var(--atg-muted, #6b7891); }
 </style>

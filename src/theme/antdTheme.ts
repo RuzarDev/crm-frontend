@@ -6,12 +6,12 @@ import { theme } from 'ant-design-vue'
 
 export const zirconTheme = {
   token: {
-    colorPrimary: '#2BBCD4',
-    colorInfo: '#1FA8C0',
+    colorPrimary: '#23B5D3',
+    colorInfo: '#1580A6',
     colorSuccess: '#1F9D6A',
-    colorWarning: '#B78A1E',
+    colorWarning: '#8A6410',
     colorError: '#C4483B',
-    colorText: '#1B2A4A',
+    colorText: '#0E1B35',
     colorTextSecondary: '#475569',
     colorBorder: '#E8EBF2',
     colorBorderSecondary: '#EEF1F7',
@@ -24,7 +24,7 @@ export const zirconTheme = {
     controlHeightSM: 28,
     fontFamily: "'Inter', system-ui, sans-serif",
     fontSize: 14,
-    boxShadow: '0 4px 12px -4px rgba(27,42,74,.12)',
+    boxShadow: '0 4px 12px -4px rgba(14, 27, 53,.12)',
     wireframe: false,
   },
   components: {
@@ -52,8 +52,8 @@ export const zirconTheme = {
       borderRadius: 10,
     },
     Tabs: {
-      itemSelectedColor: '#1FA8C0',
-      inkBarColor: '#2BBCD4',
+      itemSelectedColor: '#1580A6',
+      inkBarColor: '#23B5D3',
     },
   },
 }
@@ -61,7 +61,7 @@ export const zirconTheme = {
 export const zirconDarkSiderTheme = {
   algorithm: theme.darkAlgorithm,
   token: {
-    colorBgContainer: '#1B2A4A',
+    colorBgContainer: '#0E1B35',
   },
   components: {
     Menu: {

@@ -61,7 +61,7 @@ const onMenuClick = ({ key }: { key: string | number }) => onChange(key)
 }
 .lang-switcher--dark:hover :deep(.ant-select-selector) {
   background: rgba(255, 255, 255, 0.2) !important;
-  border-color: rgba(43, 188, 212, 0.9) !important;
+  border-color: rgba(35, 181, 211, 0.9) !important;
 }
 .lang-switcher--dark :deep(.ant-select-selection-item),
 .lang-switcher--dark :deep(.ant-select-arrow),
@@ -79,7 +79,7 @@ const onMenuClick = ({ key }: { key: string | number }) => onChange(key)
   border: 1px solid #d9d9d9;
   border-radius: var(--atg-radius, 8px);
   background: #fff;
-  color: #1B2A4A;
+  color: #0E1B35;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -92,9 +92,9 @@ const onMenuClick = ({ key }: { key: string | number }) => onChange(key)
   color: rgba(240, 243, 255, 0.82);
 }
 .lang-compact:hover {
-  color: #1B2A4A;
-  border-color: #2BBCD4;
-  background: #2BBCD4;
+  color: #0E1B35;
+  border-color: #23B5D3;
+  background: #23B5D3;
 }
 .lang-compact__code { line-height: 1; }
 </style>

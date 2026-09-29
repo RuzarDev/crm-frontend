@@ -171,7 +171,7 @@ const clearProblem = async (c: ManageCase) => {
 .grid { display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: start; }
 .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
 .cell-main { font-weight: 600; color: var(--atg-ink, #182640); cursor: pointer; }
-.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #22b8d0); margin-right: 4px; }
+.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #23B5D3); margin-right: 4px; }
 .cell-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); }
 .problem-note { color: #cf4a3c; }
 .stale-txt { color: #e07a30; font-weight: 600; }
@@ -182,7 +182,7 @@ const clearProblem = async (c: ManageCase) => {
 .load-row:last-child { border-bottom: 0; }
 .load-name { font-weight: 600; color: var(--atg-ink, #182640); font-size: 13px; }
 .load-bar { height: 6px; border-radius: 4px; background: var(--z-line-2, #eff2f8); overflow: hidden; }
-.load-bar span { display: block; height: 100%; background: var(--atg-teal, #22b8d0); border-radius: 4px; }
+.load-bar span { display: block; height: 100%; background: var(--atg-teal, #23B5D3); border-radius: 4px; }
 @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } .kpi-row { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1101px) and (max-width: 1400px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
 </style>

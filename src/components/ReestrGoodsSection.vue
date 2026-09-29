@@ -794,7 +794,7 @@ const onExcelFile: UploadProps['beforeUpload'] = (file) => {
   text-overflow: ellipsis;
 }
 .lock-hint {
-  color: var(--atg-teal, #22b8d0);
+  color: var(--atg-teal, #23B5D3);
   font-weight: 700;
 }
 

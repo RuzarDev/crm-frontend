@@ -362,7 +362,7 @@ const printQuote = (q: SalesQuoteDto) => {
   <style>
     body{font-family:Arial,sans-serif;color:#1a2332;padding:40px;max-width:760px;margin:0 auto}
     h1{font-size:22px;margin:0 0 4px} .sub{color:#6b7280;font-size:13px;margin-bottom:24px}
-    .brand{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2BBCD4;padding-bottom:16px;margin-bottom:20px}
+    .brand{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #23B5D3;padding-bottom:16px;margin-bottom:20px}
     .brand b{font-size:18px} table{width:100%;border-collapse:collapse;margin:14px 0}
     th,td{border:1px solid #d6dce5;padding:7px 10px;font-size:13px} th{background:#eef3f8;text-align:left}
     h3{font-size:14px;margin:18px 0 6px} .totals{margin-top:18px;text-align:right}

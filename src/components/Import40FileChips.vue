@@ -54,7 +54,7 @@ const emit = defineEmits<{
 
 .file-chip:hover {
   border-color: var(--atg-accent);
-  background: rgba(43, 188, 212, 0.06);
+  background: rgba(35, 181, 211, 0.06);
 }
 
 .file-chip-name {

@@ -298,10 +298,10 @@ const INTL_LOCALE: Record<string, string> = { ru: 'ru-RU', kk: 'kk-KZ', en: 'en-
 const formatNum = (n?: number) => (n ?? 0).toLocaleString(INTL_LOCALE[locale.value] ?? 'ru-RU')
 
 const STATUS_COLORS: Record<string, string> = {
-  InProgress: '#2BBCD4',
+  InProgress: '#23B5D3',
   Submitted: '#3b6fd6',
   Released: '#1f9d6a',
-  ConditionallyReleased: '#C9A84C',
+  ConditionallyReleased: '#F2B53A',
   Problematic: '#e07a30',
   Rejected: '#cf4a3c',
   Withdrawn: '#8896ac',
@@ -333,7 +333,7 @@ const showTransitBlock = computed(() =>
 const imp = computed(() => store.import40!)
 const impStepsTotal = computed(() => (store.import40?.bySteps ?? []).reduce((a, x) => a + x.count, 0))
 const impPct = (count: number) => (impStepsTotal.value ? Math.round((count / impStepsTotal.value) * 100) : 0)
-const STEP_COLORS: Record<number, string> = { 1: '#8896ac', 2: '#3b6fd6', 3: '#2BBCD4', 4: '#C9A84C', 5: '#e07a30', 6: '#1f9d6a' }
+const STEP_COLORS: Record<number, string> = { 1: '#8896ac', 2: '#3b6fd6', 3: '#23B5D3', 4: '#F2B53A', 5: '#e07a30', 6: '#1f9d6a' }
 const stepColor = (step: number) => STEP_COLORS[step] ?? '#8896ac'
 const impClientMax = computed(() => Math.max(...(store.import40?.topClients?.map((c) => c.count) ?? [1]), 1))
 
@@ -429,12 +429,12 @@ const rankWidth = (count: number, max: number) =>
 .kpi--hero .kpi-sub { color: #9fb0cf; }
 .kpi--hero .kpi-val { color: #fff; }
 .kpi--hero .kpi-unit { color: #8fa0c0; }
-.kpi--hero .kpi-ic { background: rgba(201, 168, 76, 0.16); color: var(--z-gold, #c9a84c); }
+.kpi--hero .kpi-ic { background: rgba(242, 181, 58, 0.16); color: var(--z-gold, #F2B53A); }
 .kpi-strip {
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 4px;
-  background: var(--z-gold, #c9a84c);
+  background: var(--z-gold, #F2B53A);
 }
 
 /* ── Status distribution ── */
@@ -529,7 +529,7 @@ const rankWidth = (count: number, max: number) =>
   display: block;
   height: 100%;
   border-radius: 4px;
-  background: linear-gradient(90deg, var(--atg-teal, #22b8d0), var(--atg-teal-dark, #149bb2));
+  background: linear-gradient(90deg, var(--atg-teal, #23B5D3), var(--atg-teal-dark, #149bb2));
 }
 .rank-cnt {
   font-family: var(--font-display, 'Manrope', sans-serif);

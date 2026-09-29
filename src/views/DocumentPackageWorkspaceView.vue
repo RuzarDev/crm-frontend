@@ -1568,7 +1568,7 @@ const runAiParse = async () => {
   max-height: calc(100vh - 140px);
   overflow-y: auto;
   border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(27, 42, 74, 0.05);
+  box-shadow: 0 8px 30px rgba(14, 27, 53, 0.05);
 }
 
 .file-item-wrap {
@@ -1580,13 +1580,13 @@ const runAiParse = async () => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  box-shadow: 0 2px 6px rgba(27, 42, 74, 0.02);
+  box-shadow: 0 2px 6px rgba(14, 27, 53, 0.02);
   transition: all var(--atg-transition);
 }
 
 .file-item-wrap:hover {
   border-color: var(--atg-line-strong);
-  box-shadow: 0 4px 12px rgba(27, 42, 74, 0.05);
+  box-shadow: 0 4px 12px rgba(14, 27, 53, 0.05);
   transform: translateY(-1px);
 }
 
@@ -1634,7 +1634,7 @@ const runAiParse = async () => {
 .review-panel-card {
   border-left: 5px solid var(--atg-navy);
   border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(27, 42, 74, 0.04);
+  box-shadow: 0 8px 24px rgba(14, 27, 53, 0.04);
 }
 
 .review-panel-content {
@@ -1645,7 +1645,7 @@ const runAiParse = async () => {
   border-radius: 14px;
   background: linear-gradient(180deg, #ffffff, #fcfdfe);
   border: 1px solid var(--atg-line);
-  box-shadow: 0 4px 16px rgba(27, 42, 74, 0.03);
+  box-shadow: 0 4px 16px rgba(14, 27, 53, 0.03);
 }
 
 .train-header {
@@ -1703,13 +1703,13 @@ const runAiParse = async () => {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  box-shadow: 0 4px 14px rgba(27, 42, 74, 0.04);
+  box-shadow: 0 4px 14px rgba(14, 27, 53, 0.04);
   transition: all var(--atg-transition);
 }
 
 .container-node-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(27, 42, 74, 0.08);
+  box-shadow: 0 8px 24px rgba(14, 27, 53, 0.08);
   border-left-color: var(--atg-teal-dark);
 }
 
@@ -1753,13 +1753,13 @@ const runAiParse = async () => {
   border-radius: 5px;
   background: var(--atg-teal-soft);
   color: var(--atg-teal-dark);
-  border: 1px solid rgba(43, 188, 212, 0.25);
+  border: 1px solid rgba(35, 181, 211, 0.25);
 }
 
 .node-badge.badge-client {
   background: var(--atg-gold-soft);
   color: #a17f2a;
-  border-color: rgba(201, 168, 76, 0.25);
+  border-color: rgba(242, 181, 58, 0.25);
 }
 
 /* Inline metadata tags */
@@ -1846,7 +1846,7 @@ const runAiParse = async () => {
   font-weight: 600;
   font-size: 12.5px;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(27, 42, 74, 0.02);
+  box-shadow: 0 1px 3px rgba(14, 27, 53, 0.02);
   transition: all var(--atg-transition);
 }
 
@@ -1873,7 +1873,7 @@ const runAiParse = async () => {
   border-left: 4px solid var(--atg-gold);
   border-radius: 10px;
   padding: 16px;
-  box-shadow: 0 2px 8px rgba(27, 42, 74, 0.02);
+  box-shadow: 0 2px 8px rgba(14, 27, 53, 0.02);
   transition: all var(--atg-transition);
   display: flex;
   flex-direction: column;
@@ -1882,7 +1882,7 @@ const runAiParse = async () => {
 
 .consolidation-node-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(27, 42, 74, 0.06);
+  box-shadow: 0 4px 14px rgba(14, 27, 53, 0.06);
 }
 
 .consolidation-header {
@@ -1932,21 +1932,21 @@ const runAiParse = async () => {
 }
 
 .train-card.drag-over {
-  border: 2px dashed var(--atg-teal, #2bbcd4) !important;
-  background: rgba(43, 188, 212, 0.04) !important;
-  box-shadow: 0 0 20px rgba(43, 188, 212, 0.15) !important;
+  border: 2px dashed var(--atg-teal, #23B5D3) !important;
+  background: rgba(35, 181, 211, 0.04) !important;
+  box-shadow: 0 0 20px rgba(35, 181, 211, 0.15) !important;
 }
 
 .container-node-card.drag-over {
-  border-color: var(--atg-teal, #2bbcd4) !important;
-  background: rgba(43, 188, 212, 0.03) !important;
-  box-shadow: 0 0 20px rgba(43, 188, 212, 0.12) !important;
+  border-color: var(--atg-teal, #23B5D3) !important;
+  background: rgba(35, 181, 211, 0.03) !important;
+  box-shadow: 0 0 20px rgba(35, 181, 211, 0.12) !important;
 }
 
 .consolidation-node-card.drag-over {
-  border-color: var(--atg-teal, #2bbcd4) !important;
-  background: rgba(43, 188, 212, 0.04) !important;
-  box-shadow: 0 0 20px rgba(43, 188, 212, 0.15) !important;
+  border-color: var(--atg-teal, #23B5D3) !important;
+  background: rgba(35, 181, 211, 0.04) !important;
+  box-shadow: 0 0 20px rgba(35, 181, 211, 0.15) !important;
 }
 
 @media (max-width: 900px) {
@@ -1964,11 +1964,11 @@ const runAiParse = async () => {
 }
 
 .workspace-upload-dropzone {
-  border: 2px dashed rgba(43, 188, 212, 0.35);
+  border: 2px dashed rgba(35, 181, 211, 0.35);
   border-radius: 10px;
   padding: 24px 16px;
   text-align: center;
-  background: linear-gradient(135deg, rgba(43, 188, 212, 0.01), rgba(27, 42, 74, 0.01));
+  background: linear-gradient(135deg, rgba(35, 181, 211, 0.01), rgba(14, 27, 53, 0.01));
   cursor: pointer;
   transition: all var(--atg-transition);
   display: flex;
@@ -1981,8 +1981,8 @@ const runAiParse = async () => {
 .workspace-upload-dropzone:hover,
 .workspace-upload-dropzone.dropzone-active {
   border-color: var(--atg-teal);
-  background: rgba(43, 188, 212, 0.06);
-  box-shadow: 0 0 12px rgba(43, 188, 212, 0.08);
+  background: rgba(35, 181, 211, 0.06);
+  box-shadow: 0 0 12px rgba(35, 181, 211, 0.08);
 }
 
 .dropzone-icon {
@@ -2071,13 +2071,13 @@ const runAiParse = async () => {
 .opt-badge-container {
   background: var(--atg-teal-soft);
   color: var(--atg-teal-dark);
-  border: 1px solid rgba(43, 188, 212, 0.25);
+  border: 1px solid rgba(35, 181, 211, 0.25);
 }
 
 .opt-badge-client {
   background: var(--atg-gold-soft);
   color: #a17f2a;
-  border: 1px solid rgba(201, 168, 76, 0.25);
+  border: 1px solid rgba(242, 181, 58, 0.25);
 }
 
 /* Split "file ‖ form" view */

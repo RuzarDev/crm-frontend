@@ -505,10 +505,10 @@ const formatFileSize = (bytes: number) => {
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  border: 1px solid rgba(43, 188, 212, 0.28);
+  border: 1px solid rgba(35, 181, 211, 0.28);
   border-radius: 8px;
   color: var(--atg-text);
-  background: rgba(43, 188, 212, 0.06);
+  background: rgba(35, 181, 211, 0.06);
   font-size: 13px;
   font-weight: 600;
 }
@@ -527,7 +527,7 @@ const formatFileSize = (bytes: number) => {
   border: 1px solid var(--atg-line);
   border-radius: 12px;
   background: #ffffff;
-  box-shadow: 0 1px 4px rgba(27, 42, 74, 0.05);
+  box-shadow: 0 1px 4px rgba(14, 27, 53, 0.05);
 }
 
 .toolbar-sep {

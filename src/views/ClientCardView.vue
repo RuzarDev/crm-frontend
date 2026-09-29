@@ -255,7 +255,7 @@ const downloadBlank = async (doc: ClientCardDoc) => {
 
 .cell-main { font-weight: 600; color: var(--atg-ink, #182640); }
 .cell-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); }
-.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #22b8d0); margin-right: 4px; }
+.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #23B5D3); margin-right: 4px; }
 .muted { color: var(--atg-muted, #95a1b7); }
 
 @media (max-width: 1100px) { .props-grid { grid-template-columns: repeat(2, 1fr); } }
