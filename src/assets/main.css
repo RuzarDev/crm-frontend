@@ -987,18 +987,20 @@ a {
 .menu-toggle-btn {
   display: none;
   color: #f0f3ff;
-  border-color: rgba(240, 243, 255, 0.16);
+  border-color: rgba(240, 243, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
-  min-height: 38px;
-  min-width: 38px;
+  /* Та же высота/стиль, что у остальных кнопок шапки (язык, уведомления, профиль). */
+  height: 36px;
+  min-height: 36px;
+  min-width: 36px;
   padding: 0;
   flex-shrink: 0;
 }
 
 .menu-toggle-btn:hover {
   color: #1B2A4A !important;
-  border-color: #C9A84C !important;
-  background: #C9A84C !important;
+  border-color: #2BBCD4 !important;
+  background: #2BBCD4 !important;
 }
 
 /* ─── Checkbox ───────────────────────────────────────────── */

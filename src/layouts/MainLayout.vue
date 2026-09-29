@@ -26,31 +26,9 @@
         </a-auto-complete>
       </div>
 
+      <!-- Справа всё одной высоты (36px) и в привычном порядке: язык → уведомления → профиль. -->
       <div class="header-right">
-        <LanguageSwitcher dark />
-
-        <!-- Меню пользователя: профиль ушёл сюда из «Администрирования» — там он был единственным
-             пунктом и группа не несла смысла ни у одной роли (аудит 2026-09-28, раздел 8). -->
-        <a-dropdown :trigger="['click']" placement="bottomRight">
-          <button type="button" class="user-menu-trigger">
-            <!-- Бейдж бизнес-роли клиенту ни о чём не говорит — это его собственный кабинет, роль тут
-                 неуместна (аудит 5.23). -->
-            <span v-if="!isClientRole" class="role-badge">{{ roleLabel }}</span>
-            <span class="username">{{ authStore.username }}</span>
-            <UserOutlined class="user-menu-icon" />
-          </button>
-          <template #overlay>
-            <a-menu @click="handleUserMenuClick">
-              <a-menu-item key="/profile">
-                <UserOutlined /> {{ t('nav.profile') }}
-              </a-menu-item>
-              <a-menu-divider />
-              <a-menu-item key="logout">
-                <LogoutOutlined /> {{ t('header.logout') }}
-              </a-menu-item>
-            </a-menu>
-          </template>
-        </a-dropdown>
+        <LanguageSwitcher dark compact />
 
         <!-- Notifications bell -->
         <a-dropdown :trigger="['click']" placement="bottomRight" @open-change="onNotifOpen">
@@ -97,6 +75,32 @@
           </template>
         </a-dropdown>
 
+        <!-- Меню пользователя: профиль ушёл сюда из «Администрирования» — там он был единственным
+             пунктом и группа не несла смысла ни у одной роли (аудит 2026-09-28, раздел 8).
+             Роль — второй строкой мелко, а не отдельной «таблеткой» внутри кнопки. -->
+        <a-dropdown :trigger="['click']" placement="bottomRight">
+          <button type="button" class="user-menu-trigger">
+            <span class="user-avatar">{{ userInitial }}</span>
+            <span class="user-text">
+              <span class="username">{{ authStore.username }}</span>
+              <!-- Роль клиенту ни о чём не говорит — это его собственный кабинет (аудит 5.23). -->
+              <span v-if="!isClientRole" class="user-role">{{ roleLabel }}</span>
+            </span>
+            <DownOutlined class="user-menu-caret" />
+          </button>
+          <template #overlay>
+            <a-menu @click="handleUserMenuClick">
+              <a-menu-item key="/profile">
+                <UserOutlined /> {{ t('nav.profile') }}
+              </a-menu-item>
+              <a-menu-divider />
+              <a-menu-item key="logout">
+                <LogoutOutlined /> {{ t('header.logout') }}
+              </a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
+
         <a-button class="menu-toggle-btn" @click="mobileNavOpen = true" :title="t('misc.menyu')">
           <MenuOutlined />
         </a-button>
@@ -104,7 +108,7 @@
     </a-layout-header>
 
     <a-layout>
-      <a-layout-sider width="248" class="sider">
+      <a-layout-sider width="260" class="sider">
         <nav class="sider-nav">
           <a-config-provider :theme="zirconDarkSiderTheme">
             <a-menu
@@ -230,6 +234,7 @@ import {
   UnorderedListOutlined,
   UserOutlined,
   UserSwitchOutlined,
+  DownOutlined,
 } from '@ant-design/icons-vue'
 import { formatRole } from '@/utils/labels'
 import { businessRoleLabel } from '@/api/permissions'
@@ -660,6 +665,9 @@ const roleLabel = computed(() => {
   return roles.length ? roles.map((r) => businessRoleLabel(r)).join(', ') : formatRole(authStore.role || '')
 })
 
+// Первая буква логина/имени — «аватар» в кнопке профиля.
+const userInitial = computed(() => (authStore.username || '?').trim().charAt(0).toUpperCase())
+
 function onOpenChange(keys: string[]) {
   openKeys.value = keys
 }
@@ -795,18 +803,25 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 }
 
 /* Header right */
-.header-search { flex: 1; max-width: 420px; margin: 0 18px; }
+/* Поиск начинается там же, где контент (сайдбар 260px − паддинг шапки 24px + паддинг контента 28px). */
+.brand { width: 236px; }
+.header-search { flex: 1; max-width: 460px; margin: 0 auto 0 28px; }
+.header-search :deep(.ant-input-affix-wrapper),
+.header-search :deep(.ant-input) { height: 36px; }
+.header-search :deep(.ant-input-affix-wrapper) { padding-top: 0; padding-bottom: 0; }
+.header-search :deep(.ant-input-search-button) { height: 36px; }
 @media (max-width: 900px) { .header-search { display: none; } }
 .header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  margin-left: 16px;
   min-width: 0;
   flex-shrink: 0;
 }
 
 .username {
-  color: rgba(240, 243, 255, 0.82);
+  color: inherit;
   font-size: 13.5px;
   font-weight: 600;
   white-space: nowrap;
@@ -815,21 +830,6 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   text-overflow: ellipsis;
 }
 
-.role-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 0 13px;
-  border: 1px solid rgba(43, 188, 212, 0.45);
-  border-radius: 999px;
-  color: #2BBCD4;
-  background: rgba(43, 188, 212, 0.12);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
 
 /* Notifications */
 .notif-badge :deep(.ant-badge-count) {
@@ -960,7 +960,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   align-items: center;
   gap: 8px;
   height: 36px;
-  padding: 0 10px;
+  padding: 0 10px 0 4px;
   border: 1px solid rgba(240, 243, 255, 0.14);
   border-radius: var(--atg-radius, 8px);
   background: rgba(255, 255, 255, 0.04);
@@ -978,8 +978,44 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   background: #2BBCD4;
 }
 
-.user-menu-icon {
-  font-size: 15px;
+.user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(43, 188, 212, 0.18);
+  color: #2BBCD4;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.user-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.user-role {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(240, 243, 255, 0.5);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.user-menu-trigger:hover .user-role { color: rgba(27, 42, 74, 0.7); }
+.user-menu-trigger:hover .user-avatar { background: rgba(27, 42, 74, 0.15); color: #1B2A4A; }
+
+.user-menu-caret {
+  font-size: 10px;
+  opacity: 0.7;
 }
 
 /* ─── Notifications ──────────────────────────────────────── */
@@ -1060,7 +1096,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .sider :deep(.ant-layout-sider-children) {
   display: flex;
   flex-direction: column;
-  padding: 12px;
+  padding: 12px 8px;
   height: calc(100vh - 64px);
 }
 
@@ -1092,6 +1128,9 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .sider :deep(.ant-menu-item) {
   height: 42px;
   margin: 3px 0;
+  /* AntD даёт пункту в группе отступ 24/16px — на текст оставалось 140px и названия
+     обрезались («Пакеты документ…»). Выравниваем по заголовкам групп. */
+  padding-inline: 10px 8px !important;
   border-radius: 8px;
   color: rgba(240, 243, 255, 0.6);
   font-size: 14px;
@@ -1099,6 +1138,10 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   transition:
     color var(--atg-transition),
     background var(--atg-transition);
+}
+
+.sider :deep(.ant-menu-item .anticon + .ant-menu-title-content) {
+  margin-inline-start: 10px;
 }
 
 .sider :deep(.ant-menu-item .anticon) {
@@ -1264,6 +1307,15 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
     padding: 0 var(--sp-4, 16px);
   }
 
+  /* Ширина логотипа под сайдбар нужна только на десктопе (выравнивание поиска). */
+  .brand {
+    width: auto;
+  }
+
+  .header-right {
+    margin-left: auto;
+  }
+
   .sider {
     display: none;
   }
@@ -1273,8 +1325,6 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
     min-height: calc(100vh - 60px);
   }
 
-  .role-badge,
-  .username,
   .user-menu-trigger {
     display: none;
   }
