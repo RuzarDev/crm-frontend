@@ -55,6 +55,29 @@
       </a-form-item>
     </div>
 
+    <!-- Орган места нахождения (csdo:CustomsOfficeCode гр.30) может отличаться от поста подачи (эталон КЕДЕН: подача 55302,
+         местонахождение 55300). Пусто — в XML и бланк уходит пост подачи. При выборе склада из реестра орган
+         подставляется из НСИ КГД по БИН; если органов несколько — показываем варианты. -->
+    <div class="dt-grid-2">
+      <a-form-item :extra="t('dt.goodsLocationOfficeHint')">
+        <template #label><DtGraphLabel graph="30" :text="t('dt.goodsLocationOffice')" /></template>
+        <a-select
+          :value="form.goodsLocationCustomsOfficeCode || undefined" :options="props.postOptions" :disabled="readonly"
+          show-search allow-clear :filter-option="filterPost" :placeholder="officePlaceholder"
+          :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '560px' }" style="width: 100%"
+          @change="onOfficeChange"
+        />
+        <div v-if="officeChoices.length > 1 && !readonly" class="office-choices">
+          <span class="office-choices-title">{{ t('dt.goodsLocationOfficeChoose') }}</span>
+          <a-tag
+            v-for="o in officeChoices" :key="o.customsOfficeCode" class="office-choice"
+            :color="o.customsOfficeCode === form.goodsLocationCustomsOfficeCode ? 'blue' : undefined"
+            :title="[o.ownerName, o.address].filter(Boolean).join(' · ')" @click="pickOffice(o.customsOfficeCode)"
+          >{{ o.customsOfficeCode }}<template v-if="o.address"> · {{ o.address }}</template></a-tag>
+        </div>
+      </a-form-item>
+    </div>
+
     <!-- Станция/адрес (гр.30) нужны для кода 52 (товары в транспортном средстве) и подобных мест.
          Показываем всегда как необязательные: лучше лишнее пустое поле, чем скрытая графа.
          ВАЖНО: «Станция» — это НАЗВАНИЕ станции/места (СТ.АКСЕНГЕР). Номера вагонов/ТС в КЕДЕН-XML
@@ -92,7 +115,7 @@ import { message } from 'ant-design-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { referencesApi } from '@/api/references'
-import { warehouseRegistryApi, warehouseValue, type WarehouseRegistryItem } from '@/api/warehouseRegistry'
+import { warehouseRegistryApi, warehouseValue, type WarehouseOfficeSuggestion, type WarehouseRegistryItem } from '@/api/warehouseRegistry'
 import { checkWarehouseNumber } from '@/utils/warehouseNumber'
 import type { Import40DtFormState } from '@/api/import40'
 import { ALPHA2_COUNTRIES } from '@/types/api'
@@ -216,8 +239,33 @@ const onRegistrySelect = (key: string) => {
   form.goodsLocationRegisterNumber = warehouseValue(row).toUpperCase()
   // Адрес подставляем только в пустое поле — введённое декларантом не затираем.
   if (!(form.goodsLocationAddress ?? '').trim() && row.address) form.goodsLocationAddress = row.address.toUpperCase()
+  suggestOffice(row)
   emitChange()
 }
+
+// Орган места нахождения из НСИ КГД: однозначный — подставляем в пустое поле, несколько — варианты под полем.
+const officeChoices = ref<WarehouseOfficeSuggestion[]>([])
+const suggestOffice = (row: WarehouseRegistryItem) => {
+  const offices = row.customsOffices ?? []
+  officeChoices.value = offices.length > 1 ? offices : []
+  if ((form.goodsLocationCustomsOfficeCode ?? '').trim()) return // выбранное вручную не затираем
+  if (row.customsOfficeCode) {
+    form.goodsLocationCustomsOfficeCode = row.customsOfficeCode
+    message.info(t('dt.goodsLocationOfficeFromNsi', { code: row.customsOfficeCode }))
+  }
+}
+const pickOffice = (code: string) => {
+  form.goodsLocationCustomsOfficeCode = code
+  emitChange()
+}
+const onOfficeChange = (value: string | undefined) => {
+  form.goodsLocationCustomsOfficeCode = value ?? ''
+  emitChange()
+}
+const officePlaceholder = computed(() => {
+  const code = (props.modelValue.submissionCustomsOfficeCode ?? '').trim()
+  return code ? t('dt.goodsLocationOfficeAsSubmission', { code }) : t('dt.goodsLocationOfficeAsSubmissionEmpty')
+})
 onBeforeUnmount(() => window.clearTimeout(registryTimer))
 
 const numberHelp = computed(() => {
@@ -244,4 +292,7 @@ const stationLooksLikeVehicleNumber = computed(() => /^\d+$/.test((form.goodsLoc
 .reg-kind { color: var(--z-text-secondary, #8c8c8c); font-size: 12px; margin-left: 6px; }
 .reg-sub { color: var(--z-text-secondary, #8c8c8c); font-size: 12px; }
 .reg-tag { margin-left: 6px; }
+.office-choices { margin-top: 6px; line-height: 1.9; }
+.office-choices-title { color: var(--z-text-secondary, #8c8c8c); font-size: 12px; margin-right: 6px; }
+.office-choice { cursor: pointer; }
 </style>

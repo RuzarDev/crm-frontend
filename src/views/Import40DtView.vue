@@ -421,6 +421,7 @@ const dtForm = reactive<DtFormState>({
   goodsLocationCountryCode: 'KZ',
   goodsLocationStation: '',
   goodsLocationAddress: '',
+  goodsLocationCustomsOfficeCode: '',
   borderCustomsOfficeCode: '',
   borderCustomsOfficeName: '',
   submissionCustomsOfficeCode: '',
@@ -734,6 +735,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.goodsLocationCountryCode = decl.goodsLocationCountryCode ?? 'KZ'
   dtForm.goodsLocationStation = decl.goodsLocationStation ?? ''
   dtForm.goodsLocationAddress = decl.goodsLocationAddress ?? ''
+  dtForm.goodsLocationCustomsOfficeCode = decl.goodsLocationCustomsOfficeCode ?? ''
   dtForm.borderCustomsOfficeCode = decl.borderCustomsOfficeCode ?? ''
   dtForm.borderCustomsOfficeName = decl.borderCustomsOfficeName ?? ''
   dtForm.submissionCustomsOfficeCode = decl.submissionCustomsOfficeCode ?? ''
@@ -1374,6 +1376,7 @@ const saveDt = async (silent = false): Promise<boolean> => {
       goodsLocationCountryCode: dtForm.goodsLocationCountryCode || null,
       goodsLocationStation: dtForm.goodsLocationStation || null,
       goodsLocationAddress: dtForm.goodsLocationAddress || null,
+      goodsLocationCustomsOfficeCode: dtForm.goodsLocationCustomsOfficeCode || null,
       borderCustomsOfficeCode: dtForm.borderCustomsOfficeCode || null,
       borderCustomsOfficeName: dtForm.borderCustomsOfficeName || null,
       submissionCustomsOfficeCode: dtForm.submissionCustomsOfficeCode || null,

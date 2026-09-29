@@ -91,6 +91,26 @@
           </a-descriptions>
           <div class="muted" style="margin-top: 8px">{{ t('admin.svhTsHint') }}</div>
         </a-card>
+        <!-- НСИ КГД: БИН → код таможенного органа (подсказка «Таможенный орган (местонахождение)» гр.30) -->
+        <a-card :title="t('admin.svhTsNsiTitle')" size="small" style="margin-top: 12px">
+          <template #extra>
+            <a-space>
+              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="(f: File) => onNsiFile('svh', f)">
+                <a-button size="small" :loading="nsiBusy">{{ t('admin.svhTsNsiUploadSvh') }}</a-button>
+              </a-upload>
+              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="(f: File) => onNsiFile('customs_warehouse', f)">
+                <a-button size="small" :loading="nsiBusy">{{ t('admin.svhTsNsiUploadTs') }}</a-button>
+              </a-upload>
+              <a-button type="primary" size="small" :loading="nsiBusy" @click="importNsi">{{ t('admin.svhTsNsiImport') }}</a-button>
+            </a-space>
+          </template>
+          <a-descriptions size="small" :column="1" bordered>
+            <a-descriptions-item :label="t('admin.svhTsKindSvh')">{{ nsiCount('svh') }}</a-descriptions-item>
+            <a-descriptions-item :label="t('admin.svhTsKindTs')">{{ nsiCount('customs_warehouse') }}</a-descriptions-item>
+            <a-descriptions-item :label="t('admin.obnovleno')">{{ nsiUpdated }}</a-descriptions-item>
+          </a-descriptions>
+          <div class="muted" style="margin-top: 8px">{{ t('admin.svhTsNsiHint') }}</div>
+        </a-card>
       </a-tab-pane>
     </a-tabs>
 
@@ -131,7 +151,7 @@ import { useClassifiersStore } from '@/stores/classifiers'
 import PageHeader from '@/components/PageHeader.vue'
 import KatoSelect from '@/components/KatoSelect.vue'
 import { katoApi, type KatoStatus } from '@/api/kato'
-import { warehouseRegistryApi, type WarehouseKindStatus, type WarehouseKind } from '@/api/warehouseRegistry'
+import { warehouseRegistryApi, warehouseNsiApi, type WarehouseKindStatus, type WarehouseKind, type WarehouseNsiImportKindResult } from '@/api/warehouseRegistry'
 import type { KgdCompareResult } from '@/api/references'
 
 const { t } = useI18n()
@@ -315,6 +335,36 @@ const importWarehouses = async () => {
   finally { whBusy.value = false }
 }
 
+// ── НСИ КГД по СВХ/ТС: коды таможенных органов (ref_warehouse_nsi) ──
+const nsiStatus = ref<WarehouseKindStatus[]>([])
+const nsiBusy = ref(false)
+const nsiCount = (kind: WarehouseKind) => nsiStatus.value.find((k) => k.kind === kind)?.total ?? 0
+const nsiUpdated = computed(() => {
+  const times = nsiStatus.value.map((k) => k.importedAtUtc).filter((x): x is string => !!x).sort()
+  return times.length ? new Date(times[times.length - 1]).toLocaleString('ru-RU') : '—'
+})
+const loadNsiStatus = async () => { try { nsiStatus.value = (await warehouseNsiApi.status()).kinds } catch { /* вкладка необязательная */ } }
+const reportNsi = (kinds: WarehouseNsiImportKindResult[]) => {
+  for (const k of kinds) {
+    const kind = k.kind === 'svh' ? t('admin.svhTsKindSvh') : t('admin.svhTsKindTs')
+    if (k.error) message.warning(t('admin.svhTsNsiError', { kind }))
+    else message.success(t('admin.svhTsNsiResult', { kind, total: k.total }))
+  }
+}
+const importNsi = async () => {
+  nsiBusy.value = true
+  try { reportNsi((await warehouseNsiApi.importFromKgd()).kinds); await loadNsiStatus() }
+  catch { /* текст ошибки уже показал общий перехватчик — аудит 1.1 */ }
+  finally { nsiBusy.value = false }
+}
+const onNsiFile = async (kind: WarehouseKind, file: File) => {
+  nsiBusy.value = true
+  try { reportNsi((await warehouseNsiApi.importFile(kind, file)).kinds); await loadNsiStatus() }
+  catch { /* текст ошибки уже показал общий перехватчик — аудит 1.1 */ }
+  finally { nsiBusy.value = false }
+  return false
+}
+
 // ── Сверка постов с КГД ──
 const kgdOpen = ref(false)
 const kgdLoading = ref(false)
@@ -353,6 +403,7 @@ onMounted(async () => {
   } catch { message.error(t('admin.neUdalosZagruzitKlassifikatory')) }
   await loadKatoStatus()
   await loadWarehouseStatus()
+  await loadNsiStatus()
 })
 </script>
 

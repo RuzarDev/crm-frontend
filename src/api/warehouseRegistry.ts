@@ -16,6 +16,17 @@ export interface WarehouseRegistryItem {
   includedDate: string | null
   isSuspended: boolean
   numberCorrected: boolean
+  /** Таможенный орган места нахождения из НСИ КГД по БИН: однозначный код или null. */
+  customsOfficeCode?: string | null
+  /** Все органы, найденные в НСИ по БИН (лучшие по адресу — первыми). */
+  customsOffices?: WarehouseOfficeSuggestion[]
+}
+
+export interface WarehouseOfficeSuggestion {
+  customsOfficeCode: string
+  ownerName: string
+  address: string | null
+  kind: WarehouseKind
 }
 
 export interface WarehouseKindStatus { kind: WarehouseKind; total: number; importedAtUtc: string | null }
@@ -36,6 +47,23 @@ export const warehouseRegistryApi = {
     (await apiClient.get('/ref/warehouse-registry/status')).data,
   importFromKgd: async (): Promise<{ kinds: WarehouseImportKindResult[] }> =>
     (await apiClient.post('/ref/warehouse-registry/import', null, { timeout: 180000 })).data,
+}
+
+// НСИ КГД по СВХ (tssbx) и таможенным складам (tsstm): БИН → код таможенного органа (гр.30).
+export interface WarehouseNsiImportKindResult { kind: WarehouseKind; total: number; source: string; error: string | null }
+
+export const warehouseNsiApi = {
+  status: async (): Promise<{ kinds: WarehouseKindStatus[] }> =>
+    (await apiClient.get('/ref/warehouse-nsi/status')).data,
+  importFromKgd: async (): Promise<{ kinds: WarehouseNsiImportKindResult[] }> =>
+    (await apiClient.post('/ref/warehouse-nsi/import', null, { timeout: 180000 })).data,
+  /** Запасной путь: xlsx, скачанный кнопкой EXCEL на kgd.gov.kz/ru/nsi/tssbx (или /tsstm). */
+  importFile: async (kind: WarehouseKind, file: File): Promise<{ kinds: WarehouseNsiImportKindResult[] }> => {
+    const fd = new FormData()
+    fd.append('kind', kind)
+    fd.append('file', file)
+    return (await apiClient.post('/ref/warehouse-nsi/import', fd, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 180000 })).data
+  },
 }
 
 /** Значение поля гр.30 для записи реестра: номер КЕДЕН, а у старых записей — старый номер. */
