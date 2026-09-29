@@ -26,9 +26,27 @@
           > {{ t('dt.sohranitVSpravochnik2') }} </a-button>
         </a-input-group>
       </a-form-item>
-      <a-form-item>
+      <!-- Номер из реестров СВХ/ТС КГД: подсказка по номеру, названию, БИН; ручной ввод остаётся (реестр стареет).
+           Формат и контрольные цифры проверяются локально — предупреждение, не блокировка. -->
+      <a-form-item
+        :validate-status="numberHelp ? 'warning' : undefined"
+        :help="numberHelp ?? undefined"
+      >
         <template #label><DtGraphLabel graph="30" :text="t('dt.nomerSvh')" /></template>
-        <a-input v-uppercase v-model:value="form.goodsLocationRegisterNumber" :disabled="readonly" :placeholder="t('dt.regNomerSvh')" @change="emitChange" />
+        <a-auto-complete
+          :value="form.goodsLocationRegisterNumber ?? undefined" :options="registryOptions" :filter-option="false"
+          :disabled="readonly" :placeholder="t('dt.regNomerSvh')" :dropdown-match-select-width="false"
+          :dropdown-style="{ minWidth: '420px', maxWidth: '620px' }" style="width: 100%"
+          @search="onRegistrySearch" @select="onRegistrySelect" @update:value="onRegisterNumberInput"
+        >
+          <template #option="{ number, owner, sub, kindLabel, suspended }">
+            <div class="reg-opt">
+              <div><b>{{ number }}</b> <span class="reg-kind">{{ kindLabel }}</span>
+                <a-tag v-if="suspended" color="orange" class="reg-tag">{{ t('dt.svhPriostanovleno') }}</a-tag></div>
+              <div class="reg-sub">{{ owner }}<template v-if="sub"> · {{ sub }}</template></div>
+            </div>
+          </template>
+        </a-auto-complete>
       </a-form-item>
       <a-form-item>
         <template #label><DtGraphLabel graph="30" :text="t('dt.stranaMestaTovarov')" /></template>
@@ -69,11 +87,13 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { referencesApi } from '@/api/references'
+import { warehouseRegistryApi, warehouseValue, type WarehouseRegistryItem } from '@/api/warehouseRegistry'
+import { checkWarehouseNumber } from '@/utils/warehouseNumber'
 import type { Import40DtFormState } from '@/api/import40'
 import { ALPHA2_COUNTRIES } from '@/types/api'
 import './dt-sections.css'
@@ -156,6 +176,59 @@ const addGoodsLocation = async () => {
   }
 }
 
+// Гр.30 — реестры СВХ и таможенных складов КГД: автодополнение номера (номер · владелец · адрес).
+// Значение опции — «reg:<id>» (у старых записей номер не уникален), в поле кладём номер при выборе.
+const registryRows = ref<WarehouseRegistryItem[]>([])
+let registryTimer: number | undefined
+let registrySeq = 0
+const registryOptions = computed(() => registryRows.value.map((r) => ({
+  value: `reg:${r.id}`,
+  number: warehouseValue(r),
+  owner: r.ownerName,
+  sub: r.address ?? '',
+  kindLabel: r.kind === 'svh' ? t('dt.svhKind') : t('dt.tsKind'),
+  suspended: r.isSuspended,
+})))
+const onRegistrySearch = (q: string) => {
+  window.clearTimeout(registryTimer)
+  const term = (q ?? '').trim()
+  if (term.startsWith('reg:')) return // библиотека эхом присылает ключ выбранной опции
+  if (term.length < 2) { registryRows.value = []; return }
+  registryTimer = window.setTimeout(async () => {
+    const seq = ++registrySeq
+    try {
+      const rows = await warehouseRegistryApi.search(term)
+      if (seq === registrySeq) registryRows.value = rows
+    } catch {
+      if (seq === registrySeq) registryRows.value = [] // реестр — подсказка: без него остаётся ручной ввод
+    }
+  }, 300)
+}
+const onRegisterNumberInput = (v: string | undefined) => {
+  if (typeof v === 'string' && v.startsWith('reg:')) return // выбор из списка обработает onRegistrySelect
+  form.goodsLocationRegisterNumber = (v ?? '').toUpperCase()
+  emitChange()
+}
+const onRegistrySelect = (key: string) => {
+  const id = Number(String(key).replace('reg:', ''))
+  const row = registryRows.value.find((r) => r.id === id)
+  if (!row) return
+  form.goodsLocationRegisterNumber = warehouseValue(row).toUpperCase()
+  // Адрес подставляем только в пустое поле — введённое декларантом не затираем.
+  if (!(form.goodsLocationAddress ?? '').trim() && row.address) form.goodsLocationAddress = row.address.toUpperCase()
+  emitChange()
+}
+onBeforeUnmount(() => window.clearTimeout(registryTimer))
+
+const numberHelp = computed(() => {
+  switch (checkWarehouseNumber(form.goodsLocationRegisterNumber)) {
+    case 'checksum': return t('dt.svhKontrolnyeCifry')
+    case 'format': return t('dt.svhFormatNomera')
+    case 'legacy': return t('dt.svhStaryyNomer')
+    default: return null
+  }
+})
+
 // Гр.30, код 52 — «товары в транспортном средстве»: номера ТС берутся из гр.18.
 const isOnTransport = computed(() => (form.goodsLocationCode ?? '').trim() === '52')
 const onOnTransportChange = (e: { target: { checked: boolean } }) => {
@@ -165,3 +238,10 @@ const onOnTransportChange = (e: { target: { checked: boolean } }) => {
 // Старые данные: в «Станцию» вписан номер вагона/ТС (одни цифры) — как название места он не выгружается.
 const stationLooksLikeVehicleNumber = computed(() => /^\d+$/.test((form.goodsLocationStation ?? '').trim()))
 </script>
+
+<style scoped>
+.reg-opt { line-height: 1.35; white-space: normal; }
+.reg-kind { color: var(--z-text-secondary, #8c8c8c); font-size: 12px; margin-left: 6px; }
+.reg-sub { color: var(--z-text-secondary, #8c8c8c); font-size: 12px; }
+.reg-tag { margin-left: 6px; }
+</style>

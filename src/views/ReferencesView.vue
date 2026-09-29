@@ -78,6 +78,20 @@
           </div>
         </a-card>
       </a-tab-pane>
+
+      <a-tab-pane key="warehouses" :tab="t('admin.svhTs')">
+        <a-card :title="t('admin.svhTsTitle')" size="small">
+          <template #extra>
+            <a-button type="primary" size="small" :loading="whBusy" @click="importWarehouses">{{ t('admin.svhTsImport') }}</a-button>
+          </template>
+          <a-descriptions size="small" :column="1" bordered>
+            <a-descriptions-item :label="t('admin.svhTsKindSvh')">{{ whCount('svh') }}</a-descriptions-item>
+            <a-descriptions-item :label="t('admin.svhTsKindTs')">{{ whCount('customs_warehouse') }}</a-descriptions-item>
+            <a-descriptions-item :label="t('admin.obnovleno')">{{ whUpdated }}</a-descriptions-item>
+          </a-descriptions>
+          <div class="muted" style="margin-top: 8px">{{ t('admin.svhTsHint') }}</div>
+        </a-card>
+      </a-tab-pane>
     </a-tabs>
 
     <a-modal v-model:open="kgdOpen" :title="t('admin.sverkaSKatalogomKgd')" width="820px" :ok-text="t('admin.dobavitVybrannye', { n: kgdSelected.length })" :ok-button-props="{ disabled: !kgdSelected.length }" :confirm-loading="kgdLoading" @ok="applyKgd">
@@ -117,6 +131,7 @@ import { useClassifiersStore } from '@/stores/classifiers'
 import PageHeader from '@/components/PageHeader.vue'
 import KatoSelect from '@/components/KatoSelect.vue'
 import { katoApi, type KatoStatus } from '@/api/kato'
+import { warehouseRegistryApi, type WarehouseKindStatus, type WarehouseKind } from '@/api/warehouseRegistry'
 import type { KgdCompareResult } from '@/api/references'
 
 const { t } = useI18n()
@@ -277,6 +292,29 @@ const onKatoFile = async (file: File) => {
   return false
 }
 
+// ── Реестры СВХ и таможенных складов КГД (ref_warehouse_registry) ──
+const whStatus = ref<WarehouseKindStatus[]>([])
+const whBusy = ref(false)
+const whCount = (kind: WarehouseKind) => whStatus.value.find((k) => k.kind === kind)?.total ?? 0
+const whUpdated = computed(() => {
+  const times = whStatus.value.map((k) => k.importedAtUtc).filter((x): x is string => !!x).sort()
+  return times.length ? new Date(times[times.length - 1]).toLocaleString('ru-RU') : '—'
+})
+const loadWarehouseStatus = async () => { try { whStatus.value = (await warehouseRegistryApi.status()).kinds } catch { /* вкладка необязательная */ } }
+const importWarehouses = async () => {
+  whBusy.value = true
+  try {
+    const r = await warehouseRegistryApi.importFromKgd()
+    for (const k of r.kinds) {
+      const kind = k.kind === 'svh' ? t('admin.svhTsKindSvh') : t('admin.svhTsKindTs')
+      if (k.error) message.warning(t('admin.svhTsImportError', { kind }))
+      else message.success(t('admin.svhTsImportResult', { kind, total: k.total, added: k.added, updated: k.updated }))
+    }
+    await loadWarehouseStatus()
+  } catch { /* текст ошибки уже показал общий перехватчик — аудит 1.1 */ }
+  finally { whBusy.value = false }
+}
+
 // ── Сверка постов с КГД ──
 const kgdOpen = ref(false)
 const kgdLoading = ref(false)
@@ -314,6 +352,7 @@ onMounted(async () => {
     await loadClassifierGroups()
   } catch { message.error(t('admin.neUdalosZagruzitKlassifikatory')) }
   await loadKatoStatus()
+  await loadWarehouseStatus()
 })
 </script>
 

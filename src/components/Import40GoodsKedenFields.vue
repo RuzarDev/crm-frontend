@@ -100,14 +100,41 @@
             <QuestionCircleOutlined style="margin-left: 4px; color: var(--z-text-secondary, #999)" />
           </a-tooltip>
         </div>
+        <!-- Справочник кодов (Приказ МФ РК №259) с поиском по коду и словам; свой код можно вписать — тогда предупреждение. -->
         <a-select :value="featureCodesArray(good)" mode="tags" size="small" :disabled="readonly"
-          :dropdown-match-select-width="false" allow-clear :token-separators="[',', ';']"
-          :get-popup-container="popupContainer" placeholder="D0110, C0300"
-          :status="invalidFeatureCodes(good.prohibitionCode).length ? 'warning' : undefined"
-          @change="(v: string[]) => onFeatureCodesChange(good, v)" />
+          :options="prohibitionOptions" option-label-prop="value" option-filter-prop="label"
+          :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '620px' }" allow-clear
+          :token-separators="[',', ';']" :get-popup-container="popupContainer"
+          :placeholder="t('dt.kodyGr33Placeholder')"
+          :status="invalidFeatureCodes(good.prohibitionCode).length || unknownFeatureCodes(good).length ? 'warning' : undefined"
+          @change="(v: string[]) => onFeatureCodesChange(good, v)">
+          <template #tag="{ value: codeValue, onClose }">
+            <a-tag class="ois-mark-tag" :title="prohibitionTitle(codeValue)" :closable="!readonly" @close="onClose">{{ codeValue }}</a-tag>
+          </template>
+        </a-select>
         <div v-if="invalidFeatureCodes(good.prohibitionCode).length" class="field-hint-warn">
           {{ t('dt.priznakiNetarifnogoFormat', { codes: invalidFeatureCodes(good.prohibitionCode).join(', ') }) }}
-        </div></div>
+        </div>
+        <div v-else-if="unknownFeatureCodes(good).length" class="field-hint-warn">
+          {{ t('dt.kodyNeVSpravochnike', { codes: unknownFeatureCodes(good).join(', ') }) }}
+        </div>
+        <!-- Подсказки по ТН ВЭД из KEDEN: ничего не подставляем сами — коды выбирает декларант (юридическая ответственность). -->
+        <div v-if="!readonly && suggest.tnved" class="sug-row">
+          <a-spin v-if="suggest.loading" size="small" />
+          <template v-else-if="suggest.codes.length">
+            <span class="sug-label">{{ t('dt.podskazkiPoTnved', { code: suggest.tnved }) }}</span>
+            <a-tag v-for="c in suggest.codes" :key="c.code" class="sug-chip" :class="{ 'sug-chip-on': isFeatureSelected(good, c.code) }"
+              :title="c.name ?? c.code" @click="addFeatureCode(good, c.code)">{{ c.code }}</a-tag>
+            <a-tooltip :title="t('dt.dobavitNePodpadaetHint')">
+              <a-button v-if="negativeToAdd(good).length" type="link" size="small" class="sug-neg" @click="addNegativeCodes(good)">
+                {{ t('dt.dobavitNePodpadaet') }}
+              </a-button>
+            </a-tooltip>
+            <span v-if="suggest.warning" class="sug-note">{{ t('dt.podskazkiStale') }}</span>
+          </template>
+          <span v-else class="sug-note">{{ suggest.failed ? t('dt.podskazkiNedostupny') : t('dt.podskazkiPusto') }}</span>
+        </div>
+        </div>
       <div class="field"><div class="field-label">{{ t('dt.regPoOis') }}</div>
         <a-input v-uppercase v-model:value="good.oisRegNumber" size="small" :disabled="readonly" @change="emitChange" /></div>
       <div class="field"><div class="field-label">{{ t('dt.kodStranyOis') }}</div>
@@ -208,13 +235,14 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { CloseOutlined, CopyOutlined, QuestionCircleOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import * as XLSX from 'xlsx'
 import type { Import40GoodsItemInput, Import40GoodsPayment, Import40GoodsMarking } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
-import { invalidFeatureCodes, joinFeatureCodes, splitFeatureCodes } from '@/utils/nonTariffCodes'
+import { FEATURE_CODE_RE, invalidFeatureCodes, joinFeatureCodes, splitFeatureCodes } from '@/utils/nonTariffCodes'
+import { prohibitionCodesApi, type ProhibitionCodeItem, type SuggestedProhibitionCode } from '@/api/prohibitionCodes'
 
 const { t } = useI18n()
 
@@ -357,6 +385,71 @@ const featureCodesArray = (g: Import40GoodsItemInput): string[] => splitFeatureC
 const onFeatureCodesChange = (g: Import40GoodsItemInput, values: string[]) => {
   g.prohibitionCode = joinFeatureCodes(values)
   emitChange()
+}
+
+// Справочник кодов гр.33 (ref_prohibition_codes): грузится один раз на сессию; если не загрузился —
+// поле работает как свободный ввод (предупреждение «нет в справочнике» тогда не показываем).
+const prohibitionRef = ref<ProhibitionCodeItem[]>([])
+const prohibitionByCode = computed(() => new Map(prohibitionRef.value.map((c) => [c.code, c])))
+const shorten = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s)
+const prohibitionOptions = computed(() => {
+  const groups = new Map<string, { label: string; options: { value: string; label: string; title: string }[] }>()
+  for (const c of prohibitionRef.value) {
+    let grp = groups.get(c.categoryCode)
+    if (!grp) {
+      grp = { label: `${c.categoryCode} — ${shorten(c.categoryName, 70)}`, options: [] }
+      groups.set(c.categoryCode, grp)
+    }
+    grp.options.push({ value: c.code, label: `${c.code} — ${shorten(c.name, 90)}`, title: c.name })
+  }
+  return [...groups.values()]
+})
+const prohibitionTitle = (code: string) => prohibitionByCode.value.get(code)?.name ?? code
+const unknownFeatureCodes = (g: Import40GoodsItemInput): string[] =>
+  prohibitionRef.value.length
+    ? featureCodesArray(g).filter((c) => FEATURE_CODE_RE.test(c) && !prohibitionByCode.value.has(c))
+    : []
+
+onMounted(async () => {
+  try { prohibitionRef.value = await prohibitionCodesApi.list() } catch { /* справочник необязателен: ввод остаётся свободным */ }
+})
+
+// Подсказки кодов по ТН ВЭД товара (из «Справки по товару» KEDEN). Клик по чипу добавляет код —
+// сами ничего не подставляем: набор кодов выбирает декларант.
+const suggest = reactive({
+  tnved: '', loading: false, failed: false, warning: false, codes: [] as SuggestedProhibitionCode[],
+})
+let suggestSeq = 0
+const loadSuggestions = async (raw: string | null | undefined) => {
+  const tnved = (raw ?? '').replace(/\D/g, '')
+  const seq = ++suggestSeq
+  if (tnved.length !== 10) { suggest.tnved = ''; suggest.codes = []; return }
+  suggest.tnved = tnved; suggest.loading = true; suggest.failed = false; suggest.warning = false; suggest.codes = []
+  try {
+    const r = await prohibitionCodesApi.suggest(tnved)
+    if (seq !== suggestSeq) return
+    suggest.codes = r.codes; suggest.warning = r.stale && r.codes.length > 0
+    suggest.failed = r.stale && r.codes.length === 0
+  } catch {
+    if (seq === suggestSeq) suggest.failed = true
+  } finally {
+    if (seq === suggestSeq) suggest.loading = false
+  }
+}
+watch(() => props.good.tnvedCode, (v) => { void loadSuggestions(v) }, { immediate: true })
+
+const isFeatureSelected = (g: Import40GoodsItemInput, code: string) => featureCodesArray(g).includes(code)
+const addFeatureCode = (g: Import40GoodsItemInput, code: string) => {
+  if (props.readonly || isFeatureSelected(g, code)) return
+  onFeatureCodesChange(g, [...featureCodesArray(g), code])
+}
+// «Не подпадает»: только подсказанные коды вида XX00 (C1700, C2000, D0100…), которых ещё нет в поле.
+const negativeToAdd = (g: Import40GoodsItemInput) =>
+  suggest.codes.filter((c) => c.isNegative && !isFeatureSelected(g, c.code))
+const addNegativeCodes = (g: Import40GoodsItemInput) => {
+  const add = negativeToAdd(g).map((c) => c.code)
+  if (props.readonly || !add.length) return
+  onFeatureCodesChange(g, [...featureCodesArray(g), ...add])
 }
 
 const onRestrictionMarksChange = (g: Import40GoodsItemInput, values: string[]) => {
@@ -542,6 +635,12 @@ const importMarkingsFromExcel = async (g: Import40GoodsItemInput, file: File) =>
 
 <style scoped>
 .field-hint-warn { margin-top: 2px; font-size: 12px; color: var(--z-warning, #d48806); }
+.sug-row { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; font-size: 12px; }
+.sug-label { color: var(--z-text-secondary, #8c8c8c); margin-right: 6px; }
+.sug-chip { cursor: pointer; margin-right: 4px; }
+.sug-chip-on { opacity: 0.45; cursor: default; }
+.sug-neg { padding: 0 4px; height: auto; font-size: 12px; }
+.sug-note { color: var(--z-text-secondary, #8c8c8c); margin-left: 4px; }
 .keden-fields { display: flex; flex-direction: column; gap: 2px; }
 .keden-flags { display: flex; gap: 6px; margin-bottom: 4px; }
 
