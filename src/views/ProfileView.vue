@@ -144,7 +144,7 @@ import { useClassifiersStore } from '@/stores/classifiers'
 import { declarantProfileApi, type DeclarantProfileDto } from '@/api/declarantProfile'
 import { authApi } from '@/api/auth'
 import { useI18n } from 'vue-i18n'
-import { ALPHA2_COUNTRIES } from '@/types/api'
+import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import { SaveOutlined, UserOutlined, IdcardOutlined, LockOutlined, BankOutlined } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -192,7 +192,7 @@ const profileRoleTags = computed(() => {
 })
 
 // Страна выдачи удостоверения — 2-буквенный код (как в гр.54 ДТ), выбор из справочника с поиском.
-const countryAlpha2Options = ALPHA2_COUNTRIES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+const countryAlpha2Options = useCountryAlpha2Options()
 const filterCountry = (input: string, option: { label: string }) => option.label.toLowerCase().includes(input.toLowerCase())
 
 // Профиль декларанта (гр.54)

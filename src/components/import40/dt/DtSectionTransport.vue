@@ -105,7 +105,7 @@ import { ArrowDownOutlined, ArrowUpOutlined, CloseOutlined } from '@ant-design/i
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import type { Import40DtFormState } from '@/api/import40'
-import { ALPHA2_COUNTRIES } from '@/types/api'
+import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import './dt-sections.css'
 
 const { t } = useI18n()
@@ -119,7 +119,7 @@ const emit = defineEmits<{ 'update:modelValue': [Import40DtFormState] }>()
 const classifiers = useClassifiersStore()
 
 // Национальность ТС (гр.21/18) — 2-буквенный код страны (KZ/CN/RU), в КЕДЕН уходит буквами.
-const countryAlpha2Options = ALPHA2_COUNTRIES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+const countryAlpha2Options = useCountryAlpha2Options()
 const filterAlpha2 = (input: string, option: { value: string; label: string }) =>
   option.label.toLowerCase().includes(input.toLowerCase())
 

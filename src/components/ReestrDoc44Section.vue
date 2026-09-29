@@ -175,14 +175,15 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import type { ReestrDoc44ItemInput, Import40Doc44ItemInput } from '@/types/api'
-import { EAES_DOC_CODES, ALPHA2_COUNTRIES } from '@/types/api'
+import { useClassifiersStore } from '@/stores/classifiers'
+import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 
 const { t } = useI18n()
 
-const countryOptions = ALPHA2_COUNTRIES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+const countryOptions = useCountryAlpha2Options()
 const filterCountry = (input: string, option: { label: string }) =>
   option.label.toLowerCase().includes(input.toLowerCase())
 
@@ -202,10 +203,10 @@ const emit = defineEmits<{
 
 const popupContainer = () => document.body
 
-const eaesOptions = EAES_DOC_CODES.map((c) => ({
-  value: c.code,
-  label: `${c.code} — ${c.name}`,
-}))
+// Виды документов — классификатор ЕЭК 2009 с сервера (сверяется с НСИ ЕЭК раз в неделю).
+const classifiers = useClassifiersStore()
+void classifiers.load('2009').catch(() => {})
+const eaesOptions = computed(() => classifiers.options('2009'))
 
 // Import40Doc44ItemInput расширяет ReestrDoc44ItemInput опциональными полями —
 // items хранит их, даже когда компонент используется в транзитном (не extended) режиме
@@ -252,8 +253,8 @@ function onAppliesToAllChange(item: Import40Doc44ItemInput, checked: boolean) {
 
 function onTypeCodeChange(item: ReestrDoc44ItemInput, code: string | null) {
   item.docTypeCode = code
-  const found = EAES_DOC_CODES.find((c) => c.code === code)
-  if (found) item.docTypeName = found.name
+  const found = classifiers.cache['2009']?.find((c) => c.code === code)
+  if (found) item.docTypeName = found.nameRu
   emitChange()
 }
 

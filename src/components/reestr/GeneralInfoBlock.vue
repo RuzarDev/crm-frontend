@@ -114,7 +114,6 @@
 import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref } from 'vue'
 import type { ReestrTransitFields } from '@/types/api'
-import { EAES_DOC_CODES } from '@/types/api'
 import { referencesApi } from '@/api/references'
 import { useClassifiersStore } from '@/stores/classifiers'
 
@@ -136,7 +135,9 @@ const entryMethodOptions = computed(() => classifiers.options('entry-method'))
 const movementDirectionOptions = computed(() => classifiers.options('movement-direction'))
 const usedAsDeclarationOptions = computed(() => classifiers.options('used-as-declaration'))
 
-const docTypeOptions = EAES_DOC_CODES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+// Виды документов — классификатор ЕЭК 2009 с сервера (сверяется с НСИ ЕЭК раз в неделю).
+void classifiers.load('2009').catch(() => {})
+const docTypeOptions = computed(() => classifiers.options('2009'))
 
 const CURRENCIES: Option[] = [
   { value: 'USD', label: 'USD — Доллар США' },

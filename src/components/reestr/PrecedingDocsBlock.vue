@@ -38,10 +38,10 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import type { ReestrPrecedingDocInput } from '@/types/api'
-import { EAES_DOC_CODES } from '@/types/api'
+import { useClassifiersStore } from '@/stores/classifiers'
 
 const { t } = useI18n()
 
@@ -58,7 +58,10 @@ type Option = { value: string; label: string }
 const filterOption = (input: string, option: Option) =>
   (option.label ?? '').toLowerCase().includes(input.toLowerCase())
 
-const docTypeOptions = EAES_DOC_CODES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+// Виды документов — классификатор ЕЭК 2009 с сервера (сверяется с НСИ ЕЭК раз в неделю).
+const classifiers = useClassifiersStore()
+void classifiers.load('2009').catch(() => {})
+const docTypeOptions = computed(() => classifiers.options('2009'))
 
 const items = ref<ReestrPrecedingDocInput[]>([])
 
