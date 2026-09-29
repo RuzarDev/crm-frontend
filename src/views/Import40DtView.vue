@@ -393,10 +393,12 @@ const dtForm = reactive<DtFormState>({
   exchangeRate: null,
   totalInvoiceValue: null,
   sender: emptyParty(),
+  senderDistrict: null,
   senderHouse: null,
   senderApt: null,
   senderShortName: null,
   receiver: emptyParty(),
+  receiverDistrict: null,
   receiverHouse: null,
   receiverApt: null,
   receiverBin: null,
@@ -444,6 +446,7 @@ const dtForm = reactive<DtFormState>({
   financialSubjectRegion: null,
   financialSubjectCity: null,
   financialSubjectStreet: null,
+  financialSubjectDistrict: null,
   financialSubjectHouse: null,
   financialSubjectApt: null,
   financialSubjectCategoryCode: null,
@@ -455,6 +458,7 @@ const dtForm = reactive<DtFormState>({
   declarantRegion: null,
   declarantCity: null,
   declarantStreet: null,
+  declarantDistrict: null,
   declarantHouse: null,
   declarantApt: null,
   declarantCategoryCode: null,
@@ -706,10 +710,12 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.exchangeRate = decl.exchangeRate ?? null
   dtForm.totalInvoiceValue = decl.totalInvoiceValue ?? null
   dtForm.sender = decl.sender ? { ...emptyParty(), ...decl.sender } : emptyParty()
+  dtForm.senderDistrict = decl.senderDistrict ?? null
   dtForm.senderHouse = decl.senderHouse ?? null
   dtForm.senderApt = decl.senderApt ?? null
   dtForm.senderShortName = decl.senderShortName ?? null
   dtForm.receiver = decl.receiver ? { ...emptyParty(), ...decl.receiver } : emptyParty()
+  dtForm.receiverDistrict = decl.receiverDistrict ?? null
   dtForm.receiverHouse = decl.receiverHouse ?? null
   dtForm.receiverApt = decl.receiverApt ?? null
   dtForm.receiverBin = decl.receiverBin ?? null
@@ -759,6 +765,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.financialSubjectRegion = decl.financialSubjectRegion ?? null
   dtForm.financialSubjectCity = decl.financialSubjectCity ?? null
   dtForm.financialSubjectStreet = decl.financialSubjectStreet ?? null
+  dtForm.financialSubjectDistrict = decl.financialSubjectDistrict ?? null
   dtForm.financialSubjectHouse = decl.financialSubjectHouse ?? null
   dtForm.financialSubjectApt = decl.financialSubjectApt ?? null
   dtForm.financialSubjectCategoryCode = decl.financialSubjectCategoryCode ?? null
@@ -770,6 +777,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
   dtForm.declarantRegion = decl.declarantRegion ?? null
   dtForm.declarantCity = decl.declarantCity ?? null
   dtForm.declarantStreet = decl.declarantStreet ?? null
+  dtForm.declarantDistrict = decl.declarantDistrict ?? null
   dtForm.declarantHouse = decl.declarantHouse ?? null
   dtForm.declarantApt = decl.declarantApt ?? null
   dtForm.declarantCategoryCode = decl.declarantCategoryCode ?? null
@@ -1342,10 +1350,12 @@ const saveDt = async (silent = false): Promise<boolean> => {
       exchangeRate: dtForm.exchangeRate,
       totalInvoiceValue: dtForm.totalInvoiceValue,
       sender: dtForm.sender,
+      senderDistrict: dtForm.senderDistrict || null,
       senderHouse: dtForm.senderHouse || null,
       senderApt: dtForm.senderApt || null,
       senderShortName: dtForm.senderShortName || null,
       receiver: dtForm.receiver,
+      receiverDistrict: dtForm.receiverDistrict || null,
       receiverHouse: dtForm.receiverHouse || null,
       receiverApt: dtForm.receiverApt || null,
       receiverBin: dtForm.receiverBin || null,
@@ -1388,6 +1398,7 @@ const saveDt = async (silent = false): Promise<boolean> => {
       financialSubjectRegion: dtForm.financialSubjectRegion || null,
       financialSubjectCity: dtForm.financialSubjectCity || null,
       financialSubjectStreet: dtForm.financialSubjectStreet || null,
+      financialSubjectDistrict: dtForm.financialSubjectDistrict || null,
       financialSubjectHouse: dtForm.financialSubjectHouse || null,
       financialSubjectApt: dtForm.financialSubjectApt || null,
       financialSubjectCategoryCode: dtForm.financialSubjectCategoryCode || null,
@@ -1399,6 +1410,7 @@ const saveDt = async (silent = false): Promise<boolean> => {
       declarantRegion: dtForm.declarantRegion || null,
       declarantCity: dtForm.declarantCity || null,
       declarantStreet: dtForm.declarantStreet || null,
+      declarantDistrict: dtForm.declarantDistrict || null,
       declarantHouse: dtForm.declarantHouse || null,
       declarantApt: dtForm.declarantApt || null,
       declarantCategoryCode: dtForm.declarantCategoryCode || null,

@@ -37,13 +37,16 @@
       </a-form-item>
     </div>
 
-    <!-- Станция/адрес (гр.30) относятся к месту нахождения на транспорте/станции (код 52 и
-         подобные), но точный набор триггер-кодов в справочнике goods-locations не размечен
-         отдельным признаком "транспорт". Показываем поля всегда как необязательные —
-         декларант заполняет их только когда это применимо к выбранному месту, лучше лишнее
-         пустое поле, чем скрытая графа, которая понадобится. -->
+    <!-- Станция/адрес (гр.30) нужны для кода 52 (товары в транспортном средстве) и подобных мест.
+         Показываем всегда как необязательные: лучше лишнее пустое поле, чем скрытая графа.
+         ВАЖНО: «Станция» — это НАЗВАНИЕ станции/места (СТ.АКСЕНГЕР). Номера вагонов/ТС в КЕДЕН-XML
+         берутся из гр.18 (arrivalTransportNumbers) и вводить их сюда не нужно. -->
     <div class="dt-grid-2">
-      <a-form-item>
+      <a-form-item
+        :extra="isOnTransport ? t('dt.stanciyaPodskazka52') : undefined"
+        :validate-status="stationLooksLikeVehicleNumber ? 'warning' : undefined"
+        :help="stationLooksLikeVehicleNumber ? t('dt.stanciyaNomerTs') : undefined"
+      >
         <template #label><DtGraphLabel graph="30" :text="t('dt.stanciya')" /></template>
         <a-input v-uppercase v-model:value="form.goodsLocationStation" :disabled="readonly" :placeholder="t('dt.stanciya2')" @change="emitChange" />
       </a-form-item>
@@ -53,13 +56,12 @@
       </a-form-item>
     </div>
 
-    <!-- Товар лежит на самом ТС (напр. вагон/цистерна) — переносим номера ТС из гр.18
-         (form.arrivalTransportNumbers) в гр.30 "Станция" одним действием, без ручного
-         перепечатывания. Пишем именно в goodsLocationStation, а не Address — поле
-         подписано "Станция" и по смыслу гр.30 ближе всего к транспортному признаку места. -->
+    <!-- Товар лежит на самом ТС (вагон/цистерна): одним действием ставим код 52. Номера ТС
+         в XML берутся из гр.18 сами — раньше галочка копировала их в «Станцию», и номер вагона
+         уезжал в название места. -->
     <div class="dt-grid-2">
       <a-form-item>
-        <a-checkbox v-model:checked="transferVehicleNumbers" :disabled="readonly" @change="onTransferVehicleNumbersChange"> {{ t('dt.tovarNaTransportnomSredstve') }} </a-checkbox>
+        <a-checkbox :checked="isOnTransport" :disabled="readonly" @change="onOnTransportChange"> {{ t('dt.tovarNaTransportnomSredstve') }} </a-checkbox>
       </a-form-item>
     </div>
   </div>
@@ -154,16 +156,12 @@ const addGoodsLocation = async () => {
   }
 }
 
-// Товар лежит на самом ТС (вагон/цистерна и т.п.) — переносим номера ТС из
-// гр.18 (form.arrivalTransportNumbers, приходят вместе с остальным dtForm
-// через props.modelValue) в гр.30 "Станция" одним действием.
-const transferVehicleNumbers = ref(false)
-const onTransferVehicleNumbersChange = () => {
-  if (!transferVehicleNumbers.value) return
-  const numbers = (props.modelValue.arrivalTransportNumbers ?? [])
-    .map((m) => m.number?.trim())
-    .filter((n): n is string => !!n)
-  form.goodsLocationStation = numbers.join(', ')
+// Гр.30, код 52 — «товары в транспортном средстве»: номера ТС берутся из гр.18.
+const isOnTransport = computed(() => (form.goodsLocationCode ?? '').trim() === '52')
+const onOnTransportChange = (e: { target: { checked: boolean } }) => {
+  form.goodsLocationCode = e.target.checked ? '52' : null
   emitChange()
 }
+// Старые данные: в «Станцию» вписан номер вагона/ТС (одни цифры) — как название места он не выгружается.
+const stationLooksLikeVehicleNumber = computed(() => /^\d+$/.test((form.goodsLocationStation ?? '').trim()))
 </script>

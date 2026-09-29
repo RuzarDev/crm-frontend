@@ -174,10 +174,12 @@ export interface Import40DeclarationDto {
   corridor: string
   procedureCode: string
   sender?: Import40Party | null
+  senderDistrict?: string | null
   senderHouse?: string | null
   senderApt?: string | null
   senderShortName?: string | null
   receiver?: Import40Party | null
+  receiverDistrict?: string | null
   receiverHouse?: string | null
   receiverApt?: string | null
   receiverBin?: string | null
@@ -233,6 +235,7 @@ export interface Import40DeclarationDto {
   financialSubjectRegion: string | null
   financialSubjectCity: string | null
   financialSubjectStreet: string | null
+  financialSubjectDistrict: string | null
   financialSubjectHouse: string | null
   financialSubjectApt: string | null
   financialSubjectCategoryCode: string | null
@@ -244,6 +247,7 @@ export interface Import40DeclarationDto {
   declarantRegion: string | null
   declarantCity: string | null
   declarantStreet: string | null
+  declarantDistrict: string | null
   declarantHouse: string | null
   declarantApt: string | null
   declarantCategoryCode: string | null
@@ -301,10 +305,12 @@ export interface Import40DeclarationUpsert {
   corridor?: string | null
   procedureCode?: string | null
   sender?: Import40Party | null
+  senderDistrict?: string | null
   senderHouse?: string | null
   senderApt?: string | null
   senderShortName?: string | null
   receiver?: Import40Party | null
+  receiverDistrict?: string | null
   receiverHouse?: string | null
   receiverApt?: string | null
   receiverBin?: string | null
@@ -357,6 +363,7 @@ export interface Import40DeclarationUpsert {
   financialSubjectRegion?: string | null
   financialSubjectCity?: string | null
   financialSubjectStreet?: string | null
+  financialSubjectDistrict?: string | null
   financialSubjectHouse?: string | null
   financialSubjectApt?: string | null
   financialSubjectCategoryCode?: string | null
@@ -368,6 +375,7 @@ export interface Import40DeclarationUpsert {
   declarantRegion?: string | null
   declarantCity?: string | null
   declarantStreet?: string | null
+  declarantDistrict?: string | null
   declarantHouse?: string | null
   declarantApt?: string | null
   declarantCategoryCode?: string | null

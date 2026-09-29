@@ -5,11 +5,11 @@
 // «… район» → район, «д./дом/зд.» → дом, «кв./оф./пом./н.п.» → помещение, остальное — улица.
 // Результат — ПОДСКАЗКА для предзаполнения пустых полей, не истина; исходная строка сохраняется отдельно.
 //
-// Как принято в КЕДЕН (эталонные выгрузки): район кладётся в RegionName, поэтому отдельного поля «Район»
-// в форме нет — используйте composeRegion(parsed) для поля «Область / регион».
+// Район («… РАЙОН») выделяется отдельно от области и идёт в поле «Район» (csdo:DistrictName);
+// «… ОБЛАСТЬ» / «Г.АЛМАТЫ» — в «Область / регион» (RegionName).
 export interface ParsedKzAddress {
   region: string | null
-  /** «… РАЙОН» — отдельно от области; в поле «Область» попадает через composeRegion. */
+  /** «… РАЙОН» — отдельно от области, для поля «Район». */
   district: string | null
   city: string | null
   street: string | null
@@ -72,10 +72,4 @@ export function parseKzAddress(address: string): ParsedKzAddress {
   }
   out.street = rest.length ? rest.join(', ') : null
   return out
-}
-
-/** Значение поля «Область / регион»: область и район (КЕДЕН кладёт район в RegionName). */
-export function composeRegion(p: Pick<ParsedKzAddress, 'region' | 'district'>): string | null {
-  const parts = [p.region, p.district].filter((x): x is string => !!x)
-  return parts.length ? parts.join(', ') : null
 }
