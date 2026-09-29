@@ -4,11 +4,9 @@
       <div class="brand">
         <!-- Знак Zircon (циркон-шаңырақ) 40px — полная версия (упрощённая только до 32px, брендбук Zircon). -->
         <img class="brand-mark" :src="zirconMark" alt="" width="40" height="40" />
+        <!-- Только название платформы, без подписи «Операции» / «Кабинет клиента» (владелец, 29.09). -->
         <div class="brand-text">
           <div class="brand-title">ZIRCON</div>
-          <!-- Клиенту не нужен внутренний термин «CRM Operations» — это его личный кабинет
-               брокера AQNIET, а не рабочий инструмент сотрудника (аудит 5.23). -->
-          <div class="brand-subtitle">{{ isClientRole ? t('header.brandSubtitleClient') : t('header.brandSubtitle') }}</div>
         </div>
       </div>
 
@@ -159,8 +157,7 @@
     <template #title>
       <div class="drawer-brand">
         <div>
-          <div class="drawer-brand-title">Zircon</div>
-          <div class="drawer-brand-sub">{{ isClientRole ? t('header.brandSubtitleClient') : t('header.brandSubtitle') }}</div>
+          <div class="drawer-brand-title">ZIRCON</div>
         </div>
       </div>
     </template>

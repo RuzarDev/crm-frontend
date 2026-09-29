@@ -78,8 +78,6 @@ export default {
   header: {
     searchPh: 'Іздеу: өтінім, ТД, клиент, шот',
     searchPhClient: 'Өтінім нөмірі, жүк, шот бойынша іздеу',
-    brandSubtitle: 'Операциялар',
-    brandSubtitleClient: 'AQNIET клиент кабинеті',
     logout: 'Шығу',
     notifications: 'Хабарламалар',
     notificationsEmpty: 'Жаңа хабарлама жоқ',
@@ -450,9 +448,8 @@ export default {
   },
   login: {
     forgot: 'Құпия сөзді ұмыттыңыз ба?',
-    kicker: 'AQNIET',
     heroTitle: 'Кедендік ресімдеу онлайн',
-    heroSubtitle: 'Клиенттің жеке кабинеті және AQNIET маманының жұмыс орны: өтінімдер, құжаттар, мәртебелер — бір терезеде.',
+    heroSubtitle: 'Клиенттің жеке кабинеті және маманның жұмыс орны: өтінімдер, құжаттар, мәртебелер — бір терезеде.',
     welcome: 'Қош келдіңіз',
     subtitle: 'Аккаунтыңызға кіріңіз',
     username: 'Логин',

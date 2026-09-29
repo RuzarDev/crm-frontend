@@ -15,10 +15,6 @@
         <img class="auth-logo" :src="zirconLogo" alt="Zircon CRM" height="60" />
         <!-- Hero -->
         <div class="auth-hero">
-          <div class="auth-eyebrow">
-            <span class="auth-eyebrow-dot"></span>
-            {{ t('login.kicker') }}
-          </div>
           <h1 class="auth-headline">
             {{ t('login.heroTitle') }}
           </h1>

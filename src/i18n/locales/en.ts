@@ -78,8 +78,6 @@ export default {
   header: {
     searchPh: 'Search: request, DT, client, invoice',
     searchPhClient: 'Search by request number, cargo, invoice',
-    brandSubtitle: 'Operations',
-    brandSubtitleClient: 'AQNIET client portal',
     logout: 'Log out',
     notifications: 'Notifications',
     notificationsEmpty: 'No new notifications',
@@ -450,9 +448,8 @@ export default {
   },
   login: {
     forgot: 'Forgot password?',
-    kicker: 'AQNIET',
     heroTitle: 'Customs clearance online',
-    heroSubtitle: 'A client portal and a workspace for AQNIET staff: requests, documents, statuses — in one place.',
+    heroSubtitle: 'A client portal and a workspace for customs specialists: requests, documents, statuses — in one place.',
     welcome: 'Welcome',
     subtitle: 'Sign in to your account',
     username: 'Login',

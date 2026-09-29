@@ -80,8 +80,6 @@ export default {
   header: {
     searchPh: 'Поиск: заявка, ДТ, клиент, счёт',
     searchPhClient: 'Поиск по номеру заявки, грузу, счёту',
-    brandSubtitle: 'Операции',
-    brandSubtitleClient: 'Кабинет клиента AQNIET',
     logout: 'Выйти',
     notifications: 'Уведомления',
     notificationsEmpty: 'Нет новых уведомлений',
@@ -455,9 +453,8 @@ export default {
   },
   login: {
     forgot: 'Забыли пароль?',
-    kicker: 'AQNIET',
     heroTitle: 'Таможенное оформление онлайн',
-    heroSubtitle: 'Личный кабинет клиента и рабочее место специалиста AQNIET: заявки, документы, статусы — в одном окне.',
+    heroSubtitle: 'Личный кабинет клиента и рабочее место специалиста: заявки, документы, статусы — в одном окне.',
     welcome: 'Добро пожаловать',
     subtitle: 'Войдите в свой аккаунт',
     username: 'Логин',
