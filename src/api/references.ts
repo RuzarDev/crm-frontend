@@ -9,14 +9,6 @@ import type {
   RefExpenseTypeDto,
 } from '@/types/api'
 
-export interface KgdPost { code: string; name: string; address: string | null; superseded: boolean }
-export interface KgdCompareResult {
-  newInKgd: KgdPost[]
-  missingInKgd: string[]
-  kgdTotal: number
-  ourTotal: number
-}
-
 export const referencesApi = {
   listStations: async (): Promise<RefItem[]> => (await apiClient.get('/ref/stations')).data,
   createStation: async (name: string): Promise<RefItem> => (await apiClient.post('/ref/stations', { name })).data,
@@ -28,10 +20,6 @@ export const referencesApi = {
   updateCustomsPost: async (id: string, name: string, isActive: boolean): Promise<RefItem> =>
     (await apiClient.put(`/ref/customs-posts/${id}`, { name, isActive })).data,
   deleteCustomsPost: async (id: string): Promise<void> => { await apiClient.delete(`/ref/customs-posts/${id}`) },
-  // Сверка с каталогом КГД (kgd.gov.kz/ru/nsi/ktam): расхождения → админ добавляет выбранные коды.
-  kgdComparePosts: async (): Promise<KgdCompareResult> => (await apiClient.get('/ref/customs-posts/kgd-compare')).data,
-  kgdAddPosts: async (codes: string[]): Promise<{ added: number }> =>
-    (await apiClient.post('/ref/customs-posts/kgd-add', { codes })).data,
 
   listCountries: async (): Promise<RefCodeItem[]> => (await apiClient.get('/ref/countries')).data,
   createCountry: async (code: string, name: string): Promise<RefCodeItem> =>

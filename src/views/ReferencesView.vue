@@ -14,10 +14,7 @@
           <a-col :span="12">
             <a-card :title="t('admin.tamozhennyePosty')">
               <template #extra>
-                <a-space>
-                  <a-button size="small" :loading="kgdLoading" @click="openKgdCompare">{{ t('admin.sveritSKgd') }}</a-button>
-                  <a-button type="primary" size="small" @click="openAdd('post')">{{ t('admin.dobavit') }}</a-button>
-                </a-space>
+                <a-button type="primary" size="small" @click="openAdd('post')">{{ t('admin.dobavit') }}</a-button>
               </template>
               <a-table :data-source="posts" :columns="columns" row-key="id" size="small" :pagination="false" />
             </a-card>
@@ -154,20 +151,6 @@
       </a-tab-pane>
     </a-tabs>
 
-    <a-modal v-model:open="kgdOpen" :title="t('admin.sverkaSKatalogomKgd')" width="820px" :ok-text="t('admin.dobavitVybrannye', { n: kgdSelected.length })" :ok-button-props="{ disabled: !kgdSelected.length }" :confirm-loading="kgdLoading" @ok="applyKgd">
-      <template v-if="kgd">
-        <p class="muted">{{ t('admin.kgdCompareSummary', { kgd: kgd.kgdTotal, ours: kgd.ourTotal }) }}
-          {{ t('admin.kgdCatalogHint') }}</p>
-        <h4>{{ t('admin.estVKgdNetUNas', { n: kgd.newInKgd.length }) }}</h4>
-        <a-table :data-source="kgd.newInKgd" :columns="kgdColumns" row-key="code" size="small" :pagination="false" :scroll="{ y: 280 }"
-          :row-selection="{ selectedRowKeys: kgdSelected, onChange: (keys: (string | number)[]) => (kgdSelected = keys.map(String)) }" />
-        <h4 style="margin-top: 16px">{{ t('admin.estUNasNetVKgd', { n: kgd.missingInKgd.length }) }}</h4>
-        <p class="muted">{{ t('admin.vozmozhnoZakrytyIliPereimenovany') }}</p>
-        <ul class="kgd-missing"><li v-for="n in kgd.missingInKgd" :key="n">{{ n }}</li></ul>
-      </template>
-      <a-spin v-else />
-    </a-modal>
-
     <a-modal v-model:open="eecOpen" :title="t('admin.eekSyncTitle')" width="780px" :footer="null">
       <p class="muted">{{ t('admin.eekSyncHint') }}</p>
       <a-table :data-source="eecResults" :columns="eecColumns" row-key="target" size="small" :pagination="false" :scroll="{ x: 690, y: 420 }" />
@@ -198,7 +181,6 @@ import KatoSelect from '@/components/KatoSelect.vue'
 import { katoApi, type KatoStatus } from '@/api/kato'
 import { troisApi, troisDate, type TroisItem, type TroisStatus } from '@/api/trois'
 import { warehouseRegistryApi, warehouseNsiApi, kedenRegistriesApi, type KedenRefreshResult, type WarehouseKindStatus, type WarehouseKind, type WarehouseNsiImportKindResult, type WarehouseImportKindResult } from '@/api/warehouseRegistry'
-import type { KgdCompareResult } from '@/api/references'
 
 const { t } = useI18n()
 
@@ -509,34 +491,6 @@ const onNsiFile = async (kind: WarehouseKind, file: File) => {
   return false
 }
 
-// ── Сверка постов с КГД ──
-const kgdOpen = ref(false)
-const kgdLoading = ref(false)
-const kgd = ref<KgdCompareResult | null>(null)
-const kgdSelected = ref<string[]>([])
-const kgdColumns = computed(() => ([
-
-  { title: t('admin.kod'), dataIndex: 'code', key: 'code', width: 80 },
-  { title: t('admin.nazvanie'), dataIndex: 'name', key: 'name' },
-  { title: t('admin.adres'), dataIndex: 'address', key: 'address', width: 260 },
-]))
-const openKgdCompare = async () => {
-  kgdOpen.value = true; kgd.value = null; kgdSelected.value = []; kgdLoading.value = true
-  try { kgd.value = await referencesApi.kgdComparePosts() }
-  catch { kgdOpen.value = false /* текст ошибки уже показал общий перехватчик — аудит 1.1 */ }
-  finally { kgdLoading.value = false }
-}
-const applyKgd = async () => {
-  kgdLoading.value = true
-  try {
-    const r = await referencesApi.kgdAddPosts(kgdSelected.value)
-    message.success(t('admin.dobavlenoPostov', { n: r.added }))
-    kgdOpen.value = false
-    await load()
-  } catch { message.error(t('admin.neUdalosDobavit')) }
-  finally { kgdLoading.value = false }
-}
-
 // Вкладки грузятся независимо: падение одной не должно оставлять другую пустой без объяснения.
 onMounted(async () => {
   try {
@@ -555,6 +509,5 @@ onMounted(async () => {
 <style scoped>
 .muted { color: var(--atg-muted, #95a1b7); font-size: 12px; }
 .kato-try { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
-.kgd-missing { margin: 0; padding-left: 18px; max-height: 160px; overflow: auto; font-size: 12.5px; }
 .eec-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 12px; }
 </style>
