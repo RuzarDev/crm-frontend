@@ -59,6 +59,9 @@ export const referencesApi = {
   updateClassifier: async (id: string, code: string, nameRu: string, sortOrder: number, isActive: boolean): Promise<ClassifierItem> =>
     (await apiClient.put(`/ref/classifiers/${id}`, { code, nameRu, sortOrder, isActive })).data,
   deleteClassifier: async (id: string): Promise<void> => { await apiClient.delete(`/ref/classifiers/${id}`) },
+  // Сверка классификаторов ДТ с НСИ ЕЭК и постов с КЕДЕН (админ). ~20 запросов к ЕЭК — дольше обычного таймаута.
+  syncEec: async (): Promise<EecSyncResult[]> =>
+    (await apiClient.post('/ref/classifiers/sync-eec', null, { timeout: 180000 })).data,
 
   // Пополнение расширяемых справочников пользователем (сейчас разрешено только для
   // goods-locations, гр.30) — POST /api/ref/classifiers/{code}/items, allow-list на бэкенде.
@@ -71,4 +74,13 @@ export const referencesApi = {
 
   listExpenseTypes: async (): Promise<RefExpenseTypeDto[]> =>
     (await apiClient.get('/ref/expense-types')).data,
+}
+
+export interface EecSyncResult {
+  target: string
+  source: string
+  sourceTotal: number
+  added: number
+  deactivated: number
+  error: string | null
 }

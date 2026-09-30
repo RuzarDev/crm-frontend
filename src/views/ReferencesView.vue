@@ -26,6 +26,12 @@
       </a-tab-pane>
 
       <a-tab-pane key="classifiers" :tab="t('admin.klassifikatory')">
+        <div class="eec-bar">
+          <span class="muted">{{ t('admin.eekBarHint') }}</span>
+          <a-popconfirm :title="t('admin.eekSyncConfirm')" :ok-text="t('admin.sveritSEek')" @confirm="runEecSync">
+            <a-button :loading="eecBusy">{{ t('admin.sveritSEek') }}</a-button>
+          </a-popconfirm>
+        </div>
         <a-row :gutter="24">
           <a-col :span="7">
             <a-card :title="t('admin.klassifikatory')" size="small">
@@ -162,6 +168,11 @@
       <a-spin v-else />
     </a-modal>
 
+    <a-modal v-model:open="eecOpen" :title="t('admin.eekSyncTitle')" width="780px" :footer="null">
+      <p class="muted">{{ t('admin.eekSyncHint') }}</p>
+      <a-table :data-source="eecResults" :columns="eecColumns" row-key="target" size="small" :pagination="false" :scroll="{ x: 690, y: 420 }" />
+    </a-modal>
+
     <a-modal v-model:open="modalOpen" :title="t('admin.dobavit')" @ok="save">
       <a-input v-model:value="nameInput" :placeholder="t('admin.nazvanie')" />
     </a-modal>
@@ -179,7 +190,7 @@
 import { useI18n } from 'vue-i18n'
 import { ref, onMounted, onBeforeUnmount, h, computed } from 'vue'
 import { message, Button } from 'ant-design-vue'
-import { referencesApi } from '@/api/references'
+import { referencesApi, type EecSyncResult } from '@/api/references'
 import type { RefItem, ClassifierItem, ClassifierGroup } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 import PageHeader from '@/components/PageHeader.vue'
@@ -256,8 +267,45 @@ const CLASSIFIER_TITLES = computed((): Record<string, string> => ({
   'transaction-natures': t('admin.harakterSdelkiGr24'),
   'goods-locations': t('admin.mestoNahozhdeniyaTovarovGr30'),
   'rate-types': t('admin.tipStavok'),
+  '2009': t('admin.eek2009'),
+  'customs-procedures': t('admin.eekProcedures'),
+  'movement-features': t('admin.eekMovementFeatures'),
+  'declaring-features': t('admin.eekDeclaringFeatures'),
+  'incoterms': t('admin.eekIncoterms'),
+  'vehicle-marks': t('admin.eekVehicleMarks'),
+  'okei-units': t('admin.eekOkeiUnits'),
+  'customs-posts': t('admin.eekCustomsPosts'),
 }))
 const classifierTitle = (code: string) => CLASSIFIER_TITLES.value[code] ?? code
+
+// Сверка с ЕЭК: добавляет недостающие коды, исключённые скрывает; итог — таблицей по справочникам.
+const eecBusy = ref(false)
+const eecOpen = ref(false)
+const eecResults = ref<EecSyncResult[]>([])
+const eecColumns = computed(() => ([
+  { title: t('admin.eekColTarget'), key: 'target', width: 230, customRender: ({ record }: { record: EecSyncResult }) => classifierTitle(record.target) },
+  { title: t('admin.eekColSource'), dataIndex: 'source', key: 'source', width: 90 },
+  { title: t('admin.eekColTotal'), dataIndex: 'sourceTotal', key: 'sourceTotal', width: 90, align: 'right' as const },
+  { title: t('admin.eekColAdded'), dataIndex: 'added', key: 'added', width: 90, align: 'right' as const },
+  { title: t('admin.eekColHidden'), dataIndex: 'deactivated', key: 'deactivated', width: 80, align: 'right' as const },
+  { title: t('admin.eekColError'), dataIndex: 'error', key: 'error', width: 110, customRender: ({ record }: { record: EecSyncResult }) => record.error ?? '' },
+]))
+const runEecSync = async () => {
+  eecBusy.value = true
+  try {
+    eecResults.value = await referencesApi.syncEec()
+    const added = eecResults.value.reduce((s, r) => s + r.added, 0)
+    const hidden = eecResults.value.reduce((s, r) => s + r.deactivated, 0)
+    const failed = eecResults.value.filter((r) => r.error).length
+    if (failed) message.warning(t('admin.eekSyncPartial', { added, hidden, failed }))
+    else message.success(t('admin.eekSyncDone', { added, hidden }))
+    eecOpen.value = true
+    classifiersStore.invalidate()
+    await loadClassifierGroups()
+    await loadClassifierItems()
+  } catch { /* текст ошибки показал общий перехватчик */ }
+  finally { eecBusy.value = false }
+}
 
 const classifierColumns = computed(() => ([
 
@@ -508,4 +556,5 @@ onMounted(async () => {
 .muted { color: var(--atg-muted, #95a1b7); font-size: 12px; }
 .kato-try { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
 .kgd-missing { margin: 0; padding-left: 18px; max-height: 160px; overflow: auto; font-size: 12.5px; }
+.eec-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 12px; }
 </style>
