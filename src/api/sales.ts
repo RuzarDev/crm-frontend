@@ -1,3 +1,4 @@
+import type { TnvedTariffOptionDto } from '@/types/api'
 import apiClient from './client'
 
 export interface SalesServiceItem {
@@ -28,6 +29,10 @@ export interface SalesCalcGoodsLine {
   unit?: string | null
   // ДТ Импорта 40: гр.45 (₸) как основа платежей вместо «инвойс × курс».
   customsValueKzt?: number | null
+  // Страна происхождения (ОКСМ) и выбор вида акциза / антидемпинга (данные КЕДЕН).
+  originCountry?: string | null
+  exciseKind?: string | null
+  antiDumpingKind?: string | null
 }
 
 export interface SalesCalcServiceResult {
@@ -50,6 +55,11 @@ export interface SalesCalcGoodsResult {
   vatKzt: number
   tpinTotalKzt: number
   error: string | null
+  antiDumpingKzt?: number
+  notes?: string | null
+  exciseKind?: string | null
+  exciseOptions?: TnvedTariffOptionDto[] | null
+  antiDumpingOptions?: TnvedTariffOptionDto[] | null
 }
 
 export interface SalesCalcResponse {

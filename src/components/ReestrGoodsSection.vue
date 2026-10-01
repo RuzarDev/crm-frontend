@@ -141,7 +141,16 @@
             :placeholder="t('dt.vyberiteStranuPoKodu')"
             @change="emit('update:modelValue', items.map(fromRow))"
           />
-          <AntiDumpingHint v-if="brandFields" :code="item.tnvedCode" :country="item.countryOfOrigin" />
+          <TariffOptionsHint
+            v-if="brandFields"
+            :code="item.tnvedCode"
+            :country="item.countryOfOrigin"
+            :excise-kind="item.exciseKind"
+            :anti-dumping-kind="item.antiDumpingKind"
+            :readonly="readonly"
+            @update:excise-kind="(v) => { item.exciseKind = v; emit('update:modelValue', items.map(fromRow)) }"
+            @update:anti-dumping-kind="(v) => { item.antiDumpingKind = v; emit('update:modelValue', items.map(fromRow)) }"
+          />
         </div>
       </div>
 
@@ -270,7 +279,7 @@ import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
 import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
 import TroisTrademarkHint from '@/components/import40/TroisTrademarkHint.vue'
-import AntiDumpingHint from '@/components/import40/AntiDumpingHint.vue'
+import TariffOptionsHint from '@/components/import40/TariffOptionsHint.vue'
 import type { ReestrGoodsItemInput } from '@/types/api'
 import { OKEI_QUANTITY_TYPE_CODES } from '@/types/api'
 
@@ -291,6 +300,9 @@ interface GoodsRow extends ReestrGoodsItemInput {
   productModelName?: string | null
   productArticle?: string | null
   manufacturerName?: string | null
+  // Выбор по данным КЕДЕН (Импорт 40): вид акциза и вариант антидемпинга.
+  exciseKind?: string | null
+  antiDumpingKind?: string | null
 }
 
 const props = defineProps<{

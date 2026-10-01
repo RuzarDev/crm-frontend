@@ -74,6 +74,10 @@
                 </div>
               </template>
               <template v-else-if="column.key === 'weight'"><a-input-number v-model:value="record.weightKg" :min="0" style="width: 90px" /></template>
+              <template v-else-if="column.key === 'country'">
+                <a-select v-model:value="record.originCountry" show-search allow-clear style="width: 150px"
+                  :options="countryOptions" :filter-option="filterOption" :placeholder="t('sales.calcOriginCountry')" />
+              </template>
               <template v-else-if="column.key === 'unit'"><a-input v-model:value="record.unit" :placeholder="t('sales.sht')" style="width: 80px" /></template>
               <template v-else-if="column.key === 'del'"><a-button type="text" danger size="small" @click="goodsLines.splice(index, 1)"><DeleteOutlined /></a-button></template>
             </template>
@@ -100,9 +104,29 @@
           </div>
           <a-table v-if="result.goods.length" :columns="resGoodsCols" :data-source="result.goods" :pagination="false" row-key="code" size="small" :scroll="{ x: 700 }">
             <template #bodyCell="{ column, record }">
-              <template v-if="['duty','excise','fee','vat','tpin','val'].includes(column.key)"><span class="z-num">{{ money(record[colField(column.key)]) }}</span></template>
+              <template v-if="['duty','ad','excise','fee','vat','tpin','val'].includes(column.key)"><span class="z-num">{{ money(record[colField(column.key)] ?? 0) }}</span></template>
             </template>
           </a-table>
+          <!-- Данные КЕДЕН по товарам: ставка по стране, выбор вида акциза и антидемпинга (пересчёт сразу). -->
+          <div v-for="(g, gi) in result.goods" :key="'kd' + gi" class="kd-goods">
+            <template v-if="g.notes || (g.exciseOptions?.length ?? 0) > 1 || g.antiDumpingOptions?.length">
+              <div class="kd-title">{{ g.code }} — {{ g.description }}</div>
+              <p v-if="g.notes" class="muted kd-notes">{{ g.notes }}</p>
+              <div v-if="(g.exciseOptions?.length ?? 0) > 1" class="kd-choice">
+                <span class="kd-label">{{ t('dt.tariffExciseKind') }}</span>
+                <a-select :value="g.exciseKind" size="small" style="min-width: 320px; max-width: 100%"
+                  :options="g.exciseOptions!.map((o) => ({ value: o.key, label: `${o.rate} — ${o.condition ?? ''}` }))"
+                  @change="(v: string) => { if (goodsLines[gi]) { goodsLines[gi].exciseKind = v; calculate() } }" />
+              </div>
+              <div v-if="g.antiDumpingOptions?.length" class="kd-choice">
+                <span class="kd-label">{{ t('dt.tariffAntiDumping') }}</span>
+                <a-select :value="goodsLines[gi]?.antiDumpingKind ?? ''" size="small" style="min-width: 320px; max-width: 100%"
+                  :options="[{ value: '', label: t('dt.tariffAntiDumpingNone') },
+                             ...g.antiDumpingOptions!.map((o) => ({ value: o.key, label: `${o.rate} (${o.country ?? ''}) — ${o.condition ?? ''}` }))]"
+                  @change="(v: string) => { if (goodsLines[gi]) { goodsLines[gi].antiDumpingKind = v || null; calculate() } }" />
+              </div>
+            </template>
+          </div>
         </a-card>
       </div>
     </template>
@@ -160,6 +184,7 @@ import {
   type SalesCalcResponse, type SalesQuoteDto, type SalesQuoteListItem, type SalesServiceItem,
 } from '@/api/sales'
 import { tnvedApi } from '@/api/tnved'
+import { referencesApi } from '@/api/references'
 import type { TnvedCurrencyDto } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { useAuthStore } from '@/stores/auth'
@@ -203,9 +228,17 @@ const addCustomService = () =>
   serviceLines.value.push({ _k: lineKey++, name: '', unit: t('sales.usluga'), unitPrice: 0, quantity: 1, discountPercent: 0 })
 
 // товары
-const goodsLines = ref<Array<{ _k: number; description: string; code: string; customsValue: number; currencyCode: string; weightKg: number | null; unit: string }>>([])
+const goodsLines = ref<Array<{ _k: number; description: string; code: string; customsValue: number; currencyCode: string; weightKg: number | null; unit: string;
+  originCountry?: string | null; exciseKind?: string | null; antiDumpingKind?: string | null }>>([])
 const addGoods = () =>
   goodsLines.value.push({ _k: lineKey++, description: '', code: '', customsValue: 0, currencyCode: 'USD', weightKg: null, unit: '' })
+
+// Страна происхождения (ОКСМ) — ставки по соглашениям о свободной торговле и антидемпинг из КЕДЕН.
+const countryOptions = ref<{ value: string; label: string }[]>([])
+const filterOption = (input: string, option: { label: string }) => option.label.toLowerCase().includes(input.toLowerCase())
+referencesApi.listCountries()
+  .then((list) => { countryOptions.value = list.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` })) })
+  .catch(() => {})
 
 // Справочник ТН ВЭД для строки товара: открываем поиск, предзаполняя текущим кодом
 // (в т.ч. неполным 6-значным — пикер сразу покажет подходящие 10-значные коды).
@@ -243,17 +276,20 @@ const serviceCols = computed(() => ([
 const goodsCols = computed(() => ([
 
   { title: t('sales.naimenovanie'), key: 'desc' }, { title: t('sales.tnved'), key: 'code' }, { title: t('sales.stoimost'), key: 'val' },
-  { title: t('sales.valyuta'), key: 'cur' }, { title: t('sales.vesKg'), key: 'weight' }, { title: t('sales.ed'), key: 'unit' },
+  { title: t('sales.valyuta'), key: 'cur' }, { title: t('sales.vesKg'), key: 'weight' }, { title: t('sales.calcOriginCountry'), key: 'country' },
+  { title: t('sales.ed'), key: 'unit' },
   { title: '', key: 'del', width: 50 },
 ]))
 const resGoodsCols = computed(() => ([
 
   { title: t('sales.tovar'), dataIndex: 'description', key: 'descr' }, { title: t('sales.tnved'), dataIndex: 'code', key: 'codec' },
-  { title: t('sales.stoimost2'), key: 'val' }, { title: t('sales.poshlina'), key: 'duty' }, { title: t('sales.akciz'), key: 'excise' },
+  { title: t('sales.stoimost2'), key: 'val' }, { title: t('sales.poshlina'), key: 'duty' },
+  ...(result.value?.goods.some((g) => (g.antiDumpingKzt ?? 0) > 0) ? [{ title: t('sales.calcAntiDumping'), key: 'ad' }] : []),
+  { title: t('sales.akciz'), key: 'excise' },
   { title: t('sales.sbor'), key: 'fee' }, { title: t('sales.nds'), key: 'vat' }, { title: t('sales.tpin'), key: 'tpin' },
 ]))
 const colField = (k: string) =>
-  ({ val: 'customsValueKzt', duty: 'importDutyKzt', excise: 'exciseKzt', fee: 'customsFeeKzt', vat: 'vatKzt', tpin: 'tpinTotalKzt' }[k] as string)
+  ({ val: 'customsValueKzt', duty: 'importDutyKzt', ad: 'antiDumpingKzt', excise: 'exciseKzt', fee: 'customsFeeKzt', vat: 'vatKzt', tpin: 'tpinTotalKzt' }[k] as string)
 
 // расчёт
 const calculating = ref(false)
@@ -435,4 +471,9 @@ onMounted(async () => {
 .quote-detail p { margin: 4px 0; }
 .quote-modal-actions { display: flex; gap: 12px; align-items: center; margin-top: 16px; }
 @media (max-width: 900px) { .client-grid { grid-template-columns: 1fr; } }
+.kd-goods + .kd-goods { margin-top: 10px; }
+.kd-title { font-weight: 600; font-size: 13px; margin-top: 12px; }
+.kd-notes { margin: 2px 0 6px; font-size: 12.5px; }
+.kd-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-bottom: 6px; }
+.kd-label { font-size: 12px; color: var(--z-muted, #8c95a6); }
 </style>

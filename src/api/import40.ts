@@ -124,6 +124,8 @@ export interface Import40GoodsItemDto {
   oisCountryCode?: string | null
   // Маркировка товаров (гр.31.13) — коллекция (Task 2 бэк / Task 9 фронт).
   markings?: Import40GoodsMarking[]
+  exciseKind?: string | null
+  antiDumpingKind?: string | null
 }
 
 // Зеркалит Import40GoodsMarkingDto / Import40GoodsMarkingRequest на бэке (Task 2).

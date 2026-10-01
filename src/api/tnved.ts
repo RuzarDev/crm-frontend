@@ -1,5 +1,6 @@
 import apiClient from './client'
 import type {
+  TnvedTariffOptionDto,
   TnvedNodeDto,
   TnvedPathNodeDto,
   TnvedTransitionDto,
@@ -20,12 +21,10 @@ import type {
   TnvedExportReferenceDto,
 } from '@/types/api'
 
-export interface AntiDumpingDto {
-  rate: string
-  country: string | null
-  condition: string | null
-  beginDate: string | null
-  endDate: string | null
+export interface TariffOptionsDto {
+  countryRate: { rate: string; country: string; source: string | null } | null
+  excise: TnvedTariffOptionDto[]
+  antiDumping: TnvedTariffOptionDto[]
 }
 
 export const tnvedApi = {
@@ -65,8 +64,9 @@ export const tnvedApi = {
   rateChanges: (limit = 50) =>
     apiClient.get<TnvedRateChangeDto[]>('/tnved/rate-changes', { params: { limit } }),
 
+  // GET: сервер принимает калькулятор только как GET с параметрами (POST давал 405).
   calculate: (req: TnvedCalculateRequest) =>
-    apiClient.post<TnvedCalculateResult>('/tnved/calculate', req),
+    apiClient.get<TnvedCalculateResult>('/tnved/calculate', { params: req }),
 
   // ── Currencies ──────────────────────────────────────────────────────────────
   currencies: () =>
@@ -100,9 +100,9 @@ export const tnvedApi = {
   syncTrigger: () =>
     apiClient.post('/tnved/sync'),
 
-  // Антидемпинговые пошлины КЕДЕН по коду и стране происхождения (цифровой код ОКСМ).
-  antiDumping: (code: string, country: string, onDate?: string) =>
-    apiClient.get<AntiDumpingDto[]>('/tnved/anti-dumping', { params: { code, country, onDate } }),
+  // Ставка по стране (ЗСТ), виды акциза и антидемпинг из КЕДЕН по коду и стране происхождения (ОКСМ).
+  tariffOptions: (code: string, country?: string | null, onDate?: string | null) =>
+    apiClient.get<TariffOptionsDto>('/tnved/tariff-options', { params: { code, country, onDate } }),
 
   seedTransitions: () =>
     apiClient.post<TnvedTransitionSeedResult>('/tnved/transition/seed'),

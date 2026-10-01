@@ -168,6 +168,10 @@
                           </a-form-item>
                         </a-col>
                       </a-row>
+                      <a-form-item :label="t('sales.calcOriginCountry')">
+                        <a-select v-model:value="calcForm.originCountry" show-search allow-clear style="width:100%"
+                          :options="countryOptions" :filter-option="filterOption" :placeholder="t('sales.neobyaz')" />
+                      </a-form-item>
                       <a-row :gutter="12">
                         <a-col v-if="rates[0]?.rateStr?.toLowerCase().includes('см3')" :span="12">
                           <a-form-item :label="t('sales.obemDvigatelyaSm')">
@@ -191,6 +195,9 @@
                         <a-descriptions-item :label="t('sales.tamozhennayaStoimostKzt')">{{ fmtKzt(calcResult.customsValueKzt) }}</a-descriptions-item>
                         <a-descriptions-item :label="t('sales.vvoznayaPoshlina')">{{ fmtKzt(calcResult.importDutyKzt) }}</a-descriptions-item>
                         <a-descriptions-item :label="t('sales.tamozhennyySbor')">{{ fmtKzt(calcResult.customsFeeKzt) }}</a-descriptions-item>
+                        <a-descriptions-item v-if="calcResult.antiDumpingKzt" :label="t('sales.calcAntiDumping')">
+                          {{ fmtKzt(calcResult.antiDumpingKzt) }}
+                        </a-descriptions-item>
                         <a-descriptions-item v-if="calcResult.exciseKzt > 0" :label="t('sales.akciz')">
                           {{ fmtKzt(calcResult.exciseKzt) }}
                         </a-descriptions-item>
@@ -199,6 +206,19 @@
                           <strong>{{ fmtKzt(calcResult.totalKzt) }}</strong>
                         </a-descriptions-item>
                       </a-descriptions>
+                      <div v-if="(calcResult.exciseOptions?.length ?? 0) > 1" class="calc-choice">
+                        <div class="calc-choice-label">{{ t('dt.tariffExciseKind') }}</div>
+                        <a-select :value="calcResult.exciseKind" size="small" style="width:100%"
+                          :options="calcResult.exciseOptions!.map((o) => ({ value: o.key, label: `${o.rate} — ${o.condition ?? ''}` }))"
+                          @change="(v: string) => { calcForm.exciseKind = v; runCalculate() }" />
+                      </div>
+                      <div v-if="calcResult.antiDumpingOptions?.length" class="calc-choice">
+                        <div class="calc-choice-label">{{ t('dt.tariffAntiDumping') }}</div>
+                        <a-select :value="calcForm.antiDumpingKind ?? ''" size="small" style="width:100%"
+                          :options="[{ value: '', label: t('dt.tariffAntiDumpingNone') },
+                                     ...calcResult.antiDumpingOptions!.map((o) => ({ value: o.key, label: `${o.rate} (${o.country ?? ''}) — ${o.condition ?? ''}` }))]"
+                          @change="(v: string) => { calcForm.antiDumpingKind = v || null; runCalculate() }" />
+                      </div>
                       <p v-if="calcResult.notes" class="calc-notes">{{ calcResult.notes }}</p>
                       <p v-if="calcResult.explanation" class="calc-notes">{{ calcResult.explanation }}</p>
 
@@ -208,6 +228,11 @@
 
                   <!-- Notes/explanations tab -->
                   <a-tab-pane key="notes" :tab="t('sales.poyasneniya')">
+                    <div class="eec-links">
+                      <a href="https://eec.eaeunion.org/comission/department/catr/ett/" target="_blank" rel="noopener">{{ t('sales.eecExplanations') }}</a>
+                      <a href="https://eec.eaeunion.org/comission/department/dep_tamoj_zak/klassifikatsiya-tovarov-v-sootvetstvii-s-tn-ved-eaes/resheniya-o-klassifikatsii-tovarov.php" target="_blank" rel="noopener">{{ t('sales.eecClassificationDecisions') }}</a>
+                      <a href="https://portal.eaeunion.org/sites/odata/_layouts/15/Portal.EEC.Registry.Ui/DirectoryForm.aspx?ViewId=01d0337c-71f3-455b-950d-d882bf9547d9&ListId=0e3ead06-5475-466a-a340-6f69c01b5687&ItemId=219" target="_blank" rel="noopener">{{ t('sales.eecPreliminaryDecisions') }}</a>
+                    </div>
                     <div v-if="!notes?.htmlContent && !detailLoading" class="empty-hint">{{ t('sales.poyasneniyaOtsutstvuyut') }}</div>
                     <div v-else-if="notes?.htmlContent" class="notes-html" v-html="notes.htmlContent" />
                   </a-tab-pane>
@@ -311,6 +336,7 @@ import type { Dayjs } from 'dayjs'
 import TnvedDeprecationAlert from '@/components/TnvedDeprecationAlert.vue'
 import NonTariffMeasureGroups, { type NonTariffMeasureGroup } from '@/components/NonTariffMeasureGroups.vue'
 import { tnvedApi } from '@/api/tnved'
+import { referencesApi } from '@/api/references'
 import type {
   TnvedNodeDto,
   TnvedRateDto,
@@ -360,7 +386,18 @@ const calcForm = ref<{
   quantity: number | null
   engineVolumeCm3: number | null
   onDate: Dayjs | null
-}>({ customsValue: 0, currencyCode: 'USD', weightKg: null, quantity: null, engineVolumeCm3: null, onDate: null })
+  originCountry: string | null
+  exciseKind: string | null
+  antiDumpingKind: string | null
+}>({ customsValue: 0, currencyCode: 'USD', weightKg: null, quantity: null, engineVolumeCm3: null, onDate: null,
+     originCountry: null, exciseKind: null, antiDumpingKind: null })
+
+// Страны происхождения для калькулятора (цифровой ОКСМ) — ставки по ЗСТ и антидемпинг из КЕДЕН.
+const countryOptions = ref<{ value: string; label: string }[]>([])
+const filterOption = (input: string, option: { label: string }) => option.label.toLowerCase().includes(input.toLowerCase())
+referencesApi.listCountries()
+  .then((list) => { countryOptions.value = list.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` })) })
+  .catch(() => {})
 
 // ── Classify state ───────────────────────────────────────────────────────────
 const classifyModalOpen = ref(false)
@@ -434,6 +471,9 @@ function selectNode(node: TnvedNodeDto) {
   selected.value = node
   deprecationWarning.value = undefined
   calcResult.value = null
+  // Виды акциза и антидемпинга — у каждого кода свои.
+  calcForm.value.exciseKind = null
+  calcForm.value.antiDumpingKind = null
   detailTab.value = 'rates'
   loadDetail(node)
 }
@@ -535,6 +575,9 @@ async function runCalculate() {
       quantity: calcForm.value.quantity,
       engineVolumeCm3: calcForm.value.engineVolumeCm3,
       onDate: calcForm.value.onDate?.format('YYYY-MM-DD') ?? null,
+      originCountry: calcForm.value.originCountry,
+      exciseKind: calcForm.value.exciseKind,
+      antiDumpingKind: calcForm.value.antiDumpingKind,
     })
     calcResult.value = data
   } finally {
@@ -728,4 +771,7 @@ onMounted(async () => {
 .notes-html :deep(table) { border-collapse: collapse; width: 100%; font-size: 12px; }
 .notes-html :deep(td),
 .notes-html :deep(th) { border: 1px solid var(--atg-line); padding: 4px 8px; }
+.calc-choice { margin-top: 8px; display: grid; gap: 2px; }
+.calc-choice-label { font-size: 12px; color: var(--z-muted, #8c95a6); }
+.eec-links { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 10px; font-size: 13px; }
 </style>

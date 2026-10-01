@@ -785,6 +785,19 @@ export interface TnvedCalculateRequest {
   quantity?: number | null
   engineVolumeCm3?: number | null
   onDate?: string | null
+  // Страна происхождения (цифровой ОКСМ) и выбранные варианты из КЕДЕН (ключ TnvedTariffOptionDto.key).
+  originCountry?: string | null
+  exciseKind?: string | null
+  antiDumpingKind?: string | null
+}
+
+/** Вариант акциза / антидемпинга из КЕДЕН; key передаётся обратно как exciseKind / antiDumpingKind. */
+export interface TnvedTariffOptionDto {
+  key: string
+  rate: string
+  condition: string | null
+  country: string | null
+  endDate: string | null
 }
 
 export interface TnvedCalculateResult {
@@ -800,6 +813,10 @@ export interface TnvedCalculateResult {
   notes: string | null
   explanation: string | null
   nonTariffMeasures: TnvedNonTariffMeasureDto[]
+  antiDumpingKzt?: number
+  exciseKind?: string | null
+  exciseOptions?: TnvedTariffOptionDto[] | null
+  antiDumpingOptions?: TnvedTariffOptionDto[] | null
 }
 
 export interface TnvedNonTariffMeasureDto {
@@ -1283,6 +1300,9 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   // 3%×мес (calculate-payments на бэке) — Task 1 (бэк)/Task 6 (фронт).
   // 0/null → обычный импорт.
   tempImportMonths?: number | null
+  // Выбор декларанта по данным КЕДЕН: вид акциза и вариант антидемпинговой пошлины (null — не начислять).
+  exciseKind?: string | null
+  antiDumpingKind?: string | null
   // Сертификация / экспортный контроль — свободный текст, заполняется декларантом
   // вручную (нет авто-маппинга от ТНВЭД) — Task 1 (бэк)/Task 7 (фронт).
   certificationNote?: string | null
