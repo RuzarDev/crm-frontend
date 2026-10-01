@@ -218,12 +218,6 @@ const router = createRouter({
           meta: { requiresReferences: true },
         },
         {
-          path: '/tnved/news',
-          name: 'tnved-news',
-          component: () => import('@/views/TnvedNewsView.vue'),
-          meta: { requiresReferences: true },
-        },
-        {
           path: '/tnved/regulations',
           name: 'tnved-regulations',
           component: () => import('@/views/TnvedRegulationsView.vue'),

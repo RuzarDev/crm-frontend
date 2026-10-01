@@ -216,7 +216,6 @@ import {
   FileDoneOutlined,
   FileProtectOutlined,
   FileSearchOutlined,
-  FileTextOutlined,
   FlagOutlined,
   FolderOpenOutlined,
   GlobalOutlined,
@@ -522,7 +521,6 @@ const menuItems = computed(() => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tnvedChildren: any[] = [
     { key: '/tnved/tree', icon: () => h(UnorderedListOutlined), label: t('nav.tnvedClassifier') },
-    { key: '/tnved/news', icon: () => h(FileTextOutlined), label: t('nav.news') },
     { key: '/tnved/regulations', icon: () => h(FileSearchOutlined), label: t('nav.npa') },
     { key: '/tnved/currencies', icon: () => h(DollarCircleOutlined), label: t('nav.currencies') },
     { key: '/tnved/timeline', icon: () => h(CalendarOutlined), label: t('nav.timeline') },
@@ -542,7 +540,7 @@ const menuItems = computed(() => {
       label: t('nav.tnved'),
       // Клиенту — справочная часть; хронология и аналитика справочника нужны только сотрудникам.
       children: role === 'client'
-        ? tnvedChildren.filter((c) => ['/tnved/tree', '/tnved/news', '/tnved/regulations', '/tnved/currencies'].includes(c.key))
+        ? tnvedChildren.filter((c) => ['/tnved/tree', '/tnved/regulations', '/tnved/currencies'].includes(c.key))
         : tnvedChildren,
     })
   }

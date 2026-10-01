@@ -4,12 +4,10 @@ import type {
   TnvedPathNodeDto,
   TnvedTransitionDto,
   TnvedRateDto,
-  TnvedSuggestDto,
   TnvedClassifyResponse,
   TnvedCalculateRequest,
   TnvedCalculateResult,
   TnvedCurrencyDto,
-  TnvedNewsDto,
   TnvedRegulationDto,
   TnvedTimelineDto,
   TnvedExplanationDto,
@@ -21,6 +19,14 @@ import type {
   TnvedReferenceDto,
   TnvedExportReferenceDto,
 } from '@/types/api'
+
+export interface AntiDumpingDto {
+  rate: string
+  country: string | null
+  condition: string | null
+  beginDate: string | null
+  endDate: string | null
+}
 
 export const tnvedApi = {
   // ── Import tree ─────────────────────────────────────────────────────────────
@@ -36,8 +42,6 @@ export const tnvedApi = {
   search: (q: string, leafOnly = false, limit = 30) =>
     apiClient.get<TnvedNodeDto[]>('/tnved/search', { params: { q, leafOnly, limit } }),
 
-  suggest: (q: string) =>
-    apiClient.get<TnvedSuggestDto>('/tnved/suggest', { params: { q } }),
 
   classify: (description: string, limit = 10) =>
     apiClient.post<TnvedClassifyResponse>('/tnved/classify', { description, limit }),
@@ -68,9 +72,6 @@ export const tnvedApi = {
   currencies: () =>
     apiClient.get<TnvedCurrencyDto[]>('/tnved/currencies'),
 
-  // ── News ────────────────────────────────────────────────────────────────────
-  news: (limit = 50) =>
-    apiClient.get<TnvedNewsDto[]>('/tnved/news', { params: { limit } }),
 
   // ── Regulations ─────────────────────────────────────────────────────────────
   regulations: () =>
@@ -99,9 +100,11 @@ export const tnvedApi = {
   syncTrigger: () =>
     apiClient.post('/tnved/sync'),
 
+  // Антидемпинговые пошлины КЕДЕН по коду и стране происхождения (цифровой код ОКСМ).
+  antiDumping: (code: string, country: string, onDate?: string) =>
+    apiClient.get<AntiDumpingDto[]>('/tnved/anti-dumping', { params: { code, country, onDate } }),
+
   seedTransitions: () =>
     apiClient.post<TnvedTransitionSeedResult>('/tnved/transition/seed'),
 
-  seedExplanations: () =>
-    apiClient.post<{ upserted: number; failed: number }>('/tnved/explanations/seed'),
 }

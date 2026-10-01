@@ -141,6 +141,7 @@
             :placeholder="t('dt.vyberiteStranuPoKodu')"
             @change="emit('update:modelValue', items.map(fromRow))"
           />
+          <AntiDumpingHint v-if="brandFields" :code="item.tnvedCode" :country="item.countryOfOrigin" />
         </div>
       </div>
 
@@ -269,6 +270,7 @@ import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
 import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
 import TroisTrademarkHint from '@/components/import40/TroisTrademarkHint.vue'
+import AntiDumpingHint from '@/components/import40/AntiDumpingHint.vue'
 import type { ReestrGoodsItemInput } from '@/types/api'
 import { OKEI_QUANTITY_TYPE_CODES } from '@/types/api'
 

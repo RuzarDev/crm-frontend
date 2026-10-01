@@ -6,8 +6,6 @@
       :subtitle="t('sales.upravlenieSinhronizacieyDerevaTn')"
     >
       <template #actions>
-        <a-button :loading="explanationsRunning" @click="triggerExplanations">
-          <template #icon><FileTextOutlined /></template> {{ t('sales.zagruzitPoyasneniya') }} </a-button>
         <a-button :loading="seedRunning" @click="triggerSeed">
           <template #icon><DatabaseOutlined /></template> {{ t('sales.zagruzitPerehody') }} </a-button>
         <a-button type="primary" :loading="syncRunning" @click="triggerSync" danger>
@@ -59,7 +57,7 @@
 import { useI18n } from 'vue-i18n'
 import { ref, h, onMounted, computed } from 'vue'
 import { message } from 'ant-design-vue'
-import { DatabaseOutlined, FileTextOutlined, SyncOutlined } from '@ant-design/icons-vue'
+import { DatabaseOutlined, SyncOutlined } from '@ant-design/icons-vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedSyncLogDto } from '@/types/api'
 import PageHeader from '@/components/PageHeader.vue'
@@ -70,7 +68,6 @@ const logs = ref<TnvedSyncLogDto[]>([])
 const loading = ref(false)
 const syncRunning = ref(false)
 const seedRunning = ref(false)
-const explanationsRunning = ref(false)
 
 const columns = computed(() => ([
 
@@ -128,18 +125,6 @@ async function triggerSync() {
     await loadHistory()
   } finally {
     syncRunning.value = false
-  }
-}
-
-async function triggerExplanations() {
-  explanationsRunning.value = true
-  try {
-    const { data } = await tnvedApi.seedExplanations()
-    message.success(t('sales.poyasneniyaZagruzheny', { n: data.upserted, f: data.failed }))
-  } catch {
-    message.error(t('sales.oshibkaZagruzkiPoyasneniy'))
-  } finally {
-    explanationsRunning.value = false
   }
 }
 
