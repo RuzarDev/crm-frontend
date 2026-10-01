@@ -974,6 +974,13 @@ const applyGoodsPaymentRows = (res: Import40CalculatePaymentsResponse) => {
         // (не затираем то, что декларант уже выбрал вручную, например '*' с весовым коэфф.).
         // Вид ставки «%» ставим только строкам с числовой ставкой (пошлина/НДС).
         if (!existing.rateKindCode && pr.rate != null) existing.rateKindCode = '%'
+        // Сервер знает, какая часть ставки сработала («%» или «*» за кг/шт/см³) — тогда пишем как в КЕДЕН.
+        if (pr.rateKind) {
+          existing.rateKindCode = pr.rateKind
+          existing.rateUnitCode = pr.rateUnitCode ?? null
+          existing.rateCurrencyCode = pr.rateCurrencyCode ?? null
+          existing.weightRatio = pr.rateKind === '*' ? existing.weightRatio ?? 1 : null
+        }
         existing.paymentFeatureCode = pr.featureCode ?? existing.paymentFeatureCode ?? 'ИУ'
         existing.basisLabel = pr.basisLabel ?? null
         existing.rateLabel = pr.rateLabel ?? null
@@ -982,11 +989,11 @@ const applyGoodsPaymentRows = (res: Import40CalculatePaymentsResponse) => {
         rows.push({
           taxModeCode: pr.taxModeCode,
           taxBase: pr.base ?? null,
-          rateKindCode: pr.rate != null ? '%' : null,
+          rateKindCode: pr.rateKind ?? (pr.rate != null ? '%' : null),
           rateValue: pr.rate ?? null,
-          rateUnitCode: null,
-          rateCurrencyCode: null,
-          weightRatio: null,
+          rateUnitCode: pr.rateUnitCode ?? null,
+          rateCurrencyCode: pr.rateCurrencyCode ?? null,
+          weightRatio: pr.rateKind === '*' ? 1 : null,
           rateDate: null,
           paymentFeatureCode: pr.featureCode ?? 'ИУ',
           amountKzt: pr.amount,

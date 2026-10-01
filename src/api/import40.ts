@@ -721,6 +721,10 @@ export interface Import40PaymentRowDto {
   featureCode?: string | null
   // Детальная строка гр.B: "{код}-{сумма}-398-{дата ддммгггг}-БН".
   bLine?: string | null
+  // Вид ставки («%» / «*» за единицу), единица ОКЕИ и валюта (N3) специфической ставки — как в КЕДЕН.
+  rateKind?: string | null
+  rateUnitCode?: string | null
+  rateCurrencyCode?: string | null
 }
 
 export interface Import40PaymentGoodsRowDto {
