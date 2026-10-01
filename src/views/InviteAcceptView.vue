@@ -97,7 +97,7 @@ const submit = async () => {
 .invite-badge {
   display: inline-flex; align-items: center; height: 26px; padding: 0 10px;
   border: 1px solid rgba(35, 181, 211, 0.3); border-radius: 999px; background: rgba(35, 181, 211, 0.08);
-  color: #1580A6; font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: #1580A6; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
 }
 .invite-title { margin: 0 0 8px; color: #0E1B35; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
 .invite-sub { margin: 0 0 20px; color: #5b6478; font-size: 14px; line-height: 1.5; }

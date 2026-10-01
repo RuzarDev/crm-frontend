@@ -14,7 +14,7 @@
       <a-input v-model:value="p.payerTaxpayerId" size="small" :disabled="readonly" :placeholder="t('sales.iinBinPlatelschika')" style="width: 150px" @change="emitChange" />
       <a-date-picker v-model:value="p.paymentDate" size="small" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :placeholder="t('sales.dataOplaty')" style="width: 140px" allow-clear @change="emitChange" />
       <a-select v-model:value="p.paymentMethodCode" size="small" :disabled="readonly" :options="methodOptions" style="width: 100px" @change="emitChange" />
-      <a-button v-if="!readonly" type="text" danger size="small" @click="removeItem(i)"><CloseOutlined /></a-button>
+      <a-button v-if="!readonly" type="text" danger size="small" @click="removeItem(i)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
     </div>
   </div>
 </template>

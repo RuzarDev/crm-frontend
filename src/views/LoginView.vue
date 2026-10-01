@@ -249,7 +249,7 @@ const goToRegister = () => router.push('/register')
   gap: 8px;
   margin-bottom: 20px;
   color: #23B5D3;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -290,7 +290,7 @@ const goToRegister = () => router.push('/register')
 .auth-copyright {
   flex-shrink: 0;
   color: rgba(180, 210, 255, 0.3);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 400;
   letter-spacing: 0.01em;
 }
@@ -326,7 +326,7 @@ const goToRegister = () => router.push('/register')
   border-radius: 999px;
   background: rgba(35, 181, 211, 0.08);
   color: #1580A6;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;

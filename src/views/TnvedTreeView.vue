@@ -284,7 +284,7 @@
                   <span style="margin-left:8px;font-size:13px">{{ item.description }}</span>
                 </template>
                 <template #description>
-                  <span v-if="item.rateStr">{{ t('sales.stavka') }} <a-tag color="orange" style="font-size:11px">{{ item.rateStr }}</a-tag></span>
+                  <span v-if="item.rateStr">{{ t('sales.stavka') }} <a-tag color="orange" style="font-size:12px">{{ item.rateStr }}</a-tag></span>
                   <span v-if="item.unitName" style="margin-left:8px">{{ t('sales.edUnit', { u: item.unitName }) }}</span>
                 </template>
               </a-list-item-meta>
@@ -640,7 +640,7 @@ onMounted(async () => {
 .node-arrow {
   color: var(--atg-muted);
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .empty-hint {

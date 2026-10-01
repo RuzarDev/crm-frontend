@@ -20,7 +20,7 @@
             <DownloadOutlined /> {{ t('transit.vygruzitReestr') }} </a-button>
           <template v-if="canDelete">
             <a-button @click="selectAllCurrentPage">{{ t('transit.vybratVse') }}</a-button>
-            <a-button @click="clearSelection">{{ t('transit.snyatVybor') }}</a-button>
+            <a-button v-if="selectedRowKeys.length > 0" @click="clearSelection">{{ t('transit.snyatVybor') }}</a-button>
             <span class="reestr-action-sep"></span>
             <a-popconfirm
               :title="t('transit.udalitVybrannyeZapisi')"
@@ -28,7 +28,7 @@
               :cancel-text="t('transit.net')"
               @confirm="handleDeleteSelected"
             >
-              <a-button danger :disabled="selectedRowKeys.length === 0">
+              <a-button v-if="selectedRowKeys.length > 0" danger>
                 <DeleteOutlined />
                 {{ t('transit.udalitN', { n: selectedRowKeys.length }) }}
               </a-button>
@@ -192,7 +192,7 @@
                   @confirm="handleDelete(record.id)"
                 >
                   <a-tooltip :title="t('transit.udalit')">
-                    <a-button type="text" size="small" class="action-btn action-btn--danger">
+                    <a-button type="text" size="small" class="action-btn action-btn--danger" :title="$t('common.delete')" :aria-label="$t('common.delete')">
                       <DeleteOutlined />
                     </a-button>
                   </a-tooltip>

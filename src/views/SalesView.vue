@@ -47,7 +47,7 @@
               <template v-else-if="column.key === 'price'"><a-input-number v-model:value="record.unitPrice" :min="0" style="width: 120px" /></template>
               <template v-else-if="column.key === 'qty'"><a-input-number v-model:value="record.quantity" :min="0" style="width: 80px" /></template>
               <template v-else-if="column.key === 'disc'"><a-input-number v-model:value="record.discountPercent" :min="0" :max="100" style="width: 70px" /></template>
-              <template v-else-if="column.key === 'del'"><a-button type="text" danger size="small" @click="serviceLines.splice(index, 1)"><DeleteOutlined /></a-button></template>
+              <template v-else-if="column.key === 'del'"><a-button type="text" danger size="small" @click="serviceLines.splice(index, 1)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><DeleteOutlined /></a-button></template>
             </template>
           </a-table>
         </a-card>
@@ -79,7 +79,7 @@
                   :options="countryOptions" :filter-option="filterOption" :placeholder="t('sales.calcOriginCountry')" />
               </template>
               <template v-else-if="column.key === 'unit'"><a-input v-model:value="record.unit" :placeholder="t('sales.sht')" style="width: 80px" /></template>
-              <template v-else-if="column.key === 'del'"><a-button type="text" danger size="small" @click="goodsLines.splice(index, 1)"><DeleteOutlined /></a-button></template>
+              <template v-else-if="column.key === 'del'"><a-button type="text" danger size="small" @click="goodsLines.splice(index, 1)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><DeleteOutlined /></a-button></template>
             </template>
           </a-table>
           <p class="muted" style="margin-top: 8px">{{ t('sales.poshlinaNdsISbory') }}</p>
@@ -452,7 +452,7 @@ onMounted(async () => {
 .client-grid span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; }
 .inline-field { display: flex; gap: 8px; }
 .inline-field--stack { flex-direction: column; gap: 2px; }
-.rate-hint { font-size: 11px; color: var(--atg-muted); }
+.rate-hint { font-size: 12px; color: var(--atg-muted); }
 .add-line { display: flex; gap: 10px; margin-bottom: var(--sp-3); flex-wrap: wrap; }
 .muted { color: var(--atg-muted); font-size: 12.5px; }
 .calc-actions { display: flex; gap: var(--sp-3); }

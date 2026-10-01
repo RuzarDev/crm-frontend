@@ -40,7 +40,7 @@
           show-search allow-clear :filter-option="filterAlpha2" :placeholder="t('dt.nac')" style="max-width: 140px" @change="emitChange" />
         <a-select v-if="isRoadMode(arrivalModeCode) && m.isTrailer" v-model:value="m.headNumber" :options="arrivalHeadOptions" :disabled="readonly"
           allow-clear :placeholder="t('dt.golova')" style="min-width: 160px" @change="emitChange" />
-        <a-button v-if="!readonly" type="text" danger size="small" @click="removeArrivalTransport(i)"><CloseOutlined /></a-button>
+        <a-button v-if="!readonly" type="text" danger size="small" @click="removeArrivalTransport(i)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
       </div>
       <div class="transport-actions">
         <template v-if="isRoadMode(arrivalModeCode)">
@@ -74,7 +74,7 @@
             show-search allow-clear :filter-option="filterAlpha2" :placeholder="t('dt.nac')" style="max-width: 140px" @change="emitChange" />
           <a-select v-if="isRoadMode(form.borderTransportModeCode) && m.isTrailer" v-model:value="m.headNumber" :options="borderHeadOptions" :disabled="readonly"
             allow-clear :placeholder="t('dt.golova')" style="min-width: 160px" @change="emitChange" />
-          <a-button v-if="!readonly" type="text" danger size="small" @click="removeBorderTransport(i)"><CloseOutlined /></a-button>
+          <a-button v-if="!readonly" type="text" danger size="small" @click="removeBorderTransport(i)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
         </div>
         <div class="transport-actions">
           <template v-if="isRoadMode(form.borderTransportModeCode)">

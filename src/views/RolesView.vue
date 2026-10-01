@@ -124,9 +124,9 @@ const resetAll = async () => {
 .role-col { text-align: center; min-width: 120px; vertical-align: top; }
 .role-col--locked { opacity: .7; }
 .role-col-name { font-weight: 700; color: var(--atg-ink, #182640); font-size: 13px; }
-.role-col-slug { font-size: 11px; color: var(--atg-muted, #95a1b7); margin-top: 2px; }
+.role-col-slug { font-size: 12px; color: var(--atg-muted, #95a1b7); margin-top: 2px; }
 .role-save { margin-top: 6px; }
-.group-row td { background: var(--atg-surface-muted, #f5f7fb); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
+.group-row td { background: var(--atg-surface-muted, #f5f7fb); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
 .perm-name { display: flex; flex-direction: column; }
 .perm-label { font-size: 13px; color: var(--atg-ink, #182640); }
 .perm-cell { text-align: center; }

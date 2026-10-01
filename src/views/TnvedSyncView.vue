@@ -41,9 +41,9 @@
             </template>
             <template v-if="column.key === 'changes'">
               <span class="change-stat" :title="t('sales.dobavlenoObnovlenoUdaleno')">
-                <a-tag color="green" style="font-size:11px">+{{ record.nodesAdded }}</a-tag>
-                <a-tag color="blue" style="font-size:11px">~{{ record.nodesUpdated }}</a-tag>
-                <a-tag color="red" style="font-size:11px">-{{ record.nodesRemoved }}</a-tag>
+                <a-tag color="green" style="font-size:12px">+{{ record.nodesAdded }}</a-tag>
+                <a-tag color="blue" style="font-size:12px">~{{ record.nodesUpdated }}</a-tag>
+                <a-tag color="red" style="font-size:12px">-{{ record.nodesRemoved }}</a-tag>
               </span>
             </template>
           </template>

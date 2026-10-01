@@ -31,20 +31,20 @@
                   v-for="m in record.methods"
                   :key="m"
                   :color="methodColor(m)"
-                  style="font-size:11px;font-weight:700;margin:0"
+                  style="font-size:12px;font-weight:700;margin:0"
                 >{{ m }}</a-tag>
               </a-space>
             </template>
             <template v-else-if="column.key === 'access'">
-              <a-tag v-if="record.allowsAnonymous" color="default" style="font-size:11px">{{ t('misc.anonimnyy') }}</a-tag>
+              <a-tag v-if="record.allowsAnonymous" color="default" style="font-size:12px">{{ t('misc.anonimnyy') }}</a-tag>
               <a-space v-else :size="4" wrap>
                 <a-tag
                   v-for="p in record.policies"
                   :key="p"
                   color="blue"
-                  style="font-size:11px;margin:0"
+                  style="font-size:12px;margin:0"
                 >{{ p }}</a-tag>
-                <a-tag v-if="!record.policies.length" color="orange" style="font-size:11px">{{ t('misc.avtorizovan') }}</a-tag>
+                <a-tag v-if="!record.policies.length" color="orange" style="font-size:12px">{{ t('misc.avtorizovan') }}</a-tag>
               </a-space>
             </template>
             <template v-else-if="column.key === 'route'">

@@ -19,7 +19,7 @@
       <PaperClipOutlined />
       <span class="file-name" @click="download(file)">{{ file.originalFileName }}</span>
       <a-popconfirm :title="t('transit.udalitFaylInvoysa')" :ok-text="t('transit.da')" :cancel-text="t('transit.net')" @confirm="remove(file)">
-        <a-button type="text" size="small" danger class="del-btn"><CloseOutlined /></a-button>
+        <a-button type="text" size="small" danger class="del-btn" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
       </a-popconfirm>
     </div>
   </div>
@@ -116,7 +116,7 @@ const remove = async (file: DocumentPackageFileDto) => {
 }
 
 .section-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--atg-muted);
   letter-spacing: 0.06em;

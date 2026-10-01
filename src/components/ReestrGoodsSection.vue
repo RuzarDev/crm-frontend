@@ -14,6 +14,9 @@
         </a-upload>
         <a-button type="dashed" size="small" @click="addItem">{{ t('dt.dobavitTovar') }}</a-button>
       </a-space>
+      <a-button v-if="items.length > 1" size="small" type="link" class="collapse-all" @click="toggleAll">
+        {{ allCollapsed ? t('dt.razvernutVse') : t('dt.svernutVse') }}
+      </a-button>
     </div>
 
     <div v-if="items.length === 0" class="empty-state">
@@ -23,16 +26,25 @@
 
     <div v-for="(item, idx) in items" :key="idx" class="goods-card zf-card">
       <div class="card-top">
+        <!-- Свернуть карточку: при 10+ товарах страница превращалась в бесконечную простыню. -->
+        <a-button type="text" size="small" class="collapse-btn" :aria-label="collapsed.has(idx) ? t('dt.razvernut') : t('dt.svernut')"
+          :title="collapsed.has(idx) ? t('dt.razvernut') : t('dt.svernut')" @click="toggleCard(idx)">
+          <RightOutlined :class="{ open: !collapsed.has(idx) }" />
+        </a-button>
         <span class="card-num" :title="t('dt.poryadkovyyNomerTovara')">{{ idx + 1 }}</span>
         <span class="card-title">
           <b>{{ t('dt.tovarN', { n: idx + 1 }) }}</b>
           <template v-if="item.tnvedCode"> · <span class="card-code">{{ item.tnvedCode }}</span></template>
           <template v-if="item.description || item.tnvedDescription"> · {{ item.description || item.tnvedDescription }}</template>
         </span>
-        <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /></a-button>
+        <span v-if="collapsed.has(idx)" class="card-sum">
+          <template v-if="item.customsValue != null">{{ fmtNum(item.customsValue) }} {{ lockedCurrency || item.currency || '' }}</template>
+          <template v-if="paymentsTotal(item) > 0"> · {{ t('dt.tpin') }} {{ fmtNum(paymentsTotal(item)) }} ₸</template>
+        </span>
+        <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
       </div>
 
-      <div class="zf-grid">
+      <div v-show="!collapsed.has(idx)" class="zf-grid">
         <!-- Код ТН ВЭД + описание из ТН ВЭД -->
         <div class="zf-field zf-s5">
           <div class="zf-label">{{ t('dt.kodTnved') }}</div>
@@ -91,8 +103,7 @@
           <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.torgovayaMarka') }}</div>
             <a-input v-model:value="item.tradeMarkName" v-uppercase :disabled="readonly"
               @change="emit('update:modelValue', items.map(fromRow))" />
-            <!-- ТРОИС: знак есть в таможенном реестре ОИС — только подсказка, ничего не блокирует -->
-            <TroisTrademarkHint :name="item.tradeMarkName" /></div>
+</div>
           <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.znak') }}</div>
             <a-input v-model:value="item.productMarkName" v-uppercase :disabled="readonly"
               :placeholder="t('dt.neUkazan')" @change="emit('update:modelValue', items.map(fromRow))" /></div>
@@ -102,6 +113,9 @@
           <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.artikul') }}</div>
             <a-input v-model:value="item.productArticle" v-uppercase :disabled="readonly"
               :placeholder="t('dt.neUkazan')" @change="emit('update:modelValue', items.map(fromRow))" /></div>
+          <!-- ТРОИС: знак есть в таможенном реестре ОИС — только подсказка на всю ширину (в колонке марки
+               она вытягивалась в узкий жёлтый столбец), ничего не блокирует. -->
+          <TroisTrademarkHint class="zf-s12" :name="item.tradeMarkName" />
           <div class="zf-field zf-s6"><div class="zf-label">{{ t('dt.proizvoditel') }}</div>
             <a-input v-model:value="item.manufacturerName" v-uppercase :disabled="readonly"
               @change="emit('update:modelValue', items.map(fromRow))" /></div>
@@ -201,8 +215,8 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { onMounted, ref, watch } from 'vue'
-import { CloseOutlined, UploadOutlined } from '@ant-design/icons-vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { CloseOutlined, RightOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
 import * as XLSX from 'xlsx'
@@ -259,6 +273,19 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: ReestrGoodsItemInput[]): void
 }>()
+
+// Свёрнутые карточки товаров (по номеру строки). В свёрнутом виде — номер, код, описание, стоимость, ТПиН.
+const collapsed = reactive(new Set<number>())
+const toggleCard = (i: number) => { if (collapsed.has(i)) collapsed.delete(i); else collapsed.add(i) }
+const allCollapsed = computed(() => items.value.length > 0 && items.value.every((_, i) => collapsed.has(i)))
+const toggleAll = () => {
+  if (allCollapsed.value) collapsed.clear()
+  else items.value.forEach((_, i) => collapsed.add(i))
+}
+const fmtNum = (v: number) => v.toLocaleString('ru-RU', { maximumFractionDigits: 2 })
+const paymentsTotal = (item: GoodsRow) =>
+  ((item as GoodsRow & { payments?: { amountKzt?: number | null }[] }).payments ?? [])
+    .reduce((sum, p) => sum + (p.amountKzt ?? 0), 0)
 
 // Пикер ТН ВЭД (поиск по дереву/коду + ставки/разрешения) для конкретной строки товара
 const pickerOpen = ref(false)
@@ -655,7 +682,7 @@ const onExcelFile: UploadProps['beforeUpload'] = (file) => {
 }
 
 .section-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--atg-muted);
   letter-spacing: 0.06em;
@@ -713,6 +740,11 @@ const onExcelFile: UploadProps['beforeUpload'] = (file) => {
 .card-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--z-ink); }
 
 .del-btn { flex: none; }
+.collapse-btn { flex: none; padding: 0 4px !important; color: var(--z-muted) !important; }
+.collapse-btn :deep(.anticon) { transition: transform 0.15s; }
+.collapse-btn :deep(.anticon.open) { transform: rotate(90deg); }
+.card-sum { flex: none; font-size: 13px; color: var(--z-ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.collapse-all { padding: 0 !important; }
 
 .tnved-group { display: flex !important; }
 .tnved-group .tnved-input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }

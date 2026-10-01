@@ -139,7 +139,7 @@
           <a-input v-model:value="c.number" :placeholder="t('import40List.containerNumberPh')" style="max-width: 220px" />
           <a-input v-model:value="c.type" :placeholder="t('import40List.containerTypePh')" style="max-width: 140px" />
           <a-popconfirm :title="t('import40List.deleteContainerConfirm', { number: c.number || '—' })" :ok-text="t('import40Case.yes')" :cancel-text="t('import40Case.no')" @confirm="draft.containers.splice(i, 1)">
-            <a-button type="text" danger size="small"><CloseOutlined /></a-button>
+            <a-button type="text" danger size="small" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
           </a-popconfirm>
         </div>
         <a-button type="dashed" size="small" @click="draft.containers.push({ number: '', type: '' })">{{ t('import40List.addContainer') }}</a-button>
@@ -977,7 +977,7 @@ onMounted(async () => {
   letter-spacing: 0.04em;
 }
 .create-grid .req-star { color: #cf4a3c; font-weight: 700; }
-.create-grid .opt-hint { color: var(--atg-muted, #95a1b7); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 11px; }
+.create-grid .opt-hint { color: var(--atg-muted, #95a1b7); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 12px; }
 
 .uploaded-list { margin: 10px 0 0; padding: 0; list-style: none; font-size: 13px; display: grid; gap: 2px; }
 .uploaded-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

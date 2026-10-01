@@ -31,7 +31,7 @@ const toneClass = computed(() => `z-pill--${entry.value.tone}`)
   display: inline-flex;
   align-items: center;
   border-radius: var(--r-pill);
-  font: 600 11.5px/1 var(--font-body);
+  font: 600 12px/1 var(--font-body);
   padding: 4px 10px;
   white-space: nowrap;
 }

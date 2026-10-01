@@ -19,7 +19,7 @@
         @change="emitChange"
       />
       <a-input v-model:value="p.goodsNumber" :disabled="readonly" :placeholder="t('dt.tovara')" style="width: 120px" @change="emitChange" />
-      <a-button v-if="!readonly" type="text" danger size="small" @click="remove(i)"><CloseOutlined /></a-button>
+      <a-button v-if="!readonly" type="text" danger size="small" @click="remove(i)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
     </div>
     <div v-if="items.length === 0" class="empty-state">
       <span v-if="!readonly">{{ t('dt.nazhmitePredshestvuyuschiyDokumentChtoby') }}</span>

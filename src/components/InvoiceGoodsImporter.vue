@@ -56,7 +56,7 @@
             </template>
             <template v-else-if="column.dataIndex === 'tnvedCode'">
               <a-input v-model:value="record.tnvedCode" size="small" placeholder="0000000000" />
-              <div v-if="record.deprecation" style="font-size: 11px; color: #d46b08; margin-top: 2px;">
+              <div v-if="record.deprecation" style="font-size: 12px; color: #d46b08; margin-top: 2px;">
                 {{ t('transit.kodUstarel', { codes: record.deprecation.replacementCodes.join(', ') }) }}
               </div>
             </template>
@@ -70,7 +70,7 @@
               <a-input-number v-model:value="record.quantity" style="width: 100%" size="small" :min="0" />
             </template>
             <template v-else-if="column.dataIndex === 'actions'">
-              <a-button type="link" danger size="small" @click="removeItem(index)"><CloseOutlined /></a-button>
+              <a-button type="link" danger size="small" @click="removeItem(index)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
             </template>
           </template>
         </a-table>

@@ -22,10 +22,10 @@
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.nalichieUpakovki') }}</div>
       <a-select v-model:value="good.packageAvailabilityCode" :disabled="readonly" show-search
         :options="packagingAvailabilityOptions" :dropdown-match-select-width="false" allow-clear
-        :get-popup-container="popupContainer" placeholder="0 / 1 / 2" @change="emitChange" /></div>
+        :get-popup-container="popupContainer" :placeholder="t('dt.phEstLiUpakovka')" @change="emitChange" /></div>
     <div class="zf-field zf-s6"><div class="zf-label">{{ t('dt.vidUpakovki') }}</div>
       <a-select v-model:value="good.packageKindCode" :disabled="readonly" show-search allow-clear
-        :options="pkgOptions" option-filter-prop="label" :dropdown-match-select-width="false" placeholder="PK"
+        :options="pkgOptions" option-filter-prop="label" :dropdown-match-select-width="false" :placeholder="t('dt.phVidUpakovki')"
         :get-popup-container="popupContainer" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.kolichestvoUpakovok') }}</div>
       <a-input-number v-model:value="good.packageQuantity" :disabled="readonly" :min="0" @change="emitChange" /></div>
@@ -35,25 +35,25 @@
     <!-- Льготы гр.36: у каждого вида платежа свой перечень (классификатор 2008) -->
     <div class="zf-sec">{{ t('dt.secLgoty') }}</div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.preferenciyaSbor') }}</div>
-      <a-select v-model:value="good.prefClearanceCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefFeeOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="ОО" @change="emitChange" /></div>
+      <a-select v-model:value="good.prefClearanceCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefFeeOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" :placeholder="t('dt.phBezLgot')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.poshlina') }}</div>
-      <a-select v-model:value="good.prefDutyCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefDutyOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="ОО" @change="emitChange" /></div>
+      <a-select v-model:value="good.prefDutyCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefDutyOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" :placeholder="t('dt.phBezLgot')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.akciz') }}</div>
-      <a-select v-model:value="good.prefExciseCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefExciseOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="Z" @change="emitChange" /></div>
+      <a-select v-model:value="good.prefExciseCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefExciseOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" :placeholder="t('dt.phBezLgot')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.nds') }}
         <a-tooltip v-if="hasReducedVat(good)" :title="t('dt.ponizhennyyNds5Primenyaetsya')"><a-tag color="green" class="label-tag">5%</a-tag></a-tooltip></div>
-      <a-select v-model:value="good.prefVatCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefVatOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="ОО" @change="emitChange" /></div>
+      <a-select v-model:value="good.prefVatCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefVatOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" :placeholder="t('dt.phBezLgot')" @change="emitChange" /></div>
 
     <!-- Процедура (гр.37), квота (гр.39), метод ТС (гр.43), временный ввоз, сертификация -->
     <div class="zf-sec">{{ t('dt.secProcedura') }}</div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.proceduraGr37') }}</div>
-      <a-select v-model:value="good.procedureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="procOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="40" @change="emitChange" /></div>
+      <a-select v-model:value="good.procedureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="procOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" :placeholder="t('dt.phVyberiteProceduru')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.predshProceduraGr37') }}</div>
-      <a-select v-model:value="good.previousProcedureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="procOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="00" @change="emitChange" /></div>
+      <a-select v-model:value="good.previousProcedureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="procOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" :placeholder="t('dt.phNet')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.osobennostPeremescheniya') }}</div>
-      <a-select v-model:value="good.goodsMoveFeatureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="moveFeatureOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="000" @change="emitChange" /></div>
+      <a-select v-model:value="good.goodsMoveFeatureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="moveFeatureOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" :placeholder="t('dt.phNet')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.metodTsGr43') }}</div>
-      <a-select v-model:value="good.valuationMethodCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="valuationOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="1" @change="emitChange" /></div>
+      <a-select v-model:value="good.valuationMethodCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="valuationOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" :placeholder="t('dt.phVyberiteMetod')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.kvotaGr39') }}</div>
       <a-input-number v-model:value="good.quotaAmount" :disabled="readonly" :min="0" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label" :title="t('dt.kolVoMesyacevVrem')">{{ t('dt.kolVoMesyacevVrem') }}</div>
@@ -77,7 +77,7 @@
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.ois') }}</div>
       <a-select v-model:value="good.oisIndicatorCode" :disabled="readonly" show-search
         :options="oisIndicatorOptions" :dropdown-match-select-width="false" allow-clear
-        :get-popup-container="popupContainer" placeholder="I / N / S" @change="emitChange" />
+        :get-popup-container="popupContainer" :placeholder="t('dt.phVyberite')" @change="emitChange" />
       <!-- Знак найден в ТРОИС: признак ОИС сам не ставится — декларант решает -->
       <div v-if="troisFound" class="trois-ois-hint">{{ t('dt.troisOisHint') }}</div></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.regPoOis') }}</div>
@@ -102,7 +102,7 @@
     <div class="zf-field zf-s4"><div class="zf-label">{{ t('dt.priznakiSoblyudeniyaZapretov') }}</div>
       <a-select :value="restrictionMarksArray(good)" mode="multiple" :disabled="readonly"
         :options="restrictionMarksOptions" :dropdown-match-select-width="false" allow-clear
-        :max-tag-count="4" :get-popup-container="popupContainer" :placeholder="t('dt.sMP')"
+        :max-tag-count="4" :get-popup-container="popupContainer" :placeholder="t('dt.phVyberitePriznaki')"
         @change="(v: string[]) => onRestrictionMarksChange(good, v)">
         <template #tag="{ value: markValue, onClose }">
           <a-tag class="ois-mark-tag" :title="restrictionMarkLabel(markValue)" closable @close="onClose">{{ markValue }}</a-tag>
@@ -209,7 +209,7 @@
           <a-input-number v-model:value="p.rateValue" :disabled="readonly" placeholder="—" @change="emitChange" />
           <a-date-picker v-model:value="p.rateDate" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :placeholder="t('dt.dataAvto')" allow-clear @change="emitChange" />
           <a-input-number v-model:value="p.amountKzt" :disabled="readonly" placeholder="—" @change="emitChange" />
-          <a-button v-if="!readonly" type="text" danger @click="removePayment(good, p)"><CloseOutlined /></a-button>
+          <a-button v-if="!readonly" type="text" danger @click="removePayment(good, p)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
           <span v-else />
         </div>
         <!-- Специфическая ставка (*): единица, валюта, коэффициент — отдельной строкой под платежом -->
@@ -702,7 +702,7 @@ const importMarkingsFromExcel = async (g: Import40GoodsItemInput, file: File) =>
 .keden-fields { display: contents; }
 .keden-flags { display: flex; gap: 6px; }
 .label-help { margin-left: 4px; color: var(--z-muted); }
-.label-tag { margin-left: 6px; line-height: 16px; font-size: 11px; padding: 0 4px; }
+.label-tag { margin-left: 6px; line-height: 16px; font-size: 12px; padding: 0 4px; }
 .trois-ois-hint { font-size: 12px; font-weight: 500; color: var(--z-warning, #8a6410); }
 .field-hint-warn { font-size: 12px; color: var(--z-warning, #8a6410); }
 .sug-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; font-size: 12px; }

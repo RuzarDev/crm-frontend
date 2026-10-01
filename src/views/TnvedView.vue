@@ -539,7 +539,7 @@ const handleCalculate = async () => {
 
 .tree-arrow {
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 3px;
   transition: transform 0.2s;
   color: #999;
@@ -552,7 +552,7 @@ const handleCalculate = async () => {
 .tree-leaf-dot {
   flex-shrink: 0;
   color: var(--z-teal);
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 2px;
 }
 

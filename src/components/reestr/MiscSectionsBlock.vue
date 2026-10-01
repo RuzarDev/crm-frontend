@@ -49,7 +49,7 @@
             <a-select v-model:value="item.operationTypeCode" size="small" :disabled="readonly"
               allow-clear style="width: 100%" :options="cargoOperationOptions" @change="emitChange" />
           </div>
-          <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /></a-button>
+          <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
         </div>
       </a-collapse-panel>
     </a-collapse>
@@ -104,7 +104,7 @@ function removeItem(idx: number) {
 <style scoped>
 .reestr-block { margin-top: 4px; }
 .subsection-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--atg-muted);
   text-transform: uppercase;
@@ -117,7 +117,7 @@ function removeItem(idx: number) {
 .field { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 3px; }
 .field.f-grow { flex: 2; min-width: 220px; }
 .field-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--atg-muted);
   white-space: nowrap;

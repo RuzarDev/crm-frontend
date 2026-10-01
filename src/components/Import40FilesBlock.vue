@@ -15,7 +15,7 @@
         </a>
         <span class="file-meta">{{ formatSize(f.sizeBytes) }} · {{ roleLabel(f.uploadedByBusinessRole) }}<template v-if="f.uploadedByStaffName && !clientView"> ({{ t('import40Case.uploadedByStaff', { name: f.uploadedByStaffName }) }})</template></span>
         <a-popconfirm v-if="canRemove" :title="t('import40Case.deleteFileConfirm', { name: f.originalFileName })" :ok-text="t('import40Case.yes')" :cancel-text="t('import40Case.no')" @confirm="emit('remove', f)">
-          <a-button type="text" danger size="small"><CloseOutlined /></a-button>
+          <a-button type="text" danger size="small" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
         </a-popconfirm>
       </div>
     </div>

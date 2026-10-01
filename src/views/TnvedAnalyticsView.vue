@@ -14,7 +14,7 @@
                 <div class="top-info">
                   <div class="top-code-row">
                     <a-typography-text code style="font-size:13px">{{ item.code }}</a-typography-text>
-                    <a-tag v-if="item.rateStr" color="orange" style="font-size:11px">{{ item.rateStr }}</a-tag>
+                    <a-tag v-if="item.rateStr" color="orange" style="font-size:12px">{{ item.rateStr }}</a-tag>
                   </div>
                   <div class="top-name">{{ item.treeName || '—' }}</div>
                 </div>
@@ -40,7 +40,7 @@
                 :header="section.name"
               >
                 <template #extra>
-                  <a-tag color="blue" style="font-size:11px">{{ t('sales.kodov', { n: section.totalCodes }) }}</a-tag>
+                  <a-tag color="blue" style="font-size:12px">{{ t('sales.kodov', { n: section.totalCodes }) }}</a-tag>
                 </template>
                 <div class="vto-groups">
                   <div v-for="g in section.groups" :key="g.code" class="vto-group">
@@ -174,7 +174,7 @@ onMounted(() => {
 }
 
 .count-label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--atg-muted);
 }
 

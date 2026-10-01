@@ -164,7 +164,7 @@ const clearProblem = async (c: ManageCase) => {
 .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 18px; }
 .kpi--muted { cursor: default; }
 .kpi { background: #fff; border: 1px solid var(--z-line, #e8ecf4); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
-.kpi > span { font-size: 11.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
+.kpi > span { font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
 .kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 26px; font-weight: 800; color: var(--atg-ink, #182640); }
 .kpi > small { font-size: 12px; color: var(--atg-muted, #95a1b7); }
 .kpi--attn > b { color: #e07a30; } .kpi--bad > b { color: #cf4a3c; }

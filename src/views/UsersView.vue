@@ -843,7 +843,7 @@ const handleChangeRoleSave = async () => {
   align-items: center;
   padding: 2px 10px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   border: 1px solid transparent;
 }

@@ -27,11 +27,11 @@
       <template #actions>
         <a-button
           v-if="(can('kpp') || can('declarant')) && !activeCase.isProblem && activeCase.status < 8"
-          danger size="small" @click="promptProblem"
+          size="small" class="btn-warn" @click="promptProblem"
         >{{ t('import40Case.problemBtn') }}</a-button>
         <a-button v-if="canSeeBilling" size="small" @click="$router.push(`/billing?caseId=${activeCase.id}`)">{{ t('import40Case.billingBtn') }}</a-button>
         <a-button v-if="canStepBack" size="small" @click="promptStepBack">{{ t('import40Case.stepBackBtn') }}</a-button>
-        <a-button v-if="canCancel" danger size="small" @click="promptCancel">{{ t('import40Case.cancelBtn') }}</a-button>
+        <a-button v-if="canCancel" type="text" danger size="small" @click="promptCancel">{{ t('import40Case.cancelBtn') }}</a-button>
 
         <div v-if="canAssign" class="assign-inline">
           <a-select v-model:value="assignForm.declarantId" allow-clear :placeholder="t('import40Case.declarantNotAssigned')" :options="declarantOptions" size="small" style="min-width: 170px" />
@@ -137,7 +137,7 @@
         <div v-for="c in activeCase.containers" :key="c.id" class="container-row">
           <strong>{{ c.containerNumber }}</strong><span class="muted">{{ c.containerType }}</span>
           <a-popconfirm v-if="canEditStep1" :title="t('import40Case.deleteContainerConfirm', { number: c.containerNumber })" :ok-text="t('import40Case.yes')" :cancel-text="t('import40Case.no')" @confirm="removeContainer(c.id)">
-            <a-button type="text" danger size="small"><CloseOutlined /></a-button>
+            <a-button type="text" danger size="small" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
           </a-popconfirm>
         </div>
         <div v-if="canEditStep1" class="container-add">
@@ -191,7 +191,7 @@
             </a-popconfirm>
           </a-tooltip>
           <a-tooltip :title="can('kpp') || can('declarant') ? '' : hintFor('kpp')">
-            <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">{{ t('import40Case.returnToClient') }}</a-button>
+            <a-button :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">{{ t('import40Case.returnToClient') }}</a-button>
           </a-tooltip>
         </div>
       </Import40Step>
@@ -227,7 +227,7 @@
               <a-button size="small" :disabled="!can('declarant')" :loading="xmlLoading === dt.id" @click="exportXml(dt.id)">{{ t('import40Case.xmlForKeden') }}</a-button>
             </a-tooltip>
             <a-popconfirm v-if="can('declarant')" :title="t('import40Case.deleteDt')" :ok-text="t('import40Case.yes')" :cancel-text="t('import40Case.no')" @confirm="removeDt(dt.id)">
-              <a-button size="small" type="text" danger><CloseOutlined /></a-button>
+              <a-button size="small" type="text" danger :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
             </a-popconfirm>
           </div>
         </div>
@@ -282,7 +282,7 @@
           <!-- Со статуса «ДТ подана» и дальше возврат в черновик клиента бессмыслен (аудит 3.9/M8):
                кнопка видна только на «Декларирование» (статус 2), пока ДТ ещё не ушла в КЕДЕН. -->
           <a-tooltip v-if="activeCase.status === 2" :title="can('kpp') || can('declarant') ? '' : hintFor('declarant')">
-            <a-button danger :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">{{ t('import40Case.returnToClient') }}</a-button>
+            <a-button :disabled="!(can('kpp') || can('declarant'))" @click="promptReturn">{{ t('import40Case.returnToClient') }}</a-button>
           </a-tooltip>
         </div>
         <div v-if="activeCase.status === 3 && !isClientView" class="step-actions">

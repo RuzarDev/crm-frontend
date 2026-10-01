@@ -108,7 +108,7 @@
           <a-input-number v-model:value="l.quantity" :min="0.01" :step="1" :placeholder="t('billing.qty')" style="width: 90px" />
           <a-input-number v-model:value="l.unitPrice" :min="0" :step="1000" :placeholder="t('billing.price')" style="width: 130px" />
           <span class="line-amount">{{ money((l.quantity || 0) * (l.unitPrice || 0)) }} ₸</span>
-          <a-button type="text" danger size="small" @click="draft.lines.splice(i, 1)"><CloseOutlined /></a-button>
+          <a-button type="text" danger size="small" @click="draft.lines.splice(i, 1)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
         </div>
         <a-button type="dashed" size="small" @click="draft.lines.push({ name: '', unit: '', quantity: 1, unitPrice: 0 })">
           {{ t('billing.addLine') }}
@@ -426,7 +426,7 @@ const exportXlsx = () => {
 .billing-view { display: flex; flex-direction: column; gap: 18px; }
 .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .kpi { background: #fff; border: 1px solid var(--z-line, #e8ecf4); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
-.kpi > span { font-size: 11.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
+.kpi > span { font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
 .kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 22px; font-weight: 800; color: var(--atg-ink, #182640); }
 .kpi > small { font-size: 12px; color: var(--atg-muted, #95a1b7); }
 .kpi--ok > b { color: #1f9d6a; }

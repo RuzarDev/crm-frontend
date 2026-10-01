@@ -85,7 +85,7 @@
         <a-tag class="dt-expense-dist">{{ distributionLabel(e.expenseTypeCode) }}</a-tag>
         <a-tag v-if="isDeduction(e.expenseTypeCode)" color="orange">{{ t('dt.vychet') }}</a-tag>
       </span>
-      <a-button v-if="!readonly" type="text" danger size="small" @click="removeExpense(i)"><CloseOutlined /></a-button>
+      <a-button v-if="!readonly" type="text" danger size="small" @click="removeExpense(i)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
     </div>
     <div v-if="!(form.expenses ?? []).length" class="muted">{{ t('dt.rashodovNet') }}</div>
 

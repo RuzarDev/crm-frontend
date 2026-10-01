@@ -16,7 +16,7 @@
               :cancel-text="t('sales.net')"
               @confirm="handleDelete(c.id)"
             >
-              <a-button type="text" size="small" class="comment-delete-btn" danger>
+              <a-button type="text" size="small" class="comment-delete-btn" danger :title="$t('common.delete')" :aria-label="$t('common.delete')">
                 <DeleteOutlined />
               </a-button>
             </a-popconfirm>
@@ -161,7 +161,7 @@ const formatTime = (iso: string) => dayjs(iso).format('DD.MM.YYYY HH:mm')
 .comment-role-tag {
   padding: 1px 8px;
   border-radius: 999px;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   border: 1px solid transparent;
 }
@@ -192,7 +192,7 @@ const formatTime = (iso: string) => dayjs(iso).format('DD.MM.YYYY HH:mm')
 
 .comment-time {
   margin-left: auto;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--atg-muted);
   white-space: nowrap;
 }

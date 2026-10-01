@@ -106,14 +106,14 @@ function removeItem(idx: number) {
   display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; border-radius: 50%;
   background: var(--atg-teal-soft, #e6f7f5); color: var(--atg-teal, #00b8a0);
-  font-size: 11px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
 }
 .field-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
 .field { flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 3px; }
 .field.f-grow { flex: 2; }
 .field.f-narrow { flex: 0 0 100px; min-width: 0; }
 .field-label {
-  font-size: 10px; font-weight: 600; color: var(--atg-muted);
+  font-size: 12px; font-weight: 600; color: var(--atg-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .del-btn { align-self: flex-start; color: var(--atg-danger, #ff4d4f) !important; padding: 0 4px !important; height: 20px !important; font-size: 12px !important; }

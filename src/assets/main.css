@@ -44,6 +44,24 @@
   /* Типографика */
   --font-heading: 'Manrope', 'Inter', system-ui, sans-serif;   /* заголовки, цифры KPI */
   --font-body:    'Inter', system-ui, sans-serif;              /* текст, данные        */
+  --font-display: var(--font-heading);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Псевдонимы: в компонентах встречались имена, которых не было в палитре (работали только запасные
+     цвета, правки темы их не задевали). Теперь все ведут на токены --z-*. */
+  --z-text-secondary: var(--z-muted);
+  --z-line-2: var(--z-line-strong);
+  --z-border: var(--z-line);
+  --z-error: var(--z-danger);
+  --z-accent-soft: var(--z-teal-soft);
+  --z-surface-subtle: var(--z-surface-2);
+  --z-zircon-ink: var(--z-teal-d);
+  --atg-danger: var(--z-danger);
+  --atg-border: var(--z-line);
+  --atg-line-2: var(--z-line-strong);
+  --atg-surface-alt: var(--z-surface-2);
+  --atg-teal-weak: var(--z-teal-soft);
+  --atg-font-mono: var(--font-mono);
+  --gray-soft: var(--z-surface-2);
 
   /* ══════════════════════════════════════════════════════════
      Legacy --atg-* aliases — НЕ удалять (много потребителей).
@@ -136,7 +154,7 @@ p {
 }
 
 small {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--atg-muted);
 }
 
@@ -253,7 +271,7 @@ a {
   gap: 7px;
   margin-bottom: 8px;
   color: var(--atg-accent-strong);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -461,7 +479,6 @@ a {
 /* Buttons */
 .ant-btn {
   min-height: 36px;
-  border-radius: 7px;
   font-weight: 600;
   box-shadow: none;
   transition:
@@ -471,18 +488,6 @@ a {
     opacity var(--atg-transition);
 }
 
-.ant-btn-primary {
-  background: var(--atg-teal);
-  border-color: var(--atg-teal);
-  color: #ffffff;
-}
-
-.ant-btn-primary:not(:disabled):hover,
-.ant-btn-primary:not(:disabled):focus {
-  background: var(--atg-teal-dark);
-  border-color: var(--atg-teal-dark);
-}
-
 .ant-btn-link {
   color: var(--atg-accent-strong);
   font-weight: 600;
@@ -490,10 +495,6 @@ a {
 
 .ant-btn-link:not(:disabled):hover {
   color: var(--atg-ink);
-}
-
-.ant-btn-dangerous {
-  color: var(--atg-red);
 }
 
 /* Inputs */
@@ -543,32 +544,6 @@ a {
   font-size: 13.5px;
 }
 
-/* Header */
-.ant-table-thead > tr > th {
-  background: #e4e8f2 !important;
-  color: var(--atg-ink) !important;
-  font-size: 10.5px !important;
-  font-weight: 800 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
-  border-bottom: 1px solid #c4cad9 !important;
-  border-top: none !important;
-  border-right: none !important;
-  border-left: none !important;
-  padding: 9px 12px !important;
-  white-space: nowrap;
-}
-
-/* Rows */
-.ant-table-tbody > tr > td {
-  background: #ffffff;
-  border-bottom: 1px solid #e8ebf2 !important;
-  border-top: none !important;
-  border-right: none !important;
-  border-left: none !important;
-  padding: 8px 12px !important;
-  transition: background var(--atg-transition);
-}
 
 /* Remove any extra top border on first data row */
 .ant-table-tbody > tr:first-child > td {
@@ -711,16 +686,39 @@ a {
   box-shadow: none !important;
 }
 
-/* Заливка — только у обычных «опасных» кнопок (Удалить, Отклонить). Иконки-крестики (type="text"/"link")
-   остаются красной иконкой без фона: залитые красные квадраты у каждой строки гр.47 и товара пугали. */
-.ant-btn-dangerous:not(.ant-btn-text):not(.ant-btn-link) {
-  background: #B42318 !important;
+/* Красный — по смыслу, а не по умолчанию (аудит дизайна 01.10). Заливка — только у главной «опасной»
+   кнопки (type="primary" danger: «Удалить» в окне подтверждения). Обычная danger-кнопка — красная обводка
+   без заливки, иконки-крестики (text/link) — красная иконка без фона: залитые красные кнопки в каждой строке
+   справочников и клиентов превращали экран в красную стену. */
+.ant-btn-primary.ant-btn-dangerous {
+  background: var(--z-danger) !important;
   border: none !important;
   color: #fff !important;
 }
 
-.ant-btn-dangerous:not(.ant-btn-text):not(.ant-btn-link):not(:disabled):hover {
-  background: #C93A2E !important;
+.ant-btn-primary.ant-btn-dangerous:not(:disabled):hover {
+  background: #B23D31 !important;
+}
+
+.ant-btn-default.ant-btn-dangerous {
+  background: var(--z-surface) !important;
+  border: 1px solid var(--z-danger) !important;
+  color: var(--z-danger) !important;
+}
+
+.ant-btn-default.ant-btn-dangerous:not(:disabled):hover {
+  background: var(--z-danger-soft) !important;
+}
+
+/* «Проблема / запрос таможни» — предупреждение, а не удаление: оранжевая обводка. */
+.ant-btn.btn-warn {
+  background: var(--z-warning-soft) !important;
+  border: 1px solid #E0A23A !important;
+  color: var(--z-warning) !important;
+}
+
+.ant-btn.btn-warn:not(:disabled):hover {
+  background: #FBE5BE !important;
 }
 
 .ant-btn-dangerous.ant-btn-text {
@@ -804,15 +802,17 @@ a {
   background: var(--atg-surface) !important;
 }
 
-/* NOTE: Table header compact style already set above (lines 412-425). */
-/* Override to reconcile: keep compact sizing but use bg token */
+/* Заголовок таблиц — единственное правило (раньше было два, с 10,5 и 11 px). */
 .ant-table-thead > tr > th {
   background: #e4e8f2 !important;
   color: var(--atg-ink) !important;
-  font-size: 11px !important;
-  font-weight: 800 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
+  letter-spacing: 0.05em !important;
+  border-top: none !important;
+  border-right: none !important;
+  border-left: none !important;
   border-bottom: 2px solid var(--atg-line-strong) !important;
   padding: 10px 14px !important;
   white-space: nowrap;
@@ -1295,7 +1295,7 @@ a {
 }
 
 .z-label {
-  font: 600 10.5px/1 var(--font-body);
+  font: 600 12px/1 var(--font-body);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--z-muted);

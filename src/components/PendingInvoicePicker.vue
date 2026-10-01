@@ -22,7 +22,7 @@
     <div v-for="(file, idx) in modelValue" :key="idx" class="invoice-file-chip">
       <PaperClipOutlined />
       <span class="file-name">{{ file.name }}</span>
-      <a-button type="text" size="small" danger class="del-btn" @click="removeFile(idx)"><CloseOutlined /></a-button>
+      <a-button type="text" size="small" danger class="del-btn" @click="removeFile(idx)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
     </div>
   </div>
 </template>
@@ -75,7 +75,7 @@ const removeFile = (idx: number) => {
 }
 
 .section-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--atg-muted);
   letter-spacing: 0.06em;

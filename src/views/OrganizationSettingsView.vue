@@ -95,7 +95,7 @@ const save = async () => {
 .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .form-grid label { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .form-grid label.full { grid-column: 1 / -1; }
-.form-grid label > span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--atg-muted, #95a1b7); }
+.form-grid label > span { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--atg-muted, #95a1b7); }
 .section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--atg-charcoal, #445069); margin: 22px 0 10px; }
 .hint { margin-top: 18px; font-size: 12px; color: var(--atg-muted, #95a1b7); }
 @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr; } }

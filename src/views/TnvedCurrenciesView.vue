@@ -83,7 +83,7 @@ onMounted(async () => {
 
 <style scoped>
 .kzt-label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--atg-muted);
   margin-left: 2px;
 }

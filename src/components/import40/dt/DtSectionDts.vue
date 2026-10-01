@@ -20,10 +20,14 @@
       </div>
     </div>
 
+    <!-- Сводка вместо простыни из 20+ строк: сколько не хватает, список — по клику. -->
     <a-alert v-if="missing.length" type="warning" show-icon class="dts-missing">
-      <template #message>{{ t('dt.dtsXmlNeGotov') }}</template>
-      <template #description>
-        <ul><li v-for="m in missing" :key="m">{{ m }}</li></ul>
+      <template #message>
+        {{ t('dt.dtsXmlNeGotov') }} · {{ t('dt.neHvataetN', { n: missing.length }) }}
+        <a class="dts-missing-toggle" @click="missingOpen = !missingOpen">{{ missingOpen ? t('dt.skryt') : t('dt.pokazat') }}</a>
+      </template>
+      <template v-if="missingOpen" #description>
+        <ul class="dts-missing-list"><li v-for="m in missing" :key="m">{{ m }}</li></ul>
       </template>
     </a-alert>
 
@@ -177,6 +181,7 @@ const yesNoOptions = computed(() => [
 // Расчёт ДТС — всегда с сервера (гр.5/6/12-подобная производная), не редактируется.
 const sheet = ref<DtsSheet | null>(null)
 const missing = ref<string[]>([])
+const missingOpen = ref(false)
 const mismatchGoods = ref<number[]>([])
 const mismatchGoodsSet = computed(() => new Set(mismatchGoods.value))
 const loading = ref(false)
@@ -395,6 +400,9 @@ const generateXml = async () => {
 .dts-toggle { display: flex; align-items: center; gap: 10px; }
 .dts-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .dts-missing { margin-bottom: 14px; }
+.dts-missing-toggle { margin-left: 8px; text-decoration: underline; }
+.dts-missing-list { margin: 4px 0 0; padding-left: 18px; columns: 2 320px; column-gap: 24px; }
+.dts-missing-list li { break-inside: avoid; margin: 2px 0; }
 .dts-main-sheet { margin-bottom: 18px; }
 .dts-multiline { white-space: pre-line; }
 .dts-questions {

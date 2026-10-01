@@ -291,7 +291,7 @@ const activityColumns = computed(() => ([
 }
 
 .kpi-content span {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--atg-muted);
@@ -307,7 +307,7 @@ const activityColumns = computed(() => ([
 }
 
 .kpi-content small {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--atg-muted);
   margin-top: 4px;
 }
@@ -460,7 +460,7 @@ const activityColumns = computed(() => ([
 .mbar--transit { background: #3b6fd6; }
 .month-label { font-size: 12px; font-weight: 700; color: var(--atg-ink, #182640); text-transform: uppercase; letter-spacing: .04em; }
 .month-nums { font-size: 12px; color: var(--atg-muted, #6b7891); }
-.month-pay { font-size: 11.5px; color: var(--atg-teal-dark, #149bb2); font-weight: 600; }
+.month-pay { font-size: 12px; color: var(--atg-teal-dark, #149bb2); font-weight: 600; }
 .month-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-size: 12px; color: var(--atg-muted, #6b7891); }
 .month-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 .sw--cases { background: var(--atg-teal, #23B5D3); } .sw--dt { background: var(--z-gold, #F2B53A); } .sw--transit { background: #3b6fd6; }

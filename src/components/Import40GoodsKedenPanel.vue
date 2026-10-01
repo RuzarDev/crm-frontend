@@ -21,38 +21,9 @@
       </div>
     </div>
 
-    <!-- Гр.47 — платежи: явная, всегда развёрнутая подсекция (не внутри свёрнутого
-         a-collapse ниже) — раньше платежи были видны только после раскрытия панели
-         товара, декларант их не находила. Показываем то, что реально записано в
-         g.payments; редактирование строк остаётся в панели товара ниже. -->
-    <div v-if="items.length" class="section-bar payments-summary-bar">
-      <span class="section-label">{{ t('dt.gr47Platezhi') }}</span>
-    </div>
-    <a-table
-      v-if="paymentsSummaryRows.length"
-      class="payments-summary-table"
-      :data-source="paymentsSummaryRows"
-      :columns="paymentsSummaryColumns"
-      :pagination="false"
-      size="small"
-      row-key="key"
-    >
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'amount'">
-          {{ fmtAmount(record[column.key]) }}
-        </template>
-        <template v-else-if="column.key === 'base'">
-          {{ record.basisLabel ?? fmtAmount(record.base) }}
-        </template>
-        <template v-else-if="column.key === 'rate'">
-          {{ record.rateLabel ?? fmtAmount(record.rate) }}
-        </template>
-        <template v-else-if="column.key === 'sp'">
-          {{ record.featureCode || '—' }}
-        </template>
-      </template>
-    </a-table>
-    <div v-else-if="items.length" class="empty-state payments-summary-empty"> {{ t('dt.platezhiGr47NeRasschitany') }} </div>
+    <!-- Построчная таблица гр.47 убрана (аудит дизайна 01.10): строки платежей видны и правятся в карточке
+         каждого товара, а здесь повторяли те же суммы. Итоги по видам платежа — в блоке гр.В ниже. -->
+    <div v-if="items.length && !paymentsSummaryRows.length" class="empty-state payments-summary-empty"> {{ t('dt.platezhiGr47NeRasschitany') }} </div>
     <!-- Гр.В (правка Ирины): всегда видимый блок общих платежей по декларации
          за все товары — суммы по кодам + итог. -->
     <div v-if="grVTotals.rows.length" class="gr-v-block">
@@ -489,12 +460,12 @@ const applyMonthsToAll = () => {
   background: var(--atg-surface-muted, #f5f7fb);
 }
 .decl-sum-title {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--atg-muted, #6b7891);
 }
 .decl-sum-items { display: flex; gap: 10px 22px; flex-wrap: wrap; }
 .decl-sum-item { display: flex; flex-direction: column; gap: 1px; }
-.decl-sum-item > span { font-size: 10.5px; color: var(--atg-muted, #95a1b7); text-transform: uppercase; letter-spacing: 0.03em; }
+.decl-sum-item > span { font-size: 12px; color: var(--atg-muted, #95a1b7); text-transform: uppercase; letter-spacing: 0.03em; }
 .decl-sum-item > b { font-size: 14px; color: var(--atg-ink, #182640); font-weight: 700; }
 .decl-sum-item--accent > b { color: var(--atg-teal-dark, #149bb2); }
 
@@ -517,7 +488,7 @@ const applyMonthsToAll = () => {
 .gr-v-total { background: var(--atg-surface-muted, #f5f7fb); }
 .gr-v-total .gr-v-name { font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.03em; }
 .gr-v-total .gr-v-amount { color: var(--atg-teal-dark, #149bb2); font-size: 15px; }
-.field-label { font-size: 11px; color: var(--atg-muted); margin-bottom: 2px; }
+.field-label { font-size: 12px; color: var(--atg-muted); margin-bottom: 2px; }
 .payment-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .marking-collapse { margin-top: 4px; margin-bottom: 8px; }
 .marking-block { border: 1px solid var(--atg-border, #f0f0f0); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
@@ -525,6 +496,6 @@ const applyMonthsToAll = () => {
 .marking-remove { display: flex; align-items: flex-end; justify-content: flex-end; }
 .marking-empty { color: var(--atg-muted); font-size: 12px; margin-bottom: 8px; }
 .marking-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.marking-hint { font-size: 11.5px; color: var(--atg-muted, #95a1b7); }
+.marking-hint { font-size: 12px; color: var(--atg-muted, #95a1b7); }
 .empty-state { color: var(--atg-muted); font-size: 12px; }
 </style>

@@ -196,7 +196,7 @@ const columns = computed(() => ([
   {
     title: t('admin.deystviya'), key: 'actions',
     customRender: ({ record }: { record: RefItem }) =>
-      h(Button, { size: 'small', danger: true, onClick: () => remove(record) }, () => t('admin.deaktivirovat')),
+      h(Button, { size: 'small', type: 'link', danger: true, onClick: () => remove(record) }, () => t('admin.deaktivirovat')),
   },
 ]))
 const load = async () => {
@@ -296,7 +296,7 @@ const classifierColumns = computed(() => ([
   {
     title: t('admin.deystviya'), key: 'actions', width: 140,
     customRender: ({ record }: { record: ClassifierItem }) =>
-      h(Button, { size: 'small', danger: true, onClick: () => removeClassifier(record) }, () => t('admin.deaktivirovat')),
+      h(Button, { size: 'small', type: 'link', danger: true, onClick: () => removeClassifier(record) }, () => t('admin.deaktivirovat')),
   },
 ]))
 const loadClassifierGroups = async () => {

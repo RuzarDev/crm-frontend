@@ -117,7 +117,7 @@ onMounted(async () => {
 <style scoped>
 .reestr-block { margin-top: 4px; }
 .subsection-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--atg-muted);
   text-transform: uppercase;
@@ -129,7 +129,7 @@ onMounted(async () => {
 .field.f-2 { flex: 2; min-width: 220px; }
 .field.f-narrow { flex: 0 0 auto; min-width: 0; }
 .field-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--atg-muted);
   white-space: nowrap;

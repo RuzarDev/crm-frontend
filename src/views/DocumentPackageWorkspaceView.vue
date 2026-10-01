@@ -103,7 +103,7 @@
                           <template #icon><EyeOutlined /></template>
                         </a-button>
                       </a-tooltip>
-                      <a-tag v-if="isLinked(item)" color="green" style="font-size: 10px; margin: 0; padding: 0 4px; border-radius: 4px;">
+                      <a-tag v-if="isLinked(item)" color="green" style="font-size: 12px; margin: 0; padding: 0 4px; border-radius: 4px;">
                         <CheckOutlined />
                       </a-tag>
                     </div>
@@ -260,7 +260,7 @@
                     :cancel-text="t('transit.net')"
                     @confirm="handleDeleteContainer(container.id)"
                   >
-                    <a-button type="text" size="small" danger>
+                    <a-button type="text" size="small" danger :title="$t('common.delete')" :aria-label="$t('common.delete')">
                       <DeleteOutlined />
                     </a-button>
                   </a-popconfirm>
@@ -311,7 +311,7 @@
                           :cancel-text="t('transit.net')"
                           @confirm="handleDeleteClient(container.id, consolidation.id)"
                         >
-                          <a-button type="text" size="small" danger style="font-size: 12px;">
+                          <a-button type="text" size="small" danger style="font-size: 12px;" :title="$t('common.delete')" :aria-label="$t('common.delete')">
                             <DeleteOutlined />
                           </a-button>
                         </a-popconfirm>
@@ -1606,7 +1606,7 @@ const runAiParse = async () => {
 
 .file-meta {
   font-family: var(--atg-font-mono);
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--atg-muted);
   margin-top: 4px;
 }
@@ -1735,7 +1735,7 @@ const runAiParse = async () => {
 }
 
 .container-meta {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--atg-charcoal);
   background: var(--atg-bg);
@@ -1745,7 +1745,7 @@ const runAiParse = async () => {
 }
 
 .node-badge {
-  font-size: 9px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 800;
@@ -1769,7 +1769,7 @@ const runAiParse = async () => {
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
   color: var(--atg-navy);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 500;
   padding: 2px 6px;
   border-radius: 5px;
@@ -2060,7 +2060,7 @@ const runAiParse = async () => {
 
 .opt-badge-container,
 .opt-badge-client {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
   padding: 1px 5px;

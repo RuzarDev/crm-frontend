@@ -158,5 +158,5 @@ defineExpose({ reveal, collapseAll, scrollToSelected, reload: () => (rootPromise
 }
 .tt-leaf .tt-code { color: var(--z-ink, #0e1b35); }
 .tt-name { flex: 1; min-width: 0; white-space: normal; }
-.tt-unit { flex: none; font-size: 11px; color: var(--z-muted, #8c95a6); }
+.tt-unit { flex: none; font-size: 12px; color: var(--z-muted, #8c95a6); }
 </style>

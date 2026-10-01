@@ -6,45 +6,56 @@
       <a-breadcrumb-item>{{ dtForm.declarationNumber || t('dt.deklaraciya') }}</a-breadcrumb-item>
     </a-breadcrumb>
 
-    <PageHeader :kicker="t('dt.import40')" :title="dtForm.declarationNumber || t('dt.deklaraciya')" :subtitle="caseTitle">
-      <template #meta>
-        <a-tag :color="blankPct === 100 ? 'green' : 'orange'">
-          {{ t('dt.blankProgress', { filled: readiness?.blankFilled ?? 0, total: readiness?.blankTotal ?? 46 }) }}
-        </a-tag>
-        <a-tag :color="kedenMissing.length ? 'orange' : 'green'">
-          {{ kedenMissing.length ? t('dt.kedenMissing', { n: kedenMissing.length }) : t('dt.kedenReady') }}
-        </a-tag>
-      </template>
-      <template #actions>
-        <a-tooltip v-if="showSplitButton" :title="splitBlockedReason">
-          <a-button :disabled="!canSplit" @click="openSplitModal">{{ t('dt.razdelitNaEttVto') }}</a-button>
+    <!-- Липкая панель ДТ (аудит дизайна 01.10): номер и готовность слева, три главных действия справа,
+         редкие — в «Ещё». Раньше заголовок, шесть кнопок, регистрация номера и курсы занимали полэкрана,
+         а при прокрутке «Сохранить» уезжало наверх. -->
+    <div class="dt-bar">
+      <div class="dt-bar-title">
+        <div class="dt-bar-kicker">{{ t('dt.import40') }}<template v-if="caseTitle"> · {{ caseTitle }}</template></div>
+        <h1 class="dt-bar-h">{{ dtForm.declarationNumber || t('dt.deklaraciya') }}</h1>
+      </div>
+      <div class="dt-bar-status">
+        <a-tooltip :title="readiness?.blankEmptyGraphs?.length ? t('dt.pustyeGrafy', { list: readiness.blankEmptyGraphs.join(', ') }) : undefined">
+          <a-tag :color="blankPct === 100 ? 'green' : 'orange'">
+            {{ t('dt.blankProgress', { filled: readiness?.blankFilled ?? 0, total: readiness?.blankTotal ?? 46 }) }}
+          </a-tag>
         </a-tooltip>
-        <a-button :loading="docsDownloading" @click="downloadAllDocuments">{{ t('dt.skachatVseDokumenty') }}</a-button>
+        <a-popover v-if="missingList.length" v-model:open="missingOpen" trigger="click" placement="bottomLeft" :overlay-style="{ maxWidth: '520px' }">
+          <template #title>{{ t('dt.neHvataetDannyhKlik') }}</template>
+          <template #content>
+            <ul class="dt-missing-list">
+              <li v-for="m in missingList" :key="m"><a @click.prevent="goToMissing(m)">{{ m }}</a></li>
+            </ul>
+          </template>
+          <a-tag color="orange" class="dt-missing-tag">{{ t('dt.kedenMissing', { n: missingList.length }) }} <DownOutlined /></a-tag>
+        </a-popover>
+        <a-tag v-else color="green">{{ t('dt.kedenReady') }}</a-tag>
+        <span v-if="!readOnly" class="dt-saved">
+          <template v-if="saving">{{ t('dt.sohranyaetsya') }}</template>
+          <template v-else-if="lastSavedAt">{{ t('dt.sohranenoV', { time: lastSavedAt }) }}</template>
+        </span>
+      </div>
+      <div class="dt-bar-actions">
         <template v-if="!readOnly">
           <a-button :loading="saving" @click="saveDt()">{{ t('dt.sohranit') }}</a-button>
           <a-button :loading="paymentsLoading" @click="openPaymentsModal">{{ t('dt.rasschitatPlatezhi') }}</a-button>
           <a-button type="primary" :loading="xmlLoading" @click="exportXml">{{ t('dt.sformirovatXml') }}</a-button>
         </template>
-        <!-- Печать бланка доступна и в режиме просмотра (readOnly) — единственное действие,
-             не считающееся редактированием декларации. -->
-        <a-button :loading="pdfLoading" @click="printBlank">{{ t('dt.printer') }}</a-button>
-      </template>
-    </PageHeader>
-
-    <a-alert v-if="kedenMissing.length" type="warning" show-icon class="dt-missing">
-      <template #message>{{ t('dt.neHvataetDannyhKlik') }}</template>
-      <template #description>
-        <ul><li v-for="m in kedenMissing" :key="m"><a @click.prevent="goToMissing(m)">{{ m }}</a></li></ul>
-      </template>
-    </a-alert>
-
-    <DtDeclarationNumberBar
-      :model-value="dtForm"
-      :readonly="readOnly"
-      :post-options="customsPostOptions"
-      @update:model-value="onDtUpdate"
-      @register="saveDt()"
-    />
+        <a-dropdown :trigger="['click']" placement="bottomRight">
+          <a-button :loading="docsDownloading || pdfLoading">{{ t('dt.esche') }} <DownOutlined /></a-button>
+          <template #overlay>
+            <a-menu>
+              <!-- Печать бланка доступна и в режиме просмотра (readOnly) — не считается редактированием. -->
+              <a-menu-item key="print" @click="printBlank">{{ t('dt.printer') }}</a-menu-item>
+              <a-menu-item key="docs" @click="downloadAllDocuments">{{ t('dt.skachatVseDokumenty') }}</a-menu-item>
+              <a-menu-item v-if="showSplitButton" key="split" :disabled="!canSplit" :title="splitBlockedReason" @click="openSplitModal">
+                {{ t('dt.razdelitNaEttVto') }}
+              </a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
+      </div>
+    </div>
 
     <DtCurrencyRatesBox :rates="currencyRates" :codes="currencyBoxCodes" :as-of-date="dtForm.submissionDate ?? null" :official="ratesOfficial" />
 
@@ -58,12 +69,23 @@
             <CheckCircleFilled v-if="sectionDone(s.key)" />
             <span v-else class="dt-nav-mark-empty" />
           </span>
-          {{ s.title }}
+          <span class="dt-nav-title">{{ s.title }}</span>
+          <!-- Сколько не хватает для КЕДЕН в этом разделе — видно, куда идти. -->
+          <span v-if="missingBySection[s.key]" class="dt-nav-count" :title="t('dt.neHvataetDannyhKlik')">{{ missingBySection[s.key] }}</span>
         </a>
       </nav>
 
       <div class="dt-content">
         <a-form layout="vertical" :disabled="readOnly">
+          <!-- Регистрация номера и дата гр.А — в разделе общих сведений, а не над всеми разделами. -->
+          <DtDeclarationNumberBar
+            v-show="activeSection === 'general'"
+            :model-value="dtForm"
+            :readonly="readOnly"
+            :post-options="customsPostOptions"
+            @update:model-value="onDtUpdate"
+            @register="saveDt()"
+          />
           <DtSectionGeneral v-show="activeSection === 'general'" :model-value="dtForm" :readonly="readOnly" :totals="totals" @update:model-value="onDtUpdate" />
           <DtSectionParties v-show="activeSection === 'parties'" :model-value="dtForm" :readonly="readOnly" :country-options="countryOptions" :client-profile="clientProfile" @update:model-value="onDtUpdate" />
           <DtSectionCountries v-show="activeSection === 'countries'" :model-value="dtForm" :readonly="readOnly" :country-options="countryOptions" @update:model-value="onDtUpdate" />
@@ -156,7 +178,7 @@ import { computed, h, onMounted, ref, reactive, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { message, Modal } from 'ant-design-vue'
-import { CheckCircleFilled } from '@ant-design/icons-vue'
+import { CheckCircleFilled, DownOutlined } from '@ant-design/icons-vue'
 import {
   import40Api,
   type Import40CaseDto,
@@ -192,7 +214,6 @@ import DtDeclarationNumberBar from '@/components/import40/dt/DtDeclarationNumber
 import DtCurrencyRatesBox from '@/components/import40/dt/DtCurrencyRatesBox.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
 import DtPaymentsCalcModal from '@/components/import40/dt/DtPaymentsCalcModal.vue'
-import PageHeader from '@/components/PageHeader.vue'
 import { placesOfGoods } from '@/utils/goodsPlaces'
 
 const { t } = useI18n()
@@ -296,6 +317,8 @@ const splitBlockedReason = computed(() => {
 })
 
 const saving = ref(false)
+// Время последнего успешного сохранения (ручного или автосейва) — для «Сохранено в 15:32» в панели.
+const lastSavedAt = ref<string | null>(null)
 const xmlLoading = ref(false)
 const pdfLoading = ref(false)
 const docsDownloading = ref(false)
@@ -618,9 +641,23 @@ const sectionForMessage = (m: string) => {
   return 'general'
 }
 
+const missingOpen = ref(false)
 const goToMissing = (m: string) => {
   activeSection.value = sectionForMessage(m)
+  missingOpen.value = false
 }
+
+// Чего не хватает для КЕДЕН-XML: ответ последней выгрузки, а до неё — проверка готовности после
+// каждого сохранения. Раньше бейдж «готово» смотрел только на выгрузку и до неё всегда был зелёным.
+const missingList = computed(() => (kedenMissing.value.length ? kedenMissing.value : readiness.value?.missing ?? []))
+const missingBySection = computed(() => {
+  const out: Record<string, number> = {}
+  for (const m of missingList.value) {
+    const key = sectionForMessage(m)
+    out[key] = (out[key] ?? 0) + 1
+  }
+  return out
+})
 
 const refreshReadiness = async () => {
   if (readOnly.value) return
@@ -1403,6 +1440,7 @@ const saveDt = async (silent = false): Promise<boolean> => {
     if (!silent) message.success(t('dt.dtSohranena'))
     void refreshReadiness()
     savedCounter.value += 1
+    lastSavedAt.value = dayjs().format('HH:mm')
     return true
   } catch {
     // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
@@ -1628,12 +1666,70 @@ onMounted(async () => {
 .dt-crumbs {
   margin-bottom: 12px;
 }
-.dt-missing {
-  border-radius: var(--atg-radius-lg);
+/* Липкая панель ДТ — под шапкой приложения (64px). */
+.dt-bar {
+  position: sticky;
+  top: 64px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 10px 16px;
+  margin: 0 -4px;
+  background: var(--z-surface);
+  border: 1px solid var(--z-line);
+  border-radius: 12px;
+  box-shadow: var(--sh-2, 0 4px 12px -4px rgba(14, 27, 53, 0.12));
 }
-.dt-missing a {
-  text-decoration: underline;
+.dt-bar-title { min-width: 0; }
+.dt-bar-kicker {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--z-teal-d);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.dt-bar-h {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 20px;
+  line-height: 1.25;
+  color: var(--z-ink);
+}
+.dt-bar-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.dt-bar-status :deep(.ant-tag) { margin: 0; }
+.dt-missing-tag { cursor: pointer; }
+.dt-saved { font-size: 12px; color: var(--z-muted); margin-left: 4px; }
+.dt-bar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.dt-missing-list { margin: 0; padding-left: 18px; max-height: 320px; overflow-y: auto; }
+.dt-missing-list li { margin: 3px 0; }
+.dt-missing-list a { text-decoration: underline; }
+.dt-nav-title { flex: 1; min-width: 0; }
+.dt-nav-count {
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--z-warning-soft);
+  color: var(--z-warning);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+.dt-nav-item.active .dt-nav-count { background: rgba(255, 255, 255, 0.85); }
 .dt-layout {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
@@ -1642,7 +1738,7 @@ onMounted(async () => {
 }
 .dt-nav {
   position: sticky;
-  top: 12px;
+  top: 150px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1725,5 +1821,7 @@ onMounted(async () => {
     flex-direction: row;
     flex-wrap: wrap;
   }
+  /* На телефоне панель не липнет: она в несколько строк и закрыла бы форму. */
+  .dt-bar { position: static; }
 }
 </style>

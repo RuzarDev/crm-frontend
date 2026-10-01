@@ -168,7 +168,7 @@
         size="small"
         class="del-btn"
         @click="removeItem(idx)"
-      ><CloseOutlined /></a-button>
+       :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
     </div>
   </div>
 </template>
@@ -297,7 +297,7 @@ function removeItem(idx: number) {
 }
 
 .section-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--atg-muted);
   letter-spacing: 0.06em;
@@ -330,7 +330,7 @@ function removeItem(idx: number) {
   border-radius: 50%;
   background: var(--atg-teal-soft, #e6f7f5);
   color: var(--atg-teal, #00b8a0);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   margin-top: 20px;
 }
@@ -371,7 +371,7 @@ function removeItem(idx: number) {
 }
 
 .field-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--atg-muted);
   white-space: nowrap;

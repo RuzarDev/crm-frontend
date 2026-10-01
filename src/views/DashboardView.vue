@@ -376,7 +376,7 @@ const rankWidth = (count: number, max: number) =>
 }
 
 .kpi-label {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -471,7 +471,7 @@ const rankWidth = (count: number, max: number) =>
   color: var(--atg-ink, #182640);
 }
 .leg-pc {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--atg-muted, #95a1b7);
   min-width: 34px;
   text-align: right;
@@ -514,7 +514,7 @@ const rankWidth = (count: number, max: number) =>
   color: var(--atg-ink, #182640);
 }
 .rank-sub {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--atg-muted, #95a1b7);
   margin-top: 1px;
 }
@@ -538,7 +538,7 @@ const rankWidth = (count: number, max: number) =>
   color: var(--atg-ink, #182640);
   flex: 0 0 auto;
 }
-.rank-cnt small { font-size: 11px; color: var(--atg-muted, #95a1b7); font-weight: 600; }
+.rank-cnt small { font-size: 12px; color: var(--atg-muted, #95a1b7); font-weight: 600; }
 .code-badge {
   display: inline-block;
   font-family: 'SFMono-Regular', ui-monospace, Menlo, monospace;
@@ -563,10 +563,10 @@ const rankWidth = (count: number, max: number) =>
 .block-transit { margin-top: var(--sp-6, 32px); padding-top: var(--sp-5, 24px); border-top: 1px solid var(--z-line, #e8ecf4); }
 .mini-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--z-line-2, #eff2f8); }
 .mini-kpi { display: flex; flex-direction: column; gap: 2px; }
-.mini-kpi > span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--atg-muted, #6b7891); font-weight: 600; }
+.mini-kpi > span { font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--atg-muted, #6b7891); font-weight: 600; }
 .mini-kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 22px; font-weight: 800; color: var(--atg-ink, #182640); line-height: 1.1; }
 .mini-kpi > b em { font-style: normal; font-size: 13px; color: var(--atg-muted, #95a1b7); font-weight: 600; }
-.mini-kpi > small { font-size: 11.5px; color: var(--atg-muted, #95a1b7); }
+.mini-kpi > small { font-size: 12px; color: var(--atg-muted, #95a1b7); }
 
 .empty-state {
   padding: 60px 0;

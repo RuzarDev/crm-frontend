@@ -800,7 +800,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   display: block;
   margin-top: 3px;
   color: rgba(240, 243, 255, 0.48);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -839,7 +839,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 /* Notifications */
 .notif-badge :deep(.ant-badge-count) {
   box-shadow: none;
-  font-size: 10px;
+  font-size: 12px;
   min-width: 16px;
   height: 16px;
   line-height: 16px;
@@ -935,7 +935,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   padding: 1px 7px;
   background: var(--atg-teal-soft);
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   font-family: monospace;
   color: var(--atg-teal-dark);
@@ -944,7 +944,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 
 .notif-time {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--atg-muted);
 }
 
@@ -1011,7 +1011,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: rgba(240, 243, 255, 0.5);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -1019,7 +1019,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .user-menu-trigger:hover .user-avatar { background: rgba(14, 27, 53, 0.15); color: #0E1B35; }
 
 .user-menu-caret {
-  font-size: 10px;
+  font-size: 12px;
   opacity: 0.7;
 }
 
@@ -1120,7 +1120,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .sider :deep(.ant-menu-item-group-title) {
   padding: 12px 12px 4px;
   color: rgba(240, 243, 255, 0.38);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1214,7 +1214,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 }
 
 .drawer-brand-sub {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1231,7 +1231,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .drawer-menu :deep(.ant-menu-item-group-title) {
   padding: 12px 12px 4px;
   color: rgba(240, 243, 255, 0.38);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1274,7 +1274,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 }
 
 .drawer-footer-role {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;

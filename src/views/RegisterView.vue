@@ -288,7 +288,7 @@ const goToLogin = () => router.push('/login')
   gap: 8px;
   margin-bottom: 20px;
   color: #23B5D3;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -347,7 +347,7 @@ const goToLogin = () => router.push('/login')
   border-radius: 8px;
   background: rgba(35, 181, 211, 0.1);
   color: #23B5D3;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.04em;
   flex-shrink: 0;
@@ -362,7 +362,7 @@ const goToLogin = () => router.push('/login')
 
 .auth-step-sub {
   color: rgba(180, 210, 255, 0.45);
-  font-size: 11.5px;
+  font-size: 12px;
   margin-top: 2px;
 }
 
@@ -403,7 +403,7 @@ const goToLogin = () => router.push('/login')
   border-radius: 999px;
   background: rgba(35, 181, 211, 0.08);
   color: #1580A6;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;

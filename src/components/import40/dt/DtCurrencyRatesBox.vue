@@ -85,7 +85,7 @@ const asOfLabel = computed(() =>
   border-radius: 50%;
   background: var(--z-border, #f0f0f0);
   color: var(--z-text-secondary, #595959);
-  font-size: 11px;
+  font-size: 12px;
   cursor: help;
 }
 .dt-rates-note-muted {

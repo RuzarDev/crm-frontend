@@ -13,7 +13,7 @@
         <div v-for="(item, idx) in items" :key="idx" class="row-card">
           <div class="row-top">
             <span class="row-num">{{ idx + 1 }}</span>
-            <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /></a-button>
+            <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
           </div>
           <div class="field-row">
             <div class="field">
@@ -133,13 +133,13 @@ function removeItem(idx: number) {
   display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; border-radius: 50%;
   background: var(--atg-teal-soft, #e6f7f5); color: var(--atg-teal, #00b8a0);
-  font-size: 11px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
 }
 .del-btn { color: var(--atg-danger, #ff4d4f) !important; padding: 0 4px !important; height: 20px !important; font-size: 13px !important; }
 .field-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
 .field { flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 3px; }
 .field-label {
-  font-size: 10px; font-weight: 600; color: var(--atg-muted);
+  font-size: 12px; font-weight: 600; color: var(--atg-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .flags-row { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 2px; }

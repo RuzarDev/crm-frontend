@@ -62,7 +62,7 @@
               <a-button size="small" @click.stop="openDocs(record)"><FileTextOutlined /> {{ t('admin.dokumenty') }}</a-button>
               <a-button v-if="canInvite && record.status === 'Invited'" size="small" @click.stop="reissue(record)">{{ t('admin.novayaSsylka') }}</a-button>
               <a-popconfirm v-if="canManage && record.status !== 'Blocked'" @click.stop :title="t('admin.zablokirovatKlientaOnNe')" :ok-text="t('admin.zablokirovat')" :cancel-text="t('admin.otmena')" @confirm="block(record)">
-                <a-button size="small" danger>{{ t('admin.zablokirovat') }}</a-button>
+                <a-button size="small" type="link" danger>{{ t('admin.zablokirovat') }}</a-button>
               </a-popconfirm>
               <a-button v-if="canManage && record.status === 'Blocked'" size="small" @click.stop="unblock(record)">{{ t('admin.razblokirovat') }}</a-button>
             </a-space>

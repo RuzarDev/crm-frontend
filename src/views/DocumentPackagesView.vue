@@ -197,7 +197,7 @@
                   size="small"
                   danger
                   @click="deleteFile(item)"
-                >
+                 :title="$t('common.delete')" :aria-label="$t('common.delete')">
                   <DeleteOutlined />
                 </a-button>
               </a-space>
@@ -515,7 +515,7 @@ const formatFileSize = (bytes: number) => {
 
 .client-chip small {
   color: var(--atg-muted);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .toolbar {
@@ -637,7 +637,7 @@ const formatFileSize = (bytes: number) => {
 
 .details-head .eyebrow {
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;

@@ -193,7 +193,7 @@ useTransitTotals(
 }
 
 .subsection-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--atg-muted);
   text-transform: uppercase;
@@ -224,7 +224,7 @@ useTransitTotals(
 }
 
 .field-label {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.2;
   color: var(--atg-muted);
   font-weight: 600;

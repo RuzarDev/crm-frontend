@@ -19,7 +19,7 @@
             <div class="field-label">{{ t('transit.primechanie') }}</div>
             <a-input v-model:value="item.note" size="small" :disabled="readonly" placeholder="—" @change="emitChange" />
           </div>
-          <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /></a-button>
+          <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
         </div>
       </a-collapse-panel>
     </a-collapse>
@@ -82,7 +82,7 @@ function removeItem(idx: number) {
 .field { flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 3px; }
 .field.f-grow { flex: 2; }
 .field-label {
-  font-size: 10px; font-weight: 600; color: var(--atg-muted);
+  font-size: 12px; font-weight: 600; color: var(--atg-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .del-btn { color: var(--atg-danger, #ff4d4f) !important; padding: 0 4px !important; height: 20px !important; font-size: 13px !important; }

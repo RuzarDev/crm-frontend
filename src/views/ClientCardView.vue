@@ -240,7 +240,7 @@ const downloadBlank = async (doc: ClientCardDoc) => {
 .client-card-view { display: flex; flex-direction: column; gap: 18px; }
 .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
 .kpi { background: #fff; border: 1px solid var(--z-line, #e8ecf4); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
-.kpi > span { font-size: 11.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
+.kpi > span { font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
 .kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 24px; font-weight: 800; color: var(--atg-ink, #182640); }
 .kpi > small { font-size: 12px; color: var(--atg-muted, #95a1b7); }
 .kpi--warn > b { color: #e07a30; }
@@ -249,7 +249,7 @@ const downloadBlank = async (doc: ClientCardDoc) => {
 .props-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .prop { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .prop.full { grid-column: 1 / -1; }
-.prop > span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--atg-muted, #95a1b7); }
+.prop > span { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--atg-muted, #95a1b7); }
 .prop > b { font-weight: 600; color: var(--atg-ink, #182640); overflow-wrap: anywhere; }
 .profile-foot { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
 
