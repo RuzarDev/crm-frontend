@@ -1743,7 +1743,7 @@ onMounted(async () => {
   flex-direction: column;
   gap: 2px;
   border: 1px solid var(--z-line);
-  border-radius: var(--atg-radius-lg);
+  border-radius: var(--r-lg);
   background: var(--z-surface);
   padding: 8px;
 }
@@ -1782,7 +1782,7 @@ onMounted(async () => {
 }
 .dt-content {
   border: 1px solid var(--z-line);
-  border-radius: var(--atg-radius-lg);
+  border-radius: var(--r-lg);
   background: var(--z-surface);
   padding: 16px 20px;
 }

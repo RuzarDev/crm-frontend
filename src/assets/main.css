@@ -40,6 +40,9 @@
   --sh-1: 0 1px 2px rgba(16, 24, 40, .06);
   --sh-2: 0 4px 12px -4px rgba(14, 27, 53, .12);
   --sh-3: 0 14px 32px -12px rgba(14, 27, 53, .20);
+  /* Движение */
+  --z-transition: 0.16s ease;
+  --z-ease-out: cubic-bezier(0.22, 0.68, 0, 1.12);
 
   /* Типографика */
   --font-heading: 'Manrope', 'Inter', system-ui, sans-serif;   /* заголовки, цифры KPI */
@@ -55,61 +58,10 @@
   --z-accent-soft: var(--z-teal-soft);
   --z-surface-subtle: var(--z-surface-2);
   --z-zircon-ink: var(--z-teal-d);
-  --atg-danger: var(--z-danger);
-  --atg-border: var(--z-line);
-  --atg-line-2: var(--z-line-strong);
-  --atg-surface-alt: var(--z-surface-2);
-  --atg-teal-weak: var(--z-teal-soft);
-  --atg-font-mono: var(--font-mono);
   --gray-soft: var(--z-surface-2);
 
-  /* ══════════════════════════════════════════════════════════
-     Legacy --atg-* aliases — НЕ удалять (много потребителей).
-     Значения указывают на --z-* — источник правды выше.
-     ══════════════════════════════════════════════════════════ */
-
-  /* ── Brandbook official colors (ATG_Brandbook.pdf) ──────── */
-  --atg-navy:          var(--z-navy);        /* Основной синий — sidebar, header     */
-  --atg-teal:          var(--z-teal);        /* Бирюзовый — primary accent, buttons  */
-  --atg-teal-dark:     var(--z-teal-d);      /* Бирюзовый тёмный                     */
-  --atg-teal-soft:     var(--z-teal-soft);   /* Бирюзовый очень светлый              */
-  --atg-gold:          var(--z-gold);        /* Золотой — secondary accent           */
-  --atg-gold-soft:     var(--z-gold-soft);   /* Золотой светлый                      */
-  --atg-gray:          var(--z-muted);       /* Серый                                */
-
-  /* ── Semantic aliases ───────────────────────────────────── */
-  --atg-ink:           var(--z-ink);
-  --atg-ink-soft:      var(--z-navy-2);
-  --atg-charcoal:      var(--z-navy-3);
-  --atg-text:          var(--z-ink);
-  --atg-muted:         var(--z-muted);
-  --atg-line:          var(--z-line);
-  --atg-line-strong:   var(--z-line-strong);
-  --atg-bg:            var(--z-bg);
-  --atg-surface:       var(--z-surface);
-  --atg-surface-muted: var(--z-surface-2);
-
-  /* Primary accent = Teal */
-  --atg-accent:        var(--z-teal);
-  --atg-accent-strong: var(--z-teal-d);
-  --atg-accent-soft:   var(--z-teal-soft);
-
-  /* Legacy aliases */
-  --atg-cyan:          var(--z-teal);
-  --atg-cyan-soft:     var(--z-teal-soft);
-  --atg-blue:          var(--z-teal);
-  --atg-green:         var(--z-success);
-  --atg-green-soft:    var(--z-success-soft);
-  --atg-red:           var(--z-danger);
-
-  --atg-shadow:    var(--sh-1);
-  --atg-shadow-md: var(--sh-2);
-  --atg-shadow-lg: var(--sh-3);
-  --atg-radius:    var(--r-md);
-  --atg-radius-sm: var(--r-sm);
-  --atg-radius-lg: var(--r-lg);
-  --atg-ease:      cubic-bezier(0.22, 0.68, 0, 1.12);
-  --atg-transition: 0.16s ease;
+  /* Старые переменные --atg-* удалены 01.10.2026: все стили на --z-* (цвета), --r-* (радиусы),
+     --sh-* (тени), --z-transition / --z-ease-out (движение). */
 }
 
 /* В Manrope нет казахских Ә Ғ Қ Ң Ұ — казахские заголовки набираем Inter целиком,
@@ -122,10 +74,10 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: var(--atg-text);
+  color: var(--z-ink);
   background:
     linear-gradient(135deg, rgba(35, 181, 211, 0.04), transparent 28%),
-    var(--atg-bg);
+    var(--z-bg);
 }
 
 #app {
@@ -137,7 +89,7 @@ body {
 h1, h2, h3, h4, h5, h6,
 .page-title {
   font-family: var(--font-heading);
-  color: var(--atg-ink);
+  color: var(--z-ink);
   line-height: 1.2;
   letter-spacing: -0.01em;
 }
@@ -150,12 +102,12 @@ h4 { font-size: 14px;  font-weight: 700; }
 p {
   margin: 0;
   line-height: 1.6;
-  color: var(--atg-text);
+  color: var(--z-ink);
 }
 
 small {
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 
 /* Числовые данные (суммы, коды, колонки) — моноширинные цифры */
@@ -225,8 +177,8 @@ small {
 }
 
 a {
-  color: var(--atg-accent-strong);
-  transition: color var(--atg-transition);
+  color: var(--z-teal-d);
+  transition: color var(--z-transition);
 }
 
 /* ─── Custom Scrollbar ───────────────────────────────────── */
@@ -241,12 +193,12 @@ a {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--atg-line-strong);
+  background: var(--z-line-strong);
   border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--atg-muted);
+  background: var(--z-muted);
 }
 
 /* ─── CRM Page Layout ────────────────────────────────────── */
@@ -270,7 +222,7 @@ a {
   align-items: center;
   gap: 7px;
   margin-bottom: 8px;
-  color: var(--atg-accent-strong);
+  color: var(--z-teal-d);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -289,7 +241,7 @@ a {
 
 .crm-page-title {
   margin: 0;
-  color: var(--atg-ink);
+  color: var(--z-ink);
   font-family: var(--font-heading);
   font-size: 26px;
   line-height: 1.15;
@@ -301,7 +253,7 @@ a {
   max-width: 760px;
   margin-top: 6px;
   margin-bottom: 0;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 13.5px;
   line-height: 1.6;
 }
@@ -335,12 +287,12 @@ a {
 }
 
 .crm-shell-card {
-  border: 1px solid var(--atg-line);
-  border-top: 3px solid var(--atg-cyan);
-  border-radius: var(--atg-radius-lg);
-  box-shadow: var(--atg-shadow-md);
+  border: 1px solid var(--z-line);
+  border-top: 3px solid var(--z-teal);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-2);
   overflow: hidden;
-  transition: box-shadow var(--atg-transition);
+  transition: box-shadow var(--z-transition);
 }
 
 .crm-shell-card .ant-card-body {
@@ -349,7 +301,7 @@ a {
 
 .crm-toolbar-surface {
   padding: 12px 16px;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: 12px;
   background: #ffffff;
   box-shadow: 0 1px 4px rgba(14, 27, 53, 0.05);
@@ -362,10 +314,10 @@ a {
   align-items: center;
   gap: 6px;
   padding: 4px 12px 4px 10px;
-  border: 1px solid var(--atg-line-strong);
+  border: 1px solid var(--z-line-strong);
   border-radius: 999px;
-  background: var(--atg-surface);
-  color: var(--atg-charcoal);
+  background: var(--z-surface);
+  color: var(--z-navy-3);
   font-size: 13px;
   font-weight: 600;
 }
@@ -373,7 +325,7 @@ a {
 .crm-stat-badge-count {
   font-size: 15px;
   font-weight: 700;
-  color: var(--atg-ink);
+  color: var(--z-ink);
 }
 
 /* ─── Auth Pages ─────────────────────────────────────────── */
@@ -442,9 +394,9 @@ a {
 .crm-auth-card {
   width: 100%;
   max-width: 560px;
-  border: 1px solid var(--atg-line);
-  border-radius: var(--atg-radius-lg);
-  box-shadow: var(--atg-shadow-md);
+  border: 1px solid var(--z-line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-2);
 }
 
 .crm-auth-card .ant-card-body {
@@ -453,12 +405,12 @@ a {
 
 .crm-auth-card .ant-card-head {
   min-height: 64px;
-  border-bottom: 1px solid var(--atg-line);
+  border-bottom: 1px solid var(--z-line);
   padding: 0 clamp(24px, 2.2vw, 40px);
 }
 
 .crm-auth-card .ant-card-head-title {
-  color: var(--atg-ink);
+  color: var(--z-ink);
   font-size: clamp(20px, 1.35vw, 26px);
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -470,7 +422,7 @@ a {
 
 .crm-auth-card .ant-form-item-label > label {
   height: auto;
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
   font-size: 14.5px;
   font-weight: 600;
 }
@@ -502,19 +454,19 @@ a {
   font-weight: 600;
   box-shadow: none;
   transition:
-    background var(--atg-transition),
-    border-color var(--atg-transition),
-    color var(--atg-transition),
-    opacity var(--atg-transition);
+    background var(--z-transition),
+    border-color var(--z-transition),
+    color var(--z-transition),
+    opacity var(--z-transition);
 }
 
 .ant-btn-link {
-  color: var(--atg-accent-strong);
+  color: var(--z-teal-d);
   font-weight: 600;
 }
 
 .ant-btn-link:not(:disabled):hover {
-  color: var(--atg-ink);
+  color: var(--z-ink);
 }
 
 /* Inputs */
@@ -522,18 +474,18 @@ a {
 .ant-input-affix-wrapper,
 .ant-select:not(.ant-select-customize-input) .ant-select-selector,
 .ant-picker {
-  border-color: var(--atg-line-strong);
+  border-color: var(--z-line-strong);
   border-radius: 7px;
   transition:
-    border-color var(--atg-transition),
-    box-shadow var(--atg-transition);
+    border-color var(--z-transition),
+    box-shadow var(--z-transition);
 }
 
 .ant-input:hover,
 .ant-input-affix-wrapper:hover,
 .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
 .ant-picker:hover {
-  border-color: var(--atg-cyan);
+  border-color: var(--z-teal);
 }
 
 .ant-input:focus,
@@ -541,14 +493,14 @@ a {
 .ant-input-affix-wrapper-focused,
 .ant-select-focused:not(.ant-select-disabled) .ant-select-selector,
 .ant-picker-focused {
-  border-color: var(--atg-cyan);
+  border-color: var(--z-teal);
   box-shadow: 0 0 0 3px rgba(35, 181, 211, 0.15);
 }
 
 /* Cards */
 .ant-card {
-  color: var(--atg-text);
-  background: var(--atg-surface);
+  color: var(--z-ink);
+  background: var(--z-surface);
 }
 
 /* Form */
@@ -563,7 +515,7 @@ a {
 /* ─── Table — full custom override ──────────────────────── */
 
 .ant-table {
-  color: var(--atg-text);
+  color: var(--z-ink);
   font-size: 13.5px;
 }
 
@@ -640,36 +592,36 @@ a {
 
 /* Sorter icons */
 .ant-table-column-sorter {
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 
 .ant-table-column-sorter-up.active,
 .ant-table-column-sorter-down.active {
-  color: var(--atg-cyan);
+  color: var(--z-teal);
 }
 
 /* Pagination */
 .ant-pagination .ant-pagination-item-active {
-  border-color: var(--atg-cyan);
+  border-color: var(--z-teal);
 }
 
 .ant-pagination .ant-pagination-item-active a {
-  color: var(--atg-cyan);
+  color: var(--z-teal);
 }
 
 /* Tabs */
 .ant-tabs .ant-tabs-tab {
   font-weight: 600;
-  transition: color var(--atg-transition);
+  transition: color var(--z-transition);
 }
 
 .ant-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn,
 .ant-tabs .ant-tabs-tab:hover {
-  color: var(--atg-cyan);
+  color: var(--z-teal);
 }
 
 .ant-tabs .ant-tabs-ink-bar {
-  background: var(--atg-cyan);
+  background: var(--z-teal);
 }
 
 /* Tags */
@@ -681,7 +633,7 @@ a {
 
 /* Custom Buttons Styling */
 :not(#z) .ant-btn {
-  border-radius: var(--atg-radius);
+  border-radius: var(--r-md);
   font-weight: 600;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 1px 2px rgba(14, 27, 53, 0.05);
@@ -699,7 +651,7 @@ a {
 /* Брендбук Zircon: главная кнопка — ровная заливка zircon, текст on-zircon (navy), без градиента.
    Цвет текста задаёт правило выше (navy), здесь только фон. */
 :not(#z) .ant-btn-primary {
-  background: var(--atg-teal);
+  background: var(--z-teal);
   border: none;
   box-shadow: none;
 }
@@ -758,9 +710,9 @@ a {
 :not(#z) .ant-input-affix-wrapper,
 :not(#z) .ant-select-selector,
 :not(#z) .ant-picker {
-  border: 1.5px solid var(--atg-line);
-  border-radius: var(--atg-radius);
-  background-color: var(--atg-surface);
+  border: 1.5px solid var(--z-line);
+  border-radius: var(--r-md);
+  background-color: var(--z-surface);
   transition: all 0.2s ease;
 }
 
@@ -769,7 +721,7 @@ a {
 :not(#z) .ant-input-affix-wrapper-focused,
 :not(#z) .ant-select-focused .ant-select-selector,
 :not(#z) .ant-picker-focused {
-  border-color: var(--atg-teal);
+  border-color: var(--z-teal);
   box-shadow: 0 0 0 3px rgba(35, 181, 211, 0.15);
 }
 
@@ -783,15 +735,15 @@ a {
 
 :not(#z) .ant-input::placeholder,
 :not(#z) .ant-select-selection-placeholder {
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 
 /* Select Dropdown Menu */
 :not(#z) .ant-select-dropdown {
-  background: var(--atg-surface);
-  border: 1px solid var(--atg-line);
-  border-radius: var(--atg-radius);
-  box-shadow: var(--atg-shadow-md);
+  background: var(--z-surface);
+  border: 1px solid var(--z-line);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-2);
   padding: 6px;
 }
 
@@ -799,36 +751,36 @@ a {
   border-radius: 6px;
   padding: 7px 12px;
   font-weight: 500;
-  transition: all var(--atg-transition);
+  transition: all var(--z-transition);
 }
 
 :not(#z) .ant-select-item-option-active {
-  background: var(--atg-bg);
-  color: var(--atg-ink);
+  background: var(--z-bg);
+  color: var(--z-ink);
 }
 
 :not(#z) .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
-  background: var(--atg-teal-soft);
-  color: var(--atg-accent-strong);
+  background: var(--z-teal-soft);
+  color: var(--z-teal-d);
   font-weight: 700;
 }
 
 /* Table Custom Design — compact modern look */
 :not(#z) .ant-table-wrapper {
-  border: 1px solid var(--atg-line);
-  border-radius: var(--atg-radius-lg);
+  border: 1px solid var(--z-line);
+  border-radius: var(--r-lg);
   overflow: hidden;
-  box-shadow: var(--atg-shadow);
+  box-shadow: var(--sh-1);
 }
 
 :not(#z) .ant-table {
-  background: var(--atg-surface);
+  background: var(--z-surface);
 }
 
 /* Заголовок таблиц — единственное правило (раньше было два, с 10,5 и 11 px). */
 :not(#z) .ant-table-thead > tr > th {
   background: #e4e8f2;
-  color: var(--atg-ink);
+  color: var(--z-ink);
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -836,7 +788,7 @@ a {
   border-top: none;
   border-right: none;
   border-left: none;
-  border-bottom: 2px solid var(--atg-line-strong);
+  border-bottom: 2px solid var(--z-line-strong);
   padding: 10px 14px;
   white-space: nowrap;
 }
@@ -848,9 +800,9 @@ a {
   border-top: none;
   border-right: none;
   border-left: none;
-  color: var(--atg-text);
+  color: var(--z-ink);
   font-size: 13px;
-  transition: background var(--atg-transition);
+  transition: background var(--z-transition);
 }
 
 :not(#z) .ant-table-tbody > tr:hover > td {
@@ -858,24 +810,24 @@ a {
 }
 
 :not(#z) .ant-pagination-item-active {
-  border-color: var(--atg-teal);
+  border-color: var(--z-teal);
 }
 
 :not(#z) .ant-pagination-item-active a {
-  color: var(--atg-teal);
+  color: var(--z-teal);
 }
 
 /* Modal Custom Design */
 :not(#z) .ant-modal .ant-modal-content {
-  background: var(--atg-surface);
-  border-radius: var(--atg-radius-lg);
-  border: 1px solid var(--atg-line);
-  box-shadow: var(--atg-shadow-lg);
+  background: var(--z-surface);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--z-line);
+  box-shadow: var(--sh-3);
 }
 
 :not(#z) .ant-modal .ant-modal-header {
-  background: var(--atg-surface);
-  border-bottom: 1px solid var(--atg-line);
+  background: var(--z-surface);
+  border-bottom: 1px solid var(--z-line);
   padding: 20px 24px;
   padding-bottom: 16px;
 }
@@ -883,7 +835,7 @@ a {
 .ant-modal .ant-modal-title {
   font-size: 18px;
   font-weight: 800;
-  color: var(--atg-ink);
+  color: var(--z-ink);
   letter-spacing: -0.01em;
 }
 
@@ -892,43 +844,43 @@ a {
 }
 
 :not(#z) .ant-modal .ant-modal-footer {
-  border-top: 1px solid var(--atg-line);
+  border-top: 1px solid var(--z-line);
   padding: 16px 24px;
   padding-top: 14px;
 }
 
 /* Upload Custom Design */
 .ant-upload-wrapper .ant-upload-drag {
-  border-color: var(--atg-line-strong);
-  border-radius: var(--atg-radius);
-  background: var(--atg-bg);
+  border-color: var(--z-line-strong);
+  border-radius: var(--r-md);
+  background: var(--z-bg);
   transition:
-    border-color var(--atg-transition),
-    background var(--atg-transition);
+    border-color var(--z-transition),
+    background var(--z-transition);
 }
 
 .ant-upload-wrapper .ant-upload-drag:not(.ant-upload-disabled):hover {
-  border-color: var(--atg-cyan);
-  background: var(--atg-cyan-soft);
+  border-color: var(--z-teal);
+  background: var(--z-teal-soft);
 }
 
 /* Spin Custom Design */
 :not(#z) .ant-spin-dot-item {
-  background: var(--atg-cyan);
+  background: var(--z-teal);
 }
 
 /* Alert Custom Design */
 :not(#z) .ant-alert {
-  border-radius: var(--atg-radius-lg);
+  border-radius: var(--r-lg);
   padding: 14px 20px;
   font-size: 14px;
   font-weight: 600;
 }
 
 :not(#z) .ant-alert-warning {
-  background-color: var(--atg-gold-soft);
+  background-color: var(--z-gold-soft);
   border: 1px solid rgba(242, 181, 58, 0.25);
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
 }
 
 /* Table action link buttons */
@@ -938,62 +890,62 @@ a {
   height: 28px;
   padding: 0 10px;
   border-radius: 5px;
-  transition: background var(--atg-transition), color var(--atg-transition);
+  transition: background var(--z-transition), color var(--z-transition);
 }
 
 :not(#z) .ant-table .ant-btn-link:not(:disabled):hover {
-  background: var(--atg-cyan-soft);
-  color: var(--atg-cyan);
+  background: var(--z-teal-soft);
+  color: var(--z-teal);
 }
 
 .ant-table .ant-btn-link.ant-btn-dangerous {
-  color: var(--atg-red);
+  color: var(--z-danger);
 }
 
 :not(#z) .ant-table .ant-btn-link.ant-btn-dangerous:hover {
   background: rgba(184, 74, 60, 0.08);
-  color: var(--atg-red);
+  color: var(--z-danger);
 }
 
 /* Input search button */
 :not(#z) .ant-input-search .ant-input-search-button {
-  background: var(--atg-ink);
-  border-color: var(--atg-ink);
+  background: var(--z-ink);
+  border-color: var(--z-ink);
   color: #fff;
   transition:
-    background var(--atg-transition),
-    border-color var(--atg-transition);
+    background var(--z-transition),
+    border-color var(--z-transition);
 }
 
 :not(#z) .ant-input-search .ant-input-search-button:hover {
-  background: var(--atg-cyan);
-  border-color: var(--atg-cyan);
+  background: var(--z-teal);
+  border-color: var(--z-teal);
 }
 
 /* Drawer & Side Drawer Design */
 :not(#z) .ant-drawer-content {
-  background: var(--atg-surface);
+  background: var(--z-surface);
 }
 
 :not(#z) .ant-drawer-header {
-  border-bottom: 1px solid var(--atg-line);
+  border-bottom: 1px solid var(--z-line);
   padding: 20px 24px;
 }
 
 :not(#z) .ant-drawer-title {
   font-size: 18px;
   font-weight: 800;
-  color: var(--atg-ink);
+  color: var(--z-ink);
 }
 
 :not(#z) .ant-drawer-close {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   transition: color 0.2s ease;
 }
 
 :not(#z) .ant-drawer-close:hover {
-  color: var(--atg-ink);
-  background: var(--atg-bg);
+  color: var(--z-ink);
+  background: var(--z-bg);
   border-radius: 50%;
 }
 
@@ -1050,7 +1002,7 @@ a {
 /* ─── Checkbox ───────────────────────────────────────────── */
 
 .ant-checkbox-wrapper {
-  color: var(--atg-text);
+  color: var(--z-ink);
   font-size: 13.5px;
   font-weight: 500;
   gap: 8px;
@@ -1060,35 +1012,35 @@ a {
   width: 16px;
   height: 16px;
   border-radius: 4px;
-  border: 1.5px solid var(--atg-line-strong);
-  background: var(--atg-surface);
+  border: 1.5px solid var(--z-line-strong);
+  background: var(--z-surface);
   transition:
-    border-color var(--atg-transition),
-    background var(--atg-transition);
+    border-color var(--z-transition),
+    background var(--z-transition);
 }
 
 :not(#z) .ant-checkbox:hover .ant-checkbox-inner,
 :not(#z) .ant-checkbox-wrapper:hover .ant-checkbox-inner {
-  border-color: var(--atg-teal);
+  border-color: var(--z-teal);
 }
 
 :not(#z) .ant-checkbox-checked .ant-checkbox-inner {
-  background: var(--atg-teal);
-  border-color: var(--atg-teal);
+  background: var(--z-teal);
+  border-color: var(--z-teal);
 }
 
 :not(#z) .ant-checkbox-checked:after {
-  border-color: var(--atg-teal);
+  border-color: var(--z-teal);
 }
 
 :not(#z) .ant-checkbox-indeterminate .ant-checkbox-inner::after {
-  background: var(--atg-teal);
+  background: var(--z-teal);
 }
 
 /* ─── Radio ───────────────────────────────────────────────── */
 
 .ant-radio-wrapper {
-  color: var(--atg-text);
+  color: var(--z-ink);
   font-size: 13.5px;
   font-weight: 500;
   gap: 8px;
@@ -1097,99 +1049,99 @@ a {
 .ant-radio .ant-radio-inner {
   width: 16px;
   height: 16px;
-  border: 1.5px solid var(--atg-line-strong);
-  background: var(--atg-surface);
+  border: 1.5px solid var(--z-line-strong);
+  background: var(--z-surface);
   transition:
-    border-color var(--atg-transition),
-    background var(--atg-transition);
+    border-color var(--z-transition),
+    background var(--z-transition);
 }
 
 :not(#z) .ant-radio:hover .ant-radio-inner,
 :not(#z) .ant-radio-wrapper:hover .ant-radio-inner {
-  border-color: var(--atg-teal);
+  border-color: var(--z-teal);
 }
 
 :not(#z) .ant-radio-checked .ant-radio-inner {
-  border-color: var(--atg-teal);
-  background: var(--atg-surface);
+  border-color: var(--z-teal);
+  background: var(--z-surface);
 }
 
 :not(#z) .ant-radio-checked .ant-radio-inner::after {
-  background: var(--atg-teal);
+  background: var(--z-teal);
   transform: scale(0.55);
 }
 
 .ant-radio-group .ant-radio-button-wrapper {
-  border-color: var(--atg-line);
-  color: var(--atg-muted);
+  border-color: var(--z-line);
+  color: var(--z-muted);
   font-size: 13px;
   font-weight: 600;
   height: 34px;
   line-height: 32px;
   transition:
-    background var(--atg-transition),
-    color var(--atg-transition),
-    border-color var(--atg-transition);
+    background var(--z-transition),
+    color var(--z-transition),
+    border-color var(--z-transition);
 }
 
 .ant-radio-group .ant-radio-button-wrapper:hover {
-  color: var(--atg-teal);
+  color: var(--z-teal);
 }
 
 :not(#z) .ant-radio-group .ant-radio-button-wrapper-checked {
-  background: var(--atg-teal-soft);
-  border-color: var(--atg-teal);
-  color: var(--atg-teal);
+  background: var(--z-teal-soft);
+  border-color: var(--z-teal);
+  color: var(--z-teal);
   box-shadow: none;
 }
 
 :not(#z) .ant-radio-group .ant-radio-button-wrapper-checked::before {
-  background: var(--atg-teal);
+  background: var(--z-teal);
 }
 
 /* ─── Tree ────────────────────────────────────────────────── */
 
 .ant-tree {
   background: transparent;
-  color: var(--atg-text);
+  color: var(--z-ink);
   font-size: 13.5px;
 }
 
 .ant-tree .ant-tree-treenode {
   padding: 1px 0;
-  border-radius: var(--atg-radius-sm);
-  transition: background var(--atg-transition);
+  border-radius: var(--r-sm);
+  transition: background var(--z-transition);
 }
 
 :not(#z) .ant-tree .ant-tree-node-content-wrapper {
-  border-radius: var(--atg-radius-sm);
+  border-radius: var(--r-sm);
   padding: 3px 8px;
-  transition: background var(--atg-transition), color var(--atg-transition);
-  color: var(--atg-text);
+  transition: background var(--z-transition), color var(--z-transition);
+  color: var(--z-ink);
   font-weight: 500;
 }
 
 :not(#z) .ant-tree .ant-tree-node-content-wrapper:hover {
-  background: var(--atg-teal-soft);
-  color: var(--atg-teal-dark);
+  background: var(--z-teal-soft);
+  color: var(--z-teal-d);
 }
 
 :not(#z) .ant-tree .ant-tree-node-content-wrapper.ant-tree-node-selected {
-  background: var(--atg-teal-soft);
-  color: var(--atg-teal-dark);
+  background: var(--z-teal-soft);
+  color: var(--z-teal-d);
   font-weight: 600;
 }
 
 .ant-tree .ant-tree-switcher {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color var(--atg-transition);
+  transition: color var(--z-transition);
 }
 
 .ant-tree .ant-tree-switcher:hover {
-  color: var(--atg-teal);
+  color: var(--z-teal);
 }
 
 .ant-tree-title {
@@ -1199,20 +1151,20 @@ a {
 /* ─── Switch ──────────────────────────────────────────────── */
 
 .ant-switch {
-  background: var(--atg-line-strong);
-  transition: background var(--atg-transition);
+  background: var(--z-line-strong);
+  transition: background var(--z-transition);
 }
 
 :not(#z) .ant-switch:hover:not(.ant-switch-disabled) {
-  background: var(--atg-muted);
+  background: var(--z-muted);
 }
 
 :not(#z) .ant-switch.ant-switch-checked {
-  background: var(--atg-teal);
+  background: var(--z-teal);
 }
 
 :not(#z) .ant-switch.ant-switch-checked:hover:not(.ant-switch-disabled) {
-  background: var(--atg-teal-dark);
+  background: var(--z-teal-d);
 }
 
 /* ─── Responsive ─────────────────────────────────────────── */
@@ -1257,7 +1209,7 @@ a {
 
   :not(#z) .crm-auth-card {
     max-width: 100%;
-    border-radius: var(--atg-radius);
+    border-radius: var(--r-md);
     box-shadow: 0 2px 12px rgba(20, 28, 24, 0.08);
   }
 

@@ -581,7 +581,7 @@ const formatFileSize = (bytes: number) => {
   font-weight: 700;
   background: transparent;
   cursor: pointer;
-  transition: color var(--atg-transition);
+  transition: color var(--z-transition);
 }
 
 .link-button:hover {
@@ -596,7 +596,7 @@ const formatFileSize = (bytes: number) => {
   border-radius: 8px;
   background: var(--z-bg);
   cursor: pointer;
-  transition: border-color var(--atg-transition);
+  transition: border-color var(--z-transition);
 }
 
 .native-file:hover {

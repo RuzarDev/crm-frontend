@@ -244,16 +244,16 @@ const activityColumns = computed(() => ([
   align-items: center;
   gap: 16px;
   padding: 20px;
-  border-radius: var(--atg-radius-lg);
+  border-radius: var(--r-lg);
   border: 1px solid var(--z-line);
   background: var(--z-surface);
-  box-shadow: var(--atg-shadow);
-  transition: transform var(--atg-transition), box-shadow var(--atg-transition);
+  box-shadow: var(--sh-1);
+  transition: transform var(--z-transition), box-shadow var(--z-transition);
 }
 
 .kpi-card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--atg-shadow-md);
+  box-shadow: var(--sh-2);
 }
 
 .kpi-icon-wrap {

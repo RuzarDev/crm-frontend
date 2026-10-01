@@ -605,9 +605,9 @@ onMounted(async () => {
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  border-radius: var(--atg-radius-sm);
+  border-radius: var(--r-sm);
   cursor: pointer;
-  transition: background var(--atg-transition);
+  transition: background var(--z-transition);
   border-bottom: 1px solid var(--z-line);
 }
 
@@ -656,8 +656,8 @@ onMounted(async () => {
   gap: 8px;
   padding: 8px 4px;
   cursor: pointer;
-  border-radius: var(--atg-radius-sm);
-  transition: background var(--atg-transition);
+  border-radius: var(--r-sm);
+  transition: background var(--z-transition);
 }
 
 .search-result-item:hover,
@@ -697,7 +697,7 @@ onMounted(async () => {
   color: var(--z-muted);
   background: var(--z-teal-soft);
   padding: 8px 12px;
-  border-radius: var(--atg-radius-sm);
+  border-radius: var(--r-sm);
 }
 
 .notes-html {

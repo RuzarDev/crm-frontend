@@ -823,7 +823,7 @@ const handleFileUpload = async (file: File) => {
   background: transparent;
   border: none;
   font-size: 16px;
-  transition: color var(--atg-transition), background var(--atg-transition);
+  transition: color var(--z-transition), background var(--z-transition);
 }
 
 :not(#z) .action-btn:hover {

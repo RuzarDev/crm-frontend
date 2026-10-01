@@ -77,7 +77,7 @@ const onMenuClick = ({ key }: { key: string | number }) => onChange(key)
   height: 36px;
   padding: 0 10px;
   border: 1px solid #d9d9d9;
-  border-radius: var(--atg-radius, 8px);
+  border-radius: var(--r-md);
   background: #fff;
   color: var(--z-ink);
   font-size: 12px;

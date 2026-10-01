@@ -935,7 +935,7 @@ onMounted(async () => {
 }
 
 .onboarding-alert {
-  border-radius: var(--atg-radius-lg);
+  border-radius: var(--r-lg);
 }
 
 .create-grid {
@@ -994,7 +994,7 @@ onMounted(async () => {
 .party-head { display: flex; align-items: center; justify-content: space-between; }
 .sub-label { margin: 8px 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--z-ink); }
 .doc-checklist { display: flex; flex-direction: column; gap: 6px; margin: 16px 0; }
-.responsibility-alert { border-radius: var(--atg-radius-lg); margin-top: 8px; }
+.responsibility-alert { border-radius: var(--r-lg); margin-top: 8px; }
 .resp-check { margin-top: 10px; font-weight: 600; }
 .wizard-nav { display: flex; align-items: center; gap: 10px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--z-line); }
 .wizard-nav-spacer { flex: 1; }
@@ -1003,7 +1003,7 @@ onMounted(async () => {
 
 /* Дропзона: полноценная зона перетаскивания (была тонкая полоска в одну строку) */
 .docs-dragger { margin-top: 14px; }
-.docs-dragger :deep(.ant-upload-drag) { border-radius: var(--atg-radius-lg); }
+.docs-dragger :deep(.ant-upload-drag) { border-radius: var(--r-lg); }
 :not(#z) .docs-dragger :deep(.ant-upload-btn) { padding: 22px 16px; }
 .dz-icon { margin: 0 0 6px; line-height: 1; }
 .dz-icon :deep(.anticon) { font-size: 34px; color: var(--z-teal); }

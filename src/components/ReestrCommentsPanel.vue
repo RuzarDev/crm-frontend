@@ -135,9 +135,9 @@ const formatTime = (iso: string) => dayjs(iso).format('DD.MM.YYYY HH:mm')
 .comment-item {
   padding: 12px 14px;
   border: 1px solid var(--z-line);
-  border-radius: var(--atg-radius);
+  border-radius: var(--r-md);
   background: #fafbfd;
-  transition: background var(--atg-transition);
+  transition: background var(--z-transition);
 }
 
 .comment-item:hover {

@@ -157,7 +157,7 @@ onMounted(() => void reload())
   max-height: 480px;
   overflow: auto;
   background: var(--z-surface-2);
-  border-radius: var(--atg-radius-lg);
+  border-radius: var(--r-lg);
   padding: 16px;
   font-size: 12.5px;
   line-height: 1.5;

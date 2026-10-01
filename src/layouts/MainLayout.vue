@@ -854,9 +854,9 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   min-width: 36px;
   padding: 0;
   transition:
-    color var(--atg-transition),
-    border-color var(--atg-transition),
-    background var(--atg-transition);
+    color var(--z-transition),
+    border-color var(--z-transition),
+    background var(--z-transition);
 }
 
 :not(#z) .notif-btn:hover {
@@ -868,9 +868,9 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .notif-dropdown {
   width: 320px;
   background: #fff;
-  border-radius: var(--atg-radius-lg);
+  border-radius: var(--r-lg);
   border: 1px solid var(--z-line);
-  box-shadow: var(--atg-shadow-lg);
+  box-shadow: var(--sh-3);
   overflow: hidden;
 }
 
@@ -898,7 +898,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   padding: 10px 16px;
   cursor: pointer;
   border-bottom: 1px solid var(--z-line);
-  transition: background var(--atg-transition);
+  transition: background var(--z-transition);
 }
 
 .notif-item:last-child {
@@ -967,14 +967,14 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   height: 36px;
   padding: 0 10px 0 4px;
   border: 1px solid rgba(240, 243, 255, 0.14);
-  border-radius: var(--atg-radius, 8px);
+  border-radius: var(--r-md);
   background: rgba(255, 255, 255, 0.04);
   color: rgba(240, 243, 255, 0.82);
   cursor: pointer;
   transition:
-    color var(--atg-transition),
-    border-color var(--atg-transition),
-    background var(--atg-transition);
+    color var(--z-transition),
+    border-color var(--z-transition),
+    background var(--z-transition);
 }
 
 .user-menu-trigger:hover {
@@ -1141,8 +1141,8 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   font-size: 14px;
   font-weight: 600;
   transition:
-    color var(--atg-transition),
-    background var(--atg-transition);
+    color var(--z-transition),
+    background var(--z-transition);
 }
 
 .sider :deep(.ant-menu-item .anticon + .ant-menu-title-content) {
@@ -1152,7 +1152,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .sider :deep(.ant-menu-item .anticon) {
   font-size: 16px;
   opacity: 0.8;
-  transition: opacity var(--atg-transition);
+  transition: opacity var(--z-transition);
 }
 
 :not(#z) .sider :deep(.ant-menu-item:hover) {

@@ -1378,7 +1378,7 @@ onMounted(() => {
   gap: 14px;
 }
 .case-banner {
-  border-radius: var(--atg-radius-lg);
+  border-radius: var(--r-lg);
 }
 .resp-check {
   margin-top: 10px;
@@ -1436,7 +1436,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 6px;
   padding: 10px 12px;
-  border-radius: var(--atg-radius-lg, 10px);
+  border-radius: var(--r-lg);
   background: var(--z-surface-2);
   border: 1px solid var(--z-line);
 }
@@ -1489,7 +1489,7 @@ onMounted(() => {
 }
 .keden-missing {
   margin-top: 10px;
-  border-radius: var(--atg-radius-lg);
+  border-radius: var(--r-lg);
 }
 .keden-batch-row {
   display: flex;

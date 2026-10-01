@@ -44,12 +44,12 @@ const expanded = ref(false)
 <style scoped>
 .step {
   border: 1px solid var(--z-line);
-  border-radius: var(--atg-radius-lg);
+  border-radius: var(--r-lg);
   background: var(--z-surface);
 }
 .step--current {
   border-color: var(--z-teal);
-  box-shadow: var(--atg-shadow);
+  box-shadow: var(--sh-1);
 }
 .step--future {
   opacity: 0.6;

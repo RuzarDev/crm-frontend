@@ -263,7 +263,7 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
 .doc-section {
   padding: 14px 16px;
   border: 1px solid var(--z-line);
-  border-radius: var(--atg-radius);
+  border-radius: var(--r-md);
   background: var(--z-surface);
 }
 
@@ -362,7 +362,7 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
 
 .doc-section :deep(.ant-list) {
   border-color: var(--z-line);
-  border-radius: var(--atg-radius-sm);
+  border-radius: var(--r-sm);
 }
 
 .doc-section :deep(.ant-list-item-meta-title) {

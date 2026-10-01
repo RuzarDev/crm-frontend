@@ -214,8 +214,8 @@ useTransitTotals(
   padding: 10px 12px;
   background: var(--z-bg);
   border: 1px solid var(--z-line);
-  border-radius: var(--atg-radius-sm);
-  transition: border-color var(--atg-transition), background var(--atg-transition);
+  border-radius: var(--r-sm);
+  transition: border-color var(--z-transition), background var(--z-transition);
 }
 
 .field-row:focus-within {

@@ -1581,7 +1581,7 @@ const runAiParse = async () => {
   flex-direction: column;
   gap: 12px;
   box-shadow: 0 2px 6px rgba(14, 27, 53, 0.02);
-  transition: all var(--atg-transition);
+  transition: all var(--z-transition);
 }
 
 .file-item-wrap:hover {
@@ -1605,7 +1605,7 @@ const runAiParse = async () => {
 }
 
 .file-meta {
-  font-family: var(--atg-font-mono);
+  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--z-muted);
   margin-top: 4px;
@@ -1704,7 +1704,7 @@ const runAiParse = async () => {
   flex-direction: column;
   gap: 16px;
   box-shadow: 0 4px 14px rgba(14, 27, 53, 0.04);
-  transition: all var(--atg-transition);
+  transition: all var(--z-transition);
 }
 
 .container-node-card:hover {
@@ -1847,7 +1847,7 @@ const runAiParse = async () => {
   font-size: 12.5px;
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(14, 27, 53, 0.02);
-  transition: all var(--atg-transition);
+  transition: all var(--z-transition);
 }
 
 .file-chip:hover {
@@ -1874,7 +1874,7 @@ const runAiParse = async () => {
   border-radius: 10px;
   padding: 16px;
   box-shadow: 0 2px 8px rgba(14, 27, 53, 0.02);
-  transition: all var(--atg-transition);
+  transition: all var(--z-transition);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1970,7 +1970,7 @@ const runAiParse = async () => {
   text-align: center;
   background: linear-gradient(135deg, rgba(35, 181, 211, 0.01), rgba(14, 27, 53, 0.01));
   cursor: pointer;
-  transition: all var(--atg-transition);
+  transition: all var(--z-transition);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1988,7 +1988,7 @@ const runAiParse = async () => {
 .dropzone-icon {
   font-size: 32px;
   color: var(--z-teal);
-  transition: transform var(--atg-transition), color var(--atg-transition);
+  transition: transform var(--z-transition), color var(--z-transition);
 }
 
 .workspace-upload-dropzone:hover .dropzone-icon,
