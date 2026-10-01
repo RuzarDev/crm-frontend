@@ -1303,6 +1303,12 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   // Выбор декларанта по данным КЕДЕН: вид акциза и вариант антидемпинговой пошлины (null — не начислять).
   exciseKind?: string | null
   antiDumpingKind?: string | null
+  // Количества для специфических ставок пошлины/акциза, которых нет в ДЕИ (гр.41):
+  // объём товара (л), объём в литрах 100% спирта, количество штук, суммарный объём двигателей (см³).
+  taxVolumeL?: number | null
+  taxAlcoholL?: number | null
+  taxPieces?: number | null
+  engineVolumeCm3?: number | null
   // Сертификация / экспортный контроль — свободный текст, заполняется декларантом
   // вручную (нет авто-маппинга от ТНВЭД) — Task 1 (бэк)/Task 7 (фронт).
   certificationNote?: string | null

@@ -711,14 +711,25 @@ a {
   box-shadow: none !important;
 }
 
-.ant-btn-dangerous {
+/* Заливка — только у обычных «опасных» кнопок (Удалить, Отклонить). Иконки-крестики (type="text"/"link")
+   остаются красной иконкой без фона: залитые красные квадраты у каждой строки гр.47 и товара пугали. */
+.ant-btn-dangerous:not(.ant-btn-text):not(.ant-btn-link) {
   background: #B42318 !important;
   border: none !important;
   color: #fff !important;
 }
 
-.ant-btn-dangerous:not(:disabled):hover {
+.ant-btn-dangerous:not(.ant-btn-text):not(.ant-btn-link):not(:disabled):hover {
   background: #C93A2E !important;
+}
+
+.ant-btn-dangerous.ant-btn-text {
+  background: transparent !important;
+  color: var(--z-danger) !important;
+}
+
+.ant-btn-dangerous.ant-btn-text:not(:disabled):hover {
+  background: var(--z-danger-soft) !important;
 }
 
 /* Custom Input and Select Fields */

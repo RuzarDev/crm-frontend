@@ -31,6 +31,12 @@
           <!-- Товар не посчитался (нет кода в справочнике ТН ВЭД, не задана стоимость и т.п.):
                строк гр.47 по нему нет — показываем причину вместо пустой таблицы. -->
           <a-alert v-if="row.error" type="error" show-icon :message="row.error" class="goods-error" />
+          <!-- Пояснения расчёта: акциз/пошлина не посчитаны без нужного количества, вид акциза по умолчанию… -->
+          <a-alert v-else-if="row.notes" type="warning" show-icon :message="t('dt.raschetPoyasneniya')" class="goods-error">
+            <template #description>
+              <div v-for="(n, ni) in row.notes.split('; ')" :key="ni">{{ n }}</div>
+            </template>
+          </a-alert>
 
           <div class="goods-vat-toggle">
             <a-checkbox

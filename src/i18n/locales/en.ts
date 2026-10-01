@@ -689,6 +689,14 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    tpinProverteTovary: 'Duties and taxes: check the items',
+    tariffExciseDefault: 'no kind chosen — the first one is used, please check',
+    taxQtyL: 'Volume of goods, l',
+    taxQtyAlc: 'Volume of pure (100%) alcohol, l',
+    taxQtyPcs: 'Quantity, pcs',
+    taxQtyCm3: 'Engine displacement, cm³ (total for the item)',
+    taxQtyFor: 'required for rate {rate}',
+    raschetPoyasneniya: 'Calculation notes',
     avto: 'auto',
     gruzovyhMest: 'Packages',
     tamStoimostGr45: 'Customs value, ₸ (box 45)',
@@ -2510,7 +2518,7 @@ export default {
     obnovlenoDate: 'Updated: {d}',
     perehodyZagruzheny: 'Transitions loaded: {n} records ({v})',
     poyasneniyaZagruzheny: 'Explanatory notes loaded: {n} sections (errors: {f})',
-    printTpinHdr: '<h3>Customs payments</h3><table><thead><tr><th>Item</th><th>HS</th><th>Duty</th><th>VAT</th><th>Fee</th><th>Total</th></tr>',
+    printTpinHdr: '<h3>Customs payments</h3><table><thead><tr><th>Item</th><th>HS</th><th>Duty</th><th>Anti-dump.</th><th>Excise</th><th>VAT</th><th>Fee</th><th>Total</th></tr>',
     printUslugiHdr: '<h3>Services</h3><table><thead><tr><th>Service</th><th>Price</th><th>Qty</th><th>Discount</th><th>Amount</th></tr>',
     sec: '{n}s',
     vto: 'WTO: {s}',

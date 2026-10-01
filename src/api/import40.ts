@@ -1,5 +1,4 @@
 import apiClient from './client'
-import type { SalesCalcGoodsLine, SalesCalcResponse } from './sales'
 import type {
   Import40TransportMeans,
   Import40GoodsPayment,
@@ -126,6 +125,10 @@ export interface Import40GoodsItemDto {
   markings?: Import40GoodsMarking[]
   exciseKind?: string | null
   antiDumpingKind?: string | null
+  taxVolumeL?: number | null
+  taxAlcoholL?: number | null
+  taxPieces?: number | null
+  engineVolumeCm3?: number | null
 }
 
 // Зеркалит Import40GoodsMarkingDto / Import40GoodsMarkingRequest на бэке (Task 2).
@@ -726,6 +729,31 @@ export interface Import40PaymentGoodsRowDto {
   excisePossible: boolean
   // Почему по товару нет строк гр.47 (например, кода нет в справочнике ТН ВЭД).
   error?: string | null
+  // Пояснения расчёта: акциз/пошлина не посчитаны без количества, вид акциза взят по умолчанию и т.п.
+  notes?: string | null
+}
+
+/** Товар для «Рассчитать ТПиН» (CalculatePaymentsGoodsInput на бэке). */
+export interface Import40TpinGoodsInput {
+  index: number
+  description?: string | null
+  tnvedCode?: string | null
+  invoiceValue?: number | null
+  currency?: string | null
+  grossWeightKg?: number | null
+  quantity?: number | null
+  vatRatePreferential?: number | null
+  tempImportMonths?: number | null
+  netWeightKg?: number | null
+  customsValueKzt?: number | null
+  originCountry?: string | null
+  exciseKind?: string | null
+  antiDumpingKind?: string | null
+  unitCode?: string | null
+  volumeL?: number | null
+  alcoholL?: number | null
+  pieces?: number | null
+  engineVolumeCm3?: number | null
 }
 
 export interface Import40CalculatePaymentsResponse {
@@ -1101,14 +1129,18 @@ export const import40Api = {
     return response.data
   },
 
-  // «Рассчитать ТПиН (авто)» в мастере ДТ. Тот же расчёт, что и в КП, но под правами
-  // Импорта 40: sales/calculate требует sales.read, которых у декларанта нет.
-  // onDate — дата гр.А: курсы на эту дату; customsValueKzt в строках — гр.45 как основа платежей.
-  calculateTpin: async (goods: SalesCalcGoodsLine[], onDate?: string | null): Promise<SalesCalcResponse> => {
-    const response = await apiClient.post<SalesCalcResponse>('/import40/calculate-tpin', {
-      services: [],
+  // «Рассчитать ТПиН (авто)» в мастере ДТ — по товарам с экрана (ещё не сохранённым), тем же
+  // серверным расчётом, что «Рассчитать платежи» (гр.45, курсы на дату гр.А, вид акциза, антидемпинг,
+  // временный ввоз, льготный НДС, ставки ВТО). index — позиция товара в списке ДТ.
+  calculateTpin: async (
+    goods: Import40TpinGoodsInput[],
+    submissionDate?: string | null,
+    useVtoRate = false,
+  ): Promise<Import40CalculatePaymentsResponse> => {
+    const response = await apiClient.post<Import40CalculatePaymentsResponse>('/import40/calculate-tpin', {
       goods,
-      onDate: onDate ?? null,
+      submissionDate: submissionDate ?? null,
+      useVtoRate,
     })
     return response.data
   },

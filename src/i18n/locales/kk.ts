@@ -689,6 +689,14 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    tpinProverteTovary: 'КТжС: тауарларды тексеріңіз',
+    tariffExciseDefault: 'түрі таңдалмаған — біріншісі есептеледі, тексеріңіз',
+    taxQtyL: 'Тауар көлемі, л',
+    taxQtyAlc: '100% спиртке шаққандағы көлем, л',
+    taxQtyPcs: 'Саны, дана',
+    taxQtyCm3: 'Қозғалтқыш көлемі, см³ (тауар бойынша барлығы)',
+    taxQtyFor: '{rate} мөлшерлемесі үшін қажет',
+    raschetPoyasneniya: 'Есептеу түсіндірмелері',
     avto: 'авто',
     gruzovyhMest: 'Жүк орындары',
     tamStoimostGr45: 'Кеден құны, ₸ (45-б.)',
@@ -2506,7 +2514,7 @@ export default {
     obnovlenoDate: 'Жаңартылды: {d}',
     perehodyZagruzheny: 'Ауысулар жүктелді: {n} жазба ({v})',
     poyasneniyaZagruzheny: 'Түсіндірмелер жүктелді: {n} бөлім (қателер: {f})',
-    printTpinHdr: '<h3>Кедендік төлемдер (КТжС)</h3><table><thead><tr><th>Тауар</th><th>СЭҚ ТН</th><th>Баж</th><th>ҚҚС</th><th>Алым</th><th>Барлығы</th></tr>',
+    printTpinHdr: '<h3>Кедендік төлемдер (КТжС)</h3><table><thead><tr><th>Тауар</th><th>СЭҚ ТН</th><th>Баж</th><th>Демпингке қарсы</th><th>Акциз</th><th>ҚҚС</th><th>Алым</th><th>Барлығы</th></tr>',
     printUslugiHdr: '<h3>Қызметтер</h3><table><thead><tr><th>Қызмет</th><th>Бағасы</th><th>Саны</th><th>Жеңілдік</th><th>Сомасы</th></tr>',
     sec: '{n}с',
     vto: 'ДСҰ: {s}',

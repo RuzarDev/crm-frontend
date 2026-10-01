@@ -127,6 +127,9 @@
             :excise-kind="item.exciseKind"
             :anti-dumping-kind="item.antiDumpingKind"
             :readonly="readonly"
+            :unit-code="item.unitCode"
+            :quantities="{ taxVolumeL: item.taxVolumeL, taxAlcoholL: item.taxAlcoholL, taxPieces: item.taxPieces, engineVolumeCm3: item.engineVolumeCm3 }"
+            @update:tax-quantity="(f, v) => { item[f] = v; emit('update:modelValue', items.map(fromRow)) }"
             @update:excise-kind="(v) => { item.exciseKind = v; emit('update:modelValue', items.map(fromRow)) }"
             @update:anti-dumping-kind="(v) => { item.antiDumpingKind = v; emit('update:modelValue', items.map(fromRow)) }"
           />
@@ -231,6 +234,11 @@ interface GoodsRow extends ReestrGoodsItemInput {
   // Выбор по данным КЕДЕН (Импорт 40): вид акциза и вариант антидемпинга.
   exciseKind?: string | null
   antiDumpingKind?: string | null
+  // Количества в единицах специфических ставок, которых нет в ДЕИ (см. TariffOptionsHint).
+  taxVolumeL?: number | null
+  taxAlcoholL?: number | null
+  taxPieces?: number | null
+  engineVolumeCm3?: number | null
 }
 
 const props = defineProps<{

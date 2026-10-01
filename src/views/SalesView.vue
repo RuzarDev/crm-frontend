@@ -392,7 +392,7 @@ const printQuote = (q: SalesQuoteDto) => {
     .map((s) => `<tr><td>${esc(s.name)}</td><td style="text-align:right">${money(s.unitPrice)}</td><td style="text-align:center">${s.quantity} ${esc(s.unit)}</td><td style="text-align:center">${s.discountPercent}%</td><td style="text-align:right">${money(s.total)} ₸</td></tr>`)
     .join('')
   const goods = q.goodsLines
-    .map((g) => `<tr><td>${esc(g.description || g.code)}</td><td>${esc(g.code)}</td><td style="text-align:right">${money(g.importDutyKzt)}</td><td style="text-align:right">${money(g.vatKzt)}</td><td style="text-align:right">${money(g.customsFeeKzt)}</td><td style="text-align:right">${money(g.tpinTotalKzt)} ₸</td></tr>`)
+    .map((g) => `<tr><td>${esc(g.description || g.code)}</td><td>${esc(g.code)}</td><td style="text-align:right">${money(g.importDutyKzt)}</td><td style="text-align:right">${money(g.antiDumpingKzt ?? 0)}</td><td style="text-align:right">${money(g.exciseKzt)}</td><td style="text-align:right">${money(g.vatKzt)}</td><td style="text-align:right">${money(g.customsFeeKzt)}</td><td style="text-align:right">${money(g.tpinTotalKzt)} ₸</td></tr>`)
     .join('')
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>КП ${q.number}/КП/${q.year}</title>
   <style>

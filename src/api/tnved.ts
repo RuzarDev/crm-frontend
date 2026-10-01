@@ -25,6 +25,8 @@ export interface TariffOptionsDto {
   countryRate: { rate: string; country: string; source: string | null } | null
   excise: TnvedTariffOptionDto[]
   antiDumping: TnvedTariffOptionDto[]
+  // Действующие ставки пошлины (ЕТТ, ВТО) — по ним видно, нужны ли л / шт / см³ для специфической части.
+  dutyRates?: string[]
 }
 
 export const tnvedApi = {

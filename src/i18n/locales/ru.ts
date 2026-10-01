@@ -694,6 +694,14 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    tpinProverteTovary: 'ТПиН: проверьте товары',
+    tariffExciseDefault: 'вид не выбран — считается первый, проверьте',
+    taxQtyL: 'Объём товара, л',
+    taxQtyAlc: 'Объём в пересчёте на 100% спирт, л',
+    taxQtyPcs: 'Количество, шт',
+    taxQtyCm3: 'Объём двигателя, см³ (всего по товару)',
+    taxQtyFor: 'нужно для ставки {rate}',
+    raschetPoyasneniya: 'Пояснения к расчёту',
     avto: 'авто',
     gruzovyhMest: 'Грузовых мест',
     tamStoimostGr45: 'Там. стоимость, ₸ (гр.45)',
@@ -2520,7 +2528,7 @@ export default {
     obnovlenoDate: 'Обновлено: {d}',
     perehodyZagruzheny: 'Переходы загружены: {n} записей ({v})',
     poyasneniyaZagruzheny: 'Пояснения загружены: {n} разделов (ошибок: {f})',
-    printTpinHdr: '<h3>Таможенные платежи (ТПиН)</h3><table><thead><tr><th>Товар</th><th>ТНВЭД</th><th>Пошлина</th><th>НДС</th><th>Сбор</th><th>Итого</th></tr>',
+    printTpinHdr: '<h3>Таможенные платежи (ТПиН)</h3><table><thead><tr><th>Товар</th><th>ТНВЭД</th><th>Пошлина</th><th>Антидемп.</th><th>Акциз</th><th>НДС</th><th>Сбор</th><th>Итого</th></tr>',
     printUslugiHdr: '<h3>Услуги</h3><table><thead><tr><th>Услуга</th><th>Цена</th><th>Кол-во</th><th>Скидка</th><th>Сумма</th></tr>',
     sec: '{n}с',
     vto: 'ВТО: {s}',
