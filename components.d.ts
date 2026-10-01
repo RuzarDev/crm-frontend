@@ -68,6 +68,7 @@ declare module 'vue' {
     ATimeline: typeof import('ant-design-vue/es')['Timeline']
     ATimelineItem: typeof import('ant-design-vue/es')['TimelineItem']
     ATooltip: typeof import('ant-design-vue/es')['Tooltip']
+    ATree: typeof import('ant-design-vue/es')['Tree']
     ATypographyText: typeof import('ant-design-vue/es')['TypographyText']
     AUpload: typeof import('ant-design-vue/es')['Upload']
     AUploadDragger: typeof import('ant-design-vue/es')['UploadDragger']
@@ -135,6 +136,7 @@ declare module 'vue' {
     TariffOptionsHint: typeof import('./src/components/import40/TariffOptionsHint.vue')['default']
     TnvedDeprecationAlert: typeof import('./src/components/TnvedDeprecationAlert.vue')['default']
     TnvedPickerModal: typeof import('./src/components/TnvedPickerModal.vue')['default']
+    TnvedTree: typeof import('./src/components/TnvedTree.vue')['default']
     TransportMeansBlock: typeof import('./src/components/reestr/TransportMeansBlock.vue')['default']
     TroisTrademarkHint: typeof import('./src/components/import40/TroisTrademarkHint.vue')['default']
   }

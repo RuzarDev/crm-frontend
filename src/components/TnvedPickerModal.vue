@@ -1,73 +1,63 @@
 <template>
-  <a-modal :open="open" :title="t('sales.spravochnikTnVedVybor')" width="820px" :footer="null"
+  <a-modal :open="open" :title="t('sales.spravochnikTnVedVybor')" width="1040px" :footer="null"
     @update:open="(v: boolean) => emit('update:open', v)">
     <div class="tnved-picker">
       <a-input-search v-model:value="query" :placeholder="t('sales.poiskPoNaimenovaniyuIli')"
         allow-clear :enter-button="t('misc.nayti')" :loading="searchLoading" @search="doSearch" />
 
       <div class="picker-body">
-        <!-- Левая часть: результаты поиска или дерево -->
+        <!-- Левая часть: полное раскрывающееся дерево или результаты поиска -->
         <div class="picker-left">
-          <template v-if="results !== null">
-            <div class="picker-hint"> {{ t('sales.rezultatyPoiska') }} <a class="picker-reset" @click="clearSearch"><LeftOutlined /> {{ t('sales.derevo') }}</a>
+          <div v-show="showResults && results !== null" class="picker-results">
+            <div class="picker-hint"> {{ t('sales.rezultatyPoiska') }}
+              <a class="picker-reset" @click="backToTree"><LeftOutlined /> {{ t('sales.derevo') }}</a>
             </div>
-            <div v-if="results.length === 0" class="picker-empty">{{ t('sales.nichegoNeNaydeno') }}</div>
-            <div v-for="n in results" :key="n.id" class="picker-node" :class="{ active: selected?.id === n.id }"
-              @click="pickNode(n)">
+            <div v-if="results?.length === 0" class="picker-empty">{{ t('sales.nichegoNeNaydeno') }}</div>
+            <div v-for="n in results ?? []" :key="n.id" class="picker-node" :class="{ active: selected?.id === n.id }"
+              @click="openResult(n)">
               <span class="pn-code">{{ n.code }}</span>
               <span class="pn-name">{{ n.name || n.treeName }}</span>
-              <a-tag v-if="n.is10" color="blue" class="pn-tag">10</a-tag>
             </div>
-          </template>
-
-          <template v-else>
-            <div class="picker-crumbs">
-              <a @click="toRoot">{{ t('sales.razdely') }}</a>
-              <template v-for="(c, i) in crumbs" :key="c.id">
-                <span class="crumb-sep">/</span>
-                <a @click="toCrumb(i)">{{ c.code }}</a>
-              </template>
+          </div>
+          <div v-show="!(showResults && results !== null)">
+            <div class="picker-hint">
+              <a v-if="results !== null" class="picker-reset" @click="showResults = true"><LeftOutlined /> {{ t('sales.rezultatyPoiska') }}</a>
+              <span class="picker-spacer" />
+              <a class="picker-reset" @click="treeRef?.collapseAll()">{{ t('sales.svernutVse') }}</a>
             </div>
-            <div v-if="treeLoading" class="picker-empty">{{ t('sales.zagruzka') }}</div>
-            <div v-for="n in nodes" :key="n.id" class="picker-node" :class="{ active: selected?.id === n.id }"
-              @click="clickNode(n)">
-              <span class="pn-code">{{ n.code }}</span>
-              <span class="pn-name">{{ n.treeName }}</span>
-              <a-tag v-if="n.is10" color="blue" class="pn-tag">10</a-tag>
-              <span v-if="!n.isLast" class="pn-arrow">›</span>
-            </div>
-          </template>
+            <TnvedTree v-if="mounted" ref="treeRef" :height="470" @select="pickNode" />
+          </div>
         </div>
 
         <!-- Правая часть: детали выбранного кода -->
         <div class="picker-right">
           <div v-if="!selected" class="picker-empty">{{ t('sales.vyberiteTovarPokazhuStavki') }}</div>
           <template v-else>
-            <div class="detail-code">{{ selected.code }}</div>
+            <div class="detail-code">{{ selected.code || '—' }}</div>
             <div class="detail-name">{{ selected.name || selected.treeName }}</div>
 
-            <div class="detail-block-title">{{ t('sales.stavkiToTt') }}</div>
-            <div v-if="detailLoading" class="picker-empty">{{ t('sales.zagruzkaStavok') }}</div>
-            <div v-else-if="rates.length === 0" class="picker-empty">{{ t('sales.stavkiNeNaydeny') }}</div>
-            <div v-else class="rates">
-              <div v-for="r in rates" :key="r.code" class="rate-row">
-                <span class="rate-code">{{ r.code }}</span>
-                <a-tag v-if="r.rateStr" color="orange">{{ r.rateStr }}</a-tag>
-                <span v-else class="muted">—</span>
-                <a-tag v-if="r.vtoStatus" color="purple">{{ t('sales.vto', { s: r.vtoStatus }) }}</a-tag>
+            <div v-if="!selected.is10" class="picker-note">{{ t('sales.gruppaRaskroyte') }}</div>
+            <template v-else>
+              <div class="detail-block-title">{{ t('sales.stavkiToTt') }}</div>
+              <div v-if="detailLoading" class="picker-empty">{{ t('sales.zagruzkaStavok') }}</div>
+              <div v-else-if="rates.length === 0" class="picker-empty">{{ t('sales.stavkiNeNaydeny') }}</div>
+              <div v-else class="rates">
+                <div v-for="r in rates" :key="r.code" class="rate-row">
+                  <a-tag v-if="r.rateStr" color="orange">{{ r.rateStr }}</a-tag>
+                  <span v-else class="muted">—</span>
+                  <a-tag v-if="r.vtoStatus" color="purple">{{ t('sales.vto', { s: r.vtoStatus }) }}</a-tag>
+                </div>
               </div>
-            </div>
 
-            <div class="detail-block-title">{{ t('sales.razreshitelnyeDokumentyNetarifnyeMery') }}</div>
-            <div v-if="detailLoading" class="picker-empty">…</div>
-            <div v-else-if="measures.length === 0" class="picker-empty muted">{{ t('sales.neTrebuyutsyaNetDannyh') }}</div>
-            <ul v-else class="measures">
-              <li v-for="(m, i) in measures" :key="i">{{ m.docType ? m.docType + ': ' : '' }}{{ m.name || m.description }}</li>
-            </ul>
+              <div class="detail-block-title">{{ t('sales.razreshitelnyeDokumentyNetarifnyeMery') }}</div>
+              <div v-if="detailLoading" class="picker-empty">…</div>
+              <div v-else-if="measures.length === 0" class="picker-empty muted">{{ t('sales.neTrebuyutsyaNetDannyh') }}</div>
+              <ul v-else class="measures">
+                <li v-for="(m, i) in measures" :key="i">{{ m.docType ? m.docType + ': ' : '' }}{{ m.name || m.description }}</li>
+              </ul>
 
-            <a-button type="primary" block :disabled="!selected.is10" style="margin-top:14px" @click="choose">
-              {{ selected.is10 ? t('sales.vybratEtotKod') : t('sales.vyberiteKonechnyy10') }}
-            </a-button>
+              <a-button type="primary" block class="choose-btn" @click="choose">{{ t('sales.vybratEtotKod') }}</a-button>
+            </template>
           </template>
         </div>
       </div>
@@ -77,9 +67,10 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { LeftOutlined } from '@ant-design/icons-vue'
 import { tnvedApi } from '@/api/tnved'
+import TnvedTree from '@/components/TnvedTree.vue'
 import type { TnvedNodeDto, TnvedRateDto } from '@/types/api'
 
 const { t } = useI18n()
@@ -93,31 +84,27 @@ const emit = defineEmits<{
 const query = ref('')
 const results = ref<TnvedNodeDto[] | null>(null)
 const searchLoading = ref(false)
-const nodes = ref<TnvedNodeDto[]>([])
-const crumbs = ref<TnvedNodeDto[]>([])
-const treeLoading = ref(false)
+const showResults = ref(true)
+// Дерево создаём при первом открытии модалки (не грузим корень, пока пикер не нужен).
+const mounted = ref(false)
+const treeRef = ref<InstanceType<typeof TnvedTree> | null>(null)
 const selected = ref<TnvedNodeDto | null>(null)
 const rates = ref<TnvedRateDto[]>([])
 const measures = ref<{ docType?: string; name?: string; description?: string }[]>([])
 const detailLoading = ref(false)
 
-const loadChildren = async (parentId = 0) => {
-  treeLoading.value = true
-  try {
-    nodes.value = (await tnvedApi.children(parentId)).data
-  } catch {
-    nodes.value = []
-  } finally {
-    treeLoading.value = false
-  }
-}
-
 const doSearch = async () => {
   const q = query.value.trim()
   if (!q) { clearSearch(); return }
+  // Полный 10-значный код — сразу раскрываем его в дереве.
+  if (/^\d{10}$/.test(q.replace(/\s/g, ''))) {
+    const n = await treeRef.value?.reveal(q.replace(/\s/g, ''))
+    if (n) { results.value = null; pickNode(n); return }
+  }
   searchLoading.value = true
   try {
     results.value = (await tnvedApi.search(q, false, 40)).data
+    showResults.value = true
   } catch {
     results.value = []
   } finally {
@@ -126,18 +113,13 @@ const doSearch = async () => {
 }
 const clearSearch = () => { results.value = null; query.value = '' }
 
-const toRoot = () => { crumbs.value = []; loadChildren(0) }
-const toCrumb = (i: number) => {
-  const c = crumbs.value[i]
-  crumbs.value = crumbs.value.slice(0, i + 1)
-  loadChildren(c.id)
-}
-const clickNode = async (n: TnvedNodeDto) => {
+const backToTree = () => { showResults.value = false; void treeRef.value?.scrollToSelected() }
+
+// Результат поиска показываем на своём месте в дереве — видно соседние коды и всю ветку.
+const openResult = async (n: TnvedNodeDto) => {
   pickNode(n)
-  if (!n.isLast) {
-    crumbs.value = [...crumbs.value, n]
-    await loadChildren(n.id)
-  }
+  showResults.value = false
+  await treeRef.value?.reveal(n.code)
 }
 
 const pickNode = async (n: TnvedNodeDto) => {
@@ -166,36 +148,37 @@ const choose = () => {
 watch(() => props.open, (v) => {
   if (v) {
     // сброс + загрузка корня при открытии
-    clearSearch(); selected.value = null; rates.value = []; measures.value = []; crumbs.value = []
-    loadChildren(0)
+    clearSearch(); selected.value = null; rates.value = []; measures.value = []
+    mounted.value = true
     // если передан начальный запрос (напр. неполный 6-значный код) — сразу ищем
     const iq = (props.initialQuery || '').trim()
-    if (iq) { query.value = iq; doSearch() }
+    if (iq) { query.value = iq; void nextTick(doSearch) }
   }
 })
 </script>
 
 <style scoped>
 .tnved-picker { display: flex; flex-direction: column; gap: 12px; }
-.picker-body { display: flex; gap: 14px; height: 440px; }
-.picker-left, .picker-right { flex: 1; overflow-y: auto; border: 1px solid var(--atg-border, #e5e7eb); border-radius: 8px; padding: 8px; }
-.picker-hint, .picker-crumbs { font-size: 12px; color: var(--atg-muted, #6b7280); margin-bottom: 6px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.picker-reset, .picker-crumbs a { cursor: pointer; color: var(--atg-accent, #0f8ba8); }
-.crumb-sep { color: var(--atg-muted, #9ca3af); }
-.picker-node { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-.picker-node:hover { background: rgba(15, 139, 168, 0.08); }
-.picker-node.active { background: rgba(15, 139, 168, 0.15); }
-.pn-code { font-family: ui-monospace, monospace; font-weight: 600; min-width: 92px; }
+.picker-body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 14px; height: 520px; }
+.picker-left, .picker-right { overflow: hidden; border: 1px solid var(--z-line, #e8ebf2); border-radius: 8px; padding: 8px; }
+.picker-right { overflow-y: auto; padding: 14px 16px; }
+.picker-results { height: 100%; overflow-y: auto; }
+.picker-hint { font-size: 12px; color: var(--z-muted, #8c95a6); margin-bottom: 6px; display: flex; gap: 6px; align-items: center; min-height: 20px; }
+.picker-spacer { flex: 1; }
+.picker-reset { cursor: pointer; color: var(--z-teal-d, #1580a6); }
+.picker-node { display: flex; align-items: baseline; gap: 10px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.picker-node:hover { background: var(--z-teal-soft, #e1f5fa); }
+.picker-node.active { background: var(--z-teal-soft, #e1f5fa); box-shadow: inset 2px 0 0 var(--z-teal, #23b5d3); }
+.pn-code { font-family: ui-monospace, monospace; font-weight: 600; flex: none; min-width: 92px; }
 .pn-name { flex: 1; }
-.pn-tag { margin: 0; }
-.pn-arrow { color: var(--atg-muted, #9ca3af); }
-.picker-empty { color: var(--atg-muted, #9ca3af); font-size: 13px; padding: 8px; }
-.muted { color: var(--atg-muted, #9ca3af); }
-.detail-code { font-family: ui-monospace, monospace; font-size: 18px; font-weight: 700; }
-.detail-name { color: var(--atg-muted, #4b5563); margin: 4px 0 10px; }
-.detail-block-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--atg-muted, #6b7280); margin: 12px 0 6px; }
-.rate-row { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; font-size: 13px; }
-.rate-code { font-family: ui-monospace, monospace; min-width: 48px; }
+.picker-empty { color: var(--z-muted, #8c95a6); font-size: 13px; padding: 8px 0; }
+.picker-note { margin-top: 12px; padding: 10px 12px; border-radius: 6px; background: var(--z-surface-2, #eef1f7); color: var(--z-ink-2, #475569); font-size: 13px; }
+.muted { color: var(--z-muted, #8c95a6); }
+.detail-code { font-family: ui-monospace, monospace; font-size: 20px; font-weight: 700; }
+.detail-name { color: var(--z-ink-2, #475569); margin: 4px 0 4px; font-size: 13px; }
+.detail-block-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--z-muted, #8c95a6); margin: 16px 0 6px; }
+.rate-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; font-size: 13px; }
 .measures { margin: 0; padding-left: 18px; font-size: 13px; }
 .measures li { margin: 2px 0; }
+.choose-btn { margin-top: 18px; }
 </style>

@@ -21,68 +21,57 @@
       <span v-else>{{ t('dt.netTovarov') }}</span>
     </div>
 
-    <div v-for="(item, idx) in items" :key="idx" class="goods-card">
+    <div v-for="(item, idx) in items" :key="idx" class="goods-card zf-card">
       <div class="card-top">
         <span class="card-num" :title="t('dt.poryadkovyyNomerTovara')">{{ idx + 1 }}</span>
+        <span class="card-title">
+          <b>{{ t('dt.tovarN', { n: idx + 1 }) }}</b>
+          <template v-if="item.tnvedCode"> · <span class="card-code">{{ item.tnvedCode }}</span></template>
+          <template v-if="item.description || item.tnvedDescription"> · {{ item.description || item.tnvedDescription }}</template>
+        </span>
         <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)"><CloseOutlined /></a-button>
       </div>
 
-      <!-- Row: код тнвэд + найти + описание из тнвэд -->
-      <div class="field-row">
-        <div class="field f-2">
-          <div class="field-label">{{ t('dt.kodTnved') }}</div>
-          <a-input-group compact style="display: flex">
+      <div class="zf-grid">
+        <!-- Код ТН ВЭД + описание из ТН ВЭД -->
+        <div class="zf-field zf-s5">
+          <div class="zf-label">{{ t('dt.kodTnved') }}</div>
+          <a-input-group compact class="tnved-group">
             <a-input
               v-model:value="item.tnvedCode"
-              size="small"
               :disabled="readonly"
               :status="item.tnvedInvalid ? 'error' : undefined"
               placeholder="0000000000"
+              class="tnved-input"
               @change="emit('update:modelValue', items.map(fromRow))"
               @blur="validateTnved(item)"
             />
-            <a-button
-              v-if="!readonly"
-              size="small"
-              :loading="item.tnvedLoading"
-              @click="lookupTnved(item)"
-            >{{ t('dt.nayti') }}</a-button>
-            <a-button
-              v-if="!readonly"
-              size="small"
-              @click="openPicker(item)"
-            >{{ t('dt.spravochnik') }}</a-button>
+            <a-button v-if="!readonly" :loading="item.tnvedLoading" @click="lookupTnved(item)">{{ t('dt.nayti') }}</a-button>
+            <a-button v-if="!readonly" @click="openPicker(item)">{{ t('dt.spravochnik') }}</a-button>
           </a-input-group>
           <!-- Несуществующий 10-значный код (например 1902303000 вместо 1902301000)
                раньше выявлялся только на расчёте ТПиН — помечаем сразу при вводе. -->
           <div v-if="item.tnvedInvalid" class="field-error">{{ t('dt.kodaNetVSpravochnikeTnved') }}</div>
         </div>
-        <div class="field f-2">
-          <div class="field-label">{{ t('dt.opisanieTovaraIzTnved') }}</div>
+        <div class="zf-field zf-s7">
+          <div class="zf-label">{{ t('dt.opisanieTovaraIzTnved') }}</div>
           <a-input
             v-model:value="item.tnvedDescription"
-            size="small"
             :disabled="readonly"
             :placeholder="t('dt.avtozapolneniePoKoduTnved')"
             @change="emit('update:modelValue', items.map(fromRow))"
           />
         </div>
-      </div>
 
-      <!-- Row: описание из инвойса (wide) -->
-      <!-- uppercase — опция только для Import40 ДТ (DtSectionGoods передаёт true);
-           транзитные вызовы (ReestrFormFields/DocumentPackageWorkspaceView) её не
-           передают и остаются без принудительного верхнего регистра. Директиву
-           v-uppercase нельзя переключить динамически (mounted/unmounted only),
-           поэтому два варианта инпута вместо одного условного :class/directive. -->
-      <div class="field-row">
-        <div class="field f-grow">
-          <div class="field-label">{{ t('dt.opisanieIzInvoysa') }}</div>
+        <!-- Описание из инвойса. uppercase — опция только для Import40 ДТ (DtSectionGoods передаёт true);
+             транзитные вызовы её не передают. Директиву v-uppercase нельзя переключить динамически
+             (mounted/unmounted only), поэтому два варианта инпута вместо одного условного. -->
+        <div class="zf-field zf-s12">
+          <div class="zf-label">{{ t('dt.opisanieIzInvoysa') }}</div>
           <a-input
             v-if="uppercase"
             v-uppercase
             v-model:value="item.description"
-            size="small"
             :disabled="readonly"
             :placeholder="t('dt.opisanieTovaraIzInvoysa')"
             @change="emit('update:modelValue', items.map(fromRow))"
@@ -90,52 +79,42 @@
           <a-input
             v-else
             v-model:value="item.description"
-            size="small"
             :disabled="readonly"
             :placeholder="t('dt.opisanieTovaraIzInvoysa')"
             @change="emit('update:modelValue', items.map(fromRow))"
           />
         </div>
-      </div>
 
-      <!-- Бланк товара (гр.31): марка/знак/модель/артикул/изготовитель — идут после
-           описаний (из ТН ВЭД и из инвойса) и ПЕРЕД страной происхождения. Показываются
-           только в ДТ Импорта 40 (brandFields), в транзите блока нет. -->
-      <template v-if="brandFields">
-        <div class="field-row">
-          <div class="field"><div class="field-label">{{ t('dt.torgovayaMarka') }}</div>
-            <a-input v-model:value="item.tradeMarkName" v-uppercase size="small" :disabled="readonly"
+        <!-- Бланк товара (гр.31): марка/знак/модель/артикул/изготовитель — после описаний и ПЕРЕД
+             страной происхождения. Только в ДТ Импорта 40 (brandFields), в транзите блока нет. -->
+        <template v-if="brandFields">
+          <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.torgovayaMarka') }}</div>
+            <a-input v-model:value="item.tradeMarkName" v-uppercase :disabled="readonly"
               @change="emit('update:modelValue', items.map(fromRow))" />
             <!-- ТРОИС: знак есть в таможенном реестре ОИС — только подсказка, ничего не блокирует -->
             <TroisTrademarkHint :name="item.tradeMarkName" /></div>
-          <div class="field"><div class="field-label">{{ t('dt.znak') }}</div>
-            <a-input v-model:value="item.productMarkName" v-uppercase size="small" :disabled="readonly"
+          <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.znak') }}</div>
+            <a-input v-model:value="item.productMarkName" v-uppercase :disabled="readonly"
               :placeholder="t('dt.neUkazan')" @change="emit('update:modelValue', items.map(fromRow))" /></div>
-          <div class="field"><div class="field-label">{{ t('dt.model') }}</div>
-            <a-input v-model:value="item.productModelName" v-uppercase size="small" :disabled="readonly"
+          <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.model') }}</div>
+            <a-input v-model:value="item.productModelName" v-uppercase :disabled="readonly"
               :placeholder="t('dt.neUkazan')" @change="emit('update:modelValue', items.map(fromRow))" /></div>
-          <div class="field"><div class="field-label">{{ t('dt.artikul') }}</div>
-            <a-input v-model:value="item.productArticle" v-uppercase size="small" :disabled="readonly"
+          <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.artikul') }}</div>
+            <a-input v-model:value="item.productArticle" v-uppercase :disabled="readonly"
               :placeholder="t('dt.neUkazan')" @change="emit('update:modelValue', items.map(fromRow))" /></div>
-        </div>
-        <div class="field-row">
-          <div class="field f-2"><div class="field-label">{{ t('dt.proizvoditel') }}</div>
-            <a-input v-model:value="item.manufacturerName" v-uppercase size="small" :disabled="readonly"
+          <div class="zf-field zf-s6"><div class="zf-label">{{ t('dt.proizvoditel') }}</div>
+            <a-input v-model:value="item.manufacturerName" v-uppercase :disabled="readonly"
               @change="emit('update:modelValue', items.map(fromRow))" /></div>
-        </div>
-      </template>
+        </template>
 
-      <!-- Row: страна происхождения -->
-      <div class="field-row">
-        <div class="field f-2">
-          <div class="field-label">{{ t('dt.stranaProishozhdeniya') }}</div>
+        <!-- Страна происхождения (+ ставки по стране, акциз, антидемпинг в ДТ) -->
+        <div class="zf-field zf-s6">
+          <div class="zf-label">{{ t('dt.stranaProishozhdeniya') }}</div>
           <a-select
             v-model:value="item.countryOfOrigin"
-            size="small"
             :disabled="readonly"
             show-search
             allow-clear
-            style="width: 100%"
             :options="countryOptions"
             :filter-option="filterCountry"
             :placeholder="t('dt.vyberiteStranuPoKodu')"
@@ -152,115 +131,64 @@
             @update:anti-dumping-kind="(v) => { item.antiDumpingKind = v; emit('update:modelValue', items.map(fromRow)) }"
           />
         </div>
-      </div>
 
-      <!-- Row: кол-во + код ОКЕИ + тип количества -->
-      <div class="field-row">
-        <div class="field f-narrow">
-          <div class="field-label">{{ t('dt.kolVoDei') }}</div>
-          <a-input
-            v-model:value="item.quantityStr"
-            size="small"
-            :disabled="readonly"
-            placeholder="—"
-            @blur="syncNum(item, 'quantity', item.quantityStr)"
-          />
+        <div class="zf-sec">{{ t('dt.secKolichestvo') }}</div>
+        <div class="zf-field zf-s2">
+          <div class="zf-label" :title="t('dt.kolVoDei')">{{ t('dt.kolVoDei') }}</div>
+          <a-input v-model:value="item.quantityStr" :disabled="readonly" placeholder="—"
+            @blur="syncNum(item, 'quantity', item.quantityStr)" />
         </div>
-        <div class="field f-narrow">
-          <div class="field-label">{{ t('dt.kodDeiOkei') }}</div>
+        <div class="zf-field zf-s2">
+          <div class="zf-label" :title="t('dt.kodDeiOkei')">{{ t('dt.kodDeiOkei') }}</div>
           <!-- Единица доп. измерения жёстко привязана к коду ТН ВЭД: декларант вводит
                только количество, саму единицу править нельзя (требование 2026-09-23). -->
-          <a-select
-            v-model:value="item.unitCode"
-            size="small"
-            disabled
-            style="width: 100%"
-            :options="okeiOptions"
-            :placeholder="t('dt.poKoduTnved')"
-          />
+          <a-select v-model:value="item.unitCode" disabled :options="okeiOptions" :placeholder="t('dt.avto')" :title="t('dt.poKoduTnved')" />
         </div>
-        <div class="field f-narrow">
-          <div class="field-label">{{ t('dt.kodTipaKolVa') }}</div>
-          <a-select
-            v-model:value="item.quantityTypeCode"
-            size="small"
-            :disabled="readonly"
-            allow-clear
-            style="width: 100%"
-            :options="quantityTypeOptions"
-            :placeholder="t('dt.rkRr')"
-            @change="emit('update:modelValue', items.map(fromRow))"
-          />
+        <div class="zf-field zf-s2">
+          <div class="zf-label" :title="t('dt.kodTipaKolVa')">{{ t('dt.kodTipaKolVa') }}</div>
+          <a-select v-model:value="item.quantityTypeCode" :disabled="readonly" allow-clear
+            :options="quantityTypeOptions" :placeholder="t('dt.rkRr')" :dropdown-match-select-width="false"
+            @change="emit('update:modelValue', items.map(fromRow))" />
         </div>
-      </div>
-
-      <!-- Row: брутто + нетто + кол-во мест -->
-      <div class="field-row">
-        <div class="field f-narrow">
-          <div class="field-label">{{ t('dt.bruttoKg') }}</div>
-          <a-input
-            v-model:value="item.grossWeightStr"
-            size="small"
-            :disabled="readonly"
-            placeholder="—"
-            @blur="syncNum(item, 'grossWeightKg', item.grossWeightStr)"
-          />
+        <div class="zf-field zf-s2">
+          <div class="zf-label">{{ t('dt.bruttoKg') }}</div>
+          <a-input v-model:value="item.grossWeightStr" :disabled="readonly" placeholder="—"
+            @blur="syncNum(item, 'grossWeightKg', item.grossWeightStr)" />
         </div>
-        <div class="field f-narrow">
-          <div class="field-label">{{ t('dt.nettoKg') }}</div>
-          <a-input
-            v-model:value="item.netWeightStr"
-            size="small"
-            :disabled="readonly"
-            placeholder="—"
-            @blur="syncNum(item, 'netWeightKg', item.netWeightStr)"
-          />
+        <div class="zf-field zf-s2">
+          <div class="zf-label">{{ t('dt.nettoKg') }}</div>
+          <a-input v-model:value="item.netWeightStr" :disabled="readonly" placeholder="—"
+            @blur="syncNum(item, 'netWeightKg', item.netWeightStr)" />
         </div>
-        <div class="field f-narrow">
-          <div class="field-label">{{ t('dt.kolVoGruzovyhMest') }}</div>
-          <a-input
-            v-model:value="item.packagesCountStr"
-            size="small"
-            :disabled="readonly"
-            placeholder="—"
-            @blur="syncNum(item, 'packagesCount', item.packagesCountStr)"
-          />
+        <div class="zf-field zf-s2">
+          <div class="zf-label" :title="t('dt.kolVoGruzovyhMest')">{{ t('dt.gruzovyhMest') }}</div>
+          <a-input v-model:value="item.packagesCountStr" :disabled="readonly" placeholder="—"
+            @blur="syncNum(item, 'packagesCount', item.packagesCountStr)" />
         </div>
-      </div>
-
-      <!-- Row: там.стоимость + валюта -->
-      <div class="field-row">
-        <div class="field f-2">
-          <div class="field-label">{{ t('dt.fakturnayaStoimost') }}</div>
-          <a-input
-            v-model:value="item.customsValueStr"
-            size="small"
-            :disabled="readonly"
-            placeholder="—"
-            @blur="syncNum(item, 'customsValue', item.customsValueStr)"
-          />
+        <div class="zf-field zf-s3">
+          <div class="zf-label">{{ t('dt.fakturnayaStoimost') }}</div>
+          <a-input v-model:value="item.customsValueStr" :disabled="readonly" placeholder="—"
+            @blur="syncNum(item, 'customsValue', item.customsValueStr)" />
         </div>
-        <div class="field f-2">
-          <div class="field-label">{{ t('dt.valyuta') }}<span v-if="lockedCurrency" class="lock-hint"> {{ t('dt.izGr22') }}</span></div>
+        <div class="zf-field zf-s3">
+          <div class="zf-label">{{ t('dt.valyuta') }}<span v-if="lockedCurrency" class="zf-label-note"> · {{ t('dt.izGr22') }}</span></div>
           <a-select
             :value="lockedCurrency || item.currency"
-            size="small"
             :disabled="readonly || !!lockedCurrency"
             show-search
             allow-clear
-            style="width: 100%"
             :options="currencyOptions"
             :filter-option="filterCurrency"
             placeholder="USD"
             @change="(v: unknown) => setRowCurrency(item, (v as string) || null)"
           />
         </div>
+
+        <!-- Поля, специфичные для ДТ Импорта 40 (стоимости гр.45/46, упаковка, льготы, процедура, ОИС,
+             маркировка, платежи гр.47). Компонент слота раскладывается в эту же сетку (display: contents):
+             порядок карточки повторяет порядок гр.31 в ДТ (декларант, 2026-09-23). -->
+        <slot name="goods-extra" :item="item" :index="idx" :change="syncRows" />
       </div>
-      <!-- Место для полей, специфичных для ДТ Импорта 40 (упаковка, преференции,
-           процедура, стоимости, ОИС, маркировка, платежи гр.47). Идут ПОСЛЕ описаний,
-           бланка товара, страны, количеств, весов и фактурной стоимости: порядок
-           карточки повторяет порядок гр.31 в ДТ (декларант, 2026-09-23). -->
-      <slot name="goods-extra" :item="item" :index="idx" :change="syncRows" />
 
     </div>
 
@@ -733,94 +661,56 @@ const onExcelFile: UploadProps['beforeUpload'] = (file) => {
 }
 
 .goods-card {
-  border: 1px solid var(--atg-line);
-  border-radius: 6px;
-  padding: 10px 12px 8px;
-  background: var(--atg-surface, var(--atg-bg));
+  border: 1px solid var(--z-line);
+  border-radius: 10px;
+  padding: 14px 18px 18px;
+  background: var(--z-surface);
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 12px;
 }
 
 .card-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: -2px;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--z-line);
 }
 
 .card-num {
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: var(--atg-teal-soft, #e6f7f5);
-  color: var(--atg-teal, #00b8a0);
-  font-size: 11px;
+  background: var(--z-teal-soft);
+  color: var(--z-teal-d);
+  font-size: 12px;
   font-weight: 700;
 }
 
-.del-btn {
-  color: var(--atg-danger, #ff4d4f) !important;
-  padding: 0 4px !important;
-  height: 20px !important;
-  font-size: 13px !important;
-}
-
-.field-row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.f-grow {
+.card-title {
   flex: 1;
-}
-
-.f-2 {
-  flex: 2;
   min-width: 0;
-}
-
-.f-narrow {
-  flex: 1;
-  min-width: 60px;
-}
-
-.field-error {
-  font-size: 10.5px;
-  color: var(--z-danger, #d4380d);
-  margin-top: 2px;
-}
-
-.field-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--atg-muted);
+  font-size: 13.5px;
+  color: var(--z-ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.lock-hint {
-  color: var(--atg-teal, #23B5D3);
-  font-weight: 700;
-}
+.card-title b { color: var(--z-ink); }
+.card-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--z-ink); }
 
-.field :deep(.ant-input-sm),
-.field :deep(.ant-select-sm .ant-select-selector) {
-  font-size: 13px;
-}
+.del-btn { flex: none; }
 
-.field :deep(.ant-select-sm) {
-  font-size: 13px;
+.tnved-group { display: flex !important; }
+.tnved-group .tnved-input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.field-error {
+  font-size: 12px;
+  color: var(--z-danger);
 }
 </style>

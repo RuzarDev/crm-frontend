@@ -694,6 +694,17 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    avto: 'авто',
+    gruzovyhMest: 'Грузовых мест',
+    tamStoimostGr45: 'Там. стоимость, ₸ (гр.45)',
+    secKolichestvo: 'Количество, вес и стоимость',
+    secLgoty: 'Льготы по платежам (гр.36)',
+    secProcedura: 'Процедура, квота, метод ТС (гр.37, 39, 43)',
+    payVid: 'Вид платежа',
+    payOsnova: 'Основа начисления',
+    payVidStavki: 'Вид ставки',
+    payData: 'Дата',
+    payStavkaDetali: 'Специфическая ставка',
     platezhiNePereschitany: 'Платежи в новых ДТ посчитать не удалось — откройте их и нажмите «Рассчитать платежи»',
     dobavteTovarDlyaVto: 'Добавьте в ДТ хотя бы один товар',
     kursGr23NeSovpadaet: 'гр.23 не совпадает с курсом НБ РК на дату гр.А',
@@ -2514,6 +2525,8 @@ export default {
     sec: '{n}с',
     vto: 'ВТО: {s}',
     vyberiteKonechnyy10: 'Выберите конечный 10-значный код',
+    gruppaRaskroyte: 'Это группа — раскройте её в дереве и выберите конечный 10-значный код',
+    svernutVse: 'Свернуть всё',
     vybratEtotKod: 'Выбрать этот код',
     zapolneno: 'Заполнено',
     // Аудит 2026-09-28, п.10: страницы НПА и хронологии ТН ВЭД были без i18n.

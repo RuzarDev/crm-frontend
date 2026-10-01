@@ -3,177 +3,161 @@
      — по требованию декларанта всё о товаре заполняется в одном месте (2026-09-23). -->
 <template>
   <div class="keden-fields">
-    <div v-if="good.needsTpinRecalc || hasReducedVat(good)" class="keden-flags">
+    <!-- Продолжение раздела «Количество, вес и стоимость» карточки товара (сетка общая, display: contents). -->
+    <div class="zf-field zf-s3"><div class="zf-label" :title="t('dt.tamozhennayaStoimostGr45')">{{ t('dt.tamStoimostGr45') }}</div>
+      <a-input-number v-model:value="good.customsValueKzt" :disabled="readonly" :min="0" @change="onCustomsValueChange(good)" /></div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.statisticheskayaUsdGr46') }}
+        <a-tooltip :title="t('dt.avtoTamozhennayaStoimostGr45')"><QuestionCircleOutlined class="label-help" /></a-tooltip></div>
+      <a-input-number v-model:value="good.statisticValueUsd" :disabled="readonly" :min="0" @change="emitChange" /></div>
+    <div v-if="good.needsTpinRecalc || hasReducedVat(good)" class="keden-flags zf-s12">
       <a-tag v-if="good.needsTpinRecalc" color="orange">{{ t('dt.pereschitatTpin') }}</a-tag>
       <a-tooltip v-if="hasReducedVat(good)" :title="t('dt.ponizhennyyNds5Primenyaetsya')">
         <a-tag color="green">{{ t('dt.nds5') }}</a-tag>
       </a-tooltip>
     </div>
-    <!-- Упаковка (гр.31) — единой строкой: наличие/вид/кол-во упаковок/грузомест -->
-    <div class="section-bar"><span class="section-label">{{ t('dt.upakovkaGr31') }}</span></div>
-    <div class="field-row">
-      <div class="field"><div class="field-label">{{ t('dt.nalichieUpakovki') }}</div>
-        <a-select v-model:value="good.packageAvailabilityCode" size="small" :disabled="readonly" show-search
-          :options="packagingAvailabilityOptions" :dropdown-match-select-width="false" allow-clear
-          :get-popup-container="popupContainer" placeholder="0/1/2" @change="emitChange" /></div>
-      <div class="field field-wide" style="min-width: 260px"><div class="field-label">{{ t('dt.vidUpakovki') }}</div>
-        <a-select v-model:value="good.packageKindCode" size="small" :disabled="readonly" show-search allow-clear
-          :options="pkgOptions" option-filter-prop="label" :dropdown-match-select-width="false" placeholder="PK"
-          style="width: 100%" :get-popup-container="popupContainer" @change="emitChange" /></div>
-      <div class="field"><div class="field-label">{{ t('dt.kolichestvoUpakovok') }}</div>
-        <a-input-number v-model:value="good.packageQuantity" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="emitChange" /></div>
-      <!-- «Кол-во грузовых мест» — одно поле, в карточке товара выше (packagesCount); cargoPlacesQuantity
-           синхронизируется с ним автоматически (DtSectionGoods), дубля здесь больше нет. -->
-    </div>
-    <div class="field-row">
-      <div class="field"><div class="field-label">{{ t('dt.preferenciyaSbor') }}</div>
-        <a-select v-model:value="good.prefClearanceCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefFeeOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="ОО" style="width: 100%" @change="emitChange" /></div>
-      <div class="field"><div class="field-label">{{ t('dt.poshlina') }}</div>
-        <a-select v-model:value="good.prefDutyCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefDutyOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="ОО" style="width: 100%" @change="emitChange" /></div>
-      <div class="field"><div class="field-label">{{ t('dt.akciz') }}</div>
-        <a-select v-model:value="good.prefExciseCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefExciseOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="Z" style="width: 100%" @change="emitChange" /></div>
-      <div class="field"><div class="field-label">{{ t('dt.nds') }} <a-tooltip v-if="hasReducedVat(good)" :title="t('dt.ponizhennyyNds5Primenyaetsya')">
-            <a-tag color="green" style="margin-left: 4px">5%</a-tag>
-          </a-tooltip>
-        </div>
-        <a-select v-model:value="good.prefVatCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefVatOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="ОО" style="width: 100%" @change="emitChange" /></div>
-    </div>
-    <div v-if="containerIndicator" class="field-row">
-      <div class="field"><div class="field-label">{{ t('dt.nomerKonteyneraGr313') }}</div>
-        <a-input v-uppercase v-model:value="good.containerNumber" size="small" :disabled="readonly" placeholder="GLDU9071686" @change="emitChange" /></div>
-    </div>
-    <div class="field-row">
-      <div class="field"><div class="field-label">{{ t('dt.proceduraGr37') }}</div>
-        <a-select v-model:value="good.procedureCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="procOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="40" style="width: 100%" @change="emitChange" /></div>
-      <div class="field field-wide"><div class="field-label">{{ t('dt.predshProceduraGr37') }}</div>
-        <a-select v-model:value="good.previousProcedureCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="procOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="00" style="width: 100%" @change="emitChange" /></div>
-      <div class="field field-wide"><div class="field-label">{{ t('dt.osobennostPeremescheniya') }}</div>
-        <a-select v-model:value="good.goodsMoveFeatureCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="moveFeatureOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="000" style="width: 100%" @change="emitChange" /></div>
-      <div class="field"><div class="field-label">{{ t('dt.metodTsGr43') }}</div>
-        <a-select v-model:value="good.valuationMethodCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="valuationOptions" :get-popup-container="popupContainer" placeholder="1" style="width: 100%" @change="emitChange" /></div>
-      <div class="field"><div class="field-label">{{ t('dt.kvotaGr39') }}</div>
-        <a-input-number v-model:value="good.quotaAmount" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="emitChange" /></div>
-      <div class="field"><div class="field-label">{{ t('dt.kolVoMesyacevVrem') }}</div>
-        <a-input-number v-model:value="good.tempImportMonths" size="small" :disabled="readonly" :min="0" :precision="0" style="width: 100%" placeholder="0" @change="emitChange" /></div>
-    </div>
-    <div class="field-row">
-      <div class="field"><div class="field-label">{{ t('dt.tamozhennayaStoimostGr45') }}</div>
-        <a-input-number v-model:value="good.customsValueKzt" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="onCustomsValueChange(good)" /></div>
-      <div class="field"><div class="field-label">{{ t('dt.statisticheskayaUsdGr46') }} <a-tooltip :title="t('dt.avtoTamozhennayaStoimostGr45')">
-            <QuestionCircleOutlined style="margin-left: 4px; color: var(--z-text-secondary, #999)" />
-          </a-tooltip>
-        </div>
-        <a-input-number v-model:value="good.statisticValueUsd" size="small" :disabled="readonly" :min="0" style="width: 100%" @change="emitChange" /></div>
-    </div>
-    <div class="field-row">
-      <div class="field f-2"><div class="field-label">{{ t('dt.sertifikaciyaEkspKontrol') }}</div>
-        <a-select :value="certificationArray(good)" mode="tags" size="small" :disabled="readonly"
-          :options="certificationOptions" :dropdown-match-select-width="false" allow-clear
-          option-filter-prop="label" :token-separators="[';']" :get-popup-container="popupContainer"
-          :placeholder="t('dt.vyberiteIliVvedite')"
-          @change="(v: string[]) => onCertificationChange(good, v)" /></div>
-    </div>
+
+    <!-- Упаковка (гр.31). «Кол-во грузовых мест» — одно поле выше (packagesCount); cargoPlacesQuantity
+         синхронизируется с ним автоматически (DtSectionGoods). -->
+    <div class="zf-sec">{{ t('dt.upakovkaGr31') }}</div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.nalichieUpakovki') }}</div>
+      <a-select v-model:value="good.packageAvailabilityCode" :disabled="readonly" show-search
+        :options="packagingAvailabilityOptions" :dropdown-match-select-width="false" allow-clear
+        :get-popup-container="popupContainer" placeholder="0 / 1 / 2" @change="emitChange" /></div>
+    <div class="zf-field zf-s6"><div class="zf-label">{{ t('dt.vidUpakovki') }}</div>
+      <a-select v-model:value="good.packageKindCode" :disabled="readonly" show-search allow-clear
+        :options="pkgOptions" option-filter-prop="label" :dropdown-match-select-width="false" placeholder="PK"
+        :get-popup-container="popupContainer" @change="emitChange" /></div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.kolichestvoUpakovok') }}</div>
+      <a-input-number v-model:value="good.packageQuantity" :disabled="readonly" :min="0" @change="emitChange" /></div>
+    <div v-if="containerIndicator" class="zf-field zf-s4"><div class="zf-label">{{ t('dt.nomerKonteyneraGr313') }}</div>
+      <a-input v-uppercase v-model:value="good.containerNumber" :disabled="readonly" placeholder="GLDU9071686" @change="emitChange" /></div>
+
+    <!-- Льготы гр.36: у каждого вида платежа свой перечень (классификатор 2008) -->
+    <div class="zf-sec">{{ t('dt.secLgoty') }}</div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.preferenciyaSbor') }}</div>
+      <a-select v-model:value="good.prefClearanceCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefFeeOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="ОО" @change="emitChange" /></div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.poshlina') }}</div>
+      <a-select v-model:value="good.prefDutyCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefDutyOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="ОО" @change="emitChange" /></div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.akciz') }}</div>
+      <a-select v-model:value="good.prefExciseCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefExciseOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="Z" @change="emitChange" /></div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.nds') }}
+        <a-tooltip v-if="hasReducedVat(good)" :title="t('dt.ponizhennyyNds5Primenyaetsya')"><a-tag color="green" class="label-tag">5%</a-tag></a-tooltip></div>
+      <a-select v-model:value="good.prefVatCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefVatOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" placeholder="ОО" @change="emitChange" /></div>
+
+    <!-- Процедура (гр.37), квота (гр.39), метод ТС (гр.43), временный ввоз, сертификация -->
+    <div class="zf-sec">{{ t('dt.secProcedura') }}</div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.proceduraGr37') }}</div>
+      <a-select v-model:value="good.procedureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="procOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="40" @change="emitChange" /></div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.predshProceduraGr37') }}</div>
+      <a-select v-model:value="good.previousProcedureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="procOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="00" @change="emitChange" /></div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.osobennostPeremescheniya') }}</div>
+      <a-select v-model:value="good.goodsMoveFeatureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="moveFeatureOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="000" @change="emitChange" /></div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.metodTsGr43') }}</div>
+      <a-select v-model:value="good.valuationMethodCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="valuationOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" placeholder="1" @change="emitChange" /></div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.kvotaGr39') }}</div>
+      <a-input-number v-model:value="good.quotaAmount" :disabled="readonly" :min="0" @change="emitChange" /></div>
+    <div class="zf-field zf-s3"><div class="zf-label" :title="t('dt.kolVoMesyacevVrem')">{{ t('dt.kolVoMesyacevVrem') }}</div>
+      <a-input-number v-model:value="good.tempImportMonths" :disabled="readonly" :min="0" :precision="0" placeholder="0" @change="emitChange" /></div>
+    <div class="zf-field zf-s6"><div class="zf-label">{{ t('dt.sertifikaciyaEkspKontrol') }}</div>
+      <a-select :value="certificationArray(good)" mode="tags" :disabled="readonly"
+        :options="certificationOptions" :dropdown-match-select-width="false" allow-clear
+        option-filter-prop="label" :token-separators="[';']" :get-popup-container="popupContainer"
+        :placeholder="t('dt.vyberiteIliVvedite')"
+        @change="(v: string[]) => onCertificationChange(good, v)" /></div>
 
     <!-- ОИС / признаки соблюдения запретов (гр.33 «О») -->
-    <div class="section-bar">
-      <span class="section-label">{{ t('dt.oisZapretyGr33O') }}</span>
-      <a-button v-if="!readonly && otherGoods.length" type="link" size="small" @click="openCopy">
-        <CopyOutlined /> {{ t('dt.kopirovatVTovary') }}
-      </a-button>
+    <div class="zf-sec">
+      <span>{{ t('dt.oisZapretyGr33O') }}</span>
+      <span class="zf-sec-actions">
+        <a-button v-if="!readonly && otherGoods.length" type="link" size="small" @click="openCopy">
+          <CopyOutlined /> {{ t('dt.kopirovatVTovary') }}
+        </a-button>
+      </span>
     </div>
-    <div class="field-row">
-      <div class="field"><div class="field-label">{{ t('dt.ois') }}</div>
-        <a-select v-model:value="good.oisIndicatorCode" size="small" :disabled="readonly" show-search
-          :options="oisIndicatorOptions" :dropdown-match-select-width="false" allow-clear
-          :get-popup-container="popupContainer" placeholder="I/N/S" @change="emitChange" />
-        <!-- Знак найден в ТРОИС: признак ОИС сам не ставится — декларант решает -->
-        <div v-if="troisFound" class="trois-ois-hint">{{ t('dt.troisOisHint') }}</div></div>
-      <div class="field field-wide"><div class="field-label">{{ t('dt.priznakiSoblyudeniyaZapretov') }}</div>
-        <a-select :value="restrictionMarksArray(good)" mode="multiple" size="small" :disabled="readonly"
-          :options="restrictionMarksOptions" :dropdown-match-select-width="false" allow-clear
-          :max-tag-count="4" :get-popup-container="popupContainer" :placeholder="t('dt.sMP')"
-          class="ois-marks-select" @change="(v: string[]) => onRestrictionMarksChange(good, v)">
-          <template #tag="{ value: markValue, onClose }">
-            <a-tag class="ois-mark-tag" :title="restrictionMarkLabel(markValue)" closable @close="onClose">{{ markValue }}</a-tag>
-          </template>
-        </a-select></div>
-      <div class="field f-2"><div class="field-label">{{ t('dt.priznakiNetarifnogoGr33') }}
-          <a-tooltip :title="t('dt.priznakiNetarifnogoHint')">
-            <QuestionCircleOutlined style="margin-left: 4px; color: var(--z-text-secondary, #999)" />
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.ois') }}</div>
+      <a-select v-model:value="good.oisIndicatorCode" :disabled="readonly" show-search
+        :options="oisIndicatorOptions" :dropdown-match-select-width="false" allow-clear
+        :get-popup-container="popupContainer" placeholder="I / N / S" @change="emitChange" />
+      <!-- Знак найден в ТРОИС: признак ОИС сам не ставится — декларант решает -->
+      <div v-if="troisFound" class="trois-ois-hint">{{ t('dt.troisOisHint') }}</div></div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.regPoOis') }}</div>
+      <a-input v-uppercase v-model:value="good.oisRegNumber" :disabled="readonly" @change="emitChange" /></div>
+    <div class="zf-field zf-s2"><div class="zf-label">{{ t('dt.kodStranyOis') }}</div>
+      <a-input v-uppercase v-model:value="good.oisCountryCode" :disabled="readonly" :maxlength="2" @change="emitChange" /></div>
+    <div class="zf-field zf-s4"><div class="zf-label">{{ t('dt.priznakiSoblyudeniyaZapretov') }}</div>
+      <a-select :value="restrictionMarksArray(good)" mode="multiple" :disabled="readonly"
+        :options="restrictionMarksOptions" :dropdown-match-select-width="false" allow-clear
+        :max-tag-count="4" :get-popup-container="popupContainer" :placeholder="t('dt.sMP')"
+        @change="(v: string[]) => onRestrictionMarksChange(good, v)">
+        <template #tag="{ value: markValue, onClose }">
+          <a-tag class="ois-mark-tag" :title="restrictionMarkLabel(markValue)" closable @close="onClose">{{ markValue }}</a-tag>
+        </template>
+      </a-select></div>
+    <div class="zf-field zf-s12"><div class="zf-label">{{ t('dt.priznakiNetarifnogoGr33') }}
+        <a-tooltip :title="t('dt.priznakiNetarifnogoHint')"><QuestionCircleOutlined class="label-help" /></a-tooltip>
+      </div>
+      <!-- Справочник кодов (Приказ МФ РК №259) с поиском по коду и словам; свой код можно вписать — тогда предупреждение. -->
+      <a-select :value="featureCodesArray(good)" mode="tags" :disabled="readonly"
+        :options="prohibitionOptions" option-label-prop="value" option-filter-prop="label"
+        :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '620px' }" allow-clear
+        :token-separators="[',', ';']" :get-popup-container="popupContainer"
+        :placeholder="t('dt.kodyGr33Placeholder')"
+        :status="invalidFeatureCodes(good.prohibitionCode).length || unknownFeatureCodes(good).length ? 'warning' : undefined"
+        @change="(v: string[]) => onFeatureCodesChange(good, v)">
+        <template #tag="{ value: codeValue, onClose }">
+          <a-tag class="ois-mark-tag" :title="prohibitionTitle(codeValue)" :closable="!readonly" @close="onClose">{{ codeValue }}</a-tag>
+        </template>
+      </a-select>
+      <div v-if="invalidFeatureCodes(good.prohibitionCode).length" class="field-hint-warn">
+        {{ t('dt.priznakiNetarifnogoFormat', { codes: invalidFeatureCodes(good.prohibitionCode).join(', ') }) }}
+      </div>
+      <div v-else-if="unknownFeatureCodes(good).length" class="field-hint-warn">
+        {{ t('dt.kodyNeVSpravochnike', { codes: unknownFeatureCodes(good).join(', ') }) }}
+      </div>
+      <!-- Подсказки по ТН ВЭД из KEDEN: ничего не подставляем сами — коды выбирает декларант (юридическая ответственность). -->
+      <div v-if="!readonly && suggest.tnved" class="sug-row">
+        <a-spin v-if="suggest.loading" size="small" />
+        <template v-else-if="suggest.codes.length">
+          <span class="sug-label">{{ t('dt.podskazkiPoTnved', { code: suggest.tnved }) }}</span>
+          <a-tag v-for="c in suggest.codes" :key="c.code" class="sug-chip" :class="{ 'sug-chip-on': isFeatureSelected(good, c.code) }"
+            :title="c.name ?? c.code" @click="addFeatureCode(good, c.code)">{{ c.code }}</a-tag>
+          <a-tooltip :title="t('dt.dobavitNePodpadaetHint')">
+            <a-button v-if="negativeToAdd(good).length" type="link" size="small" class="sug-neg" @click="addNegativeCodes(good)">
+              {{ t('dt.dobavitNePodpadaet') }}
+            </a-button>
           </a-tooltip>
-        </div>
-        <!-- Справочник кодов (Приказ МФ РК №259) с поиском по коду и словам; свой код можно вписать — тогда предупреждение. -->
-        <a-select :value="featureCodesArray(good)" mode="tags" size="small" :disabled="readonly"
-          :options="prohibitionOptions" option-label-prop="value" option-filter-prop="label"
-          :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '620px' }" allow-clear
-          :token-separators="[',', ';']" :get-popup-container="popupContainer"
-          :placeholder="t('dt.kodyGr33Placeholder')"
-          :status="invalidFeatureCodes(good.prohibitionCode).length || unknownFeatureCodes(good).length ? 'warning' : undefined"
-          @change="(v: string[]) => onFeatureCodesChange(good, v)">
-          <template #tag="{ value: codeValue, onClose }">
-            <a-tag class="ois-mark-tag" :title="prohibitionTitle(codeValue)" :closable="!readonly" @close="onClose">{{ codeValue }}</a-tag>
-          </template>
-        </a-select>
-        <div v-if="invalidFeatureCodes(good.prohibitionCode).length" class="field-hint-warn">
-          {{ t('dt.priznakiNetarifnogoFormat', { codes: invalidFeatureCodes(good.prohibitionCode).join(', ') }) }}
-        </div>
-        <div v-else-if="unknownFeatureCodes(good).length" class="field-hint-warn">
-          {{ t('dt.kodyNeVSpravochnike', { codes: unknownFeatureCodes(good).join(', ') }) }}
-        </div>
-        <!-- Подсказки по ТН ВЭД из KEDEN: ничего не подставляем сами — коды выбирает декларант (юридическая ответственность). -->
-        <div v-if="!readonly && suggest.tnved" class="sug-row">
-          <a-spin v-if="suggest.loading" size="small" />
-          <template v-else-if="suggest.codes.length">
-            <span class="sug-label">{{ t('dt.podskazkiPoTnved', { code: suggest.tnved }) }}</span>
-            <a-tag v-for="c in suggest.codes" :key="c.code" class="sug-chip" :class="{ 'sug-chip-on': isFeatureSelected(good, c.code) }"
-              :title="c.name ?? c.code" @click="addFeatureCode(good, c.code)">{{ c.code }}</a-tag>
-            <a-tooltip :title="t('dt.dobavitNePodpadaetHint')">
-              <a-button v-if="negativeToAdd(good).length" type="link" size="small" class="sug-neg" @click="addNegativeCodes(good)">
-                {{ t('dt.dobavitNePodpadaet') }}
-              </a-button>
-            </a-tooltip>
-            <span v-if="suggest.warning" class="sug-note">{{ t('dt.podskazkiStale') }}</span>
-          </template>
-          <span v-else class="sug-note">{{ suggest.failed ? t('dt.podskazkiNedostupny') : t('dt.podskazkiPusto') }}</span>
-        </div>
-        </div>
-      <div class="field"><div class="field-label">{{ t('dt.regPoOis') }}</div>
-        <a-input v-uppercase v-model:value="good.oisRegNumber" size="small" :disabled="readonly" @change="emitChange" /></div>
-      <div class="field"><div class="field-label">{{ t('dt.kodStranyOis') }}</div>
-        <a-input v-uppercase v-model:value="good.oisCountryCode" size="small" :disabled="readonly" :maxlength="2" @change="emitChange" /></div>
+          <span v-if="suggest.warning" class="sug-note">{{ t('dt.podskazkiStale') }}</span>
+        </template>
+        <span v-else class="sug-note">{{ suggest.failed ? t('dt.podskazkiNedostupny') : t('dt.podskazkiPusto') }}</span>
+      </div>
     </div>
 
-    <!-- Маркировка товаров (гр.31.13) — коллекция: один товар может иметь
-         несколько строк маркировки (Task 2 бэк заменил одиночные скаляры) -->
-    <a-collapse ghost class="marking-collapse">
+    <!-- Маркировка товаров (гр.31.13) — коллекция: один товар может иметь несколько строк маркировки -->
+    <a-collapse ghost class="marking-collapse zf-s12">
       <a-collapse-panel key="marking" :header="t('dt.markirovkaTovarovGr3113') + ((good.markings?.length ?? 0) ? ` — ${good.markings?.length}` : '')">
-        <div v-for="(m, mi) in (good.markings ?? [])" :key="mi" class="marking-block">
-          <div class="field-row">
-            <div class="field"><div class="field-label">{{ t('dt.posleVypuska') }}</div>
-              <a-checkbox v-model:checked="m.markingAfterRelease" :disabled="readonly" @change="emitChange">{{ t('dt.markirovkaPosleVypuska') }}</a-checkbox></div>
-            <div class="field"><div class="field-label">{{ t('dt.kolVoKiz') }}</div>
-              <a-input-number v-model:value="m.kizCount" size="small" :disabled="readonly" :min="0" :precision="0" style="width: 100%" @change="emitChange" /></div>
-            <div class="field"><div class="field-label">{{ t('dt.agregaciya') }}</div>
-              <a-checkbox v-model:checked="m.aggregated" :disabled="readonly" @change="emitChange">{{ t('dt.agregirovannayaUpakovka') }}</a-checkbox></div>
-            <div class="field marking-remove">
-              <a-button v-if="!readonly" type="text" danger size="small" @click="removeMarking(good, m)"><CloseOutlined /> {{ t('dt.udalit') }}</a-button></div>
-          </div>
-          <div class="field-row">
-            <div class="field"><div class="field-label">{{ t('dt.kodUrovnyaMarkirovki') }}</div>
-              <a-select v-model:value="m.levelCode" size="small" :disabled="readonly" show-search allow-clear
-                :options="MARKING_LEVEL_OPTIONS" :dropdown-match-select-width="false" option-filter-prop="label"
-                :get-popup-container="popupContainer" placeholder="0–4" @change="emitChange" /></div>
-            <div class="field"><div class="field-label">{{ t('dt.kodVidaIdentifikacii') }}</div>
-              <a-select v-model:value="m.idTypeCode" size="small" :disabled="readonly" show-search allow-clear
-                :options="MARKING_ID_TYPE_OPTIONS" :dropdown-match-select-width="false" option-filter-prop="label"
-                :get-popup-container="popupContainer" placeholder="101/301…" @change="emitChange" /></div>
-            <div class="field"><div class="field-label">{{ t('dt.kodIdentifikatoraPrimeneniya') }}</div>
-              <a-select v-model:value="m.idApplicationCode" size="small" :disabled="readonly" show-search allow-clear
-                :options="MARKING_ID_APPLICATION_OPTIONS" :dropdown-match-select-width="false" option-filter-prop="label"
-                :get-popup-container="popupContainer" placeholder="00/01/02…" @change="emitChange" /></div>
-            <div class="field f-2"><div class="field-label">{{ t('dt.nomerMarkirovki') }}</div>
-              <a-input v-uppercase v-model:value="m.number" size="small" :disabled="readonly" @change="emitChange" /></div>
-          </div>
+        <div v-for="(m, mi) in (good.markings ?? [])" :key="mi" class="marking-block zf-grid">
+          <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.posleVypuska') }}</div>
+            <a-checkbox v-model:checked="m.markingAfterRelease" :disabled="readonly" @change="emitChange">{{ t('dt.markirovkaPosleVypuska') }}</a-checkbox></div>
+          <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.kolVoKiz') }}</div>
+            <a-input-number v-model:value="m.kizCount" :disabled="readonly" :min="0" :precision="0" @change="emitChange" /></div>
+          <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.agregaciya') }}</div>
+            <a-checkbox v-model:checked="m.aggregated" :disabled="readonly" @change="emitChange">{{ t('dt.agregirovannayaUpakovka') }}</a-checkbox></div>
+          <div class="zf-field zf-s3 marking-remove">
+            <a-button v-if="!readonly" type="text" danger size="small" @click="removeMarking(good, m)"><CloseOutlined /> {{ t('dt.udalit') }}</a-button></div>
+          <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.kodUrovnyaMarkirovki') }}</div>
+            <a-select v-model:value="m.levelCode" :disabled="readonly" show-search allow-clear
+              :options="MARKING_LEVEL_OPTIONS" :dropdown-match-select-width="false" option-filter-prop="label"
+              :get-popup-container="popupContainer" placeholder="0–4" @change="emitChange" /></div>
+          <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.kodVidaIdentifikacii') }}</div>
+            <a-select v-model:value="m.idTypeCode" :disabled="readonly" show-search allow-clear
+              :options="MARKING_ID_TYPE_OPTIONS" :dropdown-match-select-width="false" option-filter-prop="label"
+              :get-popup-container="popupContainer" placeholder="101/301…" @change="emitChange" /></div>
+          <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.kodIdentifikatoraPrimeneniya') }}</div>
+            <a-select v-model:value="m.idApplicationCode" :disabled="readonly" show-search allow-clear
+              :options="MARKING_ID_APPLICATION_OPTIONS" :dropdown-match-select-width="false" option-filter-prop="label"
+              :get-popup-container="popupContainer" placeholder="00/01/02…" @change="emitChange" /></div>
+          <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.nomerMarkirovki') }}</div>
+            <a-input v-uppercase v-model:value="m.number" :disabled="readonly" @change="emitChange" /></div>
         </div>
         <div v-if="!(good.markings?.length)" class="marking-empty">{{ t('dt.strokMarkirovkiNet') }}</div>
         <div class="marking-actions">
@@ -187,28 +171,40 @@
       </a-collapse-panel>
     </a-collapse>
 
-    <div class="section-bar payments-bar">
-      <span class="section-label">{{ t('dt.platezhiGr47') }}</span>
-      <a-tag v-if="good.tempImportMonths" color="blue">{{ t('dt.vremVvoz', { months: good.tempImportMonths }) }}</a-tag>
-      <a-button v-if="!readonly" type="dashed" size="small" @click="addPayment(good)">{{ t('dt.stroka') }}</a-button>
+    <!-- Платежи гр.47: таблица с заголовками колонок (раньше были только плейсхолдеры в полях) -->
+    <div class="zf-sec">
+      <span>{{ t('dt.platezhiGr47') }}</span>
+      <span class="zf-sec-actions">
+        <a-tag v-if="good.tempImportMonths" color="blue">{{ t('dt.vremVvoz', { months: good.tempImportMonths }) }}</a-tag>
+        <a-button v-if="!readonly" type="dashed" size="small" @click="addPayment(good)">{{ t('dt.stroka') }}</a-button>
+      </span>
     </div>
-    <div v-for="(p, pi) in sortedPayments(good)" :key="pi" class="payment-row">
-      <a-select v-model:value="p.taxModeCode" size="small" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="taxModeOptions" :placeholder="t('dt.vid2010')" style="width: 140px" :get-popup-container="popupContainer" @change="emitChange" />
-      <a-input-number v-model:value="p.taxBase" size="small" :disabled="readonly" :placeholder="t('dt.osnova')" style="width: 130px" @change="emitChange" />
-      <!-- Task 10, №13: вид ставки/дата НЕ обязательны для показа сумм — суммы гр.47
-           уже заполнены "Рассчитать платежи"/"Рассчитать ТПиН" выше (см. сводную
-           таблицу и applyPaymentsResult); эти поля — необязательное ручное уточнение
-           (например, для весовых ставок '*'), поэтому оба с allow-clear. -->
-      <a-select v-model:value="p.rateKindCode" size="small" :disabled="readonly" :options="rateKindOptions" allow-clear :placeholder="t('dt.vidStavkiAvto')" style="width: 130px" :get-popup-container="popupContainer" @change="emitChange" />
-      <a-input-number v-model:value="p.rateValue" size="small" :disabled="readonly" :placeholder="t('dt.stavka')" style="width: 100px" @change="emitChange" />
-      <template v-if="p.rateKindCode === '*'">
-        <a-input v-model:value="p.rateUnitCode" size="small" :disabled="readonly" :placeholder="t('dt.okei166')" style="width: 90px" @change="emitChange" />
-        <a-input v-model:value="p.rateCurrencyCode" size="small" :disabled="readonly" :placeholder="t('dt.valyutaN3978')" style="width: 110px" @change="emitChange" />
-        <a-input-number v-model:value="p.weightRatio" size="small" :disabled="readonly" :placeholder="t('dt.koef')" style="width: 80px" @change="emitChange" />
+    <div class="payments zf-s12">
+      <div v-if="sortedPayments(good).length" class="pay-row pay-head">
+        <span>{{ t('dt.payVid') }}</span><span>{{ t('dt.payOsnova') }}</span><span>{{ t('dt.payVidStavki') }}</span>
+        <span>{{ t('dt.stavka') }}</span><span>{{ t('dt.payData') }}</span><span>{{ t('dt.summa') }}</span><span />
+      </div>
+      <template v-for="(p, pi) in sortedPayments(good)" :key="pi">
+        <div class="pay-row">
+          <a-select v-model:value="p.taxModeCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="taxModeOptions" :dropdown-match-select-width="false" placeholder="2010" :get-popup-container="popupContainer" @change="emitChange" />
+          <a-input-number v-model:value="p.taxBase" :disabled="readonly" placeholder="—" @change="emitChange" />
+          <!-- Task 10, №13: вид ставки/дата НЕ обязательны для показа сумм — суммы гр.47 заполняет
+               «Рассчитать платежи/ТПиН»; эти поля — необязательное ручное уточнение (allow-clear). -->
+          <a-select v-model:value="p.rateKindCode" :disabled="readonly" :options="rateKindOptions" allow-clear :placeholder="t('dt.vidStavkiAvto')" :get-popup-container="popupContainer" @change="emitChange" />
+          <a-input-number v-model:value="p.rateValue" :disabled="readonly" placeholder="—" @change="emitChange" />
+          <a-date-picker v-model:value="p.rateDate" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :placeholder="t('dt.dataAvto')" allow-clear @change="emitChange" />
+          <a-input-number v-model:value="p.amountKzt" :disabled="readonly" placeholder="—" @change="emitChange" />
+          <a-button v-if="!readonly" type="text" danger @click="removePayment(good, p)"><CloseOutlined /></a-button>
+          <span v-else />
+        </div>
+        <!-- Специфическая ставка (*): единица, валюта, коэффициент — отдельной строкой под платежом -->
+        <div v-if="p.rateKindCode === '*'" class="pay-specific">
+          <span class="zf-help">{{ t('dt.payStavkaDetali') }}:</span>
+          <a-input v-model:value="p.rateUnitCode" :disabled="readonly" :placeholder="t('dt.okei166')" @change="emitChange" />
+          <a-input v-model:value="p.rateCurrencyCode" :disabled="readonly" :placeholder="t('dt.valyutaN3978')" @change="emitChange" />
+          <a-input-number v-model:value="p.weightRatio" :disabled="readonly" :placeholder="t('dt.koef')" @change="emitChange" />
+        </div>
       </template>
-      <a-date-picker v-model:value="p.rateDate" size="small" :disabled="readonly" format="DD.MM.YYYY" value-format="YYYY-MM-DD" :placeholder="t('dt.dataAvto')" style="width: 130px" allow-clear @change="emitChange" />
-      <a-input-number v-model:value="p.amountKzt" size="small" :disabled="readonly" :placeholder="t('dt.summa')" style="width: 130px" @change="emitChange" />
-      <a-button v-if="!readonly" type="text" danger size="small" @click="removePayment(good, p)"><CloseOutlined /></a-button>
     </div>
 
     <!-- Копирование ОИС / МНР (признаков запретов) в выбранные товары: у партии
@@ -642,46 +638,56 @@ const importMarkingsFromExcel = async (g: Import40GoodsItemInput, file: File) =>
 </script>
 
 <style scoped>
-.trois-ois-hint { margin-top: 4px; font-size: 12px; font-weight: 500; color: var(--z-warning, #8a6410); }
-.field-hint-warn { margin-top: 2px; font-size: 12px; color: var(--z-warning, #d48806); }
-.sug-row { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; font-size: 12px; }
-.sug-label { color: var(--z-text-secondary, #8c8c8c); margin-right: 6px; }
+/* Корень не создаёт свой блок: поля ложатся в 12-колоночную сетку карточки товара (ReestrGoodsSection). */
+.keden-fields { display: contents; }
+.keden-flags { display: flex; gap: 6px; }
+.label-help { margin-left: 4px; color: var(--z-muted); }
+.label-tag { margin-left: 6px; line-height: 16px; font-size: 11px; padding: 0 4px; }
+.trois-ois-hint { font-size: 12px; font-weight: 500; color: var(--z-warning, #8a6410); }
+.field-hint-warn { font-size: 12px; color: var(--z-warning, #8a6410); }
+.sug-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; font-size: 12px; }
+.sug-label { color: var(--z-muted); margin-right: 6px; }
 .sug-chip { cursor: pointer; margin-right: 4px; }
 .sug-chip-on { opacity: 0.45; cursor: default; }
 .sug-neg { padding: 0 4px; height: auto; font-size: 12px; }
-.sug-note { color: var(--z-text-secondary, #8c8c8c); margin-left: 4px; }
-.keden-fields { display: flex; flex-direction: column; gap: 2px; }
-.keden-flags { display: flex; gap: 6px; margin-bottom: 4px; }
-
-/* Раскладка полей — та же, что была в панели «Данные КЕДЕН»: без неё поля
-   схлопываются по ширине контента (у «Вида упаковки» обрезался список). */
-.section-bar { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
-.section-label { font-size: 12px; font-weight: 600; color: var(--atg-muted); }
-.field-row { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
-.field { flex: 1; min-width: 140px; }
-.field.f-2 { flex: 2; }
-/* гр.31 (упаковка) / гр.37 (процедура): коды короткие, названия в списке длинные —
-   полю нужно больше места, иначе выпадающий список обрезается. */
-.field.field-wide { flex: 2; min-width: 260px; }
-.field-label { font-size: 11px; color: var(--atg-muted); margin-bottom: 2px; }
+.sug-note { color: var(--z-muted); margin-left: 4px; }
 
 /* гр.33 «Признаки соблюдения запретов»: в теге только код, полный текст — в tooltip. */
-.ois-marks-select :deep(.ant-select-selector) { overflow: hidden; }
-.ois-mark-tag { margin: 1px 2px; padding: 0 4px; font-weight: 600; line-height: 18px; }
+.ois-mark-tag { margin: 1px 2px; padding: 0 6px; font-weight: 600; }
 
-.payments-bar { margin-top: 12px; }
-.payment-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
-.marking-collapse { margin-top: 4px; margin-bottom: 8px; }
-.marking-block { border: 1px solid var(--atg-border, #f0f0f0); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
-.marking-block .field-row:last-child { margin-bottom: 0; }
-.marking-remove { display: flex; align-items: flex-end; justify-content: flex-end; }
-.marking-empty { color: var(--atg-muted); font-size: 12px; margin-bottom: 8px; }
+/* Маркировка */
+.marking-collapse :deep(.ant-collapse-header) { padding: 8px 0 !important; font-weight: 600; color: var(--z-ink); }
+.marking-collapse :deep(.ant-collapse-content-box) { padding: 4px 0 0 !important; }
+.marking-block { border: 1px solid var(--z-line); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+.marking-remove { align-self: end; align-items: flex-end; }
+.marking-empty { color: var(--z-muted); font-size: 12.5px; margin-bottom: 8px; }
 .marking-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.marking-hint { font-size: 11.5px; color: var(--atg-muted, #95a1b7); }
+.marking-hint { font-size: 12px; color: var(--z-muted); }
+
+/* Платежи гр.47 — таблица */
+.payments { display: flex; flex-direction: column; gap: 6px; }
+.pay-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.3fr) minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 1.2fr) minmax(0, 1.3fr) 32px;
+  gap: 8px;
+  align-items: center;
+}
+.pay-row > :deep(.ant-select), .pay-row > :deep(.ant-input-number), .pay-row > :deep(.ant-picker) { width: 100%; }
+.pay-head { font-size: 12px; font-weight: 500; color: var(--z-muted); }
+.pay-specific {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center;
+  padding: 0 0 6px 12px; border-left: 2px solid var(--z-line);
+}
+.pay-specific > :deep(.ant-input-number) { width: 100%; }
+@container (max-width: 760px) {
+  .pay-head { display: none; }
+  .pay-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* Модалка копирования ОИС/МНР */
 .copy-what { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
 .copy-head { display: flex; align-items: center; justify-content: space-between; }
 .copy-list { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; }
 .copy-item { margin-left: 0; }
+.field-label { font-size: 12.5px; font-weight: 500; color: var(--z-ink-2); }
 </style>

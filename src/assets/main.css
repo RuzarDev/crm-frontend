@@ -1295,3 +1295,42 @@ a {
   border-radius: var(--r-lg);
   box-shadow: var(--sh-1);
 }
+
+/* ── Сетка полей формы (карточка товара ДТ и др.) ─────────────────────────────
+   12 колонок, ширина поля задаётся классом zf-sN (N из 12). Ширина считается от
+   самой карточки (container query), а не от окна: карточка живёт и в широкой ДТ,
+   и в узкой панели транзита. Подписи — одного размера по всей форме. */
+.zf-card { container-type: inline-size; }
+.zf-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 12px 14px;
+  align-items: start;
+}
+.zf-s2 { grid-column: span 2; } .zf-s3 { grid-column: span 3; } .zf-s4 { grid-column: span 4; }
+.zf-s5 { grid-column: span 5; } .zf-s6 { grid-column: span 6; } .zf-s7 { grid-column: span 7; } .zf-s8 { grid-column: span 8; }
+.zf-s9 { grid-column: span 9; } .zf-s12 { grid-column: 1 / -1; }
+@container (max-width: 720px) {
+  .zf-s2 { grid-column: span 4; } .zf-s3, .zf-s4 { grid-column: span 6; }
+  .zf-s5, .zf-s7, .zf-s8, .zf-s9 { grid-column: 1 / -1; }
+}
+@container (max-width: 480px) {
+  .zf-grid > * { grid-column: 1 / -1; }
+}
+.zf-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.zf-field > .ant-select, .zf-field > .ant-input-number, .zf-field > .ant-picker,
+.zf-field > .ant-input-affix-wrapper { width: 100%; }
+.zf-label {
+  font-size: 12.5px; font-weight: 500; line-height: 18px; color: var(--z-ink-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.zf-label .zf-label-note { color: var(--z-teal-d); font-weight: 600; }
+.zf-sec {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--z-line);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--z-ink);
+}
+.zf-sec-actions { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.zf-help { font-size: 12px; line-height: 1.4; color: var(--z-muted); }

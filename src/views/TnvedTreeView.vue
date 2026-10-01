@@ -29,7 +29,7 @@
 
       <a-row :gutter="16" style="margin-top:16px">
         <!-- Left: tree -->
-        <a-col :xs="24" :md="10" :lg="9">
+        <a-col :xs="24" :md="12" :lg="11">
           <a-card size="small" class="tree-card" :bordered="true">
             <!-- Search results -->
             <template v-if="searchResults !== null">
@@ -39,7 +39,7 @@
                   <a-list-item
                     class="search-result-item"
                     :class="{ active: selected?.id === item.id }"
-                    @click="selectNode(item)"
+                    @click="openSearchResult(item)"
                   >
                     <a-typography-text code style="font-size:12px;flex-shrink:0">{{ item.code }}</a-typography-text>
                     <span class="node-name">{{ item.treeName }}</span>
@@ -48,42 +48,18 @@
               </a-list>
             </template>
 
-            <!-- Tree navigation -->
-            <template v-else>
-              <a-spin :spinning="treeLoading">
-                <div v-if="breadcrumb.length > 0" class="breadcrumb-bar">
-                  <a-breadcrumb separator=">">
-                    <a-breadcrumb-item>
-                      <a @click="resetToRoot">{{ t('sales.razdely') }}</a>
-                    </a-breadcrumb-item>
-                    <a-breadcrumb-item v-for="(crumb, i) in breadcrumb" :key="crumb.id">
-                      <a v-if="i < breadcrumb.length - 1" @click="navigateToBreadcrumb(i)">{{ crumb.code }}</a>
-                      <span v-else>{{ crumb.code }}</span>
-                    </a-breadcrumb-item>
-                  </a-breadcrumb>
-                </div>
-
-                <div v-if="currentNodes.length === 0 && !treeLoading" class="empty-hint">{{ t('sales.netDochernihElementov') }}</div>
-
-                <div
-                  v-for="node in currentNodes"
-                  :key="node.id"
-                  class="tree-node"
-                  :class="{ active: selected?.id === node.id, leaf: node.isLast }"
-                  @click="handleNodeClick(node)"
-                >
-                  <span class="node-code">{{ node.code }}</span>
-                  <span class="node-label">{{ node.treeName }}</span>
-                  <RightOutlined v-if="!node.isLast" class="node-arrow" />
-                  <a-tag v-if="node.is10" color="blue" style="font-size:10px;padding:0 4px;margin:0">10</a-tag>
-                </div>
-              </a-spin>
-            </template>
+            <!-- Полное дерево: ветки раскрываются на месте (разделы → … → 10 знаков) -->
+            <div v-show="searchResults === null">
+              <div class="tree-toolbar">
+                <a @click="treeRef?.collapseAll()">{{ t('sales.svernutVse') }}</a>
+              </div>
+              <TnvedTree ref="treeRef" :height="600" @select="selectNode" />
+            </div>
           </a-card>
         </a-col>
 
         <!-- Right: detail -->
-        <a-col :xs="24" :md="14" :lg="15">
+        <a-col :xs="24" :md="12" :lg="13">
           <a-card size="small" class="detail-card" :bordered="true">
             <template v-if="!selected">
               <div class="empty-hint" style="padding-top:80px">
@@ -331,7 +307,8 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { ref, computed, watch, onMounted } from 'vue'
-import { GlobalOutlined, RightOutlined, RobotOutlined } from '@ant-design/icons-vue'
+import { GlobalOutlined, RobotOutlined } from '@ant-design/icons-vue'
+import TnvedTree from '@/components/TnvedTree.vue'
 import type { Dayjs } from 'dayjs'
 import TnvedDeprecationAlert from '@/components/TnvedDeprecationAlert.vue'
 import NonTariffMeasureGroups, { type NonTariffMeasureGroup } from '@/components/NonTariffMeasureGroups.vue'
@@ -354,10 +331,8 @@ import PageHeader from '@/components/PageHeader.vue'
 const { t } = useI18n()
 
 // ── Tree state ───────────────────────────────────────────────────────────────
-const currentNodes = ref<TnvedNodeDto[]>([])
-const breadcrumb = ref<TnvedNodeDto[]>([])
+const treeRef = ref<InstanceType<typeof TnvedTree> | null>(null)
 const selected = ref<TnvedNodeDto | null>(null)
-const treeLoading = ref(false)
 const searchQuery = ref('')
 const searchResults = ref<TnvedNodeDto[] | null>(null)
 const searchLoading = ref(false)
@@ -449,22 +424,10 @@ const ratesColumns = computed(() => ([
   { title: t('sales.istochnik'), key: 'source', width: 110 },
 ]))
 // ── Tree navigation ───────────────────────────────────────────────────────────
-async function loadChildren(parentId = 0) {
-  treeLoading.value = true
-  try {
-    const { data } = await tnvedApi.children(parentId)
-    currentNodes.value = data
-  } finally {
-    treeLoading.value = false
-  }
-}
-
-async function handleNodeClick(node: TnvedNodeDto) {
+// Результат поиска: показываем детали и заодно раскрываем код в дереве (видно после сброса поиска).
+function openSearchResult(node: TnvedNodeDto) {
   selectNode(node)
-  if (!node.isLast) {
-    breadcrumb.value.push(node)
-    await loadChildren(node.id)
-  }
+  void treeRef.value?.reveal(node.code)
 }
 
 function selectNode(node: TnvedNodeDto) {
@@ -525,21 +488,6 @@ async function loadDetail(node: TnvedNodeDto) {
   }
 }
 
-function resetToRoot() {
-  breadcrumb.value = []
-  selected.value = null
-  searchResults.value = null
-  searchQuery.value = ''
-  loadChildren(0)
-}
-
-function navigateToBreadcrumb(index: number) {
-  const crumb = breadcrumb.value[index]
-  breadcrumb.value = breadcrumb.value.slice(0, index + 1)
-  selected.value = null
-  loadChildren(crumb.id)
-}
-
 // ── Search ────────────────────────────────────────────────────────────────────
 async function handleSearch(q: string) {
   if (!q.trim()) { searchResults.value = null; return }
@@ -559,6 +507,8 @@ function onSearchChange() {
 }
 
 watch(searchQuery, val => { if (!val) searchResults.value = null })
+// Дерево снова видно — показать в нём код, выбранный в результатах поиска.
+watch(searchResults, (v, old) => { if (v === null && old !== null) void treeRef.value?.scrollToSelected() })
 watch(leafOnly, () => { if (searchQuery.value.trim()) handleSearch(searchQuery.value) })
 
 // ── Calculator ────────────────────────────────────────────────────────────────
@@ -600,23 +550,11 @@ async function runClassify() {
 
 async function navigateToCode(code: string) {
   classifyModalOpen.value = false
-  // Load the path for this code and navigate the tree
+  searchResults.value = null
+  searchQuery.value = ''
   try {
-    const { data: path } = await tnvedApi.path(code)
-    if (!path.length) return
-    breadcrumb.value = []
-    searchResults.value = null
-    searchQuery.value = ''
-    // Navigate to parent node
-    const parentPath = path.slice(0, -1)
-    const lastPath = path[path.length - 1]
-    const parentId = parentPath.length ? parentPath[parentPath.length - 1].id : 0
-    const { data: children } = await tnvedApi.children(parentId)
-    currentNodes.value = children
-    // Reconstruct breadcrumb as TnvedNodeDto stubs
-    breadcrumb.value = parentPath.map(p => ({ id: p.id, code: p.code, treeName: p.treeName, name: p.treeName, parentId: null, is10: false, isLast: false, unitShort: null, nodeLevel: p.nodeLevel }))
-    const found = children.find(n => n.code === lastPath.code)
-    if (found) selectNode(found)
+    const node = await treeRef.value?.reveal(code)
+    if (node) selectNode(node)
   } catch {
     // ignore
   }
@@ -628,7 +566,6 @@ function fmtKzt(val: number) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 onMounted(async () => {
-  await loadChildren(0)
   tnvedApi.currencies().then(r => {
     currencies.value = r.data
     if (!calcForm.value.currencyCode && r.data.length) calcForm.value.currencyCode = 'USD'
@@ -649,13 +586,16 @@ onMounted(async () => {
   min-height: 520px;
 }
 
-.breadcrumb-bar {
-  padding: 0 0 10px;
+.tree-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 12px;
+  padding: 0 0 6px;
+  margin-bottom: 6px;
   border-bottom: 1px solid var(--atg-line);
-  margin-bottom: 8px;
 }
 
-.breadcrumb-bar a {
+.tree-toolbar a {
   color: var(--atg-accent);
   cursor: pointer;
 }
