@@ -83,7 +83,10 @@
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.regPoOis') }}</div>
       <a-input v-uppercase v-model:value="good.oisRegNumber" :disabled="readonly" @change="emitChange" /></div>
     <div class="zf-field zf-s2"><div class="zf-label">{{ t('dt.kodStranyOis') }}</div>
-      <a-input v-uppercase v-model:value="good.oisCountryCode" :disabled="readonly" :maxlength="2" @change="emitChange" /></div>
+      <!-- Страна регистрации ОИС — буквенный код (KZ, CN), как в КЕДЕН; список стран с поиском по коду и названию. -->
+      <a-select v-model:value="good.oisCountryCode" :disabled="readonly" show-search allow-clear
+        :options="countryAlpha2Options" :filter-option="filterAlpha2" :dropdown-match-select-width="false"
+        :get-popup-container="popupContainer" placeholder="KZ" @change="emitChange" /></div>
     <div class="zf-field zf-s4"><div class="zf-label">{{ t('dt.priznakiSoblyudeniyaZapretov') }}</div>
       <a-select :value="restrictionMarksArray(good)" mode="multiple" :disabled="readonly"
         :options="restrictionMarksOptions" :dropdown-match-select-width="false" allow-clear
@@ -241,6 +244,7 @@ import type { Import40GoodsItemInput, Import40GoodsPayment, Import40GoodsMarking
 import { useClassifiersStore } from '@/stores/classifiers'
 import { FEATURE_CODE_RE, invalidFeatureCodes, joinFeatureCodes, splitFeatureCodes } from '@/utils/nonTariffCodes'
 import { useTroisCheck } from '@/composables/useTroisCheck'
+import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import { prohibitionCodesApi, type ProhibitionCodeItem, type SuggestedProhibitionCode } from '@/api/prohibitionCodes'
 
 const { t } = useI18n()
@@ -264,6 +268,10 @@ const emit = defineEmits<{ (e: 'change'): void }>()
 const emitChange = () => emit('change')
 
 const popupContainer = () => document.body
+
+const countryAlpha2Options = useCountryAlpha2Options()
+const filterAlpha2 = (input: string, option: { value: string; label: string }) =>
+  option.label.toLowerCase().includes(input.trim().toLowerCase())
 
 // ТРОИС: торговая марка товара найдена среди действующих знаков (точно или «похоже») — подсказка у поля ОИС.
 const trois = useTroisCheck()
