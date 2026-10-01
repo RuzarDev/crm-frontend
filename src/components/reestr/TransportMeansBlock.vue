@@ -135,7 +135,7 @@ function removeItem(idx: number) {
   background: var(--z-teal-soft); color: var(--z-teal);
   font-size: 12px; font-weight: 700;
 }
-.del-btn { color: var(--z-danger) !important; padding: 0 4px !important; height: 20px !important; font-size: 13px !important; }
+:not(#z) .del-btn { color: var(--z-danger); padding: 0 4px; height: 20px; font-size: 13px; }
 .field-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
 .field { flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 3px; }
 .field-label {

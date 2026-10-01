@@ -465,18 +465,18 @@ const formatFileSize = (bytes: number) => {
 }
 
 /* Remove any left-border artifact — crm-shell-card should only have top teal border */
-.document-packages-view :deep(.crm-shell-card),
-.document-packages-view :deep(.ant-card) {
-  border-left: 1px solid var(--z-line) !important;
-  border-right: 1px solid var(--z-line) !important;
-  border-bottom: 1px solid var(--z-line) !important;
+:not(#z) .document-packages-view :deep(.crm-shell-card),
+:not(#z) .document-packages-view :deep(.ant-card) {
+  border-left: 1px solid var(--z-line);
+  border-right: 1px solid var(--z-line);
+  border-bottom: 1px solid var(--z-line);
 }
 
 /* Make packages-table fill card without extra wrapper border */
-.document-packages-view :deep(.ant-table-wrapper) {
-  border: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
+:not(#z) .document-packages-view :deep(.ant-table-wrapper) {
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
 }
 
 .muted {
@@ -548,25 +548,25 @@ const formatFileSize = (bytes: number) => {
   flex-shrink: 0;
 }
 
-.refresh-btn {
+:not(#z) .refresh-btn {
   flex-shrink: 0;
-  width: 36px !important;
-  height: 36px !important;
-  min-width: 36px !important;
-  padding: 0 !important;
-  border-radius: 8px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  border-color: var(--z-line) !important;
-  color: var(--z-muted) !important;
-  transition: color 0.15s, background 0.15s !important;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-color: var(--z-line);
+  color: var(--z-muted);
+  transition: color 0.15s, background 0.15s;
 }
 
-.refresh-btn:hover {
-  color: var(--z-teal-d) !important;
-  background: var(--z-teal-soft) !important;
-  border-color: var(--z-teal-d) !important;
+:not(#z) .refresh-btn:hover {
+  color: var(--z-teal-d);
+  background: var(--z-teal-soft);
+  border-color: var(--z-teal-d);
 }
 
 .status-filter {

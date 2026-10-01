@@ -722,8 +722,8 @@ const importMarkingsFromExcel = async (g: Import40GoodsItemInput, file: File) =>
 .ois-mark-tag { margin: 1px 2px; padding: 0 6px; font-weight: 600; }
 
 /* Маркировка */
-.marking-collapse :deep(.ant-collapse-header) { padding: 8px 0 !important; font-weight: 600; color: var(--z-ink); }
-.marking-collapse :deep(.ant-collapse-content-box) { padding: 4px 0 0 !important; }
+:not(#z) .marking-collapse :deep(.ant-collapse-header) { padding: 8px 0; font-weight: 600; color: var(--z-ink); }
+:not(#z) .marking-collapse :deep(.ant-collapse-content-box) { padding: 4px 0 0; }
 .marking-block { border: 1px solid var(--z-line); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
 .marking-remove { align-self: end; align-items: flex-end; }
 .marking-empty { color: var(--z-muted); font-size: 12.5px; margin-bottom: 8px; }

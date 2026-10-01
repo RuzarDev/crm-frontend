@@ -459,7 +459,7 @@ onMounted(async () => {
 .z-num { font-variant-numeric: tabular-nums; }
 
 /* Панель "Итог" — акцентный фокус экрана */
-.result-card { border: 1px solid var(--z-teal) !important; background: var(--z-teal-soft); box-shadow: var(--sh-2); }
+:not(#z) .result-card { border: 1px solid var(--z-teal); background: var(--z-teal-soft); box-shadow: var(--sh-2); }
 .result-card :deep(.ant-card-head) { border-bottom-color: rgba(31, 168, 192, 0.25); }
 .result-card .card-title :deep(.anticon) { color: var(--z-teal-d); }
 .result-totals { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4); }

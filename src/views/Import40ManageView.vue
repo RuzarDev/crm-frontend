@@ -177,7 +177,7 @@ const clearProblem = async (c: ManageCase) => {
 .stale-txt { color: #e07a30; font-weight: 600; }
 :deep(.row-problem) td { background: rgba(207, 74, 60, 0.05); }
 :deep(.row-stale) td { background: rgba(224, 122, 48, 0.05); }
-:deep(.need-assign .ant-select-selector) { border-color: #e07a30 !important; box-shadow: 0 0 0 2px rgba(224, 122, 48, 0.12); }
+:not(#z) :deep(.need-assign .ant-select-selector) { border-color: #e07a30; box-shadow: 0 0 0 2px rgba(224, 122, 48, 0.12); }
 .load-row { display: grid; grid-template-columns: 1fr 100px 32px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--z-line-2, #eff2f8); }
 .load-row:last-child { border-bottom: 0; }
 .load-name { font-weight: 600; color: var(--z-ink); font-size: 13px; }

@@ -809,35 +809,35 @@ const handleFileUpload = async (file: File) => {
   gap: 2px;
 }
 
-.action-btn {
+:not(#z) .action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px !important;
-  height: 34px !important;
-  min-width: 34px !important;
-  min-height: 34px !important;
-  padding: 0 !important;
-  border-radius: 7px !important;
-  color: var(--z-muted) !important;
-  background: transparent !important;
-  border: none !important;
-  font-size: 16px !important;
-  transition: color var(--atg-transition), background var(--atg-transition) !important;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 7px;
+  color: var(--z-muted);
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  transition: color var(--atg-transition), background var(--atg-transition);
 }
 
-.action-btn:hover {
-  color: var(--z-teal-d) !important;
-  background: var(--z-teal-soft) !important;
+:not(#z) .action-btn:hover {
+  color: var(--z-teal-d);
+  background: var(--z-teal-soft);
 }
 
-.action-btn--danger {
-  color: var(--z-muted) !important;
+:not(#z) .action-btn--danger {
+  color: var(--z-muted);
 }
 
-.action-btn--danger:hover {
-  color: var(--z-danger) !important;
-  background: rgba(184, 74, 60, 0.08) !important;
+:not(#z) .action-btn--danger:hover {
+  color: var(--z-danger);
+  background: rgba(184, 74, 60, 0.08);
 }
 
 /* Separator between select-actions and danger delete */

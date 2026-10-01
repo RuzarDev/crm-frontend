@@ -344,12 +344,12 @@ function removeItem(idx: number) {
   gap: 7px;
 }
 
-.del-btn {
+:not(#z) .del-btn {
   flex-shrink: 0;
-  color: var(--z-danger) !important;
-  padding: 0 4px !important;
-  height: 20px !important;
-  font-size: 13px !important;
+  color: var(--z-danger);
+  padding: 0 4px;
+  height: 20px;
+  font-size: 13px;
   margin-top: 20px;
 }
 

@@ -341,10 +341,10 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
   font-weight: 600;
 }
 
-.upload-btn:hover {
-  color: var(--z-ink) !important;
-  border-color: var(--z-teal) !important;
-  background: var(--z-teal-soft) !important;
+:not(#z) .upload-btn:hover {
+  color: var(--z-ink);
+  border-color: var(--z-teal);
+  background: var(--z-teal-soft);
 }
 
 .section-closed-notice {

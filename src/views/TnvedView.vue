@@ -503,8 +503,8 @@ const handleCalculate = async () => {
   background: #e6f4ff;
 }
 
-.tree-item-selected {
-  background: #bae0ff !important;
+:not(#z) .tree-item-selected {
+  background: #bae0ff;
 }
 
 .tree-section {

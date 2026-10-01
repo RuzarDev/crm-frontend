@@ -245,8 +245,8 @@ const statusColor = (doc: Import40DocumentDto) =>
 .sign-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .sign-hint { margin: 0; font-size: 12px; }
 .advanced-collapse { flex: 1; min-width: 240px; }
-.advanced-collapse :deep(.ant-collapse-header) { padding: 0 !important; font-size: 13px; color: var(--z-muted); }
-.advanced-collapse :deep(.ant-collapse-content-box) { padding: 10px 0 0 !important; }
+:not(#z) .advanced-collapse :deep(.ant-collapse-header) { padding: 0; font-size: 13px; color: var(--z-muted); }
+:not(#z) .advanced-collapse :deep(.ant-collapse-content-box) { padding: 10px 0 0; }
 .advanced-fields { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .doc-summary { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .doc-summary-toggle { padding: 0; height: auto; }

@@ -165,34 +165,34 @@ small {
 }
 
 /* ─── Force Inter for all Ant Design components ─────────── */
-.ant-btn, .ant-input, .ant-select, .ant-table, .ant-menu, .ant-modal,
-.ant-form, .ant-typography, .ant-tag, .ant-dropdown, .ant-tooltip,
-.ant-card, .ant-tabs, .ant-pagination, .ant-checkbox-wrapper, .ant-radio-wrapper,
-.ant-message, .ant-notification, .ant-drawer, .ant-popover {
-  font-family: var(--font-body) !important;
+:not(#z) .ant-btn, :not(#z) .ant-input, :not(#z) .ant-select, :not(#z) .ant-table, :not(#z) .ant-menu, :not(#z) .ant-modal,
+:not(#z) .ant-form, :not(#z) .ant-typography, :not(#z) .ant-tag, :not(#z) .ant-dropdown, :not(#z) .ant-tooltip,
+:not(#z) .ant-card, :not(#z) .ant-tabs, :not(#z) .ant-pagination, :not(#z) .ant-checkbox-wrapper, :not(#z) .ant-radio-wrapper,
+:not(#z) .ant-message, :not(#z) .ant-notification, :not(#z) .ant-drawer, :not(#z) .ant-popover {
+  font-family: var(--font-body);
 }
 
 /* ─── Читаемые тосты (message) ───────────────────────────────
    Статический message.error рендерится вне ConfigProvider из App.vue, поэтому
    на нём не гарантирована светлая тема — на проде плашки выходили тёмными и
    нечитаемыми. Жёстко задаём светлый фон + navy-текст брендовыми токенами. */
-.ant-message-notice-content {
-  background: var(--z-bg, #ffffff) !important;
-  color: var(--z-navy, #0E1B35) !important;
-  border: 1px solid var(--z-teal-soft, #E1F5FA) !important;
-  border-radius: 10px !important;
-  box-shadow: 0 6px 20px -6px rgba(14, 27, 53, .22) !important;
-  padding: 10px 16px !important;
+:not(#z) .ant-message-notice-content {
+  background: var(--z-bg, #ffffff);
+  color: var(--z-navy, #0E1B35);
+  border: 1px solid var(--z-teal-soft, #E1F5FA);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px -6px rgba(14, 27, 53, .22);
+  padding: 10px 16px;
 }
 .ant-message-notice-content .anticon {
   color: inherit;
 }
 /* цветные иконки статуса остаются информативными на светлом фоне */
-.ant-message-error .anticon { color: var(--z-error, #C4483B) !important; }
-.ant-message-success .anticon { color: #1F9D6A !important; }
-.ant-message-warning .anticon { color: #8A6410 !important; }
-.ant-message-info .anticon,
-.ant-message-loading .anticon { color: var(--z-teal, #23B5D3) !important; }
+:not(#z) .ant-message-error .anticon { color: var(--z-error, #C4483B); }
+:not(#z) .ant-message-success .anticon { color: #1F9D6A; }
+:not(#z) .ant-message-warning .anticon { color: #8A6410; }
+:not(#z) .ant-message-info .anticon,
+:not(#z) .ant-message-loading .anticon { color: var(--z-teal, #23B5D3); }
 
 /* ─── Контраст primary/CTA-кнопок (WCAG AA) ──────────────────
    Белый текст на бирюзе #23B5D3 давал ≈2.3:1 (ниже нормы 4.5:1). Тёмно-синий
@@ -201,13 +201,13 @@ small {
    ghost/link/danger-варианты, выделенный пункт сайдбара (навигация на тёмном
    фоне) и кнопку поиска .ant-input-search-button — у неё намеренно ТЁМНЫЙ
    (navy) фон + белый текст, navy-текст сделал бы «Найти» невидимым. */
-.ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(.ant-input-search-button):not(:disabled),
-.ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(.ant-input-search-button):not(:disabled):hover,
-.ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(.ant-input-search-button):not(:disabled):focus,
-.auth-submit-btn:not(:disabled),
-.auth-submit-btn:not(:disabled):hover,
-.auth-submit-btn:not(:disabled):focus {
-  color: var(--z-navy, #0E1B35) !important;
+:not(#z) .ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(.ant-input-search-button):not(:disabled),
+:not(#z) .ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(.ant-input-search-button):not(:disabled):hover,
+:not(#z) .ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(.ant-input-search-button):not(:disabled):focus,
+:not(#z) .auth-submit-btn:not(:disabled),
+:not(#z) .auth-submit-btn:not(:disabled):hover,
+:not(#z) .auth-submit-btn:not(:disabled):focus {
+  color: var(--z-navy, #0E1B35);
 }
 
 /* ─── Справочные таблицы: без «растянутой» колонки ───────────
@@ -215,8 +215,8 @@ small {
    растягивалась на всё оставшееся место (700+px пустоты в строке). Класс
    .ref-table на <a-table> заставляет таблицу занимать ширину контента, а
    излишек уходит в правое поле; на узких экранах — горизонтальный скролл. */
-.ref-table .ant-table-content > table,
-.ref-table .ant-table-content table {
+:not(#z) .ref-table .ant-table-content > table,
+:not(#z) .ref-table .ant-table-content table {
   width: auto !important;
   min-width: 0 !important;
 }
@@ -330,7 +330,7 @@ a {
 .crm-filter-bar > .ant-picker:not(.ant-picker-range) { flex: 0 1 170px; min-width: 150px; }
 .crm-filter-bar-end { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 @media (max-width: 640px) {
-  .crm-filter-bar > * { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
+  :not(#z) .crm-filter-bar > * { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
   .crm-filter-bar-end { margin-left: 0; }
 }
 
@@ -569,63 +569,63 @@ a {
 
 
 /* Remove any extra top border on first data row */
-.ant-table-tbody > tr:first-child > td {
-  border-top: none !important;
+:not(#z) .ant-table-tbody > tr:first-child > td {
+  border-top: none;
 }
 
 /* Remove table container border */
-.ant-table-container {
-  border: none !important;
-  border-top: none !important;
+:not(#z) .ant-table-container {
+  border: none;
+  border-top: none;
 }
 
-.ant-table-container table > thead > tr:first-child > *:first-child,
-.ant-table-container table > thead > tr:first-child > *:last-child {
-  border-radius: 0 !important;
+:not(#z) .ant-table-container table > thead > tr:first-child > *:first-child,
+:not(#z) .ant-table-container table > thead > tr:first-child > *:last-child {
+  border-radius: 0;
 }
 
 
-.ant-table-tbody > tr:hover > td {
-  background: #eef1f8 !important;
+:not(#z) .ant-table-tbody > tr:hover > td {
+  background: #eef1f8;
 }
 
-.ant-table-tbody > tr.ant-table-row-selected > td {
-  background: #e3e8f5 !important;
+:not(#z) .ant-table-tbody > tr.ant-table-row-selected > td {
+  background: #e3e8f5;
 }
 
 /* Fixed left column */
-.ant-table-cell-fix-left {
-  background: #ffffff !important;
+:not(#z) .ant-table-cell-fix-left {
+  background: #ffffff;
 }
 
-.ant-table-tbody > tr:hover .ant-table-cell-fix-left {
-  background: #eef1f8 !important;
+:not(#z) .ant-table-tbody > tr:hover .ant-table-cell-fix-left {
+  background: #eef1f8;
 }
 
-.ant-table-tbody > tr.ant-table-row-selected .ant-table-cell-fix-left {
-  background: #e3e8f5 !important;
+:not(#z) .ant-table-tbody > tr.ant-table-row-selected .ant-table-cell-fix-left {
+  background: #e3e8f5;
 }
 
 /* Fixed right column */
-.ant-table-cell-fix-right {
-  background: #ffffff !important;
+:not(#z) .ant-table-cell-fix-right {
+  background: #ffffff;
 }
 
-.ant-table-tbody > tr:hover .ant-table-cell-fix-right {
-  background: #eef1f8 !important;
+:not(#z) .ant-table-tbody > tr:hover .ant-table-cell-fix-right {
+  background: #eef1f8;
 }
 
-.ant-table-tbody > tr.ant-table-row-selected .ant-table-cell-fix-right {
-  background: #e3e8f5 !important;
+:not(#z) .ant-table-tbody > tr.ant-table-row-selected .ant-table-cell-fix-right {
+  background: #e3e8f5;
 }
 
 /* Remove fixed column shadows completely */
-.ant-table-cell-fix-left-last::after {
-  box-shadow: none !important;
+:not(#z) .ant-table-cell-fix-left-last::after {
+  box-shadow: none;
 }
 
-.ant-table-cell-fix-right-first::before {
-  box-shadow: none !important;
+:not(#z) .ant-table-cell-fix-right-first::before {
+  box-shadow: none;
 }
 
 /* Remove Ant Design's default outer border */
@@ -634,8 +634,8 @@ a {
 }
 
 /* Checkbox column */
-.ant-table-selection-column {
-  padding-left: 14px !important;
+:not(#z) .ant-table-selection-column {
+  padding-left: 14px;
 }
 
 /* Sorter icons */
@@ -680,11 +680,11 @@ a {
 }
 
 /* Custom Buttons Styling */
-.ant-btn {
-  border-radius: var(--atg-radius) !important;
-  font-weight: 600 !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  box-shadow: 0 1px 2px rgba(14, 27, 53, 0.05) !important;
+:not(#z) .ant-btn {
+  border-radius: var(--atg-radius);
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(14, 27, 53, 0.05);
 }
 
 .ant-btn:hover {
@@ -698,185 +698,185 @@ a {
 
 /* Брендбук Zircon: главная кнопка — ровная заливка zircon, текст on-zircon (navy), без градиента.
    Цвет текста задаёт правило выше (navy), здесь только фон. */
-.ant-btn-primary {
-  background: var(--atg-teal) !important;
-  border: none !important;
-  box-shadow: none !important;
+:not(#z) .ant-btn-primary {
+  background: var(--atg-teal);
+  border: none;
+  box-shadow: none;
 }
 
-.ant-btn-primary:not(:disabled):not(.ant-btn-dangerous):hover {
-  background: #4FC6DE !important;
-  box-shadow: none !important;
+:not(#z) .ant-btn-primary:not(:disabled):not(.ant-btn-dangerous):hover {
+  background: #4FC6DE;
+  box-shadow: none;
 }
 
 /* Красный — по смыслу, а не по умолчанию (аудит дизайна 01.10). Заливка — только у главной «опасной»
    кнопки (type="primary" danger: «Удалить» в окне подтверждения). Обычная danger-кнопка — красная обводка
    без заливки, иконки-крестики (text/link) — красная иконка без фона: залитые красные кнопки в каждой строке
    справочников и клиентов превращали экран в красную стену. */
-.ant-btn-primary.ant-btn-dangerous {
-  background: var(--z-danger) !important;
-  border: none !important;
-  color: #fff !important;
+:not(#z) .ant-btn-primary.ant-btn-dangerous {
+  background: var(--z-danger);
+  border: none;
+  color: #fff;
 }
 
-.ant-btn-primary.ant-btn-dangerous:not(:disabled):hover {
-  background: #B23D31 !important;
+:not(#z) .ant-btn-primary.ant-btn-dangerous:not(:disabled):hover {
+  background: #B23D31;
 }
 
-.ant-btn-default.ant-btn-dangerous {
-  background: var(--z-surface) !important;
-  border: 1px solid var(--z-danger) !important;
-  color: var(--z-danger) !important;
+:not(#z) .ant-btn-default.ant-btn-dangerous {
+  background: var(--z-surface);
+  border: 1px solid var(--z-danger);
+  color: var(--z-danger);
 }
 
-.ant-btn-default.ant-btn-dangerous:not(:disabled):hover {
-  background: var(--z-danger-soft) !important;
+:not(#z) .ant-btn-default.ant-btn-dangerous:not(:disabled):hover {
+  background: var(--z-danger-soft);
 }
 
 /* «Проблема / запрос таможни» — предупреждение, а не удаление: оранжевая обводка. */
-.ant-btn.btn-warn {
-  background: var(--z-warning-soft) !important;
-  border: 1px solid #E0A23A !important;
-  color: var(--z-warning) !important;
+:not(#z) .ant-btn.btn-warn {
+  background: var(--z-warning-soft);
+  border: 1px solid #E0A23A;
+  color: var(--z-warning);
 }
 
-.ant-btn.btn-warn:not(:disabled):hover {
-  background: #FBE5BE !important;
+:not(#z) .ant-btn.btn-warn:not(:disabled):hover {
+  background: #FBE5BE;
 }
 
-.ant-btn-dangerous.ant-btn-text {
-  background: transparent !important;
-  color: var(--z-danger) !important;
+:not(#z) .ant-btn-dangerous.ant-btn-text {
+  background: transparent;
+  color: var(--z-danger);
 }
 
-.ant-btn-dangerous.ant-btn-text:not(:disabled):hover {
-  background: var(--z-danger-soft) !important;
+:not(#z) .ant-btn-dangerous.ant-btn-text:not(:disabled):hover {
+  background: var(--z-danger-soft);
 }
 
 /* Custom Input and Select Fields */
-.ant-input,
-.ant-input-affix-wrapper,
-.ant-select-selector,
-.ant-picker {
-  border: 1.5px solid var(--atg-line) !important;
-  border-radius: var(--atg-radius) !important;
-  background-color: var(--atg-surface) !important;
-  transition: all 0.2s ease !important;
+:not(#z) .ant-input,
+:not(#z) .ant-input-affix-wrapper,
+:not(#z) .ant-select-selector,
+:not(#z) .ant-picker {
+  border: 1.5px solid var(--atg-line);
+  border-radius: var(--atg-radius);
+  background-color: var(--atg-surface);
+  transition: all 0.2s ease;
 }
 
-.ant-input:focus,
-.ant-input-focused,
-.ant-input-affix-wrapper-focused,
-.ant-select-focused .ant-select-selector,
-.ant-picker-focused {
-  border-color: var(--atg-teal) !important;
-  box-shadow: 0 0 0 3px rgba(35, 181, 211, 0.15) !important;
+:not(#z) .ant-input:focus,
+:not(#z) .ant-input-focused,
+:not(#z) .ant-input-affix-wrapper-focused,
+:not(#z) .ant-select-focused .ant-select-selector,
+:not(#z) .ant-picker-focused {
+  border-color: var(--atg-teal);
+  box-shadow: 0 0 0 3px rgba(35, 181, 211, 0.15);
 }
 
 /* Reset inner input inside affix wrappers to prevent double borders/backgrounds */
-.ant-input-affix-wrapper .ant-input {
-  border: none !important;
-  background-color: transparent !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
+:not(#z) .ant-input-affix-wrapper .ant-input {
+  border: none;
+  background-color: transparent;
+  box-shadow: none;
+  border-radius: 0;
 }
 
-.ant-input::placeholder,
-.ant-select-selection-placeholder {
-  color: var(--atg-muted) !important;
+:not(#z) .ant-input::placeholder,
+:not(#z) .ant-select-selection-placeholder {
+  color: var(--atg-muted);
 }
 
 /* Select Dropdown Menu */
-.ant-select-dropdown {
-  background: var(--atg-surface) !important;
-  border: 1px solid var(--atg-line) !important;
-  border-radius: var(--atg-radius) !important;
-  box-shadow: var(--atg-shadow-md) !important;
-  padding: 6px !important;
+:not(#z) .ant-select-dropdown {
+  background: var(--atg-surface);
+  border: 1px solid var(--atg-line);
+  border-radius: var(--atg-radius);
+  box-shadow: var(--atg-shadow-md);
+  padding: 6px;
 }
 
-.ant-select-item {
-  border-radius: 6px !important;
-  padding: 7px 12px !important;
-  font-weight: 500 !important;
-  transition: all var(--atg-transition) !important;
+:not(#z) .ant-select-item {
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-weight: 500;
+  transition: all var(--atg-transition);
 }
 
-.ant-select-item-option-active {
-  background: var(--atg-bg) !important;
-  color: var(--atg-ink) !important;
+:not(#z) .ant-select-item-option-active {
+  background: var(--atg-bg);
+  color: var(--atg-ink);
 }
 
-.ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
-  background: var(--atg-teal-soft) !important;
-  color: var(--atg-accent-strong) !important;
-  font-weight: 700 !important;
+:not(#z) .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background: var(--atg-teal-soft);
+  color: var(--atg-accent-strong);
+  font-weight: 700;
 }
 
 /* Table Custom Design — compact modern look */
-.ant-table-wrapper {
-  border: 1px solid var(--atg-line) !important;
-  border-radius: var(--atg-radius-lg) !important;
-  overflow: hidden !important;
-  box-shadow: var(--atg-shadow) !important;
+:not(#z) .ant-table-wrapper {
+  border: 1px solid var(--atg-line);
+  border-radius: var(--atg-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--atg-shadow);
 }
 
-.ant-table {
-  background: var(--atg-surface) !important;
+:not(#z) .ant-table {
+  background: var(--atg-surface);
 }
 
 /* Заголовок таблиц — единственное правило (раньше было два, с 10,5 и 11 px). */
-.ant-table-thead > tr > th {
-  background: #e4e8f2 !important;
-  color: var(--atg-ink) !important;
-  font-size: 12px !important;
-  font-weight: 700 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
-  border-top: none !important;
-  border-right: none !important;
-  border-left: none !important;
-  border-bottom: 2px solid var(--atg-line-strong) !important;
-  padding: 10px 14px !important;
+:not(#z) .ant-table-thead > tr > th {
+  background: #e4e8f2;
+  color: var(--atg-ink);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-top: none;
+  border-right: none;
+  border-left: none;
+  border-bottom: 2px solid var(--atg-line-strong);
+  padding: 10px 14px;
   white-space: nowrap;
 }
 
-.ant-table-tbody > tr > td {
+:not(#z) .ant-table-tbody > tr > td {
   background: #ffffff;
-  padding: 9px 14px !important;
-  border-bottom: 1px solid #e8ebf2 !important;
-  border-top: none !important;
-  border-right: none !important;
-  border-left: none !important;
-  color: var(--atg-text) !important;
-  font-size: 13px !important;
+  padding: 9px 14px;
+  border-bottom: 1px solid #e8ebf2;
+  border-top: none;
+  border-right: none;
+  border-left: none;
+  color: var(--atg-text);
+  font-size: 13px;
   transition: background var(--atg-transition);
 }
 
-.ant-table-tbody > tr:hover > td {
-  background: rgba(35, 181, 211, 0.04) !important;
+:not(#z) .ant-table-tbody > tr:hover > td {
+  background: rgba(35, 181, 211, 0.04);
 }
 
-.ant-pagination-item-active {
-  border-color: var(--atg-teal) !important;
+:not(#z) .ant-pagination-item-active {
+  border-color: var(--atg-teal);
 }
 
-.ant-pagination-item-active a {
-  color: var(--atg-teal) !important;
+:not(#z) .ant-pagination-item-active a {
+  color: var(--atg-teal);
 }
 
 /* Modal Custom Design */
-.ant-modal .ant-modal-content {
-  background: var(--atg-surface) !important;
-  border-radius: var(--atg-radius-lg) !important;
-  border: 1px solid var(--atg-line) !important;
-  box-shadow: var(--atg-shadow-lg) !important;
+:not(#z) .ant-modal .ant-modal-content {
+  background: var(--atg-surface);
+  border-radius: var(--atg-radius-lg);
+  border: 1px solid var(--atg-line);
+  box-shadow: var(--atg-shadow-lg);
 }
 
-.ant-modal .ant-modal-header {
-  background: var(--atg-surface) !important;
-  border-bottom: 1px solid var(--atg-line) !important;
-  padding: 20px 24px !important;
+:not(#z) .ant-modal .ant-modal-header {
+  background: var(--atg-surface);
+  border-bottom: 1px solid var(--atg-line);
+  padding: 20px 24px;
   padding-bottom: 16px;
 }
 
@@ -887,13 +887,13 @@ a {
   letter-spacing: -0.01em;
 }
 
-.ant-modal .ant-modal-body {
-  padding: 24px !important;
+:not(#z) .ant-modal .ant-modal-body {
+  padding: 24px;
 }
 
-.ant-modal .ant-modal-footer {
+:not(#z) .ant-modal .ant-modal-footer {
   border-top: 1px solid var(--atg-line);
-  padding: 16px 24px !important;
+  padding: 16px 24px;
   padding-top: 14px;
 }
 
@@ -913,22 +913,22 @@ a {
 }
 
 /* Spin Custom Design */
-.ant-spin-dot-item {
-  background: var(--atg-cyan) !important;
+:not(#z) .ant-spin-dot-item {
+  background: var(--atg-cyan);
 }
 
 /* Alert Custom Design */
-.ant-alert {
-  border-radius: var(--atg-radius-lg) !important;
-  padding: 14px 20px !important;
-  font-size: 14px !important;
-  font-weight: 600 !important;
+:not(#z) .ant-alert {
+  border-radius: var(--atg-radius-lg);
+  padding: 14px 20px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
-.ant-alert-warning {
-  background-color: var(--atg-gold-soft) !important;
-  border: 1px solid rgba(242, 181, 58, 0.25) !important;
-  color: var(--atg-charcoal) !important;
+:not(#z) .ant-alert-warning {
+  background-color: var(--atg-gold-soft);
+  border: 1px solid rgba(242, 181, 58, 0.25);
+  color: var(--atg-charcoal);
 }
 
 /* Table action link buttons */
@@ -941,89 +941,89 @@ a {
   transition: background var(--atg-transition), color var(--atg-transition);
 }
 
-.ant-table .ant-btn-link:not(:disabled):hover {
+:not(#z) .ant-table .ant-btn-link:not(:disabled):hover {
   background: var(--atg-cyan-soft);
-  color: var(--atg-cyan) !important;
+  color: var(--atg-cyan);
 }
 
 .ant-table .ant-btn-link.ant-btn-dangerous {
   color: var(--atg-red);
 }
 
-.ant-table .ant-btn-link.ant-btn-dangerous:hover {
+:not(#z) .ant-table .ant-btn-link.ant-btn-dangerous:hover {
   background: rgba(184, 74, 60, 0.08);
-  color: var(--atg-red) !important;
+  color: var(--atg-red);
 }
 
 /* Input search button */
-.ant-input-search .ant-input-search-button {
-  background: var(--atg-ink) !important;
-  border-color: var(--atg-ink) !important;
-  color: #fff !important;
+:not(#z) .ant-input-search .ant-input-search-button {
+  background: var(--atg-ink);
+  border-color: var(--atg-ink);
+  color: #fff;
   transition:
     background var(--atg-transition),
     border-color var(--atg-transition);
 }
 
-.ant-input-search .ant-input-search-button:hover {
-  background: var(--atg-cyan) !important;
-  border-color: var(--atg-cyan) !important;
+:not(#z) .ant-input-search .ant-input-search-button:hover {
+  background: var(--atg-cyan);
+  border-color: var(--atg-cyan);
 }
 
 /* Drawer & Side Drawer Design */
-.ant-drawer-content {
-  background: var(--atg-surface) !important;
+:not(#z) .ant-drawer-content {
+  background: var(--atg-surface);
 }
 
-.ant-drawer-header {
-  border-bottom: 1px solid var(--atg-line) !important;
-  padding: 20px 24px !important;
+:not(#z) .ant-drawer-header {
+  border-bottom: 1px solid var(--atg-line);
+  padding: 20px 24px;
 }
 
-.ant-drawer-title {
-  font-size: 18px !important;
-  font-weight: 800 !important;
-  color: var(--atg-ink) !important;
+:not(#z) .ant-drawer-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--atg-ink);
 }
 
-.ant-drawer-close {
-  color: var(--atg-muted) !important;
-  transition: color 0.2s ease !important;
+:not(#z) .ant-drawer-close {
+  color: var(--atg-muted);
+  transition: color 0.2s ease;
 }
 
-.ant-drawer-close:hover {
-  color: var(--atg-ink) !important;
-  background: var(--atg-bg) !important;
-  border-radius: 50% !important;
+:not(#z) .ant-drawer-close:hover {
+  color: var(--atg-ink);
+  background: var(--atg-bg);
+  border-radius: 50%;
 }
 
-.ant-drawer-body {
-  padding: 24px !important;
+:not(#z) .ant-drawer-body {
+  padding: 24px;
 }
 
 /* Drawer — mobile nav override */
-.atg-mobile-drawer .ant-drawer-header {
-  background: #0E1B35 !important;
-  border-bottom: 1px solid rgba(35, 181, 211, 0.18) !important;
-  padding: 16px 18px !important;
+:not(#z) .atg-mobile-drawer .ant-drawer-header {
+  background: #0E1B35;
+  border-bottom: 1px solid rgba(35, 181, 211, 0.18);
+  padding: 16px 18px;
 }
 
-.atg-mobile-drawer .ant-drawer-title {
-  color: #f0f3ff !important;
+:not(#z) .atg-mobile-drawer .ant-drawer-title {
+  color: #f0f3ff;
 }
 
-.atg-mobile-drawer .ant-drawer-close {
-  color: rgba(240, 243, 255, 0.5) !important;
+:not(#z) .atg-mobile-drawer .ant-drawer-close {
+  color: rgba(240, 243, 255, 0.5);
 }
 
-.atg-mobile-drawer .ant-drawer-close:hover {
-  color: #f0f3ff !important;
-  background: transparent !important;
+:not(#z) .atg-mobile-drawer .ant-drawer-close:hover {
+  color: #f0f3ff;
+  background: transparent;
 }
 
-.atg-mobile-drawer .ant-drawer-body {
-  background: #14244A !important;
-  padding: 12px !important;
+:not(#z) .atg-mobile-drawer .ant-drawer-body {
+  background: #14244A;
+  padding: 12px;
 }
 
 /* ─── Mobile Hamburger ───────────────────────────────────── */
@@ -1041,10 +1041,10 @@ a {
   flex-shrink: 0;
 }
 
-.menu-toggle-btn:hover {
-  color: #0E1B35 !important;
-  border-color: #23B5D3 !important;
-  background: #23B5D3 !important;
+:not(#z) .menu-toggle-btn:hover {
+  color: #0E1B35;
+  border-color: #23B5D3;
+  background: #23B5D3;
 }
 
 /* ─── Checkbox ───────────────────────────────────────────── */
@@ -1067,22 +1067,22 @@ a {
     background var(--atg-transition);
 }
 
-.ant-checkbox:hover .ant-checkbox-inner,
-.ant-checkbox-wrapper:hover .ant-checkbox-inner {
-  border-color: var(--atg-teal) !important;
+:not(#z) .ant-checkbox:hover .ant-checkbox-inner,
+:not(#z) .ant-checkbox-wrapper:hover .ant-checkbox-inner {
+  border-color: var(--atg-teal);
 }
 
-.ant-checkbox-checked .ant-checkbox-inner {
-  background: var(--atg-teal) !important;
-  border-color: var(--atg-teal) !important;
+:not(#z) .ant-checkbox-checked .ant-checkbox-inner {
+  background: var(--atg-teal);
+  border-color: var(--atg-teal);
 }
 
-.ant-checkbox-checked:after {
-  border-color: var(--atg-teal) !important;
+:not(#z) .ant-checkbox-checked:after {
+  border-color: var(--atg-teal);
 }
 
-.ant-checkbox-indeterminate .ant-checkbox-inner::after {
-  background: var(--atg-teal) !important;
+:not(#z) .ant-checkbox-indeterminate .ant-checkbox-inner::after {
+  background: var(--atg-teal);
 }
 
 /* ─── Radio ───────────────────────────────────────────────── */
@@ -1104,18 +1104,18 @@ a {
     background var(--atg-transition);
 }
 
-.ant-radio:hover .ant-radio-inner,
-.ant-radio-wrapper:hover .ant-radio-inner {
-  border-color: var(--atg-teal) !important;
+:not(#z) .ant-radio:hover .ant-radio-inner,
+:not(#z) .ant-radio-wrapper:hover .ant-radio-inner {
+  border-color: var(--atg-teal);
 }
 
-.ant-radio-checked .ant-radio-inner {
-  border-color: var(--atg-teal) !important;
-  background: var(--atg-surface) !important;
+:not(#z) .ant-radio-checked .ant-radio-inner {
+  border-color: var(--atg-teal);
+  background: var(--atg-surface);
 }
 
-.ant-radio-checked .ant-radio-inner::after {
-  background: var(--atg-teal) !important;
+:not(#z) .ant-radio-checked .ant-radio-inner::after {
+  background: var(--atg-teal);
   transform: scale(0.55);
 }
 
@@ -1136,15 +1136,15 @@ a {
   color: var(--atg-teal);
 }
 
-.ant-radio-group .ant-radio-button-wrapper-checked {
-  background: var(--atg-teal-soft) !important;
-  border-color: var(--atg-teal) !important;
-  color: var(--atg-teal) !important;
-  box-shadow: none !important;
+:not(#z) .ant-radio-group .ant-radio-button-wrapper-checked {
+  background: var(--atg-teal-soft);
+  border-color: var(--atg-teal);
+  color: var(--atg-teal);
+  box-shadow: none;
 }
 
-.ant-radio-group .ant-radio-button-wrapper-checked::before {
-  background: var(--atg-teal) !important;
+:not(#z) .ant-radio-group .ant-radio-button-wrapper-checked::before {
+  background: var(--atg-teal);
 }
 
 /* ─── Tree ────────────────────────────────────────────────── */
@@ -1161,22 +1161,22 @@ a {
   transition: background var(--atg-transition);
 }
 
-.ant-tree .ant-tree-node-content-wrapper {
-  border-radius: var(--atg-radius-sm) !important;
-  padding: 3px 8px !important;
+:not(#z) .ant-tree .ant-tree-node-content-wrapper {
+  border-radius: var(--atg-radius-sm);
+  padding: 3px 8px;
   transition: background var(--atg-transition), color var(--atg-transition);
   color: var(--atg-text);
   font-weight: 500;
 }
 
-.ant-tree .ant-tree-node-content-wrapper:hover {
-  background: var(--atg-teal-soft) !important;
-  color: var(--atg-teal-dark) !important;
+:not(#z) .ant-tree .ant-tree-node-content-wrapper:hover {
+  background: var(--atg-teal-soft);
+  color: var(--atg-teal-dark);
 }
 
-.ant-tree .ant-tree-node-content-wrapper.ant-tree-node-selected {
-  background: var(--atg-teal-soft) !important;
-  color: var(--atg-teal-dark) !important;
+:not(#z) .ant-tree .ant-tree-node-content-wrapper.ant-tree-node-selected {
+  background: var(--atg-teal-soft);
+  color: var(--atg-teal-dark);
   font-weight: 600;
 }
 
@@ -1203,16 +1203,16 @@ a {
   transition: background var(--atg-transition);
 }
 
-.ant-switch:hover:not(.ant-switch-disabled) {
-  background: var(--atg-muted) !important;
+:not(#z) .ant-switch:hover:not(.ant-switch-disabled) {
+  background: var(--atg-muted);
 }
 
-.ant-switch.ant-switch-checked {
-  background: var(--atg-teal) !important;
+:not(#z) .ant-switch.ant-switch-checked {
+  background: var(--atg-teal);
 }
 
-.ant-switch.ant-switch-checked:hover:not(.ant-switch-disabled) {
-  background: var(--atg-teal-dark) !important;
+:not(#z) .ant-switch.ant-switch-checked:hover:not(.ant-switch-disabled) {
+  background: var(--atg-teal-dark);
 }
 
 /* ─── Responsive ─────────────────────────────────────────── */
@@ -1239,10 +1239,10 @@ a {
     gap: 16px;
   }
 
-  .crm-brand-mark {
-    width: 42px !important;
-    height: 42px !important;
-    font-size: 13px !important;
+  :not(#z) .crm-brand-mark {
+    width: 42px;
+    height: 42px;
+    font-size: 13px;
   }
 
   /* Форма — flex 1, прижата к низу экрана */
@@ -1255,9 +1255,9 @@ a {
     min-height: auto;
   }
 
-  .crm-auth-card {
+  :not(#z) .crm-auth-card {
     max-width: 100%;
-    border-radius: var(--atg-radius) !important;
+    border-radius: var(--atg-radius);
     box-shadow: 0 2px 12px rgba(20, 28, 24, 0.08);
   }
 
@@ -1301,9 +1301,9 @@ a {
     align-items: stretch;
   }
 
-  .crm-toolbar-surface .ant-input-search,
-  .crm-toolbar-surface .ant-select,
-  .crm-toolbar-surface .ant-picker-range {
+  :not(#z) .crm-toolbar-surface .ant-input-search,
+  :not(#z) .crm-toolbar-surface .ant-select,
+  :not(#z) .crm-toolbar-surface .ant-picker-range {
     width: 100% !important;
     max-width: none !important;
   }
@@ -1372,6 +1372,10 @@ a {
 /* Пустой выпадающий список (renderEmpty в App.vue) */
 .z-empty-inline { padding: 8px 12px; font-size: 13px; color: var(--z-muted); }
 
+/* !important в этом файле остался только там, где надо перебить inline-стиль, который Ant Design
+   ставит сам (ширина таблицы при scroll.x, sticky-ячейки, ширины полей фильтров). Всё остальное
+   сильнее стилей AntD за счёт префикса :not(#z) (специфичность id; AntD id-селекторов не использует). */
+
 /* ── Таблица → карточки на телефоне (аудит дизайна 01.10) ──────────────────────
    Класс на <a-table>: до 640px шапка прячется, каждая строка — карточка: первая ячейка заголовком
    на всю ширину, остальные — ниже в строку. Вместо горизонтальной прокрутки по 6 колонкам. */
@@ -1379,8 +1383,8 @@ a {
   .crm-table-cards .ant-table-thead,
   .crm-table-cards colgroup,
   .crm-table-cards .ant-table-measure-row { display: none; }
-  .crm-table-cards .ant-table-content { overflow: visible !important; }
-  .crm-table-cards table { width: 100% !important; min-width: 0 !important; table-layout: auto !important; }
+  :not(#z) .crm-table-cards .ant-table-content { overflow: visible !important; }
+  :not(#z) .crm-table-cards table { width: 100% !important; min-width: 0 !important; table-layout: auto !important; }
   .crm-table-cards table,
   .crm-table-cards .ant-table-tbody { display: block; }
   .crm-table-cards .ant-table-tbody > tr.ant-table-row {
@@ -1391,22 +1395,22 @@ a {
     padding: 12px 14px;
     border-bottom: 1px solid var(--z-line);
   }
-  .crm-table-cards .ant-table-tbody > tr.ant-table-row > td {
+  :not(#z) .crm-table-cards .ant-table-tbody > tr.ant-table-row > td {
     display: block;
-    padding: 0 !important;
-    border: none !important;
-    background: transparent !important;
-    font-size: 13px !important;
-    color: var(--z-ink-2) !important;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: var(--z-ink-2);
     max-width: 100%;
   }
-  .crm-table-cards .ant-table-tbody > tr.ant-table-row > td:first-child {
+  :not(#z) .crm-table-cards .ant-table-tbody > tr.ant-table-row > td:first-child {
     flex: 1 1 100%;
-    color: var(--z-ink) !important;
-    font-size: 14px !important;
+    color: var(--z-ink);
+    font-size: 14px;
   }
   .crm-table-cards .ant-table-tbody > tr.ant-table-row > td.ant-table-selection-column { flex: none; }
   .crm-table-cards .ant-table-tbody > tr.ant-table-row > td:empty { display: none; }
-  .crm-table-cards .ant-table-cell-fix-left,
-  .crm-table-cards .ant-table-cell-fix-right { position: static !important; }
+  :not(#z) .crm-table-cards .ant-table-cell-fix-left,
+  :not(#z) .crm-table-cards .ant-table-cell-fix-right { position: static !important; }
 }

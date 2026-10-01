@@ -435,41 +435,41 @@ const goToLogin = () => router.push('/login')
   font-weight: 600;
 }
 
-.auth-form :deep(.ant-input-lg),
-.auth-form :deep(.ant-input-affix-wrapper-lg),
-.auth-form :deep(.ant-select-lg .ant-select-selector) {
+:not(#z) .auth-form :deep(.ant-input-lg),
+:not(#z) .auth-form :deep(.ant-input-affix-wrapper-lg),
+:not(#z) .auth-form :deep(.ant-select-lg .ant-select-selector) {
   min-height: 48px;
-  border-radius: 10px !important;
-  border-color: #dde1ec !important;
-  background: #ffffff !important;
+  border-radius: 10px;
+  border-color: #dde1ec;
+  background: #ffffff;
   font-size: 14px;
   box-shadow: 0 1px 3px rgba(14, 27, 53, 0.04);
 }
 
-.auth-form :deep(.ant-input-affix-wrapper-lg:focus-within),
-.auth-form :deep(.ant-select-focused .ant-select-selector) {
-  border-color: var(--z-teal) !important;
-  box-shadow: 0 0 0 3px rgba(35, 181, 211, 0.14) !important;
+:not(#z) .auth-form :deep(.ant-input-affix-wrapper-lg:focus-within),
+:not(#z) .auth-form :deep(.ant-select-focused .ant-select-selector) {
+  border-color: var(--z-teal);
+  box-shadow: 0 0 0 3px rgba(35, 181, 211, 0.14);
 }
 
 .auth-input-icon { color: #8C8C8C; font-size: 15px; }
 
-.auth-submit-item { margin-top: 8px; margin-bottom: 0 !important; }
+:not(#z) .auth-submit-item { margin-top: 8px; margin-bottom: 0; }
 
-.auth-submit-btn {
-  min-height: 52px !important;
-  border-radius: 10px !important;
-  background: var(--z-teal) !important;
-  border: none !important;
-  font-size: 15px !important;
-  font-weight: 700 !important;
+:not(#z) .auth-submit-btn {
+  min-height: 52px;
+  border-radius: 10px;
+  background: var(--z-teal);
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
   letter-spacing: 0.02em;
-  box-shadow: none !important;
-  transition: transform 0.16s ease, box-shadow 0.16s ease !important;
+  box-shadow: none;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
-.auth-submit-btn:not(:disabled):hover {
-  background: #4FC6DE !important;
+:not(#z) .auth-submit-btn:not(:disabled):hover {
+  background: #4FC6DE;
 }
 
 .auth-footer-link {

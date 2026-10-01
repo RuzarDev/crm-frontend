@@ -233,20 +233,20 @@ useTransitTotals(
   color: var(--z-ink-2);
 }
 
-.field-row :deep(.ant-input-sm) {
+:not(#z) .field-row :deep(.ant-input-sm) {
   min-height: 28px;
   border: none;
   border-radius: 0;
   padding: 0;
   background: transparent;
-  box-shadow: none !important;
+  box-shadow: none;
   font-size: 13.5px;
   font-weight: 500;
   color: var(--z-ink);
 }
 
-.field-row :deep(.ant-input-sm:focus) {
-  box-shadow: none !important;
+:not(#z) .field-row :deep(.ant-input-sm:focus) {
+  box-shadow: none;
 }
 
 .field-row :deep(.ant-input-sm[disabled]) {

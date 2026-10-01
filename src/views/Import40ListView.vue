@@ -1004,7 +1004,7 @@ onMounted(async () => {
 /* Дропзона: полноценная зона перетаскивания (была тонкая полоска в одну строку) */
 .docs-dragger { margin-top: 14px; }
 .docs-dragger :deep(.ant-upload-drag) { border-radius: var(--atg-radius-lg); }
-.docs-dragger :deep(.ant-upload-btn) { padding: 22px 16px !important; }
+:not(#z) .docs-dragger :deep(.ant-upload-btn) { padding: 22px 16px; }
 .dz-icon { margin: 0 0 6px; line-height: 1; }
 .dz-icon :deep(.anticon) { font-size: 34px; color: var(--z-teal); }
 .dz-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--z-ink); }

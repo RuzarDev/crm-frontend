@@ -1571,8 +1571,8 @@ const runAiParse = async () => {
   box-shadow: 0 8px 30px rgba(14, 27, 53, 0.05);
 }
 
-.file-item-wrap {
-  padding: 14px 16px !important;
+:not(#z) .file-item-wrap {
+  padding: 14px 16px;
   border: 1px solid var(--z-line);
   border-radius: 10px;
   margin-bottom: 12px;
@@ -1931,22 +1931,22 @@ const runAiParse = async () => {
   cursor: grabbing;
 }
 
-.train-card.drag-over {
-  border: 2px dashed var(--z-teal) !important;
-  background: rgba(35, 181, 211, 0.04) !important;
-  box-shadow: 0 0 20px rgba(35, 181, 211, 0.15) !important;
+:not(#z) .train-card.drag-over {
+  border: 2px dashed var(--z-teal);
+  background: rgba(35, 181, 211, 0.04);
+  box-shadow: 0 0 20px rgba(35, 181, 211, 0.15);
 }
 
-.container-node-card.drag-over {
-  border-color: var(--z-teal) !important;
-  background: rgba(35, 181, 211, 0.03) !important;
-  box-shadow: 0 0 20px rgba(35, 181, 211, 0.12) !important;
+:not(#z) .container-node-card.drag-over {
+  border-color: var(--z-teal);
+  background: rgba(35, 181, 211, 0.03);
+  box-shadow: 0 0 20px rgba(35, 181, 211, 0.12);
 }
 
-.consolidation-node-card.drag-over {
-  border-color: var(--z-teal) !important;
-  background: rgba(35, 181, 211, 0.04) !important;
-  box-shadow: 0 0 20px rgba(35, 181, 211, 0.15) !important;
+:not(#z) .consolidation-node-card.drag-over {
+  border-color: var(--z-teal);
+  background: rgba(35, 181, 211, 0.04);
+  box-shadow: 0 0 20px rgba(35, 181, 211, 0.15);
 }
 
 @media (max-width: 900px) {

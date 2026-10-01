@@ -428,9 +428,9 @@ const activityColumns = computed(() => ([
   justify-content: center;
 }
 
-.activity-table :deep(.ant-table-thead > tr > th) {
-  background-color: var(--z-bg) !important;
-  color: var(--z-navy) !important;
+:not(#z) .activity-table :deep(.ant-table-thead > tr > th) {
+  background-color: var(--z-bg);
+  color: var(--z-navy);
   font-weight: 800;
 }
 

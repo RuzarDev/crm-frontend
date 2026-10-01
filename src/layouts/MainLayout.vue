@@ -859,10 +859,10 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
     background var(--atg-transition);
 }
 
-.notif-btn:hover {
-  color: var(--z-ink) !important;
-  border-color: var(--z-teal) !important;
-  background: var(--z-teal) !important;
+:not(#z) .notif-btn:hover {
+  color: var(--z-ink);
+  border-color: var(--z-teal);
+  background: var(--z-teal);
 }
 
 .notif-dropdown {
@@ -1130,12 +1130,12 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   padding-top: 4px;
 }
 
-.sider :deep(.ant-menu-item) {
+:not(#z) .sider :deep(.ant-menu-item) {
   height: 42px;
   margin: 3px 0;
   /* AntD даёт пункту в группе отступ 24/16px — на текст оставалось 140px и названия
      обрезались («Пакеты документ…»). Выравниваем по заголовкам групп. */
-  padding-inline: 10px 8px !important;
+  padding-inline: 10px 8px;
   border-radius: 8px;
   color: rgba(240, 243, 255, 0.6);
   font-size: 14px;
@@ -1155,39 +1155,39 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   transition: opacity var(--atg-transition);
 }
 
-.sider :deep(.ant-menu-item:hover) {
-  color: #f0f3ff !important;
-  background: rgba(240, 243, 255, 0.07) !important;
+:not(#z) .sider :deep(.ant-menu-item:hover) {
+  color: #f0f3ff;
+  background: rgba(240, 243, 255, 0.07);
 }
 
 .sider :deep(.ant-menu-item:hover .anticon) {
   opacity: 1;
 }
 
-.sider :deep(.ant-menu-item-selected),
-.sider :deep(.ant-menu-item-selected .ant-menu-title-content),
-.sider :deep(.ant-menu-item-selected a) {
-  color: var(--z-ink) !important;
+:not(#z) .sider :deep(.ant-menu-item-selected),
+:not(#z) .sider :deep(.ant-menu-item-selected .ant-menu-title-content),
+:not(#z) .sider :deep(.ant-menu-item-selected a) {
+  color: var(--z-ink);
   font-weight: 700;
 }
 
 /* Брендбук: активный пункт — ровная заливка zircon, текст on-zircon (navy); белый на бирюзе не читается. */
-.sider :deep(.ant-menu-item-selected) {
-  background: var(--z-teal) !important;
+:not(#z) .sider :deep(.ant-menu-item-selected) {
+  background: var(--z-teal);
   box-shadow: none;
 }
 
-.sider :deep(.ant-menu-item-selected .anticon) {
-  color: var(--z-ink) !important;
+:not(#z) .sider :deep(.ant-menu-item-selected .anticon) {
+  color: var(--z-ink);
   opacity: 1;
 }
 
 /* Фон раскрытого подменю (inline) — прозрачный, чтобы совпадал с navy-сайдбаром,
    а не выделялся почти-чёрным прямоугольником (страховка к darkSubMenuItemBg). */
-.sider :deep(.ant-menu-sub),
-.sider :deep(.ant-menu-sub.ant-menu-inline),
-.sider :deep(.ant-menu.ant-menu-dark .ant-menu-sub) {
-  background: transparent !important;
+:not(#z) .sider :deep(.ant-menu-sub),
+:not(#z) .sider :deep(.ant-menu-sub.ant-menu-inline),
+:not(#z) .sider :deep(.ant-menu.ant-menu-dark .ant-menu-sub) {
+  background: transparent;
 }
 
 /* ─── Content ────────────────────────────────────────────── */
@@ -1222,10 +1222,10 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   margin-top: 2px;
 }
 
-.drawer-menu {
-  border-inline-end: 0 !important;
-  background: transparent !important;
-  color: rgba(240, 243, 255, 0.6) !important;
+:not(#z) .drawer-menu {
+  border-inline-end: 0;
+  background: transparent;
+  color: rgba(240, 243, 255, 0.6);
 }
 
 .drawer-menu :deep(.ant-menu-item-group-title) {
@@ -1246,21 +1246,21 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   font-weight: 600;
 }
 
-.drawer-menu :deep(.ant-menu-item:hover) {
-  color: #f0f3ff !important;
-  background: rgba(240, 243, 255, 0.07) !important;
+:not(#z) .drawer-menu :deep(.ant-menu-item:hover) {
+  color: #f0f3ff;
+  background: rgba(240, 243, 255, 0.07);
 }
 
-.drawer-menu :deep(.ant-menu-item-selected),
-.drawer-menu :deep(.ant-menu-item-selected .ant-menu-title-content),
-.drawer-menu :deep(.ant-menu-item-selected a),
-.drawer-menu :deep(.ant-menu-item-selected .anticon) {
-  color: var(--z-ink) !important;
+:not(#z) .drawer-menu :deep(.ant-menu-item-selected),
+:not(#z) .drawer-menu :deep(.ant-menu-item-selected .ant-menu-title-content),
+:not(#z) .drawer-menu :deep(.ant-menu-item-selected a),
+:not(#z) .drawer-menu :deep(.ant-menu-item-selected .anticon) {
+  color: var(--z-ink);
   font-weight: 700;
 }
 
-.drawer-menu :deep(.ant-menu-item-selected) {
-  background: var(--z-teal) !important;
+:not(#z) .drawer-menu :deep(.ant-menu-item-selected) {
+  background: var(--z-teal);
 }
 
 .drawer-footer {
@@ -1298,10 +1298,10 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.drawer-logout:hover {
-  color: var(--z-ink) !important;
-  border-color: var(--z-teal) !important;
-  background: var(--z-teal) !important;
+:not(#z) .drawer-logout:hover {
+  color: var(--z-ink);
+  border-color: var(--z-teal);
+  background: var(--z-teal);
 }
 
 /* ─── Responsive ─────────────────────────────────────────── */

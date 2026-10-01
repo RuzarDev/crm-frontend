@@ -54,19 +54,19 @@ const onMenuClick = ({ key }: { key: string | number }) => onChange(key)
 
 /* Тёмная шапка: светлый текст + иконка глобуса + видимая рамка/фон,
    чтобы переключатель был заметен и очевиден как контрол. */
-.lang-switcher--dark :deep(.ant-select-selector) {
-  background: rgba(255, 255, 255, 0.12) !important;
-  border-color: rgba(255, 255, 255, 0.3) !important;
-  border-radius: 8px !important;
+:not(#z) .lang-switcher--dark :deep(.ant-select-selector) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
 }
-.lang-switcher--dark:hover :deep(.ant-select-selector) {
-  background: rgba(255, 255, 255, 0.2) !important;
-  border-color: rgba(35, 181, 211, 0.9) !important;
+:not(#z) .lang-switcher--dark:hover :deep(.ant-select-selector) {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(35, 181, 211, 0.9);
 }
-.lang-switcher--dark :deep(.ant-select-selection-item),
-.lang-switcher--dark :deep(.ant-select-arrow),
-.lang-switcher--dark :deep(.anticon) {
-  color: #f0f3ff !important;
+:not(#z) .lang-switcher--dark :deep(.ant-select-selection-item),
+:not(#z) .lang-switcher--dark :deep(.ant-select-arrow),
+:not(#z) .lang-switcher--dark :deep(.anticon) {
+  color: #f0f3ff;
 }
 
 /* Компактная кнопка шапки — тот же стиль, что у колокольчика и меню профиля. */

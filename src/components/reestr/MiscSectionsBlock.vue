@@ -135,5 +135,5 @@ function removeItem(idx: number) {
   margin-bottom: 8px;
 }
 .row-card .field { flex: 1; }
-.del-btn { color: var(--z-danger) !important; padding: 0 4px !important; height: 20px !important; font-size: 13px !important; }
+:not(#z) .del-btn { color: var(--z-danger); padding: 0 4px; height: 20px; font-size: 13px; }
 </style>

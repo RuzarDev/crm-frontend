@@ -2,72 +2,83 @@
   <div class="crm-page">
     <PageHeader :kicker="t('admin.nastroykiSistemy')" :title="t('admin.spravochniki')" />
 
-    <a-tabs v-model:activeKey="activeTab">
-      <a-tab-pane key="base" :tab="t('admin.stanciiIPosty')">
-        <a-row :gutter="24">
-          <a-col :span="12">
-            <a-card :title="t('admin.stanciiNaznacheniya')">
-              <template #extra><a-button type="primary" size="small" @click="openAdd('station')">{{ t('admin.dobavit') }}</a-button></template>
-              <a-table :data-source="stations" :columns="columns" row-key="id" size="small" :pagination="false" />
-            </a-card>
-          </a-col>
-          <a-col :span="12">
-            <a-card :title="t('admin.tamozhennyePosty')">
-              <template #extra>
-                <a-button type="primary" size="small" @click="openAdd('post')">{{ t('admin.dobavit') }}</a-button>
-              </template>
-              <a-table :data-source="posts" :columns="columns" row-key="id" size="small" :pagination="false" />
-            </a-card>
-          </a-col>
-        </a-row>
-      </a-tab-pane>
+    <!-- Список справочников слева, выбранный — справа (аудит дизайна 01.10): раньше четыре вкладки
+         с россыпью карточек, у каждой свои кнопки. -->
+    <div class="refs-layout">
+      <nav class="refs-nav crm-shell-card">
+        <template v-for="g in navGroups" :key="g.title">
+          <div class="refs-nav-group">{{ g.title }}</div>
+          <a
+            v-for="it in g.items" :key="it.key" class="refs-nav-item" :class="{ active: active === it.key }"
+            @click.prevent="selectRef(it.key)"
+          >
+            <span class="refs-nav-title">{{ it.title }}</span>
+            <span v-if="it.count != null" class="refs-nav-count">{{ it.count }}</span>
+          </a>
+        </template>
+      </nav>
 
-      <a-tab-pane key="classifiers" :tab="t('admin.klassifikatory')">
-        <div class="eec-bar">
-          <span class="muted">{{ t('admin.eekBarHint') }}</span>
-          <a-popconfirm :title="t('admin.eekSyncConfirm')" :ok-text="t('admin.sveritSEek')" @confirm="runEecSync">
-            <a-button :loading="eecBusy">{{ t('admin.sveritSEek') }}</a-button>
-          </a-popconfirm>
-        </div>
-        <a-row :gutter="24">
-          <a-col :span="7">
-            <a-card :title="t('admin.klassifikatory')" size="small">
-              <a-menu v-model:selectedKeys="selectedClassifier" mode="inline" @select="onSelectClassifier">
-                <a-menu-item v-for="g in classifierGroups" :key="g.classifierCode">
-                  {{ classifierTitle(g.classifierCode) }} ({{ g.count }})
-                </a-menu-item>
-              </a-menu>
-            </a-card>
-          </a-col>
-          <a-col :span="17">
-            <a-card :title="classifierTitle(selectedClassifier[0] ?? '')" size="small">
-              <template #extra>
-                <a-button type="primary" size="small" :disabled="!selectedClassifier.length" @click="openAddClassifier"> {{ t('admin.dobavitKod') }} </a-button>
-              </template>
-              <a-table
-                class="ref-table"
-                :data-source="classifierItems"
-                :columns="classifierColumns"
-                row-key="id"
-                size="small"
-                :pagination="false"
-              />
-            </a-card>
-          </a-col>
-        </a-row>
-      </a-tab-pane>
-
-      <a-tab-pane key="kato" :tab="t('admin.kato')">
-        <a-card :title="t('admin.katoKlassifikatorAdministrativnoTerritorialnyh')" size="small">
-          <template #extra>
-            <a-space>
+      <section class="refs-main crm-shell-card">
+        <header class="refs-head">
+          <div class="refs-head-text">
+            <h2 class="refs-title">{{ activeTitle }}</h2>
+            <p v-if="activeHint" class="refs-hint">{{ activeHint }}</p>
+          </div>
+          <div class="refs-actions">
+            <template v-if="isList">
+              <a-input v-model:value="q" allow-clear :placeholder="t('admin.refsPoisk')" class="refs-search">
+                <template #prefix><SearchOutlined /></template>
+              </a-input>
+              <a-popconfirm v-if="active.startsWith('cls:')" :title="t('admin.eekSyncConfirm')" :ok-text="t('admin.sveritSEek')" @confirm="runEecSync">
+                <a-button :loading="eecBusy">{{ t('admin.sveritSEek') }}</a-button>
+              </a-popconfirm>
+              <a-button type="primary" @click="addCurrent">{{ active.startsWith('cls:') ? t('admin.dobavitKod') : t('admin.dobavit') }}</a-button>
+            </template>
+            <template v-else-if="active === 'kato'">
               <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="onKatoFile">
-                <a-button size="small" :loading="katoBusy">{{ t('admin.zagruzitXlsx') }}</a-button>
+                <a-button :loading="katoBusy">{{ t('admin.zagruzitXlsx') }}</a-button>
               </a-upload>
-              <a-button type="primary" size="small" :loading="katoBusy" @click="syncKato">{{ t('admin.obnovitSStatGov') }}</a-button>
-            </a-space>
-          </template>
-          <a-descriptions size="small" :column="1" bordered>
+              <a-button type="primary" :loading="katoBusy" @click="syncKato">{{ t('admin.obnovitSStatGov') }}</a-button>
+            </template>
+            <template v-else-if="active === 'warehouses'">
+              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="(f: File) => onWarehouseFile('svh', f)">
+                <a-button :loading="whBusy">{{ t('admin.svhTsNsiUploadSvh') }}</a-button>
+              </a-upload>
+              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="(f: File) => onWarehouseFile('customs_warehouse', f)">
+                <a-button :loading="whBusy">{{ t('admin.svhTsNsiUploadTs') }}</a-button>
+              </a-upload>
+              <a-button type="primary" :loading="whBusy" @click="refreshFromKeden">{{ t('admin.kedenRefresh') }}</a-button>
+            </template>
+            <template v-else-if="active === 'trois'">
+              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="onTroisFile">
+                <a-button :loading="troisBusy">{{ t('admin.troisUpload') }}</a-button>
+              </a-upload>
+            </template>
+            <template v-else-if="active === 'nsi'">
+              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="(f: File) => onNsiFile('svh', f)">
+                <a-button :loading="nsiBusy">{{ t('admin.svhTsNsiUploadSvh') }}</a-button>
+              </a-upload>
+              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="(f: File) => onNsiFile('customs_warehouse', f)">
+                <a-button :loading="nsiBusy">{{ t('admin.svhTsNsiUploadTs') }}</a-button>
+              </a-upload>
+              <a-button type="primary" :loading="nsiBusy" @click="importNsi">{{ t('admin.svhTsNsiImport') }}</a-button>
+            </template>
+          </div>
+        </header>
+
+        <!-- Станции, посты, классификаторы ЕЭК — таблица с поиском -->
+        <a-table
+          v-if="isList"
+          class="crm-table-cards"
+          :data-source="listRows"
+          :columns="active.startsWith('cls:') ? classifierColumns : columns"
+          row-key="id"
+          size="small"
+          :pagination="listRows.length > 50 ? { pageSize: 50, showSizeChanger: false } : false"
+        />
+
+        <template v-else-if="active === 'kato'">
+          <a-descriptions size="small" :column="1" bordered class="refs-desc">
             <a-descriptions-item :label="t('admin.kodovVBaze')">{{ katoStatus?.total ?? '—' }}</a-descriptions-item>
             <a-descriptions-item :label="t('admin.obnovleno')">{{ katoStatus?.updatedAtUtc ? new Date(katoStatus.updatedAtUtc).toLocaleString('ru-RU') : '—' }}</a-descriptions-item>
             <a-descriptions-item :label="t('admin.istochnik')">
@@ -77,48 +88,31 @@
           </a-descriptions>
           <div class="kato-try">
             <div class="muted">{{ t('admin.proverkaPoiskaKakV') }}</div>
-            <KatoSelect v-model:value="katoProbe" :placeholder="t('admin.nachniteVvoditNazvanieIli')" style="max-width: 520px" />
+            <KatoSelect v-model:value="katoProbe" :placeholder="t('admin.nachniteVvoditNazvanieIli')" class="refs-probe" />
           </div>
-        </a-card>
-      </a-tab-pane>
+        </template>
 
-      <a-tab-pane key="warehouses" :tab="t('admin.svhTs')">
-        <a-card :title="t('admin.svhTsTitle')" size="small">
-          <template #extra>
-            <a-space>
-              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="(f: File) => onWarehouseFile('svh', f)">
-                <a-button size="small" :loading="whBusy">{{ t('admin.svhTsNsiUploadSvh') }}</a-button>
-              </a-upload>
-              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="(f: File) => onWarehouseFile('customs_warehouse', f)">
-                <a-button size="small" :loading="whBusy">{{ t('admin.svhTsNsiUploadTs') }}</a-button>
-              </a-upload>
-              <a-button type="primary" size="small" :loading="whBusy" @click="refreshFromKeden">{{ t('admin.kedenRefresh') }}</a-button>
-            </a-space>
-          </template>
-          <a-descriptions size="small" :column="1" bordered>
+        <template v-else-if="active === 'warehouses'">
+          <a-descriptions size="small" :column="1" bordered class="refs-desc">
             <a-descriptions-item :label="t('admin.svhTsKindSvh')">{{ whCount('svh') }}</a-descriptions-item>
             <a-descriptions-item :label="t('admin.svhTsKindTs')">{{ whCount('customs_warehouse') }}</a-descriptions-item>
             <a-descriptions-item :label="t('admin.obnovleno')">{{ whUpdated }}</a-descriptions-item>
           </a-descriptions>
-          <div class="muted" style="margin-top: 8px">{{ t('admin.svhTsHint') }}</div>
-        </a-card>
+          <div class="muted refs-note">{{ t('admin.svhTsHint') }}</div>
+        </template>
+
         <!-- ТРОИС: реестр ОИС из КЕДЕН — сверка торгового знака в ДТ (гр.31) -->
-        <a-card :title="t('admin.troisTitle')" size="small" style="margin-top: 12px">
-          <template #extra>
-            <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="onTroisFile">
-              <a-button size="small" :loading="troisBusy">{{ t('admin.troisUpload') }}</a-button>
-            </a-upload>
-          </template>
-          <a-descriptions size="small" :column="1" bordered>
+        <template v-else-if="active === 'trois'">
+          <a-descriptions size="small" :column="1" bordered class="refs-desc">
             <a-descriptions-item :label="t('admin.troisTotal')">{{ troisStatus?.total ?? 0 }}</a-descriptions-item>
             <a-descriptions-item :label="t('admin.troisActive')">{{ troisStatus?.active ?? 0 }}</a-descriptions-item>
             <a-descriptions-item :label="t('admin.obnovleno')">{{ troisUpdated }}</a-descriptions-item>
           </a-descriptions>
-          <div class="muted" style="margin: 8px 0">{{ t('admin.troisHint') }}</div>
+          <div class="muted refs-note">{{ t('admin.troisHint') }}</div>
           <a-input-search v-model:value="troisQuery" allow-clear :placeholder="t('admin.troisSearchPlaceholder')"
-            style="max-width: 520px" :loading="troisSearching" @search="searchTrois" @input="onTroisQuery" />
+            class="refs-probe" :loading="troisSearching" @search="searchTrois" @input="onTroisQuery" />
           <a-table v-if="troisQuery.trim()" :data-source="troisRows" :columns="troisColumns" :pagination="false" size="small"
-            row-key="id" style="margin-top: 8px" :locale="{ emptyText: t('admin.troisNothing') }">
+            row-key="id" class="refs-trois crm-table-cards" :locale="{ emptyText: t('admin.troisNothing') }">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'validUntil'">{{ troisDate(record.validUntil) }}</template>
               <template v-else-if="column.key === 'status'">
@@ -127,29 +121,19 @@
               <template v-else-if="column.key === 'objectName'">{{ record.objectName || '—' }}</template>
             </template>
           </a-table>
-        </a-card>
+        </template>
+
         <!-- НСИ КГД: БИН → код таможенного органа (подсказка «Таможенный орган (местонахождение)» гр.30) -->
-        <a-card :title="t('admin.svhTsNsiTitle')" size="small" style="margin-top: 12px">
-          <template #extra>
-            <a-space>
-              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="(f: File) => onNsiFile('svh', f)">
-                <a-button size="small" :loading="nsiBusy">{{ t('admin.svhTsNsiUploadSvh') }}</a-button>
-              </a-upload>
-              <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="(f: File) => onNsiFile('customs_warehouse', f)">
-                <a-button size="small" :loading="nsiBusy">{{ t('admin.svhTsNsiUploadTs') }}</a-button>
-              </a-upload>
-              <a-button type="primary" size="small" :loading="nsiBusy" @click="importNsi">{{ t('admin.svhTsNsiImport') }}</a-button>
-            </a-space>
-          </template>
-          <a-descriptions size="small" :column="1" bordered>
+        <template v-else-if="active === 'nsi'">
+          <a-descriptions size="small" :column="1" bordered class="refs-desc">
             <a-descriptions-item :label="t('admin.svhTsKindSvh')">{{ nsiCount('svh') }}</a-descriptions-item>
             <a-descriptions-item :label="t('admin.svhTsKindTs')">{{ nsiCount('customs_warehouse') }}</a-descriptions-item>
             <a-descriptions-item :label="t('admin.obnovleno')">{{ nsiUpdated }}</a-descriptions-item>
           </a-descriptions>
-          <div class="muted" style="margin-top: 8px">{{ t('admin.svhTsNsiHint') }}</div>
-        </a-card>
-      </a-tab-pane>
-    </a-tabs>
+          <div class="muted refs-note">{{ t('admin.svhTsNsiHint') }}</div>
+        </template>
+      </section>
+    </div>
 
     <a-modal v-model:open="eecOpen" :title="t('admin.eekSyncTitle')" width="760px" :footer="null">
       <p class="muted">{{ t('admin.eekSyncHint') }}</p>
@@ -172,7 +156,8 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { ref, onMounted, onBeforeUnmount, h, computed } from 'vue'
-import { message, Button } from 'ant-design-vue'
+import { message, Button, Popconfirm } from 'ant-design-vue'
+import { SearchOutlined } from '@ant-design/icons-vue'
 import { referencesApi, type EecSyncResult } from '@/api/references'
 import type { RefItem, ClassifierItem, ClassifierGroup } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
@@ -194,9 +179,10 @@ const columns = computed(() => ([
 
   { title: t('admin.nazvanie'), dataIndex: 'name', key: 'name' },
   {
-    title: t('admin.deystviya'), key: 'actions',
+    title: t('admin.deystviya'), key: 'actions', width: 180,
     customRender: ({ record }: { record: RefItem }) =>
-      h(Button, { size: 'small', type: 'link', danger: true, onClick: () => remove(record) }, () => t('admin.deaktivirovat')),
+      h(Popconfirm, { title: t('admin.refsDeactivateConfirm'), okText: t('admin.deaktivirovat'), okButtonProps: { danger: true }, onConfirm: () => remove(record) },
+        () => h(Button, { size: 'small', type: 'link', danger: true }, () => t('admin.deaktivirovat'))),
   },
 ]))
 const load = async () => {
@@ -221,7 +207,45 @@ const remove = async (record: RefItem) => {
   } catch { message.error(t('admin.oshibka')) }
 }
 
-const activeTab = ref('base')
+// Выбранный справочник: station | post | cls:<код классификатора> | kato | warehouses | trois | nsi
+const active = ref('station')
+const q = ref('')
+const isList = computed(() => active.value === 'station' || active.value === 'post' || active.value.startsWith('cls:'))
+const selectRef = async (key: string) => {
+  active.value = key
+  q.value = ''
+  if (key.startsWith('cls:')) await onSelectClassifier({ key: key.slice(4) })
+}
+const listRows = computed((): Array<RefItem | ClassifierItem> => {
+  const rows: Array<RefItem | ClassifierItem> = active.value === 'station' ? stations.value
+    : active.value === 'post' ? posts.value : classifierItems.value
+  const term = q.value.trim().toLowerCase()
+  if (!term) return rows
+  return rows.filter((r) => [('name' in r ? r.name : ''), ('code' in r ? r.code : ''), ('nameRu' in r ? r.nameRu : '')]
+    .some((v) => (v ?? '').toString().toLowerCase().includes(term)))
+})
+const addCurrent = () => {
+  if (active.value === 'station' || active.value === 'post') openAdd(active.value)
+  else openAddClassifier()
+}
+const navGroups = computed(() => [
+  { title: t('admin.refsGroupBase'), items: [
+    { key: 'station', title: t('admin.stanciiNaznacheniya'), count: stations.value.length },
+    { key: 'post', title: t('admin.tamozhennyePosty'), count: posts.value.length },
+  ] },
+  { title: t('admin.refsGroupEec'), items: classifierGroups.value.map((g) => ({
+    key: `cls:${g.classifierCode}`, title: classifierTitle(g.classifierCode), count: g.count as number | null,
+  })) },
+  { title: t('admin.refsGroupRegistries'), items: [
+    { key: 'kato', title: t('admin.kato'), count: katoStatus.value?.total ?? null },
+    { key: 'warehouses', title: t('admin.svhTsTitle'), count: whCount('svh') + whCount('customs_warehouse') || null },
+    { key: 'trois', title: t('admin.troisTitle'), count: troisStatus.value?.active ?? null },
+    { key: 'nsi', title: t('admin.svhTsNsiTitle'), count: (nsiCount('svh') + nsiCount('customs_warehouse')) || null },
+  ] },
+])
+const activeTitle = computed(() => navGroups.value.flatMap((g) => g.items).find((i) => i.key === active.value)?.title ?? '')
+const activeHint = computed(() => active.value.startsWith('cls:') ? t('admin.eekBarHint')
+  : active.value === 'kato' ? t('admin.katoKlassifikatorAdministrativnoTerritorialnyh') : '')
 const classifierGroups = ref<ClassifierGroup[]>([])
 const classifierItems = ref<ClassifierItem[]>([])
 const selectedClassifier = ref<string[]>([])
@@ -257,6 +281,24 @@ const CLASSIFIER_TITLES = computed((): Record<string, string> => ({
   'vehicle-marks': t('admin.eekVehicleMarks'),
   'okei-units': t('admin.eekOkeiUnits'),
   'customs-posts': t('admin.eekCustomsPosts'),
+  'certification-kinds': t('admin.cls_certification_kinds'),
+  'declaration-types': t('admin.cls_declaration_types'),
+  'entry-method': t('admin.cls_entry_method'),
+  'id-doc-types': t('admin.cls_id_doc_types'),
+  'identification-means': t('admin.cls_identification_means'),
+  'itn-categories': t('admin.cls_itn_categories'),
+  'movement-direction': t('admin.cls_movement_direction'),
+  'ois-indicators': t('admin.cls_ois_indicators'),
+  'packaging-availability': t('admin.cls_packaging_availability'),
+  'packaging-info': t('admin.cls_packaging_info'),
+  'packaging-info-kind': t('admin.cls_packaging_info_kind'),
+  'presentation-purpose': t('admin.cls_presentation_purpose'),
+  'prev-doc-types': t('admin.cls_prev_doc_types'),
+  'restriction-marks': t('admin.cls_restriction_marks'),
+  'settlement-terms': t('admin.cls_settlement_terms'),
+  'transport-mode': t('admin.cls_transport_mode'),
+  'transport-purpose': t('admin.cls_transport_purpose'),
+  'used-as-declaration': t('admin.cls_used_as_declaration'),
 }))
 const classifierTitle = (code: string) => CLASSIFIER_TITLES.value[code] ?? code
 
@@ -296,7 +338,8 @@ const classifierColumns = computed(() => ([
   {
     title: t('admin.deystviya'), key: 'actions', width: 140,
     customRender: ({ record }: { record: ClassifierItem }) =>
-      h(Button, { size: 'small', type: 'link', danger: true, onClick: () => removeClassifier(record) }, () => t('admin.deaktivirovat')),
+      h(Popconfirm, { title: t('admin.refsDeactivateConfirm'), okText: t('admin.deaktivirovat'), okButtonProps: { danger: true }, onConfirm: () => removeClassifier(record) },
+        () => h(Button, { size: 'small', type: 'link', danger: true }, () => t('admin.deaktivirovat'))),
   },
 ]))
 const loadClassifierGroups = async () => {
@@ -509,5 +552,28 @@ onMounted(async () => {
 <style scoped>
 .muted { color: var(--z-muted); font-size: 12px; }
 .kato-try { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
-.eec-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 12px; }
+.refs-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; align-items: start; }
+.refs-nav { position: sticky; top: 80px; display: flex; flex-direction: column; gap: 2px; padding: 10px; max-height: calc(100vh - 100px); overflow-y: auto; }
+.refs-nav-group { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--z-muted); padding: 10px 10px 4px; }
+.refs-nav-group:first-child { padding-top: 2px; }
+.refs-nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--z-ink); cursor: pointer; }
+.refs-nav-item:hover { background: var(--z-surface-2); }
+.refs-nav-item.active { background: var(--z-teal-soft); color: var(--z-teal-d); font-weight: 600; }
+.refs-nav-title { flex: 1; min-width: 0; }
+.refs-nav-count { flex: none; font-size: 12px; color: var(--z-muted); font-variant-numeric: tabular-nums; }
+.refs-main { padding: 18px 20px; min-width: 0; }
+.refs-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 16px; margin-bottom: 14px; }
+.refs-head-text { min-width: 0; flex: 1 1 280px; }
+.refs-title { margin: 0; font-size: 18px; line-height: 1.3; color: var(--z-ink); }
+.refs-hint { margin: 4px 0 0; font-size: 13px; color: var(--z-muted); max-width: 70ch; }
+.refs-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.refs-search { width: 260px; max-width: 100%; }
+.refs-desc { max-width: 640px; }
+.refs-note { margin: 10px 0; }
+.refs-probe { max-width: 520px; }
+.refs-trois { margin-top: 10px; }
+@media (max-width: 900px) {
+  .refs-layout { grid-template-columns: 1fr; }
+  .refs-nav { position: static; max-height: 260px; }
+}
 </style>

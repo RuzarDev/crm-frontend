@@ -741,13 +741,13 @@ const onExcelFile: UploadProps['beforeUpload'] = (file) => {
 .card-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--z-ink); }
 
 .del-btn { flex: none; }
-.collapse-btn { flex: none; padding: 0 4px !important; color: var(--z-muted) !important; }
+:not(#z) .collapse-btn { flex: none; padding: 0 4px; color: var(--z-muted); }
 .collapse-btn :deep(.anticon) { transition: transform 0.15s; }
 .collapse-btn :deep(.anticon.open) { transform: rotate(90deg); }
 .card-sum { flex: none; font-size: 13px; color: var(--z-ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.collapse-all { padding: 0 !important; }
+:not(#z) .collapse-all { padding: 0; }
 
-.tnved-group { display: flex !important; }
+:not(#z) .tnved-group { display: flex; }
 .tnved-group .tnved-input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 .field-error {

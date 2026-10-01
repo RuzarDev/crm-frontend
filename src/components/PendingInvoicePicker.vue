@@ -103,9 +103,9 @@ const removeFile = (idx: number) => {
   flex: 1;
 }
 
-.del-btn {
-  padding: 0 4px !important;
-  height: 20px !important;
-  font-size: 13px !important;
+:not(#z) .del-btn {
+  padding: 0 4px;
+  height: 20px;
+  font-size: 13px;
 }
 </style>

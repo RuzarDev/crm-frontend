@@ -89,5 +89,5 @@ function removeItem(idx: number) {
   font-weight: 500;
   color: var(--z-ink-2);
 }
-.del-btn { color: var(--z-danger) !important; padding: 0 4px !important; height: 20px !important; font-size: 13px !important; }
+:not(#z) .del-btn { color: var(--z-danger); padding: 0 4px; height: 20px; font-size: 13px; }
 </style>
