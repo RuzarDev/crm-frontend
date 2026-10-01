@@ -81,7 +81,19 @@
       <!-- Знак найден в ТРОИС: признак ОИС сам не ставится — декларант решает -->
       <div v-if="troisFound" class="trois-ois-hint">{{ t('dt.troisOisHint') }}</div></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.regPoOis') }}</div>
-      <a-input v-uppercase v-model:value="good.oisRegNumber" :disabled="readonly" @change="emitChange" /></div>
+      <!-- Подсказки из ТРОИС: сначала знаки по торговой марке товара, при вводе — поиск по номеру, названию,
+           правообладателю. Свой номер вписать можно; выбор только подставляет номер (и KZ, если страна пуста). -->
+      <a-auto-complete :value="good.oisRegNumber ?? ''" :disabled="readonly" :options="regOptions"
+        :filter-option="false" :dropdown-match-select-width="false" :dropdown-style="{ minWidth: '420px', maxWidth: '620px' }"
+        :get-popup-container="popupContainer" :placeholder="t('dt.troisRegPlaceholder')"
+        @search="onRegSearch" @select="onRegSelect" @update:value="onRegInput">
+        <template #option="{ value: regNo, item }">
+          <div class="trois-opt" :class="{ off: !item.isActive }">
+            <div><b>№ {{ regNo }}</b> {{ item.objectName }}<span v-if="!item.isActive" class="trois-off"> · {{ t('dt.troisNeDeystvuet') }}</span></div>
+            <div class="trois-sub">{{ item.rightHolder ?? '—' }}<template v-if="item.validUntil"> · {{ t('dt.troisDo', { date: troisDate(item.validUntil) }) }}</template></div>
+          </div>
+        </template>
+      </a-auto-complete></div>
     <div class="zf-field zf-s2"><div class="zf-label">{{ t('dt.kodStranyOis') }}</div>
       <!-- Страна регистрации ОИС — буквенный код (KZ, CN), как в КЕДЕН; список стран с поиском по коду и названию. -->
       <a-select v-model:value="good.oisCountryCode" :disabled="readonly" show-search allow-clear
@@ -246,6 +258,7 @@ import { FEATURE_CODE_RE, invalidFeatureCodes, joinFeatureCodes, splitFeatureCod
 import { useTroisCheck } from '@/composables/useTroisCheck'
 import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import { prohibitionCodesApi, type ProhibitionCodeItem, type SuggestedProhibitionCode } from '@/api/prohibitionCodes'
+import { troisApi, troisDate, type TroisItem } from '@/api/trois'
 
 const { t } = useI18n()
 
@@ -277,6 +290,45 @@ const filterAlpha2 = (input: string, option: { value: string; label: string }) =
 const trois = useTroisCheck()
 const troisFound = computed(() =>
   !!trois?.resultFor(props.good.tradeMarkName)?.matches.some((m) => m.isActive && (m.match === 'exact' || m.match === 'similar')))
+
+// Рег.№ по ОИС (гр.33): подсказки из ТРОИС. Пока ничего не введено — знаки, найденные по торговой марке
+// товара (действующие сначала); при вводе — поиск по номеру, названию знака, правообладателю.
+const regSearch = ref<TroisItem[] | null>(null)
+let regTimer: number | undefined
+let regSeq = 0
+const toRegOption = (m: TroisItem) => ({ value: m.registrationNumber, item: m })
+const regOptions = computed(() => {
+  const list = regSearch.value
+    ?? [...(trois?.resultFor(props.good.tradeMarkName)?.matches ?? [])]
+      .sort((a, b) => Number(b.isActive) - Number(a.isActive))
+  const seen = new Set<string>()
+  return list.filter((m) => !seen.has(m.registrationNumber) && seen.add(m.registrationNumber)).slice(0, 20).map(toRegOption)
+})
+const onRegSearch = (q: string) => {
+  window.clearTimeout(regTimer)
+  const term = q.trim()
+  if (term.length < 2) { regSearch.value = null; return }
+  const my = ++regSeq
+  regTimer = window.setTimeout(async () => {
+    try {
+      const found = await troisApi.search(term)
+      if (my === regSeq) regSearch.value = found
+    } catch {
+      if (my === regSeq) regSearch.value = []
+    }
+  }, 300)
+}
+const onRegInput = (v: string) => {
+  props.good.oisRegNumber = (v ?? '').toUpperCase() || null
+  emitChange()
+}
+const onRegSelect = (regNo: string) => {
+  props.good.oisRegNumber = regNo
+  // ТРОИС — таможенный реестр Казахстана: страна реестра — KZ, если декларант её ещё не указал.
+  if (!props.good.oisCountryCode) props.good.oisCountryCode = 'KZ'
+  regSearch.value = null
+  emitChange()
+}
 
 // Item I (гр.46 статистическая стоимость, USD): авто = таможенная стоимость
 // (гр.45, ₸) / курс доллара на дату гр.А. Поле остаётся редактируемым — авто-
@@ -659,6 +711,12 @@ const importMarkingsFromExcel = async (g: Import40GoodsItemInput, file: File) =>
 .sug-chip-on { opacity: 0.45; cursor: default; }
 .sug-neg { padding: 0 4px; height: auto; font-size: 12px; }
 .sug-note { color: var(--z-muted); margin-left: 4px; }
+
+/* Подсказки ТРОИС у «Рег.№ по ОИС» */
+.trois-opt { line-height: 1.35; white-space: normal; }
+.trois-opt.off { opacity: 0.6; }
+.trois-off { color: var(--z-warning, #8a6410); }
+.trois-sub { font-size: 12px; color: var(--z-muted); }
 
 /* гр.33 «Признаки соблюдения запретов»: в теге только код, полный текст — в tooltip. */
 .ois-mark-tag { margin: 1px 2px; padding: 0 6px; font-weight: 600; }

@@ -689,6 +689,9 @@ export default {
   },
   // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
   dt: {
+    troisRegPlaceholder: 'Number, mark or right holder',
+    troisNeDeystvuet: 'not in force',
+    troisDo: 'until {date}',
     tpinProverteTovary: 'Duties and taxes: check the items',
     tariffExciseDefault: 'no kind chosen — the first one is used, please check',
     taxQtyL: 'Volume of goods, l',
