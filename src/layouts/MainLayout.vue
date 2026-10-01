@@ -1155,7 +1155,9 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   transition: opacity var(--z-transition);
 }
 
-:not(#z) .sider :deep(.ant-menu-item:hover) {
+/* Наведение не трогает выбранный пункт: раньше на выбранном фон становился прозрачным, а текст
+   оставался тёмно-синим — пункт «пропадал» под курсором. */
+:not(#z) .sider :deep(.ant-menu-item:not(.ant-menu-item-selected):hover) {
   color: #f0f3ff;
   background: rgba(240, 243, 255, 0.07);
 }
@@ -1175,6 +1177,10 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 :not(#z) .sider :deep(.ant-menu-item-selected) {
   background: var(--z-teal);
   box-shadow: none;
+}
+
+:not(#z) .sider :deep(.ant-menu-item-selected:hover) {
+  background: #4FC6DE;
 }
 
 :not(#z) .sider :deep(.ant-menu-item-selected .anticon) {
@@ -1246,7 +1252,9 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   font-weight: 600;
 }
 
-:not(#z) .drawer-menu :deep(.ant-menu-item:hover) {
+/* Наведение не трогает выбранный пункт: раньше на выбранном фон становился прозрачным, а текст
+   оставался тёмно-синим — пункт «пропадал» под курсором. */
+:not(#z) .drawer-menu :deep(.ant-menu-item:not(.ant-menu-item-selected):hover) {
   color: #f0f3ff;
   background: rgba(240, 243, 255, 0.07);
 }
