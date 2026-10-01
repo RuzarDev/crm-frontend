@@ -251,7 +251,7 @@ import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { CloseOutlined, CopyOutlined, QuestionCircleOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
-import * as XLSX from 'xlsx'
+import { loadXlsx } from '@/utils/xlsx'
 import type { Import40GoodsItemInput, Import40GoodsPayment, Import40GoodsMarking } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { FEATURE_CODE_RE, invalidFeatureCodes, joinFeatureCodes, splitFeatureCodes } from '@/utils/nonTariffCodes'
@@ -663,6 +663,7 @@ const MARKING_ID_APPLICATION_OPTIONS = computed(() => ([
 // B=Код уровня, C=Код идентификатора применения, D=Код вида идентификации.
 
 const importMarkingsFromExcel = async (g: Import40GoodsItemInput, file: File) => {
+  const XLSX = await loadXlsx()
   try {
     const buf = await file.arrayBuffer()
     const wb = XLSX.read(buf, { type: 'array' })

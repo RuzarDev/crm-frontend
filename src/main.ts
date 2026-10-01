@@ -3,7 +3,7 @@ import { createPinia } from 'pinia'
 import { message } from 'ant-design-vue'
 import App from './App.vue'
 import router from './router'
-import { i18n } from './i18n'
+import { i18n, setLocale, getStoredLocale } from './i18n'
 import 'ant-design-vue/dist/reset.css'
 import './assets/main.css'
 import { vUppercase } from './directives/uppercase'
@@ -20,4 +20,5 @@ app.use(router)
 app.use(i18n)
 app.directive('uppercase', vUppercase)
 
-app.mount('#app')
+// Язык пользователя (казахский/английский) подгружаем до первого кадра, чтобы не мигал русский.
+void setLocale(getStoredLocale()).finally(() => app.mount('#app'))

@@ -268,21 +268,21 @@
         <a-tab-pane key="my" :tab="isClientRole ? t('import40List.myTasksClient') : t('import40List.myTasks')" />
       </a-tabs>
 
-      <div class="list-filters crm-filter-bar">
+      <ZFilterBar class="list-filters">
         <a-input v-model:value="search" allow-clear :placeholder="isClientRole ? t('import40List.searchPhClient') : t('import40List.searchPh')">
           <template #prefix><SearchOutlined /></template>
         </a-input>
         <a-segmented v-if="tab === 'all'" v-model:value="scope" :options="scopeOptions" />
-      </div>
+      </ZFilterBar>
 
-      <a-table
+      <ZTable
         :columns="columns"
         :data-source="filteredCases"
         :loading="loading"
         :pagination="{ pageSize: 10, showSizeChanger: false }"
         :scroll="{ x: 820 }"
         row-key="id"
-        class="import-table crm-table-cards"
+        class="import-table"
         :custom-row="(r: Import40CaseDto) => ({ onClick: () => router.push(`/import-40/${r.id}`), style: 'cursor: pointer' })"
       >
         <template #emptyText>
@@ -323,7 +323,7 @@
             {{ new Date(record.updatedAtUtc).toLocaleDateString('ru-RU') }}
           </template>
         </template>
-      </a-table>
+      </ZTable>
     </a-card>
   </div>
 </template>

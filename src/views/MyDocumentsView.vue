@@ -31,7 +31,7 @@
           />
         </div>
 
-        <a-table class="crm-table-cards"
+        <ZTable
           :columns="columns"
           :data-source="items"
           :loading="loading"
@@ -60,7 +60,7 @@
               </a-space>
             </template>
           </template>
-        </a-table>
+        </ZTable>
       </a-space>
     </a-card>
 

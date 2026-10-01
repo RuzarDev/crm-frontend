@@ -109,7 +109,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
 import { DownloadOutlined, SearchOutlined, FileProtectOutlined } from '@ant-design/icons-vue'
-import * as XLSX from 'xlsx'
+import { loadXlsx } from '@/utils/xlsx'
 import PageHeader from '@/components/PageHeader.vue'
 import { clientCardApi, type ClientDocumentRow } from '@/api/clientCard'
 import { useAuthStore } from '@/stores/auth'
@@ -184,7 +184,8 @@ const statusColor = (s: number) => (s === 2 ? 'success' : s === 1 ? 'warning' : 
 const expiryColor = (r: ClientDocumentRow) =>
   r.daysLeft !== null && r.daysLeft < 0 ? 'error' : r.expiringSoon ? 'warning' : 'default'
 
-const exportXlsx = () => {
+const exportXlsx = async () => {
+  const XLSX = await loadXlsx()
   const data = filtered.value.map((r) => ({
     [t('clientDocs.colClient')]: r.clientName,
     [t('clientDocs.email')]: r.clientEmail,

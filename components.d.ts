@@ -139,5 +139,8 @@ declare module 'vue' {
     TnvedTree: typeof import('./src/components/TnvedTree.vue')['default']
     TransportMeansBlock: typeof import('./src/components/reestr/TransportMeansBlock.vue')['default']
     TroisTrademarkHint: typeof import('./src/components/import40/TroisTrademarkHint.vue')['default']
+    ZField: typeof import('./src/components/ui/ZField.vue')['default']
+    ZFilterBar: typeof import('./src/components/ui/ZFilterBar.vue')['default']
+    ZTable: typeof import('./src/components/ui/ZTable.vue')['default']
   }
 }

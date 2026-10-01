@@ -8,7 +8,7 @@
     />
 
     <a-card class="crm-shell-card" :bordered="false">
-    <div class="filters crm-filter-bar">
+    <ZFilterBar class="filters">
       <a-select
         v-model:value="filters.type" allow-clear :placeholder="t('admin.tipUslugi')"
         :options="[
@@ -28,9 +28,9 @@
            заменено на a-range-picker, запрос уходит только когда выбран полный диапазон (или он сброшен). -->
       <a-range-picker v-model:value="dateRange" :placeholder="[t('admin.sDatyGgggMm'), t('admin.poDatuGgggMm')]" @change="onDateRangeChange" />
       <a-button :disabled="!rows.length" @click="exportXlsx"><DownloadOutlined /> Excel</a-button>
-    </div>
+    </ZFilterBar>
 
-    <a-table class="crm-table-cards"
+    <ZTable
       :data-source="rows"
       :columns="columns"
       :loading="loading"
@@ -54,7 +54,7 @@
           {{ new Date(record.createdAtUtc).toLocaleDateString('ru-RU') }}
         </template>
       </template>
-    </a-table>
+    </ZTable>
     </a-card>
   </div>
 </template>
@@ -65,7 +65,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
-import * as XLSX from 'xlsx'
+import { loadXlsx } from '@/utils/xlsx'
 import { DownloadOutlined } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { registryApi, type RegistryRowDto } from '@/api/registry'
@@ -162,7 +162,8 @@ const onTypeChange = () => {
 }
 
 // Выгрузка текущей страницы реестра (фильтры применяются на сервере).
-const exportXlsx = () => {
+const exportXlsx = async () => {
+  const XLSX = await loadXlsx()
   const data = rows.value.map((r) => ({
     [t('admin.tip')]: r.serviceType === 'import40' ? t('admin.import40') : t('admin.tranzit'),
     '№': r.number,

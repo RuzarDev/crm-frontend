@@ -283,6 +283,8 @@ a {
 .crm-filter-bar-end { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 @media (max-width: 640px) {
   :not(#z) .crm-filter-bar > * { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
+  /* Переключатель статусов шире экрана — листается внутри себя, а не уводит страницу вбок. */
+  .crm-filter-bar > .ant-segmented { overflow-x: auto; scrollbar-width: none; }
   .crm-filter-bar-end { margin-left: 0; }
 }
 

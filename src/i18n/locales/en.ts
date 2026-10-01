@@ -12,6 +12,7 @@ export default {
     loginNoToken: 'Login error: no token in the response',
   },
   common: {
+    graphShort: 'Box {n}',
     emptyTitle: 'Nothing here yet',
     emptyHint: 'Records appear once they are added; also check the filters above',
     emptyInline: 'No options',

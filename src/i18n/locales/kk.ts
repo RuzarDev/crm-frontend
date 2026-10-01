@@ -12,6 +12,7 @@ export default {
     loginNoToken: 'Кіру қатесі: жауапта токен жоқ',
   },
   common: {
+    graphShort: '{n}-б.',
     emptyTitle: 'Әзірге бос',
     emptyHint: 'Жазбалар қосылғанда пайда болады; жоғарыдағы сүзгілерді де тексеріңіз',
     emptyInline: 'Нұсқалар жоқ',

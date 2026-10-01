@@ -14,6 +14,7 @@ export default {
     loginNoToken: 'Ошибка входа: в ответе нет токена',
   },
   common: {
+    graphShort: 'Гр.{n}',
     emptyTitle: 'Здесь пока пусто',
     emptyHint: 'Записи появятся, когда их добавят; проверьте и фильтры выше',
     emptyInline: 'Нет вариантов',

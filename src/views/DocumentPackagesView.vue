@@ -36,7 +36,7 @@
       </a-card>
 
       <a-card class="crm-shell-card" :bordered="false">
-        <div class="toolbar crm-filter-bar">
+        <ZFilterBar class="toolbar">
           <a-input
             v-model:value="search"
             allow-clear
@@ -61,15 +61,15 @@
           <a-button class="refresh-btn" :title="t('transit.obnovit')" @click="fetchPackages">
             <ReloadOutlined />
           </a-button>
-        </div>
+        </ZFilterBar>
 
-        <a-table
+        <ZTable
           :columns="columns"
           :data-source="packages"
           :loading="loading"
           :pagination="{ pageSize: 10 }"
           row-key="id"
-          class="crm-table-cards packages-table"
+          class="packages-table"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'trainNumber'">
@@ -112,7 +112,7 @@
               :image-size="64"
             />
           </template>
-        </a-table>
+        </ZTable>
       </a-card>
     </template>
 

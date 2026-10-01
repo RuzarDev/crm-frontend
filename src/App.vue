@@ -12,7 +12,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { zirconTheme } from '@/theme/antdTheme'
 import { antdLocaleFor } from '@/i18n/antdLocale'
-import { setLocale, getStoredLocale, type AppLocale } from '@/i18n'
+import { type AppLocale } from '@/i18n'
 
 const authStore = useAuthStore()
 const { locale, t } = useI18n()
@@ -29,6 +29,6 @@ const antdLocale = computed(() => antdLocaleFor(locale.value as AppLocale))
 
 onMounted(() => {
   authStore.checkAuth()
-  setLocale(getStoredLocale()) // проставить <html lang> и синхронизировать хранилище
+  // Язык уже выставлен в main.ts до монтирования (словари kk/en грузятся отдельно).
 })
 </script>

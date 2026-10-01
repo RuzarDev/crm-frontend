@@ -26,15 +26,15 @@
     </div>
 
     <a-card class="crm-shell-card" :bordered="false">
-      <div class="filters crm-filter-bar">
+      <ZFilterBar class="filters">
         <a-input v-model:value="search" allow-clear :placeholder="isClientRole ? t('billing.searchPhClient') : t('billing.searchPh')" style="max-width: 300px">
           <template #prefix><SearchOutlined /></template>
         </a-input>
         <a-segmented v-model:value="kindFilter" :options="kindOptions" />
         <a-segmented v-model:value="statusFilter" :options="statusOptions" />
-      </div>
+      </ZFilterBar>
 
-      <a-table class="crm-table-cards" :columns="columns" :data-source="filtered" :loading="loading" row-key="id" size="middle"
+      <ZTable :columns="columns" :data-source="filtered" :loading="loading" row-key="id" size="middle"
         :pagination="filtered.length > 25 ? { pageSize: 25, showSizeChanger: false } : false">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'doc'">
@@ -76,7 +76,7 @@
           </template>
         </template>
         <template #emptyText><a-empty :description="t('billing.empty')" /></template>
-      </a-table>
+      </ZTable>
     </a-card>
 
     <!-- Создание счёта/акта -->
@@ -133,7 +133,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
 import { DownloadOutlined, PlusOutlined, SearchOutlined, CloseOutlined } from '@ant-design/icons-vue'
-import * as XLSX from 'xlsx'
+import { loadXlsx } from '@/utils/xlsx'
 import PageHeader from '@/components/PageHeader.vue'
 import { billingApi, type BrokerInvoice, type BrokerInvoiceKind } from '@/api/billing'
 import { import40Api, type Import40CaseDto } from '@/api/import40'
@@ -403,7 +403,8 @@ const downloadPdf = async (r: BrokerInvoice) => {
   }
 }
 
-const exportXlsx = () => {
+const exportXlsx = async () => {
+  const XLSX = await loadXlsx()
   const data = filtered.value.map((r) => ({
     [t('billing.colDoc')]: r.kind === 'act' ? t('billing.act') : t('billing.invoice'),
     '№': r.number ? `${r.number}/${r.year}` : '',

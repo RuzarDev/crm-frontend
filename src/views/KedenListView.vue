@@ -8,7 +8,7 @@
     </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
-      <div class="filters-row crm-filter-bar">
+      <ZFilterBar class="filters-row">
         <a-select
           v-model:value="typeFilter"
           allow-clear
@@ -24,9 +24,9 @@
         >
           <template #prefix><SearchOutlined /></template>
         </a-input>
-      </div>
+      </ZFilterBar>
 
-      <a-table class="crm-table-cards"
+      <ZTable
         :columns="columns"
         :data-source="filteredItems"
         :loading="loading"
@@ -53,7 +53,7 @@
             <a-button size="small" @click="router.push(`/keden/${record.id}`)">{{ t('transit.otkryt') }}</a-button>
           </template>
         </template>
-      </a-table>
+      </ZTable>
     </a-card>
   </div>
 </template>

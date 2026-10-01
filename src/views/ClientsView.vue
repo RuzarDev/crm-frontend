@@ -16,14 +16,14 @@
     </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
-      <div class="filters crm-filter-bar">
+      <ZFilterBar class="filters">
         <a-input v-model:value="search" allow-clear :placeholder="t('admin.poiskPoKompaniiEmail')" style="max-width: 320px">
           <template #prefix><SearchOutlined /></template>
         </a-input>
         <a-segmented v-model:value="statusFilter" :options="statusFilterOptions" />
-      </div>
+      </ZFilterBar>
 
-      <a-table class="crm-table-cards"
+      <ZTable
         :columns="columns"
         :data-source="filtered"
         :loading="loading"
@@ -69,7 +69,7 @@
           </template>
         </template>
         <template #emptyText><a-empty :description="t('admin.klientovPokaNet')" /></template>
-      </a-table>
+      </ZTable>
     </a-card>
 
     <!-- Документы клиента: сгенерированный бланк + подписанные файлы обеих сторон -->
@@ -166,7 +166,7 @@ import {
   SolutionOutlined, SearchOutlined, UserAddOutlined, CopyOutlined,
   FileTextOutlined, DownloadOutlined, PaperClipOutlined,
 } from '@ant-design/icons-vue'
-import * as XLSX from 'xlsx'
+import { loadXlsx } from '@/utils/xlsx'
 import PageHeader from '@/components/PageHeader.vue'
 import BinLookupButton from '@/components/BinLookupButton.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -242,7 +242,8 @@ const signMethodLabel = (method: string | null) =>
       : t('admin.otmetkaVSisteme')
 
 // Выгрузка текущего (отфильтрованного) списка клиентов.
-const exportXlsx = () => {
+const exportXlsx = async () => {
+  const XLSX = await loadXlsx()
   const data = filtered.value.map((c) => ({
     [t('admin.klient')]: c.companyName || c.username,
     [t('admin.email')]: c.email || '',

@@ -42,11 +42,11 @@
         </a-card>
 
         <a-card class="crm-shell-card" :bordered="false">
-          <div class="filters crm-filter-bar">
+          <ZFilterBar class="filters">
             <a-input v-model:value="search" allow-clear :placeholder="t('admin.poiskPoKlientuGruzu')" style="max-width: 300px"><template #prefix><SearchOutlined /></template></a-input>
             <a-segmented v-model:value="filter" :options="filterOptions" />
-          </div>
-          <a-table class="crm-table-cards" :columns="columns" :data-source="filtered" row-key="caseId" size="middle" :pagination="{ pageSize: 20, showSizeChanger: false }" :scroll="{ x: 1100 }"
+          </ZFilterBar>
+          <ZTable :columns="columns" :data-source="filtered" row-key="caseId" size="middle" :pagination="{ pageSize: 20, showSizeChanger: false }" :scroll="{ x: 1100 }"
             :custom-row="(r: FinanceRow) => (authStore.isFinanceOnly
               ? {}
               : { onClick: () => router.push(`/import-40/${r.caseId}`), style: 'cursor:pointer' })">
@@ -86,7 +86,7 @@
               <template v-else-if="column.key === 'created'">{{ fmtDate(record.createdAtUtc) }}</template>
             </template>
             <template #emptyText><a-empty :description="t('admin.zayavokZaPeriodNet')" /></template>
-          </a-table>
+          </ZTable>
         </a-card>
       </template>
     </a-spin>
@@ -99,7 +99,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { DownloadOutlined, SearchOutlined, PaperClipOutlined } from '@ant-design/icons-vue'
-import * as XLSX from 'xlsx'
+import { loadXlsx } from '@/utils/xlsx'
 import PageHeader from '@/components/PageHeader.vue'
 import { useAuthStore } from '@/stores/auth'
 import { financeApi, type FinanceOverview, type FinanceRow, type FinanceFile } from '@/api/manage'
@@ -169,7 +169,8 @@ const download = async (caseId: string, f: FinanceFile) => {
   } catch { message.error(t('admin.neUdalosSkachatFayl')) }
 }
 
-const exportXlsx = () => {
+const exportXlsx = async () => {
+  const XLSX = await loadXlsx()
   const rows = filtered.value.map((r) => ({
     [t('admin.nomer')]: r.number, [t('admin.klient')]: r.clientName, [t('admin.gruz')]: r.cargo, [t('admin.status')]: statusLabel(r.status),
     [t('admin.schetSvh2')]: r.svhInvoiceAmount ?? '', [t('admin.scheta')]: r.svhInvoiceNumber, [t('admin.zametkaPoSchetu')]: r.svhInvoiceNote,

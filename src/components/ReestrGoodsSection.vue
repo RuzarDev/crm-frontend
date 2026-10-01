@@ -219,7 +219,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { CloseOutlined, RightOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
-import * as XLSX from 'xlsx'
+import { loadXlsx } from '@/utils/xlsx'
 import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
 import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
@@ -576,6 +576,7 @@ function excelToNum(v: unknown): number | null {
 const excelBusy = ref(false)
 
 async function importGoodsFromExcel(file: File) {
+  const XLSX = await loadXlsx()
   excelBusy.value = true
   try {
     const buf = await file.arrayBuffer()
