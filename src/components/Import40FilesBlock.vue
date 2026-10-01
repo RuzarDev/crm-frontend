@@ -81,7 +81,7 @@ const roleLabel = (r: string) => {
   align-items: flex-start;
 }
 .files-empty {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12px;
 }
 .files-list {
@@ -100,7 +100,7 @@ const roleLabel = (r: string) => {
   cursor: pointer;
 }
 .file-meta {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12px;
 }
 </style>

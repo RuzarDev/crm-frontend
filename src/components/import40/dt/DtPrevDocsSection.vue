@@ -87,7 +87,7 @@ const remove = (i: number) => {
 }
 .empty-state {
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-style: italic;
   padding: 6px 0 2px;
 }

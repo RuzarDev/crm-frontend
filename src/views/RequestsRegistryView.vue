@@ -7,9 +7,10 @@
       :subtitle="t('admin.svodnyySpisokZayavokPo')"
     />
 
-    <div class="filters">
+    <a-card class="crm-shell-card" :bordered="false">
+    <div class="filters crm-filter-bar">
       <a-select
-        v-model:value="filters.type" allow-clear :placeholder="t('admin.tipUslugi')" style="width: 160px"
+        v-model:value="filters.type" allow-clear :placeholder="t('admin.tipUslugi')"
         :options="[
           { value: 'import40', label: t('admin.import40') },
           { value: 'transit', label: t('admin.tranzit') },
@@ -18,19 +19,18 @@
       />
       <a-select
         v-if="statusOptions.length" v-model:value="filters.status" allow-clear
-        :placeholder="t('admin.status')" style="width: 200px" :options="statusOptions" @change="reload"
+        :placeholder="t('admin.status')" :options="statusOptions" @change="reload"
       />
       <a-input-search
-        v-model:value="filters.search" :placeholder="t('admin.poiskKlientGruzKonteyner')"
-        style="width: 280px" allow-clear @search="reload"
+        v-model:value="filters.search" :placeholder="t('admin.poiskKlientGruzKonteyner')" allow-clear @search="reload"
       />
       <!-- Аудит 2026-09-28, п.10: текстовые поля дат слали запрос на каждое нажатие клавиши —
            заменено на a-range-picker, запрос уходит только когда выбран полный диапазон (или он сброшен). -->
-      <a-range-picker v-model:value="dateRange" :placeholder="[t('admin.sDatyGgggMm'), t('admin.poDatuGgggMm')]" style="width: 260px" @change="onDateRangeChange" />
+      <a-range-picker v-model:value="dateRange" :placeholder="[t('admin.sDatyGgggMm'), t('admin.poDatuGgggMm')]" @change="onDateRangeChange" />
       <a-button :disabled="!rows.length" @click="exportXlsx"><DownloadOutlined /> Excel</a-button>
     </div>
 
-    <a-table
+    <a-table class="crm-table-cards"
       :data-source="rows"
       :columns="columns"
       :loading="loading"
@@ -55,6 +55,7 @@
         </template>
       </template>
     </a-table>
+    </a-card>
   </div>
 </template>
 
@@ -186,5 +187,5 @@ onMounted(() => void load())
 
 <style scoped>
 .registry-page { display: flex; flex-direction: column; gap: 16px; }
-.filters { display: flex; gap: 10px; flex-wrap: wrap; }
+.filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 </style>

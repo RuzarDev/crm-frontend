@@ -28,7 +28,7 @@
         :loading="usersStore.loading"
         :pagination="false"
         :row-key="(record: CatalogTableRow) => record.id"
-        :scroll="{ x: 960 }"
+        :scroll="{ x: 1100 }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'role'">
@@ -57,7 +57,7 @@
             <a-tag v-if="poaMap[record.id]?.enabled && !poaMap[record.id]?.complete" color="warning" style="margin-left: 6px">{{ t('admin.profilNeZapolnen') }}</a-tag>
           </template>
           <template v-else-if="column.key === 'actions'">
-            <a-space>
+            <a-space wrap :size="[2, 0]">
               <a-button
                 v-if="canChangeBusinessRole && ['staff', 'administrators'].includes(catalogTab)"
                 type="link"
@@ -554,11 +554,13 @@ const tableColumns = computed(() => {
         {
           title: t('admin.deystviya'),
           key: 'actions',
+          // Закреплена справа: при горизонтальной прокрутке действия не уезжают за край.
+          fixed: 'right' as const,
           width:
             (catalogTab.value === 'staff' && canEditBroker.value) ||
             (catalogTab.value === 'expeditors' && canEditExpeditor.value)
-              ? 200
-              : 120,
+              ? 320
+              : 260,
         },
       ]
     : []
@@ -835,7 +837,7 @@ const handleChangeRoleSave = async () => {
 
 .relations-cell {
   font-size: 13px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 
 .role-tag {
@@ -851,25 +853,25 @@ const handleChangeRoleSave = async () => {
 .role-tag--administrator {
   background: rgba(17, 20, 19, 0.08);
   border-color: rgba(17, 20, 19, 0.15);
-  color: var(--atg-ink);
+  color: var(--z-ink);
 }
 
 .role-tag--broker {
   background: rgba(37, 95, 143, 0.08);
   border-color: rgba(37, 95, 143, 0.2);
-  color: var(--atg-blue);
+  color: var(--z-teal);
 }
 
 .role-tag--expeditor {
   background: rgba(40, 107, 75, 0.08);
   border-color: rgba(40, 107, 75, 0.2);
-  color: var(--atg-green);
+  color: var(--z-success);
 }
 
 .role-tag--client {
-  background: var(--atg-accent-soft);
+  background: var(--z-teal-soft);
   border-color: rgba(200, 149, 53, 0.25);
-  color: var(--atg-accent-strong);
+  color: var(--z-teal-d);
 }
 .roles-cell { display: inline-flex; gap: 6px; flex-wrap: wrap; }
 </style>

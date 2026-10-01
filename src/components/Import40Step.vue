@@ -43,12 +43,12 @@ const expanded = ref(false)
 
 <style scoped>
 .step {
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: var(--atg-radius-lg);
-  background: var(--atg-surface);
+  background: var(--z-surface);
 }
 .step--current {
-  border-color: var(--atg-teal);
+  border-color: var(--z-teal);
   box-shadow: var(--atg-shadow);
 }
 .step--future {
@@ -72,38 +72,38 @@ const expanded = ref(false)
   justify-content: center;
   font-size: 13px;
   font-weight: 600;
-  background: var(--atg-line);
+  background: var(--z-line);
   flex-shrink: 0;
 }
 .step--current .step-badge {
-  background: var(--atg-teal);
+  background: var(--z-teal);
   color: #fff;
 }
 .step--done .step-badge {
-  background: var(--atg-teal-weak, #d9f0ee);
-  color: var(--atg-teal);
+  background: var(--z-teal-soft);
+  color: var(--z-teal);
 }
 .step-title {
   font-weight: 600;
 }
 .step-summary {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12px;
   margin-left: auto;
 }
 .step-now {
-  color: var(--atg-teal);
+  color: var(--z-teal);
   font-size: 12px;
   font-weight: 600;
   margin-left: auto;
 }
 .step-executor {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12px;
   margin-left: auto;
 }
 .step-chevron {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   transition: transform 0.2s;
 }
 .step-chevron.open {

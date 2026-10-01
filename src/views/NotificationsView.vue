@@ -7,8 +7,8 @@
       </template>
     </PageHeader>
 
-    <a-card :bordered="false">
-      <div v-if="items.length === 0 && !loading" style="text-align: center; padding: 48px; color: #999"> {{ t('misc.uvedomleniyNet') }} </div>
+    <a-card :bordered="false" class="crm-shell-card">
+      <EmptyState v-if="items.length === 0 && !loading" :icon="BellOutlined" :title="t('misc.uvedomleniyNet')" />
 
       <a-list
         v-else
@@ -63,6 +63,8 @@ import dayjs from 'dayjs'
 import { useNotificationsStore } from '@/stores/notifications'
 import { notificationsApi } from '@/api/notifications'
 import PageHeader from '@/components/PageHeader.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import { BellOutlined } from '@ant-design/icons-vue'
 import type { AppNotification } from '@/types/api'
 
 const { t } = useI18n()
@@ -123,11 +125,9 @@ const openItem = async (item: AppNotification) => {
 
 <style scoped>
 .notifications-view {
-  max-width: 900px;
-  margin: 0 auto;
 }
 
 .notif-unread {
-  background: #e6f4ff;
+  background: var(--z-teal-soft);
 }
 </style>

@@ -87,5 +87,5 @@ watch(() => props.value, (v) => { void ensureLabel(v) }, { immediate: true })
 <style scoped>
 .kato-opt { display: flex; flex-direction: column; line-height: 1.25; }
 .kato-opt__name { font-weight: 500; }
-.kato-opt__meta { font-size: 12px; color: var(--atg-muted, #95a1b7); }
+.kato-opt__meta { font-size: 12px; color: var(--z-muted); }
 </style>

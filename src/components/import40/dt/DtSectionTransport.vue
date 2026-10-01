@@ -228,7 +228,7 @@ function copyArrivalHeadToBorder() {
 }
 .transport-hint {
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   align-self: center;
 }
 .transport-count {

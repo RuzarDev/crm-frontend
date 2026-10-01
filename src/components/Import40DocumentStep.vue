@@ -226,26 +226,26 @@ const statusColor = (doc: Import40DocumentDto) =>
 
 <style scoped>
 .doc-step { display: flex; flex-direction: column; gap: 14px; }
-.card-title { display: flex; align-items: center; gap: 9px; color: var(--atg-ink); font-weight: 800; font-size: 15px; }
-.card-title :deep(.anticon) { color: var(--atg-accent-strong); }
+.card-title { display: flex; align-items: center; gap: 9px; color: var(--z-ink); font-weight: 800; font-size: 15px; }
+.card-title :deep(.anticon) { color: var(--z-teal-d); }
 .generate-blocked { margin-bottom: 12px; }
-.generate-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 14px; border: 1px dashed var(--atg-line); border-radius: var(--atg-radius); }
-.muted { color: var(--atg-muted); font-size: 13px; line-height: 1.55; margin: 0; }
+.generate-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 14px; border: 1px dashed var(--z-line); border-radius: var(--atg-radius); }
+.muted { color: var(--z-muted); font-size: 13px; line-height: 1.55; margin: 0; }
 .doc-empty { padding: 4px 0; }
 .doc-list { display: flex; flex-direction: column; gap: 14px; }
-.doc-card { border: 1px solid var(--atg-line); border-radius: var(--atg-radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.doc-card { border: 1px solid var(--z-line); border-radius: var(--atg-radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
 .doc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
-.doc-number { font-size: 16px; font-weight: 800; color: var(--atg-ink); }
+.doc-number { font-size: 16px; font-weight: 800; color: var(--z-ink); }
 .doc-tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .doc-actions { display: flex; gap: 8px; }
 .sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.sign-block { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--atg-line); border-radius: var(--atg-radius); align-content: start; }
+.sign-block { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--z-line); border-radius: var(--atg-radius); align-content: start; }
 .sign-head { display: flex; align-items: center; gap: 10px; }
-.sign-head strong { color: var(--atg-ink); font-size: 13px; font-weight: 800; }
+.sign-head strong { color: var(--z-ink); font-size: 13px; font-weight: 800; }
 .sign-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .sign-hint { margin: 0; font-size: 12px; }
 .advanced-collapse { flex: 1; min-width: 240px; }
-.advanced-collapse :deep(.ant-collapse-header) { padding: 0 !important; font-size: 13px; color: var(--atg-muted); }
+.advanced-collapse :deep(.ant-collapse-header) { padding: 0 !important; font-size: 13px; color: var(--z-muted); }
 .advanced-collapse :deep(.ant-collapse-content-box) { padding: 10px 0 0 !important; }
 .advanced-fields { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .doc-summary { display: flex; align-items: center; gap: 10px; cursor: pointer; }

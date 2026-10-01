@@ -8,7 +8,7 @@
     :ok-button-props="isClientView ? { style: { display: 'none' } } : undefined"
     @ok="handleSubmit"
     @cancel="handleCancel"
-    :width="showTabs ? '960px' : '800px'"
+    :width="showTabs ? '1040px' : '760px'"
   >
     <template v-if="isClientView" #footer>
       <a-button type="primary" @click="handleCancel">{{ t('transit.zakryt') }}</a-button>

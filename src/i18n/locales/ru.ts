@@ -14,6 +14,9 @@ export default {
     loginNoToken: 'Ошибка входа: в ответе нет токена',
   },
   common: {
+    emptyTitle: 'Здесь пока пусто',
+    emptyHint: 'Записи появятся, когда их добавят; проверьте и фильтры выше',
+    emptyInline: 'Нет вариантов',
     save: 'Сохранить',
     cancel: 'Отмена',
     refresh: 'Обновить',

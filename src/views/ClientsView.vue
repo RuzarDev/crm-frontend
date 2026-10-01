@@ -16,14 +16,14 @@
     </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
-      <div class="filters">
+      <div class="filters crm-filter-bar">
         <a-input v-model:value="search" allow-clear :placeholder="t('admin.poiskPoKompaniiEmail')" style="max-width: 320px">
           <template #prefix><SearchOutlined /></template>
         </a-input>
         <a-segmented v-model:value="statusFilter" :options="statusFilterOptions" />
       </div>
 
-      <a-table
+      <a-table class="crm-table-cards"
         :columns="columns"
         :data-source="filtered"
         :loading="loading"
@@ -369,18 +369,18 @@ const unblock = async (row: ClientOnboardingRow) => { await clientsOnboardingApi
 }
 .doc-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .doc-title { font-weight: 600; }
-.doc-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); }
+.doc-sub { font-size: 12px; color: var(--z-muted); }
 .doc-signs { display: flex; gap: 6px; flex-wrap: wrap; }
 .clients-view { display: flex; flex-direction: column; gap: 18px; }
 .filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
 .client-name-cell { display: flex; align-items: center; gap: 10px; }
 .client-avatar {
   width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; flex: 0 0 auto;
-  background: var(--z-teal-soft, #e6f7fb); color: var(--atg-teal-dark, #149bb2); font-weight: 700;
+  background: var(--z-teal-soft, #e6f7fb); color: var(--z-teal-d); font-weight: 700;
 }
-.client-company { font-weight: 650; color: var(--atg-ink, #182640); }
-.client-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); }
-.hint { margin: 0 0 12px; color: var(--atg-muted, #6b7891); font-size: 13px; }
+.client-company { font-weight: 650; color: var(--z-ink); }
+.client-sub { font-size: 12px; color: var(--z-muted); }
+.hint { margin: 0 0 12px; color: var(--z-muted); font-size: 13px; }
 .bin-row { display: flex; gap: 8px; align-items: center; }
 .bin-row .ant-input { flex: 1; }
 .invite-link { display: flex; gap: 8px; margin: 14px 0 6px; }

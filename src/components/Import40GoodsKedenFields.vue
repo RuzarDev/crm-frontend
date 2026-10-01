@@ -755,5 +755,5 @@ const importMarkingsFromExcel = async (g: Import40GoodsItemInput, file: File) =>
 .copy-head { display: flex; align-items: center; justify-content: space-between; }
 .copy-list { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; }
 .copy-item { margin-left: 0; }
-.field-label { font-size: 12.5px; font-weight: 500; color: var(--z-ink-2); }
+.field-label { font-size: 13px; font-weight: 500; color: var(--z-ink-2); }
 </style>

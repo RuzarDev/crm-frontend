@@ -314,6 +314,26 @@ a {
   align-items: center;
 }
 
+/* Единая полоса фильтров над таблицами (аудит дизайна 01.10): поиск растягивается, списки и период —
+   с минимальной шириной (даты больше не обрезаются), на телефоне — по одному в строку. */
+.crm-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.crm-filter-bar > .ant-input-affix-wrapper,
+.crm-filter-bar > .ant-input-search,
+.crm-filter-bar > .ant-input { flex: 1 1 260px; max-width: 380px; }
+.crm-filter-bar > .ant-select { flex: 0 1 220px; min-width: 170px; }
+.crm-filter-bar > .ant-picker-range { flex: 0 1 300px; min-width: 260px; }
+.crm-filter-bar > .ant-picker:not(.ant-picker-range) { flex: 0 1 170px; min-width: 150px; }
+.crm-filter-bar-end { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+@media (max-width: 640px) {
+  .crm-filter-bar > * { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
+  .crm-filter-bar-end { margin-left: 0; }
+}
+
 .crm-shell-card {
   border: 1px solid var(--atg-line);
   border-top: 3px solid var(--atg-cyan);
@@ -532,9 +552,12 @@ a {
 }
 
 /* Form */
+/* Единая подпись поля (аудит дизайна 01.10): 13px, 500, приглушённый тёмный — так же оформлены
+   .zf-label, .field-label реестра и <label><span> форм заявки/компании/реквизитов. */
 .ant-form-item-label > label {
-  font-weight: 600;
-  color: var(--atg-charcoal);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--z-ink-2);
 }
 
 /* ─── Table — full custom override ──────────────────────── */
@@ -1332,7 +1355,7 @@ a {
 .zf-field > .ant-select, .zf-field > .ant-input-number, .zf-field > .ant-picker,
 .zf-field > .ant-input-affix-wrapper { width: 100%; }
 .zf-label {
-  font-size: 12.5px; font-weight: 500; line-height: 18px; color: var(--z-ink-2);
+  font-size: 13px; font-weight: 500; line-height: 18px; color: var(--z-ink-2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .zf-label .zf-label-note { color: var(--z-teal-d); font-weight: 600; }
@@ -1345,3 +1368,45 @@ a {
 }
 .zf-sec-actions { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-weight: 400; }
 .zf-help { font-size: 12px; line-height: 1.4; color: var(--z-muted); }
+
+/* Пустой выпадающий список (renderEmpty в App.vue) */
+.z-empty-inline { padding: 8px 12px; font-size: 13px; color: var(--z-muted); }
+
+/* ── Таблица → карточки на телефоне (аудит дизайна 01.10) ──────────────────────
+   Класс на <a-table>: до 640px шапка прячется, каждая строка — карточка: первая ячейка заголовком
+   на всю ширину, остальные — ниже в строку. Вместо горизонтальной прокрутки по 6 колонкам. */
+@media (max-width: 640px) {
+  .crm-table-cards .ant-table-thead,
+  .crm-table-cards colgroup,
+  .crm-table-cards .ant-table-measure-row { display: none; }
+  .crm-table-cards .ant-table-content { overflow: visible !important; }
+  .crm-table-cards table { width: 100% !important; min-width: 0 !important; table-layout: auto !important; }
+  .crm-table-cards table,
+  .crm-table-cards .ant-table-tbody { display: block; }
+  .crm-table-cards .ant-table-tbody > tr.ant-table-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--z-line);
+  }
+  .crm-table-cards .ant-table-tbody > tr.ant-table-row > td {
+    display: block;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    font-size: 13px !important;
+    color: var(--z-ink-2) !important;
+    max-width: 100%;
+  }
+  .crm-table-cards .ant-table-tbody > tr.ant-table-row > td:first-child {
+    flex: 1 1 100%;
+    color: var(--z-ink) !important;
+    font-size: 14px !important;
+  }
+  .crm-table-cards .ant-table-tbody > tr.ant-table-row > td.ant-table-selection-column { flex: none; }
+  .crm-table-cards .ant-table-tbody > tr.ant-table-row > td:empty { display: none; }
+  .crm-table-cards .ant-table-cell-fix-left,
+  .crm-table-cards .ant-table-cell-fix-right { position: static !important; }
+}

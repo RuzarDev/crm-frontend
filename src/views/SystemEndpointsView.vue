@@ -111,6 +111,6 @@ onMounted(async () => {
 .route-cell {
   font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
   font-size: 12px;
-  color: var(--atg-ink);
+  color: var(--z-ink);
 }
 </style>

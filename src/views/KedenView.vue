@@ -105,8 +105,8 @@ onMounted(() => void reload())
 .status-chip {
   display: inline-flex;
   border-radius: 999px;
-  background: var(--atg-teal-soft);
-  color: var(--atg-accent-strong);
+  background: var(--z-teal-soft);
+  color: var(--z-teal-d);
   padding: 4px 12px;
   font-size: 12px;
   font-weight: 700;
@@ -123,7 +123,7 @@ onMounted(() => void reload())
 }
 
 .synced-note {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12.5px;
 }
 
@@ -140,7 +140,7 @@ onMounted(() => void reload())
 }
 
 .meta-item span {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
@@ -148,7 +148,7 @@ onMounted(() => void reload())
 }
 
 .meta-item strong {
-  color: var(--atg-ink);
+  color: var(--z-ink);
   font-size: 14.5px;
   font-weight: 700;
 }
@@ -156,7 +156,7 @@ onMounted(() => void reload())
 .raw-json {
   max-height: 480px;
   overflow: auto;
-  background: var(--atg-surface-alt, #f7f7f7);
+  background: var(--z-surface-2);
   border-radius: var(--atg-radius-lg);
   padding: 16px;
   font-size: 12.5px;

@@ -2,7 +2,7 @@
   <a-modal
     :open="open"
     :title="t('transit.zapolnenieIzInvoysa')"
-    width="900px"
+    width="1040px"
     :confirm-loading="applying"
     :ok-text="t('transit.primenit')"
     :cancel-text="t('transit.zakryt')"

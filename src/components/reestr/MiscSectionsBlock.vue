@@ -106,34 +106,34 @@ function removeItem(idx: number) {
 .subsection-title {
   font-size: 12px;
   font-weight: 700;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 10px 0 4px;
 }
 .cargo-ops-header { display: flex; justify-content: flex-end; margin-bottom: 6px; }
-.empty-state { font-size: 12px; color: var(--atg-muted); font-style: italic; padding: 4px 0; }
+.empty-state { font-size: 12px; color: var(--z-muted); font-style: italic; padding: 4px 0; }
 .field-row { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; align-items: flex-end; }
 .field { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 3px; }
 .field.f-grow { flex: 2; min-width: 220px; }
 .field-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--atg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--z-ink-2);
 }
 .row-card {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: 6px;
   padding: 10px 12px;
-  background: var(--atg-surface, var(--atg-bg));
+  background: var(--z-surface);
   margin-bottom: 8px;
 }
 .row-card .field { flex: 1; }
-.del-btn { color: var(--atg-danger, #ff4d4f) !important; padding: 0 4px !important; height: 20px !important; font-size: 13px !important; }
+.del-btn { color: var(--z-danger) !important; padding: 0 4px !important; height: 20px !important; font-size: 13px !important; }
 </style>

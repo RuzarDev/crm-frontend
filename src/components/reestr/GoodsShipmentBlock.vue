@@ -119,7 +119,7 @@ onMounted(async () => {
 .subsection-title {
   font-size: 12px;
   font-weight: 700;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 10px 0 4px;
@@ -129,11 +129,11 @@ onMounted(async () => {
 .field.f-2 { flex: 2; min-width: 220px; }
 .field.f-narrow { flex: 0 0 auto; min-width: 0; }
 .field-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--atg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--z-ink-2);
 }
 </style>

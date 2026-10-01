@@ -684,13 +684,14 @@ const onExcelFile: UploadProps['beforeUpload'] = (file) => {
 .section-label {
   font-size: 12px;
   font-weight: 700;
-  color: var(--atg-muted);
-  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--z-ink);
 }
 
 .empty-state {
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-style: italic;
   padding: 6px 0 2px;
 }

@@ -136,7 +136,7 @@ const goToRegister = () => router.push('/register')
 
 <style scoped>
 .auth-forgot { text-align: right; margin-bottom: 10px; font-size: 13px; }
-.auth-forgot a { color: var(--atg-teal, #23B5D3); cursor: pointer; }
+.auth-forgot a { color: var(--z-teal); cursor: pointer; }
 /* ── Page shell ─────────────────────────────────────────────── */
 
 .auth-page {
@@ -152,7 +152,7 @@ const goToRegister = () => router.push('/register')
   position: relative;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(145deg, #0f1d36 0%, #0E1B35 45%, #1a3050 100%);
+  background: linear-gradient(145deg, #0f1d36 0%, var(--z-ink) 45%, #1a3050 100%);
   overflow: hidden;
 }
 
@@ -248,7 +248,7 @@ const goToRegister = () => router.push('/register')
   align-items: center;
   gap: 8px;
   margin-bottom: 20px;
-  color: #23B5D3;
+  color: var(--z-teal);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -260,7 +260,7 @@ const goToRegister = () => router.push('/register')
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #23B5D3;
+  background: var(--z-teal);
   box-shadow: 0 0 8px rgba(35, 181, 211, 0.8);
   animation: pulse-dot 2s ease-in-out infinite;
 }
@@ -325,7 +325,7 @@ const goToRegister = () => router.push('/register')
   border: 1px solid rgba(35, 181, 211, 0.3);
   border-radius: 999px;
   background: rgba(35, 181, 211, 0.08);
-  color: #1580A6;
+  color: var(--z-teal-d);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -334,7 +334,7 @@ const goToRegister = () => router.push('/register')
 
 .auth-form-title {
   margin: 0 0 6px;
-  color: #0E1B35;
+  color: var(--z-ink);
   font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -349,7 +349,7 @@ const goToRegister = () => router.push('/register')
 
 /* Form fields */
 .auth-form :deep(.ant-form-item-label > label) {
-  color: #0E1B35;
+  color: var(--z-ink);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -368,7 +368,7 @@ const goToRegister = () => router.push('/register')
 
 .auth-form :deep(.ant-input-affix-wrapper-lg:focus-within),
 .auth-form :deep(.ant-input-affix-wrapper-focused) {
-  border-color: #23B5D3 !important;
+  border-color: var(--z-teal) !important;
   box-shadow: 0 0 0 3px rgba(35, 181, 211, 0.14) !important;
 }
 
@@ -386,7 +386,7 @@ const goToRegister = () => router.push('/register')
 .auth-submit-btn {
   min-height: 52px !important;
   border-radius: 10px !important;
-  background: #23B5D3 !important;
+  background: var(--z-teal) !important;
   border: none !important;
   font-size: 15px !important;
   font-weight: 700 !important;
@@ -413,7 +413,7 @@ const goToRegister = () => router.push('/register')
 
 .auth-footer-link a {
   margin-left: 4px;
-  color: #1580A6;
+  color: var(--z-teal-d);
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
@@ -421,7 +421,7 @@ const goToRegister = () => router.push('/register')
 }
 
 .auth-footer-link a:hover {
-  color: #0E1B35;
+  color: var(--z-ink);
 }
 
 /* ── Responsive ─────────────────────────────────────────────── */

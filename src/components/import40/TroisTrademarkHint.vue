@@ -68,7 +68,7 @@ const lines = computed<Line[]>(() => {
 .trois-hint { margin-top: 4px; line-height: 1.4; }
 .trois-line { font-size: 12px; }
 .trois-line.warn { color: var(--z-warning, #8a6410); background: var(--z-warning-soft, #fdf1d8); border-radius: var(--r-sm, 6px); padding: 3px 8px; font-weight: 500; }
-.trois-line.info { color: var(--z-muted, #8c95a6); }
-.trois-line.quiet { color: var(--z-muted, #8c95a6); opacity: 0.85; }
+.trois-line.info { color: var(--z-muted, var(--z-muted)); }
+.trois-line.quiet { color: var(--z-muted, var(--z-muted)); opacity: 0.85; }
 .trois-line + .trois-line { margin-top: 2px; }
 </style>

@@ -36,7 +36,7 @@
       </a-card>
 
       <a-card class="crm-shell-card" :bordered="false">
-        <div class="toolbar">
+        <div class="toolbar crm-filter-bar">
           <a-input
             v-model:value="search"
             allow-clear
@@ -46,7 +46,7 @@
             @change="fetchPackages"
           >
             <template #prefix>
-              <SearchOutlined style="color: var(--atg-muted)" />
+              <SearchOutlined style="color: var(--z-muted)" />
             </template>
           </a-input>
           <div class="toolbar-sep"></div>
@@ -69,7 +69,7 @@
           :loading="loading"
           :pagination="{ pageSize: 10 }"
           row-key="id"
-          class="packages-table"
+          class="crm-table-cards packages-table"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'trainNumber'">
@@ -467,9 +467,9 @@ const formatFileSize = (bytes: number) => {
 /* Remove any left-border artifact — crm-shell-card should only have top teal border */
 .document-packages-view :deep(.crm-shell-card),
 .document-packages-view :deep(.ant-card) {
-  border-left: 1px solid var(--atg-line) !important;
-  border-right: 1px solid var(--atg-line) !important;
-  border-bottom: 1px solid var(--atg-line) !important;
+  border-left: 1px solid var(--z-line) !important;
+  border-right: 1px solid var(--z-line) !important;
+  border-bottom: 1px solid var(--z-line) !important;
 }
 
 /* Make packages-table fill card without extra wrapper border */
@@ -481,7 +481,7 @@ const formatFileSize = (bytes: number) => {
 
 .muted {
   margin: 4px 0 0;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12.5px;
 }
 
@@ -491,7 +491,7 @@ const formatFileSize = (bytes: number) => {
   gap: 8px;
   font-size: 15px;
   font-weight: 700;
-  color: var(--atg-ink);
+  color: var(--z-ink);
 }
 
 .client-chips {
@@ -507,14 +507,14 @@ const formatFileSize = (bytes: number) => {
   padding: 8px 14px;
   border: 1px solid rgba(35, 181, 211, 0.28);
   border-radius: 8px;
-  color: var(--atg-text);
+  color: var(--z-ink);
   background: rgba(35, 181, 211, 0.06);
   font-size: 13px;
   font-weight: 600;
 }
 
 .client-chip small {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12px;
 }
 
@@ -524,7 +524,7 @@ const formatFileSize = (bytes: number) => {
   gap: 10px;
   margin-bottom: 16px;
   padding: 12px 16px;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: 12px;
   background: #ffffff;
   box-shadow: 0 1px 4px rgba(14, 27, 53, 0.05);
@@ -533,7 +533,7 @@ const formatFileSize = (bytes: number) => {
 .toolbar-sep {
   width: 1px;
   height: 22px;
-  background: var(--atg-line-strong);
+  background: var(--z-line-strong);
   flex-shrink: 0;
 }
 
@@ -558,15 +558,15 @@ const formatFileSize = (bytes: number) => {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  border-color: var(--atg-line) !important;
-  color: var(--atg-muted) !important;
+  border-color: var(--z-line) !important;
+  color: var(--z-muted) !important;
   transition: color 0.15s, background 0.15s !important;
 }
 
 .refresh-btn:hover {
-  color: var(--atg-accent-strong) !important;
-  background: var(--atg-teal-soft) !important;
-  border-color: var(--atg-accent-strong) !important;
+  color: var(--z-teal-d) !important;
+  background: var(--z-teal-soft) !important;
+  border-color: var(--z-teal-d) !important;
 }
 
 .status-filter {
@@ -576,7 +576,7 @@ const formatFileSize = (bytes: number) => {
 .link-button {
   padding: 0;
   border: 0;
-  color: var(--atg-accent-strong);
+  color: var(--z-teal-d);
   font: inherit;
   font-weight: 700;
   background: transparent;
@@ -585,22 +585,22 @@ const formatFileSize = (bytes: number) => {
 }
 
 .link-button:hover {
-  color: var(--atg-teal-dark);
+  color: var(--z-teal-d);
   text-decoration: underline;
 }
 
 .native-file {
   width: 100%;
   padding: 12px;
-  border: 1.5px dashed var(--atg-line-strong);
+  border: 1.5px dashed var(--z-line-strong);
   border-radius: 8px;
-  background: var(--atg-bg);
+  background: var(--z-bg);
   cursor: pointer;
   transition: border-color var(--atg-transition);
 }
 
 .native-file:hover {
-  border-color: var(--atg-teal);
+  border-color: var(--z-teal);
 }
 
 .selected-files {
@@ -608,7 +608,7 @@ const formatFileSize = (bytes: number) => {
   flex-direction: column;
   gap: 4px;
   margin-top: 10px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12px;
 }
 
@@ -619,19 +619,19 @@ const formatFileSize = (bytes: number) => {
   gap: 12px;
   margin-bottom: 16px;
   padding-bottom: 16px;
-  border-bottom: 1px solid var(--atg-line);
+  border-bottom: 1px solid var(--z-line);
 }
 
 .details-head h2 {
   margin: 4px 0 0;
   font-size: 18px;
   font-weight: 800;
-  color: var(--atg-ink);
+  color: var(--z-ink);
 }
 
 .details-head p {
   font-size: 12.5px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   margin: 2px 0 0;
 }
 
@@ -641,23 +641,23 @@ const formatFileSize = (bytes: number) => {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: var(--atg-accent-strong);
+  color: var(--z-teal-d);
 }
 
 .comment,
 .review-comment {
   padding: 12px 16px;
   border-radius: 8px;
-  background: var(--atg-bg);
-  border: 1px solid var(--atg-line);
+  background: var(--z-bg);
+  border: 1px solid var(--z-line);
   margin-bottom: 12px;
   font-size: 13.5px;
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
 }
 
 .review-comment {
-  border-left: 3px solid var(--atg-gold);
-  background: var(--atg-gold-soft);
+  border-left: 3px solid var(--z-gold);
+  background: var(--z-gold-soft);
 }
 
 .detail-upload {

@@ -8,12 +8,11 @@
     </PageHeader>
 
     <a-card class="crm-shell-card" :bordered="false">
-      <div class="filters-row">
+      <div class="filters-row crm-filter-bar">
         <a-select
           v-model:value="typeFilter"
           allow-clear
           :placeholder="t('transit.tipDeklaracii')"
-          style="width: 320px"
           :options="typeOptions"
           @change="reload"
         />
@@ -27,7 +26,7 @@
         </a-input>
       </div>
 
-      <a-table
+      <a-table class="crm-table-cards"
         :columns="columns"
         :data-source="filteredItems"
         :loading="loading"
@@ -146,8 +145,8 @@ onMounted(() => void reload())
 .status-chip {
   display: inline-flex;
   border-radius: 999px;
-  background: var(--atg-teal-soft);
-  color: var(--atg-accent-strong);
+  background: var(--z-teal-soft);
+  color: var(--z-teal-d);
   padding: 4px 12px;
   font-size: 12px;
   font-weight: 700;

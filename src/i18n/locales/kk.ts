@@ -12,6 +12,9 @@ export default {
     loginNoToken: 'Кіру қатесі: жауапта токен жоқ',
   },
   common: {
+    emptyTitle: 'Әзірге бос',
+    emptyHint: 'Жазбалар қосылғанда пайда болады; жоғарыдағы сүзгілерді де тексеріңіз',
+    emptyInline: 'Нұсқалар жоқ',
     save: 'Сақтау',
     cancel: 'Болдырмау',
     refresh: 'Жаңарту',

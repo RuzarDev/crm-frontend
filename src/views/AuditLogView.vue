@@ -86,6 +86,6 @@ const fmt = (iso: string) => new Date(iso).toLocaleString('ru-RU')
 <style scoped>
 .audit-view { display: flex; flex-direction: column; gap: 18px; }
 .filters { margin-bottom: 14px; }
-.cell-main { font-weight: 600; color: var(--atg-ink, #182640); }
-.cell-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); }
+.cell-main { font-weight: 600; color: var(--z-ink); }
+.cell-sub { font-size: 12px; color: var(--z-muted); }
 </style>

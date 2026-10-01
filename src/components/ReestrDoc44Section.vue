@@ -299,13 +299,14 @@ function removeItem(idx: number) {
 .section-label {
   font-size: 12px;
   font-weight: 700;
-  color: var(--atg-muted);
-  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--z-ink);
 }
 
 .empty-state {
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-style: italic;
   padding: 6px 0 2px;
 }
@@ -314,10 +315,10 @@ function removeItem(idx: number) {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: 6px;
   padding: 10px 12px;
-  background: var(--atg-surface, var(--atg-bg));
+  background: var(--z-surface);
 }
 
 .doc-num {
@@ -328,8 +329,8 @@ function removeItem(idx: number) {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--atg-teal-soft, #e6f7f5);
-  color: var(--atg-teal, #00b8a0);
+  background: var(--z-teal-soft);
+  color: var(--z-teal);
   font-size: 12px;
   font-weight: 700;
   margin-top: 20px;
@@ -345,7 +346,7 @@ function removeItem(idx: number) {
 
 .del-btn {
   flex-shrink: 0;
-  color: var(--atg-danger, #ff4d4f) !important;
+  color: var(--z-danger) !important;
   padding: 0 4px !important;
   height: 20px !important;
   font-size: 13px !important;
@@ -371,12 +372,12 @@ function removeItem(idx: number) {
 }
 
 .field-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--atg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--z-ink-2);
 }
 
 .field :deep(.ant-input-sm),

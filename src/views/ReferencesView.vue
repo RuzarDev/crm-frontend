@@ -151,7 +151,7 @@
       </a-tab-pane>
     </a-tabs>
 
-    <a-modal v-model:open="eecOpen" :title="t('admin.eekSyncTitle')" width="780px" :footer="null">
+    <a-modal v-model:open="eecOpen" :title="t('admin.eekSyncTitle')" width="760px" :footer="null">
       <p class="muted">{{ t('admin.eekSyncHint') }}</p>
       <a-table :data-source="eecResults" :columns="eecColumns" row-key="target" size="small" :pagination="false" :scroll="{ x: 690, y: 420 }" />
     </a-modal>
@@ -507,7 +507,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.muted { color: var(--atg-muted, #95a1b7); font-size: 12px; }
+.muted { color: var(--z-muted); font-size: 12px; }
 .kato-try { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
 .eec-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 12px; }
 </style>

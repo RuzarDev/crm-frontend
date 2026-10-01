@@ -88,7 +88,7 @@ const submit = async () => {
 .invite-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .invite-page {
   min-height: 100vh; display: grid; place-items: center; padding: 24px;
-  background: linear-gradient(145deg, #0f1d36 0%, #0E1B35 45%, #1a3050 100%);
+  background: linear-gradient(145deg, #0f1d36 0%, var(--z-ink) 45%, #1a3050 100%);
 }
 .invite-card {
   width: 100%; max-width: 440px; background: #fff; border-radius: 16px; padding: 32px 28px;
@@ -97,8 +97,8 @@ const submit = async () => {
 .invite-badge {
   display: inline-flex; align-items: center; height: 26px; padding: 0 10px;
   border: 1px solid rgba(35, 181, 211, 0.3); border-radius: 999px; background: rgba(35, 181, 211, 0.08);
-  color: #1580A6; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--z-teal-d); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
 }
-.invite-title { margin: 0 0 8px; color: #0E1B35; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+.invite-title { margin: 0 0 8px; color: var(--z-ink); font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
 .invite-sub { margin: 0 0 20px; color: #5b6478; font-size: 14px; line-height: 1.5; }
 </style>

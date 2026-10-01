@@ -34,7 +34,7 @@
     <a-modal
       v-if="!isClientRole"
       v-model:open="createOpen"
-      :width="560"
+      :width="520"
       :title="t('import40List.newRequest')"
       :footer="null"
       @cancel="resetCreate"
@@ -77,7 +77,7 @@
     <a-modal
       v-else
       :open="createOpen"
-      :width="640"
+      :width="760"
       :title="t('import40List.wizardTitle')"
       :footer="null"
       :mask-closable="false"
@@ -250,7 +250,7 @@
       v-model:open="closeConfirmOpen"
       :title="t('import40List.closeConfirmTitle')"
       :footer="null"
-      :width="420"
+      :width="520"
     >
       <p class="muted">{{ t('import40List.closeConfirmDesc') }}</p>
       <div class="wizard-nav close-confirm-actions">
@@ -268,7 +268,7 @@
         <a-tab-pane key="my" :tab="isClientRole ? t('import40List.myTasksClient') : t('import40List.myTasks')" />
       </a-tabs>
 
-      <div class="list-filters">
+      <div class="list-filters crm-filter-bar">
         <a-input v-model:value="search" allow-clear :placeholder="isClientRole ? t('import40List.searchPhClient') : t('import40List.searchPh')">
           <template #prefix><SearchOutlined /></template>
         </a-input>
@@ -282,7 +282,7 @@
         :pagination="{ pageSize: 10, showSizeChanger: false }"
         :scroll="{ x: 820 }"
         row-key="id"
-        class="import-table"
+        class="import-table crm-table-cards"
         :custom-row="(r: Import40CaseDto) => ({ onClick: () => router.push(`/import-40/${r.id}`), style: 'cursor: pointer' })"
       >
         <template #emptyText>
@@ -961,7 +961,7 @@ onMounted(async () => {
 .list-filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
 .list-filters .ant-input-affix-wrapper { max-width: 360px; }
 
-.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #23B5D3); margin-right: 4px; }
+.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--z-teal); margin-right: 4px; }
 
 .case-cell {
   display: flex;
@@ -970,14 +970,12 @@ onMounted(async () => {
 }
 
 .create-grid label > span {
-  color: var(--atg-charcoal);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--z-ink-2);
 }
 .create-grid .req-star { color: #cf4a3c; font-weight: 700; }
-.create-grid .opt-hint { color: var(--atg-muted, #95a1b7); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 12px; }
+.create-grid .opt-hint { color: var(--z-muted); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 12px; }
 
 .uploaded-list { margin: 10px 0 0; padding: 0; list-style: none; font-size: 13px; display: grid; gap: 2px; }
 .uploaded-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -988,29 +986,29 @@ onMounted(async () => {
 .wizard-steps { margin: 4px 0 18px; }
 .wizard-body { min-height: 220px; }
 .w-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-.w-field > span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.w-field > span { color: var(--z-navy-3); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
 .wizard-container-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .bin-row { display: flex; gap: 8px; align-items: center; }
 .bin-row .ant-input { flex: 1; }
 .party-block { margin-bottom: 16px; }
 .party-head { display: flex; align-items: center; justify-content: space-between; }
-.sub-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--atg-charcoal); margin: 8px 0 8px; }
+.sub-label { margin: 8px 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--z-ink); }
 .doc-checklist { display: flex; flex-direction: column; gap: 6px; margin: 16px 0; }
 .responsibility-alert { border-radius: var(--atg-radius-lg); margin-top: 8px; }
 .resp-check { margin-top: 10px; font-weight: 600; }
-.wizard-nav { display: flex; align-items: center; gap: 10px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--atg-line, #eef1f6); }
+.wizard-nav { display: flex; align-items: center; gap: 10px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--z-line); }
 .wizard-nav-spacer { flex: 1; }
 .close-confirm-actions { border-top: none; padding-top: 0; margin-top: 8px; }
-.muted { color: var(--atg-muted, #95a1b7); font-size: 13px; margin: 0 0 4px; }
+.muted { color: var(--z-muted); font-size: 13px; margin: 0 0 4px; }
 
 /* Дропзона: полноценная зона перетаскивания (была тонкая полоска в одну строку) */
 .docs-dragger { margin-top: 14px; }
 .docs-dragger :deep(.ant-upload-drag) { border-radius: var(--atg-radius-lg); }
 .docs-dragger :deep(.ant-upload-btn) { padding: 22px 16px !important; }
 .dz-icon { margin: 0 0 6px; line-height: 1; }
-.dz-icon :deep(.anticon) { font-size: 34px; color: var(--atg-teal, #23B5D3); }
-.dz-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--atg-ink, #182640); }
-.dz-hint { margin: 4px 0 0; font-size: 12px; color: var(--atg-muted, #95a1b7); }
+.dz-icon :deep(.anticon) { font-size: 34px; color: var(--z-teal); }
+.dz-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--z-ink); }
+.dz-hint { margin: 4px 0 0; font-size: 12px; color: var(--z-muted); }
 
 /* Кнопки: перенос вместо обрезки длинной ссылки «Дозаполнить позже…» */
 .submit-actions {
@@ -1023,7 +1021,7 @@ onMounted(async () => {
 .submit-actions :deep(.ant-btn-link) { padding-left: 0; padding-right: 0; }
 
 .case-cell span {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12.5px;
 }
 

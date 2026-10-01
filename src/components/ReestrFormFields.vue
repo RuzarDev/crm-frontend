@@ -195,7 +195,7 @@ useTransitTotals(
 .subsection-title {
   font-size: 12px;
   font-weight: 700;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-top: 4px;
@@ -212,26 +212,25 @@ useTransitTotals(
   flex-direction: column;
   gap: 5px;
   padding: 10px 12px;
-  background: var(--atg-bg);
-  border: 1px solid var(--atg-line);
+  background: var(--z-bg);
+  border: 1px solid var(--z-line);
   border-radius: var(--atg-radius-sm);
   transition: border-color var(--atg-transition), background var(--atg-transition);
 }
 
 .field-row:focus-within {
-  border-color: var(--atg-accent);
+  border-color: var(--z-teal);
   background: #fffdf6;
 }
 
 .field-label {
-  font-size: 12px;
   line-height: 1.2;
-  color: var(--atg-muted);
-  font-weight: 600;
-  letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--z-ink-2);
 }
 
 .field-row :deep(.ant-input-sm) {
@@ -243,7 +242,7 @@ useTransitTotals(
   box-shadow: none !important;
   font-size: 13.5px;
   font-weight: 500;
-  color: var(--atg-text);
+  color: var(--z-ink);
 }
 
 .field-row :deep(.ant-input-sm:focus) {
@@ -252,7 +251,7 @@ useTransitTotals(
 
 .field-row :deep(.ant-input-sm[disabled]) {
   background: transparent;
-  color: var(--atg-text);
+  color: var(--z-ink);
   cursor: default;
 }
 </style>

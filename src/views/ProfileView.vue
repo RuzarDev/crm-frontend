@@ -287,7 +287,7 @@ const handleSave = async () => {
 }
 
 .profile-card :deep(.ant-card-head) {
-  border-bottom: 1px solid var(--atg-line);
+  border-bottom: 1px solid var(--z-line);
 }
 
 .card-title-row {
@@ -296,11 +296,11 @@ const handleSave = async () => {
   gap: 8px;
   font-size: 15px;
   font-weight: 700;
-  color: var(--atg-ink);
+  color: var(--z-ink);
 }
 
 .card-title-icon {
-  color: var(--atg-teal);
+  color: var(--z-teal);
   font-size: 16px;
 }
 
@@ -324,19 +324,19 @@ const handleSave = async () => {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 
 .meta-value {
   font-size: 14px;
   font-weight: 600;
-  color: var(--atg-ink);
+  color: var(--z-ink);
 }
 
 .meta-value--mono {
   font-family: monospace;
   font-size: 13px;
-  background: var(--atg-surface-muted);
+  background: var(--z-surface-2);
   padding: 2px 8px;
   border-radius: 5px;
   letter-spacing: 0.03em;
@@ -355,25 +355,25 @@ const handleSave = async () => {
 .role-tag--administrator {
   background: rgba(17, 20, 19, 0.08);
   border-color: rgba(17, 20, 19, 0.15);
-  color: var(--atg-ink);
+  color: var(--z-ink);
 }
 
 .role-tag--broker {
   background: rgba(37, 95, 143, 0.08);
   border-color: rgba(37, 95, 143, 0.2);
-  color: var(--atg-blue);
+  color: var(--z-teal);
 }
 
 .role-tag--expeditor {
   background: rgba(40, 107, 75, 0.08);
   border-color: rgba(40, 107, 75, 0.2);
-  color: var(--atg-green);
+  color: var(--z-success);
 }
 
 .role-tag--client {
-  background: var(--atg-accent-soft);
+  background: var(--z-teal-soft);
   border-color: rgba(200, 149, 53, 0.25);
-  color: var(--atg-accent-strong);
+  color: var(--z-teal-d);
 }
 
 .form-grid {
@@ -391,7 +391,7 @@ const handleSave = async () => {
 .card-hint {
   margin: 0 0 12px;
   font-size: 12.5px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 
 .profile-layout > .profile-card { margin-bottom: 16px; }

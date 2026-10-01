@@ -12,6 +12,9 @@ export default {
     loginNoToken: 'Login error: no token in the response',
   },
   common: {
+    emptyTitle: 'Nothing here yet',
+    emptyHint: 'Records appear once they are added; also check the filters above',
+    emptyInline: 'No options',
     save: 'Save',
     cancel: 'Cancel',
     refresh: 'Refresh',

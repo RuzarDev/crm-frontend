@@ -121,15 +121,17 @@ const resetAll = async () => {
 .perm-matrix { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 900px; }
 .perm-matrix th, .perm-matrix td { padding: 8px 10px; border-bottom: 1px solid var(--z-line-2, #eff2f8); }
 .perm-col { text-align: left; min-width: 260px; }
+/* Название права закреплено слева: при прокрутке ролей вправо видно, какая строка. */
+.perm-matrix .perm-col { position: sticky; left: 0; z-index: 1; background: var(--z-surface); box-shadow: 1px 0 0 var(--z-line); }
 .role-col { text-align: center; min-width: 120px; vertical-align: top; }
 .role-col--locked { opacity: .7; }
-.role-col-name { font-weight: 700; color: var(--atg-ink, #182640); font-size: 13px; }
-.role-col-slug { font-size: 12px; color: var(--atg-muted, #95a1b7); margin-top: 2px; }
+.role-col-name { font-weight: 700; color: var(--z-ink); font-size: 13px; }
+.role-col-slug { font-size: 12px; color: var(--z-muted); margin-top: 2px; }
 .role-save { margin-top: 6px; }
-.group-row td { background: var(--atg-surface-muted, #f5f7fb); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
+.group-row td { background: var(--z-surface-2); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--z-muted); }
 .perm-name { display: flex; flex-direction: column; }
-.perm-label { font-size: 13px; color: var(--atg-ink, #182640); }
+.perm-label { font-size: 13px; color: var(--z-ink); }
 .perm-cell { text-align: center; }
 .perm-cell.has-perm { background: rgba(35, 181, 211, 0.06); }
-.hint { margin: 14px 0 0; font-size: 12.5px; color: var(--atg-muted, #6b7891); }
+.hint { margin: 14px 0 0; font-size: 12.5px; color: var(--z-muted); }
 </style>

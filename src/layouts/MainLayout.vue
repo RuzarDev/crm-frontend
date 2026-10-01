@@ -744,7 +744,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .app-shell {
   background:
     linear-gradient(148deg, rgba(35, 181, 211, 0.04), transparent 26%),
-    var(--atg-bg);
+    var(--z-bg);
 }
 
 /* ─── Header ─────────────────────────────────────────────── */
@@ -760,8 +760,8 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   min-height: 64px;
   padding: 0 var(--sp-5, 24px);
   line-height: normal;
-  background: linear-gradient(135deg, #0E1B35 0%, #14244A 60%, #1A2D55 100%);
-  border-bottom: 2px solid #23B5D3;
+  background: linear-gradient(135deg, var(--z-ink) 0%, #14244A 60%, #1A2D55 100%);
+  border-bottom: 2px solid var(--z-teal);
   box-shadow: 0 2px 20px rgba(14, 27, 53, 0.5);
 }
 
@@ -860,16 +860,16 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 }
 
 .notif-btn:hover {
-  color: #0E1B35 !important;
-  border-color: #23B5D3 !important;
-  background: #23B5D3 !important;
+  color: var(--z-ink) !important;
+  border-color: var(--z-teal) !important;
+  background: var(--z-teal) !important;
 }
 
 .notif-dropdown {
   width: 320px;
   background: #fff;
   border-radius: var(--atg-radius-lg);
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   box-shadow: var(--atg-shadow-lg);
   overflow: hidden;
 }
@@ -879,13 +879,13 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px 10px;
-  border-bottom: 1px solid var(--atg-line);
+  border-bottom: 1px solid var(--z-line);
 }
 
 .notif-title {
   font-size: 13px;
   font-weight: 750;
-  color: var(--atg-ink);
+  color: var(--z-ink);
   letter-spacing: -0.01em;
 }
 
@@ -897,7 +897,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .notif-item {
   padding: 10px 16px;
   cursor: pointer;
-  border-bottom: 1px solid var(--atg-line);
+  border-bottom: 1px solid var(--z-line);
   transition: background var(--atg-transition);
 }
 
@@ -906,18 +906,18 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 }
 
 .notif-item:hover {
-  background: var(--atg-accent-soft);
+  background: var(--z-teal-soft);
 }
 
 .notif-item--unread {
-  border-left: 3px solid var(--atg-teal);
+  border-left: 3px solid var(--z-teal);
   padding-left: 13px;
 }
 
 .notif-title-row {
   font-size: 13px;
   font-weight: 700;
-  color: var(--atg-ink, #182640);
+  color: var(--z-ink);
   line-height: 1.4;
   margin-bottom: 2px;
 }
@@ -925,7 +925,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .notif-msg {
   font-size: 12.5px;
   font-weight: 500;
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
   line-height: 1.5;
 }
 
@@ -933,30 +933,30 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   display: inline-block;
   margin-top: 3px;
   padding: 1px 7px;
-  background: var(--atg-teal-soft);
+  background: var(--z-teal-soft);
   border-radius: 4px;
   font-size: 12px;
   font-weight: 700;
   font-family: monospace;
-  color: var(--atg-teal-dark);
+  color: var(--z-teal-d);
   letter-spacing: 0.04em;
 }
 
 .notif-time {
   margin-top: 4px;
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 
 .notif-empty {
   padding: 24px 16px;
   text-align: center;
   font-size: 13px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 
 .notif-footer {
-  border-top: 1px solid var(--atg-line);
+  border-top: 1px solid var(--z-line);
   text-align: center;
 }
 
@@ -978,9 +978,9 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 }
 
 .user-menu-trigger:hover {
-  color: #0E1B35;
-  border-color: #23B5D3;
-  background: #23B5D3;
+  color: var(--z-ink);
+  border-color: var(--z-teal);
+  background: var(--z-teal);
 }
 
 .user-avatar {
@@ -991,7 +991,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   height: 28px;
   border-radius: 50%;
   background: rgba(35, 181, 211, 0.18);
-  color: #23B5D3;
+  color: var(--z-teal);
   font-size: 13px;
   font-weight: 800;
   flex-shrink: 0;
@@ -1016,7 +1016,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 }
 
 .user-menu-trigger:hover .user-role { color: rgba(14, 27, 53, 0.7); }
-.user-menu-trigger:hover .user-avatar { background: rgba(14, 27, 53, 0.15); color: #0E1B35; }
+.user-menu-trigger:hover .user-avatar { background: rgba(14, 27, 53, 0.15); color: var(--z-ink); }
 
 .user-menu-caret {
   font-size: 12px;
@@ -1032,7 +1032,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 
 .bell-btn:hover,
 .bell-btn:focus {
-  color: #23B5D3;
+  color: var(--z-teal);
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -1041,7 +1041,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   max-height: 420px;
   overflow-y: auto;
   background: #fff;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: 10px;
   box-shadow: 0 8px 28px rgba(14, 27, 53, 0.12);
 }
@@ -1049,23 +1049,23 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .notif-head {
   padding: 10px 14px;
   font-weight: 700;
-  border-bottom: 1px solid var(--atg-line);
+  border-bottom: 1px solid var(--z-line);
 }
 
 .notif-empty {
   padding: 18px;
   text-align: center;
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 
 .notif-item {
   padding: 10px 14px;
-  border-bottom: 1px solid var(--atg-line);
+  border-bottom: 1px solid var(--z-line);
   cursor: pointer;
 }
 
 .notif-item:hover {
-  background: var(--atg-bg);
+  background: var(--z-bg);
 }
 
 .notif-unread {
@@ -1079,7 +1079,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 
 .notif-body {
   font-size: 12px;
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
   margin-top: 2px;
 }
 
@@ -1091,7 +1091,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   align-self: flex-start;
   height: calc(100vh - 64px);
   overflow: hidden;
-  background: linear-gradient(180deg, #0E1B35 0%, #0B1426 100%);
+  background: linear-gradient(180deg, var(--z-ink) 0%, #0B1426 100%);
   border-right: 1px solid rgba(35, 181, 211, 0.14);
   display: flex;
   flex-direction: column;
@@ -1167,18 +1167,18 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .sider :deep(.ant-menu-item-selected),
 .sider :deep(.ant-menu-item-selected .ant-menu-title-content),
 .sider :deep(.ant-menu-item-selected a) {
-  color: #0E1B35 !important;
+  color: var(--z-ink) !important;
   font-weight: 700;
 }
 
 /* Брендбук: активный пункт — ровная заливка zircon, текст on-zircon (navy); белый на бирюзе не читается. */
 .sider :deep(.ant-menu-item-selected) {
-  background: #23B5D3 !important;
+  background: var(--z-teal) !important;
   box-shadow: none;
 }
 
 .sider :deep(.ant-menu-item-selected .anticon) {
-  color: #0E1B35 !important;
+  color: var(--z-ink) !important;
   opacity: 1;
 }
 
@@ -1255,12 +1255,12 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 .drawer-menu :deep(.ant-menu-item-selected .ant-menu-title-content),
 .drawer-menu :deep(.ant-menu-item-selected a),
 .drawer-menu :deep(.ant-menu-item-selected .anticon) {
-  color: #0E1B35 !important;
+  color: var(--z-ink) !important;
   font-weight: 700;
 }
 
 .drawer-menu :deep(.ant-menu-item-selected) {
-  background: #23B5D3 !important;
+  background: var(--z-teal) !important;
 }
 
 .drawer-footer {
@@ -1270,7 +1270,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   right: 0;
   padding: 14px 12px 18px;
   border-top: 1px solid rgba(35, 181, 211, 0.18);
-  background: #0E1B35;
+  background: var(--z-ink);
 }
 
 .drawer-footer-role {
@@ -1278,7 +1278,7 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #23B5D3;
+  color: var(--z-teal);
   margin-bottom: 2px;
 }
 
@@ -1299,9 +1299,9 @@ const handleUserMenuClick = ({ key }: { key: string }) => {
 }
 
 .drawer-logout:hover {
-  color: #0E1B35 !important;
-  border-color: #23B5D3 !important;
-  background: #23B5D3 !important;
+  color: var(--z-ink) !important;
+  border-color: var(--z-teal) !important;
+  background: var(--z-teal) !important;
 }
 
 /* ─── Responsive ─────────────────────────────────────────── */

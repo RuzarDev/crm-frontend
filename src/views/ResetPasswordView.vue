@@ -86,7 +86,7 @@ const submit = async () => {
 .reset-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f4f6fa; padding: 24px; }
 .reset-card { width: 100%; max-width: 420px; background: #fff; border-radius: 18px; padding: 28px; box-shadow: 0 18px 50px rgba(16, 36, 61, .08); }
 .reset-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-.reset-badge { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: var(--atg-teal, #23B5D3); }
+.reset-badge { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: var(--z-teal); }
 .reset-title { font-size: 20px; margin: 0 0 6px; }
-.reset-sub { color: var(--atg-muted, #95a1b7); font-size: 13px; margin-bottom: 18px; }
+.reset-sub { color: var(--z-muted); font-size: 13px; margin-bottom: 18px; }
 </style>

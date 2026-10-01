@@ -34,7 +34,7 @@ defineProps<{
 </script>
 
 <style scoped>
-.muted { color: var(--atg-muted); }
+.muted { color: var(--z-muted); }
 
 .mnrs-act {
   font-size: 12px;

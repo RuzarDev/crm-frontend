@@ -398,7 +398,7 @@ const printQuote = (q: SalesQuoteDto) => {
   <style>
     body{font-family:Arial,sans-serif;color:#1a2332;padding:40px;max-width:760px;margin:0 auto}
     h1{font-size:22px;margin:0 0 4px} .sub{color:#6b7280;font-size:13px;margin-bottom:24px}
-    .brand{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #23B5D3;padding-bottom:16px;margin-bottom:20px}
+    .brand{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid var(--z-teal);padding-bottom:16px;margin-bottom:20px}
     .brand b{font-size:18px} table{width:100%;border-collapse:collapse;margin:14px 0}
     th,td{border:1px solid #d6dce5;padding:7px 10px;font-size:13px} th{background:#eef3f8;text-align:left}
     h3{font-size:14px;margin:18px 0 6px} .totals{margin-top:18px;text-align:right}
@@ -445,16 +445,16 @@ onMounted(async () => {
 .sales-page { display: flex; flex-direction: column; gap: var(--sp-4); }
 .sales-stack { display: flex; flex-direction: column; gap: var(--sp-4); }
 .card-title { display: flex; align-items: center; gap: 9px; color: var(--z-ink); font-family: var(--font-heading); font-weight: 800; }
-.card-title :deep(.anticon) { color: var(--atg-accent-strong); }
+.card-title :deep(.anticon) { color: var(--z-teal-d); }
 .client-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
 .client-grid label { display: flex; flex-direction: column; gap: 6px; }
 .client-grid label.full { grid-column: 1 / -1; }
-.client-grid span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; }
+.client-grid span { color: var(--z-navy-3); font-size: 12px; font-weight: 700; }
 .inline-field { display: flex; gap: 8px; }
 .inline-field--stack { flex-direction: column; gap: 2px; }
-.rate-hint { font-size: 12px; color: var(--atg-muted); }
+.rate-hint { font-size: 12px; color: var(--z-muted); }
 .add-line { display: flex; gap: 10px; margin-bottom: var(--sp-3); flex-wrap: wrap; }
-.muted { color: var(--atg-muted); font-size: 12.5px; }
+.muted { color: var(--z-muted); font-size: 12.5px; }
 .calc-actions { display: flex; gap: var(--sp-3); }
 .z-num { font-variant-numeric: tabular-nums; }
 
@@ -463,8 +463,8 @@ onMounted(async () => {
 .result-card :deep(.ant-card-head) { border-bottom-color: rgba(31, 168, 192, 0.25); }
 .result-card .card-title :deep(.anticon) { color: var(--z-teal-d); }
 .result-totals { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4); }
-.total-box { flex: 1; min-width: 160px; padding: var(--sp-4); border: 1px solid var(--atg-line); border-radius: var(--r-lg); background: var(--z-surface); }
-.total-box span { display: block; color: var(--atg-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+.total-box { flex: 1; min-width: 160px; padding: var(--sp-4); border: 1px solid var(--z-line); border-radius: var(--r-lg); background: var(--z-surface); }
+.total-box span { display: block; color: var(--z-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
 .total-box strong { display: block; margin-top: 6px; font-family: var(--font-heading); font-size: 20px; font-weight: 800; color: var(--z-ink); }
 .total-box.grand { border-color: var(--z-teal); border-width: 2px; background: var(--z-surface); box-shadow: var(--sh-1); }
 .total-box.grand strong { font-size: 28px; color: var(--z-teal-d); }
@@ -475,5 +475,5 @@ onMounted(async () => {
 .kd-title { font-weight: 600; font-size: 13px; margin-top: 12px; }
 .kd-notes { margin: 2px 0 6px; font-size: 12.5px; }
 .kd-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-bottom: 6px; }
-.kd-label { font-size: 12px; color: var(--z-muted, #8c95a6); }
+.kd-label { font-size: 13px; font-weight: 500; color: var(--z-ink-2); }
 </style>

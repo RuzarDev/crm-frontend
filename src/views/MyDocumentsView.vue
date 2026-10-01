@@ -18,7 +18,7 @@
             @change="handleSearch"
           >
             <template #prefix>
-              <SearchOutlined style="color: var(--atg-muted)" />
+              <SearchOutlined style="color: var(--z-muted)" />
             </template>
           </a-input>
           <a-select
@@ -31,7 +31,7 @@
           />
         </div>
 
-        <a-table
+        <a-table class="crm-table-cards"
           :columns="columns"
           :data-source="items"
           :loading="loading"

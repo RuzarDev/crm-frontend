@@ -134,7 +134,7 @@ const formatTime = (iso: string) => dayjs(iso).format('DD.MM.YYYY HH:mm')
 
 .comment-item {
   padding: 12px 14px;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: var(--atg-radius);
   background: #fafbfd;
   transition: background var(--atg-transition);
@@ -155,7 +155,7 @@ const formatTime = (iso: string) => dayjs(iso).format('DD.MM.YYYY HH:mm')
 .comment-author {
   font-size: 13px;
   font-weight: 700;
-  color: var(--atg-ink);
+  color: var(--z-ink);
 }
 
 .comment-role-tag {
@@ -169,31 +169,31 @@ const formatTime = (iso: string) => dayjs(iso).format('DD.MM.YYYY HH:mm')
 .comment-role--administrator {
   background: rgba(17, 20, 19, 0.08);
   border-color: rgba(17, 20, 19, 0.15);
-  color: var(--atg-ink);
+  color: var(--z-ink);
 }
 
 .comment-role--broker {
   background: rgba(37, 95, 143, 0.08);
   border-color: rgba(37, 95, 143, 0.2);
-  color: var(--atg-blue);
+  color: var(--z-teal);
 }
 
 .comment-role--expeditor {
   background: rgba(40, 107, 75, 0.08);
   border-color: rgba(40, 107, 75, 0.2);
-  color: var(--atg-green);
+  color: var(--z-success);
 }
 
 .comment-role--client {
-  background: var(--atg-accent-soft);
+  background: var(--z-teal-soft);
   border-color: rgba(200, 149, 53, 0.25);
-  color: var(--atg-accent-strong);
+  color: var(--z-teal-d);
 }
 
 .comment-time {
   margin-left: auto;
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   white-space: nowrap;
 }
 
@@ -206,7 +206,7 @@ const formatTime = (iso: string) => dayjs(iso).format('DD.MM.YYYY HH:mm')
 
 .comment-text {
   font-size: 13.5px;
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
@@ -217,7 +217,7 @@ const formatTime = (iso: string) => dayjs(iso).format('DD.MM.YYYY HH:mm')
 }
 
 .comment-form {
-  border-top: 1px solid var(--atg-line);
+  border-top: 1px solid var(--z-line);
   padding-top: 16px;
 }
 </style>

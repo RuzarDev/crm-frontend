@@ -84,21 +84,21 @@ onMounted(async () => {
 <style scoped>
 .kzt-label {
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   margin-left: 2px;
 }
 .date-cell {
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 .footer-note {
   margin-top: 12px;
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   text-align: right;
 }
 .empty-hint {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   text-align: center;
   padding: 40px 0;
   font-size: 13px;

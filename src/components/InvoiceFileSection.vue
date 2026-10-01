@@ -118,13 +118,14 @@ const remove = async (file: DocumentPackageFileDto) => {
 .section-label {
   font-size: 12px;
   font-weight: 700;
-  color: var(--atg-muted);
-  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--z-ink);
 }
 
 .empty-state {
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-style: italic;
 }
 
@@ -132,17 +133,17 @@ const remove = async (file: DocumentPackageFileDto) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 13px;
-  background: var(--atg-surface, var(--atg-bg));
+  background: var(--z-surface);
 }
 
 .file-name {
   flex: 1;
   cursor: pointer;
-  color: var(--atg-accent-strong);
+  color: var(--z-teal-d);
 }
 
 .file-name:hover {

@@ -495,7 +495,7 @@
     </a-modal>
 
     <a-modal :open="issuesOpen" :title="t('import40Case.issuesTitle')"
-      :width="640" :ok-text="t('import40Case.issuesOk')" :cancel-button-props="{ style: { display: 'none' } }"
+      :width="760" :ok-text="t('import40Case.issuesOk')" :cancel-button-props="{ style: { display: 'none' } }"
       @ok="closeIssuesDialog" @update:open="onIssuesOpenChange" @after-close="issues = null">
       <div v-if="issues?.conflicts.length">
         <p>{{ t('import40Case.conflictsIntro') }}</p>
@@ -1371,7 +1371,7 @@ onMounted(() => {
 
 <style scoped>
 .invoice-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.muted { color: var(--atg-muted, #95a1b7); font-size: 12.5px; }
+.muted { color: var(--z-muted); font-size: 12.5px; }
 .case-page {
   display: flex;
   flex-direction: column;
@@ -1400,7 +1400,7 @@ onMounted(() => {
   gap: 10px;
 }
 .step-placeholder {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12px;
 }
 .grid-2 {
@@ -1414,13 +1414,15 @@ onMounted(() => {
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 .sub-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--atg-muted);
   margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--z-ink);
 }
 .container-row {
   display: flex;
@@ -1435,8 +1437,8 @@ onMounted(() => {
   gap: 6px;
   padding: 10px 12px;
   border-radius: var(--atg-radius-lg, 10px);
-  background: var(--atg-surface-muted, #f5f7fb);
-  border: 1px solid var(--atg-line, #eef1f6);
+  background: var(--z-surface-2);
+  border: 1px solid var(--z-line);
 }
 .prefill-row {
   display: flex;
@@ -1445,19 +1447,19 @@ onMounted(() => {
 }
 .prefill-row > span {
   min-width: 110px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
-.prefill-row > b { color: var(--atg-ink, #182640); }
+.prefill-row > b { color: var(--z-ink); }
 .container-add {
   display: flex;
   gap: 8px;
   margin-top: 6px;
 }
 .muted {
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 .step-actions {
   display: flex;
@@ -1471,7 +1473,7 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
   padding: 8px 0;
-  border-bottom: 1px dashed var(--atg-line);
+  border-bottom: 1px dashed var(--z-line);
   flex-wrap: wrap;
 }
 /* Исходная ДТ после разделения ЕТТ/ВТО (аудит H5/3.3) — заменена, показываем тусклой. */
@@ -1507,7 +1509,7 @@ onMounted(() => {
   align-items: baseline;
 }
 .log-date {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -1525,7 +1527,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 6px;
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 .client-wait { margin: 4px 0 0; }
 .client-pay-note { margin: 0 0 8px; font-weight: 500; }
@@ -1534,6 +1536,6 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
   padding: 8px 0;
-  border-bottom: 1px dashed var(--atg-line);
+  border-bottom: 1px dashed var(--z-line);
 }
 </style>

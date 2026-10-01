@@ -187,7 +187,7 @@ const removeExpense = (index: number) => {
 .dt-expenses-header {
   margin-bottom: 6px;
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 .dt-expense-row {
   margin-bottom: 8px;
@@ -208,7 +208,7 @@ const removeExpense = (index: number) => {
   margin-bottom: 20px;
 }
 .muted {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12px;
   margin-bottom: 12px;
 }

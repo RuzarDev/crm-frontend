@@ -42,10 +42,10 @@ const emit = defineEmits<{
   max-width: 100%;
   min-height: 32px;
   padding: 4px 12px;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: 999px;
-  background: var(--atg-surface, #fff);
-  color: var(--atg-ink);
+  background: var(--z-surface);
+  color: var(--z-ink);
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
@@ -53,7 +53,7 @@ const emit = defineEmits<{
 }
 
 .file-chip:hover {
-  border-color: var(--atg-accent);
+  border-color: var(--z-teal);
   background: rgba(35, 181, 211, 0.06);
 }
 
@@ -65,12 +65,12 @@ const emit = defineEmits<{
 }
 
 .file-chip :deep(.anticon) {
-  color: var(--atg-accent-strong);
+  color: var(--z-teal-d);
 }
 
 .file-chips-empty {
   margin: 0;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12.5px;
 }
 </style>

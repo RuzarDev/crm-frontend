@@ -104,7 +104,7 @@
       </a-form-item>
     </div>
 
-    <a-modal v-model:open="partyPickerOpen" :width="640"
+    <a-modal v-model:open="partyPickerOpen" :width="760"
       :title="partyPickerTarget === 'sender' ? t('dt.spravochnikOtpraviteley') : t('dt.spravochnikPoluchateley')" :footer="null">
       <a-input-search v-model:value="partyQuery" :placeholder="t('dt.poiskPoNaimenovaniyuIli')" allow-clear
         :loading="partyLoading" @search="searchParties" @change="searchParties" style="margin-bottom: 12px" />
@@ -476,10 +476,10 @@ onMounted(() => {
 .party-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .party-ref-actions { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .party-ref-row { cursor: pointer; border-radius: 8px; padding: 6px 8px; transition: background .12s; }
-.party-ref-row:hover { background: var(--atg-teal-soft, #e6f7fb); }
-.party-ref-name { font-weight: 600; color: var(--atg-ink, #182640); font-size: 13.5px; }
-.party-ref-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); margin-top: 1px; }
-.party-ref-empty { font-size: 12.5px; color: var(--atg-muted, #95a1b7); }
+.party-ref-row:hover { background: var(--z-teal-soft); }
+.party-ref-name { font-weight: 600; color: var(--z-ink); font-size: 13.5px; }
+.party-ref-sub { font-size: 12px; color: var(--z-muted); margin-top: 1px; }
+.party-ref-empty { font-size: 12.5px; color: var(--z-muted); }
 .party-ref-footer { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .bin-row { display: flex; gap: 6px; align-items: center; }
 .bin-row .ant-input { flex: 1; min-width: 0; }

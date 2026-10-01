@@ -4,7 +4,7 @@
     :title="t('transit.podpisanieCherezEgov')"
     :footer="null"
     :mask-closable="false"
-    width="480px"
+    width="520px"
     @cancel="$emit('cancel')"
   >
     <!-- Инициализация -->
@@ -166,8 +166,8 @@ async function poll() {
 <style scoped>
 .sigex-body { display: flex; flex-direction: column; gap: 16px; }
 .sigex-center { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 24px 0; text-align: center; }
-.sigex-desc { color: var(--atg-charcoal, #333); font-size: 14px; line-height: 1.6; margin: 0; }
-.sigex-hint { color: var(--atg-muted, #888); font-size: 13px; margin: 0; }
+.sigex-desc { color: var(--z-navy-3); font-size: 14px; line-height: 1.6; margin: 0; }
+.sigex-hint { color: var(--z-muted); font-size: 13px; margin: 0; }
 
 .sigex-qr-wrap { display: flex; justify-content: center; padding: 8px; }
 .sigex-qr { width: 220px; height: 220px; border: 1px solid #e0e0e0; border-radius: 8px; }
@@ -185,7 +185,7 @@ async function poll() {
 .sigex-poll-row { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
 .sigex-icon-ok { font-size: 52px; color: #52c41a; }
-.sigex-icon-err { font-size: 52px; color: #ff4d4f; }
+.sigex-icon-err { font-size: 52px; color: var(--z-danger); }
 .sigex-success h3 { color: #389e0d; margin: 0; }
 .sigex-error h3 { color: #cf1322; margin: 0; }
 </style>

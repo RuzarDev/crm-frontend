@@ -164,15 +164,15 @@ const clearProblem = async (c: ManageCase) => {
 .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 18px; }
 .kpi--muted { cursor: default; }
 .kpi { background: #fff; border: 1px solid var(--z-line, #e8ecf4); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
-.kpi > span { font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
-.kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 26px; font-weight: 800; color: var(--atg-ink, #182640); }
-.kpi > small { font-size: 12px; color: var(--atg-muted, #95a1b7); }
+.kpi > span { font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--z-muted); }
+.kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 26px; font-weight: 800; color: var(--z-ink); }
+.kpi > small { font-size: 12px; color: var(--z-muted); }
 .kpi--attn > b { color: #e07a30; } .kpi--bad > b { color: #cf4a3c; }
 .grid { display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: start; }
 .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-.cell-main { font-weight: 600; color: var(--atg-ink, #182640); cursor: pointer; }
-.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #23B5D3); margin-right: 4px; }
-.cell-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); }
+.cell-main { font-weight: 600; color: var(--z-ink); cursor: pointer; }
+.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--z-teal); margin-right: 4px; }
+.cell-sub { font-size: 12px; color: var(--z-muted); }
 .problem-note { color: #cf4a3c; }
 .stale-txt { color: #e07a30; font-weight: 600; }
 :deep(.row-problem) td { background: rgba(207, 74, 60, 0.05); }
@@ -180,9 +180,9 @@ const clearProblem = async (c: ManageCase) => {
 :deep(.need-assign .ant-select-selector) { border-color: #e07a30 !important; box-shadow: 0 0 0 2px rgba(224, 122, 48, 0.12); }
 .load-row { display: grid; grid-template-columns: 1fr 100px 32px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--z-line-2, #eff2f8); }
 .load-row:last-child { border-bottom: 0; }
-.load-name { font-weight: 600; color: var(--atg-ink, #182640); font-size: 13px; }
+.load-name { font-weight: 600; color: var(--z-ink); font-size: 13px; }
 .load-bar { height: 6px; border-radius: 4px; background: var(--z-line-2, #eff2f8); overflow: hidden; }
-.load-bar span { display: block; height: 100%; background: var(--atg-teal, #23B5D3); border-radius: 4px; }
+.load-bar span { display: block; height: 100%; background: var(--z-teal); border-radius: 4px; }
 @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } .kpi-row { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1101px) and (max-width: 1400px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
 </style>

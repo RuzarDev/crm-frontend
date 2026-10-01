@@ -417,12 +417,12 @@ const generateXml = async () => {
   justify-content: space-between;
   gap: 12px;
   padding: 4px 0;
-  border-bottom: 1px solid var(--atg-line);
+  border-bottom: 1px solid var(--z-line);
 }
-.dts-question-label { font-size: 13px; color: var(--atg-text); }
+.dts-question-label { font-size: 13px; color: var(--z-ink); }
 .dts-reason { margin-bottom: 14px; }
 .dts-cell-mismatch { color: var(--z-danger); font-weight: 600; }
-.dts-currency-lines { margin: 0; padding-left: 18px; font-size: 13px; color: var(--atg-muted); }
+.dts-currency-lines { margin: 0; padding-left: 18px; font-size: 13px; color: var(--z-muted); }
 :deep(.dts-table td) { text-align: right; }
 :deep(.dts-table td:first-child) { text-align: left; font-weight: 500; }
 </style>

@@ -79,7 +79,7 @@ const onMenuClick = ({ key }: { key: string | number }) => onChange(key)
   border: 1px solid #d9d9d9;
   border-radius: var(--atg-radius, 8px);
   background: #fff;
-  color: #0E1B35;
+  color: var(--z-ink);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -92,9 +92,9 @@ const onMenuClick = ({ key }: { key: string | number }) => onChange(key)
   color: rgba(240, 243, 255, 0.82);
 }
 .lang-compact:hover {
-  color: #0E1B35;
-  border-color: #23B5D3;
-  background: #23B5D3;
+  color: var(--z-ink);
+  border-color: var(--z-teal);
+  background: var(--z-teal);
 }
 .lang-compact__code { line-height: 1; }
 </style>

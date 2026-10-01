@@ -26,7 +26,7 @@
     </div>
 
     <a-card class="crm-shell-card" :bordered="false">
-      <div class="filters">
+      <div class="filters crm-filter-bar">
         <a-input v-model:value="search" allow-clear :placeholder="isClientRole ? t('billing.searchPhClient') : t('billing.searchPh')" style="max-width: 300px">
           <template #prefix><SearchOutlined /></template>
         </a-input>
@@ -34,7 +34,7 @@
         <a-segmented v-model:value="statusFilter" :options="statusOptions" />
       </div>
 
-      <a-table :columns="columns" :data-source="filtered" :loading="loading" row-key="id" size="middle"
+      <a-table class="crm-table-cards" :columns="columns" :data-source="filtered" :loading="loading" row-key="id" size="middle"
         :pagination="filtered.length > 25 ? { pageSize: 25, showSizeChanger: false } : false">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'doc'">
@@ -426,18 +426,18 @@ const exportXlsx = () => {
 .billing-view { display: flex; flex-direction: column; gap: 18px; }
 .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .kpi { background: #fff; border: 1px solid var(--z-line, #e8ecf4); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
-.kpi > span { font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
-.kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 22px; font-weight: 800; color: var(--atg-ink, #182640); }
-.kpi > small { font-size: 12px; color: var(--atg-muted, #95a1b7); }
+.kpi > span { font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--z-muted); }
+.kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 22px; font-weight: 800; color: var(--z-ink); }
+.kpi > small { font-size: 12px; color: var(--z-muted); }
 .kpi--ok > b { color: #1f9d6a; }
 .kpi--warn > b { color: #e07a30; }
 
 .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-.cell-main { font-weight: 600; color: var(--atg-ink, #182640); }
-.cell-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); }
+.cell-main { font-weight: 600; color: var(--z-ink); }
+.cell-sub { font-size: 12px; color: var(--z-muted); }
 
 .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 14px; }
-.sub-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--atg-charcoal, #445069); margin: 4px 0 8px; }
+.sub-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--z-navy-3); margin: 4px 0 8px; }
 .line-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
 .line-amount { min-width: 110px; text-align: right; font-weight: 600; }
 .note-field { margin-top: 14px; }

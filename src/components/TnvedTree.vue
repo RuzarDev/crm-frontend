@@ -151,12 +151,12 @@ defineExpose({ reveal, collapseAll, scrollToSelected, reload: () => (rootPromise
 .tnved-tree :deep(.ant-tree-treenode) { padding: 1px 0; align-items: flex-start; }
 .tnved-tree :deep(.ant-tree-switcher) { align-self: flex-start; height: 26px; line-height: 26px; }
 .tnved-tree :deep(.ant-tree-node-content-wrapper) { min-height: 26px; line-height: 20px; padding: 3px 6px; }
-.tt-node { display: flex; gap: 8px; align-items: baseline; font-size: 13px; color: var(--z-ink, #0e1b35); }
+.tt-node { display: flex; gap: 8px; align-items: baseline; font-size: 13px; color: var(--z-ink, var(--z-ink)); }
 .tt-code {
   flex: none; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600;
-  font-size: 12.5px; color: var(--z-teal-d, #1580a6);
+  font-size: 12.5px; color: var(--z-teal-d, var(--z-teal-d));
 }
-.tt-leaf .tt-code { color: var(--z-ink, #0e1b35); }
+.tt-leaf .tt-code { color: var(--z-ink, var(--z-ink)); }
 .tt-name { flex: 1; min-width: 0; white-space: normal; }
-.tt-unit { flex: none; font-size: 12px; color: var(--z-muted, #8c95a6); }
+.tt-unit { flex: none; font-size: 12px; color: var(--z-muted, var(--z-muted)); }
 </style>

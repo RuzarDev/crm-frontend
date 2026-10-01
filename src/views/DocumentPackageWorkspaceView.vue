@@ -12,7 +12,7 @@
         <a-button
           v-if="canReview && isDev"
           type="default"
-          style="border-color: var(--atg-accent); color: var(--atg-accent-strong); font-weight: 700; background: var(--atg-teal-soft);"
+          style="border-color: var(--z-teal); color: var(--z-teal-d); font-weight: 700; background: var(--z-teal-soft);"
           :loading="aiParsing"
           @click="runAiParse"
         >
@@ -168,7 +168,7 @@
                 <a-tag :color="statusColor(packageData.status)" style="margin-left: 8px;">
                   {{ statusLabel(packageData.status) }}
                 </a-tag>
-                <div v-if="packageData.reviewComment" class="current-review-comment" style="margin-top: 8px; font-size: 13px; color: var(--atg-charcoal);">
+                <div v-if="packageData.reviewComment" class="current-review-comment" style="margin-top: 8px; font-size: 13px; color: var(--z-navy-3);">
                   <strong>{{ t('transit.zamechaniya') }}</strong> {{ packageData.reviewComment }}
                 </div>
               </div>
@@ -578,9 +578,9 @@
     >
       <div style="text-align: center; padding: 30px 20px;">
         <a-spin size="large" style="margin-bottom: 20px;" />
-        <div style="font-size: 16px; font-weight: 700; color: var(--atg-navy); margin-bottom: 10px;">
+        <div style="font-size: 16px; font-weight: 700; color: var(--z-navy); margin-bottom: 10px;">
           <ThunderboltOutlined /> {{ t('transit.intellektualnyyAnaliz') }} </div>
-        <div style="font-size: 13.5px; color: var(--atg-muted);">
+        <div style="font-size: 13.5px; color: var(--z-muted);">
           {{ aiStatusText }}
         </div>
       </div>
@@ -610,7 +610,7 @@
         </div>
         <!-- Fallback for other formats -->
         <div v-else style="text-align: center; padding: 40px;">
-          <FileOutlined style="font-size: 64px; color: var(--atg-muted); margin-bottom: 20px;" />
+          <FileOutlined style="font-size: 64px; color: var(--z-muted); margin-bottom: 20px;" />
           <h3>{{ t('transit.predprosmotrNedostupenDlyaEtogo') }}</h3>
           <p class="muted">{{ t('transit.skachayteFaylChtobyOtkryt') }}</p>
           <a-button type="primary" @click="downloadPreviewFile">
@@ -1560,7 +1560,7 @@ const runAiParse = async () => {
   gap: 10px;
   font-size: 17px;
   font-weight: 700;
-  color: var(--atg-navy);
+  color: var(--z-navy);
 }
 
 /* Files Column */
@@ -1573,7 +1573,7 @@ const runAiParse = async () => {
 
 .file-item-wrap {
   padding: 14px 16px !important;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: 10px;
   margin-bottom: 12px;
   background: #ffffff;
@@ -1585,7 +1585,7 @@ const runAiParse = async () => {
 }
 
 .file-item-wrap:hover {
-  border-color: var(--atg-line-strong);
+  border-color: var(--z-line-strong);
   box-shadow: 0 4px 12px rgba(14, 27, 53, 0.05);
   transform: translateY(-1px);
 }
@@ -1595,7 +1595,7 @@ const runAiParse = async () => {
 }
 
 .file-name {
-  color: var(--atg-navy);
+  color: var(--z-navy);
   font-weight: 700;
   font-size: 14px;
   word-break: break-all;
@@ -1607,7 +1607,7 @@ const runAiParse = async () => {
 .file-meta {
   font-family: var(--atg-font-mono);
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   margin-top: 4px;
 }
 
@@ -1621,7 +1621,7 @@ const runAiParse = async () => {
 .assignment-label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
 }
 
 /* Center Hierarchy */
@@ -1632,7 +1632,7 @@ const runAiParse = async () => {
 }
 
 .review-panel-card {
-  border-left: 5px solid var(--atg-navy);
+  border-left: 5px solid var(--z-navy);
   border-radius: 14px;
   box-shadow: 0 8px 24px rgba(14, 27, 53, 0.04);
 }
@@ -1644,7 +1644,7 @@ const runAiParse = async () => {
 .train-card {
   border-radius: 14px;
   background: linear-gradient(180deg, #ffffff, #fcfdfe);
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   box-shadow: 0 4px 16px rgba(14, 27, 53, 0.03);
 }
 
@@ -1664,7 +1664,7 @@ const runAiParse = async () => {
 .train-info h3 {
   font-size: 16px;
   font-weight: 700;
-  color: var(--atg-navy);
+  color: var(--z-navy);
   margin: 0;
 }
 
@@ -1672,8 +1672,8 @@ const runAiParse = async () => {
   width: 52px;
   height: 52px;
   border-radius: 14px;
-  background: var(--atg-teal-soft);
-  color: var(--atg-teal-dark);
+  background: var(--z-teal-soft);
+  color: var(--z-teal-d);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1682,7 +1682,7 @@ const runAiParse = async () => {
 
 .train-comment {
   margin-top: 6px;
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
   font-size: 14px;
   font-style: italic;
 }
@@ -1696,8 +1696,8 @@ const runAiParse = async () => {
 /* Container Node */
 .container-node-card {
   background: #ffffff;
-  border: 1px solid var(--atg-line);
-  border-left: 5px solid var(--atg-teal);
+  border: 1px solid var(--z-line);
+  border-left: 5px solid var(--z-teal);
   border-radius: 14px;
   padding: 20px;
   display: flex;
@@ -1710,7 +1710,7 @@ const runAiParse = async () => {
 .container-node-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(14, 27, 53, 0.08);
-  border-left-color: var(--atg-teal-dark);
+  border-left-color: var(--z-teal-d);
 }
 
 .container-node-header {
@@ -1718,7 +1718,7 @@ const runAiParse = async () => {
   justify-content: space-between;
   align-items: flex-start;
   padding-bottom: 14px;
-  border-bottom: 1px solid var(--atg-line);
+  border-bottom: 1px solid var(--z-line);
 }
 
 .container-title {
@@ -1726,7 +1726,7 @@ const runAiParse = async () => {
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-  color: var(--atg-navy);
+  color: var(--z-navy);
 }
 
 .container-title strong {
@@ -1737,8 +1737,8 @@ const runAiParse = async () => {
 .container-meta {
   font-size: 12px;
   font-weight: 600;
-  color: var(--atg-charcoal);
-  background: var(--atg-bg);
+  color: var(--z-navy-3);
+  background: var(--z-bg);
   padding: 2px 8px;
   border-radius: 5px;
   border: 1px solid rgba(221, 225, 236, 0.5);
@@ -1751,13 +1751,13 @@ const runAiParse = async () => {
   font-weight: 800;
   padding: 2px 6px;
   border-radius: 5px;
-  background: var(--atg-teal-soft);
-  color: var(--atg-teal-dark);
+  background: var(--z-teal-soft);
+  color: var(--z-teal-d);
   border: 1px solid rgba(35, 181, 211, 0.25);
 }
 
 .node-badge.badge-client {
-  background: var(--atg-gold-soft);
+  background: var(--z-gold-soft);
   color: #a17f2a;
   border-color: rgba(242, 181, 58, 0.25);
 }
@@ -1768,7 +1768,7 @@ const runAiParse = async () => {
   align-items: center;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
-  color: var(--atg-navy);
+  color: var(--z-navy);
   font-size: 12px;
   font-weight: 500;
   padding: 2px 6px;
@@ -1779,7 +1779,7 @@ const runAiParse = async () => {
 }
 
 .meta-inline-tag strong {
-  color: var(--atg-teal-dark);
+  color: var(--z-teal-d);
   font-weight: 700;
 }
 
@@ -1814,15 +1814,15 @@ const runAiParse = async () => {
 /* Linked Files chips */
 .node-linked-files {
   padding: 12px 16px;
-  background: var(--atg-bg);
+  background: var(--z-bg);
   border-radius: 10px;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
 }
 
 .files-title {
   font-size: 12px;
   font-weight: 700;
-  color: var(--atg-navy);
+  color: var(--z-navy);
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1841,8 +1841,8 @@ const runAiParse = async () => {
   padding: 6px 12px;
   border-radius: 6px;
   background: #ffffff;
-  border: 1px solid var(--atg-line);
-  color: var(--atg-charcoal);
+  border: 1px solid var(--z-line);
+  color: var(--z-navy-3);
   font-weight: 600;
   font-size: 12.5px;
   cursor: pointer;
@@ -1851,9 +1851,9 @@ const runAiParse = async () => {
 }
 
 .file-chip:hover {
-  background: var(--atg-teal-soft);
-  border-color: var(--atg-teal);
-  color: var(--atg-teal-dark);
+  background: var(--z-teal-soft);
+  border-color: var(--z-teal);
+  color: var(--z-teal-d);
   transform: translateY(-1px);
 }
 
@@ -1869,8 +1869,8 @@ const runAiParse = async () => {
 
 .consolidation-node-card {
   background: #ffffff;
-  border: 1px solid var(--atg-line);
-  border-left: 4px solid var(--atg-gold);
+  border: 1px solid var(--z-line);
+  border-left: 4px solid var(--z-gold);
   border-radius: 10px;
   padding: 16px;
   box-shadow: 0 2px 8px rgba(14, 27, 53, 0.02);
@@ -1895,11 +1895,11 @@ const runAiParse = async () => {
 .consolidation-header strong {
   font-size: 14px;
   font-weight: 700;
-  color: var(--atg-navy);
+  color: var(--z-navy);
 }
 
 .con-cargo {
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
   font-size: 12.5px;
   font-weight: 500;
 }
@@ -1907,7 +1907,7 @@ const runAiParse = async () => {
 /* Empty texts */
 .empty-node-text {
   font-size: 13px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   padding: 8px 0;
   font-style: italic;
 }
@@ -1915,10 +1915,10 @@ const runAiParse = async () => {
 .empty-train-text {
   text-align: center;
   padding: 48px;
-  border: 2px dashed var(--atg-line-strong);
+  border: 2px dashed var(--z-line-strong);
   border-radius: 14px;
   background: #ffffff;
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
   font-size: 14px;
 }
 
@@ -1932,19 +1932,19 @@ const runAiParse = async () => {
 }
 
 .train-card.drag-over {
-  border: 2px dashed var(--atg-teal, #23B5D3) !important;
+  border: 2px dashed var(--z-teal) !important;
   background: rgba(35, 181, 211, 0.04) !important;
   box-shadow: 0 0 20px rgba(35, 181, 211, 0.15) !important;
 }
 
 .container-node-card.drag-over {
-  border-color: var(--atg-teal, #23B5D3) !important;
+  border-color: var(--z-teal) !important;
   background: rgba(35, 181, 211, 0.03) !important;
   box-shadow: 0 0 20px rgba(35, 181, 211, 0.12) !important;
 }
 
 .consolidation-node-card.drag-over {
-  border-color: var(--atg-teal, #23B5D3) !important;
+  border-color: var(--z-teal) !important;
   background: rgba(35, 181, 211, 0.04) !important;
   box-shadow: 0 0 20px rgba(35, 181, 211, 0.15) !important;
 }
@@ -1980,37 +1980,37 @@ const runAiParse = async () => {
 
 .workspace-upload-dropzone:hover,
 .workspace-upload-dropzone.dropzone-active {
-  border-color: var(--atg-teal);
+  border-color: var(--z-teal);
   background: rgba(35, 181, 211, 0.06);
   box-shadow: 0 0 12px rgba(35, 181, 211, 0.08);
 }
 
 .dropzone-icon {
   font-size: 32px;
-  color: var(--atg-teal);
+  color: var(--z-teal);
   transition: transform var(--atg-transition), color var(--atg-transition);
 }
 
 .workspace-upload-dropzone:hover .dropzone-icon,
 .workspace-upload-dropzone.dropzone-active .dropzone-icon {
-  color: var(--atg-teal-dark);
+  color: var(--z-teal-d);
   transform: scale(1.08);
 }
 
 .dropzone-text {
   font-size: 13px;
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
   line-height: 1.4;
 }
 
 .dropzone-text strong {
-  color: var(--atg-navy);
+  color: var(--z-navy);
 }
 
 /* Linked files highlights */
 .file-item-wrap.file-linked {
   background: #f0fdf4;
-  border-left: 4px solid var(--atg-green);
+  border-left: 4px solid var(--z-success);
   border-color: #bbf7d0;
 }
 
@@ -2033,7 +2033,7 @@ const runAiParse = async () => {
 }
 
 .container-opt .opt-text {
-  color: var(--atg-navy);
+  color: var(--z-navy);
   font-weight: 700;
 }
 
@@ -2042,19 +2042,19 @@ const runAiParse = async () => {
 }
 
 .client-opt .opt-indent {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-weight: normal;
   margin-right: -2px;
 }
 
 .client-opt .opt-text {
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
   font-weight: 600;
 }
 
 .opt-unassigned {
   font-size: 13px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-weight: 500;
 }
 
@@ -2069,13 +2069,13 @@ const runAiParse = async () => {
 }
 
 .opt-badge-container {
-  background: var(--atg-teal-soft);
-  color: var(--atg-teal-dark);
+  background: var(--z-teal-soft);
+  color: var(--z-teal-d);
   border: 1px solid rgba(35, 181, 211, 0.25);
 }
 
 .opt-badge-client {
-  background: var(--atg-gold-soft);
+  background: var(--z-gold-soft);
   color: #a17f2a;
   border: 1px solid rgba(242, 181, 58, 0.25);
 }
@@ -2084,12 +2084,12 @@ const runAiParse = async () => {
 .workspace-split { display: flex; gap: 20px; align-items: flex-start; }
 .workspace-split.split-active .split-file-pane {
   width: 42%; position: sticky; top: 16px; max-height: calc(100vh - 100px);
-  display: flex; flex-direction: column; border: 1px solid var(--atg-line);
+  display: flex; flex-direction: column; border: 1px solid var(--z-line);
   border-radius: 12px; background: #fff; overflow: hidden;
 }
 .split-content-pane { flex: 1; min-width: 0; }
 .split-file-head { display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 14px; border-bottom: 1px solid var(--atg-line); gap: 8px; }
+  padding: 10px 14px; border-bottom: 1px solid var(--z-line); gap: 8px; }
 .split-file-name { font-weight: 600; font-size: 13px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; }
 .split-file-body { flex: 1; min-height: 0; display: flex; }
@@ -2113,7 +2113,7 @@ const runAiParse = async () => {
   width: 50%;
   height: 100vh;
   overflow-y: auto;
-  border-right: 1px solid var(--atg-line);
+  border-right: 1px solid var(--z-line);
   padding: 24px;
   box-sizing: border-box;
 }
@@ -2122,10 +2122,10 @@ const runAiParse = async () => {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 16px;
 }
-.edit-split-title { font-size: 17px; font-weight: 700; color: var(--atg-navy); }
+.edit-split-title { font-size: 17px; font-weight: 700; color: var(--z-navy); }
 .edit-split-footer {
   display: flex; justify-content: flex-end; gap: 10px;
-  margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--atg-line);
+  margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--z-line);
 }
 .edit-split-file-pane {
   width: 50%;
@@ -2137,12 +2137,12 @@ const runAiParse = async () => {
 .split-file-picker { padding: 12px; overflow-y: auto; }
 .split-file-picker-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; border: 1px solid var(--atg-line); border-radius: 8px;
+  padding: 10px 12px; border: 1px solid var(--z-line); border-radius: 8px;
   margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
 }
-.split-file-picker-item:hover { border-color: var(--atg-accent); background: var(--atg-teal-soft); }
+.split-file-picker-item:hover { border-color: var(--z-teal); background: var(--z-teal-soft); }
 .split-file-picker-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.split-file-picker-meta { font-size: 12px; color: var(--atg-muted); flex-shrink: 0; }
+.split-file-picker-meta { font-size: 12px; color: var(--z-muted); flex-shrink: 0; }
 @media (max-width: 1100px) {
   .edit-split-overlay { flex-direction: column; overflow-y: auto; }
   .edit-split-form-pane, .edit-split-file-pane { width: 100%; height: auto; min-height: 50vh; }

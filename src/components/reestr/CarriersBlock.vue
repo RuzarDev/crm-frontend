@@ -128,12 +128,12 @@ function removeItem(idx: number) {
 
 <style scoped>
 .reestr-block { margin-top: 4px; }
-.empty-state { font-size: 12px; color: var(--atg-muted); font-style: italic; padding: 4px 0; }
+.empty-state { font-size: 12px; color: var(--z-muted); font-style: italic; padding: 4px 0; }
 .row-card {
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: 6px;
   padding: 10px 12px 8px;
-  background: var(--atg-surface, var(--atg-bg));
+  background: var(--z-surface);
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -143,15 +143,19 @@ function removeItem(idx: number) {
 .row-num {
   display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; border-radius: 50%;
-  background: var(--atg-teal-soft, #e6f7f5); color: var(--atg-teal, #00b8a0);
+  background: var(--z-teal-soft); color: var(--z-teal);
   font-size: 12px; font-weight: 700;
 }
-.del-btn { color: var(--atg-danger, #ff4d4f) !important; padding: 0 4px !important; height: 20px !important; font-size: 13px !important; }
+.del-btn { color: var(--z-danger) !important; padding: 0 4px !important; height: 20px !important; font-size: 13px !important; }
 .field-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 8px; }
 .field { flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 3px; }
 .field.f-grow { flex: 2; }
 .field-label {
-  font-size: 12px; font-weight: 600; color: var(--atg-muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--z-ink-2);
 }
 </style>

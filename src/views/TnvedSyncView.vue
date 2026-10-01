@@ -147,15 +147,15 @@ onMounted(loadHistory)
 .section-title {
   font-size: 13px;
   font-weight: 700;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 12px;
 }
-.date-cell { font-size: 12px; color: var(--atg-muted); }
+.date-cell { font-size: 12px; color: var(--z-muted); }
 .change-stat { display: flex; gap: 4px; flex-wrap: wrap; }
 .empty-hint {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   text-align: center;
   padding: 40px 0;
   font-size: 13px;

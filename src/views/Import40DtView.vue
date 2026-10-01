@@ -124,7 +124,7 @@
       :confirm-loading="splitting"
       :ok-text="splitVtoOnly ? t('dt.sozdatDtVto') : t('dt.razdelit')"
       :cancel-text="t('dt.otmena')"
-      width="720px"
+      width="760px"
       @ok="doSplit"
     >
       <a-spin :spinning="splitLoading">
@@ -1742,9 +1742,9 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: var(--atg-radius-lg);
-  background: var(--atg-surface);
+  background: var(--z-surface);
   padding: 8px;
 }
 .dt-nav-item {
@@ -1758,12 +1758,12 @@ onMounted(async () => {
   cursor: pointer;
 }
 .dt-nav-item.active {
-  background: var(--atg-teal);
+  background: var(--z-teal);
   color: #fff;
 }
 .dt-nav-mark {
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   display: inline-flex;
   align-items: center;
 }
@@ -1781,9 +1781,9 @@ onMounted(async () => {
   color: #fff;
 }
 .dt-content {
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: var(--atg-radius-lg);
-  background: var(--atg-surface);
+  background: var(--z-surface);
   padding: 16px 20px;
 }
 .dt-section-bar {
@@ -1794,14 +1794,16 @@ onMounted(async () => {
 }
 .dt-section-label {
   font-size: 12px;
-  font-weight: 600;
-  color: var(--atg-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--z-ink);
 }
 .dt-fact-payments {
   margin-top: 20px;
 }
 .muted {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   font-size: 12px;
 }
 .dt-split-status {

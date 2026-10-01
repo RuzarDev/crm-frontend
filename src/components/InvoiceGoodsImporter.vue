@@ -13,7 +13,7 @@
     <a-modal
       v-model:open="reviewOpen"
       :title="t('transit.tovaryIzInvoysa')"
-      width="820px"
+      width="760px"
       :ok-text="t('transit.primenit')"
       :cancel-text="t('transit.otmena')"
       :ok-button-props="{ disabled: items.length === 0 }"
@@ -39,7 +39,7 @@
         />
 
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-          <span style="font-size: 13px; font-weight: 600; color: var(--atg-charcoal);">{{ t('transit.valyuta2') }}</span>
+          <span style="font-size: 13px; font-weight: 600; color: var(--z-navy-3);">{{ t('transit.valyuta2') }}</span>
           <a-input v-model:value="currency" style="width: 100px;" size="small" placeholder="USD" />
         </div>
 

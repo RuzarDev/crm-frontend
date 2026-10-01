@@ -259,7 +259,7 @@
       v-model:open="classifyModalOpen"
       :title="t('sales.iiKlassifikaciyaTovara')"
       :footer="null"
-      width="640px"
+      width="760px"
     >
       <a-form layout="vertical" @finish="runClassify">
         <a-form-item :label="t('sales.opisanieTovara')" name="description" :rules="[{ required: true, message: t('misc.vvediteOpisanie') }]">
@@ -592,11 +592,11 @@ onMounted(async () => {
   font-size: 12px;
   padding: 0 0 6px;
   margin-bottom: 6px;
-  border-bottom: 1px solid var(--atg-line);
+  border-bottom: 1px solid var(--z-line);
 }
 
 .tree-toolbar a {
-  color: var(--atg-accent);
+  color: var(--z-teal);
   cursor: pointer;
 }
 
@@ -608,29 +608,29 @@ onMounted(async () => {
   border-radius: var(--atg-radius-sm);
   cursor: pointer;
   transition: background var(--atg-transition);
-  border-bottom: 1px solid var(--atg-line);
+  border-bottom: 1px solid var(--z-line);
 }
 
 .tree-node:last-child { border-bottom: none; }
 
-.tree-node:hover { background: var(--atg-accent-soft); }
+.tree-node:hover { background: var(--z-teal-soft); }
 
 .tree-node.active {
-  background: var(--atg-accent-soft);
-  border-left: 3px solid var(--atg-accent);
+  background: var(--z-teal-soft);
+  border-left: 3px solid var(--z-teal);
 }
 
 .node-code {
   font-family: monospace;
   font-size: 12px;
-  color: var(--atg-accent-strong);
+  color: var(--z-teal-d);
   min-width: 90px;
   flex-shrink: 0;
 }
 
 .node-label {
   font-size: 13px;
-  color: var(--atg-text);
+  color: var(--z-ink);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -638,13 +638,13 @@ onMounted(async () => {
 }
 
 .node-arrow {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   flex-shrink: 0;
   font-size: 12px;
 }
 
 .empty-hint {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   text-align: center;
   padding: 32px 0;
   font-size: 13px;
@@ -661,11 +661,11 @@ onMounted(async () => {
 }
 
 .search-result-item:hover,
-.search-result-item.active { background: var(--atg-accent-soft); }
+.search-result-item.active { background: var(--z-teal-soft); }
 
 .search-result-item .node-name {
   font-size: 12px;
-  color: var(--atg-text);
+  color: var(--z-ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -682,20 +682,20 @@ onMounted(async () => {
 .detail-name {
   font-size: 14px;
   font-weight: 600;
-  color: var(--atg-ink);
+  color: var(--z-ink);
   line-height: 1.4;
   margin-bottom: 2px;
 }
 
-.muted { color: var(--atg-muted); }
+.muted { color: var(--z-muted); }
 
 .calc-result { margin-top: 4px; }
 
 .calc-notes {
   margin-top: 10px;
   font-size: 12px;
-  color: var(--atg-muted);
-  background: var(--atg-accent-soft);
+  color: var(--z-muted);
+  background: var(--z-teal-soft);
   padding: 8px 12px;
   border-radius: var(--atg-radius-sm);
 }
@@ -703,15 +703,15 @@ onMounted(async () => {
 .notes-html {
   font-size: 13px;
   line-height: 1.6;
-  color: var(--atg-text);
+  color: var(--z-ink);
   max-height: 400px;
   overflow-y: auto;
 }
 
 .notes-html :deep(table) { border-collapse: collapse; width: 100%; font-size: 12px; }
 .notes-html :deep(td),
-.notes-html :deep(th) { border: 1px solid var(--atg-line); padding: 4px 8px; }
+.notes-html :deep(th) { border: 1px solid var(--z-line); padding: 4px 8px; }
 .calc-choice { margin-top: 8px; display: grid; gap: 2px; }
-.calc-choice-label { font-size: 12px; color: var(--z-muted, #8c95a6); }
+.calc-choice-label { font-size: 12px; color: var(--z-muted, var(--z-muted)); }
 .eec-links { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 10px; font-size: 13px; }
 </style>

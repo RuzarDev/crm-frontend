@@ -240,23 +240,23 @@ const downloadBlank = async (doc: ClientCardDoc) => {
 .client-card-view { display: flex; flex-direction: column; gap: 18px; }
 .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
 .kpi { background: #fff; border: 1px solid var(--z-line, #e8ecf4); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
-.kpi > span { font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
-.kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 24px; font-weight: 800; color: var(--atg-ink, #182640); }
-.kpi > small { font-size: 12px; color: var(--atg-muted, #95a1b7); }
+.kpi > span { font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--z-muted); }
+.kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 24px; font-weight: 800; color: var(--z-ink); }
+.kpi > small { font-size: 12px; color: var(--z-muted); }
 .kpi--warn > b { color: #e07a30; }
 .kpi--ok > b { color: #1f9d6a; }
 
 .props-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .prop { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .prop.full { grid-column: 1 / -1; }
-.prop > span { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--atg-muted, #95a1b7); }
-.prop > b { font-weight: 600; color: var(--atg-ink, #182640); overflow-wrap: anywhere; }
+.prop > span { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--z-muted); }
+.prop > b { font-weight: 600; color: var(--z-ink); overflow-wrap: anywhere; }
 .profile-foot { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
 
-.cell-main { font-weight: 600; color: var(--atg-ink, #182640); }
-.cell-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); }
-.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #23B5D3); margin-right: 4px; }
-.muted { color: var(--atg-muted, #95a1b7); }
+.cell-main { font-weight: 600; color: var(--z-ink); }
+.cell-sub { font-size: 12px; color: var(--z-muted); }
+.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--z-teal); margin-right: 4px; }
+.muted { color: var(--z-muted); }
 
 @media (max-width: 1100px) { .props-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } .props-grid { grid-template-columns: 1fr; } }

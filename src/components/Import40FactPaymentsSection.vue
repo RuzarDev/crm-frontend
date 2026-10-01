@@ -68,7 +68,7 @@ const removeItem = (i: number) => {
 <style scoped>
 .fact-payments { display: flex; flex-direction: column; gap: 8px; }
 .section-bar { display: flex; align-items: center; justify-content: space-between; }
-.section-label { font-size: 12px; font-weight: 600; color: var(--atg-muted); }
+.section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--z-ink); }
 .payment-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.empty-state { color: var(--atg-muted); font-size: 12px; }
+.empty-state { color: var(--z-muted); font-size: 12px; }
 </style>

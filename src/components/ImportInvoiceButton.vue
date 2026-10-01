@@ -3,7 +3,7 @@
     <a-button @click="openPicker">
       <ImportOutlined /> {{ t('transit.importIzInvoysa') }} </a-button>
 
-    <a-modal v-model:open="pickerOpen" :title="t('transit.importIzInvoysa')" :footer="null" width="500px">
+    <a-modal v-model:open="pickerOpen" :title="t('transit.importIzInvoysa')" :footer="null" width="520px">
       <a-space direction="vertical" style="width: 100%" :size="16">
         <a-form-item :label="t('transit.klient')">
           <a-select

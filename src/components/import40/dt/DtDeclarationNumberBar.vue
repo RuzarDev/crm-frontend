@@ -126,7 +126,7 @@ const register = () => {
   gap: 14px;
   flex-wrap: wrap;
   padding: 12px 16px;
-  border: 1px solid var(--atg-border, #e5e7eb);
+  border: 1px solid var(--z-line);
   border-radius: 8px;
   margin-bottom: 16px;
 }

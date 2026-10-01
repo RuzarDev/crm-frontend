@@ -144,9 +144,9 @@ function filterCountry(input: string, option: { label: string }) {
   flex-direction: column;
   gap: 4px;
   padding: 10px 12px;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: 8px;
-  background: var(--atg-bg);
+  background: var(--z-bg);
 }
 
 .party-grid-2 {

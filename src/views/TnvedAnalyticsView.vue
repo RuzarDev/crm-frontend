@@ -137,14 +137,14 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   padding: 10px 0;
-  border-bottom: 1px solid var(--atg-line);
+  border-bottom: 1px solid var(--z-line);
 }
 .top-item:last-child { border-bottom: none; }
 
 .rank {
   font-size: 16px;
   font-weight: 800;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   min-width: 24px;
   text-align: center;
 }
@@ -160,7 +160,7 @@ onMounted(() => {
 
 .top-name {
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -175,7 +175,7 @@ onMounted(() => {
 
 .count-label {
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
 }
 
 .vto-groups {
@@ -193,17 +193,17 @@ onMounted(() => {
 
 .vto-hint {
   font-size: 12px;
-  color: var(--atg-text);
+  color: var(--z-ink);
   line-height: 1.4;
 }
 
-.old-rate { color: var(--atg-muted); font-size: 13px; }
-.arrow { color: var(--atg-muted); }
-.date-cell { font-size: 12px; color: var(--atg-muted); }
-.muted { color: var(--atg-muted); }
+.old-rate { color: var(--z-muted); font-size: 13px; }
+.arrow { color: var(--z-muted); }
+.date-cell { font-size: 12px; color: var(--z-muted); }
+.muted { color: var(--z-muted); }
 
 .empty-hint {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   text-align: center;
   padding: 32px 0;
   font-size: 13px;

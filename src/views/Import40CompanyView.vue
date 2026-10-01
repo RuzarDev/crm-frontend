@@ -499,13 +499,13 @@ onMounted(load)
 .onboarding-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 12px; }
 .step-body { margin-top: 24px; }
 .step-nav { display: flex; justify-content: space-between; margin-top: 20px; }
-.form-section-title { margin-top: 20px; margin-bottom: 10px; font-size: 13px; font-weight: 700; color: var(--atg-charcoal); text-transform: uppercase; letter-spacing: 0.02em; }
+.form-section-title { margin-top: 20px; margin-bottom: 10px; font-size: 13px; font-weight: 700; color: var(--z-navy-3); text-transform: uppercase; letter-spacing: 0.02em; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
 .form-grid label { display: flex; flex-direction: column; gap: 6px; }
 .form-grid label.full { grid-column: 1 / -1; }
 .bin-row { display: flex; gap: 8px; align-items: center; }
 .bin-row .ant-input { flex: 1; }
-.form-grid label span { color: var(--atg-charcoal); font-size: 12px; font-weight: 700; }
+.form-grid label span { font-size: 13px; font-weight: 500; color: var(--z-ink-2); }
 .form-footer { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
 @media (max-width: 900px) {
   .form-grid { grid-template-columns: 1fr; }

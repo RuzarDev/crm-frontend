@@ -141,6 +141,6 @@ watch(
 .to-line.info { color: var(--z-zircon-ink, #0f6e8f); background: var(--z-accent-soft, #e4f5fa); }
 .to-field { display: grid; gap: 2px; }
 .to-field.warn { background: var(--z-warning-soft, #fdf1d8); border-radius: var(--r-sm, 6px); padding: 4px 6px; }
-.to-label { font-size: 12px; color: var(--z-muted, #8c95a6); }
+.to-label { font-size: 12px; color: var(--z-muted, var(--z-muted)); }
 .to-field.warn .to-label { color: var(--z-warning, #8a6410); font-weight: 500; }
 </style>

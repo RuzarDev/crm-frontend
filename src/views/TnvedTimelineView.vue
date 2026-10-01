@@ -63,15 +63,15 @@ onMounted(async () => {
 <style scoped>
 .tl-date {
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   white-space: nowrap;
 }
 .tl-desc {
   font-size: 13px;
-  color: var(--atg-text);
+  color: var(--z-ink);
 }
 .empty-hint {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   text-align: center;
   padding: 40px 0;
   font-size: 13px;

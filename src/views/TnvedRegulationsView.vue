@@ -81,12 +81,12 @@ onMounted(async () => {
 
 <style scoped>
 .doc-link {
-  color: var(--atg-accent-strong);
+  color: var(--z-teal-d);
   font-weight: 500;
 }
 .doc-link:hover { text-decoration: underline; }
 .empty-hint {
-  color: var(--atg-muted);
+  color: var(--z-muted);
   text-align: center;
   padding: 40px 0;
   font-size: 13px;

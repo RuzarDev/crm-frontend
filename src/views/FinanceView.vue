@@ -42,11 +42,11 @@
         </a-card>
 
         <a-card class="crm-shell-card" :bordered="false">
-          <div class="filters">
+          <div class="filters crm-filter-bar">
             <a-input v-model:value="search" allow-clear :placeholder="t('admin.poiskPoKlientuGruzu')" style="max-width: 300px"><template #prefix><SearchOutlined /></template></a-input>
             <a-segmented v-model:value="filter" :options="filterOptions" />
           </div>
-          <a-table :columns="columns" :data-source="filtered" row-key="caseId" size="middle" :pagination="{ pageSize: 20, showSizeChanger: false }" :scroll="{ x: 1100 }"
+          <a-table class="crm-table-cards" :columns="columns" :data-source="filtered" row-key="caseId" size="middle" :pagination="{ pageSize: 20, showSizeChanger: false }" :scroll="{ x: 1100 }"
             :custom-row="(r: FinanceRow) => (authStore.isFinanceOnly
               ? {}
               : { onClick: () => router.push(`/import-40/${r.caseId}`), style: 'cursor:pointer' })">
@@ -188,14 +188,14 @@ const exportXlsx = () => {
 .finance-view { display: flex; flex-direction: column; gap: 18px; }
 .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
 .kpi { background: #fff; border: 1px solid var(--z-line, #e8ecf4); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
-.kpi > span { font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--atg-muted, #6b7891); }
-.kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 26px; font-weight: 800; color: var(--atg-ink, #182640); }
-.kpi > small { font-size: 12px; color: var(--atg-muted, #95a1b7); }
+.kpi > span { font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--z-muted); }
+.kpi > b { font-family: var(--font-display, 'Manrope', sans-serif); font-size: 26px; font-weight: 800; color: var(--z-ink); }
+.kpi > small { font-size: 12px; color: var(--z-muted); }
 .kpi--warn > b { color: #e07a30; } .kpi--ok > b { color: #1f9d6a; } .kpi--navy > b { color: #3b6fd6; }
 .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-.cell-main { font-weight: 600; color: var(--atg-ink, #182640); }
-.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--atg-teal, #23B5D3); margin-right: 4px; }
-.cell-sub { font-size: 12px; color: var(--atg-muted, #95a1b7); }
-.muted { color: var(--atg-muted, #95a1b7); }
+.cell-main { font-weight: 600; color: var(--z-ink); }
+.case-number { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--z-teal); margin-right: 4px; }
+.cell-sub { font-size: 12px; color: var(--z-muted); }
+.muted { color: var(--z-muted); }
 @media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
 </style>

@@ -8,7 +8,7 @@
   <a-modal
     :open="open"
     :title="t('dt.raschetPlatezheyGr47Grb')"
-    width="820px"
+    width="760px"
     :confirm-loading="applying"
     :ok-text="t('dt.zapisatVGr47I')"
     :cancel-text="t('dt.zakryt')"

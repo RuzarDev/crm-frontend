@@ -245,8 +245,8 @@ const activityColumns = computed(() => ([
   gap: 16px;
   padding: 20px;
   border-radius: var(--atg-radius-lg);
-  border: 1px solid var(--atg-line);
-  background: var(--atg-surface);
+  border: 1px solid var(--z-line);
+  background: var(--z-surface);
   box-shadow: var(--atg-shadow);
   transition: transform var(--atg-transition), box-shadow var(--atg-transition);
 }
@@ -269,20 +269,20 @@ const activityColumns = computed(() => ([
 
 /* Colors for KPIs */
 .teal-gradient-bg .kpi-icon-wrap {
-  background: var(--atg-teal-soft);
-  color: var(--atg-accent-strong);
+  background: var(--z-teal-soft);
+  color: var(--z-teal-d);
 }
 .gold-gradient-bg .kpi-icon-wrap {
-  background: var(--atg-gold-soft);
+  background: var(--z-gold-soft);
   color: #a17f2a;
 }
 .navy-gradient-bg .kpi-icon-wrap {
   background: rgba(14, 27, 53, 0.08);
-  color: var(--atg-navy);
+  color: var(--z-navy);
 }
 .accent-soft-bg .kpi-icon-wrap {
   background: rgba(35, 181, 211, 0.08);
-  color: var(--atg-accent);
+  color: var(--z-teal);
 }
 
 .kpi-content {
@@ -294,21 +294,21 @@ const activityColumns = computed(() => ([
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   letter-spacing: 0.04em;
 }
 
 .kpi-content strong {
   font-size: 24px;
   font-weight: 800;
-  color: var(--atg-ink);
+  color: var(--z-ink);
   line-height: 1.2;
   margin-top: 2px;
 }
 
 .kpi-content small {
   font-size: 12px;
-  color: var(--atg-muted);
+  color: var(--z-muted);
   margin-top: 4px;
 }
 
@@ -325,11 +325,11 @@ const activityColumns = computed(() => ([
   gap: 10px;
   font-size: 16px;
   font-weight: 700;
-  color: var(--atg-navy);
+  color: var(--z-navy);
 }
 
 .card-title :deep(.anticon) {
-  color: var(--atg-accent-strong);
+  color: var(--z-teal-d);
 }
 
 /* Custom Horizontal Bar chart */
@@ -350,7 +350,7 @@ const activityColumns = computed(() => ([
   width: 180px;
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -359,14 +359,14 @@ const activityColumns = computed(() => ([
 .bar-wrapper {
   flex: 1;
   height: 12px;
-  background: var(--atg-bg);
+  background: var(--z-bg);
   border-radius: 999px;
   overflow: hidden;
 }
 
 .bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--atg-teal), var(--atg-teal-dark));
+  background: linear-gradient(90deg, var(--z-teal), var(--z-teal-d));
   border-radius: 999px;
   transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -376,7 +376,7 @@ const activityColumns = computed(() => ([
   text-align: right;
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--atg-navy);
+  color: var(--z-navy);
 }
 
 /* Custom Funnel steps list */
@@ -400,12 +400,12 @@ const activityColumns = computed(() => ([
 
 .funnel-step-header span {
   font-weight: 600;
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
 }
 
 .funnel-step-header strong {
   font-weight: 800;
-  color: var(--atg-navy);
+  color: var(--z-navy);
 }
 
 /* Activity table styling */
@@ -419,8 +419,8 @@ const activityColumns = computed(() => ([
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  background: var(--atg-teal-soft);
-  color: var(--atg-accent-strong);
+  background: var(--z-teal-soft);
+  color: var(--z-teal-d);
   font-weight: 800;
   font-size: 12px;
   display: flex;
@@ -429,8 +429,8 @@ const activityColumns = computed(() => ([
 }
 
 .activity-table :deep(.ant-table-thead > tr > th) {
-  background-color: var(--atg-bg) !important;
-  color: var(--atg-navy) !important;
+  background-color: var(--z-bg) !important;
+  color: var(--z-navy) !important;
   font-weight: 800;
 }
 
@@ -455,16 +455,16 @@ const activityColumns = computed(() => ([
 .month-col { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .month-bars { display: flex; align-items: flex-end; gap: 4px; height: 120px; width: 100%; justify-content: center; }
 .mbar { width: 18px; border-radius: 6px 6px 2px 2px; transition: height .2s; }
-.mbar--cases { background: var(--atg-teal, #23B5D3); }
+.mbar--cases { background: var(--z-teal); }
 .mbar--dt { background: var(--z-gold, #F2B53A); }
 .mbar--transit { background: #3b6fd6; }
-.month-label { font-size: 12px; font-weight: 700; color: var(--atg-ink, #182640); text-transform: uppercase; letter-spacing: .04em; }
-.month-nums { font-size: 12px; color: var(--atg-muted, #6b7891); }
-.month-pay { font-size: 12px; color: var(--atg-teal-dark, #149bb2); font-weight: 600; }
-.month-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-size: 12px; color: var(--atg-muted, #6b7891); }
+.month-label { font-size: 12px; font-weight: 700; color: var(--z-ink); text-transform: uppercase; letter-spacing: .04em; }
+.month-nums { font-size: 12px; color: var(--z-muted); }
+.month-pay { font-size: 12px; color: var(--z-teal-d); font-weight: 600; }
+.month-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-size: 12px; color: var(--z-muted); }
 .month-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
-.sw--cases { background: var(--atg-teal, #23B5D3); } .sw--dt { background: var(--z-gold, #F2B53A); } .sw--transit { background: #3b6fd6; }
-.muted { color: var(--atg-muted, #95a1b7); font-size: 12px; }
+.sw--cases { background: var(--z-teal); } .sw--dt { background: var(--z-gold, #F2B53A); } .sw--transit { background: #3b6fd6; }
+.muted { color: var(--z-muted); font-size: 12px; }
 @media (max-width: 900px) { .months { grid-template-columns: repeat(3, 1fr); } }
 </style>
 

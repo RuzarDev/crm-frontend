@@ -218,7 +218,7 @@ const goToLogin = () => router.push('/login')
   position: relative;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(145deg, #0f1d36 0%, #0E1B35 45%, #1a3050 100%);
+  background: linear-gradient(145deg, #0f1d36 0%, var(--z-ink) 45%, #1a3050 100%);
   overflow: hidden;
 }
 
@@ -287,7 +287,7 @@ const goToLogin = () => router.push('/login')
   align-items: center;
   gap: 8px;
   margin-bottom: 20px;
-  color: #23B5D3;
+  color: var(--z-teal);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -298,7 +298,7 @@ const goToLogin = () => router.push('/login')
   display: inline-block;
   width: 6px; height: 6px;
   border-radius: 50%;
-  background: #23B5D3;
+  background: var(--z-teal);
   box-shadow: 0 0 8px rgba(35, 181, 211, 0.8);
   animation: pulse-dot 2s ease-in-out infinite;
 }
@@ -346,7 +346,7 @@ const goToLogin = () => router.push('/login')
   border: 1px solid rgba(35, 181, 211, 0.35);
   border-radius: 8px;
   background: rgba(35, 181, 211, 0.1);
-  color: #23B5D3;
+  color: var(--z-teal);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -402,7 +402,7 @@ const goToLogin = () => router.push('/login')
   border: 1px solid rgba(35, 181, 211, 0.3);
   border-radius: 999px;
   background: rgba(35, 181, 211, 0.08);
-  color: #1580A6;
+  color: var(--z-teal-d);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -411,7 +411,7 @@ const goToLogin = () => router.push('/login')
 
 .auth-form-title {
   margin: 0 0 6px;
-  color: #0E1B35;
+  color: var(--z-ink);
   font-size: 26px;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -430,7 +430,7 @@ const goToLogin = () => router.push('/login')
 }
 
 .auth-form :deep(.ant-form-item-label > label) {
-  color: #0E1B35;
+  color: var(--z-ink);
   font-size: 13px;
   font-weight: 600;
 }
@@ -448,7 +448,7 @@ const goToLogin = () => router.push('/login')
 
 .auth-form :deep(.ant-input-affix-wrapper-lg:focus-within),
 .auth-form :deep(.ant-select-focused .ant-select-selector) {
-  border-color: #23B5D3 !important;
+  border-color: var(--z-teal) !important;
   box-shadow: 0 0 0 3px rgba(35, 181, 211, 0.14) !important;
 }
 
@@ -459,7 +459,7 @@ const goToLogin = () => router.push('/login')
 .auth-submit-btn {
   min-height: 52px !important;
   border-radius: 10px !important;
-  background: #23B5D3 !important;
+  background: var(--z-teal) !important;
   border: none !important;
   font-size: 15px !important;
   font-weight: 700 !important;
@@ -481,14 +481,14 @@ const goToLogin = () => router.push('/login')
 
 .auth-footer-link a {
   margin-left: 4px;
-  color: #1580A6;
+  color: var(--z-teal-d);
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
   transition: color 0.15s ease;
 }
 
-.auth-footer-link a:hover { color: #0E1B35; }
+.auth-footer-link a:hover { color: var(--z-ink); }
 
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 860px) {

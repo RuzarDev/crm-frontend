@@ -39,24 +39,22 @@
 
     <a-card class="crm-shell-card" :bordered="false">
       <a-space direction="vertical" style="width: 100%" :size="16">
-        <div class="crm-toolbar crm-toolbar-surface">
+        <div class="crm-toolbar crm-toolbar-surface crm-filter-bar">
           <a-input
             v-model:value="searchValue"
             :placeholder="t('transit.poiskPoReestru')"
             allow-clear
             @pressEnter="handleSearch"
             @change="handleSearch"
-            style="width: 320px; max-width: 100%"
           >
             <template #prefix>
-              <SearchOutlined style="color: var(--atg-muted)" />
+              <SearchOutlined style="color: var(--z-muted)" />
             </template>
           </a-input>
           <a-select
             v-model:value="reestrStore.statusFilter"
             allow-clear
             :placeholder="t('transit.vseStatusy')"
-            style="width: 240px"
             :options="reestrStatusSelectOptions"
             @change="handleFiltersChange"
           />
@@ -65,7 +63,6 @@
               v-model:value="reestrStore.clientFilter"
               allow-clear
               :placeholder="t('transit.vseKlienty')"
-              style="width: 220px"
               :options="filterClientOptions"
               @change="handleFiltersChange"
             />
@@ -221,7 +218,7 @@
       v-model:open="uploadModalOpen"
       :title="t('transit.zagruzkaExcelFayla')"
       :footer="null"
-      width="600px"
+      width="520px"
     >
       <a-space direction="vertical" style="width: 100%" :size="16">
         <a-form-item v-if="needsUploadClient" :label="t('transit.klientDlyaImporta')">
@@ -822,7 +819,7 @@ const handleFileUpload = async (file: File) => {
   min-height: 34px !important;
   padding: 0 !important;
   border-radius: 7px !important;
-  color: var(--atg-muted) !important;
+  color: var(--z-muted) !important;
   background: transparent !important;
   border: none !important;
   font-size: 16px !important;
@@ -830,16 +827,16 @@ const handleFileUpload = async (file: File) => {
 }
 
 .action-btn:hover {
-  color: var(--atg-accent-strong) !important;
-  background: var(--atg-accent-soft) !important;
+  color: var(--z-teal-d) !important;
+  background: var(--z-teal-soft) !important;
 }
 
 .action-btn--danger {
-  color: var(--atg-muted) !important;
+  color: var(--z-muted) !important;
 }
 
 .action-btn--danger:hover {
-  color: var(--atg-red) !important;
+  color: var(--z-danger) !important;
   background: rgba(184, 74, 60, 0.08) !important;
 }
 
@@ -848,7 +845,7 @@ const handleFileUpload = async (file: File) => {
   display: inline-block;
   width: 1px;
   height: 24px;
-  background: var(--atg-line-strong);
+  background: var(--z-line-strong);
   border-radius: 1px;
   flex-shrink: 0;
 }

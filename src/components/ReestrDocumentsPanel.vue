@@ -262,9 +262,9 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
 <style scoped>
 .doc-section {
   padding: 14px 16px;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: var(--atg-radius);
-  background: var(--atg-surface);
+  background: var(--z-surface);
 }
 
 .doc-section--broker {
@@ -293,17 +293,17 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
 }
 
 .doc-section-dot--client {
-  background: var(--atg-blue);
+  background: var(--z-teal);
 }
 
 .doc-section-dot--broker {
-  background: var(--atg-accent);
+  background: var(--z-teal);
 }
 
 .doc-section-title {
   font-size: 13.5px;
   font-weight: 700;
-  color: var(--atg-ink);
+  color: var(--z-ink);
 }
 
 .broker-root-title {
@@ -313,9 +313,9 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
 .broker-slot {
   margin-bottom: 14px;
   padding: 12px;
-  border: 1px solid var(--atg-line);
+  border: 1px solid var(--z-line);
   border-radius: 7px;
-  background: var(--atg-surface);
+  background: var(--z-surface);
 }
 
 .broker-slot:last-child {
@@ -325,26 +325,26 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
 .doc-slot-label {
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--atg-charcoal);
+  color: var(--z-navy-3);
 }
 
 .required-mark {
-  color: #ff4d4f;
+  color: var(--z-danger);
   margin-left: 2px;
 }
 
 .upload-btn {
-  color: var(--atg-accent-strong);
+  color: var(--z-teal-d);
   border-color: rgba(200, 149, 53, 0.35);
-  background: var(--atg-accent-soft);
+  background: var(--z-teal-soft);
   font-size: 12px;
   font-weight: 600;
 }
 
 .upload-btn:hover {
-  color: var(--atg-ink) !important;
-  border-color: var(--atg-accent) !important;
-  background: var(--atg-accent-soft) !important;
+  color: var(--z-ink) !important;
+  border-color: var(--z-teal) !important;
+  background: var(--z-teal-soft) !important;
 }
 
 .section-closed-notice {
@@ -353,15 +353,15 @@ const handleDelete = async (doc: ReestrDocumentDto) => {
   gap: 7px;
   padding: 8px 12px;
   border-radius: 6px;
-  background: var(--atg-surface-muted);
-  color: var(--atg-muted);
+  background: var(--z-surface-2);
+  color: var(--z-muted);
   font-size: 12px;
   font-weight: 600;
   margin-top: 8px;
 }
 
 .doc-section :deep(.ant-list) {
-  border-color: var(--atg-line);
+  border-color: var(--z-line);
   border-radius: var(--atg-radius-sm);
 }
 
