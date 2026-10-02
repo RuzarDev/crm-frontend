@@ -9,26 +9,34 @@
     </div>
     <div v-if="opts.excise.length > 1" class="to-field" :class="{ warn: !exciseKind }">
       <div class="to-label">{{ t('dt.tariffExciseKind') }}<template v-if="!exciseKind"> · {{ t('dt.tariffExciseDefault') }}</template></div>
-      <a-select
+      <!-- Варианты списком друг под другом: условия длинные, в одну строку выпадающего списка не помещаются. -->
+      <a-radio-group
         :value="exciseKind ?? opts.excise[0]?.key"
-        size="small"
         :disabled="readonly"
-        style="width: 100%"
-        :options="opts.excise.map((o) => ({ value: o.key, label: `${o.rate} — ${o.condition ?? ''}` }))"
-        @change="(v: string) => emit('update:exciseKind', v)"
-      />
+        class="to-radios"
+        @change="(e: RadioChangeEvent) => emit('update:exciseKind', e.target.value)"
+      >
+        <a-radio v-for="o in opts.excise" :key="o.key" :value="o.key" class="to-radio">
+          <span class="to-rate">{{ o.rate }}</span>
+          <span v-if="o.condition" class="to-cond">{{ o.condition }}</span>
+        </a-radio>
+      </a-radio-group>
     </div>
     <div v-if="opts.antiDumping.length" class="to-field warn">
       <div class="to-label">{{ t('dt.tariffAntiDumping') }}</div>
-      <a-select
+      <a-radio-group
         :value="antiDumpingKind ?? ''"
-        size="small"
         :disabled="readonly"
-        style="width: 100%"
-        :options="[{ value: '', label: t('dt.tariffAntiDumpingNone') },
-                   ...opts.antiDumping.map((o) => ({ value: o.key, label: adLabel(o) }))]"
-        @change="(v: string) => emit('update:antiDumpingKind', v || null)"
-      />
+        class="to-radios"
+        @change="(e: RadioChangeEvent) => emit('update:antiDumpingKind', e.target.value || null)"
+      >
+        <a-radio value="" class="to-radio"><span class="to-rate">{{ t('dt.tariffAntiDumpingNone') }}</span></a-radio>
+        <a-radio v-for="o in opts.antiDumping" :key="o.key" :value="o.key" class="to-radio">
+          <span class="to-rate">{{ o.rate }}</span>
+          <span class="to-meta">{{ adMeta(o) }}</span>
+          <span v-if="o.condition" class="to-cond">{{ o.condition }}</span>
+        </a-radio>
+      </a-radio-group>
     </div>
     <!-- Специфическая ставка (за л, л 100% спирта, шт, см³), а такой единицы нет в ДЕИ товара —
          без этого количества пошлина/акциз не считаются (раньше молча выходил 0). -->
@@ -49,6 +57,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { RadioChangeEvent } from 'ant-design-vue'
 import { tnvedApi, type TariffOptionsDto } from '@/api/tnved'
 import type { TnvedTariffOptionDto } from '@/types/api'
 
@@ -110,8 +119,8 @@ const neededFields = computed(() => {
 })
 
 const until = (d: string | null) => (d ? d.split('-').reverse().join('.') : t('dt.antiDumpingNoEnd'))
-const adLabel = (o: TnvedTariffOptionDto) =>
-  `${o.rate} (${o.country ?? t('dt.antiDumpingAnyCountry')}, ${t('dt.tariffUntil', { date: until(o.endDate) })}) — ${o.condition ?? ''}`
+const adMeta = (o: TnvedTariffOptionDto) =>
+  `${o.country ?? t('dt.antiDumpingAnyCountry')}, ${t('dt.tariffUntil', { date: until(o.endDate) })}`
 
 watch(
   () => [props.code?.trim() ?? '', props.country?.trim() ?? ''] as const,
@@ -136,11 +145,23 @@ watch(
 </script>
 
 <style scoped>
-.to-hint { margin-top: 4px; display: grid; gap: 4px; }
+.to-hint { margin-top: 4px; display: grid; gap: 4px; min-width: 0; }
 .to-line { font-size: 12px; border-radius: var(--r-sm, 6px); padding: 3px 8px; }
 .to-line.info { color: var(--z-zircon-ink, #0f6e8f); background: var(--z-accent-soft, #e4f5fa); }
 .to-field { display: grid; gap: 2px; }
 .to-field.warn { background: var(--z-warning-soft, #fdf1d8); border-radius: var(--r-sm, 6px); padding: 4px 6px; }
 .to-label { font-size: 12px; color: var(--z-muted, var(--z-muted)); }
 .to-field.warn .to-label { color: var(--z-warning, #8a6410); font-weight: 500; }
+.to-radios { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* AntD держит подпись радио в одну строку (inline-flex, baseline) — переносим текст и выравниваем кружок по первой строке. */
+.to-radios :deep(.ant-radio-wrapper) {
+  display: flex; align-items: flex-start; margin-inline-end: 0; padding: 3px 4px;
+  border-radius: var(--r-sm, 6px); white-space: normal; line-height: 1.4;
+}
+.to-radios :deep(.ant-radio-wrapper:hover) { background: rgba(255, 255, 255, 0.6); }
+.to-radios :deep(.ant-radio) { align-self: flex-start; margin-top: 2px; }
+.to-radios :deep(.ant-radio-wrapper > span:last-child) { display: flex; flex-wrap: wrap; column-gap: 6px; min-width: 0; }
+.to-rate { font-size: 13px; font-weight: 600; color: var(--z-ink, #1b2733); }
+.to-meta { font-size: 12px; color: var(--z-ink-2, #44505c); }
+.to-cond { flex-basis: 100%; font-size: 12px; color: var(--z-ink-2, #44505c); overflow-wrap: anywhere; }
 </style>

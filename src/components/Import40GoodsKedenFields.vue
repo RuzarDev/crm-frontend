@@ -118,9 +118,21 @@
         :token-separators="[',', ';']" :get-popup-container="popupContainer"
         :placeholder="t('dt.kodyGr33Placeholder')"
         :status="invalidFeatureCodes(good.prohibitionCode).length || unknownFeatureCodes(good).length ? 'warning' : undefined"
-        @change="(v: string[]) => onFeatureCodesChange(good, v)">
+        @change="(v: string[]) => onFeatureCodesChange(good, v)"
+        @search="(v: string) => (gr33Search = v)"
+        @dropdown-visible-change="(open: boolean) => { if (!open) gr33Search = '' }">
         <template #tag="{ value: codeValue, onClose }">
           <a-tag class="ois-mark-tag" :title="prohibitionTitle(codeValue)" :closable="!readonly" @close="onClose">{{ codeValue }}</a-tag>
+        </template>
+        <!-- Внизу списка — чем он ограничен (коды по ТН ВЭД из KEDEN или весь справочник) и переключатель. -->
+        <template #dropdownRender="{ menuNode }">
+          <VNodes :vnodes="menuNode" />
+          <div v-if="suggest.codes.length && !gr33Search" class="gr33-scope" @mousedown.prevent>
+            <span>{{ gr33ByTnved ? t('dt.gr33ScopeTnved', { code: suggest.tnved }) : t('dt.gr33ScopeAll', { n: prohibitionRef.length }) }}</span>
+            <a-button type="link" size="small" @click="showAllCodes = !showAllCodes">
+              {{ gr33ByTnved ? t('dt.gr33ShowAll') : t('dt.gr33ShowTnved') }}
+            </a-button>
+          </div>
         </template>
       </a-select>
       <div v-if="invalidFeatureCodes(good.prohibitionCode).length" class="field-hint-warn">
@@ -248,7 +260,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, defineComponent, onMounted, reactive, ref, watch, type PropType, type VNode } from 'vue'
 import { CloseOutlined, CopyOutlined, QuestionCircleOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { loadXlsx } from '@/utils/xlsx'
@@ -456,17 +468,45 @@ const onFeatureCodesChange = (g: Import40GoodsItemInput, values: string[]) => {
 const prohibitionRef = ref<ProhibitionCodeItem[]>([])
 const prohibitionByCode = computed(() => new Map(prohibitionRef.value.map((c) => [c.code, c])))
 const shorten = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s)
-const prohibitionOptions = computed(() => {
-  const groups = new Map<string, { label: string; options: { value: string; label: string; title: string }[] }>()
+// Отрисовка готового меню AntD внутри #dropdownRender.
+const VNodes = defineComponent({
+  props: { vnodes: { type: Object as PropType<VNode>, required: true } },
+  render() { return this.vnodes },
+})
+type Gr33Option = { value: string; label: string; title: string }
+const toGr33Option = (code: string, name: string): Gr33Option =>
+  ({ value: code, label: `${code} — ${shorten(name, 90)}`, title: name })
+const allProhibitionOptions = computed(() => {
+  const groups = new Map<string, { label: string; options: Gr33Option[] }>()
   for (const c of prohibitionRef.value) {
     let grp = groups.get(c.categoryCode)
     if (!grp) {
       grp = { label: `${c.categoryCode} — ${shorten(c.categoryName, 70)}`, options: [] }
       groups.set(c.categoryCode, grp)
     }
-    grp.options.push({ value: c.code, label: `${c.code} — ${shorten(c.name, 90)}`, title: c.name })
+    grp.options.push(toGr33Option(c.code, c.name))
   }
   return [...groups.values()]
+})
+// Есть подсказки KEDEN по ТН ВЭД — в списке сначала они, затем другие варианты тех же мер (например, D0125
+// «бывшие в употреблении» вместо подсказанного D0110). Весь справочник — по кнопке внизу списка или при поиске.
+const showAllCodes = ref(false)
+const gr33Search = ref('')
+const gr33ByTnved = computed(() => suggest.codes.length > 0 && !showAllCodes.value)
+const prohibitionOptions = computed(() => {
+  if (!gr33ByTnved.value || gr33Search.value.trim()) return allProhibitionOptions.value
+  const suggested = new Set(suggest.codes.map((c) => c.code))
+  const categoryOf = (code: string) => prohibitionByCode.value.get(code)?.categoryCode ?? code.slice(0, 3)
+  const categories = new Set(suggest.codes.map((c) => categoryOf(c.code)))
+  const groups = [{
+    label: t('dt.gr33GroupTnved', { code: suggest.tnved }),
+    options: suggest.codes.map((c) => toGr33Option(c.code, prohibitionByCode.value.get(c.code)?.name ?? c.name ?? c.code)),
+  }]
+  const others = prohibitionRef.value
+    .filter((c) => !suggested.has(c.code) && categories.has(c.categoryCode))
+    .map((c) => toGr33Option(c.code, c.name))
+  if (others.length) groups.push({ label: t('dt.gr33GroupSameMeasures'), options: others })
+  return groups
 })
 const prohibitionTitle = (code: string) => prohibitionByCode.value.get(code)?.name ?? code
 const unknownFeatureCodes = (g: Import40GoodsItemInput): string[] =>
@@ -712,6 +752,11 @@ const importMarkingsFromExcel = async (g: Import40GoodsItemInput, file: File) =>
 .sug-chip-on { opacity: 0.45; cursor: default; }
 .sug-neg { padding: 0 4px; height: auto; font-size: 12px; }
 .sug-note { color: var(--z-muted); margin-left: 4px; }
+.gr33-scope {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 4px; padding: 6px 12px 2px; border-top: 1px solid var(--z-line, #e6eaee);
+  font-size: 12px; color: var(--z-muted);
+}
 
 /* Подсказки ТРОИС у «Рег.№ по ОИС» */
 .trois-opt { line-height: 1.35; white-space: normal; }
