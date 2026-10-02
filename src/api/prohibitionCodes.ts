@@ -32,7 +32,7 @@ let referencePromise: Promise<ProhibitionCodeItem[]> | null = null
 const suggestCache = new Map<string, Promise<ProhibitionSuggestResult>>()
 
 export const prohibitionCodesApi = {
-  /** Весь справочник (171 код) — один раз на сессию. */
+  /** Весь справочник (164 кода) — один раз на сессию. */
   list: (): Promise<ProhibitionCodeItem[]> => {
     referencePromise ??= apiClient.get('/ref/prohibition-codes', { silent: true }).then((r) => r.data as ProhibitionCodeItem[])
       .catch((e) => { referencePromise = null; throw e })
