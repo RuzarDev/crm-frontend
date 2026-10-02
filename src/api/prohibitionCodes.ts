@@ -28,6 +28,14 @@ export interface ProhibitionSuggestResult {
   warning: string | null
 }
 
+/** Сколько кодов ТН ВЭД (по сохранённым ответам КЕДЕН) ссылаются на код; inReference=false — у нас нет названия. */
+export interface ProhibitionCodeUsage {
+  code: string
+  tnvedCount: number
+  inReference: boolean
+  sampleTnved: string | null
+}
+
 let referencePromise: Promise<ProhibitionCodeItem[]> | null = null
 const suggestCache = new Map<string, Promise<ProhibitionSuggestResult>>()
 
@@ -38,6 +46,9 @@ export const prohibitionCodesApi = {
       .catch((e) => { referencePromise = null; throw e })
     return referencePromise
   },
+  /** Для раздела «Справочники»: какие коды КЕДЕН реально присылает. */
+  kedenUsage: (): Promise<ProhibitionCodeUsage[]> =>
+    apiClient.get('/ref/prohibition-codes/keden-usage').then((r) => r.data as ProhibitionCodeUsage[]),
   /** Подсказки по 10-значному коду ТН ВЭД; ответ кэшируется на сессию (ошибки — нет). */
   suggest: (tnved: string): Promise<ProhibitionSuggestResult> => {
     let p = suggestCache.get(tnved)

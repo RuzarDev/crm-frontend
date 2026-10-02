@@ -34,6 +34,9 @@
               </a-popconfirm>
               <a-button type="primary" @click="addCurrent">{{ active.startsWith('cls:') ? t('admin.dobavitKod') : t('admin.dobavit') }}</a-button>
             </template>
+            <a-input v-else-if="active === 'gr33'" v-model:value="q" allow-clear :placeholder="t('admin.refsPoisk')" class="refs-search">
+              <template #prefix><SearchOutlined /></template>
+            </a-input>
             <template v-else-if="active === 'kato'">
               <a-upload :show-upload-list="false" accept=".xlsx" :before-upload="onKatoFile">
                 <a-button :loading="katoBusy">{{ t('admin.zagruzitXlsx') }}</a-button>
@@ -123,6 +126,33 @@
           </a-table>
         </template>
 
+        <!-- Гр.33: коды запретов и ограничений. В КЕДЕН у каждого ТН ВЭД свой набор кодов (в ДТ подсказываются
+             сами), общего списка с названиями КЕДЕН не публикует — поэтому показываем и коды без названия. -->
+        <template v-else-if="active === 'gr33'">
+          <a-alert v-if="gr33Missing.length" type="warning" show-icon class="refs-note">
+            <template #message>{{ t('admin.gr33MissingTitle', { n: gr33Missing.length }) }}</template>
+            <template #description>
+              <span v-for="u in gr33Missing" :key="u.code" class="gr33-missing">
+                <b>{{ u.code }}</b> — {{ t('admin.gr33TnvedCount', { n: u.tnvedCount }) }}<template v-if="u.sampleTnved">, {{ t('admin.gr33Example', { code: u.sampleTnved }) }}</template>
+              </span>
+            </template>
+          </a-alert>
+          <a-table class="crm-table-cards" :data-source="gr33Rows" :columns="gr33Columns" row-key="code" size="small"
+            :loading="gr33Loading" :pagination="{ pageSize: 50, showSizeChanger: false, hideOnSinglePage: true }">
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'name'">
+                <span v-if="record.name">{{ record.name }}</span>
+                <a-tag v-else color="orange">{{ t('admin.gr33NoName') }}</a-tag>
+              </template>
+              <template v-else-if="column.key === 'keden'">
+                <span v-if="record.tnvedCount">{{ record.tnvedCount }}</span>
+                <span v-else class="muted">—</span>
+              </template>
+            </template>
+          </a-table>
+          <div class="muted refs-note">{{ t('admin.gr33Hint') }}</div>
+        </template>
+
         <!-- НСИ КГД: БИН → код таможенного органа (подсказка «Таможенный орган (местонахождение)» гр.30) -->
         <template v-else-if="active === 'nsi'">
           <a-descriptions size="small" :column="1" bordered class="refs-desc">
@@ -164,6 +194,7 @@ import { useClassifiersStore } from '@/stores/classifiers'
 import PageHeader from '@/components/PageHeader.vue'
 import KatoSelect from '@/components/KatoSelect.vue'
 import { katoApi, type KatoStatus } from '@/api/kato'
+import { prohibitionCodesApi, type ProhibitionCodeItem, type ProhibitionCodeUsage } from '@/api/prohibitionCodes'
 import { troisApi, troisDate, type TroisItem, type TroisStatus } from '@/api/trois'
 import { warehouseRegistryApi, warehouseNsiApi, kedenRegistriesApi, type KedenRefreshResult, type WarehouseKindStatus, type WarehouseKind, type WarehouseNsiImportKindResult, type WarehouseImportKindResult } from '@/api/warehouseRegistry'
 
@@ -214,6 +245,7 @@ const isList = computed(() => active.value === 'station' || active.value === 'po
 const selectRef = async (key: string) => {
   active.value = key
   q.value = ''
+  if (key === 'gr33') await loadGr33()
   if (key.startsWith('cls:')) await onSelectClassifier({ key: key.slice(4) })
 }
 const listRows = computed((): Array<RefItem | ClassifierItem> => {
@@ -237,6 +269,7 @@ const navGroups = computed(() => [
     key: `cls:${g.classifierCode}`, title: classifierTitle(g.classifierCode), count: g.count as number | null,
   })) },
   { title: t('admin.refsGroupRegistries'), items: [
+    { key: 'gr33', title: t('admin.gr33Title'), count: gr33Ref.value.length || null },
     { key: 'kato', title: t('admin.kato'), count: katoStatus.value?.total ?? null },
     { key: 'warehouses', title: t('admin.svhTsTitle'), count: whCount('svh') + whCount('customs_warehouse') || null },
     { key: 'trois', title: t('admin.troisTitle'), count: troisStatus.value?.active ?? null },
@@ -245,7 +278,36 @@ const navGroups = computed(() => [
 ])
 const activeTitle = computed(() => navGroups.value.flatMap((g) => g.items).find((i) => i.key === active.value)?.title ?? '')
 const activeHint = computed(() => active.value.startsWith('cls:') ? t('admin.eekBarHint')
-  : active.value === 'kato' ? t('admin.katoKlassifikatorAdministrativnoTerritorialnyh') : '')
+  : active.value === 'kato' ? t('admin.katoKlassifikatorAdministrativnoTerritorialnyh')
+  : active.value === 'gr33' ? t('admin.gr33Sub') : '')
+
+// Гр.33: справочник + какие коды КЕДЕН присылает по ТН ВЭД (кэш подсказок).
+const gr33Ref = ref<ProhibitionCodeItem[]>([])
+const gr33Usage = ref<ProhibitionCodeUsage[]>([])
+const gr33Loading = ref(false)
+const loadGr33 = async () => {
+  gr33Loading.value = true
+  try {
+    const [refs, usage] = await Promise.all([prohibitionCodesApi.list(), prohibitionCodesApi.kedenUsage().catch(() => [])])
+    gr33Ref.value = refs; gr33Usage.value = usage
+  } catch { message.error(t('admin.oshibka')) } finally { gr33Loading.value = false }
+}
+const gr33Missing = computed(() => gr33Usage.value.filter((u) => !u.inReference))
+const gr33Rows = computed(() => {
+  const usage = new Map(gr33Usage.value.map((u) => [u.code, u.tnvedCount]))
+  const rows = [
+    ...gr33Ref.value.map((c) => ({ code: c.code, name: c.name, category: `${c.categoryCode} — ${c.categoryName}`, tnvedCount: usage.get(c.code) ?? 0 })),
+    ...gr33Missing.value.map((u) => ({ code: u.code, name: '', category: '', tnvedCount: u.tnvedCount })),
+  ].sort((a, b) => a.code.localeCompare(b.code))
+  const term = q.value.trim().toLowerCase()
+  return term ? rows.filter((r) => `${r.code} ${r.name} ${r.category}`.toLowerCase().includes(term)) : rows
+})
+const gr33Columns = computed(() => [
+  { title: t('admin.kod'), dataIndex: 'code', key: 'code', width: 90 },
+  { title: t('admin.naimenovanie'), dataIndex: 'name', key: 'name' },
+  { title: t('admin.gr33ColCategory'), dataIndex: 'category', key: 'category', width: 260 },
+  { title: t('admin.gr33ColKeden'), key: 'keden', width: 120, align: 'right' as const },
+])
 const classifierGroups = ref<ClassifierGroup[]>([])
 const classifierItems = ref<ClassifierItem[]>([])
 const selectedClassifier = ref<string[]>([])
@@ -546,6 +608,8 @@ onMounted(async () => {
   await loadWarehouseStatus()
   await loadTroisStatus()
   await loadNsiStatus()
+  // Счётчик в меню; таблица и данные КЕДЕН догружаются при открытии раздела.
+  try { gr33Ref.value = await prohibitionCodesApi.list() } catch { /* раздел покажет ошибку при открытии */ }
 })
 </script>
 
@@ -555,6 +619,7 @@ onMounted(async () => {
 .refs-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; align-items: start; }
 .refs-nav { position: sticky; top: 80px; display: flex; flex-direction: column; gap: 2px; padding: 10px; max-height: calc(100vh - 100px); overflow-y: auto; }
 .refs-nav-group { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--z-muted); padding: 10px 10px 4px; }
+.gr33-missing { display: inline-block; margin-right: 14px; }
 .refs-nav-group:first-child { padding-top: 2px; }
 .refs-nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--z-ink); cursor: pointer; }
 .refs-nav-item:hover { background: var(--z-surface-2); }
