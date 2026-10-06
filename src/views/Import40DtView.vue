@@ -1487,7 +1487,8 @@ const exportXml = async () => {
     a.download = res.fileName
     a.click()
     URL.revokeObjectURL(url)
-    message.success(t('dt.xmlDlyaKedenSformirovan'))
+    // Гр.54 КЕДЕН из XML не импортирует (проверено 06.10.2026: ФЛК «Графа 54 должна быть заполнена»).
+    message.success({ content: `${t('dt.xmlDlyaKedenSformirovan')}. ${t('dt.xmlGr54Hint')}`, duration: 8 })
     void refreshReadiness()
   } catch {
     message.error(t('dt.neUdalosSformirovatXml'))

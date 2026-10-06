@@ -1209,6 +1209,7 @@ export default {
     vyberiteStranuPoKodu: 'Select country by code',
     vybratVse: 'Select all',
     xmlDlyaKedenSformirovan: 'KEDEN XML generated',
+    xmlGr54Hint: 'After uploading to KEDEN, set «Who declares» and «Who fills in the DT» in box 54 — KEDEN does not take them from XML.',
     xmlNeSformirovanZapolnite: 'XML not generated: fill in the required fields',
     zakryt: 'Close',
     zapisatVGr47I: 'Write to box 47 and box B',

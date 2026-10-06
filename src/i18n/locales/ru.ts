@@ -1210,6 +1210,7 @@ export default {
     vyberiteStranuPoKodu: 'Выберите страну по коду',
     vybratVse: 'Выбрать все',
     xmlDlyaKedenSformirovan: 'XML для КЕДЕН сформирован',
+    xmlGr54Hint: 'После загрузки в КЕДЕН отметьте в гр.54 «Кем производится декларирование» и «Кем заполнится ДТ» — КЕДЕН не переносит их из XML.',
     xmlNeSformirovanZapolnite: 'XML не сформирован: заполните обязательные поля',
     zakryt: 'Закрыть',
     zapisatVGr47I: 'Записать в гр.47 и гр.B',

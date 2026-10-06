@@ -1068,7 +1068,8 @@ const exportXml = async (dtId: string) => {
     a.download = res.fileName
     a.click()
     URL.revokeObjectURL(url)
-    message.success(t('import40Case.xmlFormed'))
+    // Гр.54 КЕДЕН из XML не импортирует (проверено 06.10.2026: ФЛК «Графа 54 должна быть заполнена»).
+    message.success({ content: `${t('import40Case.xmlFormed')}. ${t('dt.xmlGr54Hint')}`, duration: 8 })
   } finally {
     xmlLoading.value = null
   }
