@@ -119,8 +119,9 @@ const TAX_MODE_LABELS = computed((): Record<string, string> => ({
   '1010': t('dt.sbor'),
   '5060': t('dt.nds'),
 }))
+// Акциз — любой код 4xxx (в КЕДЕН по виду товара: 4420, 4400…).
 const taxModeLabel = (code: string | null | undefined) =>
-  code ? (TAX_MODE_LABELS.value[code] ?? code) : '—'
+  code ? (TAX_MODE_LABELS.value[code] ?? (/^4\d{3}$/.test(code) ? `${t('dt.akciz')} ${code}` : code)) : '—'
 
 // Порядок гр.47 в отображении: Сборы (1010) → Пошлина (2010) → НДС (5060) → прочие,
 // как их уже отдаёт backend calculate-payments (Task 3) — сортируем то же самое, что

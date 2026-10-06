@@ -991,14 +991,16 @@ watch(goodsOriginKey, (key) => {
 // Import40PaymentCalculator): обновляем строку по коду вида платежа или добавляем новую. Расчётные
 // виды (сбор, пошлина, антидемпинг, акциз, НДС), которых в новом расчёте нет, удаляем — иначе после
 // смены вида акциза или отказа от антидемпинга оставалась старая сумма.
-const CALCULATED_TAX_MODES = ['1010', '2010', '2050', '4010', '5060']
+// Акциз в КЕДЕН — код по виду товара (4420 сигареты, 4400 пиво…; 06.10.2026), поэтому любой 4xxx.
+const CALCULATED_TAX_MODES = ['1010', '2010', '2050', '5060']
+const isCalculatedTaxMode = (code: string) => CALCULATED_TAX_MODES.includes(code) || /^4\d{3}$/.test(code)
 const applyGoodsPaymentRows = (res: Import40CalculatePaymentsResponse) => {
   res.goodsRows.forEach((row) => {
     const g = dtForm.goodsItems[row.index]
     if (!g || row.error) return
     const fresh = new Set(row.rows.map((r) => r.taxModeCode))
     const rows = (g.payments ?? []).filter(
-      (p) => !p.taxModeCode || !CALCULATED_TAX_MODES.includes(p.taxModeCode) || fresh.has(p.taxModeCode),
+      (p) => !p.taxModeCode || !isCalculatedTaxMode(p.taxModeCode) || fresh.has(p.taxModeCode),
     )
     row.rows.forEach((pr) => {
       const existing = rows.find((p) => p.taxModeCode === pr.taxModeCode)

@@ -127,7 +127,8 @@ const TAX_MODE_LABELS = computed((): Record<string, string> => ({
   '1010': t('dt.sbor'),
   '5060': t('dt.nds'),
 }))
-const taxModeLabel = (code: string) => TAX_MODE_LABELS.value[code] ?? code
+// Акциз — любой код 4xxx (в КЕДЕН по виду товара: 4420, 4400…).
+const taxModeLabel = (code: string) => TAX_MODE_LABELS.value[code] ?? (/^4\d{3}$/.test(code) ? `${t('dt.akciz')} ${code}` : code)
 
 const goodsLabel = (index: number) => {
   const g = props.goods[index]
