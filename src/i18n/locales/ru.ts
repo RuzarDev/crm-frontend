@@ -1049,6 +1049,7 @@ export default {
     kodyGr33Placeholder: 'Код или слово: C1700, культурные ценности',
     kodyNeVSpravochnike: 'Нет в справочнике: {codes}. Проверьте коды (справочник — Приказ МФ РК № 259).',
     podskazkiPoTnved: 'Подсказки по ТН ВЭД {code}:',
+    gr33NoImportCodes: 'Для ТН ВЭД {code} при импорте КЕДЕН кодов гр.33 не даёт — оставьте поле пустым',
     gr33GroupTnved: 'Для ТН ВЭД {code} (по данным КЕДЕН)',
     gr33GroupSameMeasures: 'Другие варианты этих же мер',
     gr33ScopeTnved: 'Показаны коды для ТН ВЭД {code}',

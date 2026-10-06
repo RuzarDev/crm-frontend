@@ -127,7 +127,7 @@
         <!-- Внизу списка — чем он ограничен (коды по ТН ВЭД из KEDEN или весь справочник) и переключатель. -->
         <template #dropdownRender="{ menuNode }">
           <VNodes :vnodes="menuNode" />
-          <div v-if="suggest.codes.length && !gr33Search" class="gr33-scope" @mousedown.prevent>
+          <div v-if="visibleSuggest.length && !gr33Search" class="gr33-scope" @mousedown.prevent>
             <span>{{ gr33ByTnved ? t('dt.gr33ScopeTnved', { code: suggest.tnved }) : t('dt.gr33ScopeAll', { n: prohibitionRef.length }) }}</span>
             <a-button type="link" size="small" @click="showAllCodes = !showAllCodes">
               {{ gr33ByTnved ? t('dt.gr33ShowAll') : t('dt.gr33ShowTnved') }}
@@ -144,9 +144,9 @@
       <!-- Подсказки по ТН ВЭД из KEDEN: ничего не подставляем сами — коды выбирает декларант (юридическая ответственность). -->
       <div v-if="!readonly && suggest.tnved" class="sug-row">
         <a-spin v-if="suggest.loading" size="small" />
-        <template v-else-if="suggest.codes.length">
+        <template v-else-if="visibleSuggest.length">
           <span class="sug-label">{{ t('dt.podskazkiPoTnved', { code: suggest.tnved }) }}</span>
-          <a-tag v-for="c in suggest.codes" :key="c.code" class="sug-chip" :class="{ 'sug-chip-on': isFeatureSelected(good, c.code) }"
+          <a-tag v-for="c in visibleSuggest" :key="c.code" class="sug-chip" :class="{ 'sug-chip-on': isFeatureSelected(good, c.code) }"
             :title="c.name ?? c.code" @click="addFeatureCode(good, c.code)">{{ c.code }}</a-tag>
           <a-tooltip :title="t('dt.dobavitNePodpadaetHint')">
             <a-button v-if="negativeToAdd(good).length" type="link" size="small" class="sug-neg" @click="addNegativeCodes(good)">
@@ -155,6 +155,8 @@
           </a-tooltip>
           <span v-if="suggest.warning" class="sug-note">{{ t('dt.podskazkiStale') }}</span>
         </template>
+        <!-- КЕДЕН для этого ТН ВЭД даёт только экспортные коды — при импорте он отклонит любой код (проверено 06.10.2026). -->
+        <span v-else-if="suggest.codes.length" class="sug-note">{{ t('dt.gr33NoImportCodes', { code: suggest.tnved }) }}</span>
         <span v-else class="sug-note">{{ suggest.failed ? t('dt.podskazkiNedostupny') : t('dt.podskazkiPusto') }}</span>
       </div>
     </div>
@@ -492,15 +494,19 @@ const allProhibitionOptions = computed(() => {
 // «бывшие в употреблении» вместо подсказанного D0110). Весь справочник — по кнопке внизу списка или при поиске.
 const showAllCodes = ref(false)
 const gr33Search = ref('')
-const gr33ByTnved = computed(() => suggest.codes.length > 0 && !showAllCodes.value)
+// Направление товара по гр.37 («1000» — экспорт): при импорте экспортные коды (C2000, C1700, H0111…) КЕДЕН
+// отклоняет — в подсказках их не показываем (флаг exportOnly с сервера, Gr33Direction).
+const isExportGood = computed(() => ['10', '21', '23', '31'].includes((props.good.procedureCode ?? '').trim().slice(0, 2)))
+const visibleSuggest = computed(() => suggest.codes.filter((c) => isExportGood.value || !c.exportOnly))
+const gr33ByTnved = computed(() => visibleSuggest.value.length > 0 && !showAllCodes.value)
 const prohibitionOptions = computed(() => {
   if (!gr33ByTnved.value || gr33Search.value.trim()) return allProhibitionOptions.value
-  const suggested = new Set(suggest.codes.map((c) => c.code))
+  const suggested = new Set(visibleSuggest.value.map((c) => c.code))
   const categoryOf = (code: string) => prohibitionByCode.value.get(code)?.categoryCode ?? code.slice(0, 3)
-  const categories = new Set(suggest.codes.map((c) => categoryOf(c.code)))
+  const categories = new Set(visibleSuggest.value.map((c) => categoryOf(c.code)))
   const groups = [{
     label: t('dt.gr33GroupTnved', { code: suggest.tnved }),
-    options: suggest.codes.map((c) => toGr33Option(c.code, prohibitionByCode.value.get(c.code)?.name ?? c.name ?? c.code)),
+    options: visibleSuggest.value.map((c) => toGr33Option(c.code, prohibitionByCode.value.get(c.code)?.name ?? c.name ?? c.code)),
   }]
   const others = prohibitionRef.value
     .filter((c) => !suggested.has(c.code) && categories.has(c.categoryCode))
@@ -549,7 +555,7 @@ const addFeatureCode = (g: Import40GoodsItemInput, code: string) => {
 }
 // «Не подпадает»: только подсказанные коды вида XX00 (C1700, C2000, D0100…), которых ещё нет в поле.
 const negativeToAdd = (g: Import40GoodsItemInput) =>
-  suggest.codes.filter((c) => c.isNegative && !isFeatureSelected(g, c.code))
+  visibleSuggest.value.filter((c) => c.isNegative && !isFeatureSelected(g, c.code))
 const addNegativeCodes = (g: Import40GoodsItemInput) => {
   const add = negativeToAdd(g).map((c) => c.code)
   if (props.readonly || !add.length) return

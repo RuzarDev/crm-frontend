@@ -1044,6 +1044,7 @@ export default {
     kodyGr33Placeholder: 'Code or keyword: C1700, cultural',
     kodyNeVSpravochnike: 'Not in the reference: {codes}. Check the codes (reference: Order of the RK Ministry of Finance No. 259).',
     podskazkiPoTnved: 'Hints for HS code {code}:',
+    gr33NoImportCodes: 'For HS {code} KEDEN gives no box 33 codes on import — leave the field empty',
     gr33GroupTnved: 'For HS code {code} (KEDEN data)',
     gr33GroupSameMeasures: 'Other variants of the same measures',
     gr33ScopeTnved: 'Showing codes for HS {code}',

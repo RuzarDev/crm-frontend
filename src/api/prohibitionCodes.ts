@@ -17,6 +17,8 @@ export interface SuggestedProhibitionCode {
   isNegative: boolean
   inReference: boolean
   sourceResolution: string | null
+  /** Код КЕДЕН принимает только при вывозе (экспорт): при импорте не предлагаем. */
+  exportOnly?: boolean
 }
 
 export interface ProhibitionSuggestResult {
