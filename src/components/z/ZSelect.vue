@@ -12,6 +12,7 @@ import { fieldShell, floatingSurface, listItem } from '@/ui/surfaces'
 import {
   filterOptions, fromKey, indexOptions, optionFor, sameValue, toKey, type ZFilterOption, type ZOption, type ZOptionValue,
 } from '@/ui/options'
+import { useFieldControl } from '@/ui/form'
 import ZSelectChips from './ZSelectChips.vue'
 
 // Замена a-select (155 мест): API как у AntD — v-model:value, options, show-search, filter-option,
@@ -62,7 +63,6 @@ const { t } = useI18n()
 const isMulti = computed(() => props.mode === 'multiple' || props.mode === 'tags')
 // Как у AntD: multiple/tags — с поиском по умолчанию, single — без; show-search переопределяет.
 const searchable = computed(() => props.showSearch ?? isMulti.value)
-const isInvalid = computed(() => props.invalid || props.status === 'error')
 
 const index = computed(() => indexOptions(props.options))
 const labelOf = (v: ZOptionValue) => optionFor(index.value, v).label
@@ -103,6 +103,7 @@ const set = (next: ZOptionValue | ZOptionValue[] | null) => {
   if (sameValue(props.value, next)) return
   emit('update:value', next)
   emit('change', next, Array.isArray(next) ? next.map((v) => optionFor(index.value, v)) : next === null ? undefined : index.value.get(next))
+  notifyChange()
 }
 const resetQuery = () => {
   if (!query.value) return
@@ -129,6 +130,11 @@ const onOpen = (v: boolean) => {
 
 const inputCmp = ref<ComponentPublicInstance>()
 const inputEl = () => inputCmp.value?.$el as HTMLInputElement | undefined
+// Внутри ZField: id/aria-* поля, красная рамка при ошибке, change/blur — полю (см. src/ui/form.ts).
+const { fieldId, fieldDescribedBy, fieldInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+  attrs, id: () => props.id, focus: () => inputEl()?.focus(), value: () => props.value,
+})
+const isInvalid = computed(() => props.invalid || props.status === 'error' || fieldInvalid.value)
 // single с поиском: подпись выбранного остаётся значением поля (скринридер читает выбранное), в фокусе
 // выделена; любая правка (символ, Backspace/Delete, вставка, IME, автозамена) заменяет её целиком,
 // а не дописывается к ней. beforeinput ловит все виды правок, в том числе без keydown.
@@ -167,6 +173,7 @@ const onBlur = (e: FocusEvent) => {
     pristine.value = true
   }
   emit('blur', e)
+  notifyBlur()
 }
 // compositionend и следующий за ним input несут тот же текст — search шлём один раз.
 const applyQuery = (e: Event) => {
@@ -234,13 +241,15 @@ const inputClass = computed(() => cn(
       <ZSelectChips v-if="isMulti" :values="selected" :label-of="labelOf" :disabled="disabled" @remove="removeValue" />
       <ComboboxInput
         v-bind="inputAttrs"
-        :id="id"
+        :id="fieldId"
         ref="inputCmp"
         :model-value="inputText"
         :display-value="displayValue"
         :readonly="!searchable"
         :placeholder="selected.length ? undefined : placeholder"
         :aria-invalid="isInvalid || undefined"
+        :aria-describedby="fieldDescribedBy"
+        :aria-required="fieldRequired"
         :class="inputClass"
         @update:model-value="inputText = $event"
         @input="onInput"

@@ -10,6 +10,7 @@ import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
 import { fieldShell, floatingSurface, listItem } from '@/ui/surfaces'
 import { filterOptions, toKey, type ZFilterOption, type ZOption, type ZOptionValue } from '@/ui/options'
+import { useFieldControl } from '@/ui/form'
 
 // Замена a-auto-complete (21 место): значение — набранный текст, опции — только подсказки.
 // Reka Autocomplete (а не Combobox): у него модель — сам текст поля, ввод и IME (отложенный ввод до
@@ -65,6 +66,7 @@ const commit = (next: string) => {
   text.value = next
   emit('update:value', next)
   emit('change', next)
+  notifyChange()
 }
 // Reka шлёт сюда только набор (выбор пункта перехвачен в pick). Повтор того же текста (compositionend
 // после обычного input на Android) — без дублей.
@@ -82,6 +84,12 @@ const pick = (e: Event, o: ZOption) => {
 
 const inputCmp = ref<ComponentPublicInstance>()
 const inputEl = () => inputCmp.value?.$el as HTMLInputElement | undefined
+// Внутри ZField: id/aria-* поля, красная рамка при ошибке, change/blur — полю (см. src/ui/form.ts).
+// Своего prop id нет: id приходит атрибутом (на <input>) и важнее id поля.
+const { fieldId, fieldDescribedBy, fieldInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+  attrs, focus: () => inputEl()?.focus(), value: () => text.value,
+})
+const isInvalid = computed(() => props.invalid || fieldInvalid.value)
 const contentCmp = ref<ComponentPublicInstance>()
 // Связь поля и списка для скринридера. Reka Autocomplete даёт полю пустой aria-controls до первого открытия
 // и ставит id списку изнутри (атрибутом не перебить), поэтому id свой и стабильный: aria-controls — на поле
@@ -99,7 +107,9 @@ const popupStyle = computed(() => (props.popupWidth === undefined ? undefined
 // иначе подсказки, пришедшие позже, открыли бы окно у поля без фокуса.
 const onBlur = (e: FocusEvent) => {
   const to = e.relatedTarget as Node | null
-  if (!to || !(contentCmp.value?.$el as HTMLElement | undefined)?.contains(to)) open.value = false
+  if (to && (contentCmp.value?.$el as HTMLElement | undefined)?.contains(to)) return
+  open.value = false
+  notifyBlur()
 }
 const clear = () => {
   commit('')
@@ -120,13 +130,16 @@ defineExpose({ focus: () => inputEl()?.focus(), blur: () => inputEl()?.blur() })
     @update:model-value="onType"
     @update:open="open = $event"
   >
-    <AutocompleteAnchor :class="fieldShell({ size, invalid, disabled })">
+    <AutocompleteAnchor :class="fieldShell({ size, invalid: isInvalid, disabled })">
       <AutocompleteInput
         v-bind="inputAttrs"
         ref="inputCmp"
+        :id="fieldId"
         :aria-controls="listId"
         :placeholder="placeholder"
-        :aria-invalid="invalid || undefined"
+        :aria-invalid="isInvalid || undefined"
+        :aria-describedby="fieldDescribedBy"
+        :aria-required="fieldRequired"
         :class="cn(
           'min-w-0 flex-1 border-0 bg-transparent p-0 [font-size:inherit] [line-height:inherit] [color:inherit] outline-hidden placeholder:text-muted disabled:cursor-not-allowed disabled:placeholder:text-ink-3',
           mono ? 'font-mono tabular-nums' : 'font-sans',

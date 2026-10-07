@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, useAttrs, type ComponentPublicInstance } from 'vue'
 import { ToggleGroupItem, ToggleGroupRoot } from 'reka-ui'
 import { cn } from '@/ui/cn'
 import { fromKey, toKey, type ZOption, type ZOptionValue } from '@/ui/options'
+import { useFieldControl } from '@/ui/form'
+import { focusFirstTabbable } from '@/ui/surfaces'
 
 // Замена a-segmented: v-model:value + change(value). Выбор снять нельзя: Reka при повторном нажатии
-// на выбранный пункт присылает пустое значение — игнорируем. class/style/aria-* — на корень.
+// на выбранный пункт присылает пустое значение — игнорируем. class/style/aria-* — на корень (вручную:
+// свой aria-describedby объединяется с ошибкой ZField). Внутри ZField подпись — через aria-labelledby.
+defineOptions({ inheritAttrs: false })
+const attrs = useAttrs()
 const props = defineProps<{
   value?: ZOptionValue | null
   options: (string | ZOption)[]
@@ -25,16 +30,37 @@ const onUpdate = (k: unknown) => {
   if (next === props.value) return
   emit('update:value', next)
   emit('change', next)
+  notifyChange()
 }
+
+const rootCmp = ref<ComponentPublicInstance>()
+const rootEl = () => rootCmp.value?.$el as HTMLElement | undefined
+// Пункты с roving tabindex: если ни один не доступен с Tab, фокус на группу — Reka переведёт его на пункт.
+const focus = () => { const el = rootEl(); if (el && !focusFirstTabbable(el)) el.focus() }
+// role=group: aria-required к группе не относится — только подпись, описание и ошибка.
+const { fieldDescribedBy, fieldLabelledBy, fieldInvalid, notifyChange, notifyBlur } = useFieldControl({
+  attrs, focus, value: () => props.value, group: true,
+})
+const onFocusOut = (e: FocusEvent) => {
+  const to = e.relatedTarget as Node | null
+  if (!to || !rootEl()?.contains(to)) notifyBlur()
+}
+defineExpose({ focus })
 </script>
 
 <template>
   <ToggleGroupRoot
+    v-bind="attrs"
+    ref="rootCmp"
+    :aria-labelledby="fieldLabelledBy"
+    :aria-describedby="fieldDescribedBy"
+    :aria-invalid="fieldInvalid || undefined"
     type="single"
     :model-value="model"
     :disabled="disabled"
     class="inline-flex rounded-field bg-sunken p-0.5"
     @update:model-value="onUpdate"
+    @focusout="onFocusOut"
   >
     <ToggleGroupItem
       v-for="o in items"

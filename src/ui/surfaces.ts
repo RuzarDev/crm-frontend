@@ -69,12 +69,17 @@ export const focusFirstInside = (e: Event): void => {
   const root = e.target
   if (!(root instanceof HTMLElement)) return
   e.preventDefault()
+  if (!focusFirstTabbable(root)) root.focus({ preventScroll: true })
+}
+
+/** Фокус на первый элемент внутри root, доступный с Tab; false — такого нет (фокус не тронут). */
+export const focusFirstTabbable = (root: HTMLElement): boolean => {
   for (const el of root.querySelectorAll<HTMLElement>(FOCUSABLE)) {
     if (!isTabbable(el)) continue
     el.focus({ preventScroll: true })
-    if (document.activeElement === el) return // не взял фокус (скрыт предком и т. п.) — идём дальше
+    if (document.activeElement === el) return true // не взял фокус (скрыт предком и т. п.) — идём дальше
   }
-  root.focus({ preventScroll: true })
+  return false
 }
 
 /** Ширина окна: число — px (как у AntD), строка — как есть ('80%', '40rem'). */

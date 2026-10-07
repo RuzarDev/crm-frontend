@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, useAttrs, type StyleValue } from 'vue'
+import { computed, ref, useAttrs, type ComponentPublicInstance, type StyleValue } from 'vue'
 import { SwitchRoot, SwitchThumb } from 'reka-ui'
 import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
+import { useFieldControl } from '@/ui/form'
 
 // Замена a-switch: v-model:checked + change(checked), size sm|md, необязательный слот подписи.
 // class/style — на обёртку, остальные $attrs (aria-*, data-*) — на кнопку role=switch.
@@ -24,10 +25,21 @@ const emit = defineEmits<{
   change: [checked: boolean]
 }>()
 
+// Внутри ZField: id/aria-* поля, change/blur — полю (см. src/ui/form.ts).
+const rootCmp = ref<ComponentPublicInstance>()
+const rootEl = () => rootCmp.value?.$el as HTMLElement | undefined
+const { fieldId, fieldDescribedBy, fieldInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+  attrs, id: () => props.id, focus: () => rootEl()?.focus(), value: () => props.checked,
+})
+// aria-required Reka ставит сам из prop required (атрибут перебить нельзя).
+const requiredFlag = computed(() => fieldRequired.value === true || fieldRequired.value === 'true')
+defineExpose({ focus: () => rootEl()?.focus(), blur: () => rootEl()?.blur() })
+
 const onUpdate = (v: boolean) => {
   if (v === !!props.checked) return
   emit('update:checked', v)
   emit('change', v)
+  notifyChange()
 }
 </script>
 
@@ -42,7 +54,11 @@ const onUpdate = (v: boolean) => {
   >
     <SwitchRoot
       v-bind="switchAttrs"
-      :id="id"
+      :id="fieldId"
+      ref="rootCmp"
+      :aria-describedby="fieldDescribedBy"
+      :aria-invalid="fieldInvalid || undefined"
+      :required="requiredFlag"
       :model-value="!!checked"
       :disabled="disabled"
       :class="cn(
@@ -53,6 +69,7 @@ const onUpdate = (v: boolean) => {
         size === 'sm' ? 'h-4 w-7' : 'h-5 w-9',
       )"
       @update:model-value="onUpdate"
+      @blur="notifyBlur"
     >
       <SwitchThumb
         :class="cn(

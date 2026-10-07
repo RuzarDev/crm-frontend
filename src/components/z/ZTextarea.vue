@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, useAttrs, watch } from 'vue'
 import { cn } from '@/ui/cn'
+import { useFieldControl } from '@/ui/form'
+
+// Корень — сам <textarea>: все $attrs (class/style тоже) — на него; вручную, чтобы свой aria-describedby
+// объединялся с ошибкой ZField, а не заменял её.
+defineOptions({ inheritAttrs: false })
+const attrs = useAttrs()
 
 const props = withDefaults(defineProps<{
   value?: string | null
@@ -21,7 +27,11 @@ const emit = defineEmits<{
   blur: [e: FocusEvent]
 }>()
 const el = ref<HTMLTextAreaElement>()
-defineExpose({ focus: () => el.value?.focus() })
+defineExpose({ focus: () => el.value?.focus(), blur: () => el.value?.blur() })
+const { fieldId, fieldDescribedBy, fieldInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+  attrs, id: () => props.id, focus: () => el.value?.focus(), value: () => props.value,
+})
+const isInvalid = computed(() => props.invalid || fieldInvalid.value)
 
 const fit = () => {
   if (!props.autoGrow || !el.value) return
@@ -35,6 +45,11 @@ const fit = () => {
 const onInput = (e: Event) => {
   emit('update:value', (e.target as HTMLTextAreaElement).value)
   emit('change', e)
+  notifyChange()
+}
+const onBlur = (e: FocusEvent) => {
+  emit('blur', e)
+  notifyBlur()
 }
 watch(() => props.value, () => nextTick(fit))
 onMounted(fit)
@@ -42,25 +57,28 @@ onMounted(fit)
 
 <template>
   <textarea
-    :id="id"
+    v-bind="attrs"
+    :id="fieldId"
     ref="el"
     :rows="rows"
     :value="value ?? ''"
     :placeholder="placeholder"
     :maxlength="maxlength"
     :disabled="disabled"
-    :aria-invalid="invalid || undefined"
+    :aria-invalid="isInvalid || undefined"
+    :aria-describedby="fieldDescribedBy"
+    :aria-required="fieldRequired"
     :class="cn(
       'block w-full resize-y rounded-field border border-line-strong bg-surface px-3 py-2 font-sans text-sm text-ink outline-hidden',
       'transition-[border-color,box-shadow] duration-150 ease-out placeholder:text-muted disabled:placeholder:text-ink-3 motion-reduce:transition-none',
       'focus:border-zircon focus:shadow-focus',
       // hover:not-focus — в собранном CSS hover идёт после focus и перебил бы рамку фокуса.
-      !invalid && !disabled && 'hover:not-focus:border-faint',
-      invalid && 'border-danger focus:border-danger',
+      !isInvalid && !disabled && 'hover:not-focus:border-faint',
+      isInvalid && 'border-danger focus:border-danger',
       disabled && 'cursor-not-allowed bg-sunken text-ink-3',
       autoGrow && 'resize-none overflow-y-auto',
     )"
     @input="onInput"
-    @blur="emit('blur', $event)"
+    @blur="onBlur"
   />
 </template>

@@ -5,6 +5,7 @@ import { PhEye, PhEyeSlash, PhMagnifyingGlass, PhX } from '@phosphor-icons/vue'
 import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
 import { fieldShell } from '@/ui/surfaces'
+import { useFieldControl } from '@/ui/form'
 
 // class/style — на обёртку (ширина, отступы в раскладке), всё остальное (aria-*, data-*, inputmode,
 // autofocus, слушатели onKeydown/onPaste…) — на сам <input>, как у a-input.
@@ -48,6 +49,11 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const el = ref<HTMLInputElement>()
 defineExpose({ focus: () => el.value?.focus(), blur: () => el.value?.blur() })
+// Внутри ZField: id/aria-* поля, красная рамка при ошибке, change/blur — полю (см. src/ui/form.ts).
+const { fieldId, fieldDescribedBy, fieldInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+  attrs, id: () => props.id, focus: () => el.value?.focus(), value: () => props.value,
+})
+const isInvalid = computed(() => props.invalid || fieldInvalid.value)
 
 // Пароль: глаз переключает отображение; type у <input> становится text.
 const shown = ref(false)
@@ -60,6 +66,11 @@ const doSearch = () => emit('search', props.value ?? '')
 const onInput = (e: Event) => {
   emit('update:value', (e.target as HTMLInputElement).value)
   emit('change', e)
+  notifyChange()
+}
+const onBlur = (e: FocusEvent) => {
+  emit('blur', e)
+  notifyBlur()
 }
 // Enter, которым подтверждают IME-набор, — не «отправка».
 const onEnter = (e: KeyboardEvent) => {
@@ -82,7 +93,7 @@ const clear = () => {
   <span
     :style="attrs.style as StyleValue"
     :class="cn(
-      fieldShell({ size, invalid, disabled }),
+      fieldShell({ size, invalid: isInvalid, disabled }),
       attrs.class as ClassValue,
     )"
   >
@@ -90,7 +101,7 @@ const clear = () => {
     <span v-else-if="isSearch" :class="cn('flex shrink-0 items-center text-muted', disabled && 'text-ink-3')"><PhMagnifyingGlass :size="16" /></span>
     <input
       v-bind="inputAttrs"
-      :id="id"
+      :id="fieldId"
       ref="el"
       :name="name"
       :type="inputType"
@@ -100,7 +111,9 @@ const clear = () => {
       :readonly="readonly"
       :maxlength="maxlength"
       :autocomplete="inputAutocomplete"
-      :aria-invalid="invalid || undefined"
+      :aria-invalid="isInvalid || undefined"
+      :aria-describedby="fieldDescribedBy"
+      :aria-required="fieldRequired"
       :class="cn(
         'min-w-0 flex-1 border-0 bg-transparent p-0 [font-size:inherit] [line-height:inherit] [color:inherit] outline-hidden placeholder:text-muted disabled:cursor-not-allowed disabled:placeholder:text-ink-3',
         mono ? 'font-mono tabular-nums' : 'font-sans',
@@ -108,7 +121,7 @@ const clear = () => {
       )"
       @input="onInput"
       @keydown.enter="onEnter"
-      @blur="emit('blur', $event)"
+      @blur="onBlur"
       @focus="emit('focus', $event)"
     >
     <button
