@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampRound, formatFixed, parseNumber } from '../number'
+import { clampRound, formatFixed, formatMoney, parseNumber } from '../number'
 
 describe('parseNumber', () => {
   it.each([
@@ -39,5 +39,18 @@ describe('formatFixed', () => {
     expect(formatFixed(12.5, 2)).toBe('12.50')
     expect(formatFixed(2.135, 2)).toBe('2.14')
     expect(formatFixed(3, 0)).toBe('3')
+  })
+})
+
+describe('formatMoney', () => {
+  it('разряды неразрывным пробелом и валюта', () => {
+    expect(formatMoney(2840000)).toBe('2\u00A0840\u00A0000\u00A0₸')
+    expect(formatMoney(0)).toBe('0\u00A0₸')
+  })
+  it('округляет до целых и принимает свою валюту', () => {
+    expect(formatMoney(1234.6, '$')).toBe('1\u00A0235\u00A0$')
+  })
+  it('не оставляет узких неразрывных пробелов', () => {
+    expect(formatMoney(1234567)).not.toMatch(/\u202F/)
   })
 })

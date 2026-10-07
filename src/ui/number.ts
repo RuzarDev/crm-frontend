@@ -40,3 +40,9 @@ export const clampRound = (n: number, o: { min?: number; max?: number; precision
 
 /** Показ с фиксированным числом знаков и тем же округлением, что у clampRound. */
 export const formatFixed = (v: number, precision: number): string => roundTo(v, precision).toFixed(precision)
+
+const moneyFormat = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 })
+
+/** Деньги для карточек: «2 840 000 ₸». Узкие/обычные неразрывные пробелы Intl → U+00A0 (стабильно в тестах и разных ОС). */
+export const formatMoney = (n: number, currency = '₸'): string =>
+  `${moneyFormat.format(n).replace(/[  ]/g, ' ')} ${currency}`
