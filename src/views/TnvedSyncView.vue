@@ -56,7 +56,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { ref, h, onMounted, computed } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { DatabaseOutlined, SyncOutlined } from '@ant-design/icons-vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedSyncLogDto } from '@/types/api'

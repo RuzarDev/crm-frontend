@@ -307,7 +307,7 @@ import type {
 } from '@/types/api'
 import { formatRole } from '@/utils/labels'
 import { DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined, SwapOutlined, KeyOutlined, MoreOutlined } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import PageHeader from '@/components/PageHeader.vue'
 import { permissionsApi, businessRoleLabel } from '@/api/permissions'
 import { usersApi } from '@/api/users'

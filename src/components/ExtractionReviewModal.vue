@@ -79,7 +79,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { ref, reactive, watch, computed } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { reestrApi } from '@/api/reestr'
 import type {
   ApplyExtractionRequest,

@@ -27,6 +27,7 @@ export default {
     edit: 'Изменить',
     export: 'Экспорт',
     loading: 'Загрузка…',
+    clear: 'Очистить',
     yes: 'Да',
     no: 'Нет',
   },

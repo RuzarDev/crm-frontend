@@ -76,7 +76,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import {
   BankOutlined,
   CheckCircleOutlined,

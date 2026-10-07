@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { reestrApi } from '@/api/reestr'
 import type { ReestrEntry, ReestrListRequest, ReestrEntryStatus, ReestrUpsertBody } from '@/types/api'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { i18n } from '@/i18n'
 import { serverErrorText } from '@/utils/serverError'
 

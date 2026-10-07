@@ -140,8 +140,18 @@ declare module 'vue' {
     TnvedTree: typeof import('./src/components/TnvedTree.vue')['default']
     TransportMeansBlock: typeof import('./src/components/reestr/TransportMeansBlock.vue')['default']
     TroisTrademarkHint: typeof import('./src/components/import40/TroisTrademarkHint.vue')['default']
+    ZAvatar: typeof import('./src/components/z/ZAvatar.vue')['default']
+    ZButton: typeof import('./src/components/z/ZButton.vue')['default']
+    ZEmpty: typeof import('./src/components/z/ZEmpty.vue')['default']
     ZField: typeof import('./src/components/ui/ZField.vue')['default']
     ZFilterBar: typeof import('./src/components/ui/ZFilterBar.vue')['default']
+    ZInput: typeof import('./src/components/z/ZInput.vue')['default']
+    ZKbd: typeof import('./src/components/z/ZKbd.vue')['default']
+    ZPage: typeof import('./src/components/z/ZPage.vue')['default']
+    ZPanel: typeof import('./src/components/z/ZPanel.vue')['default']
+    ZSkeleton: typeof import('./src/components/z/ZSkeleton.vue')['default']
     ZTable: typeof import('./src/components/ui/ZTable.vue')['default']
+    ZTag: typeof import('./src/components/z/ZTag.vue')['default']
+    ZTextarea: typeof import('./src/components/z/ZTextarea.vue')['default']
   }
 }

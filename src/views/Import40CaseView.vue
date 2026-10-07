@@ -521,7 +521,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { message, Modal } from 'ant-design-vue'
+import { Modal } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { CloseOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import {
   IMPORT40_TRANSPORT_MODES,

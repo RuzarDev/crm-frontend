@@ -173,7 +173,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import {
   BookOutlined, CalculatorOutlined, DeleteOutlined, FileDoneOutlined, GoldOutlined, PlusOutlined,
   PrinterOutlined, SaveOutlined, ToolOutlined, UserOutlined,

@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import type { UploadProps } from 'ant-design-vue'
 import { CloseOutlined, PaperClipOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'

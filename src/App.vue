@@ -2,10 +2,13 @@
   <a-config-provider :theme="zirconTheme" :locale="antdLocale" :render-empty="renderEmpty">
     <router-view />
   </a-config-provider>
+  <!-- Тосты: не перекрывают шапку (offset), не больше трёх сразу — как было в message.config. -->
+  <Toaster position="top-center" :offset="72" :visible-toasts="3" :duration="4000" />
 </template>
 
 <script setup lang="ts">
 import { computed, h, onMounted } from 'vue'
+import { Toaster } from 'vue-sonner'
 import { InboxOutlined } from '@ant-design/icons-vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { useI18n } from 'vue-i18n'

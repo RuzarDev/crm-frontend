@@ -217,7 +217,7 @@
 import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { CloseOutlined, RightOutlined, UploadOutlined } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import type { UploadProps } from 'ant-design-vue'
 import { loadXlsx } from '@/utils/xlsx'
 import { tnvedApi } from '@/api/tnved'

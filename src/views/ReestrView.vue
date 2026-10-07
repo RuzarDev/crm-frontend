@@ -287,7 +287,7 @@ import { formatReestrCellForDisplay } from '@/utils/reestrFormat'
 import { reestrDataToUpsertBody, reestrStatusOptions } from '@/utils/reestrDtoMap'
 import { reestrApi } from '@/api/reestr'
 import type { TableProps } from 'ant-design-vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import PageHeader from '@/components/PageHeader.vue'
 
 const { t } = useI18n()

@@ -167,7 +167,7 @@
 import { useRoute } from 'vue-router'
 import { useClientRegistration } from '@/composables/useClientRegistration'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { useI18n } from 'vue-i18n'
 import {
   CheckCircleOutlined,

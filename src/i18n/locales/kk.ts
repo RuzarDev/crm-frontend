@@ -25,6 +25,7 @@ export default {
     edit: 'Өзгерту',
     export: 'Экспорт',
     loading: 'Жүктелуде…',
+    clear: 'Тазалау',
     yes: 'Иә',
     no: 'Жоқ',
   },

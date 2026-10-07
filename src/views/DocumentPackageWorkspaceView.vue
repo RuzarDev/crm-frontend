@@ -626,7 +626,7 @@
 import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref, onUnmounted, watch, toRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import {
   ReloadOutlined,
   BuildOutlined,

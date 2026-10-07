@@ -133,7 +133,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { dtsApi, type DtsSheet, type DtsParty, type DtsDocRef, type DtsGoodsColumn, type DtsCurrencyLine } from '@/api/dts'
 import { referencesApi } from '@/api/references'
 import type { Import40DtFormState } from '@/api/import40'

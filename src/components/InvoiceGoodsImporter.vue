@@ -83,7 +83,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { ref, computed } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import type { UploadProps } from 'ant-design-vue'
 import { CloseOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { invoiceApi } from '@/api/invoice'

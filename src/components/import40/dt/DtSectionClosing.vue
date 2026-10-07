@@ -113,7 +113,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import DtGraphLabel from './DtGraphLabel.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { getBrokerFirmByBin, listBrokerFirms, upsertBrokerFirm } from '@/api/brokerFirms'

@@ -59,7 +59,7 @@
 import { useI18n } from 'vue-i18n'
 import { computed, watch } from 'vue'
 import { CloseOutlined, QuestionCircleOutlined, UploadOutlined } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { loadXlsx } from '@/utils/xlsx'
 import type { Import40GoodsItemInput, Import40GoodsPayment, Import40GoodsMarking } from '@/types/api'
 import { cloneGoodsExtras } from '@/types/api'

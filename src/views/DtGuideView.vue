@@ -33,7 +33,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { ref, computed, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { referencesApi } from '@/api/references'
 import type { DtGuideEntry } from '@/types/api'
 import PageHeader from '@/components/PageHeader.vue'

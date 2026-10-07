@@ -149,7 +149,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { ArrowLeftOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { clientCardApi, type ClientCard, type ClientCardCase, type ClientCardDoc } from '@/api/clientCard'

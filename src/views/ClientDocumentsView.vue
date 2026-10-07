@@ -107,7 +107,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { DownloadOutlined, SearchOutlined, FileProtectOutlined } from '@ant-design/icons-vue'
 import { loadXlsx } from '@/utils/xlsx'
 import PageHeader from '@/components/PageHeader.vue'

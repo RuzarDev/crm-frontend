@@ -17,6 +17,10 @@ const homeRouteForRole = (): string => {
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    // Каталог компонентов редизайна — только в dev-сборке (спека 2026-10-07 §6).
+    ...(import.meta.env.DEV
+      ? [{ path: '/_ui', name: 'ui-catalog', component: () => import('@/views/dev/UiCatalogView.vue'), meta: { requiresAuth: false } }]
+      : []),
     {
       path: '/login',
       name: 'login',

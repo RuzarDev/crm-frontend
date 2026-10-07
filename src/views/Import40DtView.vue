@@ -192,7 +192,8 @@ import { computed, h, onBeforeUnmount, onMounted, ref, reactive, watch, nextTick
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { serverErrorText as serverErrorTextOf } from '@/utils/serverError'
 import dayjs from 'dayjs'
-import { message, Modal } from 'ant-design-vue'
+import { Modal } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { CheckCircleFilled, DownOutlined } from '@ant-design/icons-vue'
 import {
   import40Api,

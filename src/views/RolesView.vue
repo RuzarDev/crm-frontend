@@ -60,7 +60,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import PageHeader from '@/components/PageHeader.vue'
 import { useAuthStore } from '@/stores/auth'
 import { permissionsApi, type PermissionMatrix, type RoleRow } from '@/api/permissions'
