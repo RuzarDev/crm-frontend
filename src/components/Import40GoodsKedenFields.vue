@@ -200,6 +200,9 @@
       </a-collapse-panel>
     </a-collapse>
 
+    <!-- Доп. сведения гр.31: характеристики, акцизные марки, автомобили, период, инвестпроект, прослеживаемость -->
+    <Import40GoodsExtras :good="good" :readonly="readonly" @change="emitChange" />
+
     <!-- Платежи гр.47: таблица с заголовками колонок (раньше были только плейсхолдеры в полях) -->
     <div class="zf-sec">
       <span>{{ t('dt.platezhiGr47') }}</span>
@@ -273,6 +276,7 @@ import { useTroisCheck } from '@/composables/useTroisCheck'
 import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import { prohibitionCodesApi, type ProhibitionCodeItem, type SuggestedProhibitionCode } from '@/api/prohibitionCodes'
 import { troisApi, troisDate, type TroisItem } from '@/api/trois'
+import Import40GoodsExtras from '@/components/import40/Import40GoodsExtras.vue'
 
 const { t } = useI18n()
 

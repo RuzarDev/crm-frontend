@@ -194,6 +194,7 @@ import {
 } from '@/api/import40'
 import { import40ContractApi, type ClientCompanyProfileDto } from '@/api/import40Contract'
 import type { Import40FactPayment, Import40GoodsItemInput, Import40DeclarationExpense } from '@/types/api'
+import { cloneGoodsExtras } from '@/types/api'
 import { CURRENCY_NUMERIC } from '@/types/api'
 import { referencesApi } from '@/api/references'
 import { tnvedApi } from '@/api/tnved'
@@ -909,6 +910,7 @@ const applyDeclaration = (decl: Import40DeclarationDto) => {
     oisRegNumber: g.oisRegNumber ?? null,
     oisCountryCode: g.oisCountryCode ?? null,
     markings: (g.markings ?? []).map((m) => ({ ...m })),
+    extras: cloneGoodsExtras(g.extras),
     // Выбор по КЕДЕН (вид акциза, антидемпинг) и количества в единицах ставок. Без них при загрузке
     // ДТ выбор терялся, а автосейв затирал его в базе — расчёт снова брал первый вид акциза.
     exciseKind: g.exciseKind ?? null,

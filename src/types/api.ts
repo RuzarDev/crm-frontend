@@ -1325,7 +1325,57 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   // marking*-скаляры дочерней коллекцией; Task 9 фронт). Один товар может иметь
   // несколько строк маркировки.
   markings?: Import40GoodsMarking[]
+  // Доп. сведения гр.31: характеристики, акцизные марки, автомобили, период, инвестпроект, прослеживаемость.
+  extras?: Import40GoodsExtras | null
 }
+
+/** Зеркалит Import40GoodsExtrasDto на бэке; даты — 'YYYY-MM-DD'. */
+export interface Import40GoodsExtras {
+  productionPlaceName?: string | null
+  productSortName?: string | null
+  standardName?: string | null
+  manufactureDate?: string | null
+  periodStartDate?: string | null
+  periodEndDate?: string | null
+  investCountryCode?: string | null
+  investProjectSeqId?: string | null
+  investProjectYear?: number | null
+  investGoodsListKindCode?: string | null
+  investProjectGoodsSeqId?: number | null
+  traceable?: boolean
+  traceQuantity?: number | null
+  traceUnitCode?: string | null
+  exciseStamps: Import40GoodsExciseStamp[]
+  vehicles: Import40GoodsVehicle[]
+}
+
+export interface Import40GoodsExciseStamp {
+  quantity: number | null
+  seriesId?: string | null
+}
+
+export interface Import40GoodsVehicle {
+  vin?: string | null
+  chassisId?: string | null
+  bodyId?: string | null
+  makeCode?: string | null
+  makeName?: string | null
+  modelName?: string | null
+  manufactureDate?: string | null
+  engineId?: string | null
+  engineVolumeCm3?: number | null
+  powerKw?: number | null
+  powerHp?: number | null
+  carryingCapacityKg?: number | null
+  mileageKm?: number | null
+  cost?: number | null
+  costCurrency?: string | null
+  emergencyDeviceId?: string | null
+}
+
+/** Глубокая копия доп. сведений (списки марок/автомобилей — свои объекты у каждой копии товара). */
+export const cloneGoodsExtras = (x: Import40GoodsExtras | null | undefined): Import40GoodsExtras | null =>
+  x ? { ...x, exciseStamps: (x.exciseStamps ?? []).map((s) => ({ ...s })), vehicles: (x.vehicles ?? []).map((v) => ({ ...v })) } : null
 
 // Одна строка маркировки товара (гр.31.13). Зеркалит Import40GoodsMarkingDto /
 // Import40GoodsMarkingRequest на бэке (Task 2).

@@ -62,6 +62,7 @@ import { CloseOutlined, QuestionCircleOutlined, UploadOutlined } from '@ant-desi
 import { message } from 'ant-design-vue'
 import { loadXlsx } from '@/utils/xlsx'
 import type { Import40GoodsItemInput, Import40GoodsPayment, Import40GoodsMarking } from '@/types/api'
+import { cloneGoodsExtras } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 
 const { t } = useI18n()
@@ -267,6 +268,7 @@ const sync = () =>
       ...g,
       payments: (g.payments ?? []).map((p) => ({ ...p })),
       markings: (g.markings ?? []).map((m) => ({ ...m })),
+      extras: cloneGoodsExtras(g.extras),
     })),
   )
 
@@ -431,8 +433,8 @@ const applyMonthsToAll = () => {
 
 <style scoped>
 .keden-panel { display: flex; flex-direction: column; gap: 8px; }
-.section-bar { display: flex; align-items: center; justify-content: space-between; }
-.header-buttons { display: flex; align-items: center; gap: 8px; }
+.section-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.header-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
 .section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--z-ink); }
 .payments-bar { margin-top: 12px; }
 .payments-summary-bar { margin-top: 4px; }

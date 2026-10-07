@@ -4,6 +4,7 @@ import type {
   Import40GoodsPayment,
   Import40FactPayment,
   Import40GoodsItemInput,
+  Import40GoodsExtras,
   Import40Doc44ItemInput,
   Import40DeclarationExpense,
   DeclarationReadiness,
@@ -129,6 +130,7 @@ export interface Import40GoodsItemDto {
   taxAlcoholL?: number | null
   taxPieces?: number | null
   engineVolumeCm3?: number | null
+  extras?: Import40GoodsExtras | null
 }
 
 // Зеркалит Import40GoodsMarkingDto / Import40GoodsMarkingRequest на бэке (Task 2).
