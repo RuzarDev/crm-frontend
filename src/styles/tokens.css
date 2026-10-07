@@ -1,0 +1,65 @@
+/* Токены стиля C — единственный источник правды (спека 2026-10-07 §3).
+   static: переменные выводятся в :root всегда, даже если утилита не используется, —
+   на них ссылаются алиасы --z-* в main.css и тема тостов. */
+@theme static {
+  --color-*: initial;
+
+  --color-white: #FFFFFF;
+
+  /* Тёплые нейтральные — одно семейство */
+  --color-canvas: #FBFAF8;
+  --color-surface: #FFFFFF;
+  --color-sunken: #F3F1EC;
+  --color-line: #EFECE6;
+  --color-line-strong: #DDD8CE;
+  --color-ink: #1C1B19;
+  --color-ink-2: #4A4741;
+  --color-ink-3: #6B675F;
+  --color-muted: #75716A;
+  --color-faint: #B5B0A6;
+
+  /* Бренд: navy — главное действие, zircon — единственный акцент, gold — только «нужно ваше действие» */
+  --color-navy: #0E1B35;
+  --color-navy-hover: #1A2B4F;
+  --color-zircon: #23B5D3;
+  --color-zircon-ink: #0F6E8F;
+  --color-zircon-soft: #E3F6FA;
+  --color-gold: #F2B53A;
+  --color-gold-soft: #FFF8E8;
+  --color-gold-line: #F7E3B5;
+  --color-gold-ink: #8A6410;
+  --color-danger: #C4483B;
+  --color-danger-hover: #A93B30;
+
+  /* Статусы — пастельные пары фон/текст */
+  --color-tone-neutral-bg: #F3F1EC;   --color-tone-neutral-fg: #5F5B54;
+  --color-tone-info-bg: #E3F6FA;      --color-tone-info-fg: #0F6E8F;
+  --color-tone-wait-bg: #FEF3D9;      --color-tone-wait-fg: #8A6410;
+  --color-tone-submitted-bg: #EEEAFB; --color-tone-submitted-fg: #5B45B8;
+  --color-tone-done-bg: #E2F5EC;      --color-tone-done-fg: #17784F;
+  --color-tone-pay-bg: #E6F0FA;       --color-tone-pay-fg: #1A5E96;
+  --color-tone-danger-bg: #FDEBEC;    --color-tone-danger-fg: #9F2F2D;
+
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --text-xs: 12px;     --text-xs--line-height: 16px;
+  --text-sm: 13.5px;   --text-sm--line-height: 20px;
+  --text-base: 14px;   --text-base--line-height: 22px;
+  --text-md: 16px;     --text-md--line-height: 24px;
+  --text-lg: 19px;     --text-lg--line-height: 26px;
+  --text-xl: 22px;     --text-xl--line-height: 28px;
+  --text-2xl: 28px;    --text-2xl--line-height: 34px;
+
+  --radius-field: 8px;
+  --radius-row: 10px;
+  --radius-panel: 14px;
+  --radius-pill: 999px;
+
+  /* Тени тонированы под тёплый фон */
+  --shadow-raised: 0 1px 2px rgb(60 48 30 / 0.06);
+  --shadow-float: 0 12px 32px -12px rgb(60 48 30 / 0.22), 0 2px 6px rgb(60 48 30 / 0.06);
+  --shadow-focus: 0 0 0 3px rgb(35 181 211 / 0.35);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}

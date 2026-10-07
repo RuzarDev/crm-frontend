@@ -1,0 +1,7 @@
+/* Tailwind без preflight: пока в сборке AntD, базовый сброс сломал бы непереведённые экраны
+   (спека §6; включается в волне 7). theme и utilities — БЕЗ CSS-слоёв: в main.css есть неслоёные
+   правила (* { margin:0; padding:0 }, h1…h4, p), которые перебили бы слоёные утилиты.
+   Неслоёная утилита (.p-4, специфичность класса) их побеждает. */
+@import "tailwindcss/theme.css";
+@import "./tokens.css";
+@import "tailwindcss/utilities.css";

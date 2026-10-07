@@ -5,52 +5,41 @@
 }
 
 :root {
-  /* ══════════════════════════════════════════════════════════
-     Zircon design tokens — source of truth (--z-*)
-     См. docs/superpowers/specs/2026-08-20-zircon-ui-redesign-design.md §1
-     ══════════════════════════════════════════════════════════ */
+  /* С 2026-10-07 --z-* — алиасы токенов стиля C (src/styles/tokens.css). Новые стили писать
+     на утилитах Tailwind / var(--color-*); --z-* удаляются в волне 7 вместе с AntD. */
+  --z-navy: var(--color-navy);   --z-navy-2: var(--color-navy-hover);   --z-navy-3: #223560;
+  --z-teal: var(--color-zircon); --z-teal-d: var(--color-zircon-ink);   --z-teal-soft: var(--color-zircon-soft);
+  --z-gold: var(--color-gold);   --z-gold-soft: var(--color-gold-soft);
 
-  /* Бренд */
-  --z-navy:        #0E1B35;   --z-navy-2:   #16264A;   --z-navy-3: #223560;
-  --z-teal:        #23B5D3;   --z-teal-d:   #1580A6;   --z-teal-soft: #E1F5FA;
-  --z-gold:        #F2B53A;   --z-gold-soft:#FDF1D8;
+  --z-ink: var(--color-ink);
+  --z-ink-2: var(--color-ink-2);
+  --z-muted: var(--color-muted);
+  --z-line: var(--color-line);
+  --z-line-strong: var(--color-line-strong);
+  --z-bg: var(--color-canvas);
+  --z-surface: var(--color-surface);
+  --z-surface-2: var(--color-sunken);
 
-  /* Нейтральные (основная масса интерфейса) */
-  --z-ink:         #0E1B35;   /* текст первичный   */
-  --z-ink-2:       #475569;   /* текст вторичный   */
-  --z-muted:       #8C95A6;   /* подписи/плейсхолдер */
-  --z-line:        #E8EBF2;   /* границы           */
-  --z-line-strong: #CBD5E1;
-  --z-bg:          #F5F7FB;   /* фон приложения    */
-  --z-surface:     #FFFFFF;   /* карточки/панели   */
-  --z-surface-2:   #EEF1F7;   /* приглушённые блоки */
+  --z-success: var(--color-tone-done-fg);      --z-success-soft: var(--color-tone-done-bg);
+  --z-warning: var(--color-tone-wait-fg);      --z-warning-soft: var(--color-tone-wait-bg);
+  --z-danger: var(--color-danger);             --z-danger-soft: var(--color-tone-danger-bg);
+  --z-info: var(--color-tone-info-fg);         --z-info-soft: var(--color-tone-info-bg);
+  --z-neutral: var(--color-tone-neutral-fg);   --z-neutral-soft: var(--color-tone-neutral-bg);
 
-  /* Семантика статусов (функциональный цвет) */
-  --z-success:  #1F9D6A;  --z-success-soft: #E4F2EA;   /* Выпущено          */
-  --z-warning:  #8A6410;  --z-warning-soft: #FDF1D8;   /* Подан/внимание    */
-  --z-danger:   #C4483B;  --z-danger-soft:  #FBE9E7;   /* Ошибка/проблемный */
-  --z-info:     #1580A6;  --z-info-soft:    #E1F5FA;   /* В работе/инфо     */
-  --z-neutral:  #64748B;  --z-neutral-soft: #EEF1F7;   /* Черновик/архив    */
-
-  /* Ритм (сетка 4px) */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
 
-  /* Скругления и тени */
-  --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 18px; --r-pill: 999px;
-  --sh-1: 0 1px 2px rgba(16, 24, 40, .06);
-  --sh-2: 0 4px 12px -4px rgba(14, 27, 53, .12);
-  --sh-3: 0 14px 32px -12px rgba(14, 27, 53, .20);
-  /* Движение */
-  --z-transition: 0.16s ease;
-  --z-ease-out: cubic-bezier(0.22, 0.68, 0, 1.12);
+  --r-sm: 6px; --r-md: var(--radius-field); --r-lg: var(--radius-panel); --r-xl: 18px; --r-pill: var(--radius-pill);
+  --sh-1: var(--shadow-raised);
+  --sh-2: 0 4px 12px -4px rgb(60 48 30 / 0.14);
+  --sh-3: var(--shadow-float);
+  --z-transition: 0.15s var(--ease-out);
+  --z-ease-out: var(--ease-out);
 
-  /* Типографика */
-  --font-heading: 'Manrope', 'Inter', system-ui, sans-serif;   /* заголовки, цифры KPI */
-  --font-body:    'Inter', system-ui, sans-serif;              /* текст, данные        */
-  --font-display: var(--font-heading);
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  /* Псевдонимы: в компонентах встречались имена, которых не было в палитре (работали только запасные
-     цвета, правки темы их не задевали). Теперь все ведут на токены --z-*. */
+  --font-heading: var(--font-sans);
+  --font-body: var(--font-sans);
+  --font-display: var(--font-sans);
+  /* --font-mono задан в tokens.css (IBM Plex Mono) */
+
   --z-text-secondary: var(--z-muted);
   --z-line-2: var(--z-line-strong);
   --z-border: var(--z-line);
@@ -59,15 +48,6 @@
   --z-surface-subtle: var(--z-surface-2);
   --z-zircon-ink: var(--z-teal-d);
   --gray-soft: var(--z-surface-2);
-
-  /* Старые переменные --atg-* удалены 01.10.2026: все стили на --z-* (цвета), --r-* (радиусы),
-     --sh-* (тени), --z-transition / --z-ease-out (движение). */
-}
-
-/* В Manrope нет казахских Ә Ғ Қ Ң Ұ — казахские заголовки набираем Inter целиком,
-   чтобы буквы в одном слове не были из разных шрифтов (брендбук Zircon, «Типографика»). */
-html[lang="kk"] {
-  --font-heading: 'Inter', system-ui, sans-serif;
 }
 
 body {
@@ -75,9 +55,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: var(--z-ink);
-  background:
-    linear-gradient(135deg, rgba(35, 181, 211, 0.04), transparent 28%),
-    var(--z-bg);
+  background: var(--color-canvas);
 }
 
 #app {
@@ -91,11 +69,11 @@ h1, h2, h3, h4, h5, h6,
   font-family: var(--font-heading);
   color: var(--z-ink);
   line-height: 1.2;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 
-h1 { font-size: 26px;  font-weight: 800; }
-h2 { font-size: 20px;  font-weight: 800; }
+h1 { font-size: 26px;  font-weight: 700; }
+h2 { font-size: 20px;  font-weight: 700; }
 h3 { font-size: 17px;  font-weight: 700; }
 h4 { font-size: 14px;  font-weight: 700; }
 
