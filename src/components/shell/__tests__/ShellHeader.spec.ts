@@ -276,6 +276,7 @@ describe('UserMenu', () => {
     const notifStore = useNotificationsStore()
     notifStore.unreadCount = 4
     homeAttention.value = 3
+    useProfileStore().profile = { userId: 'u1', username: 'admin', displayName: 'Айгерим Касымова', phone: null, companyName: null, innBin: null, role: 'Import' }
     w = mountIt(UserMenu)
     await openMenu()
     menuItem('Выйти')!.click()
@@ -283,6 +284,7 @@ describe('UserMenu', () => {
     expect(logout).toHaveBeenCalledTimes(1)
     expect(homeAttention.value).toBeNull()
     expect(notifStore.unreadCount).toBe(0)
+    expect(useProfileStore().profile).toBeNull()
     expect(router.currentRoute.value.fullPath).toBe('/login')
   })
 })

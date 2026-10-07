@@ -120,18 +120,8 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
       />
     </aside>
 
-    <div
-      :class="cn(
-        'flex min-w-0 flex-1 flex-col bg-surface lg:m-2.5 lg:ml-0 lg:min-h-[calc(100dvh-20px)] lg:border lg:border-line',
-        client ? 'lg:rounded-[16px]' : 'lg:rounded-panel',
-      )"
-    >
-      <header
-        :class="cn(
-          'sticky top-0 z-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface px-4 py-3 lg:flex-nowrap lg:px-7 lg:py-3.5',
-          client ? 'lg:rounded-t-[16px]' : 'lg:rounded-t-panel',
-        )"
-      >
+    <div class="flex min-w-0 flex-1 flex-col bg-surface lg:m-2.5 lg:ml-0 lg:min-h-[calc(100dvh-20px)] lg:rounded-panel lg:border lg:border-line">
+      <header class="sticky top-0 z-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface px-4 py-3 lg:flex-nowrap lg:rounded-t-panel lg:px-7 lg:py-3.5">
         <div class="flex items-center gap-2 lg:hidden">
           <button
             type="button"

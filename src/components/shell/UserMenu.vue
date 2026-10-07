@@ -54,8 +54,9 @@ const onSelect = (key: string) => {
     return
   }
   if (key === 'logout') {
-    // Следующий на этом устройстве не должен увидеть чужие уведомления и бейдж «Требует внимания».
+    // Следующий на этом устройстве не должен увидеть чужие уведомления, бейдж «Требует внимания» и имя.
     notifStore.reset()
+    profileStore.reset()
     homeAttention.value = null
     authStore.logout()
     void router.push('/login')

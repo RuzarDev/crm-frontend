@@ -30,6 +30,10 @@ export function registrationBannerState(reg: RegistrationSnapshot, path: string)
   return { kind: 'todo', done: reg.doneCount, next: reg.nextStep, to: reg.needNew ? `${COMPANY}?step=${reg.needNew}` : COMPANY }
 }
 
-/** Первый заход незарегистрированного клиента — сразу на шаги регистрации, а не на пустую Главную (один раз за сессию). */
+/**
+ * Первый заход незарегистрированного клиента — сразу на шаги регистрации, а не на пустую Главную (один раз за сессию).
+ * Только по загруженному состоянию: при ошибке загрузки complete = false и nextStep = 'profile' — без проверки loaded
+ * полностью зарегистрированного клиента уводило бы на регистрацию.
+ */
 export const shouldRedirectToRegistration = (reg: RegistrationSnapshot, path: string, alreadyRedirected: boolean): boolean =>
-  !alreadyRedirected && reg.isClient && !reg.complete && !!reg.nextStep && path === '/home'
+  !alreadyRedirected && reg.isClient && reg.loaded && !reg.complete && !!reg.nextStep && path === '/home'

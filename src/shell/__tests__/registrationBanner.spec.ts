@@ -31,4 +31,7 @@ describe('shouldRedirectToRegistration', () => {
     expect(shouldRedirectToRegistration(reg({ isClient: false }), '/home', false)).toBe(false)
     expect(shouldRedirectToRegistration(reg({ complete: true }), '/home', false)).toBe(false)
   })
+  it('состояние не загрузилось (ошибка can-create) — не уводим, даже если шаги выглядят несделанными', () => {
+    expect(shouldRedirectToRegistration(reg({ loaded: false, nextStep: 'profile', doneCount: 0 }), '/home', false)).toBe(false)
+  })
 })

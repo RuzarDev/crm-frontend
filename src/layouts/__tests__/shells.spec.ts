@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
-import { computed, ref } from 'vue'
+import { computed, defineComponent, h, ref } from 'vue'
 import { mountWithI18n } from '@/test/mountWithI18n'
 
 const notifApi = vi.hoisted(() => ({
@@ -45,6 +45,16 @@ let pinia: Pinia
 let router: Router
 
 const page = { template: '<p>page</p>' }
+// Карточка ДТ, как настоящая, читает dtId один раз при создании: без :key у router-view переход на другую ДТ
+// оставил бы старый экземпляр со старым номером.
+const dtCreated: string[] = []
+const DtStub = defineComponent({
+  setup() {
+    const id = String(router.currentRoute.value.params.dtId)
+    dtCreated.push(id)
+    return () => h('p', `dt ${id}`)
+  },
+})
 
 beforeEach(() => {
   pinia = createPinia()
@@ -54,8 +64,9 @@ beforeEach(() => {
     routes: [
       { path: '/home', component: page },
       { path: '/billing', component: page },
+      { path: '/login', component: page },
       { path: '/import-40/company', component: page },
-      { path: '/import-40/:caseId/dt/:dtId', name: 'import-40-dt', component: { template: '<p>dt {{ $route.params.dtId }}</p>' } },
+      { path: '/import-40/:caseId/dt/:dtId', name: 'import-40-dt', component: DtStub },
       { path: '/:p(.*)*', component: page },
     ],
   })
@@ -64,6 +75,7 @@ beforeEach(() => {
   profileGet.mockResolvedValue({ data: { displayName: 'Айгерим Касымова' } })
   reg.refresh.mockResolvedValue(undefined)
   reg.state = { isClient: true, loaded: true, complete: true, nextStep: null, doneCount: 3, needNew: null }
+  dtCreated.length = 0
 })
 afterEach(() => {
   w?.unmount()
@@ -162,7 +174,48 @@ describe('оболочки', () => {
     expect(w!.get('main#main').text()).toContain('dt d1')
     await router.push('/import-40/c1/dt/d2')
     await flushPromises()
+    expect(dtCreated).toEqual(['d1', 'd2'])
     expect(w!.get('main#main').text()).toContain('dt d2')
+  })
+
+  it('«К содержимому» — первая ссылка в оболочке, переводит фокус в main без смены адреса', async () => {
+    await mountAs('administrator', '/billing')
+    const skip = w!.get('a')
+    expect(skip.text()).toBe('К содержимому')
+    expect(skip.attributes('href')).toBe('#main')
+    await skip.trigger('click')
+    expect(document.activeElement).toBe(w!.get('main#main').element)
+    expect(router.currentRoute.value.fullPath).toBe('/billing')
+  })
+
+  it.each(['Client', ' client '])('роль %j — кабинет клиента', async (role) => {
+    await mountAs(role, '/home')
+    expect(link('Мои поставки')).toBeTruthy()
+    expect(w!.get('[data-density]').attributes('data-density')).toBe('comfortable')
+  })
+
+  it('выход сбрасывает профиль: следующий пользователь в этой вкладке видит своё имя', async () => {
+    await mountAs('administrator', '/home')
+    expect(w!.get('[data-user-name]').text()).toBe('Айгерим К.')
+    await w!.get('[data-user-name]').element.closest('button')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 0))
+    const logout = [...document.body.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent?.includes('Выйти')) as HTMLElement
+    logout.click()
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/login')
+    expect(useProfileStore().profile).toBeNull()
+    w!.unmount()
+    w = undefined
+
+    // Вход второго пользователя — SPA-переход, сторы те же.
+    profileGet.mockClear()
+    profileGet.mockResolvedValue({ data: { displayName: 'Бауыржан Сейтказы' } })
+    const auth = useAuthStore()
+    auth.username = 'b'
+    await mountAs('administrator', '/home')
+    expect(profileGet).toHaveBeenCalledWith({ silent: true })
+    expect(w!.get('[data-user-name]').text()).toBe('Бауыржан С.')
   })
 
   it('ящик меню ниже lg: кнопка «Меню» открывает, переход по пункту закрывает', async () => {
@@ -214,6 +267,14 @@ describe('кабинет клиента — регистрация', () => {
     w = mountWithI18n(AppShell, { attachTo: document.body, global: { plugins: [pinia, router] } })
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/home')
+  })
+
+  it('состояние регистрации не загрузилось — зарегистрированного клиента с /home не уводим', async () => {
+    reg.state = { isClient: true, loaded: false, complete: false, nextStep: 'profile', doneCount: 0, needNew: null }
+    await mountAs('client', '/home')
+    expect(router.currentRoute.value.path).toBe('/home')
+    expect(sessionStorage.getItem('zircon-reg-redirect')).toBeNull()
+    expect(w!.find('[role="region"]').exists()).toBe(false)
   })
 
   it('уход со страницы регистрации перечитывает состояние', async () => {
