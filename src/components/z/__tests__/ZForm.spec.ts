@@ -492,3 +492,50 @@ describe('контекст поля не проникает в окна', () => 
     expect(inside.getAttribute('aria-required')).toBeNull()
   })
 })
+
+describe('ZForm — отправка извне (submit(), кнопка OK окна)', () => {
+  type SubmitApi = { submit: () => Promise<boolean> }
+  it('submit(): верная форма — finish один раз и true', async () => {
+    const { onFinish, onFinishFailed, form } = await mountForm({
+      model: { company: 'ТОО «Ақжол»' }, rules: { company: [{ required: true }] }, fields: [{ name: 'company', label: 'Компания' }],
+    })
+    expect(await (form.value as unknown as SubmitApi).submit()).toBe(true)
+    expect(onFinish).toHaveBeenCalledTimes(1)
+    expect(onFinishFailed).not.toHaveBeenCalled()
+  })
+  it('submit(): ошибка — finishFailed, фокус на первое поле с ошибкой, false; дальше проверка на каждом change', async () => {
+    const { onFinish, onFinishFailed, form } = await companyForm()
+    expect(await (form.value as unknown as SubmitApi).submit()).toBe(false)
+    expect(onFinish).not.toHaveBeenCalled()
+    expect(onFinishFailed).toHaveBeenCalledTimes(1)
+    expect(document.activeElement).toBe(control('БИН'))
+    expect(control('БИН').getAttribute('aria-invalid')).toBe('true')
+    await type(control('БИН'), '123456789012')
+    expect(control('БИН').getAttribute('aria-invalid')).toBeNull()
+  })
+  it('ZModal: okButtonProps { htmlType: submit, form } отправляет ZForm из окна (finish один раз)', async () => {
+    const model = reactive({ name: 'Ақжол' })
+    const onFinish = vi.fn()
+    const onOk = vi.fn()
+    w = mountWithI18n({
+      render: () => h(ZModal, { open: true, title: 'Клиент', okButtonProps: { htmlType: 'submit', form: 'clientForm' }, onOk }, () =>
+        h(ZForm, { id: 'clientForm', model, rules: { name: [{ required: true }] }, onFinish }, () =>
+          h(ZField, { name: 'name', label: 'Имя' }, () => h(ZInput, { value: model.name })))),
+    }, { attachTo: document.body })
+    await flushPromises()
+    const ok = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'OK' || b.getAttribute('type') === 'submit')!
+    expect(ok.getAttribute('type')).toBe('submit')
+    expect(ok.getAttribute('form')).toBe('clientForm')
+    ok.click()
+    await flushPromises()
+    expect(onFinish).toHaveBeenCalledTimes(1)
+    expect(onOk).toHaveBeenCalledTimes(1)
+  })
+  it('ZModal по умолчанию: OK — type=button без form', async () => {
+    w = mountWithI18n({ render: () => h(ZModal, { open: true, title: 'X' }, () => 'тело') }, { attachTo: document.body })
+    await flushPromises()
+    const buttons = [...document.querySelectorAll('button')]
+    expect(buttons.some((b) => b.getAttribute('type') === 'submit')).toBe(false)
+    expect(buttons.some((b) => b.hasAttribute('form'))).toBe(false)
+  })
+})

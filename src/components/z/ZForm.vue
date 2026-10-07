@@ -7,7 +7,8 @@ import type { ZRule } from '@/ui/validation'
 // Замена a-form (29 мест): :model, :rules (Record<name, ZRule[]>), @finish(model), @finish-failed({ errors, values }).
 // Отправка (кнопка html-type="submit", Enter в поле — браузер жмёт эту кнопку) проверяет все зарегистрированные
 // ZField; при ошибке — фокус на первое по порядку поле с ошибкой и прокрутка к нему. novalidate: проверки браузера
-// (всплывающие подсказки required/type=email) не мешают нашим. layout="grid" — 12-колоночная сетка для ZField span;
+// (всплывающие подсказки required/type=email) не мешают нашим. Отправка из кода — submit() (см. ниже).
+// layout="grid" — 12-колоночная сетка для ZField span;
 // прочие прямые дети (кнопки, заголовки групп) — на всю ширину (*:not-data-[z-field] — без спора специфичности со span).
 
 export interface ZFormError {
@@ -60,23 +61,35 @@ const check = async (names?: string[]) => {
 // Повторная отправка, пока идёт асинхронная проверка, отменяет предыдущую: finish — один раз.
 // resetFields/clearValidate во время проверки тоже отменяют отправку.
 let submitSeq = 0
-// Только своя форма: submit вложенной ZForm всплывает сюда, но это не наша отправка.
-const onSubmit = async (e: Event) => {
-  if (e.target !== e.currentTarget) return
-  e.preventDefault()
+// Отправка: проверить все поля → finish, или finishFailed + фокус и прокрутка к первому полю с ошибкой.
+// true — отправлено (finish). Отменённая более новой отправкой / resetFields / clearValidate — false.
+const submit = async (): Promise<boolean> => {
   submitted.value = true
   const my = ++submitSeq
   const failed = await check()
-  if (my !== submitSeq) return
+  if (my !== submitSeq) return false
   const values = props.model ?? {}
   if (!failed.length) {
     emit('finish', values)
-    return
+    return true
   }
   emit('finishFailed', { errors: failed.map((e) => ({ name: e.field.name(), message: e.message })), values })
   failed[0].field.focus()
+  return false
+}
+// Только своя форма: submit вложенной ZForm всплывает сюда, но это не наша отправка.
+const onSubmit = (e: Event) => {
+  if (e.target !== e.currentTarget) return
+  e.preventDefault()
+  void submit()
 }
 
+/**
+ * Проверка без отправки: ответ — true/false (у AntD validate() при ошибке отклоняется — здесь нет, try/catch не нужен).
+ * Ошибки показываются у полей, но фокуса на первую ошибку, finish/finishFailed и режима «проверять на каждом change»
+ * нет. Для отправки из кода (кнопка OK окна, свой обработчик) — submit() или кнопка html-type="submit"
+ * (у ZModal — okButtonProps { htmlType: 'submit', form: '<id формы>' }).
+ */
 const validate = async (names?: string[]): Promise<boolean> => (await check(names)).length === 0
 const resetFields = (names?: string[]) => {
   submitSeq++
@@ -92,7 +105,7 @@ const onReset = (e: Event) => {
   e.preventDefault()
   resetFields()
 }
-defineExpose({ validate, resetFields, clearValidate })
+defineExpose({ validate, submit, resetFields, clearValidate })
 </script>
 
 <template>

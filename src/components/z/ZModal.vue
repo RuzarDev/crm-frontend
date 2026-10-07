@@ -39,7 +39,8 @@ const props = withDefaults(defineProps<{
   okText?: string
   cancelText?: string
   confirmLoading?: boolean
-  okButtonProps?: { disabled?: boolean; danger?: boolean }
+  /** htmlType 'submit' + form (id ZForm) — OK отправляет форму из тела окна (кнопка вне <form>): ok тоже приходит. */
+  okButtonProps?: { disabled?: boolean; danger?: boolean; htmlType?: 'button' | 'submit'; form?: string }
   cancelButtonProps?: { disabled?: boolean }
   /** false / null — без подвала; слот footer заменяет кнопки. */
   footer?: boolean | null
@@ -126,6 +127,8 @@ const contentStyle = computed(() => [{ '--w': cssSize(props.width) }, attrs.styl
             <ZButton
               :variant="okButtonProps.danger ? 'danger' : 'primary'"
               :disabled="okButtonProps.disabled"
+              :html-type="okButtonProps.htmlType ?? 'button'"
+              :form="okButtonProps.form"
               :loading="confirmLoading"
               @click="emit('ok', $event)"
             >
