@@ -45,6 +45,9 @@ const props = withDefaults(defineProps<{
   notFoundContent?: string
   loading?: boolean
   id?: string
+  /** Минимальная ширина окна списка (число — px, строка — как есть, '420px', '30rem'); по умолчанию —
+   *  ширина поля. Замена dropdownMatchSelectWidth/dropdownStyle у a-select; как у ZCombobox. */
+  popupWidth?: number | string
 }>(), { value: null, showSearch: undefined, size: 'md', filterOption: true, optionFilterProp: 'label', status: '' })
 
 const emit = defineEmits<{
@@ -198,6 +201,8 @@ const onAnchorClick = (e: MouseEvent) => {
   inputEl()?.click()
 }
 defineExpose({ focus: () => inputEl()?.focus(), blur: () => inputEl()?.blur() })
+const popupStyle = computed(() => (props.popupWidth === undefined ? undefined
+  : { minWidth: typeof props.popupWidth === 'number' ? `${props.popupWidth}px` : props.popupWidth }))
 // Поле без своей рамки (рамка — fieldShell): шрифт и цвет наследуются; без поиска — без каретки.
 const inputClass = computed(() => cn(
   'min-w-[4ch] flex-1 border-0 bg-transparent p-0 font-sans [font-size:inherit] [line-height:inherit] [color:inherit] outline-hidden placeholder:text-muted',
@@ -263,6 +268,7 @@ const inputClass = computed(() => cn(
         ref="contentCmp"
         position="popper"
         :side-offset="4"
+        :style="popupStyle"
         :class="cn(floatingSurface, 'w-(--reka-combobox-trigger-width) min-w-48 max-h-72 overflow-hidden')"
         @mousedown.prevent
       >
@@ -274,6 +280,7 @@ const inputClass = computed(() => cn(
             :value="toKey(o.value)"
             :text-value="o.label"
             :disabled="o.disabled"
+            :title="o.label"
             :class="listItem"
           >
             <span class="min-w-0 flex-1 truncate">{{ o.label }}</span>

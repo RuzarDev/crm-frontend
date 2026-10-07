@@ -261,4 +261,20 @@ describe('ZSelect', () => {
     expect(root.classList).toContain('w-40')
     expect(root.classList).not.toContain('w-full')
   })
+  it('popupWidth — минимальная ширина окна (число — px, строка — как есть); без него — ширина поля', async () => {
+    w = mountWithI18n(ZSelect, { props: { value: null, options, popupWidth: 420 }, attachTo: document.body })
+    await open()
+    const list = () => document.body.querySelector('[role="listbox"]') as HTMLElement
+    expect(list().style.minWidth).toBe('420px')
+    await w.setProps({ popupWidth: '30rem' })
+    expect(list().style.minWidth).toBe('30rem')
+    await w.setProps({ popupWidth: undefined })
+    expect(list().style.minWidth).toBe('')
+    expect(list().className).toContain('w-(--reka-combobox-trigger-width)')
+  })
+  it('длинные подписи: у пункта title с полной подписью', async () => {
+    w = mountWithI18n(ZSelect, { props: { value: null, options }, attachTo: document.body })
+    await open()
+    expect(optionEls().map((e) => e.getAttribute('title'))).toEqual(options.map((o) => o.label))
+  })
 })
