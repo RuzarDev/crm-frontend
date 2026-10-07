@@ -3,7 +3,7 @@ import type { Import40DashboardDto } from '@/api/dashboard'
 import type { ManageOverview } from '@/api/manage'
 import type { BrokerInvoice } from '@/api/billing'
 import type { Import40CaseDto } from '@/api/import40'
-import { buildAttention, moneyForMonth, shortWhen, stageRows, stepTone, taskRows } from '../brokerHome'
+import { buildAttention, monthCaption, moneyForMonth, shortWhen, stageRows, stepTone, taskRows } from '../brokerHome'
 
 const dash = (o: Partial<Import40DashboardDto> = {}): Import40DashboardDto => ({
   totalCases: 0, casesThisMonth: 0, activeCases: 0, doneCases: 0, problemCases: 0, awaitingMe: 0, bySteps: [],
@@ -161,5 +161,17 @@ describe('taskRows', () => {
     const cases = Array.from({ length: 10 }, (_, i) => kase({ id: String(i), updatedAtUtc: `2026-10-${String(i + 1).padStart(2, '0')}T00:00:00Z` }))
     expect(taskRows(cases)).toHaveLength(6)
     expect(taskRows(cases, 2).map((r) => r.id)).toEqual(['9', '8'])
+  })
+})
+
+describe('monthCaption', () => {
+  it('ru: «Октябрь 2026» без « г.»', () => {
+    expect(monthCaption(NOW, 'ru')).toBe('Октябрь 2026')
+  })
+  it('en: «October 2026»', () => {
+    expect(monthCaption(NOW, 'en')).toBe('October 2026')
+  })
+  it('месяц по UTC: 31.10 22:00 UTC — ещё октябрь', () => {
+    expect(monthCaption(new Date(Date.UTC(2026, 9, 31, 22, 0)), 'ru')).toBe('Октябрь 2026')
   })
 })

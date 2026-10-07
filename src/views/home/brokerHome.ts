@@ -137,3 +137,14 @@ export const taskRows = (cases: Import40CaseDto[], limit = 6): TaskRow[] =>
       step: stepForStatus(c.status),
       updatedAtUtc: c.updatedAtUtc,
     }))
+
+/**
+ * Подпись месяца для «Денег за месяц»: «Октябрь 2026» (хвост « г.» после года отброшен, первая буква заглавная).
+ * Месяц — UTC, как у moneyForMonth: на стыке месяцев подпись и суммы не разъезжаются.
+ */
+export const monthCaption = (now: Date, locale: string): string => {
+  const parts = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).formatToParts(now)
+  while (parts.length && parts[parts.length - 1].type === 'literal') parts.pop()
+  const s = parts.map((p) => p.value).join('')
+  return s.charAt(0).toLocaleUpperCase(locale) + s.slice(1)
+}
