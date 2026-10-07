@@ -47,6 +47,9 @@ export default {
     uploadDrop: 'Файлды сүйреп әкеліңіз немесе таңдау үшін басыңыз',
     uploadWrongType: 'Бұл файл түрі жарамайды: {name}',
     uploadTooBig: 'Файл {mb} МБ-тан үлкен: {name}',
+    stepOf: '{total} қадамның {n}-сі',
+    breadcrumbs: 'Навигация',
+    steps: 'Кезеңдер',
   },
   common: {
     graphShort: '{n}-б.',

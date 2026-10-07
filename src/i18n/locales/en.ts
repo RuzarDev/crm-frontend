@@ -47,6 +47,9 @@ export default {
     uploadDrop: 'Drag a file here or click to choose',
     uploadWrongType: 'This file type is not allowed: {name}',
     uploadTooBig: 'File is larger than {mb} MB: {name}',
+    stepOf: 'Step {n} of {total}',
+    breadcrumbs: 'Breadcrumb',
+    steps: 'Stages',
   },
   common: {
     graphShort: 'Box {n}',

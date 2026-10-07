@@ -9,6 +9,13 @@ describe('ZButton', () => {
     expect(w.classes()).toContain('bg-sunken')
     expect(w.text()).toBe('Отмена')
   })
+  it('class от родителя сливается через cn: переопределяет фон, а не дублирует', () => {
+    const w = mount(ZButton, { attrs: { class: 'bg-surface w-full', 'data-x': '1' } })
+    expect(w.classes()).toContain('bg-surface')
+    expect(w.classes()).not.toContain('bg-sunken')
+    expect(w.classes()).toContain('w-full')
+    expect(w.attributes('data-x')).toBe('1')
+  })
   it('primary — navy', () => {
     const w = mount(ZButton, { props: { variant: 'primary' } })
     expect(w.classes()).toContain('bg-navy')

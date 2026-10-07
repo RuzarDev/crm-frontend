@@ -14,6 +14,10 @@ const props = withDefaults(defineProps<{
   htmlType?: 'button' | 'submit' | 'reset'
 }>(), { variant: 'secondary', size: 'md', loading: false, disabled: false, block: false, htmlType: 'button' })
 
+// class из родителя сливаем через cn: иначе bg-surface рядом с bg-sunken решал бы порядок в CSS, а не намерение.
+defineOptions({ inheritAttrs: false })
+// $attrs не реактивен для computed, поэтому слияние — в шаблоне.
+
 const emit = defineEmits<{ click: [e: MouseEvent] }>()
 
 // Главное действие — navy (одно на экран), акцент zircon сюда не идёт (спека §3).
@@ -69,8 +73,9 @@ const onClick = (e: MouseEvent) => {
 
 <template>
   <button
+    v-bind="{ ...$attrs, class: undefined }"
     :type="htmlType"
-    :class="classes"
+    :class="cn(classes, $attrs.class as string)"
     :disabled="disabled"
     :aria-disabled="loading || undefined"
     :aria-busy="loading || undefined"

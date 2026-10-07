@@ -49,6 +49,9 @@ export default {
     uploadDrop: 'Перетащите файл или нажмите, чтобы выбрать',
     uploadWrongType: 'Этот тип файла не подходит: {name}',
     uploadTooBig: 'Файл больше {mb} МБ: {name}',
+    stepOf: 'Шаг {n} из {total}',
+    breadcrumbs: 'Навигация',
+    steps: 'Этапы',
   },
   common: {
     graphShort: 'Гр.{n}',
