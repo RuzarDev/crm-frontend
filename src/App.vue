@@ -6,6 +6,8 @@
   </a-config-provider>
   <!-- Тосты: не перекрывают шапку (offset), не больше трёх сразу — как было в message.config. -->
   <Toaster position="top-center" :offset="72" :visible-toasts="3" :duration="4000" />
+  <!-- Окно подтверждения useConfirm() — одно на приложение (замена Modal.confirm). -->
+  <ZConfirmHost />
 </template>
 
 <script setup lang="ts">
@@ -14,6 +16,7 @@ import { Toaster } from 'vue-sonner'
 import { TooltipProvider } from 'reka-ui'
 import { InboxOutlined } from '@ant-design/icons-vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ZConfirmHost from '@/components/z/ZConfirmHost.vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { zirconTheme } from '@/theme/antdTheme'

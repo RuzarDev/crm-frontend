@@ -84,4 +84,33 @@
     from { opacity: 1; }
     to { opacity: 0; }
   }
+
+  /* Фон окна (ZModal, ZDrawer): появление — fade-in, уход — pop-out (тоже только прозрачность). */
+  --animate-fade-in: z-fade-in 160ms var(--ease-out);
+  @keyframes z-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Боковая панель ZDrawer: выезд 220 мс, уход быстрее. transform — у панели нет translate-утилит. */
+  --animate-slide-in-right: z-slide-in-right 220ms var(--ease-out);
+  --animate-slide-out-right: z-slide-out-right 160ms ease-in;
+  --animate-slide-in-left: z-slide-in-left 220ms var(--ease-out);
+  --animate-slide-out-left: z-slide-out-left 160ms ease-in;
+  @keyframes z-slide-in-right {
+    from { transform: translateX(100%); }
+    to { transform: none; }
+  }
+  @keyframes z-slide-out-right {
+    from { transform: none; }
+    to { transform: translateX(100%); }
+  }
+  @keyframes z-slide-in-left {
+    from { transform: translateX(-100%); }
+    to { transform: none; }
+  }
+  @keyframes z-slide-out-left {
+    from { transform: none; }
+    to { transform: translateX(-100%); }
+  }
 }

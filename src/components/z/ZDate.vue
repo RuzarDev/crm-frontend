@@ -23,7 +23,8 @@ import {
 // если дата отличается от value): Enter; уход из поля (фокус не в поле и не в календаре, окно браузера
 // в фокусе — alt-tab черновик не трогает); выбор в календаре; кнопка очистки. Пустой текст — null.
 // Неполная/несуществующая/вне min/max дата на уходе откатывается к значению (как у a-date-picker),
-// пока черновик не откачен — красная рамка и aria-invalid (для набранной полностью). Escape — откат черновика.
+// пока черновик не откачен — красная рамка и aria-invalid (для набранной полностью). Escape — откат черновика;
+// пока черновик есть, у <input> атрибут data-z-draft — по нему ZModal/ZDrawer не закрываются этим Escape.
 // class/style — на рамку, остальные $attrs (aria-*, data-*, onFocus/onBlur…) — на <input>, как у ZInput.
 defineOptions({ inheritAttrs: false })
 const attrs = useAttrs()
@@ -249,6 +250,7 @@ const cellClass = cn(
           :disabled="disabled"
           :readonly="readonly"
           :aria-invalid="isInvalid || undefined"
+          :data-z-draft="dirty || undefined"
           class="min-w-0 flex-1 border-0 bg-transparent p-0 font-sans tabular-nums [font-size:inherit] [line-height:inherit] [color:inherit] outline-hidden placeholder:text-muted disabled:cursor-not-allowed disabled:placeholder:text-ink-3"
           @input="onInput"
           @compositionend="onInput"

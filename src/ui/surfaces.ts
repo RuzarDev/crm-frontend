@@ -25,6 +25,52 @@ export const floatingSurface = cn(
   'data-[state=open]:animate-pop-in data-[state=closed]:animate-pop-out motion-reduce:animate-none',
 )
 
+/** Затемнение под окном (ZModal, ZDrawer). */
+export const modalBackdrop = cn(
+  Z_LAYER_MODAL,
+  'fixed inset-0 bg-ink/30',
+  'data-[state=open]:animate-fade-in data-[state=closed]:animate-pop-out motion-reduce:animate-none',
+)
+
+/** Крестик закрытия окна (ZModal, ZDrawer): в правом верхнем углу, последним в порядке фокуса. */
+export const modalCloseButton = cn(
+  'absolute right-4 top-4 flex size-8 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0',
+  'text-muted outline-hidden transition-colors duration-150 ease-out motion-reduce:transition-none',
+  'hover:bg-sunken hover:text-ink focus-visible:shadow-focus',
+)
+
+/**
+ * Escape пришёл из поля с несохранённым черновиком (ZDate ставит data-z-draft) — окно не закрываем:
+ * этот Escape откатывает черновик, следующий закроет окно.
+ */
+export const isDraftEscape = (e: Event): boolean => {
+  const target = e.target
+  return target instanceof Element && !!target.closest('[data-z-draft]')
+}
+
+const FOCUSABLE = [
+  'input:not([disabled]):not([type="hidden"])', 'select:not([disabled])', 'textarea:not([disabled])',
+  'button:not([disabled])', 'a[href]', '[tabindex]:not([tabindex="-1"])',
+].join(',')
+
+/**
+ * Фокус при открытии окна (open-auto-focus Reka): первый доступный элемент, но без выделения текста —
+ * Reka выделяет значение поля, и первый же символ стёр бы его. Без доступных элементов — само окно.
+ */
+export const focusFirstInside = (e: Event): void => {
+  const root = e.target
+  if (!(root instanceof HTMLElement)) return
+  e.preventDefault()
+  for (const el of root.querySelectorAll<HTMLElement>(FOCUSABLE)) {
+    el.focus({ preventScroll: true })
+    if (document.activeElement === el) return // скрытый элемент фокус не берёт — идём дальше
+  }
+  root.focus({ preventScroll: true })
+}
+
+/** Ширина окна: число — px (как у AntD), строка — как есть ('80%', '40rem'). */
+export const cssSize = (v: number | string): string => (typeof v === 'number' ? `${v}px` : v)
+
 /** Пункт списка/меню. */
 export const listItem = cn(
   'relative flex cursor-pointer select-none items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-sm text-ink outline-hidden',
