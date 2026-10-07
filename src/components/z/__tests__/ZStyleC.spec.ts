@@ -161,9 +161,11 @@ describe('ZStepper', () => {
 })
 
 describe('ZAskBanner', () => {
-  it('role=status, заголовок/описание/кнопка; action эмитится', async () => {
-    w = mountWithI18n(ZAskBanner, { props: { title: 'Нужны документы', description: 'Загрузите инвойс', actionText: 'Загрузить' } })
-    expect(w.attributes('role')).toBe('status')
+  it('role=region с именем-заголовком (не status: постоянный баннер с кнопкой), описание, кнопка; action эмитится', async () => {
+    w = mountWithI18n(ZAskBanner, { props: { title: 'Нужны документы', description: 'Загрузите инвойс', actionText: 'Загрузить' }, attachTo: document.body })
+    expect(w.attributes('role')).toBe('region')
+    expect(document.getElementById(w.attributes('aria-labelledby')!)?.textContent).toBe('Нужны документы')
+    expect(w.find('[role="status"]').exists()).toBe(false)
     expect(w.text()).toContain('Нужны документы')
     expect(w.text()).toContain('Загрузите инвойс')
     const btn = w.find('button')

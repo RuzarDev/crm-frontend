@@ -225,7 +225,7 @@ describe('ZForm', () => {
     await submit()
     expect(onFinishFailed.mock.calls[0][0].errors).toEqual([
       { name: 'username', message: 'Введите логин' },
-      { name: 'password', message: 'Не меньше 8' },
+      { name: 'password', message: 'Не меньше 8 символов' },
     ])
   })
 
@@ -322,7 +322,7 @@ describe('ZField', () => {
     const input = w.get('input').element as HTMLInputElement
     await type(input, '123')
     await blur(input)
-    expect(describedText(input)).toBe('Ровно 12')
+    expect(describedText(input)).toBe('Ровно 12 символов')
   })
 
   it('второй контрол в поле не получает id и aria-* поля', async () => {
@@ -408,10 +408,10 @@ describe('ZForm — доработки', () => {
     }, { attachTo: document.body, global: { plugins: [i18n] } })
     await nextTick()
     await submitEl(formEl())
-    expect(describedText(control('BIN'))).toBe('Ровно 12')
+    expect(describedText(control('BIN'))).toBe('Ровно 12 символов')
     i18n.global.locale.value = 'en'
     await nextTick()
-    expect(describedText(control('BIN'))).toBe('Exactly 12')
+    expect(describedText(control('BIN'))).toBe('Exactly 12 characters')
   })
 
   it('resetFields/clearValidate во время асинхронной отправки отменяют её: ни finish, ни finishFailed', async () => {
@@ -537,5 +537,39 @@ describe('ZForm — отправка извне (submit(), кнопка OK ок�
     const buttons = [...document.querySelectorAll('button')]
     expect(buttons.some((b) => b.getAttribute('type') === 'submit')).toBe(false)
     expect(buttons.some((b) => b.hasAttribute('form'))).toBe(false)
+  })
+})
+
+describe('ZField — сообщения min/max/len: символы у строк, число у чисел и массивов', () => {
+  it.each<[string, unknown, ZRule[], string]>([
+    ['строка min', 'ab', [{ min: 3 }], 'Не меньше 3 символов'],
+    ['строка max', 'abcdef', [{ max: 5 }], 'Не больше 5 символов'],
+    ['строка len', '123', [{ len: 12 }], 'Ровно 12 символов'],
+    ['число min', 5, [{ min: 10 }], 'Не меньше 10'],
+    ['строка-число с type number', '7', [{ type: 'number', min: 10 }], 'Не меньше 10'],
+    ['массив max', ['a', 'b', 'c'], [{ max: 2 }], 'Не больше 2'],
+  ])('%s', async (_n, value, rules, text) => {
+    w = mountWithI18n({
+      render: () => h(ZForm, { model: { v: value }, rules: { v: rules } }, () =>
+        h(ZField, { name: 'v', label: 'Поле' }, () => h(ZInput, { value: String(value) }))),
+    }, { attachTo: document.body })
+    await nextTick()
+    await submit()
+    expect(describedText(control('Поле'))).toBe(text)
+  })
+  it('kk и en: «таңба» / «characters»', async () => {
+    const kk = (await import('@/i18n/locales/kk')).default
+    const i18n = createI18n({ legacy: false, locale: 'kk', messages: { ru, en, kk } })
+    const model = reactive({ v: 'ab' })
+    w = mount({
+      render: () => h(ZForm, { model, rules: { v: [{ min: 3 }, { max: 1 }] } }, () =>
+        h(ZField, { name: 'v', label: 'Поле' }, () => h(ZInput, { value: model.v }))),
+    }, { attachTo: document.body, global: { plugins: [i18n] } })
+    await nextTick()
+    await submit()
+    expect(describedText(control('Поле'))).toBe('Кемінде 3 таңба')
+    i18n.global.locale.value = 'en'
+    await nextTick()
+    expect(describedText(control('Поле'))).toBe('At least 3 characters')
   })
 })

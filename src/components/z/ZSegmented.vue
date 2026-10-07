@@ -37,8 +37,9 @@ const rootCmp = ref<ComponentPublicInstance>()
 const rootEl = () => rootCmp.value?.$el as HTMLElement | undefined
 // Пункты с roving tabindex: если ни один не доступен с Tab, фокус на группу — Reka переведёт его на пункт.
 const focus = () => { const el = rootEl(); if (el && !focusFirstTabbable(el)) el.focus() }
-// role=group: aria-required к группе не относится — только подпись, описание и ошибка.
-const { fieldDescribedBy, fieldLabelledBy, fieldInvalid, fieldAriaInvalid, notifyChange, notifyBlur } = useFieldControl({
+// role=group: aria-required и aria-invalid к группе не относятся (ARIA их не поддерживает у group) — только подпись
+// и описание (текст ошибки поля в aria-describedby). Свой aria-invalid атрибутом проходит как есть (v-bind="attrs").
+const { fieldDescribedBy, fieldLabelledBy, notifyChange, notifyBlur } = useFieldControl({
   attrs, focus, value: () => props.value, group: true,
 })
 const onFocusOut = (e: FocusEvent) => {
@@ -54,7 +55,6 @@ defineExpose({ focus })
     ref="rootCmp"
     :aria-labelledby="fieldLabelledBy"
     :aria-describedby="fieldDescribedBy"
-    :aria-invalid="fieldAriaInvalid"
     type="single"
     :model-value="model"
     :disabled="disabled"

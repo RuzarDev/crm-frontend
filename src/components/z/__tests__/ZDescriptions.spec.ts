@@ -152,6 +152,7 @@ describe('ZDescriptions', () => {
   it('title выводится над списком; class и style на корне', () => {
     w = mountWithI18n(ZDescriptions, { props: { title: 'Основной лист' }, attrs: { class: 'mine', style: 'margin: 1px' }, slots: { default: () => [item('A', 'a')] } })
     expect(w.text()).toContain('Основной лист')
+    expect(w.get('h3').classes()).toContain('font-sans') // шрифт заголовков из main.css не просачивается
     expect(w.classes()).toContain('mine')
     expect(w.attributes('style')).toContain('margin')
     expect(w.element.querySelector('dl')).not.toBeNull()

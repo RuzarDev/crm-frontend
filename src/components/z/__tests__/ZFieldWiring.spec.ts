@@ -194,7 +194,10 @@ describe('связь Z-полей с ZField', () => {
     const r = mountInField(ZSegmented, { value: 'IM', options })
     w = r.w
     const group = w.get('[role="group"]')
-    expectGroupBound(group.element)
+    // aria-invalid у role=group не поддерживается — ошибку объявляет aria-describedby (финальное ревью F7).
+    expect(group.attributes('aria-labelledby')).toBe('f-1-label')
+    expect(group.attributes('aria-describedby')).toBe('f-1-msg')
+    expect(group.attributes('aria-invalid')).toBeUndefined()
     const items = w.findAll('button')
     await items[1].trigger('click')
     expect(r.ctx.onChange).toHaveBeenCalledTimes(1)

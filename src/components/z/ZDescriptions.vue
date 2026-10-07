@@ -64,7 +64,7 @@ export default defineComponent({
       const kids = source.map((n, i) => cloneVNode(n, { colSpan: spans[i] }))
       const cell = props.bordered ? 'gap-px border border-line bg-line rounded-row overflow-hidden' : 'gap-x-4 gap-y-1'
       return h('div', null, [
-        props.title ? h('h3', { class: 'm-0 mb-2 text-sm font-semibold text-ink-2' }, props.title) : null,
+        props.title ? h('h3', { class: 'm-0 mb-2 font-sans text-sm font-semibold text-ink-2' }, props.title) : null,
         h('dl', { class: cn('m-0 grid max-[640px]:grid-cols-[minmax(6rem,40%)_minmax(0,1fr)]', GRID[cols], cell) }, kids),
       ])
     }

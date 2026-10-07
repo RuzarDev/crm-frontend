@@ -5,7 +5,8 @@ import { parseNumber } from './number'
 // только решают, когда звать validateValue, и показывают ответ.
 
 export type ZRuleTrigger = 'change' | 'blur'
-export type ZRuleKey = 'required' | 'min' | 'max' | 'len' | 'pattern' | 'email' | 'number' | 'integer'
+/** min/max/len у строки (длина в символах) — свои ключи: «Не меньше 3 символов», у числа и массива — «Не меньше 3». */
+export type ZRuleKey = 'required' | 'min' | 'max' | 'len' | 'minChars' | 'maxChars' | 'lenChars' | 'pattern' | 'email' | 'number' | 'integer'
 
 export interface ZRule {
   required?: boolean
@@ -76,9 +77,10 @@ const checkRule = async (value: unknown, rule: ZRule, fallback: ZRuleFallback): 
     }
     const size = measure(value, rule.type)
     if (size !== null) {
-      if (rule.len !== undefined && size !== rule.len) return fail('len', rule.len)
-      if (rule.min !== undefined && size < rule.min) return fail('min', rule.min)
-      if (rule.max !== undefined && size > rule.max) return fail('max', rule.max)
+      const chars = typeof value === 'string' && rule.type !== 'number' && rule.type !== 'integer'
+      if (rule.len !== undefined && size !== rule.len) return fail(chars ? 'lenChars' : 'len', rule.len)
+      if (rule.min !== undefined && size < rule.min) return fail(chars ? 'minChars' : 'min', rule.min)
+      if (rule.max !== undefined && size > rule.max) return fail(chars ? 'maxChars' : 'max', rule.max)
     }
     if (rule.pattern) {
       rule.pattern.lastIndex = 0 // /g и /y помнят позицию между вызовами

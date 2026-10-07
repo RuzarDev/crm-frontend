@@ -53,6 +53,7 @@ const SPAN: Record<number, string> = {
 }
 const RULE_KEY: Record<ZRuleKey, string> = {
   required: 'z.ruleRequired', min: 'z.ruleMin', max: 'z.ruleMax', len: 'z.ruleLen',
+  minChars: 'z.ruleMinChars', maxChars: 'z.ruleMaxChars', lenChars: 'z.ruleLenChars',
   pattern: 'z.rulePattern', email: 'z.ruleEmail', number: 'z.ruleNumber', integer: 'z.ruleInteger',
 }
 
