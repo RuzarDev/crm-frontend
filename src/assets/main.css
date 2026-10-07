@@ -124,16 +124,11 @@ small {
 :not(#z) .ant-message-info .anticon,
 :not(#z) .ant-message-loading .anticon { color: var(--z-teal, #23B5D3); }
 
-/* ─── Контраст primary/CTA-кнопок (WCAG AA) ──────────────────
-   Белый текст на бирюзе #23B5D3 давал ≈2.3:1 (ниже нормы 4.5:1). Тёмно-синий
-   navy-текст на той же бирюзе — ≈6.3:1, проходит AA, и сохраняет брендовый
-   бирюзовый фон кнопок. Применяем к сплошным primary и к auth-CTA; НЕ трогаем
-   ghost/link/danger-варианты, выделенный пункт сайдбара (навигация на тёмном
-   фоне) и кнопку поиска .ant-input-search-button — у неё намеренно ТЁМНЫЙ
-   (navy) фон + белый текст, navy-текст сделал бы «Найти» невидимым. */
-:not(#z) .ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(.ant-input-search-button):not(:disabled),
-:not(#z) .ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(.ant-input-search-button):not(:disabled):hover,
-:not(#z) .ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(.ant-input-search-button):not(:disabled):focus,
+/* ─── Контраст auth-CTA (WCAG AA) ───────────────────────────
+   Кнопки входа/регистрации (.auth-submit-btn) пока на бирюзовом фоне (стили в LoginView/RegisterView,
+   переводятся в своей волне): белый текст на #23B5D3 ≈2.3:1, поэтому текст navy ≈6.3:1.
+   Обычные primary-кнопки AntD с 2026-10-07 — navy-фон и белый текст (правило ниже, «Custom Buttons»),
+   navy-текст им больше не задаём — иначе было бы navy на navy. */
 :not(#z) .auth-submit-btn:not(:disabled),
 :not(#z) .auth-submit-btn:not(:disabled):hover,
 :not(#z) .auth-submit-btn:not(:disabled):focus {
@@ -517,38 +512,40 @@ a {
 }
 
 
+/* Тёплые фоны строк (стиль C): наведение — canvas (sunken занят разделителем строк — на нём он бы
+   пропадал), выбранная строка — zircon-soft (zircon = «активное»). Те же значения — у закреплённых колонок ниже. */
 :not(#z) .ant-table-tbody > tr:hover > td {
-  background: #eef1f8;
+  background: var(--color-canvas);
 }
 
 :not(#z) .ant-table-tbody > tr.ant-table-row-selected > td {
-  background: #e3e8f5;
+  background: var(--color-zircon-soft);
 }
 
 /* Fixed left column */
 :not(#z) .ant-table-cell-fix-left {
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 :not(#z) .ant-table-tbody > tr:hover .ant-table-cell-fix-left {
-  background: #eef1f8;
+  background: var(--color-canvas);
 }
 
 :not(#z) .ant-table-tbody > tr.ant-table-row-selected .ant-table-cell-fix-left {
-  background: #e3e8f5;
+  background: var(--color-zircon-soft);
 }
 
 /* Fixed right column */
 :not(#z) .ant-table-cell-fix-right {
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 :not(#z) .ant-table-tbody > tr:hover .ant-table-cell-fix-right {
-  background: #eef1f8;
+  background: var(--color-canvas);
 }
 
 :not(#z) .ant-table-tbody > tr.ant-table-row-selected .ant-table-cell-fix-right {
-  background: #e3e8f5;
+  background: var(--color-zircon-soft);
 }
 
 /* Remove fixed column shadows completely */
@@ -628,16 +625,22 @@ a {
   transform: translateY(0);
 }
 
-/* Брендбук Zircon: главная кнопка — ровная заливка zircon, текст on-zircon (navy), без градиента.
-   Цвет текста задаёт правило выше (navy), здесь только фон. */
+/* Стиль C (спека 2026-10-07 §3/§4): главная кнопка — ровная заливка navy, белый текст; zircon на кнопках
+   не используется. Фон — только у доступной сплошной кнопки: ghost-primary прозрачная с navy-текстом
+   (иначе navy на navy), disabled — серая по теме AntD, danger-primary — своё правило ниже. */
 :not(#z) .ant-btn-primary {
-  background: var(--z-teal);
   border: none;
   box-shadow: none;
 }
 
-:not(#z) .ant-btn-primary:not(:disabled):not(.ant-btn-dangerous):hover {
-  background: #4FC6DE;
+:not(#z) .ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(:disabled) {
+  background: var(--color-navy);
+  color: var(--color-white);
+}
+
+:not(#z) .ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-dangerous):not(:disabled):hover {
+  background: var(--color-navy-hover);
+  color: var(--color-white);
   box-shadow: none;
 }
 
@@ -776,7 +779,7 @@ a {
 :not(#z) .ant-table-tbody > tr > td {
   background: #ffffff;
   padding: 9px 14px;
-  border-bottom: 1px solid #e8ebf2;
+  border-bottom: 1px solid var(--color-sunken); /* разделитель строк (спека §3) */
   border-top: none;
   border-right: none;
   border-left: none;
