@@ -24,6 +24,9 @@ export default {
     decrease: 'Азайту',
     remove: 'Алып тастау',
     more: 'Тағы',
+    showPassword: 'Құпия сөзді көрсету',
+    hidePassword: 'Құпия сөзді жасыру',
+    search: 'Іздеу',
   },
   common: {
     graphShort: '{n}-б.',

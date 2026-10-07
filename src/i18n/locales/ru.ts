@@ -26,6 +26,9 @@ export default {
     decrease: 'Уменьшить',
     remove: 'Убрать',
     more: 'Ещё',
+    showPassword: 'Показать пароль',
+    hidePassword: 'Скрыть пароль',
+    search: 'Найти',
   },
   common: {
     graphShort: 'Гр.{n}',

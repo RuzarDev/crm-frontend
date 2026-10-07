@@ -24,6 +24,9 @@ export default {
     decrease: 'Decrease',
     remove: 'Remove',
     more: 'More',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    search: 'Search',
   },
   common: {
     graphShort: 'Box {n}',
