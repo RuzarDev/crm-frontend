@@ -1,6 +1,6 @@
 import type { useAuthStore } from '@/stores/auth'
 
-// Модель меню новых оболочек (спека редизайна §5). Видимость — перенос из MainLayout.vue один к одному;
+// Модель меню новых оболочек (спека редизайна §5). Видимость — перенос из прежней оболочки на AntD один к одному;
 // разделы, которые спека объединяет, — одна строка меню и вкладки-ссылки в шапке (pages).
 export type NavIcon =
   | 'home' | 'requests' | 'transit' | 'packages' | 'keden' | 'clients' | 'sales' | 'finance' | 'analytics'

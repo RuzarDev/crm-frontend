@@ -84,6 +84,8 @@ export default {
     step: { profile: 'компания деректемелері', contract: 'шарт', poa: 'сенімхат' },
   },
   shell: {
+    menu: 'Мәзір',
+    skip: 'Мазмұнға өту',
     search: { open: 'Іздеу' },
     palette: {
       title: 'Іздеу және өту',

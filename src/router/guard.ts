@@ -50,7 +50,7 @@ export function guardRedirect(path: string, meta: Record<string, unknown>, a: Gu
   ) {
     return '/'
   } else if (
-    // Статусы КЕДЕН — то же условие, что и пункт меню (MainLayout): экспедитор/клиент транзита/
+    // Статусы КЕДЕН — то же условие, что и пункт меню (navModel, buildBrokerNav): экспедитор/клиент транзита/
     // reestr.read/import40.read. Раньше гейтился списком системных ролей — не совпадал с меню.
     path === '/keden-status' && normalizedRole !== 'administrator' && normalizedRole !== 'expeditor'
     && !(normalizedRole === 'client'

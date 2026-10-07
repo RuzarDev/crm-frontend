@@ -42,7 +42,7 @@ const router = createRouter({
     },
     {
       path: '/',
-      component: () => import('@/layouts/MainLayout.vue'),
+      component: () => import('@/layouts/AppShell.vue'),
       meta: { requiresAuth: true },
       children: [
         {
@@ -145,7 +145,7 @@ const router = createRouter({
           component: () => import('@/views/NotificationsView.vue'),
         },
         {
-          // Только клиенту транзита — тот же критерий, что и в меню (MainLayout: clientTransit).
+          // Только клиенту транзита — тот же критерий, что и в меню (navModel: buildClientNav, transit).
           path: '/my-documents',
           name: 'my-documents',
           component: () => import('@/views/MyDocumentsView.vue'),

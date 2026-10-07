@@ -84,6 +84,8 @@ export default {
     step: { profile: 'company details', contract: 'contract', poa: 'power of attorney' },
   },
   shell: {
+    menu: 'Menu',
+    skip: 'Skip to content',
     search: { open: 'Search' },
     palette: {
       title: 'Search and go to',

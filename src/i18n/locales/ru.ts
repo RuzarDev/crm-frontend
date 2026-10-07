@@ -86,6 +86,8 @@ export default {
     step: { profile: 'реквизиты компании', contract: 'договор', poa: 'доверенность' },
   },
   shell: {
+    menu: 'Меню',
+    skip: 'К содержимому',
     search: { open: 'Поиск' },
     palette: {
       title: 'Поиск и переходы',

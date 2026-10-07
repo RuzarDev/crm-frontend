@@ -936,52 +936,6 @@ a {
   padding: 24px;
 }
 
-/* Drawer — mobile nav override */
-:not(#z) .atg-mobile-drawer .ant-drawer-header {
-  background: #0E1B35;
-  border-bottom: 1px solid rgba(35, 181, 211, 0.18);
-  padding: 16px 18px;
-}
-
-:not(#z) .atg-mobile-drawer .ant-drawer-title {
-  color: #f0f3ff;
-}
-
-:not(#z) .atg-mobile-drawer .ant-drawer-close {
-  color: rgba(240, 243, 255, 0.5);
-}
-
-:not(#z) .atg-mobile-drawer .ant-drawer-close:hover {
-  color: #f0f3ff;
-  background: transparent;
-}
-
-:not(#z) .atg-mobile-drawer .ant-drawer-body {
-  background: #14244A;
-  padding: 12px;
-}
-
-/* ─── Mobile Hamburger ───────────────────────────────────── */
-
-.menu-toggle-btn {
-  display: none;
-  color: #f0f3ff;
-  border-color: rgba(240, 243, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  /* Та же высота/стиль, что у остальных кнопок шапки (язык, уведомления, профиль). */
-  height: 36px;
-  min-height: 36px;
-  min-width: 36px;
-  padding: 0;
-  flex-shrink: 0;
-}
-
-:not(#z) .menu-toggle-btn:hover {
-  color: #0E1B35;
-  border-color: #23B5D3;
-  background: #23B5D3;
-}
-
 /* ─── Checkbox ───────────────────────────────────────────── */
 
 .ant-checkbox-wrapper {
@@ -1201,14 +1155,6 @@ a {
     align-items: stretch;
     flex-direction: column;
     gap: 14px;
-  }
-}
-
-@media (max-width: 860px) {
-  .menu-toggle-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
   }
 }
 
