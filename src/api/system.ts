@@ -31,6 +31,7 @@ export const systemApi = {
   audit: async (params?: { action?: string; entityType?: string; days?: number }): Promise<AuditRow[]> =>
     (await apiClient.get<AuditRow[]>('/system/audit', { params })).data,
 
-  search: async (q: string): Promise<SearchHit[]> =>
-    (await apiClient.get<SearchHit[]>('/search', { params: { q } })).data,
+  /** silent — без тоста перехватчика: палитра ⌘K сама показывает ошибку поиска. */
+  search: async (q: string, opts?: { silent?: boolean }): Promise<SearchHit[]> =>
+    (await apiClient.get<SearchHit[]>('/search', { params: { q }, silent: opts?.silent })).data,
 }

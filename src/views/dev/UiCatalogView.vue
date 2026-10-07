@@ -48,11 +48,16 @@ import ZirconLogo from '@/components/shell/ZirconLogo.vue'
 import NotificationsBell from '@/components/shell/NotificationsBell.vue'
 import UserMenu from '@/components/shell/UserMenu.vue'
 import LangMenu from '@/components/shell/LangMenu.vue'
+import CommandPalette from '@/components/shell/CommandPalette.vue'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useAuthStore } from '@/stores/auth'
 import { useProfileStore } from '@/stores/profile'
 import type { AppNotification } from '@/types/api'
-import { buildBrokerNav, buildClientNav, type NavAccess } from '@/shell/navModel'
+import { buildBrokerNav, buildClientNav, type NavAccess, type NavModel } from '@/shell/navModel'
+import { installPaletteHotkey, useCommandPalette, type PaletteDestination } from '@/shell/useCommandPalette'
+import { systemApi, type SearchHit } from '@/api/system'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import type { ZColumn, ZKey } from '@/ui/table'
 import type { ZRule } from '@/ui/validation'
 import { message } from '@/ui/message'
@@ -326,12 +331,54 @@ const resetShellDemo = () => {
   notifDemo.items = demoNotifications()
   notifDemo.unreadCount = 2
 }
+// Палитра ⌘K: поиск подменён демо-ответами (каталог открыт без входа, а настоящий 401 увёл бы на /login
+// даже с silent). Запрос со словом «ошибка» — ответ с ошибкой. Переходы из палитры отменяются и пишутся
+// событием ниже, чтобы не уходить со страницы.
+const { t: tDemo } = useI18n()
+const palette = useCommandPalette()
+const paletteClient = ref(false)
+const navDestinations = (nav: NavModel): PaletteDestination[] =>
+  [...nav.groups.flatMap((g) => g.sections), ...nav.bottom].filter((s) => !s.action).flatMap((s) =>
+    s.pages.map((pg) => ({
+      key: `${s.key}:${pg.key}`, label: tDemo(pg.labelKey), to: pg.to,
+      hint: pg.labelKey === s.labelKey ? undefined : tDemo(s.labelKey),
+    })))
+const paletteDestinations = computed(() => navDestinations(paletteClient.value ? clientNav : brokerNav))
+const demoHits: SearchHit[] = [
+  { type: 'case', title: 'И40-182', subtitle: 'ТОО «Казахмыс Трейд» · ИМ 40', url: '/import-40/demo-182' },
+  { type: 'declaration', title: 'ДТ 50508/081026/0012345', subtitle: 'И40-182 · выпущена', url: '/import-40/demo-182/declaration' },
+  { type: 'client', title: 'ТОО «Казахмыс Трейд»', subtitle: 'БИН 210340012345', url: '/clients/demo-1' },
+  { type: 'document', title: 'Инвойс INV-2026-0912', subtitle: 'И40-179 · загружен 07.10', url: '/import-40/demo-179' },
+  { type: 'invoice', title: 'СЧ-2026-0412', subtitle: 'ТОО «Astana Foods» · оплачен', url: '/billing/demo-412' },
+]
+const realSearch = systemApi.search
+systemApi.search = async (q: string) => {
+  await new Promise((r) => setTimeout(r, 600))
+  const n = q.toLocaleLowerCase()
+  if (n.includes('ошибка')) throw new Error('demo')
+  return demoHits.filter((h) => `${h.title} ${h.subtitle}`.toLocaleLowerCase().includes(n))
+}
+const openPalette = (client = false) => {
+  paletteClient.value = client
+  palette.show()
+}
+const offPaletteHotkey = installPaletteHotkey()
+const paletteTargets = computed(() => new Set([...paletteDestinations.value.map((d) => d.to), ...demoHits.map((h) => h.url)]))
+const offPaletteNav = useRouter().beforeEach((to, from) => {
+  if (from.path !== '/_ui' || !paletteTargets.value.has(to.fullPath)) return true
+  shellEvent.value = `палитра → ${to.fullPath}`
+  return false
+})
 onBeforeUnmount(() => {
   Object.assign(notifDemo, { fetch: real.fetch, markRead: real.markRead, markAllRead: real.markAllRead })
   // Возвращаем прежнее состояние стора, а не reset(): тот останавливает опрос и стирает настоящие данные.
   Object.assign(notifDemo, { items: real.items, unreadCount: real.unreadCount, loadError: real.loadError, loading: false })
   authDemo.logout = real.logout
   profileDemo.profile = real.profile
+  systemApi.search = realSearch
+  offPaletteHotkey()
+  offPaletteNav()
+  palette.hide()
 })
 </script>
 
@@ -740,11 +787,24 @@ onBeforeUnmount(() => {
               <ZButton variant="link" size="sm" @click="failShellDemo">Следующая загрузка — с ошибкой</ZButton>
             </p>
           </div>
+          <div class="flex flex-col gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <ZButton variant="secondary" @click="openPalette()">
+                <PhMagnifyingGlass :size="16" />Открыть палитру
+                <span class="ml-1 inline-flex gap-0.5"><ZKbd>⌘</ZKbd><ZKbd>K</ZKbd></span>
+              </ZButton>
+              <ZButton variant="ghost" @click="openPalette(true)">Палитра клиента</ZButton>
+            </div>
+            <p class="text-sm text-ink-3">
+              Поиск — демо-ответы через 0,6 с («И40», «Казахмыс», «СЧ-2026»…); слово «ошибка» в запросе — ответ с ошибкой.
+              Переход из палитры не уводит со страницы — событие появится ниже, у меню.
+            </p>
+          </div>
           <div class="flex flex-wrap gap-6">
             <div class="h-[640px] w-[248px] overflow-hidden rounded-panel border border-line bg-canvas">
               <ShellSidebar
                 :model="brokerNav" path="/import-40/manage" :attention="3"
-                @search="shellEvent = 'search'" @navigate="shellEvent = 'navigate'"
+                @search="shellEvent = 'search'; openPalette()" @navigate="shellEvent = 'navigate'"
               />
             </div>
             <div class="h-[640px] w-[240px] overflow-hidden rounded-panel border border-line bg-canvas">
@@ -801,6 +861,8 @@ onBeforeUnmount(() => {
         </div>
         <template #footer><ZButton @click="drawerOpen = false">Закрыть</ZButton></template>
       </ZDrawer>
+
+      <CommandPalette :destinations="paletteDestinations" :client="paletteClient" />
     </div>
   </div>
 </template>
