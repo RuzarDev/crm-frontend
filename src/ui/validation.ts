@@ -28,10 +28,10 @@ export interface ZRule {
 
 export type ZRuleFallback = (key: ZRuleKey, n?: number) => string
 
-/** Пусто: undefined/null/''/[]; при whitespace — и строка из одних пробелов. 0 и false — не пусто. */
+/** Пусто: undefined/null/''/[] и массив из одних пустых элементов ([null, null] — пустой диапазон дат); при whitespace — и строка из одних пробелов. 0 и false — не пусто. */
 export const isEmptyValue = (value: unknown, whitespace = false): boolean =>
   value === undefined || value === null || value === ''
-  || (Array.isArray(value) && value.length === 0)
+  || (Array.isArray(value) && value.every((v) => v === undefined || v === null || v === ''))
   || (whitespace && typeof value === 'string' && value.trim() === '')
 
 /** Правила, которые проверяются на этом событии. */

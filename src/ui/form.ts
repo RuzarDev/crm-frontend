@@ -104,6 +104,8 @@ export function useFieldControl(o: {
   return {
     fieldId: computed(() => ownId() ?? (bound() && !o.group ? field!.controlId.value : undefined)),
     fieldDescribedBy: computed(() => joinIds(o.attrs['aria-describedby'], bound() ? field!.describedBy.value : undefined)),
+    /** id подписи поля (если поле занято этим контролом и подпись есть) — для составных контролов с aria-labelledby. */
+    fieldLabelId: computed(() => (bound() ? field!.labelId.value : undefined)),
     fieldLabelledBy: computed(() => (o.attrs['aria-labelledby'] as string | undefined) ?? (bound() && o.group ? field!.labelId.value : undefined)),
     /** Ошибка поля — для красной рамки. */
     fieldInvalid: computed(() => bound() && field!.invalid.value),

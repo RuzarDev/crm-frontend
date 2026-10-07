@@ -7,7 +7,7 @@ const check = (value: unknown, rules: ZRule[]) => validateValue(value, rules, fb
 
 describe('isEmptyValue', () => {
   it.each([
-    [undefined, false, true], [null, false, true], ['', false, true], [[], false, true],
+    [undefined, false, true], [null, false, true], ['', false, true], [[], false, true], [[null, null], false, true], [[undefined, ''], false, true], [['2026-09-01', null], false, false], [[0, null], false, false],
     ['  ', false, false], ['  ', true, true], ['\t\n', true, true],
     [0, false, false], [false, false, false], ['0', false, false], [[0], false, false], [' x ', true, false],
   ])('%j (whitespace=%j) → %j', (value, ws, expected) => {
@@ -22,6 +22,8 @@ describe('validateValue', () => {
     [null, [{ required: true }], 'required'],
     ['', [{ required: true }], 'required'],
     [[], [{ required: true }], 'required'],
+    [[null, null], [{ required: true }], 'required'],
+    [['2026-09-01', null], [{ required: true }], null],
     ['   ', [{ required: true }], null],
     ['   ', [{ required: true, whitespace: true }], 'required'],
     [0, [{ required: true }], null],

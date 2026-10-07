@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
-import type { VueWrapper } from '@vue/test-utils'
+import { h, nextTick, reactive, ref } from 'vue'
+import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mountInField } from '@/test/fieldContext'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import ZDateRange from '../ZDateRange.vue'
+import ZField from '../ZField.vue'
+import ZForm from '../ZForm.vue'
 
 let w: VueWrapper
 afterEach(() => {
@@ -43,6 +45,13 @@ const commitEnter = async (i: number) => {
   await nextTick()
   await nextTick()
 }
+
+// Имя по aria-labelledby: тексты указанных элементов; каждый id должен существовать.
+const nameOf = (el: Element) => (el.getAttribute('aria-labelledby') ?? '').split(/\s+/).filter(Boolean).map((id) => {
+  const target = document.getElementById(id)
+  expect(target, `нет элемента #${id}`).not.toBeNull()
+  return target!.textContent?.trim()
+}).join(' ')
 
 describe('ZDateRange', () => {
   it('показывает пару как ДД.ММ.ГГГГ, подсказки по умолчанию и свои', () => {
@@ -128,7 +137,8 @@ describe('ZDateRange', () => {
     mount([null, null], {}, { 'aria-label': 'Период' })
     const group = w.get('[role="group"]')
     expect(group.attributes('aria-label')).toBe('Период')
-    expect(inputs().map((i) => i.getAttribute('aria-label'))).toEqual(['С', 'По'])
+    expect(inputs().map(nameOf)).toEqual(['С', 'По'])
+    expect(inputs().every((i) => !i.hasAttribute('aria-label'))).toBe(true)
     expect(w.get('[aria-hidden="true"]').text()).toBe('—')
   })
 
@@ -181,5 +191,101 @@ describe('ZDateRange', () => {
     await nextTick()
     await nextTick()
     expect(r.ctx.onBlur).not.toHaveBeenCalled()
+  })
+
+  it('в настоящем ZField label="Период": имена «Период С» / «Период По», label for — на «с»', async () => {
+    w = mountWithI18n({ render: () => h(ZField, { label: 'Период' }, () => h(ZDateRange, { value: [null, null] })) }, { attachTo: document.body })
+    await nextTick()
+    const [from, to] = inputs()
+    expect(nameOf(from)).toBe('Период С')
+    expect(nameOf(to)).toBe('Период По')
+    const label = w.get('label')
+    expect(label.attributes('for')).toBe(from.id)
+    expect(from.id).not.toBe('')
+    expect(to.id).not.toBe(from.id)
+  })
+
+  it('required в ZForm: пустой диапазон [null, null] — «Заполните поле», с одним концом — проходит', async () => {
+    const model = reactive<{ period: Pair }>({ period: [null, null] })
+    const form = ref<{ validate: () => Promise<boolean> }>()
+    w = mountWithI18n({
+      render: () => h(ZForm, { ref: form, model }, () => h(ZField, { name: 'period', label: 'Период', required: true }, () => h(ZDateRange, {
+        value: model.period, 'onUpdate:value': (v: Pair) => { model.period = v },
+      }))),
+    }, { attachTo: document.body })
+    expect(await form.value!.validate()).toBe(false)
+    await flushPromises()
+    expect(w.text()).toContain('Заполните поле')
+    model.period = ['2026-09-01', null]
+    expect(await form.value!.validate()).toBe(true)
+  })
+
+  it('внутри окна [role=dialog]: уход из «по» вовне — blur полю; переход «с»→«по» — нет', async () => {
+    const dialog = document.createElement('div')
+    dialog.setAttribute('role', 'dialog')
+    document.body.appendChild(dialog)
+    const r = mountInField(ZDateRange, { value: [null, null] })
+    w = r.w
+    dialog.appendChild(w.element)
+    const outside = document.createElement('button')
+    dialog.appendChild(outside)
+    inputs()[0].focus()
+    inputs()[1].focus()
+    await nextTick()
+    expect(r.ctx.onBlur).not.toHaveBeenCalled()
+    outside.focus()
+    await nextTick()
+    await nextTick()
+    expect(r.ctx.onBlur).toHaveBeenCalledTimes(1)
+  })
+
+  it('на телефоне ширина во всю строку, высота своя (flex-none), с sm — flex-1', () => {
+    mount([null, null])
+    const cls = w.findAll('input').map((i) => i.element.closest('span')!.className)
+    for (const c of cls) {
+      expect(c).toContain('max-sm:flex-none')
+      expect(c).toContain('max-sm:w-full')
+      expect(c).toContain('sm:flex-1')
+    }
+    expect(w.get('[role="group"]').classes()).toContain('max-sm:flex-col')
+  })
+
+  it('концы с хвостом времени нормализуются: без ложной перестановки', async () => {
+    mount(['2026-09-10T00:00:00', '2026-09-20T00:00:00'])
+    expect(inputs().map((i) => i.value)).toEqual(['10.09.2026', '20.09.2026'])
+    await typeIn(1, '25092026')
+    await commitEnter(1)
+    expect(w.emitted('change')).toEqual([[['2026-09-10', '2026-09-25']]])
+  })
+
+  it('программная смена значения родителем показывается в полях', async () => {
+    mount([null, null])
+    await w.setProps({ value: ['2026-01-01', '2026-01-31'] })
+    expect(inputs().map((i) => i.value)).toEqual(['01.01.2026', '31.01.2026'])
+    expect(w.emitted('change')).toBeUndefined()
+  })
+
+  it('min/max действуют на оба конца', async () => {
+    mount([null, null], { min: '2026-09-05', max: '2026-09-30' })
+    await typeIn(1, '01102026')
+    await leave()
+    expect(w.emitted('change')).toBeUndefined()
+    expect(inputs()[1].value).toBe('')
+    await typeIn(1, '30092026')
+    await commitEnter(1)
+    expect(w.emitted('change')).toEqual([[[null, '2026-09-30']]])
+  })
+
+  it('$attrs onFocus/onBlur — по смыслу группы: вход в группу и уход из неё', async () => {
+    const onFocus = vi.fn()
+    const onBlur = vi.fn()
+    mount([null, null], {}, { onFocus, onBlur })
+    inputs()[0].focus()
+    inputs()[1].focus()
+    await nextTick()
+    expect(onFocus).toHaveBeenCalledTimes(1)
+    expect(onBlur).not.toHaveBeenCalled()
+    await leave()
+    expect(onBlur).toHaveBeenCalledTimes(1)
   })
 })
