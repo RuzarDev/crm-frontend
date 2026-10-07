@@ -131,6 +131,8 @@ declare module 'vue' {
     ReestrStatusHistoryPanel: typeof import('./src/components/ReestrStatusHistoryPanel.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    ShellSectionTabs: typeof import('./src/components/shell/ShellSectionTabs.vue')['default']
+    ShellSidebar: typeof import('./src/components/shell/ShellSidebar.vue')['default']
     SigexSignModal: typeof import('./src/components/SigexSignModal.vue')['default']
     StatTile: typeof import('./src/components/ui/StatTile.vue')['default']
     StatusPill: typeof import('./src/components/ui/StatusPill.vue')['default']
@@ -142,6 +144,7 @@ declare module 'vue' {
     TroisTrademarkHint: typeof import('./src/components/import40/TroisTrademarkHint.vue')['default']
     ZField: typeof import('./src/components/ui/ZField.vue')['default']
     ZFilterBar: typeof import('./src/components/ui/ZFilterBar.vue')['default']
+    ZirconLogo: typeof import('./src/components/shell/ZirconLogo.vue')['default']
     ZTable: typeof import('./src/components/ui/ZTable.vue')['default']
   }
 }

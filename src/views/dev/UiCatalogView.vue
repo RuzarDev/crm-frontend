@@ -42,6 +42,10 @@ import ZStepper, { type ZStep } from '@/components/z/ZStepper.vue'
 import ZAskBanner from '@/components/z/ZAskBanner.vue'
 import ZProgress from '@/components/z/ZProgress.vue'
 import ZBreadcrumbs from '@/components/z/ZBreadcrumbs.vue'
+import ShellSidebar from '@/components/shell/ShellSidebar.vue'
+import ShellSectionTabs from '@/components/shell/ShellSectionTabs.vue'
+import ZirconLogo from '@/components/shell/ZirconLogo.vue'
+import { buildBrokerNav, buildClientNav, type NavAccess } from '@/shell/navModel'
 import type { ZColumn, ZKey } from '@/ui/table'
 import type { ZRule } from '@/ui/validation'
 import { message } from '@/ui/message'
@@ -253,6 +257,16 @@ const saveModal = () => {
   setTimeout(() => { modalSaving.value = false; modalOpen.value = false; message.success('Заявка сохранена') }, 800)
 }
 const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key}` }
+
+// ---- Волна 1: оболочка ----
+const demoAccess = (role: string, extra: Partial<NavAccess> = {}): NavAccess => ({
+  role, hasPermission: () => role === 'administrator', clientHasModule: (m) => m === 'import40',
+  canUseImport40: true, canUseSales: true, isFinanceOnly: false, registrationIncomplete: false, ...extra,
+})
+const brokerNav = buildBrokerNav(demoAccess('administrator'))
+const clientNav = buildClientNav(demoAccess('client', { registrationIncomplete: true }))
+const referencesSection = brokerNav.groups.flatMap((g) => g.sections).find((s) => s.key === 'references')!
+const shellEvent = ref('')
 </script>
 
 <template>
@@ -625,6 +639,34 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
             <ZProgress :percent="45" show-info aria-label="Заполнено 45%" />
             <ZProgress :percent="100" status="success" show-info aria-label="Готово" />
             <ZProgress :percent="30" status="exception" size="sm" aria-label="Ошибка" />
+          </div>
+        </div>
+      </ZPanel>
+
+      <ZPanel class="min-w-0" title="Оболочка">
+        <div class="flex flex-col gap-5">
+          <div class="flex flex-wrap items-center gap-6">
+            <ZirconLogo size="sm" />
+            <ZirconLogo size="md" />
+            <span class="inline-flex rounded-field bg-navy px-4 py-3"><ZirconLogo size="md" inverse /></span>
+          </div>
+          <div class="flex flex-wrap gap-6">
+            <div class="h-[640px] w-[248px] overflow-hidden rounded-panel border border-line bg-canvas">
+              <ShellSidebar
+                :model="brokerNav" path="/import-40/manage" :attention="3"
+                @search="shellEvent = 'search'" @navigate="shellEvent = 'navigate'"
+              />
+            </div>
+            <div class="h-[640px] w-[240px] overflow-hidden rounded-panel border border-line bg-canvas">
+              <ShellSidebar :model="clientNav" path="/home" :attention="1" comfortable :searchable="false" />
+            </div>
+            <div class="flex min-w-0 flex-1 flex-col gap-3">
+              <p class="text-sm text-ink-3">Вкладки раздела «Справочники» (узкая полоса прокручивается):</p>
+              <div class="max-w-[360px] rounded-field border border-line bg-surface">
+                <ShellSectionTabs :section="referencesSection" active-key="timeline" />
+              </div>
+              <p class="text-sm text-ink-3">{{ shellEvent ? `Событие: ${shellEvent}` : 'Поиск/пункт меню — событие появится здесь' }}</p>
+            </div>
           </div>
         </div>
       </ZPanel>

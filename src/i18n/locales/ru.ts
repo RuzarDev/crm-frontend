@@ -86,6 +86,10 @@ export default {
     step: { profile: 'реквизиты компании', contract: 'договор', poa: 'доверенность' },
   },
   shell: {
+    search: { open: 'Поиск' },
+    sectionNav: 'Разделы',
+    attentionSr: 'требует внимания: {n}',
+    dotSr: 'нужно действие',
     nav: {
       home: 'Главная',
       requests: 'Заявки',

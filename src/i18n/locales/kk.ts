@@ -84,6 +84,10 @@ export default {
     step: { profile: 'компания деректемелері', contract: 'шарт', poa: 'сенімхат' },
   },
   shell: {
+    search: { open: 'Іздеу' },
+    sectionNav: 'Бөлімдер',
+    attentionSr: 'назар аударуды қажет етеді: {n}',
+    dotSr: 'әрекет қажет',
     nav: {
       home: 'Басты бет',
       requests: 'Өтінімдер',

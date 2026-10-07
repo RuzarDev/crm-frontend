@@ -84,6 +84,10 @@ export default {
     step: { profile: 'company details', contract: 'contract', poa: 'power of attorney' },
   },
   shell: {
+    search: { open: 'Search' },
+    sectionNav: 'Sections',
+    attentionSr: 'needs attention: {n}',
+    dotSr: 'action needed',
     nav: {
       home: 'Home',
       requests: 'Requests',
