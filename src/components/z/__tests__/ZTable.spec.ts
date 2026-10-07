@@ -428,3 +428,81 @@ describe('ZTable — граница контекста поля', () => {
     expect(w.get('td input').attributes('aria-invalid')).toBe('true')
   })
 })
+
+describe('ZTable — доработки финального ревью', () => {
+  it('две колонки без key с одним dataIndex: ключи уникальны (без предупреждения Vue), dev-предупреждение, сортировка своя', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const cols: ZColumn<Row>[] = [
+      { title: 'Сумма', dataIndex: 'sum', sorter: true },
+      { title: 'Сумма ещё', dataIndex: 'sum', sorter: true, customRender: ({ text }) => `≈${text ?? ''}` },
+    ]
+    w = mountWithI18n(ZTable, { props: { columns: cols, dataSource: rows, rowKey: 'id' } })
+    await ths()[1].find('button').trigger('click')
+    expect(ths()[1].attributes('aria-sort')).toBe('ascending')
+    expect(ths()[0].attributes('aria-sort')).toBe('none')
+    expect(w.emitted('change')!.at(-1)![1]).toMatchObject({ columnKey: 'sum-1', order: 'ascend' })
+    const msgs = warn.mock.calls.map((c) => String(c[0]))
+    expect(msgs.some((m) => m.includes('Duplicate keys'))).toBe(false)
+    expect(msgs.some((m) => m.includes('ZTable') && m.includes('sum'))).toBe(true)
+    warn.mockRestore()
+  })
+  it('имя таблицы: aria-label / aria-labelledby / aria-describedby — на <table>, class/style и прочее — на корень', () => {
+    w = mountWithI18n(ZTable, {
+      props: { columns: [{ title: 'Н', dataIndex: 'name' }], dataSource: rows, rowKey: 'id' },
+      attrs: { class: 'mine', style: 'margin: 1px', 'aria-label': 'Декларации', 'aria-labelledby': 'h1', 'aria-describedby': 'd1', 'data-x': '1' },
+    })
+    const table = w.get('table')
+    expect(table.attributes('aria-label')).toBe('Декларации')
+    expect(table.attributes('aria-labelledby')).toBe('h1')
+    expect(table.attributes('aria-describedby')).toBe('d1')
+    expect(w.classes()).toContain('mine')
+    expect(w.attributes('style')).toContain('margin')
+    expect(w.attributes('aria-label')).toBeUndefined()
+    expect(w.attributes('data-x')).toBe('1')
+  })
+  it('смена aria-label обновляет <table>', async () => {
+    w = mountWithI18n(ZTable, { props: { columns: [{ title: 'Н', dataIndex: 'name' }], dataSource: rows, rowKey: 'id' }, attrs: { 'aria-label': 'А' } })
+    await w.setProps({ 'aria-label': 'Б' } as never)
+    expect(w.get('table').attributes('aria-label')).toBe('Б')
+  })
+  it('смена сортировки возвращает на первую страницу (клиентская)', async () => {
+    w = mountWithI18n(ZTable, { props: { columns: [{ title: 'Н', dataIndex: 'sum', key: 'sum', sorter: true }], dataSource: many(30), rowKey: 'id' } })
+    await w.find('nav button[aria-label="Страница 2"]').trigger('click')
+    expect(bodyRows()).toHaveLength(5)
+    await ths()[0].find('button').trigger('click')
+    expect(bodyRows()).toHaveLength(25)
+    expect(w.find('nav [aria-current="page"]').text()).toBe('1')
+    expect(w.emitted('change')!.at(-1)![0]).toEqual({ current: 1, pageSize: 25, total: 30 })
+  })
+  it('смена сортировки на серверной: change и onChange с первой страницей', async () => {
+    const onChange = vi.fn()
+    w = mountWithI18n(ZTable, {
+      props: { columns: [{ title: 'Н', dataIndex: 'sum', key: 'sum', sorter: true }], dataSource: many(10), rowKey: 'id', pagination: { current: 3, pageSize: 10, total: 95, onChange } },
+    })
+    await ths()[0].find('button').trigger('click')
+    expect(w.emitted('change')!.at(-1)![0]).toEqual({ current: 1, pageSize: 10, total: 95 })
+    expect(w.emitted('change')!.at(-1)![1]).toMatchObject({ columnKey: 'sum', order: 'ascend' })
+    expect(onChange).toHaveBeenCalledWith(1, 10)
+  })
+  it('данные сократились — страница прижимается и остаётся прижатой, когда данных снова больше', async () => {
+    w = mountWithI18n(ZTable, { props: { columns: [{ title: 'Н', dataIndex: 'name' }], dataSource: many(80), rowKey: 'id' } })
+    await w.find('nav button[aria-label="Страница 4"]').trigger('click')
+    expect(column(0)[0]).toBe('Строка 76')
+    await w.setProps({ dataSource: many(40) })
+    expect(column(0)[0]).toBe('Строка 26')
+    await w.setProps({ dataSource: many(80) })
+    expect(column(0)[0]).toBe('Строка 26')
+    expect(w.find('nav [aria-current="page"]').text()).toBe('2')
+  })
+  it('чекбокс строки называется по первой ячейке строки (и общей подписью)', () => {
+    w = mountWithI18n(ZTable, { props: { columns: [{ title: 'Название', dataIndex: 'name' }, { title: 'Сумма', dataIndex: 'sum' }], dataSource: rows, rowKey: 'id', rowSelection: {} }, attachTo: document.body })
+    const names = bodyRows().map((r) => {
+      const ids = r.get('[role="checkbox"]').attributes('aria-labelledby')!.split(' ')
+      return ids.map((id) => document.getElementById(id)?.textContent?.trim()).join(' ')
+    })
+    expect(names[0]).toBe('Выбрать строку Яблоко')
+    expect(names[1]).toBe('Выбрать строку арбуз')
+    expect(new Set(names).size).toBe(names.length)
+    expect(bodyRows()[0].get('[role="checkbox"]').attributes('aria-label')).toBe('Выбрать строку')
+  })
+})

@@ -1,5 +1,6 @@
 import { Comment, Fragment, Text, isVNode } from 'vue'
 import { cn } from './cn'
+import { parseNumber } from './number'
 
 // Логика ZTable: колонки в формате a-table (AntD), значение по dataIndex, сортировка, страницы,
 // смещения закреплённых колонок, классы ячеек. Компонент только рисует.
@@ -81,6 +82,18 @@ export const getValue = (record: unknown, dataIndex: string | string[] | undefin
 export const columnKey = (col: Pick<ZColumn<never>, 'key' | 'dataIndex'>, index: number): string =>
   col.key ?? (Array.isArray(col.dataIndex) ? col.dataIndex.join('.') : col.dataIndex) ?? String(index)
 
+/** Ключи всех колонок без повторов: две колонки без key с одним dataIndex («Сумма» и «Сумма ₸») получают
+ *  второй ключ с номером колонки ('sum', 'sum-1') — иначе v-for с одинаковыми key и общая сортировка. */
+export const columnKeys = (columns: Array<Pick<ZColumn<never>, 'key' | 'dataIndex'>>): string[] => {
+  const seen = new Set<string>()
+  return columns.map((c, i) => {
+    let k = columnKey(c, i)
+    if (seen.has(k)) k = `${k}-${i}`
+    seen.add(k)
+    return k
+  })
+}
+
 /** Ключ строки: поле rowKey, функция (record, index) или номер строки, если поля нет. */
 export const resolveRowKey = <T>(record: T, index: number, rowKey: ZRowKey<T>): ZKey => {
   if (typeof rowKey === 'function') return rowKey(record, index)
@@ -93,11 +106,18 @@ export const nextSortOrder = (order: ZSortOrder): ZSortOrder =>
 
 const collator = new Intl.Collator('ru', { numeric: true, sensitivity: 'base' })
 
-/** Сравнение двух непустых значений: числа и даты — по величине, остальное — строкой по-русски («ДТ-9» < «ДТ-10»). */
+/** Сравнение двух непустых значений: числа и даты — по величине; строки-числа с сервера («10.5», «-3»,
+ *  «1 000,00») — тоже по величине (parseNumber), причём раньше текста; остальное — строкой по-русски («ДТ-9» < «ДТ-10»). */
 export const compareValues = (a: unknown, b: unknown): number => {
   if (typeof a === 'number' && typeof b === 'number') return a - b
   if (a instanceof Date && b instanceof Date) return a.getTime() - b.getTime()
   if (typeof a === 'boolean' && typeof b === 'boolean') return Number(a) - Number(b)
+  if (typeof a === 'string' && typeof b === 'string') {
+    const na = parseNumber(a)
+    const nb = parseNumber(b)
+    if (na !== null && nb !== null) return na - nb
+    if (na !== null || nb !== null) return na !== null ? -1 : 1
+  }
   return collator.compare(String(a), String(b))
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  columnKey, compareValues, fixedOffsets, getValue, isEmptyContent, nextSortOrder, pageCount, pageItems, paginate,
+  columnKey, columnKeys, compareValues, fixedOffsets, getValue, isEmptyContent, nextSortOrder, pageCount, pageItems, paginate,
   resolveRowKey, sortRows, type ZColumn,
 } from '../table'
 
@@ -129,5 +129,27 @@ describe('isEmptyContent', () => {
     expect(isEmptyContent([createTextVNode('x')])).toBe(false)
     expect(isEmptyContent([h('b')])).toBe(false)
     expect(isEmptyContent(0)).toBe(false)
+  })
+})
+
+describe('числа строкой и уникальные ключи колонок', () => {
+  it('строки-числа сортируются по величине (в т.ч. «1 000,00»), пустые — в конце', () => {
+    const rows = ['10.5', '9', '', '-3', '-20', '1 000,00', null].map((v) => ({ v }))
+    const col: ZColumn<{ v: string | null }> = { dataIndex: 'v', sorter: true }
+    expect(sortRows(rows, col, 'ascend').map((r) => r.v)).toEqual(['-20', '-3', '9', '10.5', '1 000,00', '', null])
+    expect(sortRows(rows, col, 'descend').map((r) => r.v)).toEqual(['1 000,00', '10.5', '9', '-3', '-20', '', null])
+  })
+  it('compareValues: обе строки-числа — числом; иначе — строкой (числа раньше текста)', () => {
+    expect(compareValues('9', '10.5')).toBeLessThan(0)
+    expect(compareValues('-20', '-3')).toBeLessThan(0)
+    expect(compareValues('1 000,00', '999')).toBeGreaterThan(0)
+    expect(compareValues('ДТ-9', 'ДТ-10')).toBeLessThan(0)
+    expect(compareValues('08.10.2026', '09.10.2025')).toBeLessThan(0)
+    expect(compareValues('5', 'абв')).toBeLessThan(0)
+    expect(compareValues('абв', '5')).toBeGreaterThan(0)
+  })
+  it('columnKeys: совпавшие ключи (без key, общий dataIndex) делаются уникальными номером колонки', () => {
+    expect(columnKeys([{ dataIndex: 'sum' }, { dataIndex: 'sum' }, { key: 'x' }, { title: 'Т' }])).toEqual(['sum', 'sum-1', 'x', '3'])
+    expect(columnKeys([{ key: 'a' }, { dataIndex: 'b' }])).toEqual(['a', 'b'])
   })
 })

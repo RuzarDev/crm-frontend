@@ -1,10 +1,11 @@
 <script setup lang="ts" generic="T extends object">
-import { computed, nextTick, onBeforeUnmount, onMounted, provide, reactive, ref, useSlots, watch, type VNodeChild } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, reactive, ref, useAttrs, useId, useSlots, watch, type StyleValue, type VNodeChild } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
 import { zFieldKey, type ZFieldContext } from '@/ui/form'
 import {
-  DEFAULT_PAGE_SIZE, alignClass, columnKey, fixedClass, fixedOffsets, fixedStyle, getValue, isEmptyContent, nextSortOrder,
+  DEFAULT_PAGE_SIZE, alignClass, columnKey, columnKeys, fixedClass, fixedOffsets, fixedStyle, getValue, isEmptyContent, nextSortOrder,
   pageCount, paginate, resolveRowKey, sortRows,
   type ZColumn, type ZColumnView, type ZFixedInfo, type ZKey, type ZPaginationState, type ZRowKey, type ZRowSelection,
   type ZSortOrder, type ZSorter, type ZTablePagination,
@@ -20,6 +21,13 @@ import ZTableHead from './ZTableHead.vue'
 // customRender, customRow, rowClassName, rowSelection, scroll.x/y), стандарты платформы — 25 строк без
 // переключателя, пагинация скрыта на одной странице, карточки вместо таблицы на телефоне (только CSS).
 // Не поддерживается: expandable, bordered, фильтры колонок, rowSelection.type='radio', showSizeChanger.
+// Имя таблицы (aria-label / aria-labelledby / aria-describedby) — на <table>; class/style и прочие атрибуты — на корень.
+defineOptions({ inheritAttrs: false })
+const attrs = useAttrs()
+const TABLE_ATTRS = ['aria-label', 'aria-labelledby', 'aria-describedby']
+// $attrs не реактивен для computed — функции, вызываемые из шаблона.
+const tableAttrs = () => Object.fromEntries(Object.entries(attrs).filter(([k]) => TABLE_ATTRS.includes(k)))
+const rootAttrs = () => Object.fromEntries(Object.entries(attrs).filter(([k]) => k !== 'class' && k !== 'style' && !TABLE_ATTRS.includes(k)))
 const props = withDefaults(defineProps<{
   columns: ZColumn<T>[]
   dataSource?: T[]
@@ -53,15 +61,24 @@ const { t } = useI18n()
 provide(zFieldKey, null as unknown as ZFieldContext)
 const small = computed(() => props.size === 'small')
 
+// --- ключи колонок: без повторов (две колонки без key с одним dataIndex), в разработке — предупреждение ---
+const keys = computed(() => columnKeys(props.columns))
+if (import.meta.env.DEV) {
+  watch(keys, (list) => {
+    const dup = list.filter((k, i) => k !== columnKey(props.columns[i], i))
+    if (dup.length) console.warn(`[ZTable] колонки с одинаковым ключом (нет key, общий dataIndex) — задайте key: ${dup.join(', ')}`)
+  }, { immediate: true })
+}
+
 // --- сортировка: внутренняя (defaultSortOrder) или управляемая (sortOrder у колонок) ---
 const firstDefault = props.columns.findIndex((c) => c.defaultSortOrder)
 const innerSort = ref<{ key: string; order: ZSortOrder } | null>(
-  firstDefault >= 0 ? { key: columnKey(props.columns[firstDefault], firstDefault), order: props.columns[firstDefault].defaultSortOrder! } : null,
+  firstDefault >= 0 ? { key: keys.value[firstDefault], order: props.columns[firstDefault].defaultSortOrder! } : null,
 )
 const activeSort = computed(() => {
   if (!props.columns.some((c) => c.sortOrder !== undefined)) return innerSort.value
   const i = props.columns.findIndex((c) => c.sortOrder)
-  return i >= 0 ? { key: columnKey(props.columns[i], i), order: props.columns[i].sortOrder ?? null } : null
+  return i >= 0 ? { key: keys.value[i], order: props.columns[i].sortOrder ?? null } : null
 })
 const orderOf = (key: string): ZSortOrder => (activeSort.value?.key === key ? activeSort.value.order : null)
 
@@ -71,7 +88,7 @@ const leadFixed = computed(() => hasSelection.value && props.columns.some((c) =>
 const views = computed<ZColumnView<T>[]>(() => {
   const offsets = fixedOffsets(props.columns, leadFixed.value ? 40 : 0)
   return props.columns.map((column, i) => {
-    const key = columnKey(column, i)
+    const key = keys.value[i]
     return { column, key, fixed: offsets[i], sortable: !!column.sorter, order: orderOf(key) }
   })
 })
@@ -106,7 +123,10 @@ const pager = computed(() => (props.pagination === false ? null : props.paginati
 const pageSize = computed(() => pager.value?.pageSize ?? DEFAULT_PAGE_SIZE)
 const total = computed(() => pager.value?.total ?? sorted.value.length)
 const innerPage = ref(pager.value?.current ?? 1)
-const current = computed(() => Math.min(Math.max(1, pager.value?.current ?? innerPage.value), Math.max(1, pageCount(total.value, pageSize.value))))
+const lastPage = computed(() => Math.max(1, pageCount(total.value, pageSize.value)))
+const current = computed(() => Math.min(Math.max(1, pager.value?.current ?? innerPage.value), lastPage.value))
+// Данных стало меньше — своя страница прижимается к последней и такой остаётся (не прыгает назад, когда данных снова больше).
+watch(lastPage, (last) => { if (innerPage.value > last) innerPage.value = last })
 const pageRows = computed(() => (!pager.value || server.value ? sorted.value : paginate(sorted.value, current.value, pageSize.value)))
 const showPager = computed(() => !!pager.value && !(pager.value.hideOnSinglePage !== false && pageCount(total.value, pageSize.value) <= 1))
 const totalText = computed(() => {
@@ -135,10 +155,13 @@ const sorterFor = (key: string | undefined, order: ZSortOrder): ZSorter<T> => {
   return { column: order ? v?.column : undefined, columnKey: key, field: v?.column.dataIndex, order }
 }
 const pagingState = (page = current.value): ZPaginationState => ({ current: page, pageSize: pageSize.value, total: total.value })
+// Новая сортировка — с первой страницы (как у AntD: change с current 1 и pagination.onChange(1, pageSize)).
 const onSort = (key: string) => {
   const order = nextSortOrder(orderOf(key))
   innerSort.value = order ? { key, order } : null
-  emit('change', pagingState(), sorterFor(key, order))
+  innerPage.value = 1
+  if (pager.value) pager.value.onChange?.(1, pageSize.value)
+  emit('change', pagingState(1), sorterFor(key, order))
 }
 const onPage = (page: number) => {
   innerPage.value = page
@@ -157,6 +180,10 @@ const cellOf = (v: ZColumnView<T>, record: T, index: number) => {
   const plain = typeof node === 'string' || typeof node === 'number' ? String(node) : undefined
   return { v, node: plain ?? node, title: v.column.ellipsis ? plain : undefined }
 }
+// Имя чекбокса строки: общая подпись «Выбрать строку» + текст первой ячейки строки («Выбрать строку ДТ-0012»).
+const uid = `z-table-${useId()}`
+const selectLabelId = `${uid}-select`
+const firstCellId = (index: number) => `${uid}-r${index}`
 const Content = (p: { node: unknown }) => p.node as VNodeChild
 Content.props = ['node']
 
@@ -206,7 +233,8 @@ watch([pageRows, () => props.columns], () => nextTick(updateEdges))
 </script>
 
 <template>
-  <div class="min-w-0" :aria-busy="loading || undefined">
+  <div v-bind="rootAttrs()" :class="cn('min-w-0', attrs.class as ClassValue)" :style="attrs.style as StyleValue" :aria-busy="loading || undefined">
+    <span v-if="hasSelection" :id="selectLabelId" hidden>{{ t('z.selectRow') }}</span>
     <ZSpin :spinning="!!loading && pageRows.length > 0" class="isolate">
       <div
         ref="scroller"
@@ -217,6 +245,7 @@ watch([pageRows, () => props.columns], () => nextTick(updateEdges))
         @scroll.passive="updateEdges"
       >
         <table
+          v-bind="tableAttrs()"
           :class="cn(
             'w-full border-separate border-spacing-0 bg-surface text-sm text-ink',
             fixedLayout ? 'table-fixed' : 'table-auto',
@@ -271,12 +300,13 @@ watch([pageRows, () => props.columns], () => nextTick(updateEdges))
                   :checked="isSelected(record)"
                   :disabled="!isSelectable(record)"
                   :aria-label="t('z.selectRow')"
+                  :aria-labelledby="views.length ? `${selectLabelId} ${firstCellId(index)}` : undefined"
                   class="align-middle"
                   @change="toggleRow(record, $event)"
                 />
               </td>
               <td
-                v-for="cell in views.map((v) => cellOf(v, record, index))"
+                v-for="(cell, ci) in views.map((v) => cellOf(v, record, index))"
                 :key="cell.v.key"
                 :class="tdClass(cell.v)"
                 :style="fixedStyle(cell.v.fixed)"
@@ -284,6 +314,7 @@ watch([pageRows, () => props.columns], () => nextTick(updateEdges))
                 <span v-if="cards && cell.v.column.title" data-z-label class="hidden shrink-0 text-left text-xs text-ink-3 max-sm:block">{{ cell.v.column.title }}</span>
                 <div
                   data-z-value
+                  :id="ci === 0 && hasSelection ? firstCellId(index) : undefined"
                   :title="cell.title"
                   :class="cn('min-w-0', cell.v.column.ellipsis && 'truncate', cards && 'max-sm:ml-auto max-sm:text-right max-sm:whitespace-normal')"
                 ><Content :node="cell.node" /></div>
