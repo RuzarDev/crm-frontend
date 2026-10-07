@@ -1,60 +1,51 @@
 import { theme } from 'ant-design-vue'
 
-// ВНИМАНИЕ: значения цветов/радиусов здесь — «сырые» хексы, продублированные из
-// дизайн-токенов --z-* в src/assets/main.css (AntD ConfigProvider не читает CSS-переменные).
-// При изменении бренд-токенов в main.css СИНХРОНИЗИРУЙТЕ значения здесь вручную.
+// ВНИМАНИЕ: AntD ConfigProvider не читает CSS-переменные — значения продублированы из
+// src/styles/tokens.css (стиль C, 2026-10-07). AntD удаляется в волне 7; до тех пор при правке
+// токенов синхронизируйте вручную.
 
 export const zirconTheme = {
   token: {
-    colorPrimary: '#23B5D3',
-    colorInfo: '#1580A6',
-    colorSuccess: '#1F9D6A',
+    colorPrimary: '#0E1B35',
+    colorLink: '#0F6E8F',
+    colorLinkHover: '#23B5D3',
+    colorInfo: '#0F6E8F',
+    colorSuccess: '#17784F',
     colorWarning: '#8A6410',
     colorError: '#C4483B',
-    colorText: '#0E1B35',
-    colorTextSecondary: '#475569',
-    colorBorder: '#E8EBF2',
-    colorBorderSecondary: '#EEF1F7',
-    colorBgLayout: '#F5F7FB',
+    colorText: '#1C1B19',
+    colorTextSecondary: '#4A4741',
+    colorTextTertiary: '#75716A',
+    colorTextQuaternary: '#B5B0A6',
+    colorBorder: '#DDD8CE',
+    colorBorderSecondary: '#EFECE6',
+    colorBgLayout: '#FBFAF8',
     colorBgContainer: '#FFFFFF',
-    borderRadius: 10,
+    colorFillAlter: '#FBFAF8',
+    colorFillSecondary: '#F3F1EC',
+    controlOutline: 'rgba(35, 181, 211, 0.35)',
+    controlItemBgActive: '#E3F6FA',
+    borderRadius: 8,
     borderRadiusLG: 14,
     borderRadiusSM: 6,
     controlHeight: 36,
     controlHeightSM: 28,
-    fontFamily: "'Inter', system-ui, sans-serif",
+    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
     fontSize: 14,
-    boxShadow: '0 4px 12px -4px rgba(14, 27, 53,.12)',
+    boxShadow: '0 12px 32px -12px rgba(60, 48, 30, 0.22), 0 2px 6px rgba(60, 48, 30, 0.06)',
+    boxShadowSecondary: '0 12px 32px -12px rgba(60, 48, 30, 0.22), 0 2px 6px rgba(60, 48, 30, 0.06)',
+    motionEaseOut: 'cubic-bezier(0.16, 1, 0.3, 1)',
     wireframe: false,
   },
   components: {
-    Button: {
-      fontWeight: 600,
-      controlHeight: 36,
-      primaryShadow: 'none',
-    },
-    Table: {
-      headerBg: '#F5F7FB',
-      headerColor: '#475569',
-      rowHoverBg: '#F5F7FB',
-      borderColor: '#E8EBF2',
-      cellPaddingBlock: 10,
-    },
-    Card: {
-      borderRadiusLG: 14,
-    },
-    Input: {
-      controlHeight: 36,
-      borderRadius: 10,
-    },
-    Select: {
-      controlHeight: 36,
-      borderRadius: 10,
-    },
-    Tabs: {
-      itemSelectedColor: '#1580A6',
-      inkBarColor: '#23B5D3',
-    },
+    Button: { fontWeight: 600, controlHeight: 36, primaryShadow: 'none', defaultShadow: 'none', dangerShadow: 'none' },
+    Table: { headerBg: '#FBFAF8', headerColor: '#6B675F', rowHoverBg: '#FBFAF8', borderColor: '#F3F1EC', cellPaddingBlock: 9 },
+    Card: { borderRadiusLG: 14 },
+    Input: { controlHeight: 36, borderRadius: 8 },
+    Select: { controlHeight: 36, borderRadius: 8, optionSelectedBg: '#E3F6FA' },
+    Tabs: { itemSelectedColor: '#0F6E8F', inkBarColor: '#23B5D3', itemHoverColor: '#1C1B19' },
+    Tag: { borderRadiusSM: 20 },
+    Modal: { borderRadiusLG: 14 },
   },
 }
 
