@@ -5,6 +5,7 @@ import {
 } from 'reka-ui'
 import { cn } from '@/ui/cn'
 import { floatingSurface, listItem } from '@/ui/surfaces'
+import { ZFieldBoundary } from '@/ui/form'
 
 // Замена a-dropdown (6 мест): меню действий по клику на триггер (слот).
 // Клавиатура — Reka: Enter/Space/ArrowDown на триггере открывают, стрелки ходят по пунктам, Escape закрывает,
@@ -29,17 +30,19 @@ const emit = defineEmits<{ select: [key: string] }>()
     </DropdownMenuTrigger>
     <DropdownMenuPortal>
       <DropdownMenuContent :class="cn(floatingSurface, 'min-w-44')" :side-offset="6" align="end">
-        <template v-for="it in items" :key="it.key">
-          <DropdownMenuSeparator v-if="it.divider" class="my-1 h-px bg-line" />
-          <DropdownMenuItem
-            :disabled="it.disabled"
-            :class="cn(listItem, it.danger && 'text-danger data-[highlighted]:bg-tone-danger-bg data-[highlighted]:text-tone-danger-fg')"
-            @select="emit('select', it.key)"
-          >
-            <component :is="it.icon" v-if="it.icon" class="size-4 shrink-0" aria-hidden="true" />
-            {{ it.label }}
-          </DropdownMenuItem>
-        </template>
+        <ZFieldBoundary>
+          <template v-for="it in items" :key="it.key">
+            <DropdownMenuSeparator v-if="it.divider" class="my-1 h-px bg-line" />
+            <DropdownMenuItem
+              :disabled="it.disabled"
+              :class="cn(listItem, it.danger && 'text-danger data-[highlighted]:bg-tone-danger-bg data-[highlighted]:text-tone-danger-fg')"
+              @select="emit('select', it.key)"
+            >
+              <component :is="it.icon" v-if="it.icon" class="size-4 shrink-0" aria-hidden="true" />
+              {{ it.label }}
+            </DropdownMenuItem>
+          </template>
+        </ZFieldBoundary>
       </DropdownMenuContent>
     </DropdownMenuPortal>
   </DropdownMenuRoot>

@@ -3,6 +3,7 @@ import { computed, useId } from 'vue'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { cn } from '@/ui/cn'
 import { floatingSurface } from '@/ui/surfaces'
+import { ZFieldBoundary } from '@/ui/form'
 
 // Замена a-popover (2 места) и основа фильтров колонок. Триггер — слот trigger (as-child), содержимое — default.
 // Escape и клик снаружи закрывают окно, фокус возвращается на триггер (это делает Reka).
@@ -44,7 +45,8 @@ const onOpened = (e: Event) => {
         @open-auto-focus="onOpened"
       >
         <p v-if="title" :id="titleId" class="mb-2 text-sm font-semibold text-ink">{{ title }}</p>
-        <slot />
+        <!-- Содержимое — вне контекста ZField/ZForm (триггер остаётся связанным с полем). -->
+        <ZFieldBoundary><slot /></ZFieldBoundary>
       </PopoverContent>
     </PopoverPortal>
   </PopoverRoot>

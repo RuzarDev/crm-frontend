@@ -86,8 +86,8 @@ const inputCmp = ref<ComponentPublicInstance>()
 const inputEl = () => inputCmp.value?.$el as HTMLInputElement | undefined
 // Внутри ZField: id/aria-* поля, красная рамка при ошибке, change/blur — полю (см. src/ui/form.ts).
 // Своего prop id нет: id приходит атрибутом (на <input>) и важнее id поля.
-const { fieldId, fieldDescribedBy, fieldInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
-  attrs, focus: () => inputEl()?.focus(), value: () => text.value,
+const { fieldId, fieldDescribedBy, fieldInvalid, fieldAriaInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+  attrs, invalid: () => !!props.invalid, focus: () => inputEl()?.focus(), value: () => text.value,
 })
 const isInvalid = computed(() => props.invalid || fieldInvalid.value)
 const contentCmp = ref<ComponentPublicInstance>()
@@ -137,7 +137,7 @@ defineExpose({ focus: () => inputEl()?.focus(), blur: () => inputEl()?.blur() })
         :id="fieldId"
         :aria-controls="listId"
         :placeholder="placeholder"
-        :aria-invalid="isInvalid || undefined"
+        :aria-invalid="fieldAriaInvalid"
         :aria-describedby="fieldDescribedBy"
         :aria-required="fieldRequired"
         :class="cn(

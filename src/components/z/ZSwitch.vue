@@ -28,7 +28,7 @@ const emit = defineEmits<{
 // Внутри ZField: id/aria-* поля, change/blur — полю (см. src/ui/form.ts).
 const rootCmp = ref<ComponentPublicInstance>()
 const rootEl = () => rootCmp.value?.$el as HTMLElement | undefined
-const { fieldId, fieldDescribedBy, fieldInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+const { fieldId, fieldDescribedBy, fieldInvalid, fieldAriaInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
   attrs, id: () => props.id, focus: () => rootEl()?.focus(), value: () => props.checked,
 })
 // aria-required Reka ставит сам из prop required (атрибут перебить нельзя).
@@ -57,7 +57,7 @@ const onUpdate = (v: boolean) => {
       :id="fieldId"
       ref="rootCmp"
       :aria-describedby="fieldDescribedBy"
-      :aria-invalid="fieldInvalid || undefined"
+      :aria-invalid="fieldAriaInvalid"
       :required="requiredFlag"
       :model-value="!!checked"
       :disabled="disabled"

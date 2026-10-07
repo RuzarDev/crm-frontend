@@ -7,7 +7,8 @@ import type { ZRule } from '@/ui/validation'
 // Замена a-form (29 мест): :model, :rules (Record<name, ZRule[]>), @finish(model), @finish-failed({ errors, values }).
 // Отправка (кнопка html-type="submit", Enter в поле — браузер жмёт эту кнопку) проверяет все зарегистрированные
 // ZField; при ошибке — фокус на первое по порядку поле с ошибкой и прокрутка к нему. novalidate: проверки браузера
-// (всплывающие подсказки required/type=email) не мешают нашим. layout="grid" — 12-колоночная сетка для ZField span.
+// (всплывающие подсказки required/type=email) не мешают нашим. layout="grid" — 12-колоночная сетка для ZField span;
+// прочие прямые дети (кнопки, заголовки групп) — на всю ширину (*:not-data-[z-field] — без спора специфичности со span).
 
 export interface ZFormError {
   name: string | undefined
@@ -57,8 +58,12 @@ const check = async (names?: string[]) => {
 }
 
 // Повторная отправка, пока идёт асинхронная проверка, отменяет предыдущую: finish — один раз.
+// resetFields/clearValidate во время проверки тоже отменяют отправку.
 let submitSeq = 0
-const onSubmit = async () => {
+// Только своя форма: submit вложенной ZForm всплывает сюда, но это не наша отправка.
+const onSubmit = async (e: Event) => {
+  if (e.target !== e.currentTarget) return
+  e.preventDefault()
   submitted.value = true
   const my = ++submitSeq
   const failed = await check()
@@ -74,11 +79,18 @@ const onSubmit = async () => {
 
 const validate = async (names?: string[]): Promise<boolean> => (await check(names)).length === 0
 const resetFields = (names?: string[]) => {
+  submitSeq++
   if (!names) submitted.value = false
   for (const f of fields) if (matches(f, names)) f.reset()
 }
 const clearValidate = (names?: string[]) => {
+  submitSeq++
   for (const f of fields) if (matches(f, names)) f.clear()
+}
+const onReset = (e: Event) => {
+  if (e.target !== e.currentTarget) return
+  e.preventDefault()
+  resetFields()
 }
 defineExpose({ validate, resetFields, clearValidate })
 </script>
@@ -86,9 +98,9 @@ defineExpose({ validate, resetFields, clearValidate })
 <template>
   <form
     novalidate
-    :class="cn(layout === 'grid' ? 'grid grid-cols-12 gap-x-4 gap-y-3' : 'flex flex-col gap-4')"
-    @submit.prevent="onSubmit"
-    @reset.prevent="resetFields()"
+    :class="cn(layout === 'grid' ? 'grid grid-cols-12 gap-x-4 gap-y-3 *:not-data-[z-field]:col-span-12' : 'flex flex-col gap-4')"
+    @submit="onSubmit"
+    @reset="onReset"
   >
     <slot />
   </form>

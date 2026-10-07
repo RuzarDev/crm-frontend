@@ -67,8 +67,8 @@ const inputEl = ref<HTMLInputElement>()
 const wrapEl = ref<HTMLElement>()
 // Внутри ZField: id/aria-* поля, красная рамка при ошибке; change — на фиксации, blur — на уходе из поля
 // (не в календарь) — полю (см. src/ui/form.ts).
-const { fieldId, fieldDescribedBy, fieldInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
-  attrs, id: () => props.id, focus: () => inputEl.value?.focus(), value: () => props.value,
+const { fieldId, fieldDescribedBy, fieldInvalid, fieldAriaInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+  attrs, invalid: () => !!props.invalid || draftInvalid.value, id: () => props.id, focus: () => inputEl.value?.focus(), value: () => props.value,
 })
 const text = ref(formatDateText(props.value))
 // Пользователь правил текст с последней синхронизации со значением (черновик).
@@ -261,7 +261,7 @@ const cellClass = cn(
           :placeholder="placeholder ?? t('z.datePlaceholder')"
           :disabled="disabled"
           :readonly="readonly"
-          :aria-invalid="isInvalid || undefined"
+          :aria-invalid="fieldAriaInvalid"
           :aria-describedby="fieldDescribedBy"
           :aria-required="fieldRequired"
           :data-z-draft="dirty || undefined"

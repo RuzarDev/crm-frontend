@@ -28,8 +28,8 @@ const emit = defineEmits<{
 }>()
 const el = ref<HTMLTextAreaElement>()
 defineExpose({ focus: () => el.value?.focus(), blur: () => el.value?.blur() })
-const { fieldId, fieldDescribedBy, fieldInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
-  attrs, id: () => props.id, focus: () => el.value?.focus(), value: () => props.value,
+const { fieldId, fieldDescribedBy, fieldInvalid, fieldAriaInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+  attrs, invalid: () => !!props.invalid, id: () => props.id, focus: () => el.value?.focus(), value: () => props.value,
 })
 const isInvalid = computed(() => props.invalid || fieldInvalid.value)
 
@@ -65,7 +65,7 @@ onMounted(fit)
     :placeholder="placeholder"
     :maxlength="maxlength"
     :disabled="disabled"
-    :aria-invalid="isInvalid || undefined"
+    :aria-invalid="fieldAriaInvalid"
     :aria-describedby="fieldDescribedBy"
     :aria-required="fieldRequired"
     :class="cn(

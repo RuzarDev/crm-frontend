@@ -1,13 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, reactive, ref, type Component } from 'vue'
-import { flushPromises, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { createI18n } from 'vue-i18n'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { ZRule } from '@/ui/validation'
+import ru from '@/i18n/locales/ru'
+import en from '@/i18n/locales/en'
 import ZForm from '../ZForm.vue'
 import ZField from '../ZField.vue'
 import ZInput from '../ZInput.vue'
 import ZTextarea from '../ZTextarea.vue'
 import ZButton from '../ZButton.vue'
+import ZModal from '../ZModal.vue'
+import ZPopover from '../ZPopover.vue'
 
 let w: VueWrapper
 afterEach(() => { w?.unmount(); document.body.innerHTML = '' })
@@ -57,7 +62,7 @@ const blur = async (el: HTMLElement) => {
   await flushPromises()
 }
 const submit = async () => {
-  w.get('form').element.dispatchEvent(new Event('submit', { cancelable: true }))
+  w.get('form').element.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
   await flushPromises()
 }
 
@@ -109,8 +114,8 @@ describe('ZForm', () => {
     const { model, onFinish, onFinishFailed } = await companyForm()
     await type(control('БИН'), '123456789012')
     await type(control('E-mail'), 'user@mail.kz')
-    w.get('form').element.dispatchEvent(new Event('submit', { cancelable: true }))
-    w.get('form').element.dispatchEvent(new Event('submit', { cancelable: true }))
+    w.get('form').element.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    w.get('form').element.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     await flushPromises()
     expect(onFinishFailed).not.toHaveBeenCalled()
     expect(onFinish).toHaveBeenCalledTimes(1)
@@ -174,7 +179,7 @@ describe('ZForm', () => {
     const slow: ZRule = { validator: () => new Promise<string | void>((resolve) => { pending.push(resolve) }) }
     const { onFinish } = await mountForm({ model: { bin: '' }, fields: [{ name: 'bin', label: 'БИН', rules: [slow] }] })
     const bin = control('БИН')
-    w.get('form').element.dispatchEvent(new Event('submit', { cancelable: true }))
+    w.get('form').element.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     await flushPromises()
     await type(bin, '123456789012') // после отправки — перепроверка на change
     expect(pending).toHaveLength(2)
@@ -331,5 +336,159 @@ describe('ZField', () => {
     expect(b.attributes('id')).toBeUndefined()
     expect(b.attributes('aria-describedby')).toBeUndefined()
     expect(b.attributes('aria-invalid')).toBeUndefined()
+  })
+})
+
+describe('ZForm — доработки', () => {
+  const formEl = () => w.get('form').element as HTMLFormElement
+  const submitEl = async (el: HTMLElement) => {
+    el.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushPromises()
+  }
+
+  it('порядок фокуса — по документу, а не по регистрации (поле появилось выше позже)', async () => {
+    const show = ref(false)
+    const model = reactive({ top: '', bottom: '' })
+    w = mountWithI18n({
+      render: () => h(ZForm, { model, rules: { top: [{ required: true }], bottom: [{ required: true }] } }, () => [
+        show.value ? h(ZField, { key: 'top', name: 'top', label: 'Верх' }, () => h(ZInput, { value: model.top })) : null,
+        h(ZField, { key: 'bottom', name: 'bottom', label: 'Низ' }, () => h(ZInput, { value: model.bottom })),
+      ]),
+    }, { attachTo: document.body })
+    show.value = true
+    await nextTick()
+    await nextTick()
+    await submitEl(formEl())
+    expect(document.activeElement).toBe(control('Верх'))
+  })
+
+  it('вложенная ZForm: отправка внутренней не отправляет внешнюю', async () => {
+    const outerFinish = vi.fn()
+    const outerFailed = vi.fn()
+    const innerFailed = vi.fn()
+    const inner = reactive({ code: '' })
+    w = mountWithI18n({
+      render: () => h(ZForm, { model: {}, onFinish: outerFinish, onFinishFailed: outerFailed }, () =>
+        h(ZForm, { model: inner, rules: { code: [{ required: true }] }, onFinishFailed: innerFailed }, () =>
+          h(ZField, { name: 'code', label: 'Код' }, () => h(ZInput, { value: inner.code })))),
+    }, { attachTo: document.body })
+    await nextTick()
+    const [, innerForm] = w.findAll('form')
+    await submitEl(innerForm.element as HTMLElement)
+    expect(innerFailed).toHaveBeenCalledTimes(1)
+    expect(outerFinish).not.toHaveBeenCalled()
+    expect(outerFailed).not.toHaveBeenCalled()
+  })
+
+  it('правила сменились при показанной ошибке — перепроверка (условная обязательность)', async () => {
+    const need = ref(true)
+    const model = reactive({ inn: '' })
+    w = mountWithI18n({
+      render: () => h(ZForm, { model, rules: { inn: need.value ? [{ required: true }] : [] } }, () =>
+        h(ZField, { name: 'inn', label: 'ИИН' }, () => h(ZInput, { value: model.inn }))),
+    }, { attachTo: document.body })
+    await nextTick()
+    await submitEl(formEl())
+    expect(describedText(control('ИИН'))).toBe('Заполните поле')
+    need.value = false
+    await flushPromises()
+    expect(control('ИИН').getAttribute('aria-invalid')).toBeNull()
+    expect(document.body.textContent).not.toContain('Заполните поле')
+    need.value = true
+    await flushPromises()
+    expect(describedText(control('ИИН'))).toBe('Заполните поле')
+  })
+
+  it('стандартные сообщения переводятся при смене языка', async () => {
+    const i18n = createI18n({ legacy: false, locale: 'ru', messages: { ru, en } })
+    const model = reactive({ bin: '12' })
+    w = mount({
+      render: () => h(ZForm, { model, rules: { bin: [{ required: true }, { len: 12 }] } }, () =>
+        h(ZField, { name: 'bin', label: 'BIN' }, () => h(ZInput, { value: model.bin }))),
+    }, { attachTo: document.body, global: { plugins: [i18n] } })
+    await nextTick()
+    await submitEl(formEl())
+    expect(describedText(control('BIN'))).toBe('Ровно 12')
+    i18n.global.locale.value = 'en'
+    await nextTick()
+    expect(describedText(control('BIN'))).toBe('Exactly 12')
+  })
+
+  it('resetFields/clearValidate во время асинхронной отправки отменяют её: ни finish, ни finishFailed', async () => {
+    for (const action of ['resetFields', 'clearValidate'] as const) {
+      const pending: ((msg?: string) => void)[] = []
+      const slow: ZRule = { validator: () => new Promise<string | void>((resolve) => { pending.push(resolve) }) }
+      const { form, onFinish, onFinishFailed } = await mountForm({ model: { bin: '' }, fields: [{ name: 'bin', label: 'БИН', rules: [slow] }] })
+      formEl().dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+      await flushPromises()
+      form.value![action]()
+      pending[0]('Ошибка')
+      await flushPromises()
+      expect(onFinish).not.toHaveBeenCalled()
+      expect(onFinishFailed).not.toHaveBeenCalled()
+      w.unmount()
+      document.body.innerHTML = ''
+    }
+  })
+
+  it('layout=grid: прямые дети, кроме ZField, — на все 12 колонок; у ZField своя ширина', async () => {
+    await mountForm({ model: {}, fields: [], layout: 'grid' })
+    expect(w.get('form').classes()).toContain('*:not-data-[z-field]:col-span-12')
+    expect(w.get('form').classes()).not.toContain('*:col-span-12')
+  })
+})
+
+describe('контекст поля не проникает в окна', () => {
+  it('ZField вокруг кнопки и открытое ZModal с полем: поле окна не занимает внешнее поле и не получает фокус ошибки', async () => {
+    const model = reactive({ action: '' })
+    const onFinishFailed = vi.fn()
+    w = mountWithI18n({
+      render: () => h(ZForm, { model, rules: { action: [{ required: true }] }, onFinishFailed }, () =>
+        h(ZField, { name: 'action', label: 'Действие' }, () => [
+          h(ZButton, () => 'Выбрать'),
+          h(ZModal, { open: true, title: 'Выбор' }, () => h(ZInput, { 'data-dialog': '1' })),
+        ])),
+    }, { attachTo: document.body })
+    await flushPromises()
+    const dialogInput = document.querySelector('[data-dialog]') as HTMLInputElement
+    expect(dialogInput).toBeTruthy()
+    const label = w.get('label')
+    expect(label.attributes('for')).toBeUndefined()
+    expect(dialogInput.getAttribute('aria-required')).toBeNull()
+    expect(dialogInput.id).toBe('')
+    await submit()
+    const spy = vi.spyOn(dialogInput, 'focus')
+    await submit()
+    expect(onFinishFailed).toHaveBeenCalled()
+    expect(dialogInput.getAttribute('aria-invalid')).toBeNull()
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('ZField в ZModal без своей ZForm не регистрируется во внешней ZForm', async () => {
+    const model = reactive({ inner: '' })
+    const { onFinish, form } = { onFinish: vi.fn(), form: ref<FormApi>() }
+    w = mountWithI18n({
+      render: () => h(ZForm, { ref: form, model, rules: { inner: [{ required: true }] }, onFinish }, () =>
+        h(ZModal, { open: true, title: 'Окно' }, () => h(ZField, { name: 'inner', label: 'Внутри' }, () => h(ZInput, { value: model.inner })))),
+    }, { attachTo: document.body })
+    await flushPromises()
+    expect(await form.value!.validate()).toBe(true)
+    await submit()
+    expect(onFinish).toHaveBeenCalledTimes(1)
+  })
+
+  it('ZPopover: поле-триггер внутри ZField связано, поле в содержимом — нет', async () => {
+    w = mountWithI18n({
+      render: () => h(ZField, { label: 'Код', required: true }, () =>
+        h(ZPopover, { open: true }, { trigger: () => h(ZInput, { 'data-trigger': '1' }), default: () => h(ZInput, { 'data-inside': '1' }) })),
+    }, { attachTo: document.body })
+    await flushPromises()
+    const trigger = document.querySelector('[data-trigger]') as HTMLInputElement
+    const inside = document.querySelector('[data-inside]') as HTMLInputElement
+    expect(inside).toBeTruthy()
+    expect(w.get('label').attributes('for')).toBe(trigger.id)
+    expect(trigger.getAttribute('aria-required')).toBe('true')
+    expect(inside.id).toBe('')
+    expect(inside.getAttribute('aria-required')).toBeNull()
   })
 })

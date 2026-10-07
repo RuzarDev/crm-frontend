@@ -50,8 +50,8 @@ const { t } = useI18n()
 const el = ref<HTMLInputElement>()
 defineExpose({ focus: () => el.value?.focus(), blur: () => el.value?.blur() })
 // Внутри ZField: id/aria-* поля, красная рамка при ошибке, change/blur — полю (см. src/ui/form.ts).
-const { fieldId, fieldDescribedBy, fieldInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
-  attrs, id: () => props.id, focus: () => el.value?.focus(), value: () => props.value,
+const { fieldId, fieldDescribedBy, fieldInvalid, fieldAriaInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+  attrs, invalid: () => !!props.invalid, id: () => props.id, focus: () => el.value?.focus(), value: () => props.value,
 })
 const isInvalid = computed(() => props.invalid || fieldInvalid.value)
 
@@ -111,7 +111,7 @@ const clear = () => {
       :readonly="readonly"
       :maxlength="maxlength"
       :autocomplete="inputAutocomplete"
-      :aria-invalid="isInvalid || undefined"
+      :aria-invalid="fieldAriaInvalid"
       :aria-describedby="fieldDescribedBy"
       :aria-required="fieldRequired"
       :class="cn(

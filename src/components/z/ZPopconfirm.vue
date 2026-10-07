@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { cn } from '@/ui/cn'
 import { floatingSurface } from '@/ui/surfaces'
+import { ZFieldBoundary } from '@/ui/form'
 import ZButton from './ZButton.vue'
 
 // Замена a-popconfirm (26 мест): маленькое подтверждение у кнопки. Триггер — слот.
@@ -64,12 +65,14 @@ const onOpened = (e: Event) => {
         align="end"
         @open-auto-focus="onOpened"
       >
-        <p :id="titleId" class="text-sm font-semibold text-ink">{{ title }}</p>
-        <p v-if="description" :id="descId" class="mt-1 text-sm text-ink-3">{{ description }}</p>
-        <div class="mt-3 flex justify-end gap-2">
-          <ZButton ref="cancelBtn" size="sm" variant="ghost" @click="cancel">{{ cancelText || t('common.cancel') }}</ZButton>
-          <ZButton size="sm" :variant="danger ? 'danger' : 'primary'" @click="confirm">{{ okText || t('z.confirm') }}</ZButton>
-        </div>
+        <ZFieldBoundary>
+          <p :id="titleId" class="text-sm font-semibold text-ink">{{ title }}</p>
+          <p v-if="description" :id="descId" class="mt-1 text-sm text-ink-3">{{ description }}</p>
+          <div class="mt-3 flex justify-end gap-2">
+            <ZButton ref="cancelBtn" size="sm" variant="ghost" @click="cancel">{{ cancelText || t('common.cancel') }}</ZButton>
+            <ZButton size="sm" :variant="danger ? 'danger' : 'primary'" @click="confirm">{{ okText || t('z.confirm') }}</ZButton>
+          </div>
+        </ZFieldBoundary>
       </PopoverContent>
     </PopoverPortal>
   </PopoverRoot>

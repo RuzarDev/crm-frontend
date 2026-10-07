@@ -38,7 +38,7 @@ const rootEl = () => rootCmp.value?.$el as HTMLElement | undefined
 // Пункты с roving tabindex: если ни один не доступен с Tab, фокус на группу — Reka переведёт его на пункт.
 const focus = () => { const el = rootEl(); if (el && !focusFirstTabbable(el)) el.focus() }
 // role=group: aria-required к группе не относится — только подпись, описание и ошибка.
-const { fieldDescribedBy, fieldLabelledBy, fieldInvalid, notifyChange, notifyBlur } = useFieldControl({
+const { fieldDescribedBy, fieldLabelledBy, fieldInvalid, fieldAriaInvalid, notifyChange, notifyBlur } = useFieldControl({
   attrs, focus, value: () => props.value, group: true,
 })
 const onFocusOut = (e: FocusEvent) => {
@@ -54,7 +54,7 @@ defineExpose({ focus })
     ref="rootCmp"
     :aria-labelledby="fieldLabelledBy"
     :aria-describedby="fieldDescribedBy"
-    :aria-invalid="fieldInvalid || undefined"
+    :aria-invalid="fieldAriaInvalid"
     type="single"
     :model-value="model"
     :disabled="disabled"

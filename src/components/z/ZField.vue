@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, provide, ref, shallowRef, useId } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, provide, ref, shallowRef, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { cn } from '@/ui/cn'
 import { focusFirstTabbable } from '@/ui/surfaces'
@@ -96,7 +96,14 @@ const validated = ref(false)
 // Последовательность проверок: ответ устаревшей (асинхронной) проверки не записывается.
 let seq = 0
 let pending: Promise<string | null> = Promise.resolve(null)
-const fallback = (key: ZRuleKey, n?: number) => t(RULE_KEY[key], { n })
+// Стандартные сообщения храним ключом и числом, переводим при показе: смена языка обновляет текст.
+const FALLBACK = '\u0000z-rule:'
+const fallback = (key: ZRuleKey, n?: number) => `${FALLBACK}${key}:${n ?? ''}`
+const translate = (raw: string | null): string | null => {
+  if (raw === null || !raw.startsWith(FALLBACK)) return raw
+  const [key, n] = raw.slice(FALLBACK.length).split(':')
+  return t(RULE_KEY[key as ZRuleKey], { n: n === '' ? undefined : Number(n) })
+}
 const run = (list: ZRule[]): Promise<string | null> => {
   const my = ++seq
   pending = validateValue(getValue(), list, fallback).then((err) => {
@@ -120,6 +127,25 @@ const clear = () => {
   validated.value = false
 }
 
+// Правила сменились (условная обязательность: «нужно при ИМ 40»), а результат уже показан или была попытка
+// отправки — перепроверяем; правил не осталось — снимаем ошибку. Одинаковые по содержанию правила (новый
+// массив :rules на каждой отрисовке родителя) — не смена.
+const sameRule = (a: ZRule, b: ZRule) => {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof ZRule>
+  return [...keys].every((k) => {
+    const x = a[k]
+    const y = b[k]
+    if (x instanceof RegExp && y instanceof RegExp) return x.source === y.source && x.flags === y.flags
+    if (Array.isArray(x) && Array.isArray(y)) return x.join() === y.join()
+    return x === y
+  })
+}
+watch(rules, (next, prev) => {
+  if (next.length === prev.length && next.every((r, i) => sameRule(r, prev[i]))) return
+  if (!validatable.value || !next.length) return clear()
+  if (validated.value || form?.submitted.value) validate()
+})
+
 const onChange = () => {
   dirty = true
   if (!validatable.value || !(form?.submitted.value || validated.value)) return
@@ -137,7 +163,7 @@ const onBlur = () => {
 
 // Ошибка: error извне → validateStatus=error + help → правила.
 const externalError = computed(() => props.error || (props.validateStatus === 'error' ? props.help : '') || '')
-const errorText = computed(() => externalError.value || ruleError.value || '')
+const errorText = computed(() => externalError.value || translate(ruleError.value) || '')
 const invalid = computed(() => !!errorText.value || props.validateStatus === 'error')
 const message = computed(() => errorText.value || props.help || '')
 const messageTone = computed(() => (errorText.value ? 'text-danger' : props.validateStatus === 'warning' ? 'text-gold-ink' : 'text-muted'))
@@ -170,7 +196,7 @@ let unregister: (() => void) | undefined
 const api: ZFormField = {
   name: () => props.name,
   el: () => root.value,
-  validate,
+  validate: (trigger) => validate(trigger).then(translate),
   clear,
   focus,
   reset: () => {

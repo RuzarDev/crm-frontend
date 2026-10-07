@@ -37,7 +37,7 @@ const rootCmp = ref<ComponentPublicInstance>()
 const rootEl = () => rootCmp.value?.$el as HTMLElement | undefined
 // Фокус — на выбранный пункт (roving tabindex: только он доступен с Tab) или на группу (Reka переведёт на пункт).
 const focus = () => { const el = rootEl(); if (el && !focusFirstTabbable(el)) el.focus() }
-const { fieldDescribedBy, fieldLabelledBy, fieldInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+const { fieldDescribedBy, fieldLabelledBy, fieldInvalid, fieldAriaInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
   attrs, focus, value: () => props.value, group: true,
 })
 // aria-required Reka ставит сам из prop required (атрибут перебить нельзя).
@@ -56,7 +56,7 @@ defineExpose({ focus })
     ref="rootCmp"
     :aria-labelledby="fieldLabelledBy"
     :aria-describedby="fieldDescribedBy"
-    :aria-invalid="fieldInvalid || undefined"
+    :aria-invalid="fieldAriaInvalid"
     :required="requiredFlag"
     :model-value="model"
     :disabled="disabled"

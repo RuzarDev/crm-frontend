@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { nextTick, type Component } from 'vue'
 import type { VueWrapper } from '@vue/test-utils'
 import { mountInField } from '@/test/fieldContext'
 import { mountWithI18n } from '@/test/mountWithI18n'
@@ -208,5 +208,34 @@ describe('связь Z-полей с ZField', () => {
     w = mountWithI18n(ZInput, { props: { value: '' } })
     const input = w.get('input')
     for (const a of ['id', 'aria-describedby', 'aria-invalid', 'aria-required']) expect(input.attributes(a)).toBeUndefined()
+  })
+
+  // Свой aria-invalid (атрибутом) важнее контекста поля — и вне ZField не теряется.
+  const cases: [string, Component, Record<string, unknown>, string][] = [
+    ['ZInput', ZInput, { value: '' }, 'input'],
+    ['ZTextarea', ZTextarea, { value: '' }, 'textarea'],
+    ['ZNumber', ZNumber, { value: null }, 'input'],
+    ['ZSelect', ZSelect, { value: null, options }, 'input'],
+    ['ZCombobox', ZCombobox, { value: '', options }, 'input'],
+    ['ZDate', ZDate, { value: null }, 'input'],
+    ['ZCheckbox', ZCheckbox, { checked: false }, '[role="checkbox"]'],
+    ['ZSwitch', ZSwitch, { checked: false }, '[role="switch"]'],
+    ['ZRadioGroup', ZRadioGroup, { value: 'IM', options }, '[role="radiogroup"]'],
+    ['ZSegmented', ZSegmented, { value: 'IM', options }, '[role="group"]'],
+  ]
+  it.each(cases)('%s: свой aria-invalid сохраняется вне ZField и важнее контекста внутри', (_n, cmp, props, sel) => {
+    w = mountWithI18n(cmp, { props, attrs: { 'aria-invalid': 'true' }, attachTo: document.body })
+    expect(w.get(sel).attributes('aria-invalid')).toBe('true')
+    w.unmount()
+    w = mountInField(cmp, props, { attrs: { 'aria-invalid': 'false' } }).w
+    expect(w.get(sel).attributes('aria-invalid')).toBe('false')
+  })
+  it.each(cases)('%s: в поле без ошибки и не обязательном — без aria-invalid и aria-required', (_n, cmp, props, sel) => {
+    w = mountInField(cmp, props, { invalid: false, required: false }).w
+    const el = w.get(sel)
+    expect(el.attributes('aria-invalid')).toBeUndefined()
+    // Reka у checkbox/switch/radiogroup всегда пишет aria-required="false"; у нативных полей атрибута нет.
+    const native = ['INPUT', 'TEXTAREA'].includes(el.element.tagName)
+    expect(el.attributes('aria-required')).toBe(native ? undefined : (sel === '[role="group"]' ? undefined : 'false'))
   })
 })

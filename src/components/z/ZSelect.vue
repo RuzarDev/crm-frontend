@@ -131,8 +131,8 @@ const onOpen = (v: boolean) => {
 const inputCmp = ref<ComponentPublicInstance>()
 const inputEl = () => inputCmp.value?.$el as HTMLInputElement | undefined
 // Внутри ZField: id/aria-* поля, красная рамка при ошибке, change/blur — полю (см. src/ui/form.ts).
-const { fieldId, fieldDescribedBy, fieldInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
-  attrs, id: () => props.id, focus: () => inputEl()?.focus(), value: () => props.value,
+const { fieldId, fieldDescribedBy, fieldInvalid, fieldAriaInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+  attrs, invalid: () => !!props.invalid || props.status === 'error', id: () => props.id, focus: () => inputEl()?.focus(), value: () => props.value,
 })
 const isInvalid = computed(() => props.invalid || props.status === 'error' || fieldInvalid.value)
 // single с поиском: подпись выбранного остаётся значением поля (скринридер читает выбранное), в фокусе
@@ -247,7 +247,7 @@ const inputClass = computed(() => cn(
         :display-value="displayValue"
         :readonly="!searchable"
         :placeholder="selected.length ? undefined : placeholder"
-        :aria-invalid="isInvalid || undefined"
+        :aria-invalid="fieldAriaInvalid"
         :aria-describedby="fieldDescribedBy"
         :aria-required="fieldRequired"
         :class="inputClass"

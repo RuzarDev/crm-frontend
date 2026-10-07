@@ -1,4 +1,4 @@
-import { computed, inject, onBeforeUnmount, type ComputedRef, type InjectionKey, type Ref } from 'vue'
+import { computed, defineComponent, inject, onBeforeUnmount, provide, type ComputedRef, type InjectionKey, type Ref } from 'vue'
 import type { ZRule, ZRuleTrigger } from './validation'
 
 // Контексты ZForm → ZField → Z-поле. Поле (ZInput, ZSelect…) не знает о правилах: внутри ZField оно берёт
@@ -92,6 +92,8 @@ export function useFieldControl(o: {
   id?: () => string | undefined
   focus: () => void
   value: () => unknown
+  /** Своё «ошибка» контрола (prop invalid, status, черновик ZDate) — для aria-invalid вместе с ошибкой поля. */
+  invalid?: () => boolean
   group?: boolean
 }) {
   const field = inject(zFieldKey, null)
@@ -103,9 +105,30 @@ export function useFieldControl(o: {
     fieldId: computed(() => ownId() ?? (bound() && !o.group ? field!.controlId.value : undefined)),
     fieldDescribedBy: computed(() => joinIds(o.attrs['aria-describedby'], bound() ? field!.describedBy.value : undefined)),
     fieldLabelledBy: computed(() => (o.attrs['aria-labelledby'] as string | undefined) ?? (bound() && o.group ? field!.labelId.value : undefined)),
+    /** Ошибка поля — для красной рамки. */
     fieldInvalid: computed(() => bound() && field!.invalid.value),
+    /** aria-invalid: свой атрибут важнее; иначе 'true' при своей ошибке контрола или ошибке поля. */
+    fieldAriaInvalid: computed<Booleanish | 'grammar' | 'spelling' | undefined>(() =>
+      (o.attrs['aria-invalid'] as Booleanish | undefined) ?? (o.invalid?.() || (bound() && field!.invalid.value) ? 'true' : undefined)),
     fieldRequired: computed<Booleanish | undefined>(() => (o.attrs['aria-required'] as Booleanish | undefined) ?? (bound() && field!.required.value ? 'true' : undefined)),
     notifyChange: () => { if (bound()) field!.onChange() },
     notifyBlur: () => { if (bound()) field!.onBlur() },
   }
 }
+
+/**
+ * Граница контекста: содержимое окон и всплывающих панелей (ZModal, ZDrawer, ZPopover, ZPopconfirm,
+ * ZDropdown) не связывается с ZField/ZForm, внутри которых стоит окно, — поле в окне не занимает внешнее
+ * поле, не регистрируется во внешней форме и не получает фокус её ошибки. Триггеры окон остаются снаружи.
+ */
+export const isolateFieldContext = (): void => {
+  provide(zFieldKey, null as unknown as ZFieldContext)
+  provide(zFormKey, null as unknown as ZFormContext)
+}
+export const ZFieldBoundary = defineComponent({
+  name: 'ZFieldBoundary',
+  setup(_, { slots }) {
+    isolateFieldContext()
+    return () => slots.default?.()
+  },
+})
