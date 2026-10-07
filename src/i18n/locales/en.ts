@@ -25,6 +25,7 @@ export default {
     edit: 'Edit',
     export: 'Export',
     loading: 'Loading…',
+    clear: 'Clear',
     yes: 'Yes',
     no: 'No',
   },
