@@ -363,7 +363,7 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
             <span class="inline-flex items-center gap-1 text-sm text-ink-2">
               Контейнер MSKU1234567
               <ZTooltip title="Номер по ISO 6346: четыре буквы и семь цифр">
-                <button type="button" aria-label="Подсказка" class="inline-flex size-5 items-center justify-center rounded-pill bg-sunken text-ink-2 outline-hidden focus-visible:shadow-focus">
+                <button type="button" aria-label="Подсказка" class="inline-flex size-5 items-center justify-center rounded-pill border-0 bg-sunken p-0 text-ink-2 outline-hidden focus-visible:shadow-focus">
                   <PhQuestion :size="12" />
                 </button>
               </ZTooltip>

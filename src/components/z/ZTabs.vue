@@ -31,7 +31,7 @@ const onUpdate = (v: unknown) => {
         :value="it.key"
         :disabled="it.disabled"
         :class="cn(
-          'inline-flex h-9 items-center rounded-field px-1 text-sm outline-hidden whitespace-nowrap cursor-pointer',
+          'inline-flex h-9 items-center rounded-field border-0 bg-transparent px-1 font-sans text-sm outline-hidden whitespace-nowrap cursor-pointer',
           'transition-colors duration-150 ease-out motion-reduce:transition-none',
           'focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-45',
           'data-[state=inactive]:text-ink-3 data-[state=inactive]:enabled:hover:text-ink',

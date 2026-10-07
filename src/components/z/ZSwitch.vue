@@ -46,7 +46,7 @@ const onUpdate = (v: boolean) => {
       :model-value="!!checked"
       :disabled="disabled"
       :class="cn(
-        'relative inline-flex shrink-0 items-center rounded-pill bg-control p-0.5 outline-hidden',
+        'relative inline-flex shrink-0 items-center rounded-pill border-0 bg-control p-0.5 outline-hidden',
         'transition-colors duration-150 ease-out motion-reduce:transition-none',
         'focus-visible:shadow-focus data-[state=checked]:bg-navy',
         'disabled:cursor-not-allowed disabled:opacity-45',

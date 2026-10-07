@@ -42,7 +42,7 @@ const onUpdate = (k: unknown) => {
       :value="toKey(o.value)"
       :disabled="o.disabled"
       :class="cn(
-        'inline-flex h-7 items-center rounded-[6px] px-3 text-sm outline-hidden',
+        'inline-flex h-7 cursor-pointer items-center rounded-[6px] border-0 bg-transparent px-3 font-sans text-sm outline-hidden',
         'transition-[background-color,color,box-shadow] duration-150 ease-out motion-reduce:transition-none',
         'focus-visible:shadow-focus data-[state=on]:focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-45',
         'data-[state=on]:bg-surface data-[state=on]:font-semibold data-[state=on]:text-ink data-[state=on]:shadow-raised',
