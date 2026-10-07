@@ -23,6 +23,10 @@
   /* Бренд: navy — главное действие, zircon — единственный акцент, gold — только «нужно ваше действие» */
   --color-navy: #0E1B35;
   --color-navy-hover: #1A2B4F;
+  /* Текст на navy (панель героя на страницах входа): основной, вторичный, приглушённый — все ≥ 4.5:1 к navy */
+  --color-on-navy: #D6DCE8;
+  --color-on-navy-2: #B9C3D6;
+  --color-on-navy-3: #8F9AB0;
   --color-zircon: #23B5D3;
   --color-zircon-ink: #0F6E8F;
   --color-zircon-soft: #E3F6FA;

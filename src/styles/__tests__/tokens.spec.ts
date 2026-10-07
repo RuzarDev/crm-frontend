@@ -27,6 +27,7 @@ describe('токены стиля C', () => {
     ['muted', 'surface'], ['muted', 'canvas'],
     ['zircon-ink', 'surface'], ['gold-ink', 'gold-soft'], ['danger', 'surface'],
     ['white', 'navy'], ['white', 'danger'],
+    ['on-navy', 'navy'], ['on-navy-2', 'navy'], ['on-navy-3', 'navy'],
   ])('%s на %s ≥ 4.5:1', (fg, bg) => {
     expect(contrast(color(fg), color(bg))).toBeGreaterThanOrEqual(4.5)
   })

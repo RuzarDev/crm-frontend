@@ -100,3 +100,12 @@ describe('ZButton', () => {
     expect(w.classes()).toContain('focus-visible:shadow-focus')
   })
 })
+
+describe('ZButton size="lg" (страницы входа)', () => {
+  it('44px, 15px, радиус 10px вместо rounded-field', () => {
+    const w = mount(ZButton, { props: { size: 'lg', variant: 'primary' } })
+    expect(w.classes()).toEqual(expect.arrayContaining(['h-11', 'rounded-[10px]', 'text-[15px]', 'bg-navy']))
+    expect(w.classes()).not.toContain('h-9')
+    expect(w.classes()).not.toContain('rounded-field')
+  })
+})

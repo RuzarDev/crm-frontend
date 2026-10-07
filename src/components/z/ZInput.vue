@@ -20,7 +20,8 @@ const props = withDefaults(defineProps<{
   value?: string | null
   type?: 'text' | 'password' | 'search' | 'email' | 'tel'
   placeholder?: string
-  size?: 'sm' | 'md'
+  /** lg — 42px, только страницы входа/регистрации. */
+  size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
   readonly?: boolean
   invalid?: boolean
@@ -145,11 +146,14 @@ const clear = () => {
       type="button"
       :aria-label="shown ? t('z.hidePassword') : t('z.showPassword')"
       :aria-pressed="shown"
-      class="-mr-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-pill border-0 bg-transparent p-0 text-muted outline-hidden hover:bg-sunken hover:text-ink focus-visible:shadow-focus"
+      :class="cn(
+        'flex shrink-0 cursor-pointer items-center justify-center rounded-pill border-0 bg-transparent p-0 text-muted outline-hidden hover:bg-sunken hover:text-ink focus-visible:shadow-focus',
+        size === 'lg' ? '-mr-1.5 size-8' : '-mr-1 size-6',
+      )"
       @mousedown.prevent
       @click="shown = !shown"
     >
-      <component :is="shown ? PhEyeSlash : PhEye" :size="16" />
+      <component :is="shown ? PhEyeSlash : PhEye" :size="size === 'lg' ? 18 : 16" />
     </button>
     <span v-if="$slots.suffix" :class="cn('flex shrink-0 items-center text-muted', disabled && 'text-ink-3')"><slot name="suffix" /></span>
     <button

@@ -212,3 +212,13 @@ describe('ZInput — поиск', () => {
     expect(mountWithI18n(ZInput, { props: { type: 'text' } }).get('input').classes()).not.toContain('[&::-ms-reveal]:hidden')
   })
 })
+
+describe('ZInput size="lg" (страницы входа)', () => {
+  it('42px, 15px, радиус 9px; глаз пароля 32px', () => {
+    const w = mountWithI18n(ZInput, { props: { size: 'lg', type: 'password' } })
+    expect(w.classes()).toEqual(expect.arrayContaining(['h-[42px]', 'rounded-[9px]', 'text-[15px]/[22px]']))
+    expect(w.classes()).not.toContain('h-9')
+    expect(w.classes()).not.toContain('rounded-field')
+    expect(w.get('button[aria-pressed]').classes()).toContain('size-8')
+  })
+})
