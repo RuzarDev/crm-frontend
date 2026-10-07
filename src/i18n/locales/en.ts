@@ -88,6 +88,17 @@ export default {
     sectionNav: 'Sections',
     attentionSr: 'needs attention: {n}',
     dotSr: 'action needed',
+    bell: {
+      label: 'Notifications',
+      labelUnread: 'Notifications, {n} unread',
+      title: 'Notifications',
+      markAll: 'Mark all read',
+      empty: 'No new notifications',
+      all: 'All notifications',
+      unreadSr: 'unread',
+    },
+    user: { profile: 'Profile', logout: 'Sign out', menu: 'User menu' },
+    lang: { label: 'Language: {lang}' },
     nav: {
       home: 'Home',
       requests: 'Requests',

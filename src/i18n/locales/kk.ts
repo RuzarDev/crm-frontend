@@ -88,6 +88,17 @@ export default {
     sectionNav: 'Бөлімдер',
     attentionSr: 'назар аударуды қажет етеді: {n}',
     dotSr: 'әрекет қажет',
+    bell: {
+      label: 'Хабарламалар',
+      labelUnread: 'Хабарламалар, жаңа: {n}',
+      title: 'Хабарламалар',
+      markAll: 'Барлығын оқу',
+      empty: 'Жаңа хабарламалар жоқ',
+      all: 'Барлық хабарламалар',
+      unreadSr: 'жаңа',
+    },
+    user: { profile: 'Профиль', logout: 'Шығу', menu: 'Пайдаланушы мәзірі' },
+    lang: { label: 'Тіл: {lang}' },
     nav: {
       home: 'Басты бет',
       requests: 'Өтінімдер',

@@ -75,6 +75,26 @@ describe('ZPopover', () => {
     expect(dialog()).not.toBeNull()
   })
 
+  it('contentClass дополняет и перекрывает классы окна (отступ p-3 → p-0)', async () => {
+    w = mountPop({ contentClass: 'p-0 w-[360px]' })
+    await w.get('#trg').trigger('click')
+    await tick()
+    const cls = dialog()!.className.split(/\s+/)
+    expect(cls).toContain('p-0')
+    expect(cls).toContain('w-[360px]')
+    expect(cls).not.toContain('p-3')
+    expect(cls).toContain('z-[1100]')
+  })
+
+  it('v-model:open — закрытие снаружи (open=false) убирает окно', async () => {
+    w = mountPop({ open: true })
+    await tick()
+    expect(dialog()).not.toBeNull()
+    await w.setProps({ open: false })
+    await settle()
+    expect(dialog()).toBeNull()
+  })
+
   it('width задаёт ширину окна', async () => {
     w = mountPop({ width: 320 })
     await w.get('#trg').trigger('click')

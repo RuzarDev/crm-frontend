@@ -14,6 +14,8 @@ const props = withDefaults(defineProps<{
   align?: 'start' | 'center' | 'end'
   /** Число — пиксели, строка — любое CSS-значение. */
   width?: number | string
+  /** Классы окна поверх стандартных (сливаются через cn: 'p-0' заменит отступ p-3). */
+  contentClass?: string
 }>(), { title: '', side: 'bottom', align: 'start' })
 
 const open = defineModel<boolean>('open', { default: false })
@@ -37,7 +39,7 @@ const onOpened = (e: Event) => {
     </PopoverTrigger>
     <PopoverPortal>
       <PopoverContent
-        :class="cn(floatingSurface, 'p-3')"
+        :class="cn(floatingSurface, 'p-3', contentClass)"
         :style="widthStyle"
         :side="side"
         :align="align"

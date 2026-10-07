@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { PhArrowSquareOut, PhCopy, PhFunnel, PhMagnifyingGlass, PhPencilSimple, PhPlus, PhQuestion, PhTray, PhTrash, PhUploadSimple } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZInput from '@/components/z/ZInput.vue'
@@ -45,6 +45,13 @@ import ZBreadcrumbs from '@/components/z/ZBreadcrumbs.vue'
 import ShellSidebar from '@/components/shell/ShellSidebar.vue'
 import ShellSectionTabs from '@/components/shell/ShellSectionTabs.vue'
 import ZirconLogo from '@/components/shell/ZirconLogo.vue'
+import NotificationsBell from '@/components/shell/NotificationsBell.vue'
+import UserMenu from '@/components/shell/UserMenu.vue'
+import LangMenu from '@/components/shell/LangMenu.vue'
+import { useNotificationsStore } from '@/stores/notifications'
+import { useAuthStore } from '@/stores/auth'
+import { useProfileStore } from '@/stores/profile'
+import type { AppNotification } from '@/types/api'
 import { buildBrokerNav, buildClientNav, type NavAccess } from '@/shell/navModel'
 import type { ZColumn, ZKey } from '@/ui/table'
 import type { ZRule } from '@/ui/validation'
@@ -267,6 +274,48 @@ const brokerNav = buildBrokerNav(demoAccess('administrator'))
 const clientNav = buildClientNav(demoAccess('client', { registrationIncomplete: true }))
 const referencesSection = brokerNav.groups.flatMap((g) => g.sections).find((s) => s.key === 'references')!
 const shellEvent = ref('')
+
+// Шапка: каталог открыт без входа — стор уведомлений и выход подменены демо-версиями без запросов к API,
+// профиль — демо-именем (если пуст). Всё возвращается при уходе со страницы.
+const demoNotifications = (): AppNotification[] => [
+  { id: 'd1', title: 'ДТ выпущена', body: 'И40-182 · ТОО «Казахмыс Трейд» — декларация выпущена, можно закрывать СВХ', type: 'case', caseId: 'demo', reestrEntryId: null, isRead: false, createdAtUtc: '2026-10-08T05:40:00Z' },
+  { id: 'd2', title: 'Нужен сертификат', body: 'И40-179 · позиция 3 — клиент загрузил не тот файл', type: 'case', caseId: 'demo', reestrEntryId: null, isRead: false, createdAtUtc: '2026-10-08T04:12:00Z' },
+  { id: 'd3', title: 'Счёт оплачен', body: 'СЧ-2026-0412 · ТОО «Astana Foods»', type: 'invoice', caseId: null, reestrEntryId: 'demo', isRead: true, createdAtUtc: '2026-10-07T11:03:00Z' },
+]
+const notifDemo = useNotificationsStore()
+const authDemo = useAuthStore()
+const profileDemo = useProfileStore()
+const real = { fetch: notifDemo.fetch, markRead: notifDemo.markRead, markAllRead: notifDemo.markAllRead, logout: authDemo.logout, profile: profileDemo.profile }
+notifDemo.unreadCount = 2
+notifDemo.fetch = async () => {
+  notifDemo.loading = true
+  await new Promise((r) => setTimeout(r, notifDemo.items.length ? 200 : 700))
+  if (!notifDemo.items.length) notifDemo.items = demoNotifications()
+  notifDemo.unreadCount = notifDemo.items.filter((n) => !n.isRead).length
+  notifDemo.loading = false
+}
+notifDemo.markRead = async (id: string) => {
+  const n = notifDemo.items.find((x) => x.id === id)
+  if (n && !n.isRead) { n.isRead = true; notifDemo.unreadCount = Math.max(0, notifDemo.unreadCount - 1) }
+}
+notifDemo.markAllRead = async () => {
+  notifDemo.items.forEach((n) => (n.isRead = true))
+  notifDemo.unreadCount = 0
+}
+authDemo.logout = () => { shellEvent.value = 'выход (демо)' }
+if (!profileDemo.profile) {
+  profileDemo.profile = { userId: 'demo', username: 'aigerim', displayName: 'Айгерим Касымова', phone: null, companyName: null, innBin: null, role: 'Import' }
+}
+const resetShellDemo = () => {
+  notifDemo.items = demoNotifications()
+  notifDemo.unreadCount = 2
+}
+onBeforeUnmount(() => {
+  Object.assign(notifDemo, { fetch: real.fetch, markRead: real.markRead, markAllRead: real.markAllRead })
+  notifDemo.reset()
+  authDemo.logout = real.logout
+  profileDemo.profile = real.profile
+})
 </script>
 
 <template>
@@ -649,6 +698,28 @@ const shellEvent = ref('')
             <ZirconLogo size="sm" />
             <ZirconLogo size="md" />
             <span class="inline-flex rounded-field bg-navy px-4 py-3"><ZirconLogo size="md" inverse /></span>
+          </div>
+          <div class="flex flex-col gap-2">
+            <div class="flex min-w-0 items-center gap-3 rounded-panel border border-line bg-canvas px-4 py-3 sm:px-7">
+              <span class="truncate text-[13px] text-muted">Среда, 8 октября</span>
+              <div class="ml-auto flex items-center gap-1.5">
+                <NotificationsBell />
+                <LangMenu />
+                <UserMenu />
+              </div>
+            </div>
+            <div class="flex min-w-0 items-center gap-3 rounded-panel border border-line bg-canvas px-4 py-3">
+              <span class="truncate text-[13px] text-muted">Узкая шапка (compact)</span>
+              <div class="ml-auto flex items-center gap-1.5">
+                <NotificationsBell />
+                <UserMenu compact />
+              </div>
+            </div>
+            <p class="text-sm text-ink-3">
+              Шапка без API: уведомления — демо (первое открытие показывает скелет),
+              «Выйти» пишет событие ниже и переводит на /login.
+              <ZButton variant="link" size="sm" @click="resetShellDemo">Вернуть непрочитанные</ZButton>
+            </p>
           </div>
           <div class="flex flex-wrap gap-6">
             <div class="h-[640px] w-[248px] overflow-hidden rounded-panel border border-line bg-canvas">

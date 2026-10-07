@@ -90,6 +90,17 @@ export default {
     sectionNav: 'Разделы',
     attentionSr: 'требует внимания: {n}',
     dotSr: 'нужно действие',
+    bell: {
+      label: 'Уведомления',
+      labelUnread: 'Уведомления, новых: {n}',
+      title: 'Уведомления',
+      markAll: 'Прочитать все',
+      empty: 'Новых уведомлений нет',
+      all: 'Все уведомления',
+      unreadSr: 'новое',
+    },
+    user: { profile: 'Профиль', logout: 'Выйти', menu: 'Меню пользователя' },
+    lang: { label: 'Язык: {lang}' },
     nav: {
       home: 'Главная',
       requests: 'Заявки',
