@@ -13,6 +13,8 @@ const emit = defineEmits<{
   change: [key: string]
 }>()
 
+// Подпись — span с невидимой жирной копией в ::after (data-label): ширина резервируется под bold,
+// активная вкладка не раздвигает соседей. Пробел перед счётчиком нужен имени вкладки («Все 38»).
 const onUpdate = (v: unknown) => {
   if (typeof v !== 'string' || v === props.activeKey) return
   emit('update:activeKey', v)
@@ -36,7 +38,10 @@ const onUpdate = (v: unknown) => {
           'data-[state=active]:font-semibold data-[state=active]:text-ink',
         )"
       >
-        {{ it.label }}<span
+        <span
+          :data-label="it.label"
+          class="inline-flex flex-col items-center after:invisible after:block after:h-0 after:overflow-hidden after:font-semibold after:content-[attr(data-label)]"
+        >{{ it.label }}</span> <span
           v-if="it.count !== undefined"
           class="ml-1.5 rounded-pill bg-sunken px-1.5 text-xs font-normal tabular-nums text-ink-2"
         >{{ it.count }}</span>

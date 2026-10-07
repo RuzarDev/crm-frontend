@@ -39,7 +39,7 @@ const onClose = (e: MouseEvent) => {
     <component :is="ICON[type]" v-if="showIcon" :size="18" weight="fill" aria-hidden="true" class="mt-0.5 shrink-0" />
     <div class="min-w-0 flex-1">
       <div v-if="message" class="font-semibold">{{ message }}</div>
-      <div v-if="$slots.default || description" :class="cn('text-current', message && 'mt-0.5 opacity-90')">
+      <div v-if="$slots.default || description" :class="cn('text-current', message && 'mt-0.5 text-[13px]')">
         <slot>{{ description }}</slot>
       </div>
     </div>

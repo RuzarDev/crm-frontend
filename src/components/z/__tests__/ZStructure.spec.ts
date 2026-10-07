@@ -22,7 +22,7 @@ describe('ZTabs', () => {
   it('вкладки со счётчиком, смена активной', async () => {
     w = mountWithI18n(ZTabs, { props: { activeKey: 'all', items: items.slice(0, 2) } })
     const tabs = w.findAll('[role="tab"]')
-    expect(tabs.map((t) => t.text())).toEqual(['Все38', 'Мои задачи9'])
+    expect(tabs.map((t) => t.text())).toEqual(['Все 38', 'Мои задачи 9'])
     expect(tabs[0].attributes('aria-selected')).toBe('true')
     await tabs[1].trigger('mousedown')
     await tabs[1].trigger('keydown', { key: 'Enter' })
@@ -66,6 +66,14 @@ describe('ZTabs', () => {
     await tabs[0].trigger('keydown', { key: 'ArrowRight' })
     await nextTick()
     expect(w.emitted('change')?.at(-1)).toEqual(['mine'])
+  })
+
+  it('подпись резервирует ширину под жирный шрифт', () => {
+    w = mountWithI18n(ZTabs, { props: { activeKey: 'all', items } })
+    const label = w.get('[role="tab"] span')
+    expect(label.attributes('data-label')).toBe('Все')
+    expect(label.classes().join(' ')).toContain('after:content-[attr(data-label)]')
+    expect(label.classes().join(' ')).toContain('after:font-semibold')
   })
 
   it('активная вкладка выделена по data-state', () => {
@@ -114,6 +122,15 @@ describe('ZCollapse', () => {
     expect(vm.extraClicks).toBe(1)
     expect(vm.open).toEqual([])
     expect(w.get('button').attributes('aria-expanded')).toBe('false')
+  })
+
+  it('extra не входит в заголовок h3 и его имя', () => {
+    w = mountCollapse()
+    const h = w.get('h3')
+    expect(h.text()).toBe('Гр.31 — описание')
+    expect(h.find('div').exists()).toBe(false)
+    expect(h.find('.x').exists()).toBe(false)
+    expect(w.get('.x').element.closest('h3')).toBeNull()
   })
 
   it('внешнее значение раскрывает пункт', async () => {
@@ -184,6 +201,19 @@ describe('ZSpin', () => {
     w = mountWithI18n(ZSpin, { props: { spinning: true }, slots: { default: '<div class="c">Таблица</div>' } })
     expect(w.attributes('aria-busy')).toBe('true')
     expect(w.get('.c').element.parentElement?.className).toContain('opacity-50')
+  })
+
+  it('spinning — содержимое inert (кнопка внутри не получает фокус с клавиатуры), иначе нет', async () => {
+    w = mountWithI18n({
+      components: { ZSpin },
+      data: () => ({ on: true }),
+      template: '<ZSpin :spinning="on"><button class="b">Ок</button></ZSpin>',
+    })
+    const wrap = w.get('.b').element.parentElement as HTMLElement
+    expect(wrap.hasAttribute('inert')).toBe(true)
+    ;(w.vm as unknown as { on: boolean }).on = false
+    await nextTick()
+    expect(wrap.hasAttribute('inert')).toBe(false)
   })
 
   it('не spinning — содержимое как есть, без индикатора', () => {

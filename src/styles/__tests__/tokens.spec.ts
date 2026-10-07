@@ -64,3 +64,12 @@ describe('токены стиля C', () => {
   })
 })
 
+describe('уменьшенное движение', () => {
+  it('глобальное правило гасит анимации и переходы, но не отключает animationend', () => {
+    const m = css.match(/@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n\}/)
+    expect(m, 'нет @media (prefers-reduced-motion: reduce)').not.toBeNull()
+    expect(m![1]).toMatch(/animation-duration:\s*0\.01ms\s*!important/)
+    expect(m![1]).toMatch(/transition-duration:\s*0\.01ms\s*!important/)
+    expect(m![1]).not.toMatch(/animation(?:-name)?:\s*none/)
+  })
+})

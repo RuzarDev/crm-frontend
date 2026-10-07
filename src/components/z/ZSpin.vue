@@ -9,7 +9,11 @@ const { t } = useI18n()
 
 <template>
   <div :class="['relative', !$slots.default && 'min-h-10']" :aria-busy="spinning ? 'true' : undefined">
-    <div v-if="$slots.default" :class="spinning && 'pointer-events-none opacity-50 select-none'">
+    <div
+      v-if="$slots.default"
+      :inert="spinning || undefined"
+      :class="spinning && 'pointer-events-none opacity-50 select-none'"
+    >
       <slot />
     </div>
     <div v-if="spinning" role="status" class="absolute inset-0 flex flex-col items-center justify-center gap-2">

@@ -126,3 +126,17 @@
     to { transform: translateX(-100%); }
   }
 }
+
+/* Уменьшенное движение: утилита motion-reduce:animate-none (0,1,0) проигрывает data-[state=…]:animate-* (0,2,0),
+   поэтому гасим движение одним глобальным правилом. 0.01ms, а не none: так animationend всё равно срабатывает
+   и Reka Presence корректно размонтирует закрывающиеся окна и пункты. Утилиты motion-reduce в компонентах остаются. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
