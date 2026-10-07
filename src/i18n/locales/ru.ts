@@ -936,6 +936,7 @@ export default {
     listNomer: 'Лист номер',
     marka: 'Марка',
     markirovkaPosleVypuska: 'Маркировка после выпуска',
+    kedenOffList: 'КЕДЕН при процедуре {key} не предлагает: {codes} — выберите код из списка',
     markirovkaTovarovGr3113: 'Маркировка товаров (гр.31.13)',
     medizdelieNds5: 'Медизделие (НДС 5%)',
     mest: 'Мест',

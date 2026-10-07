@@ -35,23 +35,23 @@
     <!-- Льготы гр.36: у каждого вида платежа свой перечень (классификатор 2008) -->
     <div class="zf-sec">{{ t('dt.secLgoty') }}</div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.preferenciyaSbor') }}</div>
-      <a-select v-model:value="good.prefClearanceCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefFeeOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" :placeholder="t('dt.phBezLgot')" @change="emitChange" /></div>
+      <a-select v-model:value="good.prefClearanceCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefFeeOptions" :status="offKeden('pref-fee', good.prefClearanceCode) ? 'warning' : undefined" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" :placeholder="t('dt.phBezLgot')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.poshlina') }}</div>
-      <a-select v-model:value="good.prefDutyCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefDutyOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" :placeholder="t('dt.phBezLgot')" @change="emitChange" /></div>
+      <a-select v-model:value="good.prefDutyCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefDutyOptions" :status="offKeden('pref-duty', good.prefDutyCode) ? 'warning' : undefined" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" :placeholder="t('dt.phBezLgot')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.akciz') }}</div>
-      <a-select v-model:value="good.prefExciseCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefExciseOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" :placeholder="t('dt.phBezLgot')" @change="emitChange" /></div>
+      <a-select v-model:value="good.prefExciseCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefExciseOptions" :status="offKeden('pref-excise', good.prefExciseCode) ? 'warning' : undefined" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" :placeholder="t('dt.phBezLgot')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.nds') }}
         <a-tooltip v-if="hasReducedVat(good)" :title="t('dt.ponizhennyyNds5Primenyaetsya')"><a-tag color="green" class="label-tag">5%</a-tag></a-tooltip></div>
-      <a-select v-model:value="good.prefVatCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefVatOptions" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" :placeholder="t('dt.phBezLgot')" @change="emitChange" /></div>
+      <a-select v-model:value="good.prefVatCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prefVatOptions" :status="offKeden('pref-vat', good.prefVatCode) ? 'warning' : undefined" :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '640px' }" :get-popup-container="popupContainer" :placeholder="t('dt.phBezLgot')" @change="emitChange" /></div>
 
     <!-- Процедура (гр.37), квота (гр.39), метод ТС (гр.43), временный ввоз, сертификация -->
     <div class="zf-sec">{{ t('dt.secProcedura') }}</div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.proceduraGr37') }}</div>
       <a-select v-model:value="good.procedureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="procOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" :placeholder="t('dt.phVyberiteProceduru')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.predshProceduraGr37') }}</div>
-      <a-select v-model:value="good.previousProcedureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="procOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" :placeholder="t('dt.phNet')" @change="emitChange" /></div>
+      <a-select v-model:value="good.previousProcedureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="prevProcOptions" :status="offKeden('prev', good.previousProcedureCode) ? 'warning' : undefined" :dropdown-match-select-width="false" :get-popup-container="popupContainer" :placeholder="t('dt.phNet')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.osobennostPeremescheniya') }}</div>
-      <a-select v-model:value="good.goodsMoveFeatureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="moveFeatureOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" :placeholder="t('dt.phNet')" @change="emitChange" /></div>
+      <a-select v-model:value="good.goodsMoveFeatureCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="moveFeatureOptions" :status="offKeden('movement-features', good.goodsMoveFeatureCode) ? 'warning' : undefined" :dropdown-match-select-width="false" :get-popup-container="popupContainer" :placeholder="t('dt.phNet')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.metodTsGr43') }}</div>
       <a-select v-model:value="good.valuationMethodCode" :disabled="readonly" show-search allow-clear option-filter-prop="label" :options="valuationOptions" :dropdown-match-select-width="false" :get-popup-container="popupContainer" :placeholder="t('dt.phVyberiteMetod')" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.kvotaGr39') }}</div>
@@ -64,6 +64,10 @@
         option-filter-prop="label" :token-separators="[';']" :get-popup-container="popupContainer"
         :placeholder="t('dt.vyberiteIliVvedite')"
         @change="(v: string[]) => onCertificationChange(good, v)" /></div>
+
+    <div v-if="kedenOffFields.length" class="field-hint-warn zf-s12">
+      {{ t('dt.kedenOffList', { key: kedenKey, codes: kedenOffFields.join('; ') }) }}
+    </div>
 
     <!-- ОИС / признаки соблюдения запретов (гр.33 «О») -->
     <div class="zf-sec">
@@ -276,6 +280,7 @@ import { useTroisCheck } from '@/composables/useTroisCheck'
 import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import { prohibitionCodesApi, type ProhibitionCodeItem, type SuggestedProhibitionCode } from '@/api/prohibitionCodes'
 import { troisApi, troisDate, type TroisItem } from '@/api/trois'
+import { kedenListKey, kedenProcedureListsApi, type KedenProcedureLists } from '@/api/kedenProcedureLists'
 import Import40GoodsExtras from '@/components/import40/Import40GoodsExtras.vue'
 
 const { t } = useI18n()
@@ -291,6 +296,9 @@ const props = defineProps<{
   /** Все товары ДТ и номер текущего — нужны для копирования ОИС/МНР в выбранные товары. */
   allGoods?: Import40GoodsItemInput[]
   index?: number
+  /** Гр.1: направление (ИМ/ЭК) и процедура — по ним КЕДЕН сужает списки гр.36/37 товара. */
+  direction?: string | null
+  declProcedure?: string | null
 }>()
 
 const emit = defineEmits<{ (e: 'change'): void }>()
@@ -427,10 +435,44 @@ const prefOptionsOf = (classifierCode: string) => computed(() =>
       return a.code.localeCompare(b.code, 'ru')
     })
     .map((c) => ({ value: c.code, label: `${c.code} — ${c.nameRu}`, title: `${c.code} — ${c.nameRu}` })))
-const prefFeeOptions = prefOptionsOf('pref-fee')
-const prefDutyOptions = prefOptionsOf('pref-duty')
-const prefExciseOptions = prefOptionsOf('pref-excise')
-const prefVatOptions = prefOptionsOf('pref-vat')
+// Списки КЕДЕН по процедуре гр.1 (ref/keden-procedure-lists): КЕДЕН предлагает только часть кодов —
+// например, при ЭК 10 льгот по акцизу и НДС нет («Z»), при ИМ 53 свои особенности перемещения.
+// Показываем только их; уже выбранный код вне списка оставляем видимым и подсвечиваем.
+const kedenLists = ref<KedenProcedureLists | null>(null)
+onMounted(() => { kedenProcedureListsApi.get().then((l) => (kedenLists.value = l)).catch(() => {}) })
+const kedenKey = computed(() => kedenListKey(props.direction, props.good.procedureCode || props.declProcedure))
+const kedenAllowed = (field: string): Set<string> | null => {
+  const codes = kedenKey.value ? kedenLists.value?.[kedenKey.value]?.[field] : undefined
+  return codes ? new Set(codes) : null
+}
+type Opt = { value: string; label: string; title?: string }
+const byKeden = (field: string, opts: () => Opt[], current: () => string | null | undefined) => computed(() => {
+  const allowed = kedenAllowed(field)
+  const cur = current()?.trim()
+  return allowed ? opts().filter((o) => allowed.has(o.value) || o.value === cur) : opts()
+})
+/** Выбранный код, которого КЕДЕН при этой процедуре не предлагает. */
+const offKeden = (field: string, value: string | null | undefined) => {
+  const v = value?.trim()
+  const allowed = kedenAllowed(field)
+  return !!v && !!allowed && !allowed.has(v)
+}
+const prefFeeAll = prefOptionsOf('pref-fee')
+const prefDutyAll = prefOptionsOf('pref-duty')
+const prefExciseAll = prefOptionsOf('pref-excise')
+const prefVatAll = prefOptionsOf('pref-vat')
+const prefFeeOptions = byKeden('pref-fee', () => prefFeeAll.value, () => props.good.prefClearanceCode)
+const prefDutyOptions = byKeden('pref-duty', () => prefDutyAll.value, () => props.good.prefDutyCode)
+const prefExciseOptions = byKeden('pref-excise', () => prefExciseAll.value, () => props.good.prefExciseCode)
+const prefVatOptions = byKeden('pref-vat', () => prefVatAll.value, () => props.good.prefVatCode)
+const kedenOffFields = computed(() => [
+  ['pref-fee', t('dt.preferenciyaSbor'), props.good.prefClearanceCode],
+  ['pref-duty', t('dt.poshlina'), props.good.prefDutyCode],
+  ['pref-excise', t('dt.akciz'), props.good.prefExciseCode],
+  ['pref-vat', t('dt.nds'), props.good.prefVatCode],
+  ['prev', t('dt.predshProceduraGr37'), props.good.previousProcedureCode],
+  ['movement-features', t('dt.osobennostPeremescheniya'), props.good.goodsMoveFeatureCode],
+].filter(([f, , v]) => offKeden(f as string, v)).map(([, l, v]) => `${l}: ${v}`))
 
 const taxModeOptions = computed(() => classifiers.options('tax-modes'))
 
@@ -439,8 +481,9 @@ const rateKindOptions = computed(() => classifiers.options('rate-kinds'))
 const valuationOptions = computed(() => classifiers.options('2005'))
 
 const procOptions = computed(() => classifiers.options('customs-procedures'))
+const prevProcOptions = byKeden('prev', () => procOptions.value, () => props.good.previousProcedureCode)
 
-const moveFeatureOptions = computed(() => classifiers.options('movement-features'))
+const moveFeatureOptions = byKeden('movement-features', () => classifiers.options('movement-features'), () => props.good.goodsMoveFeatureCode)
 
 const packagingAvailabilityOptions = computed(() => classifiers.options('packaging-availability'))
 

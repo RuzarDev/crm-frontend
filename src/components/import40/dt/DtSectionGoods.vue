@@ -10,6 +10,8 @@
           :readonly="readonly"
           :container-indicator="containerIndicator"
           :usd-rate="usdRate"
+          :direction="direction"
+          :decl-procedure="declProcedure"
           @change="change"
         />
       </template>
@@ -41,6 +43,9 @@ const props = defineProps<{
   // Пакет 6 №4: валюта сделки (гр.22, dtForm.currency) — блокирует поле валюты
   // у каждого товара (read-only, синхронизируется с гр.22).
   dealCurrency?: string | null
+  // Гр.1: направление (ИМ/ЭК) и процедура — по ним КЕДЕН сужает списки гр.36/37 товара.
+  direction?: string | null
+  declProcedure?: string | null
 }>()
 const emit = defineEmits<{ 'update:modelValue': [Import40GoodsItemInput[]]; 'calc-tpin': [] }>()
 

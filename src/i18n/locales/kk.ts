@@ -931,6 +931,7 @@ export default {
     listNomer: 'Парақ нөмірі',
     marka: 'Маркасы',
     markirovkaPosleVypuska: 'Шығарылғаннан кейін таңбалау',
+    kedenOffList: 'КЕДЕН {key} рәсімінде мұны ұсынбайды: {codes} — тізімнен код таңдаңыз',
     markirovkaTovarovGr3113: 'Тауарларды таңбалау (31.13-графа)',
     medizdelieNds5: 'Медбұйым (ҚҚС 5%)',
     mest: 'Орын',

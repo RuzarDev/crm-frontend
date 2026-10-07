@@ -931,6 +931,7 @@ export default {
     listNomer: 'Sheet number',
     marka: 'Make',
     markirovkaPosleVypuska: 'Marking after release',
+    kedenOffList: 'KEDEN does not offer for procedure {key}: {codes} — pick a code from the list',
     markirovkaTovarovGr3113: 'Goods marking (box 31.13)',
     medizdelieNds5: 'Medical device (VAT 5%)',
     mest: 'Packages',
