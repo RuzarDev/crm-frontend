@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useAttrs, watch, type ComponentPublicInstance, type StyleValue } from 'vue'
+import { computed, ref, useAttrs, useId, watch, type ComponentPublicInstance, type StyleValue } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   AutocompleteAnchor, AutocompleteContent, AutocompleteInput, AutocompleteItem, AutocompletePortal,
@@ -37,6 +37,9 @@ const props = withDefaults(defineProps<{
   allowClear?: boolean
   /** Моноширинный ввод — коды, номера. */
   mono?: boolean
+  /** Минимальная ширина окна подсказок (число — px, строка — как есть, '420px', '30rem'); по умолчанию —
+   *  ширина поля. Для подсказок в две строки (реестры СВХ, ТРОИС), где поле узкое. */
+  popupWidth?: number | string
 }>(), { value: '', size: 'md', filterOption: true })
 
 const emit = defineEmits<{
@@ -54,6 +57,7 @@ watch(() => props.value, (v) => { text.value = v ?? '' })
 const suggestions = computed(() => filterOptions(props.options, text.value, props.filterOption))
 // Подсказок нет — окна нет (aria-expanded=false); появились (дозагрузились) — показываем.
 const open = ref(false)
+const shown = computed(() => open.value && suggestions.value.length > 0)
 
 const commit = (next: string) => {
   if (next === text.value) return
@@ -78,6 +82,18 @@ const pick = (e: Event, o: ZOption) => {
 const inputCmp = ref<ComponentPublicInstance>()
 const inputEl = () => inputCmp.value?.$el as HTMLInputElement | undefined
 const contentCmp = ref<ComponentPublicInstance>()
+// Связь поля и списка для скринридера. Reka Autocomplete даёт полю пустой aria-controls до первого открытия
+// и ставит id списку изнутри (атрибутом не перебить), поэтому id свой и стабильный: aria-controls — на поле
+// (наш атрибут сливается последним), id — элементу списка при каждом его монтировании.
+const listId = `z-combobox-${useId()}`
+// Экземпляр ComboboxContent переживает закрытие (внутри монтируется заново) — сверяем на каждом открытии.
+watch([shown, contentCmp], () => {
+  const el = contentCmp.value?.$el as Element | undefined
+  const list = el?.closest?.('[role="listbox"]') ?? el?.querySelector?.('[role="listbox"]')
+  if (list) list.id = listId
+}, { flush: 'post' })
+const popupStyle = computed(() => (props.popupWidth === undefined ? undefined
+  : { minWidth: typeof props.popupWidth === 'number' ? `${props.popupWidth}px` : props.popupWidth }))
 // Пустой список Reka не рендерит, и его «клик снаружи» не сработает: закрываем на уходе фокуса сами,
 // иначе подсказки, пришедшие позже, открыли бы окно у поля без фокуса.
 const onBlur = (e: FocusEvent) => {
@@ -94,7 +110,7 @@ defineExpose({ focus: () => inputEl()?.focus(), blur: () => inputEl()?.blur() })
 <template>
   <AutocompleteRoot
     :model-value="text"
-    :open="open && suggestions.length > 0"
+    :open="shown"
     :disabled="disabled"
     ignore-filter
     open-on-click
@@ -108,6 +124,7 @@ defineExpose({ focus: () => inputEl()?.focus(), blur: () => inputEl()?.blur() })
       <AutocompleteInput
         v-bind="inputAttrs"
         ref="inputCmp"
+        :aria-controls="listId"
         :placeholder="placeholder"
         :aria-invalid="invalid || undefined"
         :class="cn(
@@ -132,6 +149,7 @@ defineExpose({ focus: () => inputEl()?.focus(), blur: () => inputEl()?.blur() })
         ref="contentCmp"
         position="popper"
         :side-offset="4"
+        :style="popupStyle"
         :class="cn(floatingSurface, 'w-(--reka-combobox-trigger-width) min-w-48 max-h-72 overflow-hidden')"
         @mousedown.prevent
       >
