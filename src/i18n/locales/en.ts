@@ -656,6 +656,7 @@ export default {
       open: 'Open',
       continue: 'Continue',
       more: '{n} more in the shipments list',
+      short: { problem: 'question about the shipment', draft: 'waiting to be sent', payCheck: 'pay the warehouse' },
     },
     shipments: 'Shipments in progress',
     stepOf: 'Stage {n} of {total}',

@@ -2,8 +2,7 @@
 import { computed, useId, watchEffect } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { PhArrowRight, PhPlus } from '@phosphor-icons/vue'
-import ZAskBanner from '@/components/z/ZAskBanner.vue'
+import { PhArrowRight, PhPlus, PhWarning } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
@@ -67,8 +66,10 @@ const askDescription = (a: ClientAsk) =>
   : a.kind === 'draft' ? a.message || t('clientHome.ask.draftText')
   : t('clientHome.ask.payCheckText')
 // Черновик дописывается в мастере — он живёт на списке заявок и открывается по ?continueId.
-const openAsk = (a: ClientAsk) =>
-  router.push(a.kind === 'draft' ? { path: '/import-40', query: { continueId: a.caseId } } : `/import-40/${a.caseId}`)
+const askTarget = (a: ClientAsk) =>
+  a.kind === 'draft' ? { path: '/import-40', query: { continueId: a.caseId } } : `/import-40/${a.caseId}`
+// Действия в строках называются одинаково («Открыть») — описание по номеру и сути различает их при чтении с экрана.
+const askRowId = (i: number) => `${ids.asks}-r${i}`
 
 // ---- Поставки в работе ----
 const MAX_CARDS = 6
@@ -123,20 +124,49 @@ const cta = 'h-[42px] rounded-row px-[18px] text-[14.5px] max-sm:w-full'
     </div>
 
     <template v-if="imp">
-      <section v-if="shownAsks.length" :aria-labelledby="ids.asks" class="flex flex-col gap-2.5">
-        <h2 :id="ids.asks" class="sr-only">{{ t('clientHome.ask.heading') }}</h2>
-        <ZAskBanner
-          v-for="a in shownAsks"
-          :key="a.caseId"
-          data-client-ask
-          :title="t(`clientHome.ask.${a.kind}`, { number: a.number })"
-          :description="askDescription(a)"
-          :action-text="t(a.kind === 'draft' ? 'clientHome.ask.continue' : 'clientHome.ask.open')"
-          @action="openAsk(a)"
-        />
-        <RouterLink v-if="asks.length > MAX_ASKS" to="/import-40" :class="cn(link, 'self-start')">
-          {{ t('clientHome.ask.more', { n: asks.length - MAX_ASKS }) }}
-        </RouterLink>
+      <section
+        v-if="shownAsks.length"
+        :aria-labelledby="ids.asks"
+        data-client-asks
+        class="overflow-hidden rounded-panel border border-gold-line bg-gold-soft"
+      >
+        <div class="flex items-center gap-2.5 px-4 pt-3 pb-2.5">
+          <span aria-hidden="true" class="inline-flex size-7 shrink-0 items-center justify-center rounded-row bg-gold text-navy">
+            <PhWarning :size="16" weight="bold" />
+          </span>
+          <h2 :id="ids.asks" class="m-0 text-base font-semibold text-ink">{{ t('clientHome.ask.heading') }}</h2>
+          <span
+            v-if="asks.length > 1"
+            class="rounded-pill bg-gold px-[7px] text-[11.5px] leading-[18px] font-bold tabular-nums text-navy"
+            data-client-asks-count
+          >{{ asks.length }}</span>
+        </div>
+        <ul role="list" class="m-0 list-none p-0">
+          <li
+            v-for="(a, i) in shownAsks"
+            :key="a.caseId"
+            data-client-ask
+            class="flex items-center gap-3 border-t border-gold-line px-4 py-2.5 max-[359px]:flex-wrap"
+          >
+            <div :id="askRowId(i)" class="min-w-0 flex-1">
+              <!-- На телефоне суть — своей строкой под номером (с заглавной), а не обрезается рядом с кнопкой. -->
+              <p class="m-0 truncate text-sm text-ink max-sm:whitespace-normal">
+                <span class="font-mono font-medium">{{ a.number }}</span><span class="max-sm:hidden"> · </span><span class="max-sm:block max-sm:first-letter:uppercase">{{ t(`clientHome.ask.short.${a.kind}`) }}</span>
+              </p>
+              <p class="m-0 truncate text-sm text-ink-3">{{ askDescription(a) }}</p>
+            </div>
+            <RouterLink
+              :to="askTarget(a)"
+              :aria-describedby="askRowId(i)"
+              class="inline-flex h-8 shrink-0 items-center rounded-field bg-surface px-3 text-sm font-semibold text-ink no-underline outline-hidden transition-colors duration-150 ease-out hover:bg-gold-line focus-visible:shadow-focus motion-reduce:transition-none max-[359px]:ml-auto"
+            >{{ t(a.kind === 'draft' ? 'clientHome.ask.continue' : 'clientHome.ask.open') }}</RouterLink>
+          </li>
+        </ul>
+        <div v-if="asks.length > MAX_ASKS" class="border-t border-gold-line px-4 py-2.5">
+          <RouterLink to="/import-40" :class="cn(link, 'text-gold-ink hover:text-ink')" data-client-asks-more>
+            {{ t('clientHome.ask.more', { n: asks.length - MAX_ASKS }) }}
+          </RouterLink>
+        </div>
       </section>
 
       <section :aria-labelledby="ids.ships" :aria-busy="cases.loading || undefined" class="flex flex-col gap-3">

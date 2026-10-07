@@ -227,6 +227,14 @@ describe('оболочки', () => {
     const dlg = document.body.querySelector('[role="dialog"]') as HTMLElement
     expect(dlg).not.toBeNull()
     expect(btn.attributes('aria-expanded')).toBe('true')
+    // Шапка ящика — один логотип рядом с крестиком (без пустой строки заголовка над логотипом меню),
+    // имя окна — «Меню».
+    expect(dlg.querySelectorAll('[data-shell-logo]')).toHaveLength(1)
+    const title = document.getElementById(dlg.getAttribute('aria-labelledby')!)!
+    expect(title.contains(dlg.querySelector('[data-shell-logo]'))).toBe(true)
+    expect(title.querySelector('.sr-only')?.textContent).toBe('Меню')
+    expect(title.querySelector('[data-shell-logo]')?.getAttribute('aria-hidden')).toBe('true')
+    expect(dlg.querySelector('nav [data-shell-logo]')).toBeNull()
     const item = [...dlg.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'Настройки')!
     item.click()
     await flushPromises()

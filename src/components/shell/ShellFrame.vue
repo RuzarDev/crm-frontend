@@ -186,6 +186,12 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
       :width="280"
       :aria-label="t('shell.menu')"
     >
+      <!-- Шапка ящика — логотип в одной строке с крестиком; имя окна для чтения с экрана — «Меню». -->
+      <template #title>
+        <span class="sr-only">{{ t('shell.menu') }}</span>
+        <!-- Выровнен по иконкам пунктов: у плотного меню они на 2px левее поля заголовка ящика. -->
+        <span aria-hidden="true" :class="cn('flex', !comfortable && '-ml-0.5')" data-shell-logo><ZirconLogo size="sm" /></span>
+      </template>
       <div class="-mx-6 -my-4 h-[calc(100%+2rem)]">
         <ShellSidebar
           :model="model"
@@ -193,6 +199,7 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
           :attention="homeAttention"
           :comfortable="comfortable"
           :searchable="false"
+          :show-logo="false"
           @navigate="drawerOpen = false"
         />
       </div>

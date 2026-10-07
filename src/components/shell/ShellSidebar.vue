@@ -20,7 +20,9 @@ const props = withDefaults(defineProps<{
   searchable?: boolean
   /** Клиентская оболочка: пункты 38px и крупнее текст. */
   comfortable?: boolean
-}>(), { searchable: true, comfortable: false })
+  /** Логотип сверху. В ящике меню его нет — логотип стоит в шапке ящика рядом с крестиком. */
+  showLogo?: boolean
+}>(), { searchable: true, comfortable: false, showLogo: true })
 
 const emit = defineEmits<{ search: []; navigate: [] }>()
 const { t } = useI18n()
@@ -61,7 +63,7 @@ const iconSize = computed(() => (props.comfortable ? 17 : 16))
 
 <template>
   <nav :aria-label="t('shell.sectionNav')" class="flex h-full min-h-0 flex-col gap-0.5 overflow-y-auto p-3 [scrollbar-width:thin]">
-    <div :class="cn('pt-1', comfortable ? 'px-3 pb-4' : 'px-2.5 pb-3.5')">
+    <div v-if="showLogo" data-shell-logo :class="cn('pt-1', comfortable ? 'px-3 pb-4' : 'px-2.5 pb-3.5')">
       <ZirconLogo size="sm" />
     </div>
 

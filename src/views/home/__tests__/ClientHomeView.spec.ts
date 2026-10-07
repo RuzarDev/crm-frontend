@@ -93,12 +93,21 @@ describe('ClientHomeView', () => {
     expect(problem.get('ol').attributes('aria-label')).toBe('Этап 3 из 6')
     expect(problem.findAll('li .bg-danger, li.bg-danger')).toHaveLength(1)
 
-    const asks = w.findAll('[data-client-ask]')
+    const panel = w.get('[data-client-asks]')
+    expect(panel.attributes('aria-labelledby')).toBe(panel.get('h2').attributes('id'))
+    expect(panel.get('h2').text()).toBe('Нужно от вас')
+    expect(panel.find('[data-client-asks-count]').exists()).toBe(false)
+    const asks = panel.findAll('ul[role="list"] > li[data-client-ask]')
     expect(asks).toHaveLength(1)
-    expect(asks[0].text()).toContain('Вопрос по поставке И40-190')
+    expect(asks[0].text()).toContain('И40-190 · вопрос по поставке')
     expect(asks[0].text()).toContain('Нужен сертификат соответствия')
+    expect(asks[0].get('.font-mono').text()).toBe('И40-190')
     expect(homeAttention.value).toBe(1)
-    await asks[0].get('button').trigger('click')
+    const open = asks[0].get('a')
+    expect(open.text()).toBe('Открыть')
+    expect(open.attributes('href')).toBe('/import-40/c2')
+    expect(document.getElementById(open.attributes('aria-describedby')!)?.textContent).toContain('И40-190')
+    await open.trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/import-40/c2')
 
@@ -120,11 +129,37 @@ describe('ClientHomeView', () => {
     api.list.mockResolvedValue([kase({ id: 'd1', number: 'И40-200', status: 0, returnReason: 'Приложите инвойс' })])
     await mountIt()
     const ask = w.get('[data-client-ask]')
-    expect(ask.text()).toContain('Поставка И40-200 ждёт отправки')
+    expect(ask.text()).toContain('И40-200 · ждёт отправки')
     expect(ask.text()).toContain('Приложите инвойс')
-    await ask.get('button').trigger('click')
+    const go = ask.get('a')
+    expect(go.text()).toBe('Продолжить')
+    expect(go.attributes('href')).toBe('/import-40?continueId=d1')
+    await go.trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/import-40?continueId=d1')
+  })
+
+  it('больше трёх вопросов — одна панель, три строки, счётчик и «Ещё N»', async () => {
+    api.list.mockResolvedValue([
+      kase({ id: 'p1', number: 'И40-301', isProblem: true, status: 3, problemClientMessage: '' }),
+      kase({ id: 'v1', number: 'И40-302', status: 6, updatedAtUtc: ago(2) }),
+      kase({ id: 'd1', number: 'И40-303', status: 0, updatedAtUtc: ago(3) }),
+      kase({ id: 'd2', number: 'И40-304', status: 0, updatedAtUtc: ago(4) }),
+      kase({ id: 'd3', number: 'И40-305', status: 0, updatedAtUtc: ago(5) }),
+    ])
+    await mountIt()
+    expect(w.findAll('[data-client-asks]')).toHaveLength(1)
+    const panel = w.get('[data-client-asks]')
+    expect(panel.get('[data-client-asks-count]').text()).toBe('5')
+    const rows = panel.findAll('[data-client-ask]')
+    expect(rows.map((r) => r.get('.font-mono').text())).toEqual(['И40-301', 'И40-302', 'И40-303'])
+    expect(rows[1].text()).toContain('И40-302 · оплатите склад')
+    expect(rows[1].text()).toContain('Загрузите чек об оплате счёта СВХ')
+    expect(rows.map((r) => r.get('a').attributes('href'))).toEqual(['/import-40/p1', '/import-40/v1', '/import-40?continueId=d1'])
+    const more = panel.get('[data-client-asks-more]')
+    expect(more.text()).toBe('Ещё 2 — в списке поставок')
+    expect(more.attributes('href')).toBe('/import-40')
+    expect(homeAttention.value).toBe(5)
   })
 
   it('регистрация не завершена — «Оформить новую поставку» выключена', async () => {

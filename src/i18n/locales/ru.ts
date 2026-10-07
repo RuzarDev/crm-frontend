@@ -661,6 +661,7 @@ export default {
       open: 'Открыть',
       continue: 'Продолжить',
       more: 'Ещё {n} — в списке поставок',
+      short: { problem: 'вопрос по поставке', draft: 'ждёт отправки', payCheck: 'оплатите склад' },
     },
     shipments: 'Поставки в работе',
     stepOf: 'Этап {n} из {total}',
