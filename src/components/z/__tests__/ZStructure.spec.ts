@@ -291,17 +291,45 @@ describe('ZSpin', () => {
     expect(w.get('.c').element.parentElement?.className).toContain('opacity-50')
   })
 
-  it('spinning — содержимое inert (кнопка внутри не получает фокус с клавиатуры), иначе нет', async () => {
+  it('spinning — содержимое без inert (фокус в поле не теряется), только pointer-events-none; aria-busy на корне', async () => {
     w = mountWithI18n({
       components: { ZSpin },
-      data: () => ({ on: true }),
-      template: '<ZSpin :spinning="on"><button class="b">Ок</button></ZSpin>',
-    })
-    const wrap = w.get('.b').element.parentElement as HTMLElement
-    expect(wrap.hasAttribute('inert')).toBe(true)
+      data: () => ({ on: false }),
+      template: '<ZSpin :spinning="on"><input class="i"><button class="b">Ок</button></ZSpin>',
+    }, { attachTo: document.body })
+    const input = w.get('.i').element as HTMLInputElement
+    input.focus()
+    ;(w.vm as unknown as { on: boolean }).on = true
+    await nextTick()
+    const wrap = input.parentElement as HTMLElement
+    expect(wrap.hasAttribute('inert')).toBe(false)
+    expect(wrap.className).toContain('pointer-events-none')
+    expect(document.activeElement).toBe(input)
+    expect(w.attributes('aria-busy')).toBe('true')
     ;(w.vm as unknown as { on: boolean }).on = false
     await nextTick()
-    expect(wrap.hasAttribute('inert')).toBe(false)
+    expect(wrap.className).not.toContain('pointer-events-none')
+    expect(w.attributes('aria-busy')).toBeUndefined()
+  })
+
+  it.each([
+    [undefined, 'size-5'], ['sm', 'size-3.5'], ['md', 'size-5'], ['lg', 'size-7'],
+    ['small', 'size-3.5'], ['default', 'size-5'], ['large', 'size-7'],
+  ])('size=%s — кольцо %s', (size, cls) => {
+    w = mountWithI18n(ZSpin, { props: { spinning: true, size } })
+    const ring = w.get('[data-z-spin]').classes()
+    expect(ring).toContain(cls)
+    for (const other of ['size-3.5', 'size-5', 'size-7'].filter((c) => c !== cls)) expect(ring).not.toContain(other)
+  })
+
+  it('без слота — строчный индикатор (inline-flex span), годится рядом с текстом', () => {
+    w = mountWithI18n(ZSpin, { props: { spinning: true, tip: 'Считаем', size: 'small' } })
+    expect(w.element.tagName).toBe('SPAN')
+    expect(w.classes()).toContain('inline-flex')
+    expect(w.classes()).not.toContain('min-h-10')
+    expect(w.find('.absolute').exists()).toBe(false)
+    expect(w.attributes('aria-busy')).toBe('true')
+    expect(w.text()).toContain('Считаем')
   })
 
   it('не spinning — содержимое как есть, без индикатора', () => {
