@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { PhX } from '@phosphor-icons/vue'
 import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
+import { fieldShell } from '@/ui/surfaces'
 
 // class/style — на обёртку (ширина, отступы в раскладке), всё остальное (aria-*, data-*, inputmode,
 // autofocus, слушатели onKeydown/onPaste…) — на сам <input>, как у a-input.
@@ -53,9 +54,14 @@ const onEnter = (e: KeyboardEvent) => {
   if (e.isComposing) return
   emit('pressEnter', e)
 }
+// Очистка — как ввод: поле пустеет и получает настоящее событие input, поэтому onInput шлёт
+// update:value('') и change(Event) с target = <input> (a-input тоже шлёт change при очистке — автосейв).
 const clear = () => {
-  emit('update:value', '')
-  el.value?.focus()
+  const input = el.value
+  if (!input) return emit('update:value', '')
+  input.value = ''
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+  input.focus()
 }
 </script>
 
@@ -63,14 +69,7 @@ const clear = () => {
   <span
     :style="attrs.style as StyleValue"
     :class="cn(
-      'inline-flex w-full items-center gap-2 rounded-field border border-line-strong bg-surface px-3 text-ink',
-      'transition-[border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none',
-      'focus-within:border-zircon focus-within:shadow-focus',
-      // hover:not-focus-within — в собранном CSS hover идёт после focus-within и перебил бы рамку фокуса.
-      !invalid && !disabled && 'hover:not-focus-within:border-faint',
-      size === 'sm' ? 'h-7 text-xs' : 'h-9 text-sm',
-      invalid && 'border-danger focus-within:border-danger',
-      disabled && 'cursor-not-allowed bg-sunken text-ink-3',
+      fieldShell({ size, invalid, disabled }),
       attrs.class as ClassValue,
     )"
   >

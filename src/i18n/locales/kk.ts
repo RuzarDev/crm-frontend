@@ -11,6 +11,20 @@ export default {
     invalidCredentials: 'Логин немесе құпия сөз қате',
     loginNoToken: 'Кіру қатесі: жауапта токен жоқ',
   },
+  // Тексты набора компонентов Z (редизайн 2026-10).
+  z: {
+    noResults: 'Ештеңе табылмады',
+    close: 'Жабу',
+    confirm: 'Растау',
+    chooseDate: 'Күнді таңдау',
+    datePlaceholder: 'КК.АА.ЖЖЖЖ',
+    prevMonth: 'Алдыңғы ай',
+    nextMonth: 'Келесі ай',
+    increase: 'Арттыру',
+    decrease: 'Азайту',
+    remove: 'Алып тастау',
+    more: 'Тағы',
+  },
   common: {
     graphShort: '{n}-б.',
     emptyTitle: 'Әзірге бос',

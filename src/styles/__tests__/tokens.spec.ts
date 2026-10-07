@@ -35,6 +35,10 @@ describe('токены стиля C', () => {
     expect(contrast(color(`tone-${tone}-fg`), color(`tone-${tone}-bg`))).toBeGreaterThanOrEqual(4.5)
   })
 
+  it.each(['surface', 'canvas'])('control (граница чекбокса/радио, дорожка переключателя) на %s ≥ 3:1 (WCAG 1.4.11)', (bg) => {
+    expect(contrast(color('control'), color(bg))).toBeGreaterThanOrEqual(3)
+  })
+
   it('кольцо фокуса: 2px surface + 2px zircon-ink (≥ 3:1 к surface — видимый фокус, WCAG 2.4.7/1.4.11)', () => {
     const m = css.match(/--shadow-focus:\s*([^;]+);/)
     expect(m?.[1].replace(/\s+/g, ' ').trim()).toBe('0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-zircon-ink)')
@@ -60,3 +64,12 @@ describe('токены стиля C', () => {
   })
 })
 
+describe('уменьшенное движение', () => {
+  it('глобальное правило гасит анимации и переходы, но не отключает animationend', () => {
+    const m = css.match(/@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n\}/)
+    expect(m, 'нет @media (prefers-reduced-motion: reduce)').not.toBeNull()
+    expect(m![1]).toMatch(/animation-duration:\s*0\.01ms\s*!important/)
+    expect(m![1]).toMatch(/transition-duration:\s*0\.01ms\s*!important/)
+    expect(m![1]).not.toMatch(/animation(?:-name)?:\s*none/)
+  })
+})

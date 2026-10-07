@@ -11,6 +11,20 @@ export default {
     invalidCredentials: 'Invalid username or password',
     loginNoToken: 'Login error: no token in the response',
   },
+  // Тексты набора компонентов Z (редизайн 2026-10).
+  z: {
+    noResults: 'No results',
+    close: 'Close',
+    confirm: 'Confirm',
+    chooseDate: 'Choose date',
+    datePlaceholder: 'DD.MM.YYYY',
+    prevMonth: 'Previous month',
+    nextMonth: 'Next month',
+    increase: 'Increase',
+    decrease: 'Decrease',
+    remove: 'Remove',
+    more: 'More',
+  },
   common: {
     graphShort: 'Box {n}',
     emptyTitle: 'Nothing here yet',

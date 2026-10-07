@@ -17,6 +17,8 @@
   --color-ink-3: #6B675F;
   --color-muted: #75716A;
   --color-faint: #B5B0A6;
+  /* Граница и фон «выключено» у чекбокса/радио/переключателя: ≥ 3:1 к surface и canvas (WCAG 1.4.11) */
+  --color-control: #8E8A82;
 
   /* Бренд: navy — главное действие, zircon — единственный акцент, gold — только «нужно ваше действие» */
   --color-navy: #0E1B35;
@@ -71,4 +73,70 @@
   --shadow-focus: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-zircon-ink);
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-pop-in: z-pop-in 160ms var(--ease-out);
+  --animate-pop-out: z-pop-out 120ms ease-in;
+  @keyframes z-pop-in {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes z-pop-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  /* Раскрытие пункта ZCollapse: высоту отдаёт Reka через --reka-accordion-content-height. */
+  --animate-acc-open: z-acc-open 180ms var(--ease-out);
+  --animate-acc-close: z-acc-close 180ms var(--ease-out);
+  @keyframes z-acc-open {
+    from { height: 0; }
+    to { height: var(--reka-accordion-content-height); }
+  }
+  @keyframes z-acc-close {
+    from { height: var(--reka-accordion-content-height); }
+    to { height: 0; }
+  }
+
+  /* Фон окна (ZModal, ZDrawer): появление — fade-in, уход — pop-out (тоже только прозрачность). */
+  --animate-fade-in: z-fade-in 160ms var(--ease-out);
+  @keyframes z-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Боковая панель ZDrawer: выезд 220 мс, уход быстрее. transform — у панели нет translate-утилит. */
+  --animate-slide-in-right: z-slide-in-right 220ms var(--ease-out);
+  --animate-slide-out-right: z-slide-out-right 160ms ease-in;
+  --animate-slide-in-left: z-slide-in-left 220ms var(--ease-out);
+  --animate-slide-out-left: z-slide-out-left 160ms ease-in;
+  @keyframes z-slide-in-right {
+    from { transform: translateX(100%); }
+    to { transform: none; }
+  }
+  @keyframes z-slide-out-right {
+    from { transform: none; }
+    to { transform: translateX(100%); }
+  }
+  @keyframes z-slide-in-left {
+    from { transform: translateX(-100%); }
+    to { transform: none; }
+  }
+  @keyframes z-slide-out-left {
+    from { transform: none; }
+    to { transform: translateX(-100%); }
+  }
+}
+
+/* Уменьшенное движение: утилита motion-reduce:animate-none (0,1,0) проигрывает data-[state=…]:animate-* (0,2,0),
+   поэтому гасим движение одним глобальным правилом. 0.01ms, а не none: так animationend всё равно срабатывает
+   и Reka Presence корректно размонтирует закрывающиеся окна и пункты. Утилиты motion-reduce в компонентах остаются. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

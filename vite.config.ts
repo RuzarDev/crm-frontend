@@ -8,11 +8,18 @@ import { fileURLToPath, URL } from 'node:url'
 
 const proxyTarget = process.env.VITE_PROXY_TARGET || 'http://localhost:5110'
 
+// Z-набор подключается только явным импортом: иначе z/ZTable|ZField|ZFilterBar
+// (волна 0c) столкнулись бы по имени со старыми components/ui/* (8 экранов).
+// Только положительные глобы: unplugin-vue-components 0.26 в dev-наблюдателе
+// объединяет глобы через OR, и исключение «!…» там не работает.
+export const componentGlobs = ['src/components/*.vue', 'src/components/!(z)/**/*.vue']
+
 export default defineConfig({
   plugins: [
     tailwindcss(),
     vue(),
     Components({
+      globs: componentGlobs,
       resolvers: [
         AntDesignVueResolver({
           importStyle: false,
