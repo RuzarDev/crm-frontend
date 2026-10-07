@@ -285,13 +285,25 @@ const demoNotifications = (): AppNotification[] => [
 const notifDemo = useNotificationsStore()
 const authDemo = useAuthStore()
 const profileDemo = useProfileStore()
-const real = { fetch: notifDemo.fetch, markRead: notifDemo.markRead, markAllRead: notifDemo.markAllRead, logout: authDemo.logout, profile: profileDemo.profile }
+const real = {
+  fetch: notifDemo.fetch, markRead: notifDemo.markRead, markAllRead: notifDemo.markAllRead, logout: authDemo.logout,
+  profile: profileDemo.profile, items: notifDemo.items, unreadCount: notifDemo.unreadCount, loadError: notifDemo.loadError,
+}
+notifDemo.items = []
 notifDemo.unreadCount = 2
+// «Ошибка загрузки» в каталоге: следующее открытие колокольчика не загрузится, «Повторить» — загрузит.
+let demoFailNext = false
 notifDemo.fetch = async () => {
   notifDemo.loading = true
   await new Promise((r) => setTimeout(r, notifDemo.items.length ? 200 : 700))
-  if (!notifDemo.items.length) notifDemo.items = demoNotifications()
-  notifDemo.unreadCount = notifDemo.items.filter((n) => !n.isRead).length
+  if (demoFailNext) {
+    demoFailNext = false
+    notifDemo.loadError = true
+  } else {
+    if (!notifDemo.items.length) notifDemo.items = demoNotifications()
+    notifDemo.unreadCount = notifDemo.items.filter((n) => !n.isRead).length
+    notifDemo.loadError = false
+  }
   notifDemo.loading = false
 }
 notifDemo.markRead = async (id: string) => {
@@ -306,13 +318,18 @@ authDemo.logout = () => { shellEvent.value = 'выход (демо)' }
 if (!profileDemo.profile) {
   profileDemo.profile = { userId: 'demo', username: 'aigerim', displayName: 'Айгерим Касымова', phone: null, companyName: null, innBin: null, role: 'Import' }
 }
+const failShellDemo = () => {
+  notifDemo.items = []
+  demoFailNext = true
+}
 const resetShellDemo = () => {
   notifDemo.items = demoNotifications()
   notifDemo.unreadCount = 2
 }
 onBeforeUnmount(() => {
   Object.assign(notifDemo, { fetch: real.fetch, markRead: real.markRead, markAllRead: real.markAllRead })
-  notifDemo.reset()
+  // Возвращаем прежнее состояние стора, а не reset(): тот останавливает опрос и стирает настоящие данные.
+  Object.assign(notifDemo, { items: real.items, unreadCount: real.unreadCount, loadError: real.loadError, loading: false })
   authDemo.logout = real.logout
   profileDemo.profile = real.profile
 })
@@ -719,6 +736,8 @@ onBeforeUnmount(() => {
               Шапка без API: уведомления — демо (первое открытие показывает скелет),
               «Выйти» пишет событие ниже и переводит на /login.
               <ZButton variant="link" size="sm" @click="resetShellDemo">Вернуть непрочитанные</ZButton>
+              ·
+              <ZButton variant="link" size="sm" @click="failShellDemo">Следующая загрузка — с ошибкой</ZButton>
             </p>
           </div>
           <div class="flex flex-wrap gap-6">

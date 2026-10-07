@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import dayjs from 'dayjs'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { AppNotification } from '@/types/api'
 
@@ -79,12 +80,69 @@ describe('NotificationsBell', () => {
     const d = dialog()!
     expect(d.textContent).toContain('ДТ выпущена')
     expect(d.textContent).toContain('И40-182')
-    expect(d.textContent).toMatch(/\d{2}\.10 \d{2}:40/)
+    expect(d.textContent).toContain(dayjs('2026-10-08T05:40:00Z').format('DD.MM HH:mm'))
     bodyButton('ДТ выпущена')!.click()
     await settle()
     expect(api.markRead).toHaveBeenCalledWith('n1')
     expect(router.currentRoute.value.fullPath).toBe('/import-40/c1')
     expect(dialog()).toBeNull()
+  })
+
+  it('markRead упал — переход к заявке всё равно выполняется', async () => {
+    api.markRead.mockRejectedValue(new Error('network'))
+    w = mountIt(NotificationsBell)
+    await w.get('button').trigger('click')
+    await settle()
+    bodyButton('ДТ выпущена')!.click()
+    await settle()
+    expect(api.markRead).toHaveBeenCalledWith('n1')
+    expect(router.currentRoute.value.fullPath).toBe('/import-40/c1')
+  })
+
+  it('фокус при открытии — на окне, а не на ссылке «Все уведомления» (и пока грузится, и после)', async () => {
+    let resolve!: (v: unknown) => void
+    api.list.mockReturnValue(new Promise((r) => { resolve = r }))
+    w = mountIt(NotificationsBell)
+    ;(w.get('button').element as HTMLElement).focus()
+    await w.get('button').trigger('click')
+    await settle()
+    expect(document.activeElement).toBe(dialog())
+    expect((document.activeElement as HTMLElement).matches('a[href="/notifications"]')).toBe(false)
+    resolve({ data: [notif()] })
+    await settle()
+    expect(document.activeElement).toBe(dialog())
+  })
+
+  it('ошибка загрузки: причина и «Повторить» вместо «пусто»; повтор загружает список', async () => {
+    api.list.mockRejectedValueOnce(new Error('network'))
+    w = mountIt(NotificationsBell)
+    await w.get('button').trigger('click')
+    await settle()
+    const d = dialog()!
+    expect(d.querySelector('[role="alert"]')?.textContent).toContain('Не удалось загрузить уведомления')
+    expect(d.textContent).not.toContain('Новых уведомлений нет')
+    expect(d.querySelectorAll('[data-z-line]').length).toBe(0)
+    const retry = bodyButton('Повторить')!
+    retry.focus()
+    retry.click()
+    await settle()
+    expect(api.list).toHaveBeenCalledTimes(2)
+    expect(dialog()!.querySelector('[role="alert"]')).toBeNull()
+    expect(dialog()!.textContent).toContain('ДТ выпущена')
+    // кнопка пропала — фокус на первом уведомлении, а не в никуда
+    expect(document.activeElement?.textContent).toContain('ДТ выпущена')
+  })
+
+  it('ошибка загрузки при пустом ответе раньше — после успешного повтора пустой список показывает «нет уведомлений»', async () => {
+    api.list.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce({ data: [] })
+    w = mountIt(NotificationsBell)
+    await w.get('button').trigger('click')
+    await settle()
+    expect(bodyButton('Повторить')).toBeDefined()
+    bodyButton('Повторить')!.click()
+    await settle()
+    expect(dialog()!.textContent).toContain('Новых уведомлений нет')
+    expect(bodyButton('Повторить')).toBeUndefined()
   })
 
   it('прочитанное с привязкой к реестру — без markRead, переход на /reestr', async () => {
@@ -141,6 +199,25 @@ describe('NotificationsBell', () => {
     await w.get('button').trigger('click')
     await settle()
     expect(dialog()!.querySelectorAll('li').length).toBe(8)
+  })
+})
+
+describe('useNotificationsStore.loadError', () => {
+  it('ошибка fetch ставит флаг (без исключения наружу), успех и reset снимают', async () => {
+    const st = useNotificationsStore()
+    api.list.mockRejectedValueOnce(new Error('network'))
+    await expect(st.fetch()).resolves.toBeUndefined()
+    expect(st.loadError).toBe(true)
+    expect(st.loading).toBe(false)
+    await st.fetch()
+    expect(st.loadError).toBe(false)
+    expect(st.items).toHaveLength(2)
+    api.list.mockRejectedValueOnce(new Error('network'))
+    await st.fetch()
+    expect(st.loadError).toBe(true)
+    expect(st.items).toHaveLength(2) // прежний список не стирается
+    st.reset()
+    expect(st.loadError).toBe(false)
   })
 })
 

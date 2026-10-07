@@ -16,6 +16,11 @@ const props = withDefaults(defineProps<{
   width?: number | string
   /** Классы окна поверх стандартных (сливаются через cn: 'p-0' заменит отступ p-3). */
   contentClass?: string
+  /**
+   * При открытии фокус на само окно, а не на первый элемент внутри: содержимое ещё грузится,
+   * и первым доступным оказался бы случайный элемент (например, ссылка в подвале). Tab — дальше по порядку.
+   */
+  focusContent?: boolean
 }>(), { title: '', side: 'bottom', align: 'start' })
 
 const open = defineModel<boolean>('open', { default: false })
@@ -24,11 +29,15 @@ const titleId = useId()
 const widthStyle = computed(() => (props.width == null ? undefined : { width: typeof props.width === 'number' ? `${props.width}px` : props.width }))
 
 // Reka подписывает диалог id триггера (aria-labelledby) — при наличии заголовка подставляем его.
+// Событие приходит на обёртку позиционирования, сам диалог (role=dialog, tabindex=-1) — внутри неё.
 const onOpened = (e: Event) => {
-  if (!props.title) return
   const el = e.target as HTMLElement | null
-  const dialog = el?.getAttribute?.('role') === 'dialog' ? el : el?.querySelector?.('[role="dialog"]')
-  dialog?.setAttribute('aria-labelledby', titleId)
+  const dialog = el?.getAttribute?.('role') === 'dialog' ? el : el?.querySelector?.<HTMLElement>('[role="dialog"]')
+  if (props.title) dialog?.setAttribute('aria-labelledby', titleId)
+  if (props.focusContent && dialog) {
+    e.preventDefault()
+    dialog.focus({ preventScroll: true })
+  }
 }
 </script>
 

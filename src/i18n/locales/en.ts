@@ -95,6 +95,8 @@ export default {
       markAll: 'Mark all read',
       empty: 'No new notifications',
       all: 'All notifications',
+      error: 'Could not load notifications',
+      retry: 'Retry',
       unreadSr: 'unread',
     },
     user: { profile: 'Profile', logout: 'Sign out', menu: 'User menu' },

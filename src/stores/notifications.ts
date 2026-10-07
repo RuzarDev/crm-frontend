@@ -11,6 +11,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
   // Отдельно от items: опрашивается раз в минуту (только пока вкладка видима), без перегрузки
   // всего списка — колокольчик показывает счётчик даже когда выпадашка закрыта (аудит 2.3).
   const unreadCount = ref(0)
+  // Последняя загрузка списка не удалась — колокольчик показывает ошибку и «Повторить» вместо «пусто».
+  // Сбрасывается только успешной загрузкой (во время повтора ошибка остаётся на экране).
+  const loadError = ref(false)
 
   const fetch = async () => {
     loading.value = true
@@ -18,7 +21,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
       const res = await notificationsApi.list()
       items.value = res.data
       unreadCount.value = items.value.filter((n) => !n.isRead).length
+      loadError.value = false
     } catch {
+      loadError.value = true
       // Фоновая загрузка списка — тост уже показал перехватчик, здесь не дублируем.
     } finally {
       loading.value = false
@@ -81,7 +86,8 @@ export const useNotificationsStore = defineStore('notifications', () => {
     stopPolling()
     items.value = []
     unreadCount.value = 0
+    loadError.value = false
   }
 
-  return { items, loading, unreadCount, fetch, refreshUnreadCount, markRead, markAllRead, startPolling, stopPolling, reset }
+  return { items, loading, unreadCount, loadError, fetch, refreshUnreadCount, markRead, markAllRead, startPolling, stopPolling, reset }
 })

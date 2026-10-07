@@ -12,6 +12,8 @@ import { cn } from '@/ui/cn'
 
 // Колокольчик шапки: счётчик опрашивает стор (startPolling — в оболочке), список грузится при каждом открытии.
 // Клик по уведомлению читает его и ведёт к заявке/реестру (аудит 2.2), окно закрывается.
+// Окно открывается с фокусом на себе (focus-content): список ещё грузится, и первым доступным элементом
+// оказалась бы ссылка «Все уведомления» — первый же Enter увёл бы со страницы.
 const MAX_ITEMS = 8
 
 const { t } = useI18n()
@@ -19,27 +21,40 @@ const router = useRouter()
 const notifStore = useNotificationsStore()
 
 const open = ref(false)
+const rootEl = ref<HTMLDivElement | null>(null)
 const listEl = ref<HTMLUListElement | null>(null)
 
 const unread = computed(() => (notifStore.unreadCount > 0 ? notifStore.unreadCount : 0))
 const label = computed(() => (unread.value ? t('shell.bell.labelUnread', { n: unread.value }) : t('shell.bell.label')))
 const shown = computed(() => notifStore.items.slice(0, MAX_ITEMS))
 const hasUnreadItems = computed(() => notifStore.items.some((i) => !i.isRead))
-const firstLoad = computed(() => notifStore.loading && !notifStore.items.length)
+const firstLoad = computed(() => notifStore.loading && !notifStore.items.length && !notifStore.loadError)
 
 watch(open, (v) => { if (v) void notifStore.fetch() })
 
 const formatNotifTime = (iso: string) => dayjs(iso).format('DD.MM HH:mm')
 
+// Кнопка, на которой стоял фокус, пропала («Прочитать все», «Повторить») — фокус не должен уйти в никуда:
+// на первое уведомление, а если списка нет — на само окно.
+const keepFocus = async () => {
+  await nextTick()
+  const first = listEl.value?.querySelector<HTMLButtonElement>('button')
+  if (first) first.focus()
+  else rootEl.value?.closest<HTMLElement>('[role="dialog"]')?.focus({ preventScroll: true })
+}
+
 // Ошибку действия показывает общий перехватчик (тост) — здесь её только не пускаем дальше.
 const markAll = async (e: MouseEvent) => {
   const hadFocus = document.activeElement === e.currentTarget
   try { await notifStore.markAllRead() } catch { return }
-  // Кнопка пропадает вместе с непрочитанными — фокус не должен уйти в никуда.
-  if (hadFocus) {
-    await nextTick()
-    listEl.value?.querySelector<HTMLButtonElement>('button')?.focus()
-  }
+  if (hadFocus) await keepFocus()
+}
+
+const retry = async (e: MouseEvent) => {
+  if (notifStore.loading) return
+  const hadFocus = document.activeElement === e.currentTarget
+  await notifStore.fetch()
+  if (hadFocus && !notifStore.loadError) await keepFocus()
 }
 
 // Не прочиталось (сеть) — всё равно ведём, куда человек нажал: тост об ошибке он уже видит.
@@ -66,7 +81,7 @@ const itemClass = cn(
 </script>
 
 <template>
-  <ZPopover v-model:open="open" align="end" content-class="w-[calc(100vw-24px)] p-0 sm:w-[360px]">
+  <ZPopover v-model:open="open" align="end" focus-content content-class="w-[calc(100vw-24px)] p-0 sm:w-[360px]">
     <template #trigger>
       <button
         type="button"
@@ -83,7 +98,7 @@ const itemClass = cn(
       </button>
     </template>
 
-    <div class="flex min-h-7 items-center justify-between gap-3 px-4 pt-3 pb-2">
+    <div ref="rootEl" class="flex min-h-7 items-center justify-between gap-3 px-4 pt-3 pb-2">
       <p class="m-0 text-sm font-semibold text-ink">{{ t('shell.bell.title') }}</p>
       <button
         v-if="hasUnreadItems"
@@ -95,16 +110,35 @@ const itemClass = cn(
       </button>
     </div>
 
+    <div
+      v-if="notifStore.loadError"
+      role="alert"
+      class="flex flex-col items-center gap-2 border-t border-line px-4 py-6 text-center"
+    >
+      <p class="m-0 text-[13px] text-ink-2">{{ t('shell.bell.error') }}</p>
+      <button
+        type="button"
+        :aria-busy="notifStore.loading || undefined"
+        :class="cn(
+          'h-7 cursor-pointer rounded-[7px] border-0 bg-transparent px-2 font-sans text-[13px] font-medium text-zircon-ink outline-hidden',
+          'transition-[background-color,opacity] duration-150 ease-out hover:bg-sunken focus-visible:shadow-focus motion-reduce:transition-none',
+          notifStore.loading && 'cursor-progress opacity-60',
+        )"
+        @click="retry"
+      >
+        {{ t('shell.bell.retry') }}
+      </button>
+    </div>
     <div v-if="firstLoad" class="border-t border-line py-1">
       <div v-for="i in 3" :key="i" class="px-4 py-3">
         <ZSkeleton :lines="2" height="12px" />
       </div>
     </div>
-    <p v-else-if="!shown.length" class="m-0 border-t border-line px-4 py-8 text-center text-[13px] text-muted">
+    <p v-else-if="!shown.length && !notifStore.loadError" class="m-0 border-t border-line px-4 py-8 text-center text-[13px] text-muted">
       {{ t('shell.bell.empty') }}
     </p>
     <ul
-      v-else
+      v-else-if="shown.length"
       ref="listEl"
       class="m-0 max-h-[min(440px,60dvh)] list-none overflow-y-auto overscroll-contain border-t border-line p-0 py-1 [scrollbar-width:thin]"
     >
