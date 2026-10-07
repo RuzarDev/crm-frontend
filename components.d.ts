@@ -101,6 +101,7 @@ declare module 'vue' {
     Import40FactPaymentsSection: typeof import('./src/components/Import40FactPaymentsSection.vue')['default']
     Import40FileChips: typeof import('./src/components/Import40FileChips.vue')['default']
     Import40FilesBlock: typeof import('./src/components/Import40FilesBlock.vue')['default']
+    Import40GoodsExtras: typeof import('./src/components/import40/Import40GoodsExtras.vue')['default']
     Import40GoodsKedenFields: typeof import('./src/components/Import40GoodsKedenFields.vue')['default']
     Import40GoodsKedenPanel: typeof import('./src/components/Import40GoodsKedenPanel.vue')['default']
     Import40Step: typeof import('./src/components/Import40Step.vue')['default']
