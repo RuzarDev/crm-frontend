@@ -109,7 +109,9 @@ const handle = async (list: File[]) => {
     let result: boolean | void
     try {
       result = await props.beforeUpload?.(f)
-    } catch {
+    } catch (error) {
+      // Ошибка проверки экрана — не молчим (видно в консоли), файл пропускаем, остальные идут дальше.
+      console.error(error)
       continue
     }
     if (result === false) continue
@@ -125,20 +127,35 @@ const onChange = (e: Event) => {
   if (files.length) void handle(files)
 }
 
-const onDragOver = (e: DragEvent) => {
-  if (props.disabled) return
+// preventDefault — всегда, даже у выключенной зоны: иначе браузер откроет брошенный файл вместо страницы.
+// Выключенная (или занятая загрузкой) зона показывает «нельзя» (dropEffect none), не подсвечивается и не берёт файлы.
+// Подсветка — по счётчику входов/выходов: dragenter/dragleave приходят и от дочерних элементов (иначе мигает).
+const inactive = () => props.disabled || props.loading
+let depth = 0
+const block = (e: DragEvent) => {
   e.preventDefault()
+  if (!inactive()) return false
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'none'
+  return true
+}
+const onDragEnter = (e: DragEvent) => {
+  if (block(e)) return
+  depth++
   dragging.value = true
 }
-const onDragLeave = (e: DragEvent) => {
-  const next = e.relatedTarget as Node | null
-  if (next && (e.currentTarget as HTMLElement).contains(next)) return
-  dragging.value = false
+const onDragOver = (e: DragEvent) => {
+  if (block(e)) return
+  dragging.value = true
+}
+const onDragLeave = () => {
+  depth = Math.max(0, depth - 1)
+  if (depth === 0) dragging.value = false
 }
 const onDrop = (e: DragEvent) => {
   e.preventDefault()
+  depth = 0
   dragging.value = false
-  if (props.disabled) return
+  if (inactive()) return
   const files = Array.from(e.dataTransfer?.files ?? [])
   if (files.length) void handle(files)
 }
@@ -183,7 +200,7 @@ const zoneClasses = computed(() => cn(
       :class="zoneClasses"
       @click="open"
       @keydown="onKeydown"
-      @dragenter="onDragOver"
+      @dragenter="onDragEnter"
       @dragover="onDragOver"
       @dragleave="onDragLeave"
       @drop="onDrop"

@@ -83,9 +83,11 @@ describe('ZUpload — кнопка', () => {
       if (f.name === 'void.xlsx') return undefined
       return true
     })
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const w = mountWithI18n(ZUpload, { props: { multiple: true, beforeUpload, customRequest } })
     await pick(w, [file('no.xlsx'), file('boom.xlsx'), file('void.xlsx'), file('ok.xlsx')])
     expect(order).toEqual(['before:no.xlsx', 'before:boom.xlsx', 'before:void.xlsx', 'req:void.xlsx', 'before:ok.xlsx', 'req:ok.xlsx'])
+    spy.mockRestore()
   })
   it('без customRequest и beforeUpload — только select', async () => {
     const w = mountWithI18n(ZUpload)
@@ -316,5 +318,68 @@ describe('ZUpload — внутри ZField', () => {
     await flushPromises()
     expect(w.get('button').attributes('aria-invalid')).toBeUndefined()
     w.unmount()
+  })
+})
+
+describe('ZUpload — перетаскивание: выключенная зона и подсветка', () => {
+  const mk = (props: Record<string, unknown> = {}) =>
+    mountWithI18n(ZUpload, { props: { type: 'drag', ...props }, attachTo: document.body, slots: { default: '<b class="child">Счёт</b>' } })
+  const fire = (el: Element, type: string, init: { dataTransfer?: unknown; relatedTarget?: Element | null } = {}) => {
+    const ev = new Event(type, { bubbles: true, cancelable: true })
+    Object.assign(ev, { dataTransfer: init.dataTransfer ?? { files: [], dropEffect: 'copy' }, relatedTarget: init.relatedTarget ?? null })
+    el.dispatchEvent(ev)
+    return ev
+  }
+  for (const state of [{ disabled: true }, { loading: true }]) {
+    it(`${Object.keys(state)[0]}: dragover/drop отменяются (браузер не открывает файл), dropEffect none, файлы игнорируются`, async () => {
+      const beforeUpload = vi.fn()
+      const w = mk({ ...state, beforeUpload })
+      const zone = w.get('[role="button"]').element
+      const dt = { files: [file('a.xlsx')], dropEffect: 'copy' }
+      expect(fire(zone, 'dragenter', { dataTransfer: dt }).defaultPrevented).toBe(true)
+      const over = fire(zone, 'dragover', { dataTransfer: dt })
+      expect(over.defaultPrevented).toBe(true)
+      expect(dt.dropEffect).toBe('none')
+      await nextTick()
+      expect(w.get('[role="button"]').classes()).not.toContain('border-zircon')
+      expect(fire(zone, 'drop', { dataTransfer: dt }).defaultPrevented).toBe(true)
+      await flushPromises()
+      expect(beforeUpload).not.toHaveBeenCalled()
+      expect(w.emitted('select')).toBeUndefined()
+      w.unmount()
+    })
+  }
+  it('подсветка не мигает над дочерними элементами: счётчик входов/выходов', async () => {
+    const w = mk()
+    const zone = w.get('[role="button"]')
+    const child = w.get('.child').element
+    fire(zone.element, 'dragenter')
+    fire(child, 'dragenter')
+    fire(zone.element, 'dragleave', { relatedTarget: null })
+    await nextTick()
+    expect(zone.classes()).toContain('border-zircon')
+    fire(child, 'dragleave', { relatedTarget: null })
+    await nextTick()
+    expect(zone.classes()).not.toContain('border-zircon')
+    w.unmount()
+  })
+  it('beforeUpload бросает — console.error, файл пропускается, следующий обрабатывается', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const boom = new Error('boom')
+    const beforeUpload = vi.fn((f: File) => { if (f.name === 'a.xlsx') throw boom; return true })
+    const customRequest = vi.fn()
+    const w = mountWithI18n(ZUpload, { props: { multiple: true, beforeUpload, customRequest } })
+    await pick(w, [file('a.xlsx'), file('b.xlsx')])
+    expect(spy).toHaveBeenCalledWith(boom)
+    expect(customRequest).toHaveBeenCalledTimes(1)
+    expect(customRequest.mock.calls[0][0].file.name).toBe('b.xlsx')
+    spy.mockRestore()
+  })
+  it('async beforeUpload отклонён — тоже console.error', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const w = mountWithI18n(ZUpload, { props: { beforeUpload: () => Promise.reject(new Error('net')) } })
+    await pick(w, [file('a.xlsx')])
+    expect(spy).toHaveBeenCalledTimes(1)
+    spy.mockRestore()
   })
 })
