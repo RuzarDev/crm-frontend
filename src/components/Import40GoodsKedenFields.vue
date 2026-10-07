@@ -33,6 +33,24 @@
         <a-tooltip :title="t('dt.chastichnoMestHint')"><QuestionCircleOutlined class="label-help" /></a-tooltip></div>
       <a-input-number :value="good.extras?.cargoPartQuantity ?? null" :disabled="readonly" :min="0" :max="99999999" :precision="0"
         placeholder="0" @change="onPartPlaces" /></div>
+    <!-- 31.2: индивидуальная упаковка, поддоны, груз — дополнительно к основной упаковке (как в окне КЕДЕН) -->
+    <div class="zf-field zf-s12 pkg-extra">
+      <div class="zf-label">{{ t('dt.pkgExtraTitle') }}
+        <a-tooltip :title="t('dt.pkgExtraHint')"><QuestionCircleOutlined class="label-help" /></a-tooltip></div>
+      <div v-for="(p, pi) in (good.extras?.packages ?? [])" :key="pi" class="pkg-row">
+        <a-select v-model:value="p.kind" :disabled="readonly" :options="PKG_KIND_OPTIONS" :dropdown-match-select-width="false"
+          :get-popup-container="popupContainer" @change="emitChange" />
+        <a-select v-model:value="p.packageKindCode" :disabled="readonly" show-search allow-clear :options="pkgOptions"
+          option-filter-prop="label" :dropdown-match-select-width="false" :placeholder="t('dt.phVidUpakovki')"
+          :status="!p.packageKindCode ? 'warning' : undefined" :get-popup-container="popupContainer" @change="emitChange" />
+        <a-input-number v-model:value="p.quantity" :disabled="readonly" :min="0" :max="99999999" :precision="0"
+          :placeholder="t('dt.kolichestvoUpakovok')" @change="emitChange" />
+        <a-input v-uppercase v-model:value="p.description" :disabled="readonly" :maxlength="250"
+          :placeholder="t('dt.pkgExtraDesc')" @change="emitChange" />
+        <a-button v-if="!readonly" type="text" danger :title="t('dt.udalit')" @click="removePkg(pi)"><CloseOutlined /></a-button>
+      </div>
+      <div><a-button v-if="!readonly" type="dashed" size="small" @click="addPkg">{{ t('dt.pkgExtraAdd') }}</a-button></div>
+    </div>
     <div v-if="containerIndicator" class="zf-field zf-s4"><div class="zf-label">{{ t('dt.nomerKonteyneraGr313') }}</div>
       <a-input v-uppercase v-model:value="good.containerNumber" :disabled="readonly" placeholder="GLDU9071686" @change="emitChange" /></div>
 
@@ -311,6 +329,26 @@ const emit = defineEmits<{ (e: 'change'): void }>()
 const emitChange = () => emit('change')
 
 const popupContainer = () => document.body
+
+const ensureExtras = () => {
+  const g = props.good
+  g.extras ??= { traceable: false, exciseStamps: [], vehicles: [] }
+  g.extras.packages ??= []
+  return g.extras
+}
+const PKG_KIND_OPTIONS = computed(() => [
+  { value: '1', label: t('dt.pkgKind1') },
+  { value: '3', label: t('dt.pkgKind3') },
+  { value: '2', label: t('dt.pkgKind2') },
+])
+const addPkg = () => {
+  ensureExtras().packages!.push({ kind: '3', packageKindCode: null, quantity: null, description: null })
+  emitChange()
+}
+const removePkg = (i: number) => {
+  ensureExtras().packages!.splice(i, 1)
+  emitChange()
+}
 
 // Частично занятые места (2 товара в 1 коробке) живут в доп. сведениях товара (extras) — создаём их при первой правке.
 const onPartPlaces = (v: number | string | null) => {
@@ -835,6 +873,13 @@ const importMarkingsFromExcel = async (g: Import40GoodsItemInput, file: File) =>
 /* Маркировка */
 :not(#z) .marking-collapse :deep(.ant-collapse-header) { padding: 8px 0; font-weight: 600; color: var(--z-ink); }
 :not(#z) .marking-collapse :deep(.ant-collapse-content-box) { padding: 4px 0 0; }
+.pkg-extra { gap: 6px; }
+/* Переносится по ширине карточки (она бывает узкой), а не экрана. */
+.pkg-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pkg-row > .ant-select { flex: 1 1 170px; min-width: 0; }
+.pkg-row > .ant-input-number { flex: 0 1 110px; min-width: 90px; }
+.pkg-row > .ant-input { flex: 2 1 180px; min-width: 0; }
+.pkg-row > .ant-btn { flex: 0 0 auto; }
 .marking-block { border: 1px solid var(--z-line); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
 .marking-remove { align-self: end; align-items: flex-end; }
 .marking-empty { color: var(--z-muted); font-size: 12.5px; margin-bottom: 8px; }

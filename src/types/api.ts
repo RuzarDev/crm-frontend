@@ -1349,6 +1349,15 @@ export interface Import40GoodsExtras {
   cargoPartQuantity?: number | null
   exciseStamps: Import40GoodsExciseStamp[]
   vehicles: Import40GoodsVehicle[]
+  /** 31.2 доп. упаковка: kind 1 — индивидуальная, 2 — груз, 3 — поддоны (основная упаковка — поля товара). */
+  packages?: Import40GoodsPackage[]
+}
+
+export interface Import40GoodsPackage {
+  kind: string
+  packageKindCode?: string | null
+  quantity?: number | null
+  description?: string | null
 }
 
 export interface Import40GoodsExciseStamp {
@@ -1377,7 +1386,7 @@ export interface Import40GoodsVehicle {
 
 /** Глубокая копия доп. сведений (списки марок/автомобилей — свои объекты у каждой копии товара). */
 export const cloneGoodsExtras = (x: Import40GoodsExtras | null | undefined): Import40GoodsExtras | null =>
-  x ? { ...x, exciseStamps: (x.exciseStamps ?? []).map((s) => ({ ...s })), vehicles: (x.vehicles ?? []).map((v) => ({ ...v })) } : null
+  x ? { ...x, exciseStamps: (x.exciseStamps ?? []).map((s) => ({ ...s })), vehicles: (x.vehicles ?? []).map((v) => ({ ...v })), packages: (x.packages ?? []).map((p) => ({ ...p })) } : null
 
 // Одна строка маркировки товара (гр.31.13). Зеркалит Import40GoodsMarkingDto /
 // Import40GoodsMarkingRequest на бэке (Task 2).
