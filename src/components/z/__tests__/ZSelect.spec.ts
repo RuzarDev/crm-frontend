@@ -211,4 +211,33 @@ describe('ZSelect', () => {
     }
     expect(w.get('button[aria-label="Убрать ИМ — импорт"]').attributes('tabindex')).toBe('-1')
   })
+  it('подпись заменяется только первой правкой: набранный текст, совпавший с подписью, не стирается', async () => {
+    const opts = [{ value: 'al', label: 'Ал' }, { value: 'alm', label: 'Алматы' }]
+    w = mountWithI18n(ZSelect, { props: { value: 'al', options: opts, showSearch: true }, attachTo: document.body })
+    const input = w.get('input')
+    const el = input.element as HTMLInputElement
+    const typeChar = async (c: string) => {
+      await input.trigger('beforeinput', { inputType: 'insertText', data: c })
+      el.value += c
+      await input.trigger('input')
+      await nextTick()
+    }
+    await input.trigger('focus')
+    for (const c of 'Алм') await typeChar(c)
+    expect(el.value).toBe('Алм')
+    expect(w.emitted('search')?.at(-1)).toEqual(['Алм'])
+  })
+  it('IME: beforeinput композиции не трогает поле (выделенную подпись заменяет сама композиция)', async () => {
+    w = mountWithI18n(ZSelect, { props: { value: 'EK', options, showSearch: true }, attachTo: document.body })
+    const input = w.get('input')
+    const el = input.element as HTMLInputElement
+    await input.trigger('focus')
+    el.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertCompositionText', data: 'к', isComposing: true, bubbles: true, cancelable: true }))
+    await nextTick()
+    expect(el.value).toBe('ЭК — экспорт')
+    // Композиция заменила подпись — дальнейшие правки поле не очищают.
+    el.value = 'к'
+    el.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertText', data: 'а', bubbles: true, cancelable: true }))
+    expect(el.value).toBe('к')
+  })
 })

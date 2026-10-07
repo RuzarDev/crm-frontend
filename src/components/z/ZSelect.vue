@@ -75,8 +75,15 @@ const displayValue = (k: unknown) => (isMulti.value || k === null || k === undef
 const open = ref(false)
 const query = ref('')
 const inputText = ref(displayText.value)
+// В поле — нетронутая подпись выбранного (а не набранный текст, пусть даже совпавший с ней): ставится,
+// когда поле получает подпись (монтирование, blur, выбор, закрытие, смена значения), снимается первой правкой.
+const pristine = ref(true)
 // Опции часто приходят позже значения (справочник грузится) — подпись в закрытом поле обновляем.
-watch(displayText, (text) => { if (!open.value) inputText.value = text })
+watch(displayText, (text) => {
+  if (open.value) return
+  inputText.value = text
+  pristine.value = true
+})
 
 const filtered = computed(() => filterOptions(props.options, searchable.value ? query.value : '', props.filterOption, props.optionFilterProp))
 // tags: введённый текст, которого нет среди опций, — первым пунктом (Enter/клик добавляют его), как у AntD.
@@ -106,10 +113,14 @@ const resetSearch = () => {
 const onModel = (k: unknown) => {
   set(isMulti.value ? ((k as unknown[] | null | undefined) ?? []).map(fromKey) : k === null || k === undefined ? null : fromKey(k))
   resetSearch()
+  // single: Reka закрывает список и возвращает в поле подпись (displayValue).
+  if (!isMulti.value) pristine.value = true
 }
 const onOpen = (v: boolean) => {
   open.value = v
   resetQuery()
+  // При закрытии Reka возвращает в поле подпись (resetSearchTermOnBlur).
+  if (!v) pristine.value = true
 }
 
 const inputCmp = ref<ComponentPublicInstance>()
@@ -117,17 +128,26 @@ const inputEl = () => inputCmp.value?.$el as HTMLInputElement | undefined
 // single с поиском: подпись выбранного остаётся значением поля (скринридер читает выбранное), в фокусе
 // выделена; любая правка (символ, Backspace/Delete, вставка, IME, автозамена) заменяет её целиком,
 // а не дописывается к ней. beforeinput ловит все виды правок, в том числе без keydown.
-const labelShown = () => searchable.value && !isMulti.value && !!displayText.value && inputText.value === displayText.value
+const labelShown = () => searchable.value && !isMulti.value && !!displayText.value && pristine.value
 const clearLabel = () => {
   inputText.value = ''
   const el = inputEl()
   if (el) el.value = ''
 }
+// pristine на фокусе не ставим: фокус текст не меняет, а Reka при открытии зовёт input.focus() —
+// лишнее событие посреди набора вернуло бы флаг и стёрло набранное.
 const onFocus = (e: FocusEvent) => {
   if (labelShown()) inputEl()?.select()
   emit('focus', e)
 }
-const onBeforeInput = () => { if (labelShown()) clearLabel() }
+const onBeforeInput = (e: Event) => {
+  if (!labelShown()) return
+  pristine.value = false
+  // IME: value во время композиции не трогаем — выделенную (на фокусе) подпись заменит сама композиция.
+  const ie = e as InputEvent
+  if (ie.isComposing || ie.inputType === 'insertCompositionText') return
+  clearLabel()
+}
 
 const contentCmp = ref<ComponentPublicInstance>()
 const onBlur = (e: FocusEvent) => {
@@ -137,6 +157,7 @@ const onBlur = (e: FocusEvent) => {
   if (!isMulti.value) {
     resetQuery()
     inputText.value = displayText.value
+    pristine.value = true
   }
   emit('blur', e)
 }
