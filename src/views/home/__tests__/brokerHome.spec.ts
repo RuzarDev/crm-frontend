@@ -168,6 +168,9 @@ describe('monthCaption', () => {
   it('ru: «Октябрь 2026» без « г.»', () => {
     expect(monthCaption(NOW, 'ru')).toBe('Октябрь 2026')
   })
+  it('kk: «Қазан 2026» — месяц впереди, без « ж.»', () => {
+    expect(monthCaption(NOW, 'kk')).toBe('Қазан 2026')
+  })
   it('en: «October 2026»', () => {
     expect(monthCaption(NOW, 'en')).toBe('October 2026')
   })

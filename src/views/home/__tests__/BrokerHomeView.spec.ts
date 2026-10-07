@@ -103,7 +103,9 @@ describe('BrokerHomeView', () => {
     expect(cards.map((c) => c.find('.font-semibold').text())).toEqual([
       'Ждут вашего шага', 'Без исполнителя', 'Проблемные заявки', 'Просроченные счета',
     ])
-    expect(cards[3].text()).toContain(`1 на ${formatMoney(185000)}`)
+    // У просроченных — число в метке, как у остальных карточек, в тексте только сумма.
+    expect(cards[3].find('span').text()).toBe('1')
+    expect(cards[3].text()).toContain(`на сумму ${formatMoney(185000)}`)
     expect(cards[3].attributes('href')).toBe('/billing')
     expect(homeAttention.value).toBe(4)
 
@@ -126,7 +128,10 @@ describe('BrokerHomeView', () => {
   })
 
   it('бухгалтер: только деньги и карточка просроченных; задачи не запрашиваются', async () => {
-    setRole('User', ['finance.read'])
+    // Настоящий набор прав бухгалтера: import40.read и reestr.read есть, но isFinanceOnly их гасит.
+    setRole('User', ['import40.read', 'reestr.read', 'finance.read', 'finance.write'])
+    expect(useAuthStore().isFinanceOnly).toBe(true)
+    expect(useAuthStore().canUseImport40).toBe(true)
     await mountIt()
 
     expect(panel('Деньги за месяц')).toBeTruthy()
@@ -143,7 +148,10 @@ describe('BrokerHomeView', () => {
   it('ошибка распределения: блок показывает ошибку, «Повторить» перезапрашивает только его', async () => {
     setRole('Administrator')
     api.overview.mockRejectedValueOnce(new Error('500'))
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
     await mountIt()
+    expect(logged).toHaveBeenCalledTimes(1)
+    logged.mockRestore()
 
     const manage = panel('Распределение')!
     expect(manage.text()).toContain('Не удалось загрузить')
@@ -182,6 +190,7 @@ describe('BrokerHomeView', () => {
     expect(sales.attributes('href')).toBe('/sales')
     expect(go.findAll('a').some((a) => a.text() === 'Главная')).toBe(false)
     expect(Object.values(api).every((f) => f.mock.calls.length === 0)).toBe(true)
+    expect(homeAttention.value).toBe(0)
   })
 
   it('«Новая заявка» ведёт на /import-40?new=1', async () => {
@@ -200,8 +209,33 @@ describe('BrokerHomeView', () => {
     expect(panel('Мои задачи')!.find('[data-home-skeleton]').exists()).toBe(true)
     expect(panel('Распределение')!.find('[data-home-skeleton]').exists()).toBe(true)
     expect(panel('Транзит')!.find('[data-home-skeleton]').exists()).toBe(false)
+    // Место под «Требует внимания» занято скелетоном из двух карточек, пока грузится распределение.
+    const att = panel('Требует внимания')!
+    expect(att.find('[data-home-skeleton]').exists()).toBe(true)
+    expect(att.find('[data-home-skeleton]').element.children).toHaveLength(2)
+    expect(att.find('[data-home-attention]').exists()).toBe(false)
     // Бейдж ждёт распределение: пока оно грузится, число не пишем.
     expect(homeAttention.value).toBeNull()
+  })
+
+  it('загрузка закончилась без карточек — блок «Требует внимания» исчезает', async () => {
+    setRole('Administrator')
+    let resolve!: (v: ManageOverview) => void
+    api.overview.mockReturnValue(new Promise<ManageOverview>((r) => { resolve = r }))
+    api.import40.mockResolvedValue({ data: { ...dash, awaitingMe: 0, problemCases: 0 } })
+    api.invoices.mockResolvedValue([])
+    await mountIt()
+    expect(panel('Требует внимания')).toBeTruthy()
+    resolve({ ...overview, unassigned: 0, problems: 0, stale: 0 })
+    await flushPromises()
+    expect(panel('Требует внимания')).toBeUndefined()
+    expect(homeAttention.value).toBe(0)
+  })
+
+  it('счётчик задач озвучивается с контекстом', async () => {
+    setRole('Administrator')
+    await mountIt()
+    expect(panel('Мои задачи')!.find('.sr-only').text()).toBe('задач: 2')
   })
 
   it('без имени в профиле — приветствие без имени', async () => {

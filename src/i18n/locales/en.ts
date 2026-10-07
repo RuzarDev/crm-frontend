@@ -606,13 +606,14 @@ export default {
       unassigned: { title: 'Unassigned', text: 'Assign a declarant or checkpoint manager' },
       problems: { title: 'Requests with problems', text: 'Act now so clearance does not stall' },
       stale: { title: 'No progress for 5+ days', text: 'Check what is blocking them' },
-      overdue: { title: 'Overdue invoices', text: '{n} totalling {sum}' },
+      overdue: { title: 'Overdue invoices', text: 'totalling {sum}' },
     },
     tasks: {
       title: 'My tasks',
       all: 'All requests',
       empty: 'Nothing is waiting at your step',
       emptyAction: 'Open all requests',
+      countSr: 'tasks: {n}',
     },
     stages: { title: 'Requests by stage' },
     manage: {

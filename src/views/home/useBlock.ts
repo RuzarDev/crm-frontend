@@ -27,7 +27,8 @@ export function useBlock<T>(enabled: boolean, fetcher: () => Promise<T>): Block<
     try {
       const res = await fetcher()
       if (my === seq) data.value = res
-    } catch {
+    } catch (e) {
+      if (import.meta.env.DEV) console.error(e)
       if (my === seq) error.value = true
     } finally {
       if (my === seq) loading.value = false

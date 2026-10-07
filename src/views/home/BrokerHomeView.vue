@@ -61,9 +61,11 @@ const newRequest = () => router.push('/import-40?new=1')
 // ---- Требует внимания ----
 const attention = computed(() =>
   buildAttention({ import40: dash.data, manage: manage.data, invoices: invoices.data, now }))
+// Пока грузятся блоки, из которых собираются карточки, место под них занято скелетоном — панели ниже не прыгают.
+const attentionLoading = computed(() => dash.loading || manage.loading || invoices.loading)
 // Бейдж у «Главной» в меню — когда отработали все блоки, из которых собираются карточки.
 watchEffect(() => {
-  if (!dash.loading && !manage.loading && !invoices.loading) homeAttention.value = attention.value.length
+  if (!attentionLoading.value) homeAttention.value = attention.value.length
 })
 
 const TONE: Record<AttentionTone, { card: string; mark: string }> = {
@@ -71,15 +73,14 @@ const TONE: Record<AttentionTone, { card: string; mark: string }> = {
   danger: { card: 'bg-tone-danger-bg border-[#F6D2D4] hover:border-[#EBB3B7]', mark: 'bg-danger text-white' },
   neutral: { card: 'bg-canvas border-line hover:border-line-strong', mark: 'bg-tone-pay-bg text-tone-pay-fg' },
 }
-const attText = (key: string, count: number, amount?: number) =>
-  key === 'overdue'
-    ? t('home.att.overdue.text', { n: count, sum: formatMoney(amount ?? 0) })
-    : t(`home.att.${key}.text`)
+const attText = (key: string, amount?: number) =>
+  key === 'overdue' ? t('home.att.overdue.text', { sum: formatMoney(amount ?? 0) }) : t(`home.att.${key}.text`)
 
 // ---- Мои задачи ----
 const activeTasks = computed(() => (tasks.data ?? []).filter((c) => c.status < 8).length)
 const rows = computed(() => taskRows(tasks.data ?? []))
 const yesterday = computed(() => t('home.yesterday'))
+const ATT_SKELETON = ['52%', '64%']
 const TASK_SKELETON = [['38%', '62%'], ['46%', '54%'], ['32%', '68%'], ['42%', '50%'], ['36%', '58%']]
 
 // ---- Правая колонка ----
@@ -105,14 +106,28 @@ const link = 'shrink-0 rounded-[4px] text-[13px] font-medium text-zircon-ink no-
         <p v-if="imp" class="m-0 mt-1 min-h-5 text-sm text-ink-3">{{ summary }}</p>
       </div>
       <ZButton v-if="imp" variant="primary" class="ml-auto" @click="newRequest">
-        <template #icon><PhPlus :size="15" weight="bold" aria-hidden="true" /></template>
+        <template #icon><PhPlus :size="15" aria-hidden="true" /></template>
         {{ t('home.newRequest') }}
       </ZButton>
     </div>
 
-    <section v-if="attention.length" :aria-labelledby="ids.att" class="flex flex-col gap-2.5">
+    <section
+      v-if="attentionLoading || attention.length"
+      :aria-labelledby="ids.att"
+      :aria-busy="attentionLoading || undefined"
+      class="flex flex-col gap-2.5"
+    >
       <h2 :id="ids.att" class="m-0 text-[13px] font-semibold text-ink-2">{{ t('home.att.heading') }}</h2>
-      <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
+      <div v-if="attentionLoading" data-home-skeleton class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
+        <div v-for="w in ATT_SKELETON" :key="w" class="flex items-start gap-3 rounded-[12px] border border-line bg-canvas px-4 py-3.5">
+          <ZSkeleton width="30px" height="30px" class="shrink-0" />
+          <div class="flex min-w-0 flex-1 flex-col gap-2 pt-1">
+            <ZSkeleton :width="w" height="12px" />
+            <ZSkeleton width="78%" height="10px" />
+          </div>
+        </div>
+      </div>
+      <div v-else class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
         <RouterLink
           v-for="c in attention"
           :key="c.key"
@@ -125,15 +140,14 @@ const link = 'shrink-0 rounded-[4px] text-[13px] font-medium text-zircon-ink no-
           )"
         >
           <span
-            :aria-hidden="c.key === 'overdue' || undefined"
             :class="cn(
               'flex h-[30px] min-w-[30px] shrink-0 items-center justify-center rounded-[9px] px-1 text-[13px] font-bold tabular-nums',
               TONE[c.tone].mark,
             )"
-          >{{ c.key === 'overdue' ? '₸' : c.count }}</span>
+          >{{ c.count }}</span>
           <span class="min-w-0">
             <span class="block text-base font-semibold">{{ t(`home.att.${c.key}.title`) }}</span>
-            <span class="mt-0.5 block text-[13px] text-ink-3">{{ attText(c.key, c.count, c.amount) }}</span>
+            <span class="mt-0.5 block text-[13px] text-ink-3">{{ attText(c.key, c.amount) }}</span>
           </span>
         </RouterLink>
       </div>
@@ -151,7 +165,7 @@ const link = 'shrink-0 rounded-[4px] text-[13px] font-medium text-zircon-ink no-
           <span
             v-if="tasks.data"
             class="rounded-pill bg-sunken px-2 py-px text-xs font-semibold tabular-nums text-tone-neutral-fg"
-          >{{ activeTasks }}</span>
+          ><span aria-hidden="true">{{ activeTasks }}</span><span class="sr-only">{{ t('home.tasks.countSr', { n: activeTasks }) }}</span></span>
           <RouterLink to="/import-40?tab=my" :class="cn(link, 'ml-auto')">{{ t('home.tasks.all') }}</RouterLink>
         </div>
 
@@ -201,7 +215,7 @@ const link = 'shrink-0 rounded-[4px] text-[13px] font-medium text-zircon-ink no-
         </div>
       </section>
 
-      <aside
+      <div
         :class="cn(
           'min-w-0 gap-5',
           imp ? 'flex flex-[1_1_300px] flex-col' : 'grid w-full items-start [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]',
@@ -290,7 +304,7 @@ const link = 'shrink-0 rounded-[4px] text-[13px] font-medium text-zircon-ink no-
             </template>
           </dl>
         </HomePanel>
-      </aside>
+      </div>
     </div>
 
     <section v-else :aria-labelledby="ids.go" class="flex flex-col gap-2.5">

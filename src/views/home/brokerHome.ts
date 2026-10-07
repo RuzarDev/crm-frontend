@@ -139,12 +139,13 @@ export const taskRows = (cases: Import40CaseDto[], limit = 6): TaskRow[] =>
     }))
 
 /**
- * Подпись месяца для «Денег за месяц»: «Октябрь 2026» (хвост « г.» после года отброшен, первая буква заглавная).
+ * Подпись месяца для «Денег за месяц»: «<Месяц> <год>» в любом языке — «Октябрь 2026», «Қазан 2026»,
+ * «October 2026» (без « г.»/« ж.» и без порядка «год месяц»). Собираем из частей month и year сами.
  * Месяц — UTC, как у moneyForMonth: на стыке месяцев подпись и суммы не разъезжаются.
  */
 export const monthCaption = (now: Date, locale: string): string => {
   const parts = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).formatToParts(now)
-  while (parts.length && parts[parts.length - 1].type === 'literal') parts.pop()
-  const s = parts.map((p) => p.value).join('')
-  return s.charAt(0).toLocaleUpperCase(locale) + s.slice(1)
+  const month = parts.find((p) => p.type === 'month')?.value ?? ''
+  const year = parts.find((p) => p.type === 'year')?.value ?? ''
+  return `${month.charAt(0).toLocaleUpperCase(locale)}${month.slice(1)} ${year}`.trim()
 }
