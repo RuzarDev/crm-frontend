@@ -5,6 +5,7 @@ import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } f
 import { PhX } from '@phosphor-icons/vue'
 import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
+import { isolateFieldContext } from '@/ui/form'
 import { DialogOpenerSync } from '@/ui/dialogOpener'
 import { Z_LAYER_MODAL, cssSize, focusFirstInside, isDraftEscape, modalBackdrop, modalCloseButton } from '@/ui/surfaces'
 
@@ -21,6 +22,8 @@ const contentAttrs = computed(() => {
   return rest
 })
 
+// Окно — граница контекста формы: поля в нём не связываются с ZField/ZForm, внутри которых оно объявлено.
+isolateFieldContext()
 const props = withDefaults(defineProps<{
   open?: boolean
   title?: string

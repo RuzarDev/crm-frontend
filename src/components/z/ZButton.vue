@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useAttrs } from 'vue'
 import { cn } from '@/ui/cn'
 
 export type ZButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost' | 'link'
@@ -13,6 +13,16 @@ const props = withDefaults(defineProps<{
   block?: boolean
   htmlType?: 'button' | 'submit' | 'reset'
 }>(), { variant: 'secondary', size: 'md', loading: false, disabled: false, block: false, htmlType: 'button' })
+
+// class из родителя сливаем через cn: иначе bg-surface рядом с bg-sunken решал бы порядок в CSS, а не намерение.
+defineOptions({ inheritAttrs: false })
+// $attrs не реактивен для computed, поэтому слияние — функциями, вызываемыми из шаблона.
+// Своё aria-disabled/aria-busy ставим только при loading (и тогда оно главнее); иначе значения родителя проходят как есть.
+const attrs = useAttrs()
+const buttonAttrs = () => {
+  const { class: _class, ...others } = attrs
+  return props.loading ? { ...others, 'aria-disabled': 'true', 'aria-busy': 'true' } : others
+}
 
 const emit = defineEmits<{ click: [e: MouseEvent] }>()
 
@@ -69,11 +79,10 @@ const onClick = (e: MouseEvent) => {
 
 <template>
   <button
+    v-bind="buttonAttrs()"
     :type="htmlType"
-    :class="classes"
+    :class="cn(classes, $attrs.class as string)"
     :disabled="disabled"
-    :aria-disabled="loading || undefined"
-    :aria-busy="loading || undefined"
     @click="onClick"
   >
     <span

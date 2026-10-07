@@ -6,6 +6,7 @@ import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
 import { fieldShell } from '@/ui/surfaces'
 import { clampRound, formatFixed, parseNumber } from '@/ui/number'
+import { useFieldControl } from '@/ui/form'
 
 // class/style — на обёртку, остальное — на <input> (контракт Z-полей, см. ZInput).
 defineOptions({ inheritAttrs: false })
@@ -46,6 +47,11 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const inputRef = ref<HTMLInputElement | null>(null)
+// Внутри ZField: id/aria-* поля, красная рамка при ошибке, change/blur — полю (см. src/ui/form.ts).
+const { fieldId, fieldDescribedBy, fieldInvalid, fieldAriaInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+  attrs, invalid: () => !!props.invalid, id: () => props.id, focus: () => inputRef.value?.focus(), value: () => props.value,
+})
+const isInvalid = computed(() => props.invalid || fieldInvalid.value)
 const focused = ref(false)
 // Были ли правки с момента фокуса: blur без правок не эмитит и не нормализует значение с сервера.
 let dirty = false
@@ -68,6 +74,7 @@ const send = (v: number | null) => {
   current = v
   emit('update:value', v)
   emit('change', v)
+  notifyChange()
 }
 const commit = (next: number | null) => {
   const v = next === null ? null : clampRound(next, props)
@@ -105,7 +112,7 @@ const onKeydown = (e: KeyboardEvent) => {
   else if (e.key === 'Enter' && !e.isComposing) { commitText(); emit('pressEnter', e) }
 }
 const onFocus = (e: FocusEvent) => { focused.value = true; dirty = false; emit('focus', e) }
-const onBlur = (e: FocusEvent) => { focused.value = false; commitText(); emit('blur', e) }
+const onBlur = (e: FocusEvent) => { focused.value = false; commitText(); emit('blur', e); notifyBlur() }
 
 defineExpose({
   focus: () => inputRef.value?.focus(),
@@ -114,10 +121,10 @@ defineExpose({
 </script>
 
 <template>
-  <span :style="attrs.style as StyleValue" :class="cn(fieldShell({ size, invalid, disabled }), controls && 'pr-1', attrs.class as ClassValue)">
+  <span :style="attrs.style as StyleValue" :class="cn(fieldShell({ size, invalid: isInvalid, disabled }), controls && 'pr-1', attrs.class as ClassValue)">
     <input
       v-bind="inputAttrs"
-      :id="id"
+      :id="fieldId"
       ref="inputRef"
       v-model="text"
       type="text"
@@ -126,7 +133,9 @@ defineExpose({
       :placeholder="placeholder"
       :disabled="disabled"
       :readonly="readonly"
-      :aria-invalid="invalid || undefined"
+      :aria-invalid="fieldAriaInvalid"
+      :aria-describedby="fieldDescribedBy"
+      :aria-required="fieldRequired"
       :aria-valuemin="min"
       :aria-valuemax="max"
       :aria-valuenow="value ?? undefined"

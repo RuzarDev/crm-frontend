@@ -5,6 +5,7 @@ import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRo
 import { PhX } from '@phosphor-icons/vue'
 import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
+import { isolateFieldContext } from '@/ui/form'
 import { DialogOpenerSync } from '@/ui/dialogOpener'
 import { Z_LAYER_MODAL, cssSize, focusFirstInside, isDraftEscape, modalBackdrop, modalCloseButton } from '@/ui/surfaces'
 import ZButton from './ZButton.vue'
@@ -29,6 +30,8 @@ const contentAttrs = computed(() => {
   return rest
 })
 
+// Окно — граница контекста формы: поля в нём не связываются с ZField/ZForm, внутри которых оно объявлено.
+isolateFieldContext()
 const props = withDefaults(defineProps<{
   open?: boolean
   title?: string
@@ -36,7 +39,8 @@ const props = withDefaults(defineProps<{
   okText?: string
   cancelText?: string
   confirmLoading?: boolean
-  okButtonProps?: { disabled?: boolean; danger?: boolean }
+  /** htmlType 'submit' + form (id ZForm) — OK отправляет форму из тела окна (кнопка вне <form>): ok тоже приходит. */
+  okButtonProps?: { disabled?: boolean; danger?: boolean; htmlType?: 'button' | 'submit'; form?: string }
   cancelButtonProps?: { disabled?: boolean }
   /** false / null — без подвала; слот footer заменяет кнопки. */
   footer?: boolean | null
@@ -123,6 +127,8 @@ const contentStyle = computed(() => [{ '--w': cssSize(props.width) }, attrs.styl
             <ZButton
               :variant="okButtonProps.danger ? 'danger' : 'primary'"
               :disabled="okButtonProps.disabled"
+              :html-type="okButtonProps.htmlType ?? 'button'"
+              :form="okButtonProps.form"
               :loading="confirmLoading"
               @click="emit('ok', $event)"
             >

@@ -14,6 +14,7 @@ import { fieldShell, floatingSurface } from '@/ui/surfaces'
 import {
   calendarLocale, formatDateText, fromCalendarDate, isCompleteDateText, maskDateText, parseDateText, textOf, toCalendarDate,
 } from '@/ui/date'
+import { useFieldControl } from '@/ui/form'
 
 // Замена a-date-picker с value-format="YYYY-MM-DD" format="DD.MM.YYYY" (30 мест, в основном форма ДТ).
 // Поле — обычный <input> с маской ДД.ММ.ГГГГ (точки ставятся сами, вставка 28/09/2026, 2026-09-28,
@@ -64,6 +65,11 @@ const inRange = (d: DateValue) => (!minDate.value || d.compare(minDate.value) >=
 
 const inputEl = ref<HTMLInputElement>()
 const wrapEl = ref<HTMLElement>()
+// Внутри ZField: id/aria-* поля, красная рамка при ошибке; change — на фиксации, blur — на уходе из поля
+// (не в календарь) — полю (см. src/ui/form.ts).
+const { fieldId, fieldDescribedBy, fieldInvalid, fieldAriaInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
+  attrs, invalid: () => !!props.invalid || draftInvalid.value, id: () => props.id, focus: () => inputEl.value?.focus(), value: () => props.value,
+})
 const text = ref(formatDateText(props.value))
 // Пользователь правил текст с последней синхронизации со значением (черновик).
 const dirty = ref(false)
@@ -86,7 +92,7 @@ const draftInvalid = computed(() => {
   if (isCompleteDateText(text.value)) return !draftValid.value
   return /^\d{1,2}\.\d{1,2}\.\d{2}$/.test(text.value.trim()) && parsed.value === undefined
 })
-const isInvalid = computed(() => props.invalid || draftInvalid.value)
+const isInvalid = computed(() => props.invalid || draftInvalid.value || fieldInvalid.value)
 // Календарь показывает набранную дату, если она верна, иначе значение.
 const calendarModel = computed(() => (parsed.value && draftValid.value ? parsed.value : toCalendarDate(props.value) ?? null))
 
@@ -96,6 +102,7 @@ const set = (next: string | null) => {
   if (next === current.value) return
   emit('update:value', next)
   emit('change', next)
+  notifyChange()
 }
 // leave — уход из поля: неверный черновик откатывается; enter — остаётся (человек ещё в поле).
 const commit = (mode: 'enter' | 'leave') => {
@@ -118,6 +125,7 @@ const onFocusOut = (e: FocusEvent) => {
   // Фокус ушёл никуда, и окно браузера не в фокусе (alt-tab) — черновик остаётся как есть.
   if (!to && !document.hasFocus()) return
   commit('leave')
+  notifyBlur()
 }
 
 // Каретка после маски: столько же цифр перед ней, сколько было в набранном.
@@ -186,7 +194,11 @@ const onOpen = (v: boolean) => {
   open.value = v
   if (v || returnFocus) return
   // Закрыли кликом/фокусом мимо — это уход из поля.
-  nextTick(() => { if (document.hasFocus() && !inField(document.activeElement)) commit('leave') })
+  nextTick(() => {
+    if (!document.hasFocus() || inField(document.activeElement)) return
+    commit('leave')
+    notifyBlur()
+  })
 }
 const onCloseAutoFocus = (e: Event) => {
   e.preventDefault()
@@ -239,7 +251,7 @@ const cellClass = cn(
       >
         <input
           v-bind="inputAttrs"
-          :id="id"
+          :id="fieldId"
           ref="inputEl"
           :name="name"
           type="text"
@@ -249,7 +261,9 @@ const cellClass = cn(
           :placeholder="placeholder ?? t('z.datePlaceholder')"
           :disabled="disabled"
           :readonly="readonly"
-          :aria-invalid="isInvalid || undefined"
+          :aria-invalid="fieldAriaInvalid"
+          :aria-describedby="fieldDescribedBy"
+          :aria-required="fieldRequired"
           :data-z-draft="dirty || undefined"
           class="min-w-0 flex-1 border-0 bg-transparent p-0 font-sans tabular-nums [font-size:inherit] [line-height:inherit] [color:inherit] outline-hidden placeholder:text-muted disabled:cursor-not-allowed disabled:placeholder:text-ink-3"
           @input="onInput"
