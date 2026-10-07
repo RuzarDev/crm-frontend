@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { PhArrowSquareOut, PhCopy, PhMagnifyingGlass, PhPencilSimple, PhPlus, PhQuestion, PhTray, PhTrash, PhUploadSimple } from '@phosphor-icons/vue'
+import { computed, reactive, ref } from 'vue'
+import { PhArrowSquareOut, PhCopy, PhFunnel, PhMagnifyingGlass, PhPencilSimple, PhPlus, PhQuestion, PhTray, PhTrash, PhUploadSimple } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
@@ -29,6 +29,21 @@ import ZCollapse from '@/components/z/ZCollapse.vue'
 import ZCollapseItem from '@/components/z/ZCollapseItem.vue'
 import ZAlert from '@/components/z/ZAlert.vue'
 import ZSpin from '@/components/z/ZSpin.vue'
+import ZPopover from '@/components/z/ZPopover.vue'
+import ZForm from '@/components/z/ZForm.vue'
+import ZField from '@/components/z/ZField.vue'
+import ZTable from '@/components/z/ZTable.vue'
+import ZDescriptions from '@/components/z/ZDescriptions.vue'
+import ZDescriptionsItem from '@/components/z/ZDescriptionsItem.vue'
+import ZUpload from '@/components/z/ZUpload.vue'
+import ZDateRange from '@/components/z/ZDateRange.vue'
+import ZListRow from '@/components/z/ZListRow.vue'
+import ZStepper, { type ZStep } from '@/components/z/ZStepper.vue'
+import ZAskBanner from '@/components/z/ZAskBanner.vue'
+import ZProgress from '@/components/z/ZProgress.vue'
+import ZBreadcrumbs from '@/components/z/ZBreadcrumbs.vue'
+import type { ZColumn, ZKey } from '@/ui/table'
+import type { ZRule } from '@/ui/validation'
 import { message } from '@/ui/message'
 import { useConfirm } from '@/ui/confirm'
 
@@ -116,6 +131,114 @@ const mDate = ref<string | null>('2026-09-28')
 const mWeight = ref<number | null>(1240.5)
 const lastAction = ref('')
 
+// ---- Волна 0c: форма, таблица, описания, файлы, период, стиль C ----
+const form = reactive<{
+  bin: string; email: string; dateA: string | null; procedure: string | null; weight: number | null; password: string
+}>({ bin: '21034001234', email: 'declarant@akzhol', dateA: null, procedure: null, weight: null, password: '' })
+const formRules: Record<string, ZRule[]> = {
+  bin: [{ required: true }, { pattern: /^\d{12}$/, message: 'БИН — ровно 12 цифр' }],
+  email: [{ required: true }, { type: 'email' }],
+  dateA: [{ required: true, message: 'Укажите дату гр.А' }],
+  procedure: [{ required: true, message: 'Выберите процедуру' }],
+  weight: [{ required: true, message: 'Укажите вес нетто' }],
+  password: [{ required: true }, { min: 8 }],
+}
+const formState = ref('')
+const onFormFinish = () => { formState.value = 'Форма валидна'; message.success('Заявка сохранена') }
+const onFormFailed = (info: { errors: { name: string | undefined; message: string }[] }) => { formState.value = `Ошибок: ${info.errors.length}` }
+
+interface Row {
+  key: string
+  number: string
+  client: string
+  tnved: string
+  goods: string
+  status: string
+  sum: number
+  date: string
+}
+const rowClients = ['ТОО «Казахмыс Трейд»', 'ТОО «Astana Foods»', 'ИП Сейткали А.', 'ТОО «Ақжол Логистик»', 'ТОО «Altyn Med»', 'ТОО «Алатау Строй»']
+const rowTnved = ['8471 30 000 0', '8708 99 970 9', '3926 90 970 9', '8414 59 300 0', '6109 10 000 0', '8481 80 990 0']
+const rowGoods = [
+  'Комплектующие для станков с ЧПУ, шпиндельные узлы, 24 места',
+  'Тормозные колодки и ступицы для грузовых автомобилей',
+  'Изделия из пластмасс для строительства, фитинги и муфты',
+  'Вентиляторы осевые промышленные для систем охлаждения',
+  'Футболки хлопковые трикотажные, мужские, партия 12 000 шт',
+  'Запорная арматура, шаровые краны, диаметр 50 мм',
+]
+const rowStatuses: [string, 'neutral' | 'info' | 'wait' | 'submitted' | 'done' | 'pay' | 'danger' | 'accent'][] = [
+  ['Черновик', 'neutral'], ['Декларирование', 'info'], ['На границе', 'wait'], ['Подана', 'submitted'],
+  ['Выпущена', 'done'], ['Оплата', 'pay'], ['Проблема', 'danger'], ['Нужно от вас', 'accent'],
+]
+const makeRow = (i: number): Row => ({
+  key: `r${i}`,
+  number: `И40-${String(100 + i).padStart(4, '0')}`,
+  client: rowClients[(i * 7) % rowClients.length],
+  tnved: rowTnved[(i * 5) % rowTnved.length],
+  goods: rowGoods[(i * 3) % rowGoods.length],
+  status: String((i * 11) % rowStatuses.length),
+  sum: 480_000 + ((i * 7919) % 97) * 143_250 + (i % 13) * 1_000,
+  date: `2026-${String(1 + (i % 9)).padStart(2, '0')}-${String(1 + ((i * 3) % 28)).padStart(2, '0')}`,
+})
+const allRows: Row[] = Array.from({ length: 60 }, (_, i) => makeRow(i + 1))
+const fmtDate = (iso: string) => iso.split('-').reverse().join('.')
+const fmtSum = (n: number) => `${n.toLocaleString('ru-RU')} ₸`
+const toneOf = (i: string) => rowStatuses[Number(i)]
+
+const tableColumns: ZColumn<Row>[] = [
+  { key: 'number', title: 'Номер', dataIndex: 'number', width: 120, fixed: 'left', sorter: true },
+  { key: 'client', title: 'Клиент', dataIndex: 'client', width: 250 },
+  { key: 'tnved', title: 'ТН ВЭД', dataIndex: 'tnved', width: 140 },
+  { key: 'goods', title: 'Описание товара', dataIndex: 'goods', width: 220, ellipsis: true },
+  { key: 'status', title: 'Статус', dataIndex: 'status', width: 160 },
+  { key: 'sum', title: 'Сумма', dataIndex: 'sum', width: 150, align: 'right', sorter: true, className: 'tabular-nums', customRender: ({ value }) => fmtSum(value as number) },
+  { key: 'date', title: 'Дата', dataIndex: 'date', width: 110, sorter: true, customRender: ({ value }) => fmtDate(value as string) },
+]
+const tableLoading = ref(false)
+const tableEmpty = ref(false)
+const tableData = computed(() => (tableEmpty.value ? [] : allRows))
+const selectedKeys = ref<ZKey[]>(['r3', 'r5'])
+const rowSelection = {
+  get selectedRowKeys() { return selectedKeys.value },
+  onChange: (keys: ZKey[]) => { selectedKeys.value = keys },
+}
+
+const SERVER_TOTAL = 240
+const serverPage = ref(1)
+const serverLoading = ref(false)
+const serverRows = computed(() => Array.from({ length: 10 }, (_, i) => makeRow((serverPage.value - 1) * 10 + i + 1)))
+const serverColumns: ZColumn<Row>[] = [
+  { key: 'number', title: 'Номер', dataIndex: 'number', width: 120 },
+  { key: 'client', title: 'Клиент', dataIndex: 'client' },
+  { key: 'sum', title: 'Сумма', dataIndex: 'sum', width: 150, align: 'right', className: 'tabular-nums', customRender: ({ value }) => fmtSum(value as number) },
+]
+const onServerPage = (page: number) => {
+  serverLoading.value = true
+  setTimeout(() => { serverPage.value = page; serverLoading.value = false }, 300)
+}
+
+const filterSelected = ref<string[]>(['Подана', 'Выпущена'])
+const filterStatuses = ['Черновик', 'Декларирование', 'На границе', 'Подана', 'Выпущена', 'Оплата']
+
+const uploadedNames = ref<string[]>([])
+const onUploadSelect = (files: File[]) => { uploadedNames.value = files.map((f) => f.name) }
+const period = ref<[string | null, string | null]>(['2026-09-01', '2026-09-28'])
+
+const stages: ZStep[] = [
+  { key: 'request', label: 'Заявка' },
+  { key: 'docs', label: 'Документы' },
+  { key: 'calc', label: 'Расчёт' },
+  { key: 'declaring', label: 'Декларирование' },
+  { key: 'submit', label: 'Подача в КЕДЕН' },
+  { key: 'release', label: 'Выпуск' },
+  { key: 'closed', label: 'Закрыто' },
+]
+const crumbs = [{ label: 'Импорт 40', to: '/_ui' }, { label: 'И40-182', to: '/_ui' }, { label: 'Декларация' }]
+const searchHint = ref('')
+const searchQuery = ref('И40-182')
+const pwd = ref('Zircon2026!')
+
 const { confirm } = useConfirm()
 const askConfirm = async () => {
   const ok = await confirm({
@@ -135,7 +258,7 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
 <template>
   <div class="min-h-screen bg-canvas px-4 py-8 font-sans text-ink sm:px-10">
     <div class="mx-auto flex max-w-[1080px] flex-col gap-8">
-      <ZPage title="Каталог компонентов" subtitle="Волна 0a–0b · стиль C · IBM Plex Sans">
+      <ZPage title="Каталог компонентов" subtitle="Волны 0a–0c · стиль C · IBM Plex Sans">
         <template #meta><ZTag tone="info" size="sm">dev</ZTag></template>
         <template #actions>
           <ZButton variant="secondary" @click="message.info('Черновик сохранён')">Тост: инфо</ZButton>
@@ -382,6 +505,127 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
             <ZButton variant="danger" @click="askConfirm">Спросить</ZButton>
           </div>
           <p class="text-sm text-ink-3">Последнее действие: <span class="text-ink">{{ lastAction || '—' }}</span></p>
+        </div>
+      </ZPanel>
+
+      <ZPanel class="min-w-0" title="Форма (ZForm + ZField)">
+        <ZForm :model="form" :rules="formRules" layout="grid" class="gap-x-4 gap-y-3" @finish="onFormFinish" @finish-failed="onFormFailed">
+          <ZField label="БИН клиента" name="bin" required :span="4" help="12 цифр, без пробелов">
+            <ZInput v-model:value="form.bin" mono :maxlength="12" placeholder="210340012345" />
+          </ZField>
+          <ZField label="E-mail декларанта" name="email" required :span="4">
+            <ZInput v-model:value="form.email" type="text" placeholder="name@company.kz" />
+          </ZField>
+          <ZField label="Дата" graph="A" name="dateA" required :span="4">
+            <ZDate v-model:value="form.dateA" />
+          </ZField>
+          <ZField label="Процедура" graph="1" name="procedure" required :span="6">
+            <ZSelect v-model:value="form.procedure" :options="procedures" placeholder="Выберите процедуру" />
+          </ZField>
+          <ZField label="Вес нетто, кг" graph="38" name="weight" required :span="3" extra="До трёх знаков после запятой">
+            <ZNumber v-model:value="form.weight" :precision="3" :min="0" />
+          </ZField>
+          <ZField label="Пароль КЕДЕН" name="password" required :span="3">
+            <ZInput v-model:value="form.password" type="password" />
+          </ZField>
+          <div class="flex flex-wrap items-center gap-3">
+            <ZButton variant="primary" html-type="submit">Сохранить</ZButton>
+            <span class="text-sm text-ink-3">{{ formState || 'Нажмите «Сохранить», чтобы увидеть ошибки' }}</span>
+          </div>
+        </ZForm>
+      </ZPanel>
+
+      <ZPanel class="min-w-0" title="Таблица (ZTable)" padding="none">
+        <div class="flex flex-wrap items-center gap-4 border-b border-line px-4 py-3">
+          <ZSwitch v-model:checked="tableLoading" size="sm">Загрузка</ZSwitch>
+          <ZSwitch v-model:checked="tableEmpty" size="sm">Пусто</ZSwitch>
+          <ZPopover title="Фильтр: статус" :width="260">
+            <template #trigger><ZButton size="sm" variant="secondary"><template #icon><PhFunnel :size="14" /></template>Статус ({{ filterSelected.length }})</ZButton></template>
+            <div class="flex flex-col gap-2">
+              <ZCheckbox v-for="st in filterStatuses" :key="st" :checked="filterSelected.includes(st)" @update:checked="(v: boolean) => (filterSelected = v ? [...filterSelected, st] : filterSelected.filter((x) => x !== st))">{{ st }}</ZCheckbox>
+            </div>
+          </ZPopover>
+          <span class="ml-auto text-sm text-ink-3">Выбрано: <b class="tabular-nums text-ink">{{ selectedKeys.length }}</b></span>
+        </div>
+        <ZTable
+          :columns="tableColumns" :data-source="tableData" :loading="tableLoading" :row-selection="rowSelection"
+          :scroll="{ x: 1100 }" :pagination="{ pageSize: 10, showTotal: (total: number) => `Всего ${total}` }"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'client'">
+              <span class="flex min-w-0 items-center gap-2">
+                <ZAvatar :name="(record as Row).client" size="sm" />
+                <span class="truncate">{{ (record as Row).client }}</span>
+              </span>
+            </template>
+            <template v-else-if="column.key === 'tnved'"><span class="font-mono tabular-nums">{{ (record as Row).tnved }}</span></template>
+            <template v-else-if="column.key === 'status'"><ZTag :tone="toneOf((record as Row).status)[1]">{{ toneOf((record as Row).status)[0] }}</ZTag></template>
+          </template>
+        </ZTable>
+      </ZPanel>
+
+      <ZPanel class="min-w-0" title="Таблица: серверная пагинация" padding="none">
+        <ZTable
+          :columns="serverColumns" :data-source="serverRows" :loading="serverLoading"
+          :pagination="{ current: serverPage, pageSize: 10, total: SERVER_TOTAL, onChange: onServerPage, showTotal: (total: number) => `Всего ${total}` }"
+        />
+      </ZPanel>
+
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <ZPanel class="min-w-0" title="Описания (ZDescriptions)">
+          <ZDescriptions bordered :column="2" title="Стороны ДТ">
+            <ZDescriptionsItem label="Отправитель (гр.2)">Shenzhen Mechanics Co., Ltd.</ZDescriptionsItem>
+            <ZDescriptionsItem label="Получатель (гр.8)">ТОО «Ақжол Логистик»</ZDescriptionsItem>
+            <ZDescriptionsItem label="БИН"><span class="font-mono tabular-nums">210340012345</span></ZDescriptionsItem>
+            <ZDescriptionsItem label="Процедура">ИМ 40</ZDescriptionsItem>
+            <ZDescriptionsItem label="Адрес" :span="2" multiline>{{ 'Республика Казахстан, 050000,\nг. Алматы, Алмалинский район,\nул. Фурманова, 187, офис 12' }}</ZDescriptionsItem>
+            <ZDescriptionsItem label="Комментарий" :span="2"></ZDescriptionsItem>
+          </ZDescriptions>
+        </ZPanel>
+
+        <ZPanel class="min-w-0" title="Файлы (ZUpload) и период">
+          <div class="flex flex-col gap-4">
+            <ZUpload accept=".xlsx" :max-size-mb="10" @select="onUploadSelect">Загрузить Excel</ZUpload>
+            <ZUpload type="drag" accept=".pdf,.xlsx,.jpg" multiple @select="onUploadSelect">Перетащите инвойс или спецификацию сюда</ZUpload>
+            <p class="font-mono text-xs text-ink-3">файлы: {{ uploadedNames.join(', ') || '—' }}</p>
+            <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Период оформления
+              <ZDateRange v-model:value="period" allow-clear />
+            </label>
+            <p class="font-mono text-xs tabular-nums text-ink-3">{{ period[0] }} — {{ period[1] }}</p>
+          </div>
+        </ZPanel>
+      </div>
+
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <ZPanel class="min-w-0" title="Поиск и пароль">
+          <div class="flex flex-col gap-3">
+            <ZInput v-model:value="searchQuery" type="search" enter-button allow-clear placeholder="Номер заявки или БИН" @search="(v: string) => (searchHint = `Поиск: ${v}`)" />
+            <ZInput type="search" enter-button="Найти" placeholder="С текстом на кнопке" />
+            <ZInput v-model:value="pwd" type="password" />
+            <p class="text-sm text-ink-3">{{ searchHint || 'Enter или кнопка запускает поиск' }}</p>
+          </div>
+        </ZPanel>
+
+        <ZPanel class="min-w-0" title="Стиль C: строки списка">
+          <div class="flex flex-col">
+            <ZListRow v-for="(c, i) in companies.slice(0, 3)" :key="c" :title="c" subtitle="Импорт 40 · ИМ 40" :avatar-name="c">
+              <template #meta><ZTag :tone="rowStatuses[i + 1][1]" size="sm">{{ rowStatuses[i + 1][0] }}</ZTag></template>
+              <template #trailing><span class="font-mono text-sm text-ink">{{ fmtSum(1_240_500 + i * 311_250) }}</span></template>
+            </ZListRow>
+          </div>
+        </ZPanel>
+      </div>
+
+      <ZPanel class="min-w-0" title="Стиль C: этапы, подсказки, прогресс">
+        <div class="flex flex-col gap-5">
+          <ZBreadcrumbs :items="crumbs" />
+          <ZStepper :steps="stages" current="declaring" />
+          <ZAskBanner title="Нужен сертификат соответствия" description="Для позиции 3 загрузите сертификат до подачи декларации." action-text="Загрузить" @action="message.info('Открыть загрузку')" />
+          <div class="flex flex-col gap-3">
+            <ZProgress :percent="45" show-info aria-label="Заполнено 45%" />
+            <ZProgress :percent="100" status="success" show-info aria-label="Готово" />
+            <ZProgress :percent="30" status="exception" size="sm" aria-label="Ошибка" />
+          </div>
         </div>
       </ZPanel>
 
