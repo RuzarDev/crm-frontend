@@ -21,7 +21,7 @@ const contrast = (a: string, b: string) => {
 
 describe('токены стиля C', () => {
   it.each([
-    ['ink', 'surface'], ['ink', 'canvas'], ['ink', 'sunken'],
+    ['ink', 'surface'], ['ink', 'canvas'], ['ink', 'sunken'], ['ink', 'line-strong'],
     ['ink-2', 'surface'], ['ink-2', 'sunken'],
     ['ink-3', 'surface'], ['ink-3', 'canvas'],
     ['muted', 'surface'], ['muted', 'canvas'],

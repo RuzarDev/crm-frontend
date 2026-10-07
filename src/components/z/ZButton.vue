@@ -14,33 +14,68 @@ const props = withDefaults(defineProps<{
   htmlType?: 'button' | 'submit' | 'reset'
 }>(), { variant: 'secondary', size: 'md', loading: false, disabled: false, block: false, htmlType: 'button' })
 
+const emit = defineEmits<{ click: [e: MouseEvent] }>()
+
 // Главное действие — navy (одно на экран), акцент zircon сюда не идёт (спека §3).
 const VARIANT: Record<ZButtonVariant, string> = {
-  primary: 'bg-navy text-white hover:bg-navy-hover',
-  secondary: 'bg-sunken text-ink hover:bg-line',
-  ghost: 'bg-transparent text-ink-2 hover:bg-sunken hover:text-ink',
-  danger: 'bg-danger text-white hover:bg-danger-hover',
-  'danger-ghost': 'bg-transparent text-danger hover:bg-tone-danger-bg',
-  link: 'bg-transparent text-zircon-ink hover:underline underline-offset-4 h-auto px-0',
+  primary: 'bg-navy text-white',
+  secondary: 'bg-sunken text-ink',
+  ghost: 'bg-transparent text-ink-2',
+  danger: 'bg-danger text-white',
+  'danger-ghost': 'bg-transparent text-danger',
+  link: 'bg-transparent text-zircon-ink h-auto px-0 underline-offset-4',
+}
+// Hover — только у доступной кнопки: enabled: снимает его с disabled, а у loading словарь не подключается вовсе.
+const HOVER: Record<ZButtonVariant, string> = {
+  primary: 'enabled:hover:bg-navy-hover',
+  secondary: 'enabled:hover:bg-line-strong',
+  ghost: 'enabled:hover:bg-sunken enabled:hover:text-ink',
+  danger: 'enabled:hover:bg-danger-hover',
+  'danger-ghost': 'enabled:hover:bg-tone-danger-bg enabled:hover:text-tone-danger-fg',
+  link: 'enabled:hover:underline',
 }
 const SIZE: Record<ZButtonSize, string> = {
   sm: 'h-7 px-2.5 text-xs gap-1.5',
   md: 'h-9 px-3.5 text-sm gap-2',
 }
 
+const interactive = computed(() => !props.disabled && !props.loading)
+
 const classes = computed(() => cn(
   'inline-flex items-center justify-center rounded-field border-0 font-sans font-semibold whitespace-nowrap select-none cursor-pointer',
-  'transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100',
+  // active:scale-* в Tailwind 4 пишет свойство scale (не transform) — его и анимируем.
+  'transition-[background-color,color,scale] duration-150 ease-out motion-reduce:transition-none',
   'outline-none focus-visible:shadow-focus',
-  'disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100',
+  // Выключенный вид — только у настоящего disabled; loading остаётся в полном цвете.
+  'disabled:cursor-not-allowed disabled:opacity-45',
   SIZE[props.size],
   VARIANT[props.variant],
+  interactive.value && HOVER[props.variant],
+  interactive.value && 'motion-safe:active:scale-[0.98]',
+  props.loading && 'cursor-progress',
   props.block && 'w-full',
 ))
+
+// Во время loading кнопка не выключена нативно (не серая, фокус не теряется), поэтому клик глотаем сами:
+// без emit и с preventDefault — чтобы htmlType=submit не отправил форму второй раз.
+const onClick = (e: MouseEvent) => {
+  if (props.loading) {
+    e.preventDefault()
+    return
+  }
+  emit('click', e)
+}
 </script>
 
 <template>
-  <button :type="htmlType" :class="classes" :disabled="disabled || loading" :aria-busy="loading || undefined">
+  <button
+    :type="htmlType"
+    :class="classes"
+    :disabled="disabled"
+    :aria-disabled="loading || undefined"
+    :aria-busy="loading || undefined"
+    @click="onClick"
+  >
     <span
       v-if="loading"
       data-z-spin
