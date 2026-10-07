@@ -11,6 +11,8 @@ import '@fontsource/ibm-plex-sans/600.css'
 import '@fontsource/ibm-plex-sans/700.css'
 import '@fontsource/ibm-plex-mono/400.css'
 import '@fontsource/ibm-plex-mono/500.css'
+// Manrope — только для надписи ZIRCON (брендбук); в нём нет казахских букв, для текста не используется
+import '@fontsource/manrope/800.css'
 import './styles/tailwind.css'
 import './assets/main.css'
 import { vUppercase } from './directives/uppercase'
