@@ -143,6 +143,8 @@ declare module 'vue' {
     ZButton: typeof import('./src/components/z/ZButton.vue')['default']
     ZField: typeof import('./src/components/ui/ZField.vue')['default']
     ZFilterBar: typeof import('./src/components/ui/ZFilterBar.vue')['default']
+    ZInput: typeof import('./src/components/z/ZInput.vue')['default']
     ZTable: typeof import('./src/components/ui/ZTable.vue')['default']
+    ZTextarea: typeof import('./src/components/z/ZTextarea.vue')['default']
   }
 }
