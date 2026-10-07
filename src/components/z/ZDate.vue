@@ -23,7 +23,7 @@ import {
 // если дата отличается от value): Enter; уход из поля (фокус не в поле и не в календаре, окно браузера
 // в фокусе — alt-tab черновик не трогает); выбор в календаре; кнопка очистки. Пустой текст — null.
 // Неполная/несуществующая/вне min/max дата на уходе откатывается к значению (как у a-date-picker),
-// пока поле в фокусе — красная рамка и aria-invalid (для набранной полностью). Escape — откат черновика.
+// пока черновик не откачен — красная рамка и aria-invalid (для набранной полностью). Escape — откат черновика.
 // class/style — на рамку, остальные $attrs (aria-*, data-*, onFocus/onBlur…) — на <input>, как у ZInput.
 defineOptions({ inheritAttrs: false })
 const attrs = useAttrs()
@@ -66,7 +66,6 @@ const wrapEl = ref<HTMLElement>()
 const text = ref(formatDateText(props.value))
 // Пользователь правил текст с последней синхронизации со значением (черновик).
 const dirty = ref(false)
-const focused = ref(false)
 const open = ref(false)
 
 const showValue = () => {
@@ -78,7 +77,14 @@ watch(() => props.value, () => { if (!dirty.value) showValue() })
 
 const parsed = computed(() => parseDateText(text.value))
 const draftValid = computed(() => parsed.value === null || (parsed.value !== undefined && inRange(parsed.value)))
-const draftInvalid = computed(() => focused.value && dirty.value && isCompleteDateText(text.value) && !draftValid.value)
+// Красная рамка — у набранной полностью даты, пока черновик не зафиксирован или не откачен (на уходе
+// из поля его откатывают — значит, пока фокус где-то в поле или в календаре). Двузначный год — только
+// несуществующая дата: вне min/max «15.09.20» на пути к «2026» не мигает.
+const draftInvalid = computed(() => {
+  if (!dirty.value) return false
+  if (isCompleteDateText(text.value)) return !draftValid.value
+  return /^\d{1,2}\.\d{1,2}\.\d{2}$/.test(text.value.trim()) && parsed.value === undefined
+})
 const isInvalid = computed(() => props.invalid || draftInvalid.value)
 // Календарь показывает набранную дату, если она верна, иначе значение.
 const calendarModel = computed(() => (parsed.value && draftValid.value ? parsed.value : toCalendarDate(props.value) ?? null))
@@ -147,7 +153,11 @@ const onKeydown = (e: KeyboardEvent) => {
   }
   if (props.readonly) return
   if (e.key === 'Enter') commit('enter')
-  else if (e.key === 'Escape' && !open.value) showValue()
+  else if (e.key === 'Escape' && !open.value && dirty.value) {
+    // Откат черновика — Escape не должен заодно закрыть окно, в котором поле.
+    e.stopPropagation()
+    showValue()
+  }
   else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && parsed.value) {
     e.preventDefault()
     setText(textOf(parsed.value.add({ days: e.key === 'ArrowUp' ? 1 : -1 })))
@@ -243,8 +253,6 @@ const cellClass = cn(
           @input="onInput"
           @compositionend="onInput"
           @keydown="onKeydown"
-          @focus="focused = true"
-          @blur="focused = false"
         >
         <button
           v-if="allowClear && text && !disabled && !readonly"
@@ -256,7 +264,9 @@ const cellClass = cn(
         >
           <PhX :size="12" weight="bold" />
         </button>
-        <DatePickerTrigger :aria-label="t('z.chooseDate')" :class="iconButton" :disabled="disabled || readonly">
+        <!-- mousedown.prevent: Safari/Firefox не дают фокус кнопке по клику — фокус ушёл бы «никуда»,
+             и черновик зафиксировался бы до открытия календаря. -->
+        <DatePickerTrigger :aria-label="t('z.chooseDate')" :class="iconButton" :disabled="disabled || readonly" @mousedown.prevent>
           <PhCalendarBlank :size="14" />
         </DatePickerTrigger>
       </span>
