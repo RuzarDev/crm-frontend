@@ -61,7 +61,8 @@ const isPassword = computed(() => props.type === 'password')
 const isSearch = computed(() => props.type === 'search')
 const inputType = computed(() => (isPassword.value && shown.value ? 'text' : props.type))
 const inputAutocomplete = computed(() => props.autocomplete ?? (isPassword.value ? 'current-password' : undefined))
-const doSearch = () => emit('search', props.value ?? '')
+// Текущий текст берём из самого <input>: так @search работает и без v-model (как у a-input-search).
+const doSearch = () => emit('search', el.value?.value ?? props.value ?? '')
 
 const onInput = (e: Event) => {
   emit('update:value', (e.target as HTMLInputElement).value)
@@ -80,12 +81,16 @@ const onEnter = (e: KeyboardEvent) => {
 }
 // Очистка — как ввод: поле пустеет и получает настоящее событие input, поэтому onInput шлёт
 // update:value('') и change(Event) с target = <input> (a-input тоже шлёт change при очистке — автосейв).
+// У поиска очистка ещё и запускает search('') — как крестик a-input-search (сброс фильтра).
 const clear = () => {
   const input = el.value
-  if (!input) return emit('update:value', '')
-  input.value = ''
-  input.dispatchEvent(new Event('input', { bubbles: true }))
-  input.focus()
+  if (!input) emit('update:value', '')
+  else {
+    input.value = ''
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.focus()
+  }
+  if (isSearch.value) emit('search', '')
 }
 </script>
 
@@ -118,6 +123,8 @@ const clear = () => {
         'min-w-0 flex-1 border-0 bg-transparent p-0 [font-size:inherit] [line-height:inherit] [color:inherit] outline-hidden placeholder:text-muted disabled:cursor-not-allowed disabled:placeholder:text-ink-3',
         mono ? 'font-mono tabular-nums' : 'font-sans',
         isSearch && '[&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden',
+        // Edge рисует свой глаз у пароля и крестик у поиска — второй рядом с нашими кнопками.
+        (isPassword || isSearch) && '[&::-ms-reveal]:hidden [&::-ms-clear]:hidden',
       )"
       @input="onInput"
       @keydown.enter="onEnter"

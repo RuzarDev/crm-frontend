@@ -180,4 +180,35 @@ describe('ZInput — поиск', () => {
     expect(w.findAll('button')).toHaveLength(2)
     expect(w.find('.sfx').exists()).toBe(true)
   })
+  it('очистка в поиске: update:value(\'\'), change и search(\'\') ровно по одному разу (как у a-input-search)', async () => {
+    const w = mountWithI18n(ZInput, { props: { type: 'search', value: 'abc', allowClear: true }, attachTo: document.body })
+    await w.get('button[aria-label="Очистить"]').trigger('click')
+    expect(w.emitted('update:value')).toEqual([['']])
+    expect(w.emitted('change')).toHaveLength(1)
+    expect(w.emitted('search')).toEqual([['']])
+    w.unmount()
+  })
+  it('очистка обычного поля search не эмитит', async () => {
+    const w = mountWithI18n(ZInput, { props: { value: 'abc', allowClear: true } })
+    await w.get('button').trigger('click')
+    expect(w.emitted('update:value')).toEqual([['']])
+    expect(w.emitted('search')).toBeUndefined()
+  })
+  it('без v-model: набранный текст + Enter → search(набранное); кнопка тоже', async () => {
+    const w = mountWithI18n(ZInput, { props: { type: 'search', enterButton: true } })
+    const input = w.get('input')
+    await input.setValue('ТН ВЭД')
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(w.emitted('search')).toEqual([['ТН ВЭД']])
+    await w.get('button[aria-label="Найти"]').trigger('click')
+    expect(w.emitted('search')).toEqual([['ТН ВЭД'], ['ТН ВЭД']])
+  })
+  it('у пароля и поиска скрыты нативные значки Edge (второй глаз / крестик)', () => {
+    for (const type of ['password', 'search'] as const) {
+      const cls = mountWithI18n(ZInput, { props: { type } }).get('input').classes()
+      expect(cls).toContain('[&::-ms-reveal]:hidden')
+      expect(cls).toContain('[&::-ms-clear]:hidden')
+    }
+    expect(mountWithI18n(ZInput, { props: { type: 'text' } }).get('input').classes()).not.toContain('[&::-ms-reveal]:hidden')
+  })
 })
