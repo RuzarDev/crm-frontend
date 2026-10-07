@@ -50,10 +50,10 @@ const onUpdate = (v: boolean | 'indeterminate' | null) => {
       :model-value="model"
       :disabled="disabled"
       :class="cn(
-        'inline-flex size-4 shrink-0 items-center justify-center rounded-[5px] border border-line-strong bg-surface text-white outline-hidden',
+        'inline-flex size-4 shrink-0 items-center justify-center rounded-[5px] border border-control bg-surface text-white outline-hidden',
         'transition-[background-color,border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none',
         'focus-visible:shadow-focus',
-        !disabled && 'hover:not-focus-visible:border-faint',
+        !disabled && 'data-[state=unchecked]:hover:not-focus-visible:border-ink-3',
         'data-[state=checked]:border-navy data-[state=checked]:bg-navy data-[state=indeterminate]:border-navy data-[state=indeterminate]:bg-navy',
         'disabled:cursor-not-allowed disabled:opacity-45',
       )"

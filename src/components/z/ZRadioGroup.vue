@@ -17,7 +17,8 @@ const emit = defineEmits<{
   change: [value: ZOptionValue]
 }>()
 
-const model = computed(() => (props.value === null || props.value === undefined ? undefined : toKey(props.value)))
+// Не undefined: Reka решает «управляемый ли» по modelValue === undefined при создании и остаётся пассивным.
+const model = computed(() => (props.value === null || props.value === undefined ? null : toKey(props.value)))
 const onUpdate = (k: unknown) => {
   if (k === undefined || k === null) return
   const next = fromKey(k)
@@ -47,9 +48,9 @@ const onUpdate = (k: unknown) => {
         :value="toKey(o.value)"
         :disabled="o.disabled"
         :class="cn(
-          'inline-flex size-4 shrink-0 items-center justify-center rounded-pill border border-line-strong bg-surface outline-hidden',
+          'inline-flex size-4 shrink-0 items-center justify-center rounded-pill border border-control bg-surface outline-hidden',
           'transition-[border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none',
-          'focus-visible:shadow-focus hover:not-focus-visible:border-faint',
+          'focus-visible:shadow-focus data-[state=unchecked]:hover:not-focus-visible:border-ink-3',
           'data-[state=checked]:border-navy disabled:cursor-not-allowed disabled:opacity-45',
         )"
       >
