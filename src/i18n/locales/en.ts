@@ -17,6 +17,8 @@ export default {
     close: 'Close',
     confirm: 'Confirm',
     chooseDate: 'Choose date',
+    dateFrom: 'From',
+    dateTo: 'To',
     datePlaceholder: 'DD.MM.YYYY',
     prevMonth: 'Previous month',
     nextMonth: 'Next month',

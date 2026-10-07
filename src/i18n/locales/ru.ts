@@ -19,6 +19,8 @@ export default {
     close: 'Закрыть',
     confirm: 'Подтвердить',
     chooseDate: 'Выбрать дату',
+    dateFrom: 'С',
+    dateTo: 'По',
     datePlaceholder: 'ДД.ММ.ГГГГ',
     prevMonth: 'Предыдущий месяц',
     nextMonth: 'Следующий месяц',

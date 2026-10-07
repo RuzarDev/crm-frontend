@@ -17,6 +17,8 @@ export default {
     close: 'Жабу',
     confirm: 'Растау',
     chooseDate: 'Күнді таңдау',
+    dateFrom: 'Бастап',
+    dateTo: 'Дейін',
     datePlaceholder: 'КК.АА.ЖЖЖЖ',
     prevMonth: 'Алдыңғы ай',
     nextMonth: 'Келесі ай',
