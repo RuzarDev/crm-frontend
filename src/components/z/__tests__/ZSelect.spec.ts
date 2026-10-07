@@ -277,4 +277,24 @@ describe('ZSelect', () => {
     await open()
     expect(optionEls().map((e) => e.getAttribute('title'))).toEqual(options.map((o) => o.label))
   })
+  it('без выбранного: набранный текст не стирается, если значение выставили программно при открытом списке', async () => {
+    w = mountWithI18n(ZSelect, { props: { value: null, options, showSearch: true }, attachTo: document.body })
+    const input = w.get('input')
+    const el = input.element as HTMLInputElement
+    const typeChar = async (c: string) => {
+      await input.trigger('beforeinput', { inputType: 'insertText', data: c })
+      el.value += c
+      await input.trigger('input')
+      await nextTick()
+    }
+    await input.trigger('focus')
+    await open()
+    for (const c of 'ab') await typeChar(c)
+    expect(el.value).toBe('ab')
+    await w.setProps({ value: 'EK' })
+    await nextTick()
+    await typeChar('c')
+    expect(el.value).toBe('abc')
+    expect(w.emitted('search')?.at(-1)).toEqual(['abc'])
+  })
 })

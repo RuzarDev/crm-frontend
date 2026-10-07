@@ -145,8 +145,11 @@ const onFocus = (e: FocusEvent) => {
   emit('focus', e)
 }
 const onBeforeInput = (e: Event) => {
-  if (!labelShown()) return
+  const shown = labelShown()
+  // Любая правка снимает флаг, даже когда подписи нет: иначе значение, выставленное программно при
+  // открытом списке, «вернуло» бы подпись, и следующий символ стёр бы набранный текст.
   pristine.value = false
+  if (!shown) return
   // IME: value во время композиции не трогаем — выделенную (на фокусе) подпись заменит сама композиция.
   const ie = e as InputEvent
   if (ie.isComposing || ie.inputType === 'insertCompositionText') return
