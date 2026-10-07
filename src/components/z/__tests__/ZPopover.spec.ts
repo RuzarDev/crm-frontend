@@ -75,6 +75,43 @@ describe('ZPopover', () => {
     expect(dialog()).not.toBeNull()
   })
 
+  it('contentClass дополняет и перекрывает классы окна (отступ p-3 → p-0)', async () => {
+    w = mountPop({ contentClass: 'p-0 w-[360px]' })
+    await w.get('#trg').trigger('click')
+    await tick()
+    const cls = dialog()!.className.split(/\s+/)
+    expect(cls).toContain('p-0')
+    expect(cls).toContain('w-[360px]')
+    expect(cls).not.toContain('p-3')
+    expect(cls).toContain('z-[1100]')
+  })
+
+  it('по умолчанию при открытии фокус на первом элементе внутри', async () => {
+    w = mountPop()
+    await w.get('#trg').trigger('click')
+    await settle()
+    expect(document.activeElement?.id).toBe('inner')
+  })
+
+  it('focusContent — фокус на само окно (tabindex=-1), Tab ведёт дальше по порядку', async () => {
+    w = mountPop({ focusContent: true })
+    await w.get('#trg').trigger('click')
+    await settle()
+    const d = dialog()!
+    expect(document.activeElement).toBe(d)
+    expect(d.getAttribute('tabindex')).toBe('-1')
+    expect(d.getAttribute('aria-labelledby')).toBeTruthy()
+  })
+
+  it('v-model:open — закрытие снаружи (open=false) убирает окно', async () => {
+    w = mountPop({ open: true })
+    await tick()
+    expect(dialog()).not.toBeNull()
+    await w.setProps({ open: false })
+    await settle()
+    expect(dialog()).toBeNull()
+  })
+
   it('width задаёт ширину окна', async () => {
     w = mountPop({ width: 320 })
     await w.get('#trg').trigger('click')

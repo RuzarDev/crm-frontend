@@ -1,80 +1,89 @@
-<!-- Установка нового пароля по ссылке из письма. -->
-<template>
-  <div class="reset-page">
-    <div class="reset-card">
-      <div class="reset-top"><div class="reset-badge">Zircon CRM</div><LanguageSwitcher /></div>
-
-      <template v-if="state === 'loading'"><a-spin /></template>
-
-      <template v-else-if="state === 'invalid'">
-        <h2 class="reset-title">{{ t('reset.invalidTitle') }}</h2>
-        <p class="reset-sub">{{ t('reset.invalidSub') }}</p>
-        <a-button type="primary" size="large" block @click="router.push('/forgot-password')">{{ t('reset.retry') }}</a-button>
-      </template>
-
-      <template v-else-if="state === 'done'">
-        <h2 class="reset-title">{{ t('reset.doneTitle') }}</h2>
-        <p class="reset-sub">{{ t('reset.doneSub') }}</p>
-        <a-button type="primary" size="large" block @click="router.push('/login')">{{ t('reset.toLogin') }}</a-button>
-      </template>
-
-      <template v-else>
-        <h2 class="reset-title">{{ t('reset.newTitle') }}</h2>
-        <p class="reset-sub">{{ t('reset.newSub', { email: maskedEmail }) }}</p>
-        <a-form layout="vertical" :model="form" @finish="submit">
-          <a-form-item :label="t('reset.password')" name="password"
-            :rules="[{ required: true, message: t('reset.passwordRequired') }, { min: 8, message: t('reset.passwordMin') }]">
-            <a-input-password v-model:value="form.password" size="large" autocomplete="new-password" />
-          </a-form-item>
-          <a-form-item :label="t('reset.confirm')" name="confirm" :rules="[{ required: true, message: t('reset.confirmRequired') }]">
-            <a-input-password v-model:value="form.confirm" size="large" autocomplete="new-password" />
-          </a-form-item>
-          <a-button type="primary" html-type="submit" size="large" block :loading="saving">{{ t('reset.save') }}</a-button>
-        </a-form>
-      </template>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, nextTick, onMounted, reactive, ref, useId, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import AuthLayout from '@/components/auth/AuthLayout.vue'
+import ZForm from '@/components/z/ZForm.vue'
+import ZField from '@/components/z/ZField.vue'
+import ZInput from '@/components/z/ZInput.vue'
+import ZButton from '@/components/z/ZButton.vue'
+import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import { message } from '@/ui/message'
-import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import { authApi } from '@/api/passwordReset'
+import type { ZRule } from '@/ui/validation'
+import { authLabelClass as labelClass, authLinkClass as linkClass, authPrimaryLinkClass } from '@/components/auth/classes'
+
+// Установка нового пароля по ссылке из письма: проверка ссылки (скелетон) → форма | ссылка недействительна,
+// после сохранения — «Пароль изменён». Несовпадение паролей — ошибка под полем повтора (правило), не тост.
 
 const { t } = useI18n()
 const route = useRoute()
-const router = useRouter()
 const token = String(route.params.token ?? '')
 const state = ref<'loading' | 'form' | 'invalid' | 'done'>('loading')
 const maskedEmail = ref('')
 const saving = ref(false)
+
+const uid = useId()
+const ids = { password: `${uid}-password`, confirm: `${uid}-confirm` }
 const form = reactive({ password: '', confirm: '' })
+const rules: Record<string, ZRule[]> = {
+  password: [
+    { required: true, message: () => t('reset.passwordRequired') },
+    { min: 8, message: () => t('reset.passwordMin') },
+  ],
+  confirm: [
+    { required: true, message: () => t('reset.confirmRequired') },
+    { validator: (_r, v) => (v && v !== form.password ? t('reset.mismatch') : undefined) },
+  ],
+}
+const formRef = ref<InstanceType<typeof ZForm>>()
+watch(() => form.password, () => {
+  if (form.confirm) void formRef.value?.validate(['confirm'])
+})
+
+const title = computed(() => ({
+  loading: t('reset.newTitle'),
+  form: t('reset.newTitle'),
+  invalid: t('reset.invalidTitle'),
+  done: t('reset.doneTitle'),
+})[state.value])
+const subtitle = computed(() => ({
+  loading: undefined,
+  form: t('reset.newSub', { email: maskedEmail.value }),
+  invalid: t('reset.invalidSub'),
+  done: t('reset.doneSub'),
+})[state.value])
+
+// После отправки форма с кнопкой в фокусе исчезает — фокус на действие нового состояния.
+const actionLink = ref<HTMLAnchorElement>()
+const passwordInput = ref<InstanceType<typeof ZInput>>()
+const moveTo = async (next: 'invalid' | 'done') => {
+  state.value = next
+  await nextTick()
+  actionLink.value?.focus()
+}
 
 onMounted(async () => {
   try {
     const info = await authApi.checkResetToken(token)
     maskedEmail.value = info.email
     state.value = 'form'
+    // Автофокус — только на широком экране (lg, как у AuthLayout): на телефоне клавиатура закрыла бы форму.
+    await nextTick()
+    if (window.matchMedia?.('(min-width: 1024px)').matches) passwordInput.value?.focus()
   } catch {
     state.value = 'invalid'
   }
 })
 
 const submit = async () => {
-  if (form.password !== form.confirm) {
-    message.error(t('reset.mismatch'))
-    return
-  }
   saving.value = true
   try {
     await authApi.resetPassword(token, form.password)
-    state.value = 'done'
+    await moveTo('done')
   } catch (e: unknown) {
     const err = e as { response?: { status?: number } }
-    if (err.response?.status === 404) state.value = 'invalid'
+    if (err.response?.status === 404) await moveTo('invalid')
     else message.error(t('reset.error'))
   } finally {
     saving.value = false
@@ -82,11 +91,47 @@ const submit = async () => {
 }
 </script>
 
-<style scoped>
-.reset-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f4f6fa; padding: 24px; }
-.reset-card { width: 100%; max-width: 420px; background: #fff; border-radius: 18px; padding: 28px; box-shadow: 0 18px 50px rgba(16, 36, 61, .08); }
-.reset-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-.reset-badge { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: var(--z-teal); }
-.reset-title { font-size: 20px; margin: 0 0 6px; }
-.reset-sub { color: var(--z-muted); font-size: 13px; margin-bottom: 18px; }
-</style>
+<template>
+  <AuthLayout
+    :title="title"
+    :subtitle="subtitle"
+    :hero-title="t('auth.heroTitle')"
+    :hero-text="t('auth.heroText')"
+    :points="[t('auth.point1'), t('auth.point2'), t('auth.point3')]"
+  >
+    <div v-if="state === 'loading'" class="flex flex-col gap-4">
+      <span class="sr-only" role="status">{{ t('common.loading') }}</span>
+      <div v-for="i in 2" :key="i" class="flex flex-col gap-1.5">
+        <ZSkeleton width="132px" height="14px" />
+        <ZSkeleton height="42px" />
+      </div>
+      <ZSkeleton height="44px" />
+    </div>
+
+    <RouterLink v-else-if="state === 'invalid'" v-slot="{ href, navigate }" to="/forgot-password" custom>
+      <a ref="actionLink" :href="href" :class="authPrimaryLinkClass" @click="navigate">{{ t('reset.retry') }}</a>
+    </RouterLink>
+
+    <RouterLink v-else-if="state === 'done'" v-slot="{ href, navigate }" to="/login" custom>
+      <a ref="actionLink" :href="href" :class="authPrimaryLinkClass" @click="navigate">{{ t('login.submit') }}</a>
+    </RouterLink>
+
+    <ZForm v-else ref="formRef" :model="form" :rules="rules" @finish="submit">
+      <ZField name="password">
+        <label :for="ids.password" :class="[labelClass, 'mb-0.5']">{{ t('reset.password') }}</label>
+        <ZInput :id="ids.password" ref="passwordInput" v-model:value="form.password" type="password" size="lg" autocomplete="new-password" />
+      </ZField>
+      <ZField name="confirm">
+        <label :for="ids.confirm" :class="[labelClass, 'mb-0.5']">{{ t('reset.confirm') }}</label>
+        <ZInput :id="ids.confirm" v-model:value="form.confirm" type="password" size="lg" autocomplete="new-password" />
+      </ZField>
+      <ZButton variant="primary" html-type="submit" size="lg" block :loading="saving">{{ t('reset.save') }}</ZButton>
+    </ZForm>
+
+    <template v-if="state === 'invalid'" #footer>
+      <p class="m-0 text-center text-[14px]">
+        <RouterLink to="/login" :class="[linkClass, 'font-semibold no-underline']">{{ t('reset.toLogin') }}</RouterLink>
+      </p>
+    </template>
+  </AuthLayout>
+</template>

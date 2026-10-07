@@ -201,6 +201,35 @@ describe('ZDropdown', () => {
     await tick()
     expect(menuItems()).toHaveLength(0)
   })
+
+  it('слот header: подпись вверху меню, над пунктами и с разделителем под ней', async () => {
+    w = mountWithI18n(ZDropdown, {
+      props: { items: [{ key: 'a', label: 'A' }] },
+      slots: { default: '<button>Ещё</button>', header: '<span id="hdr">Шапка</span>' },
+      attachTo: document.body,
+    })
+    await w.get('button').trigger('keydown', { key: 'Enter' })
+    await tick()
+    const hdr = document.getElementById('hdr')!
+    expect(hdr).not.toBeNull()
+    const item = menuItems()[0]
+    expect(item.textContent?.trim()).toBe('A')
+    expect(hdr.compareDocumentPosition(item) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // подпись — не пункт меню: стрелки по ней не ходят
+    expect(hdr.closest('[role="menuitem"]')).toBeNull()
+    const sep = document.body.querySelector('[role="separator"]')!
+    expect(hdr.compareDocumentPosition(sep) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(sep.compareDocumentPosition(item) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('без слота header — ни подписи, ни разделителя', async () => {
+    w = mountWithI18n(ZDropdown, { props: { items: [{ key: 'a', label: 'A' }] }, slots: { default: '<button>Ещё</button>' }, attachTo: document.body })
+    await w.get('button').trigger('keydown', { key: 'Enter' })
+    await tick()
+    expect(menuItems()).toHaveLength(1)
+    expect(document.body.querySelector('[data-z-dropdown-header]')).toBeNull()
+    expect(document.body.querySelector('[role="separator"]')).toBeNull()
+  })
 })
 
 describe('ZPopconfirm', () => {

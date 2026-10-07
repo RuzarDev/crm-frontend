@@ -1,45 +1,32 @@
-<!-- «Забыли пароль»: отправка ссылки восстановления на почту.
-     До этого забывший пароль клиент был в тупике (аудит 2026-09-22, п.3). -->
-<template>
-  <div class="reset-page">
-    <div class="reset-card">
-      <div class="reset-top"><div class="reset-badge">Zircon CRM</div><LanguageSwitcher /></div>
-
-      <template v-if="sent">
-        <h2 class="reset-title">{{ t('reset.sentTitle') }}</h2>
-        <p class="reset-sub">{{ t('reset.sentSub') }}</p>
-        <a-button type="primary" size="large" block @click="router.push('/login')">{{ t('reset.toLogin') }}</a-button>
-      </template>
-
-      <template v-else>
-        <h2 class="reset-title">{{ t('reset.forgotTitle') }}</h2>
-        <p class="reset-sub">{{ t('reset.forgotSub') }}</p>
-        <a-alert v-if="unavailable" type="warning" show-icon class="reset-alert" :message="unavailable" />
-        <a-form layout="vertical" :model="form" @finish="submit">
-          <a-form-item :label="t('reset.login')" name="login" :rules="[{ required: true, message: t('reset.loginRequired') }]">
-            <a-input v-model:value="form.login" size="large" autocomplete="username" :placeholder="t('reset.loginPh')" />
-          </a-form-item>
-          <a-button type="primary" html-type="submit" size="large" block :loading="loading">{{ t('reset.send') }}</a-button>
-        </a-form>
-        <a-button type="link" block @click="router.push('/login')">{{ t('reset.toLogin') }}</a-button>
-      </template>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { nextTick, onMounted, reactive, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
-import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import AuthLayout from '@/components/auth/AuthLayout.vue'
+import ZForm from '@/components/z/ZForm.vue'
+import ZField from '@/components/z/ZField.vue'
+import ZInput from '@/components/z/ZInput.vue'
+import ZButton from '@/components/z/ZButton.vue'
+import ZAlert from '@/components/z/ZAlert.vue'
 import { authApi } from '@/api/passwordReset'
+import type { ZRule } from '@/ui/validation'
+import { authLabelClass as labelClass, authLinkClass as linkClass, authPrimaryLinkClass } from '@/components/auth/classes'
+
+// «Забыли пароль»: отправка ссылки восстановления на почту (до этого забывший пароль клиент был в тупике —
+// аудит 2026-09-22, п.3). Раскладка и герой — как у входа. Ошибку запроса (503 «почта не настроена» и прочие)
+// показываем плашкой над формой текстом сервера: честное объяснение, а не «ошибка».
 
 const { t } = useI18n()
-const router = useRouter()
+const loginId = `${useId()}-login`
 const form = reactive({ login: '' })
+const rules: Record<string, ZRule[]> = {
+  login: [{ required: true, whitespace: true, message: () => t('reset.loginRequired') }],
+}
+
 const loading = ref(false)
 const sent = ref(false)
 const unavailable = ref('')
+// Форма вместе с кнопкой в фокусе исчезает — фокус переводим на действие нового состояния.
+const backLink = ref<HTMLAnchorElement>()
 
 const submit = async () => {
   loading.value = true
@@ -47,22 +34,59 @@ const submit = async () => {
   try {
     await authApi.forgotPassword(form.login.trim())
     sent.value = true
+    await nextTick()
+    backLink.value?.focus()
   } catch (e: unknown) {
     const err = e as { response?: { status?: number; data?: { error?: string } } }
-    // 503 — почта ещё не настроена: показываем честное объяснение, а не «ошибка».
     unavailable.value = err.response?.data?.error || t('reset.error')
   } finally {
     loading.value = false
   }
 }
+
+// Автофокус — только на широком экране (lg, как у AuthLayout): на телефоне клавиатура закрыла бы форму.
+const loginInput = ref<InstanceType<typeof ZInput>>()
+onMounted(() => {
+  if (window.matchMedia?.('(min-width: 1024px)').matches) loginInput.value?.focus()
+})
 </script>
 
-<style scoped>
-.reset-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f4f6fa; padding: 24px; }
-.reset-card { width: 100%; max-width: 420px; background: #fff; border-radius: 18px; padding: 28px; box-shadow: 0 18px 50px rgba(16, 36, 61, .08); }
-.reset-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-.reset-badge { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: var(--z-teal); }
-.reset-title { font-size: 20px; margin: 0 0 6px; }
-.reset-sub { color: var(--z-muted); font-size: 13px; margin-bottom: 18px; }
-.reset-alert { margin-bottom: 14px; }
-</style>
+<template>
+  <AuthLayout
+    :title="sent ? t('reset.sentTitle') : t('reset.forgotTitle')"
+    :subtitle="sent ? t('reset.sentSub') : t('reset.forgotSub')"
+    :hero-title="t('auth.heroTitle')"
+    :hero-text="t('auth.heroText')"
+    :points="[t('auth.point1'), t('auth.point2'), t('auth.point3')]"
+  >
+    <RouterLink v-if="sent" v-slot="{ href, navigate }" to="/login" custom>
+      <a ref="backLink" :href="href" :class="authPrimaryLinkClass" @click="navigate">{{ t('reset.toLogin') }}</a>
+    </RouterLink>
+
+    <template v-else>
+      <ZAlert v-if="unavailable" type="error" show-icon>{{ unavailable }}</ZAlert>
+      <ZForm :model="form" :rules="rules" @finish="submit">
+        <ZField name="login">
+          <label :for="loginId" :class="[labelClass, 'mb-0.5']">{{ t('reset.login') }}</label>
+          <ZInput
+            :id="loginId"
+            ref="loginInput"
+            v-model:value="form.login"
+            size="lg"
+            :placeholder="t('reset.loginPh')"
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+        </ZField>
+        <ZButton variant="primary" html-type="submit" size="lg" block :loading="loading">{{ t('reset.send') }}</ZButton>
+      </ZForm>
+    </template>
+
+    <template v-if="!sent" #footer>
+      <p class="m-0 text-center text-[14px]">
+        <RouterLink to="/login" :class="[linkClass, 'font-semibold no-underline']">{{ t('reset.toLogin') }}</RouterLink>
+      </p>
+    </template>
+  </AuthLayout>
+</template>

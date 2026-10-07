@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ZButton from '../ZButton.vue'
+import { fieldShell } from '@/ui/surfaces'
 
 describe('ZButton', () => {
   it('по умолчанию — secondary, type=button', () => {
@@ -98,5 +99,18 @@ describe('ZButton', () => {
     expect(w.classes()).toContain('outline-hidden')
     expect(w.classes()).not.toContain('outline-none')
     expect(w.classes()).toContain('focus-visible:shadow-focus')
+  })
+})
+
+describe('ZButton size="lg" (страницы входа)', () => {
+  it('42px, 15px, радиус 9px вместо rounded-field — вровень с полем lg', () => {
+    const w = mount(ZButton, { props: { size: 'lg', variant: 'primary' } })
+    expect(w.classes()).toEqual(expect.arrayContaining(['h-[42px]', 'rounded-[9px]', 'text-[15px]', 'bg-navy']))
+    // Высота и радиус — те же, что у fieldShell lg: кнопка рядом с полем не выпирает.
+    const field = fieldShell({ size: 'lg' }).split(' ')
+    expect(field).toEqual(expect.arrayContaining(['h-[42px]', 'rounded-[9px]']))
+    expect(w.classes()).not.toContain('h-11')
+    expect(w.classes()).not.toContain('h-9')
+    expect(w.classes()).not.toContain('rounded-field')
   })
 })

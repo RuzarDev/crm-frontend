@@ -1740,7 +1740,7 @@ onMounted(async () => {
 /* Липкая панель ДТ — под шапкой приложения (64px). */
 .dt-bar {
   position: sticky;
-  top: 64px;
+  top: var(--shell-header-h, 64px);
   z-index: 20;
   display: flex;
   flex-wrap: wrap;

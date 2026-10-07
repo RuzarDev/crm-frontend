@@ -21,34 +21,53 @@ const state = ref<Import40CanCreateDto | null>(null)
 // поэтому для текста плашки отдельно смотрим документы.
 const contractAwaitingUs = ref(false)
 let inflight: Promise<void> | null = null
+// Поколение состояния: reset() его увеличивает, и ответ запроса, ушедшего до выхода, уже не запишется
+// (следующий пользователь в этой вкладке не увидит чужой статус регистрации).
+let generation = 0
+
+/** Выход из системы: забыть состояние регистрации прежнего клиента. */
+export function resetClientRegistration(): void {
+  generation += 1
+  state.value = null
+  loaded.value = false
+  contractAwaitingUs.value = false
+  inflight = null
+}
 
 export function useClientRegistration() {
   const authStore = useAuthStore()
   // Только клиенту Импорта 40: транзитному клиенту договор и доверенность здесь не нужны.
-  const isClient = computed(() => (authStore.role || '').toLowerCase() === 'client' && authStore.clientHasModule('import40'))
+  const isClient = computed(() => authStore.isClient && authStore.clientHasModule('import40'))
 
   const refresh = async (): Promise<void> => {
     if (!isClient.value || !authStore.userId) return
     if (inflight) return inflight
     const clientId = authStore.userId
-    inflight = (async () => {
+    const gen = generation
+    const run = async () => {
       try {
         const [canCreate, contracts] = await Promise.all([
           import40Api.canCreate(),
           import40ContractApi.listDocuments(clientId, 'contract'),
         ])
+        if (gen !== generation) return
         state.value = canCreate
         contractAwaitingUs.value = !canCreate.contractOk
           && contracts.some((d) => d.status === 1 && d.clientSigned && !d.providerSigned)
         loaded.value = true
       } catch {
-        // Не удалось узнать состояние — плашку не показываем, чтобы не пугать ложной тревогой.
+        if (gen !== generation) return
+        // Не удалось узнать состояние — плашку не показываем, чтобы не пугать ложной тревогой,
+        // и не держим прежний снимок: экраны не должны опираться на устаревшее состояние.
+        state.value = null
+        contractAwaitingUs.value = false
         loaded.value = false
-      } finally {
-        inflight = null
       }
-    })()
-    return inflight
+    }
+    // Колбэк finally всегда асинхронный — request к этому моменту уже присвоен. Чужой (после reset) не трогаем.
+    const request: Promise<void> = run().finally(() => { if (inflight === request) inflight = null })
+    inflight = request
+    return request
   }
 
   const complete = computed(() => !!state.value?.canCreate)
@@ -81,5 +100,6 @@ export function useClientRegistration() {
     poaDone,
     contractAwaitingUs,
     refresh,
+    reset: resetClientRegistration,
   }
 }

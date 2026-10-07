@@ -36,5 +36,12 @@ export const useProfileStore = defineStore('profile', () => {
     }
   }
 
-  return { profile, loading, saving, fetch, update }
+  // Выход: следующий пользователь в этой вкладке не должен увидеть чужое имя (вход — SPA-переход, стор живёт).
+  const reset = () => {
+    profile.value = null
+    loading.value = false
+    saving.value = false
+  }
+
+  return { profile, loading, saving, fetch, update, reset }
 })

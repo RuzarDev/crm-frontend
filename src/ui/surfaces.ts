@@ -5,15 +5,18 @@ import { cn } from './cn'
 export const Z_LAYER_MODAL = 'z-[1000]'
 export const Z_LAYER_FLOATING = 'z-[1100]'
 
-/** Рамка поля ввода: одна на все Z-поля (ZInput, ZNumber, ZSelect, ZCombobox, ZDate). */
-export const fieldShell = (o: { size?: 'sm' | 'md'; invalid?: boolean; disabled?: boolean; multiline?: boolean }): string =>
+/** Рамка поля ввода: одна на все Z-поля (ZInput, ZNumber, ZSelect, ZCombobox, ZDate).
+ *  lg (42px, 15px) — только страницы входа/регистрации (спека §4); многострочного lg нет — как md. */
+export const fieldShell = (o: { size?: 'sm' | 'md' | 'lg'; invalid?: boolean; disabled?: boolean; multiline?: boolean }): string =>
   cn(
     'inline-flex w-full items-center gap-2 rounded-field border border-line-strong bg-surface px-3 text-ink',
     'transition-[border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none',
     'focus-within:border-zircon focus-within:shadow-focus',
     // hover:not-focus-within — в собранном CSS hover идёт после focus-within и перебил бы рамку фокуса.
     !o.invalid && !o.disabled && 'hover:not-focus-within:border-faint',
-    o.multiline ? (o.size === 'sm' ? 'min-h-7 py-0.5 flex-wrap text-xs' : 'min-h-9 py-1 flex-wrap text-sm') : (o.size === 'sm' ? 'h-7 text-xs' : 'h-9 text-sm'),
+    o.multiline
+      ? (o.size === 'sm' ? 'min-h-7 py-0.5 flex-wrap text-xs' : 'min-h-9 py-1 flex-wrap text-sm')
+      : (o.size === 'sm' ? 'h-7 text-xs' : o.size === 'lg' ? 'h-[42px] rounded-[9px] text-[15px]/[22px]' : 'h-9 text-sm'),
     o.invalid && 'border-danger focus-within:border-danger',
     o.disabled && 'cursor-not-allowed bg-sunken text-ink-3',
   )

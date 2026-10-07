@@ -124,17 +124,6 @@ small {
 :not(#z) .ant-message-info .anticon,
 :not(#z) .ant-message-loading .anticon { color: var(--z-teal, #23B5D3); }
 
-/* ─── Контраст auth-CTA (WCAG AA) ───────────────────────────
-   Кнопки входа/регистрации (.auth-submit-btn) пока на бирюзовом фоне (стили в LoginView/RegisterView,
-   переводятся в своей волне): белый текст на #23B5D3 ≈2.3:1, поэтому текст navy ≈6.3:1.
-   Обычные primary-кнопки AntD с 2026-10-07 — navy-фон и белый текст (правило ниже, «Custom Buttons»),
-   navy-текст им больше не задаём — иначе было бы navy на navy. */
-:not(#z) .auth-submit-btn:not(:disabled),
-:not(#z) .auth-submit-btn:not(:disabled):hover,
-:not(#z) .auth-submit-btn:not(:disabled):focus {
-  color: var(--z-navy, #0E1B35);
-}
-
 /* ─── Справочные таблицы: без «растянутой» колонки ───────────
    На широких мониторах одна колонка без width (обычно «Наименование»)
    растягивалась на всё оставшееся место (700+px пустоты в строке). Класс
@@ -301,119 +290,6 @@ a {
   font-size: 15px;
   font-weight: 700;
   color: var(--z-ink);
-}
-
-/* ─── Auth Pages ─────────────────────────────────────────── */
-
-.crm-auth-page {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(420px, 0.92fr) minmax(520px, 1fr);
-  background:
-    radial-gradient(circle at 18% 10%, rgba(35, 181, 211, 0.22), transparent 32%),
-    linear-gradient(135deg, #0E1B35 0%, #243560 56%, #f3f5f9 56.2%, #f3f5f9 100%);
-}
-
-.crm-auth-brand {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-height: 100vh;
-  padding: clamp(34px, 4vw, 72px);
-  color: #f0f3ff;
-}
-
-.crm-auth-lockup {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.crm-brand-mark {
-  display: grid;
-  place-items: center;
-  width: clamp(48px, 3vw, 62px);
-  height: clamp(48px, 3vw, 62px);
-  border: 1px solid rgba(35, 181, 211, 0.35);
-  border-radius: 8px;
-  background: rgba(35, 181, 211, 0.12);
-  color: #23B5D3;
-  font-size: clamp(14px, 0.9vw, 18px);
-  font-weight: 800;
-  letter-spacing: 0.04em;
-}
-
-.crm-auth-brand h1 {
-  max-width: 560px;
-  margin: 0 0 14px;
-  font-size: clamp(42px, 3.3vw, 68px);
-  line-height: 1.08;
-  font-weight: 800;
-}
-
-.crm-auth-brand p {
-  max-width: 460px;
-  color: rgba(255, 248, 234, 0.74);
-  font-size: clamp(15px, 1vw, 18px);
-  line-height: 1.65;
-}
-
-.crm-auth-form-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  min-height: 100vh;
-  padding: clamp(28px, 5vw, 96px);
-}
-
-.crm-auth-card {
-  width: 100%;
-  max-width: 560px;
-  border: 1px solid var(--z-line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--sh-2);
-}
-
-.crm-auth-card .ant-card-body {
-  padding: clamp(24px, 2.2vw, 40px);
-}
-
-.crm-auth-card .ant-card-head {
-  min-height: 64px;
-  border-bottom: 1px solid var(--z-line);
-  padding: 0 clamp(24px, 2.2vw, 40px);
-}
-
-.crm-auth-card .ant-card-head-title {
-  color: var(--z-ink);
-  font-size: clamp(20px, 1.35vw, 26px);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.crm-auth-card .ant-form-item {
-  margin-bottom: 20px;
-}
-
-.crm-auth-card .ant-form-item-label > label {
-  height: auto;
-  color: var(--z-navy-3);
-  font-size: 14.5px;
-  font-weight: 600;
-}
-
-.crm-auth-card .ant-input-lg,
-.crm-auth-card .ant-input-affix-wrapper-lg,
-.crm-auth-card .ant-select-lg .ant-select-selector {
-  min-height: 48px;
-  font-size: 16px;
-}
-
-.crm-auth-card .ant-btn-lg {
-  min-height: 50px;
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
 }
 
 /* ─── Ant Design Vue Overrides ───────────────────────────── */
@@ -936,52 +812,6 @@ a {
   padding: 24px;
 }
 
-/* Drawer — mobile nav override */
-:not(#z) .atg-mobile-drawer .ant-drawer-header {
-  background: #0E1B35;
-  border-bottom: 1px solid rgba(35, 181, 211, 0.18);
-  padding: 16px 18px;
-}
-
-:not(#z) .atg-mobile-drawer .ant-drawer-title {
-  color: #f0f3ff;
-}
-
-:not(#z) .atg-mobile-drawer .ant-drawer-close {
-  color: rgba(240, 243, 255, 0.5);
-}
-
-:not(#z) .atg-mobile-drawer .ant-drawer-close:hover {
-  color: #f0f3ff;
-  background: transparent;
-}
-
-:not(#z) .atg-mobile-drawer .ant-drawer-body {
-  background: #14244A;
-  padding: 12px;
-}
-
-/* ─── Mobile Hamburger ───────────────────────────────────── */
-
-.menu-toggle-btn {
-  display: none;
-  color: #f0f3ff;
-  border-color: rgba(240, 243, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  /* Та же высота/стиль, что у остальных кнопок шапки (язык, уведомления, профиль). */
-  height: 36px;
-  min-height: 36px;
-  min-width: 36px;
-  padding: 0;
-  flex-shrink: 0;
-}
-
-:not(#z) .menu-toggle-btn:hover {
-  color: #0E1B35;
-  border-color: #23B5D3;
-  background: #23B5D3;
-}
-
 /* ─── Checkbox ───────────────────────────────────────────── */
 
 .ant-checkbox-wrapper {
@@ -1153,62 +983,11 @@ a {
 /* ─── Responsive ─────────────────────────────────────────── */
 
 @media (max-width: 900px) {
-  /* ── Auth mobile layout ─────────────────────────────────── */
-  .crm-auth-page {
-    display: flex;
-    flex-direction: column;
-    min-height: 100dvh;
-    grid-template-columns: unset;
-    background: #f2f4fa;
-  }
-
-  /* Тёмная шапка — только логотип + название + короткий заголовок */
-  .crm-auth-brand {
-    flex-shrink: 0;
-    min-height: auto;
-    padding: 20px 20px 24px;
-    background: linear-gradient(145deg, #0E1B35 0%, #14244A 55%, #1A2D55 100%);
-    border-bottom: 1px solid rgba(35, 181, 211, 0.18);
-    color: #f0f3ff;
-    justify-content: flex-start;
-    gap: 16px;
-  }
-
-  :not(#z) .crm-brand-mark {
-    width: 42px;
-    height: 42px;
-    font-size: 13px;
-  }
-
-  /* Форма — flex 1, прижата к низу экрана */
-  .crm-auth-form-wrap {
-    flex: 1;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 24px 16px 32px;
-    min-height: auto;
-  }
-
-  :not(#z) .crm-auth-card {
-    max-width: 100%;
-    border-radius: var(--r-md);
-    box-shadow: 0 2px 12px rgba(20, 28, 24, 0.08);
-  }
-
   /* Page layout */
   .crm-page-header {
     align-items: stretch;
     flex-direction: column;
     gap: 14px;
-  }
-}
-
-@media (max-width: 860px) {
-  .menu-toggle-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
   }
 }
 
@@ -1219,14 +998,6 @@ a {
 
   .crm-shell-card .ant-card-body {
     padding: 14px;
-  }
-
-  .crm-auth-form-wrap {
-    padding: 16px;
-  }
-
-  .crm-auth-card .ant-card-head-title {
-    font-size: 18px;
   }
 }
 

@@ -1,5 +1,3 @@
-import { theme } from 'ant-design-vue'
-
 // ВНИМАНИЕ: AntD ConfigProvider не читает CSS-переменные — значения продублированы из
 // src/styles/tokens.css (стиль C, 2026-10-07). AntD удаляется в волне 7; до тех пор при правке
 // токенов синхронизируйте вручную.
@@ -46,26 +44,5 @@ export const zirconTheme = {
     Tabs: { itemSelectedColor: '#0F6E8F', inkBarColor: '#23B5D3', itemHoverColor: '#1C1B19' },
     Tag: { borderRadiusSM: 20 },
     Modal: { borderRadiusLG: 14 },
-  },
-}
-
-export const zirconDarkSiderTheme = {
-  algorithm: theme.darkAlgorithm,
-  token: {
-    colorBgContainer: '#0E1B35',
-  },
-  components: {
-    Menu: {
-      darkItemBg: 'transparent',
-      // фон РАСКРЫТОГО подменю (inline) — по умолчанию тёмный алгоритм AntD даёт
-      // почти чёрный (#000c17), из-за чего раскрытый «ТН ВЭД» выделялся чёрным
-      // прямоугольником поверх navy-сайдбара. Делаем прозрачным, чтобы совпадал.
-      darkSubMenuItemBg: 'transparent',
-      darkItemColor: '#AEB9CF',
-      darkItemSelectedBg: 'rgba(255,255,255,.08)',
-      darkItemSelectedColor: '#fff',
-      darkItemHoverBg: 'rgba(255,255,255,.05)',
-      itemBorderRadius: 9,
-    },
   },
 }

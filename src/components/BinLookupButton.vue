@@ -15,15 +15,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { message } from '@/ui/message'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { SearchOutlined } from '@ant-design/icons-vue'
-import { companyLookupApi, isBinLike, type CompanyLookupDto } from '@/api/companyLookup'
+import { isBinLike, type CompanyLookupDto } from '@/api/companyLookup'
+import { useBinLookup } from '@/composables/useBinLookup'
 
 // Кнопка «Найти по БИН/ИИН»: тянет карточку юрлица из ГБД ЮЛ (data.egov.kz) или ИП из КГД и отдаёт
 // её родителю событием found — что именно подставлять, решает родитель (у профиля,
-// мастера и граф ДТ разный набор полей). Ошибки показывает сама.
+// мастера и граф ДТ разный набор полей). Ошибки показывает сама (useBinLookup).
 const { t } = useI18n()
 const props = withDefaults(defineProps<{
   bin: string | null | undefined
@@ -36,38 +36,15 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{ found: [company: CompanyLookupDto] }>()
 
-const loading = ref(false)
+// Геттер: anonymous читается при каждом поиске — смена prop учитывается.
+const { loading, lookup: find } = useBinLookup({ get anonymous() { return props.anonymous } })
 const tooltip = computed(() =>
   isBinLike(props.bin) ? t('binLookup.tipReady') : t('binLookup.tipEnter'),
 )
 
 const lookup = async () => {
-  if (!isBinLike(props.bin)) return
-  loading.value = true
-  try {
-    const company = await companyLookupApi.byBin(props.bin!, props.anonymous)
-    emit('found', company)
-    const name = company.nameRu ?? company.nameKz ?? company.bin
-    if (company.isActive === false) {
-      // ИП/юрлицо прекратило деятельность — данные подставлены, но декларант должен это увидеть.
-      message.warning({ content: t('binLookup.inactive', { name, status: company.statusRu ?? '' }), duration: 8 })
-    } else if (company.kind === 'ip') {
-      message.success(t('binLookup.foundIp', { name }))
-    } else {
-      const status = company.statusRu ? ` · ${company.statusRu}` : ''
-      message.success(t('binLookup.found', { name: `${name}${status}` }))
-    }
-  } catch (e: unknown) {
-    const err = e as { response?: { status?: number; data?: { error?: string } } }
-    const st = err.response?.status
-    const text = err.response?.data?.error
-    if (st === 404) message.warning(text ?? t('binLookup.notFound'))
-    else if (st === 503) message.error(text ?? t('binLookup.notConfigured'))
-    else if (st === 400) message.warning(text ?? t('binLookup.badBin'))
-    else message.error(text ?? t('binLookup.unavailable'))
-  } finally {
-    loading.value = false
-  }
+  const company = await find(props.bin)
+  if (company) emit('found', company)
 }
 </script>
 

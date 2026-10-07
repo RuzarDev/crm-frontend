@@ -3,7 +3,8 @@ import { computed, useAttrs } from 'vue'
 import { cn } from '@/ui/cn'
 
 export type ZButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost' | 'link'
-export type ZButtonSize = 'sm' | 'md'
+// lg (42px, 15px, радиус 9px — как у поля lg, fieldShell) — только страницы входа/регистрации (спека §4).
+export type ZButtonSize = 'sm' | 'md' | 'lg'
 
 const props = withDefaults(defineProps<{
   variant?: ZButtonVariant
@@ -47,6 +48,7 @@ const HOVER: Record<ZButtonVariant, string> = {
 const SIZE: Record<ZButtonSize, string> = {
   sm: 'h-7 px-2.5 text-xs gap-1.5',
   md: 'h-9 px-3.5 text-sm gap-2',
+  lg: 'h-[42px] px-5 rounded-[9px] text-[15px] gap-2',
 }
 
 const interactive = computed(() => !props.disabled && !props.loading)

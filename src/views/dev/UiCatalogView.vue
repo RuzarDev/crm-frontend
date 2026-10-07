@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { PhArrowSquareOut, PhCopy, PhFunnel, PhMagnifyingGlass, PhPencilSimple, PhPlus, PhQuestion, PhTray, PhTrash, PhUploadSimple } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZInput from '@/components/z/ZInput.vue'
@@ -42,6 +42,22 @@ import ZStepper, { type ZStep } from '@/components/z/ZStepper.vue'
 import ZAskBanner from '@/components/z/ZAskBanner.vue'
 import ZProgress from '@/components/z/ZProgress.vue'
 import ZBreadcrumbs from '@/components/z/ZBreadcrumbs.vue'
+import ShellSidebar from '@/components/shell/ShellSidebar.vue'
+import ShellSectionTabs from '@/components/shell/ShellSectionTabs.vue'
+import ZirconLogo from '@/components/shell/ZirconLogo.vue'
+import NotificationsBell from '@/components/shell/NotificationsBell.vue'
+import UserMenu from '@/components/shell/UserMenu.vue'
+import LangMenu from '@/components/shell/LangMenu.vue'
+import CommandPalette from '@/components/shell/CommandPalette.vue'
+import { useNotificationsStore } from '@/stores/notifications'
+import { useAuthStore } from '@/stores/auth'
+import { useProfileStore } from '@/stores/profile'
+import type { AppNotification } from '@/types/api'
+import { buildBrokerNav, buildClientNav, type NavAccess, type NavModel } from '@/shell/navModel'
+import { installPaletteHotkey, useCommandPalette, type PaletteDestination } from '@/shell/useCommandPalette'
+import { systemApi, type SearchHit } from '@/api/system'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import type { ZColumn, ZKey } from '@/ui/table'
 import type { ZRule } from '@/ui/validation'
 import { message } from '@/ui/message'
@@ -253,6 +269,117 @@ const saveModal = () => {
   setTimeout(() => { modalSaving.value = false; modalOpen.value = false; message.success('Заявка сохранена') }, 800)
 }
 const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key}` }
+
+// ---- Волна 1: оболочка ----
+const demoAccess = (role: string, extra: Partial<NavAccess> = {}): NavAccess => ({
+  role, hasPermission: () => role === 'administrator', clientHasModule: (m) => m === 'import40',
+  canUseImport40: true, canUseSales: true, isFinanceOnly: false, registrationIncomplete: false, ...extra,
+})
+const brokerNav = buildBrokerNav(demoAccess('administrator'))
+const clientNav = buildClientNav(demoAccess('client', { registrationIncomplete: true }))
+const referencesSection = brokerNav.groups.flatMap((g) => g.sections).find((s) => s.key === 'references')!
+const shellEvent = ref('')
+
+// Шапка: каталог открыт без входа — стор уведомлений и выход подменены демо-версиями без запросов к API,
+// профиль — демо-именем (если пуст). Всё возвращается при уходе со страницы.
+const demoNotifications = (): AppNotification[] => [
+  { id: 'd1', title: 'ДТ выпущена', body: 'И40-182 · ТОО «Казахмыс Трейд» — декларация выпущена, можно закрывать СВХ', type: 'case', caseId: 'demo', reestrEntryId: null, isRead: false, createdAtUtc: '2026-10-08T05:40:00Z' },
+  { id: 'd2', title: 'Нужен сертификат', body: 'И40-179 · позиция 3 — клиент загрузил не тот файл', type: 'case', caseId: 'demo', reestrEntryId: null, isRead: false, createdAtUtc: '2026-10-08T04:12:00Z' },
+  { id: 'd3', title: 'Счёт оплачен', body: 'СЧ-2026-0412 · ТОО «Astana Foods»', type: 'invoice', caseId: null, reestrEntryId: 'demo', isRead: true, createdAtUtc: '2026-10-07T11:03:00Z' },
+]
+const notifDemo = useNotificationsStore()
+const authDemo = useAuthStore()
+const profileDemo = useProfileStore()
+const real = {
+  fetch: notifDemo.fetch, markRead: notifDemo.markRead, markAllRead: notifDemo.markAllRead, logout: authDemo.logout,
+  profile: profileDemo.profile, items: notifDemo.items, unreadCount: notifDemo.unreadCount, loadError: notifDemo.loadError,
+}
+notifDemo.items = []
+notifDemo.unreadCount = 2
+// «Ошибка загрузки» в каталоге: следующее открытие колокольчика не загрузится, «Повторить» — загрузит.
+let demoFailNext = false
+notifDemo.fetch = async () => {
+  notifDemo.loading = true
+  await new Promise((r) => setTimeout(r, notifDemo.items.length ? 200 : 700))
+  if (demoFailNext) {
+    demoFailNext = false
+    notifDemo.loadError = true
+  } else {
+    if (!notifDemo.items.length) notifDemo.items = demoNotifications()
+    notifDemo.unreadCount = notifDemo.items.filter((n) => !n.isRead).length
+    notifDemo.loadError = false
+  }
+  notifDemo.loading = false
+}
+notifDemo.markRead = async (id: string) => {
+  const n = notifDemo.items.find((x) => x.id === id)
+  if (n && !n.isRead) { n.isRead = true; notifDemo.unreadCount = Math.max(0, notifDemo.unreadCount - 1) }
+}
+notifDemo.markAllRead = async () => {
+  notifDemo.items.forEach((n) => (n.isRead = true))
+  notifDemo.unreadCount = 0
+}
+authDemo.logout = () => { shellEvent.value = 'выход (демо)' }
+if (!profileDemo.profile) {
+  profileDemo.profile = { userId: 'demo', username: 'aigerim', displayName: 'Айгерим Касымова', phone: null, companyName: null, innBin: null, role: 'Import' }
+}
+const failShellDemo = () => {
+  notifDemo.items = []
+  demoFailNext = true
+}
+const resetShellDemo = () => {
+  notifDemo.items = demoNotifications()
+  notifDemo.unreadCount = 2
+}
+// Палитра ⌘K: поиск подменён демо-ответами (каталог открыт без входа, а настоящий 401 увёл бы на /login
+// даже с silent). Запрос со словом «ошибка» — ответ с ошибкой. Переходы из палитры отменяются и пишутся
+// событием ниже, чтобы не уходить со страницы.
+const { t: tDemo } = useI18n()
+const palette = useCommandPalette()
+const paletteClient = ref(false)
+const navDestinations = (nav: NavModel): PaletteDestination[] =>
+  [...nav.groups.flatMap((g) => g.sections), ...nav.bottom].filter((s) => !s.action).flatMap((s) =>
+    s.pages.map((pg) => ({
+      key: `${s.key}:${pg.key}`, label: tDemo(pg.labelKey), to: pg.to,
+      hint: pg.labelKey === s.labelKey ? undefined : tDemo(s.labelKey),
+    })))
+const paletteDestinations = computed(() => navDestinations(paletteClient.value ? clientNav : brokerNav))
+const demoHits: SearchHit[] = [
+  { type: 'case', title: 'И40-182', subtitle: 'ТОО «Казахмыс Трейд» · ИМ 40', url: '/import-40/demo-182' },
+  { type: 'declaration', title: 'ДТ 50508/081026/0012345', subtitle: 'И40-182 · выпущена', url: '/import-40/demo-182/declaration' },
+  { type: 'client', title: 'ТОО «Казахмыс Трейд»', subtitle: 'БИН 210340012345', url: '/clients/demo-1' },
+  { type: 'document', title: 'Инвойс INV-2026-0912', subtitle: 'И40-179 · загружен 07.10', url: '/import-40/demo-179' },
+  { type: 'invoice', title: 'СЧ-2026-0412', subtitle: 'ТОО «Astana Foods» · оплачен', url: '/billing/demo-412' },
+]
+const realSearch = systemApi.search
+systemApi.search = async (q: string) => {
+  await new Promise((r) => setTimeout(r, 600))
+  const n = q.toLocaleLowerCase()
+  if (n.includes('ошибка')) throw new Error('demo')
+  return demoHits.filter((h) => `${h.title} ${h.subtitle}`.toLocaleLowerCase().includes(n))
+}
+const openPalette = (client = false) => {
+  paletteClient.value = client
+  palette.show()
+}
+const offPaletteHotkey = installPaletteHotkey()
+const paletteTargets = computed(() => new Set([...paletteDestinations.value.map((d) => d.to), ...demoHits.map((h) => h.url)]))
+const offPaletteNav = useRouter().beforeEach((to, from) => {
+  if (from.path !== '/_ui' || !paletteTargets.value.has(to.fullPath)) return true
+  shellEvent.value = `палитра → ${to.fullPath}`
+  return false
+})
+onBeforeUnmount(() => {
+  Object.assign(notifDemo, { fetch: real.fetch, markRead: real.markRead, markAllRead: real.markAllRead })
+  // Возвращаем прежнее состояние стора, а не reset(): тот останавливает опрос и стирает настоящие данные.
+  Object.assign(notifDemo, { items: real.items, unreadCount: real.unreadCount, loadError: real.loadError, loading: false })
+  authDemo.logout = real.logout
+  profileDemo.profile = real.profile
+  systemApi.search = realSearch
+  offPaletteHotkey()
+  offPaletteNav()
+  palette.hide()
+})
 </script>
 
 <template>
@@ -629,6 +756,71 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
         </div>
       </ZPanel>
 
+      <ZPanel class="min-w-0" title="Оболочка">
+        <div class="flex flex-col gap-5">
+          <div class="flex flex-wrap items-center gap-6">
+            <ZirconLogo size="sm" />
+            <ZirconLogo size="md" />
+            <span class="inline-flex rounded-field bg-navy px-4 py-3"><ZirconLogo size="md" inverse /></span>
+          </div>
+          <div class="flex flex-col gap-2">
+            <div class="flex min-w-0 items-center gap-3 rounded-panel border border-line bg-canvas px-4 py-3 sm:px-7">
+              <span class="truncate text-[13px] text-muted">Среда, 8 октября</span>
+              <div class="ml-auto flex items-center gap-1.5">
+                <NotificationsBell />
+                <LangMenu />
+                <UserMenu />
+              </div>
+            </div>
+            <div class="flex min-w-0 items-center gap-3 rounded-panel border border-line bg-canvas px-4 py-3">
+              <span class="truncate text-[13px] text-muted">Узкая шапка (compact)</span>
+              <div class="ml-auto flex items-center gap-1.5">
+                <NotificationsBell />
+                <UserMenu compact />
+              </div>
+            </div>
+            <p class="text-sm text-ink-3">
+              Шапка без API: уведомления — демо (первое открытие показывает скелет),
+              «Выйти» пишет событие ниже и переводит на /login.
+              <ZButton variant="link" size="sm" @click="resetShellDemo">Вернуть непрочитанные</ZButton>
+              ·
+              <ZButton variant="link" size="sm" @click="failShellDemo">Следующая загрузка — с ошибкой</ZButton>
+            </p>
+          </div>
+          <div class="flex flex-col gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <ZButton variant="secondary" @click="openPalette()">
+                <PhMagnifyingGlass :size="16" />Открыть палитру
+                <span class="ml-1 inline-flex gap-0.5"><ZKbd>⌘</ZKbd><ZKbd>K</ZKbd></span>
+              </ZButton>
+              <ZButton variant="ghost" @click="openPalette(true)">Палитра клиента</ZButton>
+            </div>
+            <p class="text-sm text-ink-3">
+              Поиск — демо-ответы через 0,6 с («И40», «Казахмыс», «СЧ-2026»…); слово «ошибка» в запросе — ответ с ошибкой.
+              Переход из палитры не уводит со страницы — событие появится ниже, у меню.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-6">
+            <div class="h-[640px] w-[248px] overflow-hidden rounded-panel border border-line bg-canvas">
+              <ShellSidebar
+                :model="brokerNav" path="/import-40/manage" :attention="3"
+                @search="shellEvent = 'search'; openPalette()" @navigate="shellEvent = 'navigate'"
+              />
+            </div>
+            <div class="h-[640px] w-[240px] overflow-hidden rounded-panel border border-line bg-canvas">
+              <ShellSidebar :model="clientNav" path="/home" :attention="1" comfortable :searchable="false" />
+            </div>
+            <div class="flex min-w-0 flex-1 flex-col gap-3">
+              <p class="text-sm text-ink-3">Вкладки раздела «Справочники» (узкая полоса прокручивается):</p>
+              <div class="max-w-[360px] rounded-field border border-line bg-surface">
+                <ShellSectionTabs :section="referencesSection" active-key="timeline" />
+              </div>
+              <p class="text-sm text-ink-3">{{ shellEvent ? `Событие: ${shellEvent}` : 'Поиск/пункт меню — событие появится здесь' }}</p>
+            </div>
+          </div>
+        </div>
+      </ZPanel>
+
       <ZModal
         v-model:open="modalOpen" title="Новая заявка на оформление" :width="560" destroy-on-close
         ok-text="Сохранить" cancel-text="Отмена" :confirm-loading="modalSaving" @ok="saveModal"
@@ -669,6 +861,8 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
         </div>
         <template #footer><ZButton @click="drawerOpen = false">Закрыть</ZButton></template>
       </ZDrawer>
+
+      <CommandPalette :destinations="paletteDestinations" :client="paletteClient" />
     </div>
   </div>
 </template>

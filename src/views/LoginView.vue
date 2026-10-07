@@ -1,468 +1,98 @@
-<template>
-  <div class="auth-page">
-
-    <!-- ══ LEFT PANEL ══════════════════════════════════════════ -->
-    <section class="auth-left">
-      <!-- Grid pattern overlay -->
-      <div class="auth-grid-pattern" aria-hidden="true"></div>
-
-      <!-- Floating geometric orbs -->
-      <div class="auth-orb auth-orb-1" aria-hidden="true"></div>
-      <div class="auth-orb auth-orb-2" aria-hidden="true"></div>
-      <div class="auth-orb auth-orb-3" aria-hidden="true"></div>
-
-      <div class="auth-left-inner">
-        <img class="auth-logo" :src="zirconLogo" alt="Zircon CRM" height="60" />
-        <!-- Hero -->
-        <div class="auth-hero">
-          <h1 class="auth-headline">
-            {{ t('login.heroTitle') }}
-          </h1>
-          <p class="auth-desc">
-            {{ t('login.heroSubtitle') }}
-          </p>
-        </div>
-
-        <!-- Copyright -->
-        <div class="auth-copyright">
-          {{ t('login.copyright') }}
-        </div>
-      </div>
-    </section>
-
-    <!-- ══ RIGHT PANEL ═════════════════════════════════════════ -->
-    <main class="auth-right">
-      <div class="auth-form-wrap">
-        <div class="auth-lang"><LanguageSwitcher /></div>
-        <div class="auth-form-header">
-          <img class="auth-form-logo" :src="zirconLogoDark" alt="Zircon CRM" height="48" />
-          <h2 class="auth-form-title">{{ t('login.welcome') }}</h2>
-          <p class="auth-form-sub">{{ t('login.subtitle') }}</p>
-        </div>
-
-        <a-form
-          :model="formState"
-          :rules="rules"
-          @finish="handleLogin"
-          layout="vertical"
-          class="auth-form"
-        >
-          <a-form-item :label="t('login.username')" name="username">
-            <a-input
-              v-model:value="formState.username"
-              :placeholder="t('login.usernamePlaceholder')"
-              size="large"
-            >
-              <template #prefix>
-                <UserOutlined class="auth-input-icon" />
-              </template>
-            </a-input>
-          </a-form-item>
-
-          <a-form-item :label="t('login.password')" name="password">
-            <a-input-password
-              v-model:value="formState.password"
-              :placeholder="t('login.passwordPlaceholder')"
-              size="large"
-            >
-              <template #prefix>
-                <LockOutlined class="auth-input-icon" />
-              </template>
-            </a-input-password>
-          </a-form-item>
-
-          <div class="auth-forgot">
-            <a @click="router.push('/forgot-password')">{{ t('login.forgot') }}</a>
-          </div>
-
-          <a-form-item class="auth-submit-item">
-            <a-button
-              type="primary"
-              html-type="submit"
-              size="large"
-              block
-              :loading="loading"
-              class="auth-submit-btn"
-            >
-              <span v-if="!loading">{{ t('login.submit') }}</span>
-            </a-button>
-          </a-form-item>
-        </a-form>
-
-        <div class="auth-footer-link">
-          {{ t('login.noAccount') }}
-          <a @click="goToRegister">{{ t('login.register') }}</a>
-        </div>
-      </div>
-    </main>
-
-  </div>
-</template>
-
 <script setup lang="ts">
-import zirconLogo from '@/assets/brand/zircon-crm-logo-white.svg'
-import zirconLogoDark from '@/assets/brand/zircon-crm-logo.svg'
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref, useId } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import AuthLayout from '@/components/auth/AuthLayout.vue'
+import ZForm from '@/components/z/ZForm.vue'
+import ZField from '@/components/z/ZField.vue'
+import ZInput from '@/components/z/ZInput.vue'
+import ZButton from '@/components/z/ZButton.vue'
 import { useAuthStore } from '@/stores/auth'
-import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
-import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import type { ZRule } from '@/ui/validation'
+import { authLabelClass as labelClass, authLinkClass as linkClass } from '@/components/auth/classes'
+
+// Вход брокеров и клиентов. Ошибку входа (неверный пароль, блокировка) показывает перехватчик axios — здесь
+// только проверка заполненности. Подписи свои, а не label у ZField: у пароля в строке подписи ссылка
+// «Забыли пароль?» (в <label> ей не место — попала бы в имя поля), и обе без звёздочки — по макету
+// обязательны все поля входа; aria-required ставит ZField.
+// Ссылка «Забыли пароль?» видна в строке подписи, но в DOM стоит после поля пароля (absolute): Tab из логина
+// ведёт сразу в пароль, а Enter после Tab не уводит со страницы.
 
 const router = useRouter()
 const authStore = useAuthStore()
 const { t } = useI18n()
-const loading = ref(false)
 
-const formState = reactive({ username: '', password: '' })
+const uid = useId()
+const ids = { username: `${uid}-username`, password: `${uid}-password` }
 
-const rules = {
-  username: [{ required: true, message: () => t('login.usernamePlaceholder') }],
-  password: [{ required: true, message: () => t('login.passwordPlaceholder') }],
+const form = reactive({ username: '', password: '' })
+const rules: Record<string, ZRule[]> = {
+  username: [{ required: true, whitespace: true, message: () => t('auth.vLogin') }],
+  password: [{ required: true, message: () => t('auth.vPassword') }],
 }
 
-const handleLogin = async () => {
+const loading = ref(false)
+const onFinish = async () => {
   loading.value = true
   try {
-    const success = await authStore.login(formState)
-    if (success) router.push('/')
+    // Пробелы по краям логина — от копирования; пароль передаём как есть.
+    const ok = await authStore.login({ username: form.username.trim(), password: form.password })
+    if (ok) router.push('/')
   } finally {
     loading.value = false
   }
 }
 
-const goToRegister = () => router.push('/register')
+// Автофокус — только на широком экране (lg, как у AuthLayout): на телефоне клавиатура закрыла бы форму.
+const usernameInput = ref<InstanceType<typeof ZInput>>()
+onMounted(() => {
+  if (window.matchMedia?.('(min-width: 1024px)').matches) usernameInput.value?.focus()
+})
 </script>
 
-<style scoped>
-.auth-forgot { text-align: right; margin-bottom: 10px; font-size: 13px; }
-.auth-forgot a { color: var(--z-teal); cursor: pointer; }
-/* ── Page shell ─────────────────────────────────────────────── */
+<template>
+  <AuthLayout
+    :title="t('auth.loginTitle')"
+    :subtitle="t('auth.loginSubtitle')"
+    :hero-title="t('auth.heroTitle')"
+    :hero-text="t('auth.heroText')"
+    :points="[t('auth.point1'), t('auth.point2'), t('auth.point3')]"
+  >
+    <ZForm :model="form" :rules="rules" @finish="onFinish">
+      <ZField name="username">
+        <label :for="ids.username" :class="[labelClass, 'mb-0.5']">{{ t('auth.loginLabel') }}</label>
+        <ZInput
+          :id="ids.username"
+          ref="usernameInput"
+          v-model:value="form.username"
+          size="lg"
+          autocomplete="username"
+          autocapitalize="none"
+          spellcheck="false"
+        />
+      </ZField>
+      <ZField name="password" class="relative">
+        <label :for="ids.password" :class="[labelClass, 'mb-0.5']">{{ t('login.password') }}</label>
+        <ZInput
+          :id="ids.password"
+          v-model:value="form.password"
+          type="password"
+          size="lg"
+          autocomplete="current-password"
+        />
+        <RouterLink
+          to="/forgot-password"
+          :class="[linkClass, 'absolute right-0 top-0 text-sm font-medium no-underline']"
+        >{{ t('login.forgot') }}</RouterLink>
+      </ZField>
+      <ZButton variant="primary" html-type="submit" size="lg" block :loading="loading">{{ t('login.submit') }}</ZButton>
+    </ZForm>
 
-.auth-page {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  min-height: 100vh;
-  overflow: hidden;
-}
-
-/* ── LEFT ───────────────────────────────────────────────────── */
-
-.auth-left {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(145deg, #0f1d36 0%, var(--z-ink) 45%, #1a3050 100%);
-  overflow: hidden;
-}
-
-/* Grid dot pattern — как у Linear/Vercel */
-.auth-grid-pattern {
-  position: absolute;
-  inset: 0;
-  background-image:
-    radial-gradient(circle, rgba(35, 181, 211, 0.18) 1px, transparent 1px);
-  background-size: 32px 32px;
-  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
-  pointer-events: none;
-}
-
-/* Floating orbs */
-.auth-orb {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  filter: blur(0px);
-}
-
-.auth-orb-1 {
-  width: 320px;
-  height: 320px;
-  top: -80px;
-  right: -80px;
-  background: radial-gradient(circle, rgba(35, 181, 211, 0.12) 0%, transparent 70%);
-  animation: orb-float 8s ease-in-out infinite;
-}
-
-.auth-orb-2 {
-  width: 240px;
-  height: 240px;
-  bottom: 80px;
-  left: -60px;
-  background: radial-gradient(circle, rgba(242, 181, 58, 0.1) 0%, transparent 70%);
-  animation: orb-float 11s ease-in-out infinite reverse;
-}
-
-.auth-orb-3 {
-  width: 180px;
-  height: 180px;
-  top: 45%;
-  right: 15%;
-  background: radial-gradient(circle, rgba(35, 181, 211, 0.08) 0%, transparent 70%);
-  animation: orb-float 7s ease-in-out infinite 2s;
-}
-
-@keyframes orb-float {
-  0%, 100% { transform: translateY(0px) scale(1); }
-  50%       { transform: translateY(-20px) scale(1.04); }
-}
-
-/* Left inner content */
-.auth-left-inner {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: clamp(36px, 4vw, 64px);
-}
-
-/* Logo */
-.auth-logo {
-  flex-shrink: 0;
-  display: block;
-  align-self: flex-start;
-  width: auto;
-  height: 60px;
-  margin-bottom: auto;
-}
-
-.auth-form-logo {
-  display: block;
-  width: auto;
-  height: 48px;
-  margin-bottom: 20px;
-}
-
-/* Hero */
-.auth-hero {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 48px 0 40px;
-}
-
-.auth-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-  color: var(--z-teal);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.auth-eyebrow-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--z-teal);
-  box-shadow: 0 0 8px rgba(35, 181, 211, 0.8);
-  animation: pulse-dot 2s ease-in-out infinite;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(35, 181, 211, 0.8); }
-  50%       { opacity: 0.6; box-shadow: 0 0 16px rgba(35, 181, 211, 0.4); }
-}
-
-.auth-headline {
-  margin: 0 0 24px;
-  color: #ffffff;
-  font-size: clamp(36px, 3.2vw, 54px);
-  font-weight: 800;
-  line-height: 1.08;
-  letter-spacing: -0.03em;
-}
-
-.auth-desc {
-  color: rgba(180, 210, 255, 0.6);
-  font-size: 14.5px;
-  line-height: 1.7;
-  margin: 0;
-}
-
-/* Copyright */
-.auth-copyright {
-  flex-shrink: 0;
-  color: rgba(180, 210, 255, 0.3);
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.01em;
-}
-
-/* ── RIGHT ──────────────────────────────────────────────────── */
-
-.auth-right {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f5f7fb;
-  padding: clamp(24px, 4vw, 60px);
-}
-
-.auth-lang { display: flex; justify-content: flex-end; margin-bottom: 8px; }
-.auth-form-wrap {
-  width: 100%;
-  max-width: 420px;
-}
-
-/* Form header */
-.auth-form-header {
-  margin-bottom: 36px;
-}
-
-.auth-form-badge {
-  display: inline-flex;
-  align-items: center;
-  height: 26px;
-  padding: 0 10px;
-  margin-bottom: 16px;
-  border: 1px solid rgba(35, 181, 211, 0.3);
-  border-radius: 999px;
-  background: rgba(35, 181, 211, 0.08);
-  color: var(--z-teal-d);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.auth-form-title {
-  margin: 0 0 6px;
-  color: var(--z-ink);
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.auth-form-sub {
-  margin: 0;
-  color: #8C8C8C;
-  font-size: 14px;
-}
-
-/* Form fields */
-.auth-form :deep(.ant-form-item-label > label) {
-  color: var(--z-ink);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-:not(#z) .auth-form :deep(.ant-input-lg),
-:not(#z) .auth-form :deep(.ant-input-affix-wrapper-lg) {
-  min-height: 50px;
-  border-radius: 10px;
-  border-color: #dde1ec;
-  background: #ffffff;
-  font-size: 14.5px;
-  box-shadow: 0 1px 3px rgba(14, 27, 53, 0.04);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-:not(#z) .auth-form :deep(.ant-input-affix-wrapper-lg:focus-within),
-:not(#z) .auth-form :deep(.ant-input-affix-wrapper-focused) {
-  border-color: var(--z-teal);
-  box-shadow: 0 0 0 3px rgba(35, 181, 211, 0.14);
-}
-
-.auth-input-icon {
-  color: #8C8C8C;
-  font-size: 15px;
-}
-
-/* Submit */
-:not(#z) .auth-submit-item {
-  margin-top: 8px;
-  margin-bottom: 0;
-}
-
-:not(#z) .auth-submit-btn {
-  min-height: 52px;
-  border-radius: 10px;
-  background: var(--z-teal);
-  border: none;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  box-shadow: none;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
-}
-
-:not(#z) .auth-submit-btn:not(:disabled):hover {
-  background: #4FC6DE;
-}
-
-:not(#z) .auth-submit-btn:not(:disabled):active {
-  transform: translateY(0);
-}
-
-/* Footer link */
-.auth-footer-link {
-  margin-top: 24px;
-  text-align: center;
-  color: #8C8C8C;
-  font-size: 13.5px;
-}
-
-.auth-footer-link a {
-  margin-left: 4px;
-  color: var(--z-teal-d);
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  transition: color 0.15s ease;
-}
-
-.auth-footer-link a:hover {
-  color: var(--z-ink);
-}
-
-/* ── Responsive ─────────────────────────────────────────────── */
-
-@media (max-width: 860px) {
-  .auth-page {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-  }
-
-  .auth-left {
-    padding: 0;
-    min-height: auto;
-  }
-
-  .auth-left-inner {
-    padding: 20px 20px 24px;
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .auth-logo { margin-bottom: 0; }
-
-  .auth-hero {
-    display: none;
-  }
-
-  .auth-stats {
-    display: none;
-  }
-
-  .auth-right {
-    padding: 28px 16px 40px;
-    background: #f5f7fb;
-    align-items: flex-start;
-  }
-
-  .auth-form-wrap {
-    max-width: 100%;
-  }
-}
-</style>
+    <template #footer>
+      <p class="m-0 text-center text-[14px] text-ink-3">
+        {{ t('login.noAccount') }}
+        <RouterLink to="/register" :class="[linkClass, 'font-semibold underline underline-offset-2']">{{ t('auth.registerCompany') }}</RouterLink>
+      </p>
+    </template>
+  </AuthLayout>
+</template>
