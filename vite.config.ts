@@ -13,6 +13,9 @@ export default defineConfig({
     tailwindcss(),
     vue(),
     Components({
+      // Z-набор подключается только явным импортом: иначе z/ZTable|ZField|ZFilterBar
+      // (волна 0c) столкнулись бы по имени со старыми components/ui/* (8 экранов).
+      globs: ['src/components/**/*.vue', '!src/components/z/**'],
       resolvers: [
         AntDesignVueResolver({
           importStyle: false,

@@ -13,6 +13,19 @@ export default {
     invalidCredentials: 'Неверный логин или пароль',
     loginNoToken: 'Ошибка входа: в ответе нет токена',
   },
+  // Тексты набора компонентов Z (редизайн 2026-10).
+  z: {
+    noResults: 'Ничего не найдено',
+    close: 'Закрыть',
+    confirm: 'Подтвердить',
+    chooseDate: 'Выбрать дату',
+    prevMonth: 'Предыдущий месяц',
+    nextMonth: 'Следующий месяц',
+    increase: 'Увеличить',
+    decrease: 'Уменьшить',
+    remove: 'Убрать',
+    more: 'Ещё',
+  },
   common: {
     graphShort: 'Гр.{n}',
     emptyTitle: 'Здесь пока пусто',
