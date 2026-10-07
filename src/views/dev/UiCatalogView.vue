@@ -144,7 +144,7 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
         </template>
       </ZPage>
 
-      <ZPanel title="Кнопки">
+      <ZPanel class="min-w-0" title="Кнопки">
         <div class="flex flex-col gap-4">
           <div class="flex flex-wrap items-center gap-2">
             <ZButton variant="primary"><template #icon><PhPlus :size="16" /></template>Новая заявка</ZButton>
@@ -163,8 +163,8 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
         </div>
       </ZPanel>
 
-      <div class="grid gap-6 md:grid-cols-2">
-        <ZPanel title="Поля ввода">
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <ZPanel class="min-w-0" title="Поля ввода">
           <div class="flex flex-col gap-3">
             <ZInput v-model:value="search" allow-clear placeholder="Поиск по клиенту, БИН, номеру">
               <template #prefix><PhMagnifyingGlass :size="16" /></template>
@@ -176,12 +176,12 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
             <ZInput size="sm" placeholder="Маленькое поле" />
           </div>
         </ZPanel>
-        <ZPanel title="Многострочное">
+        <ZPanel class="min-w-0" title="Многострочное">
           <ZTextarea v-model:value="note" auto-grow placeholder="Комментарий для декларанта" />
         </ZPanel>
       </div>
 
-      <ZPanel title="Статусы и аватары">
+      <ZPanel class="min-w-0" title="Статусы и аватары">
         <div class="flex flex-col gap-4">
           <div class="flex flex-wrap gap-2">
             <ZTag v-for="[tone, label] in tones" :key="tone" :tone="tone">{{ label }}</ZTag>
@@ -197,11 +197,11 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
         </div>
       </ZPanel>
 
-      <div class="grid gap-6 md:grid-cols-2">
-        <ZPanel title="Загрузка">
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <ZPanel class="min-w-0" title="Загрузка">
           <ZSkeleton :lines="4" />
         </ZPanel>
-        <ZPanel padding="none">
+        <ZPanel class="min-w-0" padding="none">
           <ZEmpty title="Заявок пока нет" hint="Новые заявки клиентов появятся здесь, а вы получите уведомление">
             <template #icon><PhTray :size="20" /></template>
             <template #action><ZButton variant="primary" size="sm">Создать заявку</ZButton></template>
@@ -209,16 +209,16 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
         </ZPanel>
       </div>
 
-      <div class="grid gap-6 md:grid-cols-2">
-        <ZPanel title="Числа (ZNumber)">
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <ZPanel class="min-w-0" title="Числа (ZNumber)">
           <div class="flex flex-col gap-3">
-            <label class="flex flex-col gap-1 text-sm text-ink-2">Вес нетто, кг (гр.38)
+            <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Вес нетто, кг (гр.38)
               <ZNumber v-model:value="netWeight" :precision="3" :min="0" placeholder="0,000" />
             </label>
-            <label class="flex flex-col gap-1 text-sm text-ink-2">Количество мест, с кнопками
+            <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Количество мест, с кнопками
               <ZNumber v-model:value="quantity" controls :min="0" :max="999" :step="1" />
             </label>
-            <label class="flex flex-col gap-1 text-sm text-ink-2">Ошибка (не может быть отрицательным)
+            <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Ошибка (не может быть отрицательным)
               <ZNumber v-model:value="badQuantity" invalid />
             </label>
             <ZNumber :value="1240.5" :precision="3" disabled />
@@ -227,12 +227,12 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
           </div>
         </ZPanel>
 
-        <ZPanel title="Автодополнение (ZCombobox)">
+        <ZPanel class="min-w-0" title="Автодополнение (ZCombobox)">
           <div class="flex flex-col gap-3">
-            <label class="flex flex-col gap-1 text-sm text-ink-2">Таможенный пост (гр.29)
+            <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Таможенный пост (гр.29)
               <ZCombobox v-model:value="post" :options="posts" mono allow-clear placeholder="Код или название поста" />
             </label>
-            <label class="flex flex-col gap-1 text-sm text-ink-2">Узкое поле, окно шире (popupWidth, слот option)
+            <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Узкое поле, окно шире (popupWidth, слот option)
               <ZCombobox v-model:value="wideSearch" :options="posts" :popup-width="420" placeholder="Поиск">
                 <template #option="o">
                   <span class="flex min-w-0 flex-1 flex-col">
@@ -248,24 +248,24 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
         </ZPanel>
       </div>
 
-      <ZPanel title="Списки (ZSelect)">
-        <div class="grid gap-4 md:grid-cols-2">
-          <label class="flex flex-col gap-1 text-sm text-ink-2">Процедура (гр.1)
+      <ZPanel class="min-w-0" title="Списки (ZSelect)">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Процедура (гр.1)
             <ZSelect v-model:value="procedure" :options="procedures" placeholder="Выберите процедуру" />
           </label>
-          <label class="flex flex-col gap-1 text-sm text-ink-2">Страна происхождения, с поиском
+          <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Страна происхождения, с поиском
             <ZSelect v-model:value="country" :options="countries" show-search option-filter-prop="label" allow-clear placeholder="Страна" />
           </label>
-          <label class="flex flex-col gap-1 text-sm text-ink-2">Виды транспорта (multiple)
+          <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Виды транспорта (multiple)
             <ZSelect v-model:value="modes" :options="transports" mode="multiple" allow-clear placeholder="Выберите" />
           </label>
-          <label class="flex flex-col gap-1 text-sm text-ink-2">Номера контейнеров (tags)
+          <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Номера контейнеров (tags)
             <ZSelect v-model:value="containers" :options="[]" mode="tags" placeholder="Введите номер и Enter" />
           </label>
-          <label class="flex flex-col gap-1 text-sm text-ink-2">Ошибка (status=error)
+          <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Ошибка (status=error)
             <ZSelect v-model:value="badProcedure" :options="procedures" status="error" placeholder="Обязательное поле" />
           </label>
-          <label class="flex flex-col gap-1 text-sm text-ink-2">Недоступно
+          <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Недоступно
             <ZSelect value="TT80" :options="procedures" disabled />
           </label>
         </div>
@@ -274,16 +274,16 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
         </p>
       </ZPanel>
 
-      <div class="grid gap-6 md:grid-cols-2">
-        <ZPanel title="Даты (ZDate)">
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <ZPanel class="min-w-0" title="Даты (ZDate)">
           <div class="flex flex-col gap-3">
-            <label class="flex flex-col gap-1 text-sm text-ink-2">Дата гр.А
+            <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Дата гр.А
               <ZDate v-model:value="grA" allow-clear />
             </label>
-            <label class="flex flex-col gap-1 text-sm text-ink-2">Пустая
+            <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Пустая
               <ZDate v-model:value="emptyDate" placeholder="ДД.ММ.ГГГГ" />
             </label>
-            <label class="flex flex-col gap-1 text-sm text-ink-2">Ошибка
+            <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Ошибка
               <ZDate v-model:value="badDate" invalid />
             </label>
             <ZDate value="2026-09-28" disabled />
@@ -292,7 +292,7 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
           </div>
         </ZPanel>
 
-        <ZPanel title="Выбор">
+        <ZPanel class="min-w-0" title="Выбор">
           <div class="flex flex-col gap-4">
             <div class="flex flex-col gap-2">
               <ZCheckbox v-model:checked="agreeOnce">Ознакомлен с условиями договора</ZCheckbox>
@@ -320,8 +320,8 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
         </ZPanel>
       </div>
 
-      <div class="grid gap-6 md:grid-cols-2">
-        <ZPanel title="Вкладки и раскрытие">
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <ZPanel class="min-w-0" title="Вкладки и раскрытие">
           <div class="flex flex-col gap-4">
             <ZTabs v-model:active-key="tab" :items="tabs" />
             <p class="text-sm text-ink-3">Активна вкладка: {{ tab }}</p>
@@ -339,7 +339,7 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
           </div>
         </ZPanel>
 
-        <ZPanel title="Сообщения">
+        <ZPanel class="min-w-0" title="Сообщения">
           <div class="flex flex-col gap-3">
             <ZAlert type="info" message="Курсы на дату гр.А" description="Курсы НБ РК подставлены на 28.09.2026." show-icon />
             <ZAlert type="success" message="ДТ принята КЕДЕН" show-icon />
@@ -357,7 +357,7 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
         </ZPanel>
       </div>
 
-      <ZPanel title="Всплывающее">
+      <ZPanel class="min-w-0" title="Всплывающее">
         <div class="flex flex-col gap-4">
           <div class="flex flex-wrap items-center gap-3">
             <span class="inline-flex items-center gap-1 text-sm text-ink-2">
@@ -390,17 +390,17 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
         ok-text="Сохранить" cancel-text="Отмена" :confirm-loading="modalSaving" @ok="saveModal"
       >
         <div class="flex flex-col gap-3">
-          <label class="flex flex-col gap-1 text-sm text-ink-2">Клиент
+          <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Клиент
             <ZInput v-model:value="mClient" allow-clear />
           </label>
-          <label class="flex flex-col gap-1 text-sm text-ink-2">Процедура
+          <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Процедура
             <ZSelect v-model:value="mProc" :options="procedures" />
           </label>
-          <div class="grid gap-3 sm:grid-cols-2">
-            <label class="flex flex-col gap-1 text-sm text-ink-2">Дата гр.А
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Дата гр.А
               <ZDate v-model:value="mDate" />
             </label>
-            <label class="flex flex-col gap-1 text-sm text-ink-2">Вес нетто, кг
+            <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Вес нетто, кг
               <ZNumber v-model:value="mWeight" :precision="3" :min="0" />
             </label>
           </div>

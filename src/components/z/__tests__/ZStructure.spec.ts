@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
@@ -42,6 +42,23 @@ describe('ZTabs', () => {
     const vm = w.vm as unknown as { key: string; changes: string[] }
     expect(vm.key).toBe('mine')
     expect(vm.changes).toEqual(['mine'])
+  })
+
+  it('полоса прокручивается и не раздвигает контейнер; смена активной прокручивает вкладку в видимую часть', async () => {
+    const spy = vi.fn()
+    Element.prototype.scrollIntoView = spy
+    try {
+      w = mountWithI18n(ZTabs, { props: { activeKey: 'all', items }, attachTo: document.body })
+      const strip = w.get('[role="tablist"]')
+      for (const c of ['min-w-0', 'max-w-full', 'overflow-x-auto']) expect(strip.classes()).toContain(c)
+      await w.setProps({ activeKey: 'mine' })
+      await nextTick()
+      expect(spy).toHaveBeenCalledTimes(1)
+      expect(spy.mock.contexts[0]).toBe(w.findAll('[role="tab"]')[1].element)
+      expect(spy).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' })
+    } finally {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView
+    }
   })
 
   it('клик по уже активной вкладке ничего не шлёт', async () => {
