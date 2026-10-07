@@ -85,6 +85,18 @@
     to { opacity: 0; }
   }
 
+  /* Раскрытие пункта ZCollapse: высоту отдаёт Reka через --reka-accordion-content-height. */
+  --animate-acc-open: z-acc-open 180ms var(--ease-out);
+  --animate-acc-close: z-acc-close 180ms var(--ease-out);
+  @keyframes z-acc-open {
+    from { height: 0; }
+    to { height: var(--reka-accordion-content-height); }
+  }
+  @keyframes z-acc-close {
+    from { height: var(--reka-accordion-content-height); }
+    to { height: 0; }
+  }
+
   /* Фон окна (ZModal, ZDrawer): появление — fade-in, уход — pop-out (тоже только прозрачность). */
   --animate-fade-in: z-fade-in 160ms var(--ease-out);
   @keyframes z-fade-in {
