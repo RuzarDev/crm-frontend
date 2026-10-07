@@ -29,6 +29,12 @@ describe('ZPanel', () => {
     expect(w.find('header button').exists()).toBe(true)
     expect(mount(ZPanel, { slots: { default: 'x' } }).find('header').exists()).toBe(false)
   })
+  it('только действия — шапка есть, пустого h2 нет, действия справа', () => {
+    const w = mount(ZPanel, { slots: { actions: '<button>Добавить</button>', default: 'тело' } })
+    expect(w.find('header').exists()).toBe(true)
+    expect(w.find('h2').exists()).toBe(false)
+    expect(w.find('header > div').classes()).toContain('ml-auto')
+  })
 })
 
 describe('ZPage', () => {
