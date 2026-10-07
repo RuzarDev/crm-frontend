@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import ZUpload from '../ZUpload.vue'
+import ZField from '../ZField.vue'
+import ZForm from '../ZForm.vue'
 
 const err = vi.hoisted(() => vi.fn())
 vi.mock('@/ui/message', () => ({ message: { error: err, success: vi.fn(), warning: vi.fn(), info: vi.fn() } }))
@@ -255,6 +257,64 @@ describe('ZUpload — зона перетаскивания', () => {
     expect(zone.attributes('aria-label')).toBe('Документы')
     ;(w.vm as unknown as { focus: () => void }).focus()
     expect(document.activeElement).toBe(zone.element)
+    w.unmount()
+  })
+})
+
+describe('ZUpload — внутри ZField', () => {
+  const inField = (uploadProps: Record<string, unknown> = {}, uploadAttrs: Record<string, unknown> = {}) => defineComponent({
+    render: () => h(ZField, { label: 'Счёт-фактура', required: true, error: 'Нужен файл' }, () => h(ZUpload, { ...uploadProps, ...uploadAttrs })),
+  })
+  for (const type of ['button', 'drag'] as const) {
+    it(`${type}: подпись → контрол, aria-describedby → ошибка, aria-invalid и aria-required на контроле`, async () => {
+      const w = mountWithI18n(inField({ type }), { attachTo: document.body })
+      await nextTick()
+      const ctl = w.get(type === 'button' ? 'button' : '[role="button"]')
+      const id = ctl.attributes('id')
+      expect(id).toBeTruthy()
+      expect(w.get('label').attributes('for')).toBe(id)
+      const desc = ctl.attributes('aria-describedby')!
+      expect(document.getElementById(desc)?.textContent).toBe('Нужен файл')
+      expect(ctl.attributes('aria-invalid')).toBe('true')
+      expect(ctl.attributes('aria-required')).toBe('true')
+      expect(w.find('input[type="file"]').attributes('id')).toBeUndefined()
+      w.unmount()
+    })
+  }
+  it('drag: имя зоны — подпись поля и подсказка (label for на div не работает)', async () => {
+    const w = mountWithI18n(inField({ type: 'drag' }), { attachTo: document.body })
+    await nextTick()
+    const ids = w.get('[role="button"]').attributes('aria-labelledby')!.split(' ')
+    expect(ids.map((i) => document.getElementById(i)?.textContent?.trim())).toEqual(['Счёт-фактура*', 'Перетащите файл или нажмите, чтобы выбрать'])
+    w.unmount()
+  })
+  it('свои атрибуты главнее: id, aria-invalid; своя подсказка объединяется с ошибкой', async () => {
+    const w = mountWithI18n(inField({}, { id: 'own', 'aria-invalid': 'false', 'aria-describedby': 'hint' }), { attachTo: document.body })
+    await nextTick()
+    const b = w.get('button')
+    expect(b.attributes('id')).toBe('own')
+    expect(w.get('label').attributes('for')).toBe('own')
+    expect(b.attributes('aria-invalid')).toBe('false')
+    expect(b.attributes('aria-describedby')!.split(' ')[0]).toBe('hint')
+    expect(b.attributes('aria-describedby')!.split(' ')).toHaveLength(2)
+    w.unmount()
+  })
+  it('выбор файла сообщает полю: обязательное поле после попытки отправки перестаёт быть ошибкой', async () => {
+    const onFailed = vi.fn()
+    const Host = defineComponent({
+      render: () => h(ZForm, { onFinishFailed: onFailed }, () => [
+        h(ZField, { label: 'Файл', rules: [{ required: true }] }, () => h(ZUpload)),
+        h('button', { type: 'submit', class: 'go' }, 'OK'),
+      ]),
+    })
+    const w = mountWithI18n(Host, { attachTo: document.body })
+    await w.get('form').trigger('submit')
+    await flushPromises()
+    expect(onFailed).toHaveBeenCalledTimes(1)
+    expect(w.get('button').attributes('aria-invalid')).toBe('true')
+    await pick(w, [file('a.pdf')])
+    await flushPromises()
+    expect(w.get('button').attributes('aria-invalid')).toBeUndefined()
     w.unmount()
   })
 })

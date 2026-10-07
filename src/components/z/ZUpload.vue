@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, useAttrs, type ComponentPublicInstance, type StyleValue } from 'vue'
+import { computed, ref, useAttrs, useId, type ComponentPublicInstance, type StyleValue } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhUploadSimple } from '@phosphor-icons/vue'
 import { cn } from '@/ui/cn'
 import { message } from '@/ui/message'
+import { useFieldControl } from '@/ui/form'
 import ZButton, { type ZButtonSize, type ZButtonVariant } from './ZButton.vue'
 
 // Замена a-upload / a-upload-dragger. Загрузка всегда ручная: компонент только выбирает файлы, проверяет
@@ -56,6 +57,23 @@ const open = () => {
 }
 defineExpose({ focus: () => controlEl()?.focus(), blur: () => controlEl()?.blur(), open })
 
+// Внутри ZField: id/aria-* поля — на кнопку или зону (не на скрытый input), выбор файлов — change поля.
+// Значение для правил поля — последние принятые файлы (required: «файл выбран»).
+const chosen = ref<File[]>([])
+const { fieldId, fieldDescribedBy, fieldAriaInvalid, fieldRequired, fieldLabelId, notifyChange } = useFieldControl({
+  attrs, focus: () => controlEl()?.focus(), value: () => chosen.value,
+})
+// <label for> не называет div role=button, поэтому у зоны имя — подпись поля + своя подсказка (свои aria-label/-labelledby главнее).
+const hintId = `z-upload-${useId()}-hint`
+const zoneLabelledBy = computed(() => (attrs['aria-labelledby'] as string | undefined)
+  ?? (!attrs['aria-label'] && fieldLabelId.value ? `${fieldLabelId.value} ${hintId}` : undefined))
+const fieldAttrs = computed(() => ({
+  id: fieldId.value,
+  'aria-describedby': fieldDescribedBy.value,
+  'aria-invalid': fieldAriaInvalid.value,
+  'aria-required': fieldRequired.value,
+}))
+
 // accept: расширения («.xlsx», без учёта регистра), MIME («application/pdf») и маски («image/*»).
 const tokens = computed(() => (props.accept ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean))
 const typeOk = (f: File) => {
@@ -83,7 +101,9 @@ const handle = async (list: File[]) => {
     }
   }
   if (!accepted.length) return
+  chosen.value = accepted
   emit('select', accepted)
+  notifyChange()
   // По очереди: beforeUpload одного файла может показать окно/ошибку, и порядок важен.
   for (const f of accepted) {
     let result: boolean | void
@@ -155,7 +175,8 @@ const zoneClasses = computed(() => cn(
     <div
       v-if="type === 'drag'"
       ref="control"
-      v-bind="innerAttrs"
+      v-bind="{ ...innerAttrs, ...fieldAttrs }"
+      :aria-labelledby="zoneLabelledBy"
       role="button"
       :tabindex="disabled ? -1 : 0"
       :aria-disabled="disabled || undefined"
@@ -168,12 +189,12 @@ const zoneClasses = computed(() => cn(
       @drop="onDrop"
     >
       <PhUploadSimple :size="24" aria-hidden="true" class="text-ink-3" />
-      <span><slot>{{ t('z.uploadDrop') }}</slot></span>
+      <span :id="hintId"><slot>{{ t('z.uploadDrop') }}</slot></span>
     </div>
     <ZButton
       v-else
       ref="control"
-      v-bind="innerAttrs"
+      v-bind="{ ...innerAttrs, ...fieldAttrs }"
       :variant="buttonVariant"
       :size="buttonSize"
       :loading="loading"
