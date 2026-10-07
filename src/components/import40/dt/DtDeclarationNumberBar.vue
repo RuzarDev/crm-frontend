@@ -43,7 +43,7 @@
 import { useI18n } from 'vue-i18n'
 import { onMounted, reactive, ref, watch } from 'vue'
 import dayjs from 'dayjs'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import type { Import40DtFormState } from '@/api/import40'
 
 const { t } = useI18n()

@@ -16,7 +16,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { useI18n } from 'vue-i18n'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import { companyLookupApi, isBinLike, type CompanyLookupDto } from '@/api/companyLookup'

@@ -63,7 +63,7 @@
 import { useI18n } from 'vue-i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import dayjs, { type Dayjs } from 'dayjs'
 import { loadXlsx } from '@/utils/xlsx'
 import { DownloadOutlined } from '@ant-design/icons-vue'

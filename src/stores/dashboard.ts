@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { dashboardApi, type Import40ClientDashboardDto, type Import40DashboardDto } from '@/api/dashboard'
 import type { DashboardDto } from '@/types/api'
 import { useAuthStore } from '@/stores/auth'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 
 // Дашборд по услугам: транзитный блок — тем, у кого есть reestr.read (брокер/экспедитор/
 // админ/транзит-клиент); блок Импорта 40 — тем, кто им пользуется (админ/декларант/КПП/клиент).

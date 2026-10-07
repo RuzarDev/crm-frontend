@@ -38,7 +38,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { useI18n } from 'vue-i18n'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import { clientsOnboardingApi, type InviteInfo } from '@/api/clientsOnboarding'

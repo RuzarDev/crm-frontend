@@ -138,7 +138,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { useProfileStore } from '@/stores/profile'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { declarantProfileApi, type DeclarantProfileDto } from '@/api/declarantProfile'

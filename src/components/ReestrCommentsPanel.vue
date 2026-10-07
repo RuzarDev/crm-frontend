@@ -56,7 +56,7 @@ import { useAuthStore } from '@/stores/auth'
 import { formatRole } from '@/utils/labels'
 import type { ReestrCommentDto } from '@/types/api'
 import { DeleteOutlined, SendOutlined } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import dayjs from 'dayjs'
 
 const { t } = useI18n()

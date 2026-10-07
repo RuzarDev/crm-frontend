@@ -49,7 +49,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import PageHeader from '@/components/PageHeader.vue'
 import PhoneInput from '@/components/ui/PhoneInput.vue'
 import { billingApi, type OrganizationSettings } from '@/api/billing'

@@ -131,7 +131,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { DownloadOutlined, PlusOutlined, SearchOutlined, CloseOutlined } from '@ant-design/icons-vue'
 import { loadXlsx } from '@/utils/xlsx'
 import PageHeader from '@/components/PageHeader.vue'

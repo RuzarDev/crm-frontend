@@ -261,7 +261,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { ref, reactive, onMounted, computed } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import dayjs from 'dayjs'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedNode, TnvedRateDto, TnvedExplanationDto, TnvedClassifyResponse, TnvedCalculateResult, TnvedCurrency } from '@/types/api'

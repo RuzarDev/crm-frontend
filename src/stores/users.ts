@@ -14,7 +14,7 @@ import type {
   LinkUsersRequest,
   RegisterRequest,
 } from '@/types/api'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { i18n } from '@/i18n'
 
 export const useUsersStore = defineStore('users', () => {

@@ -40,7 +40,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import { authApi } from '@/api/passwordReset'
 

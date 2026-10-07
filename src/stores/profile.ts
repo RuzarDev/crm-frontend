@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { profileApi } from '@/api/profile'
 import type { ProfileDto, UpdateProfileRequest } from '@/types/api'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { i18n } from '@/i18n'
 
 export const useProfileStore = defineStore('profile', () => {

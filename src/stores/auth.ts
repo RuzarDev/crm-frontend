@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
 import type { LoginRequest, LoginResponse, RegisterClientRequest } from '@/types/api'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { i18n } from '@/i18n'
 
 const parseJwtPayload = (token: string): { sub?: string } | null => {

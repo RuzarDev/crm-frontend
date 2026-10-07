@@ -186,7 +186,8 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { ref, onMounted, onBeforeUnmount, h, computed } from 'vue'
-import { message, Button, Popconfirm } from 'ant-design-vue'
+import { Button, Popconfirm } from 'ant-design-vue'
+import { message } from '@/ui/message'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import { referencesApi, type EecSyncResult } from '@/api/references'
 import type { RefItem, ClassifierItem, ClassifierGroup } from '@/types/api'
