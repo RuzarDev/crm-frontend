@@ -153,7 +153,7 @@ onMounted(() => {
             class="min-w-[8.5rem] flex-1"
           />
           <!-- Высота — как у поля lg (42px), а не главной кнопки (44px): одна линия в строке. -->
-          <ZButton size="lg" class="h-[42px] shrink-0 px-4" :loading="binLoading" :disabled="!isBinLike(form.bin)" @click="onFind">
+          <ZButton size="lg" class="shrink-0 px-4" :loading="binLoading" :disabled="!isBinLike(form.bin)" @click="onFind">
             <template #icon><PhMagnifyingGlass :size="18" aria-hidden="true" /></template>
             {{ t('binLookup.find') }}
           </ZButton>
@@ -162,7 +162,7 @@ onMounted(() => {
 
       <ZField name="companyName">
         <label :for="ids.companyName" :class="[labelClass, 'mb-0.5']">{{ t('register.companyName') }}</label>
-        <ZInput :id="ids.companyName" v-model:value="form.companyName" size="lg" placeholder="ТОО «…»" autocomplete="organization" />
+        <ZInput :id="ids.companyName" v-model:value="form.companyName" size="lg" :placeholder="t('register.companyPlaceholder')" autocomplete="organization" />
       </ZField>
 
       <ZField name="phone">

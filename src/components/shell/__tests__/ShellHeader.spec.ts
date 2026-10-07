@@ -290,14 +290,20 @@ describe('UserMenu', () => {
 })
 
 describe('LangMenu', () => {
-  it('подпись — код текущего языка, aria-label — «Язык: Русский»; выбор вызывает setLocale', async () => {
+  it('подпись — код текущего языка, aria-label с тем же кодом — «Язык: Русский (RU)»; выбор вызывает setLocale', async () => {
     w = mountIt(LangMenu)
     const btn = w.get('button')
     expect(btn.text()).toBe('RU')
-    expect(btn.attributes('aria-label')).toBe('Язык: Русский')
+    expect(btn.attributes('aria-label')).toBe('Язык: Русский (RU)')
+    expect(btn.attributes('aria-label')).toContain(btn.text())
     await btn.trigger('keydown', { key: 'Enter' })
     await settle()
-    expect([...document.body.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent?.trim())).toEqual(['Русский', 'Қазақша', 'English'])
+    const items = [...document.body.querySelectorAll('[role="menuitem"]')]
+    expect(items.map((i) => i.textContent?.trim())).toEqual(['Русский', 'Қазақша', 'English'])
+    // Текущий язык отмечен галочкой (svg), у остальных — пустое место того же размера.
+    expect(items.map((i) => !!i.querySelector('svg'))).toEqual([true, false, false])
+    expect(items[1].firstElementChild?.tagName).toBe('SPAN')
+    expect(items[1].firstElementChild?.getAttribute('class')).toContain('size-4')
     menuItem('English')!.click()
     await settle()
     expect(setLocale).toHaveBeenCalledWith('en')

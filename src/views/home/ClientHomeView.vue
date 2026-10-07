@@ -237,10 +237,9 @@ const cta = 'h-[42px] rounded-row px-[18px] text-[14.5px] max-sm:w-full'
               </span>
               <ZTag :tone="shipmentTone(c)" class="shrink-0">{{ statusLabel(c.status) }}</ZTag>
             </span>
-            <ol
-              :aria-label="t('clientHome.stepOf', { n: stepForStatus(c.status), total: TOTAL_STEPS })"
-              class="m-0 flex list-none gap-1 p-0"
-            >
+            <!-- Полоска этапов — только картинка: пустые пункты списка скрыты от чтения с экрана, этап — текстом. -->
+            <span class="sr-only" data-client-step>{{ t('clientHome.stepOf', { n: stepForStatus(c.status), total: TOTAL_STEPS }) }}</span>
+            <ol aria-hidden="true" class="m-0 flex list-none gap-1 p-0">
               <li v-for="i in TOTAL_STEPS" :key="i" :class="cn('h-1.5 flex-1 rounded-pill', segment(c, i - 1))" />
             </ol>
             <span class="text-sm text-ink-2">{{ t('enum.stepClient.s' + stepForStatus(c.status)) }}</span>

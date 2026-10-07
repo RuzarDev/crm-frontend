@@ -16,6 +16,7 @@ import { homeAttention } from '@/shell/attention'
 import { installPaletteHotkey, useCommandPalette, type PaletteDestination } from '@/shell/useCommandPalette'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useProfileStore } from '@/stores/profile'
+import { useAuthStore } from '@/stores/auth'
 import { profileApi } from '@/api/profile'
 import { cn } from '@/ui/cn'
 
@@ -35,6 +36,7 @@ const route = useRoute()
 const palette = useCommandPalette()
 const notifStore = useNotificationsStore()
 const profileStore = useProfileStore()
+const authStore = useAuthStore()
 
 // ---- Раздел и вкладки ----
 const active = computed(() => resolveActive(props.model, route.path))
@@ -72,16 +74,39 @@ watch(() => route.fullPath, () => { drawerOpen.value = false })
 const mainEl = ref<HTMLElement | null>(null)
 const skipToMain = () => mainEl.value?.focus()
 
+// ---- Высота шапки — CSS-переменная --shell-header-h на корне оболочки ----
+// Липкие полосы старых экранов (шапка карточки ДТ) встают сразу под шапкой; высота меняется
+// (вкладки второй строкой ниже lg, перенос), поэтому следим через ResizeObserver.
+const headerEl = ref<HTMLElement | null>(null)
+const headerHeight = ref<number | null>(null)
+const measureHeader = () => {
+  const h = headerEl.value?.offsetHeight
+  headerHeight.value = h ? h : null
+}
+const rootStyle = computed(() =>
+  headerHeight.value === null ? undefined : { '--shell-header-h': `${headerHeight.value}px` })
+let headerObserver: ResizeObserver | null = null
+
 // ---- Жизненный цикл: счётчик уведомлений, ⌘K, имя для шапки ----
 let offHotkey: (() => void) | null = null
 onMounted(() => {
   void notifStore.fetch()
   notifStore.startPolling()
   offHotkey = installPaletteHotkey()
+  measureHeader()
+  if (headerEl.value && typeof ResizeObserver !== 'undefined') {
+    headerObserver = new ResizeObserver(measureHeader)
+    headerObserver.observe(headerEl.value)
+  }
   // Имя в меню пользователя — из профиля; фоновая загрузка, без тоста при ошибке (останется логин).
+  // Ответ пишем, только если за время запроса не сменился пользователь (выход и вход в той же вкладке)
+  // и профиль никто не загрузил раньше.
   if (!profileStore.profile) {
+    const requestedFor = authStore.userId
     profileApi.get({ silent: true })
-      .then((r) => { if (!profileStore.profile) profileStore.profile = r.data })
+      .then((r) => {
+        if (authStore.userId === requestedFor && !profileStore.profile) profileStore.profile = r.data
+      })
       .catch(() => {})
   }
 })
@@ -89,6 +114,8 @@ onUnmounted(() => {
   notifStore.stopPolling()
   offHotkey?.()
   offHotkey = null
+  headerObserver?.disconnect()
+  headerObserver = null
 })
 
 const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-2 outline-hidden transition-colors duration-150 ease-out hover:bg-sunken hover:text-ink focus-visible:shadow-focus motion-reduce:transition-none'
@@ -97,6 +124,8 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
 <template>
   <div
     class="min-h-dvh bg-canvas font-sans text-ink lg:flex"
+    :style="rootStyle"
+    data-shell-root
     :data-density="comfortable ? 'comfortable' : 'compact'"
   >
     <a
@@ -121,7 +150,7 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
     </aside>
 
     <div class="flex min-w-0 flex-1 flex-col bg-surface lg:m-2.5 lg:ml-0 lg:min-h-[calc(100dvh-20px)] lg:rounded-panel lg:border lg:border-line">
-      <header class="sticky top-0 z-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface px-4 py-3 lg:flex-nowrap lg:rounded-t-panel lg:px-7 lg:py-3.5">
+      <header ref="headerEl" class="sticky top-0 z-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface px-4 py-3 lg:flex-nowrap lg:rounded-t-panel lg:px-7 lg:py-3.5">
         <div class="flex items-center gap-2 lg:hidden">
           <button
             type="button"

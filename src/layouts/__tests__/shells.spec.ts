@@ -19,8 +19,10 @@ vi.mock('@/api/profile', () => ({ profileApi: { get: profileGet, update: vi.fn()
 const reg = vi.hoisted(() => ({
   state: { isClient: true, loaded: true, complete: true, nextStep: null as null | 'profile' | 'contract' | 'poa', doneCount: 3, needNew: null as string | null },
   refresh: vi.fn(),
+  reset: vi.fn(),
 }))
 vi.mock('@/composables/useClientRegistration', () => ({
+  resetClientRegistration: reg.reset,
   useClientRegistration: () => {
     const s = ref({ ...reg.state })
     return {
@@ -216,6 +218,69 @@ describe('оболочки', () => {
     await mountAs('administrator', '/home')
     expect(profileGet).toHaveBeenCalledWith({ silent: true })
     expect(w!.get('[data-user-name]').text()).toBe('Бауыржан С.')
+  })
+
+  it('высота шапки — переменная --shell-header-h на корне, следит ResizeObserver', async () => {
+    const observers: { cb: ResizeObserverCallback; target: Element | null; disconnected: boolean }[] = []
+    const Original = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      rec: (typeof observers)[number]
+      constructor(cb: ResizeObserverCallback) { this.rec = { cb, target: null, disconnected: false }; observers.push(this.rec) }
+      observe(el: Element) { this.rec.target = el }
+      unobserve() {}
+      disconnect() { this.rec.disconnected = true }
+    } as unknown as typeof ResizeObserver
+    let height = 61
+    const desc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get() { return this.tagName === 'HEADER' ? height : 0 },
+    })
+    try {
+      await mountAs('administrator', '/home')
+      const root = w!.get('[data-shell-root]').element as HTMLElement
+      expect(root.style.getPropertyValue('--shell-header-h')).toBe('61px')
+      const obs = observers.find((o) => o.target?.tagName === 'HEADER')!
+      expect(obs).toBeTruthy()
+
+      // Вкладки ушли второй строкой — шапка выросла, переменная следом.
+      height = 104
+      obs.cb([], {} as ResizeObserver)
+      await flushPromises()
+      expect(root.style.getPropertyValue('--shell-header-h')).toBe('104px')
+
+      w!.unmount()
+      w = undefined
+      expect(obs.disconnected).toBe(true)
+    } finally {
+      globalThis.ResizeObserver = Original
+      if (desc) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', desc)
+    }
+  })
+
+  it('профиль пришёл после выхода — чужое имя не записывается', async () => {
+    let resolve!: (v: unknown) => void
+    profileGet.mockReturnValue(new Promise((r) => { resolve = r }))
+    const auth = useAuthStore()
+    auth.userId = 'u1'
+    await mountAs('administrator', '/home')
+    expect(profileGet).toHaveBeenCalledTimes(1)
+    // Выход до ответа: userId сменился (здесь — вошёл другой).
+    auth.userId = 'u2'
+    resolve({ data: { displayName: 'Айгерим Касымова' } })
+    await flushPromises()
+    expect(useProfileStore().profile).toBeNull()
+  })
+
+  it('профиль пришёл, а его уже загрузил другой экран — не перезаписываем', async () => {
+    let resolve!: (v: unknown) => void
+    profileGet.mockReturnValue(new Promise((r) => { resolve = r }))
+    useAuthStore().userId = 'u1'
+    await mountAs('administrator', '/home')
+    useProfileStore().profile = { userId: 'u1', username: 'a', displayName: 'Свежий Профиль', phone: null, companyName: null, innBin: null, role: 'Administrator' }
+    resolve({ data: { displayName: 'Старый Ответ' } })
+    await flushPromises()
+    expect(useProfileStore().profile?.displayName).toBe('Свежий Профиль')
   })
 
   it('ящик меню ниже lg: кнопка «Меню» открывает, переход по пункту закрывает', async () => {

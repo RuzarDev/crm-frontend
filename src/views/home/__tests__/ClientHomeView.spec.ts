@@ -90,7 +90,11 @@ describe('ClientHomeView', () => {
     const problem = cards.find((c) => c.text().includes('И40-190'))!
     expect(problem.attributes('href')).toBe('/import-40/c2')
     expect(problem.find('.bg-tone-danger-bg').exists()).toBe(true)
-    expect(problem.get('ol').attributes('aria-label')).toBe('Этап 3 из 6')
+    // Пустые пункты полоски скрыты от чтения с экрана; этап озвучивается текстом.
+    expect(problem.get('ol').attributes('aria-hidden')).toBe('true')
+    expect(problem.get('ol').attributes('aria-label')).toBeUndefined()
+    expect(problem.get('[data-client-step]').text()).toBe('Этап 3 из 6')
+    expect(problem.get('[data-client-step]').classes()).toContain('sr-only')
     expect(problem.findAll('li .bg-danger, li.bg-danger')).toHaveLength(1)
 
     const panel = w.get('[data-client-asks]')

@@ -9,6 +9,7 @@ import { buildClientNav, navAccessFromStore } from '@/shell/navModel'
 import { registrationBannerState, shouldRedirectToRegistration, type RegistrationSnapshot } from '@/shell/registrationBanner'
 import { useClientRegistration } from '@/composables/useClientRegistration'
 import { useAuthStore } from '@/stores/auth'
+import { REG_REDIRECT_FLAG as REDIRECT_FLAG } from '@/shell/resetSession'
 
 // Кабинет клиента: свои разделы (navModel), просторная раскладка и плашка незавершённой регистрации.
 const { t } = useI18n()
@@ -34,7 +35,6 @@ const continueRegistration = () => {
   if (b?.kind === 'todo') void router.push(b.to)
 }
 
-const REDIRECT_FLAG = 'zircon-reg-redirect'
 onMounted(async () => {
   await registration.refresh()
   let redirected = false

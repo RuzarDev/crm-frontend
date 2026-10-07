@@ -201,6 +201,27 @@ describe('BrokerHomeView', () => {
     expect(router.currentRoute.value.fullPath).toBe('/import-40?new=1')
   })
 
+  it('КПП: «Новой заявки» нет — список заявок не откроет ему создание', async () => {
+    setRole('User', ['import40.read', 'import40.kpp'])
+    expect(useAuthStore().canCreateImport40).toBe(false)
+    await mountIt()
+    expect(panel('Мои задачи')).toBeTruthy()
+    expect(button('Новая заявка')).toBeUndefined()
+  })
+
+  it('продажи с доступом к Импорту 40: «Новой заявки» нет', async () => {
+    setRole('User', ['import40.read', 'sales.read'])
+    await mountIt()
+    expect(button('Новая заявка')).toBeUndefined()
+  })
+
+  it('декларант: «Новая заявка» есть', async () => {
+    setRole('User', ['import40.read', 'import40.declarant'])
+    expect(useAuthStore().canCreateImport40).toBe(true)
+    await mountIt()
+    expect(button('Новая заявка')).toBeTruthy()
+  })
+
   it('загрузка: скелетоны в задачах и панелях, пока ответы не пришли', async () => {
     setRole('Administrator')
     api.myTasks.mockReturnValue(new Promise(() => {}))

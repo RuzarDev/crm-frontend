@@ -9,7 +9,7 @@ export const authLinkClass =
 
 /** Переход как главная кнопка (ZButton primary lg block): «Ко входу», «Запросить новую» — это ссылки, не действия. */
 export const authPrimaryLinkClass = [
-  'inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-navy px-5 font-sans text-[15px] font-semibold text-white no-underline',
+  'inline-flex h-[42px] w-full items-center justify-center gap-2 rounded-[9px] bg-navy px-5 font-sans text-[15px] font-semibold text-white no-underline',
   'outline-hidden transition-[background-color,scale] duration-150 ease-out hover:bg-navy-hover hover:text-white focus-visible:shadow-focus',
   'motion-safe:active:scale-[0.98] motion-reduce:transition-none',
 ].join(' ')

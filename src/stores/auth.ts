@@ -60,6 +60,16 @@ export const useAuthStore = defineStore('auth', () => {
       .some((p) => permissions.value.includes(p))
   })
 
+  // Клиент — системная роль 'client' (одна проверка на всё приложение).
+  const isClient = computed(() => (role.value || '').trim().toLowerCase() === 'client')
+
+  // Сотрудник может завести заявку Импорта 40 за клиента: декларант или руководитель
+  // (администратор — всегда, через hasPermission). Тот же набор, что у кнопки «Новая заявка»
+  // в списке заявок — общая проверка для списка и «Главной».
+  const canCreateImport40 = computed(
+    () => hasPermission('import40.declarant') || hasPermission('import40.assign'),
+  )
+
   const canUseSales = computed(() => {
     const systemRole = (role.value || '').trim().toLowerCase()
     return systemRole === 'administrator' || permissions.value.includes('sales.read')
@@ -184,6 +194,8 @@ export const useAuthStore = defineStore('auth', () => {
     businessRoles,
     hasBusinessRole,
     canUseImport40,
+    canCreateImport40,
+    isClient,
     isFinanceOnly,
     canUseSales,
     login,

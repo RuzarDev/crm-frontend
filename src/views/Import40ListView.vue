@@ -476,8 +476,7 @@ const isAdminRole = computed(() => (authStore.role || '').toLowerCase() === 'adm
 // Декларант/руководитель могут создать заявку за клиента — фолбэк, если клиент прислал всё в
 // мессенджере (аудит 3.13). Основной путь — клиент сам, поэтому кнопка для сотрудника вторичная.
 const canCreateStaff = computed(
-  () => !isClientRole.value && !isAdminRole.value
-    && (authStore.hasPermission('import40.declarant') || authStore.hasPermission('import40.assign')),
+  () => !isClientRole.value && !isAdminRole.value && authStore.canCreateImport40,
 )
 const canCreate = computed(() => isClientRole.value || isAdminRole.value || canCreateStaff.value)
 const canSubmit = computed(

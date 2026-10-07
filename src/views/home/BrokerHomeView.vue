@@ -38,6 +38,8 @@ const mgr = auth.hasPermission('import40.assign') && !auth.isFinanceOnly
 const fin = auth.hasPermission('finance.read')
 const tr = !auth.isFinanceOnly && auth.hasPermission('reestr.read')
 const anyBlock = imp || mgr || fin || tr
+// «Новая заявка» — только тем, кому список заявок откроет создание (декларант, руководитель, админ).
+const canCreate = imp && auth.canCreateImport40
 
 const dash = useBlock(imp, async () => (await dashboardApi.import40()).data)
 const tasks = useBlock(imp, () => import40Api.myTasks())
@@ -105,7 +107,7 @@ const link = 'shrink-0 rounded-[4px] text-[13px] font-medium text-zircon-ink no-
         <h1 class="m-0 text-xl font-semibold tracking-[-0.015em] text-ink">{{ greeting }}</h1>
         <p v-if="imp" class="m-0 mt-1 min-h-5 text-sm text-ink-3">{{ summary }}</p>
       </div>
-      <ZButton v-if="imp" variant="primary" class="ml-auto" @click="newRequest">
+      <ZButton v-if="canCreate" variant="primary" class="ml-auto" @click="newRequest">
         <template #icon><PhPlus :size="15" aria-hidden="true" /></template>
         {{ t('home.newRequest') }}
       </ZButton>

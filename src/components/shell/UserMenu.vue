@@ -7,10 +7,9 @@ import ZAvatar from '@/components/z/ZAvatar.vue'
 import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useProfileStore } from '@/stores/profile'
-import { useNotificationsStore } from '@/stores/notifications'
 import { businessRoleLabel } from '@/api/permissions'
 import { formatRole } from '@/utils/labels'
-import { homeAttention } from '@/shell/attention'
+import { resetSession } from '@/shell/resetSession'
 import { shortName } from '@/shell/shortName'
 import { cn } from '@/ui/cn'
 
@@ -22,7 +21,6 @@ const { t } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
 const profileStore = useProfileStore()
-const notifStore = useNotificationsStore()
 
 const displayName = computed(() => profileStore.profile?.displayName?.trim() || authStore.username || '')
 const short = computed(() => shortName(displayName.value))
@@ -30,9 +28,8 @@ const short = computed(() => shortName(displayName.value))
 // Роль клиенту ни о чём не говорит — это его собственный кабинет (аудит 5.23). Сотрудникам — бизнес-роли
 // (аудит §10), администратору — системная метка «Администратор».
 const roleLine = computed(() => {
-  const role = (authStore.role || '').trim().toLowerCase()
-  if (role === 'client') return ''
-  if (role === 'administrator') return formatRole(authStore.role || '')
+  if (authStore.isClient) return ''
+  if ((authStore.role || '').trim().toLowerCase() === 'administrator') return formatRole(authStore.role || '')
   const roles = authStore.businessRoles?.length ? authStore.businessRoles : (authStore.businessRole ? [authStore.businessRole] : [])
   return roles.length ? roles.map((r) => businessRoleLabel(r)).join(', ') : formatRole(authStore.role || '')
 })
@@ -54,10 +51,8 @@ const onSelect = (key: string) => {
     return
   }
   if (key === 'logout') {
-    // Следующий на этом устройстве не должен увидеть чужие уведомления, бейдж «Требует внимания» и имя.
-    notifStore.reset()
-    profileStore.reset()
-    homeAttention.value = null
+    // Следующий на этом устройстве не должен увидеть чужие уведомления, бейдж, имя и статус регистрации.
+    resetSession()
     authStore.logout()
     void router.push('/login')
   }
