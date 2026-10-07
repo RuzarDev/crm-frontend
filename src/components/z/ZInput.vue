@@ -54,9 +54,14 @@ const onEnter = (e: KeyboardEvent) => {
   if (e.isComposing) return
   emit('pressEnter', e)
 }
+// Очистка — как ввод: поле пустеет и получает настоящее событие input, поэтому onInput шлёт
+// update:value('') и change(Event) с target = <input> (a-input тоже шлёт change при очистке — автосейв).
 const clear = () => {
-  emit('update:value', '')
-  el.value?.focus()
+  const input = el.value
+  if (!input) return emit('update:value', '')
+  input.value = ''
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+  input.focus()
 }
 </script>
 

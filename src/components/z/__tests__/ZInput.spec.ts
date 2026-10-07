@@ -26,6 +26,19 @@ describe('ZInput', () => {
     await btn.trigger('click')
     expect(w.emitted('update:value')?.[0]).toEqual([''])
   })
+  it('allowClear: очистка эмитит и change(Event) с пустым полем — автосейв на @change, как у a-input', async () => {
+    const w = mountWithI18n(ZInput, { props: { value: '123', allowClear: true }, attachTo: document.body })
+    await w.get('button[aria-label="Очистить"]').trigger('click')
+    expect(w.emitted('update:value')).toEqual([['']])
+    const changes = w.emitted('change') as [Event][] | undefined
+    expect(changes).toHaveLength(1)
+    const e = changes![0][0]
+    expect(e).toBeInstanceOf(Event)
+    expect(e.target).toBe(w.get('input').element)
+    expect((e.target as HTMLInputElement).value).toBe('')
+    expect(document.activeElement).toBe(w.get('input').element)
+    w.unmount()
+  })
   it('крестика нет у пустого и у disabled', () => {
     expect(mountWithI18n(ZInput, { props: { value: '', allowClear: true } }).find('button').exists()).toBe(false)
     expect(mountWithI18n(ZInput, { props: { value: 'x', allowClear: true, disabled: true } }).find('button').exists()).toBe(false)
