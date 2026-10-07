@@ -58,6 +58,7 @@ describe('ZSelect', () => {
     w = mountWithI18n(ZSelect, { props: { value: ['A1'], options: [], mode: 'tags' }, attachTo: document.body })
     await w.get('input').setValue('B2')
     await w.get('input').trigger('keydown', { key: 'Enter' })
+    expect(w.emitted('update:value')).toHaveLength(1)
     expect(w.emitted('update:value')?.at(-1)).toEqual([['A1', 'B2']])
   })
   it('allowClear очищает (single → null)', async () => {
@@ -93,14 +94,12 @@ describe('ZSelect', () => {
     await nextTick()
     expect(input.attributes('aria-expanded')).toBe('false')
   })
-  it('с выбранным значением и поиском открывается весь список, подпись — плейсхолдером', async () => {
+  it('с выбранным значением и поиском открывается весь список, подпись остаётся значением поля', async () => {
     w = mountWithI18n(ZSelect, { props: { value: 'EK', options, showSearch: true }, attachTo: document.body })
     await w.get('input').trigger('focus')
     await open()
     expect(optionEls()).toHaveLength(3)
-    const input = w.get('input').element as HTMLInputElement
-    expect(input.value).toBe('')
-    expect(input.placeholder).toBe('ЭК — экспорт')
+    expect((w.get('input').element as HTMLInputElement).value).toBe('ЭК — экспорт')
   })
   it('опции пришли позже значения — подпись обновляется', async () => {
     w = mountWithI18n(ZSelect, { props: { value: 'EK', options: [] }, attachTo: document.body })
@@ -141,13 +140,19 @@ describe('ZSelect', () => {
     expect(w.emitted('update:value')?.at(-1)).toEqual([['ИМ']])
     expect((w.get('input').element as HTMLInputElement).value).toBe('')
   })
-  it('single с поиском: в фокусе поле пустое (набор не дописывается к подписи), на blur подпись возвращается', async () => {
+  it('single с поиском: в фокусе подпись — значение поля (для скринридера), первый символ заменяет её, на blur подпись возвращается', async () => {
     w = mountWithI18n(ZSelect, { props: { value: 'EK', options, showSearch: true }, attachTo: document.body })
     const input = w.get('input')
     const el = input.element as HTMLInputElement
     await input.trigger('focus')
-    expect(el.value).toBe('')
-    expect(el.placeholder).toBe('ЭК — экспорт')
+    expect(el.value).toBe('ЭК — экспорт')
+    // Браузер: beforeinput (на любую правку), затем символ вставляется в поле и приходит input.
+    await input.trigger('beforeinput', { inputType: 'insertText', data: 'э' })
+    el.value += 'э'
+    await input.trigger('input')
+    await nextTick()
+    expect(el.value).toBe('э')
+    expect(w.emitted('search')?.at(-1)).toEqual(['э'])
     await input.setValue('им')
     await nextTick()
     expect(optionEls().map((e) => e.textContent?.trim())).toEqual(['ИМ — импорт'])
@@ -155,5 +160,55 @@ describe('ZSelect', () => {
     await new Promise((r) => setTimeout(r, 5))
     expect(el.value).toBe('ЭК — экспорт')
     expect(w.emitted('update:value')).toBeUndefined()
+  })
+  it('пустая строка — обычное значение: опция рендерится, выбирается, change(\'\', option), в поле её подпись', async () => {
+    const withEmpty = [{ value: '', label: 'Все' }, ...options]
+    w = mountWithI18n(ZSelect, { props: { value: null, options: withEmpty }, attachTo: document.body })
+    await open()
+    expect(optionEls().map((e) => e.textContent?.trim())[0]).toBe('Все')
+    optionEls()[0].click()
+    await nextTick()
+    expect(w.emitted('update:value')?.at(-1)).toEqual([''])
+    expect(w.emitted('change')?.at(-1)).toEqual(['', withEmpty[0]])
+    await w.setProps({ value: '' })
+    await new Promise((r) => setTimeout(r, 5))
+    expect((w.get('input').element as HTMLInputElement).value).toBe('Все')
+  })
+  it('повторный выбор того же значения ничего не эмитит', async () => {
+    w = mountWithI18n(ZSelect, { props: { value: 'EK', options }, attachTo: document.body })
+    await open()
+    optionEls()[1].click()
+    await nextTick()
+    expect(w.emitted('update:value')).toBeUndefined()
+    expect(w.emitted('change')).toBeUndefined()
+  })
+  it('multiple без show-search — с поиском, как у AntD', async () => {
+    w = mountWithI18n(ZSelect, { props: { value: [], options, mode: 'multiple' }, attachTo: document.body })
+    expect(w.get('input').attributes('readonly')).toBeUndefined()
+    await open()
+    await w.get('input').setValue('эк')
+    await nextTick()
+    expect(optionEls().map((e) => e.textContent?.trim())).toEqual(['ЭК — экспорт'])
+  })
+  it('сброс поиска эмитит search(\'\') один раз; compositionend после input не дублирует search', async () => {
+    w = mountWithI18n(ZSelect, { props: { value: [], options, mode: 'multiple' }, attachTo: document.body })
+    const input = w.get('input')
+    await open()
+    await input.setValue('эк')
+    await input.trigger('compositionend')
+    expect(w.emitted('search')).toEqual([['эк']])
+    await nextTick()
+    optionEls()[0].click()
+    await nextTick()
+    expect(w.emitted('search')).toEqual([['эк'], ['']])
+  })
+  it('кнопки очистки и меток не забирают фокус у поля', async () => {
+    w = mountWithI18n(ZSelect, { props: { value: ['IM'], options, mode: 'multiple', allowClear: true }, attachTo: document.body })
+    for (const sel of ['button[aria-label="Очистить"]', 'button[aria-label="Убрать ИМ — импорт"]']) {
+      const ev = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+      w.get(sel).element.dispatchEvent(ev)
+      expect(ev.defaultPrevented).toBe(true)
+    }
+    expect(w.get('button[aria-label="Убрать ИМ — импорт"]').attributes('tabindex')).toBe('-1')
   })
 })

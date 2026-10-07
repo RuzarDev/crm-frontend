@@ -24,7 +24,9 @@ const { t } = useI18n()
       v-if="!disabled"
       type="button"
       :aria-label="`${t('z.remove')} ${labelOf(v)}`"
+      tabindex="-1"
       class="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-[4px] border-0 bg-transparent p-0 text-muted outline-hidden hover:bg-line hover:text-ink focus-visible:shadow-focus"
+      @mousedown.prevent
       @click.stop="emit('remove', v)"
     >
       <PhX :size="10" weight="bold" />
