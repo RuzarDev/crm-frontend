@@ -35,6 +35,12 @@ export default {
     ruleEmail: 'Invalid e-mail',
     ruleNumber: 'Enter a number',
     ruleInteger: 'Enter a whole number',
+    pagination: 'Pages',
+    pageN: 'Page {n}',
+    prevPage: 'Previous page',
+    nextPage: 'Next page',
+    selectRow: 'Select row',
+    selectAll: 'Select all on page',
   },
   common: {
     graphShort: 'Box {n}',

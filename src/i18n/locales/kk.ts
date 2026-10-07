@@ -35,6 +35,12 @@ export default {
     ruleEmail: 'E-mail қате',
     ruleNumber: 'Сан енгізіңіз',
     ruleInteger: 'Бүтін сан енгізіңіз',
+    pagination: 'Беттер',
+    pageN: '{n}-бет',
+    prevPage: 'Алдыңғы бет',
+    nextPage: 'Келесі бет',
+    selectRow: 'Жолды таңдау',
+    selectAll: 'Беттегінің бәрін таңдау',
   },
   common: {
     graphShort: '{n}-б.',

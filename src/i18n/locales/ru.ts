@@ -37,6 +37,12 @@ export default {
     ruleEmail: 'Неверный e-mail',
     ruleNumber: 'Введите число',
     ruleInteger: 'Введите целое число',
+    pagination: 'Страницы',
+    pageN: 'Страница {n}',
+    prevPage: 'Предыдущая страница',
+    nextPage: 'Следующая страница',
+    selectRow: 'Выбрать строку',
+    selectAll: 'Выбрать все на странице',
   },
   common: {
     graphShort: 'Гр.{n}',
