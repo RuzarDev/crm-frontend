@@ -44,21 +44,61 @@ describe('ZTabs', () => {
     expect(vm.changes).toEqual(['mine'])
   })
 
-  it('полоса прокручивается и не раздвигает контейнер; смена активной прокручивает вкладку в видимую часть', async () => {
-    const spy = vi.fn()
-    Element.prototype.scrollIntoView = spy
-    try {
-      w = mountWithI18n(ZTabs, { props: { activeKey: 'all', items }, attachTo: document.body })
-      const strip = w.get('[role="tablist"]')
-      for (const c of ['min-w-0', 'max-w-full', 'overflow-x-auto']) expect(strip.classes()).toContain(c)
-      await w.setProps({ activeKey: 'mine' })
-      await nextTick()
-      expect(spy).toHaveBeenCalledTimes(1)
-      expect(spy.mock.contexts[0]).toBe(w.findAll('[role="tab"]')[1].element)
-      expect(spy).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' })
-    } finally {
-      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView
+  describe('прокрутка полосы', () => {
+    const far = [
+      { key: 'a', label: 'Все' }, { key: 'b', label: 'Мои' }, { key: 'c', label: 'Оплата' }, { key: 'd', label: 'Архив' },
+    ]
+    const restore: Array<() => void> = []
+    // jsdom не считает раскладку: вкладка i — offsetLeft i*100, ширина 100, ширина полосы 150.
+    const stub = (proto: object, prop: string, get: (el: HTMLElement) => number) => {
+      const old = Object.getOwnPropertyDescriptor(proto, prop)
+      Object.defineProperty(proto, prop, { configurable: true, get(this: HTMLElement) { return get(this) } })
+      restore.push(() => (old ? Object.defineProperty(proto, prop, old) : delete (proto as Record<string, unknown>)[prop]))
     }
+    const stubLayout = () => {
+      stub(HTMLElement.prototype, 'offsetLeft', (el) => (el.getAttribute('role') === 'tab' ? [...(el.parentElement?.children ?? [])].indexOf(el) * 100 : 0))
+      stub(HTMLElement.prototype, 'offsetWidth', (el) => (el.getAttribute('role') === 'tab' ? 100 : 0))
+      stub(Element.prototype, 'clientWidth', (el) => (el.getAttribute('role') === 'tablist' ? 150 : 0))
+    }
+    afterEach(() => { while (restore.length) restore.pop()!() })
+
+    it('полоса не раздвигает контейнер и прокручивается', () => {
+      w = mountWithI18n(ZTabs, { props: { activeKey: 'all', items } })
+      const strip = w.get('[role="tablist"]')
+      for (const c of ['min-w-0', 'max-w-full', 'overflow-x-auto', 'px-1']) expect(strip.classes()).toContain(c)
+    })
+
+    it('смена активной на дальнюю вкладку прокручивает только полосу', async () => {
+      stubLayout()
+      const into = vi.spyOn(Element.prototype, 'scrollIntoView' as never).mockImplementation(() => {})
+      const to = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+      w = mountWithI18n(ZTabs, { props: { activeKey: 'a', items: far }, attachTo: document.body })
+      await nextTick()
+      const strip = w.get('[role="tablist"]').element as HTMLElement
+      expect(strip.scrollLeft).toBe(0)
+      await w.setProps({ activeKey: 'd' })
+      await nextTick()
+      await nextTick()
+      // правый край вкладки d = 400 + 4 отступа; видимая ширина 150 → scrollLeft 254
+      expect(strip.scrollLeft).toBe(254)
+      await w.setProps({ activeKey: 'a' })
+      await nextTick()
+      await nextTick()
+      expect(strip.scrollLeft).toBe(0)
+      expect(into).not.toHaveBeenCalled()
+      expect(to).not.toHaveBeenCalled()
+      into.mockRestore()
+      to.mockRestore()
+    })
+
+    it('дальняя активная вкладка показывается сразу при монтировании', async () => {
+      stubLayout()
+      w = mountWithI18n(ZTabs, { props: { activeKey: 'c', items: far }, attachTo: document.body })
+      await nextTick()
+      await nextTick()
+      // правый край вкладки c = 300 + 4; ширина 150 → 154
+      expect((w.get('[role="tablist"]').element as HTMLElement).scrollLeft).toBe(154)
+    })
   })
 
   it('клик по уже активной вкладке ничего не шлёт', async () => {

@@ -26,25 +26,33 @@ afterEach(() => w?.unmount())
 
 const opts = [{ value: 'a', label: 'Первый' }, { value: 'b', label: 'Второй' }]
 
+const BORDER_COLORS = ['control', 'line', 'line-strong', 'navy', 'transparent', 'danger', 'zircon']
 const hasBorderReset = (el: Element) => {
   const cls = [...el.classList]
-  return cls.includes('border-0') || (cls.includes('border') && cls.some((c) => /^border-(?!0$|[xytblrse]-)/.test(c)))
+  return cls.includes('border-0') || (cls.includes('border') && cls.some((c) => c.startsWith('border-') && BORDER_COLORS.includes(c.slice(7))))
 }
-const expectButtons = (min = 1) => {
+// Фон: у нативной кнопки он серый, пока класс bg-* не задан (в том числе data-[state=…]:bg-* не считается).
+const hasOwnBackground = (el: Element) => [...el.classList].some((c) => /^bg-[a-z]/.test(c))
+const expectButtons = (min = 1, bgFor: string[] = []) => {
   const buttons = [...document.body.querySelectorAll('button, [role="switch"], [role="tab"], [role="radio"], [role="checkbox"]')]
   expect(buttons.length).toBeGreaterThanOrEqual(min)
-  for (const b of buttons) expect(hasBorderReset(b), `${b.tagName} ${b.getAttribute('role') ?? ''}: ${b.className}`).toBe(true)
+  for (const b of buttons) {
+    const what = `${b.tagName} ${b.getAttribute('role') ?? ''}: ${b.className}`
+    expect(hasBorderReset(b), what).toBe(true)
+    // Кнопки, чей вид был багом: переключатель, сегмент, вкладка — фон задан явно.
+    if (bgFor.includes(b.getAttribute('role') ?? '') || bgFor.includes('*')) expect(hasOwnBackground(b), `без фона: ${what}`).toBe(true)
+  }
 }
 const mount = (c: object, options: Record<string, unknown> = {}) => {
   w = mountWithI18n(c as never, { attachTo: document.body, ...options })
 }
 
 describe('сброс браузерного вида кнопок', () => {
-  it('ZSwitch', () => { mount(ZSwitch, { props: { checked: true } }); expectButtons() })
-  it('ZSegmented', () => { mount(ZSegmented, { props: { value: 'a', options: opts } }); expectButtons(2) })
+  it('ZSwitch', () => { mount(ZSwitch, { props: { checked: true } }); expectButtons(1, ['switch']) })
+  it('ZSegmented', () => { mount(ZSegmented, { props: { value: 'a', options: opts } }); expectButtons(2, ['radio', 'button', '*']) })
   it('ZTabs', () => {
     mount(ZTabs, { props: { activeKey: 'a', items: [{ key: 'a', label: 'Документы', count: 3 }, { key: 'b', label: 'Платежи' }] } })
-    expectButtons(2)
+    expectButtons(2, ['tab'])
   })
   it('ZCheckbox', () => { mount(ZCheckbox, { props: { checked: true } }); expectButtons() })
   it('ZRadioGroup', () => { mount(ZRadioGroup, { props: { value: 'a', options: opts } }); expectButtons(2) })

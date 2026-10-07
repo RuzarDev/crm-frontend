@@ -68,10 +68,10 @@ const containers = ref<string[]>(['MSKU1234567', 'TGHU7654321'])
 const badProcedure = ref<string | null>(null)
 
 const posts = [
-  { value: '55201', label: '55201 — т/п «Хоргос»', region: 'Алматинская обл.' },
+  { value: '55201', label: '55201 — т/п «Хоргос»', region: 'Жетысуская обл.' },
   { value: '55302', label: '55302 — т/п «Достык»', region: 'Жетысуская обл.' },
-  { value: '53102', label: '53102 — т/п «Алтынколь»', region: 'Алматинская обл.' },
-  { value: '41801', label: '41801 — т/п «Нур-Жолы»', region: 'Алматинская обл.' },
+  { value: '53102', label: '53102 — т/п «Алтынколь»', region: 'Жетысуская обл.' },
+  { value: '41801', label: '41801 — т/п «Нур-Жолы»', region: 'Жетысуская обл.' },
   { value: '60101', label: '60101 — т/п «Жайсан»', region: 'Мангистауская обл.' },
 ]
 const post = ref('55201')
@@ -135,7 +135,7 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
 <template>
   <div class="min-h-screen bg-canvas px-4 py-8 font-sans text-ink sm:px-10">
     <div class="mx-auto flex max-w-[1080px] flex-col gap-8">
-      <ZPage title="Каталог компонентов" subtitle="Волна 0a · стиль C · IBM Plex Sans">
+      <ZPage title="Каталог компонентов" subtitle="Волна 0a–0b · стиль C · IBM Plex Sans">
         <template #meta><ZTag tone="info" size="sm">dev</ZTag></template>
         <template #actions>
           <ZButton variant="secondary" @click="message.info('Черновик сохранён')">Тост: инфо</ZButton>
@@ -253,8 +253,8 @@ const onMenu = (key: string) => { lastAction.value = `Пункт меню: ${key
           <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Процедура (гр.1)
             <ZSelect v-model:value="procedure" :options="procedures" placeholder="Выберите процедуру" />
           </label>
-          <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Страна происхождения, с поиском
-            <ZSelect v-model:value="country" :options="countries" show-search option-filter-prop="label" allow-clear placeholder="Страна" />
+          <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Страна происхождения, поиск по коду (CN → Китай)
+            <ZSelect v-model:value="country" :options="countries" show-search option-filter-prop="code" allow-clear placeholder="Код страны, напр. CN" />
           </label>
           <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Виды транспорта (multiple)
             <ZSelect v-model:value="modes" :options="transports" mode="multiple" allow-clear placeholder="Выберите" />

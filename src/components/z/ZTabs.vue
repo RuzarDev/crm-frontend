@@ -17,14 +17,24 @@ const emit = defineEmits<{
 // Подпись — span с невидимой жирной копией в ::after (data-label): ширина резервируется под bold,
 // активная вкладка не раздвигает соседей. Пробел перед счётчиком нужен имени вкладки («Все 38»).
 // Полоса прокручивается по горизонтали (на узком экране не раздвигает контейнер, полоса прокрутки скрыта —
-// все вкладки достижимы стрелками). Вертикальный отступ py-1: overflow обрезал бы кольцо фокуса (4px).
-// При смене активной вкладка прокручивается в видимую часть (в jsdom scrollIntoView нет).
+// все вкладки достижимы стрелками). Отступы py-1 px-1: overflow иначе обрезал бы кольцо фокуса (4px).
+// Активная вкладка (при монтировании и смене activeKey) показывается прокруткой только самой полосы:
+// scrollIntoView крутил бы ещё и страницу. Триггеры позиционируются от полосы (она relative).
 const list = ref<{ $el: HTMLElement } | null>(null)
+const PAD = 4
+const revealActive = () => {
+  const strip = list.value?.$el
+  const tab = strip?.querySelector<HTMLElement>('[role="tab"][data-state="active"]')
+  if (!strip || !tab) return
+  const left = tab.offsetLeft - PAD
+  const right = tab.offsetLeft + tab.offsetWidth + PAD
+  if (left < strip.scrollLeft) strip.scrollLeft = Math.max(0, left)
+  else if (right > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = right - strip.clientWidth
+}
 watch(() => props.activeKey, async () => {
   await nextTick()
-  const tab = list.value?.$el?.querySelector<HTMLElement>('[role="tab"][data-state="active"]')
-  if (tab && typeof tab.scrollIntoView === 'function') tab.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-})
+  revealActive()
+}, { immediate: true })
 
 const onUpdate = (v: unknown) => {
   if (typeof v !== 'string' || v === props.activeKey) return
@@ -35,7 +45,7 @@ const onUpdate = (v: unknown) => {
 
 <template>
   <TabsRoot :model-value="activeKey ?? ''" activation-mode="automatic" @update:model-value="onUpdate">
-    <TabsList ref="list" class="relative flex min-w-0 max-w-full gap-5 overflow-x-auto border-b border-line py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <TabsList ref="list" class="relative flex min-w-0 max-w-full gap-5 overflow-x-auto border-b border-line px-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <TabsTrigger
         v-for="it in items"
         :key="it.key"
