@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useId, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
@@ -29,7 +29,7 @@ const props = withDefaults(defineProps<{
   client?: boolean
 }>(), { client: false })
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 const router = useRouter()
 const { open, hide } = useCommandPalette()
 
@@ -167,6 +167,16 @@ watch(open, (v) => {
   active.value = 0
 }, { flush: 'sync' })
 
+// Размонтирование (уход из оболочки): отложенный запрос не должен уйти после разборки, а общее open —
+// остаться true, иначе следующая оболочка смонтировалась бы с уже открытой палитрой.
+onBeforeUnmount(() => {
+  cancelSearch()
+  hide()
+})
+
+// Неизвестный тип от сервера — без метки (пустая колонка держит выравнивание), а не сырой ключ словаря.
+const typeLabel = (type: string) => (te(`shell.palette.type.${type}`) ? t(`shell.palette.type.${type}`) : '')
+
 const onOpenChange = (v: boolean) => { if (!v) hide() }
 const onOpenAutoFocus = (e: Event) => {
   e.preventDefault()
@@ -269,7 +279,7 @@ const skeletonWidths = ['58%', '44%', '66%']
                 @click="select(items[destCount + j])"
               >
                 <span class="flex shrink-0 sm:w-24">
-                  <ZTag size="sm" :tone="TYPE_TONE[h.type] ?? 'neutral'">{{ t(`shell.palette.type.${h.type}`) }}</ZTag>
+                  <ZTag v-if="typeLabel(h.type)" size="sm" :tone="TYPE_TONE[h.type] ?? 'neutral'">{{ typeLabel(h.type) }}</ZTag>
                 </span>
                 <span class="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-baseline sm:gap-3">
                   <span class="truncate text-sm font-medium">{{ h.title }}</span>

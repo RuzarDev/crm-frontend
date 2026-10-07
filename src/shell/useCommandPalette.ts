@@ -28,7 +28,8 @@ export function useCommandPalette() {
  */
 export function installPaletteHotkey(): () => void {
   const onKeydown = (e: KeyboardEvent) => {
-    if (!(e.metaKey || e.ctrlKey) || e.isComposing || e.repeat) return
+    // Alt/Shift+⌘K — чужие сочетания (браузер, расширения), их не перехватываем.
+    if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.isComposing || e.repeat) return
     // code — физическая клавиша: в русской и казахской раскладке key = «л».
     if (e.key?.toLowerCase() !== 'k' && e.code !== 'KeyK') return
     e.preventDefault()
