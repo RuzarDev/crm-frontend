@@ -5,7 +5,7 @@ import { PhCaretDown, PhCaretUp } from '@phosphor-icons/vue'
 import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
 import { fieldShell } from '@/ui/surfaces'
-import { clampRound, parseNumber } from '@/ui/number'
+import { clampRound, formatFixed, parseNumber } from '@/ui/number'
 
 // class/style — на обёртку, остальное — на <input> (контракт Z-полей, см. ZInput).
 defineOptions({ inheritAttrs: false })
@@ -33,33 +33,66 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'update:value': [value: number | null]
-  /** Как у a-input-number: при коммите значения (blur, Enter, шаг). */
+  /**
+   * Как у a-input-number: на каждом нажатии, если текст разобрался в число в пределах [min,max]
+   * (сырое, без округления), и ещё раз при коммите (blur/Enter), если нормализация изменила значение;
+   * кнопки/стрелки шага — сразу.
+   */
   change: [value: number | null]
   pressEnter: [e: KeyboardEvent]
+  focus: [e: FocusEvent]
   blur: [e: FocusEvent]
 }>()
 
 const { t } = useI18n()
-const show = (v: number | null) => (v === null || v === undefined ? '' : String(v))
+const inputRef = ref<HTMLInputElement | null>(null)
+const focused = ref(false)
+// Были ли правки с момента фокуса: blur без правок не эмитит и не нормализует значение с сервера.
+let dirty = false
+const show = (v: number | null) => {
+  if (v === null || v === undefined) return ''
+  return !focused.value && props.precision !== undefined ? formatFixed(v, props.precision) : String(v)
+}
 const text = ref(show(props.value))
-// Последнее закоммиченное значение: без v-model родителя props.value не меняется, а сравнивать «что эмитить» надо с ним.
+// Последнее отправленное значение: без v-model родителя props.value не меняется, а сравнивать «что эмитить» надо с ним.
 let current: number | null = props.value
-watch(() => props.value, (v) => { current = v; text.value = show(v) })
+watch(() => props.value, (v) => {
+  current = v
+  // В фокусе не трогаем текст, если он уже означает это число: иначе «1.» / «1,5» прыгали бы под кареткой.
+  if (focused.value && parseNumber(text.value) === v) return
+  text.value = show(v)
+})
 
+const send = (v: number | null) => {
+  if (v === current) return
+  current = v
+  emit('update:value', v)
+  emit('change', v)
+}
 const commit = (next: number | null) => {
   const v = next === null ? null : clampRound(next, props)
   text.value = show(v)
-  if (v !== current) {
-    current = v
-    emit('update:value', v)
-    emit('change', v)
-  }
+  dirty = false
+  send(v)
 }
 const commitText = () => {
+  if (!dirty) { text.value = show(current); return }
   if (text.value.trim() === '') return commit(null)
   const n = parseNumber(text.value)
-  if (n === null) text.value = show(current) // мусор — откат к прежнему
+  if (n === null) { text.value = show(current); dirty = false } // мусор — откат к прежнему
   else commit(n)
+}
+// Неполный ввод («1.», «1,», «-», «+») — ждём следующего нажатия, не эмитим.
+const isPartial = (s: string) => /[.,+\-\u2212]$/.test(s.trim())
+const onInput = (e: Event) => {
+  dirty = true
+  text.value = (e.target as HTMLInputElement).value // не зависим от порядка слушателей v-model
+  if (isPartial(text.value)) return
+  const n = parseNumber(text.value)
+  if (n === null) return
+  if (props.min !== undefined && n < props.min) return
+  if (props.max !== undefined && n > props.max) return
+  send(n)
 }
 const stepBy = (dir: 1 | -1) => {
   if (props.disabled || props.readonly) return
@@ -71,7 +104,13 @@ const onKeydown = (e: KeyboardEvent) => {
   else if (e.key === 'ArrowDown') { e.preventDefault(); stepBy(-1) }
   else if (e.key === 'Enter' && !e.isComposing) { commitText(); emit('pressEnter', e) }
 }
-const onBlur = (e: FocusEvent) => { commitText(); emit('blur', e) }
+const onFocus = (e: FocusEvent) => { focused.value = true; dirty = false; emit('focus', e) }
+const onBlur = (e: FocusEvent) => { focused.value = false; commitText(); emit('blur', e) }
+
+defineExpose({
+  focus: () => inputRef.value?.focus(),
+  blur: () => inputRef.value?.blur(),
+})
 </script>
 
 <template>
@@ -79,6 +118,7 @@ const onBlur = (e: FocusEvent) => { commitText(); emit('blur', e) }
     <input
       v-bind="inputAttrs"
       :id="id"
+      ref="inputRef"
       v-model="text"
       type="text"
       inputmode="decimal"
@@ -92,12 +132,14 @@ const onBlur = (e: FocusEvent) => { commitText(); emit('blur', e) }
       :aria-valuenow="value ?? undefined"
       role="spinbutton"
       class="min-w-0 flex-1 border-0 bg-transparent p-0 font-sans tabular-nums [font-size:inherit] [line-height:inherit] [color:inherit] outline-hidden placeholder:text-muted disabled:cursor-not-allowed disabled:placeholder:text-ink-3"
+      @input="onInput"
       @keydown="onKeydown"
+      @focus="onFocus"
       @blur="onBlur"
     >
     <span v-if="controls && !disabled && !readonly" class="flex shrink-0 flex-col">
-      <button type="button" tabindex="-1" :aria-label="t('z.increase')" class="flex h-3.5 w-5 cursor-pointer items-center justify-center rounded-[4px] border-0 bg-transparent p-0 text-muted outline-hidden hover:bg-sunken hover:text-ink" @click="stepBy(1)"><PhCaretUp :size="10" weight="bold" /></button>
-      <button type="button" tabindex="-1" :aria-label="t('z.decrease')" class="flex h-3.5 w-5 cursor-pointer items-center justify-center rounded-[4px] border-0 bg-transparent p-0 text-muted outline-hidden hover:bg-sunken hover:text-ink" @click="stepBy(-1)"><PhCaretDown :size="10" weight="bold" /></button>
+      <button type="button" tabindex="-1" :aria-label="t('z.increase')" class="flex h-3.5 w-5 cursor-pointer items-center justify-center rounded-[4px] border-0 bg-transparent p-0 text-muted outline-hidden hover:bg-sunken hover:text-ink" @mousedown.prevent @click="stepBy(1)"><PhCaretUp :size="10" weight="bold" /></button>
+      <button type="button" tabindex="-1" :aria-label="t('z.decrease')" class="flex h-3.5 w-5 cursor-pointer items-center justify-center rounded-[4px] border-0 bg-transparent p-0 text-muted outline-hidden hover:bg-sunken hover:text-ink" @mousedown.prevent @click="stepBy(-1)"><PhCaretDown :size="10" weight="bold" /></button>
     </span>
   </span>
 </template>
