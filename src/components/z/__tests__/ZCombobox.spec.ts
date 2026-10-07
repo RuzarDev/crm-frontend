@@ -218,4 +218,19 @@ describe('ZCombobox', () => {
     ;(w.vm as unknown as { blur: () => void }).blur()
     expect(document.activeElement).not.toBe(w.get('input').element)
   })
+  it('class/style — на корневой DOM-элемент компонента, рамка — w-full', () => {
+    w = mountWithI18n(ZCombobox, { props: { value: '', options }, attrs: { class: 'flex-1 col-span-2', style: 'margin-top:4px' } })
+    // Корень Reka (PopperRoot) — фрагмент, поэтому w.element — контейнер; единственный его элемент — DOM-корень ZCombobox.
+    expect(w.element.childElementCount).toBe(1)
+    const root = w.element.firstElementChild as HTMLElement
+    expect(root.classList).toContain('flex-1')
+    expect(root.classList).toContain('col-span-2')
+    expect(root.classList).toContain('inline-flex')
+    expect(root.classList).toContain('min-w-0')
+    expect(root.style.marginTop).toBe('4px')
+    const anchor = root.firstElementChild as HTMLElement
+    expect(anchor.classList).toContain('w-full')
+    expect(anchor.classList).not.toContain('flex-1')
+    expect(anchor.style.marginTop).toBe('')
+  })
 })

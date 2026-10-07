@@ -16,7 +16,8 @@ import ZSelectChips from './ZSelectChips.vue'
 
 // Замена a-select (155 мест): API как у AntD — v-model:value, options, show-search, filter-option,
 // option-filter-prop, mode multiple/tags, allow-clear, status, change(value, option), search.
-// class/style — на рамку, остальные $attrs (aria-*, data-*, слушатели) — на <input>.
+// class/style — на корневой DOM-элемент (ComboboxRoot, база inline-flex w-full min-w-0; рамка внутри — w-full),
+// остальные $attrs (aria-*, data-*, слушатели) — на <input>.
 // Фильтрует наш filterOptions (ignore-filter у Reka): поисковый текст (query) ведём сами — текст в поле
 // у single совпадает с подписью выбранного и фильтром быть не должен.
 defineOptions({ inheritAttrs: false })
@@ -213,12 +214,13 @@ const inputClass = computed(() => cn(
     :disabled="disabled"
     ignore-filter
     open-on-click
+    :style="attrs.style as StyleValue"
+    :class="cn('inline-flex w-full min-w-0', attrs.class as ClassValue)"
     @update:open="onOpen"
     @update:model-value="onModel"
   >
     <ComboboxAnchor
-      :style="attrs.style as StyleValue"
-      :class="cn(fieldShell({ size, invalid: isInvalid, disabled, multiline: isMulti }), 'pr-1.5', !disabled && 'cursor-pointer', attrs.class as ClassValue)"
+      :class="cn(fieldShell({ size, invalid: isInvalid, disabled, multiline: isMulti }), 'pr-1.5', !disabled && 'cursor-pointer')"
       @click="onAnchorClick"
     >
       <ZSelectChips v-if="isMulti" :values="selected" :label-of="labelOf" :disabled="disabled" @remove="removeValue" />

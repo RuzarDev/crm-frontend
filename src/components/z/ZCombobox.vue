@@ -16,7 +16,8 @@ import { filterOptions, toKey, type ZFilterOption, type ZOption, type ZOptionVal
 // compositionend) он ведёт сам; у Combobox модель — выбранный пункт, а текст — отдельная подпись.
 // Подсказки фильтрует наш filterOptions (ignore-filter у Reka). Выбор пункта перехватываем (preventDefault):
 // значение — String(option.value) (Reka не берёт '' значением пункта — там служебный ключ), плюс select.
-// class/style — на рамку, остальные $attrs (aria-*, data-*, слушатели) — на <input>, как у ZInput.
+// class/style — на корневой DOM-элемент (AutocompleteRoot, база inline-flex w-full min-w-0; рамка внутри — w-full),
+// остальные $attrs (aria-*, data-*, слушатели) — на <input>, как у ZInput.
 defineOptions({ inheritAttrs: false })
 const attrs = useAttrs()
 const inputAttrs = computed(() => {
@@ -114,13 +115,12 @@ defineExpose({ focus: () => inputEl()?.focus(), blur: () => inputEl()?.blur() })
     :disabled="disabled"
     ignore-filter
     open-on-click
+    :style="attrs.style as StyleValue"
+    :class="cn('inline-flex w-full min-w-0', attrs.class as ClassValue)"
     @update:model-value="onType"
     @update:open="open = $event"
   >
-    <AutocompleteAnchor
-      :style="attrs.style as StyleValue"
-      :class="cn(fieldShell({ size, invalid, disabled }), attrs.class as ClassValue)"
-    >
+    <AutocompleteAnchor :class="fieldShell({ size, invalid, disabled })">
       <AutocompleteInput
         v-bind="inputAttrs"
         ref="inputCmp"

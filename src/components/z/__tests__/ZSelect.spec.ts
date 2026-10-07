@@ -240,4 +240,25 @@ describe('ZSelect', () => {
     el.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertText', data: 'а', bubbles: true, cancelable: true }))
     expect(el.value).toBe('к')
   })
+  it('class/style — на корневой DOM-элемент компонента (как у ZInput/ZNumber/ZDate), рамка — w-full', () => {
+    w = mountWithI18n(ZSelect, { props: { value: null, options }, attrs: { class: 'flex-1 col-span-2', style: 'margin-top:4px' } })
+    // Корень Reka (PopperRoot) — фрагмент, поэтому w.element — контейнер; единственный его элемент — DOM-корень ZSelect.
+    expect(w.element.childElementCount).toBe(1)
+    const root = w.element.firstElementChild as HTMLElement
+    expect(root.classList).toContain('flex-1')
+    expect(root.classList).toContain('col-span-2')
+    expect(root.classList).toContain('inline-flex')
+    expect(root.classList).toContain('min-w-0')
+    expect(root.style.marginTop).toBe('4px')
+    const anchor = root.firstElementChild as HTMLElement
+    expect(anchor.classList).toContain('w-full')
+    expect(anchor.classList).not.toContain('flex-1')
+    expect(anchor.style.marginTop).toBe('')
+  })
+  it('class ширины перебивает базовую w-full корня', () => {
+    w = mountWithI18n(ZSelect, { props: { value: null, options }, attrs: { class: 'w-40' } })
+    const root = w.element.firstElementChild as HTMLElement
+    expect(root.classList).toContain('w-40')
+    expect(root.classList).not.toContain('w-full')
+  })
 })
