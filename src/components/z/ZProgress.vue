@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { cn } from '@/ui/cn'
 
 // Полоса прогресса. Имя для скринридера — ariaLabel либо слот label (виден рядом).
@@ -11,6 +12,7 @@ const props = withDefaults(defineProps<{
   ariaLabel?: string
 }>(), { percent: 0, status: 'normal', size: 'md', showInfo: false })
 
+const { t } = useI18n()
 const labelId = useId()
 const value = computed(() => {
   const n = Number(props.percent)
@@ -29,7 +31,7 @@ const TRACK = { sm: 'h-1', md: 'h-2' }
       :aria-valuenow="value"
       aria-valuemin="0"
       aria-valuemax="100"
-      :aria-label="$slots.label ? undefined : ariaLabel"
+      :aria-label="$slots.label ? undefined : (ariaLabel || t('z.progress'))"
       :aria-labelledby="$slots.label ? labelId : undefined"
       :class="cn('min-w-0 flex-1 overflow-hidden rounded-pill bg-line', TRACK[size])"
     >

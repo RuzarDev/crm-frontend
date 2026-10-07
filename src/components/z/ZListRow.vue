@@ -5,6 +5,7 @@ import { cn } from '@/ui/cn'
 import ZAvatar from './ZAvatar.vue'
 
 // Строка списка стиля C: аватар, заголовок + подзаголовок, теги, значение справа.
+// Когда строка сама ссылка или кнопка, внутри meta/trailing нельзя класть интерактивное (кнопки, ссылки, поля): вложенное интерактивное в <a>/<button> невалидно.
 // Кликабельность определяется по входным данным: to → RouterLink, href → <a>, слушатель click → <button>.
 const props = defineProps<{
   title: string
@@ -20,14 +21,14 @@ const attrs = useAttrs()
 type Kind = 'link' | 'anchor' | 'button' | 'div'
 // Функции, а не computed: $attrs не реактивен, и слушатель/класс от родителя должны подхватываться при каждом рендере.
 const kind = (): Kind => {
-  if (props.to !== undefined) return 'link'
+  if (props.to !== undefined && props.to !== '') return 'link'
   if (props.href) return 'anchor'
   return attrs.onClick ? 'button' : 'div'
 }
 
-const BASE = 'flex items-center gap-3 rounded-row px-3 py-2.5 text-ink no-underline'
+const BASE = 'flex items-center gap-3 rounded-row px-3 py-2.5 font-sans text-base text-ink no-underline'
 const CLICKABLE = 'cursor-pointer outline-hidden transition-colors duration-150 hover:bg-canvas focus-visible:shadow-focus motion-reduce:transition-none'
-const BUTTON_RESET = 'w-full border-0 bg-transparent text-left font-sans text-base'
+const BUTTON_RESET = 'w-full border-0 bg-transparent text-left'
 
 const bind = () => {
   const k = kind()

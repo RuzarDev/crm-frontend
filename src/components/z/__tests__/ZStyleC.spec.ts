@@ -7,6 +7,11 @@ import ZStepper from '../ZStepper.vue'
 import ZAskBanner from '../ZAskBanner.vue'
 import ZProgress from '../ZProgress.vue'
 import ZBreadcrumbs from '../ZBreadcrumbs.vue'
+import { createI18n } from 'vue-i18n'
+import { mount } from '@vue/test-utils'
+import kk from '@/i18n/locales/kk'
+import en from '@/i18n/locales/en'
+import ru from '@/i18n/locales/ru'
 
 let w: VueWrapper
 afterEach(() => w?.unmount())
@@ -33,6 +38,14 @@ describe('ZListRow', () => {
     expect(w.element.tagName).toBe('A')
     expect(w.attributes('data-to')).toBe('/orders/1')
     expect(w.classes()).toContain('hover:bg-canvas')
+  })
+  it('пустой to считается отсутствующим; базовые классы шрифта на любом элементе', () => {
+    w = mountWithI18n(ZListRow, { props: { title: 'X', to: '' }, global })
+    expect(w.element.tagName).toBe('DIV')
+    expect(w.classes()).toEqual(expect.arrayContaining(['font-sans', 'text-base']))
+    w.unmount()
+    w = mountWithI18n(ZListRow, { props: { title: 'X', href: '/a' }, global })
+    expect(w.classes()).toEqual(expect.arrayContaining(['font-sans', 'text-base']))
   })
   it('href — a', () => {
     w = mountWithI18n(ZListRow, { props: { title: 'X', href: 'https://example.kz' }, global })
@@ -95,7 +108,7 @@ describe('ZStepper', () => {
     expect(bars[3].classes()).toContain('bg-line')
     expect(bars[6].classes()).toContain('bg-line')
     expect(w.html()).not.toContain('gradient')
-    expect(w.findAll('li')[2].find('span').classes()).toEqual(expect.arrayContaining(['text-zircon-ink', 'font-semibold']))
+    expect(w.findAll('li')[2].find('[data-z-step-label]').classes()).toEqual(expect.arrayContaining(['text-zircon-ink', 'font-semibold']))
   })
   it('status=error — текущий сегмент danger', () => {
     w = mountWithI18n(ZStepper, { props: { steps, current: 'decl', status: 'error' } })
@@ -107,9 +120,38 @@ describe('ZStepper', () => {
   it('мобильная подпись «Шаг 3 из 7»; у неактивных подписи скрыты на телефоне', () => {
     w = mountWithI18n(ZStepper, { props: { steps, current: 'decl' } })
     expect(w.text()).toContain('Шаг 3 из 7')
-    const labels = w.findAll('li').map((li) => li.find('span').classes())
+    const labels = w.findAll('li').map((li) => li.find('[data-z-step-label]').classes())
     expect(labels[0]).toContain('max-sm:hidden')
     expect(labels[2]).not.toContain('max-sm:hidden')
+  })
+  it('не только цветом: у пройденного галочка и «пройден», у ошибки значок и «ошибка»', () => {
+    w = mountWithI18n(ZStepper, { props: { steps, current: 'decl' } })
+    const lis = w.findAll('li')
+    expect(lis[0].find('svg').exists()).toBe(true)
+    expect(lis[0].find('.sr-only').text()).toContain('пройден')
+    expect(lis[2].find('svg').exists()).toBe(false)
+    expect(lis[3].find('svg').exists()).toBe(false)
+    w.unmount()
+    w = mountWithI18n(ZStepper, { props: { steps, current: 'decl', status: 'error' } })
+    expect(w.findAll('li')[2].find('svg').exists()).toBe(true)
+    expect(w.findAll('li')[2].find('.sr-only').text()).toContain('ошибка')
+  })
+  it('подсказка шага — text-muted text-xs; подпись можно обрезать', () => {
+    w = mountWithI18n(ZStepper, { props: { steps, current: 'decl' } })
+    const hint = w.findAll('li')[2].findAll('span').find((s) => s.text() === 'ДТ')!
+    expect(hint.classes()).toEqual(expect.arrayContaining(['text-muted', 'text-xs']))
+    expect(w.findAll('[data-z-step-label]')[2].classes()).toContain('min-w-0')
+  })
+  it('казахский счётчик без падежных окончаний: «Қадам 3/7»; en — Step 3 of 7', () => {
+    const mk = (locale: string) => mount(ZStepper, {
+      props: { steps, current: 'decl' },
+      global: { plugins: [createI18n({ legacy: false, locale, messages: { ru, kk, en } })] },
+    })
+    w = mk('kk')
+    expect(w.find('p').text()).toBe('Қадам 3/7')
+    w.unmount()
+    w = mk('en')
+    expect(w.find('p').text()).toBe('Step 3 of 7')
   })
   it('неизвестный current — нет текущего и нет счётчика', () => {
     w = mountWithI18n(ZStepper, { props: { steps, current: 'nope' } })
@@ -135,6 +177,10 @@ describe('ZAskBanner', () => {
     expect(cls).toContain('bg-surface')
     expect(cls).not.toContain('bg-sunken')
   })
+  it('hover кнопки виден на золотом: gold-line', () => {
+    w = mountWithI18n(ZAskBanner, { props: { title: 'T', actionText: 'Go' } })
+    expect(w.find('button').classes()).toContain('enabled:hover:bg-gold-line')
+  })
   it('без actionText кнопки нет; слот action', () => {
     w = mountWithI18n(ZAskBanner, { props: { title: 'T' } })
     expect(w.find('button').exists()).toBe(false)
@@ -153,6 +199,11 @@ describe('ZProgress', () => {
     expect(bar.attributes('aria-valuemax')).toBe('100')
     expect(bar.attributes('aria-label')).toBe('Загрузка файла')
     expect(w.text()).toContain('42%')
+  })
+  it('без ariaLabel и слота имя по умолчанию — z.progress', () => {
+    w = mountWithI18n(ZProgress, { props: { percent: 10 } })
+    expect(w.find('[role="progressbar"]').attributes('aria-label')).toBe('Выполнено')
+    expect(w.find('[role="progressbar"]').attributes('aria-labelledby')).toBeUndefined()
   })
   it('имя из слота label через aria-labelledby', () => {
     w = mountWithI18n(ZProgress, { props: { percent: 10 }, slots: { label: 'Документы' } })

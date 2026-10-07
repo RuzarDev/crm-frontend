@@ -51,6 +51,9 @@ export default {
     uploadTooBig: 'Файл больше {mb} МБ: {name}',
     stepOf: 'Шаг {n} из {total}',
     breadcrumbs: 'Навигация',
+    progress: 'Выполнено',
+    stepDone: 'пройден',
+    stepError: 'ошибка',
     steps: 'Этапы',
   },
   common: {

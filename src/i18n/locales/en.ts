@@ -49,6 +49,9 @@ export default {
     uploadTooBig: 'File is larger than {mb} MB: {name}',
     stepOf: 'Step {n} of {total}',
     breadcrumbs: 'Breadcrumb',
+    progress: 'Progress',
+    stepDone: 'completed',
+    stepError: 'error',
     steps: 'Stages',
   },
   common: {

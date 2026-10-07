@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { PhCheck, PhWarning } from '@phosphor-icons/vue'
 import { cn } from '@/ui/cn'
 
 export interface ZStep { key: string; label: string; hint?: string }
@@ -26,7 +27,7 @@ const barClass = (i: number) => {
 const labelClass = (i: number) => {
   const s = stateOf(i)
   return cn(
-    'mt-1.5 block text-xs',
+    'mt-1.5 flex min-w-0 items-center gap-1 text-xs',
     s === 'current' ? 'font-semibold' : 'max-sm:hidden',
     s === 'current' ? (props.status === 'error' ? 'text-danger' : 'text-zircon-ink') : s === 'done' ? 'text-ink-3' : 'text-muted',
   )
@@ -42,9 +43,15 @@ const labelClass = (i: number) => {
         :aria-current="stateOf(i) === 'current' ? 'step' : undefined"
         :class="cn('min-w-0', stateOf(i) === 'current' ? 'flex-[2] sm:flex-1' : 'flex-1')"
       >
-        <i data-z-step-bar aria-hidden="true" :class="cn('block h-1.5 rounded-pill', barClass(i))" />
-        <span :class="labelClass(i)">{{ step.label }}</span>
-        <span v-if="step.hint" class="block text-[11px] text-faint max-sm:hidden">{{ step.hint }}</span>
+        <span data-z-step-bar aria-hidden="true" :class="cn('block h-1.5 rounded-pill', barClass(i))" />
+        <span data-z-step-label :class="labelClass(i)">
+          <PhCheck v-if="stateOf(i) === 'done'" :size="12" weight="bold" aria-hidden="true" class="shrink-0" />
+          <PhWarning v-else-if="stateOf(i) === 'current' && status === 'error'" :size="12" weight="bold" aria-hidden="true" class="shrink-0" />
+          <span class="min-w-0 truncate">{{ step.label }}</span>
+          <span v-if="stateOf(i) === 'done'" class="sr-only"> — {{ t('z.stepDone') }}</span>
+          <span v-else-if="stateOf(i) === 'current' && status === 'error'" class="sr-only"> — {{ t('z.stepError') }}</span>
+        </span>
+        <span v-if="step.hint" class="block text-xs text-muted max-sm:hidden">{{ step.hint }}</span>
       </li>
     </ol>
     <p v-if="index >= 0" class="m-0 mt-1.5 text-xs text-ink-3 tabular-nums sm:hidden">{{ t('z.stepOf', { n: index + 1, total: steps.length }) }}</p>
