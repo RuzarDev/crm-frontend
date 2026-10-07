@@ -8,7 +8,7 @@ import { floatingSurface, listItem } from '@/ui/surfaces'
 
 // Замена a-dropdown (6 мест): меню действий по клику на триггер (слот).
 // Клавиатура — Reka: Enter/Space/ArrowDown на триггере открывают, стрелки ходят по пунктам, Escape закрывает,
-// фокус возвращается на триггер. divider: true — линия-разделитель НАД этим пунктом.
+// фокус возвращается на триггер. Не модальное: страница не блокируется и не теряет прокрутку (как у меню строк AntD). divider: true — линия-разделитель НАД этим пунктом.
 export interface ZDropdownItem {
   key: string
   label: string
@@ -23,7 +23,7 @@ const emit = defineEmits<{ select: [key: string] }>()
 </script>
 
 <template>
-  <DropdownMenuRoot>
+  <DropdownMenuRoot :modal="false">
     <DropdownMenuTrigger as-child>
       <slot />
     </DropdownMenuTrigger>

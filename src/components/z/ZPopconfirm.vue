@@ -22,6 +22,7 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>()
 const { t } = useI18n()
 
 const titleId = useId()
+const descId = useId()
 const open = ref(false)
 const cancelBtn = ref<InstanceType<typeof ZButton>>()
 
@@ -46,6 +47,7 @@ const onOpened = (e: Event) => {
   const el = e.target as HTMLElement | null // контейнер фокус-скоупа: обёртка позиционирования, role=dialog внутри
   const dialog = el?.getAttribute?.('role') === 'dialog' ? el : el?.querySelector?.('[role="dialog"]')
   dialog?.setAttribute('aria-labelledby', titleId)
+  if (props.description) dialog?.setAttribute('aria-describedby', descId)
   nextTick(() => (cancelBtn.value?.$el as HTMLElement | undefined)?.focus())
 }
 </script>
@@ -63,7 +65,7 @@ const onOpened = (e: Event) => {
         @open-auto-focus="onOpened"
       >
         <p :id="titleId" class="text-sm font-semibold text-ink">{{ title }}</p>
-        <p v-if="description" class="mt-1 text-sm text-ink-3">{{ description }}</p>
+        <p v-if="description" :id="descId" class="mt-1 text-sm text-ink-3">{{ description }}</p>
         <div class="mt-3 flex justify-end gap-2">
           <ZButton ref="cancelBtn" size="sm" variant="ghost" @click="cancel">{{ cancelText || t('common.cancel') }}</ZButton>
           <ZButton size="sm" :variant="danger ? 'danger' : 'primary'" @click="confirm">{{ okText || t('z.confirm') }}</ZButton>

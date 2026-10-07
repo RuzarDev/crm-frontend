@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { h, nextTick, ref } from 'vue'
+import { h, nextTick } from 'vue'
 import { TooltipProvider } from 'reka-ui'
 import type { VueWrapper } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
@@ -33,6 +33,20 @@ describe('ZTooltip', () => {
     // триггер — сам элемент слота, лишней обёртки нет
     expect(btn.element.parentElement).toBe(w.element)
     expect(w.element.querySelectorAll('span').length).toBe(0)
+  })
+
+  it('без TooltipProvider выше — не падает и показывается при фокусе', async () => {
+    w = mountWithI18n(ZTooltip, { props: { title: 'Графа 31' }, slots: { default: '<button>Гр.31</button>' }, attachTo: document.body })
+    await w.get('button').trigger('focus')
+    await tick()
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('Графа 31')
+  })
+
+  it('title из пробелов — как пустой: только слот', () => {
+    w = mountWithI18n({ render: () => h(TooltipProvider, () => h(ZTooltip, { title: '   ' }, () => h('button', 'Гр.31'))) }, { attachTo: document.body })
+    expect(w.html()).toContain('Гр.31')
+    expect(w.find('[data-state]').exists()).toBe(false)
+    expect(w.find('[aria-describedby]').exists()).toBe(false)
   })
 
   it('Escape закрывает подсказку', async () => {
@@ -77,6 +91,53 @@ describe('ZDropdown', () => {
     expect(menuItems()).toHaveLength(0) // после выбора меню закрывается
   })
 
+  it('клавиатура: ArrowDown открывает, ArrowDown ведёт подсветку, Enter выбирает один раз, фокус на триггере', async () => {
+    w = mountDd()
+    const trigger = w.get('button').element as HTMLButtonElement
+    trigger.focus()
+    await w.get('button').trigger('keydown', { key: 'ArrowDown' })
+    await tick()
+    const menu = document.body.querySelector('[role="menu"]') as HTMLElement
+    const key = async (k: string) => { (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true })); await tick() }
+    const els = menuItems()
+    // подсветка стартует на первом пункте, ArrowDown перескакивает выключенный и идёт на «Удалить ДТ»
+    expect(document.activeElement).toBe(els[0])
+    await key('ArrowDown')
+    expect(document.activeElement).toBe(els[2])
+    expect(els[2].hasAttribute('data-highlighted')).toBe(true)
+    await key('ArrowUp')
+    expect(document.activeElement).toBe(els[0])
+    expect(menu.contains(document.activeElement)).toBe(true)
+    await key('Enter')
+    await new Promise((r) => setTimeout(r, 0))
+    await tick()
+    expect(w.emitted('select')).toEqual([['xml']])
+    expect(menuItems()).toHaveLength(0)
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('Escape закрывает меню и возвращает фокус на триггер', async () => {
+    w = mountDd()
+    const trigger = w.get('button').element as HTMLButtonElement
+    trigger.focus()
+    await w.get('button').trigger('keydown', { key: 'Enter' })
+    await tick()
+    expect(menuItems()).toHaveLength(3)
+    ;(document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await new Promise((r) => setTimeout(r, 20))
+    await tick()
+    expect(menuItems()).toHaveLength(0)
+    expect(document.activeElement).toBe(trigger)
+    expect(w.emitted('select')).toBeUndefined()
+  })
+
+  it('меню не модальное: страница не блокируется', async () => {
+    w = mountDd()
+    await w.get('button').trigger('keydown', { key: 'Enter' })
+    await tick()
+    expect(document.body.style.pointerEvents).not.toBe('none')
+  })
+
   it('клавиатура: ArrowDown открывает, Escape закрывает', async () => {
     w = mountDd()
     await w.get('button').trigger('keydown', { key: 'ArrowDown' })
@@ -116,11 +177,27 @@ describe('ZPopconfirm', () => {
     expect(titleEl?.textContent).toBe('Удалить файл?')
     expect(document.body.textContent).toContain('Файл будет удалён')
     expect(document.activeElement).toBe(find('Отмена'))
+    const descId = dialog.getAttribute('aria-describedby')!
+    expect(document.getElementById(descId)?.textContent).toBe('Файл будет удалён')
     find('Отмена').click()
     await tick()
     expect(w.emitted('cancel')).toHaveLength(1)
     expect(w.emitted('confirm')).toBeUndefined()
     expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+    // повторное открытие: связи aria остаются
+    await w.get('button').trigger('click')
+    await tick()
+    const again = document.body.querySelector('[role="dialog"]') as HTMLElement
+    expect(document.getElementById(again.getAttribute('aria-labelledby')!)?.textContent).toBe('Удалить файл?')
+    expect(document.getElementById(again.getAttribute('aria-describedby')!)?.textContent).toBe('Файл будет удалён')
+    expect(document.activeElement).toBe(find('Отмена'))
+  })
+
+  it('без описания aria-describedby не ставится', async () => {
+    w = mountPc()
+    await w.get('button').trigger('click')
+    await tick()
+    expect(document.body.querySelector('[role="dialog"]')?.hasAttribute('aria-describedby')).toBe(false)
   })
 
   it('Escape — cancel один раз', async () => {
@@ -137,10 +214,11 @@ describe('ZPopconfirm', () => {
     w = mountPc()
     await w.get('button').trigger('click')
     await tick()
-    document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
-    await new Promise((r) => setTimeout(r, 10))
+    await new Promise((r) => setTimeout(r, 20)) // Reka вешает слушатель клика снаружи через setTimeout(0)
     document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
     await tick()
+    await new Promise((r) => setTimeout(r, 20)) // Presence снимает окно после макрозадачи
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
     expect(w.emitted('cancel')).toHaveLength(1)
   })
 
@@ -158,4 +236,3 @@ describe('ZPopconfirm', () => {
     expect(w.emitted('cancel')).toBeUndefined()
   })
 })
-void ref
