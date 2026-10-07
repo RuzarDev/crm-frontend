@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, type FunctionalComponent } from 'vue'
+import { computed, ref, watch, type FunctionalComponent } from 'vue'
 import {
   injectTooltipProviderContext, TooltipArrow, TooltipContent, TooltipPortal, TooltipProvider, TooltipRoot, TooltipTrigger,
 } from 'reka-ui'
@@ -8,7 +8,10 @@ import { Z_LAYER_FLOATING } from '@/ui/surfaces'
 // Замена a-tooltip (41 место). Общий TooltipProvider стоит в App.vue (общая задержка и «пропуск задержки»
 // при переходе между подсказками); если выше по дереву провайдера нет (тесты, изолированные окна),
 // ZTooltip сам оборачивается в собственный — Reka без него бросает исключение.
-// Пустой title — подсказки нет, рендерится только слот (без обёрток и атрибутов Reka).
+// Пустой title — подсказка выключена (disabled у TooltipRoot): ни содержимого, ни aria-describedby
+// (служебные data-state="closed" / data-grace-area-trigger Reka на элементе остаются — снять их as-child не даёт).
+// Обёртки Reka при этом остаются всегда — иначе смена title ''↔'x' перемонтировала бы элемент слота
+// (терялся бы фокус и состояние поля).
 // Триггер — as-child: aria-describedby и обработчики получает сам элемент слота. Подсказка открывается
 // по наведению и по клавиатурному фокусу, закрывается по Escape и при уходе.
 // Ограничение Reka: у disabled-кнопки браузер не шлёт pointer/focus-события — подсказка на ней не покажется;
@@ -23,15 +26,18 @@ const hasTitle = computed(() => props.title.trim() !== '')
 const hasProvider = injectTooltipProviderContext(null) !== null
 const Passthrough: FunctionalComponent = (_, { slots }) => slots.default?.()
 const Provider = hasProvider ? Passthrough : TooltipProvider
+// open ведём сами: disabled у Reka не закрывает уже открытую подсказку — закрываем при опустевшем title.
+const open = ref(false)
+watch(hasTitle, (v) => { if (!v) open.value = false })
 </script>
 
 <template>
-  <component :is="Provider" v-if="hasTitle">
-    <TooltipRoot>
+  <component :is="Provider">
+    <TooltipRoot :open="open" :disabled="!hasTitle" @update:open="open = $event">
       <TooltipTrigger as-child>
         <slot />
       </TooltipTrigger>
-      <TooltipPortal>
+      <TooltipPortal v-if="hasTitle">
         <TooltipContent
           :side="side"
           :side-offset="6"
@@ -43,5 +49,4 @@ const Provider = hasProvider ? Passthrough : TooltipProvider
       </TooltipPortal>
     </TooltipRoot>
   </component>
-  <slot v-else />
 </template>

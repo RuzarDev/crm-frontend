@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { h, nextTick } from 'vue'
+import { defineComponent, h, nextTick, onMounted, ref } from 'vue'
 import { TooltipProvider } from 'reka-ui'
 import type { VueWrapper } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
@@ -14,10 +14,15 @@ const tick = async () => { await nextTick(); await nextTick() }
 const popButtons = () => [...document.body.querySelectorAll('[role="dialog"] button')] as HTMLButtonElement[]
 
 describe('ZTooltip', () => {
-  it('без title — только триггер, без обёрток Reka', () => {
-    w = mountWithI18n({ render: () => h(TooltipProvider, () => h(ZTooltip, { title: '' }, () => h('button', 'Гр.31'))) }, { attachTo: document.body })
+  it('без title — только триггер: подсказка выключена, без содержимого и aria-describedby', async () => {
+    w = mountWithI18n({ render: () => h(TooltipProvider, { delayDuration: 0 }, () => h(ZTooltip, { title: '' }, () => h('button', 'Гр.31'))) }, { attachTo: document.body })
     expect(w.html()).toContain('Гр.31')
-    expect(w.find('[data-state]').exists()).toBe(false)
+    // Обёртки Reka остаются (иначе смена title перемонтировала бы элемент) — лишних DOM-узлов они не дают.
+    expect(w.get('button').element.parentElement).toBe(w.element)
+    await w.get('button').trigger('focus')
+    await tick()
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull()
+    expect(w.find('[aria-describedby]').exists()).toBe(false)
   })
 
   it('с title — содержимое показывается при фокусе триггера и связано aria-describedby', async () => {
@@ -45,8 +50,55 @@ describe('ZTooltip', () => {
   it('title из пробелов — как пустой: только слот', () => {
     w = mountWithI18n({ render: () => h(TooltipProvider, () => h(ZTooltip, { title: '   ' }, () => h('button', 'Гр.31'))) }, { attachTo: document.body })
     expect(w.html()).toContain('Гр.31')
-    expect(w.find('[data-state]').exists()).toBe(false)
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull()
     expect(w.find('[aria-describedby]').exists()).toBe(false)
+  })
+
+  it('смена title не перемонтирует обёрнутый элемент; фокус остаётся на нём', async () => {
+    let mounts = 0
+    const Child = defineComponent({
+      setup() {
+        onMounted(() => { mounts++ })
+        return () => h('button', 'Гр.31')
+      },
+    })
+    const title = ref('')
+    w = mountWithI18n({
+      render: () => h(TooltipProvider, { delayDuration: 0 }, () => h(ZTooltip, { title: title.value }, () => h(Child))),
+    }, { attachTo: document.body })
+    const btn = w.get('button').element as HTMLButtonElement
+    btn.focus()
+    expect(mounts).toBe(1)
+    title.value = 'Графа 31'
+    await tick()
+    expect(w.get('button').element).toBe(btn)
+    expect(document.activeElement).toBe(btn)
+    title.value = ''
+    await tick()
+    expect(w.get('button').element).toBe(btn)
+    expect(document.activeElement).toBe(btn)
+    expect(mounts).toBe(1)
+  })
+
+  it('title стал пустым при открытой подсказке — подсказка и aria-describedby исчезают', async () => {
+    const title = ref('Графа 31')
+    w = mountWithI18n({
+      render: () => h(TooltipProvider, { delayDuration: 0 }, () => h(ZTooltip, { title: title.value }, () => h('button', 'Гр.31'))),
+    }, { attachTo: document.body })
+    const btn = w.get('button')
+    await btn.trigger('focus')
+    await tick()
+    expect(document.body.querySelector('[role="tooltip"]')).not.toBeNull()
+    title.value = ''
+    await tick()
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull()
+    expect(btn.attributes('aria-describedby')).toBeUndefined()
+    // выключенная подсказка не открывается на фокусе
+    await btn.trigger('blur')
+    await btn.trigger('focus')
+    await tick()
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull()
+    expect(btn.attributes('aria-describedby')).toBeUndefined()
   })
 
   it('Escape закрывает подсказку', async () => {
