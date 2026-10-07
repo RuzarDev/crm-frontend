@@ -38,7 +38,7 @@ onMounted(fit)
     :disabled="disabled"
     :aria-invalid="invalid || undefined"
     :class="cn(
-      'block w-full resize-y rounded-field border border-line-strong bg-surface px-3 py-2 font-sans text-sm text-ink outline-none',
+      'block w-full resize-y rounded-field border border-line-strong bg-surface px-3 py-2 font-sans text-sm text-ink outline-hidden',
       'transition-[border-color,box-shadow] duration-150 ease-out placeholder:text-muted motion-reduce:transition-none',
       'hover:border-faint focus:border-zircon focus:shadow-focus',
       invalid && 'border-danger hover:border-danger focus:border-danger',

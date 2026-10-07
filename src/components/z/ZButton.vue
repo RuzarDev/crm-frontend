@@ -45,7 +45,7 @@ const classes = computed(() => cn(
   'inline-flex items-center justify-center rounded-field border-0 font-sans font-semibold whitespace-nowrap select-none cursor-pointer',
   // active:scale-* в Tailwind 4 пишет свойство scale (не transform) — его и анимируем.
   'transition-[background-color,color,scale] duration-150 ease-out motion-reduce:transition-none',
-  'outline-none focus-visible:shadow-focus',
+  'outline-hidden focus-visible:shadow-focus',
   // Выключенный вид — только у настоящего disabled; loading остаётся в полном цвете.
   'disabled:cursor-not-allowed disabled:opacity-45',
   SIZE[props.size],

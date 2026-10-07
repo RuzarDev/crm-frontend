@@ -13,4 +13,9 @@ describe('ZTextarea', () => {
   it('invalid — aria-invalid', () => {
     expect(mount(ZTextarea, { props: { invalid: true } }).find('textarea').attributes('aria-invalid')).toBe('true')
   })
+  it('фокус: outline-hidden + кольцо shadow-focus', () => {
+    const ta = mount(ZTextarea).find('textarea')
+    expect(ta.classes()).toContain('outline-hidden')
+    expect(ta.classes()).toContain('focus:shadow-focus')
+  })
 })

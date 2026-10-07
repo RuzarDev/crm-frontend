@@ -62,4 +62,10 @@ describe('ZButton', () => {
     expect(w.classes()).toContain('w-full')
     expect(w.attributes('type')).toBe('submit')
   })
+  it('фокус: outline-hidden (виден в forced-colors) + кольцо shadow-focus', () => {
+    const w = mount(ZButton)
+    expect(w.classes()).toContain('outline-hidden')
+    expect(w.classes()).not.toContain('outline-none')
+    expect(w.classes()).toContain('focus-visible:shadow-focus')
+  })
 })

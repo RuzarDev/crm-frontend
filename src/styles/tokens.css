@@ -59,7 +59,9 @@
   /* Тени тонированы под тёплый фон */
   --shadow-raised: 0 1px 2px rgb(60 48 30 / 0.06);
   --shadow-float: 0 12px 32px -12px rgb(60 48 30 / 0.22), 0 2px 6px rgb(60 48 30 / 0.06);
-  --shadow-focus: 0 0 0 3px rgb(35 181 211 / 0.35);
+  /* Кольцо фокуса: 2px фона-зазора + 2px zircon-ink (5,8:1 к белому) — видно на любом фоне и рамке.
+     Компоненты прячут нативный outline через outline-hidden (в forced-colors он остаётся виден). */
+  --shadow-focus: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-zircon-ink);
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }

@@ -81,4 +81,11 @@ describe('ZInput', () => {
     expect(w.classes()).toContain('hover:not-focus-within:border-faint')
     expect(w.classes()).not.toContain('hover:border-faint')
   })
+  it('фокус: outline-hidden у поля и у крестика, кольцо на обёртке', () => {
+    const w = mountWithI18n(ZInput, { props: { value: 'x', allowClear: true } })
+    expect(w.find('input').classes()).toContain('outline-hidden')
+    expect(w.find('button').classes()).toContain('outline-hidden')
+    expect(w.find('button').classes()).toContain('focus-visible:shadow-focus')
+    expect(w.classes()).toContain('focus-within:shadow-focus')
+  })
 })

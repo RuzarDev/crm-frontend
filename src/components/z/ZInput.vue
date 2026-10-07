@@ -89,7 +89,7 @@ const clear = () => {
       :autocomplete="autocomplete"
       :aria-invalid="invalid || undefined"
       :class="cn(
-        'min-w-0 flex-1 border-0 bg-transparent p-0 [font-size:inherit] [line-height:inherit] [color:inherit] outline-none placeholder:text-muted disabled:cursor-not-allowed disabled:placeholder:text-ink-3',
+        'min-w-0 flex-1 border-0 bg-transparent p-0 [font-size:inherit] [line-height:inherit] [color:inherit] outline-hidden placeholder:text-muted disabled:cursor-not-allowed disabled:placeholder:text-ink-3',
         mono ? 'font-mono tabular-nums' : 'font-sans',
       )"
       @input="onInput"
@@ -101,7 +101,7 @@ const clear = () => {
       v-if="allowClear && value && !disabled && !readonly"
       type="button"
       :aria-label="t('common.clear')"
-      class="-mr-1 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-muted outline-none hover:bg-sunken hover:text-ink focus-visible:shadow-focus"
+      class="-mr-1 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-muted outline-hidden hover:bg-sunken hover:text-ink focus-visible:shadow-focus"
       @click="clear"
     >
       <PhX :size="12" weight="bold" />
