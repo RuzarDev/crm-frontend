@@ -30,8 +30,10 @@
           <a-tag color="orange" class="dt-missing-tag">{{ t('dt.kedenMissing', { n: missingList.length }) }} <DownOutlined /></a-tag>
         </a-popover>
         <a-tag v-else color="green">{{ t('dt.kedenReady') }}</a-tag>
-        <span v-if="!readOnly" class="dt-saved">
+        <span v-if="!readOnly" class="dt-saved" :class="{ 'dt-saved--error': saveError, 'dt-saved--dirty': dirty && !saveError }">
           <template v-if="saving">{{ t('dt.sohranyaetsya') }}</template>
+          <template v-else-if="saveError">{{ t('dt.neSohraneno') }}</template>
+          <template v-else-if="dirty">{{ t('dt.estNesohranennye') }}</template>
           <template v-else-if="lastSavedAt">{{ t('dt.sohranenoV', { time: lastSavedAt }) }}</template>
         </span>
       </div>
@@ -76,6 +78,18 @@
       </nav>
 
       <div class="dt-content">
+        <a-alert
+          v-if="saveError && !readOnly"
+          type="error"
+          show-icon
+          class="dt-save-alert"
+          :message="t('dt.saveFailedTitle')"
+          :description="t('dt.saveFailedText', { reason: saveError })"
+        >
+          <template #action>
+            <a-button size="small" danger :loading="saving" @click="saveDt()">{{ t('dt.povtorit') }}</a-button>
+          </template>
+        </a-alert>
         <a-form layout="vertical" :disabled="readOnly">
           <!-- Регистрация номера и дата гр.А — в разделе общих сведений, а не над всеми разделами. -->
           <DtDeclarationNumberBar
@@ -174,8 +188,8 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed, h, onMounted, ref, reactive, watch, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, h, onBeforeUnmount, onMounted, ref, reactive, watch, nextTick } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { message, Modal } from 'ant-design-vue'
 import { CheckCircleFilled, DownOutlined } from '@ant-design/icons-vue'
@@ -318,6 +332,23 @@ const splitBlockedReason = computed(() => {
 })
 
 const saving = ref(false)
+// Защита от потери правок (инцидент 07.10.2026: сохранение падало, а в шапке висело «Сохранено в …» прошлого раза):
+// dirty — есть правки после последнего удачного сохранения; saveError — текст последней ошибки (красная плашка).
+const dirty = ref(false)
+const saveError = ref<string | null>(null)
+let editVersion = 0
+let retryTimer: ReturnType<typeof setTimeout> | null = null
+const serverErrorText = (e: unknown): string => {
+  const data = (e as { response?: { data?: unknown } })?.response?.data
+  if (typeof data === 'string' && data.trim()) return data
+  if (data && typeof data === 'object') {
+    const d = data as Record<string, unknown>
+    const v = d.error ?? d.message ?? d.detail ?? d.title
+    if (typeof v === 'string' && v.trim()) return v
+  }
+  const status = (e as { response?: { status?: number } })?.response?.status
+  return status ? `HTTP ${status}` : t('dt.netSvyazi')
+}
 // Время последнего успешного сохранения (ручного или автосейва) — для «Сохранено в 15:32» в панели.
 const lastSavedAt = ref<string | null>(null)
 const xmlLoading = ref(false)
@@ -1325,6 +1356,8 @@ const loadDt = async () => {
 const saveDt = async (silent = false): Promise<boolean> => {
   if (!dtForm.id) return false
   saving.value = true
+  const startedVersion = editVersion
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
   try {
     const payload: Import40DeclarationUpsert = {
       declarationNumber: dtForm.declarationNumber || null,
@@ -1457,9 +1490,17 @@ const saveDt = async (silent = false): Promise<boolean> => {
     void refreshReadiness()
     savedCounter.value += 1
     lastSavedAt.value = dayjs().format('HH:mm')
+    saveError.value = null
+    // Правки, сделанные пока шёл запрос, ещё не сохранены — остаёмся «грязными» и досохраняем.
+    dirty.value = editVersion !== startedVersion
+    if (dirty.value) scheduleAutosave()
     return true
-  } catch {
-    // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
+  } catch (e) {
+    // Короткий тост показал общий перехватчик (api/client.ts); здесь — постоянная плашка и автоповтор,
+    // чтобы ошибку нельзя было не заметить и правки не потерялись.
+    saveError.value = serverErrorText(e)
+    dirty.value = true
+    retryTimer = setTimeout(() => { if (dirty.value && !saving.value) void saveDt(true) }, 15000)
     return false
   } finally {
     saving.value = false
@@ -1471,18 +1512,39 @@ const saveDt = async (silent = false): Promise<boolean> => {
 // (applyingDeclaration), в режиме просмотра (readOnly), до появления id, и не
 // стартует новое сохранение поверх идущего (saving) — по тишине сработает снова.
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleAutosave() {
+  if (autosaveTimer) clearTimeout(autosaveTimer)
+  autosaveTimer = setTimeout(() => {
+    if (applyingDeclaration.value || readOnly.value || !dtForm.id) return
+    // Идёт сохранение — не теряем правку, а пробуем ещё раз чуть позже (раньше она ждала следующего изменения).
+    if (saving.value) { scheduleAutosave(); return }
+    void saveDt(true)
+  }, 2500)
+}
 watch(
   () => dtForm,
   () => {
     if (applyingDeclaration.value || readOnly.value || !dtForm.id) return
-    if (autosaveTimer) clearTimeout(autosaveTimer)
-    autosaveTimer = setTimeout(() => {
-      if (applyingDeclaration.value || readOnly.value || !dtForm.id || saving.value) return
-      void saveDt(true)
-    }, 2500)
+    editVersion += 1
+    dirty.value = true
+    scheduleAutosave()
   },
   { deep: true },
 )
+
+// Не дать закрыть/обновить вкладку или уйти со страницы с несохранёнными правками.
+const onBeforeUnload = (e: BeforeUnloadEvent) => {
+  if (!readOnly.value && (dirty.value || saving.value)) { e.preventDefault(); e.returnValue = '' }
+}
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', onBeforeUnload)
+  if (retryTimer) clearTimeout(retryTimer)
+})
+onBeforeRouteLeave(() => {
+  if (readOnly.value || (!dirty.value && !saving.value)) return true
+  return window.confirm(t('dt.ujtiBezSohraneniya'))
+})
 
 const exportXml = async () => {
   // несохранённое не должно теряться при выгрузке
@@ -1728,6 +1790,9 @@ onMounted(async () => {
 .dt-bar-status :deep(.ant-tag) { margin: 0; }
 .dt-missing-tag { cursor: pointer; }
 .dt-saved { font-size: 12px; color: var(--z-muted); margin-left: 4px; }
+.dt-saved--dirty { color: var(--z-warning, #8a6410); }
+.dt-saved--error { color: var(--z-danger, #c0392b); font-weight: 600; }
+.dt-save-alert { margin-bottom: 12px; }
 .dt-bar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .dt-missing-list { margin: 0; padding-left: 18px; max-height: 320px; overflow-y: auto; }
 .dt-missing-list li { margin: 3px 0; }
