@@ -14,6 +14,15 @@
       <a-button type="primary" @click="handleCancel">{{ t('transit.zakryt') }}</a-button>
     </template>
 
+    <a-alert
+      v-if="saveError && !isClientView"
+      type="error"
+      show-icon
+      class="save-alert"
+      :message="t('transit.zapisNeSohranena')"
+      :description="t('transit.zapisNeSohranenaText', { reason: saveError })"
+    />
+
     <a-tabs v-if="showTabs" v-model:activeKey="activeTab">
       <a-tab-pane key="data" :tab="t('transit.dannye')">
         <div class="form-body">
@@ -62,11 +71,25 @@
       />
     </div>
   </a-modal>
+
+  <!-- Диалог в шаблоне, а не Modal.confirm: программные модалки не подхватывают стили темы. -->
+  <a-modal
+    v-model:open="closeConfirmOpen"
+    :title="t('transit.zakrytBezSohraneniyaTitle')"
+    :ok-text="t('transit.zakrytBezSohraneniya')"
+    :ok-button-props="{ danger: true }"
+    :cancel-text="t('transit.vernutsyaKZapisi')"
+    width="520px"
+    @ok="discardAndClose"
+  >
+    <p>{{ t('transit.zakrytBezSohraneniyaText') }}</p>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import type {
   ReestrEntry,
   ReestrEntryStatus,
@@ -108,6 +131,7 @@ interface Props {
   statusHistoryRefreshKey?: number
   viewMode?: ViewMode
   initialTab?: FormTab
+  saveError?: string | null
 }
 
 interface Emits {
@@ -232,9 +256,28 @@ watch(
       formState.precedingDocs = [...(props.entry?.precedingDocs ?? [])]
       formState.cargoOperations = [...(props.entry?.cargoOperations ?? [])]
       formState.guarantees = [...(props.entry?.guarantees ?? [])]
+      // Снимок — после того как вложенные поля применили свои значения по умолчанию.
+      snapshot.value = null
+      void nextTick(() => { snapshot.value = JSON.stringify(formState) })
+    } else {
+      snapshot.value = null
     }
   },
 )
+
+// Несохранённые правки = форма отличается от снимка на момент открытия (до снимка — правок нет).
+const snapshot = ref<string | null>(null)
+const dirty = computed(
+  () => props.open && !isClientView.value && snapshot.value !== null && JSON.stringify(formState) !== snapshot.value,
+)
+
+// Закрыть/обновить вкладку или уйти со страницы с несохранёнными правками — только после вопроса.
+const onBeforeUnload = (e: BeforeUnloadEvent) => {
+  if (dirty.value || (props.open && props.loading)) { e.preventDefault(); e.returnValue = '' }
+}
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload))
+onBeforeRouteLeave(() => (dirty.value ? window.confirm(t('transit.ujtiBezSohraneniyaZapis')) : true))
 
 const handleSubmit = () => {
   if (isClientView.value) {
@@ -242,8 +285,9 @@ const handleSubmit = () => {
     return
   }
 
-  if (isEdit.value && activeTab.value !== 'data') {
-    handleCancel()
+  // На вкладках «Документы»/«Комментарии» кнопка просто закрывает окно — но не теряя правок вкладки «Данные».
+  if (isEdit.value && activeTab.value !== 'data' && !dirty.value) {
+    emit('cancel')
     return
   }
 
@@ -285,12 +329,25 @@ const handleSubmit = () => {
   })
 }
 
+// «Отмена», крестик, Esc и клик мимо окна: с несохранёнными правками — сначала спросить.
+const closeConfirmOpen = ref(false)
 const handleCancel = () => {
+  if (dirty.value) {
+    closeConfirmOpen.value = true
+    return
+  }
+  emit('cancel')
+}
+const discardAndClose = () => {
+  closeConfirmOpen.value = false
   emit('cancel')
 }
 </script>
 
 <style scoped>
+.save-alert {
+  margin-bottom: 12px;
+}
 .form-body {
   max-height: 60vh;
   overflow-y: auto;

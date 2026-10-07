@@ -190,6 +190,7 @@
 import { useI18n } from 'vue-i18n'
 import { computed, h, onBeforeUnmount, onMounted, ref, reactive, watch, nextTick } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { serverErrorText as serverErrorTextOf } from '@/utils/serverError'
 import dayjs from 'dayjs'
 import { message, Modal } from 'ant-design-vue'
 import { CheckCircleFilled, DownOutlined } from '@ant-design/icons-vue'
@@ -338,17 +339,7 @@ const dirty = ref(false)
 const saveError = ref<string | null>(null)
 let editVersion = 0
 let retryTimer: ReturnType<typeof setTimeout> | null = null
-const serverErrorText = (e: unknown): string => {
-  const data = (e as { response?: { data?: unknown } })?.response?.data
-  if (typeof data === 'string' && data.trim()) return data
-  if (data && typeof data === 'object') {
-    const d = data as Record<string, unknown>
-    const v = d.error ?? d.message ?? d.detail ?? d.title
-    if (typeof v === 'string' && v.trim()) return v
-  }
-  const status = (e as { response?: { status?: number } })?.response?.status
-  return status ? `HTTP ${status}` : t('dt.netSvyazi')
-}
+const serverErrorText = (e: unknown): string => serverErrorTextOf(e, t('dt.netSvyazi'))
 // Время последнего успешного сохранения (ручного или автосейва) — для «Сохранено в 15:32» в панели.
 const lastSavedAt = ref<string | null>(null)
 const xmlLoading = ref(false)

@@ -209,6 +209,7 @@
       :status-history-refresh-key="statusHistoryRefreshKey"
       :view-mode="formViewMode"
       :initial-tab="formInitialTab"
+      :save-error="reestrStore.saveError"
       @submit="handleFormSubmit"
       @cancel="handleFormCancel"
       @applied="reestrStore.fetchList()"
@@ -259,7 +260,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
@@ -594,6 +595,9 @@ const handleTableChange: TableProps['onChange'] = (pagination) => {
   selectedRowKeys.value = []
   reestrStore.fetchList()
 }
+
+// Ошибка прошлого сохранения не должна всплывать в заново открытой записи.
+watch(formModalOpen, (open) => { if (open) reestrStore.saveError = null })
 
 const resetFormModalMode = () => {
   formViewMode.value = 'default'

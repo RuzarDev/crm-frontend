@@ -2361,6 +2361,14 @@ export default {
     zapisUspeshnoSozdana: 'Запись успешно создана',
     zapisUspeshnoObnovlena: 'Запись успешно обновлена',
     zapisUspeshnoUdalena: 'Запись успешно удалена',
+    // Защита от потери правок в окне записи реестра.
+    zapisNeSohranena: 'Запись не сохранена',
+    zapisNeSohranenaText: 'Причина: {reason}. Изменения остаются в окне — не закрывайте его. Нажмите «Сохранить» ещё раз; если ошибка не уходит — сообщите администратору.',
+    zakrytBezSohraneniyaTitle: 'Закрыть без сохранения?',
+    zakrytBezSohraneniyaText: 'В записи есть несохранённые изменения. Если закрыть окно, они пропадут.',
+    zakrytBezSohraneniya: 'Закрыть без сохранения',
+    vernutsyaKZapisi: 'Вернуться к записи',
+    ujtiBezSohraneniyaZapis: 'Есть несохранённые изменения записи реестра. Уйти со страницы и потерять их?',
     udalenoZapisey: 'Удалено записей: {n}',
     uspeshnoImportirovanoZapisey: 'Успешно импортировано записей: {n}',
     // Аудит 2026-09-28, п.10: ExcelUpload.vue и PendingInvoicePicker.vue были без i18n.

@@ -4,6 +4,7 @@ import { reestrApi } from '@/api/reestr'
 import type { ReestrEntry, ReestrListRequest, ReestrEntryStatus, ReestrUpsertBody } from '@/types/api'
 import { message } from 'ant-design-vue'
 import { i18n } from '@/i18n'
+import { serverErrorText } from '@/utils/serverError'
 
 export const useReestrStore = defineStore('reestr', () => {
   const entries = ref<ReestrEntry[]>([])
@@ -62,26 +63,34 @@ export const useReestrStore = defineStore('reestr', () => {
     }
   }
 
+  // Текст последней ошибки сохранения записи — форма держит его в постоянной плашке, пока сохранение не пройдёт.
+  const saveError = ref<string | null>(null)
+
   const create = async (data: ReestrUpsertBody): Promise<boolean> => {
     try {
       await reestrApi.create(data)
-      message.success(i18n.global.t('transit.zapisUspeshnoSozdana'))
-      await fetchList()
-      return true
     } catch (error) {
+      saveError.value = serverErrorText(error, i18n.global.t('dt.netSvyazi'))
       return false
     }
+    saveError.value = null
+    message.success(i18n.global.t('transit.zapisUspeshnoSozdana'))
+    // Запись уже сохранена: сбой обновления списка не должен выглядеть как несохранение.
+    await fetchList().catch(() => undefined)
+    return true
   }
 
   const update = async (id: string, data: ReestrUpsertBody): Promise<boolean> => {
     try {
       await reestrApi.update(id, data)
-      message.success(i18n.global.t('transit.zapisUspeshnoObnovlena'))
-      await fetchList()
-      return true
     } catch (error) {
+      saveError.value = serverErrorText(error, i18n.global.t('dt.netSvyazi'))
       return false
     }
+    saveError.value = null
+    message.success(i18n.global.t('transit.zapisUspeshnoObnovlena'))
+    await fetchList().catch(() => undefined)
+    return true
   }
 
   const deleteEntry = async (id: string): Promise<boolean> => {
@@ -164,6 +173,7 @@ export const useReestrStore = defineStore('reestr', () => {
     getById,
     create,
     update,
+    saveError,
     deleteEntry,
     deleteEntries,
     uploadFile,
