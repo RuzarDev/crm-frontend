@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { h, nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
@@ -42,6 +42,37 @@ describe('ZTabs', () => {
     const vm = w.vm as unknown as { key: string; changes: string[] }
     expect(vm.key).toBe('mine')
     expect(vm.changes).toEqual(['mine'])
+  })
+
+  it('без слота панелей — у вкладок нет висячего aria-controls', () => {
+    w = mountWithI18n(ZTabs, { props: { activeKey: 'all', items } })
+    const tabs = w.findAll('[role="tab"]')
+    expect(tabs).toHaveLength(3)
+    for (const t of tabs) expect(t.element.hasAttribute('aria-controls')).toBe(false)
+    expect(w.find('[role="tabpanel"]').exists()).toBe(false)
+  })
+
+  it('слот #default="{ key }" — панель активной вкладки в tabpanel, связи aria-controls/aria-labelledby', async () => {
+    w = mountWithI18n(ZTabs, {
+      props: { activeKey: 'all', items },
+      slots: { default: (p: { key: string }) => h('p', `Панель ${p.key}`) },
+    })
+    await nextTick() // панели регистрируются в Reka на монтировании — aria-controls появляется следующим рендером
+    const tabs = w.findAll('[role="tab"]')
+    expect(tabs.every((t) => !!t.attributes('aria-controls'))).toBe(true)
+    for (const t of tabs) {
+      const panel = w.element.querySelector(`[id="${t.attributes('aria-controls')}"]`)
+      expect(panel?.getAttribute('role')).toBe('tabpanel')
+      expect(panel?.getAttribute('aria-labelledby')).toBe(t.attributes('id'))
+    }
+    const visible = () => w.findAll('[role="tabpanel"]').filter((p) => !p.element.hasAttribute('hidden'))
+    expect(visible()).toHaveLength(1)
+    expect(visible()[0].text()).toBe('Панель all')
+    await w.setProps({ activeKey: 'mine' })
+    await flushPromises() // Presence снимает уходящую панель после проверки анимации
+    expect(visible()).toHaveLength(1)
+    expect(visible()[0].text()).toBe('Панель mine')
+    expect(w.text()).not.toContain('Панель all')
   })
 
   describe('прокрутка полосы', () => {

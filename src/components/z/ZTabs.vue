@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
-import { TabsIndicator, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
+import { TabsContent, TabsIndicator, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import { cn } from '@/ui/cn'
 
-// Замена a-tabs: только полоса вкладок, содержимое рендерит родитель по activeKey.
+// Замена a-tabs. Два режима:
+// — без слота: только полоса вкладок, содержимое рендерит родитель по activeKey. aria-controls у вкладок нет
+//   (Reka 2.11 ставит его, только когда зарегистрирован TabsContent с этим value) — висячих ссылок нет;
+// — слот #default="{ key }": панель активной вкладки рендерится внутри Reka TabsContent (role=tabpanel,
+//   aria-labelledby на вкладку, aria-controls вкладки — на неё). Неактивные панели — пустые hidden-узлы.
 // Пустая строка вместо undefined: Reka решает «управляемый ли» по modelValue === undefined (null по типам нельзя).
 // Активация по стрелкам автоматическая (как у AntD). change — один раз на реальную смену вкладки.
 export interface ZTabItem { key: string; label: string; count?: number; disabled?: boolean }
 
 const props = defineProps<{ activeKey?: string | null; items: ZTabItem[] }>()
+defineSlots<{ default?: (p: { key: string }) => unknown }>()
 const emit = defineEmits<{
   'update:activeKey': [key: string]
   change: [key: string]
@@ -71,5 +76,15 @@ const onUpdate = (v: unknown) => {
         class="absolute bottom-0 left-0 h-0.5 w-(--reka-tabs-indicator-size) translate-x-(--reka-tabs-indicator-position) bg-zircon transition-[width,transform] duration-180 ease-out motion-reduce:transition-none"
       />
     </TabsList>
+    <template v-if="$slots.default">
+      <TabsContent
+        v-for="it in items"
+        :key="it.key"
+        :value="it.key"
+        class="rounded-field pt-4 outline-hidden focus-visible:shadow-focus"
+      >
+        <slot :key="it.key" />
+      </TabsContent>
+    </template>
   </TabsRoot>
 </template>
