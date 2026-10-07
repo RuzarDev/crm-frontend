@@ -137,27 +137,23 @@
     <div class="zf-field zf-s12"><div class="zf-label">{{ t('dt.priznakiNetarifnogoGr33') }}
         <a-tooltip :title="t('dt.priznakiNetarifnogoHint')"><QuestionCircleOutlined class="label-help" /></a-tooltip>
       </div>
-      <!-- Справочник кодов (Приказ МФ РК №259) с поиском по коду и словам; свой код можно вписать — тогда предупреждение. -->
+      <!-- Коды КЕДЕН для ТН ВЭД товара (поиск — по ним же); без подсказок — весь справочник. Свой код можно вписать — тогда предупреждение. -->
       <a-select :value="featureCodesArray(good)" mode="tags" :disabled="readonly"
         :options="prohibitionOptions" option-label-prop="value" option-filter-prop="label"
         :dropdown-match-select-width="false" :dropdown-style="{ maxWidth: '620px' }" allow-clear
         :token-separators="[',', ';']" :get-popup-container="popupContainer"
         :placeholder="t('dt.kodyGr33Placeholder')"
         :status="invalidFeatureCodes(good.prohibitionCode).length || unknownFeatureCodes(good).length ? 'warning' : undefined"
-        @change="(v: string[]) => onFeatureCodesChange(good, v)"
-        @search="(v: string) => (gr33Search = v)"
-        @dropdown-visible-change="(open: boolean) => { if (!open) gr33Search = '' }">
+        :not-found-content="gr33ByTnved ? t(suggest.codes.length ? 'dt.gr33NoImportCodes' : 'dt.podskazkiPusto', { code: suggest.tnved }) : undefined"
+        @change="(v: string[]) => onFeatureCodesChange(good, v)">
         <template #tag="{ value: codeValue, onClose }">
           <a-tag class="ois-mark-tag" :title="prohibitionTitle(codeValue)" :closable="!readonly" @close="onClose">{{ codeValue }}</a-tag>
         </template>
-        <!-- Внизу списка — чем он ограничен (коды по ТН ВЭД из KEDEN или весь справочник) и переключатель. -->
+        <!-- Внизу списка — чем он ограничен: коды КЕДЕН для ТН ВЭД товара или весь справочник. -->
         <template #dropdownRender="{ menuNode }">
           <VNodes :vnodes="menuNode" />
-          <div v-if="visibleSuggest.length && !gr33Search" class="gr33-scope" @mousedown.prevent>
+          <div v-if="prohibitionRef.length && (!gr33ByTnved || visibleSuggest.length)" class="gr33-scope" @mousedown.prevent>
             <span>{{ gr33ByTnved ? t('dt.gr33ScopeTnved', { code: suggest.tnved }) : t('dt.gr33ScopeAll', { n: prohibitionRef.length }) }}</span>
-            <a-button type="link" size="small" @click="showAllCodes = !showAllCodes">
-              {{ gr33ByTnved ? t('dt.gr33ShowAll') : t('dt.gr33ShowTnved') }}
-            </a-button>
           </div>
         </template>
       </a-select>
@@ -587,29 +583,22 @@ const allProhibitionOptions = computed(() => {
   }
   return [...groups.values()]
 })
-// Есть подсказки KEDEN по ТН ВЭД — в списке сначала они, затем другие варианты тех же мер (например, D0125
-// «бывшие в употреблении» вместо подсказанного D0110). Весь справочник — по кнопке внизу списка или при поиске.
-const showAllCodes = ref(false)
-const gr33Search = ref('')
+// Есть подсказки KEDEN по ТН ВЭД — в списке и в поиске только они: другие коды КЕДЕН для этого товара
+// не примет, и проверка готовности XML их не пропустит (Gr33Allowed). Весь справочник — только когда
+// подсказок нет (код ещё не загружен из КЕДЕН или КЕДЕН недоступен).
 // Направление товара по гр.37 («1000» — экспорт): при импорте экспортные коды (C2000, C1700, H0111…) КЕДЕН
 // отклоняет — в подсказках их не показываем (флаг exportOnly с сервера, Gr33Direction).
 const isExportGood = computed(() => ['10', '21', '23', '31'].includes((props.good.procedureCode ?? '').trim().slice(0, 2)))
 const visibleSuggest = computed(() => suggest.codes.filter((c) => isExportGood.value || !c.exportOnly))
-const gr33ByTnved = computed(() => visibleSuggest.value.length > 0 && !showAllCodes.value)
+// Ответ КЕДЕН по ТН ВЭД получен (в т.ч. пустой или только экспортные коды при импорте) — список ровно из него.
+const gr33ByTnved = computed(() => !!suggest.tnved && !suggest.loading && !suggest.failed)
 const prohibitionOptions = computed(() => {
-  if (!gr33ByTnved.value || gr33Search.value.trim()) return allProhibitionOptions.value
-  const suggested = new Set(visibleSuggest.value.map((c) => c.code))
-  const categoryOf = (code: string) => prohibitionByCode.value.get(code)?.categoryCode ?? code.slice(0, 3)
-  const categories = new Set(visibleSuggest.value.map((c) => categoryOf(c.code)))
-  const groups = [{
+  if (!gr33ByTnved.value) return allProhibitionOptions.value
+  if (!visibleSuggest.value.length) return []
+  return [{
     label: t('dt.gr33GroupTnved', { code: suggest.tnved }),
     options: visibleSuggest.value.map((c) => toGr33Option(c.code, prohibitionByCode.value.get(c.code)?.name ?? c.name ?? c.code)),
   }]
-  const others = prohibitionRef.value
-    .filter((c) => !suggested.has(c.code) && categories.has(c.categoryCode))
-    .map((c) => toGr33Option(c.code, c.name))
-  if (others.length) groups.push({ label: t('dt.gr33GroupSameMeasures'), options: others })
-  return groups
 })
 const prohibitionTitle = (code: string) => prohibitionByCode.value.get(code)?.name ?? code
 const unknownFeatureCodes = (g: Import40GoodsItemInput): string[] =>
