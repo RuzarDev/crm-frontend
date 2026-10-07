@@ -182,11 +182,13 @@ export interface Import40DeclarationDto {
   procedureCode: string
   sender?: Import40Party | null
   senderDistrict?: string | null
+  senderSettlement?: string | null
   senderHouse?: string | null
   senderApt?: string | null
   senderShortName?: string | null
   receiver?: Import40Party | null
   receiverDistrict?: string | null
+  receiverSettlement?: string | null
   receiverHouse?: string | null
   receiverApt?: string | null
   receiverBin?: string | null
@@ -244,6 +246,7 @@ export interface Import40DeclarationDto {
   financialSubjectCity: string | null
   financialSubjectStreet: string | null
   financialSubjectDistrict: string | null
+  financialSubjectSettlement?: string | null
   financialSubjectHouse: string | null
   financialSubjectApt: string | null
   financialSubjectCategoryCode: string | null
@@ -256,6 +259,7 @@ export interface Import40DeclarationDto {
   declarantCity: string | null
   declarantStreet: string | null
   declarantDistrict: string | null
+  declarantSettlement?: string | null
   declarantHouse: string | null
   declarantApt: string | null
   declarantCategoryCode: string | null
@@ -314,11 +318,13 @@ export interface Import40DeclarationUpsert {
   procedureCode?: string | null
   sender?: Import40Party | null
   senderDistrict?: string | null
+  senderSettlement?: string | null
   senderHouse?: string | null
   senderApt?: string | null
   senderShortName?: string | null
   receiver?: Import40Party | null
   receiverDistrict?: string | null
+  receiverSettlement?: string | null
   receiverHouse?: string | null
   receiverApt?: string | null
   receiverBin?: string | null
@@ -373,6 +379,7 @@ export interface Import40DeclarationUpsert {
   financialSubjectCity?: string | null
   financialSubjectStreet?: string | null
   financialSubjectDistrict?: string | null
+  financialSubjectSettlement?: string | null
   financialSubjectHouse?: string | null
   financialSubjectApt?: string | null
   financialSubjectCategoryCode?: string | null
@@ -385,6 +392,7 @@ export interface Import40DeclarationUpsert {
   declarantCity?: string | null
   declarantStreet?: string | null
   declarantDistrict?: string | null
+  declarantSettlement?: string | null
   declarantHouse?: string | null
   declarantApt?: string | null
   declarantCategoryCode?: string | null

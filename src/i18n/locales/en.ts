@@ -825,6 +825,7 @@ export default {
     domPodskazka: 'Up to 20 characters — building number only',
     kvartiraPodskazka: 'Up to 20 characters — office/apartment number only',
     dlinnee20: 'Longer than 20 characters — KEDEN will reject it. Keep only the number and move the rest to “Street”',
+    naselennyyPunkt: 'Settlement',
     rajon: 'District',
     stanciyaPodskazka52: 'Wagon/vehicle numbers are taken from box 18 automatically — no need to type them here',
     stanciyaNomerTs: 'Looks like a wagon/vehicle number — it is taken from box 18 and is not exported as the place name',

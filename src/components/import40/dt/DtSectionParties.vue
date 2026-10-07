@@ -21,6 +21,7 @@
       <a-form-item :label="t('dt.gorod')"><a-input v-uppercase v-model:value="form.sender.city" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.oblast')"><a-input v-uppercase v-model:value="form.sender.region" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.rajon')"><a-input v-uppercase v-model:value="form.senderDistrict" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.naselennyyPunkt')"><a-input v-uppercase v-model:value="form.senderSettlement" :disabled="readonly" @change="emitChange" :maxlength="120" /></a-form-item>
       <a-form-item :label="t('dt.ulica')"><a-input v-uppercase v-model:value="form.sender.street" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.dom')" :extra="t('dt.domPodskazka')" :validate-status="tooLong(form.senderHouse) ? 'error' : undefined" :help="tooLong(form.senderHouse) ? t('dt.dlinnee20') : undefined"><a-input v-uppercase v-model:value="form.senderHouse" :maxlength="MAX_HOUSE_LEN" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.kvartira')" :extra="t('dt.kvartiraPodskazka')" :validate-status="tooLong(form.senderApt) ? 'error' : undefined" :help="tooLong(form.senderApt) ? t('dt.dlinnee20') : undefined"><a-input v-uppercase v-model:value="form.senderApt" :maxlength="MAX_HOUSE_LEN" :disabled="readonly" @change="emitChange" /></a-form-item>
@@ -46,6 +47,7 @@
       <a-form-item :label="t('dt.gorod')"><a-input v-uppercase v-model:value="form.receiver.city" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.oblast')"><a-input v-uppercase v-model:value="form.receiver.region" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.rajon')"><a-input v-uppercase v-model:value="form.receiverDistrict" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.naselennyyPunkt')"><a-input v-uppercase v-model:value="form.receiverSettlement" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" :maxlength="120" /></a-form-item>
       <a-form-item :label="t('dt.ulica')"><a-input v-uppercase v-model:value="form.receiver.street" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.dom')" :extra="t('dt.domPodskazka')" :validate-status="tooLong(form.receiverHouse) ? 'error' : undefined" :help="tooLong(form.receiverHouse) ? t('dt.dlinnee20') : undefined"><a-input v-uppercase v-model:value="form.receiverHouse" :maxlength="MAX_HOUSE_LEN" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.kvartira')" :extra="t('dt.kvartiraPodskazka')" :validate-status="tooLong(form.receiverApt) ? 'error' : undefined" :help="tooLong(form.receiverApt) ? t('dt.dlinnee20') : undefined"><a-input v-uppercase v-model:value="form.receiverApt" :maxlength="MAX_HOUSE_LEN" :disabled="readonly || form.consigneeEqualsDeclarant" @change="emitChange" /></a-form-item>
@@ -70,6 +72,7 @@
         <a-form-item :label="t('dt.gorod')"><a-input v-uppercase v-model:value="form.financialSubjectCity" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item :label="t('dt.oblast')"><a-input v-uppercase v-model:value="form.financialSubjectRegion" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item :label="t('dt.rajon')"><a-input v-uppercase v-model:value="form.financialSubjectDistrict" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.naselennyyPunkt')"><a-input v-uppercase v-model:value="form.financialSubjectSettlement" :disabled="readonly" @change="emitChange" :maxlength="120" /></a-form-item>
         <a-form-item :label="t('dt.ulica')"><a-input v-uppercase v-model:value="form.financialSubjectStreet" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item :label="t('dt.dom')" :extra="t('dt.domPodskazka')" :validate-status="tooLong(form.financialSubjectHouse) ? 'error' : undefined" :help="tooLong(form.financialSubjectHouse) ? t('dt.dlinnee20') : undefined"><a-input v-uppercase v-model:value="form.financialSubjectHouse" :maxlength="MAX_HOUSE_LEN" :disabled="readonly" @change="emitChange" /></a-form-item>
         <a-form-item :label="t('dt.kvartira')" :extra="t('dt.kvartiraPodskazka')" :validate-status="tooLong(form.financialSubjectApt) ? 'error' : undefined" :help="tooLong(form.financialSubjectApt) ? t('dt.dlinnee20') : undefined"><a-input v-uppercase v-model:value="form.financialSubjectApt" :maxlength="MAX_HOUSE_LEN" :disabled="readonly" @change="emitChange" /></a-form-item>
@@ -93,6 +96,7 @@
       <a-form-item :label="t('dt.gorod')"><a-input v-uppercase v-model:value="form.declarantCity" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.oblast')"><a-input v-uppercase v-model:value="form.declarantRegion" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.rajon')"><a-input v-uppercase v-model:value="form.declarantDistrict" :disabled="readonly" @change="emitChange" /></a-form-item>
+      <a-form-item :label="t('dt.naselennyyPunkt')"><a-input v-uppercase v-model:value="form.declarantSettlement" :disabled="readonly" @change="emitChange" :maxlength="120" /></a-form-item>
       <a-form-item :label="t('dt.ulica')"><a-input v-uppercase v-model:value="form.declarantStreet" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.dom')" :extra="t('dt.domPodskazka')" :validate-status="tooLong(form.declarantHouse) ? 'error' : undefined" :help="tooLong(form.declarantHouse) ? t('dt.dlinnee20') : undefined"><a-input v-uppercase v-model:value="form.declarantHouse" :maxlength="MAX_HOUSE_LEN" :disabled="readonly" @change="emitChange" /></a-form-item>
       <a-form-item :label="t('dt.kvartira')" :extra="t('dt.kvartiraPodskazka')" :validate-status="tooLong(form.declarantApt) ? 'error' : undefined" :help="tooLong(form.declarantApt) ? t('dt.dlinnee20') : undefined"><a-input v-uppercase v-model:value="form.declarantApt" :maxlength="MAX_HOUSE_LEN" :disabled="readonly" @change="emitChange" /></a-form-item>
@@ -390,6 +394,7 @@ function copyDeclarantToReceiver() {
     street: form.declarantStreet ?? null,
   }
   form.receiverDistrict = form.declarantDistrict ?? null
+  form.receiverSettlement = form.declarantSettlement ?? null
   form.receiverHouse = form.declarantHouse ?? null
   form.receiverApt = form.declarantApt ?? null
   form.receiverBin = form.declarantBin ?? null
@@ -408,6 +413,7 @@ function copyDeclarantToFinancialSubject() {
   form.financialSubjectCity = form.declarantCity ?? null
   form.financialSubjectStreet = form.declarantStreet ?? null
   form.financialSubjectDistrict = form.declarantDistrict ?? null
+  form.financialSubjectSettlement = form.declarantSettlement ?? null
   form.financialSubjectHouse = form.declarantHouse ?? null
   form.financialSubjectApt = form.declarantApt ?? null
   form.financialSubjectCategoryCode = form.declarantCategoryCode ?? null
@@ -441,6 +447,7 @@ watch(
     form.declarantCountryCode,
     form.declarantRegion,
     form.declarantDistrict,
+    form.declarantSettlement,
     form.declarantCity,
     form.declarantStreet,
     form.declarantHouse,
