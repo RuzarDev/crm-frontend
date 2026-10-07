@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { h, nextTick } from 'vue'
+import { defineComponent, h, nextTick, reactive } from 'vue'
 import type { VueWrapper } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import ZTable from '../ZTable.vue'
 import ZPagination from '../ZPagination.vue'
+import ZField from '../ZField.vue'
+import ZForm from '../ZForm.vue'
+import ZInput from '../ZInput.vue'
 import type { ZColumn } from '@/ui/table'
 
 let w: VueWrapper
@@ -382,5 +385,46 @@ describe('ZPagination', () => {
     await w.find('button[aria-label="Страница 3"]').trigger('click')
     await nextTick()
     expect(w.find('button[aria-label="Страница 3"]').attributes('aria-current')).toBe('page')
+  })
+})
+
+describe('ZTable — граница контекста поля', () => {
+  const cols: ZColumn<Row>[] = [{ title: 'Название', dataIndex: 'name' }]
+  it('ZField вокруг таблицы: чекбоксы выбора не занимают поле (нет id/aria поля, у подписи нет for)', async () => {
+    const Host = defineComponent({
+      render: () => h(ZField, { label: 'Документы', error: 'Нужен документ', required: true }, () =>
+        h(ZTable, { columns: cols, dataSource: rows, rowKey: 'id', rowSelection: {} })),
+    })
+    w = mountWithI18n(Host, { attachTo: document.body })
+    await nextTick()
+    expect(w.get('label').attributes('for')).toBeUndefined()
+    const boxes = w.findAll('[role="checkbox"]')
+    expect(boxes.length).toBeGreaterThan(1)
+    for (const b of boxes) {
+      expect(b.attributes('aria-invalid')).toBeUndefined()
+      expect(b.attributes('aria-describedby')).toBeUndefined()
+      expect(b.attributes('id') ?? '').not.toMatch(/^z-field-/)
+    }
+  })
+  it('ZField с обязательным ZInput в ячейке по-прежнему регистрируется в ZForm и не даёт отправить', async () => {
+    const onFinish = vi.fn()
+    const onFailed = vi.fn()
+    const model = reactive({ items: [{ id: 1, qty: '' }] })
+    const Host = defineComponent({
+      render: () => h(ZForm, { model, onFinish, onFinishFailed: onFailed }, () => [
+        h(ZTable, { columns: [{ title: 'Кол-во', key: 'qty' }], dataSource: model.items, rowKey: 'id' }, {
+          bodyCell: ({ record }: { record: { qty: string } }) =>
+            h(ZField, { name: 'items.0.qty', required: true }, () =>
+              h(ZInput, { value: record.qty, 'onUpdate:value': (v: string) => { record.qty = v } })),
+        }),
+        h('button', { type: 'submit' }, 'OK'),
+      ]),
+    })
+    w = mountWithI18n(Host, { attachTo: document.body })
+    await w.get('form').trigger('submit')
+    await new Promise((r) => setTimeout(r))
+    expect(onFinish).not.toHaveBeenCalled()
+    expect(onFailed).toHaveBeenCalledTimes(1)
+    expect(w.get('td input').attributes('aria-invalid')).toBe('true')
   })
 })

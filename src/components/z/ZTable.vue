@@ -1,7 +1,8 @@
 <script setup lang="ts" generic="T extends object">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, useSlots, watch, type VNodeChild } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, reactive, ref, useSlots, watch, type VNodeChild } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { cn } from '@/ui/cn'
+import { zFieldKey, type ZFieldContext } from '@/ui/form'
 import {
   DEFAULT_PAGE_SIZE, alignClass, columnKey, fixedClass, fixedOffsets, fixedStyle, getValue, isEmptyContent, nextSortOrder,
   pageCount, paginate, resolveRowKey, sortRows,
@@ -47,6 +48,9 @@ defineSlots<{
 }>()
 const slots = useSlots()
 const { t } = useI18n()
+// Таблица внутри ZField («Документы») не занимает поле своими чекбоксами выбора: подпись и ошибка поля
+// не про них. Контекст формы (zFormKey) остаётся — ZField в редактируемых ячейках регистрируются в ZForm.
+provide(zFieldKey, null as unknown as ZFieldContext)
 const small = computed(() => props.size === 'small')
 
 // --- сортировка: внутренняя (defaultSortOrder) или управляемая (sortOrder у колонок) ---
