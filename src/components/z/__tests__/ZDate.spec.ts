@@ -1,190 +1,311 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import type { VueWrapper } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import ZDate from '../ZDate.vue'
 
 let w: VueWrapper
-afterEach(() => { w?.unmount(); document.body.innerHTML = '' })
+afterEach(() => {
+  w?.unmount()
+  document.body.innerHTML = ''
+  vi.restoreAllMocks()
+})
 
-const segment = (part: 'day' | 'month' | 'year') => w.get(`[data-reka-date-field-segment="${part}"]`).element as HTMLElement
-// Набор с клавиатуры: Reka слушает keydown на сегменте в фокусе и сам переводит фокус дальше.
-const type = async (keys: string | string[]) => {
-  for (const key of keys) {
-    const el = document.activeElement as HTMLElement
-    el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
-    await nextTick()
-  }
+const mount = (props: Record<string, unknown>, attrs: Record<string, unknown> = {}) => {
+  w = mountWithI18n(ZDate, { props, attrs, attachTo: document.body })
+  return w
 }
-const cells = () => [...document.body.querySelectorAll('[data-reka-calendar-cell-trigger]')] as HTMLElement[]
+const input = () => w.get('input').element as HTMLInputElement
+// Набор как в браузере: новое значение поля, каретка, событие input.
+const typeValue = async (value: string, caret = value.length) => {
+  const el = input()
+  el.value = value
+  el.setSelectionRange(caret, caret)
+  el.dispatchEvent(new Event('input', { bubbles: true }))
+  await nextTick()
+}
+const key = async (k: string, init: KeyboardEventInit = {}) => {
+  input().dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...init }))
+  await nextTick()
+  await nextTick()
+}
+// Уход из поля на другой элемент страницы (окно в фокусе).
+const leave = async () => {
+  const other = document.createElement('button')
+  document.body.appendChild(other)
+  other.focus()
+  await nextTick()
+  await nextTick()
+}
 const cell = (iso: string) => document.body.querySelector(`[data-reka-calendar-cell-trigger][data-value="${iso}"]:not([data-outside-view])`) as HTMLElement
-const openByKeyboard = async () => {
-  segment('day').focus()
-  segment('day').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true, bubbles: true, cancelable: true }))
-  await nextTick()
-  await nextTick()
+const openCalendar = async () => {
+  input().focus()
+  await key('ArrowDown', { altKey: true })
 }
 
 describe('ZDate', () => {
-  it('показывает дату сегментами ДД.ММ.ГГГГ', () => {
-    w = mountWithI18n(ZDate, { props: { value: '2026-09-28' }, attachTo: document.body })
-    const segs = w.findAll('[data-reka-date-field-segment]').map((s) => s.text()).filter((t) => /\d/.test(t))
-    expect(segs).toEqual(['28', '09', '2026'])
+  it('показывает значение как ДД.ММ.ГГГГ, пустое — подсказка формата', () => {
+    mount({ value: '2026-09-28' })
+    expect(input().value).toBe('28.09.2026')
+    w.unmount()
+    mount({ value: null })
+    expect(input().placeholder).toBe('ДД.ММ.ГГГГ')
   })
-  it('очистка → null и change(null)', async () => {
-    w = mountWithI18n(ZDate, { props: { value: '2026-09-28', allowClear: true }, attachTo: document.body })
-    await w.get('button[aria-label="Очистить"]').trigger('click')
-    expect(w.emitted('update:value')?.at(-1)).toEqual([null])
-    expect(w.emitted('change')?.at(-1)).toEqual([null])
-  })
-  it('кнопка календаря подписана, invalid — красная рамка', () => {
-    w = mountWithI18n(ZDate, { props: { value: null, invalid: true }, attachTo: document.body })
-    expect(w.find('button[aria-label="Выбрать дату"]').exists()).toBe(true)
-    expect(w.html()).toContain('border-danger')
-  })
-
-  it('ввод цифрами: сегменты сами переходят дальше, change — один раз, на полной дате', async () => {
-    w = mountWithI18n(ZDate, { props: { value: null }, attachTo: document.body })
-    segment('day').focus()
-    await type('28092026')
+  it('набор цифр ставит точки и ничего не эмитит до Enter; Enter — одно изменение', async () => {
+    mount({ value: null })
+    input().focus()
+    for (const digits of ['2', '28', '280', '2809', '28092', '280920', '2809202']) await typeValue(digits)
+    expect(input().value).toBe('28.09.202')
+    await typeValue('280920261')
+    expect(input().value).toBe('28.09.2026')
+    expect(w.emitted('change')).toBeUndefined()
+    await key('Enter')
     expect(w.emitted('update:value')).toEqual([['2026-09-28']])
     expect(w.emitted('change')).toEqual([['2026-09-28']])
   })
-  it('частично заполненные сегменты не эмитят; уход из поля возвращает прежнее значение', async () => {
-    w = mountWithI18n(ZDate, { props: { value: '2026-09-28' }, attachTo: document.body })
-    segment('year').focus()
-    await type('20')
+  it('день «15» поверх выделенного «28» — одно изменение с 2026-09-15', async () => {
+    mount({ value: '2026-09-28' })
+    input().focus()
+    input().setSelectionRange(0, 2)
+    await typeValue('1.09.2026', 1)
+    expect(input().value).toBe('1.09.2026')
+    expect(input().selectionStart).toBe(1)
+    await typeValue('15.09.2026', 2)
     expect(w.emitted('change')).toBeUndefined()
-    segment('year').blur()
-    w.get('[role="group"]').element.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }))
+    await key('Enter')
+    expect(w.emitted('change')).toEqual([['2026-09-15']])
+  })
+  it('полный перенабор «31102027» поверх 28.09.2026 — 31.10.2027, одно изменение', async () => {
+    mount({ value: '2026-09-28' })
+    input().focus()
+    for (const digits of ['3', '31', '311', '3110', '31102', '311020', '3110202', '31102027']) await typeValue(digits)
+    expect(input().value).toBe('31.10.2027')
+    await key('Enter')
+    expect(w.emitted('change')).toEqual([['2027-10-31']])
+  })
+  it('«30032026» поверх 28.02.2026 — 30.03.2026 (день не обрезается по старому месяцу)', async () => {
+    mount({ value: '2026-02-28' })
+    input().focus()
+    await typeValue('30032026')
+    await leave()
+    expect(w.emitted('change')).toEqual([['2026-03-30']])
+  })
+  it('уход из поля фиксирует один раз; без правки — ничего', async () => {
+    mount({ value: '2026-09-28' })
+    input().focus()
+    await leave()
+    expect(w.emitted('change')).toBeUndefined()
+    input().focus()
+    await typeValue('01.10.2026')
+    await leave()
+    expect(w.emitted('change')).toEqual([['2026-10-01']])
+    expect(input().value).toBe('01.10.2026')
+  })
+  it('окно потеряло фокус (alt-tab) — набранное остаётся, без событий', async () => {
+    mount({ value: '2026-09-28' })
+    input().focus()
+    await typeValue('15.0')
+    vi.spyOn(document, 'hasFocus').mockReturnValue(false)
+    input().dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }))
     await nextTick()
     await nextTick()
-    expect(segment('year').textContent).toBe('2026')
-    expect(w.emitted('update:value')).toBeUndefined()
-  })
-  it('недописанный сегмент фиксируется, когда фокус уходит из него', async () => {
-    w = mountWithI18n(ZDate, { props: { value: '2026-09-28' }, attachTo: document.body })
-    segment('day').focus()
-    await type('1')
+    expect(input().value).toBe('15.0')
     expect(w.emitted('change')).toBeUndefined()
-    segment('month').focus()
-    await nextTick()
-    expect(w.emitted('change')).toEqual([['2026-09-01']])
   })
-  it('readonly: без очистки, календарь не открыть', () => {
-    w = mountWithI18n(ZDate, { props: { value: '2026-09-28', allowClear: true, readonly: true }, attachTo: document.body })
-    expect(w.find('button[aria-label="Очистить"]').exists()).toBe(false)
-    expect(w.get('button[aria-label="Выбрать дату"]').attributes('disabled')).toBeDefined()
-    expect(segment('day').getAttribute('contenteditable')).toBe('false')
-  })
-  it('ArrowUp меняет сегмент — change с новой датой', async () => {
-    w = mountWithI18n(ZDate, { props: { value: '2026-09-28' }, attachTo: document.body })
-    segment('day').focus()
-    await type(['ArrowUp'])
-    expect(w.emitted('change')).toEqual([['2026-09-29']])
-  })
-  it('Backspace во всех сегментах — null, пока хоть один сегмент заполнен — без событий', async () => {
-    w = mountWithI18n(ZDate, { props: { value: '2026-09-08' }, attachTo: document.body })
-    segment('day').focus()
-    await type(['Backspace'])
-    segment('month').focus()
-    await type(['Backspace'])
+  it('неполная дата «28.09» и уход — откат к значению, без событий', async () => {
+    mount({ value: '2026-09-28' })
+    input().focus()
+    await typeValue('28.09')
+    await leave()
+    expect(input().value).toBe('28.09.2026')
     expect(w.emitted('change')).toBeUndefined()
-    segment('year').focus()
-    await type(['Backspace', 'Backspace', 'Backspace', 'Backspace'])
+  })
+  it('вне min/max — красная рамка и aria-invalid при наборе, на уходе откат', async () => {
+    mount({ value: '2026-09-15', min: '2026-09-10', max: '2026-09-20' })
+    input().focus()
+    await typeValue('05.09.2026')
+    expect(input().getAttribute('aria-invalid')).toBe('true')
+    expect(w.get('input').element.parentElement!.className).toContain('border-danger')
+    await key('Enter')
+    expect(w.emitted('change')).toBeUndefined()
+    await leave()
+    expect(input().value).toBe('15.09.2026')
+    expect(input().getAttribute('aria-invalid')).toBeNull()
+    expect(w.emitted('change')).toBeUndefined()
+  })
+  it('несуществующая дата 31.02.2026 — красная рамка, без событий', async () => {
+    mount({ value: null })
+    input().focus()
+    await typeValue('31.02.2026')
+    expect(input().getAttribute('aria-invalid')).toBe('true')
+    await key('Enter')
+    expect(w.emitted('change')).toBeUndefined()
+  })
+  it('Escape (календарь закрыт) возвращает значение', async () => {
+    mount({ value: '2026-09-28' })
+    input().focus()
+    await typeValue('01.01.2025')
+    await key('Escape')
+    expect(input().value).toBe('28.09.2026')
+    await leave()
+    expect(w.emitted('change')).toBeUndefined()
+  })
+  it('смена значения родителем: без правки — показываем новое; с правкой — черновик остаётся, сравнение с новым', async () => {
+    mount({ value: '2026-09-28' })
+    input().focus()
+    await w.setProps({ value: '2026-10-01' })
+    expect(input().value).toBe('01.10.2026')
+    await typeValue('05.10.2026')
+    await w.setProps({ value: '2026-10-05' })
+    expect(input().value).toBe('05.10.2026')
+    await key('Enter')
+    // набранное совпало с новым значением — изменений нет
+    expect(w.emitted('change')).toBeUndefined()
+  })
+  it('вставка в разных форматах и двузначный год', async () => {
+    mount({ value: null })
+    input().focus()
+    for (const [pasted, iso] of [['28/09/2026', '2026-09-28'], ['2026-10-01', '2026-10-01'], ['02-10-2026', '2026-10-02'], ['03.10.26', '2026-10-03']]) {
+      await typeValue(pasted)
+      await key('Enter')
+      expect(w.emitted('change')?.at(-1)).toEqual([iso])
+      await w.setProps({ value: iso })
+    }
+    expect(w.emitted('change')).toHaveLength(4)
+    expect(input().value).toBe('03.10.2026')
+  })
+  it('ArrowUp/ArrowDown — ±1 день в тексте, изменение только при фиксации', async () => {
+    mount({ value: '2026-09-30' })
+    input().focus()
+    await key('ArrowUp')
+    await key('ArrowUp')
+    await key('ArrowDown')
+    expect(input().value).toBe('01.10.2026')
+    expect(w.emitted('change')).toBeUndefined()
+    await key('Enter')
+    expect(w.emitted('change')).toEqual([['2026-10-01']])
+  })
+  it('Ctrl/Cmd+Backspace очищает, уход — null', async () => {
+    mount({ value: '2026-09-28' })
+    input().focus()
+    await key('Backspace', { ctrlKey: true })
+    expect(input().value).toBe('')
+    expect(w.emitted('change')).toBeUndefined()
+    await leave()
     expect(w.emitted('update:value')).toEqual([[null]])
     expect(w.emitted('change')).toEqual([[null]])
   })
-  it('год меньше 1000 и дата вне min/max — не значение', async () => {
-    w = mountWithI18n(ZDate, { props: { value: null, min: '2026-01-01', max: '2026-12-31' }, attachTo: document.body })
-    segment('day').focus()
-    await type('01012025')
-    expect(w.emitted('change')).toBeUndefined()
-    const group = w.get('[role="group"]')
-    expect(group.classes()).toContain('border-danger')
-    expect(group.attributes('aria-invalid')).toBe('true')
+  it('очистка кнопкой → null и change(null), фокус в поле', async () => {
+    mount({ value: '2026-09-28', allowClear: true })
+    await w.get('button[aria-label="Очистить"]').trigger('click')
+    expect(w.emitted('update:value')).toEqual([[null]])
+    expect(w.emitted('change')).toEqual([[null]])
+    expect(input().value).toBe('')
+    expect(document.activeElement).toBe(input())
   })
-  it('Alt+ArrowDown открывает календарь: сегодня, выбранная, вне месяца; Escape закрывает', async () => {
-    w = mountWithI18n(ZDate, { props: { value: '2026-09-28' }, attachTo: document.body })
-    await openByKeyboard()
-    expect(cells().length).toBeGreaterThan(27)
-    // неделя с понедельника
+  it('кнопка календаря подписана; invalid — красная рамка', () => {
+    mount({ value: null, invalid: true })
+    expect(w.find('button[aria-label="Выбрать дату"]').exists()).toBe(true)
+    expect(w.html()).toContain('border-danger')
+    expect(input().getAttribute('aria-invalid')).toBe('true')
+  })
+  it('Alt+ArrowDown открывает календарь: с понедельника, выбранная, подписи; Escape закрывает', async () => {
+    mount({ value: '2026-09-28' })
+    await openCalendar()
     const head = [...document.body.querySelectorAll('th')].map((e) => e.textContent?.trim().toLowerCase())
     expect(head[0]).toBe('пн')
-    expect(cell('2026-09-28').className).toContain('data-[selected]:bg-navy')
     expect(cell('2026-09-28').hasAttribute('data-selected')).toBe(true)
-    // навигация — подписанные кнопки
+    expect(cell('2026-09-28').className).toContain('data-[selected]:bg-navy')
     expect(document.body.querySelector('[aria-label="Предыдущий месяц"]')).not.toBeNull()
     expect(document.body.querySelector('[aria-label="Следующий месяц"]')).not.toBeNull()
-    expect(w.emitted('change')).toBeUndefined()
+    expect(document.activeElement).toBe(cell('2026-09-28'))
     document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
     await nextTick()
     await nextTick()
     // окно уходит с анимацией — в DOM остаётся с data-state=closed
     expect(document.body.querySelector('[role="dialog"][data-state="open"]')).toBeNull()
+    expect(w.emitted('change')).toBeUndefined()
+    await vi.waitFor(() => expect(document.activeElement).toBe(input()))
   })
-  it('переход в календарь — не уход из поля: набранное не откатывается', async () => {
-    w = mountWithI18n(ZDate, { props: { value: '2026-09-28' }, attachTo: document.body })
-    segment('year').focus()
-    await type('20')
-    segment('year').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true, bubbles: true, cancelable: true }))
-    await nextTick()
-    await nextTick()
-    expect(document.activeElement?.hasAttribute('data-reka-calendar-cell-trigger')).toBe(true)
-    await nextTick()
-    expect(segment('year').textContent).toBe('20')
+  it('календарь показывает набранную дату; переход в него не фиксирует и не откатывает черновик', async () => {
+    mount({ value: '2026-09-28' })
+    input().focus()
+    await typeValue('12.08.2026')
+    await key('ArrowDown', { altKey: true })
+    expect(cell('2026-08-12').hasAttribute('data-selected')).toBe(true)
+    expect(input().value).toBe('12.08.2026')
+    expect(w.emitted('change')).toBeUndefined()
   })
-  it('клик по дню в календаре — значение и закрытие', async () => {
-    w = mountWithI18n(ZDate, { props: { value: '2026-09-28' }, attachTo: document.body })
-    await openByKeyboard()
+  it('выбор дня в календаре — одно изменение, окно закрывается, фокус в поле', async () => {
+    mount({ value: '2026-09-28' })
+    await openCalendar()
     cell('2026-09-15').click()
     await nextTick()
     await nextTick()
     expect(w.emitted('update:value')).toEqual([['2026-09-15']])
     expect(w.emitted('change')).toEqual([['2026-09-15']])
-    // окно уходит с анимацией — в DOM остаётся с data-state=closed
+    expect(input().value).toBe('15.09.2026')
+    expect(document.body.querySelector('[role="dialog"][data-state="open"]')).toBeNull()
+    await vi.waitFor(() => expect(document.activeElement).toBe(input()))
+  })
+  it('клик по уже показанной набранной дате — фиксирует её и закрывает окно', async () => {
+    mount({ value: '2026-09-28' })
+    input().focus()
+    await typeValue('12.09.2026')
+    await key('ArrowDown', { altKey: true })
+    cell('2026-09-12').click()
+    await nextTick()
+    expect(w.emitted('change')).toEqual([['2026-09-12']])
     expect(document.body.querySelector('[role="dialog"][data-state="open"]')).toBeNull()
   })
-  it('повторный клик по выбранному дню не сбрасывает и не эмитит', async () => {
-    w = mountWithI18n(ZDate, { props: { value: '2026-09-28' }, attachTo: document.body })
-    await openByKeyboard()
+  it('повторный клик по выбранному дню не эмитит', async () => {
+    mount({ value: '2026-09-28' })
+    await openCalendar()
     cell('2026-09-28').click()
     await nextTick()
     expect(w.emitted('change')).toBeUndefined()
   })
   it('дни вне min/max — недоступны', async () => {
-    w = mountWithI18n(ZDate, { props: { value: '2026-09-15', min: '2026-09-10', max: '2026-09-20' }, attachTo: document.body })
-    await openByKeyboard()
+    mount({ value: '2026-09-15', min: '2026-09-10', max: '2026-09-20' })
+    await openCalendar()
     expect(cell('2026-09-05').hasAttribute('data-disabled')).toBe(true)
     cell('2026-09-05').click()
     await nextTick()
     expect(w.emitted('change')).toBeUndefined()
   })
-  it('атрибуты — на группу поля, class/style — на обёртку; disabled — без кнопок', () => {
-    w = mountWithI18n(ZDate, {
-      props: { value: '2026-09-28', allowClear: true, disabled: true },
-      attrs: { 'aria-label': 'Дата документа', 'aria-describedby': 'hint', class: 'w-40', style: 'margin-top: 4px' },
-      attachTo: document.body,
+  it('атрибуты, id, name и слушатели focus/blur — на input, class/style — на рамку', async () => {
+    const onFocus = vi.fn()
+    const onBlur = vi.fn()
+    mount({ value: '2026-09-28', id: 'dt-date', name: 'docDate' }, {
+      'aria-label': 'Дата документа', 'aria-describedby': 'hint', class: 'w-40', style: 'margin-top: 4px', onFocus, onBlur,
     })
-    const group = w.get('[role="group"]')
-    expect(group.attributes('aria-label')).toBe('Дата документа')
-    expect(group.attributes('aria-describedby')).toBe('hint')
-    expect(group.classes()).toContain('w-40')
-    expect(group.attributes('style')).toContain('margin-top: 4px')
+    const el = input()
+    expect(el.getAttribute('aria-label')).toBe('Дата документа')
+    expect(el.getAttribute('aria-describedby')).toBe('hint')
+    expect(el.id).toBe('dt-date')
+    expect(el.name).toBe('docDate')
+    expect(el.parentElement!.className).toContain('w-40')
+    expect(el.parentElement!.getAttribute('style')).toContain('margin-top: 4px')
+    el.focus()
+    await leave()
+    expect(onFocus).toHaveBeenCalledTimes(1)
+    expect(onBlur).toHaveBeenCalledTimes(1)
+  })
+  it('disabled и readonly — без очистки, календарь не открыть', () => {
+    mount({ value: '2026-09-28', allowClear: true, disabled: true })
+    expect(input().disabled).toBe(true)
+    expect(w.find('button[aria-label="Очистить"]').exists()).toBe(false)
+    expect(w.get('button[aria-label="Выбрать дату"]').attributes('disabled')).toBeDefined()
+    w.unmount()
+    mount({ value: '2026-09-28', allowClear: true, readonly: true })
+    expect(input().readOnly).toBe(true)
     expect(w.find('button[aria-label="Очистить"]').exists()).toBe(false)
     expect(w.get('button[aria-label="Выбрать дату"]').attributes('disabled')).toBeDefined()
   })
-  it('сегменты подписаны по-русски', () => {
-    w = mountWithI18n(ZDate, { props: { value: null }, attachTo: document.body })
-    expect(['day', 'month', 'year'].map((p) => segment(p as 'day').getAttribute('aria-label'))).toEqual(['День', 'Месяц', 'Год'])
-  })
-  it('placeholder виден, пока поле пустое', () => {
-    w = mountWithI18n(ZDate, { props: { value: null, placeholder: 'Дата платёжки' }, attachTo: document.body })
-    expect(w.text()).toContain('Дата платёжки')
-  })
-  it('focus() ставит фокус в первый сегмент', () => {
-    w = mountWithI18n(ZDate, { props: { value: null }, attachTo: document.body })
+  it('placeholder из пропса; focus() — в поле', () => {
+    mount({ value: null, placeholder: 'Дата платёжки' })
+    expect(input().placeholder).toBe('Дата платёжки')
     ;(w.vm as unknown as { focus: () => void }).focus()
-    expect(document.activeElement).toBe(segment('day'))
+    expect(document.activeElement).toBe(input())
   })
 })
