@@ -14,14 +14,27 @@ const props = withDefaults(defineProps<{
   id?: string
 }>(), { value: '', rows: 3 })
 
-const emit = defineEmits<{ 'update:value': [value: string]; blur: [e: FocusEvent] }>()
+const emit = defineEmits<{
+  'update:value': [value: string]
+  /** На каждый ввод (не на blur), как у a-textarea: старые экраны вешают автосейв на @change. */
+  change: [e: Event]
+  blur: [e: FocusEvent]
+}>()
 const el = ref<HTMLTextAreaElement>()
 defineExpose({ focus: () => el.value?.focus() })
 
 const fit = () => {
   if (!props.autoGrow || !el.value) return
-  el.value.style.height = 'auto'
-  el.value.style.height = `${Math.min(el.value.scrollHeight, 12 * 20 + 16)}px`
+  const ta = el.value
+  ta.style.height = 'auto'
+  // box-sizing: border-box — style.height включает рамки, а scrollHeight их не считает: добавляем
+  // offsetHeight − clientHeight, иначе поле на 2px ниже содержимого и появляется прокрутка.
+  const borders = ta.offsetHeight - ta.clientHeight
+  ta.style.height = `${Math.min(ta.scrollHeight, 12 * 20 + 16) + borders}px`
+}
+const onInput = (e: Event) => {
+  emit('update:value', (e.target as HTMLTextAreaElement).value)
+  emit('change', e)
 }
 watch(() => props.value, () => nextTick(fit))
 onMounted(fit)
@@ -39,13 +52,15 @@ onMounted(fit)
     :aria-invalid="invalid || undefined"
     :class="cn(
       'block w-full resize-y rounded-field border border-line-strong bg-surface px-3 py-2 font-sans text-sm text-ink outline-hidden',
-      'transition-[border-color,box-shadow] duration-150 ease-out placeholder:text-muted motion-reduce:transition-none',
-      'hover:border-faint focus:border-zircon focus:shadow-focus',
-      invalid && 'border-danger hover:border-danger focus:border-danger',
-      disabled && 'cursor-not-allowed bg-sunken text-muted',
+      'transition-[border-color,box-shadow] duration-150 ease-out placeholder:text-muted disabled:placeholder:text-ink-3 motion-reduce:transition-none',
+      'focus:border-zircon focus:shadow-focus',
+      // hover:not-focus — в собранном CSS hover идёт после focus и перебил бы рамку фокуса.
+      !invalid && !disabled && 'hover:not-focus:border-faint',
+      invalid && 'border-danger focus:border-danger',
+      disabled && 'cursor-not-allowed bg-sunken text-ink-3',
       autoGrow && 'resize-none overflow-y-auto',
     )"
-    @input="emit('update:value', ($event.target as HTMLTextAreaElement).value)"
+    @input="onInput"
     @blur="emit('blur', $event)"
   />
 </template>
