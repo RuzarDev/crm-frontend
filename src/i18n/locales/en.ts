@@ -41,6 +41,10 @@ export default {
     nextPage: 'Next page',
     selectRow: 'Select row',
     selectAll: 'Select all on page',
+    uploadChoose: 'Choose file',
+    uploadDrop: 'Drag a file here or click to choose',
+    uploadWrongType: 'This file type is not allowed: {name}',
+    uploadTooBig: 'File is larger than {mb} MB: {name}',
   },
   common: {
     graphShort: 'Box {n}',

@@ -41,6 +41,10 @@ export default {
     nextPage: 'Келесі бет',
     selectRow: 'Жолды таңдау',
     selectAll: 'Беттегінің бәрін таңдау',
+    uploadChoose: 'Файлды таңдау',
+    uploadDrop: 'Файлды сүйреп әкеліңіз немесе таңдау үшін басыңыз',
+    uploadWrongType: 'Бұл файл түрі жарамайды: {name}',
+    uploadTooBig: 'Файл {mb} МБ-тан үлкен: {name}',
   },
   common: {
     graphShort: '{n}-б.',

@@ -43,6 +43,10 @@ export default {
     nextPage: 'Следующая страница',
     selectRow: 'Выбрать строку',
     selectAll: 'Выбрать все на странице',
+    uploadChoose: 'Выбрать файл',
+    uploadDrop: 'Перетащите файл или нажмите, чтобы выбрать',
+    uploadWrongType: 'Этот тип файла не подходит: {name}',
+    uploadTooBig: 'Файл больше {mb} МБ: {name}',
   },
   common: {
     graphShort: 'Гр.{n}',
