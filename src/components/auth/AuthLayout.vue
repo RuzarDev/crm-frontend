@@ -21,8 +21,10 @@ const year = new Date().getFullYear()
 
 <template>
   <div class="flex min-h-dvh flex-col bg-canvas font-sans text-[15px] text-ink lg:flex-row">
+    <!-- Ниже lg герой скрыт — его заголовок остаётся h1 для чтения с экрана; от lg h1 — видимый в панели. -->
     <header class="bg-navy px-4 py-3 lg:hidden">
       <ZirconLogo size="md" inverse />
+      <h1 class="sr-only lg:hidden">{{ heroTitle }}</h1>
     </header>
 
     <aside class="hidden rounded-[18px] bg-navy px-12 py-10 text-white lg:m-3 lg:mr-0 lg:flex lg:flex-1 lg:flex-col lg:gap-7">

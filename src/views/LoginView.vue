@@ -14,6 +14,8 @@ import type { ZRule } from '@/ui/validation'
 // только проверка заполненности. Подписи свои, а не label у ZField: у пароля в строке подписи ссылка
 // «Забыли пароль?» (в <label> ей не место — попала бы в имя поля), и обе без звёздочки — по макету
 // обязательны все поля входа; aria-required ставит ZField.
+// Ссылка «Забыли пароль?» видна в строке подписи, но в DOM стоит после поля пароля (absolute): Tab из логина
+// ведёт сразу в пароль, а Enter после Tab не уводит со страницы.
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -40,11 +42,14 @@ const onFinish = async () => {
   }
 }
 
+// Автофокус — только на широком экране (lg, как у AuthLayout): на телефоне клавиатура закрыла бы форму.
 const usernameInput = ref<InstanceType<typeof ZInput>>()
-onMounted(() => usernameInput.value?.focus())
+onMounted(() => {
+  if (window.matchMedia?.('(min-width: 1024px)').matches) usernameInput.value?.focus()
+})
 
-const labelClass = 'text-sm font-medium text-ink-2'
-const linkClass = 'rounded-[4px] text-zircon-ink no-underline outline-hidden transition-colors duration-150 ease-out hover:text-ink focus-visible:shadow-focus motion-reduce:transition-none'
+const labelClass = 'self-start text-sm font-medium text-ink-2'
+const linkClass = 'rounded-[4px] text-zircon-ink outline-hidden transition-colors duration-150 ease-out hover:text-ink focus-visible:shadow-focus motion-reduce:transition-none'
 </script>
 
 <template>
@@ -68,11 +73,8 @@ const linkClass = 'rounded-[4px] text-zircon-ink no-underline outline-hidden tra
           spellcheck="false"
         />
       </ZField>
-      <ZField name="password">
-        <div class="mb-0.5 flex items-baseline justify-between gap-3">
-          <label :for="ids.password" :class="labelClass">{{ t('login.password') }}</label>
-          <RouterLink to="/forgot-password" :class="[linkClass, 'text-sm font-medium']">{{ t('login.forgot') }}</RouterLink>
-        </div>
+      <ZField name="password" class="relative">
+        <label :for="ids.password" :class="[labelClass, 'mb-0.5']">{{ t('login.password') }}</label>
         <ZInput
           :id="ids.password"
           v-model:value="form.password"
@@ -80,6 +82,10 @@ const linkClass = 'rounded-[4px] text-zircon-ink no-underline outline-hidden tra
           size="lg"
           autocomplete="current-password"
         />
+        <RouterLink
+          to="/forgot-password"
+          :class="[linkClass, 'absolute right-0 top-0 text-sm font-medium no-underline']"
+        >{{ t('login.forgot') }}</RouterLink>
       </ZField>
       <ZButton variant="primary" html-type="submit" size="lg" block :loading="loading">{{ t('login.submit') }}</ZButton>
     </ZForm>
@@ -87,7 +93,7 @@ const linkClass = 'rounded-[4px] text-zircon-ink no-underline outline-hidden tra
     <template #footer>
       <p class="m-0 text-center text-[14px] text-ink-3">
         {{ t('login.noAccount') }}
-        <RouterLink to="/register" :class="[linkClass, 'font-semibold']">{{ t('auth.registerCompany') }}</RouterLink>
+        <RouterLink to="/register" :class="[linkClass, 'font-semibold underline underline-offset-2']">{{ t('auth.registerCompany') }}</RouterLink>
       </p>
     </template>
   </AuthLayout>
