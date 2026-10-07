@@ -1,18 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-
-// Аудит §4.5: стартовая страница — по бизнес-роли, а не всегда «Дашборд Импорта», которого
-// нет в меню бухгалтера/продажника. Порядок соответствует решению владельца (Волна 5).
-const homeRouteForRole = (): string => {
-  const authStore = useAuthStore()
-  const role = (authStore.role || '').trim().toLowerCase()
-  if (role === 'administrator' || role === 'client') return '/dashboard'
-  if (authStore.hasBusinessRole('accountant')) return '/finance'
-  if (authStore.hasBusinessRole('sales')) return '/sales'
-  if (authStore.hasBusinessRole('kpp') || authStore.hasBusinessRole('declarant') || authStore.hasBusinessRole('rop')) return '/import-40'
-  if (authStore.hasBusinessRole('mpp')) return '/reestr'
-  return '/dashboard'
-}
+import { guardRedirect } from '@/router/guard'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -59,13 +47,14 @@ const router = createRouter({
       children: [
         {
           path: '',
-          redirect: homeRouteForRole,
+          redirect: '/home',
         },
         {
-          path: '/dashboard',
-          name: 'dashboard',
-          component: () => import('@/views/DashboardView.vue'),
+          path: '/home',
+          name: 'home',
+          component: () => import('@/views/HomeView.vue'),
         },
+        { path: '/dashboard', redirect: '/home' },
         {
           path: '/analytics',
           name: 'analytics',
@@ -280,85 +269,26 @@ const router = createRouter({
           component: () => import('@/views/ReferencesView.vue'),
           meta: { requiresRole: 'administrator' },
         },
+        { path: '/:pathMatch(.*)*', redirect: '/' },
       ],
     },
   ],
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
   authStore.checkAuth()
-
-  // Финансист видит только платежи и документы: операционные разделы закрыты
-  // даже по прямой ссылке (решение владельца 2026-09-23).
-  const financeBlocked = ['/import-40', '/reestr', '/document-packages', '/keden', '/tnved', '/dt-guide', '/requests-registry']
-  if (authStore.isFinanceOnly && financeBlocked.some((prefix) => to.path.startsWith(prefix))) {
-    return next('/finance')
-  }
-  const requiresAuth = to.meta.requiresAuth !== false
-  const requiredPermission = to.meta.requiresPermission as string | undefined
-  const requiredRole = to.meta.requiresRole as string | undefined
-  const requiredAnyRole = to.meta.requiresAnyRole as string[] | undefined
-  const requiresImport40 = to.meta.requiresImport40 === true
-  const requiresSales = to.meta.requiresSales === true
-  const requiresReferences = to.meta.requiresReferences === true
-  const requiresClientTransit = to.meta.requiresClientTransit === true
-
-  const normalizedRole = (authStore.role || '').trim().toLowerCase()
-
-  if (requiresAuth && !authStore.isAuthenticated) {
-    next('/login')
-  } else if (
-    // Реестр (транзит) — по праву reestr.read; клиенту оставляем как было.
-    to.path === '/reestr' && normalizedRole !== 'administrator' && normalizedRole !== 'client'
-    && !authStore.hasPermission('reestr.read')
-  ) {
-    next(authStore.canUseImport40 ? '/import-40' : authStore.canUseSales ? '/sales' : '/')
-  } else if (
-    to.path.startsWith('/document-packages') &&
-    !(normalizedRole === 'administrator' || normalizedRole === 'expeditor' || authStore.hasPermission('packages.manage'))
-  ) {
-    next('/')
-  } else if (
-    // Счета — сотрудникам по finance.read, клиенту Импорта 40 (свои, только чтение).
-    to.path === '/billing' && normalizedRole !== 'administrator'
-    && !(normalizedRole === 'client' ? authStore.clientHasModule('import40') : authStore.hasPermission('finance.read'))
-  ) {
-    next('/')
-  } else if (
-    // Статусы КЕДЕН — то же условие, что и пункт меню (MainLayout): экспедитор/клиент транзита/
-    // reestr.read/import40.read. Раньше гейтился списком системных ролей — не совпадал с меню.
-    to.path === '/keden-status' && normalizedRole !== 'administrator' && normalizedRole !== 'expeditor'
-    && !(normalizedRole === 'client'
-      ? authStore.clientHasModule('transit')
-      : authStore.hasPermission('reestr.read') || authStore.hasPermission('import40.read'))
-  ) {
-    next('/')
-  } else if (
-    // ТН ВЭД — то же условие, что и группа в меню: references.read, admin и client всегда.
-    requiresReferences && !(normalizedRole === 'administrator' || normalizedRole === 'client' || authStore.hasPermission('references.read'))
-  ) {
-    next('/')
-  } else if (
-    // «Мои документы» — только клиент транзита (то же условие, что и пункт меню).
-    requiresClientTransit && !(normalizedRole === 'client' && authStore.clientHasModule('transit'))
-  ) {
-    next('/')
-  } else if (requiredRole && normalizedRole !== requiredRole) {
-    next('/')
-  } else if (requiredAnyRole && !requiredAnyRole.includes(normalizedRole)) {
-    next('/')
-  } else if (requiresImport40 && !authStore.canUseImport40) {
-    next('/')
-  } else if (requiresSales && !authStore.canUseSales) {
-    next('/')
-  } else if (requiredPermission && !authStore.hasPermission(requiredPermission)) {
-    next('/')
-  } else if (to.path === '/login' && authStore.isAuthenticated) {
-    next('/')
-  } else {
-    next()
-  }
+  const target = guardRedirect(to.path, to.meta as Record<string, unknown>, {
+    isAuthenticated: authStore.isAuthenticated,
+    role: authStore.role || '',
+    hasPermission: (p) => authStore.hasPermission(p),
+    clientHasModule: (m) => authStore.clientHasModule(m),
+    canUseImport40: authStore.canUseImport40,
+    canUseSales: authStore.canUseSales,
+    isFinanceOnly: authStore.isFinanceOnly,
+  })
+  if (target) next(target)
+  else next()
 })
 
 export default router
