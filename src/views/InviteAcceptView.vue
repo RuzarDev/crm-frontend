@@ -1,48 +1,21 @@
-<template>
-  <div class="invite-page">
-    <div class="invite-card">
-      <div class="invite-top"><div class="invite-badge">Zircon CRM</div><LanguageSwitcher /></div>
-      <template v-if="state === 'loading'">
-        <a-spin />
-      </template>
-      <template v-else-if="state === 'invalid'">
-        <h2 class="invite-title">{{ t('invite.invalidTitle') }}</h2>
-        <p class="invite-sub">{{ t('invite.invalidSub') }}</p>
-        <a-button type="primary" size="large" block @click="router.push('/login')">{{ t('invite.toLogin') }}</a-button>
-      </template>
-      <template v-else-if="state === 'done'">
-        <h2 class="invite-title">{{ t('invite.doneTitle') }}</h2>
-        <p class="invite-sub">{{ t('invite.doneSub', { email: info?.email ?? '' }) }}</p>
-        <a-button type="primary" size="large" block @click="router.push('/login')">{{ t('invite.login') }}</a-button>
-      </template>
-      <template v-else>
-        <h2 class="invite-title">{{ t('invite.title') }}</h2>
-        <p class="invite-sub">
-          {{ info?.companyName ? t('invite.invitedTo', { company: info.companyName }) : t('invite.invited') }}
-          {{ t('invite.loginIs', { email: info?.email ?? '' }) }}
-        </p>
-        <a-form layout="vertical" :model="form" @finish="submit">
-          <a-form-item :label="t('invite.password')" name="password" :rules="[{ required: true, message: t('invite.vPassword') }, { min: 8, message: t('invite.vPasswordMin') }]">
-            <a-input-password v-model:value="form.password" size="large" autocomplete="new-password" :placeholder="t('invite.passwordPlaceholder')" />
-          </a-form-item>
-          <a-form-item :label="t('invite.confirm')" name="confirm" :rules="[{ required: true, message: t('invite.vConfirm') }]">
-            <a-input-password v-model:value="form.confirm" size="large" autocomplete="new-password" :placeholder="t('invite.confirmPlaceholder')" />
-          </a-form-item>
-          <a-button type="primary" html-type="submit" size="large" block :loading="saving">{{ t('invite.submit') }}</a-button>
-        </a-form>
-      </template>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, useId, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message } from '@/ui/message'
 import { useI18n } from 'vue-i18n'
-import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import AuthLayout from '@/components/auth/AuthLayout.vue'
+import ZForm from '@/components/z/ZForm.vue'
+import ZField from '@/components/z/ZField.vue'
+import ZInput from '@/components/z/ZInput.vue'
+import ZButton from '@/components/z/ZButton.vue'
+import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import { clientsOnboardingApi, type InviteInfo } from '@/api/clientsOnboarding'
 import { useAuthStore } from '@/stores/auth'
+import type { ZRule } from '@/ui/validation'
+import { authLabelClass as labelClass, authPrimaryLinkClass } from '@/components/auth/classes'
+
+// Приглашение клиента сотрудником: проверка ссылки (скелетон) → форма пароля | ссылка недействительна.
+// После установки пароля — авто-вход и «Моя компания»; если авто-вход не удался — запасное «Пароль задан».
+// Герой — регистрации: приглашённый проходит тот же путь клиента. Несовпадение паролей — правило поля повтора.
 
 const { t } = useI18n()
 const route = useRoute()
@@ -52,53 +25,133 @@ const token = String(route.params.token ?? '')
 const state = ref<'loading' | 'form' | 'invalid' | 'done'>('loading')
 const info = ref<InviteInfo | null>(null)
 const saving = ref(false)
-const form = reactive({ password: '', confirm: '' })
 
+const uid = useId()
+const ids = { password: `${uid}-password`, confirm: `${uid}-confirm` }
+const form = reactive({ password: '', confirm: '' })
+const rules: Record<string, ZRule[]> = {
+  password: [
+    { required: true, message: () => t('invite.vPassword') },
+    { min: 8, message: () => t('invite.vPasswordMin') },
+  ],
+  confirm: [
+    { required: true, message: () => t('invite.vConfirm') },
+    { validator: (_r, v) => (v && v !== form.password ? t('invite.mismatch') : undefined) },
+  ],
+}
+const formRef = ref<InstanceType<typeof ZForm>>()
+watch(() => form.password, () => {
+  if (form.confirm) void formRef.value?.validate(['confirm'])
+})
+
+const email = computed(() => info.value?.email ?? '')
+const title = computed(() => ({
+  loading: t('invite.title'),
+  form: t('invite.title'),
+  invalid: t('invite.invalidTitle'),
+  done: t('invite.doneTitle'),
+})[state.value])
+const subtitle = computed(() => {
+  if (state.value === 'invalid') return t('invite.invalidSub')
+  if (state.value === 'done') return t('invite.doneSub', { email: email.value })
+  if (state.value === 'form') {
+    const to = info.value?.companyName ? t('invite.invitedTo', { company: info.value.companyName }) : t('invite.invited')
+    return `${to} ${t('invite.loginIs', { email: email.value })}`
+  }
+  return undefined
+})
+
+// После отправки форма с кнопкой в фокусе исчезает — фокус на действие нового состояния.
+const actionLink = ref<HTMLAnchorElement>()
+const moveTo = async (next: 'invalid' | 'done') => {
+  state.value = next
+  await nextTick()
+  actionLink.value?.focus()
+}
+
+const passwordInput = ref<InstanceType<typeof ZInput>>()
 onMounted(async () => {
   try {
     info.value = await clientsOnboardingApi.inviteInfo(token)
     state.value = 'form'
+    // Автофокус — только на широком экране (lg, как у AuthLayout): на телефоне клавиатура закрыла бы форму.
+    await nextTick()
+    if (window.matchMedia?.('(min-width: 1024px)').matches) passwordInput.value?.focus()
   } catch {
     state.value = 'invalid'
   }
 })
 
 const submit = async () => {
-  if (form.password !== form.confirm) { message.error(t('invite.mismatch')); return }
   saving.value = true
   try {
     const response = await clientsOnboardingApi.acceptInvite(token, form.password)
     // Аудит 5.22: пароль задан — сразу авто-вход, ведём на старт клиента, а не на форму логина.
-    const loggedIn = authStore.loginFromResponse(response, info.value?.email ?? '')
-    if (loggedIn) {
-      await router.push('/import-40/company')
-    } else {
-      state.value = 'done'
-    }
+    const loggedIn = authStore.loginFromResponse(response, email.value)
+    if (loggedIn) await router.push('/import-40/company')
+    else await moveTo('done')
   } catch (e: unknown) {
+    // Прочие ошибки показывает перехватчик axios.
     const err = e as { response?: { status?: number } }
-    if (err.response?.status === 404) state.value = 'invalid'
+    if (err.response?.status === 404) await moveTo('invalid')
   } finally {
     saving.value = false
   }
 }
 </script>
 
-<style scoped>
-.invite-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.invite-page {
-  min-height: 100vh; display: grid; place-items: center; padding: 24px;
-  background: linear-gradient(145deg, #0f1d36 0%, var(--z-ink) 45%, #1a3050 100%);
-}
-.invite-card {
-  width: 100%; max-width: 440px; background: #fff; border-radius: 16px; padding: 32px 28px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-}
-.invite-badge {
-  display: inline-flex; align-items: center; height: 26px; padding: 0 10px;
-  border: 1px solid rgba(35, 181, 211, 0.3); border-radius: 999px; background: rgba(35, 181, 211, 0.08);
-  color: var(--z-teal-d); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-}
-.invite-title { margin: 0 0 8px; color: var(--z-ink); font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
-.invite-sub { margin: 0 0 20px; color: #5b6478; font-size: 14px; line-height: 1.5; }
-</style>
+<template>
+  <AuthLayout
+    :title="title"
+    :subtitle="subtitle"
+    :hero-title="t('register.heroTitle')"
+    :hero-text="t('register.heroDesc')"
+    :points="[t('register.step1'), t('register.step2'), t('register.step3')]"
+  >
+    <div v-if="state === 'loading'" class="flex flex-col gap-4">
+      <span class="sr-only" role="status">{{ t('common.loading') }}</span>
+      <div v-for="i in 2" :key="i" class="flex flex-col gap-1.5">
+        <ZSkeleton width="132px" height="14px" />
+        <ZSkeleton height="42px" />
+      </div>
+      <ZSkeleton height="44px" />
+    </div>
+
+    <RouterLink v-else-if="state === 'invalid'" v-slot="{ href, navigate }" to="/login" custom>
+      <a ref="actionLink" :href="href" :class="authPrimaryLinkClass" @click="navigate">{{ t('invite.toLogin') }}</a>
+    </RouterLink>
+
+    <RouterLink v-else-if="state === 'done'" v-slot="{ href, navigate }" to="/login" custom>
+      <a ref="actionLink" :href="href" :class="authPrimaryLinkClass" @click="navigate">{{ t('invite.login') }}</a>
+    </RouterLink>
+
+    <ZForm v-else ref="formRef" :model="form" :rules="rules" @finish="submit">
+      <!-- Логин для менеджера паролей: без него новый пароль сохранился бы без адреса. -->
+      <input type="email" name="username" autocomplete="username" :value="email" readonly hidden>
+      <ZField name="password">
+        <label :for="ids.password" :class="[labelClass, 'mb-0.5']">{{ t('invite.password') }}</label>
+        <ZInput
+          :id="ids.password"
+          ref="passwordInput"
+          v-model:value="form.password"
+          type="password"
+          size="lg"
+          :placeholder="t('invite.passwordPlaceholder')"
+          autocomplete="new-password"
+        />
+      </ZField>
+      <ZField name="confirm">
+        <label :for="ids.confirm" :class="[labelClass, 'mb-0.5']">{{ t('invite.confirm') }}</label>
+        <ZInput
+          :id="ids.confirm"
+          v-model:value="form.confirm"
+          type="password"
+          size="lg"
+          :placeholder="t('invite.confirmPlaceholder')"
+          autocomplete="new-password"
+        />
+      </ZField>
+      <ZButton variant="primary" html-type="submit" size="lg" block :loading="saving">{{ t('invite.submit') }}</ZButton>
+    </ZForm>
+  </AuthLayout>
+</template>

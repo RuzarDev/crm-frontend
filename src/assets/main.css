@@ -124,17 +124,6 @@ small {
 :not(#z) .ant-message-info .anticon,
 :not(#z) .ant-message-loading .anticon { color: var(--z-teal, #23B5D3); }
 
-/* ─── Контраст auth-CTA (WCAG AA) ───────────────────────────
-   Кнопки входа/регистрации (.auth-submit-btn) пока на бирюзовом фоне (стили в LoginView/RegisterView,
-   переводятся в своей волне): белый текст на #23B5D3 ≈2.3:1, поэтому текст navy ≈6.3:1.
-   Обычные primary-кнопки AntD с 2026-10-07 — navy-фон и белый текст (правило ниже, «Custom Buttons»),
-   navy-текст им больше не задаём — иначе было бы navy на navy. */
-:not(#z) .auth-submit-btn:not(:disabled),
-:not(#z) .auth-submit-btn:not(:disabled):hover,
-:not(#z) .auth-submit-btn:not(:disabled):focus {
-  color: var(--z-navy, #0E1B35);
-}
-
 /* ─── Справочные таблицы: без «растянутой» колонки ───────────
    На широких мониторах одна колонка без width (обычно «Наименование»)
    растягивалась на всё оставшееся место (700+px пустоты в строке). Класс

@@ -109,7 +109,6 @@ declare module 'vue' {
     KatoSelect: typeof import('./src/components/KatoSelect.vue')['default']
     LangMenu: typeof import('./src/components/shell/LangMenu.vue')['default']
     LangSegment: typeof import('./src/components/auth/LangSegment.vue')['default']
-    LanguageSwitcher: typeof import('./src/components/LanguageSwitcher.vue')['default']
     MiscSectionsBlock: typeof import('./src/components/reestr/MiscSectionsBlock.vue')['default']
     NonTariffMeasureGroups: typeof import('./src/components/NonTariffMeasureGroups.vue')['default']
     NotificationsBell: typeof import('./src/components/shell/NotificationsBell.vue')['default']

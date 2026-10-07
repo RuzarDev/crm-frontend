@@ -1,151 +1,36 @@
-<template>
-  <div class="auth-page">
-
-    <!-- ══ LEFT PANEL ══════════════════════════════════════════ -->
-    <section class="auth-left">
-      <div class="auth-grid-pattern" aria-hidden="true"></div>
-      <div class="auth-orb auth-orb-1" aria-hidden="true"></div>
-      <div class="auth-orb auth-orb-2" aria-hidden="true"></div>
-      <div class="auth-orb auth-orb-3" aria-hidden="true"></div>
-
-      <div class="auth-left-inner">
-        <div class="auth-hero">
-          <div class="auth-eyebrow">
-            <span class="auth-eyebrow-dot"></span>
-            {{ t('register.kicker') }}
-          </div>
-          <h1 class="auth-headline">{{ t('register.heroTitle') }}</h1>
-          <p class="auth-desc">{{ t('register.heroDesc') }}</p>
-        </div>
-
-        <!-- Steps -->
-        <div class="auth-steps">
-          <div class="auth-step">
-            <div class="auth-step-num">01</div>
-            <div class="auth-step-body">
-              <div class="auth-step-title">{{ t('register.step1') }}</div>
-              <div class="auth-step-sub">{{ t('register.step1sub') }}</div>
-            </div>
-          </div>
-          <div class="auth-step-line"></div>
-          <div class="auth-step">
-            <div class="auth-step-num">02</div>
-            <div class="auth-step-body">
-              <div class="auth-step-title">{{ t('register.step2') }}</div>
-              <div class="auth-step-sub">{{ t('register.step2sub') }}</div>
-            </div>
-          </div>
-          <div class="auth-step-line"></div>
-          <div class="auth-step">
-            <div class="auth-step-num">03</div>
-            <div class="auth-step-body">
-              <div class="auth-step-title">{{ t('register.step3') }}</div>
-              <div class="auth-step-sub">{{ t('register.step3sub') }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ══ RIGHT PANEL ═════════════════════════════════════════ -->
-    <main class="auth-right">
-      <div class="auth-form-wrap">
-        <div class="auth-lang"><LanguageSwitcher /></div>
-        <div class="auth-form-header">
-          <div class="auth-form-badge">Zircon CRM</div>
-          <h2 class="auth-form-title">{{ t('register.title') }}</h2>
-          <p class="auth-form-sub">{{ t('register.subtitle') }}</p>
-        </div>
-
-        <a-form
-          :model="formState"
-          :rules="rules"
-          @finish="handleRegister"
-          layout="vertical"
-          class="auth-form"
-        >
-          <a-form-item :label="t('register.email')" name="email">
-            <a-input v-model:value="formState.email" placeholder="you@company.kz" size="large" autocomplete="email">
-              <template #prefix><MailOutlined class="auth-input-icon" /></template>
-            </a-input>
-          </a-form-item>
-
-          <a-form-item :label="t('register.bin')" name="bin">
-            <div class="auth-bin-row">
-              <a-input v-model:value="formState.bin" :placeholder="t('register.binPlaceholder')" size="large" :maxlength="12" inputmode="numeric">
-                <template #prefix><BankOutlined class="auth-input-icon" /></template>
-              </a-input>
-              <BinLookupButton :bin="formState.bin" size="large" anonymous @found="applyCompany" />
-            </div>
-          </a-form-item>
-
-          <a-form-item :label="t('register.companyName')" name="companyName">
-            <a-input v-model:value="formState.companyName" placeholder="ТОО «…»" size="large" />
-          </a-form-item>
-
-          <a-form-item :label="t('register.phone')" name="phone">
-            <PhoneInput v-model:value="formState.phone" size="large">
-              <template #prefix><PhoneOutlined class="auth-input-icon" /></template>
-            </PhoneInput>
-          </a-form-item>
-
-          <div class="auth-form-row">
-            <a-form-item :label="t('register.password')" name="password">
-              <a-input-password v-model:value="formState.password" :placeholder="t('register.passwordPlaceholder')" size="large" autocomplete="new-password">
-                <template #prefix><LockOutlined class="auth-input-icon" /></template>
-              </a-input-password>
-            </a-form-item>
-
-            <a-form-item :label="t('register.confirm')" name="confirmPassword">
-              <a-input-password v-model:value="formState.confirmPassword" :placeholder="t('register.confirmPlaceholder')" size="large" autocomplete="new-password">
-                <template #prefix><LockOutlined class="auth-input-icon" /></template>
-              </a-input-password>
-            </a-form-item>
-          </div>
-
-          <a-form-item class="auth-submit-item">
-            <a-button
-              type="primary"
-              html-type="submit"
-              size="large"
-              block
-              :loading="loading"
-              class="auth-submit-btn"
-            >
-              <span v-if="!loading">{{ t('register.submit') }}</span>
-            </a-button>
-          </a-form-item>
-        </a-form>
-
-        <div class="auth-footer-link">
-          {{ t('register.haveAccount') }}
-          <a @click="goToLogin">{{ t('register.login') }}</a>
-        </div>
-      </div>
-    </main>
-
-  </div>
-</template>
-
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, useId, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import { PhMagnifyingGlass } from '@phosphor-icons/vue'
+import AuthLayout from '@/components/auth/AuthLayout.vue'
+import ZForm from '@/components/z/ZForm.vue'
+import ZField from '@/components/z/ZField.vue'
+import ZInput from '@/components/z/ZInput.vue'
+import ZPhone from '@/components/z/ZPhone.vue'
+import ZButton from '@/components/z/ZButton.vue'
 import { useAuthStore } from '@/stores/auth'
-import { MailOutlined, LockOutlined, PhoneOutlined, BankOutlined } from '@ant-design/icons-vue'
+import { useBinLookup } from '@/composables/useBinLookup'
+import { isBinLike, type CompanyLookupDto } from '@/api/companyLookup'
 import { message } from '@/ui/message'
-import BinLookupButton from '@/components/BinLookupButton.vue'
-import type { CompanyLookupDto } from '@/api/companyLookup'
-import PhoneInput from '@/components/ui/PhoneInput.vue'
+import type { ZRule } from '@/ui/validation'
+import { authLabelClass as labelClass, authLinkClass as linkClass } from '@/components/auth/classes'
+
+// Саморегистрация клиента (путь клиента 2026-09-21): email = логин, БИН обязателен, реквизиты — из ГБД ЮЛ
+// по кнопке «Найти по БИН/ИИН». Подписи свои, как на входе (без звёздочек): обязательно всё, кроме телефона —
+// у него пометка «необязательно». Несовпадение паролей — ошибка под полем повтора (правило), не тост.
 
 const { t } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
-const loading = ref(false)
 
-// Путь клиента (2026-09-21): email = логин, БИН обязателен, реквизиты — из ГБД ЮЛ.
-const formState = reactive({
+const uid = useId()
+const ids = {
+  email: `${uid}-email`, bin: `${uid}-bin`, companyName: `${uid}-company`, phone: `${uid}-phone`,
+  password: `${uid}-password`, confirmPassword: `${uid}-confirm`,
+}
+
+const form = reactive({
   email: '',
   bin: '',
   companyName: '',
@@ -156,360 +41,169 @@ const formState = reactive({
   directorName: '' as string | null,
 })
 
-const rules = computed(() => ({
+const rules: Record<string, ZRule[]> = {
   email: [
-    { required: true, message: t('register.vEmail') },
-    { type: 'email' as const, message: t('register.vEmailFormat') },
+    { required: true, whitespace: true, message: () => t('register.vEmail') },
+    { type: 'email', message: () => t('register.vEmailFormat') },
   ],
   bin: [
-    { required: true, message: t('register.vBin') },
-    { pattern: /^\d{12}$/, message: t('register.vBinFormat') },
+    { required: true, message: () => t('register.vBin') },
+    { pattern: /^\d{12}$/, message: () => t('register.vBinFormat') },
   ],
-  companyName: [{ required: true, message: t('register.vCompany') }],
-  password: [{ required: true, message: t('register.vPassword') }, { min: 8, message: t('register.vPasswordMin') }],
-  confirmPassword: [{ required: true, message: t('register.vConfirm') }],
-}))
-
-const applyCompany = (c: CompanyLookupDto) => {
-  formState.companyName = c.nameRu ?? c.nameKz ?? formState.companyName
-  // У ИП (КГД) адреса и руководителя нет — не затираем то, что клиент уже ввёл.
-  formState.legalAddress = c.addressRu ?? c.addressKz ?? formState.legalAddress ?? null
-  formState.directorName = c.director ?? formState.directorName ?? null
+  companyName: [{ required: true, whitespace: true, message: () => t('register.vCompany') }],
+  password: [
+    { required: true, message: () => t('register.vPassword') },
+    { min: 8, message: () => t('register.vPasswordMin') },
+  ],
+  confirmPassword: [
+    { required: true, message: () => t('register.vConfirm') },
+    { validator: (_r, v) => (v && v !== form.password ? t('register.mismatch') : undefined) },
+  ],
 }
 
-const handleRegister = async () => {
-  if (formState.password !== formState.confirmPassword) {
-    message.error(t('register.mismatch'))
-    return
-  }
+const formRef = ref<InstanceType<typeof ZForm>>()
+// Пароль поменяли, когда повтор уже введён, — перепроверяем повтор (совпадение могло появиться или пропасть).
+watch(() => form.password, () => {
+  if (form.confirmPassword) void formRef.value?.validate(['confirmPassword'])
+})
+
+const { loading: binLoading, lookup } = useBinLookup({ anonymous: true })
+const applyCompany = (c: CompanyLookupDto) => {
+  form.companyName = c.nameRu ?? c.nameKz ?? form.companyName
+  // У ИП (КГД) адреса и руководителя нет — не затираем то, что клиент уже ввёл.
+  form.legalAddress = c.addressRu ?? c.addressKz ?? form.legalAddress ?? null
+  form.directorName = c.director ?? form.directorName ?? null
+}
+const onFind = async () => {
+  const company = await lookup(form.bin)
+  if (!company) return
+  applyCompany(company)
+  // Наименование подставлено — снимаем показанную ошибку «Укажите наименование».
+  if (form.companyName) void formRef.value?.validate(['companyName'])
+}
+
+const loading = ref(false)
+const onFinish = async () => {
   loading.value = true
   try {
     const success = await authStore.registerClient({
-      email: formState.email.trim().toLowerCase(),
-      password: formState.password,
-      bin: formState.bin.trim(),
-      phone: formState.phone.trim() || null,
-      companyName: formState.companyName.trim() || null,
-      legalAddress: formState.legalAddress || null,
-      directorName: formState.directorName || null,
+      email: form.email.trim().toLowerCase(),
+      password: form.password,
+      bin: form.bin.trim(),
+      phone: form.phone.trim() || null,
+      companyName: form.companyName.trim() || null,
+      legalAddress: form.legalAddress || null,
+      directorName: form.directorName || null,
     })
     // Аудит 5.22: бэк сразу отдаёт токен — не заставляем вводить только что придуманный пароль
     // ещё раз на странице входа, ведём сразу на старт нового клиента («Моя компания»).
-    if (success) { message.success(t('register.success')); router.push('/import-40/company') }
+    if (success) {
+      message.success(t('register.successAuto'))
+      router.push('/import-40/company')
+    }
   } finally {
     loading.value = false
   }
 }
 
-const goToLogin = () => router.push('/login')
+// Автофокус — только на широком экране (lg, как у AuthLayout): на телефоне клавиатура закрыла бы форму.
+const emailInput = ref<InstanceType<typeof ZInput>>()
+onMounted(() => {
+  if (window.matchMedia?.('(min-width: 1024px)').matches) emailInput.value?.focus()
+})
 </script>
 
-<style scoped>
-/* ── Page shell ─────────────────────────────────────────────── */
-.auth-page {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  min-height: 100vh;
-  overflow: hidden;
-}
+<template>
+  <AuthLayout
+    :title="t('register.title')"
+    :subtitle="t('register.subtitle')"
+    :hero-title="t('register.heroTitle')"
+    :hero-text="t('register.heroDesc')"
+    :points="[t('register.step1'), t('register.step2'), t('register.step3')]"
+  >
+    <ZForm ref="formRef" :model="form" :rules="rules" @finish="onFinish">
+      <ZField name="email">
+        <label :for="ids.email" :class="[labelClass, 'mb-0.5']">{{ t('register.email') }}</label>
+        <ZInput
+          :id="ids.email"
+          ref="emailInput"
+          v-model:value="form.email"
+          type="email"
+          size="lg"
+          placeholder="you@company.kz"
+          autocomplete="email"
+          autocapitalize="none"
+          spellcheck="false"
+        />
+      </ZField>
 
-/* ── LEFT ───────────────────────────────────────────────────── */
-.auth-left {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(145deg, #0f1d36 0%, var(--z-ink) 45%, #1a3050 100%);
-  overflow: hidden;
-}
+      <ZField name="bin">
+        <label :for="ids.bin" :class="[labelClass, 'mb-0.5']">{{ t('register.bin') }}</label>
+        <!-- На узком телефоне (< 375px) 12 цифр не помещаются рядом с кнопкой — кнопка уходит строкой ниже. -->
+        <div class="flex flex-wrap gap-2">
+          <ZInput
+            :id="ids.bin"
+            v-model:value="form.bin"
+            size="lg"
+            mono
+            :maxlength="12"
+            inputmode="numeric"
+            autocomplete="off"
+            :placeholder="t('register.binPlaceholder')"
+            class="min-w-[8.5rem] flex-1"
+          />
+          <!-- Высота — как у поля lg (42px), а не главной кнопки (44px): одна линия в строке. -->
+          <ZButton size="lg" class="h-[42px] shrink-0 px-4" :loading="binLoading" :disabled="!isBinLike(form.bin)" @click="onFind">
+            <template #icon><PhMagnifyingGlass :size="18" aria-hidden="true" /></template>
+            {{ t('binLookup.find') }}
+          </ZButton>
+        </div>
+      </ZField>
 
-.auth-grid-pattern {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(circle, rgba(35, 181, 211, 0.18) 1px, transparent 1px);
-  background-size: 32px 32px;
-  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
-  pointer-events: none;
-}
+      <ZField name="companyName">
+        <label :for="ids.companyName" :class="[labelClass, 'mb-0.5']">{{ t('register.companyName') }}</label>
+        <ZInput :id="ids.companyName" v-model:value="form.companyName" size="lg" placeholder="ТОО «…»" autocomplete="organization" />
+      </ZField>
 
-.auth-orb {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-}
+      <ZField name="phone">
+        <label :for="ids.phone" :class="[labelClass, 'mb-0.5']">
+          {{ t('register.phone') }} <span class="font-normal text-ink-3">· {{ t('auth.optional') }}</span>
+        </label>
+        <ZPhone :id="ids.phone" v-model:value="form.phone" size="lg" />
+      </ZField>
 
-.auth-orb-1 {
-  width: 320px; height: 320px;
-  top: -80px; right: -80px;
-  background: radial-gradient(circle, rgba(35, 181, 211, 0.12) 0%, transparent 70%);
-  animation: orb-float 8s ease-in-out infinite;
-}
+      <ZField name="password">
+        <label :for="ids.password" :class="[labelClass, 'mb-0.5']">{{ t('register.password') }}</label>
+        <ZInput
+          :id="ids.password"
+          v-model:value="form.password"
+          type="password"
+          size="lg"
+          :placeholder="t('register.passwordPlaceholder')"
+          autocomplete="new-password"
+        />
+      </ZField>
 
-.auth-orb-2 {
-  width: 240px; height: 240px;
-  bottom: 80px; left: -60px;
-  background: radial-gradient(circle, rgba(242, 181, 58, 0.1) 0%, transparent 70%);
-  animation: orb-float 11s ease-in-out infinite reverse;
-}
+      <ZField name="confirmPassword">
+        <label :for="ids.confirmPassword" :class="[labelClass, 'mb-0.5']">{{ t('register.confirm') }}</label>
+        <ZInput
+          :id="ids.confirmPassword"
+          v-model:value="form.confirmPassword"
+          type="password"
+          size="lg"
+          :placeholder="t('register.confirmPlaceholder')"
+          autocomplete="new-password"
+        />
+      </ZField>
 
-.auth-orb-3 {
-  width: 180px; height: 180px;
-  top: 45%; right: 15%;
-  background: radial-gradient(circle, rgba(35, 181, 211, 0.08) 0%, transparent 70%);
-  animation: orb-float 7s ease-in-out infinite 2s;
-}
+      <ZButton variant="primary" html-type="submit" size="lg" block :loading="loading">{{ t('register.submit') }}</ZButton>
+    </ZForm>
 
-@keyframes orb-float {
-  0%, 100% { transform: translateY(0px) scale(1); }
-  50%       { transform: translateY(-20px) scale(1.04); }
-}
-
-.auth-left-inner {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: clamp(36px, 4vw, 64px);
-}
-
-.auth-logo { flex-shrink: 0; margin-bottom: auto; }
-
-.auth-hero {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 40px 0 36px;
-}
-
-.auth-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-  color: var(--z-teal);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.auth-eyebrow-dot {
-  display: inline-block;
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--z-teal);
-  box-shadow: 0 0 8px rgba(35, 181, 211, 0.8);
-  animation: pulse-dot 2s ease-in-out infinite;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(35, 181, 211, 0.8); }
-  50%       { opacity: 0.6; box-shadow: 0 0 16px rgba(35, 181, 211, 0.4); }
-}
-
-.auth-headline {
-  margin: 0 0 20px;
-  color: #ffffff;
-  font-size: clamp(34px, 3vw, 50px);
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-}
-
-.auth-desc {
-  color: rgba(180, 210, 255, 0.6);
-  font-size: 14px;
-  line-height: 1.7;
-  margin: 0;
-}
-
-/* Steps */
-.auth-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  flex-shrink: 0;
-}
-
-.auth-step {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.auth-step-num {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid rgba(35, 181, 211, 0.35);
-  border-radius: 8px;
-  background: rgba(35, 181, 211, 0.1);
-  color: var(--z-teal);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  flex-shrink: 0;
-}
-
-.auth-step-title {
-  color: rgba(240, 248, 255, 0.88);
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.auth-step-sub {
-  color: rgba(180, 210, 255, 0.45);
-  font-size: 12px;
-  margin-top: 2px;
-}
-
-.auth-step-line {
-  width: 1px;
-  height: 18px;
-  margin-left: 16px;
-  background: rgba(35, 181, 211, 0.2);
-}
-
-.auth-lang { display: flex; justify-content: flex-end; margin-bottom: 8px; }
-.auth-bin-row { display: flex; gap: 8px; align-items: stretch; }
-.auth-bin-row .ant-input-affix-wrapper { flex: 1; }
-
-/* ── RIGHT ──────────────────────────────────────────────────── */
-.auth-right {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f5f7fb;
-  padding: clamp(24px, 4vw, 60px);
-}
-
-.auth-form-wrap {
-  width: 100%;
-  max-width: 440px;
-}
-
-.auth-form-header { margin-bottom: 32px; }
-
-.auth-form-badge {
-  display: inline-flex;
-  align-items: center;
-  height: 26px;
-  padding: 0 10px;
-  margin-bottom: 14px;
-  border: 1px solid rgba(35, 181, 211, 0.3);
-  border-radius: 999px;
-  background: rgba(35, 181, 211, 0.08);
-  color: var(--z-teal-d);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.auth-form-title {
-  margin: 0 0 6px;
-  color: var(--z-ink);
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.auth-form-sub {
-  margin: 0;
-  color: #8C8C8C;
-  font-size: 13.5px;
-}
-
-.auth-form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.auth-form :deep(.ant-form-item-label > label) {
-  color: var(--z-ink);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-:not(#z) .auth-form :deep(.ant-input-lg),
-:not(#z) .auth-form :deep(.ant-input-affix-wrapper-lg),
-:not(#z) .auth-form :deep(.ant-select-lg .ant-select-selector) {
-  min-height: 48px;
-  border-radius: 10px;
-  border-color: #dde1ec;
-  background: #ffffff;
-  font-size: 14px;
-  box-shadow: 0 1px 3px rgba(14, 27, 53, 0.04);
-}
-
-:not(#z) .auth-form :deep(.ant-input-affix-wrapper-lg:focus-within),
-:not(#z) .auth-form :deep(.ant-select-focused .ant-select-selector) {
-  border-color: var(--z-teal);
-  box-shadow: 0 0 0 3px rgba(35, 181, 211, 0.14);
-}
-
-.auth-input-icon { color: #8C8C8C; font-size: 15px; }
-
-:not(#z) .auth-submit-item { margin-top: 8px; margin-bottom: 0; }
-
-:not(#z) .auth-submit-btn {
-  min-height: 52px;
-  border-radius: 10px;
-  background: var(--z-teal);
-  border: none;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  box-shadow: none;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
-}
-
-:not(#z) .auth-submit-btn:not(:disabled):hover {
-  background: #4FC6DE;
-}
-
-.auth-footer-link {
-  margin-top: 22px;
-  text-align: center;
-  color: #8C8C8C;
-  font-size: 13.5px;
-}
-
-.auth-footer-link a {
-  margin-left: 4px;
-  color: var(--z-teal-d);
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  transition: color 0.15s ease;
-}
-
-.auth-footer-link a:hover { color: var(--z-ink); }
-
-/* ── Responsive ─────────────────────────────────────────────── */
-@media (max-width: 860px) {
-  .auth-page {
-    grid-template-columns: 1fr;
-  }
-
-  .auth-left-inner {
-    padding: 20px 20px 22px;
-    flex-direction: row;
-    align-items: center;
-  }
-
-  .auth-hero, .auth-steps { display: none; }
-  .auth-logo { margin-bottom: 0; }
-
-  .auth-right {
-    padding: 28px 16px 40px;
-    align-items: flex-start;
-  }
-
-  .auth-form-row { grid-template-columns: 1fr; }
-}
-</style>
+    <template #footer>
+      <p class="m-0 text-center text-[14px] text-ink-3">
+        {{ t('register.haveAccount') }}
+        <RouterLink to="/login" :class="[linkClass, 'font-semibold underline underline-offset-2']">{{ t('register.login') }}</RouterLink>
+      </p>
+    </template>
+  </AuthLayout>
+</template>

@@ -9,6 +9,7 @@ import ZInput from '@/components/z/ZInput.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { ZRule } from '@/ui/validation'
+import { authLabelClass as labelClass, authLinkClass as linkClass } from '@/components/auth/classes'
 
 // Вход брокеров и клиентов. Ошибку входа (неверный пароль, блокировка) показывает перехватчик axios — здесь
 // только проверка заполненности. Подписи свои, а не label у ZField: у пароля в строке подписи ссылка
@@ -47,9 +48,6 @@ const usernameInput = ref<InstanceType<typeof ZInput>>()
 onMounted(() => {
   if (window.matchMedia?.('(min-width: 1024px)').matches) usernameInput.value?.focus()
 })
-
-const labelClass = 'self-start text-sm font-medium text-ink-2'
-const linkClass = 'rounded-[4px] text-zircon-ink outline-hidden transition-colors duration-150 ease-out hover:text-ink focus-visible:shadow-focus motion-reduce:transition-none'
 </script>
 
 <template>
