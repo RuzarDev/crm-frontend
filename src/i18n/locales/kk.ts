@@ -933,6 +933,8 @@ export default {
     marka: 'Маркасы',
     markirovkaPosleVypuska: 'Шығарылғаннан кейін таңбалау',
     kedenOffList: 'КЕДЕН {key} рәсімінде мұны ұсынбайды: {codes} — тізімнен код таңдаңыз',
+    chastichnoMest: 'Ішінара алынған орындар',
+    chastichnoMestHint: 'Тауар басқа тауармен бір қорапта болса: өз орындары 0, ал мұнда — ішінара алатын орын саны (әдетте 1)',
     markirovkaTovarovGr3113: 'Тауарларды таңбалау (31.13-графа)',
     medizdelieNds5: 'Медбұйым (ҚҚС 5%)',
     mest: 'Орын',

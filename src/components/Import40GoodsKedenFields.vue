@@ -29,6 +29,10 @@
         :get-popup-container="popupContainer" @change="emitChange" /></div>
     <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.kolichestvoUpakovok') }}</div>
       <a-input-number v-model:value="good.packageQuantity" :disabled="readonly" :min="0" @change="emitChange" /></div>
+    <div class="zf-field zf-s3"><div class="zf-label">{{ t('dt.chastichnoMest') }}
+        <a-tooltip :title="t('dt.chastichnoMestHint')"><QuestionCircleOutlined class="label-help" /></a-tooltip></div>
+      <a-input-number :value="good.extras?.cargoPartQuantity ?? null" :disabled="readonly" :min="0" :max="99999999" :precision="0"
+        placeholder="0" @change="onPartPlaces" /></div>
     <div v-if="containerIndicator" class="zf-field zf-s4"><div class="zf-label">{{ t('dt.nomerKonteyneraGr313') }}</div>
       <a-input v-uppercase v-model:value="good.containerNumber" :disabled="readonly" placeholder="GLDU9071686" @change="emitChange" /></div>
 
@@ -307,6 +311,14 @@ const emit = defineEmits<{ (e: 'change'): void }>()
 const emitChange = () => emit('change')
 
 const popupContainer = () => document.body
+
+// Частично занятые места (2 товара в 1 коробке) живут в доп. сведениях товара (extras) — создаём их при первой правке.
+const onPartPlaces = (v: number | string | null) => {
+  const g = props.good
+  g.extras ??= { traceable: false, exciseStamps: [], vehicles: [] }
+  g.extras.cargoPartQuantity = v === '' || v == null ? null : Number(v)
+  emitChange()
+}
 
 const countryAlpha2Options = useCountryAlpha2Options()
 const filterAlpha2 = (input: string, option: { value: string; label: string }) =>

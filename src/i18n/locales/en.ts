@@ -933,6 +933,8 @@ export default {
     marka: 'Make',
     markirovkaPosleVypuska: 'Marking after release',
     kedenOffList: 'KEDEN does not offer for procedure {key}: {codes} — pick a code from the list',
+    chastichnoMest: 'Partially occupied places',
+    chastichnoMestHint: 'If the goods share a box with other goods: own places 0, and here — how many places they partly occupy (usually 1)',
     markirovkaTovarovGr3113: 'Goods marking (box 31.13)',
     medizdelieNds5: 'Medical device (VAT 5%)',
     mest: 'Packages',

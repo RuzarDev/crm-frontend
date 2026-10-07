@@ -1345,6 +1345,8 @@ export interface Import40GoodsExtras {
   traceable?: boolean
   traceQuantity?: number | null
   traceUnitCode?: string | null
+  /** Мест, частично занятых товаром (2 товара в 1 коробке): своих мест 0, частично ≥ 1 (гр.31.2). */
+  cargoPartQuantity?: number | null
   exciseStamps: Import40GoodsExciseStamp[]
   vehicles: Import40GoodsVehicle[]
 }
