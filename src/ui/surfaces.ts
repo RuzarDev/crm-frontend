@@ -53,8 +53,16 @@ const FOCUSABLE = [
   'button:not([disabled])', 'a[href]', '[tabindex]:not([tabindex="-1"])',
 ].join(',')
 
+// Элемент можно получить фокусом с Tab и он виден: не tabindex=-1 (метки-крестики ZSelect, скрытые кнопки),
+// не внутри aria-hidden/inert/hidden, не display:none / visibility:hidden.
+const isTabbable = (el: HTMLElement): boolean => {
+  if (el.tabIndex < 0 || el.closest('[aria-hidden="true"], [inert], [hidden]')) return false
+  const style = getComputedStyle(el)
+  return style.display !== 'none' && style.visibility !== 'hidden'
+}
+
 /**
- * Фокус при открытии окна (open-auto-focus Reka): первый доступный элемент, но без выделения текста —
+ * Фокус при открытии окна (open-auto-focus Reka): первый элемент, доступный с Tab, но без выделения текста —
  * Reka выделяет значение поля, и первый же символ стёр бы его. Без доступных элементов — само окно.
  */
 export const focusFirstInside = (e: Event): void => {
@@ -62,8 +70,9 @@ export const focusFirstInside = (e: Event): void => {
   if (!(root instanceof HTMLElement)) return
   e.preventDefault()
   for (const el of root.querySelectorAll<HTMLElement>(FOCUSABLE)) {
+    if (!isTabbable(el)) continue
     el.focus({ preventScroll: true })
-    if (document.activeElement === el) return // скрытый элемент фокус не берёт — идём дальше
+    if (document.activeElement === el) return // не взял фокус (скрыт предком и т. п.) — идём дальше
   }
   root.focus({ preventScroll: true })
 }

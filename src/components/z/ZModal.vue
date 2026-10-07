@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, useAttrs, useSlots, type StyleValue } from 'vue'
+import { computed, ref, useAttrs, useSlots, watch, type StyleValue } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { PhX } from '@phosphor-icons/vue'
 import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
+import { DialogOpenerSync } from '@/ui/dialogOpener'
 import { Z_LAYER_MODAL, cssSize, focusFirstInside, isDraftEscape, modalBackdrop, modalCloseButton } from '@/ui/surfaces'
 import ZButton from './ZButton.vue'
 
@@ -16,7 +17,8 @@ import ZButton from './ZButton.vue'
 // update:open(false) + cancel. «ОК» эмитит только ok: окно закрывает родитель (как у AntD).
 // Escape из поля с черновиком (data-z-draft, ZDate) окно не закрывает — откатывает черновик.
 // Крестик — последним в DOM (стоит в углу): первым фокус получает первое поле тела, без полей — «Отмена».
-// Содержимое при закрытии размонтируется (у AntD по умолчанию оставалось) — состояние держит родитель.
+// Содержимое монтируется при первом открытии и живёт скрытым между открытиями (как у AntD); destroyOnClose —
+// пересоздаётся каждый раз. Без заголовка имя окна — ariaLabel (скрытый заголовок).
 // Слот description — описание окна (Reka DialogDescription, aria-describedby), над телом; без него
 // aria-describedby у окна нет. class/style и прочие атрибуты — на само окно (role=dialog).
 defineOptions({ inheritAttrs: false })
@@ -42,18 +44,26 @@ const props = withDefaults(defineProps<{
   closable?: boolean
   /** Escape закрывает окно. */
   keyboard?: boolean
+  /** Имя окна для чтения с экрана, когда заголовка нет (скрытый заголовок). */
+  ariaLabel?: string
+  /** true — содержимое пересоздаётся при каждом открытии; по умолчанию живёт между открытиями (как у AntD). */
+  destroyOnClose?: boolean
 }>(), {
   open: false, title: '', width: 520, okText: '', cancelText: '', confirmLoading: false,
-  okButtonProps: () => ({}), cancelButtonProps: () => ({}), footer: true, maskClosable: true, closable: true, keyboard: true,
+  okButtonProps: () => ({}), cancelButtonProps: () => ({}), footer: true, maskClosable: true, closable: true, keyboard: true, ariaLabel: '', destroyOnClose: false,
 })
 
 const emit = defineEmits<{ 'update:open': [open: boolean]; ok: [e: MouseEvent]; cancel: [] }>()
 const { t } = useI18n()
 
 const showFooter = computed(() => props.footer !== false && props.footer !== null)
-const hasTitle = computed(() => !!props.title || !!slots.title)
+// Функции, а не computed: useSlots() не реактивен — computed запомнил бы слоты первого рендера.
+const hasTitle = () => !!props.title || !!slots.title
+// Содержимое не монтируется до первого открытия (как у AntD), потом живёт скрытым — если не destroyOnClose.
+const opened = ref(props.open)
+watch(() => props.open, (v) => { if (v) opened.value = true }, { flush: 'sync' })
 // Без описания снимаем aria-describedby, который Reka ставит всегда (иначе ссылка в пустоту и предупреждение).
-const describedBy = computed(() => (slots.description ? {} : { 'aria-describedby': undefined }))
+const describedBy = () => (slots.description ? {} : { 'aria-describedby': undefined })
 
 const close = () => {
   emit('update:open', false)
@@ -81,21 +91,22 @@ const contentStyle = computed(() => [{ '--w': cssSize(props.width) }, attrs.styl
 </script>
 
 <template>
-  <DialogRoot :open="open" @update:open="onOpenChange">
+  <DialogRoot :open="open" :unmount-on-hide="destroyOnClose || !opened" @update:open="onOpenChange">
+    <DialogOpenerSync />
     <DialogPortal>
       <DialogOverlay data-z-overlay :class="modalBackdrop" />
       <DialogContent
         aria-modal="true"
-        v-bind="{ ...describedBy, ...contentAttrs }"
+        v-bind="{ ...describedBy(), ...contentAttrs }"
         :class="contentClass"
         :style="contentStyle"
         @escape-key-down="onEscape"
         @pointer-down-outside="onPointerOutside"
         @open-auto-focus="focusFirstInside"
       >
-        <div :class="cn('shrink-0 px-6 pt-5', hasTitle ? 'pb-3' : 'pb-1', closable && 'pr-14')">
-          <DialogTitle class="m-0 text-md font-semibold text-ink [overflow-wrap:anywhere]">
-            <slot name="title">{{ title }}</slot>
+        <div :class="cn('shrink-0 px-6 pt-5', hasTitle() ? 'pb-3' : 'pb-1', closable && 'pr-14')">
+          <DialogTitle :class="hasTitle() ? 'm-0 text-md font-semibold text-ink [overflow-wrap:anywhere]' : 'sr-only'">
+            <slot name="title">{{ title || ariaLabel }}</slot>
           </DialogTitle>
         </div>
         <div class="min-h-0 flex-1 overflow-y-auto px-6 py-2">

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, useAttrs, useSlots, type StyleValue } from 'vue'
+import { computed, ref, useAttrs, useSlots, watch, type StyleValue } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { PhX } from '@phosphor-icons/vue'
 import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
+import { DialogOpenerSync } from '@/ui/dialogOpener'
 import { Z_LAYER_MODAL, cssSize, focusFirstInside, isDraftEscape, modalBackdrop, modalCloseButton } from '@/ui/surfaces'
 
 // Замена a-drawer: боковая панель (slide-over) на Reka Dialog — та же механика, что у ZModal
@@ -28,12 +29,20 @@ const props = withDefaults(defineProps<{
   closable?: boolean
   maskClosable?: boolean
   keyboard?: boolean
-}>(), { open: false, title: '', width: 560, placement: 'right', closable: true, maskClosable: true, keyboard: true })
+  /** Имя окна для чтения с экрана, когда заголовка нет (скрытый заголовок). */
+  ariaLabel?: string
+  /** true — содержимое пересоздаётся при каждом открытии; по умолчанию живёт между открытиями (как у AntD). */
+  destroyOnClose?: boolean
+}>(), { open: false, title: '', width: 560, placement: 'right', closable: true, maskClosable: true, keyboard: true, ariaLabel: '', destroyOnClose: false })
 
 const emit = defineEmits<{ 'update:open': [open: boolean]; close: [] }>()
 const { t } = useI18n()
 
-const hasTitle = computed(() => !!props.title || !!slots.title)
+// Функции, а не computed: useSlots() не реактивен — computed запомнил бы слоты первого рендера.
+const hasTitle = () => !!props.title || !!slots.title
+// Содержимое не монтируется до первого открытия (как у AntD), потом живёт скрытым — если не destroyOnClose.
+const opened = ref(props.open)
+watch(() => props.open, (v) => { if (v) opened.value = true }, { flush: 'sync' })
 
 const close = () => {
   emit('update:open', false)
@@ -64,7 +73,8 @@ const contentStyle = computed(() => [{ '--w': cssSize(props.width) }, attrs.styl
 </script>
 
 <template>
-  <DialogRoot :open="open" @update:open="onOpenChange">
+  <DialogRoot :open="open" :unmount-on-hide="destroyOnClose || !opened" @update:open="onOpenChange">
+    <DialogOpenerSync />
     <DialogPortal>
       <DialogOverlay data-z-overlay :class="modalBackdrop" />
       <DialogContent
@@ -77,9 +87,9 @@ const contentStyle = computed(() => [{ '--w': cssSize(props.width) }, attrs.styl
         @pointer-down-outside="onPointerOutside"
         @open-auto-focus="focusFirstInside"
       >
-        <div :class="cn('min-h-16 shrink-0 border-b border-line px-6 py-5', !hasTitle && 'border-b-0', closable && 'pr-14')">
-          <DialogTitle class="m-0 text-md font-semibold text-ink [overflow-wrap:anywhere]">
-            <slot name="title">{{ title }}</slot>
+        <div :class="cn('min-h-16 shrink-0 border-b border-line px-6 py-5', !hasTitle() && 'border-b-0', closable && 'pr-14')">
+          <DialogTitle :class="hasTitle() ? 'm-0 text-md font-semibold text-ink [overflow-wrap:anywhere]' : 'sr-only'">
+            <slot name="title">{{ title || ariaLabel }}</slot>
           </DialogTitle>
         </div>
         <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">

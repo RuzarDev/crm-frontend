@@ -10,6 +10,7 @@ import ZModal from './ZModal.vue'
   <ZModal
     :open="confirmState.open"
     :width="420"
+    destroy-on-close
     :title="confirmState.title"
     :ok-text="confirmState.okText"
     :cancel-text="confirmState.cancelText"
