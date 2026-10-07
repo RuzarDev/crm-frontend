@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
@@ -40,4 +40,23 @@ describe('токены стиля C', () => {
     expect(m?.[1].replace(/\s+/g, ' ').trim()).toBe('0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-zircon-ink)')
     expect(contrast(color('zircon-ink'), color('surface'))).toBeGreaterThanOrEqual(3)
   })
+
+  it('шкалы радиусов и теней Tailwind сброшены до наших имён (спека §4: без shadow-md/lg, радиусы по иерархии)', () => {
+    for (const ns of ['shadow', 'inset-shadow', 'drop-shadow', 'radius']) {
+      const reset = css.indexOf(`--${ns}-*: initial;`)
+      expect(reset, `нет сброса --${ns}-*`).toBeGreaterThan(-1)
+      const firstOwn = css.search(new RegExp(`--${ns}-[a-z]+:`))
+      if (firstOwn > -1) expect(reset).toBeLessThan(firstOwn)
+    }
+  })
+
+  it.each(['../../components/z/', '../../views/dev/'])('%s не использует сброшенные утилиты Tailwind (rounded-full/md…, shadow-sm/md…)', (rel) => {
+    const dir = fileURLToPath(new URL(rel, import.meta.url))
+    const banned = /\b(?:rounded(?:-(?:none|xs|sm|md|lg|xl|2xl|3xl|4xl|full))?|shadow(?:-(?:2xs|xs|sm|md|lg|xl|2xl|none))?|inset-shadow-(?:2xs|xs|sm|none)|drop-shadow(?:-(?:xs|sm|md|lg|xl|2xl|none))?)(?![\w\[-])/g
+    for (const f of readdirSync(dir).filter((n) => n.endsWith('.vue'))) {
+      const src = readFileSync(dir + f, 'utf8').replace(/box-shadow/g, '')
+      expect(src.match(banned), f).toBeNull()
+    }
+  })
 })
+

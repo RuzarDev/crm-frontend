@@ -51,6 +51,13 @@
   --text-xl: 22px;     --text-xl--line-height: 28px;
   --text-2xl: 28px;    --text-2xl--line-height: 34px;
 
+  /* Только наши радиусы и тени (спека §4): шкалы Tailwind по умолчанию (rounded-md, shadow-lg…) сброшены,
+     такие классы просто не соберутся. Произвольные значения rounded-[6px] остаются доступны. */
+  --radius-*: initial;
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+
   --radius-field: 8px;
   --radius-row: 10px;
   --radius-panel: 14px;

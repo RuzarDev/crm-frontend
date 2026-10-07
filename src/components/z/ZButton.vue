@@ -80,7 +80,7 @@ const onClick = (e: MouseEvent) => {
       v-if="loading"
       data-z-spin
       aria-hidden="true"
-      class="size-3.5 shrink-0 rounded-full border-2 border-current border-r-transparent animate-spin motion-reduce:animate-none"
+      class="size-3.5 shrink-0 rounded-pill border-2 border-current border-r-transparent animate-spin motion-reduce:animate-none"
     />
     <slot v-else name="icon" />
     <slot />
