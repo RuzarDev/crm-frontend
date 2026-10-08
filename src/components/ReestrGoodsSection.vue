@@ -24,12 +24,12 @@
       <span v-else>{{ t('dt.netTovarov') }}</span>
     </div>
 
-    <div v-for="(item, idx) in items" :key="idx" class="goods-card zf-card">
+    <div v-for="(item, idx) in items" :key="keys[idx]" class="goods-card zf-card">
       <div class="card-top">
         <!-- Свернуть карточку: при 10+ товарах страница превращалась в бесконечную простыню. -->
-        <a-button type="text" size="small" class="collapse-btn" :aria-label="collapsed.has(idx) ? t('dt.razvernut') : t('dt.svernut')"
-          :title="collapsed.has(idx) ? t('dt.razvernut') : t('dt.svernut')" @click="toggleCard(idx)">
-          <RightOutlined :class="{ open: !collapsed.has(idx) }" />
+        <a-button type="text" size="small" class="collapse-btn" :aria-label="isCollapsed(idx) ? t('dt.razvernut') : t('dt.svernut')"
+          :title="isCollapsed(idx) ? t('dt.razvernut') : t('dt.svernut')" @click="toggleCard(idx)">
+          <RightOutlined :class="{ open: !isCollapsed(idx) }" />
         </a-button>
         <span class="card-num" :title="t('dt.poryadkovyyNomerTovara')">{{ idx + 1 }}</span>
         <span class="card-title">
@@ -37,14 +37,14 @@
           <template v-if="item.tnvedCode"> · <span class="card-code">{{ item.tnvedCode }}</span></template>
           <template v-if="item.description || item.tnvedDescription"> · {{ item.description || item.tnvedDescription }}</template>
         </span>
-        <span v-if="collapsed.has(idx)" class="card-sum">
+        <span v-if="isCollapsed(idx)" class="card-sum">
           <template v-if="item.customsValue != null">{{ fmtNum(item.customsValue) }} {{ lockedCurrency || item.currency || '' }}</template>
           <template v-if="paymentsTotal(item) > 0"> · {{ t('dt.tpin') }} {{ fmtNum(paymentsTotal(item)) }} ₸</template>
         </span>
         <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
       </div>
 
-      <div v-show="!collapsed.has(idx)" class="zf-grid">
+      <div v-show="!isCollapsed(idx)" class="zf-grid">
         <!-- Код ТН ВЭД + описание из ТН ВЭД -->
         <div class="zf-field zf-s5">
           <div class="zf-label">{{ t('dt.kodTnved') }}</div>
@@ -274,13 +274,24 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: ReestrGoodsItemInput[]): void
 }>()
 
-// Свёрнутые карточки товаров (по номеру строки). В свёрнутом виде — номер, код, описание, стоимость, ТПиН.
+// Свёрнутые карточки товаров. В свёрнутом виде — номер, код, описание, стоимость, ТПиН.
+// Ключ карточки — стабильный номер (keys[idx]), а не индекс: после удаления товара выше свёрнутость
+// оставалась у номера строки и переезжала на соседнюю карточку. Строки пересоздаются при каждом
+// возврате v-model, поэтому ключи ведём параллельным массивом: свои добавления/удаления двигают его
+// вместе со строками, внешняя смена длины — дописывает/обрезает хвост (как раньше по индексу).
+let lastKey = 0
+const keys: number[] = []
+const syncKeys = (n: number) => {
+  while (keys.length < n) keys.push(++lastKey)
+  keys.length = n
+}
 const collapsed = reactive(new Set<number>())
-const toggleCard = (i: number) => { if (collapsed.has(i)) collapsed.delete(i); else collapsed.add(i) }
-const allCollapsed = computed(() => items.value.length > 0 && items.value.every((_, i) => collapsed.has(i)))
+const isCollapsed = (i: number) => collapsed.has(keys[i])
+const toggleCard = (i: number) => { if (isCollapsed(i)) collapsed.delete(keys[i]); else collapsed.add(keys[i]) }
+const allCollapsed = computed(() => items.value.length > 0 && items.value.every((_, i) => isCollapsed(i)))
 const toggleAll = () => {
   if (allCollapsed.value) collapsed.clear()
-  else items.value.forEach((_, i) => collapsed.add(i))
+  else items.value.forEach((_, i) => collapsed.add(keys[i]))
 }
 const fmtNum = (v: number) => v.toLocaleString('ru-RU', { maximumFractionDigits: 2 })
 const paymentsTotal = (item: GoodsRow) =>
@@ -505,6 +516,7 @@ watch(
   () => props.modelValue,
   (v) => {
     items.value = (v ?? []).map(toRow)
+    syncKeys(items.value.length)
     applyLockedCurrency()
   },
   { immediate: true },
@@ -533,10 +545,13 @@ function addItem() {
     packagesCountStr: '',
     customsValueStr: '',
   })
+  syncKeys(items.value.length)
   emit('update:modelValue', items.value.map(fromRow))
 }
 
 function removeItem(idx: number) {
+  collapsed.delete(keys[idx])
+  keys.splice(idx, 1)
   items.value.splice(idx, 1)
   emit('update:modelValue', items.value.map(fromRow))
 }
@@ -648,6 +663,7 @@ async function importGoodsFromExcel(file: File) {
     }
 
     items.value = [...items.value, ...added]
+    syncKeys(items.value.length)
     emit('update:modelValue', items.value.map(fromRow))
     message.success(t('dt.zagruzhenoTovarov', { n: added.length }))
   } catch (e) {
