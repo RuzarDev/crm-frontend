@@ -50,6 +50,7 @@ const mount = async (goods: ReestrGoodsItemInput[]) => {
 const cards = () => w.findAll('.goods-card')
 const title = (i: number) => cards()[i].get('.card-title').text()
 const isCollapsed = (i: number) => (cards()[i].get('.zf-grid').element as HTMLElement).style.display === 'none'
+const lastEmitted = () => (w.emitted('update:modelValue')!.at(-1)![0] as ReestrGoodsItemInput[])
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -84,5 +85,31 @@ describe('ReestrGoodsSection — свёрнутость карточек', () =>
     expect(isCollapsed(0)).toBe(true)
     expect(title(1)).toContain('C')
     expect(isCollapsed(1)).toBe(false)
+  })
+})
+
+describe('ReestrGoodsSection — проверка кода ТН ВЭД', () => {
+  it('флаг «кода нет в справочнике» не уходит в данные товара, ошибка у поля остаётся', async () => {
+    api.node.mockRejectedValue(new Error('404'))
+    await mount([good({ tnvedCode: '1902303000', description: 'Макароны' })])
+    expect(w.text()).toContain('Кода нет в справочнике ТН ВЭД')
+
+    const description = cards()[0].findAll('input')[2]
+    ;(description.element as HTMLInputElement).value = 'Макароны твёрдых сортов'
+    await description.trigger('input')
+    await flushPromises()
+
+    const sent = lastEmitted()[0]
+    expect(sent.description).toBe('Макароны твёрдых сортов')
+    expect(Object.keys(sent)).not.toContain('tnvedInvalid')
+    expect(Object.keys(sent)).not.toContain('tnvedLoading')
+    expect(w.text()).toContain('Кода нет в справочнике ТН ВЭД')
+  })
+
+  it('верный код — без ошибки; справочник дёргается один раз на код', async () => {
+    api.node.mockResolvedValue({ data: { is10: true, name: 'Ноутбуки' } })
+    await mount([good({ tnvedCode: '8471300000' }), good({ tnvedCode: '8471300000' })])
+    expect(w.text()).not.toContain('Кода нет в справочнике ТН ВЭД')
+    expect(api.node).toHaveBeenCalledTimes(1)
   })
 })

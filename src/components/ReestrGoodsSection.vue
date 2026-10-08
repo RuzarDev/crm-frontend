@@ -52,7 +52,7 @@
             <a-input
               v-model:value="item.tnvedCode"
               :disabled="readonly"
-              :status="item.tnvedInvalid ? 'error' : undefined"
+              :status="isTnvedInvalid(item) ? 'error' : undefined"
               placeholder="0000000000"
               class="tnved-input"
               @change="emit('update:modelValue', items.map(fromRow))"
@@ -63,7 +63,7 @@
           </a-input-group>
           <!-- Несуществующий 10-значный код (например 1902303000 вместо 1902301000)
                раньше выявлялся только на расчёте ТПиН — помечаем сразу при вводе. -->
-          <div v-if="item.tnvedInvalid" class="field-error">{{ t('dt.kodaNetVSpravochnikeTnved') }}</div>
+          <div v-if="isTnvedInvalid(item)" class="field-error">{{ t('dt.kodaNetVSpravochnikeTnved') }}</div>
         </div>
         <div class="zf-field zf-s7">
           <div class="zf-label">{{ t('dt.opisanieTovaraIzTnved') }}</div>
@@ -237,8 +237,6 @@ interface GoodsRow extends ReestrGoodsItemInput {
   packagesCountStr: string
   customsValueStr: string
   tnvedLoading?: boolean
-  // Код введён, но его нет в справочнике ТН ВЭД (или он не 10-значный лист).
-  tnvedInvalid?: boolean
   // Поля «бланка товара» Импорта 40 — приходят в том же объекте (см. fromRow: rest).
   tradeMarkName?: string | null
   productMarkName?: string | null
@@ -313,7 +311,7 @@ const onPickerSelect = (payload: { code: string; name: string }) => {
   const t = pickerTarget.value
   if (!t) return
   t.tnvedCode = payload.code
-  t.tnvedInvalid = false
+  tnvedCodeValid.value[payload.code] = true
   if (!t.tnvedDescription) t.tnvedDescription = payload.name
   emit('update:modelValue', items.value.map(fromRow))
 }
@@ -358,25 +356,23 @@ function onUnitCodeChange(item: GoodsRow, code: string | undefined) {
 
 // Кэш проверок кодов на время жизни экрана: в ДТ один и тот же код обычно
 // повторяется у нескольких товаров, дёргать справочник на каждый blur незачем.
+// Ошибка у поля — по этому кэшу (код проверен и его нет в справочнике), а не флагом в строке:
+// флаг уходил в данные товара (разбор B.13) и терялся бы при пересборке строк из v-model.
 const tnvedCodeValid = ref<Record<string, boolean>>({})
+const isTnvedInvalid = (item: GoodsRow) => {
+  const code = (item.tnvedCode || '').trim()
+  return !!code && tnvedCodeValid.value[code] === false
+}
 
 async function validateTnved(item: GoodsRow) {
   const code = (item.tnvedCode || '').trim()
-  if (!code) {
-    item.tnvedInvalid = false
-    return
-  }
-  if (code in tnvedCodeValid.value) {
-    item.tnvedInvalid = !tnvedCodeValid.value[code]
-    return
-  }
+  if (!code || code in tnvedCodeValid.value) return
   try {
     const res = await tnvedApi.node(code)
     tnvedCodeValid.value[code] = res.data.is10
   } catch {
     tnvedCodeValid.value[code] = false
   }
-  item.tnvedInvalid = !tnvedCodeValid.value[code]
 }
 
 // Проверяем коды у уже сохранённых товаров при открытии — иначе ошибочный код
@@ -402,7 +398,7 @@ async function lookupTnved(item: GoodsRow) {
       pickerOpen.value = true
       return
     }
-    item.tnvedInvalid = false
+    tnvedCodeValid.value[code] = true
     item.tnvedDescription = res.data.name
     // Автоподстановка единицы измерения по ТНВЭД — только если поле ещё не заполнено вручную
     if (!item.unitCode && !item.unit) {
@@ -466,8 +462,10 @@ function syncRows() {
 
 function fromRow(r: GoodsRow): ReestrGoodsItemInput {
   // rest сохраняет расширенные поля (например КЕДЕН-поля Импорта 40),
-  // которые этот компонент не знает и не должен терять
-  const { quantityStr, grossWeightStr, netWeightStr, packagesCountStr, customsValueStr, tnvedLoading, ...rest } = r
+  // которые этот компонент не знает и не должен терять. tnvedInvalid — служебный флаг прежних версий:
+  // мог прийти в modelValue, на сервер его не отправляем.
+  const { quantityStr, grossWeightStr, netWeightStr, packagesCountStr, customsValueStr, tnvedLoading, tnvedInvalid, ...rest } =
+    r as GoodsRow & { tnvedInvalid?: boolean }
   return {
     ...rest,
     description: r.description || null,
