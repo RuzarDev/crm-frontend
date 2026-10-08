@@ -669,6 +669,12 @@ export default {
       statusesChanged: 'Статус изменён: {ok} из {n}',
       uploadHint: 'Нажмите или перетащите файл Excel (.xlsx, .xls) до 10 МБ. Первая строка — названия полей.',
     },
+    transitRecord: {
+      errors: {
+        needKeyField: 'Заполните хотя бы одно из полей: №, Контейнер, Получатель, Отправитель, Груз.',
+        needClient: 'Выберите клиента.',
+      },
+    },
     packages: {
       title: 'Пакеты документов',
       newPackage: 'Новый пакет',

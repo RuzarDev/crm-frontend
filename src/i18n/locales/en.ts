@@ -665,6 +665,12 @@ export default {
       statusesChanged: 'Status changed: {ok} of {n}',
       uploadHint: 'Click or drag an Excel file (.xlsx, .xls) up to 10 MB. The first row is the field names.',
     },
+    transitRecord: {
+      errors: {
+        needKeyField: 'Fill in at least one of the fields: No., Container, Consignee, Shipper, Cargo.',
+        needClient: 'Select a client.',
+      },
+    },
     packages: {
       title: 'Document packages',
       newPackage: 'New package',
