@@ -138,6 +138,7 @@ export function reestrDtoToEntry(dto: ReestrEntryDto): ReestrEntry {
     clientId: dto.clientId,
     sourceConsolidationId: dto.sourceConsolidationId ?? null,
     data: reestrDtoToData(dto),
+    grandTotalWithVat: dto.grandTotalWithVat ?? null,
     deprecationWarning: dto.deprecationWarning ?? null,
     goods: (dto.goodsItems ?? []).map((g) => ({
       description: g.description,

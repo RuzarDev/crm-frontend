@@ -39,7 +39,8 @@ const brokerDocumentTypeFromApi = (
 }
 
 export const reestrApi = {
-  getList: async (params: ReestrListRequest): Promise<ReestrListResponse> => {
+  // silent — список сам рисует «не удалось загрузить» с «Повторить», без тоста перехватчика.
+  getList: async (params: ReestrListRequest, opts?: { silent?: boolean }): Promise<ReestrListResponse> => {
     const response = await apiClient.get<{
       items: ReestrEntryDto[]
       totalCount: number
@@ -58,6 +59,7 @@ export const reestrApi = {
         ...(params.sortBy ? { sortBy: params.sortBy } : {}),
         sortDescending: params.sortDescending ?? true,
       },
+      ...(opts?.silent ? { silent: true } : {}),
     })
     return {
       ...response.data,
@@ -214,8 +216,9 @@ export const reestrApi = {
     return response.data
   },
 
-  changeStatus: async (id: string, status: ReestrEntryStatus): Promise<void> => {
-    await apiClient.patch(`/reestr/${encodeURIComponent(id)}/status`, { status })
+  // silent — смена статуса нескольких записей подводит итог одним тостом.
+  changeStatus: async (id: string, status: ReestrEntryStatus, opts?: { silent?: boolean }): Promise<void> => {
+    await apiClient.patch(`/reestr/${encodeURIComponent(id)}/status`, { status }, opts?.silent ? { silent: true } : undefined)
   },
 
   listClientsForCreate: async (): Promise<ReestrClientOption[]> => {

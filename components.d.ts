@@ -66,7 +66,6 @@ declare module 'vue' {
     ATree: typeof import('ant-design-vue/es')['Tree']
     ATypographyText: typeof import('ant-design-vue/es')['TypographyText']
     AUpload: typeof import('ant-design-vue/es')['Upload']
-    AUploadDragger: typeof import('ant-design-vue/es')['UploadDragger']
     AuthLayout: typeof import('./src/components/auth/AuthLayout.vue')['default']
     BinLookupButton: typeof import('./src/components/BinLookupButton.vue')['default']
     CarriersBlock: typeof import('./src/components/reestr/CarriersBlock.vue')['default']

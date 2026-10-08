@@ -1,6 +1,6 @@
 <template>
   <div class="import-invoice">
-    <a-button @click="openPicker">
+    <a-button v-if="!hideTrigger" @click="openPicker">
       <ImportOutlined /> {{ t('transit.importIzInvoysa') }} </a-button>
 
     <a-modal v-model:open="pickerOpen" :title="t('transit.importIzInvoysa')" :footer="null" width="520px">
@@ -56,9 +56,11 @@ const IMPORT_PLACEHOLDER = t('transit.importIzInvoysa')
 
 interface Props {
   clientOptions: { value: string; label: string }[]
+  /** Своя кнопка не рисуется — окно открывает родитель через ref.open() (кнопка в шапке «Транзита»). */
+  hideTrigger?: boolean
 }
 
-defineProps<Props>()
+withDefaults(defineProps<Props>(), { hideTrigger: false })
 const emit = defineEmits<{ (e: 'imported', count: number): void }>()
 
 const pickerOpen = ref(false)
@@ -74,6 +76,8 @@ const openPicker = () => {
   clientId.value = undefined
   pickerOpen.value = true
 }
+
+defineExpose({ open: openPicker })
 
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   if (!clientId.value) {

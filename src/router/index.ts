@@ -64,7 +64,7 @@ const router = createRouter({
         {
           path: '/reestr',
           name: 'reestr',
-          component: () => import('@/views/ReestrView.vue'),
+          component: () => import('@/views/broker/transit/TransitView.vue'),
         },
         {
           path: '/requests-registry',
