@@ -184,6 +184,30 @@ describe('SectionGoods', () => {
   })
 })
 
+describe('SectionGoods: слот действий', () => {
+  it('слот actions-lead — перед «Из Excel» (страница партии кладёт «Из инвойса»); в чтении не показывается', async () => {
+    const draft = emptyDraft()
+    w = mountWithI18n(SectionGoods, {
+      props: { draft, readonly: false },
+      slots: { 'actions-lead': '<button type="button" data-lead>Из инвойса</button>' },
+      attachTo: document.body,
+      global: { stubs: { ZSelect: SelectStub, TnvedPickerModal: PickerStub } },
+    })
+    await flushPromises()
+    const actions = w.get('[data-section-actions]')
+    expect(actions.find('[data-lead]').exists()).toBe(true)
+    expect(actions.element.firstElementChild?.matches('[data-lead]')).toBe(true)
+    w.unmount()
+    w = mountWithI18n(SectionGoods, {
+      props: { draft, readonly: true },
+      slots: { 'actions-lead': '<button type="button" data-lead>Из инвойса</button>' },
+      global: { stubs: { ZSelect: SelectStub, TnvedPickerModal: PickerStub } },
+    })
+    await flushPromises()
+    expect(w.find('[data-lead]').exists()).toBe(false)
+  })
+})
+
 describe('числа сводки и итогов — по языку интерфейса', () => {
   const plain = (v: string) => v.replace(/\u00a0/g, ' ')
   it('ru и kk — пробел и запятая, en — запятая и точка', () => {

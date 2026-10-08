@@ -176,3 +176,70 @@ describe('RecordNav', () => {
     expect(item('goods').attributes('aria-current')).toBe('true')
   })
 })
+
+describe('RecordNav в своей прокрутке (шторка транзитной декларации партии)', () => {
+  /** Прокручиваемая область: верх на 100px от окна, высота 600, прокручена на scrollTop. */
+  const box = (scrollTop: number, scrollHeight = 3000) => {
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.getBoundingClientRect = () => ({ top: 100, bottom: 700, left: 0, right: 0, width: 0, height: 600, x: 0, y: 100, toJSON: () => ({}) })
+    Object.defineProperty(el, 'clientHeight', { value: 600, configurable: true })
+    Object.defineProperty(el, 'scrollHeight', { value: scrollHeight, configurable: true })
+    el.scrollTop = scrollTop
+    el.scrollTo = vi.fn() as unknown as typeof el.scrollTo
+    return el
+  }
+  const SECTIONS = ['main', 'organizations', 'carriers', 'transport', 'seals', 'containers', 'packaging', 'preceding', 'guarantees', 'misc']
+
+  it('свой набор разделов и подпись меню', () => {
+    w = mountWithI18n(RecordNav, { props: { draft: draft(), sections: SECTIONS, label: 'Разделы декларации' }, attachTo: document.body })
+    expect(w.findAll('[data-nav-item]').map((a) => a.attributes('data-nav-item'))).toEqual(SECTIONS)
+    expect(w.get('nav').attributes('aria-label')).toBe('Разделы декларации')
+  })
+
+  it('клик прокручивает область (не окно) — с учётом её верха и прокрутки', async () => {
+    const el = box(200)
+    sections({ carriers: 500 })
+    w = mountWithI18n(RecordNav, { props: { draft: draft(), sections: SECTIONS, scroller: el }, attachTo: document.body })
+    await item('carriers').trigger('click')
+    expect(scrollTo).not.toHaveBeenCalled()
+    // 500 − верх области 100 + прокрутка 200 − зазор 16 (шапки оболочки в шторке нет)
+    expect((el.scrollTo as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatchObject({ top: 584 })
+    expect(item('carriers').attributes('aria-current')).toBe('true')
+  })
+
+  it('подсветка — по прокрутке области: линия ≈ 30% её высоты от её верха', async () => {
+    const el = box(400)
+    sections({ main: -500, organizations: 150, carriers: 400 })
+    w = mountWithI18n(RecordNav, { props: { draft: draft(), sections: SECTIONS, scroller: el }, attachTo: document.body })
+    // Прокрутка окна область не трогает.
+    el.dispatchEvent(new Event('scroll'))
+    await nextTick()
+    // линия = 100 + 0.3 × 600 = 280: «Организации» (150) за ней, «Перевозчики» (400) — нет.
+    expect(item('organizations').attributes('aria-current')).toBe('true')
+  })
+
+  it('область пришла после монтирования меню — подсветка пересчитывается по ней', async () => {
+    // Окно прокручено до низа: по окну активным был бы последний видный раздел.
+    page(2234, 3008)
+    sections({ main: 120, organizations: 700, misc: 300 })
+    w = mountWithI18n(RecordNav, { props: { draft: draft(), sections: SECTIONS, scroller: null }, attachTo: document.body })
+    await nextTick()
+    await w.setProps({ scroller: box(0) })
+    await nextTick()
+    await nextTick()
+    // По области (верх 100, высота 600, не прокручена): «Основное» на 20px — за линией (180), «Прочее» на 200 — нет.
+    expect(item('main').attributes('aria-current')).toBe('true')
+  })
+
+  it('область ещё не выложена (высота 0, верхи нулевые) — подсветка не прыгает на последний раздел', async () => {
+    const el = box(0)
+    Object.defineProperty(el, 'clientHeight', { value: 0, configurable: true })
+    sections({ main: 0, organizations: 0, misc: 0 })
+    w = mountWithI18n(RecordNav, { props: { draft: draft(), sections: SECTIONS, scroller: el }, attachTo: document.body })
+    await nextTick()
+    el.dispatchEvent(new Event('scroll'))
+    await nextTick()
+    expect(item('main').attributes('aria-current')).toBe('true')
+  })
+})

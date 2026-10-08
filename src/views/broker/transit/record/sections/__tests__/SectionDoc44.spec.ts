@@ -14,11 +14,11 @@ const doc = (o: Partial<ReestrDoc44ItemInput> = {}): ReestrDoc44ItemInput => ({
 })
 
 let w: VueWrapper
-const mount = async (docs: ReestrDoc44ItemInput[], o: { readonly?: boolean; stubSelect?: boolean } = {}) => {
+const mount = async (docs: ReestrDoc44ItemInput[], o: { readonly?: boolean; stubSelect?: boolean; extended?: boolean } = {}) => {
   const draft = emptyDraft()
   draft.doc44.splice(0, draft.doc44.length, ...docs)
   w = mountWithI18n(SectionDoc44, {
-    props: { draft, readonly: o.readonly ?? false },
+    props: { draft, readonly: o.readonly ?? false, ...(o.extended === undefined ? {} : { extended: o.extended }) },
     attachTo: document.body,
     global: { stubs: o.stubSelect === false ? {} : { ZSelect: SelectStub } },
   })
@@ -150,5 +150,19 @@ describe('SectionDoc44', () => {
     expect(r0).toContain('Номер бланка: Б-7')
     expect(rows()[1].text()).toContain('28.09.2026')
     expect(rows()[1].text()).not.toContain('Номер бланка')
+  })
+
+  it('extended=false (гр.44 партии): без «Ещё»; новая строка — только код, вид, номер, дата', async () => {
+    const d = await mount([doc({ docNumber: '1' })], { extended: false })
+    expect(w.find('[data-doc44-more]').exists()).toBe(false)
+    expect(w.find('[data-doc44-delete]').exists()).toBe(true)
+    await w.get('[data-section-add]').trigger('click')
+    await flushPromises()
+    expect(d.doc44[1]).toEqual({ docTypeCode: null, docTypeName: null, docNumber: null, docDate: null })
+  })
+
+  it('extended=false, только чтение: доп. сведения не выводятся', async () => {
+    await mount([doc({ docNumber: '1', formBlankNumber: 'Б-7' })], { extended: false, readonly: true })
+    expect(w.find('[data-doc44-extras]').exists()).toBe(false)
   })
 })

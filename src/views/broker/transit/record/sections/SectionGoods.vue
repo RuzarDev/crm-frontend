@@ -14,6 +14,7 @@ import RecordSection from './RecordSection.vue'
 import SectionAddButton from './SectionAddButton.vue'
 
 // Раздел «Товары» (доска TransitRecord, разбор §2.4): карточки товаров, «Из Excel», строка итогов.
+// Слот actions-lead — первым в действиях (страница партии кладёт туда «Из инвойса»); в чтении не показывается.
 // Товары пишутся прямо в draft.goods. Итоги записи («Основное») пишет useTransitRecord — здесь только показ.
 // Развёрнутость — по стабильному ключу товара (WeakMap по объекту), не по индексу: при открытии записи
 // развёрнута первая карточка, добавленная кнопкой — тоже; строки из Excel приходят свёрнутыми.
@@ -128,6 +129,7 @@ const totalCells = computed(() => {
 <template>
   <RecordSection id="goods" :title="t('broker.transitRecord.sections.goods')" :count="draft.goods.length">
     <template v-if="!readonly" #actions>
+      <slot name="actions-lead" />
       <input ref="fileInput" type="file" class="hidden" tabindex="-1" aria-hidden="true" :accept="GOODS_EXCEL_ACCEPT" data-goods-excel-input @change="onFile">
       <ZButton variant="ghost" :loading="excelBusy" class="max-sm:h-11" data-goods-excel @click="fileInput?.click()">
         <template #icon><PhUploadSimple :size="16" aria-hidden="true" /></template>

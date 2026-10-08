@@ -21,7 +21,8 @@ import { boxCtl, ctl, str } from './ui'
 // 2009, выбор подставляет вид), вид, номер, дата; под строкой «Ещё» — уполномоченный орган, ИД органа, номер
 // бланка (сервер их хранит). «Действует с / по» и «Страна выдачи» сервер не хранит — не показываются (B.6).
 // На телефоне строки — карточки с подписями полей.
-const props = defineProps<{ draft: RecordDraft; readonly: boolean }>()
+// extended=false — без «Ещё» (гр.44 партии пакета: у неё таких полей нет), новая строка — только код, вид, номер, дата.
+const props = withDefaults(defineProps<{ draft: RecordDraft; readonly: boolean; extended?: boolean }>(), { extended: true })
 const { t } = useI18n()
 const tr = (key: string, p?: Record<string, unknown>) => t(`broker.transitRecord.doc44.${key}`, p ?? {})
 
@@ -55,15 +56,9 @@ const toggleMore = (item: ReestrDoc44ItemInput) => {
 }
 
 /** Новая строка — только поля, которые хранит сервер (прежняя форма слала и поля Импорта 40). */
-const newDoc = (): ReestrDoc44ItemInput => ({
-  docTypeCode: null,
-  docTypeName: null,
-  docNumber: null,
-  docDate: null,
-  authorizedBody: null,
-  authorizedBodyId: null,
-  formBlankNumber: null,
-})
+const newDoc = (): ReestrDoc44ItemInput => (props.extended
+  ? { docTypeCode: null, docTypeName: null, docNumber: null, docDate: null, authorizedBody: null, authorizedBodyId: null, formBlankNumber: null }
+  : { docTypeCode: null, docTypeName: null, docNumber: null, docDate: null })
 
 const listEl = ref<HTMLElement | null>(null)
 const add = async () => {
@@ -96,11 +91,11 @@ const moreAria = (item: ReestrDoc44ItemInput, n: number) => {
   return c ? `${tr('moreLabel', { n })}, ${tr('moreFilled', { count: c })}` : tr('moreLabel', { n })
 }
 
-const extras = (item: ReestrDoc44ItemInput) => ([
+const extras = (item: ReestrDoc44ItemInput) => (!props.extended ? '' : ([
   ['authorizedBody', item.authorizedBody],
   ['authorizedBodyId', item.authorizedBodyId],
   ['formBlankNumber', item.formBlankNumber],
-] as const).filter(([, v]) => v).map(([k, v]) => `${tr(k)}: ${v}`).join(' · ')
+] as const).filter(([, v]) => v).map(([k, v]) => `${tr(k)}: ${v}`).join(' · '))
 
 const cols = 'sm:grid-cols-[10rem_minmax(0,1.5fr)_minmax(0,1fr)_9.5rem_auto]'
 const cellLabel = 'text-xs leading-4 text-ink-3 sm:sr-only'
@@ -175,6 +170,7 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
               </div>
               <div class="flex items-center justify-end gap-1 max-sm:justify-between">
                 <ZButton
+                  v-if="extended"
                   variant="ghost"
                   size="sm"
                   class="max-sm:h-11 max-sm:px-3"
@@ -203,7 +199,7 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
               </div>
             </div>
             <div
-              v-if="more.has(keyOf(item))"
+              v-if="extended && more.has(keyOf(item))"
               :id="domId(item, 'more')"
               class="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:bg-canvas sm:px-3 sm:pt-2 sm:pb-3"
               data-doc44-extra
