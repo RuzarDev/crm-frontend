@@ -2,6 +2,7 @@ import { defineComponent, h, reactive, type Component } from 'vue'
 import { vi } from 'vitest'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { Import40CaseDto, Import40FileDto } from '@/api/import40'
+import type { DeclarationReadiness } from '@/types/api'
 import { casePerms, type CaseAuth } from '../casePermissions'
 import { STEP_EXECUTOR, stepStateOf, stepSummary, type StepNo } from '../caseSteps'
 import type { CaseStepContext, CaseStepMode } from '../caseContext'
@@ -23,9 +24,13 @@ export function mountStep(Step: Component, o: {
   mode?: CaseStepMode
   kase?: Partial<Import40CaseDto>
   files?: Import40FileDto[]
+  readiness?: DeclarationReadiness[] | null
+  plugins?: unknown[]
   stubs?: Record<string, unknown>
 }) {
-  const state = reactive({ kase: caseDto(o.kase), files: o.files ?? [] }) as { kase: Import40CaseDto; files: Import40FileDto[] }
+  const state = reactive({ kase: caseDto(o.kase), files: o.files ?? [], readiness: o.readiness ?? null }) as {
+    kase: Import40CaseDto; files: Import40FileDto[]; readiness: DeclarationReadiness[] | null
+  }
   const reload = vi.fn(async () => undefined)
   const harness = defineComponent({
     setup(_, { expose }) {
@@ -36,7 +41,7 @@ export function mountStep(Step: Component, o: {
           kase: state.kase,
           files: state.files,
           invoices: [],
-          readiness: null,
+          readiness: state.readiness,
           perms: casePerms(o.user, state.kase),
           actions,
           setCase: (c) => { state.kase = c },
@@ -53,6 +58,6 @@ export function mountStep(Step: Component, o: {
       }
     },
   })
-  const w = mountWithI18n(harness, { attachTo: document.body, global: { stubs: { ZTooltip: TooltipStub, ZSelect: SelectStub, ...(o.stubs ?? {}) } } })
+  const w = mountWithI18n(harness, { attachTo: document.body, global: { plugins: o.plugins ?? [], stubs: { ZTooltip: TooltipStub, ZSelect: SelectStub, ...(o.stubs ?? {}) } } })
   return { w, state, reload }
 }

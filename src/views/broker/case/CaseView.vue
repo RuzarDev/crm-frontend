@@ -14,6 +14,7 @@ import CaseHeader from './CaseHeader.vue'
 import CaseSide from './CaseSide.vue'
 import CaseStepper from './CaseStepper.vue'
 import StepBorder from './steps/StepBorder.vue'
+import StepDeclaring from './steps/StepDeclaring.vue'
 import StepDraft from './steps/StepDraft.vue'
 import StepPlaceholder from './steps/StepPlaceholder.vue'
 import { casePerms, readinessAvailable } from './casePermissions'
@@ -24,7 +25,7 @@ import { useCaseActions } from './useCaseActions'
 
 // Карточка заявки сотрудника /import-40/:id (редизайн, волна 4а; доски Case и CaseSvh).
 // Шапка, полоса шагов, плашки; слева — текущий шаг и «Пройденные шаги», справа — команда, заявка, файлы, история.
-// Панели шагов — по контракту caseContext.ts; шаги 3–6 пока StepPlaceholder (Tasks 4–5 заменят).
+// Панели шагов — по контракту caseContext.ts; шаги 4–6 пока StepPlaceholder (Task 5 заменит).
 const { t, locale } = useI18n()
 const route = useRoute()
 const auth = useAuthStore()
@@ -32,7 +33,7 @@ const auth = useAuthStore()
 const STEP_COMPONENTS: Record<StepNo, Component> = {
   1: StepDraft,
   2: StepBorder,
-  3: StepPlaceholder,
+  3: StepDeclaring,
   4: StepPlaceholder,
   5: StepPlaceholder,
   6: StepPlaceholder,
