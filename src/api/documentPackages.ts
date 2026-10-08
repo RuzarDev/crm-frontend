@@ -10,21 +10,26 @@ import type {
 } from '@/types/api'
 
 export const documentPackagesApi = {
-  list: async (params?: {
-    search?: string
-    status?: DocumentPackageStatus | null
-  }): Promise<DocumentPackageListResponse> => {
+  // silent — экран сам рисует «не удалось загрузить» с «Повторить», без тоста перехватчика.
+  list: async (
+    params?: {
+      search?: string
+      status?: DocumentPackageStatus | null
+    },
+    opts?: { silent?: boolean },
+  ): Promise<DocumentPackageListResponse> => {
     const response = await apiClient.get<DocumentPackageListResponse>('/document-packages', {
       params: {
         ...(params?.search ? { search: params.search } : {}),
         ...(params?.status ? { status: params.status } : {}),
       },
+      ...(opts?.silent ? { silent: true } : {}),
     })
     return response.data
   },
 
-  getById: async (id: string): Promise<DocumentPackageDto> => {
-    const response = await apiClient.get<DocumentPackageDto>(`/document-packages/${id}`)
+  getById: async (id: string, opts?: { silent?: boolean }): Promise<DocumentPackageDto> => {
+    const response = await apiClient.get<DocumentPackageDto>(`/document-packages/${id}`, opts?.silent ? { silent: true } : undefined)
     return response.data
   },
 

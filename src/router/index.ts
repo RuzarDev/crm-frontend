@@ -75,7 +75,7 @@ const router = createRouter({
         {
           path: '/document-packages',
           name: 'document-packages',
-          component: () => import('@/views/DocumentPackagesView.vue'),
+          component: () => import('@/views/broker/packages/PackagesView.vue'),
         },
         {
           path: '/document-packages/:id/workspace',
