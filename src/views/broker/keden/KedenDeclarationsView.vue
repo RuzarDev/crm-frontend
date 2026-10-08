@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhArrowsClockwise } from '@phosphor-icons/vue'
+import { PhArrowClockwise } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZTable from '@/components/z/ZTable.vue'
@@ -60,6 +60,9 @@ const typeOptions = computed(() => KEDEN_DECLARATION_TYPES.map((x) => ({ value: 
 const statuses = computed(() => statusOptions(items.value))
 const posts = computed(() => postOptions(items.value))
 const setType = (v: string | null) => { type.value = v; void board.load() }
+// Страница — управляемая: новый поиск, фильтр или тип начинают с первой.
+const page = ref(1)
+watch([filters, type], () => { page.value = 1 }, { deep: true })
 const resetFilters = () => {
   filters.value = emptyFilters()
   if (type.value) setType(null)
@@ -77,6 +80,8 @@ const columns = computed<ZColumn<KedenRow>[]>(() => [
 ])
 const tableWidth = computed(() => columns.value.reduce((sum, c) => sum + (typeof c.width === 'number' ? c.width : 0), 0))
 const pagination = computed(() => ({
+  current: page.value,
+  onChange: (p: number) => { page.value = p },
   showTotal: (total: number, [from, to]: [number, number]) => t('broker.keden.range', { from, to, total }),
 }))
 const typeShort = (code: string) => {
@@ -111,8 +116,8 @@ const emptyHint = computed(() => (filtered.value ? t('broker.list.nothingFoundHi
         <p class="m-0 mt-1 text-sm text-muted" data-keden-subtitle>{{ subtitle }}</p>
       </div>
       <div class="flex flex-wrap gap-2 max-sm:w-full">
-        <ZButton :loading="board.loading" class="max-sm:h-11 max-sm:flex-1" data-keden-refresh @click="board.load()">
-          <template #icon><PhArrowsClockwise :size="16" aria-hidden="true" /></template>
+        <ZButton variant="ghost" :loading="board.loading && !!board.data" class="max-sm:h-11 max-sm:flex-1" data-keden-refresh @click="board.load()">
+          <template #icon><PhArrowClockwise :size="16" aria-hidden="true" /></template>
           {{ t('broker.list.refresh') }}
         </ZButton>
       </div>

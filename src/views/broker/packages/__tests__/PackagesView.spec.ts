@@ -17,6 +17,7 @@ vi.mock('@/api/reestr', () => ({ reestrApi: { listPortfolioClients: api.clients 
 vi.mock('@/ui/message', () => ({ message: api.toast }))
 
 import PackagesView from '../PackagesView.vue'
+import ZPagination from '@/components/z/ZPagination.vue'
 import { useAuthStore } from '@/stores/auth'
 
 // Панель и окно — заглушки (проверяются состав экрана и запросы); загрузка файла выбирает один файл.
@@ -143,6 +144,44 @@ describe('PackagesView: список', () => {
     await flushPromises()
     expect(has('[data-packages-error]')).toBe(false)
     expect(trains()).toHaveLength(5)
+  })
+})
+
+describe('PackagesView: страница и «Обновить»', () => {
+  const MANY = Array.from({ length: 30 }, (_, i) => pkg({
+    id: `m${i}`, trainNumber: `Поезд ${100 + i}`, status: 'uploaded', createdAtUtc: new Date(Date.UTC(2026, 9, 8) - i * 3600_000).toISOString(),
+  }))
+  const pageNo = () => w.getComponent(ZPagination).props('current')
+  const toPage2 = async () => {
+    w.getComponent(ZPagination).vm.$emit('change', 2)
+    await flushPromises()
+    expect(pageNo()).toBe(2)
+    expect(trains()[0]).toBe('Поезд 125')
+  }
+
+  it('новый поиск и смена статуса возвращают на первую страницу', async () => {
+    api.list.mockResolvedValue({ items: MANY, totalCount: 30 })
+    await mountView()
+    await toPage2()
+    await w.get('input[type="search"]').setValue('Поезд')
+    await flushPromises()
+    expect(pageNo()).toBe(1)
+    expect(trains()[0]).toBe('Поезд 100')
+
+    await toPage2()
+    await w.findAll('[data-packages-segments] button')[1].trigger('click')
+    await flushPromises()
+    expect(pageNo()).toBe(1)
+  })
+
+  it('«Обновить» перечитывает список, страница остаётся', async () => {
+    api.list.mockResolvedValue({ items: MANY, totalCount: 30 })
+    await mountView()
+    await toPage2()
+    await w.get('[data-packages-refresh]').trigger('click')
+    await flushPromises()
+    expect(api.list).toHaveBeenCalledTimes(2)
+    expect(pageNo()).toBe(2)
   })
 })
 

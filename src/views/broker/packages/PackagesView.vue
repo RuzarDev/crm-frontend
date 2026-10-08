@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhPlus } from '@phosphor-icons/vue'
+import { PhArrowClockwise, PhPlus } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSegmented from '@/components/z/ZSegmented.vue'
@@ -54,6 +54,9 @@ const segmentOptions = computed(() => (['all', ...PACKAGE_STATUSES] as PackageSe
   count: ready.value ? counts.value[k] : undefined,
 })))
 const resetFilters = () => { query.value = ''; segment.value = 'all' }
+// Страница — управляемая: новый поиск или статус начинают с первой.
+const page = ref(1)
+watch([query, segment], () => { page.value = 1 })
 
 // ---- Таблица ----
 const columns = computed<ZColumn<DocumentPackageDto>[]>(() => [
@@ -66,6 +69,8 @@ const columns = computed<ZColumn<DocumentPackageDto>[]>(() => [
 ])
 
 const pagination = computed(() => ({
+  current: page.value,
+  onChange: (p: number) => { page.value = p },
   showTotal: (total: number, [from, to]: [number, number]) => t('broker.packages.range', { from, to, total }),
 }))
 
@@ -117,8 +122,12 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
           data-packages-count
         >{{ board.data.totalCount }}</span>
       </div>
-      <div v-if="canCreate" class="ml-auto flex flex-wrap gap-2 max-sm:w-full">
-        <ZButton variant="primary" class="max-sm:h-11 max-sm:flex-1" data-packages-new @click="createOpen = true">
+      <div class="ml-auto flex flex-wrap gap-2 max-sm:w-full">
+        <ZButton variant="ghost" :loading="board.loading && !!board.data" class="max-sm:h-11 max-sm:flex-1" data-packages-refresh @click="board.load()">
+          <template #icon><PhArrowClockwise :size="16" aria-hidden="true" /></template>
+          {{ t('broker.list.refresh') }}
+        </ZButton>
+        <ZButton v-if="canCreate" variant="primary" class="max-sm:h-11 max-sm:flex-1" data-packages-new @click="createOpen = true">
           <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
           {{ t('broker.packages.newPackage') }}
         </ZButton>

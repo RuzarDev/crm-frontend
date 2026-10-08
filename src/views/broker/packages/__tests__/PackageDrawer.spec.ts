@@ -19,6 +19,7 @@ vi.mock('@/ui/message', () => ({ message: api.toast }))
 vi.mock('@/ui/download', () => ({ saveBlob: api.saveBlob }))
 
 import PackageDrawer from '../PackageDrawer.vue'
+import PackageStatusModal from '../PackageStatusModal.vue'
 import { useAuthStore } from '@/stores/auth'
 import { confirmState } from '@/ui/confirm'
 
@@ -295,6 +296,64 @@ describe('PackageDrawer: файлы', () => {
     await flushPromises()
     expect(api.deleteFile).toHaveBeenCalledWith('p1', 'f1')
     expect(api.toast.success).toHaveBeenCalledWith('Файл удален')
+    expect(w.emitted('changed')).toHaveLength(1)
+  })
+})
+
+describe('PackageDrawer: переключение пакетов', () => {
+  const B = pkg({ id: 'p2', trainNumber: '2460', status: 'needsFix' })
+  const B_FULL = { ...B, containers: [{ id: 'c9', packageId: 'p2', containerNumber: 'TGHU0000001', secondaryContainerNumber: null, consolidations: [] as never }] }
+  const deferred = <T,>() => {
+    let resolve!: (v: T) => void
+    const promise = new Promise<T>((r) => { resolve = r })
+    return { promise, resolve }
+  }
+  const containers = () => w.findAll('[data-package-container]').map((c) => c.text())
+
+  it('открыли A, затем B; ответ по A пришёл позже — не показан', async () => {
+    const a = deferred<DocumentPackageDto>()
+    api.getById.mockImplementation((id: string) => (id === 'p1' ? a.promise : Promise.resolve(B_FULL)))
+    await mountDrawer()
+    await w.setProps({ row: B })
+    await flushPromises()
+    expect(w.get('[data-package-title]').text()).toBe('2460')
+    expect(containers()).toHaveLength(1)
+    a.resolve(FULL)
+    await flushPromises()
+    expect(w.get('[data-package-title]').text()).toBe('2460')
+    expect(containers()).toEqual([expect.stringContaining('TGHU')])
+    expect(has('[data-package-skeleton]')).toBe(false)
+  })
+
+  it('загрузка в A закончилась после перехода на B: A не перечитывается, у B свой флаг загрузки', async () => {
+    const up = deferred<unknown>()
+    api.uploadFile.mockReturnValueOnce(up.promise)
+    api.getById.mockImplementation(async (id: string) => (id === 'p1' ? FULL : B_FULL))
+    await mountDrawer()
+    await w.get('[data-package-upload]').trigger('click')
+    await flushPromises()
+    expect(w.get('[data-package-upload]').attributes('loading')).toBe('true')
+    await w.setProps({ row: B })
+    await flushPromises()
+    expect(w.get('[data-package-upload]').attributes('loading')).toBe('false')
+    const calls = api.getById.mock.calls.length
+    up.resolve({})
+    await flushPromises()
+    expect(api.getById.mock.calls.length).toBe(calls) // A не перечитан
+    expect(w.emitted('changed')).toHaveLength(1) // список всё равно обновляется
+    expect(containers()).toHaveLength(1)
+  })
+
+  it('смена статуса A пришла, когда открыт B: B не затирается', async () => {
+    api.getById.mockImplementation(async (id: string) => (id === 'p1' ? FULL : B_FULL))
+    await mountDrawer()
+    await w.setProps({ row: B })
+    await flushPromises()
+    w.getComponent(PackageStatusModal).vm.$emit('changed', pkg({ status: 'accepted' }))
+    await flushPromises()
+    expect(w.get('[data-package-title]').text()).toBe('2460')
+    expect(w.get('[data-package-status]').text()).not.toBe('Принят брокером')
+    expect(containers()).toHaveLength(1)
     expect(w.emitted('changed')).toHaveLength(1)
   })
 })

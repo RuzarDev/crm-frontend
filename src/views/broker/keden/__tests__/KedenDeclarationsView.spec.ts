@@ -11,6 +11,8 @@ vi.mock('@/api/keden', async (orig) => ({
 }))
 
 import KedenDeclarationsView from '../KedenDeclarationsView.vue'
+import FilterChip from '@/components/broker/FilterChip.vue'
+import ZPagination from '@/components/z/ZPagination.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const li = (o: Record<string, unknown>) => ({
@@ -153,6 +155,48 @@ describe('KedenDeclarationsView: mode=all', () => {
     await w.get('[data-keden-refresh]').trigger('click')
     await flushPromises()
     expect(api.list).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('KedenDeclarationsView: страница', () => {
+  const MANY = {
+    items: Array.from({ length: 30 }, (_, i) => li({
+      id: `m${i}`, registrationNumber: `56000/081026/00${String(10000 + i)}`, statusName: 'Выпуск разрешён', customsPost: 'Достык',
+      statusDateTimeUtc: new Date(Date.UTC(2026, 9, 8) - i * 3600_000).toISOString(),
+    })),
+    total: 30,
+  }
+  const pageNo = () => w.getComponent(ZPagination).props('current')
+  const toPage2 = async () => {
+    w.getComponent(ZPagination).vm.$emit('change', 2)
+    await flushPromises()
+    expect(pageNo()).toBe(2)
+  }
+  const chip = (attr: string) => w.findAllComponents(FilterChip).find((c) => c.attributes(attr) !== undefined)!
+
+  it('поиск, статус, пост и тип возвращают на первую страницу', async () => {
+    api.list.mockResolvedValue(MANY)
+    await mountView('all')
+    await toPage2()
+    await w.get('input[type="search"]').setValue('56000')
+    await flushPromises()
+    expect(pageNo()).toBe(1)
+
+    await toPage2()
+    chip('data-keden-filter-status').vm.$emit('update:value', 'Выпуск разрешён')
+    await flushPromises()
+    expect(pageNo()).toBe(1)
+
+    await toPage2()
+    chip('data-keden-filter-post').vm.$emit('update:value', 'Достык')
+    await flushPromises()
+    expect(pageNo()).toBe(1)
+
+    await toPage2()
+    chip('data-keden-filter-type').vm.$emit('update:value', 'DT')
+    await flushPromises()
+    expect(api.list).toHaveBeenLastCalledWith({ type: 'DT' }, { silent: true })
+    expect(pageNo()).toBe(1)
   })
 })
 

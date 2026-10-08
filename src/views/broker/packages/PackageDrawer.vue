@@ -77,11 +77,15 @@ const download = async (f: DocumentPackageFileDto) => {
   }
 }
 
-const uploading = ref(false)
+// Флаг загрузки — у каждого пакета свой: панель могли переключить на другой пакет, пока файлы уходят.
+// Перечитываем только тот пакет, что сейчас открыт, — иначе поздний ответ сбил бы загрузку нового.
+const uploadingIds = ref<string[]>([])
+const uploading = computed(() => !!view.value && uploadingIds.value.includes(view.value.id))
+const reloadIfShown = async (id: string) => { if (view.value?.id === id) await load(id) }
 const upload = async (files: File[]) => {
   const pkg = view.value
-  if (!pkg || uploading.value) return
-  uploading.value = true
+  if (!pkg || uploadingIds.value.includes(pkg.id)) return
+  uploadingIds.value = [...uploadingIds.value, pkg.id]
   let ok = true
   try {
     for (const f of files) await documentPackagesApi.uploadFile(pkg.id, f)
@@ -90,10 +94,10 @@ const upload = async (files: File[]) => {
   }
   try {
     if (ok) message.success(t('transit.faylyZagruzheny'))
-    await load(pkg.id)
+    await reloadIfShown(pkg.id)
     emit('changed')
   } finally {
-    uploading.value = false
+    uploadingIds.value = uploadingIds.value.filter((id) => id !== pkg.id)
   }
 }
 
@@ -113,14 +117,14 @@ const removeFile = async (f: DocumentPackageFileDto) => {
     return // тост показал перехватчик
   }
   message.success(t('transit.faylUdalen'))
-  await load(pkg.id)
+  await reloadIfShown(pkg.id)
   emit('changed')
 }
 
 // ---- Статус и рабочая область ----
 const statusOpen = ref(false)
 const onStatusChanged = (updated: DocumentPackageDto) => {
-  detail.value = updated
+  if (updated.id === props.row?.id) detail.value = updated // ответ по прежнему пакету новый не затирает
   emit('changed')
 }
 const openWorkspace = () => {
