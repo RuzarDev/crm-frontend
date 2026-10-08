@@ -94,7 +94,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { ref, onMounted, toRef } from 'vue'
+import { ref, onMounted } from 'vue'
 import type {
   ReestrEntryStatus,
   ReestrGoodsItemInput,
@@ -124,7 +124,6 @@ import PrecedingDocsBlock from '@/components/reestr/PrecedingDocsBlock.vue'
 import GuaranteeBlock from '@/components/reestr/GuaranteeBlock.vue'
 import MiscSectionsBlock from '@/components/reestr/MiscSectionsBlock.vue'
 import { referencesApi } from '@/api/references'
-import { useTransitTotals } from '@/composables/useTransitTotals'
 
 const { t } = useI18n()
 
@@ -168,7 +167,7 @@ interface FormState {
   guarantees: ReestrGuaranteeInput[]
 }
 
-const props = defineProps<{
+defineProps<{
   formState: FormState
   isEdit: boolean
   readonly?: boolean
@@ -177,11 +176,8 @@ const props = defineProps<{
   statusOptions: { value: ReestrEntryStatus; label: string }[]
 }>()
 
-// КЕДЕН-транзит: автопересчёт §1 «Общие сведения» из списка товаров
-useTransitTotals(
-  toRef(() => props.formState.goods),
-  toRef(() => props.formState.transit),
-)
+// Автопересчёт §1 «Общие сведения» из товаров — в ReestrForm: он знает, когда запись загружена заново
+// (useTransitTotals.rebase), и не даёт пересчёту затереть сохранённые итоги при открытии.
 </script>
 
 <style scoped>

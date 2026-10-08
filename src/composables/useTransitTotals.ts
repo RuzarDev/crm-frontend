@@ -1,50 +1,74 @@
 // crm-frontend/src/composables/useTransitTotals.ts
 // КЕДЕН-транзит: автопересчёт агрегатов «Общие сведения» (transit.goodsQuantity/
-// cargoPlacesCount/grossWeightKg/totalValue) из списка товаров (goods). Поля
-// остаются редактируемыми вручную — пересчёт срабатывает только когда сумма по
-// товарам реально меняется, чтобы не затирать ручную правку пользователя на
-// каждый watch-тик и не зацикливаться.
+// cargoPlacesCount/grossWeightKg/totalValue) из списка товаров (goods).
+//
+// Правила (иначе сохранение записи затирало итоги, см. хотфикс потери данных транзита):
+//  - при подключении и после rebase() ничего не пишется: сохранённые/ручные значения остаются
+//    как есть, текущие суммы по товарам становятся точкой отсчёта;
+//  - пересчёт — только когда сумма по товарам реально изменилась после этого (правка товаров),
+//    и пишется только изменившийся агрегат;
+//  - при пустом списке товаров (и для суммы, у которой ни у одного товара нет значения)
+//    ничего не пишется — 0 вместо неизвестного не подставляем.
+// Владелец формы вызывает rebase() после того, как заново загрузил в неё запись (goods + transit).
 import { watch, type Ref } from 'vue'
 import type { ReestrGoodsItemInput, ReestrTransitFields } from '@/types/api'
 
-function sumBy(goods: ReestrGoodsItemInput[], key: 'packagesCount' | 'grossWeightKg' | 'customsValue'): number {
-  return goods.reduce((acc, g) => acc + (typeof g[key] === 'number' ? (g[key] as number) : 0), 0)
+type SumKey = 'packagesCount' | 'grossWeightKg' | 'customsValue'
+
+// null — ни у одного товара нет числа в этом поле (сумма неизвестна, а не 0).
+function sumBy(goods: ReestrGoodsItemInput[], key: SumKey): number | null {
+  let acc: number | null = null
+  for (const g of goods) {
+    const v = g[key]
+    if (typeof v === 'number' && !Number.isNaN(v)) acc = (acc ?? 0) + v
+  }
+  return acc
 }
+
+interface Totals {
+  goodsQuantity: number
+  cargoPlacesCount: number | null
+  grossWeightKg: number | null
+  totalValue: number | null
+}
+
+const totalsOf = (goods: ReestrGoodsItemInput[] | null | undefined): Totals => {
+  const list = goods ?? []
+  return {
+    goodsQuantity: list.length,
+    cargoPlacesCount: sumBy(list, 'packagesCount'),
+    grossWeightKg: sumBy(list, 'grossWeightKg'),
+    totalValue: sumBy(list, 'customsValue'),
+  }
+}
+
+const KEYS = ['goodsQuantity', 'cargoPlacesCount', 'grossWeightKg', 'totalValue'] as const
 
 export function useTransitTotals(
   goods: Ref<ReestrGoodsItemInput[]>,
   transit: Ref<ReestrTransitFields>,
 ) {
-  let lastGoodsQuantity: number | null = null
-  let lastCargoPlacesCount: number | null = null
-  let lastGrossWeightKg: number | null = null
-  let lastTotalValue: number | null = null
+  let last: Totals = totalsOf(goods.value)
+
+  /** Текущие товары — новая точка отсчёта; в transit ничего не пишется. */
+  const rebase = () => {
+    last = totalsOf(goods.value)
+  }
 
   watch(
     goods,
     (list) => {
-      const goodsQuantity = list.length
-      const cargoPlacesCount = sumBy(list, 'packagesCount')
-      const grossWeightKg = sumBy(list, 'grossWeightKg')
-      const totalValue = sumBy(list, 'customsValue')
-
-      if (goodsQuantity !== lastGoodsQuantity) {
-        lastGoodsQuantity = goodsQuantity
-        transit.value.goodsQuantity = goodsQuantity
-      }
-      if (cargoPlacesCount !== lastCargoPlacesCount) {
-        lastCargoPlacesCount = cargoPlacesCount
-        transit.value.cargoPlacesCount = cargoPlacesCount
-      }
-      if (grossWeightKg !== lastGrossWeightKg) {
-        lastGrossWeightKg = grossWeightKg
-        transit.value.grossWeightKg = grossWeightKg
-      }
-      if (totalValue !== lastTotalValue) {
-        lastTotalValue = totalValue
-        transit.value.totalValue = totalValue
+      const next = totalsOf(list)
+      const prev = last
+      last = next
+      if (!list?.length) return
+      for (const key of KEYS) {
+        const value = next[key]
+        if (value != null && value !== prev[key]) transit.value[key] = value
       }
     },
-    { deep: true, immediate: true },
+    { deep: true },
   )
+
+  return { rebase }
 }

@@ -88,7 +88,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, toRef, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import type {
   ReestrEntry,
@@ -112,6 +112,7 @@ import { useAuthStore } from '@/stores/auth'
 import { formatReestrDateForForm, normalizeReestrFieldsForSubmit } from '@/utils/reestrFormat'
 import { reestrStatusOptions as reestrStatusOptionsList, REESTR_TRANSIT_DEFAULTS } from '@/utils/reestrDtoMap'
 import { message } from '@/ui/message'
+import { useTransitTotals } from '@/composables/useTransitTotals'
 import ReestrDocumentsPanel from '@/components/ReestrDocumentsPanel.vue'
 import ReestrStatusHistoryPanel from '@/components/ReestrStatusHistoryPanel.vue'
 import ReestrFormFields from '@/components/ReestrFormFields.vue'
@@ -225,42 +226,64 @@ const formState = reactive<{
   guarantees: [],
 })
 
+// КЕДЕН-транзит: автопересчёт §1 «Общие сведения» из товаров — только при правке товаров;
+// загрузка записи в форму (loadEntry) итоги не трогает.
+const transitTotals = useTransitTotals(
+  toRef(() => formState.goods),
+  toRef(() => formState.transit),
+)
+
+// Ключ колонки даты — константа (ключи data — русские названия колонок реестра, не переводятся).
+const DATE_KEY = 'Дата'
+
+const loadEntry = () => {
+  const nextFields: Record<string, string | null> = {}
+  for (const key of REESTR_COLUMN_KEYS) {
+    const raw = props.entry?.data[key] ?? null
+    nextFields[key] = key === DATE_KEY ? formatReestrDateForForm(raw) : raw
+  }
+  formState.fields = nextFields
+  formState.status = props.entry?.status ?? ReestrEntryStatusValues.InProgress
+  formState.clientId = props.entry?.clientId ?? props.clientOptions?.[0]?.value
+  formState.sealNumber = props.entry?.data['№ Пломбы'] ?? null
+  formState.packagingType = props.entry?.data['Вид упаковки'] ?? null
+  formState.goods = [...(props.entry?.goods ?? [])]
+  formState.doc44 = [...(props.entry?.doc44 ?? [])]
+  // Дефолты КЕДЕН-транзита предзаполняются только для новой записи;
+  // при редактировании — значения из существующей записи.
+  formState.transit = props.entry
+    ? { ...props.entry.transit }
+    : { ...REESTR_TRANSIT_DEFAULTS }
+  formState.organizations = [...(props.entry?.organizations ?? [])]
+  formState.carriers = [...(props.entry?.carriers ?? [])]
+  formState.transportMeans = [...(props.entry?.transportMeans ?? [])]
+  formState.identificationMeans = [...(props.entry?.identificationMeans ?? [])]
+  formState.packages = [...(props.entry?.packages ?? [])]
+  formState.containers = [...(props.entry?.containers ?? [])]
+  formState.precedingDocs = [...(props.entry?.precedingDocs ?? [])]
+  formState.cargoOperations = [...(props.entry?.cargoOperations ?? [])]
+  formState.guarantees = [...(props.entry?.guarantees ?? [])]
+  // Товары только что загружены — это точка отсчёта, а не правка: сохранённые итоги остаются.
+  transitTotals.rebase()
+  // Снимок — после того как вложенные поля применили свои значения по умолчанию.
+  snapshot.value = null
+  void nextTick(() => { snapshot.value = JSON.stringify(formState) })
+}
+
+// Открытие окна — загрузить запись и встать на начальную вкладку. Запись заменили при открытом окне
+// (перечитали после автозаполнения на вкладке «Документы») — форма пересобирается, вкладка остаётся.
 watch(
-  () => props.open,
-  (newVal) => {
-    if (newVal) {
+  [() => props.open, () => props.entry],
+  ([open, entry], [wasOpen, prevEntry]) => {
+    if (!open) {
+      snapshot.value = null
+      return
+    }
+    if (!wasOpen) {
       activeTab.value = props.initialTab
-      const nextFields: Record<string, string | null> = {}
-      for (const key of REESTR_COLUMN_KEYS) {
-        const raw = props.entry?.data[key] ?? null
-        nextFields[key] = key === t('transit.data') ? formatReestrDateForForm(raw) : raw
-      }
-      formState.fields = nextFields
-      formState.status = props.entry?.status ?? ReestrEntryStatusValues.InProgress
-      formState.clientId = props.entry?.clientId ?? props.clientOptions?.[0]?.value
-      formState.sealNumber = props.entry?.data['№ Пломбы'] ?? null
-      formState.packagingType = props.entry?.data['Вид упаковки'] ?? null
-      formState.goods = [...(props.entry?.goods ?? [])]
-      formState.doc44 = [...(props.entry?.doc44 ?? [])]
-      // Дефолты КЕДЕН-транзита предзаполняются только для новой записи;
-      // при редактировании — значения из существующей записи.
-      formState.transit = props.entry
-        ? { ...props.entry.transit }
-        : { ...REESTR_TRANSIT_DEFAULTS }
-      formState.organizations = [...(props.entry?.organizations ?? [])]
-      formState.carriers = [...(props.entry?.carriers ?? [])]
-      formState.transportMeans = [...(props.entry?.transportMeans ?? [])]
-      formState.identificationMeans = [...(props.entry?.identificationMeans ?? [])]
-      formState.packages = [...(props.entry?.packages ?? [])]
-      formState.containers = [...(props.entry?.containers ?? [])]
-      formState.precedingDocs = [...(props.entry?.precedingDocs ?? [])]
-      formState.cargoOperations = [...(props.entry?.cargoOperations ?? [])]
-      formState.guarantees = [...(props.entry?.guarantees ?? [])]
-      // Снимок — после того как вложенные поля применили свои значения по умолчанию.
-      snapshot.value = null
-      void nextTick(() => { snapshot.value = JSON.stringify(formState) })
-    } else {
-      snapshot.value = null
+      loadEntry()
+    } else if (entry !== prevEntry) {
+      loadEntry()
     }
   },
 )
@@ -305,7 +328,10 @@ const handleSubmit = () => {
   }
 
   emit('submit', {
+    // Сервер перезаписывает все поля записи: ключи data, которых форма не показывает (например «Пост»),
+    // уходят как были в исходной записи; показанные — из формы.
     data: normalizeReestrFieldsForSubmit({
+      ...(props.entry?.data ?? {}),
       ...formState.fields,
       '№ Пломбы': formState.sealNumber,
       'Вид упаковки': formState.packagingType,
