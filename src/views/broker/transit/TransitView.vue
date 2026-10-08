@@ -358,7 +358,7 @@ const exportFile = async () => {
 // Узкий экран: вторичные действия шапки — в меню «⋯», главное остаётся кнопкой.
 const headerMenuItems = computed<ZDropdownItem[]>(() => [
   ...(canWrite.value ? [{ key: 'upload', label: t('broker.transit.uploadExcel'), icon: PhFileArrowUp }, { key: 'import', label: t('broker.transit.importInvoice'), icon: PhReceipt }] : []),
-  { key: 'export', label: t('broker.list.excel'), icon: PhDownloadSimple },
+  { key: 'export', label: t('transit.vygruzitReestr'), icon: PhDownloadSimple },
 ])
 const onHeaderMenu = (key: string) => {
   if (key === 'upload') void showUpload()
