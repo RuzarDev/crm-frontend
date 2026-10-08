@@ -194,3 +194,12 @@ describe('GoodsCard в разделе — свёрнутость по ключу
     expect(expanded()).toEqual(['false', 'true'])
   })
 })
+
+describe('GoodsCard — номер', () => {
+  it('скруглён токеном набора, не rounded-md (сброшен в tokens.css)', async () => {
+    await mountCard(good())
+    const cls = w.get('[data-goods-number]').classes()
+    expect(cls).toContain('rounded-field')
+    expect(cls).not.toContain('rounded-md')
+  })
+})

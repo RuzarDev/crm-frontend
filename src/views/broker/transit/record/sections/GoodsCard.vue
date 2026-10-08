@@ -142,7 +142,7 @@ const row1 = 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6'
 const row2 = 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]'
 const row3 = 'grid grid-cols-1 gap-3 sm:grid-cols-3'
 const readRowClass = [row1, row2, row3]
-const badge = 'inline-flex size-[22px] shrink-0 items-center justify-center rounded-md bg-surface text-xs font-semibold text-ink tabular-nums shadow-[inset_0_0_0_1px_var(--color-line-strong)]'
+const badge = 'inline-flex size-[22px] shrink-0 items-center justify-center rounded-field bg-surface text-xs font-semibold text-ink tabular-nums shadow-[inset_0_0_0_1px_var(--color-line-strong)]'
 const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden transition-colors hover:bg-tone-danger-bg hover:text-tone-danger-fg focus-visible:shadow-focus max-sm:size-11'
 const sideBtn = 'shrink-0 border border-line-strong bg-surface enabled:hover:bg-sunken max-sm:h-11'
 </script>

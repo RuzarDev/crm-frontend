@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ZCombobox from '@/components/z/ZCombobox.vue'
 import ZDate from '@/components/z/ZDate.vue'
@@ -54,9 +55,24 @@ const numberOf = (key: string): number | null => {
   const v = text(key)
   return v === null || v.trim() === '' ? null : parseNumber(v)
 }
-const isNumeric = (key: string): boolean => {
-  const v = text(key)
-  return v === null || v.trim() === '' || parseNumber(v) !== null
+const isNumericValue = (v: string | null): boolean => v === null || v.trim() === '' || parseNumber(v) !== null
+
+// Число или текст — решается по значению, пришедшему извне (открытие, «Отменить», перечитывание), а не по вводу:
+// иначе правка «12 шт» → «12» подменила бы поле на ZNumber посреди ввода и фокус бы пропал (итоговое ревью T2).
+const textKeys = reactive(new Set<string>())
+/** Последнее значение, введённое в текстовое поле числовой колонки: его изменение — ввод, режим не пересчитывается. */
+const typed = new Map<string, string | null>()
+for (const key of NUMBER_KEYS) {
+  watch(() => props.draft.fields[key] ?? null, (v) => {
+    if (typed.has(key) && typed.get(key) === v) return
+    typed.delete(key)
+    if (isNumericValue(v)) textKeys.delete(key)
+    else textKeys.add(key)
+  }, { immediate: true })
+}
+const setTyped = (key: string, v: unknown) => {
+  setText(key, v)
+  typed.set(key, props.draft.fields[key] ?? null)
 }
 const setNumber = (key: string, n: number | null) => { props.draft.fields[key] = n === null ? null : String(n) }
 
@@ -74,8 +90,8 @@ const tnvedError = (): string | undefined => {
         <ZField v-for="key in REESTR_COLUMN_KEYS" :key="key" :label="label(key)" :error="key === 'Код ТНВЭД' ? tnvedError() : undefined">
           <ZDate v-if="key === 'Дата'" :value="text(key)" allow-clear :placeholder="ph(readonly)" :disabled="readonly" :class="ctl" :data-f="key" @update:value="setText(key, $event)" />
           <ZCombobox v-else-if="key === 'Станция назначения'" :value="text(key)" :options="refs.stationOptions.value" allow-clear :disabled="readonly" :placeholder="ph(readonly, t('broker.transitRecord.main.stationPlaceholder'))" :class="boxCtl" :data-f="key" @update:value="setText(key, $event)" />
-          <ZNumber v-else-if="NUMBER_KEYS.has(key) && isNumeric(key)" :value="numberOf(key)" :min="0" :disabled="readonly" :class="ctl" :data-f="key" @update:value="setNumber(key, $event)" />
-          <ZInput v-else :value="text(key)" :mono="MONO_KEYS.has(key)" :maxlength="key === 'Код ТНВЭД' ? 10 : undefined" :inputmode="key === 'Код ТНВЭД' ? 'numeric' : undefined" :disabled="readonly" :class="ctl" :data-f="key" @update:value="setText(key, $event)" />
+          <ZNumber v-else-if="NUMBER_KEYS.has(key) && !textKeys.has(key)" :value="numberOf(key)" :min="0" :disabled="readonly" :class="ctl" :data-f="key" @update:value="setNumber(key, $event)" />
+          <ZInput v-else :value="text(key)" :mono="MONO_KEYS.has(key)" :maxlength="key === 'Код ТНВЭД' ? 10 : undefined" :inputmode="key === 'Код ТНВЭД' ? 'numeric' : undefined" :disabled="readonly" :class="ctl" :data-f="key" @update:value="NUMBER_KEYS.has(key) ? setTyped(key, $event) : setText(key, $event)" />
         </ZField>
       </div>
 

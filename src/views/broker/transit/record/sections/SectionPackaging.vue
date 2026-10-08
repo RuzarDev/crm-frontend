@@ -26,7 +26,8 @@ const kindOptions = computed(() => refs.classifierOptions('packaging-info-kind')
 const typeOptions = computed(() => refs.classifierOptions('2013'))
 const cards = ref<{ add: () => void } | null>(null)
 const newPackage = (): ReestrPackageInput => ({ packagingInfoKindCode: null, packageTypeCode: null, packageCount: null, description: null })
-const choose = t('broker.transitRecord.parties.choose')
+/** Подсказка «Выберите» — computed: следует за сменой языка. */
+const choose = computed(() => t('broker.transitRecord.parties.choose'))
 </script>
 
 <template>

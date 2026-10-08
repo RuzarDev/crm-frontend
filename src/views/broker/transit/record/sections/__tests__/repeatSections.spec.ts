@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import type { Component } from 'vue'
+import { mount as vtuMount } from '@vue/test-utils'
+import { createI18n } from 'vue-i18n'
+import en from '@/i18n/locales/en'
+import ru from '@/i18n/locales/ru'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import { COLLECTION_SECTION, TRANSIT_FIELD_SECTION } from '../../recordModel'
 
@@ -228,5 +232,45 @@ describe.each([
       const off = c.attributes('disabled') !== undefined || c.attributes('data-disabled') === 'true' || c.attributes('data-disabled') === ''
       expect(off, c.html()).toBe(true)
     }
+  })
+})
+
+describe('итоговое ревью: контейнеры и упаковка', () => {
+  it('номер контейнера: верхний регистр при правке в середине — каретка остаётся на месте', async () => {
+    const draft = emptyDraft()
+    draft.containers.push({ containerNumber: 'MRSU4885849', note: null })
+    const d = await mount(SectionContainers, { draft })
+    const el = f('containerNumber').element as HTMLInputElement
+    el.focus()
+    // Пользователь вставил «x» после «MRSU» (позиция 4 → каретка 5).
+    el.value = 'MRSUx4885849'
+    el.setSelectionRange(5, 5)
+    await f('containerNumber').trigger('input')
+    expect(d.containers[0].containerNumber).toBe('MRSUX4885849')
+    expect(el.value).toBe('MRSUX4885849')
+    expect([el.selectionStart, el.selectionEnd]).toEqual([5, 5])
+    // Пусто — null.
+    el.value = ''
+    await f('containerNumber').trigger('input')
+    expect(d.containers[0].containerNumber).toBeNull()
+  })
+
+  it('«Упаковка»: подсказка «Выберите» следует за языком интерфейса', async () => {
+    const i18n = createI18n({ legacy: false, locale: 'ru', messages: { ru, en } })
+    const draft = emptyDraft()
+    draft.packages.push({ packagingInfoKindCode: null, packageTypeCode: null, packageCount: null, description: null })
+    w = vtuMount(SectionPackaging, {
+      props: { draft, readonly: false },
+      attachTo: document.body,
+      global: { plugins: [i18n], stubs: { ZSelect: SelectStub, ZCombobox: ComboStub } },
+    })
+    await flushPromises()
+    const ph = () => w.get('[data-f="packagingInfoCode"]').attributes('placeholder')
+    expect(ph()).toBe(ru.broker.transitRecord.parties.choose)
+    i18n.global.locale.value = 'en'
+    await flushPromises()
+    expect(ph()).toBe(en.broker.transitRecord.parties.choose)
+    expect(ph()).not.toBe(ru.broker.transitRecord.parties.choose)
+    expect(rows()[0].get('[data-f="packageTypeCode"]').attributes('placeholder')).toBe(en.broker.transitRecord.parties.choose)
   })
 })

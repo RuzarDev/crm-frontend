@@ -82,4 +82,11 @@ describe('RepeatCards', () => {
     expect(host.findAll('b').map((b) => b.text())).toEqual(['x', 'y'])
     host.unmount()
   })
+
+  it('номер строки скруглён токеном набора (rounded-md сброшен в tokens.css и дал бы квадрат)', () => {
+    mountCards([{ name: 'a' }])
+    const cls = w.get('[data-repeat-number]').classes()
+    expect(cls).toContain('rounded-field')
+    expect(cls).not.toContain('rounded-md')
+  })
 })

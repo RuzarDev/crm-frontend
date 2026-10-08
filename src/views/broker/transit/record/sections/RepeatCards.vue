@@ -36,7 +36,7 @@ const remove = (index: number) => { if (!props.readonly) props.items.splice(inde
 defineExpose({ add })
 
 const deleteBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden transition-colors hover:bg-tone-danger-bg hover:text-tone-danger-fg focus-visible:shadow-focus max-sm:size-11'
-const badge = 'inline-flex size-[22px] shrink-0 items-center justify-center rounded-md bg-surface text-xs font-semibold text-ink tabular-nums shadow-[inset_0_0_0_1px_var(--color-line-strong)]'
+const badge = 'inline-flex size-[22px] shrink-0 items-center justify-center rounded-field bg-surface text-xs font-semibold text-ink tabular-nums shadow-[inset_0_0_0_1px_var(--color-line-strong)]'
 </script>
 
 <template>

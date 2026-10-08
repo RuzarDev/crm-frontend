@@ -139,4 +139,31 @@ describe('SectionRow', () => {
     expect(f('Вес').element.parentElement!.className).toContain('max-sm:h-11')
     expect(w.get('[data-row-grid]').classes()).toContain('grid-cols-1')
   })
+
+  it('«12 шт» → «12»: поле остаётся текстовым, пока его правят (тот же узл, фокус на месте); новое значение извне — снова решается', async () => {
+    const draft = newDraft()
+    draft.fields['Вес'] = '12 шт'
+    const d = await mount({ draft })
+    const el = input('Вес').element as HTMLInputElement
+    el.focus()
+    await type('Вес', '12')
+    expect(d.fields['Вес']).toBe('12')
+    expect(input('Вес').element).toBe(el)
+    expect(el.isConnected).toBe(true)
+    expect(document.activeElement).toBe(el)
+    await type('Вес', '12,5 кг')
+    expect(d.fields['Вес']).toBe('12,5 кг')
+    expect(input('Вес').element).toBe(el)
+    // Значение пришло извне («Отменить», перечитывание, другая запись) — число: поле числовое.
+    d.fields['Вес'] = '570.5'
+    await flushPromises()
+    expect(input('Вес').element).not.toBe(el)
+    await type('Вес', '1 234,5')
+    await input('Вес').trigger('blur')
+    expect(d.fields['Вес']).toBe('1234.5')
+    // И наоборот: извне не число — текстом, значение не пропадает.
+    d.fields['Вес'] = '3 вагона'
+    await flushPromises()
+    expect((input('Вес').element as HTMLInputElement).value).toBe('3 вагона')
+  })
 })
