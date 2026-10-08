@@ -5,8 +5,9 @@ import kk from '@/i18n/locales/kk'
 import en from '@/i18n/locales/en'
 import {
   MONTH_SERIES, STAGE_BAR, barHeight, barWidth, chartDescription, delta, deltaText, deltaTone, formatDays, formatPayments, maxOf,
-  monthLabel, pluralForm, roleShort, stageBar, staffName,
+  monthLabel, paymentsTitle, roleShort, stageBar, stageLabel, staffName,
 } from '../analytics'
+import type { AnalyticsStage } from '@/api/analytics'
 
 const i18n = createI18n({ legacy: false, locale: 'ru', messages: { ru, kk, en } })
 const tIn = (locale: 'ru' | 'kk' | 'en') => (key: string, params?: Record<string, unknown>) =>
@@ -70,13 +71,14 @@ describe('столбцы и полосы', () => {
 })
 
 describe('подписи месяцев', () => {
-  it('на трёх языках', () => {
-    expect(['2026-01', '2026-05', '2026-09', '2026-12'].map((m) => monthLabel(m, tIn('ru')))).toEqual(['янв', 'май', 'сен', 'дек'])
-    expect(['2026-01', '2026-05', '2026-09', '2026-12'].map((m) => monthLabel(m, tIn('kk')))).toEqual(['қаң', 'мам', 'қыр', 'жел'])
-    expect(['2026-01', '2026-05', '2026-09', '2026-12'].map((m) => monthLabel(m, tIn('en')))).toEqual(['Jan', 'May', 'Sep', 'Dec'])
+  it('на трёх языках, с годом из двух цифр (как раньше)', () => {
+    expect(['2026-01', '2026-05', '2026-09', '2025-12'].map((m) => monthLabel(m, tIn('ru')))).toEqual(['янв 26', 'май 26', 'сен 26', 'дек 25'])
+    expect(['2026-01', '2026-05', '2026-09', '2025-12'].map((m) => monthLabel(m, tIn('kk')))).toEqual(['қаң 26', 'мам 26', 'қыр 26', 'жел 25'])
+    expect(['2026-01', '2026-05', '2026-09', '2025-12'].map((m) => monthLabel(m, tIn('en')))).toEqual(['Jan 26', 'May 26', 'Sep 26', 'Dec 25'])
   })
   it('мусор возвращается как есть', () => {
     expect(monthLabel('bad', t)).toBe('bad')
+    expect(monthLabel('2026-13', t)).toBe('2026-13')
   })
 })
 
@@ -92,10 +94,6 @@ describe('числа', () => {
     expect(nb(formatDays(4.6, 'ru', t))).toBe('4,6 дн.')
     expect(nb(formatDays(12, 'ru', t))).toBe('12 дн.')
     expect(formatDays(null, 'ru', t)).toBe('—')
-  })
-  it('форма существительного', () => {
-    expect([1, 2, 5, 21, 11].map((n) => pluralForm('ru', n))).toEqual(['one', 'few', 'many', 'one', 'many'])
-    expect([1, 2].map((n) => pluralForm('en', n))).toEqual(['one', 'many'])
   })
 })
 
@@ -113,8 +111,21 @@ describe('люди', () => {
     expect(staffName(s, {})).toBe('aigerim')
     expect(staffName({ ...s, username: '' }, {})).toBe('—')
   })
-  it('описание графика содержит значения по месяцам', () => {
-    const d = chartDescription([{ month: '2026-09', cases: 33, declarations: 41, paymentsKzt: 0, transitEntries: 16 }], t)
-    expect(d).toContain('сен: заявки 33, ДТ 41, транзит 16')
+  it('описание графика содержит значения по месяцам и платежи, если были', () => {
+    const d = chartDescription([
+      { month: '2026-09', cases: 33, declarations: 41, paymentsKzt: 18_200_000, transitEntries: 16 },
+      { month: '2026-10', cases: 9, declarations: 11, paymentsKzt: 0, transitEntries: 4 },
+    ], t, 'ru')
+    expect(nb(d)).toContain('сен 26: заявки 33, ДТ 41, транзит 16, платежи гр. B 18,2 млн ₸')
+    expect(nb(d)).toContain('окт 26: заявки 9, ДТ 11, транзит 4')
+    expect(d).not.toContain('транзит 4, платежи')
+  })
+  it('полная сумма для подсказки — только у значений «млн ₸»', () => {
+    expect(paymentsTitle(450_000)).toBeUndefined()
+    expect(nb(paymentsTitle(18_206_900)!)).toBe('18 206 900 ₸')
+  })
+  it('стадия draft — «Заявка и документы»', () => {
+    expect(stageLabel({ key: 'draft', count: 1 } as AnalyticsStage, t)).toBe('Заявка и документы')
+    expect(stageLabel({ key: 'border', count: 1 } as AnalyticsStage, t)).toBe('На границе')
   })
 })

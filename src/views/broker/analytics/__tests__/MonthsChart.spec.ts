@@ -16,13 +16,14 @@ const MONTHS = [
 const nb = (s: string) => s.replace(/ /g, ' ')
 
 describe('MonthsChart', () => {
-  it('график — одно изображение с описанием; у каждого столбика свой aria-label', () => {
+  it('график — одно изображение с описанием (с платежами); у столбиков только title, без aria-label', () => {
     w = mountWithI18n(MonthsChart, { props: { months: MONTHS } })
     const root = w.get('[data-months-chart]')
     expect(root.attributes('role')).toBe('img')
-    expect(root.attributes('aria-label')).toContain('сен: заявки 33, ДТ 41, транзит 16')
+    expect(nb(root.attributes('aria-label')!)).toContain('сен 26: заявки 33, ДТ 41, транзит 16, платежи гр. B 18,2 млн ₸')
     const first = w.findAll('[data-month]')[0]
-    expect(first.findAll('[data-bar]').map((b) => b.attributes('aria-label'))).toEqual(['Заявки: 18', 'ДТ: 22', 'Транзит: 9'])
+    expect(first.findAll('[data-bar]').map((b) => b.attributes('title'))).toEqual(['Заявки: 18', 'ДТ: 22', 'Транзит: 9'])
+    expect(w.findAll('[data-bar]').every((b) => b.attributes('aria-label') === undefined)).toBe(true)
     expect(w.findAll('[data-bar]')).toHaveLength(18)
   })
 
@@ -49,9 +50,10 @@ describe('MonthsChart', () => {
   it('под столбиками: месяц, числа «з · д · т» и платежи; без платежей строки нет', () => {
     w = mountWithI18n(MonthsChart, { props: { months: MONTHS } })
     const cols = w.findAll('[data-month]')
-    expect(cols.map((c) => c.get('[data-month-label]').text())).toEqual(['май', 'июн', 'июл', 'авг', 'сен', 'окт'])
+    expect(cols.map((c) => c.get('[data-month-label]').text())).toEqual(['май 26', 'июн 26', 'июл 26', 'авг 26', 'сен 26', 'окт 26'])
     expect(cols[4].get('[data-month-nums]').text()).toBe('33 · 41 · 16')
     expect(nb(cols[4].get('[data-month-pay]').text())).toBe('18,2 млн ₸')
+    expect(nb(cols[4].get('[data-month-pay]').attributes('title')!)).toBe('18 200 000 ₸')
     expect(cols[5].find('[data-month-pay]').exists()).toBe(false)
   })
 })

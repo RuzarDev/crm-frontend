@@ -13,18 +13,18 @@ import { analyticsApi, type AnalyticsStaff } from '@/api/analytics'
 import { manageApi } from '@/api/manage'
 import { useAuthStore } from '@/stores/auth'
 import { useBlock } from '@/views/home/useBlock'
-import { formatUpdated } from '@/views/broker/list'
+import { formatUpdated, pluralForm } from '@/views/broker/list'
 import { formatMoney } from '@/ui/number'
 import type { ZColumn } from '@/ui/table'
 import MonthsChart from './MonthsChart.vue'
 import {
-  MONTH_SERIES, barWidth, delta, deltaText, deltaTone, formatDays, formatPayments, maxOf, pluralForm, roleShort,
+  MONTH_SERIES, barWidth, delta, deltaText, deltaTone, formatDays, formatPayments, maxOf, paymentsTitle, roleShort,
   staffName, stageBar, stageLabel,
 } from './analytics'
 
 // «Аналитика» (редизайн, волна 3б, доска Analytics): показатели за 30 дней с дельтой, шесть месяцев, стадии заявок,
 // клиенты по платежам, последние события, загрузка сотрудников. Только просмотр; период один — 30 дней (сервер другого не отдаёт).
-// Имена сотрудников — из справочника «Распределения» (нужно право import40.assign); у кого его нет — остаётся логин, без тоста.
+// Имена сотрудников — из справочника «Распределения» (нужно право import40.assign); без права его не запрашиваем — остаётся логин.
 const { t, te, locale } = useI18n()
 const auth = useAuthStore()
 
@@ -34,6 +34,7 @@ const isAdmin = computed(() => (auth.role || '').trim().toLowerCase() === 'admin
 
 const names = ref<Record<string, string>>({})
 const loadNames = async () => {
+  if (!auth.hasPermission('import40.assign')) return
   try {
     const ov = await manageApi.overview({ silent: true })
     names.value = Object.fromEntries(ov.staff.map((s) => [s.id, s.displayName || s.username]))
@@ -59,7 +60,7 @@ const stats = computed<StatItem[]>(() => {
   return [
     withDelta('cases', d.cases30d, d.casesPrev30d, String(d.cases30d), true),
     withDelta('declarations', d.declarations30d, d.declarationsPrev30d, String(d.declarations30d)),
-    withDelta('payments', d.payments30dKzt, d.paymentsPrev30dKzt, formatPayments(d.payments30dKzt, locale.value, t)),
+    { ...withDelta('payments', d.payments30dKzt, d.paymentsPrev30dKzt, formatPayments(d.payments30dKzt, locale.value, t)), valueTitle: paymentsTitle(d.payments30dKzt) },
     {
       key: 'avgDays', label: t('broker.analytics.stat.avgDays'), value: formatDays(d.avgDaysToDone, locale.value, t),
       hint: t('broker.analytics.stat.avgHint', { active: d.activeCases, problems: d.problemCases }),
@@ -72,7 +73,7 @@ const stages = computed(() => board.data?.stages ?? [])
 const stagesMax = computed(() => maxOf(stages.value.map((s) => s.count)))
 const clients = computed(() => board.data?.topClients ?? [])
 const clientsMax = computed(() => maxOf(clients.value.map((c) => c.paymentsKzt)))
-const casesNoun = (n: number) => `${n} ${t(`broker.analytics.clients.cases.${pluralForm(locale.value, n)}`)}`
+const casesNoun = (n: number) => `${n} ${t(`broker.analytics.clients.cases.${pluralForm(n, locale.value)}`)}`
 
 // ---- События ----
 const events = computed(() => board.data?.recentActivity ?? [])
@@ -138,10 +139,10 @@ const h2 = 'text-[15px] leading-6 font-semibold tracking-[-0.005em] text-ink'
             <li
               v-for="s in stages"
               :key="s.key"
-              class="grid grid-cols-[8.75rem_minmax(0,1fr)_2.25rem] items-center gap-2.5 py-[5px] text-sm"
+              class="grid grid-cols-[10rem_minmax(0,1fr)_2.25rem] items-center gap-2.5 py-[5px] text-sm"
               data-analytics-stage
             >
-              <span class="min-w-0 truncate text-ink-2">{{ stageLabel(s, t) }}</span>
+              <span class="min-w-0 truncate text-ink-2" :title="stageLabel(s, t)">{{ stageLabel(s, t) }}</span>
               <span class="h-2 rounded-pill bg-sunken" aria-hidden="true">
                 <span :class="['block h-2 rounded-pill', stageBar(s.key)]" :style="{ width: `${barWidth(s.count, stagesMax)}%` }" />
               </span>

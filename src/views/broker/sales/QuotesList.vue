@@ -44,7 +44,7 @@ const tableWidth = computed(() => columns.value.reduce((sum, c) => sum + (typeof
 const pagination = computed(() => ({
   current: page.value,
   onChange: (p: number) => { page.value = p },
-  showTotal: (total: number, [from, to]: [number, number]) => t('broker.sales.quotes.range', { from, to, total }),
+  showTotal: (total: number, [from, to]: [number, number]) => t('broker.list.range', { from, to, total }),
 }))
 
 // ---- Панель КП ----
@@ -71,7 +71,7 @@ const rowClass = (r: SalesQuoteListItem) =>
 <template>
   <div class="flex flex-col gap-4" data-quotes>
     <div class="flex flex-wrap items-center gap-2">
-      <ListSearch :value="query" :placeholder="t('broker.sales.quotes.search')" class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1" @update:value="query = $event" />
+      <ListSearch :value="query" :placeholder="t('broker.sales.quotes.search')" @update:value="query = $event" />
       <FilterChip :label="t('broker.sales.quotes.status')" :options="statusOptions" :value="status" data-quotes-status @update:value="status = $event" />
     </div>
 

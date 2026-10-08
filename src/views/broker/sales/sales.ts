@@ -64,8 +64,6 @@ export const hasAntiDumping = (goods: SalesCalcGoodsResult[]): boolean => goods.
 export const goodsErrorText = (g: Pick<SalesCalcGoodsResult, 'code' | 'error'>, t: T): string =>
   `${g.code || t('broker.sales.goodsFallback')}: ${g.error ?? ''}`
 
-/** Сумма без знака валюты — ячейки таблиц, где «₸» в заголовке. */
-export const formatAmount = (n: number | null | undefined): string => formatMoney(n ?? 0, '').trimEnd()
 
 const rateFormat = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 })
 /** Курс НБ РК: до двух знаков, «482,61»; пробелы — неразрывные, как у formatMoney. */

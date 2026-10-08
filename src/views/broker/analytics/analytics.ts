@@ -50,11 +50,11 @@ export const MONTH_SERIES: MonthSeries[] = [
 // Краткие названия месяцев уже есть на трёх языках (admin.*): берём их, подпись реактивна к языку через t().
 const MONTH_KEYS = ['yanv', 'fev', 'mar', 'apr', 'may', 'iyun', 'iyul', 'avg', 'sen', 'okt', 'noya', 'dek']
 
-/** «2026-09» → «сен»; мусор возвращается как есть. */
+/** «2026-09» → «сен 26» (год двумя цифрами, как раньше); мусор возвращается как есть. */
 export function monthLabel(ym: string, t: Translate): string {
-  const m = Number(ym.slice(5, 7))
-  const key = MONTH_KEYS[m - 1]
-  return key ? t(`admin.${key}`) : ym
+  const match = /^(\d{4})-(\d{2})/.exec(ym)
+  const key = match ? MONTH_KEYS[Number(match[2]) - 1] : undefined
+  return match && key ? `${t(`admin.${key}`)} ${match[1].slice(2)}` : ym
 }
 
 // ---- Стадии ----
@@ -67,8 +67,11 @@ export const STAGE_BAR: Record<string, string> = {
   done: 'bg-tone-done-fg',
 }
 export const stageBar = (key: string): string => STAGE_BAR[key] ?? 'bg-faint'
-export const stageLabel = (s: AnalyticsStage, t: Translate): string =>
-  s.key in STAGE_BAR ? t(`broker.analytics.stage.${s.key}`) : s.key
+/** Подпись стадии; draft — «Заявка и документы», как на остальных экранах (не «Новые»). */
+export const stageLabel = (s: AnalyticsStage, t: Translate): string => {
+  if (s.key === 'draft') return t('admin.zayavkaIDokumenty')
+  return s.key in STAGE_BAR ? t(`broker.analytics.stage.${s.key}`) : s.key
+}
 
 // ---- Числа ----
 /** Платежи в миллионах с одной цифрой: «18,2 млн ₸»; меньше миллиона — полной суммой «450 000 ₸». */
@@ -77,16 +80,13 @@ export function formatPayments(v: number, locale: string, t: Translate): string 
   return t('broker.analytics.mln', { n: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(v / 1_000_000) })
 }
 
+/** Полная сумма для подсказки (title) у значений «млн ₸»; меньше миллиона значение и так полное — undefined. */
+export const paymentsTitle = (v: number): string | undefined => (Math.abs(v) < 1_000_000 ? undefined : formatMoney(v))
+
 /** Срок оформления: «4,6 дн.»; нет выполненных — «—». */
 export function formatDays(v: number | null, locale: string, t: Translate): string {
   if (v == null) return '—'
   return t('broker.analytics.days', { n: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(v) })
-}
-
-/** Форма существительного для «n заявок»: один / несколько / много (ru), остальные языки — по своим правилам. */
-export function pluralForm(locale: string, n: number): 'one' | 'few' | 'many' {
-  const c = new Intl.PluralRules(locale).select(n)
-  return c === 'one' ? 'one' : c === 'few' ? 'few' : 'many'
 }
 
 // ---- Люди ----
@@ -101,10 +101,13 @@ export function roleShort(role: string, t: Translate, te: (key: string) => boole
 export const staffName = (s: AnalyticsStaff, names: Record<string, string>): string =>
   names[s.userId] || (s.username || '').trim() || '—'
 
-/** Общее описание графика для скринридера: ряды по месяцам. */
-export function chartDescription(months: AnalyticsMonth[], t: Translate): string {
-  const parts = months.map((m) => t('broker.analytics.chart.monthSummary', {
-    month: monthLabel(m.month, t), cases: m.cases, declarations: m.declarations, transit: m.transitEntries,
-  }))
+/** Общее описание графика для скринридера: ряды по месяцам и платежи гр. B (если были). */
+export function chartDescription(months: AnalyticsMonth[], t: Translate, locale: string): string {
+  const parts = months.map((m) => {
+    const params = { month: monthLabel(m.month, t), cases: m.cases, declarations: m.declarations, transit: m.transitEntries }
+    return m.paymentsKzt
+      ? t('broker.analytics.chart.monthSummaryPay', { ...params, payments: formatPayments(m.paymentsKzt, locale, t) })
+      : t('broker.analytics.chart.monthSummary', params)
+  })
   return `${t('broker.analytics.chart.label')}. ${parts.join('; ')}`
 }

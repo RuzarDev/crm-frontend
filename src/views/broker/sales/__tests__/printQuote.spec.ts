@@ -27,7 +27,23 @@ const quote = (o: Partial<SalesQuoteDto> = {}): SalesQuoteDto => ({
 })
 const nb = (s: string) => s.replace(/\u00a0/g, ' ')
 
-afterEach(() => { vi.restoreAllMocks(); vi.clearAllMocks() })
+// В jsdom у URL нет createObjectURL/revokeObjectURL: заводим пустые на время теста (чтобы было за чем следить
+// vi.spyOn) и убираем после — URL других тестов остаётся как был.
+const URL_STATICS = ['createObjectURL', 'revokeObjectURL'] as const
+let addedStatics: string[] = []
+const ensureUrlStatics = () => {
+  for (const k of URL_STATICS) {
+    if (k in URL) continue
+    Object.defineProperty(URL, k, { configurable: true, writable: true, value: () => undefined })
+    addedStatics.push(k)
+  }
+}
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.clearAllMocks()
+  for (const k of addedStatics) delete (URL as unknown as Record<string, unknown>)[k]
+  addedStatics = []
+})
 
 describe('печать КП', () => {
   it('(баг) линия шапки — фирменный hex, без неопределённой var(--z-teal)', () => {
@@ -104,9 +120,10 @@ describe('печать КП', () => {
   })
 
   it('printQuote: открывает окно с документом; всплывающие запрещены — предупреждение', () => {
-    const create = vi.fn(() => 'blob:q')
-    const revoke = vi.fn()
-    Object.assign(URL, { createObjectURL: create, revokeObjectURL: revoke })
+    // Шпионы снимает vi.restoreAllMocks() в afterEach — URL других тестов не меняется.
+    ensureUrlStatics()
+    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:q')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
     const open = vi.spyOn(window, 'open').mockReturnValue({} as Window)
     printQuote(quote())
     expect(create).toHaveBeenCalledTimes(1)

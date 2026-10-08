@@ -15,12 +15,12 @@ import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
 import type { TnvedCurrencyDto } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
-import { formatMoney } from '@/ui/number'
+import { formatAmount, formatMoney } from '@/ui/number'
 import { message } from '@/ui/message'
 import type { ZColumn } from '@/ui/table'
 import { formatDay } from '@/views/broker/list'
 import {
-  activeServices, antiDumpingChoices, buildPayload, exciseChoices, formatAmount, formatRate, goodsErrorText, hasAntiDumping,
+  activeServices, antiDumpingChoices, buildPayload, exciseChoices, formatRate, goodsErrorText, hasAntiDumping,
   hasKedenBlock, isStale, payloadKey, serviceLineTotal, tpinBreakdown, type GoodsRow, type ServiceRow,
 } from './sales'
 
@@ -64,6 +64,15 @@ const rateFor = (code: string | null | undefined): string | null => {
   return c ? formatRate(c.rate) : null
 }
 const usd = computed(() => currencies.value.find((c) => c.codeLat === 'USD') ?? null)
+// «курс НБ РК на 08.10: …»; без даты обновления (или она не разобралась) — подпись без даты, а не «на —».
+const usdLabel = computed(() => {
+  const c = usd.value
+  if (!c) return ''
+  const day = formatDay(c.updatedAtUtc)
+  return day === '—'
+    ? t('broker.sales.usdRateNoDate', { rate: formatRate(c.rate) })
+    : t('broker.sales.usdRate', { date: day.slice(0, 5), rate: formatRate(c.rate) })
+})
 
 // ---- Услуги ----
 // «Из прайса» — выбор без своего значения: выбранная услуга сразу становится строкой, поле остаётся пустым.
@@ -133,7 +142,9 @@ const calculate = async () => {
   }
 }
 
-// Выбор КЕДЕН у товара пересчитывает всё (строки результата и формы — по индексу, как раньше).
+// Выбор КЕДЕН у товара пересчитывает всё (строки результата и формы — по индексу, как раньше). Пока идёт расчёт
+// или результат устарел (строки товаров могли сдвинуться), выбор закрыт: сначала «Пересчитать».
+const kedenLocked = computed(() => calculating.value || stale.value)
 const setExcise = (gi: number, v: unknown) => {
   const row = goodsLines.value[gi]
   if (!row) return
@@ -454,6 +465,7 @@ const h2 = 'm-0 text-[15px] leading-6 font-semibold text-ink'
           </template>
         </ZTable>
         <div v-if="kedenGoods.length" class="flex flex-col gap-4 border-t border-line px-5 py-4" data-sales-keden>
+          <p v-if="stale" class="m-0 text-sm text-gold-ink" data-keden-stale>{{ t('broker.sales.kedenStale') }}</p>
           <div v-for="{ g, gi } in kedenGoods" :key="gi" class="flex flex-col gap-2" :data-keden-goods="gi">
             <div class="text-sm font-semibold text-ink [overflow-wrap:anywhere]"><span class="font-mono">{{ g.code }}</span> — {{ g.description }}</div>
             <p v-if="g.notes" class="m-0 text-sm text-muted">{{ g.notes }}</p>
@@ -461,7 +473,7 @@ const h2 = 'm-0 text-[15px] leading-6 font-semibold text-ink'
               <ZSelect
                 :value="g.exciseKind ?? null"
                 :options="exciseChoices(g.exciseOptions)"
-                :disabled="calculating"
+                :disabled="kedenLocked"
                 class="max-w-[480px]"
                 data-keden-excise
                 @update:value="setExcise(gi, $event)"
@@ -471,7 +483,7 @@ const h2 = 'm-0 text-[15px] leading-6 font-semibold text-ink'
               <ZSelect
                 :value="goodsLines[gi]?.antiDumpingKind ?? ''"
                 :options="antiDumpingChoices(g.antiDumpingOptions, t)"
-                :disabled="calculating"
+                :disabled="kedenLocked"
                 class="max-w-[480px]"
                 data-keden-antidumping
                 @update:value="setAntiDumping(gi, $event)"
@@ -487,7 +499,7 @@ const h2 = 'm-0 text-[15px] leading-6 font-semibold text-ink'
       <div>
         <h2 id="sales-summary" :class="h2">{{ t('sales.itog') }}</h2>
         <p v-if="usd" class="m-0 mt-0.5 text-xs text-muted tabular-nums" data-sales-usd>
-          {{ t('broker.sales.usdRate', { date: formatDay(usd.updatedAtUtc).slice(0, 5), rate: formatRate(usd.rate) }) }}
+          {{ usdLabel }}
         </p>
       </div>
 

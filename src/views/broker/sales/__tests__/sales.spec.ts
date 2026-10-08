@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { SalesCalcGoodsResult, SalesQuoteListItem } from '@/api/sales'
 import {
-  activeServices, antiDumpingChoices, buildPayload, exciseChoices, filterQuotes, formatAmount, formatRate, goodsErrorText, hasAntiDumping,
+  activeServices, antiDumpingChoices, buildPayload, exciseChoices, filterQuotes, formatRate, goodsErrorText, hasAntiDumping,
   hasKedenBlock, isStale, payloadKey, quoteNumber, quoteStatusKey, quoteTone, seesAllQuotes, serviceLineTotal, tpinBreakdown,
   type GoodsRow, type ServiceRow,
 } from '../sales'
+import { formatAmount } from '@/ui/number'
 
 const t = (k: string, p?: Record<string, unknown>) => (p ? `${k}${JSON.stringify(p)}` : k)
 const nb = (s: string) => s.replace(/ /g, ' ')

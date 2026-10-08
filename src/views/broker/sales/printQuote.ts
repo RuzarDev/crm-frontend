@@ -1,7 +1,7 @@
 import type { SalesQuoteDto } from '@/api/sales'
 import { i18n } from '@/i18n'
 import { message } from '@/ui/message'
-import { formatMoney } from '@/ui/number'
+import { formatAmount, formatMoney } from '@/ui/number'
 import { formatDay } from '@/views/broker/list'
 import atgLogoSvgRaw from '@/assets/atg-logo-group.svg?raw'
 
@@ -24,8 +24,6 @@ export interface QuoteHtmlOptions {
 const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 export const escapeHtml = (s: string | null | undefined): string => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c])
 
-/** Сумма без знака валюты — для ячеек таблиц. */
-const num = (n: number | null | undefined): string => formatMoney(n ?? 0, '').trimEnd()
 const money = (n: number | null | undefined): string => formatMoney(n ?? 0)
 
 const R = ' style="text-align:right"'
@@ -38,7 +36,7 @@ export function buildQuoteHtml(q: SalesQuoteDto, t: T, opts: QuoteHtmlOptions = 
   const hasAntiDumping = q.goodsLines.some((g) => (g.antiDumpingKzt ?? 0) > 0)
 
   const svcRows = q.serviceLines
-    .map((s) => `<tr><td>${escapeHtml(s.name)}</td><td${R}>${num(s.unitPrice)}</td><td${C}>${escapeHtml(`${s.quantity} ${s.unit ?? ''}`.trim())}</td><td${C}>${s.discountPercent}%</td><td${R}>${money(s.total)}</td></tr>`)
+    .map((s) => `<tr><td>${escapeHtml(s.name)}</td><td${R}>${formatAmount(s.unitPrice)}</td><td${C}>${escapeHtml(`${s.quantity} ${s.unit ?? ''}`.trim())}</td><td${C}>${s.discountPercent}%</td><td${R}>${money(s.total)}</td></tr>`)
     .join('')
   const svcTable = svcRows
     ? `<h3>${p('services')}</h3><table><thead><tr><th>${p('col.service')}</th><th>${p('col.price')}</th><th>${p('col.qty')}</th><th>${p('col.discount')}</th><th>${p('col.amount')}</th></tr></thead><tbody>${svcRows}</tbody></table>`
@@ -47,9 +45,9 @@ export function buildQuoteHtml(q: SalesQuoteDto, t: T, opts: QuoteHtmlOptions = 
   const goodsRows = q.goodsLines
     .map((g) => [
       `<tr><td>${escapeHtml(g.description || g.code)}</td><td>${escapeHtml(g.code)}</td>`,
-      `<td${R}>${num(g.importDutyKzt)}</td>`,
-      hasAntiDumping ? `<td${R}>${num(g.antiDumpingKzt)}</td>` : '',
-      `<td${R}>${num(g.exciseKzt)}</td><td${R}>${num(g.vatKzt)}</td><td${R}>${num(g.customsFeeKzt)}</td>`,
+      `<td${R}>${formatAmount(g.importDutyKzt)}</td>`,
+      hasAntiDumping ? `<td${R}>${formatAmount(g.antiDumpingKzt)}</td>` : '',
+      `<td${R}>${formatAmount(g.exciseKzt)}</td><td${R}>${formatAmount(g.vatKzt)}</td><td${R}>${formatAmount(g.customsFeeKzt)}</td>`,
       `<td${R}>${money(g.tpinTotalKzt)}</td></tr>`,
     ].join(''))
     .join('')

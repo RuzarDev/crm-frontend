@@ -26,6 +26,7 @@ vi.mock('@/components/TnvedPickerModal.vue', () => ({
 import SalesCalculator from '../SalesCalculator.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZInput from '@/components/z/ZInput.vue'
+import ZNumber from '@/components/z/ZNumber.vue'
 
 const SERVICES = [
   { id: 's1', name: 'Оформление ДТ (ИМ 40)', unit: 'за ДТ', price: 45000, sortOrder: 1, isActive: true },
@@ -95,6 +96,22 @@ describe('«Продажи»: расчёт', () => {
     await w.findAll('[data-service-remove]')[0].trigger('click')
     expect(w.findAll('[data-service-name]')).toHaveLength(1)
     expect((w.get('[data-service-name]').element as HTMLInputElement).value).toBe('')
+  })
+
+  it('курс USD без даты обновления — подпись без «на —»', async () => {
+    api.currencies.mockResolvedValue({ data: [{ codeLat: 'USD', name: 'Доллар', rate: 482.61, updatedAtUtc: null }] })
+    await mountCalc()
+    expect(nb(w.get('[data-sales-usd]').text())).toBe('курс НБ РК: 1 USD = 482,61 ₸')
+  })
+
+  it('очищенная цена услуги уходит в расчёт нулём', async () => {
+    await mountCalc()
+    select('data-sales-price').vm.$emit('update:value', 's1')
+    await flushPromises()
+    w.findAllComponents(ZNumber).find((c) => c.find('[data-service-price]').exists())!.vm.$emit('update:value', null)
+    await btn('data-sales-calculate').trigger('click')
+    await flushPromises()
+    expect(api.calculate.mock.calls[0][0].services[0]).toMatchObject({ name: 'Оформление ДТ (ИМ 40)', unitPrice: 0 })
   })
 
   it('первый расчёт — «Рассчитать» в «Итоге»; суммы, расшифровка, тело без _k', async () => {
@@ -184,6 +201,30 @@ describe('«Продажи»: расчёт', () => {
     ad.vm.$emit('update:value', '')
     await flushPromises()
     expect(api.calculate.mock.calls[3][0].goods[0].antiDumpingKind).toBeNull()
+  })
+
+  it('выбор КЕДЕН закрыт, пока идёт расчёт и пока результат устарел; подсказка «пересчитайте»', async () => {
+    await mountCalc()
+    await btn('data-sales-add-goods').trigger('click')
+    await btn('data-sales-calculate').trigger('click')
+    await flushPromises()
+    expect(select('data-keden-excise').props('disabled')).toBe(false)
+    expect(w.find('[data-keden-stale]').exists()).toBe(false)
+    // Строки изменились — результат устарел.
+    select('data-sales-price').vm.$emit('update:value', 's1')
+    await flushPromises()
+    expect(select('data-keden-excise').props('disabled')).toBe(true)
+    expect(w.get('[data-keden-stale]').text()).toBe('Данные изменились — пересчитайте, чтобы выбрать вид ставки')
+    // Пересчёт идёт — тоже закрыт.
+    let finish!: (v: SalesCalcResponse) => void
+    api.calculate.mockReturnValueOnce(new Promise((r) => { finish = r }))
+    await btn('data-sales-recalc').trigger('click')
+    await flushPromises()
+    expect(select('data-keden-excise').props('disabled')).toBe(true)
+    finish(RESULT())
+    await flushPromises()
+    expect(select('data-keden-excise').props('disabled')).toBe(false)
+    expect(w.find('[data-keden-stale]').exists()).toBe(false)
   })
 
   it('ошибка товара — предупреждение «код или Товар: ошибка»; строки с одинаковым кодом не путаются', async () => {

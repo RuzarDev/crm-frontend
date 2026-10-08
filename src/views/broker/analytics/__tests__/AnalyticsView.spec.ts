@@ -89,6 +89,8 @@ describe('«Аналитика»', () => {
     expect(parts(0)).toEqual(['Новых заявок', '33', '+14% к прошлым 30 дням'])
     expect(parts(1)).toEqual(['Подано ДТ', '41', '+8%'])
     expect(parts(2)).toEqual(['Платежи гр. B', '18,2 млн ₸', '−9%'])
+    expect(nb(cells[2].get('[data-stat-value]').attributes('title')!)).toMatch(/^18 \d{3} \d{3} ₸$/)
+    expect(cells[0].get('[data-stat-value]').attributes('title')).toBeUndefined()
     expect(parts(3)).toEqual(['Срок оформления', '4,6 дн.', 'в работе 36 · с проблемой 2'])
     const hint = (i: number) => cells[i].get('[data-stat-hint]').classes()
     expect(hint(0)).toContain('text-tone-done-fg')
@@ -116,7 +118,7 @@ describe('«Аналитика»', () => {
   it('стадии: шесть строк, подписи, числа, цвета-токены', async () => {
     await mountView()
     const rows = w.findAll('[data-analytics-stage]')
-    expect(rows.map((r) => r.get('span').text())).toEqual(['Новые', 'На границе', 'Декларирование', 'СВХ и счёт', 'Оплата', 'Выполнено'])
+    expect(rows.map((r) => r.get('span').text())).toEqual(['Заявка и документы', 'На границе', 'Декларирование', 'СВХ и счёт', 'Оплата', 'Выполнено'])
     expect(w.findAll('[data-analytics-stage-count]').map((c) => c.text())).toEqual(['4', '7', '14', '6', '5', '31'])
     const fill = (i: number) => rows[i].get('[aria-hidden="true"] > span')
     expect(['bg-faint', 'bg-gold', 'bg-zircon', 'bg-tone-pay-fg', 'bg-tone-submitted-fg', 'bg-tone-done-fg'].map((c, i) => fill(i).classes().includes(c)))
@@ -193,6 +195,7 @@ describe('«Аналитика»: последние события', () => {
 
 describe('«Аналитика»: сотрудники и справочник имён', () => {
   it('справочник читается тихо; имя из справочника, иначе логин; роль короткая; «—» без роли', async () => {
+    as('manager', ['analytics.read', 'import40.read', 'import40.assign'])
     await mountView()
     expect(api.overview).toHaveBeenCalledTimes(1)
     expect(api.overview).toHaveBeenCalledWith({ silent: true })
@@ -204,7 +207,15 @@ describe('«Аналитика»: сотрудники и справочник �
     expect(w.findAll('[data-analytics-staff-table] thead th').map((th) => th.text())).toEqual(['Сотрудник', 'Роль', 'В работе', 'Выполнено'])
   })
 
-  it('ошибка справочника (нет права) не ломает экран: логины, без тоста и без блока ошибки', async () => {
+  it('без import40.assign справочник не запрашивается: логины, без запроса и тоста', async () => {
+    await mountView()
+    expect(api.overview).not.toHaveBeenCalled()
+    expect(w.findAll('[data-analytics-staff-name]').map((n) => n.text())).toEqual(['aigerim', 'erlan', '—'])
+    expect(api.toast.error).not.toHaveBeenCalled()
+  })
+
+  it('ошибка справочника не ломает экран: логины, без тоста и без блока ошибки', async () => {
+    as('manager', ['analytics.read', 'import40.read', 'import40.assign'])
     api.overview.mockRejectedValue({ response: { status: 403 } })
     await mountView()
     expect(w.findAll('[data-analytics-staff-name]').map((n) => n.text())).toEqual(['aigerim', 'erlan', '—'])
@@ -251,6 +262,7 @@ describe('«Аналитика»: состояния', () => {
   })
 
   it('«Обновить»: запрашивает заново и справочник имён тоже', async () => {
+    as('manager', ['analytics.read', 'import40.read', 'import40.assign'])
     await mountView()
     await w.get('[data-analytics-refresh]').trigger('click')
     await flushPromises()
