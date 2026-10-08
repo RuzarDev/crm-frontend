@@ -57,11 +57,23 @@ const as = (role: string, perms: string[]) => {
   auth.permissions = perms
 }
 const BROKER = ['reestr.read', 'reestr.write', 'packages.manage', 'clients.read']
-const open = async (path = '/document-packages/pkg1/partia/p1') => {
+const open = async (path = '/document-packages/pkg1/partia/p1', o: { realDialogs?: boolean } = {}) => {
   await router.push(path)
   await router.isReady()
-  w = mountWithI18n(App, { attachTo: document.body, global: { plugins: [router], stubs } })
+  // realDialogs — настоящие ZModal/ZDrawer (Reka, role=dialog в портале): для Ctrl/⌘+S поверх окон.
+  const s = o.realDialogs ? { ZSelect: SelectStub, ZCombobox: ComboStub } : stubs
+  w = mountWithI18n(App, { attachTo: document.body, global: { plugins: [router], stubs: s } })
   await settle()
+}
+const deferred = <T>() => {
+  let resolve!: (v: T) => void
+  const promise = new Promise<T>((res) => { resolve = res })
+  return { promise, resolve }
+}
+const cmdS = () => {
+  const e = new KeyboardEvent('keydown', { key: 's', metaKey: true, cancelable: true })
+  window.dispatchEvent(e)
+  return e
 }
 const has = (sel: string) => w.find(sel).exists()
 const typeIn = async (sel: string, text: string) => {
@@ -241,12 +253,99 @@ describe('PartiaPage: правка и сохранение', () => {
     stored = pkg({ containers: [container({ consolidations: [fullPartia({ transitDataJson: '[1,2]' })] }), container({ id: 'c2', consolidations: [] })] })
     await open()
     expect(w.get('[data-partia-transit-broken]').text()).toContain('Транзитные данные партии не прочитались')
+    expect(w.get('[data-partia-transit-broken]').attributes('data-attention')).toBeUndefined()
     await w.get('[data-partia-save]').trigger('click')
     await settle()
     expect(api.updateClientConsolidation).not.toHaveBeenCalled()
+    // Отказ виден: плашка выделена, фокус — на «Сохранить всё равно»; отдельной плашки ошибки нет.
+    expect(w.get('[data-partia-transit-broken]').attributes('data-attention')).toBe('true')
+    expect(document.activeElement).toBe(w.get('[data-partia-force-save]').element)
+    expect(has('[data-partia-save-error]')).toBe(false)
     await w.get('[data-partia-force-save]').trigger('click')
     await settle()
     expect(api.updateClientConsolidation).toHaveBeenCalledTimes(1)
+  })
+
+  it('Ctrl/⌘+S в шторке транзитной декларации сохраняет (шторка — часть правки)', async () => {
+    await open(undefined, { realDialogs: true })
+    await w.get('[data-partia-transit-open]').trigger('click')
+    await settle()
+    expect(document.querySelector('[role="dialog"][data-state="open"][data-transit-drawer]')).not.toBeNull()
+    await typeIn('[data-partia-seal]', 'X')
+    const e = cmdS()
+    expect(e.defaultPrevented).toBe(true)
+    await settle()
+    expect(api.updateClientConsolidation).toHaveBeenCalledTimes(1)
+  })
+
+  it('Ctrl/⌘+S при открытом окне стороны не сохраняет, но и браузерное «Сохранить как» не открывает', async () => {
+    await open(undefined, { realDialogs: true })
+    await typeIn('[data-partia-seal]', 'X')
+    await w.get('[data-party="shipper"]').trigger('click')
+    await settle()
+    expect(document.querySelector('[role="dialog"][data-state="open"][data-party-modal]')).not.toBeNull()
+    const e = cmdS()
+    expect(e.defaultPrevented).toBe(true)
+    await settle()
+    expect(api.updateClientConsolidation).not.toHaveBeenCalled()
+  })
+
+  it('открыть транзитную декларацию и закрыть — партия без правок', async () => {
+    await open()
+    await w.get('[data-partia-transit-open]').trigger('click')
+    await settle()
+    expect(has('[data-transit-drawer]')).toBe(true)
+    await w.get('[data-transit-done]').trigger('click')
+    await settle()
+    expect(has('[data-partia-dirty]')).toBe(false)
+  })
+
+  it('500 при сохранении — понятный текст, без сырого ответа сервера', async () => {
+    const stack = 'System.InvalidOperationException: boom\n   at CRM.API.Features.DocumentPackages.Update()'
+    api.updateClientConsolidation.mockRejectedValueOnce(Object.assign(new Error('500'), { response: { status: 500, data: stack } }))
+    await open()
+    await typeIn('[data-partia-seal]', 'X')
+    await w.get('[data-partia-save]').trigger('click')
+    await settle()
+    const banner = w.get('[data-partia-save-error]').text()
+    expect(banner).toContain('Сервер не смог сохранить партию. Попробуйте ещё раз; если повторится — сообщите администратору.')
+    expect(banner).not.toContain('Exception')
+  })
+
+  it('«Из инвойса» при товарах: «Заменить товары» — товары партии заменены', async () => {
+    invoice.extractGoods.mockResolvedValue({
+      status: 'done', matchResult: 'matched', aiUsed: false, confidence: null, source: 'template', runId: 'r',
+      header: { currencyCode: 'USD' }, items: [{ commodityCode: '4202121900', customsValue: 900, weightKg: 54, quantity: 120, commodityCodeDeprecation: null }],
+    })
+    await open()
+    const input = w.get('[data-import-input]')
+    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'inv.pdf')], configurable: true })
+    await input.trigger('change')
+    await settle()
+    await w.get('[data-import-replace]').trigger('click')
+    await settle()
+    expect(w.findAll('[data-goods-card]')).toHaveLength(1)
+    expect(w.get('[data-goods-card]').text()).toContain('4202 12 190 0')
+    expect(has('[data-partia-dirty]')).toBe(true)
+  })
+
+  it('пока инвойс прикрепляется, «Сохранить партию» недоступна', async () => {
+    const up = deferred<{ id: string }>()
+    api.uploadFile.mockReturnValueOnce(up.promise)
+    api.linkFile.mockResolvedValue(pkg())
+    await open()
+    await typeIn('[data-partia-seal]', 'X')
+    const input = w.get('[data-partia-invoice-input]')
+    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'new.pdf')], configurable: true })
+    await input.trigger('change')
+    await nextTick()
+    expect(w.get('[data-partia-save]').attributes('disabled')).toBeDefined()
+    cmdS()
+    await settle()
+    expect(api.updateClientConsolidation).not.toHaveBeenCalled()
+    up.resolve({ id: 'f-new' })
+    await settle()
+    expect(w.get('[data-partia-save]').attributes('disabled')).toBeUndefined()
   })
 
   it('инвойс к сохранённой партии: загрузка + привязка как инвойс, файл — во вкладках', async () => {
@@ -311,10 +410,13 @@ describe('PartiaPage: новая партия', () => {
     expect(api.getById).toHaveBeenCalledTimes(1)
   })
 
-  it('создана, но не нашлась в ответе — плашка с «Обновить» (перезагрузка), повторного POST нет', async () => {
+  it('создана, но не нашлась в ответе — «Обновить» находит её, правки и очередь целы, переход на её адрес', async () => {
     api.createClientConsolidation.mockImplementation(async () => structuredClone(stored))
     await open('/document-packages/pkg1/partia/new?container=c2')
     await w.get('[data-partia-client] [data-option="client_beta"]').trigger('click')
+    const input = w.get('[data-partia-invoice-input]')
+    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'q.pdf')], configurable: true })
+    await input.trigger('change')
     await w.get('[data-partia-save]').trigger('click')
     await settle()
     expect(w.get('[data-partia-created-lost]').text()).toContain('Партия создана, но не нашлась в ответе сервера')
@@ -322,10 +424,43 @@ describe('PartiaPage: новая партия', () => {
     await w.get('[data-partia-save]').trigger('click')
     await settle()
     expect(api.createClientConsolidation).toHaveBeenCalledTimes(1)
+    // Правка после неудачи; «Обновить» не находит — всё на месте.
+    await typeIn('[data-partia-seal]', 'S-9')
+    expect(has('[data-partia-created-lost]')).toBe(true)
     await w.get('[data-partia-refresh]').trigger('click')
     await settle()
-    expect(api.getById).toHaveBeenCalledTimes(2)
+    expect(w.get('[data-partia-created-lost]').text()).toContain('всё ещё не нашлась')
+    expect(w.get('[data-partia-created-lost] a').attributes('href')).toBe('/document-packages/pkg1/workspace')
+    expect((w.get('[data-partia-seal]').element as HTMLInputElement).value).toBe('S-9')
+    expect(w.findAll('[data-partia-pending]')).toHaveLength(1)
+    // Теперь нашлась: открыта, очередь загружена, правка цела, адрес — созданной.
+    stored = created()
+    api.uploadFile.mockResolvedValue({ id: 'f-q' })
+    api.linkFile.mockImplementation(async () => structuredClone(stored))
+    await w.get('[data-partia-refresh]').trigger('click')
+    await settle()
     expect(has('[data-partia-created-lost]')).toBe(false)
+    expect(router.currentRoute.value.path).toBe('/document-packages/pkg1/partia/p-new')
+    expect(api.linkFile).toHaveBeenCalledWith('pkg1', 'f-q', { containerId: null, clientConsolidationId: 'p-new', documentType: 'invoice' }, { silent: true })
+    expect((w.get('[data-partia-seal]').element as HTMLInputElement).value).toBe('S-9')
+    expect(api.createClientConsolidation).toHaveBeenCalledTimes(1)
+  })
+
+  it('пока создавалась, ушли на новую партию другого контейнера — адрес не подменяется', async () => {
+    const d = deferred<DocumentPackageDto>()
+    api.createClientConsolidation.mockReturnValueOnce(d.promise)
+    await open('/document-packages/pkg1/partia/new?container=c2')
+    await w.get('[data-partia-client] [data-option="client_beta"]').trigger('click')
+    await w.get('[data-partia-save]').trigger('click')
+    await nextTick()
+    const nav = router.push('/document-packages/pkg1/partia/new?container=c1')
+    await settle()
+    confirmState.resolve(true)
+    await nav
+    await settle()
+    d.resolve(created())
+    await settle()
+    expect(router.currentRoute.value.fullPath).toBe('/document-packages/pkg1/partia/new?container=c1')
   })
 
   it('пустой портфель — подсказка обратиться к администратору', async () => {

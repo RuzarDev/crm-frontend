@@ -389,7 +389,9 @@ describe('usePartia — создание', () => {
     r.draft.clientName = 'kazakhmys'
     r.pendingInvoices.value = [invoice('a.pdf')]
     expect(await r.save()).toBeNull()
-    expect(r.saveError.value).toBe('HTTP 500')
+    // 5xx — понятный текст, сырой ответ сервера в интерфейс не идёт.
+    expect(r.saveError.value).toBe('Сервер не смог сохранить партию. Попробуйте ещё раз; если повторится — сообщите администратору.')
+    expect(r.saveErrorKind.value).toBe('server')
     expect(api.uploadFile).not.toHaveBeenCalled()
     expect(r.pendingInvoices.value).toHaveLength(1)
     expect(r.isNew.value).toBe(true)
@@ -509,7 +511,9 @@ describe('usePartia — правки по ревью (раунд 1)', () => {
     r.draft.clientName = 'kazakhmys'
     r.pendingInvoices.value = [invoice('a.pdf')]
     expect(await r.save()).toBeNull()
-    expect(r.saveError.value).toContain('Обновите страницу')
+    expect(r.saveError.value).toContain('Нажмите «Обновить»')
+    expect(r.saveErrorKind.value).toBe('createdLost')
+    expect(r.createdLost.value).toBe(true)
     expect(api.uploadFile).not.toHaveBeenCalled()
     expect(await r.save()).toBeNull()
     expect(api.createClientConsolidation).toHaveBeenCalledTimes(1)
@@ -519,6 +523,66 @@ describe('usePartia — правки по ревью (раунд 1)', () => {
     api.createClientConsolidation.mockResolvedValue(created())
     r.draft.clientName = 'kazakhmys'
     expect(await r.save()).toBe('p-new')
+  })
+
+  it('recoverCreated: созданная нашлась по клиенту — открыта, правки после отправки целы, очередь загружена', async () => {
+    api.createClientConsolidation.mockResolvedValue(created([{ clientName: 'a' }, { clientName: 'b' }]))
+    api.uploadFile.mockResolvedValue({ id: 'fq' })
+    const { r } = start('new', 'c2')
+    await settle()
+    r.draft.clientName = 'kazakhmys'
+    r.pendingInvoices.value = [invoice('q.pdf')]
+    expect(await r.save()).toBeNull()
+    // Правка после неудачного поиска — остаётся после восстановления.
+    r.draft.sealNumber = 'LATER'
+    const found = created([{ clientName: 'a' }, { clientName: 'kazakhmys', sealNumber: null }])
+    api.getById.mockResolvedValueOnce(found)
+    api.linkFile.mockResolvedValue(found)
+    expect(await r.recoverCreated()).toBe('p-new1')
+    expect(r.isNew.value).toBe(false)
+    expect(r.createdLost.value).toBe(false)
+    expect(r.saveError.value).toBeNull()
+    expect(r.draft.sealNumber).toBe('LATER')
+    expect(api.linkFile).toHaveBeenCalledWith('pkg1', 'fq', { containerId: null, clientConsolidationId: 'p-new1', documentType: 'invoice' }, { silent: true })
+    expect(r.pendingInvoices.value).toEqual([])
+    expect(api.createClientConsolidation).toHaveBeenCalledTimes(1)
+  })
+
+  it('recoverCreated: не нашлась — черновик и очередь на месте, ошибка остаётся', async () => {
+    api.createClientConsolidation.mockResolvedValue(created([{ clientName: 'a' }, { clientName: 'b' }]))
+    const { r } = start('new', 'c2')
+    await settle()
+    r.draft.clientName = 'kazakhmys'
+    r.pendingInvoices.value = [invoice('q.pdf')]
+    await r.save()
+    api.getById.mockResolvedValueOnce(created([{ clientName: 'a' }, { clientName: 'b' }]))
+    expect(await r.recoverCreated()).toBeNull()
+    expect(r.draft.clientName).toBe('kazakhmys')
+    expect(r.pendingInvoices.value).toHaveLength(1)
+    expect(r.createdLost.value).toBe(true)
+    expect(r.saveError.value).toContain('всё ещё не нашлась')
+    expect(r.saving.value).toBe(false)
+  })
+
+  it('attachInvoice: загрузка + привязка как инвойс; перечитывание, начатое раньше, пакет не перезаписывает', async () => {
+    const { r } = start()
+    await settle()
+    const late = deferred<DocumentPackageDto>()
+    api.getById.mockReturnValueOnce(late.promise)
+    const reloading = r.reload()
+    const withFile = pkg()
+    withFile.files.push(file({ id: 'f-new', clientConsolidationId: 'p1', documentType: 'invoice' }))
+    api.uploadFile.mockResolvedValue({ id: 'f-new' })
+    api.linkFile.mockResolvedValue(withFile)
+    const attach = r.attachInvoice(invoice('new.pdf'))
+    expect(r.attaching.value).toBe(true)
+    expect(await attach).toBe('f-new')
+    expect(api.linkFile).toHaveBeenCalledWith('pkg1', 'f-new', { containerId: null, clientConsolidationId: 'p1', documentType: 'invoice' })
+    late.resolve(pkg())
+    await reloading
+    expect(r.pkg.value?.files.some((f) => f.id === 'f-new')).toBe(true)
+    expect(r.attaching.value).toBe(false)
+    expect(r.dirty.value).toBe(false)
   })
 
   it('revert очищает очередь инвойсов — «не сохранено» уходит', async () => {

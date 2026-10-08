@@ -77,7 +77,8 @@ async function lookup() {
   if (!c) return
   finding.value = true
   try {
-    const res = await tnvedApi.node(c)
+    // Тихо: не нашёлся — открывается справочник с этим кодом, тост сервера не нужен.
+    const res = await tnvedApi.node(c, { silent: true })
     // Неполный код (напр. 6 знаков) — не лист: справочник с этим кодом, чтобы выбрать 10-значный.
     if (!res.data.is10) {
       openPicker(c)

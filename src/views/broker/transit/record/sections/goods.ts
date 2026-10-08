@@ -83,7 +83,8 @@ export function createTnvedCheck(): TnvedCheck {
       if (!c || c in known) return Promise.resolve()
       const running = pending.get(c)
       if (running) return running
-      const run = tnvedApi.node(c)
+      // Тихо: «кода нет» показывает поле, тост с текстом сервера («TNVED code … not found») не нужен.
+      const run = tnvedApi.node(c, { silent: true })
         .then((res) => { known[c] = res.data.is10 }, () => { known[c] = false })
         .finally(() => pending.delete(c))
       pending.set(c, run)

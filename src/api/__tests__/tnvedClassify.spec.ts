@@ -31,4 +31,11 @@ describe('tnvedApi: silent для экранов со своей ошибкой'
     await tnvedApi.currencies()
     expect(client.get.mock.lastCall).toEqual(['/tnved/currencies'])
   })
+
+  it('node — silent по запросу (проверка кода у поля), без opts — без silent', async () => {
+    await tnvedApi.node('854143', { silent: true })
+    expect(client.get).toHaveBeenLastCalledWith('/tnved/node/854143', { silent: true })
+    await tnvedApi.node('854143')
+    expect(client.get).toHaveBeenLastCalledWith('/tnved/node/854143', {})
+  })
 })

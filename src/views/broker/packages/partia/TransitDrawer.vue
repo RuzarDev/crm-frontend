@@ -29,7 +29,7 @@ const scroller = ref<HTMLElement | null>(null)
 </script>
 
 <template>
-  <ZDrawer :open="open" :width="1080" :title="t('broker.partia.transit.title')" data-transit-drawer @update:open="emit('update:open', $event)">
+  <ZDrawer :open="open" :width="1080" :title="t('broker.partia.transit.title')" data-transit-drawer data-partia-surface @update:open="emit('update:open', $event)">
     <!-- Своя область прокрутки во всё тело шторки: по ней считает меню разделов; шапки оболочки над ней нет. -->
     <div
       ref="scroller"

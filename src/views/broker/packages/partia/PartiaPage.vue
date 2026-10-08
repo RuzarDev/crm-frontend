@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhFileText, PhPaperclip, PhX } from '@phosphor-icons/vue'
@@ -13,7 +13,6 @@ import ZInput from '@/components/z/ZInput.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import { clientsOnboardingApi } from '@/api/clientsOnboarding'
-import { documentPackagesApi } from '@/api/documentPackages'
 import { reestrApi } from '@/api/reestr'
 import { useAuthStore } from '@/stores/auth'
 import type { DocumentPackageFileDto, PartyAddress, ReestrClientOption, ReestrGoodsItemInput } from '@/types/api'
@@ -65,7 +64,10 @@ watch(() => (route.name === PAGE_ROUTE ? [route.params.id, route.params.partiaId
 let alive = true
 
 const p = usePartia(() => pkgId.value, () => containerId.value, () => partiaId.value)
-const { pkg, partia, container, draft, isNew, loading, notFound, loadError, reloadError, reloading, saving, saveError, dirty, transitParseFailed, pendingInvoices } = p
+const {
+  pkg, partia, container, draft, isNew, loading, notFound, loadError, reloadError, reloading, saving, saveError, saveErrorKind,
+  createdLost, attaching, dirty, transitParseFailed, pendingInvoices,
+} = p
 
 const workspacePath = computed(() => `/document-packages/${pkgId.value}/workspace`)
 
@@ -161,33 +163,17 @@ const onImported = (items: ReestrGoodsItemInput[], mode: 'replace' | 'append') =
 const INVOICE_ACCEPT = '.pdf,.xlsx,.jpg,.jpeg,.png'
 const MAX_BYTES = 10 * 1024 * 1024
 const invoiceInput = ref<HTMLInputElement | null>(null)
-const attaching = ref(false)
 const invoiceFiles = computed(() => (pkg.value && partia.value ? partiaFiles(pkg.value, partia.value.id).filter((f) => f.documentType === 'invoice') : []))
 const pickInvoice = () => {
   if (!canAttach.value || attaching.value || saving.value) return
   invoiceInput.value?.click()
 }
+// Загрузка и привязка — в хуке (порядок ответов: перечитывание, начатое раньше, пакет не перезапишет).
 const attach = async (file: File) => {
-  const pk = pkg.value
-  const pid = partia.value?.id
-  if (!pk || !pid) return
-  attaching.value = true
-  try {
-    const uploaded = await documentPackagesApi.uploadFile(pk.id, file)
-    try {
-      const fresh = await documentPackagesApi.linkFile(pk.id, uploaded.id, { containerId: null, clientConsolidationId: pid, documentType: 'invoice' })
-      if (alive && pkg.value?.id === pk.id) pkg.value = fresh
-      selectedDoc.value = uploaded.id
-      message.success(t('broker.partia.invoices.attached'))
-    } catch {
-      // Файл загрузился, но не привязался — он в пакете нераспределённым; список перечитать (тост дал перехватчик).
-      void p.reload()
-    }
-  } catch {
-    // тост показал перехватчик
-  } finally {
-    attaching.value = false
-  }
+  const id = await p.attachInvoice(file)
+  if (!id || !alive) return
+  selectedDoc.value = id
+  message.success(t('broker.partia.invoices.attached'))
 }
 const onInvoiceFile = (e: Event) => {
   const el = e.target as HTMLInputElement
@@ -241,34 +227,62 @@ const showDoc = (f: DocumentPackageFileDto) => {
 }
 
 // ---- Сохранение ----
-const busy = computed(() => loading.value || saving.value || reloading.value)
-const createdLostText = computed(() => t('broker.partia.errors.createdNotFound'))
-const transitUnreadableText = computed(() => t('broker.partia.errors.transitUnreadable'))
+// Занято: загрузка, сохранение (и поиск созданной), перечитывание, прикрепление инвойса.
+const busy = computed(() => loading.value || saving.value || reloading.value || attaching.value)
+/** Новая партия создана (сохранением или «Обновить»), а пользователь всё ещё на её адресе — тот же пакет и контейнер. */
+const toCreated = async (savedId: string | null, startedPkg: string, startedContainer: string) => {
+  const stillOnNew = alive && route.name === PAGE_ROUTE && route.params.id === startedPkg
+    && route.params.partiaId === NEW_PARTIA_ID && q(route.query.container) === startedContainer
+  if (savedId && stillOnNew) await router.replace(`/document-packages/${startedPkg}/partia/${savedId}`)
+}
+// Сохранение отказано из-за нечитаемого транзита — отказ виден: плашка выделяется, фокус на «Сохранить всё равно».
+const transitAttention = ref(false)
+const transitBanner = ref<HTMLElement | null>(null)
+const nudgeTransit = async () => {
+  transitAttention.value = true
+  await nextTick()
+  const el = transitBanner.value
+  el?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+  el?.querySelector<HTMLElement>('[data-partia-force-save]')?.focus()
+}
 const onSave = async (force = false) => {
   if (!canEdit.value || busy.value) return
   const startedNew = isNew.value
   const startedPkg = pkgId.value
+  const startedContainer = containerId.value
   const savedId = await p.save(force ? { force: true } : undefined)
-  // Новая создана, а пользователь всё ещё на её адресе …/partia/new (сейчас, а не когда начинал) — адрес партии.
-  const stillOnNew = alive && route.name === PAGE_ROUTE && route.params.id === startedPkg && route.params.partiaId === NEW_PARTIA_ID
-  if (savedId && startedNew && stillOnNew) {
-    await router.replace(`/document-packages/${startedPkg}/partia/${savedId}`)
-  }
+  if (saveErrorKind.value === 'transitBroken') void nudgeTransit()
+  if (startedNew) await toCreated(savedId, startedPkg, startedContainer)
+}
+// «Обновить» после потерянного создания: найти созданную партию, не трогая черновик и очередь инвойсов.
+const onRecover = async () => {
+  if (!canEdit.value || busy.value) return
+  const startedPkg = pkgId.value
+  const startedContainer = containerId.value
+  await toCreated(await p.recoverCreated(), startedPkg, startedContainer)
 }
 const back = () => { void router.push(workspacePath.value) }
-// Плашка ошибки сохранения скрывается при следующей правке (кроме «партия создана, но не нашлась» — до обновления).
+// Плашка ошибки сохранения скрывается при следующей правке (кроме «партия создана, но не нашлась» — до её поиска).
 watch(draft, () => {
-  if (saveError.value && saveError.value !== createdLostText.value) saveError.value = null
+  if (saveError.value && saveErrorKind.value !== 'createdLost') {
+    saveError.value = null
+    saveErrorKind.value = null
+  }
 }, { deep: true })
+watch(transitParseFailed, (v) => { if (!v) transitAttention.value = false })
+/** Плашка ошибки сохранения: не для потерянного создания и не для отказа по транзиту (у них свои плашки). */
+const showSaveError = computed(() => !!saveError.value && saveErrorKind.value !== 'createdLost' && saveErrorKind.value !== 'transitBroken')
 
 const onKey = (e: KeyboardEvent) => {
   if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return
   if (e.code !== 'KeyS' && e.key.toLowerCase() !== 's') return
   if (!canEdit.value || !pkg.value) return
-  // Поверх страницы открыто окно или шторка — сохранение не под ним.
-  const openDialog = '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'
-  if (confirmState.open || document.querySelector(openDialog)) return
+  // Сочетание всегда наше: браузерное «Сохранить страницу как» не открывается ни в каком случае.
   e.preventDefault()
+  // Шторки страницы (транзитная декларация, документ) — часть правки: сохранение идёт и при них. Окна со своей
+  // копией правок (сторона, инвойс) и подтверждения — нет: сохранение прошло бы мимо того, что в них набрано.
+  const openModal = '[role="dialog"][data-state="open"]:not([data-partia-surface]), [role="alertdialog"][data-state="open"]'
+  if (confirmState.open || document.querySelector(openModal)) return
   if (dirty.value || isNew.value) void onSave()
 }
 const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -357,25 +371,34 @@ const fileChip = 'inline-flex max-w-full min-h-8 items-center gap-1.5 rounded-pi
         @document="docOpen = true"
       />
 
-      <ZAlert v-if="transitParseFailed" type="warning" show-icon :message="t('broker.partia.page.transitBroken')" data-partia-transit-broken>
-        {{ transitUnreadableText }}
-        <template v-if="canEdit" #action>
-          <ZButton size="sm" :loading="saving" :disabled="busy" class="max-sm:h-11" data-partia-force-save @click="onSave(true)">{{ t('broker.partia.page.forceSave') }}</ZButton>
-        </template>
-      </ZAlert>
+      <div
+        v-if="transitParseFailed"
+        ref="transitBanner"
+        :class="transitAttention && 'rounded-row shadow-[0_0_0_2px_var(--color-gold)]'"
+        :data-attention="transitAttention ? 'true' : undefined"
+        data-partia-transit-broken
+      >
+        <ZAlert type="warning" show-icon :message="t('broker.partia.page.transitBroken')">
+          {{ t('broker.partia.errors.transitUnreadable') }}
+          <template v-if="canEdit" #action>
+            <ZButton size="sm" :loading="saving" :disabled="busy" class="max-sm:h-11" data-partia-force-save @click="onSave(true)">{{ t('broker.partia.page.forceSave') }}</ZButton>
+          </template>
+        </ZAlert>
+      </div>
       <ZAlert v-if="reloadError" type="warning" show-icon :message="t('broker.partia.page.reloadError')" data-partia-reload-error>
         <template #action>
           <ZButton size="sm" class="max-sm:h-11" @click="p.reload()">{{ t('broker.partia.page.retry') }}</ZButton>
         </template>
       </ZAlert>
-      <ZAlert v-if="saveError === createdLostText" type="error" show-icon :message="t('broker.partia.page.saveError')" data-partia-created-lost>
-        {{ saveError }}
-        <template #action>
-          <ZButton size="sm" class="max-sm:h-11" data-partia-refresh @click="p.load()">{{ t('broker.partia.page.refresh') }}</ZButton>
+      <ZAlert v-if="createdLost" type="error" show-icon :message="t('broker.partia.page.saveError')" data-partia-created-lost>
+        {{ saveError ?? t('broker.partia.errors.createdNotFound') }}
+        <RouterLink :to="workspacePath" class="font-semibold text-zircon-ink underline-offset-2 hover:underline">{{ t('broker.partia.page.toWorkspace') }}</RouterLink>
+        <template v-if="canEdit" #action>
+          <ZButton size="sm" :loading="saving" :disabled="busy" class="max-sm:h-11" data-partia-refresh @click="onRecover">{{ t('broker.partia.page.refresh') }}</ZButton>
         </template>
       </ZAlert>
       <ZAlert
-        v-else-if="saveError && !(transitParseFailed && saveError === transitUnreadableText)"
+        v-else-if="showSaveError"
         type="error"
         show-icon
         :message="t('broker.partia.page.saveError')"
@@ -512,7 +535,7 @@ const fileChip = 'inline-flex max-w-full min-h-8 items-center gap-1.5 rounded-pi
         </aside>
       </div>
 
-      <ZDrawer v-if="!wide" v-model:open="docOpen" :width="760" :title="t('broker.partia.page.document')" data-partia-doc-drawer>
+      <ZDrawer v-if="!wide" v-model:open="docOpen" :width="760" :title="t('broker.partia.page.document')" data-partia-doc-drawer data-partia-surface>
         <div class="-mx-6 -my-4 h-[calc(100%+2rem)]">
           <DocViewer v-model:selected="selectedDoc" :pkg-id="pkg.id" :partia-files="docPartiaFiles" :container-files="docContainerFiles" :active="docOpen" />
         </div>

@@ -18,6 +18,12 @@ import {
 
 export const NEW_PARTIA_ID = 'new'
 
+/**
+ * Почему сохранение не прошло — для выбора плашки (не по переведённому тексту):
+ * notLoaded, createdLost (POST прошёл, id не нашёлся), transitBroken (без force), validation, server.
+ */
+export type PartiaSaveErrorKind = 'notLoaded' | 'createdLost' | 'transitBroken' | 'validation' | 'server'
+
 export interface PartiaState {
   pkg: Ref<DocumentPackageDto | null>
   partia: ComputedRef<DocumentPackageClientConsolidationDto | null>
@@ -34,6 +40,12 @@ export interface PartiaState {
   reloading: Ref<boolean>
   saving: Ref<boolean>
   saveError: Ref<string | null>
+  /** Вид ошибки сохранения (вместе с saveError; null — ошибки нет). */
+  saveErrorKind: Ref<PartiaSaveErrorKind | null>
+  /** POST новой партии прошёл, но её id не нашёлся: повторный POST запрещён, есть recoverCreated(). */
+  createdLost: Ref<boolean>
+  /** Идёт прикрепление инвойса к сохранённой партии. */
+  attaching: Ref<boolean>
   /** transitDataJson партии не прочитался: черновик — со значениями по умолчанию, save() без force откажет. */
   transitParseFailed: ComputedRef<boolean>
   dirty: ComputedRef<boolean>
@@ -43,6 +55,14 @@ export interface PartiaState {
   invoiceUpload: Ref<{ done: number; total: number } | null>
   load(): Promise<void>
   save(opts?: { force?: boolean }): Promise<string | null>
+  /**
+   * После createdLost: перечитать пакет и найти созданную партию (новая в том контейнере, с тем же клиентом).
+   * Нашлась — она открыта, правки после отправки сохранены в черновике, очередь инвойсов загружается; id — результат.
+   * Не нашлась — null, черновик и очередь не трогаются.
+   */
+  recoverCreated(): Promise<string | null>
+  /** Инвойс к сохранённой партии: загрузка + привязка как инвойс; пакет — через порядок ответов хука. id файла или null. */
+  attachInvoice(file: File): Promise<string | null>
   revert(): void
   reload(): Promise<void>
 }
@@ -71,10 +91,13 @@ const findPartia = (p: DocumentPackageDto | null, id: string | null): DocumentPa
  *   или в очереди есть инвойсы. revert() возвращает снимок и очищает очередь инвойсов.
  * - save(): дождаться идущего reload() → проверка → POST (новая) или PUT полного тела → пакет из ответа,
  *   новый снимок (правки, сделанные пока шёл запрос, остаются) → очередь инвойсов (загрузка + привязка как инвойс).
- *   Повторное нажатие игнорируется. Ошибка → saveError (тост даёт перехватчик).
+ *   Повторное нажатие игнорируется. Ошибка → saveError + saveErrorKind (тост даёт перехватчик); 5xx и трассировки —
+ *   понятным текстом, сырой ответ сервера в интерфейс не идёт.
  * - reload() во время сохранения ждёт его конца; ответ reload(), начатого до ответа сохранения, отбрасывается.
- * - Новая партия: id — по разнице id в контейнере (несколько новых — по имени клиента). Не нашлась — saveError,
- *   и повторный POST запрещён до перезагрузки страницы (load()): партия на сервере уже есть, второй POST дал бы дубль.
+ * - Новая партия: id — по разнице id в контейнере (несколько новых — по имени клиента). Не нашлась — createdLost,
+ *   повторный POST запрещён (партия на сервере уже есть, второй POST дал бы дубль); recoverCreated() перечитывает
+ *   пакет и ищет её, не трогая черновик и очередь инвойсов; load() тоже снимает запрет.
+ * - attachInvoice(): инвойс к сохранённой партии; пакет из ответа — с тем же порядком ответов, что у сохранения.
  * - transitParseFailed: сохранение затёрло бы транзит партии значениями по умолчанию — только save({ force: true }).
  * - Итоги транзита пересчитываются при правке товаров — общий с записью транзита useGoodsTotalsSync.
  * - Переход на адрес только что созданной партии не перезагружает её.
@@ -90,6 +113,9 @@ export function usePartia(pkgId: () => string, containerId: () => string, partia
   const reloading = ref(false)
   const saving = ref(false)
   const saveError = ref<string | null>(null)
+  const saveErrorKind = ref<PartiaSaveErrorKind | null>(null)
+  const createdLostRef = ref(false)
+  const attaching = ref(false)
   const pendingInvoices = ref<File[]>([])
   const invoiceUpload = ref<{ done: number; total: number } | null>(null)
   const snapshot = ref<string | null>(null)
@@ -108,8 +134,12 @@ export function usePartia(pkgId: () => string, containerId: () => string, partia
   let snapSeq = 0
   let pendingReload: Promise<void> | null = null
   let pendingSave: Promise<unknown> | null = null
-  /** POST новой партии прошёл, но её id не нашёлся: повторный POST запрещён до load(). */
-  let createdLost = false
+  /** POST новой партии прошёл, но её id не нашёлся: что нужно, чтобы найти её позже (recoverCreated). */
+  let lost: { containerId: string; before: Set<string>; name: string; sent: PartiaDraft } | null = null
+  const setLost = (v: typeof lost) => {
+    lost = v
+    createdLostRef.value = v !== null
+  }
   /** Инвойс из очереди уже загружен, но не привязан: повтор только привязывает (без второй копии файла). */
   let uploadedIds = new WeakMap<File, string>()
 
@@ -182,7 +212,8 @@ export function usePartia(pkgId: () => string, containerId: () => string, partia
     openKey = keyOf(target, pid, containerId())
     openId.value = pid && pid !== NEW_PARTIA_ID ? pid : null
     newContainerId = pid === NEW_PARTIA_ID ? containerId() || null : null
-    createdLost = false
+    setLost(null)
+    attaching.value = false
     uploadedIds = new WeakMap()
     pkg.value = null
     notFound.value = false
@@ -190,6 +221,7 @@ export function usePartia(pkgId: () => string, containerId: () => string, partia
     reloadError.value = false
     saving.value = false
     saveError.value = null
+    saveErrorKind.value = null
     pendingInvoices.value = []
     invoiceUpload.value = null
     setDraft(draftFromPartia(null))
@@ -268,7 +300,7 @@ export function usePartia(pkgId: () => string, containerId: () => string, partia
         uploadedIds.delete(f)
       } catch (e) {
         failed.push(f)
-        reason ??= serverErrorText(e, t('dt.netSvyazi'))
+        reason ??= serverText(e, t('broker.partia.errors.serverShort'))
       }
     }
     const result = { done: files.length - failed.length, total: files.length, reason }
@@ -292,10 +324,13 @@ export function usePartia(pkgId: () => string, containerId: () => string, partia
     return result
   }
 
-  const fail = (key: string) => {
+  const fail = (kind: PartiaSaveErrorKind, key: string) => {
     saveError.value = t(key)
+    saveErrorKind.value = kind
     return null
   }
+  /** Текст ответа сервера; 5xx и трассировки стека — коротким понятным текстом (сырой текст в интерфейс не идёт). */
+  const serverText = (e: unknown, friendly: string) => serverErrorText(e, t('dt.netSvyazi'), { friendly })
 
   /** Дождаться перечитывания (и следующего, если начали новое). false — пока ждали, открыли другую партию. */
   const waitReload = async (gen: number): Promise<boolean> => {
@@ -311,25 +346,26 @@ export function usePartia(pkgId: () => string, containerId: () => string, partia
       if (pendingReload && !(await waitReload(gen))) return null
       const p = pkg.value
       const c = container.value
-      if (notFound.value || loadError.value || loading.value || !p || !c) return fail('broker.partia.errors.notLoaded')
+      if (notFound.value || loadError.value || loading.value || !p || !c) return fail('notLoaded', 'broker.partia.errors.notLoaded')
       const existing = openId.value
-      if (!existing && createdLost) return fail('broker.partia.errors.createdNotFound')
-      if (transitParseFailed.value && !opts?.force) return fail('broker.partia.errors.transitUnreadable')
+      if (!existing && lost) return fail('createdLost', 'broker.partia.errors.createdNotFound')
+      if (transitParseFailed.value && !opts?.force) return fail('transitBroken', 'broker.partia.errors.transitUnreadable')
       const errors = validatePartia(draft)
       if (errors.length) {
         saveError.value = errors.map((k) => t(k)).join(' ')
+        saveErrorKind.value = 'validation'
         return null
       }
       const sent = plain(draft)
       const body = partiaToBody(sent)
       let fresh: DocumentPackageDto
       let savedId: string | null
+      const before = new Set(c.consolidations.map((x) => x.id))
       try {
         if (existing) {
           fresh = await documentPackagesApi.updateClientConsolidation(p.id, c.id, existing, body)
           savedId = existing
         } else {
-          const before = new Set(c.consolidations.map((x) => x.id))
           fresh = await documentPackagesApi.createClientConsolidation(p.id, c.id, body)
           const added = fresh.containers.find((x) => x.id === c.id)?.consolidations.filter((x) => !before.has(x.id)) ?? []
           // Несколько новых (кто-то добавил партию параллельно) — своя по имени клиента; неоднозначно — не угадывать.
@@ -337,34 +373,112 @@ export function usePartia(pkgId: () => string, containerId: () => string, partia
           savedId = mine.length === 1 ? mine[0].id : null
         }
       } catch (e) {
-        if (gen === loadGen) saveError.value = serverErrorText(e, t('dt.netSvyazi'))
+        if (gen === loadGen) {
+          saveError.value = serverText(e, t('broker.partia.errors.serverFailed'))
+          saveErrorKind.value = 'server'
+        }
         return null
       }
       // Пока шёл запрос, открыли другую партию: её состояние не трогаем.
       if (gen !== loadGen) return savedId
       ++seq // ответ перечитывания, начатого раньше, старше этого — отбросить
       if (!savedId) {
-        createdLost = true
+        setLost({ containerId: c.id, before, name: body.clientName, sent })
         pkg.value = fresh
-        return fail('broker.partia.errors.createdNotFound')
+        return fail('createdLost', 'broker.partia.errors.createdNotFound')
       }
-      saveError.value = null
-      if (!existing) {
-        openId.value = savedId
-        openKey = keyOf(p.id, savedId, '')
-        newContainerId = null
-      }
-      if (!apply(fresh, sent)) notFound.value = true
-      const invoices = pendingInvoices.value.length ? await uploadInvoices(p.id, savedId, gen) : null
-      if (gen !== loadGen) return savedId
-      if (invoices && invoices.done < invoices.total) {
-        message.warning(t('broker.partia.errors.invoicesPartial', invoices))
-      } else {
-        message.success(t(existing ? 'transit.partiyaUspeshnoObnovlena' : 'transit.klientDobavlenVKonteyner'))
-      }
-      return savedId
+      return await finishSaved(p.id, savedId, !existing, fresh, sent, gen)
     } finally {
       if (gen === loadGen) saving.value = false
+    }
+  }
+
+  /** Партия на сервере есть (сохранили или нашли созданную): открыть её, слить правки, очередь инвойсов, тост. */
+  const finishSaved = async (packageId: string, savedId: string, created: boolean, fresh: DocumentPackageDto, sent: PartiaDraft, gen: number) => {
+    saveError.value = null
+    saveErrorKind.value = null
+    if (created) {
+      openId.value = savedId
+      openKey = keyOf(packageId, savedId, '')
+      newContainerId = null
+      setLost(null)
+    }
+    if (!apply(fresh, sent)) notFound.value = true
+    const invoices = pendingInvoices.value.length ? await uploadInvoices(packageId, savedId, gen) : null
+    if (gen !== loadGen) return savedId
+    if (invoices && invoices.done < invoices.total) {
+      message.warning(t('broker.partia.errors.invoicesPartial', invoices))
+    } else {
+      message.success(t(created ? 'transit.klientDobavlenVKonteyner' : 'transit.partiyaUspeshnoObnovlena'))
+    }
+    return savedId
+  }
+
+  const recoverCreated = async (): Promise<string | null> => {
+    const l = lost
+    const p = pkg.value
+    if (!l || !p || saving.value) return null
+    const gen = loadGen
+    saving.value = true
+    const run = (async () => {
+      let fresh: DocumentPackageDto
+      try {
+        fresh = await documentPackagesApi.getById(p.id, { silent: true })
+      } catch (e) {
+        if (gen === loadGen) {
+          saveError.value = serverText(e, t('broker.partia.errors.serverShort'))
+          saveErrorKind.value = 'createdLost'
+        }
+        return null
+      }
+      if (gen !== loadGen) return null
+      ++seq
+      const added = fresh.containers.find((x) => x.id === l.containerId)?.consolidations.filter((x) => !l.before.has(x.id)) ?? []
+      const mine = added.filter((x) => sameName(x.clientName, l.name))
+      if (mine.length !== 1) {
+        // Не нашлась (или неоднозначно) — черновик и очередь на месте, плашка остаётся.
+        pkg.value = fresh
+        return fail('createdLost', 'broker.partia.errors.createdStillLost')
+      }
+      return finishSaved(p.id, mine[0].id, true, fresh, l.sent, gen)
+    })()
+    pendingSave = run
+    try {
+      return await run
+    } finally {
+      if (pendingSave === run) pendingSave = null
+      if (gen === loadGen) saving.value = false
+    }
+  }
+
+  const attachInvoice = async (file: File): Promise<string | null> => {
+    const p = pkg.value
+    const pid = openId.value
+    if (!p || !pid || attaching.value || saving.value) return null
+    const gen = loadGen
+    attaching.value = true
+    try {
+      let uploaded: { id: string }
+      try {
+        uploaded = await documentPackagesApi.uploadFile(p.id, file)
+      } catch {
+        return null // тост показал перехватчик
+      }
+      try {
+        const fresh = await documentPackagesApi.linkFile(p.id, uploaded.id, { containerId: null, clientConsolidationId: pid, documentType: 'invoice' })
+        if (gen !== loadGen) return null
+        // Как ответ сохранения: перечитывание, начатое раньше, этот пакет не перезапишет. Черновик не трогается.
+        ++seq
+        pkg.value = fresh
+        reloadError.value = false
+        return uploaded.id
+      } catch {
+        // Файл загрузился, но не привязался — он в пакете нераспределённым; список перечитать (тост дал перехватчик).
+        if (gen === loadGen) void reload()
+        return null
+      }
+    } finally {
+      if (gen === loadGen) attaching.value = false
     }
   }
 
@@ -404,6 +518,7 @@ export function usePartia(pkgId: () => string, containerId: () => string, partia
 
   return {
     pkg, partia, container, draft, isNew, loading, notFound, loadError, reloadError, reloading, saving, saveError,
-    transitParseFailed, dirty, pendingInvoices, invoiceUpload, load, save, revert, reload,
+    saveErrorKind, createdLost: createdLostRef, attaching, transitParseFailed, dirty, pendingInvoices, invoiceUpload,
+    load, save, recoverCreated, attachInvoice, revert, reload,
   }
 }

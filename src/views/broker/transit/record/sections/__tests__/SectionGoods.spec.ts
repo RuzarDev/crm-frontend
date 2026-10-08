@@ -147,6 +147,8 @@ describe('SectionGoods', () => {
     })
     await mount([good({ tnvedCode: '8471300000' }), good({ tnvedCode: '8471300000' }), good({ tnvedCode: '1902303000' })])
     expect(api.node).toHaveBeenCalledTimes(2)
+    // Проверка тихая: неверный код — ошибка у поля, без тоста перехватчика с текстом сервера.
+    for (const call of api.node.mock.calls) expect(call[1]).toEqual({ silent: true })
     await cards()[2].get('[data-goods-toggle]').trigger('click')
     expect(cards()[2].text()).toContain('Кода нет в справочнике ТН ВЭД')
     expect(cards()[0].text()).not.toContain('Кода нет в справочнике ТН ВЭД')
