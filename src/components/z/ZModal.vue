@@ -7,7 +7,7 @@ import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
 import { isolateFieldContext } from '@/ui/form'
 import { DialogOpenerSync } from '@/ui/dialogOpener'
-import { Z_LAYER_MODAL, cssSize, focusFirstInside, isDraftEscape, modalBackdrop, modalCloseButton } from '@/ui/surfaces'
+import { Z_LAYER_CONFIRM, Z_LAYER_MODAL, cssSize, focusFirstInside, isDraftEscape, modalBackdrop, modalCloseButton } from '@/ui/surfaces'
 import ZButton from './ZButton.vue'
 
 // Замена a-modal (43 места): v-model:open, title, width, okText/cancelText, confirmLoading, okButtonProps,
@@ -52,9 +52,11 @@ const props = withDefaults(defineProps<{
   ariaLabel?: string
   /** true — содержимое пересоздаётся при каждом открытии; по умолчанию живёт между открытиями (как у AntD). */
   destroyOnClose?: boolean
+  /** Слой: 'confirm' — окно подтверждения (ZConfirmHost), всегда поверх открытых окон и шторок. */
+  layer?: 'modal' | 'confirm'
 }>(), {
   open: false, title: '', width: 520, okText: '', cancelText: '', confirmLoading: false,
-  okButtonProps: () => ({}), cancelButtonProps: () => ({}), footer: true, maskClosable: true, closable: true, keyboard: true, ariaLabel: '', destroyOnClose: false,
+  okButtonProps: () => ({}), cancelButtonProps: () => ({}), footer: true, maskClosable: true, closable: true, keyboard: true, ariaLabel: '', destroyOnClose: false, layer: 'modal',
 })
 
 const emit = defineEmits<{ 'update:open': [open: boolean]; ok: [e: MouseEvent]; cancel: [] }>()
@@ -85,7 +87,7 @@ const onPointerOutside = (e: Event) => {
 }
 
 const contentClass = computed(() => cn(
-  Z_LAYER_MODAL,
+  props.layer === 'confirm' ? Z_LAYER_CONFIRM : Z_LAYER_MODAL,
   'fixed left-1/2 top-[12vh] -translate-x-1/2 flex max-h-[76vh] w-[min(var(--w),calc(100vw-32px))] flex-col',
   'rounded-panel bg-surface font-sans text-sm text-ink shadow-float outline-hidden',
   'data-[state=open]:animate-pop-in data-[state=closed]:animate-pop-out motion-reduce:animate-none',
@@ -98,7 +100,7 @@ const contentStyle = computed(() => [{ '--w': cssSize(props.width) }, attrs.styl
   <DialogRoot :open="open" :unmount-on-hide="destroyOnClose || !opened" @update:open="onOpenChange">
     <DialogOpenerSync />
     <DialogPortal>
-      <DialogOverlay data-z-overlay :class="modalBackdrop" />
+      <DialogOverlay data-z-overlay :class="layer === 'confirm' ? cn(modalBackdrop, Z_LAYER_CONFIRM) : modalBackdrop" />
       <DialogContent
         aria-modal="true"
         v-bind="{ ...describedBy(), ...contentAttrs }"

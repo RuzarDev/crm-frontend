@@ -4,6 +4,8 @@ import { cn } from './cn'
 // на время сосуществования (спека §6).
 export const Z_LAYER_MODAL = 'z-[1000]'
 export const Z_LAYER_FLOATING = 'z-[1100]'
+/** Подтверждение (ZConfirmHost) — над любым открытым окном и шторкой, из которых его спросили; под всплывающими. */
+export const Z_LAYER_CONFIRM = 'z-[1050]'
 
 /** Рамка поля ввода: одна на все Z-поля (ZInput, ZNumber, ZSelect, ZCombobox, ZDate).
  *  lg (42px, 15px) — только страницы входа/регистрации (спека §4); многострочного lg нет — как md. */
