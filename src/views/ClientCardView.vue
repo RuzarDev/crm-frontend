@@ -34,7 +34,7 @@
                 <div class="prop"><span>{{ t('clientCard.company') }}</span><b>{{ card.profile.companyName || '—' }}</b></div>
                 <div class="prop"><span>{{ t('clientCard.bin') }}</span><b>{{ card.profile.bin || card.bin || '—' }}</b></div>
                 <div class="prop"><span>{{ t('clientCard.director') }}</span><b>{{ card.profile.directorName || '—' }}</b></div>
-                <div class="prop"><span>{{ t('clientCard.basis') }}</span><b>{{ card.profile.directorBasis || '—' }}</b></div>
+                <div class="prop"><span>{{ t('clientCard.basis') }}</span><b>{{ directorBasisOf(card.profile) }}</b></div>
                 <div class="prop full"><span>{{ t('clientCard.legalAddress') }}</span><b>{{ card.profile.legalAddress || '—' }}</b></div>
                 <div class="prop"><span>{{ t('clientCard.bank') }}</span><b>{{ card.profile.bank || '—' }}</b></div>
                 <div class="prop"><span>{{ t('clientCard.iik') }}</span><b>{{ card.profile.iik || '—' }}</b></div>
@@ -156,6 +156,7 @@ import { clientCardApi, type ClientCard, type ClientCardCase, type ClientCardDoc
 import { import40ContractApi } from '@/api/import40Contract'
 import { useImport40Status } from '@/composables/useImport40Status'
 import { useAuthStore } from '@/stores/auth'
+import { directorBasisOf } from '@/views/broker/clients/clientCard'
 
 const { t } = useI18n()
 const route = useRoute()
