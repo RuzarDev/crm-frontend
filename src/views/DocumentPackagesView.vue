@@ -235,6 +235,7 @@ import type {
   ReestrClientOption,
 } from '@/types/api'
 import PageHeader from '@/components/PageHeader.vue'
+import { canModifyFiles } from '@/views/broker/packages/packages'
 
 const { t } = useI18n()
 
@@ -290,13 +291,10 @@ const columns = computed(() => [
   { title: t('transit.deystviya'), key: 'actions', width: 220 },
 ])
 
+// Права на файлы — как на сервере (CanModifyFiles): проверяющий с packages.manage может и на принятом пакете.
 const canUploadToSelected = computed(() => {
   if (!selectedPackage.value) return false
-  if (role.value === 'administrator') return true
-  return (
-    role.value === 'expeditor' &&
-    ['uploaded', 'needsFix'].includes(selectedPackage.value.status)
-  )
+  return canModifyFiles({ role: role.value, canReview: canReview.value, status: selectedPackage.value.status })
 })
 
 onMounted(async () => {
@@ -399,7 +397,8 @@ const refreshSelected = async (id: string) => {
 }
 
 const updateStatus = async (record: DocumentPackageDto, status: DocumentPackageStatus) => {
-  const updated = await documentPackagesApi.changeStatus(record.id, { status })
+  // Комментарий проверки уходит как есть: сервер при каждой смене статуса перезаписывает его присланным значением.
+  const updated = await documentPackagesApi.changeStatus(record.id, { status, reviewComment: record.reviewComment ?? null })
   message.success(t('transit.statusObnovlen'))
   if (selectedPackage.value?.id === updated.id) {
     selectedPackage.value = updated
