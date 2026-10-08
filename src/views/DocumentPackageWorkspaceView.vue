@@ -1012,10 +1012,15 @@ const handleLinkFile = async (fileId: string, value: string) => {
     }
   }
 
+  // Вид документа сохраняем: сервер перезаписывает его при каждой привязке, и без него инвойс
+  // переставал быть инвойсом (пропадал из блока «Инвойс» партии).
+  const documentType = packageData.value.files.find((f) => f.id === fileId)?.documentType ?? null
+
   try {
     packageData.value = await documentPackagesApi.linkFile(packageId, fileId, {
       containerId,
       clientConsolidationId,
+      documentType,
     })
     message.success(t('transit.faylUspeshnoPrivyazan'))
   } catch (err) {

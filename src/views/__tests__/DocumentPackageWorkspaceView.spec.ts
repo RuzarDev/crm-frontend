@@ -69,3 +69,18 @@ describe('прежний «Разбор поезда»: перетаскиван
     expect(api.linkFile).toHaveBeenCalledWith('pkg1', 'f-free', expect.objectContaining({ containerId: 'c1', clientConsolidationId: 'p1' }))
   })
 })
+
+describe('прежний «Разбор поезда»: привязка', () => {
+  it('перенос инвойса в другой контейнер оставляет его инвойсом (documentType уходит в запросе)', async () => {
+    await mountView()
+    await w.findAll('.container-node-card')[1].trigger('drop', { dataTransfer: dt('f-inv') })
+    await flushPromises()
+    expect(api.linkFile).toHaveBeenCalledWith('pkg1', 'f-inv', { containerId: 'c2', clientConsolidationId: null, documentType: 'invoice' })
+  })
+  it('у обычного файла documentType — null, как и было', async () => {
+    await mountView()
+    await w.findAll('.container-node-card')[1].trigger('drop', { dataTransfer: dt('f-free') })
+    await flushPromises()
+    expect(api.linkFile).toHaveBeenCalledWith('pkg1', 'f-free', { containerId: 'c2', clientConsolidationId: null, documentType: null })
+  })
+})
