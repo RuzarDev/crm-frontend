@@ -842,8 +842,9 @@ export const import40Api = {
     return response.data
   },
 
-  update: async (id: string, data: Import40UpdateRequest): Promise<Import40CaseDto> => {
-    const response = await apiClient.put<Import40CaseDto>(`/import40/${encodeURIComponent(id)}`, data)
+  // silent — автосохранение мастера клиента: ошибку показывает сам экран (статус в шапке), без тоста на каждый сбой.
+  update: async (id: string, data: Import40UpdateRequest, opts?: { silent?: boolean }): Promise<Import40CaseDto> => {
+    const response = await apiClient.put<Import40CaseDto>(`/import40/${encodeURIComponent(id)}`, data, opts?.silent ? { silent: true } : undefined)
     return response.data
   },
 
@@ -863,10 +864,12 @@ export const import40Api = {
   addContainer: async (
     id: string,
     data: Import40ContainerUpsertRequest,
+    opts?: { silent?: boolean },
   ): Promise<Import40CaseDto> => {
     const response = await apiClient.post<Import40CaseDto>(
       `/import40/${encodeURIComponent(id)}/containers`,
       data,
+      opts?.silent ? { silent: true } : undefined,
     )
     return response.data
   },
@@ -875,17 +878,20 @@ export const import40Api = {
     id: string,
     containerId: string,
     data: Import40ContainerUpsertRequest,
+    opts?: { silent?: boolean },
   ): Promise<Import40CaseDto> => {
     const response = await apiClient.put<Import40CaseDto>(
       `/import40/${encodeURIComponent(id)}/containers/${encodeURIComponent(containerId)}`,
       data,
+      opts?.silent ? { silent: true } : undefined,
     )
     return response.data
   },
 
-  deleteContainer: async (id: string, containerId: string): Promise<Import40CaseDto> => {
+  deleteContainer: async (id: string, containerId: string, opts?: { silent?: boolean }): Promise<Import40CaseDto> => {
     const response = await apiClient.delete<Import40CaseDto>(
       `/import40/${encodeURIComponent(id)}/containers/${encodeURIComponent(containerId)}`,
+      opts?.silent ? { silent: true } : undefined,
     )
     return response.data
   },
