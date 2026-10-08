@@ -688,6 +688,7 @@ export default {
         action: 'Finish registration',
       },
       regError: 'Could not check your company registration',
+      noClient: 'Could not identify your company — please sign in again',
       loadError: 'Could not load the draft',
       notFound: 'Draft not found',
       notFoundHint: 'It may have been cancelled, or the link is out of date',

@@ -11,7 +11,9 @@ const api = vi.hoisted(() => ({
 }))
 const refs = vi.hoisted(() => ({ listCountries: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
+const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
+vi.mock('@/ui/message', () => ({ message: msg }))
 
 import { AUTOSAVE_DELAY_MS, useShipmentDraft } from '../useShipmentDraft'
 
@@ -208,6 +210,71 @@ describe('useShipmentDraft', () => {
     await Promise.all([first, second, third])
     expect(api.update).toHaveBeenCalledTimes(2)
     expect(api.update.mock.calls[1][1]).toMatchObject({ station: 'Достык' })
+    scope.stop()
+  })
+
+  it('сбой синхронизации контейнеров посередине (DELETE прошёл, POST упал) — повтор шлёт ровно один POST', async () => {
+    server = caseDto({ id: 'c1', status: 0, containers: [container('k1', 'MSKU1234567', '40HC'), container('k2', 'TGHU7654321', '20DC')] })
+    const { d, scope } = setup()
+    await d.load('c1')
+    d.draft.containers.splice(1, 1)
+    d.draft.containers.push({ number: 'CMAU0000001', type: '40HC' })
+    api.addContainer.mockRejectedValueOnce(new Error('network'))
+    expect(await d.save()).toBe(false)
+    expect(d.saveError.value).toBe(true)
+    expect(d.dirty.value).toBe(true)
+    expect(api.deleteContainer).toHaveBeenCalledTimes(1)
+    expect(api.addContainer).toHaveBeenCalledTimes(1)
+
+    vi.clearAllMocks()
+    expect(await d.save()).toBe(true)
+    expect(api.deleteContainer).not.toHaveBeenCalled()
+    expect(api.addContainer).toHaveBeenCalledTimes(1)
+    expect(api.addContainer).toHaveBeenCalledWith('c1', { containerNumber: 'CMAU0000001', containerType: '40HC' }, { silent: true })
+    expect(server.containers.map((c) => c.containerNumber)).toEqual(['MSKU1234567', 'CMAU0000001'])
+    expect(d.dirty.value).toBe(false)
+    scope.stop()
+  })
+
+  it('id новой строки — только по номеру; нет в ответе — перечитываем заявку', async () => {
+    server = caseDto({ id: 'c1', status: 0, containers: [] })
+    const { d, scope } = setup()
+    await d.load('c1')
+    // Ответ POST без новой строки, зато с чужим незнакомым контейнером — его id брать нельзя.
+    api.addContainer.mockImplementationOnce(async () => {
+      server = { ...server, containers: [container('x9', 'FOREIGN0001'), container('n7', 'CMAU0000001')] }
+      return { ...server, containers: [container('x9', 'FOREIGN0001')] }
+    })
+    d.draft.containers.push({ number: 'CMAU0000001', type: '' })
+    expect(await d.save()).toBe(true)
+    expect(api.get).toHaveBeenLastCalledWith('c1', { silent: true })
+    expect(d.draft.containers[0].id).toBe('n7')
+    scope.stop()
+  })
+
+  it('dirty реактивен: правка — true, после сохранения — false', async () => {
+    const { d, scope } = setup()
+    d.draft.cargo = 'Ноутбуки'
+    expect(d.dirty.value).toBe(false)
+    await d.ensureCreated()
+    expect(d.dirty.value).toBe(true)
+    await d.save()
+    expect(d.dirty.value).toBe(false)
+    d.draft.containers.push({ number: 'CMAU0000001', type: '' })
+    expect(d.dirty.value).toBe(true)
+    await d.save()
+    expect(d.dirty.value).toBe(false)
+    scope.stop()
+  })
+
+  it('ensureCreated без id клиента — без POST, с тостом об ошибке', async () => {
+    useAuthStore().userId = null
+    const { d, scope } = setup()
+    d.draft.cargo = 'Ноутбуки'
+    await expect(d.ensureCreated()).rejects.toThrow()
+    expect(api.create).not.toHaveBeenCalled()
+    expect(msg.error).toHaveBeenCalledWith('Не удалось определить вашу компанию — войдите заново')
+    expect(d.caseId.value).toBeNull()
     scope.stop()
   })
 })

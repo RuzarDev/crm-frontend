@@ -2,6 +2,8 @@ import { computed, getCurrentScope, onScopeDispose, reactive, ref, type Ref } fr
 import { import40Api, type Import40CaseDto, type Import40UpdateRequest } from '@/api/import40'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
+import { i18n } from '@/i18n'
+import { message } from '@/ui/message'
 import { normalizeCountryCode } from '@/utils/countries'
 import type { RefCodeItem } from '@/types/api'
 
@@ -122,8 +124,13 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
   const ownerName = ref('')
 
   // Что уже лежит на сервере: поля заявки (JSON последнего успешного PUT; null — не сохраняли) и контейнеры по id.
-  let savedKey: string | null = null
+  // Оба — реактивные: от них зависит dirty. Map сам не реактивен, поэтому каждая его правка поднимает версию.
+  const savedKey = ref<string | null>(null)
   const serverContainers = new Map<string, Snapshot>()
+  const serverVersion = ref(0)
+  const setServer = (id: string, snap: Snapshot) => { serverContainers.set(id, snap); serverVersion.value++ }
+  const delServer = (id: string) => { serverContainers.delete(id); serverVersion.value++ }
+  const clearServer = () => { serverContainers.clear(); serverVersion.value++ }
 
   const payloadKey = () => JSON.stringify(draftPayload(draft))
   const norm = (c: DraftContainer): Snapshot => ({ number: c.number.trim(), type: c.type.trim() })
@@ -140,11 +147,9 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
       return !was || was.number !== now.number || was.type !== now.type
     })
   }
-  const isDirty = () => !!caseId.value && (payloadKey() !== savedKey || containersDirty())
-  // Реактивная обёртка для шаблона/ухода со страницы: зависит от draft и сохранённого (через savedAt/saving).
+  const isDirty = () => !!caseId.value && (payloadKey() !== savedKey.value || containersDirty())
   const dirty = computed(() => {
-    void savedAt.value
-    void saving.value
+    void serverVersion.value
     return isDirty()
   })
 
@@ -159,13 +164,21 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
 
   // ---- Создание (один раз, даже при параллельных вызовах) ----
   let creating: Promise<string> | null = null
+  /** Идёт POST /import40 — уход со страницы должен дождаться его, а не говорить «черновика ещё нет». */
+  const creatingNow = ref(false)
   const ensureCreated = (): Promise<string> => {
     if (caseId.value) return Promise.resolve(caseId.value)
     if (!creating) {
+      // Без id клиента сервер заявку не примет (как и прежний мастер, пустой clientId не отправляем).
+      if (!authStore.userId) {
+        message.error(i18n.global.t('client.wizard.noClient'))
+        return Promise.reject(new Error('no client id'))
+      }
+      creatingNow.value = true
       creating = (async () => {
         try {
           const created = await import40Api.create({
-            clientId: authStore.userId ?? '',
+            clientId: authStore.userId!,
             clientName: ownerName.value.trim() || authStore.username || '—',
             cargo: draft.cargo.trim(),
             post: (draft.post || '').trim(),
@@ -174,13 +187,14 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
           number.value = created.number
           status.value = created.status
           // На сервере пока только груз и пост: первое сохранение отправит все поля.
-          savedKey = null
-          serverContainers.clear()
+          savedKey.value = null
+          clearServer()
           savedAt.value = new Date()
           saveError.value = false
           return created.id
         } finally {
           creating = null
+          creatingNow.value = false
         }
       })()
     }
@@ -188,19 +202,19 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
   }
 
   // ---- Контейнеры по различию ----
-  // В ответе на POST — вся заявка; id новой строки — тот, которого мы ещё не знали (с тем же номером).
+  // В ответе на POST — вся заявка; id новой строки — тот, которого мы ещё не знали, с тем же номером.
+  // Только по номеру: «первый незнакомый» мог бы оказаться чужим (контейнер, добавленный декларантом).
   const takeNewId = (resp: Import40CaseDto, row: Snapshot): string | null => {
-    const unknown = (resp.containers ?? []).filter((x) => !serverContainers.has(x.id))
-    const hit = unknown.find((x) => x.containerNumber === row.number) ?? unknown[0]
+    const hit = (resp.containers ?? []).find((x) => !serverContainers.has(x.id) && (x.containerNumber || '').trim() === row.number)
     return hit?.id ?? null
   }
   const post = async (id: string, row: DraftContainer, snap: Snapshot) => {
     const resp = await import40Api.addContainer(id, { containerNumber: snap.number, containerType: snap.type }, SILENT)
-    const newId = takeNewId(resp, snap)
-    if (newId) {
-      row.id = newId
-      serverContainers.set(newId, snap)
-    }
+    // Сервер мог изменить номер (обрезка и т.п.) — перечитываем заявку и ищем ещё раз.
+    const newId = takeNewId(resp, snap) ?? takeNewId(await import40Api.get(id, SILENT), snap)
+    if (!newId) throw new Error('container id not found')
+    row.id = newId
+    setServer(newId, snap)
   }
   const syncContainers = async (id: string) => {
     // Строки без номера на сервер не уходят (номер обязателен); строка с id, у которой стёрли номер, — удаление.
@@ -208,7 +222,7 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
     const liveIds = new Set(live.filter((c) => c.id).map((c) => c.id!))
     for (const goneId of [...serverContainers.keys()].filter((k) => !liveIds.has(k))) {
       await import40Api.deleteContainer(id, goneId, SILENT)
-      serverContainers.delete(goneId)
+      delServer(goneId)
     }
     for (const row of live) {
       const snap = norm(row)
@@ -223,12 +237,12 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
         // PUT не умеет стирать поле (пустое значение сервер считает «не менять») — заменяем строку.
         const oldId = row.id
         await import40Api.deleteContainer(id, oldId, SILENT)
-        serverContainers.delete(oldId)
+        delServer(oldId)
         row.id = undefined
         await post(id, row, snap)
       } else {
         await import40Api.updateContainer(id, row.id, { containerNumber: snap.number, containerType: snap.type }, SILENT)
-        serverContainers.set(row.id, snap)
+        setServer(row.id, snap)
       }
     }
   }
@@ -246,9 +260,9 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
     saving.value = true
     try {
       const key = payloadKey()
-      if (key !== savedKey) {
+      if (key !== savedKey.value) {
         const resp = await import40Api.update(id, draftPayload(draft), SILENT)
-        savedKey = key
+        savedKey.value = key
         if (resp?.number) number.value = resp.number
         if (typeof resp?.status === 'number') status.value = resp.status
       }
@@ -325,14 +339,14 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
       currency: c.clientCurrencyCode || 'USD',
       estimatedValue: c.clientEstimatedValue ?? null,
     } satisfies ShipmentDraft)
-    serverContainers.clear()
+    clearServer()
     for (const x of c.containers ?? []) {
-      serverContainers.set(x.id, { number: (x.containerNumber || '').trim(), type: (x.containerType || '').trim() })
+      setServer(x.id, { number: (x.containerNumber || '').trim(), type: (x.containerType || '').trim() })
     }
     caseId.value = c.id
     number.value = c.number
     status.value = c.status
-    savedKey = payloadKey()
+    savedKey.value = payloadKey()
     savedAt.value = null
     saveError.value = false
   }
@@ -344,8 +358,8 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
     caseId.value = null
     number.value = ''
     status.value = null
-    savedKey = null
-    serverContainers.clear()
+    savedKey.value = null
+    clearServer()
     savedAt.value = null
     saveError.value = false
   }
@@ -359,6 +373,7 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
     savedAt,
     saveError,
     dirty,
+    creating: creatingNow,
     countries,
     ownerName,
     loadCountries,

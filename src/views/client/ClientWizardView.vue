@@ -48,6 +48,9 @@ const reached = ref(0)
 const advancing = ref(false)
 /** Уход уже согласован (Дозаполнить позже / переадресация) — страж не спрашивает. */
 let leaving = false
+/** Идёт уход с черновика (страж ждёт сохранения) или экран снят: начатый переход на шаг не продолжаем. */
+let departing = false
+let unmounted = false
 
 const routeId = () => (typeof route.params.id === 'string' && route.params.id ? route.params.id : null)
 
@@ -84,7 +87,7 @@ const loadPosts = async () => {
     postsLoading.value = false
   }
 }
-const countryOptions = computed<ZOption[]>(() => buildCountryOptions(shipment.countries.value).map((o) => ({ ...o })))
+const countryOptions = computed<ZOption[]>(() => buildCountryOptions(shipment.countries.value))
 
 const profile = shallowRef<ClientCompanyProfileDto | null>(null)
 const loadProfile = async () => {
@@ -119,7 +122,7 @@ const stepFilled = (i: number) => {
   if (i === 1) {
     const byMode = [draft.vehicleNumber, draft.trailerNumber, draft.driverPhone, draft.wagonNumber, draft.station,
       draft.flightNumber, draft.airWaybill, draft.vesselName, draft.billOfLading]
-    return byMode.some((v) => v.trim()) || draft.containers.length > 0
+    return byMode.some((v) => v.trim()) || draft.containers.some((c) => c.number.trim())
   }
   if (i === 2) return !!(draft.senderName.trim() && draft.receiverName.trim() && isBinOk(draft.receiverBin))
   return false
@@ -175,6 +178,7 @@ watch(() => route.params.id, () => {
   if (id && id === caseId.value) return
   if (!id && !caseId.value && phase.value === 'ready') return
   leaving = false
+  departing = false
   void open(id)
 })
 
@@ -213,6 +217,9 @@ const goTo = async (i: number) => {
     } finally {
       advancing.value = false
     }
+    // Пока создавали, клиент ушёл со страницы (ссылка «Мои поставки», крестик): не тянем его обратно в мастер —
+    // черновик сохранит страж ухода.
+    if (unmounted || departing) return
     // Адрес черновика: обновление страницы и «Назад» браузера вернут в него, а не в пустой мастер.
     void router.replace(`/import-40/new/${caseId.value}`)
   }
@@ -238,7 +245,8 @@ const finishLater = async () => {
     if (!ok) return
     leaving = true
     message.success(t('client.wizard.laterDone', { number: number.value }))
-    await router.push('/import-40')
+    // Переход не состоялся (отменён другим переходом и т.п.) — снова охраняем уход.
+    if (await router.push('/import-40')) leaving = false
   } finally {
     finishing.value = false
   }
@@ -257,18 +265,33 @@ const askLeave = (content: string) => confirm({
 const confirmLeave = async (): Promise<boolean> => {
   if (leaving || phase.value !== 'ready') return true
   shipment.cancelScheduled()
+  // Черновик как раз создаётся (ушли во время «Далее»): дождёмся его и сохраним, а не скажем «черновика нет».
+  if (!caseId.value && shipment.creating.value) {
+    try {
+      await shipment.ensureCreated()
+    } catch {
+      // Не создался — дальше честный вопрос «введённое пропадёт».
+    }
+  }
   if (!caseId.value) return draft.cargo.trim() ? askLeave(t('client.wizard.leave.textNew')) : true
   if (!shipment.dirty.value && !saving.value && !saveError.value) return true
   if (await shipment.save()) return true
   return askLeave(t('client.wizard.leave.text'))
 }
-// Глобальный страж, а не onBeforeRouteLeave: после replace /new → /new/:id экран остаётся тем же, а страж
-// маршрута привязан к записи /new и на уходе с /new/:id не сработал бы.
+// Страж — на роутере (снимается при размонтировании): одно место решает и уход из мастера, и переход
+// между черновиками внутри него (/new/:a → /new, /new/:b), а свой replace /new → /new/:id пропускает.
 const removeGuard = router.beforeEach(async (to, from) => {
   if (!isWizardRoute(from)) return true
   const toId = typeof to.params.id === 'string' && to.params.id ? to.params.id : null
   if (isWizardRoute(to) && toId === (caseId.value ?? null)) return true
-  return confirmLeave()
+  departing = true
+  const ok = await confirmLeave()
+  if (!ok) departing = false
+  return ok
+})
+// Уход разрешили, но переход сорвался (отменён, перебит другим) — мастер снова живой.
+const removeAfter = router.afterEach((_to, _from, failure) => {
+  if (failure) departing = false
 })
 
 // Закрытие вкладки или перезагрузка с несохранённым — вопрос браузера; уход в фон (телефон) — сохраняем сразу.
@@ -286,7 +309,10 @@ const onVisibility = () => {
 window.addEventListener('beforeunload', onBeforeUnload)
 document.addEventListener('visibilitychange', onVisibility)
 onBeforeUnmount(() => {
+  unmounted = true
+  shipment.cancelScheduled()
   removeGuard()
+  removeAfter()
   window.removeEventListener('beforeunload', onBeforeUnload)
   document.removeEventListener('visibilitychange', onVisibility)
 })

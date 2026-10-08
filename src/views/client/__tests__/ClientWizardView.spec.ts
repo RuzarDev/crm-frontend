@@ -242,4 +242,65 @@ describe('ClientWizardView', () => {
     await w.get('[data-wz-receiver-bin]').setValue('123456789012')
     expect(w.get('[data-wz-next]').attributes('disabled')).toBeUndefined()
   })
+
+  it('уход во время создания черновика — без вопроса «введённое пропадёт», без возврата в мастер, черновик сохранён', async () => {
+    let release!: () => void
+    api.create.mockImplementationOnce((body: { cargo: string; post: string }) => new Promise((r) => {
+      release = () => {
+        server = { ...server, cargo: body.cargo, post: body.post }
+        r(server)
+      }
+    }))
+    await mountAt('/import-40/new')
+    await w.get('[data-wz-cargo]').setValue('Ноутбуки Lenovo')
+    await w.get('[data-wz-next]').trigger('click')
+    await flushPromises()
+    expect(api.create).toHaveBeenCalledTimes(1)
+
+    const replace = vi.spyOn(router, 'replace')
+    const nav = router.push('/import-40')
+    await flushPromises()
+    expect(confirmState.open).toBe(false)
+    release()
+    await nav
+    await flushPromises()
+
+    expect(confirmState.open).toBe(false)
+    expect(router.currentRoute.value.fullPath).toBe('/import-40')
+    expect(replace).not.toHaveBeenCalled()
+    expect(api.update).toHaveBeenCalledTimes(1)
+    expect(api.update.mock.calls[0][1]).toMatchObject({ cargo: 'Ноутбуки Lenovo', clientReceiverName: 'ТОО «Ромашка»' })
+    expect(api.create).toHaveBeenCalledTimes(1)
+  })
+
+  it('/new → черновик создан, адрес /new/:id → правка → уход: PUT с правкой', async () => {
+    await mountAt('/import-40/new')
+    await w.get('[data-wz-cargo]').setValue('Ноутбуки Lenovo')
+    await w.get('[data-wz-next]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/import-40/new/c1')
+    api.update.mockClear()
+
+    await w.get('[data-wz-vehicle]').setValue('123ABC01')
+    await router.push('/import-40')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/import-40')
+    expect(confirmState.open).toBe(false)
+    expect(api.update).toHaveBeenCalledTimes(1)
+    expect(api.update.mock.calls[0][1]).toMatchObject({ vehicleNumber: '123ABC01' })
+  })
+
+  it('после размонтирования страж снят: переход ничего не сохраняет', async () => {
+    server = caseDto({ id: 'c1', status: 0, cargo: 'Станки', clientSenderName: 'Lenovo', clientReceiverName: 'ТОО «Ромашка»' })
+    await mountAt('/import-40/new/c1')
+    await w.get('[data-wz-step="cargo"]').trigger('click')
+    await w.get('[data-wz-cargo]').setValue('Станки ЧПУ')
+    w.unmount()
+    await router.push('/import-40')
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 900))
+    expect(router.currentRoute.value.fullPath).toBe('/import-40')
+    expect(api.update).not.toHaveBeenCalled()
+    expect(confirmState.open).toBe(false)
+  })
 })

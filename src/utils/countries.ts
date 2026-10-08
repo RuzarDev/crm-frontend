@@ -3,7 +3,8 @@ import type { RefCodeItem } from '@/types/api'
 // Справочник стран (5.13): опции вида «Китай (CN)», поиск по названию/alpha2/цифровому коду
 // ОКСМ, но хранимое значение — всегда цифровой код ОКСМ, как в справочнике ref/countries.
 
-export interface CountryOption {
+// type, а не interface: у литерального типа неявная индексная сигнатура — опции подходят ZSelect (ZOption) как есть.
+export type CountryOption = {
   value: string
   label: string
   searchText: string
