@@ -131,7 +131,8 @@ const router = createRouter({
         {
           path: '/keden',
           name: 'keden',
-          component: () => import('@/views/KedenListView.vue'),
+          component: () => import('@/views/broker/keden/KedenDeclarationsView.vue'),
+          props: { mode: 'all' },
           meta: { requiresRole: 'administrator' },
         },
         {
@@ -146,7 +147,8 @@ const router = createRouter({
           // но переход тихо уводил на дашборд. Проверка — в общем guard'е, как /reestr и /billing.
           path: '/keden-status',
           name: 'keden-status',
-          component: () => import('@/views/KedenStatusView.vue'),
+          component: () => import('@/views/broker/keden/KedenDeclarationsView.vue'),
+          props: { mode: 'mine' },
         },
         {
           path: '/sales',

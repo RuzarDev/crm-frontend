@@ -704,6 +704,25 @@ export default {
       },
       someFilesFailed: 'The package was created, but some files did not upload — add them in the panel that opened',
     },
+    keden: {
+      title: 'KEDEN',
+      clientTitle: 'Declaration statuses',
+      search: 'Reg. number, declarant, BIN',
+      filter: { type: 'Type', status: 'Status', post: 'Post' },
+      tableLabel: 'KEDEN declarations',
+      col: { no: 'Reg. number', type: 'Type', status: 'Status', post: 'Customs post', declarant: 'Declarant', changed: 'Changed' },
+      range: '{from}–{to} of {total}',
+      bin: 'BIN {bin}',
+      mineHint: 'Statuses will appear once the BIN is set in the company profile',
+      type: { PI: 'PI', DT: 'GD', TD: 'TD', PTDEG: 'PDEG', DTEG: 'GDEG' },
+      typeFull: {
+        PI: 'Preliminary information',
+        DT: 'Goods declaration',
+        TD: 'Transit declaration',
+        PTDEG: 'Passenger declaration (express cargo)',
+        DTEG: 'Goods declaration (express cargo)',
+      },
+    },
   },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
   client: {
