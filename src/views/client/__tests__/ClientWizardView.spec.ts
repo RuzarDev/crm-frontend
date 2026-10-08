@@ -7,6 +7,9 @@ import { mountWithI18n } from '@/test/mountWithI18n'
 import type { Import40CaseDto } from '@/api/import40'
 import { confirmState } from '@/ui/confirm'
 import { caseDto, fileDto } from './caseFixture'
+import ru from '@/i18n/locales/ru'
+import kk from '@/i18n/locales/kk'
+import en from '@/i18n/locales/en'
 
 const api = vi.hoisted(() => ({
   get: vi.fn(), create: vi.fn(), update: vi.fn(), addContainer: vi.fn(), updateContainer: vi.fn(), deleteContainer: vi.fn(),
@@ -50,6 +53,7 @@ beforeEach(() => {
   pinia = createPinia()
   setActivePinia(pinia)
   const auth = useAuthStore()
+  auth.token = 'test-token'
   auth.userId = 'u1'
   auth.username = 'romashka'
   reg.loaded = ref(true)
@@ -293,6 +297,38 @@ describe('ClientWizardView', () => {
     expect(api.update.mock.calls[0][1]).toMatchObject({ vehicleNumber: '123ABC01' })
   })
 
+  it('выход из аккаунта с несохранённой правкой — без сохранения (токена уже нет) и без вопроса', async () => {
+    server = caseDto({ id: 'c1', status: 0, cargo: 'Станки', clientSenderName: 'Lenovo', clientReceiverName: 'ТОО «Ромашка»' })
+    await mountAt('/import-40/new/c1')
+    await w.get('[data-wz-step="cargo"]').trigger('click')
+    await w.get('[data-wz-cargo]').setValue('Станки ЧПУ')
+    api.update.mockClear()
+    // Как UserMenu: сначала logout (токен снят), затем переход.
+    useAuthStore().logout()
+    await router.push('/import-40')
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 900))
+    expect(router.currentRoute.value.fullPath).toBe('/import-40')
+    expect(api.update).not.toHaveBeenCalled()
+    expect(confirmState.open).toBe(false)
+  })
+
+  it('возврат на доработку — золотой баннер «Вернули на доработку» с причиной над шагами', async () => {
+    server = caseDto({ id: 'c1', status: 0, cargo: 'Станки', returnReason: 'Приложите инвойс с подписью' })
+    await mountAt('/import-40/new/c1')
+    const banner = w.get('[data-wz-returned]')
+    expect(banner.text()).toContain('Вернули на доработку')
+    expect(banner.text()).toContain('Приложите инвойс с подписью')
+    expect(banner.classes()).toContain('bg-gold-soft')
+    expect(banner.attributes('role')).toBe('region')
+  })
+
+  it('обычный черновик — баннера возврата нет', async () => {
+    server = caseDto({ id: 'c1', status: 0, cargo: 'Станки', returnReason: '' })
+    await mountAt('/import-40/new/c1')
+    expect(w.find('[data-wz-returned]').exists()).toBe(false)
+  })
+
   it('после размонтирования страж снят: переход ничего не сохраняет', async () => {
     server = caseDto({ id: 'c1', status: 0, cargo: 'Станки', clientSenderName: 'Lenovo', clientReceiverName: 'ТОО «Ромашка»' })
     await mountAt('/import-40/new/c1')
@@ -449,7 +485,7 @@ describe('ClientWizardView', () => {
       expect(api.update).not.toHaveBeenCalled()
     })
 
-    it('переход после отправки сорвался — страж снова охраняет', async () => {
+    it('переход после отправки сорвался — отправка закрыта, ссылка «Открыть поставку», правки не сохраняются', async () => {
       server = fullDraft()
       api.listFiles.mockResolvedValue(['invoice', 'transport', 'packing', 'contract'].map((k, i) =>
         fileDto({ id: `f${i}`, docKind: k, originalFileName: `${k}.pdf` })))
@@ -462,14 +498,37 @@ describe('ClientWizardView', () => {
       stop()
       expect(api.action).toHaveBeenCalledTimes(1)
       expect(router.currentRoute.value.fullPath).toBe('/import-40/new/c1')
+      expect(msg.success).toHaveBeenCalledWith('Поставка отправлена на оформление')
 
-      vmDraft().cargo = 'Станки ЧПУ'
-      api.update.mockRejectedValue(new Error('net'))
-      const nav = router.push('/import-40')
+      // Повторно не отправить; «Дозаполнить позже» нет — вместо подсказки ссылка на карточку.
+      expect(submitBtn().attributes('disabled')).toBeDefined()
+      await submitBtn().trigger('click')
       await flushPromises()
-      expect(confirmState.open).toBe(true)
-      confirmState.resolve(false)
-      await nav
+      expect(api.action).toHaveBeenCalledTimes(1)
+      expect(w.find('[data-wz-later]').exists()).toBe(false)
+      const link = w.get('[data-wz-open-shipment]')
+      expect(link.text()).toBe('Открыть поставку')
+      expect(link.attributes('href')).toBe('/import-40/c1')
+
+      // Поставка уже не черновик: правка не автосохраняется, уход не спрашивает и не сохраняет.
+      api.update.mockClear()
+      vmDraft().cargo = 'Станки ЧПУ'
+      await flushPromises()
+      await new Promise((r) => setTimeout(r, 900))
+      expect(api.update).not.toHaveBeenCalled()
+
+      await link.trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.fullPath).toBe('/import-40/c1')
+      expect(confirmState.open).toBe(false)
+      expect(api.update).not.toHaveBeenCalled()
+    })
+
+    it('ключи «Открыть поставку» и ответственности есть в ru/kk/en', () => {
+      for (const loc of [ru, kk, en]) {
+        expect(loc.client.wizard.openShipment).toBeTruthy()
+        expect(loc.client.ask.returned.title).toBeTruthy()
+      }
     })
 
     it('загрузка закончилась, пока клиент был на другом шаге: файл в списке, отправка доступна', async () => {

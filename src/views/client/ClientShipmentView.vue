@@ -116,7 +116,8 @@ void referencesApi.listCountries({ silent: true }).then((r) => { countries.value
 
 // ---- Шапка ----
 const summary = computed(() => (kase.value ? toShipmentSummary(kase.value, files.value) : null))
-const tag = computed(() => (summary.value ? shipmentTag(summary.value) : null))
+// Файлы не загрузились — тег не гадает про чек («Ждём оплату склада» / «Чек на проверке»).
+const tag = computed(() => (summary.value ? shipmentTag(summary.value, { filesUnknown: filesError.value }) : null))
 const metaParts = computed(() => {
   const c = kase.value
   if (!c) return []
@@ -272,7 +273,7 @@ const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
 
       <div class="flex flex-wrap items-start gap-x-6 gap-y-[18px]">
         <div class="min-w-0 flex-[999_1_480px]">
-          <ShipmentTimeline :shipment="summary" :docs-count="docsCount" :dt-numbers="dtNumbers" />
+          <ShipmentTimeline :shipment="summary" :docs-count="docsCount" :dt-numbers="dtNumbers" :files-unknown="filesError" />
         </div>
 
         <div class="flex min-w-0 flex-[1_1_320px] flex-col gap-[18px]">

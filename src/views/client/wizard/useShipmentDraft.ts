@@ -115,6 +115,8 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
   const number = ref('')
   /** Статус заявки с сервера (0 — черновик); null — заявка ещё не создана/не загружена. */
   const status = ref<number | null>(null)
+  /** Причина возврата на доработку (у загруженного черновика); пусто — не возвращали. */
+  const returnReason = ref('')
   const saving = ref(false)
   const savedAt = ref<Date | null>(null)
   const saveError = ref(false)
@@ -346,6 +348,7 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
     caseId.value = c.id
     number.value = c.number
     status.value = c.status
+    returnReason.value = c.returnReason ?? ''
     savedKey.value = payloadKey()
     savedAt.value = null
     saveError.value = false
@@ -358,6 +361,7 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
     caseId.value = null
     number.value = ''
     status.value = null
+    returnReason.value = ''
     savedKey.value = null
     clearServer()
     savedAt.value = null
@@ -369,6 +373,7 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
     caseId,
     number,
     status,
+    returnReason,
     saving,
     savedAt,
     saveError,

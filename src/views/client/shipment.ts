@@ -11,12 +11,19 @@ export type AskKind = 'problem' | 'returned' | 'draft' | 'paySvh'
 
 export const TOTAL_STEPS = 6
 
-/** «Нужно от вас» — то же правило, что сервер (GetImport40Dashboard): проблема, черновик, счёт СВХ без чека. Возврат на доработку — частный случай черновика с причиной. */
-export function askFor(s: ClientShipment): AskKind | null {
+/** Что известно экрану сверх лёгкой строки. filesUnknown — файлы поставки не загрузились (карточка): загружен ли чек, неизвестно. */
+export type ShipmentCtx = { filesUnknown?: boolean }
+
+/**
+ * «Нужно от вас» — ход клиента: проблема (вопрос AQNIET), черновик (возврат на доработку — черновик с причиной),
+ * счёт СВХ без загруженного чека. Загруженный чек — уже не ход клиента (ждём подтверждения), даже пока оплату
+ * не подтвердили; выполненная и отменённая поставка не спрашивает ничего. Без файлов (filesUnknown) про чек не гадаем.
+ */
+export function askFor(s: ClientShipment, ctx: ShipmentCtx = {}): AskKind | null {
   if (s.status === 8 || s.status === 9) return null
   if (s.isProblem) return 'problem'
   if (s.status === 0) return s.returnReason ? 'returned' : 'draft'
-  if (s.status === 6 && !s.paymentCheckUploaded) return 'paySvh'
+  if (s.status === 6 && !s.paymentCheckUploaded && !ctx.filesUnknown) return 'paySvh'
   return null
 }
 
@@ -27,14 +34,16 @@ export function tabOf(s: ClientShipment): ShipmentTab {
 }
 
 /** Тег в словаре клиента (ключ client.tag.*) и тон. */
-export function shipmentTag(s: ClientShipment): { key: string; tone: ZTone } {
+export function shipmentTag(s: ClientShipment, ctx: ShipmentCtx = {}): { key: string; tone: ZTone } {
   if (s.status === 9) return { key: 'cancelled', tone: 'neutral' }
   if (s.status === 8) return { key: 'done', tone: 'done' }
-  const ask = askFor(s)
+  const ask = askFor(s, ctx)
   if (ask === 'problem') return { key: 'needDoc', tone: 'danger' }
   if (ask === 'returned') return { key: 'returned', tone: 'wait' }
   if (ask === 'draft') return { key: 'draft', tone: 'neutral' }
   if (ask === 'paySvh') return { key: 'paySvh', tone: 'wait' }
+  // Файлы не загрузились — ни «Ждём оплату склада», ни «Чек на проверке»: нейтральное «Оформляем».
+  if (s.status === 6 && ctx.filesUnknown) return { key: 'processing', tone: 'neutral' }
   if (s.status === 6) return { key: 'checkReview', tone: 'pay' } // чек загружен, ждём подтверждения
   if (s.status === 7) return { key: 'payService', tone: 'pay' }
   if (s.status >= 4) return { key: 'released', tone: 'done' }
@@ -42,14 +51,18 @@ export function shipmentTag(s: ClientShipment): { key: string; tone: ZTone } {
   return { key: 'processing', tone: 'info' }
 }
 
-/** Состояние сегментов полосы этапов (6 шт.): done / current / todo; current получает тон: gold, если ход клиента, иначе accent; у проблемной — danger. */
+/**
+ * Состояние сегментов полосы этапов (6 шт.): done / current / todo; current получает тон: gold, если ход клиента,
+ * иначе accent; у проблемной — danger. Выполненная — все пройдены; отменённая — все впереди (этапы не пройдены).
+ */
 export type SegState = 'done' | 'current' | 'currentAsk' | 'currentProblem' | 'todo'
-export function segments(s: ClientShipment): SegState[] {
-  const step = s.status >= 8 ? 7 : s.step || 1
+export function segments(s: ClientShipment, ctx: ShipmentCtx = {}): SegState[] {
+  if (s.status === 9) return Array<SegState>(TOTAL_STEPS).fill('todo')
+  const step = s.status === 8 ? TOTAL_STEPS + 1 : s.step || 1
   return Array.from({ length: TOTAL_STEPS }, (_, i) => {
     if (i + 1 < step) return 'done'
     if (i + 1 > step) return 'todo'
-    return s.isProblem ? 'currentProblem' : askFor(s) ? 'currentAsk' : 'current'
+    return s.isProblem ? 'currentProblem' : askFor(s, ctx) ? 'currentAsk' : 'current'
   })
 }
 
@@ -62,6 +75,15 @@ export const stepNo = (s: ClientShipment): number => Math.min(TOTAL_STEPS, Math.
 /** Куда ведёт поставка из списка: неотправленный черновик дописывается в мастере, остальное — карточка. */
 export const shipmentHref = (s: ClientShipment): string =>
   tabOf(s) === 'drafts' ? `/import-40/new/${s.id}` : `/import-40/${s.id}`
+
+/**
+ * Куда ведёт строка «Нужно от вас»: черновик и возврат на доработку дописываются в мастере (причину возврата
+ * мастер показывает сверху), остальное — включая черновик с вопросом AQNIET — карточка.
+ */
+export const askHref = (s: ClientShipment): string => {
+  const ask = askFor(s)
+  return ask === 'draft' || ask === 'returned' ? `/import-40/new/${s.id}` : `/import-40/${s.id}`
+}
 
 /**
  * Лёгкая сводка из полной заявки (карточка поставки): те же поля, что отдаёт GET import40/client/shipments,

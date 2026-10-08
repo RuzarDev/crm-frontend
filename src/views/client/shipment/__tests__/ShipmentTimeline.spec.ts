@@ -11,8 +11,10 @@ const ship = (o: Partial<ClientShipment>): ClientShipment => ({
   declarationsCount: 0, assignedDeclarantName: null, createdAtUtc: '2026-09-24T09:00:00Z', updatedAtUtc: '2026-10-07T09:00:00Z', ...o,
 })
 
-const mountWith = (s: Partial<ClientShipment>, extra: { docsCount?: number; dtNumbers?: string[] } = {}) =>
-  mountWithI18n(ShipmentTimeline, { props: { shipment: ship(s), docsCount: extra.docsCount ?? 3, dtNumbers: extra.dtNumbers ?? [] } })
+const mountWith = (s: Partial<ClientShipment>, extra: { docsCount?: number | null; dtNumbers?: string[]; filesUnknown?: boolean } = {}) =>
+  mountWithI18n(ShipmentTimeline, {
+    props: { shipment: ship(s), docsCount: extra.docsCount === undefined ? 3 : extra.docsCount, dtNumbers: extra.dtNumbers ?? [], filesUnknown: extra.filesUnknown },
+  })
 
 const statesOf = (w: ReturnType<typeof mountWith>) => w.findAll('li').map((li) => li.attributes('data-state'))
 
@@ -34,6 +36,13 @@ describe('ShipmentTimeline', () => {
     const problem = mountWith({ status: 1, step: 2, isProblem: true })
     expect(statesOf(problem)).toEqual(['done', 'currentProblem', 'todo', 'todo', 'todo', 'todo'])
     expect(problem.findAll('li')[1].get('[data-step-now]').text()).toBe('сейчас — ваш ход')
+  })
+
+  it('файлы не загрузились — оплата склада без «ваш ход»: текущий этап обычный, работает AQNIET', () => {
+    const w = mountWith({ status: 6, step: 5 }, { docsCount: null, filesUnknown: true })
+    expect(statesOf(w)[4]).toBe('current')
+    expect(w.findAll('li')[4].get('[data-step-now]').text()).toBe('сейчас — работает AQNIET')
+    expect(w.findAll('li')[0].find('[data-step-note]').exists()).toBe(false)
   })
 
   it('пояснения: число документов, номера ДТ, сумма счёта СВХ', () => {

@@ -5,6 +5,9 @@ import { mountWithI18n } from '@/test/mountWithI18n'
 import type { Import40FileDto } from '@/api/import40'
 import { confirmState } from '@/ui/confirm'
 import { fileDto } from '@/views/client/__tests__/caseFixture'
+import ru from '@/i18n/locales/ru'
+import kk from '@/i18n/locales/kk'
+import en from '@/i18n/locales/en'
 
 const api = vi.hoisted(() => ({ listFiles: vi.fn(), uploadFile: vi.fn(), deleteFile: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
@@ -70,7 +73,25 @@ describe('StepDocuments', () => {
     expect(row('invoice').get('[data-doc-attach]').text()).toBe('Приложить: Инвойс (коммерческий счёт)')
     const resp = w.get('[data-docs-resp]')
     expect(resp.attributes('role')).toBe('checkbox')
-    expect(resp.element.closest('label')?.textContent).toContain('Подтверждаю, что документы полные и достоверные')
+  })
+
+  it('ответственность — утверждённый текст: отвечает клиент; пояснение строкой, подпись галочки — подтверждение', async () => {
+    await mountStep()
+    const desc = w.get('[data-docs-resp-desc]')
+    expect(desc.text()).toBe(ru.import40List.respDesc)
+    expect(desc.text()).toContain('несёт клиент')
+    expect(desc.text()).not.toContain('декларант')
+    const resp = w.get('[data-docs-resp]')
+    expect(resp.element.closest('label')?.textContent?.trim()).toBe(ru.import40List.respConfirm)
+    expect(resp.attributes('aria-describedby')).toBe(desc.attributes('id'))
+  })
+
+  it('тексты ответственности мастера совпадают с утверждёнными (import40List) в ru/kk/en', () => {
+    for (const loc of [ru, kk, en]) {
+      expect(loc.client.wizard.docs.respDesc).toBe(loc.import40List.respDesc)
+      expect(loc.client.wizard.docs.respConfirm).toBe(loc.import40List.respConfirm)
+      expect('resp' in loc.client.wizard.docs).toBe(false)
+    }
   })
 
   it('файл в строке «Инвойс» — upload с kind=invoice; галочка, имя файла, «Добавить ещё»', async () => {

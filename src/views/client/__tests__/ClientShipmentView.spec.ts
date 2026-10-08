@@ -280,12 +280,38 @@ describe('ClientShipmentView', () => {
     expect(w.find('[data-ask="paySvh"]').exists()).toBe(false)
     expect(w.find('[data-notice="check"]').exists()).toBe(false)
     expect(w.findAll('[data-ship-timeline] li')[0].find('[data-step-note]').exists()).toBe(false)
+    // Шапка и полоса тоже не гадают: нейтральное «Оформляем», без «Ждём оплату склада» и золотого «ваш ход».
+    const tag = w.get('[data-ship-tag]')
+    expect(tag.text()).toBe('Оформляем')
+    expect(tag.classes().join(' ')).not.toMatch(/wait|gold/)
+    const step5 = w.findAll('[data-ship-timeline] li')[4]
+    expect(step5.attributes('data-state')).toBe('current')
+    expect(step5.get('[data-step-now]').text()).toBe('сейчас — работает AQNIET')
 
     await w.get('[data-docs-retry]').trigger('click')
     await flushPromises()
     expect(w.find('[data-docs-error]').exists()).toBe(false)
     expect(w.get('[data-notice="check"]').exists()).toBe(true)
     expect(w.findAll('[data-doc-row="yours"]')).toHaveLength(1)
+    expect(w.get('[data-ship-tag]').text()).toBe('Чек на проверке')
+  })
+
+  it('файлы не загрузились, чека нет — после «Повторить» тег «Ждём оплату склада» и «ваш ход»', async () => {
+    api.listFiles.mockRejectedValueOnce(new Error('network'))
+    await mountCard({ status: 6, svhInvoiceAmount: 312400 }, [])
+    expect(w.get('[data-ship-tag]').text()).toBe('Оформляем')
+    expect(w.find('[data-ship-timeline] [data-state="currentAsk"]').exists()).toBe(false)
+    await w.get('[data-docs-retry]').trigger('click')
+    await flushPromises()
+    expect(w.get('[data-ship-tag]').text()).toBe('Ждём оплату склада')
+    expect(w.findAll('[data-ship-timeline] li')[4].attributes('data-state')).toBe('currentAsk')
+  })
+
+  it('отменённая — тег «Отменена», все этапы впереди, без «сейчас»', async () => {
+    await mountCard({ status: 9 }, [])
+    expect(w.get('[data-ship-tag]').text()).toBe('Отменена')
+    expect(w.findAll('[data-ship-timeline] li').map((li) => li.attributes('data-state'))).toEqual(Array(6).fill('todo'))
+    expect(w.find('[data-ship-timeline] [data-step-now]').exists()).toBe(false)
   })
 
   it('счета не загрузились — ошибка с «Повторить» в «Услугах AQNIET» вместо «Счёт выставим…»', async () => {

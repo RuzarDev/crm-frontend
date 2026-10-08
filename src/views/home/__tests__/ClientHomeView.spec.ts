@@ -164,6 +164,15 @@ describe('ClientHomeView', () => {
     expect(card.get('.bg-tone-wait-bg').text()).toBe('Вернули на доработку')
   })
 
+  it('черновик с вопросом AQNIET — «Открыть» ведёт на карточку (правило askHref)', async () => {
+    api.list.mockResolvedValue([kase({ id: 'p1', number: 'И40-202', status: 0, isProblem: true, problemClientMessage: 'Уточните вес' })])
+    await mountIt()
+    const ask = w.get('[data-client-ask]')
+    expect(ask.text()).toContain('И40-202 · Нужен ваш ответ')
+    expect(ask.get('a').text()).toBe('Открыть')
+    expect(ask.get('a').attributes('href')).toBe('/import-40/p1')
+  })
+
   it('счёт СВХ: без чека — вопрос с суммой; чек загружен — вопроса нет, «Чек на проверке»', async () => {
     api.list.mockResolvedValue([
       kase({ id: 'v1', number: 'И40-210', status: 6, svhInvoiceAmount: 312400 }),

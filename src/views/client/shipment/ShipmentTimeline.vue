@@ -3,7 +3,7 @@ import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhCheck } from '@phosphor-icons/vue'
 import type { ClientShipment } from '@/api/clientShipments'
-import { TOTAL_STEPS, segments, type SegState } from '@/views/client/shipment'
+import { segments, type SegState } from '@/views/client/shipment'
 import { formatMoney } from '@/ui/number'
 import { cn } from '@/ui/cn'
 
@@ -15,14 +15,15 @@ const props = defineProps<{
   docsCount: number | null
   /** Номера выпущенных/поданных ДТ — пояснение к этапу 3. */
   dtNumbers: string[]
+  /** Файлы не загрузились: загружен ли чек — неизвестно, поэтому оплату склада «ваш ход» не показываем. */
+  filesUnknown?: boolean
 }>()
 
 const { t } = useI18n()
 const headingId = `ship-path-${useId()}`
 
-// Отменённая поставка: этапы не «пройдены» — все серые, без галочек (как в прежней карточке).
-const states = computed<SegState[]>(() =>
-  props.shipment.status === 9 ? Array(TOTAL_STEPS).fill('todo') : segments(props.shipment))
+// Отменённая поставка — все этапы впереди (segments); без файлов про чек не гадаем — этап 5 не «ваш ход».
+const states = computed<SegState[]>(() => segments(props.shipment, { filesUnknown: props.filesUnknown }))
 
 const isCurrent = (s: SegState) => s === 'current' || s === 'currentAsk' || s === 'currentProblem'
 

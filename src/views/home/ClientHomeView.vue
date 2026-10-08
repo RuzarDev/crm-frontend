@@ -22,7 +22,7 @@ import { cn } from '@/ui/cn'
 import {
   activeShipments, clientAsks, clientGreetingName, dayMonth, unpaidInvoices,
 } from '@/views/home/clientHome'
-import { askFor, segments, shipmentHref, shipmentTag } from '@/views/client/shipment'
+import { askFor, askHref, segments, shipmentHref, shipmentTag } from '@/views/client/shipment'
 import { useShipmentText } from '@/views/client/useShipmentText'
 import { greetingKey } from '@/views/home/greeting'
 import { useBlock } from '@/views/home/useBlock'
@@ -62,9 +62,8 @@ const shownAsks = computed(() => asks.value.slice(0, MAX_ASKS))
 watchEffect(() => {
   if (imp && cases.data) homeAttention.value = asks.value.length
 })
-// Черновик и возврат на доработку дописываются в мастере (причина возврата — в строке), остальное — карточка.
-const inWizard = (s: ClientShipment) => s.status === 0 && !s.isProblem
-const askTarget = (s: ClientShipment) => (inWizard(s) ? `/import-40/new/${s.id}` : `/import-40/${s.id}`)
+// Куда ведёт строка — общее правило askHref: черновик и возврат — в мастер («Продолжить»), остальное — карточка.
+const askAction = (s: ClientShipment) => t(askHref(s).startsWith('/import-40/new/') ? 'clientHome.ask.continue' : 'clientHome.ask.open')
 // Действия в строках называются одинаково («Открыть») — описание по номеру и сути различает их при чтении с экрана.
 const askRowId = (i: number) => `${ids.asks}-r${i}`
 
@@ -151,10 +150,10 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
               <p class="m-0 truncate text-sm text-ink-3">{{ text.askText(a) }}</p>
             </div>
             <RouterLink
-              :to="askTarget(a)"
+              :to="askHref(a)"
               :aria-describedby="askRowId(i)"
               class="inline-flex h-8 shrink-0 items-center rounded-field bg-surface px-3 text-sm font-semibold text-ink no-underline outline-hidden transition-colors duration-150 ease-out hover:bg-gold-line focus-visible:shadow-focus motion-reduce:transition-none max-[359px]:ml-auto"
-            >{{ t(inWizard(a) ? 'clientHome.ask.continue' : 'clientHome.ask.open') }}</RouterLink>
+            >{{ askAction(a) }}</RouterLink>
           </li>
         </ul>
         <div v-if="asks.length > MAX_ASKS" class="border-t border-gold-line px-4 py-2.5">

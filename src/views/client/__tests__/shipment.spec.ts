@@ -3,7 +3,7 @@ import ru from '@/i18n/locales/ru'
 import kk from '@/i18n/locales/kk'
 import en from '@/i18n/locales/en'
 import type { ClientShipment } from '@/api/clientShipments'
-import { askFor, segments, shipmentHref, shipmentTag, stepNo, tabCounts, tabOf, toShipmentSummary } from '../shipment'
+import { askFor, askHref, segments, shipmentHref, shipmentTag, stepNo, tabCounts, tabOf, toShipmentSummary } from '../shipment'
 import { caseDto, declaration, fileDto } from './caseFixture'
 
 const ship = (o: Partial<ClientShipment>): ClientShipment => ({
@@ -77,6 +77,31 @@ describe('segments', () => {
   })
   it('выполнена — все пройдены', () => {
     expect(segments(ship({ status: 8, step: 6 }))).toEqual(Array(6).fill('done'))
+    expect(segments(ship({ status: 8, step: 0 }))).toEqual(Array(6).fill('done'))
+  })
+  it('отменена — все впереди, не «пройдены» (с любым шагом и проблемой)', () => {
+    expect(segments(ship({ status: 9, step: 0 }))).toEqual(Array(6).fill('todo'))
+    expect(segments(ship({ status: 9, step: 4, isProblem: true }))).toEqual(Array(6).fill('todo'))
+  })
+})
+
+describe('файлы не загрузились (filesUnknown)', () => {
+  const unknown = { filesUnknown: true }
+  it('счёт СВХ: не «ваш ход» — ни вопроса, ни золотого этапа; тег нейтральный «Оформляем»', () => {
+    const s = ship({ status: 6, step: 5, svhInvoiceAmount: 312400 })
+    expect(askFor(s, unknown)).toBeNull()
+    expect(shipmentTag(s, unknown)).toEqual({ key: 'processing', tone: 'neutral' })
+    expect(segments(s, unknown)).toEqual(['done', 'done', 'done', 'done', 'current', 'todo'])
+  })
+  it('без файлов ничего другого не меняется: проблема, возврат, оплата услуг, отмена', () => {
+    for (const o of [
+      { status: 6, step: 5, isProblem: true }, { status: 0, step: 1, returnReason: 'r' }, { status: 0, step: 1 },
+      { status: 7, step: 6 }, { status: 3, step: 3 }, { status: 8, step: 0 }, { status: 9, step: 0 },
+    ]) {
+      expect(askFor(ship(o), unknown)).toBe(askFor(ship(o)))
+      expect(shipmentTag(ship(o), unknown)).toEqual(shipmentTag(ship(o)))
+      expect(segments(ship(o), unknown)).toEqual(segments(ship(o)))
+    }
   })
 })
 
@@ -105,6 +130,13 @@ describe('stepNo / shipmentHref', () => {
     expect(shipmentHref(ship({ id: 'd', status: 0 }))).toBe('/import-40/new/d')
     expect(shipmentHref(ship({ id: 'r', status: 0, returnReason: 'r' }))).toBe('/import-40/r')
     expect(shipmentHref(ship({ id: 'a', status: 3 }))).toBe('/import-40/a')
+  })
+  it('askHref: черновик и возврат — в мастер; черновик с вопросом и остальное — карточка', () => {
+    expect(askHref(ship({ id: 'd', status: 0 }))).toBe('/import-40/new/d')
+    expect(askHref(ship({ id: 'r', status: 0, returnReason: 'Нет инвойса' }))).toBe('/import-40/new/r')
+    expect(askHref(ship({ id: 'p', status: 0, isProblem: true }))).toBe('/import-40/p')
+    expect(askHref(ship({ id: 'v', status: 6 }))).toBe('/import-40/v')
+    expect(askHref(ship({ id: 'q', status: 3, isProblem: true }))).toBe('/import-40/q')
   })
 })
 

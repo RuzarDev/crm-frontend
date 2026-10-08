@@ -250,11 +250,16 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
       </div>
     </div>
 
-    <ZCheckbox
-      v-model:checked="accepted"
-      class="flex items-start gap-3 rounded-[12px] bg-sunken px-4 py-3.5 text-sm leading-[21px] text-ink-2 [&>button]:mt-[3px]"
-      data-docs-resp
-    >{{ t('client.wizard.docs.resp') }}</ZCheckbox>
+    <!-- Ответственность — утверждённый текст (как import40List.respDesc/respConfirm): отвечает клиент. -->
+    <div class="flex flex-col gap-2.5 rounded-[12px] bg-sunken px-4 py-3.5" data-docs-resp-box>
+      <p :id="`${uid}-resp`" class="m-0 text-sm leading-[21px] text-ink-2" data-docs-resp-desc>{{ t('client.wizard.docs.respDesc') }}</p>
+      <ZCheckbox
+        v-model:checked="accepted"
+        :aria-describedby="`${uid}-resp`"
+        class="flex items-start gap-3 text-sm leading-[21px] font-medium text-ink [&>button]:mt-[3px]"
+        data-docs-resp
+      >{{ t('client.wizard.docs.respConfirm') }}</ZCheckbox>
+    </div>
 
     <p class="sr-only" role="status">{{ announce }}</p>
   </section>

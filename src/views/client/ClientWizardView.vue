@@ -37,7 +37,7 @@ const { confirm } = useConfirm()
 const uid = useId()
 
 const shipment = useShipmentDraft()
-const { draft, caseId, number, saving, savedAt, saveError } = shipment
+const { draft, caseId, number, saving, savedAt, saveError, returnReason } = shipment
 
 const STEPS = ['cargo', 'transport', 'parties', 'docs'] as const
 const LAST = STEPS.length - 1
@@ -52,6 +52,8 @@ const advancing = ref(false)
 /** Шаг «Документы»: файлы и загрузки — в мастере (переживают уход на другой шаг), отметка ответственности. */
 const docs = useShipmentFiles(caseId)
 const docsAccepted = ref(false)
+/** Поставка отправлена (id): дальше это не черновик — отправка закрыта, правки не сохраняем, ведём на карточку. */
+const submittedId = ref<string | null>(null)
 const stepDocs = ref<InstanceType<typeof StepDocuments>>()
 /** Уход уже согласован (Дозаполнить позже / переадресация) — страж не спрашивает. */
 let leaving = false
@@ -144,6 +146,7 @@ const open = async (id: string | null) => {
   const my = ++openSeq
   docs.reset()
   docsAccepted.value = false
+  submittedId.value = null
   void loadPosts()
   void loadProfile()
   if (!id) {
@@ -193,7 +196,7 @@ watch(() => route.params.id, () => {
 
 // ---- Автосохранение: каждое изменение — через 800 мс после последнего; смена шага — сразу ----
 watch(draft, () => {
-  if (phase.value === 'ready') shipment.scheduleSave()
+  if (phase.value === 'ready' && !submittedId.value) shipment.scheduleSave()
 }, { deep: true })
 
 // ---- Шаги ----
@@ -232,7 +235,7 @@ const goTo = async (i: number) => {
     // Адрес черновика: обновление страницы и «Назад» браузера вернут в него, а не в пустой мастер.
     void router.replace(`/import-40/new/${caseId.value}`)
   }
-  void shipment.save()
+  if (!submittedId.value) void shipment.save()
   step.value = i
   reached.value = Math.max(reached.value, i)
   await focusStep()
@@ -252,7 +255,7 @@ const submitBlock = computed(() => {
   if (!docsAccepted.value) return t('client.wizard.submitNeedResp')
   return ''
 })
-const canSubmit = computed(() => !!caseId.value && !submitBlock.value)
+const canSubmit = computed(() => !!caseId.value && !submitBlock.value && !submittedId.value)
 const submit = async () => {
   const id = caseId.value
   if (!id || !canSubmit.value || submitting.value) return
@@ -278,12 +281,14 @@ const submit = async () => {
       return
     }
     await import40Api.action(id, 'submit-for-processing')
-    // Поставка уже не черновик: уход не спрашиваем и ничего не сохраняем.
+    // Поставка уже не черновик: уход не спрашиваем и ничего не сохраняем, повторно не отправляем.
     leaving = true
+    submittedId.value = id
     shipment.cancelScheduled()
     message.success(t('client.wizard.submitted'))
-    // Переход не состоялся (отменён другим переходом и т.п.) — снова охраняем уход.
-    if (await router.push(`/import-40/${id}`)) leaving = false
+    // Переход сорвался (отменён другим переходом и т.п.) — мастер остаётся с закрытой отправкой и ссылкой
+    // «Открыть поставку»; страж ухода не возвращаем: сохранять уже нечего.
+    await router.push(`/import-40/${id}`)
   } catch {
     // Текст ошибки (в т.ч. «приложите хотя бы один документ») уже показал общий перехватчик.
   } finally {
@@ -294,6 +299,10 @@ const submit = async () => {
 // ---- Дозаполнить позже / закрыть ----
 const finishing = ref(false)
 const finishLater = async () => {
+  if (submittedId.value) {
+    void router.push(`/import-40/${submittedId.value}`)
+    return
+  }
   if (!caseId.value || finishing.value) return
   finishing.value = true
   try {
@@ -322,6 +331,9 @@ const askLeave = (content: string) => confirm({
 const confirmLeave = async (): Promise<boolean> => {
   if (leaving || phase.value !== 'ready') return true
   shipment.cancelScheduled()
+  // Выход из аккаунта: токен уже снят (UserMenu — logout, затем переход) — сохранение ушло бы без токена
+  // (401 → перезагрузка страницы). Ничего не сохраняем и не спрашиваем: последнее автосохранение уже на сервере.
+  if (!authStore.isAuthenticated) return true
   // Черновик как раз создаётся (ушли во время «Далее»): дождёмся его и сохраним, а не скажем «черновика нет».
   if (!caseId.value && shipment.creating.value) {
     try {
@@ -353,7 +365,7 @@ const removeAfter = router.afterEach((_to, _from, failure) => {
 
 // Закрытие вкладки или перезагрузка с несохранённым — вопрос браузера; уход в фон (телефон) — сохраняем сразу.
 const onBeforeUnload = (e: BeforeUnloadEvent) => {
-  if (phase.value !== 'ready') return
+  if (phase.value !== 'ready' || submittedId.value || !authStore.isAuthenticated) return
   const pending = caseId.value ? shipment.dirty.value || saving.value : !!draft.cargo.trim()
   if (!pending) return
   if (caseId.value) void shipment.save()
@@ -361,7 +373,9 @@ const onBeforeUnload = (e: BeforeUnloadEvent) => {
   e.returnValue = ''
 }
 const onVisibility = () => {
-  if (document.visibilityState === 'hidden' && caseId.value && phase.value === 'ready') void shipment.save()
+  if (document.visibilityState === 'hidden' && caseId.value && phase.value === 'ready' && !submittedId.value && authStore.isAuthenticated) {
+    void shipment.save()
+  }
 }
 window.addEventListener('beforeunload', onBeforeUnload)
 document.addEventListener('visibilitychange', onVisibility)
@@ -565,6 +579,14 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
         </div>
 
         <div class="flex min-w-0 max-w-[720px] flex-1 flex-col gap-7 sm:gap-8">
+          <!-- Возврат на доработку: причина над шагами, пока черновик открыт в мастере -->
+          <ZAskBanner
+            v-if="returnReason"
+            :title="t('client.ask.returned.title')"
+            :description="returnReason"
+            class="[overflow-wrap:anywhere]"
+            data-wz-returned
+          />
           <div ref="stepHost">
             <StepCargo v-if="step === 0" :draft="draft" :post-options="postOptions" :posts-loading="postsLoading" />
             <StepTransport v-else-if="step === 1" :draft="draft" />
@@ -591,7 +613,7 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
             <div class="flex flex-wrap items-center gap-3 max-sm:flex-nowrap max-sm:gap-2.5">
               <ZButton v-if="step > 0" :class="backBtn" data-wz-back @click="back">{{ t('client.wizard.back') }}</ZButton>
               <button
-                v-if="caseId"
+                v-if="caseId && !submittedId"
                 type="button"
                 :aria-busy="finishing || undefined"
                 class="cursor-pointer rounded-field border-0 bg-transparent px-1 py-2 font-sans text-sm font-medium text-ink-2 outline-hidden hover:text-ink focus-visible:shadow-focus aria-busy:cursor-progress max-sm:hidden"
@@ -612,14 +634,21 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
                 variant="primary"
                 :disabled="!canSubmit"
                 :loading="submitting"
-                :aria-describedby="submitBlock ? `${uid}-submit-why` : undefined"
+                :aria-describedby="submitBlock && !submittedId ? `${uid}-submit-why` : undefined"
                 :class="cn(primaryBtn, 'sm:ml-auto')"
                 data-wz-submit
                 @click="submit"
               >{{ t('client.wizard.submit') }}</ZButton>
             </div>
+            <p v-if="submittedId" class="m-0 text-center sm:text-right" data-wz-submitted>
+              <RouterLink
+                :to="`/import-40/${submittedId}`"
+                class="inline-flex min-h-11 items-center rounded-field px-1 text-sm font-semibold text-zircon-ink no-underline outline-hidden hover:text-ink focus-visible:shadow-focus sm:min-h-8"
+                data-wz-open-shipment
+              >{{ t('client.wizard.openShipment') }}</RouterLink>
+            </p>
             <p
-              v-if="submitBlock"
+              v-else-if="submitBlock"
               :id="`${uid}-submit-why`"
               class="m-0 text-[12.5px] text-muted max-sm:text-center sm:text-right"
               data-wz-submit-why
@@ -633,7 +662,7 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
                 @click="retrySave"
               >{{ t('client.wizard.status.retry') }}</button>
             </p>
-            <p v-else-if="!submitBlock" class="m-0 text-center text-[12.5px] text-muted sm:hidden">{{ t('client.wizard.autosaveHint') }}</p>
+            <p v-else-if="!submitBlock && !submittedId" class="m-0 text-center text-[12.5px] text-muted sm:hidden">{{ t('client.wizard.autosaveHint') }}</p>
           </div>
         </div>
       </div>
