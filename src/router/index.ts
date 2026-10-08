@@ -179,7 +179,7 @@ const router = createRouter({
           // Волна 2 ролей: финансы (бухгалтер) и панель руководителя.
           path: '/finance',
           name: 'finance',
-          component: () => import('@/views/FinanceView.vue'),
+          component: () => import('@/views/broker/finance/FinanceOverviewView.vue'),
           meta: { requiresPermission: 'finance.read' },
         },
         {
