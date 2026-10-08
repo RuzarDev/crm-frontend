@@ -831,8 +831,9 @@ export const import40Api = {
     return response.data.items
   },
 
-  get: async (id: string): Promise<Import40CaseDto> => {
-    const response = await apiClient.get<Import40CaseDto>(`/import40/${encodeURIComponent(id)}`)
+  // silent — экран сам рисует «не найдена»/«повторить» (карточка поставки клиента), без тоста перехватчика.
+  get: async (id: string, opts?: { silent?: boolean }): Promise<Import40CaseDto> => {
+    const response = await apiClient.get<Import40CaseDto>(`/import40/${encodeURIComponent(id)}`, opts?.silent ? { silent: true } : undefined)
     return response.data
   },
 

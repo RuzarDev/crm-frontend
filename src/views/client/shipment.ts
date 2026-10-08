@@ -1,5 +1,7 @@
 import type { ClientShipment } from '@/api/clientShipments'
+import type { Import40CaseDto, Import40FileDto } from '@/api/import40'
 import type { ZTone } from '@/components/z/ZTag.vue'
+import { stepForStatus } from '@/utils/import40Steps'
 
 // Правила поставки клиента (редизайн, волна 2a): чей ход, вкладка списка, тег, полоса этапов.
 // Одни на «Главную», список «Мои поставки» и карточку — чтобы экраны не расходились.
@@ -60,3 +62,33 @@ export const stepNo = (s: ClientShipment): number => Math.min(TOTAL_STEPS, Math.
 /** Куда ведёт поставка из списка: неотправленный черновик дописывается в мастере, остальное — карточка. */
 export const shipmentHref = (s: ClientShipment): string =>
   tabOf(s) === 'drafts' ? `/import-40/new/${s.id}` : `/import-40/${s.id}`
+
+/**
+ * Лёгкая сводка из полной заявки (карточка поставки): те же поля, что отдаёт GET import40/client/shipments,
+ * чтобы askFor/shipmentTag/segments карточки совпадали со списком. Шаг — как Import40Steps.StepOf на сервере
+ * (выполнена/отменена — 0); чек «загружен», если в разделе payment-check есть файл.
+ */
+export function toShipmentSummary(c: Import40CaseDto, files: Pick<Import40FileDto, 'section'>[]): ClientShipment {
+  return {
+    id: c.id,
+    number: c.number,
+    cargo: c.cargo ?? '',
+    post: c.post ?? '',
+    status: c.status,
+    step: c.status >= 8 ? 0 : stepForStatus(c.status),
+    isProblem: !!c.isProblem,
+    problemClientMessage: c.problemClientMessage ?? '',
+    returnReason: c.returnReason ?? '',
+    senderCountryCode: c.clientSenderCountryCode ?? '',
+    estimatedValue: c.clientEstimatedValue ?? null,
+    currencyCode: c.clientCurrencyCode ?? '',
+    svhInvoiceAmount: c.svhInvoiceAmount ?? null,
+    svhInvoiceNumber: c.svhInvoiceNumber ?? '',
+    paymentCheckUploaded: files.some((f) => f.section === 'payment-check'),
+    paymentConfirmed: !!c.paymentConfirmed,
+    declarationsCount: c.declarations?.length ?? 0,
+    assignedDeclarantName: c.assignedDeclarantName ?? null,
+    createdAtUtc: c.createdAtUtc,
+    updatedAtUtc: c.updatedAtUtc,
+  }
+}

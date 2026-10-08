@@ -3,7 +3,8 @@ import ru from '@/i18n/locales/ru'
 import kk from '@/i18n/locales/kk'
 import en from '@/i18n/locales/en'
 import type { ClientShipment } from '@/api/clientShipments'
-import { askFor, segments, shipmentHref, shipmentTag, stepNo, tabCounts, tabOf } from '../shipment'
+import { askFor, segments, shipmentHref, shipmentTag, stepNo, tabCounts, tabOf, toShipmentSummary } from '../shipment'
+import { caseDto, declaration, fileDto } from './caseFixture'
 
 const ship = (o: Partial<ClientShipment>): ClientShipment => ({
   id: 's1', number: 'ИМ-2026-0182', cargo: 'Ноутбуки', post: 'Хоргос', status: 2, step: 3, isProblem: false,
@@ -104,5 +105,40 @@ describe('stepNo / shipmentHref', () => {
     expect(shipmentHref(ship({ id: 'd', status: 0 }))).toBe('/import-40/new/d')
     expect(shipmentHref(ship({ id: 'r', status: 0, returnReason: 'r' }))).toBe('/import-40/r')
     expect(shipmentHref(ship({ id: 'a', status: 3 }))).toBe('/import-40/a')
+  })
+})
+
+describe('toShipmentSummary', () => {
+  // Пары «полная заявка + файлы» → лёгкая строка, как её отдал бы сервер.
+  it.each([
+    ['черновик', { status: 0 }, [], { status: 0, step: 1 }],
+    ['возврат', { status: 0, returnReason: 'Нет инвойса' }, [], { status: 0, step: 1, returnReason: 'Нет инвойса' }],
+    ['проблема', { status: 3, isProblem: true, problemClientMessage: 'Нужен сертификат' }, [],
+      { status: 3, step: 3, isProblem: true, problemClientMessage: 'Нужен сертификат' }],
+    ['счёт СВХ без чека', { status: 6, svhInvoiceAmount: 312400 }, [fileDto({ section: 'svh-invoice' })],
+      { status: 6, step: 5, svhInvoiceAmount: 312400 }],
+    ['счёт СВХ, чек загружен', { status: 6 }, [fileDto({ section: 'payment-check' })],
+      { status: 6, step: 5, paymentCheckUploaded: true }],
+    ['оплата услуг', { status: 7 }, [], { status: 7, step: 6 }],
+    ['выполнена', { status: 8 }, [], { status: 8, step: 0 }],
+    ['отменена', { status: 9 }, [], { status: 9, step: 0 }],
+  ] as const)('%s — тот же askFor, тег и полоса, что у лёгкой строки', (_, c, files, light) => {
+    const full = toShipmentSummary(caseDto(c), [...files])
+    const row = ship({ ...light })
+    expect(askFor(full)).toBe(askFor(row))
+    expect(shipmentTag(full)).toEqual(shipmentTag(row))
+    expect(segments(full)).toEqual(segments(row))
+    expect(full.step).toBe(row.step)
+  })
+
+  it('переносит поля строки из полной заявки', () => {
+    const s = toShipmentSummary(caseDto({
+      id: 'x', svhInvoiceNumber: '1187', assignedDeclarantName: 'Айгерим К.', declarations: [declaration(), declaration({ id: 'd2' })],
+    }), [])
+    expect(s).toMatchObject({
+      id: 'x', number: 'ИМ-2026-0166', cargo: 'Серверное оборудование', post: 'Нур-Жолы', senderCountryCode: '276',
+      estimatedValue: 120000, currencyCode: 'EUR', svhInvoiceNumber: '1187', declarationsCount: 2,
+      assignedDeclarantName: 'Айгерим К.', paymentCheckUploaded: false,
+    })
   })
 })
