@@ -110,9 +110,10 @@
 
         <div class="sub-label">{{ t('billing.services') }}</div>
         <div v-for="(l, i) in draft.lines" :key="i" class="line-row">
-          <a-select
-            v-model:value="l.name" show-search allow-clear :options="tariffOptions" :placeholder="t('billing.servicePh')"
-            style="flex: 1 1 260px" :filter-option="filterTariff" @change="(v: string) => applyTariff(l, v)"
+          <!-- Свободный ввод: услуга из прайса (подставит ед. и цену) или своя строка. -->
+          <a-auto-complete
+            v-model:value="l.name" allow-clear :options="tariffOptions" :placeholder="t('billing.servicePh')"
+            style="flex: 1 1 260px" :filter-option="filterTariff" @select="(v: string) => applyTariff(l, v)"
           />
           <a-input v-model:value="l.unit" :placeholder="t('billing.unit')" style="width: 90px" />
           <a-input-number v-model:value="l.quantity" :min="0.01" :step="1" :placeholder="t('billing.qty')" style="width: 90px" />
@@ -130,7 +131,7 @@
 
         <div class="draft-total">
           {{ t('billing.draftTotal') }}: <b>{{ money(draftTotal) }} ₸</b>
-          <span class="cell-sub">{{ t('billing.vatFromTotal', { rate: vatRate }) }}</span>
+          <span v-if="vatRate !== null" class="cell-sub">{{ vatRate > 0 ? t('billing.vatFromTotal', { rate: vatRate }) : t('billing.noVat') }}</span>
         </div>
       </a-form>
     </a-modal>
@@ -138,7 +139,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { message } from '@/ui/message'
@@ -180,7 +181,8 @@ const caseOptions = computed(() =>
     .map((c) => ({ value: c.id, label: `${c.number} · ${c.cargo}` })),
 )
 const tariffs = ref<SalesServiceItem[]>([])
-const vatRate = ref(16)
+// До ответа настроек организации ставка неизвестна — подсказку не показываем (раньше висело «16%»).
+const vatRate = ref<number | null>(null)
 
 const createOpen = ref(false)
 const draft = reactive({
@@ -190,6 +192,12 @@ const draft = reactive({
   dueDate: null as string | null,
   note: '',
   lines: [] as Array<{ name: string; unit: string; quantity: number; unitPrice: number }>,
+})
+// Смена клиента: заявка другого клиента в форме не остаётся (иначе уходила скрытым значением).
+watch(() => draft.clientId, (clientId) => {
+  if (!clientId || !draft.caseId) return
+  const c = allCases.value.find((x) => x.id === draft.caseId)
+  if (c && c.clientId !== clientId) draft.caseId = undefined
 })
 
 const load = async () => {
@@ -293,7 +301,13 @@ const kindSelectOptions = computed(() => [
   { value: 'invoice', label: t('billing.invoice') },
   { value: 'act', label: t('billing.act') },
 ])
-const tariffOptions = computed(() => tariffs.value.map((s) => ({ value: s.name, label: `${s.name} — ${money(s.price)} ₸` })))
+// Значение подсказки — название услуги (оно и попадает в поле); одинаковые названия — одна подсказка.
+const tariffOptions = computed(() => {
+  const seen = new Set<string>()
+  return tariffs.value
+    .filter((s) => !seen.has(s.name) && !!seen.add(s.name))
+    .map((s) => ({ value: s.name, label: `${s.name} — ${money(s.price)} ₸` }))
+})
 const filterTariff = (input: string, option: { label: string }) =>
   option.label.toLowerCase().includes(input.toLowerCase())
 
@@ -316,11 +330,13 @@ const statusText = (s: number) =>
 const statusColor = (s: number) => (s === 2 ? 'success' : s === 1 ? 'processing' : s === 3 ? 'error' : 'default')
 
 const draftTotal = computed(() => draft.lines.reduce((a, l) => a + (l.quantity || 0) * (l.unitPrice || 0), 0))
-const canSubmit = computed(() => !!draft.clientId && draft.lines.some((l) => l.name.trim() && l.unitPrice >= 0))
+// Очищенное поле услуги — undefined: (l.name ?? '') не роняет проверку.
+const canSubmit = computed(() => !!draft.clientId && draft.lines.some((l) => (l.name ?? '').trim() && l.unitPrice >= 0))
 
 const openCreate = () => {
   draft.kind = 'invoice'
   draft.clientId = undefined
+  draft.caseId = undefined
   draft.dueDate = null
   draft.note = ''
   draft.lines = [{ name: '', unit: '', quantity: 1, unitPrice: 0 }]
@@ -345,8 +361,8 @@ const submit = async () => {
       dueDateUtc: draft.dueDate ? `${draft.dueDate}T00:00:00Z` : null,
       note: draft.note || null,
       lines: draft.lines
-        .filter((l) => l.name.trim())
-        .map((l) => ({ name: l.name.trim(), unit: l.unit, quantity: l.quantity || 1, unitPrice: l.unitPrice || 0 })),
+        .filter((l) => (l.name ?? '').trim())
+        .map((l) => ({ name: (l.name ?? '').trim(), unit: l.unit, quantity: l.quantity || 1, unitPrice: l.unitPrice || 0 })),
     })
     createOpen.value = false
     message.success(t('billing.created'))
