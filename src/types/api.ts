@@ -275,6 +275,13 @@ export interface ReestrEntry {
   data: Record<string, string | null>
   /** «Итого, ₸» с НДС (ТД + доп. листы); в data не входит — это не колонка Excel-реестра. */
   grandTotalWithVat?: number | null
+  /**
+   * Цены из Excel-импорта: форма их не показывает, но PUT сервера перезаписывает все поля —
+   * при правке записи они уходят обратно без изменений (иначе обнулятся).
+   */
+  pricePerDeclarationWithVat?: number | null
+  pricePerSupplementalSheetWithVat?: number | null
+  supplementalSheetsTotalWithVat?: number | null
   deprecationWarning?: TnvedDeprecationWarningDto | null
   goods: ReestrGoodsItemInput[]
   doc44: ReestrDoc44ItemInput[]
@@ -1016,6 +1023,10 @@ export interface ReestrDoc44ItemDto {
   docTypeName: string | null
   docNumber: string | null
   docDate: string | null
+  // КЕДЕН-транзит §7 (гр.44): хранятся на сервере (ReestrDoc44Item), отдаются в DTO.
+  authorizedBody?: string | null
+  authorizedBodyId?: string | null
+  formBlankNumber?: string | null
 }
 
 export interface ReestrGoodsItemInput {
@@ -1039,6 +1050,11 @@ export interface ReestrDoc44ItemInput {
   docTypeName: string | null
   docNumber: string | null
   docDate: string | null
+  // КЕДЕН-транзит §7 (гр.44): сервер хранит и полностью перезаписывает при сохранении —
+  // при правке записи их надо отправлять обратно, иначе они затрутся.
+  authorizedBody?: string | null
+  authorizedBodyId?: string | null
+  formBlankNumber?: string | null
 }
 
 // ── Reestr КЕДЕН-транзит: дочерние коллекции ──────────────────────────────────
@@ -1412,10 +1428,8 @@ export interface Import40Doc44ItemInput extends ReestrDoc44ItemInput {
   docStartDate?: string | null
   docValidityDate?: string | null
   issueCountryCode?: string | null
-  // КЕДЕН-транзит §7 (гр.44): расширение уровня UI. ВАЖНО — на бэкенде
-  // (ReestrDoc44Item/Import40DeclarationDoc44Item) колонок для этих трёх
-  // полей и файла-вложения пока нет, поэтому значения не персистятся
-  // (см. ReestrDoc44Section.vue "transitExtended" + отчёт Task 6).
+  // КЕДЕН-транзит §7 (гр.44): у записи реестра (ReestrDoc44Item) эти три поля хранятся
+  // (см. ReestrDoc44ItemInput); колонки для файла-вложения нет.
   authorizedBody?: string | null
   authorizedBodyId?: string | null
   formBlankNumber?: string | null
