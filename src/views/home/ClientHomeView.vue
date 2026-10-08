@@ -89,7 +89,9 @@ const goSections = computed(() =>
 const grid = 'grid gap-3.5 [grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))]'
 const card = 'rounded-[16px] border border-line bg-surface px-5 py-[18px]'
 const link = 'rounded-[4px] text-sm font-medium text-zircon-ink no-underline outline-hidden transition-colors duration-150 hover:text-ink focus-visible:shadow-focus motion-reduce:transition-none'
-const cta = 'h-[42px] rounded-row px-[18px] text-[14.5px] max-sm:w-full'
+const cta = 'h-[42px] rounded-row px-[18px] text-[14.5px] max-sm:h-11 max-sm:w-full'
+// «Повторить» — sm на компьютере, на телефоне — палец (44px).
+const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
 </script>
 
 <template>
@@ -184,7 +186,7 @@ const cta = 'h-[42px] rounded-row px-[18px] text-[14.5px] max-sm:w-full'
 
         <div v-else-if="cases.error" :class="cn(card, 'flex flex-wrap items-center gap-3 py-4')">
           <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('clientHome.loadError') }}</p>
-          <ZButton size="sm" @click="cases.load()">{{ t('home.retry') }}</ZButton>
+          <ZButton size="sm" :class="retry" @click="cases.load()">{{ t('home.retry') }}</ZButton>
         </div>
 
         <div v-else-if="!cards.length" class="rounded-[16px] border border-dashed border-line-strong">
@@ -246,7 +248,7 @@ const cta = 'h-[42px] rounded-row px-[18px] text-[14.5px] max-sm:w-full'
         </div>
         <div v-else-if="invoices.error" :class="cn(card, 'flex flex-wrap items-center gap-3 py-4')">
           <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('clientHome.invoicesError') }}</p>
-          <ZButton size="sm" @click="invoices.load()">{{ t('home.retry') }}</ZButton>
+          <ZButton size="sm" :class="retry" @click="invoices.load()">{{ t('home.retry') }}</ZButton>
         </div>
         <section
           v-else-if="invoice"

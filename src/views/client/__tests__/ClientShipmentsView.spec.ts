@@ -126,6 +126,29 @@ describe('ClientShipmentsView', () => {
     expect(w.get('[data-client-empty="search"]').text()).toContain('По запросу «нет такого» ничего не нашлось')
   })
 
+  it('быстрый ввод: промежуточный переход не откатывает поле', async () => {
+    await mountAt('/import-40')
+    const input = w.get('[data-client-search]')
+    void input.setValue('a')
+    void input.setValue('ab')
+    await flushPromises()
+    expect((input.element as HTMLInputElement).value).toBe('ab')
+    expect(router.currentRoute.value.query.q).toBe('ab')
+  })
+
+  it('на телефоне поиск раньше вкладок в DOM (порядок Tab); цели касания — 44px', async () => {
+    api.list.mockRejectedValueOnce(new Error('boom'))
+    await mountAt('/import-40')
+    const search = w.get('[data-client-search]').element
+    const nav = w.get('nav').element
+    expect(search.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // ZInput вешает класс на обёртку поля.
+    expect(search.closest('.max-sm\\:h-11')).not.toBeNull()
+    expect(w.get('[data-client-tab="active"]').classes()).toContain('max-sm:min-h-11')
+    expect(w.get('[data-client-new]').classes()).toContain('max-sm:h-11')
+    expect(w.get('[data-client-retry]').classes()).toContain('max-sm:h-11')
+  })
+
   it('поиск читается из адреса при открытии', async () => {
     await mountAt('/import-40?q=0170')
     expect((w.get('[data-client-search]').element as HTMLInputElement).value).toBe('0170')

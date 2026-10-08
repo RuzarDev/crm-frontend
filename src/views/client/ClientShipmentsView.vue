@@ -17,7 +17,8 @@ import { useBlock } from '@/views/home/useBlock'
 import { cn } from '@/ui/cn'
 
 // «Мои поставки» клиента (редизайн, волна 2a, доска Main): вкладки по чьему ходу, поиск, строки поставок.
-// Вкладка и поиск живут в адресе (?tab=, ?q=) — ссылку можно переслать, «Назад» возвращает к тому же виду.
+// Вкладка и поиск живут в адресе (?tab=, ?q=) — ссылку можно переслать, обновление страницы сохраняет вид.
+// Переходы между вкладками и ввод в поиск — replace: «Назад» уводит со списка, а не листает вкладки и буквы.
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -94,7 +95,9 @@ const showSummary = computed(() => total.value.active + total.value.waiting > 0)
 
 const ROW_SKELETON = [['58%', '44%'], ['46%', '52%'], ['64%', '40%'], ['52%', '48%'], ['40%', '36%']]
 const rowGrid = 'flex flex-col gap-3 rounded-panel border border-line bg-surface px-5 py-4 md:grid md:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_auto] md:items-center md:gap-5'
-const cta = 'h-10 rounded-row px-4 text-[14.5px] max-sm:w-full'
+const cta = 'h-10 rounded-row px-4 text-[14.5px] max-sm:h-11 max-sm:w-full'
+// «Повторить» — sm на компьютере, на телефоне — палец (44px).
+const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
 </script>
 
 <template>
@@ -119,12 +122,23 @@ const cta = 'h-10 rounded-row px-4 text-[14.5px] max-sm:w-full'
       </ZTooltip>
     </div>
 
-    <!-- На телефоне поиск сверху во всю ширину, вкладки под ним прокручиваются; с md — в одну строку, поиск справа.
+    <!-- На телефоне поиск сверху во всю ширину, вкладки под ним прокручиваются; с md — в одну строку, поиск справа
+         (порядок в DOM — как на телефоне, чтобы Tab шёл в том же порядке, что видит глаз; на md меняет только order).
          Нижняя линия — тенью, а не рамкой: граница активной вкладки ложится поверх, прокрутке не мешает отрицательный отступ. -->
     <div class="flex flex-col gap-3 md:flex-row md:items-end md:shadow-[inset_0_-1px_0_var(--color-line)]">
+      <ZInput
+        :value="q"
+        type="search"
+        allow-clear
+        :placeholder="t('client.list.search')"
+        :aria-label="t('client.list.searchLabel')"
+        class="w-full max-sm:h-11 md:order-2 md:mb-2 md:ml-auto md:w-[300px]"
+        data-client-search
+        @update:value="onSearch"
+      />
       <nav
         :aria-label="t('client.list.tabsLabel')"
-        class="order-2 flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--color-line)] [scrollbar-width:none] md:order-1 md:shadow-none [&::-webkit-scrollbar]:hidden"
+        class="flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--color-line)] [scrollbar-width:none] md:order-1 md:shadow-none [&::-webkit-scrollbar]:hidden"
       >
         <RouterLink v-for="k in TABS" :key="k" v-slot="{ href, navigate }" :to="tabTo(k)" replace custom>
           <a
@@ -132,7 +146,7 @@ const cta = 'h-10 rounded-row px-4 text-[14.5px] max-sm:w-full'
             :aria-current="k === tab ? 'page' : undefined"
             :data-client-tab="k"
             :class="cn(
-              'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-[6px] border-0 border-b-2 px-3 py-2.5 text-sm no-underline outline-hidden',
+              'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-[6px] border-0 border-b-2 px-3 py-2.5 text-sm no-underline outline-hidden max-sm:min-h-11',
               'transition-colors duration-150 ease-out focus-visible:shadow-focus motion-reduce:transition-none',
               k === tab ? 'border-navy font-semibold text-ink' : 'border-transparent text-ink-2 hover:text-ink',
             )"
@@ -156,16 +170,6 @@ const cta = 'h-10 rounded-row px-4 text-[14.5px] max-sm:w-full'
           </a>
         </RouterLink>
       </nav>
-      <ZInput
-        :value="q"
-        type="search"
-        allow-clear
-        :placeholder="t('client.list.search')"
-        :aria-label="t('client.list.searchLabel')"
-        class="order-1 w-full md:order-2 md:mb-2 md:ml-auto md:w-[300px]"
-        data-client-search
-        @update:value="onSearch"
-      />
     </div>
 
     <section :aria-label="t(`client.list.tab.${tab}`)" :aria-busy="cases.loading || undefined">
@@ -188,7 +192,7 @@ const cta = 'h-10 rounded-row px-4 text-[14.5px] max-sm:w-full'
 
       <div v-else-if="cases.error" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-client-error>
         <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('clientHome.loadError') }}</p>
-        <ZButton size="sm" data-client-retry @click="cases.load()">{{ t('home.retry') }}</ZButton>
+        <ZButton size="sm" :class="retry" data-client-retry @click="cases.load()">{{ t('home.retry') }}</ZButton>
       </div>
 
       <div v-else-if="!hasAny" class="rounded-panel border border-dashed border-line-strong" data-client-empty="none">
