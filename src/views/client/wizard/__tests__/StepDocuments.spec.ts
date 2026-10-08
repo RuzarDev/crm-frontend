@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ref } from 'vue'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { Import40FileDto } from '@/api/import40'
@@ -11,11 +12,14 @@ vi.mock('@/api/import40', () => ({ import40Api: api }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 
 import StepDocuments from '../StepDocuments.vue'
+import { useShipmentFiles, type ShipmentFilesApi } from '../useShipmentFiles'
 
 let w: VueWrapper
+let docs: ShipmentFilesApi
 const mountStep = async (files: Import40FileDto[] = []) => {
   api.listFiles.mockResolvedValue(files)
-  w = mountWithI18n(StepDocuments, { props: { caseId: 'c1' }, attachTo: document.body })
+  docs = useShipmentFiles(ref('c1'))
+  w = mountWithI18n(StepDocuments, { props: { docs }, attachTo: document.body })
   await flushPromises()
 }
 const row = (kind: string) => w.get(`[data-doc-kind="${kind}"]`)
@@ -30,7 +34,7 @@ const pdf = (name: string, size?: number) => {
   if (size != null) Object.defineProperty(f, 'size', { value: size })
   return f
 }
-const lastFiles = () => (w.emitted('update:files')?.at(-1)?.[0] ?? []) as Import40FileDto[]
+const lastFiles = () => docs.files.value
 
 beforeEach(() => {
   api.uploadFile.mockImplementation(async (_id: string, _s: string, f: File, kind: string) =>
@@ -80,7 +84,9 @@ describe('StepDocuments', () => {
     expect(row('invoice').get('[data-doc-need]').classes()).toContain('text-muted')
     expect(row('invoice').get('[data-doc-attach]').text()).toContain('Добавить ещё')
     expect(lastFiles().map((x) => x.id)).toEqual(['up-invoice_DE-4471.pdf'])
-    expect(w.emitted('update:busy')?.map((e) => e[0])).toEqual([true, false])
+    expect(row('invoice').get('[data-doc-done]').text()).toBe('приложено')
+    expect(row('transport').find('[data-doc-done]').exists()).toBe(false)
+    expect(docs.busy.value).toBe(false)
   })
 
   it('файл без вида (старый мастер) и вида other — в «Других документах», не в строках', async () => {
@@ -149,5 +155,62 @@ describe('StepDocuments', () => {
     await flushPromises()
     expect(api.uploadFile).toHaveBeenCalledWith('c1', 'documents', f, 'other', { silent: true })
     expect(w.get('[data-other-files]').text()).toContain('extra.pdf')
+  })
+
+  it('пока файл грузится или удаляется — busy', async () => {
+    await mountStep([fileDto({ id: 'f1', docKind: 'invoice', originalFileName: 'inv.pdf' })])
+    let release!: () => void
+    api.uploadFile.mockImplementationOnce(() => new Promise((r) => { release = () => r(fileDto({ id: 'up', docKind: 'packing' })) }))
+    await pickFiles('packing', [pdf('packing.pdf')])
+    expect(docs.busy.value).toBe(true)
+    expect(row('packing').get('[data-doc-uploading]').text()).toContain('packing.pdf')
+    expect(row('packing').get('[data-doc-attach]').attributes('disabled')).toBeDefined()
+    release()
+    await flushPromises()
+    expect(docs.busy.value).toBe(false)
+
+    let done!: () => void
+    api.deleteFile.mockImplementationOnce(() => new Promise<void>((r) => { done = r }))
+    await row('invoice').get('[data-doc-remove]').trigger('click')
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(docs.busy.value).toBe(true)
+    done()
+    await flushPromises()
+    expect(docs.busy.value).toBe(false)
+  })
+
+  it('новый выбор не стирает прежние ошибки; «Повторить» — только сбойные, проверка на клиенте — до «Скрыть»', async () => {
+    await mountStep()
+    api.uploadFile.mockRejectedValueOnce({ response: { status: 500, data: '' } })
+    const failed = pdf('cmr.pdf')
+    await pickFiles('transport', [failed])
+    await pickFiles('transport', [pdf('awb.pdf', 30 * 1024 * 1024)])
+    const texts = () => row('transport').findAll('[data-doc-error] p').map((p) => p.text())
+    expect(texts()).toEqual([
+      'cmr.pdf: не загрузился — проверьте связь и повторите',
+      'awb.pdf: больше 25 МБ',
+    ])
+    await row('transport').get('[data-doc-retry]').trigger('click')
+    await flushPromises()
+    expect(api.uploadFile).toHaveBeenCalledTimes(2)
+    expect(api.uploadFile.mock.calls[1][2]).toBe(failed)
+    expect(texts()).toEqual(['awb.pdf: больше 25 МБ'])
+    expect(row('transport').find('[data-doc-retry]').exists()).toBe(false)
+    await row('transport').get('[data-doc-dismiss]').trigger('click')
+    expect(row('transport').find('[data-doc-error]').exists()).toBe(false)
+  })
+
+  it('зона «Другие документы»: не тот формат или больше 25 МБ — текст под зоной, без тоста и без загрузки', async () => {
+    await mountStep()
+    const input = w.get('[data-docs-other] input[type="file"]')
+    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'setup.exe'), pdf('huge.pdf', 40 * 1024 * 1024)], configurable: true })
+    await input.trigger('change')
+    await flushPromises()
+    expect(api.uploadFile).not.toHaveBeenCalled()
+    expect(msg.error).not.toHaveBeenCalled()
+    const err = w.get('[data-docs-other] [data-doc-error]')
+    expect(err.text()).toContain('setup.exe: такой формат не подходит')
+    expect(err.text()).toContain('huge.pdf: больше 25 МБ')
   })
 })

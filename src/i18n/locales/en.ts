@@ -767,6 +767,8 @@ export default {
         failedGeneric: 'not uploaded — check your connection and retry',
         retry: 'Retry',
         loadError: 'Could not load the attached files',
+        dismiss: 'Dismiss',
+        done: 'attached',
         resp: 'I confirm the documents are complete and accurate. By law, the declarant-applicant is liable for inaccurate information.',
         kb: '{n} KB',
         mb: '{n} MB',

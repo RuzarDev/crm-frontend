@@ -12,8 +12,9 @@ import StepTransport from '@/views/client/wizard/StepTransport.vue'
 import StepParties from '@/views/client/wizard/StepParties.vue'
 import StepDocuments from '@/views/client/wizard/StepDocuments.vue'
 import { isBinOk, isCargoOk, useShipmentDraft } from '@/views/client/wizard/useShipmentDraft'
+import { useShipmentFiles } from '@/views/client/wizard/useShipmentFiles'
 import { import40ContractApi, type ClientCompanyProfileDto } from '@/api/import40Contract'
-import { import40Api, type Import40FileDto } from '@/api/import40'
+import { import40Api } from '@/api/import40'
 import { missingRequired } from '@/views/client/docKinds'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
@@ -48,10 +49,9 @@ const step = ref(0)
 /** Самый дальний открытый шаг: пройденные до него получают галочку. */
 const reached = ref(0)
 const advancing = ref(false)
-/** Шаг «Документы»: файлы раздела documents, отметка ответственности, идёт ли загрузка. */
-const docFiles = ref<Import40FileDto[]>([])
+/** Шаг «Документы»: файлы и загрузки — в мастере (переживают уход на другой шаг), отметка ответственности. */
+const docs = useShipmentFiles(caseId)
 const docsAccepted = ref(false)
-const docsBusy = ref(false)
 const stepDocs = ref<InstanceType<typeof StepDocuments>>()
 /** Уход уже согласован (Дозаполнить позже / переадресация) — страж не спрашивает. */
 let leaving = false
@@ -142,7 +142,7 @@ const firstUnfilled = () => {
 let openSeq = 0
 const open = async (id: string | null) => {
   const my = ++openSeq
-  docFiles.value = []
+  docs.reset()
   docsAccepted.value = false
   void loadPosts()
   void loadProfile()
@@ -247,8 +247,8 @@ const nextLabel = computed(() => (step.value < LAST ? t(`client.wizard.next.${ST
 const submitting = ref(false)
 const submitBlock = computed(() => {
   if (step.value !== LAST) return ''
-  if (docsBusy.value) return t('client.wizard.submitUploading')
-  if (!docFiles.value.length) return t('client.wizard.submitNeedFile')
+  if (docs.busy.value) return t('client.wizard.submitUploading')
+  if (!docs.files.value.length) return t('client.wizard.submitNeedFile')
   if (!docsAccepted.value) return t('client.wizard.submitNeedResp')
   return ''
 })
@@ -256,7 +256,7 @@ const canSubmit = computed(() => !!caseId.value && !submitBlock.value)
 const submit = async () => {
   const id = caseId.value
   if (!id || !canSubmit.value || submitting.value) return
-  const missing = missingRequired(docFiles.value.map((f) => f.docKind))
+  const missing = missingRequired(docs.files.value.map((f) => f.docKind))
   if (missing.length) {
     const go = await confirm({
       title: t('client.wizard.docs.missingTitle', { list: missing.map((d) => t(`client.docKind.${d.key}.name`)).join(', ') }),
@@ -282,7 +282,8 @@ const submit = async () => {
     leaving = true
     shipment.cancelScheduled()
     message.success(t('client.wizard.submitted'))
-    await router.push(`/import-40/${id}`)
+    // Переход не состоялся (отменён другим переходом и т.п.) — снова охраняем уход.
+    if (await router.push(`/import-40/${id}`)) leaving = false
   } catch {
     // Текст ошибки (в т.ч. «приложите хотя бы один документ») уже показал общий перехватчик.
   } finally {
@@ -577,10 +578,8 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
             <StepDocuments
               v-else-if="caseId"
               ref="stepDocs"
-              v-model:files="docFiles"
               v-model:accepted="docsAccepted"
-              v-model:busy="docsBusy"
-              :case-id="caseId"
+              :docs="docs"
             />
           </div>
 

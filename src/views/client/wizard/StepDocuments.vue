@@ -1,127 +1,43 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, useId, watch, type ComponentPublicInstance } from 'vue'
+import { computed, nextTick, ref, useId, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhCheck, PhCircleNotch, PhWarningCircle } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZCheckbox from '@/components/z/ZCheckbox.vue'
 import ZUpload from '@/components/z/ZUpload.vue'
-import { import40Api, type Import40FileDto } from '@/api/import40'
-import { DOC_CHECKLIST, isDocKind, type DocKindDef } from '@/views/client/docKinds'
+import type { Import40FileDto } from '@/api/import40'
+import { DOC_CHECKLIST } from '@/views/client/docKinds'
 import { useConfirm } from '@/ui/confirm'
 import { cn } from '@/ui/cn'
+import { DOC_ACCEPT, DOC_MAX_MB, rowOf, type RowError, type RowKind, type ShipmentFilesApi } from './useShipmentFiles'
 import { stepHint, stepTitle } from './wizardUi'
 
 // Шаг 4 «Документы» мастера (доска Wizard): чек-лист видов документов (у строки — своя загрузка с видом),
-// зона «Другие документы», отметка ответственности. Отправку делает мастер (кнопка в его нижней панели):
-// ему нужны файлы (v-model:files), отметка (v-model:accepted) и «идёт загрузка» (v-model:busy).
+// зона «Другие документы», отметка ответственности. Состояние файлов и загрузок — в мастере (useShipmentFiles):
+// загрузка переживает уход на другой шаг. Отправку делает мастер (кнопка в его нижней панели).
 // Удалять свои файлы клиент может только в черновике — мастер открывается лишь для черновика.
-const props = defineProps<{ caseId: string }>()
-const files = defineModel<Import40FileDto[]>('files', { default: () => [] })
+const props = defineProps<{ docs: ShipmentFilesApi }>()
 const accepted = defineModel<boolean>('accepted', { default: false })
-const busy = defineModel<boolean>('busy', { default: false })
 
 const { t, te, locale } = useI18n()
 const { confirm } = useConfirm()
 const uid = useId()
 const headingId = `wz-docs-${uid}`
 
-type RowKind = DocKindDef['key'] | 'other'
-const ACCEPT = ['.pdf', '.jpg', '.jpeg', '.png', '.docx', '.xlsx']
-const MAX_MB = 25
-
-/** Вид файла для раскладки: без вида (старый мастер) и неизвестный — в «Других документах». */
-const rowOf = (f: Import40FileDto): RowKind => {
-  const k = f.docKind
-  return isDocKind(k) && k !== 'other' ? (k as RowKind) : 'other'
-}
-// Своя копия списка: правки от параллельных загрузок не должны затирать друг друга, пока родитель не обновил проп.
-const list = ref<Import40FileDto[]>(files.value)
-watch(files, (v) => { if (v !== list.value) list.value = v })
-const setList = (v: Import40FileDto[]) => {
-  list.value = v
-  files.value = v
-}
-const filesOf = (kind: RowKind) => list.value.filter((f) => rowOf(f) === kind)
+const { loadState, pending, errors, removing, attached, filesOf, load, upload, retry, canRetry, dismiss } = props.docs
+const ACCEPT = DOC_ACCEPT.join(',')
 const otherFiles = computed(() => filesOf('other'))
 
-// ---- Список файлов заявки: при открытии шага (уже известные показываем сразу, без мигания) ----
-const loadState = ref<'loading' | 'error' | 'ready'>('loading')
-const load = async () => {
-  const id = props.caseId
-  loadState.value = 'loading'
-  try {
-    const server = (await import40Api.listFiles(id, { silent: true })).filter((f) => f.section === 'documents')
-    if (id !== props.caseId) return
-    // Загруженное, пока шёл запрос, могло в ответ не попасть — не теряем.
-    const known = new Set(server.map((f) => f.id))
-    setList([...server, ...list.value.filter((f) => !known.has(f.id) && f.section === 'documents')])
-    loadState.value = 'ready'
-  } catch {
-    if (id === props.caseId) loadState.value = 'error'
-  }
-}
-watch(() => props.caseId, () => { void load() }, { immediate: true })
+// Список с сервера — при каждом открытии шага (уже известные файлы видны сразу, без мигания).
+void load()
 
-// ---- Загрузка: проверка формата и размера на клиенте, ошибки — в строке, «Повторить» шлёт те же File ----
-interface RowError { name: string; text: string; file?: File }
-const pending = reactive<Record<string, string[]>>({})
-const errors = reactive<Record<string, RowError[]>>({})
-const announce = ref('')
-
-const extOk = (name: string) => ACCEPT.some((ext) => name.toLowerCase().endsWith(ext))
-const serverReason = (e: unknown): string | null => {
-  const data = (e as { response?: { data?: unknown } })?.response?.data
-  if (typeof data === 'string' && data.trim()) return data.trim()
-  if (data && typeof data === 'object') {
-    const d = data as Record<string, unknown>
-    const c = d.error ?? d.message ?? d.detail
-    if (typeof c === 'string' && c.trim()) return c.trim()
-  }
-  return null
+const errorText = (e: RowError) => {
+  if (e.code === 'type') return t('client.wizard.docs.wrongType', { name: e.name })
+  if (e.code === 'size') return t('client.wizard.docs.tooBig', { name: e.name, mb: DOC_MAX_MB })
+  if (e.reason && e.reason.includes(e.name)) return e.reason
+  return t('client.wizard.docs.failed', { name: e.name, reason: e.reason || t('client.wizard.docs.failedGeneric') })
 }
-const failText = (name: string, reason: string | null) =>
-  reason && reason.includes(name) ? reason : t('client.wizard.docs.failed', { name, reason: reason || t('client.wizard.docs.failedGeneric') })
-
-const syncBusy = () => { busy.value = Object.values(pending).some((l) => l.length > 0) }
-
-const uploadTo = async (kind: RowKind, picked: File[]) => {
-  if (!picked.length) return
-  const id = props.caseId
-  const rejected: RowError[] = []
-  const ok: File[] = []
-  for (const f of picked) {
-    if (!extOk(f.name)) rejected.push({ name: f.name, text: t('client.wizard.docs.wrongType', { name: f.name }) })
-    else if (f.size > MAX_MB * 1024 * 1024) rejected.push({ name: f.name, text: t('client.wizard.docs.tooBig', { name: f.name, mb: MAX_MB }) })
-    else ok.push(f)
-  }
-  errors[kind] = rejected
-  if (!ok.length) return
-  pending[kind] = [...(pending[kind] ?? []), ...ok.map((f) => f.name)]
-  syncBusy()
-  const done: string[] = []
-  await Promise.all(ok.map(async (f) => {
-    try {
-      const dto = await import40Api.uploadFile(id, 'documents', f, kind, { silent: true })
-      if (id !== props.caseId) return
-      setList([...list.value, dto])
-      done.push(dto.originalFileName || f.name)
-    } catch (e) {
-      errors[kind] = [...(errors[kind] ?? []), { name: f.name, text: failText(f.name, serverReason(e)), file: f }]
-    } finally {
-      const left = [...(pending[kind] ?? [])]
-      left.splice(left.indexOf(f.name), 1)
-      pending[kind] = left
-      syncBusy()
-    }
-  }))
-  if (done.length) announce.value = t('client.wizard.docs.attached', { names: done.join(', ') })
-}
-const retry = (kind: RowKind) => {
-  const again = (errors[kind] ?? []).flatMap((e) => (e.file ? [e.file] : []))
-  errors[kind] = []
-  void uploadTo(kind, again)
-}
-const canRetry = (kind: RowKind) => (errors[kind] ?? []).some((e) => e.file)
+const announce = computed(() => (attached.value.length ? t('client.wizard.docs.attached', { names: attached.value.join(', ') }) : ''))
 
 // Свой скрытый input у каждой строки: вид документа — в самом вызове, без общего «какую строку открыли».
 const inputs: Partial<Record<RowKind, HTMLInputElement>> = {}
@@ -139,12 +55,12 @@ const onPicked = (kind: RowKind, e: Event) => {
   const picked = Array.from(el.files ?? [])
   // Сброс — чтобы повторный выбор того же файла снова вызвал change.
   el.value = ''
-  void uploadTo(kind, picked)
+  void upload(kind, picked)
 }
-const onOther = (picked: File[]) => { void uploadTo('other', picked) }
+// Зона без accept/maxSizeMb: формат и размер проверяем сами и пишем под зоной, как в строках (без второго тоста).
+const onOther = (picked: File[]) => { void upload('other', picked) }
 
 // ---- Удаление (с вопросом); фокус — на «Приложить» той же строки, а не в никуда ----
-const removing = ref<string | null>(null)
 const focusKind = async (kind: RowKind, scroll = false) => {
   await nextTick()
   if (kind === 'other') {
@@ -156,24 +72,14 @@ const focusKind = async (kind: RowKind, scroll = false) => {
   btn?.focus({ preventScroll: scroll })
 }
 const remove = async (f: Import40FileDto) => {
-  if (removing.value) return
+  if (removing.value.includes(f.id)) return
   const ok = await confirm({
     title: t('client.wizard.docs.removeTitle', { name: f.originalFileName }),
     okText: t('client.wizard.docs.removeOk'),
     cancelText: t('client.wizard.docs.keep'),
     danger: true,
   })
-  if (!ok) return
-  removing.value = f.id
-  try {
-    await import40Api.deleteFile(props.caseId, f.id)
-    setList(list.value.filter((x) => x.id !== f.id))
-    await focusKind(rowOf(f))
-  } catch {
-    // Текст ошибки уже показал общий перехватчик (api/client.ts).
-  } finally {
-    removing.value = null
-  }
+  if (ok && (await props.docs.remove(f))) await focusKind(rowOf(f))
 }
 
 defineExpose({ focusKind: (kind: RowKind) => focusKind(kind, true) })
@@ -193,6 +99,7 @@ const dot = (has: boolean) => cn(
   has ? 'bg-tone-done-fg text-white' : 'border-[1.5px] border-solid border-line-strong bg-surface',
 )
 const linkBtn = 'inline-flex min-h-11 cursor-pointer items-center rounded-field border-0 bg-transparent px-1.5 font-sans text-sm font-semibold text-zircon-ink outline-hidden hover:text-ink focus-visible:shadow-focus disabled:cursor-progress disabled:text-muted sm:min-h-8'
+const quietBtn = 'inline-flex min-h-11 cursor-pointer items-center rounded-field border-0 bg-transparent px-1.5 font-sans text-[13px] font-medium text-ink-3 outline-hidden hover:text-ink focus-visible:shadow-focus sm:min-h-8'
 const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rounded-field border-0 bg-transparent px-1.5 font-sans text-[13px] font-medium text-ink-3 outline-hidden hover:text-danger focus-visible:shadow-focus aria-busy:cursor-progress sm:min-h-7'
 </script>
 
@@ -205,7 +112,7 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
 
     <div v-if="loadState === 'error'" class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-panel border border-solid border-line px-4 py-3 sm:px-[18px]" role="alert" data-docs-load-error>
       <p class="m-0 min-w-0 flex-1 text-sm text-ink-2">{{ t('client.wizard.docs.loadError') }}</p>
-      <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-docs-reload @click="load">{{ t('client.wizard.docs.retry') }}</ZButton>
+      <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-docs-reload @click="load()">{{ t('client.wizard.docs.retry') }}</ZButton>
     </div>
 
     <ul
@@ -231,6 +138,7 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
         <div class="min-w-0">
           <p class="m-0 flex flex-wrap items-baseline gap-x-2 text-[15px] leading-6">
             <span class="font-semibold text-ink" data-doc-name>{{ t(`client.docKind.${d.key}.name`) }}</span>
+            <span v-if="filesOf(d.key).length" class="sr-only" data-doc-done>{{ t('client.wizard.docs.done') }}</span>
             <span
               :class="cn('text-[12.5px]', d.need === 'required' && !filesOf(d.key).length ? 'text-gold-ink' : 'text-muted')"
               data-doc-need
@@ -245,7 +153,7 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
                 type="button"
                 :class="cn(removeBtn, 'ml-auto sm:ml-1')"
                 :aria-label="t('client.wizard.docs.removeLabel', { name: f.originalFileName })"
-                :aria-busy="removing === f.id || undefined"
+                :aria-busy="removing.includes(f.id) || undefined"
                 data-doc-remove
                 @click="remove(f)"
               >{{ t('client.wizard.docs.remove') }}</button>
@@ -255,21 +163,18 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
 
           <p v-if="pending[d.key]?.length" class="m-0 mt-1 flex items-center gap-1.5 text-[13px] text-ink-3" data-doc-uploading>
             <PhCircleNotch :size="14" class="shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-            <span class="min-w-0 truncate">{{ t('client.wizard.docs.uploading', { names: pending[d.key].join(', ') }) }}</span>
+            <span class="min-w-0 truncate">{{ t('client.wizard.docs.uploading', { names: (pending[d.key] ?? []).join(', ') }) }}</span>
           </p>
 
           <div v-if="errors[d.key]?.length" role="alert" class="mt-1.5 flex flex-col gap-0.5" data-doc-error>
-            <p v-for="(e, k) in errors[d.key]" :key="k" class="m-0 flex items-start gap-1.5 text-[13px] text-ink-2">
+            <p v-for="e in errors[d.key]" :key="e.id" class="m-0 flex items-start gap-1.5 text-[13px] text-ink-2">
               <PhWarningCircle :size="15" weight="bold" class="mt-px shrink-0 text-danger" aria-hidden="true" />
-              <span class="min-w-0 [overflow-wrap:anywhere]">{{ e.text }}</span>
+              <span class="min-w-0 [overflow-wrap:anywhere]">{{ errorText(e) }}</span>
             </p>
-            <button
-              v-if="canRetry(d.key)"
-              type="button"
-              :class="cn(linkBtn, '-ml-1.5 self-start text-[13px]')"
-              data-doc-retry
-              @click="retry(d.key)"
-            >{{ t('client.wizard.docs.retry') }}</button>
+            <div class="-ml-1.5 flex flex-wrap gap-x-2">
+              <button v-if="canRetry(d.key)" type="button" :class="cn(linkBtn, 'text-[13px]')" data-doc-retry @click="retry(d.key)">{{ t('client.wizard.docs.retry') }}</button>
+              <button type="button" :class="quietBtn" data-doc-dismiss @click="dismiss(d.key)">{{ t('client.wizard.docs.dismiss') }}</button>
+            </div>
           </div>
         </div>
 
@@ -289,7 +194,7 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
             :ref="setInput(d.key)"
             type="file"
             multiple
-            :accept="ACCEPT.join(',')"
+            :accept="ACCEPT"
             class="hidden"
             tabindex="-1"
             aria-hidden="true"
@@ -305,8 +210,6 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
         ref="otherZone"
         type="drag"
         multiple
-        :accept="ACCEPT.join(',')"
-        :max-size-mb="MAX_MB"
         data-docs-drop
         @select="onOther"
       >
@@ -325,7 +228,7 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
             type="button"
             :class="cn(removeBtn, 'ml-auto sm:ml-1')"
             :aria-label="t('client.wizard.docs.removeLabel', { name: f.originalFileName })"
-            :aria-busy="removing === f.id || undefined"
+            :aria-busy="removing.includes(f.id) || undefined"
             data-doc-remove
             @click="remove(f)"
           >{{ t('client.wizard.docs.remove') }}</button>
@@ -333,20 +236,17 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
       </ul>
       <p v-if="pending.other?.length" class="m-0 flex items-center gap-1.5 px-1 text-[13px] text-ink-3" data-doc-uploading>
         <PhCircleNotch :size="14" class="shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-        <span class="min-w-0 truncate">{{ t('client.wizard.docs.uploading', { names: pending.other.join(', ') }) }}</span>
+        <span class="min-w-0 truncate">{{ t('client.wizard.docs.uploading', { names: (pending.other ?? []).join(', ') }) }}</span>
       </p>
       <div v-if="errors.other?.length" role="alert" class="flex flex-col gap-0.5 px-1" data-doc-error>
-        <p v-for="(e, k) in errors.other" :key="k" class="m-0 flex items-start gap-1.5 text-[13px] text-ink-2">
+        <p v-for="e in errors.other" :key="e.id" class="m-0 flex items-start gap-1.5 text-[13px] text-ink-2">
           <PhWarningCircle :size="15" weight="bold" class="mt-px shrink-0 text-danger" aria-hidden="true" />
-          <span class="min-w-0 [overflow-wrap:anywhere]">{{ e.text }}</span>
+          <span class="min-w-0 [overflow-wrap:anywhere]">{{ errorText(e) }}</span>
         </p>
-        <button
-          v-if="canRetry('other')"
-          type="button"
-          :class="cn(linkBtn, '-ml-1.5 self-start text-[13px]')"
-          data-doc-retry
-          @click="retry('other')"
-        >{{ t('client.wizard.docs.retry') }}</button>
+        <div class="-ml-1.5 flex flex-wrap gap-x-2">
+          <button v-if="canRetry('other')" type="button" :class="cn(linkBtn, 'text-[13px]')" data-doc-retry @click="retry('other')">{{ t('client.wizard.docs.retry') }}</button>
+          <button type="button" :class="quietBtn" data-doc-dismiss @click="dismiss('other')">{{ t('client.wizard.docs.dismiss') }}</button>
+        </div>
       </div>
     </div>
 

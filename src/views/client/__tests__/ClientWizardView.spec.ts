@@ -313,6 +313,13 @@ describe('ClientWizardView', () => {
       clientSenderName: 'Lenovo', clientReceiverName: 'ТОО «Ромашка»',
     })
     const submitBtn = () => w.get('[data-wz-submit]')
+    const vmDraft = () => (w.vm as unknown as { draft: { cargo: string } }).draft
+    const pickInvoice = async (name: string) => {
+      const input = w.get('[data-doc-kind="invoice"] [data-doc-input]')
+      Object.defineProperty(input.element, 'files', { value: [new File(['%PDF'], name)], configurable: true })
+      await input.trigger('change')
+      await flushPromises()
+    }
 
     it('кнопка отправки неактивна без файла и без отметки ответственности', async () => {
       server = fullDraft()
@@ -367,7 +374,6 @@ describe('ClientWizardView', () => {
       expect(api.action).toHaveBeenCalledWith('c1', 'submit-for-processing')
       expect(msg.success).toHaveBeenCalledWith('Поставка отправлена на оформление')
       expect(router.currentRoute.value.fullPath).toBe('/import-40/c1')
-      // Страж ухода не спрашивает и не сохраняет после отправки.
       expect(confirmState.open).toBe(false)
       expect(api.update).not.toHaveBeenCalled()
     })
@@ -400,7 +406,7 @@ describe('ClientWizardView', () => {
       expect(router.currentRoute.value.fullPath).toBe('/import-40/c1')
     })
 
-    it('сервер отклонил отправку — остаёмся в мастере, страж снова охраняет', async () => {
+    it('сервер отклонил отправку — остаёмся в мастере, кнопка доступна, страж снова охраняет', async () => {
       server = fullDraft()
       api.listFiles.mockResolvedValue(['invoice', 'transport', 'packing', 'contract'].map((k, i) =>
         fileDto({ id: `f${i}`, docKind: k, originalFileName: `${k}.pdf` })))
@@ -412,6 +418,103 @@ describe('ClientWizardView', () => {
       expect(router.currentRoute.value.fullPath).toBe('/import-40/new/c1')
       expect(msg.success).not.toHaveBeenCalled()
       expect(submitBtn().attributes('disabled')).toBeUndefined()
+
+      // Несохраняемая правка и уход — страж спрашивает (leaving не остался взведённым).
+      vmDraft().cargo = 'Станки ЧПУ'
+      api.update.mockRejectedValue(new Error('net'))
+      const nav = router.push('/import-40')
+      await flushPromises()
+      expect(confirmState.open).toBe(true)
+      confirmState.resolve(false)
+      await nav
+      expect(router.currentRoute.value.fullPath).toBe('/import-40/new/c1')
+    })
+
+    it('после отправки страж не спрашивает и не сохраняет, даже если черновик «грязный»', async () => {
+      server = fullDraft()
+      api.listFiles.mockResolvedValue(['invoice', 'transport', 'packing', 'contract'].map((k, i) =>
+        fileDto({ id: `f${i}`, docKind: k, originalFileName: `${k}.pdf` })))
+      await mountAt('/import-40/new/c1')
+      await w.get('[data-docs-resp]').trigger('click')
+      // Пока шла отправка, черновик стал «грязным», а сохранение не проходит: без leaving страж спросил бы «Уйти?».
+      api.action.mockImplementationOnce(async () => {
+        vmDraft().cargo = 'Станки ЧПУ'
+        api.update.mockRejectedValue(new Error('net'))
+        return { ...server, status: 1 }
+      })
+      await submitBtn().trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.fullPath).toBe('/import-40/c1')
+      expect(confirmState.open).toBe(false)
+      expect(api.update).not.toHaveBeenCalled()
+    })
+
+    it('переход после отправки сорвался — страж снова охраняет', async () => {
+      server = fullDraft()
+      api.listFiles.mockResolvedValue(['invoice', 'transport', 'packing', 'contract'].map((k, i) =>
+        fileDto({ id: `f${i}`, docKind: k, originalFileName: `${k}.pdf` })))
+      await mountAt('/import-40/new/c1')
+      await w.get('[data-docs-resp]').trigger('click')
+      // Чужой страж отменяет переход на карточку.
+      const stop = router.beforeEach((to) => to.fullPath !== '/import-40/c1')
+      await submitBtn().trigger('click')
+      await flushPromises()
+      stop()
+      expect(api.action).toHaveBeenCalledTimes(1)
+      expect(router.currentRoute.value.fullPath).toBe('/import-40/new/c1')
+
+      vmDraft().cargo = 'Станки ЧПУ'
+      api.update.mockRejectedValue(new Error('net'))
+      const nav = router.push('/import-40')
+      await flushPromises()
+      expect(confirmState.open).toBe(true)
+      confirmState.resolve(false)
+      await nav
+    })
+
+    it('загрузка закончилась, пока клиент был на другом шаге: файл в списке, отправка доступна', async () => {
+      server = fullDraft()
+      await mountAt('/import-40/new/c1')
+      await w.get('[data-docs-resp]').trigger('click')
+      let release!: () => void
+      api.uploadFile.mockImplementationOnce(() => new Promise((r) => {
+        release = () => r(fileDto({ id: 'up1', docKind: 'invoice', originalFileName: 'inv.pdf' }))
+      }))
+      await pickInvoice('inv.pdf')
+      expect(w.get('[data-wz-submit-why]').text()).toBe('Дождитесь, пока файлы загрузятся')
+
+      await w.get('[data-wz-back]').trigger('click')
+      await flushPromises()
+      expect(w.find('[data-step="parties"]').exists()).toBe(true)
+      release()
+      await flushPromises()
+
+      await w.get('[data-wz-next]').trigger('click')
+      await flushPromises()
+      expect(w.get('[data-doc-kind="invoice"]').text()).toContain('inv.pdf')
+      expect(submitBtn().attributes('disabled')).toBeUndefined()
+    })
+
+    it('сбой загрузки, пока клиент был на другом шаге: ошибка в строке и «Повторить» на месте', async () => {
+      server = fullDraft()
+      await mountAt('/import-40/new/c1')
+      let fail!: () => void
+      api.uploadFile.mockImplementationOnce(() => new Promise((_r, reject) => {
+        fail = () => reject({ response: { status: 400, data: { error: 'Файл повреждён' } } })
+      }))
+      await pickInvoice('inv.pdf')
+      await w.get('[data-wz-back]').trigger('click')
+      await flushPromises()
+      fail()
+      await flushPromises()
+
+      await w.get('[data-wz-next]').trigger('click')
+      await flushPromises()
+      const row = w.get('[data-doc-kind="invoice"]')
+      expect(row.get('[data-doc-error]').text()).toContain('inv.pdf: Файл повреждён')
+      expect(row.find('[data-doc-retry]').exists()).toBe(true)
+      expect(submitBtn().attributes('disabled')).toBeDefined()
+      expect(w.get('[data-wz-submit-why]').text()).toBe('Приложите хотя бы один документ')
     })
   })
 })
