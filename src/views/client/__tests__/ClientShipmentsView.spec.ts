@@ -144,6 +144,9 @@ describe('ClientShipmentsView', () => {
     expect(search.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     // ZInput вешает класс на обёртку поля.
     expect(search.closest('.max-sm\\:h-11')).not.toBeNull()
+    // Поиск уходит вправо от вкладок только с xl: ниже полоса вкладок целиком, ничем не перекрыта.
+    expect(search.closest('.xl\\:order-2')).not.toBeNull()
+    expect(w.get('nav').classes()).toContain('xl:order-1')
     expect(w.get('[data-client-tab="active"]').classes()).toContain('max-sm:min-h-11')
     expect(w.get('[data-client-new]').classes()).toContain('max-sm:h-11')
     expect(w.get('[data-client-retry]').classes()).toContain('max-sm:h-11')

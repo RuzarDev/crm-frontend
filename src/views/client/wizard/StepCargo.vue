@@ -102,7 +102,7 @@ const currency = computed<ZOptionValue | null>({
       />
     </ZField>
 
-    <div class="grid grid-cols-[minmax(0,1fr)_112px] gap-2.5 sm:grid-cols-[minmax(0,240px)_128px] sm:gap-3">
+    <div class="grid grid-cols-[minmax(0,1fr)_112px] gap-2.5 sm:grid-cols-[minmax(0,1fr)_128px] sm:gap-3">
       <ZField :label="t('client.wizard.cargo.value')">
         <ZNumber
           v-model:value="draft.estimatedValue"
@@ -121,7 +121,7 @@ const currency = computed<ZOptionValue | null>({
           show-search
           :filter-option="filterCurrency"
           :popup-width="240"
-          :class="phoneSelect"
+          :class="[phoneSelect, 'w-full']"
           data-wz-currency
         >
           <template #option="{ option }">

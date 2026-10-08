@@ -136,11 +136,11 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
         </span>
 
         <div class="min-w-0">
-          <p class="m-0 flex flex-wrap items-baseline gap-x-2 text-[15px] leading-6">
+          <p class="m-0 text-[15px] leading-6">
             <span class="font-semibold text-ink" data-doc-name>{{ t(`client.docKind.${d.key}.name`) }}</span>
             <span v-if="filesOf(d.key).length" class="sr-only" data-doc-done>{{ t('client.wizard.docs.done') }}</span>
             <span
-              :class="cn('text-[12.5px]', d.need === 'required' && !filesOf(d.key).length ? 'text-gold-ink' : 'text-muted')"
+              :class="cn('block text-[12.5px] leading-5', d.need === 'required' && !filesOf(d.key).length ? 'text-gold-ink' : 'text-muted')"
               data-doc-need
             >{{ t(`client.docNeed.${d.need}`) }}</span>
           </p>

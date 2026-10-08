@@ -562,7 +562,7 @@ export default {
       problem: { title: 'Your reply is needed' },
       returned: { title: 'Returned for changes' },
       draft: { title: 'Draft not sent', text: 'Fill in the rest and send it for processing' },
-      paySvh: { title: 'Pay the warehouse', panelTitle: 'Pay the temporary storage warehouse', text: 'Warehouse invoice for {sum}', textNoSum: 'Warehouse invoice issued' },
+      paySvh: { title: 'Pay the warehouse', panelTitle: 'Pay the temporary storage warehouse', text: 'Warehouse invoice for {sum}', rowSum: 'Pay the warehouse — invoice for {sum}', textNoSum: 'Warehouse invoice issued' },
     },
     stepOf: 'Stage {n} of {total} · {name}',
     row: { noCargo: 'Cargo not specified', closedOn: 'Closed {date}' },

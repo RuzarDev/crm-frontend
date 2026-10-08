@@ -566,7 +566,7 @@ export default {
       problem: { title: 'Нужен ваш ответ' },
       returned: { title: 'Вернули на доработку' },
       draft: { title: 'Черновик не отправлен', text: 'Заполните оставшееся и отправьте на оформление' },
-      paySvh: { title: 'Оплатите склад', panelTitle: 'Оплатите склад временного хранения', text: 'Счёт СВХ на {sum}', textNoSum: 'Счёт склада выставлен' },
+      paySvh: { title: 'Оплатите склад', panelTitle: 'Оплатите склад временного хранения', text: 'Счёт СВХ на {sum}', rowSum: 'Оплатите склад — счёт СВХ на {sum}', textNoSum: 'Счёт склада выставлен' },
     },
     stepOf: 'Этап {n} из {total} · {name}',
     row: { noCargo: 'Груз не указан', closedOn: 'Закрыта {date}' },

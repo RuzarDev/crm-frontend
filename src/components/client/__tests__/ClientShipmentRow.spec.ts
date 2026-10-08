@@ -58,13 +58,19 @@ describe('ClientShipmentRow', () => {
     expect(a.classes()).toEqual(expect.arrayContaining(['bg-gold-soft', 'border-gold-line']))
     expect(a.classes()).not.toContain('bg-surface')
     expect(w.get('.bg-tone-wait-bg').text()).toBe('Ждём оплату склада')
-    expect(w.get('[data-row-caption]').text()).toBe('Оплатите склад')
+    expect(w.get('[data-row-caption]').text()).toBe(`Оплатите склад — счёт СВХ на ${formatMoney(312400)}`)
+    expect(w.get('a').classes().join(' ')).toContain('13.5rem')
     expect(w.findAll('[data-seg]')[4].classes()).toContain('bg-gold')
     const label = w.get('[data-step-label]')
     expect(label.classes()).toContain('sr-only')
     expect(label.text()).toBe('Этап 5 из 6 · Оплата склада')
     expect(w.get('[data-seg]').element.parentElement!.getAttribute('aria-hidden')).toBe('true')
-    expect(w.text()).not.toContain(formatMoney(312400))
+    expect(w.text()).toContain(formatMoney(312400))
+  })
+
+  it('счёт СВХ без известной суммы — подпись «Оплатите склад»', () => {
+    mountRow(ship({ status: 6, step: 5, svhInvoiceAmount: null }))
+    expect(w.get('[data-row-caption]').text()).toBe('Оплатите склад')
   })
 
   it('проблема — красный тег и сегмент', () => {

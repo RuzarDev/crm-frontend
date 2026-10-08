@@ -94,7 +94,7 @@ const hasAny = computed(() => all.value.length > 0)
 const showSummary = computed(() => total.value.active + total.value.waiting > 0)
 
 const ROW_SKELETON = [['58%', '44%'], ['46%', '52%'], ['64%', '40%'], ['52%', '48%'], ['40%', '36%']]
-const rowGrid = 'flex flex-col gap-3 rounded-panel border border-line bg-surface px-5 py-4 md:grid md:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_auto] md:items-center md:gap-5'
+const rowGrid = 'flex flex-col gap-3 rounded-panel border border-line bg-surface px-5 py-4 md:grid md:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_13.5rem] md:items-center md:gap-5'
 const cta = 'h-10 rounded-row px-4 text-[14.5px] max-sm:h-11 max-sm:w-full'
 // «Повторить» — sm на компьютере, на телефоне — палец (44px).
 const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
@@ -122,23 +122,24 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
       </ZTooltip>
     </div>
 
-    <!-- На телефоне поиск сверху во всю ширину, вкладки под ним прокручиваются; с md — в одну строку, поиск справа
-         (порядок в DOM — как на телефоне, чтобы Tab шёл в том же порядке, что видит глаз; на md меняет только order).
+    <!-- Ниже xl поиск сверху во всю ширину, вкладки под ним прокручиваются (колонка контента из-за боковой панели уже окна);
+         с xl — в одну строку, поиск справа (порядок в DOM — как на телефоне, чтобы Tab шёл в том же порядке, что видит
+         глаз; с xl меняет только order).
          Нижняя линия — тенью, а не рамкой: граница активной вкладки ложится поверх, прокрутке не мешает отрицательный отступ. -->
-    <div class="flex flex-col gap-3 md:flex-row md:items-end md:shadow-[inset_0_-1px_0_var(--color-line)]">
+    <div class="flex flex-col gap-3 xl:flex-row xl:items-end xl:shadow-[inset_0_-1px_0_var(--color-line)]">
       <ZInput
         :value="q"
         type="search"
         allow-clear
         :placeholder="t('client.list.search')"
         :aria-label="t('client.list.searchLabel')"
-        class="w-full max-sm:h-11 md:order-2 md:mb-2 md:ml-auto md:w-[300px]"
+        class="w-full max-sm:h-11 xl:order-2 xl:mb-2 xl:ml-auto xl:w-[300px]"
         data-client-search
         @update:value="onSearch"
       />
       <nav
         :aria-label="t('client.list.tabsLabel')"
-        class="flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--color-line)] [scrollbar-width:none] md:order-1 md:shadow-none [&::-webkit-scrollbar]:hidden"
+        class="flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--color-line)] [scrollbar-width:none] xl:order-1 xl:shadow-none [&::-webkit-scrollbar]:hidden"
       >
         <RouterLink v-for="k in TABS" :key="k" v-slot="{ href, navigate }" :to="tabTo(k)" replace custom>
           <a
@@ -183,7 +184,7 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
             <ZSkeleton height="5px" />
             <ZSkeleton width="56%" height="12px" />
           </div>
-          <div class="flex items-center justify-between gap-3.5 max-md:order-1 md:justify-self-end">
+          <div class="flex min-w-0 items-center justify-between gap-3.5 max-md:order-1 md:justify-end">
             <ZSkeleton width="104px" height="22px" />
             <ZSkeleton width="40px" height="12px" />
           </div>

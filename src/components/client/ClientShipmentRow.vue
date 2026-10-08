@@ -27,7 +27,7 @@ const tag = computed(() => shipmentTag(s.value))
     :data-ask="ask ?? undefined"
     :class="cn(
       'flex flex-col gap-3 rounded-panel border px-5 py-4 text-ink no-underline outline-hidden',
-      'md:grid md:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_auto] md:items-center md:gap-5',
+      'md:grid md:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_13.5rem] md:items-center md:gap-5',
       'transition-[border-color,box-shadow] duration-150 ease-out hover:shadow-raised focus-visible:shadow-focus motion-reduce:transition-none',
       ask ? 'border-gold-line bg-gold-soft' : 'border-line bg-surface hover:border-line-strong',
     )"
@@ -46,8 +46,8 @@ const tag = computed(() => shipmentTag(s.value))
       <span class="text-sm text-ink-2 md:truncate" data-row-caption>{{ text.caption(s) }}</span>
     </span>
 
-    <span class="flex items-center justify-between gap-3.5 max-md:order-1 md:justify-self-end">
-      <ZTag :tone="tag.tone">{{ text.tagText(s) }}</ZTag>
+    <span class="flex min-w-0 items-center justify-between gap-3.5 max-md:order-1 md:justify-end">
+      <ZTag :tone="tag.tone" class="min-w-0"><span class="truncate" :title="text.tagText(s)">{{ text.tagText(s) }}</span></ZTag>
       <span class="shrink-0 text-right text-[13px] tabular-nums text-muted md:w-[52px]">{{ text.when(s) }}</span>
     </span>
   </RouterLink>

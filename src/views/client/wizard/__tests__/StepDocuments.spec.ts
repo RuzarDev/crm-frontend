@@ -65,6 +65,8 @@ describe('StepDocuments', () => {
     expect(row('origin').get('[data-doc-need]').classes()).toContain('text-muted')
     expect(row('transport').get('[data-doc-hint]').text()).toBe('CMR, ж/д накладная, AWB или коносамент')
     expect(row('invoice').find('[data-doc-hint]').exists()).toBe(false)
+    // Подпись «обязательно/если есть» — отдельной строкой у всех видов, с подсказкой и без.
+    for (const k of ['invoice', 'origin', 'transport']) expect(row(k).get('[data-doc-need]').classes()).toContain('block')
     expect(row('invoice').get('[data-doc-attach]').text()).toBe('Приложить: Инвойс (коммерческий счёт)')
     const resp = w.get('[data-docs-resp]')
     expect(resp.attributes('role')).toBe('checkbox')

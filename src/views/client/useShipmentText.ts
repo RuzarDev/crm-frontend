@@ -16,6 +16,7 @@ export function useShipmentText() {
   /** Подпись под полосой этапов: ход клиента — что сделать; закрытая — дата; иначе — название этапа. */
   const caption = (s: ClientShipment) => {
     const ask = askFor(s)
+    if (ask === 'paySvh' && s.svhInvoiceAmount) return t('client.ask.paySvh.rowSum', { sum: formatMoney(s.svhInvoiceAmount) })
     if (ask) return t(`client.ask.${ask}.title`)
     if (closed(s)) return t('client.row.closedOn', { date: dayMonth(s.updatedAtUtc) })
     return t(`enum.stepClient.s${stepNo(s)}`)
