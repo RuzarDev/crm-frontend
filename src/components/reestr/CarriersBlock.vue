@@ -109,7 +109,7 @@ function emitChange() {
 
 function addItem() {
   items.value.push({
-    role: t('transit.perevozchik2'),
+    role: CARRIER_ROLE_OPTIONS[0].value,
     subjectType: null,
     bin: null,
     name: null,
