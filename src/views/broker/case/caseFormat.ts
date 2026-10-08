@@ -1,4 +1,5 @@
 import type { Import40CaseDto, Import40FileDto } from '@/api/import40'
+import { formatMoney } from '@/ui/number'
 import { pad } from '@/views/broker/list'
 
 // Подписи карточки заявки: транспорт, разделы файлов, время записей истории, роль автора.
@@ -69,3 +70,17 @@ export function roleLabel(code: string | null | undefined, t: T): string {
 /** «Айгерим К. · декларант» — имя (если есть) и роль. */
 export const authorLine = (name: string | null | undefined, role: string | null | undefined, t: T): string =>
   [name?.trim(), roleLabel(role, t)].filter(Boolean).join(' · ')
+
+/** «03.10» из ISO-даты/времени (первые 10 знаков 'YYYY-MM-DD' — без пересчёта часового пояса); '' — даты нет. */
+export function shortDate(iso: string | null | undefined): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '')
+  return m ? `${m[3]}.${m[2]}` : ''
+}
+
+/** Счёт СВХ одной строкой после выставления: «312 400 ₸ · № 1187 · 03.10»; null — сумма не указана. */
+export function svhInvoiceLine(c: Import40CaseDto): string | null {
+  if (c.svhInvoiceAmount == null) return null
+  return [formatMoney(Math.round(c.svhInvoiceAmount)), c.svhInvoiceNumber ? `№ ${c.svhInvoiceNumber}` : '', shortDate(c.svhInvoiceDate)]
+    .filter(Boolean)
+    .join(' · ')
+}

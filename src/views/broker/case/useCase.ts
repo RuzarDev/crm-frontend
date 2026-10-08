@@ -1,6 +1,9 @@
-import { ref, shallowRef, watch, type Ref } from 'vue'
+import { getCurrentScope, onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue'
 import { import40Api, type Import40CaseDto, type Import40CaseInvoiceDto, type Import40FileDto } from '@/api/import40'
 import type { DeclarationReadiness } from '@/types/api'
+
+/** Не чаще раза в 30 с: возврат на вкладку перечитывает карточку (оплату отметили в «Счетах», файл добавил коллега). */
+export const REFRESH_ON_RETURN_MS = 30_000
 
 export type CaseLoadState = 'loading' | 'ready' | 'notFound' | 'error'
 
@@ -25,6 +28,8 @@ const statusOf = (e: unknown): number | undefined => (e as { response?: { status
  * - Первый показ (и смена :id) — скелетон; ошибка заявки или файлов без тоста: 404/403/400 → notFound, иначе error.
  * - reload() — без мерцания: данные остаются на экране, пока идёт запрос (refreshing); сбой — тост перехватчика,
  *   на экране последнее известное состояние.
+ * - Возврат на вкладку (visibilitychange → visible) перечитывает карточку без мерцания, если с последней загрузки прошло
+ *   не меньше REFRESH_ON_RETURN_MS: оплата в «Счетах» или правка коллеги иначе не дошла бы до открытой карточки.
  * - Ответ устаревшего запроса (сменился :id, начат новый reload) отбрасывается.
  */
 export function useCase(id: Ref<string>, opts: UseCaseOptions) {
@@ -35,6 +40,7 @@ export function useCase(id: Ref<string>, opts: UseCaseOptions) {
   const readiness = shallowRef<DeclarationReadiness[] | null>(null)
   const refreshing = ref(false)
   let seq = 0
+  let loadedAt = Date.now()
 
   const fetchAll = async (caseId: string, initial: boolean): Promise<Loaded> => {
     const silent = initial ? { silent: true } : undefined
@@ -60,6 +66,7 @@ export function useCase(id: Ref<string>, opts: UseCaseOptions) {
   const load = async () => {
     const caseId = id.value
     const my = ++seq
+    loadedAt = Date.now()
     state.value = 'loading'
     refreshing.value = false
     kase.value = null
@@ -86,6 +93,7 @@ export function useCase(id: Ref<string>, opts: UseCaseOptions) {
     }
     const caseId = id.value
     const my = ++seq
+    loadedAt = Date.now()
     refreshing.value = true
     try {
       const d = await fetchAll(caseId, false)
@@ -105,6 +113,14 @@ export function useCase(id: Ref<string>, opts: UseCaseOptions) {
   }
 
   watch(id, () => { void load() }, { immediate: true })
+
+  const onVisible = () => {
+    if (document.visibilityState !== 'visible' || state.value !== 'ready' || refreshing.value) return
+    if (Date.now() - loadedAt < REFRESH_ON_RETURN_MS) return
+    void reload()
+  }
+  document.addEventListener('visibilitychange', onVisible)
+  if (getCurrentScope()) onScopeDispose(() => document.removeEventListener('visibilitychange', onVisible))
 
   return { state, kase, files, invoices, readiness, refreshing, reload, retry: load, setCase }
 }

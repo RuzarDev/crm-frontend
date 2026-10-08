@@ -1,7 +1,7 @@
 import { defineComponent, h, reactive, type Component } from 'vue'
 import { vi } from 'vitest'
 import { mountWithI18n } from '@/test/mountWithI18n'
-import type { Import40CaseDto, Import40FileDto } from '@/api/import40'
+import type { Import40CaseDto, Import40CaseInvoiceDto, Import40FileDto } from '@/api/import40'
 import type { DeclarationReadiness } from '@/types/api'
 import { casePerms, type CaseAuth } from '../casePermissions'
 import { STEP_EXECUTOR, stepStateOf, stepSummary, type StepNo } from '../caseSteps'
@@ -25,6 +25,7 @@ export function mountStep(Step: Component, o: {
   kase?: Partial<Import40CaseDto>
   files?: Import40FileDto[]
   readiness?: DeclarationReadiness[] | null
+  invoices?: Import40CaseInvoiceDto[]
   plugins?: unknown[]
   stubs?: Record<string, unknown>
 }) {
@@ -40,7 +41,7 @@ export function mountStep(Step: Component, o: {
         const ctx: CaseStepContext = {
           kase: state.kase,
           files: state.files,
-          invoices: [],
+          invoices: o.invoices ?? [],
           readiness: state.readiness,
           perms: casePerms(o.user, state.kase),
           actions,

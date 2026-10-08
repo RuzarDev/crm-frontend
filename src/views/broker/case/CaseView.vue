@@ -16,7 +16,9 @@ import CaseStepper from './CaseStepper.vue'
 import StepBorder from './steps/StepBorder.vue'
 import StepDeclaring from './steps/StepDeclaring.vue'
 import StepDraft from './steps/StepDraft.vue'
-import StepPlaceholder from './steps/StepPlaceholder.vue'
+import StepAqniet from './steps/StepAqniet.vue'
+import StepSvh from './steps/StepSvh.vue'
+import StepSvhPayment from './steps/StepSvhPayment.vue'
 import { casePerms, readinessAvailable } from './casePermissions'
 import { STEP_EXECUTOR, STEP_NUMBERS, isCancelled, stepStateOf, stepSummary, type StepNo } from './caseSteps'
 import type { CaseStepContext, CaseStepInfo } from './caseContext'
@@ -25,7 +27,7 @@ import { useCaseActions } from './useCaseActions'
 
 // Карточка заявки сотрудника /import-40/:id (редизайн, волна 4а; доски Case и CaseSvh).
 // Шапка, полоса шагов, плашки; слева — текущий шаг и «Пройденные шаги», справа — команда, заявка, файлы, история.
-// Панели шагов — по контракту caseContext.ts; шаги 4–6 пока StepPlaceholder (Task 5 заменит).
+// Панели шагов — по контракту caseContext.ts.
 const { t, locale } = useI18n()
 const route = useRoute()
 const auth = useAuthStore()
@@ -34,9 +36,9 @@ const STEP_COMPONENTS: Record<StepNo, Component> = {
   1: StepDraft,
   2: StepBorder,
   3: StepDeclaring,
-  4: StepPlaceholder,
-  5: StepPlaceholder,
-  6: StepPlaceholder,
+  4: StepSvh,
+  5: StepSvhPayment,
+  6: StepAqniet,
 }
 
 const id = computed(() => String(route.params.id ?? ''))

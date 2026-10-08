@@ -118,9 +118,10 @@ const removeBtn = `${iconBase} hover:bg-tone-danger-bg hover:text-tone-danger-fg
 
 <template>
   <div :data-docs-slot="section">
-    <div v-if="label || hint" class="mb-2 flex flex-wrap items-baseline gap-x-2">
+    <div v-if="label || hint || $slots['label-extra']" class="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
       <span v-if="label" :id="labelId" class="text-[13px] font-semibold text-ink">{{ label }}</span>
       <span v-if="hint" class="text-xs text-muted">{{ hint }}</span>
+      <slot name="label-extra" />
     </div>
 
     <ul v-if="files.length" role="list" :aria-labelledby="label ? labelId : undefined" class="m-0 flex list-none flex-col gap-2 p-0">
