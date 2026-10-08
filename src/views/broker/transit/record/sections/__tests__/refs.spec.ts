@@ -79,6 +79,9 @@ describe('справочники страницы', () => {
     expect(refs.countryOptions.value).toEqual([{ value: '398', label: '398 — Казахстан' }])
     expect(refs.foreignOfficeOptions.value).toEqual([{ value: '10001', label: '10001 — Хоргос (CN)' }])
     expect(refs.okeiOptions.value).toEqual([{ value: '796', label: '796 — шт' }])
+    expect(refs.okeiName('796')).toBe('шт')
+    expect(refs.okeiName('999')).toBeNull()
+    expect(refs.okeiName(null)).toBeNull()
   })
 
   it('справочники запрашиваются тихо (без тоста при сбое)', async () => {

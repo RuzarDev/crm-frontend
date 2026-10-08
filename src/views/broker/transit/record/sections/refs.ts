@@ -49,6 +49,8 @@ export interface RecordRefs {
   foreignOfficeOptions: ComputedRef<ZOption[]>
   /** Единицы ОКЕИ — значение код, подпись «796 — шт». */
   okeiOptions: ComputedRef<ZOption[]>
+  /** Краткое название единицы ОКЕИ по коду («796» → «шт»); нет в справочнике — null. */
+  okeiName: (code: string | null | undefined) => string | null
 }
 
 export function createRecordRefs(): RecordRefs {
@@ -82,6 +84,7 @@ export function createRecordRefs(): RecordRefs {
 
   const active = <T extends { isActive: boolean }>(items: Ref<T[]>) => items.value.filter((i) => i.isActive !== false)
   const byName = (items: RefItem[]): ZOption[] => items.map((i) => ({ value: i.name, label: i.name }))
+  const okeiNames = computed(() => new Map(okei.value.map((u) => [u.code, u.name])))
 
   return {
     ensure: async (...kinds) => { await Promise.all(kinds.map(ensureOne)) },
@@ -112,6 +115,7 @@ export function createRecordRefs(): RecordRefs {
       label: `${o.code} — ${o.name}${o.countryCode ? ` (${o.countryCode})` : ''}`,
     }))),
     okeiOptions: computed(() => active(okei).map((u) => ({ value: u.code, label: `${u.code} — ${u.name}` }))),
+    okeiName: (code) => (code ? okeiNames.value.get(code) ?? null : null),
   }
 }
 

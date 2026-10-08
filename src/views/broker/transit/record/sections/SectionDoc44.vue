@@ -1,0 +1,206 @@
+<script setup lang="ts">
+import { computed, nextTick, reactive, ref, toRaw, useId } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { PhCaretDown, PhX } from '@phosphor-icons/vue'
+import ZButton from '@/components/z/ZButton.vue'
+import ZDate from '@/components/z/ZDate.vue'
+import ZField from '@/components/z/ZField.vue'
+import ZInput from '@/components/z/ZInput.vue'
+import ZSelect from '@/components/z/ZSelect.vue'
+import { useClassifiersStore } from '@/stores/classifiers'
+import type { ReestrDoc44ItemInput } from '@/types/api'
+import { formatDateText } from '@/ui/date'
+import type { RecordDraft } from '../recordModel'
+import RecordSection from './RecordSection.vue'
+import { useRecordRefs } from './refs'
+import SectionAddButton from './SectionAddButton.vue'
+import { boxCtl, ctl, str } from './ui'
+
+// Раздел «Документы гр. 44» (доска TransitRecord, разбор §2.5): таблица с правкой на месте — код (классификатор
+// 2009, выбор подставляет вид), вид, номер, дата; под строкой «Ещё» — уполномоченный орган, ИД органа, номер
+// бланка (сервер их хранит). «Действует с / по» и «Страна выдачи» сервер не хранит — не показываются (B.6).
+// На телефоне строки — карточки с подписями полей.
+const props = defineProps<{ draft: RecordDraft; readonly: boolean }>()
+const { t } = useI18n()
+const tr = (key: string, p?: Record<string, unknown>) => t(`broker.transitRecord.doc44.${key}`, p ?? {})
+
+const refs = useRecordRefs()
+void refs.ensureClassifiers(['2009'])
+const classifiers = useClassifiersStore()
+const docTypeOptions = computed(() => refs.classifierOptions('2009'))
+
+const uid = useId()
+const ids = new WeakMap<object, number>()
+let nextId = 0
+const keyOf = (item: ReestrDoc44ItemInput): number => {
+  const raw = toRaw(item)
+  let id = ids.get(raw)
+  if (id === undefined) {
+    id = ++nextId
+    ids.set(raw, id)
+  }
+  return id
+}
+const domId = (item: ReestrDoc44ItemInput, field: string) => `doc44-${uid}-${keyOf(item)}-${field}`
+
+const more = reactive(new Set<number>())
+const toggleMore = (item: ReestrDoc44ItemInput) => {
+  const k = keyOf(item)
+  if (more.has(k)) more.delete(k)
+  else more.add(k)
+}
+
+/** Новая строка — только поля, которые хранит сервер (прежняя форма слала и поля Импорта 40). */
+const newDoc = (): ReestrDoc44ItemInput => ({
+  docTypeCode: null,
+  docTypeName: null,
+  docNumber: null,
+  docDate: null,
+  authorizedBody: null,
+  authorizedBodyId: null,
+  formBlankNumber: null,
+})
+
+const listEl = ref<HTMLElement | null>(null)
+const add = async () => {
+  if (props.readonly) return
+  props.draft.doc44.push(newDoc())
+  await nextTick()
+  const rowsEls = listEl.value?.querySelectorAll<HTMLElement>('[data-doc44-row]')
+  rowsEls?.[rowsEls.length - 1]?.querySelector<HTMLElement>('[data-f="docTypeCode"]')?.focus()
+}
+const remove = (item: ReestrDoc44ItemInput) => {
+  if (props.readonly) return
+  const at = props.draft.doc44.indexOf(item)
+  if (at >= 0) props.draft.doc44.splice(at, 1)
+  more.delete(keyOf(item))
+}
+
+type StrKey = Exclude<keyof ReestrDoc44ItemInput, 'docDate'>
+const setStr = (item: ReestrDoc44ItemInput, key: StrKey, v: unknown) => { item[key] = str(v) }
+const onCode = (item: ReestrDoc44ItemInput, v: unknown) => {
+  const code = str(v)
+  item.docTypeCode = code
+  const found = classifiers.cache['2009']?.find((c) => c.code === code)
+  if (found) item.docTypeName = found.nameRu
+}
+
+const extras = (item: ReestrDoc44ItemInput) => ([
+  ['authorizedBody', item.authorizedBody],
+  ['authorizedBodyId', item.authorizedBodyId],
+  ['formBlankNumber', item.formBlankNumber],
+] as const).filter(([, v]) => v).map(([k, v]) => `${tr(k)}: ${v}`).join(' · ')
+
+const cols = 'sm:grid-cols-[10rem_minmax(0,1.5fr)_minmax(0,1fr)_9.5rem_auto]'
+const cellLabel = 'text-xs leading-4 text-ink-3 sm:sr-only'
+const cell = 'flex min-w-0 flex-col gap-1'
+const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden transition-colors hover:bg-tone-danger-bg hover:text-tone-danger-fg focus-visible:shadow-focus max-sm:size-11'
+</script>
+
+<template>
+  <RecordSection id="doc44" :title="t('broker.transitRecord.sections.doc44')" :count="draft.doc44.length">
+    <template v-if="!readonly" #actions>
+      <SectionAddButton :label="tr('add')" @click="add" />
+    </template>
+
+    <p v-if="!draft.doc44.length" class="m-0 text-sm text-ink-3" data-doc44-empty>{{ tr('empty') }}</p>
+    <div v-else ref="listEl" class="min-w-0 sm:overflow-hidden sm:rounded-row sm:border sm:border-line">
+      <div
+        aria-hidden="true"
+        :class="['hidden gap-2 border-b border-line bg-canvas px-3 py-2 text-xs leading-4 font-medium text-ink-3 sm:grid', cols]"
+        data-doc44-head
+      >
+        <span>{{ tr('code') }}</span><span>{{ tr('name') }}</span><span>{{ tr('number') }}</span><span>{{ tr('date') }}</span><span />
+      </div>
+      <ul role="list" class="m-0 flex list-none flex-col p-0 max-sm:gap-2.5">
+        <li
+          v-for="(item, index) in draft.doc44"
+          :key="keyOf(item)"
+          class="flex min-w-0 flex-col max-sm:gap-3 max-sm:rounded-row max-sm:border max-sm:border-line max-sm:bg-surface max-sm:p-3 sm:border-t sm:border-line sm:first:border-t-0"
+          data-doc44-row
+        >
+          <template v-if="readonly">
+            <div :class="['grid grid-cols-1 gap-3 sm:items-center sm:gap-2 sm:px-3 sm:py-3', cols]">
+              <div :class="cell"><span :class="cellLabel">{{ tr('code') }}</span><span class="font-mono text-sm text-ink">{{ item.docTypeCode || '—' }}</span></div>
+              <div :class="cell"><span :class="cellLabel">{{ tr('name') }}</span><span class="text-sm break-words text-ink">{{ item.docTypeName || '—' }}</span></div>
+              <div :class="cell"><span :class="cellLabel">{{ tr('number') }}</span><span class="font-mono text-sm break-words text-ink">{{ item.docNumber || '—' }}</span></div>
+              <div :class="cell"><span :class="cellLabel">{{ tr('date') }}</span><span class="text-sm text-ink tabular-nums">{{ formatDateText(item.docDate) || '—' }}</span></div>
+              <span />
+            </div>
+            <p v-if="extras(item)" class="m-0 text-xs leading-5 text-ink-3 sm:-mt-1.5 sm:px-3 sm:pb-3" data-doc44-extras>{{ extras(item) }}</p>
+          </template>
+
+          <template v-else>
+            <div :class="['grid grid-cols-1 gap-3 sm:items-center sm:gap-2 sm:px-3 sm:py-2', cols]">
+              <div :class="cell">
+                <label :for="domId(item, 'code')" :class="cellLabel">{{ tr('code') }}</label>
+                <ZSelect
+                  :id="domId(item, 'code')"
+                  :value="item.docTypeCode"
+                  :options="docTypeOptions"
+                  show-search
+                  allow-clear
+                  :placeholder="tr('code')"
+                  :popup-width="420"
+                  :class="boxCtl"
+                  data-f="docTypeCode"
+                  @update:value="onCode(item, $event)"
+                />
+              </div>
+              <div :class="cell">
+                <label :for="domId(item, 'name')" :class="cellLabel">{{ tr('name') }}</label>
+                <ZInput :id="domId(item, 'name')" :value="item.docTypeName" :maxlength="1000" :class="ctl" data-f="docTypeName" @update:value="setStr(item, 'docTypeName', $event)" />
+              </div>
+              <div :class="cell">
+                <label :for="domId(item, 'number')" :class="cellLabel">{{ tr('number') }}</label>
+                <ZInput :id="domId(item, 'number')" :value="item.docNumber" mono :maxlength="256" :class="ctl" data-f="docNumber" @update:value="setStr(item, 'docNumber', $event)" />
+              </div>
+              <div :class="cell">
+                <label :for="domId(item, 'date')" :class="cellLabel">{{ tr('date') }}</label>
+                <ZDate :id="domId(item, 'date')" :value="item.docDate" allow-clear :class="ctl" data-f="docDate" @update:value="item.docDate = $event" />
+              </div>
+              <div class="flex items-center justify-end gap-1 max-sm:justify-between">
+                <ZButton
+                  variant="ghost"
+                  size="sm"
+                  class="max-sm:h-11 max-sm:px-3"
+                  :aria-expanded="more.has(keyOf(item)) ? 'true' : 'false'"
+                  :aria-controls="domId(item, 'more')"
+                  :aria-label="tr('moreLabel', { n: index + 1 })"
+                  data-doc44-more
+                  @click="toggleMore(item)"
+                >
+                  {{ tr('more') }}
+                  <PhCaretDown :size="14" aria-hidden="true" class="transition-transform duration-150 motion-reduce:transition-none" :class="more.has(keyOf(item)) && 'rotate-180'" />
+                </ZButton>
+                <button
+                  type="button"
+                  :class="iconBtn"
+                  :aria-label="tr('deleteLabel', { n: index + 1 })"
+                  data-doc44-delete
+                  @click="remove(item)"
+                ><PhX :size="16" aria-hidden="true" /></button>
+              </div>
+            </div>
+            <div
+              v-if="more.has(keyOf(item))"
+              :id="domId(item, 'more')"
+              class="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:bg-canvas sm:px-3 sm:pt-2 sm:pb-3"
+              data-doc44-extra
+            >
+              <ZField :label="tr('authorizedBody')">
+                <ZInput :value="item.authorizedBody" :maxlength="256" :class="ctl" data-f="authorizedBody" @update:value="setStr(item, 'authorizedBody', $event)" />
+              </ZField>
+              <ZField :label="tr('authorizedBodyId')">
+                <ZInput :value="item.authorizedBodyId" mono :maxlength="64" :class="ctl" data-f="authorizedBodyId" @update:value="setStr(item, 'authorizedBodyId', $event)" />
+              </ZField>
+              <ZField :label="tr('formBlankNumber')">
+                <ZInput :value="item.formBlankNumber" mono :maxlength="64" :class="ctl" data-f="formBlankNumber" @update:value="setStr(item, 'formBlankNumber', $event)" />
+              </ZField>
+            </div>
+          </template>
+        </li>
+      </ul>
+    </div>
+  </RecordSection>
+</template>
