@@ -127,6 +127,10 @@ export function reestrDtoToData(dto: ReestrEntryDto): Record<string, string | nu
   m['ТД'] = dto.customsDeclarationNumber
   m['Кол-во ТД'] = formatNum(dto.customsDeclarationCount)
   m['Количество доп.листов'] = formatNum(dto.supplementalSheetsCount)
+  // Блок «ЖДН» формы. Сервер перезаписывает их при каждом сохранении, поэтому их надо прочитать,
+  // чтобы при правке отправить обратно (пока GET их не отдаёт — значения будут пустыми).
+  m['№ Пломбы'] = dto.sealNumber ?? null
+  m['Вид упаковки'] = dto.packagingType ?? null
   return m
 }
 
@@ -139,6 +143,9 @@ export function reestrDtoToEntry(dto: ReestrEntryDto): ReestrEntry {
     sourceConsolidationId: dto.sourceConsolidationId ?? null,
     data: reestrDtoToData(dto),
     grandTotalWithVat: dto.grandTotalWithVat ?? null,
+    pricePerDeclarationWithVat: dto.pricePerDeclarationWithVat ?? null,
+    pricePerSupplementalSheetWithVat: dto.pricePerSupplementalSheetWithVat ?? null,
+    supplementalSheetsTotalWithVat: dto.supplementalSheetsTotalWithVat ?? null,
     deprecationWarning: dto.deprecationWarning ?? null,
     goods: (dto.goodsItems ?? []).map((g) => ({
       description: g.description,
@@ -160,6 +167,9 @@ export function reestrDtoToEntry(dto: ReestrEntryDto): ReestrEntry {
       docTypeName: d.docTypeName,
       docNumber: d.docNumber,
       docDate: d.docDate,
+      authorizedBody: d.authorizedBody ?? null,
+      authorizedBodyId: d.authorizedBodyId ?? null,
+      formBlankNumber: d.formBlankNumber ?? null,
     })),
     transit: {
       purposeCode: dto.purposeCode ?? null,
@@ -291,6 +301,9 @@ export function reestrDataToUpsertBody(
   })
 }
 
+// Тело PUT/POST /reestr. Сервер (ReestrEntryMapper.ApplyUpsert/ApplyAllChildren) присваивает каждое поле
+// безусловно и заменяет все вложенные списки целиком: всё, чего нет в теле, стирается. Поэтому сюда
+// должна приходить ПОЛНАЯ запись (getById, не строка списка — в списке коллекций нет).
 export function reestrEntryToUpsertBody(entry: ReestrEntry): ReestrUpsertBody {
   const d = entry.data
   const t = entry.transit
@@ -311,6 +324,11 @@ export function reestrEntryToUpsertBody(entry: ReestrEntry): ReestrUpsertBody {
     customsDeclarationNumber: d['ТД'],
     customsDeclarationCount: d['Кол-во ТД'] ? Number(d['Кол-во ТД']) : null,
     supplementalSheetsCount: d['Количество доп.листов'] ? Number(d['Количество доп.листов']) : null,
+    // Цены из Excel-импорта форма не редактирует: уходят как были (сервер присваивает их безусловно).
+    pricePerDeclarationWithVat: entry.pricePerDeclarationWithVat ?? null,
+    pricePerSupplementalSheetWithVat: entry.pricePerSupplementalSheetWithVat ?? null,
+    supplementalSheetsTotalWithVat: entry.supplementalSheetsTotalWithVat ?? null,
+    grandTotalWithVat: entry.grandTotalWithVat ?? null,
     sealNumber: d['№ Пломбы'] ?? null,
     packagingType: d['Вид упаковки'] ?? null,
     status: entry.status,
