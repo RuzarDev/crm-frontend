@@ -88,6 +88,19 @@ describe('NotificationsBell', () => {
     expect(dialog()).toBeNull()
   })
 
+  it('финансист: уведомление по заявке ведёт в «Счета и акты» этой заявки', async () => {
+    const auth = useAuthStore()
+    auth.role = 'accountant'
+    auth.permissions = ['finance.read']
+    expect(auth.isFinanceOnly).toBe(true)
+    w = mountIt(NotificationsBell)
+    await w.get('button').trigger('click')
+    await settle()
+    bodyButton('ДТ выпущена')!.click()
+    await settle()
+    expect(router.currentRoute.value.fullPath).toBe('/billing?caseId=c1')
+  })
+
   it('markRead упал — переход к заявке всё равно выполняется', async () => {
     api.markRead.mockRejectedValue(new Error('network'))
     w = mountIt(NotificationsBell)

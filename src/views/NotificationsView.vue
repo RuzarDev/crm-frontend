@@ -61,6 +61,8 @@ import { useRouter } from 'vue-router'
 import { onMounted, ref } from 'vue'
 import dayjs from 'dayjs'
 import { useNotificationsStore } from '@/stores/notifications'
+import { useAuthStore } from '@/stores/auth'
+import { notificationTarget } from '@/shell/notificationTarget'
 import { notificationsApi } from '@/api/notifications'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -69,6 +71,7 @@ import type { AppNotification } from '@/types/api'
 
 const { t } = useI18n()
 const router = useRouter()
+const auth = useAuthStore()
 
 const notificationsStore = useNotificationsStore()
 
@@ -115,11 +118,8 @@ const handleMarkAllRead = async () => {
 // Клик по уведомлению — как в колокольчике: читаем и ведём к заявке/реестру (аудит 2.2).
 const openItem = async (item: AppNotification) => {
   if (!item.isRead) await handleMarkRead(item.id)
-  if (item.caseId) {
-    router.push(`/import-40/${item.caseId}`)
-  } else if (item.reestrEntryId) {
-    router.push('/reestr')
-  }
+  const to = notificationTarget(item, auth.isFinanceOnly)
+  if (to) router.push(to)
 }
 </script>
 

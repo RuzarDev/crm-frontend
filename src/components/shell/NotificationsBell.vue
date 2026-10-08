@@ -7,6 +7,8 @@ import { PhBell } from '@phosphor-icons/vue'
 import ZPopover from '@/components/z/ZPopover.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import { useNotificationsStore } from '@/stores/notifications'
+import { useAuthStore } from '@/stores/auth'
+import { notificationTarget } from '@/shell/notificationTarget'
 import type { AppNotification } from '@/types/api'
 import { cn } from '@/ui/cn'
 
@@ -19,6 +21,7 @@ const MAX_ITEMS = 8
 const { t } = useI18n()
 const router = useRouter()
 const notifStore = useNotificationsStore()
+const auth = useAuthStore()
 
 const open = ref(false)
 const rootEl = ref<HTMLDivElement | null>(null)
@@ -63,8 +66,8 @@ const openNotification = async (n: AppNotification) => {
   if (!n.isRead) {
     try { await notifStore.markRead(n.id) } catch { /* тост показал перехватчик */ }
   }
-  if (n.caseId) await router.push(`/import-40/${n.caseId}`)
-  else if (n.reestrEntryId) await router.push('/reestr')
+  const to = notificationTarget(n, auth.isFinanceOnly)
+  if (to) await router.push(to)
 }
 
 const onAllClick = (e: MouseEvent, navigate: (e?: MouseEvent) => unknown) => {
