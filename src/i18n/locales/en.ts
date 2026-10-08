@@ -779,6 +779,7 @@ export default {
         unpaid: 'Unpaid',
         allPaid: 'all paid',
         unavailable: 'Could not load',
+        loading: 'loading…',
       },
       tabsLabel: 'Client card sections',
       tab: { overview: 'Overview', cases: 'Requests', transit: 'Transit', docs: 'Documents', invoices: 'Invoices' },

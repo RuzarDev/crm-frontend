@@ -87,6 +87,13 @@ describe('документы', () => {
     expect(canRenewPoa(doc({ kind: 'poa', status: 3, daysLeft: -5 }))).toBe(true)
     expect(canRenewPoa(doc({ kind: 'poa', status: 2, daysLeft: 200 }))).toBe(false)
     expect(canRenewPoa(doc({ kind: 'contract', status: 2, expiringSoon: true, daysLeft: 5 }))).toBe(false)
+    expect(canRenewPoa(doc({ kind: 'poa', status: 2, daysLeft: -1 }))).toBe(true)
+  })
+  it('«Выпустить новую» — только действующей (2) и истёкшей (3): отозванной, черновику и ждущей подписи — нет', () => {
+    expect(canRenewPoa(doc({ kind: 'poa', status: 4, daysLeft: -30 }))).toBe(false)
+    expect(canRenewPoa(doc({ kind: 'poa', status: 4, expiringSoon: true, daysLeft: 3 }))).toBe(false)
+    expect(canRenewPoa(doc({ kind: 'poa', status: 0, daysLeft: -1 }))).toBe(false)
+    expect(canRenewPoa(doc({ kind: 'poa', status: 1, daysLeft: -1 }))).toBe(false)
   })
   it('в обзоре — по одному «текущему»: действующий, иначе ждущий подписи, иначе свежий', () => {
     const docs = [

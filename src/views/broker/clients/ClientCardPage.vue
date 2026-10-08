@@ -28,6 +28,7 @@ import { formatDay, pluralForm } from '@/views/broker/list'
 import { dueDay, docTitle, overdueDays, statusLabelKey as invoiceStatusKey, statusTone as invoiceStatusTone } from '@/views/broker/finance/billing'
 import { DATA_KEY, cellText, formatContainer, statusKey as reestrStatusKey, statusTone as reestrStatusTone } from '@/views/broker/transit/transit'
 import { formatMoney } from '@/ui/number'
+import { formatPhone } from '@/utils/phone'
 import { saveBlob } from '@/ui/download'
 import type { ZColumn } from '@/ui/table'
 import { validity, type Validity } from './clientDocs'
@@ -121,19 +122,22 @@ const invite = computed(() => (card.value && status.value ? inviteUntil({ status
 const crumbs = computed(() => [{ label: t('broker.clientCard.crumbs'), to: '/clients' }, { label: name.value }])
 const bin = computed(() => card.value?.bin || card.value?.profile.bin || '')
 const email = computed(() => card.value?.email || card.value?.profile.email || '')
-const phone = computed(() => card.value?.phone || card.value?.profile.phone || '')
+const phone = computed(() => formatPhone(card.value?.phone || card.value?.profile.phone || ''))
 
 const editRoute = computed(() => ({ path: '/import-40/company', query: { client: id.value } }))
 const poaRoute = computed(() => ({ path: '/import-40/company', query: { client: id.value, step: 'poa' } }))
 const signRoute = computed(() => ({ path: '/import-40/company', query: { client: id.value, step: 'contract' } }))
 const hasAwaiting = computed(() => !!card.value?.documents.some(awaitingAqniet))
+// «Обновить» — перечитать карточку и блоки (как в прежней карточке).
 const menu = computed<ZDropdownItem[]>(() => [
   ...(canOpenSigning.value && hasAwaiting.value ? [{ key: 'sign', label: t('broker.clientCard.menu.sign') }] : []),
   { key: 'docs', label: t('broker.clientCard.menu.docs') },
+  { key: 'refresh', label: t('common.refresh') },
 ])
 const onMenu = (key: string) => {
   if (key === 'sign') void router.push(signRoute.value)
   else if (key === 'docs') void router.push('/client-documents')
+  else if (key === 'refresh') void load()
 }
 
 // ---- Показатели ----
@@ -152,7 +156,7 @@ const stats = computed<StatItem[]>(() => {
     items.push({
       key: 'transit', label: t('broker.clientCard.stat.transit'),
       value: reestr.data ? String(reestr.data.totalCount) : dash,
-      hint: reestr.error ? t('broker.clientCard.stat.unavailable') : undefined,
+      hint: reestr.error ? t('broker.clientCard.stat.unavailable') : reestr.loading ? t('broker.clientCard.stat.loading') : undefined,
     })
   }
   if (canFinance.value) {
@@ -163,7 +167,9 @@ const stats = computed<StatItem[]>(() => {
       value: u ? formatMoney(u.sum) : dash,
       hint: billing.error
         ? t('broker.clientCard.stat.unavailable')
-        : u
+        : billing.loading
+          ? t('broker.clientCard.stat.loading')
+          : u
           ? u.count
             ? [t(`broker.billing.invoices.${pf(u.count)}`, { n: u.count }), u.overdue ? t(`broker.billing.overdue.${pf(u.overdue)}`, { n: u.overdue }) : ''].filter(Boolean).join(' · ')
             : t('broker.clientCard.stat.allPaid')
@@ -177,7 +183,8 @@ const stats = computed<StatItem[]>(() => {
 // ---- Обзор ----
 const recent = computed(() => (card.value ? recentCases(card.value.cases) : []))
 const overviewDocs = computed(() => (card.value ? currentDocs(card.value.documents) : []))
-const contact = computed(() => (card.value ? contactRows(card.value.profile) : []))
+const contact = computed(() =>
+  (card.value ? contactRows(card.value.profile) : []).map((r) => (r.key === 'phone' ? { ...r, value: formatPhone(r.value) } : r)))
 const requisites = computed(() => {
   const c = card.value
   if (!c) return []
@@ -246,6 +253,8 @@ const downloadBlank = async (d: ClientCardDoc) => {
 const query = ref('')
 const page = ref(1)
 watch(query, () => { page.value = 1 })
+// Другой клиент — поиск и страница заявок с начала (фильтр прежнего клиента не переносится).
+watch(id, () => { query.value = ''; page.value = 1 })
 const caseRows = computed(() => (card.value ? card.value.cases.filter((c) => matchesCase(query.value, c)) : []))
 const caseColumns = computed<ZColumn<ClientCardCase>[]>(() => [
   { key: 'case', title: t('broker.clientCard.cases.col.case'), width: 320 },
@@ -386,9 +395,10 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
     <template v-else-if="card">
       <header class="flex flex-col gap-2.5" data-card-header>
         <ZBreadcrumbs :items="crumbs" />
-        <div class="flex flex-wrap items-start gap-x-4 gap-y-3">
+        <!-- На телефоне — сетка: «⋯» в строке названия справа, «Изменить реквизиты» во всю ширину под мета-строкой. -->
+        <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3 sm:flex sm:flex-wrap" data-card-head>
           <ZAvatar :name="name" class="size-12 rounded-[14px] text-base" />
-          <div class="min-w-0 flex-1 basis-72">
+          <div class="min-w-0 sm:flex-1 sm:basis-72">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
               <h1 class="m-0 min-w-0 text-[23px] leading-[1.2] font-semibold tracking-[-0.02em] text-ink [overflow-wrap:anywhere] sm:text-2xl" data-card-title>{{ name }}</h1>
               <span v-if="status" class="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -421,11 +431,15 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
               </span>
             </div>
           </div>
-          <div class="flex shrink-0 items-center gap-2">
+          <div class="contents sm:flex sm:shrink-0 sm:items-center sm:gap-2" data-card-actions>
             <RouterLink
               v-if="canImport"
               :to="editRoute"
-              :class="['inline-flex h-9 items-center rounded-field px-3.5 text-sm font-semibold whitespace-nowrap text-ink no-underline outline-hidden focus-visible:shadow-focus max-sm:h-11', OUTLINE]"
+              :class="[
+                'inline-flex h-9 items-center justify-center rounded-field px-3.5 text-sm font-semibold whitespace-nowrap text-ink no-underline outline-hidden focus-visible:shadow-focus',
+                'max-sm:col-span-3 max-sm:row-start-2 max-sm:h-11 max-sm:w-full',
+                OUTLINE,
+              ]"
               data-card-edit
             >{{ t('broker.clientCard.editRequisites') }}</RouterLink>
             <ZDropdown :items="menu" @select="onMenu">
@@ -433,7 +447,7 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                 type="button"
                 :aria-label="t('broker.clientCard.more')"
                 :title="t('broker.clientCard.more')"
-                class="inline-flex size-9 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden hover:bg-sunken hover:text-ink focus-visible:shadow-focus max-sm:size-11"
+                class="inline-flex size-9 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden hover:bg-sunken hover:text-ink focus-visible:shadow-focus max-sm:col-start-3 max-sm:row-start-1 max-sm:-mr-2 max-sm:size-11"
                 data-card-more
               >
                 <PhDotsThree :size="18" weight="bold" aria-hidden="true" />

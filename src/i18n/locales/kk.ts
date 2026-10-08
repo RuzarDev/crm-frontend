@@ -779,6 +779,7 @@ export default {
         unpaid: 'Төленбеген',
         allPaid: 'бәрі төленген',
         unavailable: 'Жүктеу мүмкін болмады',
+        loading: 'жүктелуде…',
       },
       tabsLabel: 'Клиент картасының бөлімдері',
       tab: { overview: 'Шолу', cases: 'Өтінімдер', transit: 'Транзит', docs: 'Құжаттар', invoices: 'Шоттар' },

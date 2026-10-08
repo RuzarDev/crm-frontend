@@ -783,6 +783,7 @@ export default {
         unpaid: 'Не оплачено',
         allPaid: 'всё оплачено',
         unavailable: 'Не удалось загрузить',
+        loading: 'загружается…',
       },
       tabsLabel: 'Разделы карточки клиента',
       tab: { overview: 'Обзор', cases: 'Заявки', transit: 'Транзит', docs: 'Документы', invoices: 'Счета' },

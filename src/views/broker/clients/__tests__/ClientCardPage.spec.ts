@@ -167,9 +167,37 @@ describe('карточка клиента: шапка', () => {
     expect(has('[data-doc-blank]')).toBe(false)
   })
 
+  it('телефон в шапке и в контакте — в едином виде «+7 700 000 00 00»', async () => {
+    const base = card()
+    api.card.mockResolvedValue(card({ phone: '+77001157303', profile: { ...base.profile, contactPhone: '87011112233' } }))
+    await mountAt()
+    expect(w.get('[data-meta="phone"]').text()).toContain('+7 700 115 73 03')
+    expect(w.get('[data-contact="phone"] dd').text()).toBe('+7 701 111 22 33')
+  })
+
+  it('телефон: «⋯» в строке названия справа, «Изменить реквизиты» — во всю ширину под мета-строкой', async () => {
+    await mountAt()
+    expect(w.get('[data-card-head]').classes()).toEqual(expect.arrayContaining(['grid', 'grid-cols-[auto_minmax(0,1fr)_auto]', 'sm:flex']))
+    expect(w.get('[data-card-actions]').classes()).toContain('contents')
+    expect(w.get('[data-card-more]').classes()).toEqual(expect.arrayContaining(['max-sm:col-start-3', 'max-sm:row-start-1']))
+    expect(w.get('[data-card-edit]').classes()).toEqual(expect.arrayContaining(['max-sm:col-span-3', 'max-sm:row-start-2', 'max-sm:w-full']))
+  })
+
+  it('«Обновить» в меню «⋯» перечитывает карточку, транзит и счета', async () => {
+    await mountAt()
+    expect(api.card).toHaveBeenCalledTimes(1)
+    api.card.mockResolvedValue(card({ companyName: 'ТОО «Новое имя»' }))
+    await w.get('[data-menu-item="refresh"]').trigger('click')
+    await flushPromises()
+    expect(api.card).toHaveBeenCalledTimes(2)
+    expect(api.reestr).toHaveBeenCalledTimes(2)
+    expect(api.billing).toHaveBeenCalledTimes(2)
+    expect(w.get('[data-card-title]').text()).toBe('ТОО «Новое имя»')
+  })
+
   it('меню «⋯»: «Документы клиента» всегда; «Подписать договор» — руководителю с import40.read, когда договор ждёт AQNIET', async () => {
     await mountAt()
-    expect(w.findAll('[data-menu-item]').map((b) => b.attributes('data-menu-item'))).toEqual(['docs'])
+    expect(w.findAll('[data-menu-item]').map((b) => b.attributes('data-menu-item'))).toEqual(['docs', 'refresh'])
     await w.get('[data-menu-item="docs"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/client-documents')
@@ -178,7 +206,7 @@ describe('карточка клиента: шапка', () => {
     api.card.mockResolvedValue(card({ documents: [doc({ id: 'dw', status: 1, providerSigned: false, providerSignedAtUtc: null })] }))
     as('manager', ALL, ['rop'])
     await mountAt('/clients/c1')
-    expect(w.findAll('[data-menu-item]').map((b) => b.attributes('data-menu-item'))).toEqual(['sign', 'docs'])
+    expect(w.findAll('[data-menu-item]').map((b) => b.attributes('data-menu-item'))).toEqual(['sign', 'docs', 'refresh'])
     await w.get('[data-menu-item="sign"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/import-40/company?client=c1&step=contract')
@@ -186,7 +214,7 @@ describe('карточка клиента: шапка', () => {
 
     as('manager', ALL, [])
     await mountAt('/clients/c1')
-    expect(w.findAll('[data-menu-item]').map((b) => b.attributes('data-menu-item'))).toEqual(['docs'])
+    expect(w.findAll('[data-menu-item]').map((b) => b.attributes('data-menu-item'))).toEqual(['docs', 'refresh'])
     expect(has('[data-doc-sign]')).toBe(false)
   })
 })
@@ -223,6 +251,15 @@ describe('карточка клиента: показатели', () => {
     expect(s[3]).toMatchObject({ value: '—', hint: 'Не удалось загрузить' })
     expect(w.get('[data-card-title]').text()).toBe('ТОО «Казахмыс Трейд»')
     expect(api.toast.error).not.toHaveBeenCalled()
+  })
+
+  it('пока транзит и счета грузятся — «—» с подсказкой «загружается…»', async () => {
+    api.reestr.mockReturnValue(new Promise(() => {}))
+    api.billing.mockReturnValue(new Promise(() => {}))
+    await mountAt()
+    const s = stat()
+    expect(s[2]).toMatchObject({ value: '—', hint: 'загружается…' })
+    expect(s[3]).toMatchObject({ value: '—', hint: 'загружается…' })
   })
 
   it('все счета оплачены: «0 ₸ · всё оплачено»', async () => {
@@ -520,6 +557,17 @@ describe('карточка клиента: состояния', () => {
     expect(has('[data-card-error]')).toBe(false)
     expect(w.get('[data-card-title]').text()).toBe('ТОО «Казахмыс Трейд»')
     expect(api.card).toHaveBeenCalledTimes(2)
+  })
+
+  it('смена клиента сбрасывает поиск по заявкам — фильтр прежнего клиента не переносится', async () => {
+    await mountAt('/clients/a?tab=cases')
+    await w.get('input[type="search"]').setValue('принтер')
+    await flushPromises()
+    expect(w.findAll('tbody tr')).toHaveLength(1)
+    await router.push('/clients/b?tab=cases')
+    await flushPromises()
+    expect((w.get('input[type="search"]').element as HTMLInputElement).value).toBe('')
+    expect(w.findAll('tbody tr').length).toBeGreaterThan(1)
   })
 
   it('смена клиента в адресе (/clients/a → /clients/b) перечитывает карточку', async () => {

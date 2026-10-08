@@ -61,9 +61,12 @@ export function docTag(d: Pick<ClientCardDoc, 'status' | 'daysLeft' | 'expiringS
   return { tone: docStatusTone(d.status), labelKey: docStatusLabelKey(d.status) }
 }
 
-/** «Выпустить новую»: доверенность, срок которой истекает в ближайшие 30 дней или уже вышел. */
+/**
+ * «Выпустить новую»: доверенность действующая (2), срок которой истекает в ближайшие 30 дней или уже вышел, либо истёкшая (3).
+ * Отозванной (4), черновику и ждущей подписи — нет.
+ */
 export const canRenewPoa = (d: Pick<ClientCardDoc, 'kind' | 'status' | 'daysLeft' | 'expiringSoon'>): boolean =>
-  d.kind === 'poa' && ((d.status === 2 && d.expiringSoon) || (d.daysLeft !== null && d.daysLeft < 0) || d.status === 3)
+  d.kind === 'poa' && (d.status === 3 || (d.status === 2 && (d.expiringSoon || (d.daysLeft !== null && d.daysLeft < 0))))
 
 const RANK = (d: ClientCardDoc): number => (d.status === 2 && !(d.daysLeft !== null && d.daysLeft < 0) ? 0 : d.status === 1 ? 1 : 2)
 
