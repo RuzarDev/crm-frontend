@@ -91,7 +91,6 @@ declare module 'vue' {
     DtSectionParties: typeof import('./src/components/import40/dt/DtSectionParties.vue')['default']
     DtSectionTransport: typeof import('./src/components/import40/dt/DtSectionTransport.vue')['default']
     EmptyState: typeof import('./src/components/ui/EmptyState.vue')['default']
-    ExcelUpload: typeof import('./src/components/ExcelUpload.vue')['default']
     ExtractionReviewModal: typeof import('./src/components/ExtractionReviewModal.vue')['default']
     FilterChip: typeof import('./src/components/broker/FilterChip.vue')['default']
     GeneralInfoBlock: typeof import('./src/components/reestr/GeneralInfoBlock.vue')['default']

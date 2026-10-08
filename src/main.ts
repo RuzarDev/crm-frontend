@@ -17,6 +17,10 @@ import 'vue-sonner/style.css'
 import './styles/toast.css'
 import './assets/main.css'
 import { vUppercase } from './directives/uppercase'
+import { installChunkReload } from './shell/chunkReload'
+
+// Чанк после выкладки не найден — один раз перезагружаем страницу (защита от цикла — в chunkReload).
+installChunkReload()
 
 const app = createApp(App)
 

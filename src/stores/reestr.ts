@@ -106,11 +106,20 @@ export const useReestrStore = defineStore('reestr', () => {
     return true
   }
 
+  // После удаления: удалили последние строки страницы — шаг на страницу назад (не дальше последней) и перечёт.
+  const fetchAfterDelete = async () => {
+    await fetchList()
+    if (entries.value.length || currentPage.value <= 1 || loadError.value) return
+    const last = Math.max(1, Math.ceil(totalCount.value / pageSize.value))
+    currentPage.value = Math.min(currentPage.value - 1, last)
+    await fetchList()
+  }
+
   const deleteEntry = async (id: string): Promise<boolean> => {
     try {
       await reestrApi.delete(id)
       message.success(i18n.global.t('transit.zapisUspeshnoUdalena'))
-      await fetchList()
+      await fetchAfterDelete()
       return true
     } catch (error) {
       return false
@@ -124,7 +133,7 @@ export const useReestrStore = defineStore('reestr', () => {
     try {
       const response = await reestrApi.bulkDelete(ids)
       message.success(i18n.global.t('transit.udalenoZapisey', { n: response.deleted }))
-      await fetchList()
+      await fetchAfterDelete()
       return true
     } catch (error) {
       return false

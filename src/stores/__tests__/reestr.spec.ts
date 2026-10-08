@@ -4,9 +4,11 @@ import { createPinia, setActivePinia } from 'pinia'
 const api = vi.hoisted(() => ({
   getList: vi.fn(),
   changeStatus: vi.fn(),
+  del: vi.fn(),
+  bulkDelete: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
-vi.mock('@/api/reestr', () => ({ reestrApi: { getList: api.getList, changeStatus: api.changeStatus } }))
+vi.mock('@/api/reestr', () => ({ reestrApi: { getList: api.getList, changeStatus: api.changeStatus, delete: api.del, bulkDelete: api.bulkDelete } }))
 vi.mock('@/ui/message', () => ({ message: api.toast }))
 
 import { useReestrStore } from '../reestr'
@@ -98,5 +100,51 @@ describe('useReestrStore: changeStatuses', () => {
     expect(api.toast.warning).toHaveBeenCalledWith('Статус изменён: 1 из 2')
     expect(api.toast.success).not.toHaveBeenCalled()
     expect(api.getList).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('useReestrStore: удаление', () => {
+  // Сервер: всего total записей; страница за последней — пустая.
+  const server = (total: number) => async (p: { page: number; pageSize: number }) => {
+    const from = (p.page - 1) * p.pageSize
+    const n = Math.max(0, Math.min(p.pageSize, total - from))
+    return { items: Array.from({ length: n }, (_, i) => ({ id: `r${from + i}` })), totalCount: total, page: p.page, pageSize: p.pageSize, totalPages: Math.ceil(total / p.pageSize) }
+  }
+
+  it('удалили последнюю строку последней страницы — шаг назад и перечёт', async () => {
+    const s = useReestrStore()
+    api.getList.mockImplementation(server(26))
+    s.setPageAndSize(2, 25)
+    await s.fetchList()
+    expect(s.entries).toHaveLength(1)
+    api.del.mockResolvedValue(undefined)
+    api.getList.mockImplementation(server(25))
+    expect(await s.deleteEntry('r25')).toBe(true)
+    expect(s.currentPage).toBe(1)
+    expect(api.getList.mock.lastCall?.[0]).toMatchObject({ page: 1 })
+    expect(s.entries).toHaveLength(25)
+  })
+
+  it('удаление пачки опустошило страницу — назад, но не дальше последней', async () => {
+    const s = useReestrStore()
+    api.getList.mockImplementation(server(80))
+    s.setPageAndSize(4, 25)
+    await s.fetchList()
+    api.bulkDelete.mockResolvedValue({ deleted: 30 })
+    api.getList.mockImplementation(server(50))
+    expect(await s.deleteEntries(['a'])).toBe(true)
+    expect(s.currentPage).toBe(2)
+    expect(s.entries).toHaveLength(25)
+  })
+
+  it('на первой странице и при непустой странице лишнего запроса нет', async () => {
+    const s = useReestrStore()
+    api.getList.mockImplementation(server(0))
+    await s.fetchList()
+    const calls = api.getList.mock.calls.length
+    api.del.mockResolvedValue(undefined)
+    await s.deleteEntry('x')
+    expect(api.getList.mock.calls.length).toBe(calls + 1)
+    expect(s.currentPage).toBe(1)
   })
 })

@@ -101,7 +101,10 @@ const form = () => w.get('[data-form]')
 beforeEach(() => {
   pinia = createPinia()
   setActivePinia(pinia)
-  router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:p(.*)*', component: { template: '<div/>' } }] })
+  router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/reestr', name: 'reestr', component: { template: '<div/>' } }, { path: '/:p(.*)*', component: { template: '<div/>' } }],
+  })
   api.getList.mockImplementation(async (p: { page: number; pageSize: number }) => ({ items: ENTRIES, totalCount: 60, page: p.page, pageSize: p.pageSize, totalPages: 3 }))
   api.clients.mockResolvedValue([{ id: 'c1', username: 'alfa', declarationCount: 0 }, { id: 'c2', username: 'beta', declarationCount: 0 }])
   api.filterClients.mockResolvedValue([{ id: 'c1', username: 'alfa', declarationCount: 0 }])
@@ -256,6 +259,28 @@ describe('TransitView: список и фильтры', () => {
     await flushPromises()
     expect(lastList()).toMatchObject({ search: 'MRSU4885849', page: 1 })
     expect((w.get('input[type="search"]').element as HTMLInputElement).value).toBe('MRSU4885849')
+  })
+
+  it('?q= другого экрана (уход со «Транзита») поиск не запускает', async () => {
+    await mountAt('/reestr')
+    const calls = api.getList.mock.calls.length
+    await router.push('/search?q=MRSU4885849')
+    await flushPromises()
+    expect(api.getList.mock.calls.length).toBe(calls)
+    expect(useReestrStore().searchQuery).toBe('')
+  })
+
+  it('окна и скрытый импорт — вне колонки с gap; кнопки пустого состояния 44px на телефоне', async () => {
+    as('administrator', ['reestr.write'])
+    api.getList.mockImplementation(async (p: { page: number; pageSize: number }) => ({ items: [], totalCount: 0, page: p.page, pageSize: p.pageSize, totalPages: 0 }))
+    await mountAt()
+    const stub = w.get('[data-import-stub]').element
+    expect(stub.parentElement).toBe(w.get('[data-transit]').element)
+    expect(w.get('[data-transit]').classes()).not.toContain('gap-4')
+    expect(w.get('[data-transit-empty-new]').classes()).toContain('max-sm:h-11')
+    w.findAllComponents(FilterChip)[0].vm.$emit('update:value', '4')
+    await flushPromises()
+    expect(w.get('[data-transit-reset]').classes()).toContain('max-sm:h-11')
   })
 
   it('ошибка загрузки — блок с «Повторить», повтор перезагружает', async () => {
@@ -445,5 +470,50 @@ describe('TransitView: действия', () => {
     await flushPromises()
     expect(api.bulkDelete).toHaveBeenCalledWith(['31'])
     expect(has('[data-transit-selection]')).toBe(false)
+  })
+
+  it('смена статуса из полосы выбора снимает выбор и для одной строки', async () => {
+    await mountAt()
+    await w.findAll('tbody [role="checkbox"]')[0].trigger('click')
+    await w.get('[data-bulk-status]').trigger('click')
+    await flushPromises()
+    w.findComponent({ name: 'TransitStatusModal' }).findComponent({ name: 'ZSelect' }).vm.$emit('update:value', 3)
+    await flushPromises()
+    const modal = document.body.querySelector('[data-transit-status-modal]') as HTMLElement
+    ;[...modal.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Сохранить')!.click()
+    await flushPromises()
+    expect(api.changeStatus).toHaveBeenCalledWith('31', 3)
+    expect(has('[data-transit-selection]')).toBe(false)
+  })
+
+  it('смена статуса из меню строки выбор не трогает', async () => {
+    await mountAt()
+    await w.findAll('tbody [role="checkbox"]')[1].trigger('click')
+    await row(0).get('[data-item="status"]').trigger('click')
+    await flushPromises()
+    w.findComponent({ name: 'TransitStatusModal' }).findComponent({ name: 'ZSelect' }).vm.$emit('update:value', 3)
+    await flushPromises()
+    const modal = document.body.querySelector('[data-transit-status-modal]') as HTMLElement
+    ;[...modal.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Сохранить')!.click()
+    await flushPromises()
+    expect(w.get('[data-transit-selection]').text()).toContain('Выбрано: 1')
+  })
+
+  it('несколько записей и ни одна не сменилась — окно открыто, выбор остаётся', async () => {
+    api.changeStatus.mockRejectedValue(new Error('403'))
+    await mountAt()
+    const boxes = w.findAll('tbody [role="checkbox"]')
+    await boxes[0].trigger('click')
+    await boxes[1].trigger('click')
+    await w.get('[data-bulk-status]').trigger('click')
+    await flushPromises()
+    w.findComponent({ name: 'TransitStatusModal' }).findComponent({ name: 'ZSelect' }).vm.$emit('update:value', 7)
+    await flushPromises()
+    const modal = document.body.querySelector('[data-transit-status-modal]') as HTMLElement
+    ;[...modal.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Сохранить')!.click()
+    await flushPromises()
+    expect(api.toast.warning).toHaveBeenCalledWith('Статус изменён: 0 из 2')
+    expect(w.findComponent({ name: 'TransitStatusModal' }).props('open')).toBe(true)
+    expect(w.get('[data-transit-selection]').text()).toContain('Выбрано: 2')
   })
 })

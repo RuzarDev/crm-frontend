@@ -137,14 +137,15 @@ const resetFilters = () => {
 }
 const statusOptions = computed(() => TRANSIT_STATUSES.map((s) => ({ value: String(s), label: t(`enum.reestrStatus.${statusKey(s)}`) })))
 
-// Переход из сквозного поиска: ?q=контейнер. Читается при открытии и пока экран открыт.
+// Переход из сквозного поиска: ?q=контейнер. Читается при открытии и пока экран открыт (уход на другой
+// экран с ?q= — не наш поиск: экран ещё жив во время перехода).
 const applyQuery = (q: unknown): boolean => {
   if (typeof q !== 'string' || !q.trim()) return false
   store.setSearch(q.trim())
   selected.value = []
   return true
 }
-watch(() => route.query.q, (q) => { if (applyQuery(q)) void load() })
+watch(() => route.query.q, (q) => { if (route.name === 'reestr' && applyQuery(q)) void load() })
 
 onMounted(() => {
   applyQuery(route.query.q)
@@ -294,14 +295,17 @@ const handleFormCancel = () => {
 // ---- Статус, удаление ----
 const statusOpen = ref(false)
 const statusEntries = ref<ReestrEntry[]>([])
-const openStatus = (entries: ReestrEntry[]) => {
+// Окно открыто из полосы выбора: после смены статуса выбор снимается (даже если выбрана одна строка).
+const statusFromBar = ref(false)
+const openStatus = (entries: ReestrEntry[], fromBar = false) => {
   if (!entries.length) return
   statusEntries.value = entries
+  statusFromBar.value = fromBar
   statusOpen.value = true
 }
 const onStatusChanged = () => {
   statusHistoryRefreshKey.value += 1
-  if (statusEntries.value.length > 1) selected.value = []
+  if (statusFromBar.value) selected.value = []
 }
 
 const deleteOne = async (r: ReestrEntry) => {
@@ -371,195 +375,198 @@ const outlineBtn = 'border border-line-strong bg-surface enabled:hover:bg-sunken
 </script>
 
 <template>
-  <div class="flex flex-col gap-4" data-transit>
-    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <div class="flex min-w-0 items-center gap-3">
-        <h1 class="m-0 text-[22px] leading-7 font-semibold tracking-[-0.015em] text-ink">{{ t('broker.transit.title') }}</h1>
-        <span
-          v-if="store.loadedAt"
-          class="rounded-pill bg-sunken px-2.5 text-[12.5px] leading-5 font-semibold tabular-nums text-ink-3"
-          data-transit-count
-        >{{ store.totalCount }}</span>
-      </div>
-      <div class="ml-auto flex flex-wrap gap-2 max-sm:w-full">
-        <template v-if="canWrite">
-          <ZButton :class="cn(outlineBtn, 'max-xl:hidden')" data-transit-upload @click="showUpload">
-            <template #icon><PhFileArrowUp :size="16" aria-hidden="true" /></template>
-            {{ t('broker.transit.uploadExcel') }}
-          </ZButton>
-          <ZButton :class="cn(outlineBtn, 'max-xl:hidden')" data-transit-import @click="openImport">
-            <template #icon><PhReceipt :size="16" aria-hidden="true" /></template>
-            {{ t('broker.transit.importInvoice') }}
-          </ZButton>
-        </template>
-        <ZButton :loading="exporting" :class="cn(canWrite && 'max-xl:hidden', 'max-sm:h-11 max-sm:flex-1')" data-transit-export @click="exportFile">
-          <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
-          {{ t('broker.transit.export') }}
-        </ZButton>
-        <ZDropdown v-if="canWrite" :items="headerMenuItems" @select="onHeaderMenu">
-          <ZButton class="xl:hidden max-sm:size-11 max-sm:px-0" :aria-label="t('broker.transit.moreActions')" data-transit-more>
-            <PhDotsThree :size="18" weight="bold" aria-hidden="true" />
-          </ZButton>
-        </ZDropdown>
-        <ZButton v-if="canWrite" variant="primary" class="max-sm:h-11 max-sm:flex-1" data-transit-new @click="showCreate">
-          <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
-          {{ t('broker.transit.newEntry') }}
-        </ZButton>
-      </div>
-    </div>
-
-    <div class="flex flex-wrap items-center gap-2">
-      <ListSearch
-        :value="searchText"
-        :debounce="300"
-        :placeholder="t('broker.transit.search')"
-        class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1"
-        @update:value="searchText = $event"
-        @search="onSearch"
-      />
-      <FilterChip :label="t('broker.transit.filter.status')" :options="statusOptions" :value="statusValue" data-transit-filter-status @update:value="setStatus" />
-      <template v-if="showPortfolioFilters">
-        <FilterChip :label="t('broker.transit.filter.client')" :options="filterClientOptions" :value="store.clientFilter" data-transit-filter-client @update:value="setClient" />
-        <PeriodChip :label="t('broker.list.period')" :value="period" data-transit-filter-period @update:value="setPeriod" />
-      </template>
-      <div class="ml-auto flex items-center gap-2">
-        <span v-if="updatedText" class="whitespace-nowrap text-xs text-muted" data-transit-updated>{{ updatedText }}</span>
-        <ZDropdown :items="columnItems" @select="toggleColumn">
-          <ZButton size="sm" variant="ghost" class="max-sm:hidden" data-transit-columns>
-            <template #icon><PhColumns :size="14" aria-hidden="true" /></template>
-            {{ t('broker.transit.columns') }}
-          </ZButton>
-        </ZDropdown>
-      </div>
-    </div>
-
-    <div
-      v-if="store.loadError && !store.entries.length"
-      class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4"
-      data-transit-error
-    >
-      <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('broker.list.loadError') }}</p>
-      <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-transit-retry @click="load">{{ t('broker.list.retry') }}</ZButton>
-    </div>
-    <template v-else>
-      <div v-if="store.loadError" class="flex flex-wrap items-center gap-3 rounded-row bg-tone-danger-bg px-4 py-2" data-transit-error>
-        <p class="m-0 min-w-0 flex-1 text-sm text-tone-danger-fg">{{ t('broker.list.loadError') }}</p>
-        <ZButton size="sm" class="max-sm:h-11" data-transit-retry @click="load">{{ t('broker.list.retry') }}</ZButton>
-      </div>
-      <ZTable
-        :columns="columns"
-        :data-source="store.entries"
-        row-key="id"
-        size="small"
-        row-class-name="h-11"
-        :loading="store.loading"
-        :row-selection="rowSelection"
-        :pagination="pagination"
-        :scroll="{ x: tableWidth }"
-        :aria-label="t('broker.transit.tableLabel')"
-        class="overflow-hidden rounded-panel border border-line bg-surface max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent"
-        data-transit-table
-      >
-        <template #headerCell="{ column }">
-          <span v-if="column.key === 'actions'" class="sr-only">{{ t('broker.transit.col.actions') }}</span>
-        </template>
-        <template #bodyCell="{ column, record }">
-          <span v-if="column.key === 'no'" class="block truncate font-mono text-sm text-ink-2" :title="record.data[DATA_KEY.no] ?? undefined">{{ cellText(record, 'no') }}</span>
-          <StatusDot v-else-if="column.key === 'status'" :tone="statusTone(record.status)" :label="t(`enum.reestrStatus.${statusKey(record.status)}`)" />
-          <span v-else-if="column.key === 'date'" class="whitespace-nowrap tabular-nums text-ink-2">{{ cellText(record, 'date') }}</span>
+  <div data-transit>
+    <div class="flex flex-col gap-4">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div class="flex min-w-0 items-center gap-3">
+          <h1 class="m-0 text-[22px] leading-7 font-semibold tracking-[-0.015em] text-ink">{{ t('broker.transit.title') }}</h1>
           <span
-            v-else-if="column.key === 'container'"
-            class="block truncate font-mono text-sm font-semibold text-ink"
-            data-transit-container
-          >{{ record.data[DATA_KEY.container] ? formatContainer(record.data[DATA_KEY.container]!) : '—' }}</span>
-          <template v-else-if="column.key === 'consignee'">
-            <ClientCell v-if="record.data[DATA_KEY.consignee]" :name="record.data[DATA_KEY.consignee]!" />
-            <span v-else class="text-muted">—</span>
+            v-if="store.loadedAt"
+            class="rounded-pill bg-sunken px-2.5 text-[12.5px] leading-5 font-semibold tabular-nums text-ink-3"
+            data-transit-count
+          >{{ store.totalCount }}</span>
+        </div>
+        <div class="ml-auto flex flex-wrap gap-2 max-sm:w-full">
+          <template v-if="canWrite">
+            <ZButton :class="cn(outlineBtn, 'max-xl:hidden')" data-transit-upload @click="showUpload">
+              <template #icon><PhFileArrowUp :size="16" aria-hidden="true" /></template>
+              {{ t('broker.transit.uploadExcel') }}
+            </ZButton>
+            <ZButton :class="cn(outlineBtn, 'max-xl:hidden')" data-transit-import @click="openImport">
+              <template #icon><PhReceipt :size="16" aria-hidden="true" /></template>
+              {{ t('broker.transit.importInvoice') }}
+            </ZButton>
           </template>
-          <span v-else-if="column.key === 'tnved'" class="whitespace-nowrap font-mono text-sm text-ink-2">{{
-            record.data[DATA_KEY.tnved] ? formatTnved(record.data[DATA_KEY.tnved]!) : '—'
-          }}</span>
-          <span v-else-if="column.key === 'td'" class="block truncate font-mono text-sm text-ink-2" :title="record.data[DATA_KEY.td] ?? undefined">{{ cellText(record, 'td') }}</span>
-          <span
-            v-else-if="column.key === 'places' || column.key === 'weight' || column.key === 'tdCount' || column.key === 'extraSheets'"
-            class="tabular-nums"
-          >{{ formatQuantity(record.data[DATA_KEY[column.key]]) }}</span>
-          <span v-else-if="column.key === 'total'" class="whitespace-nowrap tabular-nums" :class="record.grandTotalWithVat == null ? 'text-muted' : 'text-ink'">{{ formatAmount(record.grandTotalWithVat) }}</span>
-          <span
-            v-else-if="column.key === 'shipper' || column.key === 'station' || column.key === 'post' || column.key === 'shipment' || column.key === 'cargo' || column.key === 'subcode'"
-            class="block truncate"
-            :class="cellText(record, column.key) === '—' ? 'text-muted' : 'text-ink'"
-            :title="record.data[DATA_KEY[column.key]] ?? undefined"
-          >{{ cellText(record, column.key) }}</span>
-          <div v-else-if="column.key === 'actions'" class="inline-flex items-center justify-end gap-1 max-sm:w-full max-sm:flex-wrap" data-transit-actions>
-            <ZTooltip v-if="isExpeditor" :title="t('transit.prosmotr')">
-              <button type="button" :class="iconBtn" :aria-label="t('transit.prosmotr')" data-row-view @click="openReadonly(record, 'data')">
-                <PhEye :size="16" aria-hidden="true" />
-              </button>
-            </ZTooltip>
-            <ZTooltip v-if="showDocuments" :title="t('transit.dokumenty')">
-              <button
-                type="button"
-                :class="docBtn"
-                :aria-label="t('transit.dokumenty')"
-                data-row-documents
-                @click="openDocuments(record)"
-              >
-                <PhFileText :size="16" aria-hidden="true" />
-                <span class="hidden max-sm:inline">{{ t('transit.dokumenty') }}</span>
-              </button>
-            </ZTooltip>
-            <ZTooltip v-if="canWrite" :title="t('transit.izmenit')">
-              <button type="button" :class="iconBtn" :aria-label="t('transit.izmenit')" data-row-edit @click="handleEdit(record)">
-                <PhPencilSimple :size="16" aria-hidden="true" />
-              </button>
-            </ZTooltip>
-            <ZDropdown v-if="rowMenuItems.length" :items="rowMenuItems" @select="onRowMenu($event, record)">
-              <button type="button" :class="iconBtn" :aria-label="t('broker.transit.rowMore')" data-row-more>
-                <PhDotsThree :size="18" weight="bold" aria-hidden="true" />
-              </button>
-            </ZDropdown>
-          </div>
-        </template>
-        <template #summary="{ pageData }">
-          <tr v-if="pageData.length && summaryLead >= 0" class="max-sm:hidden" data-transit-summary>
-            <td :colspan="summaryLead + (canSelect ? 1 : 0)" class="text-sm font-normal text-ink-3">{{ t('broker.transit.pageTotal') }}</td>
-            <td
-              v-for="c in summaryTail"
-              :key="c.key"
-              :class="cn('text-right text-sm tabular-nums text-ink', c.key === 'actions' && 'sticky right-0 bg-canvas')"
-              :data-sum="c.key"
-            >{{ totalOf(c.key, pageData) }}</td>
-          </tr>
-        </template>
-        <template #emptyText>
-          <ZEmpty v-if="filtered" :title="t('broker.list.nothingFound')" :hint="t('broker.list.nothingFoundHint')">
-            <template #action>
-              <ZButton data-transit-reset @click="resetFilters">{{ t('broker.list.resetFilters') }}</ZButton>
-            </template>
-          </ZEmpty>
-          <ZEmpty v-else :title="t('broker.transit.empty')" :hint="canWrite ? t('broker.transit.emptyHint') : undefined">
-            <template v-if="canWrite" #action>
-              <ZButton variant="primary" @click="showCreate">{{ t('broker.transit.newEntry') }}</ZButton>
-            </template>
-          </ZEmpty>
-        </template>
-      </ZTable>
-    </template>
+          <ZButton :loading="exporting" :class="cn(canWrite && 'max-xl:hidden', 'max-sm:h-11 max-sm:flex-1')" data-transit-export @click="exportFile">
+            <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
+            {{ t('broker.transit.export') }}
+          </ZButton>
+          <ZDropdown v-if="canWrite" :items="headerMenuItems" @select="onHeaderMenu">
+            <ZButton class="xl:hidden max-sm:size-11 max-sm:px-0" :aria-label="t('broker.transit.moreActions')" data-transit-more>
+              <PhDotsThree :size="18" weight="bold" aria-hidden="true" />
+            </ZButton>
+          </ZDropdown>
+          <ZButton v-if="canWrite" variant="primary" class="max-sm:h-11 max-sm:flex-1" data-transit-new @click="showCreate">
+            <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
+            {{ t('broker.transit.newEntry') }}
+          </ZButton>
+        </div>
+      </div>
 
-    <SelectionBar :count="selected.length" class="sticky bottom-3 z-10 self-start" data-transit-selection @clear="selected = []">
-      <template #default="{ actionClass }">
-        <button v-if="canChangeStatus" type="button" :class="actionClass" data-bulk-status @click="openStatus(selectedEntries)">{{ t('transit.smenitStatus') }}</button>
-        <button
-          v-if="canDelete"
-          type="button"
-          :class="cn(actionClass, 'bg-transparent text-tone-danger-bg hover:bg-white/10')"
-          data-bulk-delete
-          @click="deleteSelected"
-        >{{ t('transit.udalit') }}</button>
+      <div class="flex flex-wrap items-center gap-2">
+        <ListSearch
+          :value="searchText"
+          :debounce="300"
+          :placeholder="t('broker.transit.search')"
+          class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1"
+          @update:value="searchText = $event"
+          @search="onSearch"
+        />
+        <FilterChip :label="t('broker.transit.filter.status')" :options="statusOptions" :value="statusValue" data-transit-filter-status @update:value="setStatus" />
+        <template v-if="showPortfolioFilters">
+          <FilterChip :label="t('broker.transit.filter.client')" :options="filterClientOptions" :value="store.clientFilter" data-transit-filter-client @update:value="setClient" />
+          <PeriodChip :label="t('broker.list.period')" :value="period" data-transit-filter-period @update:value="setPeriod" />
+        </template>
+        <div class="ml-auto flex items-center gap-2">
+          <span v-if="updatedText" class="whitespace-nowrap text-xs text-muted" data-transit-updated>{{ updatedText }}</span>
+          <ZDropdown :items="columnItems" @select="toggleColumn">
+            <ZButton size="sm" variant="ghost" class="max-sm:hidden" data-transit-columns>
+              <template #icon><PhColumns :size="14" aria-hidden="true" /></template>
+              {{ t('broker.transit.columns') }}
+            </ZButton>
+          </ZDropdown>
+        </div>
+      </div>
+
+      <div
+        v-if="store.loadError && !store.entries.length"
+        class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4"
+        data-transit-error
+      >
+        <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('broker.list.loadError') }}</p>
+        <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-transit-retry @click="load">{{ t('broker.list.retry') }}</ZButton>
+      </div>
+      <template v-else>
+        <div v-if="store.loadError" class="flex flex-wrap items-center gap-3 rounded-row bg-tone-danger-bg px-4 py-2" data-transit-error>
+          <p class="m-0 min-w-0 flex-1 text-sm text-tone-danger-fg">{{ t('broker.list.loadError') }}</p>
+          <ZButton size="sm" class="max-sm:h-11" data-transit-retry @click="load">{{ t('broker.list.retry') }}</ZButton>
+        </div>
+        <ZTable
+          :columns="columns"
+          :data-source="store.entries"
+          row-key="id"
+          size="small"
+          row-class-name="h-11"
+          :loading="store.loading"
+          :row-selection="rowSelection"
+          :pagination="pagination"
+          :scroll="{ x: tableWidth }"
+          :aria-label="t('broker.transit.tableLabel')"
+          class="overflow-hidden rounded-panel border border-line bg-surface max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent"
+          data-transit-table
+        >
+          <template #headerCell="{ column }">
+            <span v-if="column.key === 'actions'" class="sr-only">{{ t('broker.transit.col.actions') }}</span>
+          </template>
+          <template #bodyCell="{ column, record }">
+            <span v-if="column.key === 'no'" class="block truncate font-mono text-sm text-ink-2" :title="record.data[DATA_KEY.no] ?? undefined">{{ cellText(record, 'no') }}</span>
+            <StatusDot v-else-if="column.key === 'status'" :tone="statusTone(record.status)" :label="t(`enum.reestrStatus.${statusKey(record.status)}`)" />
+            <span v-else-if="column.key === 'date'" class="whitespace-nowrap tabular-nums text-ink-2">{{ cellText(record, 'date') }}</span>
+            <span
+              v-else-if="column.key === 'container'"
+              class="block truncate font-mono text-sm font-semibold text-ink"
+              data-transit-container
+            >{{ record.data[DATA_KEY.container] ? formatContainer(record.data[DATA_KEY.container]!) : '—' }}</span>
+            <template v-else-if="column.key === 'consignee'">
+              <ClientCell v-if="record.data[DATA_KEY.consignee]" :name="record.data[DATA_KEY.consignee]!" />
+              <span v-else class="text-muted">—</span>
+            </template>
+            <span v-else-if="column.key === 'tnved'" class="whitespace-nowrap font-mono text-sm text-ink-2">{{
+              record.data[DATA_KEY.tnved] ? formatTnved(record.data[DATA_KEY.tnved]!) : '—'
+            }}</span>
+            <span v-else-if="column.key === 'td'" class="block truncate font-mono text-sm text-ink-2" :title="record.data[DATA_KEY.td] ?? undefined">{{ cellText(record, 'td') }}</span>
+            <span
+              v-else-if="column.key === 'places' || column.key === 'weight' || column.key === 'tdCount' || column.key === 'extraSheets'"
+              class="tabular-nums"
+            >{{ formatQuantity(record.data[DATA_KEY[column.key]]) }}</span>
+            <span v-else-if="column.key === 'total'" class="whitespace-nowrap tabular-nums" :class="record.grandTotalWithVat == null ? 'text-muted' : 'text-ink'">{{ formatAmount(record.grandTotalWithVat) }}</span>
+            <span
+              v-else-if="column.key === 'shipper' || column.key === 'station' || column.key === 'post' || column.key === 'shipment' || column.key === 'cargo' || column.key === 'subcode'"
+              class="block truncate"
+              :class="cellText(record, column.key) === '—' ? 'text-muted' : 'text-ink'"
+              :title="record.data[DATA_KEY[column.key]] ?? undefined"
+            >{{ cellText(record, column.key) }}</span>
+            <div v-else-if="column.key === 'actions'" class="inline-flex items-center justify-end gap-1 max-sm:w-full max-sm:flex-wrap" data-transit-actions>
+              <ZTooltip v-if="isExpeditor" :title="t('transit.prosmotr')">
+                <button type="button" :class="iconBtn" :aria-label="t('transit.prosmotr')" data-row-view @click="openReadonly(record, 'data')">
+                  <PhEye :size="16" aria-hidden="true" />
+                </button>
+              </ZTooltip>
+              <ZTooltip v-if="showDocuments" :title="t('transit.dokumenty')">
+                <button
+                  type="button"
+                  :class="docBtn"
+                  :aria-label="t('transit.dokumenty')"
+                  data-row-documents
+                  @click="openDocuments(record)"
+                >
+                  <PhFileText :size="16" aria-hidden="true" />
+                  <span class="hidden max-sm:inline">{{ t('transit.dokumenty') }}</span>
+                </button>
+              </ZTooltip>
+              <ZTooltip v-if="canWrite" :title="t('transit.izmenit')">
+                <button type="button" :class="iconBtn" :aria-label="t('transit.izmenit')" data-row-edit @click="handleEdit(record)">
+                  <PhPencilSimple :size="16" aria-hidden="true" />
+                </button>
+              </ZTooltip>
+              <ZDropdown v-if="rowMenuItems.length" :items="rowMenuItems" @select="onRowMenu($event, record)">
+                <button type="button" :class="iconBtn" :aria-label="t('broker.transit.rowMore')" data-row-more>
+                  <PhDotsThree :size="18" weight="bold" aria-hidden="true" />
+                </button>
+              </ZDropdown>
+            </div>
+          </template>
+          <template #summary="{ pageData }">
+            <tr v-if="pageData.length && summaryLead >= 0" class="max-sm:hidden" data-transit-summary>
+              <td :colspan="summaryLead + (canSelect ? 1 : 0)" class="text-sm font-normal text-ink-3">{{ t('broker.transit.pageTotal') }}</td>
+              <td
+                v-for="c in summaryTail"
+                :key="c.key"
+                :class="cn('text-right text-sm tabular-nums text-ink', c.key === 'actions' && 'sticky right-0 bg-canvas')"
+                :data-sum="c.key"
+              >{{ totalOf(c.key, pageData) }}</td>
+            </tr>
+          </template>
+          <template #emptyText>
+            <ZEmpty v-if="filtered" :title="t('broker.list.nothingFound')" :hint="t('broker.list.nothingFoundHint')">
+              <template #action>
+                <ZButton class="max-sm:h-11" data-transit-reset @click="resetFilters">{{ t('broker.list.resetFilters') }}</ZButton>
+              </template>
+            </ZEmpty>
+            <ZEmpty v-else :title="t('broker.transit.empty')" :hint="canWrite ? t('broker.transit.emptyHint') : undefined">
+              <template v-if="canWrite" #action>
+                <ZButton variant="primary" class="max-sm:h-11" data-transit-empty-new @click="showCreate">{{ t('broker.transit.newEntry') }}</ZButton>
+              </template>
+            </ZEmpty>
+          </template>
+        </ZTable>
       </template>
-    </SelectionBar>
 
+      <SelectionBar :count="selected.length" class="sticky bottom-3 z-10 self-start" data-transit-selection @clear="selected = []">
+        <template #default="{ actionClass }">
+          <button v-if="canChangeStatus" type="button" :class="actionClass" data-bulk-status @click="openStatus(selectedEntries, true)">{{ t('transit.smenitStatus') }}</button>
+          <button
+            v-if="canDelete"
+            type="button"
+            :class="cn(actionClass, 'bg-transparent text-tone-danger-bg hover:bg-white/10')"
+            data-bulk-delete
+            @click="deleteSelected"
+          >{{ t('transit.udalit') }}</button>
+        </template>
+      </SelectionBar>
+    </div>
+
+    <!-- Окна и скрытый импорт — вне колонки с gap: их корневые узлы не добавляют отступ под списком. -->
     <ReestrForm
       :open="formModalOpen"
       :loading="formLoading"

@@ -10,7 +10,8 @@ import { TRANSIT_STATUSES, statusKey } from './transit'
 
 // Смена статуса записи транзита (одной — из меню строки, нескольких — из полосы выбора).
 // Одна: статус не изменился — окно закрывается без запроса. Окно закрывается после успешной смены
-// (changed — родитель обновляет историю статусов и снимает выбор); при отказе сервера остаётся открытым.
+// (changed — родитель обновляет историю статусов и снимает выбор); при отказе сервера остаётся открытым,
+// у нескольких — если не сменился ни один статус (выбор остаётся, можно повторить).
 const props = defineProps<{ open: boolean; entries: ReestrEntry[] }>()
 const emit = defineEmits<{ 'update:open': [open: boolean]; changed: [] }>()
 
@@ -40,7 +41,7 @@ const save = async () => {
     if (one) {
       if (!(await store.changeStatus(one.id, status))) return
     } else {
-      await store.changeStatuses(props.entries.map((e) => e.id), status)
+      if (!(await store.changeStatuses(props.entries.map((e) => e.id), status))) return
     }
     emit('changed')
     close()
