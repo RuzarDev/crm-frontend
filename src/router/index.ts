@@ -203,7 +203,7 @@ const router = createRouter({
         {
           path: '/client-documents',
           name: 'client-documents',
-          component: () => import('@/views/ClientDocumentsView.vue'),
+          component: () => import('@/views/broker/clients/ClientDocumentsRegisterView.vue'),
           meta: { requiresPermission: 'clients.read' },
         },
         {
