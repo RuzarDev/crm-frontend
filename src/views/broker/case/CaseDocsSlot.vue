@@ -7,6 +7,7 @@ import ZUpload from '@/components/z/ZUpload.vue'
 import { import40Api, type Import40FileDto, type Import40FileSection } from '@/api/import40'
 import { saveBlob } from '@/ui/download'
 import { useConfirm } from '@/ui/confirm'
+import { message } from '@/ui/message'
 import { DOC_CHECKLIST, isDocKind } from '@/views/client/docKinds'
 import { extOf } from '@/views/client/shipment/util'
 import { formatFileSize, formatStamp } from '@/views/broker/packages/packages'
@@ -60,7 +61,8 @@ const anotherBusy = computed(() => props.ctx.actions.busy() && !uploading.value)
 
 /**
  * Файлы грузятся по очереди одним действием. Если один не принят, уже загруженные остаются: перечитываем заявку
- * и файлы и сообщаем об ошибке (тост показал перехватчик) — вместо «молчаливого» частичного результата.
+ * и файлы и сообщаем об ошибке (тост показал перехватчик) — вместо «молчаливого» частичного результата;
+ * если часть файлов уже загрузилась — ещё тост «Загружено n из m».
  */
 const upload = async (list: File[]) => {
   if (!props.canUpload || !list.length) return
@@ -68,15 +70,18 @@ const upload = async (list: File[]) => {
   const withKind = props.withKind && kind.value ? kind.value : undefined
   await props.ctx.actions.mutate(uploadKey.value, async () => {
     let failure: unknown = null
+    let uploaded = 0
     for (const f of list) {
       try {
         await import40Api.uploadFile(id, props.section, f, withKind)
+        uploaded++
       } catch (e) {
         failure = e
         break
       }
     }
     if (failure) {
+      if (uploaded > 0) message.warning(t('broker.case.docs.partialUpload', { n: uploaded, m: list.length }))
       await props.ctx.actions.reload()
       throw failure
     }

@@ -138,6 +138,35 @@ describe('StepDraft — сохранение полей', () => {
     expect(state.kase.cargo).toBe('Телефоны')
   })
 
+  it('замок не освободился за 10 с — правка не уходит, тост «Не сохранено…», значение остаётся в поле', async () => {
+    vi.useFakeTimers()
+    try {
+      mount(USERS.declarant, { cargo: 'Ноутбуки' })
+      api.action.mockImplementationOnce(() => new Promise(() => {}))
+      const wrapper = w.vm as unknown as { actions: { run: (a: string) => Promise<boolean>; busy: () => boolean } }
+      void wrapper.actions.run('claim')
+      await flushPromises()
+      const el = field('cargo')
+      await el.setValue('Телефоны')
+      await el.trigger('blur')
+      await vi.advanceTimersByTimeAsync(10_100)
+      expect(api.update).not.toHaveBeenCalled()
+      expect(msg.warning).toHaveBeenCalledWith('Не сохранено: идёт другое действие. Повторите правку чуть позже')
+      expect((field('cargo').element as HTMLInputElement).value).toBe('Телефоны')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('телефон водителя: «+7» без номера — «Нельзя оставить пустым», без PUT; тот же номер — без PUT', async () => {
+    mount(USERS.declarant, { transportMode: 1, driverPhone: '+77001112233' })
+    await edit('driverPhone', '+7')
+    expect(api.update).not.toHaveBeenCalled()
+    expect(w.text()).toContain('Нельзя оставить пустым')
+    await edit('driverPhone', '+7 700 111 22 33')
+    expect(api.update).not.toHaveBeenCalled()
+  })
+
   it('непринятая правка не затирается перечитыванием заявки, пока поле не сохранено', async () => {
     mount(USERS.declarant, { cargo: 'Ноутбуки', post: 'Хоргос' })
     await field('cargo').setValue('Телефоны')
@@ -166,6 +195,7 @@ describe('StepDraft — контейнеры', () => {
     mount(USERS.declarant, kase)
     await w.get('[data-draft-container-remove]').trigger('click')
     expect(confirmState.title).toBe('Удалить контейнер «MRSU 488584 9»?')
+    expect(confirmState.cancelText).toBe('Не удалять')
     confirmState.resolve(true)
     await flushPromises()
     expect(api.deleteContainer).toHaveBeenCalledWith('c1', 'k1')
@@ -184,6 +214,7 @@ describe('StepDraft — документы и отправка', () => {
     expect(w.get('[data-tip]').attributes('data-title')).toBe('')
     await w.get('[data-draft-submit]').trigger('click')
     expect(confirmState.title).toBe('Отправить заявку на оформление за клиента?')
+    expect(confirmState.cancelText).toBe('Отмена')
     expect(api.action).not.toHaveBeenCalled()
     confirmState.resolve(true)
     await flushPromises()

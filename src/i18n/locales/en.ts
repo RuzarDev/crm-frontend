@@ -1194,6 +1194,7 @@ export default {
         vessel: 'Vessel',
         bl: 'Bill of lading',
         cannotBeEmpty: 'Cannot be left empty',
+        saveBusy: 'Not saved: another action is in progress. Please repeat the edit in a moment',
         containers: 'Containers',
         noContainers: 'No containers',
         containerNumber: 'Container number',
@@ -1298,6 +1299,7 @@ export default {
         wait: 'Waiting for payment — the accountant marks it',
         pdf: 'PDF',
         pdfLabel: 'Download PDF: {title}',
+        completedWithoutInvoice: 'completed without an invoice',
       },
       docs: {
         kind: 'Document type',
@@ -1309,6 +1311,7 @@ export default {
         delete: 'Delete file {name}',
         deleteConfirm: 'Delete file "{name}"?',
         deleteOk: 'Delete',
+        partialUpload: 'Uploaded {n} of {m}',
         keep: 'Keep',
       },
     },

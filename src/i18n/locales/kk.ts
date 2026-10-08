@@ -1194,6 +1194,7 @@ export default {
         vessel: 'Кеме',
         bl: 'Коносамент',
         cannotBeEmpty: 'Бос қалдыруға болмайды',
+        saveBusy: 'Сақталмады: басқа әрекет орындалуда. Түзетуді сәл кейін қайталаңыз',
         containers: 'Контейнерлер',
         noContainers: 'Контейнерлер жоқ',
         containerNumber: 'Контейнер нөмірі',
@@ -1298,6 +1299,7 @@ export default {
         wait: 'Төлемді күтеміз — бухгалтер белгілейді',
         pdf: 'PDF',
         pdfLabel: 'PDF жүктеу: {title}',
+        completedWithoutInvoice: 'шотсыз аяқталды',
       },
       docs: {
         kind: 'Құжат түрі',
@@ -1309,6 +1311,7 @@ export default {
         delete: 'Файлды жою {name}',
         deleteConfirm: '«{name}» файлы жойылсын ба?',
         deleteOk: 'Жою',
+        partialUpload: '{m} файлдың {n} жүктелді',
         keep: 'Жоймау',
       },
     },

@@ -1198,6 +1198,7 @@ export default {
         vessel: 'Судно',
         bl: 'Коносамент',
         cannotBeEmpty: 'Нельзя оставить пустым',
+        saveBusy: 'Не сохранено: идёт другое действие. Повторите правку чуть позже',
         containers: 'Контейнеры',
         noContainers: 'Контейнеров нет',
         containerNumber: 'Номер контейнера',
@@ -1302,6 +1303,7 @@ export default {
         wait: 'Ждём оплату — отмечает бухгалтер',
         pdf: 'PDF',
         pdfLabel: 'Скачать PDF: {title}',
+        completedWithoutInvoice: 'завершена без счёта',
       },
       docs: {
         kind: 'Вид документа',
@@ -1313,6 +1315,7 @@ export default {
         delete: 'Удалить файл {name}',
         deleteConfirm: 'Удалить файл «{name}»?',
         deleteOk: 'Удалить',
+        partialUpload: 'Загружено {n} из {m}',
         keep: 'Не удалять',
       },
     },

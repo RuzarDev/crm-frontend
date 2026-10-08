@@ -1,4 +1,4 @@
-import type { Import40CaseDto, Import40FileDto } from '@/api/import40'
+import type { Import40CaseDto, Import40CaseInvoiceDto, Import40FileDto } from '@/api/import40'
 import type { DeclarationReadiness } from '@/types/api'
 import { formatMoney } from '@/ui/number'
 import { pluralForm } from '@/views/broker/list'
@@ -58,9 +58,17 @@ export function svhSummary(c: Import40CaseDto, t: T): string {
 /**
  * Сводка пройденного шага (полоса шагов и «Пройденные шаги»):
  * 1 — контейнеры и файлы клиента, 2 — «пройдена», 3 — «ДТ: N» (все ДТ, как раньше), 4 — счёт СВХ,
- * 5 — «оплачена», 6 — «оплачено».
+ * 5 — «оплачена», 6 — «оплачено»; выполненная без оплаченного счёта AQNIET (complete-without-invoice, 7→8) —
+ * «завершена без счёта».
  */
-export function stepSummary(n: StepNo, c: Import40CaseDto, files: Import40FileDto[], t: T, locale: string): string {
+export function stepSummary(
+  n: StepNo,
+  c: Import40CaseDto,
+  files: Import40FileDto[],
+  t: T,
+  locale: string,
+  invoices: Import40CaseInvoiceDto[],
+): string {
   switch (n) {
     case 1: {
       const parts: string[] = []
@@ -72,7 +80,11 @@ export function stepSummary(n: StepNo, c: Import40CaseDto, files: Import40FileDt
     case 3: return t('import40Case.dtCount', { n: c.declarations.length })
     case 4: return svhSummary(c, t)
     case 5: return t('import40Case.paid')
-    case 6: return t('import40Case.aqnietPaid')
+    case 6:
+      // 2 — оплачен (как в «Счетах»). Заявка выполнена, а оплаченного счёта нет — значит, завершена без счёта.
+      return isDone(c.status) && !invoices.some((i) => i.status === 2)
+        ? t('broker.case.aqniet.completedWithoutInvoice')
+        : t('import40Case.aqnietPaid')
   }
 }
 

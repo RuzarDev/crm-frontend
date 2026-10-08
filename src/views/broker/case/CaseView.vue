@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, type Component } from 'vue'
+import { computed, nextTick, reactive, watch, type Component } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhCaretDown, PhCheck } from '@phosphor-icons/vue'
@@ -44,6 +44,8 @@ const STEP_COMPONENTS: Record<StepNo, Component> = {
 const id = computed(() => String(route.params.id ?? ''))
 const { state, kase, files, invoices, readiness, reload, retry, setCase } = useCase(id, { readiness: () => readinessAvailable(auth) })
 const { actions, reasonKind } = useCaseActions(() => kase.value?.id ?? null, reload)
+// Окно причины (отмена, шаг назад, возврат…) не переживает смену заявки: иначе действие ушло бы на другую заявку.
+watch(id, () => { reasonKind.value = null })
 
 const perms = computed(() => (kase.value ? casePerms(auth, kase.value) : null))
 
@@ -56,7 +58,7 @@ const steps = computed<CaseStepInfo[]>(() => {
     title: t(`enum.step.s${n}`),
     executor: STEP_EXECUTOR[n],
     executorLabel: t(`enum.role.${STEP_EXECUTOR[n]}`),
-    summary: stepSummary(n, c, files.value, t, locale.value),
+    summary: stepSummary(n, c, files.value, t, locale.value, invoices.value),
   }))
 })
 

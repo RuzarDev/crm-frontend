@@ -31,7 +31,7 @@ const pass = async () => {
   const ok = await confirm({
     title: t('broker.case.border.confirm'),
     okText: t('broker.case.border.confirmOk'),
-    cancelText: t('broker.case.draft.keep'),
+    cancelText: t('common.cancel'),
   })
   if (ok) await props.ctx.actions.run('border-passed')
 }

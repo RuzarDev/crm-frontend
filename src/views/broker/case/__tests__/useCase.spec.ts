@@ -135,6 +135,26 @@ describe('useCase', () => {
     expect(c.kase.value?.cargo).toBe('Ноутбуки и комплектующие')
   })
 
+  it('пустой id (уход с карточки) — ни одного запроса, поздний ответ прежней заявки отбрасывается', async () => {
+    const slow = deferred<ReturnType<typeof caseDto>>()
+    api.get.mockImplementationOnce(() => slow.promise)
+    const { c, idRef } = start('c1')
+    await nextTick()
+    api.get.mockClear(); api.listFiles.mockClear(); api.listBrokerInvoices.mockClear(); api.kedenReadinessSummary.mockClear()
+    idRef.value = ''
+    await flushPromises()
+    expect(api.get).not.toHaveBeenCalled()
+    expect(api.listFiles).not.toHaveBeenCalled()
+    expect(api.listBrokerInvoices).not.toHaveBeenCalled()
+    expect(api.kedenReadinessSummary).not.toHaveBeenCalled()
+    expect(c.state.value).not.toBe('notFound')
+    slow.resolve(caseDto({ id: 'c1' }))
+    await flushPromises()
+    expect(c.kase.value).toBeNull()
+    expect(await c.reload()).toBe(false)
+    expect(api.get).not.toHaveBeenCalled()
+  })
+
   it('setCase — ответ PUT по этой заявке заменяет данные, по другой — игнорируется', async () => {
     const { c } = start()
     await flushPromises()
@@ -164,7 +184,23 @@ describe('useCase', () => {
       expect(c.state.value).toBe('ready')
       await flushPromises()
       expect(api.get).toHaveBeenCalledTimes(1)
+      expect(api.get).toHaveBeenLastCalledWith('c1', { silent: true })
+      expect(api.listFiles).toHaveBeenLastCalledWith('c1', { silent: true })
       expect(c.state.value).toBe('ready')
+    })
+
+    it('фоновое перечитывание тихое: сбой без тоста, последнее состояние на экране', async () => {
+      const { c } = start()
+      await flushPromises()
+      api.get.mockClear()
+      api.get.mockRejectedValueOnce(httpError(500))
+      vi.setSystemTime(new Date('2026-10-09T10:01:00Z'))
+      setVisibility('visible')
+      await flushPromises()
+      expect(api.get).toHaveBeenCalledWith('c1', { silent: true })
+      expect(c.state.value).toBe('ready')
+      expect(c.kase.value?.id).toBe('c1')
+      expect(c.refreshing.value).toBe(false)
     })
 
     it('отсчёт 30 с идёт от последней загрузки: после перечитывания сразу второй раз не грузит; скрытие вкладки не грузит', async () => {

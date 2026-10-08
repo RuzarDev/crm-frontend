@@ -10,7 +10,7 @@ import AqnietInvoiceList from './AqnietInvoiceList.vue'
 // Шаг 6 «Оплата услуг AQNIET» (статус 7, бухгалтер; доска CaseSvh). Счета и акты AQNIET по заявке (список не зависит от
 // finance.read — сервер отдаёт только относящиеся к заявке). На текущем шаге: «Выставить счёт AQNIET» (finance.write) →
 // /billing?caseId=…, иначе «Ждём оплату — отмечает бухгалтер»; администратору — ещё «Завершить без счёта AQNIET» (окно причины
-// из CaseActionModals, опасное действие). Что бухгалтер отметил оплату в «Счетах», карточка узнаёт при возврате на вкладку
+// из CaseActionModals; редкий запасной выход — тихая кнопка danger-ghost слева от главной). Что бухгалтер отметил оплату в «Счетах», карточка узнаёт при возврате на вкладку
 // (useCase: перечитывание при visibilitychange). Пройденный шаг — только список.
 const props = defineProps<CaseStepProps>()
 const { t } = useI18n()
@@ -23,10 +23,10 @@ const issue = () => { void router.push(`/billing?caseId=${encodeURIComponent(pro
 <template>
   <CaseStepPanel v-if="mode === 'current'" :step="ctx.step" :meta="t('broker.case.aqniet.meta')">
     <template v-if="perms.canIssueAqnietInvoice || perms.canCompleteWithoutInvoice" #actions>
-      <ZButton v-if="perms.canCompleteWithoutInvoice" variant="danger" :disabled="ctx.actions.busy()" class="max-sm:h-11 max-sm:w-full" data-aqniet-complete @click="ctx.actions.ask('completeWithoutInvoice')">
+      <ZButton v-if="perms.canCompleteWithoutInvoice" variant="danger-ghost" :disabled="ctx.actions.busy()" class="max-sm:w-full" data-aqniet-complete @click="ctx.actions.ask('completeWithoutInvoice')">
         {{ t('import40Case.completeWithoutInvoice') }}
       </ZButton>
-      <ZButton v-if="perms.canIssueAqnietInvoice" variant="primary" class="max-sm:h-11 max-sm:w-full" data-aqniet-issue @click="issue">
+      <ZButton v-if="perms.canIssueAqnietInvoice" variant="primary" class="max-sm:w-full" data-aqniet-issue @click="issue">
         {{ t('import40Case.issueAqnietInvoice') }}
       </ZButton>
     </template>

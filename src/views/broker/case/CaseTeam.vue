@@ -13,7 +13,8 @@ import type { CaseActions } from './useCaseActions'
 
 // «Команда»: декларант и КПП заявки. Руководитель/администратор (canAssign) назначает или меняет — окно с выбором
 // сотрудника; сохраняется прежним PUT с обоими полями (Guid.Empty — снять). Сотрудник с правом роли берёт
-// незанятую заявку в работу (claim) на строке роли текущего шага. «занято коллегой» — шаг ведёт другой.
+// незанятую заявку в работу (claim) на строке роли текущего шага. «занято коллегой» — шаг ведёт другой (тег — строкой
+// под именем, чтобы имя переносилось по словам, а не посреди слова). Выполненной и отменённой заявке назначать некого.
 const props = defineProps<{ kase: Import40CaseDto; perms: CasePerms; actions: CaseActions }>()
 const { t } = useI18n()
 
@@ -87,14 +88,16 @@ const linkBtn = 'inline-flex min-h-8 cursor-pointer items-center rounded-field b
     >
       <ZAvatar v-if="r.name" :name="r.name" />
       <span v-else class="inline-flex size-[30px] shrink-0 items-center justify-center rounded-[9px] bg-sunken text-xs font-bold text-tone-neutral-fg" aria-hidden="true">—</span>
-      <div class="min-w-0 flex-1">
+      <div class="min-w-0 flex-1" data-team-person>
         <div class="text-xs text-muted">{{ label(r.role) }}</div>
-        <div v-if="r.name" class="text-sm font-medium text-ink [overflow-wrap:anywhere]" data-team-name>
+        <div v-if="r.name" class="text-sm font-medium break-words text-ink" data-team-name>
           {{ r.name }}<span v-if="r.me" class="font-medium text-zircon-ink"> · {{ t('broker.case.team.you') }}</span>
         </div>
         <div v-else class="text-sm font-medium text-gold-ink" data-team-name>{{ t('broker.case.team.unassigned') }}</div>
+        <div v-if="r.busy" class="mt-1 flex">
+          <ZTag tone="wait" size="sm" data-team-busy>{{ t('broker.case.team.busy') }}</ZTag>
+        </div>
       </div>
-      <ZTag v-if="r.busy" tone="wait" size="sm" data-team-busy>{{ t('broker.case.team.busy') }}</ZTag>
 
       <ZButton
         v-if="r.claim"
@@ -108,7 +111,7 @@ const linkBtn = 'inline-flex min-h-8 cursor-pointer items-center rounded-field b
       >{{ t('import40Case.claim') }}</ZButton>
 
       <ZPopover
-        v-if="perms.canAssign"
+        v-if="perms.canAssign && kase.status < 8"
         :open="open[r.role]"
         :title="t(r.role === 'kpp' ? 'broker.case.team.assignKpp' : 'broker.case.team.assignDeclarant')"
         align="end"

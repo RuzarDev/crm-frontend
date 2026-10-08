@@ -248,6 +248,18 @@ describe('CaseView: действия', () => {
     expect(api.action).toHaveBeenLastCalledWith('c1', 'step-back', 'ошибка', undefined)
   })
 
+  it('смена заявки (назад/вперёд) закрывает окно причины — отмена не уйдёт на другую заявку', async () => {
+    await mountCard(USERS.admin, { status: 3 })
+    await w.get('[data-menu-item="cancel"]').trigger('click')
+    expect(w.find('[data-modal]').exists()).toBe(true)
+    server.kase = caseDto({ id: 'c2', status: 3 })
+    await router.push('/import-40/c2')
+    await flushPromises()
+    expect(w.find('[data-case-header]').exists()).toBe(true)
+    expect(w.find('[data-modal]').exists()).toBe(false)
+    expect(api.action).not.toHaveBeenCalled()
+  })
+
   it('ошибка действия — окно остаётся, тоста успеха нет', async () => {
     await mountCard(USERS.admin, { status: 3 })
     api.action.mockRejectedValueOnce(Object.assign(new Error('409'), { response: { status: 409 } }))
@@ -285,6 +297,12 @@ describe('CaseView: действия', () => {
     expect(api.update).toHaveBeenLastCalledWith('c1', { assignedDeclarantId: GUID_EMPTY, assignedKppId: GUID_EMPTY })
   })
 
+  it.each([8, 9])('статус %i (выполнена/отменена) — «Назначить»/«Сменить» нет', async (status) => {
+    await mountCard(USERS.admin, { status, assignedKppId: 'k1', assignedKppName: 'Ерлан Б.' })
+    expect(w.find('[data-team-row="declarant"]').exists()).toBe(true)
+    expect(w.find('[data-team-assign]').exists()).toBe(false)
+  })
+
   it('«Взять в работу» — claim на строке роли текущего шага; у руководителя — нет', async () => {
     await mountCard(USERS.declarant, { status: 2 })
     expect(w.find('[data-team-row="kpp"] [data-team-claim]').exists()).toBe(false)
@@ -300,7 +318,8 @@ describe('CaseView: действия', () => {
 
   it('шаг ведёт коллега — «занято коллегой»; себя — «вы»', async () => {
     await mountCard(USERS.declarant, { status: 2, assignedDeclarantId: 'u2', assignedDeclarantName: 'Айгерим К.', assignedKppId: 'me', assignedKppName: 'Ерлан Б.' })
-    expect(w.get('[data-team-row="declarant"] [data-team-busy]').text()).toBe('занято коллегой')
+    expect(w.get('[data-team-row="declarant"] [data-team-person] [data-team-busy]').text()).toBe('занято коллегой')
+    expect(w.get('[data-team-row="declarant"] [data-team-name]').classes()).toContain('break-words')
     expect(w.get('[data-team-row="kpp"] [data-team-name]').text()).toBe('Ерлан Б. · вы')
     expect(w.find('[data-team-claim]').exists()).toBe(false)
   })

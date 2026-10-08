@@ -35,7 +35,7 @@ const close = async () => {
   const ok = await confirm({
     title: t('import40Case.confirmCloseSvh'),
     okText: t('broker.case.svh.confirmCloseOk'),
-    cancelText: t('broker.case.declaring.cancel'),
+    cancelText: t('common.cancel'),
   })
   if (ok) await props.ctx.actions.run(CLOSE)
 }
@@ -53,11 +53,11 @@ const invoiceOpen = ref(false)
             variant="primary"
             :disabled="kppDisabled"
             :loading="closePending"
-            class="max-sm:h-11 max-sm:w-full"
+            class="max-sm:w-full"
             data-svh-close
             @click="close"
           >{{ t('import40Case.closeSvh') }}</ZButton>
-          <ZButton v-else variant="primary" :disabled="kppDisabled" class="max-sm:h-11 max-sm:w-full" data-svh-issue @click="invoiceOpen = true">
+          <ZButton v-else variant="primary" :disabled="kppDisabled" class="max-sm:w-full" data-svh-issue @click="invoiceOpen = true">
             {{ t('import40Case.issueInvoice') }}
           </ZButton>
         </span>

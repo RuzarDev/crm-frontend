@@ -71,6 +71,8 @@ describe('DeclarationsList: строки и готовность', () => {
     expect(m.text()).toContain('не хватает: гр. 31 (поз. 3), гр. 33, гр. 44 — сертификат')
     expect(m.text()).not.toContain('гр. 47')
     expect(m.get('[data-dt-missing-more]').text()).toBe('и ещё 2')
+    expect(m.get('[data-dt-missing-text]').classes()).toContain('line-clamp-2')
+    expect(m.attributes('title')).toBe('не хватает: гр. 31 (поз. 3), гр. 33, гр. 44 — сертификат, гр. 47, гр. 8')
     await m.get('[data-dt-missing-more]').trigger('click')
     expect(row('d1').get('[data-dt-missing]').text()).toContain('гр. 47, гр. 8')
     expect(row('d1').get('[data-dt-missing-more]').attributes('aria-expanded')).toBe('true')

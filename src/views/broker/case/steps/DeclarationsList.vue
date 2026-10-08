@@ -55,6 +55,7 @@ const readinessOf = (dt: Import40DeclarationDto) => (editable.value ? readinessB
 const percent = (r: DeclarationReadiness) => (r.total > 0 ? Math.round((r.filled / r.total) * 100) : 0)
 
 const expanded = reactive<Record<string, boolean>>({})
+// Свёрнутый «не хватает: …» — не больше двух строк (длинные названия граф не распирают строку ДТ), полный список — в title.
 const missingShown = (r: DeclarationReadiness) => (expanded[r.declarationId] ? { shown: r.missing, rest: 0 } : missingPreview(r.missing))
 
 const metaLine = (dt: Import40DeclarationDto) => {
@@ -279,8 +280,15 @@ const toolBtn = 'max-sm:min-h-11'
               </span>
             </div>
             <div v-if="readinessOf(dt)!.isReady" class="mt-1 text-xs text-tone-done-fg" data-dt-ready>{{ t('broker.case.declaring.list.ready') }}</div>
-            <div v-else-if="readinessOf(dt)!.missing.length" class="mt-1 text-xs text-gold-ink [overflow-wrap:anywhere]" data-dt-missing>
-              {{ t('broker.case.declaring.list.missing', { list: missingShown(readinessOf(dt)!).shown.join(', ') }) }}
+            <div
+              v-else-if="readinessOf(dt)!.missing.length"
+              class="mt-1 text-xs text-gold-ink"
+              :title="t('broker.case.declaring.list.missing', { list: readinessOf(dt)!.missing.join(', ') })"
+              data-dt-missing
+            >
+              <span :class="['break-words', !expanded[dt.id] && 'line-clamp-2']" data-dt-missing-text>{{
+                t('broker.case.declaring.list.missing', { list: missingShown(readinessOf(dt)!).shown.join(', ') })
+              }}</span>
               <button
                 v-if="missingPreview(readinessOf(dt)!.missing).rest > 0"
                 type="button"

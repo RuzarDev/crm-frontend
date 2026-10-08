@@ -92,13 +92,22 @@ describe('CaseDocsSlot', () => {
     expect(api.uploadFile).toHaveBeenLastCalledWith('c1', 'declaration-stamp', g, undefined)
   })
 
-  it('ошибка на втором файле: первый остаётся, файлы перечитываются, тоста успеха нет', async () => {
+  it('ошибка на втором файле: первый остаётся, файлы перечитываются, тоста успеха нет, тост «Загружено 1 из 3»', async () => {
     mount({ canUpload: true, multiple: true }, [])
     api.uploadFile.mockResolvedValueOnce(fileDto({ id: 'n1' })).mockRejectedValueOnce(new Error('boom'))
     await pick([pdf('a.pdf'), pdf('b.pdf'), pdf('c.pdf')])
     expect(api.uploadFile).toHaveBeenCalledTimes(2)
     expect(reload).toHaveBeenCalledTimes(1)
     expect(msg.success).not.toHaveBeenCalled()
+    expect(msg.warning).toHaveBeenCalledWith('Загружено 1 из 3')
+  })
+
+  it('ошибка на первом файле — тоста «Загружено n из m» нет (ошибку показал перехватчик)', async () => {
+    mount({ canUpload: true, multiple: true }, [])
+    api.uploadFile.mockRejectedValueOnce(new Error('boom'))
+    await pick([pdf('a.pdf'), pdf('b.pdf')])
+    expect(api.uploadFile).toHaveBeenCalledTimes(1)
+    expect(msg.warning).not.toHaveBeenCalled()
   })
 
   it('удаление: подтверждение, затем DELETE и перечитывание; отказ — ничего', async () => {

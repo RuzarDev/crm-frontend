@@ -28,7 +28,7 @@ const statusOf = (e: unknown): number | undefined => (e as { response?: { status
  * - Первый показ (и смена :id) — скелетон; ошибка заявки или файлов без тоста: 404/403/400 → notFound, иначе error.
  * - reload() — без мерцания: данные остаются на экране, пока идёт запрос (refreshing); сбой — тост перехватчика,
  *   на экране последнее известное состояние.
- * - Возврат на вкладку (visibilitychange → visible) перечитывает карточку без мерцания, если с последней загрузки прошло
+ * - Возврат на вкладку (visibilitychange → visible) тихо (без тостов) перечитывает карточку без мерцания, если с последней загрузки прошло
  *   не меньше REFRESH_ON_RETURN_MS: оплата в «Счетах» или правка коллеги иначе не дошла бы до открытой карточки.
  * - Ответ устаревшего запроса (сменился :id, начат новый reload) отбрасывается.
  */
@@ -42,8 +42,8 @@ export function useCase(id: Ref<string>, opts: UseCaseOptions) {
   let seq = 0
   let loadedAt = Date.now()
 
-  const fetchAll = async (caseId: string, initial: boolean): Promise<Loaded> => {
-    const silent = initial ? { silent: true } : undefined
+  const fetchAll = async (caseId: string, quiet: boolean): Promise<Loaded> => {
+    const silent = quiet ? { silent: true } : undefined
     const [k, f, inv, rd] = await Promise.all([
       import40Api.get(caseId, silent),
       import40Api.listFiles(caseId, silent),
@@ -62,10 +62,11 @@ export function useCase(id: Ref<string>, opts: UseCaseOptions) {
     readiness.value = d.readiness
   }
 
-  /** Первый показ: сброс прежних данных и скелетон. */
+  /** Первый показ: сброс прежних данных и скелетон. Пустой :id (уход с карточки) — без запросов, прежний ответ отбрасывается. */
   const load = async () => {
     const caseId = id.value
     const my = ++seq
+    if (!caseId) return
     loadedAt = Date.now()
     state.value = 'loading'
     refreshing.value = false
@@ -85,23 +86,27 @@ export function useCase(id: Ref<string>, opts: UseCaseOptions) {
     }
   }
 
-  /** Перечитать после действия: без скелетона; true — данные обновлены. */
-  const reload = async (): Promise<boolean> => {
+  /**
+   * Перечитать после действия: без скелетона; true — данные обновлены.
+   * silent — фоновое перечитывание (возврат на вкладку): сбой без тоста, на экране последнее известное состояние.
+   */
+  const reload = async (o: { silent?: boolean } = {}): Promise<boolean> => {
     if (state.value !== 'ready') {
       await load()
       return (state.value as CaseLoadState) === 'ready'
     }
     const caseId = id.value
+    if (!caseId) return false
     const my = ++seq
     loadedAt = Date.now()
     refreshing.value = true
     try {
-      const d = await fetchAll(caseId, false)
+      const d = await fetchAll(caseId, !!o.silent)
       if (my !== seq) return false
       apply(d)
       return true
     } catch {
-      return false // тост показал перехватчик
+      return false // тост показал перехватчик (если не silent)
     } finally {
       if (my === seq) refreshing.value = false
     }
@@ -117,7 +122,7 @@ export function useCase(id: Ref<string>, opts: UseCaseOptions) {
   const onVisible = () => {
     if (document.visibilityState !== 'visible' || state.value !== 'ready' || refreshing.value) return
     if (Date.now() - loadedAt < REFRESH_ON_RETURN_MS) return
-    void reload()
+    void reload({ silent: true })
   }
   document.addEventListener('visibilitychange', onVisible)
   if (getCurrentScope()) onScopeDispose(() => document.removeEventListener('visibilitychange', onVisible))

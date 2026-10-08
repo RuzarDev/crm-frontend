@@ -42,7 +42,7 @@ const confirmPayment = async () => {
   const ok = await confirm({
     title: t('import40Case.confirmSvhPayment'),
     okText: t('broker.case.svhPayment.confirmOk'),
-    cancelText: t('broker.case.declaring.cancel'),
+    cancelText: t('common.cancel'),
   })
   if (ok) await props.ctx.actions.run(CONFIRM)
 }
@@ -53,7 +53,7 @@ const confirmPayment = async () => {
     <template #actions>
       <ZTooltip :title="disabled ? hint : ''">
         <span class="inline-flex max-sm:w-full" :tabindex="disabled && hint ? 0 : undefined">
-          <ZButton variant="primary" :disabled="disabled" :loading="confirming" class="max-sm:h-11 max-sm:w-full" data-svh-confirm @click="confirmPayment">
+          <ZButton variant="primary" :disabled="disabled" :loading="confirming" class="max-sm:w-full" data-svh-confirm @click="confirmPayment">
             {{ t('import40Case.confirmPayment') }}
           </ZButton>
         </span>

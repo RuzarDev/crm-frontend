@@ -40,6 +40,7 @@ describe('StepBorder', () => {
     mount(USERS.kpp)
     await w.get('[data-border-passed]').trigger('click')
     expect(confirmState.title).toBe('Отметить, что граница пройдена?')
+    expect(confirmState.cancelText).toBe('Отмена')
     expect(api.action).not.toHaveBeenCalled()
     confirmState.resolve(true)
     await flushPromises()

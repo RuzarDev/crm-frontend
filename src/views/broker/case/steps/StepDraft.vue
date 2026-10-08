@@ -9,6 +9,7 @@ import ZSegmented from '@/components/z/ZSegmented.vue'
 import ZTooltip from '@/components/z/ZTooltip.vue'
 import { import40Api, type Import40UpdateRequest } from '@/api/import40'
 import { useConfirm } from '@/ui/confirm'
+import { message } from '@/ui/message'
 import type { ZOptionValue } from '@/ui/options'
 import CaseDocsSlot from '../CaseDocsSlot.vue'
 import CaseStepPanel from '../CaseStepPanel.vue'
@@ -46,12 +47,15 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 /**
  * Сохранение поля не теряется, если в этот момент идёт другое действие (mutate на время действия не пускает второе):
  * ждём, пока освободится замок, и только потом решаем и сохраняем — решение по свежей заявке, замок берём в том же такте.
+ * Замок не освободился за 10 с — правка остаётся в поле несохранённой, и об этом говорит тост (а не молчит).
  */
 const IDLE_POLL_MS = 50
 const IDLE_MAX_POLLS = 200
 const waitIdle = async () => {
   for (let i = 0; i < IDLE_MAX_POLLS && props.ctx.actions.busy(); i++) await sleep(IDLE_POLL_MS)
-  return !props.ctx.actions.busy()
+  if (!props.ctx.actions.busy()) return true
+  message.warning(t('broker.case.draft.saveBusy'))
+  return false
 }
 
 const save = (key: string, patch: Import40UpdateRequest) =>
@@ -115,7 +119,7 @@ const submit = async () => {
   const ok = await confirm({
     title: t('broker.case.draft.confirmSubmit'),
     okText: t('broker.case.draft.confirmSubmitOk'),
-    cancelText: t('broker.case.draft.keep'),
+    cancelText: t('common.cancel'),
   })
   if (ok) await props.ctx.actions.run('submit-for-processing')
 }

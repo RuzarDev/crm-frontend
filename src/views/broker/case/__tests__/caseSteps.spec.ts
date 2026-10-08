@@ -32,20 +32,26 @@ describe('caseSteps: состояния по статусам 0–9', () => {
 describe('caseSteps: сводки пройденных шагов', () => {
   const files = [fileDto({ id: 'a' }), fileDto({ id: 'b' }), fileDto({ id: 'c' }), fileDto({ id: 'd' }), fileDto({ id: 'x', section: 'svh-invoice' })]
   it('1 — контейнеры и документы клиента (формы числа)', () => {
-    expect(stepSummary(1, caseDto(), files, t, 'ru')).toBe('4 файла')
+    expect(stepSummary(1, caseDto(), files, t, 'ru', [])).toBe('4 файла')
     const containers = [{ id: 'k1', containerNumber: 'MRSU4885849' }, { id: 'k2', containerNumber: 'TGHU3102241' }] as never
-    expect(stepSummary(1, caseDto({ containers }), files.slice(0, 1), t, 'ru')).toBe('2 контейнера · 1 файл')
-    expect(stepSummary(1, caseDto(), [], t, 'ru')).toBe('0 файлов')
+    expect(stepSummary(1, caseDto({ containers }), files.slice(0, 1), t, 'ru', [])).toBe('2 контейнера · 1 файл')
+    expect(stepSummary(1, caseDto(), [], t, 'ru', [])).toBe('0 файлов')
   })
   it('2–6 — как раньше', () => {
-    expect(stepSummary(2, caseDto(), [], t, 'ru')).toBe('пройдена')
-    expect(stepSummary(3, caseDto({ declarations: [declaration(), declaration({ id: 'd2', isSplitReplaced: true })] }), [], t, 'ru')).toBe('ДТ: 2')
-    expect(stepSummary(4, caseDto({ svhInvoiceAmount: 312400.4, svhInvoiceNumber: '1187', svhInvoiceNote: 'СВХ Достык' }), [], t, 'ru'))
+    expect(stepSummary(2, caseDto(), [], t, 'ru', [])).toBe('пройдена')
+    expect(stepSummary(3, caseDto({ declarations: [declaration(), declaration({ id: 'd2', isSplitReplaced: true })] }), [], t, 'ru', [])).toBe('ДТ: 2')
+    expect(stepSummary(4, caseDto({ svhInvoiceAmount: 312400.4, svhInvoiceNumber: '1187', svhInvoiceNote: 'СВХ Достык' }), [], t, 'ru', []))
       .toBe(`${formatMoney(312400)} · № 1187 · СВХ Достык`)
-    expect(stepSummary(4, caseDto({ svhInvoiceNote: 'ждём' }), [], t, 'ru')).toBe('счёт: ждём')
-    expect(stepSummary(4, caseDto(), [], t, 'ru')).toBe('закрыт')
-    expect(stepSummary(5, caseDto(), [], t, 'ru')).toBe('оплачена')
-    expect(stepSummary(6, caseDto(), [], t, 'ru')).toBe('оплачено')
+    expect(stepSummary(4, caseDto({ svhInvoiceNote: 'ждём' }), [], t, 'ru', [])).toBe('счёт: ждём')
+    expect(stepSummary(4, caseDto(), [], t, 'ru', [])).toBe('закрыт')
+    expect(stepSummary(5, caseDto(), [], t, 'ru', [])).toBe('оплачена')
+    expect(stepSummary(6, caseDto(), [], t, 'ru', [])).toBe('оплачено')
+  })
+  it('6 — выполненная без оплаченного счёта AQNIET: «завершена без счёта»; с оплаченным — «оплачено»', () => {
+    const inv = (status: number) => ({ id: `i${status}`, kind: 'invoice' as const, status, number: '12', year: 2026, total: 1000, issuedAtUtc: null, paidAtUtc: null })
+    expect(stepSummary(6, caseDto({ status: 8 }), [], t, 'ru', [])).toBe('завершена без счёта')
+    expect(stepSummary(6, caseDto({ status: 8 }), [], t, 'ru', [inv(1), inv(3)])).toBe('завершена без счёта')
+    expect(stepSummary(6, caseDto({ status: 8 }), [], t, 'ru', [inv(2)])).toBe('оплачено')
   })
 })
 

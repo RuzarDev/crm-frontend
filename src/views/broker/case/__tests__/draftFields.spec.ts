@@ -23,6 +23,18 @@ describe('decideCommit', () => {
     expect(decideCommit(c, 'trailerNumber', '')).toEqual({ kind: 'save', value: '' })
   })
 
+  it('телефон водителя: «+7» без номера — пусто (не сохраняется); тот же номер в другой записи — без PUT', () => {
+    expect(decideCommit(c, 'driverPhone', '+7')).toEqual({ kind: 'blocked' })
+    expect(decideCommit(c, 'driverPhone', '+7 ')).toEqual({ kind: 'blocked' })
+    expect(decideCommit(c, 'driverPhone', '+')).toEqual({ kind: 'blocked' })
+    const empty = caseDto({ driverPhone: '' })
+    expect(decideCommit(empty, 'driverPhone', '+7')).toEqual({ kind: 'skip' })
+    const raw = caseDto({ driverPhone: '+77001112233' })
+    expect(decideCommit(raw, 'driverPhone', '+7 700 111 22 33')).toEqual({ kind: 'skip' })
+    expect(decideCommit(raw, 'driverPhone', '+7 700 111 22 34')).toEqual({ kind: 'save', value: '+7 700 111 22 34' })
+    expect(decideCommit(empty, 'driverPhone', '+7 700 111 22 33')).toEqual({ kind: 'save', value: '+7 700 111 22 33' })
+  })
+
   it('изменённое значение уходит обрезанным', () => {
     expect(decideCommit(c, 'cargo', ' Телефоны ')).toEqual({ kind: 'save', value: 'Телефоны' })
   })

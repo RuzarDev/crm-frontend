@@ -47,7 +47,7 @@ const submit = async () => {
   const ok = await confirm({
     title: t('broker.case.declaring.confirmSubmit'),
     okText: t('broker.case.declaring.confirmSubmitOk'),
-    cancelText: t('broker.case.declaring.cancel'),
+    cancelText: t('common.cancel'),
   })
   if (ok) await props.ctx.actions.run(SUBMIT)
 }
@@ -63,7 +63,7 @@ const release = async () => {
   const ok = await confirm({
     title: t('import40Case.confirmRelease'),
     okText: t('broker.case.declaring.confirmReleaseOk'),
-    cancelText: t('broker.case.declaring.cancel'),
+    cancelText: t('common.cancel'),
   })
   if (ok) await props.ctx.actions.run(RELEASE)
 }

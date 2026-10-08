@@ -52,7 +52,7 @@ export function mountStep(Step: Component, o: {
             title: `step ${o.step}`,
             executor: STEP_EXECUTOR[o.step],
             executorLabel: STEP_EXECUTOR[o.step],
-            summary: stepSummary(o.step, state.kase, state.files, (k) => k, 'ru'),
+            summary: stepSummary(o.step, state.kase, state.files, (k) => k, 'ru', o.invoices ?? []),
           },
         }
         return h(Step, { ctx, mode: o.mode ?? 'current' })
