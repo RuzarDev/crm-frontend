@@ -109,6 +109,8 @@ describe('RecordNav', () => {
   it('не шире своей колонки: min-w-0 у меню (лента на узком экране прокручивается внутри)', () => {
     w = mountWithI18n(RecordNav, { props: { draft: draft() }, attachTo: document.body })
     expect(w.get('nav').classes()).toContain('min-w-0')
+    // Без обрезки по ширине содержимое ленты на телефоне раздвигало страницу (эмуляция Chrome: ~1500 px).
+    expect(w.get('nav').classes()).toContain('max-lg:overflow-x-clip')
     expect(w.get('nav ul').classes()).toContain('overflow-x-auto')
   })
 })

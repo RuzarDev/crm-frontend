@@ -97,7 +97,7 @@ onBeforeUnmount(() => {
   <nav
     ref="root"
     :aria-label="t('broker.transitRecord.nav.label')"
-    class="sticky top-(--shell-header-h,64px) z-[5] -mx-4 min-w-0 border-b border-line bg-surface px-4 py-2 lg:top-[calc(var(--shell-header-h,64px)+16px)] lg:mx-0 lg:self-start lg:border-0 lg:bg-transparent lg:p-0"
+    class="sticky top-(--shell-header-h,64px) z-[5] -mx-4 min-w-0 max-lg:overflow-x-clip border-b border-line bg-surface px-4 py-2 lg:top-[calc(var(--shell-header-h,64px)+16px)] lg:mx-0 lg:self-start lg:border-0 lg:bg-transparent lg:p-0"
     data-record-nav
   >
     <ul class="m-0 flex list-none gap-1 overflow-x-auto p-0 [scrollbar-width:none] lg:flex-col lg:gap-0.5 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
