@@ -844,10 +844,33 @@ export default {
         date: 'Күні',
         more: 'Тағы',
         moreLabel: '{n}-құжат бойынша тағы',
+        moreFilled: 'толтырылған: {count}',
         authorizedBody: 'Уәкілетті орган',
         authorizedBodyId: 'Орган ИД',
         formBlankNumber: 'Бланк нөмірі',
         deleteLabel: '{n}-құжатты жою',
+      },
+      docs: {
+        uploadedOf: '{m} ішінен {n} жүктелді',
+        autofillDirty: 'Алдымен «Деректер» қойындысында өзгерістерді сақтаңыз',
+        download: '{name} жүктеп алу',
+        remove: '{name} жою',
+        deleteOk: 'Жою',
+        uploadTo: 'Жүктеу: {slot}',
+        required: 'міндетті құжат',
+        sectionClient: 'Клиент пен экспедитор жүктеген файлдар',
+        sectionBroker: 'Брокер файлдары: декларация, сертификаттар, рұқсаттар',
+        loading: 'Құжаттар жүктелуде…',
+        emptySlot: 'Әзірге файл жоқ',
+      },
+      comments: {
+        shortcut: 'Ctrl/⌘+Enter — жіберу',
+      },
+      extraction: {
+        addItem: 'Жол қосу',
+        itemsLabel: 'Инвойстағы жолдар',
+        removeItem: '{n}-жолды жою',
+        confidence: 'Сенімділік',
       },
       opt: {
         orgRole: {

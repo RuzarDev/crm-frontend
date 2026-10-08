@@ -14,6 +14,7 @@ vi.mock('@/ui/message', () => ({ message: api.toast }))
 vi.mock('@/api/references', async () => ({ referencesApi: (await import('./harness')).refsApi }))
 
 import SectionGoods from '../SectionGoods.vue'
+import { formatKg, formatQty, formatValue } from '../goods'
 import { SelectStub, emptyDraft, primeRefs, refsApi } from './harness'
 
 const PickerStub = defineComponent({ setup: () => () => h('div') })
@@ -69,13 +70,13 @@ describe('SectionGoods', () => {
     expect(w.find('[data-goods-totals]').exists()).toBe(false)
   })
 
-  it('при открытии записи карточки свёрнуты; добавленная — в конце, развёрнута, фокус на коде, валюта USD', async () => {
+  it('при открытии записи развёрнута первая карточка; добавленная — в конце, развёрнута, фокус на коде, валюта USD', async () => {
     const d = await mount([good({ description: 'A' }), good({ description: 'B' })])
-    expect(expanded()).toEqual(['false', 'false'])
+    expect(expanded()).toEqual(['true', 'false'])
     await add()
     expect(d.goods).toHaveLength(3)
     expect(d.goods[2]).toEqual(good({ currency: 'USD' }))
-    expect(expanded()).toEqual(['false', 'false', 'true'])
+    expect(expanded()).toEqual(['true', 'false', 'true'])
     expect(w.get('[data-section-count]').text()).toBe('3')
     expect(document.activeElement).toBe(cards()[2].get('[data-f="tnvedCode"]').element)
   })
@@ -101,6 +102,24 @@ describe('SectionGoods', () => {
     await flushPromises()
     expect(d.goods).toHaveLength(0)
     expect(w.find('[data-goods-empty]').exists()).toBe(true)
+  })
+
+  it('черновик подменили целиком («Отменить», перечитывание) — снова развёрнута только первая', async () => {
+    const d = await mount([good({ description: 'A' }), good({ description: 'B' })])
+    await cards()[1].get('[data-goods-toggle]').trigger('click')
+    expect(expanded()).toEqual(['true', 'true'])
+    d.goods = [good({ description: 'A' }), good({ description: 'B' }), good({ description: 'C' })]
+    await flushPromises()
+    expect(expanded()).toEqual(['true', 'false', 'false'])
+  })
+
+  it('пустой сохранённый товар (только id, sortOrder, валюта) удаляется без вопроса', async () => {
+    const saved = { ...good({ currency: 'USD' }), id: '6f1c2c1e-0000-4000-8000-000000000001', sortOrder: 0 } as ReestrGoodsItemInput
+    const d = await mount([saved])
+    await cards()[0].get('[data-goods-delete]').trigger('click')
+    await flushPromises()
+    expect(confirmState.open).toBe(false)
+    expect(d.goods).toHaveLength(0)
   })
 
   it('итоги — из goodsTotals: наименований, мест, брутто, стоимость с общей валютой; пересчёт при правке', async () => {
@@ -143,7 +162,7 @@ describe('SectionGoods', () => {
     expect(d.goods.map((g) => g.description)).toEqual(['Был', 'Ноутбуки', 'Блоки питания'])
     expect(d.goods[1]).toEqual(good({ tnvedCode: '8471300000', description: 'Ноутбуки', tnvedDescription: 'Ноутбуки', grossWeightKg: 420.5, quantity: 120, packagesCount: 12 }))
     expect(api.toast.success).toHaveBeenCalledWith('Загружено 2 товаров')
-    expect(expanded()).toEqual(['false', 'false', 'false'])
+    expect(expanded()).toEqual(['true', 'false', 'false'])
   })
 
   it('«Из Excel»: не Excel — ошибка; без товаров — предупреждение; ничего не добавляется', async () => {
@@ -160,8 +179,16 @@ describe('SectionGoods', () => {
     expect(w.find('[data-section-actions]').exists()).toBe(false)
     expect(w.find('[data-goods-delete]').exists()).toBe(false)
     expect(api.node).not.toHaveBeenCalled()
-    await cards()[0].get('[data-goods-toggle]').trigger('click')
     expect(cards()[0].find('input').exists()).toBe(false)
     expect(cards()[0].get('[data-goods-body]').text()).toContain('8471 30 000 0')
+  })
+})
+
+describe('числа сводки и итогов — по языку интерфейса', () => {
+  const plain = (v: string) => v.replace(/\u00a0/g, ' ')
+  it('ru и kk — пробел и запятая, en — запятая и точка', () => {
+    expect([formatQty(1800), formatKg(96), formatValue(27700.5)].map(plain)).toEqual(['1 800', '96,0', '27 700,5'])
+    expect(plain(formatValue(27700.5, 'kk'))).toBe('27 700,5')
+    expect([formatQty(1800, 'en'), formatKg(96, 'en'), formatValue(27700.5, 'en')]).toEqual(['1,800', '96.0', '27,700.5'])
   })
 })

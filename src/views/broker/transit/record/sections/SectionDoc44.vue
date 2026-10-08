@@ -10,6 +10,7 @@ import ZSelect from '@/components/z/ZSelect.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import type { ReestrDoc44ItemInput } from '@/types/api'
 import { formatDateText } from '@/ui/date'
+import type { ZOption } from '@/ui/options'
 import type { RecordDraft } from '../recordModel'
 import RecordSection from './RecordSection.vue'
 import { useRecordRefs } from './refs'
@@ -27,7 +28,10 @@ const tr = (key: string, p?: Record<string, unknown>) => t(`broker.transitRecord
 const refs = useRecordRefs()
 void refs.ensureClassifiers(['2009'])
 const classifiers = useClassifiersStore()
-const docTypeOptions = computed(() => refs.classifierOptions('2009'))
+// В поле — только код (колонка узкая, вид документа стоит рядом), в списке — «04021 — Инвойс…»; поиск — по обоим.
+const docTypeOptions = computed<ZOption[]>(() => refs.classifierOptions('2009').map((o) => ({ value: o.value, label: String(o.value), full: o.label })))
+const fullLabel = (o: ZOption) => String(o.full ?? o.label)
+const filterDocType = (input: string, o: ZOption) => fullLabel(o).toLocaleLowerCase('ru').includes(input.toLocaleLowerCase('ru'))
 
 const uid = useId()
 const ids = new WeakMap<object, number>()
@@ -83,6 +87,13 @@ const onCode = (item: ReestrDoc44ItemInput, v: unknown) => {
   item.docTypeCode = code
   const found = classifiers.cache['2009']?.find((c) => c.code === code)
   if (found) item.docTypeName = found.nameRu
+}
+
+/** Сколько полей под «Ещё» заполнено — метка на кнопке, чтобы данные не прятались в свёрнутой строке. */
+const extrasCount = (item: ReestrDoc44ItemInput) => [item.authorizedBody, item.authorizedBodyId, item.formBlankNumber].filter((v) => v).length
+const moreAria = (item: ReestrDoc44ItemInput, n: number) => {
+  const c = extrasCount(item)
+  return c ? `${tr('moreLabel', { n })}, ${tr('moreFilled', { count: c })}` : tr('moreLabel', { n })
 }
 
 const extras = (item: ReestrDoc44ItemInput) => ([
@@ -142,10 +153,13 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
                   allow-clear
                   :placeholder="tr('code')"
                   :popup-width="420"
+                  :filter-option="filterDocType"
                   :class="boxCtl"
                   data-f="docTypeCode"
                   @update:value="onCode(item, $event)"
-                />
+                >
+                  <template #option="{ option }">{{ fullLabel(option) }}</template>
+                </ZSelect>
               </div>
               <div :class="cell">
                 <label :for="domId(item, 'name')" :class="cellLabel">{{ tr('name') }}</label>
@@ -166,11 +180,17 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
                   class="max-sm:h-11 max-sm:px-3"
                   :aria-expanded="more.has(keyOf(item)) ? 'true' : 'false'"
                   :aria-controls="domId(item, 'more')"
-                  :aria-label="tr('moreLabel', { n: index + 1 })"
+                  :aria-label="moreAria(item, index + 1)"
                   data-doc44-more
                   @click="toggleMore(item)"
                 >
                   {{ tr('more') }}
+                  <span
+                    v-if="extrasCount(item)"
+                    aria-hidden="true"
+                    class="rounded-pill bg-zircon-soft px-1.5 text-xs leading-4 font-semibold text-zircon-ink tabular-nums"
+                    data-doc44-more-count
+                  >{{ extrasCount(item) }}</span>
                   <PhCaretDown :size="14" aria-hidden="true" class="transition-transform duration-150 motion-reduce:transition-none" :class="more.has(keyOf(item)) && 'rotate-180'" />
                 </ZButton>
                 <button

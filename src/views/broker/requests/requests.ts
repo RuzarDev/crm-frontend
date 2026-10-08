@@ -57,10 +57,8 @@ export function stageTone(status: number): ZTone {
   }
 }
 
-/** 8471300000 → «8471 30 000 0»; не десять цифр — как есть. */
-export function formatTnved(code: string): string {
-  return /^\d{10}$/.test(code) ? `${code.slice(0, 4)} ${code.slice(4, 6)} ${code.slice(6, 9)} ${code.slice(9)}` : code
-}
+// Формат кода ТН ВЭД — общий (src/utils/tnvedFormat.ts); реэкспорт для прежних импортов.
+export { formatTnved } from '@/utils/tnvedFormat'
 
 export interface ExecutorInfo {
   /** «Декларант · КПП» именами (своё имя — «вы»); пусто, если никто не назначен. */

@@ -844,10 +844,33 @@ export default {
         date: 'Date',
         more: 'More',
         moreLabel: 'More for document {n}',
+        moreFilled: 'filled: {count}',
         authorizedBody: 'Authorised body',
         authorizedBodyId: 'Body ID',
         formBlankNumber: 'Form number',
         deleteLabel: 'Delete document {n}',
+      },
+      docs: {
+        uploadedOf: 'Uploaded {n} of {m}',
+        autofillDirty: 'First save your changes on the “Data” tab',
+        download: 'Download {name}',
+        remove: 'Delete {name}',
+        deleteOk: 'Delete',
+        uploadTo: 'Upload: {slot}',
+        required: 'required document',
+        sectionClient: 'Files uploaded by the client and the forwarder',
+        sectionBroker: 'Broker files: declaration, certificates, permits',
+        loading: 'Loading documents…',
+        emptySlot: 'No files yet',
+      },
+      comments: {
+        shortcut: 'Ctrl/⌘+Enter to send',
+      },
+      extraction: {
+        addItem: 'Add line',
+        itemsLabel: 'Invoice lines',
+        removeItem: 'Delete line {n}',
+        confidence: 'Confidence',
       },
       opt: {
         orgRole: {

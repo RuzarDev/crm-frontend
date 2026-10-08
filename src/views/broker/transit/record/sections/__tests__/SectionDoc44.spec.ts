@@ -58,7 +58,7 @@ describe('SectionDoc44', () => {
 
   it('выбор кода по классификатору 2009 подставляет вид документа; вид, номер, дата правятся', async () => {
     const d = await mount([doc()])
-    expect(f('docTypeCode').get('[data-option="04021"]').text()).toBe('04021 — Инвойс (счёт-фактура)')
+    expect(f('docTypeCode').get('[data-option="04021"]').text()).toBe('04021')
     await f('docTypeCode').get('[data-option="04021"]').trigger('click')
     expect(d.doc44[0]).toMatchObject({ docTypeCode: '04021', docTypeName: 'Инвойс (счёт-фактура)' })
     await type('docTypeName', 'Инвойс № 1')
@@ -68,6 +68,29 @@ describe('SectionDoc44', () => {
     await type('docDate', '12.09.2026')
     await f('docDate').trigger('keydown', { key: 'Enter' })
     expect(d.doc44[0].docDate).toBe('2026-09-12')
+  })
+
+  it('в поле кода — только код (вид рядом), в списке — «код — вид»; поиск по названию', async () => {
+    await mount([doc({ docTypeCode: '04021', docTypeName: 'Инвойс (счёт-фактура)' })], { stubSelect: false })
+    const input = f('docTypeCode').element as HTMLInputElement
+    expect(input.value).toBe('04021')
+    input.focus()
+    await f('docTypeCode').trigger('keydown', { key: 'ArrowDown' })
+    await flushPromises()
+    const items = [...document.body.querySelectorAll('[role="option"]')].map((o) => o.textContent?.trim())
+    expect(items).toEqual(['02015 — CMR', '04021 — Инвойс (счёт-фактура)'])
+    input.value = 'инвойс'
+    await f('docTypeCode').trigger('input')
+    await flushPromises()
+    expect([...document.body.querySelectorAll('[role="option"]')].map((o) => o.textContent?.trim())).toEqual(['04021 — Инвойс (счёт-фактура)'])
+  })
+
+  it('у свёрнутого «Ещё» — число заполненных полей', async () => {
+    await mount([doc({ authorizedBody: 'КГД', formBlankNumber: 'Б-7' }), doc()])
+    expect(rows()[0].get('[data-doc44-more-count]').text()).toBe('2')
+    expect(rows()[0].get('[data-doc44-more]').attributes('aria-label')).toBe('Ещё по документу 1, заполнено: 2')
+    expect(rows()[1].find('[data-doc44-more-count]').exists()).toBe(false)
+    expect(rows()[1].get('[data-doc44-more]').attributes('aria-label')).toBe('Ещё по документу 2')
   })
 
   it('«Ещё» раскрывает уполномоченный орган, ИД органа, номер бланка — и пишет их в строку', async () => {

@@ -2,6 +2,7 @@
 import { inject, provide, reactive, type InjectionKey } from 'vue'
 import { tnvedApi } from '@/api/tnved'
 import type { ReestrGoodsItemInput } from '@/types/api'
+import { calendarLocale } from '@/ui/date'
 
 /** Новый товар — как в прежней форме: всё пусто, валюта USD. */
 export const newGoodsItem = (): ReestrGoodsItemInput => ({
@@ -20,26 +21,41 @@ export const newGoodsItem = (): ReestrGoodsItemInput => ({
   currency: 'USD',
 })
 
-/** Есть ли в товаре что-то, кроме валюты по умолчанию (тогда удаление спрашивает подтверждение). */
+/** Поля товара, которые заполняет пользователь (валюта по умолчанию и служебные id/sortOrder с сервера — не в счёт). */
+const CONTENT_KEYS: (keyof ReestrGoodsItemInput)[] = [
+  'description', 'tnvedCode', 'tnvedDescription', 'countryOfOrigin', 'quantity', 'unit', 'unitCode',
+  'grossWeightKg', 'netWeightKg', 'packagesCount', 'quantityTypeCode', 'customsValue',
+]
+
+/** Есть ли в товаре данные пользователя (тогда удаление спрашивает подтверждение). */
 export function goodsHasData(item: ReestrGoodsItemInput): boolean {
-  return Object.entries(item).some(([k, v]) => {
-    if (k === 'currency' || v === null || v === undefined) return false
+  return CONTENT_KEYS.some((k) => {
+    const v = item[k]
+    if (v === null || v === undefined) return false
     if (typeof v === 'string') return v.trim() !== ''
-    if (typeof v === 'number') return !Number.isNaN(v)
-    return v !== false
+    return !Number.isNaN(v)
   })
 }
 
-// Числа в сводке карточки и строке итогов — как на доске: «1 800», «96,0», «570,5». Пробелы — неразрывные.
-const nf = (min: number, max: number) => new Intl.NumberFormat('ru-RU', { minimumFractionDigits: min, maximumFractionDigits: max })
-const qtyFormat = nf(0, 4)
-const kgFormat = nf(1, 4)
-const valueFormat = nf(0, 2)
-const nbsp = (s: string) => s.replace(/[   ]/g, ' ')
+// Числа в сводке карточки и строке итогов — как на доске: «1 800», «96,0», «570,5» (ru); формат — по языку
+// интерфейса (ru-RU / kk-KZ / en-GB, как у дат). Пробелы-разделители — неразрывные.
+const formats = new Map<string, Intl.NumberFormat>()
+const nf = (locale: string, min: number, max: number) => {
+  const tag = calendarLocale(locale)
+  const key = `${tag}|${min}|${max}`
+  let f = formats.get(key)
+  if (!f) {
+    f = new Intl.NumberFormat(tag, { minimumFractionDigits: min, maximumFractionDigits: max })
+    formats.set(key, f)
+  }
+  return f
+}
+const nbsp = (s: string) => s.replace(/[\u202F\u00A0 ]/g, '\u00A0')
 
-export const formatQty = (n: number): string => nbsp(qtyFormat.format(n))
-export const formatKg = (n: number): string => nbsp(kgFormat.format(n))
-export const formatValue = (n: number): string => nbsp(valueFormat.format(n))
+/** locale — язык интерфейса (useI18n().locale): 'ru' | 'kk' | 'en'. */
+export const formatQty = (n: number, locale = 'ru'): string => nbsp(nf(locale, 0, 4).format(n))
+export const formatKg = (n: number, locale = 'ru'): string => nbsp(nf(locale, 1, 4).format(n))
+export const formatValue = (n: number, locale = 'ru'): string => nbsp(nf(locale, 0, 2).format(n))
 
 /**
  * Проверка кодов ТН ВЭД на странице: результат — по коду, а не флагом в товаре (флаг уходил в тело, разбор B.13).

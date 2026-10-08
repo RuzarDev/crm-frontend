@@ -11,7 +11,7 @@ import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
 import { tnvedApi } from '@/api/tnved'
 import type { ReestrGoodsItemInput } from '@/types/api'
 import { OKEI_QUANTITY_TYPE_CODES } from '@/types/api'
-import { formatTnved } from '@/views/broker/requests/requests'
+import { formatTnved } from '@/utils/tnvedFormat'
 import { formatKg, formatQty, formatValue, useTnvedCheck } from './goods'
 import { useLocalOptions } from './localOptions'
 import { useRecordRefs } from './refs'
@@ -22,7 +22,7 @@ import { boxCtl, ctl, str } from './ui'
 // Проверка кода — общий кэш раздела (useTnvedCheck), в товар ничего служебного не кладётся (B.13).
 const props = defineProps<{ item: ReestrGoodsItemInput; index: number; readonly: boolean; expanded: boolean }>()
 const emit = defineEmits<{ toggle: []; remove: [] }>()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const tr = (key: string, p?: Record<string, unknown>) => t(`broker.transitRecord.goods.${key}`, p ?? {})
 
 // Справочники — общий загрузчик страницы (один запрос на справочник, сколько бы ни было карточек).
@@ -48,9 +48,9 @@ const unitName = computed(() => refs.okeiName(props.item.unitCode) ?? props.item
 const summary = computed(() => {
   const g = props.item
   const parts: string[] = []
-  if (g.quantity != null) parts.push(`${formatQty(g.quantity)} ${unitName.value}`.trim())
-  if (g.grossWeightKg != null) parts.push(`${formatKg(g.grossWeightKg)} ${tr('kg')}`)
-  if (g.customsValue != null) parts.push(`${formatValue(g.customsValue)} ${g.currency ?? ''}`.trim())
+  if (g.quantity != null) parts.push(`${formatQty(g.quantity, locale.value)} ${unitName.value}`.trim())
+  if (g.grossWeightKg != null) parts.push(`${formatKg(g.grossWeightKg, locale.value)} ${tr('kg')}`)
+  if (g.customsValue != null) parts.push(`${formatValue(g.customsValue, locale.value)} ${g.currency ?? ''}`.trim())
   return parts.join(' · ')
 })
 const valueLabel = computed(() => (props.item.currency ? tr('valueIn', { currency: props.item.currency }) : tr('value')))
@@ -117,12 +117,12 @@ const readRows = computed(() => {
   const unit = g.unitCode ? optionLabel(refs.okeiOptions.value, g.unitCode) : g.unit ?? ''
   return [
     [
-      { label: tr('quantity'), value: g.quantity != null ? formatQty(g.quantity) : '' },
+      { label: tr('quantity'), value: g.quantity != null ? formatQty(g.quantity, locale.value) : '' },
       { label: tr('unit'), value: unit },
-      { label: t('dt.bruttoKg'), value: g.grossWeightKg != null ? formatKg(g.grossWeightKg) : '' },
-      { label: t('dt.nettoKg'), value: g.netWeightKg != null ? formatKg(g.netWeightKg) : '' },
-      { label: tr('places'), value: g.packagesCount != null ? formatQty(g.packagesCount) : '' },
-      { label: valueLabel.value, value: g.customsValue != null ? formatValue(g.customsValue) : '' },
+      { label: t('dt.bruttoKg'), value: g.grossWeightKg != null ? formatKg(g.grossWeightKg, locale.value) : '' },
+      { label: t('dt.nettoKg'), value: g.netWeightKg != null ? formatKg(g.netWeightKg, locale.value) : '' },
+      { label: tr('places'), value: g.packagesCount != null ? formatQty(g.packagesCount, locale.value) : '' },
+      { label: valueLabel.value, value: g.customsValue != null ? formatValue(g.customsValue, locale.value) : '' },
     ],
     [
       { label: t('dt.kodTnved'), value: g.tnvedCode ? formatTnved(g.tnvedCode) : '', mono: true },

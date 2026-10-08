@@ -848,10 +848,33 @@ export default {
         date: 'Дата',
         more: 'Ещё',
         moreLabel: 'Ещё по документу {n}',
+        moreFilled: 'заполнено: {count}',
         authorizedBody: 'Уполномоченный орган',
         authorizedBodyId: 'ИД органа',
         formBlankNumber: 'Номер бланка',
         deleteLabel: 'Удалить документ {n}',
+      },
+      docs: {
+        uploadedOf: 'Загружено {n} из {m}',
+        autofillDirty: 'Сначала сохраните изменения на вкладке «Данные»',
+        download: 'Скачать {name}',
+        remove: 'Удалить {name}',
+        deleteOk: 'Удалить',
+        uploadTo: 'Загрузить: {slot}',
+        required: 'обязательный документ',
+        sectionClient: 'Файлы, которые загрузили клиент и экспедитор',
+        sectionBroker: 'Файлы брокера: декларация, сертификаты, разрешения',
+        loading: 'Загрузка документов…',
+        emptySlot: 'Файлов пока нет',
+      },
+      comments: {
+        shortcut: 'Ctrl/⌘+Enter — отправить',
+      },
+      extraction: {
+        addItem: 'Добавить позицию',
+        itemsLabel: 'Позиции из инвойса',
+        removeItem: 'Удалить позицию {n}',
+        confidence: 'Уверенность',
       },
       opt: {
         orgRole: {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, toRaw } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhUploadSimple } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -9,16 +9,16 @@ import type { ReestrGoodsItemInput } from '@/types/api'
 import { goodsTotals, type RecordDraft } from '../recordModel'
 import GoodsCard from './GoodsCard.vue'
 import { formatKg, formatQty, formatValue, goodsHasData, newGoodsItem, provideTnvedCheck } from './goods'
-import { GOODS_EXCEL_ACCEPT, GOODS_EXCEL_MESSAGES, isExcelFileName, readGoodsExcel } from './goodsExcel'
+import { GOODS_EXCEL_ACCEPT, GOODS_EXCEL_MESSAGES, isExcelFileName, readGoodsExcel } from '@/utils/goodsExcel'
 import RecordSection from './RecordSection.vue'
 import SectionAddButton from './SectionAddButton.vue'
 
 // Раздел «Товары» (доска TransitRecord, разбор §2.4): карточки товаров, «Из Excel», строка итогов.
 // Товары пишутся прямо в draft.goods. Итоги записи («Основное») пишет useTransitRecord — здесь только показ.
 // Развёрнутость — по стабильному ключу товара (WeakMap по объекту), не по индексу: при открытии записи
-// все свёрнуты, добавленная кнопкой — развёрнута.
+// развёрнута первая карточка, добавленная кнопкой — тоже; строки из Excel приходят свёрнутыми.
 const props = defineProps<{ draft: RecordDraft; readonly: boolean }>()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const tr = (key: string, p?: Record<string, unknown>) => t(`broker.transitRecord.goods.${key}`, p ?? {})
 const { confirm } = useConfirm()
 
@@ -36,6 +36,12 @@ const keyOf = (item: ReestrGoodsItemInput): number => {
   return id
 }
 const expanded = reactive(new Set<number>())
+// При открытии записи (и когда черновик подменили целиком — «Отменить», перечитывание) развёрнута первая
+// карточка, остальные свёрнуты. push/splice массив не подменяют — развёрнутость остальных карточек не трогается.
+watch(() => props.draft.goods, (goods) => {
+  expanded.clear()
+  if (goods.length) expanded.add(keyOf(goods[0]))
+}, { immediate: true })
 const toggle = (item: ReestrGoodsItemInput) => {
   const k = keyOf(item)
   if (expanded.has(k)) expanded.delete(k)
@@ -110,10 +116,10 @@ const totalCells = computed(() => {
   const s = totals.value
   const dash = '—'
   return [
-    { key: 'items', label: tr('totalItems'), value: formatQty(s.items) },
-    { key: 'places', label: tr('totalPlaces'), value: s.places == null ? dash : formatQty(s.places) },
-    { key: 'gross', label: tr('totalGross'), value: s.gross == null ? dash : formatKg(s.gross) },
-    { key: 'value', label: tr('totalValue'), value: s.value == null ? dash : `${formatValue(s.value)} ${s.currency ?? ''}`.trim() },
+    { key: 'items', label: tr('totalItems'), value: formatQty(s.items, locale.value) },
+    { key: 'places', label: tr('totalPlaces'), value: s.places == null ? dash : formatQty(s.places, locale.value) },
+    { key: 'gross', label: tr('totalGross'), value: s.gross == null ? dash : formatKg(s.gross, locale.value) },
+    { key: 'value', label: tr('totalValue'), value: s.value == null ? dash : `${formatValue(s.value, locale.value)} ${s.currency ?? ''}`.trim() },
   ]
 })
 </script>
