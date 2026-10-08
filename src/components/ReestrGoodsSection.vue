@@ -219,10 +219,10 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { CloseOutlined, RightOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { message } from '@/ui/message'
 import type { UploadProps } from 'ant-design-vue'
-import { loadXlsx } from '@/utils/xlsx'
 import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
 import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
+import { GOODS_EXCEL_MESSAGES, isExcelFileName, readGoodsExcel } from '@/views/broker/transit/record/sections/goodsExcel'
 import TroisTrademarkHint from '@/components/import40/TroisTrademarkHint.vue'
 import TariffOptionsHint from '@/components/import40/TariffOptionsHint.vue'
 import type { ReestrGoodsItemInput } from '@/types/api'
@@ -554,112 +554,18 @@ function removeItem(idx: number) {
   emit('update:modelValue', items.value.map(fromRow))
 }
 
-// ── Импорт товаров из Excel «КЕДЕН ШАПКА» ────────────────────────────────────
-// Столбцы источника нестабильны по написанию (пробелы/регистр/лишние слова),
-// поэтому матчим заголовки по нормализованной подстроке, а не точным именам.
-type ExcelField = 'tnvedCode' | 'description' | 'grossWeightKg' | 'quantity' | 'unit' | 'packagesCount'
-
-const EXCEL_COLUMN_MATCHERS: { field: ExcelField; patterns: string[] }[] = [
-  { field: 'tnvedCode', patterns: ['кодтнвэд'] },
-  { field: 'description', patterns: ['коммерческоеописание'] },
-  { field: 'grossWeightKg', patterns: ['брутто'] },
-  { field: 'quantity', patterns: ['количествотовара'] },
-  { field: 'unit', patterns: ['видупаковкитовара'] },
-  { field: 'packagesCount', patterns: ['количествогрузовыхмест'] },
-]
-
-function normalizeHeader(v: unknown): string {
-  return String(v ?? '')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]/gu, '')
-}
-
-function excelToStr(v: unknown): string | null {
-  if (v == null || v === '') return null
-  const s = String(v).trim()
-  return s || null
-}
-
-function excelToNum(v: unknown): number | null {
-  if (v == null || v === '') return null
-  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'))
-  return isNaN(n) ? null : n
-}
-
+// ── Импорт товаров из Excel «КЕДЕН ШАПКА» (разбор — goodsExcel.ts, общий с записью транзита) ──────────
 const excelBusy = ref(false)
 
 async function importGoodsFromExcel(file: File) {
-  const XLSX = await loadXlsx()
   excelBusy.value = true
   try {
-    const buf = await file.arrayBuffer()
-    const wb = XLSX.read(buf, { type: 'array' })
-    const sheetName = wb.SheetNames[0]
-    if (!sheetName) {
-      message.warning(t('dt.vFayleNetListov'))
+    const result = await readGoodsExcel(file)
+    if ('problem' in result) {
+      message.warning(t(GOODS_EXCEL_MESSAGES[result.problem]))
       return
     }
-    const ws = wb.Sheets[sheetName]
-    const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: null, raw: true })
-    if (!rows.length) {
-      message.warning(t('dt.faylPust'))
-      return
-    }
-
-    const headerRow = rows[0] ?? []
-    const colIndex: Partial<Record<ExcelField, number>> = {}
-    headerRow.forEach((cell, idx) => {
-      const norm = normalizeHeader(cell)
-      if (!norm) return
-      for (const matcher of EXCEL_COLUMN_MATCHERS) {
-        if (colIndex[matcher.field] != null) continue
-        if (matcher.patterns.some((p) => norm.includes(p))) {
-          colIndex[matcher.field] = idx
-          break
-        }
-      }
-    })
-
-    const added: GoodsRow[] = []
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i]
-      if (!row || row.every((c) => c == null || c === '')) continue
-
-      const tnvedCode = colIndex.tnvedCode != null ? excelToStr(row[colIndex.tnvedCode]) : null
-      const description = colIndex.description != null ? excelToStr(row[colIndex.description]) : null
-      const grossWeightKg = colIndex.grossWeightKg != null ? excelToNum(row[colIndex.grossWeightKg]) : null
-      const quantity = colIndex.quantity != null ? excelToNum(row[colIndex.quantity]) : null
-      const unit = colIndex.unit != null ? excelToStr(row[colIndex.unit]) : null
-      const packagesCount = colIndex.packagesCount != null ? excelToNum(row[colIndex.packagesCount]) : null
-
-      const isEmptyRow =
-        !tnvedCode && !description && grossWeightKg == null && quantity == null && unit == null && packagesCount == null
-      if (isEmptyRow) continue
-
-      added.push(
-        toRow({
-          description,
-          tnvedCode,
-          tnvedDescription: description,
-          countryOfOrigin: null,
-          quantity,
-          unit,
-          unitCode: null,
-          grossWeightKg,
-          netWeightKg: null,
-          packagesCount,
-          quantityTypeCode: null,
-          customsValue: null,
-          currency: null,
-        }),
-      )
-    }
-
-    if (!added.length) {
-      message.warning(t('dt.neNaydenoTovarovDlya'))
-      return
-    }
-
+    const added = result.goods.map(toRow)
     items.value = [...items.value, ...added]
     syncKeys(items.value.length)
     emit('update:modelValue', items.value.map(fromRow))
@@ -673,8 +579,7 @@ async function importGoodsFromExcel(file: File) {
 }
 
 const onExcelFile: UploadProps['beforeUpload'] = (file) => {
-  const name = file.name.toLowerCase()
-  if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) {
+  if (!isExcelFileName(file.name)) {
     message.error(t('dt.dopustimTolkoExcel'))
     return false
   }
