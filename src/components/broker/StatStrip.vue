@@ -1,0 +1,44 @@
+<script setup lang="ts">
+import { cn } from '@/ui/cn'
+import ZSkeleton from '@/components/z/ZSkeleton.vue'
+
+// Полоса показателей: одна панель, ячейки через вертикальный разделитель (на телефоне — 2 колонки, разделители сверху).
+// tone — точка перед подписью: gold — нужно действие, done — готово, danger — проблема.
+export interface StatItem {
+  key: string
+  label: string
+  value: string
+  hint?: string
+  tone?: 'gold' | 'done' | 'danger' | null
+}
+
+withDefaults(defineProps<{ items: StatItem[]; loading?: boolean }>(), { loading: false })
+
+const DOT: Record<NonNullable<StatItem['tone']>, string> = {
+  gold: 'bg-gold',
+  done: 'bg-tone-done-fg',
+  danger: 'bg-danger',
+}
+</script>
+
+<template>
+  <div
+    class="grid grid-cols-2 overflow-hidden rounded-panel border border-line bg-surface sm:grid-flow-col sm:auto-cols-fr sm:grid-cols-none"
+    :aria-busy="loading ? 'true' : undefined"
+  >
+    <div
+      v-for="(it, i) in items"
+      :key="it.key"
+      data-stat-cell
+      :class="cn('min-w-0 border-line px-5 py-4', i > 0 && 'sm:border-l', i >= 2 && 'max-sm:border-t')"
+    >
+      <div class="flex items-center gap-1.5 text-[12.5px] text-muted">
+        <span v-if="it.tone" data-stat-dot :class="cn('size-[7px] shrink-0 rounded-pill', DOT[it.tone])" aria-hidden="true" />
+        <span class="min-w-0 truncate">{{ it.label }}</span>
+      </div>
+      <ZSkeleton v-if="loading" class="mt-1.5" width="60%" height="22px" />
+      <div v-else class="mt-0.5 text-[22px] leading-[30px] font-semibold text-ink tabular-nums">{{ it.value }}</div>
+      <div v-if="it.hint && !loading" class="mt-0.5 text-[12.5px] text-muted">{{ it.hint }}</div>
+    </div>
+  </div>
+</template>

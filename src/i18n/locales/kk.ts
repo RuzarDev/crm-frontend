@@ -553,6 +553,10 @@ export default {
       period: 'Кезең',
       searchOptions: 'Нұсқаны табу',
       noOptions: 'Нұсқалар жоқ',
+      actions: 'Әрекеттер',
+      more: 'Тағы',
+      total: 'Барлығы: {n}',
+      exportEmpty: 'Жүктеуге ештеңе жоқ',
     },
     requests: {
       title: 'Өтінімдер',

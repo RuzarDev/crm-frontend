@@ -557,6 +557,10 @@ export default {
       period: 'Период',
       searchOptions: 'Найти вариант',
       noOptions: 'Нет вариантов',
+      actions: 'Действия',
+      more: 'Ещё',
+      total: 'Всего: {n}',
+      exportEmpty: 'Нечего выгружать',
     },
     requests: {
       title: 'Заявки',

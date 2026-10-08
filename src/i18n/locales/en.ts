@@ -553,6 +553,10 @@ export default {
       period: 'Period',
       searchOptions: 'Find an option',
       noOptions: 'No options',
+      actions: 'Actions',
+      more: 'More',
+      total: 'Total: {n}',
+      exportEmpty: 'Nothing to export',
     },
     requests: {
       title: 'Requests',

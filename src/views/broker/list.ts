@@ -45,6 +45,13 @@ function localDay(iso: string): string | null {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
+/** Дата ДД.ММ.ГГГГ по локальному дню (метка времени — в местном поясе, голая YYYY-MM-DD — как есть); нет или мусор — «—». */
+export function formatDay(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const day = localDay(iso)
+  return day ? formatDateText(day) || '—' : '—'
+}
+
 /** Попадает ли дата в период; обе границы включительно, период null — фильтра нет. */
 export function inPeriod(iso: string | null | undefined, period: [string, string] | null): boolean {
   if (!period) return true
