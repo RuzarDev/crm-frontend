@@ -115,6 +115,21 @@ describe('ClientSigexModal', () => {
     expect(w.emitted('signed')).toBeUndefined()
   })
 
+  it('закрыли, когда подпись уже отправлена на сохранение, — signed всё равно приходит (экран перечитает)', async () => {
+    api.sigexStartSigningDocument.mockResolvedValue(START)
+    api.sigexPollDocument.mockResolvedValue({ pending: false, sign: 's' })
+    let resolveComplete!: (v: unknown) => void
+    api.sigexCompleteDocument.mockReturnValueOnce(new Promise((r) => { resolveComplete = r }))
+    await mountModal()
+    $('[data-sigex-check]')!.click()
+    await flushPromises()
+    expect(api.sigexCompleteDocument).toHaveBeenCalledWith('cl1', 'd1', 'q1', 'client')
+    await w.setProps({ open: false })
+    resolveComplete({})
+    await flushPromises()
+    expect(w.emitted('signed')).toHaveLength(1)
+  })
+
   it('ошибка проверки без ответа сервера — общий текст', async () => {
     api.sigexStartSigningDocument.mockResolvedValue(START)
     api.sigexPollDocument.mockRejectedValue(new Error('network'))

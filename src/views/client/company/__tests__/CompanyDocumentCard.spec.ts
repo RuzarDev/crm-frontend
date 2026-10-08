@@ -95,6 +95,24 @@ describe('CompanyDocumentCard', () => {
     expect(api.generateDocument).toHaveBeenCalledWith('cl1', { kind: 'contract', isSingleUse: true, validUntilUtc: null }, { silent: true })
   })
 
+  it('подсказка срока — по правилам сервера: многоразовый договор, разовый (в т.ч. принудительно), доверенность', async () => {
+    const help = () => w.get('[data-doc-options] [data-z-field]').text()
+    await mountCard({ docs: [] })
+    expect(help()).toContain('Необязательно — без даты договор действует год')
+    await w.get('[data-opt-single]').trigger('click')
+    expect(help()).toContain('Необязательно — без даты разовый договор действует до использования в поставке')
+    w.unmount()
+    // Действует многоразовый — разовый включён принудительно, подсказка — про разовый.
+    await mountCard({ docs: [ACTIVE] })
+    expect(w.get('[data-opt-single]').attributes('aria-checked')).toBe('true')
+    expect(help()).toContain('без даты разовый договор действует до использования в поставке')
+    w.unmount()
+    await mountCard({ kind: 'poa', docs: [] })
+    expect(help()).toContain('Необязательно — без даты доверенность действует до конца года')
+    await w.get('[data-opt-single]').trigger('click')
+    expect(help()).toContain('без даты доверенность действует до конца года')
+  })
+
   it('история: прежние документы со статусами; актуальный — ждущий подписи', async () => {
     const revoked = doc({ id: 'r', number: '3', status: 4, generatedAtUtc: '2026-01-01T06:00:00Z' })
     const expired = doc({ id: 'e', number: '7', status: 2, validUntilUtc: '2026-02-01T06:00:00Z', generatedAtUtc: '2026-01-05T06:00:00Z' })

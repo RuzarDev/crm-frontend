@@ -10,7 +10,7 @@ import CompanyDocumentCard from '@/views/client/company/CompanyDocumentCard.vue'
 import CompanyRequisitesForm from '@/views/client/company/CompanyRequisitesForm.vue'
 import {
   COMPANY_STEPS, companySteps, isCompanyStep, joinList,
-  type CompanyStep, type StepState, type StepTone,
+  type CompanyStep, type RegistrationSnapshot, type StepState, type StepTone,
 } from '@/views/client/company/company'
 import { import40ContractApi, type ClientCompanyProfileDto, type Import40DocumentDto } from '@/api/import40Contract'
 import { referencesApi } from '@/api/references'
@@ -54,12 +54,32 @@ const fetchAll = async () => {
     registration.refresh(),
   ])
   if (!registration.loaded.value) throw new Error('registration state unavailable')
-  return res
+  // Снимок регистрации: общее состояние композабла сбрасывается при неудачном запросе, а шаги экрана
+  // должны держать последнее известное (при ошибке перечитывания — плашка «Не удалось обновить»).
+  const reg: RegSnap = {
+    profileDone: registration.profileDone.value,
+    contractDone: registration.contractDone.value,
+    poaDone: registration.poaDone.value,
+    contractAwaitingUs: registration.contractAwaitingUs.value,
+    complete: registration.complete.value,
+    nextStep: registration.nextStep.value,
+    needNew: registration.needNew.value,
+    reason: registration.reason.value,
+  }
+  return { docs: res, reg }
 }
-const apply = ([p, c, a]: Awaited<ReturnType<typeof fetchAll>>) => {
+interface RegSnap extends RegistrationSnapshot {
+  complete: boolean
+  nextStep: CompanyStep | null
+  needNew: string | null
+  reason: string | null
+}
+const regSnap = shallowRef<RegSnap | null>(null)
+const apply = ({ docs: [p, c, a], reg }: Awaited<ReturnType<typeof fetchAll>>) => {
   profile.value = p
   contracts.value = c
   poas.value = a
+  regSnap.value = reg
 }
 
 const load = async () => {
@@ -70,7 +90,7 @@ const load = async () => {
     const res = await fetchAll()
     if (my !== seq) return
     apply(res)
-    pinned.value ??= registration.nextStep.value ?? 'contract'
+    pinned.value ??= regSnap.value?.nextStep ?? 'contract'
     status.value = 'ready'
   } catch (e) {
     if (import.meta.env.DEV) console.error(e)
@@ -94,20 +114,20 @@ const reload = async (): Promise<void> => {
 // ---- Шаги ----
 const steps = computed(() => companySteps({
   reg: {
-    profileDone: registration.profileDone.value,
-    contractDone: registration.contractDone.value,
-    poaDone: registration.poaDone.value,
-    contractAwaitingUs: registration.contractAwaitingUs.value,
+    profileDone: !!regSnap.value?.profileDone,
+    contractDone: !!regSnap.value?.contractDone,
+    poaDone: !!regSnap.value?.poaDone,
+    contractAwaitingUs: !!regSnap.value?.contractAwaitingUs,
   },
   contracts: contracts.value,
   poas: poas.value,
 }))
-const complete = computed(() => registration.complete.value)
+const complete = computed(() => !!regSnap.value?.complete)
 const queryStep = computed<CompanyStep | null>(() => (isCompanyStep(route.query.step) ? route.query.step : null))
 // Шаг по умолчанию — следующий шаг клиента по серверу (как ссылка плашки регистрации); выбирается один раз,
 // по первой загрузке: после подписи раздел не «уезжает» из-под клиента.
 const pinned = ref<CompanyStep | null>(null)
-const step = computed<CompanyStep>(() => queryStep.value ?? pinned.value ?? registration.nextStep.value ?? 'contract')
+const step = computed<CompanyStep>(() => queryStep.value ?? pinned.value ?? regSnap.value?.nextStep ?? 'contract')
 const select = (s: CompanyStep) => {
   if (s === step.value && queryStep.value) return
   void router.replace({ query: { ...route.query, step: s } })
@@ -121,12 +141,12 @@ const subtitle = computed(() => {
   const items = COMPANY_STEPS
     .filter((s) => !steps.value[s].done)
     .map((s) => t(`client.company.todo.${s}.${TODO_KEY[steps.value[s].key]}`))
-  if (!items.length) return registration.reason.value ?? t('client.company.subtitleTodoGeneric')
+  if (!items.length) return regSnap.value?.reason ?? t('client.company.subtitleTodoGeneric')
   return t('client.company.subtitleTodo', { list: joinList(items, locale.value) })
 })
 // «Нужен новый» документ раздела и причина от сервера (если can-create указал именно этот документ).
 const needNewOf = (kind: 'contract' | 'poa') => steps.value[kind].key === 'needNew'
-const reasonOf = (kind: 'contract' | 'poa') => (registration.needNew.value === kind ? registration.reason.value : null)
+const reasonOf = (kind: 'contract' | 'poa') => (regSnap.value?.needNew === kind ? regSnap.value.reason : null)
 
 const stepText = (s: StepState) => t(`client.company.stepState.${s.key}`, { date: s.date })
 const STATE_FG: Record<StepTone, string> = {

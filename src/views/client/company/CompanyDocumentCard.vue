@@ -164,6 +164,11 @@ const generate = async () => {
   }
 }
 const minDate = todayYmd()
+// Что будет без даты — по правилам сервера: многоразовый договор — год, разовый — без срока (до использования
+// в поставке), доверенность — до конца года.
+const validUntilHelp = computed(() => t(props.kind === 'poa'
+  ? 'client.company.doc.validUntilHelpPoa'
+  : isSingle.value ? 'client.company.doc.validUntilHelpContractSingle' : 'client.company.doc.validUntilHelpContract'))
 // Календарь (Reka DatePicker, ~70 КБ) нужен редко — грузим, только когда клиент раскрыл параметры.
 const ZDate = defineAsyncComponent(() => import('@/components/z/ZDate.vue'))
 const optionsOpen = ref(false)
@@ -315,7 +320,7 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
           {{ t(k('singleUse')) }}
         </ZCheckbox>
         <p v-if="multiBlocked" class="m-0 text-[13px] text-ink-3">{{ t('client.company.doc.multiBlocked') }}</p>
-        <ZField :label="t('client.company.doc.validUntilLabel')" :help="t('client.company.doc.validUntilHelp')" class="max-w-[260px] max-sm:max-w-none">
+        <ZField :label="t('client.company.doc.validUntilLabel')" :help="validUntilHelp" class="max-w-[260px] max-sm:max-w-none">
           <ZDate v-if="optionsOpen" v-model:value="validUntil" :min="minDate" allow-clear class="max-sm:h-12" data-opt-until />
         </ZField>
         <ZButton

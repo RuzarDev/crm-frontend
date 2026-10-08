@@ -73,7 +73,11 @@ async function check() {
       return
     }
     await import40ContractApi.sigexCompleteDocument(props.clientId, props.docId, qrId.value, 'client')
-    if (my !== seq) return
+    // Подпись уже сохранена на сервере: даже если окно успели закрыть, экран должен перечитать документ.
+    if (my !== seq) {
+      emit('signed')
+      return
+    }
     step.value = 'success'
   } catch (e) {
     if (my !== seq) return

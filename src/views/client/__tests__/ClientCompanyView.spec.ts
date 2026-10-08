@@ -318,6 +318,27 @@ describe('ClientCompanyView', () => {
     expect(w.get('[data-plate="client"]').text()).toContain('Подписано 08.10 файлом')
   })
 
+  it('can-create упал при перечитывании — шаги держат прежнее состояние, а не «Нужно заполнить»', async () => {
+    api.signDocument.mockResolvedValue(doc({ clientSigned: true }))
+    imp.canCreate.mockResolvedValue(can({ poaOk: true, needNew: 'contract' }))
+    setDocs([doc({})], [ACTIVE_POA])
+    await mountAt()
+    expect(stepState('profile')).toBe('Заполнены')
+    expect(stepState('contract')).toBe('Ждёт вашей подписи')
+    imp.canCreate.mockRejectedValueOnce(new Error('offline'))
+    const input = w.get('[data-sign-file]')
+    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'a.cms')], configurable: true })
+    await input.trigger('change')
+    await flushPromises()
+    expect(w.find('[data-company-reload-error]').exists()).toBe(true)
+    expect(stepState('profile')).toBe('Заполнены')
+    expect(stepTone('profile')).toBe('done')
+    expect(stepState('contract')).toBe('Ждёт вашей подписи')
+    expect(stepTone('poa')).toBe('done')
+    expect(w.find('[data-requisites-form]').exists()).toBe(false)
+    expect(subtitle()).toBe('Три шага, после которых можно оформлять поставки. Осталось подписать договор.')
+  })
+
   it('can-create недоступен — ошибка на месте (шаги без источника истины не показываем), «Повторить»', async () => {
     imp.canCreate.mockRejectedValueOnce(new Error('boom'))
     await mountAt()
