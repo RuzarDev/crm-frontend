@@ -143,6 +143,16 @@ describe('ZDropdown', () => {
     expect(menuItems()).toHaveLength(0) // после выбора меню закрывается
   })
 
+  it('openChange — при открытии и закрытии меню', async () => {
+    w = mountDd()
+    await w.get('button').trigger('keydown', { key: 'Enter' })
+    await tick()
+    expect(w.emitted('openChange')?.at(-1)).toEqual([true])
+    document.body.querySelector<HTMLElement>('[role="menu"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await tick()
+    expect(w.emitted('openChange')?.at(-1)).toEqual([false])
+  })
+
   it('клавиатура: ArrowDown открывает, ArrowDown ведёт подсветку, Enter выбирает один раз, фокус на триггере', async () => {
     w = mountDd()
     const trigger = w.get('button').element as HTMLButtonElement

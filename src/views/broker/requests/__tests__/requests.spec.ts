@@ -141,6 +141,14 @@ describe('filterRows', () => {
     expect(ids({ executor: 'k1' })).toEqual(['b'])
     expect(ids({ executor: EXECUTOR_NONE })).toEqual(['c'])
   })
+  it('«Не назначен» совпадает с ячейкой: нужный исполнитель отсутствует на этом шаге', () => {
+    const half = row({ id: 'h', status: 2, assignedKppId: 'k1' }) // декларирование: есть КПП, нет декларанта
+    const draft = row({ id: 'z', status: 0 }) // черновику исполнитель не нужен
+    const done = row({ id: 'e', status: 8 })
+    const got = filterRows([half, draft, done], { ...emptyFilters(), executor: EXECUTOR_NONE }).map((r) => r.id)
+    expect(got).toEqual(['h'])
+    for (const r of [half, draft, done]) expect(got.includes(r.id)).toBe(executorInfo(r, null, t).missing)
+  })
   it('этап', () => {
     expect(ids({ stage: '1' })).toEqual(['b'])
     expect(ids({ stage: '0' })).toEqual([])

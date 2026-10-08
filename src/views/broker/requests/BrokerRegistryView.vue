@@ -23,7 +23,8 @@ import type { ZColumn } from '@/ui/table'
 
 // «Сводный реестр» (только администратор; редизайн, волна 3а): заявки Импорта 40 и Транзита одним списком.
 // Данные постранично с сервера (25 строк): тип, статус, поиск и период уходят в запрос, любая смена — на страницу 1.
-// Поиск — через ListSearch с задержкой 400 мс (запрос по Enter и очистке — сразу).
+// Поиск — через ListSearch с задержкой 400 мс (запрос по Enter и очистке — сразу). В запрос идёт только
+// отправленное значение (search): набранное, но не отправленное, при листании страниц не участвует.
 const { t } = useI18n()
 const router = useRouter()
 const { statusLabel } = useImport40Status()
@@ -34,13 +35,14 @@ const PAGE_SIZE = 25
 const type = ref<RegistryType>('all')
 const status = ref<string | null>(null)
 const q = ref('')
+const search = ref('')
 const period = ref<[string, string] | null>(null)
 const page = ref(1)
 
 const block = useBlock<RegistryListResponse>(true, () => registryApi.list({
   type: type.value === 'all' ? undefined : type.value,
   status: status.value ?? undefined,
-  search: q.value.trim() || undefined,
+  search: search.value.trim() || undefined,
   from: period.value?.[0],
   to: period.value?.[1],
   page: page.value,
@@ -58,6 +60,7 @@ const setType = (v: unknown) => {
 const setStatus = (v: string | null) => { status.value = v; reload() }
 const setPeriod = (v: [string, string] | null) => { period.value = v; reload() }
 const onPage = (p: number) => { page.value = p; void block.load() }
+const onSearch = (v: string) => { search.value = v; reload() }
 
 // ---- Варианты ----
 const typeOptions = computed(() => (['all', 'import40', 'transit'] as const).map((k) => ({ value: k, label: t(`broker.registry.type.${k}`) })))
@@ -73,7 +76,7 @@ const statusOptions = computed(() => {
 type Row = RegistryRowDto & { rowKey: string }
 const rows = computed<Row[]>(() => (block.data?.items ?? []).map((r) => ({ ...r, rowKey: `${r.serviceType}:${r.id}` })))
 const total = computed(() => block.data?.totalCount ?? 0)
-const filtered = computed(() => type.value !== 'all' || !!status.value || !!q.value.trim() || !!period.value)
+const filtered = computed(() => type.value !== 'all' || !!status.value || !!search.value.trim() || !!period.value)
 
 const columns = computed<ZColumn<Row>[]>(() => [
   { key: 'type', title: t('broker.registry.col.type'), width: 120 },
@@ -134,6 +137,7 @@ const resetFilters = () => {
   type.value = 'all'
   status.value = null
   q.value = ''
+  search.value = ''
   period.value = null
   reload()
 }
@@ -173,7 +177,7 @@ const resetFilters = () => {
         :debounce="400"
         class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1"
         data-registry-search
-        @search="reload"
+        @search="onSearch"
       />
       <FilterChip v-if="statusOptions.length" :label="t('broker.registry.filter.status')" :options="statusOptions" :value="status" @update:value="setStatus" />
       <PeriodChip :label="t('broker.list.period')" :value="period" @update:value="setPeriod" />

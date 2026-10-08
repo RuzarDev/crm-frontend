@@ -75,6 +75,10 @@ export function shortName(name: string): string {
   return second ? `${first} ${second[0].toUpperCase()}.` : (first ?? '')
 }
 
+/** Заявке на этом шаге нужен исполнитель, а его нет (ячейка «не назначен» и фильтр «Не назначен»). */
+export const executorMissing = (r: Pick<Import40BoardRow, 'status' | 'assignedDeclarantId' | 'assignedKppId'>): boolean =>
+  (needsDeclarant(r.status) && !r.assignedDeclarantId) || (needsKpp(r.status) && !r.assignedKppId)
+
 /** Исполнитель заявки для ячейки; t — переводчик (ключи import40Case.you / staffAssigned); short — «Имя Ф.». */
 export function executorInfo(
   r: Pick<Import40BoardRow, 'status' | 'assignedDeclarantId' | 'assignedDeclarantName' | 'assignedKppId' | 'assignedKppName'>,
@@ -85,8 +89,7 @@ export function executorInfo(
   const part = (id?: string | null, name?: string | null): string | null =>
     id ? (id === userId ? t('import40Case.you') : name ? (short ? shortName(name) : name) : t('import40Case.staffAssigned')) : null
   const parts = [part(r.assignedDeclarantId, r.assignedDeclarantName), part(r.assignedKppId, r.assignedKppName)].filter((p): p is string => !!p)
-  const missing = (needsDeclarant(r.status) && !r.assignedDeclarantId) || (needsKpp(r.status) && !r.assignedKppId)
-  return { text: parts.join(' · '), missing }
+  return { text: parts.join(' · '), missing: executorMissing(r) }
 }
 
 /** Ячейка «Исполнитель» одной строкой: имена, «не назначен» (если нужен и нет) или «—». Для Excel и подсказок. */
@@ -116,8 +119,9 @@ export function filterRows(rows: Import40BoardRow[], f: RequestFilters): Import4
     if (f.client && r.clientId !== f.client) return false
     if (f.stage != null && f.stage !== '' && String(r.status) !== f.stage) return false
     if (f.executor) {
+      // «Не назначен» — ровно то, что ячейка показывает как «не назначен».
       if (f.executor === EXECUTOR_NONE) {
-        if (r.assignedDeclarantId || r.assignedKppId) return false
+        if (!executorMissing(r)) return false
       } else if (r.assignedDeclarantId !== f.executor && r.assignedKppId !== f.executor) return false
     }
     if (!inPeriod(r.updatedAtUtc, f.period)) return false

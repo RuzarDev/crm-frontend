@@ -576,6 +576,7 @@ export default {
       assignDeclarant: 'Assign declarant',
       assignKpp: 'Assign checkpoint officer',
       noStaff: 'No staff',
+      staffError: 'Could not load staff',
       assigned: 'Assigned: {ok}',
       assignedFailed: 'Assigned: {ok}, failed: {fail}',
       create: {
@@ -612,6 +613,7 @@ export default {
       updatedAgo: 'updated {n} d ago',
       load: 'Workload',
       loadHint: 'active requests',
+      role: { declarant: 'declarant', kpp: 'checkpoint' },
       empty: {
         noDeclarant: 'Every request at the declarant step has a declarant',
         noKpp: 'Every request at the checkpoint step has a checkpoint officer',

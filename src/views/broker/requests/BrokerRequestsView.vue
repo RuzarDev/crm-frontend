@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { PhCaretDown, PhDownloadSimple, PhFlag, PhPlus } from '@phosphor-icons/vue'
+import { PhArrowClockwise, PhCaretDown, PhDownloadSimple, PhFlag, PhPlus } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZDropdown from '@/components/z/ZDropdown.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
@@ -45,7 +45,10 @@ const { statusLabel } = useImport40Status()
 
 const board = useBlock(true, () => import40BoardApi.list('all', { silent: true }))
 const mine = useBlock(true, () => import40BoardApi.list('my', { silent: true }))
-onMounted(() => { void Promise.all([board.load(), mine.load()]) })
+const reload = () => Promise.all([board.load(), mine.load()])
+onMounted(() => { void reload() })
+// «Обновить» крутится только поверх уже показанных данных (первую загрузку видно по скелетону).
+const refreshing = computed(() => (board.loading || mine.loading) && !!(board.data || mine.data))
 
 // ---- Права ----
 const canCreate = computed(() => auth.canCreateImport40 || (auth.role ?? '').trim().toLowerCase() === 'administrator')
@@ -105,18 +108,29 @@ const rowSelection = computed(() => (canAssign.value && tab.value !== 'done'
   ? { selectedRowKeys: selected.value as ZKey[], onChange: (keys: ZKey[]) => { selected.value = keys.map(String) } }
   : undefined))
 
+// Сотрудники для назначения: заранее — при первом выборе строки; при открытии меню — снова, если прошлая
+// загрузка упала или ещё не завершилась (ответ прежнего запроса отбрасывается). Тост ошибки показал перехватчик.
 const staff = ref<StaffMember[]>([])
-let staffLoaded = false
-watch(() => selected.value.length > 0, async (any) => {
-  if (!any || staffLoaded || !canAssign.value) return
-  staffLoaded = true
+const staffState = ref<'idle' | 'loading' | 'ok' | 'error'>('idle')
+let staffSeq = 0
+const loadStaff = async () => {
+  if (!canAssign.value) return
+  const my = ++staffSeq
+  staffState.value = 'loading'
   try {
-    staff.value = await manageApi.staff()
+    const list = await manageApi.staff()
+    if (my !== staffSeq) return
+    staff.value = list
+    staffState.value = 'ok'
   } catch {
-    staffLoaded = false // тост показал перехватчик; следующий выбор пробует снова
+    if (my === staffSeq) staffState.value = 'error'
   }
-})
+}
+watch(() => selected.value.length > 0, (any) => { if (any && staffState.value === 'idle') void loadStaff() })
+const onAssignMenu = (open: boolean) => { if (open && staffState.value !== 'ok') void loadStaff() }
 const staffItems = (role: string) => {
+  if (staffState.value === 'error') return [{ key: '', label: t('broker.requests.staffError'), disabled: true }]
+  if (staffState.value !== 'ok') return [{ key: '', label: t('common.loading'), disabled: true }]
   const list = staff.value.filter((u) => u.roles.includes(role)).map((u) => ({ key: u.id, label: u.displayName || u.username }))
   return list.length ? list : [{ key: '', label: t('broker.requests.noStaff'), disabled: true }]
 }
@@ -142,7 +156,7 @@ const assign = async (field: 'assignedDeclarantId' | 'assignedKppId', staffId: s
     if (fail) message.warning(t('broker.requests.assignedFailed', { ok, fail }))
     else message.success(t('broker.requests.assigned', { ok }))
     selected.value = []
-    await Promise.all([board.load(), mine.load()])
+    await reload()
   } finally {
     assigning.value = false
   }
@@ -152,12 +166,14 @@ const assign = async (field: 'assignedDeclarantId' | 'assignedKppId', staffId: s
 const columns = computed<ZColumn<Import40BoardRow>[]>(() => [
   { key: 'request', title: t('broker.requests.col.request'), width: 160, sorter: (a, b) => a.number.localeCompare(b.number, 'ru', { numeric: true }) },
   { key: 'client', title: t('broker.requests.col.client'), width: 170 },
-  { key: 'tnved', title: t('broker.requests.col.tnved'), width: 122 },
+  { key: 'tnved', title: t('broker.requests.col.tnved'), width: 140 },
   { key: 'stage', title: t('broker.requests.col.stage'), width: 200, sorter: (a, b) => a.status - b.status },
   { key: 'executor', title: t('broker.requests.col.executor'), width: 130 },
   { key: 'payments', title: t('broker.requests.col.payments'), width: 110, align: 'right' },
   { key: 'updated', title: t('broker.requests.col.updated'), width: 96, align: 'right', defaultSortOrder: 'descend', sorter: (a, b) => Date.parse(a.updatedAtUtc) - Date.parse(b.updatedAtUtc) },
 ])
+// Ширина таблицы — сумма колонок (+40 под колонку выбора): иначе узкие колонки сжимаются и «+N» наезжает на «Этап».
+const tableWidth = computed(() => columns.value.reduce((s, c) => s + (typeof c.width === 'number' ? c.width : 0), rowSelection.value ? 40 : 0))
 const pagination = computed(() => ({
   current: page.value,
   onChange: (p: number) => { page.value = p },
@@ -223,7 +239,11 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
         >{{ headCount }}</span>
       </div>
       <div class="ml-auto flex flex-wrap gap-2 max-sm:w-full">
-        <ZButton :loading="exporting" class="max-sm:h-11 max-sm:flex-1" data-requests-excel @click="exportExcel">
+        <ZButton variant="ghost" :loading="refreshing" class="max-sm:h-11 max-sm:flex-1" data-requests-refresh @click="reload">
+          <template #icon><PhArrowClockwise :size="16" aria-hidden="true" /></template>
+          {{ t('broker.list.refresh') }}
+        </ZButton>
+        <ZButton :loading="exporting" :disabled="!rows.length" class="max-sm:h-11 max-sm:flex-1" data-requests-excel @click="exportExcel">
           <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
           {{ t('broker.list.excel') }}
         </ZButton>
@@ -244,11 +264,15 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
       <PeriodChip :label="t('broker.list.period')" :value="filters.period" @update:value="patch({ period: $event })" />
     </div>
 
-    <div v-if="source.error" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-requests-error>
+    <div v-if="source.error && !source.data" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-requests-error>
       <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('broker.list.loadError') }}</p>
       <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-requests-retry @click="retry">{{ t('broker.list.retry') }}</ZButton>
     </div>
     <template v-else>
+      <div v-if="source.error" class="flex flex-wrap items-center gap-3 rounded-row bg-tone-danger-bg px-4 py-2" data-requests-error>
+        <p class="m-0 min-w-0 flex-1 text-sm text-tone-danger-fg">{{ t('broker.list.loadError') }}</p>
+        <ZButton size="sm" class="max-sm:h-11" data-requests-retry @click="retry">{{ t('broker.list.retry') }}</ZButton>
+      </div>
       <ZTable
         :columns="columns"
         :data-source="rows"
@@ -257,7 +281,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
         :row-selection="rowSelection"
         :custom-row="customRow"
         :pagination="pagination"
-        :scroll="{ x: 900 }"
+        :scroll="{ x: tableWidth }"
         :aria-label="t('broker.requests.tableLabel')"
         class="overflow-hidden rounded-panel border border-line bg-surface max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent"
         data-requests-table
@@ -303,12 +327,12 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
 
     <SelectionBar :count="selected.length" class="sticky bottom-3 z-10 self-start" data-requests-selection @clear="selected = []">
       <template #default="{ actionClass }">
-        <ZDropdown :items="declarantItems" @select="assign('assignedDeclarantId', $event)">
+        <ZDropdown :items="declarantItems" @open-change="onAssignMenu" @select="assign('assignedDeclarantId', $event)">
           <button type="button" :class="actionClass" :disabled="assigning" data-assign-declarant>
             {{ t('broker.requests.assignDeclarant') }}<PhCaretDown :size="12" weight="bold" aria-hidden="true" />
           </button>
         </ZDropdown>
-        <ZDropdown :items="kppItems" @select="assign('assignedKppId', $event)">
+        <ZDropdown :items="kppItems" @open-change="onAssignMenu" @select="assign('assignedKppId', $event)">
           <button type="button" :class="actionClass" :disabled="assigning" data-assign-kpp>
             {{ t('broker.requests.assignKpp') }}<PhCaretDown :size="12" weight="bold" aria-hidden="true" />
           </button>

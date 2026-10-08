@@ -580,6 +580,7 @@ export default {
       assignDeclarant: 'Назначить декларанта',
       assignKpp: 'Назначить КПП',
       noStaff: 'Нет сотрудников',
+      staffError: 'Не удалось загрузить сотрудников',
       assigned: 'Назначено: {ok}',
       assignedFailed: 'Назначено: {ok}, не удалось: {fail}',
       create: {
@@ -616,6 +617,7 @@ export default {
       updatedAgo: 'обновлена {n} дн. назад',
       load: 'Загрузка',
       loadHint: 'активных заявок',
+      role: { declarant: 'декларант', kpp: 'КПП' },
       empty: {
         noDeclarant: 'Всем заявкам на шаге декларанта назначен декларант',
         noKpp: 'Всем заявкам на шаге КПП назначен КПП',

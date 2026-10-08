@@ -557,7 +557,7 @@ export default {
     requests: {
       title: 'Өтінімдер',
       tabsLabel: 'Өтінімдер тізімінің бөлімдері',
-      tab: { active: 'Жұмыста', waiting: 'Клиентті күтуде', my: 'Меншікті', drafts: 'Жобалар', done: 'Аяқталған' },
+      tab: { active: 'Жұмыста', waiting: 'Клиентті күтуде', my: 'Менікі', drafts: 'Жобалар', done: 'Аяқталған' },
       search: 'Клиент, нөмір, СЭҚ ТН, контейнер',
       filter: { client: 'Клиент', executor: 'Орындаушы', stage: 'Кезең' },
       newRequest: 'Жаңа өтінім',
@@ -576,6 +576,7 @@ export default {
       assignDeclarant: 'Декларантты тағайындау',
       assignKpp: 'ӨБП тағайындау',
       noStaff: 'Қызметкерлер жоқ',
+      staffError: 'Қызметкерлерді жүктеу мүмкін болмады',
       assigned: 'Тағайындалды: {ok}',
       assignedFailed: 'Тағайындалды: {ok}, орындалмады: {fail}',
       create: {
@@ -612,6 +613,7 @@ export default {
       updatedAgo: '{n} күн бұрын жаңартылған',
       load: 'Жүктеме',
       loadHint: 'белсенді өтінім',
+      role: { declarant: 'декларант', kpp: 'ӨБП' },
       empty: {
         noDeclarant: 'Декларант кезеңіндегі барлық өтінімге декларант тағайындалған',
         noKpp: 'ӨБП кезеңіндегі барлық өтінімге ӨБП тағайындалған',

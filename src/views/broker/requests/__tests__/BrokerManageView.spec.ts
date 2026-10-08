@@ -190,6 +190,8 @@ describe('BrokerManageView', () => {
     expect(rows[1]).toContain('erlan')
     expect(rows[1]).toContain('1')
     expect(rows[2]).toContain('Данияр С.')
+    // подпись роли — короткая, из broker.manage.role.*
+    expect(w.findAll('[data-manage-load-role]').map((r) => r.text())).toEqual(['декларант', 'КПП', 'декларант'])
     const bars = w.findAll('[data-manage-load-bar]').map((b) => b.attributes('style'))
     expect(bars[0]).toContain('width: 100%')
     expect(bars[2]).toContain('width: 0%')

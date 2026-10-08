@@ -14,7 +14,7 @@ import { ZFieldBoundary } from '@/ui/form'
 // фокус возвращается на триггер. Не модальное: страница не блокируется и не теряет прокрутку (как у меню строк AntD). divider: true — линия-разделитель НАД этим пунктом.
 // Слот header — подпись вверху меню (кто вошёл, роль): не пункт, стрелки по нему не ходят; под ним линия.
 // checked (true/false) — пункт-переключатель (menuitemcheckbox, галочка слева): выбор не закрывает меню,
-// состояние ведёт родитель по select.
+// состояние ведёт родитель по select. openChange — меню открылось/закрылось (догрузить пункты при открытии).
 export interface ZDropdownItem {
   key: string
   label: string
@@ -26,11 +26,11 @@ export interface ZDropdownItem {
 }
 
 defineProps<{ items: ZDropdownItem[] }>()
-const emit = defineEmits<{ select: [key: string] }>()
+const emit = defineEmits<{ select: [key: string]; openChange: [open: boolean] }>()
 </script>
 
 <template>
-  <DropdownMenuRoot :modal="false">
+  <DropdownMenuRoot :modal="false" @update:open="emit('openChange', $event)">
     <DropdownMenuTrigger as-child>
       <slot />
     </DropdownMenuTrigger>

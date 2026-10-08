@@ -14,7 +14,6 @@ import ZTag from '@/components/z/ZTag.vue'
 import ListSearch from '@/components/broker/ListSearch.vue'
 import { manageApi, type ManageCase, type ManageOverview } from '@/api/manage'
 import { import40Api } from '@/api/import40'
-import { businessRoleLabel } from '@/api/permissions'
 import { useImport40Status } from '@/composables/useImport40Status'
 import { TOTAL_STEPS, stepForStatus } from '@/utils/import40Steps'
 import { matchesQuery } from '@/views/broker/list'
@@ -119,7 +118,8 @@ const clearProblem = async (id: string) => {
 // ---- Нагрузка ----
 const loads = computed(() => staffLoad(staff.value, cases.value))
 const loadMax = computed(() => Math.max(...loads.value.map((s) => s.count), 1))
-const roleText = (roles: string[]) => roles.map(businessRoleLabel).join(', ')
+// Короткая подпись роли («декларант», «КПП»): в панели узко, полные названия ролей не нужны.
+const roleText = (roles: string[]) => roles.map((r) => t(`broker.manage.role.${r}`)).join(', ')
 
 // ---- Таблица ----
 const page = ref(1)
@@ -262,7 +262,7 @@ const emptyTitle = computed(() => (search.value.trim() ? t('broker.list.nothingF
                 <span class="min-w-0 truncate font-medium text-ink" :title="s.name">{{ s.name }}</span>
                 <span class="font-semibold tabular-nums" :class="s.count >= HEAVY_LOAD ? 'text-gold-ink' : 'text-ink-2'" data-manage-load-count>{{ s.count }}</span>
               </div>
-              <div class="mt-px mb-1.5 truncate text-xs text-muted" :title="roleText(s.roles)">{{ roleText(s.roles) }}</div>
+              <div class="mt-px mb-1.5 truncate text-xs text-muted" :title="roleText(s.roles)" data-manage-load-role>{{ roleText(s.roles) }}</div>
               <div class="h-1 rounded-pill bg-sunken" aria-hidden="true">
                 <div class="h-1 rounded-pill" :class="s.count >= HEAVY_LOAD ? 'bg-gold' : 'bg-zircon'" :style="{ width: `${loadPercent(s.count, loadMax)}%` }" data-manage-load-bar />
               </div>

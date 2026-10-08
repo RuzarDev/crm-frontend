@@ -44,8 +44,8 @@ let pinia: Pinia
 let router: Router
 const stub = { template: '<div/>' }
 const DropdownStub = {
-  props: ['items'], emits: ['select'],
-  template: '<div><slot /><button v-for="i in items" :key="i.key" type="button" :data-item="i.key" @click="$emit(\'select\', i.key)">{{ i.label }}</button></div>',
+  props: ['items'], emits: ['select', 'openChange'],
+  template: '<div data-dd><slot /><button type="button" data-dd-open @click="$emit(\'openChange\', true)" /><button v-for="i in items" :key="i.key" type="button" :data-item="i.key" :disabled="i.disabled" @click="$emit(\'select\', i.key)">{{ i.label }}</button></div>',
 }
 
 const mountAt = async (path: string) => {
@@ -266,5 +266,74 @@ describe('BrokerRequestsView', () => {
     const rows = spy.mock.calls[0][2] as Record<string, unknown>[]
     expect(rows.map((r) => r['Заявка'])).toEqual(['ИМ-2026-0002'])
     spy.mockRestore()
+  })
+
+  it('«Обновить» перезагружает оба списка', async () => {
+    await mountAt('/import-40?tab=active')
+    expect(api.board).toHaveBeenCalledTimes(2)
+    await w.get('[data-requests-refresh]').trigger('click')
+    await flushPromises()
+    expect(api.board).toHaveBeenCalledTimes(4)
+  })
+
+  it('перезагрузка упала, данные есть — таблица остаётся, ошибка полосой над ней', async () => {
+    await mountAt('/import-40?tab=active')
+    api.board.mockRejectedValueOnce(new Error('500'))
+    await w.get('[data-requests-refresh]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-requests-error]').exists()).toBe(true)
+    expect(w.find('[data-requests-table]').exists()).toBe(true)
+    expect(numbers().length).toBe(3)
+    await w.get('[data-requests-retry]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-requests-error]').exists()).toBe(false)
+  })
+
+  it('«Excel» неактивна, когда строк нет', async () => {
+    await mountAt('/import-40?tab=active')
+    expect(w.get('[data-requests-excel]').attributes('disabled')).toBeUndefined()
+    await w.get('input[type="search"]').setValue('нет такого')
+    await flushPromises()
+    expect(w.get('[data-requests-excel]').attributes('disabled')).toBeDefined()
+  })
+
+  it('ширина таблицы — сумма колонок (+40 под выбор)', async () => {
+    const width = () => (w.get('table').element as HTMLElement).style.getPropertyValue('--z-table-x')
+    await mountAt('/import-40?tab=active')
+    expect(width()).toBe('1046px')
+    w.unmount()
+    asStaff(['import40.read', 'import40.declarant'])
+    await mountAt('/import-40?tab=active')
+    expect(width()).toBe('1006px')
+  })
+
+  it('сотрудники: пока грузятся — «Загрузка…»; упали — меню при открытии запрашивает снова', async () => {
+    let resolve!: (v: unknown) => void
+    api.staff.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+    await mountAt('/import-40?tab=active')
+    await w.findAll('tbody [role="checkbox"]')[0].trigger('click')
+    await flushPromises()
+    expect(api.staff).toHaveBeenCalledTimes(1)
+    const firstMenu = () => w.findAll('[data-dd]')[0]
+    expect(firstMenu().text()).toContain('Загрузка…')
+    expect(firstMenu().text()).not.toContain('Нет сотрудников')
+    // ответ не пришёл — открытие меню запрашивает снова; поздний ответ первого запроса отбрасывается
+    api.staff.mockRejectedValueOnce(new Error('500'))
+    await firstMenu().get('[data-dd-open]').trigger('click')
+    await flushPromises()
+    expect(api.staff).toHaveBeenCalledTimes(2)
+    resolve([{ id: 'old', username: 'old', displayName: 'Старый', roles: ['declarant'] }])
+    await flushPromises()
+    expect(firstMenu().text()).toContain('Не удалось загрузить сотрудников')
+    expect(firstMenu().text()).not.toContain('Старый')
+    // упала — следующее открытие пробует снова
+    await firstMenu().get('[data-dd-open]').trigger('click')
+    await flushPromises()
+    expect(api.staff).toHaveBeenCalledTimes(3)
+    expect(firstMenu().text()).toContain('Айгерим')
+    // загружено — повторное открытие не запрашивает
+    await firstMenu().get('[data-dd-open]').trigger('click')
+    await flushPromises()
+    expect(api.staff).toHaveBeenCalledTimes(3)
   })
 })

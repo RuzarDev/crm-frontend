@@ -123,6 +123,19 @@ describe('BrokerRegistryView', () => {
     expect(lastQuery()).toMatchObject({ search: 'альфа', page: 1 })
   })
 
+  it('набранный, но не отправленный поиск не уходит в запрос при листании', async () => {
+    await mountView()
+    vi.useFakeTimers()
+    await w.get('[data-registry-search]').setValue('альфа')
+    const next = w.findAll('button').find((b) => b.text() === '2')!
+    await next.trigger('click')
+    await flushPromises()
+    expect(lastQuery()).toMatchObject({ search: undefined, page: 2 })
+    vi.advanceTimersByTime(400)
+    await flushPromises()
+    expect(lastQuery()).toMatchObject({ search: 'альфа', page: 1 })
+  })
+
   it('смена страницы — запрос с номером страницы; фильтр после этого — снова страница 1', async () => {
     await mountView()
     const next = w.findAll('button').find((b) => b.text() === '2')!
