@@ -675,8 +675,10 @@ export default {
         departureOfficeTooLong: 'The office of departure is longer than 32 characters — a registry row cannot be generated from this consignment. Pick a customs post with a code in the transit declaration.',
         notLoaded: 'The consignment is not loaded — it cannot be saved. Refresh the page.',
         transitUnreadable: 'The consignment’s transit data could not be read. Saving will replace it with default values — click “Save anyway” if that is what you want.',
-        createdNotFound: 'The consignment was created but is missing from the server response. Refresh the page before saving again.',
-        invoicesPartial: 'Consignment saved. Invoices uploaded: {done} of {total} — the rest are still queued, click “Save” again.',
+        createdNotFound: 'The consignment was created but is missing from the server response. Refresh the page — saving again would create a duplicate.',
+        invoicesPartial: 'Consignment saved. Invoices uploaded: {done} of {total} ({reason}) — the rest are still queued, click “Save” again.',
+        shipperTooLong: 'Shipper: a field is too long (name, region, city — up to 200 characters, country code — up to 8, address — up to 300).',
+        consigneeTooLong: 'Consignee: a field is too long (name, region, city — up to 200 characters, country code — up to 8, address — up to 300).',
       },
     },
     transitRecord: {

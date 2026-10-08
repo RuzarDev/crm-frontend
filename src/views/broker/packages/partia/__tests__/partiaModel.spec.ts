@@ -6,6 +6,7 @@ import {
   draftFromPartia,
   mergePartia,
   partiaToBody,
+  partyTooLong,
   transitJsonBroken,
   transitFilled,
   validatePartia,
@@ -141,6 +142,53 @@ describe('partiaToBody', () => {
     expect(t.goodsQuantity).toBeNull()
   })
 
+  it('типы ConsolidationTransitData: null-флаги → false, пустые и «дд.мм.гггг» даты → null/ISO, числа строкой → числа (B9)', () => {
+    const broken = {
+      ...fullTransit,
+      isMultimodal: null,
+      transportDocDate: '',
+      grossWeightKg: '570,5',
+      totalValue: 'много',
+      goodsQuantity: '2',
+      submitterBin: 123456789012,
+      transportMeans: [{ ...fullTransit.transportMeans[0], isEmpty: null, isWagonReturn: undefined, inContainer: 'true', matchesTransitVehicle: null }],
+      identificationMeans: [{ noSeal: null, meansTypeCode: '1', quantity: '', number: 'SL-1' }],
+      packages: [{ packagingInfoKindCode: '0', packageTypeCode: 'CT', packageCount: '36', description: null }],
+      precedingDocs: [
+        { docTypeCode: '09013', number: 'PD-1', date: '' },
+        { docTypeCode: '09013', number: 'PD-2', date: '01.09.2026' },
+        { docTypeCode: '09013', number: 'PD-3', date: '2026-09-01T00:00:00Z' },
+        { docTypeCode: '09013', number: 'PD-4', date: 'когда-то' },
+      ],
+      guarantees: [{ guaranteeTypeCode: '01', amount: null, currencyCode: 'KZT', number: 'G-1' }],
+    }
+    const d = draftFromPartia(fullPartia({ transitDataJson: JSON.stringify(broken) }))
+    const t = JSON.parse(partiaToBody(d).transitDataJson!)
+    expect(t.isMultimodal).toBe(false)
+    expect(t.transportDocDate).toBeNull()
+    expect(t.grossWeightKg).toBe(570.5)
+    expect(t.totalValue).toBeNull()
+    expect(t.goodsQuantity).toBe(2)
+    expect(t.submitterBin).toBe('123456789012')
+    expect(t.transportMeans[0]).toMatchObject({ isEmpty: false, isWagonReturn: false, inContainer: true, matchesTransitVehicle: false, wagonOrContainerNumber: '12345678' })
+    expect(t.identificationMeans[0]).toEqual({ noSeal: false, meansTypeCode: '1', quantity: null, number: 'SL-1' })
+    expect(t.packages[0].packageCount).toBe(36)
+    expect(t.precedingDocs.map((x: { date: string | null }) => x.date)).toEqual([null, '2026-09-01', '2026-09-01', null])
+    expect(t.guarantees[0].amount).toBeNull()
+    // остальное — без потерь
+    expect(t.organizations).toEqual(fullTransit.organizations)
+    expect(t.departureCustomsOffice).toBe('57507')
+  })
+
+  it('флаг без ключа в строке появляется как false; ключи, неизвестные серверу, не теряются', () => {
+    const d = draftFromPartia(null)
+    d.record.transportMeans.push({ transportModeCode: '20' } as never)
+    ;(d.record.organizations as unknown[]).push({ role: 'Декларант', extra: 'x' })
+    const t = JSON.parse(partiaToBody(d).transitDataJson!)
+    expect(t.transportMeans[0]).toEqual({ transportModeCode: '20', isEmpty: false, isWagonReturn: false, inContainer: false, matchesTransitVehicle: false })
+    expect(t.organizations[0]).toEqual({ role: 'Декларант', extra: 'x' })
+  })
+
   it('черновик не меняется', () => {
     const d = draftFromPartia(fullPartia())
     d.record.transit.cargoPlacesCount = 36.5
@@ -179,6 +227,19 @@ describe('validatePartia', () => {
       'broker.partia.errors.customsTooLong',
       'broker.partia.errors.sealTooLong',
     ])
+  })
+
+  it('стороны: лимиты колонок сервера (название/регион/город 200, страна 8, адрес 300)', () => {
+    const d = ok()
+    d.shipper = { name: 'н'.repeat(200), countryCode: 'K'.repeat(8), region: 'р'.repeat(200), city: 'г'.repeat(200), street: 'у'.repeat(300) }
+    d.consignee = { ...d.shipper }
+    expect(validatePartia(d)).toEqual([])
+    expect(partyTooLong(d.shipper)).toEqual([])
+    d.shipper.countryCode = 'K'.repeat(9)
+    d.shipper.street = 'у'.repeat(301)
+    d.consignee.city = 'г'.repeat(201)
+    expect(partyTooLong(d.shipper)).toEqual(['countryCode', 'street'])
+    expect(validatePartia(d)).toEqual(['broker.partia.errors.shipperTooLong', 'broker.partia.errors.consigneeTooLong'])
   })
 
   it('таможня отправления длиннее 32 знаков — как в записи транзита', () => {

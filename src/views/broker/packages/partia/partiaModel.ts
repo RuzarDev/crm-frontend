@@ -54,6 +54,9 @@ export const PARTIA_TRANSIT_SECTIONS: SectionKey[] = [
 /** Лимиты колонок сервера (DocumentPackageClientConsolidationConfiguration). */
 export const PARTIA_LIMITS = { clientName: 200, destinationStation: 200, destinationCustomsAuthority: 200, sealNumber: 100 } as const
 
+/** Лимиты колонок сторон (колонки Shipper… и Consignee… в DocumentPackageClientConsolidationConfiguration); сервер хранит как прислали. */
+export const PARTY_LIMITS: Record<keyof PartyAddress, number> = { name: 200, countryCode: 8, region: 200, city: 200, street: 300 }
+
 const clone = <T>(v: T): T => structuredClone(toRaw(v))
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 
@@ -144,21 +147,94 @@ const trimOrNull = (v: string | null | undefined): string | null => {
   return s || null
 }
 
-/** goodsQuantity и cargoPlacesCount на сервере — int?: дробное или строковое число роняет весь JSON при генерации (B9). */
-const toInt = (v: unknown): number | null => {
-  if (v == null || v === '') return null
-  const n = typeof v === 'number' ? v : Number(v)
-  return Number.isFinite(n) ? Math.round(n) : null
+/**
+ * Типы полей ConsolidationTransitData на сервере (ReestrContracts.cs). При формировании строк сервер разбирает
+ * transitDataJson целиком и при ЛЮБОЙ ошибке типа молча выбрасывает весь транзит партии (B9): дробное в int?,
+ * null в bool, '' или «дд.мм.гггг» в DateTime?, текст в decimal?, число в string. Поэтому тело приводится к этим типам.
+ */
+type Kind = 'int' | 'dec' | 'date' | 'bool' | 'str'
+
+const SCALAR_KINDS: Record<keyof ReestrTransitFields, Kind> = {
+  purposeCode: 'str', departureCustomsOffice: 'str', entryMethodCode: 'str', movementDirectionCode: 'str', usedAsDeclarationCode: 'str',
+  goodsQuantity: 'int', cargoPlacesCount: 'int', departureCountryCode: 'str', destinationCountryCode: 'str',
+  grossWeightKg: 'dec', totalValue: 'dec', docCurrencyCode: 'str', transportDocTypeCode: 'str', transportDocNumber: 'str',
+  transportDocDate: 'date', isMultimodal: 'bool', transportModeCode: 'str', loadingCountryCode: 'str', loadingRailStation: 'str',
+  unloadingCountryCode: 'str', unloadingRailStation: 'str', destinationCustomsOffice: 'str', packagingInfoCode: 'str',
+  tempStoragePlace: 'str', destinationPlace: 'str', submitterType: 'str', submitterBin: 'str', submitterName: 'str',
+}
+
+const ROW_KINDS: Record<TransitCollection, Record<string, Kind>> = {
+  organizations: { role: 'str', subjectType: 'str', bin: 'str', name: 'str', shortName: 'str', address: 'str', phone: 'str', email: 'str' },
+  carriers: { role: 'str', subjectType: 'str', bin: 'str', name: 'str', countryCode: 'str', phone: 'str', email: 'str' },
+  transportMeans: {
+    transportModeCode: 'str', purposeCode: 'str', vehicleTypeCode: 'str', wagonOrContainerNumber: 'str',
+    isEmpty: 'bool', isWagonReturn: 'bool', inContainer: 'bool', matchesTransitVehicle: 'bool',
+  },
+  identificationMeans: { noSeal: 'bool', meansTypeCode: 'str', quantity: 'dec', number: 'str' },
+  packages: { packagingInfoKindCode: 'str', packageTypeCode: 'str', packageCount: 'dec', description: 'str' },
+  containers: { containerNumber: 'str', note: 'str' },
+  precedingDocs: { docTypeCode: 'str', number: 'str', date: 'date' },
+  cargoOperations: { operationTypeCode: 'str' },
+  guarantees: { guaranteeTypeCode: 'str', amount: 'dec', currencyCode: 'str', number: 'str' },
+}
+
+const toNumber = (v: unknown): number | null => {
+  if (v == null) return null
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+  if (typeof v !== 'string' || v.trim() === '') return null
+  const n = Number(v.trim().replace(/\s+/g, '').replace(',', '.'))
+  return Number.isFinite(n) ? n : null
+}
+
+/** Дата для DateTime?: yyyy-MM-dd (из ISO берётся дата, «дд.мм.гггг» переворачивается); пустое и прочее — null. */
+const toDate = (v: unknown): string | null => {
+  if (typeof v !== 'string') return null
+  const s = v.trim()
+  const iso = /^(\d{4}-\d{2}-\d{2})(?:$|T)/.exec(s)
+  if (iso) return iso[1]
+  const ru = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(s)
+  return ru ? `${ru[3]}-${ru[2]}-${ru[1]}` : null
+}
+
+const coerce = (kind: Kind, v: unknown): unknown => {
+  switch (kind) {
+    case 'int': {
+      const n = toNumber(v)
+      return n == null ? null : Math.round(n)
+    }
+    case 'dec':
+      return toNumber(v)
+    case 'date':
+      return toDate(v)
+    case 'bool':
+      return v === true || v === 'true'
+    case 'str':
+      if (v == null || typeof v === 'string') return v ?? null
+      return typeof v === 'number' || typeof v === 'boolean' ? String(v) : null
+  }
+}
+
+/** Привести поля по типам сервера; ключи, которых сервер не знает, остаются как есть. */
+const coerceObject = (o: Obj, kinds: Record<string, Kind>): Obj => {
+  const out: Obj = { ...o }
+  for (const [k, kind] of Object.entries(kinds)) if (k in out || kind === 'bool') out[k] = coerce(kind, out[k])
+  return out
+}
+
+/** transitDataJson, который сервер разберёт: скаляры transit и 9 коллекций, приведённые к типам ConsolidationTransitData. */
+export function transitDataJson(record: RecordDraft): string {
+  const transit = coerceObject(clone(record.transit) as unknown as Obj, SCALAR_KINDS)
+  for (const k of TRANSIT_COLLECTIONS) {
+    const rows = Array.isArray(record[k]) ? (clone(record[k]) as unknown[]) : []
+    transit[k] = rows.filter(isObj).map((row) => coerceObject(row, ROW_KINDS[k]))
+  }
+  return JSON.stringify(transit)
 }
 
 /** Полное тело POST/PUT: все поля партии из черновика; transitDataJson — всегда (скаляры transit + 9 коллекций). */
 export function partiaToBody(d: PartiaDraft): ClientConsolidationBody {
   const x = clone(d)
   const r = x.record
-  const transit: Obj = { ...(r.transit as unknown as Obj) }
-  transit.goodsQuantity = toInt(transit.goodsQuantity)
-  transit.cargoPlacesCount = toInt(transit.cargoPlacesCount)
-  for (const k of TRANSIT_COLLECTIONS) transit[k] = r[k]
   return {
     clientName: x.clientName.trim(),
     destinationStation: trimOrNull(x.destinationStation),
@@ -168,11 +244,16 @@ export function partiaToBody(d: PartiaDraft): ClientConsolidationBody {
     consignee: x.consignee,
     goodsItems: r.goods.length ? r.goods : null,
     doc44Items: r.doc44.length ? r.doc44 : null,
-    transitDataJson: JSON.stringify(transit),
+    transitDataJson: transitDataJson(r),
   }
 }
 
 const tooLong = (v: string | null | undefined, max: number) => (v ?? '').trim().length > max
+
+/** Поля стороны длиннее колонок сервера (длина как есть — сервер стороны не обрезает). */
+export function partyTooLong(p: PartyAddress): (keyof PartyAddress)[] {
+  return (Object.keys(PARTY_LIMITS) as (keyof PartyAddress)[]).filter((k) => (p[k] ?? '').length > PARTY_LIMITS[k])
+}
 
 /** Ошибки перед сохранением — ключи i18n. */
 export function validatePartia(d: PartiaDraft): string[] {
@@ -182,6 +263,8 @@ export function validatePartia(d: PartiaDraft): string[] {
   if (tooLong(d.destinationStation, PARTIA_LIMITS.destinationStation)) errors.push('broker.partia.errors.stationTooLong')
   if (tooLong(d.destinationCustomsAuthority, PARTIA_LIMITS.destinationCustomsAuthority)) errors.push('broker.partia.errors.customsTooLong')
   if (tooLong(d.sealNumber, PARTIA_LIMITS.sealNumber)) errors.push('broker.partia.errors.sealTooLong')
+  if (partyTooLong(d.shipper).length) errors.push('broker.partia.errors.shipperTooLong')
+  if (partyTooLong(d.consignee).length) errors.push('broker.partia.errors.consigneeTooLong')
   // При генерации строк таможня отправления уходит в колонку записи (32 знака) — длинная уронит генерацию.
   if (departureOfficeTooLong(d.record.transit.departureCustomsOffice)) errors.push('broker.partia.errors.departureOfficeTooLong')
   return errors

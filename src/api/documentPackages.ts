@@ -38,7 +38,8 @@ export const documentPackagesApi = {
     return response.data
   },
 
-  uploadFile: async (id: string, file: File): Promise<DocumentPackageFileDto> => {
+  // silent — вызывающий сам сводит ошибки (очередь инвойсов партии: один итоговый тост вместо тоста на файл).
+  uploadFile: async (id: string, file: File, opts?: { silent?: boolean }): Promise<DocumentPackageFileDto> => {
     const formData = new FormData()
     formData.append('file', file)
     const response = await apiClient.post<DocumentPackageFileDto>(
@@ -48,6 +49,7 @@ export const documentPackagesApi = {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        ...(opts?.silent ? { silent: true } : {}),
       },
     )
     return response.data
@@ -171,10 +173,12 @@ export const documentPackagesApi = {
     id: string,
     fileId: string,
     data: { containerId: string | null; clientConsolidationId: string | null; documentType?: string | null },
+    opts?: { silent?: boolean },
   ): Promise<DocumentPackageDto> => {
     const response = await apiClient.patch<DocumentPackageDto>(
       `/document-packages/${id}/files/${fileId}/link`,
       data,
+      opts?.silent ? { silent: true } : undefined,
     )
     return response.data
   },
