@@ -173,6 +173,7 @@ import { useAuthStore } from '@/stores/auth'
 import { clientsOnboardingApi, type ClientOnboardingRow, type ClientStatus, type InviteClientResponse } from '@/api/clientsOnboarding'
 import { import40ContractApi, type Import40DocumentDto, type Import40DocumentFileDto } from '@/api/import40Contract'
 import PhoneInput from '@/components/ui/PhoneInput.vue'
+import { saveBlob } from '@/ui/download'
 
 const { t } = useI18n()
 
@@ -202,15 +203,6 @@ const openDocs = async (row: ClientOnboardingRow) => {
   } finally {
     docsLoading.value = false
   }
-}
-
-const saveBlob = (blob: Blob, fileName: string) => {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = fileName
-  a.click()
-  URL.revokeObjectURL(url)
 }
 
 // Бланк генерируется сервером по данным клиента на момент запроса (файл не хранится).

@@ -45,13 +45,16 @@ let seq = 0
 const fetchAll = async () => {
   const id = clientId.value
   if (!id) throw new Error('no client id')
+  // Договоры нужны и экрану, и регистрации (ждём ли подписи AQNIET) — один запрос на двоих.
+  // Ошибки — по месту («Не удалось загрузить» / «Не удалось обновить»), без тостов перехватчика.
+  const contractsReq = import40ContractApi.listDocuments(id, 'contract', { silent: true })
   const [res] = await Promise.all([
     Promise.all([
       import40ContractApi.getProfile(id, { silent: true }),
-      import40ContractApi.listDocuments(id, 'contract', { silent: true }),
+      contractsReq,
       import40ContractApi.listDocuments(id, 'poa', { silent: true }),
     ]),
-    registration.refresh(),
+    registration.refresh({ silent: true, contracts: contractsReq }),
   ])
   if (!registration.loaded.value) throw new Error('registration state unavailable')
   // Снимок регистрации: общее состояние композабла сбрасывается при неудачном запросе, а шаги экрана

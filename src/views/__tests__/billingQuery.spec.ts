@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import { caseFilterSearch } from '@/views/billingQuery'
+import { describe, expect, it, vi } from 'vitest'
+import { nextTick, reactive } from 'vue'
+import { caseFilterSearch, watchCaseQuery } from '@/views/billingQuery'
 
 const rows = [
   { caseId: null, caseNumber: null },
@@ -18,5 +19,21 @@ describe('caseFilterSearch (/billing?case=)', () => {
     expect(caseFilterSearch(rows, undefined)).toBe('')
     expect(caseFilterSearch(rows, '')).toBe('')
     expect(caseFilterSearch(rows, ['c1', 'c2'])).toBe('И40-182')
+  })
+})
+
+describe('watchCaseQuery (повторный клик по уведомлению на открытой странице)', () => {
+  it('срабатывает при смене ?case=, но не при первом запуске', async () => {
+    const query = reactive<{ case?: string }>({ case: 'c1' })
+    const onChange = vi.fn()
+    const stop = watchCaseQuery(() => query.case, onChange)
+    expect(onChange).not.toHaveBeenCalled()
+    query.case = 'c2'
+    await nextTick()
+    expect(onChange).toHaveBeenCalledWith('c2')
+    query.case = undefined
+    await nextTick()
+    expect(onChange).toHaveBeenLastCalledWith(undefined)
+    stop()
   })
 })

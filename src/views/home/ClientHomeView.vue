@@ -20,7 +20,7 @@ import { NAV_ICONS } from '@/components/shell/navIcons'
 import { formatMoney } from '@/ui/number'
 import { cn } from '@/ui/cn'
 import {
-  activeShipments, clientAsks, clientGreetingName, dayMonth, unpaidInvoices,
+  activeShipments, clientAsks, clientGreetingName, dayMonth, hasPaymentCheck, moreToPay, unpaidInvoices,
 } from '@/views/home/clientHome'
 import { askFor, askHref, segments, shipmentHref, shipmentTag } from '@/views/client/shipment'
 import { useShipmentText } from '@/views/client/useShipmentText'
@@ -78,6 +78,10 @@ const CARD_SKELETON = [['62%', '38%'], ['48%', '44%']]
 // ---- Счёт к оплате ----
 const unpaid = computed(() => unpaidInvoices(invoices.data ?? []))
 const invoice = computed(() => unpaid.value[0] ?? null)
+// Чек уже приложен — от клиента ничего не нужно: вместо «Оплатить» — «Чек на проверке» и спокойная кнопка.
+const invoiceChecked = computed(() => !!invoice.value && hasPaymentCheck(invoice.value))
+const moreInvoices = computed(() => moreToPay(unpaid.value))
+const invoiceTo = computed(() => (invoice.value ? { path: '/billing', query: { id: invoice.value.id } } : '/billing'))
 const showBottom = computed(() => invoices.loading || invoices.error || !!invoice.value)
 
 // ---- Клиент только транзита ----
@@ -263,14 +267,21 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
             <p v-if="invoice.caseNumber" class="m-0 mt-0.5 text-sm text-ink-3">
               {{ t('clientHome.invoiceFor', { number: invoice.caseNumber }) }}
             </p>
-            <p v-if="unpaid.length > 1" class="m-0 mt-0.5 text-sm text-ink-3">
-              {{ t('clientHome.moreInvoices', { n: unpaid.length - 1 }) }}
+            <p v-if="invoiceChecked" class="m-0 mt-0.5 text-sm font-medium text-ink-2" data-client-invoice-checked>
+              {{ t('clientHome.checkPending') }}
+            </p>
+            <p v-if="moreInvoices > 0" class="m-0 mt-0.5 text-sm text-ink-3">
+              {{ t('clientHome.moreInvoices', { n: moreInvoices }) }}
             </p>
           </div>
           <RouterLink
-            to="/billing"
-            class="inline-flex h-10 items-center justify-center rounded-row bg-navy px-[18px] text-base font-semibold text-white no-underline outline-hidden transition-colors duration-150 ease-out hover:bg-navy-hover focus-visible:shadow-focus motion-reduce:transition-none max-sm:w-full"
-          >{{ t('clientHome.pay') }}</RouterLink>
+            :to="invoiceTo"
+            :class="cn(
+              'inline-flex h-10 items-center justify-center rounded-row px-[18px] text-base font-semibold no-underline outline-hidden transition-colors duration-150 ease-out focus-visible:shadow-focus motion-reduce:transition-none max-sm:h-11 max-sm:w-full',
+              invoiceChecked ? 'bg-sunken text-ink hover:bg-line-strong' : 'bg-navy text-white hover:bg-navy-hover',
+            )"
+            data-client-invoice-link
+          >{{ invoiceChecked ? t('clientHome.openInvoice') : t('clientHome.pay') }}</RouterLink>
         </section>
       </div>
     </template>

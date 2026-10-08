@@ -29,8 +29,10 @@ const auth = useAuthStore()
 const canShip = computed(() => auth.clientHasModule('import40'))
 
 const DEBOUNCE_MS = 400
-// Примеры — данные поиска, а не подписи: классификатор ТН ВЭД русскоязычный, поэтому и на kk/en — по-русски.
-const EXAMPLES = ['ноутбук', 'кофе', '8471 30']
+// Примеры — данные поиска (классификатор ТН ВЭД русскоязычный): в словарях всех языков — по-русски.
+// Подобраны так, чтобы поиск по ним что-то находил.
+const EXAMPLE_KEYS = ['goods', 'pump', 'code'] as const
+const examples = computed(() => EXAMPLE_KEYS.map((k) => t(`client.tnved.start.examples.${k}`)))
 
 // ---- Поиск (?q=, replace; свои переходы не откатывают поле — как в «Моих поставках») ----
 const queryQ = () => (typeof route.query.q === 'string' ? route.query.q : '')
@@ -111,6 +113,8 @@ const run = async (text: string) => {
 }
 const schedule = (text: string) => {
   clearTimeout(timer)
+  // Поле уже другое: поздний ответ на прежний запрос не должен подменить выдачу, пока ждём паузу ввода.
+  seq += 1
   if (text.trim().length < MIN_QUERY) {
     void run(text)
     return
@@ -234,11 +238,11 @@ const LIST_SKELETON = ['72%', '58%', '66%', '50%']
       <p class="m-0 text-base font-semibold text-ink">{{ t('client.tnved.start.title') }}</p>
       <p class="m-0 mt-1 text-sm text-ink-3 text-pretty">{{ t('client.tnved.start.text') }}</p>
       <ul role="list" class="m-0 mt-4 flex list-none flex-wrap gap-2 p-0">
-        <li v-for="ex in EXAMPLES" :key="ex">
+        <li v-for="ex in examples" :key="ex">
           <button
             type="button"
             class="inline-flex h-8 cursor-pointer items-center rounded-pill border-0 bg-sunken px-3.5 font-sans text-sm text-ink outline-hidden transition-colors duration-150 ease-out hover:bg-line-strong focus-visible:shadow-focus motion-reduce:transition-none max-sm:h-11 max-sm:px-4"
-            :class="{ 'font-mono tabular-nums': /^[\d\s]+$/.test(ex) }"
+            :class="{ 'font-mono tabular-nums': isCodeLike(ex) }"
             data-tnved-example
             @click="useExample(ex)"
           >{{ ex }}</button>

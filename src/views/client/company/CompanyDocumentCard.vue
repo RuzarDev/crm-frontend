@@ -13,7 +13,7 @@ import { import40ContractApi, isDocumentEffective, type Import40DocumentDto } fr
 import { extractServerText } from '@/api/client'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
-import { saveBlob } from '@/views/client/shipment/util'
+import { saveBlob } from '@/ui/download'
 import {
   currentDoc, endOfDayUtc, historyDocs, historyStatus, isOpen, localDate, todayYmd, validDate,
   type DocKind, type HistoryStatus,

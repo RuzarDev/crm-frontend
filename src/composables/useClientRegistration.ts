@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { import40Api, type Import40CanCreateDto } from '@/api/import40'
-import { import40ContractApi } from '@/api/import40Contract'
+import { import40ContractApi, type Import40DocumentDto } from '@/api/import40Contract'
 
 // Регистрация клиента = три шага «Моей компании»: реквизиты → договор → доверенность.
 // Пока они не пройдены, заявку подать нельзя (сервер отвечает 403), поэтому клиент должен
@@ -39,7 +39,14 @@ export function useClientRegistration() {
   // Только клиенту Импорта 40: транзитному клиенту договор и доверенность здесь не нужны.
   const isClient = computed(() => authStore.isClient && authStore.clientHasModule('import40'))
 
-  const refresh = async (): Promise<void> => {
+  /**
+   * Перечитать состояние регистрации.
+   * - silent — без тоста перехватчика: экран сам показывает ошибку по месту («Моя компания»);
+   * - contracts — список договоров, который экран уже запрашивает сам: не запрашиваем его второй раз.
+   */
+  const refresh = async (
+    opts: { silent?: boolean; contracts?: Promise<Import40DocumentDto[]> } = {},
+  ): Promise<void> => {
     if (!isClient.value || !authStore.userId) return
     if (inflight) return inflight
     const clientId = authStore.userId
@@ -47,8 +54,11 @@ export function useClientRegistration() {
     const run = async () => {
       try {
         const [canCreate, contracts] = await Promise.all([
-          import40Api.canCreate(),
-          import40ContractApi.listDocuments(clientId, 'contract'),
+          opts.silent ? import40Api.canCreate({ silent: true }) : import40Api.canCreate(),
+          opts.contracts
+            ?? (opts.silent
+              ? import40ContractApi.listDocuments(clientId, 'contract', { silent: true })
+              : import40ContractApi.listDocuments(clientId, 'contract')),
         ])
         if (gen !== generation) return
         state.value = canCreate

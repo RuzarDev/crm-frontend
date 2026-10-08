@@ -141,6 +141,7 @@ describe('ClientInvoicesView', () => {
     const rows = w.findAll('[data-requisite]').map((r) => r.attributes('data-requisite'))
     expect(rows).toEqual(['recipient', 'bin', 'bank', 'iik', 'bik', 'kbe'])
     expect(w.get('[data-requisite="recipient"] dd').text()).toBe('ТОО «AQNIET»')
+    expect(w.get('[data-copy="iik"]').attributes('aria-label')).toBe('Копировать: ИИК')
 
     await w.get('[data-copy="iik"]').trigger('click')
     await flushPromises()
@@ -218,6 +219,15 @@ describe('ClientInvoicesView', () => {
     expect(w.get('[data-requisites-empty]').text()).toBe('Реквизиты уточните у бухгалтера AQNIET')
     // Без реквизитов чек всё равно можно приложить.
     expect(w.find('[data-invoice-upload]').exists()).toBe(true)
+  })
+
+  it('неполные реквизиты (нет КБе) — та же подсказка, без таблицы с дырами', async () => {
+    billing.requisites.mockResolvedValue({
+      companyName: 'ТОО «AQNIET»', shortName: '', bin: '123456789012', bank: 'Банк', iik: 'KZ1', bik: 'HSBKKZKX', kbe: '',
+    })
+    await mountAt('/billing')
+    expect(w.find('[data-requisite]').exists()).toBe(false)
+    expect(w.get('[data-requisites-empty]').text()).toBe('Реквизиты уточните у бухгалтера AQNIET')
   })
 
   it('ошибка списка — «Повторить» перезагружает только список', async () => {

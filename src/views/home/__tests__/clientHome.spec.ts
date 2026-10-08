@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ClientShipment } from '@/api/clientShipments'
 import type { BrokerInvoice } from '@/api/billing'
-import { activeShipments, clientAsks, clientGreetingName, dayMonth, unpaidInvoices } from '../clientHome'
+import { activeShipments, clientAsks, clientGreetingName, dayMonth, moreToPay, unpaidInvoices } from '../clientHome'
 
 const ship = (o: Partial<ClientShipment>): ClientShipment => ({
   id: 'c', number: 'И40-1', cargo: 'Ноутбуки', post: '', status: 2, step: 3, isProblem: false,
@@ -52,6 +52,16 @@ describe('unpaidInvoices', () => {
       invoice({ id: 'early', issuedAtUtc: '2026-09-20T00:00:00Z' }),
     ])
     expect(list.map((i) => i.id)).toEqual(['early', 'late'])
+  })
+  it('счета с чеком на проверке — после требующих оплаты; «ещё к оплате» их не считает', () => {
+    const check = [{ id: 'f', fileName: 'c.pdf', sizeBytes: 1, createdAtUtc: '2026-10-02T12:00:00Z' }]
+    const list = unpaidInvoices([
+      invoice({ id: 'checked-early', issuedAtUtc: '2026-09-01T00:00:00Z', paymentChecks: check }),
+      invoice({ id: 'late', issuedAtUtc: '2026-10-05T00:00:00Z', paymentChecks: [] }),
+      invoice({ id: 'early', issuedAtUtc: '2026-09-20T00:00:00Z' }),
+    ])
+    expect(list.map((i) => i.id)).toEqual(['early', 'late', 'checked-early'])
+    expect(moreToPay(list)).toBe(1)
   })
 })
 

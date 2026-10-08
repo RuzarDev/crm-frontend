@@ -7,24 +7,25 @@ import type { ClientCaseFile, ClientDocuments } from '@/api/clientDocuments'
 import type { Import40DocumentDto } from '@/api/import40Contract'
 
 const api = vi.hoisted(() => ({ list: vi.fn() }))
-const imp = vi.hoisted(() => ({ downloadFile: vi.fn() }))
+const imp = vi.hoisted(() => ({ downloadFile: vi.fn(), canCreate: vi.fn() }))
 const save = vi.hoisted(() => ({ saveBlob: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/clientDocuments', () => ({ clientDocumentsApi: api }))
 vi.mock('@/api/import40', () => ({ import40Api: imp }))
-vi.mock('@/views/client/shipment/util', async (orig) => ({ ...(await orig<object>()), saveBlob: save.saveBlob }))
+vi.mock('@/ui/download', () => ({ saveBlob: save.saveBlob }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 
-import ClientDocumentsView from '../ClientDocumentsView.vue'
+import ClientAllDocumentsView from '../ClientAllDocumentsView.vue'
 import { useAuthStore } from '@/stores/auth'
+import { resetClientRegistration, useClientRegistration } from '@/composables/useClientRegistration'
 
 const file = (o: Partial<ClientCaseFile>): ClientCaseFile => ({
   id: 'f1', caseId: 'c1', caseNumber: 'ИМ-2026-0166', cargo: 'Серверы', section: 'documents', docKind: null,
-  fileName: 'file.pdf', sizeBytes: 100, createdAtUtc: '2026-10-01T06:00:00Z', fromClient: true,
+  fileName: 'file.pdf', sizeBytes: 100, createdAtUtc: '2026-10-01T12:00:00Z', fromClient: true,
   ...o,
 })
 const doc = (o: Partial<Import40DocumentDto>): Import40DocumentDto => ({
-  id: 'd1', clientId: 'cl', kind: 'contract', number: '12', year: 2026, generatedAtUtc: '2026-10-08T06:00:00Z',
+  id: 'd1', clientId: 'cl', kind: 'contract', number: '12', year: 2026, generatedAtUtc: '2026-10-08T12:00:00Z',
   status: 2, clientSigned: true, clientSignedAtUtc: null, providerSigned: true, providerSignedAtUtc: null,
   clientSignMethod: null, providerSignMethod: null, isSingleUse: false, validUntilUtc: '2099-10-08T23:59:59Z',
   consumedByCaseId: null, files: [],
@@ -33,13 +34,13 @@ const doc = (o: Partial<Import40DocumentDto>): Import40DocumentDto => ({
 
 // Свежие сверху: f-svh, f-dt-stamp, f-inv, f-cmr, f-pi, f-poa, f-check.
 const FILES = [
-  file({ id: 'f-inv', section: 'documents', docKind: 'invoice', fileName: 'invoice_DE-4471.pdf', createdAtUtc: '2026-09-24T07:00:00Z' }),
-  file({ id: 'f-svh', section: 'svh-invoice', fileName: 'svh_1187.pdf', fromClient: false, createdAtUtc: '2026-10-07T06:00:00Z' }),
-  file({ id: 'f-stamp', section: 'declaration-stamp', fileName: 'stamp.pdf', fromClient: false, createdAtUtc: '2026-10-02T06:00:00Z' }),
-  file({ id: 'f-cmr', section: 'documents', docKind: null, fileName: 'cmr_0921.pdf', createdAtUtc: '2026-09-24T06:00:00Z' }),
-  file({ id: 'f-pi', caseId: 'c2', caseNumber: 'ИМ-2026-0182', section: 'documents', docKind: 'packing', fileName: 'packing_HK.xlsx', createdAtUtc: '2026-09-20T06:00:00Z' }),
-  file({ id: 'f-poa', caseId: 'c2', caseNumber: 'ИМ-2026-0182', section: 'power-of-attorney', fileName: 'poa.pdf', createdAtUtc: '2025-03-02T06:00:00Z' }),
-  file({ id: 'f-check', caseId: 'c3', caseNumber: 'ИМ-2026-0158', section: 'payment-check', fileName: 'kaspi_check_0930.jpg', createdAtUtc: '2025-03-01T06:00:00Z' }),
+  file({ id: 'f-inv', section: 'documents', docKind: 'invoice', fileName: 'invoice_DE-4471.pdf', createdAtUtc: '2026-09-24T12:30:00Z' }),
+  file({ id: 'f-svh', section: 'svh-invoice', fileName: 'svh_1187.pdf', fromClient: false, createdAtUtc: '2026-10-07T12:00:00Z' }),
+  file({ id: 'f-stamp', section: 'declaration-stamp', fileName: 'stamp.pdf', fromClient: false, createdAtUtc: '2026-10-02T12:00:00Z' }),
+  file({ id: 'f-cmr', section: 'documents', docKind: null, fileName: 'cmr_0921.pdf', createdAtUtc: '2026-09-24T12:00:00Z' }),
+  file({ id: 'f-pi', caseId: 'c2', caseNumber: 'ИМ-2026-0182', section: 'documents', docKind: 'packing', fileName: 'packing_HK.xlsx', createdAtUtc: '2026-09-20T12:00:00Z' }),
+  file({ id: 'f-poa', caseId: 'c2', caseNumber: 'ИМ-2026-0182', section: 'power-of-attorney', fileName: 'poa.pdf', createdAtUtc: '2025-03-02T12:00:00Z' }),
+  file({ id: 'f-check', caseId: 'c3', caseNumber: 'ИМ-2026-0158', section: 'payment-check', fileName: 'kaspi_check_0930.jpg', createdAtUtc: '2025-03-01T12:00:00Z' }),
 ]
 const DATA = (o: Partial<ClientDocuments> = {}): ClientDocuments => ({
   company: [doc({ status: 1, clientSigned: false, providerSigned: false, validUntilUtc: '2027-10-08T23:59:59Z' })],
@@ -55,7 +56,7 @@ const stub = { template: '<div/>' }
 const mountAt = async (path: string) => {
   await router.push(path)
   await router.isReady()
-  w = mountWithI18n(ClientDocumentsView, { attachTo: document.body, global: { plugins: [pinia, router] } })
+  w = mountWithI18n(ClientAllDocumentsView, { attachTo: document.body, global: { plugins: [pinia, router] } })
   await flushPromises()
 }
 const rowIds = () => w.findAll('[data-doc-row]').map((r) => r.attributes('data-doc-row'))
@@ -69,6 +70,8 @@ beforeEach(() => {
   const auth = useAuthStore()
   auth.role = 'Client'
   auth.modules = ['import40']
+  auth.userId = 'cl'
+  resetClientRegistration()
   api.list.mockResolvedValue(DATA())
 })
 afterEach(() => {
@@ -77,9 +80,10 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('ClientDocumentsView', () => {
+describe('ClientAllDocumentsView', () => {
   it('файлы поставок — свежие сверху; подписи видов: из чек-листа, иначе по разделу', async () => {
     await mountAt('/documents')
+    expect(w.get('table').attributes('aria-label')).toBe('Документы по поставкам')
     expect(api.list).toHaveBeenCalledWith({ silent: true })
     expect(w.get('h1').text()).toBe('Документы')
     expect(rowIds()).toEqual(['f-svh', 'f-stamp', 'f-inv', 'f-cmr', 'f-pi', 'f-poa', 'f-check'])
@@ -116,12 +120,35 @@ describe('ClientDocumentsView', () => {
     expect(p.attributes('href')).toBe('/import-40/company?step=poa')
   })
 
+  it('регистрация с сервера: действующая доверенность + более новая на подписи — «Действует» и подсказка', async () => {
+    imp.canCreate.mockResolvedValue({
+      canCreate: false, reason: null, needNew: 'contract', profileComplete: true, contractOk: false, poaOk: true,
+    })
+    await useClientRegistration().refresh({ contracts: Promise.resolve([]) })
+    api.list.mockResolvedValue(DATA({
+      company: [
+        // Договор «действует» по датам, но сервер его для новой поставки не принимает (разовый занят).
+        doc({ id: 'c1', status: 2, isSingleUse: true }),
+        doc({ id: 'p-eff', kind: 'poa', number: '4', status: 2, generatedAtUtc: '2026-09-01T12:00:00Z' }),
+        doc({ id: 'p-new', kind: 'poa', number: '9', status: 1, clientSigned: false, providerSigned: false, generatedAtUtc: '2026-10-05T12:00:00Z' }),
+      ],
+    }))
+    await mountAt('/documents')
+    const p = company('poa')
+    expect(p.text()).toContain('Доверенность № 4/2026')
+    expect(p.get('[data-company-tag]').text()).toBe('Действует')
+    expect(p.get('[data-company-new]').text()).toBe('Новая на подписи')
+    const c = company('contract')
+    expect(c.attributes('data-company-status')).not.toBe('effective')
+    expect(c.find('[data-company-new]').exists()).toBe(false)
+  })
+
   it('отозванный документ уступает свежему неотозванному: истёкшая доверенность — «Истёк»', async () => {
     api.list.mockResolvedValue(DATA({
       company: [
         doc({ id: 'c', status: 2, validUntilUtc: '2099-01-01T23:59:59Z' }),
-        doc({ id: 'p-old', kind: 'poa', number: '3', status: 2, validUntilUtc: '2026-01-01T23:59:59Z', generatedAtUtc: '2025-06-01T06:00:00Z' }),
-        doc({ id: 'p-rev', kind: 'poa', number: '7', status: 4, generatedAtUtc: '2026-09-01T06:00:00Z' }),
+        doc({ id: 'p-old', kind: 'poa', number: '3', status: 2, validUntilUtc: '2026-01-01T23:59:59Z', generatedAtUtc: '2025-06-01T12:00:00Z' }),
+        doc({ id: 'p-rev', kind: 'poa', number: '7', status: 4, generatedAtUtc: '2026-09-01T12:00:00Z' }),
       ],
     }))
     await mountAt('/documents')
@@ -141,6 +168,11 @@ describe('ClientDocumentsView', () => {
     await flushPromises()
     expect(replace).toHaveBeenCalled()
     expect(router.currentRoute.value.query.q).toBe('счёт свх')
+    expect(rowIds()).toEqual(['f-svh'])
+
+    // ё и е не различаются.
+    await w.get('input[data-docs-search]').setValue('счет свх')
+    await flushPromises()
     expect(rowIds()).toEqual(['f-svh'])
 
     await w.get('input[data-docs-search]').setValue('kaspi')
@@ -218,6 +250,7 @@ describe('ClientDocumentsView', () => {
     api.list.mockRejectedValueOnce(new Error('boom'))
     await mountAt('/documents')
     expect(w.get('[data-docs-error]').text()).toContain('Не удалось загрузить документы')
+    expect(w.get('[data-docs-error]').attributes('role')).toBe('alert')
     expect(w.find('[data-company-card]').exists()).toBe(false)
 
     await w.get('[data-docs-retry]').trigger('click')

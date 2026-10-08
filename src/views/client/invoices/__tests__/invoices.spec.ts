@@ -38,12 +38,15 @@ describe('invoices helpers', () => {
     expect(defaultInvoiceId([])).toBeNull()
   })
 
-  it('реквизиты: без БИН или ИИК — null; пустые прочие поля не показываются; получатель — краткое имя или полное', () => {
-    const r = { companyName: 'ТОО «A»', shortName: '', bin: '1', bank: '', iik: 'KZ1', bik: 'B', kbe: '' }
+  it('реквизиты: нужны получатель, БИН, ИИК, БИК и КБе — иначе null; пустой банк не показывается; получатель — краткое имя или полное', () => {
+    const r = { companyName: 'ТОО «A»', shortName: '', bin: '1', bank: '', iik: 'KZ1', bik: 'B', kbe: '17' }
     expect(requisiteRows(r)).toEqual([
       { key: 'recipient', value: 'ТОО «A»' }, { key: 'bin', value: '1' }, { key: 'iik', value: 'KZ1' }, { key: 'bik', value: 'B' },
+      { key: 'kbe', value: '17' },
     ])
-    expect(requisiteRows({ ...r, iik: '  ' })).toBeNull()
+    expect(requisiteRows({ ...r, shortName: 'A' })?.[0]).toEqual({ key: 'recipient', value: 'A' })
+    for (const k of ['bin', 'iik', 'bik', 'kbe'] as const) expect(requisiteRows({ ...r, [k]: '  ' })).toBeNull()
+    expect(requisiteRows({ ...r, companyName: '', shortName: ' ' })).toBeNull()
     expect(requisiteRows(null)).toBeNull()
   })
 })

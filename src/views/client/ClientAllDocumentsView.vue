@@ -15,10 +15,11 @@ import type { Import40DocumentDto } from '@/api/import40Contract'
 import { useAuthStore } from '@/stores/auth'
 import { localDate, validDate, type DocKind } from '@/views/client/company/company'
 import {
-  companyCard, FILE_FILTERS, fileKindKey, isFileFilter, passesFilter, sortFiles,
-  type CompanyCardStatus, type FileFilter,
+  companyCard, FILE_FILTERS, fileKindKey, isFileFilter, normSearch, passesFilter, sortFiles,
+  type CompanyCardReg, type CompanyCardStatus, type FileFilter,
 } from '@/views/client/documents/documents'
-import { saveBlob } from '@/views/client/shipment/util'
+import { useClientRegistration } from '@/composables/useClientRegistration'
+import { saveBlob } from '@/ui/download'
 import { useBlock } from '@/views/home/useBlock'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
@@ -42,8 +43,17 @@ const COMPANY_KINDS: DocKind[] = ['contract', 'poa']
 const STATUS_TONE: Record<CompanyCardStatus, ZTone> = {
   effective: 'done', awaiting: 'wait', consumed: 'neutral', expired: 'neutral', revoked: 'danger', none: 'neutral',
 }
+// «Готово» — по серверу (can-create, общее состояние с плашкой и шагами «Моей компании»; перечитывает оболочка),
+// иначе карточка «Действует» спорила бы с шагом «Нужна новая». Не загрузилось — судим по документам.
+const registration = useClientRegistration()
+const regOf = (kind: DocKind): CompanyCardReg | null => {
+  if (!registration.loaded.value) return null
+  return kind === 'contract'
+    ? { done: registration.contractDone.value, awaitingUs: registration.contractAwaitingUs.value }
+    : { done: registration.poaDone.value }
+}
 const companyCards = computed(() => COMPANY_KINDS.map((kind) => {
-  const card = companyCard((docs.data?.company ?? []).filter((d) => d.kind === kind))
+  const card = companyCard((docs.data?.company ?? []).filter((d) => d.kind === kind), regOf(kind))
   return { kind, ...card, title: cardTitle(kind, card.doc), meta: cardMeta(kind, card.doc) }
 }))
 function cardTitle(kind: DocKind, d: Import40DocumentDto | null) {
@@ -87,7 +97,7 @@ const setFilter = (f: FileFilter) => {
   void router.replace({ query: { ...route.query, from: f === 'all' ? undefined : f } })
 }
 
-const norm = (s: string | null | undefined) => (s ?? '').toLocaleLowerCase().replace(/\s+/g, ' ').trim()
+const norm = normSearch
 const needle = computed(() => norm(q.value))
 const kindOf = (f: ClientCaseFile) => t(fileKindKey(f))
 const allFiles = computed(() => sortFiles(docs.data?.files ?? []))
@@ -182,7 +192,7 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
     </div>
 
     <!-- Ошибка -->
-    <div v-else-if="docs.error" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-docs-error>
+    <div v-else-if="docs.error" role="alert" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-docs-error>
       <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('client.documents.loadError') }}</p>
       <ZButton size="sm" :class="retry" data-docs-retry @click="docs.load()">{{ t('home.retry') }}</ZButton>
     </div>
@@ -210,6 +220,11 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
             <span class="min-w-0 flex-1">
               <span class="block text-[15px] leading-[22px] font-semibold">{{ c.title }}</span>
               <span class="block text-[13.5px] leading-5 text-ink-3" data-company-meta>{{ c.meta }}</span>
+              <span
+                v-if="c.newAwaiting"
+                class="mt-0.5 block text-[13px] leading-5 font-medium text-gold-ink"
+                data-company-new
+              >{{ t(`client.documents.company.newAwaiting.${c.kind}`) }}</span>
             </span>
             <ZTag :tone="STATUS_TONE[c.status]" class="flex-none" data-company-tag>{{ statusText(c.status) }}</ZTag>
           </RouterLink>
@@ -266,7 +281,7 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
         <template v-else>
           <!-- Компьютер и планшет: таблица -->
           <div class="overflow-x-auto rounded-panel border border-line max-md:hidden">
-            <table class="w-full min-w-[640px] border-collapse text-sm text-ink">
+            <table class="w-full min-w-[640px] border-collapse text-sm text-ink" :aria-label="t('client.documents.files.tableLabel')">
               <thead>
                 <tr>
                   <th scope="col" :class="th">{{ t('client.documents.files.col.doc') }}</th>

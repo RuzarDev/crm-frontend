@@ -178,6 +178,14 @@ describe('ClientShipmentView', () => {
     const row = w.get('[data-service-row]')
     expect(row.text()).toContain('Счёт AQNIET № 42/2026')
     expect(row.text()).toContain('Выставлен')
+    // Строка ведёт в карточку счёта в «Счетах» (реквизиты, чек).
+    expect(row.get('[data-service-link]').attributes('href')).toBe('/billing?id=i1')
+  })
+
+  it('черновик счёта — без ссылки в «Счета» (клиент его там не видит)', async () => {
+    const draft: Import40CaseInvoiceDto = { id: 'i0', kind: 'invoice', status: 0, number: '', year: 2026, total: 1, issuedAtUtc: null, paidAtUtc: null }
+    await mountCard({ status: 7 }, [], [draft])
+    expect(w.get('[data-service-row]').find('[data-service-link]').exists()).toBe(false)
   })
 
   it('нет счетов — текст «Счёт выставим после оплаты склада»', async () => {

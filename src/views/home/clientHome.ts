@@ -23,9 +23,21 @@ export const activeShipments = (list: ClientShipment[]): ClientShipment[] =>
 
 const issuedTime = (i: BrokerInvoice) => Date.parse(i.issuedAtUtc ?? i.createdAtUtc)
 
-/** Выставленные и не оплаченные счета брокера, самый ранний — первым. */
+/** Клиент уже приложил чек — счёт ждёт проверки бухгалтером, а не оплаты. */
+export const hasPaymentCheck = (i: Pick<BrokerInvoice, 'paymentChecks'>): boolean => (i.paymentChecks?.length ?? 0) > 0
+
+/**
+ * Выставленные и не оплаченные счета брокера: сначала те, что ещё нужно оплатить (без чека), потом
+ * с чеком на проверке; внутри — самый ранний первым.
+ */
 export const unpaidInvoices = (list: BrokerInvoice[]): BrokerInvoice[] =>
-  list.filter((i) => i.kind === 'invoice' && i.status === 1).sort((a, b) => issuedTime(a) - issuedTime(b))
+  list
+    .filter((i) => i.kind === 'invoice' && i.status === 1)
+    .sort((a, b) => Number(hasPaymentCheck(a)) - Number(hasPaymentCheck(b)) || issuedTime(a) - issuedTime(b))
+
+/** Сколько ещё счетов (кроме показанного) ждут оплаты — без чека. */
+export const moreToPay = (unpaid: BrokerInvoice[]): number =>
+  unpaid.slice(1).filter((i) => !hasPaymentCheck(i)).length
 
 /** «ДД.ММ» по местному времени. */
 export function dayMonth(iso: string | null | undefined): string {

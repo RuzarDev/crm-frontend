@@ -98,6 +98,13 @@ afterEach(() => {
 })
 
 describe('ClientCompanyView', () => {
+  it('регистрация читается тихо (без тоста перехватчика), список договоров — один запрос на загрузку', async () => {
+    await mountAt()
+    expect(imp.canCreate).toHaveBeenCalledWith({ silent: true })
+    expect(imp.canCreate.mock.calls.every(([o]) => o?.silent === true)).toBe(true)
+    expect(api.listDocuments.mock.calls.filter(([, kind]) => kind === 'contract')).toEqual([['cl1', 'contract', { silent: true }]])
+  })
+
   it('клиент — userId; данные тихо + can-create; шаг по умолчанию — следующий шаг по серверу', async () => {
     await mountAt()
     expect(imp.listClients).not.toHaveBeenCalled()

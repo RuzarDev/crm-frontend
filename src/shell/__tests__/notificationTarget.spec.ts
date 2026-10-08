@@ -16,4 +16,14 @@ describe('notificationTarget', () => {
     expect(notificationTarget({ caseId: null, reestrEntryId: 'r1' }, false)).toBe('/reestr')
     expect(notificationTarget({ caseId: null, reestrEntryId: null }, true)).toBeNull()
   })
+  it('чек по счёту — «Счета и акты» для любого сотрудника, с фильтром по заявке', () => {
+    const n = { type: 'InvoiceCheckUploaded', caseId: 'c1', reestrEntryId: null }
+    expect(notificationTarget(n, false)).toBe('/billing?case=c1')
+    expect(notificationTarget(n, true)).toBe('/billing?case=c1')
+  })
+  it('чек по счёту без заявки — просто «Счета и акты»', () => {
+    const n = { type: 'InvoiceCheckUploaded', caseId: null, reestrEntryId: null }
+    expect(notificationTarget(n, false)).toBe('/billing')
+    expect(notificationTarget(n, true)).toBe('/billing')
+  })
 })

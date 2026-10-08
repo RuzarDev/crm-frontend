@@ -8,6 +8,7 @@ import ZNumber from '@/components/z/ZNumber.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import { tnvedApi } from '@/api/tnved'
+import { byCurrencyRank, currencyName, loadCurrencies, POPULAR_CURRENCIES } from '@/views/client/tnved/currency'
 import { referencesApi } from '@/api/references'
 import type { RefCodeItem, TnvedCalculateRequest, TnvedCalculateResult, TnvedCurrencyDto } from '@/types/api'
 import type { ZOption, ZOptionValue } from '@/ui/options'
@@ -30,39 +31,23 @@ const form = reactive<{ value: number | null; currency: string; country: string 
   value: null, currency: 'USD', country: null, weight: null,
 })
 
-// ---- Валюты (курсы НБ РК на сервере). Не загрузились — частые валюты: сервер посчитает по своему курсу ----
-const POPULAR = ['USD', 'EUR', 'CNY', 'RUB']
-const LOCALE_TAG: Record<string, string> = { ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }
+// ---- Валюты (курсы НБ РК на сервере, общий кэш с «Курсами валют»). Не загрузились — частые валюты:
+// сервер посчитает по своему курсу ----
 const currencies = shallowRef<TnvedCurrencyDto[]>([])
 const currenciesLoading = ref(true)
-tnvedApi.currencies({ silent: true })
-  .then((r) => { currencies.value = Array.isArray(r.data) ? r.data : [] })
+loadCurrencies()
+  .then((list) => { currencies.value = list })
   .catch(() => { currencies.value = [] })
   .finally(() => { currenciesLoading.value = false })
 
-// Название: по-русски — как у Нацбанка (с сервера), на других языках — Intl, без него — серверное.
-const currencyName = (code: string, serverName: string): string => {
-  let intl = ''
-  try {
-    const n = new Intl.DisplayNames([LOCALE_TAG[locale.value] || 'ru-RU'], { type: 'currency' }).of(code) ?? ''
-    intl = n && n !== code ? n : ''
-  } catch {
-    intl = ''
-  }
-  return locale.value === 'ru' ? serverName || intl : intl || serverName
-}
-const rank = (code: string) => {
-  const i = POPULAR.indexOf(code)
-  return i < 0 ? POPULAR.length : i
-}
 const currencyOptions = computed<ZOption[]>(() => {
   const list = currencies.value.length
     ? currencies.value.map((c) => ({ code: c.codeLat, name: c.name }))
-    : POPULAR.map((code) => ({ code, name: '' }))
+    : POPULAR_CURRENCIES.map((code) => ({ code, name: '' }))
   return [...list]
-    .sort((a, b) => rank(a.code) - rank(b.code) || a.code.localeCompare(b.code))
+    .sort((a, b) => byCurrencyRank(a.code, b.code))
     .map(({ code, name }) => {
-      const label = currencyName(code, name)
+      const label = currencyName(code, name, locale.value)
       return { value: code, label: label ? `${code} — ${label}` : code }
     })
 })
@@ -156,7 +141,11 @@ const measures = computed(() => {
     return true
   })
 })
-const notes = computed(() => (result.value?.notes ?? '').split(/;\s+/).map((s) => s.trim()).filter(Boolean))
+// Пояснения сервера — одним абзацем: «; » внутри — часть фразы (перечисления, оговорки), а не разделитель пунктов.
+const notes = computed(() => (result.value?.notes ?? '').trim())
+// Для скринридера — только короткий итог, а не вся таблица расчёта при каждом изменении.
+const liveTotal = computed(() =>
+  result.value && !loading.value && !stale.value ? t('client.tnved.calc.liveTotal', { total: formatMoney(result.value.totalKzt) }) : '')
 
 const dt = 'text-ink-2'
 const dd = 'm-0 text-right tabular-nums text-ink'
@@ -224,7 +213,9 @@ const dd = 'm-0 text-right tabular-nums text-ink'
       </div>
     </form>
 
-    <div aria-live="polite" class="flex flex-col gap-3">
+    <p class="sr-only" role="status" data-calc-live>{{ liveTotal }}</p>
+
+    <div class="flex flex-col gap-3">
       <p v-if="error" role="alert" class="m-0 rounded-row bg-tone-danger-bg px-4 py-3 text-sm text-tone-danger-fg" data-calc-error>
         {{ error === 'limit' ? t('client.tnved.limit') : t('client.tnved.calc.error') }}
       </p>
@@ -266,12 +257,10 @@ const dd = 'm-0 text-right tabular-nums text-ink'
           <dd :class="cn(dd, 'mt-1 border-t border-line pt-2.5 font-semibold')" data-calc-row="total">{{ formatMoney(result.totalKzt) }}</dd>
         </dl>
 
-        <ul v-if="notes.length" role="list" class="m-0 flex list-none flex-col gap-1.5 p-0" data-calc-notes>
-          <li v-for="(n, i) in notes" :key="i" class="flex gap-2 text-sm text-ink-2">
-            <PhInfo :size="16" class="mt-0.5 flex-none text-zircon-ink" aria-hidden="true" />
-            <span class="min-w-0">{{ n }}</span>
-          </li>
-        </ul>
+        <p v-if="notes" class="m-0 flex gap-2 text-sm text-ink-2" data-calc-notes>
+          <PhInfo :size="16" class="mt-0.5 flex-none text-zircon-ink" aria-hidden="true" />
+          <span class="min-w-0">{{ notes }}</span>
+        </p>
       </template>
 
       <p v-if="result" class="m-0 text-[13px] leading-5 text-muted" data-calc-disclaimer>{{ t('client.tnved.calc.disclaimer') }}</p>

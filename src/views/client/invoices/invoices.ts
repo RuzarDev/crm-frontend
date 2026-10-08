@@ -76,13 +76,13 @@ export function localDate(v: string | null | undefined, withYear = false): strin
 export type RequisiteKey = 'recipient' | 'bin' | 'bank' | 'iik' | 'bik' | 'kbe'
 
 /**
- * Строки «Реквизитов для оплаты». Без БИН и ИИК заплатить нельзя — тогда null (экран просит уточнить
- * у бухгалтера, а не рисует таблицу с дырами). Прочие пустые поля просто не показываются.
+ * Строки «Реквизитов для оплаты». Без получателя, БИН, ИИК, БИК или КБе платёж не оформить — тогда null
+ * (экран просит уточнить у бухгалтера, а не рисует таблицу с дырами). Пустой банк просто не показывается.
  */
 export function requisiteRows(r: BillingRequisites | null): Array<{ key: RequisiteKey; value: string }> | null {
   if (!r) return null
   const v = (s: string | null | undefined) => (s ?? '').trim()
-  if (!v(r.bin) || !v(r.iik)) return null
+  if (!(v(r.shortName) || v(r.companyName)) || !v(r.bin) || !v(r.iik) || !v(r.bik) || !v(r.kbe)) return null
   const rows: Array<{ key: RequisiteKey; value: string }> = [
     { key: 'recipient', value: v(r.shortName) || v(r.companyName) },
     { key: 'bin', value: v(r.bin) },

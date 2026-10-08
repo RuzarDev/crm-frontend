@@ -15,6 +15,7 @@ vi.mock('@/api/references', () => ({ referencesApi: refs }))
 import ClientTnvedView from '../ClientTnvedView.vue'
 import { useAuthStore } from '@/stores/auth'
 import { formatTnvedCode, isCodeLike } from '../tnved/tnved'
+import { resetCurrenciesCache } from '../tnved/currency'
 
 const node = (code: string, name: string): TnvedNodeDto => ({
   id: Number(code), code, treeName: `- ${name}`, name, parentId: null, is10: true, isLast: true, unitShort: null, nodeLevel: 5,
@@ -52,6 +53,7 @@ const tile = (k: string) => w.get(`[data-tile="${k}"] [data-tile-value]`).text()
 
 beforeEach(() => {
   vi.useFakeTimers()
+  resetCurrenciesCache()
   pinia = createPinia()
   setActivePinia(pinia)
   router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:p(.*)*', component: stub }] })
@@ -80,6 +82,10 @@ describe('правила подбора', () => {
     expect(isCodeLike('8471 30')).toBe(true)
     expect(isCodeLike('847')).toBe(false)
     expect(isCodeLike('ноутбук 8471')).toBe(false)
+    // Точки и дефисы — как код пишут в инвойсах.
+    expect(isCodeLike('8471.30')).toBe(true)
+    expect(isCodeLike('8471-30-000-0')).toBe(true)
+    expect(isCodeLike('84.7')).toBe(false)
     expect(formatTnvedCode('8471300000')).toBe('8471 30 000 0')
     expect(formatTnvedCode('847130')).toBe('8471 30')
   })
@@ -134,6 +140,33 @@ describe('ClientTnvedView', () => {
     expect(first.get('[data-hit-duty]').text()).toBe('пошлина 0%')
     expect(first.get('[data-hit-probability]').text()).toBe('совпадение 86%')
     expect(w.get('[data-tnved-hit="8473302008"] [data-hit-duty]').text()).toBe('')
+  })
+
+  it('код с точками — поиск по цифрам кода', async () => {
+    await mountAt('/tnved/tree')
+    await type('8471.30')
+    expect(api.search).toHaveBeenCalledWith('847130', true, 20, { silent: true })
+    expect(api.classify).not.toHaveBeenCalled()
+  })
+
+  it('поздний ответ на прежний запрос после правки поля не подменяет выдачу', async () => {
+    let resolveOld!: (v: { data: TnvedNodeDto[] }) => void
+    api.search.mockReturnValueOnce(new Promise((r) => { resolveOld = r }))
+    await mountAt('/tnved/tree')
+    await type('насос')
+    expect(api.search).toHaveBeenCalledTimes(1)
+
+    // Поле уже другое, пауза ввода ещё не прошла — тут приходит ответ на «насос».
+    api.search.mockResolvedValueOnce({ data: [node('8481000000', 'Краны')] })
+    await w.get('[data-tnved-search]').setValue('кран')
+    resolveOld({ data: [node('8413000000', 'Насосы')] })
+    await flushPromises()
+    expect(hitCodes()).toEqual([])
+
+    await vi.advanceTimersByTimeAsync(400)
+    await flushPromises()
+    expect(api.search).toHaveBeenLastCalledWith('кран', true, 20, { silent: true })
+    expect(hitCodes()).toEqual(['8481000000'])
   })
 
   it('ничего не нашлось — текст с запросом', async () => {
@@ -199,9 +232,24 @@ describe('ClientTnvedView', () => {
     expect(tile('excise')).toBe('нет')
     expect(w.get('[data-tile="vat"]').text()).toContain(money('2 004 152 ₸'))
 
+    // Скринридеру — только короткий итог.
+    expect(w.get('[data-calc-live]').text()).toBe(`Итого к оплате: ${money('2 030 102 ₸')}`)
+
     // Поменяли стоимость — сумма помечена устаревшей.
     await w.get('[data-calc-value]').setValue('30000')
     expect(w.find('[data-calc-stale]').exists()).toBe(true)
+  })
+
+  it('пояснения сервера — одним абзацем, «; » не делит его на пункты', async () => {
+    api.calculate.mockResolvedValue({ data: RESULT({ notes: 'Ставка ВТО; применяется при ввозе из стран — членов ВТО' }) })
+    await mountAt('/tnved/tree?code=8471300000')
+    await w.get('[data-calc-value]').setValue('25000')
+    await w.get('form').trigger('submit')
+    await flushPromises()
+    const notes = w.findAll('[data-calc-notes]')
+    expect(notes).toHaveLength(1)
+    expect(notes[0].element.tagName).toBe('P')
+    expect(notes[0].text()).toBe('Ставка ВТО; применяется при ввозе из стран — членов ВТО')
   })
 
   it('акциз в ответе калькулятора — плитка «есть» и строка акциза', async () => {

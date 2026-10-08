@@ -170,7 +170,7 @@ const router = createRouter({
           // Единый список документов клиента Импорта 40 (редизайн, волна 2b): компания + файлы поставок.
           path: '/documents',
           name: 'client-documents-all',
-          component: () => import('@/views/client/ClientDocumentsView.vue'),
+          component: () => import('@/views/client/ClientAllDocumentsView.vue'),
           meta: { requiresImport40: true, requiresRole: 'client' },
         },
         {

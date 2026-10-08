@@ -17,7 +17,8 @@ import { billingApi } from '@/api/billing'
 import { referencesApi } from '@/api/references'
 import type { RefCodeItem } from '@/types/api'
 import { shipmentTag, toShipmentSummary } from '@/views/client/shipment'
-import { dayMonthOf, saveBlob } from '@/views/client/shipment/util'
+import { dayMonthOf } from '@/views/client/shipment/util'
+import { saveBlob } from '@/ui/download'
 import { countryName } from '@/utils/countries'
 import { formatMoney } from '@/ui/number'
 import { message } from '@/ui/message'
@@ -165,6 +166,8 @@ const invoiceStatus = (s: number): { text: string; tone: ZTone } =>
   : s === 1 ? { text: t('billing.issuedStatus'), tone: 'wait' }
   : s === 3 ? { text: t('billing.cancelled'), tone: 'neutral' }
   : { text: t('billing.draftNo'), tone: 'neutral' }
+// Счёт или акт открывается в «Счетах» (там реквизиты, чек об оплате); черновиков клиент там не видит.
+const invoiceTo = (inv: Import40CaseInvoiceDto) => ({ path: '/billing', query: { id: inv.id } })
 const pdfBusy = ref<string | null>(null)
 const downloadInvoicePdf = async (inv: Import40CaseInvoiceDto) => {
   if (pdfBusy.value) return
@@ -300,7 +303,13 @@ const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
                 class="flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-line py-2 last:border-b-0"
                 data-service-row
               >
-                <span class="min-w-0 flex-1 text-sm text-ink">{{ invoiceTitle(inv) }}</span>
+                <RouterLink
+                  v-if="inv.status !== 0"
+                  :to="invoiceTo(inv)"
+                  class="inline-flex min-h-11 min-w-0 flex-1 items-center rounded-[4px] text-sm text-ink no-underline outline-hidden hover:text-zircon-ink hover:underline focus-visible:shadow-focus sm:min-h-8"
+                  data-service-link
+                >{{ invoiceTitle(inv) }}</RouterLink>
+                <span v-else class="min-w-0 flex-1 text-sm text-ink">{{ invoiceTitle(inv) }}</span>
                 <ZTag :tone="invoiceStatus(inv.status).tone" size="sm">{{ invoiceStatus(inv.status).text }}</ZTag>
                 <span class="text-sm tabular-nums text-ink-2">{{ formatMoney(inv.total) }}</span>
                 <button

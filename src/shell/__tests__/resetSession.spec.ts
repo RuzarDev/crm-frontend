@@ -112,6 +112,19 @@ describe('useClientRegistration: сброс и ошибки', () => {
     expect(reg.contractAwaitingUs.value).toBe(true)
   })
 
+  it('silent: can-create и договоры без тоста перехватчика; готовый список договоров не запрашивается повторно', async () => {
+    asClient('c1')
+    const reg = useClientRegistration()
+    await reg.refresh({ silent: true })
+    expect(api.canCreate).toHaveBeenLastCalledWith({ silent: true })
+    expect(api.listDocuments).toHaveBeenLastCalledWith('c1', 'contract', { silent: true })
+
+    api.listDocuments.mockClear()
+    await reg.refresh({ silent: true, contracts: Promise.resolve([]) })
+    expect(api.listDocuments).not.toHaveBeenCalled()
+    expect(reg.contractAwaitingUs.value).toBe(false)
+  })
+
   it('ошибка перечитывания стирает прежний снимок', async () => {
     asClient()
     const reg = useClientRegistration()

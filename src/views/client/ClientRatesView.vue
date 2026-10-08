@@ -6,10 +6,10 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
-import { tnvedApi } from '@/api/tnved'
 import type { TnvedCurrencyDto } from '@/types/api'
 import { useBlock } from '@/views/home/useBlock'
 import { isRateLimited } from '@/views/client/tnved/tnved'
+import { byCurrencyRank, currencyName, loadCurrencies } from '@/views/client/tnved/currency'
 
 // «Курсы валют» клиента (редизайн, волна 2b): курсы Нацбанка РК в тенге за единицу, поиск по коду и названию.
 // Частые валюты — сверху, остальные по коду. Поиск — в адресе (?q=, replace), как в других списках клиента.
@@ -22,7 +22,7 @@ const limited = ref(false)
 const block = useBlock(true, async () => {
   limited.value = false
   try {
-    return (await tnvedApi.currencies({ silent: true })).data ?? []
+    return await loadCurrencies()
   } catch (e) {
     limited.value = isRateLimited(e)
     throw e
@@ -50,37 +50,15 @@ const onSearch = async (v: string) => {
 }
 
 // ---- Строки ----
-const POPULAR = ['USD', 'EUR', 'RUB', 'CNY']
-const LOCALE_TAG: Record<string, string> = { ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }
-const rank = (code: string) => {
-  const i = POPULAR.indexOf(code)
-  return i < 0 ? POPULAR.length : i
-}
-// По-русски — название Нацбанка (с сервера); на kk/en — Intl, без него — серверное.
-const displayNames = computed(() => {
-  try {
-    return new Intl.DisplayNames([LOCALE_TAG[locale.value] || 'ru-RU'], { type: 'currency' })
-  } catch {
-    return null
-  }
-})
-const nameOf = (c: TnvedCurrencyDto): string => {
-  if (locale.value === 'ru') return c.name
-  let intl = ''
-  try {
-    intl = displayNames.value?.of(c.codeLat) ?? ''
-  } catch {
-    intl = ''
-  }
-  return intl && intl !== c.codeLat ? intl : c.name
-}
+// Порядок частых валют и названия — общие с калькулятором платежей (views/client/tnved/currency.ts).
+const nameOf = (c: TnvedCurrencyDto): string => currencyName(c.codeLat, c.name, locale.value)
 const rateFormat = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
 const formatRate = (n: number) => rateFormat.format(n).replace(/[  ]/g, ' ')
 
 interface RateRow { code: string; name: string; serverName: string; rate: string }
 const rows = computed<RateRow[]>(() =>
   [...(block.data ?? [])]
-    .sort((a, b) => rank(a.codeLat) - rank(b.codeLat) || a.codeLat.localeCompare(b.codeLat))
+    .sort((a, b) => byCurrencyRank(a.codeLat, b.codeLat))
     .map((c) => ({ code: c.codeLat, name: nameOf(c), serverName: c.name, rate: formatRate(c.rate) })),
 )
 const norm = (s: string) => s.toLocaleLowerCase('ru').replace(/\s+/g, ' ').trim()

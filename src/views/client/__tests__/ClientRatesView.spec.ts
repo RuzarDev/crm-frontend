@@ -8,6 +8,7 @@ const api = vi.hoisted(() => ({ currencies: vi.fn() }))
 vi.mock('@/api/tnved', () => ({ tnvedApi: api }))
 
 import ClientRatesView from '../ClientRatesView.vue'
+import { resetCurrenciesCache } from '../tnved/currency'
 
 const RATES = [
   { codeLat: 'AED', name: 'Дирхам ОАЭ', rate: 136.12, updatedAtUtc: '2026-10-07T03:00:00Z' },
@@ -30,6 +31,7 @@ const codes = () => w.findAll('[data-rate-row]').map((r) => r.attributes('data-r
 const nb = (s: string) => s.replace(/ /g, ' ')
 
 beforeEach(() => {
+  resetCurrenciesCache()
   setActivePinia(createPinia())
   router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:p(.*)*', component: { template: '<div/>' } }] })
   api.currencies.mockResolvedValue({ data: RATES })

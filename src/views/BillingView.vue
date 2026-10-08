@@ -146,7 +146,8 @@ import { DownloadOutlined, PlusOutlined, SearchOutlined, CloseOutlined } from '@
 import { loadXlsx } from '@/utils/xlsx'
 import PageHeader from '@/components/PageHeader.vue'
 import { billingApi, type BrokerInvoice, type BrokerInvoiceKind, type PaymentCheckFile } from '@/api/billing'
-import { caseFilterSearch } from '@/views/billingQuery'
+import { caseFilterSearch, watchCaseQuery } from '@/views/billingQuery'
+import { saveBlob } from '@/ui/download'
 import { import40Api, type Import40CaseDto } from '@/api/import40'
 import { salesApi, type SalesServiceItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
@@ -202,6 +203,13 @@ const load = async () => {
     loading.value = false
   }
 }
+
+// Уведомление о чеке, когда список уже открыт: перечитываем счета (чек свежий) и ставим фильтр
+// новой заявки; без ?case= — снимаем фильтр.
+watchCaseQuery(() => route.query.case, async (caseId) => {
+  await load()
+  search.value = caseFilterSearch(rows.value, caseId)
+})
 
 onMounted(async () => {
   await load()
@@ -406,13 +414,7 @@ const remove = async (r: BrokerInvoice) => {
 
 const downloadPdf = async (r: BrokerInvoice) => {
   try {
-    const blob = await billingApi.pdf(r.id)
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${r.kind === 'act' ? 'Акт' : 'Счёт'}-${r.number || 'черновик'}.pdf`
-    a.click()
-    URL.revokeObjectURL(url)
+    saveBlob(await billingApi.pdf(r.id), `${r.kind === 'act' ? 'Акт' : 'Счёт'}-${r.number || 'черновик'}.pdf`)
   } catch (e: any) {
     // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
     if (!e?.response) message.error(t('billing.actionError'))
@@ -421,13 +423,7 @@ const downloadPdf = async (r: BrokerInvoice) => {
 
 const downloadCheck = async (r: BrokerInvoice, f: PaymentCheckFile) => {
   try {
-    const blob = await billingApi.downloadPaymentCheck(r.id, f.id)
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = f.fileName
-    a.click()
-    URL.revokeObjectURL(url)
+    saveBlob(await billingApi.downloadPaymentCheck(r.id, f.id), f.fileName)
   } catch (e: any) {
     // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
     if (!e?.response) message.error(t('billing.actionError'))

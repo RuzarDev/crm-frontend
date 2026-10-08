@@ -15,7 +15,7 @@ const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn
 const save = vi.hoisted(() => vi.fn())
 vi.mock('@/api/import40Contract', async (orig) => ({ ...(await orig<object>()), import40ContractApi: api }))
 vi.mock('@/ui/message', () => ({ message: msg }))
-vi.mock('@/views/client/shipment/util', async (orig) => ({ ...(await orig<object>()), saveBlob: save }))
+vi.mock('@/ui/download', () => ({ saveBlob: save }))
 
 import CompanyDocumentCard from '../CompanyDocumentCard.vue'
 
