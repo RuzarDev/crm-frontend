@@ -69,7 +69,7 @@ const router = createRouter({
         {
           path: '/requests-registry',
           name: 'requests-registry',
-          component: () => import('@/views/RequestsRegistryView.vue'),
+          component: () => import('@/views/broker/requests/BrokerRegistryView.vue'),
           meta: { requiresRole: 'administrator' },
         },
         {
@@ -183,7 +183,7 @@ const router = createRouter({
         {
           path: '/import-40/manage',
           name: 'import40-manage',
-          component: () => import('@/views/Import40ManageView.vue'),
+          component: () => import('@/views/broker/requests/BrokerManageView.vue'),
           meta: { requiresPermission: 'import40.assign' },
         },
         {

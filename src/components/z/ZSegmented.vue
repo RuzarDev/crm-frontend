@@ -9,6 +9,7 @@ import { focusFirstTabbable } from '@/ui/surfaces'
 // Замена a-segmented: v-model:value + change(value). Выбор снять нельзя: Reka при повторном нажатии
 // на выбранный пункт присылает пустое значение — игнорируем. class/style/aria-* — на корень (вручную:
 // свой aria-describedby объединяется с ошибкой ZField). Внутри ZField подпись — через aria-labelledby.
+// У пункта может быть count — приглушённая цифра справа от подписи.
 defineOptions({ inheritAttrs: false })
 const attrs = useAttrs()
 const props = defineProps<{
@@ -76,6 +77,7 @@ defineExpose({ focus })
       )"
     >
       {{ o.label }}
+      <span v-if="typeof o.count === 'number'" class="ml-1.5 font-medium tabular-nums text-muted" data-z-count>{{ o.count }}</span>
     </ToggleGroupItem>
   </ToggleGroupRoot>
 </template>

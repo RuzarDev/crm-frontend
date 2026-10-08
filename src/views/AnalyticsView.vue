@@ -162,7 +162,7 @@ const canOpenCase = computed(() => authStore.hasPermission('import40.read'))
 const loading = ref(false)
 const a = ref<AnalyticsDto | null>(null)
 // userId -> отображаемое имя (displayName || username), тот же справочник, что и
-// в /import-40/manage (Import40ManageView.staffLabel) — аудит 2026-09-28 п.7.
+// в /import-40/manage (BrokerManageView.staffLabel) — аудит 2026-09-28 п.7.
 const staffNames = ref<Record<string, string>>({})
 
 const load = async () => {

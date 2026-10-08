@@ -158,6 +158,11 @@ describe('ZRadioGroup', () => {
 })
 
 describe('ZSegmented', () => {
+  it('счётчик пункта (option.count) выводится рядом с подписью; без него — только подпись', () => {
+    w = mountWithI18n(ZSegmented, { props: { value: 'a', options: [{ value: 'a', label: 'Все', count: 12 }, { value: 'b', label: 'Мои', count: 0 }, { value: 'c', label: 'Ещё' }] } })
+    expect(w.findAll('button').map((b) => b.text())).toEqual(['Все 12', 'Мои 0', 'Ещё'])
+    expect(w.findAll('[data-z-count]')).toHaveLength(2)
+  })
   it('строковые опции и выбор; снять выбор нельзя', async () => {
     w = mountWithI18n(ZSegmented, { props: { value: 'Список', options: ['Список', 'Таблица'] } })
     const items = w.findAll('button')

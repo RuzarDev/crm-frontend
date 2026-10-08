@@ -26,7 +26,9 @@ export interface FinanceOverview {
 
 export const manageApi = {
   staff: async (): Promise<StaffMember[]> => (await apiClient.get<StaffMember[]>('/import40/staff')).data,
-  overview: async (): Promise<ManageOverview> => (await apiClient.get<ManageOverview>('/import40/manage')).data,
+  // silent — экран сам рисует «не удалось загрузить» с «Повторить», без тоста перехватчика.
+  overview: async (opts?: { silent?: boolean }): Promise<ManageOverview> =>
+    (await apiClient.get<ManageOverview>('/import40/manage', opts?.silent ? { silent: true } : undefined)).data,
 }
 export const financeApi = {
   overview: async (from?: string, to?: string): Promise<FinanceOverview> =>
