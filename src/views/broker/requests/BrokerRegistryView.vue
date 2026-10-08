@@ -91,7 +91,7 @@ const pagination = computed(() => ({
   pageSize: PAGE_SIZE,
   total: total.value,
   onChange: onPage,
-  showTotal: (n: number, [from, to]: [number, number]) => t('broker.registry.range', { from, to, total: n }),
+  showTotal: (n: number, [from, to]: [number, number]) => t('broker.list.range', { from, to, total: n }),
 }))
 
 const typeLabel = (r: RegistryRowDto) => t(`broker.registry.type.${r.serviceType}`)
@@ -167,7 +167,7 @@ const resetFilters = () => {
         :value="type"
         :options="typeOptions"
         :aria-label="t('broker.registry.typeLabel')"
-        class="max-sm:w-full max-sm:[&>button]:h-11 max-sm:[&>button]:flex-1"
+        class="max-sm:w-full max-sm:[&>button]:flex-1"
         data-registry-type
         @update:value="setType"
       />
@@ -175,7 +175,7 @@ const resetFilters = () => {
         v-model:value="q"
         :placeholder="t('broker.registry.search')"
         :debounce="400"
-        class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1"
+       
         data-registry-search
         @search="onSearch"
       />

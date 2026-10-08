@@ -46,3 +46,6 @@ const moneyFormat = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 })
 /** Деньги для карточек: «2 840 000 ₸». Узкие/обычные неразрывные пробелы Intl → U+00A0 (стабильно в тестах и разных ОС). */
 export const formatMoney = (n: number, currency = '₸'): string =>
   `${moneyFormat.format(n).replace(/[  ]/g, ' ')} ${currency}`
+
+/** Сумма без знака валюты — ячейки таблиц, где «₸» в заголовке: «1 521 300»; нет — «0». */
+export const formatAmount = (n: number | null | undefined): string => formatMoney(n ?? 0, '').trimEnd()

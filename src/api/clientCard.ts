@@ -108,10 +108,14 @@ export const clientCardApi = {
   card: async (clientId: string): Promise<ClientCard> =>
     (await apiClient.get<ClientCard>(`/clients/${encodeURIComponent(clientId)}/card`)).data,
 
-  documents: async (params?: {
-    kind?: 'contract' | 'poa'
-    status?: number
-    expiring?: boolean
-  }): Promise<ClientDocumentRow[]> =>
-    (await apiClient.get<ClientDocumentRow[]>('/clients/documents', { params })).data,
+  // opts.silent — реестр «Документы клиентов» (редизайн) сам показывает ошибку на месте, без тоста перехватчика.
+  documents: async (
+    params?: {
+      kind?: 'contract' | 'poa'
+      status?: number
+      expiring?: boolean
+    },
+    opts?: { silent?: boolean },
+  ): Promise<ClientDocumentRow[]> =>
+    (await apiClient.get<ClientDocumentRow[]>('/clients/documents', opts?.silent ? { params, silent: true } : { params })).data,
 }

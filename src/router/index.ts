@@ -58,7 +58,7 @@ const router = createRouter({
         {
           path: '/analytics',
           name: 'analytics',
-          component: () => import('@/views/AnalyticsView.vue'),
+          component: () => import('@/views/broker/analytics/AnalyticsView.vue'),
           meta: { requiresPermission: 'analytics.read' },
         },
         {
@@ -153,7 +153,7 @@ const router = createRouter({
         {
           path: '/sales',
           name: 'sales',
-          component: () => import('@/views/SalesView.vue'),
+          component: () => import('@/views/broker/sales/SalesWorkspaceView.vue'),
           meta: { requiresSales: true },
         },
         {
@@ -179,7 +179,7 @@ const router = createRouter({
           // Волна 2 ролей: финансы (бухгалтер) и панель руководителя.
           path: '/finance',
           name: 'finance',
-          component: () => import('@/views/FinanceView.vue'),
+          component: () => import('@/views/broker/finance/FinanceOverviewView.vue'),
           meta: { requiresPermission: 'finance.read' },
         },
         {
@@ -191,7 +191,7 @@ const router = createRouter({
         {
           path: '/clients',
           name: 'clients',
-          component: () => import('@/views/ClientsView.vue'),
+          component: () => import('@/views/broker/clients/ClientsListView.vue'),
           meta: { requiresPermission: 'clients.read' },
         },
         {
@@ -203,7 +203,7 @@ const router = createRouter({
         {
           path: '/client-documents',
           name: 'client-documents',
-          component: () => import('@/views/ClientDocumentsView.vue'),
+          component: () => import('@/views/broker/clients/ClientDocumentsRegisterView.vue'),
           meta: { requiresPermission: 'clients.read' },
         },
         {

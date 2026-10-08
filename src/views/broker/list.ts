@@ -2,9 +2,17 @@ import { loadXlsx } from '@/utils/xlsx'
 import { saveBlob } from '@/ui/download'
 import { formatDateText } from '@/ui/date'
 
-// Общие функции брокерских списков (Заявки, Транзит, Пакеты, КЕДЕН): подпись «Обновлено», поиск, период, Excel.
+// Общие функции брокерских списков (волны 3а и 3б): подпись «Обновлено», поиск, период, формы числа, Excel.
 
-const pad = (n: number): string => String(n).padStart(2, '0')
+/** Две цифры: 7 → «07». */
+export const pad = (n: number): string => String(n).padStart(2, '0')
+/** Сегодняшняя дата 'YYYY-MM-DD' по местному времени. */
+export const todayIso = (now: Date = new Date()): string => `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+/** Форма числа для подписей «{n} счетов»: ru — один/несколько/много; языки без «few» — one/many. */
+export function pluralForm(n: number, locale: string): 'one' | 'few' | 'many' {
+  const c = new Intl.PluralRules(locale).select(n)
+  return c === 'one' ? 'one' : c === 'few' ? 'few' : 'many'
+}
 const sameDay = (a: Date, b: Date): boolean =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
@@ -45,6 +53,13 @@ function localDay(iso: string): string | null {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
+/** Дата ДД.ММ.ГГГГ по локальному дню (метка времени — в местном поясе, голая YYYY-MM-DD — как есть); нет или мусор — «—». */
+export function formatDay(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const day = localDay(iso)
+  return day ? formatDateText(day) || '—' : '—'
+}
+
 /** Попадает ли дата в период; обе границы включительно, период null — фильтра нет. */
 export function inPeriod(iso: string | null | undefined, period: [string, string] | null): boolean {
   if (!period) return true
@@ -70,8 +85,7 @@ export async function exportXlsx(fileBase: string, sheet: string, rows: Record<s
   // Имя листа в Excel: до 31 знака, без : \ / ? * [ ].
   XLSX.utils.book_append_sheet(wb, ws, sheet.replace(/[:\\/?*[\]]/g, ' ').slice(0, 31) || 'Sheet1')
   const data = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-  const now = new Date()
-  const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+  const stamp = todayIso()
   saveBlob(
     new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
     `${fileBase}_${stamp}.xlsx`,

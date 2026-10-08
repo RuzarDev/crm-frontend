@@ -211,7 +211,7 @@ const pagination = computed(() => ({
     selected.value = []
     void load()
   },
-  showTotal: (total: number, [from, to]: [number, number]) => t('broker.transit.range', { from, to, total }),
+  showTotal: (total: number, [from, to]: [number, number]) => t('broker.list.range', { from, to, total }),
 }))
 
 // «Итого по странице»: подпись занимает колонки до первой суммируемой, дальше — суммы под своими колонками.
@@ -358,7 +358,7 @@ const exportFile = async () => {
 // Узкий экран: вторичные действия шапки — в меню «⋯», главное остаётся кнопкой.
 const headerMenuItems = computed<ZDropdownItem[]>(() => [
   ...(canWrite.value ? [{ key: 'upload', label: t('broker.transit.uploadExcel'), icon: PhFileArrowUp }, { key: 'import', label: t('broker.transit.importInvoice'), icon: PhReceipt }] : []),
-  { key: 'export', label: t('broker.transit.export'), icon: PhDownloadSimple },
+  { key: 'export', label: t('transit.vygruzitReestr'), icon: PhDownloadSimple },
 ])
 const onHeaderMenu = (key: string) => {
   if (key === 'upload') void showUpload()
@@ -399,7 +399,7 @@ const outlineBtn = 'border border-line-strong bg-surface enabled:hover:bg-sunken
           </template>
           <ZButton :loading="exporting" :class="cn(canWrite && 'max-xl:hidden', 'max-sm:h-11 max-sm:flex-1')" data-transit-export @click="exportFile">
             <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
-            {{ t('broker.transit.export') }}
+            {{ t('broker.list.excel') }}
           </ZButton>
           <ZDropdown v-if="canWrite" :items="headerMenuItems" @select="onHeaderMenu">
             <ZButton class="xl:hidden max-sm:size-11 max-sm:px-0" :aria-label="t('broker.transit.moreActions')" data-transit-more>
@@ -418,7 +418,7 @@ const outlineBtn = 'border border-line-strong bg-surface enabled:hover:bg-sunken
           :value="searchText"
           :debounce="300"
           :placeholder="t('broker.transit.search')"
-          class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1"
+         
           @update:value="searchText = $event"
           @search="onSearch"
         />

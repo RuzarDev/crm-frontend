@@ -30,7 +30,7 @@ onBeforeUnmount(cancel)
     :value="value"
     :placeholder="placeholder"
     :aria-label="placeholder"
-    class="h-[34px] w-full text-[13px] sm:max-w-[360px] max-sm:h-11"
+    class="h-[34px] w-full min-w-0 text-[13px] max-sm:h-11 max-sm:basis-full sm:max-w-[360px] sm:flex-[1_1_15rem]"
     @update:value="onValue"
     @search="onSearch"
   />

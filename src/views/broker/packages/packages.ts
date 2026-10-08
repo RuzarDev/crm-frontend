@@ -1,7 +1,7 @@
 import type { ZTone } from '@/components/z/ZTag.vue'
 import type { DocumentPackageDto, DocumentPackageStatus } from '@/types/api'
 import { formatDateText } from '@/ui/date'
-import { matchesQuery } from '@/views/broker/list'
+import { matchesQuery, pad } from '@/views/broker/list'
 
 // Чистая логика «Пакетов документов» (редизайн, волна 3а): права на файлы, фильтрация, счётчики, формат.
 
@@ -66,7 +66,6 @@ export function formatFileSize(bytes: number, t: (k: string) => string): string 
   return `${(bytes / 1024 / 1024).toFixed(1)} ${t('transit.mb')}`
 }
 
-const pad = (n: number): string => String(n).padStart(2, '0')
 /** Дата и время в местном поясе: «08.10.2026 09:14»; не разобралось — пустая строка. */
 export function formatStamp(iso: string): string {
   const d = new Date(iso)

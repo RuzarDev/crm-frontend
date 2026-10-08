@@ -31,6 +31,7 @@ export const manageApi = {
     (await apiClient.get<ManageOverview>('/import40/manage', opts?.silent ? { silent: true } : undefined)).data,
 }
 export const financeApi = {
-  overview: async (from?: string, to?: string): Promise<FinanceOverview> =>
-    (await apiClient.get<FinanceOverview>('/finance/overview', { params: { from, to } })).data,
+  // silent — экран сам рисует «не удалось загрузить» с «Повторить», без тоста перехватчика.
+  overview: async (from?: string, to?: string, opts?: { silent?: boolean }): Promise<FinanceOverview> =>
+    (await apiClient.get<FinanceOverview>('/finance/overview', { params: { from, to }, ...(opts?.silent ? { silent: true } : {}) })).data,
 }

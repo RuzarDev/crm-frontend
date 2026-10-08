@@ -85,7 +85,7 @@ const iconButton =
       <ZSegmented
         v-model:value="mode"
         :options="modes"
-        class="self-start max-sm:flex max-sm:w-full max-sm:self-stretch max-sm:*:h-11 max-sm:*:flex-1 max-sm:*:justify-center max-sm:*:text-[15px]"
+        class="self-start max-sm:flex max-sm:w-full max-sm:self-stretch max-sm:*:flex-1 max-sm:*:justify-center max-sm:*:text-[15px]"
         data-wz-mode
       />
     </ZField>

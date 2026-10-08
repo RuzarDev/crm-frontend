@@ -1,7 +1,7 @@
 import type { ZTone } from '@/components/z/ZTag.vue'
 import type { KedenDeclarationListItemDto } from '@/api/keden'
 import type { KedenDeclarationStatus } from '@/types/api'
-import { matchesQuery } from '@/views/broker/list'
+import { matchesQuery, pad } from '@/views/broker/list'
 
 // Чистая логика экрана «КЕДЕН» (редизайн, волна 3а, доска Keden): строки двух источников приводятся к одной форме,
 // тон статуса — один на оба режима, поиск и фильтры считаются на клиенте.
@@ -108,7 +108,6 @@ export const statusOptions = (rows: KedenRow[]): Option[] => distinct(rows.map((
 /** Варианты чипа «Пост»: различные таможенные посты из строк. */
 export const postOptions = (rows: KedenRow[]): Option[] => distinct(rows.map((r) => r.customsPost))
 
-const pad = (n: number): string => String(n).padStart(2, '0')
 /** «08.10, 10:12» в местном поясе; пусто или не разобралось — пустая строка. */
 export function formatChanged(iso: string | null | undefined): string {
   if (!iso) return ''

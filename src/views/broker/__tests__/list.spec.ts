@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { saveBlob } from '@/ui/download'
-import { exportXlsx, formatPeriod, formatUpdated, inPeriod, matchesQuery } from '../list'
+import { exportXlsx, formatDay, formatPeriod, formatUpdated, inPeriod, matchesQuery, pad, pluralForm, todayIso } from '../list'
 
 vi.mock('@/ui/download', () => ({ saveBlob: vi.fn() }))
 
@@ -86,5 +86,36 @@ describe('exportXlsx', () => {
     const [blob, name] = vi.mocked(saveBlob).mock.calls[0]
     expect(name).toBe('zayavki_2026-10-08.xlsx')
     expect(blob.size).toBeGreaterThan(0)
+  })
+})
+
+describe('formatDay', () => {
+  it('голая дата — как есть, без сдвига пояса', () => {
+    expect(formatDay('2026-10-08')).toBe('08.10.2026')
+  })
+  it('метка времени — локальный день', () => {
+    expect(formatDay(new Date(2026, 9, 8, 23, 30).toISOString())).toBe('08.10.2026')
+  })
+  it('ISO с Z разбирается', () => {
+    expect(formatDay('2026-10-08T12:00:00Z')).toBe('08.10.2026')
+  })
+  it('null, пусто и мусор — «—»', () => {
+    expect(formatDay(null)).toBe('—')
+    expect(formatDay(undefined)).toBe('—')
+    expect(formatDay('')).toBe('—')
+    expect(formatDay('не дата')).toBe('—')
+  })
+})
+
+describe('общие помощники', () => {
+  it('pluralForm: ru — один/несколько/много, en — one/many', () => {
+    expect([1, 2, 5, 21, 11].map((n) => pluralForm(n, 'ru'))).toEqual(['one', 'few', 'many', 'one', 'many'])
+    expect([1, 2].map((n) => pluralForm(n, 'en'))).toEqual(['one', 'many'])
+    expect([1, 2, 5].map((n) => pluralForm(n, 'kk'))).toEqual(['one', 'many', 'many'])
+  })
+  it('pad и todayIso — местная дата', () => {
+    expect(pad(7)).toBe('07')
+    expect(pad(12)).toBe('12')
+    expect(todayIso(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05')
   })
 })

@@ -167,11 +167,11 @@ const emptyTitle = computed(() => (search.value.trim() ? t('broker.list.nothingF
             :value="segment"
             :options="segmentOptions"
             :aria-label="t('broker.manage.segmentsLabel')"
-            class="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:shrink-0 max-sm:[&>button]:h-11"
+            class="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:shrink-0"
             data-manage-segments
             @update:value="onSegment"
           />
-          <ListSearch :value="search" :placeholder="t('broker.manage.search')" class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1" data-manage-search @update:value="onSearch" />
+          <ListSearch :value="search" :placeholder="t('broker.manage.search')" data-manage-search @update:value="onSearch" />
         </div>
 
         <p v-if="error" class="m-0 flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-4 py-3 text-sm text-ink-2" data-manage-reload-error>
