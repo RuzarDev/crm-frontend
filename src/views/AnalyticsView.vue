@@ -172,7 +172,7 @@ const load = async () => {
     // Справочник имён сотрудников доступен не всем, кто видит аналитику (нужен import40.assign) —
     // подгружаем best-effort, без него просто останется username.
     try {
-      const ov = await manageApi.overview()
+      const ov = await manageApi.overview({ silent: true })
       staffNames.value = Object.fromEntries(ov.staff.map((s) => [s.id, s.displayName || s.username]))
     } catch { /* нет прав на /import40/manage — используем username как раньше */ }
   } catch { message.error(t('admin.neUdalosZagruzitAnalitiku')) } finally { loading.value = false }
