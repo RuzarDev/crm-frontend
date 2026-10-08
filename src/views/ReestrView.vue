@@ -695,6 +695,8 @@ const handleFormSubmit = async (payload: {
   try {
     const clientId = payload.clientId ?? currentEntry.value?.clientId
     if (!clientId) {
+      // Без клиента сервер запись не примет — говорим об этом, а не молчим (форма остаётся открытой).
+      message.error(t('transit.vyberiteKlienta'))
       return
     }
     const body = reestrDataToUpsertBody(
