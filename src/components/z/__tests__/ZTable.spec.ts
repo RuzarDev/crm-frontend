@@ -267,6 +267,15 @@ describe('ZTable — выбор строк', () => {
     expect(rowClick).not.toHaveBeenCalled()
   })
 
+  it('карточки на телефоне: чекбокс строки с областью нажатия 44px (отступ внутри label)', () => {
+    w = mountWithI18n(ZTable, { props: { columns, dataSource: rows, rowKey: 'id', rowSelection: { selectedRowKeys: [] } } })
+    const label = bodyRows()[0].get('[role="checkbox"]').element.closest('label')!
+    expect(label.className).toContain('max-sm:p-3.5')
+    w.unmount()
+    w = mountWithI18n(ZTable, { props: { columns, dataSource: rows, rowKey: 'id', cards: false, rowSelection: { selectedRowKeys: [] } } })
+    expect(bodyRows()[0].get('[role="checkbox"]').element.closest('label')!.className).not.toContain('max-sm:p-3.5')
+  })
+
   it('rowKey-функция (record, index)', async () => {
     const onChange = vi.fn()
     w = mountWithI18n(ZTable, {

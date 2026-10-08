@@ -29,6 +29,16 @@ describe('ZTabs', () => {
     expect(w.emitted('update:activeKey')?.at(-1)).toEqual(['mine'])
   })
 
+  it('variant="line": активная вкладка — акцентным цветом, по умолчанию — чернилами', () => {
+    w = mountWithI18n(ZTabs, { props: { activeKey: 'all', items: items.slice(0, 2), variant: 'line' } })
+    expect(w.get('[role="tab"]').classes()).toContain('data-[state=active]:text-zircon-ink')
+    expect(w.get('[role="tab"]').classes()).not.toContain('data-[state=active]:text-ink')
+    w.unmount()
+    w = mountWithI18n(ZTabs, { props: { activeKey: 'all', items: items.slice(0, 2) } })
+    expect(w.get('[role="tab"]').classes()).toContain('data-[state=active]:text-ink')
+    expect(w.get('[role="tab"]').classes()).not.toContain('data-[state=active]:text-zircon-ink')
+  })
+
   it('change и update — по одному разу на реальную смену', async () => {
     w = mountWithI18n({
       components: { ZTabs },

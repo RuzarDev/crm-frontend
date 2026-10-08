@@ -12,7 +12,8 @@ import { cn } from '@/ui/cn'
 // Активация по стрелкам автоматическая (как у AntD). change — один раз на реальную смену вкладки.
 export interface ZTabItem { key: string; label: string; count?: number; disabled?: boolean }
 
-const props = defineProps<{ activeKey?: string | null; items: ZTabItem[] }>()
+// variant="line" — вкладки списков (волна 3а): активная — акцентным цветом zircon-ink под подчёркиванием, подпись 13.5px.
+const props = withDefaults(defineProps<{ activeKey?: string | null; items: ZTabItem[]; variant?: 'default' | 'line' }>(), { variant: 'default' })
 defineSlots<{ default?: (p: { key: string }) => unknown }>()
 const emit = defineEmits<{
   'update:activeKey': [key: string]
@@ -61,7 +62,8 @@ const onUpdate = (v: unknown) => {
           'transition-colors duration-150 ease-out motion-reduce:transition-none',
           'focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-45',
           'data-[state=inactive]:text-ink-3 data-[state=inactive]:enabled:hover:text-ink',
-          'data-[state=active]:font-semibold data-[state=active]:text-ink',
+          'data-[state=active]:font-semibold',
+          variant === 'line' ? 'text-[13.5px] max-sm:h-11 data-[state=active]:text-zircon-ink' : 'data-[state=active]:text-ink',
         )"
       >
         <span
