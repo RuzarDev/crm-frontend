@@ -86,9 +86,10 @@ const router = createRouter({
           component: () => import('@/views/broker/packages/PackagesView.vue'),
         },
         {
+          // «Разбор поезда» (редизайн, волна 4в). Доступ — как у /document-packages (guard).
           path: '/document-packages/:id/workspace',
           name: 'document-packages-workspace',
-          component: () => import('@/views/DocumentPackageWorkspaceView.vue'),
+          component: () => import('@/views/broker/packages/workspace/WorkspacePage.vue'),
         },
         {
           path: '/import-40',
