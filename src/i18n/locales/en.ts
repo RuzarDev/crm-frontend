@@ -918,6 +918,36 @@ export default {
         disclaimer: 'This offer is preliminary. The final cost is determined upon clearance.',
       },
     },
+    // «Аналитика» (редизайн, волна 3б).
+    analytics: {
+      title: 'Analytics',
+      subtitle: 'Last 30 days from system data · compared with the previous 30 days',
+      stat: {
+        cases: 'New requests',
+        declarations: 'DTs filed',
+        payments: 'Box B payments',
+        avgDays: 'Processing time',
+        avgHint: '{active} in progress · {problems} with a problem',
+      },
+      delta: { vsPrev: '{delta} vs the previous 30 days', new: 'new', flat: 'no change' },
+      mln: '{n}M\u00a0₸',
+      days: '{n}\u00a0d.',
+      series: { cases: 'Requests', declarations: 'DTs', transit: 'Transit' },
+      months: { title: 'Six months' },
+      chart: {
+        label: 'Requests, DTs and transit by month over the last six months',
+        monthSummary: '{month}: requests {cases}, DTs {declarations}, transit {transit}',
+      },
+      stages: { title: 'Where requests are now' },
+      stage: { draft: 'New', border: 'At the border', declaring: 'Declaring', svh: 'Warehouse and invoice', payment: 'Payment', done: 'Done' },
+      clients: { title: 'Clients by payments', cases: { one: 'request', few: 'requests', many: 'requests' } },
+      events: { title: 'Recent events', journal: 'Journal', openCase: 'Open request: {name}' },
+      staff: {
+        title: 'Staff workload',
+        tableLabel: 'Staff workload',
+        col: { user: 'Employee', role: 'Role', active: 'In progress', done: 'Done' },
+      },
+    },
   },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
   client: {

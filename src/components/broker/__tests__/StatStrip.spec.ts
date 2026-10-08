@@ -33,6 +33,21 @@ describe('StatStrip', () => {
     expect(cells[3].get('[data-stat-dot]').classes()).toContain('bg-danger')
   })
 
+  it('цвет подсказки: рост — зелёный, падение — красный, без hintTone — приглушённый', () => {
+    w = mountWithI18n(StatStrip, {
+      props: { items: [
+        { key: 'a', label: 'A', value: '1', hint: '+14%', hintTone: 'up' as const },
+        { key: 'b', label: 'B', value: '2', hint: '-5%', hintTone: 'down' as const },
+        { key: 'c', label: 'C', value: '3', hint: 'без изменений' },
+      ] },
+    })
+    const hints = w.findAll('[data-stat-hint]')
+    expect(hints[0].classes()).toContain('text-tone-done-fg')
+    expect(hints[1].classes()).toContain('text-tone-danger-fg')
+    expect(hints[2].classes()).toContain('text-muted')
+    expect(hints[2].classes()).not.toContain('text-tone-done-fg')
+  })
+
   it('loading: скелетоны вместо значений и подсказок', () => {
     w = mountWithI18n(StatStrip, { props: { items, loading: true } })
     expect(w.findAll('[data-z-line]')).toHaveLength(4)

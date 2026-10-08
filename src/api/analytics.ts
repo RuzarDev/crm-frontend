@@ -1,6 +1,6 @@
 import apiClient from './client'
 
-// GET analytics — реальная аналитика (только администратор), см. GetAnalytics.cs.
+// GET analytics — реальная аналитика (право analytics.read), см. GetAnalytics.cs.
 export interface AnalyticsMonth { month: string; cases: number; declarations: number; paymentsKzt: number; transitEntries: number }
 export interface AnalyticsStage { key: string; count: number }
 export interface AnalyticsClient { clientId: string; clientName: string; cases: number; paymentsKzt: number }
@@ -20,5 +20,7 @@ export interface AnalyticsDto {
 }
 
 export const analyticsApi = {
-  get: async (): Promise<AnalyticsDto> => (await apiClient.get<AnalyticsDto>('/analytics')).data,
+  // silent — экран сам рисует «не удалось загрузить» с «Повторить», без тоста перехватчика.
+  get: async (opts?: { silent?: boolean }): Promise<AnalyticsDto> =>
+    (await apiClient.get<AnalyticsDto>('/analytics', opts?.silent ? { silent: true } : undefined)).data,
 }

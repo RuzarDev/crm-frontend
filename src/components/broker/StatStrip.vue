@@ -10,10 +10,13 @@ export interface StatItem {
   value: string
   hint?: string
   tone?: 'gold' | 'done' | 'danger' | null
+  /** Цвет подсказки: up — рост (зелёный), down — падение (красный); без него — приглушённый. */
+  hintTone?: 'up' | 'down' | null
 }
 
 withDefaults(defineProps<{ items: StatItem[]; loading?: boolean }>(), { loading: false })
 
+const HINT: Record<'up' | 'down', string> = { up: 'text-tone-done-fg', down: 'text-tone-danger-fg' }
 const DOT: Record<NonNullable<StatItem['tone']>, string> = {
   gold: 'bg-gold',
   done: 'bg-tone-done-fg',
@@ -38,7 +41,7 @@ const DOT: Record<NonNullable<StatItem['tone']>, string> = {
       </div>
       <ZSkeleton v-if="loading" class="mt-1.5" width="60%" height="22px" />
       <div v-else class="mt-0.5 text-[22px] leading-[30px] font-semibold text-ink tabular-nums">{{ it.value }}</div>
-      <div v-if="it.hint && !loading" class="mt-0.5 text-[12.5px] text-muted">{{ it.hint }}</div>
+      <div v-if="it.hint && !loading" data-stat-hint :class="cn('mt-0.5 text-[12.5px]', it.hintTone ? HINT[it.hintTone] : 'text-muted')">{{ it.hint }}</div>
     </div>
   </div>
 </template>
