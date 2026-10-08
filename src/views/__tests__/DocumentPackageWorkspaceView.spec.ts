@@ -84,3 +84,44 @@ describe('прежний «Разбор поезда»: привязка', () =>
     expect(api.linkFile).toHaveBeenCalledWith('pkg1', 'f-free', { containerId: 'c2', clientConsolidationId: null, documentType: null })
   })
 })
+
+describe('прежний «Разбор поезда»: права в интерфейсе', () => {
+  const EDIT_TEXTS = ['Сгенерировать строки реестра', 'Добавить контейнер', 'Клиент/Партия', 'Связать с:']
+
+  it('с reestr.write и packages.manage — правка, решение по пакету и загрузка на месте', async () => {
+    await mountView()
+    for (const text of EDIT_TEXTS) expect(w.text()).toContain(text)
+    expect(w.text()).toContain('Решение по пакету документов')
+    expect(w.find('.workspace-upload-dropzone').exists()).toBe(true)
+    expect(w.get('.file-item-wrap').attributes('draggable')).toBe('true')
+  })
+
+  it('экспедитор (только reestr.read): дерево только для чтения, без перетаскивания и решения', async () => {
+    as('expeditor', ['reestr.read', 'clients.read'])
+    api.getById.mockResolvedValue(pkg({ status: 'accepted' }))
+    await mountView()
+    for (const text of EDIT_TEXTS) expect(w.text()).not.toContain(text)
+    expect(w.text()).not.toContain('Решение по пакету документов')
+    expect(w.findAll('.ant-btn-dangerous')).toHaveLength(0)
+    expect(w.get('.file-item-wrap').attributes('draggable')).toBe('false')
+    // Принятый пакет экспедитор не дополняет — как решает сервер (canModifyFiles).
+    expect(w.find('.workspace-upload-dropzone').exists()).toBe(false)
+    await w.get('.consolidation-node-card').trigger('drop', { dataTransfer: dt('f-free') })
+    await flushPromises()
+    expect(api.linkFile).not.toHaveBeenCalled()
+  })
+
+  it('экспедитор загружает файлы, пока пакет «Загружен» или «Нужна правка»', async () => {
+    as('expeditor', ['reestr.read'])
+    api.getById.mockResolvedValue(pkg({ status: 'needsFix' }))
+    await mountView()
+    expect(w.find('.workspace-upload-dropzone').exists()).toBe(true)
+  })
+
+  it('packages.manage без reestr.write — без «Решения по пакету» (сервер требует оба права)', async () => {
+    as('importer', ['reestr.read', 'packages.manage'])
+    await mountView()
+    expect(w.text()).not.toContain('Решение по пакету документов')
+    expect(w.text()).not.toContain('Сгенерировать строки реестра')
+  })
+})

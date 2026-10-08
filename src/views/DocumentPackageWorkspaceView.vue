@@ -18,6 +18,7 @@
         >
           <ThunderboltOutlined /> {{ t('transit.avtoRazborDemo') }} </a-button>
         <a-button
+          v-if="canEdit"
           type="primary"
           :loading="generating"
           @click="handleGenerateRows"
@@ -55,7 +56,7 @@
           </template>
 
           <!-- Dropzone Upload -->
-          <div class="workspace-file-upload">
+          <div v-if="canUpload" class="workspace-file-upload">
             <input
               type="file"
               multiple
@@ -84,7 +85,7 @@
               <a-list-item 
                 class="file-item-wrap" 
                 :class="{ 'file-linked': isLinked(item) }"
-                draggable="true" 
+                :draggable="canEdit ? 'true' : 'false'"
                 @dragstart="handleDragStart($event, item)"
               >
                 <div class="file-info">
@@ -113,7 +114,7 @@
                   </div>
                 </div>
 
-                <div class="file-assignment">
+                <div v-if="canEdit" class="file-assignment">
                   <span class="assignment-label">{{ t('transit.svyazatS') }}</span>
                   <a-select
                     :value="getLinkValue(item)"
@@ -220,7 +221,7 @@
               </a-tag>
             </div>
             
-            <div class="train-actions" style="margin-top: 16px;">
+            <div v-if="canEdit" class="train-actions" style="margin-top: 16px;">
               <a-button type="primary" size="small" @click="openAddContainerModal">
                 <PlusOutlined /> {{ t('transit.dobavitKonteyner') }} </a-button>
             </div>
@@ -248,7 +249,7 @@
                     </span>
                   </div>
                 </div>
-                <a-space>
+                <a-space v-if="canEdit">
                   <a-button type="link" size="small" @click="openAddClientModal(container.id)">
                     <PlusOutlined /> {{ t('transit.klientPartiya') }} </a-button>
                   <a-button type="text" size="small" @click="openEditContainerModal(container)">
@@ -301,7 +302,7 @@
                         <span class="node-badge badge-client">{{ t('transit.klient') }}</span>
                         <strong>{{ consolidation.clientName }}</strong>
                       </div>
-                      <a-space>
+                      <a-space v-if="canEdit">
                         <a-button type="text" size="small" @click="openEditClientModal(container.id, consolidation)">
                           <EditOutlined style="color: var(--z-teal); font-size: 12px;" />
                         </a-button>
@@ -648,6 +649,7 @@ import { reestrApi } from '@/api/reestr'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
 import { useTransitTotals } from '@/composables/useTransitTotals'
+import { canModifyFiles } from '@/views/broker/packages/packages'
 import type {
   DocumentPackageDto,
   DocumentPackageFileDto,
@@ -777,6 +779,10 @@ useTransitTotals(
 const dragOverTarget = ref<{ type: string; id: string } | null>(null)
 
 const handleDragStart = (event: DragEvent, file: DocumentPackageFileDto) => {
+  if (!canEdit.value) {
+    event.preventDefault()
+    return
+  }
   if (event.dataTransfer) {
     event.dataTransfer.setData('text/plain', file.id)
     event.dataTransfer.effectAllowed = 'move'
@@ -804,6 +810,7 @@ const handleDrop = async (event: DragEvent, type: string, id: string) => {
   event.preventDefault()
   event.stopPropagation()
   dragOverTarget.value = null
+  if (!canEdit.value) return
 
   const fileId = event.dataTransfer?.getData('text/plain')
   if (!fileId) return
@@ -841,7 +848,15 @@ const clientStationModel = computed<string[]>({
 const authStore = useAuthStore()
 const role = computed(() => (authStore.role || '').trim().toLowerCase())
 // Аудит §4.2: разбор пакетов — по праву packages.manage, а не по системной роли broker.
-const canReview = computed(() => authStore.hasPermission('packages.manage'))
+// Правка дерева, привязка файлов и «Сгенерировать» — reestr.write (как на сервере); решение по пакету —
+// packages.manage и reestr.write; загрузка файлов — canModifyFiles. Экспедитору (только reestr.read) — просмотр.
+const canEdit = computed(() => authStore.hasPermission('reestr.write'))
+const canReview = computed(() => authStore.hasPermission('packages.manage') && canEdit.value)
+const canUpload = computed(() => !!packageData.value && canModifyFiles({
+  role: role.value,
+  canReview: authStore.hasPermission('packages.manage'),
+  status: packageData.value.status,
+}))
 // Демо-кнопка авто-разбора фабрикует данные — показываем только в dev-сборке.
 const isDev = import.meta.env.DEV
 
