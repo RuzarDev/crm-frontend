@@ -532,6 +532,29 @@ export default {
     retry: 'Қайталау',
     yesterday: 'кеше',
   },
+  // Общий набор брокерских списков (редизайн, волна 3а).
+  broker: {
+    list: {
+      clearFilter: 'Сүзгіні тазалау',
+      all: 'Барлығы',
+      yesterday: 'кеше',
+      selected: 'Таңдалды: {n}',
+      clearSelection: 'Таңдауды алып тастау',
+      search: 'Іздеу',
+      nothingFound: 'Ештеңе табылмады',
+      nothingFoundHint: 'Сүзгілерді немесе іздеуді өзгертіңіз',
+      resetFilters: 'Сүзгілерді тазалау',
+      loadError: 'Тізімді жүктеу мүмкін болмады',
+      retry: 'Қайталау',
+      excel: 'Excel',
+      refresh: 'Жаңарту',
+      updatedAt: 'Жаңартылды {time}',
+      truncated: 'Соңғы {n} көрсетілді — іздеуді нақтылаңыз',
+      period: 'Кезең',
+      searchOptions: 'Нұсқаны табу',
+      noOptions: 'Нұсқалар жоқ',
+    },
+  },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
   client: {
     docKind: {

@@ -536,6 +536,29 @@ export default {
     retry: 'Повторить',
     yesterday: 'вчера',
   },
+  // Общий набор брокерских списков (редизайн, волна 3а).
+  broker: {
+    list: {
+      clearFilter: 'Сбросить фильтр',
+      all: 'Все',
+      yesterday: 'вчера',
+      selected: 'Выбрано: {n}',
+      clearSelection: 'Снять выбор',
+      search: 'Поиск',
+      nothingFound: 'Ничего не нашлось',
+      nothingFoundHint: 'Измените фильтры или поиск',
+      resetFilters: 'Сбросить фильтры',
+      loadError: 'Не удалось загрузить список',
+      retry: 'Повторить',
+      excel: 'Excel',
+      refresh: 'Обновить',
+      updatedAt: 'Обновлено {time}',
+      truncated: 'Показаны последние {n} — уточните поиск',
+      period: 'Период',
+      searchOptions: 'Найти вариант',
+      noOptions: 'Нет вариантов',
+    },
+  },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
   client: {
     docKind: {
