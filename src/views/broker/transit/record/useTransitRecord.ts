@@ -26,6 +26,8 @@ export interface TransitRecord {
   loading: Ref<boolean>
   notFound: Ref<boolean>
   loadError: Ref<boolean>
+  /** Перечитать (reload) не удалось: запись и правки на месте, сохранять нельзя до успешного повтора reload(). */
+  reloadError: Ref<boolean>
   saving: Ref<boolean>
   saveError: Ref<string | null>
   dirty: ComputedRef<boolean>
@@ -38,6 +40,8 @@ export interface TransitRecord {
 
 const t = (key: string) => i18n.global.t(key)
 const statusOf = (e: unknown): number | undefined => (e as { response?: { status?: number } })?.response?.status
+/** Запись недоступна (нет, нет доступа, неверный id) — «Запись не найдена», как в карточке заявки. */
+const isNotFound = (e: unknown) => [404, 403, 400].includes(statusOf(e) ?? 0)
 const plain = <T>(v: T): T => structuredClone(toRaw(v))
 
 /** Итоги «Основного», которые пересчитываются из товаров. */
@@ -56,7 +60,9 @@ const TOTALS: [keyof GoodsTotals, keyof ReestrTransitFields][] = [
  * - save(): проверка → POST/PUT напрямую (не через стор: список странице не нужен) → тост → перечитывание.
  *   Правки, сделанные пока шёл запрос, при перечитывании не теряются.
  * - reload(): новая точка отсчёта с сервера; несохранённые правки остаются поверх (mergeDrafts).
- *   Сбой — loadError: сохранять поверх устаревшей записи нельзя (статус мог смениться).
+ *   Сбой — reloadError: запись и правки остаются на экране, «Повторить» = снова reload(); сохранять нельзя,
+ *   пока основа устарела (статус мог смениться). load() на той же записи с правками тоже идёт через reload().
+ * - Сохранение, завершившееся после перехода на другую запись, состояние новой записи не трогает.
  * - Итоги «Основного» пересчитываются только при правке товаров: не при загрузке, revert и reload;
  *   пустой список и неизвестные суммы (null) их не трогают; пишется только изменившийся итог.
  */
@@ -67,6 +73,7 @@ export function useTransitRecord(id: () => string): TransitRecord {
   const loading = ref(false)
   const notFound = ref(false)
   const loadError = ref(false)
+  const reloadError = ref(false)
   const saving = ref(false)
   const saveError = ref<string | null>(null)
   const snapshot = ref<string | null>(null)
@@ -74,7 +81,10 @@ export function useTransitRecord(id: () => string): TransitRecord {
 
   /** id загруженной записи; null — новая или ничего не загружено. */
   let loadedId: string | null = null
+  /** Ответы запросов: устаревший (начат новый load/reload/перечитывание) отбрасывается. */
   let seq = 0
+  /** Поколение записи: меняет только load() — сохранение старой записи не трогает новую. */
+  let loadGen = 0
   let snapSeq = 0
   let lastTotals = goodsTotals(draft.goods)
 
@@ -101,6 +111,7 @@ export function useTransitRecord(id: () => string): TransitRecord {
     entry.value = fresh
     clientId.value = fresh.clientId
     loadedId = fresh.id
+    reloadError.value = false
     const theirs = draftFromEntry(fresh)
     if (!base) {
       setDraft(theirs)
@@ -109,18 +120,24 @@ export function useTransitRecord(id: () => string): TransitRecord {
     }
     const merged = mergeDrafts(base, plain(draft), theirs)
     setDraft(merged)
+    // Снимок сразу (разделы уже смонтированы); если разделы что-то нормализуют при монтировании,
+    // плашка может назвать лишний раздел — dirty здесь и так true.
     const theirsJson = JSON.stringify(theirs)
     setSnapshot(JSON.stringify(merged) === theirsJson ? undefined : theirsJson)
   }
 
   const load = async () => {
     const target = id()
+    // «Повторить» после неудачного reload() на той же записи с правками — не сбрасывать правки.
+    if (target && target === loadedId && dirty.value) return reload()
     const my = ++seq
+    loadGen++
     loadedId = null
     entry.value = null
     clientId.value = null
     notFound.value = false
     loadError.value = false
+    reloadError.value = false
     saveError.value = null
     setDraft(draftFromEntry(null))
     if (!target || target === NEW_RECORD_ID) {
@@ -137,8 +154,7 @@ export function useTransitRecord(id: () => string): TransitRecord {
       apply(fresh, null)
     } catch (e) {
       if (my !== seq) return
-      const code = statusOf(e)
-      if (code === 404 || code === 403 || code === 400) notFound.value = true
+      if (isNotFound(e)) notFound.value = true
       else loadError.value = true
     } finally {
       if (my === seq) loading.value = false
@@ -156,8 +172,8 @@ export function useTransitRecord(id: () => string): TransitRecord {
       apply(fresh, base)
     } catch (e) {
       if (my !== seq) return
-      if (statusOf(e) === 404) notFound.value = true
-      else loadError.value = true
+      if (isNotFound(e)) notFound.value = true
+      else reloadError.value = true
     }
   }
 
@@ -165,7 +181,15 @@ export function useTransitRecord(id: () => string): TransitRecord {
     if (saving.value) return null
     const base = entry.value
     // Без загруженной записи создавать можно только на /reestr/new (иначе сбой загрузки дал бы дубль).
-    if (!base && id() !== NEW_RECORD_ID) return null
+    if (notFound.value || loadError.value || (!base && id() !== NEW_RECORD_ID)) {
+      saveError.value = t('broker.transitRecord.errors.notLoaded')
+      return null
+    }
+    // Основа устарела (не удалось перечитать после смены статуса) — PUT вернул бы старый статус.
+    if (reloadError.value) {
+      saveError.value = t('broker.transitRecord.errors.stale')
+      return null
+    }
     const errors = validateDraft(draft, { isNew: !base, clientId: clientId.value })
     if (errors.length) {
       saveError.value = errors.map(t).join(' ')
@@ -173,6 +197,7 @@ export function useTransitRecord(id: () => string): TransitRecord {
     }
     const cid = clientId.value ?? base?.clientId ?? ''
     const sent = plain(draft)
+    const gen = loadGen
     saving.value = true
     let savedId: string
     try {
@@ -184,20 +209,25 @@ export function useTransitRecord(id: () => string): TransitRecord {
         savedId = (await reestrApi.create(body)).id
       }
     } catch (e) {
-      saveError.value = serverErrorText(e, t('dt.netSvyazi'))
       saving.value = false
+      if (gen === loadGen) saveError.value = serverErrorText(e, t('dt.netSvyazi'))
       return null
     }
-    saveError.value = null
     message.success(t(base ? 'transit.zapisUspeshnoObnovlena' : 'transit.zapisUspeshnoSozdana'))
+    // Пока шёл запрос, открыли другую запись: её загрузку и состояние не трогаем.
+    if (gen !== loadGen) {
+      saving.value = false
+      return savedId
+    }
+    saveError.value = null
     // Перечитать: сервер мог нормализовать даты и строки. Отправленный черновик — точка отсчёта для правок,
     // сделанных пока шёл запрос.
     const my = ++seq
     try {
       const fresh = await reestrApi.getById(savedId, { silent: true })
-      if (my === seq) apply(fresh, sent)
+      if (my === seq && gen === loadGen) apply(fresh, sent)
     } catch {
-      if (my === seq) {
+      if (my === seq && gen === loadGen) {
         // Запись сохранена — её состояние известно: то, что отправили. Следующее сохранение — PUT этой записи.
         entry.value = { ...draftToEntry(base, sent, cid), id: savedId }
         clientId.value = cid
@@ -244,5 +274,5 @@ export function useTransitRecord(id: () => string): TransitRecord {
     void load()
   }, { immediate: true })
 
-  return { entry, draft, clientId, loading, notFound, loadError, saving, saveError, dirty, changed, load, save, revert, reload }
+  return { entry, draft, clientId, loading, notFound, loadError, reloadError, saving, saveError, dirty, changed, load, save, revert, reload }
 }

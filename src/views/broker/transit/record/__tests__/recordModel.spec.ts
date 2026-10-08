@@ -342,6 +342,13 @@ describe('goodsTotals', () => {
     expect(goodsTotals([good({ grossWeightKg: 0.1 }), good({ grossWeightKg: 0.2 })]).gross).toBe(0.3)
   })
 
+  it('количество товаров и мест — целые (на сервере int): дробная сумма мест округляется', () => {
+    const t = goodsTotals([good({ packagesCount: 1.5 }), good({ packagesCount: 2.2 })])
+    expect(t.items).toBe(2)
+    expect(t.places).toBe(4)
+    expect(goodsTotals([good({ packagesCount: 1.2 }), good({ packagesCount: 1.2 })]).places).toBe(2)
+  })
+
   it('валюта — только если у всех товаров одна', () => {
     expect(goodsTotals([good({ currency: 'USD' }), good({ currency: 'EUR' })]).currency).toBeNull()
     expect(goodsTotals([good({ currency: 'USD' }), good({ currency: null })]).currency).toBeNull()

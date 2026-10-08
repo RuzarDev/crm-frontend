@@ -206,12 +206,57 @@ describe('useTransitRecord — правки', () => {
     expect(api.update.mock.calls[0][1].status).toBe(2)
   })
 
-  it('reload не удался — «не удалось открыть» (не сохранять поверх устаревшей записи)', async () => {
+  it('reload не удался — запись и правки на месте, сохранять нельзя; повтор reload() сливает и снимает запрет', async () => {
     const { r } = start()
     await settle()
+    r.draft.fields['Груз'] = 'моя правка'
     api.getById.mockRejectedValueOnce(httpError(500))
     await r.reload()
-    expect(r.loadError.value).toBe(true)
+    expect(r.reloadError.value).toBe(true)
+    expect(r.loadError.value).toBe(false)
+    expect(r.entry.value?.id).toBe('r1')
+    expect(r.draft.fields['Груз']).toBe('моя правка')
+    expect(r.dirty.value).toBe(true)
+
+    expect(await r.save()).toBeNull()
+    expect(api.update).not.toHaveBeenCalled()
+    expect(r.saveError.value).toContain('Не удалось обновить запись')
+
+    stored.r1 = fullEntry({ status: 2 })
+    await r.reload()
+    await nextTick()
+    expect(r.reloadError.value).toBe(false)
+    expect(r.entry.value?.status).toBe(2)
+    expect(r.draft.fields['Груз']).toBe('моя правка')
+    expect(await r.save()).toBe('r1')
+    expect(api.update.mock.calls[0][1]).toMatchObject({ status: 2, cargoDescription: 'моя правка' })
+  })
+
+  it('«Повторить» через load() на той же записи с правками — тоже без потери правок', async () => {
+    const { r } = start()
+    await settle()
+    r.draft.fields['Груз'] = 'моя правка'
+    api.getById.mockRejectedValueOnce(httpError(502))
+    await r.reload()
+    expect(r.reloadError.value).toBe(true)
+    await r.load()
+    await nextTick()
+    expect(r.reloadError.value).toBe(false)
+    expect(r.loading.value).toBe(false)
+    expect(r.draft.fields['Груз']).toBe('моя правка')
+    expect(r.dirty.value).toBe(true)
+  })
+
+  it.each([404, 403])('reload: %i → «не найдена», как при загрузке; сохранять нельзя', async (code) => {
+    const { r } = start()
+    await settle()
+    r.draft.fields['Груз'] = 'x'
+    api.getById.mockRejectedValueOnce(httpError(code))
+    await r.reload()
+    expect(r.notFound.value).toBe(true)
+    expect(await r.save()).toBeNull()
+    expect(api.update).not.toHaveBeenCalled()
+    expect(r.saveError.value).toContain('Запись не загружена')
   })
 
   it('reload новой несохранённой записи — без запроса', async () => {
@@ -344,7 +389,7 @@ describe('useTransitRecord — сохранение', () => {
     expect(r.changed.value).toEqual(['row'])
   })
 
-  it('без загруженной записи (ошибка загрузки) save ничего не создаёт', async () => {
+  it('без загруженной записи (ошибка загрузки) save ничего не создаёт и объясняет почему', async () => {
     api.getById.mockRejectedValueOnce(httpError(500))
     const { r } = start()
     await settle()
@@ -352,6 +397,48 @@ describe('useTransitRecord — сохранение', () => {
     expect(await r.save()).toBeNull()
     expect(api.create).not.toHaveBeenCalled()
     expect(api.update).not.toHaveBeenCalled()
+    expect(r.saveError.value).toBe('Запись не загружена — сохранить нельзя. Обновите страницу.')
+  })
+
+  it('переход на другую запись во время сохранения: новая загружается как обычно, старая её не трогает', async () => {
+    const { r, idRef } = start()
+    await settle()
+    r.draft.fields['Груз'] = 'правка A'
+    const put = deferred<void>()
+    api.update.mockImplementationOnce(() => put.promise)
+    const getB = deferred<ReestrEntry>()
+    api.getById.mockImplementationOnce(() => getB.promise)
+    const saving = r.save()
+    idRef.value = 'r2'
+    await nextTick()
+    put.resolve()
+    expect(await saving).toBe('r1')
+    getB.resolve(structuredClone(stored.r2))
+    await settle()
+    expect(r.entry.value?.id).toBe('r2')
+    expect(r.loading.value).toBe(false)
+    expect(r.saving.value).toBe(false)
+    expect(r.draft.fields['№']).toBe('R2')
+    expect(r.draft.fields['Груз']).toBe('Ноутбуки')
+    expect(r.dirty.value).toBe(false)
+    expect(api.getById).not.toHaveBeenCalledWith('r1', expect.anything(), expect.anything())
+    expect(api.getById).toHaveBeenCalledTimes(2) // r1 при открытии, r2 — без перечитывания r1
+  })
+
+  it('сохранение старой записи упало после перехода — ошибка не показывается на новой', async () => {
+    const { r, idRef } = start()
+    await settle()
+    r.draft.fields['Груз'] = 'x'
+    const put = deferred<void>()
+    api.update.mockImplementationOnce(() => put.promise)
+    const saving = r.save()
+    idRef.value = 'r2'
+    await settle()
+    put.reject(httpError(500, { error: 'boom' }))
+    expect(await saving).toBeNull()
+    expect(r.saveError.value).toBeNull()
+    expect(r.saving.value).toBe(false)
+    expect(r.entry.value?.id).toBe('r2')
   })
 
   it('сохранено, но перечитать не удалось — правок нет, следующий save обновляет ту же запись', async () => {

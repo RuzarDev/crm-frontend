@@ -669,6 +669,8 @@ export default {
       errors: {
         needKeyField: 'Fill in at least one of the fields: No., Container, Consignee, Shipper, Cargo.',
         needClient: 'Select a client.',
+        notLoaded: 'The record is not loaded, so it cannot be saved. Refresh the page.',
+        stale: 'Could not refresh the record from the server. Click “Retry” — your edits will be kept.',
       },
     },
     packages: {

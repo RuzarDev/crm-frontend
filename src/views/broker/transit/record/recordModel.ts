@@ -296,13 +296,16 @@ const sumBy = (goods: ReestrGoodsItemInput[], key: 'packagesCount' | 'grossWeigh
   return acc == null ? null : Math.round(acc * 10_000) / 10_000
 }
 
-/** Итоги по товарам; валюта — если у всех товаров одна и та же, иначе null. */
+const roundInt = (v: number | null): number | null => (v == null ? null : Math.round(v))
+
+/** Итоги по товарам (items и places — целые, как колонки сервера); валюта — если у всех товаров одна и та же, иначе null. */
 export function goodsTotals(goods: ReestrGoodsItemInput[]): GoodsTotals {
   const currencies = new Set(goods.map((g) => (g.currency ?? '').trim()))
   const only = currencies.size === 1 ? [...currencies][0] : ''
   return {
     items: goods.length,
-    places: sumBy(goods, 'packagesCount'),
+    // goodsQuantity и cargoPlacesCount на сервере — int: дробную сумму мест округляем до целого.
+    places: roundInt(sumBy(goods, 'packagesCount')),
     gross: sumBy(goods, 'grossWeightKg'),
     value: sumBy(goods, 'customsValue'),
     currency: only || null,
