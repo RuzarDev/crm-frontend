@@ -49,17 +49,17 @@
             </a-tag>
           </template>
           <template v-else-if="column.key === 'docs'">
-            <a class="docs-cell" @click.stop="openDocs(record)">
+            <component :is="canViewDocs ? 'a' : 'span'" :class="{ 'docs-cell': canViewDocs }" @click.stop="canViewDocs && openDocs(record)">
               <a-tag :color="record.hasContract ? 'success' : 'default'">{{ t('admin.dogovor') }}</a-tag>
               <a-tag :color="record.hasPoa ? 'success' : 'default'">{{ t('admin.doverennost') }}</a-tag>
-            </a>
+            </component>
           </template>
           <template v-else-if="column.key === 'created'">
             {{ fmtDate(record.createdAtUtc) }}
           </template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
-              <a-button size="small" @click.stop="openDocs(record)"><FileTextOutlined /> {{ t('admin.dokumenty') }}</a-button>
+              <a-button v-if="canViewDocs" size="small" @click.stop="openDocs(record)"><FileTextOutlined /> {{ t('admin.dokumenty') }}</a-button>
               <a-button v-if="canInvite && record.status === 'Invited'" size="small" @click.stop="reissue(record)">{{ t('admin.novayaSsylka') }}</a-button>
               <a-popconfirm v-if="canManage && record.status !== 'Blocked'" @click.stop :title="t('admin.zablokirovatKlientaOnNe')" :ok-text="t('admin.zablokirovat')" :cancel-text="t('admin.otmena')" @confirm="block(record)">
                 <a-button size="small" type="link" danger>{{ t('admin.zablokirovat') }}</a-button>
@@ -181,6 +181,8 @@ const router = useRouter()
 const authStore = useAuthStore()
 const canInvite = computed(() => authStore.hasPermission('clients.invite'))
 const canManage = computed(() => authStore.hasPermission('clients.manage'))
+// Список документов клиента сервер отдаёт только при import40.read: без права был 403 и два тоста.
+const canViewDocs = computed(() => authStore.hasPermission('import40.read'))
 
 const loading = ref(false)
 const clients = ref<ClientOnboardingRow[]>([])
