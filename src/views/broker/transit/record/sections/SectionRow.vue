@@ -10,6 +10,7 @@ import { parseNumber } from '@/ui/number'
 import type { RecordDraft } from '../recordModel'
 import RecordSection from './RecordSection.vue'
 import { useRecordRefs } from './refs'
+import { boxCtl, ctl, grid } from './ui'
 
 // Раздел «Строка реестра» (разбор §2.1, §2.2): 15 колонок реестра и группа «ЖДН». Ключи data — русские названия
 // колонок, не меняются; подписи — из i18n. Поля пишут прямо в черновик.
@@ -41,9 +42,6 @@ const label = (key: ReestrColumnKey) => t(`broker.transitRecord.row.${LABEL_KEY[
 const refs = useRecordRefs()
 void refs.ensure('stations')
 
-const grid = 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3'
-const ctl = 'max-sm:h-11'
-const boxCtl = 'max-sm:*:h-11'
 
 const text = (key: string): string | null => props.draft.fields[key] ?? null
 const setText = (key: string, v: unknown) => {

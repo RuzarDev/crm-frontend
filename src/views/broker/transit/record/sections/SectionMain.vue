@@ -13,6 +13,7 @@ import type { ZOption } from '@/ui/options'
 import { POST_KEY, type RecordDraft } from '../recordModel'
 import RecordSection from './RecordSection.vue'
 import { departureOfficeTooLong, departureOfficeValue, useRecordRefs } from './refs'
+import { boxCtl, ctl, grid, str } from './ui'
 
 // Раздел «Основное» (разбор §2.6 a, b и «Пост»): три группы — декларация, маршрут, итоги. Поля пишут прямо в черновик.
 // Страны хранятся числовым кодом ОКСМ (подпись «398 — Казахстан»), таможня отправления — кодом поста (B.12).
@@ -24,14 +25,8 @@ const refs = useRecordRefs()
 void refs.ensure('posts', 'stations', 'countries', 'foreignOffices')
 void refs.ensureClassifiers(['presentation-purpose', 'entry-method', 'movement-direction', 'used-as-declaration', 'transport-mode', '2009'])
 
-const grid = 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3'
 const groupTitle = 'm-0 text-[13px] leading-5 font-semibold text-ink-2'
 const subTitle = 'm-0 mt-1 text-xs leading-5 font-medium text-muted'
-// Телефон: поля ≥ 44px. У ZInput/ZNumber/ZDate класс идёт на саму рамку, у ZSelect/ZCombobox — на корень, рамка внутри.
-const ctl = 'max-sm:h-11'
-const boxCtl = 'max-sm:*:h-11'
-
-const str = (v: unknown): string | null => (v === null || v === undefined || v === '' ? null : String(v))
 function setT<K extends keyof ReestrTransitFields>(key: K, value: ReestrTransitFields[K]) {
   props.draft.transit[key] = value
 }
