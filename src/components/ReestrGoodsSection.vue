@@ -24,12 +24,12 @@
       <span v-else>{{ t('dt.netTovarov') }}</span>
     </div>
 
-    <div v-for="(item, idx) in items" :key="idx" class="goods-card zf-card">
+    <div v-for="(item, idx) in items" :key="keys[idx]" class="goods-card zf-card">
       <div class="card-top">
         <!-- Свернуть карточку: при 10+ товарах страница превращалась в бесконечную простыню. -->
-        <a-button type="text" size="small" class="collapse-btn" :aria-label="collapsed.has(idx) ? t('dt.razvernut') : t('dt.svernut')"
-          :title="collapsed.has(idx) ? t('dt.razvernut') : t('dt.svernut')" @click="toggleCard(idx)">
-          <RightOutlined :class="{ open: !collapsed.has(idx) }" />
+        <a-button type="text" size="small" class="collapse-btn" :aria-label="isCollapsed(idx) ? t('dt.razvernut') : t('dt.svernut')"
+          :title="isCollapsed(idx) ? t('dt.razvernut') : t('dt.svernut')" @click="toggleCard(idx)">
+          <RightOutlined :class="{ open: !isCollapsed(idx) }" />
         </a-button>
         <span class="card-num" :title="t('dt.poryadkovyyNomerTovara')">{{ idx + 1 }}</span>
         <span class="card-title">
@@ -37,14 +37,14 @@
           <template v-if="item.tnvedCode"> · <span class="card-code">{{ item.tnvedCode }}</span></template>
           <template v-if="item.description || item.tnvedDescription"> · {{ item.description || item.tnvedDescription }}</template>
         </span>
-        <span v-if="collapsed.has(idx)" class="card-sum">
+        <span v-if="isCollapsed(idx)" class="card-sum">
           <template v-if="item.customsValue != null">{{ fmtNum(item.customsValue) }} {{ lockedCurrency || item.currency || '' }}</template>
           <template v-if="paymentsTotal(item) > 0"> · {{ t('dt.tpin') }} {{ fmtNum(paymentsTotal(item)) }} ₸</template>
         </span>
         <a-button v-if="!readonly" type="text" danger size="small" class="del-btn" @click="removeItem(idx)" :title="$t('common.delete')" :aria-label="$t('common.delete')"><CloseOutlined /></a-button>
       </div>
 
-      <div v-show="!collapsed.has(idx)" class="zf-grid">
+      <div v-show="!isCollapsed(idx)" class="zf-grid">
         <!-- Код ТН ВЭД + описание из ТН ВЭД -->
         <div class="zf-field zf-s5">
           <div class="zf-label">{{ t('dt.kodTnved') }}</div>
@@ -52,7 +52,7 @@
             <a-input
               v-model:value="item.tnvedCode"
               :disabled="readonly"
-              :status="item.tnvedInvalid ? 'error' : undefined"
+              :status="isTnvedInvalid(item) ? 'error' : undefined"
               placeholder="0000000000"
               class="tnved-input"
               @change="emit('update:modelValue', items.map(fromRow))"
@@ -63,7 +63,7 @@
           </a-input-group>
           <!-- Несуществующий 10-значный код (например 1902303000 вместо 1902301000)
                раньше выявлялся только на расчёте ТПиН — помечаем сразу при вводе. -->
-          <div v-if="item.tnvedInvalid" class="field-error">{{ t('dt.kodaNetVSpravochnikeTnved') }}</div>
+          <div v-if="isTnvedInvalid(item)" class="field-error">{{ t('dt.kodaNetVSpravochnikeTnved') }}</div>
         </div>
         <div class="zf-field zf-s7">
           <div class="zf-label">{{ t('dt.opisanieTovaraIzTnved') }}</div>
@@ -219,10 +219,10 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { CloseOutlined, RightOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { message } from '@/ui/message'
 import type { UploadProps } from 'ant-design-vue'
-import { loadXlsx } from '@/utils/xlsx'
 import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
 import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
+import { GOODS_EXCEL_MESSAGES, isExcelFileName, readGoodsExcel } from '@/utils/goodsExcel'
 import TroisTrademarkHint from '@/components/import40/TroisTrademarkHint.vue'
 import TariffOptionsHint from '@/components/import40/TariffOptionsHint.vue'
 import type { ReestrGoodsItemInput } from '@/types/api'
@@ -237,8 +237,6 @@ interface GoodsRow extends ReestrGoodsItemInput {
   packagesCountStr: string
   customsValueStr: string
   tnvedLoading?: boolean
-  // Код введён, но его нет в справочнике ТН ВЭД (или он не 10-значный лист).
-  tnvedInvalid?: boolean
   // Поля «бланка товара» Импорта 40 — приходят в том же объекте (см. fromRow: rest).
   tradeMarkName?: string | null
   productMarkName?: string | null
@@ -274,13 +272,24 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: ReestrGoodsItemInput[]): void
 }>()
 
-// Свёрнутые карточки товаров (по номеру строки). В свёрнутом виде — номер, код, описание, стоимость, ТПиН.
+// Свёрнутые карточки товаров. В свёрнутом виде — номер, код, описание, стоимость, ТПиН.
+// Ключ карточки — стабильный номер (keys[idx]), а не индекс: после удаления товара выше свёрнутость
+// оставалась у номера строки и переезжала на соседнюю карточку. Строки пересоздаются при каждом
+// возврате v-model, поэтому ключи ведём параллельным массивом: свои добавления/удаления двигают его
+// вместе со строками, внешняя смена длины — дописывает/обрезает хвост (как раньше по индексу).
+let lastKey = 0
+const keys: number[] = []
+const syncKeys = (n: number) => {
+  while (keys.length < n) keys.push(++lastKey)
+  keys.length = n
+}
 const collapsed = reactive(new Set<number>())
-const toggleCard = (i: number) => { if (collapsed.has(i)) collapsed.delete(i); else collapsed.add(i) }
-const allCollapsed = computed(() => items.value.length > 0 && items.value.every((_, i) => collapsed.has(i)))
+const isCollapsed = (i: number) => collapsed.has(keys[i])
+const toggleCard = (i: number) => { if (isCollapsed(i)) collapsed.delete(keys[i]); else collapsed.add(keys[i]) }
+const allCollapsed = computed(() => items.value.length > 0 && items.value.every((_, i) => isCollapsed(i)))
 const toggleAll = () => {
   if (allCollapsed.value) collapsed.clear()
-  else items.value.forEach((_, i) => collapsed.add(i))
+  else items.value.forEach((_, i) => collapsed.add(keys[i]))
 }
 const fmtNum = (v: number) => v.toLocaleString('ru-RU', { maximumFractionDigits: 2 })
 const paymentsTotal = (item: GoodsRow) =>
@@ -302,7 +311,7 @@ const onPickerSelect = (payload: { code: string; name: string }) => {
   const t = pickerTarget.value
   if (!t) return
   t.tnvedCode = payload.code
-  t.tnvedInvalid = false
+  tnvedCodeValid.value[payload.code] = true
   if (!t.tnvedDescription) t.tnvedDescription = payload.name
   emit('update:modelValue', items.value.map(fromRow))
 }
@@ -347,25 +356,23 @@ function onUnitCodeChange(item: GoodsRow, code: string | undefined) {
 
 // Кэш проверок кодов на время жизни экрана: в ДТ один и тот же код обычно
 // повторяется у нескольких товаров, дёргать справочник на каждый blur незачем.
+// Ошибка у поля — по этому кэшу (код проверен и его нет в справочнике), а не флагом в строке:
+// флаг уходил в данные товара (разбор B.13) и терялся бы при пересборке строк из v-model.
 const tnvedCodeValid = ref<Record<string, boolean>>({})
+const isTnvedInvalid = (item: GoodsRow) => {
+  const code = (item.tnvedCode || '').trim()
+  return !!code && tnvedCodeValid.value[code] === false
+}
 
 async function validateTnved(item: GoodsRow) {
   const code = (item.tnvedCode || '').trim()
-  if (!code) {
-    item.tnvedInvalid = false
-    return
-  }
-  if (code in tnvedCodeValid.value) {
-    item.tnvedInvalid = !tnvedCodeValid.value[code]
-    return
-  }
+  if (!code || code in tnvedCodeValid.value) return
   try {
     const res = await tnvedApi.node(code)
     tnvedCodeValid.value[code] = res.data.is10
   } catch {
     tnvedCodeValid.value[code] = false
   }
-  item.tnvedInvalid = !tnvedCodeValid.value[code]
 }
 
 // Проверяем коды у уже сохранённых товаров при открытии — иначе ошибочный код
@@ -391,7 +398,7 @@ async function lookupTnved(item: GoodsRow) {
       pickerOpen.value = true
       return
     }
-    item.tnvedInvalid = false
+    tnvedCodeValid.value[code] = true
     item.tnvedDescription = res.data.name
     // Автоподстановка единицы измерения по ТНВЭД — только если поле ещё не заполнено вручную
     if (!item.unitCode && !item.unit) {
@@ -455,8 +462,10 @@ function syncRows() {
 
 function fromRow(r: GoodsRow): ReestrGoodsItemInput {
   // rest сохраняет расширенные поля (например КЕДЕН-поля Импорта 40),
-  // которые этот компонент не знает и не должен терять
-  const { quantityStr, grossWeightStr, netWeightStr, packagesCountStr, customsValueStr, tnvedLoading, ...rest } = r
+  // которые этот компонент не знает и не должен терять. tnvedInvalid — служебный флаг прежних версий:
+  // мог прийти в modelValue, на сервер его не отправляем.
+  const { quantityStr, grossWeightStr, netWeightStr, packagesCountStr, customsValueStr, tnvedLoading, tnvedInvalid, ...rest } =
+    r as GoodsRow & { tnvedInvalid?: boolean }
   return {
     ...rest,
     description: r.description || null,
@@ -505,6 +514,7 @@ watch(
   () => props.modelValue,
   (v) => {
     items.value = (v ?? []).map(toRow)
+    syncKeys(items.value.length)
     applyLockedCurrency()
   },
   { immediate: true },
@@ -533,121 +543,31 @@ function addItem() {
     packagesCountStr: '',
     customsValueStr: '',
   })
+  syncKeys(items.value.length)
   emit('update:modelValue', items.value.map(fromRow))
 }
 
 function removeItem(idx: number) {
+  collapsed.delete(keys[idx])
+  keys.splice(idx, 1)
   items.value.splice(idx, 1)
   emit('update:modelValue', items.value.map(fromRow))
 }
 
-// ── Импорт товаров из Excel «КЕДЕН ШАПКА» ────────────────────────────────────
-// Столбцы источника нестабильны по написанию (пробелы/регистр/лишние слова),
-// поэтому матчим заголовки по нормализованной подстроке, а не точным именам.
-type ExcelField = 'tnvedCode' | 'description' | 'grossWeightKg' | 'quantity' | 'unit' | 'packagesCount'
-
-const EXCEL_COLUMN_MATCHERS: { field: ExcelField; patterns: string[] }[] = [
-  { field: 'tnvedCode', patterns: ['кодтнвэд'] },
-  { field: 'description', patterns: ['коммерческоеописание'] },
-  { field: 'grossWeightKg', patterns: ['брутто'] },
-  { field: 'quantity', patterns: ['количествотовара'] },
-  { field: 'unit', patterns: ['видупаковкитовара'] },
-  { field: 'packagesCount', patterns: ['количествогрузовыхмест'] },
-]
-
-function normalizeHeader(v: unknown): string {
-  return String(v ?? '')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]/gu, '')
-}
-
-function excelToStr(v: unknown): string | null {
-  if (v == null || v === '') return null
-  const s = String(v).trim()
-  return s || null
-}
-
-function excelToNum(v: unknown): number | null {
-  if (v == null || v === '') return null
-  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'))
-  return isNaN(n) ? null : n
-}
-
+// ── Импорт товаров из Excel «КЕДЕН ШАПКА» (разбор — goodsExcel.ts, общий с записью транзита) ──────────
 const excelBusy = ref(false)
 
 async function importGoodsFromExcel(file: File) {
-  const XLSX = await loadXlsx()
   excelBusy.value = true
   try {
-    const buf = await file.arrayBuffer()
-    const wb = XLSX.read(buf, { type: 'array' })
-    const sheetName = wb.SheetNames[0]
-    if (!sheetName) {
-      message.warning(t('dt.vFayleNetListov'))
+    const result = await readGoodsExcel(file)
+    if ('problem' in result) {
+      message.warning(t(GOODS_EXCEL_MESSAGES[result.problem]))
       return
     }
-    const ws = wb.Sheets[sheetName]
-    const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: null, raw: true })
-    if (!rows.length) {
-      message.warning(t('dt.faylPust'))
-      return
-    }
-
-    const headerRow = rows[0] ?? []
-    const colIndex: Partial<Record<ExcelField, number>> = {}
-    headerRow.forEach((cell, idx) => {
-      const norm = normalizeHeader(cell)
-      if (!norm) return
-      for (const matcher of EXCEL_COLUMN_MATCHERS) {
-        if (colIndex[matcher.field] != null) continue
-        if (matcher.patterns.some((p) => norm.includes(p))) {
-          colIndex[matcher.field] = idx
-          break
-        }
-      }
-    })
-
-    const added: GoodsRow[] = []
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i]
-      if (!row || row.every((c) => c == null || c === '')) continue
-
-      const tnvedCode = colIndex.tnvedCode != null ? excelToStr(row[colIndex.tnvedCode]) : null
-      const description = colIndex.description != null ? excelToStr(row[colIndex.description]) : null
-      const grossWeightKg = colIndex.grossWeightKg != null ? excelToNum(row[colIndex.grossWeightKg]) : null
-      const quantity = colIndex.quantity != null ? excelToNum(row[colIndex.quantity]) : null
-      const unit = colIndex.unit != null ? excelToStr(row[colIndex.unit]) : null
-      const packagesCount = colIndex.packagesCount != null ? excelToNum(row[colIndex.packagesCount]) : null
-
-      const isEmptyRow =
-        !tnvedCode && !description && grossWeightKg == null && quantity == null && unit == null && packagesCount == null
-      if (isEmptyRow) continue
-
-      added.push(
-        toRow({
-          description,
-          tnvedCode,
-          tnvedDescription: description,
-          countryOfOrigin: null,
-          quantity,
-          unit,
-          unitCode: null,
-          grossWeightKg,
-          netWeightKg: null,
-          packagesCount,
-          quantityTypeCode: null,
-          customsValue: null,
-          currency: null,
-        }),
-      )
-    }
-
-    if (!added.length) {
-      message.warning(t('dt.neNaydenoTovarovDlya'))
-      return
-    }
-
+    const added = result.goods.map(toRow)
     items.value = [...items.value, ...added]
+    syncKeys(items.value.length)
     emit('update:modelValue', items.value.map(fromRow))
     message.success(t('dt.zagruzhenoTovarov', { n: added.length }))
   } catch (e) {
@@ -659,8 +579,7 @@ async function importGoodsFromExcel(file: File) {
 }
 
 const onExcelFile: UploadProps['beforeUpload'] = (file) => {
-  const name = file.name.toLowerCase()
-  if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) {
+  if (!isExcelFileName(file.name)) {
     message.error(t('dt.dopustimTolkoExcel'))
     return false
   }

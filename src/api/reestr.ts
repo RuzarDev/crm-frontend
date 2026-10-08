@@ -67,8 +67,9 @@ export const reestrApi = {
     }
   },
 
-  getById: async (id: string): Promise<ReestrEntry> => {
-    const response = await apiClient.get<ReestrEntryDto>(`/reestr/${id}`)
+  // silent — страница записи сама рисует «не найдена» / «не удалось открыть», без тоста перехватчика.
+  getById: async (id: string, opts?: { silent?: boolean }): Promise<ReestrEntry> => {
+    const response = await apiClient.get<ReestrEntryDto>(`/reestr/${id}`, opts?.silent ? { silent: true } : undefined)
     return reestrDtoToEntry(response.data)
   },
 

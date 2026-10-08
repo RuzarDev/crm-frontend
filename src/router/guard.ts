@@ -33,8 +33,8 @@ export function guardRedirect(path: string, meta: Record<string, unknown>, a: Gu
   if (requiresAuth && !a.isAuthenticated) {
     return '/login'
   } else if (
-    // Реестр (транзит) — по праву reestr.read; клиенту оставляем как было.
-    path === '/reestr' && normalizedRole !== 'administrator' && normalizedRole !== 'client'
+    // Реестр (транзит) и страница записи /reestr/:id — по праву reestr.read; клиенту оставляем как было.
+    (path === '/reestr' || path.startsWith('/reestr/')) && normalizedRole !== 'administrator' && normalizedRole !== 'client'
     && !a.hasPermission('reestr.read')
   ) {
     return a.canUseImport40 ? '/import-40' : a.canUseSales ? '/sales' : '/'

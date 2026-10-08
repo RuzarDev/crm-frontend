@@ -23,6 +23,10 @@ describe('ZSelect', () => {
     w = mountWithI18n(ZSelect, { props: { value: 'EK', options }, attachTo: document.body })
     expect((w.get('input').element as HTMLInputElement).value).toBe('ЭК — экспорт')
   })
+  it('значение не из списка (старые записи: роль, название поста) — в поле само значение, а не пусто', () => {
+    w = mountWithI18n(ZSelect, { props: { value: 'Таможенный представитель', options }, attachTo: document.body })
+    expect((w.get('input').element as HTMLInputElement).value).toBe('Таможенный представитель')
+  })
   it('открывается и выбирает: update:value и change(value, option)', async () => {
     w = mountWithI18n(ZSelect, { props: { value: null, options }, attachTo: document.body })
     await open()

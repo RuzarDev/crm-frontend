@@ -80,6 +80,17 @@ describe('useReestrStore: список', () => {
   })
 })
 
+describe('useReestrStore: changeStatus', () => {
+  it('смена статуса одной записи не ждёт перечёта списка (страница записи сразу перечитывает запись)', async () => {
+    const s = useReestrStore()
+    api.getList.mockReturnValueOnce(new Promise(() => {}))
+    const ok = await s.changeStatus('a', 2)
+    expect(ok).toBe(true)
+    expect(api.changeStatus).toHaveBeenCalledWith('a', 2)
+    expect(api.getList).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('useReestrStore: changeStatuses', () => {
   it('по запросу на каждую запись, один fetchList в конце, один тост', async () => {
     const s = useReestrStore()

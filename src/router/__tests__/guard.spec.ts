@@ -25,7 +25,7 @@ describe('guardRedirect', () => {
   })
   it('только финансы: стена на заявки/транзит/КЕДЕН/справочники', () => {
     const a = auth({ isFinanceOnly: true, perms: ['finance.read'] })
-    for (const p of ['/import-40', '/import-40/manage', '/reestr', '/document-packages', '/keden', '/keden-status', '/tnved/tree', '/dt-guide', '/requests-registry'])
+    for (const p of ['/import-40', '/import-40/manage', '/reestr', '/reestr/abc', '/document-packages', '/keden', '/keden-status', '/tnved/tree', '/dt-guide', '/requests-registry'])
       expect(guardRedirect(p, {}, a), p).toBe('/finance')
     expect(guardRedirect('/home', {}, a)).toBeNull()
   })
@@ -34,6 +34,17 @@ describe('guardRedirect', () => {
     expect(guardRedirect('/reestr', {}, auth({ perms: ['sales.read'] }))).toBe('/sales')
     expect(guardRedirect('/reestr', {}, auth())).toBe('/')
     expect(guardRedirect('/reestr', {}, auth({ role: 'client' }))).toBeNull()
+  })
+  it('страница записи /reestr/:id и /reestr/new — то же правило reestr.read; клиенту и администратору можно', () => {
+    for (const p of ['/reestr/abc', '/reestr/new']) {
+      expect(guardRedirect(p, {}, auth({ perms: ['import40.read'] })), p).toBe('/import-40')
+      expect(guardRedirect(p, {}, auth()), p).toBe('/')
+      expect(guardRedirect(p, {}, auth({ perms: ['reestr.read'] })), p).toBeNull()
+      expect(guardRedirect(p, {}, auth({ role: 'client' })), p).toBeNull()
+      expect(guardRedirect(p, {}, auth({ role: 'administrator' })), p).toBeNull()
+    }
+    // Похожий префикс — не реестр.
+    expect(guardRedirect('/reestrx', {}, auth())).toBeNull()
   })
   it('пакеты: админ/экспедитор/packages.manage', () => {
     expect(guardRedirect('/document-packages/1/workspace', {}, auth())).toBe('/')

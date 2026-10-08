@@ -20,20 +20,6 @@ vi.mock('@/api/reestr', () => ({
 }))
 vi.mock('@/ui/message', () => ({ message: api.toast }))
 vi.mock('@/ui/download', () => ({ saveBlob: api.saveBlob }))
-// Форма записи (AntD, тяжёлая) — заглушка с теми же пропсами; видно, в каком режиме её открыли.
-vi.mock('@/components/ReestrForm.vue', async () => {
-  const { defineComponent, h } = await import('vue')
-  return {
-    default: defineComponent({
-      name: 'ReestrForm',
-      props: ['open', 'loading', 'entry', 'clientOptions', 'statusHistoryRefreshKey', 'viewMode', 'initialTab', 'saveError'],
-      emits: ['submit', 'cancel', 'applied'],
-      setup: (p) => () => h('div', {
-        'data-form': '', 'data-open': String(!!p.open), 'data-mode': p.viewMode, 'data-tab': p.initialTab, 'data-entry': p.entry?.id ?? '',
-      }),
-    }),
-  }
-})
 vi.mock('@/components/ImportInvoiceButton.vue', async () => {
   const { defineComponent, h } = await import('vue')
   return {
@@ -72,25 +58,6 @@ const ENTRIES = [
   entry('31'),
   entry('30', { status: 2, grandTotalWithVat: null }, { 'Количество мест': '3', 'Вес': '12.5', 'Получатель': null }),
 ]
-// Полная запись (getById): в строке списка вложенных коллекций нет, тут — есть.
-const GOODS = [{
-  description: 'Ноутбук', tnvedCode: '8471300000', tnvedDescription: null, countryOfOrigin: '156', quantity: 100, unit: 'шт', unitCode: '796',
-  grossWeightKg: 500, netWeightKg: 450, packagesCount: 9, quantityTypeCode: null, customsValue: 70000, currency: 'USD',
-}]
-const full = (id: string): ReestrEntry => entry(id, {
-  pricePerDeclarationWithVat: 56000, pricePerSupplementalSheetWithVat: 10133.33, supplementalSheetsTotalWithVat: 30400,
-  goods: GOODS,
-  doc44: [{ docTypeCode: '01191', docTypeName: 'Сертификат', docNumber: 'С-1', docDate: '2026-09-30', authorizedBody: 'Орган', authorizedBodyId: 'KZ.1', formBlankNumber: '0012' }],
-  organizations: [{ role: 'Декларант', subjectType: 'ЮЛ', bin: '123456789012', name: 'Альфа', shortName: null, address: null, phone: null, email: null }],
-  containers: [{ containerNumber: 'MRSU4885849', note: null }],
-  guarantees: [{ guaranteeTypeCode: 'Не требуется', amount: null, currencyCode: null, number: null }],
-}, { 'Пост': 'Т/П «Достык»', '№ Пломбы': 'ПЛ-1' })
-const deferred = <T>() => {
-  let resolve!: (v: T) => void
-  let reject!: (e: unknown) => void
-  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej })
-  return { promise, resolve, reject }
-}
 
 let w: VueWrapper
 let pinia: Pinia
@@ -116,7 +83,7 @@ const row = (i: number) => w.findAll('tbody tr')[i]
 const rowActions = (i = 0) => ['view', 'documents', 'edit', 'more'].filter((a) => row(i).find(`[data-row-${a}]`).exists())
 const rowMenu = (i = 0) => row(i).findAll('[data-transit-actions] [data-item]').map((b) => b.attributes('data-item'))
 const has = (sel: string) => w.find(sel).exists()
-const form = () => w.get('[data-form]')
+const path = () => router.currentRoute.value.fullPath
 
 beforeEach(() => {
   pinia = createPinia()
@@ -132,7 +99,6 @@ beforeEach(() => {
   api.changeStatus.mockResolvedValue(undefined)
   api.bulkDelete.mockResolvedValue({ deleted: 2 })
   api.del.mockResolvedValue(undefined)
-  api.getById.mockImplementation(async (id: string) => full(id))
   localStorage.clear()
   as('administrator', [])
 })
@@ -157,10 +123,11 @@ describe('TransitView: роли', () => {
     expect(has('[data-import-stub]')).toBe(false)
     await row(0).get('[data-row-documents]').trigger('click')
     await flushPromises()
-    expect(form().attributes()).toMatchObject({ 'data-open': 'true', 'data-mode': 'client', 'data-tab': 'documents', 'data-entry': '31' })
+    expect(path()).toBe('/reestr/31?tab=documents')
+    expect(api.getById).not.toHaveBeenCalled()
   })
 
-  it('экспедитор: «Просмотр» (readonly, данные) и «Документы» (форма, документы); фильтры портфеля есть', async () => {
+  it('экспедитор: «Просмотр» (страница, данные) и «Документы» (страница, документы); фильтры портфеля есть', async () => {
     as('expeditor', ['reestr.read'])
     await mountAt()
     expect(has('[data-transit-new]')).toBe(false)
@@ -171,13 +138,14 @@ describe('TransitView: роли', () => {
     expect(api.clients).not.toHaveBeenCalled()
     await row(0).get('[data-row-view]').trigger('click')
     await flushPromises()
-    expect(form().attributes()).toMatchObject({ 'data-mode': 'readonly', 'data-tab': 'data' })
+    expect(path()).toBe('/reestr/31')
+    await router.push('/reestr')
     await row(1).get('[data-row-documents]').trigger('click')
     await flushPromises()
-    expect(form().attributes()).toMatchObject({ 'data-mode': 'default', 'data-tab': 'documents', 'data-entry': '30' })
+    expect(path()).toBe('/reestr/30?tab=documents')
   })
 
-  it('сотрудник только с reestr.read: «Документы» (форма на документах), без правки, выбора и создания', async () => {
+  it('сотрудник только с reestr.read: «Документы» (страница на документах), без правки, выбора и создания', async () => {
     as('importer', ['reestr.read'])
     await mountAt()
     expect(rowActions()).toEqual(['documents'])
@@ -186,7 +154,7 @@ describe('TransitView: роли', () => {
     expect(w.findAllComponents(FilterChip)).toHaveLength(2)
     await row(0).get('[data-row-documents]').trigger('click')
     await flushPromises()
-    expect(form().attributes()).toMatchObject({ 'data-mode': 'default', 'data-tab': 'documents' })
+    expect(path()).toBe('/reestr/31?tab=documents')
   })
 
   it('МПП (write + status.change): «Изменить», меню со сменой статуса без удаления, выбор строк', async () => {
@@ -199,7 +167,7 @@ describe('TransitView: роли', () => {
     expect(api.clients).toHaveBeenCalledTimes(1)
     await row(0).get('[data-row-edit]').trigger('click')
     await flushPromises()
-    expect(form().attributes()).toMatchObject({ 'data-mode': 'default', 'data-tab': 'data', 'data-entry': '31' })
+    expect(path()).toBe('/reestr/31')
   })
 
   it('администратор: всё, в меню строки — статус и удаление', async () => {
@@ -383,28 +351,6 @@ describe('TransitView: действия', () => {
     expect(api.importOpen).toHaveBeenCalledTimes(2)
   })
 
-  it('сохранение записи без клиента — сообщение «Выберите клиента», запрос не уходит', async () => {
-    await mountAt()
-    await w.get('[data-transit-new]').trigger('click')
-    expect(form().attributes()).toMatchObject({ 'data-open': 'true', 'data-mode': 'default', 'data-tab': 'data', 'data-entry': '' })
-    w.findComponent({ name: 'ReestrForm' }).vm.$emit('submit', { data: {}, status: 0 })
-    await flushPromises()
-    expect(api.toast.error).toHaveBeenCalledWith('Выберите клиента')
-    expect(api.create).not.toHaveBeenCalled()
-    expect(form().attributes('data-open')).toBe('true')
-  })
-
-  it('правка записи: update по id, окно закрывается', async () => {
-    api.update.mockResolvedValue(undefined)
-    await mountAt()
-    await row(0).get('[data-row-edit]').trigger('click')
-    await flushPromises()
-    w.findComponent({ name: 'ReestrForm' }).vm.$emit('submit', { data: { 'Груз': 'Ноутбуки' }, status: 1 })
-    await flushPromises()
-    expect(api.update).toHaveBeenCalledWith('31', expect.objectContaining({ clientId: 'c1', status: 1 }))
-    expect(form().attributes('data-open')).toBe('false')
-  })
-
   it('смена статуса одной записи: тот же статус — без запроса', async () => {
     await mountAt()
     await row(0).get('[data-item="status"]').trigger('click')
@@ -430,7 +376,6 @@ describe('TransitView: действия', () => {
     await flushPromises()
     expect(api.changeStatus).toHaveBeenCalledWith('31', 3)
     expect(api.getList.mock.calls.length).toBe(calls + 1)
-    expect(w.findComponent({ name: 'ReestrForm' }).props('statusHistoryRefreshKey')).toBe(1)
     expect(w.findComponent({ name: 'TransitStatusModal' }).props('open')).toBe(false)
   })
 
@@ -545,127 +490,33 @@ describe('TransitView: действия', () => {
   })
 })
 
-describe('TransitView: запись открывается полной (хотфикс потери данных)', () => {
-  const formEntry = () => w.findComponent({ name: 'ReestrForm' }).props('entry') as ReestrEntry | null
-
-  it('«Изменить»: getById, индикатор на кнопке, в форму — полная запись с вложенными списками', async () => {
-    const d = deferred<ReestrEntry>()
-    api.getById.mockReturnValueOnce(d.promise)
+describe('TransitView: переходы на страницу записи', () => {
+  it('«Новая запись» → /reestr/new (и из пустого списка)', async () => {
     await mountAt()
-    await row(0).get('[data-row-edit]').trigger('click')
-    expect(api.getById).toHaveBeenCalledWith('31')
-    expect(row(0).find('[data-row-edit] [data-row-spin]').exists()).toBe(true)
-    expect(row(0).get('[data-row-edit]').attributes('aria-busy')).toBe('true')
-    expect(form().attributes('data-open')).toBe('false')
-    d.resolve(full('31'))
-    await flushPromises()
-    expect(form().attributes()).toMatchObject({ 'data-open': 'true', 'data-mode': 'default', 'data-tab': 'data', 'data-entry': '31' })
-    expect(formEntry()!.goods).toEqual(GOODS)
-    expect(formEntry()!.doc44[0]).toMatchObject({ authorizedBody: 'Орган', formBlankNumber: '0012' })
-    expect(row(0).find('[data-row-spin]').exists()).toBe(false)
-  })
-
-  it('«Документы» и «Просмотр» тоже открывают полную запись', async () => {
-    as('expeditor', ['reestr.read'])
-    const d = deferred<ReestrEntry>()
-    api.getById.mockReturnValueOnce(d.promise)
-    await mountAt()
-    await row(1).get('[data-row-documents]').trigger('click')
-    expect(row(1).find('[data-row-documents] [data-row-spin]').exists()).toBe(true)
-    d.resolve(full('30'))
-    await flushPromises()
-    expect(api.getById).toHaveBeenLastCalledWith('30')
-    expect(formEntry()!.goods).toEqual(GOODS)
-    w.findComponent({ name: 'ReestrForm' }).vm.$emit('cancel')
-    await flushPromises()
-    await row(0).get('[data-row-view]').trigger('click')
-    await flushPromises()
-    expect(api.getById).toHaveBeenLastCalledWith('31')
-    expect(form().attributes()).toMatchObject({ 'data-open': 'true', 'data-mode': 'readonly', 'data-entry': '31' })
-    expect(formEntry()!.organizations).toHaveLength(1)
-  })
-
-  it('ошибка загрузки записи — окно не открывается, индикатор снят', async () => {
-    api.getById.mockRejectedValueOnce(new Error('500'))
-    await mountAt()
-    await row(0).get('[data-row-edit]').trigger('click')
-    await flushPromises()
-    expect(form().attributes('data-open')).toBe('false')
-    expect(row(0).find('[data-row-spin]').exists()).toBe(false)
-  })
-
-  it('гонка: открывается только последняя запрошенная запись', async () => {
-    const first = deferred<ReestrEntry>()
-    const second = deferred<ReestrEntry>()
-    api.getById.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
-    await mountAt()
-    await row(0).get('[data-row-edit]').trigger('click')
-    await row(1).get('[data-row-edit]').trigger('click')
-    second.resolve(full('30'))
-    await flushPromises()
-    expect(form().attributes()).toMatchObject({ 'data-open': 'true', 'data-entry': '30' })
-    first.resolve(full('31'))
-    await flushPromises()
-    expect(form().attributes('data-entry')).toBe('30')
-  })
-
-  it('«Новая запись» во время загрузки отменяет открытие строки', async () => {
-    const d = deferred<ReestrEntry>()
-    api.getById.mockReturnValueOnce(d.promise)
-    await mountAt()
-    await row(0).get('[data-row-edit]').trigger('click')
     await w.get('[data-transit-new]').trigger('click')
-    d.resolve(full('31'))
     await flushPromises()
-    expect(form().attributes()).toMatchObject({ 'data-open': 'true', 'data-entry': '' })
+    expect(path()).toBe('/reestr/new')
   })
 
-  it('сохранение правки: тело с вложенными списками, «Постом», пломбой и ценами исходной записи', async () => {
-    api.update.mockResolvedValue(undefined)
+  it('строка кликабельна — открывает запись; флажок, кнопки и меню строки — нет', async () => {
+    await mountAt()
+    await row(1).find('[data-transit-container]').trigger('click')
+    await flushPromises()
+    expect(path()).toBe('/reestr/30')
+    await router.push('/reestr')
+    await row(0).get('[role="checkbox"]').trigger('click')
+    await row(0).get('[data-row-more]').trigger('click')
+    await row(0).get('[data-item="status"]').trigger('click')
+    await flushPromises()
+    expect(path()).toBe('/reestr')
+    expect(row(0).classes()).toContain('cursor-pointer')
+  })
+
+  it('окна записи в списке больше нет: запись не грузится из списка (её грузит страница)', async () => {
     await mountAt()
     await row(0).get('[data-row-edit]').trigger('click')
     await flushPromises()
-    const e = formEntry()!
-    // форма присылает всё, что показывает; «Пост» и цены она не показывает
-    const { 'Пост': _post, ...shown } = e.data
-    w.findComponent({ name: 'ReestrForm' }).vm.$emit('submit', {
-      data: { ...shown, 'Груз': 'Ноутбуки Lenovo' }, status: 0, clientId: 'c1',
-      goods: e.goods, doc44: e.doc44, transit: e.transit, organizations: e.organizations, carriers: e.carriers,
-      transportMeans: e.transportMeans, identificationMeans: e.identificationMeans, packages: e.packages, containers: e.containers,
-      precedingDocs: e.precedingDocs, cargoOperations: e.cargoOperations, guarantees: e.guarantees,
-    })
-    await flushPromises()
-    const [id, body] = api.update.mock.calls[0]
-    expect(id).toBe('31')
-    expect(body).toMatchObject({
-      cargoDescription: 'Ноутбуки Lenovo',
-      customsPost: 'Т/П «Достык»',
-      sealNumber: 'ПЛ-1',
-      pricePerDeclarationWithVat: 56000,
-      pricePerSupplementalSheetWithVat: 10133.33,
-      supplementalSheetsTotalWithVat: 30400,
-      grandTotalWithVat: 86400,
-      goodsItems: GOODS,
-      containers: [{ containerNumber: 'MRSU4885849', note: null }],
-    })
-    expect(body.doc44Items[0]).toMatchObject({ authorizedBody: 'Орган', authorizedBodyId: 'KZ.1', formBlankNumber: '0012' })
-    expect(body.organizations).toHaveLength(1)
-    expect(body.guarantees).toHaveLength(1)
-  })
-
-  it('после автозаполнения («applied») запись перечитывается и форма получает новую', async () => {
-    await mountAt()
-    await row(0).get('[data-row-edit]').trigger('click')
-    await flushPromises()
-    const before = formEntry()
-    const lists = api.getList.mock.calls.length
-    api.getById.mockResolvedValueOnce(full('31'))
-    w.findComponent({ name: 'ReestrForm' }).vm.$emit('applied')
-    await flushPromises()
-    expect(api.getById).toHaveBeenCalledTimes(2)
-    expect(api.getList.mock.calls.length).toBe(lists + 1)
-    expect(formEntry()).not.toBe(before)
-    expect(formEntry()!.id).toBe('31')
-    expect(form().attributes('data-open')).toBe('true')
+    expect(api.getById).not.toHaveBeenCalled()
+    expect(w.findComponent({ name: 'ReestrForm' }).exists()).toBe(false)
   })
 })

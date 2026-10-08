@@ -67,6 +67,14 @@ const router = createRouter({
           component: () => import('@/views/broker/transit/TransitView.vue'),
         },
         {
+          // Запись транзита — страница вместо окна (редизайн, волна 4б); /reestr/new — новая запись (id = 'new').
+          // Один маршрут на обе: после создания /reestr/new → /reestr/:id страница не пересоздаётся.
+          // Доступ — как у /reestr (guard: reestr.read, клиенту можно).
+          path: '/reestr/:id',
+          name: 'reestr-record',
+          component: () => import('@/views/broker/transit/record/TransitRecordPage.vue'),
+        },
+        {
           path: '/requests-registry',
           name: 'requests-registry',
           component: () => import('@/views/broker/requests/BrokerRegistryView.vue'),
