@@ -783,7 +783,10 @@ const handleDragStart = (event: DragEvent, file: DocumentPackageFileDto) => {
   }
 }
 
+// Партия лежит внутри карточки контейнера: событие останавливаем, иначе контейнер перехватывал бы подсветку,
+// а брошенный файл привязывался дважды (к партии, затем к контейнеру — побеждал последний ответ).
 const handleDragEnter = (event: DragEvent, type: string, id: string) => {
+  event.stopPropagation()
   dragOverTarget.value = { type, id }
 }
 
@@ -799,6 +802,7 @@ const isDragOver = (type: string, id: string) => {
 
 const handleDrop = async (event: DragEvent, type: string, id: string) => {
   event.preventDefault()
+  event.stopPropagation()
   dragOverTarget.value = null
 
   const fileId = event.dataTransfer?.getData('text/plain')
