@@ -1082,6 +1082,8 @@ export const import40Api = {
     section: Import40FileSection,
     file: File,
     kind?: string,
+    // silent — экран сам показывает ошибку загрузки (строка чек-листа мастера), без общего тоста.
+    opts?: { silent?: boolean },
   ): Promise<Import40FileDto> => {
     const formData = new FormData()
     formData.append('file', file)
@@ -1091,6 +1093,7 @@ export const import40Api = {
       {
         params: kind ? { section, kind } : { section },
         headers: { 'Content-Type': 'multipart/form-data' },
+        ...(opts?.silent ? { silent: true } : {}),
       },
     )
     return response.data

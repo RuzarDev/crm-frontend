@@ -10,9 +10,11 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import StepCargo from '@/views/client/wizard/StepCargo.vue'
 import StepTransport from '@/views/client/wizard/StepTransport.vue'
 import StepParties from '@/views/client/wizard/StepParties.vue'
+import StepDocuments from '@/views/client/wizard/StepDocuments.vue'
 import { isBinOk, isCargoOk, useShipmentDraft } from '@/views/client/wizard/useShipmentDraft'
-import { stepTitle } from '@/views/client/wizard/wizardUi'
 import { import40ContractApi, type ClientCompanyProfileDto } from '@/api/import40Contract'
+import { import40Api, type Import40FileDto } from '@/api/import40'
+import { missingRequired } from '@/views/client/docKinds'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
 import { useClientRegistration } from '@/composables/useClientRegistration'
@@ -24,7 +26,7 @@ import { cn } from '@/ui/cn'
 
 // Мастер «Оформить поставку» клиента (/import-40/new, /import-40/new/:id; редизайн, волна 2a, доски Wizard и
 // WizardPhone). Логика — прежнего мастера из Import40ListView: черновик создаётся при уходе с шага «Груз»,
-// дальше автосохранение (useShipmentDraft). Шаг «Документы» наполняет задача 8.
+// дальше автосохранение (useShipmentDraft). Шаг «Документы» — чек-лист и загрузка (StepDocuments), отправка — здесь.
 const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -46,6 +48,11 @@ const step = ref(0)
 /** Самый дальний открытый шаг: пройденные до него получают галочку. */
 const reached = ref(0)
 const advancing = ref(false)
+/** Шаг «Документы»: файлы раздела documents, отметка ответственности, идёт ли загрузка. */
+const docFiles = ref<Import40FileDto[]>([])
+const docsAccepted = ref(false)
+const docsBusy = ref(false)
+const stepDocs = ref<InstanceType<typeof StepDocuments>>()
 /** Уход уже согласован (Дозаполнить позже / переадресация) — страж не спрашивает. */
 let leaving = false
 /** Идёт уход с черновика (страж ждёт сохранения) или экран снят: начатый переход на шаг не продолжаем. */
@@ -135,6 +142,8 @@ const firstUnfilled = () => {
 let openSeq = 0
 const open = async (id: string | null) => {
   const my = ++openSeq
+  docFiles.value = []
+  docsAccepted.value = false
   void loadPosts()
   void loadProfile()
   if (!id) {
@@ -233,6 +242,53 @@ const back = () => goTo(step.value - 1)
 
 const stepLabel = (i: number) => t(`client.wizard.step.${STEPS[i]}`)
 const nextLabel = computed(() => (step.value < LAST ? t(`client.wizard.next.${STEPS[step.value + 1]}`) : ''))
+
+// ---- Отправка на оформление: сервер требует ≥ 1 файла; без обязательных по чек-листу — спрашиваем ----
+const submitting = ref(false)
+const submitBlock = computed(() => {
+  if (step.value !== LAST) return ''
+  if (docsBusy.value) return t('client.wizard.submitUploading')
+  if (!docFiles.value.length) return t('client.wizard.submitNeedFile')
+  if (!docsAccepted.value) return t('client.wizard.submitNeedResp')
+  return ''
+})
+const canSubmit = computed(() => !!caseId.value && !submitBlock.value)
+const submit = async () => {
+  const id = caseId.value
+  if (!id || !canSubmit.value || submitting.value) return
+  const missing = missingRequired(docFiles.value.map((f) => f.docKind))
+  if (missing.length) {
+    const go = await confirm({
+      title: t('client.wizard.docs.missingTitle', { list: missing.map((d) => t(`client.docKind.${d.key}.name`)).join(', ') }),
+      content: t('client.wizard.docs.missingText'),
+      okText: t('client.wizard.docs.missingOk'),
+      cancelText: t('client.wizard.docs.missingCancel'),
+    })
+    if (!go) {
+      // «Приложить» — к первой недостающей строке чек-листа.
+      void stepDocs.value?.focusKind(missing[0].key)
+      return
+    }
+  }
+  submitting.value = true
+  try {
+    // Сначала — последние правки шагов 1–3 (как persistWizardDraft прежнего мастера).
+    if (!(await shipment.save())) {
+      message.error(t('client.wizard.submitSaveFailed'))
+      return
+    }
+    await import40Api.action(id, 'submit-for-processing')
+    // Поставка уже не черновик: уход не спрашиваем и ничего не сохраняем.
+    leaving = true
+    shipment.cancelScheduled()
+    message.success(t('client.wizard.submitted'))
+    await router.push(`/import-40/${id}`)
+  } catch {
+    // Текст ошибки (в т.ч. «приложите хотя бы один документ») уже показал общий перехватчик.
+  } finally {
+    submitting.value = false
+  }
+}
 
 // ---- Дозаполнить позже / закрыть ----
 const finishing = ref(false)
@@ -518,10 +574,14 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
               :can-fill-from-profile="!!profile"
               @fill-from-profile="fillReceiverFromProfile"
             />
-            <!-- Шаг «Документы» — задача 8 -->
-            <section v-else :aria-labelledby="`${uid}-docs`" data-step="docs">
-              <h2 :id="`${uid}-docs`" tabindex="-1" :class="stepTitle">{{ t('client.wizard.docs.title') }}</h2>
-            </section>
+            <StepDocuments
+              v-else-if="caseId"
+              ref="stepDocs"
+              v-model:files="docFiles"
+              v-model:accepted="docsAccepted"
+              v-model:busy="docsBusy"
+              :case-id="caseId"
+            />
           </div>
 
           <!-- Нижняя панель: на компьютере — строкой под шагом, на телефоне — липкая снизу (доска WizardPhone) -->
@@ -548,7 +608,23 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
                 data-wz-next
                 @click="next"
               >{{ nextLabel }}</ZButton>
+              <ZButton
+                v-else
+                variant="primary"
+                :disabled="!canSubmit"
+                :loading="submitting"
+                :aria-describedby="submitBlock ? `${uid}-submit-why` : undefined"
+                :class="cn(primaryBtn, 'sm:ml-auto')"
+                data-wz-submit
+                @click="submit"
+              >{{ t('client.wizard.submit') }}</ZButton>
             </div>
+            <p
+              v-if="submitBlock"
+              :id="`${uid}-submit-why`"
+              class="m-0 text-[12.5px] text-muted max-sm:text-center sm:text-right"
+              data-wz-submit-why
+            >{{ submitBlock }}</p>
             <p v-if="saveState === 'failed'" class="m-0 flex items-center justify-center gap-1.5 text-[12.5px] text-ink-2 sm:hidden" data-wz-phone-failed>
               <PhWarningCircle :size="14" weight="bold" class="text-danger" aria-hidden="true" />
               {{ t('client.wizard.status.failed') }} —
@@ -558,7 +634,7 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
                 @click="retrySave"
               >{{ t('client.wizard.status.retry') }}</button>
             </p>
-            <p v-else class="m-0 text-center text-[12.5px] text-muted sm:hidden">{{ t('client.wizard.autosaveHint') }}</p>
+            <p v-else-if="!submitBlock" class="m-0 text-center text-[12.5px] text-muted sm:hidden">{{ t('client.wizard.autosaveHint') }}</p>
           </div>
         </div>
       </div>

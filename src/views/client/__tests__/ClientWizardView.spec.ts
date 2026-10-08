@@ -6,10 +6,11 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { Import40CaseDto } from '@/api/import40'
 import { confirmState } from '@/ui/confirm'
-import { caseDto } from './caseFixture'
+import { caseDto, fileDto } from './caseFixture'
 
 const api = vi.hoisted(() => ({
   get: vi.fn(), create: vi.fn(), update: vi.fn(), addContainer: vi.fn(), updateContainer: vi.fn(), deleteContainer: vi.fn(),
+  listFiles: vi.fn(), uploadFile: vi.fn(), deleteFile: vi.fn(), action: vi.fn(),
 }))
 const refs = vi.hoisted(() => ({ listCountries: vi.fn(), listCustomsPosts: vi.fn() }))
 const contract = vi.hoisted(() => ({ getProfile: vi.fn() }))
@@ -73,6 +74,8 @@ beforeEach(() => {
   })
   api.get.mockImplementation(async () => server)
   api.update.mockImplementation(async () => server)
+  api.listFiles.mockResolvedValue([])
+  api.action.mockImplementation(async () => ({ ...server, status: 1 }))
   refs.listCountries.mockResolvedValue([
     { id: 'r1', code: '398', name: 'Казахстан', alpha2: 'KZ', isActive: true },
     { id: 'r2', code: '156', name: 'Китай', alpha2: 'CN', isActive: true },
@@ -302,5 +305,113 @@ describe('ClientWizardView', () => {
     expect(router.currentRoute.value.fullPath).toBe('/import-40')
     expect(api.update).not.toHaveBeenCalled()
     expect(confirmState.open).toBe(false)
+  })
+
+  describe('шаг 4 «Документы» и отправка', () => {
+    const fullDraft = () => caseDto({
+      id: 'c1', number: 'ИМ-2026-0184', status: 0, cargo: 'Станки', vehicleNumber: '123ABC01',
+      clientSenderName: 'Lenovo', clientReceiverName: 'ТОО «Ромашка»',
+    })
+    const submitBtn = () => w.get('[data-wz-submit]')
+
+    it('кнопка отправки неактивна без файла и без отметки ответственности', async () => {
+      server = fullDraft()
+      await mountAt('/import-40/new/c1')
+      expect(w.find('[data-step="docs"]').exists()).toBe(true)
+      expect(w.find('[data-wz-next]').exists()).toBe(false)
+      expect(submitBtn().text()).toBe('Отправить на оформление')
+      expect(submitBtn().attributes('disabled')).toBeDefined()
+      expect(w.get('[data-wz-submit-why]').text()).toBe('Приложите хотя бы один документ')
+
+      // Отметка есть, файла нет — всё ещё нельзя (сервер требует ≥ 1 файла).
+      await w.get('[data-docs-resp]').trigger('click')
+      expect(submitBtn().attributes('disabled')).toBeDefined()
+      await w.get('[data-docs-resp]').trigger('click')
+
+      api.uploadFile.mockResolvedValue(fileDto({ id: 'up1', docKind: 'invoice', originalFileName: 'inv.pdf' }))
+      const input = w.get('[data-doc-kind="invoice"] [data-doc-input]')
+      Object.defineProperty(input.element, 'files', { value: [new File(['%PDF'], 'inv.pdf')], configurable: true })
+      await input.trigger('change')
+      await flushPromises()
+      expect(submitBtn().attributes('disabled')).toBeDefined()
+      expect(w.get('[data-wz-submit-why]').text()).toBe('Отметьте, что документы полные и достоверные')
+
+      await w.get('[data-docs-resp]').trigger('click')
+      expect(submitBtn().attributes('disabled')).toBeUndefined()
+      expect(w.find('[data-wz-submit-why]').exists()).toBe(false)
+      expect(api.action).not.toHaveBeenCalled()
+    })
+
+    it('не хватает обязательных — вопрос со списком; «Приложить» — к строке, «Отправить» — отправка и карточка', async () => {
+      server = fullDraft()
+      api.listFiles.mockResolvedValue([fileDto({ id: 'f1', docKind: 'invoice', originalFileName: 'inv.pdf' })])
+      await mountAt('/import-40/new/c1')
+      await w.get('[data-docs-resp]').trigger('click')
+
+      await submitBtn().trigger('click')
+      await flushPromises()
+      expect(confirmState.open).toBe(true)
+      expect(confirmState.title).toBe('Не приложены: Транспортный документ, Упаковочный лист, Внешнеторговый контракт')
+      expect(confirmState.content).toBe('Отправить без них? Декларант запросит недостающее.')
+      expect(confirmState.okText).toBe('Отправить')
+      expect(confirmState.cancelText).toBe('Приложить')
+      confirmState.resolve(false)
+      await flushPromises()
+      expect(api.action).not.toHaveBeenCalled()
+      expect(document.activeElement).toBe(w.get('[data-doc-kind="transport"] [data-doc-attach]').element)
+
+      await submitBtn().trigger('click')
+      await flushPromises()
+      confirmState.resolve(true)
+      await flushPromises()
+      expect(api.action).toHaveBeenCalledWith('c1', 'submit-for-processing')
+      expect(msg.success).toHaveBeenCalledWith('Поставка отправлена на оформление')
+      expect(router.currentRoute.value.fullPath).toBe('/import-40/c1')
+      // Страж ухода не спрашивает и не сохраняет после отправки.
+      expect(confirmState.open).toBe(false)
+      expect(api.update).not.toHaveBeenCalled()
+    })
+
+    it('все обязательные приложены — без вопроса; несохранённое уходит до отправки, не сохранилось — не отправляем', async () => {
+      server = fullDraft()
+      api.listFiles.mockResolvedValue(['invoice', 'transport', 'packing', 'contract'].map((k, i) =>
+        fileDto({ id: `f${i}`, docKind: k, originalFileName: `${k}.pdf` })))
+      await mountAt('/import-40/new/c1')
+      await w.get('[data-wz-step="cargo"]').trigger('click')
+      await w.get('[data-wz-cargo]').setValue('Станки ЧПУ')
+      // Сохранение при смене шага и первое при отправке не прошли — правка всё ещё не на сервере.
+      api.update.mockRejectedValueOnce(new Error('net')).mockRejectedValueOnce(new Error('net'))
+      await w.get('[data-wz-step="docs"]').trigger('click')
+      await flushPromises()
+      await w.get('[data-docs-resp]').trigger('click')
+
+      await submitBtn().trigger('click')
+      await flushPromises()
+      expect(confirmState.open).toBe(false)
+      expect(msg.error).toHaveBeenCalledWith('Черновик не сохранился, поставка не отправлена — повторите')
+      expect(api.action).not.toHaveBeenCalled()
+
+      await submitBtn().trigger('click')
+      await flushPromises()
+      expect(api.update).toHaveBeenCalledTimes(3)
+      expect(api.update.mock.calls[2][1]).toMatchObject({ cargo: 'Станки ЧПУ' })
+      expect(api.action).toHaveBeenCalledTimes(1)
+      expect(api.update.mock.invocationCallOrder[2]).toBeLessThan(api.action.mock.invocationCallOrder[0])
+      expect(router.currentRoute.value.fullPath).toBe('/import-40/c1')
+    })
+
+    it('сервер отклонил отправку — остаёмся в мастере, страж снова охраняет', async () => {
+      server = fullDraft()
+      api.listFiles.mockResolvedValue(['invoice', 'transport', 'packing', 'contract'].map((k, i) =>
+        fileDto({ id: `f${i}`, docKind: k, originalFileName: `${k}.pdf` })))
+      api.action.mockRejectedValueOnce(new Error('400'))
+      await mountAt('/import-40/new/c1')
+      await w.get('[data-docs-resp]').trigger('click')
+      await submitBtn().trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.fullPath).toBe('/import-40/new/c1')
+      expect(msg.success).not.toHaveBeenCalled()
+      expect(submitBtn().attributes('disabled')).toBeUndefined()
+    })
   })
 })
