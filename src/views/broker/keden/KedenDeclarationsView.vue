@@ -82,7 +82,7 @@ const tableWidth = computed(() => columns.value.reduce((sum, c) => sum + (typeof
 const pagination = computed(() => ({
   current: page.value,
   onChange: (p: number) => { page.value = p },
-  showTotal: (total: number, [from, to]: [number, number]) => t('broker.keden.range', { from, to, total }),
+  showTotal: (total: number, [from, to]: [number, number]) => t('broker.list.range', { from, to, total }),
 }))
 const typeShort = (code: string) => {
   const k = kedenTypeLabelKey(code)
@@ -135,7 +135,7 @@ const emptyHint = computed(() => (filtered.value ? t('broker.list.nothingFoundHi
       <ListSearch
         :value="filters.q"
         :placeholder="t('broker.keden.search')"
-        class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1"
+       
         @update:value="filters = { ...filters, q: $event }"
       />
       <FilterChip

@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useAttrs } from 'vue'
+import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
 import { avatarTone, initials, type AvatarTone } from '@/ui/initials'
 
+// class с места вызова сливается через cn: свой размер (size-8) заменяет размер пропа, без «!».
+defineOptions({ inheritAttrs: false })
+const attrs = useAttrs()
+const rest = computed(() => { const { class: _class, ...r } = attrs; return r })
 const props = withDefaults(defineProps<{ name: string; size?: 'sm' | 'md' | 'lg' }>(), { size: 'md' })
 
 const TONE: Record<AvatarTone, string> = {
@@ -22,8 +27,9 @@ const tone = computed(() => avatarTone(props.name))
 
 <template>
   <span
+    v-bind="rest"
     aria-hidden="true"
     :title="name"
-    :class="cn('inline-flex shrink-0 select-none items-center justify-center font-bold tracking-[0.02em]', SIZE[size], TONE[tone])"
+    :class="cn('inline-flex shrink-0 select-none items-center justify-center font-bold tracking-[0.02em]', SIZE[size], TONE[tone], attrs.class as ClassValue)"
   >{{ text }}</span>
 </template>

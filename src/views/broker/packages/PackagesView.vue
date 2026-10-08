@@ -71,7 +71,7 @@ const columns = computed<ZColumn<DocumentPackageDto>[]>(() => [
 const pagination = computed(() => ({
   current: page.value,
   onChange: (p: number) => { page.value = p },
-  showTotal: (total: number, [from, to]: [number, number]) => t('broker.packages.range', { from, to, total }),
+  showTotal: (total: number, [from, to]: [number, number]) => t('broker.list.range', { from, to, total }),
 }))
 
 const tableWidth = computed(() => columns.value.reduce((sum, c) => sum + (typeof c.width === 'number' ? c.width : 0), 0))
@@ -140,7 +140,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
     </p>
 
     <div class="flex flex-wrap items-center gap-2">
-      <ListSearch :value="query" :placeholder="t('broker.packages.search')" class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1" @update:value="query = $event" />
+      <ListSearch :value="query" :placeholder="t('broker.packages.search')" @update:value="query = $event" />
       <ZSegmented
         :value="segment"
         :options="segmentOptions"

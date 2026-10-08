@@ -11,6 +11,7 @@ export interface RowPrimary {
   label: string
   variant?: 'primary' | 'outline'
   loading?: boolean
+  disabled?: boolean
 }
 
 defineProps<{ primary?: RowPrimary | null; items: ZDropdownItem[]; label: string }>()
@@ -25,6 +26,7 @@ const OUTLINE = 'border border-line-strong bg-surface enabled:hover:bg-sunken'
       v-if="primary"
       :variant="primary.variant === 'primary' ? 'primary' : 'secondary'"
       :loading="primary.loading"
+      :disabled="primary.disabled"
       :class="['h-8 max-sm:h-11 max-sm:px-4', primary.variant === 'primary' ? '' : OUTLINE]"
       data-row-primary
       @click="emit('action', primary.key)"

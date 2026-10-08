@@ -194,6 +194,10 @@ describe('ZSegmented', () => {
     await items[1].trigger('click')
     expect(w.emitted('update:value')?.at(-1)).toEqual(['b'])
   })
+  it('пункты на телефоне не ниже 44px (max-sm:h-11), на десктопе h-7', () => {
+    w = mountWithI18n(ZSegmented, { props: { value: 'a', options: ['a', 'b'] } })
+    for (const b of w.findAll('button')) expect(b.classes()).toEqual(expect.arrayContaining(['h-7', 'max-sm:h-11']))
+  })
   it('фокус-кольцо побеждает тень выбранного пункта', () => {
     w = mountWithI18n(ZSegmented, { props: { value: 'a', options: ['a', 'b'] } })
     for (const b of w.findAll('button')) expect(b.classes()).toContain('data-[state=on]:focus-visible:shadow-focus')

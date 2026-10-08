@@ -57,4 +57,12 @@ describe('ListSearch', () => {
     expect(input.attributes('aria-label')).toBe('Клиент, номер')
     expect(w.classes()).toContain('sm:max-w-[360px]')
   })
+
+  it('ширина рядом с ZSegmented: своя основа во flex-строке, не сжимается до пары букв (класс с места вызова не съедает её)', () => {
+    w = mountWithI18n(ListSearch, { props: { value: '', placeholder: 'Поиск' }, attrs: { class: 'flex-1' }, attachTo: document.body })
+    const cls = w.classes()
+    expect(cls).toEqual(expect.arrayContaining(['min-w-0', 'max-sm:basis-full', 'sm:flex-[1_1_15rem]', 'sm:max-w-[360px]', 'max-sm:h-11']))
+    // Без модификатора sm: класс с места вызова не конфликтует с sm:-основой.
+    expect(cls).not.toContain('sm:basis-60')
+  })
 })

@@ -177,7 +177,7 @@ const tableWidth = computed(() => columns.value.reduce((s, c) => s + (typeof c.w
 const pagination = computed(() => ({
   current: page.value,
   onChange: (p: number) => { page.value = p },
-  showTotal: (total: number, [from, to]: [number, number]) => t('broker.requests.range', { from, to, total }),
+  showTotal: (total: number, [from, to]: [number, number]) => t('broker.list.range', { from, to, total }),
 }))
 
 const caseLink = (r: Import40BoardRow) => `/import-40/${r.id}`
@@ -257,7 +257,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
     <ZTabs variant="line" :active-key="tab" :items="tabItems" data-requests-tabs @change="setTab" />
 
     <div class="flex flex-wrap items-center gap-2">
-      <ListSearch :value="filters.q" :placeholder="t('broker.requests.search')" class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1" @update:value="patch({ q: $event })" />
+      <ListSearch :value="filters.q" :placeholder="t('broker.requests.search')" @update:value="patch({ q: $event })" />
       <FilterChip :label="t('broker.requests.filter.client')" :options="clientOptions" :value="filters.client" @update:value="patch({ client: $event })" />
       <FilterChip :label="t('broker.requests.filter.executor')" :options="executorOptions" :value="filters.executor" @update:value="patch({ executor: $event })" />
       <FilterChip :label="t('broker.requests.filter.stage')" :options="stageOptions" :value="filters.stage" @update:value="patch({ stage: $event })" />

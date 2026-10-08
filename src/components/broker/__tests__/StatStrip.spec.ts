@@ -24,6 +24,14 @@ describe('StatStrip', () => {
     expect(cells[0].find('.tabular-nums').text()).toBe('12')
   })
 
+  it('подпись переносится до двух строк, без многоточия', () => {
+    w = mountWithI18n(StatStrip, { props: { items } })
+    const label = w.findAll('[data-stat-label]')[0]
+    expect(label.text()).toBe('Выставлено')
+    expect(label.classes()).toContain('line-clamp-2')
+    expect(label.classes()).not.toContain('truncate')
+  })
+
   it('точки по тонам; без tone точки нет', () => {
     w = mountWithI18n(StatStrip, { props: { items } })
     const cells = w.findAll('[data-stat-cell]')
