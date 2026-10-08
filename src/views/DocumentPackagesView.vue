@@ -364,12 +364,23 @@ const createPackage = async () => {
       comment: createForm.comment.trim() || null,
       containerNumbers,
     })
+    // Пакет уже создан: если файл не загрузился, окно всё равно закрываем — иначе повторное «Создать» сделает дубль.
+    let uploadFailed = false
     if (createFiles.value.length) {
-      await uploadFiles(created.id, createFiles.value, false)
+      try {
+        await uploadFiles(created.id, createFiles.value, false)
+      } catch {
+        uploadFailed = true
+      }
     }
     createOpen.value = false
-    message.success(t('transit.paketSozdan'))
     await fetchPackages()
+    if (uploadFailed) {
+      message.warning(t('broker.packages.someFilesFailed'))
+      await openDetails(created)
+    } else {
+      message.success(t('transit.paketSozdan'))
+    }
   } finally {
     creating.value = false
   }

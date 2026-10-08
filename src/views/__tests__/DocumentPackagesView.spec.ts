@@ -75,4 +75,22 @@ describe('DocumentPackagesView — правки по аудиту волны 3а
     await vm().updateStatus(pkg({ reviewComment: 'нет веса брутто' }), 'processed')
     expect(api.changeStatus).toHaveBeenCalledWith('p1', { status: 'processed', reviewComment: 'нет веса брутто' })
   })
+
+  it('пакет создан, файл не загрузился: окно закрывается, пакет открывается, повтор не создаёт дубль', async () => {
+    api.create.mockResolvedValue(pkg({ id: 'new1', trainNumber: '2460', status: 'uploaded' }))
+    api.getById.mockResolvedValue(pkg({ id: 'new1', trainNumber: '2460', status: 'uploaded' }))
+    api.uploadFile.mockRejectedValue(new Error('boom'))
+    vm().createOpen = true
+    vm().createForm.trainNumber = '2460'
+    vm().createFiles = [new File(['x'], 'invoice.pdf')]
+    await vm().createPackage()
+    await flushPromises()
+    expect(api.create).toHaveBeenCalledTimes(1)
+    expect(vm().createOpen).toBe(false)
+    expect(vm().detailsOpen).toBe(true)
+    expect(vm().selectedPackage.id).toBe('new1')
+    expect(api.toast.warning).toHaveBeenCalledWith(expect.stringContaining('часть файлов'))
+    expect(api.toast.success).not.toHaveBeenCalled()
+    expect(api.list).toHaveBeenCalledTimes(2) // при открытии и после создания
+  })
 })

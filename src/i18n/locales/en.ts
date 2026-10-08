@@ -658,6 +658,9 @@ export default {
       statusesChanged: 'Status changed: {ok} of {n}',
       uploadHint: 'Click or drag an Excel file (.xlsx, .xls) up to 10 MB. The first row is the field names.',
     },
+    packages: {
+      someFilesFailed: 'The package was created, but some files did not upload — add them in the panel that opened',
+    },
   },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
   client: {
