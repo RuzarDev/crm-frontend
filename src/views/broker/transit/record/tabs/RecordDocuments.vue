@@ -98,6 +98,7 @@ const upload = async (key: string, files: File[], section: ReestrDocumentSection
   if (busy.value) return
   const list = files.filter(validFile)
   if (!list.length) return
+  const total = files.length // «из m» считает и отклонённые проверкой файлы
   uploadingKey.value = key
   let uploaded = 0
   let failed = false
@@ -112,9 +113,13 @@ const upload = async (key: string, files: File[], section: ReestrDocumentSection
       }
     }
     if (failed) {
-      if (uploaded > 0) message.warning(t('broker.transitRecord.docs.uploadedOf', { n: uploaded, m: list.length }))
+      if (uploaded > 0) message.warning(t('broker.transitRecord.docs.uploadedOf', { n: uploaded, m: total }))
+    } else if (total === 1) {
+      message.success(t('transit.dokumentZagruzhen'))
     } else {
-      message.success(list.length > 1 ? t('broker.transitRecord.docs.uploadedOf', { n: uploaded, m: list.length }) : t('transit.dokumentZagruzhen'))
+      const text = t('broker.transitRecord.docs.uploadedOf', { n: uploaded, m: total })
+      if (uploaded < total) message.warning(text)
+      else message.success(text)
     }
     await load()
   } finally {

@@ -26,10 +26,11 @@ const DOCS = [
   doc({ id: 'd4', section: 'broker', brokerDocumentType: null, originalFileName: 'misc.pdf', uploadedByUserId: 'colleague', uploadedByRole: 'importer' }),
 ]
 
-type Who = 'client' | 'expeditor' | 'readOnly' | 'writer' | 'admin'
+type Who = 'client' | 'expeditor' | 'expeditorWriter' | 'readOnly' | 'writer' | 'admin'
 const WHO: Record<Who, [string, string[]]> = {
   client: ['client', ['reestr.read']],
   expeditor: ['expeditor', ['reestr.read']],
+  expeditorWriter: ['expeditor', ['reestr.read', 'reestr.write']],
   readOnly: ['importer', ['reestr.read']],
   writer: ['importer', ['reestr.read', 'reestr.write']],
   admin: ['administrator', []],
@@ -237,6 +238,9 @@ describe('RecordDocuments: загрузка файлов', () => {
     await pick('client', [new File(['x'], 'virus.exe'), pdf('huge.pdf', 10 * 1024 * 1024 + 1), good])
     expect(toast.error).toHaveBeenCalledWith('Допустимы: PDF, JPG, PNG, DOCX, XLSX')
     expect(toast.error).toHaveBeenCalledWith('Размер файла не должен превышать 10 МБ')
+    // «из m» считает и отклонённые файлы: 1 из 3, а не 1 из 1; неполный итог — предупреждением.
+    expect(toast.warning).toHaveBeenCalledWith('Загружено 1 из 3')
+    expect(toast.success).not.toHaveBeenCalled()
     expect(api.uploadDocument).toHaveBeenCalledTimes(1)
     expect(api.uploadDocument).toHaveBeenCalledWith('r1', 'client', good, undefined)
   })
@@ -245,20 +249,20 @@ describe('RecordDocuments: загрузка файлов', () => {
 describe('RecordDocuments: «Заполнить из инвойса»', () => {
   const autofill = () => w.get('[data-autofill-upload]')
 
-  it('скрыта без reestr.write (клиент, экспедитор, только чтение)', async () => {
-    for (const who of ['client', 'expeditor', 'readOnly'] as const) {
+  it('скрыта без reestr.write и у сотрудника, который не грузит в клиентскую секцию (importer с reestr.write → 403 на сервере)', async () => {
+    for (const who of ['client', 'expeditor', 'readOnly', 'writer'] as const) {
       await mount(who)
       expect(w.find('[data-autofill-upload]').exists(), who).toBe(false)
       w.unmount()
     }
   })
 
-  it('с reestr.write видна и активна; при несохранённых правках отключена с подсказкой', async () => {
-    await mount('writer')
+  it('экспедитор с reestr.write и администратор видят кнопку; при несохранённых правках она отключена с подсказкой', async () => {
+    await mount('expeditorWriter')
     expect(autofill().attributes('disabled')).toBeUndefined()
     expect(w.find('[data-autofill-hint]').exists()).toBe(false)
     w.unmount()
-    await mount('writer', { dirty: true })
+    await mount('expeditorWriter', { dirty: true })
     expect(autofill().attributes('disabled')).toBeDefined()
     expect(w.get('[data-autofill-hint]').text()).toBe('Сначала сохраните изменения на вкладке «Данные»')
     w.unmount()
@@ -267,7 +271,7 @@ describe('RecordDocuments: «Заполнить из инвойса»', () => {
   })
 
   it('после загрузки инвойса список документов перечитывается', async () => {
-    await mount('writer')
+    await mount('admin')
     api.getExtraction.mockReturnValue(new Promise(() => {}))
     api.uploadDocument.mockResolvedValue(doc({ id: 'inv' }))
     const input = autofill().element.parentElement!.querySelector('input[type="file"]') as HTMLInputElement

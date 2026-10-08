@@ -858,8 +858,6 @@ export default {
         deleteOk: 'Delete',
         uploadTo: 'Upload: {slot}',
         required: 'required document',
-        sectionClient: 'Files uploaded by the client and the forwarder',
-        sectionBroker: 'Broker files: declaration, certificates, permits',
         loading: 'Loading documents…',
         emptySlot: 'No files yet',
       },
@@ -870,7 +868,6 @@ export default {
         addItem: 'Add line',
         itemsLabel: 'Invoice lines',
         removeItem: 'Delete line {n}',
-        confidence: 'Confidence',
       },
       opt: {
         orgRole: {

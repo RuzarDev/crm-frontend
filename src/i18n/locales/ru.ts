@@ -862,8 +862,6 @@ export default {
         deleteOk: 'Удалить',
         uploadTo: 'Загрузить: {slot}',
         required: 'обязательный документ',
-        sectionClient: 'Файлы, которые загрузили клиент и экспедитор',
-        sectionBroker: 'Файлы брокера: декларация, сертификаты, разрешения',
         loading: 'Загрузка документов…',
         emptySlot: 'Файлов пока нет',
       },
@@ -874,7 +872,6 @@ export default {
         addItem: 'Добавить позицию',
         itemsLabel: 'Позиции из инвойса',
         removeItem: 'Удалить позицию {n}',
-        confidence: 'Уверенность',
       },
       opt: {
         orgRole: {

@@ -30,11 +30,12 @@ describe('recordPermissions: данные и автозаполнение', () =
   })
 
   it('автозаполнение: видна только с reestr.write (сервер требует), активна без несохранённых правок', () => {
-    for (const a of [USERS.client, USERS.expeditor, USERS.readOnlyStaff]) {
+    // Без reestr.write — нет; с ним, но без права грузить в клиентскую секцию (сотрудник) — тоже нет: сервер ответит 403.
+    for (const a of [USERS.client, USERS.expeditor, USERS.readOnlyStaff, USERS.writer, u('broker', ['reestr.read', 'reestr.write'])]) {
       expect(canSeeAutofill(a)).toBe(false)
       expect(canAutofill(a, false)).toBe(false)
     }
-    for (const a of [USERS.writer, USERS.expeditorWriter, USERS.admin]) {
+    for (const a of [USERS.expeditorWriter, USERS.admin, u('client', ['reestr.read', 'reestr.write'])]) {
       expect(canSeeAutofill(a)).toBe(true)
       expect(canAutofill(a, false)).toBe(true)
       expect(canAutofill(a, true)).toBe(false)
@@ -131,14 +132,16 @@ describe('useRecordPermissions: привязка к стору auth', () => {
     expect(p.canUploadBrokerDoc(S.InProgress)).toBe(false)
     expect(p.canSeeAutofill()).toBe(false)
     auth.permissions = ['reestr.read', 'reestr.write']
+    expect(p.canSeeAutofill()).toBe(false) // importer: в клиентскую секцию не грузит
     expect(p.canEditData()).toBe(true)
     expect(p.canUploadBrokerDoc(S.InProgress)).toBe(true)
     expect(p.canUploadBrokerDoc(S.Released)).toBe(false)
-    expect(p.canAutofill(false)).toBe(true)
-    expect(p.canAutofill(true)).toBe(false)
     expect(p.canDeleteDoc(bdoc('me'), S.InProgress)).toBe(true)
     expect(p.canDeleteDoc(bdoc('x'), S.InProgress)).toBe(false)
     expect(p.canDeleteComment({ authorId: 'me' })).toBe(true)
+    auth.role = 'expeditor'
+    expect(p.canAutofill(false)).toBe(true)
+    expect(p.canAutofill(true)).toBe(false)
     auth.role = 'client'
     expect(p.canSeeHistory()).toBe(false)
     expect(p.canPostComment()).toBe(false)

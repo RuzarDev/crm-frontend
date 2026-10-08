@@ -858,8 +858,6 @@ export default {
         deleteOk: 'Жою',
         uploadTo: 'Жүктеу: {slot}',
         required: 'міндетті құжат',
-        sectionClient: 'Клиент пен экспедитор жүктеген файлдар',
-        sectionBroker: 'Брокер файлдары: декларация, сертификаттар, рұқсаттар',
         loading: 'Құжаттар жүктелуде…',
         emptySlot: 'Әзірге файл жоқ',
       },
@@ -870,7 +868,6 @@ export default {
         addItem: 'Жол қосу',
         itemsLabel: 'Инвойстағы жолдар',
         removeItem: '{n}-жолды жою',
-        confidence: 'Сенімділік',
       },
       opt: {
         orgRole: {

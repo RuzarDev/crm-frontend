@@ -12,7 +12,8 @@ import type { ExtractionResultDto } from '@/types/api'
 // (до 30 раз с шагом 2 с; 404 = ещё не готово), окно проверки ExtractionReviewModal. Применение меняет запись на сервере
 // (первая позиция — эту запись, остальные создают новые) — родитель после applied перечитывает запись и документы.
 // uploaded — файл лёг в документы клиента (список на вкладке надо перечитать, даже если окно проверки закроют).
-// Кнопку показывает вызывающий по праву reestr.write; disabled — при несохранённых правках «Данных».
+// Тип файла (.pdf/.xlsx) отсекает сам ZUpload по accept (и при перетаскивании); размер проверяем здесь.
+// Кнопку показывает вызывающий (reestr.write и право грузить в клиентскую секцию); disabled — при несохранённых правках «Данных».
 const POLL_ATTEMPTS = 30
 const POLL_MS = 2000
 const MAX_BYTES = 10 * 1024 * 1024
@@ -81,11 +82,6 @@ const start = async (file: File) => {
 const onSelect = (files: File[]) => {
   const file = files[0]
   if (!file || uploading.value || polling.value) return
-  const name = file.name.toLowerCase()
-  if (!name.endsWith('.pdf') && !name.endsWith('.xlsx')) {
-    message.error(t('sales.dopustimyTolkoPdfI'))
-    return
-  }
   if (file.size > MAX_BYTES) {
     message.error(t('sales.razmerFaylaNeDolzhen'))
     return

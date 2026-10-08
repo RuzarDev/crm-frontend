@@ -66,8 +66,11 @@ export const canDeleteComment = (a: RecordAuth, c: Comment): boolean => {
   return isAdmin(a) || (!!a.userId && c.authorId === a.userId)
 }
 
-/** Кнопка «Заполнить из инвойса» видна только с reestr.write: apply на сервере требует его. */
-export const canSeeAutofill = (a: RecordAuth): boolean => hasPerm(a, 'reestr.write')
+/**
+ * «Заполнить из инвойса» видна, если выполнены оба требования сервера: загрузка в клиентскую секцию
+ * (клиент, экспедитор, администратор — иначе 403 Documents.Forbidden) и применение (reestr.write).
+ */
+export const canSeeAutofill = (a: RecordAuth): boolean => hasPerm(a, 'reestr.write') && canUploadClientDoc(a)
 
 /** Активна без несохранённых правок на «Данных»: применение перечитывает запись и затёрло бы их. */
 export const canAutofill = (a: RecordAuth, dirty: boolean): boolean => canSeeAutofill(a) && !dirty
