@@ -701,6 +701,12 @@ export default {
         label: 'Record sections',
         state: { done: 'filled in', warn: 'needs attention', empty: 'empty' },
       },
+      leave: {
+        title: 'Leave without saving?',
+        text: 'The record has unsaved changes. If you leave the page, they will be lost.',
+        stay: 'Stay',
+        leave: 'Leave without saving',
+      },
       saveBar: {
         changes: 'You have unsaved changes',
         newRecord: 'The new record is not saved yet',

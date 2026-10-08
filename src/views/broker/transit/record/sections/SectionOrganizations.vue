@@ -14,7 +14,7 @@ import { DEFAULT_ORGANIZATION_ROLE, useLocalOptions } from './localOptions'
 import RecordSection from './RecordSection.vue'
 import RepeatCards from './RepeatCards.vue'
 import SectionAddButton from './SectionAddButton.vue'
-import { boxCtl, ctl, grid, str } from './ui'
+import { boxCtl, ctl, grid, ph, str } from './ui'
 
 // Раздел «Организации» (разбор §2.6 c): декларант / отправитель / получатель. Адрес — одной строкой.
 // «Найти по БИН» подставляет наименование, краткое наименование и адрес, только если они пусты.
@@ -61,7 +61,7 @@ async function findByBin(row: ReestrOrganizationInput) {
             <ZSelect :value="item.role" :options="organizationRoles" :disabled="readonly" :class="boxCtl" data-f="role" @update:value="item.role = str($event) ?? DEFAULT_ORGANIZATION_ROLE" />
           </ZField>
           <ZField :label="tp('subjectType')">
-            <ZSelect :value="item.subjectType" :options="subjectTypes" allow-clear :disabled="readonly" :placeholder="tp('choose')" :class="boxCtl" data-f="subjectType" @update:value="item.subjectType = str($event)" />
+            <ZSelect :value="item.subjectType" :options="subjectTypes" allow-clear :disabled="readonly" :placeholder="ph(readonly, tp('choose'))" :class="boxCtl" data-f="subjectType" @update:value="item.subjectType = str($event)" />
           </ZField>
           <ZField :label="tp('bin')">
             <div class="flex gap-2">
@@ -88,7 +88,7 @@ async function findByBin(row: ReestrOrganizationInput) {
             <ZInput :value="item.shortName" :maxlength="256" :disabled="readonly" :class="ctl" data-f="shortName" @update:value="item.shortName = str($event)" />
           </ZField>
           <ZField :label="tp('address')" class="sm:col-span-2">
-            <ZInput :value="item.address" :maxlength="1000" :placeholder="tp('addressPlaceholder')" :disabled="readonly" :class="ctl" data-f="address" @update:value="item.address = str($event)" />
+            <ZInput :value="item.address" :maxlength="1000" :placeholder="ph(readonly, tp('addressPlaceholder'))" :disabled="readonly" :class="ctl" data-f="address" @update:value="item.address = str($event)" />
           </ZField>
           <ZField :label="tp('phone')">
             <ZInput :value="item.phone" type="tel" :maxlength="64" :disabled="readonly" :class="ctl" data-f="phone" @update:value="item.phone = str($event)" />

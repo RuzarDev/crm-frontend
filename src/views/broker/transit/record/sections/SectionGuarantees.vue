@@ -11,7 +11,7 @@ import { useLocalOptions } from './localOptions'
 import RecordSection from './RecordSection.vue'
 import RepeatCards from './RepeatCards.vue'
 import SectionAddButton from './SectionAddButton.vue'
-import { boxCtl, ctl, grid, str } from './ui'
+import { boxCtl, ctl, grid, ph, str } from './ui'
 
 // Раздел «Гарантия» (разбор §2.6 j, KEDEN «Обеспечение»): вид, сумма, валюта (общий список), номер.
 defineProps<{ draft: RecordDraft; readonly: boolean }>()
@@ -32,13 +32,13 @@ const newGuarantee = (): ReestrGuaranteeInput => ({ guaranteeTypeCode: null, amo
       <template #item="{ item }">
         <div :class="grid">
           <ZField :label="tr('type')">
-            <ZSelect :value="item.guaranteeTypeCode" :options="guaranteeTypes" allow-clear :disabled="readonly" :placeholder="t('broker.transitRecord.parties.choose')" :class="boxCtl" data-f="guaranteeTypeCode" @update:value="item.guaranteeTypeCode = str($event)" />
+            <ZSelect :value="item.guaranteeTypeCode" :options="guaranteeTypes" allow-clear :disabled="readonly" :placeholder="ph(readonly, t('broker.transitRecord.parties.choose'))" :class="boxCtl" data-f="guaranteeTypeCode" @update:value="item.guaranteeTypeCode = str($event)" />
           </ZField>
           <ZField :label="tr('amount')">
             <ZNumber :value="item.amount" :min="0" :disabled="readonly" :class="ctl" data-f="amount" @update:value="item.amount = $event" />
           </ZField>
           <ZField :label="tr('currency')">
-            <ZSelect :value="item.currencyCode" :options="currencies" show-search allow-clear :disabled="readonly" :placeholder="t('broker.transitRecord.parties.choose')" :class="boxCtl" data-f="currencyCode" @update:value="item.currencyCode = str($event)" />
+            <ZSelect :value="item.currencyCode" :options="currencies" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, t('broker.transitRecord.parties.choose'))" :class="boxCtl" data-f="currencyCode" @update:value="item.currencyCode = str($event)" />
           </ZField>
           <ZField :label="tr('number')">
             <ZInput :value="item.number" mono :maxlength="256" :disabled="readonly" :class="ctl" data-f="number" @update:value="item.number = str($event)" />

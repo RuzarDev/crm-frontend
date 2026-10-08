@@ -9,9 +9,10 @@ import ZField from '@/components/z/ZField.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTabs, { type ZTabItem } from '@/components/z/ZTabs.vue'
+import { clientsOnboardingApi } from '@/api/clientsOnboarding'
 import { reestrApi } from '@/api/reestr'
 import { useAuthStore } from '@/stores/auth'
-import { useConfirm } from '@/ui/confirm'
+import { confirmState, useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import type { ZOption } from '@/ui/options'
 import TransitStatusModal from '../TransitStatusModal.vue'
@@ -52,13 +53,15 @@ const perms = useRecordPermissions()
 const { confirm } = useConfirm()
 provideRecordRefs()
 
-// id держим и после ухода со страницы (params.id пропадает раньше, чем страница размонтируется) — иначе
-// запись сбросилась бы под ещё видимой страницей.
+// id следует только за маршрутом записи: при уходе со страницы (params другого маршрута, например /clients/:id)
+// запись под ещё видимой страницей не сбрасывается и не подменяется.
+const RECORD_ROUTE = 'reestr-record'
 const id = ref(String(route.params.id ?? ''))
-watch(() => route.params.id, (v) => { if (typeof v === 'string' && v) id.value = v })
+watch(() => (route.name === RECORD_ROUTE ? route.params.id : undefined), (v) => { if (typeof v === 'string' && v) id.value = v })
+let alive = true
 
 const rec = useTransitRecord(() => id.value)
-const { entry, draft, clientId, loading, notFound, loadError, reloadError, saving, saveError, dirty, changed } = rec
+const { entry, draft, clientId, loading, notFound, loadError, reloadError, saving, saveError, saveErrorLocal, dirty, changed } = rec
 
 const isNew = computed(() => id.value === NEW_RECORD_ID && !entry.value)
 const canEdit = computed(() => perms.canEditData())
@@ -71,26 +74,39 @@ watch([id, canEdit], () => {
   if (id.value === NEW_RECORD_ID && !canEdit.value) void router.replace('/reestr')
 }, { immediate: true })
 
-// ---- Клиенты: имя в шапке и выбор у новой записи (тот же источник и условия, что были у окна) ----
-const clients = ref<{ id: string; username: string }[]>([])
-const clientOptions = computed<ZOption[]>(() => clients.value.map((c) => ({ value: c.id, label: c.username })))
-onMounted(async () => {
-  if (isClient.value) return
+// ---- Клиенты ----
+// Выбор у новой записи — тот же источник и условие, что у списка: /reestr/clients при reestr.write и не клиенту.
+// Имя в шапке — название компании (список клиентов, право clients.read); логин не показываем, клиенту — ничего.
+const createClients = ref<{ id: string; username: string }[]>([])
+const companies = ref(new Map<string, string>())
+const companyOf = (cid: string): string | null => companies.value.get(cid) ?? null
+const clientOptions = computed<ZOption[]>(() => createClients.value.map((c) => ({ value: c.id, label: companyOf(c.id) ?? c.username })))
+const canSeeCompanies = computed(() => !isClient.value && auth.hasPermission('clients.read'))
+let createClientsLoaded = false
+watch([isNew, canEdit], async () => {
+  if (!isNew.value || !canEdit.value || isClient.value || createClientsLoaded) return
+  createClientsLoaded = true
   try {
-    clients.value = await reestrApi.listClientsForCreate()
+    createClients.value = await reestrApi.listClientsForCreate()
   } catch {
-    // тост показал перехватчик; шапка без имени клиента, у новой записи — пустой выбор
+    createClientsLoaded = false // тост показал перехватчик; выбор пуст, следующая новая запись попробует снова
+  }
+}, { immediate: true })
+onMounted(async () => {
+  if (!canSeeCompanies.value) return
+  try {
+    const list = await clientsOnboardingApi.list({ silent: true })
+    companies.value = new Map(list.filter((c) => c.companyName?.trim()).map((c) => [c.id, c.companyName!.trim()]))
+  } catch {
+    // имя компании — подсказка в шапке: без него шапка просто без клиента
   }
 })
 // У новой записи клиент по умолчанию — первый вариант (как в прежнем окне).
 watch([clientOptions, isNew, clientId], () => {
   if (isNew.value && clientId.value == null && clientOptions.value.length) clientId.value = String(clientOptions.value[0].value)
 }, { immediate: true })
-const clientName = computed(() => {
-  const cid = entry.value?.clientId
-  return cid ? clients.value.find((c) => c.id === cid)?.username ?? null : null
-})
-const clientTo = computed(() => (entry.value && !isClient.value && auth.hasPermission('clients.read') ? `/clients/${entry.value.clientId}` : null))
+const clientName = computed(() => (entry.value ? companyOf(entry.value.clientId) : null))
+const clientTo = computed(() => (entry.value && canSeeCompanies.value ? `/clients/${entry.value.clientId}` : null))
 
 // ---- Вкладки (?tab=) ----
 type Tab = 'data' | 'documents' | 'history' | 'comments'
@@ -125,8 +141,10 @@ const onSave = async () => {
   if (!canEdit.value || saving.value || loading.value) return
   const startedOn = id.value
   const savedId = await rec.save()
-  // Новая создана, а пользователь всё ещё на /reestr/new — адрес записи. Ушёл на другую — не трогаем.
-  if (savedId && startedOn === NEW_RECORD_ID && id.value === NEW_RECORD_ID) {
+  // Новая создана, а пользователь всё ещё на /reestr/new (сейчас, а не когда начинал) — адрес записи.
+  // Ушёл на другую запись или со страницы вовсе — не трогаем.
+  const stillOnNew = alive && route.name === RECORD_ROUTE && route.params.id === NEW_RECORD_ID
+  if (savedId && startedOn === NEW_RECORD_ID && stillOnNew) {
     await router.replace({ path: `/reestr/${savedId}`, query: route.query })
   }
 }
@@ -135,12 +153,15 @@ const onCancel = () => {
   else rec.revert()
 }
 // Плашка ошибки сохранения скрывается при следующей правке (и при сохранении — это делает сам save).
-watch([() => draft, clientId], () => { if (saveError.value) saveError.value = null }, { deep: true })
+// draftJson — строка, которую и так считает dirty: без глубокого обхода черновика на каждое нажатие.
+watch([rec.draftJson, clientId], () => { if (saveError.value) saveError.value = null })
 
 const onKey = (e: KeyboardEvent) => {
   if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return
   if (e.code !== 'KeyS' && e.key.toLowerCase() !== 's') return
   if (!canEdit.value || !(entry.value || isNew.value)) return
+  // Поверх страницы открыто окно (смена статуса, подтверждение) — сохранение не под ним.
+  if (statusOpen.value || confirmState.open || document.querySelector('[role="dialog"], [role="alertdialog"]')) return
   e.preventDefault()
   if (dirty.value || isNew.value) void onSave()
 }
@@ -154,6 +175,7 @@ onMounted(() => {
   window.addEventListener('beforeunload', onBeforeUnload)
 })
 onBeforeUnmount(() => {
+  alive = false
   window.removeEventListener('keydown', onKey)
   window.removeEventListener('beforeunload', onBeforeUnload)
 })
@@ -161,10 +183,10 @@ onBeforeUnmount(() => {
 // ---- Защита правок ----
 let leaving = false
 const askLeave = () => confirm({
-  title: t('transit.zakrytBezSohraneniyaTitle'),
-  content: t('transit.zakrytBezSohraneniyaText'),
-  okText: t('transit.zakrytBezSohraneniya'),
-  cancelText: t('transit.vernutsyaKZapisi'),
+  title: t('broker.transitRecord.leave.title'),
+  content: t('broker.transitRecord.leave.text'),
+  okText: t('broker.transitRecord.leave.leave'),
+  cancelText: t('broker.transitRecord.leave.stay'),
   danger: true,
 })
 onBeforeRouteLeave(() => (leaving || !dirty.value ? true : askLeave()))
@@ -254,7 +276,8 @@ const deprecation = computed(() => entry.value?.deprecationWarning ?? null)
         </template>
       </ZAlert>
       <ZAlert v-else-if="saveError" type="error" show-icon :message="t('transit.zapisNeSohranena')" data-record-save-error>
-        {{ t('broker.transitRecord.page.saveErrorText', { reason: saveError }) }}
+        <!-- Проверка на месте — её текст как есть; ответ сервера — с причиной и советом. -->
+        {{ saveErrorLocal ? saveError : t('broker.transitRecord.page.saveErrorText', { reason: saveError }) }}
       </ZAlert>
 
       <ZTabs
@@ -271,11 +294,11 @@ const deprecation = computed(() => entry.value?.deprecationWarning ?? null)
         v-show="tab === 'data'"
         role="tabpanel"
         :aria-label="tabLabel('data')"
-        class="grid items-start gap-x-7 gap-y-4 lg:grid-cols-[200px_minmax(0,1fr)]"
+        class="grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-x-7 gap-y-4 lg:grid-cols-[200px_minmax(0,1fr)]"
         data-record-panel="data"
       >
-        <RecordNav :draft="draft" />
-        <div class="flex min-w-0 flex-col gap-[18px]">
+        <RecordNav :draft="draft" :tracking="tab === 'data'" />
+        <div class="flex min-w-0 flex-col gap-[18px]" data-record-sections>
           <ZAlert v-if="deprecation" type="warning" show-icon data-record-deprecation>
             {{ t('broker.transitRecord.deprecation.text', { code: deprecation.deprecatedCode }) }}<template v-if="deprecation.sourceVersion">
               {{ t('broker.transitRecord.deprecation.since', { version: deprecation.sourceVersion }) }}</template>.

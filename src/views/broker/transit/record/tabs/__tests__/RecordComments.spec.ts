@@ -58,7 +58,11 @@ describe('RecordComments', () => {
   it('пусто — «Нет комментариев», поле ввода есть', async () => {
     api.listComments.mockResolvedValue([])
     await mount()
-    expect(w.text()).toContain('Нет комментариев')
+    // Как «Нет документов» во вкладке «Документы»: короткая приглушённая строка, не заголовок по центру.
+    const empty = w.get('[data-comments-empty]')
+    expect(empty.element.tagName).toBe('P')
+    expect(empty.text()).toBe('Нет комментариев')
+    expect(empty.classes()).toEqual(expect.arrayContaining(['text-sm', 'text-ink-3']))
     expect(w.find('textarea').exists()).toBe(true)
     expect(w.emitted('count')?.at(-1)).toEqual([0])
   })

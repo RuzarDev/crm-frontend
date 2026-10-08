@@ -13,7 +13,7 @@ import { POST_KEY, type RecordDraft } from '../recordModel'
 import { useLocalOptions } from './localOptions'
 import RecordSection from './RecordSection.vue'
 import { departureOfficeTooLong, departureOfficeValue, useRecordRefs } from './refs'
-import { boxCtl, ctl, grid, str } from './ui'
+import { boxCtl, ctl, grid, ph, str } from './ui'
 
 // Раздел «Основное» (разбор §2.6 a, b и «Пост»): три группы — декларация, маршрут, итоги. Поля пишут прямо в черновик.
 // Страны хранятся числовым кодом ОКСМ (подпись «398 — Казахстан»), таможня отправления — кодом поста (B.12).
@@ -61,22 +61,22 @@ const onPost = (v: string) => { props.draft.fields[POST_KEY] = str(v) }
         <h3 id="main-g-decl" :class="groupTitle">{{ tr('groupDeclaration') }}</h3>
         <div :class="grid">
           <ZField :label="tr('purpose')">
-            <ZSelect :value="draft.transit.purposeCode" :options="purposeOptions" show-search allow-clear :disabled="readonly" :placeholder="tr('choose')" :class="boxCtl" data-f="purposeCode" @update:value="setStr('purposeCode', $event)" />
+            <ZSelect :value="draft.transit.purposeCode" :options="purposeOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('choose'))" :class="boxCtl" data-f="purposeCode" @update:value="setStr('purposeCode', $event)" />
           </ZField>
           <ZField :label="tr('entryMethod')">
-            <ZSelect :value="draft.transit.entryMethodCode" :options="entryOptions" show-search allow-clear :disabled="readonly" :placeholder="tr('choose')" :class="boxCtl" data-f="entryMethodCode" @update:value="setStr('entryMethodCode', $event)" />
+            <ZSelect :value="draft.transit.entryMethodCode" :options="entryOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('choose'))" :class="boxCtl" data-f="entryMethodCode" @update:value="setStr('entryMethodCode', $event)" />
           </ZField>
           <ZField :label="tr('direction')">
-            <ZSelect :value="draft.transit.movementDirectionCode" :options="directionOptions" show-search allow-clear :disabled="readonly" :placeholder="tr('choose')" :class="boxCtl" data-f="movementDirectionCode" @update:value="setStr('movementDirectionCode', $event)" />
+            <ZSelect :value="draft.transit.movementDirectionCode" :options="directionOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('choose'))" :class="boxCtl" data-f="movementDirectionCode" @update:value="setStr('movementDirectionCode', $event)" />
           </ZField>
           <ZField :label="tr('usedAsDeclaration')">
-            <ZSelect :value="draft.transit.usedAsDeclarationCode" :options="usedOptions" show-search allow-clear :disabled="readonly" :placeholder="tr('choose')" :class="boxCtl" data-f="usedAsDeclarationCode" @update:value="setStr('usedAsDeclarationCode', $event)" />
+            <ZSelect :value="draft.transit.usedAsDeclarationCode" :options="usedOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('choose'))" :class="boxCtl" data-f="usedAsDeclarationCode" @update:value="setStr('usedAsDeclarationCode', $event)" />
           </ZField>
           <ZField :label="tr('post')">
-            <ZCombobox :value="draft.fields[POST_KEY]" :options="refs.postOptions.value" allow-clear :disabled="readonly" :placeholder="tr('postPlaceholder')" :class="boxCtl" data-f="post" @update:value="onPost" />
+            <ZCombobox :value="draft.fields[POST_KEY]" :options="refs.postOptions.value" allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('postPlaceholder'))" :class="boxCtl" data-f="post" @update:value="onPost" />
           </ZField>
           <ZField :label="tr('departureOffice')" :error="officeError">
-            <ZSelect :value="draft.transit.departureCustomsOffice" :options="refs.departureOfficeOptions.value" show-search allow-clear :disabled="readonly" :placeholder="tr('departureOfficePlaceholder')" :class="boxCtl" data-f="departureCustomsOffice" @update:value="onOffice" />
+            <ZSelect :value="draft.transit.departureCustomsOffice" :options="refs.departureOfficeOptions.value" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('departureOfficePlaceholder'))" :class="boxCtl" data-f="departureCustomsOffice" @update:value="onOffice" />
           </ZField>
         </div>
       </div>
@@ -85,13 +85,13 @@ const onPost = (v: string) => { props.draft.fields[POST_KEY] = str(v) }
         <h3 id="main-g-route" :class="groupTitle">{{ tr('groupRoute') }}</h3>
         <div :class="grid">
           <ZField :label="tr('departureCountry')">
-            <ZSelect :value="draft.transit.departureCountryCode" :options="refs.countryOptions.value" show-search allow-clear :disabled="readonly" :placeholder="tr('choose')" :class="boxCtl" data-f="departureCountryCode" @update:value="setStr('departureCountryCode', $event)" />
+            <ZSelect :value="draft.transit.departureCountryCode" :options="refs.countryOptions.value" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('choose'))" :class="boxCtl" data-f="departureCountryCode" @update:value="setStr('departureCountryCode', $event)" />
           </ZField>
           <ZField :label="tr('destinationCountry')">
-            <ZSelect :value="draft.transit.destinationCountryCode" :options="refs.countryOptions.value" show-search allow-clear :disabled="readonly" :placeholder="tr('choose')" :class="boxCtl" data-f="destinationCountryCode" @update:value="setStr('destinationCountryCode', $event)" />
+            <ZSelect :value="draft.transit.destinationCountryCode" :options="refs.countryOptions.value" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('choose'))" :class="boxCtl" data-f="destinationCountryCode" @update:value="setStr('destinationCountryCode', $event)" />
           </ZField>
           <ZField :label="tr('transportMode')">
-            <ZSelect :value="draft.transit.transportModeCode" :options="modeOptions" show-search allow-clear :disabled="readonly" :placeholder="tr('choose')" :class="boxCtl" data-f="transportModeCode" @update:value="setStr('transportModeCode', $event)" />
+            <ZSelect :value="draft.transit.transportModeCode" :options="modeOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('choose'))" :class="boxCtl" data-f="transportModeCode" @update:value="setStr('transportModeCode', $event)" />
           </ZField>
           <ZField :label="tr('multimodal')">
             <div class="flex h-9 items-center max-sm:h-11">
@@ -103,36 +103,36 @@ const onPost = (v: string) => { props.draft.fields[POST_KEY] = str(v) }
         <h4 :class="subTitle">{{ tr('loadingPlace') }}</h4>
         <div :class="grid">
           <ZField :label="tr('country')">
-            <ZSelect :value="draft.transit.loadingCountryCode" :options="refs.countryOptions.value" show-search allow-clear :disabled="readonly" :placeholder="tr('choose')" :class="boxCtl" data-f="loadingCountryCode" @update:value="setStr('loadingCountryCode', $event)" />
+            <ZSelect :value="draft.transit.loadingCountryCode" :options="refs.countryOptions.value" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('choose'))" :class="boxCtl" data-f="loadingCountryCode" @update:value="setStr('loadingCountryCode', $event)" />
           </ZField>
           <ZField :label="tr('station')">
-            <ZCombobox :value="draft.transit.loadingRailStation" :options="refs.stationOptions.value" allow-clear :disabled="readonly" :placeholder="tr('stationPlaceholder')" :class="boxCtl" data-f="loadingRailStation" @update:value="setStr('loadingRailStation', $event)" />
+            <ZCombobox :value="draft.transit.loadingRailStation" :options="refs.stationOptions.value" allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('stationPlaceholder'))" :class="boxCtl" data-f="loadingRailStation" @update:value="setStr('loadingRailStation', $event)" />
           </ZField>
         </div>
 
         <h4 :class="subTitle">{{ tr('unloadingPlace') }}</h4>
         <div :class="grid">
           <ZField :label="tr('country')">
-            <ZSelect :value="draft.transit.unloadingCountryCode" :options="refs.countryOptions.value" show-search allow-clear :disabled="readonly" :placeholder="tr('choose')" :class="boxCtl" data-f="unloadingCountryCode" @update:value="setStr('unloadingCountryCode', $event)" />
+            <ZSelect :value="draft.transit.unloadingCountryCode" :options="refs.countryOptions.value" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('choose'))" :class="boxCtl" data-f="unloadingCountryCode" @update:value="setStr('unloadingCountryCode', $event)" />
           </ZField>
           <ZField :label="tr('station')">
-            <ZCombobox :value="draft.transit.unloadingRailStation" :options="refs.stationOptions.value" allow-clear :disabled="readonly" :placeholder="tr('stationPlaceholder')" :class="boxCtl" data-f="unloadingRailStation" @update:value="setStr('unloadingRailStation', $event)" />
+            <ZCombobox :value="draft.transit.unloadingRailStation" :options="refs.stationOptions.value" allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('stationPlaceholder'))" :class="boxCtl" data-f="unloadingRailStation" @update:value="setStr('unloadingRailStation', $event)" />
           </ZField>
           <ZField :label="tr('destinationOffice')">
-            <ZSelect :value="draft.transit.destinationCustomsOffice" :options="refs.foreignOfficeOptions.value" show-search allow-clear :disabled="readonly" :placeholder="tr('destinationOfficePlaceholder')" :class="boxCtl" data-f="destinationCustomsOffice" @update:value="setStr('destinationCustomsOffice', $event)" />
+            <ZSelect :value="draft.transit.destinationCustomsOffice" :options="refs.foreignOfficeOptions.value" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('destinationOfficePlaceholder'))" :class="boxCtl" data-f="destinationCustomsOffice" @update:value="setStr('destinationCustomsOffice', $event)" />
           </ZField>
         </div>
 
         <h4 :class="subTitle">{{ tr('transportDoc') }}</h4>
         <div :class="grid">
           <ZField :label="tr('docType')">
-            <ZSelect :value="draft.transit.transportDocTypeCode" :options="docTypeOptions" show-search allow-clear :disabled="readonly" :placeholder="tr('docTypePlaceholder')" :class="boxCtl" data-f="transportDocTypeCode" @update:value="setStr('transportDocTypeCode', $event)" />
+            <ZSelect :value="draft.transit.transportDocTypeCode" :options="docTypeOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('docTypePlaceholder'))" :class="boxCtl" data-f="transportDocTypeCode" @update:value="setStr('transportDocTypeCode', $event)" />
           </ZField>
           <ZField :label="tr('docNumber')">
             <ZInput :value="draft.transit.transportDocNumber" mono :disabled="readonly" :class="ctl" data-f="transportDocNumber" @update:value="setStr('transportDocNumber', $event)" />
           </ZField>
           <ZField :label="tr('docDate')">
-            <ZDate :value="draft.transit.transportDocDate" allow-clear :disabled="readonly" :class="ctl" data-f="transportDocDate" @update:value="setT('transportDocDate', $event)" />
+            <ZDate :value="draft.transit.transportDocDate" allow-clear :placeholder="ph(readonly)" :disabled="readonly" :class="ctl" data-f="transportDocDate" @update:value="setT('transportDocDate', $event)" />
           </ZField>
         </div>
       </div>
@@ -153,7 +153,7 @@ const onPost = (v: string) => { props.draft.fields[POST_KEY] = str(v) }
             <ZNumber :value="draft.transit.totalValue" :min="0" :disabled="readonly" :class="ctl" data-f="totalValue" @update:value="setT('totalValue', $event)" />
           </ZField>
           <ZField :label="tr('docCurrency')">
-            <ZSelect :value="draft.transit.docCurrencyCode" :options="currencyOptions" show-search allow-clear :disabled="readonly" :placeholder="tr('choose')" :class="boxCtl" data-f="docCurrencyCode" @update:value="setStr('docCurrencyCode', $event)" />
+            <ZSelect :value="draft.transit.docCurrencyCode" :options="currencyOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('choose'))" :class="boxCtl" data-f="docCurrencyCode" @update:value="setStr('docCurrencyCode', $event)" />
           </ZField>
         </div>
         <p class="m-0 text-xs text-muted" data-main-totals-hint>{{ tr('totalsHint') }}</p>

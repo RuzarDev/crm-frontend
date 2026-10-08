@@ -14,7 +14,9 @@ const api = vi.hoisted(() => ({
 const tnved = vi.hoisted(() => ({ node: vi.fn(), rates: vi.fn() }))
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 const docsReload = vi.hoisted(() => vi.fn())
+const onboarding = vi.hoisted(() => ({ list: vi.fn() }))
 vi.mock('@/api/reestr', () => ({ reestrApi: api }))
+vi.mock('@/api/clientsOnboarding', () => ({ clientsOnboardingApi: onboarding }))
 vi.mock('@/api/tnved', () => ({ tnvedApi: tnved }))
 vi.mock('@/api/references', async () => ({ referencesApi: (await import('../sections/__tests__/harness')).refsApi }))
 vi.mock('@/ui/message', () => ({ message: toast }))
@@ -132,8 +134,12 @@ beforeEach(() => {
   api.changeStatus.mockResolvedValue(undefined)
   api.getList.mockResolvedValue({ items: [], totalCount: 0, page: 1, pageSize: 25, totalPages: 0 })
   api.listClientsForCreate.mockResolvedValue([
-    { id: 'c1', username: 'ТОО «Казахмыс Трейд»', declarationCount: 3 },
-    { id: 'c2', username: 'ТОО «Бета»', declarationCount: 0 },
+    { id: 'c1', username: 'client_091370', declarationCount: 3 },
+    { id: 'c2', username: 'client_beta', declarationCount: 0 },
+  ])
+  onboarding.list.mockResolvedValue([
+    { id: 'c1', username: 'client_091370', companyName: 'ТОО «Казахмыс Трейд»' },
+    { id: 'c2', username: 'client_beta', companyName: null },
   ])
   tnved.node.mockResolvedValue({ data: { is10: true, name: 'Ноутбуки' } })
   tnved.rates.mockResolvedValue(null)
@@ -155,7 +161,12 @@ describe('TransitRecordPage: загрузка и шапка', () => {
     expect(crumbs()).toEqual(['Транзит', '2026-0030'])
     expect(w.get('[data-record-title]').text()).toBe('DRYU 995372 6')
     expect(w.get('[data-record-status]').text()).toBe('Подан')
+    // Название компании (список клиентов, clients.read), а не логин; ссылка — на карточку клиента.
     expect(w.get('[data-record-client]').text()).toBe('ТОО «Казахмыс Трейд»')
+    expect(w.get('[data-record-client]').attributes('href')).toBe('/clients/c1')
+    expect(onboarding.list).toHaveBeenCalledWith({ silent: true })
+    // Список для создания нужен только новой записи.
+    expect(api.listClientsForCreate).not.toHaveBeenCalled()
     expect(w.get('[data-record-route]').text()).toContain('Хоргос → Сарыагаш')
     expect(w.get('[data-record-td]').text().replace(/\s+/g, ' ')).toContain('ТД 56000/221')
     expect(tabs()).toEqual(['Данные', 'Документы 4', 'История статусов', 'Комментарии 2'])
@@ -407,6 +418,10 @@ describe('TransitRecordPage: новая запись', () => {
     expect(w.get('[data-savebar-text]').text()).toBe('Новая запись ещё не сохранена')
     const client = w.get('#sec-main [data-record-client-select]')
     expect(client.attributes('data-value')).toBe('c1')
+    expect(api.listClientsForCreate).toHaveBeenCalledTimes(1)
+    // Подпись — название компании, если оно известно, иначе логин.
+    expect(client.get('[data-option="c1"]').text()).toBe('ТОО «Казахмыс Трейд»')
+    expect(client.get('[data-option="c2"]').text()).toBe('client_beta')
     await client.get('[data-option="c2"]').trigger('click')
     await type('Груз', 'Ноутбуки')
     const replace = vi.spyOn(router, 'replace')
@@ -462,9 +477,10 @@ describe('TransitRecordPage: защита правок, статус, удале
     const first = router.push('/reestr')
     await settle()
     expect(confirmState.open).toBe(true)
-    expect(confirmState.title).toBe('Закрыть без сохранения?')
-    expect(confirmState.okText).toBe('Закрыть без сохранения')
-    expect(confirmState.cancelText).toBe('Вернуться к записи')
+    expect(confirmState.title).toBe('Уйти без сохранения?')
+    expect(confirmState.content).toBe('В записи есть несохранённые изменения. Если уйти со страницы, они пропадут.')
+    expect(confirmState.okText).toBe('Уйти без сохранения')
+    expect(confirmState.cancelText).toBe('Остаться')
     expect(confirmState.danger).toBe(true)
     confirmState.resolve(false)
     await first
@@ -542,5 +558,110 @@ describe('TransitRecordPage: защита правок, статус, удале
     await settle()
     expect(api.delete).not.toHaveBeenCalled()
     expect(router.currentRoute.value.path).toBe('/reestr/r1')
+  })
+})
+
+describe('TransitRecordPage: правки по ревью и проверке', () => {
+  it('клиент в шапке: без названия компании — ничего (не логин); без clients.read и клиенту — списки не грузятся', async () => {
+    stored.r1 = fullEntry({ clientId: 'c2' })
+    await open()
+    expect(has('[data-record-client]')).toBe(false)
+    w.unmount()
+    vi.clearAllMocks()
+    as('importer', ['reestr.read'])
+    await open()
+    expect(has('[data-record-client]')).toBe(false)
+    expect(onboarding.list).not.toHaveBeenCalled()
+    expect(api.listClientsForCreate).not.toHaveBeenCalled()
+    w.unmount()
+    as('client', ['reestr.read'])
+    await open()
+    expect(has('[data-record-client]')).toBe(false)
+    expect(onboarding.list).not.toHaveBeenCalled()
+    expect(api.listClientsForCreate).not.toHaveBeenCalled()
+  })
+
+  it('сохранённая запись без номера и контейнера — «Запись», а не «Новая запись»', async () => {
+    stored.r1 = fullEntry({ data: { ...fullEntry().data, '№': null, 'Контейнер': null } })
+    await open()
+    expect(w.get('[data-record-title]').text()).toBe('Запись')
+  })
+
+  it('ошибка проверки на месте — текст как есть, без «Причина: …» и совета повторить', async () => {
+    await open('/reestr/new')
+    await w.get('[data-savebar-save]').trigger('click')
+    await settle()
+    const text = w.get('[data-record-save-error]').text()
+    expect(text).toContain('Заполните хотя бы одно из полей')
+    expect(text).not.toContain('Причина')
+    expect(text).not.toContain('..')
+  })
+
+  it('создание закончилось после ухода со страницы — обратно на запись не уводит', async () => {
+    const d = deferred<{ id: string }>()
+    api.create.mockReturnValueOnce(d.promise)
+    await open('/reestr/new')
+    await type('Груз', 'Ноутбуки')
+    await w.get('[data-savebar-save]').trigger('click')
+    await nextTick()
+    const nav = router.push('/reestr')
+    await settle()
+    confirmState.resolve(true)
+    await nav
+    await settle()
+    expect(router.currentRoute.value.path).toBe('/reestr')
+    stored['new-id'] = fullEntry({ id: 'new-id' })
+    d.resolve({ id: 'new-id' })
+    await settle()
+    expect(router.currentRoute.value.path).toBe('/reestr')
+  })
+
+  it('Ctrl/⌘+S не сохраняет, пока открыто окно (смена статуса, подтверждение)', async () => {
+    await open()
+    await type('Груз', 'x')
+    await w.get('[data-record-change-status]').trigger('click')
+    await settle()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, cancelable: true }))
+    await settle()
+    expect(api.update).not.toHaveBeenCalled()
+    w.findComponent({ name: 'TransitStatusModal' }).vm.$emit('update:open', false)
+    await settle()
+    const ask = router.push('/reestr')
+    await settle()
+    expect(confirmState.open).toBe(true)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, cancelable: true }))
+    await settle()
+    expect(api.update).not.toHaveBeenCalled()
+    confirmState.resolve(false)
+    await ask
+  })
+
+  it('после смены статуса запись перечитывается, не дожидаясь перечёта списка', async () => {
+    api.getList.mockReturnValue(new Promise(() => {}))
+    await open()
+    await w.get('[data-record-change-status]').trigger('click')
+    await settle()
+    await w.get('[data-modal] [data-option="2"]').trigger('click')
+    stored.r1 = fullEntry({ status: 2 })
+    await w.get('[data-modal] [data-ok]').trigger('click')
+    await settle()
+    expect(api.getById).toHaveBeenCalledTimes(2)
+    expect(w.get('[data-record-status]').text()).toBe('Выпущено')
+  })
+
+  it('id страницы следует только за маршрутом записи', async () => {
+    await open()
+    await router.push('/clients/c1')
+    await settle()
+    expect(api.getById).toHaveBeenCalledTimes(1)
+    expect(api.getById).not.toHaveBeenCalledWith('c1', expect.anything())
+  })
+
+  it('вкладка «Данные» не шире экрана: колонка minmax(0,1fr) до 1024, 200px | 1fr шире; меню и разделы min-w-0', async () => {
+    await open()
+    const panel = w.get('[data-record-panel="data"]')
+    expect(panel.classes()).toEqual(expect.arrayContaining(['grid-cols-[minmax(0,1fr)]', 'lg:grid-cols-[200px_minmax(0,1fr)]', 'min-w-0']))
+    expect(w.get('[data-record-nav]').classes()).toContain('min-w-0')
+    expect(w.get('[data-record-sections]').classes()).toContain('min-w-0')
   })
 })

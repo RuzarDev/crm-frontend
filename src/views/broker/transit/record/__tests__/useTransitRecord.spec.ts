@@ -312,6 +312,7 @@ describe('useTransitRecord — сохранение', () => {
     const id = await r.save()
     expect(id).toBeNull()
     expect(r.saveError.value).toBe('Код ТН ВЭД не найден')
+    expect(r.saveErrorLocal.value).toBe(false)
     expect(r.draft.fields['Груз']).toBe('новый груз')
     expect(r.dirty.value).toBe(true)
     expect(r.saving.value).toBe(false)
@@ -337,6 +338,8 @@ describe('useTransitRecord — сохранение', () => {
     expect(api.create).not.toHaveBeenCalled()
     expect(r.saveError.value).toContain('Заполните хотя бы одно из полей')
     expect(r.saveError.value).toContain('Выберите клиента')
+    // Проверка на месте, не ответ сервера: страница показывает текст как есть.
+    expect(r.saveErrorLocal.value).toBe(true)
   })
 
   it('повторное нажатие во время сохранения — один запрос', async () => {

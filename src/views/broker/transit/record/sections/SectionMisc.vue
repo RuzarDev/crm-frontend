@@ -10,7 +10,7 @@ import { useLocalOptions } from './localOptions'
 import RecordSection from './RecordSection.vue'
 import RepeatCards from './RepeatCards.vue'
 import SectionAddButton from './SectionAddButton.vue'
-import { boxCtl, ctl, grid, str } from './ui'
+import { boxCtl, ctl, grid, ph, str } from './ui'
 
 // Раздел «Прочее» (разбор §2.6 k, KEDEN §8–12): место временного хранения, пункт назначения, лицо, представившее ПИ
 // (тип, БИН, наименование) и повторяющиеся грузовые операции.
@@ -52,7 +52,7 @@ const groupTitle = 'm-0 text-[13px] leading-5 font-semibold text-ink-2'
         <h3 id="misc-g-submitter" :class="groupTitle">{{ tr('submitter') }}</h3>
         <div :class="grid">
           <ZField :label="t('broker.transitRecord.parties.subjectType')">
-            <ZSelect :value="draft.transit.submitterType" :options="subjectTypes" allow-clear :disabled="readonly" :placeholder="t('broker.transitRecord.parties.choose')" :class="boxCtl" data-f="submitterType" @update:value="setStr('submitterType', $event)" />
+            <ZSelect :value="draft.transit.submitterType" :options="subjectTypes" allow-clear :disabled="readonly" :placeholder="ph(readonly, t('broker.transitRecord.parties.choose'))" :class="boxCtl" data-f="submitterType" @update:value="setStr('submitterType', $event)" />
           </ZField>
           <ZField :label="t('broker.transitRecord.parties.bin')">
             <ZInput :value="draft.transit.submitterBin" mono :maxlength="32" :disabled="readonly" :class="ctl" data-f="submitterBin" @update:value="setStr('submitterBin', $event)" />
@@ -72,7 +72,7 @@ const groupTitle = 'm-0 text-[13px] leading-5 font-semibold text-ink-2'
         <RepeatCards ref="cards" inline :items="draft.cargoOperations" :readonly="readonly" :empty-text="tr('noOperations')" :new-item="newOperation">
           <template #item="{ item }">
             <ZField :label="tr('operationType')">
-              <ZSelect :value="item.operationTypeCode" :options="cargoOperations" allow-clear :disabled="readonly" :placeholder="t('broker.transitRecord.parties.choose')" :class="boxCtl" data-f="operationTypeCode" @update:value="item.operationTypeCode = str($event)" />
+              <ZSelect :value="item.operationTypeCode" :options="cargoOperations" allow-clear :disabled="readonly" :placeholder="ph(readonly, t('broker.transitRecord.parties.choose'))" :class="boxCtl" data-f="operationTypeCode" @update:value="item.operationTypeCode = str($event)" />
             </ZField>
           </template>
         </RepeatCards>

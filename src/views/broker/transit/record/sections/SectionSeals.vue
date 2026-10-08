@@ -12,7 +12,7 @@ import RecordSection from './RecordSection.vue'
 import RepeatCards from './RepeatCards.vue'
 import { useRecordRefs } from './refs'
 import SectionAddButton from './SectionAddButton.vue'
-import { boxCtl, ctl, grid, str } from './ui'
+import { boxCtl, ctl, grid, ph, str } from './ui'
 
 // Раздел «Пломбы» (разбор §2.6 f): средства идентификации. «Без пломбы» отключает остальные поля и при включении
 // ОЧИЩАЕТ их — иначе скрытые значения ушли бы на сервер.
@@ -47,7 +47,7 @@ function setNoSeal(row: ReestrIdentificationMeansInput, on: boolean) {
           <ZCheckbox :checked="item.noSeal" :disabled="readonly" class="max-sm:min-h-11" data-f="noSeal" @update:checked="setNoSeal(item, $event)">{{ tr('noSeal') }}</ZCheckbox>
           <div :class="grid">
             <ZField :label="tr('type')">
-              <ZSelect :value="item.meansTypeCode" :options="typeOptions" show-search allow-clear :disabled="readonly || item.noSeal" :placeholder="t('broker.transitRecord.parties.choose')" :class="boxCtl" data-f="meansTypeCode" @update:value="item.meansTypeCode = str($event)" />
+              <ZSelect :value="item.meansTypeCode" :options="typeOptions" show-search allow-clear :disabled="readonly || item.noSeal" :placeholder="ph(readonly, t('broker.transitRecord.parties.choose'))" :class="boxCtl" data-f="meansTypeCode" @update:value="item.meansTypeCode = str($event)" />
             </ZField>
             <ZField :label="tr('quantity')">
               <ZNumber :value="item.quantity" :min="0" :disabled="readonly || item.noSeal" :class="ctl" data-f="quantity" @update:value="item.quantity = $event" />

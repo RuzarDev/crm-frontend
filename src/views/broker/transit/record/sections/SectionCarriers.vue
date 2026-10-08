@@ -11,7 +11,7 @@ import RecordSection from './RecordSection.vue'
 import RepeatCards from './RepeatCards.vue'
 import { useRecordRefs } from './refs'
 import SectionAddButton from './SectionAddButton.vue'
-import { boxCtl, ctl, grid, str } from './ui'
+import { boxCtl, ctl, grid, ph, str } from './ui'
 
 // Раздел «Перевозчики» (разбор §2.6 d): перевозчик / представитель при транзите. Страна — числовой код ОКСМ.
 const props = defineProps<{ draft: RecordDraft; readonly: boolean }>()
@@ -40,7 +40,7 @@ const newCarrier = (): ReestrCarrierInput => ({
             <ZSelect :value="item.role" :options="carrierRoles" :disabled="readonly" :class="boxCtl" data-f="role" @update:value="item.role = str($event) ?? DEFAULT_CARRIER_ROLE" />
           </ZField>
           <ZField :label="tp('subjectType')">
-            <ZSelect :value="item.subjectType" :options="subjectTypes" allow-clear :disabled="readonly" :placeholder="tp('choose')" :class="boxCtl" data-f="subjectType" @update:value="item.subjectType = str($event)" />
+            <ZSelect :value="item.subjectType" :options="subjectTypes" allow-clear :disabled="readonly" :placeholder="ph(readonly, tp('choose'))" :class="boxCtl" data-f="subjectType" @update:value="item.subjectType = str($event)" />
           </ZField>
           <ZField :label="tp('bin')">
             <ZInput :value="item.bin" mono :maxlength="32" :disabled="readonly" :class="ctl" data-f="bin" @update:value="item.bin = str($event)" />
@@ -49,7 +49,7 @@ const newCarrier = (): ReestrCarrierInput => ({
             <ZInput :value="item.name" :maxlength="500" :disabled="readonly" :class="ctl" data-f="name" @update:value="item.name = str($event)" />
           </ZField>
           <ZField :label="tp('country')">
-            <ZSelect :value="item.countryCode" :options="refs.countryOptions.value" show-search allow-clear :disabled="readonly" :placeholder="tp('choose')" :class="boxCtl" data-f="countryCode" @update:value="item.countryCode = str($event)" />
+            <ZSelect :value="item.countryCode" :options="refs.countryOptions.value" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tp('choose'))" :class="boxCtl" data-f="countryCode" @update:value="item.countryCode = str($event)" />
           </ZField>
           <ZField :label="tp('phone')">
             <ZInput :value="item.phone" type="tel" :maxlength="64" :disabled="readonly" :class="ctl" data-f="phone" @update:value="item.phone = str($event)" />

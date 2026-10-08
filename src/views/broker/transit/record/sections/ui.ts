@@ -8,3 +8,9 @@ export const boxCtl = 'max-sm:*:h-11'
 
 /** Пустое значение поля — null (на сервер не уходят пустые строки). */
 export const str = (v: unknown): string | null => (v === null || v === undefined || v === '' ? null : String(v))
+
+/**
+ * Подсказка в пустом поле: в режиме чтения — пустая строка (не undefined: ZDate иначе покажет свою «ДД.ММ.ГГГГ»),
+ * чтобы запись «только для чтения» не выглядела незаполненной формой.
+ */
+export const ph = (readonly: boolean, text?: string): string | undefined => (readonly ? '' : text)

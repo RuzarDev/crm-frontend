@@ -158,7 +158,8 @@ export const useReestrStore = defineStore('reestr', () => {
     try {
       await reestrApi.changeStatus(id, status)
       message.success(i18n.global.t('transit.statusObnovlen'))
-      await fetchList()
+      // Перечёт списка — в фоне (ошибку он показывает сам): страница записи не ждёт его, чтобы перечитать запись.
+      void fetchList()
       return true
     } catch {
       return false

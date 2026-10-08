@@ -10,7 +10,7 @@ import { parseNumber } from '@/ui/number'
 import type { RecordDraft } from '../recordModel'
 import RecordSection from './RecordSection.vue'
 import { useRecordRefs } from './refs'
-import { boxCtl, ctl, grid } from './ui'
+import { boxCtl, ctl, grid, ph } from './ui'
 
 // Раздел «Строка реестра» (разбор §2.1, §2.2): 15 колонок реестра и группа «ЖДН». Ключи data — русские названия
 // колонок, не меняются; подписи — из i18n. Поля пишут прямо в черновик.
@@ -72,8 +72,8 @@ const tnvedError = (): string | undefined => {
     <div class="flex flex-col gap-6">
       <div :class="grid" data-row-grid>
         <ZField v-for="key in REESTR_COLUMN_KEYS" :key="key" :label="label(key)" :error="key === 'Код ТНВЭД' ? tnvedError() : undefined">
-          <ZDate v-if="key === 'Дата'" :value="text(key)" allow-clear :disabled="readonly" :class="ctl" :data-f="key" @update:value="setText(key, $event)" />
-          <ZCombobox v-else-if="key === 'Станция назначения'" :value="text(key)" :options="refs.stationOptions.value" allow-clear :disabled="readonly" :placeholder="t('broker.transitRecord.main.stationPlaceholder')" :class="boxCtl" :data-f="key" @update:value="setText(key, $event)" />
+          <ZDate v-if="key === 'Дата'" :value="text(key)" allow-clear :placeholder="ph(readonly)" :disabled="readonly" :class="ctl" :data-f="key" @update:value="setText(key, $event)" />
+          <ZCombobox v-else-if="key === 'Станция назначения'" :value="text(key)" :options="refs.stationOptions.value" allow-clear :disabled="readonly" :placeholder="ph(readonly, t('broker.transitRecord.main.stationPlaceholder'))" :class="boxCtl" :data-f="key" @update:value="setText(key, $event)" />
           <ZNumber v-else-if="NUMBER_KEYS.has(key) && isNumeric(key)" :value="numberOf(key)" :min="0" :disabled="readonly" :class="ctl" :data-f="key" @update:value="setNumber(key, $event)" />
           <ZInput v-else :value="text(key)" :mono="MONO_KEYS.has(key)" :maxlength="key === 'Код ТНВЭД' ? 10 : undefined" :inputmode="key === 'Код ТНВЭД' ? 'numeric' : undefined" :disabled="readonly" :class="ctl" :data-f="key" @update:value="setText(key, $event)" />
         </ZField>

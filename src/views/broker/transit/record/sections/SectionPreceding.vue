@@ -11,7 +11,7 @@ import RecordSection from './RecordSection.vue'
 import RepeatCards from './RepeatCards.vue'
 import { useRecordRefs } from './refs'
 import SectionAddButton from './SectionAddButton.vue'
-import { boxCtl, ctl, grid, str } from './ui'
+import { boxCtl, ctl, grid, ph, str } from './ui'
 
 // Раздел «Предшествующие документы» (разбор §2.6 i): вид документа (классификатор 2009), номер, дата.
 defineProps<{ draft: RecordDraft; readonly: boolean }>()
@@ -34,13 +34,13 @@ const newDoc = (): ReestrPrecedingDocInput => ({ docTypeCode: null, number: null
       <template #item="{ item }">
         <div :class="grid">
           <ZField :label="tr('docType')">
-            <ZSelect :value="item.docTypeCode" :options="docTypeOptions" show-search allow-clear :disabled="readonly" :placeholder="t('broker.transitRecord.parties.choose')" :class="boxCtl" data-f="docTypeCode" @update:value="item.docTypeCode = str($event)" />
+            <ZSelect :value="item.docTypeCode" :options="docTypeOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, t('broker.transitRecord.parties.choose'))" :class="boxCtl" data-f="docTypeCode" @update:value="item.docTypeCode = str($event)" />
           </ZField>
           <ZField :label="tr('number')">
             <ZInput :value="item.number" mono :maxlength="256" :disabled="readonly" :class="ctl" data-f="number" @update:value="item.number = str($event)" />
           </ZField>
           <ZField :label="tr('date')">
-            <ZDate :value="item.date" allow-clear :disabled="readonly" :class="ctl" data-f="date" @update:value="item.date = $event" />
+            <ZDate :value="item.date" allow-clear :placeholder="ph(readonly)" :disabled="readonly" :class="ctl" data-f="date" @update:value="item.date = $event" />
           </ZField>
         </div>
       </template>

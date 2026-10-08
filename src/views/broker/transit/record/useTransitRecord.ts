@@ -30,6 +30,10 @@ export interface TransitRecord {
   reloadError: Ref<boolean>
   saving: Ref<boolean>
   saveError: Ref<string | null>
+  /** saveError — от проверки на месте (не заполнено, запись не загружена/устарела), а не ответ сервера. */
+  saveErrorLocal: Ref<boolean>
+  /** Черновик строкой (его же сравнивает dirty): страница следит за правками без глубокого обхода. */
+  draftJson: ComputedRef<string>
   dirty: ComputedRef<boolean>
   changed: ComputedRef<SectionKey[]>
   load(): Promise<void>
@@ -76,6 +80,7 @@ export function useTransitRecord(id: () => string): TransitRecord {
   const reloadError = ref(false)
   const saving = ref(false)
   const saveError = ref<string | null>(null)
+  const saveErrorLocal = ref(false)
   const snapshot = ref<string | null>(null)
   const snapshotDraft = computed<RecordDraft | null>(() => (snapshot.value ? JSON.parse(snapshot.value) : null))
 
@@ -185,16 +190,19 @@ export function useTransitRecord(id: () => string): TransitRecord {
     // Без загруженной записи создавать можно только на /reestr/new (иначе сбой загрузки дал бы дубль).
     if (notFound.value || loadError.value || (!base && id() !== NEW_RECORD_ID)) {
       saveError.value = t('broker.transitRecord.errors.notLoaded')
+      saveErrorLocal.value = true
       return null
     }
     // Основа устарела (не удалось перечитать после смены статуса) — PUT вернул бы старый статус.
     if (reloadError.value) {
       saveError.value = t('broker.transitRecord.errors.stale')
+      saveErrorLocal.value = true
       return null
     }
     const errors = validateDraft(draft, { isNew: !base, clientId: clientId.value })
     if (errors.length) {
       saveError.value = errors.map(t).join(' ')
+      saveErrorLocal.value = true
       return null
     }
     const cid = clientId.value ?? base?.clientId ?? ''
@@ -212,7 +220,10 @@ export function useTransitRecord(id: () => string): TransitRecord {
       }
     } catch (e) {
       saving.value = false
-      if (gen === loadGen) saveError.value = serverErrorText(e, t('dt.netSvyazi'))
+      if (gen === loadGen) {
+        saveError.value = serverErrorText(e, t('dt.netSvyazi'))
+        saveErrorLocal.value = false
+      }
       return null
     }
     message.success(t(base ? 'transit.zapisUspeshnoObnovlena' : 'transit.zapisUspeshnoSozdana'))
@@ -247,7 +258,8 @@ export function useTransitRecord(id: () => string): TransitRecord {
     if (snap) setDraft(structuredClone(snap))
   }
 
-  const dirty = computed(() => snapshot.value !== null && JSON.stringify(draft) !== snapshot.value)
+  const draftJson = computed(() => JSON.stringify(draft))
+  const dirty = computed(() => snapshot.value !== null && draftJson.value !== snapshot.value)
   const changed = computed<SectionKey[]>(() => {
     const snap = snapshotDraft.value
     return dirty.value && snap ? changedSections(snap, draft) : []
@@ -276,5 +288,5 @@ export function useTransitRecord(id: () => string): TransitRecord {
     void load()
   }, { immediate: true })
 
-  return { entry, draft, clientId, loading, notFound, loadError, reloadError, saving, saveError, dirty, changed, load, save, revert, reload }
+  return { entry, draft, clientId, loading, notFound, loadError, reloadError, saving, saveError, saveErrorLocal, draftJson, dirty, changed, load, save, revert, reload }
 }

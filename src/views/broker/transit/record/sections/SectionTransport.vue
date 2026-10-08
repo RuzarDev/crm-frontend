@@ -11,7 +11,7 @@ import RecordSection from './RecordSection.vue'
 import RepeatCards from './RepeatCards.vue'
 import { useRecordRefs } from './refs'
 import SectionAddButton from './SectionAddButton.vue'
-import { boxCtl, ctl, grid, str } from './ui'
+import { boxCtl, ctl, grid, ph, str } from './ui'
 
 // Раздел «Транспорт» (разбор §2.6 e): транспортные средства на границе. Классификаторы: transport-mode,
 // transport-purpose, 2024 (тип ТС); номер вагона / контейнера — моно; четыре флажка.
@@ -45,13 +45,13 @@ const check = 'max-sm:min-h-11'
         <div class="flex flex-col gap-3">
           <div :class="grid">
             <ZField :label="tr('mode')">
-              <ZSelect :value="item.transportModeCode" :options="modeOptions" show-search allow-clear :disabled="readonly" :placeholder="t('broker.transitRecord.parties.choose')" :class="boxCtl" data-f="transportModeCode" @update:value="item.transportModeCode = str($event)" />
+              <ZSelect :value="item.transportModeCode" :options="modeOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, t('broker.transitRecord.parties.choose'))" :class="boxCtl" data-f="transportModeCode" @update:value="item.transportModeCode = str($event)" />
             </ZField>
             <ZField :label="tr('purpose')">
-              <ZSelect :value="item.purposeCode" :options="purposeOptions" show-search allow-clear :disabled="readonly" :placeholder="t('broker.transitRecord.parties.choose')" :class="boxCtl" data-f="purposeCode" @update:value="item.purposeCode = str($event)" />
+              <ZSelect :value="item.purposeCode" :options="purposeOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, t('broker.transitRecord.parties.choose'))" :class="boxCtl" data-f="purposeCode" @update:value="item.purposeCode = str($event)" />
             </ZField>
             <ZField :label="tr('vehicleType')">
-              <ZSelect :value="item.vehicleTypeCode" :options="vehicleOptions" show-search allow-clear :disabled="readonly" :placeholder="t('broker.transitRecord.parties.choose')" :class="boxCtl" data-f="vehicleTypeCode" @update:value="item.vehicleTypeCode = str($event)" />
+              <ZSelect :value="item.vehicleTypeCode" :options="vehicleOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, t('broker.transitRecord.parties.choose'))" :class="boxCtl" data-f="vehicleTypeCode" @update:value="item.vehicleTypeCode = str($event)" />
             </ZField>
             <ZField :label="tr('number')">
               <ZInput :value="item.wagonOrContainerNumber" mono :maxlength="64" :disabled="readonly" :class="ctl" data-f="wagonOrContainerNumber" @update:value="item.wagonOrContainerNumber = str($event)" />

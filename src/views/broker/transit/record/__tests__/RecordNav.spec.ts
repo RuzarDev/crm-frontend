@@ -20,7 +20,17 @@ let scrollTo: ReturnType<typeof vi.fn>
 beforeEach(() => {
   scrollTo = vi.fn()
   window.scrollTo = scrollTo as unknown as typeof window.scrollTo
+  window.requestAnimationFrame = ((cb: FrameRequestCallback) => { cb(0); return 1 }) as typeof window.requestAnimationFrame
 })
+/** Разделы на странице с заданным верхом (px от верха окна). */
+const sections = (tops: Partial<Record<string, number>>) => {
+  for (const [key, top] of Object.entries(tops)) {
+    const el = document.createElement('section')
+    el.id = `sec-${key}`
+    document.body.appendChild(el)
+    el.getBoundingClientRect = () => ({ top: top!, bottom: top! + 300, left: 0, right: 0, width: 0, height: 300, x: 0, y: top!, toJSON: () => ({}) })
+  }
+}
 afterEach(() => {
   w?.unmount()
   document.body.innerHTML = ''
@@ -71,5 +81,34 @@ describe('RecordNav', () => {
     expect(item('goods').attributes('aria-current')).toBe('true')
     expect(item('main').attributes('aria-current')).toBeUndefined()
     expect(item('goods').attributes('href')).toBe('#sec-goods')
+  })
+
+  it('на прокрутке активен последний раздел, чей верх ушёл под шапку (64 + 16)', async () => {
+    sections({ main: -700, row: 40, goods: 300, doc44: 900 })
+    w = mountWithI18n(RecordNav, { props: { draft: draft() }, attachTo: document.body })
+    window.dispatchEvent(new Event('scroll'))
+    await nextTick()
+    expect(item('row').attributes('aria-current')).toBe('true')
+    expect(item('main').attributes('aria-current')).toBeUndefined()
+  })
+
+  it('пока идёт прокрутка от клика, пункт клика не перебивается; вкладка скрыта (tracking=false) — не считается', async () => {
+    sections({ main: -700, row: 40, goods: 300 })
+    w = mountWithI18n(RecordNav, { props: { draft: draft() }, attachTo: document.body })
+    await item('goods').trigger('click')
+    window.dispatchEvent(new Event('scroll'))
+    await nextTick()
+    expect(item('goods').attributes('aria-current')).toBe('true')
+    w.unmount()
+    w = mountWithI18n(RecordNav, { props: { draft: draft(), tracking: false }, attachTo: document.body })
+    window.dispatchEvent(new Event('scroll'))
+    await nextTick()
+    expect(item('main').attributes('aria-current')).toBe('true')
+  })
+
+  it('не шире своей колонки: min-w-0 у меню (лента на узком экране прокручивается внутри)', () => {
+    w = mountWithI18n(RecordNav, { props: { draft: draft() }, attachTo: document.body })
+    expect(w.get('nav').classes()).toContain('min-w-0')
+    expect(w.get('nav ul').classes()).toContain('overflow-x-auto')
   })
 })

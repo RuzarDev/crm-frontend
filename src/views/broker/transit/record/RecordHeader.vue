@@ -36,7 +36,8 @@ const container = computed(() => {
 const title = computed(() => {
   if (container.value) return container.value
   if (number.value) return t('broker.transitRecord.page.recordNo', { n: number.value })
-  return t('broker.transitRecord.page.newRecord')
+  // Сохранённая запись без номера и контейнера — «Запись», «Новая запись» — только у ещё не созданной.
+  return t(props.entry ? 'broker.transitRecord.page.record' : 'broker.transitRecord.page.newRecord')
 })
 
 const crumbs = computed(() => [

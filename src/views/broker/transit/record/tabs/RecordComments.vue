@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhPaperPlaneTilt, PhTrash } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
-import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTag, { type ZTone } from '@/components/z/ZTag.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
@@ -132,7 +131,7 @@ const iconBtn = 'inline-flex size-9 shrink-0 cursor-pointer items-center justify
         <p class="m-0 text-sm leading-relaxed whitespace-pre-wrap text-ink [overflow-wrap:anywhere]" data-comment-text>{{ c.text }}</p>
       </li>
     </ul>
-    <ZEmpty v-else :title="t('sales.netKommentariev')" data-comments-empty />
+    <p v-else class="m-0 text-sm text-ink-3" data-comments-empty>{{ t('sales.netKommentariev') }}</p>
 
     <div v-if="canPost" class="flex flex-col gap-2 border-t border-line pt-4" data-comment-form>
       <ZTextarea

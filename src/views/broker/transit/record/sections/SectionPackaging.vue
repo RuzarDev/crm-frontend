@@ -11,7 +11,7 @@ import RecordSection from './RecordSection.vue'
 import RepeatCards from './RepeatCards.vue'
 import { useRecordRefs } from './refs'
 import SectionAddButton from './SectionAddButton.vue'
-import { boxCtl, ctl, grid, str } from './ui'
+import { boxCtl, ctl, grid, ph, str } from './ui'
 
 // Раздел «Упаковка» (разбор §2.6 g): сверху скаляр «Сведения об упаковке» (transit.packagingInfoCode),
 // ниже строки — вид сведений, тип упаковки (2013), количество, описание.
@@ -37,17 +37,17 @@ const choose = t('broker.transitRecord.parties.choose')
     <div class="flex flex-col gap-4">
       <div :class="grid">
         <ZField :label="tr('info')">
-          <ZSelect :value="draft.transit.packagingInfoCode" :options="infoOptions" show-search allow-clear :disabled="readonly" :placeholder="choose" :class="boxCtl" data-f="packagingInfoCode" @update:value="props.draft.transit.packagingInfoCode = str($event)" />
+          <ZSelect :value="draft.transit.packagingInfoCode" :options="infoOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, choose)" :class="boxCtl" data-f="packagingInfoCode" @update:value="props.draft.transit.packagingInfoCode = str($event)" />
         </ZField>
       </div>
       <RepeatCards ref="cards" :items="draft.packages" :readonly="readonly" :empty-text="tr('empty')" :new-item="newPackage">
         <template #item="{ item }">
           <div :class="grid">
             <ZField :label="tr('kind')">
-              <ZSelect :value="item.packagingInfoKindCode" :options="kindOptions" show-search allow-clear :disabled="readonly" :placeholder="choose" :class="boxCtl" data-f="packagingInfoKindCode" @update:value="item.packagingInfoKindCode = str($event)" />
+              <ZSelect :value="item.packagingInfoKindCode" :options="kindOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, choose)" :class="boxCtl" data-f="packagingInfoKindCode" @update:value="item.packagingInfoKindCode = str($event)" />
             </ZField>
             <ZField :label="tr('type')">
-              <ZSelect :value="item.packageTypeCode" :options="typeOptions" show-search allow-clear :disabled="readonly" :placeholder="choose" :class="boxCtl" data-f="packageTypeCode" @update:value="item.packageTypeCode = str($event)" />
+              <ZSelect :value="item.packageTypeCode" :options="typeOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, choose)" :class="boxCtl" data-f="packageTypeCode" @update:value="item.packageTypeCode = str($event)" />
             </ZField>
             <ZField :label="tr('count')">
               <ZNumber :value="item.packageCount" :min="0" :disabled="readonly" :class="ctl" data-f="packageCount" @update:value="item.packageCount = $event" />

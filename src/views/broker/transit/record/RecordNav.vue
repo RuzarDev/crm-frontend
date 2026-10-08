@@ -8,9 +8,10 @@ import { sectionDomId } from './sections/sectionId'
 // Меню разделов вкладки «Данные» (доска TransitRecord): точка — состояние раздела (зелёная — заполнен, золотая —
 // требует внимания, серая — пусто; словом — для чтения с экрана), справа — число строк.
 // ≥ 1024 — липкая колонка 200px; уже — горизонтальная лента-прокрутка, липкая под шапкой оболочки.
-// Клик — плавная прокрутка к #sec-… с учётом высоты шапки (--shell-header-h) и ленты; активный пункт —
-// по IntersectionObserver (пока идёт прокрутка от клика, наблюдатель пункт не перебивает).
-const props = defineProps<{ draft: RecordDraft }>()
+// Клик — плавная прокрутка к #sec-… с учётом высоты шапки (--shell-header-h) и ленты. Активный пункт — последний
+// раздел, чей верх уже ушёл под липкую шапку; считается на прокрутке (раз в кадр). Пока идёт прокрутка от клика,
+// пункт клика не перебивается. tracking=false (вкладка «Данные» скрыта) — не считается.
+const props = withDefaults(defineProps<{ draft: RecordDraft; tracking?: boolean }>(), { tracking: true })
 const { t } = useI18n()
 
 const GAP = 16
@@ -48,34 +49,55 @@ const go = (key: SectionKey) => {
   window.scrollTo({ top: Math.max(0, top), behavior: reducedMotion() ? 'auto' : 'smooth' })
 }
 
-let observer: IntersectionObserver | null = null
-const visible = new Set<SectionKey>()
-onMounted(() => {
-  if (typeof IntersectionObserver === 'undefined') return
-  observer = new IntersectionObserver((entries) => {
-    for (const e of entries) {
-      const key = (e.target as HTMLElement).dataset.recordSection as SectionKey | undefined
-      if (!key) continue
-      if (e.isIntersecting) visible.add(key)
-      else visible.delete(key)
-    }
-    if (Date.now() < lockUntil) return
-    const first = SECTION_ORDER.find((k) => visible.has(k))
-    if (first) active.value = first
-  }, { rootMargin: `-${Math.round(topOffset())}px 0px -55% 0px` })
+/** Последний раздел, чей верх выше липкой полосы; у самого низа страницы — последний раздел на экране. */
+const spy = () => {
+  if (!props.tracking) return
+  const line = topOffset() + 1
+  let current: SectionKey | null = null
+  let lastOnScreen: SectionKey | null = null
   for (const key of SECTION_ORDER) {
     const el = document.getElementById(sectionDomId(key))
-    if (el) observer.observe(el)
+    if (!el) continue
+    const top = el.getBoundingClientRect().top
+    if (top <= line) current = key
+    if (top < window.innerHeight) lastOnScreen = key
   }
+  const docH = document.documentElement.scrollHeight
+  const atBottom = docH > window.innerHeight && window.innerHeight + window.scrollY >= docH - 2
+  const next = atBottom && lastOnScreen ? lastOnScreen : current ?? SECTION_ORDER[0]
+  if (next !== active.value) active.value = next
+}
+let frame: number | null = null
+const raf = (cb: () => void): number =>
+  typeof window.requestAnimationFrame === 'function' ? window.requestAnimationFrame(cb) : window.setTimeout(cb, 16)
+const onScroll = () => {
+  // Прокрутка от клика по пункту: пункт клика держится, пока она идёт (и чуть после её конца).
+  if (Date.now() < lockUntil) {
+    lockUntil = Math.max(lockUntil, Date.now() + 200)
+    return
+  }
+  if (frame !== null) return
+  frame = raf(() => {
+    frame = null
+    spy()
+  })
+}
+onMounted(() => {
+  window.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('resize', onScroll, { passive: true })
 })
-onBeforeUnmount(() => observer?.disconnect())
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', onScroll)
+  window.removeEventListener('resize', onScroll)
+  if (frame !== null && typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(frame)
+})
 </script>
 
 <template>
   <nav
     ref="root"
     :aria-label="t('broker.transitRecord.nav.label')"
-    class="sticky top-(--shell-header-h,64px) z-[5] -mx-4 border-b border-line bg-surface px-4 py-2 lg:top-[calc(var(--shell-header-h,64px)+16px)] lg:mx-0 lg:self-start lg:border-0 lg:bg-transparent lg:p-0"
+    class="sticky top-(--shell-header-h,64px) z-[5] -mx-4 min-w-0 border-b border-line bg-surface px-4 py-2 lg:top-[calc(var(--shell-header-h,64px)+16px)] lg:mx-0 lg:self-start lg:border-0 lg:bg-transparent lg:p-0"
     data-record-nav
   >
     <ul class="m-0 flex list-none gap-1 overflow-x-auto p-0 [scrollbar-width:none] lg:flex-col lg:gap-0.5 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
