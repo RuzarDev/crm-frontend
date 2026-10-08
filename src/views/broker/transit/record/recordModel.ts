@@ -340,14 +340,14 @@ export function goodsTotals(goods: ReestrGoodsItemInput[]): GoodsTotals {
   }
 }
 
-type Obj = Record<string, unknown>
+export type Obj = Record<string, unknown>
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 
 /**
  * Объект на месте: ключей, которых нет в src, не остаётся; порядок ключей — как в src (иначе JSON черновика,
  * по которому считаются dirty и изменённые разделы, разошёлся бы со снимком при равных значениях).
  */
-function assignObject(target: Obj, src: Obj) {
+export function assignObject(target: Obj, src: Obj) {
   const tk = Object.keys(target)
   const sk = Object.keys(src)
   if (tk.length !== sk.length || tk.some((k, i) => k !== sk[i])) for (const k of tk) delete target[k]
