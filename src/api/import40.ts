@@ -987,9 +987,11 @@ export const import40Api = {
   },
 
   // Готовность всех ДТ заявки к пакетной выгрузке KEDEN-XML (P6).
-  kedenReadinessSummary: async (caseId: string): Promise<DeclarationReadiness[]> => {
+  // silent — карточка заявки грузит сводку фоном: нет прав или сбой — просто без готовности, без тоста.
+  kedenReadinessSummary: async (caseId: string, opts?: { silent?: boolean }): Promise<DeclarationReadiness[]> => {
     const { data } = await apiClient.get<DeclarationReadiness[]>(
       `/import40/${encodeURIComponent(caseId)}/keden-readiness-summary`,
+      opts?.silent ? { silent: true } : undefined,
     )
     return data
   },

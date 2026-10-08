@@ -5,7 +5,7 @@ import { createPinia, setActivePinia } from 'pinia'
 
 // Обе ветки — заглушки: здесь проверяется только выбор карточки по роли (см. Import40Route.spec).
 vi.mock('@/views/client/ClientShipmentView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'client' }) } }))
-vi.mock('@/views/Import40CaseView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'staff' }) } }))
+vi.mock('@/views/broker/case/CaseView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'staff' }) } }))
 
 import Import40CaseRoute from '../Import40CaseRoute.vue'
 import { useAuthStore } from '@/stores/auth'
