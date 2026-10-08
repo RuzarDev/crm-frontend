@@ -1,0 +1,62 @@
+import type { ClientShipment } from '@/api/clientShipments'
+import type { ZTone } from '@/components/z/ZTag.vue'
+
+// Правила поставки клиента (редизайн, волна 2a): чей ход, вкладка списка, тег, полоса этапов.
+// Одни на «Главную», список «Мои поставки» и карточку — чтобы экраны не расходились.
+
+export type ShipmentTab = 'active' | 'waiting' | 'drafts' | 'done'
+export type AskKind = 'problem' | 'returned' | 'draft' | 'paySvh'
+
+export const TOTAL_STEPS = 6
+
+/** «Нужно от вас» — то же правило, что сервер (GetImport40Dashboard): проблема, черновик, счёт СВХ без чека. Возврат на доработку — частный случай черновика с причиной. */
+export function askFor(s: ClientShipment): AskKind | null {
+  if (s.status === 8 || s.status === 9) return null
+  if (s.isProblem) return 'problem'
+  if (s.status === 0) return s.returnReason ? 'returned' : 'draft'
+  if (s.status === 6 && !s.paymentCheckUploaded) return 'paySvh'
+  return null
+}
+
+export function tabOf(s: ClientShipment): ShipmentTab {
+  if (s.status === 8 || s.status === 9) return 'done'
+  if (s.status === 0 && !s.isProblem && !s.returnReason) return 'drafts'
+  return askFor(s) ? 'waiting' : 'active'
+}
+
+/** Тег в словаре клиента (ключ client.tag.*) и тон. */
+export function shipmentTag(s: ClientShipment): { key: string; tone: ZTone } {
+  if (s.status === 9) return { key: 'cancelled', tone: 'neutral' }
+  if (s.status === 8) return { key: 'done', tone: 'done' }
+  const ask = askFor(s)
+  if (ask === 'problem') return { key: 'needDoc', tone: 'danger' }
+  if (ask === 'returned') return { key: 'returned', tone: 'wait' }
+  if (ask === 'draft') return { key: 'draft', tone: 'neutral' }
+  if (ask === 'paySvh') return { key: 'paySvh', tone: 'wait' }
+  if (s.status === 6) return { key: 'checkReview', tone: 'pay' } // чек загружен, ждём подтверждения
+  if (s.status === 7) return { key: 'payService', tone: 'pay' }
+  if (s.status >= 4) return { key: 'released', tone: 'done' }
+  if (s.status === 1) return { key: 'inTransit', tone: 'info' }
+  return { key: 'processing', tone: 'info' }
+}
+
+/** Состояние сегментов полосы этапов (6 шт.): done / current / todo; current получает тон: gold, если ход клиента, иначе accent; у проблемной — danger. */
+export type SegState = 'done' | 'current' | 'currentAsk' | 'currentProblem' | 'todo'
+export function segments(s: ClientShipment): SegState[] {
+  const step = s.status >= 8 ? 7 : s.step || 1
+  return Array.from({ length: TOTAL_STEPS }, (_, i) => {
+    if (i + 1 < step) return 'done'
+    if (i + 1 > step) return 'todo'
+    return s.isProblem ? 'currentProblem' : askFor(s) ? 'currentAsk' : 'current'
+  })
+}
+
+export const tabCounts = (list: ClientShipment[]): Record<ShipmentTab, number> =>
+  list.reduce((acc, s) => { acc[tabOf(s)] += 1; return acc }, { active: 0, waiting: 0, drafts: 0, done: 0 } as Record<ShipmentTab, number>)
+
+/** Текущий этап 1..6 для подписи (сервер присылает step; на всякий случай зажимаем в диапазон). */
+export const stepNo = (s: ClientShipment): number => Math.min(TOTAL_STEPS, Math.max(1, s.step || 1))
+
+/** Куда ведёт поставка из списка: неотправленный черновик дописывается в мастере, остальное — карточка. */
+export const shipmentHref = (s: ClientShipment): string =>
+  tabOf(s) === 'drafts' ? `/import-40/new/${s.id}` : `/import-40/${s.id}`

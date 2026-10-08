@@ -8,21 +8,22 @@ import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ZTooltip from '@/components/z/ZTooltip.vue'
-import { import40Api, type Import40CaseDto } from '@/api/import40'
+import ClientStepBar from '@/components/client/ClientStepBar.vue'
+import { clientShipmentsApi, type ClientShipment } from '@/api/clientShipments'
 import { billingApi } from '@/api/billing'
 import { useAuthStore } from '@/stores/auth'
 import { useProfileStore } from '@/stores/profile'
 import { useClientRegistration } from '@/composables/useClientRegistration'
-import { useImport40Status } from '@/composables/useImport40Status'
 import { homeAttention } from '@/shell/attention'
 import { allSections, buildClientNav, navAccessFromStore, sectionHref } from '@/shell/navModel'
 import { NAV_ICONS } from '@/components/shell/navIcons'
-import { TOTAL_STEPS, stepForStatus } from '@/utils/import40Steps'
 import { formatMoney } from '@/ui/number'
 import { cn } from '@/ui/cn'
 import {
-  activeShipments, clientAsks, clientGreetingName, dayMonth, shipmentTone, unpaidInvoices, type ClientAsk,
+  activeShipments, clientAsks, clientGreetingName, dayMonth, unpaidInvoices,
 } from '@/views/home/clientHome'
+import { askFor, segments, shipmentHref, shipmentTag } from '@/views/client/shipment'
+import { useShipmentText } from '@/views/client/useShipmentText'
 import { greetingKey } from '@/views/home/greeting'
 import { useBlock } from '@/views/home/useBlock'
 
@@ -33,10 +34,10 @@ const router = useRouter()
 const auth = useAuthStore()
 const profileStore = useProfileStore()
 const registration = useClientRegistration()
-const { statusLabel } = useImport40Status()
+const text = useShipmentText()
 
 const imp = auth.clientHasModule('import40')
-const cases = useBlock(imp, () => import40Api.list())
+const cases = useBlock(imp, () => clientShipmentsApi.list())
 const invoices = useBlock(imp, () => billingApi.list({ kind: 'invoice' }))
 void cases.load()
 void invoices.load()
@@ -52,7 +53,7 @@ const company = computed(() => profileStore.profile?.companyName?.trim() ?? '')
 
 // Пока регистрация не завершена, сервер заявку не примет — кнопка выключена, подсказка объясняет почему.
 const locked = computed(() => registration.loaded.value && !registration.complete.value)
-const newShipment = () => router.push('/import-40?new=1')
+const newShipment = () => router.push('/import-40/new')
 
 // ---- Нужно от вас ----
 const MAX_ASKS = 3
@@ -61,13 +62,9 @@ const shownAsks = computed(() => asks.value.slice(0, MAX_ASKS))
 watchEffect(() => {
   if (imp && cases.data) homeAttention.value = asks.value.length
 })
-const askDescription = (a: ClientAsk) =>
-  a.kind === 'problem' ? a.message || a.cargo
-  : a.kind === 'draft' ? a.message || t('clientHome.ask.draftText')
-  : t('clientHome.ask.payCheckText')
-// Черновик дописывается в мастере — он живёт на списке заявок и открывается по ?continueId.
-const askTarget = (a: ClientAsk) =>
-  a.kind === 'draft' ? { path: '/import-40', query: { continueId: a.caseId } } : `/import-40/${a.caseId}`
+// Черновик и возврат на доработку дописываются в мастере (причина возврата — в строке), остальное — карточка.
+const inWizard = (s: ClientShipment) => s.status === 0 && !s.isProblem
+const askTarget = (s: ClientShipment) => (inWizard(s) ? `/import-40/new/${s.id}` : `/import-40/${s.id}`)
 // Действия в строках называются одинаково («Открыть») — описание по номеру и сути различает их при чтении с экрана.
 const askRowId = (i: number) => `${ids.asks}-r${i}`
 
@@ -77,10 +74,6 @@ const active = computed(() => activeShipments(cases.data ?? []))
 const cards = computed(() => active.value.slice(0, MAX_CARDS))
 // Отменённые не в счёт: «Поставок пока нет» — только если клиент ещё ничего не оформлял.
 const hasAny = computed(() => (cases.data ?? []).some((c) => c.status !== 9))
-const segment = (c: Import40CaseDto, i: number) => {
-  const step = stepForStatus(c.status)
-  return i < step - 1 ? 'bg-zircon' : i === step - 1 ? (c.isProblem ? 'bg-danger' : 'bg-zircon-ink') : 'bg-line'
-}
 const CARD_SKELETON = [['62%', '38%'], ['48%', '44%']]
 
 // ---- Счёт к оплате ----
@@ -144,22 +137,22 @@ const cta = 'h-[42px] rounded-row px-[18px] text-[14.5px] max-sm:w-full'
         <ul role="list" class="m-0 list-none p-0">
           <li
             v-for="(a, i) in shownAsks"
-            :key="a.caseId"
+            :key="a.id"
             data-client-ask
             class="flex items-center gap-3 border-t border-gold-line px-4 py-2.5 max-[359px]:flex-wrap"
           >
             <div :id="askRowId(i)" class="min-w-0 flex-1">
-              <!-- На телефоне суть — своей строкой под номером (с заглавной), а не обрезается рядом с кнопкой. -->
+              <!-- На телефоне суть — своей строкой под номером, а не обрезается рядом с кнопкой. -->
               <p class="m-0 truncate text-sm text-ink max-sm:whitespace-normal">
-                <span class="font-mono font-medium">{{ a.number }}</span><span class="max-sm:hidden"> · </span><span class="max-sm:block max-sm:first-letter:uppercase">{{ t(`clientHome.ask.short.${a.kind}`) }}</span>
+                <span class="font-mono font-medium">{{ a.number }}</span><span class="max-sm:hidden"> · </span><span class="font-medium max-sm:block">{{ t(`client.ask.${askFor(a)}.title`) }}</span>
               </p>
-              <p class="m-0 truncate text-sm text-ink-3">{{ askDescription(a) }}</p>
+              <p class="m-0 truncate text-sm text-ink-3">{{ text.askText(a) }}</p>
             </div>
             <RouterLink
               :to="askTarget(a)"
               :aria-describedby="askRowId(i)"
               class="inline-flex h-8 shrink-0 items-center rounded-field bg-surface px-3 text-sm font-semibold text-ink no-underline outline-hidden transition-colors duration-150 ease-out hover:bg-gold-line focus-visible:shadow-focus motion-reduce:transition-none max-[359px]:ml-auto"
-            >{{ t(a.kind === 'draft' ? 'clientHome.ask.continue' : 'clientHome.ask.open') }}</RouterLink>
+            >{{ t(inWizard(a) ? 'clientHome.ask.continue' : 'clientHome.ask.open') }}</RouterLink>
           </li>
         </ul>
         <div v-if="asks.length > MAX_ASKS" class="border-t border-gold-line px-4 py-2.5">
@@ -219,7 +212,7 @@ const cta = 'h-[42px] rounded-row px-[18px] text-[14.5px] max-sm:w-full'
           <RouterLink
             v-for="c in cards"
             :key="c.id"
-            :to="`/import-40/${c.id}`"
+            :to="shipmentHref(c)"
             data-client-shipment
             :class="cn(
               card,
@@ -230,19 +223,15 @@ const cta = 'h-[42px] rounded-row px-[18px] text-[14.5px] max-sm:w-full'
           >
             <span class="flex items-start gap-2.5">
               <span class="min-w-0 flex-1">
-                <span class="line-clamp-2 break-words text-md font-semibold">{{ c.cargo || c.number }}</span>
+                <span class="line-clamp-2 break-words text-md font-semibold">{{ c.cargo || t('client.row.noCargo') }}</span>
                 <span class="mt-0.5 block truncate text-sm text-ink-3">
                   <span class="font-mono">{{ c.number }}</span><template v-if="c.post"> · {{ c.post }}</template>
                 </span>
               </span>
-              <ZTag :tone="shipmentTone(c)" class="shrink-0">{{ statusLabel(c.status) }}</ZTag>
+              <ZTag :tone="shipmentTag(c).tone" class="shrink-0">{{ text.tagText(c) }}</ZTag>
             </span>
-            <!-- Полоска этапов — только картинка: пустые пункты списка скрыты от чтения с экрана, этап — текстом. -->
-            <span class="sr-only" data-client-step>{{ t('clientHome.stepOf', { n: stepForStatus(c.status), total: TOTAL_STEPS }) }}</span>
-            <ol aria-hidden="true" class="m-0 flex list-none gap-1 p-0">
-              <li v-for="i in TOTAL_STEPS" :key="i" :class="cn('h-1.5 flex-1 rounded-pill', segment(c, i - 1))" />
-            </ol>
-            <span class="text-sm text-ink-2">{{ t('enum.stepClient.s' + stepForStatus(c.status)) }}</span>
+            <ClientStepBar :segments="segments(c)" :label="text.stepLabel(c)" />
+            <span class="text-sm text-ink-2">{{ text.caption(c) }}</span>
           </RouterLink>
         </div>
       </section>

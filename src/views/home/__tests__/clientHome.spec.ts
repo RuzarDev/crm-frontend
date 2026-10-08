@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import type { Import40CaseDto } from '@/api/import40'
+import type { ClientShipment } from '@/api/clientShipments'
 import type { BrokerInvoice } from '@/api/billing'
-import {
-  activeShipments, clientAskFor, clientAsks, clientGreetingName, dayMonth, shipmentTone, unpaidInvoices,
-} from '../clientHome'
+import { activeShipments, clientAsks, clientGreetingName, dayMonth, unpaidInvoices } from '../clientHome'
 
-const kase = (o: Partial<Import40CaseDto>): Import40CaseDto => ({
-  id: 'c', number: 'И40-1', cargo: 'Ноутбуки', post: '', status: 2, isProblem: false,
-  problemClientMessage: '', returnReason: '', updatedAtUtc: '2026-10-01T10:00:00Z', ...o,
-}) as Import40CaseDto
+const ship = (o: Partial<ClientShipment>): ClientShipment => ({
+  id: 'c', number: 'И40-1', cargo: 'Ноутбуки', post: '', status: 2, step: 3, isProblem: false,
+  problemClientMessage: '', returnReason: '', paymentCheckUploaded: false, svhInvoiceAmount: null,
+  updatedAtUtc: '2026-10-01T10:00:00Z', ...o,
+}) as ClientShipment
 
 const invoice = (o: Partial<BrokerInvoice>): BrokerInvoice => ({
   id: 'i', clientId: 'c', clientName: 'К', caseId: null, caseNumber: null, kind: 'invoice', status: 1,
@@ -16,63 +15,31 @@ const invoice = (o: Partial<BrokerInvoice>): BrokerInvoice => ({
   subtotal: 0, vatAmount: 0, total: 100, note: '', createdAtUtc: '2026-10-01T08:00:00Z', lines: [], ...o,
 })
 
-describe('clientAskFor', () => {
-  it('проблема — сообщение клиенту', () => {
-    expect(clientAskFor(kase({ id: 'p', number: 'И40-7', isProblem: true, status: 3, problemClientMessage: 'Нужен сертификат' })))
-      .toEqual({ kind: 'problem', caseId: 'p', number: 'И40-7', cargo: 'Ноутбуки', message: 'Нужен сертификат' })
-  })
-  it('черновик — причина возврата', () => {
-    expect(clientAskFor(kase({ status: 0, returnReason: 'Нет инвойса' }))).toMatchObject({ kind: 'draft', message: 'Нет инвойса' })
-  })
-  it('счёт СВХ выставлен — ждём чек', () => {
-    expect(clientAskFor(kase({ status: 6 }))).toMatchObject({ kind: 'payCheck', message: '' })
-  })
-  it('ДТ подана — ход не за клиентом', () => {
-    expect(clientAskFor(kase({ status: 3 }))).toBeNull()
-  })
-  it('отменённая и выполненная — без вопросов, даже с отметкой проблемы', () => {
-    expect(clientAskFor(kase({ status: 9, isProblem: true }))).toBeNull()
-    expect(clientAskFor(kase({ status: 8, isProblem: true }))).toBeNull()
-  })
-})
-
 describe('clientAsks', () => {
-  it('проблемы, затем оплата склада, затем черновики; свежие сверху', () => {
+  it('проблемы, возвраты, оплата склада, черновики; свежие сверху; без чужого хода', () => {
     const list = clientAsks([
-      kase({ id: 'd', status: 0, updatedAtUtc: '2026-10-05T00:00:00Z' }),
-      kase({ id: 'pay', status: 6 }),
-      kase({ id: 'p1', isProblem: true, updatedAtUtc: '2026-10-01T00:00:00Z' }),
-      kase({ id: 'p2', isProblem: true, updatedAtUtc: '2026-10-03T00:00:00Z' }),
-      kase({ id: 'x', status: 2 }),
+      ship({ id: 'd', status: 0, updatedAtUtc: '2026-10-05T00:00:00Z' }),
+      ship({ id: 'pay', status: 6 }),
+      ship({ id: 'paid', status: 6, paymentCheckUploaded: true }),
+      ship({ id: 'ret', status: 0, returnReason: 'Нет инвойса' }),
+      ship({ id: 'p1', isProblem: true, updatedAtUtc: '2026-10-01T00:00:00Z' }),
+      ship({ id: 'p2', isProblem: true, updatedAtUtc: '2026-10-03T00:00:00Z' }),
+      ship({ id: 'x', status: 2 }),
+      ship({ id: 'done', status: 8, isProblem: true }),
     ])
-    expect(list.map((a) => a.caseId)).toEqual(['p2', 'p1', 'pay', 'd'])
+    expect(list.map((a) => a.id)).toEqual(['p2', 'p1', 'ret', 'pay', 'd'])
   })
 })
 
 describe('activeShipments', () => {
   it('без выполненных и отменённых, по дате изменения убыв.', () => {
     const list = activeShipments([
-      kase({ id: 'old', updatedAtUtc: '2026-09-01T00:00:00Z' }),
-      kase({ id: 'done', status: 8 }),
-      kase({ id: 'cancel', status: 9 }),
-      kase({ id: 'new', status: 0, updatedAtUtc: '2026-10-07T00:00:00Z' }),
+      ship({ id: 'old', updatedAtUtc: '2026-09-01T00:00:00Z' }),
+      ship({ id: 'done', status: 8 }),
+      ship({ id: 'cancel', status: 9 }),
+      ship({ id: 'new', status: 0, updatedAtUtc: '2026-10-07T00:00:00Z' }),
     ])
     expect(list.map((c) => c.id)).toEqual(['new', 'old'])
-  })
-})
-
-describe('shipmentTone', () => {
-  it.each([
-    [{ isProblem: true, status: 6 }, 'danger'],
-    [{ status: 0 }, 'wait'],
-    [{ status: 6 }, 'pay'],
-    [{ status: 7 }, 'pay'],
-    [{ status: 4 }, 'done'],
-    [{ status: 5 }, 'done'],
-    [{ status: 1 }, 'info'],
-    [{ status: 3 }, 'info'],
-  ] as const)('%o → %s', (o, tone) => {
-    expect(shipmentTone(kase(o))).toBe(tone)
   })
 })
 

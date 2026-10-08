@@ -70,6 +70,8 @@ declare module 'vue' {
     AuthLayout: typeof import('./src/components/auth/AuthLayout.vue')['default']
     BinLookupButton: typeof import('./src/components/BinLookupButton.vue')['default']
     CarriersBlock: typeof import('./src/components/reestr/CarriersBlock.vue')['default']
+    ClientShipmentRow: typeof import('./src/components/client/ClientShipmentRow.vue')['default']
+    ClientStepBar: typeof import('./src/components/client/ClientStepBar.vue')['default']
     CommandPalette: typeof import('./src/components/shell/CommandPalette.vue')['default']
     ContainersBlock: typeof import('./src/components/reestr/ContainersBlock.vue')['default']
     DtCurrencyRatesBox: typeof import('./src/components/import40/dt/DtCurrencyRatesBox.vue')['default']

@@ -5,14 +5,11 @@ import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { BrokerInvoice } from '@/api/billing'
-import type { Import40CaseDto } from '@/api/import40'
+import type { ClientShipment } from '@/api/clientShipments'
 
 const api = vi.hoisted(() => ({ list: vi.fn(), invoices: vi.fn() }))
 const reg = vi.hoisted(() => ({ loaded: null as unknown, complete: null as unknown }))
-vi.mock('@/api/import40', async (orig) => ({
-  ...(await orig<typeof import('@/api/import40')>()),
-  import40Api: { list: api.list },
-}))
+vi.mock('@/api/clientShipments', () => ({ clientShipmentsApi: { list: api.list } }))
 vi.mock('@/api/billing', () => ({ billingApi: { list: api.invoices } }))
 vi.mock('@/composables/useClientRegistration', () => ({
   useClientRegistration: () => ({ loaded: reg.loaded, complete: reg.complete }),
@@ -26,10 +23,15 @@ import { formatMoney } from '@/ui/number'
 
 const now = new Date()
 const ago = (days: number) => new Date(now.getTime() - days * 86400_000).toISOString()
-const kase = (o: Partial<Import40CaseDto>): Import40CaseDto => ({
+// step — как считает сервер (Import40Steps.StepOf): 0→1, 1→2, 2/3→3, 4/5→4, 6→5, 7→6.
+const STEP: Record<number, number> = { 0: 1, 1: 2, 2: 3, 3: 3, 4: 4, 5: 4, 6: 5, 7: 6, 8: 6, 9: 1 }
+const kase = (o: Partial<ClientShipment>): ClientShipment => ({
   id: 'c1', number: 'И40-182', cargo: 'Ноутбуки и комплектующие', post: 'Хоргос', status: 2, isProblem: false,
-  problemClientMessage: '', returnReason: '', updatedAtUtc: ago(1), ...o,
-}) as Import40CaseDto
+  problemClientMessage: '', returnReason: '', senderCountryCode: 'CN', estimatedValue: null, currencyCode: 'USD',
+  svhInvoiceAmount: null, svhInvoiceNumber: '', paymentCheckUploaded: false, paymentConfirmed: false,
+  declarationsCount: 0, assignedDeclarantName: null, createdAtUtc: ago(10), updatedAtUtc: ago(1),
+  ...o, step: o.step ?? STEP[o.status ?? 2],
+})
 const invoice = (o: Partial<BrokerInvoice>): BrokerInvoice => ({
   id: 'i1', clientId: 'c', clientName: 'К', caseId: null, caseNumber: 'И40-166', kind: 'invoice', status: 1,
   number: '214', year: 2026, issuedAtUtc: new Date(2026, 9, 1, 12).toISOString(), dueDateUtc: null, paidAtUtc: null,
@@ -89,13 +91,18 @@ describe('ClientHomeView', () => {
     expect(w.text()).not.toContain('И40-100')
     const problem = cards.find((c) => c.text().includes('И40-190'))!
     expect(problem.attributes('href')).toBe('/import-40/c2')
-    expect(problem.find('.bg-tone-danger-bg').exists()).toBe(true)
-    // Пустые пункты полоски скрыты от чтения с экрана; этап озвучивается текстом.
-    expect(problem.get('ol').attributes('aria-hidden')).toBe('true')
-    expect(problem.get('ol').attributes('aria-label')).toBeUndefined()
-    expect(problem.get('[data-client-step]').text()).toBe('Этап 3 из 6')
-    expect(problem.get('[data-client-step]').classes()).toContain('sr-only')
-    expect(problem.findAll('li .bg-danger, li.bg-danger')).toHaveLength(1)
+    expect(problem.get('.bg-tone-danger-bg').text()).toBe('Нужен ответ')
+    // Полоска — картинка, скрытая от чтения с экрана; этап озвучивается текстом.
+    expect(problem.get('[data-seg]').element.parentElement!.getAttribute('aria-hidden')).toBe('true')
+    expect(problem.get('[data-step-label]').text()).toBe('Этап 3 из 6 · Оформление декларации и выпуск')
+    expect(problem.get('[data-step-label]').classes()).toContain('sr-only')
+    expect(problem.findAll('[data-seg].bg-danger')).toHaveLength(1)
+    expect(problem.text()).toContain('Нужен ваш ответ')
+    // Штатный статус сотрудника клиенту не показываем — только словарь клиента.
+    const plain = cards.find((c) => c.text().includes('И40-182'))!
+    expect(plain.text()).toContain('Оформляем')
+    expect(plain.text()).toContain('Оформление декларации и выпуск')
+    expect(plain.text()).not.toContain('Декларирование')
 
     const panel = w.get('[data-client-asks]')
     expect(panel.attributes('aria-labelledby')).toBe(panel.get('h2').attributes('id'))
@@ -103,7 +110,7 @@ describe('ClientHomeView', () => {
     expect(panel.find('[data-client-asks-count]').exists()).toBe(false)
     const asks = panel.findAll('ul[role="list"] > li[data-client-ask]')
     expect(asks).toHaveLength(1)
-    expect(asks[0].text()).toContain('И40-190 · вопрос по поставке')
+    expect(asks[0].text()).toContain('И40-190 · Нужен ваш ответ')
     expect(asks[0].text()).toContain('Нужен сертификат соответствия')
     expect(asks[0].get('.font-mono').text()).toBe('И40-190')
     expect(homeAttention.value).toBe(1)
@@ -126,21 +133,54 @@ describe('ClientHomeView', () => {
     expect(newButton().attributes('disabled')).toBeUndefined()
     await newButton().trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.fullPath).toBe('/import-40?new=1')
+    expect(router.currentRoute.value.fullPath).toBe('/import-40/new')
   })
 
-  it('черновик — «Продолжить» ведёт в мастер по continueId', async () => {
-    api.list.mockResolvedValue([kase({ id: 'd1', number: 'И40-200', status: 0, returnReason: 'Приложите инвойс' })])
+  it('черновик — «Продолжить» ведёт в мастер, карточка — тоже', async () => {
+    api.list.mockResolvedValue([kase({ id: 'd1', number: 'И40-200', status: 0 })])
     await mountIt()
     const ask = w.get('[data-client-ask]')
-    expect(ask.text()).toContain('И40-200 · ждёт отправки')
-    expect(ask.text()).toContain('Приложите инвойс')
+    expect(ask.text()).toContain('И40-200 · Черновик не отправлен')
+    expect(ask.text()).toContain('Заполните оставшееся и отправьте на оформление')
+    expect(w.get('[data-client-shipment]').attributes('href')).toBe('/import-40/new/d1')
     const go = ask.get('a')
     expect(go.text()).toBe('Продолжить')
-    expect(go.attributes('href')).toBe('/import-40?continueId=d1')
+    expect(go.attributes('href')).toBe('/import-40/new/d1')
     await go.trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.fullPath).toBe('/import-40?continueId=d1')
+    expect(router.currentRoute.value.fullPath).toBe('/import-40/new/d1')
+  })
+
+  it('возврат на доработку — причина в строке, «Продолжить» в мастер; карточка ведёт на поставку', async () => {
+    api.list.mockResolvedValue([kase({ id: 'r1', number: 'И40-201', status: 0, returnReason: 'Приложите инвойс' })])
+    await mountIt()
+    const ask = w.get('[data-client-ask]')
+    expect(ask.text()).toContain('И40-201 · Вернули на доработку')
+    expect(ask.text()).toContain('Приложите инвойс')
+    expect(ask.get('a').text()).toBe('Продолжить')
+    expect(ask.get('a').attributes('href')).toBe('/import-40/new/r1')
+    const card = w.get('[data-client-shipment]')
+    expect(card.attributes('href')).toBe('/import-40/r1')
+    expect(card.get('.bg-tone-wait-bg').text()).toBe('Вернули на доработку')
+  })
+
+  it('счёт СВХ: без чека — вопрос с суммой; чек загружен — вопроса нет, «Чек на проверке»', async () => {
+    api.list.mockResolvedValue([
+      kase({ id: 'v1', number: 'И40-210', status: 6, svhInvoiceAmount: 312400 }),
+      kase({ id: 'v2', number: 'И40-211', status: 6, paymentCheckUploaded: true }),
+    ])
+    await mountIt()
+    const asks = w.findAll('[data-client-ask]')
+    expect(asks).toHaveLength(1)
+    expect(asks[0].text()).toContain('И40-210 · Оплатите склад')
+    expect(asks[0].text()).toContain(`Счёт СВХ на ${formatMoney(312400)}`)
+    expect(asks[0].get('a').attributes('href')).toBe('/import-40/v1')
+    expect(homeAttention.value).toBe(1)
+    const reviewed = w.findAll('[data-client-shipment]').find((c) => c.text().includes('И40-211'))!
+    expect(reviewed.text()).toContain('Чек на проверке')
+    expect(reviewed.findAll('[data-seg].bg-gold')).toHaveLength(0)
+    const pay = w.findAll('[data-client-shipment]').find((c) => c.text().includes('И40-210'))!
+    expect(pay.findAll('[data-seg].bg-gold')).toHaveLength(1)
   })
 
   it('больше трёх вопросов — одна панель, три строки, счётчик и «Ещё N»', async () => {
@@ -157,9 +197,9 @@ describe('ClientHomeView', () => {
     expect(panel.get('[data-client-asks-count]').text()).toBe('5')
     const rows = panel.findAll('[data-client-ask]')
     expect(rows.map((r) => r.get('.font-mono').text())).toEqual(['И40-301', 'И40-302', 'И40-303'])
-    expect(rows[1].text()).toContain('И40-302 · оплатите склад')
-    expect(rows[1].text()).toContain('Загрузите чек об оплате счёта СВХ')
-    expect(rows.map((r) => r.get('a').attributes('href'))).toEqual(['/import-40/p1', '/import-40/v1', '/import-40?continueId=d1'])
+    expect(rows[1].text()).toContain('И40-302 · Оплатите склад')
+    expect(rows[1].text()).toContain('Счёт склада выставлен')
+    expect(rows.map((r) => r.get('a').attributes('href'))).toEqual(['/import-40/p1', '/import-40/v1', '/import-40/new/d1'])
     const more = panel.get('[data-client-asks-more]')
     expect(more.text()).toBe('Ещё 2 — в списке поставок')
     expect(more.attributes('href')).toBe('/import-40')
