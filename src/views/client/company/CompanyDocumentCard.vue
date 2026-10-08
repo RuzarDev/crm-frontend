@@ -15,21 +15,28 @@ import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
 import { saveBlob } from '@/views/client/shipment/util'
 import {
-  currentDoc, endOfLocalDay, fullDate, historyDocs, historyStatus, isOpen, shortDate, todayYmd,
+  currentDoc, endOfDayUtc, historyDocs, historyStatus, isOpen, localDate, todayYmd, validDate,
   type DocKind, type HistoryStatus,
 } from './company'
 
 // Раздел «Договор» / «Доверенность» (доска Company): актуальный документ — номер, срок, «Скачать .docx» и
 // плашки подписи («Ваша подпись»: eGov по QR или загрузка .cms; «Подпись AQNIET» — только у договора).
 // Нет документа — «Сформировать» (с разовым и сроком под details). Прежние и отозванные — в «Истории».
-// Действия — здесь (ошибки на месте, без тоста перехватчика); после успеха — changed: экран перечитает данные.
+// Действия — здесь (ошибки на месте, без тоста перехватчика). После успеха — refresh() экрана: кнопка остаётся
+// занятой, пока данные не перечитаны, — повторный клик не сформирует второй документ.
 const props = defineProps<{
   kind: DocKind
   docs: Import40DocumentDto[]
   clientId: string
   profileComplete: boolean
+  /** Перечитать профиль, документы и регистрацию (экран). */
+  refresh: () => Promise<unknown>
+  /** Документ действует, но сервер (can-create) не принимает его для новой поставки — нужен новый. */
+  needNew?: boolean
+  /** Причина от сервера (can-create reason). */
+  needNewReason?: string | null
 }>()
-const emit = defineEmits<{ changed: []; goProfile: [] }>()
+const emit = defineEmits<{ goProfile: [] }>()
 const { t } = useI18n()
 const uid = useId()
 const titleId = `company-doc-${uid}`
@@ -42,12 +49,12 @@ const hasProvider = computed(() => props.kind === 'contract')
 const docTitle = (d: Import40DocumentDto) => t(k('title'), { no: `${d.number}/${d.year}` })
 const metaParts = (d: Import40DocumentDto) => [
   t(d.isSingleUse ? 'client.company.doc.single' : 'client.company.doc.multi'),
-  d.validUntilUtc ? t('client.company.doc.validUntil', { date: fullDate(d.validUntilUtc) }) : null,
-  t('client.company.doc.generated', { date: shortDate(d.generatedAtUtc) }),
+  d.validUntilUtc ? t('client.company.doc.validUntil', { date: validDate(d.validUntilUtc) }) : null,
+  t('client.company.doc.generated', { date: localDate(d.generatedAtUtc) }),
 ].filter(Boolean).join(' · ')
 
 const signedText = (at: string | null, method: string | null) => {
-  const date = shortDate(at)
+  const date = localDate(at)
   const key = method === 'egov' ? 'signedEgov' : method === 'upload' ? 'signedFile' : 'signed'
   return date ? t(`client.company.doc.${key}`, { date }) : t('client.company.doc.signedNoDate')
 }
@@ -67,6 +74,17 @@ const download = async (d: Import40DocumentDto) => {
   }
 }
 
+// Перечитывание после действия: пока идёт, действия с документом недоступны.
+const refreshing = ref(false)
+const refreshAfter = async () => {
+  refreshing.value = true
+  try {
+    await props.refresh()
+  } finally {
+    refreshing.value = false
+  }
+}
+
 const errText = (e: unknown, fallback: string) =>
   extractServerText((e as { response?: { data?: unknown } })?.response?.data) ?? fallback
 
@@ -75,6 +93,7 @@ const fileInput = ref<HTMLInputElement>()
 const uploading = ref(false)
 const uploadError = ref('')
 const pickFile = () => {
+  if (uploading.value || refreshing.value) return
   uploadError.value = ''
   fileInput.value?.click()
 }
@@ -89,7 +108,7 @@ const onFile = async (e: Event) => {
   try {
     await import40ContractApi.signDocument(props.clientId, doc.id, 'client', file, { silent: true })
     message.success(t('client.company.doc.uploaded'))
-    emit('changed')
+    await refreshAfter()
   } catch (err) {
     uploadError.value = errText(err, t('client.company.doc.uploadError'))
   } finally {
@@ -101,13 +120,14 @@ const onFile = async (e: Event) => {
 const sigexOpen = ref(false)
 const sigexDocId = ref<string | null>(null)
 const openSigex = () => {
+  if (refreshing.value || uploading.value) return
   sigexDocId.value = current.value?.id ?? null
   sigexOpen.value = true
 }
 const onSigned = () => {
   sigexOpen.value = false
   message.success(t('client.company.doc.signedToast'))
-  emit('changed')
+  void refreshAfter()
 }
 
 // ---- Сформировать: разовый и срок действия ----
@@ -123,19 +143,19 @@ const generateError = ref('')
 watch(() => props.docs, () => { generateError.value = '' })
 
 const generate = async () => {
-  if (generating.value || !props.profileComplete) return
+  if (generating.value || refreshing.value || !props.profileComplete) return
   generating.value = true
   generateError.value = ''
   try {
     await import40ContractApi.generateDocument(props.clientId, {
       kind: props.kind,
       isSingleUse: isSingle.value,
-      validUntilUtc: validUntil.value ? endOfLocalDay(validUntil.value) : null,
+      validUntilUtc: validUntil.value ? endOfDayUtc(validUntil.value) : null,
     }, { silent: true })
     message.success(t(k('generated')))
     singleUse.value = false
     validUntil.value = null
-    emit('changed')
+    await refreshAfter()
   } catch (err) {
     // 409 «второй многоразовый» и прочие отказы сервера — его же текстом, на месте.
     generateError.value = errText(err, t('client.company.doc.generateError'))
@@ -197,7 +217,7 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
           <span class="text-base font-semibold text-ink">{{ t('client.company.doc.yourSignature') }}</span>
           <span class="text-[13.5px] leading-5 text-ink-2">{{ t('client.company.doc.signHint') }}</span>
           <span class="mt-1 flex flex-wrap gap-2">
-            <ZButton variant="primary" :class="actionBtn" data-sign-egov @click="openSigex">
+            <ZButton variant="primary" :loading="refreshing && !uploading" :class="actionBtn" data-sign-egov @click="openSigex">
               {{ t('client.company.doc.signEgov') }}
             </ZButton>
             <ZButton :loading="uploading" :class="cn(actionBtn, 'bg-surface font-medium enabled:hover:bg-line')" data-sign-upload @click="pickFile">
@@ -223,6 +243,22 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
             {{ t(current.clientSigned ? 'client.company.doc.providerSoon' : 'client.company.doc.providerAfter') }}
           </span>
         </div>
+      </div>
+
+      <!-- Действует, но для новой поставки не годится (разовый занят открытой поставкой) — нужен новый -->
+      <div v-if="needNew" class="flex flex-col items-start gap-2.5 rounded-row border border-gold-line bg-gold-soft px-[18px] py-4" data-need-new>
+        <span class="text-base font-semibold text-ink">{{ t('client.company.doc.needNewTitle') }}</span>
+        <span class="text-[13.5px] leading-5 text-ink-2">{{ needNewReason || t(k('needNewHint')) }}</span>
+        <ZButton
+          v-if="profileComplete"
+          variant="primary"
+          :loading="generating"
+          class="mt-1 h-10 px-5 max-sm:h-12 max-sm:w-full max-sm:text-base"
+          data-doc-generate-new
+          @click="generate"
+        >
+          {{ t(isSingle ? 'client.company.doc.generateSingle' : 'client.company.doc.generate') }}
+        </ZButton>
       </div>
     </template>
 

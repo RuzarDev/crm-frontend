@@ -19,20 +19,25 @@ vi.mock('@/views/client/shipment/util', async (orig) => ({ ...(await orig<object
 
 import CompanyDocumentCard from '../CompanyDocumentCard.vue'
 
+// Моменты (сформирован, подписан) показываются по местному времени — строим их местным полднем:
+// дата одна и та же в любом часовом поясе машины.
+const at = (y: number, m: number, d: number) => new Date(y, m - 1, d, 12).toISOString()
 const doc = (o: Partial<Import40DocumentDto>): Import40DocumentDto => ({
-  id: 'd1', clientId: 'cl1', kind: 'contract', number: '12', year: 2026, generatedAtUtc: '2026-10-08T06:00:00Z',
+  id: 'd1', clientId: 'cl1', kind: 'contract', number: '12', year: 2026, generatedAtUtc: at(2026, 10, 8),
   status: 1, clientSigned: false, clientSignedAtUtc: null, providerSigned: false, providerSignedAtUtc: null,
   clientSignMethod: null, providerSignMethod: null, isSingleUse: false, validUntilUtc: null,
   consumedByCaseId: null, files: [],
   ...o,
 })
-const ACTIVE = doc({ id: 'c0', status: 2, clientSigned: true, providerSigned: true, clientSignedAtUtc: '2026-10-01T06:00:00Z', providerSignedAtUtc: '2026-10-02T06:00:00Z', clientSignMethod: 'upload' })
+const ACTIVE = doc({ id: 'c0', status: 2, clientSigned: true, providerSigned: true, clientSignedAtUtc: at(2026, 10, 1), providerSignedAtUtc: at(2026, 10, 2), clientSignMethod: 'upload' })
 
 let w: VueWrapper
-const mountCard = async (props: Partial<{ kind: 'contract' | 'poa'; docs: Import40DocumentDto[]; profileComplete: boolean }>) => {
+const refresh = vi.fn()
+const mountCard = async (props: Partial<{ kind: 'contract' | 'poa'; docs: Import40DocumentDto[]; profileComplete: boolean; needNew: boolean; needNewReason: string | null }>) => {
+  refresh.mockResolvedValue(undefined)
   w = mountWithI18n(CompanyDocumentCard, {
     attachTo: document.body,
-    props: { kind: 'contract', docs: [], clientId: 'cl1', profileComplete: true, ...props },
+    props: { kind: 'contract', docs: [], clientId: 'cl1', profileComplete: true, refresh, ...props },
   })
   await flushPromises()
 }
@@ -50,7 +55,7 @@ describe('CompanyDocumentCard', () => {
     await w.get('[data-doc-generate]').trigger('click')
     await flushPromises()
     expect(w.get('[data-generate-error]').text()).toContain('Уже есть действующий договор')
-    expect(w.emitted('changed')).toBeUndefined()
+    expect(refresh).not.toHaveBeenCalled()
   })
 
   it('разовый и срок из details уходят в generateDocument', async () => {
@@ -72,9 +77,10 @@ describe('CompanyDocumentCard', () => {
     const [, req, opts] = api.generateDocument.mock.calls[0]
     expect(req.kind).toBe('contract')
     expect(req.isSingleUse).toBe(true)
-    expect(new Date(req.validUntilUtc).getDate()).toBe(31)
+    // Конец выбранного дня по UTC — как сервер ставит сроки по умолчанию; показывается тоже по UTC.
+    expect(req.validUntilUtc).toBe('2027-12-31T23:59:59.000Z')
     expect(opts).toEqual({ silent: true })
-    expect(w.emitted('changed')).toHaveLength(1)
+    expect(refresh).toHaveBeenCalledTimes(1)
   })
 
   it('действует многоразовый договор: разовый включён и закреплён, сформировать — разовый', async () => {
@@ -135,6 +141,39 @@ describe('CompanyDocumentCard', () => {
     await input.trigger('change')
     await flushPromises()
     expect(w.get('[data-upload-error]').text()).toBe('Подпись не подходит к документу')
-    expect(w.emitted('changed')).toBeUndefined()
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('загрузка .cms занята до конца перечитывания экрана; повторный выбор файла игнорируется', async () => {
+    api.signDocument.mockResolvedValue(doc({ clientSigned: true }))
+    await mountCard({ docs: [doc({})] })
+    let release!: () => void
+    refresh.mockReturnValue(new Promise<void>((r) => { release = r }))
+    const input = w.get('[data-sign-file]')
+    const click = vi.spyOn(input.element as HTMLInputElement, 'click').mockImplementation(() => {})
+    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'a.cms')], configurable: true })
+    await input.trigger('change')
+    await flushPromises()
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(w.get('[data-sign-upload]').attributes('aria-busy')).toBe('true')
+    await w.get('[data-sign-upload]').trigger('click')
+    expect(click).not.toHaveBeenCalled()
+    release()
+    await flushPromises()
+    expect(w.get('[data-sign-upload]').attributes('aria-busy')).toBeUndefined()
+  })
+
+  it('действующий, но занятый документ (needNew): статус «Действует» и плашка «Нужен новый документ»', async () => {
+    const busy = doc({ id: 'c1', status: 2, isSingleUse: true, clientSigned: true, providerSigned: true, validUntilUtc: '2026-12-31T23:59:59Z' })
+    api.generateDocument.mockResolvedValue(doc({ id: 'c2' }))
+    await mountCard({ docs: [busy], needNew: true, needNewReason: null })
+    expect(w.get('[data-doc-meta]').text()).toBe('Разовый · действует до 31.12.2026 · сформирован 08.10')
+    expect(w.text()).toContain('Действует')
+    expect(w.get('[data-need-new]').text()).toContain('Этот договор уже используется в открытой поставке')
+    await w.get('[data-doc-generate-new]').trigger('click')
+    await flushPromises()
+    expect(api.generateDocument).toHaveBeenCalledWith('cl1', { kind: 'contract', isSingleUse: false, validUntilUtc: null }, { silent: true })
+    await w.setProps({ needNewReason: 'Текст сервера' })
+    expect(w.get('[data-need-new]').text()).toContain('Текст сервера')
   })
 })

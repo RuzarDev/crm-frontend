@@ -65,6 +65,56 @@ describe('ClientSigexModal', () => {
     expect($('[data-sigex-qr]')).not.toBeNull()
   })
 
+  it('живая область «ещё не подписан» смонтирована сразу, меняется только текст', async () => {
+    api.sigexStartSigningDocument.mockResolvedValue(START)
+    api.sigexPollDocument.mockResolvedValue({ pending: true, sign: null })
+    await mountModal()
+    const live = $('[data-sigex-pending]')!
+    expect(live.getAttribute('role')).toBe('status')
+    expect(live.textContent).toBe('')
+    $('[data-sigex-check]')!.click()
+    await flushPromises()
+    expect($('[data-sigex-pending]')).toBe(live)
+    expect(live.textContent).toContain('Подпись ещё не получена')
+  })
+
+  it('без документа — сразу ошибка, а не вечная загрузка', async () => {
+    w = mountWithI18n(ClientSigexModal, { attachTo: document.body, props: { open: true, clientId: 'cl1', docId: null } })
+    await flushPromises()
+    expect(api.sigexStartSigningDocument).not.toHaveBeenCalled()
+    expect($('[data-sigex-step="error"]')).not.toBeNull()
+    expect($('[data-sigex-error]')?.textContent).toBe('Не удалось создать сессию подписания')
+  })
+
+  it('закрыли посреди процесса — ответы прежних запросов отбрасываются', async () => {
+    let resolveStart!: (v: typeof START) => void
+    api.sigexStartSigningDocument.mockReturnValueOnce(new Promise((r) => { resolveStart = r }))
+    await mountModal()
+    expect($('[data-sigex-step="loading"]')).not.toBeNull()
+    await w.setProps({ open: false })
+    // Открыли снова: новая сессия ещё грузится, а ответ старой пришёл — QR старой сессии не показываем.
+    api.sigexStartSigningDocument.mockReturnValueOnce(new Promise(() => {}))
+    await w.setProps({ open: true })
+    resolveStart(START)
+    await flushPromises()
+    expect($('[data-sigex-step="loading"]')).not.toBeNull()
+    expect($('[data-sigex-qr]')).toBeNull()
+  })
+
+  it('закрыли во время проверки — поздний ответ не переводит окно в «успех»', async () => {
+    api.sigexStartSigningDocument.mockResolvedValue(START)
+    let resolvePoll!: (v: { pending: boolean; sign: string | null }) => void
+    api.sigexPollDocument.mockReturnValueOnce(new Promise((r) => { resolvePoll = r }))
+    await mountModal()
+    $('[data-sigex-check]')!.click()
+    await flushPromises()
+    await w.setProps({ open: false })
+    resolvePoll({ pending: false, sign: 's' })
+    await flushPromises()
+    expect(api.sigexCompleteDocument).not.toHaveBeenCalled()
+    expect(w.emitted('signed')).toBeUndefined()
+  })
+
   it('ошибка проверки без ответа сервера — общий текст', async () => {
     api.sigexStartSigningDocument.mockResolvedValue(START)
     api.sigexPollDocument.mockRejectedValue(new Error('network'))

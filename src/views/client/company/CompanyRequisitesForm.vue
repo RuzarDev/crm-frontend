@@ -113,7 +113,7 @@ const save = async () => {
   saving.value = true
   saveError.value = ''
   try {
-    const saved = await import40ContractApi.saveProfile(props.clientId, { ...form }, { silent: true })
+    const saved = await import40ContractApi.saveProfile(props.clientId, { ...form, bin: form.bin.trim() }, { silent: true })
     message.success(t('client.company.form.saved'))
     emit('saved', saved)
   } catch (e: unknown) {

@@ -31,10 +31,6 @@ export function historyDocs(docs: Import40DocumentDto[]): Import40DocumentDto[] 
   return sortDocs(docs).filter((d) => d !== cur)
 }
 
-/** Действует многоразовый документ — второй такой же сервер не выпустит (правило для договора). */
-export const hasEffectiveMulti = (docs: Import40DocumentDto[]) =>
-  docs.some((d) => isDocumentEffective(d) && !d.isSingleUse)
-
 export type HistoryStatus = 'effective' | 'awaiting' | 'consumed' | 'expired' | 'revoked'
 export function historyStatus(d: Import40DocumentDto, now = Date.now()): HistoryStatus {
   if (d.status === 4) return 'revoked'
@@ -49,74 +45,93 @@ export function historyStatus(d: Import40DocumentDto, now = Date.now()): History
  * - done — готово (зелёная галочка);
  * - action — ждёт действия клиента (золотой текст);
  * - waiting — ждёт AQNIET (от клиента ничего не нужно);
- * - later — шаг после незавершённого предыдущего (серый).
+ * - later — шаг после незаполненных реквизитов (серый).
  */
 export type StepTone = 'done' | 'action' | 'waiting' | 'later'
 export type StepStateKey =
   | 'filled' | 'fill'
   | 'effective' | 'effectiveUntil'
-  | 'needSign' | 'needGenerate' | 'awaitingUs'
-  | 'afterProfile' | 'afterContract'
+  | 'needSign' | 'needGenerate' | 'needNew' | 'awaitingUs'
+  | 'afterProfile'
 export interface StepState { done: boolean; tone: StepTone; key: StepStateKey; date: string }
 
+/**
+ * Состояние регистрации от сервера (GET import40/can-create через useClientRegistration) — единственный
+ * источник «готово»: тот же, что у плашки регистрации и мастера поставки.
+ */
+export interface RegistrationSnapshot {
+  profileDone: boolean
+  contractDone: boolean
+  poaDone: boolean
+  /** Клиент договор подписал, ждём подпись AQNIET. */
+  contractAwaitingUs: boolean
+}
+
 export interface CompanySnapshot {
-  profileComplete: boolean
+  reg: RegistrationSnapshot
+  /** Документы — только для показа (срок действия, ждёт ли подписи клиента), не для «готово». */
   contracts: Import40DocumentDto[]
   poas: Import40DocumentDto[]
 }
 
-/** «ДД.ММ.ГГГГ» по местному времени; пусто — для пустой/битой даты. */
-export function fullDate(v: string | null | undefined): string {
+const p2 = (n: number) => String(n).padStart(2, '0')
+
+/** Момент времени (сформирован, подписан) — «ДД.ММ» / «ДД.ММ.ГГГГ» по местному времени. */
+export function localDate(v: string | null | undefined, withYear = false): string {
   if (!v) return ''
   const d = new Date(v)
   if (Number.isNaN(d.getTime())) return ''
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`
+  const dm = `${p2(d.getDate())}.${p2(d.getMonth() + 1)}`
+  return withYear ? `${dm}.${d.getFullYear()}` : dm
 }
-export const shortDate = (v: string | null | undefined) => fullDate(v).slice(0, 5)
+
+/**
+ * Срок действия («действует до») — календарная дата, сервер хранит её концом дня по UTC (31.12 23:59:59Z):
+ * показываем по UTC, иначе восточнее Гринвича она «переезжала» бы на 01.01.
+ */
+export function validDate(v: string | null | undefined): string {
+  if (!v) return ''
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${p2(d.getUTCDate())}.${p2(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`
+}
 
 const effectiveDoc = (docs: Import40DocumentDto[]) => sortDocs(docs).find((d) => isDocumentEffective(d)) ?? null
 
-function docStep(docs: Import40DocumentDto[], blockedBy: StepStateKey | null): StepState {
-  const eff = effectiveDoc(docs)
-  if (eff) {
-    const date = fullDate(eff.validUntilUtc)
+function docStep(ok: boolean, docs: Import40DocumentDto[], profileDone: boolean, awaitingUs: boolean): StepState {
+  if (ok) {
+    const date = validDate(effectiveDoc(docs)?.validUntilUtc)
     return { done: true, tone: 'done', key: date ? 'effectiveUntil' : 'effective', date }
   }
+  if (awaitingUs) return { done: false, tone: 'waiting', key: 'awaitingUs', date: '' }
+  if (!profileDone) return { done: false, tone: 'later', key: 'afterProfile', date: '' }
   const cur = currentDoc(docs)
-  if (cur && !cur.clientSigned) return { done: false, tone: 'action', key: 'needSign', date: '' }
-  if (cur && cur.clientSigned) return { done: false, tone: 'waiting', key: 'awaitingUs', date: '' }
-  if (blockedBy) return { done: false, tone: 'later', key: blockedBy, date: '' }
+  if (cur && isOpen(cur) && !cur.clientSigned) return { done: false, tone: 'action', key: 'needSign', date: '' }
+  // Документ действует, но сервер не принимает его для новой поставки (разовый занят открытой заявкой).
+  if (effectiveDoc(docs) || docs.some((d) => isDocumentActive(d))) return { done: false, tone: 'action', key: 'needNew', date: '' }
   return { done: false, tone: 'action', key: 'needGenerate', date: '' }
 }
 
 /**
- * Три шага регистрации. «Готово» — как у сервера (can-create): реквизиты заполнены, договор и доверенность
- * ДЕЙСТВУЮТ (подписаны, не истекли; разовая — не израсходована: для следующей поставки нужна новая).
+ * Три шага регистрации. «Готово» — только по серверу (can-create): реквизиты заполнены, договор и доверенность
+ * годятся для новой поставки. Доверенность можно оформлять параллельно с договором — сервер требует лишь реквизиты.
  */
 export function companySteps(s: CompanySnapshot): Record<CompanyStep, StepState> {
-  const profile: StepState = s.profileComplete
+  const { reg } = s
+  const profile: StepState = reg.profileDone
     ? { done: true, tone: 'done', key: 'filled', date: '' }
     : { done: false, tone: 'action', key: 'fill', date: '' }
-  const contract = docStep(s.contracts, s.profileComplete ? null : 'afterProfile')
-  const poa = docStep(s.poas, s.profileComplete && contract.done ? null : 'afterContract')
+  const contract = docStep(reg.contractDone, s.contracts, reg.profileDone, reg.contractAwaitingUs)
+  const poa = docStep(reg.poaDone, s.poas, reg.profileDone, false)
   return { profile, contract, poa }
-}
-
-/** Шаг по умолчанию: первый незавершённый, где ход за клиентом; затем любой незавершённый; всё готово — договор. */
-export function defaultStep(steps: Record<CompanyStep, StepState>): CompanyStep {
-  return COMPANY_STEPS.find((k) => !steps[k].done && steps[k].tone !== 'waiting')
-    ?? COMPANY_STEPS.find((k) => !steps[k].done)
-    ?? 'contract'
 }
 
 export const isCompanyStep = (v: unknown): v is CompanyStep =>
   typeof v === 'string' && (COMPANY_STEPS as string[]).includes(v)
 
-/** Конец выбранного дня ('YYYY-MM-DD') по местному времени — как прежний endOf('day') у даты «действует до». */
-export function endOfLocalDay(ymd: string): string {
-  const [y, m, d] = ymd.split('-').map(Number)
-  return new Date(y, m - 1, d, 23, 59, 59, 999).toISOString()
+/** «Действует до» выбранного дня ('YYYY-MM-DD') — конец этого дня по UTC, как сервер ставит сроки по умолчанию. */
+export function endOfDayUtc(ymd: string): string {
+  return `${ymd}T23:59:59.000Z`
 }
 
 /** Сегодня, 'YYYY-MM-DD' по местному времени (нижняя граница «действует до»). */

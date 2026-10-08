@@ -39,7 +39,12 @@ async function start() {
   qrCode.value = ''
   qrId.value = ''
   pending.value = false
-  if (!props.docId) return
+  if (!props.docId) {
+    // Нечего подписывать (документ не выбран) — сразу ошибка, а не вечная загрузка.
+    errorText.value = t('client.company.sigex.startError')
+    step.value = 'error'
+    return
+  }
   try {
     const data = await import40ContractApi.sigexStartSigningDocument(props.clientId, props.docId)
     if (my !== seq) return
@@ -147,9 +152,13 @@ const appLink = 'inline-flex h-10 items-center justify-center gap-2 rounded-row 
       </div>
       <div class="flex flex-col items-stretch gap-2 border-0 border-t border-solid border-line pt-4">
         <p class="m-0 text-center text-sm text-ink-3">{{ t('client.company.sigex.afterSign') }}</p>
-        <p v-if="pending" role="status" class="m-0 rounded-row bg-gold-soft px-3 py-2 text-center text-sm text-gold-ink" data-sigex-pending>
-          {{ t('client.company.sigex.notYet') }}
-        </p>
+        <!-- Живая область смонтирована всегда (иначе экранный диктор может не прочитать первое сообщение), меняется только текст -->
+        <p
+          role="status"
+          aria-live="polite"
+          :class="pending ? 'm-0 rounded-row bg-gold-soft px-3 py-2 text-center text-sm text-gold-ink' : 'sr-only'"
+          data-sigex-pending
+        >{{ pending ? t('client.company.sigex.notYet') : '' }}</p>
         <ZButton variant="primary" :loading="polling" class="h-10 self-center px-5 max-sm:h-11 max-sm:w-full" data-sigex-check @click="check">
           {{ t('client.company.sigex.check') }}
         </ZButton>

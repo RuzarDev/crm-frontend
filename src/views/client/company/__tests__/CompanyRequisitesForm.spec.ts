@@ -104,6 +104,14 @@ describe('CompanyRequisitesForm', () => {
     expect(msg.success).toHaveBeenCalledWith('Реквизиты сохранены')
   })
 
+  it('БИН уходит без пробелов по краям (вставка из буфера)', async () => {
+    api.saveProfile.mockResolvedValue({ ...EMPTY, isComplete: true })
+    await mountForm({ ...EMPTY, companyName: 'А', directorName: 'Б' })
+    await setVal('bin', ' 123456789012 ')
+    await submit()
+    expect(api.saveProfile.mock.calls[0][1].bin).toBe('123456789012')
+  })
+
   it('ошибка сервера — текстом сервера на месте; «Отмена» — только когда можно закрыть', async () => {
     api.saveProfile.mockRejectedValue({ response: { status: 400, data: { error: 'БИН уже занят' } } })
     await mountForm({ ...EMPTY, companyName: 'А', bin: '123456789012', directorName: 'Б', isComplete: true }, true)
