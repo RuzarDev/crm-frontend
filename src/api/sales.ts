@@ -103,7 +103,7 @@ export interface SalesQuoteDto {
 
 // Коды статусов КП по индексу (0..3) — значение хранится числом в БД. Раньше здесь лежали
 // готовые русские подписи напрямую, поэтому kk/en видели русский текст (аудит 2026-09-28,
-// раздел 10). Подписи теперь берутся из enum.salesQuoteStatus.<код> в SalesView.vue.
+// раздел 10). Подписи теперь берутся из enum.salesQuoteStatus.<код> (views/broker/sales/sales.ts).
 export const SALES_QUOTE_STATUS_CODES = ['draft', 'sent', 'accepted', 'rejected'] as const
 
 export const salesApi = {
@@ -131,12 +131,13 @@ export const salesApi = {
     return response.data
   },
 
-  listQuotes: async (): Promise<SalesQuoteListItem[]> => {
-    const response = await apiClient.get<SalesQuoteListItem[]>('/sales/quotes')
+  // silent — экран «Продажи» сам показывает ошибку с «Повторить», без тоста перехватчика.
+  listQuotes: async (opts?: { silent?: boolean }): Promise<SalesQuoteListItem[]> => {
+    const response = await apiClient.get<SalesQuoteListItem[]>('/sales/quotes', opts?.silent ? { silent: true } : undefined)
     return response.data
   },
-  getQuote: async (id: string): Promise<SalesQuoteDto> => {
-    const response = await apiClient.get<SalesQuoteDto>(`/sales/quotes/${id}`)
+  getQuote: async (id: string, opts?: { silent?: boolean }): Promise<SalesQuoteDto> => {
+    const response = await apiClient.get<SalesQuoteDto>(`/sales/quotes/${id}`, opts?.silent ? { silent: true } : undefined)
     return response.data
   },
   createQuote: async (data: {

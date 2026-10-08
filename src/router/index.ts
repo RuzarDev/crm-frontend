@@ -153,7 +153,7 @@ const router = createRouter({
         {
           path: '/sales',
           name: 'sales',
-          component: () => import('@/views/SalesView.vue'),
+          component: () => import('@/views/broker/sales/SalesWorkspaceView.vue'),
           meta: { requiresSales: true },
         },
         {
