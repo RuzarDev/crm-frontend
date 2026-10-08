@@ -48,6 +48,14 @@ export interface ShipmentDraft {
 
 export const AUTOSAVE_DELAY_MS = 800
 
+/** Груз годится для «Далее»: хотя бы два символа (как в прежнем мастере). */
+export const isCargoOk = (cargo: string): boolean => cargo.trim().length > 1
+/** БИН получателя необязателен, но если введён — ровно 12 цифр. */
+export const isBinOk = (bin: string): boolean => {
+  const v = bin.trim()
+  return !v || /^\d{12}$/.test(v)
+}
+
 export const emptyDraft = (): ShipmentDraft => ({
   cargo: '',
   post: '',
