@@ -54,7 +54,7 @@ const errorToast = (key: string, content: string) => {
 // и голой строкой (Results.BadRequest("...")). Общая фраза — только когда сервер
 // вообще ничего не прислал: раньше сюда протекало техническое «Request failed
 // with status code 400» из самого axios (аудит 2026-09-28, п.1.2/1.4).
-const extractServerText = (data: unknown): string | null => {
+export const extractServerText = (data: unknown): string | null => {
   if (typeof data === 'string' && data.trim()) {
     return data
   }

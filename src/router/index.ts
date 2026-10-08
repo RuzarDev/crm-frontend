@@ -92,7 +92,7 @@ const router = createRouter({
         {
           path: '/import-40/company',
           name: 'import-40-company',
-          component: () => import('@/views/Import40CompanyView.vue'),
+          component: () => import('@/views/Import40CompanyRoute.vue'),
           meta: { requiresImport40: true },
         },
         {
@@ -167,6 +167,13 @@ const router = createRouter({
           meta: { requiresClientTransit: true },
         },
         {
+          // Единый список документов клиента Импорта 40 (редизайн, волна 2b): компания + файлы поставок.
+          path: '/documents',
+          name: 'client-documents-all',
+          component: () => import('@/views/client/ClientAllDocumentsView.vue'),
+          meta: { requiresImport40: true, requiresRole: 'client' },
+        },
+        {
           // Волна 2 ролей: финансы (бухгалтер) и панель руководителя.
           path: '/finance',
           name: 'finance',
@@ -203,7 +210,7 @@ const router = createRouter({
           // permission тут не задан специально, иначе клиента без finance.read выкинет.
           path: '/billing',
           name: 'billing',
-          component: () => import('@/views/BillingView.vue'),
+          component: () => import('@/views/BillingRoute.vue'),
         },
         {
           path: '/system/audit',
@@ -222,7 +229,7 @@ const router = createRouter({
           // admin/client всегда): аудит §8, у маршрутов не было meta вовсе.
           path: '/tnved/tree',
           name: 'tnved-tree',
-          component: () => import('@/views/TnvedTreeView.vue'),
+          component: () => import('@/views/TnvedTreeRoute.vue'),
           meta: { requiresReferences: true },
         },
         {
@@ -234,7 +241,7 @@ const router = createRouter({
         {
           path: '/tnved/currencies',
           name: 'tnved-currencies',
-          component: () => import('@/views/TnvedCurrenciesView.vue'),
+          component: () => import('@/views/TnvedCurrenciesRoute.vue'),
           meta: { requiresReferences: true },
         },
         {

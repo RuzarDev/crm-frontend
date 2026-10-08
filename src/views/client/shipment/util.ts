@@ -1,13 +1,3 @@
-/** Отдать blob браузеру как файл с именем name (как в прежней карточке заявки). */
-export function saveBlob(blob: Blob, name: string): void {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 /** «ДД.ММ» из даты без времени («2026-10-07») — без сдвига часового пояса; иначе по местному времени. */
 export function dayMonthOf(value: string | null | undefined): string {
   if (!value) return ''

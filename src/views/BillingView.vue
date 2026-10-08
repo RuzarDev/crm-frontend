@@ -55,6 +55,16 @@
             <div v-if="record.paidAtUtc" class="cell-sub">{{ t('billing.paidAt', { date: fmtDate(record.paidAtUtc) }) }}</div>
             <div v-else-if="record.dueDateUtc" class="cell-sub">{{ t('billing.dueAt', { date: fmtDate(record.dueDateUtc) }) }}</div>
           </template>
+          <template v-else-if="column.key === 'checks'">
+            <!-- Чеки об оплате, загруженные клиентом: имя и дата, по клику — скачать. -->
+            <template v-if="record.paymentChecks?.length">
+              <div v-for="f in record.paymentChecks" :key="f.id" class="check-link">
+                <a href="#" :title="f.fileName" @click.prevent="downloadCheck(record, f)">{{ f.fileName }}</a>
+                <div class="cell-sub">{{ fmtDate(f.createdAtUtc) }}</div>
+              </div>
+            </template>
+            <span v-else class="cell-sub">—</span>
+          </template>
           <template v-else-if="column.key === 'actions'">
             <a-space wrap>
               <a-button size="small" @click="downloadPdf(record)"><DownloadOutlined /> PDF</a-button>
@@ -135,7 +145,9 @@ import { message } from '@/ui/message'
 import { DownloadOutlined, PlusOutlined, SearchOutlined, CloseOutlined } from '@ant-design/icons-vue'
 import { loadXlsx } from '@/utils/xlsx'
 import PageHeader from '@/components/PageHeader.vue'
-import { billingApi, type BrokerInvoice, type BrokerInvoiceKind } from '@/api/billing'
+import { billingApi, type BrokerInvoice, type BrokerInvoiceKind, type PaymentCheckFile } from '@/api/billing'
+import { caseFilterSearch, watchCaseQuery } from '@/views/billingQuery'
+import { saveBlob } from '@/ui/download'
 import { import40Api, type Import40CaseDto } from '@/api/import40'
 import { salesApi, type SalesServiceItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
@@ -192,8 +204,18 @@ const load = async () => {
   }
 }
 
+// Уведомление о чеке, когда список уже открыт: перечитываем счета (чек свежий) и ставим фильтр
+// новой заявки; без ?case= — снимаем фильтр.
+watchCaseQuery(() => route.query.case, async (caseId) => {
+  await load()
+  search.value = caseFilterSearch(rows.value, caseId)
+})
+
 onMounted(async () => {
   await load()
+  // /billing?case=… (уведомление о чеке): только фильтр списка по заявке, форма создания не открывается.
+  const byCase = caseFilterSearch(rows.value, route.query.case)
+  if (byCase) search.value = byCase
   if (isClientRole.value) return // справочники ниже — для формы создания счёта, клиенту не нужны
 
   // Аудит §4.4: раньше Promise.all — падение любого одного справочника (например, sales/services
@@ -282,6 +304,8 @@ const columns = computed(() => [
   { title: t('billing.colStatus'), key: 'status', width: 140 },
   { title: t('billing.colTotal'), key: 'total', width: 170 },
   { title: t('billing.colDates'), key: 'dates', width: 190 },
+  // Чек об оплате от клиента — сотрудникам для сверки перед «Отметить оплату».
+  ...(isClientRole.value ? [] : [{ title: t('billing.colCheck'), key: 'checks', width: 180 }]),
   { title: '', key: 'actions', width: isClientRole.value ? 100 : 280 },
 ])
 
@@ -390,13 +414,16 @@ const remove = async (r: BrokerInvoice) => {
 
 const downloadPdf = async (r: BrokerInvoice) => {
   try {
-    const blob = await billingApi.pdf(r.id)
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${r.kind === 'act' ? 'Акт' : 'Счёт'}-${r.number || 'черновик'}.pdf`
-    a.click()
-    URL.revokeObjectURL(url)
+    saveBlob(await billingApi.pdf(r.id), `${r.kind === 'act' ? 'Акт' : 'Счёт'}-${r.number || 'черновик'}.pdf`)
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('billing.actionError'))
+  }
+}
+
+const downloadCheck = async (r: BrokerInvoice, f: PaymentCheckFile) => {
+  try {
+    saveBlob(await billingApi.downloadPaymentCheck(r.id, f.id), f.fileName)
   } catch (e: any) {
     // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
     if (!e?.response) message.error(t('billing.actionError'))
@@ -436,6 +463,8 @@ const exportXlsx = async () => {
 .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
 .cell-main { font-weight: 600; color: var(--z-ink); }
 .cell-sub { font-size: 12px; color: var(--z-muted); }
+.check-link + .check-link { margin-top: 6px; }
+.check-link a { display: block; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 14px; }
 .sub-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--z-navy-3); margin: 4px 0 8px; }

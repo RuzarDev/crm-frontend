@@ -821,8 +821,12 @@ export const import40Api = {
 
   // Единая проверка регистрации (аудит 5.3/5.4) — источник истины для плашки, «Моей компании»
   // и мастера заявки; повторяет проверку самого POST /import40, чтобы не разъезжаться с ней.
-  canCreate: async (): Promise<Import40CanCreateDto> => {
-    const response = await apiClient.get<Import40CanCreateDto>('/import40/can-create')
+  // silent — экран сам показывает ошибку по месту («Моя компания»), без тоста перехватчика.
+  canCreate: async (opts?: { silent?: boolean }): Promise<Import40CanCreateDto> => {
+    const response = await apiClient.get<Import40CanCreateDto>(
+      '/import40/can-create',
+      opts?.silent ? { silent: true } : undefined,
+    )
     return response.data
   },
 

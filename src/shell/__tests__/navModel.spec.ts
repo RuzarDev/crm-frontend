@@ -77,10 +77,11 @@ describe('buildBrokerNav', () => {
 })
 
 describe('buildClientNav', () => {
-  it('клиент импорта: поставки, оформить, счета, инструменты, компания', () => {
+  it('клиент импорта: поставки, оформить, документы, счета, инструменты, компания', () => {
     expect(keys(buildClientNav(access({ role: 'client' })))).toEqual([
       'shipments:shipments',
       'newShipment:newShipment',
+      'documents:documents',
       'invoices:invoices',
       'tnvedPick:tnvedPick',
       'rates:rates',
@@ -99,6 +100,23 @@ describe('buildClientNav', () => {
       'rates:rates',
       'npa:npa',
     ])
+  })
+
+  it('«Документы»: с модулем Импорт 40 — /documents (и подсвечивается на /my-documents), только транзит — /my-documents', () => {
+    const imp = buildClientNav(access({ role: 'client' }))
+    const impDocs = allSections(imp).find((x) => x.key === 'documents')!
+    expect(sectionHref(impDocs)).toBe('/documents')
+    expect(resolveActive(imp, '/documents')?.section.key).toBe('documents')
+    expect(resolveActive(imp, '/my-documents')?.section.key).toBe('documents')
+
+    const both = buildClientNav(access({ role: 'client', clientHasModule: () => true }))
+    const bothDocs = allSections(both).find((x) => x.key === 'documents')!
+    expect(bothDocs.pages.map((p) => p.to)).toEqual(['/documents'])
+
+    const tr = buildClientNav(access({ role: 'client', clientHasModule: (x) => x === 'transit' }))
+    const trDocs = allSections(tr).find((x) => x.key === 'documents')!
+    expect(sectionHref(trDocs)).toBe('/my-documents')
+    expect(resolveActive(tr, '/my-documents')?.section.key).toBe('documents')
   })
 
   it('точка на «Моей компании», пока регистрация не завершена', () => {

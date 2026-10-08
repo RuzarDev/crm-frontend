@@ -71,6 +71,7 @@ declare module 'vue' {
     BinLookupButton: typeof import('./src/components/BinLookupButton.vue')['default']
     CarriersBlock: typeof import('./src/components/reestr/CarriersBlock.vue')['default']
     ClientShipmentRow: typeof import('./src/components/client/ClientShipmentRow.vue')['default']
+    ClientSigexModal: typeof import('./src/components/client/ClientSigexModal.vue')['default']
     ClientStepBar: typeof import('./src/components/client/ClientStepBar.vue')['default']
     CommandPalette: typeof import('./src/components/shell/CommandPalette.vue')['default']
     ContainersBlock: typeof import('./src/components/reestr/ContainersBlock.vue')['default']

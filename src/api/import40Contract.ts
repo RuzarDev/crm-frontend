@@ -122,16 +122,18 @@ export const isDocumentEffective = (doc: Import40DocumentDto | null | undefined)
 const base = (clientId: string) => `/import40/company/${encodeURIComponent(clientId)}`
 
 export const import40ContractApi = {
-  getProfile: async (clientId: string): Promise<ClientCompanyProfileDto> => {
-    const response = await apiClient.get<ClientCompanyProfileDto>(`${base(clientId)}/profile`)
+  // opts.silent — «Моя компания» клиента (редизайн) сама показывает ошибку на месте, без тоста перехватчика.
+  getProfile: async (clientId: string, opts?: { silent?: boolean }): Promise<ClientCompanyProfileDto> => {
+    const response = await apiClient.get<ClientCompanyProfileDto>(`${base(clientId)}/profile`, opts?.silent ? { silent: true } : undefined)
     return response.data
   },
 
   saveProfile: async (
     clientId: string,
     data: ClientCompanyProfileUpsert,
+    opts?: { silent?: boolean },
   ): Promise<ClientCompanyProfileDto> => {
-    const response = await apiClient.put<ClientCompanyProfileDto>(`${base(clientId)}/profile`, data)
+    const response = await apiClient.put<ClientCompanyProfileDto>(`${base(clientId)}/profile`, data, opts?.silent ? { silent: true } : undefined)
     return response.data
   },
 
@@ -207,9 +209,11 @@ export const import40ContractApi = {
   listDocuments: async (
     clientId: string,
     kind?: 'contract' | 'poa',
+    opts?: { silent?: boolean },
   ): Promise<Import40DocumentDto[]> => {
     const response = await apiClient.get<Import40DocumentDto[]>(`${base(clientId)}/documents`, {
       params: kind ? { kind } : undefined,
+      ...(opts?.silent ? { silent: true } : {}),
     })
     return response.data
   },
@@ -217,10 +221,12 @@ export const import40ContractApi = {
   generateDocument: async (
     clientId: string,
     data: Import40DocumentGenerateRequest,
+    opts?: { silent?: boolean },
   ): Promise<Import40DocumentDto> => {
     const response = await apiClient.post<Import40DocumentDto>(
       `${base(clientId)}/documents/generate`,
       data,
+      opts?.silent ? { silent: true } : undefined,
     )
     return response.data
   },
@@ -230,13 +236,14 @@ export const import40ContractApi = {
     docId: string,
     side: 'client' | 'provider',
     file: File,
+    opts?: { silent?: boolean },
   ): Promise<Import40DocumentDto> => {
     const formData = new FormData()
     formData.append('file', file)
     const response = await apiClient.post<Import40DocumentDto>(
       `${base(clientId)}/documents/${encodeURIComponent(docId)}/sign`,
       formData,
-      { params: { side }, headers: { 'Content-Type': 'multipart/form-data' } },
+      { params: { side }, headers: { 'Content-Type': 'multipart/form-data' }, ...(opts?.silent ? { silent: true } : {}) },
     )
     return response.data
   },

@@ -127,7 +127,7 @@ describe('ClientHomeView', () => {
     expect(bill.text()).toContain(formatMoney(185000))
     expect(bill.text()).toContain('и ещё 1 к оплате')
     const pay = bill.findAll('a').find((a) => a.text() === 'Оплатить')!
-    expect(pay.attributes('href')).toBe('/billing')
+    expect(pay.attributes('href')).toBe('/billing?id=i1')
     expect(api.invoices).toHaveBeenCalledWith({ kind: 'invoice' })
 
     expect(newButton().attributes('disabled')).toBeUndefined()
@@ -229,6 +229,29 @@ describe('ClientHomeView', () => {
     expect(w.text()).toContain('Оформите первую')
     expect(w.find('[data-client-invoice]').exists()).toBe(false)
     expect(homeAttention.value).toBe(0)
+  })
+
+  it('счёт с приложенным чеком — «Чек на проверке» вместо «Оплатить»; первым — счёт без чека', async () => {
+    const check = [{ id: 'f1', fileName: 'check.pdf', sizeBytes: 5, createdAtUtc: ago(0) }]
+    api.invoices.mockResolvedValue([invoice({ paymentChecks: check })])
+    await mountIt()
+    let bill = w.get('[data-client-invoice]')
+    expect(bill.get('[data-client-invoice-checked]').text()).toBe('Чек на проверке')
+    const link = bill.get('[data-client-invoice-link]')
+    expect(link.text()).toBe('Открыть счёт')
+    expect(link.attributes('href')).toBe('/billing?id=i1')
+    expect(bill.text()).not.toContain('Оплатить')
+    w.unmount()
+
+    // Есть счёт без чека (выставлен позже) — он важнее: его и показываем с «Оплатить».
+    api.invoices.mockResolvedValue([invoice({ paymentChecks: check }), invoice({ id: 'i2', number: '220', issuedAtUtc: ago(0), paymentChecks: [] })])
+    await mountIt()
+    bill = w.get('[data-client-invoice]')
+    expect(bill.text()).toContain('Счёт № 220')
+    expect(bill.get('[data-client-invoice-link]').text()).toBe('Оплатить')
+    expect(bill.get('[data-client-invoice-link]').attributes('href')).toBe('/billing?id=i2')
+    // Второй счёт уже с чеком — «и ещё к оплате» не показываем.
+    expect(bill.text()).not.toContain('к оплате')
   })
 
   it('ошибка списка — сообщение и «Повторить» перезапрашивает', async () => {

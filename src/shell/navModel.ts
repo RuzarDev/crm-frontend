@@ -142,7 +142,9 @@ export function buildClientNav(a: NavAccess): NavModel {
           page('kedenStatuses', '/keden-status', 'shell.client.kedenStatuses', tr),
         ] }),
         section({ key: 'documents', labelKey: 'shell.client.documents', icon: 'documents', pages: [
-          page('documents', '/my-documents', 'shell.client.documents', tr),
+          // С модулем Импорт 40 — общий список «Документы» (компания + файлы поставок), иначе — документы транзита.
+          page('documents', '/documents', 'shell.client.documents', imp, ['/documents', '/my-documents']),
+          page('documents', '/my-documents', 'shell.client.documents', tr && !imp),
         ] }),
         section({ key: 'invoices', labelKey: 'shell.client.invoices', icon: 'invoices', pages: [
           page('invoices', '/billing', 'shell.client.invoices', imp),
