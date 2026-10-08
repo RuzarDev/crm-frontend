@@ -23,6 +23,9 @@ export interface ClientDocuments {
 }
 
 export const clientDocumentsApi = {
-  list: async (): Promise<ClientDocuments> =>
-    (await apiClient.get<ClientDocuments>('/import40/client/documents')).data,
+  // opts.silent — экран «Документы» сам показывает ошибку с «Повторить», без тоста перехватчика.
+  list: async (opts?: { silent?: boolean }): Promise<ClientDocuments> =>
+    (opts?.silent
+      ? await apiClient.get<ClientDocuments>('/import40/client/documents', { silent: true })
+      : await apiClient.get<ClientDocuments>('/import40/client/documents')).data,
 }

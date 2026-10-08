@@ -13,6 +13,12 @@ describe('clientDocumentsApi', () => {
     await expect(clientDocumentsApi.list()).resolves.toBe(data)
     expect(client.get).toHaveBeenCalledWith('/import40/client/documents')
   })
+
+  it('list({ silent }): без тоста перехватчика', async () => {
+    client.get.mockResolvedValueOnce({ data: { company: [], files: [] } })
+    await clientDocumentsApi.list({ silent: true })
+    expect(client.get).toHaveBeenLastCalledWith('/import40/client/documents', { silent: true })
+  })
 })
 
 describe('billingApi: чеки и реквизиты', () => {
