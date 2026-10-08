@@ -301,7 +301,7 @@ watch([pageRows, () => props.columns], () => nextTick(updateEdges))
                   :disabled="!isSelectable(record)"
                   :aria-label="t('z.selectRow')"
                   :aria-labelledby="views.length ? `${selectLabelId} ${firstCellId(index)}` : undefined"
-                  class="align-middle"
+                  :class="cn('align-middle', cards && 'max-sm:-m-3.5 max-sm:p-3.5')"
                   @change="toggleRow(record, $event)"
                 />
               </td>

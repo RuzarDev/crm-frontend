@@ -6,7 +6,7 @@ import { createPinia, setActivePinia } from 'pinia'
 // Обе ветки — заглушки: настоящие экраны тянут API и роутер, а здесь проверяется только выбор по роли.
 // __esModule — чтобы defineAsyncComponent взял default, а не трогал прокси мока чужими ключами.
 vi.mock('@/views/client/ClientShipmentsView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'client' }) } }))
-vi.mock('@/views/Import40ListView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'staff' }) } }))
+vi.mock('@/views/broker/requests/BrokerRequestsView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'staff' }) } }))
 
 import Import40Route from '../Import40Route.vue'
 import { useAuthStore } from '@/stores/auth'

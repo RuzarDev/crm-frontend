@@ -31,8 +31,9 @@ export interface RegistryQuery {
 }
 
 export const registryApi = {
-  list: async (params: RegistryQuery): Promise<RegistryListResponse> => {
-    const { data } = await apiClient.get<RegistryListResponse>('/requests-registry', { params })
+  // silent — экран сам рисует «не удалось загрузить» с «Повторить», без тоста перехватчика.
+  list: async (params: RegistryQuery, opts?: { silent?: boolean }): Promise<RegistryListResponse> => {
+    const { data } = await apiClient.get<RegistryListResponse>('/requests-registry', { params, ...(opts?.silent ? { silent: true } : {}) })
     return data
   },
 }

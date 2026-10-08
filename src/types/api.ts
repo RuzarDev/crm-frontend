@@ -260,9 +260,8 @@ export interface ReestrEntryDto {
   cargoOperations?: ReestrCargoOperationDto[] | null
   guarantees?: ReestrGuaranteeDto[] | null
   deprecationWarning?: TnvedDeprecationWarningDto | null
-  // Заполняется бэком при создании из консолидации пакета документов; в ответе
-  // списка реестра пока НЕ сериализуется (см. ReestrEntryMapper.ToDto) — поле
-  // добавлено заранее для клиентской группировки, как только бэк начнёт его отдавать.
+  // Заполняется бэком при создании из консолидации пакета документов (ReestrEntryMapper.ToDto отдаёт его).
+  // Генератор создаёт одну запись на консолидацию, поэтому групп из нескольких строк в списке не бывает.
   sourceConsolidationId?: string | null
 }
 
@@ -271,9 +270,11 @@ export interface ReestrEntry {
   createdAtUtc: string
   status: ReestrEntryStatus
   clientId: string
-  /** См. комментарий у ReestrEntryDto.sourceConsolidationId — сейчас всегда null/undefined. */
+  /** См. комментарий у ReestrEntryDto.sourceConsolidationId. */
   sourceConsolidationId?: string | null
   data: Record<string, string | null>
+  /** «Итого, ₸» с НДС (ТД + доп. листы); в data не входит — это не колонка Excel-реестра. */
+  grandTotalWithVat?: number | null
   deprecationWarning?: TnvedDeprecationWarningDto | null
   goods: ReestrGoodsItemInput[]
   doc44: ReestrDoc44ItemInput[]

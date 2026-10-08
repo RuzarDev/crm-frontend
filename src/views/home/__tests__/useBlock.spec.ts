@@ -59,4 +59,18 @@ describe('useBlock', () => {
     await p1
     expect(b).toMatchObject({ data: 'новый', error: false, loading: false })
   })
+
+  it('reset: данные и ошибка забыты, ответ идущего запроса отбрасывается', async () => {
+    const slow = deferred<string>()
+    const fetcher = vi.fn().mockResolvedValueOnce('a').mockReturnValueOnce(slow.promise)
+    const b = useBlock(true, fetcher)
+    await b.load()
+    expect(b.data).toBe('a')
+    const p = b.load()
+    b.reset()
+    expect(b).toMatchObject({ data: null, error: false })
+    slow.resolve('stale')
+    await p
+    expect(b.data).toBeNull()
+  })
 })

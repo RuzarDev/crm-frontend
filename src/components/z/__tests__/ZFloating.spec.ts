@@ -143,6 +143,16 @@ describe('ZDropdown', () => {
     expect(menuItems()).toHaveLength(0) // после выбора меню закрывается
   })
 
+  it('openChange — при открытии и закрытии меню', async () => {
+    w = mountDd()
+    await w.get('button').trigger('keydown', { key: 'Enter' })
+    await tick()
+    expect(w.emitted('openChange')?.at(-1)).toEqual([true])
+    document.body.querySelector<HTMLElement>('[role="menu"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await tick()
+    expect(w.emitted('openChange')?.at(-1)).toEqual([false])
+  })
+
   it('клавиатура: ArrowDown открывает, ArrowDown ведёт подсветку, Enter выбирает один раз, фокус на триггере', async () => {
     w = mountDd()
     const trigger = w.get('button').element as HTMLButtonElement
@@ -220,6 +230,29 @@ describe('ZDropdown', () => {
     const sep = document.body.querySelector('[role="separator"]')!
     expect(hdr.compareDocumentPosition(sep) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(sep.compareDocumentPosition(item) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('пункт с checked — переключатель: menuitemcheckbox, aria-checked, выбор не закрывает меню', async () => {
+    w = mountWithI18n(ZDropdown, {
+      props: { items: [{ key: 'date', label: 'Дата', checked: true }, { key: 'post', label: 'Пост', checked: false }, { key: 'x', label: 'Обычный' }] },
+      slots: { default: '<button>Колонки</button>' },
+      attachTo: document.body,
+    })
+    await w.get('button').trigger('keydown', { key: 'Enter' })
+    await tick()
+    const boxes = [...document.body.querySelectorAll('[role="menuitemcheckbox"]')] as HTMLElement[]
+    expect(boxes.map((b) => b.getAttribute('aria-checked'))).toEqual(['true', 'false'])
+    expect(menuItems()).toHaveLength(1)
+    boxes[1].click()
+    await new Promise((r) => setTimeout(r, 0))
+    await tick()
+    expect(w.emitted('select')).toEqual([['post']])
+    expect(document.body.querySelectorAll('[role="menuitemcheckbox"]')).toHaveLength(2)
+    // состояние ведёт родитель: без нового checked галочка не переключается сама
+    expect(boxes[1].getAttribute('aria-checked')).toBe('false')
+    await w.setProps({ items: [{ key: 'date', label: 'Дата', checked: true }, { key: 'post', label: 'Пост', checked: true }] })
+    await tick()
+    expect(document.body.querySelectorAll('[role="menuitemcheckbox"]')[1].getAttribute('aria-checked')).toBe('true')
   })
 
   it('без слота header — ни подписи, ни разделителя', async () => {

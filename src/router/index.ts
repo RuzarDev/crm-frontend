@@ -64,18 +64,18 @@ const router = createRouter({
         {
           path: '/reestr',
           name: 'reestr',
-          component: () => import('@/views/ReestrView.vue'),
+          component: () => import('@/views/broker/transit/TransitView.vue'),
         },
         {
           path: '/requests-registry',
           name: 'requests-registry',
-          component: () => import('@/views/RequestsRegistryView.vue'),
+          component: () => import('@/views/broker/requests/BrokerRegistryView.vue'),
           meta: { requiresRole: 'administrator' },
         },
         {
           path: '/document-packages',
           name: 'document-packages',
-          component: () => import('@/views/DocumentPackagesView.vue'),
+          component: () => import('@/views/broker/packages/PackagesView.vue'),
         },
         {
           path: '/document-packages/:id/workspace',
@@ -131,7 +131,8 @@ const router = createRouter({
         {
           path: '/keden',
           name: 'keden',
-          component: () => import('@/views/KedenListView.vue'),
+          component: () => import('@/views/broker/keden/KedenDeclarationsView.vue'),
+          props: { mode: 'all' },
           meta: { requiresRole: 'administrator' },
         },
         {
@@ -146,7 +147,8 @@ const router = createRouter({
           // но переход тихо уводил на дашборд. Проверка — в общем guard'е, как /reestr и /billing.
           path: '/keden-status',
           name: 'keden-status',
-          component: () => import('@/views/KedenStatusView.vue'),
+          component: () => import('@/views/broker/keden/KedenDeclarationsView.vue'),
+          props: { mode: 'mine' },
         },
         {
           path: '/sales',
@@ -183,7 +185,7 @@ const router = createRouter({
         {
           path: '/import-40/manage',
           name: 'import40-manage',
-          component: () => import('@/views/Import40ManageView.vue'),
+          component: () => import('@/views/broker/requests/BrokerManageView.vue'),
           meta: { requiresPermission: 'import40.assign' },
         },
         {

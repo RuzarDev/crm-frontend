@@ -1,6 +1,6 @@
 <template>
   <div class="import-invoice">
-    <a-button @click="openPicker">
+    <a-button v-if="!hideTrigger" @click="openPicker">
       <ImportOutlined /> {{ t('transit.importIzInvoysa') }} </a-button>
 
     <a-modal v-model:open="pickerOpen" :title="t('transit.importIzInvoysa')" :footer="null" width="520px">
@@ -53,12 +53,16 @@ import ExtractionReviewModal from '@/components/ExtractionReviewModal.vue'
 const { t } = useI18n()
 
 const IMPORT_PLACEHOLDER = t('transit.importIzInvoysa')
+/** Ключ данных реестра — не переводится (в entry.data он всегда по-русски). */
+const CARGO_KEY = 'Груз'
 
 interface Props {
   clientOptions: { value: string; label: string }[]
+  /** Своя кнопка не рисуется — окно открывает родитель через ref.open() (кнопка в шапке «Транзита»). */
+  hideTrigger?: boolean
 }
 
-defineProps<Props>()
+withDefaults(defineProps<Props>(), { hideTrigger: false })
 const emit = defineEmits<{ (e: 'imported', count: number): void }>()
 
 const pickerOpen = ref(false)
@@ -74,6 +78,8 @@ const openPicker = () => {
   clientId.value = undefined
   pickerOpen.value = true
 }
+
+defineExpose({ open: openPicker })
 
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   if (!clientId.value) {
@@ -162,7 +168,7 @@ const onApplied = async (count: number) => {
 const clearPlaceholderCargoDescription = async () => {
   try {
     const entry = await reestrApi.getById(draftEntryId.value)
-    if (entry.data[t('transit.gruz')] === IMPORT_PLACEHOLDER) {
+    if (entry.data[CARGO_KEY] === IMPORT_PLACEHOLDER) {
       const body = reestrEntryToUpsertBody(entry)
       body.cargoDescription = null
       await reestrApi.update(draftEntryId.value, body)
