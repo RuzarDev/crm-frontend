@@ -2887,6 +2887,7 @@ export default {
     dokumentZagruzhen: 'Документ загружен',
     dokumentZagruzhenRaspoznaem: 'Документ загружен, распознаём...',
     dokumenty: 'Документы',
+    dokumentyKlienta: 'Документы клиента',
     dokumentyBrokera: 'Документы брокера',
     dokumentyEkspeditora: 'Документы экспедитора',
     dopListy: 'Доп. листы',

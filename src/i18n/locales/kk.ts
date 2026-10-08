@@ -2877,6 +2877,7 @@ export default {
     dokumentZagruzhen: 'Құжат жүктелді',
     dokumentZagruzhenRaspoznaem: 'Құжат жүктелді, танып жатырмыз...',
     dokumenty: 'Құжаттар',
+    dokumentyKlienta: 'Клиент құжаттары',
     dokumentyBrokera: 'Брокер құжаттары',
     dokumentyEkspeditora: 'Экспедитор құжаттары',
     dopListy: 'Қос. парақтар',

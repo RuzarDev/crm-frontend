@@ -2882,6 +2882,7 @@ export default {
     dokumentZagruzhen: 'Document uploaded',
     dokumentZagruzhenRaspoznaem: 'Document uploaded, recognising...',
     dokumenty: 'Documents',
+    dokumentyKlienta: 'Client documents',
     dokumentyBrokera: 'Broker documents',
     dokumentyEkspeditora: 'Forwarder documents',
     dopListy: 'Add. sheets',
