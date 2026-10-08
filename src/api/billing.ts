@@ -95,8 +95,9 @@ export const billingApi = {
     caseId?: string
     kind?: BrokerInvoiceKind
     status?: number
-  }): Promise<BrokerInvoice[]> =>
-    (await apiClient.get<BrokerInvoice[]>('/billing/invoices', { params })).data,
+  }, opts?: { silent?: boolean }): Promise<BrokerInvoice[]> =>
+    // silent — экран «Счета» клиента сам рисует ошибку с «Повторить», без тоста перехватчика.
+    (await apiClient.get<BrokerInvoice[]>('/billing/invoices', opts?.silent ? { params, silent: true } : { params })).data,
 
   get: async (id: string): Promise<BrokerInvoice> =>
     (await apiClient.get<BrokerInvoice>(`/billing/invoices/${id}`)).data,
@@ -127,8 +128,10 @@ export const billingApi = {
   pdf: async (id: string): Promise<Blob> =>
     (await apiClient.get(`/billing/invoices/${id}/pdf`, { responseType: 'blob' })).data,
 
-  requisites: async (): Promise<BillingRequisites> =>
-    (await apiClient.get<BillingRequisites>('/billing/requisites')).data,
+  requisites: async (opts?: { silent?: boolean }): Promise<BillingRequisites> =>
+    (opts?.silent
+      ? await apiClient.get<BillingRequisites>('/billing/requisites', { silent: true })
+      : await apiClient.get<BillingRequisites>('/billing/requisites')).data,
 
   // Клиент прикладывает чек об оплате счёта (multipart, поле file); в ответ — счёт с обновлённым paymentChecks.
   uploadPaymentCheck: async (id: string, file: File): Promise<BrokerInvoice> => {

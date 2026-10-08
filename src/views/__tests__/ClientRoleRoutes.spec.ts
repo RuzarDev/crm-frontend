@@ -8,6 +8,7 @@ vi.mock('@/views/BillingView.vue', () => ({ __esModule: true, default: { render:
 vi.mock('@/views/Import40CompanyView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'company' }) } }))
 vi.mock('@/views/TnvedTreeView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'tree' }) } }))
 vi.mock('@/views/TnvedCurrenciesView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'currencies' }) } }))
+vi.mock('@/views/client/ClientInvoicesView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'client-invoices' }) } }))
 
 import BillingRoute from '../BillingRoute.vue'
 import Import40CompanyRoute from '../Import40CompanyRoute.vue'
@@ -19,13 +20,14 @@ let w: VueWrapper
 beforeEach(() => setActivePinia(createPinia()))
 afterEach(() => w?.unmount())
 
+// [обёртка, экран клиента, экран сотрудника]: пока клиентский экран не готов, обе роли видят прежний.
 describe.each([
-  ['BillingRoute', BillingRoute, 'billing'],
-  ['Import40CompanyRoute', Import40CompanyRoute, 'company'],
-  ['TnvedTreeRoute', TnvedTreeRoute, 'tree'],
-  ['TnvedCurrenciesRoute', TnvedCurrenciesRoute, 'currencies'],
-])('%s', (_name, Comp, view) => {
-  it.each(['Client', 'administrator'])('роль %s — рендерит экран', async (role) => {
+  ['BillingRoute', BillingRoute, 'client-invoices', 'billing'],
+  ['Import40CompanyRoute', Import40CompanyRoute, 'company', 'company'],
+  ['TnvedTreeRoute', TnvedTreeRoute, 'tree', 'tree'],
+  ['TnvedCurrenciesRoute', TnvedCurrenciesRoute, 'currencies', 'currencies'],
+])('%s', (_name, Comp, clientView, staffView) => {
+  it.each([['Client', clientView], ['administrator', staffView]])('роль %s — экран %s', async (role, view) => {
     useAuthStore().role = role
     w = mount(Comp)
     await flushPromises()

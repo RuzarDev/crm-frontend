@@ -55,6 +55,16 @@
             <div v-if="record.paidAtUtc" class="cell-sub">{{ t('billing.paidAt', { date: fmtDate(record.paidAtUtc) }) }}</div>
             <div v-else-if="record.dueDateUtc" class="cell-sub">{{ t('billing.dueAt', { date: fmtDate(record.dueDateUtc) }) }}</div>
           </template>
+          <template v-else-if="column.key === 'checks'">
+            <!-- Чеки об оплате, загруженные клиентом: имя и дата, по клику — скачать. -->
+            <template v-if="record.paymentChecks?.length">
+              <div v-for="f in record.paymentChecks" :key="f.id" class="check-link">
+                <a href="#" :title="f.fileName" @click.prevent="downloadCheck(record, f)">{{ f.fileName }}</a>
+                <div class="cell-sub">{{ fmtDate(f.createdAtUtc) }}</div>
+              </div>
+            </template>
+            <span v-else class="cell-sub">—</span>
+          </template>
           <template v-else-if="column.key === 'actions'">
             <a-space wrap>
               <a-button size="small" @click="downloadPdf(record)"><DownloadOutlined /> PDF</a-button>
@@ -135,7 +145,7 @@ import { message } from '@/ui/message'
 import { DownloadOutlined, PlusOutlined, SearchOutlined, CloseOutlined } from '@ant-design/icons-vue'
 import { loadXlsx } from '@/utils/xlsx'
 import PageHeader from '@/components/PageHeader.vue'
-import { billingApi, type BrokerInvoice, type BrokerInvoiceKind } from '@/api/billing'
+import { billingApi, type BrokerInvoice, type BrokerInvoiceKind, type PaymentCheckFile } from '@/api/billing'
 import { caseFilterSearch } from '@/views/billingQuery'
 import { import40Api, type Import40CaseDto } from '@/api/import40'
 import { salesApi, type SalesServiceItem } from '@/api/sales'
@@ -286,6 +296,8 @@ const columns = computed(() => [
   { title: t('billing.colStatus'), key: 'status', width: 140 },
   { title: t('billing.colTotal'), key: 'total', width: 170 },
   { title: t('billing.colDates'), key: 'dates', width: 190 },
+  // Чек об оплате от клиента — сотрудникам для сверки перед «Отметить оплату».
+  ...(isClientRole.value ? [] : [{ title: t('billing.colCheck'), key: 'checks', width: 180 }]),
   { title: '', key: 'actions', width: isClientRole.value ? 100 : 280 },
 ])
 
@@ -407,6 +419,21 @@ const downloadPdf = async (r: BrokerInvoice) => {
   }
 }
 
+const downloadCheck = async (r: BrokerInvoice, f: PaymentCheckFile) => {
+  try {
+    const blob = await billingApi.downloadPaymentCheck(r.id, f.id)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = f.fileName
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e: any) {
+    // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай (аудит 1.1).
+    if (!e?.response) message.error(t('billing.actionError'))
+  }
+}
+
 const exportXlsx = async () => {
   const XLSX = await loadXlsx()
   const data = filtered.value.map((r) => ({
@@ -440,6 +467,8 @@ const exportXlsx = async () => {
 .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
 .cell-main { font-weight: 600; color: var(--z-ink); }
 .cell-sub { font-size: 12px; color: var(--z-muted); }
+.check-link + .check-link { margin-top: 6px; }
+.check-link a { display: block; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 14px; }
 .sub-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--z-navy-3); margin: 4px 0 8px; }
