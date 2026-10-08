@@ -191,7 +191,7 @@ const router = createRouter({
         {
           path: '/clients',
           name: 'clients',
-          component: () => import('@/views/ClientsView.vue'),
+          component: () => import('@/views/broker/clients/ClientsListView.vue'),
           meta: { requiresPermission: 'clients.read' },
         },
         {

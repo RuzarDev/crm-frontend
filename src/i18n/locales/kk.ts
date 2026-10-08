@@ -729,6 +729,33 @@ export default {
         DTEG: 'Тауарларға декларация (экспресс-жүктер)',
       },
     },
+    clients: {
+      title: 'Клиенттер',
+      inviteButton: 'Клиентті шақыру',
+      export: 'Жүктеп алу',
+      search: 'Компания, email, логин, БСН',
+      segmentsLabel: 'Клиент мәртебесі',
+      tableLabel: 'Клиенттер',
+      col: { company: 'Компания', status: 'Мәртебе', docs: 'Құжаттар', since: 'Бізбен бірге' },
+      range: '{from}–{to} / {total}',
+      emptyHint: 'Алғашқы клиентті шақырыңыз — ол сілтеме алып, құпиясөзді өзі қояды',
+      actionsLabel: 'Әрекеттер: {name}',
+      action: { documents: 'Құжаттар', newLink: 'Жаңа сілтеме', block: 'Бұғаттау', unblock: 'Бұғатты алу' },
+      reissue: { title: 'Жаңа сілтеме шығару керек пе?', text: 'Ескісі жұмыс істемейді.', ok: 'Шығару' },
+      docs: {
+        title: 'Клиент құжаттары',
+        loadError: 'Құжаттарды жүктеу мүмкін болмады',
+        number: '{kind} № {number}/{year}',
+        clientSign: 'Клиент: {value}',
+        providerSign: 'AQNIET: {value}',
+        signed: '{date} · {method}',
+      },
+      inviteModal: {
+        emailPh: "client{'@'}company.kz",
+        emailInvalid: 'Дұрыс email енгізіңіз',
+        link: 'Шақыру сілтемесі',
+      },
+    },
   },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
   client: {

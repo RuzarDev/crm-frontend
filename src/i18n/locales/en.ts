@@ -729,6 +729,33 @@ export default {
         DTEG: 'Goods declaration (express cargo)',
       },
     },
+    clients: {
+      title: 'Clients',
+      inviteButton: 'Invite a client',
+      export: 'Export',
+      search: 'Company, email, login, BIN',
+      segmentsLabel: 'Client status',
+      tableLabel: 'Clients',
+      col: { company: 'Company', status: 'Status', docs: 'Documents', since: 'Client since' },
+      range: '{from}–{to} of {total}',
+      emptyHint: 'Invite your first client — they get a link and set their own password',
+      actionsLabel: 'Actions: {name}',
+      action: { documents: 'Documents', newLink: 'New link', block: 'Block', unblock: 'Unblock' },
+      reissue: { title: 'Issue a new link?', text: 'The old one will stop working.', ok: 'Issue' },
+      docs: {
+        title: 'Client documents',
+        loadError: 'Could not load documents',
+        number: '{kind} No. {number}/{year}',
+        clientSign: 'Client: {value}',
+        providerSign: 'AQNIET: {value}',
+        signed: '{date} · {method}',
+      },
+      inviteModal: {
+        emailPh: "client{'@'}company.kz",
+        emailInvalid: 'Enter a valid email',
+        link: 'Invitation link',
+      },
+    },
   },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
   client: {

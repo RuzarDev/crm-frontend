@@ -43,7 +43,9 @@ export interface InviteInfo {
 }
 
 export const clientsOnboardingApi = {
-  list: async (): Promise<ClientOnboardingRow[]> => (await apiClient.get<ClientOnboardingRow[]>('/clients/onboarding')).data,
+  // opts.silent — список «Клиентов» (редизайн) сам показывает ошибку на месте, без тоста перехватчика.
+  list: async (opts?: { silent?: boolean }): Promise<ClientOnboardingRow[]> =>
+    (await apiClient.get<ClientOnboardingRow[]>('/clients/onboarding', opts?.silent ? { silent: true } : undefined)).data,
   invite: async (data: InviteClientRequest): Promise<InviteClientResponse> =>
     (await apiClient.post<InviteClientResponse>('/clients/invite', data)).data,
   block: async (id: string) => { await apiClient.post(`/clients/${encodeURIComponent(id)}/block`) },

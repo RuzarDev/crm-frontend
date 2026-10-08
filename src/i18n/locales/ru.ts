@@ -733,6 +733,33 @@ export default {
         DTEG: 'Декларация на товары (экспресс-грузы)',
       },
     },
+    clients: {
+      title: 'Клиенты',
+      inviteButton: 'Пригласить клиента',
+      export: 'Выгрузить',
+      search: 'Компания, email, логин, БИН',
+      segmentsLabel: 'Статус клиента',
+      tableLabel: 'Клиенты',
+      col: { company: 'Компания', status: 'Статус', docs: 'Документы', since: 'С нами с' },
+      range: '{from}–{to} из {total}',
+      emptyHint: 'Пригласите первого клиента — он получит ссылку и сам задаст пароль',
+      actionsLabel: 'Действия: {name}',
+      action: { documents: 'Документы', newLink: 'Новая ссылка', block: 'Заблокировать', unblock: 'Разблокировать' },
+      reissue: { title: 'Выпустить новую ссылку?', text: 'Старая перестанет работать.', ok: 'Выпустить' },
+      docs: {
+        title: 'Документы клиента',
+        loadError: 'Не удалось загрузить документы',
+        number: '{kind} № {number}/{year}',
+        clientSign: 'Клиент: {value}',
+        providerSign: 'AQNIET: {value}',
+        signed: '{date} · {method}',
+      },
+      inviteModal: {
+        emailPh: "client{'@'}company.kz",
+        emailInvalid: 'Введите корректный email',
+        link: 'Ссылка-приглашение',
+      },
+    },
   },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
   client: {
