@@ -10,12 +10,15 @@ import type {
 } from '@/types/api'
 
 export const referencesApi = {
-  listStations: async (): Promise<RefItem[]> => (await apiClient.get('/ref/stations')).data,
+  // silent — страницы, где справочник лишь подсказка (запись транзита): сбой без тоста, поле остаётся свободным вводом.
+  listStations: async (opts?: { silent?: boolean }): Promise<RefItem[]> =>
+    (await apiClient.get('/ref/stations', opts?.silent ? { silent: true } : undefined)).data,
   createStation: async (name: string): Promise<RefItem> => (await apiClient.post('/ref/stations', { name })).data,
   updateStation: async (id: string, name: string, isActive: boolean): Promise<RefItem> =>
     (await apiClient.put(`/ref/stations/${id}`, { name, isActive })).data,
   deleteStation: async (id: string): Promise<void> => { await apiClient.delete(`/ref/stations/${id}`) },
-  listCustomsPosts: async (): Promise<RefItem[]> => (await apiClient.get('/ref/customs-posts')).data,
+  listCustomsPosts: async (opts?: { silent?: boolean }): Promise<RefItem[]> =>
+    (await apiClient.get('/ref/customs-posts', opts?.silent ? { silent: true } : undefined)).data,
   createCustomsPost: async (name: string): Promise<RefItem> => (await apiClient.post('/ref/customs-posts', { name })).data,
   updateCustomsPost: async (id: string, name: string, isActive: boolean): Promise<RefItem> =>
     (await apiClient.put(`/ref/customs-posts/${id}`, { name, isActive })).data,
@@ -30,10 +33,11 @@ export const referencesApi = {
     (await apiClient.put(`/ref/countries/${id}`, { code, name, isActive })).data,
   deleteCountry: async (id: string): Promise<void> => { await apiClient.delete(`/ref/countries/${id}`) },
 
-  listForeignCustomsOffices: async (): Promise<RefForeignCustomsOfficeDto[]> =>
-    (await apiClient.get('/ref/foreign-customs-offices')).data,
+  listForeignCustomsOffices: async (opts?: { silent?: boolean }): Promise<RefForeignCustomsOfficeDto[]> =>
+    (await apiClient.get('/ref/foreign-customs-offices', opts?.silent ? { silent: true } : undefined)).data,
 
-  listOkeiUnits: async (): Promise<RefCodeItem[]> => (await apiClient.get('/ref/okei-units')).data,
+  listOkeiUnits: async (opts?: { silent?: boolean }): Promise<RefCodeItem[]> =>
+    (await apiClient.get('/ref/okei-units', opts?.silent ? { silent: true } : undefined)).data,
   createOkeiUnit: async (code: string, name: string): Promise<RefCodeItem> =>
     (await apiClient.post('/ref/okei-units', { code, name })).data,
   updateOkeiUnit: async (id: string, code: string, name: string, isActive: boolean): Promise<RefCodeItem> =>
