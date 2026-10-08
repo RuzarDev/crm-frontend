@@ -586,12 +586,7 @@ const handleDateRangeChange = (range: [Dayjs, Dayjs] | [string, string] | null) 
 }
 
 const handleTableChange: TableProps['onChange'] = (pagination) => {
-  if (pagination.current) {
-    reestrStore.setPage(pagination.current)
-  }
-  if (pagination.pageSize) {
-    reestrStore.setPageSize(pagination.pageSize)
-  }
+  reestrStore.setPageAndSize(pagination.current ?? reestrStore.currentPage, pagination.pageSize ?? reestrStore.pageSize)
   selectedRowKeys.value = []
   reestrStore.fetchList()
 }

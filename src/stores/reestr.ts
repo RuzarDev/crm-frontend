@@ -157,6 +157,17 @@ export const useReestrStore = defineStore('reestr', () => {
     currentPage.value = 1
   }
 
+  // Смена страницы таблицы: событие пагинации несёт и страницу, и размер. Размер сбрасывает на первую
+  // страницу, только если действительно изменился — иначе переход на страницу N тут же возвращал на 1.
+  const setPageAndSize = (page: number, size: number) => {
+    if (size !== pageSize.value) {
+      pageSize.value = size
+      currentPage.value = 1
+      return
+    }
+    currentPage.value = page
+  }
+
   return {
     entries,
     loading,
@@ -181,5 +192,6 @@ export const useReestrStore = defineStore('reestr', () => {
     setSearch,
     setPage,
     setPageSize,
+    setPageAndSize,
   }
 })
