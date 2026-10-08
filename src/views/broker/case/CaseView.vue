@@ -13,6 +13,8 @@ import CaseBanners from './CaseBanners.vue'
 import CaseHeader from './CaseHeader.vue'
 import CaseSide from './CaseSide.vue'
 import CaseStepper from './CaseStepper.vue'
+import StepBorder from './steps/StepBorder.vue'
+import StepDraft from './steps/StepDraft.vue'
 import StepPlaceholder from './steps/StepPlaceholder.vue'
 import { casePerms, readinessAvailable } from './casePermissions'
 import { STEP_EXECUTOR, STEP_NUMBERS, isCancelled, stepStateOf, stepSummary, type StepNo } from './caseSteps'
@@ -22,14 +24,14 @@ import { useCaseActions } from './useCaseActions'
 
 // Карточка заявки сотрудника /import-40/:id (редизайн, волна 4а; доски Case и CaseSvh).
 // Шапка, полоса шагов, плашки; слева — текущий шаг и «Пройденные шаги», справа — команда, заявка, файлы, история.
-// Панели шагов — по контракту caseContext.ts; пока на всех шагах StepPlaceholder (Tasks 3–5 заменят).
+// Панели шагов — по контракту caseContext.ts; шаги 3–6 пока StepPlaceholder (Tasks 4–5 заменят).
 const { t, locale } = useI18n()
 const route = useRoute()
 const auth = useAuthStore()
 
 const STEP_COMPONENTS: Record<StepNo, Component> = {
-  1: StepPlaceholder,
-  2: StepPlaceholder,
+  1: StepDraft,
+  2: StepBorder,
   3: StepPlaceholder,
   4: StepPlaceholder,
   5: StepPlaceholder,

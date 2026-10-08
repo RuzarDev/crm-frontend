@@ -146,7 +146,7 @@ describe('CaseView: шапка и шаги', () => {
     expect(toggle.attributes('aria-expanded')).toBe('false')
     await toggle.trigger('click')
     expect(toggle.attributes('aria-expanded')).toBe('true')
-    expect(passed[1].get('[data-passed-body]').text()).toBe('пройдена')
+    expect(passed[1].get('[data-passed-body]').text()).toContain('Авто · 777 KTA 02')
   })
 
   it('отменённая: все шаги будущие, тег «Отменена», причина, без панели шага', async () => {

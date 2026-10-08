@@ -659,8 +659,8 @@ export interface Import40UpdateRequest {
 
 export interface Import40ContainerUpsertRequest {
   containerNumber: string
-  containerType?: string
-  notes?: string
+  containerType?: string | null
+  notes?: string | null
 }
 
 export interface ImportQuotePayload {
