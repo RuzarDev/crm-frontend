@@ -340,6 +340,47 @@ export function goodsTotals(goods: ReestrGoodsItemInput[]): GoodsTotals {
   }
 }
 
+type Obj = Record<string, unknown>
+const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
+
+/**
+ * Объект на месте: ключей, которых нет в src, не остаётся; порядок ключей — как в src (иначе JSON черновика,
+ * по которому считаются dirty и изменённые разделы, разошёлся бы со снимком при равных значениях).
+ */
+function assignObject(target: Obj, src: Obj) {
+  const tk = Object.keys(target)
+  const sk = Object.keys(src)
+  if (tk.length !== sk.length || tk.some((k, i) => k !== sk[i])) for (const k of tk) delete target[k]
+  for (const k of sk) target[k] = src[k]
+}
+
+/** Список на месте: строки по индексу (Object.assign с удалением лишних ключей), длина — push/splice. */
+function assignList(target: unknown[], src: unknown[]) {
+  const n = Math.min(target.length, src.length)
+  for (let i = 0; i < n; i++) {
+    const t = target[i]
+    const s = src[i]
+    if (isObj(t) && isObj(s)) assignObject(t, s)
+    else target[i] = s
+  }
+  if (target.length > src.length) target.splice(src.length)
+  else if (src.length > target.length) target.push(...src.slice(n))
+}
+
+/**
+ * Положить свежий черновик src в target на месте: те же объекты fields/transit, те же массивы и объекты строк.
+ * Разделы держат ключи строк в WeakMap по объекту — так после сохранения и перечитывания не сбрасываются
+ * развёрнутая карточка товара, «Ещё» в гр.44 и фокус в поле. src после вызова не использовать (его значения
+ * становятся частью target).
+ */
+export function assignDraft(target: RecordDraft, src: RecordDraft) {
+  assignObject(target.fields as Obj, src.fields as Obj)
+  target.sealNumber = src.sealNumber
+  target.packagingType = src.packagingType
+  assignObject(target.transit as unknown as Obj, src.transit as unknown as Obj)
+  for (const c of COLLECTION_KEYS) assignList(target[c], src[c])
+}
+
 /**
  * Трёхстороннее слияние при перечитывании записи с сервера: base — от чего шли правки (снимок или отправленный
  * черновик), mine — текущий черновик, theirs — свежая запись. Поля и списки, которые пользователь поменял

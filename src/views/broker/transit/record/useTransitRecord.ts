@@ -5,6 +5,7 @@ import type { ReestrEntry, ReestrTransitFields } from '@/types/api'
 import { message } from '@/ui/message'
 import { serverErrorText } from '@/utils/serverError'
 import {
+  assignDraft,
   changedSections,
   draftFromEntry,
   draftToEntry,
@@ -28,6 +29,8 @@ export interface TransitRecord {
   loadError: Ref<boolean>
   /** Перечитать (reload) не удалось: запись и правки на месте, сохранять нельзя до успешного повтора reload(). */
   reloadError: Ref<boolean>
+  /** Идёт перечитывание (после смены статуса, автозаполнения): сохранение его дождётся, страница считает это занятостью. */
+  reloading: Ref<boolean>
   saving: Ref<boolean>
   saveError: Ref<string | null>
   /** saveError — от проверки на месте (не заполнено, запись не загружена/устарела), а не ответ сервера. */
@@ -66,6 +69,11 @@ const TOTALS: [keyof GoodsTotals, keyof ReestrTransitFields][] = [
  * - reload(): новая точка отсчёта с сервера; несохранённые правки остаются поверх (mergeDrafts); успех снимает saveError.
  *   Сбой — reloadError: запись и правки остаются на экране, «Повторить» = снова reload(); сохранять нельзя,
  *   пока основа устарела (статус мог смениться). load() на той же записи с правками тоже идёт через reload().
+ * - save() во время reload() ждёт его: тело строится от свежей записи (иначе PUT вернул бы старый статус
+ *   поверх только что сменённого — итоговое ревью I1).
+ * - Свежая запись (reload, перечитывание после save, revert) кладётся в черновик на месте: те же массивы и объекты
+ *   строк (по индексу), чтобы ключи строк в разделах (WeakMap по объекту), развёрнутость и фокус не сбрасывались.
+ *   Открытие записи (load) — новые объекты.
  * - Сохранение, завершившееся после перехода на другую запись, состояние новой записи не трогает.
  * - Итоги «Основного» пересчитываются только при правке товаров: не при загрузке, revert и reload;
  *   пустой список и неизвестные суммы (null) их не трогают; пишется только изменившийся итог.
@@ -78,6 +86,7 @@ export function useTransitRecord(id: () => string): TransitRecord {
   const notFound = ref(false)
   const loadError = ref(false)
   const reloadError = ref(false)
+  const reloading = ref(false)
   const saving = ref(false)
   const saveError = ref<string | null>(null)
   const saveErrorLocal = ref(false)
@@ -92,9 +101,13 @@ export function useTransitRecord(id: () => string): TransitRecord {
   let loadGen = 0
   let snapSeq = 0
   let lastTotals = goodsTotals(draft.goods)
+  /** Идущий reload(): save() его дожидается. */
+  let pendingReload: Promise<void> | null = null
 
-  const setDraft = (d: RecordDraft) => {
-    Object.assign(draft, d)
+  /** Черновик целиком (открытие записи) или на месте — те же объекты строк (перечитывание, «Отменить»). */
+  const setDraft = (d: RecordDraft, inPlace = false) => {
+    if (inPlace) assignDraft(draft, d)
+    else Object.assign(draft, d)
     lastTotals = goodsTotals(draft.goods) // замена товаров — не правка: итоги не пересчитываются
   }
 
@@ -126,7 +139,7 @@ export function useTransitRecord(id: () => string): TransitRecord {
       return
     }
     const merged = mergeDrafts(base, plain(draft), theirs)
-    setDraft(merged)
+    setDraft(merged, true)
     // Снимок сразу (разделы уже смонтированы); если разделы что-то нормализуют при монтировании,
     // плашка может назвать лишний раздел — dirty здесь и так true.
     const theirsJson = JSON.stringify(theirs)
@@ -139,6 +152,9 @@ export function useTransitRecord(id: () => string): TransitRecord {
     if (target && target === loadedId && dirty.value) return reload()
     const my = ++seq
     loadGen++
+    // Перечитывание прежней записи больше не нужно: его ответ отбросит seq, ждать его нечего.
+    pendingReload = null
+    reloading.value = false
     loadedId = null
     entry.value = null
     clientId.value = null
@@ -173,19 +189,45 @@ export function useTransitRecord(id: () => string): TransitRecord {
     if (!target) return
     const base = snapshotDraft.value ?? plain(draft)
     const my = ++seq
+    const run = (async () => {
+      try {
+        const fresh = await reestrApi.getById(target, { silent: true })
+        if (my !== seq) return
+        apply(fresh, base)
+      } catch (e) {
+        if (my !== seq) return
+        if (isNotFound(e)) notFound.value = true
+        else reloadError.value = true
+      }
+    })()
+    pendingReload = run
+    reloading.value = true
     try {
-      const fresh = await reestrApi.getById(target, { silent: true })
-      if (my !== seq) return
-      apply(fresh, base)
-    } catch (e) {
-      if (my !== seq) return
-      if (isNotFound(e)) notFound.value = true
-      else reloadError.value = true
+      await run
+    } finally {
+      if (pendingReload === run) {
+        pendingReload = null
+        reloading.value = false
+      }
     }
+  }
+
+  /** Дождаться перечитывания (и следующего, если начали новое). false — пока ждали, открыли другую запись. */
+  const waitReload = async (): Promise<boolean> => {
+    const gen = loadGen
+    saving.value = true // плашка и повторное нажатие видят занятость
+    try {
+      while (pendingReload) await pendingReload
+    } finally {
+      saving.value = false
+    }
+    return gen === loadGen
   }
 
   const save = async (): Promise<string | null> => {
     if (saving.value) return null
+    // Перечитывание (смена статуса) ещё идёт: entry — старая запись, PUT вернул бы прежний статус (I1).
+    if (pendingReload && !(await waitReload())) return null
     const base = entry.value
     // Без загруженной записи создавать можно только на /reestr/new (иначе сбой загрузки дал бы дубль).
     if (notFound.value || loadError.value || (!base && id() !== NEW_RECORD_ID)) {
@@ -255,7 +297,7 @@ export function useTransitRecord(id: () => string): TransitRecord {
 
   const revert = () => {
     const snap = snapshotDraft.value
-    if (snap) setDraft(structuredClone(snap))
+    if (snap) setDraft(structuredClone(snap), true)
   }
 
   const draftJson = computed(() => JSON.stringify(draft))
@@ -288,5 +330,5 @@ export function useTransitRecord(id: () => string): TransitRecord {
     void load()
   }, { immediate: true })
 
-  return { entry, draft, clientId, loading, notFound, loadError, reloadError, saving, saveError, saveErrorLocal, draftJson, dirty, changed, load, save, revert, reload }
+  return { entry, draft, clientId, loading, notFound, loadError, reloadError, reloading, saving, saveError, saveErrorLocal, draftJson, dirty, changed, load, save, revert, reload }
 }

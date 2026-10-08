@@ -476,3 +476,175 @@ describe('useTransitRecord — сохранение', () => {
     expect(api.update).toHaveBeenCalledWith('new-id', expect.objectContaining({ rowNumber: '5', cargoDescription: 'x', clientId: 'c7' }))
   })
 })
+
+describe('useTransitRecord — смена статуса и сохранение (итоговое ревью I1)', () => {
+  it('сохранение во время перечитывания ждёт его: PUT уходит со свежим статусом, правки на месте', async () => {
+    const { r } = start()
+    await settle()
+    r.draft.fields['Груз'] = 'моя правка'
+    const get = deferred<ReestrEntry>()
+    api.getById.mockImplementationOnce(() => get.promise)
+    const reloading = r.reload()
+    expect(r.reloading.value).toBe(true)
+    const saving = r.save()
+    await flushPromises()
+    expect(api.update).not.toHaveBeenCalled()
+    expect(r.saving.value).toBe(true)
+    stored.r1 = fullEntry({ status: 2 })
+    get.resolve(structuredClone(stored.r1))
+    await reloading
+    expect(await saving).toBe('r1')
+    expect(api.update).toHaveBeenCalledTimes(1)
+    expect(api.update.mock.calls[0][1]).toMatchObject({ status: 2, cargoDescription: 'моя правка' })
+    expect(r.reloading.value).toBe(false)
+    expect(r.saving.value).toBe(false)
+  })
+
+  it('перечитывание во время ожидания не удалось — сохранение отказывает (основа устарела), PUT не уходит', async () => {
+    const { r } = start()
+    await settle()
+    r.draft.fields['Груз'] = 'моя правка'
+    const get = deferred<ReestrEntry>()
+    api.getById.mockImplementationOnce(() => get.promise)
+    void r.reload()
+    const saving = r.save()
+    get.reject(httpError(500))
+    expect(await saving).toBeNull()
+    expect(api.update).not.toHaveBeenCalled()
+    expect(r.reloadError.value).toBe(true)
+    expect(r.saveError.value).toContain('Не удалось обновить запись')
+    expect(r.reloading.value).toBe(false)
+  })
+
+  it('перечитывание, начатое во время сохранения: флаг снимается, итог — с сервера после PUT', async () => {
+    const { r } = start()
+    await settle()
+    r.draft.fields['Груз'] = 'моя правка'
+    const put = deferred<void>()
+    api.update.mockImplementationOnce(async (_id: string, body) => {
+      await put.promise
+      stored.r1 = fullEntry({ status: 2, data: { ...fullEntry().data, 'Груз': body.cargoDescription } })
+    })
+    const saving = r.save()
+    const reloading = r.reload()
+    expect(r.reloading.value).toBe(true)
+    await reloading
+    expect(r.reloading.value).toBe(false)
+    put.resolve()
+    expect(await saving).toBe('r1')
+    await nextTick()
+    expect(r.entry.value?.status).toBe(2)
+    expect(r.draft.fields['Груз']).toBe('моя правка')
+    expect(r.dirty.value).toBe(false)
+  })
+
+  it('перечитывание после смены id не держит сохранение: оно ничего не шлёт для новой записи', async () => {
+    const { r, idRef } = start()
+    await settle()
+    r.draft.fields['Груз'] = 'моя правка'
+    const get = deferred<ReestrEntry>()
+    api.getById.mockImplementationOnce(() => get.promise)
+    void r.reload()
+    const saving = r.save()
+    idRef.value = 'r2'
+    await settle()
+    get.resolve(structuredClone(stored.r1))
+    expect(await saving).toBeNull()
+    expect(api.update).not.toHaveBeenCalled()
+    expect(r.entry.value?.id).toBe('r2')
+    expect(r.saving.value).toBe(false)
+  })
+})
+
+describe('useTransitRecord — строки остаются теми же объектами (итоговое ревью T4)', () => {
+  it('после сохранения: те же массивы и объекты строк; значения — с сервера; правок нет', async () => {
+    const { r } = start()
+    await settle()
+    const goods = r.draft.goods
+    const [g0, g1] = r.draft.goods
+    const org0 = r.draft.organizations[0]
+    const doc0 = r.draft.doc44[0]
+    const fields = r.draft.fields
+    r.draft.goods[1].description = 'Блоки питания 65 Вт'
+    api.update.mockImplementationOnce(async (_id: string, body) => {
+      stored.r1 = fullEntry({ goods: body.goodsItems, organizations: [{ ...fullEntry().organizations[0], name: 'ТОО БРОКЕР' }] })
+    })
+    expect(await r.save()).toBe('r1')
+    await nextTick()
+    expect(r.draft.goods).toBe(goods)
+    expect(r.draft.goods[0]).toBe(g0)
+    expect(r.draft.goods[1]).toBe(g1)
+    expect(r.draft.organizations[0]).toBe(org0)
+    expect(r.draft.organizations[0].name).toBe('ТОО БРОКЕР')
+    expect(r.draft.doc44[0]).toBe(doc0)
+    expect(r.draft.fields).toBe(fields)
+    expect(r.draft.goods[1].description).toBe('Блоки питания 65 Вт')
+    expect(r.dirty.value).toBe(false)
+  })
+
+  it('reload: длина списков меняется push/splice, старые поля с переиспользованных строк удаляются', async () => {
+    // У строки с сервера было поле, которого в свежем ответе нет (например, старое tnvedInvalid).
+    stored.r1 = fullEntry({ goods: [{ ...fullEntry().goods[0], tnvedInvalid: true } as never, fullEntry().goods[1]] })
+    const { r } = start()
+    await settle()
+    const g0 = r.draft.goods[0]
+    expect('tnvedInvalid' in g0).toBe(true)
+    const containers = r.draft.containers
+    stored.r1 = fullEntry({
+      goods: [fullEntry().goods[1]],
+      containers: [...fullEntry().containers, { containerNumber: 'MSKU1234567', note: null }],
+    })
+    await r.reload()
+    await nextTick()
+    expect(r.draft.goods).toHaveLength(1)
+    expect(r.draft.goods[0]).toBe(g0)
+    expect(r.draft.goods[0]).toEqual(fullEntry().goods[1])
+    expect('tnvedInvalid' in r.draft.goods[0]).toBe(false)
+    expect(r.draft.containers).toBe(containers)
+    expect(r.draft.containers).toHaveLength(2)
+    expect(r.draft.containers[1]).toEqual({ containerNumber: 'MSKU1234567', note: null })
+    expect(r.dirty.value).toBe(false)
+  })
+
+  it('порядок полей строки — как у сервера: правка в другом разделе не помечает этот раздел изменённым', async () => {
+    const { r } = start()
+    await settle()
+    // Строка, добавленная на странице, с другим порядком ключей, чем отдаёт сервер.
+    r.draft.containers.push({ note: null, containerNumber: 'MSKU1234567' } as never)
+    const added = r.draft.containers[1]
+    api.update.mockImplementationOnce(async (_id: string, body) => {
+      await Promise.resolve()
+      stored.r1 = fullEntry({ containers: body.containers })
+    })
+    const saving = r.save()
+    r.draft.fields['Подкод'] = 'введено во время сохранения'
+    await saving
+    await nextTick()
+    expect(r.draft.containers[1]).toBe(added)
+    expect(Object.keys(r.draft.containers[1])).toEqual(Object.keys(stored.r1.containers[1]))
+    expect(r.changed.value).toEqual(['row'])
+  })
+
+  it('«Отменить» тоже сохраняет объекты строк и возвращает значения и состав', async () => {
+    const { r } = start()
+    await settle()
+    const g0 = r.draft.goods[0]
+    r.draft.goods[0].description = 'правка'
+    r.draft.goods.splice(1, 1)
+    r.revert()
+    await nextTick()
+    expect(r.draft.goods[0]).toBe(g0)
+    expect(r.draft.goods[0].description).toBe('Ноутбуки')
+    expect(r.draft.goods).toHaveLength(2)
+    expect(r.dirty.value).toBe(false)
+  })
+
+  it('открытие другой записи — новые объекты (раздел товаров разворачивает первую карточку заново)', async () => {
+    const { r, idRef } = start()
+    await settle()
+    const goods = r.draft.goods
+    idRef.value = 'r2'
+    await settle()
+    expect(r.draft.goods).not.toBe(goods)
+  })
+})

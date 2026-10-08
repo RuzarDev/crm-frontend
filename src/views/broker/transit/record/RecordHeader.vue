@@ -19,6 +19,8 @@ const props = defineProps<{
   clientTo: string | null
   fromMyDocuments: boolean
   canChangeStatus: boolean
+  /** «Сменить статус» видна, но выключена: идёт сохранение или перечитывание (PUT не должен обогнать PATCH статуса). */
+  statusDisabled?: boolean
   canDelete: boolean
 }>()
 const emit = defineEmits<{ status: []; delete: [] }>()
@@ -110,6 +112,7 @@ const metaItem = 'inline-flex min-w-0 items-center gap-1.5'
         <ZButton
           v-if="canChangeStatus"
           class="border border-line-strong bg-surface enabled:hover:bg-sunken max-sm:h-11"
+          :disabled="statusDisabled"
           data-record-change-status
           @click="emit('status')"
         >{{ t('transit.smenitStatus') }}</ZButton>

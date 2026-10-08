@@ -61,7 +61,7 @@ watch(() => (route.name === RECORD_ROUTE ? route.params.id : undefined), (v) => 
 let alive = true
 
 const rec = useTransitRecord(() => id.value)
-const { entry, draft, clientId, loading, notFound, loadError, reloadError, saving, saveError, saveErrorLocal, dirty, changed } = rec
+const { entry, draft, clientId, loading, notFound, loadError, reloadError, reloading, saving, saveError, saveErrorLocal, dirty, changed } = rec
 
 const isNew = computed(() => id.value === NEW_RECORD_ID && !entry.value)
 const canEdit = computed(() => perms.canEditData())
@@ -137,8 +137,10 @@ const historyKey = ref(0)
 
 // ---- Сохранение ----
 const showSaveBar = computed(() => canEdit.value && (dirty.value || isNew.value || saving.value))
+// Занято: загрузка, сохранение или перечитывание (после смены статуса entry ещё старая — PUT вернул бы прежний статус).
+const busy = computed(() => loading.value || saving.value || reloading.value)
 const onSave = async () => {
-  if (!canEdit.value || saving.value || loading.value) return
+  if (!canEdit.value || busy.value) return
   const startedOn = id.value
   const savedId = await rec.save()
   // Новая создана, а пользователь всё ещё на /reestr/new (сейчас, а не когда начинал) — адрес записи.
@@ -266,6 +268,7 @@ const deprecation = computed(() => entry.value?.deprecationWarning ?? null)
         :client-to="clientTo"
         :from-my-documents="fromMyDocuments"
         :can-change-status="!!entry && auth.hasPermission('status.change')"
+        :status-disabled="saving || reloading"
         :can-delete="!!entry && auth.hasPermission('reestr.delete')"
         @status="statusOpen = true"
         @delete="onDelete"
@@ -363,7 +366,7 @@ const deprecation = computed(() => entry.value?.deprecationWarning ?? null)
         :changed="changed"
         :is-new="isNew"
         :saving="saving"
-        :disabled="loading || saving"
+        :disabled="busy"
         @cancel="onCancel"
         @save="onSave"
       />
