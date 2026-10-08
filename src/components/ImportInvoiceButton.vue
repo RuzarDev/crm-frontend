@@ -53,6 +53,8 @@ import ExtractionReviewModal from '@/components/ExtractionReviewModal.vue'
 const { t } = useI18n()
 
 const IMPORT_PLACEHOLDER = t('transit.importIzInvoysa')
+/** Ключ данных реестра — не переводится (в entry.data он всегда по-русски). */
+const CARGO_KEY = 'Груз'
 
 interface Props {
   clientOptions: { value: string; label: string }[]
@@ -166,7 +168,7 @@ const onApplied = async (count: number) => {
 const clearPlaceholderCargoDescription = async () => {
   try {
     const entry = await reestrApi.getById(draftEntryId.value)
-    if (entry.data[t('transit.gruz')] === IMPORT_PLACEHOLDER) {
+    if (entry.data[CARGO_KEY] === IMPORT_PLACEHOLDER) {
       const body = reestrEntryToUpsertBody(entry)
       body.cargoDescription = null
       await reestrApi.update(draftEntryId.value, body)
