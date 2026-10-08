@@ -1,62 +1,25 @@
-import type { Import40CaseDto } from '@/api/import40'
+import type { ClientShipment } from '@/api/clientShipments'
 import type { BrokerInvoice } from '@/api/billing'
-import { isCompleted } from '@/utils/import40Steps'
+import { askFor, type AskKind } from '@/views/client/shipment'
 import { greetingName } from '@/views/home/greeting'
 
 // Расчёты «Главной» клиента (макет Client.dc): что нужно от клиента, поставки в работе, счёт к оплате.
+// Чей ход и тег поставки — общие правила views/client/shipment.ts.
 
-const CANCELLED = 9
-const DRAFT = 0
-const INVOICED = 6
-const PAID = 7
+const ASK_ORDER: Record<AskKind, number> = { problem: 0, returned: 1, paySvh: 2, draft: 3 }
+const updatedDesc = (a: ClientShipment, b: ClientShipment) => Date.parse(b.updatedAtUtc) - Date.parse(a.updatedAtUtc)
 
-export type ClientAskKind = 'problem' | 'draft' | 'payCheck'
-export interface ClientAsk {
-  kind: ClientAskKind
-  caseId: string
-  number: string
-  cargo: string
-  message: string
-}
-
-/**
- * Ход за клиентом — те же три случая, что считает сервер в «Нужно ваше действие» (GetImport40Dashboard):
- * проблема, черновик (не отправлен или возвращён), счёт СВХ ждёт чека. Закрытые заявки — без вопросов.
- */
-export function clientAskFor(c: Import40CaseDto): ClientAsk | null {
-  if (isCompleted(c.status)) return null
-  const base = { caseId: c.id, number: c.number, cargo: c.cargo }
-  if (c.isProblem) return { ...base, kind: 'problem', message: c.problemClientMessage ?? '' }
-  if (c.status === DRAFT) return { ...base, kind: 'draft', message: c.returnReason ?? '' }
-  if (c.status === INVOICED) return { ...base, kind: 'payCheck', message: '' }
-  return null
-}
-
-const ASK_ORDER: Record<ClientAskKind, number> = { problem: 0, payCheck: 1, draft: 2 }
-const updatedDesc = (a: Import40CaseDto, b: Import40CaseDto) => Date.parse(b.updatedAtUtc) - Date.parse(a.updatedAtUtc)
-
-/** Все вопросы к клиенту: сначала проблемы, потом оплата склада, потом черновики; внутри — свежие сверху. */
-export function clientAsks(cases: Import40CaseDto[]): ClientAsk[] {
-  return [...cases]
+/** Поставки, где ход за клиентом: проблемы, возвраты, оплата склада, черновики; внутри — свежие сверху. */
+export function clientAsks(list: ClientShipment[]): ClientShipment[] {
+  return list
+    .filter((s) => askFor(s))
     .sort(updatedDesc)
-    .map(clientAskFor)
-    .filter((a): a is ClientAsk => !!a)
-    .sort((a, b) => ASK_ORDER[a.kind] - ASK_ORDER[b.kind])
+    .sort((a, b) => ASK_ORDER[askFor(a)!] - ASK_ORDER[askFor(b)!])
 }
 
 /** Поставки в работе: не выполненные и не отменённые, последние изменения сверху. */
-export const activeShipments = (cases: Import40CaseDto[]): Import40CaseDto[] =>
-  cases.filter((c) => !isCompleted(c.status) && c.status !== CANCELLED).sort(updatedDesc)
-
-export type ShipmentTone = 'info' | 'wait' | 'done' | 'danger' | 'pay'
-
-/** Цвет статуса на карточке поставки: проблема, ждёт клиента, оплата, выпущено, в работе. */
-export const shipmentTone = (c: Import40CaseDto): ShipmentTone =>
-  c.isProblem ? 'danger'
-  : c.status === DRAFT ? 'wait'
-  : c.status === INVOICED || c.status === PAID ? 'pay'
-  : c.status >= 4 ? 'done'
-  : 'info'
+export const activeShipments = (list: ClientShipment[]): ClientShipment[] =>
+  list.filter((s) => s.status < 8).sort(updatedDesc)
 
 const issuedTime = (i: BrokerInvoice) => Date.parse(i.issuedAtUtc ?? i.createdAtUtc)
 

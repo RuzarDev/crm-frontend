@@ -295,7 +295,7 @@ const inputClass = computed(() => cn(
             :title="o.label"
             :class="listItem"
           >
-            <span class="min-w-0 flex-1 truncate">{{ o.label }}</span>
+            <span class="min-w-0 flex-1 truncate"><slot name="option" :option="o">{{ o.label }}</slot></span>
             <ComboboxItemIndicator class="ml-auto flex text-zircon-ink"><PhCheck :size="14" weight="bold" /></ComboboxItemIndicator>
           </ComboboxItem>
         </ComboboxViewport>

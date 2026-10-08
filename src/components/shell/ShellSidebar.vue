@@ -10,7 +10,7 @@ import { resolveActive, sectionHref, type NavModel, type NavSection } from '@/sh
 import { cn } from '@/ui/cn'
 
 // Боковое меню оболочки (брокер и клиент). Активный раздел решает resolveActive по пути, а не RouterLink:
-// у RouterLink своё aria-current по точному совпадению (без query) — действие «?new=1» подсвечивалось бы,
+// у RouterLink своё aria-current по точному совпадению — действие «Оформить поставку» в мастере подсвечивалось бы,
 // а раздел на вложенной странице — нет. Поэтому RouterLink в режиме custom, <a> рисуем сами.
 const props = withDefaults(defineProps<{
   model: NavModel

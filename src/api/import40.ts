@@ -595,6 +595,9 @@ export interface Import40FileDto {
   // ФИО сотрудника, если он загрузил файл за клиента (например, чек оплаты — задача 2.3).
   // null, если загрузил сам клиент.
   uploadedByStaffName?: string | null
+  // Вид документа из чек-листа (раздел documents): invoice | transport | packing | contract |
+  // origin | conformity | permit | other. null — вид не указан.
+  docKind?: string | null
 }
 
 // Счёт AQNIET (BrokerInvoice) в карточке заявки — шаг 6 (задача 2.3).
@@ -828,8 +831,9 @@ export const import40Api = {
     return response.data.items
   },
 
-  get: async (id: string): Promise<Import40CaseDto> => {
-    const response = await apiClient.get<Import40CaseDto>(`/import40/${encodeURIComponent(id)}`)
+  // silent — экран сам рисует «не найдена»/«повторить» (карточка поставки клиента), без тоста перехватчика.
+  get: async (id: string, opts?: { silent?: boolean }): Promise<Import40CaseDto> => {
+    const response = await apiClient.get<Import40CaseDto>(`/import40/${encodeURIComponent(id)}`, opts?.silent ? { silent: true } : undefined)
     return response.data
   },
 
@@ -838,8 +842,9 @@ export const import40Api = {
     return response.data
   },
 
-  update: async (id: string, data: Import40UpdateRequest): Promise<Import40CaseDto> => {
-    const response = await apiClient.put<Import40CaseDto>(`/import40/${encodeURIComponent(id)}`, data)
+  // silent — автосохранение мастера клиента: ошибку показывает сам экран (статус в шапке), без тоста на каждый сбой.
+  update: async (id: string, data: Import40UpdateRequest, opts?: { silent?: boolean }): Promise<Import40CaseDto> => {
+    const response = await apiClient.put<Import40CaseDto>(`/import40/${encodeURIComponent(id)}`, data, opts?.silent ? { silent: true } : undefined)
     return response.data
   },
 
@@ -859,10 +864,12 @@ export const import40Api = {
   addContainer: async (
     id: string,
     data: Import40ContainerUpsertRequest,
+    opts?: { silent?: boolean },
   ): Promise<Import40CaseDto> => {
     const response = await apiClient.post<Import40CaseDto>(
       `/import40/${encodeURIComponent(id)}/containers`,
       data,
+      opts?.silent ? { silent: true } : undefined,
     )
     return response.data
   },
@@ -871,17 +878,20 @@ export const import40Api = {
     id: string,
     containerId: string,
     data: Import40ContainerUpsertRequest,
+    opts?: { silent?: boolean },
   ): Promise<Import40CaseDto> => {
     const response = await apiClient.put<Import40CaseDto>(
       `/import40/${encodeURIComponent(id)}/containers/${encodeURIComponent(containerId)}`,
       data,
+      opts?.silent ? { silent: true } : undefined,
     )
     return response.data
   },
 
-  deleteContainer: async (id: string, containerId: string): Promise<Import40CaseDto> => {
+  deleteContainer: async (id: string, containerId: string, opts?: { silent?: boolean }): Promise<Import40CaseDto> => {
     const response = await apiClient.delete<Import40CaseDto>(
       `/import40/${encodeURIComponent(id)}/containers/${encodeURIComponent(containerId)}`,
+      opts?.silent ? { silent: true } : undefined,
     )
     return response.data
   },
@@ -1050,17 +1060,19 @@ export const import40Api = {
     return response.data
   },
 
-  listFiles: async (id: string): Promise<Import40FileDto[]> => {
+  listFiles: async (id: string, opts?: { silent?: boolean }): Promise<Import40FileDto[]> => {
     const response = await apiClient.get<Import40FileDto[]>(
       `/import40/${encodeURIComponent(id)}/files`,
+      opts?.silent ? { silent: true } : undefined,
     )
     return response.data
   },
 
   // Счета AQNIET по заявке — шаг 6 (задача 2.3).
-  listBrokerInvoices: async (id: string): Promise<Import40CaseInvoiceDto[]> => {
+  listBrokerInvoices: async (id: string, opts?: { silent?: boolean }): Promise<Import40CaseInvoiceDto[]> => {
     const response = await apiClient.get<Import40CaseInvoiceDto[]>(
       `/import40/${encodeURIComponent(id)}/broker-invoices`,
+      opts?.silent ? { silent: true } : undefined,
     )
     return response.data
   },
@@ -1069,6 +1081,9 @@ export const import40Api = {
     id: string,
     section: Import40FileSection,
     file: File,
+    kind?: string,
+    // silent — экран сам показывает ошибку загрузки (строка чек-листа мастера), без общего тоста.
+    opts?: { silent?: boolean },
   ): Promise<Import40FileDto> => {
     const formData = new FormData()
     formData.append('file', file)
@@ -1076,8 +1091,9 @@ export const import40Api = {
       `/import40/${encodeURIComponent(id)}/files`,
       formData,
       {
-        params: { section },
+        params: kind ? { section, kind } : { section },
         headers: { 'Content-Type': 'multipart/form-data' },
+        ...(opts?.silent ? { silent: true } : {}),
       },
     )
     return response.data

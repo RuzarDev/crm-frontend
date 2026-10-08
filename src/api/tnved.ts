@@ -45,7 +45,7 @@ export const tnvedApi = {
 
 
   classify: (description: string, limit = 10) =>
-    apiClient.post<TnvedClassifyResponse>('/tnved/classify', { description, limit }),
+    apiClient.get<TnvedClassifyResponse>('/tnved/classify', { params: { description, limit } }),
 
   // ── Notes / explanations ────────────────────────────────────────────────────
   notes: (code: string) =>

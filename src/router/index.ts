@@ -85,7 +85,8 @@ const router = createRouter({
         {
           path: '/import-40',
           name: 'import-40',
-          component: () => import('@/views/Import40ListView.vue'),
+          // Клиенту — «Мои поставки», сотруднику — список заявок (выбор по роли внутри обёртки).
+          component: () => import('@/views/Import40Route.vue'),
           meta: { requiresImport40: true },
         },
         {
@@ -95,9 +96,23 @@ const router = createRouter({
           meta: { requiresImport40: true },
         },
         {
+          // Мастер «Оформить поставку» клиента (редизайн, волна 2a): новая и черновик.
+          // Объявлены до /import-40/:id, чтобы «new» не читался как номер поставки.
+          path: '/import-40/new',
+          name: 'client-wizard',
+          component: () => import('@/views/client/ClientWizardView.vue'),
+          meta: { requiresImport40: true, requiresRole: 'client' },
+        },
+        {
+          path: '/import-40/new/:id',
+          name: 'client-wizard-draft',
+          component: () => import('@/views/client/ClientWizardView.vue'),
+          meta: { requiresImport40: true, requiresRole: 'client' },
+        },
+        {
           path: '/import-40/:id',
           name: 'import-40-detail',
-          component: () => import('@/views/Import40CaseView.vue'),
+          component: () => import('@/views/Import40CaseRoute.vue'),
           meta: { requiresImport40: true },
         },
         {

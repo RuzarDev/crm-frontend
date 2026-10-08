@@ -21,7 +21,9 @@ export const referencesApi = {
     (await apiClient.put(`/ref/customs-posts/${id}`, { name, isActive })).data,
   deleteCustomsPost: async (id: string): Promise<void> => { await apiClient.delete(`/ref/customs-posts/${id}`) },
 
-  listCountries: async (): Promise<RefCodeItem[]> => (await apiClient.get('/ref/countries')).data,
+  // silent — экраны, где страна лишь подпись (карточка поставки клиента), без тоста при сбое.
+  listCountries: async (opts?: { silent?: boolean }): Promise<RefCodeItem[]> =>
+    (await apiClient.get('/ref/countries', opts?.silent ? { silent: true } : undefined)).data,
   createCountry: async (code: string, name: string): Promise<RefCodeItem> =>
     (await apiClient.post('/ref/countries', { code, name })).data,
   updateCountry: async (id: string, code: string, name: string, isActive: boolean): Promise<RefCodeItem> =>
