@@ -12,7 +12,7 @@ export const DOC_KINDS: DocKind[] = ['all', 'contract', 'poa']
 export const DOC_STATES: DocState[] = ['all', 'active', 'expiring', 'awaiting', 'aqniet']
 
 /** Договор: клиент подписал, AQNIET — нет (договор не отозван и не истёк). */
-export const needsAqniet = (r: ClientDocumentRow): boolean => r.kind === 'contract' && r.status === 1 && r.clientSigned && !r.providerSigned
+export const needsAqniet = (r: Pick<ClientDocumentRow, 'kind' | 'status' | 'clientSigned' | 'providerSigned'>): boolean => r.kind === 'contract' && r.status === 1 && r.clientSigned && !r.providerSigned
 
 const inState = (r: ClientDocumentRow, state: DocState): boolean => {
   switch (state) {
@@ -69,7 +69,7 @@ export interface Validity {
  * «осталось 84 дн.» / «просрочен 7 дн.» (срок прошёл; статус при этом сервер сам не меняет);
  * «без срока» — только у действующего документа без даты: у черновика и ждущего подписи срока ещё нет.
  */
-export function validity(r: ClientDocumentRow): Validity {
+export function validity(r: Pick<ClientDocumentRow, 'status' | 'validUntilUtc' | 'daysLeft' | 'expiringSoon'>): Validity {
   if (!r.validUntilUtc) return { date: '—', hint: r.status === 2 ? { kind: 'unlimited', n: 0, soon: false } : null }
   const date = formatDay(r.validUntilUtc)
   if (r.daysLeft === null) return { date, hint: null }

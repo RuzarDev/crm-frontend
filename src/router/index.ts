@@ -197,7 +197,7 @@ const router = createRouter({
         {
           path: '/clients/:id',
           name: 'client-card',
-          component: () => import('@/views/ClientCardView.vue'),
+          component: () => import('@/views/broker/clients/ClientCardPage.vue'),
           meta: { requiresPermission: 'clients.read' },
         },
         {

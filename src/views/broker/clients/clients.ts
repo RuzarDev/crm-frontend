@@ -71,7 +71,7 @@ export const blankFileName = (kindLabel: string, doc: Pick<Import40DocumentDto, 
   `${kindLabel}-${doc.number}-${doc.year}.docx`
 
 /** «до 14.10» для приглашённых: дата или «ссылка истекла». */
-export const inviteUntil = (c: ClientOnboardingRow, now: number = Date.now()): { expired: boolean; date: string } | null =>
+export const inviteUntil = (c: Pick<ClientOnboardingRow, 'status' | 'inviteExpiresAtUtc'>, now: number = Date.now()): { expired: boolean; date: string } | null =>
   c.status === 'Invited' && c.inviteExpiresAtUtc
     ? { expired: isInviteExpired(c.inviteExpiresAtUtc, now), date: formatDay(c.inviteExpiresAtUtc) }
     : null
