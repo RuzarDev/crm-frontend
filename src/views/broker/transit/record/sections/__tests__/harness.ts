@@ -50,3 +50,9 @@ export const ComboStub = {
 }
 
 export const newDraft = (): RecordDraft => reactive(draftFromEntry(fullEntry())) as RecordDraft
+
+/** Черновик без повторяющихся строк (разделы КЕДЕН добавляют их сами). */
+export const emptyDraft = (): RecordDraft => reactive(draftFromEntry(fullEntry({
+  organizations: [], carriers: [], transportMeans: [], identificationMeans: [], packages: [], containers: [], precedingDocs: [],
+  cargoOperations: [], guarantees: [],
+}))) as RecordDraft

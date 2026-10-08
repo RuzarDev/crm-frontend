@@ -9,8 +9,8 @@ import ZNumber from '@/components/z/ZNumber.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZSwitch from '@/components/z/ZSwitch.vue'
 import type { ReestrTransitFields } from '@/types/api'
-import type { ZOption } from '@/ui/options'
 import { POST_KEY, type RecordDraft } from '../recordModel'
+import { useLocalOptions } from './localOptions'
 import RecordSection from './RecordSection.vue'
 import { departureOfficeTooLong, departureOfficeValue, useRecordRefs } from './refs'
 import { boxCtl, ctl, grid, str } from './ui'
@@ -40,8 +40,7 @@ const usedOptions = computed(() => refs.classifierOptions('used-as-declaration')
 const modeOptions = computed(() => refs.classifierOptions('transport-mode'))
 const docTypeOptions = computed(() => refs.classifierOptions('2009'))
 
-const CURRENCIES = ['USD', 'EUR', 'CNY', 'KZT', 'RUB', 'GBP', 'CHF', 'JPY', 'AED', 'TRY']
-const currencyOptions = computed<ZOption[]>(() => CURRENCIES.map((c) => ({ value: c, label: `${c} — ${t(`broker.transitRecord.main.currency.${c}`)}` })))
+const { currencies: currencyOptions } = useLocalOptions()
 
 // Выбор поста: в черновик — код поста (или короткое название без кода); ошибка — по значению в черновике.
 const onOffice = (v: unknown) => {
