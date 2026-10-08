@@ -18,6 +18,13 @@ export interface BrokerInvoiceLine {
   amount: number
 }
 
+export interface PaymentCheckFile {
+  id: string
+  fileName: string
+  sizeBytes: number
+  createdAtUtc: string
+}
+
 export interface BrokerInvoice {
   id: string
   clientId: string
@@ -38,6 +45,8 @@ export interface BrokerInvoice {
   note: string
   createdAtUtc: string
   lines: BrokerInvoiceLine[]
+  /** Чеки оплаты, загруженные клиентом (бэк: payment-check). */
+  paymentChecks: PaymentCheckFile[]
 }
 
 export interface BrokerInvoiceUpsert {
@@ -67,6 +76,17 @@ export interface OrganizationSettings {
   vatPayer: boolean
   vatRate: number
   updatedAtUtc: string | null
+}
+
+/** Реквизиты организации для клиента: куда платить (GET /billing/requisites). */
+export interface BillingRequisites {
+  companyName: string
+  shortName: string
+  bin: string
+  bank: string
+  iik: string
+  bik: string
+  kbe: string
 }
 
 export const billingApi = {
@@ -106,6 +126,23 @@ export const billingApi = {
 
   pdf: async (id: string): Promise<Blob> =>
     (await apiClient.get(`/billing/invoices/${id}/pdf`, { responseType: 'blob' })).data,
+
+  requisites: async (): Promise<BillingRequisites> =>
+    (await apiClient.get<BillingRequisites>('/billing/requisites')).data,
+
+  // Клиент прикладывает чек об оплате счёта (multipart, поле file); в ответ — счёт с обновлённым paymentChecks.
+  uploadPaymentCheck: async (id: string, file: File): Promise<BrokerInvoice> => {
+    const form = new FormData()
+    form.append('file', file)
+    return (await apiClient.post<BrokerInvoice>(
+      `/billing/invoices/${id}/payment-check`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )).data
+  },
+
+  downloadPaymentCheck: async (id: string, fileId: string): Promise<Blob> =>
+    (await apiClient.get(`/billing/invoices/${id}/files/${fileId}/download`, { responseType: 'blob' })).data,
 
   organization: async (): Promise<OrganizationSettings> =>
     (await apiClient.get<OrganizationSettings>('/settings/organization')).data,

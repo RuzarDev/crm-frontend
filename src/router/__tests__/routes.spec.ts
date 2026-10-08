@@ -14,6 +14,22 @@ describe('маршруты Импорта 40', () => {
     expect(router.resolve(path).name).toBe(name)
   })
 
+  it('единый список «Документы» клиента: /documents → client-documents-all, только клиенту Импорта 40', () => {
+    const r = router.resolve('/documents')
+    expect(r.name).toBe('client-documents-all')
+    expect(r.meta.requiresRole).toBe('client')
+    expect(r.meta.requiresImport40).toBe(true)
+    expect(router.resolve('/my-documents').name).toBe('my-documents')
+  })
+
+  it.each([
+    ['/billing', 'billing'],
+    ['/tnved/tree', 'tnved-tree'],
+    ['/tnved/currencies', 'tnved-currencies'],
+  ])('%s сохраняет имя %s после перехода на обёртку', (path, name) => {
+    expect(router.resolve(path).name).toBe(name)
+  })
+
   it('мастер — только клиенту Импорта 40', () => {
     for (const path of ['/import-40/new', '/import-40/new/abc']) {
       const { meta } = router.resolve(path)
