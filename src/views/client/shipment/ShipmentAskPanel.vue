@@ -28,14 +28,24 @@ const props = defineProps<{
   files: Import40FileDto[]
   /** По поставке уже есть счёт AQNIET (для ссылки на «Счета» на этапе 6). */
   hasServiceInvoice: boolean
+  /** Файлы не загрузились: загружен ли чек — неизвестно, поэтому панель оплаты и «чек на проверке» не показываем. */
+  filesUnknown?: boolean
 }>()
 const emit = defineEmits<{ changed: [] }>()
 
 const { t } = useI18n()
 const titleId = `ship-ask-${useId()}`
 
-const ask = computed(() => askFor(props.shipment))
 const status = computed(() => props.shipment.status)
+// «Оплатите склад» зависит от файлов (есть ли чек) — без них не гадаем.
+const ask = computed(() => {
+  const a = askFor(props.shipment)
+  return a === 'paySvh' && props.filesUnknown ? null : a
+})
+// Чек можно загрузить (и заменить) на всём этапе оплаты склада — сервер раздел payment-check по статусу не ограничивает.
+const svhPayStage = computed(() => status.value === 6)
+// Клиент отменяет только свой черновик (статус 0) — и с открытым вопросом AQNIET тоже.
+const isDraft = computed(() => status.value === 0)
 
 // Форматы и размер — как проверяет сервер (ReestrDocumentRules, MaxFileSizeBytes = 25 МБ).
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.docx,.xlsx'
@@ -133,7 +143,7 @@ const confirmCancel = async () => {
 const notice = computed<'check' | 'paid' | 'cancelled' | null>(() => {
   if (ask.value) return null
   if (status.value === 9) return 'cancelled'
-  if (status.value === 6 && props.shipment.paymentCheckUploaded) return 'check'
+  if (status.value === 6 && props.shipment.paymentCheckUploaded && !props.filesUnknown) return 'check'
   if (status.value === 7) return 'paid'
   return null
 })
@@ -169,7 +179,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
         <p :class="text" data-pay-text>
           {{ svhInvoiceLabel }}<template v-if="svhSum"><span class="max-sm:hidden"> — <b class="font-semibold tabular-nums text-ink">{{ svhSum }}</b></span></template><span class="max-sm:hidden">. {{ t('client.card.pay.after') }}</span>
         </p>
-        <p v-if="svhSum" aria-hidden="true" class="m-0 text-[26px] leading-8 font-semibold tracking-[-0.02em] tabular-nums text-ink sm:hidden">{{ svhSum }}</p>
+        <p v-if="svhSum" class="m-0 text-[26px] leading-8 font-semibold tracking-[-0.02em] tabular-nums text-ink sm:hidden">{{ svhSum }}</p>
       </div>
     </div>
     <ZUpload
@@ -246,6 +256,29 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
           <template #icon><PhPaperclip :size="16" aria-hidden="true" /></template>
           {{ t('client.card.problem.attach') }}
         </ZUpload>
+        <ZUpload
+          v-if="svhPayStage"
+          :accept="ACCEPT"
+          :max-size-mb="MAX_MB"
+          :loading="uploading === 'payment-check'"
+          button-variant="secondary"
+          :class="cn(uploadSecond, '[&>button]:bg-surface')"
+          :custom-request="({ file }) => upload('payment-check', file)"
+          data-problem-check
+        >
+          <template #icon><PhUploadSimple :size="16" aria-hidden="true" /></template>
+          {{ t('client.card.problem.uploadCheck') }}
+        </ZUpload>
+      </div>
+      <div v-if="isDraft" class="mt-1 flex flex-col gap-2.5 border-t border-danger/15 pt-3.5 sm:flex-row sm:flex-wrap sm:items-center">
+        <RouterLink
+          :to="`/import-40/new/${shipment.id}`"
+          :class="cn(linkBtn, secondBtn, 'bg-surface text-ink hover:bg-sunken')"
+          data-draft-continue
+        >{{ t('client.card.draft.continue') }}</RouterLink>
+        <ZButton variant="ghost" :class="cn(secondBtn, 'max-sm:bg-surface')" data-draft-cancel @click="promptCancel">
+          {{ t('client.card.draft.cancel') }}
+        </ZButton>
       </div>
     </div>
   </section>
@@ -290,6 +323,19 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
       <div class="flex min-w-0 flex-col gap-1">
         <h2 :id="titleId" :class="h2">{{ t(`client.card.${notice}.title`) }}</h2>
         <p v-if="notice === 'check'" :class="text">{{ t('client.card.check.text') }}</p>
+        <ZUpload
+          v-if="notice === 'check'"
+          :accept="ACCEPT"
+          :max-size-mb="MAX_MB"
+          :loading="uploading === 'payment-check'"
+          button-variant="secondary"
+          :class="cn(uploadSecond, 'mt-1.5 [&>button]:bg-surface sm:[&>button]:h-9 sm:[&>button]:text-sm')"
+          :custom-request="({ file }) => upload('payment-check', file)"
+          data-check-again
+        >
+          <template #icon><PhUploadSimple :size="16" aria-hidden="true" /></template>
+          {{ t('client.card.pay.uploadAnother') }}
+        </ZUpload>
         <p v-else-if="notice === 'paid'" :class="text">
           {{ hasServiceInvoice ? t('client.card.paid.textInvoiced') : t('client.card.paid.text') }}
         </p>
@@ -305,7 +351,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
   </section>
 
   <ZModal
-    v-if="ask === 'returned' || ask === 'draft'"
+    v-if="isDraft"
     v-model:open="cancelOpen"
     :title="t('client.card.draft.cancelTitle')"
     :ok-text="t('client.card.draft.cancelOk')"

@@ -65,6 +65,26 @@ describe('ShipmentDocuments', () => {
     expect(rows[1]).toContain('PNG')
   })
 
+  it('доверенность — в «Ваших» с подписью «Доверенность»; подписи групп связаны со списками', () => {
+    const w = mountWith([
+      fileDto({ id: 'poa', section: 'power-of-attorney', originalFileName: 'poa.pdf' }),
+    ], [declaration()])
+    expect(w.get('[data-doc-row="yours"] [data-doc-label]').text()).toBe('Доверенность')
+    for (const ul of w.findAll('ul')) {
+      const id = ul.attributes('aria-labelledby')
+      expect(id).toBeTruthy()
+      expect(w.get(`[id="${id}"]`).text()).toMatch(/От AQNIET|Ваши/)
+    }
+  })
+
+  it('ошибка загрузки — сообщение и «Повторить» вместо «Документов пока нет»', async () => {
+    const w = mountWithI18n(ShipmentDocuments, { props: { caseId: 'c1', files: [], declarations: [], svhInvoiceNumber: '', error: true } })
+    expect(w.get('[data-docs-error]').text()).toContain('Не удалось загрузить документы')
+    expect(w.find('[data-docs-empty]').exists()).toBe(false)
+    await w.get('[data-docs-retry]').trigger('click')
+    expect(w.emitted('retry')).toHaveLength(1)
+  })
+
   it('пусто — «Документов пока нет»', () => {
     expect(mountWith([]).get('[data-docs-empty]').text()).toBe('Документов пока нет')
   })

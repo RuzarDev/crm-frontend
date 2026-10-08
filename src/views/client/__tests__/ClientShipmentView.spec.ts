@@ -212,6 +212,121 @@ describe('ClientShipmentView', () => {
     expect(rows[1]).toContain('AQNIET')
   })
 
+  it('сумма счёта СВХ читается и на телефоне: крупная сумма не скрыта от чтения с экрана', async () => {
+    await mountCard({ status: 6, svhInvoiceAmount: 312400 })
+    const panel = w.get('[data-ask="paySvh"]')
+    const sum = formatMoney(312400)
+    const big = panel.findAll('p').find((p) => p.text() === sum)
+    expect(big).toBeDefined()
+    expect(big!.attributes('aria-hidden')).toBeUndefined()
+  })
+
+  it('чек больше 25 МБ или не того формата не уходит на сервер', async () => {
+    await mountCard({ status: 6, svhInvoiceAmount: 312400 })
+    const big = new File(['x'], 'check.pdf', { type: 'application/pdf' })
+    Object.defineProperty(big, 'size', { value: 26 * 1024 * 1024 })
+    await pickFile('[data-ask="paySvh"]', big)
+    await pickFile('[data-ask="paySvh"]', new File(['x'], 'check.exe', { type: 'application/octet-stream' }))
+    expect(api.uploadFile).not.toHaveBeenCalled()
+    expect(msg.error).toHaveBeenCalledTimes(2)
+  })
+
+  it('чек на проверке — можно загрузить другой чек (payment-check)', async () => {
+    await mountCard({ status: 6 }, [fileDto({ id: 'p0', section: 'payment-check', originalFileName: 'check1.pdf' })])
+    const notice = w.get('[data-notice="check"]')
+    expect(notice.text()).toContain('Загрузить другой чек')
+    const check = new File(['%PDF'], 'check2.pdf', { type: 'application/pdf' })
+    api.uploadFile.mockResolvedValue(fileDto({ id: 'p2', section: 'payment-check' }))
+    await pickFile('[data-notice="check"]', check)
+    expect(api.uploadFile).toHaveBeenCalledWith('c1', 'payment-check', check, undefined)
+  })
+
+  it('вопрос AQNIET на этапе оплаты склада — можно загрузить чек об оплате', async () => {
+    await mountCard({ status: 6, isProblem: true, problemClientMessage: 'Чек нечитаемый' })
+    const btn = w.get('[data-problem-check]')
+    expect(btn.text()).toContain('Загрузить чек об оплате')
+    const check = new File(['%PDF'], 'check.pdf', { type: 'application/pdf' })
+    api.uploadFile.mockResolvedValue(fileDto({ id: 'p3', section: 'payment-check' }))
+    const inputs = w.findAll('[data-ask="problem"] input[type="file"]')
+    expect(inputs).toHaveLength(2)
+    Object.defineProperty(inputs[1].element, 'files', { value: [check], configurable: true })
+    await inputs[1].trigger('change')
+    await flushPromises()
+    expect(api.uploadFile).toHaveBeenCalledWith('c1', 'payment-check', check, undefined)
+  })
+
+  it('вопрос AQNIET вне оплаты склада — кнопки чека нет', async () => {
+    await mountCard({ status: 3, isProblem: true, problemClientMessage: 'Нужен сертификат' })
+    expect(w.find('[data-problem-check]').exists()).toBe(false)
+    expect(w.find('[data-draft-continue]').exists()).toBe(false)
+    expect(w.find('[data-draft-cancel]').exists()).toBe(false)
+  })
+
+  it('черновик с вопросом AQNIET — «Продолжить оформление» и «Отменить черновик» в панели вопроса', async () => {
+    await mountCard({ status: 0, isProblem: true, problemClientMessage: 'Добавьте инвойс' })
+    const panel = w.get('[data-ask="problem"]')
+    expect(panel.get('[data-draft-continue]').attributes('href')).toBe('/import-40/new/c1')
+    await panel.get('[data-draft-cancel]').trigger('click')
+    await flushPromises()
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+  })
+
+  it('файлы не загрузились — ошибка с «Повторить» в документах, панель оплаты не показывается наугад', async () => {
+    api.listFiles.mockRejectedValueOnce(new Error('network'))
+    await mountCard({ status: 6, svhInvoiceAmount: 312400 }, [fileDto({ id: 'p0', section: 'payment-check', originalFileName: 'check.pdf' })])
+    expect(api.listFiles).toHaveBeenCalledWith('c1', { silent: true })
+    expect(w.get('[data-docs-error]').text()).toContain('Не удалось загрузить документы')
+    expect(w.find('[data-docs-empty]').exists()).toBe(false)
+    expect(w.find('[data-ask="paySvh"]').exists()).toBe(false)
+    expect(w.find('[data-notice="check"]').exists()).toBe(false)
+    expect(w.findAll('[data-ship-timeline] li')[0].find('[data-step-note]').exists()).toBe(false)
+
+    await w.get('[data-docs-retry]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-docs-error]').exists()).toBe(false)
+    expect(w.get('[data-notice="check"]').exists()).toBe(true)
+    expect(w.findAll('[data-doc-row="yours"]')).toHaveLength(1)
+  })
+
+  it('счета не загрузились — ошибка с «Повторить» в «Услугах AQNIET» вместо «Счёт выставим…»', async () => {
+    const inv: Import40CaseInvoiceDto = { id: 'i1', kind: 'invoice', status: 1, number: '42', year: 2026, total: 150000, issuedAtUtc: null, paidAtUtc: null }
+    api.listBrokerInvoices.mockRejectedValueOnce(new Error('network'))
+    await mountCard({ status: 7 }, [], [inv])
+    expect(w.get('[data-services-error]').text()).toContain('Не удалось загрузить счета')
+    expect(w.find('[data-services-empty]').exists()).toBe(false)
+    await w.get('[data-services-retry]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-services-error]').exists()).toBe(false)
+    expect(w.get('[data-service-row]').text()).toContain('№ 42/2026')
+  })
+
+  it('перечитывание после действия — без silent (сбой покажет перехватчик), карточка остаётся', async () => {
+    await mountCard({ status: 3, isProblem: true, problemClientMessage: 'Нужен сертификат' })
+    api.get.mockRejectedValueOnce({ response: { status: 500 } })
+    await w.get('[data-problem-reply]').setValue('Ответ')
+    await w.get('[data-problem-send]').trigger('click')
+    await flushPromises()
+    expect(api.get.mock.calls.at(-1)).toEqual(['c1', undefined])
+    expect(w.find('[data-ship-error]').exists()).toBe(false)
+    expect(w.get('h1').text()).toBe('Серверное оборудование')
+  })
+
+  it('смена :id — запоздалый ответ прежней поставки не перетирает новую, файлы не переносятся', async () => {
+    let resolveOld: (c: Import40CaseDto) => void = () => {}
+    api.get.mockImplementation((caseId: string) => (caseId === 'c1'
+      ? new Promise<Import40CaseDto>((r) => { resolveOld = r })
+      : Promise.resolve(caseDto({ id: 'c2', number: 'ИМ-2026-0170', cargo: 'Ноутбуки' }))))
+    api.listFiles.mockImplementation(async (caseId: string) => (caseId === 'c1' ? [fileDto({ id: 'old' })] : []))
+    await mountCard({})
+    await router.push('/import-40/c2')
+    await flushPromises()
+    expect(w.get('h1').text()).toBe('Ноутбуки')
+    resolveOld(caseDto({ cargo: 'Старая поставка' }))
+    await flushPromises()
+    expect(w.get('h1').text()).toBe('Ноутбуки')
+    expect(w.get('[data-docs-empty]').exists()).toBe(true)
+  })
+
   it('404 — «Поставка не найдена» и ссылка на список', async () => {
     api.get.mockRejectedValueOnce({ response: { status: 404 } })
     await mountCard({})

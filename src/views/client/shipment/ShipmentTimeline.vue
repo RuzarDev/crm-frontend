@@ -11,8 +11,8 @@ import { cn } from '@/ui/cn'
 // в списке). Дат по этапам сервер не хранит — даты в истории; под названием — короткое пояснение этапа.
 const props = defineProps<{
   shipment: ClientShipment
-  /** Сколько документов приложено к заявке (раздел documents). */
-  docsCount: number
+  /** Сколько документов приложено к заявке (раздел documents); null — файлы не загрузились, пояснения нет. */
+  docsCount: number | null
   /** Номера выпущенных/поданных ДТ — пояснение к этапу 3. */
   dtNumbers: string[]
 }>()
@@ -46,7 +46,7 @@ const LINE: Record<SegState, string> = {
 const nowLabel = (s: SegState) => (s === 'current' ? t('client.card.nowUs') : t('client.card.nowYou'))
 
 const note = (n: number): string => {
-  if (n === 1) return t('client.card.stepDocs', { n: props.docsCount })
+  if (n === 1) return props.docsCount == null ? '' : t('client.card.stepDocs', { n: props.docsCount })
   if (n === 3 && props.dtNumbers.length) return props.dtNumbers.join(', ')
   if (n === 4 && props.shipment.svhInvoiceAmount != null) return t('client.card.stepSvh', { sum: formatMoney(props.shipment.svhInvoiceAmount) })
   return ''

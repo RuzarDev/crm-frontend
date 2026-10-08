@@ -37,47 +37,82 @@ const state = ref<LoadState>('loading')
 const kase = shallowRef<Import40CaseDto | null>(null)
 const files = ref<Import40FileDto[]>([])
 const invoices = ref<Import40CaseInvoiceDto[]>([])
+// Файлы и счета — отдельные блоки со своей ошибкой и «Повторить»: пустой список при ошибке врал бы
+// («Документов пока нет», «Счёт выставим…», панель оплаты без учёта загруженного чека).
+const filesError = ref(false)
+const invoicesError = ref(false)
 
-// Номер запроса: ответ прежней поставки (переход по уведомлению на другую) не перетирает текущую.
+// Номера запросов: ответ прежней поставки (переход по уведомлению на другую) или устаревший повтор
+// не перетирает текущее. caseId сверяем с адресом — блок не возьмёт файлы чужой поставки.
 let seq = 0
+let filesSeq = 0
+let invoicesSeq = 0
+
+const loadFiles = async (caseId: string) => {
+  const my = ++filesSeq
+  try {
+    const list = await import40Api.listFiles(caseId, { silent: true })
+    if (my !== filesSeq || caseId !== id.value) return
+    files.value = list
+    filesError.value = false
+  } catch {
+    if (my !== filesSeq || caseId !== id.value) return
+    files.value = []
+    filesError.value = true
+  }
+}
+const loadInvoices = async (caseId: string) => {
+  const my = ++invoicesSeq
+  try {
+    const list = await import40Api.listBrokerInvoices(caseId, { silent: true })
+    if (my !== invoicesSeq || caseId !== id.value) return
+    invoices.value = list
+    invoicesError.value = false
+  } catch {
+    if (my !== invoicesSeq || caseId !== id.value) return
+    invoices.value = []
+    invoicesError.value = true
+  }
+}
+
+/**
+ * initial — первый показ поставки (и смена :id): скелетон, прежние данные сбрасываются, ошибка заявки —
+ * «не найдена»/«повторить» без тоста. Перечитывание после действия — без silent: при сбое общий
+ * перехватчик покажет тост, а на экране останется последнее известное состояние.
+ */
 const load = async (initial: boolean) => {
   const caseId = id.value
   const my = ++seq
-  if (initial) state.value = 'loading'
+  if (initial) {
+    state.value = 'loading'
+    kase.value = null
+    files.value = []
+    invoices.value = []
+    filesError.value = false
+    invoicesError.value = false
+  }
   let c: Import40CaseDto
   try {
-    c = await import40Api.get(caseId, { silent: true })
+    c = await import40Api.get(caseId, initial ? { silent: true } : undefined)
   } catch (e: unknown) {
     if (my !== seq) return
     const code = (e as { response?: { status?: number } })?.response?.status
-    // Чужая или удалённая поставка — «не найдена»; после действия перечитать не удалось — оставляем то, что видно.
-    if (initial || !kase.value) state.value = code === 404 || code === 403 || code === 400 ? 'notFound' : 'error'
+    if (initial) state.value = code === 404 || code === 403 || code === 400 ? 'notFound' : 'error'
     return
   }
-  let list: Import40FileDto[] = []
-  let inv: Import40CaseInvoiceDto[] = []
-  try {
-    list = await import40Api.listFiles(caseId)
-  } catch {
-    list = files.value
-  }
-  try {
-    inv = await import40Api.listBrokerInvoices(caseId)
-  } catch {
-    inv = []
-  }
+  await Promise.all([loadFiles(caseId), loadInvoices(caseId)])
   if (my !== seq) return
   kase.value = c
-  files.value = list
-  invoices.value = inv
   state.value = 'ready'
 }
 watch(id, () => { void load(true) }, { immediate: true })
 const reload = () => load(false)
+const retryFiles = () => loadFiles(id.value)
+const retryInvoices = () => loadInvoices(id.value)
 
-// Справочник стран — только для названия страны отправителя (как в прежней карточке); лениво, без ошибок.
+// Справочник стран — только для названия страны отправителя (как в прежней карточке); лениво, без тоста и без ошибки на экране.
 const countries = ref<RefCodeItem[]>([])
-void referencesApi.listCountries().then((r) => { countries.value = r }).catch(() => {})
+void referencesApi.listCountries({ silent: true }).then((r) => { countries.value = r }).catch(() => {})
 
 // ---- Шапка ----
 const summary = computed(() => (kase.value ? toShipmentSummary(kase.value, files.value) : null))
@@ -119,7 +154,7 @@ const liveDeclarations = computed(() => (kase.value?.declarations ?? []).filter(
 const dtNumbers = computed(() => liveDeclarations.value.map((d) => d.declarationNumber).filter((n): n is string => !!n))
 // Бланк ДТ — документ AQNIET только после подачи в таможню (статус ≥ 3); пока ДТ заполняется, её нет.
 const docDeclarations = computed(() => ((kase.value?.status ?? 0) >= 3 ? liveDeclarations.value : []))
-const docsCount = computed(() => files.value.filter((f) => f.section === 'documents').length)
+const docsCount = computed(() => (filesError.value ? null : files.value.filter((f) => f.section === 'documents').length))
 
 // ---- Услуги AQNIET: счета и акты по поставке ----
 const invoiceTitle = (inv: Import40CaseInvoiceDto) =>
@@ -145,6 +180,8 @@ const hasServiceInvoice = computed(() => invoices.value.some((i) => i.kind === '
 
 const servicesId = `ship-services-${uid}`
 const card = 'rounded-panel border border-line px-[18px] py-4'
+// «Повторить» — sm на компьютере, на телефоне — палец (44px).
+const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
 const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
 </script>
 
@@ -192,7 +229,7 @@ const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
     <!-- Ошибка загрузки -->
     <div v-else-if="state === 'error'" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-ship-error>
       <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('client.card.loadError') }}</p>
-      <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-ship-retry @click="load(true)">{{ t('home.retry') }}</ZButton>
+      <ZButton size="sm" :class="retry" data-ship-retry @click="load(true)">{{ t('home.retry') }}</ZButton>
     </div>
 
     <template v-else-if="kase && summary && tag">
@@ -229,6 +266,7 @@ const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
         :case-dto="kase"
         :files="files"
         :has-service-invoice="hasServiceInvoice"
+        :files-unknown="filesError"
         @changed="reload"
       />
 
@@ -243,11 +281,17 @@ const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
             :files="files"
             :declarations="docDeclarations"
             :svh-invoice-number="kase.svhInvoiceNumber"
+            :error="filesError"
+            @retry="retryFiles"
           />
 
           <section :aria-labelledby="servicesId" :class="cn(card, 'max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:px-0')" data-ship-services>
             <h2 :id="servicesId" class="m-0 mb-1.5 text-[15px] leading-6 font-semibold text-ink">{{ t('client.card.servicesTitle') }}</h2>
-            <p v-if="!invoices.length" class="m-0 text-sm text-ink-3" data-services-empty>{{ t('client.card.servicesEmpty') }}</p>
+            <div v-if="invoicesError" class="flex flex-wrap items-center gap-x-3 gap-y-2" data-services-error>
+              <p class="m-0 min-w-0 flex-1 text-sm text-ink-2">{{ t('client.card.servicesError') }}</p>
+              <ZButton size="sm" :class="retry" data-services-retry @click="retryInvoices">{{ t('home.retry') }}</ZButton>
+            </div>
+            <p v-else-if="!invoices.length" class="m-0 text-sm text-ink-3" data-services-empty>{{ t('client.card.servicesEmpty') }}</p>
             <ul v-else role="list" class="m-0 flex list-none flex-col p-0">
               <li
                 v-for="inv in invoices"

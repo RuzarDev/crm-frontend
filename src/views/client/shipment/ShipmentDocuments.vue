@@ -4,10 +4,11 @@ import { useI18n } from 'vue-i18n'
 import { import40Api, type Import40DeclarationDto, type Import40FileDto } from '@/api/import40'
 import { isDocKind } from '@/views/client/docKinds'
 import { dayMonthOf, extOf, saveBlob } from '@/views/client/shipment/util'
+import ZButton from '@/components/z/ZButton.vue'
 import { cn } from '@/ui/cn'
 
 // «Документы» карточки поставки (доска Shipment): «От AQNIET» — ДТ (бланк PDF), счёт СВХ, отметка о выпуске;
-// «Ваши» — документы заявки и чек. Строка целиком — кнопка скачивания. На телефоне видны первые две,
+// «Ваши» — документы заявки, доверенность и чек. Строка целиком — кнопка скачивания. На телефоне видны первые две,
 // остальные — по «Все документы поставки» (без JS-медиазапросов: скрытие только ниже sm).
 const props = defineProps<{
   caseId: string
@@ -15,10 +16,16 @@ const props = defineProps<{
   /** ДТ, которые можно показать клиенту (без заменённых разделением). */
   declarations: Import40DeclarationDto[]
   svhInvoiceNumber: string
+  /** Список файлов не загрузился — вместо «Документов пока нет» ошибка и «Повторить». */
+  error?: boolean
 }>()
+const emit = defineEmits<{ retry: [] }>()
 
 const { t } = useI18n()
-const headingId = `ship-docs-${useId()}`
+const uid = useId()
+const headingId = `ship-docs-${uid}`
+const fromUsId = `ship-docs-us-${uid}`
+const yoursId = `ship-docs-yours-${uid}`
 
 interface DocRow {
   key: string
@@ -66,6 +73,7 @@ const kindName = (k: string | null | undefined) =>
 
 const yours = computed<DocRow[]>(() => [
   ...bySection('documents').map((f) => fileRow(f, kindName(f.docKind), true)),
+  ...bySection('power-of-attorney').map((f) => fileRow(f, t('client.card.poaFile'), true)),
   ...bySection('payment-check').map((f) => fileRow(f, t('client.card.docs.check'), true)),
 ])
 
@@ -101,15 +109,20 @@ const groupLabel = 'm-0 mb-1 text-[12.5px] text-muted'
     data-ship-docs
   >
     <h2 :id="headingId" class="m-0 mb-1.5 text-[15px] leading-6 font-semibold text-ink sm:mb-2.5">
-      {{ t('client.card.docs.title') }}<span v-if="total" class="sm:hidden"> · {{ total }}</span>
+      {{ t('client.card.docs.title') }}<span v-if="total && !error" class="sm:hidden"> · {{ total }}</span>
     </h2>
 
-    <p v-if="!total" class="m-0 pb-1 text-sm text-ink-3" data-docs-empty>{{ t('client.card.docs.empty') }}</p>
+    <div v-if="error" class="flex flex-wrap items-center gap-x-3 gap-y-2 pb-1" data-docs-error>
+      <p class="m-0 min-w-0 flex-1 text-sm text-ink-2">{{ t('client.card.docs.loadError') }}</p>
+      <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-docs-retry @click="emit('retry')">{{ t('home.retry') }}</ZButton>
+    </div>
+
+    <p v-else-if="!total" class="m-0 pb-1 text-sm text-ink-3" data-docs-empty>{{ t('client.card.docs.empty') }}</p>
 
     <template v-else>
       <template v-if="fromUs.length">
-        <p :class="cn(groupLabel, !expanded && 'max-sm:hidden')">{{ t('client.card.docs.fromUs') }}</p>
-        <ul role="list" class="m-0 mb-3 flex list-none flex-col p-0 max-sm:mb-0">
+        <p :id="fromUsId" :class="cn(groupLabel, !expanded && 'max-sm:hidden')">{{ t('client.card.docs.fromUs') }}</p>
+        <ul role="list" :aria-labelledby="fromUsId" class="m-0 mb-3 flex list-none flex-col p-0 max-sm:mb-0">
           <li v-for="(row, i) in fromUs" :key="row.key" :class="cn(hiddenOnPhone(i) && 'max-sm:hidden')" data-doc-row="us">
             <button type="button" :class="rowClass" :aria-busy="busy === row.key || undefined" @click="open(row)">
               <span class="min-w-0 flex-1">
@@ -122,8 +135,8 @@ const groupLabel = 'm-0 mb-1 text-[12.5px] text-muted'
       </template>
 
       <template v-if="yours.length">
-        <p :class="cn(groupLabel, !expanded && 'max-sm:hidden')">{{ t('client.card.docs.yours') }}</p>
-        <ul role="list" class="m-0 flex list-none flex-col p-0">
+        <p :id="yoursId" :class="cn(groupLabel, !expanded && 'max-sm:hidden')">{{ t('client.card.docs.yours') }}</p>
+        <ul role="list" :aria-labelledby="yoursId" class="m-0 flex list-none flex-col p-0">
           <li v-for="(row, i) in yours" :key="row.key" :class="cn(hiddenOnPhone(fromUs.length + i) && 'max-sm:hidden')" data-doc-row="yours">
             <button type="button" :class="rowClass" :aria-busy="busy === row.key || undefined" @click="open(row)">
               <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">

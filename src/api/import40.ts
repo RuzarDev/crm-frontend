@@ -1054,17 +1054,19 @@ export const import40Api = {
     return response.data
   },
 
-  listFiles: async (id: string): Promise<Import40FileDto[]> => {
+  listFiles: async (id: string, opts?: { silent?: boolean }): Promise<Import40FileDto[]> => {
     const response = await apiClient.get<Import40FileDto[]>(
       `/import40/${encodeURIComponent(id)}/files`,
+      opts?.silent ? { silent: true } : undefined,
     )
     return response.data
   },
 
   // Счета AQNIET по заявке — шаг 6 (задача 2.3).
-  listBrokerInvoices: async (id: string): Promise<Import40CaseInvoiceDto[]> => {
+  listBrokerInvoices: async (id: string, opts?: { silent?: boolean }): Promise<Import40CaseInvoiceDto[]> => {
     const response = await apiClient.get<Import40CaseInvoiceDto[]>(
       `/import40/${encodeURIComponent(id)}/broker-invoices`,
+      opts?.silent ? { silent: true } : undefined,
     )
     return response.data
   },
