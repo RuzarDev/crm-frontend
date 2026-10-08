@@ -52,6 +52,17 @@ describe('guardRedirect', () => {
     expect(guardRedirect('/document-packages/1/partia/p1', {}, auth({ role: 'expeditor' }))).toBeNull()
     expect(guardRedirect('/document-packages', {}, auth({ role: 'expeditor' }))).toBeNull()
   })
+  it('рабочее место и редактор партии — то же правило: администратор, экспедитор или packages.manage', () => {
+    for (const p of ['/document-packages/1/workspace', '/document-packages/1/partia/p1', '/document-packages/1/partia/new']) {
+      expect(guardRedirect(p, {}, auth()), p).toBe('/')
+      expect(guardRedirect(p, {}, auth({ perms: ['reestr.write'] })), p).toBe('/')
+      expect(guardRedirect(p, {}, auth({ role: 'client' })), p).toBe('/')
+      expect(guardRedirect(p, {}, auth({ perms: ['packages.manage'] })), p).toBeNull()
+      expect(guardRedirect(p, {}, auth({ role: 'expeditor' })), p).toBeNull()
+      expect(guardRedirect(p, {}, auth({ role: 'administrator' })), p).toBeNull()
+      expect(guardRedirect(p, {}, auth({ isFinanceOnly: true, perms: ['finance.read', 'packages.manage'] })), p).toBe('/finance')
+    }
+  })
   it('/billing: клиент с импортом, сотрудник с finance.read', () => {
     expect(guardRedirect('/billing', {}, auth({ role: 'client' }))).toBeNull()
     expect(guardRedirect('/billing', {}, auth({ role: 'client', clientHasModule: () => false }))).toBe('/')
