@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhArrowClockwise, PhDownloadSimple, PhPaperclip, PhPlus } from '@phosphor-icons/vue'
@@ -19,7 +19,7 @@ import { salesApi, type SalesServiceItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { useBlock } from '@/views/home/useBlock'
 import { caseFilterSearch, watchCaseQuery } from '@/views/billingQuery'
-import { exportXlsx, formatDay } from '@/views/broker/list'
+import { exportXlsx, formatDay, pluralForm } from '@/views/broker/list'
 import { formatMoney } from '@/ui/number'
 import { saveBlob } from '@/ui/download'
 import { message } from '@/ui/message'
@@ -28,7 +28,7 @@ import type { ZColumn } from '@/ui/table'
 import CreateBillingDocModal, { type BillingDocPreset } from './CreateBillingDocModal.vue'
 import {
   KIND_FILTERS, STATUS_FILTERS, ST_CANCELLED, ST_DRAFT, billingExcelRows, billingStats, docTitle, dueDay, filterBilling,
-  menuActions, overdueDays, pdfFileName, pluralForm, primaryAction, statusCounts, statusLabelKey, statusTone,
+  menuActions, overdueDays, pdfFileName, primaryAction, statusCounts, statusLabelKey, statusTone,
   type BillingAction, type BillingKindFilter, type BillingStatusFilter,
 } from './billing'
 
@@ -118,12 +118,19 @@ const applyCaseId = (raw: unknown) => {
 }
 watch(() => route.query.caseId, (v) => { if (refsReady && v) applyCaseId(v) })
 
+// Параметры адреса запоминаем до ожиданий: после ухода с экрана route.query — уже чужой страницы, а окно
+// нового документа на размонтированном экране открывать нельзя.
+let alive = true
+onBeforeUnmount(() => { alive = false })
 onMounted(async () => {
+  const { case: caseAtMount, caseId: caseIdAtMount } = route.query
   await board.load()
-  const byCase = caseFilterSearch(rows.value, route.query.case)
+  if (!alive) return
+  const byCase = caseFilterSearch(rows.value, caseAtMount)
   if (byCase) query.value = byCase
   await loadRefs()
-  applyCaseId(route.query.caseId)
+  if (!alive) return
+  applyCaseId(caseIdAtMount)
 })
 
 // ---- Показатели (по всем строкам, без поиска и фильтров) ----
@@ -156,7 +163,7 @@ const tableWidth = computed(() => columns.value.reduce((sum, c) => sum + (typeof
 const pagination = computed(() => ({
   current: page.value,
   onChange: (p: number) => { page.value = p },
-  showTotal: (total: number, [from, to]: [number, number]) => t('broker.billing.range', { from, to, total }),
+  showTotal: (total: number, [from, to]: [number, number]) => t('broker.list.range', { from, to, total }),
 }))
 const rowClass = (r: BrokerInvoice) => (r.status === ST_CANCELLED ? 'opacity-60' : '')
 
@@ -183,16 +190,21 @@ const ACTION_LABEL: Record<BillingAction, string> = {
   delete: 'broker.billing.action.delete',
   cancel: 'broker.billing.action.cancel',
 }
+// Одно действие за раз: пока идёт запрос, кнопки действий остальных строк и пункты записи в меню неактивны.
 const busy = ref<string | null>(null)
 const rowPrimary = (r: BrokerInvoice): RowPrimary | null => {
   if (!canWrite.value) return null
   const key = primaryAction(r)
   if (!key) return null
-  return { key, label: t(ACTION_LABEL[key]), variant: key === 'issue' ? 'primary' : 'outline', loading: busy.value === r.id }
+  return {
+    key, label: t(ACTION_LABEL[key]), variant: key === 'issue' ? 'primary' : 'outline',
+    loading: busy.value === r.id, disabled: !!busy.value && busy.value !== r.id,
+  }
 }
 const menuItems = (r: BrokerInvoice): ZDropdownItem[] => menuActions(r, canWrite.value).map((k, i, all) => ({
   key: k,
   label: t(ACTION_LABEL[k]),
+  disabled: k !== 'pdf' && !!busy.value,
   danger: k === 'delete' || k === 'cancel',
   // Разделитель перед первым опасным пунктом.
   divider: (k === 'delete' || k === 'cancel') && i > 0 && all[i - 1] !== 'delete' && all[i - 1] !== 'cancel',
@@ -205,8 +217,14 @@ const failed = (e: unknown) => { if (!isHttp(e)) message.error(t('billing.action
 const ask = (title: string, okText: string, danger = false) =>
   confirm({ title, okText, cancelText: t('common.cancel'), danger })
 
+// Занято другим действием — говорим сразу, до вопроса-подтверждения (а не молча отказываем после «Да»).
+const isBusy = () => {
+  if (!busy.value) return false
+  message.info(t('broker.billing.busy'))
+  return true
+}
 const run = async (r: BrokerInvoice, fn: () => Promise<void>) => {
-  if (busy.value) return
+  if (isBusy()) return
   busy.value = r.id
   try {
     await fn()
@@ -218,6 +236,7 @@ const run = async (r: BrokerInvoice, fn: () => Promise<void>) => {
 }
 
 const issue = async (r: BrokerInvoice) => {
+  if (isBusy()) return
   if (!(await ask(t('billing.issueConfirm'), t('billing.issueBtn')))) return
   await run(r, async () => {
     await billingApi.issue(r.id)
@@ -226,6 +245,7 @@ const issue = async (r: BrokerInvoice) => {
   })
 }
 const markPaid = async (r: BrokerInvoice) => {
+  if (isBusy()) return
   if (!(await ask(t('billing.markPaidConfirm'), t('billing.markPaid')))) return
   await run(r, async () => {
     await billingApi.markPaid(r.id)
@@ -240,6 +260,7 @@ const remind = (r: BrokerInvoice) => run(r, async () => {
   else message.warning(t('billing.remindNoEmail'))
 })
 const remove = async (r: BrokerInvoice) => {
+  if (isBusy()) return
   if (!(await ask(t('billing.deleteConfirm'), t('broker.billing.action.delete'), true))) return
   await run(r, async () => {
     await billingApi.remove(r.id)
@@ -248,6 +269,7 @@ const remove = async (r: BrokerInvoice) => {
   })
 }
 const cancelDoc = async (r: BrokerInvoice) => {
+  if (isBusy()) return
   if (!(await ask(t('billing.cancelConfirm'), t('broker.billing.action.cancel'), true))) return
   await run(r, async () => {
     await billingApi.cancel(r.id)
@@ -298,11 +320,16 @@ const exportExcel = async () => {
 
 <template>
   <div class="flex flex-col gap-4" data-billing>
-    <div class="flex flex-wrap items-start gap-x-3 gap-y-2">
-      <div class="min-w-0 flex-1 basis-60">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div class="flex min-w-0 items-center gap-3">
         <h1 class="m-0 text-[22px] leading-7 font-semibold tracking-[-0.015em] text-ink">{{ t('broker.billing.title') }}</h1>
+        <span
+          v-if="board.data"
+          class="rounded-pill bg-sunken px-2.5 text-[12.5px] leading-5 font-semibold tabular-nums text-ink-3"
+          data-billing-count
+        >{{ rows.length }}</span>
       </div>
-      <div class="flex flex-wrap items-center gap-2 max-sm:w-full">
+      <div class="ml-auto flex flex-wrap items-center gap-2 max-sm:w-full">
         <ZButton variant="ghost" :loading="board.loading && !!board.data" class="max-sm:h-11 max-sm:flex-1" data-billing-refresh @click="board.load()">
           <template #icon><PhArrowClockwise :size="16" aria-hidden="true" /></template>
           {{ t('broker.list.refresh') }}
@@ -317,9 +344,9 @@ const exportExcel = async () => {
           @click="exportExcel"
         >
           <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
-          {{ t('broker.billing.export') }}
+          {{ t('broker.list.excel') }}
         </ZButton>
-        <ZButton v-if="canWrite" variant="primary" class="max-sm:h-11 max-sm:basis-full" data-billing-new @click="openCreate()">
+        <ZButton v-if="canWrite" variant="primary" class="max-sm:h-11 max-sm:flex-1" data-billing-new @click="openCreate()">
           <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
           {{ t('billing.newDoc') }}
         </ZButton>
@@ -329,7 +356,7 @@ const exportExcel = async () => {
     <StatStrip v-if="!board.error || board.data" :items="stats" :loading="loadingFirst" data-billing-stats />
 
     <div class="flex flex-wrap items-center gap-2">
-      <ListSearch :value="query" :placeholder="t('broker.billing.search')" class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1" @update:value="query = $event" />
+      <ListSearch :value="query" :placeholder="t('broker.billing.search')" @update:value="query = $event" />
       <ZSegmented
         :value="kind"
         :options="kindOptions"

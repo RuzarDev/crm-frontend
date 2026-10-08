@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { BrokerInvoice } from '@/api/billing'
 import {
-  billingExcelRows, billingStats, docTitle, filterBilling, isOverdue, menuActions, overdueDays, pdfFileName, pluralForm,
+  billingExcelRows, billingStats, docTitle, filterBilling, isOverdue, menuActions, overdueDays, pdfFileName,
   primaryAction, statusCounts, statusTone,
 } from '../billing'
 
@@ -131,9 +131,5 @@ describe('billing: подписи, тон, файлы, Excel', () => {
       'billing.colTotal', 'billing.vat', 'billing.issuedAtCol', 'billing.paidAtCol',
     ])
     expect(Object.values(row)).toEqual(['billing.invoice', '0214/2026', 'ТОО «Альфа»', 'ИМ-1', 'st1', 1000, 107, '06.10.2026', '07.10.2026'])
-  })
-  it('форма числа', () => {
-    expect([1, 3, 5, 21].map((n) => pluralForm(n, 'ru'))).toEqual(['one', 'few', 'many', 'one'])
-    expect([1, 3].map((n) => pluralForm(n, 'en'))).toEqual(['one', 'many'])
   })
 })

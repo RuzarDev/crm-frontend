@@ -185,4 +185,25 @@ describe('InviteClientModal: новая ссылка', () => {
     expect(w.find('[data-invite-form]').exists()).toBe(true)
     expect((w.get('[data-invite-email]').element as HTMLInputElement).value).toBe('import@nomad.kz')
   })
+
+  it('клиент без БИН: запроса нет, у поля БИН — «Заполните поле»; email на месте', async () => {
+    await mountModal({ reissue: { email: 'import@nomad.kz', bin: '', companyName: 'ТОО «Nomad»', phone: '' } })
+    expect(api.invite).not.toHaveBeenCalled()
+    expect(w.find('[data-invite-form]').exists()).toBe(true)
+    expect(w.text()).toContain('Заполните поле')
+    expect(w.get('[data-invite-bin]').attributes('aria-invalid')).toBe('true')
+    expect(w.get('[data-invite-email]').attributes('aria-invalid')).not.toBe('true')
+  })
+
+  it('клиент без email: у поля email — «Заполните поле»', async () => {
+    await mountModal({ reissue: { email: '', bin: '170940022456', companyName: '', phone: '' } })
+    expect(api.invite).not.toHaveBeenCalled()
+    expect(w.get('[data-invite-email]').attributes('aria-invalid')).toBe('true')
+    expect(w.get('[data-invite-bin]').attributes('aria-invalid')).not.toBe('true')
+  })
+
+  it('обычная форма: пустые поля без попытки отправить — без ошибок', async () => {
+    await mountModal()
+    expect(w.text()).not.toContain('Заполните поле')
+  })
 })

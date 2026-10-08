@@ -288,6 +288,30 @@ describe('«Финансы»: ошибки', () => {
   })
 })
 
+describe('«Финансы»: смена периода', () => {
+  it('новый период: прежние цифры сразу убираются (скелетон); ошибка — полный блок с «Повторить», не данные прошлого периода', async () => {
+    await mountView()
+    expect(w.get('[data-finance-count]').text()).toBe('7')
+    let fail!: (e: unknown) => void
+    api.overview.mockReturnValueOnce(new Promise((_, rej) => { fail = rej }))
+    w.getComponent(PeriodChip).vm.$emit('update:value', ['2026-09-01', '2026-10-08'])
+    await flushPromises()
+    expect(has('[data-finance-banner]')).toBe(false)
+    expect(has('[data-finance-count]')).toBe(false)
+    expect(w.get('[data-finance-stats]').attributes('aria-busy')).toBe('true')
+    expect(w.text()).not.toContain('4 312 400')
+    fail(new Error('500'))
+    await flushPromises()
+    expect(has('[data-finance-retry]')).toBe(true)
+    expect(has('[data-finance-table]')).toBe(false)
+    expect(has('[data-stat-cell]')).toBe(false)
+    await w.get('[data-finance-retry]').trigger('click')
+    await flushPromises()
+    expect(api.overview).toHaveBeenLastCalledWith('2026-09-01', '2026-10-08', { silent: true })
+    expect(bodyRows()).toHaveLength(7)
+  })
+})
+
 describe('«Финансы»: Excel', () => {
   it('выгружает отфильтрованные строки; имя файла finance, лист «Финансы»', async () => {
     await mountView()

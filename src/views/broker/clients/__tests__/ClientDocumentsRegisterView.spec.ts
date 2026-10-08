@@ -122,6 +122,19 @@ describe('«Документы клиентов»: список', () => {
     expect(w.get('[data-docs-states] [aria-pressed="true"]').text()).toContain('Ждут AQNIET')
   })
 
+  it('«Показать» на плашке сбрасывает вид и поиск — видны все строки этого состояния', async () => {
+    await mountView()
+    await w.get('[data-docs-kinds] button:nth-child(3)').trigger('click') // доверенности
+    await w.get('input[type="search"]').setValue('Altyn')
+    await flushPromises()
+    expect(clients()).toEqual([])
+    await w.get('[data-docs-show-aqniet]').trigger('click')
+    await flushPromises()
+    expect(clients()).toEqual(['ТОО «Altyn Med»', 'ТОО «Алатау Строй»'])
+    expect((w.get('input[type="search"]').element as HTMLInputElement).value).toBe('')
+    expect(w.get('[data-docs-kinds] [aria-pressed="true"]').text()).toBe('Все виды')
+  })
+
   it('вид и поиск; счётчики состояний учитывают их', async () => {
     await mountView()
     await w.findAll('[data-docs-kinds] button')[2].trigger('click')

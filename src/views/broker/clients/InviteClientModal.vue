@@ -35,6 +35,9 @@ const result = ref<InviteClientResponse | null>(null)
 const sending = ref(false)
 const emailTouched = ref(false)
 const binTouched = ref(false)
+// Была попытка отправить: пустые обязательные поля подсвечиваются «Заполните поле» (иначе «Новая ссылка» клиенту
+// без БИН или email молча ничего не делала бы).
+const tried = ref(false)
 
 const reset = () => {
   draft.email = ''
@@ -45,16 +48,24 @@ const reset = () => {
   result.value = null
   emailTouched.value = false
   binTouched.value = false
+  tried.value = false
 }
 
-const emailError = computed(() => (emailTouched.value && draft.email.trim() && !isValidEmail(draft.email) ? t('broker.clients.inviteModal.emailInvalid') : ''))
+const emailError = computed(() => {
+  if (!draft.email.trim()) return tried.value ? t('client.company.form.required') : ''
+  return emailTouched.value && !isValidEmail(draft.email) ? t('broker.clients.inviteModal.emailInvalid') : ''
+})
 const binReady = computed(() => binDigits(draft.bin).length === 12)
-const binError = computed(() => (binTouched.value && draft.bin && !binReady.value ? t('client.company.form.binInvalid') : ''))
+const binError = computed(() => {
+  if (!draft.bin) return tried.value ? t('client.company.form.required') : ''
+  return binTouched.value && !binReady.value ? t('client.company.form.binInvalid') : ''
+})
 const canSubmit = computed(() => !!draft.email.trim() && binReady.value)
 
 const send = async () => {
   emailTouched.value = true
   binTouched.value = true
+  tried.value = true
   if (sending.value || !canSubmit.value || !isValidEmail(draft.email)) return
   sending.value = true
   try {

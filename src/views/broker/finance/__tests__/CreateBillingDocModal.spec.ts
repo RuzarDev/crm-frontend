@@ -155,6 +155,29 @@ describe('CreateBillingDocModal', () => {
     expect(w.emitted('created')).toBeUndefined()
   })
 
+  it('строки — со стабильными ключами: удаление первой не переносит её поля на вторую', async () => {
+    mount()
+    await flushPromises()
+    await w.get('[data-create-add]').trigger('click')
+    const lines = () => w.findAll('[data-create-line]')
+    const second = lines()[1].element
+    await lines()[0].get('[data-create-remove]').trigger('click')
+    expect(lines()).toHaveLength(1)
+    expect(lines()[0].element).toBe(second)
+  })
+
+  it('поля строки на телефоне не ниже 44px', async () => {
+    mount()
+    await flushPromises()
+    const line = w.get('[data-create-line]')
+    for (const sel of ['[data-create-unit]', '[data-create-qty]', '[data-create-price]']) {
+      expect(line.get(sel).element.closest('span')?.className ?? '').toContain('max-sm:h-11')
+    }
+    // У ZCombobox класс — на корне, высоту задаёт оболочка поля внутри: её и поднимаем (max-sm:*:h-11).
+    const comboRoot = line.get('[data-create-service]').element.parentElement?.parentElement
+    expect(comboRoot?.className ?? '').toContain('max-sm:*:h-11')
+  })
+
   it('подсказка НДС: нет до настроек; 0 — «без НДС»; ставка — «выделяется из суммы»', async () => {
     mount({ vatRate: null })
     await flushPromises()

@@ -17,7 +17,7 @@ import { import40Api } from '@/api/import40'
 import { useAuthStore } from '@/stores/auth'
 import { useImport40Status } from '@/composables/useImport40Status'
 import { useBlock } from '@/views/home/useBlock'
-import { exportXlsx, formatDay } from '@/views/broker/list'
+import { exportXlsx, formatDay, pluralForm } from '@/views/broker/list'
 import { formatMoney } from '@/ui/number'
 import { saveBlob } from '@/ui/download'
 import { message } from '@/ui/message'
@@ -42,7 +42,9 @@ onMounted(() => { void board.load() })
 const rows = computed<FinanceRow[]>(() => board.data?.rows ?? [])
 const loadingFirst = computed(() => board.loading && !board.data)
 const ready = computed(() => !board.loading && !board.error)
-const setPeriod = (v: [string, string] | null) => { period.value = v; page.value = 1; void board.load() }
+// Новый период — другие данные: прежние забываем сразу (иначе при ошибке цифры прошлого периода остались бы
+// под новой подписью), загрузка — скелетоном, ошибка — полным блоком с «Повторить».
+const setPeriod = (v: [string, string] | null) => { period.value = v; page.value = 1; board.reset(); void board.load() }
 
 // ---- Показатели ----
 const stats = computed<StatItem[]>(() => {
@@ -64,14 +66,12 @@ const SHOWN = 3
 const expanded = ref(false)
 const shownOrders = computed(() => (expanded.value ? awaiting.value : awaiting.value.slice(0, SHOWN)))
 const hiddenCount = computed(() => awaiting.value.length - SHOWN)
-// «2 заявки оплатили…»: форма по числу (ru — один/несколько/много, остальные языки — свои правила).
-const bannerParts = computed(() => {
+// «2 заявки оплатили…»: фраза — ключ по числу (один / много), счётчик — слот count с формой существительного
+// (ru — один/несколько/много, остальные языки — свои правила).
+const banner = computed(() => {
   const n = awaiting.value.length
-  const c = new Intl.PluralRules(locale.value).select(n)
-  const form = c === 'one' ? 'one' : c === 'few' ? 'few' : 'many'
-  const MARK = '\u0001'
-  const [before, after] = t(`broker.finance.banner.${form === 'one' ? 'one' : 'many'}`, { count: MARK }).split(MARK)
-  return { before, count: `${n} ${t(`broker.finance.noun.${form}`)}`, after: after ?? '' }
+  const form = pluralForm(n, locale.value)
+  return { keypath: `broker.finance.banner.${form === 'one' ? 'one' : 'many'}`, count: `${n} ${t(`broker.finance.noun.${form}`)}` }
 })
 watch(() => awaiting.value.length, (n) => { if (n <= SHOWN) expanded.value = false })
 
@@ -103,7 +103,7 @@ const tableWidth = computed(() => columns.value.reduce((sum, c) => sum + (typeof
 const pagination = computed(() => ({
   current: page.value,
   onChange: (p: number) => { page.value = p },
-  showTotal: (total: number, [from, to]: [number, number]) => t('broker.finance.range', { from, to, total }),
+  showTotal: (total: number, [from, to]: [number, number]) => t('broker.list.range', { from, to, total }),
 }))
 
 const canOpenCase = computed(() => !auth.isFinanceOnly)
@@ -147,11 +147,16 @@ const exportExcel = async () => {
 
 <template>
   <div class="flex flex-col gap-4" data-finance>
-    <div class="flex flex-wrap items-start gap-x-3 gap-y-2">
-      <div class="min-w-0 flex-1 basis-60">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div class="flex min-w-0 items-center gap-3">
         <h1 class="m-0 text-[22px] leading-7 font-semibold tracking-[-0.015em] text-ink">{{ t('broker.finance.title') }}</h1>
+        <span
+          v-if="board.data"
+          class="rounded-pill bg-sunken px-2.5 text-[12.5px] leading-5 font-semibold tabular-nums text-ink-3"
+          data-finance-count
+        >{{ rows.length }}</span>
       </div>
-      <div class="flex flex-wrap items-center gap-2 max-sm:w-full">
+      <div class="ml-auto flex flex-wrap items-center gap-2 max-sm:w-full">
         <PeriodChip :label="t('broker.list.period')" :value="period" class="max-sm:basis-full" data-finance-period @update:value="setPeriod" />
         <ZButton variant="ghost" :loading="board.loading && !!board.data" class="max-sm:h-11 max-sm:flex-1" data-finance-refresh @click="board.load()">
           <template #icon><PhArrowClockwise :size="16" aria-hidden="true" /></template>
@@ -167,7 +172,7 @@ const exportExcel = async () => {
           @click="exportExcel"
         >
           <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
-          {{ t('broker.finance.export') }}
+          {{ t('broker.list.excel') }}
         </ZButton>
       </div>
     </div>
@@ -176,7 +181,9 @@ const exportExcel = async () => {
 
     <NoticeBanner v-if="board.data && awaiting.length" tone="gold" data-finance-banner>
       <span class="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-        <span>{{ bannerParts.before }}<b class="font-semibold">{{ bannerParts.count }}</b>{{ bannerParts.after }}</span>
+        <i18n-t :keypath="banner.keypath" tag="span" scope="global">
+          <template #count><b class="font-semibold">{{ banner.count }}</b></template>
+        </i18n-t>
         <span aria-hidden="true">—</span>
         <span class="flex flex-wrap items-center gap-x-3 gap-y-1">
           <RouterLink
@@ -200,7 +207,7 @@ const exportExcel = async () => {
     </NoticeBanner>
 
     <div class="flex flex-wrap items-center gap-2">
-      <ListSearch :value="query" :placeholder="t('broker.finance.search')" class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1" @update:value="query = $event" />
+      <ListSearch :value="query" :placeholder="t('broker.finance.search')" @update:value="query = $event" />
       <ZSegmented
         :value="filter"
         :options="filterOptions"

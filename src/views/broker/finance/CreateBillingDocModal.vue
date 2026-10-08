@@ -34,8 +34,11 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:open': [open: boolean]; created: [] }>()
 const { t } = useI18n()
 
-interface Line { name: string; unit: string; quantity: number | null; unitPrice: number | null }
-const blankLine = (): Line => ({ name: '', unit: '', quantity: 1, unitPrice: 0 })
+// id — ключ строки в списке: при удалении строки из середины поля остальных не перепутываются (ключ-индекс
+// перенёс бы состояние полей на соседнюю строку). На сервер не уходит.
+interface Line { id: number; name: string; unit: string; quantity: number | null; unitPrice: number | null }
+let lineSeq = 0
+const blankLine = (): Line => ({ id: ++lineSeq, name: '', unit: '', quantity: 1, unitPrice: 0 })
 
 const draft = reactive({
   kind: 'invoice' as BrokerInvoiceKind,
@@ -179,7 +182,7 @@ const submit = async () => {
         <div class="text-sm font-medium text-ink-2">{{ t('billing.services') }}</div>
         <div
           v-for="(l, i) in draft.lines"
-          :key="i"
+          :key="l.id"
           class="flex flex-wrap items-center gap-2 max-sm:border-b max-sm:border-line max-sm:pb-3"
           data-create-line
         >
@@ -190,7 +193,7 @@ const submit = async () => {
             :placeholder="t('billing.servicePh')"
             :aria-label="t('broker.billing.create.service')"
             :popup-width="420"
-            class="min-w-0 basis-full sm:flex-1 sm:basis-56"
+            class="min-w-0 basis-full sm:flex-1 sm:basis-56 max-sm:*:h-11"
             data-create-service
             @update:value="l.name = $event"
             @select="(v: string | number) => applyTariff(l, v)"
@@ -199,7 +202,7 @@ const submit = async () => {
             :value="l.unit"
             :placeholder="t('billing.unit')"
             :aria-label="t('billing.unit')"
-            class="w-20"
+            class="w-20 max-sm:h-11"
             data-create-unit
             @update:value="l.unit = $event"
           />
@@ -208,7 +211,7 @@ const submit = async () => {
             :min="0.01"
             :placeholder="t('billing.qty')"
             :aria-label="t('billing.qty')"
-            class="w-20"
+            class="w-20 max-sm:h-11"
             data-create-qty
             @update:value="l.quantity = $event"
           />
@@ -218,7 +221,7 @@ const submit = async () => {
             :step="1000"
             :placeholder="t('billing.price')"
             :aria-label="t('billing.price')"
-            class="w-32"
+            class="w-32 max-sm:h-11"
             data-create-price
             @update:value="l.unitPrice = $event"
           />

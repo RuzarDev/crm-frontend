@@ -1,6 +1,6 @@
 import type { ZTone } from '@/components/z/ZTag.vue'
 import type { BrokerInvoice, BrokerInvoiceKind } from '@/api/billing'
-import { formatDay, matchesQuery } from '@/views/broker/list'
+import { formatDay, matchesQuery, todayIso } from '@/views/broker/list'
 
 // Чистая логика «Счетов и актов» сотрудника (редизайн, волна 3б, доска Billing): показатели, фильтры и счётчики,
 // главная кнопка строки и меню, даты, Excel. Один запрос без фильтров — всё считается здесь, по загруженным строкам.
@@ -45,8 +45,6 @@ export function statusCounts(rows: BrokerInvoice[], q: string, kind: BillingKind
   return out
 }
 
-const pad = (n: number): string => String(n).padStart(2, '0')
-const today = (now: Date): string => `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 /**
  * Срок оплаты хранится датой (полночь UTC) — берём дату из строки как есть, без сдвига пояса:
  * иначе западнее Гринвича «срок 15.10» стал бы 14.10.
@@ -56,7 +54,7 @@ export const dueDay = (v: string | null | undefined): string | null => (v ? /^\d
 /** Просрочен: выставлен (не оплачен), срок оплаты раньше сегодняшнего дня. Сегодняшний срок — ещё не просрочен. */
 export function isOverdue(r: Pick<BrokerInvoice, 'status' | 'dueDateUtc'>, now: Date = new Date()): boolean {
   const due = dueDay(r.dueDateUtc)
-  return r.status === ST_ISSUED && !!due && due < today(now)
+  return r.status === ST_ISSUED && !!due && due < todayIso(now)
 }
 
 /** На сколько дней просрочен (0 — не просрочен). */
@@ -160,10 +158,4 @@ export function billingExcelRows(rows: BrokerInvoice[], t: T, statusText: (s: nu
     [t('billing.issuedAtCol')]: r.issuedAtUtc ? formatDay(r.issuedAtUtc) : '',
     [t('billing.paidAtCol')]: r.paidAtUtc ? formatDay(r.paidAtUtc) : '',
   }))
-}
-
-/** Форма числа для подписей «{n} счетов»: ru — один/несколько/много; языки без «few» — one/many. */
-export function pluralForm(n: number, locale: string): 'one' | 'few' | 'many' {
-  const c = new Intl.PluralRules(locale).select(n)
-  return c === 'one' ? 'one' : c === 'few' ? 'few' : 'many'
 }

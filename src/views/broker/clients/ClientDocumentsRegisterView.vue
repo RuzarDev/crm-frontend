@@ -14,7 +14,7 @@ import NoticeBanner from '@/components/broker/NoticeBanner.vue'
 import { clientCardApi, type ClientDocumentRow } from '@/api/clientCard'
 import { useAuthStore } from '@/stores/auth'
 import { useBlock } from '@/views/home/useBlock'
-import { exportXlsx, formatDay } from '@/views/broker/list'
+import { exportXlsx, formatDay, pluralForm } from '@/views/broker/list'
 import { message } from '@/ui/message'
 import type { ZColumn } from '@/ui/table'
 import { docKindLabelKey, docStatusLabelKey, docStatusTone } from './clients'
@@ -47,25 +47,21 @@ const expiringCount = computed(() => items.value.filter((r) => r.expiringSoon).l
 const showAqnietBanner = computed(() => !!board.data && canSignProvider.value && aqnietCount.value > 0)
 const showExpiringBanner = computed(() => !!board.data && expiringCount.value > 0)
 
-// «2 договора ждут…»: форма существительного по числу (ru — один/несколько/много, остальные языки — свои правила).
-const plural = (n: number): 'one' | 'few' | 'many' => {
-  const c = new Intl.PluralRules(locale.value).select(n)
-  return c === 'one' ? 'one' : c === 'few' ? 'few' : 'many'
+// «2 договора ждут…»: фраза — ключ по числу (один / много), счётчик — слот count, выделен жирным
+// (число и существительное в нужной форме: ru — один/несколько/много, остальные языки — свои правила).
+const bannerFor = (kind: 'aqniet' | 'expiring', n: number, noun: 'contract' | 'document') => {
+  const p = pluralForm(n, locale.value)
+  return { keypath: `broker.clientDocs.banner.${kind}.${p === 'one' ? 'one' : 'many'}`, count: `${n} ${t(`broker.clientDocs.noun.${noun}.${p}`)}` }
 }
-// Фраза плашки со счётчиком, выделенным жирным: числом и существительным («2 договора») — а вокруг обычный текст.
-const MARK = '\u0001'
-const bannerParts = (kind: 'aqniet' | 'expiring', n: number, noun: 'contract' | 'document') => {
-  const p = plural(n)
-  const [before, after] = t(`broker.clientDocs.banner.${kind}.${p === 'one' ? 'one' : 'many'}`, { count: MARK }).split(MARK)
-  return { before, count: `${n} ${t(`broker.clientDocs.noun.${noun}.${p}`)}`, after: after ?? '' }
-}
-const aqnietBanner = computed(() => bannerParts('aqniet', aqnietCount.value, 'contract'))
-const expiringBanner = computed(() => bannerParts('expiring', expiringCount.value, 'document'))
+const aqnietBanner = computed(() => bannerFor('aqniet', aqnietCount.value, 'contract'))
+const expiringBanner = computed(() => bannerFor('expiring', expiringCount.value, 'document'))
 
 // ---- Поиск, вид, состояние ----
 const query = ref('')
 const kind = ref<DocKind>('all')
 const state = ref<DocState>('all')
+// «Показать» на плашке: только это состояние, без вида и поиска — иначе нужные строки могли бы быть скрыты.
+const showState = (s: DocState) => { query.value = ''; kind.value = 'all'; state.value = s }
 const filtered = computed(() => !!query.value.trim() || kind.value !== 'all' || state.value !== 'all')
 const rows = computed(() => filterDocs(items.value, query.value, kind.value, state.value))
 const counts = computed(() => stateCounts(items.value, query.value, kind.value))
@@ -90,7 +86,7 @@ const tableWidth = computed(() => columns.value.reduce((sum, c) => sum + (typeof
 const pagination = computed(() => ({
   current: page.value,
   onChange: (p: number) => { page.value = p },
-  showTotal: (total: number, [from, to]: [number, number]) => t('broker.clientDocs.range', { from, to, total }),
+  showTotal: (total: number, [from, to]: [number, number]) => t('broker.list.range', { from, to, total }),
 }))
 
 const openClient = (r: ClientDocumentRow) => { void router.push(`/clients/${r.clientId}`) }
@@ -160,24 +156,28 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
           @click="exportExcel"
         >
           <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
-          {{ t('broker.clients.export') }}
+          {{ t('broker.list.excel') }}
         </ZButton>
       </div>
     </div>
 
     <div v-if="showAqnietBanner || showExpiringBanner" class="flex flex-wrap gap-2.5 [&>*]:flex-1 [&>*]:basis-80">
       <NoticeBanner v-if="showAqnietBanner" tone="gold" data-docs-banner-aqniet>
-        <span>{{ aqnietBanner.before }}<b class="font-semibold">{{ aqnietBanner.count }}</b>{{ aqnietBanner.after }}</span>
+        <i18n-t :keypath="aqnietBanner.keypath" tag="span" scope="global">
+          <template #count><b class="font-semibold">{{ aqnietBanner.count }}</b></template>
+        </i18n-t>
         <template #action>
-          <ZButton class="bg-gold text-navy enabled:hover:bg-gold/85 max-sm:h-11" data-docs-show-aqniet @click="state = 'aqniet'">
+          <ZButton class="bg-gold text-navy enabled:hover:bg-gold/85 max-sm:h-11" data-docs-show-aqniet @click="showState('aqniet')">
             {{ t('broker.clientDocs.show') }}
           </ZButton>
         </template>
       </NoticeBanner>
       <NoticeBanner v-if="showExpiringBanner" tone="neutral" data-docs-banner-expiring>
-        <span>{{ expiringBanner.before }}<b class="font-semibold">{{ expiringBanner.count }}</b>{{ expiringBanner.after }}</span>
+        <i18n-t :keypath="expiringBanner.keypath" tag="span" scope="global">
+          <template #count><b class="font-semibold">{{ expiringBanner.count }}</b></template>
+        </i18n-t>
         <template #action>
-          <ZButton class="border border-line-strong bg-surface enabled:hover:bg-sunken max-sm:h-11" data-docs-show-expiring @click="state = 'expiring'">
+          <ZButton class="border border-line-strong bg-surface enabled:hover:bg-sunken max-sm:h-11" data-docs-show-expiring @click="showState('expiring')">
             {{ t('broker.clientDocs.show') }}
           </ZButton>
         </template>
@@ -185,7 +185,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
-      <ListSearch :value="query" :placeholder="t('broker.clientDocs.search')" class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1" @update:value="query = $event" />
+      <ListSearch :value="query" :placeholder="t('broker.clientDocs.search')" @update:value="query = $event" />
       <ZSegmented
         :value="kind"
         :options="kindOptions"

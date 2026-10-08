@@ -97,6 +97,8 @@ describe('«Счета и акты» (сотрудник)', () => {
     await mountView()
     expect(api.list).toHaveBeenCalledWith(undefined, { silent: true })
     expect(w.get('h1').text()).toBe('Счета и акты')
+    expect(w.get('[data-billing-count]').text()).toBe('5')
+    expect(w.get('[data-billing-new]').classes()).toEqual(expect.arrayContaining(['max-sm:h-11', 'max-sm:flex-1']))
     const cells = w.findAll('[data-stat-cell]')
     const parts = (i: number) => [...cells[i].element.querySelectorAll(':scope > div')].map((d) => nb(d.textContent ?? '').trim())
     expect(parts(0)).toEqual(['Выставлено', '168 000 ₸', '2 счёта'])
@@ -251,6 +253,43 @@ describe('«Счета и акты» (сотрудник)', () => {
     await w.findAll('[data-billing-kind] button')[0].trigger('click')
     await w.get('input[type="search"]').setValue('0213/2026')
     expect(docs()).toEqual(['Счёт № 0213/2026'])
+  })
+
+  it('пока идёт действие: кнопки других строк и пункты записи неактивны, попытка — сообщение до вопроса', async () => {
+    await mountView()
+    let finish!: (v: unknown) => void
+    api.remind.mockReturnValueOnce(new Promise((r) => { finish = r }))
+    await w.findAll('[data-row-primary]')[1].trigger('click') // «Напомнить» строки b — запрос идёт
+    await flushPromises()
+    const primaries = w.findAllComponents(RowActions).map((a) => a.props('primary') as { disabled?: boolean; loading?: boolean } | null)
+    expect(primaries[1]).toMatchObject({ loading: true, disabled: false })
+    expect(primaries[2]).toMatchObject({ disabled: true })
+    const items0 = actionsOf(0).props('items') as { key: string; disabled?: boolean }[]
+    expect(items0.filter((x) => x.disabled).map((x) => x.key)).toEqual(menuKeys(0).filter((k) => k !== 'pdf'))
+    expect(items0.find((x) => x.key === 'pdf')?.disabled).toBe(false)
+    actionsOf(0).vm.$emit('action', 'markPaid')
+    await flushPromises()
+    expect(confirmState.open).toBe(false)
+    expect(api.toast.info).toHaveBeenCalledWith('Дождитесь завершения предыдущего действия')
+    expect(api.markPaid).not.toHaveBeenCalled()
+    finish({ ok: true, emailSent: true, to: 'a@b.kz' })
+    await flushPromises()
+    expect((actionsOf(2).props('primary') as { disabled?: boolean }).disabled).toBe(false)
+  })
+
+  it('ушли с экрана до конца загрузки — ?caseId= не открывает окно и не правит адрес', async () => {
+    let finish!: (v: unknown) => void
+    api.list.mockReturnValueOnce(new Promise((r) => { finish = r }))
+    await router.push('/billing?caseId=k1')
+    w = mountWithI18n(BillingDocsView, { attachTo: document.body, global: { plugins: [router] } })
+    await flushPromises()
+    // Отключение приложения сбрасывает currentRoute роутера — проверяем сам вызов replace.
+    const replace = vi.spyOn(router, 'replace')
+    w.unmount()
+    finish(ROWS)
+    await flushPromises()
+    expect(api.listClients).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('?case= — фильтр по номеру заявки; смена параметра на открытом экране — перечитать и отфильтровать', async () => {

@@ -73,7 +73,7 @@ const tableWidth = computed(() => columns.value.reduce((sum, c) => sum + (typeof
 const pagination = computed(() => ({
   current: page.value,
   onChange: (p: number) => { page.value = p },
-  showTotal: (total: number, [from, to]: [number, number]) => t('broker.clients.range', { from, to, total }),
+  showTotal: (total: number, [from, to]: [number, number]) => t('broker.list.range', { from, to, total }),
 }))
 
 const openCard = (c: ClientOnboardingRow) => { void router.push(`/clients/${c.id}`) }
@@ -157,7 +157,11 @@ const exportExcel = async () => {
   }
 }
 
-const now = () => Date.now()
+// Срок приглашения — один раз на строку при каждой загрузке (не по вызову на каждую ячейку и перерисовку).
+const invites = computed(() => {
+  const now = Date.now()
+  return new Map(items.value.map((c) => [c.id, inviteUntil(c, now)]))
+})
 const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound') : t('admin.klientovPokaNet')))
 </script>
 
@@ -187,7 +191,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
           @click="exportExcel"
         >
           <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
-          {{ t('broker.clients.export') }}
+          {{ t('broker.list.excel') }}
         </ZButton>
         <ZButton v-if="canInvite" variant="primary" class="max-sm:h-11 max-sm:flex-1" data-clients-invite @click="openInvite">
           <template #icon><PhEnvelopeSimple :size="16" aria-hidden="true" /></template>
@@ -197,7 +201,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
-      <ListSearch :value="query" :placeholder="t('broker.clients.search')" class="min-w-0 max-sm:basis-full sm:basis-60 sm:flex-1" @update:value="query = $event" />
+      <ListSearch :value="query" :placeholder="t('broker.clients.search')" @update:value="query = $event" />
       <ZSegmented
         :value="segment"
         :options="segmentOptions"
@@ -240,7 +244,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
             data-client-open
             @click="openCard(record)"
           >
-            <ZAvatar :name="clientName(record)" class="size-8!" />
+            <ZAvatar :name="clientName(record)" class="size-8" />
             <span class="min-w-0">
               <span class="block truncate text-sm font-semibold text-ink" :title="record.companyName || '—'" data-client-name>{{ record.companyName || '—' }}</span>
               <span class="block truncate text-xs text-muted">{{ record.email || record.username }}<template v-if="record.bin"> · {{ t('admin.bin') }} {{ record.bin }}</template></span>
@@ -248,9 +252,9 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
           </button>
           <span v-else-if="column.key === 'status'" class="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
             <ZTag :tone="clientStatusTone(record.status)" data-client-status>{{ t(clientStatusLabelKey(record.status)) }}</ZTag>
-            <template v-if="inviteUntil(record, now())">
-              <span v-if="inviteUntil(record, now())!.expired" class="text-xs text-gold-ink" data-client-expired>{{ t('admin.ssylkaIstekla') }}</span>
-              <span v-else class="text-xs text-muted" data-client-until>{{ t('admin.doDate', { date: inviteUntil(record, now())!.date }) }}</span>
+            <template v-if="invites.get(record.id)">
+              <span v-if="invites.get(record.id)!.expired" class="text-xs text-gold-ink" data-client-expired>{{ t('admin.ssylkaIstekla') }}</span>
+              <span v-else class="text-xs text-muted" data-client-until>{{ t('admin.doDate', { date: invites.get(record.id)!.date }) }}</span>
             </template>
           </span>
           <span v-else-if="column.key === 'docs'" class="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-sm" data-client-docs>
