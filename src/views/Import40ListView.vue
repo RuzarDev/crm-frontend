@@ -753,7 +753,7 @@ const createCase = async () => {
       clientId: draft.clientId!,
       clientName: draft.clientName,
       cargo: draft.cargo.trim(),
-      post: draft.post.trim(),
+      post: (draft.post || '').trim(),
     })
     createOpen.value = false
     message.success(t('import40List.created'))
