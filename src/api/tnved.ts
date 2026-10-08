@@ -29,6 +29,10 @@ export interface TariffOptionsDto {
   dutyRates?: string[]
 }
 
+// Экран сам показывает ошибку (свой блок, 429 — «слишком много запросов»): перехватчик тост не рисует.
+export interface TnvedRequestOptions { silent?: boolean }
+const quiet = (o?: TnvedRequestOptions) => (o?.silent ? { silent: true } : {})
+
 export const tnvedApi = {
   // ── Import tree ─────────────────────────────────────────────────────────────
   children: (parentId = 0) =>
@@ -40,20 +44,22 @@ export const tnvedApi = {
   path: (code: string) =>
     apiClient.get<TnvedPathNodeDto[]>(`/tnved/path/${encodeURIComponent(code)}`),
 
-  search: (q: string, leafOnly = false, limit = 30) =>
-    apiClient.get<TnvedNodeDto[]>('/tnved/search', { params: { q, leafOnly, limit } }),
+  search: (q: string, leafOnly = false, limit = 30, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedNodeDto[]>('/tnved/search', { params: { q, leafOnly, limit }, ...quiet(opts) }),
 
 
-  classify: (description: string, limit = 10) =>
-    apiClient.get<TnvedClassifyResponse>('/tnved/classify', { params: { description, limit } }),
+  classify: (description: string, limit = 10, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedClassifyResponse>('/tnved/classify', { params: { description, limit }, ...quiet(opts) }),
 
   // ── Notes / explanations ────────────────────────────────────────────────────
   notes: (code: string) =>
     apiClient.get<TnvedExplanationDto>(`/tnved/node/${encodeURIComponent(code)}/notes`),
 
   // ── Rates ───────────────────────────────────────────────────────────────────
-  rates: (code: string) =>
-    apiClient.get<TnvedRateDto>(`/tnved/node/${encodeURIComponent(code)}/rates`),
+  rates: (code: string, opts?: TnvedRequestOptions) =>
+    opts?.silent
+      ? apiClient.get<TnvedRateDto>(`/tnved/node/${encodeURIComponent(code)}/rates`, { silent: true })
+      : apiClient.get<TnvedRateDto>(`/tnved/node/${encodeURIComponent(code)}/rates`),
 
   // ── Reference (нетарифка / справка по товару) ──────────────────────────────
   reference: (code: string) =>
@@ -67,12 +73,14 @@ export const tnvedApi = {
     apiClient.get<TnvedRateChangeDto[]>('/tnved/rate-changes', { params: { limit } }),
 
   // GET: сервер принимает калькулятор только как GET с параметрами (POST давал 405).
-  calculate: (req: TnvedCalculateRequest) =>
-    apiClient.get<TnvedCalculateResult>('/tnved/calculate', { params: req }),
+  calculate: (req: TnvedCalculateRequest, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedCalculateResult>('/tnved/calculate', { params: req, ...quiet(opts) }),
 
   // ── Currencies ──────────────────────────────────────────────────────────────
-  currencies: () =>
-    apiClient.get<TnvedCurrencyDto[]>('/tnved/currencies'),
+  currencies: (opts?: TnvedRequestOptions) =>
+    opts?.silent
+      ? apiClient.get<TnvedCurrencyDto[]>('/tnved/currencies', { silent: true })
+      : apiClient.get<TnvedCurrencyDto[]>('/tnved/currencies'),
 
 
   // ── Regulations ─────────────────────────────────────────────────────────────

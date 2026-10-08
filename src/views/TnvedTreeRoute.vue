@@ -3,9 +3,9 @@ import { defineAsyncComponent } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
 // /tnved/tree: клиенту и сотруднику — отдельные ветки (как Import40Route), каждый экран грузится лениво.
-// Пока клиент видит прежний экран: клиентский экран редизайна (волна 2b) подменит ClientView.
+// Клиенту — упрощённый экран редизайна «Подбор кода ТН ВЭД» (волна 2b); сотрудники остаются на прежнем.
 const StaffView = defineAsyncComponent(() => import('@/views/TnvedTreeView.vue'))
-const ClientView = StaffView
+const ClientView = defineAsyncComponent(() => import('@/views/client/ClientTnvedView.vue'))
 const auth = useAuthStore()
 </script>
 
