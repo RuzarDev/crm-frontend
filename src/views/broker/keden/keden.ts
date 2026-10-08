@@ -11,6 +11,8 @@ export type KedenMode = 'all' | 'mine'
 
 export interface KedenRow {
   id: string
+  /** Идентификатор в КЕДЕН; только у «all» — подпись ссылки, когда рег. номера ещё нет. */
+  kedenId: string | null
   registrationNumber: string | null
   /** Тип декларации (PI/DT/TD/…); у «mine» не приходит. */
   type: string | null
@@ -33,6 +35,7 @@ const stamp = (iso: string | null): number | null => {
 
 export const rowFromListItem = (i: KedenDeclarationListItemDto): KedenRow => ({
   id: i.id,
+  kedenId: i.kedenId,
   registrationNumber: i.registrationNumber,
   type: i.declarationType,
   statusCode: i.statusCode,
@@ -46,6 +49,7 @@ export const rowFromListItem = (i: KedenDeclarationListItemDto): KedenRow => ({
 
 export const rowFromMine = (i: KedenDeclarationStatus): KedenRow => ({
   id: i.id,
+  kedenId: null,
   registrationNumber: i.registrationNumber,
   type: null,
   statusCode: null,

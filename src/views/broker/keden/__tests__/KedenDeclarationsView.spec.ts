@@ -69,6 +69,20 @@ describe('KedenDeclarationsView: mode=all', () => {
     expect(nos()).toEqual(['56000/071026/0012399', '56000/081026/0012484', '56000/061026/0012301'])
   })
 
+  it('строка без рег. номера: ссылка на карточку остаётся, подпись — идентификатор КЕДЕН', async () => {
+    api.list.mockResolvedValue({ items: [li({ id: 'n', kedenId: 'KD-77', registrationNumber: null })], total: 1 })
+    await mountView('all')
+    const a = w.get('a[data-keden-open]')
+    expect(a.attributes('href')).toBe('/keden/n')
+    expect(a.text()).toBe('KD-77')
+  })
+
+  it('пустой список: без горизонтальной прокрутки таблицы', async () => {
+    api.list.mockResolvedValue({ items: [], total: 0 })
+    await mountView('all')
+    expect(w.get('table').classes().join(' ')).not.toContain('min-w-(--z-table-x)')
+  })
+
   it('есть колонка «Тип» с короткой подписью и ссылки на карточку', async () => {
     await mountView('all')
     expect(headers()).toContain('Тип')
@@ -179,11 +193,28 @@ describe('KedenDeclarationsView: mode=mine', () => {
     expect(w.text()).toContain('Статусы появятся, когда в профиле компании указан БИН')
   })
 
-  it('смена режима на том же экземпляре перезагружает данные', async () => {
+  it('смена режима на том же экземпляре: фильтры сброшены, старых строк под загрузкой нет, ошибка не оставляет чужие', async () => {
     await mountView('all')
+    await w.get('input[type="search"]').setValue('altyn')
+    let resolve!: (v: unknown) => void
+    api.mine.mockReturnValueOnce(new Promise((r) => { resolve = r }))
     await w.setProps({ mode: 'mine' })
+    await flushPromises()
+    expect((w.get('input[type="search"]').element as HTMLInputElement).value).toBe('')
+    expect(w.find('[data-keden-count]').exists()).toBe(false)
+    expect(w.findAll('[data-keden-no]')).toHaveLength(0)
+    expect(w.find('a[data-keden-open]').exists()).toBe(false)
+    resolve(MINE)
     await flushPromises()
     expect(api.mine).toHaveBeenCalledTimes(1)
     expect(headers()).not.toContain('Тип')
+    expect(w.findAll('[data-keden-no]')).toHaveLength(2)
+
+    // и обратно с ошибкой: строки «mine» не остаются
+    api.list.mockRejectedValueOnce(new Error('500'))
+    await w.setProps({ mode: 'all' })
+    await flushPromises()
+    expect(w.find('[data-keden-error]').exists()).toBe(true)
+    expect(w.findAll('[data-keden-no]')).toHaveLength(0)
   })
 })

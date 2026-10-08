@@ -6,6 +6,8 @@ export interface Block<T> {
   readonly error: boolean
   /** Загрузить заново (кнопка «Повторить» — только этот блок). */
   load: () => Promise<void>
+  /** Забыть данные и ошибку (экран переиспользован под другие данные); ответ идущего запроса отбрасывается. */
+  reset: () => void
 }
 
 /**
@@ -35,5 +37,12 @@ export function useBlock<T>(enabled: boolean, fetcher: () => Promise<T>): Block<
     }
   }
 
-  return reactive({ data, loading, error, load }) as Block<T>
+  const reset = () => {
+    seq++
+    data.value = null
+    error.value = false
+    loading.value = enabled
+  }
+
+  return reactive({ data, loading, error, load, reset }) as Block<T>
 }

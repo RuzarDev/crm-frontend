@@ -45,6 +45,7 @@ onMounted(() => { void board.load() })
 watch(() => props.mode, () => {
   type.value = null
   filters.value = emptyFilters()
+  board.reset()
   void board.load()
 })
 
@@ -163,19 +164,20 @@ const emptyHint = computed(() => (filtered.value ? t('broker.list.nothingFoundHi
         row-key="id"
         :loading="board.loading"
         :pagination="pagination"
-        :scroll="{ x: tableWidth }"
+        :scroll="rows.length || board.loading ? { x: tableWidth } : undefined"
         :aria-label="t('broker.keden.tableLabel')"
         class="overflow-hidden rounded-panel border border-line bg-surface max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent"
         data-keden-table
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'no'">
+            <!-- В «all» ссылка есть у каждой строки: без рег. номера подпись — идентификатор КЕДЕН, иначе карточка недоступна. -->
             <RouterLink
-              v-if="isAll && record.registrationNumber"
+              v-if="isAll && (record.registrationNumber || record.kedenId)"
               :to="`/keden/${record.id}`"
               class="inline-flex max-w-full items-center truncate rounded-field font-mono text-sm font-medium text-ink outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
               data-keden-open
-            >{{ record.registrationNumber }}</RouterLink>
+            >{{ record.registrationNumber || record.kedenId }}</RouterLink>
             <span v-else-if="record.registrationNumber" class="block truncate font-mono text-sm font-medium text-ink" data-keden-no>{{ record.registrationNumber }}</span>
             <span v-else class="text-muted">—</span>
           </template>
