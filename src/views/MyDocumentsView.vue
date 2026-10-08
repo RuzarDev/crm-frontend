@@ -63,32 +63,24 @@
         </ZTable>
       </a-space>
     </a-card>
-
-    <ReestrForm
-      :open="declarationModalOpen"
-      :loading="false"
-      :entry="selectedEntry"
-      view-mode="client"
-      initial-tab="data"
-      @cancel="closeDeclaration"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import type { TableProps } from 'ant-design-vue'
 import { reestrApi } from '@/api/reestr'
-import type { MyReestrDocumentListItem, ReestrDocumentSection, ReestrEntry } from '@/types/api'
+import type { MyReestrDocumentListItem, ReestrDocumentSection } from '@/types/api'
 import { dtoStatusToEntryStatus } from '@/utils/reestrDtoMap'
 import ReestrStatusCell from '@/components/ReestrStatusCell.vue'
-import ReestrForm from '@/components/ReestrForm.vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 
 const { t } = useI18n()
+const router = useRouter()
 
 const loading = ref(false)
 const items = ref<MyReestrDocumentListItem[]>([])
@@ -97,9 +89,6 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const search = ref('')
 const sectionFilter = ref<ReestrDocumentSection | null>(null)
-
-const declarationModalOpen = ref(false)
-const selectedEntry = ref<ReestrEntry | null>(null)
 
 const sectionOptions = computed(() => ([
 
@@ -196,20 +185,9 @@ const handleDownload = async (record: MyReestrDocumentListItem) => {
   }
 }
 
-const openDeclaration = async (record: MyReestrDocumentListItem) => {
-  try {
-    const entry = await reestrApi.getById(record.reestrEntryId)
-    selectedEntry.value = entry
-    declarationModalOpen.value = true
-  } catch {
-    //
-  }
-}
-
-const closeDeclaration = () => {
-  declarationModalOpen.value = false
-  selectedEntry.value = null
-  fetchList()
+// «Декларация» — страница записи транзита (редизайн, волна 4б); крошки страницы ведут обратно сюда.
+const openDeclaration = (record: MyReestrDocumentListItem) => {
+  void router.push({ path: `/reestr/${encodeURIComponent(record.reestrEntryId)}`, query: { from: 'my-documents' } })
 }
 </script>
 

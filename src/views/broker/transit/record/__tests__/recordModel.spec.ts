@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ReestrEntryStatus, REESTR_COLUMN_KEYS, type ReestrTransitFields } from '@/types/api'
 import { REESTR_TRANSIT_DEFAULTS, reestrEntryToUpsertBody } from '@/utils/reestrDtoMap'
 import {
+  DEPARTURE_OFFICE_MAX,
   SECTION_ORDER,
   TRANSIT_FIELD_SECTION,
   changedSections,
@@ -172,6 +173,19 @@ describe('validateDraft', () => {
       'broker.transitRecord.errors.needKeyField',
       'broker.transitRecord.errors.needClient',
     ])
+  })
+
+  it('таможня отправления без кода поста длиннее 32 знаков — сохранять нельзя (колонка сервера 32)', () => {
+    const d = emptyDraft()
+    d.fields['№'] = '1'
+    d.transit.departureCustomsOffice = 'ТАМОЖЕННЫЙ ПОСТ «БЕЗ КОДА» С ОЧЕНЬ ДЛИННЫМ НАЗВАНИЕМ'
+    expect(validateDraft(d, { isNew: false, clientId: 'c1' })).toEqual(['broker.transitRecord.errors.departureOfficeTooLong'])
+    d.transit.departureCustomsOffice = 'Я'.repeat(DEPARTURE_OFFICE_MAX)
+    expect(validateDraft(d, { isNew: false, clientId: 'c1' })).toEqual([])
+    d.transit.departureCustomsOffice = '57507'
+    expect(validateDraft(d, { isNew: false, clientId: 'c1' })).toEqual([])
+    d.transit.departureCustomsOffice = null
+    expect(validateDraft(d, { isNew: false, clientId: 'c1' })).toEqual([])
   })
 })
 

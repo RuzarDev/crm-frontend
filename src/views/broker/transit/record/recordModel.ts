@@ -192,6 +192,33 @@ const filled = (v: unknown): boolean => {
 const rowHasData = (row: object): boolean => Object.values(row).some(filled)
 const anyRow = (rows: object[]): boolean => rows.some(rowHasData)
 
+/** Колонка ReestrEntry.DepartureCustomsOffice — 32 знака. */
+export const DEPARTURE_OFFICE_MAX = 32
+
+/** Код поста — ведущие 5–8 цифр названия: «57507 — ТАМОЖЕННЫЙ ПОСТ «…»» → «57507». */
+export function customsPostCode(name: string | null | undefined): string | null {
+  return /^\d{5,8}/.exec((name ?? '').trim())?.[0] ?? null
+}
+
+/**
+ * Что сохранить в «Таможне отправления» при выборе поста (B.12): код поста; нет кода — название,
+ * но название длиннее 32 знаков сервер не примет (tooLong — ошибка у поля).
+ */
+export function departureOfficeValue(name: string): { value: string; tooLong: boolean } {
+  const code = customsPostCode(name)
+  if (code) return { value: code, tooLong: false }
+  return { value: name, tooLong: name.length > DEPARTURE_OFFICE_MAX }
+}
+
+/**
+ * Значение «Таможни отправления» длиннее 32 знаков сервер не сохранит (ошибка у поля, сохранение запрещено).
+ * Выбор поста кладёт код, так что на деле это пост без кода с длинным названием.
+ */
+export function departureOfficeTooLong(value: string | null | undefined): boolean {
+  const v = value ?? ''
+  return v.trim() !== '' && v.length > DEPARTURE_OFFICE_MAX
+}
+
 /** Ключевые поля строки: сервер (IsMeaningfulRequest) требует хотя бы одно из них. */
 const KEY_FIELDS = ['№', 'Контейнер', 'Получатель', 'Отправитель', 'Груз']
 
@@ -200,6 +227,7 @@ export function validateDraft(draft: RecordDraft, opts: { isNew: boolean; client
   const errors: string[] = []
   if (!KEY_FIELDS.some((k) => filled(draft.fields[k]))) errors.push('broker.transitRecord.errors.needKeyField')
   if (opts.isNew && !filled(opts.clientId)) errors.push('broker.transitRecord.errors.needClient')
+  if (departureOfficeTooLong(draft.transit.departureCustomsOffice)) errors.push('broker.transitRecord.errors.departureOfficeTooLong')
   return errors
 }
 

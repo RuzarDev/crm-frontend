@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   PhColumns, PhDotsThree, PhDownloadSimple, PhEye, PhFileArrowUp, PhFileText, PhPencilSimple, PhPlus, PhReceipt,
@@ -16,19 +16,13 @@ import ListSearch from '@/components/broker/ListSearch.vue'
 import PeriodChip from '@/components/broker/PeriodChip.vue'
 import SelectionBar from '@/components/broker/SelectionBar.vue'
 import StatusDot from '@/components/broker/StatusDot.vue'
-import ReestrForm from '@/components/ReestrForm.vue'
 import ImportInvoiceButton from '@/components/ImportInvoiceButton.vue'
 import TransitStatusModal from './TransitStatusModal.vue'
 import TransitUploadModal from './TransitUploadModal.vue'
 import { reestrApi } from '@/api/reestr'
 import { useAuthStore } from '@/stores/auth'
 import { useReestrStore } from '@/stores/reestr'
-import type {
-  ReestrCargoOperationInput, ReestrCarrierInput, ReestrContainerInput, ReestrDoc44ItemInput, ReestrEntry, ReestrEntryStatus,
-  ReestrGoodsItemInput, ReestrGuaranteeInput, ReestrIdentificationMeansInput, ReestrOrganizationInput, ReestrPackageInput,
-  ReestrPrecedingDocInput, ReestrTransitFields, ReestrTransportMeansInput,
-} from '@/types/api'
-import { REESTR_TRANSIT_DEFAULTS, reestrEntryToUpsertBody } from '@/utils/reestrDtoMap'
+import type { ReestrEntry, ReestrEntryStatus } from '@/types/api'
 import { formatTnved } from '@/views/broker/requests/requests'
 import { formatUpdated } from '@/views/broker/list'
 import { message } from '@/ui/message'
@@ -45,8 +39,11 @@ import {
 // Открывают сотрудники брокера, экспедиторы и клиенты с модулем «транзит» — наборы действий по ролям
 // те же, что у прежнего ReestrView. Фильтры, страница и поиск живут в сторе (переживают уход с экрана)
 // и в поля берутся из него. Консолидационные группы не рисуются: сервер создаёт одну запись на консолидацию.
+// Запись открывается страницей /reestr/:id (волна 4б): строка кликабельна, «Изменить»/«Просмотр» — данные,
+// «Документы» — ?tab=documents, «Новая запись» — /reestr/new. Полную запись грузит сама страница.
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const store = useReestrStore()
 const { confirm } = useConfirm()
@@ -63,7 +60,7 @@ const isBroker = computed(() => !isExpeditor.value && !isClient.value && auth.ha
 const showPortfolioFilters = computed(() => isExpeditor.value || isBroker.value)
 const needsUploadClient = computed(() => !isClient.value)
 
-// ---- Клиенты: для создания/загрузки/импорта и для фильтра ----
+// ---- Клиенты: для загрузки Excel/импорта и для фильтра ----
 type Option = { value: string; label: string }
 const createClientOptions = ref<Option[]>([])
 const filterClientOptions = ref<Option[]>([])
@@ -73,7 +70,7 @@ const loadCreateClients = async () => {
   try {
     createClientOptions.value = toOptions(await reestrApi.listClientsForCreate())
   } catch {
-    // тост показал перехватчик; окна создания/загрузки откроются с пустым списком
+    // тост показал перехватчик; окна загрузки/импорта откроются с пустым списком
   }
 }
 const loadFilterClients = async () => {
@@ -225,139 +222,19 @@ const totalOf = (key: string | undefined, rows: Row[]) => {
   return ''
 }
 
-// ---- Окно записи (ReestrForm — смонтировано всегда: держит защиту несохранённого при уходе) ----
-const formModalOpen = ref(false)
-const formLoading = ref(false)
-const currentEntry = ref<ReestrEntry | null>(null)
-const formViewMode = ref<'default' | 'client' | 'readonly'>('default')
-const formInitialTab = ref<'data' | 'documents'>('data')
-const statusHistoryRefreshKey = ref(0)
-// Ошибка прошлого сохранения не должна всплывать в заново открытой записи.
-watch(formModalOpen, (open) => { if (open) store.saveError = null })
-
-type FormMode = 'default' | 'client' | 'readonly'
-type RowAction = 'view' | 'documents' | 'edit'
-const openForm = (entry: ReestrEntry | null, mode: FormMode, tab: 'data' | 'documents') => {
-  currentEntry.value = entry
-  formViewMode.value = mode
-  formInitialTab.value = tab
-  formModalOpen.value = true
-}
-
-// Существующая запись открывается только полной (getById): в строке списка нет товаров, гр.44, организаций
-// и прочих вложенных списков, а сервер при сохранении заменяет их целиком — сохранение строки их стёрло бы.
-// Пока запись грузится — индикатор на кнопке строки; ошибка — окно не открывается (тост — у перехватчика);
-// открывается только последняя запрошенная запись.
-const opening = ref<{ id: string; action: RowAction } | null>(null)
-let openSeq = 0
-const isOpening = (id: string, action: RowAction) => opening.value?.id === id && opening.value.action === action
-const openExisting = async (r: ReestrEntry, mode: FormMode, tab: 'data' | 'documents', action: RowAction) => {
-  if (isOpening(r.id, action)) return
-  const seq = ++openSeq
-  opening.value = { id: r.id, action }
-  try {
-    const full = await reestrApi.getById(r.id)
-    if (seq === openSeq) openForm(full, mode, tab)
-  } catch {
-    // тост показал перехватчик; окно не открываем
-  } finally {
-    if (seq === openSeq) opening.value = null
-  }
-}
-const cancelOpening = () => {
-  openSeq += 1
-  opening.value = null
-}
-
-const showCreate = () => {
-  cancelOpening()
-  openForm(null, 'default', 'data')
-}
-const handleEdit = (r: ReestrEntry) => openExisting(r, 'default', 'data', 'edit')
-// Просмотр без правки: экспедитору — readonly, остальным — клиентский вид.
-const openReadonly = (r: ReestrEntry, tab: 'data' | 'documents') =>
-  openExisting(r, isExpeditor.value ? 'readonly' : 'client', tab, tab === 'data' ? 'view' : 'documents')
-// Документы: клиент — клиентский вид; экспедитор и сотрудник — форма на вкладке документов (могут загружать).
-const openDocuments = (r: ReestrEntry) => (isClient.value ? openReadonly(r, 'documents') : openExisting(r, 'default', 'documents', 'documents'))
-
-// Автозаполнение на вкладке «Документы» поменяло запись на сервере: список перечитать, а открытую
-// запись — заново загрузить в форму, иначе «Сохранить» вернёт старые значения поверх заполненных.
-const onApplied = async () => {
-  void load()
-  const id = currentEntry.value?.id
-  if (!id || !formModalOpen.value) return
-  try {
-    const full = await reestrApi.getById(id)
-    if (formModalOpen.value && currentEntry.value?.id === id) currentEntry.value = full
-  } catch {
-    // тост показал перехватчик; форма остаётся как была
-  }
-}
-
-interface FormPayload {
-  data: Record<string, string | null>
-  status: ReestrEntryStatus
-  clientId?: string
-  goods?: ReestrGoodsItemInput[]
-  doc44?: ReestrDoc44ItemInput[]
-  transit?: ReestrTransitFields
-  organizations?: ReestrOrganizationInput[]
-  carriers?: ReestrCarrierInput[]
-  transportMeans?: ReestrTransportMeansInput[]
-  identificationMeans?: ReestrIdentificationMeansInput[]
-  packages?: ReestrPackageInput[]
-  containers?: ReestrContainerInput[]
-  precedingDocs?: ReestrPrecedingDocInput[]
-  cargoOperations?: ReestrCargoOperationInput[]
-  guarantees?: ReestrGuaranteeInput[]
-}
-const handleFormSubmit = async (payload: FormPayload) => {
-  formLoading.value = true
-  try {
-    const clientId = payload.clientId ?? currentEntry.value?.clientId
-    if (!clientId) {
-      message.error(t('transit.vyberiteKlienta'))
-      return
-    }
-    // Сервер перезаписывает все поля записи и заменяет вложенные списки целиком: основа тела — полная
-    // исходная запись (цены импорта, непоказанные ключи data), поверх — то, что прислала форма.
-    const base = currentEntry.value
-    const body = reestrEntryToUpsertBody({
-      id: base?.id ?? '',
-      createdAtUtc: base?.createdAtUtc ?? '',
-      grandTotalWithVat: base?.grandTotalWithVat ?? null,
-      pricePerDeclarationWithVat: base?.pricePerDeclarationWithVat ?? null,
-      pricePerSupplementalSheetWithVat: base?.pricePerSupplementalSheetWithVat ?? null,
-      supplementalSheetsTotalWithVat: base?.supplementalSheetsTotalWithVat ?? null,
-      status: payload.status,
-      clientId,
-      data: { ...(base?.data ?? {}), ...payload.data },
-      transit: payload.transit ?? base?.transit ?? REESTR_TRANSIT_DEFAULTS,
-      goods: payload.goods ?? base?.goods ?? [],
-      doc44: payload.doc44 ?? base?.doc44 ?? [],
-      organizations: payload.organizations ?? base?.organizations ?? [],
-      carriers: payload.carriers ?? base?.carriers ?? [],
-      transportMeans: payload.transportMeans ?? base?.transportMeans ?? [],
-      identificationMeans: payload.identificationMeans ?? base?.identificationMeans ?? [],
-      packages: payload.packages ?? base?.packages ?? [],
-      containers: payload.containers ?? base?.containers ?? [],
-      precedingDocs: payload.precedingDocs ?? base?.precedingDocs ?? [],
-      cargoOperations: payload.cargoOperations ?? base?.cargoOperations ?? [],
-      guarantees: payload.guarantees ?? base?.guarantees ?? [],
-    })
-    const ok = currentEntry.value ? await store.update(currentEntry.value.id, body) : await store.create(body)
-    if (ok) {
-      formModalOpen.value = false
-      currentEntry.value = null
-    }
-  } finally {
-    formLoading.value = false
-  }
-}
-const handleFormCancel = () => {
-  formModalOpen.value = false
-  currentEntry.value = null
-}
+// ---- Переход на страницу записи ----
+const recordPath = (id: string) => `/reestr/${encodeURIComponent(id)}`
+const showCreate = () => { void router.push('/reestr/new') }
+const openRecord = (r: ReestrEntry) => { void router.push(recordPath(r.id)) }
+const openDocuments = (r: ReestrEntry) => { void router.push({ path: recordPath(r.id), query: { tab: 'documents' } }) }
+// Строка кликабельна целиком; флажок (его ячейка гасит клик), кнопки и меню строки работают сами.
+const customRow = (r: ReestrEntry) => ({
+  class: 'cursor-pointer',
+  onClick: (e: MouseEvent) => {
+    if ((e.target as HTMLElement | null)?.closest('a,button,input,label,[data-transit-actions]')) return
+    openRecord(r)
+  },
+})
 
 // ---- Статус, удаление ----
 const statusOpen = ref(false)
@@ -371,7 +248,6 @@ const openStatus = (entries: ReestrEntry[], fromBar = false) => {
   statusOpen.value = true
 }
 const onStatusChanged = () => {
-  statusHistoryRefreshKey.value += 1
   if (statusFromBar.value) selected.value = []
 }
 
@@ -439,8 +315,6 @@ const iconBtn = `${iconBase} size-[30px] max-sm:size-11`
 // «Документы» на телефоне — кнопка с подписью 44px (в карточке клиента это главное действие).
 const docBtn = `${iconBase} h-[30px] w-[30px] max-sm:h-11 max-sm:w-auto max-sm:gap-2 max-sm:bg-sunken max-sm:px-4 max-sm:font-sans max-sm:text-sm max-sm:font-semibold max-sm:text-ink`
 const outlineBtn = 'border border-line-strong bg-surface enabled:hover:bg-sunken'
-// Индикатор загрузки записи на кнопке строки — тот же, что у ZButton loading.
-const spinCls = 'size-3.5 shrink-0 rounded-pill border-2 border-current border-r-transparent animate-spin motion-reduce:animate-none'
 </script>
 
 <template>
@@ -531,6 +405,7 @@ const spinCls = 'size-3.5 shrink-0 rounded-pill border-2 border-current border-r
           :pagination="pagination"
           :scroll="{ x: tableWidth }"
           :aria-label="t('broker.transit.tableLabel')"
+          :custom-row="customRow"
           class="overflow-hidden rounded-panel border border-line bg-surface max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent"
           data-transit-table
         >
@@ -567,43 +442,19 @@ const spinCls = 'size-3.5 shrink-0 rounded-pill border-2 border-current border-r
             >{{ cellText(record, column.key) }}</span>
             <div v-else-if="column.key === 'actions'" class="inline-flex items-center justify-end gap-1 max-sm:w-full max-sm:flex-wrap" data-transit-actions>
               <ZTooltip v-if="isExpeditor" :title="t('transit.prosmotr')">
-                <button
-                  type="button"
-                  :class="cn(iconBtn, isOpening(record.id, 'view') && 'cursor-progress')"
-                  :aria-label="t('transit.prosmotr')"
-                  :aria-busy="isOpening(record.id, 'view') || undefined"
-                  data-row-view
-                  @click="openReadonly(record, 'data')"
-                >
-                  <span v-if="isOpening(record.id, 'view')" :class="spinCls" data-row-spin aria-hidden="true" />
-                  <PhEye v-else :size="16" aria-hidden="true" />
+                <button type="button" :class="iconBtn" :aria-label="t('transit.prosmotr')" data-row-view @click="openRecord(record)">
+                  <PhEye :size="16" aria-hidden="true" />
                 </button>
               </ZTooltip>
               <ZTooltip v-if="showDocuments" :title="t('transit.dokumenty')">
-                <button
-                  type="button"
-                  :class="cn(docBtn, isOpening(record.id, 'documents') && 'cursor-progress')"
-                  :aria-label="t('transit.dokumenty')"
-                  :aria-busy="isOpening(record.id, 'documents') || undefined"
-                  data-row-documents
-                  @click="openDocuments(record)"
-                >
-                  <span v-if="isOpening(record.id, 'documents')" :class="spinCls" data-row-spin aria-hidden="true" />
-                  <PhFileText v-else :size="16" aria-hidden="true" />
+                <button type="button" :class="docBtn" :aria-label="t('transit.dokumenty')" data-row-documents @click="openDocuments(record)">
+                  <PhFileText :size="16" aria-hidden="true" />
                   <span class="hidden max-sm:inline">{{ t('transit.dokumenty') }}</span>
                 </button>
               </ZTooltip>
               <ZTooltip v-if="canWrite" :title="t('transit.izmenit')">
-                <button
-                  type="button"
-                  :class="cn(iconBtn, isOpening(record.id, 'edit') && 'cursor-progress')"
-                  :aria-label="t('transit.izmenit')"
-                  :aria-busy="isOpening(record.id, 'edit') || undefined"
-                  data-row-edit
-                  @click="handleEdit(record)"
-                >
-                  <span v-if="isOpening(record.id, 'edit')" :class="spinCls" data-row-spin aria-hidden="true" />
-                  <PhPencilSimple v-else :size="16" aria-hidden="true" />
+                <button type="button" :class="iconBtn" :aria-label="t('transit.izmenit')" data-row-edit @click="openRecord(record)">
+                  <PhPencilSimple :size="16" aria-hidden="true" />
                 </button>
               </ZTooltip>
               <ZDropdown v-if="rowMenuItems.length" :items="rowMenuItems" @select="onRowMenu($event, record)">
@@ -654,19 +505,6 @@ const spinCls = 'size-3.5 shrink-0 rounded-pill border-2 border-current border-r
     </div>
 
     <!-- Окна и скрытый импорт — вне колонки с gap: их корневые узлы не добавляют отступ под списком. -->
-    <ReestrForm
-      :open="formModalOpen"
-      :loading="formLoading"
-      :entry="currentEntry"
-      :client-options="createClientOptions"
-      :status-history-refresh-key="statusHistoryRefreshKey"
-      :view-mode="formViewMode"
-      :initial-tab="formInitialTab"
-      :save-error="store.saveError"
-      @submit="handleFormSubmit"
-      @cancel="handleFormCancel"
-      @applied="onApplied"
-    />
     <TransitStatusModal v-model:open="statusOpen" :entries="statusEntries" @changed="onStatusChanged" />
     <TransitUploadModal v-model:open="uploadOpen" :needs-client="needsUploadClient" :client-options="createClientOptions" />
     <ImportInvoiceButton v-if="canWrite" ref="importer" hide-trigger :client-options="createClientOptions" @imported="load()" />

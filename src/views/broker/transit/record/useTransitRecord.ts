@@ -59,7 +59,7 @@ const TOTALS: [keyof GoodsTotals, keyof ReestrTransitFields][] = [
  * - dirty — черновик отличается от снимка (снимок — после nextTick, когда разделы применили свои значения).
  * - save(): проверка → POST/PUT напрямую (не через стор: список странице не нужен) → тост → перечитывание.
  *   Правки, сделанные пока шёл запрос, при перечитывании не теряются.
- * - reload(): новая точка отсчёта с сервера; несохранённые правки остаются поверх (mergeDrafts).
+ * - reload(): новая точка отсчёта с сервера; несохранённые правки остаются поверх (mergeDrafts); успех снимает saveError.
  *   Сбой — reloadError: запись и правки остаются на экране, «Повторить» = снова reload(); сохранять нельзя,
  *   пока основа устарела (статус мог смениться). load() на той же записи с правками тоже идёт через reload().
  * - Сохранение, завершившееся после перехода на другую запись, состояние новой записи не трогает.
@@ -112,6 +112,8 @@ export function useTransitRecord(id: () => string): TransitRecord {
     clientId.value = fresh.clientId
     loadedId = fresh.id
     reloadError.value = false
+    // Запись свежая: ошибка прошлого сохранения (в том числе «не удалось обновить») больше не про неё.
+    saveError.value = null
     const theirs = draftFromEntry(fresh)
     if (!base) {
       setDraft(theirs)

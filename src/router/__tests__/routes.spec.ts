@@ -38,3 +38,14 @@ describe('маршруты Импорта 40', () => {
     }
   })
 })
+
+describe('маршруты записи транзита', () => {
+  it('/reestr/new и /reestr/:id — страница записи reestr-record; список — reestr', () => {
+    expect(router.resolve('/reestr').name).toBe('reestr')
+    const page = router.resolve('/reestr/abc')
+    expect(page.name).toBe('reestr-record')
+    expect(page.params.id).toBe('abc')
+    expect(router.resolve('/reestr/new').name).toBe('reestr-record')
+    expect(router.resolve('/reestr/new').params.id).toBe('new')
+  })
+})

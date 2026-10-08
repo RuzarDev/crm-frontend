@@ -17,6 +17,7 @@ import { boxCtl, ctl, grid, str } from './ui'
 
 // Раздел «Основное» (разбор §2.6 a, b и «Пост»): три группы — декларация, маршрут, итоги. Поля пишут прямо в черновик.
 // Страны хранятся числовым кодом ОКСМ (подпись «398 — Казахстан»), таможня отправления — кодом поста (B.12).
+// Слот lead — над группами (страница новой записи кладёт туда выбор клиента).
 const props = defineProps<{ draft: RecordDraft; readonly: boolean }>()
 const { t } = useI18n()
 const tr = (key: string) => t(`broker.transitRecord.main.${key}`)
@@ -54,6 +55,8 @@ const onPost = (v: string) => { props.draft.fields[POST_KEY] = str(v) }
 <template>
   <RecordSection id="main" :title="t('broker.transitRecord.sections.main')">
     <div class="flex flex-col gap-6">
+      <!-- Сверху раздела: у новой записи страница кладёт сюда «Клиент *». -->
+      <div v-if="$slots.lead" data-main-lead><slot name="lead" /></div>
       <div role="group" aria-labelledby="main-g-decl" class="flex flex-col gap-3" data-main-group="declaration">
         <h3 id="main-g-decl" :class="groupTitle">{{ tr('groupDeclaration') }}</h3>
         <div :class="grid">

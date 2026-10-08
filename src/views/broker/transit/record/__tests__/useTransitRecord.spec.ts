@@ -232,6 +232,20 @@ describe('useTransitRecord — правки', () => {
     expect(api.update.mock.calls[0][1]).toMatchObject({ status: 2, cargoDescription: 'моя правка' })
   })
 
+  it('успешный reload снимает устаревшую ошибку сохранения (плашка «не удалось обновить» не висит после повтора)', async () => {
+    const { r } = start()
+    await settle()
+    r.draft.fields['Груз'] = 'моя правка'
+    api.getById.mockRejectedValueOnce(httpError(500))
+    await r.reload()
+    await r.save()
+    expect(r.saveError.value).toContain('Не удалось обновить запись')
+    await r.reload()
+    expect(r.reloadError.value).toBe(false)
+    expect(r.saveError.value).toBeNull()
+    expect(r.draft.fields['Груз']).toBe('моя правка')
+  })
+
   it('«Повторить» через load() на той же записи с правками — тоже без потери правок', async () => {
     const { r } = start()
     await settle()
