@@ -595,6 +595,9 @@ export interface Import40FileDto {
   // ФИО сотрудника, если он загрузил файл за клиента (например, чек оплаты — задача 2.3).
   // null, если загрузил сам клиент.
   uploadedByStaffName?: string | null
+  // Вид документа из чек-листа (раздел documents): invoice | transport | packing | contract |
+  // origin | conformity | permit | other. null — вид не указан.
+  docKind?: string | null
 }
 
 // Счёт AQNIET (BrokerInvoice) в карточке заявки — шаг 6 (задача 2.3).
@@ -1069,6 +1072,7 @@ export const import40Api = {
     id: string,
     section: Import40FileSection,
     file: File,
+    kind?: string,
   ): Promise<Import40FileDto> => {
     const formData = new FormData()
     formData.append('file', file)
@@ -1076,7 +1080,7 @@ export const import40Api = {
       `/import40/${encodeURIComponent(id)}/files`,
       formData,
       {
-        params: { section },
+        params: kind ? { section, kind } : { section },
         headers: { 'Content-Type': 'multipart/form-data' },
       },
     )

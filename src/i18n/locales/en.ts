@@ -532,6 +532,20 @@ export default {
     retry: 'Retry',
     yesterday: 'yesterday',
   },
+  // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
+  client: {
+    docKind: {
+      invoice: { name: 'Invoice (commercial invoice)' },
+      transport: { name: 'Transport document', hint: 'CMR, rail waybill, AWB or bill of lading' },
+      packing: { name: 'Packing list' },
+      contract: { name: 'Foreign trade contract', hint: 'Supply agreement with the sender and its specification' },
+      origin: { name: 'Certificate of origin', hint: 'ST-1 or Form A — gives a preferential duty rate' },
+      conformity: { name: 'EAEU certificate or declaration of conformity', hint: 'For goods under technical regulations: electronics, toys, food' },
+      permit: { name: 'Permits and licences', hint: 'For certain goods: encryption, medicines, weapons' },
+      other: { name: 'Other document' },
+    },
+    docNeed: { required: 'required', ifAny: 'if available', ifRequired: 'if required' },
+  },
   clientHome: {
     inWork: 'in progress: {n}',
     new: 'New shipment',
