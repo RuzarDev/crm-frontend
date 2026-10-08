@@ -352,6 +352,21 @@ describe('ZConfirmHost + useConfirm', () => {
     await macrotask()
     expect(dialog()).toBeNull()
   })
+  it('подтверждение из открытого окна — поверх него (слой выше окон, ниже всплывающих)', async () => {
+    const Host = defineComponent({ setup: () => () => [h(ZConfirmHost), h(ZModal, { open: true, title: 'Окно' }, () => 'тело')] })
+    w = mountWithI18n(Host, { attachTo: document.body })
+    await nextTick()
+    void useConfirm().confirm({ title: 'Добавить ещё раз?' })
+    await nextTick()
+    await macrotask()
+    const dialogs = [...document.body.querySelectorAll('[role="dialog"][data-state="open"]')] as HTMLElement[]
+    const confirmBox = dialogs.find((d) => d.textContent?.includes('Добавить ещё раз?'))!
+    const modal = dialogs.find((d) => d.textContent?.includes('тело'))!
+    expect(confirmBox.className).toContain('z-[1050]')
+    expect(modal.className).toContain('z-[1000]')
+    const overlays = [...document.body.querySelectorAll('[data-z-overlay]')].map((o) => o.className)
+    expect(overlays.some((c) => c.includes('z-[1050]') && !c.includes('z-[1000]'))).toBe(true)
+  })
   it('отмена и Escape → false', async () => {
     w = mountWithI18n(ZConfirmHost, { attachTo: document.body })
     const { confirm } = useConfirm()

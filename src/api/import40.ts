@@ -1,4 +1,5 @@
 import apiClient from './client'
+import { i18n } from '@/i18n'
 import type {
   Import40TransportMeans,
   Import40GoodsPayment,
@@ -659,8 +660,8 @@ export interface Import40UpdateRequest {
 
 export interface Import40ContainerUpsertRequest {
   containerNumber: string
-  containerType?: string
-  notes?: string
+  containerType?: string | null
+  notes?: string | null
 }
 
 export interface ImportQuotePayload {
@@ -949,7 +950,9 @@ export const import40Api = {
     return response.data
   },
 
-  // 200 → файл; 400 → { errors: string[] } с перечнем незаполненного
+  // 200 → файл; 400 → { errors: string[] } с перечнем незаполненного. Тело 400 не JSON или без списка (прокси, сбой) —
+  // перечень из одной строки «Не удалось сформировать XML»: validateStatus пропускает 400 мимо перехватчика, и без этого
+  // пользователь не увидел бы ничего.
   downloadKedenXml: async (
     caseId: string,
     declarationId: string,
@@ -959,9 +962,14 @@ export const import40Api = {
       validateStatus: (s) => s === 200 || s === 400,
     })
     if (res.status === 400) {
-      const text = await (res.data as Blob).text()
-      const parsed = JSON.parse(text) as { errors: string[] }
-      return { errors: parsed.errors ?? ['Не удалось сформировать XML'] }
+      const fallback = [i18n.global.t('dt.neUdalosSformirovatXml')]
+      try {
+        const parsed = JSON.parse(await (res.data as Blob).text()) as { errors?: unknown } | null
+        const errors = Array.isArray(parsed?.errors) ? parsed.errors.filter((e): e is string => typeof e === 'string' && !!e) : []
+        return { errors: errors.length ? errors : fallback }
+      } catch {
+        return { errors: fallback }
+      }
     }
     const cd = String(res.headers['content-disposition'] ?? '')
     const m = /filename\*?=(?:UTF-8'')?"?([^";]+)/i.exec(cd)
@@ -987,9 +995,11 @@ export const import40Api = {
   },
 
   // Готовность всех ДТ заявки к пакетной выгрузке KEDEN-XML (P6).
-  kedenReadinessSummary: async (caseId: string): Promise<DeclarationReadiness[]> => {
+  // silent — карточка заявки грузит сводку фоном: нет прав или сбой — просто без готовности, без тоста.
+  kedenReadinessSummary: async (caseId: string, opts?: { silent?: boolean }): Promise<DeclarationReadiness[]> => {
     const { data } = await apiClient.get<DeclarationReadiness[]>(
       `/import40/${encodeURIComponent(caseId)}/keden-readiness-summary`,
+      opts?.silent ? { silent: true } : undefined,
     )
     return data
   },

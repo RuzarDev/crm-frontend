@@ -105,8 +105,9 @@ export interface ClientDocumentRow {
 }
 
 export const clientCardApi = {
-  card: async (clientId: string): Promise<ClientCard> =>
-    (await apiClient.get<ClientCard>(`/clients/${encodeURIComponent(clientId)}/card`)).data,
+  // opts.silent — карточка клиента (редизайн) сама рисует «не найден» и ошибку с «Повторить», без тоста перехватчика.
+  card: async (clientId: string, opts?: { silent?: boolean }): Promise<ClientCard> =>
+    (await apiClient.get<ClientCard>(`/clients/${encodeURIComponent(clientId)}/card`, opts?.silent ? { silent: true } : undefined)).data,
 
   // opts.silent — реестр «Документы клиентов» (редизайн) сам показывает ошибку на месте, без тоста перехватчика.
   documents: async (
