@@ -193,8 +193,8 @@ const exportXlsx = async () => {
     [t('clientDocs.number')]: `${r.number}/${r.year}`,
     [t('clientDocs.colStatus')]: statusText(r.status),
     [t('clientDocs.singleUse')]: r.isSingleUse ? t('clientDocs.yes') : t('clientDocs.no'),
-    [t('clientDocs.client')]: r.clientSigned ? t('clientDocs.yes') : t('clientDocs.no'),
-    [t('clientDocs.broker')]: r.providerSigned ? t('clientDocs.yes') : t('clientDocs.no'),
+    [t('broker.clientDocs.xlsClientSigned')]: r.clientSigned ? t('clientDocs.yes') : t('clientDocs.no'),
+    [t('broker.clientDocs.xlsProviderSigned')]: r.providerSigned ? t('clientDocs.yes') : t('clientDocs.no'),
     [t('clientDocs.colValidity')]: r.validUntilUtc ? fmtDate(r.validUntilUtc) : '',
     [t('clientDocs.daysLeftCol')]: r.daysLeft ?? '',
   }))

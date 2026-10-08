@@ -756,6 +756,11 @@ export default {
         link: 'Invitation link',
       },
     },
+    // «Документы клиентов» (редизайн, волна 3б).
+    clientDocs: {
+      xlsClientSigned: 'Client signature',
+      xlsProviderSigned: 'AQNIET signature',
+    },
   },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
   client: {

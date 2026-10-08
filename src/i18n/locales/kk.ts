@@ -756,6 +756,11 @@ export default {
         link: 'Шақыру сілтемесі',
       },
     },
+    // «Документы клиентов» (редизайн, волна 3б).
+    clientDocs: {
+      xlsClientSigned: 'Клиент қолы',
+      xlsProviderSigned: 'AQNIET қолы',
+    },
   },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
   client: {
