@@ -11,7 +11,11 @@
               <span class="doc-section-title">{{ t('transit.dokumentyKlienta') }}</span>
             </div>
             <a-space v-if="clientCanUpload">
-              <InvoiceAutofillButton :reestr-id="props.reestrId" @applied="handleExtractionApplied" />
+              <InvoiceAutofillButton
+                v-if="authStore.hasPermission('reestr.write')"
+                :reestr-id="props.reestrId"
+                @applied="handleExtractionApplied"
+              />
               <a-upload
                 :show-upload-list="false"
                 :before-upload="beforeUpload('client')"
