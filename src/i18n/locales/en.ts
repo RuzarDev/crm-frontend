@@ -566,6 +566,23 @@ export default {
     },
     stepOf: 'Stage {n} of {total} · {name}',
     row: { noCargo: 'Cargo not specified', closedOn: 'Closed {date}' },
+    list: {
+      title: 'My shipments',
+      summary: '{active} in progress',
+      summaryWaiting: 'awaiting your reply: {waiting}',
+      tabsLabel: 'Filter shipments',
+      tab: { active: 'In progress', waiting: 'Waiting for you', drafts: 'Drafts', done: 'Completed' },
+      search: 'Number, cargo or post',
+      searchLabel: 'Search shipments',
+      empty: {
+        active: 'No shipments in progress right now',
+        waiting: 'Nothing is needed from you right now',
+        drafts: 'No drafts',
+        done: 'No completed shipments yet',
+      },
+      nothing: 'Nothing found for “{q}”',
+      nothingHint: 'Check the number or look in the other tabs',
+    },
   },
   clientHome: {
     inWork: 'in progress: {n}',

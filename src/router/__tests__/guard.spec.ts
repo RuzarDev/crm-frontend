@@ -45,6 +45,15 @@ describe('guardRedirect', () => {
     expect(guardRedirect('/billing', {}, auth())).toBe('/')
     expect(guardRedirect('/billing', {}, auth({ perms: ['finance.read'] }))).toBeNull()
   })
+  it('мастер клиента /import-40/new — только клиенту Импорта 40', () => {
+    const meta = { requiresImport40: true, requiresRole: 'client' }
+    const client = auth({ role: 'client', canUseImport40: true })
+    expect(guardRedirect('/import-40/new', meta, client)).toBeNull()
+    expect(guardRedirect('/import-40/new/abc', meta, client)).toBeNull()
+    expect(guardRedirect('/import-40/new', meta, auth({ role: 'client', canUseImport40: false }))).toBe('/')
+    expect(guardRedirect('/import-40/new', meta, auth({ perms: ['import40.read'] }))).toBe('/')
+    expect(guardRedirect('/import-40/new', meta, auth({ role: 'administrator' }))).toBe('/')
+  })
   it('/keden-status', () => {
     expect(guardRedirect('/keden-status', {}, auth({ role: 'expeditor' }))).toBeNull()
     expect(guardRedirect('/keden-status', {}, auth({ role: 'client' }))).toBe('/')

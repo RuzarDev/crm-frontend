@@ -570,6 +570,23 @@ export default {
     },
     stepOf: 'Этап {n} из {total} · {name}',
     row: { noCargo: 'Груз не указан', closedOn: 'Закрыта {date}' },
+    list: {
+      title: 'Мои поставки',
+      summary: '{active} в работе',
+      summaryWaiting: 'ждут вашего ответа: {waiting}',
+      tabsLabel: 'Фильтр поставок',
+      tab: { active: 'В работе', waiting: 'Ждут вас', drafts: 'Черновики', done: 'Завершённые' },
+      search: 'Номер, груз или пост',
+      searchLabel: 'Поиск по поставкам',
+      empty: {
+        active: 'Сейчас в работе поставок нет',
+        waiting: 'От вас сейчас ничего не нужно',
+        drafts: 'Черновиков нет',
+        done: 'Завершённых поставок пока нет',
+      },
+      nothing: 'По запросу «{q}» ничего не нашлось',
+      nothingHint: 'Проверьте номер или поищите на других вкладках',
+    },
   },
   clientHome: {
     inWork: 'в работе: {n}',

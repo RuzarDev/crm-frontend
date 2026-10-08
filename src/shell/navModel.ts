@@ -12,7 +12,8 @@ export interface NavSection {
   labelKey: string
   icon: NavIcon
   pages: NavPage[]
-  /** Действие (ведёт на ?new=1), а не раздел: никогда не подсвечивается. */
+  /** Действие (например, мастер «Оформить поставку»), а не раздел: никогда не подсвечивается. Его страницы
+   *  (match) перебивают более короткий префикс раздела — на /import-40/new не горит ни один пункт. */
   action?: boolean
   badge?: 'attention'
   dot?: boolean
@@ -132,7 +133,7 @@ export function buildClientNav(a: NavAccess): NavModel {
           page('shipments', '/home', 'shell.client.shipments', imp, ['/home', '/notifications', '/dashboard', '/import-40']),
         ] }),
         section({ key: 'newShipment', labelKey: 'shell.client.newShipment', icon: 'plus', action: true, pages: [
-          page('newShipment', '/import-40?new=1', 'shell.client.newShipment', imp, []),
+          page('newShipment', '/import-40/new', 'shell.client.newShipment', imp, ['/import-40/new']),
         ] }),
         section({ key: 'transit', labelKey: 'shell.client.transit', icon: 'transit', pages: [
           page('transit', '/reestr', 'shell.client.transit', tr, ['/reestr', ...(imp ? [] : ['/home', '/notifications', '/dashboard'])]),
@@ -178,14 +179,14 @@ const matches = (path: string, prefix: string) => path === prefix || path.starts
 export function resolveActive(m: NavModel, path: string): { section: NavSection; page: NavPage } | null {
   let best: { section: NavSection; page: NavPage; len: number } | null = null
   for (const s of allSections(m)) {
-    if (s.action) continue
     for (const pg of s.pages) {
-      for (const pre of pg.match ?? [pathOf(pg.to)]) {
+      // У действия в счёт идут только явные match: его адрес сам по себе не раздел.
+      for (const pre of pg.match ?? (s.action ? [] : [pathOf(pg.to)])) {
         if (matches(path, pre) && (!best || pre.length > best.len)) best = { section: s, page: pg, len: pre.length }
       }
     }
   }
-  return best ? { section: best.section, page: best.page } : null
+  return best && !best.section.action ? { section: best.section, page: best.page } : null
 }
 
 export const navAccessFromStore = (auth: ReturnType<typeof useAuthStore>, registrationIncomplete: boolean): NavAccess => ({

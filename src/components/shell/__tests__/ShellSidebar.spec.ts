@@ -29,10 +29,14 @@ describe('ShellSidebar', () => {
     expect(w.find('a[href="/finance"]').exists()).toBe(true)
     expect(w.find('a[href="/billing"]').exists()).toBe(false)
   })
-  it('клиент: точка «нужно действие» у компании и действие ?new=1', () => {
+  it('клиент: точка «нужно действие» у компании и действие «Оформить поставку»', () => {
     const w = mountIt({ model: buildClientNav(acc('client', { registrationIncomplete: true })), path: '/home', attention: null, comfortable: true })
     expect(w.text()).toContain('нужно действие')
-    expect(w.find('a[href="/import-40?new=1"]').attributes('aria-current')).toBeUndefined()
+    expect(w.find('a[href="/import-40/new"]').attributes('aria-current')).toBeUndefined()
+  })
+  it('клиент в мастере (/import-40/new): не подсвечен ни один пункт', () => {
+    const w = mountIt({ model: buildClientNav(acc('client')), path: '/import-40/new', attention: null, comfortable: true })
+    expect(w.find('[aria-current]').exists()).toBe(false)
   })
   it('кнопка поиска эмитит search', async () => {
     const w = mountIt({ model: buildBrokerNav(acc('administrator')), path: '/home', attention: null })

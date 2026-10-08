@@ -106,12 +106,17 @@ describe('buildClientNav', () => {
     expect(m.bottom[0].dot).toBe(true)
   })
 
-  it('«Оформить поставку» — действие с ?new=1, не подсвечивается', () => {
+  it('«Оформить поставку» — действие на /import-40/new, не подсвечивается и не подсвечивает «Мои поставки»', () => {
     const m = buildClientNav(access({ role: 'client' }))
     const s = allSections(m).find((x) => x.key === 'newShipment')!
     expect(s.action).toBe(true)
-    expect(sectionHref(s)).toBe('/import-40?new=1')
+    expect(sectionHref(s)).toBe('/import-40/new')
     expect(resolveActive(m, '/import-40')?.section.key).toBe('shipments')
+    expect(resolveActive(m, '/import-40/abc')?.section.key).toBe('shipments')
+    expect(resolveActive(m, '/import-40/new')).toBeNull()
+    expect(resolveActive(m, '/import-40/new/abc')).toBeNull()
+    // Граница по «/»: поставка с номером, начинающимся на «new», — это карточка.
+    expect(resolveActive(m, '/import-40/newer')?.section.key).toBe('shipments')
   })
 })
 
