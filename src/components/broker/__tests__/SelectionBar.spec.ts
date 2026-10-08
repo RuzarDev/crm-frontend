@@ -21,9 +21,18 @@ describe('SelectionBar', () => {
     expect(w.text()).toBe('')
   })
 
+  it('живая область есть всегда: пустая при 0, с текстом при выборе', async () => {
+    mount(0)
+    const live = w.get('[role="status"]')
+    expect(live.text()).toBe('')
+    await w.setProps({ count: 2 })
+    expect(w.get('[role="status"]').element).toBe(live.element)
+    expect(live.text()).toBe('Выбрано: 2')
+  })
+
   it('показывает «Выбрано: N», слот и «Снять выбор»', () => {
     mount(2)
-    expect(w.text()).toContain('Выбрано: 2')
+    expect(w.get('[role="group"]').text()).toContain('Выбрано: 2')
     expect(w.text()).toContain('Назначить')
     expect(w.find('#act').classes()).toContain('bg-white/10')
     expect(w.get('[role="group"]').classes()).toContain('bg-navy')

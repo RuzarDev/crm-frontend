@@ -3,6 +3,8 @@ import { useI18n } from 'vue-i18n'
 
 // Плашка выбора строк: «Выбрано: N», кнопки действий (слот), «Снять выбор». При 0 не рисуется.
 // В слот отдаётся actionClass — вид кнопки действия (полупрозрачно-белая на navy).
+// Живая область (sr-only) смонтирована всегда: иначе первое появление плашки не озвучивается.
+defineOptions({ inheritAttrs: false })
 defineProps<{ count: number }>()
 defineEmits<{ clear: [] }>()
 const { t } = useI18n()
@@ -11,13 +13,15 @@ const actionClass =
 </script>
 
 <template>
+  <span class="sr-only" role="status" aria-live="polite">{{ count > 0 ? t('broker.list.selected', { n: count }) : '' }}</span>
   <div
     v-if="count > 0"
+    v-bind="$attrs"
     role="group"
     :aria-label="t('broker.list.selected', { n: count })"
     class="inline-flex min-h-10 max-w-full flex-wrap items-center gap-x-2.5 gap-y-1 rounded-row bg-navy py-1 pr-1.5 pl-3.5 text-[13px] text-white"
   >
-    <span class="whitespace-nowrap" aria-live="polite">{{ t('broker.list.selected', { n: count }) }}</span>
+    <span class="whitespace-nowrap">{{ t('broker.list.selected', { n: count }) }}</span>
     <slot :action-class="actionClass" />
     <button
       type="button"

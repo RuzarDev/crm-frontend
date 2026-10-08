@@ -32,6 +32,7 @@ const open = ref(false)
 const query = ref('')
 const activeIdx = ref(0)
 const listEl = ref<HTMLElement>()
+const triggerEl = ref<HTMLButtonElement>()
 
 const hasSearch = computed(() => props.searchable ?? props.options.length > 8)
 const selected = computed(() => (props.value == null ? null : props.options.find((o) => o.value === props.value) ?? { value: props.value, label: props.value }))
@@ -45,8 +46,8 @@ const items = computed<{ value: string | null; label: string }[]>(() => {
 })
 
 watch(open, (v) => {
-  if (!v) return
-  query.value = ''
+  // Поиск сбрасываем при закрытии: иначе при следующем открытии watch(query) затёр бы выбранный пункт.
+  if (!v) { query.value = ''; return }
   const i = props.value == null ? 0 : items.value.findIndex((x) => x.value === props.value)
   activeIdx.value = Math.max(i, 0)
   scrollToActive()
@@ -69,6 +70,12 @@ const pick = (i: number) => {
   emit('update:value', it.value)
   open.value = false
 }
+// «×» исчезает вместе с активным состоянием — фокус переносим на кнопку чипа, а не теряем на <body>.
+const clear = async () => {
+  emit('update:value', null)
+  await nextTick()
+  triggerEl.value?.focus()
+}
 const onKeydown = (e: KeyboardEvent) => {
   if (e.isComposing) return
   if (e.key === 'ArrowDown') { e.preventDefault(); move(activeIdx.value + 1) }
@@ -85,7 +92,7 @@ const activeDescendant = computed(() => (items.value.length ? optionId(activeIdx
   <span :class="chipFrame(active)">
     <ZPopover v-model:open="open" content-class="p-1 min-w-56 max-w-[min(22rem,calc(100vw-2rem))]">
       <template #trigger>
-        <button :id="triggerId" type="button" :class="chipTrigger">
+        <button :id="triggerId" ref="triggerEl" type="button" :class="chipTrigger">
           <PhPlus v-if="!active" :size="13" weight="bold" aria-hidden="true" />
           <span class="truncate">{{ active ? `${label}: ${selected!.label}` : label }}</span>
         </button>
@@ -94,6 +101,7 @@ const activeDescendant = computed(() => (items.value.length ? optionId(activeIdx
         <ZInput
           type="search"
           size="sm"
+          class="max-sm:h-11"
           :value="query"
           :placeholder="t('broker.list.searchOptions')"
           :aria-label="t('broker.list.searchOptions')"
@@ -119,7 +127,7 @@ const activeDescendant = computed(() => (items.value.length ? optionId(activeIdx
         <button
           v-for="(it, i) in items"
           :id="optionId(i)"
-          :key="it.value ?? ''"
+          :key="it.value == null ? 'all' : `v:${it.value}`"
           type="button"
           role="option"
           tabindex="-1"
@@ -145,7 +153,7 @@ const activeDescendant = computed(() => (items.value.length ? optionId(activeIdx
       :class="chipClear"
       :aria-label="t('broker.list.clearFilter')"
       :aria-describedby="triggerId"
-      @click="emit('update:value', null)"
+      @click="clear"
     >
       <PhX :size="12" weight="bold" aria-hidden="true" />
     </button>

@@ -140,4 +140,41 @@ describe('FilterChip', () => {
     await settle()
     expect(w.emitted('update:value')).toEqual([['v0']])
   })
+
+  it('после «×» фокус переходит на кнопку чипа', async () => {
+    mount({ value: 'a' })
+    const x = w.get('[aria-label="Сбросить фильтр"]').element as HTMLElement
+    x.focus()
+    await w.get('[aria-label="Сбросить фильтр"]').trigger('click')
+    await w.setProps({ value: null })
+    await tick()
+    expect(document.activeElement).toBe(w.get('button').element)
+  })
+
+  it('повторное открытие после выбора через поиск подсвечивает выбранный пункт', async () => {
+    mount({ options: many })
+    await openList()
+    const input = document.body.querySelector('input[type="search"]') as HTMLInputElement
+    input.value = 'особ'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await tick()
+    options()[0].click()
+    await settle()
+    expect(w.emitted('update:value')).toEqual([['v7']])
+    await w.setProps({ value: 'v7' })
+    await openList()
+    await tick()
+    const list = document.body.querySelector('input[type="search"]')
+    expect(list).not.toBeNull()
+    const selectedIdx = options().findIndex((o) => o.getAttribute('aria-selected') === 'true')
+    expect(options()[selectedIdx].textContent).toContain('Особый клиент')
+    const combo = document.body.querySelector('[role="combobox"]')!
+    expect(combo.getAttribute('aria-activedescendant')).toBe(options()[selectedIdx].id)
+  })
+
+  it('ключи пунктов не путают «Все» и пустое значение', async () => {
+    mount({ options: [{ value: '', label: 'Пусто' }, { value: 'a', label: 'А' }] })
+    await openList()
+    expect(options().map((o) => o.textContent?.trim())).toEqual(['Все', 'Пусто', 'А'])
+  })
 })

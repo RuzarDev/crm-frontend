@@ -54,4 +54,31 @@ describe('PeriodChip', () => {
     await enter(inputs[1], '08.10.2026')
     expect(w.emitted('update:value')).toEqual([[['2026-10-01', '2026-10-08']]])
   })
+
+  it('после «×» фокус переходит на кнопку чипа', async () => {
+    mount([`${year}-10-01`, `${year}-10-08`])
+    ;(w.get('[aria-label="Сбросить фильтр"]').element as HTMLElement).focus()
+    await w.get('[aria-label="Сбросить фильтр"]').trigger('click')
+    await w.setProps({ value: null })
+    await tick()
+    expect(document.activeElement).toBe(w.get('button').element)
+  })
+
+  it('черновик с одним стёртым концом при закрытии возвращается к значению', async () => {
+    mount(['2026-10-01', '2026-10-08'])
+    await w.get('button').trigger('click')
+    await tick()
+    const inputs = [...document.body.querySelectorAll('input')] as HTMLInputElement[]
+    expect(inputs.map((i) => i.value)).toEqual(['01.10.2026', '08.10.2026'])
+    inputs[1].focus(); inputs[1].value = ''
+    inputs[1].dispatchEvent(new Event('input', { bubbles: true }))
+    inputs[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    await tick()
+    expect(w.emitted('update:value')).toBeUndefined()
+    document.body.querySelector('[role="dialog"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await new Promise((r) => setTimeout(r, 0)); await tick()
+    await w.get('button').trigger('click')
+    await tick()
+    expect([...document.body.querySelectorAll('input')].map((i) => (i as HTMLInputElement).value)).toEqual(['01.10.2026', '08.10.2026'])
+  })
 })
