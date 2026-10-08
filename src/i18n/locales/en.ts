@@ -859,6 +859,25 @@ export default {
       xls: { number: 'No.' },
       create: { service: 'Service', removeLine: 'Remove line' },
     },
+    // «Продажи» (редизайн, волна 3б). print — документ печати КП: всё на языке интерфейса.
+    sales: {
+      print: {
+        windowTitle: 'CO {no}',
+        number: 'CO No. {no}',
+        heading: 'Commercial offer',
+        forClient: 'For:',
+        services: 'Services',
+        customs: 'Customs payments',
+        col: {
+          service: 'Service', price: 'Price', qty: 'Qty', discount: 'Discount', amount: 'Amount',
+          goods: 'Item', code: 'HS code', duty: 'Duty', antiDumping: 'Anti-dump.', excise: 'Excise', vat: 'VAT', fee: 'Fee', total: 'Total',
+        },
+        servicesTotal: 'Services:',
+        customsTotal: 'Customs payments:',
+        grandTotal: 'Total:',
+        disclaimer: 'This offer is preliminary. The final cost is determined upon clearance.',
+      },
+    },
   },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
   client: {

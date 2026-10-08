@@ -188,7 +188,7 @@ import { referencesApi } from '@/api/references'
 import type { TnvedCurrencyDto } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { useAuthStore } from '@/stores/auth'
-import atgLogoSvgRaw from '@/assets/atg-logo-group.svg?raw'
+import { printQuote } from '@/views/broker/sales/printQuote'
 import PageHeader from '@/components/PageHeader.vue'
 
 const { t } = useI18n()
@@ -384,54 +384,6 @@ const statusLabel = (s: number) => {
   return code ? t(`enum.salesQuoteStatus.${code}`) : '—'
 }
 const statusColor = (s: number) => (['default', 'processing', 'success', 'error'][s] ?? 'default')
-
-// печать КП в изолированном окне
-const logoDataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(atgLogoSvgRaw)}`
-const printQuote = (q: SalesQuoteDto) => {
-  const svc = q.serviceLines
-    .map((s) => `<tr><td>${esc(s.name)}</td><td style="text-align:right">${money(s.unitPrice)}</td><td style="text-align:center">${s.quantity} ${esc(s.unit)}</td><td style="text-align:center">${s.discountPercent}%</td><td style="text-align:right">${money(s.total)} ₸</td></tr>`)
-    .join('')
-  const goods = q.goodsLines
-    .map((g) => `<tr><td>${esc(g.description || g.code)}</td><td>${esc(g.code)}</td><td style="text-align:right">${money(g.importDutyKzt)}</td><td style="text-align:right">${money(g.antiDumpingKzt ?? 0)}</td><td style="text-align:right">${money(g.exciseKzt)}</td><td style="text-align:right">${money(g.vatKzt)}</td><td style="text-align:right">${money(g.customsFeeKzt)}</td><td style="text-align:right">${money(g.tpinTotalKzt)} ₸</td></tr>`)
-    .join('')
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>КП ${q.number}/КП/${q.year}</title>
-  <style>
-    body{font-family:Arial,sans-serif;color:#1a2332;padding:40px;max-width:760px;margin:0 auto}
-    h1{font-size:22px;margin:0 0 4px} .sub{color:#6b7280;font-size:13px;margin-bottom:24px}
-    .brand{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid var(--z-teal);padding-bottom:16px;margin-bottom:20px}
-    .brand b{font-size:18px} table{width:100%;border-collapse:collapse;margin:14px 0}
-    th,td{border:1px solid #d6dce5;padding:7px 10px;font-size:13px} th{background:#eef3f8;text-align:left}
-    h3{font-size:14px;margin:18px 0 6px} .totals{margin-top:18px;text-align:right}
-    .totals div{margin:4px 0} .grand{font-size:18px;font-weight:800;color:#1a2332}
-    .muted{color:#6b7280} .foot{margin-top:30px;color:#6b7280;font-size:12px}
-  </style></head><body>
-    <div class="brand">
-      <div><img src="${logoDataUri}" alt="" style="height:160px;width:auto;display:block"></div>
-      <div style="text-align:right"><b>КП № ${q.number}/КП/${q.year}</b><div class="muted">${formatDate(q.createdAtUtc)}</div></div></div>
-    <h1>Коммерческое предложение</h1>
-    <div class="sub">Для: <b>${esc(q.clientName)}</b>${q.clientContact ? ' · ' + esc(q.clientContact) : ''}</div>
-    ${q.comment ? `<p class="muted">${esc(q.comment)}</p>` : ''}
-    ${svc ? `${t('sales.printUslugiHdr')}</thead><tbody>${svc}</tbody></table>` : ''}
-    ${goods ? `${t('sales.printTpinHdr')}</thead><tbody>${goods}</tbody></table>` : ''}
-    <div class="totals">
-      <div>Услуги: <b>${money(q.servicesTotal)} ₸</b></div>
-      <div>Таможенные платежи: <b>${money(q.tpinTotal)} ₸</b></div>
-      <div class="grand">Итого: ${money(q.grandTotal)} ₸</div>
-    </div>
-    <div class="foot">Предложение носит предварительный характер. Окончательная стоимость определяется по факту оформления.</div>
-    <script>window.onload=function(){window.print();}<\/script>
-  </body></html>`
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const w = window.open(url, '_blank')
-  if (!w) {
-    message.warning(t('sales.razreshiteVsplyvayuschieOknaV'))
-    URL.revokeObjectURL(url)
-    return
-  }
-  setTimeout(() => URL.revokeObjectURL(url), 60000)
-}
-const esc = (s: string) => (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 
 onMounted(async () => {
   try { services.value = await salesApi.listServices() } catch { /* ignore */ }

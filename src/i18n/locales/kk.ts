@@ -859,6 +859,25 @@ export default {
       xls: { number: '№' },
       create: { service: 'Қызмет', removeLine: 'Жолды жою' },
     },
+    // «Продажи» (редизайн, волна 3б). print — документ печати КП: всё на языке интерфейса.
+    sales: {
+      print: {
+        windowTitle: 'КҰ {no}',
+        number: 'КҰ № {no}',
+        heading: 'Коммерциялық ұсыныс',
+        forClient: 'Кімге:',
+        services: 'Қызметтер',
+        customs: 'Кедендік төлемдер (КТжС)',
+        col: {
+          service: 'Қызмет', price: 'Бағасы', qty: 'Саны', discount: 'Жеңілдік', amount: 'Сомасы',
+          goods: 'Тауар', code: 'СЭҚ ТН', duty: 'Баж', antiDumping: 'Демпингке қарсы', excise: 'Акциз', vat: 'ҚҚС', fee: 'Алым', total: 'Барлығы',
+        },
+        servicesTotal: 'Қызметтер:',
+        customsTotal: 'Кедендік төлемдер:',
+        grandTotal: 'Барлығы:',
+        disclaimer: 'Ұсыныс алдын ала сипатта болады. Түпкілікті құны ресімдеу нәтижесі бойынша анықталады.',
+      },
+    },
   },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
   client: {
