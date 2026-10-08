@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhDownloadSimple, PhFile } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZDrawer from '@/components/z/ZDrawer.vue'
 import ZSpin from '@/components/z/ZSpin.vue'
-import { documentPackagesApi } from '@/api/documentPackages'
 import type { DocumentPackageFileDto } from '@/types/api'
-import { saveBlob } from '@/ui/download'
 import { formatFileSize } from '../packages'
+import { fileKind, useFileBlob, type FileKind } from './filePreview'
 
 // Просмотр файла пакета в шторке: PDF — во фрейме, картинка — как есть, остальное — «Скачать».
 // Файл берётся один раз при открытии (blob → ссылка на объект); ссылка освобождается при закрытии, смене файла
@@ -17,69 +16,8 @@ const props = defineProps<{ open: boolean; pkgId: string; file: DocumentPackageF
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
 const { t } = useI18n()
 
-type Kind = 'pdf' | 'image' | 'other'
-const kindOf = (f: DocumentPackageFileDto): Kind => {
-  const name = f.originalFileName.toLowerCase()
-  const type = (f.contentType ?? '').toLowerCase()
-  if (name.endsWith('.pdf') || type === 'application/pdf') return 'pdf'
-  if (/\.(png|jpe?g|gif|webp)$/.test(name) || type.startsWith('image/')) return 'image'
-  return 'other'
-}
-const kind = computed<Kind>(() => (props.file ? kindOf(props.file) : 'other'))
-
-const blob = ref<Blob | null>(null)
-const url = ref<string | null>(null)
-const loading = ref(false)
-const failed = ref(false)
-const release = () => {
-  if (url.value) URL.revokeObjectURL(url.value)
-  url.value = null
-  blob.value = null
-}
-
-let seq = 0
-const load = async () => {
-  const f = props.file
-  if (!f) return
-  const my = ++seq
-  release()
-  loading.value = true
-  failed.value = false
-  try {
-    const b = await documentPackagesApi.downloadFile(props.pkgId, f.id)
-    if (my !== seq) return
-    blob.value = b
-    // Не PDF и не картинка — во фрейм не кладём: только «Скачать».
-    if (kindOf(f) !== 'other') url.value = URL.createObjectURL(b)
-  } catch {
-    if (my === seq) failed.value = true
-  } finally {
-    if (my === seq) loading.value = false
-  }
-}
-watch(() => [props.open, props.file?.id] as const, ([open]) => {
-  if (open) void load()
-  else {
-    seq++
-    release()
-    loading.value = false
-  }
-}, { immediate: true })
-onBeforeUnmount(release)
-
-const download = async () => {
-  const f = props.file
-  if (!f) return
-  if (blob.value) {
-    saveBlob(blob.value, f.originalFileName)
-    return
-  }
-  try {
-    saveBlob(await documentPackagesApi.downloadFile(props.pkgId, f.id), f.originalFileName)
-  } catch {
-    // тост показал перехватчик
-  }
-}
+const kind = computed<FileKind>(() => (props.file ? fileKind(props.file) : 'other'))
+const { url, loading, failed, load, download } = useFileBlob(() => props.pkgId, () => props.file, () => props.open)
 </script>
 
 <template>

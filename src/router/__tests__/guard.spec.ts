@@ -48,6 +48,8 @@ describe('guardRedirect', () => {
   })
   it('пакеты: админ/экспедитор/packages.manage', () => {
     expect(guardRedirect('/document-packages/1/workspace', {}, auth())).toBe('/')
+    expect(guardRedirect('/document-packages/1/partia/new', {}, auth())).toBe('/')
+    expect(guardRedirect('/document-packages/1/partia/p1', {}, auth({ role: 'expeditor' }))).toBeNull()
     expect(guardRedirect('/document-packages', {}, auth({ role: 'expeditor' }))).toBeNull()
   })
   it('/billing: клиент с импортом, сотрудник с finance.read', () => {

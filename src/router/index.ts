@@ -92,6 +92,13 @@ const router = createRouter({
           component: () => import('@/views/broker/packages/workspace/WorkspacePage.vue'),
         },
         {
+          // Редактор партии (редизайн, волна 4в): /document-packages/:id/partia/:partiaId; новая —
+          // /document-packages/:id/partia/new?container=<id контейнера>. Доступ — как у разбора (guard по /document-packages).
+          path: '/document-packages/:id/partia/:partiaId',
+          name: 'document-packages-partia',
+          component: () => import('@/views/broker/packages/partia/PartiaPage.vue'),
+        },
+        {
           path: '/import-40',
           name: 'import-40',
           // Клиенту — «Мои поставки», сотруднику — список заявок (выбор по роли внутри обёртки).
