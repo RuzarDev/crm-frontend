@@ -160,8 +160,10 @@ const onKey = (e: KeyboardEvent) => {
   if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return
   if (e.code !== 'KeyS' && e.key.toLowerCase() !== 's') return
   if (!canEdit.value || !(entry.value || isNew.value)) return
-  // Поверх страницы открыто окно (смена статуса, подтверждение) — сохранение не под ним.
-  if (statusOpen.value || confirmState.open || document.querySelector('[role="dialog"], [role="alertdialog"]')) return
+  // Поверх страницы открыто окно (смена статуса, подтверждение, другое Reka-окно) — сохранение не под ним.
+  // Только открытое: закрытый ZModal без destroyOnClose остаётся в DOM скрытым (data-state="closed").
+  const openDialog = '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'
+  if (statusOpen.value || confirmState.open || document.querySelector(openDialog)) return
   e.preventDefault()
   if (dirty.value || isNew.value) void onSave()
 }

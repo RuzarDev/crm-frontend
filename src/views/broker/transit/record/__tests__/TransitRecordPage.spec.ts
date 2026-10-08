@@ -636,6 +636,37 @@ describe('TransitRecordPage: правки по ревью и проверке', 
     await ask
   })
 
+  it('окно закрыли — Ctrl/⌘+S снова сохраняет (закрытое окно, оставшееся в DOM, не мешает)', async () => {
+    await open()
+    await type('Груз', 'x')
+    await w.get('[data-record-change-status]').trigger('click')
+    await settle()
+    w.findComponent({ name: 'TransitStatusModal' }).vm.$emit('update:open', false)
+    await settle()
+    // Так остаётся ZModal без destroyOnClose после первого открытия.
+    const closed = document.createElement('div')
+    closed.setAttribute('role', 'dialog')
+    closed.setAttribute('data-state', 'closed')
+    document.body.appendChild(closed)
+    const e = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, cancelable: true })
+    window.dispatchEvent(e)
+    await settle()
+    expect(e.defaultPrevented).toBe(true)
+    expect(api.update).toHaveBeenCalledTimes(1)
+  })
+
+  it('открытое Reka-окно (role=dialog, data-state=open) — Ctrl/⌘+S не сохраняет', async () => {
+    await open()
+    await type('Груз', 'x')
+    const dlg = document.createElement('div')
+    dlg.setAttribute('role', 'dialog')
+    dlg.setAttribute('data-state', 'open')
+    document.body.appendChild(dlg)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, cancelable: true }))
+    await settle()
+    expect(api.update).not.toHaveBeenCalled()
+  })
+
   it('после смены статуса запись перечитывается, не дожидаясь перечёта списка', async () => {
     api.getList.mockReturnValue(new Promise(() => {}))
     await open()

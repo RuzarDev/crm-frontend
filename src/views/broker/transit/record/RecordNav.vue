@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { cn } from '@/ui/cn'
 import { SECTION_ORDER, sectionCount, sectionState, type RecordDraft, type SectionKey, type SectionState } from './recordModel'
@@ -9,8 +9,9 @@ import { sectionDomId } from './sections/sectionId'
 // требует внимания, серая — пусто; словом — для чтения с экрана), справа — число строк.
 // ≥ 1024 — липкая колонка 200px; уже — горизонтальная лента-прокрутка, липкая под шапкой оболочки.
 // Клик — плавная прокрутка к #sec-… с учётом высоты шапки (--shell-header-h) и ленты. Активный пункт — последний
-// раздел, чей верх уже ушёл под липкую шапку; считается на прокрутке (раз в кадр). Пока идёт прокрутка от клика,
-// пункт клика не перебивается. tracking=false (вкладка «Данные» скрыта) — не считается.
+// раздел, чей верх выше линии ≈ 30% окна; у низа страницы — последний видный; считается на прокрутке (раз в кадр),
+// при монтировании и при возврате на вкладку. Пока идёт прокрутка от клика, пункт клика не перебивается; после неё —
+// один пересчёт. tracking=false (вкладка «Данные» скрыта) — не считается.
 const props = withDefaults(defineProps<{ draft: RecordDraft; tracking?: boolean }>(), { tracking: true })
 const { t } = useI18n()
 
@@ -39,41 +40,85 @@ const headerHeight = () => {
 /** Сколько сверху занято липкими полосами: шапка оболочки, на узком экране — ещё и лента разделов. */
 const topOffset = () => headerHeight() + (isDesktop() ? 0 : root.value?.offsetHeight ?? 0) + GAP
 
+const LOCK_MS = 900
+const TRAIL_MS = 200
+const ACTIVATION = 0.3
+const BOTTOM_SLACK = 8
+
 let lockUntil = 0
+/** Пункт последнего клика: держится, пока его раздел стоит там, куда его привела прокрутка от клика. */
+let clicked: SectionKey | null = null
 const go = (key: SectionKey) => {
   const el = document.getElementById(sectionDomId(key))
   active.value = key
   if (!el) return
-  lockUntil = Date.now() + 900
+  clicked = key
+  lockUntil = Date.now() + LOCK_MS
+  scheduleTrail(LOCK_MS)
   const top = el.getBoundingClientRect().top + window.scrollY - topOffset()
   window.scrollTo({ top: Math.max(0, top), behavior: reducedMotion() ? 'auto' : 'smooth' })
 }
 
-/** Последний раздел, чей верх выше липкой полосы; у самого низа страницы — последний раздел на экране. */
+/**
+ * Активный раздел — последний, чей верх выше линии активации (≈ 30% высоты окна, но не выше липкой полосы).
+ * У самого низа страницы (последние короткие разделы до линии не доходят) — последний раздел, видный на экране.
+ * Пункт клика остаётся, пока его раздел стоит у липкой полосы (или виден у низа страницы).
+ */
 const spy = () => {
   if (!props.tracking) return
-  const line = topOffset() + 1
+  // Идёт прокрутка от клика — подсветка его.
+  if (clicked && Date.now() < lockUntil) {
+    active.value = clicked
+    return
+  }
+  const offset = topOffset()
+  const line = Math.max(offset + 1, window.innerHeight * ACTIVATION)
   let current: SectionKey | null = null
   let lastOnScreen: SectionKey | null = null
+  const tops = new Map<SectionKey, number>()
   for (const key of SECTION_ORDER) {
     const el = document.getElementById(sectionDomId(key))
     if (!el) continue
     const top = el.getBoundingClientRect().top
+    tops.set(key, top)
     if (top <= line) current = key
     if (top < window.innerHeight) lastOnScreen = key
   }
   const docH = document.documentElement.scrollHeight
-  const atBottom = docH > window.innerHeight && window.innerHeight + window.scrollY >= docH - 2
+  const atBottom = docH > window.innerHeight && Math.ceil(window.scrollY + window.innerHeight) >= docH - BOTTOM_SLACK
+  if (clicked) {
+    const top = tops.get(clicked)
+    const inPlace = top !== undefined && (Math.abs(top - offset) <= BOTTOM_SLACK || (atBottom && top < window.innerHeight))
+    if (inPlace) {
+      active.value = clicked
+      return
+    }
+    clicked = null
+  }
   const next = atBottom && lastOnScreen ? lastOnScreen : current ?? SECTION_ORDER[0]
   if (next !== active.value) active.value = next
 }
+
 let frame: number | null = null
+let trail: ReturnType<typeof setTimeout> | null = null
 const raf = (cb: () => void): number =>
   typeof window.requestAnimationFrame === 'function' ? window.requestAnimationFrame(cb) : window.setTimeout(cb, 16)
+/** Один пересчёт после конца прокрутки от клика (если за это время прокрутили руками — подсветка догонит). */
+const scheduleTrail = (ms: number) => {
+  if (trail !== null) clearTimeout(trail)
+  trail = setTimeout(() => {
+    trail = null
+    if (Date.now() < lockUntil) {
+      scheduleTrail(lockUntil - Date.now())
+      return
+    }
+    spy()
+  }, ms)
+}
 const onScroll = () => {
   // Прокрутка от клика по пункту: пункт клика держится, пока она идёт (и чуть после её конца).
   if (Date.now() < lockUntil) {
-    lockUntil = Math.max(lockUntil, Date.now() + 200)
+    lockUntil = Math.max(lockUntil, Date.now() + TRAIL_MS)
     return
   }
   if (frame !== null) return
@@ -82,14 +127,18 @@ const onScroll = () => {
     spy()
   })
 }
+// Вернулись на «Данные» (и при монтировании) — подсветка по текущему положению, не дожидаясь прокрутки.
+watch(() => props.tracking, (on) => { if (on) void nextTick(spy) })
 onMounted(() => {
   window.addEventListener('scroll', onScroll, { passive: true })
   window.addEventListener('resize', onScroll, { passive: true })
+  if (props.tracking) void nextTick(spy)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll)
   window.removeEventListener('resize', onScroll)
   if (frame !== null && typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(frame)
+  if (trail !== null) clearTimeout(trail)
 })
 </script>
 
