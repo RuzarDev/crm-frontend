@@ -9,6 +9,7 @@ vi.mock('@/views/Import40CompanyView.vue', () => ({ __esModule: true, default: {
 vi.mock('@/views/TnvedTreeView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'tree' }) } }))
 vi.mock('@/views/TnvedCurrenciesView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'currencies' }) } }))
 vi.mock('@/views/client/ClientInvoicesView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'client-invoices' }) } }))
+vi.mock('@/views/client/ClientCompanyView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'client-company' }) } }))
 
 import BillingRoute from '../BillingRoute.vue'
 import Import40CompanyRoute from '../Import40CompanyRoute.vue'
@@ -23,7 +24,7 @@ afterEach(() => w?.unmount())
 // [обёртка, экран клиента, экран сотрудника]: пока клиентский экран не готов, обе роли видят прежний.
 describe.each([
   ['BillingRoute', BillingRoute, 'client-invoices', 'billing'],
-  ['Import40CompanyRoute', Import40CompanyRoute, 'company', 'company'],
+  ['Import40CompanyRoute', Import40CompanyRoute, 'client-company', 'company'],
   ['TnvedTreeRoute', TnvedTreeRoute, 'tree', 'tree'],
   ['TnvedCurrenciesRoute', TnvedCurrenciesRoute, 'currencies', 'currencies'],
 ])('%s', (_name, Comp, clientView, staffView) => {

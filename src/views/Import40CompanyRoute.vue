@@ -3,9 +3,9 @@ import { defineAsyncComponent } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
 // /import-40/company: клиенту и сотруднику — отдельные ветки (как Import40Route), каждый экран грузится лениво.
-// Пока клиент видит прежний экран: клиентский экран редизайна (волна 2b) подменит ClientView.
+// Клиент — экран редизайна (волна 2b); сотрудник — прежний Import40CompanyView (его перевод — волны 3–5).
 const StaffView = defineAsyncComponent(() => import('@/views/Import40CompanyView.vue'))
-const ClientView = StaffView
+const ClientView = defineAsyncComponent(() => import('@/views/client/ClientCompanyView.vue'))
 const auth = useAuthStore()
 </script>
 

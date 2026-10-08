@@ -1055,8 +1055,9 @@ export const import40Api = {
   },
 
   // companyName — кратко («ТОО …»), может отсутствовать у клиента без профиля компании.
-  listClients: async (): Promise<{ id: string; username: string; companyName?: string | null }[]> => {
-    const response = await apiClient.get<{ id: string; username: string; companyName?: string | null }[]>('/import40/clients')
+  // opts.silent — «Моя компания» клиента сама показывает ошибку загрузки на месте.
+  listClients: async (opts?: { silent?: boolean }): Promise<{ id: string; username: string; companyName?: string | null }[]> => {
+    const response = await apiClient.get<{ id: string; username: string; companyName?: string | null }[]>('/import40/clients', opts?.silent ? { silent: true } : undefined)
     return response.data
   },
 
