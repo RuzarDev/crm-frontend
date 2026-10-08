@@ -1074,6 +1074,10 @@ export default {
         clientReply: 'Reply sent',
         assign: 'Assignments saved',
       },
+      // Шаги 1–2 (волна 4а, Task 3): черновик, граница, место для файлов раздела.
+      draft: {
+        cannotBeEmpty: 'Cannot be left empty',
+      },
     },
   },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
