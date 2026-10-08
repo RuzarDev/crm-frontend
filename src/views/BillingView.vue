@@ -136,6 +136,7 @@ import { DownloadOutlined, PlusOutlined, SearchOutlined, CloseOutlined } from '@
 import { loadXlsx } from '@/utils/xlsx'
 import PageHeader from '@/components/PageHeader.vue'
 import { billingApi, type BrokerInvoice, type BrokerInvoiceKind } from '@/api/billing'
+import { caseFilterSearch } from '@/views/billingQuery'
 import { import40Api, type Import40CaseDto } from '@/api/import40'
 import { salesApi, type SalesServiceItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
@@ -194,6 +195,9 @@ const load = async () => {
 
 onMounted(async () => {
   await load()
+  // /billing?case=… (уведомление о чеке): только фильтр списка по заявке, форма создания не открывается.
+  const byCase = caseFilterSearch(rows.value, route.query.case)
+  if (byCase) search.value = byCase
   if (isClientRole.value) return // справочники ниже — для формы создания счёта, клиенту не нужны
 
   // Аудит §4.4: раньше Promise.all — падение любого одного справочника (например, sales/services

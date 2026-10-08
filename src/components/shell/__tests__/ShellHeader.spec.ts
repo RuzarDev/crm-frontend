@@ -98,7 +98,7 @@ describe('NotificationsBell', () => {
     await settle()
     bodyButton('ДТ выпущена')!.click()
     await settle()
-    expect(router.currentRoute.value.fullPath).toBe('/billing?caseId=c1')
+    expect(router.currentRoute.value.fullPath).toBe('/billing?case=c1')
   })
 
   it('markRead упал — переход к заявке всё равно выполняется', async () => {
