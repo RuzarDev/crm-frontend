@@ -338,6 +338,11 @@ const searchResults = ref<TnvedNodeDto[] | null>(null)
 const searchLoading = ref(false)
 const leafOnly = ref(false)
 let searchDebounce: ReturnType<typeof setTimeout> | null = null
+// Защита от устаревших ответов: ответ учитывается, только если после него не начали новый запрос
+// (быстрые клики по кодам — иначе ставки/пояснения кода A оказывались под заголовком кода B).
+let searchSeq = 0
+let detailSeq = 0
+let calcSeq = 0
 
 // ── Detail state ─────────────────────────────────────────────────────────────
 const detailTab = ref('rates')
@@ -434,6 +439,8 @@ function selectNode(node: TnvedNodeDto) {
   selected.value = node
   deprecationWarning.value = undefined
   calcResult.value = null
+  calcSeq += 1
+  calcLoading.value = false
   // Виды акциза и антидемпинга — у каждого кода свои.
   calcForm.value.exciseKind = null
   calcForm.value.antiDumpingKind = null
@@ -442,6 +449,8 @@ function selectNode(node: TnvedNodeDto) {
 }
 
 async function loadDetail(node: TnvedNodeDto) {
+  const my = ++detailSeq
+  const fresh = () => my === detailSeq
   detailLoading.value = true
   rates.value = []
   notes.value = null
@@ -454,12 +463,13 @@ async function loadDetail(node: TnvedNodeDto) {
 
     if (node.is10 || node.isLast) {
       tasks.push(
-        tnvedApi.rates(node.code).then(r => { rates.value = r.data ? [r.data] : [] }).catch(() => {}),
+        tnvedApi.rates(node.code).then(r => { if (fresh()) rates.value = r.data ? [r.data] : [] }).catch(() => {}),
         tnvedApi.getTransition(node.code).then(r => {
+          if (!fresh()) return
           deprecationWarning.value = r.data.isDeprecated
             ? { deprecatedCode: r.data.oldCode, replacementCodes: r.data.newCodes, sourceVersion: r.data.sourceVersion }
             : null
-        }).catch(() => { deprecationWarning.value = null }),
+        }).catch(() => { if (fresh()) deprecationWarning.value = null }),
       )
     } else {
       deprecationWarning.value = null
@@ -468,45 +478,46 @@ async function loadDetail(node: TnvedNodeDto) {
     if (node.is10) {
       tasks.push(
         tnvedApi.reference(node.code)
-          .then(r => { reference.value = r.data })
-          .catch(() => { referenceNotFound.value = true }),
+          .then(r => { if (fresh()) reference.value = r.data })
+          .catch(() => { if (fresh()) referenceNotFound.value = true }),
         tnvedApi.exportReference(node.code)
-          .then(r => { exportReference.value = r.data })
-          .catch(() => { exportReferenceNotFound.value = true }),
+          .then(r => { if (fresh()) exportReference.value = r.data })
+          .catch(() => { if (fresh()) exportReferenceNotFound.value = true }),
       )
     }
 
     if (node.code) {
       tasks.push(
-        tnvedApi.notes(node.code).then(r => { notes.value = r.data }).catch(() => {}),
+        tnvedApi.notes(node.code).then(r => { if (fresh()) notes.value = r.data }).catch(() => {}),
       )
     }
 
     await Promise.all(tasks)
   } finally {
-    detailLoading.value = false
+    if (fresh()) detailLoading.value = false
   }
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────
 async function handleSearch(q: string) {
-  if (!q.trim()) { searchResults.value = null; return }
+  const my = ++searchSeq
+  if (!q.trim()) { searchResults.value = null; searchLoading.value = false; return }
   searchLoading.value = true
   try {
     const { data } = await tnvedApi.search(q.trim(), leafOnly.value)
-    searchResults.value = data
+    if (my === searchSeq) searchResults.value = data
   } finally {
-    searchLoading.value = false
+    if (my === searchSeq) searchLoading.value = false
   }
 }
 
 function onSearchChange() {
-  if (!searchQuery.value.trim()) { searchResults.value = null; return }
+  if (!searchQuery.value.trim()) { searchSeq += 1; searchResults.value = null; return }
   if (searchDebounce) clearTimeout(searchDebounce)
   searchDebounce = setTimeout(() => handleSearch(searchQuery.value), 400)
 }
 
-watch(searchQuery, val => { if (!val) searchResults.value = null })
+watch(searchQuery, val => { if (!val) { searchSeq += 1; searchResults.value = null } })
 // Дерево снова видно — показать в нём код, выбранный в результатах поиска.
 watch(searchResults, (v, old) => { if (v === null && old !== null) void treeRef.value?.scrollToSelected() })
 watch(leafOnly, () => { if (searchQuery.value.trim()) handleSearch(searchQuery.value) })
@@ -514,6 +525,7 @@ watch(leafOnly, () => { if (searchQuery.value.trim()) handleSearch(searchQuery.v
 // ── Calculator ────────────────────────────────────────────────────────────────
 async function runCalculate() {
   if (!selected.value) return
+  const my = ++calcSeq
   calcLoading.value = true
   calcResult.value = null
   try {
@@ -529,9 +541,9 @@ async function runCalculate() {
       exciseKind: calcForm.value.exciseKind,
       antiDumpingKind: calcForm.value.antiDumpingKind,
     })
-    calcResult.value = data
+    if (my === calcSeq) calcResult.value = data
   } finally {
-    calcLoading.value = false
+    if (my === calcSeq) calcLoading.value = false
   }
 }
 
