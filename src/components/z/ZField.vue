@@ -167,6 +167,8 @@ const externalError = computed(() => props.error || (props.validateStatus === 'e
 const errorText = computed(() => externalError.value || translate(ruleError.value) || '')
 const invalid = computed(() => !!errorText.value || props.validateStatus === 'error')
 const message = computed(() => errorText.value || props.help || '')
+// Статус сообщения для кода снаружи (переход «к недостающему» ищет подсвеченное поле) — не по цветовым классам.
+const messageStatus = computed(() => (errorText.value ? 'error' : props.validateStatus === 'warning' ? 'warning' : undefined))
 const messageTone = computed(() => (errorText.value ? 'text-danger' : props.validateStatus === 'warning' ? 'text-gold-ink' : 'text-muted'))
 const hasLabel = computed(() => !!props.label || !!slots.label || (props.graph !== undefined && props.graph !== ''))
 const hasExtra = computed(() => !!props.extra || !!slots.extra)
@@ -228,7 +230,7 @@ onBeforeUnmount(() => unregister?.())
       <span v-if="isRequired" aria-hidden="true" class="shrink-0 text-danger">*</span>
     </label>
     <slot />
-    <div v-if="message" :id="messageId" :class="cn('text-xs', messageTone)">{{ message }}</div>
+    <div v-if="message" :id="messageId" :class="cn('text-xs', messageTone)" :data-z-status="messageStatus">{{ message }}</div>
     <div v-if="hasExtra" :id="extraId" class="text-xs text-muted"><slot name="extra">{{ extra }}</slot></div>
   </div>
 </template>

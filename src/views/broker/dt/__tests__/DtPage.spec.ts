@@ -315,6 +315,22 @@ describe('DtPage: готовность', () => {
     expect(duty.contains(document.activeElement)).toBe(true)
   })
 
+  it('пункт без названного поля — фокус на поле графы с предупреждением (data-z-status у ZField), а не на первом', async () => {
+    server = caseDto({
+      status: 2, assignedDeclarantId: 'me',
+      declarations: [fullDto({ splitRole: null, goodsItems: [fullGoodsDto({ oisRegNumber: 'ПЛОХОЙ' })] })],
+    })
+    const text = 'Товар 1: проверьте сведения (гр.33)'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '33', goodsIndex: 0 }] }))
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const reg = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="oisRegNumber"]') as HTMLElement
+    expect(reg.querySelector(':scope > [data-z-status="warning"]')).not.toBeNull()
+    expect(reg.hasAttribute('data-dt-flash')).toBe(true)
+    expect(reg.contains(document.activeElement)).toBe(true)
+  })
+
   it('пункт «коды запретов (гр.33)» — фокус в поле кодов гр. 33, а не в коде ТН ВЭД (тоже гр. 33)', async () => {
     const text = 'Товар 1: коды запретов и ограничений (гр.33) — хотя бы один, например C1700 / D0100'
     api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '33', goodsIndex: 0 }] }))

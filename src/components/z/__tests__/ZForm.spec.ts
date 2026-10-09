@@ -279,10 +279,16 @@ describe('ZField', () => {
     const input = await mountField({ label: 'Дом', validateStatus: 'error', help: 'Длиннее 20 знаков' })
     expect(input.getAttribute('aria-invalid')).toBe('true')
     expect(describedText(input)).toBe('Длиннее 20 знаков')
+    // статус сообщения — атрибутом (переход «к недостающему» ищет подсвеченное поле не по цвету)
+    expect(document.getElementById(input.getAttribute('aria-describedby')!)?.getAttribute('data-z-status')).toBe('error')
     w.unmount()
     const warn = await mountField({ label: 'Номер СВХ', validateStatus: 'warning', help: 'Проверьте контрольную цифру' })
     expect(warn.getAttribute('aria-invalid')).toBeNull()
     expect(describedText(warn)).toBe('Проверьте контрольную цифру')
+    expect(document.getElementById(warn.getAttribute('aria-describedby')!)?.getAttribute('data-z-status')).toBe('warning')
+    w.unmount()
+    const hint = await mountField({ label: 'Дом', help: 'Только номер' })
+    expect(document.getElementById(hint.getAttribute('aria-describedby')!)?.hasAttribute('data-z-status')).toBe(false)
   })
 
   it('help и extra — в aria-describedby; ошибка вместо help', async () => {

@@ -281,7 +281,7 @@ const goTo = async (item: DtReadinessItem) => {
     }
   }
   const byGraph = graph ? [...scope.querySelectorAll<HTMLElement>(`[data-graph="${graph}"]`)] : []
-  const flagged = byGraph.find((el) => el.querySelector(':scope > .text-gold-ink, :scope > .text-danger'))
+  const flagged = byGraph.find((el) => el.querySelector(':scope > [data-z-status="warning"], :scope > [data-z-status="error"]'))
   const field = (fieldKey ? scope.querySelector<HTMLElement>(`[data-goods-field="${fieldKey}"]`) : null) ?? flagged ?? byGraph[0] ?? null
   if (!field && editor) return
   const target = field ?? host
