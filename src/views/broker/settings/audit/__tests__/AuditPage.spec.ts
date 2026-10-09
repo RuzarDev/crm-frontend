@@ -7,8 +7,9 @@ import kk from '@/i18n/locales/kk'
 import en from '@/i18n/locales/en'
 import { i18n as appI18n } from '@/i18n'
 
-const api = vi.hoisted(() => ({ auditSearch: vi.fn(), auditActors: vi.fn(), exportXlsx: vi.fn(), warn: vi.fn(), error: vi.fn() }))
+const api = vi.hoisted(() => ({ team: vi.fn(), auditSearch: vi.fn(), auditActors: vi.fn(), exportXlsx: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 vi.mock('@/api/system', () => ({ systemApi: { auditSearch: api.auditSearch, auditActors: api.auditActors } }))
+vi.mock('@/api/users', () => ({ usersApi: { team: api.team } }))
 vi.mock('@/views/broker/list', async (orig) => ({ ...(await orig<typeof import('@/views/broker/list')>()), exportXlsx: api.exportXlsx }))
 vi.mock('@/ui/message', () => ({ message: { warning: api.warn, error: api.error, success: vi.fn(), info: vi.fn() } }))
 
@@ -39,6 +40,7 @@ beforeEach(() => {
   api.auditSearch.mockResolvedValue(page(1, 3, 3))
   api.auditActors.mockResolvedValue([{ id: 'u2', name: 'Сейткали Д.' }, { id: 'u1', name: 'Ахметов Куат' }])
   api.exportXlsx.mockResolvedValue(undefined)
+  api.team.mockResolvedValue([])
 })
 afterEach(() => {
   w?.unmount()
@@ -72,6 +74,30 @@ describe('AuditPage — журнал действий', () => {
     expect(cells.map((c) => c.text())).toEqual(['Изменил права роли', 'Выдал временный пароль', 'Заблокировал клиента', 'Изменил реквизиты', 'mystery.code'])
     expect(w.get('[data-audit-who]').text()).toContain('Ахметов Куат')
     expect(w.get('[data-audit-who]').text()).toContain('АК')
+  })
+
+  it('«Кто» и чип сотрудника — имя из команды; удалённый аккаунт и сбой списка — то, что записал сервер', async () => {
+    api.team.mockResolvedValue([
+      { id: 'u1', username: 'a.akhmetov', displayName: 'Куат Ахметов', systemRole: 'administrator', businessRoles: [], createdAtUtc: '2026-01-01T00:00:00Z', isPoaRepresentative: false, clientCount: 0 },
+      { id: 'u2', username: 'd.seitkali', displayName: null, systemRole: 'importer', businessRoles: [], createdAtUtc: '2026-01-01T00:00:00Z', isPoaRepresentative: false, clientCount: 0 },
+    ])
+    api.auditSearch.mockResolvedValue({
+      items: [row(1, { actorName: 'a.akhmetov' }), row(2, { actorUserId: 'gone', actorName: 'old.login' }), row(3, { actorUserId: null, actorName: 'Система' })],
+      total: 3,
+    })
+    await mountAt('/settings/audit?actor=u2')
+    expect(w.findAll('[data-audit-who]')[1].text()).toContain('old.login')
+    expect(w.findAll('[data-audit-who]')[2].text()).toContain('Система')
+    expect(w.findAll('[data-audit-who]')[0].text()).toContain('Куат Ахметов')
+    expect(w.findAll('[data-audit-who]')[0].text()).not.toContain('a.akhmetov')
+    expect(w.get('[data-audit-actor]').text()).toContain('d.seitkali')
+    await w.get('[data-audit-actor] button').trigger('click')
+    await flushPromises()
+    expect([...document.body.querySelectorAll('[role="option"]')].map((o) => o.textContent!.trim())).toEqual(['Все сотрудники', 'Куат Ахметов', 'd.seitkali'])
+    w.unmount()
+    api.team.mockRejectedValue(new Error('403'))
+    await mountAt()
+    expect(w.findAll('[data-audit-who]')[0].text()).toContain('a.akhmetov')
   })
 
   it('«Показать ещё» догружает со смещением, повторы отбрасываются, счётчик растёт', async () => {
@@ -147,6 +173,21 @@ describe('AuditPage — журнал действий', () => {
     expect(router.currentRoute.value.query.q).toBe('Steppe')
     expect(lastParams()).toEqual({ days: 30, q: 'Steppe', offset: 0, limit: 50 })
     expect(rowsEl()).toHaveLength(1)
+  })
+
+  it('поиск: пока печатаете «ООО », пауза не стирает пробел в поле', async () => {
+    await mountAt()
+    const input = w.get('input[type="search"]')
+    await input.setValue('ООО ')
+    await vi.advanceTimersByTimeAsync(450)
+    await flushPromises()
+    expect(router.currentRoute.value.query.q).toBe('ООО')
+    expect((input.element as HTMLInputElement).value).toBe('ООО ')
+    await input.setValue('ООО Ромашка')
+    await vi.advanceTimersByTimeAsync(450)
+    await flushPromises()
+    expect(router.currentRoute.value.query.q).toBe('ООО Ромашка')
+    expect((input.element as HTMLInputElement).value).toBe('ООО Ромашка')
   })
 
   it('фильтры из адреса сразу в запросе', async () => {

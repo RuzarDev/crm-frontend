@@ -98,10 +98,11 @@ export interface AuditExportLabels { when: string; who: string; action: string; 
 /** Строки файла — колонки как в таблице; дата всегда с годом. */
 export function auditExcelRows(
   rows: AuditSearchRow[], labels: AuditExportLabels, locale: string, actionLabel: (a: string) => string,
+  actorLabel: (r: AuditSearchRow) => string = (r) => r.actorName,
 ): Record<string, unknown>[] {
   return rows.map((r) => ({
     [labels.when]: formatAuditWhen(r.atUtc, locale, new Date(), true),
-    [labels.who]: r.actorName,
+    [labels.who]: actorLabel(r),
     [labels.action]: actionLabel(r.action),
     [labels.what]: r.summary,
   }))

@@ -11,10 +11,13 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZTable from '@/components/z/ZTable.vue'
 import { systemApi, type AuditSearchRow } from '@/api/system'
+import { usersApi } from '@/api/users'
 import { message } from '@/ui/message'
+import type { TeamMemberDto } from '@/types/api'
 import type { ZColumn } from '@/ui/table'
 import { formatAuditAction } from '@/utils/labels'
 import { exportXlsx } from '@/views/broker/list'
+import { memberName } from '../team/team'
 import {
   AUDIT_ACTIONS, AUDIT_DAYS, AUDIT_EXPORT_LIMIT, AUDIT_PAGE, AUDIT_Q_DEBOUNCE_MS,
   auditExcelRows, auditParams, auditTone, buildAuditQuery, formatAuditWhen, parseAuditQuery, type AuditFilters,
@@ -34,7 +37,8 @@ const setFilters = (patch: Partial<AuditFilters>) => {
 
 // ---- Поиск: ввод отдельно от адреса, в адрес — через паузу 400 мс (ListSearch) ----
 const qText = ref(filters.value.q)
-watch(() => filters.value.q, (q) => { qText.value = q })
+// Адрес хранит q обрезанным по краям: пока человек печатает «ООО » и ждёт паузу, ввод не перезаписываем.
+watch(() => filters.value.q, (q) => { if (q !== qText.value.trim()) qText.value = q })
 
 // ---- Данные ----
 const items = shallowRef<AuditSearchRow[]>([])
@@ -78,17 +82,28 @@ onBeforeUnmount(() => { seq += 1 })
 
 // Список сотрудников для чипа: ошибка не мешает странице — чип просто без вариантов.
 const actors = ref<{ id: string; name: string }[]>([])
+// Имена сотрудников из списка команды (администратору доступен): в журнале сервер пишет логин, на экране нужно имя.
+// Нет списка или сотрудник удалён — остаётся то, что записал сервер.
+const team = shallowRef<TeamMemberDto[]>([])
+const nameById = computed(() => new Map(team.value.map((m) => [m.id, memberName(m)])))
+const actorLabel = (id: string | null, fallback: string) => (id ? nameById.value.get(id) : undefined) ?? fallback
 onMounted(async () => {
   try { actors.value = await systemApi.auditActors({ silent: true }) } catch { actors.value = [] }
+  try { team.value = await usersApi.team({ silent: true }) } catch { team.value = [] }
 })
 
 // ---- Чипы ----
 const daysOptions = computed(() => AUDIT_DAYS.map((d) => ({ value: String(d), label: t(`broker.settings.audit.days${d}`) })))
 const onDays = (v: string | null) => setFilters({ days: v == null ? 0 : Number(v) })
 const actionOptions = computed(() => AUDIT_ACTIONS.map((a) => ({ value: a, label: formatAuditAction(a) })))
-const actorOptions = computed(() => [...actors.value]
-  .sort((a, b) => a.name.localeCompare(b.name, locale.value))
-  .map((a) => ({ value: a.id, label: a.name })))
+const actorOptions = computed(() => {
+  const options = actors.value.map((a) => ({ value: a.id, label: actorLabel(a.id, a.name) }))
+  // Сотрудник из адреса (?actor=), которого нет среди записавших, — чип всё равно покажет имя, а не идентификатор.
+  const picked = filters.value.actor
+  const known = picked ? nameById.value.get(picked) : undefined
+  if (picked && known && !options.some((o) => o.value === picked)) options.push({ value: picked, label: known })
+  return options.sort((a, b) => a.label.localeCompare(b.label, locale.value))
+})
 
 // ---- Таблица ----
 const columns = computed<ZColumn<AuditSearchRow>[]>(() => [
@@ -114,7 +129,7 @@ const exportExcel = async () => {
       when: t('broker.settings.audit.col.when'), who: t('broker.settings.audit.col.who'),
       action: t('broker.settings.audit.col.action'), what: t('broker.settings.audit.col.what'),
     }
-    await exportXlsx('audit', t('broker.settings.audit.title'), auditExcelRows(res.items, labels, locale.value, formatAuditAction))
+    await exportXlsx('audit', t('broker.settings.audit.title'), auditExcelRows(res.items, labels, locale.value, formatAuditAction, (r) => actorLabel(r.actorUserId, r.actorName)))
     if (res.total > AUDIT_EXPORT_LIMIT) {
       message.warning(t('broker.settings.audit.exportTruncated', { limit: AUDIT_EXPORT_LIMIT, total: res.total }))
     }
@@ -204,8 +219,8 @@ const exportExcel = async () => {
         <template #bodyCell="{ column, record }">
           <span v-if="column.key === 'when'" class="tabular-nums text-ink-3" :title="whenFull(record)" data-audit-when>{{ when(record) }}</span>
           <span v-else-if="column.key === 'who'" class="inline-flex min-w-0 items-center gap-2.5" data-audit-who>
-            <ZAvatar :name="record.actorName" size="md" />
-            <span class="min-w-0 truncate text-ink">{{ record.actorName }}</span>
+            <ZAvatar :name="actorLabel(record.actorUserId, record.actorName)" size="md" />
+            <span class="min-w-0 truncate text-ink">{{ actorLabel(record.actorUserId, record.actorName) }}</span>
           </span>
           <StatusDot
             v-else-if="column.key === 'action'"
