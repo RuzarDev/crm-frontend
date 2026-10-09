@@ -125,17 +125,3 @@ export function localStatus(g: Goods): GoodsStatus {
   const fields = localMissingFields(g)
   return statusFrom(g, fields.length, fields)
 }
-
-/**
- * Статус товара на позиции index (с 0). readiness — пункты серверной готовности (или уже посчитанные
- * missingByGoodsIndex); null — ответа сервера нет, местная проверка.
- */
-export function goodsStatus(
-  g: Goods,
-  index: number,
-  readiness: readonly GoodsReadinessItem[] | ReadonlyMap<number, number> | null,
-): GoodsStatus {
-  if (!readiness) return localStatus(g)
-  const by = readiness instanceof Map ? readiness : missingByGoodsIndex(readiness as readonly GoodsReadinessItem[])
-  return statusFrom(g, by.get(index) ?? 0)
-}

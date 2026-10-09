@@ -3,7 +3,8 @@ import type { Import40GoodsItemInput } from '@/types/api'
 import { toPaymentsInput } from '../../useDtPayments'
 import { paymentsStale } from '../../dtPageModel'
 import {
-  PAYMENT_FIELDS, goodsPaymentsStale, goodsStatus, localMissingFields, markStale, missingByGoodsIndex, setGoodsField,
+  PAYMENT_FIELDS, goodsPaymentsStale, localMissingFields, localStatus, markStale, missingByGoodsIndex, setGoodsField, statusFrom,
+  type GoodsReadinessItem,
 } from '../goodsStatus'
 
 const complete = (o: Partial<Import40GoodsItemInput> = {}): Import40GoodsItemInput => ({
@@ -13,6 +14,13 @@ const complete = (o: Partial<Import40GoodsItemInput> = {}): Import40GoodsItemInp
   payments: [{ taxModeCode: '1010' } as never], needsTpinRecalc: false,
   ...o,
 })
+
+// Статус товара на позиции index: так его считает useDtGoods.statusOf (пункты сервера → statusFrom; ответа нет — localStatus).
+const goodsStatus = (g: Import40GoodsItemInput, index: number, readiness: readonly GoodsReadinessItem[] | Map<number, number> | null) => {
+  if (!readiness) return localStatus(g)
+  const by = readiness instanceof Map ? readiness : missingByGoodsIndex(readiness)
+  return statusFrom(g, by.get(index) ?? 0)
+}
 
 describe('goodsStatus: признак «платежи устарели»', () => {
   it('товар устарел: стоит needsTpinRecalc или нет ни одной строки гр. 47 (как точка раздела на странице)', () => {
