@@ -210,7 +210,7 @@
                       <a href="https://portal.eaeunion.org/sites/odata/_layouts/15/Portal.EEC.Registry.Ui/DirectoryForm.aspx?ViewId=01d0337c-71f3-455b-950d-d882bf9547d9&ListId=0e3ead06-5475-466a-a340-6f69c01b5687&ItemId=219" target="_blank" rel="noopener">{{ t('sales.eecPreliminaryDecisions') }}</a>
                     </div>
                     <div v-if="!notes?.htmlContent && !detailLoading" class="empty-hint">{{ t('sales.poyasneniyaOtsutstvuyut') }}</div>
-                    <div v-else-if="notes?.htmlContent" class="notes-html" v-html="notes.htmlContent" />
+                    <div v-else-if="notes?.htmlContent" class="notes-html" v-html="sanitizeHtml(notes.htmlContent)" />
                   </a-tab-pane>
 
                   <!-- Reference / non-tariff measures tab -->
@@ -314,6 +314,7 @@ import TnvedDeprecationAlert from '@/components/TnvedDeprecationAlert.vue'
 import NonTariffMeasureGroups, { type NonTariffMeasureGroup } from '@/components/NonTariffMeasureGroups.vue'
 import { tnvedApi } from '@/api/tnved'
 import { referencesApi } from '@/api/references'
+import { sanitizeHtml } from '@/ui/sanitizeHtml'
 import type {
   TnvedNodeDto,
   TnvedRateDto,
