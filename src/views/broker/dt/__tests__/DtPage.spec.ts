@@ -324,8 +324,15 @@ describe('DtPage: настоящий раздел «Стороны»', () => {
   it('открытие не сохраняет; гр. 8 / 9 с «Совпадает» повторяют гр. 14 с загрузки; правка гр. 14 уходит в PUT с копией', async () => {
     // Листы — как считает страница (иначе она сама поправит гр. 3 и пометит ДТ изменённой).
     server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, totalSheets: 1 })] })
+    refs.listCountries.mockResolvedValue([
+      { id: 'c1', code: '156', name: 'Китай', isActive: true, alpha2: 'CN' },
+      { id: 'c2', code: '398', name: 'Казахстан', isActive: true, alpha2: 'KZ' },
+    ])
     await open('?s=parties', ['SectionParties'])
     expect(w.get('[data-dt-header]').text()).not.toContain('Есть несохранённые изменения')
+    // Старые буквенные коды сторон («CN», «KZ») — по справочнику, как цифровые ОКСМ; форма не меняется.
+    expect((w.get('[data-party="sender"] [data-party-input="countryCode"]').element as HTMLInputElement).value).toBe('156 — Китай')
+    expect((w.get('[data-party="declarant"] [data-party-input="countryCode"]').element as HTMLInputElement).value).toBe('398 — Казахстан')
     expect(api.updateDeclaration).not.toHaveBeenCalled()
     expect(w.get('[data-party="receiver"] [data-party-same-summary]').text()).toBe('Те же данные, что в гр. 14 · ТОО ДЕКЛАРАНТ · 111111111111')
     await w.get('[data-party="declarant"] [data-party-input="city"]').setValue('караганда')
@@ -336,6 +343,7 @@ describe('DtPage: настоящий раздел «Стороны»', () => {
     expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
     expect(api.updateDeclaration.mock.calls[0][2]).toMatchObject({
       declarantCity: 'КАРАГАНДА',
+      sender: { countryCode: 'CN' },
       receiver: { name: 'ТОО ДЕКЛАРАНТ', city: 'КАРАГАНДА', street: 'D-STREET' },
       receiverBin: '111111111111',
       receiverKatoCode: '751110002',

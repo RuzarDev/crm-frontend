@@ -140,7 +140,7 @@ describe('SectionParties — БИН-поиск', () => {
     expect(form.declarantStreet).toBe('МОЯ УЛИЦА')
     expect(form.declarantCity).toBe('АЛМАТЫ')
     expect([form.declarantHouse, form.declarantApt]).toEqual(['52', '305'])
-    expect(form.declarantCountryCode).toBe('KZ')
+    expect(form.declarantCountryCode).toBe('398')
     expect(form.receiver.name).toBe('ТОО «КАЗАХМЫС ТРЕЙД»')
     expect(form.receiverBin).toBe('201140012345')
     expect(party('declarant').text()).toContain('Наименование и адрес из ГБД ЮЛ; заполненное не затираем')
@@ -200,6 +200,53 @@ describe('SectionParties — справочник и профиль клиент
     expect(form.receiver).toMatchObject({ name: 'ТОО КЛИЕНТ', city: 'АСТАНА', street: 'УЛ. КЕНЕСАРЫ' })
     expect([form.receiverBin, form.receiverHouse, form.receiverApt]).toEqual(['222222222222', '40', '12'])
     expect(toast.success).toHaveBeenCalledWith('Получатель заполнен из профиля клиента')
+  })
+})
+
+describe('SectionParties — код страны и БИН отправителя', () => {
+  it('старый «KZ» показывается как «398 — Казахстан» без предупреждения и без записи в форму', async () => {
+    mount({ declarantCountryCode: 'KZ' })
+    await flushPromises()
+    expect((input('declarant', 'countryCode').element as HTMLInputElement).value).toBe('398 — Казахстан')
+    expect(party('declarant').text()).not.toContain('нет в справочнике')
+    expect(form.declarantCountryCode).toBe('KZ')
+  })
+
+  it('«Сохранить в справочник» у отправителя — с БИН записи из справочника; правка наименования его снимает', async () => {
+    refs.search.mockResolvedValue([{ id: 's1', name: 'Shenzhen Bright', shortName: null, bin: '987654321098', countryCode: 'CN', city: null, region: null, street: null, house: null, apt: null, categoryCode: null, katoCode: null }])
+    refs.upsert.mockResolvedValue({})
+    mount()
+    await party('sender').get('[data-party-refs-open="sender"]').trigger('click')
+    await flushPromises()
+    ;(document.body.querySelector('[data-party-ref]') as HTMLElement).click()
+    await flushPromises()
+    expect(form.sender).toMatchObject({ name: 'SHENZHEN BRIGHT', countryCode: '156' })
+    await party('sender').get('[data-party-refs-save="sender"]').trigger('click')
+    await flushPromises()
+    expect(refs.upsert).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'SHENZHEN BRIGHT', bin: '987654321098' }))
+    await input('sender', 'name').setValue('другая фирма')
+    await party('sender').get('[data-party-refs-save="sender"]').trigger('click')
+    await flushPromises()
+    expect(refs.upsert).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'ДРУГАЯ ФИРМА', bin: null }))
+  })
+
+  it('отправитель из ГБД ЮЛ (поиск 12 цифр в справочнике) — БИН уходит в справочник', async () => {
+    lookup.byBin.mockResolvedValue(company)
+    refs.upsert.mockResolvedValue({})
+    mount()
+    await party('sender').get('[data-party-refs-open="sender"]').trigger('click')
+    await flushPromises()
+    const q = document.body.querySelector('[data-party-refs-search]') as HTMLInputElement
+    q.value = '201140012345'
+    q.dispatchEvent(new Event('input', { bubbles: true }))
+    await new Promise((r) => setTimeout(r, 400))
+    await flushPromises()
+    ;(document.body.querySelector('[data-party-refs-registry]') as HTMLElement).click()
+    await flushPromises()
+    expect(form.sender).toMatchObject({ name: 'ТОО «КАЗАХМЫС ТРЕЙД»', countryCode: '398' })
+    await party('sender').get('[data-party-refs-save="sender"]').trigger('click')
+    await flushPromises()
+    expect(refs.upsert).toHaveBeenLastCalledWith(expect.objectContaining({ bin: '201140012345' }))
   })
 })
 

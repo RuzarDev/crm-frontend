@@ -82,8 +82,25 @@ const up = (v: string | null | undefined): string | null => (v ? v.toLocaleUpper
 const blank = (v: string | null | undefined) => !v
 
 // ---- Код страны ----
-/** Код Казахстана по умолчанию для подстановок из реестров РК. */
-export const KZ_COUNTRY = 'KZ'
+// Страна стороны — цифровой код ОКСМ, как в справочнике стран (ref/countries) и при создании ДТ на сервере.
+// Прежние подстановки (БИН-поиск, профиль клиента) писали «KZ» (ошибка P1): такие записи показываются по
+// справочнику как «398 — Казахстан», а при следующей подстановке в сторону код приводится к цифровому.
+/** Код Казахстана (ОКСМ) по умолчанию для подстановок из реестров РК. */
+export const KZ_COUNTRY = '398'
+/** Страна справочника: цифровой код и буквенный ISO (у старых записей — он). */
+export type CountryRef = { value: string | number; alpha2?: unknown }
+// Казахстан — и пока справочник стран не загрузился (подстановки из реестров РК ставят именно его).
+const ALPHA2_FALLBACK: Record<string, string> = { KZ: KZ_COUNTRY }
+
+/** Буквенный код (KZ, CN) — к цифровому ОКСМ по справочнику; цифровой и неизвестный — как есть. */
+export function toNumericCountry(code: string | null | undefined, countries: readonly CountryRef[]): string | null {
+  const v = (code ?? '').trim()
+  if (!v) return code ?? null
+  if (/^\d+$/.test(v)) return v
+  const upper = v.toUpperCase()
+  const hit = countries.find((c) => typeof c.alpha2 === 'string' && c.alpha2.toUpperCase() === upper)
+  return hit ? String(hit.value) : ALPHA2_FALLBACK[upper] ?? v
+}
 
 // ---- Подстановки ----
 /**
@@ -91,14 +108,14 @@ export const KZ_COUNTRY = 'KZ'
  * только пустые (адрес разбирается эвристикой parseKzAddress), страна — Казахстан, если пусто. Населённый пункт
  * не трогается.
  */
-export function lookupPatch(cur: PartyValues, c: CompanyLookupDto): PartyPatch {
+export function lookupPatch(cur: PartyValues, c: CompanyLookupDto, countries: readonly CountryRef[]): PartyPatch {
   const name = up(c.nameRu ?? c.nameKz ?? '')
   const addr = c.addressRu ?? c.addressKz ?? null
   const p = addr ? parseKzAddress(addr) : EMPTY_PARSED_KZ_ADDRESS
   const patch: PartyPatch = {}
   if (name) patch.name = name
   patch.shortName = cur.shortName || name
-  patch.countryCode = cur.countryCode || KZ_COUNTRY
+  patch.countryCode = toNumericCountry(cur.countryCode, countries) || KZ_COUNTRY
   if (blank(cur.region) && p.region) patch.region = up(p.region)
   if (blank(cur.district) && p.district) patch.district = up(p.district)
   if (blank(cur.city) && p.city) patch.city = up(p.city)
@@ -109,9 +126,9 @@ export function lookupPatch(cur: PartyValues, c: CompanyLookupDto): PartyPatch {
 }
 
 /** Сторона из справочника: всё из записи (UPPER), района в справочнике нет — очищается. */
-export function refPatch(key: 'sender' | 'receiver', r: PartyRefDto): PartyPatch {
+export function refPatch(key: 'sender' | 'receiver', r: PartyRefDto, countries: readonly CountryRef[]): PartyPatch {
   const patch: PartyPatch = {
-    name: up(r.name), countryCode: r.countryCode, region: up(r.region), city: up(r.city), street: up(r.street),
+    name: up(r.name), countryCode: toNumericCountry(r.countryCode, countries), region: up(r.region), city: up(r.city), street: up(r.street),
     shortName: up(r.shortName), district: null, house: up(r.house), apt: up(r.apt),
   }
   if (key === 'receiver') Object.assign(patch, { bin: r.bin ?? null, categoryCode: r.categoryCode ?? null, katoCode: r.katoCode ?? null })
@@ -122,14 +139,14 @@ export function refPatch(key: 'sender' | 'receiver', r: PartyRefDto): PartyPatch
  * Гр. 8 из профиля компании клиента: наименование и БИН; адрес — из разобранных полей профиля, а если их нет —
  * разбором свободного адреса (улица с домом — тоже разбором). Краткое — только пустое.
  */
-export function profilePatch(cur: PartyValues, p: ClientCompanyProfileDto): PartyPatch {
+export function profilePatch(cur: PartyValues, p: ClientCompanyProfileDto, countries: readonly CountryRef[]): PartyPatch {
   const hasStructured = !!(p.legalCity || p.legalStreet || p.legalRegion)
   const parsed = !hasStructured && p.legalAddress
     ? parseKzAddress(p.legalAddress)
     : p.legalStreet ? parseKzAddress(p.legalStreet) : EMPTY_PARSED_KZ_ADDRESS
   const patch: PartyPatch = {
     name: up(p.companyName),
-    countryCode: p.legalCountryCode || cur.countryCode || KZ_COUNTRY,
+    countryCode: toNumericCountry(p.legalCountryCode || cur.countryCode, countries) || KZ_COUNTRY,
     region: up(p.legalRegion || parsed.region),
     city: up(p.legalCity || parsed.city),
     street: up(parsed.street ?? (p.legalStreet || null)),

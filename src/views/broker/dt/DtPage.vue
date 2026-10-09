@@ -329,13 +329,14 @@ const onSplitDone = async (res: Import40SplitResult) => {
 }
 
 // ---- Загрузка: справочники, «не найдено», ?calc=payments ----
-const countryOptions = ref<{ value: string; label: string }[]>([])
+const countryOptions = ref<{ value: string; label: string; alpha2: string | null }[]>([])
 const customsPostOptions = ref<{ value: string; label: string }[]>([])
 onMounted(async () => {
   classifiers.loadMany([...DT_CLASSIFIERS]).catch(() => message.warning(t('broker.dt.page.classifiersFailed')))
   void rates.loadCurrencies()
   referencesApi.listCountries()
-    .then((list) => { countryOptions.value = list.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` })) })
+    // alpha2 — чтобы старый буквенный код стороны («KZ») показать и привести к цифровому ОКСМ (dtParties).
+    .then((list) => { countryOptions.value = list.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}`, alpha2: c.alpha2 ?? null })) })
     .catch(() => { /* селекты стран — без списка */ })
   // Имя поста — «57505 — ТАМОЖЕННЫЙ ПОСТ …»: value — ведущий код (для номера ДТ), label — строка справочника.
   referencesApi.listCustomsPosts()

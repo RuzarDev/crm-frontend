@@ -12,7 +12,7 @@ import { useBinLookup } from '@/composables/useBinLookup'
 import { vUppercase } from '@/directives/uppercase'
 import type { ZOption } from '@/ui/options'
 import { withCurrent } from '../dtOptions'
-import { MAX_HOUSE_LEN, MAX_SETTLEMENT_LEN, overLimit, partyHas, type PartyField, type PartyKey, type PartyPatch, type PartyValues } from '../dtParties'
+import { MAX_HOUSE_LEN, MAX_SETTLEMENT_LEN, overLimit, partyHas, toNumericCountry, type PartyField, type PartyKey, type PartyPatch, type PartyValues } from '../dtParties'
 
 // Поля одной стороны ДТ (гр. 2, 8, 9, 14). Гр. 2 — без БИН, категории и КАТО (иностранный отправитель). Форму не
 // пишет: каждое изменение — событие update с частью полей, «Найти по БИН» — found с карточкой реестра (что
@@ -33,7 +33,10 @@ const tp = (key: string, named?: Record<string, unknown>) => t(`broker.dt.partie
 const has = (f: PartyField) => partyHas(props.partyKey, f)
 const set = (f: PartyField) => (v: unknown) => emit('update', { [f]: v == null || v === '' ? null : String(v) })
 
-const country = computed(() => withCurrent(props.countryOptions, props.values.countryCode))
+// Страна — цифровой ОКСМ; старый буквенный код («KZ») показываем по справочнику («398 — Казахстан»), форму
+// при этом не меняем — цифровой код запишется при выборе страны или следующей подстановке в сторону.
+const countryShown = computed(() => toNumericCountry(props.values.countryCode, props.countryOptions))
+const country = computed(() => withCurrent(props.countryOptions, countryShown.value))
 const category = computed(() => withCurrent(props.categoryOptions, props.values.categoryCode))
 const warnNotInList = (unknown: boolean, value: string | null) =>
   unknown ? { validateStatus: 'warning' as const, help: tp('notInList', { value: value ?? '' }) } : {}
@@ -82,7 +85,7 @@ const firstGraph = (f: PartyField) => ((has('bin') ? 'bin' : 'name') === f ? pro
       </ZField>
       <ZField :label="tp('country')" v-bind="warnNotInList(country.unknown, values.countryCode)">
         <ZSelect
-          :value="values.countryCode || null"
+          :value="countryShown || null"
           :options="country.options"
           show-search
           allow-clear

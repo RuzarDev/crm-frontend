@@ -57,7 +57,7 @@ const apply = (key: PartyKey, patch: PartyPatch) => {
   writeParty(props.form, key, diff)
   if (key === 'declarant') syncWithDeclarant(props.form)
 }
-const onFound = (key: PartyKey, c: CompanyLookupDto) => apply(key, lookupPatch(values.value[key], c))
+const onFound = (key: PartyKey, c: CompanyLookupDto) => apply(key, lookupPatch(values.value[key], c, props.countryOptions))
 const setSame = (to: SameKey, on: boolean) => {
   if (on) copyDeclarant(props.form, to)
   props.form[SAME_FLAG[to]] = on
@@ -67,7 +67,7 @@ const setSame = (to: SameKey, on: boolean) => {
 const fillFromClient = () => {
   const p = props.clientProfile
   if (!p) return
-  apply('receiver', profilePatch(values.value.receiver, p))
+  apply('receiver', profilePatch(values.value.receiver, p, props.countryOptions))
   message.success(tp('fromClientDone'))
 }
 
@@ -78,20 +78,29 @@ const openRefs = (target: 'sender' | 'receiver') => {
   refsTarget.value = target
   refsOpen.value = true
 }
+// У гр. 2 нет поля БИН, но отправитель, взятый из справочника или найденный в ГБД ЮЛ, свой БИН имеет: помним его,
+// пока наименование то же, — «Сохранить в справочник» обновит ту же запись (по БИН), а не заведёт дубль без БИН.
+const senderBin = ref<{ bin: string; name: string | null } | null>(null)
+const rememberSender = (bin: string | null | undefined) => {
+  senderBin.value = bin ? { bin, name: values.value.sender.name } : null
+}
 const onPick = (r: PartyRefDto) => {
-  apply(refsTarget.value, refPatch(refsTarget.value, r))
+  apply(refsTarget.value, refPatch(refsTarget.value, r, props.countryOptions))
+  if (refsTarget.value === 'sender') rememberSender(r.bin)
   refsOpen.value = false
 }
 const onRegistryFound = (c: CompanyLookupDto) => {
   const target = refsTarget.value
-  const patch = lookupPatch(values.value[target], c)
+  const patch = lookupPatch(values.value[target], c, props.countryOptions)
   if (target === 'receiver') patch.bin = c.bin
   apply(target, patch)
+  if (target === 'sender') rememberSender(c.bin)
   refsOpen.value = false
 }
 const saving = ref<'sender' | 'receiver' | null>(null)
 const saveRef = async (target: 'sender' | 'receiver') => {
   const body = refBody(target, values.value[target])
+  if (target === 'sender' && senderBin.value && senderBin.value.name === values.value.sender.name) body.bin = senderBin.value.bin
   if (!body.name.trim()) {
     message.warning(tp('refs.nameRequired'))
     return

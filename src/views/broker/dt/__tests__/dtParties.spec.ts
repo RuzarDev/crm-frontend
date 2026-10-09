@@ -4,7 +4,7 @@ import type { ClientCompanyProfileDto } from '@/api/import40Contract'
 import type { PartyRefDto } from '@/api/partyRefs'
 import { emptyDtForm, type DtFormState } from '../dtPayload'
 import {
-  changedOnly, copyDeclarant, lookupPatch, overLimit, profilePatch, readParty, refBody, refPatch, syncLoadedParties, writeParty,
+  changedOnly, copyDeclarant, toNumericCountry, lookupPatch, overLimit, profilePatch, readParty, refBody, refPatch, syncLoadedParties, writeParty,
 } from '../dtParties'
 
 const company = (o: Partial<CompanyLookupDto> = {}): CompanyLookupDto => ({
@@ -67,23 +67,23 @@ describe('dtParties — подстановки', () => {
     const f = emptyDtForm()
     f.declarantName = 'СТАРОЕ'
     f.declarantStreet = 'МОЯ УЛИЦА'
-    const p = lookupPatch(readParty(f, 'declarant'), company())
+    const p = lookupPatch(readParty(f, 'declarant'), company(), [])
     expect(p.name).toBe('ТОО «КАЗАХМЫС ТРЕЙД»')
     expect(p.shortName).toBe('ТОО «КАЗАХМЫС ТРЕЙД»')
     expect(p.street).toBeUndefined()
     expect(p).toMatchObject({ city: 'АЛМАТЫ', district: 'АЛМАЛИНСКИЙ РАЙОН', house: '52', apt: '305' })
     expect(p.settlement).toBeUndefined()
     f.declarantShortName = 'КРАТКОЕ'
-    expect(lookupPatch(readParty(f, 'declarant'), company()).shortName).toBe('КРАТКОЕ')
+    expect(lookupPatch(readParty(f, 'declarant'), company(), []).shortName).toBe('КРАТКОЕ')
   })
 
   it('справочник: всё из записи в UPPER, района нет; у отправителя — без БИН, категории и КАТО', () => {
     const r: PartyRefDto = { id: '1', name: 'Shenzhen Co', shortName: 'sz', bin: '123456789012', countryCode: '156', city: 'shenzhen', region: null, street: 'keji rd', house: '7', apt: '1205', categoryCode: '2', katoCode: '751110000' }
-    expect(refPatch('receiver', r)).toEqual({
+    expect(refPatch('receiver', r, [])).toEqual({
       name: 'SHENZHEN CO', shortName: 'SZ', countryCode: '156', region: null, city: 'SHENZHEN', street: 'KEJI RD', district: null,
       house: '7', apt: '1205', bin: '123456789012', categoryCode: '2', katoCode: '751110000',
     })
-    expect(refPatch('sender', r)).not.toHaveProperty('bin')
+    expect(refPatch('sender', r, [])).not.toHaveProperty('bin')
   })
 
   it('профиль клиента: свободный адрес разбирается, краткое — только пустое, БИН из профиля', () => {
@@ -92,8 +92,8 @@ describe('dtParties — подстановки', () => {
       legalCountryCode: null, legalRegion: null, legalCity: null, legalStreet: null,
     } as unknown as ClientCompanyProfileDto
     const cur = readParty(emptyDtForm(), 'receiver')
-    expect(profilePatch(cur, p)).toMatchObject({ name: 'ТОО КЛИЕНТ', shortName: 'ТОО КЛИЕНТ', bin: '222222222222', city: 'АСТАНА', street: 'УЛ. КЕНЕСАРЫ', house: '40', apt: '12' })
-    expect(profilePatch({ ...cur, shortName: 'МОЁ' }, p).shortName).toBe('МОЁ')
+    expect(profilePatch(cur, p, [])).toMatchObject({ name: 'ТОО КЛИЕНТ', shortName: 'ТОО КЛИЕНТ', bin: '222222222222', city: 'АСТАНА', street: 'УЛ. КЕНЕСАРЫ', house: '40', apt: '12' })
+    expect(profilePatch({ ...cur, shortName: 'МОЁ' }, p, []).shortName).toBe('МОЁ')
   })
 
   it('тело справочника: у отправителя нет категории и КАТО', () => {
@@ -108,5 +108,30 @@ describe('dtParties — подстановки', () => {
     expect(overLimit('BUILDING 7, ROOM 1205-1206', 20)).toBe(26)
     expect(overLimit(' 12345678901234567890 ', 20)).toBeNull()
     expect(overLimit(null, 20)).toBeNull()
+  })
+})
+
+describe('dtParties — единый код страны (ОКСМ, «398», а не «KZ»)', () => {
+  const countries = [{ value: '398', alpha2: 'KZ' }, { value: '156', alpha2: 'CN' }]
+
+  it('буквенный код из старых записей — к цифровому по справочнику; Казахстан — и без справочника', () => {
+    expect(toNumericCountry('KZ', countries)).toBe('398')
+    expect(toNumericCountry('cn', countries)).toBe('156')
+    expect(toNumericCountry('398', countries)).toBe('398')
+    expect(toNumericCountry('KZ', [])).toBe('398')
+    expect(toNumericCountry('XX', countries)).toBe('XX')
+    expect(toNumericCountry(null, countries)).toBeNull()
+  })
+
+  it('БИН-поиск, справочник и профиль клиента ставят цифровой код', () => {
+    const cur = readParty(emptyDtForm(), 'receiver')
+    expect(lookupPatch(cur, company(), countries).countryCode).toBe('398')
+    expect(lookupPatch({ ...cur, countryCode: 'KZ' }, company(), countries).countryCode).toBe('398')
+    expect(lookupPatch({ ...cur, countryCode: '156' }, company(), countries).countryCode).toBe('156')
+    const r = { id: '1', name: 'X', shortName: null, bin: null, countryCode: 'CN', city: null, region: null, street: null, house: null, apt: null, categoryCode: null, katoCode: null }
+    expect(refPatch('sender', r, countries).countryCode).toBe('156')
+    const p = { clientId: 'c', companyName: 'X', bin: null, legalAddress: null, legalCountryCode: null, legalRegion: null, legalCity: null, legalStreet: null } as unknown as ClientCompanyProfileDto
+    expect(profilePatch(cur, p, countries).countryCode).toBe('398')
+    expect(profilePatch(cur, { ...p, legalCountryCode: 'KZ' }, countries).countryCode).toBe('398')
   })
 })

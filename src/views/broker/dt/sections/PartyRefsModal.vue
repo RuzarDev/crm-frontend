@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhMagnifyingGlass } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -11,7 +11,8 @@ import { partyRefsApi, type PartyRefDto } from '@/api/partyRefs'
 import { useBinLookup } from '@/composables/useBinLookup'
 
 // Справочник сторон (гр. 2 — отправители, гр. 8 — получатели): поиск по наименованию или БИН, выбор строки —
-// pick. Если в строке 12 цифр — «Найти в ГБД ЮЛ и подставить» (found с карточкой реестра).
+// pick. Если в строке 12 цифр — «Найти в ГБД ЮЛ и подставить» (found с карточкой реестра). Поиск — после паузы
+// в наборе, ответ устаревшего запроса отбрасывается (раньше — запрос на каждое нажатие, ответы вперемешку: P3).
 const props = defineProps<{
   open: boolean
   target: 'sender' | 'receiver'
@@ -26,26 +27,36 @@ const query = ref('')
 const results = ref<PartyRefDto[]>([])
 const loading = ref(false)
 
+const SEARCH_PAUSE_MS = 300
+let timer: ReturnType<typeof setTimeout> | null = null
+let seq = 0
+const stopTimer = () => { if (timer) { clearTimeout(timer); timer = null } }
+
 const search = async (q: string) => {
+  stopTimer()
+  const my = ++seq
   loading.value = true
   try {
-    results.value = await partyRefsApi.search(q.trim())
+    const list = await partyRefsApi.search(q.trim())
+    if (my === seq) results.value = list
   } catch {
-    results.value = []
+    if (my === seq) results.value = []
   } finally {
-    loading.value = false
+    if (my === seq) loading.value = false
   }
 }
 const onQuery = (v: string) => {
   query.value = v
-  void search(v)
+  stopTimer()
+  timer = setTimeout(() => { timer = null; void search(v) }, SEARCH_PAUSE_MS)
 }
 watch(() => props.open, (on) => {
-  if (!on) return
+  if (!on) { stopTimer(); seq++; loading.value = false; return }
   query.value = props.initialQuery
   results.value = []
   void search(query.value)
 }, { immediate: true })
+onBeforeUnmount(() => { stopTimer(); seq++ })
 
 const queryIsBin = computed(() => isBinLike(query.value))
 const { loading: binLoading, lookup } = useBinLookup()
