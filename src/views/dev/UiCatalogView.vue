@@ -42,6 +42,7 @@ import ZStepper, { type ZStep } from '@/components/z/ZStepper.vue'
 import ZAskBanner from '@/components/z/ZAskBanner.vue'
 import ZProgress from '@/components/z/ZProgress.vue'
 import ZBreadcrumbs from '@/components/z/ZBreadcrumbs.vue'
+import ZTree, { type ZTreeId, type ZTreeNode } from '@/components/z/ZTree.vue'
 import ShellSidebar from '@/components/shell/ShellSidebar.vue'
 import ShellSectionTabs from '@/components/shell/ShellSectionTabs.vue'
 import ZirconLogo from '@/components/shell/ZirconLogo.vue'
@@ -251,6 +252,26 @@ const stages: ZStep[] = [
   { key: 'closed', label: 'Закрыто' },
 ]
 const crumbs = [{ label: 'Импорт 40', to: '/_ui' }, { label: 'И40-182', to: '/_ui' }, { label: 'Декларация' }]
+
+// ZTree: ветки догружаются по раскрытию (задержка — как у сервера), reveal раскрывает путь до кода.
+const treeRoots: ZTreeNode[] = [
+  { id: 'xvi', code: 'XVI', label: 'Машины, оборудование и механизмы; электротехническое оборудование', hasChildren: true },
+  { id: 'xvii', code: 'XVII', label: 'Средства наземного транспорта, летательные аппараты, плавучие средства', hasChildren: true },
+]
+const treeKids: Record<string, ZTreeNode[]> = {
+  xvi: [
+    { id: '84', code: '84', label: 'Реакторы ядерные, котлы, оборудование и механические устройства', hasChildren: true },
+    { id: '85', code: '85', label: 'Электрические машины и оборудование, их части', hasChildren: true },
+  ],
+  '84': [{ id: '8471', code: '8471', label: 'Машины вычислительные и их блоки', hasChildren: true }],
+  '8471': [{ id: '847130', code: '8471 30', label: 'портативные массой не более 10 кг', hasChildren: true }],
+  '847130': [{ id: '8471300000', code: '8471 30 000 0', label: 'Ноутбуки и планшеты' }],
+  '85': [],
+  xvii: [{ id: '87', code: '87', label: 'Средства наземного транспорта, кроме железнодорожного' }],
+}
+const treeSelected = ref<ZTreeId | null>(null)
+const treeRef = ref<InstanceType<typeof ZTree> | null>(null)
+const loadTreeKids = (n: ZTreeNode) => new Promise<ZTreeNode[]>((res) => setTimeout(() => res(treeKids[String(n.id)] ?? []), 500))
 const searchHint = ref('')
 const searchQuery = ref('И40-182')
 const pwd = ref('Zircon2026!')
@@ -606,6 +627,20 @@ onBeforeUnmount(() => {
           </div>
         </ZPanel>
       </div>
+
+      <ZPanel class="min-w-0" title="Дерево (ZTree)">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_240px]">
+          <ZTree
+            ref="treeRef" v-model:selected="treeSelected" :items="treeRoots" :load-children="loadTreeKids"
+            aria-label="ТН ВЭД (пример)" class="h-[260px] rounded-panel border border-line"
+          />
+          <div class="flex flex-col items-start gap-2 text-sm text-ink-3">
+            <span>Выбрано: <b class="font-mono text-ink">{{ treeSelected ?? '—' }}</b></span>
+            <ZButton size="sm" @click="treeRef?.reveal(['xvi', '84', '8471', '847130', '8471300000'])">Показать 8471 30 000 0</ZButton>
+            <ZButton size="sm" variant="ghost" @click="treeRef?.collapseAll()">Свернуть всё</ZButton>
+          </div>
+        </div>
+      </ZPanel>
 
       <ZPanel class="min-w-0" title="Всплывающее">
         <div class="flex flex-col gap-4">

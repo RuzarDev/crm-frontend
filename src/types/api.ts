@@ -860,9 +860,23 @@ export interface TnvedRegulationDto {
 }
 
 export interface TnvedTimelineDto {
+  /** 1 — ЕТТ, 2 — ВТО, 3 — антидемпинг, 4 — окончание действия. */
   typeId: number
+  /** Строка сервера по-русски — запасной текст для ленты. */
   description: string
   showDate: string
+  /** День события, «ГГГГ-ММ-ДД». */
+  date: string
+  /** Первые пять кодов события; всего — totalCodes. */
+  codes: string[]
+  totalCodes: number
+  kind: 'starts' | 'ends'
+  /** importDuty | vtoDuty | antiDumping | compensatory | special | other; у старого сервера поля нет. */
+  what?: string
+  /** Ставка, как её отдаёт сервер («37%», «2 EUR за 1000 ШТ»). */
+  value?: string | null
+  /** ISO alpha-2 страны, если правило страновое и страна найдена однозначно. */
+  countryCode?: string | null
 }
 
 export interface TnvedExplanationDto {
@@ -892,10 +906,11 @@ export interface TnvedTopCodeDto {
 
 export interface TnvedRateChangeDto {
   code: string
-  treeName: string | null
   oldRateStr: string | null
   newRateStr: string | null
-  changedAtUtc: string
+  detectedAtUtc: string
+  /** Название узла ТН ВЭД (дерево или наименование); у кода без узла — null. */
+  name: string | null
 }
 
 export interface TnvedSyncLogDto {

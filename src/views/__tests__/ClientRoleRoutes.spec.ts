@@ -6,8 +6,8 @@ import { createPinia, setActivePinia } from 'pinia'
 // Старые экраны — заглушки: проверяется только то, что обёртка лениво подгружает нужный экран для обеих ролей.
 vi.mock('@/views/broker/finance/BillingDocsView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'billing' }) } }))
 vi.mock('@/views/Import40CompanyView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'company' }) } }))
-vi.mock('@/views/TnvedTreeView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'tree' }) } }))
-vi.mock('@/views/TnvedCurrenciesView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'currencies' }) } }))
+vi.mock('@/views/broker/references/tnved/TnvedPage.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'tree' }) } }))
+vi.mock('@/views/broker/references/RatesPage.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'currencies' }) } }))
 vi.mock('@/views/client/ClientInvoicesView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'client-invoices' }) } }))
 vi.mock('@/views/client/ClientCompanyView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'client-company' }) } }))
 vi.mock('@/views/client/ClientTnvedView.vue', () => ({ __esModule: true, default: { render: () => h('div', { 'data-view': 'client-tnved' }) } }))

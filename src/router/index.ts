@@ -141,7 +141,7 @@ const router = createRouter({
           // Справочник ДТ — только декларанту (тот же критерий, что в меню, аудит §8).
           path: '/dt-guide',
           name: 'dt-guide',
-          component: () => import('@/views/DtGuideView.vue'),
+          component: () => import('@/views/broker/references/DtGuidePage.vue'),
           meta: { requiresPermission: 'import40.declarant' },
         },
         {
@@ -253,7 +253,7 @@ const router = createRouter({
         {
           path: '/tnved/regulations',
           name: 'tnved-regulations',
-          component: () => import('@/views/TnvedRegulationsView.vue'),
+          component: () => import('@/views/broker/references/RegulationsPage.vue'),
           meta: { requiresReferences: true },
         },
         {
@@ -265,19 +265,20 @@ const router = createRouter({
         {
           path: '/tnved/timeline',
           name: 'tnved-timeline',
-          component: () => import('@/views/TnvedTimelineView.vue'),
+          component: () => import('@/views/broker/references/changes/ChangesPage.vue'),
           meta: { requiresReferences: true },
         },
         {
+          // Старая «Аналитика ТН ВЭД» стала видом «Статистика» экрана «Изменения».
           path: '/tnved/analytics',
           name: 'tnved-analytics',
-          component: () => import('@/views/TnvedAnalyticsView.vue'),
-          meta: { requiresReferences: true },
+          redirect: { path: '/tnved/timeline', query: { view: 'stats' } },
         },
         {
+          // «Данные системы» с открытой «Синхронизацией ТН ВЭД»: по праву tnved.manage (не только администратору).
           path: '/tnved/sync',
           name: 'tnved-sync',
-          component: () => import('@/views/TnvedSyncView.vue'),
+          component: () => import('@/views/broker/references/system/SystemDataPage.vue'),
           meta: { requiresPermission: 'tnved.manage' },
         },
         {
@@ -304,9 +305,10 @@ const router = createRouter({
           meta: { requiresPermission: 'endpoints.read' },
         },
         {
+          // «Данные системы» (администратор): ?item= — выбранный справочник, классификатор (cls:<код>) или реестр.
           path: '/references',
           name: 'references',
-          component: () => import('@/views/ReferencesView.vue'),
+          component: () => import('@/views/broker/references/system/SystemDataPage.vue'),
           meta: { requiresRole: 'administrator' },
         },
         { path: '/:pathMatch(.*)*', redirect: '/' },

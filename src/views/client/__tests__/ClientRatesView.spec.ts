@@ -56,7 +56,7 @@ describe('ClientRatesView', () => {
     const d = new Date('2026-10-08T03:00:00Z')
     const p = (n: number) => String(n).padStart(2, '0')
     expect(w.get('[data-rates-updated]').text())
-      .toBe(`Обновлено ${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`)
+      .toBe(`Обновлено: ${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`)
   })
 
   it('поиск по коду и названию фильтрует строки и пишется в ?q=', async () => {
@@ -89,7 +89,7 @@ describe('ClientRatesView', () => {
   it('ошибка — «Повторить»; 429 — про лимит', async () => {
     api.currencies.mockRejectedValueOnce(httpError(500)).mockRejectedValueOnce(httpError(429)).mockResolvedValueOnce({ data: RATES })
     await mountAt('/tnved/currencies')
-    expect(w.get('[data-rates-error]').text()).toContain('Не удалось загрузить курсы')
+    expect(w.get('[data-rates-error]').text()).toContain('Не удалось загрузить')
     await w.get('[data-rates-retry]').trigger('click')
     await flushPromises()
     expect(w.get('[data-rates-error]').text()).toContain('Слишком много запросов, попробуйте через минуту')

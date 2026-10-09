@@ -35,8 +35,9 @@ const quiet = (o?: TnvedRequestOptions) => (o?.silent ? { silent: true } : {})
 
 export const tnvedApi = {
   // ── Import tree ─────────────────────────────────────────────────────────────
-  children: (parentId = 0) =>
-    apiClient.get<TnvedNodeDto[]>('/tnved/children', { params: { parentId } }),
+  /** silent — без тоста перехватчика (корень дерева показывает ошибку сам). */
+  children: (parentId = 0, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedNodeDto[]>('/tnved/children', { params: { parentId }, ...quiet(opts) }),
 
   /** silent — без тоста перехватчика (проверка кода у поля: «кода нет» показывает само поле). */
   node: (code: string, opts?: TnvedRequestOptions) =>
@@ -53,8 +54,8 @@ export const tnvedApi = {
     apiClient.get<TnvedClassifyResponse>('/tnved/classify', { params: { description, limit }, ...quiet(opts) }),
 
   // ── Notes / explanations ────────────────────────────────────────────────────
-  notes: (code: string) =>
-    apiClient.get<TnvedExplanationDto>(`/tnved/node/${encodeURIComponent(code)}/notes`),
+  notes: (code: string, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedExplanationDto>(`/tnved/node/${encodeURIComponent(code)}/notes`, quiet(opts)),
 
   // ── Rates ───────────────────────────────────────────────────────────────────
   rates: (code: string, opts?: TnvedRequestOptions) =>
@@ -63,15 +64,15 @@ export const tnvedApi = {
       : apiClient.get<TnvedRateDto>(`/tnved/node/${encodeURIComponent(code)}/rates`),
 
   // ── Reference (нетарифка / справка по товару) ──────────────────────────────
-  reference: (code: string) =>
-    apiClient.get<TnvedReferenceDto>(`/tnved/node/${encodeURIComponent(code)}/reference`),
+  reference: (code: string, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedReferenceDto>(`/tnved/node/${encodeURIComponent(code)}/reference`, quiet(opts)),
 
   // ── Export reference (вывоз: ставка + нетарифка по направлению OUT) ────────
-  exportReference: (code: string) =>
-    apiClient.get<TnvedExportReferenceDto>(`/tnved/node/${encodeURIComponent(code)}/export-reference`),
+  exportReference: (code: string, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedExportReferenceDto>(`/tnved/node/${encodeURIComponent(code)}/export-reference`, quiet(opts)),
 
-  rateChanges: (limit = 50) =>
-    apiClient.get<TnvedRateChangeDto[]>('/tnved/rate-changes', { params: { limit } }),
+  rateChanges: (limit = 50, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedRateChangeDto[]>('/tnved/rate-changes', { params: { limit }, ...quiet(opts) }),
 
   // GET: сервер принимает калькулятор только как GET с параметрами (POST давал 405).
   calculate: (req: TnvedCalculateRequest, opts?: TnvedRequestOptions) =>
@@ -85,31 +86,34 @@ export const tnvedApi = {
 
 
   // ── Regulations ─────────────────────────────────────────────────────────────
-  regulations: () =>
-    apiClient.get<TnvedRegulationDto[]>('/tnved/regulations'),
+  regulations: (opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedRegulationDto[]>('/tnved/regulations', quiet(opts)),
 
   // ── Timeline ────────────────────────────────────────────────────────────────
-  timeline: (limit = 60) =>
-    apiClient.get<TnvedTimelineDto[]>('/tnved/timeline', { params: { limit } }),
+  /** limit 0 — все события (сервер держит их в кэше). code — начало кода: только события, где есть такой код (подходящие коды первыми). */
+  timeline: (limit = 0, opts?: TnvedRequestOptions & { code?: string }) =>
+    apiClient.get<TnvedTimelineDto[]>('/tnved/timeline', { params: { limit, code: opts?.code }, ...quiet(opts) }),
 
   // ── VTO sections ────────────────────────────────────────────────────────────
-  vtoSections: () =>
-    apiClient.get<TnvedVtoSectionDto[]>('/tnved/vto-sections'),
+  vtoSections: (opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedVtoSectionDto[]>('/tnved/vto-sections', quiet(opts)),
 
   // ── Analytics ───────────────────────────────────────────────────────────────
-  topCodes: (limit = 20) =>
-    apiClient.get<TnvedTopCodeDto[]>('/tnved/stats/top-codes', { params: { limit } }),
+  topCodes: (limit = 20, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedTopCodeDto[]>('/tnved/stats/top-codes', { params: { limit }, ...quiet(opts) }),
 
   // ── Transition ──────────────────────────────────────────────────────────────
-  getTransition: (code: string) =>
-    apiClient.get<TnvedTransitionDto>(`/tnved/transition/${encodeURIComponent(code)}`),
+  getTransition: (code: string, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedTransitionDto>(`/tnved/transition/${encodeURIComponent(code)}`, quiet(opts)),
 
   // ── Sync (admin) ────────────────────────────────────────────────────────────
-  syncHistory: () =>
-    apiClient.get<TnvedSyncLogDto[]>('/tnved/sync/history'),
+  syncHistory: (opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedSyncLogDto[]>('/tnved/sync/history', quiet(opts)),
 
+  // Сервер выполняет синхронизацию в самом запросе (курсы НБ РК + ставки КЕДЕН) и отвечает по её окончании:
+  // обычного таймаута 30 с не хватает — запрос обрывался раньше, чем заканчивалась синхронизация.
   syncTrigger: () =>
-    apiClient.post('/tnved/sync'),
+    apiClient.post('/tnved/sync', null, { timeout: 300000 }),
 
   // Ставка по стране (ЗСТ), виды акциза и антидемпинг из КЕДЕН по коду и стране происхождения (ОКСМ).
   tariffOptions: (code: string, country?: string | null, onDate?: string | null) =>

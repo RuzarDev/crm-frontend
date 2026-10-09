@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampRound, formatFixed, formatMoney, parseNumber } from '../number'
+import { clampRound, formatFixed, formatMoney, formatMoneyIn, formatNumberIn, parseNumber } from '../number'
 
 describe('parseNumber', () => {
   it.each([
@@ -52,5 +52,17 @@ describe('formatMoney', () => {
   })
   it('не оставляет узких неразрывных пробелов', () => {
     expect(formatMoney(1234567)).not.toMatch(/\u202F/)
+  })
+})
+
+describe('formatMoneyIn / formatNumberIn', () => {
+  it('по языку интерфейса; ru — как formatMoney', () => {
+    expect(formatMoneyIn('ru', 2030102)).toBe(formatMoney(2030102))
+    expect(formatMoneyIn('ru', 2030102)).toBe('2\u00a0030\u00a0102\u00a0₸')
+    expect(formatMoneyIn('en', 2030102)).toBe('2,030,102\u00a0₸')
+    expect(formatMoneyIn('kk', 1500)).toBe('1\u00a0500\u00a0₸')
+    expect(formatMoneyIn('xx', 10)).toBe('10\u00a0₸')
+    expect(formatNumberIn('ru', 478.32)).toBe('478,32')
+    expect(formatNumberIn('en', 478.3, 2, 2)).toBe('478.30')
   })
 })

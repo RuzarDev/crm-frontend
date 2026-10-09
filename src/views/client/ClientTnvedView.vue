@@ -11,7 +11,7 @@ import TnvedCalculator from '@/views/client/tnved/TnvedCalculator.vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedCalculateResult, TnvedRateDto } from '@/types/api'
 import { useAuthStore } from '@/stores/auth'
-import { formatMoney } from '@/ui/number'
+import { formatMoneyIn } from '@/ui/number'
 import { cn } from '@/ui/cn'
 import {
   cleanName, codeDigits, formatTnvedCode, hitFromMatch, hitFromNode, httpStatus, isCodeLike, isRateLimited, MIN_QUERY, VAT_RATE,
@@ -22,7 +22,9 @@ import {
 // слева подходящие коды, справа карточка выбранного: ставки и калькулятор платежей.
 // Запрос и выбранный код живут в адресе (?q=, ?code=) — ссылку можно переслать; переходы — replace,
 // чтобы «Назад» уводил с экрана, а не листал буквы и коды.
-const { t } = useI18n()
+const { t, locale } = useI18n()
+// Суммы — по языку интерфейса, как в строках калькулятора.
+const formatMoney = (n: number) => formatMoneyIn(locale.value, n)
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -357,7 +359,7 @@ const LIST_SKELETON = ['72%', '58%', '66%', '50%']
             </div>
           </dl>
 
-          <TnvedCalculator :code="code" @result="onResult" />
+          <TnvedCalculator :code="code" :rate-text="rates?.rateStr" @result="onResult" />
 
           <div v-if="canShip" class="flex flex-wrap items-center gap-3 border-t border-line pt-[18px]">
             <RouterLink

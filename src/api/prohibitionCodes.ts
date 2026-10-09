@@ -50,7 +50,7 @@ export const prohibitionCodesApi = {
   },
   /** Для раздела «Справочники»: какие коды КЕДЕН реально присылает. */
   kedenUsage: (): Promise<ProhibitionCodeUsage[]> =>
-    apiClient.get('/ref/prohibition-codes/keden-usage').then((r) => r.data as ProhibitionCodeUsage[]),
+    apiClient.get('/ref/prohibition-codes/keden-usage', { silent: true }).then((r) => r.data as ProhibitionCodeUsage[]),
   /** Подсказки по 10-значному коду ТН ВЭД; ответ кэшируется на сессию (ошибки — нет). */
   suggest: (tnved: string): Promise<ProhibitionSuggestResult> => {
     let p = suggestCache.get(tnved)

@@ -49,3 +49,23 @@ export const formatMoney = (n: number, currency = '₸'): string =>
 
 /** Сумма без знака валюты — ячейки таблиц, где «₸» в заголовке: «1 521 300»; нет — «0». */
 export const formatAmount = (n: number | null | undefined): string => formatMoney(n ?? 0, '').trimEnd()
+
+// Языки интерфейса → теги Intl (те же, что у календаря в ui/date.ts).
+const NUMBER_LOCALES: Record<string, string> = { ru: 'ru-RU', kk: 'kk-KZ', en: 'en-GB' }
+const localeFormats = new Map<string, Intl.NumberFormat>()
+
+/** Деньги по языку интерфейса: «2 840 000 ₸» (ru/kk), «2,840,000 ₸» (en). Пробелы Intl → U+00A0. */
+export const formatMoneyIn = (locale: string, n: number, currency = '₸'): string => {
+  const tag = NUMBER_LOCALES[locale] ?? 'ru-RU'
+  let f = localeFormats.get(tag)
+  if (!f) {
+    f = new Intl.NumberFormat(tag, { maximumFractionDigits: 0 })
+    localeFormats.set(tag, f)
+  }
+  return `${f.format(n).replace(/[\u202f\u2009\u00a0 ]/g, '\u00a0')}\u00a0${currency}`
+}
+
+/** Число по языку интерфейса (курс, количество): до maxDigits знаков после запятой. */
+export const formatNumberIn = (locale: string, n: number, maxDigits = 2, minDigits = 0): string =>
+  new Intl.NumberFormat(NUMBER_LOCALES[locale] ?? 'ru-RU', { minimumFractionDigits: minDigits, maximumFractionDigits: maxDigits })
+    .format(n).replace(/[\u202f\u2009\u00a0 ]/g, '\u00a0')
