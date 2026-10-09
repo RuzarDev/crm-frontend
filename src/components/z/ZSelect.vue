@@ -38,7 +38,7 @@ const props = withDefaults(defineProps<{
   placeholder?: string
   disabled?: boolean
   size?: 'sm' | 'md'
-  /** Как у a-select: 'error' — красная рамка. */
+  /** Как у a-select: 'error' — красная рамка (и aria-invalid), 'warning' — золотая рамка. */
   status?: 'error' | 'warning' | ''
   invalid?: boolean
   filterOption?: ZFilterOption
@@ -135,6 +135,8 @@ const { fieldId, fieldDescribedBy, fieldInvalid, fieldAriaInvalid, fieldRequired
   attrs, invalid: () => !!props.invalid || props.status === 'error', id: () => props.id, focus: () => inputEl()?.focus(), value: () => props.value,
 })
 const isInvalid = computed(() => props.invalid || props.status === 'error' || fieldInvalid.value)
+// status='warning' — золотая рамка (как у a-select); без aria-invalid.
+const isWarning = computed(() => props.status === 'warning' && !isInvalid.value)
 // single с поиском: подпись выбранного остаётся значением поля (скринридер читает выбранное), в фокусе
 // выделена; любая правка (символ, Backspace/Delete, вставка, IME, автозамена) заменяет её целиком,
 // а не дописывается к ней. beforeinput ловит все виды правок, в том числе без keydown.
@@ -235,7 +237,7 @@ const inputClass = computed(() => cn(
     @update:model-value="onModel"
   >
     <ComboboxAnchor
-      :class="cn(fieldShell({ size, invalid: isInvalid, disabled, multiline: isMulti }), 'pr-1.5', !disabled && 'cursor-pointer')"
+      :class="cn(fieldShell({ size, invalid: isInvalid, warning: isWarning, disabled, multiline: isMulti }), 'pr-1.5', !disabled && 'cursor-pointer')"
       @click="onAnchorClick"
     >
       <ZSelectChips v-if="isMulti" :values="selected" :label-of="labelOf" :disabled="disabled" @remove="removeValue" />

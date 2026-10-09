@@ -115,6 +115,44 @@ describe('useDtPayments (перенос из прежнего экрана)', ()
     expect(p[2]).toMatchObject({ amountKzt: 13.2, rateKindCode: '%' })
   })
 
+  it('«Записать» расчёт снимает «Пересчитать» у посчитанных товаров; у товара с ошибкой и не попавшего в расчёт — нет', () => {
+    const form = reactive(emptyDtForm()) as DtFormState
+    form.goodsItems = [goods({ needsTpinRecalc: true }), goods({ needsTpinRecalc: true }), goods({ needsTpinRecalc: true })] as never
+    const [a, b, c] = form.goodsItems
+    applyGoodsPaymentRows(form, calc([
+      { index: 0, rows: [{ taxModeCode: '1010', amount: 5 }] } as never,
+      { index: 1, rows: [], error: 'нет ставки' } as never,
+    ]))
+    expect([a, b, c].map((g) => g.needsTpinRecalc)).toEqual([false, true, true])
+  })
+
+  it('строки гр. 47 пишутся в те же товары и тот же массив (ключ товара и открытый товар не теряются, волна 6б)', () => {
+    const form = reactive(emptyDtForm()) as DtFormState
+    form.goodsItems = [goods(), goods()] as never
+    const list = form.goodsItems
+    const [a, b] = list
+    applyGoodsPaymentRows(form, calc([{ index: 1, rows: [{ taxModeCode: '1010', amount: 5 }] } as never]))
+    expect(form.goodsItems).toBe(list)
+    expect(form.goodsItems[0]).toBe(a)
+    expect(form.goodsItems[1]).toBe(b)
+    expect(b.payments?.[0]).toMatchObject({ taxModeCode: '1010', amountKzt: 5 })
+  })
+
+  it('«Рассчитать там. стоимость»: гр. 45 изменилась — платежи товара «Пересчитать»; не изменилась — нет', async () => {
+    const form = reactive(emptyDtForm()) as DtFormState
+    form.goodsItems = [
+      goods({ customsValueKzt: 1000, needsTpinRecalc: false }),
+      goods({ customsValueKzt: 2000, needsTpinRecalc: false }),
+      goods({ customsValueKzt: 3000, needsTpinRecalc: false }),
+    ] as never
+    api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 1500 }, { index: 1, customsValueKzt: 2000 }] })
+    const scope = effectScope()
+    const p = scope.run(() => useDtPayments(form, 'c1', 'd1', { save: async () => true }))!
+    await p.calcCustomsValue()
+    expect(form.goodsItems.map((g) => g.needsTpinRecalc)).toEqual([true, false, false])
+    scope.stop()
+  })
+
   it('ТПиН: замечания по товарам — в окно (tpinProblems), флаг пересчёта снимается', async () => {
     const form = reactive(emptyDtForm()) as DtFormState
     form.goodsItems = [goods({ needsTpinRecalc: true }), goods({ tnvedCode: '1' })] as never
@@ -129,7 +167,7 @@ describe('useDtPayments (перенос из прежнего экрана)', ()
     expect(form.goodsItems[0].needsTpinRecalc).toBe(false)
     expect(form.goodsItems[0].customsValueKzt).toBe(50000)
     expect(p.tpinProblems.value).toEqual(['Товар 1: вид акциза по умолчанию', 'Товар 2: нет ставки'])
-    expect(toast.success).toHaveBeenCalledWith('ТПиН рассчитан для 1 тов. Платежи — в панели «Данные КЕДЕН» (гр.47) у каждого товара.')
+    expect(toast.success).toHaveBeenCalledWith('ТПиН рассчитан для 1 тов. Суммы — в списке товаров (ТПиН) и в гр. 47 каждого товара.')
     scope.stop()
   })
 

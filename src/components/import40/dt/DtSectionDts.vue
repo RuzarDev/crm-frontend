@@ -138,6 +138,7 @@ import { message } from '@/ui/message'
 import { dtsApi, type DtsSheet, type DtsParty, type DtsDocRef, type DtsGoodsColumn, type DtsCurrencyLine } from '@/api/dts'
 import { referencesApi } from '@/api/references'
 import type { Import40DtFormState } from '@/api/import40'
+import { syncGoodsValuationForDts } from './dtsFreeOfCharge'
 import './dt-sections.css'
 
 const { t } = useI18n()
@@ -165,12 +166,9 @@ const emitChange = () => emit('update:modelValue', { ...props.modelValue, ...for
 // ДТС-2 (бесплатная поставка) — метод 6 на основе 1 для всех товаров, и гр.43 ДТ должна говорить
 // то же: КЕДЕН сверяет ДТ с ДТС (ДТ S153340008671). Переключатель сам ставит 6 или возвращает 1;
 // товары с другим методом не трогаем — их покажет проверка готовности ДТС.
+// Товары правятся на месте (те же объекты — ключи товаров страницы и открытый товар не теряются, волна 6б).
 const onFreeOfChargeChange = () => {
-  const from = form.dtsFreeOfCharge ? '1' : '6'
-  const to = form.dtsFreeOfCharge ? '6' : '1'
-  form.goodsItems = (form.goodsItems ?? []).map((g) =>
-    !g.valuationMethodCode || g.valuationMethodCode === from ? { ...g, valuationMethodCode: to } : g,
-  )
+  syncGoodsValuationForDts(form.goodsItems ?? [], !!form.dtsFreeOfCharge)
   emitChange()
 }
 

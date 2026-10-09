@@ -48,6 +48,8 @@ describe('TnvedCalculator', () => {
     expect(w.find('[data-calc-quantity]').exists()).toBe(false)
     expect(w.find('[data-calc-date]').exists()).toBe(false)
     expect(w.find('[data-calc-engine]').exists()).toBe(false)
+    // подсказка суммы — с десятичным знаком языка интерфейса (как и само число вне фокуса)
+    expect(w.get('[data-calc-value]').attributes('placeholder')).toBe('0,00')
     await w.setProps({ rateText: '15%, но не менее 0,6 евро за 1 см3 объёма двигателя' })
     expect(w.find('[data-calc-engine]').exists()).toBe(true)
     await w.get('[data-calc-engine]').setValue('1998')

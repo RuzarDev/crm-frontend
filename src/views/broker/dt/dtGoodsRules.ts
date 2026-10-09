@@ -1,4 +1,5 @@
 import type { Import40GoodsItemInput } from '@/types/api'
+import { markStale } from './goods/goodsStatus'
 
 // Правила товаров ДТ, которые действуют независимо от того, открыт ли раздел «Товары» (он монтируется лениво):
 // страница применяет их к форме сама, разделы товаров берут отсюда тот же расчёт.
@@ -13,28 +14,39 @@ export const statUsdFrom = (customsValueKzt: number | null | undefined, usdRate:
 }
 
 /**
- * Пакет 6 №4: при заданной гр. 22 валюта каждого товара = гр. 22. Новый массив (изменённые товары — копии), чтобы
- * раздел товаров под KeepAlive пересинхронизировал свои строки; null — менять нечего.
+ * Пакет 6 №4: при заданной гр. 22 валюта каждого товара = гр. 22. Правит товары НА МЕСТЕ (те же объекты — ключ
+ * товара в списке и открытый редактор не теряются, волна 6б). markStale — смена гр. 22 пользователем (не загрузка):
+ * товары, чья валюта изменилась, получают «Пересчитать» (валюта — основа расчёта платежей). false — менять нечего.
  */
-export function goodsWithLockedCurrency(goods: Import40GoodsItemInput[], currency: string | null | undefined): Import40GoodsItemInput[] | null {
-  if (!currency) return null
-  if (goods.every((g) => g.currency === currency)) return null
-  return goods.map((g) => (g.currency === currency ? g : { ...g, currency }))
+export function lockGoodsCurrency(
+  goods: Import40GoodsItemInput[],
+  currency: string | null | undefined,
+  opts: { markStale?: boolean } = {},
+): boolean {
+  if (!currency) return false
+  let changed = false
+  for (const g of goods) {
+    if (g.currency === currency) continue
+    g.currency = currency
+    if (opts.markStale) markStale(g)
+    changed = true
+  }
+  return changed
 }
 
 /**
  * Item I: гр. 46 тем товарам, где она пуста (null/0), а гр. 45 и курс известны. Введённую гр. 46 не трогает —
- * ручное значение живёт до следующей правки гр. 45 (пересчёт по правке — в карточке товара). Новый массив; null —
- * менять нечего.
+ * ручное значение живёт до следующей правки гр. 45 (пересчёт по правке — в редакторе товара). На месте, как
+ * lockGoodsCurrency; false — менять нечего.
  */
-export function goodsWithStatUsd(goods: Import40GoodsItemInput[], usdRate: number | null | undefined): Import40GoodsItemInput[] | null {
+export function fillStatUsd(goods: Import40GoodsItemInput[], usdRate: number | null | undefined): boolean {
   let changed = false
-  const next = goods.map((g) => {
-    if (g.statisticValueUsd != null && g.statisticValueUsd !== 0) return g
+  for (const g of goods) {
+    if (g.statisticValueUsd != null && g.statisticValueUsd !== 0) continue
     const stat = statUsdFrom(g.customsValueKzt, usdRate)
-    if (stat == null) return g
+    if (stat == null) continue
+    g.statisticValueUsd = stat
     changed = true
-    return { ...g, statisticValueUsd: stat }
-  })
-  return changed ? next : null
+  }
+  return changed
 }

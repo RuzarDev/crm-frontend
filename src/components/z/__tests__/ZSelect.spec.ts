@@ -77,6 +77,15 @@ describe('ZSelect', () => {
     expect(w.get('input').attributes('aria-label')).toBe('Процедура')
     expect(w.html()).toContain('border-danger')
   })
+  it('status=warning — золотая рамка без aria-invalid; вместе с ошибкой — ошибка', async () => {
+    w = mountWithI18n(ZSelect, { props: { value: 'IM', options, status: 'warning' }, attachTo: document.body })
+    expect(w.get('input').attributes('aria-invalid')).not.toBe('true')
+    expect(w.html()).toContain('border-gold')
+    expect(w.html()).not.toContain('border-danger')
+    await w.setProps({ invalid: true })
+    expect(w.html()).toContain('border-danger')
+    expect(w.html()).not.toContain('border-gold')
+  })
   it('клавиатура: ArrowDown открывает, стрелки двигают, Enter выбирает, Escape закрывает', async () => {
     w = mountWithI18n(ZSelect, { props: { value: null, options }, attachTo: document.body })
     const input = w.get('input')

@@ -14,15 +14,24 @@ const api = vi.hoisted(() => ({
   splitSuggestion: vi.fn(), splitDeclaration: vi.fn(), calculatePayments: vi.fn(), calculateTpin: vi.fn(), calculateCustomsValue: vi.fn(),
 }))
 const dts = vi.hoisted(() => ({ get: vi.fn() }))
-const refs = vi.hoisted(() => ({ listCountries: vi.fn(), listCustomsPosts: vi.fn(), listExpenseTypes: vi.fn() }))
-const tnved = vi.hoisted(() => ({ currencies: vi.fn() }))
+const refs = vi.hoisted(() => ({ listCountries: vi.fn(), listCustomsPosts: vi.fn(), listExpenseTypes: vi.fn(), listOkeiUnits: vi.fn(async () => []) }))
+// Редактор товара: проверка кода, ДЕИ и ставки КЕДЕН — без сети.
+const tnved = vi.hoisted(() => ({
+  currencies: vi.fn(),
+  node: vi.fn(async (code: string) => ({ data: { code, name: 'УЗЕЛ', is10: true } })),
+  rates: vi.fn(async () => ({ data: {} })),
+  tariffOptions: vi.fn(async () => ({ data: { countryRate: null, excise: [], antiDumping: [], dutyRates: [] } })),
+}))
 const contract = vi.hoisted(() => ({ getProfile: vi.fn() }))
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/import40', async (orig) => ({ ...(await orig<typeof import('@/api/import40')>()), import40Api: api }))
 vi.mock('@/api/dts', () => ({ dtsApi: dts }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
 vi.mock('@/api/tnved', () => ({ tnvedApi: tnved }))
+vi.mock('@/api/trois', async (orig) => ({ ...(await orig<typeof import('@/api/trois')>()), troisApi: { check: vi.fn(async () => []), search: vi.fn(async () => []) } }))
+vi.mock('@/api/kedenProcedureLists', async (orig) => ({ ...(await orig<typeof import('@/api/kedenProcedureLists')>()), kedenProcedureListsApi: { get: vi.fn(async () => ({})) } }))
 vi.mock('@/api/import40Contract', () => ({ import40ContractApi: contract }))
+vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: { list: vi.fn(async () => []), suggest: vi.fn(async () => ({ tnved: '', codes: [], fetchedAtUtc: null, stale: false, warning: null })) } }))
 vi.mock('@/ui/message', () => ({ message: toast }))
 vi.mock('@/stores/classifiers', () => ({ useClassifiersStore: () => ({ loadMany: vi.fn(async () => undefined), load: vi.fn(async () => []), cache: {}, options: () => [] }) }))
 const brokerFirms = vi.hoisted(() => ({ listBrokerFirms: vi.fn(), getBrokerFirmByBin: vi.fn(), upsertBrokerFirm: vi.fn() }))
@@ -32,6 +41,7 @@ vi.mock('@/api/kato', async (orig) => ({ ...(await orig<typeof import('@/api/kat
 import DtPage from '../DtPage.vue'
 import { useAuthStore } from '@/stores/auth'
 import { confirmState } from '@/ui/confirm'
+import { resetDtTnvedCheckCache } from '../goods/tnvedCodeCheck'
 
 // Прежние разделы — заглушки: видно, какой смонтирован; у «Сторон» есть поле гр. 8 (переход «к недостающему»);
 // кнопки data-emit шлют события прежних разделов (проверка, что страница их слушает).
@@ -41,9 +51,27 @@ const sectionStub = (name: string, inner = '', emits: string[] = []) => defineCo
   emits: ['update:modelValue', ...emits],
   template: `<div data-stub="${name}" :data-readonly="String(readonly)" :data-reload-key="reloadKey">${inner}</div>`,
 })
-// Товары: две страны происхождения (гр. 16 → «000») и «Рассчитать ТПиН».
-const goodsInner = `<button data-goods-mixed type="button" @click="$emit('update:modelValue', modelValue.map((g, i) => ({ ...g, countryOfOrigin: i ? 'DE' : 'CN' })).concat(modelValue.length < 2 ? [{ ...modelValue[0], countryOfOrigin: 'DE' }] : []))" />
-  <button data-emit="calc-tpin" type="button" @click="$emit('calc-tpin')" />`
+// Товары: две страны происхождения (гр. 16 → «000»), «Рассчитать» и «ТПиН по данным экрана». Раздел правит товары
+// через модель страницы (useDtGoods) на месте — как настоящий SectionGoods.
+const goodsStub = defineComponent({
+  name: 'SectionGoods',
+  props: ['model', 'readonly', 'currency', 'dtNumber', 'countryOptions', 'paymentsLoading'],
+  emits: ['calc-tpin', 'calc-payments'],
+  setup(props) {
+    const mixed = () => {
+      const items = props.model.items.value as { countryOfOrigin: string | null }[]
+      items.forEach((g, i) => { g.countryOfOrigin = i ? 'DE' : 'CN' })
+      if (items.length < 2) props.model.append([{ ...items[0], countryOfOrigin: 'DE' }])
+    }
+    return { mixed }
+  },
+  template: `<div data-stub="SectionGoods" :data-readonly="String(readonly)">
+    <button data-goods-mixed type="button" @click="mixed" />
+    <button data-goods-remove-first type="button" @click="model.remove([0])" />
+    <button data-emit="calc-tpin" type="button" @click="$emit('calc-tpin')" />
+    <button data-emit="calc-payments" type="button" @click="$emit('calc-payments')" />
+  </div>`,
+})
 const stubs = {
   DtLegacyForm: { props: ['disabled'], template: '<div data-legacy-form :data-disabled="String(disabled)"><slot /></div>' },
   SectionNumber: sectionStub('SectionNumber'),
@@ -55,7 +83,7 @@ const stubs = {
   SectionFinance: sectionStub('SectionFinance', `<button data-emit="calc-customs-value" type="button" @click="$emit('calc-customs-value')" />
     <button data-set-currency type="button" @click="form.currency = 'EUR'" />`, ['calc-customs-value']),
   SectionCustoms: sectionStub('SectionCustoms'),
-  DtSectionGoods: sectionStub('DtSectionGoods', goodsInner, ['calc-tpin']),
+  SectionGoods: goodsStub,
   SectionDocs: sectionStub('SectionDocs'),
   DtSectionDts: sectionStub('DtSectionDts', `<button data-dts-save type="button" @click="save()" />`),
   SectionClosing: sectionStub('SectionClosing'),
@@ -103,6 +131,7 @@ const stub = () => w.find('[data-stub]').attributes('data-stub')
 const key = (o: KeyboardEventInit) => window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...o }))
 
 beforeEach(() => {
+  resetDtTnvedCheckCache()
   localStorage.clear()
   pinia = createPinia()
   setActivePinia(pinia)
@@ -188,7 +217,7 @@ describe('DtPage: разделы и ?s=', () => {
     await navItem('goods').trigger('click')
     await settle()
     expect(router.currentRoute.value.query.s).toBe('goods')
-    expect(stub()).toBe('DtSectionGoods')
+    expect(stub()).toBe('SectionGoods')
     // Первый раздел — без ?s=.
     await navItem('number').trigger('click')
     await settle()
@@ -238,6 +267,143 @@ describe('DtPage: готовность', () => {
     const field = w.get('[data-graph="8"]')
     expect(field.attributes('data-dt-flash')).toBeDefined()
     expect(document.activeElement).toBe(w.get('[data-recv]').element)
+  })
+
+  it('пункт «До подачи» про товар — раздел «Товары» и этот товар открыт (?item=N)', async () => {
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside]').get('[data-section="goods"]').trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toMatchObject({ s: 'goods', item: '1' })
+    expect(document.querySelector('[data-dt-goods-editor][data-state="open"]')?.textContent).toContain('Товар 1 из 1')
+    expect(document.querySelector('[data-dt-goods-editor] [data-goods-index="0"]')).not.toBeNull()
+    // Поле пункта (гр. 33) — в редакторе товара: подсветка и фокус в коде ТН ВЭД.
+    const code = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-graph="33"]') as HTMLElement
+    expect(code.hasAttribute('data-dt-flash')).toBe(true)
+    expect(document.activeElement).toBe(code.querySelector('input[data-f="tnvedCode"]'))
+  })
+
+  it('пункт про места товара (гр. 31) — фокус на «Мест», а не на описании (поле по тексту пункта, не только по графе)', async () => {
+    const text = 'Товар 1: количество грузовых мест или частично занятых мест (гр.31)'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '31', goodsIndex: 0 }] }))
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const places = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="packagesCount"]') as HTMLElement
+    expect(places.hasAttribute('data-dt-flash')).toBe(true)
+    expect(document.activeElement).toBe(places.querySelector('input'))
+  })
+
+  it('пункт «нет ни одной строки платежа (гр.47)» — подсветка платежей товара в редакторе', async () => {
+    const text = 'Товар 1: нет ни одной строки платежа (гр.47)'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '47', goodsIndex: 0 }] }))
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const payments = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="payments"]') as HTMLElement
+    expect(payments.closest('[data-goods-payments-section]')).not.toBeNull()
+    expect(payments.hasAttribute('data-dt-flash')).toBe(true)
+  })
+
+  it('пункт «гр. 36 вне списка КЕДЕН» — фокус на поле названной льготы (пошлина), а не на первом поле гр. 36', async () => {
+    const text = 'Товар 1: КЕДЕН при процедуре ИМ40 не предлагает гр.36 пошлина «ПП» (есть: ОО, Z)'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '36', goodsIndex: 0 }] }))
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const duty = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="prefDutyCode"]') as HTMLElement
+    expect(duty.hasAttribute('data-dt-flash')).toBe(true)
+    expect(duty.contains(document.activeElement)).toBe(true)
+  })
+
+  it('пункт без названного поля — фокус на поле графы с предупреждением (data-z-status у ZField), а не на первом', async () => {
+    server = caseDto({
+      status: 2, assignedDeclarantId: 'me',
+      declarations: [fullDto({ splitRole: null, goodsItems: [fullGoodsDto({ oisRegNumber: 'ПЛОХОЙ' })] })],
+    })
+    const text = 'Товар 1: проверьте сведения (гр.33)'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '33', goodsIndex: 0 }] }))
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const reg = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="oisRegNumber"]') as HTMLElement
+    expect(reg.querySelector(':scope > [data-z-status="warning"]')).not.toBeNull()
+    expect(reg.hasAttribute('data-dt-flash')).toBe(true)
+    expect(reg.contains(document.activeElement)).toBe(true)
+  })
+
+  it('пункт «коды запретов (гр.33)» — фокус в поле кодов гр. 33, а не в коде ТН ВЭД (тоже гр. 33)', async () => {
+    const text = 'Товар 1: коды запретов и ограничений (гр.33) — хотя бы один, например C1700 / D0100'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '33', goodsIndex: 0 }] }))
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const codes = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="prohibitionCode"]') as HTMLElement
+    expect(codes.hasAttribute('data-dt-flash')).toBe(true)
+    expect(document.activeElement).toBe(codes.querySelector('input[data-f="prohibitionCode"]'))
+  })
+
+  it('пункт «гр.31 доп. сведения — маркировка: …» — к маркировке товара', async () => {
+    const text = 'Товар 1: гр.31 доп. сведения — маркировка: нет ни одного номера (кода) идентификации'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '31', goodsIndex: 0 }] }))
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const marks = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="markings"]') as HTMLElement
+    expect(marks.hasAttribute('data-dt-flash')).toBe(true)
+    expect(marks.contains(document.activeElement)).toBe(true)
+  })
+
+  it('пункт «доп. сведения — стандарт …» — свёрнутый блок раскрывается, фокус в поле стандарта', async () => {
+    const text = 'Товар 1: гр.31 доп. сведения — стандарт (НД) длиннее 40 символов'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '31', goodsIndex: 0 }] }))
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const field = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="standardName"]') as HTMLElement
+    expect(field).not.toBeNull()
+    expect(field.hasAttribute('data-dt-flash')).toBe(true)
+    expect(document.activeElement).toBe(field.querySelector('input[data-f="standardName"]'))
+  })
+
+  it('переход к пункту после несохранённого удаления: открывается тот самый товар (по снимку ответа), удалённый — только раздел', async () => {
+    const first = fullGoodsDto()
+    server = caseDto({
+      status: 2, assignedDeclarantId: 'me',
+      declarations: [fullDto({ splitRole: null, goodsItems: [first, { ...first, description: 'ВТОРОЙ' }] })],
+    })
+    api.kedenReadiness.mockResolvedValue(readinessDto({
+      missing: ['Товар 1: код ТНВЭД (гр.33)', 'Товар 2: код ТНВЭД (гр.33)'],
+      items: [
+        { text: 'Товар 1: код ТНВЭД (гр.33)', graph: '33', goodsIndex: 0 },
+        { text: 'Товар 2: код ТНВЭД (гр.33)', graph: '33', goodsIndex: 1 },
+      ],
+    }))
+    await open('?s=goods')
+    await w.get('[data-goods-remove-first]').trigger('click')
+    await settle()
+    const items = () => w.findAll('[data-dt-panel-aside] [data-dt-panel-item]')
+    // «Товар 2» ответа — теперь первый в списке
+    await items()[1].trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toEqual({ s: 'goods', item: '1' })
+    // «Товар 1» ответа удалён — открывается только раздел, без чужого товара
+    await router.replace({ query: { s: 'parties' } })
+    await settle()
+    await items()[0].trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toEqual({ s: 'goods' })
+  })
+
+  it('товар открыт — переход в другой раздел убирает ?item', async () => {
+    await open('?s=goods&item=1', ['SectionGoods'])
+    expect(router.currentRoute.value.query.item).toBe('1')
+    // Alt+↓ при открытом товаре — не смена раздела (панель товара — окно; соседний товар — Task 3)
+    key({ key: 'ArrowDown', altKey: true })
+    await settle()
+    expect(router.currentRoute.value.query).toEqual({ s: 'goods', item: '1' })
+    await navItem('docs').trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toEqual({ s: 'docs' })
   })
 
   it('уже 1280 — «До подачи» из шапки открывает выезжающую панель', async () => {
@@ -540,7 +706,8 @@ describe('DtPage: сохранение и режимы', () => {
     expect(banner).toContain('Сейткали Д.')
     expect(banner).toContain('ДТ подана')
     expect(w.find('[data-dt-save]').exists()).toBe(false)
-    expect(w.get('[data-legacy-form]').attributes('data-disabled')).toBe('true')
+    // a-form (сброс стилей AntD) — только вокруг ДТС, не вокруг разделов на Z (QA-A: виден input[type=file]).
+    expect(w.find('[data-legacy-form]').exists()).toBe(false)
     // «Разделить на ЕТТ/ВТО» виден и в просмотре — выключен, с причиной (фидбек №17).
     await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
     await settle()
@@ -556,6 +723,10 @@ describe('DtPage: сохранение и режимы', () => {
     key({ key: 's', code: 'KeyS', metaKey: true })
     await settle()
     expect(api.updateDeclaration).not.toHaveBeenCalled()
+    await navItem('dts').trigger('click')
+    await settle()
+    expect(w.get('[data-legacy-form]').attributes('data-disabled')).toBe('true')
+    expect(w.get('[data-legacy-form]').find('[data-stub="DtSectionDts"]').exists()).toBe(true)
     openSpy.mockRestore()
   })
 
@@ -709,6 +880,14 @@ describe('DtPage: события прежних разделов', () => {
     expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('ТПиН рассчитан для 1 тов.'))
   })
 
+  it('«Рассчитать» в итогах товаров — сохранить и окно расчёта платежей', async () => {
+    api.calculatePayments.mockResolvedValue({ goodsRows: [], totalsByTaxMode: {} })
+    await open('?s=goods')
+    await emit('calc-payments')
+    expect(api.calculatePayments).toHaveBeenCalledTimes(1)
+    expect(w.find('[data-payments-modal]').exists()).toBe(true)
+  })
+
   it('авто гр. 16: разные страны происхождения у товаров — «000»', async () => {
     await open('?s=goods')
     await w.get('[data-goods-mixed]').trigger('click')
@@ -720,6 +899,7 @@ describe('DtPage: события прежних разделов', () => {
 
   it('ДТС: сохранение раздела — через страницу (с сообщением); раздел перечитывается при каждом открытии', async () => {
     await open('?s=dts')
+    expect(w.get('[data-legacy-form]').attributes('data-disabled')).toBe('false')
     const firstKey = w.get('[data-stub="DtSectionDts"]').attributes('data-reload-key')
     await w.get('[data-dts-save]').trigger('click')
     await settle()
@@ -729,6 +909,7 @@ describe('DtPage: события прежних разделов', () => {
     expect(afterSave).not.toBe(firstKey)
     await navItem('docs').trigger('click')
     await settle()
+    expect(w.find('[data-legacy-form]').exists()).toBe(false)
     await navItem('dts').trigger('click')
     await settle()
     expect(w.get('[data-stub="DtSectionDts"]').attributes('data-reload-key')).not.toBe(afterSave)
@@ -767,17 +948,29 @@ describe('DtPage: правила товаров без открытия «Тов
     await settle()
     expect(api.downloadKedenXml).toHaveBeenCalled()
     expect(lastPutGoods()[0].currency).toBe('EUR')
-    expect(w.find('[data-stub="DtSectionGoods"]').exists()).toBe(false)
+    expect(w.find('[data-stub="SectionGoods"]').exists()).toBe(false)
   })
 
-  it('загрузка: товары в другой валюте молча приводятся к гр. 22 (без пометки «изменено»)', async () => {
-    server = sheets1({ currency: 'CNY' })
+  it('загрузка: товары в другой валюте молча приводятся к гр. 22 (без пометки «изменено» и без «Пересчитать»)', async () => {
+    server = sheets1({ currency: 'CNY', needsTpinRecalc: false })
     await open()
     expect(w.get('[data-dt-header]').text()).not.toContain('Есть несохранённые изменения')
     expect(api.updateDeclaration).not.toHaveBeenCalled()
     key({ key: 's', code: 'KeyS', metaKey: true })
     await settle()
     expect(lastPutGoods()[0].currency).toBe('USD')
+    expect((lastPutGoods()[0] as { needsTpinRecalc?: boolean }).needsTpinRecalc).toBe(false)
+  })
+
+  it('смена гр. 22 пользователем: валюта товара меняется — платежи товара помечаются «Пересчитать»', async () => {
+    server = sheets1({ currency: 'USD', needsTpinRecalc: false })
+    await open('?s=finance')
+    await w.get('[data-set-currency]').trigger('click')
+    await settle()
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(lastPutGoods()[0].currency).toBe('EUR')
+    expect((lastPutGoods()[0] as { needsTpinRecalc?: boolean }).needsTpinRecalc).toBe(true)
   })
 
   it('гр. 46 пустая — гр. 45 / курс USD на дату гр. А (0,01) уходит в PUT; введённую не трогает', async () => {

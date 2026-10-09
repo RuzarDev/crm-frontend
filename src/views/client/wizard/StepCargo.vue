@@ -6,6 +6,7 @@ import ZNumber from '@/components/z/ZNumber.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
 import type { ZOption, ZOptionValue } from '@/ui/options'
+import { formatNumberIn } from '@/ui/number'
 import type { ZRule } from '@/ui/validation'
 import type { ShipmentDraft } from './useShipmentDraft'
 import { phoneField, phoneSelect, phoneTextarea, stepHint, stepTitle } from './wizardUi'
@@ -108,7 +109,7 @@ const currency = computed<ZOptionValue | null>({
           v-model:value="draft.estimatedValue"
           :min="0"
           :precision="2"
-          placeholder="0.00"
+          :placeholder="formatNumberIn(locale, 0, 2, 2)"
           :class="phoneField"
           class="tabular-nums"
           data-wz-value

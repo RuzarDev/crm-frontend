@@ -9,19 +9,17 @@ import { vUppercase } from '@/directives/uppercase'
 import type { Import40PrevDocItem } from '@/api/import40'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { formatDateText } from '@/ui/date'
-import type { ZOption } from '@/ui/options'
 import { dedupeOptions, withCurrent } from '../dtOptions'
 
-// Предшествующие документы (гр. 40): строки «вид (классификатор) · номер · дата · товар». Строки правятся прямо в массиве
-// формы; sortOrder всегда равен месту в списке. Товар — выбор из товаров ДТ; хранится, как раньше, номером товара
-// строкой («1», «2», 1-based: сервер читает его как порядковый номер позиции в XML). Старое нечисловое значение остаётся
-// отдельным пунктом списка, пока его не заменят.
+// Предшествующие документы (гр. 40): строки «вид (классификатор) · номер · дата · № товара». Строки правятся прямо в
+// массиве формы; sortOrder всегда равен месту в списке. «№ товара» (goodsNumber) — порядковый номер товара В
+// ПРЕДШЕСТВУЮЩЕМ документе (XML: PrecedingDocDetails/ConsignmentItemOrdinal), а не товар этой ДТ: короткое поле, только
+// цифры (как прежнее свободное поле «№ товара»); старое значение показывается как есть, пока его не исправят.
+// Привязка строки к товару этой ДТ — goodsItemIndex (старые ДТ; null — ко всем товарам), здесь она не правится.
 // Таблица или карточки — по ширине раздела (@container), как у списка гр. 44.
 const props = defineProps<{
   items: Import40PrevDocItem[]
   readonly: boolean
-  /** Товары ДТ: value — индекс с 0, подпись «Товар N · код». */
-  goodsOptions: ZOption[]
 }>()
 const { t } = useI18n()
 const tr = (key: string, p?: Record<string, unknown>) => t(`broker.dt.docs.prev.${key}`, p ?? {})
@@ -29,11 +27,14 @@ const classifiers = useClassifiersStore()
 
 const typeOptions = computed(() => dedupeOptions(classifiers.options('prev-doc-types')))
 const typeFor = (code: string | null) => withCurrent(typeOptions.value, code).options
-const goodsFor = (value: string | null): ZOption[] => {
-  const list = props.goodsOptions.map((o) => ({ value: String(Number(o.value) + 1), label: o.label }))
-  return withCurrent(list, value).options
+/** № товара в предш. документе — только цифры, не длиннее GOODS_NO_MAX; пусто — null. */
+const GOODS_NO_MAX = 5
+const onGoodsNumber = (item: Import40PrevDocItem, e: Event) => {
+  const input = e.target as HTMLInputElement
+  const digits = input.value.replace(/\D/g, '').slice(0, GOODS_NO_MAX)
+  if (input.value !== digits) input.value = digits
+  item.goodsNumber = digits || null
 }
-const goodsText = (value: string | null) => goodsFor(value).find((o) => o.value === (value ?? '').trim())?.label ?? (value ?? '')
 
 const uid = useId()
 const ids = new WeakMap<object, number>()
@@ -93,7 +94,7 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
             <div :class="cell"><span :class="cellLabel">{{ tr('type') }}</span><span class="text-sm break-words text-ink">{{ typeFor(item.docTypeCode).find((o) => o.value === item.docTypeCode)?.label ?? (item.docTypeCode || '—') }}</span></div>
             <div :class="cell"><span :class="cellLabel">{{ tr('number') }}</span><span class="font-mono text-sm break-words text-ink">{{ item.docNumber || '—' }}</span></div>
             <div :class="cell"><span :class="cellLabel">{{ tr('date') }}</span><span class="text-sm text-ink tabular-nums">{{ formatDateText(item.docDate) || '—' }}</span></div>
-            <div :class="cell"><span :class="cellLabel">{{ tr('goods') }}</span><span class="text-sm break-words text-ink">{{ item.goodsNumber ? goodsText(item.goodsNumber) : '—' }}</span></div>
+            <div :class="cell"><span :class="cellLabel">{{ tr('goods') }}</span><span class="font-mono text-sm break-words text-ink tabular-nums">{{ item.goodsNumber || '—' }}</span></div>
             <span />
           </div>
           <div v-else :class="['grid grid-cols-1 gap-3 @2xl:items-center @2xl:gap-2 @2xl:px-3 @2xl:py-2', cols]">
@@ -122,16 +123,16 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
             </div>
             <div :class="cell">
               <label :for="domId(item, 'goods')" :class="cellLabel">{{ tr('goods') }}</label>
-              <ZSelect
+              <ZInput
                 :id="domId(item, 'goods')"
                 :value="item.goodsNumber"
-                :options="goodsFor(item.goodsNumber)"
-                allow-clear
-                :placeholder="tr('goodsPlaceholder')"
-                :popup-width="320"
-                :class="boxCtl"
+                mono
+                inputmode="numeric"
+                autocomplete="off"
+                :maxlength="GOODS_NO_MAX"
+                :class="ctl"
                 data-f="goodsNumber"
-                @update:value="item.goodsNumber = str($event)"
+                @change="onGoodsNumber(item, $event)"
               />
             </div>
             <div class="flex items-center justify-end">

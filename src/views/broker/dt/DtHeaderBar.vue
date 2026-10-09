@@ -96,12 +96,14 @@ const onMore = (key: string) => {
   else if (key === 'split') emit('split')
 }
 
+// Шапка липкая только с 768px (md:sticky): на телефоне она с действиями занимала треть экрана (QA-E).
+// Корень шаблона — один <header> без комментариев рядом: DtPage меряет его высоту через $el.
 const outline = 'border border-line-strong bg-surface enabled:hover:bg-sunken max-sm:h-11'
 </script>
 
 <template>
   <header
-    class="sticky top-0 z-[6] mx-[calc(var(--shell-main-px,1rem)*-1)] border-b border-line bg-surface px-(--shell-main-px,1rem) pt-3.5 pb-3"
+    class="z-[6] mx-[calc(var(--shell-main-px,1rem)*-1)] border-b border-line bg-surface px-(--shell-main-px,1rem) pt-3.5 pb-3 md:sticky md:top-0"
     data-dt-header
   >
     <ZBreadcrumbs :items="crumbs" />

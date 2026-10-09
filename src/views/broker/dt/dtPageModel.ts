@@ -5,6 +5,7 @@ import type { DtAccessUser } from '@/views/import40/dtAccess'
 import { DECLARING_STATUS } from '@/views/import40/dtAccess'
 import { DT_SECTION_KEYS, goodsIndexFromText, graphFromText, normalizeGraph, type DtSectionKey } from './dtSections'
 import type { DtReadinessItem } from './useDtReadiness'
+import { goodsPaymentsStale } from './goods/goodsStatus'
 
 /** Разделы страницы: «ДТС» — только с правом декларанта (сервер GET …/dts отдаёт только ему). */
 export const visibleSections = (withDts: boolean): DtSectionKey[] =>
@@ -57,10 +58,11 @@ export function navMarks(input: DtNavMarksInput): Record<DtSectionKey, DtNavMark
 
 /**
  * Платежи устарели (точка у раздела «Товары», пока нет отдельного раздела «Платежи»): у товара стоит признак
- * «пересчитать ТПиН» (импорт из КП, разделение) или у него нет ни одной строки гр. 47.
+ * «пересчитать ТПиН» (импорт из КП, разделение, правка полей платежей) или у него нет ни одной строки гр. 47 —
+ * то же правило, что статус «Пересчитать» в списке товаров (goods/goodsStatus).
  */
 export function paymentsStale(goods: readonly { needsTpinRecalc?: boolean | null; payments?: readonly unknown[] | null }[]): boolean {
-  return goods.length > 0 && goods.some((g) => !!g.needsTpinRecalc || !(g.payments?.length))
+  return goods.length > 0 && goods.some(goodsPaymentsStale)
 }
 
 export type DtRateTag = { kind: 'replaced' } | { kind: 'ett' } | { kind: 'vto' }

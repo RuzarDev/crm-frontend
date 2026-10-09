@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Import40GoodsItemInput } from '@/types/api'
-import { goodsWithLockedCurrency, goodsWithStatUsd, statUsdFrom } from '../dtGoodsRules'
+import { fillStatUsd, lockGoodsCurrency, statUsdFrom } from '../dtGoodsRules'
 
 const g = (o: Partial<Import40GoodsItemInput>): Import40GoodsItemInput => ({ description: 'X', currency: 'USD', ...o } as Import40GoodsItemInput)
 
@@ -12,31 +12,44 @@ describe('dtGoodsRules', () => {
     expect(statUsdFrom(null, 495.12)).toBeNull()
   })
 
-  it('валюта товаров = гр. 22: новый массив, копии только изменённых; без гр. 22 или без расхождений — null', () => {
+  it('валюта товаров = гр. 22: на месте (те же объекты — ключ товара не меняется); без гр. 22 или без расхождений — false', () => {
     const same = g({ currency: 'EUR' })
     const other = g({ currency: 'USD' })
     const goods = [same, other]
-    const next = goodsWithLockedCurrency(goods, 'EUR')!
-    expect(next).not.toBe(goods)
-    expect(next.map((x) => x.currency)).toEqual(['EUR', 'EUR'])
-    expect(next[0]).toBe(same)
-    expect(other.currency).toBe('USD')
-    expect(goodsWithLockedCurrency(goods, null)).toBeNull()
-    expect(goodsWithLockedCurrency(goods, '')).toBeNull()
-    expect(goodsWithLockedCurrency(next, 'EUR')).toBeNull()
+    expect(lockGoodsCurrency(goods, 'EUR')).toBe(true)
+    expect(goods.map((x) => x.currency)).toEqual(['EUR', 'EUR'])
+    expect(goods[0]).toBe(same)
+    expect(goods[1]).toBe(other)
+    expect(lockGoodsCurrency(goods, null)).toBe(false)
+    expect(lockGoodsCurrency(goods, '')).toBe(false)
+    expect(lockGoodsCurrency(goods, 'EUR')).toBe(false)
   })
 
-  it('гр. 46 заполняется только пустая (null/0) при известных гр. 45 и курсе', () => {
+  it('гр. 46 заполняется на месте только пустая (null/0) при известных гр. 45 и курсе', () => {
     const goods = [
       g({ customsValueKzt: 750000, statisticValueUsd: null }),
       g({ customsValueKzt: 750000, statisticValueUsd: 0 }),
       g({ customsValueKzt: 750000, statisticValueUsd: 1500 }),
       g({ customsValueKzt: null, statisticValueUsd: null }),
     ]
-    const next = goodsWithStatUsd(goods, 495.12)!
-    expect(next.map((x) => x.statisticValueUsd)).toEqual([1514.78, 1514.78, 1500, null])
-    expect(next[2]).toBe(goods[2])
-    expect(goodsWithStatUsd(goods, null)).toBeNull()
-    expect(goodsWithStatUsd(next, 495.12)).toBeNull()
+    const before = [...goods]
+    expect(fillStatUsd(goods, null)).toBe(false)
+    expect(fillStatUsd(goods, 495.12)).toBe(true)
+    expect(goods.map((x) => x.statisticValueUsd)).toEqual([1514.78, 1514.78, 1500, null])
+    goods.forEach((x, i) => expect(x).toBe(before[i]))
+    expect(fillStatUsd(goods, 495.12)).toBe(false)
+  })
+
+  it('загрузка и гр. 46 не помечают платежи устаревшими', () => {
+    const goods = [g({ currency: 'USD', customsValueKzt: 1, statisticValueUsd: null, needsTpinRecalc: false })]
+    lockGoodsCurrency(goods, 'EUR')
+    fillStatUsd(goods, 2)
+    expect(goods[0].needsTpinRecalc).toBe(false)
+  })
+
+  it('смена гр. 22 пользователем (markStale) помечает «Пересчитать» только товары, у которых валюта изменилась', () => {
+    const goods = [g({ currency: 'USD', needsTpinRecalc: false }), g({ currency: 'EUR', needsTpinRecalc: false })]
+    expect(lockGoodsCurrency(goods, 'EUR', { markStale: true })).toBe(true)
+    expect(goods.map((x) => x.needsTpinRecalc)).toEqual([true, false])
   })
 })

@@ -12,7 +12,7 @@ import { tnvedApi } from '@/api/tnved'
 import type { TnvedNodeDto, TnvedRateDto } from '@/types/api'
 import { cleanName, formatTnvedCode, httpStatus, isRateLimited } from '@/views/references/tnvedShared'
 
-// Окно выбора кода ТН ВЭД (редизайн, волна 5а) — общее для товаров ДТ (ReestrGoodsSection), товаров записи
+// Окно выбора кода ТН ВЭД (редизайн, волна 5а) — общее для товаров ДТ (редактор товара, GoodsCodeSection), товаров записи
 // транзита (GoodsCard) и калькулятора продаж. Контракт прежний: v-model:open, initialQuery;
 // select({ code, name }) — только для 10-значного кода, после него окно закрывается.
 // Слева — дерево (ленивое) или результаты поиска, справа — ставки и нетарифные меры выбранного кода.

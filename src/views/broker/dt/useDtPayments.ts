@@ -10,6 +10,7 @@ import { i18n } from '@/i18n'
 import { message } from '@/ui/message'
 import { formatNumberIn } from '@/ui/number'
 import { toIsoDate, type DtFormState } from './dtPayload'
+import { markStale } from './goods/goodsStatus'
 
 const t = (key: string, p?: Record<string, unknown>) => (p ? i18n.global.t(key, p) : i18n.global.t(key))
 const locale = () => String(i18n.global.locale.value)
@@ -18,7 +19,10 @@ const CALCULATED_TAX_MODES = ['1010', '2010', '2050', '5060']
 // Акциз в КЕДЕН — код по виду товара (4420 сигареты, 4400 пиво…; 06.10.2026), поэтому любой 4xxx.
 export const isCalculatedTaxMode = (code: string) => CALCULATED_TAX_MODES.includes(code) || /^4\d{3}$/.test(code)
 
-/** Строки гр.47 товаров из серверного расчёта (calculate-payments / calculate-tpin — один движок). */
+/**
+ * Строки гр.47 товаров из серверного расчёта (calculate-payments / calculate-tpin — один движок). Посчитанный без ошибки
+ * товар теряет признак «Пересчитать» (needsTpinRecalc); товары с ошибкой и не попавшие в расчёт — как были.
+ */
 export function applyGoodsPaymentRows(form: Pick<DtFormState, 'goodsItems'>, res: Import40CalculatePaymentsResponse) {
   res.goodsRows.forEach((row) => {
     const g = form.goodsItems[row.index]
@@ -65,9 +69,10 @@ export function applyGoodsPaymentRows(form: Pick<DtFormState, 'goodsItems'>, res
       }
     })
     g.payments = rows
+    // Платежи товара свежие — снять «Пересчитать» (и для «Записать» расчёта по сохранённой ДТ, и для ТПиН с экрана).
+    g.needsTpinRecalc = false
   })
-  // Карточки товаров держат свои копии строк и обновляются по смене самого списка.
-  form.goodsItems = [...form.goodsItems]
+  // Товары правятся на месте (тот же массив и объекты) — ключи товаров и открытый товар не теряются (волна 6б).
 }
 
 /** Товар ДТ → вход серверного расчёта платежей (то же, что бэк берёт из сохранённой ДТ). */
@@ -131,6 +136,8 @@ export function useDtPayments(
     res.goods.forEach((r) => {
       const g = form.goodsItems[r.index]
       if (g) {
+        // гр. 45 — основа гр. 47: изменилась — платежи товара устарели (снимет следующий расчёт платежей).
+        if ((g.customsValueKzt ?? null) !== (r.customsValueKzt ?? null)) markStale(g)
         g.customsValueKzt = r.customsValueKzt
         // гр.46 — вместе с гр.45 и по тому же курсу.
         if (r.statisticValueUsd != null) g.statisticValueUsd = r.statisticValueUsd
@@ -190,7 +197,6 @@ export function useDtPayments(
           problems.push(`${t('broker.dt.payments.item', { n })}: ${row.error}`)
           return
         }
-        g.needsTpinRecalc = false
         recalculated += 1
         if (row.notes) problems.push(`${t('broker.dt.payments.item', { n })}: ${row.notes}`)
       })
