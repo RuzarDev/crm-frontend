@@ -588,81 +588,82 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
             class="min-w-0 rounded-panel border border-line bg-surface p-4 sm:p-5 [&_[data-dt-flash]]:rounded-field [&_[data-dt-flash]]:shadow-focus"
             :data-dt-section="active"
           >
-            <DtLegacyForm :disabled="!editable">
-              <KeepAlive>
-                <SectionNumber
-                  v-if="active === 'number'"
-                  :form="form"
-                  :readonly="!editable"
-                  :post-options="customsPostOptions"
-                />
-                <SectionGeneral
-                  v-else-if="active === 'general'"
-                  :form="form"
-                  :readonly="!editable"
-                  :totals="legacyTotals"
-                />
-                <SectionParties
-                  v-else-if="active === 'parties'"
-                  :form="form"
-                  :readonly="!editable"
-                  :country-options="countryOptions"
-                  :client-profile="clientProfile"
-                />
-                <SectionCountries
-                  v-else-if="active === 'countries'"
-                  :form="form"
-                  :readonly="!editable"
-                  :country-options="countryOptions"
-                />
-                <SectionTransport
-                  v-else-if="active === 'transport'"
-                  :form="form"
-                  :readonly="!editable"
-                />
-                <SectionFinance
-                  v-else-if="active === 'finance'"
-                  :form="form"
-                  :readonly="!editable"
-                  :customs-value="totals.customsValueKzt.value"
-                  :customs-value-from-server="totals.customsValueFromServer.value"
-                  :currency-options="rates.currencyOptions.value"
-                  :currency-rates="rates.rates.value"
-                  :expense-type-options="expenseTypeOptions"
-                  :expense-distribution-by-code="expenseDistributionByCode"
-                  :expense-deduction-by-code="expenseDeductionByCode"
-                  :recalc="payments.customsResult.value"
-                  :recalc-loading="payments.customsLoading.value"
-                  :can-change-rate-type="user.isAdmin"
-                  @calc-customs-value="payments.calcCustomsValue()"
-                />
-                <SectionCustoms
-                  v-else-if="active === 'customs'"
-                  :form="form"
-                  :readonly="!editable"
-                  :post-options="customsPostOptions"
-                />
-                <SectionGoods
-                  v-else-if="active === 'goods'"
-                  :model="goods"
-                  :currency="form.currency || null"
-                  :dt-number="form.declarationNumber || null"
-                  :readonly="!editable"
-                  :country-options="countryOptions"
-                  :payments-loading="payments.loading.value"
-                  :editor-context="goodsEditorContext"
-                  :save-state="goodsSaveState"
-                  @calc-payments="payments.openModal()"
-                  @calc-tpin="payments.calcTpin()"
-                />
-                <SectionDocs
-                  v-else-if="active === 'docs'"
-                  :form="form"
-                  :readonly="!editable"
-                />
-                <!-- GET …/dts — только декларанту: раздел не рендерится вовсе (не просто скрыт). -->
+            <KeepAlive>
+              <SectionNumber
+                v-if="active === 'number'"
+                :form="form"
+                :readonly="!editable"
+                :post-options="customsPostOptions"
+              />
+              <SectionGeneral
+                v-else-if="active === 'general'"
+                :form="form"
+                :readonly="!editable"
+                :totals="legacyTotals"
+              />
+              <SectionParties
+                v-else-if="active === 'parties'"
+                :form="form"
+                :readonly="!editable"
+                :country-options="countryOptions"
+                :client-profile="clientProfile"
+              />
+              <SectionCountries
+                v-else-if="active === 'countries'"
+                :form="form"
+                :readonly="!editable"
+                :country-options="countryOptions"
+              />
+              <SectionTransport
+                v-else-if="active === 'transport'"
+                :form="form"
+                :readonly="!editable"
+              />
+              <SectionFinance
+                v-else-if="active === 'finance'"
+                :form="form"
+                :readonly="!editable"
+                :customs-value="totals.customsValueKzt.value"
+                :customs-value-from-server="totals.customsValueFromServer.value"
+                :currency-options="rates.currencyOptions.value"
+                :currency-rates="rates.rates.value"
+                :expense-type-options="expenseTypeOptions"
+                :expense-distribution-by-code="expenseDistributionByCode"
+                :expense-deduction-by-code="expenseDeductionByCode"
+                :recalc="payments.customsResult.value"
+                :recalc-loading="payments.customsLoading.value"
+                :can-change-rate-type="user.isAdmin"
+                @calc-customs-value="payments.calcCustomsValue()"
+              />
+              <SectionCustoms
+                v-else-if="active === 'customs'"
+                :form="form"
+                :readonly="!editable"
+                :post-options="customsPostOptions"
+              />
+              <SectionGoods
+                v-else-if="active === 'goods'"
+                :model="goods"
+                :currency="form.currency || null"
+                :dt-number="form.declarationNumber || null"
+                :readonly="!editable"
+                :country-options="countryOptions"
+                :payments-loading="payments.loading.value"
+                :editor-context="goodsEditorContext"
+                :save-state="goodsSaveState"
+                @calc-payments="payments.openModal()"
+                @calc-tpin="payments.calcTpin()"
+              />
+              <SectionDocs
+                v-else-if="active === 'docs'"
+                :form="form"
+                :readonly="!editable"
+              />
+              <!-- GET …/dts — только декларанту: раздел не рендерится вовсе (не просто скрыт).
+                   a-form — только вокруг ДТС (AntD): его сброс стилей форм (input[type=file] { display: block },
+                   label, legend…) не должен попадать в разделы на Z. KeepAlive кэширует саму обёртку. -->
+              <DtLegacyForm v-else-if="active === 'dts' && canManage" :disabled="!editable">
                 <DtSectionDts
-                  v-else-if="active === 'dts' && canManage"
                   :model-value="legacyForm"
                   :readonly="!editable"
                   :case-id="caseId"
@@ -672,13 +673,13 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
                   :save="saveForDts"
                   @update:model-value="onLegacyUpdate"
                 />
-                <SectionClosing
-                  v-else-if="active === 'closing'"
-                  :form="form"
-                  :readonly="!editable"
-                />
-              </KeepAlive>
-            </DtLegacyForm>
+              </DtLegacyForm>
+              <SectionClosing
+                v-else-if="active === 'closing'"
+                :form="form"
+                :readonly="!editable"
+              />
+            </KeepAlive>
             <section v-if="active === 'closing'" class="mt-5" data-dt-fact-payments>
               <h2 class="m-0 mb-3 text-[15px] font-semibold text-ink">
                 {{ t('broker.dt.payments.fact') }} <span class="font-mono text-xs font-normal text-muted">{{ t('broker.dt.nav.graphs', { list: 'В' }) }}</span>

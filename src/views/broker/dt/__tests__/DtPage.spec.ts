@@ -660,7 +660,8 @@ describe('DtPage: сохранение и режимы', () => {
     expect(banner).toContain('Сейткали Д.')
     expect(banner).toContain('ДТ подана')
     expect(w.find('[data-dt-save]').exists()).toBe(false)
-    expect(w.get('[data-legacy-form]').attributes('data-disabled')).toBe('true')
+    // a-form (сброс стилей AntD) — только вокруг ДТС, не вокруг разделов на Z (QA-A: виден input[type=file]).
+    expect(w.find('[data-legacy-form]').exists()).toBe(false)
     // «Разделить на ЕТТ/ВТО» виден и в просмотре — выключен, с причиной (фидбек №17).
     await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
     await settle()
@@ -676,6 +677,10 @@ describe('DtPage: сохранение и режимы', () => {
     key({ key: 's', code: 'KeyS', metaKey: true })
     await settle()
     expect(api.updateDeclaration).not.toHaveBeenCalled()
+    await navItem('dts').trigger('click')
+    await settle()
+    expect(w.get('[data-legacy-form]').attributes('data-disabled')).toBe('true')
+    expect(w.get('[data-legacy-form]').find('[data-stub="DtSectionDts"]').exists()).toBe(true)
     openSpy.mockRestore()
   })
 
@@ -848,6 +853,7 @@ describe('DtPage: события прежних разделов', () => {
 
   it('ДТС: сохранение раздела — через страницу (с сообщением); раздел перечитывается при каждом открытии', async () => {
     await open('?s=dts')
+    expect(w.get('[data-legacy-form]').attributes('data-disabled')).toBe('false')
     const firstKey = w.get('[data-stub="DtSectionDts"]').attributes('data-reload-key')
     await w.get('[data-dts-save]').trigger('click')
     await settle()
@@ -857,6 +863,7 @@ describe('DtPage: события прежних разделов', () => {
     expect(afterSave).not.toBe(firstKey)
     await navItem('docs').trigger('click')
     await settle()
+    expect(w.find('[data-legacy-form]').exists()).toBe(false)
     await navItem('dts').trigger('click')
     await settle()
     expect(w.get('[data-stub="DtSectionDts"]').attributes('data-reload-key')).not.toBe(afterSave)
