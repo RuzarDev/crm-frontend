@@ -24,9 +24,33 @@ export function filterGuide(entries: DtGuideEntry[], query: string): DtGuideEntr
   return [...exact, ...rest]
 }
 
-/** Текст графы приходит с отступом из &nbsp; и пустыми абзацами — убираем, чтобы абзацы не «ползли» вправо. */
+const BLANK = String.raw`(?:\s|&nbsp;|\u00a0|<br\s*\/?>|<p\b[^>]*>(?:\s|&nbsp;|\u00a0|<br\s*\/?>)*<\/p>)`
+const LEADING = new RegExp(`^${BLANK}+`, 'i')
+const TRAILING = new RegExp(`${BLANK}+$`, 'i')
+
+/**
+ * Текст графы приходит с отступом из &nbsp;, пустыми абзацами и <br> по краям (на adilet.zan.kz перед текстом стоит
+ * <br><p><img></p><br>) — убираем, чтобы абзацы не «ползли» вправо и над текстом не было пустого места.
+ */
 export function tidyGuideHtml(html: string): string {
   return html
-    .replace(/(<(?:p|li|td|th|div)\b[^>]*>)(?:\s|&nbsp;| )+/gi, '$1')
-    .replace(/<p\b[^>]*>(?:\s|&nbsp;| |<br\s*\/?>)*<\/p>/gi, '')
+    .replace(/(<(?:p|li|td|th|div)\b[^>]*>)(?:\s|&nbsp;| )+/gi, '$1')
+    .replace(/<p\b[^>]*>(?:\s|&nbsp;| |<br\s*\/?>)*<\/p>/gi, '')
+    .replace(LEADING, '')
+    .replace(TRAILING, '')
+}
+
+/**
+ * Картинка графы не загрузилась (внешний адрес недоступен): прячем её, а абзац, в котором не осталось
+ * ничего видимого, — вместе с ней, иначе над текстом остаётся пустой зазор.
+ */
+export function hideBrokenImage(img: HTMLElement): void {
+  img.hidden = true
+  img.style.display = 'none'
+  const p = img.parentElement
+  if (!p || p.tagName !== 'P') return
+  const visible = Array.from(p.childNodes).some((n) =>
+    n.nodeType === 3 ? (n.textContent ?? '').replace(/[\s\u00a0]+/g, '') !== ''
+      : n.nodeType === 1 && (n as HTMLElement).tagName !== 'BR' && !(n as HTMLElement).hidden)
+  if (!visible) p.hidden = true
 }

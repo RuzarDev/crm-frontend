@@ -12,7 +12,7 @@ import { referencesApi } from '@/api/references'
 import type { DtGuideEntry } from '@/types/api'
 import { sanitizeHtml } from '@/ui/sanitizeHtml'
 import { useBlock } from '@/views/home/useBlock'
-import { filterGuide, tidyGuideHtml } from '@/views/references/dtGuide'
+import { filterGuide, hideBrokenImage, tidyGuideHtml } from '@/views/references/dtGuide'
 
 // «Порядок заполнения ДТ» (редизайн, волна 5а, доска DtGuide): слева поиск и список граф, справа текст выбранной графы.
 // — Поиск: по номеру (точное совпадение — первым) и названию; текст и разметка графы в поиске не участвуют.
@@ -24,7 +24,7 @@ const route = useRoute()
 const router = useRouter()
 
 const block = useBlock<DtGuideEntry[]>(true, async () => {
-  const data = await referencesApi.getDtGuide()
+  const data = await referencesApi.getDtGuide({ silent: true })
   return Array.isArray(data) ? data : []
 })
 void block.load()
@@ -78,6 +78,10 @@ watch(selectedKey, async () => {
 }, { flush: 'post' })
 
 const bodyHtml = computed(() => tidyGuideHtml(sanitizeHtml(current.value?.html)))
+// load не всплывает, поэтому слушаем error в фазе захвата на контейнере с v-html.
+const onHtmlError = (e: Event) => {
+  if (e.target instanceof HTMLImageElement) hideBrokenImage(e.target)
+}
 const SKELETON = ['88%', '72%', '80%', '64%', '76%']
 </script>
 
@@ -165,7 +169,7 @@ const SKELETON = ['88%', '72%', '80%', '64%', '76%']
             <p class="m-0 text-xs font-medium tracking-wide text-muted uppercase" data-dtguide-kicker>{{ t('broker.references.dtGuide.graphTitle', { n: current.graph }) }}</p>
             <h2 class="m-0 mt-0.5 mb-3.5 text-[20px] leading-7 font-semibold text-ink" data-dtguide-title>{{ current.title }}</h2>
             <!-- eslint-disable-next-line vue/no-v-html -- очищено sanitizeHtml: белый список тегов, без скриптов и on* -->
-            <div v-if="bodyHtml" class="dt-guide-html text-[14.5px] leading-[1.65] text-ink-2" data-dtguide-html v-html="bodyHtml" />
+            <div v-if="bodyHtml" class="dt-guide-html text-[14.5px] leading-[1.65] text-ink-2" data-dtguide-html @error.capture="onHtmlError" v-html="bodyHtml" />
             <p v-else class="m-0 text-sm text-ink-3">{{ t('broker.references.dtGuide.textEmpty') }}</p>
             <p class="m-0 mt-4 rounded-row bg-tone-info-bg px-3.5 py-3 text-[13px] text-tone-info-fg">{{ t('broker.references.dtGuide.tip') }}</p>
           </div>
@@ -185,5 +189,6 @@ const SKELETON = ['88%', '72%', '80%', '64%', '76%']
 .dt-guide-html :deep(td),
 .dt-guide-html :deep(th) { border: 1px solid var(--color-line); padding: 4px 8px; vertical-align: top; }
 .dt-guide-html :deep(a) { color: var(--color-zircon-ink); text-underline-offset: 2px; overflow-wrap: anywhere; }
+.dt-guide-html :deep(img) { max-width: 100%; height: auto; }
 .dt-guide-html { overflow-wrap: anywhere; }
 </style>

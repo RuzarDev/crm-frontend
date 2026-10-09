@@ -37,7 +37,8 @@ export function formatDay(iso: string, locale: string): string {
     .format(new Date(d.year, d.month - 1, d.day))
 }
 
-const safeUrl = (u: string | null | undefined): string | null => (u && /^https?:\/\//i.test(u.trim()) ? u.trim() : null)
+/** Внешняя ссылка из данных КЕДЕН: только http(s), иначе null (ссылка не рисуется). */
+export const safeUrl = (u: string | null | undefined): string | null => (u && /^https?:\/\//i.test(u.trim()) ? u.trim() : null)
 
 export function regulationRows(data: TnvedRegulationDto[] | null | undefined, locale: string): RegulationRow[] {
   return (data ?? []).map((r) => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DtGuideEntry } from '@/types/api'
-import { filterGuide, tidyGuideHtml } from '../dtGuide'
+import { filterGuide, hideBrokenImage, tidyGuideHtml } from '../dtGuide'
 
 const e = (graph: string, title: string, html = ''): DtGuideEntry => ({ graph, title, html })
 const ENTRIES = [
@@ -41,5 +41,38 @@ describe('filterGuide', () => {
 describe('tidyGuideHtml', () => {
   it('убирает отступ из пробелов в начале абзацев и пустые абзацы', () => {
     expect(tidyGuideHtml('<p>&nbsp;&nbsp;&nbsp; 6 Всего мест</p><p> </p><p><br></p><p>Текст</p>')).toBe('<p>6 Всего мест</p><p>Текст</p>')
+  })
+})
+
+describe('tidyGuideHtml: края текста (adilet)', () => {
+  it('убирает <br>, пустые абзацы и пробелы в начале и конце; середина не трогается', () => {
+    expect(tidyGuideHtml('<br><p><br></p><br>\n<p>Текст</p><br><p>Ещё<br>строка</p><br><p>&nbsp;</p><br/>')).toBe('<p>Текст</p><br><p>Ещё<br>строка</p>')
+  })
+
+  it('абзац с картинкой не пустой — остаётся (спрячет её обработчик загрузки)', () => {
+    expect(tidyGuideHtml('<br><p><img src="https://adilet.zan.kz/a.png"></p><br><p>Текст</p>')).toBe('<p><img src="https://adilet.zan.kz/a.png"></p><br><p>Текст</p>')
+  })
+})
+
+describe('hideBrokenImage', () => {
+  const html = (inner: string) => {
+    const root = document.createElement('div')
+    root.innerHTML = inner
+    return root
+  }
+
+  it('прячет картинку и абзац, в котором больше нет видимого', () => {
+    const root = html('<p><img src="x"></p><p>Текст</p>')
+    hideBrokenImage(root.querySelector('img')!)
+    expect(root.querySelector('img')!.hidden).toBe(true)
+    expect(root.querySelector('p')!.hidden).toBe(true)
+    expect(root.querySelectorAll('p')[1].hidden).toBe(false)
+  })
+
+  it('абзац с текстом остаётся, прячется только картинка', () => {
+    const root = html('<p>Схема: <img src="x"></p>')
+    hideBrokenImage(root.querySelector('img')!)
+    expect(root.querySelector('img')!.hidden).toBe(true)
+    expect(root.querySelector('p')!.hidden).toBe(false)
   })
 })

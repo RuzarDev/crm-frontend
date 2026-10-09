@@ -124,6 +124,27 @@ describe('DtGuidePage', () => {
     expect(html.findAll('p')).toHaveLength(1)
   })
 
+  it('справочник грузится тихо (ошибку рисует сама страница, без второго тоста)', async () => {
+    await mountAt()
+    expect(api.getDtGuide).toHaveBeenCalledWith({ silent: true })
+  })
+
+  it('текст с <br> и пустым абзацем по краям начинается с текста; картинка, что не загрузилась, прячется вместе с абзацем', async () => {
+    api.getDtGuide.mockResolvedValue([
+      { graph: '1', title: 'Декларация', html: '<br><p><img src="https://adilet.zan.kz/a.png"></p><br><p>Первая графа</p><br>' },
+    ])
+    await mountAt()
+    const box = w.get('[data-dtguide-html]')
+    expect(box.element.innerHTML.startsWith('<p><img')).toBe(true)
+    expect(box.element.innerHTML.endsWith('</p>')).toBe(true)
+    const img = box.get('img')
+    img.element.dispatchEvent(new Event('error')) // событие error не всплывает — обработчик ловит его в фазе захвата на контейнере
+    await flushPromises()
+    expect((img.element as HTMLImageElement).hidden).toBe(true)
+    expect(box.get('p').element.hidden).toBe(true)
+    expect(box.text()).toContain('Первая графа')
+  })
+
   it('на телефоне список — выбор над текстом: те же графы, выбор открывает графу', async () => {
     await mountAt('/dt-guide?graph=33')
     const select = w.findComponent(ZSelect)

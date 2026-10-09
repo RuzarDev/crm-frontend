@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { PhArrowSquareOut } from '@phosphor-icons/vue'
 import ZTag, { type ZTone } from '@/components/z/ZTag.vue'
 import type { TnvedNonTariffMeasureDto } from '@/types/api'
+import { safeUrl } from '@/views/references/regulations'
 
 // Нетарифные меры кода ТН ВЭД группами (редизайн, волна 5а): вкладки «Нетарифные меры» и «Экспорт»
 // справочника и требуемые документы в калькуляторе.
@@ -45,8 +46,8 @@ const groups = computed<Group[]>(() => {
           <p v-if="m.comment" class="m-0 mt-0.5 text-[13px] leading-5 text-ink-3">{{ m.comment }}</p>
           <p v-if="m.resolutionName" class="m-0 mt-1 text-[13px] leading-5 text-ink-2">
             <a
-              v-if="m.resolutionUrl"
-              :href="m.resolutionUrl"
+              v-if="safeUrl(m.resolutionUrl)"
+              :href="safeUrl(m.resolutionUrl)!"
               target="_blank"
               rel="noopener noreferrer"
               class="inline-flex items-center gap-1 rounded-field text-zircon-ink underline-offset-2 outline-hidden hover:underline focus-visible:shadow-focus"
