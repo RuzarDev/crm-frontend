@@ -309,6 +309,40 @@ describe('SectionCustoms — гр. 30: страна, орган, станция,
     expect(w.text()).toContain('Номера вагонов и ТС берутся из гр. 18')
   })
 
+  it('снятие флажка «на ТС» возвращает прежний код места, а не стирает его', async () => {
+    await mount({ goodsLocationCode: '31' })
+    const box = () => w.get('[data-on-transport]')
+    await box().trigger('click')
+    expect(form.goodsLocationCode).toBe('52')
+    await box().trigger('click')
+    expect(form.goodsLocationCode).toBe('31')
+    expect(box().attributes('aria-checked')).toBe('false')
+  })
+
+  it('«на ТС»: прежним считается код, стоявший перед последним включением; кода не было или ДТ пришла с 52 — снятие очищает', async () => {
+    await mount({ goodsLocationCode: '31' })
+    const box = () => w.get('[data-on-transport]')
+    await box().trigger('click')
+    // Пользователь выбрал другое место (флажок снялся сам) и включил «на ТС» снова — вернуться надо к нему.
+    form.goodsLocationCode = '11'
+    await nextTick()
+    await box().trigger('click')
+    expect(form.goodsLocationCode).toBe('52')
+    await box().trigger('click')
+    expect(form.goodsLocationCode).toBe('11')
+    w.unmount()
+    // ДТ открыта уже с кодом 52: прежнего кода нет — снятие очищает графу (как раньше).
+    await mount({ goodsLocationCode: '52' })
+    await w.get('[data-on-transport]').trigger('click')
+    expect(form.goodsLocationCode).toBe('')
+    w.unmount()
+    // Кода не было вовсе: включили и сняли — снова пусто.
+    await mount({ goodsLocationCode: '' })
+    await w.get('[data-on-transport]').trigger('click')
+    await w.get('[data-on-transport]').trigger('click')
+    expect(form.goodsLocationCode).toBe('')
+  })
+
   it('просмотр: поля недоступны', async () => {
     await mount({}, { readonly: true })
     for (const sel of ['[data-border-post]', '[data-location-code]', '[data-location-station]', '[data-location-address]']) {

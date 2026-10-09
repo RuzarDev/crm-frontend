@@ -142,7 +142,19 @@ const officePlaceholder = computed(() => {
 
 // ---- Гр. 30: станция, адрес, код 52 ----
 const isOnTransport = computed(() => (props.form.goodsLocationCode ?? '').trim() === '52')
-const onOnTransport = (checked: boolean) => { props.form.goodsLocationCode = checked ? '52' : '' }
+// Снятие флажка возвращает код, стоявший до включения (C3), а не стирает графу. Код запоминается при включении;
+// если ДТ открыта уже с кодом 52 (или кода не было) — возвращать нечего, графа очищается.
+let previousCode = ''
+const onOnTransport = (checked: boolean) => {
+  const current = (props.form.goodsLocationCode ?? '').trim()
+  if (checked) {
+    if (current !== '52') previousCode = current
+    props.form.goodsLocationCode = '52'
+    return
+  }
+  props.form.goodsLocationCode = previousCode
+  previousCode = ''
+}
 // Старые данные: в «Станцию» вписан номер вагона/ТС (одни цифры) — как название места он не выгружается.
 const stationLooksLikeVehicleNumber = computed(() => /^\d+$/.test((props.form.goodsLocationStation ?? '').trim()))
 
