@@ -52,6 +52,11 @@ describe('tidyGuideHtml: края текста (adilet)', () => {
   it('абзац с картинкой не пустой — остаётся (спрячет её обработчик загрузки)', () => {
     expect(tidyGuideHtml('<br><p><img src="https://adilet.zan.kz/a.png"></p><br><p>Текст</p>')).toBe('<p><img src="https://adilet.zan.kz/a.png"></p><br><p>Текст</p>')
   })
+
+  it('картинки грузятся сразу: lazy-картинка с недоступного адреса не присылает error и не прячется', () => {
+    expect(tidyGuideHtml('<p><img src="https://adilet.zan.kz/a.png" loading="lazy" referrerpolicy="no-referrer"></p><p>Текст</p>'))
+      .toBe('<p><img src="https://adilet.zan.kz/a.png" referrerpolicy="no-referrer"></p><p>Текст</p>')
+  })
 })
 
 describe('hideBrokenImage', () => {
@@ -66,6 +71,13 @@ describe('hideBrokenImage', () => {
     hideBrokenImage(root.querySelector('img')!)
     expect(root.querySelector('img')!.hidden).toBe(true)
     expect(root.querySelector('p')!.hidden).toBe(true)
+    expect(root.querySelectorAll('p')[1].hidden).toBe(false)
+  })
+
+  it('вместе со спрятанным абзацем прячет <br> вокруг него', () => {
+    const root = html('<br><p><img src="x"></p><br><br><p>Текст</p>')
+    hideBrokenImage(root.querySelector('img')!)
+    expect(Array.from(root.querySelectorAll('br')).every((b) => b.hidden)).toBe(true)
     expect(root.querySelectorAll('p')[1].hidden).toBe(false)
   })
 

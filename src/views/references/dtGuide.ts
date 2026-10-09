@@ -38,6 +38,9 @@ export function tidyGuideHtml(html: string): string {
     .replace(/<p\b[^>]*>(?:\s|&nbsp;| |<br\s*\/?>)*<\/p>/gi, '')
     .replace(LEADING, '')
     .replace(TRAILING, '')
+    // Картинок в графе одна-две: грузим сразу. Отложенная (lazy) картинка нулевого размера с недоступного адреса
+    // так и не запрашивается — error не приходит, и пустое место над текстом остаётся.
+    .replace(/(<img\b[^>]*?)\s+loading="lazy"/gi, '$1')
 }
 
 /**
@@ -52,5 +55,12 @@ export function hideBrokenImage(img: HTMLElement): void {
   const visible = Array.from(p.childNodes).some((n) =>
     n.nodeType === 3 ? (n.textContent ?? '').replace(/[\s\u00a0]+/g, '') !== ''
       : n.nodeType === 1 && (n as HTMLElement).tagName !== 'BR' && !(n as HTMLElement).hidden)
-  if (!visible) p.hidden = true
+  if (!visible) {
+    p.hidden = true
+    // <br> вокруг спрятанного абзаца тоже дают зазор.
+    for (const side of ['previousElementSibling', 'nextElementSibling'] as const) {
+      let n = p[side]
+      while (n && n.tagName === 'BR') { (n as HTMLElement).hidden = true; (n as HTMLElement).style.display = 'none'; n = n[side] }
+    }
+  }
 }
