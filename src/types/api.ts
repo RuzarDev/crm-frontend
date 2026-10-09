@@ -892,10 +892,11 @@ export interface TnvedTopCodeDto {
 
 export interface TnvedRateChangeDto {
   code: string
-  treeName: string | null
   oldRateStr: string | null
   newRateStr: string | null
-  changedAtUtc: string
+  detectedAtUtc: string
+  /** Название узла ТН ВЭД (дерево или наименование); у кода без узла — null. */
+  name: string | null
 }
 
 export interface TnvedSyncLogDto {
