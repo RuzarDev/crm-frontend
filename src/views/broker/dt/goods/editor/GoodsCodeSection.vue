@@ -90,7 +90,7 @@ async function lookup() {
   }
 }
 
-const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @xl:grid-cols-4'
+const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @4xl:grid-cols-4'
 const sideBtn = 'shrink-0 max-sm:h-11'
 </script>
 
@@ -129,7 +129,7 @@ const sideBtn = 'shrink-0 max-sm:h-11'
     </ZField>
 
     <div :class="grid">
-      <div class="flex min-w-0 flex-col gap-1 @md:col-span-2 @xl:col-span-4">
+      <div class="flex min-w-0 flex-col gap-1 @md:col-span-2 @4xl:col-span-4">
         <ZField graph="31" :label="tc('tradeMark')" data-graph="31" data-goods-field="tradeMarkName" :data-goods-index="index">
           <ZInput v-uppercase :value="item.tradeMarkName" :maxlength="300" :disabled="readonly" class="max-sm:h-11" data-f="tradeMarkName" @update:value="setStr('tradeMarkName', $event)" />
         </ZField>

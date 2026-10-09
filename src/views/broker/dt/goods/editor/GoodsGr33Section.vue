@@ -135,7 +135,7 @@ const codesEmptyText = computed(() => (gr33.byTnved.value
   ? tg(gr33.state.codes.length ? 'noImportCodes' : 'noCodes', { code: gr33.state.tnved })
   : undefined))
 
-const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @sm:grid-cols-2 @xl:grid-cols-4'
+const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @sm:grid-cols-2 @4xl:grid-cols-4'
 const tall = 'max-sm:h-11'
 const chip = (on: boolean) => cn(
   'inline-flex h-7 cursor-pointer items-center rounded-pill border px-2.5 font-mono text-xs outline-hidden transition-colors',

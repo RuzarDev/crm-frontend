@@ -69,7 +69,7 @@ const onCertification = (v: ZOptionValue | ZOptionValue[] | null) => {
 }
 
 // гр. 36 — четыре в ряд, как на доске (подписи короткие); на телефоне — одна колонка.
-const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @sm:grid-cols-2 @xl:grid-cols-4'
+const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @sm:grid-cols-2 @4xl:grid-cols-4'
 const tall = 'max-sm:h-11'
 </script>
 
@@ -99,7 +99,7 @@ const tall = 'max-sm:h-11'
       <ZField :label="tr('tempMonths')" :title="tr('tempMonthsHint')" :data-goods-index="index" data-graph="37" data-goods-field="tempImportMonths">
         <ZNumber :value="item.tempImportMonths ?? null" :min="0" :precision="0" placeholder="0" :disabled="readonly" :title="tr('tempMonthsHint')" :class="tall" data-f="tempImportMonths" @update:value="model.setField(item, 'tempImportMonths', $event)" />
       </ZField>
-      <ZField :label="tr('certification')" class="@sm:col-span-2 @xl:col-span-4" :data-goods-index="index" data-graph="33" data-goods-field="certificationNote">
+      <ZField :label="tr('certification')" class="@sm:col-span-2 @4xl:col-span-4" :data-goods-index="index" data-graph="33" data-goods-field="certificationNote">
         <ZSelect :value="certification" mode="tags" :options="certificationOptions" allow-clear :disabled="readonly" :placeholder="tr('certificationPlaceholder')" popup-width="420px" :class="tall" data-f="certificationNote" @update:value="onCertification" />
       </ZField>
     </div>

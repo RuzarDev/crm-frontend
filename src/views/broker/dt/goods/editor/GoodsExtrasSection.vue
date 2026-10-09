@@ -131,7 +131,7 @@ const onTraceable = (on: boolean) => {
 }
 const traceWarn = computed(() => !!x.value.traceable && (x.value.traceQuantity == null || !x.value.traceUnitCode))
 
-const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @sm:grid-cols-2 @xl:grid-cols-4'
+const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @sm:grid-cols-2 @4xl:grid-cols-4'
 const tall = 'max-sm:h-11'
 const toggle = cn(
   'group flex min-h-9 w-full cursor-pointer items-center gap-2 rounded-field border-0 bg-transparent px-0 py-1.5 text-left text-sm font-medium text-ink',

@@ -57,7 +57,7 @@ const setPkg = <K extends keyof Import40GoodsPackage>(p: Import40GoodsPackage, k
 
 const onContainer = (v: string) => { props.model.setField(props.item, 'containerNumber', v.trim() ? v : null) }
 
-const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @sm:grid-cols-2 @xl:grid-cols-4'
+const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @sm:grid-cols-2 @4xl:grid-cols-4'
 const tall = 'max-sm:h-11'
 const pkgRow = 'grid grid-cols-2 items-start gap-2 rounded-row border border-line p-2 @xl:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_6.5rem_minmax(0,1fr)_auto] @xl:border-0 @xl:p-0'
 const removeBtn = cn(
@@ -69,10 +69,10 @@ const removeBtn = cn(
 <template>
   <div class="flex flex-col gap-5" data-goods-packaging-section>
     <div :class="grid">
-      <ZField graph="31" :label="tp('availability')" class="@sm:col-span-2 @xl:col-span-1" data-graph="31" :data-goods-index="index" data-goods-field="packageAvailabilityCode">
+      <ZField graph="31" :label="tp('availability')" class="@sm:col-span-2 @4xl:col-span-1" data-graph="31" :data-goods-index="index" data-goods-field="packageAvailabilityCode">
         <ZSelect :value="item.packageAvailabilityCode || null" :options="availability" allow-clear :disabled="readonly" :placeholder="tp('availabilityPlaceholder')" popup-width="280px" :class="tall" data-f="packageAvailabilityCode" @update:value="setCode('packageAvailabilityCode', $event)" />
       </ZField>
-      <ZField graph="31" :label="tp('kind')" class="@sm:col-span-2 @xl:col-span-1" :data-goods-index="index" data-graph="31" data-goods-field="packageKindCode">
+      <ZField graph="31" :label="tp('kind')" class="@sm:col-span-2 @4xl:col-span-1" :data-goods-index="index" data-graph="31" data-goods-field="packageKindCode">
         <ZSelect :value="item.packageKindCode || null" :options="kindsFor(item.packageKindCode)" show-search allow-clear :disabled="readonly" :placeholder="tp('kindPlaceholder')" popup-width="360px" :class="tall" data-f="packageKindCode" @update:value="setCode('packageKindCode', $event)" />
       </ZField>
       <ZField graph="31" :label="tp('quantity')" :data-goods-index="index" data-graph="31" data-goods-field="packageQuantity">
