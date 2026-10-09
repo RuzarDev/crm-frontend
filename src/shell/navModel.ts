@@ -19,7 +19,8 @@ export interface NavSection {
   dot?: boolean
 }
 export interface NavGroup { key: string; labelKey: string | null; sections: NavSection[] }
-export interface NavModel { groups: NavGroup[]; bottom: NavSection[] }
+// personal — личный раздел «Профиль · Уведомления» (меню аватара): вкладки в шапке, в боковом меню и в allSections его нет.
+export interface NavModel { groups: NavGroup[]; bottom: NavSection[]; personal: NavSection }
 
 export interface NavAccess {
   role: string
@@ -43,9 +44,16 @@ const group = (key: string, labelKey: string | null, sections: (NavSection | nul
   const list = sections.filter((s): s is NavSection => !!s)
   return list.length ? { key, labelKey, sections: list } : null
 }
+const personalSection = (): NavSection => ({
+  key: 'personal', labelKey: 'shell.nav.personal', icon: 'settings', pages: [
+    { key: 'profile', to: '/profile', labelKey: 'shell.page.profile' },
+    { key: 'notifications', to: '/notifications', labelKey: 'shell.page.notifications' },
+  ],
+})
 const model = (groups: (NavGroup | null)[], bottom: (NavSection | null)[]): NavModel => ({
   groups: groups.filter((g): g is NavGroup => !!g),
   bottom: bottom.filter((s): s is NavSection => !!s),
+  personal: personalSection(),
 })
 
 export function buildBrokerNav(a: NavAccess): NavModel {
@@ -61,7 +69,7 @@ export function buildBrokerNav(a: NavAccess): NavModel {
       group('main', null, [
         // Дашборд + Уведомления (колокольчик) → Главная.
         section({ key: 'home', labelKey: 'shell.nav.home', icon: 'home', badge: 'attention', pages: [
-          page('home', '/home', 'shell.nav.home', true, ['/home', '/notifications', '/dashboard']),
+          page('home', '/home', 'shell.nav.home', true, ['/home', '/dashboard']),
         ] }),
       ]),
       group('operations', 'shell.group.operations', [
@@ -115,11 +123,13 @@ export function buildBrokerNav(a: NavAccess): NavModel {
     ],
     [
       section({ key: 'settings', labelKey: 'shell.nav.settings', icon: 'settings', pages: [
-        page('users', '/users', 'shell.page.users', p('users.write')),
-        page('roles', '/roles', 'shell.page.roles', p('users.read')),
-        page('organization', '/settings/organization', 'shell.page.organization', p('users.write')),
-        page('audit', '/system/audit', 'shell.page.audit', admin),
-        page('apiCatalog', '/system/endpoints', 'shell.page.apiCatalog', p('endpoints.read')),
+        // Пять вкладок (волна 5б). Права — как на сервере: организацию смотрят finance.read | finance.write | users.write.
+        page('team', '/settings/team', 'shell.page.team', p('users.read')),
+        page('roles', '/settings/roles', 'shell.page.roles', p('users.read')),
+        page('organization', '/settings/organization', 'shell.page.organization',
+          p('finance.read') || p('finance.write') || p('users.write')),
+        page('audit', '/settings/audit', 'shell.page.audit', admin),
+        page('system', '/settings/system', 'shell.page.system', p('endpoints.read')),
       ] }),
     ],
   )
@@ -132,13 +142,13 @@ export function buildClientNav(a: NavAccess): NavModel {
     [
       group('main', null, [
         section({ key: 'shipments', labelKey: 'shell.client.shipments', icon: 'shipments', badge: 'attention', pages: [
-          page('shipments', '/home', 'shell.client.shipments', imp, ['/home', '/notifications', '/dashboard', '/import-40']),
+          page('shipments', '/home', 'shell.client.shipments', imp, ['/home', '/dashboard', '/import-40']),
         ] }),
         section({ key: 'newShipment', labelKey: 'shell.client.newShipment', icon: 'plus', action: true, pages: [
           page('newShipment', '/import-40/new', 'shell.client.newShipment', imp, ['/import-40/new']),
         ] }),
         section({ key: 'transit', labelKey: 'shell.client.transit', icon: 'transit', pages: [
-          page('transit', '/reestr', 'shell.client.transit', tr, ['/reestr', ...(imp ? [] : ['/home', '/notifications', '/dashboard'])]),
+          page('transit', '/reestr', 'shell.client.transit', tr, ['/reestr', ...(imp ? [] : ['/home', '/dashboard'])]),
         ] }),
         section({ key: 'kedenStatuses', labelKey: 'shell.client.kedenStatuses', icon: 'keden', pages: [
           page('kedenStatuses', '/keden-status', 'shell.client.kedenStatuses', tr),
@@ -173,6 +183,7 @@ export function buildClientNav(a: NavAccess): NavModel {
 }
 
 export const allSections = (m: NavModel): NavSection[] => [...m.groups.flatMap((g) => g.sections), ...m.bottom]
+const resolvable = (m: NavModel): NavSection[] => [...allSections(m), m.personal]
 export const sectionHref = (s: NavSection): string => s.pages[0].to
 
 const pathOf = (to: string) => to.split('?')[0]
@@ -182,7 +193,7 @@ const matches = (path: string, prefix: string) => path === prefix || path.starts
 // /keden-status не совпадает с /keden (граница по «/»).
 export function resolveActive(m: NavModel, path: string): { section: NavSection; page: NavPage } | null {
   let best: { section: NavSection; page: NavPage; len: number } | null = null
-  for (const s of allSections(m)) {
+  for (const s of resolvable(m)) {
     for (const pg of s.pages) {
       // У действия в счёт идут только явные match: его адрес сам по себе не раздел.
       for (const pre of pg.match ?? (s.action ? [] : [pathOf(pg.to)])) {

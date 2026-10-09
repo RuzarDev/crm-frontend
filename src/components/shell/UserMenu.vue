@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { PhSignOut, PhUserCircle } from '@phosphor-icons/vue'
+import { PhBell, PhSignOut, PhUserCircle } from '@phosphor-icons/vue'
 import ZAvatar from '@/components/z/ZAvatar.vue'
 import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -13,7 +13,7 @@ import { resetSession } from '@/shell/resetSession'
 import { shortName } from '@/shell/shortName'
 import { cn } from '@/ui/cn'
 
-// Меню пользователя в шапке: аватар и «Айгерим К.», в меню — полное имя, роль, «Профиль» и «Выйти».
+// Меню пользователя в шапке: аватар и «Айгерим К.», в меню — полное имя, роль, «Профиль», «Уведомления» и «Выйти».
 // compact — только аватар (имя остаётся для чтения с экрана); ниже sm имя тоже скрыто.
 const props = withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
 
@@ -36,6 +36,7 @@ const roleLine = computed(() => {
 
 const items = computed<ZDropdownItem[]>(() => [
   { key: 'profile', label: t('shell.user.profile'), icon: PhUserCircle },
+  { key: 'notifications', label: t('shell.user.notifications'), icon: PhBell },
   { key: 'logout', label: t('shell.user.logout'), icon: PhSignOut, divider: true },
 ])
 
@@ -46,8 +47,8 @@ const triggerClass = computed(() => cn(
 ))
 
 const onSelect = (key: string) => {
-  if (key === 'profile') {
-    void router.push('/profile')
+  if (key === 'profile' || key === 'notifications') {
+    void router.push(`/${key}`)
     return
   }
   if (key === 'logout') {

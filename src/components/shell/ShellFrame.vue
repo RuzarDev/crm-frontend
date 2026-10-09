@@ -56,7 +56,7 @@ const isHome = computed(() => route.path === '/home')
 // ---- Палитра: переходы по всем видимым вкладкам (действия вроде «Оформить поставку» — не переходы) ----
 // computed, а не массив в шаблоне: новый массив на каждый рендер сбрасывал бы активный пункт палитры.
 const destinations = computed<PaletteDestination[]>(() =>
-  allSections(props.model)
+  [...allSections(props.model), props.model.personal]
     .filter((s) => !s.action)
     .flatMap((s) => s.pages.map((p) => ({
       key: `${s.key}:${p.key}`,

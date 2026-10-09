@@ -29,6 +29,8 @@ export interface LoginResponse {
   businessRoles?: string[]
   /** Клиент: модули для меню — 'import40' | 'transit' */
   modules?: string[]
+  /** Вошёл по временному паролю: до смены доступны только профиль и вход. */
+  mustChangePassword?: boolean
 }
 
 export interface BulkDeleteResponse {

@@ -22,8 +22,9 @@ export interface SearchHit {
 }
 
 export const systemApi = {
-  getEndpoints: () =>
-    apiClient.get<EndpointRow[]>('/system/endpoints'),
+  /** silent — без тоста перехватчика: «Каталог API» сам рисует ошибку с «Повторить». */
+  getEndpoints: (opts?: { silent?: boolean }) =>
+    apiClient.get<EndpointRow[]>('/system/endpoints', opts?.silent ? { silent: true } : undefined),
 
   getPermissionMatrix: () =>
     apiClient.get<PermissionMatrixResponse>('/system/permissions'),

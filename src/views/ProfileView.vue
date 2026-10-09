@@ -2,6 +2,16 @@
   <div class="profile-view crm-page">
     <PageHeader :kicker="t('profile.kicker')" :title="t('profile.title')" :subtitle="profileSubtitle" />
 
+    <!-- Вход по временному паролю (волна 5б): остальные разделы закрыты, пока пароль не сменён. -->
+    <ZAlert
+      v-if="authStore.mustChangePassword"
+      type="warning"
+      show-icon
+      class="must-change-alert"
+      :message="t('personal.mustChange.title')"
+      :description="t('personal.mustChange.text')"
+    />
+
     <a-spin :spinning="store.loading">
       <div class="profile-layout">
         <a-card class="crm-shell-card profile-card" :bordered="false">
@@ -118,7 +128,7 @@
         </a-card>
 
         <!-- Смена пароля -->
-        <a-card class="crm-shell-card profile-card" :bordered="false">
+        <a-card id="profile-password" class="crm-shell-card profile-card" :bordered="false">
           <template #title><div class="card-title-row"><LockOutlined class="card-title-icon" />{{ t('profile.pwdCard') }}</div></template>
           <a-form layout="vertical">
             <div class="form-grid">
@@ -137,7 +147,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { message } from '@/ui/message'
 import { useProfileStore } from '@/stores/profile'
 import { useClassifiersStore } from '@/stores/classifiers'
@@ -146,11 +156,12 @@ import { authApi } from '@/api/auth'
 import { useI18n } from 'vue-i18n'
 import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import { SaveOutlined, UserOutlined, IdcardOutlined, LockOutlined, BankOutlined } from '@ant-design/icons-vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { businessRoleLabel } from '@/api/permissions'
 import { buildDeclarantAccountPayload, buildCompanyFormPayload } from '@/views/profilePayloads'
 import PageHeader from '@/components/PageHeader.vue'
+import ZAlert from '@/components/z/ZAlert.vue'
 import PhoneInput from '@/components/ui/PhoneInput.vue'
 
 const { t, te } = useI18n()
@@ -158,6 +169,7 @@ const store = useProfileStore()
 const classifiers = useClassifiersStore()
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 // Профиль по ролям: у каждой роли — свой набор карточек.
@@ -226,9 +238,12 @@ const changePassword = async () => {
   if (pwd.next !== pwd.repeat) { message.warning(t('profile.pwdMismatch')); return }
   pwdSaving.value = true
   try {
-    await authApi.changePassword(pwd.current, pwd.next)
+    const wasForced = authStore.mustChangePassword
+    // Сервер закрывает остальные сессии и отдаёт новый токен — стор подхватывает его и снимает «сменить пароль».
+    authStore.passwordChanged(await authApi.changePassword(pwd.current, pwd.next))
     pwd.current = ''; pwd.next = ''; pwd.repeat = ''
     message.success(t('profile.pwdChanged'))
+    if (wasForced) void router.replace('/')
   } catch {
     // Текст ошибки уже показал общий перехватчик (api/client.ts) — не дублируем (аудит 1.1).
   } finally {
@@ -254,6 +269,11 @@ const syncForm = () => {
 watch(() => store.profile, syncForm)
 
 onMounted(async () => {
+  // /profile?tab=password (охранник при временном пароле): сразу к карточке смены пароля.
+  if (route.query.tab === 'password') {
+    await nextTick()
+    document.getElementById('profile-password')?.scrollIntoView?.({ block: 'start' })
+  }
   await store.fetch()
   syncForm()
   // Профиль декларанта (гр.54) не касается клиента — не грузим и не показываем.
@@ -278,6 +298,11 @@ const handleSave = async () => {
 </script>
 
 <style scoped>
+.must-change-alert {
+  max-width: 720px;
+  margin-bottom: 16px;
+}
+
 .profile-layout {
   max-width: 720px;
 }

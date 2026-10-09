@@ -37,6 +37,13 @@ export const useAuthStore = defineStore('auth', () => {
   const permissions = ref<string[]>(JSON.parse(localStorage.getItem('permissions') || '[]'))
   // Модули клиента (с логина): меню клиента показывает только то, чем он реально пользуется.
   const modules = ref<string[]>(JSON.parse(localStorage.getItem('modules') || '[]'))
+  // Временный пароль (выдан администратором): до смены доступен только профиль. Хранится рядом с токеном.
+  const mustChangePassword = ref<boolean>(localStorage.getItem('mustChangePassword') === '1')
+  const setMustChangePassword = (value: boolean) => {
+    mustChangePassword.value = value
+    if (value) localStorage.setItem('mustChangePassword', '1')
+    else localStorage.removeItem('mustChangePassword')
+  }
   const clientHasModule = (m: 'import40' | 'transit') => modules.value.length === 0 ? m === 'import40' : modules.value.includes(m)
 
   const isAuthenticated = computed(() => !!token.value)
@@ -87,6 +94,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('businessRoles', JSON.stringify(businessRoles.value))
     modules.value = response.modules || []
     localStorage.setItem('modules', JSON.stringify(modules.value))
+    setMustChangePassword(response.mustChangePassword === true)
     if (!token.value) {
       message.error(i18n.global.t('errors.loginNoToken'))
       return false
@@ -132,7 +140,15 @@ export const useAuthStore = defineStore('auth', () => {
   const loginFromResponse = (response: LoginResponse, resolvedUsername: string) =>
     applyAuthResponse(response, resolvedUsername)
 
+  // Пароль сменён: сервер закрывает остальные сессии и отдаёт новый AuthResponse — берём его токен, иначе
+  // текущий перестанет работать. Ответа нет (старый сервер) — только снимаем флаг.
+  const passwordChanged = (response: LoginResponse | null | undefined) => {
+    if (response?.accessToken && username.value) applyAuthResponse({ ...response, mustChangePassword: false }, username.value)
+    else setMustChangePassword(false)
+  }
+
   const logout = () => {
+    setMustChangePassword(false)
     token.value = null
     username.value = null
     role.value = null
@@ -163,6 +179,7 @@ export const useAuthStore = defineStore('auth', () => {
       userId.value = localStorage.getItem('userId')
       permissions.value = JSON.parse(localStorage.getItem('permissions') || '[]')
     } else {
+      setMustChangePassword(false)
       token.value = null
       username.value = null
       role.value = null
@@ -202,6 +219,9 @@ export const useAuthStore = defineStore('auth', () => {
     registerClient,
     loginFromResponse,
     logout,
+    passwordChanged,
+    mustChangePassword,
+    setMustChangePassword,
     checkAuth,
   }
 })
