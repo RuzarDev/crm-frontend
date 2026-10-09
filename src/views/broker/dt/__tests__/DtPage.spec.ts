@@ -49,8 +49,8 @@ const stubs = {
   SectionParties: sectionStub('SectionParties', '<label data-graph="8">Получатель<input data-recv /></label>'),
   SectionCountries: sectionStub('SectionCountries'),
   SectionTransport: sectionStub('SectionTransport'),
-  DtSectionFinance: sectionStub('DtSectionFinance', `<button data-emit="calc-customs-value" type="button" @click="$emit('calc-customs-value')" />`, ['calc-customs-value']),
-  DtSectionCustoms: sectionStub('DtSectionCustoms'),
+  SectionFinance: sectionStub('SectionFinance', `<button data-emit="calc-customs-value" type="button" @click="$emit('calc-customs-value')" />`, ['calc-customs-value']),
+  SectionCustoms: sectionStub('SectionCustoms'),
   DtSectionGoods: sectionStub('DtSectionGoods', goodsInner, ['calc-tpin']),
   DtSectionDocs: sectionStub('DtSectionDocs'),
   DtSectionDts: sectionStub('DtSectionDts', `<button data-dts-save type="button" @click="save()" />`),
@@ -199,7 +199,7 @@ describe('DtPage: разделы и ?s=', () => {
     key({ key: 'ArrowUp', altKey: true })
     key({ key: 'ArrowUp', altKey: true })
     await settle()
-    expect(stub()).toBe('DtSectionCustoms')
+    expect(stub()).toBe('SectionCustoms')
   })
 
   it('«Завершение» — с фактическими платежами гр. В', async () => {
@@ -317,6 +317,62 @@ describe('DtPage: настоящий раздел «Транспорт»', () =>
     expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
     const body = api.updateDeclaration.mock.calls[0][2] as { arrivalTransportNumbers: { number: string; isTrailer: boolean }[] }
     expect(body.arrivalTransportNumbers).toMatchObject([{ number: 'AB123', isTrailer: false }])
+  })
+})
+
+describe('DtPage: настоящие разделы «Условия и стоимость» и «Органы и место товаров»', () => {
+  const finance = () => w.get('[data-dt-finance]')
+
+  it('результат «Рассчитать там. стоимость» показан в разделе, не только тостом', async () => {
+    api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 700000 }] })
+    await open('?s=finance', ['SectionFinance'])
+    expect(w.find('[data-recalc-result]').exists()).toBe(false)
+    await w.get('[data-calc-customs-value]').trigger('click')
+    await settle()
+    expect(api.calculateCustomsValue).toHaveBeenCalledWith(expect.objectContaining({ onDate: '2026-10-05' }))
+    expect(toast.success).toHaveBeenCalled()
+    const res = w.get('[data-recalc-result]')
+    expect(res.text()).toContain('Гр. 45 пересчитана: товаров — 1')
+    expect(res.text().replace(/\s/g, ' ')).toContain('700 000,00 ₸')
+    // Платежи (гр. 47) этой кнопкой не считаются.
+    expect(api.calculatePayments).not.toHaveBeenCalled()
+  })
+
+  it('гр. 12: после загрузки — по сохранённой ДТ, после правки — предварительно', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, rateType: 'ETT', totalSheets: 1 })] })
+    await open('?s=finance', ['SectionFinance'])
+    expect(w.get('[data-customs-value]').attributes('data-source')).toBe('server')
+    expect(w.get('[data-customs-value-tag]').text()).toBe('по сохранённой ДТ')
+    await w.get('[data-exchange-rate]').setValue('500')
+    await w.get('[data-exchange-rate]').trigger('blur')
+    await settle()
+    expect(w.get('[data-customs-value]').attributes('data-source')).toBe('preview')
+    expect(w.get('[data-customs-value-tag]').text()).toBe('предварительно')
+  })
+
+  it('тип ставок — тегом; «Ещё» со сменой — только администратору', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, rateType: 'EATT', totalSheets: 1 })] })
+    await open('?s=finance', ['SectionFinance'])
+    expect(w.get('[data-rate-type-tag]').text()).toBe('ВТО')
+    expect(finance().find('[data-rate-type] input').exists()).toBe(false)
+    expect(w.find('[data-rate-type-more]').exists()).toBe(false)
+    w.unmount()
+    as({ role: 'administrator' })
+    await open('?s=finance', ['SectionFinance'])
+    expect(w.find('[data-rate-type-more]').exists()).toBe(true)
+  })
+
+  it('«Органы»: правка номера СВХ и кода 52 уходит в PUT; открытие раздела форму не меняет', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, rateType: 'ETT', totalSheets: 1 })] })
+    await open('?s=customs', ['SectionCustoms'])
+    expect(w.get('[data-dt-header]').text()).not.toContain('Есть несохранённые изменения')
+    await w.get('[data-on-transport]').trigger('click')
+    await w.get('[data-location-station]').setValue('ст.аксенгер')
+    await settle()
+    expect(w.get('[data-dt-header]').text()).toContain('Есть несохранённые изменения')
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(api.updateDeclaration.mock.calls.at(-1)![2]).toMatchObject({ goodsLocationCode: '52', goodsLocationStation: 'СТ.АКСЕНГЕР' })
   })
 })
 

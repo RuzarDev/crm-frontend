@@ -110,6 +110,9 @@ export function useDtPayments(
   const result = ref<Import40CalculatePaymentsResponse | null>(null)
   /** Замечания ТПиН по товарам (окно «ТПиН: проверьте товары»); пусто — окна нет. */
   const tpinProblems = ref<string[]>([])
+  /** Итог последнего «Рассчитать там. стоимость» — показывается в разделе «Условия», а не только тостом (F4). */
+  const customsResult = ref<{ updated: number; total: number } | null>(null)
+  const customsLoading = ref(false)
 
   /** Пересчёт гр.45 (с расходами, по курсам НБ РК на дату гр.А) и гр.46 по всем товарам. Ошибку пробрасывает. */
   const recalcCustomsValues = async (): Promise<{ updated: number; total: number }> => {
@@ -144,11 +147,15 @@ export function useDtPayments(
       message.warning(t('broker.dt.payments.noGoods'))
       return
     }
+    customsLoading.value = true
     try {
       const { updated, total } = await recalcCustomsValues()
+      customsResult.value = { updated, total }
       message.success(t('broker.dt.payments.customsValueDone', { n: updated, total: formatNumberIn(locale(), total) }))
     } catch {
       // Текст ошибки уже показал общий перехватчик (api/client.ts).
+    } finally {
+      customsLoading.value = false
     }
   }
 
@@ -258,5 +265,5 @@ export function useDtPayments(
     }
   }
 
-  return { modalOpen, loading, applying, result, tpinProblems, calcCustomsValue, calcTpin, openModal, toggleMedical, apply }
+  return { modalOpen, loading, applying, result, tpinProblems, customsResult, customsLoading, calcCustomsValue, calcTpin, openModal, toggleMedical, apply }
 }

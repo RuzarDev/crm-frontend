@@ -7,8 +7,6 @@ import ZDrawer from '@/components/z/ZDrawer.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import DtLegacyForm from '@/components/import40/dt/DtLegacyForm.vue'
-import DtSectionFinance from '@/components/import40/dt/DtSectionFinance.vue'
-import DtSectionCustoms from '@/components/import40/dt/DtSectionCustoms.vue'
 import DtSectionGoods from '@/components/import40/dt/DtSectionGoods.vue'
 import DtSectionDocs from '@/components/import40/dt/DtSectionDocs.vue'
 import DtSectionDts from '@/components/import40/dt/DtSectionDts.vue'
@@ -32,6 +30,8 @@ import DtReadinessPanel from './DtReadinessPanel.vue'
 import DtSectionNav from './DtSectionNav.vue'
 import DtSplitModal from './DtSplitModal.vue'
 import SectionCountries from './sections/SectionCountries.vue'
+import SectionCustoms from './sections/SectionCustoms.vue'
+import SectionFinance from './sections/SectionFinance.vue'
 import SectionGeneral from './sections/SectionGeneral.vue'
 import SectionNumber from './sections/SectionNumber.vue'
 import SectionParties from './sections/SectionParties.vue'
@@ -534,25 +534,27 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
                   :form="form"
                   :readonly="!editable"
                 />
-                <DtSectionFinance
+                <SectionFinance
                   v-else-if="active === 'finance'"
-                  :model-value="legacyForm"
+                  :form="form"
                   :readonly="!editable"
-                  :totals="legacyTotals"
-                  :expense-type-options="expenseTypeOptions"
+                  :customs-value="totals.customsValueKzt.value"
+                  :customs-value-from-server="totals.customsValueFromServer.value"
                   :currency-options="rates.currencyOptions.value"
                   :currency-rates="rates.rates.value"
+                  :expense-type-options="expenseTypeOptions"
                   :expense-distribution-by-code="expenseDistributionByCode"
                   :expense-deduction-by-code="expenseDeductionByCode"
-                  @update:model-value="onLegacyUpdate"
+                  :recalc="payments.customsResult.value"
+                  :recalc-loading="payments.customsLoading.value"
+                  :can-change-rate-type="user.isAdmin"
                   @calc-customs-value="payments.calcCustomsValue()"
                 />
-                <DtSectionCustoms
+                <SectionCustoms
                   v-else-if="active === 'customs'"
-                  :model-value="legacyForm"
+                  :form="form"
                   :readonly="!editable"
                   :post-options="customsPostOptions"
-                  @update:model-value="onLegacyUpdate"
                 />
                 <DtSectionGoods
                   v-else-if="active === 'goods'"
