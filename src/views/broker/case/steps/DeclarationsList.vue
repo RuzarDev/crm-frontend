@@ -26,7 +26,7 @@ import QuoteImportModal from './QuoteImportModal.vue'
 // Список ДТ шага 3 (доска Case): полоса «Декларации · N» с действиями, поиск при N > 1, строки ДТ.
 // Строка: номер или «ДТ i» (ссылка на страницу ДТ), тег разделения ЕТТ/ВТО/«Разделена» (заменённая приглушена),
 // «товаров: N», полоса заполненности из сводки готовности (ctx.readiness — без запросов по каждой ДТ) и «не хватает: …».
-// Действия над списком (добавить, из документов, из КП, пакетная выгрузка, удалить) — только на текущем шаге 3
+// Действия над списком (добавить, из документов, из КП, пакетная выгрузка) — только на текущем шаге 3
 // (declarations.dtListActive). «Заполнить» и XML в строке — на текущем шаге 3 и после него тем, кто может править ДТ
 // (perms.canEditDt — правило страницы ДТ и сервера: админ, РОП, назначенный декларант; решения владельца 09.10),
 // остальным после шага 3 — «Открыть». «Заполнить» без права править — выключена с подсказкой (нет роли / ведёт коллега).
@@ -83,7 +83,12 @@ const removeDt = async (dt: Import40DeclarationDto) => {
   if (!ok) return
   await props.ctx.actions.mutate(`dt-delete:${dt.id}`, () => import40Api.deleteDeclaration(kase.value.id, dt.id), { done: 'broker.case.done.dtDeleted' })
 }
-const menuItems = computed(() => [{ key: 'delete', label: t('broker.case.declaring.list.delete'), danger: true }])
+// Удаление (решение владельца 09.10): до выпуска — кто может править ДТ; с выпуска — только администратор,
+// остальным пункт виден выключенным с причиной «После выпуска ДТ удалить нельзя».
+const showMenu = computed(() => rowActions.value && (props.ctx.perms.canDeleteDt || props.ctx.perms.dtDeleteBlockedByRelease))
+const menuItems = computed(() => props.ctx.perms.canDeleteDt
+  ? [{ key: 'delete', label: t('broker.case.declaring.list.delete'), danger: true }]
+  : [{ key: 'delete-blocked', label: t('broker.case.declaring.list.deleteAfterRelease'), disabled: true }])
 const onMenu = (dt: Import40DeclarationDto, key: string) => { if (key === 'delete') void removeDt(dt) }
 
 // XML для КЕДЕН по одной ДТ: 400 → список «Для XML не хватает данных» под строкой; файл — скачивание и подсказка про гр.54.
@@ -330,7 +335,7 @@ const toolBtn = 'max-sm:min-h-11'
                 </button>
               </span>
             </ZTooltip>
-            <ZDropdown v-if="editable && canEditDt" :items="menuItems" @select="onMenu(dt, $event)">
+            <ZDropdown v-if="showMenu" :items="menuItems" @select="onMenu(dt, $event)">
               <button
                 type="button"
                 :class="iconBase"

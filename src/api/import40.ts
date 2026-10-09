@@ -922,9 +922,11 @@ export const import40Api = {
     declarationId: string,
     data: Import40DeclarationUpsert,
   ): Promise<Import40DeclarationDto> => {
+    // 409 (ДТ изменена в другом окне) редактор показывает постоянной плашкой — без второго сообщения тостом.
     const response = await apiClient.put<Import40DeclarationDto>(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}`,
       data,
+      { silentStatuses: [409] },
     )
     return response.data
   },

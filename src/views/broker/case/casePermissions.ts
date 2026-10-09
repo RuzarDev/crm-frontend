@@ -151,6 +151,20 @@ export function dtEditHint(a: CaseAuth, c: Import40CaseDto): ActionHint {
   return { kind: 'busy', name: c.assignedDeclarantName || null }
 }
 
+/** Статус «ДТ выпущена» (Import40Status.Released): с него ДТ удаляет только администратор. */
+export const RELEASED_STATUS = 4
+
+/**
+ * Удалить ДТ (решение владельца 09.10, как DeleteDeclaration на сервере): до выпуска — кто может править ДТ;
+ * с выпуска (Released и далее, включая отмену) — только администратор.
+ */
+export const canDeleteCaseDt = (a: CaseAuth, c: Import40CaseDto): boolean =>
+  canEditCaseDt(a, c) && (c.status < RELEASED_STATUS || isAdmin(a))
+
+/** Удалить нельзя только из-за выпуска (править можно) — пункт меню виден выключенным с этой причиной. */
+export const dtDeleteBlockedByRelease = (a: CaseAuth, c: Import40CaseDto): boolean =>
+  canEditCaseDt(a, c) && !canDeleteCaseDt(a, c)
+
 /** Всё о правах на одну заявку — объект для шаблонов и шагов (контракт шагов, caseContext.ts). */
 export interface CasePerms {
   userId: string | null
@@ -178,6 +192,9 @@ export interface CasePerms {
   /** Править ДТ заявки (canEditCaseDt) и подсказка, почему нельзя. */
   canEditDt: boolean
   dtEditHint: ActionHint
+  /** Удалить ДТ (canDeleteCaseDt) и «нельзя — ДТ выпущена». */
+  canDeleteDt: boolean
+  dtDeleteBlockedByRelease: boolean
 }
 
 export function casePerms(a: CaseAuth, c: Import40CaseDto): CasePerms {
@@ -206,5 +223,7 @@ export function casePerms(a: CaseAuth, c: Import40CaseDto): CasePerms {
     assignedTag: assignedTag(a, c),
     canEditDt: canEditCaseDt(a, c),
     dtEditHint: dtEditHint(a, c),
+    canDeleteDt: canDeleteCaseDt(a, c),
+    dtDeleteBlockedByRelease: dtDeleteBlockedByRelease(a, c),
   }
 }

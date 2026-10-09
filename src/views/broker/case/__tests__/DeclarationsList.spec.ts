@@ -227,12 +227,34 @@ describe('DeclarationsList: действия', () => {
     ['РОП при чужом назначении', USERS.rop, 9, 'other'],
     ['назначенный декларант после выпуска', USERS.declarant, 4, 'me'],
     ['декларант при пустом назначении (Done)', USERS.declarant, 8, null],
-  ] as const)('после шага 3 (mode done): %s — «Заполнить» и XML, но без удаления, полосы и готовности', (_, user, status, assigned) => {
+  ] as const)('после шага 3 (mode done): %s — «Заполнить» и XML, без полосы и готовности', (_, user, status, assigned) => {
     mount(user, { kase: { status, assignedDeclarantId: assigned, declarations: two }, readiness: [rd({ declarationId: 'd1', missing: ['гр. 8'] })], mode: 'done' })
     expect(row('d1').get('[data-dt-fill]').attributes('disabled')).toBeUndefined()
     expect(row('d1').find('[data-dt-xml]').exists()).toBe(true)
     expect(w.find('[data-dt-open]').exists()).toBe(false)
-    for (const sel of ['[data-dt-more]', '[data-dt-toolbar]', '[data-dt-missing]']) expect(w.find(sel).exists()).toBe(false)
+    for (const sel of ['[data-dt-toolbar]', '[data-dt-missing]']) expect(w.find(sel).exists()).toBe(false)
+  })
+
+  // Решение владельца 09.10: после выпуска ДТ удаляет только администратор; остальным пункт выключен с причиной.
+  it('после выпуска: админ удаляет ДТ, РОП и декларант видят «После выпуска ДТ удалить нельзя» выключенным', async () => {
+    api.deleteDeclaration.mockResolvedValue(undefined)
+    mount(USERS.rop, { kase: { status: 4, assignedDeclarantId: 'other', declarations: two }, mode: 'done' })
+    const blocked = row('d1').get('[data-menu-item="delete-blocked"]')
+    expect(blocked.text()).toBe('После выпуска ДТ удалить нельзя')
+    expect(row('d1').find('[data-menu-item="delete"]').exists()).toBe(false)
+    w.unmount()
+
+    mount(USERS.declarant, { kase: { status: 8, assignedDeclarantId: 'me', declarations: two }, mode: 'done' })
+    expect(row('d1').find('[data-menu-item="delete-blocked"]').exists()).toBe(true)
+    w.unmount()
+
+    mount(USERS.admin, { kase: { status: 8, declarations: two }, mode: 'done' })
+    expect(row('d1').find('[data-menu-item="delete-blocked"]').exists()).toBe(false)
+    await row('d1').get('[data-menu-item="delete"]').trigger('click')
+    await flushPromises()
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(api.deleteDeclaration).toHaveBeenCalledWith('c1', 'd1')
   })
 
   it('после шага 3: ДТ ведёт другой декларант — только «Открыть»', () => {

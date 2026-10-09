@@ -170,6 +170,28 @@ describe('Import40DtView — оптимистичная блокировка', (
     expect(api.updateDeclaration.mock.calls[1][2].expectedUpdatedAtUtc).toBe('2026-10-09T10:05:00.654321Z')
   })
 
+  it('(ревью 09.10) сохранения по очереди: печать во время автосейва ждёт его и шлёт отметку из его ответа — без 409', async () => {
+    await mountAs({ permissions: ['import40.declarant'], status: 2, assigned: ME })
+    let release!: (v: unknown) => void
+    api.updateDeclaration.mockImplementationOnce(() => new Promise((r) => { release = r }))
+    api.updateDeclaration.mockResolvedValueOnce({ ...decl, updatedAtUtc: '2026-10-09T10:07:00.000002Z' })
+
+    const autosave = vm().saveDt(true)
+    const print = vm().printBlank()
+    await flushPromises()
+    expect(api.updateDeclaration).toHaveBeenCalledOnce() // второй PUT не ушёл, пока идёт первый
+
+    release({ ...decl, updatedAtUtc: '2026-10-09T10:06:30.111111Z' })
+    await expect(autosave).resolves.toBe(true)
+    await print
+    await flushPromises()
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(2)
+    expect(api.updateDeclaration.mock.calls[0][2].expectedUpdatedAtUtc).toBe(STAMP)
+    expect(api.updateDeclaration.mock.calls[1][2].expectedUpdatedAtUtc).toBe('2026-10-09T10:06:30.111111Z')
+    expect(api.blankPdf).toHaveBeenCalledOnce()
+    expect(vm().conflict).toBe(false)
+  })
+
   it('409: плашка «ДТ изменена в другом окне», без автоповтора и автосейва; «Перезагрузить» перечитывает ДТ', async () => {
     await mountAs({ permissions: ['import40.declarant'], status: 2, assigned: ME })
     api.updateDeclaration.mockRejectedValue(conflictError())

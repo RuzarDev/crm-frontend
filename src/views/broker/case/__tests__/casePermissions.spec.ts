@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  actionDisabled, actionHint, assignedTag, can, canAssign, canCancel, canCompleteWithoutInvoice, canConfirmSvhWithoutCheck, canEditCaseDt, dtEditHint,
+  actionDisabled, actionHint, assignedTag, can, canAssign, canCancel, canCompleteWithoutInvoice, canConfirmSvhWithoutCheck, canDeleteCaseDt, canEditCaseDt, dtDeleteBlockedByRelease, dtEditHint,
   canIssueAqnietInvoice, canManageDraft, canOpenClient, canProblem, canSeeBilling, canStepBack, casePerms, claimVisible, hintText,
   readinessAvailable, roleModeOf, showProblemAction, stepBlockedBy, stepRoleOf,
 } from '../casePermissions'
@@ -163,5 +163,18 @@ describe('canEditCaseDt / dtEditHint — правка ДТ из карточки
     expect(canEditCaseDt(USERS.kpp, k(2, null))).toBe(false)
     expect(dtEditHint(USERS.accountant, k(2, null))).toEqual({ kind: 'role', role: 'declarant' })
     expect(dtEditHint(USERS.declarant, k(2, null))).toBeNull()
+  })
+})
+
+describe('canDeleteCaseDt — с выпуска ДТ удаляет только администратор (решение 09.10)', () => {
+  it('до выпуска — кто может править; с выпуска — только админ', () => {
+    expect(canDeleteCaseDt(USERS.rop, caseDto({ status: 3, assignedDeclarantId: 'other' }))).toBe(true)
+    expect(canDeleteCaseDt(USERS.declarant, caseDto({ status: 2, assignedDeclarantId: 'me' }))).toBe(true)
+    for (const status of [4, 8, 9]) {
+      expect(canDeleteCaseDt(USERS.admin, caseDto({ status }))).toBe(true)
+      expect(canDeleteCaseDt(USERS.rop, caseDto({ status }))).toBe(false)
+      expect(dtDeleteBlockedByRelease(USERS.rop, caseDto({ status }))).toBe(true)
+      expect(dtDeleteBlockedByRelease(USERS.kpp, caseDto({ status }))).toBe(false) // править тоже нельзя — пункта нет
+    }
   })
 })

@@ -113,6 +113,8 @@ describe('dtUserFrom — пользователь из стора auth / CaseAut
     expect(dtUserFrom(src({ businessRole: 'kpp', businessRoles: ['kpp', 'rop'] })).isRop).toBe(true)
     expect(dtUserFrom(src({ businessRole: 'rop' })).isRop).toBe(true)
     expect(dtUserFrom(src({ businessRole: 'kpp', businessRoles: ['kpp'] })).isRop).toBe(false)
+    // Основная роль считается, только если списка ролей нет (как BusinessRolesOf на сервере).
+    expect(dtUserFrom(src({ businessRole: 'rop', businessRoles: ['kpp'] })).isRop).toBe(false)
   })
 
   it('право декларанта — из permissions; администратору — всегда; клиент — по системной или бизнес-роли', () => {

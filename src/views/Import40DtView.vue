@@ -1361,7 +1361,18 @@ const loadDt = async () => {
 // автосохранений перед расчётом платежей (Task 10: save → calc → save при
 // каждом переключении «Медизделие»), чтобы не заваливать декларанта одинаковыми
 // уведомлениями об одном и том же действии.
-const saveDt = async (silent = false): Promise<boolean> => {
+//
+// (баг, ревью 09.10) Сохранения идут строго по очереди: печать, XML, расчёт платежей, ДТС, номер, разделение
+// зовут saveDt и во время автосейва. Два PUT одновременно ушли бы с одной отметкой блокировки — второй получил бы
+// ложный 409 «изменена в другом окне». Каждый вызов ждёт предыдущий и только потом читает отметку из его ответа.
+let saveQueue: Promise<unknown> = Promise.resolve()
+const saveDt = (silent = false): Promise<boolean> => {
+  const run = saveQueue.then(() => saveDtNow(silent))
+  saveQueue = run.catch(() => undefined)
+  return run
+}
+
+const saveDtNow = async (silent: boolean): Promise<boolean> => {
   // В просмотре сохранять нельзя: сервер ответит 403, а катч ниже включил бы автоповтор (баг B2).
   // После 409 (ДТ изменена в другом окне) — тоже нельзя, пока ДТ не перезагружена.
   if (!dtForm.id || readOnly.value || conflict.value) return false

@@ -163,11 +163,11 @@ describe('StepDeclaring: ДТ подана (статус 3)', () => {
 
   // Решение владельца 09.10: правка после выпуска остаётся (как на сервере) — назначенному декларанту строка ДТ
   // даёт «Заполнить»; добавление, удаление и пакетная выгрузка — по-прежнему только на текущем шаге 3.
-  it('после выпуска (mode done), ДТ ведёт этот декларант: «Заполнить» и XML, без полосы и удаления', () => {
+  it('после выпуска (mode done), ДТ ведёт этот декларант: «Заполнить» и XML, без полосы', () => {
     mount(USERS.declarant, { kase: { status: 5, assignedDeclarantId: 'me', declarations: [declaration(), declaration({ id: 'd2' })] }, mode: 'done' })
     expect(w.findAll('[data-dt-fill]')).toHaveLength(2)
     expect(w.find('[data-dt-open]').exists()).toBe(false)
-    for (const sel of ['[data-dt-more]', '[data-dt-toolbar]', '[data-dt-xml-batch]', '[data-declaring-release]']) {
+    for (const sel of ['[data-dt-toolbar]', '[data-dt-xml-batch]', '[data-declaring-release]']) {
       expect(w.find(sel).exists()).toBe(false)
     }
   })

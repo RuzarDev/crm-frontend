@@ -43,7 +43,9 @@ const lower = (s: string | null | undefined) => (s ?? '').trim().toLowerCase()
 export function dtUserFrom(a: DtAccessSource): DtAccessUser {
   const sys = lower(a.role)
   const biz = lower(a.businessRole)
-  const roles = new Set([...(a.businessRoles ?? []).map(lower), biz])
+  // Как сервер (BusinessRolesOf): список ролей из токена; основная роль — только если список пуст.
+  const list = (a.businessRoles ?? []).map(lower).filter(Boolean)
+  const roles = new Set(list.length ? list : [biz])
   const isAdmin = sys === 'administrator'
   return {
     isAdmin,
