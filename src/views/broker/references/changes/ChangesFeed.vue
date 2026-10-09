@@ -8,7 +8,7 @@ import { changeText, typeKey, typeTone, type ChangeEntry } from './changes'
 // Лента изменений: дата, тип точкой с подписью, текст из структурных полей, коды-ссылки на карточку в ТН ВЭД.
 // Состояния (загрузка, ошибка, пусто) — на странице; здесь только список.
 defineProps<{ entries: ChangeEntry[]; today: string }>()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const tr = (key: string, named?: Record<string, unknown>) => t(key, named ?? {})
 
 const codeLink = 'inline-flex min-h-7 items-center rounded-field font-mono text-[12.5px] tabular-nums text-zircon-ink underline-offset-2 outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11'
@@ -29,7 +29,7 @@ const codeLink = 'inline-flex min-h-7 items-center rounded-field font-mono text-
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <StatusDot :tone="typeTone(e, today)" :label="t(`broker.references.changes.type.${typeKey(e, today)}`)" class="!text-[13px]" data-change-type />
-            <span class="min-w-0 text-sm text-ink [overflow-wrap:anywhere]" data-change-text>{{ changeText(e, tr) }}</span>
+            <span class="min-w-0 text-sm text-ink [overflow-wrap:anywhere]" data-change-text>{{ changeText(e, tr, locale) }}</span>
           </div>
           <p v-if="e.kind === 'rate'" class="m-0 mt-1 text-[13px] text-ink-2" data-change-rate>
             {{ t('broker.references.changes.rateWas', { from: e.oldRate ?? '—', to: e.newRate ?? '—' }) }}

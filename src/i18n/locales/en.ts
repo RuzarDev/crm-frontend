@@ -2038,7 +2038,7 @@ export default {
           rate: 'Rate change',
         },
         typeOption: { starts: 'Takes effect', ends: 'Expires', rate: 'Rate change' },
-        what: { ett: 'EAEU import duty rate', vto: 'Reduced WTO rate', ad: 'Anti-dumping duty' },
+        what: { importDuty: 'EAEU import duty rate', vtoDuty: 'Reduced WTO rate', antiDumping: 'Anti-dumping duty', compensatory: 'Countervailing duty', special: 'Special duty' },
         more: 'and {n} more',
         rateWas: 'Rate: {from} → {to}',
         source: 'Detected by sync',

@@ -90,9 +90,9 @@ export const tnvedApi = {
     apiClient.get<TnvedRegulationDto[]>('/tnved/regulations', quiet(opts)),
 
   // ── Timeline ────────────────────────────────────────────────────────────────
-  /** Сервер применяет limit (самые свежие по дате показа), не больше 500. */
-  timeline: (limit = 60, opts?: TnvedRequestOptions) =>
-    apiClient.get<TnvedTimelineDto[]>('/tnved/timeline', { params: { limit }, ...quiet(opts) }),
+  /** limit 0 — все события (сервер держит их в кэше). code — начало кода: только события, где есть такой код (подходящие коды первыми). */
+  timeline: (limit = 0, opts?: TnvedRequestOptions & { code?: string }) =>
+    apiClient.get<TnvedTimelineDto[]>('/tnved/timeline', { params: { limit, code: opts?.code }, ...quiet(opts) }),
 
   // ── VTO sections ────────────────────────────────────────────────────────────
   vtoSections: (opts?: TnvedRequestOptions) =>

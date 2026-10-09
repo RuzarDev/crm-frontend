@@ -6,8 +6,9 @@ import { cleanName, codeDigits, formatTnvedCode } from '@/views/references/tnved
 // и изменений ставок, найденных синхронизацией. Без Vue — проверяется отдельно.
 
 export type ChangeKind = 'starts' | 'ends' | 'rate'
-/** Что именно меняется в событии хронологии: ставка ЕТТ, пониженная ставка ВТО, антидемпинговая пошлина. */
-export type ChangeWhat = 'ett' | 'vto' | 'ad'
+/** Что меняется в событии хронологии (поле what сервера): ставка ЕТТ, ВТО, антидемпинговая, компенсационная, специальная пошлина. */
+export type ChangeWhat = 'importDuty' | 'vtoDuty' | 'antiDumping' | 'compensatory' | 'special'
+const KNOWN_WHAT: readonly string[] = ['importDuty', 'vtoDuty', 'antiDumping', 'compensatory', 'special']
 
 export interface ChangeEntry {
   /** Уникален в ленте: «источник:дата:…». */
@@ -18,8 +19,11 @@ export interface ChangeEntry {
   /** До пяти кодов; остальные — moreCodes. */
   codes: string[]
   moreCodes: number
-  /** Хронология: что меняется и подробности (значение ставки, страна) — из структуры и из строки сервера. */
+  /** Хронология: что меняется, значение ставки и страна (ISO alpha-2) — структурные поля сервера. */
   what: ChangeWhat | null
+  value: string | null
+  countryCode: string | null
+  /** Только для старого сервера без структурных полей: подробности, вынутые из строки description. */
   detail: string
   /** Старая строка сервера — запасной текст, когда структуры не хватило. */
   description: string
@@ -35,14 +39,25 @@ export const isoDate = (s: string | null | undefined): string => {
   return m ? m[1] : ''
 }
 
-/** Сегодня по местному времени, «ГГГГ-ММ-ДД». */
-export const todayIso = (now: Date = new Date()): string =>
-  `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+// Дни событий считает сервер по времени Казахстана (UTC+5, как «сегодня» в GetTnvedTimeline): так же считаем день у моментов времени и «сегодня».
+const ALMATY_OFFSET_MS = 5 * 3_600_000
+const almatyDay = (ms: number): string => new Date(ms + ALMATY_OFFSET_MS).toISOString().slice(0, 10)
 
-const WHAT_BY_TYPE: Record<number, ChangeWhat> = { 1: 'ett', 2: 'vto', 3: 'ad' }
+/** День момента времени (detectedAtUtc) по времени Казахстана; строка без пояса — UTC. Мусор — пустая строка. */
+export const localDay = (s: string | null | undefined): string => {
+  if (!s) return ''
+  const ms = Date.parse(/(?:Z|[+-]\d{2}:?\d{2})$/.test(s) || !s.includes('T') ? s : `${s}Z`)
+  return Number.isFinite(ms) ? almatyDay(ms) : ''
+}
+
+/** Сегодня по времени Казахстана, «ГГГГ-ММ-ДД». */
+export const todayIso = (now: Date = new Date()): string => almatyDay(now.getTime())
+
+// Старый сервер без what: тип по typeId (у окончания действия он всегда 4 — тогда «что» только из строки).
+const WHAT_BY_TYPE: Record<number, ChangeWhat> = { 1: 'importDuty', 2: 'vtoDuty', 3: 'antiDumping' }
 
 /**
- * Подробности события из строки сервера («С 15.10.2026: ставка ввозной пошлины ЕТТ 10% — 8 кодов: …»): значение ставки
+ * Запасной вариант для сервера без структурных what/value/countryCode. Подробности события из строки сервера («С 15.10.2026: ставка ввозной пошлины ЕТТ 10% — 8 кодов: …»): значение ставки
  * и страну отдельным полем сервер пока не присылает. Что именно меняется, определяем и по строке — у окончания
  * действия typeId всегда 4, а «что» из него не узнать.
  */
@@ -51,9 +66,9 @@ export function parseDescription(description: string | null | undefined): { what
   if (!m) return { what: null, detail: '' }
   const body = m[1].replace(/^окончание:\s*/i, '')
   const rules: [RegExp, ChangeWhat][] = [
-    [/^ставка ввозной пошлины ЕТТ\s*/i, 'ett'],
-    [/^пониженная ставка ВТО(?:\s*\([^)]*\))?\s*/i, 'vto'],
-    [/^антидемпинговая пошлина\s*/i, 'ad'],
+    [/^ставка ввозной пошлины ЕТТ\s*/i, 'importDuty'],
+    [/^пониженная ставка ВТО(?:\s*\([^)]*\))?\s*/i, 'vtoDuty'],
+    [/^антидемпинговая пошлина\s*/i, 'antiDumping'],
   ]
   for (const [re, what] of rules) if (re.test(body)) return { what, detail: body.replace(re, '').trim() }
   return { what: null, detail: '' }
@@ -63,7 +78,9 @@ export function parseDescription(description: string | null | undefined): { what
 export function timelineEntries(items: TnvedTimelineDto[] | null | undefined): ChangeEntry[] {
   return (items ?? []).map((it, i) => {
     const date = isoDate(it.date || it.showDate)
-    const parsed = parseDescription(it.description)
+    // Структура сервера главнее строки; строку разбираем, только если what не пришёл (старый сервер).
+    const structured = typeof it.what === 'string' && it.what !== ''
+    const parsed = structured ? { what: null, detail: '' } : parseDescription(it.description)
     const kind: ChangeKind = it.kind === 'ends' || it.typeId === 4 ? 'ends' : 'starts'
     const codes = it.codes ?? []
     return {
@@ -72,7 +89,9 @@ export function timelineEntries(items: TnvedTimelineDto[] | null | undefined): C
       date,
       codes,
       moreCodes: Math.max(0, (it.totalCodes ?? codes.length) - codes.length),
-      what: parsed.what ?? WHAT_BY_TYPE[it.typeId] ?? null,
+      what: structured ? (KNOWN_WHAT.includes(it.what!) ? (it.what as ChangeWhat) : null) : (parsed.what ?? WHAT_BY_TYPE[it.typeId] ?? null),
+      value: it.value?.trim() || null,
+      countryCode: it.countryCode?.trim().toUpperCase() || null,
       detail: parsed.detail,
       description: it.description ?? '',
       name: '',
@@ -85,12 +104,14 @@ export function timelineEntries(items: TnvedTimelineDto[] | null | undefined): C
 /** Изменения ставок (tnved/rate-changes): дата — detectedAtUtc, название — name (старый экран читал несуществующие поля). */
 export function rateChangeEntries(items: TnvedRateChangeDto[] | null | undefined): ChangeEntry[] {
   return (items ?? []).map((c, i) => ({
-    key: `rate:${isoDate(c.detectedAtUtc)}:${c.code}:${i}`,
+    key: `rate:${localDay(c.detectedAtUtc)}:${c.code}:${i}`,
     kind: 'rate' as const,
-    date: isoDate(c.detectedAtUtc),
+    date: localDay(c.detectedAtUtc),
     codes: [c.code],
     moreCodes: 0,
     what: null,
+    value: null,
+    countryCode: null,
     detail: '',
     description: '',
     name: cleanName(c.name),
@@ -126,11 +147,22 @@ export const typeTone = (e: ChangeEntry, today: string): ZTone => {
 
 type Translate = (key: string, named?: Record<string, unknown>) => string
 
+/** Название страны по ISO alpha-2 на языке интерфейса; нет данных у браузера — сам код. */
+export function countryName(code: string, locale: string): string {
+  try {
+    return new Intl.DisplayNames([locale], { type: 'region' }).of(code) ?? code
+  } catch {
+    return code
+  }
+}
+
 /** Текст события из структурных полей (переводится); не хватило структуры — старая строка сервера. */
-export function changeText(e: ChangeEntry, t: Translate): string {
+export function changeText(e: ChangeEntry, t: Translate, locale = 'ru'): string {
   if (e.kind === 'rate') return e.name || formatTnvedCode(e.codes[0] ?? '') || '—'
   if (!e.what) return e.description || '—'
   const what = t(`broker.references.changes.what.${e.what}`)
+  const country = e.countryCode ? ` (${countryName(e.countryCode, locale)})` : ''
+  if (e.value || e.countryCode) return `${what}${country}${e.value ? `: ${e.value}` : ''}`
   if (!e.detail) return what
   return `${what}${e.detail.startsWith('(') ? ' ' : ': '}${e.detail}`
 }

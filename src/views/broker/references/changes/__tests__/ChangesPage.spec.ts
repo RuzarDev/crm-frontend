@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { mount } from '@vue/test-utils'
+import { createI18n } from 'vue-i18n'
+import kk from '@/i18n/locales/kk'
+import ru from '@/i18n/locales/ru'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import { useAuthStore } from '@/stores/auth'
 
@@ -11,7 +15,7 @@ vi.mock('@/api/tnved', () => ({ tnvedApi: api }))
 import ChangesPage from '../ChangesPage.vue'
 
 // «Сегодня» фиксируем: лента делит события на будущие и прошедшие по местной дате.
-const NOW = new Date(2026, 9, 9, 12, 0, 0)
+const NOW = new Date('2026-10-09T07:00:00Z') // полдень по времени Казахстана
 
 const TIMELINE = [
   {
@@ -45,7 +49,7 @@ const rows = () => w.findAll('[data-change-row]')
 const rowKinds = () => rows().map((r) => r.attributes('data-kind'))
 
 beforeEach(() => {
-  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
   vi.setSystemTime(NOW)
   router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:p(.*)*', component: { template: '<div/>' } }] })
   api.timeline.mockResolvedValue({ data: TIMELINE })
@@ -69,7 +73,8 @@ describe('ChangesPage — лента', () => {
     expect(rows()[0].get('[data-change-date]').text()).toBe('15.10.2026')
     expect(rows()[0].get('[data-change-text]').text()).toBe('Ставка ввозной пошлины ЕТТ: 5%')
     expect(rows()[0].get('[data-change-more]').text()).toBe('и ещё 3')
-    expect(api.timeline).toHaveBeenCalledWith(300, { silent: true })
+    // Хронология — целиком (limit 0): обрезка по limit отрезала бы ближайшие будущие события.
+    expect(api.timeline).toHaveBeenCalledWith(0, { silent: true })
   })
 
   it('«Будущие» снимается: видны все события, изменение ставки — «было → стало», название и дата правильные', async () => {
@@ -138,6 +143,87 @@ describe('ChangesPage — лента', () => {
   })
 })
 
+describe('ChangesPage — поиск по коду на сервере', () => {
+  const later = async (ms = 450) => { await vi.advanceTimersByTimeAsync(ms); await flushPromises() }
+  const SERVER_HIT = {
+    typeId: 1, kind: 'starts', date: '2026-10-20', showDate: '2026-10-20T00:00:00Z', what: 'importDuty', value: '9%', countryCode: null,
+    codes: ['8517130000', '8517620000'], totalCodes: 40, description: '',
+  }
+
+  it('цифры спрашивают сервер (code=, с паузой), событие с кодом вне первых пяти находится', async () => {
+    await mountAt('/tnved/timeline')
+    api.timeline.mockClear()
+    api.timeline.mockResolvedValue({ data: [SERVER_HIT] })
+    await w.get('[data-changes-search]').setValue('8517 13')
+    expect(api.timeline).not.toHaveBeenCalled()
+    await later()
+    expect(api.timeline).toHaveBeenCalledTimes(1)
+    expect(api.timeline).toHaveBeenCalledWith(0, { silent: true, code: '851713' })
+    expect(rowKinds()).toEqual(['starts'])
+    expect(rows()[0].get('[data-change-text]').text()).toBe('Ставка ввозной пошлины ЕТТ: 9%')
+    expect(rows()[0].get('[data-change-more]').text()).toBe('и ещё 38')
+  })
+
+  it('быстрый набор — один запрос; ответ устаревшего запроса не перебивает новый', async () => {
+    await mountAt('/tnved/timeline')
+    api.timeline.mockClear()
+    let resolveFirst!: (v: unknown) => void
+    api.timeline.mockImplementationOnce(() => new Promise((r) => { resolveFirst = r }))
+    api.timeline.mockResolvedValueOnce({ data: [SERVER_HIT] })
+    await w.get('[data-changes-search]').setValue('85')
+    await w.get('[data-changes-search]').setValue('851')
+    await later()
+    expect(api.timeline).toHaveBeenCalledTimes(1)
+    expect(api.timeline).toHaveBeenLastCalledWith(0, { silent: true, code: '851' })
+    // «851» ещё в пути, пользователь дописал — новый запрос; поздний ответ первого не должен его перебить.
+    await w.get('[data-changes-search]').setValue('8517')
+    await later()
+    expect(api.timeline).toHaveBeenLastCalledWith(0, { silent: true, code: '8517' })
+    resolveFirst({ data: [{ ...SERVER_HIT, date: '2026-12-01', codes: ['8519000000'] }] })
+    await flushPromises()
+    expect(rows().map((r) => r.get('[data-change-date]').text())).toEqual(['20.10.2026'])
+  })
+
+  it('текст ищет на месте, без запроса; одна цифра — тоже', async () => {
+    await mountAt('/tnved/timeline')
+    api.timeline.mockClear()
+    await w.get('[data-changes-search]').setValue('ЕТТ')
+    await w.get('[data-changes-search]').setValue('8')
+    await later()
+    expect(api.timeline).not.toHaveBeenCalled()
+  })
+
+  it('сбой поиска по коду — запасной поиск по первым пяти кодам и «Повторить»', async () => {
+    await mountAt('/tnved/timeline')
+    api.timeline.mockRejectedValueOnce(httpError(500))
+    await w.get('[data-changes-search]').setValue('8516')
+    await later()
+    expect(rowKinds()).toEqual(['starts'])
+    expect(w.get('[data-changes-partial]').text()).toContain('Часть изменений не загрузилась')
+    api.timeline.mockImplementation(async (_limit: number, opts: { code?: string }) => ({ data: opts.code ? [] : TIMELINE }))
+    await w.get('[data-changes-retry]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-changes-partial]').exists()).toBe(false)
+    expect(w.get('[data-changes-nothing]').text()).toContain('Ничего не нашлось')
+  })
+})
+
+describe('ChangesFeed — казахский', () => {
+  it('подписи, текст события и страна по-казахски', async () => {
+    const { default: ChangesFeed } = await import('../ChangesFeed.vue')
+    const { timelineEntries } = await import('../changes')
+    const i18n = createI18n({ legacy: false, locale: 'kk', messages: { ru, kk } })
+    const entries = timelineEntries([
+      { ...TIMELINE[0], what: 'antiDumping', value: '12%', countryCode: 'CN', description: '' } as never,
+    ])
+    const wrapper = mount(ChangesFeed, { props: { entries, today: '2026-10-09' }, global: { plugins: [i18n, router] } })
+    expect(wrapper.get('[data-change-type]').text()).toBe('Күшіне енеді')
+    expect(wrapper.get('[data-change-text]').text()).toMatch(/^Демпингке қарсы баж \(.+\): 12%$/)
+    expect(wrapper.get('[data-change-more]').text()).toBe('тағы 3')
+    wrapper.unmount()
+  })
+})
+
 describe('ChangesPage — статистика', () => {
   it('?view=stats: топ кодов с честной подписью «по записям транзита», коды-ссылки, разделы ВТО раскрываются', async () => {
     await mountAt('/tnved/timeline?view=stats')
@@ -166,6 +252,12 @@ describe('ChangesPage — статистика', () => {
     await flushPromises()
     expect(router.currentRoute.value.query.view).toBeUndefined()
     expect(rowKinds()).toEqual(['starts'])
+    // Возврат на «Статистику» берёт данные из памяти, а не перезапрашивает (лимит 60 запросов в минуту).
+    await stats.trigger('click')
+    await flushPromises()
+    expect(api.topCodes).toHaveBeenCalledTimes(1)
+    expect(api.vtoSections).toHaveBeenCalledTimes(1)
+    expect(api.timeline).toHaveBeenCalledTimes(1)
   })
 
   it('клиенту «Статистики» нет, даже по прямой ссылке; запрос top-codes не уходит', async () => {

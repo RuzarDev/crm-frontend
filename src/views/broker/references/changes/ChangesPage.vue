@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhCheck } from '@phosphor-icons/vue'
@@ -14,7 +14,7 @@ import { tnvedApi } from '@/api/tnved'
 import { useAuthStore } from '@/stores/auth'
 import type { TnvedRateChangeDto, TnvedTimelineDto } from '@/types/api'
 import { useBlock } from '@/views/home/useBlock'
-import { isRateLimited } from '@/views/references/tnvedShared'
+import { codeDigits, isRateLimited } from '@/views/references/tnvedShared'
 import ChangesFeed from './ChangesFeed.vue'
 import ChangesStats from './ChangesStats.vue'
 import {
@@ -31,9 +31,12 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-// Сервер режет хронологию по limit (свежие даты первыми, не больше 500), поэтому просим с запасом.
-const TIMELINE_LIMIT = 300
+// Хронологию просим целиком (limit 0): сервер держит её в кэше, а обрезка по limit отрезала бы ближайшие будущие события.
+// Изменения ставок сервер отдаёт не больше 200.
+const TIMELINE_ALL = 0
 const RATE_CHANGES_LIMIT = 200
+const CODE_DEBOUNCE_MS = 400
+const MIN_CODE_DIGITS = 2
 
 const canStats = computed(() => !auth.isClient && (auth.hasPermission('reestr.read') || auth.hasPermission('references.read')))
 const view = computed<'feed' | 'stats'>(() => (route.query.view === 'stats' && canStats.value ? 'stats' : 'feed'))
@@ -59,7 +62,7 @@ const guard = async <T,>(load: () => Promise<{ data: T[] }>): Promise<T[]> => {
     throw e
   }
 }
-const timeline = useBlock<TnvedTimelineDto[]>(true, () => guard(() => tnvedApi.timeline(TIMELINE_LIMIT, { silent: true })))
+const timeline = useBlock<TnvedTimelineDto[]>(true, () => guard(() => tnvedApi.timeline(TIMELINE_ALL, { silent: true })))
 const rateChanges = useBlock<TnvedRateChangeDto[]>(true, () => guard(() => tnvedApi.rateChanges(RATE_CHANGES_LIMIT, { silent: true })))
 let feedRequested = false
 const loadFeed = () => {
@@ -75,13 +78,60 @@ const ensureFeed = () => {
 // Статистика не тянет ленту (лимит 60 запросов в минуту): лента грузится при первом показе.
 watch(view, (v) => { if (v === 'feed') ensureFeed() }, { immediate: true })
 
-const today = todayIso()
-const entries = computed(() => mergeChanges(timelineEntries(timeline.data), rateChangeEntries(rateChanges.data)))
-const loading = computed(() => timeline.loading || rateChanges.loading)
-const failed = computed(() => timeline.error || rateChanges.error)
-
 // ---- Фильтры ----
 const filters = reactive<ChangeFilters>({ future: true, type: null, period: null, q: '' })
+
+// ---- Поиск по коду: событие отдаёт только пять кодов, поэтому цифры спрашиваем у сервера (tnved/timeline?code=) ----
+// Запрос с паузой; ответ устаревшего запроса отбрасывается (codeSeq). Текст ищем на месте, по названию и строке.
+const isNumericQuery = (q: string) => /^[\d\s.-]+$/.test(q.trim())
+const wantedPrefix = computed(() => {
+  const q = filters.q
+  const d = isNumericQuery(q) ? codeDigits(q) : ''
+  return d.length >= MIN_CODE_DIGITS ? d : ''
+})
+const codeResult = shallowRef<{ prefix: string; items: TnvedTimelineDto[] } | null>(null)
+const codeFailedFor = ref('')
+let codeSeq = 0
+let codeTimer: ReturnType<typeof setTimeout> | undefined
+const runCodeSearch = async (prefix: string) => {
+  const my = ++codeSeq
+  codeFailedFor.value = ''
+  try {
+    const { data } = await tnvedApi.timeline(TIMELINE_ALL, { silent: true, code: prefix })
+    if (my !== codeSeq) return
+    codeResult.value = { prefix, items: Array.isArray(data) ? data : [] }
+  } catch (e) {
+    if (my !== codeSeq) return
+    if (isRateLimited(e)) limited.value = true
+    codeFailedFor.value = prefix
+  }
+}
+watch(wantedPrefix, (prefix) => {
+  clearTimeout(codeTimer)
+  codeSeq += 1
+  codeFailedFor.value = ''
+  if (!prefix) { codeResult.value = null; return }
+  codeTimer = setTimeout(() => { void runCodeSearch(prefix) }, CODE_DEBOUNCE_MS)
+})
+onBeforeUnmount(() => { clearTimeout(codeTimer); codeSeq += 1 })
+// Ответ по текущему коду — вместо общей хронологии; пока он в пути или не удался — общая (по первым пяти кодам).
+const codeReady = computed(() => !!wantedPrefix.value && codeResult.value?.prefix === wantedPrefix.value)
+const codePending = computed(() => !!wantedPrefix.value && !codeReady.value && codeFailedFor.value !== wantedPrefix.value)
+const codeFailed = computed(() => !!wantedPrefix.value && codeFailedFor.value === wantedPrefix.value)
+
+const today = todayIso()
+const entries = computed(() => mergeChanges(
+  timelineEntries(codeReady.value ? codeResult.value!.items : timeline.data),
+  rateChangeEntries(rateChanges.data),
+))
+// Есть ли вообще данные (без поиска по коду): ответ «по коду» бывает пустым, а лента — нет.
+const hasAny = computed(() => !!timeline.data?.length || !!rateChanges.data?.length)
+const loading = computed(() => timeline.loading || rateChanges.loading)
+const failed = computed(() => timeline.error || rateChanges.error || codeFailed.value)
+const retry = () => {
+  loadFeed()
+  if (wantedPrefix.value) void runCodeSearch(wantedPrefix.value)
+}
 const tr = (key: string, named?: Record<string, unknown>) => t(key, named ?? {})
 const shown = computed(() => filterChanges(entries.value, filters, today, tr))
 const anyOtherFilter = computed(() => !!(filters.type || filters.period || filters.q.trim()))
@@ -150,25 +200,31 @@ const onPeriod = (v: string | null) => { filters.period = v as ChangePeriod | nu
       </template>
     </div>
 
-    <ChangesStats v-if="view === 'stats'" />
+    <!-- KeepAlive: возврат на «Статистику» не перезапрашивает топ кодов и разделы ВТО (лимит 60 запросов в минуту). -->
+    <KeepAlive>
+      <ChangesStats v-if="view === 'stats'" />
+    </KeepAlive>
 
-    <section v-else :aria-busy="loading || undefined" :aria-label="t('broker.references.changes.listLabel')">
-      <div v-if="failed && !entries.length && !loading" role="alert" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-changes-error>
+    <section v-if="view === 'feed'" :aria-busy="loading || undefined" :aria-label="t('broker.references.changes.listLabel')">
+      <div v-if="failed && !hasAny && !loading" role="alert" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-changes-error>
         <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ limited ? t('broker.references.changes.limit') : t('broker.references.changes.loadError') }}</p>
-        <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-changes-retry @click="loadFeed">{{ t('broker.references.changes.retry') }}</ZButton>
+        <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-changes-retry @click="retry">{{ t('broker.references.changes.retry') }}</ZButton>
       </div>
-      <div v-else-if="loading && !entries.length" class="rounded-panel border border-line bg-surface px-5 py-5" data-changes-loading>
+      <div v-else-if="loading && !hasAny" class="rounded-panel border border-line bg-surface px-5 py-5" data-changes-loading>
         <ZSkeleton :lines="4" height="22px" />
       </div>
-      <div v-else-if="!entries.length" class="rounded-panel border border-dashed border-line-strong" data-changes-empty>
+      <div v-else-if="!hasAny" class="rounded-panel border border-dashed border-line-strong" data-changes-empty>
         <ZEmpty :title="t('broker.references.changes.empty')" :hint="t('broker.references.changes.emptyHint')" />
       </div>
       <template v-else>
         <div v-if="failed" role="alert" class="mb-3 flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-4 py-3" data-changes-partial>
           <p class="m-0 min-w-0 flex-1 text-sm text-ink-2">{{ limited ? t('broker.references.changes.limit') : t('broker.references.changes.partialError') }}</p>
-          <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-changes-retry @click="loadFeed">{{ t('broker.references.changes.retry') }}</ZButton>
+          <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-changes-retry @click="retry">{{ t('broker.references.changes.retry') }}</ZButton>
         </div>
-        <div v-if="!shown.length" class="rounded-panel border border-dashed border-line-strong" data-changes-nothing>
+        <div v-if="!shown.length && codePending" class="rounded-panel border border-line bg-surface px-5 py-5" data-changes-searching>
+          <ZSkeleton :lines="2" height="22px" />
+        </div>
+        <div v-else-if="!shown.length" class="rounded-panel border border-dashed border-line-strong" data-changes-nothing>
           <ZEmpty
             v-if="filters.future && !anyOtherFilter"
             :title="t('broker.references.changes.nothingFuture')"

@@ -871,6 +871,12 @@ export interface TnvedTimelineDto {
   codes: string[]
   totalCodes: number
   kind: 'starts' | 'ends'
+  /** importDuty | vtoDuty | antiDumping | compensatory | special | other; у старого сервера поля нет. */
+  what?: string
+  /** Ставка, как её отдаёт сервер («37%», «2 EUR за 1000 ШТ»). */
+  value?: string | null
+  /** ISO alpha-2 страны, если правило страновое и страна найдена однозначно. */
+  countryCode?: string | null
 }
 
 export interface TnvedExplanationDto {

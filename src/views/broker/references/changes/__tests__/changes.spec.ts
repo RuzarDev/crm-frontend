@@ -2,14 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { createI18n } from 'vue-i18n'
 import ru from '@/i18n/locales/ru'
 import en from '@/i18n/locales/en'
+import kk from '@/i18n/locales/kk'
 import type { TnvedTimelineDto } from '@/types/api'
 import {
-  changeText, filterChanges, isoDate, mergeChanges, parseDescription, rateChangeEntries, timelineEntries, typeKey, typeTone,
+  changeText, filterChanges, isoDate, localDay, mergeChanges, parseDescription, rateChangeEntries, timelineEntries, typeKey, typeTone,
   type ChangeFilters,
 } from '../changes'
 
-const i18n = createI18n({ legacy: false, locale: 'ru', messages: { ru, en } })
+const i18n = createI18n({ legacy: false, locale: 'ru', messages: { ru, en, kk } })
 const tRu = (k: string, n?: Record<string, unknown>) => i18n.global.t(k, n ?? {}) as string
+const tKk = (k: string, n?: Record<string, unknown>) => i18n.global.t(k, n ?? {}, { locale: 'kk' }) as string
 const tEn = (k: string, n?: Record<string, unknown>) => i18n.global.t(k, n ?? {}, { locale: 'en' }) as string
 
 const TODAY = '2026-10-09'
@@ -48,10 +50,10 @@ describe('rateChangeEntries — изменения ставок', () => {
   })
 })
 
-describe('timelineEntries и текст ленты', () => {
-  it('структурные поля: тип, дата, коды, сколько кодов не показано', () => {
+describe('timelineEntries и текст ленты (старый сервер: без what/value/countryCode — разбор строки)', () => {
+  it('поля: тип, дата, коды, сколько кодов не показано', () => {
     const [e] = timelineEntries([tl({})])
-    expect(e).toMatchObject({ kind: 'starts', date: '2026-10-15', what: 'ett', detail: '5%', moreCodes: 3 })
+    expect(e).toMatchObject({ kind: 'starts', date: '2026-10-15', what: 'importDuty', detail: '5%', moreCodes: 3 })
     expect(e.codes).toEqual(['8516601010', '8516601090'])
   })
 
@@ -59,6 +61,7 @@ describe('timelineEntries и текст ленты', () => {
     const [e] = timelineEntries([tl({})])
     expect(changeText(e, tRu)).toBe('Ставка ввозной пошлины ЕТТ: 5%')
     expect(changeText(e, tEn)).toBe('EAEU import duty rate: 5%')
+    expect(changeText(e, tKk)).toBe('ЕКТ импорттық баж мөлшерлемесі: 5%')
   })
 
   it('окончание действия: typeId=4, но что именно заканчивается видно из строки; страна антидемпинга — в скобках', () => {
@@ -88,6 +91,51 @@ describe('timelineEntries и текст ленты', () => {
     expect(typeKey(ends, TODAY)).toBe('ended')
     expect(typeTone(future, TODAY)).toBe('wait')
     expect(typeTone(past, TODAY)).toBe('done')
+  })
+})
+
+describe('структурные поля сервера (what / value / countryCode)', () => {
+  it('текст из структуры, строка description не разбирается и не показывается', () => {
+    const [e] = timelineEntries([tl({ what: 'importDuty', value: '5%', countryCode: null, description: 'любая строка' })])
+    expect(e).toMatchObject({ what: 'importDuty', value: '5%', countryCode: null, detail: '' })
+    expect(changeText(e, tRu)).toBe('Ставка ввозной пошлины ЕТТ: 5%')
+    expect(changeText(e, tKk)).toBe('ЕКТ импорттық баж мөлшерлемесі: 5%')
+  })
+
+  it('окончание: «что» берётся из what (typeId=4 ничего не говорит); страна — по-русски, по-казахски и по-английски', () => {
+    const [ends] = timelineEntries([tl({ typeId: 4, kind: 'ends', what: 'antiDumping', value: '12%', countryCode: 'CN', description: '' })])
+    expect(ends.kind).toBe('ends')
+    expect(changeText(ends, tRu, 'ru')).toBe('Антидемпинговая пошлина (Китай): 12%')
+    expect(changeText(ends, tEn, 'en')).toBe('Anti-dumping duty (China): 12%')
+    expect(changeText(ends, tKk, 'kk')).toMatch(/^Демпингке қарсы баж \(.+\): 12%$/)
+  })
+
+  it('компенсационная и специальная пошлины переведены; what=other — строка сервера', () => {
+    const [comp, special, other] = timelineEntries([
+      tl({ what: 'compensatory', value: '3%' }), tl({ what: 'special', value: '1 EUR за 1 КГ' }), tl({ what: 'other', description: 'С 15.10.2026: что-то' }),
+    ])
+    expect(changeText(comp, tRu)).toBe('Компенсационная пошлина: 3%')
+    expect(changeText(special, tEn)).toBe('Special duty: 1 EUR за 1 КГ')
+    expect(changeText(other, tRu)).toBe('С 15.10.2026: что-то')
+  })
+
+  it('what без значения — только название', () => {
+    const [e] = timelineEntries([tl({ what: 'vtoDuty', value: null })])
+    expect(changeText(e, tEn)).toBe('Reduced WTO rate')
+  })
+})
+
+describe('даты по времени Казахстана', () => {
+  it('момент времени — день по UTC+5: вечер по UTC уже следующий день; без пояса считается UTC', () => {
+    expect(localDay('2026-10-09T20:00:00Z')).toBe('2026-10-10')
+    expect(localDay('2026-10-09T03:15:00Z')).toBe('2026-10-09')
+    expect(localDay('2026-10-09T20:00:00')).toBe('2026-10-10')
+    expect(localDay('вчера')).toBe('')
+    expect(localDay(null)).toBe('')
+  })
+  it('изменение ставки, найденное в 20:00 UTC, попадает на день Казахстана', () => {
+    const [e] = rateChangeEntries([{ code: '1', oldRateStr: null, newRateStr: '5%', detectedAtUtc: '2026-10-09T20:00:00Z', name: null }])
+    expect(e.date).toBe('2026-10-10')
   })
 })
 
