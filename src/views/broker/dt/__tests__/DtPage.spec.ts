@@ -41,9 +41,26 @@ const sectionStub = (name: string, inner = '', emits: string[] = []) => defineCo
   emits: ['update:modelValue', ...emits],
   template: `<div data-stub="${name}" :data-readonly="String(readonly)" :data-reload-key="reloadKey">${inner}</div>`,
 })
-// Товары: две страны происхождения (гр. 16 → «000») и «Рассчитать ТПиН».
-const goodsInner = `<button data-goods-mixed type="button" @click="$emit('update:modelValue', modelValue.map((g, i) => ({ ...g, countryOfOrigin: i ? 'DE' : 'CN' })).concat(modelValue.length < 2 ? [{ ...modelValue[0], countryOfOrigin: 'DE' }] : []))" />
-  <button data-emit="calc-tpin" type="button" @click="$emit('calc-tpin')" />`
+// Товары: две страны происхождения (гр. 16 → «000»), «Рассчитать» и «ТПиН по данным экрана». Раздел правит товары
+// через модель страницы (useDtGoods) на месте — как настоящий SectionGoods.
+const goodsStub = defineComponent({
+  name: 'SectionGoods',
+  props: ['model', 'readonly', 'currency', 'dtNumber', 'countryOptions', 'paymentsLoading'],
+  emits: ['calc-tpin', 'calc-payments'],
+  setup(props) {
+    const mixed = () => {
+      const items = props.model.items.value as { countryOfOrigin: string | null }[]
+      items.forEach((g, i) => { g.countryOfOrigin = i ? 'DE' : 'CN' })
+      if (items.length < 2) props.model.append([{ ...items[0], countryOfOrigin: 'DE' }])
+    }
+    return { mixed }
+  },
+  template: `<div data-stub="SectionGoods" :data-readonly="String(readonly)">
+    <button data-goods-mixed type="button" @click="mixed" />
+    <button data-emit="calc-tpin" type="button" @click="$emit('calc-tpin')" />
+    <button data-emit="calc-payments" type="button" @click="$emit('calc-payments')" />
+  </div>`,
+})
 const stubs = {
   DtLegacyForm: { props: ['disabled'], template: '<div data-legacy-form :data-disabled="String(disabled)"><slot /></div>' },
   SectionNumber: sectionStub('SectionNumber'),
@@ -55,7 +72,7 @@ const stubs = {
   SectionFinance: sectionStub('SectionFinance', `<button data-emit="calc-customs-value" type="button" @click="$emit('calc-customs-value')" />
     <button data-set-currency type="button" @click="form.currency = 'EUR'" />`, ['calc-customs-value']),
   SectionCustoms: sectionStub('SectionCustoms'),
-  DtSectionGoods: sectionStub('DtSectionGoods', goodsInner, ['calc-tpin']),
+  SectionGoods: goodsStub,
   SectionDocs: sectionStub('SectionDocs'),
   DtSectionDts: sectionStub('DtSectionDts', `<button data-dts-save type="button" @click="save()" />`),
   SectionClosing: sectionStub('SectionClosing'),
@@ -188,7 +205,7 @@ describe('DtPage: разделы и ?s=', () => {
     await navItem('goods').trigger('click')
     await settle()
     expect(router.currentRoute.value.query.s).toBe('goods')
-    expect(stub()).toBe('DtSectionGoods')
+    expect(stub()).toBe('SectionGoods')
     // Первый раздел — без ?s=.
     await navItem('number').trigger('click')
     await settle()
@@ -238,6 +255,27 @@ describe('DtPage: готовность', () => {
     const field = w.get('[data-graph="8"]')
     expect(field.attributes('data-dt-flash')).toBeDefined()
     expect(document.activeElement).toBe(w.get('[data-recv]').element)
+  })
+
+  it('пункт «До подачи» про товар — раздел «Товары» и этот товар открыт (?item=N)', async () => {
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside]').get('[data-section="goods"]').trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toMatchObject({ s: 'goods', item: '1' })
+    expect(document.querySelector('[data-dt-goods-editor][data-state="open"]')?.textContent).toContain('Товар 1 из 1')
+    expect(document.querySelector('[data-dt-goods-editor] [data-goods-index="0"]')).not.toBeNull()
+  })
+
+  it('товар открыт — переход в другой раздел убирает ?item', async () => {
+    await open('?s=goods&item=1', ['SectionGoods'])
+    expect(router.currentRoute.value.query.item).toBe('1')
+    // Alt+↓ при открытом товаре — не смена раздела (панель товара — окно; соседний товар — Task 3)
+    key({ key: 'ArrowDown', altKey: true })
+    await settle()
+    expect(router.currentRoute.value.query).toEqual({ s: 'goods', item: '1' })
+    await navItem('docs').trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toEqual({ s: 'docs' })
   })
 
   it('уже 1280 — «До подачи» из шапки открывает выезжающую панель', async () => {
@@ -709,6 +747,14 @@ describe('DtPage: события прежних разделов', () => {
     expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('ТПиН рассчитан для 1 тов.'))
   })
 
+  it('«Рассчитать» в итогах товаров — сохранить и окно расчёта платежей', async () => {
+    api.calculatePayments.mockResolvedValue({ goodsRows: [], totalsByTaxMode: {} })
+    await open('?s=goods')
+    await emit('calc-payments')
+    expect(api.calculatePayments).toHaveBeenCalledTimes(1)
+    expect(w.find('[data-payments-modal]').exists()).toBe(true)
+  })
+
   it('авто гр. 16: разные страны происхождения у товаров — «000»', async () => {
     await open('?s=goods')
     await w.get('[data-goods-mixed]').trigger('click')
@@ -767,7 +813,7 @@ describe('DtPage: правила товаров без открытия «Тов
     await settle()
     expect(api.downloadKedenXml).toHaveBeenCalled()
     expect(lastPutGoods()[0].currency).toBe('EUR')
-    expect(w.find('[data-stub="DtSectionGoods"]').exists()).toBe(false)
+    expect(w.find('[data-stub="SectionGoods"]').exists()).toBe(false)
   })
 
   it('загрузка: товары в другой валюте молча приводятся к гр. 22 (без пометки «изменено» и без «Пересчитать»)', async () => {

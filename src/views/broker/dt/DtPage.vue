@@ -7,7 +7,6 @@ import ZDrawer from '@/components/z/ZDrawer.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import DtLegacyForm from '@/components/import40/dt/DtLegacyForm.vue'
-import DtSectionGoods from '@/components/import40/dt/DtSectionGoods.vue'
 import DtSectionDts from '@/components/import40/dt/DtSectionDts.vue'
 import DtPaymentsCalcModal from '@/components/import40/dt/DtPaymentsCalcModal.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
@@ -36,6 +35,8 @@ import SectionGeneral from './sections/SectionGeneral.vue'
 import SectionNumber from './sections/SectionNumber.vue'
 import SectionParties from './sections/SectionParties.vue'
 import SectionTransport from './sections/SectionTransport.vue'
+import SectionGoods from './goods/SectionGoods.vue'
+import { useDtGoods } from './goods/useDtGoods'
 import { DT_CLASSIFIERS } from './dtClassifiers'
 import { fillStatUsd, lockGoodsCurrency } from './dtGoodsRules'
 import { syncLoadedParties } from './dtParties'
@@ -51,8 +52,8 @@ import { useDtReadiness, type DtReadinessItem } from './useDtReadiness'
 // Страница ДТ Импорт 40 (редизайн, волна 6а, Task 3; доски DtGeneral, DtReadonly): закреплённая шапка, слева
 // разделы с графами и отметками готовности сервера, справа «До подачи» (< 1280 — выезжающая из шапки), плашки
 // просмотра и разделения. Активный раздел — в адресе (?s=), разделы монтируются лениво (v-if + KeepAlive).
-// Разделы шапки (номер … завершение) — свои, на Z-ките (sections/); прежними остаются «Товары», ДТС и окно расчёта
-// платежей (волны 6б/6в). Логика — в composables: форма и сохранение (useDtForm), курсы (useDtRates), готовность
+// Разделы шапки (номер … завершение) — свои, на Z-ките (sections/); «Товары» — goods/ (волна 6б); прежними остаются
+// ДТС и окно расчёта платежей (волна 6в). Логика — в composables: форма и сохранение (useDtForm), курсы (useDtRates), готовность
 // (useDtReadiness), расчёты (useDtPayments).
 const { t } = useI18n()
 const route = useRoute()
@@ -151,12 +152,10 @@ watch(goodsOriginKey, (key) => {
 // без них XML, печать, расчёты и PUT из шапки шли бы со старой валютой и пустой гр. 46.
 // Валюта товаров = гр. 22, когда она задана (Пакет 6 №4): при загрузке — в onLoaded, дальше — на любую смену гр. 22
 // или валюты товара (добавление, Excel).
-// Правила правят товары на месте (ключи товаров не меняются); новый массив с теми же объектами — только для
-// прежнего раздела товаров (держит строки-копии и пересобирает их по смене массива) до его замены в волне 6б.
-const touchGoods = () => { form.goodsItems = [...form.goodsItems] }
+// Правила правят товары на месте: массив и объекты товаров те же — ключи товаров (keyOf) и открытый товар не теряются.
 // Загрузка (onLoaded) — молча; смена гр. 22 и новые товары после загрузки — правка: изменённым товарам «Пересчитать».
 function syncGoodsCurrency(markStale = false) {
-  if (lockGoodsCurrency(form.goodsItems, form.currency, { markStale })) touchGoods()
+  lockGoodsCurrency(form.goodsItems, form.currency, { markStale })
 }
 watch(
   () => `${form.currency ?? ''}#${form.goodsItems.map((g) => g.currency ?? '').join('|')}`,
@@ -168,11 +167,18 @@ watch(
   () => `${rates.usdRate.value ?? ''}|${form.goodsItems.map((g) => g.customsValueKzt ?? '').join(',')}`,
   () => {
     if (!dt.editable.value) return
-    if (fillStatUsd(form.goodsItems, rates.usdRate.value)) touchGoods()
+    fillStatUsd(form.goodsItems, rates.usdRate.value)
   },
 )
 
 const payments = useDtPayments(form, caseId, dtId, { save: () => dt.save() })
+
+// Товары (волна 6б): одна модель на страницу — список и редактор правят form.goodsItems на месте. Статусы — по
+// серверной готовности (пока её нет — местная проверка).
+const goods = useDtGoods(form, {
+  readiness: () => (readiness.loaded.value ? readiness.items.value : null),
+  canEdit: () => dt.editable.value,
+})
 
 // ---- Режимы ----
 const editable = computed(() => dt.editable.value)
@@ -191,7 +197,8 @@ let pendingSection: DtSectionKey | null = null
 const setSection = async (key: DtSectionKey) => {
   if (route.name !== DT_ROUTE || key === (pendingSection ?? active.value)) return
   pendingSection = key
-  const { s: _drop, ...rest } = route.query
+  // Открытый товар (?item=) живёт только в разделе «Товары».
+  const { s: _drop, item: _item, ...rest } = route.query
   try {
     await router.replace({ query: key === sectionKeys.value[0] ? rest : { ...rest, s: key } })
   } finally {
@@ -217,16 +224,33 @@ const flash = (el: HTMLElement) => {
   el.setAttribute('data-dt-flash', '')
   setTimeout(() => el.removeAttribute('data-dt-flash'), FLASH_MS)
 }
+// Пункт про товар («Товар 3: …») открывает сам товар (?s=goods&item=N) — поле ищем в его панели.
+const openGoodsItem = async (index: number) => {
+  if (route.name !== DT_ROUTE) return
+  const { s: _s, item: _i, ...rest } = route.query
+  pendingSection = 'goods'
+  try {
+    await router.replace({ query: { ...rest, s: 'goods', item: String(index + 1) } })
+  } finally {
+    if (pendingSection === 'goods') pendingSection = null
+  }
+}
 const goTo = async (item: DtReadinessItem) => {
   panelOpen.value = false
-  await setSection(item.section)
+  const gi = item.goodsIndex
+  const goodsAt = item.section === 'goods' && gi != null && gi >= 0 && gi < form.goodsItems.length ? gi : null
+  if (goodsAt != null) await openGoodsItem(goodsAt)
+  else await setSection(item.section)
   await nextTick()
   const host = sectionsHost.value
   if (!host) return
-  // Поле ищем по data-graph (у товара — внутри его блока data-goods-index); не нашли — к началу раздела.
+  // Поле ищем по data-graph (у товара — внутри его блока data-goods-index: в панели товара, иначе в разделе);
+  // не нашли — к началу раздела (товар при этом уже открыт).
   const graph = item.graph?.replace(/["\\]/g, '')
-  const scope = (item.goodsIndex != null ? host.querySelector<HTMLElement>(`[data-goods-index="${item.goodsIndex}"]`) : null) ?? host
+  const editor = goodsAt != null ? document.querySelector<HTMLElement>(`[data-dt-goods-editor] [data-goods-index="${goodsAt}"]`) : null
+  const scope = editor ?? (gi != null ? host.querySelector<HTMLElement>(`[data-goods-index="${gi}"]`) : null) ?? host
   const field = graph ? scope.querySelector<HTMLElement>(`[data-graph="${graph}"]`) : null
+  if (!field && editor) return
   const target = field ?? host
   target.scrollIntoView({ block: field ? 'center' : 'start', behavior: reducedMotion() ? 'auto' : 'smooth' })
   if (field) {
@@ -586,15 +610,15 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
                   :readonly="!editable"
                   :post-options="customsPostOptions"
                 />
-                <DtSectionGoods
+                <SectionGoods
                   v-else-if="active === 'goods'"
-                  v-model="form.goodsItems"
+                  :model="goods"
+                  :currency="form.currency || null"
+                  :dt-number="form.declarationNumber || null"
                   :readonly="!editable"
-                  :container-indicator="!!form.containerIndicator"
-                  :usd-rate="rates.usdRate.value"
-                  :deal-currency="form.currency"
-                  :direction="form.declarationTypeCode"
-                  :decl-procedure="form.procedureCode"
+                  :country-options="countryOptions"
+                  :payments-loading="payments.loading.value"
+                  @calc-payments="payments.openModal()"
                   @calc-tpin="payments.calcTpin()"
                 />
                 <SectionDocs

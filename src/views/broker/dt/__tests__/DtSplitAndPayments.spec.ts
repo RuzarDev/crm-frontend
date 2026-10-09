@@ -126,6 +126,18 @@ describe('useDtPayments (перенос из прежнего экрана)', ()
     expect([a, b, c].map((g) => g.needsTpinRecalc)).toEqual([false, true, true])
   })
 
+  it('строки гр. 47 пишутся в те же товары и тот же массив (ключ товара и открытый товар не теряются, волна 6б)', () => {
+    const form = reactive(emptyDtForm()) as DtFormState
+    form.goodsItems = [goods(), goods()] as never
+    const list = form.goodsItems
+    const [a, b] = list
+    applyGoodsPaymentRows(form, calc([{ index: 1, rows: [{ taxModeCode: '1010', amount: 5 }] } as never]))
+    expect(form.goodsItems).toBe(list)
+    expect(form.goodsItems[0]).toBe(a)
+    expect(form.goodsItems[1]).toBe(b)
+    expect(b.payments?.[0]).toMatchObject({ taxModeCode: '1010', amountKzt: 5 })
+  })
+
   it('«Рассчитать там. стоимость»: гр. 45 изменилась — платежи товара «Пересчитать»; не изменилась — нет', async () => {
     const form = reactive(emptyDtForm()) as DtFormState
     form.goodsItems = [
