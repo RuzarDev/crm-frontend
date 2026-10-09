@@ -28,9 +28,13 @@ const emit = defineEmits<{ select: [id: string]; retry: []; reset: []; add: [] }
 const { t } = useI18n()
 const { roleLabel } = useTeamRoleLabels()
 
+// До 640px строка — компактная: аватар · имя над логином, роли чипами под именем, без подписей полей («Сотрудник», «Роли»).
+// Это классы колонок и таблицы поверх карточного режима ZTable (как у списка справочника): подписи скрыты, значения слева.
+const MOBILE_CELL = 'max-sm:[&>[data-z-value]]:ml-0 max-sm:[&>[data-z-value]]:text-left'
 const columns = computed<ZColumn<TeamMemberDto>[]>(() => [
-  { key: 'member', title: t('broker.settings.team.col.member'), minWidth: 260 },
-  { key: 'roles', title: t('broker.settings.team.col.roles'), minWidth: 260 },
+  { key: 'member', title: t('broker.settings.team.col.member'), minWidth: 260, className: `${MOBILE_CELL} max-sm:pb-0` },
+  // Чипы под именем: отступ = аватар (32px) + зазор (10px).
+  { key: 'roles', title: t('broker.settings.team.col.roles'), minWidth: 260, className: `${MOBILE_CELL} max-sm:pt-0.5 max-sm:pl-[42px]` },
   { key: 'clients', title: t('broker.settings.team.col.clients'), width: 110, align: 'right', className: 'max-sm:hidden' },
   { key: 'since', title: t('broker.settings.team.col.since'), width: 130, align: 'right', className: 'max-sm:hidden' },
 ])
@@ -63,7 +67,7 @@ const emptyTitle = computed(() => (props.filtered ? t('broker.settings.team.noth
     :pagination="{ pageSize: 25 }"
     :scroll="{ x: 640 }"
     :aria-label="t('broker.settings.team.tableStaff')"
-    class="overflow-hidden rounded-panel border border-line bg-surface max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent"
+    class="overflow-hidden rounded-panel border border-line bg-surface max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent max-sm:[&_[data-z-label]]:hidden"
     data-team-table="staff"
   >
     <template #bodyCell="{ column, record }">
@@ -77,7 +81,7 @@ const emptyTitle = computed(() => (props.filtered ? t('broker.settings.team.noth
         @click="emit('select', record.id)"
       >
         <ZAvatar :name="memberName(record)" class="size-8" />
-        <span class="flex min-w-0 flex-wrap items-baseline gap-x-2">
+        <span class="flex min-w-0 flex-wrap items-baseline gap-x-2 max-sm:flex-col max-sm:items-start max-sm:gap-x-0">
           <span class="truncate text-sm font-semibold text-ink" data-member-name>{{ memberName(record) }}</span>
           <span class="truncate font-mono text-xs text-muted" data-member-login>{{ record.username }}</span>
         </span>
