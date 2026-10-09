@@ -273,7 +273,7 @@ onMounted(async () => {
 const resetForm = () => syncForm()
 
 const handleSave = async () => {
-  await store.update(buildCompanyFormPayload(form))
+  await store.update(buildCompanyFormPayload(form, showCompanyInline.value))
 }
 </script>
 
