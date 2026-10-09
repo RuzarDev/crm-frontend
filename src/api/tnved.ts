@@ -107,11 +107,13 @@ export const tnvedApi = {
     apiClient.get<TnvedTransitionDto>(`/tnved/transition/${encodeURIComponent(code)}`, quiet(opts)),
 
   // ── Sync (admin) ────────────────────────────────────────────────────────────
-  syncHistory: () =>
-    apiClient.get<TnvedSyncLogDto[]>('/tnved/sync/history'),
+  syncHistory: (opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedSyncLogDto[]>('/tnved/sync/history', quiet(opts)),
 
+  // Сервер выполняет синхронизацию в самом запросе (курсы НБ РК + ставки КЕДЕН) и отвечает по её окончании:
+  // обычного таймаута 30 с не хватает — запрос обрывался раньше, чем заканчивалась синхронизация.
   syncTrigger: () =>
-    apiClient.post('/tnved/sync'),
+    apiClient.post('/tnved/sync', null, { timeout: 300000 }),
 
   // Ставка по стране (ЗСТ), виды акциза и антидемпинг из КЕДЕН по коду и стране происхождения (ОКСМ).
   tariffOptions: (code: string, country?: string | null, onDate?: string | null) =>

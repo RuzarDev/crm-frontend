@@ -99,14 +99,17 @@ export function buildBrokerNav(a: NavAccess): NavModel {
         ] }),
       ]),
       group('knowledge', 'shell.group.knowledge', [
+        // Шесть вкладок по доскам волны 5а. «Аналитика ТН ВЭД» — вид «Статистика» в «Изменениях» (/tnved/analytics
+        // перенаправляет). «Данные системы»: администратору — /references, сотруднику с tnved.manage — только
+        // синхронизация ТН ВЭД (/tnved/sync; раньше пункт «Настроек»), видимость та же, что была у каждого пункта.
         section({ key: 'references', labelKey: 'shell.nav.references', icon: 'references', pages: [
           page('tnvedTree', '/tnved/tree', 'shell.page.tnvedTree', tnved),
-          page('npa', '/tnved/regulations', 'shell.page.npa', tnved),
           page('currencies', '/tnved/currencies', 'shell.page.currencies', tnved),
+          page('npa', '/tnved/regulations', 'shell.page.npa', tnved),
           page('timeline', '/tnved/timeline', 'shell.page.timeline', tnved),
-          page('tnvedAnalytics', '/tnved/analytics', 'shell.page.tnvedAnalytics', tnved),
           page('dtGuide', '/dt-guide', 'shell.page.dtGuide', !fo && (admin || p('import40.declarant'))),
-          page('referenceBook', '/references', 'shell.page.referenceBook', admin),
+          page('systemData', admin ? '/references' : '/tnved/sync', 'shell.page.systemData', admin || (tnved && p('tnved.manage')),
+            ['/references', '/tnved/sync']),
         ] }),
       ]),
     ],
@@ -117,7 +120,6 @@ export function buildBrokerNav(a: NavAccess): NavModel {
         page('organization', '/settings/organization', 'shell.page.organization', p('users.write')),
         page('audit', '/system/audit', 'shell.page.audit', admin),
         page('apiCatalog', '/system/endpoints', 'shell.page.apiCatalog', p('endpoints.read')),
-        page('tnvedSync', '/tnved/sync', 'shell.page.tnvedSync', tnved && p('tnved.manage')),
       ] }),
     ],
   )

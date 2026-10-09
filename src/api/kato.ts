@@ -26,8 +26,8 @@ export interface KatoSyncResult {
 }
 
 export const katoApi = {
-  search: async (q: string, limit = 30): Promise<KatoDto[]> =>
-    (await apiClient.get('/ref/kato', { params: { q, limit } })).data,
+  search: async (q: string, limit = 30, opts?: { silent?: boolean }): Promise<KatoDto[]> =>
+    (await apiClient.get('/ref/kato', { params: { q, limit }, ...(opts?.silent ? { silent: true } : {}) })).data,
   get: async (code: string): Promise<KatoDto | null> => {
     try {
       return (await apiClient.get(`/ref/kato/${encodeURIComponent(code)}`)).data
@@ -35,7 +35,8 @@ export const katoApi = {
       return null
     }
   },
-  status: async (): Promise<KatoStatus> => (await apiClient.get('/ref/kato/status')).data,
+  status: async (opts?: { silent?: boolean }): Promise<KatoStatus> =>
+    (await apiClient.get('/ref/kato/status', opts?.silent ? { silent: true } : undefined)).data,
   sync: async (): Promise<KatoSyncResult> => (await apiClient.post('/ref/kato/sync')).data,
   import: async (file: File): Promise<KatoSyncResult> => {
     const fd = new FormData()

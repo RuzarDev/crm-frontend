@@ -275,9 +275,10 @@ const router = createRouter({
           redirect: { path: '/tnved/timeline', query: { view: 'stats' } },
         },
         {
+          // «Данные системы» с открытой «Синхронизацией ТН ВЭД»: по праву tnved.manage (не только администратору).
           path: '/tnved/sync',
           name: 'tnved-sync',
-          component: () => import('@/views/TnvedSyncView.vue'),
+          component: () => import('@/views/broker/references/system/SystemDataPage.vue'),
           meta: { requiresPermission: 'tnved.manage' },
         },
         {
@@ -304,9 +305,10 @@ const router = createRouter({
           meta: { requiresPermission: 'endpoints.read' },
         },
         {
+          // «Данные системы» (администратор): ?item= — выбранный справочник, классификатор (cls:<код>) или реестр.
           path: '/references',
           name: 'references',
-          component: () => import('@/views/ReferencesView.vue'),
+          component: () => import('@/views/broker/references/system/SystemDataPage.vue'),
           meta: { requiresRole: 'administrator' },
         },
         { path: '/:pathMatch(.*)*', redirect: '/' },

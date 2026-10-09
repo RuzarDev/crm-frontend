@@ -32,7 +32,8 @@ export interface TroisImportResult { total: number; added: number; updated: numb
 export const troisApi = {
   search: async (q: string): Promise<TroisItem[]> =>
     (await apiClient.get('/ref/trois', { params: { q }, silent: true })).data,
-  status: async (): Promise<TroisStatus> => (await apiClient.get('/ref/trois/status')).data,
+  status: async (opts?: { silent?: boolean }): Promise<TroisStatus> =>
+    (await apiClient.get('/ref/trois/status', opts?.silent ? { silent: true } : undefined)).data,
   /** Пакетная проверка названий (торговые марки из ДТ). Подсказка — ошибки молча. */
   check: async (names: string[]): Promise<TroisCheckItem[]> =>
     (await apiClient.post('/ref/trois/check', { names }, { silent: true })).data.items,

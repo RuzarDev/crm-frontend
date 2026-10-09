@@ -65,8 +65,8 @@ export const kedenRegistriesApi = {
 export const warehouseRegistryApi = {
   search: async (q: string, kind?: WarehouseKind): Promise<WarehouseRegistryItem[]> =>
     (await apiClient.get('/ref/warehouse-registry', { params: { q, kind }, silent: true })).data,
-  status: async (): Promise<{ kinds: WarehouseKindStatus[] }> =>
-    (await apiClient.get('/ref/warehouse-registry/status')).data,
+  status: async (opts?: { silent?: boolean }): Promise<{ kinds: WarehouseKindStatus[] }> =>
+    (await apiClient.get('/ref/warehouse-registry/status', opts?.silent ? { silent: true } : undefined)).data,
   importFromKgd: async (): Promise<{ kinds: WarehouseImportKindResult[] }> =>
     (await apiClient.post('/ref/warehouse-registry/import', null, { timeout: 180000 })).data,
   /** Ручной путь: xlsx из КЕДЕН (public-customs-registry-svh/-ts.xlsx) или с сайта КГД — формат определяется автоматически. */
@@ -82,8 +82,8 @@ export const warehouseRegistryApi = {
 export interface WarehouseNsiImportKindResult { kind: WarehouseKind; total: number; source: string; error: string | null }
 
 export const warehouseNsiApi = {
-  status: async (): Promise<{ kinds: WarehouseKindStatus[] }> =>
-    (await apiClient.get('/ref/warehouse-nsi/status')).data,
+  status: async (opts?: { silent?: boolean }): Promise<{ kinds: WarehouseKindStatus[] }> =>
+    (await apiClient.get('/ref/warehouse-nsi/status', opts?.silent ? { silent: true } : undefined)).data,
   importFromKgd: async (): Promise<{ kinds: WarehouseNsiImportKindResult[] }> =>
     (await apiClient.post('/ref/warehouse-nsi/import', null, { timeout: 180000 })).data,
   /** Запасной путь: xlsx, скачанный кнопкой EXCEL на kgd.gov.kz/ru/nsi/tssbx (или /tsstm). */

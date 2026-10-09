@@ -32,8 +32,8 @@ describe('buildBrokerNav', () => {
       'sales:sales',
       'finance:financeOverview,billing',
       'analytics:analytics',
-      'references:tnvedTree,npa,currencies,timeline,tnvedAnalytics,dtGuide,referenceBook',
-      'settings:users,roles,organization,audit,apiCatalog,tnvedSync',
+      'references:tnvedTree,currencies,npa,timeline,dtGuide,systemData',
+      'settings:users,roles,organization,audit,apiCatalog',
     ])
   })
 
@@ -43,7 +43,7 @@ describe('buildBrokerNav', () => {
       'home:home',
       'requests:requests',
       'keden:kedenStatuses',
-      'references:tnvedTree,npa,currencies,timeline,tnvedAnalytics,dtGuide',
+      'references:tnvedTree,currencies,npa,timeline,dtGuide',
     ])
   })
 
@@ -62,11 +62,17 @@ describe('buildBrokerNav', () => {
     expect(keys(m)).toEqual(['home:home', 'packages:packages', 'keden:kedenStatuses'])
   })
 
-  it('синхронизация ТН ВЭД — только с tnved.manage и доступом к справочникам', () => {
+  it('«Данные системы»: администратору — /references; с tnved.manage и доступом к справочникам — /tnved/sync', () => {
     const m = buildBrokerNav(access({ perms: ['tnved.manage'] }))
-    expect(keys(m).some((k) => k.includes('tnvedSync'))).toBe(false)
+    expect(keys(m).some((k) => k.includes('systemData'))).toBe(false)
     const m2 = buildBrokerNav(access({ perms: ['tnved.manage', 'references.read'] }))
-    expect(keys(m2)).toContain('settings:tnvedSync')
+    expect(keys(m2)).toContain('references:tnvedTree,currencies,npa,timeline,systemData')
+    expect(allSections(m2).find((s) => s.key === 'references')!.pages.at(-1)!.to).toBe('/tnved/sync')
+    expect(keys(m2).some((k) => k.startsWith('settings:'))).toBe(false)
+    const admin = buildBrokerNav(access({ role: 'administrator' }))
+    expect(allSections(admin).find((s) => s.key === 'references')!.pages.at(-1)!.to).toBe('/references')
+    const reader = buildBrokerNav(access({ perms: ['references.read'] }))
+    expect(keys(reader)).toContain('references:tnvedTree,currencies,npa,timeline')
   })
 
   it('пустые группы не выводятся', () => {
@@ -152,7 +158,8 @@ describe('resolveActive', () => {
     ['/clients/7', 'clients', 'clientsList'],
     ['/client-documents', 'clients', 'clientDocuments'],
     ['/billing', 'finance', 'billing'],
-    ['/tnved/sync', 'settings', 'tnvedSync'],
+    ['/tnved/sync', 'references', 'systemData'],
+    ['/references', 'references', 'systemData'],
     ['/document-packages/1/workspace', 'packages', 'packages'],
     ['/document-packages/1/partia/p1', 'packages', 'packages'],
     ['/document-packages/1/partia/new', 'packages', 'packages'],

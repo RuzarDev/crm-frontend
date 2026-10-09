@@ -9,16 +9,23 @@ import type {
   RefExpenseTypeDto,
 } from '@/types/api'
 
+export interface RefListOptions { silent?: boolean; includeInactive?: boolean }
+const refListConfig = (o?: RefListOptions) => {
+  if (!o?.silent && !o?.includeInactive) return undefined
+  return { ...(o.silent ? { silent: true } : {}), ...(o.includeInactive ? { params: { includeInactive: true } } : {}) }
+}
+
 export const referencesApi = {
   // silent — страницы, где справочник лишь подсказка (запись транзита): сбой без тоста, поле остаётся свободным вводом.
-  listStations: async (opts?: { silent?: boolean }): Promise<RefItem[]> =>
-    (await apiClient.get('/ref/stations', opts?.silent ? { silent: true } : undefined)).data,
+  // includeInactive — и скрытые записи («Данные системы», только администратору; остальным сервер отдаёт активные).
+  listStations: async (opts?: RefListOptions): Promise<RefItem[]> =>
+    (await apiClient.get('/ref/stations', refListConfig(opts))).data,
   createStation: async (name: string): Promise<RefItem> => (await apiClient.post('/ref/stations', { name })).data,
   updateStation: async (id: string, name: string, isActive: boolean): Promise<RefItem> =>
     (await apiClient.put(`/ref/stations/${id}`, { name, isActive })).data,
   deleteStation: async (id: string): Promise<void> => { await apiClient.delete(`/ref/stations/${id}`) },
-  listCustomsPosts: async (opts?: { silent?: boolean }): Promise<RefItem[]> =>
-    (await apiClient.get('/ref/customs-posts', opts?.silent ? { silent: true } : undefined)).data,
+  listCustomsPosts: async (opts?: RefListOptions): Promise<RefItem[]> =>
+    (await apiClient.get('/ref/customs-posts', refListConfig(opts))).data,
   createCustomsPost: async (name: string): Promise<RefItem> => (await apiClient.post('/ref/customs-posts', { name })).data,
   updateCustomsPost: async (id: string, name: string, isActive: boolean): Promise<RefItem> =>
     (await apiClient.put(`/ref/customs-posts/${id}`, { name, isActive })).data,
@@ -44,10 +51,10 @@ export const referencesApi = {
     (await apiClient.put(`/ref/okei-units/${id}`, { code, name, isActive })).data,
   deleteOkeiUnit: async (id: string): Promise<void> => { await apiClient.delete(`/ref/okei-units/${id}`) },
 
-  listClassifierGroups: async (): Promise<ClassifierGroup[]> =>
-    (await apiClient.get('/ref/classifiers')).data,
-  listClassifiers: async (classifierCode: string): Promise<ClassifierItem[]> =>
-    (await apiClient.get(`/ref/classifiers/${classifierCode}`)).data,
+  listClassifierGroups: async (opts?: { silent?: boolean }): Promise<ClassifierGroup[]> =>
+    (await apiClient.get('/ref/classifiers', opts?.silent ? { silent: true } : undefined)).data,
+  listClassifiers: async (classifierCode: string, opts?: RefListOptions): Promise<ClassifierItem[]> =>
+    (await apiClient.get(`/ref/classifiers/${classifierCode}`, refListConfig(opts))).data,
   createClassifier: async (classifierCode: string, code: string, nameRu: string, sortOrder = 0): Promise<ClassifierItem> =>
     (await apiClient.post('/ref/classifiers', { classifierCode, code, nameRu, sortOrder })).data,
   updateClassifier: async (id: string, code: string, nameRu: string, sortOrder: number, isActive: boolean): Promise<ClassifierItem> =>
