@@ -246,6 +246,7 @@ describe('RolesPage: доработки после ревью', () => {
     expect(w.find('[data-roles-reload-error]').exists()).toBe(false)
   })
   it('сброс удался, перезагрузка нет: без тоста успеха, правки сброшены, таблица заблокирована, плашка и «Повторить»', async () => {
+    as('administrator', [], [])
     await open()
     await toggle('kpp', 'finance.read')
     api.matrix.mockRejectedValueOnce(new Error('x'))
@@ -266,7 +267,16 @@ describe('RolesPage: доработки после ревью', () => {
 })
 
 describe('RolesPage: сброс, обновление, уход', () => {
+  it('«Вернуть по умолчанию» видна только администратору: сервер отказывает держателю roles.manage', async () => {
+    await open()
+    expect(w.find('[data-roles-reset]').exists()).toBe(false)
+    w.unmount()
+    as('administrator', [], [])
+    await open()
+    expect(w.find('[data-roles-reset]').exists()).toBe(true)
+  })
   it('«Вернуть по умолчанию» — после подтверждения; отказ ничего не делает', async () => {
+    as('administrator', [], [])
     await open()
     await w.get('[data-roles-reset]').trigger('click')
     await flushPromises()

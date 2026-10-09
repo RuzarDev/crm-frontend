@@ -123,7 +123,6 @@ const poaLine = computed(() => {
 })
 const poa = ref(false)
 const poaBusy = ref(false)
-const canAssign = computed(() => auth.hasPermission('users.assign_role'))
 const setPoa = async (on: boolean) => {
   if (!m.value || poaBusy.value) return
   const prev = poa.value
@@ -341,7 +340,7 @@ const sinceText = computed(() => (m.value ? `${m.value.username} · ${t('broker.
           :key="r.code"
           :checked="draftRoles.includes(r.code)"
           :disabled="!!rolesLock || busy"
-          class="min-h-11 items-start gap-2.5 border-b border-line py-2 last:border-b-0"
+          class="flex min-h-11 w-full items-start gap-2.5 border-b border-line py-2 last:border-b-0"
           :data-member-role="r.code"
           @update:checked="toggleRole(r.code, $event)"
         >
@@ -370,11 +369,12 @@ const sinceText = computed(() => (m.value ? `${m.value.username} · ${t('broker.
           <dd class="m-0 py-2">
             <ZSwitch
               :checked="poa"
-              :disabled="!canAssign || poaBusy || busy"
+              :disabled="!!rolesLock || poaBusy || busy"
               :aria-label="t('broker.settings.team.drawer.representativeLabel')"
               data-member-poa
               @update:checked="setPoa"
             >{{ t('broker.settings.team.drawer.representativeHint') }}</ZSwitch>
+            <p v-if="lockText" class="m-0 mt-1.5 text-xs text-muted" data-member-poa-lock>{{ lockText }}</p>
           </dd>
         </dl>
       </section>

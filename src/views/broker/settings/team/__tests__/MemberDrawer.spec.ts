@@ -111,6 +111,16 @@ describe('MemberDrawer: шапка и роли', () => {
     expect(w.get('[data-member-roles-hint]').text()).toBe('Изменения применятся сразу: сотруднику нужно будет войти заново')
   })
 
+  it('роли — вертикальный список: каждая строка на всю ширину', async () => {
+    await mountIt()
+    const labels = ['declarant', 'kpp', 'mpp', 'rop'].map((c) => role(c).element.closest('label')!)
+    for (const l of labels) {
+      expect(l.className).toMatch(/(^|\s)flex(\s|$)/)
+      expect(l.className).toContain('w-full')
+      expect(l.className).not.toContain('inline-flex')
+    }
+  })
+
   it('роли сохраняются одним PUT в порядке списка; затем saved, клиенты не трогаются', async () => {
     await mountIt()
     expect(w.get('[data-member-save]').attributes('disabled')).toBeDefined()
@@ -191,6 +201,26 @@ describe('MemberDrawer: профиль декларанта', () => {
     await flushPromises()
     expect(api.setPoa).toHaveBeenCalledWith('m2', true, { silent: true })
     expect(w.emitted('changed')).toHaveLength(1)
+  })
+
+  it('представитель: себе без администратора и администратору не-администратор — переключатель недоступен с тем же пояснением', async () => {
+    as('sales', FULL, 'm2')
+    await mountIt()
+    await flushPromises()
+    expect(w.get('[data-member-poa]').attributes('disabled')).toBeDefined()
+    expect(w.get('[data-member-poa-lock]').text()).toBe('Свои роли может менять только администратор')
+    await w.get('[data-member-poa]').trigger('click')
+    expect(api.setPoa).not.toHaveBeenCalled()
+    w.unmount()
+    as('sales', FULL)
+    await mountIt(member({ systemRole: 'administrator' }))
+    expect(w.get('[data-member-poa]').attributes('disabled')).toBeDefined()
+    expect(w.get('[data-member-poa-lock]').text()).toBe('Роли администратора меняет только администратор')
+    w.unmount()
+    as('administrator', FULL, 'm2')
+    await mountIt()
+    expect(w.get('[data-member-poa]').attributes('disabled')).toBeUndefined()
+    expect(w.find('[data-member-poa-lock]').exists()).toBe(false)
   })
 
   it('ошибка переключателя возвращает его назад и показывает текст сервера', async () => {

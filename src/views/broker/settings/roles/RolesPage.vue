@@ -215,7 +215,7 @@ const reloadFailed = computed(() => matrix.error && !!matrix.data && !matrix.loa
             <template #icon><PhArrowClockwise :size="16" aria-hidden="true" /></template>
             {{ t('broker.settings.roles.refresh') }}
           </ZButton>
-          <ZButton v-if="canManage" variant="ghost" :loading="resetting" :disabled="saving || !matrix.data" class="max-sm:h-11 max-sm:flex-1" data-roles-reset @click="resetDefaults()">
+          <ZButton v-if="isAdmin" variant="ghost" :loading="resetting" :disabled="saving || !matrix.data" class="max-sm:h-11 max-sm:flex-1" data-roles-reset @click="resetDefaults()">
             <template #icon><PhArrowCounterClockwise :size="16" aria-hidden="true" /></template>
             {{ t('broker.settings.roles.reset') }}
           </ZButton>
