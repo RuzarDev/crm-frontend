@@ -119,7 +119,7 @@ const sortedPayments = (g: Import40GoodsItemInput): Import40GoodsPayment[] =>
 // на клиенте. Источник истины — гр.47/5060 (НДС) с последнего расчёта (rateLabel
 // начинается с "5%": сервер сам определяет ставку по коду ТНВЭД, см. Import40PaymentCalculator
 // Task 5) ЛИБО ручной флаг vatRatePreferential=0.05 (переключатель «Медизделие»,
-// см. DtPaymentsCalcModal/Import40DtView), пока расчёт ещё не проведён. Если нет ни
+// см. DtPaymentsCalcModal / useDtPayments), пока расчёт ещё не проведён. Если нет ни
 // того, ни другого — бейдж не показываем (не гадаем).
 const hasReducedVat = (g: Import40GoodsItemInput): boolean => {
   if (g.vatRatePreferential === 0.05) return true
@@ -233,7 +233,7 @@ const paymentsSummaryRows = computed<PaymentsSummaryRow[]>(() => {
 
 // Task 10, №2: детализация гр.B ("{код}-{сумма}-398-{дата}-БН") по всем строкам
 // всех товаров — из последнего calculate-payments (bLine пишется в g.payments
-// при "Записать в гр.47 и гр.B" в модалке расчёта, см. Import40DtView.applyPaymentsResult).
+// при "Записать в гр.47 и гр.B" в модалке расчёта, см. applyGoodsPaymentRows в views/broker/dt/useDtPayments.ts).
 const bLineRows = computed<string[]>(() =>
   items.value.flatMap((g) => (g.payments ?? []).map((p) => p.bLine).filter((v): v is string => !!v)),
 )

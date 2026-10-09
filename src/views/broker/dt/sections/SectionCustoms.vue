@@ -1,3 +1,9 @@
+<script lang="ts">
+// C3: код места товаров до флажка «на ТС» — по форме ДТ, а не по экземпляру раздела: переживает уход в другой раздел
+// и обратно (раздел может смонтироваться заново).
+const previousLocationCodes = new WeakMap<object, string>()
+</script>
+
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -144,16 +150,15 @@ const officePlaceholder = computed(() => {
 const isOnTransport = computed(() => (props.form.goodsLocationCode ?? '').trim() === '52')
 // Снятие флажка возвращает код, стоявший до включения (C3), а не стирает графу. Код запоминается при включении;
 // если ДТ открыта уже с кодом 52 (или кода не было) — возвращать нечего, графа очищается.
-let previousCode = ''
 const onOnTransport = (checked: boolean) => {
   const current = (props.form.goodsLocationCode ?? '').trim()
   if (checked) {
-    if (current !== '52') previousCode = current
+    if (current !== '52') previousLocationCodes.set(props.form, current)
     props.form.goodsLocationCode = '52'
     return
   }
-  props.form.goodsLocationCode = previousCode
-  previousCode = ''
+  props.form.goodsLocationCode = previousLocationCodes.get(props.form) ?? ''
+  previousLocationCodes.delete(props.form)
 }
 // Старые данные: в «Станцию» вписан номер вагона/ТС (одни цифры) — как название места он не выгружается.
 const stationLooksLikeVehicleNumber = computed(() => /^\d+$/.test((props.form.goodsLocationStation ?? '').trim()))

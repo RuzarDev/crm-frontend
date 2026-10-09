@@ -54,8 +54,8 @@ const emit = defineEmits<{ 'update:modelValue': [Import40GoodsItemInput[]]; 'cal
 useTroisCheckProvider(() => props.modelValue.map((g) => g.tradeMarkName))
 
 // Тонкая обёртка: сами товарные поля живут в ReestrGoodsSection/Import40GoodsKedenPanel,
-// поэтому здесь достаточно get/set-computed без локальной копии/watch (в отличие
-// от DtSectionParties/Transport) — дочерние компоненты уже делают собственные копии.
+// поэтому здесь достаточно get/set-computed без локальной копии/watch — дочерние компоненты
+// уже делают собственные копии.
 //
 // «Кол-во грузовых мест» в карточке товара одно — packagesCount (сюда же идёт Excel/реестр);
 // КЕДЕН-поле cargoPlacesQuantity, из которого бэк берёт гр.31 XML, держим равным ему на любую правку.

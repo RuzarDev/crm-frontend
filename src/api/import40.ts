@@ -311,7 +311,7 @@ export interface Import40DeclarationDto {
 }
 
 // Товар ДТ на отправку = поля формы (Import40GoodsItemInput) без customsValue,
-// вместо которого бэкенд ждёт invoiceValue (см. маппинг в Import40DtView.saveDt)
+// вместо которого бэкенд ждёт invoiceValue (см. formToPayload в views/broker/dt/dtPayload.ts)
 export type Import40GoodsUpsert = Omit<Import40GoodsItemInput, 'customsValue'> & {
   invoiceValue?: number | null
 }

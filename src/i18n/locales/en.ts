@@ -1624,6 +1624,7 @@ export default {
           binRequired: 'Specify the broker firm BIN',
           notFound: 'No broker firm with this BIN in the directory',
           found: 'Broker firm found, contract number inserted into the declaration',
+          foundNoContract: 'Broker firm found; it has no contract number in the directory, so the declaration was not changed',
           findFailed: 'Could not search for the broker firm',
           saveRequired: 'Broker firm name and BIN are required to save',
           saved: 'Broker firm saved to the directory',
@@ -3910,7 +3911,7 @@ export default {
     foundIp: 'Found: {name}. Enter the address manually — the tax register has none.',
     inactive: '{name}: {status}. Check whether you can work with this counterparty.',
   },
-  // Карточка ДТ (Import40DtView + DtSection* + Import40GoodsKedenPanel); ключи — транслит RU-строки.
+  // Прежние разделы ДТ («Товары», ДТС, окно расчёта платежей: DtSection*, Import40GoodsKeden*); ключи — транслит RU-строки.
   dt: {
     svernutVse: 'Collapse all',
     razvernutVse: 'Expand all',

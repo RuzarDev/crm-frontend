@@ -319,6 +319,16 @@ describe('SectionCustoms — гр. 30: страна, орган, станция,
     expect(box().attributes('aria-checked')).toBe('false')
   })
 
+  it('«на ТС»: прежний код места переживает уход из раздела (раздел смонтирован заново)', async () => {
+    await mount({ goodsLocationCode: '31' })
+    await w.get('[data-on-transport]').trigger('click')
+    expect(form.goodsLocationCode).toBe('52')
+    w.unmount()
+    await mount()
+    await w.get('[data-on-transport]').trigger('click')
+    expect(form.goodsLocationCode).toBe('31')
+  })
+
   it('«на ТС»: прежним считается код, стоявший перед последним включением; кода не было или ДТ пришла с 52 — снятие очищает', async () => {
     await mount({ goodsLocationCode: '31' })
     const box = () => w.get('[data-on-transport]')

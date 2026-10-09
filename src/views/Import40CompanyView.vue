@@ -314,7 +314,7 @@ const applyCompanyLookup = (c: CompanyLookupDto) => {
     if (!form.legalRegion && parsed.region) form.legalRegion = parsed.region
     if (!form.legalCity && parsed.city) form.legalCity = parsed.city
     // В профиле нет отдельных полей «Район»/«Дом»/«Помещение» — они остаются в строке улицы, а в ДТ
-    // разбираются заново при подстановке получателя (DtSectionParties.fillReceiverFromClient).
+    // разбираются заново при подстановке получателя (profilePatch в views/broker/dt/dtParties.ts).
     const streetLine = [parsed.district, parsed.street, parsed.house ? `д. ${parsed.house}` : null, parsed.apt ? `пом. ${parsed.apt}` : null]
       .filter(Boolean).join(', ')
     if (!form.legalStreet && streetLine) form.legalStreet = streetLine

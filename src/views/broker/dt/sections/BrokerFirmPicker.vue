@@ -89,7 +89,8 @@ const find = async () => {
     if (!f) { message.info(tb('notFound')); return }
     showFirm(f)
     setContract(f.contractNumber)
-    message.success(tb('found'))
+    // Нет номера у фирмы — в ДТ ничего не записано, о подстановке не говорим.
+    message.success(tb((f.contractNumber ?? '').trim() ? 'found' : 'foundNoContract'))
   } catch {
     message.error(tb('findFailed'))
   } finally {

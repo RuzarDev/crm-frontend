@@ -6,7 +6,8 @@ import BrokerFirmPicker from '../sections/BrokerFirmPicker.vue'
 
 const firmsApi = vi.hoisted(() => ({ listBrokerFirms: vi.fn(), getBrokerFirmByBin: vi.fn(), upsertBrokerFirm: vi.fn() }))
 vi.mock('@/api/brokerFirms', () => firmsApi)
-vi.mock('@/ui/message', () => ({ message: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() } }))
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
+vi.mock('@/ui/message', () => ({ message: toast }))
 
 const SelectStub = {
   props: ['value', 'options'],
@@ -60,5 +61,25 @@ describe('BrokerFirmPicker: номер договора меняется тол�
     await mount(null)
     expect(w.find('[data-firm-only]').exists()).toBe(false)
     expect(w.emitted('update:contractNumber')).toBeUndefined()
+  })
+})
+
+describe('BrokerFirmPicker: «Найти» по БИН', () => {
+  it('с номером договора — номер в ДТ и сообщение о подстановке; без номера — ДТ не меняется, сообщение без подстановки', async () => {
+    firmsApi.getBrokerFirmByBin.mockResolvedValueOnce(firm())
+    await mount(null)
+    await w.get('input[data-firm-bin]').setValue('123456789012')
+    await w.get('[data-firm-find]').trigger('click')
+    await flushPromises()
+    expect(w.emitted('update:contractNumber')).toEqual([['К-77']])
+    expect(toast.success).toHaveBeenLastCalledWith('Фирма-брокер найдена, номер договора подставлен в ДТ')
+    w.unmount()
+    firmsApi.getBrokerFirmByBin.mockResolvedValueOnce(firm({ contractNumber: null }))
+    await mount(null)
+    await w.get('input[data-firm-bin]').setValue('123456789012')
+    await w.get('[data-firm-find]').trigger('click')
+    await flushPromises()
+    expect(w.emitted('update:contractNumber')).toBeUndefined()
+    expect(toast.success).toHaveBeenLastCalledWith('Фирма-брокер найдена; номера договора у неё в справочнике нет — ДТ не изменена')
   })
 })

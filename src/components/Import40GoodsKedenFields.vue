@@ -435,7 +435,7 @@ const sortedPayments = (g: Import40GoodsItemInput): Import40GoodsPayment[] =>
 // на клиенте. Источник истины — гр.47/5060 (НДС) с последнего расчёта (rateLabel
 // начинается с "5%": сервер сам определяет ставку по коду ТНВЭД, см. Import40PaymentCalculator
 // Task 5) ЛИБО ручной флаг vatRatePreferential=0.05 (переключатель «Медизделие»,
-// см. DtPaymentsCalcModal/Import40DtView), пока расчёт ещё не проведён. Если нет ни
+// см. DtPaymentsCalcModal / useDtPayments), пока расчёт ещё не проведён. Если нет ни
 // того, ни другого — бейдж не показываем (не гадаем).
 
 const hasReducedVat = (g: Import40GoodsItemInput): boolean => {

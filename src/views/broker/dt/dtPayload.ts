@@ -222,9 +222,8 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
   f.borderCustomsOfficeName = dto.borderCustomsOfficeName ?? ''
   f.submissionCustomsOfficeCode = dto.submissionCustomsOfficeCode ?? ''
   // dto.submissionDate === null для свежей ДТ (ещё не сохранялась) — в этом
-  // случае подставляем сегодняшнюю дату по умолчанию, т.к. DtDeclarationNumberBar
-  // выставляет её в своём onMounted, который отрабатывает РАНЬШЕ applyDeclaration
-  // (родительский onMounted → loadDt → applyDeclaration) и потому перезаписывается.
+  // случае подставляем сегодняшнюю дату по умолчанию (гр. А: дата по умолчанию — сегодня;
+  // раздел «Номер и дата» при открытии форму не меняет).
   // Сервер отдаёт SubmissionDate меткой времени ("2026-09-23T00:00:00Z"), а
   // date-picker (value-format) и calculate-customs-value (onDate) ждут "YYYY-MM-DD".
   f.submissionDate = toIsoDate(dto.submissionDate) ?? today

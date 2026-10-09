@@ -1,7 +1,7 @@
 // Количество грузовых мест по товару (гр.6/гр.31) — один источник на фронте и бэке
 // (Import40Places.Of): CargoPlacesQuantity, затем PackagesCount. Количество упаковок местами не считается.
 // В карточке ДТ виден один инпут «Кол-во грузовых мест» (packagesCount); cargoPlacesQuantity
-// держится равным ему (см. DtSectionGoods / сохранение в Import40DtView).
+// держится равным ему (см. DtSectionGoods / formToPayload в views/broker/dt/dtPayload.ts).
 type PlacesSource = { cargoPlacesQuantity?: number | null; packagesCount?: number | null }
 
 export function placesOfGoods(g: PlacesSource): number | null {

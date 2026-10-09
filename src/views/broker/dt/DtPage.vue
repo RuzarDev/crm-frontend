@@ -445,7 +445,7 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
 
 <template>
   <div class="flex min-w-0 flex-col" :style="{ '--dt-header-h': `${headerH}px` }" data-dt-page>
-    <div v-if="dt.loading.value" class="flex flex-col gap-5" aria-busy="true" :aria-label="t('broker.dt.page.loading')" data-dt-skeleton>
+    <div v-if="dt.loading.value" class="flex flex-col gap-5 pt-5 lg:pt-6" aria-busy="true" :aria-label="t('broker.dt.page.loading')" data-dt-skeleton>
       <div class="flex flex-col gap-2.5">
         <ZSkeleton width="260px" height="13px" />
         <ZSkeleton width="min(340px, 80%)" height="26px" />
@@ -460,9 +460,11 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
       </div>
     </div>
 
-    <div v-else-if="dt.loadError.value" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" role="alert" data-dt-load-error>
-      <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('broker.dt.page.loadError') }}</p>
-      <ZButton size="sm" class="max-sm:h-11" data-dt-load-retry @click="dt.reload()">{{ t('broker.dt.page.retry') }}</ZButton>
+    <div v-else-if="dt.loadError.value" class="pt-5 lg:pt-6" data-dt-load-error-wrap>
+      <div class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" role="alert" data-dt-load-error>
+        <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('broker.dt.page.loadError') }}</p>
+        <ZButton size="sm" class="max-sm:h-11" data-dt-load-retry @click="dt.reload()">{{ t('broker.dt.page.retry') }}</ZButton>
+      </div>
     </div>
 
     <template v-else-if="form.id">
