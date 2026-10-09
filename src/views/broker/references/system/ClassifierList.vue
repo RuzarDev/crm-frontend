@@ -5,6 +5,7 @@ import { PhArrowsClockwise, PhPlus } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZTable from '@/components/z/ZTable.vue'
+import { extractServerText } from '@/api/client'
 import { referencesApi, type EecSyncResult } from '@/api/references'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { message } from '@/ui/message'
@@ -13,7 +14,7 @@ import type { ZColumn } from '@/ui/table'
 import type { ClassifierItem } from '@/types/api'
 import ItemsTable from './ItemsTable.vue'
 import RefItemModal, { type RefItemValue } from './RefItemModal.vue'
-import { classifierTitle, countActive, formatCount } from './systemData'
+import { classifierTitle, countActive, formatCount, responseStatus } from './systemData'
 
 // Коды одного классификатора ЕЭК: со скрытыми (includeInactive), «Добавить код», правка кода и названия,
 // «Скрыть» / «Вернуть» с подтверждением; «Сверить с ЕЭК» — подтверждение, загрузка на кнопке, затем окно итогов.
@@ -66,8 +67,19 @@ const openAdd = () => { editing.value = null; modalOpen.value = true }
 const openEdit = (r: ClassifierItem) => { editing.value = r; modalOpen.value = true }
 const save = async (v: RefItemValue) => {
   const current = editing.value
-  if (current) await referencesApi.updateClassifier(current.id, v.code, v.name, current.sortOrder, current.isActive)
-  else await referencesApi.createClassifier(props.code, v.code, v.name)
+  // 409 («такой код уже есть») окно показывает под полем «Код» — общий тост не нужен; остальные ошибки окно не рисует,
+  // их показываем здесь, и окно остаётся открытым.
+  const silent = { silent: true }
+  try {
+    if (current) await referencesApi.updateClassifier(current.id, v.code, v.name, current.sortOrder, current.isActive, silent)
+    else await referencesApi.createClassifier(props.code, v.code, v.name, 0, silent)
+  } catch (e) {
+    if (responseStatus(e) !== 409) {
+      const res = (e as { response?: { data?: unknown } } | null)?.response
+      message.error(res ? extractServerText(res.data) || t('errors.generic') : t('errors.network'))
+    }
+    throw e
+  }
   message.success(t(current ? 'broker.references.system.list.savedToast' : 'broker.references.system.list.addedToast'))
   await afterChange()
 }

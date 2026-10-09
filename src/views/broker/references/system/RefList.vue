@@ -13,9 +13,9 @@ import { countActive, type RefKind } from './systemData'
 
 // Станции назначения и таможенные посты: список со скрытыми (includeInactive), добавление, переименование,
 // «Скрыть» (DELETE — запись деактивируется) и «Вернуть» (PUT isActive=true), оба с подтверждением.
-// После каждой загрузки сообщает число активных записей — счётчик в меню.
+// После каждой загрузки сообщает число активных записей — счётчик в меню (сбой загрузки — error: в меню «—»).
 const props = defineProps<{ kind: RefKind; canEdit: boolean }>()
-const emit = defineEmits<{ count: [n: number] }>()
+const emit = defineEmits<{ count: [n: number]; error: [] }>()
 const { t } = useI18n()
 const { confirm } = useConfirm()
 
@@ -37,7 +37,10 @@ const load = async () => {
     rows.value = data
     emit('count', countActive(data))
   } catch {
-    if (my === seq) error.value = true
+    if (my === seq) {
+      error.value = true
+      emit('error') // счётчик в меню не ждёт вечно: «—»
+    }
   } finally {
     if (my === seq) loading.value = false
   }

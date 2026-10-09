@@ -16,7 +16,7 @@ import { durationParts, formatCount, formatDateTime } from './systemData'
 // «Синхронизация ТН ВЭД» (право tnved.manage): история прогонов (статус, длительность, +добавлено ~изменено −удалено,
 // ставки, кто запустил, ошибка раскрывается), «Запустить синхронизацию» с подтверждением — сервер отвечает по окончании,
 // до ответа «выполняется…»; «Загрузить переходы» (таблица старый код → новые). last — дата последнего прогона для меню.
-const emit = defineEmits<{ last: [iso: string | null] }>()
+const emit = defineEmits<{ last: [iso: string | null]; error: [] }>()
 const { t, locale } = useI18n()
 const { confirm } = useConfirm()
 const P = 'broker.references.system.sync'
@@ -35,7 +35,10 @@ const load = async () => {
     logs.value = Array.isArray(data) ? data : []
     emit('last', logs.value[0]?.startedAtUtc ?? null)
   } catch {
-    if (my === seq) error.value = true
+    if (my === seq) {
+      error.value = true
+      emit('error') // дата в меню не ждёт вечно: «—»
+    }
   } finally {
     if (my === seq) loading.value = false
   }

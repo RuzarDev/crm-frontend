@@ -55,10 +55,11 @@ export const referencesApi = {
     (await apiClient.get('/ref/classifiers', opts?.silent ? { silent: true } : undefined)).data,
   listClassifiers: async (classifierCode: string, opts?: RefListOptions): Promise<ClassifierItem[]> =>
     (await apiClient.get(`/ref/classifiers/${classifierCode}`, refListConfig(opts))).data,
-  createClassifier: async (classifierCode: string, code: string, nameRu: string, sortOrder = 0): Promise<ClassifierItem> =>
-    (await apiClient.post('/ref/classifiers', { classifierCode, code, nameRu, sortOrder })).data,
-  updateClassifier: async (id: string, code: string, nameRu: string, sortOrder: number, isActive: boolean): Promise<ClassifierItem> =>
-    (await apiClient.put(`/ref/classifiers/${id}`, { code, nameRu, sortOrder, isActive })).data,
+  // silent — окно «Данных системы» само показывает 409 (такой код уже есть) под полем, общий тост был бы вторым.
+  createClassifier: async (classifierCode: string, code: string, nameRu: string, sortOrder = 0, opts?: { silent?: boolean }): Promise<ClassifierItem> =>
+    (await apiClient.post('/ref/classifiers', { classifierCode, code, nameRu, sortOrder }, opts?.silent ? { silent: true } : undefined)).data,
+  updateClassifier: async (id: string, code: string, nameRu: string, sortOrder: number, isActive: boolean, opts?: { silent?: boolean }): Promise<ClassifierItem> =>
+    (await apiClient.put(`/ref/classifiers/${id}`, { code, nameRu, sortOrder, isActive }, opts?.silent ? { silent: true } : undefined)).data,
   deleteClassifier: async (id: string): Promise<void> => { await apiClient.delete(`/ref/classifiers/${id}`) },
   // Сверка классификаторов ДТ с НСИ ЕЭК и постов с КЕДЕН (админ). ~20 запросов к ЕЭК — дольше обычного таймаута.
   syncEec: async (): Promise<EecSyncResult[]> =>
@@ -69,7 +70,8 @@ export const referencesApi = {
   addGoodsLocation: async (code: string, nameRu: string): Promise<ClassifierItem> =>
     (await apiClient.post('/ref/classifiers/goods-locations/items', { code, nameRu })).data,
 
-  getDtGuide: async (): Promise<DtGuideEntry[]> => (await apiClient.get('/ref/dt-guide')).data,
+  getDtGuide: async (opts?: { silent?: boolean }): Promise<DtGuideEntry[]> =>
+    (await apiClient.get('/ref/dt-guide', opts?.silent ? { silent: true } : undefined)).data,
   getDtGuideGraph: async (graph: string): Promise<DtGuideEntry> =>
     (await apiClient.get(`/ref/dt-guide/${graph}`)).data,
 

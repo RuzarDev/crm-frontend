@@ -41,12 +41,17 @@ const segmentOptions = computed(() => [
   { value: 'all', label: t('broker.references.system.list.all') },
 ])
 
+// До 640px строка — одна компактная линия вместо карточки «подпись / значение»: [код] название (усечено) · точка статуса ·
+// «Изменить» и «⋯» (44px). Это классы колонок и строки поверх карточного режима ZTable: подписи скрыты, значения слева.
+const MOBILE_CELL = 'max-sm:items-center max-sm:py-0 max-sm:[&>[data-z-value]]:ml-0 max-sm:[&>[data-z-value]]:text-left'
 const columns = computed<ZColumn<T>[]>(() => [
-  ...(props.withCode ? [{ key: 'code', title: t('broker.references.system.list.colCode'), width: 140 }] : []),
-  { key: 'name', title: t(props.withCode ? 'broker.references.system.list.colNameRu' : 'broker.references.system.list.colName') },
-  { key: 'status', title: t('broker.references.system.list.colStatus'), width: 130 },
-  ...(props.canEdit ? [{ key: 'actions', title: '', width: 96, align: 'right' as const }] : []),
+  ...(props.withCode ? [{ key: 'code', title: t('broker.references.system.list.colCode'), width: 140, className: `${MOBILE_CELL} max-sm:shrink-0` }] : []),
+  { key: 'name', title: t(props.withCode ? 'broker.references.system.list.colNameRu' : 'broker.references.system.list.colName'), className: `${MOBILE_CELL} max-sm:min-w-0 max-sm:flex-1` },
+  { key: 'status', title: t('broker.references.system.list.colStatus'), width: 130, className: `${MOBILE_CELL} max-sm:shrink-0` },
+  ...(props.canEdit ? [{ key: 'actions', title: '', width: 96, align: 'right' as const, className: `${MOBILE_CELL} max-sm:shrink-0` }] : []),
 ])
+const MOBILE_ROW = 'max-sm:flex-row max-sm:items-center max-sm:gap-2 max-sm:py-0.5 max-sm:pr-1 max-sm:pl-3'
+const statusLabel = (r: T) => (r.isActive ? t('broker.references.system.list.statusActive') : t('broker.references.system.list.statusHidden'))
 const pagination = computed(() => ({
   current: page.value,
   onChange: (p: number) => { page.value = p },
@@ -104,7 +109,8 @@ const emptyHint = computed(() => (q.value.trim() && props.rows.length ? t('broke
       :loading="loading && !rows.length"
       :pagination="pagination"
       :aria-label="label"
-      class="overflow-hidden rounded-panel border border-line bg-surface max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent"
+      :row-class-name="MOBILE_ROW"
+      class="overflow-hidden rounded-panel border border-line bg-surface max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent max-sm:[&_[data-z-label]]:hidden"
       data-items-table
     >
       <template #headerCell="{ column }">
@@ -112,14 +118,28 @@ const emptyHint = computed(() => (q.value.trim() && props.rows.length ? t('broke
       </template>
       <template #bodyCell="{ column, record }">
         <span v-if="column.key === 'code'" class="font-mono text-sm text-ink" data-item-code>{{ record.code }}</span>
-        <span v-else-if="column.key === 'name'" class="text-sm text-ink [overflow-wrap:anywhere]" data-item-name>{{ withCode ? record.nameRu : record.name }}</span>
-        <StatusDot
-          v-else-if="column.key === 'status'"
-          :tone="record.isActive ? 'done' : 'neutral'"
-          :label="record.isActive ? t('broker.references.system.list.statusActive') : t('broker.references.system.list.statusHidden')"
-          :data-item-status="record.isActive ? 'active' : 'hidden'"
-        />
-        <div v-else-if="column.key === 'actions'" class="flex items-center justify-end gap-1" @click.stop>
+        <span
+          v-else-if="column.key === 'name'"
+          class="text-sm text-ink [overflow-wrap:anywhere] max-sm:block max-sm:truncate max-sm:[overflow-wrap:normal]"
+          :title="withCode ? record.nameRu : record.name"
+          data-item-name
+        >{{ withCode ? record.nameRu : record.name }}</span>
+        <template v-else-if="column.key === 'status'">
+          <StatusDot
+            :tone="record.isActive ? 'done' : 'neutral'"
+            :label="statusLabel(record)"
+            class="max-sm:hidden"
+            :data-item-status="record.isActive ? 'active' : 'hidden'"
+          />
+          <span
+            role="img"
+            :aria-label="statusLabel(record)"
+            :title="statusLabel(record)"
+            :class="['hidden size-2 rounded-pill max-sm:block', record.isActive ? 'bg-tone-done-fg' : 'bg-tone-neutral-fg']"
+            data-item-status-dot
+          />
+        </template>
+        <div v-else-if="column.key === 'actions'" class="flex items-center justify-end gap-1 max-sm:gap-0" @click.stop>
           <ZButton
             variant="ghost"
             class="size-8 px-0 max-sm:size-11"

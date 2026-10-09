@@ -1,3 +1,5 @@
+import { calendarLocale } from '@/ui/date'
+
 // «Данные системы» (редизайн, волна 5а, доска SystemData): пункты левого меню, подписи классификаторов,
 // фильтр списков (поиск + «Активные / Скрытые / Все»), даты и числа по языку интерфейса.
 
@@ -99,8 +101,7 @@ export const countHidden = (rows: readonly ListRow[]): number => rows.filter((r)
 export const countActive = (rows: readonly ListRow[]): number => rows.filter((r) => r.isActive).length
 
 // ---- Даты и числа по языку интерфейса ----
-const INTL: Record<string, string> = { ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }
-export const intlLocale = (locale: string): string => INTL[locale] ?? 'ru-RU'
+// Локаль — общая с остальными экранами (ui/date.ts): en → en-GB, день перед месяцем во всех языках.
 
 const validDate = (iso: string | null | undefined): Date | null => {
   if (!iso) return null
@@ -112,7 +113,7 @@ const validDate = (iso: string | null | undefined): Date | null => {
 export function formatDateTime(iso: string | null | undefined, locale: string): string {
   const d = validDate(iso)
   return d
-    ? d.toLocaleString(intlLocale(locale), { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    ? d.toLocaleString(calendarLocale(locale), { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
     : '—'
 }
 
@@ -121,16 +122,16 @@ export function formatDay(isoDate: string | null | undefined, locale: string): s
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate ?? '')
   if (!m) return '—'
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
-  return d.toLocaleDateString(intlLocale(locale), { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' })
+  return d.toLocaleDateString(calendarLocale(locale), { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' })
 }
 
 /** 06.10 — дата последней синхронизации в меню. */
 export function formatDayMonth(iso: string | null | undefined, locale: string): string {
   const d = validDate(iso)
-  return d ? d.toLocaleDateString(intlLocale(locale), { day: '2-digit', month: '2-digit' }) : '—'
+  return d ? d.toLocaleDateString(calendarLocale(locale), { day: '2-digit', month: '2-digit' }) : '—'
 }
 
-export const formatCount = (n: number, locale: string): string => n.toLocaleString(intlLocale(locale))
+export const formatCount = (n: number, locale: string): string => n.toLocaleString(calendarLocale(locale))
 
 /** Самая поздняя дата из списка (статусы реестров по видам). */
 export function latest(dates: readonly (string | null | undefined)[]): string | null {
@@ -150,3 +151,21 @@ export function durationParts(start: string, finish: string | null): { unit: 'se
 /** Ошибка ответа сервера с кодом статуса (409 — такой код уже есть). */
 export const responseStatus = (e: unknown): number | undefined =>
   (e as { response?: { status?: number } } | null)?.response?.status
+
+/**
+ * Прокрутить только сам блок меню так, чтобы пункт был виден (страницу не двигаем, в отличие от scrollIntoView).
+ * Работает по обеим осям: лента на телефоне прокручивается вбок, колонка на десктопе — вниз.
+ */
+export function scrollItemIntoBox(box: HTMLElement | null | undefined, el: HTMLElement | null | undefined, gap = 8): void {
+  if (!box || !el) return
+  const b = box.getBoundingClientRect()
+  const e = el.getBoundingClientRect()
+  if (box.scrollHeight > box.clientHeight) {
+    if (e.top < b.top) box.scrollTop += e.top - b.top - gap
+    else if (e.bottom > b.bottom) box.scrollTop += e.bottom - b.bottom + gap
+  }
+  if (box.scrollWidth > box.clientWidth) {
+    if (e.left < b.left) box.scrollLeft += e.left - b.left - gap
+    else if (e.right > b.right) box.scrollLeft += e.right - b.right + gap
+  }
+}

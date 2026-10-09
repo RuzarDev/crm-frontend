@@ -157,6 +157,37 @@ describe('SystemDataPage — меню и адрес', () => {
     expect(count('posts')).toBe('3')
   })
 
+  it('сбой первого открытого справочника: его счётчик — «—», а не пустота навсегда', async () => {
+    api.listStations.mockRejectedValue(httpError(500))
+    await mountAt('/references')
+    const c = nav('stations').get('[data-nav-count="error"]')
+    expect(c.text()).toContain('—')
+    expect(c.attributes('title')).toBe('Не удалось загрузить число записей')
+    expect(w.find('[data-items-error]').exists()).toBe(true)
+    // «Повторить» вернул данные — счётчик снова число
+    api.listStations.mockImplementation(async () => [st('s1', 'Алтынколь')])
+    await w.get('[data-items-retry]').trigger('click')
+    await flushPromises()
+    expect(count('stations')).toBe('1')
+  })
+
+  it('сбой первой открытой синхронизации ТН ВЭД: дата в меню — «—»', async () => {
+    api.syncHistory.mockRejectedValue(httpError(500))
+    await mountAt('/tnved/sync', 'broker', ['tnved.manage'])
+    expect(nav('tnved-sync').get('[data-nav-count="error"]').text()).toContain('—')
+  })
+
+  it('заголовки групп: отступ сверху у всех, кроме самой первой', async () => {
+    await mountAt('/references')
+    const heads = w.findAll('[data-nav-heading]')
+    expect(heads.length).toBe(4)
+    expect(heads[0].classes()).toContain('pt-0')
+    for (const h of heads.slice(1)) {
+      expect(h.classes()).toContain('pt-3')
+      expect(h.classes()).not.toContain('pt-0')
+    }
+  })
+
   it('выбор пункта пишет ?item=; ?item= открывает пункт; недоступный — первый', async () => {
     await mountAt('/references?item=cls:2009')
     expect(nav('cls:2009').attributes('aria-current')).toBe('page')
@@ -219,6 +250,19 @@ describe('SystemDataPage — станции и посты', () => {
     expect(rowNames()).toEqual(['Достык'])
     await w.get('[data-items-search]').setValue('шымкент')
     expect(w.text()).toContain('Ничего не нашлось')
+  })
+
+  it('телефон: строка — одна линия; подписи полей скрыты, статус — точка с названием для чтения с экрана', async () => {
+    await mountAt('/references')
+    const row = w.get('[data-items-table] tbody tr')
+    expect(row.classes()).toEqual(expect.arrayContaining(['max-sm:flex-row', 'max-sm:items-center']))
+    expect(row.classes()).not.toContain('max-sm:flex-col')
+    expect(w.get('[data-items-table]').classes()).toContain('max-sm:[&_[data-z-label]]:hidden')
+    const dot = row.get('[data-item-status-dot]')
+    expect(dot.attributes('aria-label')).toBe('Активен')
+    expect(dot.text()).toBe('')
+    expect(dot.classes()).toContain('hidden') // на ширине от sm — скрыта, видна StatusDot с подписью
+    expect(row.get('[data-item-name]').classes()).toContain('max-sm:truncate')
   })
 
   it('«Скрыть» — с подтверждением; отказ ничего не вызывает', async () => {
@@ -293,15 +337,31 @@ describe('SystemDataPage — классификаторы ЕЭК', () => {
     await w.get('[data-ref-modal-code]').setValue('02013')
     await w.get('[data-ok]').trigger('click')
     await flushPromises()
-    expect(api.updateClassifier).toHaveBeenCalledWith('2009-01011', '02013', 'Свидетельство о регистрации', 0, true)
+    expect(api.updateClassifier).toHaveBeenCalledWith('2009-01011', '02013', 'Свидетельство о регистрации', 0, true, { silent: true })
     expect(w.text()).toContain('Такой код уже есть в классификаторе')
+    // 409 показан под полем — второго (общего) тоста нет и наш тоже не нужен
+    expect(api.toast.error).not.toHaveBeenCalled()
     expect(w.find('[data-modal]').exists()).toBe(true)
     await w.get('[data-ref-modal-code]').setValue('01012')
     await w.get('[data-ok]').trigger('click')
     await flushPromises()
-    expect(api.updateClassifier).toHaveBeenLastCalledWith('2009-01011', '01012', 'Свидетельство о регистрации', 0, true)
+    expect(api.updateClassifier).toHaveBeenLastCalledWith('2009-01011', '01012', 'Свидетельство о регистрации', 0, true, { silent: true })
     expect(invalidate).toHaveBeenCalledWith('2009')
     expect(api.listClassifierGroups).toHaveBeenCalledTimes(2)
+  })
+
+  it('добавление: запрос тихий; не-409 ошибку показывает окно (один тост), окно остаётся открытым', async () => {
+    await mountAt('/references?item=cls:2009')
+    await w.get('[data-ref-add]').trigger('click')
+    await w.get('[data-ref-modal-code]').setValue('777')
+    await w.get('[data-ref-modal-name]').setValue('Новый')
+    api.createClassifier.mockRejectedValueOnce(Object.assign(httpError(400), { response: { status: 400, data: { error: 'Код слишком длинный' } } }))
+    await w.get('[data-ok]').trigger('click')
+    await flushPromises()
+    expect(api.createClassifier).toHaveBeenCalledWith('2009', '777', 'Новый', 0, { silent: true })
+    expect(api.toast.error).toHaveBeenCalledTimes(1)
+    expect(api.toast.error).toHaveBeenCalledWith('Код слишком длинный')
+    expect(w.find('[data-modal]').exists()).toBe(true)
   })
 
   it('скрытый код возвращается PUT с isActive=true', async () => {

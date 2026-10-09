@@ -20,7 +20,7 @@ import RegistryPanel from './RegistryPanel.vue'
 import TnvedSyncPanel from './TnvedSyncPanel.vue'
 import {
   CLS_PREFIX, REF_KINDS, REGISTRY_KINDS, SYNC_ITEM, classifierOf, classifierTitle, formatCount, formatDayMonth, isRefKind, isRegistryKind,
-  parseItem, type RefKind, type RegistryKind, type SystemItem,
+  parseItem, scrollItemIntoBox, type RefKind, type RegistryKind, type SystemItem,
 } from './systemData'
 
 // «Данные системы» (редизайн, волна 5а, доска SystemData) — /references (администратор) и /tnved/sync (tnved.manage).
@@ -84,6 +84,11 @@ const setCounter = (key: CounterKey, value: number | string | null) => {
   counters[key] = { state: 'ready', value }
 }
 
+const failCounter = (key: CounterKey) => {
+  seqs[key] = (seqs[key] ?? 0) + 1
+  counters[key] = { state: 'error', value: null }
+}
+
 // Классификаторы ЕЭК: список пунктов и их счётчики — один запрос.
 const groups = shallowRef<ClassifierGroup[]>([])
 const groupsState = ref<'loading' | 'ready' | 'error'>('loading')
@@ -144,12 +149,15 @@ const nav = computed(() => {
   return list
 })
 
-// На телефоне лента: выбранный пункт — в зону видимости.
+// Выбранный пункт — в зону видимости меню: на телефоне это лента (вбок), на десктопе колонка с прокруткой (вниз;
+// /tnved/sync — последний пункт). Двигаем только само меню, страница остаётся на месте.
 const navRef = ref<HTMLElement | null>(null)
+const navBox = ref<HTMLElement | null>(null)
 const revealActive = async () => {
   await nextTick()
-  if (!window.matchMedia?.('(max-width: 1023px)').matches) return
-  navRef.value?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  const el = navRef.value?.querySelector<HTMLElement>('[aria-current="page"]')
+  scrollItemIntoBox(navRef.value, el)
+  scrollItemIntoBox(navBox.value, el)
 }
 onMounted(revealActive)
 watch(active, revealActive)
@@ -175,13 +183,14 @@ const itemClass = (on: boolean) => cn(
     </div>
     <div v-else class="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-6">
       <nav
+        ref="navBox"
         :aria-label="t('broker.references.system.menuLabel')"
         class="min-w-0 overflow-x-clip lg:sticky lg:top-4 lg:max-h-[calc(100dvh-140px)] lg:overflow-y-auto"
         data-system-nav
       >
         <div ref="navRef" class="flex min-w-0 gap-1.5 max-lg:overflow-x-auto max-lg:pb-1 lg:flex-col lg:gap-0.5">
-          <div v-for="g in nav" :key="g.key" class="flex gap-1.5 max-lg:contents lg:flex-col lg:gap-px" :data-nav-group="g.key">
-            <div class="px-2.5 pt-3 pb-1 text-xs font-medium text-ink-3 first:pt-0 max-lg:hidden">{{ g.title }}</div>
+          <div v-for="(g, gi) in nav" :key="g.key" class="flex gap-1.5 max-lg:contents lg:flex-col lg:gap-px" :data-nav-group="g.key">
+            <div :class="['px-2.5 pb-1 text-xs font-medium text-ink-3 max-lg:hidden', gi === 0 ? 'pt-0' : 'pt-3']" data-nav-heading>{{ g.title }}</div>
             <template v-if="g.state === 'loading' && !g.items.length">
               <div class="px-2.5 py-1 max-lg:hidden" data-nav-groups-loading><ZSkeleton :lines="3" height="16px" /></div>
             </template>
@@ -212,10 +221,10 @@ const itemClass = (on: boolean) => cn(
       </nav>
 
       <div class="min-w-0" data-system-content>
-        <RefList v-if="activeRef" :kind="activeRef" :can-edit="admin" @count="setCounter(activeRef, $event)" />
+        <RefList v-if="activeRef" :kind="activeRef" :can-edit="admin" @count="setCounter(activeRef, $event)" @error="failCounter(activeRef)" />
         <ClassifierList v-else-if="activeClassifier" :code="activeClassifier" :can-edit="admin" @changed="loadGroups" />
         <RegistryPanel v-else-if="activeRegistry" :kind="activeRegistry" :can-edit="admin" @changed="(ks) => ks.forEach((k) => loadCounter(k))" />
-        <TnvedSyncPanel v-else-if="active === SYNC_ITEM" @last="setCounter(SYNC_ITEM, $event)" />
+        <TnvedSyncPanel v-else-if="active === SYNC_ITEM" @last="setCounter(SYNC_ITEM, $event)" @error="failCounter(SYNC_ITEM)" />
       </div>
     </div>
   </div>
