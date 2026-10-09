@@ -4,7 +4,7 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import NonTariffMeasureGroups from '@/components/NonTariffMeasureGroups.vue'
 import TnvedTabStatus from './TnvedTabStatus.vue'
 import type { TnvedReferenceDto } from '@/types/api'
-import type { Loaded } from './tnvedPage'
+import type { Loaded } from './tnvedRules'
 
 // Вкладка «Нетарифные меры» (справка по коду, ввоз): меры группами по виду документа.
 // 404 — справка ещё не загружена синхронизацией; success:false — текст сервера.

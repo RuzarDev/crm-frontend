@@ -2,9 +2,8 @@
 import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
-import type { TnvedHit } from '@/views/client/tnved/tnved'
-import { formatTnvedCode } from '@/views/references/tnvedShared'
-import { percent } from './tnvedPage'
+import { formatTnvedCode, type TnvedHit } from '@/views/references/tnvedShared'
+import { percent } from './tnvedRules'
 
 // Результаты слева: поиск по коду/названию или подбор по описанию (с вероятностью совпадения).
 // Нажатие открывает код в карточке и на его месте в дереве.

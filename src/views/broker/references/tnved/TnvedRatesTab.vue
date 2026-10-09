@@ -5,8 +5,8 @@ import { PhArrowSquareOut } from '@phosphor-icons/vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import TnvedTabStatus from './TnvedTabStatus.vue'
 import type { TnvedNodeDto, TnvedRateDto } from '@/types/api'
-import { VAT_RATE } from '@/views/client/tnved/tnved'
-import { formatUpdated, hasRates, type Loaded } from './tnvedPage'
+import { VAT_RATE } from '@/views/references/tnvedShared'
+import { formatUpdated, hasRates, type Loaded } from './tnvedRules'
 
 // Вкладка «Ставки»: ввозная пошлина ЕТТ (с основанием), статус ВТО и НДС. У группы — подсказка раскрыть её.
 const props = defineProps<{ node: TnvedNodeDto; state?: Loaded<TnvedRateDto> }>()

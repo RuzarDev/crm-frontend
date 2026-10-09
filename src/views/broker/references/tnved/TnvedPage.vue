@@ -13,9 +13,10 @@ import TnvedSearchList from './TnvedSearchList.vue'
 import TnvedCodeCard from './TnvedCodeCard.vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedNodeDto } from '@/types/api'
-import { hitFromMatch, hitFromNode, MIN_QUERY, type TnvedHit } from '@/views/client/tnved/tnved'
-import { codeDigits, formatTnvedCode, httpStatus, isCodeLike, isRateLimited } from '@/views/references/tnvedShared'
-import { createCodeCache, type TabKey } from './tnvedPage'
+import {
+  codeDigits, formatTnvedCode, hitFromMatch, hitFromNode, httpStatus, isCodeLike, isRateLimited, MIN_QUERY, type TnvedHit,
+} from '@/views/references/tnvedShared'
+import { createCodeCache, type TabKey } from './tnvedRules'
 
 // «ТН ВЭД» сотрудника (редизайн, волна 5а, доска Tnved): слева поиск и дерево, справа карточка кода с вкладками.
 // — Поиск: «Код, название или описание товара» с паузой 400 мс; «Подобрать по описанию» — тот же поле, подбор
@@ -179,7 +180,6 @@ const openCode = async (raw: string, known?: TnvedNodeDto) => {
     show(data)
   } catch (e) {
     if (my !== openSeq) return
-    selected.value = null
     cardState.value = httpStatus(e) === 404 ? 'notFound' : failState(e) === 'limit' ? 'limit' : 'error'
   }
 }
@@ -295,7 +295,7 @@ const notFoundHint = computed(() => t('broker.references.tnved.notFoundHint', { 
           :hits="hits"
           :state="searchState"
           :source="source"
-          :selected-code="selected?.code"
+          :selected-code="cardState === 'ready' ? selected?.code : null"
           class="min-h-0 flex-1 overflow-y-auto"
           @open="onHit"
           @retry="retrySearch"
@@ -305,8 +305,11 @@ const notFoundHint = computed(() => t('broker.references.tnved.notFoundHint', { 
 
       <!-- Справа: карточка кода -->
       <div ref="cardWrap" class="min-w-0 scroll-mt-4" data-tnved-right>
+        <!-- Карточка остаётся смонтированной (только скрыта), пока открывается другой код или он не найден:
+             поля калькулятора (стоимость, валюта, количество…) переживают смену кода, как при клике в дереве. -->
         <TnvedCodeCard
-          v-if="selected && cardState === 'ready'"
+          v-if="selected"
+          v-show="cardState === 'ready'"
           v-model:tab="tab"
           :node="selected"
           :path="path"
@@ -314,7 +317,7 @@ const notFoundHint = computed(() => t('broker.references.tnved.notFoundHint', { 
           @open-node="onOpenNode"
           @open-code="(c: string) => openCode(c)"
         />
-        <div v-else-if="cardState === 'loading'" class="flex flex-col gap-3 rounded-panel border border-line bg-surface px-5 py-[18px]" aria-busy="true" data-card-loading>
+        <div v-if="cardState === 'loading'" class="flex flex-col gap-3 rounded-panel border border-line bg-surface px-5 py-[18px]" aria-busy="true" data-card-loading>
           <ZSkeleton width="180px" height="24px" />
           <ZSkeleton width="70%" height="14px" />
           <ZSkeleton :lines="4" class="mt-3" />
@@ -327,7 +330,7 @@ const notFoundHint = computed(() => t('broker.references.tnved.notFoundHint', { 
           <p class="m-0 min-w-0 flex-1 text-sm text-ink-2">{{ cardState === 'limit' ? t('broker.references.tnved.limit') : t('broker.references.tnved.loadError') }}</p>
           <ZButton size="sm" class="max-sm:h-11 max-sm:px-4" data-card-retry @click="retryCard">{{ t('broker.references.tnved.retry') }}</ZButton>
         </div>
-        <div v-else class="flex min-h-40 items-center justify-center rounded-panel border border-dashed border-line-strong px-6 py-8 text-center" data-card-empty>
+        <div v-else-if="!selected" class="flex min-h-40 items-center justify-center rounded-panel border border-dashed border-line-strong px-6 py-8 text-center" data-card-empty>
           <p class="m-0 max-w-[320px] text-sm text-ink-3 text-pretty">{{ t('broker.references.tnved.pick') }}</p>
         </div>
       </div>

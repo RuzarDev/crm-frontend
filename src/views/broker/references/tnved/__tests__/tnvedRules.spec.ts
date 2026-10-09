@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/api/tnved', () => ({ tnvedApi: {} }))
 
-// Правила экрана «ТН ВЭД» из tnvedPage.ts (имя спеки другое: TnvedPage.spec.ts — экран, а ФС без учёта регистра).
-import { createCodeCache, failStatus, formatUpdated, nextTab, percent, tabEnabled, type CodeData } from '../tnvedPage'
+// Правила экрана «ТН ВЭД» (tnvedRules.ts): вкладки, кэш данных кодов, форматы.
+import { createCodeCache, failStatus, formatUpdated, nextTab, percent, tabEnabled, type CodeData } from '../tnvedRules'
 
 const httpError = (status: number) => Object.assign(new Error(`HTTP ${status}`), { response: { status } })
 const node10 = { code: '8471300000', is10: true }

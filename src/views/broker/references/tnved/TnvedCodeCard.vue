@@ -14,7 +14,7 @@ import TnvedExportTab from './TnvedExportTab.vue'
 import type { TnvedNodeDto } from '@/types/api'
 import { message } from '@/ui/message'
 import { cleanName, formatTnvedCode } from '@/views/references/tnvedShared'
-import { hasRates, nextTab, tabEnabled, TABS, type CodeCache, type CodeData, type DataKind, type Loaded, type TabKey } from './tnvedPage'
+import { hasRates, nextTab, tabEnabled, TABS, type CodeCache, type CodeData, type DataKind, type Loaded, type TabKey } from './tnvedRules'
 
 // Карточка кода ТН ВЭД (доска Tnved, справа): код крупно, теги, название, путь в дереве (кликабельный),
 // предупреждение об устаревшем коде, «Скопировать код» и вкладки. Данные вкладки грузятся, когда её открыли
@@ -37,21 +37,25 @@ const needs = (kind: DataKind, n: TnvedNodeDto): boolean => {
   if (kind === 'notes') return !!n.code
   return n.is10
 }
+// Типизированная запись состояния вкладки (TS не сводит индексацию по обобщённому ключу — одно приведение здесь).
+const setState = <K extends DataKind>(kind: K, v: Loaded<CodeData[K]>) => {
+  (states as Record<DataKind, unknown>)[kind] = v
+}
 let seq = 0
-const ensure = async (kind: DataKind) => {
+const ensure = async <K extends DataKind>(kind: K) => {
   const n = props.node
   if (!needs(kind, n)) return
   const hit = props.cache.peek(kind, n.code)
   if (hit) {
-    (states as Record<DataKind, unknown>)[kind] = hit
+    setState(kind, hit)
     return
   }
   if (states[kind]?.status === 'loading') return
   const my = seq
-  ;(states as Record<DataKind, unknown>)[kind] = { status: 'loading', data: null }
+  setState(kind, { status: 'loading', data: null })
   const r = await props.cache.load(kind, n.code)
   if (my !== seq) return
-  ;(states as Record<DataKind, unknown>)[kind] = r
+  setState(kind, r)
 }
 const retry = (kind: DataKind) => {
   delete states[kind]
@@ -62,7 +66,12 @@ const retry = (kind: DataKind) => {
 // остаются при переходах между вкладками и кодами.
 const calcMounted = ref(false)
 const openTab = (k: TabKey) => {
-  if (k === 'calc') calcMounted.value = true
+  if (k === 'calc') {
+    calcMounted.value = true
+    // По ставке калькулятор решает, нужен ли объём двигателя (ставка в см³) — до первого расчёта.
+    // Вкладка остаётся открытой при смене кода, поэтому ставки грузим и здесь (один запрос, из кэша).
+    void ensure('rates')
+  }
   const kind = TAB_DATA[k]
   if (kind) void ensure(kind)
 }
@@ -102,8 +111,11 @@ const copy = async () => {
 }
 
 // ---- Вкладки ----
-const measuresCount = computed(() =>
-  states.measures?.status === 'done' && states.measures.data?.success ? states.measures.data.nonTariffMeasures?.length ?? 0 : undefined)
+// Счётчик — когда справка по коду уже есть (открывали вкладку сейчас или раньше — из кэша, без запроса).
+const measuresCount = computed(() => {
+  const m = states.measures ?? props.cache.peek('measures', props.node.code)
+  return m?.status === 'done' && m.data?.success ? m.data.nonTariffMeasures?.length ?? 0 : undefined
+})
 const tabItems = computed<ZTabItem[]>(() => TABS.map((k) => ({
   key: k,
   label: t(`broker.references.tnved.tabs.${k}`),

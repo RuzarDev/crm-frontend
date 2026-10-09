@@ -6,7 +6,7 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import TnvedTabStatus from './TnvedTabStatus.vue'
 import type { TnvedExplanationDto } from '@/types/api'
 import { sanitizeHtml } from '@/ui/sanitizeHtml'
-import { EEC_LINKS, formatUpdated, type Loaded } from './tnvedPage'
+import { EEC_LINKS, formatUpdated, type Loaded } from './tnvedRules'
 
 // Вкладка «Пояснения»: ссылки на пояснения и решения ЕЭК и текст пояснений к коду.
 // HTML пояснений приходит из синхронизации как есть — показываем только очищенный (sanitizeHtml).

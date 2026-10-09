@@ -289,4 +289,81 @@ describe('TnvedPage', () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('8471300000')
     expect(msg.success).toHaveBeenCalled()
   })
+
+  it('«Калькулятор» открыт при смене кода — ставки грузятся, поле объёма двигателя есть до первого расчёта (см³)', async () => {
+    api.rates.mockImplementation((code: string) =>
+      ok(rate(code, code === '8471410000' ? '15%, но не менее 0,6 евро за 1 см3 объёма двигателя' : '0%')))
+    await mountAt('/tnved/tree?code=8471300000')
+    await openTab('Калькулятор')
+    expect(w.find('[data-calc-engine]').exists()).toBe(false)
+    await clickRow(1001)
+    expect(w.get('[data-tab-panel]').attributes('data-tab-panel')).toBe('calc')
+    expect(api.rates).toHaveBeenCalledWith('8471410000', { silent: true })
+    expect(w.find('[data-calc-engine]').exists()).toBe(true)
+  })
+
+  it('клавиатура: стрелки только переводят фокус (без запросов), Enter открывает код', async () => {
+    await mountAt()
+    await expandTo10()
+    await clickRow(1000)
+    const calls = api.rates.mock.calls.length + api.getTransition.mock.calls.length
+    const row = (id: number) => w.get(`[data-z-tree-id="${id}"]`).element as HTMLElement
+    const press = async (key: string) => {
+      ;(document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+      await flushPromises()
+    }
+    row(1000).focus()
+    await press('ArrowDown')
+    expect(document.activeElement).toBe(row(1001))
+    await press('ArrowUp')
+    await press('ArrowDown')
+    expect(api.rates.mock.calls.length + api.getTransition.mock.calls.length).toBe(calls)
+    expect(card().get('[data-card-code]').text()).toBe('8471 30 000 0')
+    await press('Enter')
+    expect(card().get('[data-card-code]').text()).toBe('8471 41 000 0')
+    expect(api.rates).toHaveBeenCalledWith('8471410000', { silent: true })
+  })
+
+  it('поля калькулятора переживают открытие кода по адресу (карточка не пересоздаётся)', async () => {
+    await mountAt('/tnved/tree?code=8471300000')
+    await openTab('Калькулятор')
+    await w.get('[data-calc-value]').setValue('25000')
+    const slow = deferred<{ data: TnvedPathNodeDto[] }>()
+    api.path.mockImplementationOnce(() => slow.promise)
+    await router.replace({ query: { code: '8471410000' } })
+    await flushPromises()
+    expect(w.find('[data-card-loading]').exists()).toBe(true)
+    slow.resolve({ data: paths['8471410000'] })
+    await flushPromises()
+    expect(card().get('[data-card-code]').text()).toBe('8471 41 000 0')
+    expect((w.get('[data-calc-value]').element as HTMLInputElement).value).toContain('25')
+  })
+
+  it('«Нетарифные меры n»: счётчик из кэша, если справку по коду уже открывали', async () => {
+    await mountAt()
+    await expandTo10()
+    await clickRow(1000)
+    await openTab('Нетарифные меры')
+    await openTab('Ставки')
+    await clickRow(1001)
+    await clickRow(1000)
+    const tab = w.findAll('[role="tab"]').find((x) => x.text().startsWith('Нетарифные меры'))!
+    expect(tab.text().replace(/\s+/g, ' ')).toBe('Нетарифные меры 2')
+    expect(api.reference).toHaveBeenCalledTimes(1)
+  })
+
+  it('клик в дереве во время раскрытия другого кода — выделение остаётся на выбранном', async () => {
+    await mountAt()
+    await expandTo10()
+    const slow = deferred<{ data: TnvedPathNodeDto[] }>()
+    api.path.mockImplementationOnce(() => slow.promise)
+    await router.replace({ query: { code: '8471410000' } })
+    await flushPromises()
+    await clickRow(1000)
+    slow.resolve({ data: paths['8471410000'] })
+    await flushPromises()
+    expect(w.get('[data-z-tree-id="1000"]').attributes('aria-selected')).toBe('true')
+    expect(w.get('[data-z-tree-id="1001"]').attributes('aria-selected')).not.toBe('true')
+    expect(card().get('[data-card-code]').text()).toBe('8471 30 000 0')
+  })
 })

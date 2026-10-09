@@ -4,7 +4,7 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import NonTariffMeasureGroups from '@/components/NonTariffMeasureGroups.vue'
 import TnvedTabStatus from './TnvedTabStatus.vue'
 import type { TnvedExportReferenceDto } from '@/types/api'
-import type { Loaded } from './tnvedPage'
+import type { Loaded } from './tnvedRules'
 
 // Вкладка «Экспорт» (вывоз): ставка вывозной пошлины и нетарифные меры при вывозе.
 defineProps<{ state?: Loaded<TnvedExportReferenceDto> }>()

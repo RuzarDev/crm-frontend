@@ -54,13 +54,15 @@ const ensureRoot = () => (rootPromise ??= loadRoot().then((ok) => {
 }))
 void ensureRoot()
 
+let seq = 0
+// Клик человека отменяет reveal в пути (поиск, ?code=): иначе выделение перескочило бы на раскрытый код.
 const onSelect = (z: ZTreeNode) => {
+  seq += 1
   const dto = dtos.get(z.id)
   if (dto) emit('select', dto)
 }
 
-/** Раскрыть дерево до кода и выделить его. Возвращает узел (или null; новый вызов отменяет прежний). */
-let seq = 0
+/** Раскрыть дерево до кода и выделить его. Возвращает узел (или null; новый вызов или клик по строке отменяет прежний). */
 const reveal = async (code: string): Promise<TnvedNodeDto | null> => {
   const my = ++seq
   let path: { id: number }[]

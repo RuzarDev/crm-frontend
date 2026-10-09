@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
-import type { LoadStatus } from './tnvedPage'
+import type { LoadStatus } from './tnvedRules'
 
 // Ошибка загрузки вкладки карточки кода: лимит запросов (429) — «подождите минуту», иначе «Не удалось загрузить»;
 // в обоих случаях «Повторить» (ошибки не кэшируются).

@@ -145,10 +145,13 @@ const setSelected = (id: ZTreeId) => {
   emit('update:selected', id)
 }
 
+let revealSeq = 0
 // Reka по умолчанию снимает выбор повторным кликом и сам раскрывает ветку — делаем это сами (ленивая загрузка).
 const onItemSelect = (n: ZTreeNode, ev: Event) => {
   ev.preventDefault()
   if (n.disabled) return
+  // Выбор человеком отменяет reveal в пути: иначе по его окончании выделение перескочило бы на раскрытый узел.
+  revealSeq += 1
   setSelected(n.id)
   emit('select', n)
 }
@@ -177,8 +180,7 @@ const scrollTo = async (id: ZTreeId): Promise<boolean> => {
 }
 const scrollToSelected = () => (current.value === null ? Promise.resolve(false) : scrollTo(current.value))
 
-/** Раскрыть путь (id от корня до узла), выделить последний узел и прокрутить к нему. Новый вызов отменяет прежний. */
-let revealSeq = 0
+/** Раскрыть путь (id от корня до узла), выделить последний узел и прокрутить к нему. Новый вызов (или выбор строки) отменяет прежний. */
 const reveal = async (path: ZTreeId[]): Promise<ZTreeNode | null> => {
   const my = ++revealSeq
   if (!path.length) return null

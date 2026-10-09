@@ -46,4 +46,33 @@ describe('sanitizeHtml', () => {
   it('экранирует текст, комментарии убирает', () => {
     expect(sanitizeHtml('a &lt;script&gt; <!-- c --> b')).toBe('a &lt;script&gt;  b')
   })
+
+  it('регистр и обфускация: SCRIPT, ONCLICK=, JaVaScRiPt:, сущности, управляющие символы, одиночный svg onload', () => {
+    expect(sanitizeHtml('<SCRIPT>alert(1)</SCRIPT><P ONCLICK="alert(1)" OnMouseOver=x>t</P>')).toBe('<p>t</p>')
+    expect(sanitizeHtml('<A HREF="JaVaScRiPt:alert(1)">x</A>')).toBe('<a>x</a>')
+    expect(sanitizeHtml('<a href="javascript&colon;alert(1)">x</a>')).toBe('<a>x</a>')
+    expect(sanitizeHtml('<a href="&#106;&#97;&#118;&#97;&#115;&#99;&#114;&#105;&#112;&#116;&#58;alert(1)">x</a>')).toBe('<a>x</a>')
+    expect(sanitizeHtml('<a href="\u0001javascript:alert(1)">x</a>')).toBe('<a>x</a>')
+    expect(sanitizeHtml('<a href="jav\nascript:alert(1)">x</a>')).toBe('<a>x</a>')
+    expect(sanitizeHtml('<svg onload="alert(1)">')).toBe('')
+    expect(sanitizeHtml('<svg/onload=alert(1)>текст')).toBe('')
+    expect(sanitizeHtml('<math><mtext><table><mglyph><style><img src=x onerror=alert(1)>')).toBe('')
+  })
+
+  it('картинки: адрес http(s) или «//…» (формулы ЕЭК, схемы adilet), с alt, без referrer и on*; иначе убираются', () => {
+    expect(sanitizeHtml('<img src="https://eec.eaeunion.org/f.png" alt="Формула" onerror="alert(1)" width="10" style="x">'))
+      .toBe('<img src="https://eec.eaeunion.org/f.png" alt="Формула" loading="lazy" referrerpolicy="no-referrer">')
+    expect(sanitizeHtml('<IMG SRC="HTTPS://eec.eaeunion.org/f.png">')).toBe('<img src="HTTPS://eec.eaeunion.org/f.png" loading="lazy" referrerpolicy="no-referrer">')
+    expect(sanitizeHtml('<img src="http://adilet.zan.kz/files/1.png" onload="alert(1)">'))
+      .toBe('<img src="http://adilet.zan.kz/files/1.png" loading="lazy" referrerpolicy="no-referrer">')
+    expect(sanitizeHtml('<img src="//adilet.zan.kz/files/2.gif" alt="Схема">'))
+      .toBe('<img src="//adilet.zan.kz/files/2.gif" alt="Схема" loading="lazy" referrerpolicy="no-referrer">')
+    expect(sanitizeHtml('<img src="///etc/passwd">')).toBe('')
+    expect(sanitizeHtml('<img src="ftp://host/f.png">')).toBe('')
+    expect(sanitizeHtml('<img src=" java\tscript:alert(1)">')).toBe('')
+    expect(sanitizeHtml('<img src="javascript:alert(1)">')).toBe('')
+    expect(sanitizeHtml('<img src="data:image/svg+xml,<svg onload=alert(1)>">')).toBe('')
+    expect(sanitizeHtml('<img src="/local.png">')).toBe('')
+    expect(sanitizeHtml('<img>')).toBe('')
+  })
 })

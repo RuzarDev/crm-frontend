@@ -3,7 +3,11 @@
 // — опасные элементы (script, style, iframe, object, embed, svg, math, form…) удаляются вместе с содержимым;
 // — незнакомые (font, span, div…) разворачиваются: текст остаётся, тег — нет;
 // — атрибуты — только href у ссылок (http/https/mailto/относительные) и colspan/rowspan у ячеек;
-//   обработчики on*, style, class и прочее отбрасываются. Ссылки открываются в новой вкладке с noopener.
+//   обработчики on*, style, class и прочее отбрасываются. Ссылки открываются в новой вкладке с noopener;
+// — картинки (формулы в пояснениях ЕЭК, схемы в «Порядке ДТ» с adilet.zan.kz) — только с адресом http:, https:
+//   или «//…»: src и alt, ленивая загрузка, без referrer. data:, javascript:, прочие схемы, относительные
+//   (на нашем домене их нет) и без src — убираются. http-картинки на https-сайте браузер может не показать
+//   (смешанное содержимое) — проксировать их можно позже.
 
 const ALLOWED = new Set([
   'a', 'b', 'strong', 'i', 'em', 'u', 's', 'sub', 'sup', 'small', 'mark',
@@ -16,7 +20,7 @@ const ALLOWED = new Set([
 const DROP = new Set([
   'script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'noscript', 'template',
   'svg', 'math', 'form', 'input', 'button', 'select', 'textarea', 'option', 'link', 'meta', 'base',
-  'img', 'video', 'audio', 'source', 'track', 'canvas', 'title', 'head',
+  'video', 'audio', 'source', 'track', 'canvas', 'title', 'head',
 ])
 
 const CELL_ATTRS = new Set(['colspan', 'rowspan'])
@@ -27,6 +31,24 @@ const safeHref = (raw: string): boolean => {
   const v = raw.replace(/[\u0000- \u007f-\u009f]/g, '').toLowerCase()
   const scheme = /^([a-z][a-z0-9+.-]*):/.exec(v)
   return !scheme || scheme[1] === 'http' || scheme[1] === 'https' || scheme[1] === 'mailto'
+}
+
+/** Адрес картинки без управляющих символов и пробелов (браузер их и так выбрасывает) — проверяем и пишем его. */
+// eslint-disable-next-line no-control-regex
+const normalizeUrl = (raw: string): string => raw.replace(/[\u0000-\u0020\u007f-\u009f]/g, '')
+/** Картинка: только абсолютный адрес http(s) или «//хост/…». */
+const safeImgSrc = (url: string): boolean => /^(https?:)?\/\/[^/\\]/i.test(url)
+
+const cleanImg = (src: Element, doc: Document): HTMLElement | null => {
+  const url = normalizeUrl(src.getAttribute('src') ?? '')
+  if (!safeImgSrc(url)) return null
+  const img = doc.createElement('img')
+  img.setAttribute('src', url)
+  const alt = src.getAttribute('alt')
+  if (alt) img.setAttribute('alt', alt)
+  img.setAttribute('loading', 'lazy')
+  img.setAttribute('referrerpolicy', 'no-referrer')
+  return img
 }
 
 const cleanAttrs = (src: Element, dst: Element) => {
@@ -51,7 +73,10 @@ const copyChildren = (from: Node, to: Node, doc: Document) => {
       const tag = el.tagName.toLowerCase()
       // Элементы из пространств svg/math (в т.ч. вложенные) — целиком прочь.
       if (DROP.has(tag) || (el.namespaceURI && el.namespaceURI !== 'http://www.w3.org/1999/xhtml')) continue
-      if (ALLOWED.has(tag)) {
+      if (tag === 'img') {
+        const img = cleanImg(el, doc)
+        if (img) to.appendChild(img)
+      } else if (ALLOWED.has(tag)) {
         const copy = doc.createElement(tag)
         cleanAttrs(el, copy)
         copyChildren(el, copy, doc)
