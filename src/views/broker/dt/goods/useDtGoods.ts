@@ -5,6 +5,9 @@
 // - add / append / remove / duplicate / move / applyToSelected меняют массив формы на месте (splice: тот же массив,
 //   те же объекты товаров). Без права править — ничего не делают. Подтверждения — в интерфейсе (useConfirm), здесь
 //   только данные; removalImpact — что сказать в вопросе.
+// - Удаление, перестановка и дублирование пересчитывают привязки гр. 44 / гр. 40 к товарам (по позиции — G1, см.
+//   goodsRefs): документы едут за своим товаром, копия товара привязок не получает, документ только удалённых
+//   товаров удаляется вместе с ними.
 // - Статус товара (готов / не хватает N / «Пересчитать»): пункты серверной готовности по goodsIndex (позиция с 0)
 //   запоминаются за ОБЪЕКТОМ товара в момент ответа сервера — после удаления или перестановки (до следующего ответа)
 //   статус не «переезжает» на соседа; товар, которого в ответе не было (новый, копия), и всё без ответа сервера —
@@ -17,6 +20,7 @@ import { cloneGoodsExtras } from '@/types/api'
 import { goodsHasData } from '@/views/broker/transit/record/sections/goods'
 import type { DtFormState } from '../dtPayload'
 import { applyBulkPatch, type BulkPatch } from './goodsBulk'
+import { goodsRefsImpact, remapGoodsRefs, type GoodsIndexMap, type GoodsRefsResult } from './goodsRefs'
 import {
   localStatus, markStale, missingByGoodsIndex, setGoodsField, statusFrom, type GoodsReadinessItem, type GoodsStatus,
 } from './goodsStatus'
@@ -35,7 +39,7 @@ export interface DtGoodsOptions {
   canEdit: MaybeRefOrGetter<boolean>
 }
 
-export interface GoodsRemoveResult {
+export interface GoodsRemoveResult extends GoodsRefsResult {
   /** Сколько товаров удалено. */
   removed: number
 }
@@ -45,6 +49,10 @@ export interface GoodsRemovalImpact {
   count: number
   /** Из них с данными пользователя (тогда спрашивать). */
   withData: number
+  /** Документов гр. 44, привязанных только к этим товарам, — уйдут вместе с ними. */
+  doc44: number
+  /** То же для гр. 40. */
+  prevDocs: number
 }
 
 // Ключи — общие для всех экземпляров (список и редактор видят один и тот же ключ товара).
@@ -129,6 +137,13 @@ export function cloneGoodsItem(g: Goods): Goods {
   }
 }
 
+/** from[новая позиция] = прежняя (null — новый товар) → карта «прежняя позиция → новая / null (удалён)». */
+const indexMap = (oldLength: number, from: readonly (number | null)[]): GoodsIndexMap => {
+  const map: (number | null)[] = Array.from({ length: oldLength }, () => null)
+  from.forEach((old, i) => { if (old != null) map[old] = i })
+  return map
+}
+
 /** Допустимые позиции без повторов, по возрастанию. */
 const validIndexes = (indexes: Iterable<number>, length: number): number[] =>
   [...new Set(indexes)].filter((i) => Number.isInteger(i) && i >= 0 && i < length).sort((a, b) => a - b)
@@ -141,8 +156,10 @@ export function useDtGoods(form: DtFormState, opts: DtGoodsOptions) {
    * Новый порядок товаров: next — товары, from[i] — прежняя позиция товара next[i] (null — новый). Массив формы
    * остаётся тем же (splice).
    */
-  const relayout = (next: Goods[], _from: (number | null)[]) => {
+  const relayout = (next: Goods[], from: (number | null)[]): GoodsRefsResult => {
+    const map = indexMap(form.goodsItems.length, from)
     form.goodsItems.splice(0, form.goodsItems.length, ...next)
+    return remapGoodsRefs(form, map)
   }
 
   /** Добавить пустой товар в конец. */
@@ -164,14 +181,18 @@ export function useDtGoods(form: DtFormState, opts: DtGoodsOptions) {
   /** Что будет удалено (для вопроса перед удалением). */
   const removalImpact = (indexes: Iterable<number>): GoodsRemovalImpact => {
     const at = validIndexes(indexes, form.goodsItems.length)
-    return { count: at.length, withData: at.filter((i) => goodsHasData(form.goodsItems[i])).length }
+    const drop = new Set(at)
+    const kept = form.goodsItems.map((_, i) => i).filter((i) => !drop.has(i))
+    const refs = goodsRefsImpact(form, indexMap(form.goodsItems.length, kept))
+    return { count: at.length, withData: at.filter((i) => goodsHasData(form.goodsItems[i])).length, ...refs }
   }
 
   /** Удалить товары на позициях indexes (с 0). */
   const remove = (indexes: Iterable<number>): GoodsRemoveResult => {
-    if (!editable()) return { removed: 0 }
+    const none: GoodsRemoveResult = { removed: 0, droppedDoc44: [], droppedPrevDocs: [] }
+    if (!editable()) return none
     const drop = new Set(validIndexes(indexes, form.goodsItems.length))
-    if (!drop.size) return { removed: 0 }
+    if (!drop.size) return none
     const next: Goods[] = []
     const from: number[] = []
     form.goodsItems.forEach((g, i) => {
@@ -179,8 +200,7 @@ export function useDtGoods(form: DtFormState, opts: DtGoodsOptions) {
       next.push(g)
       from.push(i)
     })
-    relayout(next, from)
-    return { removed: drop.size }
+    return { removed: drop.size, ...relayout(next, from) }
   }
 
   /** Копия каждого товара — сразу после исходного. Возвращает копии (как они лежат в форме). */

@@ -163,3 +163,47 @@ describe('useDtGoods: статусы', () => {
     expect(api.counts.value).toEqual({ missing: 0, stale: 1 })
   })
 })
+
+describe('useDtGoods: привязки гр. 44 / гр. 40 (G1)', () => {
+  const withDocs = () => {
+    const s = setup(['A', 'B', 'C'].map((d) => item({ description: d })))
+    s.form.doc44Items = [
+      { docTypeCode: '01011', docTypeName: null, docNumber: 'C-ONLY', docDate: null, goodsItemIndex: null, appliesToAll: false, goodsItemIndexes: '2' },
+      { docTypeCode: '01011', docTypeName: null, docNumber: 'B-ONLY', docDate: null, goodsItemIndex: null, appliesToAll: false, goodsItemIndexes: '1' },
+      { docTypeCode: '01011', docTypeName: null, docNumber: 'ALL', docDate: null, goodsItemIndex: null, appliesToAll: true, goodsItemIndexes: null },
+    ]
+    s.form.prevDocItems = [
+      { docTypeCode: '09013', docNumber: 'P-C', docDate: null, goodsNumber: '3', goodsItemIndex: null, sortOrder: 0 },
+      { docTypeCode: '09013', docNumber: 'P-B', docDate: null, goodsNumber: '2', goodsItemIndex: null, sortOrder: 1 },
+    ]
+    return s
+  }
+  const docGoods = (form: DtFormState) => form.doc44Items.map((d) => `${d.docNumber}:${d.appliesToAll ? '*' : d.goodsItemIndexes}`)
+
+  it('удаление товара 2: документ товара 3 остаётся у товара «C», документы только товара 2 — удаляются', () => {
+    const { form, api } = withDocs()
+    expect(api.removalImpact([1])).toEqual({ count: 1, withData: 1, doc44: 1, prevDocs: 1 })
+    const res = api.remove([1])
+    expect(names(form)).toEqual(['A', 'C'])
+    expect(docGoods(form)).toEqual(['C-ONLY:1', 'ALL:*'])
+    expect(form.prevDocItems.map((p) => [p.docNumber, p.goodsNumber, p.sortOrder])).toEqual([['P-C', '2', 0]])
+    expect(res).toMatchObject({ removed: 1 })
+    expect(res.droppedDoc44.map((d) => d.docNumber)).toEqual(['B-ONLY'])
+    expect(res.droppedPrevDocs.map((p) => p.docNumber)).toEqual(['P-B'])
+  })
+
+  it('перестановка: привязки едут за товаром', () => {
+    const { form, api } = withDocs()
+    api.move(2, 0) // C, A, B
+    expect(names(form)).toEqual(['C', 'A', 'B'])
+    expect(docGoods(form)).toEqual(['C-ONLY:0', 'B-ONLY:2', 'ALL:*'])
+    expect(form.prevDocItems.map((p) => p.goodsNumber)).toEqual(['1', '3'])
+  })
+
+  it('дублирование: копия без привязок, товары после неё сдвигаются', () => {
+    const { form, api } = withDocs()
+    api.duplicate([0]) // A, A', B, C
+    expect(docGoods(form)).toEqual(['C-ONLY:3', 'B-ONLY:2', 'ALL:*'])
+    expect(form.prevDocItems.map((p) => p.goodsNumber)).toEqual(['4', '3'])
+  })
+})
