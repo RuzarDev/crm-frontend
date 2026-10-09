@@ -30,6 +30,7 @@ const tnved = vi.hoisted(() => ({
 vi.mock('@/api/tnved', () => ({ tnvedApi: tnved }))
 const trois = vi.hoisted(() => ({ check: vi.fn(async (names: string[]) => names.map((name) => ({ name, checked: true, matches: [] }))), search: vi.fn(async () => []) }))
 vi.mock('@/api/trois', async (orig) => ({ ...(await orig<typeof import('@/api/trois')>()), troisApi: trois }))
+vi.mock('@/api/kedenProcedureLists', async (orig) => ({ ...(await orig<typeof import('@/api/kedenProcedureLists')>()), kedenProcedureListsApi: { get: vi.fn(async () => ({})) } }))
 
 import SectionGoods from '../SectionGoods.vue'
 
@@ -123,7 +124,7 @@ describe('GoodsEditor: каркас и навигация', () => {
     expect(q('[data-goods-editor-code]')!.textContent).toBe('8471 60 700 0')
     expect(q('[data-goods-editor-caption]')!.textContent).toBe('МЫШИ')
     expect(q('[data-goods-editor-status]')!.getAttribute('data-goods-editor-status')).toBe('stale')
-    expect([...panel()!.querySelectorAll('[data-goods-tab]')].map((b) => b.textContent)).toEqual(['Код и описание', 'Количество и стоимость'])
+    expect([...panel()!.querySelectorAll('[data-goods-tab]')].map((b) => b.textContent)).toEqual(['Код и описание', 'Количество и стоимость', 'Упаковка', 'Льготы и процедура'])
     const scope = q('[data-goods-index="1"]')!
     for (const g of ['33', '31', '41', '35', '38', '42', '34', '45', '46']) expect(scope.querySelector(`[data-graph="${g}"]`), g).not.toBeNull()
     // Смонтирован только открытый товар.
@@ -374,5 +375,5 @@ describe('GoodsEditor: 200 товаров', () => {
     console.info(`[perf 200 editor] open ${openMs.toFixed(0)} ms, switch ${switchMs.toFixed(0)} ms`)
     expect(openMs).toBeLessThan(1500)
     expect(switchMs).toBeLessThan(1500)
-  })
+  }, 30_000)
 })

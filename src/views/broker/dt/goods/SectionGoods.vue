@@ -393,6 +393,8 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
       :indexes="applyIndexes"
       :goods="items"
       :country-options="countryOptions ?? []"
+      :direction="editorCtx.direction"
+      :decl-procedure="editorCtx.declProcedure"
       @apply="onApply"
     />
     <GoodsExcelImportModal

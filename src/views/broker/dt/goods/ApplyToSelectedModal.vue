@@ -12,17 +12,25 @@ import { useClassifiersStore } from '@/stores/classifiers'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { BULK_GROUPS, bulkPatchFrom, type BulkField, type BulkGroup, type BulkPatch } from './goodsBulk'
 import { formatItemNumbers } from './goodsList'
+import { pinPreferences, useKedenLists, type KedenListField } from './useKedenLists'
 
 // «Применить к выбранным…» (доска DtGoods): группы полей (goodsBulk.BULK_GROUPS) — отмеченные группы заменяют
 // значения у всех выбранных товаров (пустое — очищает). «Заполнить как у товара» берёт значения из товара-образца
 // (вместо прежних «Копировать ОИС/МНР» и «Проставить месяцы всем»). Коды гр. 33 (нетарифное регулирование)
 // выбираются только из подсказок КЕДЕН в карточке товара — здесь их можно лишь взять у товара-образца.
+// гр. 36, гр. 37 и особенность перемещения сужаются списками КЕДЕН, как в редакторе товара (useKedenLists): ключ —
+// направление гр. 1 + процедура, которую получат товары: процедура, заданная в этом окне (группа «Процедура»), иначе
+// общая процедура выбранных товаров (своя или ДТ) — если у всех одна, иначе процедура ДТ. Код вне списка не удаляется —
+// подсвечивается.
 const props = defineProps<{
   open: boolean
   /** Позиции выбранных товаров (с 0). */
   indexes: number[]
   goods: readonly Import40GoodsItemInput[]
   countryOptions: { value: string; label: string; alpha2?: string | null }[]
+  /** гр. 1: направление и процедура ДТ — ключ списков КЕДЕН. */
+  direction?: string | null
+  declProcedure?: string | null
 }>()
 const emit = defineEmits<{ 'update:open': [open: boolean]; apply: [patch: BulkPatch] }>()
 const { t } = useI18n()
@@ -30,28 +38,24 @@ const ta = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.appl
 const classifiers = useClassifiersStore()
 
 type Kind = 'select' | 'multi' | 'tags' | 'text' | 'number' | 'source'
-interface FieldUi { kind: Kind; options?: () => ZOption[]; join?: string; upper?: boolean; mono?: boolean }
+interface FieldUi { kind: Kind; options?: () => ZOption[]; join?: string; upper?: boolean; mono?: boolean; keden?: KedenListField }
 
-const PREF_PINNED = ['ОО', 'О', 'Z']
 const classifier = (code: string) => () => classifiers.options(code)
 // гр. 36: «ОО, О, Z» сверху, остальные по коду (как в карточке товара).
-const pref = (code: string) => () => {
-  const rank = (v: string) => { const i = PREF_PINNED.indexOf(v); return i === -1 ? 99 : i }
-  return [...classifiers.options(code)].sort((a, b) => rank(String(a.value)) - rank(String(b.value)) || String(a.value).localeCompare(String(b.value), 'ru'))
-}
+const pref = (code: string) => () => pinPreferences(classifiers.options(code))
 const countries = () => props.countryOptions.map((c) => ({ value: c.value, label: c.label }))
 const alpha2 = () => props.countryOptions.filter((c) => c.alpha2).map((c) => ({ value: c.alpha2 as string, label: `${c.alpha2} — ${c.label.replace(/^\d+\s*—\s*/, '')}` }))
 
 const FIELD_UI: Record<BulkField, FieldUi> = {
   countryOfOrigin: { kind: 'select', options: countries },
-  procedureCode: { kind: 'select', options: classifier('customs-procedures') },
-  previousProcedureCode: { kind: 'select', options: classifier('customs-procedures') },
-  goodsMoveFeatureCode: { kind: 'select', options: classifier('movement-features') },
+  procedureCode: { kind: 'select', options: classifier('customs-procedures'), keden: 'procedure' },
+  previousProcedureCode: { kind: 'select', options: classifier('customs-procedures'), keden: 'prev' },
+  goodsMoveFeatureCode: { kind: 'select', options: classifier('movement-features'), keden: 'movement-features' },
   valuationMethodCode: { kind: 'select', options: classifier('2005') },
-  prefClearanceCode: { kind: 'select', options: pref('pref-fee') },
-  prefDutyCode: { kind: 'select', options: pref('pref-duty') },
-  prefExciseCode: { kind: 'select', options: pref('pref-excise') },
-  prefVatCode: { kind: 'select', options: pref('pref-vat') },
+  prefClearanceCode: { kind: 'select', options: pref('pref-fee'), keden: 'pref-fee' },
+  prefDutyCode: { kind: 'select', options: pref('pref-duty'), keden: 'pref-duty' },
+  prefExciseCode: { kind: 'select', options: pref('pref-excise'), keden: 'pref-excise' },
+  prefVatCode: { kind: 'select', options: pref('pref-vat'), keden: 'pref-vat' },
   oisIndicatorCode: { kind: 'select', options: classifier('ois-indicators') },
   oisRegNumber: { kind: 'text', upper: true, mono: true },
   oisCountryCode: { kind: 'select', options: alpha2 },
@@ -117,6 +121,30 @@ const submit = () => {
   emit('apply', patch as BulkPatch)
 }
 const setValue = (f: BulkField, v: unknown) => { values[f] = FIELD_UI[f].upper && typeof v === 'string' ? v.toUpperCase() : v }
+
+// ---- Списки КЕДЕН ----
+const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+const keyProcedure = computed(() => {
+  const own = checked.has('procedure') ? text(values.procedureCode) : ''
+  if (own) return own
+  const dt = text(props.declProcedure)
+  const common = new Set(props.indexes.map((i) => text(props.goods[i]?.procedureCode) || dt))
+  return common.size === 1 ? [...common][0] || null : dt || null
+})
+const keden = useKedenLists(() => ({ direction: props.direction, procedure: keyProcedure.value }))
+const optionsFor = (f: BulkField): ZOption[] => {
+  const ui = FIELD_UI[f]
+  const base = ui.options?.() ?? []
+  return ui.keden ? keden.narrow(ui.keden, base, text(values[f]) || null) : base
+}
+const offStatus = (f: BulkField) => {
+  const field = FIELD_UI[f].keden
+  if (!field || !keden.offList(field, text(values[f]) || null)) return {}
+  const help = field === 'procedure'
+    ? t('broker.dt.goods.editor.prefs.offListProcedure', { direction: text(props.direction).toUpperCase() || 'ИМ' })
+    : t('broker.dt.goods.editor.prefs.offList', { key: keden.keyLabel.value })
+  return { validateStatus: 'warning' as const, help }
+}
 </script>
 
 <template>
@@ -153,7 +181,7 @@ const setValue = (f: BulkField, v: unknown) => { values[f] = FIELD_UI[f].upper &
             {{ ta(`groups.${g}`) }}
           </label>
           <div v-if="checked.has(g)" class="grid grid-cols-1 gap-3 border-t border-line px-3 py-3 sm:grid-cols-2">
-            <ZField v-for="f in BULK_GROUPS[g]" :key="f" :label="ta(`fields.${f}`)" :class="FIELD_UI[f].kind === 'source' && 'sm:col-span-2'">
+            <ZField v-for="f in BULK_GROUPS[g]" :key="f" :label="ta(`fields.${f}`)" v-bind="offStatus(f)" :class="FIELD_UI[f].kind === 'source' && 'sm:col-span-2'" :data-goods-field="f">
               <p v-if="FIELD_UI[f].kind === 'source'" class="m-0 text-sm text-ink-2" :data-goods-apply-field="f">
                 {{ (source != null && goods[source]?.[f]) || ta('sourceEmpty') }}
                 <span class="mt-1 block text-xs text-muted">{{ ta('gr33Hint') }}</span>
@@ -177,7 +205,7 @@ const setValue = (f: BulkField, v: unknown) => { values[f] = FIELD_UI[f].upper &
               <ZSelect
                 v-else
                 :value="(values[f] as ZOptionValue | ZOptionValue[] | null)"
-                :options="FIELD_UI[f].options?.() ?? []"
+                :options="optionsFor(f)"
                 :mode="FIELD_UI[f].kind === 'multi' ? 'multiple' : FIELD_UI[f].kind === 'tags' ? 'tags' : undefined"
                 show-search
                 allow-clear

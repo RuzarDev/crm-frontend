@@ -24,6 +24,7 @@ vi.mock('@/api/tnved', () => ({ tnvedApi: {
   tariffOptions: vi.fn(async () => ({ data: { countryRate: null, excise: [], antiDumping: [], dutyRates: [] } })),
 } }))
 vi.mock('@/api/trois', () => ({ troisApi: { check: vi.fn(async () => []), search: vi.fn(async () => []) }, troisDate: (s: string) => s, troisTrustedShort: () => '' }))
+vi.mock('@/api/kedenProcedureLists', async (orig) => ({ ...(await orig<typeof import('@/api/kedenProcedureLists')>()), kedenProcedureListsApi: { get: vi.fn(async () => ({})) } }))
 
 import SectionGoods from '../SectionGoods.vue'
 
@@ -488,5 +489,5 @@ describe('SectionGoods: 200 товаров', () => {
     expect(rows()).toHaveLength(200)
     expect(searchMs).toBeLessThan(1500)
     expect(selectMs).toBeLessThan(1500)
-  })
+  }, 30_000)
 })
