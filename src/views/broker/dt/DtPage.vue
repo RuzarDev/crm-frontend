@@ -37,6 +37,7 @@ import SectionNumber from './sections/SectionNumber.vue'
 import SectionParties from './sections/SectionParties.vue'
 import SectionTransport from './sections/SectionTransport.vue'
 import { DT_CLASSIFIERS } from './dtClassifiers'
+import { goodsWithLockedCurrency, goodsWithStatUsd } from './dtGoodsRules'
 import { syncLoadedParties } from './dtParties'
 import {
   adjacentSection, dtsReadinessItems, navMarks, paymentsStale, rateTag, readonlyReason, sectionFromQuery, splitChildren, visibleSections,
@@ -103,8 +104,10 @@ const dt = useDtForm(caseId, dtId, {
   onLoadStart: () => { readiness.reset(); resetDts() },
   onLoaded: (dto, kase) => {
     replaced.value = !!dto.isSplitReplaced
-    // Как прежний экран при загрузке: гр. 8 / 9 с «Совпадает с декларантом» повторяют гр. 14 (под applying — без автосейва).
+    // Как прежний экран при загрузке: гр. 8 / 9 с «Совпадает с декларантом» повторяют гр. 14, валюта товаров = гр. 22
+    // (под applying — без автосейва).
     syncLoadedParties(form)
+    lockGoodsCurrency()
     void readiness.refresh()
     void refreshDts()
     loadClientProfile(kase)
@@ -143,6 +146,29 @@ watch(goodsOriginKey, (key) => {
   const codes = key.split('|')
   form.originCountryCode = codes.length === 1 ? codes[0] : '000'
 })
+
+// Правила товаров, которые прежний экран выполнял всегда смонтированным разделом «Товары» (теперь он ленивый):
+// без них XML, печать, расчёты и PUT из шапки шли бы со старой валютой и пустой гр. 46.
+// Валюта товаров = гр. 22, когда она задана (Пакет 6 №4): при загрузке — в onLoaded, дальше — на любую смену гр. 22
+// или валюты товара (добавление, Excel).
+function lockGoodsCurrency() {
+  const next = goodsWithLockedCurrency(form.goodsItems, form.currency)
+  if (next) form.goodsItems = next
+}
+watch(
+  () => `${form.currency ?? ''}#${form.goodsItems.map((g) => g.currency ?? '').join('|')}`,
+  () => { if (!dt.applying.value) lockGoodsCurrency() },
+)
+// гр. 46 пустая — гр. 45 / курс USD на дату гр. А (Item I), как только известны курс и гр. 45; только при праве
+// править. Введённая гр. 46 живёт до следующей правки гр. 45 (пересчёт по правке — в карточке товара).
+watch(
+  () => `${rates.usdRate.value ?? ''}|${form.goodsItems.map((g) => g.customsValueKzt ?? '').join(',')}`,
+  () => {
+    if (!dt.editable.value) return
+    const next = goodsWithStatUsd(form.goodsItems, rates.usdRate.value)
+    if (next) form.goodsItems = next
+  },
+)
 
 const payments = useDtPayments(form, caseId, dtId, { save: () => dt.save() })
 

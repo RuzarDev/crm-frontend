@@ -6,7 +6,7 @@ import { RouterView, createMemoryHistory, createRouter, type Router } from 'vue-
 import { mountWithI18n } from '@/test/mountWithI18n'
 import { vUppercase } from '@/directives/uppercase'
 import type { Import40CaseDto, KedenReadinessDto } from '@/api/import40'
-import { caseDto, fullDto } from './dtFixture'
+import { caseDto, fullDto, fullGoodsDto } from './dtFixture'
 
 const api = vi.hoisted(() => ({
   get: vi.fn(), updateDeclaration: vi.fn(), kedenReadiness: vi.fn(), ratesOnDate: vi.fn(),
@@ -37,7 +37,7 @@ import { confirmState } from '@/ui/confirm'
 // кнопки data-emit шлют события прежних разделов (проверка, что страница их слушает).
 const sectionStub = (name: string, inner = '', emits: string[] = []) => defineComponent({
   name,
-  props: ['modelValue', 'readonly', 'reloadKey', 'save'],
+  props: ['modelValue', 'form', 'readonly', 'reloadKey', 'save'],
   emits: ['update:modelValue', ...emits],
   template: `<div data-stub="${name}" :data-readonly="String(readonly)" :data-reload-key="reloadKey">${inner}</div>`,
 })
@@ -51,7 +51,9 @@ const stubs = {
   SectionParties: sectionStub('SectionParties', '<label data-graph="8">Получатель<input data-recv /></label>'),
   SectionCountries: sectionStub('SectionCountries'),
   SectionTransport: sectionStub('SectionTransport'),
-  SectionFinance: sectionStub('SectionFinance', `<button data-emit="calc-customs-value" type="button" @click="$emit('calc-customs-value')" />`, ['calc-customs-value']),
+  // data-set-currency — выбор гр. 22 (раздел пишет в форму страницы, как настоящий).
+  SectionFinance: sectionStub('SectionFinance', `<button data-emit="calc-customs-value" type="button" @click="$emit('calc-customs-value')" />
+    <button data-set-currency type="button" @click="form.currency = 'EUR'" />`, ['calc-customs-value']),
   SectionCustoms: sectionStub('SectionCustoms'),
   DtSectionGoods: sectionStub('DtSectionGoods', goodsInner, ['calc-tpin']),
   SectionDocs: sectionStub('SectionDocs'),
@@ -720,5 +722,65 @@ describe('DtPage: события прежних разделов', () => {
     expect(api.calculatePayments).toHaveBeenCalledTimes(2)
     const body = api.updateDeclaration.mock.calls.at(-1)![2] as { goodsItems: { vatRatePreferential: number | null }[] }
     expect(body.goodsItems[0].vatRatePreferential).toBeNull()
+  })
+})
+
+// Правила товаров, которые прежний экран выполнял всегда смонтированным разделом «Товары»: теперь — страница.
+describe('DtPage: правила товаров без открытия «Товаров»', () => {
+  const sheets1 = (goods: Partial<Parameters<typeof fullGoodsDto>[0]> = {}) =>
+    caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, totalSheets: 1, goodsItems: [fullGoodsDto(goods)] })] })
+  const lastPutGoods = () => (api.updateDeclaration.mock.calls.at(-1)![2] as { goodsItems: { currency: string | null; statisticValueUsd: number | null }[] }).goodsItems
+
+  it('гр. 22 в «Условиях» — валюта товаров в расчёте там. стоимости, в PUT и перед XML', async () => {
+    server = sheets1()
+    api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 700000 }] })
+    api.downloadKedenXml.mockResolvedValue({ blob: new Blob(['<xml/>']), fileName: 'dt.xml' })
+    await open('?s=finance')
+    await w.get('[data-set-currency]').trigger('click')
+    await settle()
+    await w.get('[data-emit="calc-customs-value"]').trigger('click')
+    await settle()
+    expect(api.calculateCustomsValue.mock.calls[0][0].goods[0]).toMatchObject({ index: 0, currency: 'EUR' })
+    await w.get('[data-dt-xml]').trigger('click')
+    await settle()
+    expect(api.downloadKedenXml).toHaveBeenCalled()
+    expect(lastPutGoods()[0].currency).toBe('EUR')
+    expect(w.find('[data-stub="DtSectionGoods"]').exists()).toBe(false)
+  })
+
+  it('загрузка: товары в другой валюте молча приводятся к гр. 22 (без пометки «изменено»)', async () => {
+    server = sheets1({ currency: 'CNY' })
+    await open()
+    expect(w.get('[data-dt-header]').text()).not.toContain('Есть несохранённые изменения')
+    expect(api.updateDeclaration).not.toHaveBeenCalled()
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(lastPutGoods()[0].currency).toBe('USD')
+  })
+
+  it('гр. 46 пустая — гр. 45 / курс USD на дату гр. А (0,01) уходит в PUT; введённую не трогает', async () => {
+    server = sheets1({ statisticValueUsd: null })
+    // Курс приходит из сети после загрузки ДТ — как прежний экран, заполнение по нему — правка (автосейв).
+    api.ratesOnDate.mockImplementation(() => new Promise((r) => setTimeout(() => r({ rates: { USD: 495.12, EUR: 541.3 }, official: true }), 0)))
+    await open()
+    expect(w.get('[data-dt-header]').text()).toContain('Есть несохранённые изменения')
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(lastPutGoods()[0].statisticValueUsd).toBe(1514.78) // 750 000 / 495,12
+    w.unmount()
+    api.updateDeclaration.mockClear()
+    server = sheets1({ statisticValueUsd: 1500 })
+    await open()
+    expect(w.get('[data-dt-header]').text()).not.toContain('Есть несохранённые изменения')
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(lastPutGoods()[0].statisticValueUsd).toBe(1500)
+  })
+
+  it('просмотр: гр. 46 не заполняется и PUT нет', async () => {
+    server = caseDto({ status: 3, assignedDeclarantId: 'other', declarations: [fullDto({ splitRole: null, goodsItems: [fullGoodsDto({ statisticValueUsd: null })] })] })
+    await open()
+    expect(w.get('[data-dt-header]').text()).not.toContain('Есть несохранённые изменения')
+    expect(api.updateDeclaration).not.toHaveBeenCalled()
   })
 })

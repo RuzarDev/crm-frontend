@@ -57,7 +57,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 import { CloseOutlined, QuestionCircleOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { message } from '@/ui/message'
 import { loadXlsx } from '@/utils/xlsx'
@@ -73,9 +73,6 @@ const props = defineProps<{
   // гр.19: показываем поле «Номер контейнера» (гр.31.3) только при контейнерных
   // перевозках — иначе поле не заполняется и загромождает панель.
   containerIndicator?: boolean
-  // Item I (гр.46): курс доллара (₸ за 1 USD) на дату гр.А — для авторасчёта
-  // статистической стоимости = таможенная стоимость (гр.45, ₸) / курс USD.
-  usdRate?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -92,24 +89,8 @@ const items = computed(() => props.modelValue)
 // вне зоны обрезки.
 const popupContainer = () => document.body
 
-// Item I (гр.46 статистическая стоимость, USD): авто = таможенная стоимость
-// (гр.45, ₸) / курс доллара на дату гр.А. Поле остаётся редактируемым — авто-
-// расчёт срабатывает только когда значение ещё пустое (0/null) или когда
-// декларант меняет гр.45 (явное действие). Ручной ввод в гр.46 сохраняется до
-// следующего изменения гр.45.
-const calcStatUsd = (customsValueKzt: number | null | undefined): number | null => {
-  const rate = props.usdRate
-  if (!rate || rate <= 0 || customsValueKzt == null) return null
-  return Math.round((customsValueKzt / rate) * 100) / 100
-}
-
-// Изменение гр.45 → пересчитать гр.46 (если курс известен), затем sync.
-// (sync объявлена ниже; вызывается только по событию — TDZ не задевает.)
-const onCustomsValueChange = (g: Import40GoodsItemInput) => {
-  const stat = calcStatUsd(g.customsValueKzt)
-  if (stat != null) g.statisticValueUsd = stat
-  sync()
-}
+// гр.46 (Item I): пустую заполняет страница ДТ (dtGoodsRules.goodsWithStatUsd) — и когда раздел не открыт;
+// пересчёт по правке гр.45 — в карточке товара (Import40GoodsKedenFields).
 
 // Русские названия видов платежа гр.47 (см. tax-modes в DatabaseExtensions.cs
 // на бэке) — для явной, не-кодовой подписи в сводной таблице ниже.
@@ -271,30 +252,6 @@ const sync = () =>
       extras: cloneGoodsExtras(g.extras),
     })),
   )
-
-// Item I (гр.46): первичное авто-заполнение. Когда товары/курс USD загрузились,
-// проставить статистическую стоимость тем товарам, где она ещё пуста (0/null), а
-// таможенная стоимость и курс известны. Уже введённые значения не затираем.
-// Размещено после sync (immediate:true исполняется синхронно при setup — sync
-// должна быть уже инициализирована).
-watch(
-  () => [props.usdRate, items.value.map((g) => g.customsValueKzt ?? '').join(',')].join('|'),
-  () => {
-    if (props.readonly) return
-    let changed = false
-    items.value.forEach((g) => {
-      if ((g.statisticValueUsd == null || g.statisticValueUsd === 0) && g.customsValueKzt != null) {
-        const stat = calcStatUsd(g.customsValueKzt)
-        if (stat != null) {
-          g.statisticValueUsd = stat
-          changed = true
-        }
-      }
-    })
-    if (changed) sync()
-  },
-  { immediate: true },
-)
 
 const classifiers = useClassifiersStore()
 const pkgOptions = computed(() => classifiers.options('2013'))
