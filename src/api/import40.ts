@@ -311,7 +311,7 @@ export interface Import40DeclarationDto {
 }
 
 // Товар ДТ на отправку = поля формы (Import40GoodsItemInput) без customsValue,
-// вместо которого бэкенд ждёт invoiceValue (см. маппинг в Import40DtView.saveDt)
+// вместо которого бэкенд ждёт invoiceValue (см. formToPayload в views/broker/dt/dtPayload.ts)
 export type Import40GoodsUpsert = Omit<Import40GoodsItemInput, 'customsValue'> & {
   invoiceValue?: number | null
 }
@@ -627,6 +627,15 @@ export interface KedenReadinessDto {
   blankFilled: number
   blankTotal: number
   blankEmptyGraphs: string[]
+  // Те же пункты, что в missing, с привязкой к графе бланка (волна 6а): graph — «А», «8», «30», «44», «ДТС»…;
+  // goodsIndex — номер товара с 0 для пунктов по товару. Старый сервер поля не отдаёт — тогда разбор строки.
+  items?: KedenReadinessItem[]
+}
+
+export interface KedenReadinessItem {
+  text: string
+  graph: string | null
+  goodsIndex: number | null
 }
 
 export interface Import40CreateRequest {

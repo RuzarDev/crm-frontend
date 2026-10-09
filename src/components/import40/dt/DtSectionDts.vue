@@ -214,7 +214,7 @@ onMounted(load)
 watch(() => props.active, (isActive) => { if (isActive) void load() })
 watch(() => props.reloadKey, () => { if (props.active) void load() })
 
-// Названия статей расходов (гр.13а…23) — тот же справочник, что и в DtSectionFinance,
+// Названия статей расходов (гр.13а…23) — тот же справочник, что и в разделе «Условия и стоимость» (SectionFinance),
 // нужен для человекочитаемых подписей строк добавочного листа.
 const expenseNames = ref<Record<string, string>>({})
 onMounted(async () => {

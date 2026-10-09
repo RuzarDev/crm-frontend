@@ -16,7 +16,7 @@
         />
       </template>
     </ReestrGoodsSection>
-    <Import40GoodsKedenPanel v-model="items" :readonly="readonly" :container-indicator="containerIndicator" :usd-rate="usdRate" @calc-tpin="emit('calc-tpin')" />
+    <Import40GoodsKedenPanel v-model="items" :readonly="readonly" :container-indicator="containerIndicator" @calc-tpin="emit('calc-tpin')" />
   </div>
 </template>
 
@@ -38,10 +38,10 @@ const props = defineProps<{
   readonly: boolean
   containerIndicator?: boolean
   // Item I (гр.46): курс USD (₸ за 1 USD) на дату гр.А — пробрасывается в
-  // Import40GoodsKedenPanel для авторасчёта статистической стоимости.
+  // Import40GoodsKedenFields для пересчёта статистической стоимости по правке гр.45.
   usdRate?: number | null
   // Пакет 6 №4: валюта сделки (гр.22, dtForm.currency) — блокирует поле валюты
-  // у каждого товара (read-only, синхронизируется с гр.22).
+  // у каждого товара (read-only; саму валюту товаров приводит к гр.22 страница ДТ).
   dealCurrency?: string | null
   // Гр.1: направление (ИМ/ЭК) и процедура — по ним КЕДЕН сужает списки гр.36/37 товара.
   direction?: string | null
@@ -54,8 +54,8 @@ const emit = defineEmits<{ 'update:modelValue': [Import40GoodsItemInput[]]; 'cal
 useTroisCheckProvider(() => props.modelValue.map((g) => g.tradeMarkName))
 
 // Тонкая обёртка: сами товарные поля живут в ReestrGoodsSection/Import40GoodsKedenPanel,
-// поэтому здесь достаточно get/set-computed без локальной копии/watch (в отличие
-// от DtSectionParties/Transport) — дочерние компоненты уже делают собственные копии.
+// поэтому здесь достаточно get/set-computed без локальной копии/watch — дочерние компоненты
+// уже делают собственные копии.
 //
 // «Кол-во грузовых мест» в карточке товара одно — packagesCount (сюда же идёт Excel/реестр);
 // КЕДЕН-поле cargoPlacesQuantity, из которого бэк берёт гр.31 XML, держим равным ему на любую правку.

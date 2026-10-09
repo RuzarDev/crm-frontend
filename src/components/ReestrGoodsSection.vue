@@ -495,32 +495,16 @@ function setRowCurrency(item: GoodsRow, v: string | null) {
   emit('update:modelValue', items.value.map(fromRow))
 }
 
-// Синхронизирует валюту всех товаров с lockedCurrency (гр.22). Эмитит только при
-// реальном изменении → сходится за один цикл, без бесконечного watch-петли.
-function applyLockedCurrency() {
-  const locked = props.lockedCurrency
-  if (!locked) return
-  let changed = false
-  for (const it of items.value) {
-    if (it.currency !== locked) {
-      it.currency = locked
-      changed = true
-    }
-  }
-  if (changed) emit('update:modelValue', items.value.map(fromRow))
-}
-
+// Валюту товаров к lockedCurrency (гр.22) приводит страница ДТ (dtGoodsRules.goodsWithLockedCurrency) — и когда
+// этот раздел не открыт; здесь поле только заблокировано и показывает гр.22, новый товар получает её же.
 watch(
   () => props.modelValue,
   (v) => {
     items.value = (v ?? []).map(toRow)
     syncKeys(items.value.length)
-    applyLockedCurrency()
   },
   { immediate: true },
 )
-
-watch(() => props.lockedCurrency, applyLockedCurrency)
 
 function addItem() {
   items.value.push({

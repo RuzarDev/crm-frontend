@@ -293,6 +293,7 @@ import { message } from '@/ui/message'
 import { loadXlsx } from '@/utils/xlsx'
 import type { Import40GoodsItemInput, Import40GoodsPayment, Import40GoodsMarking } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
+import { statUsdFrom } from '@/views/broker/dt/dtGoodsRules'
 import { FEATURE_CODE_RE, invalidFeatureCodes, joinFeatureCodes, splitFeatureCodes } from '@/utils/nonTariffCodes'
 import { useTroisCheck } from '@/composables/useTroisCheck'
 import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
@@ -408,11 +409,7 @@ const onRegSelect = (regNo: string) => {
 // декларант меняет гр.45 (явное действие). Ручной ввод в гр.46 сохраняется до
 // следующего изменения гр.45.
 
-const calcStatUsd = (customsValueKzt: number | null | undefined): number | null => {
-  const rate = props.usdRate
-  if (!rate || rate <= 0 || customsValueKzt == null) return null
-  return Math.round((customsValueKzt / rate) * 100) / 100
-}
+const calcStatUsd = (customsValueKzt: number | null | undefined): number | null => statUsdFrom(customsValueKzt, props.usdRate)
 
 // Изменение гр.45 → пересчитать гр.46 (если курс известен), затем sync.
 // (sync объявлена ниже; вызывается только по событию — TDZ не задевает.)
@@ -438,7 +435,7 @@ const sortedPayments = (g: Import40GoodsItemInput): Import40GoodsPayment[] =>
 // на клиенте. Источник истины — гр.47/5060 (НДС) с последнего расчёта (rateLabel
 // начинается с "5%": сервер сам определяет ставку по коду ТНВЭД, см. Import40PaymentCalculator
 // Task 5) ЛИБО ручной флаг vatRatePreferential=0.05 (переключатель «Медизделие»,
-// см. DtPaymentsCalcModal/Import40DtView), пока расчёт ещё не проведён. Если нет ни
+// см. DtPaymentsCalcModal / useDtPayments), пока расчёт ещё не проведён. Если нет ни
 // того, ни другого — бейдж не показываем (не гадаем).
 
 const hasReducedVat = (g: Import40GoodsItemInput): boolean => {
