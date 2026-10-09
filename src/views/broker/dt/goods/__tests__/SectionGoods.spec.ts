@@ -212,9 +212,17 @@ describe('SectionGoods: поиск и фильтры', () => {
     expect(rows()).toHaveLength(3)
   })
 
-  it('«/» — фокус в поиск (не из поля ввода)', async () => {
+  it('«/» — фокус в поиск (не из поля ввода), и на русской раскладке', async () => {
     await mount(three())
     key({ key: '/' })
+    await settle()
+    expect(document.activeElement).toBe(w.get('input[data-goods-search]').element)
+    // ЙЦУКЕН: та же клавиша даёт «.» — ловим по e.code; Shift+/ («?») — нет
+    ;(document.activeElement as HTMLElement).blur()
+    key({ key: '?', code: 'Slash', shiftKey: true })
+    await settle()
+    expect(document.activeElement).not.toBe(w.get('input[data-goods-search]').element)
+    key({ key: '.', code: 'Slash' })
     await settle()
     expect(document.activeElement).toBe(w.get('input[data-goods-search]').element)
   })

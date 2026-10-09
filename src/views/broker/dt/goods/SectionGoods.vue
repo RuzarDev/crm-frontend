@@ -247,7 +247,9 @@ const onKey = (e: KeyboardEvent) => {
     return
   }
   if (typing(e.target) || dialogOpen()) return
-  if (e.key === '/') {
+  // «/» — и по физической клавише: на ЙЦУКЕН она даёт «.», а N уже ловится по e.code.
+  const slash = e.key === '/' || (e.code === 'Slash' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey)
+  if (slash) {
     e.preventDefault()
     focusSearch()
   } else if (e.code === 'KeyN' && !e.shiftKey && editable.value) {
