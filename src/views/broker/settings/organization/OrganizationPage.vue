@@ -44,9 +44,13 @@ const saveError = ref<string | null>(null)
 
 // Основание: «устава» / «доверенности» или свой текст (тогда рядом поле ввода).
 type BasisChoice = (typeof BASIS_PRESETS)[number] | 'custom'
-const isPreset = (v: string): v is (typeof BASIS_PRESETS)[number] => (BASIS_PRESETS as readonly string[]).includes(v)
+// Сохранённое «Устава» (с заглавной) — тот же вариант, что «устава»: сравниваем без регистра и пробелов по краям.
+const presetOf = (v: string): (typeof BASIS_PRESETS)[number] | null => {
+  const k = v.trim().toLowerCase()
+  return BASIS_PRESETS.find((p) => p === k) ?? null
+}
 const basisChoice = ref<BasisChoice>(DEFAULT_BASIS)
-const syncChoice = () => { basisChoice.value = isPreset(draft.directorBasis) ? draft.directorBasis : 'custom' }
+const syncChoice = () => { basisChoice.value = presetOf(draft.directorBasis) ?? 'custom' }
 
 const apply = (data: Partial<OrganizationSettings>) => {
   savedMeta.value = { updatedAtUtc: data.updatedAtUtc ?? null, updatedByName: data.updatedByName ?? null }
@@ -100,10 +104,11 @@ const groupOnBlur = () => { if (/^[A-Z0-9]+$/.test(compact(draft.iik))) draft.ii
 const onBasisChoice = (v: unknown) => {
   if (v === 'custom') {
     basisChoice.value = 'custom'
-    if (isPreset(draft.directorBasis)) draft.directorBasis = ''
-  } else if (typeof v === 'string' && isPreset(v)) {
-    basisChoice.value = v
-    draft.directorBasis = v
+    if (presetOf(draft.directorBasis)) draft.directorBasis = ''
+  } else if (typeof v === 'string' && presetOf(v)) {
+    basisChoice.value = presetOf(v)!
+    // Тот же вариант, что уже сохранён (отличается лишь регистром), — оставляем написание с сервера: это не правка.
+    draft.directorBasis = presetOf(saved.value.directorBasis) === v ? saved.value.directorBasis : v
   }
   touch('directorBasis')
 }
