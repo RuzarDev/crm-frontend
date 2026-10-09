@@ -15,14 +15,15 @@ import { matchesQuery } from '@/views/broker/list'
 import AddMemberModal from './AddMemberModal.vue'
 import ClientsTab from './ClientsTab.vue'
 import ExpeditorsTab from './ExpeditorsTab.vue'
+import MemberDrawer from './MemberDrawer.vue'
 import StaffTab from './StaffTab.vue'
 import { ADMIN_FILTER, STAFF_ROLES, clientRowName, filterClients, filterTeam, mergeClients } from './team'
 import { useTeamRoleLabels } from './useTeamRoleLabels'
 
 // «Команда» раздела «Настройки» (редизайн, волна 5б, доска Team): сотрудники, клиенты и экспедиторы одной страницей.
 // Три списка грузятся независимо (ошибка одного не трогает остальные); поиск и фильтр по роли считаются на месте.
-// Выбранный сотрудник лежит в адресе (?member=<id>), строка подсвечена. Боковая панель сотрудника — отдельная
-// задача: она подключается в слоте ниже и получает selected / closeMember.
+// Выбранный сотрудник лежит в адресе (?member=<id>), строка подсвечена; справа — панель сотрудника (MemberDrawer).
+// Смена строки и закрытие панели спрашивают про несохранённые правки (drawer.canLeave).
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -87,8 +88,14 @@ const setMember = async (id: string | null) => {
   else delete next.member
   await router.replace({ query: next })
 }
-const selectMember = (id: string) => { void setMember(id === memberParam.value ? null : id) }
+const drawer = ref<InstanceType<typeof MemberDrawer> | null>(null)
+const leaveOk = async () => (await drawer.value?.canLeave()) ?? true
+const selectMember = async (id: string) => {
+  if (!(await leaveOk())) return
+  await setMember(id === memberParam.value ? null : id)
+}
 const closeMember = () => { void setMember(null) }
+const onMemberSaved = async () => { await team.load(); closeMember() }
 // Вкладка клиентов или экспедиторов — выбранного сотрудника нет: адрес чистим.
 watch(tab, (v) => { if (v !== 'staff' && memberParam.value) closeMember() })
 
@@ -105,7 +112,6 @@ const onCreated = async (m: { id: string | null; username: string }) => {
 
 const clientOptions = computed(() => clientAll.value.map((c) => ({ value: c.id, label: clientRowName(c) })))
 const refreshing = computed(() => (team.loading && !!team.data) || (clients.loading && !!clients.data) || (expeditors.loading && !!expeditors.data))
-// Боковая панель сотрудника берёт отсюда выбранного и закрытие.
 defineExpose({ selected, closeMember })
 </script>
 
@@ -184,7 +190,15 @@ defineExpose({ selected, closeMember })
       @saved="expeditors.load()"
     />
 
-    <!-- Боковая панель сотрудника (Task 6): <TeamMemberDrawer :member="selected" @close="closeMember" @changed="team.load()" /> -->
+    <MemberDrawer
+      ref="drawer"
+      :member="selected"
+      :client-options="clientOptions"
+      @close="closeMember"
+      @changed="team.load()"
+      @saved="onMemberSaved"
+      @deleted="onMemberSaved"
+    />
     <AddMemberModal v-if="canAdd" v-model:open="addOpen" @created="onCreated" />
   </div>
 </template>

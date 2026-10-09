@@ -28,8 +28,8 @@ export const permissionsApi = {
   // Представители по доверенности клиентов (флаг в профиле декларанта; complete = есть ФИО/ИИН/удостоверение).
   poaRepresentatives: async (): Promise<{ userId: string; enabled: boolean; complete: boolean }[]> =>
     (await apiClient.get('/users/poa-representatives')).data,
-  setPoaRepresentative: async (userId: string, enabled: boolean) => {
-    await apiClient.put(`/users/${encodeURIComponent(userId)}/poa-representative`, { enabled })
+  setPoaRepresentative: async (userId: string, enabled: boolean, opts?: { silent?: boolean }) => {
+    await apiClient.put(`/users/${encodeURIComponent(userId)}/poa-representative`, { enabled }, opts?.silent ? { silent: true } : undefined)
   },
 }
 

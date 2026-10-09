@@ -102,6 +102,15 @@ describe('AddMemberModal', () => {
     expect(w.get('[data-add-generated-text]').text()).toBe(`Пароль: ${p}`)
   })
 
+  it('пароль набрали руками — строка со сгенерированным и «Скопировать» исчезают', async () => {
+    await mountIt()
+    await w.get('[data-add-generate]').trigger('click')
+    expect(w.find('[data-add-generated]').exists()).toBe(true)
+    await w.get('[data-add-password]').setValue('MyOwnPass1')
+    expect(w.find('[data-add-generated]').exists()).toBe(false)
+    expect(w.find('[data-add-copy]').exists()).toBe(false)
+  })
+
   it('два запроса: регистрация (тип аккаунта по основной роли) и роли; created с id', async () => {
     await mountIt()
     await fill({ u: ' new.one ', p: 'Passw0rd!', r: 'Passw0rd!', roles: ['sales', 'mpp'] })

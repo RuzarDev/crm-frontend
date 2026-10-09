@@ -20,13 +20,13 @@ export interface SilentOpts { silent?: boolean }
 const cfg = (opts?: SilentOpts) => (opts?.silent ? { silent: true } : undefined)
 
 export const usersApi = {
-  getCatalogAdministrators: async (): Promise<CatalogAdministratorRow[]> => {
-    const response = await apiClient.get<CatalogAdministratorRow[]>('/catalog/administrators')
+  getCatalogAdministrators: async (opts?: SilentOpts): Promise<CatalogAdministratorRow[]> => {
+    const response = await apiClient.get<CatalogAdministratorRow[]>('/catalog/administrators', cfg(opts))
     return response.data
   },
 
-  getCatalogBrokers: async (): Promise<CatalogBrokerRow[]> => {
-    const response = await apiClient.get<CatalogBrokerRow[]>('/catalog/brokers')
+  getCatalogBrokers: async (opts?: SilentOpts): Promise<CatalogBrokerRow[]> => {
+    const response = await apiClient.get<CatalogBrokerRow[]>('/catalog/brokers', cfg(opts))
     return response.data
   },
 
@@ -55,13 +55,13 @@ export const usersApi = {
     await apiClient.post('/auth/register/staff', data, { silent: true })
   },
 
-  getCatalogImporters: async (): Promise<CatalogImporterRow[]> => {
-    const response = await apiClient.get<CatalogImporterRow[]>('/catalog/importers')
+  getCatalogImporters: async (opts?: SilentOpts): Promise<CatalogImporterRow[]> => {
+    const response = await apiClient.get<CatalogImporterRow[]>('/catalog/importers', cfg(opts))
     return response.data
   },
 
-  getCatalogSalespersons: async (): Promise<CatalogSalespersonRow[]> => {
-    const response = await apiClient.get<CatalogSalespersonRow[]>('/catalog/salespersons')
+  getCatalogSalespersons: async (opts?: SilentOpts): Promise<CatalogSalespersonRow[]> => {
+    const response = await apiClient.get<CatalogSalespersonRow[]>('/catalog/salespersons', cfg(opts))
     return response.data
   },
 
@@ -95,11 +95,11 @@ export const usersApi = {
     })
   },
 
-  editBroker: async (brokerId: string, data: EditBrokerRequest): Promise<void> => {
+  editBroker: async (brokerId: string, data: EditBrokerRequest, opts?: SilentOpts): Promise<void> => {
     await apiClient.put(`/users/brokers/${encodeURIComponent(brokerId)}`, {
       username: data.username,
       clientIds: data.clientIds,
-    })
+    }, cfg(opts))
   },
 
   editExpeditor: async (expeditorId: string, data: EditExpeditorRequest, opts?: SilentOpts): Promise<void> => {
@@ -110,17 +110,28 @@ export const usersApi = {
   },
 
   // Волна 5: привязка клиентов реестра транзита для сотрудника не из таблицы Broker (мпп-importer).
-  editStaffClients: async (staffUserId: string, data: EditStaffClientsRequest): Promise<void> => {
+  editStaffClients: async (staffUserId: string, data: EditStaffClientsRequest, opts?: SilentOpts): Promise<void> => {
     await apiClient.put(`/users/staff/${encodeURIComponent(staffUserId)}/clients`, {
       clientIds: data.clientIds,
-    })
+    }, cfg(opts))
+  },
+
+  // Клиенты, привязанные к сотруднику: берём строку из справочника по его системному типу (broker / importer / sales / administrator).
+  linkedClients: async (staffId: string, systemRole: string, opts?: SilentOpts): Promise<{ id: string; username: string }[]> => {
+    const role = (systemRole || '').toLowerCase()
+    const rows: { id: string; clients: { id: string; username: string }[] }[] =
+      role === 'broker' ? await usersApi.getCatalogBrokers(opts)
+        : role === 'sales' ? await usersApi.getCatalogSalespersons(opts)
+          : role === 'administrator' ? await usersApi.getCatalogAdministrators(opts)
+            : await usersApi.getCatalogImporters(opts)
+    return rows.find((r) => r.id === staffId)?.clients ?? []
   },
 
   // Сброс пароля админом: временный пароль показывается один раз.
-  resetPassword: async (id: string): Promise<{ username: string; temporaryPassword: string }> =>
-    (await apiClient.post(`/users/${encodeURIComponent(id)}/reset-password`)).data,
-  deleteUser: async (id: string): Promise<void> => {
-    await apiClient.delete(`/users/${encodeURIComponent(id)}`)
+  resetPassword: async (id: string, opts?: SilentOpts): Promise<{ username: string; temporaryPassword: string }> =>
+    (await apiClient.post(`/users/${encodeURIComponent(id)}/reset-password`, undefined, cfg(opts))).data,
+  deleteUser: async (id: string, opts?: SilentOpts): Promise<void> => {
+    await apiClient.delete(`/users/${encodeURIComponent(id)}`, cfg(opts))
   },
 
   changeUserRole: async (id: string, role: string): Promise<void> => {

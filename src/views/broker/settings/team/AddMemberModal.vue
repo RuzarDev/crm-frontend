@@ -78,6 +78,11 @@ const toggleRole = (code: string, on: boolean) => {
   draft.roles = on ? [...draft.roles, code] : draft.roles.filter((r) => r !== code)
 }
 
+// Набрали пароль руками — сгенерированный больше не актуален: строку с ним и «Скопировать» убираем.
+const onPasswordInput = (v: string) => {
+  draft.password = v
+  generated.value = ''
+}
 const generate = () => {
   const p = generatePassword()
   draft.password = p
@@ -164,7 +169,7 @@ const submit = async () => {
             :placeholder="t('broker.settings.team.addModal.passwordPh')"
             class="min-w-0 flex-1 max-sm:h-11"
             data-add-password
-            @update:value="draft.password = $event"
+            @update:value="onPasswordInput"
           />
           <ZButton class="shrink-0 max-sm:h-11 max-sm:px-4" data-add-generate @click="generate">
             <template #icon><PhPassword :size="16" aria-hidden="true" /></template>

@@ -34,4 +34,28 @@ describe('usersApi: команда', () => {
     expect(seen[0].silent).toBe(true)
     expect(JSON.parse(seen[0].data)).toEqual({ username: 'a', password: 'p', role: 'importer', businessRole: 'kpp' })
   })
+
+  it('linkedClients — берёт строку сотрудника из справочника по его системному типу', async () => {
+    const rows = [{ id: 'u1', clients: [{ id: 'c1', username: 'k' }] }, { id: 'u2', clients: [] }]
+    apiClient.defaults.adapter = reply(200, rows)
+    expect(await usersApi.linkedClients('u1', 'broker', { silent: true })).toEqual([{ id: 'c1', username: 'k' }])
+    expect(seen[0].url).toBe('/catalog/brokers')
+    expect(seen[0].silent).toBe(true)
+    await usersApi.linkedClients('u2', 'importer')
+    expect(seen[1].url).toBe('/catalog/importers')
+    await usersApi.linkedClients('u2', 'sales')
+    expect(seen[2].url).toBe('/catalog/salespersons')
+    expect(await usersApi.linkedClients('zz', 'administrator')).toEqual([])
+    expect(seen[3].url).toBe('/catalog/administrators')
+  })
+
+  it('resetPassword и deleteUser — тихие по просьбе (ошибку показывает панель)', async () => {
+    apiClient.defaults.adapter = reply(200, { username: 'a', temporaryPassword: 'p' })
+    expect(await usersApi.resetPassword('u1', { silent: true })).toEqual({ username: 'a', temporaryPassword: 'p' })
+    expect(seen[0].url).toBe('/users/u1/reset-password')
+    expect(seen[0].silent).toBe(true)
+    await usersApi.deleteUser('u1', { silent: true })
+    expect(seen[1].method).toBe('delete')
+    expect(seen[1].silent).toBe(true)
+  })
 })

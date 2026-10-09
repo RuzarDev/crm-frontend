@@ -7,7 +7,7 @@ import type { TeamMemberDto } from '@/types/api'
 
 const api = vi.hoisted(() => ({
   team: vi.fn(), clients: vi.fn(), expeditors: vi.fn(), onboarding: vi.fn(), editExpeditor: vi.fn(),
-  registerStaff: vi.fn(), catalog: vi.fn(), setUserRoles: vi.fn(),
+  registerStaff: vi.fn(), catalog: vi.fn(), setUserRoles: vi.fn(), confirm: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 vi.mock('@/api/users', () => ({
@@ -19,11 +19,17 @@ vi.mock('@/api/permissions', async (orig) => ({
   permissionsApi: { catalog: api.catalog, setUserRoles: api.setUserRoles },
 }))
 vi.mock('@/ui/message', () => ({ message: api.toast }))
+vi.mock('@/ui/confirm', () => ({ useConfirm: () => ({ confirm: api.confirm }) }))
 
 import TeamPage from '../TeamPage.vue'
 import FilterChip from '@/components/broker/FilterChip.vue'
 import { useAuthStore } from '@/stores/auth'
 
+// Панель сотрудника — заглушка слотов (содержимое проверяет MemberDrawer.spec).
+const DrawerStub = {
+  props: ['open'], emits: ['update:open'],
+  template: '<div v-if="open" data-drawer><slot name="title" /><slot /><div><slot name="footer" /></div></div>',
+}
 // Окно — заглушка (механика Reka не проверяется): состав экрана и запросы.
 const ModalStub = {
   props: ['open', 'okButtonProps'], emits: ['ok', 'update:open'],
@@ -64,7 +70,7 @@ const mountPage = async (path = '/settings/team') => {
   await router.push(path)
   w = mountWithI18n(TeamPage, {
     attachTo: document.body,
-    global: { plugins: [router], stubs: { ZModal: ModalStub } },
+    global: { plugins: [router], stubs: { ZModal: ModalStub, ZDrawer: DrawerStub } },
   })
   await flushPromises()
 }
@@ -185,6 +191,32 @@ describe('TeamPage: сотрудники', () => {
   })
 })
 
+describe('TeamPage: панель сотрудника', () => {
+  it('?member=<id> открывает панель сотрудника; «Отмена» снимает выбор', async () => {
+    await mountPage('/settings/team?member=m2')
+    expect(w.get('[data-drawer] [data-drawer-name]').text()).toBe('Динара Сейткали')
+    await w.get('[data-member-cancel]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.query.member).toBeUndefined()
+    expect(w.find('[data-drawer]').exists()).toBe(false)
+  })
+
+  it('несохранённые роли: при смене строки спрашивают; отказ — остаёмся на сотруднике', async () => {
+    as('administrator', ['users.read', 'users.assign_role'])
+    await mountPage('/settings/team?member=m2')
+    await w.get('[data-member-role="kpp"]').trigger('click')
+    api.confirm.mockResolvedValueOnce(false)
+    await w.findAll('[data-member-row]')[2].trigger('click')
+    await flushPromises()
+    expect(api.confirm).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.query.member).toBe('m2')
+    api.confirm.mockResolvedValueOnce(true)
+    await w.findAll('[data-member-row]')[2].trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.query.member).toBe('m3')
+  })
+})
+
 describe('TeamPage: клиенты', () => {
   it('компания, логин, статус; кнопки «Добавить клиента» нет; клик ведёт в карточку клиента', async () => {
     await mountPage()
@@ -214,6 +246,17 @@ describe('TeamPage: клиенты', () => {
     expect(api.onboarding).not.toHaveBeenCalled()
     expect(w.findAll('[data-client-name]').map((n) => n.text())).toEqual(['altyn', 'kazakhmys'])
     expect(w.find('[data-client-status]').exists()).toBe(false)
+  })
+
+  it('без clients.read строка клиента не нажимается: нет кнопки и перехода в карточку', async () => {
+    as('sales', ['users.read'])
+    await mountPage()
+    await tabBtn(1).trigger('click')
+    await flushPromises()
+    expect(w.find('[data-client-open]').exists()).toBe(false)
+    await w.findAll('[data-client-name]')[0].trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/settings/team')
   })
 })
 

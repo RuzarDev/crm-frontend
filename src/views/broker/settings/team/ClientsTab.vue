@@ -7,6 +7,7 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZTable from '@/components/z/ZTable.vue'
 import ZTag from '@/components/z/ZTag.vue'
+import { useAuthStore } from '@/stores/auth'
 import { clientStatusTone } from '@/views/broker/clients/clients'
 import { formatDay } from '@/views/broker/list'
 import type { ZColumn } from '@/ui/table'
@@ -26,6 +27,9 @@ const emit = defineEmits<{ retry: []; reset: [] }>()
 
 const { t } = useI18n()
 const router = useRouter()
+// Карточка клиента (/clients/:id) требует clients.read; у остальных строки — просто список.
+const auth = useAuthStore()
+const canOpen = computed(() => auth.hasPermission('clients.read'))
 
 const columns = computed<ZColumn<TeamClientRow>[]>(() => [
   { key: 'client', title: t('broker.settings.team.col.client'), minWidth: 260 },
@@ -34,8 +38,8 @@ const columns = computed<ZColumn<TeamClientRow>[]>(() => [
   { key: 'since', title: t('broker.settings.team.col.since'), width: 130, align: 'right', className: 'max-sm:hidden' },
 ])
 
-const openCard = (c: TeamClientRow) => { void router.push(`/clients/${c.id}`) }
-const customRow = (c: TeamClientRow) => ({
+const openCard = (c: TeamClientRow) => { if (canOpen.value) void router.push(`/clients/${c.id}`) }
+const customRow = (c: TeamClientRow) => (!canOpen.value ? {} : {
   class: 'cursor-pointer',
   onClick: (e: MouseEvent) => {
     if ((e.target as HTMLElement | null)?.closest('a,button,input,label')) return
@@ -69,11 +73,12 @@ const people = (c: TeamClientRow) => [...c.brokers, ...c.expeditors].join(', ')
       data-team-table="clients"
     >
       <template #bodyCell="{ column, record }">
-        <button
+        <component
+          :is="canOpen ? 'button' : 'span'"
           v-if="column.key === 'client'"
-          type="button"
-          class="flex min-w-0 max-w-full cursor-pointer items-center gap-2.5 rounded-field border-0 bg-transparent p-0 text-left font-sans outline-hidden focus-visible:shadow-focus max-sm:min-h-11"
-          data-client-open
+          :type="canOpen ? 'button' : undefined"
+          :class="['flex min-w-0 max-w-full items-center gap-2.5 text-left font-sans max-sm:min-h-11', canOpen && 'cursor-pointer rounded-field border-0 bg-transparent p-0 outline-hidden focus-visible:shadow-focus']"
+          :data-client-open="canOpen ? '' : undefined"
           @click="openCard(record)"
         >
           <ZAvatar :name="clientRowName(record)" class="size-8" />
@@ -81,7 +86,7 @@ const people = (c: TeamClientRow) => [...c.brokers, ...c.expeditors].join(', ')
             <span class="block truncate text-sm font-semibold text-ink" data-client-name>{{ clientRowName(record) }}</span>
             <span class="block truncate font-mono text-xs text-muted" data-client-login>{{ record.username }}</span>
           </span>
-        </button>
+        </component>
         <ZTag v-else-if="column.key === 'status'" :tone="record.status ? clientStatusTone(record.status) : 'neutral'" data-client-status>{{ record.status ? t(`broker.settings.team.status.${record.status}`) : '—' }}</ZTag>
         <span v-else-if="column.key === 'brokers'" class="text-sm text-ink-3">{{ people(record) || '—' }}</span>
         <span v-else-if="column.key === 'since'" class="whitespace-nowrap text-sm tabular-nums text-ink-3">{{ formatDay(record.createdAtUtc) }}</span>
