@@ -18,7 +18,10 @@ const CALCULATED_TAX_MODES = ['1010', '2010', '2050', '5060']
 // Акциз в КЕДЕН — код по виду товара (4420 сигареты, 4400 пиво…; 06.10.2026), поэтому любой 4xxx.
 export const isCalculatedTaxMode = (code: string) => CALCULATED_TAX_MODES.includes(code) || /^4\d{3}$/.test(code)
 
-/** Строки гр.47 товаров из серверного расчёта (calculate-payments / calculate-tpin — один движок). */
+/**
+ * Строки гр.47 товаров из серверного расчёта (calculate-payments / calculate-tpin — один движок). Посчитанный без ошибки
+ * товар теряет признак «Пересчитать» (needsTpinRecalc); товары с ошибкой и не попавшие в расчёт — как были.
+ */
 export function applyGoodsPaymentRows(form: Pick<DtFormState, 'goodsItems'>, res: Import40CalculatePaymentsResponse) {
   res.goodsRows.forEach((row) => {
     const g = form.goodsItems[row.index]
@@ -65,6 +68,8 @@ export function applyGoodsPaymentRows(form: Pick<DtFormState, 'goodsItems'>, res
       }
     })
     g.payments = rows
+    // Платежи товара свежие — снять «Пересчитать» (и для «Записать» расчёта по сохранённой ДТ, и для ТПиН с экрана).
+    g.needsTpinRecalc = false
   })
   // Карточки товаров держат свои копии строк и обновляются по смене самого списка.
   form.goodsItems = [...form.goodsItems]
@@ -190,7 +195,6 @@ export function useDtPayments(
           problems.push(`${t('broker.dt.payments.item', { n })}: ${row.error}`)
           return
         }
-        g.needsTpinRecalc = false
         recalculated += 1
         if (row.notes) problems.push(`${t('broker.dt.payments.item', { n })}: ${row.notes}`)
       })

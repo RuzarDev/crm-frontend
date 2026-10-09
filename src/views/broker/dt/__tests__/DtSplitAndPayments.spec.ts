@@ -115,6 +115,17 @@ describe('useDtPayments (перенос из прежнего экрана)', ()
     expect(p[2]).toMatchObject({ amountKzt: 13.2, rateKindCode: '%' })
   })
 
+  it('«Записать» расчёт снимает «Пересчитать» у посчитанных товаров; у товара с ошибкой и не попавшего в расчёт — нет', () => {
+    const form = reactive(emptyDtForm()) as DtFormState
+    form.goodsItems = [goods({ needsTpinRecalc: true }), goods({ needsTpinRecalc: true }), goods({ needsTpinRecalc: true })] as never
+    const [a, b, c] = form.goodsItems
+    applyGoodsPaymentRows(form, calc([
+      { index: 0, rows: [{ taxModeCode: '1010', amount: 5 }] } as never,
+      { index: 1, rows: [], error: 'нет ставки' } as never,
+    ]))
+    expect([a, b, c].map((g) => g.needsTpinRecalc)).toEqual([false, true, true])
+  })
+
   it('ТПиН: замечания по товарам — в окно (tpinProblems), флаг пересчёта снимается', async () => {
     const form = reactive(emptyDtForm()) as DtFormState
     form.goodsItems = [goods({ needsTpinRecalc: true }), goods({ tnvedCode: '1' })] as never
