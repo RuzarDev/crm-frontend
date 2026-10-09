@@ -113,7 +113,8 @@ const cardTitle = (c: CardKey) => t(`personal.profile.${c}.title`)
       </ProfileCard>
       <DeclarantCard v-else-if="c === 'declarant'" />
       <ProfileCard v-else-if="c === 'language'" :title="cardTitle('language')" data-profile-card="language">
-        <ZField :label="t('personal.profile.language.label')">
+        <!-- Подпись слева, переключатель справа (на телефоне — под подписью): сегмент не растягивается на всю карточку. -->
+        <ZField :label="t('personal.profile.language.label')" class="items-start sm:flex-row sm:items-center sm:gap-4 sm:[&>label]:shrink-0" data-language-field>
           <ZSegmented :value="locale" :options="langOptions" data-language @update:value="onLocale" />
         </ZField>
       </ProfileCard>

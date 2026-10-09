@@ -38,9 +38,11 @@ const load = async () => {
     const dto = { ...emptyDeclarant(), ...(await declarantProfileApi.get({ silent: true })) }
     saved.value = dto
     Object.assign(draft, dto)
-    // Пустой профиль — подставим имя и телефон аккаунта, чтобы не вводить заново (сохранить их — по кнопке).
+    // Пустой профиль — подставим имя и телефон аккаунта, чтобы не вводить заново. Подстановка — не правка: «Сохранить»
+    // ждёт настоящей правки пользователя (подставленное уходит вместе с ней), поэтому исходным считаем форму с подстановкой.
     if (!draft.fullName && profile.profile?.displayName) draft.fullName = profile.profile.displayName
     if (!draft.phone && profile.profile?.phone) draft.phone = profile.profile.phone
+    saved.value = { ...draft }
     iinTouched.value = false
     state.value = 'ready'
   } catch {

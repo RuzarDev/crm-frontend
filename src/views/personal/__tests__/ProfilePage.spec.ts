@@ -211,15 +211,20 @@ describe('ProfilePage: профиль декларанта', () => {
     expect(api.declUpdate).toHaveBeenCalledTimes(1)
   })
 
-  it('пустой профиль: имя и телефон берутся из аккаунта, сохранить их — по кнопке', async () => {
+  it('пустой профиль: имя и телефон берутся из аккаунта; подстановка — не правка, «Сохранить» ждёт правки и уносит подставленное', async () => {
     asDeclarant()
     api.declGet.mockResolvedValue({ ...decl(), fullName: null, phone: null })
     await open()
     expect((input('[data-declarant="fullName"]').element as HTMLInputElement).value).toBe('Динара Сейткали')
+    expect(saveOf('declarant').attributes('disabled')).toBeDefined()
+    await card('declarant').trigger('submit')
+    await flushPromises()
+    expect(api.declUpdate).not.toHaveBeenCalled()
+    await input('[data-declarant="position"]').setValue('Старший декларант')
     expect(saveOf('declarant').attributes('disabled')).toBeUndefined()
     await card('declarant').trigger('submit')
     await flushPromises()
-    expect(api.declUpdate.mock.calls[0][0]).toMatchObject({ fullName: 'Динара Сейткали', phone: '+7 701 555 12 40' })
+    expect(api.declUpdate.mock.calls[0][0]).toMatchObject({ fullName: 'Динара Сейткали', phone: '+7 701 555 12 40', position: 'Старший декларант' })
   })
 
   it('отказ сервера показан в карточке', async () => {
@@ -240,6 +245,14 @@ describe('ProfilePage: язык', () => {
     await kk.trigger('click')
     await flushPromises()
     expect(api.setLocale).toHaveBeenCalledWith('kk')
+  })
+
+  it('подпись слева и сегмент справа на экране от 640px (не на всю ширину карточки)', async () => {
+    await open()
+    const field = card('language').get('[data-language-field]')
+    expect(field.classes()).toContain('sm:flex-row')
+    expect(field.classes()).toContain('items-start')
+    expect(card('language').get('[data-language]').classes()).not.toContain('w-full')
   })
 })
 
