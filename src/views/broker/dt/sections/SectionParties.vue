@@ -137,15 +137,15 @@ const saveRef = async (target: 'sender' | 'receiver') => {
           </p>
         </div>
         <div v-if="!readonly && b.refs && !isSame(b)" class="flex flex-wrap items-center gap-1">
-          <ZButton v-if="b.key === 'receiver' && clientProfile" variant="ghost" size="sm" data-party-from-client @click="fillFromClient">
+          <ZButton v-if="b.key === 'receiver' && clientProfile" variant="ghost" class="max-sm:h-11" data-party-from-client @click="fillFromClient">
             <template #icon><PhUserCircle :size="16" aria-hidden="true" /></template>
             {{ tp('fromClient') }}
           </ZButton>
-          <ZButton variant="ghost" size="sm" :data-party-refs-open="b.refs" @click="openRefs(b.refs)">
+          <ZButton variant="ghost" class="max-sm:h-11" :data-party-refs-open="b.refs" @click="openRefs(b.refs)">
             <template #icon><PhBookOpen :size="16" aria-hidden="true" /></template>
             {{ tp('refs.open') }}
           </ZButton>
-          <ZButton variant="ghost" size="sm" :loading="saving === b.refs" :data-party-refs-save="b.refs" @click="saveRef(b.refs)">
+          <ZButton variant="ghost" class="max-sm:h-11" :loading="saving === b.refs" :data-party-refs-save="b.refs" @click="saveRef(b.refs)">
             <template #icon><PhFloppyDisk :size="16" aria-hidden="true" /></template>
             {{ tp('refs.save') }}
           </ZButton>
