@@ -154,6 +154,59 @@ describe('SectionTransport — гр. 18, 19, 21, 25, 26', () => {
     expect(form.arrivalTransportNumbers[1].headNumber).toBeNull()
   })
 
+  it('стёртый на время перенабора номер головы не рвёт привязку: прицеп идёт за новым номером', async () => {
+    await mount({
+      inlandTransportModeCode: '30',
+      arrivalTransportNumbers: [veh('AAA1'), veh('TR1', { isTrailer: true, headNumber: 'AAA1' })],
+    })
+    const input = rows('18')[0].get('input[data-transport-number]')
+    await input.setValue('')
+    expect(form.arrivalTransportNumbers[0].number).toBe('')
+    expect(form.arrivalTransportNumbers[1].headNumber).toBe('AAA1') // не потеряна
+    await input.setValue('BBB2')
+    expect(form.arrivalTransportNumbers[1].headNumber).toBe('BBB2')
+    // и дальше следует за правками
+    await input.setValue('BBB22')
+    expect(form.arrivalTransportNumbers[1].headNumber).toBe('BBB22')
+  })
+
+  it('одинаковые номера голов: правка и удаление одной не трогают прицепы другой', async () => {
+    await mount({
+      inlandTransportModeCode: '30',
+      arrivalTransportNumbers: [
+        veh('DUP'), veh('DUP'),
+        veh('T-A', { isTrailer: true, headNumber: 'DUP' }),
+      ],
+    })
+    // прицеп смотрит на первую голову с номером DUP; правим вторую — прицеп остаётся на «DUP»
+    await rows('18')[1].get('input[data-transport-number]').setValue('OTHER')
+    expect(form.arrivalTransportNumbers[2].headNumber).toBe('DUP')
+    // правим первую (его голову) — прицеп уходит за ней
+    await rows('18')[0].get('input[data-transport-number]').setValue('FIRST')
+    expect(form.arrivalTransportNumbers[2].headNumber).toBe('FIRST')
+    // две головы с одним номером: удаляем вторую — привязка прицепа первой не страдает
+    form.arrivalTransportNumbers[1].number = 'FIRST'
+    await nextTick()
+    await rows('18')[1].get('[data-transport-remove]').trigger('click')
+    expect(form.arrivalTransportNumbers).toHaveLength(2)
+    expect(form.arrivalTransportNumbers[1].headNumber).toBe('FIRST')
+  })
+
+  it('строки списка держатся за свои узлы: после удаления первой вторая остаётся тем же элементом', async () => {
+    await mount({ inlandTransportModeCode: '30', arrivalTransportNumbers: [veh('A1'), veh('B2'), veh('C3')] })
+    const second = rows('18')[1].get('input[data-transport-number]').element
+    await rows('18')[0].get('[data-transport-remove]').trigger('click')
+    expect(rows('18')).toHaveLength(2)
+    expect(rows('18')[0].get('input[data-transport-number]').element).toBe(second)
+    expect((second as HTMLInputElement).value).toBe('B2')
+  })
+
+  it('под страной регистрации — пояснение, что страна одна на всю графу', async () => {
+    await mount()
+    expect(w.get('[data-transport-arrival] [data-graph="18"]').text()).toContain('Одна страна для всего транспорта графы')
+    expect(w.get('[data-transport-border] [data-graph="21"]').text()).toContain('Одна страна для всего транспорта графы')
+  })
+
   it('номер ТС — в верхнем регистре; тип и марка — из справочников', async () => {
     await mount({ inlandTransportModeCode: '30', arrivalTransportNumbers: [veh('')] })
     const row = rows('18')[0]
@@ -170,7 +223,7 @@ describe('SectionTransport — гр. 18, 19, 21, 25, 26', () => {
     expect(form.arrivalTransportNumbers[0].mark).toBe('VOLVO')
   })
 
-  it('«Скопировать головы из гр. 18»: только головы без привязки; вид и страна — если пусты', async () => {
+  it('«Скопировать головы из гр. 18» в пустой гр. 21: только головы без привязки; вид и страна — если пусты', async () => {
     await mount({
       inlandTransportModeCode: '30',
       borderTransportModeCode: '',
@@ -182,9 +235,25 @@ describe('SectionTransport — гр. 18, 19, 21, 25, 26', () => {
     expect(form.borderTransportNumbers).toEqual([veh('H1', { typeCode: '10', mark: 'VOLVO' })])
     expect(form.borderTransportModeCode).toBe('30')
     expect(form.borderTransportNationality).toBe('CN')
-    // не перетирает заданные вид и страну
-    form.borderTransportModeCode = '40'; form.borderTransportNationality = 'KZ'
+    // всё уже скопировано — кнопки нет
+    expect(w.find('[data-copy-heads]').exists()).toBe(false)
+  })
+
+  it('копирование не стирает заполненный гр. 21: дописывает только недостающие головы, заданные вид и страна остаются', async () => {
+    await mount({
+      inlandTransportModeCode: '30',
+      borderTransportModeCode: '40',
+      borderTransportNationality: 'KZ',
+      arrivalTransportNationality: 'CN',
+      arrivalTransportNumbers: [veh('H1', { typeCode: '10' }), veh('H2', { mark: 'MAN' }), veh('T1', { isTrailer: true, headNumber: 'H2' })],
+      borderTransportNumbers: [veh('H1', { typeCode: '30', mark: 'VOLVO' }), veh('OWN', { typeCode: '10' })],
+    })
     await w.get('[data-copy-heads]').trigger('click')
+    expect(form.borderTransportNumbers).toEqual([
+      veh('H1', { typeCode: '30', mark: 'VOLVO' }), // уже был — не перезаписан данными гр. 18
+      veh('OWN', { typeCode: '10' }), // свой — остался
+      veh('H2', { mark: 'MAN' }), // недостающая голова дописана, без привязки
+    ])
     expect(form.borderTransportModeCode).toBe('40')
     expect(form.borderTransportNationality).toBe('KZ')
   })

@@ -1418,6 +1418,7 @@ export default {
         borderTitle: 'Шекарадағы көлік',
         country: 'КҚ тіркелген ел',
         selectCountry: 'Елді таңдаңыз',
+        countryHint: 'Графаның барлық көлігі үшін бір ел — КЕДЕН осылай қабылдайды.',
         countryNotInList: '«{value}» елі анықтамалықта жоқ — тізімнен таңдаңыз',
         select: 'Таңдаңыз',
         selectHead: 'Тартқышты таңдаңыз',

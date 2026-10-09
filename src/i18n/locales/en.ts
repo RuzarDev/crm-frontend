@@ -1418,6 +1418,7 @@ export default {
         borderTitle: 'Vehicle at the border',
         country: 'Vehicle registration country',
         selectCountry: 'Select a country',
+        countryHint: 'One country for all vehicles of the box — this is how KEDEN accepts it.',
         countryNotInList: 'The country "{value}" is not in the classifier — pick one from the list',
         select: 'Select',
         selectHead: 'Select a tractor',

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, toRaw } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhPlus, PhX } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -50,39 +50,73 @@ const typeOf = (m: Import40TransportMeans) => withCurrent(props.typeOptions, m.t
 const markOf = (m: Import40TransportMeans) => withCurrent(props.markOptions, m.mark)
 const str = (v: unknown): string | null => (v == null || v === '' ? null : String(v))
 
-/** Прицепы, привязанные к номеру, теряют привязку (голова удалена или перестала быть головой). */
-const detach = (number: string | null | undefined) => {
-  const n = number?.trim()
-  if (!n) return
-  for (const r of props.rows) if (r.isTrailer && r.headNumber === n) r.headNumber = null
+// Привязка прицепа к голове хранится номером (headNumber уходит на сервер), но следим за ней по строке-голове, а не по
+// номеру: у двух голов может быть один номер, а номер головы в момент перенабора бывает пустым. Связь «прицеп → строка
+// головы» запоминаем при первой правке; пока головы нет в списке или она стала прицепом — ищем по номеру.
+const links = new WeakMap<object, Import40TransportMeans>()
+const headRowOf = (t: Import40TransportMeans): Import40TransportMeans | undefined => {
+  const raw = toRaw(t)
+  const rowsRaw = props.rows.map((r) => toRaw(r))
+  const linked = links.get(raw)
+  if (linked && rowsRaw.includes(linked) && !linked.isTrailer) return linked
+  const n = t.headNumber?.trim()
+  const found = n ? rowsRaw.find((r) => !r.isTrailer && r.number?.trim() === n) : undefined
+  if (found) links.set(raw, found)
+  else links.delete(raw)
+  return found
 }
-/** Номер головы поменялся — прицепы идут за ним, иначе правка опечатки рвёт привязку. */
-const retarget = (from: string | null | undefined, to: string) => {
-  const f = from?.trim()
-  if (!f || f === to.trim()) return
-  for (const r of props.rows) if (r.isTrailer && r.headNumber === f) r.headNumber = to.trim() || null
+/** Прицепы этой головы (по строке, не по номеру). */
+const trailersOf = (head: Import40TransportMeans) => {
+  const h = toRaw(head)
+  return props.rows.filter((t) => t.isTrailer && headRowOf(t) === h)
+}
+/** Голова удалена или стала прицепом — её прицепы теряют привязку. */
+const detach = (head: Import40TransportMeans) => {
+  for (const t of trailersOf(head)) { t.headNumber = null; links.delete(toRaw(t)) }
 }
 
 const onNumber = (m: Import40TransportMeans, v: string) => {
-  if (!m.isTrailer) retarget(m.number, v)
+  if (!m.isTrailer) {
+    // Связи берём до правки. Пока номер стёрт (перенабор) прицепы держат прежний номер — связь не теряется; как только
+    // у головы снова есть номер, прицепы идут за ним.
+    const deps = trailersOf(m)
+    const n = v.trim()
+    if (n) for (const t of deps) t.headNumber = n
+  }
   m.number = v
+}
+const onHead = (m: Import40TransportMeans, v: unknown) => {
+  m.headNumber = str(v)
+  links.delete(toRaw(m)) // следующая проверка найдёт голову по новому номеру
 }
 const onRole = (m: Import40TransportMeans, v: unknown) => {
   const trailer = v === 'trailer'
   if (!!m.isTrailer === trailer) return
-  if (trailer) { detach(m.number); m.isTrailer = true } else { m.isTrailer = false; m.headNumber = null }
+  if (trailer) { detach(m); m.isTrailer = true } else { m.isTrailer = false; m.headNumber = null; links.delete(toRaw(m)) }
 }
 const add = () => {
   props.rows.push({ number: '', typeCode: null, nationality: null, mark: null, isTrailer: false, headNumber: null })
 }
 const remove = (i: number) => {
-  const [gone] = props.rows.splice(i, 1)
-  if (gone && !gone.isTrailer) detach(gone.number)
+  const row = props.rows[i]
+  if (row && !row.isTrailer) detach(row)
+  props.rows.splice(i, 1)
 }
 
+// Стабильный ключ строки (не индекс): после удаления средней остальные остаются теми же узлами, поля не перемешиваются.
+const ids = new WeakMap<object, number>()
+let nextId = 0
+const keyOf = (m: Import40TransportMeans): number => {
+  const raw = toRaw(m)
+  let id = ids.get(raw)
+  if (id === undefined) { id = ++nextId; ids.set(raw, id) }
+  return id
+}
+
+// Автомобильные виды: пять колонок только на широкой строке, между — две строки (переключатель на всю ширину).
 const gridClass = computed(() => props.road
-  ? '@md:grid-cols-[auto_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]'
-  : '@md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]')
+  ? '@md:grid-cols-2 @2xl:grid-cols-[auto_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] @2xl:items-end'
+  : '@md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] @md:items-end')
 </script>
 
 <template>
@@ -90,19 +124,19 @@ const gridClass = computed(() => props.road
     <ul v-if="rows.length" class="m-0 flex list-none flex-col gap-3 p-0">
       <li
         v-for="(m, i) in rows"
-        :key="i"
+        :key="keyOf(m)"
         class="@container rounded-row border border-line bg-canvas p-3"
         :data-transport-row="graph"
         :data-role="m.isTrailer ? 'trailer' : 'head'"
       >
-        <div :class="['grid grid-cols-1 gap-x-3 gap-y-3 @md:items-end', gridClass]">
+        <div :class="['grid grid-cols-1 gap-x-3 gap-y-3', gridClass]">
           <ZSegmented
             v-if="road"
             :value="m.isTrailer ? 'trailer' : 'head'"
             :options="roles"
             :disabled="readonly"
             :aria-label="t('broker.dt.transport.role')"
-            data-role-switch
+            class="@md:col-span-2 @2xl:col-span-1" data-role-switch
             @update:value="(v: unknown) => onRole(m, v)"
           />
           <ZField :label="t('broker.dt.transport.number')">
@@ -137,7 +171,7 @@ const gridClass = computed(() => props.road
               :disabled="readonly"
               :placeholder="t('broker.dt.transport.selectHead')"
               data-transport-head
-              @update:value="(v: unknown) => { m.headNumber = str(v) }"
+              @update:value="(v: unknown) => onHead(m, v)"
             />
           </ZField>
           <ZField v-else :label="t('broker.dt.transport.mark')">
@@ -155,7 +189,7 @@ const gridClass = computed(() => props.road
           <ZButton
             v-if="!readonly"
             variant="danger-ghost"
-            class="h-11 @md:size-9 @md:px-0"
+            class="h-11 @md:size-9 @md:justify-self-end @md:px-0"
             :aria-label="t('common.delete')"
             :title="t('common.delete')"
             data-transport-remove

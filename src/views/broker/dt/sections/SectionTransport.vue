@@ -17,7 +17,8 @@ import TransportMeansList from './TransportMeansList.vue'
 // Транспорт: вид (гр. 25, 26) и контейнер (гр. 19), ТС при прибытии (гр. 18), ТС на границе (гр. 21).
 // Правила (как в прежнем разделе): голова/прицеп только у видов 30/31/32; вид гр. 18 всегда берётся из гр. 26, а без неё
 // из гр. 25 (так же считает сервер); у ЖД (20) гр. 21 не заполняется — вагоны идут в гр. 18; «Скопировать головы» переносит
-// головы гр. 18 в гр. 21 (без прицепов и привязок), а вид и страну ставит, только если они пусты.
+// головы гр. 18, которых ещё нет в гр. 21, дописывает в гр. 21 (без прицепов и привязок, ничего не заменяя), а вид и страну
+// ставит, только если они пусты.
 // Страна регистрации ТС — одна на графу (в XML это RegistrationNationalityCode и страна каждого номера), поэтому она
 // стоит над списком с номером графы, а не в каждой строке.
 const props = defineProps<{ form: DtFormState; readonly: boolean }>()
@@ -59,9 +60,18 @@ const onContainer = (v: boolean) => { props.form.containerIndicator = v }
 const onArrivalCountry = (v: unknown) => { props.form.arrivalTransportNationality = code(v) ?? '' }
 const onBorderCountry = (v: unknown) => { props.form.borderTransportNationality = code(v) ?? '' }
 
-const canCopyHeads = computed(() => !props.readonly && !rail.value && arrivalRows.value.some((m) => !m.isTrailer))
+// Головы гр. 18, которых ещё нет в гр. 21 (по номеру). Копирование только дописывает недостающие и ничего не заменяет:
+// заполненный вручную гр. 21 (типы, марки, свои головы) не стирается.
+const numberKey = (m: { number?: string | null }) => (m.number ?? '').trim()
+const missingHeads = computed(() => {
+  const have = new Set(borderRows.value.map(numberKey))
+  return arrivalRows.value.filter((m) => !m.isTrailer && !have.has(numberKey(m)))
+})
+const canCopyHeads = computed(() => !props.readonly && !rail.value && missingHeads.value.length > 0)
 const copyHeads = () => {
-  props.form.borderTransportNumbers = arrivalRows.value.filter((m) => !m.isTrailer).map((m) => ({ ...m, headNumber: null }))
+  const add = missingHeads.value.map((m) => ({ ...m, headNumber: null }))
+  if (!props.form.borderTransportNumbers) props.form.borderTransportNumbers = []
+  props.form.borderTransportNumbers.push(...add)
   if (!props.form.borderTransportModeCode) props.form.borderTransportModeCode = arrivalMode.value || ''
   if (!props.form.borderTransportNationality) props.form.borderTransportNationality = props.form.arrivalTransportNationality
   syncArrivalMode()
@@ -101,7 +111,7 @@ const graphTag = 'font-mono text-xs font-normal text-muted'
         <span :class="graphTag">{{ t('broker.dt.nav.graphs', { list: '18' }) }}</span>
         <DtGraphHelp graph="18" />
       </h2>
-      <ZField graph="18" data-graph="18" class="max-w-xs" v-bind="warn(arrivalCountry.unknown, form.arrivalTransportNationality, 'broker.dt.transport.countryNotInList')">
+      <ZField graph="18" data-graph="18" class="max-w-xs" :extra="t('broker.dt.transport.countryHint')" v-bind="warn(arrivalCountry.unknown, form.arrivalTransportNationality, 'broker.dt.transport.countryNotInList')">
         <template #label>{{ t('broker.dt.transport.country') }}</template>
         <ZSelect :value="form.arrivalTransportNationality || null" :options="arrivalCountry.options" show-search allow-clear :disabled="readonly" :placeholder="t('broker.dt.transport.selectCountry')" @update:value="onArrivalCountry" />
       </ZField>
@@ -143,7 +153,7 @@ const graphTag = 'font-mono text-xs font-normal text-muted'
         </template>
       </template>
       <template v-else>
-        <ZField graph="21" data-graph="21" class="max-w-xs" v-bind="warn(borderCountry.unknown, form.borderTransportNationality, 'broker.dt.transport.countryNotInList')">
+        <ZField graph="21" data-graph="21" class="max-w-xs" :extra="t('broker.dt.transport.countryHint')" v-bind="warn(borderCountry.unknown, form.borderTransportNationality, 'broker.dt.transport.countryNotInList')">
           <template #label>{{ t('broker.dt.transport.country') }}</template>
           <ZSelect :value="form.borderTransportNationality || null" :options="borderCountry.options" show-search allow-clear :disabled="readonly" :placeholder="t('broker.dt.transport.selectCountry')" @update:value="onBorderCountry" />
         </ZField>
