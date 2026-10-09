@@ -51,6 +51,23 @@ describe('PartyRefsModal', () => {
     expect(refs.search).toHaveBeenCalledWith('SHE')
   })
 
+  it('во время паузы — загрузка, а не прежний список или «Ничего не найдено»', async () => {
+    refs.search.mockResolvedValueOnce([row('1', 'SHENZHEN BRIGHT')])
+    mount()
+    await flushPromises()
+    expect(names()).toEqual(['SHENZHEN BRIGHT'])
+    vi.useFakeTimers()
+    refs.search.mockResolvedValueOnce([])
+    type('XYZ')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(names()).toEqual([])
+    expect(document.body.querySelector('[data-party-refs-empty]')).toBeNull()
+    expect(document.body.textContent).not.toContain('Ничего не найдено')
+    await vi.advanceTimersByTimeAsync(300)
+    await flushPromises()
+    expect(document.body.querySelector('[data-party-refs-empty]')).not.toBeNull()
+  })
+
   it('ответ устаревшего поиска не перезаписывает свежий', async () => {
     mount()
     await flushPromises()

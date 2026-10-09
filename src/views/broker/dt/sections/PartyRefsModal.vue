@@ -48,6 +48,11 @@ const search = async (q: string) => {
 const onQuery = (v: string) => {
   query.value = v
   stopTimer()
+  // Пока идёт пауза, прежний список (и «Ничего не найдено») уже не про этот запрос: сразу — загрузка, а ответ
+  // запроса, ушедшего до паузы, отбрасываем.
+  seq++
+  results.value = []
+  loading.value = true
   timer = setTimeout(() => { timer = null; void search(v) }, SEARCH_PAUSE_MS)
 }
 watch(() => props.open, (on) => {

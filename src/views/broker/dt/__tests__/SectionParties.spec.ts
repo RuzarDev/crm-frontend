@@ -236,10 +236,12 @@ describe('SectionParties — код страны и БИН отправител�
     mount()
     await party('sender').get('[data-party-refs-open="sender"]').trigger('click')
     await flushPromises()
+    vi.useFakeTimers()
     const q = document.body.querySelector('[data-party-refs-search]') as HTMLInputElement
     q.value = '201140012345'
     q.dispatchEvent(new Event('input', { bubbles: true }))
-    await new Promise((r) => setTimeout(r, 400))
+    await vi.advanceTimersByTimeAsync(300)
+    vi.useRealTimers()
     await flushPromises()
     ;(document.body.querySelector('[data-party-refs-registry]') as HTMLElement).click()
     await flushPromises()
@@ -247,6 +249,24 @@ describe('SectionParties — код страны и БИН отправител�
     await party('sender').get('[data-party-refs-save="sender"]').trigger('click')
     await flushPromises()
     expect(refs.upsert).toHaveBeenLastCalledWith(expect.objectContaining({ bin: '201140012345' }))
+  })
+})
+
+describe('SectionParties — БИН отправителя после перезагрузки', () => {
+  it('загрузка ДТ заново (новый объект отправителя) — запомненный БИН забыт', async () => {
+    refs.search.mockResolvedValue([{ id: 's1', name: 'Shenzhen Bright', shortName: null, bin: '987654321098', countryCode: '156', city: null, region: null, street: null, house: null, apt: null, categoryCode: null, katoCode: null }])
+    refs.upsert.mockResolvedValue({})
+    mount()
+    await party('sender').get('[data-party-refs-open="sender"]').trigger('click')
+    await flushPromises()
+    ;(document.body.querySelector('[data-party-ref]') as HTMLElement).click()
+    await flushPromises()
+    // Перезагрузка: useDtForm присваивает форме новые объекты сторон (dtoToForm).
+    form.sender = { ...form.sender }
+    await nextTick()
+    await party('sender').get('[data-party-refs-save="sender"]').trigger('click')
+    await flushPromises()
+    expect(refs.upsert).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'SHENZHEN BRIGHT', bin: null }))
   })
 })
 
@@ -260,13 +280,18 @@ describe('SectionParties — поля', () => {
     expect(form.declarantSettlement).toBe('С. АБАЙ')
   })
 
-  it('дом / квартира длиннее 20 знаков — ошибка под полем с текущей длиной; населённый пункт ≤ 120', async () => {
+  it('дом / квартира: ввод не длиннее 20 знаков у всех сторон, подсказка; старое длинное значение — ошибка с длиной', async () => {
     mount({ senderHouse: 'BUILDING 7, ROOM 1205-1206' })
-    expect(party('sender').text()).toContain('Не длиннее 20 знаков — сейчас 26')
-    await input('receiver', 'apt').setValue('12345678901234567890')
+    for (const k of ['declarant', 'receiver', 'financialSubject', 'sender']) {
+      expect(input(k, 'house').attributes('maxlength')).toBe('20')
+      expect(input(k, 'apt').attributes('maxlength')).toBe('20')
+    }
+    expect(party('sender').text()).toContain('Не длиннее 20 знаков — сейчас 26. Оставьте только номер, остальное перенесите в «Улица»')
+    expect(party('receiver').text()).toContain('До 20 символов — только номер дома/строения')
+    expect(party('receiver').text()).toContain('До 20 символов — только номер офиса/квартиры')
     expect(party('receiver').text()).not.toContain('Не длиннее')
-    await input('receiver', 'apt').setValue('123456789012345678901')
-    expect(party('receiver').text()).toContain('Не длиннее 20 знаков — сейчас 21')
+    await input('sender', 'house').setValue('BUILDING 7')
+    expect(party('sender').text()).not.toContain('Не длиннее')
     expect(input('declarant', 'settlement').attributes('maxlength')).toBe('120')
   })
 

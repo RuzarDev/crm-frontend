@@ -40,9 +40,9 @@ const country = computed(() => withCurrent(props.countryOptions, countryShown.va
 const category = computed(() => withCurrent(props.categoryOptions, props.values.categoryCode))
 const warnNotInList = (unknown: boolean, value: string | null) =>
   unknown ? { validateStatus: 'warning' as const, help: tp('notInList', { value: value ?? '' }) } : {}
-const lengthError = (v: string | null, max: number) => {
+const lengthError = (v: string | null, max: number, key = 'tooLong') => {
   const n = overLimit(v, max)
-  return n === null ? {} : { error: tp('tooLong', { max, n }) }
+  return n === null ? {} : { error: tp(key, { max, n }) }
 }
 
 const { loading: binLoading, lookup } = useBinLookup()
@@ -110,11 +110,13 @@ const firstGraph = (f: PartyField) => ((has('bin') ? 'bin' : 'name') === f ? pro
       <ZField :label="tp('street')">
         <ZInput v-uppercase :value="values.street" :disabled="readonly" data-party-input="street" @update:value="set('street')($event)" />
       </ZField>
-      <ZField :label="tp('house')" v-bind="lengthError(values.house, MAX_HOUSE_LEN)">
-        <ZInput v-uppercase :value="values.house" :disabled="readonly" data-party-input="house" @update:value="set('house')($event)" />
+      <!-- КЕДЕН не принимает дом / помещение длиннее 20 знаков: ввод ограничен, старые длинные значения не обрезаем
+           молча — ошибка под полем, пока их не сократят. -->
+      <ZField :label="tp('house')" :extra="tp('houseHint')" v-bind="lengthError(values.house, MAX_HOUSE_LEN, 'houseTooLong')">
+        <ZInput v-uppercase :value="values.house" :maxlength="MAX_HOUSE_LEN" :disabled="readonly" data-party-input="house" @update:value="set('house')($event)" />
       </ZField>
-      <ZField :label="tp('apt')" v-bind="lengthError(values.apt, MAX_HOUSE_LEN)">
-        <ZInput v-uppercase :value="values.apt" :disabled="readonly" data-party-input="apt" @update:value="set('apt')($event)" />
+      <ZField :label="tp('apt')" :extra="tp('aptHint')" v-bind="lengthError(values.apt, MAX_HOUSE_LEN, 'houseTooLong')">
+        <ZInput v-uppercase :value="values.apt" :maxlength="MAX_HOUSE_LEN" :disabled="readonly" data-party-input="apt" @update:value="set('apt')($event)" />
       </ZField>
       <ZField v-if="has('categoryCode')" :label="tp('category')" v-bind="warnNotInList(category.unknown, values.categoryCode)">
         <ZSelect

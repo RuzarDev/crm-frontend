@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhBookOpen, PhFloppyDisk, PhUserCircle } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -84,6 +84,11 @@ const senderBin = ref<{ bin: string; name: string | null } | null>(null)
 const rememberSender = (bin: string | null | undefined) => {
   senderBin.value = bin ? { bin, name: values.value.sender.name } : null
 }
+// Загрузка, перезагрузка или другая ДТ заменяют объект отправителя целиком (правки раздела пишут в него) — БИН
+// прежнего отправителя забываем.
+watch([() => props.form.id, () => props.form.sender], ([id, sender], [prevId, prevSender]) => {
+  if (id !== prevId || (prevSender && sender !== prevSender)) senderBin.value = null
+})
 const onPick = (r: PartyRefDto) => {
   apply(refsTarget.value, refPatch(refsTarget.value, r, props.countryOptions))
   if (refsTarget.value === 'sender') rememberSender(r.bin)

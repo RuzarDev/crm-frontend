@@ -1382,6 +1382,9 @@ export default {
         select: 'Select',
         notInList: '“{value}” is not in the reference list — pick one from the list',
         tooLong: 'No longer than {max} characters — now {n}',
+        houseTooLong: 'No longer than {max} characters — now {n}. Keep only the number and move the rest to “Street”',
+        houseHint: 'Up to 20 characters — building number only',
+        aptHint: 'Up to 20 characters — office/apartment number only',
         fromClient: 'From client profile',
         fromClientDone: 'Consignee filled from the client profile',
         refs: {
