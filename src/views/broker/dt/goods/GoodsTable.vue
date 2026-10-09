@@ -47,7 +47,8 @@ let ro: ResizeObserver | undefined
 onMounted(() => {
   const el = tableRef.value?.$el
   if (!(el instanceof HTMLElement)) return
-  const take = (w: number) => { width.value = w > 0 ? w : Number.POSITIVE_INFINITY }
+  // 0 — раздел скрыт (KeepAlive, отсоединён): оставляем последнюю ширину, иначе 200 строк перерисовались бы дважды.
+  const take = (w: number) => { if (w > 0) width.value = w }
   take(el.clientWidth)
   if (typeof ResizeObserver === 'undefined') return
   ro = new ResizeObserver((entries) => take(entries[0]?.contentRect.width ?? 0))
