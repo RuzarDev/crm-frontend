@@ -162,6 +162,15 @@ describe('DtHeaderBar', () => {
     expect(w.get('[data-dt-save-state]').text()).toBe('Сохранено в 15:32')
   })
 
+  it('шапка липкая только с 768px (на телефоне не занимает треть экрана)', () => {
+    w = mountHeader()
+    const cls = w.get('[data-dt-header]').classes()
+    expect(cls).toEqual(expect.arrayContaining(['md:sticky', 'md:top-0']))
+    expect(cls).not.toContain('sticky')
+    // корень — сам <header> (DtPage меряет высоту по $el; фрагмент с комментарием ломал ResizeObserver)
+    expect((w.vm.$el as Node).nodeName).toBe('HEADER')
+  })
+
   it('состояние сохранения: сохраняется / не сохранено / есть несохранённые / просмотр', () => {
     w = mountHeader({ saving: true })
     expect(w.get('[data-dt-save-state]').text()).toBe('Сохраняется…')
