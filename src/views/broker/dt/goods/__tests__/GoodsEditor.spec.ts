@@ -182,6 +182,29 @@ describe('GoodsEditor: каркас и навигация', () => {
     expect(itemQuery()).toBe('3')
   })
 
+  it('панель — под шапкой ДТ и следует за её высотой, пока открыта', async () => {
+    let bottom = 96
+    let onResize: (() => void) | null = null
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('min-width: 640px'), addEventListener() {}, removeEventListener() {} }))
+    vi.stubGlobal('ResizeObserver', class { constructor(cb: () => void) { onResize = cb } observe() {} disconnect() { onResize = null } })
+    const header = document.createElement('div')
+    header.setAttribute('data-dt-header', '')
+    header.getBoundingClientRect = () => ({ bottom } as DOMRect)
+    document.body.appendChild(header)
+    try {
+      await mount([item()], { query: '&item=1' })
+      expect(panel()!.style.top).toBe('96px')
+      bottom = 140
+      onResize!()
+      await settle()
+      expect(panel()!.style.top).toBe('140px')
+      await click('[data-goods-close]')
+      expect(onResize).toBeNull()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('подвал: состояние сохранения ДТ и подсказка клавиш', async () => {
     save.value = { saving: true, dirty: true, failed: false, savedAt: null }
     await mount([item()], { query: '&item=1' })
@@ -196,7 +219,10 @@ describe('GoodsEditor: каркас и навигация', () => {
     expect(q('[data-goods-duplicate]')).toBeNull()
     expect(q('[data-goods-more]')).toBeNull()
     expect(q('[data-goods-find]')).toBeNull()
-    expect(q<HTMLButtonElement>('[data-goods-medical]')?.closest('label')?.querySelector('button')?.disabled ?? true).toBe(true)
+    const medical = q<HTMLButtonElement>('[data-goods-medical]')
+    expect(medical).not.toBeNull()
+    expect(medical!.getAttribute('role')).toBe('switch')
+    expect(medical!.disabled).toBe(true)
     expect(q('[data-goods-save-state]')!.textContent).toContain('Только просмотр')
   })
 })
@@ -212,10 +238,13 @@ describe('GoodsEditor: «Код и описание»', () => {
 
   it('«Найти»: лист — описание ТН ВЭД и ДЕИ (только пустая); не лист — окно выбора', async () => {
     await mount([item({ tnvedCode: '8471300000', tnvedDescription: null, unit: null, unitCode: null })], { query: '&item=1' })
+    expect(form.goodsItems[0].needsTpinRecalc).toBe(false)
     await click('[data-goods-find]')
     expect(form.goodsItems[0].tnvedDescription).toBe('УЗЕЛ 8471300000')
     expect(form.goodsItems[0].unitCode).toBe('796')
     expect(field('unitCode').value).toBe('796 — шт')
+    // ДЕИ влияет на платежи: подставлена по «Найти» — «Пересчитать»
+    expect(form.goodsItems[0].needsTpinRecalc).toBe(true)
     // ДЕИ уже есть — не трогается
     tnved.rates.mockResolvedValue({ data: { unitCode: '112', unitName: 'л' } })
     await click('[data-goods-find]')
@@ -227,7 +256,7 @@ describe('GoodsEditor: «Код и описание»', () => {
   })
 
   it('кода нет в справочнике — ошибка у поля (проверка при открытии товара, тихо)', async () => {
-    tnved.node.mockRejectedValue(new Error('404'))
+    tnved.node.mockRejectedValue(Object.assign(new Error('404'), { response: { status: 404 } }))
     await mount([item({ tnvedCode: '1902303000' })], { query: '&item=1' })
     expect(tnved.node).toHaveBeenCalledWith('1902303000', { silent: true })
     expect(q('[data-graph="33"]')!.textContent).toContain('Кода нет в справочнике ТН ВЭД')
@@ -267,6 +296,10 @@ describe('GoodsEditor: «Количество и стоимость»', () => {
     await type('packagesCount', '7')
     expect(form.goodsItems[0].packagesCount).toBe(7)
     expect(form.goodsItems[0].cargoPlacesQuantity).toBe(7)
+    // только целые
+    await type('packagesCount', '2,6')
+    expect(form.goodsItems[0].packagesCount).toBe(3)
+    expect(form.goodsItems[0].cargoPlacesQuantity).toBe(3)
     expect(form.goodsItems[0].needsTpinRecalc).toBe(false)
   })
 
@@ -288,6 +321,8 @@ describe('GoodsEditor: «Количество и стоимость»', () => {
     expect(form.goodsItems[0].statisticValueUsd).toBe(1000)
     expect(form.goodsItems[0].needsTpinRecalc).toBe(true)
     expect(q('[data-goods-auto="46"]')).not.toBeNull()
+    // гр. 45: ручное от расчётного не отличить — без «авто»
+    expect(q('[data-goods-auto="45"]')).toBeNull()
     await type('statisticValueUsd', '999')
     expect(form.goodsItems[0].statisticValueUsd).toBe(999)
     expect(q('[data-goods-auto="46"]')).toBeNull()
@@ -305,7 +340,8 @@ describe('GoodsEditor: подсказка ставок', () => {
     expect(tnved.tariffOptions).toHaveBeenCalledTimes(1)
     expect(tnved.tariffOptions).toHaveBeenCalledWith('4202121900', '156', '2026-10-09', { silent: true })
     expect(q('[data-goods-tariff-date]')!.textContent).toBe('на дату гр. А 09.10.2026')
-    expect(q('[data-goods-tariff-summary]')!.textContent).toBe('Пошлина ЕТТ 6.5% · НДС 16% · антидемпинга нет')
+    // одна ставка — без подписи ЕТТ/ВТО (сервер их не различает)
+    expect(q('[data-goods-tariff-summary]')!.textContent).toBe('Пошлина 6.5% · НДС 16% · антидемпинга нет')
     await click('[data-goods-next]')
     expect(tnved.tariffOptions).toHaveBeenCalledTimes(1)
     await click('[data-goods-next]')
@@ -313,6 +349,12 @@ describe('GoodsEditor: подсказка ставок', () => {
     await click('[data-goods-prev]')
     await click('[data-goods-prev]')
     expect(tnved.tariffOptions).toHaveBeenCalledTimes(2)
+  })
+
+  it('две ставки пошлины — ЕТТ и ВТО (порядок сервера: ЕТТ, затем действующая ВТО)', async () => {
+    tnved.tariffOptions.mockResolvedValue({ data: tariff({ dutyRates: ['10%', '5%'] }) })
+    await mount([item()], { query: '&item=1' })
+    expect(q('[data-goods-tariff-summary]')!.textContent).toBe('Пошлина ЕТТ 10% · ВТО 5% · НДС 16% · антидемпинга нет')
   })
 
   it('сбой — текст в подсказке с «Повторить», без тоста', async () => {
@@ -358,22 +400,84 @@ describe('GoodsEditor: подсказка ставок', () => {
   })
 })
 
+describe('Коды ТН ВЭД всех товаров (без открытия)', () => {
+  it('различные коды проверяются один раз; кода нет в справочнике — «Нет в справочнике» в строке, в «С ошибками» и в редакторе', async () => {
+    tnved.node.mockImplementation(async (code: string) => {
+      if (code === '1902303000') throw Object.assign(new Error('404'), { response: { status: 404 } })
+      return { data: { code, name: 'УЗЕЛ', is10: true } }
+    })
+    await mount([item(), item({ tnvedCode: '1902303000', description: 'ЛАПША' }), item(), item({ tnvedCode: '1902303000' })])
+    expect(tnved.node).toHaveBeenCalledTimes(2)
+    expect(tnved.node).toHaveBeenCalledWith('1902303000', { silent: true })
+    const statuses = [...document.querySelectorAll('[data-goods-row] [data-goods-status]')].map((el) => el.getAttribute('data-goods-status'))
+    expect(statuses).toEqual(['ready', 'badCode', 'ready', 'badCode'])
+    expect(document.querySelector('[data-goods-row="1"]')!.textContent).toContain('Нет в справочнике')
+    expect(document.querySelector('[data-goods-row="1"] [data-goods-code]')!.className).toContain('text-danger')
+    const chip = document.querySelector('[data-goods-filter="missing"]') as HTMLButtonElement
+    expect(chip.textContent).toContain('С ошибками · 2')
+    chip.click()
+    await settle()
+    expect(document.querySelectorAll('[data-goods-row]')).toHaveLength(2)
+    await router.replace({ query: { s: 'goods', item: '2' } })
+    await settle()
+    expect(q('[data-goods-editor-status]')!.getAttribute('data-goods-editor-status')).toBe('badCode')
+    expect(q('[data-graph="33"]')!.textContent).toContain('Кода нет в справочнике')
+    // повторных запросов нет (кэш общий со списком)
+    expect(tnved.node).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('GoodsEditor: поля для перехода «к недостающему»', () => {
+  it('у каждого поля — data-graph, data-goods-field и data-goods-index', async () => {
+    tnved.tariffOptions.mockResolvedValue({ data: tariff({
+      dutyRates: ['10 EUR за 1 Л'],
+      excise: [{ key: 'e1', rate: '1%', condition: null, country: null, endDate: null }, { key: 'e2', rate: '2%', condition: null, country: null, endDate: null }],
+      antiDumping: [{ key: 'ad1', rate: '20%', condition: null, country: 'КИТАЙ', endDate: null }],
+    }) })
+    await mount([item(), item()], { query: '&item=2' })
+    // Секции этой задачи («Код и описание», «Количество и стоимость» с подсказкой ставок).
+    const fields = [...panel()!.querySelectorAll<HTMLElement>('[data-goods-section="code"] [data-goods-field], [data-goods-section="qty"] [data-goods-field]')]
+    const keys = fields.map((f) => f.dataset.goodsField)
+    expect(keys).toEqual(expect.arrayContaining([
+      'tnvedCode', 'description', 'tradeMarkName', 'productMarkName', 'productModelName', 'productArticle', 'manufacturerName',
+      'quantity', 'unitCode', 'grossWeightKg', 'netWeightKg', 'packagesCount', 'customsValue', 'currency', 'countryOfOrigin',
+      'customsValueKzt', 'statisticValueUsd', 'quantityTypeCode', 'exciseKind', 'antiDumpingKind', 'taxVolumeL', 'vatRatePreferential',
+    ]))
+    for (const f of fields) {
+      expect(f.dataset.graph, f.dataset.goodsField).toBeTruthy()
+      expect(f.dataset.goodsIndex, f.dataset.goodsField).toBe('1')
+    }
+    // места и описание — обе гр. 31, но поля разные
+    expect(panel()!.querySelector('[data-goods-field="packagesCount"]')!.getAttribute('data-graph')).toBe('31')
+  })
+})
+
 describe('GoodsEditor: 200 товаров', () => {
+  // Бюджет плана — 150 мс в браузере. jsdom на этом же коде примерно вдвое медленнее Chrome (замер 09.10: jsdom
+  // ≈ 105–130 мс, Chrome dev-сборка ≈ 50–55 мс на открытие и переключение), поэтому здесь — 150 мс × 2 на лучшем из
+  // четырёх замеров (под общей нагрузкой прогона отдельные замеры выше).
+  const JSDOM_BUDGET_MS = 150 * 2
+
   it('открытие и переключение товара — в бюджете; смонтирован один редактор', async () => {
     const many = Array.from({ length: 200 }, (_, i) => item({ description: `ТОВАР ${i + 1}`, tnvedCode: `84713${String(i).padStart(5, '0')}` }))
     await mount(many)
-    const t0 = performance.now()
-    await router.replace({ query: { s: 'goods', item: '100' } })
-    await settle()
-    const openMs = performance.now() - t0
-    expect(q('[data-goods-editor-title]')!.textContent).toBe('Товар 100 из 200')
-    const t1 = performance.now()
-    await click('[data-goods-next]')
-    const switchMs = performance.now() - t1
-    expect(q('[data-goods-editor-title]')!.textContent).toBe('Товар 101 из 200')
-    expect(document.querySelectorAll('[data-goods-section="qty"]')).toHaveLength(1)
-    console.info(`[perf 200 editor] open ${openMs.toFixed(0)} ms, switch ${switchMs.toFixed(0)} ms`)
-    expect(openMs).toBeLessThan(1500)
-    expect(switchMs).toBeLessThan(1500)
+    const opens: number[] = []
+    const switches: number[] = []
+    for (const n of [100, 150, 50, 120]) {
+      let t = performance.now()
+      await router.replace({ query: { s: 'goods', item: String(n) } })
+      await settle()
+      opens.push(performance.now() - t)
+      expect(q('[data-goods-editor-title]')!.textContent).toBe(`Товар ${n} из 200`)
+      t = performance.now()
+      await click('[data-goods-next]')
+      switches.push(performance.now() - t)
+      expect(q('[data-goods-editor-title]')!.textContent).toBe(`Товар ${n + 1} из 200`)
+      expect(document.querySelectorAll('[data-goods-section="qty"]')).toHaveLength(1)
+      await click('[data-goods-close]')
+    }
+    console.info(`[perf 200 editor] open ${opens.map((x) => x.toFixed(0)).join('/')} ms, switch ${switches.map((x) => x.toFixed(0)).join('/')} ms`)
+    expect(Math.min(...opens)).toBeLessThan(JSDOM_BUDGET_MS)
+    expect(Math.min(...switches)).toBeLessThan(JSDOM_BUDGET_MS)
   }, 30_000)
 })

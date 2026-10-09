@@ -4,7 +4,7 @@ import type { Import40GoodsItemInput } from '@/types/api'
 import { calendarLocale } from '@/ui/date'
 import { placesOfGoods } from '@/utils/goodsPlaces'
 import { matchesQuery } from '@/views/broker/list'
-import type { GoodsStatus } from './goodsStatus'
+import { isErrorStatus, type GoodsStatus } from './goodsStatus'
 import { keyOf } from './useDtGoods'
 
 type Goods = Import40GoodsItemInput
@@ -16,7 +16,7 @@ export interface GoodsRow {
   key: number
 }
 
-/** «С ошибками» — не хватает данных; «Пересчитать» — платежи устарели; null — все. */
+/** «С ошибками» — не хватает данных или кода нет в справочнике; «Пересчитать» — платежи устарели; null — все. */
 export type GoodsFilter = 'missing' | 'stale' | null
 
 export interface GoodsFilterOptions {
@@ -35,7 +35,10 @@ const searchParts = (g: Goods) => [
 export function filterGoods(items: readonly Goods[], o: GoodsFilterOptions): GoodsRow[] {
   const rows: GoodsRow[] = []
   items.forEach((item, index) => {
-    if (o.filter && o.statusOf(item).kind !== o.filter) return
+    if (o.filter) {
+      const s = o.statusOf(item)
+      if (o.filter === 'missing' ? !isErrorStatus(s) : s.kind !== o.filter) return
+    }
     if (!matchesQuery(o.query, searchParts(item))) return
     rows.push({ item, index, key: keyOf(item) })
   })

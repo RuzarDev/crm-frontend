@@ -46,9 +46,11 @@ const netOverGross = computed(() => {
 
 // Места: одно видимое поле; КЕДЕН-поле — его копия (одна цифра на бланке и в XML). Не поле платежей.
 const places = computed(() => placesOfGoods(props.item))
+// Места — целые (готовность КЕДЕН требует целое число): дробный ввод округляется.
 const onPlaces = (v: number | null) => {
-  props.item.packagesCount = v
-  props.item.cargoPlacesQuantity = v
+  const n = v == null ? null : Math.round(v)
+  props.item.packagesCount = n
+  props.item.cargoPlacesQuantity = n
 }
 
 const lockedCurrency = computed(() => props.ctx.currency || null)
@@ -67,7 +69,9 @@ const statAuto = computed(() => {
   return derived != null && props.item.statisticValueUsd === derived
 })
 
-const grid = 'grid grid-cols-2 gap-x-4 gap-y-4 @xl:grid-cols-4'
+// Колонки — по ширине панели: в панели 780px — три (подписи «Гр.34 Страна происхождения» целиком), во всю ширину
+// (< 1024) — четыре, на телефоне — одна.
+const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @sm:grid-cols-2 @xl:grid-cols-3 @4xl:grid-cols-4'
 const lockedInput = 'bg-sunken max-sm:h-11'
 // «авто» — внутри поля справа (как на доске), не в подписи: подпись узкой колонки не обрезается.
 const autoTag = 'absolute top-1/2 right-2 -translate-y-1/2'
@@ -76,56 +80,54 @@ const autoTag = 'absolute top-1/2 right-2 -translate-y-1/2'
 <template>
   <div class="flex flex-col gap-5" data-goods-qty-section>
     <div :class="grid">
-      <ZField graph="41" :label="tq('quantity')" data-graph="41" :data-goods-index="index">
+      <ZField graph="41" :label="tq('quantity')" data-graph="41" data-goods-field="quantity" :data-goods-index="index">
         <ZNumber :value="item.quantity ?? null" :min="0" :disabled="readonly" class="max-sm:h-11" data-f="quantity" @update:value="setNum('quantity', $event)" />
       </ZField>
-      <ZField graph="41" :label="tq('unit')" :title="tq('unitLocked')" :data-goods-index="index">
+      <ZField graph="41" :label="tq('unit')" :title="tq('unitLocked')" data-graph="41" data-goods-field="unitCode" :data-goods-index="index">
         <ZInput :value="unitText" readonly mono :placeholder="tq('unitAuto')" :class="lockedInput" :title="tq('unitLocked')" data-f="unitCode">
           <template #suffix><PhLock :size="14" aria-hidden="true" /></template>
         </ZInput>
       </ZField>
-      <ZField graph="35" :label="tq('gross')" data-graph="35" :data-goods-index="index">
+      <ZField graph="35" :label="tq('gross')" data-graph="35" data-goods-field="grossWeightKg" :data-goods-index="index">
         <ZNumber :value="item.grossWeightKg ?? null" :min="0" :disabled="readonly" class="max-sm:h-11" data-f="grossWeightKg" @update:value="setNum('grossWeightKg', $event)" />
       </ZField>
-      <ZField graph="38" :label="tq('net')" data-graph="38" :data-goods-index="index" :validate-status="netOverGross ? 'warning' : ''" :help="netOverGross ? tq('netOverGross') : undefined">
+      <ZField graph="38" :label="tq('net')" data-graph="38" data-goods-field="netWeightKg" :data-goods-index="index" :validate-status="netOverGross ? 'warning' : ''" :help="netOverGross ? tq('netOverGross') : undefined">
         <ZNumber :value="item.netWeightKg ?? null" :min="0" :disabled="readonly" class="max-sm:h-11" data-f="netWeightKg" @update:value="setNum('netWeightKg', $event)" />
       </ZField>
 
-      <ZField graph="31" :label="tq('places')" data-graph="31" :data-goods-index="index">
-        <ZNumber :value="places" :min="0" :disabled="readonly" class="max-sm:h-11" data-f="packagesCount" @update:value="onPlaces" />
+      <ZField graph="31" :label="tq('places')" data-graph="31" data-goods-field="packagesCount" :data-goods-index="index">
+        <ZNumber :value="places" :min="0" :precision="0" :disabled="readonly" class="max-sm:h-11" data-f="packagesCount" @update:value="onPlaces" />
       </ZField>
-      <ZField graph="42" :label="tq('invoice')" data-graph="42" :data-goods-index="index">
+      <ZField graph="42" :label="tq('invoice')" data-graph="42" data-goods-field="customsValue" :data-goods-index="index">
         <ZNumber :value="item.customsValue ?? null" :min="0" :disabled="readonly" class="max-sm:h-11" data-f="customsValue" @update:value="setNum('customsValue', $event)" />
       </ZField>
-      <ZField v-if="lockedCurrency" graph="22" :label="tq('currency')" :title="tq('currencyLocked')" :data-goods-index="index">
+      <ZField v-if="lockedCurrency" graph="22" :label="tq('currency')" :title="tq('currencyLocked')" data-graph="42" data-goods-field="currency" :data-goods-index="index">
         <ZInput :value="lockedCurrency" readonly mono :class="lockedInput" :title="tq('currencyLocked')" data-f="currency" data-goods-currency-locked>
           <template #suffix><PhLock :size="14" aria-hidden="true" /></template>
         </ZInput>
       </ZField>
-      <ZField v-else graph="42" :label="tq('currency')" :data-goods-index="index">
+      <ZField v-else graph="42" :label="tq('currency')" data-graph="42" data-goods-field="currency" :data-goods-index="index">
         <ZSelect :value="item.currency || null" :options="currency.options" show-search allow-clear :disabled="readonly" placeholder="USD" popup-width="280px" class="max-sm:h-11" data-f="currency" @update:value="model.setField(item, 'currency', str($event) as Goods['currency'])" />
       </ZField>
-      <ZField graph="34" :label="tq('country')" data-graph="34" :data-goods-index="index">
+      <ZField graph="34" :label="tq('country')" data-graph="34" data-goods-field="countryOfOrigin" :data-goods-index="index">
         <ZSelect :value="item.countryOfOrigin || null" :options="country.options" show-search allow-clear :disabled="readonly" :placeholder="tq('countryPlaceholder')" popup-width="320px" class="max-sm:h-11" data-f="countryOfOrigin" @update:value="model.setField(item, 'countryOfOrigin', str($event))" />
       </ZField>
 
-      <ZField graph="45" :label="tq('customsValue')" data-graph="45" :data-goods-index="index" :extra="tq('customsValueHint')">
-        <div class="relative">
-          <ZNumber :value="item.customsValueKzt ?? null" :min="0" :disabled="readonly" :class="['max-sm:h-11', item.customsValueKzt != null && 'pr-14']" data-f="customsValueKzt" @update:value="onCustomsKzt" />
-          <ZTag v-if="item.customsValueKzt != null" tone="info" size="sm" :class="autoTag" :title="tq('customsValueAuto')" data-goods-auto="45">{{ tq('auto') }}</ZTag>
-        </div>
+      <!-- гр. 45 без «авто»: ручное значение от расчётного не отличить (в данных нет признака). -->
+      <ZField graph="45" :label="tq('customsValue')" data-graph="45" data-goods-field="customsValueKzt" :data-goods-index="index" :extra="tq('customsValueHint')">
+        <ZNumber :value="item.customsValueKzt ?? null" :min="0" :disabled="readonly" class="max-sm:h-11" data-f="customsValueKzt" @update:value="onCustomsKzt" />
       </ZField>
-      <ZField graph="46" :label="tq('statValue')" data-graph="46" :data-goods-index="index">
+      <ZField graph="46" :label="tq('statValue')" data-graph="46" data-goods-field="statisticValueUsd" :data-goods-index="index">
         <div class="relative">
           <ZNumber :value="item.statisticValueUsd ?? null" :min="0" :disabled="readonly" :class="['max-sm:h-11', statAuto && 'pr-14']" data-f="statisticValueUsd" @update:value="onStatUsd" />
           <ZTag v-if="statAuto" tone="info" size="sm" :class="autoTag" :title="tq('statAuto')" data-goods-auto="46">{{ tq('auto') }}</ZTag>
         </div>
       </ZField>
-      <ZField graph="41" :label="tq('quantityType')" class="col-span-2" :data-goods-index="index">
+      <ZField graph="41" :label="tq('quantityType')" data-graph="41" data-goods-field="quantityTypeCode" :data-goods-index="index">
         <ZSelect :value="item.quantityTypeCode || null" :options="quantityTypes" show-search allow-clear :disabled="readonly" :placeholder="tq('quantityTypePlaceholder')" popup-width="320px" class="max-sm:h-11" data-f="quantityTypeCode" @update:value="model.setField(item, 'quantityTypeCode', str($event))" />
       </ZField>
     </div>
 
-    <GoodsTariffHint :item="item" :model="model" :readonly="readonly" :ctx="ctx" />
+    <GoodsTariffHint :item="item" :index="index" :model="model" :readonly="readonly" :ctx="ctx" />
   </div>
 </template>

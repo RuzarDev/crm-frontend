@@ -54,6 +54,7 @@ const columns = computed<ZColumn<GoodsRow>[]>(() => withCells([
 
 const statusView = (s: GoodsStatus): { tone: ZTone; label: string } => {
   if (s.kind === 'missing') return { tone: 'danger', label: tg('status.missing', { n: s.count }) }
+  if (s.kind === 'badCode') return { tone: 'danger', label: tg('status.badCode') }
   if (s.kind === 'stale') return { tone: 'accent', label: tg('status.stale') }
   return { tone: 'done', label: tg('status.ready') }
 }
@@ -74,7 +75,13 @@ const cell = (key: string | undefined, r: GoodsRow) => {
       return String(r.index + 1)
     case 'code':
       return g.tnvedCode
-        ? h('button', { type: 'button', class: [openButton, 'font-mono text-[13px] whitespace-nowrap text-ink'], 'data-goods-code': '', 'data-goods-open': '' },
+        ? h('button', {
+          type: 'button',
+          // Кода нет в справочнике — красным, как «нет кода».
+          class: [openButton, 'font-mono text-[13px] whitespace-nowrap', statusByKey.value.get(r.key)?.kind === 'badCode' ? 'text-danger' : 'text-ink'],
+          'data-goods-code': '',
+          'data-goods-open': '',
+        },
           [formatTnved(g.tnvedCode), srOpen(r.index + 1)])
         : h('button', { type: 'button', class: [openButton, 'text-[13px] text-danger'], 'data-goods-no-code': '', 'data-goods-open': '' },
           [tg('noCode'), srOpen(r.index + 1)])

@@ -17,7 +17,7 @@ import type { GoodsSectionProps } from './types'
 // количества в единицах специфических ставок (л, л 100%, шт, см³) — когда единица ставки не покрыта ДЕИ товара.
 // «Медизделие — НДС 5%» — свойство товара (vatRatePreferential = 0,05; M5), не только в окне расчёта.
 // Все выборы — поля платежей: правка помечает «Пересчитать».
-const props = defineProps<Pick<GoodsSectionProps, 'item' | 'model' | 'readonly' | 'ctx'>>()
+const props = defineProps<Pick<GoodsSectionProps, 'item' | 'index' | 'model' | 'readonly' | 'ctx'>>()
 const { t } = useI18n()
 const th = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.editor.tariff.${key}`, p ?? {})
 
@@ -47,9 +47,13 @@ const summary = computed(() => {
   const o = opts.value
   if (!o) return ''
   const parts: string[] = []
-  const [ett, vto] = o.dutyRates ?? []
-  if (ett) parts.push(th('duty', { rate: ett }))
-  if (vto) parts.push(th('dutyVto', { rate: vto }))
+  // Сервер отдаёт ставки пошлины списком без подписи: [ЕТТ, ВТО (если действует)], пустые убраны, одинаковые —
+  // одной строкой (GetTnvedTariffOptions). Подписать можно только пару: одна ставка может быть и ЕТТ, и ВТО.
+  const rates = o.dutyRates ?? []
+  if (rates.length >= 2) {
+    parts.push(th('duty', { rate: rates[0] }))
+    parts.push(th('dutyVto', { rate: rates[1] }))
+  } else if (rates.length === 1) parts.push(th('dutyBare', { rate: rates[0] }))
   parts.push(th('vat', { rate: vatRate.value }))
   if (!o.antiDumping.length && countryName.value) parts.push(th('noAntiDumping'))
   return parts.join(' · ')
@@ -124,13 +128,13 @@ const choice = 'flex flex-col gap-2 rounded-field px-3 py-2.5'
           {{ th('countryRate', { country: opts.countryRate.country, rate: opts.countryRate.rate }) }}
         </p>
         <div v-if="opts.excise.length > 1" :class="[choice, !item.exciseKind ? 'bg-gold-soft' : 'bg-surface']" data-goods-excise>
-          <ZField>
+          <ZField data-graph="47" data-goods-field="exciseKind" :data-goods-index="index">
             <template #label>{{ th('exciseKind') }}<span v-if="!item.exciseKind" class="font-normal text-gold-ink"> · {{ th('exciseDefault') }}</span></template>
             <ZRadioGroup orientation="vertical" :value="item.exciseKind ?? opts.excise[0]?.key ?? null" :options="exciseOptions" :disabled="readonly" @update:value="onExcise" />
           </ZField>
         </div>
         <div v-if="opts.antiDumping.length" :class="[choice, 'bg-gold-soft']" data-goods-antidumping>
-          <ZField :label="th('antiDumping')">
+          <ZField :label="th('antiDumping')" data-graph="47" data-goods-field="antiDumpingKind" :data-goods-index="index">
             <ZRadioGroup orientation="vertical" :value="item.antiDumpingKind ?? ''" :options="adOptions" :disabled="readonly" @update:value="onAntiDumping" />
           </ZField>
         </div>
@@ -142,6 +146,9 @@ const choice = 'flex flex-col gap-2 rounded-field px-3 py-2.5'
             :extra="th('qtyFor', { rate: f.rate })"
             :validate-status="item[f.field] == null ? 'warning' : ''"
             :data-goods-tax-qty="f.field"
+            data-graph="41"
+            :data-goods-field="f.field"
+            :data-goods-index="index"
           >
             <ZNumber :value="item[f.field] ?? null" :min="0" :disabled="readonly" class="max-sm:h-11" @update:value="onQty(f.field, $event)" />
           </ZField>
@@ -150,6 +157,8 @@ const choice = 'flex flex-col gap-2 rounded-field px-3 py-2.5'
     </template>
     <p v-else class="m-0 text-[13px] text-muted" data-goods-tariff-no-code>{{ th('noCode') }}</p>
 
-    <ZSwitch :checked="medical" :disabled="readonly" data-goods-medical @update:checked="onMedical">{{ th('medical') }}</ZSwitch>
+    <div data-graph="47" data-goods-field="vatRatePreferential" :data-goods-index="index">
+      <ZSwitch :checked="medical" :disabled="readonly" class="max-sm:min-h-11" data-goods-medical @update:checked="onMedical">{{ th('medical') }}</ZSwitch>
+    </div>
   </div>
 </template>

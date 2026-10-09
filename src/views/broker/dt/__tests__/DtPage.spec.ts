@@ -278,6 +278,28 @@ describe('DtPage: готовность', () => {
     expect(document.activeElement).toBe(code.querySelector('input[data-f="tnvedCode"]'))
   })
 
+  it('пункт про места товара (гр. 31) — фокус на «Мест», а не на описании (поле по тексту пункта, не только по графе)', async () => {
+    const text = 'Товар 1: количество грузовых мест или частично занятых мест (гр.31)'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '31', goodsIndex: 0 }] }))
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const places = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="packagesCount"]') as HTMLElement
+    expect(places.hasAttribute('data-dt-flash')).toBe(true)
+    expect(document.activeElement).toBe(places.querySelector('input'))
+  })
+
+  it('пункт «гр. 36 вне списка КЕДЕН» — фокус на поле названной льготы (пошлина), а не на первом поле гр. 36', async () => {
+    const text = 'Товар 1: КЕДЕН при процедуре ИМ40 не предлагает гр.36 пошлина «ПП» (есть: ОО, Z)'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '36', goodsIndex: 0 }] }))
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const duty = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="prefDutyCode"]') as HTMLElement
+    expect(duty.hasAttribute('data-dt-flash')).toBe(true)
+    expect(duty.contains(document.activeElement)).toBe(true)
+  })
+
   it('товар открыт — переход в другой раздел убирает ?item', async () => {
     await open('?s=goods&item=1', ['SectionGoods'])
     expect(router.currentRoute.value.query.item).toBe('1')

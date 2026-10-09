@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineComponent, nextTick, onMounted, ref, useId, watch } from 'vue'
+import { computed, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { injectDialogRootContext } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
 import { PhCaretDown, PhCaretUp, PhCopy, PhDotsThree, PhX } from '@phosphor-icons/vue'
@@ -14,7 +14,7 @@ import { calendarLocale } from '@/ui/date'
 import { useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import { formatTnved } from '@/utils/tnvedFormat'
-import { provideTnvedCheck } from '@/views/broker/transit/record/sections/goods'
+import type { Import40GoodsItemInput } from '@/types/api'
 import type { GoodsStatus } from '../goodsStatus'
 import { keyOf, type DtGoodsModel } from '../useDtGoods'
 import { GOODS_EDITOR_SECTIONS } from './sections'
@@ -27,10 +27,13 @@ import type { GoodsEditorContext, GoodsSaveState } from './types'
 // (и из поля: «закончил — дальше»), фокус на его код.
 // Смонтирован только открытый товар: содержимое — по ключу товара (keyOf), переключение пересоздаёт секции.
 // Секции — реестр GOODS_EDITOR_SECTIONS (sections.ts, контракт — types.ts). Общие для всех товаров кэши — здесь:
-// проверка кодов ТН ВЭД (provideTnvedCheck) и пакетная проверка марок ТРОИС (после первого открытия редактора).
+// пакетная проверка марок ТРОИС (после первого открытия редактора). Проверка кодов ТН ВЭД — общая с списком
+// (SectionGoods: provideDtTnvedCheck); статус товара — statusOf списка (с «нет в справочнике»).
 // Просмотр (readonly): поля только для чтения, без «Дублировать» и «Ещё».
 const props = defineProps<{
   model: DtGoodsModel
+  /** Статус товара, как в списке (с проверкой кода); нет — статус модели. */
+  statusOf?: (g: Import40GoodsItemInput) => GoodsStatus
   /** Позиция открытого товара (с 0); null — закрыт. */
   index: number | null
   ctx: GoodsEditorContext
@@ -46,7 +49,6 @@ const te = (key: string, p?: Record<string, unknown>) => tg(`editor.${key}`, p)
 const { confirm } = useConfirm()
 const uid = `goods-editor-${useId()}`
 
-provideTnvedCheck()
 // ТРОИС: все марки ДТ одной пачкой (как раньше) — но только когда редактор открывали: список без редактора их не показывает.
 const everOpened = ref(false)
 useTroisCheckProvider(() => (everOpened.value ? props.model.items.value.map((g) => g.tradeMarkName) : []))
@@ -64,10 +66,11 @@ const code = computed(() => (item.value?.tnvedCode ?? '').trim())
 const caption = computed(() => item.value?.description || item.value?.tnvedDescription || '')
 const statusView = (s: GoodsStatus): { tone: ZTone; label: string; kind: string } => {
   if (s.kind === 'missing') return { tone: 'danger', label: tg('status.missing', { n: s.count }), kind: s.kind }
+  if (s.kind === 'badCode') return { tone: 'danger', label: tg('status.badCode'), kind: s.kind }
   if (s.kind === 'stale') return { tone: 'accent', label: tg('status.stale'), kind: s.kind }
   return { tone: 'done', label: tg('status.ready'), kind: s.kind }
 }
-const status = computed(() => (item.value ? statusView(props.model.statusOf(item.value)) : null))
+const status = computed(() => (item.value ? statusView((props.statusOf ?? props.model.statusOf)(item.value)) : null))
 const canPrev = computed(() => props.index != null && props.index > 0)
 const canNext = computed(() => props.index != null && props.index < total.value - 1)
 
@@ -142,23 +145,39 @@ const onScroll = () => {
 }
 
 // ---- Открытие, переключение, закрытие ----
-// Под шапкой ДТ (закреплённой): панель и фон начинаются под ней; на телефоне — во весь экран.
+// Под шапкой ДТ (закреплённой): панель и фон начинаются под ней; на телефоне — во весь экран. Высота шапки меняется
+// (перенос строк при сужении окна, плашки) — пока панель открыта, следим за ней (ResizeObserver) и за окном.
 const top = ref(0)
 const measureTop = () => {
   const wide = typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 640px)').matches
   const header = document.querySelector<HTMLElement>('[data-dt-header]')
   top.value = wide && header ? Math.max(0, Math.round(header.getBoundingClientRect().bottom)) : 0
 }
+let headerObserver: ResizeObserver | null = null
+const followHeader = (on: boolean) => {
+  headerObserver?.disconnect()
+  headerObserver = null
+  window.removeEventListener('resize', measureTop)
+  if (!on) return
+  measureTop()
+  window.addEventListener('resize', measureTop)
+  const header = document.querySelector<HTMLElement>('[data-dt-header]')
+  if (header && typeof ResizeObserver !== 'undefined') {
+    headerObserver = new ResizeObserver(() => measureTop())
+    headerObserver.observe(header)
+  }
+}
+onBeforeUnmount(() => followHeader(false))
 let lastKey: number | null = null
 let focusCodeNext = false
 watch(open, (v) => {
+  followHeader(v)
   if (!v) return
   everOpened.value = true
-  measureTop()
   active.value = sections[0]?.key ?? ''
 }, { immediate: true })
 // Открыт по адресу при загрузке — шапка страницы появляется в DOM позже настройки редактора.
-onMounted(() => { if (open.value) measureTop() })
+onMounted(() => { if (open.value) followHeader(true) })
 watch(itemKey, async (k) => {
   if (k == null) return
   lastKey = k

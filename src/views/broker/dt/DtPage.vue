@@ -37,6 +37,7 @@ import SectionParties from './sections/SectionParties.vue'
 import SectionTransport from './sections/SectionTransport.vue'
 import SectionGoods from './goods/SectionGoods.vue'
 import { useDtGoods } from './goods/useDtGoods'
+import { goodsFieldFromReadiness } from './goods/goodsFieldTarget'
 import type { GoodsPageContext, GoodsSaveState } from './goods/editor/types'
 import { DT_CLASSIFIERS } from './dtClassifiers'
 import { fillStatUsd, lockGoodsCurrency } from './dtGoodsRules'
@@ -266,7 +267,12 @@ const goTo = async (item: DtReadinessItem) => {
   const graph = item.graph?.replace(/["\\]/g, '')
   const editor = goodsAt != null ? document.querySelector<HTMLElement>(`[data-dt-goods-editor] [data-goods-index="${goodsAt}"]`) : null
   const scope = editor ?? (gi != null ? host.querySelector<HTMLElement>(`[data-goods-index="${gi}"]`) : null) ?? host
-  const field = graph ? scope.querySelector<HTMLElement>(`[data-graph="${graph}"]`) : null
+  // Поле товара — точно по ключу (data-goods-field: гр. 31 — и описание, и места; гр. 33 — и код, и коды запретов),
+  // иначе — поле графы: первое подсвеченное (предупреждение/ошибка у поля — напр. гр. 36 вне списка КЕДЕН), иначе первое.
+  const fieldKey = goodsAt != null ? goodsFieldFromReadiness(item.text) : null
+  const byGraph = graph ? [...scope.querySelectorAll<HTMLElement>(`[data-graph="${graph}"]`)] : []
+  const flagged = byGraph.find((el) => el.querySelector(':scope > .text-gold-ink, :scope > .text-danger'))
+  const field = (fieldKey ? scope.querySelector<HTMLElement>(`[data-goods-field="${fieldKey}"]`) : null) ?? flagged ?? byGraph[0] ?? null
   if (!field && editor) return
   const target = field ?? host
   target.scrollIntoView({ block: field ? 'center' : 'start', behavior: reducedMotion() ? 'auto' : 'smooth' })

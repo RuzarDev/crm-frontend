@@ -8,7 +8,7 @@ import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
 import { tnvedApi } from '@/api/tnved'
 import { vUppercase } from '@/directives/uppercase'
 import type { Import40GoodsItemInput } from '@/types/api'
-import { useTnvedCheck } from '@/views/broker/transit/record/sections/goods'
+import { useDtTnvedCheck } from '../tnvedCodeCheck'
 import GoodsTroisHint from './GoodsTroisHint.vue'
 import { okeiName } from './okei'
 import type { GoodsSectionProps } from './types'
@@ -21,7 +21,7 @@ import type { GoodsSectionProps } from './types'
 const props = defineProps<GoodsSectionProps>()
 const { t } = useI18n()
 const tc = (key: string) => t(`broker.dt.goods.editor.code.${key}`)
-const check = useTnvedCheck()
+const check = useDtTnvedCheck()
 
 type Goods = Import40GoodsItemInput
 type StrKey = 'tnvedCode' | 'description' | 'tradeMarkName' | 'productMarkName' | 'productModelName' | 'productArticle' | 'manufacturerName'
@@ -33,7 +33,8 @@ const code = computed(() => (props.item.tnvedCode ?? '').trim())
 const codeError = computed(() => (check.isInvalid(props.item.tnvedCode) ? tc('notFound') : undefined))
 onMounted(() => { void check.validate(props.item.tnvedCode) })
 
-// ДЕИ по коду ТН ВЭД — только если единицы ещё нет (как прежняя карточка). Производное: без «Пересчитать» (код уже пометил).
+// ДЕИ по коду ТН ВЭД — только если единицы ещё нет (как прежняя карточка). Подставляется по действию пользователя
+// («Найти», «Справочник»), а ДЕИ влияет на платежи (количество в единице ставки) — товар получает «Пересчитать».
 async function fillUnit(c: string) {
   const g = props.item
   if (g.unitCode || g.unit) return
@@ -42,6 +43,7 @@ async function fillUnit(c: string) {
     if (rates.data.unitCode && !g.unitCode && !g.unit) {
       g.unitCode = rates.data.unitCode
       g.unit = rates.data.unitName || okeiName(rates.data.unitCode) || null
+      props.model.markStale(g)
     }
   } catch (e) {
     console.error('Failed to look up TNVED unit', e)
@@ -94,7 +96,7 @@ const sideBtn = 'shrink-0 max-sm:h-11'
 
 <template>
   <div class="flex flex-col gap-4" data-goods-code-section>
-    <ZField graph="33" :label="tc('code')" :error="codeError" data-graph="33" :data-goods-index="index">
+    <ZField graph="33" :label="tc('code')" :error="codeError" data-graph="33" data-goods-field="tnvedCode" :data-goods-index="index">
       <div class="flex min-w-0 flex-wrap gap-1.5">
         <ZInput
           :value="item.tnvedCode"
@@ -122,27 +124,27 @@ const sideBtn = 'shrink-0 max-sm:h-11'
       </p>
     </div>
 
-    <ZField graph="31" :label="tc('description')" data-graph="31" :data-goods-index="index">
+    <ZField graph="31" :label="tc('description')" data-graph="31" data-goods-field="description" :data-goods-index="index">
       <ZInput v-uppercase :value="item.description" :maxlength="1000" :disabled="readonly" :placeholder="tc('descriptionPlaceholder')" class="max-sm:h-11" data-f="description" @update:value="setStr('description', $event)" />
     </ZField>
 
     <div :class="grid">
       <div class="flex min-w-0 flex-col gap-1 @md:col-span-2 @xl:col-span-4">
-        <ZField graph="31" :label="tc('tradeMark')" data-graph="31" :data-goods-index="index">
+        <ZField graph="31" :label="tc('tradeMark')" data-graph="31" data-goods-field="tradeMarkName" :data-goods-index="index">
           <ZInput v-uppercase :value="item.tradeMarkName" :maxlength="300" :disabled="readonly" class="max-sm:h-11" data-f="tradeMarkName" @update:value="setStr('tradeMarkName', $event)" />
         </ZField>
         <GoodsTroisHint :name="item.tradeMarkName" />
       </div>
-      <ZField graph="31" :label="tc('productMark')" data-graph="31" :data-goods-index="index">
+      <ZField graph="31" :label="tc('productMark')" data-graph="31" data-goods-field="productMarkName" :data-goods-index="index">
         <ZInput v-uppercase :value="item.productMarkName" :maxlength="300" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productMarkName" @update:value="setStr('productMarkName', $event)" />
       </ZField>
-      <ZField graph="31" :label="tc('model')" data-graph="31" :data-goods-index="index">
+      <ZField graph="31" :label="tc('model')" data-graph="31" data-goods-field="productModelName" :data-goods-index="index">
         <ZInput v-uppercase :value="item.productModelName" :maxlength="300" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productModelName" @update:value="setStr('productModelName', $event)" />
       </ZField>
-      <ZField graph="31" :label="tc('article')" data-graph="31" :data-goods-index="index">
+      <ZField graph="31" :label="tc('article')" data-graph="31" data-goods-field="productArticle" :data-goods-index="index">
         <ZInput v-uppercase :value="item.productArticle" :maxlength="300" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productArticle" @update:value="setStr('productArticle', $event)" />
       </ZField>
-      <ZField graph="31" :label="tc('manufacturer')" data-graph="31" :data-goods-index="index">
+      <ZField graph="31" :label="tc('manufacturer')" data-graph="31" data-goods-field="manufacturerName" :data-goods-index="index">
         <ZInput v-uppercase :value="item.manufacturerName" :maxlength="300" :disabled="readonly" class="max-sm:h-11" data-f="manufacturerName" @update:value="setStr('manufacturerName', $event)" />
       </ZField>
     </div>

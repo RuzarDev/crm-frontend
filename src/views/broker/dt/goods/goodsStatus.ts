@@ -93,6 +93,14 @@ export type GoodsStatus =
   /** fields — только у местной проверки (без сервера). */
   | { kind: 'missing'; count: number; fields?: LocalMissingField[] }
   | { kind: 'stale' }
+  /** Кода ТН ВЭД нет в справочнике (проверка кодов раздела «Товары», tnvedCodeCheck) — ошибка, важнее остального. */
+  | { kind: 'badCode' }
+
+/** Статус-ошибка: фильтр «С ошибками» — «не хватает» и «нет в справочнике». */
+export const isErrorStatus = (s: GoodsStatus): boolean => s.kind === 'missing' || s.kind === 'badCode'
+
+/** Статус с учётом проверки кода ТН ВЭД: код не из справочника — «нет в справочнике». */
+export const withCodeCheck = (s: GoodsStatus, codeInvalid: boolean): GoodsStatus => (codeInvalid ? { kind: 'badCode' } : s)
 
 /** Пункт готовности, привязанный к товару: goodsIndex — позиция товара с 0 (null — пункт не про товар). */
 export interface GoodsReadinessItem {

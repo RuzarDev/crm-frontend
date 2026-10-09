@@ -23,7 +23,8 @@ import type { BulkPatch } from './goodsBulk'
 import { exportGoodsXlsx } from './goodsExport'
 import { dtGoodsFromExcel } from './goodsImport'
 import { filterGoods, formatItemNumbers, goodsTotals, type GoodsFilter } from './goodsList'
-import { goodsPaymentsStale } from './goodsStatus'
+import { goodsPaymentsStale, isErrorStatus, withCodeCheck, type GoodsStatus } from './goodsStatus'
+import { provideDtTnvedCheck, useGoodsCodesValidation } from './tnvedCodeCheck'
 import { keyOf, type DtGoodsModel } from './useDtGoods'
 import { useGoodsItemRoute } from './useGoodsItemRoute'
 
@@ -57,11 +58,26 @@ const classifiers = useClassifiersStore()
 const items = computed(() => props.model.items.value)
 const editable = computed(() => !props.readonly)
 
+// ---- Коды ТН ВЭД: различные коды всех товаров проверяются сразу (кэш общий с редактором) ----
+// Код не из справочника виден в списке без открытия товара: статус «нет в справочнике», фильтр «С ошибками».
+const codeCheck = provideDtTnvedCheck()
+useGoodsCodesValidation(codeCheck, () => items.value.map((g) => g.tnvedCode))
+const statusOf = (g: (typeof items.value)[number]): GoodsStatus => withCodeCheck(props.model.statusOf(g), codeCheck.isInvalid(g.tnvedCode))
+
 // ---- Поиск и фильтры ----
 const query = ref('')
 const filter = ref<GoodsFilter>(null)
-const rows = computed(() => filterGoods(items.value, { query: query.value, filter: filter.value, statusOf: props.model.statusOf }))
-const counts = computed(() => props.model.counts.value)
+const rows = computed(() => filterGoods(items.value, { query: query.value, filter: filter.value, statusOf }))
+const counts = computed(() => {
+  let missing = 0
+  let stale = 0
+  for (const g of items.value) {
+    const s = statusOf(g)
+    if (isErrorStatus(s)) missing++
+    else if (s.kind === 'stale') stale++
+  }
+  return { missing, stale }
+})
 const toggleFilter = (f: Exclude<GoodsFilter, null>) => { filter.value = filter.value === f ? null : f }
 // Фильтр опустел (всё исправили) — снимается сам, чтобы не остаться с пустой таблицей.
 watch(counts, (c) => {
@@ -363,7 +379,7 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
         v-else
         v-model:selected-keys="selectedKeys"
         :rows="rows"
-        :status-of="model.statusOf"
+        :status-of="statusOf"
         :currency="currency"
         :readonly="readonly"
         :open-key="openKey"
@@ -410,6 +426,7 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
     <!-- Редактор открытого товара (?item=N): смонтирован только он. -->
     <GoodsEditor
       :model="model"
+      :status-of="statusOf"
       :index="openIndex"
       :ctx="editorCtx"
       :readonly="readonly"
