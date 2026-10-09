@@ -1213,6 +1213,14 @@ export default {
         refreshError: 'Could not refresh the package',
       },
     },
+    dt: {
+      leave: {
+        title: 'Leave without saving?',
+        text: 'The declaration has unsaved changes. If you leave the page, they will be lost.',
+        stay: 'Stay',
+        leave: 'Leave without saving',
+      },
+    },
     transitRecord: {
       errors: {
         needKeyField: 'Fill in at least one of the fields: No., Container, Consignee, Shipper, Cargo.',
