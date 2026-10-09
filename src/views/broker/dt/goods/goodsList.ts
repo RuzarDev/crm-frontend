@@ -34,12 +34,15 @@ const searchParts = (g: Goods) => [
 /** Строки списка по запросу и фильтру; порядок — как в форме. */
 export function filterGoods(items: readonly Goods[], o: GoodsFilterOptions): GoodsRow[] {
   const rows: GoodsRow[] = []
+  // Пустой запрос — поля поиска не читаются вовсе: иначе каждая правка любого из них в редакторе (описание,
+  // марка…) пересобирала бы список из 200 строк позади панели.
+  const searching = o.query.trim() !== ''
   items.forEach((item, index) => {
     if (o.filter) {
       const s = o.statusOf(item)
       if (o.filter === 'missing' ? !isErrorStatus(s) : s.kind !== o.filter) return
     }
-    if (!matchesQuery(o.query, searchParts(item))) return
+    if (searching && !matchesQuery(o.query, searchParts(item))) return
     rows.push({ item, index, key: keyOf(item) })
   })
   return rows

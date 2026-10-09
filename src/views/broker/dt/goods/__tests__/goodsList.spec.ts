@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { computed, reactive } from 'vue'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { filterGoods, formatItemNumbers, goodsTotals, goodsTpin, type GoodsRow } from '../goodsList'
 import type { GoodsStatus } from '../goodsStatus'
@@ -25,6 +26,22 @@ describe('goodsList: поиск и фильтры', () => {
     expect(indexes(rows)).toEqual([0, 1, 2])
     expect(rows[0].item).toBe(goods[0])
     expect(new Set(rows.map((r) => r.key)).size).toBe(3)
+  })
+
+  it('пустой запрос — поля поиска не читаются: правка описания в редакторе не пересобирает список', () => {
+    const list = reactive(goods.map((g) => ({ ...g })))
+    let runs = 0
+    const rows = computed(() => { runs += 1; return filterGoods(list, { query: '  ', filter: null, statusOf }) })
+    expect(rows.value).toHaveLength(3)
+    list[0].description = 'ПЛАНШЕТЫ'
+    list[1].tradeMarkName = 'HP'
+    expect(rows.value).toHaveLength(3)
+    expect(runs).toBe(1)
+    // с запросом — читаются и пересобираются
+    const found = computed(() => filterGoods(list, { query: 'планш', filter: null, statusOf }))
+    expect(indexes(found.value)).toEqual([0])
+    list[0].description = 'НОУТБУКИ'
+    expect(found.value).toEqual([])
   })
 
   it('поиск по коду (с пробелами), описанию, марке и модели — без регистра', () => {
