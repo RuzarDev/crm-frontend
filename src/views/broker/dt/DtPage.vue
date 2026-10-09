@@ -45,7 +45,7 @@ import { syncLoadedParties } from './dtParties'
 import {
   adjacentSection, dtsReadinessItems, navMarks, paymentsStale, rateTag, readonlyReason, sectionFromQuery, splitChildren, visibleSections,
 } from './dtPageModel'
-import type { DtSectionKey } from './dtSections'
+import { DT_ROUTE, type DtSectionKey } from './dtSections'
 import { useDtForm } from './useDtForm'
 import { useDtPayments } from './useDtPayments'
 import { useDtRates } from './useDtRates'
@@ -68,7 +68,6 @@ const { statusLabel } = useImport40Status()
 // Страница пересоздаётся при смене ДТ (ShellFrame: router-view с ключом dtId) — id читаем один раз.
 const caseId = String(route.params.caseId)
 const dtId = String(route.params.dtId)
-const DT_ROUTE = 'import-40-dt'
 
 const user = computed(() => dtUserFrom(auth))
 /** Право декларанта (CanManageDeclarations): готовность, XML, раздел ДТС. */

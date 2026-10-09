@@ -5,6 +5,7 @@
 import { computed, ref, watch, type ComputedRef } from 'vue'
 import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import type { Import40GoodsItemInput } from '@/types/api'
+import { DT_ROUTE } from '../dtSections'
 import { keyOf } from './useDtGoods'
 
 export const ITEM_QUERY = 'item'
@@ -40,6 +41,7 @@ export function useGoodsItemRoute(items: () => readonly Import40GoodsItemInput[]
   // Переход, ещё не дошедший до адреса: второй такой же (openItem и следом watch номера) не повторяется.
   let inflight: string | undefined | null = null
   const replace = async (n: number | null) => {
+    if (route.name !== DT_ROUTE) return
     const target = n == null ? undefined : String(n)
     if (route.query[ITEM_QUERY] === target || (inflight !== null && inflight === target)) return
     inflight = target
@@ -54,6 +56,8 @@ export function useGoodsItemRoute(items: () => readonly Import40GoodsItemInput[]
   watch(
     () => route.query[ITEM_QUERY],
     (v) => {
+      // Уходим со страницы ДТ (у другой страницы свой ?item, напр. SystemDataPage) — адрес не наш.
+      if (route.name !== DT_ROUTE) return
       const n = parseItem(v)
       const g = n != null ? items()[n - 1] : undefined
       key.value = g ? keyOf(g) : null
