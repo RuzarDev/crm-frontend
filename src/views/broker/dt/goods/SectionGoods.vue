@@ -9,6 +9,7 @@ import ZKbd from '@/components/z/ZKbd.vue'
 import StatusDot from '@/components/broker/StatusDot.vue'
 import { chipFrame, chipTrigger } from '@/components/broker/chipStyles'
 import type { ReestrGoodsItemInput } from '@/types/api'
+import { useClassifiersStore } from '@/stores/classifiers'
 import { confirmState, useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import { GOODS_EXCEL_ACCEPT, GOODS_EXCEL_MESSAGES, isExcelFileName, readGoodsExcel } from '@/utils/goodsExcel'
@@ -46,6 +47,7 @@ const emit = defineEmits<{ 'calc-payments': []; 'calc-tpin': [] }>()
 const { t } = useI18n()
 const tg = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.${key}`, p ?? {})
 const { confirm } = useConfirm()
+const classifiers = useClassifiersStore()
 
 const items = computed(() => props.model.items.value)
 const editable = computed(() => !props.readonly)
@@ -146,6 +148,8 @@ const excelBusy = ref(false)
 const excelOpen = ref(false)
 const excelFile = ref('')
 const excelRows = shallowRef<ReestrGoodsItemInput[]>([])
+// Виды упаковки (классификатор 2013, грузит страница): «Вид упаковки товара» из Excel — в гр. 31 товара (X1).
+const packageKinds = computed(() => classifiers.cache['2013'] ?? [])
 const pickExcel = () => { if (editable.value) fileInput.value?.click() }
 const onFile = async (e: Event) => {
   const el = e.target as HTMLInputElement
@@ -174,7 +178,7 @@ const onFile = async (e: Event) => {
   }
 }
 const appendExcel = () => {
-  const n = props.model.append(dtGoodsFromExcel(excelRows.value, { currency: props.currency }))
+  const n = props.model.append(dtGoodsFromExcel(excelRows.value, { currency: props.currency, packageKinds: packageKinds.value }))
   excelOpen.value = false
   excelRows.value = []
   if (n) message.success(tg('excel.done', { n }))
@@ -383,6 +387,7 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
       v-model:open="excelOpen"
       :file-name="excelFile"
       :rows="excelRows"
+      :package-kinds="packageKinds"
       :existing="items.length"
       @append="appendExcel"
     />

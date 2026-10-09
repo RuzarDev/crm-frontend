@@ -81,6 +81,7 @@ beforeEach(() => {
   setActivePinia(pinia)
   useClassifiersStore().cache = {
     '2005': [{ id: '1', classifierCode: '2005', code: '1', nameRu: 'ПО СТОИМОСТИ СДЕЛКИ', sortOrder: 0, isActive: true }],
+    '2013': [{ id: '2', classifierCode: '2013', code: 'CT', nameRu: 'КАРТОННАЯ КОРОБКА', sortOrder: 0, isActive: true }],
   }
   readiness.value = null
   emitted = []
@@ -358,8 +359,8 @@ describe('SectionGoods: Excel', () => {
   it('«Из Excel»: предпросмотр (строк, что распознано, без кода) → «Добавить в конец»', async () => {
     excel.readGoodsExcel.mockResolvedValue({
       goods: [
-        { description: 'БОЛТЫ', tnvedCode: '7318150000', tnvedDescription: 'БОЛТЫ', countryOfOrigin: null, quantity: 100, unit: null, unitCode: null, grossWeightKg: 12.5, netWeightKg: null, packagesCount: 3, quantityTypeCode: null, customsValue: null, currency: null },
-        { description: 'ГАЙКИ', tnvedCode: null, tnvedDescription: 'ГАЙКИ', countryOfOrigin: null, quantity: null, unit: null, unitCode: null, grossWeightKg: 4, netWeightKg: null, packagesCount: null, quantityTypeCode: null, customsValue: null, currency: null },
+        { description: 'БОЛТЫ', tnvedCode: '7318150000', tnvedDescription: 'БОЛТЫ', countryOfOrigin: null, quantity: 100, unit: 'CT', unitCode: null, grossWeightKg: 12.5, netWeightKg: null, packagesCount: 3, quantityTypeCode: null, customsValue: null, currency: null },
+        { description: 'ГАЙКИ', tnvedCode: null, tnvedDescription: 'ГАЙКИ', countryOfOrigin: null, quantity: null, unit: 'шт', unitCode: null, grossWeightKg: 4, netWeightKg: null, packagesCount: null, quantityTypeCode: null, customsValue: null, currency: null },
       ],
     })
     await mount([item({ description: 'ПЕРВЫЙ' })])
@@ -370,12 +371,16 @@ describe('SectionGoods: Excel', () => {
     expect(modal.querySelector('[data-goods-excel-field="gross"]')!.textContent).toContain('2 из 2')
     expect(modal.querySelector('[data-goods-excel-no-code]')!.textContent).toContain('Без кода ТН ВЭД: 1')
     expect(modal.querySelectorAll('[data-goods-excel-preview-row]')).toHaveLength(2)
+    // X1: «Вид упаковки товара» — в вид упаковки гр. 31; нераспознанный не переносится и назван
+    expect(modal.querySelector('[data-goods-excel-field="packaging"]')!.textContent).toContain('1 из 2')
+    expect(modal.querySelector('[data-goods-excel-unknown-packaging]')!.textContent).toContain('«шт»')
     expect(form.goodsItems).toHaveLength(1)
     const append = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Добавить в конец') as HTMLButtonElement
     append.click()
     await settle()
     expect(form.goodsItems.map((g) => g.description)).toEqual(['ПЕРВЫЙ', 'БОЛТЫ', 'ГАЙКИ'])
     expect(form.goodsItems[1]).toMatchObject({ tnvedCode: '7318150000', quantity: 100, grossWeightKg: 12.5, packagesCount: 3, cargoPlacesQuantity: 3, currency: 'USD', payments: [] })
+    expect(form.goodsItems.slice(1).map((g) => [g.packageKindCode, g.unit])).toEqual([['CT', null], [null, null]])
     expect(toast.success).toHaveBeenCalledWith('Добавлено товаров из Excel: 2')
   })
 

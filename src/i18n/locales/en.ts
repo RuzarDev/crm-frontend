@@ -1770,6 +1770,8 @@ export default {
             places: 'Cargo packages',
           },
           withoutCode: 'Without HS code: {n}. The code can be set in the item card.',
+          unknownPackaging: 'Package type not found in the classifier and will not be transferred: {list}. It can be chosen in the item card.',
+          packagingSkipped: 'Not in the package type classifier — will not be transferred',
           previewLabel: 'First rows of the file',
           more: 'And {n} more rows',
           append: 'Add to the end',

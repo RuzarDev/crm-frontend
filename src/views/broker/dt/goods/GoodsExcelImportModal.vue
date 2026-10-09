@@ -2,20 +2,28 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ZModal from '@/components/z/ZModal.vue'
-import type { ReestrGoodsItemInput } from '@/types/api'
+import type { ClassifierItem, ReestrGoodsItemInput } from '@/types/api'
 import { formatKg, formatQty } from '@/views/broker/transit/record/sections/goods'
-import { excelPreview } from './goodsImport'
+import { excelPreview, packageKindFrom } from './goodsImport'
 
 // Предпросмотр «Из Excel» (доска DtGoods): сколько строк с товарами, что распознано (по каждому столбцу — в скольких
 // строках есть значение), сколько без кода ТН ВЭД, первые строки файла. «Добавить в конец» — как прежде: товары
 // добавляются после имеющихся, ничего не заменяется.
 const PREVIEW_ROWS = 5
-const props = defineProps<{ open: boolean; fileName: string; rows: readonly ReestrGoodsItemInput[]; existing: number }>()
+const props = defineProps<{
+  open: boolean
+  fileName: string
+  rows: readonly ReestrGoodsItemInput[]
+  /** Классификатор 2013: «Вид упаковки товара» → вид упаковки гр. 31 (X1). */
+  packageKinds: readonly ClassifierItem[]
+  existing: number
+}>()
 const emit = defineEmits<{ 'update:open': [open: boolean]; append: [] }>()
 const { t, locale } = useI18n()
 const tx = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.excel.${key}`, p ?? {})
 
-const summary = computed(() => excelPreview(props.rows))
+const summary = computed(() => excelPreview(props.rows, props.packageKinds))
+const kindOf = (raw: string | null) => packageKindFrom(raw, props.packageKinds)
 const recognized = computed(() => {
   const r = summary.value.recognized
   return [
@@ -62,6 +70,9 @@ const td = 'border-b border-line px-2 py-1.5 align-top'
       <p v-if="summary.withoutCode" class="m-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink" data-goods-excel-no-code>
         {{ tx('withoutCode', { n: summary.withoutCode }) }}
       </p>
+      <p v-if="summary.unknownPackaging.length" class="m-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink" data-goods-excel-unknown-packaging>
+        {{ tx('unknownPackaging', { list: summary.unknownPackaging.map((v) => `«${v}»`).join(', ') }) }}
+      </p>
       <div class="overflow-x-auto">
         <table class="w-full border-separate border-spacing-0 text-[13px]" :aria-label="tx('previewLabel')">
           <thead>
@@ -82,7 +93,11 @@ const td = 'border-b border-line px-2 py-1.5 align-top'
               <td :class="[td, 'max-w-60 truncate']" :title="r.description ?? ''">{{ r.description || '—' }}</td>
               <td :class="[td, 'text-right tabular-nums']">{{ num(r.grossWeightKg, true) }}</td>
               <td :class="[td, 'text-right tabular-nums']">{{ num(r.quantity) }}</td>
-              <td :class="td">{{ r.unit || '—' }}</td>
+              <td :class="td">
+                <template v-if="!r.unit">—</template>
+                <span v-else-if="kindOf(r.unit)" class="font-mono">{{ kindOf(r.unit) }}</span>
+                <span v-else class="text-muted line-through" :title="tx('packagingSkipped')">{{ r.unit }}</span>
+              </td>
               <td :class="[td, 'text-right tabular-nums']">{{ num(r.packagesCount) }}</td>
             </tr>
           </tbody>
