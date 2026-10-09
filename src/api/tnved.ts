@@ -86,8 +86,8 @@ export const tnvedApi = {
 
 
   // ── Regulations ─────────────────────────────────────────────────────────────
-  regulations: () =>
-    apiClient.get<TnvedRegulationDto[]>('/tnved/regulations'),
+  regulations: (opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedRegulationDto[]>('/tnved/regulations', quiet(opts)),
 
   // ── Timeline ────────────────────────────────────────────────────────────────
   timeline: (limit = 60) =>

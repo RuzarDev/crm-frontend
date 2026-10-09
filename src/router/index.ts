@@ -141,7 +141,7 @@ const router = createRouter({
           // Справочник ДТ — только декларанту (тот же критерий, что в меню, аудит §8).
           path: '/dt-guide',
           name: 'dt-guide',
-          component: () => import('@/views/DtGuideView.vue'),
+          component: () => import('@/views/broker/references/DtGuidePage.vue'),
           meta: { requiresPermission: 'import40.declarant' },
         },
         {
@@ -253,7 +253,7 @@ const router = createRouter({
         {
           path: '/tnved/regulations',
           name: 'tnved-regulations',
-          component: () => import('@/views/TnvedRegulationsView.vue'),
+          component: () => import('@/views/broker/references/RegulationsPage.vue'),
           meta: { requiresReferences: true },
         },
         {
