@@ -24,7 +24,7 @@ import { useTeamRoleLabels } from './useTeamRoleLabels'
 // Три списка грузятся независимо (ошибка одного не трогает остальные); поиск и фильтр по роли считаются на месте.
 // Выбранный сотрудник лежит в адресе (?member=<id>), строка подсвечена; справа — панель сотрудника (MemberDrawer).
 // Смена строки и закрытие панели спрашивают про несохранённые правки (drawer.canLeave).
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -53,7 +53,7 @@ const role = ref<string | null>(null)
 // ---- Строки ----
 const staffAll = computed(() => team.data ?? [])
 const staffRows = computed(() => filterTeam(staffAll.value, query.value, role.value))
-const clientAll = computed(() => mergeClients(clients.data ?? [], onboarding.data))
+const clientAll = computed(() => mergeClients(clients.data ?? [], onboarding.data, locale.value))
 const clientRows = computed(() => filterClients(clientAll.value, query.value))
 const expeditorAll = computed(() => expeditors.data ?? [])
 const expeditorRows = computed(() => expeditorAll.value.filter((e) => matchesQuery(query.value, [e.username])))

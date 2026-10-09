@@ -77,7 +77,8 @@ export interface TeamClientRow {
 
 export const clientRowName = (c: Pick<TeamClientRow, 'companyName' | 'username'>): string => c.companyName || c.username
 
-export function mergeClients(catalog: CatalogClientRow[], onboarding: ClientOnboardingRow[] | null): TeamClientRow[] {
+/** Порядок по алфавиту языка интерфейса (locale). */
+export function mergeClients(catalog: CatalogClientRow[], onboarding: ClientOnboardingRow[] | null, locale = 'ru'): TeamClientRow[] {
   const byId = new Map((onboarding ?? []).map((o) => [o.id, o]))
   return catalog
     .map((c) => {
@@ -93,7 +94,7 @@ export function mergeClients(catalog: CatalogClientRow[], onboarding: ClientOnbo
         expeditors: c.expeditors.map((e) => e.username),
       }
     })
-    .sort((a, b) => clientRowName(a).localeCompare(clientRowName(b), 'ru'))
+    .sort((a, b) => clientRowName(a).localeCompare(clientRowName(b), locale))
 }
 
 export const filterClients = (rows: TeamClientRow[], q: string): TeamClientRow[] =>

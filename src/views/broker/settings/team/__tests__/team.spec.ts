@@ -48,4 +48,11 @@ describe('team.ts', () => {
     expect(merged[0].brokers).toEqual(['broker1'])
     expect(mergeClients(catalog, null).every((r) => r.status === null)).toBe(true)
   })
+
+  it('mergeClients: порядок по алфавиту языка интерфейса', () => {
+    const c = (id: string, username: string) => ({ id, username, role: 'client', createdAtUtc: '', brokers: [], expeditors: [] })
+    const catalog = [c('1', 'Zeta'), c('2', 'Альфа')]
+    expect(mergeClients(catalog, null, 'ru').map((r) => r.id)).toEqual(['2', '1'])
+    expect(mergeClients(catalog, null, 'en').map((r) => r.id)).toEqual(['1', '2'])
+  })
 })
