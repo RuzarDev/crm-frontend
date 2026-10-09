@@ -149,6 +149,7 @@ import { SaveOutlined, UserOutlined, IdcardOutlined, LockOutlined, BankOutlined 
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { businessRoleLabel } from '@/api/permissions'
+import { buildDeclarantAccountPayload, buildCompanyFormPayload } from '@/views/profilePayloads'
 import PageHeader from '@/components/PageHeader.vue'
 import PhoneInput from '@/components/ui/PhoneInput.vue'
 
@@ -208,7 +209,7 @@ const saveDeclarant = async () => {
     const saved = await declarantProfileApi.update({ ...decl })
     Object.assign(decl, saved)
     // Единая форма: ФИО и телефон декларанта — это и есть его «личные данные» в системе.
-    await store.update({ displayName: decl.fullName || null, phone: decl.phone || null, companyName: null, innBin: null }, true)
+    await store.update(buildDeclarantAccountPayload(decl), true)
     message.success(t('profile.declSaved'))
   } catch {
     message.error(t('profile.declSaveError'))
@@ -272,12 +273,7 @@ onMounted(async () => {
 const resetForm = () => syncForm()
 
 const handleSave = async () => {
-  await store.update({
-    displayName: form.displayName || null,
-    phone: form.phone || null,
-    companyName: form.companyName || null,
-    innBin: form.innBin || null,
-  })
+  await store.update(buildCompanyFormPayload(form, showCompanyInline.value))
 }
 </script>
 

@@ -979,8 +979,10 @@ export interface ProfileDto {
 export interface UpdateProfileRequest {
   displayName: string | null
   phone: string | null
-  companyName: string | null
-  innBin: string | null
+  // Не передано (undefined) = сервер оставляет без изменений; '' = очистить; строка = записать.
+  // null не слать: сервер трактует его как «не менять».
+  companyName?: string
+  innBin?: string
 }
 
 // ── Reestr Comments ───────────────────────────────────────────────────────────
