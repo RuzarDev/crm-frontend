@@ -99,6 +99,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Import40CalculatePaymentsResponse, Import40PaymentGoodsRowDto } from '@/api/import40'
 import type { Import40GoodsItemInput } from '@/types/api'
+import { taxModeLabelKey } from '@/views/broker/dt/goods/editor/payments'
 
 const { t } = useI18n()
 
@@ -117,18 +118,14 @@ const emit = defineEmits<{
   (e: 'apply'): void
 }>()
 
-// Коды видов платежа гр.47 → русские названия (см. tax-modes в
-// DatabaseExtensions.cs на бэке). Окно — до волны 6в; подписи раздела «Платежи» товара —
-// views/broker/dt/goods/editor/payments.ts.
-const TAX_MODE_LABELS = computed((): Record<string, string> => ({
-
-  '2010': t('dt.poshlina'),
-  '4010': t('dt.akciz'),
-  '1010': t('dt.sbor'),
-  '5060': t('dt.nds'),
-}))
-// Акциз — любой код 4xxx (в КЕДЕН по виду товара: 4420, 4400…).
-const taxModeLabel = (code: string) => TAX_MODE_LABELS.value[code] ?? (/^4\d{3}$/.test(code) ? `${t('dt.akciz')} ${code}` : code)
+// Подписи видов платежа гр.47 — общие с разделом «Платежи» товара (views/broker/dt/goods/editor/payments.ts): 1010, 2010,
+// 2050 (антидемпинг), 5060, акциз — любой 4xxx (в КЕДЕН код по виду товара: 4420, 4400…) с кодом; прочие — код. Окно — до 6в.
+const taxModeLabel = (code: string) => {
+  const key = taxModeLabelKey(code)
+  if (!key) return code
+  const label = t(`broker.dt.goods.editor.payments.modes.${key}`)
+  return key === 'excise' ? `${label} ${code}` : label
+}
 
 const goodsLabel = (index: number) => {
   const g = props.goods[index]

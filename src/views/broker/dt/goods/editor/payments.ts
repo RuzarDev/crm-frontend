@@ -37,3 +37,24 @@ export const paymentsTotal = (payments: readonly Import40GoodsPayment[] | null |
   for (const p of payments ?? []) if (p.amountKzt != null) total = (total ?? 0) + p.amountKzt
   return total
 }
+
+// Подписи последнего расчёта (basisLabel / rateLabel / bLine) — только для показа и сохраняются сервером как есть; после
+// ручной правки числа они бы показывали старое значение. Поэтому ручная правка поля снимает зависящие от него подписи.
+const BASE_FIELDS: ReadonlySet<keyof Import40GoodsPayment> = new Set(['taxBase'])
+const RATE_FIELDS: ReadonlySet<keyof Import40GoodsPayment> = new Set(['rateValue', 'rateKindCode', 'rateUnitCode', 'rateCurrencyCode', 'weightRatio'])
+
+/** Ручная правка поля строки гр. 47: присвоить; изменилось — снять устаревшие подписи расчёта. «Пересчитать» не ставит. */
+export function setPaymentField<K extends keyof Import40GoodsPayment>(p: Import40GoodsPayment, key: K, value: Import40GoodsPayment[K]): boolean {
+  if ((p[key] ?? null) === (value ?? null)) return false
+  p[key] = value
+  if (key === 'taxModeCode') {
+    p.basisLabel = null
+    p.rateLabel = null
+    p.bLine = null
+  } else if (BASE_FIELDS.has(key)) {
+    p.basisLabel = null
+  } else if (RATE_FIELDS.has(key)) {
+    p.rateLabel = null
+  }
+  return true
+}

@@ -10,22 +10,24 @@ import ZSelect from '@/components/z/ZSelect.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { formatDateText } from '@/ui/date'
+import { formatNumberIn } from '@/ui/number'
 import { cn } from '@/ui/cn'
 import type { ZOption, ZOptionValue } from '@/ui/options'
 import type { Import40GoodsPayment } from '@/types/api'
 import { formatMoney } from '../goodsList'
 import { goodsPaymentsStale } from '../goodsStatus'
-import { emptyPayment, paymentsTotal, sortPayments, taxModeLabelKey, TEMP_IMPORT_CODES } from './payments'
+import { emptyPayment, paymentsTotal, setPaymentField, sortPayments, taxModeLabelKey, TEMP_IMPORT_CODES } from './payments'
 import type { GoodsSectionProps } from './types'
 
 // «Платежи» (гр. 47 этого товара). По умолчанию — только чтение: суммы рассчитывает сервер («Рассчитать платежи» /
 // «ТПиН по данным экрана» в итогах списка), клиент их не пересчитывает. Порядок 1010 → 2010 → 5060 → прочие; подпись
 // вида по коду (2050 — «Антидемпинговая пошлина», P3); основа и ставка — подписи последнего расчёта (basisLabel /
 // rateLabel), иначе числа; сумма — в ₸. «Править вручную» — как в прежней карточке: добавить/удалить строку, вид,
-// основа, вид ставки, ставка, дата, сумма; для вида ставки «*» — единица, валюта и коэффициент. Ручная правка не ставит
-// «Пересчитать» и уходит в PUT как есть; следующий расчёт перезапишет строки тех же видов, а расчётные виды, которых в
-// нём нет, удалит (useDtPayments.applyGoodsPaymentRows). Вид ставки, выбранный вручную, расчёт без своего вида не
-// затирает. Просмотр — без «Править вручную».
+// основа, вид ставки, ставка, дата, сумма; для вида ставки «*» — единица, валюта и коэффициент. Правка поля снимает
+// устаревшие подписи расчёта (payments.setPaymentField). Ручная правка не ставит «Пересчитать» и уходит в PUT как есть;
+// следующий расчёт перезапишет строки тех же видов, а расчётные виды, которых в нём нет, удалит
+// (useDtPayments.applyGoodsPaymentRows). Вид ставки, выбранный вручную, расчёт без своего вида не затирает.
+// Просмотр — без «Править вручную».
 const props = defineProps<GoodsSectionProps>()
 const { t, te, locale } = useI18n()
 const tp = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.editor.payments.${key}`, p ?? {})
@@ -56,17 +58,19 @@ const modeLabel = (code: string | null | undefined) => {
 }
 
 const num = (v: number | null | undefined) => (v == null ? '—' : formatMoney(v, locale.value))
+const exact = (v: number) => formatNumberIn(locale.value, v, 6)
 const baseText = (p: Import40GoodsPayment) => p.basisLabel?.trim() || num(p.taxBase)
 const rateText = (p: Import40GoodsPayment) => {
   const label = p.rateLabel?.trim() || null
-  const text = label ?? (p.rateValue == null ? '—' : `${formatMoney(p.rateValue, locale.value)}${p.rateKindCode === '%' ? '%' : ''}`)
+  // Без подписи расчёта — число как есть (специфические ставки бывают 0,004 EUR/кг: не округлять до 0,00).
+  const text = label ?? (p.rateValue == null ? '—' : `${exact(p.rateValue)}${p.rateKindCode === '%' ? '%' : ''}`)
   // rateLabel сервера — номинальная ставка; при временном ввозе пошлина и НДС уже умножены на 3% × мес.
   return label && months.value && p.taxModeCode && TEMP_IMPORT_CODES.has(p.taxModeCode)
     ? tp('rateTemp', { label, months: months.value })
     : text
 }
 const specificText = (p: Import40GoodsPayment) =>
-  [p.rateUnitCode, p.rateCurrencyCode, p.weightRatio != null ? `× ${p.weightRatio}` : null].filter(Boolean).join(' · ')
+  [p.rateUnitCode, p.rateCurrencyCode, p.weightRatio != null ? `× ${exact(p.weightRatio)}` : null].filter(Boolean).join(' · ')
 const money = (v: number | null | undefined) => (v == null ? '—' : `${formatMoney(v, locale.value)} ₸`)
 
 // ---- Ручная правка ----
@@ -76,7 +80,7 @@ const taxModeOptions = computed(() => classifiers.options('tax-modes'))
 const rateKindOptions = computed(() => classifiers.options('rate-kinds'))
 const str = (v: ZOptionValue | ZOptionValue[] | null) => (v == null || Array.isArray(v) || v === '' ? null : String(v))
 const text = (v: string) => (v.trim() ? v.trim() : null)
-const set = <K extends keyof Import40GoodsPayment>(p: Import40GoodsPayment, key: K, v: Import40GoodsPayment[K]) => { p[key] = v }
+const set = <K extends keyof Import40GoodsPayment>(p: Import40GoodsPayment, key: K, v: Import40GoodsPayment[K]) => { setPaymentField(p, key, v) }
 
 const list = (): Import40GoodsPayment[] => {
   const g = props.item
