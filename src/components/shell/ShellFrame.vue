@@ -41,6 +41,8 @@ const authStore = useAuthStore()
 // ---- Узкий режим (meta.shell: 'compact', страница ДТ — как на доске) ----
 // Меню слева — только иконки (64 px), шапка оболочки не липнет: липкой остаётся своя шапка страницы (top: 0),
 // поэтому --shell-header-h = 0.
+// Поля <main> по бокам — переменная --shell-main-px (шапка страницы ДТ растягивается по ней на всю ширину панели);
+// сверху у <main> полей нет — шапка страницы встаёт вплотную, у плашки слота banner свой отступ.
 const compact = computed(() => route.meta.shell === 'compact')
 
 // ---- Раздел и вкладки ----
@@ -215,11 +217,17 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
         ref="mainEl"
         tabindex="-1"
         :class="cn(
-          'min-w-0 flex-1 px-4 py-5 outline-hidden',
-          client ? 'lg:px-10 lg:py-8' : 'lg:px-7 lg:py-6',
+          'min-w-0 flex-1 px-(--shell-main-px) outline-hidden [--shell-main-px:1rem]',
+          client ? 'lg:[--shell-main-px:2.5rem]' : 'lg:[--shell-main-px:1.75rem]',
+          compact ? 'pb-5 lg:pb-6' : client ? 'py-5 lg:py-8' : 'py-5 lg:py-6',
         )"
+        :data-shell-main-compact="compact ? '' : undefined"
       >
-        <slot name="banner" />
+        <!-- Узкий режим: у плашки (кабинет клиента) свой отступ сверху; пустой слот места не занимает. -->
+        <div v-if="compact" class="pt-5 empty:hidden lg:pt-6" data-shell-banner>
+          <slot name="banner" />
+        </div>
+        <slot v-else name="banner" />
         <!-- Карточка ДТ читает caseId/dtId один раз при создании: переход с одной ДТ на другую
              (например, в новую ДТ ВТО после разделения) должен пересоздавать страницу. -->
         <router-view :key="route.name === 'import-40-dt' ? String(route.params.dtId) : undefined" />

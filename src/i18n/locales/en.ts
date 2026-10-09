@@ -1276,6 +1276,7 @@ export default {
         splitNoGoods: 'Add at least one goods item to the declaration',
         splitAssigned: 'The declaration is assigned to another declarant — split unavailable',
         splitRole: 'Splitting is not available for your role',
+        splitReplaced: 'The declaration has already been split — edit the CCT and WTO declarations',
       },
       panel: {
         title: 'Before filing',

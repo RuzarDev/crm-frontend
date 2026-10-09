@@ -13,8 +13,8 @@ import type { DtRateTag } from './dtPageModel'
 // Закреплённая шапка ДТ (доски DtGeneral, DtReadonly): крошки «Заявки / № · клиент / ДТ», номер ДТ (моно),
 // тег ЕТТ/ВТО/«Разделена», состояние сохранения; справа — «Сохранить» (⌘S), «Рассчитать платежи»,
 // «Сформировать XML», «Ещё» (печать, все документы, «Разделить на ЕТТ/ВТО» с причиной недоступности).
-// В просмотре — «Печать бланка» и «Все документы» (без сохранения). Уже 1280 px — кнопка «До подачи» (панель
-// справа уходит в выезжающую).
+// В просмотре — «Печать бланка» и «Все документы» кнопками (без сохранения), в «Ещё» — только «Разделить» с причиной
+// (фидбек №17: пункт виден всем, кроме клиента). Уже 1280 px — кнопка «До подачи» (панель справа уходит в выезжающую).
 const props = defineProps<{
   caseId: string
   caseNumber: string | null
@@ -34,8 +34,8 @@ const props = defineProps<{
   paymentsLoading?: boolean
   /** Пункт «Разделить на ЕТТ/ВТО»: показан (не клиенту), причина недоступности ('' — доступен). */
   split: { show: boolean; reason: string }
-  /** Кнопка «До подачи» для узкого экрана; число пунктов (null — неизвестно). */
-  panelToggle: { show: boolean; count: number | null }
+  /** Кнопка «До подачи» для узкого экрана; число пунктов (null — неизвестно); ratesOnly — в панели только курсы. */
+  panelToggle: { show: boolean; count: number | null; ratesOnly?: boolean }
 }>()
 const emit = defineEmits<{
   save: []
@@ -80,10 +80,14 @@ const STATE_DOT: Record<Exclude<SaveState, null>, string> = {
 }
 
 const moreItems = computed<ZDropdownItem[]>(() => [
-  { key: 'print', label: t('broker.dt.header.print'), icon: PhPrinter, disabled: !!props.printLoading },
-  { key: 'docs', label: t('broker.dt.header.docs'), icon: PhDownloadSimple, disabled: !!props.docsLoading },
+  ...(props.editable
+    ? [
+        { key: 'print', label: t('broker.dt.header.print'), icon: PhPrinter, disabled: !!props.printLoading },
+        { key: 'docs', label: t('broker.dt.header.docs'), icon: PhDownloadSimple, disabled: !!props.docsLoading },
+      ]
+    : []),
   ...(props.split.show
-    ? [{ key: 'split', label: t('broker.dt.header.split'), disabled: !!props.split.reason, hint: props.split.reason || undefined, divider: true }]
+    ? [{ key: 'split', label: t('broker.dt.header.split'), disabled: !!props.split.reason, hint: props.split.reason || undefined, divider: props.editable }]
     : []),
 ])
 const onMore = (key: string) => {
@@ -97,7 +101,7 @@ const outline = 'border border-line-strong bg-surface enabled:hover:bg-sunken ma
 
 <template>
   <header
-    class="sticky top-0 z-[6] -mx-4 -mt-5 border-b border-line bg-surface px-4 pt-3.5 pb-3 lg:-mx-7 lg:-mt-6 lg:px-6"
+    class="sticky top-0 z-[6] mx-[calc(var(--shell-main-px,1rem)*-1)] border-b border-line bg-surface px-(--shell-main-px,1rem) pt-3.5 pb-3"
     data-dt-header
   >
     <ZBreadcrumbs :items="crumbs" />
@@ -128,7 +132,8 @@ const outline = 'border border-line-strong bg-surface enabled:hover:bg-sunken ma
           @click="emit('openPanel')"
         >
           <PhListChecks :size="16" aria-hidden="true" />
-          {{ panelToggle.count ? t('broker.dt.header.readinessCount', { n: panelToggle.count }) : t('broker.dt.header.readiness') }}
+          <template v-if="panelToggle.ratesOnly">{{ t('broker.dt.panel.rates') }}</template>
+          <template v-else>{{ panelToggle.count ? t('broker.dt.header.readinessCount', { n: panelToggle.count }) : t('broker.dt.header.readiness') }}</template>
         </ZButton>
 
         <template v-if="editable">
@@ -150,7 +155,7 @@ const outline = 'border border-line-strong bg-surface enabled:hover:bg-sunken ma
         <ZButton v-if="canXml" variant="primary" class="max-sm:h-11" :loading="xmlLoading" data-dt-xml @click="emit('xml')">
           <PhCode :size="16" aria-hidden="true" />{{ t('broker.dt.header.xml') }}
         </ZButton>
-        <ZDropdown v-if="editable" :items="moreItems" @select="onMore">
+        <ZDropdown v-if="moreItems.length" :items="moreItems" @select="onMore">
           <button
             type="button"
             :aria-label="t('broker.dt.header.more')"

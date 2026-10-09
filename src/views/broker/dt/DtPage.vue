@@ -70,13 +70,17 @@ const user = computed(() => dtUserFrom(auth))
 const canManage = computed(() => canManageDeclarations(user.value))
 
 // ---- Готовность ДТ и ДТС ----
-const readiness = useDtReadiness(caseId, dtId, { enabled: canManage })
+// ДТ заменена разделением: готовность и ДТС не спрашиваем (сервер исключает её из выгрузки). Флаг — из ответа
+// загрузки (onLoaded): useDtForm здесь ещё не создан.
+const replaced = ref(false)
+const readinessOn = computed(() => canManage.value && !replaced.value)
+const readiness = useDtReadiness(caseId, dtId, { enabled: readinessOn })
 const dtsItems = shallowRef<DtReadinessItem[] | null>(null)
 let dtsSeq = 0
 const resetDts = () => { dtsSeq++; dtsItems.value = null }
 const refreshDts = async () => {
   const my = ++dtsSeq
-  if (!canManage.value) { dtsItems.value = null; return }
+  if (!readinessOn.value) { dtsItems.value = null; return }
   try {
     const view = await dtsApi.get(caseId, dtId, { silent: true })
     if (my === dtsSeq) dtsItems.value = dtsReadinessItems(view)
@@ -96,7 +100,8 @@ const loadClientProfile = (kase: Import40CaseDto) => {
 const dt = useDtForm(caseId, dtId, {
   canEdit: (kase) => canEditDt(user.value, kase),
   onLoadStart: () => { readiness.reset(); resetDts() },
-  onLoaded: (_dto, kase) => {
+  onLoaded: (dto, kase) => {
+    replaced.value = !!dto.isSplitReplaced
     void readiness.refresh()
     void refreshDts()
     loadClientProfile(kase)
@@ -146,7 +151,6 @@ const roReason = computed(() => readonlyReason(user.value, kase.value))
 const stage = computed(() => (kase.value ? statusLabel(kase.value.status) : ''))
 const split = computed(() => (splitReplaced.value ? splitChildren(kase.value, dtId) : null))
 const tag = computed(() => rateTag(dt.lastServerDto.value))
-const showPanel = computed(() => canManage.value && !splitReplaced.value)
 
 // ---- Разделы и ?s= ----
 const sectionKeys = computed(() => visibleSections(canManage.value))
@@ -177,6 +181,7 @@ const panelOpen = ref(false)
 const sectionsHost = ref<HTMLElement | null>(null)
 const reducedMotion = () => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 const FLASH_MS = 2000
+const FOCUSABLE = 'input, textarea, select, button, [tabindex]:not([tabindex="-1"])'
 const flash = (el: HTMLElement) => {
   el.setAttribute('data-dt-flash', '')
   setTimeout(() => el.removeAttribute('data-dt-flash'), FLASH_MS)
@@ -195,7 +200,9 @@ const goTo = async (item: DtReadinessItem) => {
   target.scrollIntoView({ block: field ? 'center' : 'start', behavior: reducedMotion() ? 'auto' : 'smooth' })
   if (field) {
     flash(field)
-    field.querySelector<HTMLElement>('input, textarea, select, button, [tabindex]:not([tabindex="-1"])')?.focus({ preventScroll: true })
+    // Фокус — на само поле, а не на «?» справки КТС 257 в подписи (DtGraphHelp, data-dt-guide-trigger).
+    const control = [...field.querySelectorAll<HTMLElement>(FOCUSABLE)].find((el) => !el.closest('[data-dt-guide-trigger]'))
+    control?.focus({ preventScroll: true })
   }
 }
 
@@ -290,6 +297,7 @@ const onDocs = async () => {
 const splitOpen = ref(false)
 const splitInfo = computed(() => {
   const show = !user.value.isClient
+  if (splitReplaced.value) return { show, reason: t('broker.dt.header.splitReplaced') }
   if (form.goodsItems.length < 1) return { show, reason: t('broker.dt.header.splitNoGoods') }
   if (editable.value) return { show, reason: '' }
   const c = kase.value
@@ -300,6 +308,12 @@ const onSplit = async () => {
   // Подсказка и само разделение — по СОХРАНЁННОЙ ДТ.
   if (!(await dt.saveForAction())) return
   splitOpen.value = true
+}
+// Перед POST split — сохранить и снять отложенный автосейв: сервер сдвинет отметку исходной ДТ, такой PUT получил бы 409.
+const saveBeforeSplit = async () => {
+  const ok = await dt.saveForAction()
+  dt.cancelAutosave()
+  return ok
 }
 const onSplitDone = async (res: Import40SplitResult) => {
   // Сервер пересчитывает платежи новых ДТ; не по всем — «Рассчитать платежи» откроется в ДТ ВТО само (?calc=payments).
@@ -390,6 +404,11 @@ onBeforeUnmount(() => {
   headerObserver?.disconnect()
 })
 
+// Раздел ДТС под KeepAlive: при каждом открытии (не только после сохранения) перечитывает расчёт — счётчик
+// открытий входит в его reload-key (у скрытого экземпляра пропсы не обновляются, watch(active) не сработал бы).
+const dtsOpens = ref(0)
+watch(active, (k, prev) => { if (k === 'dts' && prev !== 'dts') dtsOpens.value += 1 })
+
 // Сохранение для раздела ДТС (его XML/печать): прежний контракт save(silent?) — без silent с сообщением.
 const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
 </script>
@@ -435,7 +454,7 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
         :docs-loading="docsLoading"
         :payments-loading="payments.loading.value"
         :split="splitInfo"
-        :panel-toggle="{ show: showPanel, count: readiness.loaded.value ? allItems.length : null }"
+        :panel-toggle="{ show: true, count: readiness.loaded.value ? allItems.length : null, ratesOnly: !readinessOn }"
         @save="onSave"
         @calc-payments="payments.openModal()"
         @xml="onXml"
@@ -448,7 +467,7 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
       <div
         :class="[
           'grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-x-6 gap-y-4 pt-5 md:grid-cols-[200px_minmax(0,1fr)]',
-          showPanel && 'xl:grid-cols-[200px_minmax(0,1fr)_268px]',
+          'xl:grid-cols-[200px_minmax(0,1fr)_268px]',
         ]"
       >
         <DtSectionNav
@@ -557,7 +576,7 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
                   :readonly="!editable"
                   :case-id="caseId"
                   :declaration-id="dtId"
-                  :reload-key="dt.savedCounter.value"
+                  :reload-key="dt.savedCounter.value + dtsOpens"
                   :active="active === 'dts'"
                   :save="saveForDts"
                   @update:model-value="onLegacyUpdate"
@@ -579,9 +598,9 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
           </div>
         </div>
 
-        <aside v-if="showPanel" class="hidden xl:sticky xl:top-[calc(var(--dt-header-h)+20px)] xl:block xl:self-start" data-dt-panel-aside>
+        <aside class="hidden xl:sticky xl:top-[calc(var(--dt-header-h)+20px)] xl:block xl:self-start" data-dt-panel-aside>
           <DtReadinessPanel
-            :enabled="canManage"
+            :enabled="readinessOn"
             :loaded="readiness.loaded.value"
             :items="allItems"
             :blank="readiness.blank.value"
@@ -593,9 +612,9 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
         </aside>
       </div>
 
-      <ZDrawer v-if="showPanel" v-model:open="panelOpen" :title="t('broker.dt.panel.title')" :width="340" data-dt-panel-drawer>
+      <ZDrawer v-model:open="panelOpen" :title="readinessOn ? t('broker.dt.panel.title') : t('broker.dt.panel.rates')" :width="340" data-dt-panel-drawer>
         <DtReadinessPanel
-          :enabled="canManage"
+          :enabled="readinessOn"
           :loaded="readiness.loaded.value"
           :items="allItems"
           :blank="readiness.blank.value"
@@ -611,7 +630,7 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
         :case-id="caseId"
         :dt-id="dtId"
         :goods-count="form.goodsItems.length"
-        :save="() => dt.saveForAction()"
+        :save="saveBeforeSplit"
         @done="onSplitDone"
       />
 

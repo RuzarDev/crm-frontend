@@ -154,6 +154,12 @@ export function useDtForm(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGett
     }
   }
 
+  /**
+   * Снять отложенный автосейв (перед разделением ЕТТ/ВТО: сервер сдвигает отметку исходной ДТ, такой PUT получил бы
+   * 409). Новые правки поставят его заново.
+   */
+  const cancelAutosave = () => clearAutosave()
+
   /** Перечитать ДТ с сервера («Повторить», после 409): несохранённое на экране пропадёт — спросить заранее. */
   const reload = () => load()
 
@@ -304,6 +310,7 @@ export function useDtForm(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGett
     reload,
     save,
     saveForAction,
+    cancelAutosave,
     confirmLeave,
   }
 }

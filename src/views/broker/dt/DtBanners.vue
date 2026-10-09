@@ -25,7 +25,7 @@ defineProps<{
 const emit = defineEmits<{ reload: []; retry: [] }>()
 const { t } = useI18n()
 
-const linkClass = 'rounded-[4px] font-mono text-zircon-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus'
+const linkClass = 'rounded-field font-mono text-zircon-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus'
 </script>
 
 <template>

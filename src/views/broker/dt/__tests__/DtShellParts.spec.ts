@@ -29,6 +29,7 @@ describe('DtSectionNav', () => {
     expect(items[0].text()).toContain('Номер и дата')
     expect(items[0].text()).toContain('гр. А')
     expect(items[2].text()).toContain('гр. 2, 8, 9, 14')
+    expect(w.get('[data-dt-nav-item="dts"]').text()).toContain('гр. ДТС')
     expect(w.get('[aria-current="true"]').attributes('data-dt-nav-item')).toBe('parties')
   })
 
@@ -183,7 +184,13 @@ describe('DtHeaderBar', () => {
     await w.get('[data-dt-xml]').trigger('click')
     expect(w.emitted('xml')).toHaveLength(1)
     w.unmount()
-    w = mountHeader({ editable: false, canXml: false })
+    w = mountHeader({ editable: false, canXml: false, split: { show: false, reason: 'x' } })
+    // Клиенту «Ещё» нечего показать.
+    expect(w.find('[data-dt-more]').exists()).toBe(false)
+    w.unmount()
+    w = mountHeader({ editable: false, canXml: false, split: { show: true, reason: 'Декларация закреплена за другим декларантом' } })
+    // Просмотр не клиентом: «Ещё» есть — в нём «Разделить» с причиной.
+    expect(w.find('[data-dt-more]').exists()).toBe(true)
     expect(w.find('[data-dt-save]').exists()).toBe(false)
     expect(w.find('[data-dt-calc-payments]').exists()).toBe(false)
     expect(w.find('[data-dt-xml]').exists()).toBe(false)
@@ -200,5 +207,8 @@ describe('DtHeaderBar', () => {
     expect(btn.text()).toContain('До подачи: 4')
     await btn.trigger('click')
     expect(w.emitted('openPanel')).toHaveLength(1)
+    w.unmount()
+    w = mountHeader({ panelToggle: { show: true, count: null, ratesOnly: true } })
+    expect(w.get('[data-dt-panel-toggle]').text()).toBe('Курсы НБ РК')
   })
 })

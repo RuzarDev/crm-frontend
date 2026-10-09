@@ -32,7 +32,7 @@ const GRAPHS: Record<DtSectionKey, string> = {
   customs: '29, 30',
   goods: '31–47',
   docs: '40, 44',
-  dts: '',
+  dts: 'ДТС',
   closing: '48, 52, 54, В',
 }
 

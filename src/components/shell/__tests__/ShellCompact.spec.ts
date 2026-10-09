@@ -54,8 +54,13 @@ describe('ShellFrame: узкое меню', () => {
     expect(aside().classes()).toContain('lg:w-16')
     expect(aside().find('nav[data-compact]').exists()).toBe(true)
     expect(w.get('header').classes()).not.toContain('sticky')
-    // Липкая — своя шапка страницы (top: 0).
+    // Липкая — своя шапка страницы (top: 0); сверху у <main> полей нет, пустой слот плашки места не занимает.
     expect(rootStyle()).toBe('0px')
+    const main = w.get('main')
+    expect(main.attributes('data-shell-main-compact')).toBeDefined()
+    expect(main.classes()).not.toContain('py-5')
+    expect(main.classes()).toContain('px-(--shell-main-px)')
+    expect(main.get('[data-shell-banner]').classes()).toContain('empty:hidden')
   })
 
   it('на остальных страницах — обычное меню', async () => {
@@ -63,6 +68,8 @@ describe('ShellFrame: узкое меню', () => {
     expect(aside().attributes('data-shell-compact')).toBeUndefined()
     expect(aside().find('nav[data-compact]').exists()).toBe(false)
     expect(w.get('header').classes()).toContain('sticky')
+    expect(w.get('main').classes()).toContain('py-5')
+    expect(w.find('[data-shell-banner]').exists()).toBe(false)
   })
 })
 

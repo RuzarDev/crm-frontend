@@ -131,13 +131,13 @@ const iconSize = computed(() => (props.compact ? 18 : props.comfortable ? 17 : 1
               <span :class="compact ? 'sr-only' : 'min-w-0 truncate'">{{ t(s.labelKey) }}</span>
               <span
                 v-if="s.badge === 'attention' && attentionCount && compact"
-                class="absolute top-1.5 right-1.5 size-2 rounded-full bg-gold"
+                class="absolute top-1.5 right-1.5 size-2 rounded-pill bg-gold"
               ><span class="sr-only">{{ t('shell.attentionSr', { n: attentionCount }) }}</span></span>
               <span
                 v-else-if="s.badge === 'attention' && attentionCount"
                 class="ml-auto shrink-0 rounded-pill bg-gold px-[7px] text-[11.5px] leading-[18px] font-bold tabular-nums text-navy"
               ><span aria-hidden="true">{{ attentionCount }}</span><span class="sr-only">{{ t('shell.attentionSr', { n: attentionCount }) }}</span></span>
-              <span v-else-if="s.dot" :class="cn('size-2 shrink-0 rounded-full bg-gold', compact ? 'absolute top-1.5 right-1.5' : 'ml-auto')">
+              <span v-else-if="s.dot" :class="cn('size-2 shrink-0 rounded-pill bg-gold', compact ? 'absolute top-1.5 right-1.5' : 'ml-auto')">
                 <span class="sr-only">{{ t('shell.dotSr') }}</span>
               </span>
             </a>

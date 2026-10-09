@@ -197,6 +197,20 @@ describe('useDtForm — автосейв', () => {
     expect(toast.success).not.toHaveBeenCalled() // автосейв без тоста
   })
 
+  it('cancelAutosave снимает отложенный автосейв (перед разделением); новая правка ставит его заново', async () => {
+    const { f } = start()
+    await settle()
+    await edit(() => { f.form.declarationNumber = 'NEW' })
+    f.cancelAutosave()
+    await vi.advanceTimersByTimeAsync(3000)
+    await settle()
+    expect(api.updateDeclaration).not.toHaveBeenCalled()
+    await edit(() => { f.form.declarationNumber = 'NEW2' })
+    await vi.advanceTimersByTimeAsync(2600)
+    await settle()
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
+  })
+
   it('правки во время запроса досохраняются; следующий PUT — с отметкой из ответа предыдущего', async () => {
     const first = deferred<Import40DeclarationDto>()
     api.updateDeclaration.mockImplementationOnce(() => first.promise)

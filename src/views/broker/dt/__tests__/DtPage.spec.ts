@@ -29,12 +29,17 @@ import DtPage from '../DtPage.vue'
 import { useAuthStore } from '@/stores/auth'
 import { confirmState } from '@/ui/confirm'
 
-// Прежние разделы — заглушки: видно, какой смонтирован; у «Сторон» есть поле гр. 8 (переход «к недостающему»).
-const sectionStub = (name: string, inner = '') => defineComponent({
+// Прежние разделы — заглушки: видно, какой смонтирован; у «Сторон» есть поле гр. 8 (переход «к недостающему»);
+// кнопки data-emit шлют события прежних разделов (проверка, что страница их слушает).
+const sectionStub = (name: string, inner = '', emits: string[] = []) => defineComponent({
   name,
-  props: ['modelValue', 'readonly'],
-  template: `<div data-stub="${name}" :data-readonly="String(readonly)">${inner}</div>`,
+  props: ['modelValue', 'readonly', 'reloadKey', 'save'],
+  emits: ['update:modelValue', ...emits],
+  template: `<div data-stub="${name}" :data-readonly="String(readonly)" :data-reload-key="reloadKey">${inner}</div>`,
 })
+// Товары: две страны происхождения (гр. 16 → «000») и «Рассчитать ТПиН».
+const goodsInner = `<button data-goods-mixed type="button" @click="$emit('update:modelValue', modelValue.map((g, i) => ({ ...g, countryOfOrigin: i ? 'DE' : 'CN' })).concat(modelValue.length < 2 ? [{ ...modelValue[0], countryOfOrigin: 'DE' }] : []))" />
+  <button data-emit="calc-tpin" type="button" @click="$emit('calc-tpin')" />`
 const stubs = {
   DtLegacyForm: { props: ['disabled'], template: '<div data-legacy-form :data-disabled="String(disabled)"><slot /></div>' },
   SectionNumber: sectionStub('SectionNumber'),
@@ -42,13 +47,17 @@ const stubs = {
   DtSectionParties: sectionStub('DtSectionParties', '<label data-graph="8">Получатель<input data-recv /></label>'),
   SectionCountries: sectionStub('SectionCountries'),
   DtSectionTransport: sectionStub('DtSectionTransport'),
-  DtSectionFinance: sectionStub('DtSectionFinance'),
+  DtSectionFinance: sectionStub('DtSectionFinance', `<button data-emit="calc-customs-value" type="button" @click="$emit('calc-customs-value')" />`, ['calc-customs-value']),
   DtSectionCustoms: sectionStub('DtSectionCustoms'),
-  DtSectionGoods: sectionStub('DtSectionGoods'),
+  DtSectionGoods: sectionStub('DtSectionGoods', goodsInner, ['calc-tpin']),
   DtSectionDocs: sectionStub('DtSectionDocs'),
-  DtSectionDts: sectionStub('DtSectionDts'),
+  DtSectionDts: sectionStub('DtSectionDts', `<button data-dts-save type="button" @click="save()" />`),
   DtSectionClosing: sectionStub('DtSectionClosing'),
-  DtPaymentsCalcModal: { props: ['open'], template: '<div v-if="open" data-payments-modal />' },
+  DtPaymentsCalcModal: {
+    props: ['open'],
+    emits: ['toggle-medical', 'apply'],
+    template: `<div v-if="open" data-payments-modal><button data-emit="toggle-medical" type="button" @click="$emit('toggle-medical', 0, false)" /></div>`,
+  },
   Import40FactPaymentsSection: { template: '<div data-fact-payments />' },
 }
 
@@ -241,8 +250,12 @@ describe('DtPage: готовность', () => {
     expect(api.kedenReadiness).not.toHaveBeenCalled()
     expect(dts.get).not.toHaveBeenCalled()
     expect(w.find('[data-dt-nav-item="dts"]').exists()).toBe(false)
-    expect(w.find('[data-dt-panel-aside]').exists()).toBe(false)
-    expect(w.find('[data-dt-panel-toggle]').exists()).toBe(false)
+    // Курсы НБ РК на дату гр. А — всем, кто открыл ДТ; списка «До подачи» нет.
+    const aside = w.get('[data-dt-panel-aside]')
+    expect(aside.find('[data-dt-panel-readiness]').exists()).toBe(false)
+    expect(aside.find('[data-dt-panel-rates]').exists()).toBe(true)
+    expect(aside.findAll('[data-dt-rate]').map((r) => r.text().slice(0, 3))).toEqual(['USD', 'EUR'])
+    expect(w.get('[data-dt-panel-toggle]').text()).toBe('Курсы НБ РК')
     expect(toast.error).not.toHaveBeenCalled()
   })
 })
@@ -311,6 +324,14 @@ describe('DtPage: сохранение и режимы', () => {
     expect(banner).toContain('ДТ подана')
     expect(w.find('[data-dt-save]').exists()).toBe(false)
     expect(w.get('[data-legacy-form]').attributes('data-disabled')).toBe('true')
+    // «Разделить на ЕТТ/ВТО» виден и в просмотре — выключен, с причиной (фидбек №17).
+    await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
+    await settle()
+    const item = [...document.body.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent?.includes('Разделить на ЕТТ/ВТО')) as HTMLElement
+    expect(item.getAttribute('data-disabled')).not.toBeNull()
+    expect(item.querySelector('[data-z-dropdown-hint]')?.textContent).toBe('Декларация закреплена за другим декларантом — разделение недоступно')
+    expect([...document.body.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent?.trim())).not.toContain('Печать бланка')
+    key({ key: 'Escape' })
     await w.get('[data-dt-print]').trigger('click')
     await settle()
     expect(api.blankPdf).toHaveBeenCalledWith('case1', 'dt1')
@@ -338,6 +359,10 @@ describe('DtPage: сохранение и режимы', () => {
     expect(w.find('[data-dt-banner-view]').exists()).toBe(false)
     expect(w.find('[data-dt-xml]').exists()).toBe(false)
     expect(w.find('[data-dt-save]').exists()).toBe(false)
+    // Заменённая ДТ из выгрузки исключена — готовность и ДТС не спрашиваем, курсы остаются.
+    expect(api.kedenReadiness).not.toHaveBeenCalled()
+    expect(dts.get).not.toHaveBeenCalled()
+    expect(w.get('[data-dt-panel-aside]').find('[data-dt-panel-readiness]').exists()).toBe(false)
     key({ key: 's', code: 'KeyS', metaKey: true })
     await settle()
     expect(api.updateDeclaration).not.toHaveBeenCalled()
@@ -389,5 +414,118 @@ describe('DtPage: сохранение и режимы', () => {
     expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
     expect(api.calculatePayments).toHaveBeenCalledWith('case1', 'dt1')
     expect(w.find('[data-payments-modal]').exists()).toBe(true)
+  })
+
+  it('успешная выгрузка XML: сохранить, скачать, сообщение с подсказкой про гр. 54, свежая готовность', async () => {
+    api.downloadKedenXml.mockResolvedValue({ blob: new Blob(['<xml/>']), fileName: 'dt.xml' })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    await open()
+    expect(api.kedenReadiness).toHaveBeenCalledTimes(1)
+    await w.get('[data-dt-xml]').trigger('click')
+    await settle()
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
+    expect(api.downloadKedenXml).toHaveBeenCalledWith('case1', 'dt1')
+    expect(click).toHaveBeenCalled()
+    expect(toast.success).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('XML для КЕДЕН сформирован'), duration: 8 }))
+    // После сохранения (afterSave) и после выгрузки — готовность перечитана.
+    expect(api.kedenReadiness.mock.calls.length).toBeGreaterThanOrEqual(3)
+    click.mockRestore()
+  })
+
+  it('после разделения — переход в ДТ ВТО; платежи не пересчитаны — с ?calc=payments', async () => {
+    api.splitSuggestion.mockResolvedValue([{ sortOrder: 0, tnvedCode: '7318150000', vtoStatus: 'ВТО', isVtoCandidate: true }])
+    api.splitDeclaration.mockResolvedValue({ originalDeclarationId: 'dt1', ettDeclarationId: null, vtoDeclarationId: 'v1', paymentsRecalculated: false })
+    await open()
+    await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
+    await settle()
+    ;([...document.body.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent?.includes('Разделить')) as HTMLElement).click()
+    await settle()
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(1) // сохранение перед подсказкой
+    ;([...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Создать ДТ ВТО') as HTMLButtonElement).click()
+    await settle()
+    expect(api.splitDeclaration).toHaveBeenCalledWith('case1', 'dt1', { vtoGoodSortOrders: [0] })
+    expect(toast.warning).toHaveBeenCalledWith('Платежи в новых ДТ посчитать не удалось — откройте их и нажмите «Рассчитать платежи»')
+    expect(toast.success).toHaveBeenCalledWith('Создана ДТ по ставкам ВТО, платежи пересчитаны по пониженной ставке')
+    expect(router.currentRoute.value.path).toBe('/import-40/case1/dt/v1')
+    expect(router.currentRoute.value.query.calc).toBe('payments')
+  })
+})
+
+describe('DtPage: переход к полю со справкой по графе', () => {
+  it('гр. 17 («Страны»): фокус на выборе страны, а не на «?» справки', async () => {
+    api.kedenReadiness.mockResolvedValue(readinessDto({
+      missing: ['Страна назначения (гр.17)'], items: [{ text: 'Страна назначения (гр.17)', graph: '17', goodsIndex: null }],
+    }))
+    await open('', ['SectionCountries'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const field = w.get('[data-graph="17"]')
+    expect(field.find('[data-dt-guide-trigger]').exists()).toBe(true)
+    expect(field.attributes('data-dt-flash')).toBeDefined()
+    const focused = document.activeElement as HTMLElement
+    expect(field.element.contains(focused)).toBe(true)
+    expect(focused.closest('[data-dt-guide-trigger]')).toBeNull()
+  })
+})
+
+describe('DtPage: события прежних разделов', () => {
+  const emit = async (name: string) => {
+    await w.get(`[data-emit="${name}"]`).trigger('click')
+    await settle()
+  }
+
+  it('«Рассчитать там. стоимость» (Условия) — пересчёт гр. 45 на дату гр. А', async () => {
+    api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 700000 }] })
+    await open('?s=finance')
+    await emit('calc-customs-value')
+    expect(api.calculateCustomsValue).toHaveBeenCalledWith(expect.objectContaining({ onDate: '2026-10-05' }))
+    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Таможенная стоимость рассчитана (1 тов.)'))
+  })
+
+  it('«Рассчитать ТПиН» (Товары) — гр. 45, затем ТПиН по товарам с экрана', async () => {
+    api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 700000 }] })
+    api.calculateTpin.mockResolvedValue({ goodsRows: [{ index: 0, rows: [{ taxModeCode: '2010', amount: 70000, rate: 10 }] }], totalsByTaxMode: {} })
+    await open('?s=goods')
+    await emit('calc-tpin')
+    expect(api.calculateTpin).toHaveBeenCalledTimes(1)
+    expect(api.calculateTpin.mock.calls[0][0][0]).toMatchObject({ index: 0, tnvedCode: '7318150000', customsValueKzt: 700000 })
+    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('ТПиН рассчитан для 1 тов.'))
+  })
+
+  it('авто гр. 16: разные страны происхождения у товаров — «000»', async () => {
+    await open('?s=goods')
+    await w.get('[data-goods-mixed]').trigger('click')
+    await settle()
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(api.updateDeclaration.mock.calls.at(-1)![2]).toMatchObject({ originCountryCode: '000' })
+  })
+
+  it('ДТС: сохранение раздела — через страницу (с сообщением); раздел перечитывается при каждом открытии', async () => {
+    await open('?s=dts')
+    const firstKey = w.get('[data-stub="DtSectionDts"]').attributes('data-reload-key')
+    await w.get('[data-dts-save]').trigger('click')
+    await settle()
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
+    expect(toast.success).toHaveBeenCalledWith('ДТ сохранена')
+    const afterSave = w.get('[data-stub="DtSectionDts"]').attributes('data-reload-key')
+    expect(afterSave).not.toBe(firstKey)
+    await navItem('docs').trigger('click')
+    await settle()
+    await navItem('dts').trigger('click')
+    await settle()
+    expect(w.get('[data-stub="DtSectionDts"]').attributes('data-reload-key')).not.toBe(afterSave)
+  })
+
+  it('«Медизделие» в окне платежей — сохранить с новым НДС и пересчитать', async () => {
+    api.calculatePayments.mockResolvedValue({ goodsRows: [], totalsByTaxMode: {} })
+    await open()
+    await w.get('[data-dt-calc-payments]').trigger('click')
+    await settle()
+    expect(api.calculatePayments).toHaveBeenCalledTimes(1)
+    await emit('toggle-medical')
+    expect(api.calculatePayments).toHaveBeenCalledTimes(2)
+    const body = api.updateDeclaration.mock.calls.at(-1)![2] as { goodsItems: { vatRatePreferential: number | null }[] }
+    expect(body.goodsItems[0].vatRatePreferential).toBeNull()
   })
 })
