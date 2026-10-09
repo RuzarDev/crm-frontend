@@ -18,7 +18,7 @@ import type {
   Import40Party,
   Import40PrevDocItem,
 } from '@/api/import40'
-import type { Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
+import type { Import40Doc44ItemInput, Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
 import { cloneGoodsExtras } from '@/types/api'
 import { placesOfGoods } from '@/utils/goodsPlaces'
 
@@ -26,9 +26,11 @@ import { placesOfGoods } from '@/utils/goodsPlaces'
  * Состояние редактора ДТ: общий тип секций, где товары и гр.B — непустые массивы, а товар
  * держит фактурную стоимость в customsValue (на сервере invoiceValue).
  */
-export type DtFormState = Omit<Import40DtFormState, 'goodsItems' | 'factPayments'> & {
+export type DtFormState = Omit<Import40DtFormState, 'goodsItems' | 'factPayments' | 'doc44Items' | 'prevDocItems'> & {
   goodsItems: Import40GoodsItemInput[]
   factPayments: Import40FactPayment[]
+  doc44Items: Import40Doc44ItemInput[]
+  prevDocItems: Import40PrevDocItem[]
 }
 
 export const emptyParty = (): Import40Party => ({

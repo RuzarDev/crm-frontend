@@ -24,7 +24,9 @@ vi.mock('@/api/references', () => ({ referencesApi: refs }))
 vi.mock('@/api/tnved', () => ({ tnvedApi: tnved }))
 vi.mock('@/api/import40Contract', () => ({ import40ContractApi: contract }))
 vi.mock('@/ui/message', () => ({ message: toast }))
-vi.mock('@/stores/classifiers', () => ({ useClassifiersStore: () => ({ loadMany: vi.fn(async () => undefined), options: () => [] }) }))
+vi.mock('@/stores/classifiers', () => ({ useClassifiersStore: () => ({ loadMany: vi.fn(async () => undefined), load: vi.fn(async () => []), cache: {}, options: () => [] }) }))
+const brokerFirms = vi.hoisted(() => ({ listBrokerFirms: vi.fn(), getBrokerFirmByBin: vi.fn(), upsertBrokerFirm: vi.fn() }))
+vi.mock('@/api/brokerFirms', () => brokerFirms)
 vi.mock('@/api/kato', async (orig) => ({ ...(await orig<typeof import('@/api/kato')>()), katoApi: { search: vi.fn(async () => []), get: vi.fn(async () => null) } }))
 
 import DtPage from '../DtPage.vue'
@@ -52,9 +54,9 @@ const stubs = {
   SectionFinance: sectionStub('SectionFinance', `<button data-emit="calc-customs-value" type="button" @click="$emit('calc-customs-value')" />`, ['calc-customs-value']),
   SectionCustoms: sectionStub('SectionCustoms'),
   DtSectionGoods: sectionStub('DtSectionGoods', goodsInner, ['calc-tpin']),
-  DtSectionDocs: sectionStub('DtSectionDocs'),
+  SectionDocs: sectionStub('SectionDocs'),
   DtSectionDts: sectionStub('DtSectionDts', `<button data-dts-save type="button" @click="save()" />`),
-  DtSectionClosing: sectionStub('DtSectionClosing'),
+  SectionClosing: sectionStub('SectionClosing'),
   DtPaymentsCalcModal: {
     props: ['open'],
     emits: ['toggle-medical', 'apply'],
@@ -130,6 +132,7 @@ beforeEach(() => {
   refs.listExpenseTypes.mockResolvedValue([])
   tnved.currencies.mockResolvedValue({ data: [] })
   contract.getProfile.mockResolvedValue(null)
+  brokerFirms.listBrokerFirms.mockResolvedValue([])
   ;(globalThis as { URL: typeof URL }).URL.createObjectURL = vi.fn(() => 'blob:x')
   ;(globalThis as { URL: typeof URL }).URL.revokeObjectURL = vi.fn()
 })
@@ -204,7 +207,7 @@ describe('DtPage: разделы и ?s=', () => {
 
   it('«Завершение» — с фактическими платежами гр. В', async () => {
     await open('?s=closing')
-    expect(stub()).toBe('DtSectionClosing')
+    expect(stub()).toBe('SectionClosing')
     expect(w.find('[data-fact-payments]').exists()).toBe(true)
   })
 })
@@ -430,6 +433,63 @@ describe('DtPage: настоящий раздел «Стороны»', () => {
     key({ key: 's', code: 'KeyS', metaKey: true })
     await settle()
     expect(api.updateDeclaration.mock.calls[0][2]).toMatchObject({ receiver: { name: 'ТОО ПОЛУЧАТЕЛЬ' }, financialSubjectName: 'ФИНЛИЦО' })
+  })
+})
+
+describe('DtPage: настоящие разделы «Документы» и «Завершение»', () => {
+  it('«Документы»: открытие не сохраняет; правка документа гр. 44 и строки гр. 40 уходит в PUT массивами целиком', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, totalSheets: 1 })] })
+    await open('?s=docs', ['SectionDocs'])
+    expect(w.find('[data-dt-docs]').exists()).toBe(true)
+    expect(w.get('[data-dt-header]').text()).not.toContain('Есть несохранённые изменения')
+    expect(api.updateDeclaration).not.toHaveBeenCalled()
+    await w.get('[data-prev-row] input[data-f="docNumber"]').setValue('prev-9')
+    await w.get('[data-doc44-row] input[data-f="docNumber"]').setValue('INV-77')
+    await settle()
+    expect(w.get('[data-dt-header]').text()).toContain('Есть несохранённые изменения')
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    const body = api.updateDeclaration.mock.calls[0][2] as { doc44Items: { docNumber: string }[]; prevDocItems: { docNumber: string; sortOrder: number }[] }
+    expect(body.doc44Items.map((d) => d.docNumber)).toEqual(['INV-77'])
+    expect(body.prevDocItems).toMatchObject([{ docNumber: 'PREV-9', sortOrder: 0 }])
+  })
+
+  it('к недостающему гр. 44 из панели «До подачи» открывает «Документы» и ставит фокус в список', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, totalSheets: 1 })] })
+    api.kedenReadiness.mockResolvedValue(readinessDto({
+      missing: ['Гр.44: нет документов'],
+      items: [{ text: 'Гр.44: нет документов', graph: '44', goodsIndex: null }],
+    }))
+    await open('', ['SectionDocs'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query.s).toBe('docs')
+    const field = w.get('[data-graph="44"]')
+    expect(field.attributes('data-dt-flash')).toBeDefined()
+  })
+
+  it('«Завершение»: открытие не сохраняет и не меняет номер договора, даже при одной фирме в справочнике; правка подписанта — в PUT', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, totalSheets: 1, brokerContractNumber: null })] })
+    brokerFirms.listBrokerFirms.mockResolvedValue([{ id: 'f', name: 'ТОО БРОКЕР', bin: '123456789012', address: null, contractNumber: 'К-1', contractDate: null, contractValidUntil: null, createdAtUtc: '', updatedAtUtc: '' }])
+    await open('?s=closing', ['SectionClosing'])
+    expect(w.find('[data-dt-closing]').exists()).toBe(true)
+    expect(brokerFirms.listBrokerFirms).toHaveBeenCalled()
+    expect(w.get('[data-dt-header]').text()).not.toContain('Есть несохранённые изменения')
+    expect((w.get('input[data-contract-number]').element as HTMLInputElement).value).toBe('')
+    expect(api.updateDeclaration).not.toHaveBeenCalled()
+    await w.get('input[data-signatory-name]').setValue('петров п.')
+    await settle()
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(api.updateDeclaration.mock.calls[0][2]).toMatchObject({ signatoryFullName: 'ПЕТРОВ П.', brokerContractNumber: null })
+    expect(w.find('[data-fact-payments]').exists()).toBe(true)
+  })
+
+  it('просмотр: «Завершение» без справочника фирм-брокеров (он не запрашивается)', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'someone-else', declarations: [fullDto({ splitRole: null })] })
+    await open('?s=closing', ['SectionClosing'])
+    expect(w.find('[data-broker-firm]').exists()).toBe(false)
+    expect(brokerFirms.listBrokerFirms).not.toHaveBeenCalled()
   })
 })
 

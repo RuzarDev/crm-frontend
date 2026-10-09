@@ -8,9 +8,7 @@ import ZModal from '@/components/z/ZModal.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import DtLegacyForm from '@/components/import40/dt/DtLegacyForm.vue'
 import DtSectionGoods from '@/components/import40/dt/DtSectionGoods.vue'
-import DtSectionDocs from '@/components/import40/dt/DtSectionDocs.vue'
 import DtSectionDts from '@/components/import40/dt/DtSectionDts.vue'
-import DtSectionClosing from '@/components/import40/dt/DtSectionClosing.vue'
 import DtPaymentsCalcModal from '@/components/import40/dt/DtPaymentsCalcModal.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
 import { import40Api, type Import40CaseDto, type Import40DtFormState, type Import40SplitResult } from '@/api/import40'
@@ -29,8 +27,10 @@ import DtHeaderBar from './DtHeaderBar.vue'
 import DtReadinessPanel from './DtReadinessPanel.vue'
 import DtSectionNav from './DtSectionNav.vue'
 import DtSplitModal from './DtSplitModal.vue'
+import SectionClosing from './sections/SectionClosing.vue'
 import SectionCountries from './sections/SectionCountries.vue'
 import SectionCustoms from './sections/SectionCustoms.vue'
+import SectionDocs from './sections/SectionDocs.vue'
 import SectionFinance from './sections/SectionFinance.vue'
 import SectionGeneral from './sections/SectionGeneral.vue'
 import SectionNumber from './sections/SectionNumber.vue'
@@ -567,11 +567,10 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
                   :decl-procedure="form.procedureCode"
                   @calc-tpin="payments.calcTpin()"
                 />
-                <DtSectionDocs
+                <SectionDocs
                   v-else-if="active === 'docs'"
-                  :model-value="legacyForm"
+                  :form="form"
                   :readonly="!editable"
-                  @update:model-value="onLegacyUpdate"
                 />
                 <!-- GET …/dts — только декларанту: раздел не рендерится вовсе (не просто скрыт). -->
                 <DtSectionDts
@@ -585,11 +584,10 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
                   :save="saveForDts"
                   @update:model-value="onLegacyUpdate"
                 />
-                <DtSectionClosing
+                <SectionClosing
                   v-else-if="active === 'closing'"
-                  :model-value="legacyForm"
+                  :form="form"
                   :readonly="!editable"
-                  @update:model-value="onLegacyUpdate"
                 />
               </KeepAlive>
             </DtLegacyForm>
