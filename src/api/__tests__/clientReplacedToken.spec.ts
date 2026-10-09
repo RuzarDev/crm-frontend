@@ -54,3 +54,32 @@ describe('перехватчик: 401 для токена, который уже
     expect(localStorage.getItem('authToken')).toBeNull()
   })
 })
+
+describe('перехватчик: скользящее обновление токена (X-Refreshed-Token)', () => {
+  const okWith = (config: AxiosRequestConfig, headers: Record<string, string>) =>
+    Promise.resolve({ data: {}, status: 200, statusText: 'OK', headers, config })
+
+  it('запрос ушёл с нынешним токеном — свежий токен сохраняется', async () => {
+    localStorage.setItem('authToken', 'cur')
+    apiClient.defaults.adapter = ((config: AxiosRequestConfig) => okWith(config, { 'x-refreshed-token': 'cur-2' })) as AxiosAdapter
+    await apiClient.get('/notifications')
+    expect(localStorage.getItem('authToken')).toBe('cur-2')
+  })
+
+  it('поздний ответ на запрос со старым токеном не затирает новый', async () => {
+    localStorage.setItem('authToken', 'old')
+    apiClient.defaults.adapter = ((config: AxiosRequestConfig) => {
+      // пока запрос был в пути, смена пароля выдала новый токен
+      localStorage.setItem('authToken', 'new')
+      return okWith(config, { 'x-refreshed-token': 'old-refreshed' })
+    }) as AxiosAdapter
+    await apiClient.get('/notifications')
+    expect(localStorage.getItem('authToken')).toBe('new')
+  })
+
+  it('запрос без токена (вход) токен из заголовка не принимает', async () => {
+    apiClient.defaults.adapter = ((config: AxiosRequestConfig) => okWith(config, { 'x-refreshed-token': 'stray' })) as AxiosAdapter
+    await apiClient.get('/ref/anything')
+    expect(localStorage.getItem('authToken')).toBeNull()
+  })
+})

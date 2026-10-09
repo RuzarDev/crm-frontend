@@ -93,9 +93,14 @@ const sentToken = (config: InternalAxiosRequestConfig | undefined): string | nul
 apiClient.interceptors.response.use(
   (response) => {
     // Скользящая сессия: бэк присылает свежий токен, когда у текущего осталось < половины срока.
+    // Принимаем его только если запрос ушёл с тем токеном, что лежит сейчас: поздний ответ на запрос со старым токеном
+    // (после смены пароля уже выдан новый) иначе затёр бы новый токен старой версии, и следующий запрос дал бы 401.
     const refreshed = response.headers?.['x-refreshed-token']
     if (typeof refreshed === 'string' && refreshed) {
-      try { localStorage.setItem('authToken', refreshed) } catch { /* private mode */ }
+      try {
+        const sent = sentToken(response.config)
+        if (sent && sent === localStorage.getItem('authToken')) localStorage.setItem('authToken', refreshed)
+      } catch { /* private mode */ }
     }
     return response
   },
