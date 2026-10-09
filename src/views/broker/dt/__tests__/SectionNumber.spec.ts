@@ -54,7 +54,7 @@ describe('SectionNumber — гр. А', () => {
     expect(result()).toBe('55302/091026/0001234')
   })
 
-  it('пересобирается при смене поста, даты и цифр; неполные цифры — номер пуст', async () => {
+  it('пересобирается при смене поста, даты и цифр; неполные цифры номер не трогают', async () => {
     mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302', declarationNumber: '55302/091026/0001234' })
     await pickPost('Хоргос')
     expect(form.declarationNumber).toBe('55304/091026/0001234')
@@ -64,7 +64,7 @@ describe('SectionNumber — гр. А', () => {
     await type(tailInput(), '0007777')
     expect(form.declarationNumber).toBe('55304/101026/0007777')
     await type(tailInput(), '000777')
-    expect(form.declarationNumber).toBe('')
+    expect(form.declarationNumber).toBe('55304/101026/0007777') // не хватает цифры — прежний номер на месте
     expect(tailInput().value).toBe('000777') // набранные цифры не стираются
     await type(tailInput(), '0007778')
     expect(form.declarationNumber).toBe('55304/101026/0007778')
@@ -112,25 +112,99 @@ describe('SectionNumber — гр. А', () => {
     expect(form.declarationNumber).toBe('55302/091026/0000001')
   })
 
-  it('возврат к сборке пересобирает номер, когда части полные', async () => {
+  it('возврат из ручного режима со стандартным номером: части формы подстраиваются под номер, номер не меняется', async () => {
     mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302', declarationNumber: '55302/091026/0001234' })
     await w.get('[data-dt-number-toggle]').trigger('click')
     await pickPost('Хоргос') // в ручном режиме номер не трогается
+    await setDate('10.10.2026')
     expect(form.declarationNumber).toBe('55302/091026/0001234')
     await w.get('[data-dt-number-toggle]').trigger('click')
-    expect(form.declarationNumber).toBe('55304/091026/0001234')
+    expect(form.declarationNumber).toBe('55302/091026/0001234')
+    expect(form.submissionCustomsOfficeCode).toBe('55302')
+    expect(form.submissionDate).toBe('2026-10-09')
+    expect(tailInput().value).toBe('0001234')
   })
 
-  it('очистка номера уходит в запрос как null (ручной режим и стирание цифр)', async () => {
+  it('возврат из ручного режима с номером другого формата и полными частями — номер собирается', async () => {
+    mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302', declarationNumber: 'KEDEN/77' })
+    await type(w.get('[data-dt-number-manual]').element as HTMLInputElement, 'KEDEN/78')
+    expect(form.declarationNumber).toBe('KEDEN/78')
+    // цифр ещё нет — собирать нечего, номер остаётся (проверено ниже); вводим цифры в авто-режиме
+    await w.get('[data-dt-number-toggle]').trigger('click')
+    expect(form.declarationNumber).toBe('KEDEN/78')
+    await type(tailInput(), '0000009')
+    expect(form.declarationNumber).toBe('55302/091026/0000009')
+  })
+
+  it('случайный Backspace в цифрах зарегистрированного номера его не стирает', async () => {
     mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302', declarationNumber: '55302/091026/0001234' })
+    await type(tailInput(), '000123')
+    expect(form.declarationNumber).toBe('55302/091026/0001234')
     await type(tailInput(), '')
-    expect(form.declarationNumber).toBe('')
-    expect(formToPayload(form, null).declarationNumber).toBeNull()
-    await type(tailInput(), '0001234')
+    expect(form.declarationNumber).toBe('55302/091026/0001234')
+    expect(formToPayload(form, null).declarationNumber).toBe('55302/091026/0001234')
+    await type(tailInput(), '0001235')
+    expect(form.declarationNumber).toBe('55302/091026/0001235')
+  })
+
+  it('очистка даты и поста номер не стирает', async () => {
+    mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302', declarationNumber: '55302/091026/0001234' })
+    await w.get('input[placeholder="ДД.ММ.ГГГГ"]').setValue('')
+    ;(w.get('input[placeholder="ДД.ММ.ГГГГ"]').element as HTMLInputElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await nextTick()
+    expect(form.submissionDate).toBeNull()
+    expect(form.declarationNumber).toBe('55302/091026/0001234')
+    await type(tailInput(), '0001235')
+    expect(form.declarationNumber).toBe('55302/091026/0001235')
+  })
+
+  it('очистить номер можно только явно — в ручном режиме; в запросе это null', async () => {
+    mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302', declarationNumber: '55302/091026/0001234' })
     await w.get('[data-dt-number-toggle]').trigger('click')
     await type(w.get('[data-dt-number-manual]').element as HTMLInputElement, '')
     expect(form.declarationNumber).toBe('')
     expect(formToPayload(form, null).declarationNumber).toBeNull()
+  })
+
+  it('сохранённая ДТ с номером и пустой датой: правка цифр берёт дату из номера, а не «сегодня»', async () => {
+    mount({ submissionDate: null, submissionCustomsOfficeCode: '', declarationNumber: '55302/091026/0001234' })
+    await type(tailInput(), '0007777')
+    expect(form.declarationNumber).toBe('55302/091026/0007777')
+  })
+
+  it('дата формы по умолчанию (сегодня) не переписывает дату номера, пока её не тронули', async () => {
+    mount({ submissionDate: '2026-10-20', submissionCustomsOfficeCode: '55304', declarationNumber: '55302/091026/0001234' })
+    await type(tailInput(), '0007777')
+    expect(form.declarationNumber).toBe('55302/091026/0007777')
+    await setDate('21.10.2026')
+    expect(form.declarationNumber).toBe('55302/211026/0007777')
+  })
+
+  it('вставленные цифры с разделителями: нецифры убираются до обрезки по длине', async () => {
+    mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302' })
+    await type(tailInput(), '000-1234')
+    expect(tailInput().value).toBe('0001234')
+    expect(form.declarationNumber).toBe('55302/091026/0001234')
+  })
+
+  it('сохранённый пост вне списка КЕДЕН показывается и подсвечивается', () => {
+    mount({ submissionCustomsOfficeCode: '99999', submissionDate: '2026-10-09' })
+    expect((w.get('input[role="combobox"]').element as HTMLInputElement).value).toBe('99999')
+    expect(w.get('[data-graph="А"]').text()).toContain('Значения «99999» нет в справочнике')
+  })
+
+  it('открытие со старыми и неизвестными значениями форму не меняет', async () => {
+    for (const over of [
+      { declarationNumber: 'KEDEN/2026/77', submissionCustomsOfficeCode: '99999', submissionDate: null },
+      { declarationNumber: '55302/091026/0001234', submissionCustomsOfficeCode: '55304', submissionDate: '2026-10-20' },
+      { declarationNumber: '', submissionCustomsOfficeCode: '', submissionDate: null },
+    ]) {
+      form = reactive(emptyDtForm())
+      mount(over)
+      await nextTick()
+      expect(JSON.parse(JSON.stringify(form))).toEqual({ ...JSON.parse(JSON.stringify(emptyDtForm())), ...over })
+      w.unmount()
+    }
   })
 
   it('номер, пришедший извне (перезагрузка), подхватывается', async () => {

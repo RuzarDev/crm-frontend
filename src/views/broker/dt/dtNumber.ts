@@ -9,14 +9,31 @@ export const ddmmyyOf = (iso: string | null | undefined): string | null => {
   return m ? `${m[3]}${m[2]}${m[1].slice(2)}` : null
 }
 
+/** Дата 'YYYY-MM-DD' из ДДММГГ (год — 20ГГ); не дата — null. */
+export const isoOfDdmmyy = (d6: string): string | null => {
+  const m = /^(\d{2})(\d{2})(\d{2})$/.exec(d6)
+  if (!m) return null
+  const [, dd, mm, yy] = m
+  return Number(mm) >= 1 && Number(mm) <= 12 && Number(dd) >= 1 && Number(dd) <= 31 ? `20${yy}-${mm}-${dd}` : null
+}
+
 /** Только цифры, не больше 7. */
 export const cleanTail = (raw: string): string => raw.replace(/\D/g, '').slice(0, 7)
 
-/** Номер из частей; пока чего-то не хватает (пост, дата, ровно 7 цифр) — пустая строка. */
-export const buildDtNumber = (post: string | null | undefined, iso: string | null | undefined, tail: string): string => {
+/** Номер из частей (дата — ДДММГГ); пока чего-то не хватает (пост, дата, ровно 7 цифр) — пустая строка. */
+export const buildFromParts = (post: string | null | undefined, d6: string | null | undefined, tail: string): string => {
   const code = (post ?? '').trim()
-  const date = ddmmyyOf(iso)
-  return code && date && /^\d{7}$/.test(tail) ? `${code}/${date}/${tail}` : ''
+  return code && d6 && /^\d{6}$/.test(d6) && /^\d{7}$/.test(tail) ? `${code}/${d6}/${tail}` : ''
+}
+
+/** То же, но дата — 'YYYY-MM-DD'. */
+export const buildDtNumber = (post: string | null | undefined, iso: string | null | undefined, tail: string): string =>
+  buildFromParts(post, ddmmyyOf(iso), tail)
+
+/** Части стандартного номера; у номера другого формата и у пустого — null. */
+export const partsOf = (num: string | null | undefined): { post: string; d6: string; tail: string } | null => {
+  const m = /^(\d+)\/(\d{6})\/(\d{7})$/.exec(num ?? '')
+  return m ? { post: m[1], d6: m[2], tail: m[3] } : null
 }
 
 export const isStandardNumber = (num: string | null | undefined): boolean => STANDARD.test(num ?? '')

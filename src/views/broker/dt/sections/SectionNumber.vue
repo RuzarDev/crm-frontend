@@ -7,13 +7,16 @@ import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import type { DtFormState } from '../dtPayload'
-import { buildDtNumber, cleanTail, isStandardNumber, tailOf } from '../dtNumber'
+import { buildFromParts, cleanTail, ddmmyyOf, isoOfDdmmyy, isStandardNumber, partsOf, tailOf } from '../dtNumber'
+import { withCurrent } from '../dtOptions'
 
 // Гр. А — регистрационный номер ДТ: пост подачи, дата и 7 цифр. Номер собирается сам («пост/ДДММГГ/7 цифр») и
-// пересобирается при каждой правке любой из трёх частей, пока не хватает части — номер пуст. «Ввести номер целиком» —
-// ручной режим для номеров другого формата (КЕДЕН): тогда это свободная строка, части её не трогают.
-// Очистка номера сохраняется (пустая строка → null на сервере). Номер, пришедший с сервера, не пересобирается:
-// пересборка — только по правке пользователя.
+// пересобирается при правке любой из трёх частей — но только когда все три полные: пока части не хватает, номер
+// остаётся как есть (случайный Backspace не должен стереть зарегистрированный номер, автосейв сохранил бы null).
+// Пока пост или дата не тронуты пользователем, они берутся из самого номера (дата формы по умолчанию — сегодня).
+// «Ввести номер целиком» — ручной режим для номеров другого формата (КЕДЕН): свободная строка, части её не
+// трогают; очистить номер можно только здесь (пустая строка → null на сервере). Номер, пришедший с сервера,
+// не пересобирается: пересборка — только по правке пользователя.
 const props = defineProps<{
   form: DtFormState
   readonly: boolean
@@ -26,12 +29,24 @@ const tail = ref(tailOf(props.form.declarationNumber))
 const manual = ref(!!props.form.declarationNumber && !isStandardNumber(props.form.declarationNumber))
 /** Последнее значение, которое записали мы: отличать собственные записи от пришедших извне. */
 let written: string | null = null
+/** Пост и дата тронуты пользователем: тогда в номер идут они, иначе — части самого номера. */
+let touchedPost = false
+let touchedDate = false
 
 const write = (num: string) => {
   written = num
   if (props.form.declarationNumber !== num) props.form.declarationNumber = num
 }
-const rebuild = () => write(buildDtNumber(props.form.submissionCustomsOfficeCode, props.form.submissionDate, tail.value))
+// Пересборка только из полных частей; неполные — номер не трогаем.
+const rebuild = () => {
+  const n = partsOf(props.form.declarationNumber)
+  const formPost = (props.form.submissionCustomsOfficeCode ?? '').trim()
+  const formDate = ddmmyyOf(props.form.submissionDate)
+  const post = (touchedPost ? formPost : n?.post) || formPost || n?.post || ''
+  const d6 = (touchedDate ? formDate : n?.d6) ?? formDate ?? n?.d6 ?? null
+  const built = buildFromParts(post, d6, tail.value)
+  if (built) write(built)
+}
 
 // Номер сменился не нами (перезагрузка ДТ, ответ сервера): подхватываем хвост и режим; пустой — не трогаем,
 // чтобы не стереть набранные цифры.
@@ -42,11 +57,13 @@ watch(() => props.form.declarationNumber, (num) => {
 })
 
 const onPost = (v: unknown) => {
+  touchedPost = true
   props.form.submissionCustomsOfficeCode = v == null ? '' : String(v)
   if (!manual.value) rebuild()
 }
 const onPostText = (v: string) => onPost(v.trim())
 const onDate = (v: string | null) => {
+  touchedDate = true
   props.form.submissionDate = v
   if (!manual.value) rebuild()
 }
@@ -63,13 +80,24 @@ const onManual = (v: string) => {
 }
 const toManual = () => { manual.value = true }
 const toAuto = () => {
-  const num = props.form.declarationNumber
-  if (isStandardNumber(num)) tail.value = tailOf(num)
   manual.value = false
-  // Номер, который уже есть, стираем только если части дают другой законченный номер.
-  const built = buildDtNumber(props.form.submissionCustomsOfficeCode, props.form.submissionDate, tail.value)
-  if (built) write(built)
+  const n = partsOf(props.form.declarationNumber)
+  if (n) {
+    // Стандартный номер — истина: части формы подстраиваются под него, а не наоборот.
+    tail.value = n.tail
+    touchedPost = false
+    touchedDate = false
+    if (props.form.submissionCustomsOfficeCode !== n.post) props.form.submissionCustomsOfficeCode = n.post
+    const iso = isoOfDdmmyy(n.d6)
+    if (iso && ddmmyyOf(props.form.submissionDate) !== n.d6) props.form.submissionDate = iso
+    return
+  }
+  // Номер другого формата: собираем из частей, если они полные; иначе номер остаётся как есть.
+  rebuild()
 }
+
+// Пост из справочника КЕДЕН; сохранённый пост вне списка показывается и подсвечивается, а не теряется.
+const postSel = computed(() => withCurrent(props.postOptions, props.form.submissionCustomsOfficeCode))
 
 const hasPosts = computed(() => props.postOptions.length > 0)
 const result = computed(() => props.form.declarationNumber || '')
@@ -83,11 +111,17 @@ const result = computed(() => props.form.declarationNumber || '')
     </h2>
 
     <div class="grid grid-cols-1 gap-4 @md:grid-cols-2 @2xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-      <ZField :label="t('broker.dt.number.post')" data-graph="А" class="@md:col-span-2 @2xl:col-span-1">
+      <ZField
+        :label="t('broker.dt.number.post')"
+        data-graph="А"
+        class="@md:col-span-2 @2xl:col-span-1"
+        :validate-status="postSel.unknown ? 'warning' : ''"
+        :help="postSel.unknown ? t('broker.dt.general.notInList', { value: form.submissionCustomsOfficeCode }) : ''"
+      >
         <ZSelect
           v-if="hasPosts"
           :value="form.submissionCustomsOfficeCode || null"
-          :options="postOptions"
+          :options="postSel.options"
           show-search
           :disabled="readonly"
           :placeholder="t('broker.dt.number.postPlaceholder')"
@@ -113,7 +147,6 @@ const result = computed(() => props.form.declarationNumber || '')
           :value="tail"
           :disabled="readonly || manual"
           mono
-          :maxlength="7"
           placeholder="0000000"
           inputmode="numeric"
           autocomplete="off"

@@ -123,6 +123,14 @@ describe('SectionGeneral — гр. 1, 3–7', () => {
     expect(w.findAll('[data-help]').map((e) => e.attributes('data-help-graph'))).toEqual(['1', '3', '4', '7', '5', '6'])
   })
 
+  it('открытие со старыми и неизвестными значениями форму не меняет', async () => {
+    Object.assign(form, { declarationTypeCode: 'XX', procedureCode: '99', declarationFeatureCode: 'ПТД', referenceNumber: 'ЗЗЗ', shippingSpecSheets: null })
+    const before = JSON.stringify(form)
+    mount()
+    await nextTick()
+    expect(JSON.stringify(form)).toBe(before)
+  })
+
   it('просмотр: выбор и число недоступны', () => {
     mount({ declarationTypeCode: 'ИМ' }, { readonly: true })
     for (const g of ['1', '4', '7']) expect(field(g).get('input').attributes('disabled'), g).toBeDefined()

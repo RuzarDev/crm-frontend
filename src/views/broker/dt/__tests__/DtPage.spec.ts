@@ -270,8 +270,8 @@ describe('DtPage: настоящие разделы «Номер», «Общие
     ;(tail.element as HTMLInputElement).value = '0000777'
     await tail.trigger('input')
     await settle()
-    expect(w.get('[data-dt-number]').text()).toBe('55302/051026/0000777')
-    expect(w.get('[data-dt-number-result]').text()).toBe('55302/051026/0000777')
+    expect(w.get('[data-dt-number]').text()).toBe('55302/091026/0000777')
+    expect(w.get('[data-dt-number-result]').text()).toBe('55302/091026/0000777')
     expect(w.get('[data-dt-header]').text()).toContain('Есть несохранённые изменения')
   })
 

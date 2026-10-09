@@ -80,6 +80,14 @@ describe('SectionCountries — гр. 11, 15–17', () => {
     expect(field('17').text()).toContain('Страны «KZ» нет в справочнике ОКСМ')
   })
 
+  it('открытие со старыми значениями («KZ», «000», пусто) форму не меняет', async () => {
+    Object.assign(form, { departureCountryCode: 'KZ', destinationCountryCode: null, tradeCountryCode: '', originCountryCode: '000' })
+    const before = JSON.stringify(form)
+    mount()
+    await nextTick()
+    expect(JSON.stringify(form)).toBe(before)
+  })
+
   it('справка у каждой графы, просмотр — выбор недоступен', () => {
     mount({}, { readonly: true })
     expect(w.findAll('[data-help]').map((e) => e.attributes('data-help-graph')).sort()).toEqual(['11', '15', '16', '17'])

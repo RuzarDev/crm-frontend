@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { buildDtNumber, cleanTail, ddmmyyOf, isStandardNumber, tailOf } from '../dtNumber'
+import { buildDtNumber, buildFromParts, cleanTail, ddmmyyOf, isStandardNumber, isoOfDdmmyy, partsOf, tailOf } from '../dtNumber'
 import { classifierLabel, dedupeOptions, withCurrent } from '../dtOptions'
 
 describe('dtNumber — номер ДТ гр. А', () => {
@@ -23,6 +23,14 @@ describe('dtNumber — номер ДТ гр. А', () => {
     expect(isStandardNumber('')).toBe(false)
     expect(tailOf('55302/091026/0001234')).toBe('0001234')
     expect(tailOf('КЕДЕН-123')).toBe('')
+  })
+  it('части стандартного номера и дата из ДДММГГ', () => {
+    expect(partsOf('55302/091026/0001234')).toEqual({ post: '55302', d6: '091026', tail: '0001234' })
+    expect(partsOf('KEDEN/1')).toBeNull()
+    expect(isoOfDdmmyy('091026')).toBe('2026-10-09')
+    expect(isoOfDdmmyy('321326')).toBeNull()
+    expect(buildFromParts('55302', '091026', '0001234')).toBe('55302/091026/0001234')
+    expect(buildFromParts('55302', null, '0001234')).toBe('')
   })
   it('цифры хвоста: без нецифр и не больше 7', () => {
     expect(cleanTail('00a1-23 4567890')).toBe('0012345')
