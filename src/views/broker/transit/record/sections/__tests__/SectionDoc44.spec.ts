@@ -14,11 +14,11 @@ const doc = (o: Partial<ReestrDoc44ItemInput> = {}): ReestrDoc44ItemInput => ({
 })
 
 let w: VueWrapper
-const mount = async (docs: ReestrDoc44ItemInput[], o: { readonly?: boolean; stubSelect?: boolean } = {}) => {
+const mount = async (docs: ReestrDoc44ItemInput[], o: { readonly?: boolean; stubSelect?: boolean; extended?: boolean } = {}) => {
   const draft = emptyDraft()
   draft.doc44.splice(0, draft.doc44.length, ...docs)
   w = mountWithI18n(SectionDoc44, {
-    props: { draft, readonly: o.readonly ?? false },
+    props: { draft, readonly: o.readonly ?? false, ...(o.extended === undefined ? {} : { extended: o.extended }) },
     attachTo: document.body,
     global: { stubs: o.stubSelect === false ? {} : { ZSelect: SelectStub } },
   })
@@ -150,5 +150,36 @@ describe('SectionDoc44', () => {
     expect(r0).toContain('Номер бланка: Б-7')
     expect(rows()[1].text()).toContain('28.09.2026')
     expect(rows()[1].text()).not.toContain('Номер бланка')
+  })
+
+  it('extended=false (гр.44 партии): без «Ещё»; новая строка — только код, вид, номер, дата', async () => {
+    const d = await mount([doc({ docNumber: '1' })], { extended: false })
+    expect(w.find('[data-doc44-more]').exists()).toBe(false)
+    expect(w.find('[data-doc44-delete]').exists()).toBe(true)
+    await w.get('[data-section-add]').trigger('click')
+    await flushPromises()
+    expect(d.doc44[1]).toEqual({ docTypeCode: null, docTypeName: null, docNumber: null, docDate: null })
+  })
+
+  it('таблица или карточки — по ширине раздела (@container), а не окна: в половине редактора партии — карточки', async () => {
+    const cls = (sel: string) => w.get(sel).classes()
+    for (const readonly of [false, true]) {
+      await mount([doc({ docNumber: '1' })], { readonly })
+      const list = w.get('[data-doc44-list]')
+      expect(list.element.parentElement?.classList.contains('@container')).toBe(true)
+      expect(list.classes()).toEqual(expect.arrayContaining(['@2xl:rounded-row', '@2xl:border']))
+      expect(cls('[data-doc44-head]')).toEqual(expect.arrayContaining(['hidden', '@2xl:grid']))
+      expect(cls('[data-doc44-row]')).toEqual(expect.arrayContaining(['@max-2xl:rounded-row', '@max-2xl:border', '@2xl:border-t']))
+      const html = list.html()
+      // Раскладка не зависит от ширины окна: никаких sm:/max-sm: у сетки и подписей (размер касания — по окну, как было).
+      expect(html).not.toMatch(/(?<![-\w@])sm:(grid|sr-only|border|rounded|overflow|px-|py-|items-|gap-|first:|-mt)/)
+      expect(html).not.toMatch(/max-sm:(gap|rounded|border|bg-|p-|justify)/)
+      expect(html).toContain('@2xl:sr-only')
+    }
+  })
+
+  it('extended=false, только чтение: доп. сведения не выводятся', async () => {
+    await mount([doc({ docNumber: '1', formBlankNumber: 'Б-7' })], { extended: false, readonly: true })
+    expect(w.find('[data-doc44-extras]').exists()).toBe(false)
   })
 })

@@ -77,7 +77,8 @@ async function lookup() {
   if (!c) return
   finding.value = true
   try {
-    const res = await tnvedApi.node(c)
+    // Тихо: не нашёлся — открывается справочник с этим кодом, тост сервера не нужен.
+    const res = await tnvedApi.node(c, { silent: true })
     // Неполный код (напр. 6 знаков) — не лист: справочник с этим кодом, чтобы выбрать 10-значный.
     if (!res.data.is10) {
       openPicker(c)
@@ -138,9 +139,11 @@ const readRows = computed(() => {
 })
 
 // Ряды полей: 6 колонок (телефон — две), код с кнопками шире описаний, страна/тип/валюта — три.
-const row1 = 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6'
-const row2 = 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]'
+const row1 = 'grid grid-cols-2 gap-3 sm:grid-cols-3 @2xl:grid-cols-6'
+const row2 = 'grid grid-cols-1 gap-3 sm:grid-cols-2 @2xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]'
 const row3 = 'grid grid-cols-1 gap-3 sm:grid-cols-3'
+// Колонки — по ширине карточки (@container), не окна: карточка живёт и на всю страницу записи (4б),
+// и в половине экрана рядом с документом (редактор партии, 4в).
 const readRowClass = [row1, row2, row3]
 const badge = 'inline-flex size-[22px] shrink-0 items-center justify-center rounded-field bg-surface text-xs font-semibold text-ink tabular-nums shadow-[inset_0_0_0_1px_var(--color-line-strong)]'
 const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden transition-colors hover:bg-tone-danger-bg hover:text-tone-danger-fg focus-visible:shadow-focus max-sm:size-11'
@@ -186,7 +189,7 @@ const sideBtn = 'shrink-0 border border-line-strong bg-surface enabled:hover:bg-
       ><PhX :size="16" aria-hidden="true" /></button>
     </header>
 
-    <div v-if="expanded" :id="bodyId" class="flex flex-col gap-3 p-3.5" data-goods-body>
+    <div v-if="expanded" :id="bodyId" class="@container flex flex-col gap-3 p-3.5" data-goods-body>
       <template v-if="readonly">
         <dl v-for="(row, i) in readRows" :key="i" :class="['m-0', readRowClass[i]]">
           <div v-for="cell in row" :key="cell.label" class="flex min-w-0 flex-col gap-1">
@@ -219,7 +222,7 @@ const sideBtn = 'shrink-0 border border-line-strong bg-surface enabled:hover:bg-
         </div>
 
         <div :class="row2">
-          <ZField :label="t('dt.kodTnved')" :error="codeError" class="sm:col-span-2 lg:col-span-1">
+          <ZField :label="t('dt.kodTnved')" :error="codeError" class="sm:col-span-2 @2xl:col-span-1">
             <div class="flex min-w-0 gap-1.5 max-sm:flex-wrap">
               <ZInput
                 ref="codeInput"

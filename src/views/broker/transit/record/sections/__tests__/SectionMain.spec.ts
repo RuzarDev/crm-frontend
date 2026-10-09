@@ -11,10 +11,10 @@ import SectionMain from '../SectionMain.vue'
 import { ComboStub, POST_LONG_NO_CODE, POST_WITH_CODE, SelectStub, newDraft, primeRefs, refsApi } from './harness'
 
 let w: VueWrapper
-const mount = async (o: { readonly?: boolean; stubs?: boolean; draft?: ReturnType<typeof newDraft> } = {}) => {
+const mount = async (o: { readonly?: boolean; stubs?: boolean; draft?: ReturnType<typeof newDraft>; withPost?: boolean } = {}) => {
   const draft = o.draft ?? newDraft()
   w = mountWithI18n(SectionMain, {
-    props: { draft, readonly: o.readonly ?? false },
+    props: { draft, readonly: o.readonly ?? false, ...(o.withPost === undefined ? {} : { withPost: o.withPost }) },
     attachTo: document.body,
     global: o.stubs === false ? {} : { stubs: { ZSelect: SelectStub, ZCombobox: ComboStub } },
   })
@@ -196,6 +196,18 @@ describe('SectionMain', () => {
     for (const s of w.findAll('[data-select-stub], [data-combo-stub]')) expect(s.attributes('data-disabled')).toBe('true')
     expect(f('isMultimodal').attributes('disabled')).toBeDefined()
     expect(f('isMultimodal').attributes('data-disabled')).toBeDefined()
+  })
+
+  it('withPost=false (партия пакета) — без поля «Пост»; остальные поля на месте', async () => {
+    await mount({ withPost: false })
+    expect(w.find('[data-f="post"]').exists()).toBe(false)
+    expect(w.findAll('label').map((l) => l.text())).not.toContain('Пост')
+    expect(w.find('[data-f="departureCustomsOffice"]').exists()).toBe(true)
+  })
+
+  it('по умолчанию «Пост» есть', async () => {
+    await mount()
+    expect(w.find('[data-f="post"]').exists()).toBe(true)
   })
 
   it('телефон: поля ≥ 44px и одна колонка', async () => {

@@ -18,7 +18,8 @@ import { boxCtl, ctl, grid, ph, str } from './ui'
 // Раздел «Основное» (разбор §2.6 a, b и «Пост»): три группы — декларация, маршрут, итоги. Поля пишут прямо в черновик.
 // Страны хранятся числовым кодом ОКСМ (подпись «398 — Казахстан»), таможня отправления — кодом поста (B.12).
 // Слот lead — над группами (страница новой записи кладёт туда выбор клиента).
-const props = defineProps<{ draft: RecordDraft; readonly: boolean }>()
+// withPost=false — без «Пост» (партия пакета документов: у неё нет строки реестра, «Пост» хранить негде).
+const props = withDefaults(defineProps<{ draft: RecordDraft; readonly: boolean; withPost?: boolean }>(), { withPost: true })
 const { t } = useI18n()
 const tr = (key: string) => t(`broker.transitRecord.main.${key}`)
 
@@ -72,7 +73,7 @@ const onPost = (v: string) => { props.draft.fields[POST_KEY] = str(v) }
           <ZField :label="tr('usedAsDeclaration')">
             <ZSelect :value="draft.transit.usedAsDeclarationCode" :options="usedOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('choose'))" :class="boxCtl" data-f="usedAsDeclarationCode" @update:value="setStr('usedAsDeclarationCode', $event)" />
           </ZField>
-          <ZField :label="tr('post')">
+          <ZField v-if="withPost" :label="tr('post')">
             <ZCombobox :value="draft.fields[POST_KEY]" :options="refs.postOptions.value" allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('postPlaceholder'))" :class="boxCtl" data-f="post" @update:value="onPost" />
           </ZField>
           <ZField :label="tr('departureOffice')" :error="officeError">

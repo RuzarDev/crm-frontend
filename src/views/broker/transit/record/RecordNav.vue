@@ -12,7 +12,16 @@ import { sectionDomId } from './sections/sectionId'
 // раздел, чей верх выше линии ≈ 30% окна; у низа страницы — последний видный; считается на прокрутке (раз в кадр),
 // при монтировании и при возврате на вкладку. Пока идёт прокрутка от клика, пункт клика не перебивается; после неё —
 // один пересчёт. tracking=false (вкладка «Данные» скрыта) — не считается.
-const props = withDefaults(defineProps<{ draft: RecordDraft; tracking?: boolean }>(), { tracking: true })
+// sections — свой набор пунктов (по умолчанию все разделы записи), label — подпись меню. scroller — разделы лежат
+// в своей прокручиваемой области (шторка транзитной декларации партии): прокрутка, линия активации и «низ» — по ней,
+// без шапки оболочки (липкой ленте на узком экране область задаёт --shell-header-h: 0px).
+const props = withDefaults(defineProps<{
+  draft: RecordDraft
+  tracking?: boolean
+  sections?: SectionKey[]
+  scroller?: HTMLElement | null
+  label?: string
+}>(), { tracking: true, sections: () => SECTION_ORDER, scroller: null, label: '' })
 const { t } = useI18n()
 
 const GAP = 16
@@ -22,23 +31,35 @@ const DOT: Record<SectionState, string> = {
   empty: 'bg-line-strong',
 }
 
-const items = computed(() => SECTION_ORDER.map((key) => {
+const items = computed(() => props.sections.map((key) => {
   const count = sectionCount(key, props.draft)
   return { key, state: sectionState(key, props.draft), count: count ? count : null }
 }))
 
-const active = ref<SectionKey>('main')
+const active = ref<SectionKey>(props.sections[0] ?? 'main')
 const root = ref<HTMLElement | null>(null)
 
 const isDesktop = () => (typeof window.matchMedia === 'function' ? window.matchMedia('(min-width: 1024px)').matches : true)
 const reducedMotion = () => (typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false)
 const headerHeight = () => {
+  if (props.scroller) return 0 // своя область: шапки оболочки над ней нет
   const raw = root.value ? getComputedStyle(root.value).getPropertyValue('--shell-header-h') : ''
   const n = parseFloat(raw)
   return Number.isFinite(n) ? n : 64
 }
 /** Сколько сверху занято липкими полосами: шапка оболочки, на узком экране — ещё и лента разделов. */
 const topOffset = () => headerHeight() + (isDesktop() ? 0 : root.value?.offsetHeight ?? 0) + GAP
+
+// Область прокрутки: окно или своя (scroller). Верх области — от верха окна; высота, прокрутка, полная высота.
+const viewTop = () => (props.scroller ? props.scroller.getBoundingClientRect().top : 0)
+const viewHeight = () => (props.scroller ? props.scroller.clientHeight : window.innerHeight)
+const scrollPos = () => (props.scroller ? props.scroller.scrollTop : window.scrollY)
+const fullHeight = () => (props.scroller ? props.scroller.scrollHeight : document.documentElement.scrollHeight)
+const scrollToTop = (top: number) => {
+  const opts: ScrollToOptions = { top: Math.max(0, top), behavior: reducedMotion() ? 'auto' : 'smooth' }
+  if (props.scroller) props.scroller.scrollTo(opts)
+  else window.scrollTo(opts)
+}
 
 const LOCK_MS = 900
 const TRAIL_MS = 200
@@ -55,8 +76,7 @@ const go = (key: SectionKey) => {
   clicked = key
   lockUntil = Date.now() + LOCK_MS
   scheduleTrail(LOCK_MS)
-  const top = el.getBoundingClientRect().top + window.scrollY - topOffset()
-  window.scrollTo({ top: Math.max(0, top), behavior: reducedMotion() ? 'auto' : 'smooth' })
+  scrollToTop(el.getBoundingClientRect().top - viewTop() + scrollPos() - topOffset())
 }
 
 /**
@@ -66,36 +86,41 @@ const go = (key: SectionKey) => {
  */
 const spy = () => {
   if (!props.tracking) return
+  // Область ещё не выложена (шторка открывается): все верхи нулевые — считать не по чему, догонит наблюдатель размера.
+  if (props.scroller && props.scroller.clientHeight === 0) return
   // Идёт прокрутка от клика — подсветка его.
   if (clicked && Date.now() < lockUntil) {
     active.value = clicked
     return
   }
+  // Верх раздела — от верха области прокрутки (у окна — от верха окна).
   const offset = topOffset()
-  const line = Math.max(offset + 1, window.innerHeight * ACTIVATION)
+  const vTop = viewTop()
+  const vH = viewHeight()
+  const line = Math.max(offset + 1, vH * ACTIVATION)
   let current: SectionKey | null = null
   let lastOnScreen: SectionKey | null = null
   const tops = new Map<SectionKey, number>()
-  for (const key of SECTION_ORDER) {
+  for (const key of props.sections) {
     const el = document.getElementById(sectionDomId(key))
     if (!el) continue
-    const top = el.getBoundingClientRect().top
+    const top = el.getBoundingClientRect().top - vTop
     tops.set(key, top)
     if (top <= line) current = key
-    if (top < window.innerHeight) lastOnScreen = key
+    if (top < vH) lastOnScreen = key
   }
-  const docH = document.documentElement.scrollHeight
-  const atBottom = docH > window.innerHeight && Math.ceil(window.scrollY + window.innerHeight) >= docH - BOTTOM_SLACK
+  const docH = fullHeight()
+  const atBottom = docH > vH && Math.ceil(scrollPos() + vH) >= docH - BOTTOM_SLACK
   if (clicked) {
     const top = tops.get(clicked)
-    const inPlace = top !== undefined && (Math.abs(top - offset) <= BOTTOM_SLACK || (atBottom && top < window.innerHeight))
+    const inPlace = top !== undefined && (Math.abs(top - offset) <= BOTTOM_SLACK || (atBottom && top < vH))
     if (inPlace) {
       active.value = clicked
       return
     }
     clicked = null
   }
-  const next = atBottom && lastOnScreen ? lastOnScreen : current ?? SECTION_ORDER[0]
+  const next = atBottom && lastOnScreen ? lastOnScreen : current ?? props.sections[0]
   if (next !== active.value) active.value = next
 }
 
@@ -129,13 +154,38 @@ const onScroll = () => {
 }
 // Вернулись на «Данные» (и при монтировании) — подсветка по текущему положению, не дожидаясь прокрутки.
 watch(() => props.tracking, (on) => { if (on) void nextTick(spy) })
+// Прокрутку слушаем у области (scroller) или у окна; область может появиться позже (шторка смонтировалась).
+// У области ещё и наблюдатель размера: шторка выкладывается позже монтирования меню — подсветка по готовой раскладке.
+let bound: HTMLElement | Window | null = null
+let sizer: ResizeObserver | null = null
+const bindScroll = () => {
+  const target = props.scroller ?? window
+  if (bound === target) return
+  bound?.removeEventListener('scroll', onScroll)
+  sizer?.disconnect()
+  sizer = null
+  target.addEventListener('scroll', onScroll, { passive: true })
+  bound = target
+  if (props.scroller && typeof ResizeObserver === 'function') {
+    sizer = new ResizeObserver(() => onScroll())
+    sizer.observe(props.scroller)
+  }
+}
+watch(() => props.scroller, () => {
+  bindScroll()
+  // Область появилась (ref ставится после монтирования меню) — подсветка по ней, а не по окну.
+  if (props.tracking) void nextTick(spy)
+})
 onMounted(() => {
-  window.addEventListener('scroll', onScroll, { passive: true })
+  bindScroll()
   window.addEventListener('resize', onScroll, { passive: true })
   if (props.tracking) void nextTick(spy)
 })
 onBeforeUnmount(() => {
-  window.removeEventListener('scroll', onScroll)
+  bound?.removeEventListener('scroll', onScroll)
+  bound = null
+  sizer?.disconnect()
+  sizer = null
   window.removeEventListener('resize', onScroll)
   if (frame !== null && typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(frame)
   if (trail !== null) clearTimeout(trail)
@@ -145,7 +195,7 @@ onBeforeUnmount(() => {
 <template>
   <nav
     ref="root"
-    :aria-label="t('broker.transitRecord.nav.label')"
+    :aria-label="label || t('broker.transitRecord.nav.label')"
     class="sticky top-(--shell-header-h,64px) z-[5] -mx-4 min-w-0 max-lg:overflow-x-clip border-b border-line bg-surface px-4 py-2 lg:top-[calc(var(--shell-header-h,64px)+16px)] lg:mx-0 lg:self-start lg:border-0 lg:bg-transparent lg:p-0"
     data-record-nav
   >

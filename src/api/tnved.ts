@@ -38,8 +38,9 @@ export const tnvedApi = {
   children: (parentId = 0) =>
     apiClient.get<TnvedNodeDto[]>('/tnved/children', { params: { parentId } }),
 
-  node: (code: string) =>
-    apiClient.get<TnvedNodeDto>(`/tnved/node/${encodeURIComponent(code)}`),
+  /** silent — без тоста перехватчика (проверка кода у поля: «кода нет» показывает само поле). */
+  node: (code: string, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedNodeDto>(`/tnved/node/${encodeURIComponent(code)}`, quiet(opts)),
 
   path: (code: string) =>
     apiClient.get<TnvedPathNodeDto[]>(`/tnved/path/${encodeURIComponent(code)}`),

@@ -1,7 +1,7 @@
 import { computed, nextTick, reactive, ref, shallowRef, toRaw, watch, type ComputedRef, type Ref } from 'vue'
 import { reestrApi } from '@/api/reestr'
 import { i18n } from '@/i18n'
-import type { ReestrEntry, ReestrTransitFields } from '@/types/api'
+import type { ReestrEntry } from '@/types/api'
 import { message } from '@/ui/message'
 import { serverErrorText } from '@/utils/serverError'
 import {
@@ -10,13 +10,12 @@ import {
   draftFromEntry,
   draftToEntry,
   draftToUpsertBody,
-  goodsTotals,
   mergeDrafts,
   validateDraft,
-  type GoodsTotals,
   type RecordDraft,
   type SectionKey,
 } from './recordModel'
+import { useGoodsTotalsSync } from './goodsTotalsSync'
 
 export const NEW_RECORD_ID = 'new'
 
@@ -51,14 +50,6 @@ const statusOf = (e: unknown): number | undefined => (e as { response?: { status
 const isNotFound = (e: unknown) => [404, 403, 400].includes(statusOf(e) ?? 0)
 const plain = <T>(v: T): T => structuredClone(toRaw(v))
 
-/** Итоги «Основного», которые пересчитываются из товаров. */
-const TOTALS: [keyof GoodsTotals, keyof ReestrTransitFields][] = [
-  ['items', 'goodsQuantity'],
-  ['places', 'cargoPlacesCount'],
-  ['gross', 'grossWeightKg'],
-  ['value', 'totalValue'],
-]
-
 /**
  * Загрузка и сохранение записи транзита для страницы /reestr/:id.
  * - Всегда полная запись (getById) и полное тело PUT: исходная запись + черновик (инцидент 08.10).
@@ -81,6 +72,8 @@ const TOTALS: [keyof GoodsTotals, keyof ReestrTransitFields][] = [
 export function useTransitRecord(id: () => string): TransitRecord {
   const entry = shallowRef<ReestrEntry | null>(null)
   const draft = reactive<RecordDraft>(draftFromEntry(null))
+  // Пересчёт итогов «Основного» при правке товаров (замена списка через setDraft — не правка).
+  const totals = useGoodsTotalsSync(() => draft.goods, () => draft.transit)
   const clientId = ref<string | null>(null)
   const loading = ref(false)
   const notFound = ref(false)
@@ -100,7 +93,6 @@ export function useTransitRecord(id: () => string): TransitRecord {
   /** Поколение записи: меняет только load() — сохранение старой записи не трогает новую. */
   let loadGen = 0
   let snapSeq = 0
-  let lastTotals = goodsTotals(draft.goods)
   /** Идущий reload(): save() его дожидается. */
   let pendingReload: Promise<void> | null = null
 
@@ -108,7 +100,7 @@ export function useTransitRecord(id: () => string): TransitRecord {
   const setDraft = (d: RecordDraft, inPlace = false) => {
     if (inPlace) assignDraft(draft, d)
     else Object.assign(draft, d)
-    lastTotals = goodsTotals(draft.goods) // замена товаров — не правка: итоги не пересчитываются
+    totals.reset() // замена товаров — не правка: итоги не пересчитываются
   }
 
   /** Снимок после nextTick; заданный значением — сразу (поверх оставлены несохранённые правки; null — нет записи). */
@@ -263,7 +255,8 @@ export function useTransitRecord(id: () => string): TransitRecord {
     } catch (e) {
       saving.value = false
       if (gen === loadGen) {
-        saveError.value = serverErrorText(e, t('dt.netSvyazi'))
+        // 5xx и трассировка стека — коротко «ошибка сервера» (сырой текст сервера в плашку не идёт).
+        saveError.value = serverErrorText(e, t('dt.netSvyazi'), { friendly: t('broker.transitRecord.errors.serverShort') })
         saveErrorLocal.value = false
       }
       return null
@@ -306,23 +299,6 @@ export function useTransitRecord(id: () => string): TransitRecord {
     const snap = snapshotDraft.value
     return dirty.value && snap ? changedSections(snap, draft) : []
   })
-
-  // Пересчёт итогов «Основного» при правке товаров (не immediate; замена списка через setDraft — не правка).
-  watch(
-    () => draft.goods,
-    (list) => {
-      const next = goodsTotals(list)
-      const prev = lastTotals
-      lastTotals = next
-      if (!list.length) return
-      const tr = draft.transit as unknown as Record<string, unknown>
-      for (const [from, to] of TOTALS) {
-        const v = next[from]
-        if (v != null && v !== prev[from]) tr[to] = v
-      }
-    },
-    { deep: true },
-  )
 
   // Смена записи — полная перезагрузка; переход на только что созданную (/reestr/new → /reestr/:id) — нет.
   watch(id, (next) => {

@@ -154,10 +154,20 @@ describe('resolveActive', () => {
     ['/billing', 'finance', 'billing'],
     ['/tnved/sync', 'settings', 'tnvedSync'],
     ['/document-packages/1/workspace', 'packages', 'packages'],
+    ['/document-packages/1/partia/p1', 'packages', 'packages'],
+    ['/document-packages/1/partia/new', 'packages', 'packages'],
   ])('%s → %s/%s', (path, section, page) => {
     const r = resolveActive(admin, path)
     expect(r?.section.key).toBe(section)
     expect(r?.page.key).toBe(page)
+  })
+  it('рабочее место и редактор партии подсвечивают «Пакеты документов» и у сотрудника с packages.manage', () => {
+    const m = buildBrokerNav(access({ perms: ['packages.manage'] }))
+    for (const path of ['/document-packages', '/document-packages/7/workspace', '/document-packages/7/partia/p1', '/document-packages/7/partia/new']) {
+      const r = resolveActive(m, path)
+      expect(r?.section.key, path).toBe('packages')
+      expect(r?.page.to, path).toBe('/document-packages')
+    }
   })
   it('граница префикса: /keden-status не равен /keden', () => {
     const m = buildBrokerNav(access({ perms: ['import40.read'] }))

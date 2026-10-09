@@ -78,12 +78,15 @@ export const useReestrStore = defineStore('reestr', () => {
 
   // Текст последней ошибки сохранения записи — форма держит его в постоянной плашке, пока сохранение не пройдёт.
   const saveError = ref<string | null>(null)
+  // 5xx и трассировка стека — коротко «ошибка сервера» (сырой текст сервера в плашку не идёт).
+  const saveErrorText = (error: unknown) =>
+    serverErrorText(error, i18n.global.t('dt.netSvyazi'), { friendly: i18n.global.t('broker.transitRecord.errors.serverShort') })
 
   const create = async (data: ReestrUpsertBody): Promise<boolean> => {
     try {
       await reestrApi.create(data)
     } catch (error) {
-      saveError.value = serverErrorText(error, i18n.global.t('dt.netSvyazi'))
+      saveError.value = saveErrorText(error)
       return false
     }
     saveError.value = null
@@ -97,7 +100,7 @@ export const useReestrStore = defineStore('reestr', () => {
     try {
       await reestrApi.update(id, data)
     } catch (error) {
-      saveError.value = serverErrorText(error, i18n.global.t('dt.netSvyazi'))
+      saveError.value = saveErrorText(error)
       return false
     }
     saveError.value = null

@@ -147,6 +147,8 @@ describe('SectionGoods', () => {
     })
     await mount([good({ tnvedCode: '8471300000' }), good({ tnvedCode: '8471300000' }), good({ tnvedCode: '1902303000' })])
     expect(api.node).toHaveBeenCalledTimes(2)
+    // Проверка тихая: неверный код — ошибка у поля, без тоста перехватчика с текстом сервера.
+    for (const call of api.node.mock.calls) expect(call[1]).toEqual({ silent: true })
     await cards()[2].get('[data-goods-toggle]').trigger('click')
     expect(cards()[2].text()).toContain('Кода нет в справочнике ТН ВЭД')
     expect(cards()[0].text()).not.toContain('Кода нет в справочнике ТН ВЭД')
@@ -181,6 +183,30 @@ describe('SectionGoods', () => {
     expect(api.node).not.toHaveBeenCalled()
     expect(cards()[0].find('input').exists()).toBe(false)
     expect(cards()[0].get('[data-goods-body]').text()).toContain('8471 30 000 0')
+  })
+})
+
+describe('SectionGoods: слот действий', () => {
+  it('слот actions-lead — перед «Из Excel» (страница партии кладёт «Из инвойса»); в чтении не показывается', async () => {
+    const draft = emptyDraft()
+    w = mountWithI18n(SectionGoods, {
+      props: { draft, readonly: false },
+      slots: { 'actions-lead': '<button type="button" data-lead>Из инвойса</button>' },
+      attachTo: document.body,
+      global: { stubs: { ZSelect: SelectStub, TnvedPickerModal: PickerStub } },
+    })
+    await flushPromises()
+    const actions = w.get('[data-section-actions]')
+    expect(actions.find('[data-lead]').exists()).toBe(true)
+    expect(actions.element.firstElementChild?.matches('[data-lead]')).toBe(true)
+    w.unmount()
+    w = mountWithI18n(SectionGoods, {
+      props: { draft, readonly: true },
+      slots: { 'actions-lead': '<button type="button" data-lead>Из инвойса</button>' },
+      global: { stubs: { ZSelect: SelectStub, TnvedPickerModal: PickerStub } },
+    })
+    await flushPromises()
+    expect(w.find('[data-lead]').exists()).toBe(false)
   })
 })
 
