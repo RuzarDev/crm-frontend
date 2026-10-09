@@ -279,7 +279,8 @@ const goTo = async (item: DtReadinessItem) => {
   if (field) {
     flash(field)
     // Фокус — на само поле, а не на «?» справки КТС 257 в подписи (DtGraphHelp, data-dt-guide-trigger).
-    const control = [...field.querySelectorAll<HTMLElement>(FOCUSABLE)].find((el) => !el.closest('[data-dt-guide-trigger]'))
+    // Без tabindex=-1: крестики меток мультивыбора (коды гр. 33, признаки), скрытый input загрузки файла.
+    const control = [...field.querySelectorAll<HTMLElement>(FOCUSABLE)].find((el) => el.tabIndex >= 0 && !el.closest('[data-dt-guide-trigger]'))
     control?.focus({ preventScroll: true })
   }
 }

@@ -31,6 +31,7 @@ vi.mock('@/api/tnved', () => ({ tnvedApi: tnved }))
 vi.mock('@/api/trois', async (orig) => ({ ...(await orig<typeof import('@/api/trois')>()), troisApi: { check: vi.fn(async () => []), search: vi.fn(async () => []) } }))
 vi.mock('@/api/kedenProcedureLists', async (orig) => ({ ...(await orig<typeof import('@/api/kedenProcedureLists')>()), kedenProcedureListsApi: { get: vi.fn(async () => ({})) } }))
 vi.mock('@/api/import40Contract', () => ({ import40ContractApi: contract }))
+vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: { list: vi.fn(async () => []), suggest: vi.fn(async () => ({ tnved: '', codes: [], fetchedAtUtc: null, stale: false, warning: null })) } }))
 vi.mock('@/ui/message', () => ({ message: toast }))
 vi.mock('@/stores/classifiers', () => ({ useClassifiersStore: () => ({ loadMany: vi.fn(async () => undefined), load: vi.fn(async () => []), cache: {}, options: () => [] }) }))
 const brokerFirms = vi.hoisted(() => ({ listBrokerFirms: vi.fn(), getBrokerFirmByBin: vi.fn(), upsertBrokerFirm: vi.fn() }))
@@ -298,6 +299,28 @@ describe('DtPage: готовность', () => {
     const duty = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="prefDutyCode"]') as HTMLElement
     expect(duty.hasAttribute('data-dt-flash')).toBe(true)
     expect(duty.contains(document.activeElement)).toBe(true)
+  })
+
+  it('пункт «коды запретов (гр.33)» — фокус в поле кодов гр. 33, а не в коде ТН ВЭД (тоже гр. 33)', async () => {
+    const text = 'Товар 1: коды запретов и ограничений (гр.33) — хотя бы один, например C1700 / D0100'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '33', goodsIndex: 0 }] }))
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const codes = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="prohibitionCode"]') as HTMLElement
+    expect(codes.hasAttribute('data-dt-flash')).toBe(true)
+    expect(document.activeElement).toBe(codes.querySelector('input[data-f="prohibitionCode"]'))
+  })
+
+  it('пункт «гр.31 доп. сведения — маркировка: …» — к маркировке товара', async () => {
+    const text = 'Товар 1: гр.31 доп. сведения — маркировка: нет ни одного номера (кода) идентификации'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '31', goodsIndex: 0 }] }))
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const marks = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="markings"]') as HTMLElement
+    expect(marks.hasAttribute('data-dt-flash')).toBe(true)
+    expect(marks.contains(document.activeElement)).toBe(true)
   })
 
   it('товар открыт — переход в другой раздел убирает ?item', async () => {
