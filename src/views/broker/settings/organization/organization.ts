@@ -114,6 +114,6 @@ export const formatSavedAt = (iso: string | null | undefined, locale: string, no
   const withYear = d.getFullYear() !== now.getFullYear()
   return new Intl.DateTimeFormat(locale, {
     day: '2-digit', month: '2-digit', ...(withYear ? { year: 'numeric' as const } : {}),
-    hour: '2-digit', minute: '2-digit', hour12: false,
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   }).format(d)
 }

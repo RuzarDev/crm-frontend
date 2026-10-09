@@ -4,7 +4,7 @@ import ZButton from '@/components/z/ZButton.vue'
 // Липкая плашка снизу страницы с несохранёнными правками: текст, «Отменить» и «Сохранить» (загрузка на кнопке).
 // Во всю ширину области страницы (отрицательные поля под отступы оболочки) — поэтому её нельзя класть внутрь
 // предка с overflow-x-clip. На телефоне кнопки на всю ширину, 44px. Стиль — как у RecordSaveBar записи транзита.
-defineProps<{ label: string; text: string; cancelText: string; saveText: string; saving?: boolean; canSave?: boolean }>()
+defineProps<{ label: string; text: string; cancelText: string; saveText: string; saving?: boolean; canSave?: boolean; tone?: 'default' | 'danger' }>()
 const emit = defineEmits<{ cancel: []; save: [] }>()
 </script>
 
@@ -15,8 +15,14 @@ const emit = defineEmits<{ cancel: []; save: [] }>()
     :aria-label="label"
     data-savebar
   >
-    <span aria-hidden="true" class="size-2 shrink-0 rounded-pill bg-gold" />
-    <span class="min-w-0 flex-1 text-[13.5px] text-ink-2 [overflow-wrap:anywhere]" aria-live="polite" data-savebar-text>{{ text }}</span>
+    <span aria-hidden="true" class="size-2 shrink-0 rounded-pill" :class="tone === 'danger' ? 'bg-danger' : 'bg-gold'" />
+    <span
+      class="min-w-0 flex-1 text-[13.5px] [overflow-wrap:anywhere]"
+      :class="tone === 'danger' ? 'text-danger' : 'text-ink-2'"
+      :role="tone === 'danger' ? 'alert' : undefined"
+      :aria-live="tone === 'danger' ? undefined : 'polite'"
+      data-savebar-text
+    >{{ text }}</span>
     <div class="flex items-center gap-2 max-sm:w-full">
       <ZButton variant="ghost" :disabled="saving" class="max-sm:h-11 max-sm:flex-1" data-savebar-cancel @click="emit('cancel')">{{ cancelText }}</ZButton>
       <ZButton variant="primary" :loading="saving" :disabled="!canSave" class="max-sm:h-11 max-sm:flex-1" data-savebar-save @click="emit('save')">{{ saveText }}</ZButton>

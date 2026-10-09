@@ -646,7 +646,7 @@ export default {
           basis: 'Enter the basis',
           vatRate: 'Rate must be {min} to {max}',
         },
-        bar: { label: 'Unsaved changes', changed: 'Unsaved changes · {sections}', cancel: 'Cancel', save: 'Save' },
+        bar: { label: 'Unsaved changes', changed: 'Unsaved changes · {sections}', blocked: 'Cannot save · {error}', cancel: 'Cancel', save: 'Save' },
         saved: 'Details saved',
         saveFailed: 'Could not save the details',
         loadError: 'Could not load',

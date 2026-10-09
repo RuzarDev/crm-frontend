@@ -194,7 +194,45 @@ describe('OrganizationPage: панель несохранённых измене
   })
 })
 
+describe('OrganizationPage: ошибки не прячутся', () => {
+  it('в данных с сервера есть ошибки, правим банк — все ошибки видны, панель говорит, что мешает сохранить', async () => {
+    api.organization.mockResolvedValue(dto({ companyName: '', bin: '123' }))
+    await open()
+    expect(w.text()).not.toContain('Укажите полное наименование') // нетронутая форма не «краснеет»
+    expect(bar().exists()).toBe(false)
+    await type('bank', 'Halyk')
+    expect(w.text()).toContain('Укажите полное наименование')
+    expect(w.text()).toContain('БИН — 12 цифр')
+    expect(saveBtn().attributes('disabled')).toBeDefined()
+    expect(w.get('[data-savebar-text]').text()).toBe('Нельзя сохранить · Укажите полное наименование')
+    await type('companyName', 'ТОО')
+    await type('bin', '180940012345')
+    expect(w.get('[data-savebar-text]').text()).toBe('Есть несохранённые изменения · компания, банк')
+    expect(saveBtn().attributes('disabled')).toBeUndefined()
+  })
+  it('вставка БИК и БИН с пробелами не обрезается', async () => {
+    await open()
+    await type('bik', 'casp kzka')
+    await type('bin', '1809 4001 2346')
+    expect(input('bik').value).toBe('CASPKZKA')
+    expect(input('bin').value).toBe('180940012346')
+    expect(w.text()).not.toContain('БИК — 8')
+    expect(w.text()).not.toContain('БИН — 12 цифр')
+  })
+})
+
 describe('OrganizationPage: сохранение', () => {
+  it('ошибка сохранения краснит панель и уходит со следующей правкой', async () => {
+    api.saveOrganization.mockRejectedValueOnce({ response: { data: { error: 'БИН уже занят' } } })
+    await open()
+    await type('bank', 'Halyk')
+    await saveBtn().trigger('click')
+    await flushPromises()
+    expect(w.get('[data-savebar-text]').classes()).toContain('text-danger')
+    await type('bank', 'Halyk Bank')
+    expect(w.get('[data-savebar-text]').text()).toBe('Есть несохранённые изменения · банк')
+    expect(w.get('[data-savebar-text]').classes()).not.toContain('text-danger')
+  })
   it('отправляет весь DTO (строки без null, ИИК без пробелов, updatedAtUtc), обновляет «Сохранено», тост', async () => {
     await open()
     await type('bank', '  Halyk  ')
@@ -242,7 +280,11 @@ describe('OrganizationPage: только чтение', () => {
     expect(input('companyName').disabled).toBe(true)
     expect(input('bank').disabled).toBe(true)
     expect(input('phone').disabled).toBe(true)
-    expect(input('directorBasisChoice').disabled || input('directorBasisChoice').getAttribute('aria-disabled') === 'true' || input('directorBasisChoice').readOnly).toBe(true)
+    // Список основания не открывается (у доступного поля тот же жест открывает его — см. тест выбора «доверенности»).
+    await field('directorBasisChoice').trigger('keydown', { key: 'ArrowDown' })
+    await field('directorBasisChoice').trigger('click')
+    await nextTick()
+    expect(document.body.querySelectorAll('[role="option"]').length).toBe(0)
     expect(field('vatPayer').attributes('disabled')).toBeDefined()
     expect(bar().exists()).toBe(false)
   })

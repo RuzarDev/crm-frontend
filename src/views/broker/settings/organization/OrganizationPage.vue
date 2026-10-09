@@ -58,15 +58,18 @@ const apply = (data: Partial<OrganizationSettings>) => {
 }
 watch(() => org.data, (d) => { if (d) apply(d) }, { immediate: true })
 onMounted(() => { void org.load() })
+// Новая правка — старая ошибка сохранения неактуальна.
+watch(draft, () => { saveError.value = null }, { deep: true })
 
 const changed = computed(() => new Set(changedFields(saved.value, draft)))
 const dirty = computed(() => changed.value.size > 0)
 const errors = computed(() => validate(draft))
 const hasErrors = computed(() => Object.keys(errors.value).length > 0)
-// Ошибку показываем у тронутого (ушли из поля / правили) поля — пустая свежая форма не «краснеет» целиком.
+// Ошибку показываем у тронутого (ушли из поля) поля, а при любых правках — у всех: «Сохранить» блокирует любая ошибка,
+// и скрытая (старые данные с неверным БИН, пустое наименование на новой установке) оставила бы тупик. Нетронутая форма не «краснеет».
 const errorOf = (k: FieldKey): string | undefined => {
   const code = errors.value[k]
-  if (!code || !(touched.value.has(k) || changed.value.has(k))) return undefined
+  if (!code || !(dirty.value || touched.value.has(k))) return undefined
   return t(`broker.settings.organization.err.${code}`, { min: VAT_MIN, max: VAT_MAX })
 }
 const touch = (k: FieldKey) => { touched.value = new Set(touched.value).add(k) }
@@ -92,6 +95,7 @@ const text = (k: TextKey, map: (v: string) => string = (v) => v, after?: () => v
   'data-org': k,
 })
 const toUpper = (v: string) => v.toUpperCase()
+const stripSpaces = (v: string) => v.replace(/\s+/g, '')
 const groupOnBlur = () => { if (/^[A-Z0-9]+$/.test(compact(draft.iik))) draft.iik = groupIik(draft.iik) }
 const onBasisChoice = (v: unknown) => {
   if (v === 'custom') {
@@ -111,7 +115,13 @@ const basisOptions = computed(() => [
 // ---- Сохранение ----
 const sectionNames = computed(() =>
   changedSections(saved.value, draft).map((s) => t(`broker.settings.organization.sections.${s}.title`).toLocaleLowerCase(locale.value)).join(', '))
-const barText = computed(() => t('broker.settings.organization.bar.changed', { sections: sectionNames.value }))
+const firstError = computed(() => {
+  const k = Object.keys(errors.value)[0] as FieldKey | undefined
+  return k ? t(`broker.settings.organization.err.${errors.value[k]}`, { min: VAT_MIN, max: VAT_MAX }) : ''
+})
+const barText = computed(() => hasErrors.value
+  ? t('broker.settings.organization.bar.blocked', { error: firstError.value })
+  : t('broker.settings.organization.bar.changed', { sections: sectionNames.value }))
 const canSave = computed(() => canEdit.value && dirty.value && !hasErrors.value && !saving.value)
 
 const cancel = () => {
@@ -126,7 +136,7 @@ async function save() {
   saving.value = true
   saveError.value = null
   try {
-    const res = await billingApi.saveOrganization(toPayload(draft, savedMeta.value as OrganizationSettings | null), { silent: true })
+    const res = await billingApi.saveOrganization(toPayload(draft, savedMeta.value), { silent: true })
     apply(res)
     message.success(t('broker.settings.organization.saved'))
   } catch (e) {
@@ -175,7 +185,7 @@ const gridClass = 'grid grid-cols-2 gap-x-3.5 gap-y-4 max-sm:grid-cols-1'
 
 <template>
   <div class="flex min-w-0 flex-col gap-4" data-org-page>
-    <div class="flex max-w-[60rem] flex-wrap items-start gap-x-4 gap-y-2">
+    <div class="flex flex-wrap items-start gap-x-4 gap-y-2">
       <div class="min-w-0">
         <h1 class="m-0 text-[22px] leading-7 font-semibold tracking-[-0.015em] text-ink">{{ t('broker.settings.organization.title') }}</h1>
         <p class="m-0 mt-1 text-sm text-muted [overflow-wrap:anywhere]" data-org-hint>{{ hint }}</p>
@@ -205,7 +215,7 @@ const gridClass = 'grid grid-cols-2 gap-x-3.5 gap-y-4 max-sm:grid-cols-1'
             <ZInput v-bind="text('shortName')" />
           </ZField>
           <ZField :label="t('broker.settings.organization.bin')" :error="errorOf('bin')">
-            <ZInput v-bind="text('bin')" mono :maxlength="12" inputmode="numeric" />
+            <ZInput v-bind="text('bin', stripSpaces)" mono inputmode="numeric" />
           </ZField>
           <ZField class="col-span-2 max-sm:col-span-1" :label="t('broker.settings.organization.legalAddress')">
             <ZInput v-bind="text('legalAddress')" />
@@ -253,7 +263,7 @@ const gridClass = 'grid grid-cols-2 gap-x-3.5 gap-y-4 max-sm:grid-cols-1'
             <ZInput v-bind="text('iik', toUpper, groupOnBlur)" mono :maxlength="30" />
           </ZField>
           <ZField :label="t('broker.settings.organization.bik')" :error="errorOf('bik')">
-            <ZInput v-bind="text('bik', compact)" mono :maxlength="8" />
+            <ZInput v-bind="text('bik', compact)" mono />
           </ZField>
           <ZField :label="t('broker.settings.organization.kbe')" :error="errorOf('kbe')">
             <ZInput v-bind="text('kbe')" mono :maxlength="2" inputmode="numeric" />
@@ -268,7 +278,7 @@ const gridClass = 'grid grid-cols-2 gap-x-3.5 gap-y-4 max-sm:grid-cols-1'
         </div>
         <div :class="gridClass">
           <ZField :label="t('broker.settings.organization.vatPayer')">
-            <ZSwitch :checked="draft.vatPayer" :disabled="!canEdit" class="min-h-9" data-org="vatPayer" @update:checked="set('vatPayer', $event)">
+            <ZSwitch :checked="draft.vatPayer" :disabled="!canEdit" class="min-h-9 max-sm:min-h-11" data-org="vatPayer" @update:checked="set('vatPayer', $event)">
               {{ t(draft.vatPayer ? 'broker.settings.organization.yes' : 'broker.settings.organization.no') }}
             </ZSwitch>
           </ZField>
@@ -296,6 +306,7 @@ const gridClass = 'grid grid-cols-2 gap-x-3.5 gap-y-4 max-sm:grid-cols-1'
       :save-text="t('broker.settings.organization.bar.save')"
       :saving="saving"
       :can-save="canSave"
+      :tone="saveError ? 'danger' : 'default'"
       @cancel="cancel()"
       @save="save()"
     />
