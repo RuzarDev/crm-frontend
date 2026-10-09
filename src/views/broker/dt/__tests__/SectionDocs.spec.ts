@@ -80,25 +80,37 @@ describe('SectionDocs — гр. 40', () => {
     expect(form.prevDocItems[0].docNumber).toBe('KZ-123/A')
   })
 
-  it('товар выбирается из товаров ДТ; хранится порядковым номером строкой («1», «2»), как раньше', async () => {
+  it('«№ товара в предш. документе» — короткое поле, только цифры (номер в ПРЕДШЕСТВУЮЩЕМ документе, не товар этой ДТ)', async () => {
     form.prevDocItems = [{ docTypeCode: '09013', docNumber: 'X1', docDate: null, goodsNumber: null, goodsItemIndex: null, sortOrder: 0 }]
     await mount()
-    const goodsStub = prevRows()[0].get('[data-f="goodsNumber"]')
-    expect(goodsStub.findAll('[data-option]').map((b) => b.text())).toEqual(['Товар 1 · 7318150000', 'Товар 2 · 7318150010'])
-    await goodsStub.get('[data-option="2"]').trigger('click')
-    expect(form.prevDocItems[0].goodsNumber).toBe('2')
-    await goodsStub.get('[data-clear]').trigger('click')
+    expect(prevRows()[0].text()).toContain('№ товара в предш. документе')
+    const input = prevRows()[0].get('[data-f="goodsNumber"]')
+    expect(input.element.tagName).toBe('INPUT')
+    expect(input.attributes('inputmode')).toBe('numeric')
+    expect(input.attributes('maxlength')).toBe('5')
+    expect(input.findAll('[data-option]')).toHaveLength(0) // не выбор из товаров ДТ
+    ;(input.element as HTMLInputElement).value = '1a2'
+    await input.trigger('input')
+    expect(form.prevDocItems[0].goodsNumber).toBe('12')
+    expect((input.element as HTMLInputElement).value).toBe('12')
+    // номер больше числа товаров ДТ — допустим: это номер в другом документе
+    ;(input.element as HTMLInputElement).value = '17'
+    await input.trigger('input')
+    expect(form.prevDocItems[0].goodsNumber).toBe('17')
+    ;(input.element as HTMLInputElement).value = ''
+    await input.trigger('input')
     expect(form.prevDocItems[0].goodsNumber).toBeNull()
   })
 
-  it('старое свободное значение товара остаётся вариантом; удаление перенумеровывает sortOrder', async () => {
+  it('старое свободное значение «№ товара» показывается как есть; удаление перенумеровывает sortOrder', async () => {
     form.prevDocItems = [
       { docTypeCode: null, docNumber: 'A', docDate: null, goodsNumber: '1,2', goodsItemIndex: null, sortOrder: 0 },
       { docTypeCode: null, docNumber: 'B', docDate: null, goodsNumber: null, goodsItemIndex: null, sortOrder: 1 },
       { docTypeCode: null, docNumber: 'C', docDate: null, goodsNumber: null, goodsItemIndex: null, sortOrder: 2 },
     ]
     await mount()
-    expect(prevRows()[0].get('[data-f="goodsNumber"]').attributes('data-value')).toBe('"1,2"')
+    expect((prevRows()[0].get('[data-f="goodsNumber"]').element as HTMLInputElement).value).toBe('1,2')
+    expect(form.prevDocItems[0].goodsNumber).toBe('1,2')
     await prevRows()[0].get('[data-prev-delete]').trigger('click')
     expect(form.prevDocItems.map((p) => [p.docNumber, p.sortOrder])).toEqual([['B', 0], ['C', 1]])
   })
@@ -110,7 +122,9 @@ describe('SectionDocs — гр. 40', () => {
     expect(t).toContain('09013 — Декларация на товары')
     expect(t).toContain('X1')
     expect(t).toContain('12.09.2026')
-    expect(t).toContain('Товар 2 · 7318150010')
+    expect(t).toContain('№ товара в предш. документе')
+    expect(t).not.toContain('Товар 2 · 7318150010')
+    expect(prevRows()[0].get('.font-mono.tabular-nums').text()).toBe('2')
     expect(w.find('button').exists()).toBe(false)
     expect(w.find('input').exists()).toBe(false)
   })

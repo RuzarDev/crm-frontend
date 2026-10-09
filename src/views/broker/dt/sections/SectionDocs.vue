@@ -10,8 +10,8 @@ import type { DtFormState } from '../dtPayload'
 import PrevDocsTable from './PrevDocsTable.vue'
 
 // Документы: гр. 40 (общая декларация / предшествующий документ) и гр. 44 (дополнительная информация, представленные
-// документы). Оба списка правятся прямо в форме. Документ гр. 44 и строка гр. 40 привязываются к товарам по номеру
-// позиции; варианты — «Товар N · код» (код ТН ВЭД, а пока его нет — описание). Готовность раздела отмечает сервер
+// документы). Оба списка правятся прямо в форме. Документ гр. 44 привязывается к товарам по номеру позиции; варианты —
+// «Товар N · код» (код ТН ВЭД, а пока его нет — описание). У гр. 40 «№ товара» — номер в предшествующем документе. Готовность раздела отмечает сервер
 // (нужен хотя бы один документ гр. 44), страница лишь показывает отметку.
 const props = defineProps<{ form: DtFormState; readonly: boolean }>()
 const { t } = useI18n()
@@ -38,7 +38,7 @@ const addBtn = 'self-start max-sm:h-11'
         <span :class="graphTag">{{ t('broker.dt.nav.graphs', { list: '40' }) }}</span>
         <DtGraphHelp graph="40" />
       </h2>
-      <PrevDocsTable ref="prev" :items="form.prevDocItems" :readonly="readonly" :goods-options="goodsOptions" />
+      <PrevDocsTable ref="prev" :items="form.prevDocItems" :readonly="readonly" />
       <ZButton v-if="!readonly" :class="addBtn" data-prev-add @click="prev?.add()">
         <template #icon><PhPlus :size="16" aria-hidden="true" /></template>
         {{ td('prev.add') }}
