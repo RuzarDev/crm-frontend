@@ -217,9 +217,13 @@ const columns = computed(() => ([
         () => h(Button, { size: 'small', type: 'link', danger: true }, () => t('admin.deaktivirovat'))),
   },
 ]))
+// Станции и посты грузятся независимо: сбой одного списка не оставляет второй (и его счётчик) пустым.
 const load = async () => {
-  stations.value = await referencesApi.listStations()
-  posts.value = await referencesApi.listCustomsPosts()
+  const [s, p] = await Promise.allSettled([referencesApi.listStations(), referencesApi.listCustomsPosts()])
+  if (s.status === 'fulfilled') stations.value = s.value
+  if (p.status === 'fulfilled') posts.value = p.value
+  if (s.status === 'rejected') throw s.reason
+  if (p.status === 'rejected') throw p.reason
 }
 const openAdd = (kind: 'station' | 'post') => { currentKind.value = kind; nameInput.value = ''; modalOpen.value = true }
 const save = async () => {
