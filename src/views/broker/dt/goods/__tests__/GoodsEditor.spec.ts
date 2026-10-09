@@ -126,7 +126,7 @@ describe('GoodsEditor: каркас и навигация', () => {
     expect(q('[data-goods-editor-code]')!.textContent).toBe('8471 60 700 0')
     expect(q('[data-goods-editor-caption]')!.textContent).toBe('МЫШИ')
     expect(q('[data-goods-editor-status]')!.getAttribute('data-goods-editor-status')).toBe('stale')
-    expect([...panel()!.querySelectorAll('[data-goods-tab]')].map((b) => b.textContent)).toEqual(['Код и описание', 'Количество и стоимость', 'Упаковка', 'Льготы и процедура', 'Гр. 33', 'Маркировка', 'Доп. сведения'])
+    expect([...panel()!.querySelectorAll('[data-goods-tab]')].map((b) => b.textContent)).toEqual(['Код и описание', 'Количество и стоимость', 'Упаковка', 'Льготы и процедура', 'Гр. 33', 'Маркировка', 'Доп. сведения', 'Платежи'])
     const scope = q('[data-goods-index="1"]')!
     for (const g of ['33', '31', '41', '35', '38', '42', '34', '45', '46']) expect(scope.querySelector(`[data-graph="${g}"]`), g).not.toBeNull()
     // Смонтирован только открытый товар.

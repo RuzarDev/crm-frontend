@@ -290,6 +290,17 @@ describe('DtPage: готовность', () => {
     expect(document.activeElement).toBe(places.querySelector('input'))
   })
 
+  it('пункт «нет ни одной строки платежа (гр.47)» — подсветка платежей товара в редакторе', async () => {
+    const text = 'Товар 1: нет ни одной строки платежа (гр.47)'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '47', goodsIndex: 0 }] }))
+    await open('', ['SectionGoods'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const payments = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="payments"]') as HTMLElement
+    expect(payments.closest('[data-goods-payments-section]')).not.toBeNull()
+    expect(payments.hasAttribute('data-dt-flash')).toBe(true)
+  })
+
   it('пункт «гр. 36 вне списка КЕДЕН» — фокус на поле названной льготы (пошлина), а не на первом поле гр. 36', async () => {
     const text = 'Товар 1: КЕДЕН при процедуре ИМ40 не предлагает гр.36 пошлина «ПП» (есть: ОО, Z)'
     api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '36', goodsIndex: 0 }] }))
