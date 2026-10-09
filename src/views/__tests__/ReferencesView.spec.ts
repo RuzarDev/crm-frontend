@@ -23,6 +23,11 @@ import ReferencesView from '../ReferencesView.vue'
 // Старый экран «Справочники» (AntD): таблица — заглушка со строками, остальное AntD не регистрируется.
 const TableStub = { props: ['dataSource'], template: '<div data-table><div v-for="r in dataSource" :key="r.id" data-row>{{ r.code ?? r.name }}</div></div>' }
 const item = (classifierCode: string, code: string): ClassifierItem => ({ id: `${classifierCode}-${code}`, classifierCode, code, nameRu: code, sortOrder: 0, isActive: true })
+const deferred = <T>() => {
+  let resolve!: (v: T) => void
+  const promise = new Promise<T>((r) => { resolve = r })
+  return { promise, resolve }
+}
 
 let w: VueWrapper
 const mountView = async () => {
@@ -51,5 +56,18 @@ describe('ReferencesView (старый экран) — регрессии', () =
     api.listStations.mockRejectedValue(new Error('500'))
     await mountView()
     expect(navItem('Таможенные посты').find('.refs-nav-count').text()).toBe('3')
+  })
+
+  it('быстрое переключение классификаторов: поздний ответ прежнего не подменяет строки нового', async () => {
+    await mountView()
+    const slow = deferred<ClassifierItem[]>()
+    api.listClassifiers.mockImplementationOnce(() => slow.promise)
+    await navItem('2004 — виды транспорта').trigger('click')
+    await navItem('2013 — виды упаковки').trigger('click')
+    await flushPromises()
+    expect(w.findAll('[data-row]').map((r) => r.text())).toEqual(['20'])
+    slow.resolve([item('2004', '10')])
+    await flushPromises()
+    expect(w.findAll('[data-row]').map((r) => r.text())).toEqual(['20'])
   })
 })

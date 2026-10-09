@@ -417,10 +417,14 @@ const loadClassifierGroups = async () => {
   }
 }
 
+// Номер запроса: при быстром переключении классификаторов поздний ответ прежнего не подменяет строки нового.
+let classifierSeq = 0
 const loadClassifierItems = async () => {
   const code = selectedClassifier.value[0]
   if (!code) return
-  classifierItems.value = await referencesApi.listClassifiers(code)
+  const my = ++classifierSeq
+  const items = await referencesApi.listClassifiers(code)
+  if (my === classifierSeq) classifierItems.value = items
 }
 
 // Берём код из события, а не из ref, чтобы не зависеть от порядка обновления v-model.
