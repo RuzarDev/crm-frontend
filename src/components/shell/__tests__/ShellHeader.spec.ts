@@ -282,6 +282,17 @@ describe('UserMenu', () => {
     expect(router.currentRoute.value.fullPath).toBe('/profile')
   })
 
+  it('«Уведомления» ведут на /notifications; пункты меню: Профиль, Уведомления, Выйти', async () => {
+    useAuthStore().username = 'admin'
+    w = mountIt(UserMenu)
+    await openMenu()
+    expect([...document.body.querySelectorAll('[role="menuitem"]')].map((e) => e.textContent?.trim()))
+      .toEqual(['Профиль', 'Уведомления', 'Выйти'])
+    menuItem('Уведомления')!.click()
+    await settle()
+    expect(router.currentRoute.value.fullPath).toBe('/notifications')
+  })
+
   it('«Выйти»: сброс уведомлений и бейджа, logout, переход на /login', async () => {
     const auth = useAuthStore()
     auth.username = 'admin'

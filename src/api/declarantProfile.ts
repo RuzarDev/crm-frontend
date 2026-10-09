@@ -18,8 +18,9 @@ export interface DeclarantProfileDto {
 }
 
 export const declarantProfileApi = {
-  get: async (): Promise<DeclarantProfileDto> =>
-    (await apiClient.get<DeclarantProfileDto>('/import40/declarant-profile')).data,
-  update: async (data: DeclarantProfileDto): Promise<DeclarantProfileDto> =>
-    (await apiClient.put<DeclarantProfileDto>('/import40/declarant-profile', data)).data,
+  // silent — ошибку показывает сама карточка (состояние ошибки с «Повторить»), общий тост не нужен.
+  get: async (opts?: { silent?: boolean }): Promise<DeclarantProfileDto> =>
+    (await apiClient.get<DeclarantProfileDto>('/import40/declarant-profile', { silent: opts?.silent })).data,
+  update: async (data: DeclarantProfileDto, opts?: { silent?: boolean }): Promise<DeclarantProfileDto> =>
+    (await apiClient.put<DeclarantProfileDto>('/import40/declarant-profile', data, { silent: opts?.silent })).data,
 }

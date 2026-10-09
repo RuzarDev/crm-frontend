@@ -29,13 +29,22 @@ const permissionMap: Record<string, string> = {
 // Коды событий журнала действий (audit.Add на бэке) — сверено с CRM.API,
 // аудит 2026-09-28 п.7: журнал не должен показывать сырые коды.
 const auditActionMap: Record<string, string> = {
-  'client.invite': 'Приглашение клиента',
-  'client.block': 'Блокировка клиента',
-  'client.unblock': 'Разблокировка клиента',
-  'document.revoke': 'Отзыв документа',
-  'document.sign.upload': 'Загрузка подписанного документа',
-  'invoice.remind': 'Напоминание об оплате счёта',
-  'organization.update': 'Изменение реквизитов организации',
+  'client.invite': 'Пригласил клиента',
+  'client.block': 'Заблокировал клиента',
+  'client.unblock': 'Разблокировал клиента',
+  'document.revoke': 'Отозвал документ',
+  'document.sign.upload': 'Загрузил подписанный документ',
+  'invoice.remind': 'Напомнил об оплате счёта',
+  'organization.update': 'Изменил реквизиты',
+  'user.create': 'Добавил сотрудника',
+  'user.delete': 'Удалил сотрудника',
+  'user.role': 'Сменил тип учётной записи',
+  'user.roles': 'Изменил роли сотрудника',
+  'user.password_reset': 'Выдал временный пароль',
+  'user.password_change': 'Сменил пароль',
+  'user.poa': 'Изменил статус представителя',
+  'role.permissions': 'Изменил права роли',
+  'role.reset': 'Вернул права ролей по умолчанию',
 }
 
 export function formatRole(role: string): string {

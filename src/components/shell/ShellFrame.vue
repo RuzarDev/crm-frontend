@@ -42,6 +42,8 @@ const authStore = useAuthStore()
 const active = computed(() => resolveActive(props.model, route.path))
 const tabsSection = computed(() => {
   const s = active.value?.section
+  // Временный пароль: «Уведомления» закрыты до смены — вкладок личного раздела нет.
+  if (s?.key === 'personal' && authStore.mustChangePassword) return null
   return s && s.pages.length >= 2 ? s : null
 })
 
@@ -56,7 +58,7 @@ const isHome = computed(() => route.path === '/home')
 // ---- Палитра: переходы по всем видимым вкладкам (действия вроде «Оформить поставку» — не переходы) ----
 // computed, а не массив в шаблоне: новый массив на каждый рендер сбрасывал бы активный пункт палитры.
 const destinations = computed<PaletteDestination[]>(() =>
-  allSections(props.model)
+  [...allSections(props.model), props.model.personal]
     .filter((s) => !s.action)
     .flatMap((s) => s.pages.map((p) => ({
       key: `${s.key}:${p.key}`,
@@ -123,7 +125,7 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
 
 <template>
   <div
-    class="min-h-dvh bg-canvas font-sans text-ink lg:flex"
+    class="flex min-h-dvh flex-col bg-canvas font-sans text-ink lg:flex-row"
     :style="rootStyle"
     data-shell-root
     :data-density="comfortable ? 'comfortable' : 'compact'"

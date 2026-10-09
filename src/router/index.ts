@@ -175,7 +175,7 @@ const router = createRouter({
         {
           path: '/notifications',
           name: 'notifications',
-          component: () => import('@/views/NotificationsView.vue'),
+          component: () => import('@/views/personal/NotificationsPage.vue'),
         },
         {
           // Только клиенту транзита — тот же критерий, что и в меню (navModel: buildClientNav, transit).
@@ -230,18 +230,43 @@ const router = createRouter({
           name: 'billing',
           component: () => import('@/views/BillingRoute.vue'),
         },
+        // «Настройки» (волна 5б): пять вкладок на /settings/*. Права — как в navModel и на сервере.
+        // Журнал пока на прежнем экране (его заменит следующая задача волны).
         {
-          path: '/system/audit',
-          name: 'audit-log',
-          component: () => import('@/views/AuditLogView.vue'),
-          meta: { requiresRole: 'administrator' },
+          path: '/settings/team',
+          name: 'settings-team',
+          component: () => import('@/views/broker/settings/team/TeamPage.vue'),
+          meta: { requiresPermission: 'users.read' },
+        },
+        {
+          path: '/settings/roles',
+          name: 'settings-roles',
+          component: () => import('@/views/broker/settings/roles/RolesPage.vue'),
+          meta: { requiresPermission: 'users.read' },
         },
         {
           path: '/settings/organization',
           name: 'organization-settings',
-          component: () => import('@/views/OrganizationSettingsView.vue'),
-          meta: { requiresPermission: 'users.write' },
+          component: () => import('@/views/broker/settings/organization/OrganizationPage.vue'),
+          meta: { requiresAnyPermission: ['finance.read', 'finance.write', 'users.write'] },
         },
+        {
+          path: '/settings/audit',
+          name: 'settings-audit',
+          component: () => import('@/views/broker/settings/audit/AuditPage.vue'),
+          meta: { requiresRole: 'administrator' },
+        },
+        {
+          path: '/settings/system',
+          name: 'settings-system',
+          component: () => import('@/views/broker/settings/system/SystemPage.vue'),
+          meta: { requiresPermission: 'endpoints.read' },
+        },
+        // Прежние адреса: закладки и ссылки продолжают работать.
+        { path: '/users', redirect: '/settings/team' },
+        { path: '/roles', redirect: '/settings/roles' },
+        { path: '/system/audit', redirect: '/settings/audit' },
+        { path: '/system/endpoints', redirect: '/settings/system' },
         {
           // Гейт группы ТН ВЭД — тот же критерий, что и в меню (references.read, плюс
           // admin/client всегда): аудит §8, у маршрутов не было meta вовсе.
@@ -282,27 +307,9 @@ const router = createRouter({
           meta: { requiresPermission: 'tnved.manage' },
         },
         {
-          path: '/roles',
-          name: 'roles',
-          component: () => import('@/views/RolesView.vue'),
-          meta: { requiresPermission: 'users.read' },
-        },
-        {
-          path: '/users',
-          name: 'users',
-          component: () => import('@/views/UsersView.vue'),
-          meta: { requiresPermission: 'users.write' },
-        },
-        {
           path: '/profile',
           name: 'profile',
-          component: () => import('@/views/ProfileView.vue'),
-        },
-        {
-          path: '/system/endpoints',
-          name: 'system-endpoints',
-          component: () => import('@/views/SystemEndpointsView.vue'),
-          meta: { requiresPermission: 'endpoints.read' },
+          component: () => import('@/views/personal/ProfilePage.vue'),
         },
         {
           // «Данные системы» (администратор): ?item= — выбранный справочник, классификатор (cls:<код>) или реестр.
@@ -328,6 +335,7 @@ router.beforeEach((to, _from, next) => {
     canUseImport40: authStore.canUseImport40,
     canUseSales: authStore.canUseSales,
     isFinanceOnly: authStore.isFinanceOnly,
+    mustChangePassword: authStore.mustChangePassword,
   })
   if (target) next(target)
   else next()

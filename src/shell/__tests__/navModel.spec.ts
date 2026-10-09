@@ -33,7 +33,7 @@ describe('buildBrokerNav', () => {
       'finance:financeOverview,billing',
       'analytics:analytics',
       'references:tnvedTree,currencies,npa,timeline,dtGuide,systemData',
-      'settings:users,roles,organization,audit,apiCatalog',
+      'settings:team,roles,organization,audit,system',
     ])
   })
 
@@ -49,7 +49,8 @@ describe('buildBrokerNav', () => {
 
   it('бухгалтер (только финансы): без заявок/транзита/справочников', () => {
     const m = buildBrokerNav(access({ perms: ['finance.read', 'import40.read', 'reestr.read'], isFinanceOnly: true }))
-    expect(keys(m)).toEqual(['home:home', 'finance:financeOverview,billing'])
+    // finance.read открывает просмотр «Организации» в «Настройках» (как на сервере).
+    expect(keys(m)).toEqual(['home:home', 'finance:financeOverview,billing', 'settings:organization'])
   })
 
   it('руководитель: вкладка «Распределение» в заявках', () => {
@@ -79,6 +80,36 @@ describe('buildBrokerNav', () => {
     const m = buildBrokerNav(access({ role: 'expeditor' }))
     expect(m.groups.map((g) => g.key)).toEqual(['main', 'operations'])
     expect(m.bottom).toEqual([])
+  })
+})
+
+describe('раздел «Настройки»: вкладки по правам', () => {
+  const settings = (o: Partial<NavAccess> & { perms?: string[] }) =>
+    allSections(buildBrokerNav(access(o))).find((s) => s.key === 'settings')?.pages.map((p) => `${p.key}=${p.to}`)
+
+  it('адреса вкладок и порядок', () => {
+    expect(settings({ role: 'administrator' })).toEqual([
+      'team=/settings/team', 'roles=/settings/roles', 'organization=/settings/organization',
+      'audit=/settings/audit', 'system=/settings/system',
+    ])
+  })
+  it('команда и роли — users.read; организация — finance.read | finance.write | users.write; система — endpoints.read', () => {
+    expect(settings({ perms: ['users.read'] })).toEqual(['team=/settings/team', 'roles=/settings/roles'])
+    expect(settings({ perms: ['users.write'] })).toEqual(['organization=/settings/organization'])
+    expect(settings({ perms: ['finance.read'] })).toEqual(['organization=/settings/organization'])
+    expect(settings({ perms: ['finance.write'] })).toEqual(['organization=/settings/organization'])
+    expect(settings({ perms: ['endpoints.read'] })).toEqual(['system=/settings/system'])
+  })
+  it('журнал — только администратор; без единой вкладки раздел скрыт', () => {
+    expect(settings({ perms: ['users.read', 'users.write', 'endpoints.read', 'roles.manage'] })?.some((x) => x.startsWith('audit'))).toBe(false)
+    expect(settings({ perms: ['reestr.read'] })).toBeUndefined()
+    expect(buildBrokerNav(access({ perms: ['reestr.read'] })).bottom).toEqual([])
+  })
+  it('личный раздел есть всегда, в боковое меню и allSections не входит', () => {
+    const m = buildBrokerNav(access({ perms: [] }))
+    expect(m.personal.pages.map((p) => `${p.key}=${p.to}`)).toEqual(['profile=/profile', 'notifications=/notifications'])
+    expect(allSections(m).some((s) => s.key === 'personal')).toBe(false)
+    expect(m.bottom.some((s) => s.key === 'personal')).toBe(false)
   })
 })
 
@@ -148,7 +179,6 @@ describe('resolveActive', () => {
   const admin = buildBrokerNav(access({ role: 'administrator' }))
   it.each([
     ['/home', 'home', 'home'],
-    ['/notifications', 'home', 'home'],
     ['/import-40', 'requests', 'requests'],
     ['/import-40/abc', 'requests', 'requests'],
     ['/import-40/abc/dt/1', 'requests', 'requests'],
@@ -181,7 +211,27 @@ describe('resolveActive', () => {
     expect(resolveActive(m, '/keden-status')?.page.key).toBe('kedenStatuses')
   })
   it('неизвестный путь — null', () => {
-    expect(resolveActive(admin, '/profile')).toBeNull()
+    expect(resolveActive(admin, '/nowhere')).toBeNull()
+  })
+  it('«Настройки»: новые адреса и вложенные страницы подсвечивают свою вкладку', () => {
+    for (const [path, page] of [
+      ['/settings/team', 'team'], ['/settings/team/42', 'team'], ['/settings/roles', 'roles'],
+      ['/settings/organization', 'organization'], ['/settings/audit', 'audit'], ['/settings/system', 'system'],
+    ] as const) {
+      const r = resolveActive(admin, path)
+      expect(r?.section.key, path).toBe('settings')
+      expect(r?.page.key, path).toBe(page)
+    }
+  })
+  it('личный раздел: /profile и /notifications — вкладки «Личное», «Главная» на /notifications не горит', () => {
+    for (const m of [admin, buildClientNav(access({ role: 'client' }))]) {
+      expect(resolveActive(m, '/profile')?.section.key).toBe('personal')
+      expect(resolveActive(m, '/profile')?.page.key).toBe('profile')
+      expect(resolveActive(m, '/notifications')?.section.key).toBe('personal')
+      expect(resolveActive(m, '/notifications')?.page.key).toBe('notifications')
+    }
+    const trOnly = buildClientNav(access({ role: 'client', clientHasModule: (x) => x === 'transit' }))
+    expect(resolveActive(trOnly, '/notifications')?.section.key).toBe('personal')
   })
   it('клиент: /import-40/company — «Моя компания», а не «Мои поставки»', () => {
     const m = buildClientNav(access({ role: 'client' }))
@@ -194,6 +244,6 @@ describe('resolveActive', () => {
 const get = (o: unknown, k: string) => k.split('.').reduce<unknown>((x, p) => (x as Record<string, unknown> | undefined)?.[p], o)
 it('все подписи меню есть в трёх словарях', () => {
   const ks = [buildBrokerNav(access({ role: 'administrator' })), buildClientNav(access({ role: 'client', clientHasModule: () => true }))]
-    .flatMap((m) => [...m.groups.map((g) => g.labelKey).filter(Boolean) as string[], ...allSections(m).flatMap((s) => [s.labelKey, ...s.pages.map((p) => p.labelKey)])])
+    .flatMap((m) => [...m.groups.map((g) => g.labelKey).filter(Boolean) as string[], ...[...allSections(m), m.personal].flatMap((s) => [s.labelKey, ...s.pages.map((p) => p.labelKey)])])
   for (const d of [ru, kk, en]) for (const k of ks) expect(typeof get(d, k), k).toBe('string')
 })

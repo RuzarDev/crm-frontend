@@ -29,6 +29,8 @@ export interface LoginResponse {
   businessRoles?: string[]
   /** Клиент: модули для меню — 'import40' | 'transit' */
   modules?: string[]
+  /** Вошёл по временному паролю: до смены доступны только профиль и вход. */
+  mustChangePassword?: boolean
 }
 
 export interface BulkDeleteResponse {
@@ -98,6 +100,19 @@ export interface CatalogSalespersonRow {
   clients: CatalogLinkedPerson[]
 }
 
+// «Команда» (волна 5б): GET /users/team — сотрудники одной выборкой, отсортированы по имени.
+export interface TeamMemberDto {
+  id: string
+  username: string
+  displayName: string | null
+  /** Системный тип аккаунта: administrator / broker / importer / sales (expeditor и client — отдельные вкладки). */
+  systemRole: string
+  businessRoles: string[]
+  createdAtUtc: string
+  isPoaRepresentative: boolean
+  clientCount: number
+}
+
 export type CatalogTabKey = 'administrators' | 'staff' | 'brokers' | 'clients' | 'expeditors' | 'importers' | 'salespersons'
 
 export type CatalogTableRow =
@@ -107,11 +122,6 @@ export type CatalogTableRow =
   | CatalogExpeditorRow
   | CatalogImporterRow
   | CatalogSalespersonRow
-
-export interface LinkUsersRequest {
-  staffUserId: string
-  clientUserId: string
-}
 
 export interface EditBrokerRequest {
   username: string | null
@@ -607,11 +617,6 @@ export interface ChangeDocumentPackageStatusRequest {
   reviewComment?: string | null
 }
 
-export interface RoleItem {
-  name: string
-  permissions: string[]
-}
-
 export interface ExtractionHeaderValuesDto {
   consignee: string | null
   shipper: string | null
@@ -675,22 +680,6 @@ export interface AppliedEntryDto {
 
 export interface ApplyExtractionResponse {
   entries: AppliedEntryDto[]
-}
-
-export interface CreateRoleRequest {
-  name: string
-  permissions: string[]
-}
-
-export interface UpdateRolePermissionsRequest {
-  permissions: string[]
-}
-
-export interface RegisterRequest {
-  username: string
-  password: string
-  role: string
-  businessRole?: string
 }
 
 export interface RefItem {

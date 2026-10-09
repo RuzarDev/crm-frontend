@@ -12,6 +12,7 @@ const auth = (o: Partial<GuardAuth> & { perms?: string[] } = {}): GuardAuth => {
     canUseImport40: o.canUseImport40 ?? (role === 'administrator' || perms.includes('import40.read')),
     canUseSales: o.canUseSales ?? (role === 'administrator' || perms.includes('sales.read')),
     isFinanceOnly: o.isFinanceOnly ?? false,
+    mustChangePassword: o.mustChangePassword ?? false,
   }
 }
 
@@ -96,5 +97,38 @@ describe('guardRedirect', () => {
   })
   it('/home открыта всем вошедшим', () => {
     expect(guardRedirect('/home', {}, auth({ role: 'sales' }))).toBeNull()
+  })
+  it('requiresAnyPermission: хватает любого из прав; администратору можно', () => {
+    const meta = { requiresAnyPermission: ['finance.read', 'finance.write', 'users.write'] }
+    expect(guardRedirect('/settings/organization', meta, auth())).toBe('/')
+    for (const perm of ['finance.read', 'finance.write', 'users.write'])
+      expect(guardRedirect('/settings/organization', meta, auth({ perms: [perm] })), perm).toBeNull()
+    expect(guardRedirect('/settings/organization', meta, auth({ perms: ['users.read'] }))).toBe('/')
+    expect(guardRedirect('/settings/organization', meta, auth({ role: 'administrator' }))).toBeNull()
+  })
+  it('новые адреса «Настроек»: журнал — администратору, система — endpoints.read', () => {
+    expect(guardRedirect('/settings/audit', { requiresRole: 'administrator' }, auth())).toBe('/')
+    expect(guardRedirect('/settings/audit', { requiresRole: 'administrator' }, auth({ role: 'administrator' }))).toBeNull()
+    expect(guardRedirect('/settings/system', { requiresPermission: 'endpoints.read' }, auth())).toBe('/')
+    expect(guardRedirect('/settings/system', { requiresPermission: 'endpoints.read' }, auth({ perms: ['endpoints.read'] }))).toBeNull()
+  })
+})
+
+describe('guardRedirect: обязательная смена временного пароля', () => {
+  const must = auth({ mustChangePassword: true, role: 'administrator' })
+  it('любой адрес, кроме /profile и /login, ведёт на /profile?tab=password', () => {
+    for (const p of ['/', '/home', '/users', '/settings/team', '/import-40/abc', '/notifications', '/forgot-password'])
+      expect(guardRedirect(p, p === '/forgot-password' ? { requiresAuth: false } : {}, must), p).toBe('/profile?tab=password')
+  })
+  it('/profile и /login пропускаются, цикла нет', () => {
+    expect(guardRedirect('/profile', {}, must)).toBeNull()
+    expect(guardRedirect('/login', { requiresAuth: false }, must)).toBeNull()
+  })
+  it('без флага всё как прежде; без входа — на /login', () => {
+    expect(guardRedirect('/home', {}, auth())).toBeNull()
+    expect(guardRedirect('/home', {}, auth({ isAuthenticated: false, mustChangePassword: true }))).toBe('/login')
+  })
+  it('перекрывает стену финансиста', () => {
+    expect(guardRedirect('/reestr', {}, auth({ isFinanceOnly: true, mustChangePassword: true }))).toBe('/profile?tab=password')
   })
 })

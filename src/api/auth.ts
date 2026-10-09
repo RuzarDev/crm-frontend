@@ -18,7 +18,11 @@ export const authApi = {
     return response.data
   },
 
-  changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
-    await apiClient.post('/auth/change-password', { currentPassword, newPassword })
+  // Сервер отвечает новым AuthResponse (токен с новой версией сессии) или пустым телом — тогда null.
+  // silent — текст отказа («Текущий пароль неверный») показывает сама карточка пароля на месте.
+  changePassword: async (currentPassword: string, newPassword: string, opts?: { silent?: boolean }): Promise<LoginResponse | null> => {
+    const response = await apiClient.post<LoginResponse | '' | null>('/auth/change-password', { currentPassword, newPassword }, { silent: opts?.silent })
+    const data = response.data
+    return data && typeof data === 'object' && 'accessToken' in data ? data : null
   },
 }

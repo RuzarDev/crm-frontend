@@ -181,7 +181,7 @@ const h2 = 'text-[15px] leading-6 font-semibold tracking-[-0.005em] text-ink'
             <h2 :class="[h2, 'm-0']">{{ t('broker.analytics.events.title') }}</h2>
             <RouterLink
               v-if="isAdmin"
-              to="/system/audit"
+              to="/settings/audit"
               class="inline-flex items-center rounded-field text-[13px] text-zircon-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
               data-analytics-journal
             >{{ t('broker.analytics.events.journal') }}</RouterLink>

@@ -181,7 +181,7 @@ describe('«Аналитика»: последние события', () => {
     as('Administrator', [])
     await mountView()
     const link = w.get('[data-analytics-journal]')
-    expect(link.attributes('href')).toBe('/system/audit')
+    expect(link.attributes('href')).toBe('/settings/audit')
     expect(link.text()).toBe('Журнал')
     expect(w.findAll('[data-analytics-event-link]')).toHaveLength(3)
   })

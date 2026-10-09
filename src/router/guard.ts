@@ -8,6 +8,8 @@ export interface GuardAuth {
   canUseImport40: boolean
   canUseSales: boolean
   isFinanceOnly: boolean
+  /** Вошёл по временному паролю: до смены доступны только /profile и /login. */
+  mustChangePassword?: boolean
 }
 
 // Финансист видит только платежи и документы: операционные разделы закрыты
@@ -15,12 +17,19 @@ export interface GuardAuth {
 const FINANCE_BLOCKED = ['/import-40', '/reestr', '/document-packages', '/keden', '/tnved', '/dt-guide', '/requests-registry']
 
 /** Куда перенаправить; `null` — пропустить как есть. */
+export const MUST_CHANGE_PASSWORD_TARGET = '/profile?tab=password'
+
 export function guardRedirect(path: string, meta: Record<string, unknown>, a: GuardAuth): string | null {
+  // Временный пароль (волна 5б): пока не сменён, всё, кроме профиля и входа, ведёт на смену пароля.
+  if (a.mustChangePassword && a.isAuthenticated) {
+    return path === '/profile' || path === '/login' ? null : MUST_CHANGE_PASSWORD_TARGET
+  }
   if (a.isFinanceOnly && FINANCE_BLOCKED.some((prefix) => path.startsWith(prefix))) {
     return '/finance'
   }
   const requiresAuth = meta.requiresAuth !== false
   const requiredPermission = meta.requiresPermission as string | undefined
+  const requiredAnyPermission = meta.requiresAnyPermission as string[] | undefined
   const requiredRole = meta.requiresRole as string | undefined
   const requiredAnyRole = meta.requiresAnyRole as string[] | undefined
   const requiresImport40 = meta.requiresImport40 === true
@@ -77,6 +86,8 @@ export function guardRedirect(path: string, meta: Record<string, unknown>, a: Gu
   } else if (requiresSales && !a.canUseSales) {
     return '/'
   } else if (requiredPermission && !a.hasPermission(requiredPermission)) {
+    return '/'
+  } else if (requiredAnyPermission && !requiredAnyPermission.some((p) => a.hasPermission(p))) {
     return '/'
   } else if (path === '/login' && a.isAuthenticated) {
     return '/'

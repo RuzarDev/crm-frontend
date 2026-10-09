@@ -9,10 +9,24 @@ declare module 'axios' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
   export interface AxiosRequestConfig<D = any> {
     silent?: boolean
+    /** Запрос уже повторён с новым токеном после 401 (см. перехватчик) — второй раз не повторяем. */
+    _replayed?: boolean
   }
 }
 
 const t = (key: string) => i18n.global.t(key)
+
+// Сервер закрыл все адреса, пока не сменён временный пароль: 403 с этим кодом. Роутер и стор берём лениво —
+// они сами импортируют клиент (цикл). Тоста нет: экран профиля сам объясняет, что делать.
+const MUST_CHANGE_PASSWORD = 'Auth.MustChangePassword'
+const PASSWORD_TARGET = '/profile?tab=password'
+const goChangePassword = async () => {
+  try {
+    const [{ useAuthStore }, { default: router }] = await Promise.all([import('@/stores/auth'), import('@/router')])
+    useAuthStore().setMustChangePassword(true)
+    if (router.currentRoute.value.path !== '/profile') await router.push(PASSWORD_TARGET)
+  } catch { /* перехват не должен ломать исходный отказ запроса */ }
+}
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
@@ -69,12 +83,24 @@ export const extractServerText = (data: unknown): string | null => {
   return null
 }
 
+// Токен, с которым запрос ушёл на сервер (заголовок мог быть AxiosHeaders или обычным объектом).
+const sentToken = (config: InternalAxiosRequestConfig | undefined): string | null => {
+  const h = config?.headers as { get?: (name: string) => unknown; Authorization?: unknown } | undefined
+  const raw = typeof h?.get === 'function' ? h.get('Authorization') : h?.Authorization
+  return typeof raw === 'string' && raw.startsWith('Bearer ') ? raw.slice(7) : null
+}
+
 apiClient.interceptors.response.use(
   (response) => {
     // Скользящая сессия: бэк присылает свежий токен, когда у текущего осталось < половины срока.
+    // Принимаем его только если запрос ушёл с тем токеном, что лежит сейчас: поздний ответ на запрос со старым токеном
+    // (после смены пароля уже выдан новый) иначе затёр бы новый токен старой версии, и следующий запрос дал бы 401.
     const refreshed = response.headers?.['x-refreshed-token']
     if (typeof refreshed === 'string' && refreshed) {
-      try { localStorage.setItem('authToken', refreshed) } catch { /* private mode */ }
+      try {
+        const sent = sentToken(response.config)
+        if (sent && sent === localStorage.getItem('authToken')) localStorage.setItem('authToken', refreshed)
+      } catch { /* private mode */ }
     }
     return response
   },
@@ -86,6 +112,18 @@ apiClient.interceptors.response.use(
       const serverText = extractServerText(error.response.data)
       const requestUrl = error.config?.url || ''
       const isLoginRequest = requestUrl.includes('/auth/login')
+
+      // Смена пароля (и скользящее обновление) выдаёт новый токен, а старый сразу перестаёт действовать: запрос,
+      // ушедший со старым до получения нового, получает 401 — это не конец сессии. Повторяем его один раз с
+      // нынешним токеном (запрос отклонён, ничего не выполнялось); повтор снова 401 — уже настоящий обрыв.
+      if (status === 401 && !isLoginRequest && error.config && !error.config._replayed) {
+        const sent = sentToken(error.config)
+        const current = localStorage.getItem('authToken')
+        if (sent && current && sent !== current) {
+          error.config._replayed = true
+          return apiClient.request(error.config)
+        }
+      }
 
       if (status === 401) {
         if (isLoginRequest) {
@@ -101,11 +139,13 @@ apiClient.interceptors.response.use(
           sessionExpiredHandled = true
           localStorage.removeItem('authToken')
           localStorage.removeItem('username')
+          localStorage.removeItem('mustChangePassword')
           if (!silent) errorToast('session-expired', t('errors.sessionExpired'))
           window.location.href = '/login'
         }
       } else if (status === 403) {
-        if (!silent) errorToast('forbidden', serverText || t('errors.forbidden'))
+        if (error.response.data?.title === MUST_CHANGE_PASSWORD) void goChangePassword()
+        else if (!silent) errorToast('forbidden', serverText || t('errors.forbidden'))
       } else if (status === 404) {
         if (!silent) errorToast('not-found', serverText || t('errors.notFound'))
       } else if (status === 429) {

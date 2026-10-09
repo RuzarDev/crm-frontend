@@ -49,3 +49,33 @@ describe('маршруты записи транзита', () => {
     expect(router.resolve('/reestr/new').params.id).toBe('new')
   })
 })
+
+describe('раздел «Настройки»: адреса и перенаправления', () => {
+  it.each([
+    ['/settings/team', 'settings-team'],
+    ['/settings/roles', 'settings-roles'],
+    ['/settings/organization', 'organization-settings'],
+    ['/settings/audit', 'settings-audit'],
+    ['/settings/system', 'settings-system'],
+  ])('%s → %s', (path, name) => {
+    expect(router.resolve(path).name).toBe(name)
+  })
+
+  it.each([
+    ['/users', '/settings/team'],
+    ['/roles', '/settings/roles'],
+    ['/system/audit', '/settings/audit'],
+    ['/system/endpoints', '/settings/system'],
+  ])('старый адрес %s ведёт на %s', (from, to) => {
+    // resolve() редирект не раскрывает — смотрим запись маршрута
+    expect(router.getRoutes().find((r) => r.path === from)?.redirect).toBe(to)
+  })
+
+  it('права на новых маршрутах', () => {
+    expect(router.resolve('/settings/team').meta.requiresPermission).toBe('users.read')
+    expect(router.resolve('/settings/roles').meta.requiresPermission).toBe('users.read')
+    expect(router.resolve('/settings/audit').meta.requiresRole).toBe('administrator')
+    expect(router.resolve('/settings/system').meta.requiresPermission).toBe('endpoints.read')
+    expect(router.resolve('/settings/organization').meta.requiresAnyPermission).toEqual(['finance.read', 'finance.write', 'users.write'])
+  })
+})
