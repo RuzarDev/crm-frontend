@@ -363,12 +363,91 @@ describe('MemberDrawer: закрытие', () => {
     expect(w.emitted('close')).toHaveLength(1)
   })
 
-  it('крестик (update:open=false) тоже спрашивает; canLeave доступен странице', async () => {
+  it('крестик (update:open=false из панели) тоже спрашивает; при отказе close не уходит', async () => {
     await mountIt()
     await click('[data-member-role="kpp"]')
     api.confirm.mockResolvedValueOnce(false)
-    ;(w.vm as unknown as { canLeave: () => Promise<boolean> }).canLeave().then((ok) => expect(ok).toBe(false))
+    w.findComponent(DrawerStub).vm.$emit('update:open', false)
     await flushPromises()
     expect(api.confirm).toHaveBeenCalledTimes(1)
+    expect(w.emitted('close')).toBeUndefined()
+    w.findComponent(DrawerStub).vm.$emit('update:open', false)
+    await flushPromises()
+    expect(w.emitted('close')).toHaveLength(1)
+  })
+
+  it('canLeave доступен странице: с правками — вопрос, ответ возвращается', async () => {
+    await mountIt()
+    const leave = () => (w.vm as unknown as { canLeave: () => Promise<boolean> }).canLeave()
+    expect(await leave()).toBe(true)
+    await click('[data-member-role="kpp"]')
+    api.confirm.mockResolvedValueOnce(false)
+    expect(await leave()).toBe(false)
+    expect(api.confirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('после закрытия с отказом от правок черновик сброшен: панели нет — вопроса нет, повторное открытие чистое', async () => {
+    await mountIt()
+    await click('[data-member-role="kpp"]')
+    await click('[data-member-cancel]')
+    expect(w.emitted('close')).toHaveLength(1)
+    await w.setProps({ member: null })
+    expect(await (w.vm as unknown as { canLeave: () => Promise<boolean> }).canLeave()).toBe(true)
+    await w.setProps({ member: member() })
+    await flushPromises()
+    expect(checked('kpp')).toBe(false)
+    expect(api.confirm).toHaveBeenCalledTimes(1)
+    await click('[data-member-cancel]')
+    expect(api.confirm).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('MemberDrawer: правки (раунд 1)', () => {
+  it('отметили МПП — блок клиентов появляется сразу, список грузится', async () => {
+    await mountIt(member({ businessRoles: ['kpp'] }))
+    expect(w.find('[data-member-clients-section]').exists()).toBe(false)
+    await click('[data-member-role="mpp"]')
+    expect(w.find('[data-member-clients-section]').exists()).toBe(true)
+    expect(api.linkedClients).toHaveBeenCalledWith('m2', 'importer', { silent: true })
+  })
+
+  it('справочник клиентов пришёл позже привязок — подписи подставляются', async () => {
+    api.linkedClients.mockResolvedValue([{ id: 'c1', username: 'kazakhmys' }])
+    w = mountWithI18n(MemberDrawer, {
+      props: { member: member({ businessRoles: ['mpp'] }), clientOptions: [] },
+      attachTo: document.body,
+      global: { stubs: { ZDrawer: DrawerStub, ZModal: ModalStub } },
+    })
+    await flushPromises()
+    expect(w.get('[data-member-client-name]').text()).toBe('kazakhmys')
+    await w.setProps({ clientOptions: CLIENT_OPTIONS })
+    expect(w.get('[data-member-client-name]').text()).toBe('Казахмыс Трейд')
+  })
+
+  it('сохранение — одно перечитывание списка (только saved); пока идёт, флажки недоступны', async () => {
+    let done!: () => void
+    api.setUserRoles.mockReturnValue(new Promise<void>((r) => { done = r }))
+    await mountIt()
+    await click('[data-member-role="kpp"]')
+    await w.get('[data-member-save]').trigger('click')
+    await flushPromises()
+    expect(role('declarant').attributes('disabled')).toBeDefined()
+    expect(w.get('[data-member-cancel]').attributes('disabled')).toBeDefined()
+    done()
+    await flushPromises()
+    expect(w.emitted('changed')).toBeUndefined()
+    expect(w.emitted('saved')).toHaveLength(1)
+  })
+
+  it('роли сохранились, клиенты нет — changed (список перечитать) и ошибка в панели', async () => {
+    api.linkedClients.mockResolvedValue([{ id: 'c1', username: 'k' }])
+    api.editStaffClients.mockRejectedValue(err(409, 'Не получилось'))
+    await mountIt(member({ businessRoles: ['mpp'] }))
+    await click('[data-member-role="kpp"]')
+    await click('[data-member-client-remove]')
+    await click('[data-member-save]')
+    expect(w.emitted('changed')).toHaveLength(1)
+    expect(w.emitted('saved')).toBeUndefined()
+    expect(w.get('[data-member-error]').text()).toContain('Не получилось')
   })
 })

@@ -36,8 +36,8 @@ const remove = (id: string) => emit('update:value', props.value.filter((v) => v.
       <p v-if="loading" class="m-0 text-sm text-muted" data-member-clients-loading>{{ t('broker.settings.team.drawer.clientsLoading') }}</p>
       <template v-else>
         <ZSelect
-          v-if="!disabled"
           :value="null"
+          :disabled="disabled"
           :options="addable"
           show-search
           :placeholder="t('broker.settings.team.drawer.clientsAdd')"
@@ -52,10 +52,10 @@ const remove = (id: string) => emit('update:value', props.value.filter((v) => v.
           <li v-for="c in value" :key="c.id" class="flex min-h-11 items-center gap-2 border-b border-line py-1 last:border-b-0" data-member-client>
             <span class="min-w-0 flex-1 truncate text-sm text-ink" data-member-client-name>{{ c.label }}</span>
             <button
-              v-if="!disabled"
               type="button"
+              :disabled="disabled"
               :aria-label="t('broker.settings.team.drawer.clientRemove', { name: c.label })"
-              class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-muted outline-hidden hover:text-ink focus-visible:shadow-focus sm:size-8"
+              class="flex size-11 shrink-0 cursor-pointer disabled:cursor-default disabled:opacity-50 items-center justify-center rounded-field border-0 bg-transparent p-0 text-muted outline-hidden hover:text-ink focus-visible:shadow-focus sm:size-8"
               data-member-client-remove
               @click="remove(c.id)"
             >

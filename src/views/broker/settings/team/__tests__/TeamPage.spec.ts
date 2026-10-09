@@ -217,6 +217,40 @@ describe('TeamPage: панель сотрудника', () => {
   })
 })
 
+describe('TeamPage: несохранённое', () => {
+  it('отмена с отказом от правок, затем другая строка — второго вопроса нет', async () => {
+    as('administrator', ['users.read', 'users.assign_role'])
+    api.confirm.mockResolvedValue(true)
+    await mountPage('/settings/team?member=m2')
+    await w.get('[data-member-role="kpp"]').trigger('click')
+    await w.get('[data-member-cancel]').trigger('click')
+    await flushPromises()
+    expect(api.confirm).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.query.member).toBeUndefined()
+    await w.findAll('[data-member-row]')[2].trigger('click')
+    await flushPromises()
+    expect(api.confirm).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.query.member).toBe('m3')
+  })
+
+  it('смена вкладки с несохранёнными правками спрашивает; отказ — остаёмся', async () => {
+    as('administrator', ['users.read', 'users.assign_role'])
+    await mountPage('/settings/team?member=m2')
+    await w.get('[data-member-role="kpp"]').trigger('click')
+    api.confirm.mockResolvedValueOnce(false)
+    await tabBtn(1).trigger('click')
+    await flushPromises()
+    expect(api.confirm).toHaveBeenCalledTimes(1)
+    expect(w.find('[data-team-table="staff"]').exists()).toBe(true)
+    expect(router.currentRoute.value.query.member).toBe('m2')
+    api.confirm.mockResolvedValueOnce(true)
+    await tabBtn(1).trigger('click')
+    await flushPromises()
+    expect(w.find('[data-team-table="clients"]').exists()).toBe(true)
+    expect(router.currentRoute.value.query.member).toBeUndefined()
+  })
+})
+
 describe('TeamPage: клиенты', () => {
   it('компания, логин, статус; кнопки «Добавить клиента» нет; клик ведёт в карточку клиента', async () => {
     await mountPage()

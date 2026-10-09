@@ -96,6 +96,12 @@ const selectMember = async (id: string) => {
 }
 const closeMember = () => { void setMember(null) }
 const onMemberSaved = async () => { await team.load(); closeMember() }
+// С несохранёнными правками в панели смену вкладки подтверждают (тот же вопрос, что при закрытии панели).
+const switchTab = async (v: Tab) => {
+  if (v === tab.value) return
+  if (tab.value === 'staff' && !(await leaveOk())) return
+  tab.value = v
+}
 // Вкладка клиентов или экспедиторов — выбранного сотрудника нет: адрес чистим.
 watch(tab, (v) => { if (v !== 'staff' && memberParam.value) closeMember() })
 
@@ -141,7 +147,7 @@ defineExpose({ selected, closeMember })
         :aria-label="t('broker.settings.team.tabsLabel')"
         class="max-w-full overflow-x-auto [&_button]:whitespace-nowrap"
         data-team-tabs
-        @update:value="tab = $event as Tab"
+        @update:value="switchTab($event as Tab)"
       />
       <ListSearch :value="query" :placeholder="searchPlaceholder" @update:value="query = $event" />
       <FilterChip

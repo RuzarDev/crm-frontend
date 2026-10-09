@@ -143,11 +143,18 @@ const setPoa = async (on: boolean) => {
 }
 
 // ---- Клиенты (МПП / брокер) ----
+// Сервер принимает привязку для любого сотрудника: брокер из таблицы Broker — PUT users/brokers/{id}, остальные (администратор,
+// importer, продажи) — PUT users/staff/{id}/clients. Показываем блок брокеру и тому, у кого есть (или только что отмечена) роль МПП.
 const showClients = computed(() => !!m.value && auth.hasPermission('clients.manage')
-  && (m.value.businessRoles.includes('mpp') || (m.value.systemRole || '').toLowerCase() === 'broker'))
-type Linked = { id: string; label: string }
-const clients = ref<Linked[]>([])
+  && (draftRoles.value.includes('mpp') || (m.value.systemRole || '').toLowerCase() === 'broker'))
+// Черновик — id клиентов; подписи считаются на месте из справочника (он мог прийти позже), иначе — логин из привязки.
+const clientIds = ref<string[]>([])
+const loginById = ref<Record<string, string>>({})
 const clientsBase = ref<string[]>([])
+const clients = computed(() => clientIds.value.map((id) => ({
+  id,
+  label: props.clientOptions.find((o) => o.value === id)?.label ?? loginById.value[id] ?? id,
+})))
 const clientsState = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
 let clientsFor: string | null = null
 const loadClients = async () => {
@@ -158,7 +165,8 @@ const loadClients = async () => {
   try {
     const rows = await usersApi.linkedClients(mem.id, mem.systemRole, { silent: true })
     if (clientsFor !== mem.id) return
-    clients.value = rows.map((c) => ({ id: c.id, label: props.clientOptions.find((o) => o.value === c.id)?.label ?? c.username }))
+    loginById.value = Object.fromEntries(rows.map((c) => [c.id, c.username]))
+    clientIds.value = rows.map((c) => c.id)
     clientsBase.value = rows.map((c) => c.id)
     clientsState.value = 'ready'
   } catch {
@@ -166,7 +174,7 @@ const loadClients = async () => {
     clientsState.value = 'error'
   }
 }
-const clientsDirty = computed(() => clientsState.value === 'ready' && !sameSet(clients.value.map((c) => c.id), clientsBase.value))
+const clientsDirty = computed(() => showClients.value && clientsState.value === 'ready' && !sameSet(clientIds.value, clientsBase.value))
 
 // ---- Состояние сотрудника: сброс при смене / появлении данных ----
 const serverError = ref('')
@@ -177,9 +185,15 @@ const resetState = () => {
   serverError.value = ''
 }
 watch(() => props.member?.id, (id) => {
-  if (!id) return
+  // Панель закрыли: правки не переносим на следующее открытие (иначе «несохранённое» остаётся без панели).
+  if (!id) {
+    draftRoles.value = [...(shown.value?.businessRoles ?? [])]
+    clientIds.value = [...clientsBase.value]
+    serverError.value = ''
+    return
+  }
   profile.value = null; profileState.value = 'idle'; profileFor = null
-  clients.value = []; clientsBase.value = []; clientsState.value = 'idle'; clientsFor = null
+  clientIds.value = []; loginById.value = {}; clientsBase.value = []; clientsState.value = 'idle'; clientsFor = null
   resetState()
   void loadCatalog()
 }, { immediate: true })
@@ -200,13 +214,14 @@ const save = async () => {
   if (!mem || !canSave.value) return
   saving.value = true
   serverError.value = ''
+  let rolesSaved = false
   try {
     if (rolesDirty.value) {
       await permissionsApi.setUserRoles(mem.id, orderRoles(draftRoles.value, roleOrder.value), { silent: true })
-      emit('changed')
+      rolesSaved = true
     }
     if (clientsDirty.value) {
-      const ids = clients.value.map((c) => c.id)
+      const ids = [...clientIds.value]
       if ((mem.systemRole || '').toLowerCase() === 'broker') await usersApi.editBroker(mem.id, { username: null, clientIds: ids }, { silent: true })
       else await usersApi.editStaffClients(mem.id, { clientIds: ids }, { silent: true })
       clientsBase.value = ids
@@ -214,6 +229,8 @@ const save = async () => {
   } catch (err) {
     serverError.value = errText(err)
     saving.value = false
+    // Роли уже на сервере: перечитываем список, повторное сохранение повторит только неудавшееся.
+    if (rolesSaved) emit('changed')
     return
   }
   saving.value = false
@@ -223,7 +240,7 @@ const save = async () => {
 
 // ---- Закрытие с вопросом ----
 const canLeave = async (): Promise<boolean> => {
-  if (!dirty.value) return true
+  if (!props.member || !dirty.value) return true
   return confirm({
     title: t('broker.settings.team.drawer.unsavedTitle'),
     content: t('broker.settings.team.drawer.unsavedBody'),
@@ -290,6 +307,8 @@ const remove = async () => {
   }
 }
 
+// Пока идёт сохранение, удаление или выдача пароля, остальное в панели недоступно.
+const busy = computed(() => saving.value || deleting.value || resetting.value)
 const lockText = computed(() => (rolesLock.value ? t(`broker.settings.team.drawer.rolesLock.${rolesLock.value}`) : ''))
 const sinceText = computed(() => (m.value ? `${m.value.username} · ${t('broker.settings.team.drawer.since', { date: formatDay(m.value.createdAtUtc) })}` : ''))
 </script>
@@ -321,7 +340,7 @@ const sinceText = computed(() => (m.value ? `${m.value.username} · ${t('broker.
           v-for="r in roleOptions"
           :key="r.code"
           :checked="draftRoles.includes(r.code)"
-          :disabled="!!rolesLock"
+          :disabled="!!rolesLock || busy"
           class="min-h-11 items-start gap-2.5 border-b border-line py-2 last:border-b-0"
           :data-member-role="r.code"
           @update:checked="toggleRole(r.code, $event)"
@@ -351,7 +370,7 @@ const sinceText = computed(() => (m.value ? `${m.value.username} · ${t('broker.
           <dd class="m-0 py-2">
             <ZSwitch
               :checked="poa"
-              :disabled="!canAssign || poaBusy"
+              :disabled="!canAssign || poaBusy || busy"
               :aria-label="t('broker.settings.team.drawer.representativeLabel')"
               data-member-poa
               @update:checked="setPoa"
@@ -364,17 +383,18 @@ const sinceText = computed(() => (m.value ? `${m.value.username} · ${t('broker.
         <h3 id="member-clients-h" class="m-0 mb-2 text-sm font-medium text-muted">{{ t('broker.settings.team.drawer.clients') }}</h3>
         <MemberClients
           :value="clients"
+          :disabled="busy"
           :options="clientOptions"
           :loading="clientsState === 'loading' || clientsState === 'idle'"
           :error="clientsState === 'error'"
-          @update:value="clients = $event"
+          @update:value="clientIds = $event.map((c) => c.id)"
           @retry="loadClients()"
         />
       </section>
 
       <section v-if="canReset" aria-labelledby="member-access-h" data-member-access>
         <h3 id="member-access-h" class="m-0 mb-2 text-sm font-medium text-muted">{{ t('broker.settings.team.drawer.access') }}</h3>
-        <ZButton block :loading="resetting" class="max-sm:h-11" data-member-reset @click="resetPassword">
+        <ZButton block :loading="resetting" :disabled="busy" class="max-sm:h-11" data-member-reset @click="resetPassword">
           <template #icon><PhKey :size="16" aria-hidden="true" /></template>
           {{ t('broker.settings.team.drawer.tempIssue') }}
         </ZButton>
@@ -383,8 +403,8 @@ const sinceText = computed(() => (m.value ? `${m.value.username} · ${t('broker.
     </div>
 
     <template #footer>
-      <ZButton v-if="canDelete" variant="danger-ghost" :loading="deleting" class="mr-auto max-sm:h-11" data-member-delete @click="remove">{{ t('broker.settings.team.drawer.delete') }}</ZButton>
-      <ZButton class="max-sm:h-11" data-member-cancel @click="requestClose">{{ t('admin.otmena') }}</ZButton>
+      <ZButton v-if="canDelete" variant="danger-ghost" :loading="deleting" :disabled="busy" class="mr-auto max-sm:h-11" data-member-delete @click="remove">{{ t('broker.settings.team.drawer.delete') }}</ZButton>
+      <ZButton :disabled="busy" class="max-sm:h-11" data-member-cancel @click="requestClose">{{ t('admin.otmena') }}</ZButton>
       <ZButton variant="primary" :loading="saving" :disabled="!canSave" class="max-sm:h-11" data-member-save @click="save">{{ t('broker.settings.team.drawer.save') }}</ZButton>
     </template>
   </ZDrawer>

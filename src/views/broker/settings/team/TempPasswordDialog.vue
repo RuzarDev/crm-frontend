@@ -24,7 +24,8 @@ const copy = async (text: string) => {
     :title="t('broker.settings.team.drawer.tempTitle')"
     :width="460"
     :footer="null"
-    mask-closable
+    :mask-closable="false"
+    :closable="false"
     data-temp-password-dialog
     @update:open="emit('update:open', $event)"
   >
