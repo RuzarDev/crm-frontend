@@ -987,9 +987,11 @@ export const import40Api = {
     return { blob: res.data as Blob, fileName: m ? decodeURIComponent(m[1]) : 'declaration.pdf' }
   },
 
-  kedenReadiness: async (caseId: string, declarationId: string): Promise<KedenReadinessDto> => {
+  // silent — страница ДТ спрашивает готовность фоном после каждого сохранения: сбой — просто без тегов, без тоста.
+  kedenReadiness: async (caseId: string, declarationId: string, opts?: { silent?: boolean }): Promise<KedenReadinessDto> => {
     const { data } = await apiClient.get<KedenReadinessDto>(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/keden-readiness`,
+      opts?.silent ? { silent: true } : undefined,
     )
     return data
   },
