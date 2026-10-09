@@ -23,6 +23,8 @@ export interface ChangeEntry {
   what: ChangeWhat | null
   value: string | null
   countryCode: string | null
+  /** Страна из скобок строки сервера — когда countryCode пуст (сервер не сопоставил название КЕДЕН). */
+  countryText: string | null
   /** Только для старого сервера без структурных полей: подробности, вынутые из строки description. */
   detail: string
   /** Старая строка сервера — запасной текст, когда структуры не хватило. */
@@ -74,6 +76,18 @@ export function parseDescription(description: string | null | undefined): { what
   return { what: null, detail: '' }
 }
 
+const COUNTRY_WHAT: readonly ChangeWhat[] = ['antiDumping', 'compensatory', 'special']
+const capitalizeWords = (s: string): string =>
+  (s === s.toLocaleUpperCase('ru') ? s.toLocaleLowerCase('ru') : s).replace(/(^|[\s-])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toLocaleUpperCase('ru'))
+
+/** Страна специальной пошлины из скобок строки сервера («… пошлина (КИТАЙ) 28.2% — 3 кода…»); нет скобок — null. */
+export function countryFromDescription(description: string | null | undefined): string | null {
+  const head = (description ?? '').split(/\s+—\s+/)[0]
+  const m = /\(([^()]+)\)/.exec(head)
+  const raw = m?.[1].trim()
+  return raw ? capitalizeWords(raw) : null
+}
+
 /** Хронология ТН ВЭД (tnved/timeline): структурные поля сервера, текст строится на экране. */
 export function timelineEntries(items: TnvedTimelineDto[] | null | undefined): ChangeEntry[] {
   return (items ?? []).map((it, i) => {
@@ -83,15 +97,18 @@ export function timelineEntries(items: TnvedTimelineDto[] | null | undefined): C
     const parsed = structured ? { what: null, detail: '' } : parseDescription(it.description)
     const kind: ChangeKind = it.kind === 'ends' || it.typeId === 4 ? 'ends' : 'starts'
     const codes = it.codes ?? []
+    const what: ChangeWhat | null = structured ? (KNOWN_WHAT.includes(it.what!) ? (it.what as ChangeWhat) : null) : (parsed.what ?? WHAT_BY_TYPE[it.typeId] ?? null)
+    const countryCode = it.countryCode?.trim().toUpperCase() || null
     return {
       key: `tl:${date}:${it.typeId}:${codes[0] ?? ''}:${i}`,
       kind,
       date,
       codes,
       moreCodes: Math.max(0, (it.totalCodes ?? codes.length) - codes.length),
-      what: structured ? (KNOWN_WHAT.includes(it.what!) ? (it.what as ChangeWhat) : null) : (parsed.what ?? WHAT_BY_TYPE[it.typeId] ?? null),
+      what,
       value: it.value?.trim() || null,
-      countryCode: it.countryCode?.trim().toUpperCase() || null,
+      countryCode,
+      countryText: structured && !countryCode && what && COUNTRY_WHAT.includes(what) ? countryFromDescription(it.description) : null,
       detail: parsed.detail,
       description: it.description ?? '',
       name: '',
@@ -112,6 +129,7 @@ export function rateChangeEntries(items: TnvedRateChangeDto[] | null | undefined
     what: null,
     value: null,
     countryCode: null,
+    countryText: null,
     detail: '',
     description: '',
     name: cleanName(c.name),
@@ -161,8 +179,9 @@ export function changeText(e: ChangeEntry, t: Translate, locale = 'ru'): string 
   if (e.kind === 'rate') return e.name || formatTnvedCode(e.codes[0] ?? '') || '—'
   if (!e.what) return e.description || '—'
   const what = t(`broker.references.changes.what.${e.what}`)
-  const country = e.countryCode ? ` (${countryName(e.countryCode, locale)})` : ''
-  if (e.value || e.countryCode) return `${what}${country}${e.value ? `: ${e.value}` : ''}`
+  const countryLabel = e.countryCode ? countryName(e.countryCode, locale) : e.countryText
+  const country = countryLabel ? ` (${countryLabel})` : ''
+  if (e.value || countryLabel) return `${what}${country}${e.value ? `: ${e.value}` : ''}`
   if (!e.detail) return what
   return `${what}${e.detail.startsWith('(') ? ' ' : ': '}${e.detail}`
 }

@@ -5,7 +5,7 @@ import en from '@/i18n/locales/en'
 import kk from '@/i18n/locales/kk'
 import type { TnvedTimelineDto } from '@/types/api'
 import {
-  changeText, filterChanges, isoDate, localDay, mergeChanges, parseDescription, rateChangeEntries, timelineEntries, typeKey, typeTone,
+  changeText, countryFromDescription, filterChanges, isoDate, localDay, mergeChanges, parseDescription, rateChangeEntries, timelineEntries, typeKey, typeTone,
   type ChangeFilters,
 } from '../changes'
 
@@ -117,6 +117,25 @@ describe('структурные поля сервера (what / value / country
     expect(changeText(comp, tRu)).toBe('Компенсационная пошлина: 3%')
     expect(changeText(special, tEn)).toBe('Special duty: 1 EUR за 1 КГ')
     expect(changeText(other, tRu)).toBe('С 15.10.2026: что-то')
+  })
+
+  it('страна не сопоставлена (countryCode пуст): берём из скобок строки сервера, значение остаётся', () => {
+    const [ad, general, vto, noBrackets] = timelineEntries([
+      tl({ what: 'antiDumping', value: '28.2%', countryCode: null, description: 'С 15.10.2026: антидемпинговая пошлина (КИТАЙ) 28.2% — 3 кодов: 1, 2' }),
+      tl({ what: 'importDuty', value: '5%', countryCode: null, description: 'С 15.10.2026: ставка ввозной пошлины ЕТТ 5% — 1 код: 1' }),
+      tl({ what: 'vtoDuty', value: '3%', countryCode: null, description: 'С 15.10.2026: пониженная ставка ВТО (перечень изъятий РК) 3% — 1 код: 1' }),
+      tl({ what: 'antiDumping', value: '9%', countryCode: null, description: 'антидемпинговая пошлина 9%' }),
+    ])
+    expect(changeText(ad, tRu)).toBe('Антидемпинговая пошлина (Китай): 28.2%')
+    expect(changeText(general, tRu)).toBe('Ставка ввозной пошлины ЕТТ: 5%')
+    expect(changeText(vto, tRu)).toBe('Пониженная ставка ВТО: 3%')
+    expect(changeText(noBrackets, tRu)).toBe('Антидемпинговая пошлина: 9%')
+    expect(countryFromDescription('x (РЕСПУБЛИКА КОРЕЯ) 3% — 1 код')).toBe('Республика Корея')
+  })
+
+  it('страна по коду главнее строки', () => {
+    const [e] = timelineEntries([tl({ what: 'antiDumping', value: '12%', countryCode: 'cn', description: 'антидемпинговая пошлина (КИТАЙ) 12%' })])
+    expect(changeText(e, tEn, 'en')).toBe('Anti-dumping duty (China): 12%')
   })
 
   it('what без значения — только название', () => {
