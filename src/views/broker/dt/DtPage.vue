@@ -37,7 +37,7 @@ import SectionNumber from './sections/SectionNumber.vue'
 import SectionParties from './sections/SectionParties.vue'
 import SectionTransport from './sections/SectionTransport.vue'
 import { DT_CLASSIFIERS } from './dtClassifiers'
-import { goodsWithLockedCurrency, goodsWithStatUsd } from './dtGoodsRules'
+import { fillStatUsd, lockGoodsCurrency } from './dtGoodsRules'
 import { syncLoadedParties } from './dtParties'
 import {
   adjacentSection, dtsReadinessItems, navMarks, paymentsStale, rateTag, readonlyReason, sectionFromQuery, splitChildren, visibleSections,
@@ -107,7 +107,7 @@ const dt = useDtForm(caseId, dtId, {
     // Как прежний экран при загрузке: гр. 8 / 9 с «Совпадает с декларантом» повторяют гр. 14, валюта товаров = гр. 22
     // (под applying — без автосейва).
     syncLoadedParties(form)
-    lockGoodsCurrency()
+    syncGoodsCurrency()
     void readiness.refresh()
     void refreshDts()
     loadClientProfile(kase)
@@ -151,13 +151,15 @@ watch(goodsOriginKey, (key) => {
 // без них XML, печать, расчёты и PUT из шапки шли бы со старой валютой и пустой гр. 46.
 // Валюта товаров = гр. 22, когда она задана (Пакет 6 №4): при загрузке — в onLoaded, дальше — на любую смену гр. 22
 // или валюты товара (добавление, Excel).
-function lockGoodsCurrency() {
-  const next = goodsWithLockedCurrency(form.goodsItems, form.currency)
-  if (next) form.goodsItems = next
+// Правила правят товары на месте (ключи товаров не меняются); новый массив с теми же объектами — только для
+// прежнего раздела товаров (держит строки-копии и пересобирает их по смене массива) до его замены в волне 6б.
+const touchGoods = () => { form.goodsItems = [...form.goodsItems] }
+function syncGoodsCurrency() {
+  if (lockGoodsCurrency(form.goodsItems, form.currency)) touchGoods()
 }
 watch(
   () => `${form.currency ?? ''}#${form.goodsItems.map((g) => g.currency ?? '').join('|')}`,
-  () => { if (!dt.applying.value) lockGoodsCurrency() },
+  () => { if (!dt.applying.value) syncGoodsCurrency() },
 )
 // гр. 46 пустая — гр. 45 / курс USD на дату гр. А (Item I), как только известны курс и гр. 45; только при праве
 // править. Введённая гр. 46 живёт до следующей правки гр. 45 (пересчёт по правке — в карточке товара).
@@ -165,8 +167,7 @@ watch(
   () => `${rates.usdRate.value ?? ''}|${form.goodsItems.map((g) => g.customsValueKzt ?? '').join(',')}`,
   () => {
     if (!dt.editable.value) return
-    const next = goodsWithStatUsd(form.goodsItems, rates.usdRate.value)
-    if (next) form.goodsItems = next
+    if (fillStatUsd(form.goodsItems, rates.usdRate.value)) touchGoods()
   },
 )
 
