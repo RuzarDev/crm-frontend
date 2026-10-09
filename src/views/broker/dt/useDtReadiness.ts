@@ -4,9 +4,13 @@
 // - Запрос только при enabled (право import40.declarant / CanManageDeclarations): иначе ничего не спрашиваем,
 //   без тостов; «готово» — только по загруженному ответу (B4: раньше пустое состояние читалось как «готово»).
 // - Ошибки последней выгрузки XML (400 с перечнем) важнее серверной готовности, но лишь до следующего
-//   успешного сохранения (afterSave): B1 — раньше они висели до повторной выгрузки.
+//   успешного сохранения (afterSave): B1 — раньше они висели до повторной выгрузки. Перечень XML — строки без
+//   графы; те же тексты сервер отдаёт в готовности с графой, поэтому каждая ошибка сначала ищется по тексту
+//   в последних items (графа и товар оттуда), разбор строки — только если не нашлась.
+// - Другая ДТ (смена caseId/dtId) или перезагрузка ДТ (reset() — зовёт страница из useDtForm.onLoadStart):
+//   ошибки XML и готовность прежней ДТ сбрасываются.
 import { computed, ref, shallowRef, toValue, watch, type MaybeRefOrGetter } from 'vue'
-import { import40Api, type KedenReadinessDto } from '@/api/import40'
+import { import40Api, type KedenReadinessDto, type KedenReadinessItem } from '@/api/import40'
 import { goodsIndexFromText, graphFromText, normalizeGraph, sectionForReadinessItem, type DtSectionKey } from './dtSections'
 
 export interface DtReadinessItem {
@@ -37,6 +41,14 @@ const fromText = (text: string, fromXml: boolean): DtReadinessItem => {
   return { text, graph: graphFromText(text), goodsIndex, section: sectionForReadinessItem({ text, goodsIndex }), fromXml }
 }
 
+const fromServer = (i: KedenReadinessItem, fromXml: boolean): DtReadinessItem => ({
+  text: i.text,
+  graph: normalizeGraph(i.graph),
+  goodsIndex: i.goodsIndex ?? null,
+  section: sectionForReadinessItem(i),
+  fromXml,
+})
+
 export function useDtReadiness(
   caseId: MaybeRefOrGetter<string>,
   dtId: MaybeRefOrGetter<string>,
@@ -49,22 +61,21 @@ export function useDtReadiness(
   const serverItems = computed<DtReadinessItem[]>(() => {
     const r = readiness.value
     if (!r) return []
-    if (r.items) {
-      return r.items.map((i) => ({
-        text: i.text,
-        graph: normalizeGraph(i.graph),
-        goodsIndex: i.goodsIndex ?? null,
-        section: sectionForReadinessItem(i),
-        fromXml: false,
-      }))
-    }
+    if (r.items) return r.items.map((i) => fromServer(i, false))
     return (r.missing ?? []).map((m) => fromText(m, false))
   })
 
+  /** Пункты готовности с графой по тексту — для ошибок XML (те же строки, что в missing). */
+  const serverByText = computed(() => new Map((readiness.value?.items ?? []).map((i) => [i.text.trim(), i] as const)))
+
   /** Чего не хватает: ошибки последней выгрузки XML, а без них — серверная готовность. */
-  const items = computed<DtReadinessItem[]>(() =>
-    xmlErrors.value.length ? xmlErrors.value.map((e) => fromText(e, true)) : serverItems.value,
-  )
+  const items = computed<DtReadinessItem[]>(() => {
+    if (!xmlErrors.value.length) return serverItems.value
+    return xmlErrors.value.map((e) => {
+      const known = serverByText.value.get(e.trim())
+      return known ? { ...fromServer(known, true), text: e } : fromText(e, true)
+    })
+  })
 
   const bySection = computed(() => {
     const out: Partial<Record<DtSectionKey, number>> = {}
@@ -121,6 +132,7 @@ export function useDtReadiness(
   }
 
   watch(() => toValue(opts.enabled), (on) => { if (!on) reset() })
+  watch(() => [toValue(caseId), toValue(dtId)] as const, () => reset())
 
   return { readiness, loaded, items, bySection, ready, blank, xmlErrors, refresh, setXmlErrors, clearXmlErrors, afterSave, reset }
 }

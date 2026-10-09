@@ -12,6 +12,7 @@ const confirmFn = vi.hoisted(() => vi.fn())
 vi.mock('@/ui/confirm', () => ({ useConfirm: () => ({ confirm: confirmFn }) }))
 
 import { useDtForm, type UseDtFormOptions } from '../useDtForm'
+import { useDtTotals } from '@/composables/useDtTotals'
 import { formToPayload, dtoToForm } from '../dtPayload'
 
 const httpError = (status: number, data?: unknown) => Object.assign(new Error(`HTTP ${status}`), { response: { status, data } })
@@ -121,6 +122,37 @@ describe('useDtForm — загрузка', () => {
     await settle()
     expect(c.f.loadError.value).toBe(false)
     expect(c.f.form.id).toBe('dt1')
+  })
+
+  it('перезагрузка ждёт сохранение, которое уже идёт: GET видит его, следующий PUT — без ложного 409', async () => {
+    const inflight = deferred<Import40DeclarationDto>()
+    api.updateDeclaration.mockImplementationOnce(() => inflight.promise)
+    const { f } = start()
+    await settle()
+    const p = f.save()
+    await flushPromises()
+    const reloading = f.reload()
+    await flushPromises()
+    expect(api.get).toHaveBeenCalledTimes(1) // GET ещё не ушёл — ждёт PUT
+    // сервер применил PUT: новая отметка и в ответе, и в базе
+    server.declarations[0].updatedAtUtc = 'STAMP-PUT'
+    inflight.resolve({ ...structuredClone(server.declarations[0]) })
+    expect(await p).toBe(true)
+    await reloading
+    await settle()
+    expect(api.get).toHaveBeenCalledTimes(2)
+    await f.save()
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(2)
+    expect(api.updateDeclaration.mock.calls[1][2].expectedUpdatedAtUtc).toBe('STAMP-PUT')
+  })
+
+  it('onLoadStart — при каждой загрузке и перезагрузке (страница сбрасывает ошибки XML)', async () => {
+    const onLoadStart = vi.fn()
+    const { f } = start({ onLoadStart })
+    await settle()
+    expect(onLoadStart).toHaveBeenCalledTimes(1)
+    await f.reload()
+    expect(onLoadStart).toHaveBeenCalledTimes(2)
   })
 
   it('смена id ДТ (переход после разделения) — загрузка новой ДТ', async () => {
@@ -343,6 +375,38 @@ describe('useDtForm — уход со страницы и размонтиров
     await edit(() => { f.form.declarationNumber = 'X' })
     scope.stop()
     expect(remove).toHaveBeenCalledWith('beforeunload', expect.any(Function))
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(api.updateDeclaration).not.toHaveBeenCalled()
+  })
+})
+
+describe('useDtForm + useDtTotals — листы старой ДТ после загрузки (B5)', () => {
+  // В образце 1 товар и «всего листов» 2 (старая формула) — по правилу печати 1.
+  const startWithTotals = (canEdit: boolean) => {
+    scope = effectScope()
+    return scope.run(() => {
+      const f = useDtForm('case1', 'dt1', { canEdit: () => canEdit })
+      useDtTotals(() => f.form.goodsItems, f.form, ref({}), f.applying)
+      return f
+    })!
+  }
+
+  it('при праве править — исправленное число становится правкой и уходит автосейвом', async () => {
+    const f = startWithTotals(true)
+    await settle()
+    expect(f.form.totalSheets).toBe(1)
+    expect(f.dirty.value).toBe(true)
+    await vi.advanceTimersByTimeAsync(2500)
+    await settle()
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
+    expect(api.updateDeclaration.mock.calls[0][2].totalSheets).toBe(1)
+  })
+
+  it('в просмотре — только показывается, PUT нет', async () => {
+    const f = startWithTotals(false)
+    await settle()
+    expect(f.form.totalSheets).toBe(1)
+    expect(f.dirty.value).toBe(false)
     await vi.advanceTimersByTimeAsync(30000)
     expect(api.updateDeclaration).not.toHaveBeenCalled()
   })

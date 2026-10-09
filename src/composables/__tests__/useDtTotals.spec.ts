@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { nextTick, reactive, ref } from 'vue'
+import { describe, expect, it, vi } from 'vitest'
+import { nextTick, reactive, ref, watch } from 'vue'
 import type { Import40DeclarationExpense, Import40GoodsItemInput } from '@/types/api'
 import { useDtTotals, type DtTotalsFormRef } from '../useDtTotals'
 
@@ -56,13 +56,29 @@ describe('useDtTotals — листы гр.3 как в печати (B5)', () => 
     expect(form.totalSheets).toBe(5)
   })
 
-  it('при загрузке (suspended) устаревшее «всего листов» приводится к печати, гр.22 не трогается', async () => {
+  it('при загрузке (suspended) ничего не пишет; сразу после — приводит устаревшее «всего листов» к печати, гр.22 не трогает', async () => {
     const { state, form, suspended } = setup({ form: { totalSheets: 4, totalInvoiceValue: 999 } })
     suspended.value = true
     state.goods = [good({ customsValue: 10 }), good({ customsValue: 20 }), good({ customsValue: 30 }), good({ customsValue: 40 })]
     await nextTick()
+    expect(form.totalSheets).toBe(4)
+    suspended.value = false
+    await nextTick()
     expect(form.totalSheets).toBe(2)
     expect(form.totalInvoiceValue).toBe(999)
+  })
+
+  it('после загрузки число листов уже как в печати — запись не нужна', async () => {
+    const { state, form, suspended } = setup({ form: { totalSheets: 2 } })
+    suspended.value = true
+    state.goods = [good(), good(), good()]
+    await nextTick()
+    const spy = vi.fn()
+    watch(() => form.totalSheets, spy)
+    suspended.value = false
+    await nextTick()
+    expect(form.totalSheets).toBe(2)
+    expect(spy).not.toHaveBeenCalled()
   })
 })
 

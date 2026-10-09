@@ -120,6 +120,17 @@ describe('dtPayload — пустые значения', () => {
     expect(form.dtsFreeOfCharge).toBe(false)
   })
 
+  it('списки и стороны в форме никогда не undefined (иначе ?? [] / ?? null в PUT очистили бы графу)', () => {
+    const bare = { id: 'dt2', caseId: 'c' } as unknown as Import40DeclarationDto
+    for (const form of [emptyDtForm(), dtoToForm(bare, '2026-10-09')]) {
+      for (const k of ['goodsItems', 'doc44Items', 'prevDocItems', 'expenses', 'factPayments', 'borderTransportNumbers', 'arrivalTransportNumbers'] as const) {
+        expect(Array.isArray(form[k]), k).toBe(true)
+      }
+      expect(form.sender).toBeTruthy()
+      expect(form.receiver).toBeTruthy()
+    }
+  })
+
   it('дата гр.А — префикс ISO без сдвига часового пояса', () => {
     expect(toIsoDate('2026-09-23T00:00:00Z')).toBe('2026-09-23')
     expect(toIsoDate('2026-09-23')).toBe('2026-09-23')

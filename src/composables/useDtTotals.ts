@@ -14,8 +14,11 @@
 //      (DtBlankPdf.cs): основной лист ТД1 — первый товар, добавочные ТД2 — по 3
 //      товара на лист: totalSheets = 1 + ceil((n − 1) / 3) (баг B5, 09.10: раньше
 //      считалось «лист на товар», и поле расходилось с бланком). Значение
-//      производное, поэтому приводится к правилу и при загрузке ДТ (suspended):
-//      иначе у старых ДТ оставалось бы прежнее число.
+//      производное, поэтому у старых ДТ приводится к правилу сразу ПОСЛЕ загрузки
+//      (suspended true → false) обычной записью в форму: редактор видит её как правку
+//      и сохраняет автосейвом — только если пользователь может править (в просмотре
+//      форма правки не копит, исправленное число лишь показывается; печать всё равно
+//      считает листы сама). Во время самой загрузки ничего не пишется.
 //   3) гр.5/гр.6 (число товаров/мест) и гр.12 (общая таможенная стоимость) —
 //      НЕ входят в Import40DeclarationUpsert: сервер считает их на чтении
 //      (Import40DeclarationDto.totalGoodsCount/totalPackagesCount/totalCustomsValue,
@@ -122,17 +125,20 @@ export function useDtTotals(
       lastInvoiceValue = invoiceValue
       if (totalSheets !== null) lastTotalSheets = totalSheets
 
-      if (suspended.value) {
-        // Листы — производное «как в печати»: при загрузке приводим устаревшее значение (B5).
-        if (totalSheets !== null && form.totalSheets !== totalSheets) form.totalSheets = totalSheets
-        return
-      }
+      if (suspended.value) return
       if (invoiceChanged) form.totalInvoiceValue = invoiceValue
       if (form.sheetNumber == null && list.length) form.sheetNumber = 1
       if (sheetsChanged) form.totalSheets = totalSheets
     },
     { deep: true, immediate: true },
   )
+
+  // Загрузка ДТ закончилась: устаревшее «всего листов» (старая формула) — к правилу печати (B5).
+  watch(suspended, (now, before) => {
+    if (now || !before) return
+    const totalSheets = totalSheetsFor(getGoods().length)
+    if (totalSheets !== null && form.totalSheets !== totalSheets) form.totalSheets = totalSheets
+  })
 
   return { goodsCount, packagesCount, customsValueKzt, customsValuePreview, customsValueFromServer }
 }

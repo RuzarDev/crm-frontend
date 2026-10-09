@@ -2,6 +2,8 @@
 // (loadDt, applyDeclaration, saveDt/saveDtNow, автосейв, защита от ухода) с правилами срочной правки 09.10.
 //
 // - Загрузка: GET заявки (тихо) и поиск ДТ в ней; 404/403/400 или ДТ нет в заявке — notFound, иначе loadError.
+//   Загрузка (и перезагрузка после 409) сначала ждёт уже идущее сохранение — GET видит его отметку.
+//   onLoadStart — страница сбрасывает в нём ошибки XML и готовность прежней ДТ (readiness.reset()).
 //   Форма заполняется под флагом applying (снимается после nextTick): авто-правила и автосейв загрузку не видят.
 //   Пустые гр.2/8/22 — из данных клиента (prefillFromClientCase), сохранятся с первой правкой.
 // - Автосейв: правка → editVersion++, dirty; через 2,5 с тишины — тихий save(). Идёт сохранение — попробовать позже.
@@ -49,6 +51,8 @@ export interface UseDtFormOptions {
    * право зависит от статуса и назначенного декларанта, а заявку грузит сам useDtForm.
    */
   canEdit: ((kase: Import40CaseDto | null) => boolean) | MaybeRef<boolean>
+  /** Началась загрузка или перезагрузка ДТ (например, сбросить ошибки XML и готовность прежней: readiness.reset()). */
+  onLoadStart?: () => void
   /** ДТ загружена и применена к форме (например, спросить готовность). */
   onLoaded?: (dto: Import40DeclarationDto, kase: Import40CaseDto) => void
   /** Успешное сохранение (например, сбросить ошибки XML и спросить готовность). */
@@ -95,6 +99,9 @@ export function useDtForm(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGett
   let seq = 0
   /** Поколение ДТ: сохранение, завершившееся после новой загрузки, её состояние не трогает. */
   let gen = 0
+  // Очередь сохранений: два PUT одновременно ушли бы с одной отметкой — второй получил бы ложный 409.
+  // Загрузка тоже ждёт её (см. load).
+  let queue: Promise<unknown> = Promise.resolve()
 
   const clearAutosave = () => { if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null } }
   const clearRetry = () => { if (retryTimer) { clearTimeout(retryTimer); retryTimer = null } }
@@ -111,13 +118,20 @@ export function useDtForm(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGett
 
   const load = async () => {
     const my = ++seq
-    gen++
     clearAutosave()
     clearRetry()
     loading.value = true
     loadError.value = false
     notFound.value = false
+    opts.onLoadStart?.()
     try {
+      // Сначала — сохранение, которое уже ушло (новые на время загрузки не стартуют: guard loading в saveNow).
+      // Тогда GET видит применённый PUT и его отметку: без этого ответ PUT, пришедший после GET, либо оставлял
+      // форму со старой отметкой (ложный 409), либо его отметку пришлось бы взять поверх данных GET, которые
+      // этот PUT уже перезаписал (тихая потеря своих же правок). Отметка из GET всегда побеждает.
+      await queue
+      if (my !== seq) return
+      gen++
       const kase = await import40Api.get(toValue(caseId), { silent: true })
       if (my !== seq) return
       activeCase.value = kase
@@ -164,6 +178,8 @@ export function useDtForm(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGett
     clearRetry()
     try {
       const updated = await import40Api.updateDeclaration(toValue(caseId), form.id, formToPayload(form, serverStamp))
+      // Загрузка ждёт идущее сохранение (load → await queue), так что поколение здесь не меняется; проверка —
+      // страховка, чтобы ответ прежней ДТ не попал в состояние новой.
       if (myGen !== gen) return true
       lastServerDto.value = updated
       serverStamp = updated.updatedAtUtc ?? serverStamp
@@ -199,16 +215,21 @@ export function useDtForm(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGett
     }
   }
 
-  // Очередь: два PUT одновременно ушли бы с одной отметкой — второй получил бы ложный 409.
-  let queue: Promise<unknown> = Promise.resolve()
-  /** Сохранить ДТ; manual — с тостом «ДТ сохранена». false — не сохранено (нет права, ошибка, конфликт). */
+  /**
+   * Сохранить ДТ (по очереди за уже идущими). По умолчанию ТИХО — без тоста (автосейв, перед XML/расчётом);
+   * manual=true — с тостом «ДТ сохранена»: ручное «Сохранить», ⌘S и действия, где прежний экран показывал тост.
+   * true — сохранено; false — не сохранено (нет права, ДТ разделена, конфликт 409, ошибка, идёт загрузка).
+   */
   const save = (manual = false): Promise<boolean> => {
     const run = queue.then(() => saveNow(manual))
     queue = run.catch(() => undefined)
     return run
   }
 
-  /** Сохранение перед действием (XML, печать, ДТС, разделение): в просмотре — сразу «можно», без PUT (B2). */
+  /**
+   * Сохранение перед действием (XML, печать, ДТС, разделение): в просмотре — сразу true без PUT (B2).
+   * Как save(): по умолчанию тихо, manual=true — с тостом «ДТ сохранена».
+   */
   const saveForAction = (manual = false): Promise<boolean> => saveBeforeAction(!editable.value, () => save(manual))
 
   watch(
