@@ -25,6 +25,7 @@ vi.mock('@/api/tnved', () => ({ tnvedApi: tnved }))
 vi.mock('@/api/import40Contract', () => ({ import40ContractApi: contract }))
 vi.mock('@/ui/message', () => ({ message: toast }))
 vi.mock('@/stores/classifiers', () => ({ useClassifiersStore: () => ({ loadMany: vi.fn(async () => undefined), options: () => [] }) }))
+vi.mock('@/api/kato', async (orig) => ({ ...(await orig<typeof import('@/api/kato')>()), katoApi: { search: vi.fn(async () => []), get: vi.fn(async () => null) } }))
 
 import DtPage from '../DtPage.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -45,7 +46,7 @@ const stubs = {
   DtLegacyForm: { props: ['disabled'], template: '<div data-legacy-form :data-disabled="String(disabled)"><slot /></div>' },
   SectionNumber: sectionStub('SectionNumber'),
   SectionGeneral: sectionStub('SectionGeneral'),
-  DtSectionParties: sectionStub('DtSectionParties', '<label data-graph="8">Получатель<input data-recv /></label>'),
+  SectionParties: sectionStub('SectionParties', '<label data-graph="8">Получатель<input data-recv /></label>'),
   SectionCountries: sectionStub('SectionCountries'),
   SectionTransport: sectionStub('SectionTransport'),
   DtSectionFinance: sectionStub('DtSectionFinance', `<button data-emit="calc-customs-value" type="button" @click="$emit('calc-customs-value')" />`, ['calc-customs-value']),
@@ -177,7 +178,7 @@ describe('DtPage: загрузка', () => {
 describe('DtPage: разделы и ?s=', () => {
   it('раздел из адреса; клик в навигации меняет ?s= и монтирует раздел', async () => {
     await open('?s=parties')
-    expect(stub()).toBe('DtSectionParties')
+    expect(stub()).toBe('SectionParties')
     expect(navItem('parties').attributes('aria-current')).toBe('true')
     await navItem('goods').trigger('click')
     await settle()
@@ -316,6 +317,55 @@ describe('DtPage: настоящий раздел «Транспорт»', () =>
     expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
     const body = api.updateDeclaration.mock.calls[0][2] as { arrivalTransportNumbers: { number: string; isTrailer: boolean }[] }
     expect(body.arrivalTransportNumbers).toMatchObject([{ number: 'AB123', isTrailer: false }])
+  })
+})
+
+describe('DtPage: настоящий раздел «Стороны»', () => {
+  it('открытие не сохраняет; гр. 8 / 9 с «Совпадает» повторяют гр. 14 с загрузки; правка гр. 14 уходит в PUT с копией', async () => {
+    // Листы — как считает страница (иначе она сама поправит гр. 3 и пометит ДТ изменённой).
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, totalSheets: 1 })] })
+    await open('?s=parties', ['SectionParties'])
+    expect(w.get('[data-dt-header]').text()).not.toContain('Есть несохранённые изменения')
+    expect(api.updateDeclaration).not.toHaveBeenCalled()
+    expect(w.get('[data-party="receiver"] [data-party-same-summary]').text()).toBe('Те же данные, что в гр. 14 · ТОО ДЕКЛАРАНТ · 111111111111')
+    await w.get('[data-party="declarant"] [data-party-input="city"]').setValue('караганда')
+    await settle()
+    expect(w.get('[data-dt-header]').text()).toContain('Есть несохранённые изменения')
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
+    expect(api.updateDeclaration.mock.calls[0][2]).toMatchObject({
+      declarantCity: 'КАРАГАНДА',
+      receiver: { name: 'ТОО ДЕКЛАРАНТ', city: 'КАРАГАНДА', street: 'D-STREET' },
+      receiverBin: '111111111111',
+      receiverKatoCode: '751110002',
+      financialSubjectName: 'ТОО ДЕКЛАРАНТ',
+      financialSubjectCity: 'КАРАГАНДА',
+    })
+  })
+
+  it('загрузка, как прежний экран: гр. 8 / 9 с «Совпадает» = гр. 14 и в PUT из другого раздела (без пометки «изменено»)', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, totalSheets: 1 })] })
+    await open()
+    expect(w.get('[data-dt-header]').text()).not.toContain('Есть несохранённые изменения')
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(api.updateDeclaration.mock.calls[0][2]).toMatchObject({
+      receiver: { name: 'ТОО ДЕКЛАРАНТ', city: 'D-CITY' }, receiverBin: '111111111111', financialSubjectName: 'ТОО ДЕКЛАРАНТ',
+    })
+  })
+
+  it('без «Совпадает» загрузка гр. 8 / 9 не трогает; к недостающему гр. 8 — фокус в поле', async () => {
+    server = caseDto({ declarations: [fullDto({ splitRole: null, consigneeEqualsDeclarant: false, financialSubjectEqualsDeclarant: false })] })
+    await open('', ['SectionParties'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const field = w.get('[data-party="receiver"] [data-graph="8"]')
+    expect(field.attributes('data-dt-flash')).toBeDefined()
+    expect(document.activeElement).toBe(field.get('input').element)
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(api.updateDeclaration.mock.calls[0][2]).toMatchObject({ receiver: { name: 'ТОО ПОЛУЧАТЕЛЬ' }, financialSubjectName: 'ФИНЛИЦО' })
   })
 })
 

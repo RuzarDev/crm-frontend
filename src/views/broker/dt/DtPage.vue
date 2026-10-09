@@ -7,7 +7,6 @@ import ZDrawer from '@/components/z/ZDrawer.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import DtLegacyForm from '@/components/import40/dt/DtLegacyForm.vue'
-import DtSectionParties from '@/components/import40/dt/DtSectionParties.vue'
 import DtSectionFinance from '@/components/import40/dt/DtSectionFinance.vue'
 import DtSectionCustoms from '@/components/import40/dt/DtSectionCustoms.vue'
 import DtSectionGoods from '@/components/import40/dt/DtSectionGoods.vue'
@@ -35,8 +34,10 @@ import DtSplitModal from './DtSplitModal.vue'
 import SectionCountries from './sections/SectionCountries.vue'
 import SectionGeneral from './sections/SectionGeneral.vue'
 import SectionNumber from './sections/SectionNumber.vue'
+import SectionParties from './sections/SectionParties.vue'
 import SectionTransport from './sections/SectionTransport.vue'
 import { DT_CLASSIFIERS } from './dtClassifiers'
+import { syncLoadedParties } from './dtParties'
 import {
   adjacentSection, dtsReadinessItems, navMarks, paymentsStale, rateTag, readonlyReason, sectionFromQuery, splitChildren, visibleSections,
 } from './dtPageModel'
@@ -102,6 +103,8 @@ const dt = useDtForm(caseId, dtId, {
   onLoadStart: () => { readiness.reset(); resetDts() },
   onLoaded: (dto, kase) => {
     replaced.value = !!dto.isSplitReplaced
+    // Как прежний экран при загрузке: гр. 8 / 9 с «Совпадает с декларантом» повторяют гр. 14 (под applying — без автосейва).
+    syncLoadedParties(form)
     void readiness.refresh()
     void refreshDts()
     loadClientProfile(kase)
@@ -512,13 +515,12 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
                   :readonly="!editable"
                   :totals="legacyTotals"
                 />
-                <DtSectionParties
+                <SectionParties
                   v-else-if="active === 'parties'"
-                  :model-value="legacyForm"
+                  :form="form"
                   :readonly="!editable"
                   :country-options="countryOptions"
                   :client-profile="clientProfile"
-                  @update:model-value="onLegacyUpdate"
                 />
                 <SectionCountries
                   v-else-if="active === 'countries'"
