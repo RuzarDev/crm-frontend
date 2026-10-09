@@ -36,7 +36,14 @@ const props = withDefaults(defineProps<{
   ariaLabel?: string
   /** true — содержимое пересоздаётся при каждом открытии; по умолчанию живёт между открытиями (как у AntD). */
   destroyOnClose?: boolean
-}>(), { open: false, title: '', width: 560, placement: 'right', closable: true, maskClosable: true, keyboard: true, ariaLabel: '', destroyOnClose: false })
+  /**
+   * Своя раскладка во всю панель (шапка, вкладки, прокрутка, подвал — у содержимого): без шапки, отступов и
+   * прокрутки панели. Заголовок окна — скрытый (title или ariaLabel). Редактор товара ДТ (волна 6б).
+   */
+  bare?: boolean
+  /** Отступ сверху (число — px): панель и фон начинаются ниже закреплённой шапки страницы. */
+  top?: number | string
+}>(), { open: false, title: '', width: 560, placement: 'right', closable: true, maskClosable: true, keyboard: true, ariaLabel: '', destroyOnClose: false, bare: false })
 
 const emit = defineEmits<{ 'update:open': [open: boolean]; close: [] }>()
 const { t } = useI18n()
@@ -72,14 +79,15 @@ const contentClass = computed(() => cn(
   'motion-reduce:animate-none',
   attrs.class as ClassValue,
 ))
-const contentStyle = computed(() => [{ '--w': cssSize(props.width) }, attrs.style as StyleValue])
+const topStyle = computed(() => (props.top === undefined || props.top === '' || props.top === 0 ? undefined : { top: cssSize(props.top) }))
+const contentStyle = computed(() => [{ '--w': cssSize(props.width) }, topStyle.value, attrs.style as StyleValue])
 </script>
 
 <template>
   <DialogRoot :open="open" :unmount-on-hide="destroyOnClose || !opened" @update:open="onOpenChange">
     <DialogOpenerSync />
     <DialogPortal>
-      <DialogOverlay data-z-overlay :class="modalBackdrop" />
+      <DialogOverlay data-z-overlay :class="modalBackdrop" :style="topStyle" />
       <DialogContent
         :aria-describedby="undefined"
         aria-modal="true"
@@ -90,17 +98,23 @@ const contentStyle = computed(() => [{ '--w': cssSize(props.width) }, attrs.styl
         @pointer-down-outside="onPointerOutside"
         @open-auto-focus="focusFirstInside"
       >
-        <div :class="cn('min-h-16 shrink-0 border-b border-line px-6 py-5', !hasTitle() && 'border-b-0', closable && 'pr-14')">
-          <DialogTitle :class="hasTitle() ? 'm-0 text-md font-semibold text-ink [overflow-wrap:anywhere]' : 'sr-only'">
-            <slot name="title">{{ title || ariaLabel }}</slot>
-          </DialogTitle>
-        </div>
-        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+        <template v-if="bare">
+          <DialogTitle class="sr-only">{{ title || ariaLabel }}</DialogTitle>
           <slot />
-        </div>
-        <div v-if="slots.footer" class="flex shrink-0 flex-wrap justify-end gap-2 border-t border-line px-6 py-4">
-          <slot name="footer" />
-        </div>
+        </template>
+        <template v-else>
+          <div :class="cn('min-h-16 shrink-0 border-b border-line px-6 py-5', !hasTitle() && 'border-b-0', closable && 'pr-14')">
+            <DialogTitle :class="hasTitle() ? 'm-0 text-md font-semibold text-ink [overflow-wrap:anywhere]' : 'sr-only'">
+              <slot name="title">{{ title || ariaLabel }}</slot>
+            </DialogTitle>
+          </div>
+          <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+            <slot />
+          </div>
+          <div v-if="slots.footer" class="flex shrink-0 flex-wrap justify-end gap-2 border-t border-line px-6 py-4">
+            <slot name="footer" />
+          </div>
+        </template>
         <button v-if="closable" type="button" :aria-label="t('z.close')" :class="modalCloseButton" @click="close">
           <PhX :size="16" />
         </button>

@@ -332,6 +332,18 @@ describe('ZDrawer', () => {
     expect(w.emitted('close')).toBeUndefined()
     expect(dialog()).not.toBeNull()
   })
+  it('bare: своя раскладка во всю панель — без шапки и отступов, имя окна из ariaLabel; top — панель и фон ниже шапки страницы', async () => {
+    mountDrawer({ title: '', ariaLabel: 'Товар 3 из 8', bare: true, closable: false, top: 96 }, { default: '<div data-own>Свой каркас</div>' })
+    await nextTick()
+    const d = dialog()!
+    expect(document.getElementById(d.getAttribute('aria-labelledby')!)?.textContent?.trim()).toBe('Товар 3 из 8')
+    const own = d.querySelector('[data-own]') as HTMLElement
+    // Слот — прямо в панели (без обёртки с отступами и прокруткой).
+    expect(own.parentElement).toBe(d)
+    expect(d.querySelector('.overflow-y-auto')).toBeNull()
+    expect(d.style.top).toBe('96px')
+    expect(overlay()!.style.top).toBe('96px')
+  })
 })
 
 describe('ZConfirmHost + useConfirm', () => {

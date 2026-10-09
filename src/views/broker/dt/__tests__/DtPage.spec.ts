@@ -14,14 +14,21 @@ const api = vi.hoisted(() => ({
   splitSuggestion: vi.fn(), splitDeclaration: vi.fn(), calculatePayments: vi.fn(), calculateTpin: vi.fn(), calculateCustomsValue: vi.fn(),
 }))
 const dts = vi.hoisted(() => ({ get: vi.fn() }))
-const refs = vi.hoisted(() => ({ listCountries: vi.fn(), listCustomsPosts: vi.fn(), listExpenseTypes: vi.fn() }))
-const tnved = vi.hoisted(() => ({ currencies: vi.fn() }))
+const refs = vi.hoisted(() => ({ listCountries: vi.fn(), listCustomsPosts: vi.fn(), listExpenseTypes: vi.fn(), listOkeiUnits: vi.fn(async () => []) }))
+// Редактор товара: проверка кода, ДЕИ и ставки КЕДЕН — без сети.
+const tnved = vi.hoisted(() => ({
+  currencies: vi.fn(),
+  node: vi.fn(async (code: string) => ({ data: { code, name: 'УЗЕЛ', is10: true } })),
+  rates: vi.fn(async () => ({ data: {} })),
+  tariffOptions: vi.fn(async () => ({ data: { countryRate: null, excise: [], antiDumping: [], dutyRates: [] } })),
+}))
 const contract = vi.hoisted(() => ({ getProfile: vi.fn() }))
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/import40', async (orig) => ({ ...(await orig<typeof import('@/api/import40')>()), import40Api: api }))
 vi.mock('@/api/dts', () => ({ dtsApi: dts }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
 vi.mock('@/api/tnved', () => ({ tnvedApi: tnved }))
+vi.mock('@/api/trois', async (orig) => ({ ...(await orig<typeof import('@/api/trois')>()), troisApi: { check: vi.fn(async () => []), search: vi.fn(async () => []) } }))
 vi.mock('@/api/import40Contract', () => ({ import40ContractApi: contract }))
 vi.mock('@/ui/message', () => ({ message: toast }))
 vi.mock('@/stores/classifiers', () => ({ useClassifiersStore: () => ({ loadMany: vi.fn(async () => undefined), load: vi.fn(async () => []), cache: {}, options: () => [] }) }))
@@ -264,6 +271,10 @@ describe('DtPage: готовность', () => {
     expect(router.currentRoute.value.query).toMatchObject({ s: 'goods', item: '1' })
     expect(document.querySelector('[data-dt-goods-editor][data-state="open"]')?.textContent).toContain('Товар 1 из 1')
     expect(document.querySelector('[data-dt-goods-editor] [data-goods-index="0"]')).not.toBeNull()
+    // Поле пункта (гр. 33) — в редакторе товара: подсветка и фокус в коде ТН ВЭД.
+    const code = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-graph="33"]') as HTMLElement
+    expect(code.hasAttribute('data-dt-flash')).toBe(true)
+    expect(document.activeElement).toBe(code.querySelector('input[data-f="tnvedCode"]'))
   })
 
   it('товар открыт — переход в другой раздел убирает ?item', async () => {

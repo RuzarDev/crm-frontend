@@ -37,6 +37,7 @@ import SectionParties from './sections/SectionParties.vue'
 import SectionTransport from './sections/SectionTransport.vue'
 import SectionGoods from './goods/SectionGoods.vue'
 import { useDtGoods } from './goods/useDtGoods'
+import type { GoodsPageContext, GoodsSaveState } from './goods/editor/types'
 import { DT_CLASSIFIERS } from './dtClassifiers'
 import { fillStatUsd, lockGoodsCurrency } from './dtGoodsRules'
 import { syncLoadedParties } from './dtParties'
@@ -179,6 +180,22 @@ const goods = useDtGoods(form, {
   readiness: () => (readiness.loaded.value ? readiness.items.value : null),
   canEdit: () => dt.editable.value,
 })
+// Редактору товара — данные страницы (гр. 46 по курсу USD, ставки на дату гр. А, валюты; гр. 1 и гр. 19 — для списков
+// КЕДЕН и номера контейнера) и состояние сохранения.
+const goodsEditorContext = computed<GoodsPageContext>(() => ({
+  usdRate: rates.usdRate.value,
+  onDate: form.submissionDate || null,
+  currencyOptions: rates.currencyOptions.value,
+  direction: form.declarationTypeCode || null,
+  declProcedure: form.procedureCode || null,
+  containerIndicator: !!form.containerIndicator,
+}))
+const goodsSaveState = computed<GoodsSaveState>(() => ({
+  saving: dt.saving.value,
+  dirty: dt.dirty.value,
+  failed: !!dt.saveError.value || dt.conflict.value,
+  savedAt: dt.savedAt.value,
+}))
 
 // ---- Режимы ----
 const editable = computed(() => dt.editable.value)
@@ -618,6 +635,8 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
                   :readonly="!editable"
                   :country-options="countryOptions"
                   :payments-loading="payments.loading.value"
+                  :editor-context="goodsEditorContext"
+                  :save-state="goodsSaveState"
                   @calc-payments="payments.openModal()"
                   @calc-tpin="payments.calcTpin()"
                 />

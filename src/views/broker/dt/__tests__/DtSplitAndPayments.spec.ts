@@ -167,7 +167,7 @@ describe('useDtPayments (перенос из прежнего экрана)', ()
     expect(form.goodsItems[0].needsTpinRecalc).toBe(false)
     expect(form.goodsItems[0].customsValueKzt).toBe(50000)
     expect(p.tpinProblems.value).toEqual(['Товар 1: вид акциза по умолчанию', 'Товар 2: нет ставки'])
-    expect(toast.success).toHaveBeenCalledWith('ТПиН рассчитан для 1 тов. Платежи — в панели «Данные КЕДЕН» (гр.47) у каждого товара.')
+    expect(toast.success).toHaveBeenCalledWith('ТПиН рассчитан для 1 тов. Суммы — в списке товаров (ТПиН) и в гр. 47 каждого товара.')
     scope.stop()
   })
 

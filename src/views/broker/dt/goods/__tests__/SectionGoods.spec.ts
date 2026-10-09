@@ -16,7 +16,14 @@ const excel = vi.hoisted(() => ({ readGoodsExcel: vi.fn() }))
 vi.mock('@/utils/goodsExcel', async (orig) => ({ ...(await orig<typeof import('@/utils/goodsExcel')>()), readGoodsExcel: excel.readGoodsExcel }))
 const xlsx = vi.hoisted(() => ({ exportXlsx: vi.fn(async () => undefined) }))
 vi.mock('@/views/broker/list', async (orig) => ({ ...(await orig<typeof import('@/views/broker/list')>()), exportXlsx: xlsx.exportXlsx }))
-vi.mock('@/api/references', () => ({ referencesApi: { listClassifiers: vi.fn(async () => []) } }))
+vi.mock('@/api/references', () => ({ referencesApi: { listClassifiers: vi.fn(async () => []), listOkeiUnits: vi.fn(async () => []) } }))
+// Редактор товара (открывается по строке): проверка кода, ставки КЕДЕН и ТРОИС — без сети.
+vi.mock('@/api/tnved', () => ({ tnvedApi: {
+  node: vi.fn(async (code: string) => ({ data: { code, name: 'УЗЕЛ', is10: true } })),
+  rates: vi.fn(async () => ({ data: {} })),
+  tariffOptions: vi.fn(async () => ({ data: { countryRate: null, excise: [], antiDumping: [], dutyRates: [] } })),
+} }))
+vi.mock('@/api/trois', () => ({ troisApi: { check: vi.fn(async () => []), search: vi.fn(async () => []) }, troisDate: (s: string) => s, troisTrustedShort: () => '' }))
 
 import SectionGoods from '../SectionGoods.vue'
 

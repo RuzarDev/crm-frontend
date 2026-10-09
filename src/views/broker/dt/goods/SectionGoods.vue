@@ -3,7 +3,6 @@ import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, 
 import { useI18n } from 'vue-i18n'
 import { PhDownloadSimple, PhPlus, PhUploadSimple } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
-import ZDrawer from '@/components/z/ZDrawer.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZKbd from '@/components/z/ZKbd.vue'
 import StatusDot from '@/components/broker/StatusDot.vue'
@@ -18,6 +17,8 @@ import GoodsBulkBar from './GoodsBulkBar.vue'
 import GoodsExcelImportModal from './GoodsExcelImportModal.vue'
 import GoodsTable from './GoodsTable.vue'
 import GoodsTotalsBar from './GoodsTotalsBar.vue'
+import GoodsEditor from './editor/GoodsEditor.vue'
+import { emptyGoodsPageContext, type GoodsEditorContext, type GoodsPageContext, type GoodsSaveState } from './editor/types'
 import type { BulkPatch } from './goodsBulk'
 import { exportGoodsXlsx } from './goodsExport'
 import { dtGoodsFromExcel } from './goodsImport'
@@ -30,7 +31,7 @@ import { useGoodsItemRoute } from './useGoodsItemRoute'
 // «С ошибками · N» и «Пересчитать · N», «Из Excel» (с предпросмотром), «В Excel», «Добавить товар» (N); таблица
 // со статусами и выбором строк, тёмная панель массовых действий; итоги закреплены внизу раздела с «Рассчитать».
 // Товары правятся на месте через модель useDtGoods (одна на страницу); открытый товар — в адресе `?item=N`
-// (useGoodsItemRoute). Редактор товара — Task 3; пока — заглушка-панель «Товар N из M».
+// (useGoodsItemRoute). Редактор товара — editor/GoodsEditor (панель справа; данные страницы — editorContext).
 // В просмотре: без чекбоксов и действий изменения, «В Excel» доступен, товар открывается для чтения.
 const props = defineProps<{
   model: DtGoodsModel
@@ -42,6 +43,10 @@ const props = defineProps<{
   countryOptions?: { value: string; label: string; alpha2?: string | null }[]
   /** Идёт расчёт платежей (кнопка «Рассчитать»). */
   paymentsLoading?: boolean
+  /** Данные страницы для редактора товара: курс USD и дата гр. А, валюты, гр. 1, гр. 19. */
+  editorContext?: GoodsPageContext
+  /** Состояние сохранения ДТ — подвал редактора. */
+  saveState?: GoodsSaveState | null
 }>()
 const emit = defineEmits<{ 'calc-payments': []; 'calc-tpin': [] }>()
 const { t } = useI18n()
@@ -89,8 +94,17 @@ const clearSelection = () => { selectedKeys.value = [] }
 // ---- Открытый товар (?item=N) ----
 const itemRoute = useGoodsItemRoute(() => items.value)
 const { openIndex, openKey, openItem, closeItem } = itemRoute
-const editorOpen = computed(() => openIndex.value != null)
-const onEditorOpen = (v: boolean) => { if (!v) void closeItem() }
+const editorCtx = computed<GoodsEditorContext>(() => ({
+  ...(props.editorContext ?? emptyGoodsPageContext()),
+  currency: props.currency || null,
+  countryOptions: props.countryOptions ?? [],
+}))
+// Редактор закрыли — фокус на кнопку кода строки этого товара (если строка видна при текущем поиске/фильтре).
+const root = ref<HTMLElement | null>(null)
+const rowOpenButton = (key: number): HTMLElement | null => {
+  const pos = positionByKey.value.get(key)
+  return pos == null ? null : root.value?.querySelector<HTMLElement>(`[data-goods-row="${pos}"] [data-goods-open]`) ?? null
+}
 
 // ---- Действия ----
 const add = async () => {
@@ -241,14 +255,12 @@ const countryAlpha = computed(() => {
   const map = new Map((props.countryOptions ?? []).filter((c) => c.alpha2).map((c) => [c.value, c.alpha2 as string]))
   return (code: string) => map.get(code) ?? null
 })
-const openTitle = computed(() => (openIndex.value == null ? '' : tg('editor.title', { n: openIndex.value + 1, m: items.value.length })))
-const openGoods = computed(() => (openIndex.value == null ? null : items.value[openIndex.value] ?? null))
 
 defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch })
 </script>
 
 <template>
-  <section class="flex min-w-0 flex-col gap-3" data-dt-goods>
+  <section ref="root" class="flex min-w-0 flex-col gap-3" data-dt-goods>
     <header class="flex flex-wrap items-center gap-x-3 gap-y-2">
       <h2 class="m-0 mr-auto flex items-baseline gap-2 text-[15px] font-semibold text-ink">
         {{ tg('title') }}
@@ -393,13 +405,17 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
       @append="appendExcel"
     />
 
-    <!-- Редактор товара — Task 3; пока панель-заглушка с номером товара. -->
-    <ZDrawer :open="editorOpen" :title="openTitle" :width="780" data-dt-goods-editor @update:open="onEditorOpen">
-      <div v-if="openGoods" class="flex flex-col gap-2 text-sm" :data-goods-index="openIndex">
-        <p class="m-0 font-mono text-ink">{{ openGoods.tnvedCode || tg('noCode') }}</p>
-        <p class="m-0 text-ink-2">{{ openGoods.description || '—' }}</p>
-        <p class="m-0 text-xs text-muted">{{ tg('editor.placeholder') }}</p>
-      </div>
-    </ZDrawer>
+    <!-- Редактор открытого товара (?item=N): смонтирован только он. -->
+    <GoodsEditor
+      :model="model"
+      :index="openIndex"
+      :ctx="editorCtx"
+      :readonly="readonly"
+      :save-state="saveState"
+      :return-focus="rowOpenButton"
+      @close="closeItem"
+      @step="itemRoute.step"
+      @open="openItem"
+    />
   </section>
 </template>
