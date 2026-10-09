@@ -37,10 +37,10 @@ const sectionStub = (name: string, inner = '') => defineComponent({
 })
 const stubs = {
   DtLegacyForm: { props: ['disabled'], template: '<div data-legacy-form :data-disabled="String(disabled)"><slot /></div>' },
-  DtDeclarationNumberBar: sectionStub('DtDeclarationNumberBar'),
-  DtSectionGeneral: sectionStub('DtSectionGeneral'),
+  SectionNumber: sectionStub('SectionNumber'),
+  SectionGeneral: sectionStub('SectionGeneral'),
   DtSectionParties: sectionStub('DtSectionParties', '<label data-graph="8">Получатель<input data-recv /></label>'),
-  DtSectionCountries: sectionStub('DtSectionCountries'),
+  SectionCountries: sectionStub('SectionCountries'),
   DtSectionTransport: sectionStub('DtSectionTransport'),
   DtSectionFinance: sectionStub('DtSectionFinance'),
   DtSectionCustoms: sectionStub('DtSectionCustoms'),
@@ -72,10 +72,12 @@ const as = (o: { role?: string; permissions?: string[]; userId?: string }) => {
   auth.permissions = o.permissions ?? ['import40.read', 'import40.declarant']
   auth.userId = o.userId ?? 'me'
 }
-const open = async (query = '') => {
+// real — разделы, которые монтируются настоящими (без заглушки).
+const open = async (query = '', real: string[] = []) => {
   await router.push(`/import-40/case1/dt/dt1${query}`)
   await router.isReady()
-  w = mountWithI18n(App, { attachTo: document.body, global: { plugins: [pinia, router], stubs } })
+  const used = Object.fromEntries(Object.entries(stubs).filter(([name]) => !real.includes(name)))
+  w = mountWithI18n(App, { attachTo: document.body, global: { plugins: [pinia, router], stubs: used } })
   await settle()
 }
 const readinessDto = (o: Partial<KedenReadinessDto> = {}): KedenReadinessDto => ({
@@ -141,7 +143,7 @@ describe('DtPage: загрузка', () => {
     await settle()
     expect(w.find('[data-dt-skeleton]').exists()).toBe(false)
     expect(w.get('[data-dt-number]').text()).toBe('55302/091026/0000123')
-    expect(stub()).toBe('DtDeclarationNumberBar')
+    expect(stub()).toBe('SectionNumber')
   })
 
   it('ошибка загрузки — «Повторить» перечитывает', async () => {
@@ -175,7 +177,7 @@ describe('DtPage: разделы и ?s=', () => {
     await navItem('number').trigger('click')
     await settle()
     expect(router.currentRoute.value.query.s).toBeUndefined()
-    expect(stub()).toBe('DtDeclarationNumberBar')
+    expect(stub()).toBe('SectionNumber')
   })
 
   it('Alt+↓ / Alt+↑ — соседний раздел', async () => {
@@ -242,6 +244,46 @@ describe('DtPage: готовность', () => {
     expect(w.find('[data-dt-panel-aside]').exists()).toBe(false)
     expect(w.find('[data-dt-panel-toggle]').exists()).toBe(false)
     expect(toast.error).not.toHaveBeenCalled()
+  })
+})
+
+describe('DtPage: настоящие разделы «Номер», «Общие», «Страны»', () => {
+  it('«Номер и дата»: посты страницы, правка цифр меняет номер в шапке и ставит «Есть несохранённые»', async () => {
+    refs.listCustomsPosts.mockResolvedValue([{ name: '55302 — Т/П «Алматы-Центр»' }])
+    await open('', ['SectionNumber'])
+    const post = w.get('[data-dt-number-section] input[role="combobox"]')
+    expect((post.element as HTMLInputElement).value).toBe('55302 — Т/П «Алматы-Центр»')
+    const tail = w.get('input[placeholder="0000000"]')
+    ;(tail.element as HTMLInputElement).value = '0000777'
+    await tail.trigger('input')
+    await settle()
+    expect(w.get('[data-dt-number]').text()).toBe('55302/051026/0000777')
+    expect(w.get('[data-dt-number-result]').text()).toBe('55302/051026/0000777')
+    expect(w.get('[data-dt-header]').text()).toContain('Есть несохранённые изменения')
+  })
+
+  it('«к недостающему»: пункт гр. А — подсветка и фокус на посте подачи', async () => {
+    api.kedenReadiness.mockResolvedValue(readinessDto({
+      missing: ['Гр.А: номер ДТ'], items: [{ text: 'Гр.А: номер ДТ', graph: 'А', goodsIndex: null }],
+    }))
+    await open('', ['SectionNumber'])
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    const field = w.get('[data-graph="А"]')
+    expect(field.attributes('data-dt-flash')).toBeDefined()
+    expect(document.activeElement).toBe(field.get('input').element)
+  })
+
+  it('«Общие» и «Страны» в просмотре: поля с data-graph, выбор недоступен', async () => {
+    as({ permissions: ['import40.read'] })
+    await open('?s=general', ['SectionGeneral', 'SectionCountries'])
+    expect(w.findAll('[data-graph="1"]')).toHaveLength(3)
+    expect(w.get('[data-graph="1"] input').attributes('disabled')).toBeDefined()
+    await navItem('countries').trigger('click')
+    await settle()
+    expect(w.get('[data-dt-countries]').exists()).toBe(true)
+    expect(w.findAll('[data-dt-countries] [data-graph]').map((e) => e.attributes('data-graph'))).toEqual(['15', '17', '11', '16'])
+    expect(w.get('[data-graph="16"] input').attributes('disabled')).toBeDefined()
   })
 })
 

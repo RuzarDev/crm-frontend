@@ -7,10 +7,7 @@ import ZDrawer from '@/components/z/ZDrawer.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import DtLegacyForm from '@/components/import40/dt/DtLegacyForm.vue'
-import DtDeclarationNumberBar from '@/components/import40/dt/DtDeclarationNumberBar.vue'
-import DtSectionGeneral from '@/components/import40/dt/DtSectionGeneral.vue'
 import DtSectionParties from '@/components/import40/dt/DtSectionParties.vue'
-import DtSectionCountries from '@/components/import40/dt/DtSectionCountries.vue'
 import DtSectionTransport from '@/components/import40/dt/DtSectionTransport.vue'
 import DtSectionFinance from '@/components/import40/dt/DtSectionFinance.vue'
 import DtSectionCustoms from '@/components/import40/dt/DtSectionCustoms.vue'
@@ -36,6 +33,9 @@ import DtHeaderBar from './DtHeaderBar.vue'
 import DtReadinessPanel from './DtReadinessPanel.vue'
 import DtSectionNav from './DtSectionNav.vue'
 import DtSplitModal from './DtSplitModal.vue'
+import SectionCountries from './sections/SectionCountries.vue'
+import SectionGeneral from './sections/SectionGeneral.vue'
+import SectionNumber from './sections/SectionNumber.vue'
 import { DT_CLASSIFIERS } from './dtClassifiers'
 import {
   adjacentSection, dtsReadinessItems, navMarks, paymentsStale, rateTag, readonlyReason, sectionFromQuery, splitChildren, visibleSections,
@@ -481,20 +481,17 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
           >
             <DtLegacyForm :disabled="!editable">
               <KeepAlive>
-                <DtDeclarationNumberBar
+                <SectionNumber
                   v-if="active === 'number'"
-                  :model-value="legacyForm"
+                  :form="form"
                   :readonly="!editable"
                   :post-options="customsPostOptions"
-                  @update:model-value="onLegacyUpdate"
-                  @register="onSave"
                 />
-                <DtSectionGeneral
+                <SectionGeneral
                   v-else-if="active === 'general'"
-                  :model-value="legacyForm"
+                  :form="form"
                   :readonly="!editable"
                   :totals="legacyTotals"
-                  @update:model-value="onLegacyUpdate"
                 />
                 <DtSectionParties
                   v-else-if="active === 'parties'"
@@ -504,12 +501,11 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
                   :client-profile="clientProfile"
                   @update:model-value="onLegacyUpdate"
                 />
-                <DtSectionCountries
+                <SectionCountries
                   v-else-if="active === 'countries'"
-                  :model-value="legacyForm"
+                  :form="form"
                   :readonly="!editable"
                   :country-options="countryOptions"
-                  @update:model-value="onLegacyUpdate"
                 />
                 <DtSectionTransport
                   v-else-if="active === 'transport'"
