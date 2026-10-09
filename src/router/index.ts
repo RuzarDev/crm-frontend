@@ -231,7 +231,7 @@ const router = createRouter({
           component: () => import('@/views/BillingRoute.vue'),
         },
         // «Настройки» (волна 5б): пять вкладок на /settings/*. Права — как в navModel и на сервере.
-        // Команда, роли, организация и журнал пока на прежних экранах (их заменят следующие задачи волны).
+        // Организация и журнал пока на прежних экранах (их заменят следующие задачи волны).
         {
           path: '/settings/team',
           name: 'settings-team',
@@ -241,7 +241,7 @@ const router = createRouter({
         {
           path: '/settings/roles',
           name: 'settings-roles',
-          component: () => import('@/views/RolesView.vue'),
+          component: () => import('@/views/broker/settings/roles/RolesPage.vue'),
           meta: { requiresPermission: 'users.read' },
         },
         {

@@ -177,7 +177,8 @@ export default {
   enum: {
     businessRole: { declarant: 'Брокер-декларант (импорт)', kpp: 'ӨБП менеджері', mpp: 'Транзит (тізілім)', accountant: 'Бухгалтер', sales: 'Сату және клиенттер', rop: 'Бөлім басшысы', client: 'Клиент', expeditor: 'Экспедитор' },
     systemRole: { client: 'Клиент', broker: 'Брокер', expeditor: 'Экспедитор', administrator: 'Әкімші', importer: 'Импорт', sales: 'Сату' },
-    permission: { reestr_read: 'Тізілім: қарау', reestr_write: 'Тізілім: өңдеу', reestr_delete: 'Тізілім: жою', users_read: 'Пайдаланушылар: қарау', users_write: 'Пайдаланушылар: құру', users_delete: 'Пайдаланушылар: жою', users_assign_role: 'Пайдаланушылар: рөл тағайындау', clients_manage: 'Клиенттер: байланыстар', endpoints_read: 'Жүйе: API каталогы', roles_manage: 'Рөлдер: басқару', status_change: 'Тізілім: мәртебені ауыстыру', tnved_manage: 'СЭҚ ТН: әкімшілендіру' },
+    permission: { reestr_read: 'Тізілім: қарау', reestr_write: 'Тізілім: өңдеу', reestr_delete: 'Тізілім: жою', users_read: 'Пайдаланушылар: қарау', users_write: 'Пайдаланушылар: құру', users_delete: 'Пайдаланушылар: жою', users_assign_role: 'Пайдаланушылар: рөл тағайындау', clients_manage: 'Клиенттер: байланыстар', endpoints_read: 'Жүйе: API каталогы', roles_manage: 'Рөлдер: басқару', status_change: 'Тізілім: мәртебені ауыстыру', tnved_manage: 'СЭҚ ТН: әкімшілендіру', import40_read: 'Импорт 40: өтінімдерді қарау', import40_declarant: 'Импорт 40: ДТ — толтыру, тапсыру, шығару', import40_kpp: 'Импорт 40: КПП — шекара, ТҚС, шот, төлем', import40_assign: 'Импорт 40: қызметкерлерді тағайындау', import40_problem: 'Импорт 40: кеден сұрауы, мәселені алып тастау', import40_export: 'Импорт 40: КЕДЕН-ге топтама жүктеу', packages_manage: 'Құжат топтамалары: басқару', clients_read: 'Клиенттер: қарау', clients_invite: 'Клиенттер: шақыру', sales_read: 'Сату: КҰ қарау', sales_write: 'Сату: КҰ жасау', finance_read: 'Қаржы: шоттар мен төлемдер', finance_write: 'Қаржы: шот пен акт жазу', references_read: 'Анықтамалықтар: ДТ және СЭҚ ТН', analytics_read: 'Аналитика: қарау' },
+    permissionGroup: { import40: 'Импорт 40', transit: 'Транзит', clients: 'Клиенттер', sales: 'Сату', finance: 'Қаржы', references: 'Анықтамалықтар', analytics: 'Аналитика', admin: 'Әкімшілендіру' },
     auditAction: { client_invite: 'Клиентті шақыру', client_block: 'Клиентті бұғаттау', client_unblock: 'Клиент бұғатын алу', document_revoke: 'Құжатты кері қайтару', document_sign_upload: 'Қол қойылған құжатты жүктеу', invoice_remind: 'Шотты төлеу туралы еске салу', organization_update: 'Ұйым деректемелерін өзгерту' },
     salesQuoteStatus: { draft: 'Жоба', sent: 'Жіберілді', accepted: 'Қабылданды', rejected: 'Қабылданбады' },
     reestrStatus: { InProgress: 'Жұмыста', Submitted: 'Берілді', Released: 'Шығарылды', ConditionallyReleased: 'Шартты шығарылды', Problematic: 'Проблемалы', Rejected: 'Бас тарту', Withdrawn: 'Кері қайтару', Archived: 'Мұрағат' },
@@ -536,6 +537,43 @@ export default {
   // Общий набор брокерских списков (редизайн, волна 3а).
   broker: {
     settings: {
+      roles: {
+        title: 'Рөлдер мен құқықтар',
+        hint: 'Әр рөл не істей алады · қызметкер өзінің барлық рөлінің құқығын алады; келесі кіргенде күшіне енеді',
+        refresh: 'Жаңарту',
+        reset: 'Әдепкіге қайтару',
+        tableLabel: 'Рөлдер бойынша құқықтар',
+        colPermission: 'Құқық',
+        colAdmin: 'Әкімші',
+        loadError: 'Жүктеу мүмкін болмады',
+        retry: 'Қайталау',
+        empty: 'Құқықтар әлі жоқ',
+        cell: '{permission} — {role}',
+        lock: {
+          noManage: 'Құқықтарды тек рөлдерді басқару құқығы бар қызметкер өзгерте алады',
+          adminColumn: 'Әкімшінің құқықтары өзгермейді: оның бәрі бар',
+          ownRole: 'Өз рөліңізді өзгертуге болмайды: әріптесіңізден немесе әкімшіден сұраңыз',
+          adminPermission: '«Әкімшілендіру» тобының құқықтарын тек әкімші береді; оларды алып тастауға болады',
+        },
+        bar: {
+          label: 'Сақталмаған өзгерістер',
+          one: '{n} өзгеріс',
+          few: '{n} өзгеріс',
+          many: '{n} өзгеріс',
+          other: '{n} өзгеріс',
+          add: '{role} «{permission}» құқығын алады',
+          remove: '{role} «{permission}» құқығынан айырылады',
+          cancel: 'Болдырмау',
+          save: 'Сақтау',
+        },
+        saved: 'Құқықтар сақталды. Қызметкерлер оны келесі кіргенде алады',
+        resetDone: 'Құқықтар әдепкіге қайтарылды',
+        saveFailed: 'Құқықтарды сақтау мүмкін болмады',
+        savePartial: 'Сақталған рөлдер: {done} / {total}. «{role}» рөлі сақталмады: {reason}',
+        leave: { title: 'Сақтамай шығасыз ба?', text: 'Матрицада сақталмаған өзгерістер бар. Беттен шықсаңыз, олар жоғалады.', leave: 'Шығу', stay: 'Қалу' },
+        discard: { title: 'Өзгерістерді қайтарасыз ба?', text: 'Матрицадағы сақталмаған өзгерістер жоғалады.', ok: 'Қайтару', cancel: 'Бас тарту' },
+        resetConfirm: { title: 'Құқықтарды әдепкіге қайтарасыз ба?', text: 'Барлық рөлдер бастапқы құқықтарына оралады, сақталмаған өзгерістер жоғалады. Қызметкерлер жаңа құқықтарды келесі кіргенде алады.', ok: 'Қайтару', cancel: 'Бас тарту' },
+      },
       team: {
         title: 'Команда',
         hint: 'Қызметкерлер, клиенттер және экспедиторлар · кім нені жасай алады',

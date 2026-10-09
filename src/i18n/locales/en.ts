@@ -177,7 +177,8 @@ export default {
   enum: {
     businessRole: { declarant: 'Broker-declarant (import)', kpp: 'Checkpoint manager', mpp: 'Transit (registry)', accountant: 'Accountant', sales: 'Sales and clients', rop: 'Head of department', client: 'Client', expeditor: 'Forwarder' },
     systemRole: { client: 'Client', broker: 'Broker', expeditor: 'Forwarder', administrator: 'Administrator', importer: 'Import', sales: 'Sales' },
-    permission: { reestr_read: 'Registry: view', reestr_write: 'Registry: edit', reestr_delete: 'Registry: delete', users_read: 'Users: view', users_write: 'Users: create', users_delete: 'Users: delete', users_assign_role: 'Users: assign role', clients_manage: 'Clients: links', endpoints_read: 'System: API catalog', roles_manage: 'Roles: management', status_change: 'Registry: status change', tnved_manage: 'HS nomenclature: administration' },
+    permission: { reestr_read: 'Registry: view', reestr_write: 'Registry: edit', reestr_delete: 'Registry: delete', users_read: 'Users: view', users_write: 'Users: create', users_delete: 'Users: delete', users_assign_role: 'Users: assign role', clients_manage: 'Clients: links', endpoints_read: 'System: API catalog', roles_manage: 'Roles: management', status_change: 'Registry: status change', tnved_manage: 'HS nomenclature: administration', import40_read: 'Import 40: view requests', import40_declarant: 'Import 40: DT — fill in, submit, release', import40_kpp: 'Import 40: checkpoint — border, TWH, invoice, payment', import40_assign: 'Import 40: assign staff', import40_problem: 'Import 40: customs query, clear a problem', import40_export: 'Import 40: batch export to KEDEN', packages_manage: 'Document packages: manage', clients_read: 'Clients: view', clients_invite: 'Clients: invite', sales_read: 'Sales: view quotes', sales_write: 'Sales: create quotes', finance_read: 'Finance: invoices and payments', finance_write: 'Finance: issue invoices and acts', references_read: 'References: DT and HS codes', analytics_read: 'Analytics: view' },
+    permissionGroup: { import40: 'Import 40', transit: 'Transit', clients: 'Clients', sales: 'Sales', finance: 'Finance', references: 'References', analytics: 'Analytics', admin: 'Administration' },
     auditAction: { client_invite: 'Client invitation', client_block: 'Client blocked', client_unblock: 'Client unblocked', document_revoke: 'Document revoked', document_sign_upload: 'Signed document uploaded', invoice_remind: 'Invoice payment reminder', organization_update: 'Organization details updated' },
     salesQuoteStatus: { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', rejected: 'Rejected' },
     reestrStatus: { InProgress: 'In progress', Submitted: 'Submitted', Released: 'Released', ConditionallyReleased: 'Conditionally released', Problematic: 'Problem', Rejected: 'Rejected', Withdrawn: 'Withdrawn', Archived: 'Archive' },
@@ -536,6 +537,43 @@ export default {
   // Общий набор брокерских списков (редизайн, волна 3а).
   broker: {
     settings: {
+      roles: {
+        title: 'Roles and permissions',
+        hint: 'What each role can do · an employee gets the permissions of all their roles; takes effect at the next sign-in',
+        refresh: 'Refresh',
+        reset: 'Restore defaults',
+        tableLabel: 'Permissions by role',
+        colPermission: 'Permission',
+        colAdmin: 'Admin',
+        loadError: 'Could not load',
+        retry: 'Retry',
+        empty: 'No permissions yet',
+        cell: '{permission} — {role}',
+        lock: {
+          noManage: 'Only an employee allowed to manage roles can change permissions',
+          adminColumn: 'Administrator permissions cannot be changed: they have everything',
+          ownRole: 'You cannot change your own role: ask a colleague or an administrator',
+          adminPermission: 'Only an administrator can grant “Administration” permissions; you can remove them',
+        },
+        bar: {
+          label: 'Unsaved changes',
+          one: '{n} change',
+          few: '{n} changes',
+          many: '{n} changes',
+          other: '{n} changes',
+          add: '{role} will get “{permission}”',
+          remove: '{role} will lose “{permission}”',
+          cancel: 'Cancel',
+          save: 'Save',
+        },
+        saved: 'Permissions saved. Employees get them at their next sign-in',
+        resetDone: 'Permissions restored to defaults',
+        saveFailed: 'Could not save permissions',
+        savePartial: 'Roles saved: {done} of {total}. Role “{role}” was not saved: {reason}',
+        leave: { title: 'Leave without saving?', text: 'The matrix has unsaved changes. If you leave the page, they will be lost.', leave: 'Leave', stay: 'Stay' },
+        discard: { title: 'Discard changes?', text: 'Unsaved changes in the matrix will be lost.', ok: 'Discard', cancel: 'Cancel' },
+        resetConfirm: { title: 'Restore default permissions?', text: 'All roles return to their original permissions and unsaved changes are lost. Employees get the new permissions at their next sign-in.', ok: 'Restore', cancel: 'Cancel' },
+      },
       team: {
         title: 'Team',
         hint: 'Staff, clients and forwarders · who can do what',

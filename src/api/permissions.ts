@@ -9,11 +9,15 @@ export interface PermissionMatrix { roles: RoleRow[]; groups: PermissionGroup[] 
 export interface BusinessRoleInfo { code: string; label: string; scope: string }
 
 export const permissionsApi = {
-  matrix: async (): Promise<PermissionMatrix> => (await apiClient.get<PermissionMatrix>('/system/permissions')).data,
-  updateRole: async (role: string, permissions: string[]) => {
-    await apiClient.put(`/system/permissions/${encodeURIComponent(role)}`, { permissions })
+  // silent — экран «Роли и права» сам показывает ошибку (в т.ч. русский detail сервера из 403).
+  matrix: async (opts?: { silent?: boolean }): Promise<PermissionMatrix> =>
+    (await apiClient.get<PermissionMatrix>('/system/permissions', opts?.silent ? { silent: true } : undefined)).data,
+  updateRole: async (role: string, permissions: string[], opts?: { silent?: boolean }) => {
+    await apiClient.put(`/system/permissions/${encodeURIComponent(role)}`, { permissions }, opts?.silent ? { silent: true } : undefined)
   },
-  reset: async () => { await apiClient.post('/system/permissions/reset') },
+  reset: async (opts?: { silent?: boolean }) => {
+    await apiClient.post('/system/permissions/reset', undefined, opts?.silent ? { silent: true } : undefined)
+  },
   catalog: async (opts?: { silent?: boolean }): Promise<BusinessRoleInfo[]> =>
     (await apiClient.get<BusinessRoleInfo[]>('/users/business-roles/catalog', opts?.silent ? { silent: true } : undefined)).data,
   userRoles: async (userId: string): Promise<string[]> =>
