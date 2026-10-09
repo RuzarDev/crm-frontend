@@ -15,6 +15,7 @@ import { ZFieldBoundary } from '@/ui/form'
 // Слот header — подпись вверху меню (кто вошёл, роль): не пункт, стрелки по нему не ходят; под ним линия.
 // checked (true/false) — пункт-переключатель (menuitemcheckbox, галочка слева): выбор не закрывает меню,
 // состояние ведёт родитель по select. openChange — меню открылось/закрылось (догрузить пункты при открытии).
+// hint — пояснение мелким текстом под подписью (у выключенного пункта — причина).
 export interface ZDropdownItem {
   key: string
   label: string
@@ -23,6 +24,8 @@ export interface ZDropdownItem {
   icon?: Component
   divider?: boolean
   checked?: boolean
+  /** Пояснение второй строкой (например, почему пункт недоступен). */
+  hint?: string
 }
 
 defineProps<{ items: ZDropdownItem[] }>()
@@ -64,7 +67,11 @@ const emit = defineEmits<{ select: [key: string]; openChange: [open: boolean] }>
               @select="emit('select', it.key)"
             >
               <component :is="it.icon" v-if="it.icon" class="size-4 shrink-0" aria-hidden="true" />
-              {{ it.label }}
+              <span v-if="it.hint" class="flex min-w-0 flex-col py-1">
+                <span>{{ it.label }}</span>
+                <span class="max-w-72 text-xs font-normal whitespace-normal text-muted" data-z-dropdown-hint>{{ it.hint }}</span>
+              </span>
+              <template v-else>{{ it.label }}</template>
             </DropdownMenuItem>
           </template>
         </ZFieldBoundary>

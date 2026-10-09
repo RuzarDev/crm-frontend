@@ -132,10 +132,11 @@ const router = createRouter({
           meta: { requiresImport40: true },
         },
         {
+          // Страница ДТ (редизайн, волна 6а): разделы в ?s=, меню оболочки — узкое, из иконок (meta.shell).
           path: '/import-40/:caseId/dt/:dtId',
           name: 'import-40-dt',
-          component: () => import('@/views/Import40DtView.vue'),
-          meta: { requiresImport40: true },
+          component: () => import('@/views/broker/dt/DtPage.vue'),
+          meta: { requiresImport40: true, shell: 'compact' },
         },
         {
           // Справочник ДТ — только декларанту (тот же критерий, что в меню, аудит §8).

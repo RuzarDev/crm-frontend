@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { KedenReadinessItem } from './import40'
 
 // ДТС (добавочный лист декларации таможенной стоимости) — Task 11.
 // Типы выверены по бэкенду (branch feature/dts, crm-server):
@@ -89,6 +90,8 @@ export interface DtsView {
   sheet: DtsSheet
   missing: string[]
   mismatchGoods: number[]
+  /** Те же пункты, что missing, с графой бланка («ДТС» — пункты самой ДТС) и номером товара (с 0). */
+  items?: KedenReadinessItem[]
 }
 
 const base = (caseId: string, declId: string) =>
@@ -100,8 +103,8 @@ const fileName = (cd: string, fallback: string) => {
 }
 
 export const dtsApi = {
-  get: async (caseId: string, declId: string): Promise<DtsView> =>
-    (await apiClient.get<DtsView>(base(caseId, declId))).data,
+  get: async (caseId: string, declId: string, opts?: { silent?: boolean }): Promise<DtsView> =>
+    (await apiClient.get<DtsView>(base(caseId, declId), opts?.silent ? { silent: true } : undefined)).data,
 
   xml: async (caseId: string, declId: string): Promise<{ blob: Blob; fileName: string } | { errors: string[] }> => {
     const res = await apiClient.get(`${base(caseId, declId)}/xml`, { responseType: 'blob', validateStatus: () => true })

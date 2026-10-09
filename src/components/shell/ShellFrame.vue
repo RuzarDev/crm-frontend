@@ -38,6 +38,11 @@ const notifStore = useNotificationsStore()
 const profileStore = useProfileStore()
 const authStore = useAuthStore()
 
+// ---- Узкий режим (meta.shell: 'compact', страница ДТ — как на доске) ----
+// Меню слева — только иконки (64 px), шапка оболочки не липнет: липкой остаётся своя шапка страницы (top: 0),
+// поэтому --shell-header-h = 0.
+const compact = computed(() => route.meta.shell === 'compact')
+
 // ---- Раздел и вкладки ----
 const active = computed(() => resolveActive(props.model, route.path))
 const tabsSection = computed(() => {
@@ -85,8 +90,10 @@ const measureHeader = () => {
   const h = headerEl.value?.offsetHeight
   headerHeight.value = h ? h : null
 }
-const rootStyle = computed(() =>
-  headerHeight.value === null ? undefined : { '--shell-header-h': `${headerHeight.value}px` })
+const rootStyle = computed(() => {
+  if (compact.value) return { '--shell-header-h': '0px' }
+  return headerHeight.value === null ? undefined : { '--shell-header-h': `${headerHeight.value}px` }
+})
 let headerObserver: ResizeObserver | null = null
 
 // ---- Жизненный цикл: счётчик уведомлений, ⌘K, имя для шапки ----
@@ -139,20 +146,28 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
     <aside
       :class="cn(
         'sticky top-0 hidden h-dvh shrink-0 overflow-y-auto lg:block',
-        client ? 'lg:w-[240px]' : 'lg:w-[248px]',
+        compact ? 'lg:w-16' : client ? 'lg:w-[240px]' : 'lg:w-[248px]',
       )"
+      :data-shell-compact="compact ? '' : undefined"
     >
       <ShellSidebar
         :model="model"
         :path="route.path"
         :attention="homeAttention"
         :comfortable="comfortable"
+        :compact="compact"
         @search="palette.show()"
       />
     </aside>
 
     <div class="flex min-w-0 flex-1 flex-col bg-surface lg:m-2.5 lg:ml-0 lg:min-h-[calc(100dvh-20px)] lg:rounded-panel lg:border lg:border-line">
-      <header ref="headerEl" class="sticky top-0 z-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface px-4 py-3 lg:flex-nowrap lg:rounded-t-panel lg:px-7 lg:py-3.5">
+      <header
+        ref="headerEl"
+        :class="cn(
+          'flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface px-4 py-3 lg:flex-nowrap lg:rounded-t-panel lg:px-7 lg:py-3.5',
+          compact ? 'relative' : 'sticky top-0 z-10',
+        )"
+      >
         <div class="flex items-center gap-2 lg:hidden">
           <button
             type="button"
