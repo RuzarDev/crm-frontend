@@ -18,7 +18,9 @@ vi.mock('@/ui/message', () => ({ message: toast }))
 const refsApi = vi.hoisted(() => ({
   listClassifiers: vi.fn(async () => []),
   listOkeiUnits: vi.fn(async () => [{ id: '1', code: '796', name: 'шт', isActive: true }, { id: '2', code: '112', name: 'л', isActive: true }]),
+  listCountries: vi.fn(async () => []),
 }))
+vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: { list: vi.fn(async () => []), suggest: vi.fn(async () => ({ tnved: '', codes: [], fetchedAtUtc: null, stale: false, warning: null })) } }))
 vi.mock('@/api/references', () => ({ referencesApi: refsApi }))
 const tnved = vi.hoisted(() => ({
   node: vi.fn(),
@@ -124,7 +126,7 @@ describe('GoodsEditor: каркас и навигация', () => {
     expect(q('[data-goods-editor-code]')!.textContent).toBe('8471 60 700 0')
     expect(q('[data-goods-editor-caption]')!.textContent).toBe('МЫШИ')
     expect(q('[data-goods-editor-status]')!.getAttribute('data-goods-editor-status')).toBe('stale')
-    expect([...panel()!.querySelectorAll('[data-goods-tab]')].map((b) => b.textContent)).toEqual(['Код и описание', 'Количество и стоимость', 'Упаковка', 'Льготы и процедура'])
+    expect([...panel()!.querySelectorAll('[data-goods-tab]')].map((b) => b.textContent)).toEqual(['Код и описание', 'Количество и стоимость', 'Упаковка', 'Льготы и процедура', 'Гр. 33', 'Маркировка', 'Доп. сведения'])
     const scope = q('[data-goods-index="1"]')!
     for (const g of ['33', '31', '41', '35', '38', '42', '34', '45', '46']) expect(scope.querySelector(`[data-graph="${g}"]`), g).not.toBeNull()
     // Смонтирован только открытый товар.

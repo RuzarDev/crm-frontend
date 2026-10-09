@@ -34,9 +34,30 @@ const RULES: readonly (readonly [RegExp, string])[] = [
   [/строки платежа|гр\.?\s*47/iu, 'payments'],
 ]
 
+// «Товар N: гр.31 доп. сведения — <проблема>; <проблема>…» (KedenXmlReadiness.ExtrasProblems): один пункт на товар, поле —
+// по ПЕРВОЙ проблеме (рег. № ОИС, 31.2, маркировка — в своих разделах; остальное — блоки «Доп. сведений»).
+const EXTRAS_RE = /доп\.\s*сведения\s*—\s*(.+)$/isu
+const EXTRAS_RULES: readonly (readonly [RegExp, string])[] = [
+  [/^рег\.\s*номер ОИС/iu, 'oisRegNumber'],
+  [/^упаковка\/поддоны/iu, 'packages'],
+  [/^маркировка/iu, 'markings'],
+  [/^стандарт/iu, 'standardName'],
+  [/^период поставки/iu, 'period'],
+  [/^инвестпроект/iu, 'invest'],
+  [/^прослеживаемость/iu, 'traceable'],
+  [/^акцизные марки/iu, 'exciseStamps'],
+  [/^автомобиль/iu, 'vehicles'],
+]
+
 /** Ключ поля товара (свойство Import40GoodsItemInput или раздел: payments, extras) по тексту пункта; null — не знаем. */
 export function goodsFieldFromReadiness(text: string | null | undefined): string | null {
   const t = text ?? ''
+  const extras = EXTRAS_RE.exec(t)
+  if (extras) {
+    const first = extras[1].trim()
+    for (const [re, key] of EXTRAS_RULES) if (re.test(first)) return key
+    return 'extras'
+  }
   for (const [re, key] of RULES) if (re.test(t)) return key
   return null
 }

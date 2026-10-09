@@ -16,7 +16,8 @@ const excel = vi.hoisted(() => ({ readGoodsExcel: vi.fn() }))
 vi.mock('@/utils/goodsExcel', async (orig) => ({ ...(await orig<typeof import('@/utils/goodsExcel')>()), readGoodsExcel: excel.readGoodsExcel }))
 const xlsx = vi.hoisted(() => ({ exportXlsx: vi.fn(async () => undefined) }))
 vi.mock('@/views/broker/list', async (orig) => ({ ...(await orig<typeof import('@/views/broker/list')>()), exportXlsx: xlsx.exportXlsx }))
-vi.mock('@/api/references', () => ({ referencesApi: { listClassifiers: vi.fn(async () => []), listOkeiUnits: vi.fn(async () => []) } }))
+vi.mock('@/api/references', () => ({ referencesApi: { listClassifiers: vi.fn(async () => []), listOkeiUnits: vi.fn(async () => []), listCountries: vi.fn(async () => []) } }))
+vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: { list: vi.fn(async () => []), suggest: vi.fn(async () => ({ tnved: '', codes: [], fetchedAtUtc: null, stale: false, warning: null })) } }))
 // Редактор товара (открывается по строке): проверка кода, ставки КЕДЕН и ТРОИС — без сети.
 vi.mock('@/api/tnved', () => ({ tnvedApi: {
   node: vi.fn(async (code: string) => ({ data: { code, name: 'УЗЕЛ', is10: true } })),

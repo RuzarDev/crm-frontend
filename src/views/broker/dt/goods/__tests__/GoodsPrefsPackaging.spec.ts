@@ -15,7 +15,8 @@ import type { GoodsPageContext } from '../editor/types'
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/ui/message', () => ({ message: toast }))
-vi.mock('@/api/references', () => ({ referencesApi: { listClassifiers: vi.fn(async () => []), listOkeiUnits: vi.fn(async () => []) } }))
+vi.mock('@/api/references', () => ({ referencesApi: { listClassifiers: vi.fn(async () => []), listOkeiUnits: vi.fn(async () => []), listCountries: vi.fn(async () => []) } }))
+vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: { list: vi.fn(async () => []), suggest: vi.fn(async () => ({ tnved: '', codes: [], fetchedAtUtc: null, stale: false, warning: null })) } }))
 vi.mock('@/api/tnved', () => ({ tnvedApi: {
   node: vi.fn(async (code: string) => ({ data: { code, name: code, is10: true } })),
   rates: vi.fn(async () => ({ data: {} })),
