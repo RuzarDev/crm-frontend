@@ -191,4 +191,13 @@ describe('TnvedPickerModal', () => {
       expect(detail).not.toContain('5%')
     })
   })
+
+  it('(баг) смонтировали сразу открытым (GoodsCard: v-if и open в одном такте) — дерево и начальный поиск', async () => {
+    mountPicker({ open: true, initialQuery: '8471' })
+    await flushPromises()
+    await flushPromises()
+    expect(api.children).toHaveBeenCalledWith(0, { silent: true })
+    expect(api.search).toHaveBeenCalledWith('8471', false, 40, { silent: true })
+    expect(all('[data-picker-result]')).toHaveLength(2)
+  })
 })

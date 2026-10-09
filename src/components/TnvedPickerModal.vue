@@ -146,7 +146,7 @@ watch(() => props.open, (v) => {
   // Начальный запрос (напр. неполный 6-значный код) — сразу ищем.
   const iq = (props.initialQuery || '').trim()
   if (iq) { query.value = iq; void nextTick(doSearch) }
-})
+}, { immediate: true }) // окно может смонтироваться уже открытым (GoodsCard: v-if и open в одном такте)
 
 const modeOptions = computed(() => [
   { value: 'tree', label: t('broker.references.picker.tree') },
