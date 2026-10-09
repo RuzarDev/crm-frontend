@@ -184,13 +184,16 @@ const openCode = async (raw: string, known?: TnvedNodeDto) => {
   }
 }
 
-// Телефон и узкий экран: карточка под деревом — после выбора показываем её, а не оставляем за краем.
+// Телефон и узкий экран (одна колонка, от lg — две): карточка лежит под деревом — после выбора кода показываем её,
+// а не оставляем за краем. В две колонки карточка рядом с деревом, ничего не листаем. Уже стоит у верхнего края — не трогаем.
+const TWO_COLUMNS = '(min-width: 1024px)'
 const cardWrap = ref<HTMLElement | null>(null)
 const revealCard = async () => {
   await nextTick()
   const el = cardWrap.value
   if (!el || typeof el.getBoundingClientRect !== 'function') return
-  if (el.getBoundingClientRect().top < window.innerHeight * 0.8) return
+  if (typeof window.matchMedia === 'function' && window.matchMedia(TWO_COLUMNS).matches) return
+  if (Math.abs(el.getBoundingClientRect().top) < 16) return
   const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   el.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
 }

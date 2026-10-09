@@ -198,8 +198,10 @@ const reveal = async (path: ZTreeId[]): Promise<ZTreeNode | null> => {
 defineExpose({ reveal, collapseAll, expand, collapse, toggle, scrollTo, scrollToSelected, reset, getNode: (id: ZTreeId) => index.get(keyOf(id)) })
 
 // ---- Вид ----
-const INDENT = 16
+// Отступ уровня — переменная --z-tree-level на строке. От sm: 16px на уровень; на телефоне 8px на уровень и не больше 32px,
+// чтобы у глубокого узла название не вытеснялось из строки.
 const rowClass = cn(
+  'pl-[calc(4px_+_var(--z-tree-level)_*_16px)] max-sm:pl-[calc(4px_+_min(var(--z-tree-level)_*_8px,_32px))]',
   'group flex min-h-9 cursor-pointer items-center gap-1.5 rounded-row py-1 pr-2 text-sm text-ink-2 outline-hidden select-none max-sm:min-h-11',
   'transition-colors duration-150 hover:bg-canvas focus-visible:shadow-focus motion-reduce:transition-none',
   'data-[selected]:bg-zircon-soft data-[selected]:text-zircon-ink data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
@@ -231,7 +233,7 @@ const rowClass = cn(
         :disabled="item.value.disabled"
         :aria-busy="loadingKeys.has(item._id) ? 'true' : undefined"
         :class="rowClass"
-        :style="{ paddingLeft: `${(item.level - 1) * INDENT + 4}px` }"
+        :style="{ '--z-tree-level': item.level - 1 }"
         @select="onItemSelect(item.value, $event)"
         @toggle="onItemToggle(item.value, $event)"
       >

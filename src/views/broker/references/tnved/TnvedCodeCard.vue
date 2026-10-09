@@ -126,7 +126,10 @@ const tabLabel = computed(() => t(`broker.references.tnved.tabs.${tab.value}`))
 // Ставка — из «Ставок» (обычно открыты первыми): по ней калькулятор решает, нужен ли объём двигателя.
 const rateText = computed(() => states.rates?.data?.rateStr ?? props.cache.peek('rates', props.node.code)?.data?.rateStr ?? null)
 
-const crumb = 'inline-flex min-h-7 cursor-pointer items-center rounded-field border-0 bg-transparent px-1 font-mono text-[12.5px] tabular-nums text-muted outline-hidden transition-colors duration-150 hover:text-zircon-ink focus-visible:shadow-focus motion-reduce:transition-none max-sm:min-h-11'
+const crumbBase = 'inline-flex min-h-7 cursor-pointer items-center rounded-field border-0 bg-transparent px-1 text-[12.5px] text-muted outline-hidden transition-colors duration-150 hover:text-zircon-ink focus-visible:shadow-focus motion-reduce:transition-none max-sm:min-h-11'
+// Код — моноширинный; группа без кода («– транспортные средства только с…») — один усечённый ряд обычным шрифтом, полный текст в title.
+const crumbCode = `${crumbBase} font-mono tabular-nums`
+const crumbText = `${crumbBase} max-w-[12rem] min-w-0 font-sans max-sm:max-w-[9rem]`
 </script>
 
 <template>
@@ -147,9 +150,22 @@ const crumb = 'inline-flex min-h-7 cursor-pointer items-center rounded-field bor
           <ol class="m-0 flex list-none flex-wrap items-center gap-x-0.5 p-0">
             <li v-for="(p, i) in path" :key="p.id" class="inline-flex items-center gap-0.5">
               <PhCaretRight v-if="i > 0" :size="11" class="text-muted" aria-hidden="true" />
-              <button type="button" :class="crumb" :title="cleanName(p.name || p.treeName)" :data-card-crumb="p.code" @click="emit('open-node', p)">
-                {{ p.code ? formatTnvedCode(p.code) : cleanName(p.treeName) }}
-              </button>
+              <button
+                v-if="p.code"
+                type="button"
+                :class="crumbCode"
+                :title="cleanName(p.name || p.treeName)"
+                :data-card-crumb="p.code"
+                @click="emit('open-node', p)"
+              >{{ formatTnvedCode(p.code) }}</button>
+              <button
+                v-else
+                type="button"
+                :class="crumbText"
+                :title="cleanName(p.name || p.treeName)"
+                data-card-crumb-text
+                @click="emit('open-node', p)"
+              ><span class="truncate">{{ cleanName(p.treeName || p.name) }}</span></button>
             </li>
           </ol>
         </nav>

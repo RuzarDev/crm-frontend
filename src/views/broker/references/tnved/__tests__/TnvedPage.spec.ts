@@ -180,6 +180,62 @@ describe('TnvedPage', () => {
     expect(card().findAll('[data-card-crumb]')).toHaveLength(3)
   })
 
+  it('путь: группа без кода — один усечённый ряд обычным шрифтом с полным текстом в title; коды остаются моноширинными', async () => {
+    api.children.mockImplementation((id: number) => ok(id === 10
+      ? [node(100, '', '– транспортные средства только с поршневым двигателем внутреннего сгорания', 10)]
+      : tree[id] ?? []))
+    api.path.mockImplementation(() => ok([1, 10, 100, 1000].map((id) => ({ id, code: '', treeName: '', nodeLevel: 0 }))))
+    await mountAt('/tnved/tree?code=8471300000')
+    const text = card().get('[data-card-crumb-text]')
+    expect(text.attributes('title')).toContain('транспортные средства только с поршневым')
+    expect(text.classes()).not.toContain('font-mono')
+    expect(text.get('span').classes()).toContain('truncate')
+    expect(card().findAll('[data-card-crumb]').every((c) => c.classes().includes('font-mono'))).toBe(true)
+  })
+
+  describe('телефон: карточка выбранного кода показывается', () => {
+    const wide = vi.fn<(q: string) => boolean>()
+    let scroll: ReturnType<typeof vi.fn>
+    let rectTop = 0
+    beforeEach(() => {
+      wide.mockReturnValue(false)
+      vi.stubGlobal('matchMedia', (q: string) => ({ matches: wide(q) && q.includes('min-width'), media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }))
+      scroll = vi.fn()
+      HTMLElement.prototype.scrollIntoView = scroll as unknown as typeof HTMLElement.prototype.scrollIntoView
+    })
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView
+    })
+    const place = () => {
+      const el = w.get('[data-tnved-right]').element as HTMLElement
+      el.getBoundingClientRect = () => ({ top: rectTop, bottom: rectTop + 400, left: 0, right: 375, width: 375, height: 400, x: 0, y: rectTop, toJSON: () => ({}) })
+      return el
+    }
+
+    it('в одну колонку карточка, видная лишь краем (под деревом на 80% экрана), прокручивается к началу', async () => {
+      await mountAt()
+      rectTop = 0.7 * window.innerHeight // выше прежней отсечки в 80% высоты — раньше не прокручивалось
+      const el = place()
+      await clickRow(1)
+      expect(scroll).toHaveBeenCalledTimes(1)
+      expect(scroll.mock.contexts[0]).toBe(el)
+      expect(scroll.mock.calls[0][0]).toMatchObject({ block: 'start' })
+    })
+
+    it('карточка уже у верхнего края или две колонки — не трогаем', async () => {
+      await mountAt()
+      rectTop = 4
+      place()
+      await clickRow(1)
+      expect(scroll).not.toHaveBeenCalled()
+      wide.mockReturnValue(true)
+      rectTop = 600
+      await clickRow(10)
+      expect(scroll).not.toHaveBeenCalled()
+    })
+  })
+
   it('?code= несуществующего кода — «Код не найден»', async () => {
     await mountAt('/tnved/tree?code=0000000000')
     expect(api.node).toHaveBeenCalledWith('0000000000', { silent: true })

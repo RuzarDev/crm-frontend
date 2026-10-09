@@ -75,7 +75,7 @@ describe('ZTree', () => {
     expect(row(10).attributes('aria-level')).toBe('2')
     expect(labels().slice(0, 3)).toEqual(['XVI Машины и оборудование', '84 Реакторы ядерные, котлы', '85 Электрические машины'])
     // Отступ по уровню
-    const pad = (id: number) => parseInt((row(id).element as HTMLElement).style.paddingLeft, 10)
+    const pad = (id: number) => Number((row(id).element as HTMLElement).style.getPropertyValue('--z-tree-level'))
     expect(pad(10)).toBeGreaterThan(pad(1))
     // Свернуть и раскрыть снова — из памяти
     await row(1).trigger('click')
