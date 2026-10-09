@@ -9,6 +9,8 @@ declare module 'axios' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
   export interface AxiosRequestConfig<D = any> {
     silent?: boolean
+    /** Запрос уже повторён с новым токеном после 401 (см. перехватчик) — второй раз не повторяем. */
+    _replayed?: boolean
   }
 }
 
@@ -81,6 +83,13 @@ export const extractServerText = (data: unknown): string | null => {
   return null
 }
 
+// Токен, с которым запрос ушёл на сервер (заголовок мог быть AxiosHeaders или обычным объектом).
+const sentToken = (config: InternalAxiosRequestConfig | undefined): string | null => {
+  const h = config?.headers as { get?: (name: string) => unknown; Authorization?: unknown } | undefined
+  const raw = typeof h?.get === 'function' ? h.get('Authorization') : h?.Authorization
+  return typeof raw === 'string' && raw.startsWith('Bearer ') ? raw.slice(7) : null
+}
+
 apiClient.interceptors.response.use(
   (response) => {
     // Скользящая сессия: бэк присылает свежий токен, когда у текущего осталось < половины срока.
@@ -98,6 +107,18 @@ apiClient.interceptors.response.use(
       const serverText = extractServerText(error.response.data)
       const requestUrl = error.config?.url || ''
       const isLoginRequest = requestUrl.includes('/auth/login')
+
+      // Смена пароля (и скользящее обновление) выдаёт новый токен, а старый сразу перестаёт действовать: запрос,
+      // ушедший со старым до получения нового, получает 401 — это не конец сессии. Повторяем его один раз с
+      // нынешним токеном (запрос отклонён, ничего не выполнялось); повтор снова 401 — уже настоящий обрыв.
+      if (status === 401 && !isLoginRequest && error.config && !error.config._replayed) {
+        const sent = sentToken(error.config)
+        const current = localStorage.getItem('authToken')
+        if (sent && current && sent !== current) {
+          error.config._replayed = true
+          return apiClient.request(error.config)
+        }
+      }
 
       if (status === 401) {
         if (isLoginRequest) {

@@ -42,6 +42,8 @@ const authStore = useAuthStore()
 const active = computed(() => resolveActive(props.model, route.path))
 const tabsSection = computed(() => {
   const s = active.value?.section
+  // Временный пароль: «Уведомления» закрыты до смены — вкладок личного раздела нет.
+  if (s?.key === 'personal' && authStore.mustChangePassword) return null
   return s && s.pages.length >= 2 ? s : null
 })
 

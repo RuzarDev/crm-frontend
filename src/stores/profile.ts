@@ -9,14 +9,18 @@ export const useProfileStore = defineStore('profile', () => {
   const profile = ref<ProfileDto | null>(null)
   const loading = ref(false)
   const saving = ref(false)
+  // Профиль не загрузился: страница показывает ошибку с «Повторить», а не пустую форму, которую можно сохранить поверх данных.
+  const loadError = ref(false)
 
   const fetch = async () => {
     loading.value = true
     try {
-      const res = await profileApi.get()
+      // silent: ошибку рисует страница (свой блок с «Повторить»), общий тост не нужен.
+      const res = await profileApi.get({ silent: true })
       profile.value = res.data
+      loadError.value = false
     } catch {
-      message.error(i18n.global.t('profile.loadError'))
+      loadError.value = true
     } finally {
       loading.value = false
     }
@@ -27,7 +31,7 @@ export const useProfileStore = defineStore('profile', () => {
     try {
       const res = await profileApi.update(data)
       profile.value = res.data
-      if (!silent) message.success(i18n.global.t('profile.saved'))
+      if (!silent) message.success(i18n.global.t('personal.profile.personal.saved'))
       return true
     } catch {
       return false
@@ -41,7 +45,8 @@ export const useProfileStore = defineStore('profile', () => {
     profile.value = null
     loading.value = false
     saving.value = false
+    loadError.value = false
   }
 
-  return { profile, loading, saving, fetch, update, reset }
+  return { profile, loading, saving, loadError, fetch, update, reset }
 })

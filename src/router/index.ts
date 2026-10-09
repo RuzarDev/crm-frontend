@@ -175,7 +175,7 @@ const router = createRouter({
         {
           path: '/notifications',
           name: 'notifications',
-          component: () => import('@/views/NotificationsView.vue'),
+          component: () => import('@/views/personal/NotificationsPage.vue'),
         },
         {
           // Только клиенту транзита — тот же критерий, что и в меню (navModel: buildClientNav, transit).
@@ -309,7 +309,7 @@ const router = createRouter({
         {
           path: '/profile',
           name: 'profile',
-          component: () => import('@/views/ProfileView.vue'),
+          component: () => import('@/views/personal/ProfilePage.vue'),
         },
         {
           // «Данные системы» (администратор): ?item= — выбранный справочник, классификатор (cls:<код>) или реестр.

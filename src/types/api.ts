@@ -123,11 +123,6 @@ export type CatalogTableRow =
   | CatalogImporterRow
   | CatalogSalespersonRow
 
-export interface LinkUsersRequest {
-  staffUserId: string
-  clientUserId: string
-}
-
 export interface EditBrokerRequest {
   username: string | null
   clientIds: string[]
@@ -622,11 +617,6 @@ export interface ChangeDocumentPackageStatusRequest {
   reviewComment?: string | null
 }
 
-export interface RoleItem {
-  name: string
-  permissions: string[]
-}
-
 export interface ExtractionHeaderValuesDto {
   consignee: string | null
   shipper: string | null
@@ -690,22 +680,6 @@ export interface AppliedEntryDto {
 
 export interface ApplyExtractionResponse {
   entries: AppliedEntryDto[]
-}
-
-export interface CreateRoleRequest {
-  name: string
-  permissions: string[]
-}
-
-export interface UpdateRolePermissionsRequest {
-  permissions: string[]
-}
-
-export interface RegisterRequest {
-  username: string
-  password: string
-  role: string
-  businessRole?: string
 }
 
 export interface RefItem {

@@ -9,8 +9,6 @@ import type {
   EditBrokerRequest,
   EditExpeditorRequest,
   EditStaffClientsRequest,
-  LinkUsersRequest,
-  RegisterRequest,
   TeamMemberDto,
 } from '@/types/api'
 import type { DeclarantProfileDto } from './declarantProfile'
@@ -65,36 +63,6 @@ export const usersApi = {
     return response.data
   },
 
-  createUser: async (data: RegisterRequest): Promise<void> => {
-    if (data.role === 'client') {
-      await apiClient.post('/auth/register', {
-        username: data.username,
-        password: data.password,
-      })
-      return
-    }
-
-    await apiClient.post('/auth/register/staff', {
-      username: data.username,
-      password: data.password,
-      role: data.role,
-      ...(data.businessRole ? { businessRole: data.businessRole } : {}),
-    })
-  },
-
-  changeBusinessRole: async (userId: string, businessRole: string): Promise<void> => {
-    await apiClient.patch(`/users/${encodeURIComponent(userId)}/business-role`, {
-      businessRole,
-    })
-  },
-
-  linkUsers: async (data: LinkUsersRequest): Promise<void> => {
-    await apiClient.post('/users/links', {
-      staffUserId: data.staffUserId,
-      clientUserId: data.clientUserId,
-    })
-  },
-
   editBroker: async (brokerId: string, data: EditBrokerRequest, opts?: SilentOpts): Promise<void> => {
     await apiClient.put(`/users/brokers/${encodeURIComponent(brokerId)}`, {
       username: data.username,
@@ -132,9 +100,5 @@ export const usersApi = {
     (await apiClient.post(`/users/${encodeURIComponent(id)}/reset-password`, undefined, cfg(opts))).data,
   deleteUser: async (id: string, opts?: SilentOpts): Promise<void> => {
     await apiClient.delete(`/users/${encodeURIComponent(id)}`, cfg(opts))
-  },
-
-  changeUserRole: async (id: string, role: string): Promise<void> => {
-    await apiClient.patch(`/users/${encodeURIComponent(id)}/role`, { role })
   },
 }
