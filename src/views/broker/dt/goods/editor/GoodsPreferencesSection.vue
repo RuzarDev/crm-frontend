@@ -54,7 +54,8 @@ const offStatus = (key: CodeKey) => {
     : tr('offList', { key: keden.keyLabel.value })
   return { validateStatus: 'warning' as const, help }
 }
-const offText = computed(() => KEDEN_FIELDS.filter((f) => off.value[f.key]).map((f) => `${tr(f.label)}: ${props.item[f.key]}`).join('; '))
+// Общее предупреждение — про коды гр. 36/37 при процедуре; процедура вне списка сказано у самого поля (ключа списков нет).
+const offText = computed(() => KEDEN_FIELDS.filter((f) => f !== PROCEDURE && off.value[f.key]).map((f) => `${tr(f.label)}: ${props.item[f.key]}`).join('; '))
 
 const valuation = computed(() => withCurrent(classifiers.options('2005'), props.item.valuationMethodCode).options)
 const procedurePlaceholder = computed(() => (props.ctx.declProcedure ? tr('procedureFromDt', { code: props.ctx.declProcedure }) : tr('procedurePlaceholder')))
@@ -76,14 +77,14 @@ const tall = 'max-sm:h-11'
   <div class="flex flex-col gap-4" data-goods-prefs-section>
     <div :class="grid">
       <ZField v-for="f in PREFS" :key="f.key" :graph="f.graph" :label="tr(f.label)" v-bind="offStatus(f.key)" data-graph="36" :data-goods-field="f.key" :data-goods-index="index">
-        <ZSelect :value="item[f.key] || null" :options="options[f.key]" show-search allow-clear :disabled="readonly" :placeholder="tr('noPrefs')" popup-width="440px" :class="tall" :data-f="f.key" @update:value="setCode(f.key, $event)" />
+        <ZSelect :value="item[f.key] || null" :options="options[f.key]" :status="off[f.key] ? 'warning' : ''" show-search allow-clear :disabled="readonly" :placeholder="tr('noPrefs')" popup-width="440px" :class="tall" :data-f="f.key" @update:value="setCode(f.key, $event)" />
       </ZField>
 
       <ZField graph="37" :label="tr('procedure')" v-bind="offStatus('procedureCode')" data-graph="37" :data-goods-index="index" data-goods-field="procedureCode">
-        <ZSelect :value="item.procedureCode || null" :options="options.procedureCode" show-search allow-clear :disabled="readonly" :placeholder="procedurePlaceholder" popup-width="360px" :class="tall" data-f="procedureCode" @update:value="setCode('procedureCode', $event)" />
+        <ZSelect :value="item.procedureCode || null" :status="off.procedureCode ? 'warning' : ''" :options="options.procedureCode" show-search allow-clear :disabled="readonly" :placeholder="procedurePlaceholder" popup-width="360px" :class="tall" data-f="procedureCode" @update:value="setCode('procedureCode', $event)" />
       </ZField>
       <ZField graph="37" :label="tr('prevProcedure')" v-bind="offStatus('previousProcedureCode')" data-graph="37" :data-goods-index="index" data-goods-field="previousProcedureCode">
-        <ZSelect :value="item.previousProcedureCode || null" :options="options.previousProcedureCode" show-search allow-clear :disabled="readonly" :placeholder="tr('none')" popup-width="360px" :class="tall" data-f="previousProcedureCode" @update:value="setCode('previousProcedureCode', $event)" />
+        <ZSelect :value="item.previousProcedureCode || null" :status="off.previousProcedureCode ? 'warning' : ''" :options="options.previousProcedureCode" show-search allow-clear :disabled="readonly" :placeholder="tr('none')" popup-width="360px" :class="tall" data-f="previousProcedureCode" @update:value="setCode('previousProcedureCode', $event)" />
       </ZField>
       <ZField graph="43" :label="tr('valuation')" data-graph="43" :data-goods-index="index" data-goods-field="valuationMethodCode">
         <ZSelect :value="item.valuationMethodCode || null" :options="valuation" show-search allow-clear :disabled="readonly" :placeholder="tr('valuationPlaceholder')" popup-width="420px" :class="tall" data-f="valuationMethodCode" @update:value="setCode('valuationMethodCode', $event)" />
@@ -93,7 +94,7 @@ const tall = 'max-sm:h-11'
       </ZField>
 
       <ZField graph="37" :label="tr('movement')" v-bind="offStatus('goodsMoveFeatureCode')" class="@sm:col-span-2" :data-goods-index="index" data-graph="37" data-goods-field="goodsMoveFeatureCode">
-        <ZSelect :value="item.goodsMoveFeatureCode || null" :options="options.goodsMoveFeatureCode" show-search allow-clear :disabled="readonly" :placeholder="tr('none')" popup-width="480px" :class="tall" data-f="goodsMoveFeatureCode" @update:value="setCode('goodsMoveFeatureCode', $event)" />
+        <ZSelect :value="item.goodsMoveFeatureCode || null" :status="off.goodsMoveFeatureCode ? 'warning' : ''" :options="options.goodsMoveFeatureCode" show-search allow-clear :disabled="readonly" :placeholder="tr('none')" popup-width="480px" :class="tall" data-f="goodsMoveFeatureCode" @update:value="setCode('goodsMoveFeatureCode', $event)" />
       </ZField>
       <ZField :label="tr('tempMonths')" :title="tr('tempMonthsHint')" :data-goods-index="index" data-graph="37" data-goods-field="tempImportMonths">
         <ZNumber :value="item.tempImportMonths ?? null" :min="0" :precision="0" placeholder="0" :disabled="readonly" :title="tr('tempMonthsHint')" :class="tall" data-f="tempImportMonths" @update:value="model.setField(item, 'tempImportMonths', $event)" />

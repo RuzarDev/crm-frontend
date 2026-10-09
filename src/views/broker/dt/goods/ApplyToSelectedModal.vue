@@ -19,7 +19,7 @@ import { pinPreferences, useKedenLists, type KedenListField } from './useKedenLi
 // (вместо прежних «Копировать ОИС/МНР» и «Проставить месяцы всем»). Коды гр. 33 (нетарифное регулирование)
 // выбираются только из подсказок КЕДЕН в карточке товара — здесь их можно лишь взять у товара-образца.
 // гр. 36, гр. 37 и особенность перемещения сужаются списками КЕДЕН, как в редакторе товара (useKedenLists): ключ —
-// направление гр. 1 + процедура, которую получат товары: процедура, заданная в этом окне (группа «Процедура»), иначе
+// направление гр. 1 + процедура, которую получат товары: отмечена группа «Процедура» — её значение (пустое — процедура ДТ), иначе
 // общая процедура выбранных товаров (своя или ДТ) — если у всех одна, иначе процедура ДТ. Код вне списка не удаляется —
 // подсвечивается.
 const props = defineProps<{
@@ -125,9 +125,9 @@ const setValue = (f: BulkField, v: unknown) => { values[f] = FIELD_UI[f].upper &
 // ---- Списки КЕДЕН ----
 const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
 const keyProcedure = computed(() => {
-  const own = checked.has('procedure') ? text(values.procedureCode) : ''
-  if (own) return own
   const dt = text(props.declProcedure)
+  // Группа «Процедура» отмечена — товары получат её значение; пустое очистит процедуру товара → ключ по процедуре ДТ.
+  if (checked.has('procedure')) return text(values.procedureCode) || dt || null
   const common = new Set(props.indexes.map((i) => text(props.goods[i]?.procedureCode) || dt))
   return common.size === 1 ? [...common][0] || null : dt || null
 })
@@ -137,9 +137,13 @@ const optionsFor = (f: BulkField): ZOption[] => {
   const base = ui.options?.() ?? []
   return ui.keden ? keden.narrow(ui.keden, base, text(values[f]) || null) : base
 }
+const isOff = (f: BulkField) => {
+  const field = FIELD_UI[f].keden
+  return !!field && keden.offList(field, text(values[f]) || null)
+}
 const offStatus = (f: BulkField) => {
   const field = FIELD_UI[f].keden
-  if (!field || !keden.offList(field, text(values[f]) || null)) return {}
+  if (!field || !isOff(f)) return {}
   const help = field === 'procedure'
     ? t('broker.dt.goods.editor.prefs.offListProcedure', { direction: text(props.direction).toUpperCase() || 'ИМ' })
     : t('broker.dt.goods.editor.prefs.offList', { key: keden.keyLabel.value })
@@ -206,6 +210,7 @@ const offStatus = (f: BulkField) => {
                 v-else
                 :value="(values[f] as ZOptionValue | ZOptionValue[] | null)"
                 :options="optionsFor(f)"
+                :status="isOff(f) ? 'warning' : ''"
                 :mode="FIELD_UI[f].kind === 'multi' ? 'multiple' : FIELD_UI[f].kind === 'tags' ? 'tags' : undefined"
                 show-search
                 allow-clear

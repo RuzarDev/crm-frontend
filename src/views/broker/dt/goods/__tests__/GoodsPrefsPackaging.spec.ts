@@ -166,6 +166,9 @@ describe('Редактор товара: «Льготы и процедура»'
     await closeSelect('prefDutyCode')
     expect(fieldOf('prefDutyCode').textContent).toContain('Нет в списке КЕДЕН для ИМ 53')
     expect(fieldOf('prefClearanceCode').textContent).not.toContain('Нет в списке КЕДЕН')
+    // Вне списка — золотая рамка поля (ZSelect status="warning"), в списке — обычная.
+    expect(fieldOf('prefDutyCode').innerHTML).toContain('border-gold')
+    expect(fieldOf('prefClearanceCode').innerHTML).not.toContain('border-gold')
     const off = q('[data-goods-keden-off]')!
     expect(off.textContent).toContain('ИМ 53')
     expect(off.textContent).toContain('Пошлина: БГ')
@@ -178,6 +181,9 @@ describe('Редактор товара: «Льготы и процедура»'
     expect(optionTexts()).toEqual(['10', '40', '53'])
     await closeSelect('procedureCode')
     expect(fieldOf('procedureCode').textContent).toContain('КЕДЕН не предлагает эту процедуру при ИМ')
+    expect(fieldOf('procedureCode').innerHTML).toContain('border-gold')
+    // Только процедура вне списка — сказано у поля; общего «КЕДЕН при процедуре ИМ 10 не предлагает: Процедура: 10» нет.
+    expect(q('[data-goods-keden-off]')).toBeNull()
     await pick('procedureCode', '40')
     expect(model.items.value[0].procedureCode).toBe('40')
     await openSelect('previousProcedureCode')
@@ -338,8 +344,22 @@ describe('«Применить к выбранным»: списки КЕДЕН 
     await check('preferences')
     const field = modal().querySelector('input[data-goods-apply-field="prefDutyCode"]')!.closest('[data-goods-field]')!
     expect(field.textContent).toContain('Нет в списке КЕДЕН для ИМ 53')
+    expect(field.innerHTML).toContain('border-gold')
     await openField('prefDutyCode')
     expect(optionTexts()).toEqual(['ОО', 'БГ', 'ВТ'])
+  })
+
+  it('группа «Процедура» отмечена и очищена — ключ по процедуре ДТ (товары её и получат), а не по их общей (53)', async () => {
+    await mountModal([0, 1])
+    await check('procedure')
+    await openField('previousProcedureCode')
+    expect(optionTexts()).toEqual(['00'])
+    await closeField('previousProcedureCode')
+    const proc = modal().querySelector('input[data-goods-apply-field="procedureCode"]')!.closest('[data-goods-field]')!
+    ;(proc.querySelector('button[aria-label="Очистить"]') as HTMLElement).click()
+    await settle()
+    await openField('previousProcedureCode')
+    expect(optionTexts()).toEqual(['00', '51'])
   })
 
   it('процедуры выбранных разные — ключ по процедуре ДТ (ИМ40); гр. 37 сужается по направлению', async () => {
