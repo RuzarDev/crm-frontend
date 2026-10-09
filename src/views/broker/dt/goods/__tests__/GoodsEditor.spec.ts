@@ -12,6 +12,7 @@ import { useDtGoods } from '../useDtGoods'
 import { clearTariffCache } from '../useTariffOptions'
 import { resetOkeiUnits } from '../editor/okei'
 import type { GoodsPageContext, GoodsSaveState } from '../editor/types'
+import { resetDtTnvedCheckCache } from '../tnvedCodeCheck'
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/ui/message', () => ({ message: toast }))
@@ -101,6 +102,7 @@ const key = async (target: Element, o: KeyboardEventInit) => {
 const itemQuery = () => router.currentRoute.value.query.item
 
 beforeEach(() => {
+  resetDtTnvedCheckCache()
   pinia = createPinia()
   setActivePinia(pinia)
   useClassifiersStore().cache = {}

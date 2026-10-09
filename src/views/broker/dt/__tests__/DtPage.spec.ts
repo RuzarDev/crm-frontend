@@ -41,6 +41,7 @@ vi.mock('@/api/kato', async (orig) => ({ ...(await orig<typeof import('@/api/kat
 import DtPage from '../DtPage.vue'
 import { useAuthStore } from '@/stores/auth'
 import { confirmState } from '@/ui/confirm'
+import { resetDtTnvedCheckCache } from '../goods/tnvedCodeCheck'
 
 // Прежние разделы — заглушки: видно, какой смонтирован; у «Сторон» есть поле гр. 8 (переход «к недостающему»);
 // кнопки data-emit шлют события прежних разделов (проверка, что страница их слушает).
@@ -129,6 +130,7 @@ const stub = () => w.find('[data-stub]').attributes('data-stub')
 const key = (o: KeyboardEventInit) => window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...o }))
 
 beforeEach(() => {
+  resetDtTnvedCheckCache()
   localStorage.clear()
   pinia = createPinia()
   setActivePinia(pinia)

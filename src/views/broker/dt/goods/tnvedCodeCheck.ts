@@ -1,8 +1,10 @@
 // Проверка кодов ТН ВЭД товаров ДТ (волна 6б): есть ли код в справочнике (10-значный лист).
 // - Результат — по коду, а не флагом в товаре (флаг уходил бы в тело PUT).
-// - Один запрос на код за жизнь раздела: идущий запрос делят, ответ кэшируется. Тихо (без тоста перехватчика).
-// - Нет в справочнике: 404 или не лист. Сбой сети/сервера — «не известно»: код не помечается, спросим снова позже
-//   (иначе при сбое весь список покраснел бы).
+// - Кэш — на сессию (модуль), а не на жизнь раздела: повторный вход в «Товары» (или другая ДТ с теми же кодами) не
+//   спрашивает уже проверенные коды. Идущий запрос делят. Тихо (без тоста перехватчика).
+// - Нет в справочнике: 404 или не лист — тоже ответ, хранится на сессию. Сбой сети/сервера — «не известно»: код не
+//   помечается (иначе при сбое весь список покраснел бы) и за один вход в раздел больше не спрашивается — спросим
+//   снова при следующем входе (новый createDtTnvedCheck).
 // - Раздел «Товары» проверяет РАЗЛИЧНЫЕ коды всех товаров сразу (не только открытого): ошибочный код из КП или
 //   Excel виден в списке («нет в справочнике», фильтр «С ошибками»), а не только при расчёте платежей. Не больше
 //   4 запросов одновременно; правка кода — после паузы (набор не порождает запрос на каждую цифру).
@@ -12,7 +14,7 @@ import { tnvedApi } from '@/api/tnved'
 export interface DtTnvedCheck {
   /** Код проверен, и его нет в справочнике (или это не 10-значный лист). */
   isInvalid: (code: string | null | undefined) => boolean
-  /** Ответ по коду уже есть. */
+  /** Ответ по коду уже есть (или за этот вход в раздел запрос уже не удался — повторно не спрашиваем). */
   isKnown: (code: string | null | undefined) => boolean
   validate: (code: string | null | undefined) => Promise<void>
   /** Код выбран в справочнике или найден «Найти» — верный. */
@@ -22,40 +24,67 @@ export interface DtTnvedCheck {
 const norm = (code: string | null | undefined) => (code ?? '').trim()
 const statusOf = (e: unknown) => (e as { response?: { status?: number } } | null)?.response?.status
 
+type CheckResult = 'ok' | 'bad' | 'failed'
+
+// Кэш сессии. Реактивны только коды «нет в справочнике»: от них зависит статус строк. Верные коды — в обычном
+// множестве, иначе каждый ответ (200 кодов — 200 ответов) перерисовывал бы всю таблицу, хотя статус не меняется.
+const sessionBad = reactive<Record<string, true>>({})
+const sessionOk = new Set<string>()
+const sessionPending = new Map<string, Promise<CheckResult>>()
+const answered = (c: string) => sessionOk.has(c) || c in sessionBad
+const setValid = (c: string) => {
+  sessionOk.add(c)
+  if (c in sessionBad) delete sessionBad[c]
+}
+const request = (c: string): Promise<CheckResult> => {
+  const running = sessionPending.get(c)
+  if (running) return running
+  const run = tnvedApi.node(c, { silent: true })
+    .then(
+      (res): CheckResult => {
+        if (res.data.is10) { setValid(c); return 'ok' }
+        sessionBad[c] = true
+        return 'bad'
+      },
+      (e): CheckResult => {
+        if (statusOf(e) !== 404) return 'failed'
+        sessionBad[c] = true
+        return 'bad'
+      },
+    )
+    .finally(() => sessionPending.delete(c))
+  sessionPending.set(c, run)
+  return run
+}
+
+/** Сбросить кэш сессии (тесты; смена пользователя не нужна — справочник общий). */
+export function resetDtTnvedCheckCache(): void {
+  for (const c of Object.keys(sessionBad)) delete sessionBad[c]
+  sessionOk.clear()
+  sessionPending.clear()
+}
+
+/** Проверка на один вход в раздел «Товары»: ответы — из кэша сессии, сбои — повторно не спрашиваются до следующего входа. */
 export function createDtTnvedCheck(): DtTnvedCheck {
-  // Реактивны только коды «нет в справочнике»: от них зависит статус строк. Верные коды — в обычном множестве, иначе
-  // каждый ответ (200 кодов — 200 ответов) перерисовывал бы всю таблицу, хотя статус не меняется.
-  const bad = reactive<Record<string, true>>({})
-  const ok = new Set<string>()
-  const pending = new Map<string, Promise<void>>()
-  const known = (c: string) => ok.has(c) || c in bad
-  const setValid = (c: string) => {
-    ok.add(c)
-    if (c in bad) delete bad[c]
-  }
+  const failed = new Set<string>()
+  const known = (c: string) => answered(c) || failed.has(c)
   return {
     isInvalid: (code) => {
       const c = norm(code)
-      return c !== '' && !!bad[c]
+      return c !== '' && !!sessionBad[c]
     },
     isKnown: (code) => known(norm(code)),
-    validate: (code) => {
+    validate: async (code) => {
       const c = norm(code)
-      if (!c || known(c)) return Promise.resolve()
-      const running = pending.get(c)
-      if (running) return running
-      const run = tnvedApi.node(c, { silent: true })
-        .then(
-          (res) => { if (res.data.is10) setValid(c); else bad[c] = true },
-          (e) => { if (statusOf(e) === 404) bad[c] = true },
-        )
-        .finally(() => pending.delete(c))
-      pending.set(c, run)
-      return run
+      if (!c || known(c)) return
+      if ((await request(c)) === 'failed') failed.add(c)
     },
     markValid: (code) => {
       const c = norm(code)
-      if (c) setValid(c)
+      if (c) {
+        setValid(c)
+        failed.delete(c)
+      }
     },
   }
 }
@@ -69,7 +98,7 @@ export function provideDtTnvedCheck(): DtTnvedCheck {
   return check
 }
 
-/** Кэш раздела; компонент сам по себе (тест) — собственный. */
+/** Проверка раздела (ответы — из кэша сессии); компонент сам по себе (тест) — своя. */
 export function useDtTnvedCheck(): DtTnvedCheck {
   return inject(KEY, null) ?? createDtTnvedCheck()
 }

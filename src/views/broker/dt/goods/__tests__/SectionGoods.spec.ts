@@ -9,6 +9,7 @@ import { confirmState } from '@/ui/confirm'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { emptyDtForm, type DtFormState } from '../../dtPayload'
 import { useDtGoods, type GoodsReadinessItem } from '../useDtGoods'
+import { resetDtTnvedCheckCache } from '../tnvedCodeCheck'
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/ui/message', () => ({ message: toast }))
@@ -28,6 +29,7 @@ vi.mock('@/api/trois', () => ({ troisApi: { check: vi.fn(async () => []), search
 vi.mock('@/api/kedenProcedureLists', async (orig) => ({ ...(await orig<typeof import('@/api/kedenProcedureLists')>()), kedenProcedureListsApi: { get: vi.fn(async () => ({})) } }))
 
 import SectionGoods from '../SectionGoods.vue'
+import { tnvedApi } from '@/api/tnved'
 
 const item = (o: Partial<Import40GoodsItemInput> = {}): Import40GoodsItemInput => ({
   description: 'НОУТБУКИ', tnvedCode: '8471300000', tnvedDescription: null, countryOfOrigin: '156', quantity: 10, unit: 'ШТ',
@@ -86,6 +88,7 @@ const check = async (i: number) => {
 }
 
 beforeEach(() => {
+  resetDtTnvedCheckCache()
   pinia = createPinia()
   setActivePinia(pinia)
   useClassifiersStore().cache = {
@@ -455,6 +458,30 @@ describe('SectionGoods: только просмотр', () => {
     await rows()[0].trigger('click')
     await settle()
     expect(router.currentRoute.value.query.item).toBe('1')
+  })
+})
+
+describe('SectionGoods: проверка кодов ТН ВЭД', () => {
+  it('повторный вход в раздел не спрашивает уже проверенные коды (кэш сессии); новый код — спрашивается', async () => {
+    const node = vi.mocked(tnvedApi.node)
+    await mount([item(), item({ tnvedCode: '8517620003' }), item()])
+    expect(node.mock.calls.map((c) => c[0]).sort()).toEqual(['8471300000', '8517620003'])
+    w.unmount()
+    document.body.innerHTML = ''
+    await mount([item(), item({ tnvedCode: '8517620003' }), item({ tnvedCode: '8528521000' })])
+    expect(node.mock.calls.map((c) => c[0]).sort()).toEqual(['8471300000', '8517620003', '8528521000'])
+  })
+
+  it('сбой сети — код не помечен; при повторном входе спрашивается снова один раз', async () => {
+    const node = vi.mocked(tnvedApi.node)
+    node.mockRejectedValueOnce(Object.assign(new Error('500'), { response: { status: 500 } }))
+    await mount([item()])
+    expect(node).toHaveBeenCalledTimes(1)
+    expect(rows()[0].get('[data-goods-status]').attributes('data-goods-status')).not.toBe('badCode')
+    w.unmount()
+    document.body.innerHTML = ''
+    await mount([item()])
+    expect(node).toHaveBeenCalledTimes(2)
   })
 })
 

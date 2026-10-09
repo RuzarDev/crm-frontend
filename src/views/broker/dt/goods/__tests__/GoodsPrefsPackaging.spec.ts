@@ -30,6 +30,7 @@ vi.mock('@/api/kedenProcedureLists', async (orig) => ({ ...(await orig<typeof im
 
 import SectionGoods from '../SectionGoods.vue'
 import ApplyToSelectedModal from '../ApplyToSelectedModal.vue'
+import { resetDtTnvedCheckCache } from '../tnvedCodeCheck'
 
 const LISTS = {
   ИМ40: { 'pref-fee': ['ОО', 'МД'], 'pref-duty': ['ОО', 'Z', 'БГ'], 'pref-excise': ['О', 'Z'], 'pref-vat': ['ОО', 'ТТ'], prev: ['00', '51'], 'movement-features': ['000', '001'] },
@@ -115,6 +116,7 @@ const type = async (f: string, value: string) => {
 const fieldOf = (f: string) => input(f).closest('[data-goods-field]') as HTMLElement
 
 beforeEach(() => {
+  resetDtTnvedCheckCache()
   pinia = createPinia()
   setActivePinia(pinia)
   useClassifiersStore().cache = { ...CLASSIFIERS }

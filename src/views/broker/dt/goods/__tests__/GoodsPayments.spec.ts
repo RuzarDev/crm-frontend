@@ -15,6 +15,7 @@ import { resetKedenLists } from '../useKedenLists'
 import { resetGr33Suggest } from '../useGr33Suggest'
 import { emptyPayment, paymentsTotal, setPaymentField, sortPayments, taxModeLabelKey } from '../editor/payments'
 import type { GoodsPageContext } from '../editor/types'
+import { resetDtTnvedCheckCache } from '../tnvedCodeCheck'
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/ui/message', () => ({ message: toast }))
@@ -117,6 +118,7 @@ const click = async (sel: string) => {
 const g0 = () => model.items.value[0]
 
 beforeEach(() => {
+  resetDtTnvedCheckCache()
   pinia = createPinia()
   setActivePinia(pinia)
   useClassifiersStore().cache = { ...CLASSIFIERS }
