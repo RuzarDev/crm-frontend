@@ -5,10 +5,12 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZDate from '@/components/z/ZDate.vue'
 import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
+import ZPhone from '@/components/z/ZPhone.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import { declarantProfileApi, type DeclarantProfileDto } from '@/api/declarantProfile'
 import { extractServerText } from '@/api/client'
+import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { useProfileStore } from '@/stores/profile'
 import { message } from '@/ui/message'
@@ -17,7 +19,7 @@ import ProfileCard from './ProfileCard.vue'
 
 // «Профиль декларанта · графа 54» (гр.54 ДТ и КЕДЕН-XML берут его отсюда). Грузится сама; не загрузился —
 // состояние ошибки с «Повторить», а не пустая форма: сохранение пустой формы стёрло бы настоящие данные.
-// Поля профиля, которых на доске нет (должность, кем выдан, страна, телефон), при сохранении уходят как загружены.
+// Все поля профиля редактируются здесь (гр.54 и КЕДЕН-XML берут должность, «кем выдан», страну и телефон отсюда).
 const { t } = useI18n()
 const classifiers = useClassifiersStore()
 const profile = useProfileStore()
@@ -51,6 +53,8 @@ onMounted(() => {
 })
 watch(draft, () => { saveError.value = null }, { deep: true })
 
+// Страна выдачи — 2-буквенный код, как в гр.54 ДТ (справочник стран, поиск по коду и названию).
+const countryOptions = useCountryAlpha2Options()
 const docOptions = computed(() => classifiers.options('id-doc-types'))
 const dirty = computed(() => declarantChanged(saved.value, draft))
 const iinErr = computed(() => (iinTouched.value && iinError(draft.iin) ? t('personal.profile.declarant.iinError') : undefined))
@@ -98,8 +102,11 @@ const save = async () => {
     <template v-else>
       <p v-if="saveError" role="alert" class="m-0 rounded-row bg-tone-danger-bg px-3 py-2 text-sm text-tone-danger-fg [overflow-wrap:anywhere]" data-declarant-save-error>{{ saveError }}</p>
       <div class="grid grid-cols-3 gap-x-3.5 gap-y-4 max-sm:grid-cols-1">
-        <ZField class="col-span-2 max-sm:col-span-1" :label="t('personal.profile.declarant.fullName')">
+        <ZField :label="t('personal.profile.declarant.fullName')">
           <ZInput v-model:value="draft.fullName" autocomplete="name" data-declarant="fullName" />
+        </ZField>
+        <ZField :label="t('personal.profile.declarant.position')">
+          <ZInput v-model:value="draft.position" autocomplete="organization-title" data-declarant="position" />
         </ZField>
         <ZField :label="t('personal.profile.declarant.iin')" :error="iinErr">
           <ZInput
@@ -120,6 +127,15 @@ const save = async () => {
         </ZField>
         <ZField :label="t('personal.profile.declarant.docIssued')">
           <ZDate v-model:value="draft.idDocIssueDate" data-declarant="idDocIssueDate" />
+        </ZField>
+        <ZField :label="t('personal.profile.declarant.issuedBy')">
+          <ZInput v-model:value="draft.idDocIssuedBy" data-declarant="idDocIssuedBy" />
+        </ZField>
+        <ZField :label="t('personal.profile.declarant.country')">
+          <ZSelect v-model:value="draft.idDocCountryCode" :options="countryOptions" show-search allow-clear data-declarant="idDocCountryCode" />
+        </ZField>
+        <ZField :label="t('personal.profile.declarant.phone')">
+          <ZPhone v-model:value="draft.phone" autocomplete="tel" data-declarant="phone" />
         </ZField>
         <ZField :label="t('personal.profile.declarant.poaNumber')">
           <ZInput v-model:value="draft.powerOfAttorneyNumber" mono data-declarant="powerOfAttorneyNumber" />

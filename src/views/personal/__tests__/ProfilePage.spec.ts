@@ -16,7 +16,7 @@ const api = vi.hoisted(() => ({
 vi.mock('@/api/profile', () => ({ profileApi: { get: api.profileGet, update: api.profileUpdate } }))
 vi.mock('@/api/declarantProfile', () => ({ declarantProfileApi: { get: api.declGet, update: api.declUpdate } }))
 vi.mock('@/api/auth', () => ({ authApi: { changePassword: api.changePassword } }))
-vi.mock('@/api/references', () => ({ referencesApi: { listClassifiers: api.listClassifiers, listCountries: vi.fn(async () => []) } }))
+vi.mock('@/api/references', () => ({ referencesApi: { listClassifiers: api.listClassifiers, listCountries: vi.fn(async () => [{ alpha2: 'KZ', name: 'Казахстан' }]) } }))
 vi.mock('@/ui/message', () => ({ message: api.toast }))
 vi.mock('@/i18n', async (orig) => ({ ...(await orig<typeof import('@/i18n')>()), setLocale: api.setLocale }))
 
@@ -167,14 +167,32 @@ describe('ProfilePage: профиль декларанта', () => {
     expect((input('[data-declarant="fullName"]').element as HTMLInputElement).value).toBe('Сейткали Динара Ерлановна')
   })
 
-  it('сохранение отправляет профиль целиком, включая поля, которых нет на доске', async () => {
+  it('все поля профиля показаны и круглым образом уходят при сохранении', async () => {
     asDeclarant()
     await open()
+    const f = (k: string) => (input(`[data-declarant="${k}"]`).element as HTMLInputElement)
+    for (const k of ['fullName', 'position', 'iin', 'idDocNumber', 'idDocIssuedBy', 'phone', 'powerOfAttorneyNumber', 'idDocIssueDate', 'powerOfAttorneyDate', 'powerOfAttorneyValidUntil', 'idDocTypeCode', 'idDocCountryCode']) {
+      expect(w.find(`[data-declarant="${k}"]`).exists(), k).toBe(true)
+    }
+    expect(f('position').value).toBe('Декларант')
+    expect(f('idDocIssuedBy').value).toBe('МВД РК')
+    expect(f('phone').value).toBe('+7 701 555 12 40')
+    // правим каждое текстовое поле
+    await input('[data-declarant="fullName"]').setValue('Иванов Иван')
+    await input('[data-declarant="position"]').setValue('Старший декларант')
+    await input('[data-declarant="iin"]').setValue('900412450124')
     await input('[data-declarant="idDocNumber"]').setValue('045612999')
+    await input('[data-declarant="idDocIssuedBy"]').setValue('МВД')
+    await input('[data-declarant="phone"]').setValue('+7 700 111 22 33')
+    await input('[data-declarant="powerOfAttorneyNumber"]').setValue('15')
     await card('declarant').trigger('submit')
     await flushPromises()
     expect(api.declUpdate).toHaveBeenCalledTimes(1)
-    expect(api.declUpdate.mock.calls[0][0]).toEqual(decl({ idDocNumber: '045612999' }))
+    // даты, документ и страна, которых не трогали, уходят как загружены
+    expect(api.declUpdate.mock.calls[0][0]).toEqual(decl({
+      fullName: 'Иванов Иван', position: 'Старший декларант', iin: '900412450124', idDocNumber: '045612999',
+      idDocIssuedBy: 'МВД', phone: '+7 700 111 22 33', powerOfAttorneyNumber: '15',
+    }))
     expect(api.toast.success).toHaveBeenCalled()
     expect(saveOf('declarant').attributes('disabled')).toBeDefined()
   })
