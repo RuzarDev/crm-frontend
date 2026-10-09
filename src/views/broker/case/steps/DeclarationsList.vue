@@ -19,15 +19,17 @@ import { formatMoney } from '@/ui/number'
 import type { CaseStepProps } from '../caseContext'
 import { hintText } from '../casePermissions'
 import { dtLabel } from '../caseSteps'
-import { dtEditable, dtPath, filterDeclarations, missingPreview, previewToUpsert, splitTag } from '../declarations'
+import { dtListActive, dtPath, dtRowActions, filterDeclarations, missingPreview, previewToUpsert, splitTag } from '../declarations'
 import ExtractionIssuesModal from './ExtractionIssuesModal.vue'
 import QuoteImportModal from './QuoteImportModal.vue'
 
 // Список ДТ шага 3 (доска Case): полоса «Декларации · N» с действиями, поиск при N > 1, строки ДТ.
 // Строка: номер или «ДТ i» (ссылка на страницу ДТ), тег разделения ЕТТ/ВТО/«Разделена» (заменённая приглушена),
 // «товаров: N», полоса заполненности из сводки готовности (ctx.readiness — без запросов по каждой ДТ) и «не хватает: …».
-// Править ДТ (Заполнить, XML, удалить, добавить, пакетная выгрузка) — только на текущем шаге 3 (declarations.dtEditable);
-// после него — только «Открыть». Права — can('declarant'), как раньше: без него кнопки выключены с подсказкой.
+// Действия над списком (добавить, из документов, из КП, пакетная выгрузка) — только на текущем шаге 3
+// (declarations.dtListActive). «Заполнить» и XML в строке — на текущем шаге 3 и после него тем, кто может править ДТ
+// (perms.canEditDt — правило страницы ДТ и сервера: админ, РОП, назначенный декларант; решения владельца 09.10),
+// остальным после шага 3 — «Открыть». «Заполнить» без права править — выключена с подсказкой (нет роли / ведёт коллега).
 // Запросы — те же, что у прежней карточки; всё под общим замком ctx.actions (повторно не нажать).
 const props = defineProps<CaseStepProps>()
 const { t } = useI18n()
@@ -36,9 +38,12 @@ const { confirm } = useConfirm()
 
 const kase = computed(() => props.ctx.kase)
 const all = computed(() => kase.value.declarations)
-const editable = computed(() => dtEditable(kase.value.status, props.mode))
+const editable = computed(() => dtListActive(kase.value.status, props.mode))
+const canEditDt = computed(() => props.ctx.perms.canEditDt)
+const rowActions = computed(() => dtRowActions(kase.value.status, props.mode, canEditDt.value))
 const canDeclare = computed(() => props.ctx.perms.can('declarant'))
 const declHint = computed(() => (canDeclare.value ? '' : hintText({ kind: 'role', role: 'declarant' }, t)))
+const fillHint = computed(() => hintText(props.ctx.perms.dtEditHint, t))
 const busy = () => props.ctx.actions.busy()
 const pending = (key: string) => props.ctx.actions.isPending(key)
 const blocked = (key: string) => !canDeclare.value || (busy() && !pending(key))
@@ -78,7 +83,12 @@ const removeDt = async (dt: Import40DeclarationDto) => {
   if (!ok) return
   await props.ctx.actions.mutate(`dt-delete:${dt.id}`, () => import40Api.deleteDeclaration(kase.value.id, dt.id), { done: 'broker.case.done.dtDeleted' })
 }
-const menuItems = computed(() => [{ key: 'delete', label: t('broker.case.declaring.list.delete'), danger: true }])
+// Удаление (решение владельца 09.10): до выпуска — кто может править ДТ; с выпуска — только администратор,
+// остальным пункт виден выключенным с причиной «После выпуска ДТ удалить нельзя».
+const showMenu = computed(() => rowActions.value && (props.ctx.perms.canDeleteDt || props.ctx.perms.dtDeleteBlockedByRelease))
+const menuItems = computed(() => props.ctx.perms.canDeleteDt
+  ? [{ key: 'delete', label: t('broker.case.declaring.list.delete'), danger: true }]
+  : [{ key: 'delete-blocked', label: t('broker.case.declaring.list.deleteAfterRelease'), disabled: true }])
 const onMenu = (dt: Import40DeclarationDto, key: string) => { if (key === 'delete') void removeDt(dt) }
 
 // XML для КЕДЕН по одной ДТ: 400 → список «Для XML не хватает данных» под строкой; файл — скачивание и подсказка про гр.54.
@@ -302,10 +312,10 @@ const toolBtn = 'max-sm:min-h-11'
         </div>
 
         <div class="flex items-center gap-1.5 sm:justify-end" data-dt-actions>
-          <template v-if="editable">
-            <ZTooltip :title="declHint">
-              <span class="inline-flex" :tabindex="declHint ? 0 : undefined">
-                <ZButton size="sm" :class="toolBtn" :disabled="!canDeclare" data-dt-fill @click="router.push(dtPath(kase.id, dt.id))">
+          <template v-if="rowActions">
+            <ZTooltip :title="fillHint">
+              <span class="inline-flex" :tabindex="fillHint ? 0 : undefined">
+                <ZButton size="sm" :class="toolBtn" :disabled="!canEditDt" data-dt-fill @click="router.push(dtPath(kase.id, dt.id))">
                   {{ t('import40Case.fill') }}
                 </ZButton>
               </span>
@@ -325,7 +335,7 @@ const toolBtn = 'max-sm:min-h-11'
                 </button>
               </span>
             </ZTooltip>
-            <ZDropdown v-if="canDeclare" :items="menuItems" @select="onMenu(dt, $event)">
+            <ZDropdown v-if="showMenu" :items="menuItems" @select="onMenu(dt, $event)">
               <button
                 type="button"
                 :class="iconBase"
@@ -347,7 +357,7 @@ const toolBtn = 'max-sm:min-h-11'
         </div>
 
         <ZAlert
-          v-if="editable && xmlMissing?.id === dt.id"
+          v-if="rowActions && xmlMissing?.id === dt.id"
           type="warning"
           show-icon
           :message="t('import40Case.xmlMissingTitle')"

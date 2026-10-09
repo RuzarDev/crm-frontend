@@ -1,4 +1,5 @@
 import type { Import40CaseDto } from '@/api/import40'
+import { canEditDt, canManageDeclarations, dtUserFrom } from '@/views/import40/dtAccess'
 
 // Права карточки заявки сотрудника (редизайн, волна 4а) — чистые функции от (auth, заявка).
 // Перенос проверок прежней Import40CaseView один к одному (разбор §2), плюс согласованные с сервером правки:
@@ -136,6 +137,34 @@ export function assignedTag(a: CaseAuth, c: Import40CaseDto): 'me' | 'other' | n
   return id === a.userId ? 'me' : 'other'
 }
 
+/**
+ * Править ДТ этой заявки (страница ДТ откроется для правки) — то же правило, что у страницы ДТ и сервера
+ * (dtAccess.canEditDt): админ, РОП, или право import40.declarant и (никто не назначен / назначен я) —
+ * в т.ч. после выпуска (решения владельца 09.10).
+ */
+export const canEditCaseDt = (a: CaseAuth, c: Import40CaseDto): boolean => canEditDt(dtUserFrom(a), c)
+
+/** Почему нельзя править ДТ: нет права декларанта — «выполняет декларант», ДТ ведёт коллега — «ведёт …». */
+export function dtEditHint(a: CaseAuth, c: Import40CaseDto): ActionHint {
+  if (canEditCaseDt(a, c)) return null
+  if (!canManageDeclarations(dtUserFrom(a))) return { kind: 'role', role: 'declarant' }
+  return { kind: 'busy', name: c.assignedDeclarantName || null }
+}
+
+/** Статус «ДТ выпущена» (Import40Status.Released): с него ДТ удаляет только администратор. */
+export const RELEASED_STATUS = 4
+
+/**
+ * Удалить ДТ (решение владельца 09.10, как DeleteDeclaration на сервере): до выпуска — кто может править ДТ;
+ * с выпуска (Released и далее, включая отмену) — только администратор.
+ */
+export const canDeleteCaseDt = (a: CaseAuth, c: Import40CaseDto): boolean =>
+  canEditCaseDt(a, c) && (c.status < RELEASED_STATUS || isAdmin(a))
+
+/** Удалить нельзя только из-за выпуска (править можно) — пункт меню виден выключенным с этой причиной. */
+export const dtDeleteBlockedByRelease = (a: CaseAuth, c: Import40CaseDto): boolean =>
+  canEditCaseDt(a, c) && !canDeleteCaseDt(a, c)
+
 /** Всё о правах на одну заявку — объект для шаблонов и шагов (контракт шагов, caseContext.ts). */
 export interface CasePerms {
   userId: string | null
@@ -160,6 +189,12 @@ export interface CasePerms {
   canOpenClient: boolean
   stepRole: StepRole | null
   assignedTag: 'me' | 'other' | null
+  /** Править ДТ заявки (canEditCaseDt) и подсказка, почему нельзя. */
+  canEditDt: boolean
+  dtEditHint: ActionHint
+  /** Удалить ДТ (canDeleteCaseDt) и «нельзя — ДТ выпущена». */
+  canDeleteDt: boolean
+  dtDeleteBlockedByRelease: boolean
 }
 
 export function casePerms(a: CaseAuth, c: Import40CaseDto): CasePerms {
@@ -186,5 +221,9 @@ export function casePerms(a: CaseAuth, c: Import40CaseDto): CasePerms {
     canOpenClient: canOpenClient(a),
     stepRole: stepRoleOf(c.status),
     assignedTag: assignedTag(a, c),
+    canEditDt: canEditCaseDt(a, c),
+    dtEditHint: dtEditHint(a, c),
+    canDeleteDt: canDeleteCaseDt(a, c),
+    dtDeleteBlockedByRelease: dtDeleteBlockedByRelease(a, c),
   }
 }

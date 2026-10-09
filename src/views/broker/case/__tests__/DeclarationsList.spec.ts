@@ -214,11 +214,67 @@ describe('DeclarationsList: действия', () => {
     expect(row('d1').find('[data-dt-fill]').exists()).toBe(true)
   })
 
-  it('после шага 3 (mode done) — только «Открыть», без готовности и действий правки', () => {
-    mount(USERS.admin, { kase: { status: 4, declarations: two }, readiness: [rd({ declarationId: 'd1', missing: ['гр. 8'] })], mode: 'done' })
+  it('после шага 3 (mode done) без права править — только «Открыть», без готовности и действий правки', () => {
+    mount(USERS.kpp, { kase: { status: 4, declarations: two }, readiness: [rd({ declarationId: 'd1', missing: ['гр. 8'] })], mode: 'done' })
     expect(w.findAll('[data-dt-open]')).toHaveLength(2)
     expect(w.find('[data-dt-missing]').exists()).toBe(false)
     for (const sel of ['[data-dt-fill]', '[data-dt-xml]', '[data-dt-more]', '[data-dt-toolbar]']) expect(w.find(sel).exists()).toBe(false)
+  })
+
+  // Решение владельца 09.10: правка после выпуска остаётся (как на сервере); РОП и админ правят любую ДТ.
+  it.each([
+    ['админ', USERS.admin, 8, 'other'],
+    ['РОП при чужом назначении', USERS.rop, 9, 'other'],
+    ['назначенный декларант после выпуска', USERS.declarant, 4, 'me'],
+    ['декларант при пустом назначении (Done)', USERS.declarant, 8, null],
+  ] as const)('после шага 3 (mode done): %s — «Заполнить» и XML, без полосы и готовности', (_, user, status, assigned) => {
+    mount(user, { kase: { status, assignedDeclarantId: assigned, declarations: two }, readiness: [rd({ declarationId: 'd1', missing: ['гр. 8'] })], mode: 'done' })
+    expect(row('d1').get('[data-dt-fill]').attributes('disabled')).toBeUndefined()
+    expect(row('d1').find('[data-dt-xml]').exists()).toBe(true)
+    expect(w.find('[data-dt-open]').exists()).toBe(false)
+    for (const sel of ['[data-dt-toolbar]', '[data-dt-missing]']) expect(w.find(sel).exists()).toBe(false)
+  })
+
+  // Решение владельца 09.10: после выпуска ДТ удаляет только администратор; остальным пункт выключен с причиной.
+  it('после выпуска: админ удаляет ДТ, РОП и декларант видят «После выпуска ДТ удалить нельзя» выключенным', async () => {
+    api.deleteDeclaration.mockResolvedValue(undefined)
+    mount(USERS.rop, { kase: { status: 4, assignedDeclarantId: 'other', declarations: two }, mode: 'done' })
+    const blocked = row('d1').get('[data-menu-item="delete-blocked"]')
+    expect(blocked.text()).toBe('После выпуска ДТ удалить нельзя')
+    expect(row('d1').find('[data-menu-item="delete"]').exists()).toBe(false)
+    w.unmount()
+
+    mount(USERS.declarant, { kase: { status: 8, assignedDeclarantId: 'me', declarations: two }, mode: 'done' })
+    expect(row('d1').find('[data-menu-item="delete-blocked"]').exists()).toBe(true)
+    w.unmount()
+
+    mount(USERS.admin, { kase: { status: 8, declarations: two }, mode: 'done' })
+    expect(row('d1').find('[data-menu-item="delete-blocked"]').exists()).toBe(false)
+    await row('d1').get('[data-menu-item="delete"]').trigger('click')
+    await flushPromises()
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(api.deleteDeclaration).toHaveBeenCalledWith('c1', 'd1')
+  })
+
+  it('после шага 3: ДТ ведёт другой декларант — только «Открыть»', () => {
+    mount(USERS.declarant, { kase: { status: 4, assignedDeclarantId: 'other', declarations: two }, mode: 'done' })
+    expect(w.findAll('[data-dt-open]')).toHaveLength(2)
+    expect(w.find('[data-dt-fill]').exists()).toBe(false)
+  })
+
+  it('шаг 3: ДТ ведёт коллега — «Заполнить» выключена с его именем, удаления нет', () => {
+    mount(USERS.declarant, { kase: { status: 2, assignedDeclarantId: 'other', assignedDeclarantName: 'Асель', declarations: two } })
+    const fill = row('d1').get('[data-dt-fill]')
+    expect(fill.attributes('disabled')).toBeDefined()
+    expect(tipOf(fill.element)).toContain('Асель')
+    expect(w.find('[data-dt-more]').exists()).toBe(false)
+  })
+
+  it('шаг 3: РОП при чужом назначении правит и удаляет', () => {
+    mount(USERS.rop, { kase: { status: 3, assignedDeclarantId: 'other', declarations: two } })
+    expect(row('d1').get('[data-dt-fill]').attributes('disabled')).toBeUndefined()
+    expect(w.find('[data-dt-more]').exists()).toBe(true)
   })
 })
 

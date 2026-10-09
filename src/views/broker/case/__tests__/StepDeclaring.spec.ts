@@ -152,11 +152,22 @@ describe('StepDeclaring: ДТ подана (статус 3)', () => {
     expect(msg.success).toHaveBeenCalledWith('Выпуск зафиксирован')
   })
 
-  it('после выпуска (mode done): ДТ списком только для чтения — «Открыть», без правки', () => {
-    mount(USERS.declarant, { kase: { status: 5, declarations: [declaration(), declaration({ id: 'd2' })] }, mode: 'done' })
+  it('после выпуска (mode done), ДТ ведёт другой декларант: список только для чтения — «Открыть», без правки', () => {
+    mount(USERS.declarant, { kase: { status: 5, assignedDeclarantId: 'other', declarations: [declaration(), declaration({ id: 'd2' })] }, mode: 'done' })
     expect(w.findAll('[data-dt-open]')).toHaveLength(2)
     expect(w.get('[data-dt-open]').attributes('href')).toBe('/import-40/c1/dt/d1')
     for (const sel of ['[data-dt-fill]', '[data-dt-xml]', '[data-dt-more]', '[data-dt-toolbar]', '[data-dt-xml-batch]', '[data-declaring-release]', '[data-whats-left]']) {
+      expect(w.find(sel).exists()).toBe(false)
+    }
+  })
+
+  // Решение владельца 09.10: правка после выпуска остаётся (как на сервере) — назначенному декларанту строка ДТ
+  // даёт «Заполнить»; добавление, удаление и пакетная выгрузка — по-прежнему только на текущем шаге 3.
+  it('после выпуска (mode done), ДТ ведёт этот декларант: «Заполнить» и XML, без полосы', () => {
+    mount(USERS.declarant, { kase: { status: 5, assignedDeclarantId: 'me', declarations: [declaration(), declaration({ id: 'd2' })] }, mode: 'done' })
+    expect(w.findAll('[data-dt-fill]')).toHaveLength(2)
+    expect(w.find('[data-dt-open]').exists()).toBe(false)
+    for (const sel of ['[data-dt-toolbar]', '[data-dt-xml-batch]', '[data-declaring-release]']) {
       expect(w.find(sel).exists()).toBe(false)
     }
   })

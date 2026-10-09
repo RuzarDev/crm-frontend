@@ -18,7 +18,7 @@ export const AUDIT_DEFAULT_DAYS = 30
 export const AUDIT_ACTIONS = [
   'role.permissions', 'role.reset', 'user.role', 'user.roles', 'user.poa',
   'user.password_reset', 'user.password_change',
-  'client.block', 'document.revoke',
+  'client.block', 'document.revoke', 'declaration.delete',
   'user.create', 'user.delete', 'client.invite', 'client.unblock', 'document.sign.upload', 'invoice.remind', 'organization.update',
 ] as const
 
@@ -26,7 +26,7 @@ export const AUDIT_ACTIONS = [
 const KIND: Record<string, ZTone> = {
   'role.permissions': 'submitted', 'role.reset': 'submitted', 'user.role': 'submitted', 'user.roles': 'submitted', 'user.poa': 'submitted',
   'user.password_reset': 'wait', 'user.password_change': 'wait',
-  'client.block': 'danger', 'document.revoke': 'danger',
+  'client.block': 'danger', 'document.revoke': 'danger', 'declaration.delete': 'danger',
 }
 export const auditTone = (action: string): ZTone => KIND[action.trim().toLowerCase()] ?? 'info'
 

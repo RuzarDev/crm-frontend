@@ -15,9 +15,11 @@
         <h1 class="dt-bar-h">{{ dtForm.declarationNumber || t('dt.deklaraciya') }}</h1>
       </div>
       <div class="dt-bar-status">
-        <a-tooltip :title="readiness?.blankEmptyGraphs?.length ? t('dt.pustyeGrafy', { list: readiness.blankEmptyGraphs.join(', ') }) : undefined">
+        <!-- (баг B4) Готовность неизвестна (нет права или запрос не прошёл) — тегов нет: раньше из null
+             рисовались «Бланк 0 из 46» и зелёное «КЕДЕН-XML: готово» на пустой ДТ. -->
+        <a-tooltip v-if="readiness" :title="readiness.blankEmptyGraphs?.length ? t('dt.pustyeGrafy', { list: readiness.blankEmptyGraphs.join(', ') }) : undefined">
           <a-tag :color="blankPct === 100 ? 'green' : 'orange'">
-            {{ t('dt.blankProgress', { filled: readiness?.blankFilled ?? 0, total: readiness?.blankTotal ?? 46 }) }}
+            {{ t('dt.blankProgress', { filled: readiness.blankFilled ?? 0, total: readiness.blankTotal ?? 46 }) }}
           </a-tag>
         </a-tooltip>
         <a-popover v-if="missingList.length" v-model:open="missingOpen" trigger="click" placement="bottomLeft" :overlay-style="{ maxWidth: '520px' }">
@@ -29,7 +31,7 @@
           </template>
           <a-tag color="orange" class="dt-missing-tag">{{ t('dt.kedenMissing', { n: missingList.length }) }} <DownOutlined /></a-tag>
         </a-popover>
-        <a-tag v-else color="green">{{ t('dt.kedenReady') }}</a-tag>
+        <a-tag v-else-if="readiness" color="green">{{ t('dt.kedenReady') }}</a-tag>
         <span v-if="!readOnly" class="dt-saved" :class="{ 'dt-saved--error': saveError, 'dt-saved--dirty': dirty && !saveError }">
           <template v-if="saving">{{ t('dt.sohranyaetsya') }}</template>
           <template v-else-if="saveError">{{ t('dt.neSohraneno') }}</template>
@@ -41,8 +43,9 @@
         <template v-if="!readOnly">
           <a-button :loading="saving" @click="saveDt()">{{ t('dt.sohranit') }}</a-button>
           <a-button :loading="paymentsLoading" @click="openPaymentsModal">{{ t('dt.rasschitatPlatezhi') }}</a-button>
-          <a-button type="primary" :loading="xmlLoading" @click="exportXml">{{ t('dt.sformirovatXml') }}</a-button>
         </template>
+        <!-- XML — выгрузка, не правка: сервер отдаёт её по CanManageDeclarations, в т.ч. в просмотре (без сохранения). -->
+        <a-button v-if="canSeeReadiness" type="primary" :loading="xmlLoading" data-dt-xml @click="exportXml">{{ t('dt.sformirovatXml') }}</a-button>
         <a-dropdown :trigger="['click']" placement="bottomRight">
           <a-button :loading="docsDownloading || pdfLoading">{{ t('dt.esche') }} <DownOutlined /></a-button>
           <template #overlay>
@@ -79,7 +82,20 @@
 
       <div class="dt-content">
         <a-alert
-          v-if="saveError && !readOnly"
+          v-if="conflict && !readOnly"
+          type="warning"
+          show-icon
+          class="dt-save-alert"
+          data-dt-conflict
+          :message="t('dt.conflictTitle')"
+          :description="t('dt.conflictText')"
+        >
+          <template #action>
+            <a-button size="small" type="primary" data-dt-conflict-reload @click="reloadAfterConflict">{{ t('dt.conflictReload') }}</a-button>
+          </template>
+        </a-alert>
+        <a-alert
+          v-else-if="saveError && !readOnly"
           type="error"
           show-icon
           class="dt-save-alert"
@@ -118,7 +134,7 @@
           <template v-if="showDtsSection">
             <DtSectionDts
               v-show="activeSection === 'dts'" :model-value="dtForm" :readonly="readOnly" :case-id="caseId"
-              :declaration-id="dtId" :reload-key="savedCounter" :active="activeSection === 'dts'" :save="saveDt"
+              :declaration-id="dtId" :reload-key="savedCounter" :active="activeSection === 'dts'" :save="saveDtBeforeAction"
               @update:model-value="onDtUpdate" @ready="onDtsReady"
             />
           </template>
@@ -232,6 +248,7 @@ import DtCurrencyRatesBox from '@/components/import40/dt/DtCurrencyRatesBox.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
 import DtPaymentsCalcModal from '@/components/import40/dt/DtPaymentsCalcModal.vue'
 import { placesOfGoods } from '@/utils/goodsPlaces'
+import { canManageDeclarations, dtUserFrom, isDtReadOnly, saveBeforeAction } from '@/views/import40/dtAccess'
 
 const { t } = useI18n()
 
@@ -281,21 +298,13 @@ const dtId = String(route.params.dtId)
 const activeCase = ref<Import40CaseDto | null>(null)
 const clientProfile = ref<ClientCompanyProfileDto | null>(null)
 
-// Зеркалит серверный гейт CanEditCaseData: до «Декларирования» (status < 2) редактирует клиент,
-// с «Декларирования» — только админ или назначенный декларант (assignedDeclarantId).
-// assignedDeclarantId + authStore.userId доступны на фронте, поэтому используем точный сигнал,
-// а не упрощение can('declarant') — сервер всё равно финальный гейт.
-const readOnly = computed(() => {
-  const sys = (authStore.role || '').toLowerCase()
-  const biz = (authStore.businessRole || '').toLowerCase()
-  if (sys === 'client' || biz === 'client') return true
-  if (sys === 'administrator') return false
-  const c = activeCase.value
-  if (!c || c.status < 2) return false
-  const isDeclarant = biz === 'declarant' || biz === 'rop'
-  const uid = authStore.userId
-  return !(isDeclarant && (!c.assignedDeclarantId || c.assignedDeclarantId === uid))
-})
+// Зеркалит серверные гейты PUT ДТ (CanManageDeclarations + CanEditDeclarations), см. views/import40/dtAccess.ts:
+// admin || РОП || (право import40.declarant && (статус < «Декларирование» || никто не назначен || назначен я)).
+// Право и роли берём из JWT (все роли сотрудника), а не из основной businessRole (баг R1–R3, решения 09.10).
+const dtUser = computed(() => dtUserFrom(authStore))
+const readOnly = computed(() => isDtReadOnly(dtUser.value, activeCase.value))
+// Готовность к КЕДЕН сервер отдаёт по CanManageDeclarations — в т.ч. декларанту в просмотре (чужая ДТ).
+const canSeeReadiness = computed(() => canManageDeclarations(dtUser.value))
 const caseTitle = computed(() =>
   activeCase.value ? `${activeCase.value.number} · ${activeCase.value.clientName} · ${activeCase.value.cargo}` : '',
 )
@@ -322,7 +331,7 @@ const showSplitButton = computed(() => {
 // (hasPermission уже true для админа): КПП/бухгалтер/продажи и клиент его не видят
 // и не ловят тосты ошибок на каждом открытии ДТ. Декларанту раздел виден и в
 // readonly (readOnly — это «нельзя править», не «нельзя видеть»).
-const showDtsSection = computed(() => authStore.hasPermission('import40.declarant'))
+const showDtsSection = computed(() => canManageDeclarations(dtUser.value))
 const splitBlockedReason = computed(() => {
   if (dtForm.goodsItems.length < 1) return t('dt.dobavteTovarDlyaVto')
   if (!readOnly.value) return ''
@@ -340,6 +349,11 @@ const dirty = ref(false)
 const saveError = ref<string | null>(null)
 let editVersion = 0
 let retryTimer: ReturnType<typeof setTimeout> | null = null
+// Оптимистичная блокировка (09.10): updatedAtUtc ДТ, на которой основаны правки формы (строка как от сервера).
+// Не в dtForm — иначе deep watch счёл бы её правкой. conflict — сервер ответил 409: ДТ сохранили в другом окне
+// или другой пользователь; автосейв и автоповтор остановлены до перезагрузки ДТ.
+let serverStamp: string | null = null
+const conflict = ref(false)
 const serverErrorText = (e: unknown): string => serverErrorTextOf(e, t('dt.netSvyazi'))
 // Время последнего успешного сохранения (ручного или автосейва) — для «Сохранено в 15:32» в панели.
 const lastSavedAt = ref<string | null>(null)
@@ -687,10 +701,11 @@ const missingBySection = computed(() => {
   return out
 })
 
+// Без права (КПП, бухгалтер, клиент) сервер отвечает 404 — не спрашиваем; запрос тихий (без тоста).
 const refreshReadiness = async () => {
-  if (readOnly.value) return
+  if (!canSeeReadiness.value) return
   try {
-    readiness.value = await import40Api.kedenReadiness(caseId, dtId)
+    readiness.value = await import40Api.kedenReadiness(caseId, dtId, { silent: true })
   } catch {
     readiness.value = null
   }
@@ -766,6 +781,7 @@ const totals = computed(() => ({
 const applyDeclaration = (decl: Import40DeclarationDto) => {
   applyingDeclaration.value = true
   dtForm.id = decl.id
+  serverStamp = decl.updatedAtUtc ?? null
   dtForm.declarationNumber = decl.declarationNumber ?? ''
   dtForm.corridor = decl.corridor ?? 'green'
   dtForm.procedureCode = decl.procedureCode ?? ''
@@ -1321,7 +1337,7 @@ const loadDt = async () => {
     // №12: профиль клиента для автозаполнения получателя (гр.8) в DtSectionParties.
     if (activeCase.value?.clientId) {
       import40ContractApi
-        .getProfile(activeCase.value.clientId)
+        .getProfile(activeCase.value.clientId, { silent: true }) // нет доступа к профилю — просто без автозаполнения
         .then((p) => { clientProfile.value = p })
         .catch(() => { clientProfile.value = null })
     }
@@ -1345,13 +1361,29 @@ const loadDt = async () => {
 // автосохранений перед расчётом платежей (Task 10: save → calc → save при
 // каждом переключении «Медизделие»), чтобы не заваливать декларанта одинаковыми
 // уведомлениями об одном и том же действии.
-const saveDt = async (silent = false): Promise<boolean> => {
-  if (!dtForm.id) return false
+//
+// (баг, ревью 09.10) Сохранения идут строго по очереди: печать, XML, расчёт платежей, ДТС, номер, разделение
+// зовут saveDt и во время автосейва. Два PUT одновременно ушли бы с одной отметкой блокировки — второй получил бы
+// ложный 409 «изменена в другом окне». Каждый вызов ждёт предыдущий и только потом читает отметку из его ответа.
+let saveQueue: Promise<unknown> = Promise.resolve()
+const saveDt = (silent = false): Promise<boolean> => {
+  const run = saveQueue.then(() => saveDtNow(silent))
+  saveQueue = run.catch(() => undefined)
+  return run
+}
+
+const saveDtNow = async (silent: boolean): Promise<boolean> => {
+  // В просмотре сохранять нельзя: сервер ответит 403, а катч ниже включил бы автоповтор (баг B2).
+  // После 409 (ДТ изменена в другом окне) — тоже нельзя, пока ДТ не перезагружена.
+  if (!dtForm.id || readOnly.value || conflict.value) return false
   saving.value = true
   const startedVersion = editVersion
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
   try {
+    // Сервер (с 09.10): поле с явным null очищает графу, отсутствующее поле не трогает. Поэтому шлём ВСЕ
+    // графы и пустое — именно null (`|| null` / `?? null`), а не undefined (JSON.stringify выбросит ключ).
     const payload: Import40DeclarationUpsert = {
+      expectedUpdatedAtUtc: serverStamp,
       declarationNumber: dtForm.declarationNumber || null,
       corridor: dtForm.corridor || null,
       procedureCode: dtForm.procedureCode || null,
@@ -1403,9 +1435,9 @@ const saveDt = async (silent = false): Promise<boolean> => {
       factPayments: dtForm.factPayments,
       declarationTypeCode: dtForm.declarationTypeCode || null,
       declarationFeatureCode: dtForm.declarationFeatureCode || null,
-      sheetNumber: dtForm.sheetNumber,
-      totalSheets: dtForm.totalSheets,
-      shippingSpecSheets: dtForm.shippingSpecSheets,
+      sheetNumber: dtForm.sheetNumber ?? null,
+      totalSheets: dtForm.totalSheets ?? null,
+      shippingSpecSheets: dtForm.shippingSpecSheets ?? null,
       referenceNumber: dtForm.referenceNumber || null,
       financialSubjectName: dtForm.financialSubjectName || null,
       financialSubjectBin: dtForm.financialSubjectBin || null,
@@ -1478,6 +1510,7 @@ const saveDt = async (silent = false): Promise<boolean> => {
     }
     const updated = await import40Api.updateDeclaration(caseId, dtForm.id, payload)
     loadedDto.value = updated
+    serverStamp = updated.updatedAtUtc ?? serverStamp
     if (!silent) message.success(t('dt.dtSohranena'))
     void refreshReadiness()
     savedCounter.value += 1
@@ -1492,7 +1525,15 @@ const saveDt = async (silent = false): Promise<boolean> => {
     // чтобы ошибку нельзя было не заметить и правки не потерялись.
     saveError.value = serverErrorText(e)
     dirty.value = true
-    retryTimer = setTimeout(() => { if (dirty.value && !saving.value) void saveDt(true) }, 15000)
+    if ((e as { response?: { status?: number } })?.response?.status === 409) {
+      // Кто-то сохранил ДТ раньше: повтор ничего не даст и только затёр бы чужие правки — стоп до перезагрузки.
+      conflict.value = true
+      if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null }
+      return false
+    }
+    if (!readOnly.value) {
+      retryTimer = setTimeout(() => { if (dirty.value && !saving.value && !readOnly.value) void saveDt(true) }, 15000)
+    }
     return false
   } finally {
     saving.value = false
@@ -1507,7 +1548,7 @@ let autosaveTimer: ReturnType<typeof setTimeout> | null = null
 function scheduleAutosave() {
   if (autosaveTimer) clearTimeout(autosaveTimer)
   autosaveTimer = setTimeout(() => {
-    if (applyingDeclaration.value || readOnly.value || !dtForm.id) return
+    if (applyingDeclaration.value || readOnly.value || conflict.value || !dtForm.id) return
     // Идёт сохранение — не теряем правку, а пробуем ещё раз чуть позже (раньше она ждала следующего изменения).
     if (saving.value) { scheduleAutosave(); return }
     void saveDt(true)
@@ -1518,6 +1559,7 @@ watch(
   () => {
     if (applyingDeclaration.value || readOnly.value || !dtForm.id) return
     editVersion += 1
+    if (conflict.value) { dirty.value = true; return } // правки копятся на экране, но не уходят
     dirty.value = true
     scheduleAutosave()
   },
@@ -1538,9 +1580,42 @@ onBeforeRouteLeave(() => {
   return window.confirm(t('dt.ujtiBezSohraneniya'))
 })
 
+// 409: «Перезагрузить» — перечитываем ДТ с сервера; несохранённое на экране пропадёт (спрашиваем, если оно есть).
+const reloadAfterConflict = () => {
+  const doReload = async () => {
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
+    if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null }
+    conflict.value = false
+    saveError.value = null
+    dirty.value = false
+    kedenMissing.value = []
+    await loadDt()
+  }
+  if (!dirty.value) return doReload()
+  Modal.confirm({
+    title: t('dt.conflictReloadConfirmTitle'),
+    content: t('dt.conflictReloadConfirmText'),
+    okText: t('dt.conflictReload'),
+    okType: 'danger',
+    onOk: doReload,
+  })
+}
+
+// Сохранение перед действием секции ДТС (XML/печать): в просмотре — без PUT (B2).
+const saveDtBeforeAction = (silent?: boolean) => saveBeforeAction(readOnly.value, () => saveDt(silent))
+
+// Форма ушла в просмотр (например, заявку перечитали) — гасим отложенные автосейв и автоповтор.
+watch(readOnly, (ro) => {
+  if (!ro) return
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
+  if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null }
+  saveError.value = null
+  dirty.value = false
+})
+
 const exportXml = async () => {
-  // несохранённое не должно теряться при выгрузке
-  const saved = await saveDt()
+  // несохранённое не должно теряться при выгрузке; в просмотре не сохраняем (B2)
+  const saved = await saveBeforeAction(readOnly.value, () => saveDt())
   if (!saved) return
   xmlLoading.value = true
   kedenMissing.value = []
@@ -1568,9 +1643,10 @@ const exportXml = async () => {
 }
 
 // Task 9: факсимиле бланка ДТ (печать) — работает на любой стадии, в т.ч. на пустой ДТ.
+// В просмотре печатаем без сохранения (баг B2: раньше PUT → 403 → бланк не открывался, автоповтор каждые 15 с).
 const printBlank = async () => {
   // несохранённое не должно теряться при печати
-  const saved = await saveDt()
+  const saved = await saveBeforeAction(readOnly.value, () => saveDt())
   if (!saved) return
   pdfLoading.value = true
   try {
@@ -1614,6 +1690,8 @@ const toggleAllVto = (e: { target: { checked: boolean } }) => {
 }
 
 const openSplitModal = async () => {
+  // Подсказка и само разделение считаются по СОХРАНЁННОЙ ДТ — сначала сохраняем правки с экрана.
+  if (!(await saveBeforeAction(readOnly.value, () => saveDt(true)))) return
   splitModalOpen.value = true
   splitLoading.value = true
   try {
@@ -1640,6 +1718,10 @@ const doSplit = async () => {
   const vtoGoodSortOrders = splitRows.value.filter((r) => r.vto).map((r) => r.sortOrder)
   splitting.value = true
   try {
+    // Правки, сделанные после открытия окна, — тоже сохранить; отложенный автосейв исходной ДТ после разделения
+    // не нужен (сервер сдвигает её отметку блокировки, такой PUT получил бы 409).
+    if (!(await saveBeforeAction(readOnly.value, () => saveDt(true)))) return
+    if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null }
     const res = await import40Api.splitDeclaration(caseId, dtId, { vtoGoodSortOrders })
     splitModalOpen.value = false
     // Сервер пересчитывает платежи новых ДТ по их ставкам (ВТО — пониженная). Если не по всем

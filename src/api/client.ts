@@ -9,6 +9,8 @@ declare module 'axios' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
   export interface AxiosRequestConfig<D = any> {
     silent?: boolean
+    /** Без тоста только для этих кодов ответа (экран сам показывает именно эту ошибку), остальные — как обычно. */
+    silentStatuses?: number[]
     /** Запрос уже повторён с новым токеном после 401 (см. перехватчик) — второй раз не повторяем. */
     _replayed?: boolean
   }
@@ -106,6 +108,7 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     const silent = error.config?.silent === true
+      || (error.response != null && (error.config?.silentStatuses ?? []).includes(error.response.status))
 
     if (error.response) {
       const status = error.response.status

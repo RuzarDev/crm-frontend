@@ -233,6 +233,9 @@ export interface Import40DeclarationDto {
   // Исходная ДТ после разделения ЕТТ/ВТО (задача 2.4, H5/3.3) — заменена дочерними декларациями,
   // исключена из готовности/пакетной выгрузки, в списке показывается серой.
   isSplitReplaced?: boolean
+  // Оптимистичная блокировка (09.10): строка ISO как пришла с сервера (микросекунды) — НЕ превращать в Date,
+  // иначе точность упадёт до миллисекунд и сервер ответит 409. Редактор шлёт её обратно как expectedUpdatedAtUtc.
+  updatedAtUtc?: string | null
   factPayments?: Import40FactPayment[]
   declarationTypeCode: string
   declarationFeatureCode: string | null
@@ -314,6 +317,8 @@ export type Import40GoodsUpsert = Omit<Import40GoodsItemInput, 'customsValue'> &
 }
 
 export interface Import40DeclarationUpsert {
+  /** Только PUT: updatedAtUtc ДТ, на которой основана правка; не совпало — 409. Нет — без проверки. */
+  expectedUpdatedAtUtc?: string | null
   declarationNumber?: string | null
   corridor?: string | null
   procedureCode?: string | null
@@ -917,9 +922,11 @@ export const import40Api = {
     declarationId: string,
     data: Import40DeclarationUpsert,
   ): Promise<Import40DeclarationDto> => {
+    // 409 (ДТ изменена в другом окне) редактор показывает постоянной плашкой — без второго сообщения тостом.
     const response = await apiClient.put<Import40DeclarationDto>(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}`,
       data,
+      { silentStatuses: [409] },
     )
     return response.data
   },
@@ -987,9 +994,11 @@ export const import40Api = {
     return { blob: res.data as Blob, fileName: m ? decodeURIComponent(m[1]) : 'declaration.pdf' }
   },
 
-  kedenReadiness: async (caseId: string, declarationId: string): Promise<KedenReadinessDto> => {
+  // silent — страница ДТ спрашивает готовность фоном после каждого сохранения: сбой — просто без тегов, без тоста.
+  kedenReadiness: async (caseId: string, declarationId: string, opts?: { silent?: boolean }): Promise<KedenReadinessDto> => {
     const { data } = await apiClient.get<KedenReadinessDto>(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/keden-readiness`,
+      opts?.silent ? { silent: true } : undefined,
     )
     return data
   },
