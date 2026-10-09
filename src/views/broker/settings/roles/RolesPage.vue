@@ -7,6 +7,7 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZCheckbox from '@/components/z/ZCheckbox.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
+import SaveBar from '@/components/broker/SaveBar.vue'
 import { extractServerText } from '@/api/client'
 import { permissionsApi, type RoleRow } from '@/api/permissions'
 import { useAuthStore } from '@/stores/auth'
@@ -37,10 +38,13 @@ const saved = shallowRef<RoleRow[]>([])
 const draft = ref<Draft>({})
 const saving = ref(false)
 const saveError = ref<string | null>(null)
+// Сброс удался, а перезагрузка матрицы нет: на экране старое — править его нельзя, иначе «Сохранить» затрёт свежие умолчания.
+const stale = ref(false)
 watch(() => matrix.data, (d) => {
   saved.value = d?.roles ?? []
   draft.value = toDraft(saved.value)
   saveError.value = null
+  stale.value = false
 }, { immediate: true })
 onMounted(() => { void matrix.load() })
 
@@ -54,17 +58,24 @@ const changeKeys = computed(() => new Set(changes.value.map((c) => `${c.role}|${
 
 // ---- Подписи ----
 const columnLabel = (r: RoleRow) => (isAdminRole(r.code) ? t('broker.settings.roles.colAdmin') : roleLabel(r.code))
+// В таблице — короткие фразы («Видеть заявки»), они лежат в broker.settings.roles.perm.*; общие enum.permission.* («Реестр: просмотр»)
+// остаются запасным вариантом, а за ними — подпись сервера.
 const permissionLabel = (code: string, fallback = ''): string => {
-  const key = `enum.permission.${permissionKey(code)}`
-  return te(key) ? t(key) : (fallback || code)
+  const k = permissionKey(code)
+  if (te(`broker.settings.roles.perm.${k}`)) return t(`broker.settings.roles.perm.${k}`)
+  return te(`enum.permission.${k}`) ? t(`enum.permission.${k}`) : (fallback || code)
 }
 const groupLabel = (area: string): string => {
   const k = groupKey(area)
   return k && te(`enum.permissionGroup.${k}`) ? t(`enum.permissionGroup.${k}`) : area
 }
 const roleByCode = (code: string) => saved.value.find((r) => r.code === code)
+const roleName = (code: string): string => {
+  const r = roleByCode(code)
+  return r ? columnLabel(r) : code
+}
 const describe = (c: Change): string => t(`broker.settings.roles.bar.${c.added ? 'add' : 'remove'}`, {
-  role: roleByCode(c.role) ? columnLabel(roleByCode(c.role)!) : c.role,
+  role: roleName(c.role),
   permission: permissionLabel(c.permission, groups.value.flatMap((g) => g.permissions).find((p) => p.code === c.permission)?.label),
 })
 const barText = computed(() => {
@@ -79,6 +90,12 @@ const lockOf = (role: RoleRow, permission: string): Lock | null => cellLock(lock
 const lockTitle = (role: RoleRow, permission: string): string | undefined => {
   const l = lockOf(role, permission)
   return l ? t(`broker.settings.roles.lock.${l}`) : undefined
+}
+// Подпись флажка: право, роль и (если ячейка недоступна) причина — чтобы её слышали и с клавиатуры/скринридера.
+const cellLabel = (role: RoleRow, p: { code: string; label: string }): string => {
+  const base = t('broker.settings.roles.cell', { permission: permissionLabel(p.code, p.label), role: columnLabel(role) })
+  const why = lockTitle(role, p.code)
+  return why ? `${base}. ${why}` : base
 }
 const checked = (role: RoleRow, permission: string) => (isAdminRole(role.code) ? true : isChecked(draft.value, role.code, permission))
 const onToggle = (role: RoleRow, permission: string, on: boolean) => {
@@ -98,23 +115,24 @@ async function save() {
   saveError.value = null
   const todo = changedRoles(changes.value, editableCodes.value)
   let done = 0
-  let failed: { role: string; reason: string } | null = null
+  const failed: { role: string; reason: string }[] = []
   for (const code of todo) {
+    const perms = orderedPermissions(draft.value, code, groups.value)
     try {
-      await permissionsApi.updateRole(code, orderedPermissions(draft.value, code, groups.value), { silent: true })
-      const perms = orderedPermissions(draft.value, code, groups.value)
+      await permissionsApi.updateRole(code, perms, { silent: true })
       saved.value = saved.value.map((r) => (r.code === code ? { ...r, permissions: perms } : r))
       done++
     } catch (e) {
-      failed ??= { role: code, reason: reasonOf(e) }
+      failed.push({ role: code, reason: reasonOf(e) })
     }
   }
   saving.value = false
-  if (failed) {
-    const r = roleByCode(failed.role)
-    saveError.value = done
-      ? t('broker.settings.roles.savePartial', { done, total: todo.length, role: r ? columnLabel(r) : failed.role, reason: failed.reason })
-      : failed.reason
+  if (failed.length) {
+    // Одна неудача и ничего не сохранено — просто текст сервера; иначе — по каждой роли.
+    const list = failed.length === 1 && !done
+      ? failed[0].reason
+      : failed.map((f) => `«${roleName(f.role)}»: ${f.reason}`).join('; ')
+    saveError.value = done ? t('broker.settings.roles.savePartial', { done, total: todo.length, failures: list }) : list
     return
   }
   message.success(t('broker.settings.roles.saved'))
@@ -145,8 +163,14 @@ async function resetDefaults() {
   saveError.value = null
   try {
     await permissionsApi.reset({ silent: true })
+    cancel() // правки относились к прежней матрице
     await matrix.load()
-    message.success(t('broker.settings.roles.resetDone'))
+    if (matrix.error) {
+      stale.value = true
+      saveError.value = t('broker.settings.roles.resetStale')
+    } else {
+      message.success(t('broker.settings.roles.resetDone'))
+    }
   } catch (e) {
     saveError.value = reasonOf(e)
   } finally {
@@ -174,118 +198,120 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
 const refreshing = computed(() => matrix.loading && !!matrix.data)
 const showSkeleton = computed(() => matrix.loading && !matrix.data)
 const showError = computed(() => matrix.error && !matrix.data && !matrix.loading)
+// Матрица уже была на экране, а повторная загрузка не удалась: показываем ошибку рядом с таблицей.
+const reloadFailed = computed(() => matrix.error && !!matrix.data && !matrix.loading)
 </script>
 
 <template>
-  <div class="flex min-w-0 flex-col gap-4 overflow-x-clip" data-roles>
-    <div class="flex flex-wrap items-end gap-x-3 gap-y-2">
-      <div class="min-w-0">
-        <h1 class="m-0 text-[22px] leading-7 font-semibold tracking-[-0.015em] text-ink">{{ t('broker.settings.roles.title') }}</h1>
-        <p class="m-0 mt-1 text-sm text-muted" data-roles-hint>{{ t('broker.settings.roles.hint') }}</p>
+  <div class="flex min-w-0 flex-col gap-4" data-roles>
+    <div class="flex min-w-0 flex-col gap-4 overflow-x-clip" data-roles-body>
+      <div class="flex flex-wrap items-end gap-x-3 gap-y-2">
+        <div class="min-w-0">
+          <h1 class="m-0 text-[22px] leading-7 font-semibold tracking-[-0.015em] text-ink">{{ t('broker.settings.roles.title') }}</h1>
+          <p class="m-0 mt-1 text-sm text-muted" data-roles-hint>{{ t('broker.settings.roles.hint') }}</p>
+        </div>
+        <div class="ml-auto flex flex-wrap gap-2 max-sm:w-full">
+          <ZButton variant="ghost" :loading="refreshing" :disabled="saving || resetting" class="max-sm:h-11 max-sm:flex-1" data-roles-refresh @click="refresh()">
+            <template #icon><PhArrowClockwise :size="16" aria-hidden="true" /></template>
+            {{ t('broker.settings.roles.refresh') }}
+          </ZButton>
+          <ZButton v-if="canManage" variant="ghost" :loading="resetting" :disabled="saving || !matrix.data" class="max-sm:h-11 max-sm:flex-1" data-roles-reset @click="resetDefaults()">
+            <template #icon><PhArrowCounterClockwise :size="16" aria-hidden="true" /></template>
+            {{ t('broker.settings.roles.reset') }}
+          </ZButton>
+        </div>
       </div>
-      <div class="ml-auto flex flex-wrap gap-2 max-sm:w-full">
-        <ZButton variant="ghost" :loading="refreshing" :disabled="saving || resetting" class="max-sm:h-11 max-sm:flex-1" data-roles-refresh @click="refresh()">
-          <template #icon><PhArrowClockwise :size="16" aria-hidden="true" /></template>
-          {{ t('broker.settings.roles.refresh') }}
-        </ZButton>
-        <ZButton v-if="canManage" variant="ghost" :loading="resetting" :disabled="saving || !matrix.data" class="max-sm:h-11 max-sm:flex-1" data-roles-reset @click="resetDefaults()">
-          <template #icon><PhArrowCounterClockwise :size="16" aria-hidden="true" /></template>
-          {{ t('broker.settings.roles.reset') }}
-        </ZButton>
+
+      <p v-if="saveError" role="alert" class="m-0 rounded-panel bg-tone-danger-bg px-4 py-3 text-sm text-tone-danger-fg [overflow-wrap:anywhere]" data-roles-error>{{ saveError }}</p>
+
+      <div v-if="reloadFailed" role="alert" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-roles-reload-error>
+        <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('broker.settings.roles.loadError') }}</p>
+        <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-roles-reload-retry @click="matrix.load()">{{ t('broker.settings.roles.retry') }}</ZButton>
       </div>
-    </div>
 
-    <p v-if="saveError" role="alert" class="m-0 rounded-panel bg-tone-danger-bg px-4 py-3 text-sm text-tone-danger-fg [overflow-wrap:anywhere]" data-roles-error>{{ saveError }}</p>
-
-    <div v-if="showError" role="alert" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-roles-load-error>
-      <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('broker.settings.roles.loadError') }}</p>
-      <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-roles-retry @click="matrix.load()">{{ t('broker.settings.roles.retry') }}</ZButton>
-    </div>
-    <div v-else-if="showSkeleton" class="rounded-panel border border-line bg-surface p-5" data-roles-skeleton>
-      <ZSkeleton :lines="8" height="18px" />
-    </div>
-    <div v-else-if="!groups.length" class="rounded-panel border border-line bg-surface" data-roles-empty>
-      <ZEmpty :title="t('broker.settings.roles.empty')" />
-    </div>
-    <div
-      v-else
-      class="max-h-[calc(100dvh-15rem)] min-h-64 max-w-full overflow-auto overscroll-x-contain rounded-panel border border-line bg-surface"
-      data-roles-frame
-    >
-      <table class="w-full min-w-[920px] border-separate border-spacing-0 text-sm" :aria-label="t('broker.settings.roles.tableLabel')" data-roles-table>
-        <thead>
-          <tr>
-            <th scope="col" class="sticky top-0 left-0 z-[3] h-11 w-[280px] min-w-[220px] border-b border-line bg-surface px-4 text-left text-[12.5px] font-medium text-muted" data-roles-head-permission>
-              {{ t('broker.settings.roles.colPermission') }}
-            </th>
-            <th
-              v-for="r in roles"
-              :key="r.code"
-              scope="col"
-              class="sticky top-0 z-[2] h-11 min-w-[104px] border-b border-line bg-surface px-2 text-center text-[12.5px] font-medium whitespace-nowrap text-ink-2"
-              :title="roleScope(r.code, '') || undefined"
-              :data-roles-head="r.code"
-            >
-              <span class="inline-flex items-center gap-1">
-                {{ columnLabel(r) }}
-                <PhLock v-if="isAdminRole(r.code)" :size="12" aria-hidden="true" class="text-muted" />
-              </span>
-            </th>
-          </tr>
-        </thead>
-        <template v-for="g in groups" :key="g.area">
-          <tbody :data-roles-group="groupKey(g.area) ?? g.area">
+      <div v-if="showError" role="alert" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-roles-load-error>
+        <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('broker.settings.roles.loadError') }}</p>
+        <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-roles-retry @click="matrix.load()">{{ t('broker.settings.roles.retry') }}</ZButton>
+      </div>
+      <div v-else-if="showSkeleton" class="rounded-panel border border-line bg-surface p-5" data-roles-skeleton>
+        <ZSkeleton :lines="8" height="18px" />
+      </div>
+      <div v-else-if="!groups.length" class="rounded-panel border border-line bg-surface" data-roles-empty>
+        <ZEmpty :title="t('broker.settings.roles.empty')" />
+      </div>
+      <div
+        v-else
+        class="max-h-[calc(100dvh-15rem)] min-h-64 max-w-full overflow-auto overscroll-x-contain rounded-panel border border-line bg-surface"
+        data-roles-frame
+      >
+        <table class="w-full min-w-[920px] border-separate border-spacing-0 text-sm" :aria-label="t('broker.settings.roles.tableLabel')" data-roles-table>
+          <thead>
             <tr>
-              <th
-                scope="colgroup"
-                class="sticky left-0 z-[1] border-b border-line bg-surface px-4 pt-4 pb-2 text-left text-[11.5px] font-semibold tracking-[0.08em] text-muted uppercase"
-              >{{ groupLabel(g.area) }}</th>
-              <td :colspan="roles.length" class="border-b border-line bg-surface" />
-            </tr>
-            <tr v-for="p in g.permissions" :key="p.code" :data-roles-row="p.code">
-              <th scope="row" class="sticky left-0 z-[1] h-11 border-b border-line bg-surface px-4 text-left text-sm font-normal text-ink [overflow-wrap:anywhere]">
-                {{ permissionLabel(p.code, p.label) }}
+              <th scope="col" class="sticky top-0 left-0 z-[3] h-11 w-[280px] min-w-[220px] border-b border-line bg-surface px-4 text-left text-[12.5px] font-medium text-muted" data-roles-head-permission>
+                {{ t('broker.settings.roles.colPermission') }}
               </th>
-              <td
+              <th
                 v-for="r in roles"
                 :key="r.code"
-                class="h-11 border-b border-line p-0 text-center"
-                :class="changeKeys.has(`${r.code}|${p.code}`) ? 'bg-tone-info-bg' : 'bg-surface'"
-                :title="lockTitle(r, p.code)"
-                :data-roles-cell="`${r.code}|${p.code}`"
-                :data-changed="changeKeys.has(`${r.code}|${p.code}`) ? '' : undefined"
+                scope="col"
+                class="sticky top-0 z-[2] h-11 min-w-[104px] border-b border-line bg-surface px-2 text-center text-[12.5px] font-medium whitespace-nowrap text-ink-2"
+                :title="roleScope(r.code, '') || undefined"
+                :data-roles-head="r.code"
               >
-                <ZCheckbox
-                  :checked="checked(r, p.code)"
-                  :disabled="!!lockOf(r, p.code) || saving"
-                  :aria-label="t('broker.settings.roles.cell', { permission: permissionLabel(p.code, p.label), role: columnLabel(r) })"
-                  class="h-11 w-full min-w-11 justify-center"
-                  @change="onToggle(r, p.code, $event)"
-                />
-              </td>
+                <span class="inline-flex items-center gap-1">
+                  {{ columnLabel(r) }}
+                  <PhLock v-if="isAdminRole(r.code)" :size="12" aria-hidden="true" class="text-muted" />
+                </span>
+              </th>
             </tr>
-          </tbody>
-        </template>
-      </table>
-    </div>
-
-    <div
-      v-if="dirty || saving"
-      class="sticky bottom-0 z-[6] -mx-4 -mb-5 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line bg-surface px-4 py-3 shadow-[0_-12px_24px_-18px_rgb(60_48_30/0.25)] lg:-mx-7 lg:-mb-6 lg:px-7"
-      role="region"
-      :aria-label="t('broker.settings.roles.bar.label')"
-      data-roles-savebar
-    >
-      <span aria-hidden="true" class="size-2 shrink-0 rounded-pill bg-gold" />
-      <span class="min-w-0 flex-1 text-[13.5px] text-ink-2 [overflow-wrap:anywhere]" aria-live="polite" data-roles-bar-text>{{ barText }}</span>
-      <div class="flex items-center gap-2 max-sm:w-full">
-        <ZButton variant="ghost" :disabled="saving" class="max-sm:h-11 max-sm:flex-1" data-roles-cancel @click="cancel()">
-          {{ t('broker.settings.roles.bar.cancel') }}
-        </ZButton>
-        <ZButton variant="primary" :loading="saving" :disabled="!dirty" class="max-sm:h-11 max-sm:flex-1" data-roles-save @click="save()">
-          {{ t('broker.settings.roles.bar.save') }}
-        </ZButton>
+          </thead>
+          <template v-for="g in groups" :key="g.area">
+            <tbody :data-roles-group="groupKey(g.area) ?? g.area">
+              <tr>
+                <th
+                  scope="colgroup"
+                  class="sticky left-0 z-[1] border-b border-line bg-surface px-4 pt-4 pb-2 text-left text-[11.5px] font-semibold tracking-[0.08em] text-muted uppercase"
+                >{{ groupLabel(g.area) }}</th>
+                <td :colspan="roles.length" class="border-b border-line bg-surface" />
+              </tr>
+              <tr v-for="p in g.permissions" :key="p.code" :data-roles-row="p.code">
+                <th scope="row" class="sticky left-0 z-[1] h-11 border-b border-line bg-surface px-4 text-left text-sm font-normal text-ink [overflow-wrap:anywhere]">
+                  {{ permissionLabel(p.code, p.label) }}
+                </th>
+                <td
+                  v-for="r in roles"
+                  :key="r.code"
+                  class="h-11 border-b border-line p-0 text-center"
+                  :class="changeKeys.has(`${r.code}|${p.code}`) ? 'bg-tone-info-bg' : 'bg-surface'"
+                  :title="lockTitle(r, p.code)"
+                  :data-roles-cell="`${r.code}|${p.code}`"
+                  :data-changed="changeKeys.has(`${r.code}|${p.code}`) ? '' : undefined"
+                >
+                  <ZCheckbox
+                    :checked="checked(r, p.code)"
+                    :disabled="!!lockOf(r, p.code) || saving || stale"
+                    :aria-label="cellLabel(r, p)"
+                    class="h-11 w-full min-w-11 justify-center"
+                    @change="onToggle(r, p.code, $event)"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </template>
+        </table>
       </div>
     </div>
+
+    <SaveBar
+      v-if="dirty || saving"
+      :label="t('broker.settings.roles.bar.label')"
+      :text="barText"
+      :cancel-text="t('broker.settings.roles.bar.cancel')"
+      :save-text="t('broker.settings.roles.bar.save')"
+      :saving="saving"
+      :can-save="dirty"
+      @cancel="cancel()"
+      @save="save()"
+    />
   </div>
 </template>
