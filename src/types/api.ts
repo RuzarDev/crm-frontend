@@ -860,9 +860,17 @@ export interface TnvedRegulationDto {
 }
 
 export interface TnvedTimelineDto {
+  /** 1 — ЕТТ, 2 — ВТО, 3 — антидемпинг, 4 — окончание действия. */
   typeId: number
+  /** Строка сервера по-русски — запасной текст для ленты. */
   description: string
   showDate: string
+  /** День события, «ГГГГ-ММ-ДД». */
+  date: string
+  /** Первые пять кодов события; всего — totalCodes. */
+  codes: string[]
+  totalCodes: number
+  kind: 'starts' | 'ends'
 }
 
 export interface TnvedExplanationDto {

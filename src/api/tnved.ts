@@ -71,8 +71,8 @@ export const tnvedApi = {
   exportReference: (code: string, opts?: TnvedRequestOptions) =>
     apiClient.get<TnvedExportReferenceDto>(`/tnved/node/${encodeURIComponent(code)}/export-reference`, quiet(opts)),
 
-  rateChanges: (limit = 50) =>
-    apiClient.get<TnvedRateChangeDto[]>('/tnved/rate-changes', { params: { limit } }),
+  rateChanges: (limit = 50, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedRateChangeDto[]>('/tnved/rate-changes', { params: { limit }, ...quiet(opts) }),
 
   // GET: сервер принимает калькулятор только как GET с параметрами (POST давал 405).
   calculate: (req: TnvedCalculateRequest, opts?: TnvedRequestOptions) =>
@@ -90,16 +90,17 @@ export const tnvedApi = {
     apiClient.get<TnvedRegulationDto[]>('/tnved/regulations', quiet(opts)),
 
   // ── Timeline ────────────────────────────────────────────────────────────────
-  timeline: (limit = 60) =>
-    apiClient.get<TnvedTimelineDto[]>('/tnved/timeline', { params: { limit } }),
+  /** Сервер применяет limit (самые свежие по дате показа), не больше 500. */
+  timeline: (limit = 60, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedTimelineDto[]>('/tnved/timeline', { params: { limit }, ...quiet(opts) }),
 
   // ── VTO sections ────────────────────────────────────────────────────────────
-  vtoSections: () =>
-    apiClient.get<TnvedVtoSectionDto[]>('/tnved/vto-sections'),
+  vtoSections: (opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedVtoSectionDto[]>('/tnved/vto-sections', quiet(opts)),
 
   // ── Analytics ───────────────────────────────────────────────────────────────
-  topCodes: (limit = 20) =>
-    apiClient.get<TnvedTopCodeDto[]>('/tnved/stats/top-codes', { params: { limit } }),
+  topCodes: (limit = 20, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedTopCodeDto[]>('/tnved/stats/top-codes', { params: { limit }, ...quiet(opts) }),
 
   // ── Transition ──────────────────────────────────────────────────────────────
   getTransition: (code: string, opts?: TnvedRequestOptions) =>

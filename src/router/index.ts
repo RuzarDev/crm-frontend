@@ -265,14 +265,14 @@ const router = createRouter({
         {
           path: '/tnved/timeline',
           name: 'tnved-timeline',
-          component: () => import('@/views/TnvedTimelineView.vue'),
+          component: () => import('@/views/broker/references/changes/ChangesPage.vue'),
           meta: { requiresReferences: true },
         },
         {
+          // Старая «Аналитика ТН ВЭД» стала видом «Статистика» экрана «Изменения».
           path: '/tnved/analytics',
           name: 'tnved-analytics',
-          component: () => import('@/views/TnvedAnalyticsView.vue'),
-          meta: { requiresReferences: true },
+          redirect: { path: '/tnved/timeline', query: { view: 'stats' } },
         },
         {
           path: '/tnved/sync',
