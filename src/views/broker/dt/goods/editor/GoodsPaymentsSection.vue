@@ -237,16 +237,17 @@ const removeBtn = cn(
               <PhX :size="16" aria-hidden="true" />
             </button>
           </div>
-          <!-- Специфическая ставка (*): единица, валюта, коэффициент. -->
+          <!-- Специфическая ставка (*): единица, валюта, коэффициент. Единица и валюта — не длиннее 8 (колонки БД
+               RateUnitCode / RateCurrencyCode): длиннее — PUT всей ДТ падал бы. -->
           <div v-if="p.rateKindCode === '*'" class="flex flex-wrap items-end gap-2" data-payment-specific>
             <span class="w-full text-xs text-muted">{{ tp('specific') }}</span>
             <div :class="[field, 'w-32']">
               <span :class="fieldLabel">{{ tp('unit') }}</span>
-              <ZInput :value="p.rateUnitCode ?? ''" mono :maxlength="10" placeholder="166" :aria-label="tp('unit')" :class="tall" data-f="payment-unit" @update:value="set(p, 'rateUnitCode', text($event))" />
+              <ZInput :value="p.rateUnitCode ?? ''" mono :maxlength="8" placeholder="166" :aria-label="tp('unit')" :class="tall" data-f="payment-unit" @update:value="set(p, 'rateUnitCode', text($event))" />
             </div>
             <div :class="[field, 'w-32']">
               <span :class="fieldLabel">{{ tp('currency') }}</span>
-              <ZInput :value="p.rateCurrencyCode ?? ''" mono :maxlength="10" placeholder="978" :aria-label="tp('currency')" :class="tall" data-f="payment-currency" @update:value="set(p, 'rateCurrencyCode', text($event))" />
+              <ZInput :value="p.rateCurrencyCode ?? ''" mono :maxlength="8" placeholder="978" :aria-label="tp('currency')" :class="tall" data-f="payment-currency" @update:value="set(p, 'rateCurrencyCode', text($event))" />
             </div>
             <div :class="[field, 'w-32']">
               <span :class="fieldLabel">{{ tp('ratio') }}</span>

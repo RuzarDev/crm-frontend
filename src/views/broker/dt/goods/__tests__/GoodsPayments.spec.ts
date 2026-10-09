@@ -234,6 +234,10 @@ describe('Редактор товара: «Платежи» (гр. 47 этого
     await typeIn(rowOf('2010'), 'payment-currency', '978')
     await typeIn(rowOf('2010'), 'payment-ratio', '1,2')
     expect(p2010).toMatchObject({ rateUnitCode: '166', rateCurrencyCode: '978', weightRatio: 1.2 })
+    // единица и валюта — не длиннее колонок БД (8): длиннее — PUT всей ДТ падал бы
+    for (const f of ['payment-unit', 'payment-currency']) {
+      expect(rowOf('2010').querySelector<HTMLInputElement>(`input[data-f="${f}"]`)!.maxLength).toBe(8)
+    }
 
     rowOf('4420').querySelector<HTMLButtonElement>('[data-payment-remove]')!.click()
     await settle()
