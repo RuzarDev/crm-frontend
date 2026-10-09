@@ -9,6 +9,8 @@ export interface TroisCheck {
 }
 
 const KEY: InjectionKey<TroisCheck> = Symbol('troisCheck')
+/** Названий в одном запросе /ref/trois/check. */
+const BATCH = 100
 
 export function useTroisCheckProvider(names: () => Array<string | null | undefined>, delayMs = 700): TroisCheck {
   const cache = reactive<Record<string, TroisCheckItem>>({})
@@ -35,7 +37,11 @@ export function useTroisCheckProvider(names: () => Array<string | null | undefin
       if (!fresh.length) return
       timer = window.setTimeout(() => {
         fresh.forEach((n) => asked.add(n))
-        void request(fresh.slice(0, 100))
+        // Сервер принимает до 100 названий за раз: остальные — следующими пачками по очереди (раньше марки сверх
+        // 100 помечались «спрошенными», но не отправлялись — T3).
+        void (async () => {
+          for (let i = 0; i < fresh.length && !disposed; i += BATCH) await request(fresh.slice(i, i + BATCH))
+        })()
       }, delayMs)
     },
     { immediate: true },
