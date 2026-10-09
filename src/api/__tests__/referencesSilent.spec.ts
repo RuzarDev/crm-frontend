@@ -26,6 +26,16 @@ describe('referencesApi / prohibitionCodesApi: silent', () => {
     expect(client.put.mock.lastCall![2]).toBeUndefined()
   })
 
+  it('подсказки гр. 33: ответ кэшируется на сессию, старый кэш сервера (КЕДЕН не ответил) — нет', async () => {
+    const answer = (stale: boolean) => ({ data: { tnved: '1111111111', codes: [], fetchedAtUtc: null, stale, warning: null } })
+    client.get.mockClear()
+    client.get.mockResolvedValueOnce(answer(true)).mockResolvedValueOnce(answer(false))
+    expect((await prohibitionCodesApi.suggest('1111111111')).stale).toBe(true)
+    expect((await prohibitionCodesApi.suggest('1111111111')).stale).toBe(false)
+    await prohibitionCodesApi.suggest('1111111111')
+    expect(client.get).toHaveBeenCalledTimes(2)
+  })
+
   it('kedenUsage — тихий: сбой подписи использования не даёт тоста', async () => {
     await prohibitionCodesApi.kedenUsage()
     expect(client.get).toHaveBeenLastCalledWith('/ref/prohibition-codes/keden-usage', { silent: true })

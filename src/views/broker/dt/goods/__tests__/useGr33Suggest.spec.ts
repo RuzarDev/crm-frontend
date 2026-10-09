@@ -90,6 +90,25 @@ describe('useGr33Suggest', () => {
     expect(b.byTnved.value).toBe(true)
   })
 
+  it('КЕДЕН не ответил (старый кэш сервера) — не запоминается: повторное открытие спрашивает снова', async () => {
+    api.suggest.mockResolvedValueOnce({ ...SUGGEST, stale: true, codes: [] })
+    const a = run(() => useGr33Suggest({ tnved: '4202121900', procedure: '40' }))
+    await flushPromises()
+    expect(a.state.failed).toBe(true)
+    const b = run(() => useGr33Suggest({ tnved: '4202121900', procedure: '40' }))
+    await flushPromises()
+    expect(api.suggest).toHaveBeenCalledTimes(2)
+    expect(b.state.failed).toBe(false)
+    expect(b.byTnved.value).toBe(true)
+    // Старый кэш с кодами («сохранённые ранее») — тоже не запоминается.
+    api.suggest.mockResolvedValueOnce({ ...SUGGEST, tnved: '5555555555', stale: true })
+    run(() => useGr33Suggest({ tnved: '5555555555', procedure: '40' }))
+    await flushPromises()
+    run(() => useGr33Suggest({ tnved: '5555555555', procedure: '40' }))
+    await flushPromises()
+    expect(api.suggest).toHaveBeenCalledTimes(4)
+  })
+
   it('кэш на сессию: повторное открытие — сразу, без запроса и без «загрузки»; справочник — один раз', async () => {
     run(() => useGr33Suggest({ tnved: '4202121900', procedure: '40' }))
     await flushPromises()

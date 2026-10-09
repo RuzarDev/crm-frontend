@@ -139,7 +139,7 @@ const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @sm:grid-cols-2 @xl:grid-cols-4'
 const tall = 'max-sm:h-11'
 const chip = (on: boolean) => cn(
   'inline-flex h-7 cursor-pointer items-center rounded-pill border px-2.5 font-mono text-xs outline-hidden transition-colors',
-  'focus-visible:shadow-focus max-sm:h-9 disabled:cursor-default',
+  'focus-visible:shadow-focus max-sm:h-11 max-sm:px-3.5 pointer-coarse:h-11 disabled:cursor-default',
   on ? 'border-line bg-sunken text-muted' : 'border-line-strong bg-surface text-ink hover:border-zircon hover:bg-zircon-soft',
 )
 </script>
@@ -180,7 +180,7 @@ const chip = (on: boolean) => cn(
       </ZField>
 
       <!-- Подсказки КЕДЕН по ТН ВЭД: добавляются только нажатием — коды выбирает декларант. -->
-      <div v-if="!readonly && gr33.state.tnved" class="flex flex-wrap items-center gap-1.5 text-xs" data-gr33-suggest>
+      <div v-if="!readonly && gr33.state.tnved" class="flex flex-wrap items-center gap-1.5 text-xs max-sm:gap-2" data-gr33-suggest>
         <span v-if="gr33.state.loading" class="text-muted" role="status">{{ tg('suggestLoading') }}</span>
         <template v-else-if="gr33.visible.value.length">
           <span class="mr-1 text-muted">{{ tg('suggestFor', { code: gr33.state.tnved }) }}</span>
@@ -195,7 +195,7 @@ const chip = (on: boolean) => cn(
             :data-gr33-chip="c.code"
             @click="addCode(c.code)"
           >{{ c.code }}</button>
-          <ZButton v-if="negatives.length" variant="ghost" size="sm" :title="tg('addNegativeHint')" class="max-sm:h-11" data-gr33-negatives @click="addNegatives">
+          <ZButton v-if="negatives.length" variant="ghost" size="sm" :title="tg('addNegativeHint')" class="max-sm:h-11 pointer-coarse:h-11" data-gr33-negatives @click="addNegatives">
             <PhPlus :size="14" aria-hidden="true" />{{ tg('addNegative') }}
           </ZButton>
           <span v-if="gr33.state.warning" class="text-gold-ink" data-gr33-stale>{{ tg('suggestStale') }}</span>

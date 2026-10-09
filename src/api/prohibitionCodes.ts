@@ -51,12 +51,14 @@ export const prohibitionCodesApi = {
   /** Для раздела «Справочники»: какие коды КЕДЕН реально присылает. */
   kedenUsage: (): Promise<ProhibitionCodeUsage[]> =>
     apiClient.get('/ref/prohibition-codes/keden-usage', { silent: true }).then((r) => r.data as ProhibitionCodeUsage[]),
-  /** Подсказки по 10-значному коду ТН ВЭД; ответ кэшируется на сессию (ошибки — нет). */
+  /** Подсказки по 10-значному коду ТН ВЭД; ответ кэшируется на сессию (ошибки и старый кэш сервера — нет). */
   suggest: (tnved: string): Promise<ProhibitionSuggestResult> => {
     let p = suggestCache.get(tnved)
     if (!p) {
       p = apiClient.get('/ref/prohibition-codes/suggest', { params: { tnved }, timeout: 30000, silent: true })
         .then((r) => r.data as ProhibitionSuggestResult)
+        // Старый кэш сервера (КЕДЕН не ответил) — не запоминаем: следующий запрос спросит КЕДЕН снова.
+        .then((r) => { if (r.stale && suggestCache.get(tnved) === p) suggestCache.delete(tnved); return r })
         .catch((e) => { suggestCache.delete(tnved); throw e })
       suggestCache.set(tnved, p)
     }

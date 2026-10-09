@@ -81,8 +81,9 @@ export function useGr33Suggest(source: MaybeRefOrGetter<Gr33Source>) {
     Object.assign(state, { loading: true, failed: false, warning: false, codes: [] })
     try {
       const r = await prohibitionCodesApi.suggest(tnved)
-      // Пустой старый кэш — «КЕДЕН не отвечает»: не запоминаем, следующее открытие спросит снова.
-      if (!(r.stale && r.codes.length === 0)) resolved.set(tnved, r)
+      // Старый кэш сервера (КЕДЕН не ответил — пусто или с прежними кодами) не запоминаем: следующее открытие товара
+      // спросит снова, и «КЕДЕН не отвечает» / «сохранённые ранее» уйдут, когда он ответит.
+      if (!r.stale) resolved.set(tnved, r)
       if (my === seq) apply(r)
     } catch {
       if (my === seq) state.failed = true

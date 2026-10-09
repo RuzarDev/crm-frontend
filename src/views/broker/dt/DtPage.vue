@@ -270,6 +270,14 @@ const goTo = async (item: DtReadinessItem) => {
   // Поле товара — точно по ключу (data-goods-field: гр. 31 — и описание, и места; гр. 33 — и код, и коды запретов),
   // иначе — поле графы: первое подсвеченное (предупреждение/ошибка у поля — напр. гр. 36 вне списка КЕДЕН), иначе первое.
   const fieldKey = goodsAt != null ? goodsFieldFromReadiness(item.text) : null
+  // Поле в свёрнутом блоке (доп. сведения): блок объявляет свои поля в data-goods-reveal — раскрываем и ищем снова.
+  if (fieldKey && !scope.querySelector(`[data-goods-field="${fieldKey}"]`)) {
+    const holder = scope.querySelector<HTMLElement>(`[data-goods-reveal~="${fieldKey}"]`)
+    if (holder) {
+      holder.dispatchEvent(new CustomEvent('goods-reveal'))
+      await nextTick()
+    }
+  }
   const byGraph = graph ? [...scope.querySelectorAll<HTMLElement>(`[data-graph="${graph}"]`)] : []
   const flagged = byGraph.find((el) => el.querySelector(':scope > .text-gold-ink, :scope > .text-danger'))
   const field = (fieldKey ? scope.querySelector<HTMLElement>(`[data-goods-field="${fieldKey}"]`) : null) ?? flagged ?? byGraph[0] ?? null

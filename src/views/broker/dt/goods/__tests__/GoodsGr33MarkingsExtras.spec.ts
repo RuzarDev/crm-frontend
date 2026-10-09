@@ -328,6 +328,19 @@ describe('Редактор товара: «Маркировка»', () => {
     expect(qa('[data-marking-row]')).toHaveLength(25)
   })
 
+  it('добавление строки при свёрнутом списке не раскрывает весь список: видна новая строка, фокус в её номере', async () => {
+    const markings: Import40GoodsMarking[] = Array.from({ length: 400 }, (_, i) => ({ number: `N${i}`, levelCode: '0' }))
+    await mount([item({ markings })])
+    await click('[data-markings-add]')
+    expect(g0().markings).toHaveLength(401)
+    expect(qa('[data-marking-row]').map((r) => r.dataset.markingRow)).toEqual([...Array.from({ length: 10 }, (_, i) => String(i)), '400'])
+    expect(document.activeElement).toBe(input('marking-400-number'))
+    expect(q('[data-goods-markings-section]')!.textContent).toContain('Ещё строк: 390')
+    await click('[data-marking-remove="400"]')
+    expect(g0().markings).toHaveLength(400)
+    expect(qa('[data-marking-row]')).toHaveLength(10)
+  })
+
   it('Excel (без шапки): строки добавляются в конец, тост с количеством', async () => {
     xlsx.rows = [['CODE1', 0, 1, 301], [null, null, null, null], ['CODE2', '1', '21', '101']]
     await mount([item({ markings: [{ number: 'OLD' }] })])
@@ -403,6 +416,26 @@ describe('Редактор товара: «Доп. сведения»', () => {
     await type('investProjectSeqId', '12')
     expect(q('[data-extras-warn="invest"]')!.className).toContain('text-gold-ink')
     expect(g0().needsTpinRecalc).toBe(false)
+  })
+
+  it('переход в поле свёрнутого блока: блок объявляет поля (data-goods-reveal) и раскрывается по goods-reveal', async () => {
+    await mount([item({ extras: { standardName: 'ГОСТ', exciseStamps: [], vehicles: [], traceable: false } })])
+    await click('[data-extras-toggle="chars"]')
+    expect(q('[data-extras-body="chars"]')).toBeNull()
+    expect(q('[data-goods-field="standardName"]')).toBeNull()
+    const holder = q('[data-goods-reveal~="standardName"]')!
+    expect(holder.dataset.extrasToggle).toBe('chars')
+    holder.dispatchEvent(new CustomEvent('goods-reveal'))
+    await settle()
+    expect(q('[data-goods-field="standardName"] input[data-f="standardName"]')).not.toBeNull()
+    expect(q('[data-goods-reveal~="standardName"]')).toBeNull()
+  })
+
+  it('подсказки-чипы гр. 33 — высотой 44px на телефоне и сенсорном экране', async () => {
+    await mount([item()])
+    const cls = q('[data-gr33-chip="D0100"]')!.className
+    expect(cls).toContain('max-sm:h-11')
+    expect(cls).toContain('pointer-coarse:h-11')
   })
 
   it('прослеживаемость: единица по умолчанию — ДЕИ товара; период — нужны обе даты', async () => {

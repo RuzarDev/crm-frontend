@@ -50,6 +50,16 @@ type BlockKey = 'chars' | 'stamps' | 'vehicles' | 'period' | 'invest' | 'trace'
 const FIELD: Record<BlockKey, string> = {
   chars: 'chars', stamps: 'exciseStamps', vehicles: 'vehicles', period: 'period', invest: 'invest', trace: 'traceable',
 }
+// Поля внутри блока — для перехода «До подачи» в свёрнутый блок: DtPage.goTo не находит [data-goods-field=…], находит
+// свёрнутый блок по data-goods-reveal и шлёт ему goods-reveal — блок раскрывается, переход попадает в само поле.
+const REVEAL: Record<BlockKey, readonly string[]> = {
+  chars: ['chars', 'productionPlaceName', 'productSortName', 'standardName', 'manufactureDate'],
+  stamps: ['exciseStamps'],
+  vehicles: ['vehicles'],
+  period: ['period', 'periodStartDate', 'periodEndDate'],
+  invest: ['invest', 'investCountryCode', 'investProjectSeqId', 'investProjectYear', 'investGoodsListKindCode', 'investProjectGoodsSeqId'],
+  trace: ['traceable', 'traceQuantity', 'traceUnitCode'],
+}
 const filled = computed<Record<BlockKey, boolean>>(() => {
   const e = x.value
   return {
@@ -145,10 +155,11 @@ const warnText = 'm-0 rounded-field bg-gold-soft px-3 py-2 text-[13px] text-gold
         type="button"
         :class="toggle"
         :aria-expanded="open[b]"
-        :data-goods-field="open[b] ? undefined : FIELD[b]"
+        :data-goods-reveal="open[b] ? undefined : REVEAL[b].join(' ')"
         :data-goods-index="index"
         :data-extras-toggle="b"
         @click="open[b] = !open[b]"
+        @goods-reveal="open[b] = true"
       >
         <PhCaretRight :size="14" aria-hidden="true" :class="cn('shrink-0 text-ink-3 transition-transform duration-150 ease-out motion-reduce:transition-none', open[b] && 'rotate-90')" />
         <span class="min-w-0 flex-1">{{ tx(`blocks.${b}`) }}</span>

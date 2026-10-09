@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, shallowReactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhFileXls, PhPlus, PhX } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -29,7 +29,14 @@ const PAGE = 10
 const MORE = 50
 const limit = ref(PAGE)
 const markings = computed(() => props.item.markings ?? [])
-const shown = computed(() => markings.value.slice(0, limit.value))
+// Строки, добавленные кнопкой в этом товаре, видны всегда (после первых limit), даже за пределами страницы:
+// добавление строки не раскрывает весь список (400 кодов из Excel не монтируются разом).
+const added = shallowReactive(new Set<Import40GoodsMarking>())
+const shown = computed(() => {
+  const out: { m: Import40GoodsMarking; i: number }[] = []
+  markings.value.forEach((m, i) => { if (i < limit.value || added.has(m)) out.push({ m, i }) })
+  return out
+})
 const hidden = computed(() => Math.max(0, markings.value.length - shown.value.length))
 
 // Подпись в поле — только код (колонки узкие), название — строкой списка и поиском.
@@ -55,14 +62,20 @@ const list = (): Import40GoodsMarking[] => {
   g.markings ??= []
   return g.markings
 }
-const add = () => {
-  list().push(emptyMarking())
-  limit.value = Math.max(limit.value, markings.value.length)
+const root = ref<HTMLElement>()
+const add = async () => {
+  const arr = list()
+  arr.push(emptyMarking())
+  const i = arr.length - 1
+  added.add(arr[i])
+  await nextTick()
+  root.value?.querySelector<HTMLInputElement>(`input[data-f="marking-${i}-number"]`)?.focus()
 }
 const remove = (m: Import40GoodsMarking) => {
   const arr = list()
   const i = arr.indexOf(m)
   if (i >= 0) arr.splice(i, 1)
+  added.delete(m)
 }
 
 const importing = ref(false)
@@ -99,7 +112,7 @@ const removeBtn = cn(
 </script>
 
 <template>
-  <div class="flex flex-col gap-3" data-goods-markings-section>
+  <div ref="root" class="flex flex-col gap-3" data-goods-markings-section>
     <p class="m-0 text-xs text-muted">{{ tm('hint') }}</p>
 
     <div class="flex flex-col gap-2" data-graph="31" data-goods-field="markings" :data-goods-index="index">
@@ -108,7 +121,7 @@ const removeBtn = cn(
         <div :class="head" aria-hidden="true">
           <span>{{ tm('number') }}</span><span>{{ tm('level') }}</span><span>{{ tm('application') }}</span><span>{{ tm('type') }}</span>
         </div>
-        <div v-for="(m, mi) in shown" :key="mi" class="flex flex-col gap-2 rounded-row border border-line p-2" :data-marking-row="mi">
+        <div v-for="{ m, i: mi } in shown" :key="mi" class="flex flex-col gap-2 rounded-row border border-line p-2" :data-marking-row="mi">
           <div :class="line1">
             <ZInput v-uppercase :value="m.number ?? ''" mono :maxlength="100" :disabled="readonly" :placeholder="tm('number')" :aria-label="tm('number')" :class="['col-span-3 @xl:col-span-1', tall]" :data-f="`marking-${mi}-number`" @update:value="set(m, 'number', $event.trim() ? $event : null)" />
             <div :class="cell">
