@@ -54,8 +54,8 @@ export const tnvedApi = {
     apiClient.get<TnvedClassifyResponse>('/tnved/classify', { params: { description, limit }, ...quiet(opts) }),
 
   // ── Notes / explanations ────────────────────────────────────────────────────
-  notes: (code: string) =>
-    apiClient.get<TnvedExplanationDto>(`/tnved/node/${encodeURIComponent(code)}/notes`),
+  notes: (code: string, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedExplanationDto>(`/tnved/node/${encodeURIComponent(code)}/notes`, quiet(opts)),
 
   // ── Rates ───────────────────────────────────────────────────────────────────
   rates: (code: string, opts?: TnvedRequestOptions) =>
@@ -68,8 +68,8 @@ export const tnvedApi = {
     apiClient.get<TnvedReferenceDto>(`/tnved/node/${encodeURIComponent(code)}/reference`, quiet(opts)),
 
   // ── Export reference (вывоз: ставка + нетарифка по направлению OUT) ────────
-  exportReference: (code: string) =>
-    apiClient.get<TnvedExportReferenceDto>(`/tnved/node/${encodeURIComponent(code)}/export-reference`),
+  exportReference: (code: string, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedExportReferenceDto>(`/tnved/node/${encodeURIComponent(code)}/export-reference`, quiet(opts)),
 
   rateChanges: (limit = 50) =>
     apiClient.get<TnvedRateChangeDto[]>('/tnved/rate-changes', { params: { limit } }),
@@ -102,8 +102,8 @@ export const tnvedApi = {
     apiClient.get<TnvedTopCodeDto[]>('/tnved/stats/top-codes', { params: { limit } }),
 
   // ── Transition ──────────────────────────────────────────────────────────────
-  getTransition: (code: string) =>
-    apiClient.get<TnvedTransitionDto>(`/tnved/transition/${encodeURIComponent(code)}`),
+  getTransition: (code: string, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedTransitionDto>(`/tnved/transition/${encodeURIComponent(code)}`, quiet(opts)),
 
   // ── Sync (admin) ────────────────────────────────────────────────────────────
   syncHistory: () =>

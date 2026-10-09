@@ -357,7 +357,7 @@ const LIST_SKELETON = ['72%', '58%', '66%', '50%']
             </div>
           </dl>
 
-          <TnvedCalculator :code="code" @result="onResult" />
+          <TnvedCalculator :code="code" :rate-text="rates?.rateStr" @result="onResult" />
 
           <div v-if="canShip" class="flex flex-wrap items-center gap-3 border-t border-line pt-[18px]">
             <RouterLink

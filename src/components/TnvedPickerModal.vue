@@ -10,7 +10,7 @@ import ZTag from '@/components/z/ZTag.vue'
 import TnvedTree from '@/views/broker/references/tnved/TnvedTree.vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedNodeDto, TnvedRateDto } from '@/types/api'
-import { cleanName, formatTnvedCode, httpStatus, isRateLimited } from '@/views/client/tnved/tnved'
+import { cleanName, formatTnvedCode, httpStatus, isRateLimited } from '@/views/references/tnvedShared'
 
 // Окно выбора кода ТН ВЭД (редизайн, волна 5а) — общее для товаров ДТ (ReestrGoodsSection), товаров записи
 // транзита (GoodsCard) и калькулятора продаж. Контракт прежний: v-model:open, initialQuery;

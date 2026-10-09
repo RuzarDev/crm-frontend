@@ -5,7 +5,7 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZTree, { type ZTreeId, type ZTreeNode } from '@/components/z/ZTree.vue'
 import { tnvedApi } from '@/api/tnved'
 import type { TnvedNodeDto } from '@/types/api'
-import { cleanName, formatTnvedCode } from '@/views/client/tnved/tnved'
+import { cleanName, formatTnvedCode } from '@/views/references/tnvedShared'
 
 // Дерево ТН ВЭД ЕАЭС (редизайн, волна 5а) на ZTree: разделы → группы → позиции → субпозиции → 10-значные коды.
 // Ветки догружаются по раскрытию (в классификаторе ~21 тыс. узлов; чтения tnved/* — 60 в минуту, поэтому
@@ -76,6 +76,29 @@ const reveal = async (code: string): Promise<TnvedNodeDto | null> => {
   return dtos.get(z.id) ?? null
 }
 
+/** Путь до узла (от раздела до него самого) по уже загруженным веткам — без запросов. Пусто — узел не загружен. */
+const pathOf = (id: number): TnvedNodeDto[] => {
+  const out: TnvedNodeDto[] = []
+  const seen = new Set<number>()
+  let cur = dtos.get(id)
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id)
+    out.unshift(cur)
+    cur = cur.parentId ? dtos.get(cur.parentId) : undefined
+  }
+  return out
+}
+
+/** Выделить уже загруженный узел (напр. предка из пути карточки): раскрыть до него и выделить молча, без запросов. */
+const selectLoaded = async (id: number): Promise<TnvedNodeDto | null> => {
+  const my = ++seq
+  const ids = pathOf(id).map((n) => n.id)
+  if (!ids.length) return null
+  const z = await treeRef.value?.reveal(ids)
+  if (!z || my !== seq) return null
+  return dtos.get(z.id) ?? null
+}
+
 /** Прокрутить к выбранному (дерево было скрыто во время reveal — строка не могла встать на место). */
 const scrollToSelected = () => treeRef.value?.scrollToSelected() ?? Promise.resolve(false)
 /** Свернуть всё до разделов; выделение остаётся (видно снова, когда ветку раскроют). */
@@ -87,7 +110,7 @@ const reload = () => {
   return ensureRoot()
 }
 
-defineExpose({ reveal, collapseAll, scrollToSelected, clearSelection, reload })
+defineExpose({ reveal, collapseAll, scrollToSelected, clearSelection, reload, pathOf, selectLoaded })
 </script>
 
 <template>

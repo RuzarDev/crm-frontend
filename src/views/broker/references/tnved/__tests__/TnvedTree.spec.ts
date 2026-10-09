@@ -35,7 +35,10 @@ beforeEach(() => {
 })
 afterEach(() => { w?.unmount(); document.body.innerHTML = '' })
 
-type TreeApi = { reveal: (c: string) => Promise<TnvedNodeDto | null>; collapseAll: () => void; scrollToSelected: () => Promise<unknown>; reload: () => Promise<unknown> }
+type TreeApi = {
+  reveal: (c: string) => Promise<TnvedNodeDto | null>; collapseAll: () => void; scrollToSelected: () => Promise<unknown>; reload: () => Promise<unknown>
+  pathOf: (id: number) => TnvedNodeDto[]; selectLoaded: (id: number) => Promise<TnvedNodeDto | null>
+}
 const mountTree = () => {
   w = mountWithI18n(TnvedTree, { attachTo: document.body })
   return w.vm as unknown as TreeApi
@@ -113,5 +116,20 @@ describe('TnvedTree', () => {
     await flushPromises()
     expect(rowTexts()).toHaveLength(2)
     await expect(t.scrollToSelected()).resolves.toBeDefined()
+  })
+
+  it('pathOf — предки по загруженным веткам; selectLoaded выделяет предка без запросов и без select', async () => {
+    const t = mountTree()
+    await t.reveal('8471300000')
+    await flushPromises()
+    expect(t.pathOf(1000).map((n) => n.code)).toEqual(['XVI', '84', '8471', '8471300000'])
+    expect(t.pathOf(999)).toEqual([])
+    const calls = api.children.mock.calls.length + api.path.mock.calls.length
+    const n = await t.selectLoaded(10)
+    await flushPromises()
+    expect(n).toEqual(tree[1][0])
+    expect(api.children.mock.calls.length + api.path.mock.calls.length).toBe(calls)
+    expect(w.get('[data-z-tree-id="10"]').attributes('aria-selected')).toBe('true')
+    expect(w.emitted('select')).toBeUndefined()
   })
 })
