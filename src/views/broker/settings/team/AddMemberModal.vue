@@ -18,7 +18,7 @@ import { useTeamRoleLabels } from './useTeamRoleLabels'
 
 // «Добавить сотрудника» (users.write): логин, пароль (≥ 8, проверка на месте, «Сгенерировать»), повтор, роли — флажки
 // бизнес-ролей (≥ 1). Флажок «Администратор» — только администратору. Сохранение: POST auth/register/staff (тип аккаунта по
-// основной роли), затем PUT users/{id}/business-roles со всеми выбранными ролями. Ошибки сервера показываются в окне
+// основной роли; ответ — id и логин), затем, если ролей больше одной и есть users.assign_role, PUT users/{id}/business-roles. Ошибки сервера показываются в окне
 // (администратора заводит только администратор — 403 с текстом сервера).
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ 'update:open': [open: boolean]; created: [member: { id: string | null; username: string }] }>()
@@ -27,6 +27,7 @@ const { t } = useI18n()
 const auth = useAuthStore()
 const { roleLabel, roleScope } = useTeamRoleLabels()
 const isAdmin = computed(() => (auth.role ?? '').trim().toLowerCase() === 'administrator')
+const canAssign = computed(() => auth.hasPermission('users.assign_role'))
 
 // Каталог ролей с сервера (единый источник); пока не пришёл или не загрузился — запасной список.
 const catalog = ref<{ code: string; scope: string }[]>([])
@@ -107,30 +108,33 @@ const submit = async () => {
   const roles = orderRoles(draft.roles, roleOrder.value)
   saving.value = true
   serverError.value = ''
+  let created: { id: string | null; username: string }
   try {
-    await usersApi.registerStaff({
+    const res = await usersApi.registerStaff({
       username,
       password: draft.password,
       role: systemRoleFor(roles[0], draft.admin),
       ...(roles[0] ? { businessRole: roles[0] } : {}),
     })
+    created = { id: res?.id ?? null, username: res?.username || username }
   } catch (err) {
     serverError.value = errorText(err)
     saving.value = false
     return
   }
-  // Сотрудник создан. Регистрация не возвращает id — берём его из списка команды по логину.
-  let id: string | null = null
+  // Сотрудник создан с основной ролью. Остальные роли — отдельным запросом, только тем, у кого есть право их назначать
+  // (иначе сервер ответил бы отказом: об этом честно говорим вместо ложной ошибки на каждое добавление).
   try {
-    const team = await usersApi.team({ silent: true })
-    id = team.find((m) => m.username.toLowerCase() === username.toLowerCase())?.id ?? null
-    if (id && roles.length) await permissionsApi.setUserRoles(id, roles, { silent: true })
+    if (roles.length > 1) {
+      if (!canAssign.value) message.warning(t('broker.settings.team.addModal.rolesPrimaryOnly', { role: roleLabel(roles[0]) }))
+      else if (created.id) await permissionsApi.setUserRoles(created.id, roles, { silent: true })
+    }
   } catch (err) {
     message.warning(t('broker.settings.team.addModal.rolesFailed', { text: errorText(err) }))
   } finally {
     saving.value = false
   }
-  emit('created', { id, username })
+  emit('created', created)
   emit('update:open', false)
 }
 </script>

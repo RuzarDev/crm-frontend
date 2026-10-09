@@ -715,6 +715,7 @@ export default {
           passwordMismatch: 'Passwords do not match',
           rolesRequired: 'Tick at least one role',
           rolesFailed: 'The employee was created, but roles could not be assigned: {text}',
+          rolesPrimaryOnly: 'The employee was created with the primary role “{role}” only: you are not allowed to assign other roles',
           createFailed: 'Could not create the employee',
         },
         drawer: {

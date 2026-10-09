@@ -28,8 +28,8 @@ describe('usersApi: команда', () => {
   })
 
   it('registerStaff — POST /auth/register/staff, ошибку показывает форма (silent)', async () => {
-    apiClient.defaults.adapter = reply(200, '')
-    await usersApi.registerStaff({ username: 'a', password: 'p', role: 'importer', businessRole: 'kpp' })
+    apiClient.defaults.adapter = reply(200, { id: 'n1', username: 'a' })
+    expect(await usersApi.registerStaff({ username: 'a', password: 'p', role: 'importer', businessRole: 'kpp' })).toEqual({ id: 'n1', username: 'a' })
     expect(seen[0].url).toBe('/auth/register/staff')
     expect(seen[0].silent).toBe(true)
     expect(JSON.parse(seen[0].data)).toEqual({ username: 'a', password: 'p', role: 'importer', businessRole: 'kpp' })

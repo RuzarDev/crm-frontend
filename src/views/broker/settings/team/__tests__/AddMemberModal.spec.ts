@@ -4,10 +4,10 @@ import { createPinia, setActivePinia } from 'pinia'
 import { mountWithI18n } from '@/test/mountWithI18n'
 
 const api = vi.hoisted(() => ({
-  registerStaff: vi.fn(), team: vi.fn(), catalog: vi.fn(), setUserRoles: vi.fn(),
+  registerStaff: vi.fn(), catalog: vi.fn(), setUserRoles: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
-vi.mock('@/api/users', () => ({ usersApi: { registerStaff: api.registerStaff, team: api.team } }))
+vi.mock('@/api/users', () => ({ usersApi: { registerStaff: api.registerStaff } }))
 vi.mock('@/api/permissions', async (orig) => ({
   ...(await orig<typeof import('@/api/permissions')>()),
   permissionsApi: { catalog: api.catalog, setUserRoles: api.setUserRoles },
@@ -23,7 +23,11 @@ const ModalStub = {
 }
 
 let w: VueWrapper
-const as = (role: string) => { useAuthStore().role = role }
+const as = (role: string, permissions: string[] = ['users.write', 'users.assign_role']) => {
+  const auth = useAuthStore()
+  auth.role = role
+  auth.permissions = permissions
+}
 const mountIt = async () => {
   w = mountWithI18n(AddMemberModal, { props: { open: true }, attachTo: document.body, global: { stubs: { ZModal: ModalStub } } })
   await flushPromises()
@@ -45,9 +49,8 @@ beforeEach(() => {
     { code: 'mpp', label: 'Транзит (реестр)', scope: 'транзит' },
     { code: 'sales', label: 'Продажи', scope: 'клиенты' },
   ])
-  api.registerStaff.mockResolvedValue(undefined)
+  api.registerStaff.mockResolvedValue({ id: 'u1', username: 'new.one' })
   api.setUserRoles.mockResolvedValue(undefined)
-  api.team.mockResolvedValue([{ id: 'u1', username: 'new.one' }])
   as('sales')
 })
 afterEach(() => {
@@ -111,7 +114,7 @@ describe('AddMemberModal', () => {
     expect(w.find('[data-add-copy]').exists()).toBe(false)
   })
 
-  it('два запроса: регистрация (тип аккаунта по основной роли) и роли; created с id', async () => {
+  it('регистрация (тип аккаунта по основной роли) и роли с id из ответа; created с этим id', async () => {
     await mountIt()
     await fill({ u: ' new.one ', p: 'Passw0rd!', r: 'Passw0rd!', roles: ['sales', 'mpp'] })
     await submit()
@@ -120,6 +123,41 @@ describe('AddMemberModal', () => {
     expect(api.setUserRoles).toHaveBeenCalledWith('u1', ['mpp', 'sales'], { silent: true })
     expect(w.emitted('created')).toEqual([[{ id: 'u1', username: 'new.one' }]])
     expect(w.emitted('update:open')).toEqual([[false]])
+  })
+
+  it('id берётся из ответа регистрации, список команды не перечитывается', async () => {
+    api.registerStaff.mockResolvedValue({ id: 'srv-7', username: 'New.One' })
+    await mountIt()
+    await fill({ u: 'new.one', p: 'Passw0rd!', r: 'Passw0rd!', roles: ['kpp', 'mpp'] })
+    await submit()
+    expect(api.setUserRoles).toHaveBeenCalledWith('srv-7', ['kpp', 'mpp'], { silent: true })
+    expect(w.emitted('created')).toEqual([[{ id: 'srv-7', username: 'New.One' }]])
+  })
+
+  it('одна роль — второго запроса нет (её уже записала регистрация), предупреждения нет', async () => {
+    await mountIt()
+    await fill({ u: 'new.one', p: 'Passw0rd!', r: 'Passw0rd!', roles: ['kpp'] })
+    await submit()
+    expect(api.setUserRoles).not.toHaveBeenCalled()
+    expect(api.toast.warning).not.toHaveBeenCalled()
+    expect(w.emitted('created')).toEqual([[{ id: 'u1', username: 'new.one' }]])
+  })
+
+  it('без users.assign_role: создание с основной ролью, PUT ролей не шлётся; несколько ролей — честное предупреждение', async () => {
+    as('sales', ['users.write'])
+    await mountIt()
+    await fill({ u: 'new.one', p: 'Passw0rd!', r: 'Passw0rd!', roles: ['kpp'] })
+    await submit()
+    expect(api.setUserRoles).not.toHaveBeenCalled()
+    expect(api.toast.warning).not.toHaveBeenCalled()
+    w.unmount()
+    await mountIt()
+    await fill({ u: 'new.two', p: 'Passw0rd!', r: 'Passw0rd!', roles: ['sales', 'mpp'] })
+    await submit()
+    expect(api.registerStaff).toHaveBeenLastCalledWith(expect.objectContaining({ businessRole: 'mpp' }))
+    expect(api.setUserRoles).not.toHaveBeenCalled()
+    expect(api.toast.warning).toHaveBeenCalledWith('Сотрудник создан только с основной ролью «МПП»: назначать остальные роли вы не вправе')
+    expect(w.emitted('created')).toHaveLength(1)
   })
 
   it.each([
@@ -158,7 +196,7 @@ describe('AddMemberModal', () => {
   it('роли не назначились — сотрудник всё равно создан: предупреждение с текстом сервера и created', async () => {
     api.setUserRoles.mockRejectedValue({ response: { data: { detail: 'Нет права назначать роли' } } })
     await mountIt()
-    await fill({ u: 'new.one', p: 'Passw0rd!', r: 'Passw0rd!', roles: ['kpp'] })
+    await fill({ u: 'new.one', p: 'Passw0rd!', r: 'Passw0rd!', roles: ['kpp', 'mpp'] })
     await submit()
     expect(api.toast.warning).toHaveBeenCalledWith('Сотрудник создан, но роли назначить не удалось: Нет права назначать роли')
     expect(w.emitted('created')).toEqual([[{ id: 'u1', username: 'new.one' }]])

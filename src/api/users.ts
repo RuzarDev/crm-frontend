@@ -49,9 +49,9 @@ export const usersApi = {
   },
 
   // Новый сотрудник: ошибку (в т.ч. 403 «администратора заводит только администратор») показывает форма.
-  registerStaff: async (data: { username: string; password: string; role: string; businessRole?: string }): Promise<void> => {
-    await apiClient.post('/auth/register/staff', data, { silent: true })
-  },
+  // Сервер возвращает id и логин созданного сотрудника.
+  registerStaff: async (data: { username: string; password: string; role: string; businessRole?: string }): Promise<{ id: string; username: string }> =>
+    (await apiClient.post<{ id: string; username: string }>('/auth/register/staff', data, { silent: true })).data,
 
   getCatalogImporters: async (opts?: SilentOpts): Promise<CatalogImporterRow[]> => {
     const response = await apiClient.get<CatalogImporterRow[]>('/catalog/importers', cfg(opts))
