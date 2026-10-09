@@ -465,12 +465,20 @@ describe('SectionGoods: Excel', () => {
     expect(sheet).toBe('Товары')
     expect(rowsOut).toHaveLength(2)
     expect(rowsOut[0]).toEqual({
-      '№': 1, 'Код ТН ВЭД': '8471300000', 'Описание': 'НОУТБУКИ', 'Страна происхождения': '156', 'Количество': 10, 'ДЕИ': '796 — ШТ',
+      '№': 1, 'Код ТН ВЭД': '8471300000', 'Описание': 'НОУТБУКИ', 'Страна происхождения': 'CN — КИТАЙ', 'Количество': 10, 'ДЕИ': '796 — ШТ',
       'Брутто, кг': 420.5, 'Нетто, кг': 384, 'Места': 2, 'Фактурная стоимость': 25000, 'Валюта': 'USD', 'Гр. 45, ₸': 12610400,
       'Гр. 46, USD': null, 'ТПиН, ₸': 2017664,
     })
     expect(rowsOut[1]['Код ТН ВЭД']).toBeNull()
     expect(rowsOut[1]['ТПиН, ₸']).toBeNull()
+  })
+
+  it('«В Excel»: страна не из справочника — как есть (код), без страны — пусто', async () => {
+    await mount([item({ countryOfOrigin: '999' }), item({ countryOfOrigin: null })])
+    await w.get('[data-goods-export]').trigger('click')
+    await settle()
+    const rowsOut = xlsx.exportXlsx.mock.calls[0][2] as unknown as Record<string, unknown>[]
+    expect(rowsOut.map((r) => r['Страна происхождения'])).toEqual(['999', null])
   })
 })
 

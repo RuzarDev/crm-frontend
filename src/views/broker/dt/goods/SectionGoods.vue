@@ -219,7 +219,7 @@ const exportExcel = async () => {
   if (!items.value.length) return
   exporting.value = true
   try {
-    await exportGoodsXlsx(items.value, (k) => t(k), props.dtNumber)
+    await exportGoodsXlsx(items.value, (k) => t(k), props.dtNumber, countryText.value)
   } catch (err) {
     console.error('Failed to export goods', err)
     message.error(tg('export.failed'))
@@ -272,6 +272,15 @@ onBeforeUnmount(() => listen(false))
 const countryAlpha = computed(() => {
   const map = new Map((props.countryOptions ?? []).filter((c) => c.alpha2).map((c) => [c.value, c.alpha2 as string]))
   return (code: string) => map.get(code) ?? null
+})
+
+// «В Excel»: страна — как в таблице, буквами, и с названием («CN — КИТАЙ»), а не цифровой ОКСМ.
+const countryText = computed(() => {
+  const map = new Map((props.countryOptions ?? []).map((c) => {
+    const name = c.label.startsWith(`${c.value} — `) ? c.label.slice(c.value.length + 3) : c.label
+    return [c.value, [c.alpha2, name].filter((s) => !!s && String(s).trim()).join(' — ')]
+  }))
+  return (code: string) => map.get(code) || null
 })
 
 defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch })
