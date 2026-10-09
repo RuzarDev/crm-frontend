@@ -123,13 +123,26 @@ const onKeydown = (e: KeyboardEvent) => {
   else if (e.key === 'ArrowDown') { e.preventDefault(); stepBy(-1) }
   else if (e.key === 'Enter' && !e.isComposing) { commitText(); emit('pressEnter', e) }
 }
+// Фокус мышью — каретка там, где щёлкнули; фокус с клавиатуры (Tab) выделяет всё — ввод заменяет значение.
+let pointerFocus = false
+const onPointerDown = () => { pointerFocus = true }
 const onFocus = (e: FocusEvent) => {
   focused.value = true
   dirty = false
-  text.value = show(current)
+  // Показ («1 061,28») → сырой текст («1061.28»). Смена value двигает каретку в конец и снимает выделение всего
+  // (Tab) — тогда ввод дописывался бы к старому числу («1061.28500»): пишем сразу в поле и выделяем заново.
+  const el = e.target as HTMLInputElement
+  const all = !pointerFocus && el.value !== '' && el.selectionStart === 0 && el.selectionEnd === el.value.length
+  pointerFocus = false
+  const next = show(current)
+  if (next !== el.value) {
+    text.value = next
+    el.value = next
+    if (all) el.select()
+  }
   emit('focus', e)
 }
-const onBlur = (e: FocusEvent) => { focused.value = false; commitText(); emit('blur', e); notifyBlur() }
+const onBlur = (e: FocusEvent) => { focused.value = false; pointerFocus = false; commitText(); emit('blur', e); notifyBlur() }
 
 defineExpose({
   focus: () => inputRef.value?.focus(),
@@ -160,6 +173,7 @@ defineExpose({
       class="min-w-0 flex-1 border-0 bg-transparent p-0 font-sans tabular-nums [font-size:inherit] [line-height:inherit] [color:inherit] outline-hidden placeholder:text-muted disabled:cursor-not-allowed disabled:placeholder:text-ink-3"
       @input="onInput"
       @keydown="onKeydown"
+      @pointerdown="onPointerDown"
       @focus="onFocus"
       @blur="onBlur"
     >

@@ -174,6 +174,26 @@ describe('ZNumber', () => {
     await w.setProps({ value: 0.123456 })
     expect(inputEl().value).toBe('0,123456')
   })
+  it('Tab (выделено всё) — после показа сырого текста всё снова выделено: ввод заменяет число, а не дописывает', async () => {
+    w = mountWithI18n(ZNumber, { props: { value: 1061.28 }, attachTo: document.body })
+    const el = inputEl()
+    expect(el.value.replace(/\u00a0/g, ' ')).toBe('1 061,28')
+    el.setSelectionRange(0, el.value.length) // так браузер выделяет поле при фокусе с Tab
+    await w.get('input').trigger('focus')
+    await w.vm.$nextTick()
+    expect(el.value).toBe('1061.28')
+    expect([el.selectionStart, el.selectionEnd]).toEqual([0, 7])
+  })
+  it('фокус мышью — без выделения всего (каретка там, где щёлкнули)', async () => {
+    w = mountWithI18n(ZNumber, { props: { value: 1061.28 }, attachTo: document.body })
+    const el = inputEl()
+    el.setSelectionRange(0, el.value.length)
+    await w.get('input').trigger('pointerdown')
+    await w.get('input').trigger('focus')
+    await w.vm.$nextTick()
+    expect(el.value).toBe('1061.28')
+    expect(el.selectionStart).toBe(el.selectionEnd)
+  })
   it('grouping=false — без разделителя тысяч (годы, номера)', () => {
     w = mountWithI18n(ZNumber, { props: { value: 2026, precision: 0, grouping: false } })
     expect(inputEl().value).toBe('2026')
