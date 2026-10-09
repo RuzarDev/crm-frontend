@@ -70,11 +70,37 @@ describe('SectionNumber — гр. А', () => {
     expect(form.declarationNumber).toBe('55304/101026/0007778')
   })
 
-  it('в поле цифр остаются только цифры, не больше 7', async () => {
+  it('в поле цифр остаются только цифры; вставка длиннее 7 — последние 7, набор сверх 7 игнорируется', async () => {
     mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302' })
     await type(tailInput(), '12ab34-5678 9')
-    expect(tailInput().value).toBe('1234567')
-    expect(form.declarationNumber).toBe('55302/091026/1234567')
+    expect(tailInput().value).toBe('3456789')
+    expect(form.declarationNumber).toBe('55302/091026/3456789')
+    await type(tailInput(), '34567890') // одна лишняя цифра при наборе
+    expect(tailInput().value).toBe('3456789')
+  })
+
+  it('вставили целый номер с разделителями — он принимается: пост, дата и цифры из него', async () => {
+    mount({ submissionDate: '2026-10-20', submissionCustomsOfficeCode: '55304', declarationNumber: '55304/201026/0000001' })
+    await type(tailInput(), '55302/091026/0001234')
+    expect(form.declarationNumber).toBe('55302/091026/0001234')
+    expect(form.submissionCustomsOfficeCode).toBe('55302')
+    expect(form.submissionDate).toBe('2026-10-09')
+    expect(tailInput().value).toBe('0001234')
+  })
+
+  it('вставили номер одними цифрами — тоже разбирается', async () => {
+    mount({ submissionDate: '2026-10-20', submissionCustomsOfficeCode: '55304' })
+    await type(tailInput(), '553020910260001234')
+    expect(form.declarationNumber).toBe('55302/091026/0001234')
+    expect(form.submissionCustomsOfficeCode).toBe('55302')
+    expect(form.submissionDate).toBe('2026-10-09')
+  })
+
+  it('длинная вставка, не похожая на номер (дата невозможна), — последние 7 цифр', async () => {
+    mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302' })
+    await type(tailInput(), '99999999999999') // «дата» 999999 — не дата
+    expect(tailInput().value).toBe('9999999')
+    expect(form.declarationNumber).toBe('55302/091026/9999999')
   })
 
   it('номер с сервера при открытии не пересобирается; хвост берётся из него', () => {
@@ -145,6 +171,27 @@ describe('SectionNumber — гр. А', () => {
     expect(formToPayload(form, null).declarationNumber).toBe('55302/091026/0001234')
     await type(tailInput(), '0001235')
     expect(form.declarationNumber).toBe('55302/091026/0001235')
+  })
+
+  it('ручной режим: стёртый или нестандартный номер сбрасывает старые цифры — «Собрать из частей» не собирает из них', async () => {
+    mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302', declarationNumber: '55302/091026/0001234' })
+    await w.get('[data-dt-number-toggle]').trigger('click')
+    await type(w.get('[data-dt-number-manual]').element as HTMLInputElement, '')
+    await w.get('[data-dt-number-toggle]').trigger('click')
+    expect(form.declarationNumber).toBe('')
+    expect(tailInput().value).toBe('')
+    await type(tailInput(), '0000002')
+    expect(form.declarationNumber).toBe('55302/091026/0000002')
+  })
+
+  it('номер перезагружен извне: пометки «пост/дата тронуты» сбрасываются', async () => {
+    mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302', declarationNumber: '55302/091026/0001234' })
+    await pickPost('Хоргос')
+    expect(form.declarationNumber).toBe('55304/091026/0001234')
+    form.declarationNumber = '55302/091026/0009999' // перезагрузка ДТ
+    await flushPromises()
+    await type(tailInput(), '0000001')
+    expect(form.declarationNumber).toBe('55302/091026/0000001') // пост берётся из номера, а не из прежней правки
   })
 
   it('очистка даты и поста номер не стирает', async () => {

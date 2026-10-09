@@ -7,7 +7,7 @@ import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import type { DtFormState } from '../dtPayload'
-import { buildFromParts, cleanTail, ddmmyyOf, isoOfDdmmyy, isStandardNumber, partsOf, tailOf } from '../dtNumber'
+import { buildFromParts, cleanTail, ddmmyyOf, isoOfDdmmyy, isStandardNumber, lastTail, parseFullNumber, partsOf, tailOf } from '../dtNumber'
 import { withCurrent } from '../dtOptions'
 
 // Гр. А — регистрационный номер ДТ: пост подачи, дата и 7 цифр. Номер собирается сам («пост/ДДММГГ/7 цифр») и
@@ -54,7 +54,19 @@ watch(() => props.form.declarationNumber, (num) => {
   if (num === written || !num) return
   tail.value = tailOf(num)
   manual.value = !isStandardNumber(num)
+  touchedPost = false
+  touchedDate = false
 })
+
+/** Номер — истина: части формы подстраиваются под него (пост, дата 20ГГ), а не наоборот. */
+const adopt = (n: { post: string; d6: string; tail: string }) => {
+  tail.value = n.tail
+  touchedPost = false
+  touchedDate = false
+  if (props.form.submissionCustomsOfficeCode !== n.post) props.form.submissionCustomsOfficeCode = n.post
+  const iso = isoOfDdmmyy(n.d6)
+  if (iso && ddmmyyOf(props.form.submissionDate) !== n.d6) props.form.submissionDate = iso
+}
 
 const onPost = (v: unknown) => {
   touchedPost = true
@@ -69,7 +81,17 @@ const onDate = (v: string | null) => {
 }
 const onTail = (e: Event) => {
   const el = e.target as HTMLInputElement
-  const clean = cleanTail(el.value)
+  // Вставили целый номер ДТ — разбираем его на пост, дату и цифры, а не берём первые 7 цифр.
+  const full = parseFullNumber(el.value)
+  if (full) {
+    adopt(full)
+    el.value = full.tail
+    write(buildFromParts(full.post, full.d6, full.tail))
+    return
+  }
+  const digits = el.value.replace(/\D/g, '')
+  // Вставка (текст вырос больше чем на знак) — последние 7 цифр; набор по одной цифре сверх 7 игнорируется.
+  const clean = digits.length - tail.value.length > 1 ? lastTail(el.value) : cleanTail(el.value)
   if (el.value !== clean) el.value = clean // нецифры в поле не остаются, даже когда значение осталось прежним
   tail.value = clean
   rebuild()
@@ -77,19 +99,21 @@ const onTail = (e: Event) => {
 const onManual = (v: string) => {
   written = v
   props.form.declarationNumber = v
+  // Номер не стандартный (в том числе стёрт): прежние цифры устарели — «Собрать из частей» не должно собирать из них.
+  const n = partsOf(v)
+  if (n) tail.value = n.tail
+  else {
+    tail.value = ''
+    touchedPost = false
+    touchedDate = false
+  }
 }
 const toManual = () => { manual.value = true }
 const toAuto = () => {
   manual.value = false
   const n = partsOf(props.form.declarationNumber)
   if (n) {
-    // Стандартный номер — истина: части формы подстраиваются под него, а не наоборот.
-    tail.value = n.tail
-    touchedPost = false
-    touchedDate = false
-    if (props.form.submissionCustomsOfficeCode !== n.post) props.form.submissionCustomsOfficeCode = n.post
-    const iso = isoOfDdmmyy(n.d6)
-    if (iso && ddmmyyOf(props.form.submissionDate) !== n.d6) props.form.submissionDate = iso
+    adopt(n)
     return
   }
   // Номер другого формата: собираем из частей, если они полные; иначе номер остаётся как есть.

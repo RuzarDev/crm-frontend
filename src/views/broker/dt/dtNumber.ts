@@ -40,3 +40,20 @@ export const isStandardNumber = (num: string | null | undefined): boolean => STA
 
 /** 7 цифр хвоста стандартного номера; у номера другого формата и у пустого — ''. */
 export const tailOf = (num: string | null | undefined): string => (isStandardNumber(num) ? (num as string).slice(-7) : '')
+
+/**
+ * Полный номер ДТ в введённом тексте: «пост/ДДММГГ/7 цифр» (пробелы вокруг разделителей допустимы) или только цифры
+ * (пост + 6 + 7, не короче 14). Дата должна быть настоящей; иначе — не номер (null).
+ */
+export const parseFullNumber = (raw: string): { post: string; d6: string; tail: string } | null => {
+  const text = raw.trim()
+  const slashed = /^(\d+)\s*\/\s*(\d{6})\s*\/\s*(\d{7})$/.exec(text)
+  const digits = /^\d{14,}$/.test(text) ? text : null
+  const parts = slashed
+    ? { post: slashed[1], d6: slashed[2], tail: slashed[3] }
+    : digits ? { post: digits.slice(0, -13), d6: digits.slice(-13, -7), tail: digits.slice(-7) } : null
+  return parts && isoOfDdmmyy(parts.d6) ? parts : null
+}
+
+/** Хвост из вставленного текста: последние 7 цифр. */
+export const lastTail = (raw: string): string => raw.replace(/\D/g, '').slice(-7)

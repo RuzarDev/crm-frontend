@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { buildDtNumber, buildFromParts, cleanTail, ddmmyyOf, isStandardNumber, isoOfDdmmyy, partsOf, tailOf } from '../dtNumber'
+import { buildDtNumber, buildFromParts, cleanTail, ddmmyyOf, isStandardNumber, isoOfDdmmyy, lastTail, parseFullNumber, partsOf, tailOf } from '../dtNumber'
 import { classifierLabel, dedupeOptions, withCurrent } from '../dtOptions'
 
 describe('dtNumber — номер ДТ гр. А', () => {
@@ -31,6 +31,16 @@ describe('dtNumber — номер ДТ гр. А', () => {
     expect(isoOfDdmmyy('321326')).toBeNull()
     expect(buildFromParts('55302', '091026', '0001234')).toBe('55302/091026/0001234')
     expect(buildFromParts('55302', null, '0001234')).toBe('')
+  })
+  it('полный номер во вставленном тексте: с разделителями и одними цифрами', () => {
+    const want = { post: '55302', d6: '091026', tail: '0001234' }
+    expect(parseFullNumber('55302/091026/0001234')).toEqual(want)
+    expect(parseFullNumber(' 55302 / 091026 / 0001234 ')).toEqual(want)
+    expect(parseFullNumber('553020910260001234')).toEqual(want)
+    expect(parseFullNumber('0001234')).toBeNull()
+    expect(parseFullNumber('55302/991326/0001234')).toBeNull()
+    expect(parseFullNumber('99999999999999')).toBeNull()
+    expect(lastTail('12-345 67890')).toBe('4567890'.slice(0, 7))
   })
   it('цифры хвоста: без нецифр и не больше 7', () => {
     expect(cleanTail('00a1-23 4567890')).toBe('0012345')
