@@ -115,8 +115,11 @@ describe('SectionGoods: таблица', () => {
     ])
     expect(w.get('[data-goods-count]').text()).toBe('3')
     const heads = w.findAll('thead th').map((th) => th.text())
-    expect(heads).toEqual(expect.arrayContaining(['№', 'Код ТН ВЭД', 'Описание · страна', 'Брутто / нетто, кг', 'Фактурная, USD', 'Гр. 45, ₸', 'ТПиН, ₸', 'Статус']))
-    expect(cellTexts(0)).toEqual(['', '1', '8471 30 000 0, Открыть товар 1', 'НОУТБУКИCN', '420,5 / 384,0', '25 000,00', '12 610 400', '2 017 664', 'Готов'])
+    expect(heads).toEqual(expect.arrayContaining(['№', 'Код ТН ВЭД', 'Описание · страна', 'Брутто / нетто, кг', 'Фактурная, USD', 'Гр. 45 / ТПиН, ₸', 'Статус']))
+    // брутто / нетто и гр. 45 / ТПиН — по две строки в ячейке; «№ N» перед кодом — только в карточке телефона
+    expect(cellTexts(0)).toEqual(['', '1', '№ 18471 30 000 0, Открыть товар 1', 'НОУТБУКИCN', '420,5384,0', '25 000,00', '12 610 4002 017 664', 'Готов'])
+    expect(rows()[0].get('[data-goods-card-n]').classes()).toContain('sm:hidden')
+    expect(rows()[1].get('[data-goods-card-n]').text()).toBe('№ 2')
     expect(rows()[1].find('[data-goods-no-code]').text()).toBe('нет кода, Открыть товар 2')
     // строка без aria-label (не прячет содержимое ячеек); открыть — кнопкой в ячейке кода
     expect(rows()[0].attributes('aria-label')).toBeUndefined()
@@ -124,10 +127,29 @@ describe('SectionGoods: таблица', () => {
     expect(rows()[0].get('button[data-goods-open]').text()).toContain('8471 30 000 0')
     // у корня раздела нет data-graph: «к недостающему» не подсвечивает весь раздел
     expect(w.get('[data-dt-goods]').attributes('data-graph')).toBeUndefined()
-    expect(cellTexts(1).slice(-2)).toEqual(['—', 'Не хватает 2'])
+    expect(cellTexts(1).slice(-2)).toEqual(['12 610 400—', 'Не хватает 2'])
     expect(rows()[2].text()).toContain('MY')
     expect(rows()[2].get('[data-goods-status]').attributes('data-goods-status')).toBe('stale')
     expect(cellTexts(2).at(-1)).toBe('Пересчитать')
+  })
+
+  it('узкий раздел (панель «До подачи»): без горизонтальной прокрутки — сначала уходят веса, потом гр. 45 / ТПиН', async () => {
+    const heads = () => w.findAll('thead th').map((th) => th.text())
+    const spy = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(743)
+    try {
+      await mount([item()])
+      expect(heads()).not.toContain('Брутто / нетто, кг')
+      expect(heads()).toContain('Гр. 45 / ТПиН, ₸')
+      expect(w.find('[data-z-scroller] table').attributes('style') ?? '').not.toContain('--z-table-x')
+      w.unmount()
+      spy.mockReturnValue(583)
+      await mount([item()])
+      expect(heads()).not.toContain('Брутто / нетто, кг')
+      expect(heads()).not.toContain('Гр. 45 / ТПиН, ₸')
+      expect(heads()).toEqual(expect.arrayContaining(['№', 'Код ТН ВЭД', 'Описание · страна', 'Фактурная, USD', 'Статус']))
+    } finally {
+      spy.mockRestore()
+    }
   })
 
   it('без гр. 22 — «Фактурная» без валюты, код валюты у суммы', async () => {
