@@ -14,18 +14,25 @@ const node = (id: number, code: string, name: string, extra: Partial<TnvedNodeDt
   id, code, name, treeName: name, parentId: 0, is10: false, isLast: false, unitShort: null, nodeLevel: 0, ...extra,
 })
 const leaf = node(1000, '8471300000', 'Ноутбуки и планшеты', { is10: true, isLast: true, unitShort: 'шт' })
+const leaf2 = node(1001, '8471410000', 'Прочие вычислительные машины', { is10: true, isLast: true })
 const group = node(100, '8471', 'Машины вычислительные')
 const tree: Record<number, TnvedNodeDto[]> = {
   0: [node(1, 'XVI', 'Машины и оборудование')],
   1: [node(10, '84', 'Реакторы ядерные, котлы')],
   10: [group],
-  100: [leaf],
+  100: [leaf, leaf2],
 }
 const pathOf: Record<string, TnvedPathNodeDto[]> = {
   '8471300000': [1, 10, 100, 1000].map((id) => ({ id, code: '', treeName: '', nodeLevel: 0 })),
   '8471': [1, 10, 100].map((id) => ({ id, code: '', treeName: '', nodeLevel: 0 })),
 }
 const ok = <T,>(data: T) => Promise.resolve({ data })
+const later = <T,>() => {
+  let resolve!: (v: { data: T }) => void
+  const promise = new Promise<{ data: T }>((res) => { resolve = res })
+  return { promise, resolve: (data: T) => resolve({ data }) }
+}
+const rate = (code: string, rateStr: string) => ({ code, treeName: null, rateStr, rateSourceName: null, rateSourceUrl: null, vtoStatus: null, unitCode: null, unitName: null, updatedAtUtc: null })
 const httpError = (status: number) => Object.assign(new Error(String(status)), { response: { status } })
 
 let w: VueWrapper
@@ -151,5 +158,37 @@ describe('TnvedPickerModal', () => {
     await w.setProps({ open: false })
     await open({ initialQuery: 'ничего' })
     expect(q('[data-picker-results]')?.textContent).toContain('Ничего не найдено')
+  })
+
+  describe('(баг) защита от устаревших ответов', () => {
+    it('поиск: поздний ответ прежнего запроса не подменяет выдачу нового', async () => {
+      const first = later<TnvedNodeDto[]>()
+      api.search.mockImplementationOnce(() => first.promise).mockImplementationOnce(() => ok([leaf2]))
+      mountPicker({ initialQuery: 'ноутбук' })
+      await open()
+      const input = q('input[type="search"]') as HTMLInputElement
+      input.value = 'машины'
+      input.dispatchEvent(new Event('input'))
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+      await flushPromises()
+      first.resolve([group])
+      await flushPromises()
+      const texts = all('[data-picker-result]').map((r) => r.textContent?.replace(/\s+/g, ' ').trim())
+      expect(texts).toEqual(['8471 41 000 0 Прочие вычислительные машины'])
+    })
+
+    it('выбор: ставки прежнего кода, пришедшие позже, не попадают под новый код', async () => {
+      const a = later<ReturnType<typeof rate>>()
+      api.rates.mockImplementation((code: string) => (code === '8471300000' ? a.promise : ok(rate(code, '10%'))))
+      mountPicker({ initialQuery: '8471300000' })
+      await open()
+      await click(q('[data-z-tree-id="1001"]'))
+      a.resolve(rate('8471300000', '5%'))
+      await flushPromises()
+      const detail = q('[data-picker-detail]')!.textContent!
+      expect(detail).toContain('8471 41 000 0')
+      expect(detail).toContain('10%')
+      expect(detail).not.toContain('5%')
+    })
   })
 })

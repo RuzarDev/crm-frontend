@@ -41,7 +41,11 @@ const hasSearch = computed(() => searchState.value !== 'idle')
 const mounted = ref(false)
 const treeRef = ref<InstanceType<typeof TnvedTree> | null>(null)
 
+// Защита от устаревших ответов: ответ учитывается, только если после него не начали новый поиск
+// (и не сбросили поиск); так же — данные кода (detailSeq).
+let searchSeq = 0
 const clearSearch = () => {
+  searchSeq += 1
   results.value = []
   searchState.value = 'idle'
   mode.value = 'tree'
@@ -50,10 +54,12 @@ const clearSearch = () => {
 const doSearch = async () => {
   const q = query.value.trim()
   if (!q) { clearSearch(); return }
+  const my = ++searchSeq
   // Полный 10-значный код — сразу раскрываем его в дереве.
   const digits = q.replace(/\s/g, '')
   if (/^\d{10}$/.test(digits)) {
     const n = await treeRef.value?.reveal(digits)
+    if (my !== searchSeq) return
     if (n) {
       clearSearch()
       void pickNode(n)
@@ -64,9 +70,12 @@ const doSearch = async () => {
   searchState.value = 'loading'
   mode.value = 'results'
   try {
-    results.value = (await tnvedApi.search(q, false, 40, { silent: true })).data
+    const found = (await tnvedApi.search(q, false, 40, { silent: true })).data
+    if (my !== searchSeq) return
+    results.value = found
     searchState.value = 'done'
   } catch (e) {
+    if (my !== searchSeq) return
     results.value = []
     searchState.value = failState(e)
   }
@@ -96,9 +105,11 @@ const selected = ref<TnvedNodeDto | null>(null)
 const rates = shallowRef<TnvedRateDto[]>([])
 const measures = shallowRef<{ docType?: string; name?: string; description?: string }[]>([])
 const detailState = ref<LoadState>('idle')
+let detailSeq = 0
 
 // 404 — данных по коду нет (не ошибка): ставки/справка ещё не загружены синхронизацией.
 const pickNode = async (n: TnvedNodeDto) => {
+  const my = ++detailSeq
   selected.value = n
   rates.value = []
   measures.value = []
@@ -106,6 +117,7 @@ const pickNode = async (n: TnvedNodeDto) => {
   if (!n.is10) return
   detailState.value = 'loading'
   const [rateRes, refRes] = await Promise.allSettled([tnvedApi.rates(n.code, { silent: true }), tnvedApi.reference(n.code, { silent: true })])
+  if (my !== detailSeq) return
   const failed = [rateRes, refRes].filter((x): x is PromiseRejectedResult => x.status === 'rejected' && httpStatus(x.reason) !== 404)
   if (rateRes.status === 'fulfilled') rates.value = Array.isArray(rateRes.value.data) ? rateRes.value.data : [rateRes.value.data].filter(Boolean)
   if (refRes.status === 'fulfilled') measures.value = refRes.value.data?.nonTariffMeasures ?? []
@@ -124,6 +136,7 @@ watch(() => props.open, (v) => {
   // Сброс и загрузка корня при открытии.
   query.value = ''
   clearSearch()
+  detailSeq += 1
   selected.value = null
   rates.value = []
   measures.value = []
