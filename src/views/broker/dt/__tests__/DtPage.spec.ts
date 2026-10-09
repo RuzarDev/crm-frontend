@@ -4,6 +4,7 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { RouterView, createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { mountWithI18n } from '@/test/mountWithI18n'
+import { vUppercase } from '@/directives/uppercase'
 import type { Import40CaseDto, KedenReadinessDto } from '@/api/import40'
 import { caseDto, fullDto } from './dtFixture'
 
@@ -46,7 +47,7 @@ const stubs = {
   SectionGeneral: sectionStub('SectionGeneral'),
   DtSectionParties: sectionStub('DtSectionParties', '<label data-graph="8">Получатель<input data-recv /></label>'),
   SectionCountries: sectionStub('SectionCountries'),
-  DtSectionTransport: sectionStub('DtSectionTransport'),
+  SectionTransport: sectionStub('SectionTransport'),
   DtSectionFinance: sectionStub('DtSectionFinance', `<button data-emit="calc-customs-value" type="button" @click="$emit('calc-customs-value')" />`, ['calc-customs-value']),
   DtSectionCustoms: sectionStub('DtSectionCustoms'),
   DtSectionGoods: sectionStub('DtSectionGoods', goodsInner, ['calc-tpin']),
@@ -86,7 +87,7 @@ const open = async (query = '', real: string[] = []) => {
   await router.push(`/import-40/case1/dt/dt1${query}`)
   await router.isReady()
   const used = Object.fromEntries(Object.entries(stubs).filter(([name]) => !real.includes(name)))
-  w = mountWithI18n(App, { attachTo: document.body, global: { plugins: [pinia, router], stubs: used } })
+  w = mountWithI18n(App, { attachTo: document.body, global: { plugins: [pinia, router], directives: { uppercase: vUppercase }, stubs: used } })
   await settle()
 }
 const readinessDto = (o: Partial<KedenReadinessDto> = {}): KedenReadinessDto => ({
@@ -297,6 +298,24 @@ describe('DtPage: настоящие разделы «Номер», «Общие
     expect(w.get('[data-dt-countries]').exists()).toBe(true)
     expect(w.findAll('[data-dt-countries] [data-graph]').map((e) => e.attributes('data-graph'))).toEqual(['15', '17', '11', '16'])
     expect(w.get('[data-graph="16"] input').attributes('disabled')).toBeDefined()
+  })
+})
+
+describe('DtPage: настоящий раздел «Транспорт»', () => {
+  it('правка ТС в разделе (номер в верхнем регистре) уходит в PUT', async () => {
+    server = caseDto({ declarations: [fullDto({ splitRole: null, inlandTransportModeCode: '30', borderTransportModeCode: '30', arrivalTransportNumbers: [] })] })
+    await open('?s=transport', ['SectionTransport'])
+    expect(w.find('[data-dt-transport]').exists()).toBe(true)
+    await w.get('[data-transport-arrival] [data-transport-add]').trigger('click')
+    const num = w.get('[data-transport-arrival] input[data-transport-number]')
+    await num.setValue('ab123')
+    await settle()
+    expect(w.get('[data-dt-header]').text()).toContain('Есть несохранённые изменения')
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
+    const body = api.updateDeclaration.mock.calls[0][2] as { arrivalTransportNumbers: { number: string; isTrailer: boolean }[] }
+    expect(body.arrivalTransportNumbers).toMatchObject([{ number: 'AB123', isTrailer: false }])
   })
 })
 

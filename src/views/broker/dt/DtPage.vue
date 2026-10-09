@@ -8,7 +8,6 @@ import ZModal from '@/components/z/ZModal.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import DtLegacyForm from '@/components/import40/dt/DtLegacyForm.vue'
 import DtSectionParties from '@/components/import40/dt/DtSectionParties.vue'
-import DtSectionTransport from '@/components/import40/dt/DtSectionTransport.vue'
 import DtSectionFinance from '@/components/import40/dt/DtSectionFinance.vue'
 import DtSectionCustoms from '@/components/import40/dt/DtSectionCustoms.vue'
 import DtSectionGoods from '@/components/import40/dt/DtSectionGoods.vue'
@@ -36,6 +35,7 @@ import DtSplitModal from './DtSplitModal.vue'
 import SectionCountries from './sections/SectionCountries.vue'
 import SectionGeneral from './sections/SectionGeneral.vue'
 import SectionNumber from './sections/SectionNumber.vue'
+import SectionTransport from './sections/SectionTransport.vue'
 import { DT_CLASSIFIERS } from './dtClassifiers'
 import {
   adjacentSection, dtsReadinessItems, navMarks, paymentsStale, rateTag, readonlyReason, sectionFromQuery, splitChildren, visibleSections,
@@ -526,11 +526,10 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
                   :readonly="!editable"
                   :country-options="countryOptions"
                 />
-                <DtSectionTransport
+                <SectionTransport
                   v-else-if="active === 'transport'"
-                  :model-value="legacyForm"
+                  :form="form"
                   :readonly="!editable"
-                  @update:model-value="onLegacyUpdate"
                 />
                 <DtSectionFinance
                   v-else-if="active === 'finance'"
