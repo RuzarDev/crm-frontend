@@ -256,7 +256,9 @@ const openGoodsItem = async (index: number) => {
 const goTo = async (item: DtReadinessItem) => {
   panelOpen.value = false
   const gi = item.goodsIndex
-  const goodsAt = item.section === 'goods' && gi != null && gi >= 0 && gi < form.goodsItems.length ? gi : null
+  // «Товар N» пункта — позиция на момент ответа сервера: товар ищем по ней в том же снимке (после несохранённых
+  // удаления/перестановки откроется тот самый товар; его больше нет — только раздел).
+  const goodsAt = item.section === 'goods' && gi != null ? goods.indexOfReadinessGoods(gi) : null
   if (goodsAt != null) await openGoodsItem(goodsAt)
   else await setSection(item.section)
   await nextTick()
@@ -266,7 +268,7 @@ const goTo = async (item: DtReadinessItem) => {
   // не нашли — к началу раздела (товар при этом уже открыт).
   const graph = item.graph?.replace(/["\\]/g, '')
   const editor = goodsAt != null ? document.querySelector<HTMLElement>(`[data-dt-goods-editor] [data-goods-index="${goodsAt}"]`) : null
-  const scope = editor ?? (gi != null ? host.querySelector<HTMLElement>(`[data-goods-index="${gi}"]`) : null) ?? host
+  const scope = editor ?? (gi != null && item.section !== 'goods' ? host.querySelector<HTMLElement>(`[data-goods-index="${gi}"]`) : null) ?? host
   // Поле товара — точно по ключу (data-goods-field: гр. 31 — и описание, и места; гр. 33 — и код, и коды запретов),
   // иначе — поле графы: первое подсвеченное (предупреждение/ошибка у поля — напр. гр. 36 вне списка КЕДЕН), иначе первое.
   const fieldKey = goodsAt != null ? goodsFieldFromReadiness(item.text) : null

@@ -264,38 +264,44 @@ export function useDtGoods(form: DtFormState, opts: DtGoodsOptions) {
   // ---- Статусы ----
   // Пункты сервера → товар (объект) в момент ответа; товар, которого не было в ответе, — undefined (местная проверка).
   const serverMissing = shallowRef<WeakMap<object, number> | null>(null)
+  // Порядок товаров на момент ответа: «Товар N» из пункта готовности — это объект с той позиции, даже если
+  // товары с тех пор переставили или удалили (ответ ещё не обновился).
+  let readinessOrder: object[] | null = null
   watch(
     () => toValue(opts.readiness),
     (list) => {
       if (!list) {
         serverMissing.value = null
+        readinessOrder = null
         return
       }
       const by = missingByGoodsIndex(list)
       const snap = new WeakMap<object, number>()
-      toRaw(form.goodsItems).forEach((g, i) => snap.set(toRaw(g), by.get(i) ?? 0))
+      readinessOrder = toRaw(form.goodsItems).map((g) => toRaw(g))
+      readinessOrder.forEach((g, i) => snap.set(g, by.get(i) ?? 0))
       serverMissing.value = snap
     },
     { immediate: true, flush: 'sync' },
   )
+
+  /**
+   * Текущая позиция товара, о котором пункт готовности с goodsIndex (позиция на момент ответа сервера);
+   * товара больше нет — null. Ответа ещё нет — сама позиция, если она в списке.
+   */
+  const indexOfReadinessGoods = (goodsIndex: number): number | null => {
+    const now = toRaw(form.goodsItems)
+    if (!readinessOrder) return goodsIndex >= 0 && goodsIndex < now.length ? goodsIndex : null
+    const obj = readinessOrder[goodsIndex]
+    if (!obj) return null
+    const i = now.findIndex((g) => toRaw(g) === obj)
+    return i >= 0 ? i : null
+  }
 
   /** Статус товара (см. goodsStatus). */
   const statusOf = (item: Goods): GoodsStatus => {
     const n = serverMissing.value?.get(toRaw(item))
     return n === undefined ? localStatus(item) : statusFrom(item, n)
   }
-
-  /** Сколько товаров «не хватает» и «Пересчитать» — для фильтров списка. */
-  const counts = computed(() => {
-    let missing = 0
-    let stale = 0
-    for (const g of form.goodsItems) {
-      const s = statusOf(g)
-      if (s.kind === 'missing') missing += 1
-      else if (s.kind === 'stale') stale += 1
-    }
-    return { missing, stale }
-  })
 
   return {
     items,
@@ -308,7 +314,7 @@ export function useDtGoods(form: DtFormState, opts: DtGoodsOptions) {
     move,
     applyToSelected,
     statusOf,
-    counts,
+    indexOfReadinessGoods,
     markStale,
     setField: setGoodsField,
   }

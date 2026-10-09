@@ -149,7 +149,6 @@ describe('useDtGoods: статусы', () => {
     readiness.value = [{ goodsIndex: 0 }, { goodsIndex: 0 }, { goodsIndex: null }]
     expect(api.statusOf(form.goodsItems[0])).toEqual({ kind: 'missing', count: 2 })
     expect(api.statusOf(form.goodsItems[1])).toEqual({ kind: 'ready' })
-    expect(api.counts.value).toEqual({ missing: 1, stale: 0 })
   })
 
   it('пункты сервера держатся за товар, а не за место: после удаления/перестановки статус не «переезжает»', async () => {
@@ -166,12 +165,27 @@ describe('useDtGoods: статусы', () => {
     expect(api.statusOf(fresh)).toMatchObject({ kind: 'missing' })
   })
 
-  it('«Пересчитать» — после markStale; счётчик фильтров', () => {
+  it('«Пересчитать» — после markStale', () => {
     const { form, readiness, api } = setup([item(), item()])
     readiness.value = []
     api.markStale(form.goodsItems[1])
     expect(api.statusOf(form.goodsItems[1])).toEqual({ kind: 'stale' })
-    expect(api.counts.value).toEqual({ missing: 0, stale: 1 })
+    expect(api.statusOf(form.goodsItems[0])).toEqual({ kind: 'ready' })
+  })
+
+  it('indexOfReadinessGoods: «Товар N» пункта — товар с той позиции на момент ответа (после удаления/перестановки)', () => {
+    const { form, readiness, api } = setup(['A', 'B', 'C', 'D'].map((d) => item({ description: d })))
+    // ответа ещё нет — сама позиция, если она в списке
+    expect(api.indexOfReadinessGoods(2)).toBe(2)
+    expect(api.indexOfReadinessGoods(4)).toBeNull()
+    readiness.value = [{ goodsIndex: 2 }]
+    api.remove([1]) // удалили «B» до нового ответа
+    expect(form.goodsItems.map((g) => g.description)).toEqual(['A', 'C', 'D'])
+    expect(api.indexOfReadinessGoods(2)).toBe(1) // «C»
+    expect(api.indexOfReadinessGoods(1)).toBeNull() // «B» удалён
+    api.move(1, 2)
+    expect(api.indexOfReadinessGoods(2)).toBe(2) // «C» переехал в конец
+    expect(api.indexOfReadinessGoods(9)).toBeNull()
   })
 })
 

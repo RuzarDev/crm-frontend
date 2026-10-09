@@ -67,6 +67,7 @@ const goodsStub = defineComponent({
   },
   template: `<div data-stub="SectionGoods" :data-readonly="String(readonly)">
     <button data-goods-mixed type="button" @click="mixed" />
+    <button data-goods-remove-first type="button" @click="model.remove([0])" />
     <button data-emit="calc-tpin" type="button" @click="$emit('calc-tpin')" />
     <button data-emit="calc-payments" type="button" @click="$emit('calc-payments')" />
   </div>`,
@@ -346,6 +347,35 @@ describe('DtPage: готовность', () => {
     expect(field).not.toBeNull()
     expect(field.hasAttribute('data-dt-flash')).toBe(true)
     expect(document.activeElement).toBe(field.querySelector('input[data-f="standardName"]'))
+  })
+
+  it('переход к пункту после несохранённого удаления: открывается тот самый товар (по снимку ответа), удалённый — только раздел', async () => {
+    const first = fullGoodsDto()
+    server = caseDto({
+      status: 2, assignedDeclarantId: 'me',
+      declarations: [fullDto({ splitRole: null, goodsItems: [first, { ...first, description: 'ВТОРОЙ' }] })],
+    })
+    api.kedenReadiness.mockResolvedValue(readinessDto({
+      missing: ['Товар 1: код ТНВЭД (гр.33)', 'Товар 2: код ТНВЭД (гр.33)'],
+      items: [
+        { text: 'Товар 1: код ТНВЭД (гр.33)', graph: '33', goodsIndex: 0 },
+        { text: 'Товар 2: код ТНВЭД (гр.33)', graph: '33', goodsIndex: 1 },
+      ],
+    }))
+    await open('?s=goods')
+    await w.get('[data-goods-remove-first]').trigger('click')
+    await settle()
+    const items = () => w.findAll('[data-dt-panel-aside] [data-dt-panel-item]')
+    // «Товар 2» ответа — теперь первый в списке
+    await items()[1].trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toEqual({ s: 'goods', item: '1' })
+    // «Товар 1» ответа удалён — открывается только раздел, без чужого товара
+    await router.replace({ query: { s: 'parties' } })
+    await settle()
+    await items()[0].trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toEqual({ s: 'goods' })
   })
 
   it('товар открыт — переход в другой раздел убирает ?item', async () => {
