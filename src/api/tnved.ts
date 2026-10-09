@@ -115,9 +115,10 @@ export const tnvedApi = {
   syncTrigger: () =>
     apiClient.post('/tnved/sync', null, { timeout: 300000 }),
 
-  // Ставка по стране (ЗСТ), виды акциза и антидемпинг из КЕДЕН по коду и стране происхождения (ОКСМ).
-  tariffOptions: (code: string, country?: string | null, onDate?: string | null) =>
-    apiClient.get<TariffOptionsDto>('/tnved/tariff-options', { params: { code, country, onDate } }),
+  // Ставка по стране (ЗСТ), виды акциза и антидемпинг из КЕДЕН по коду и стране происхождения (ОКСМ) на дату
+  // (гр. А; пусто — сегодня). silent — подсказка у товара показывает сбой сама, без тоста на каждый товар.
+  tariffOptions: (code: string, country?: string | null, onDate?: string | null, opts?: TnvedRequestOptions) =>
+    apiClient.get<TariffOptionsDto>('/tnved/tariff-options', { params: { code, country, onDate }, ...quiet(opts) }),
 
   seedTransitions: () =>
     apiClient.post<TnvedTransitionSeedResult>('/tnved/transition/seed'),
