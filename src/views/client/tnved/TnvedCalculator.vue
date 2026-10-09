@@ -223,7 +223,7 @@ const dd = 'm-0 text-right tabular-nums text-ink'
             :min="0"
             :precision="2"
             inputmode="decimal"
-            placeholder="0.00"
+            :placeholder="formatNumberIn(locale, 0, 2, 2)"
             :class="[phoneField, 'tabular-nums']"
             data-calc-value
           />
