@@ -5,7 +5,7 @@ import { PhCaretDown, PhCaretUp } from '@phosphor-icons/vue'
 import type { ClassValue } from 'clsx'
 import { cn } from '@/ui/cn'
 import { fieldShell } from '@/ui/surfaces'
-import { clampRound, formatFixed, parseNumber } from '@/ui/number'
+import { clampRound, formatFixed, formatNumberIn, parseNumber, roundTo } from '@/ui/number'
 import { useFieldControl } from '@/ui/form'
 
 // class/style — на обёртку, остальное — на <input> (контракт Z-полей, см. ZInput).
@@ -29,8 +29,10 @@ const props = withDefaults(defineProps<{
   invalid?: boolean
   /** Кнопки ±шаг справа (у AntD были по умолчанию; у нас — по запросу). */
   controls?: boolean
+  /** Разделитель тысяч вне фокуса («1 061,28»); false — для годов и номеров («2026»). */
+  grouping?: boolean
   id?: string
-}>(), { value: null, step: 1, size: 'md', controls: false })
+}>(), { value: null, step: 1, size: 'md', controls: false, grouping: true })
 
 const emit = defineEmits<{
   'update:value': [value: number | null]
@@ -45,7 +47,7 @@ const emit = defineEmits<{
   blur: [e: FocusEvent]
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const inputRef = ref<HTMLInputElement | null>(null)
 // Внутри ZField: id/aria-* поля, красная рамка при ошибке, change/blur — полю (см. src/ui/form.ts).
 const { fieldId, fieldDescribedBy, fieldInvalid, fieldAriaInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
@@ -55,13 +57,22 @@ const isInvalid = computed(() => props.invalid || fieldInvalid.value)
 const focused = ref(false)
 // Были ли правки с момента фокуса: blur без правок не эмитит и не нормализует значение с сервера.
 let dirty = false
+// Вне фокуса — по языку интерфейса: «1 061,28» (ru/kk), «1,061.28» (en); с precision — ровно столько знаков.
+// В фокусе — сырой текст для правки («1061.28»; с precision — «12.50»), разбор ввода прежний (и «,», и «.»).
+const raw = (v: number) => (props.precision !== undefined ? formatFixed(v, props.precision) : String(v))
+const display = (v: number) => {
+  const p = props.precision
+  return formatNumberIn(locale.value, p !== undefined ? roundTo(v, p) : v, p ?? 10, p ?? 0, props.grouping)
+}
 const show = (v: number | null) => {
   if (v === null || v === undefined) return ''
-  return !focused.value && props.precision !== undefined ? formatFixed(v, props.precision) : String(v)
+  return focused.value ? raw(v) : display(v)
 }
 const text = ref(show(props.value))
 // Последнее отправленное значение: без v-model родителя props.value не меняется, а сравнивать «что эмитить» надо с ним.
 let current: number | null = props.value
+// Сменился язык (или precision/grouping) — перерисовать показ вне фокуса.
+watch([locale, () => props.precision, () => props.grouping], () => { if (!focused.value) text.value = show(current) })
 watch(() => props.value, (v) => {
   current = v
   // В фокусе не трогаем текст, если он уже означает это число: иначе «1.» / «1,5» прыгали бы под кареткой.
@@ -103,7 +114,8 @@ const onInput = (e: Event) => {
 }
 const stepBy = (dir: 1 | -1) => {
   if (props.disabled || props.readonly) return
-  const base = parseNumber(text.value) ?? current ?? 0
+  // Вне фокуса в тексте — показ по языку («1,061» в en — тысячи, а не дробь): шаг — от значения.
+  const base = (focused.value ? parseNumber(text.value) : null) ?? current ?? 0
   commit(clampRound(base + dir * props.step, { precision: props.precision ?? 10 }))
 }
 const onKeydown = (e: KeyboardEvent) => {
@@ -111,7 +123,12 @@ const onKeydown = (e: KeyboardEvent) => {
   else if (e.key === 'ArrowDown') { e.preventDefault(); stepBy(-1) }
   else if (e.key === 'Enter' && !e.isComposing) { commitText(); emit('pressEnter', e) }
 }
-const onFocus = (e: FocusEvent) => { focused.value = true; dirty = false; emit('focus', e) }
+const onFocus = (e: FocusEvent) => {
+  focused.value = true
+  dirty = false
+  text.value = show(current)
+  emit('focus', e)
+}
 const onBlur = (e: FocusEvent) => { focused.value = false; commitText(); emit('blur', e); notifyBlur() }
 
 defineExpose({

@@ -259,13 +259,13 @@ const warnText = 'm-0 rounded-field bg-gold-soft px-3 py-2 text-[13px] text-gold
               <ZInput :value="x.investProjectSeqId ?? ''" :maxlength="4" mono inputmode="numeric" placeholder="0001" :disabled="readonly" :class="tall" data-f="investProjectSeqId" @update:value="set('investProjectSeqId', text(digits($event)))" />
             </ZField>
             <ZField graph="31.12" :label="tx('investYear')" data-graph="31" :data-goods-index="index" data-goods-field="investProjectYear">
-              <ZNumber :value="x.investProjectYear ?? null" :min="2000" :max="2100" :precision="0" :disabled="readonly" :class="tall" data-f="investProjectYear" @update:value="set('investProjectYear', $event)" />
+              <ZNumber :value="x.investProjectYear ?? null" :min="2000" :max="2100" :precision="0" :grouping="false" :disabled="readonly" :class="tall" data-f="investProjectYear" @update:value="set('investProjectYear', $event)" />
             </ZField>
             <ZField graph="31.12" :label="tx('investKind')" data-graph="31" :data-goods-index="index" data-goods-field="investGoodsListKindCode">
               <ZSelect :value="x.investGoodsListKindCode || null" :options="investKindOptions" allow-clear :disabled="readonly" popup-width="320px" :class="tall" data-f="investGoodsListKindCode" @update:value="set('investGoodsListKindCode', str($event))" />
             </ZField>
             <ZField graph="31.12" :label="tx('investGoodsSeq')" data-graph="31" :data-goods-index="index" data-goods-field="investProjectGoodsSeqId">
-              <ZNumber :value="x.investProjectGoodsSeqId ?? null" :min="1" :max="999999999" :precision="0" :disabled="readonly" :class="tall" data-f="investProjectGoodsSeqId" @update:value="set('investProjectGoodsSeqId', $event)" />
+              <ZNumber :value="x.investProjectGoodsSeqId ?? null" :min="1" :max="999999999" :precision="0" :grouping="false" :disabled="readonly" :class="tall" data-f="investProjectGoodsSeqId" @update:value="set('investProjectGoodsSeqId', $event)" />
             </ZField>
           </div>
         </template>

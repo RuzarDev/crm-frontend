@@ -62,8 +62,8 @@ describe('ZNumber', () => {
     await w.setProps({ value: 100 })
     await input.setValue('abc')
     await input.trigger('blur')
-    // без фокуса при заданной precision — фиксированное число знаков
-    expect(inputEl().value).toBe('100.00')
+    // без фокуса при заданной precision — фиксированное число знаков (по языку интерфейса)
+    expect(inputEl().value).toBe('100,00')
   })
   it('blur без правок — ничего не эмитит и не нормализует значение с сервера', async () => {
     w = mountWithI18n(ZNumber, { props: { value: 2.135, min: 0, max: 1, precision: 2 } })
@@ -84,7 +84,7 @@ describe('ZNumber', () => {
     expect(w.emitted('update:value')?.at(-1)).toEqual([0.555])
     await input.trigger('blur')
     expect(w.emitted('update:value')?.at(-1)).toEqual([0.56])
-    expect(inputEl().value).toBe('0.56')
+    expect(inputEl().value).toBe('0,56')
   })
   it('кнопки шага и стрелки клавиатуры эмитят сразу (с ограничением и округлением)', async () => {
     w = mountWithI18n(ZNumber, { props: { value: 1, step: 0.5, max: 2, controls: true } })
@@ -127,17 +127,56 @@ describe('ZNumber', () => {
     await w.setProps({ value: 7 })
     expect(inputEl().value).toBe('7')
   })
-  it('precision: без фокуса — toFixed, в фокусе — то, что вводят', async () => {
+  it('precision: без фокуса — ровно precision знаков по языку, в фокусе — сырой текст и то, что вводят', async () => {
     w = mountWithI18n(ZNumber, { props: { value: 12.5, precision: 2 } })
     const input = w.get('input')
-    expect(inputEl().value).toBe('12.50')
+    expect(inputEl().value).toBe('12,50')
     await input.trigger('focus')
+    expect(inputEl().value).toBe('12.50')
     await input.setValue('12,7')
     expect(inputEl().value).toBe('12,7')
     await input.trigger('blur')
-    expect(inputEl().value).toBe('12.70')
+    expect(inputEl().value).toBe('12,70')
     await w.setProps({ value: 3 })
-    expect(inputEl().value).toBe('3.00')
+    expect(inputEl().value).toBe('3,00')
+  })
+  it('без фокуса — число по языку интерфейса (тысячи, десятичный знак); в фокусе — сырой текст', async () => {
+    const shown = async (lang: string) => {
+      w?.unmount()
+      w = mountWithI18n(ZNumber, { props: { value: 1061.28 } })
+      ;(w.vm.$i18n as unknown as { locale: string }).locale = lang
+      await w.vm.$nextTick()
+      return inputEl().value.replace(/\u00a0/g, ' ')
+    }
+    expect(await shown('ru')).toBe('1 061,28')
+    expect(await shown('kk')).toBe('1 061,28')
+    expect(await shown('en')).toBe('1,061.28')
+    // en: «1,061.28» в поле — шаг и blur без правок считают от значения, а не от показа
+    const input = w.get('input')
+    await input.trigger('focus')
+    expect(inputEl().value).toBe('1061.28')
+    await input.trigger('blur')
+    expect(w.emitted('update:value')).toBeUndefined()
+    expect(inputEl().value).toBe('1,061.28')
+    await input.trigger('keydown', { key: 'ArrowUp' })
+    expect(w.emitted('update:value')?.at(-1)).toEqual([1062.28])
+  })
+  it('ввод «12,5» в ru — 12.5; после blur — «12,5»; большие дробные не теряют знаков', async () => {
+    w = mountWithI18n(ZNumber, { props: { value: 295301.76 } })
+    expect(inputEl().value.replace(/\u00a0/g, ' ')).toBe('295 301,76')
+    const input = w.get('input')
+    await input.trigger('focus')
+    expect(inputEl().value).toBe('295301.76')
+    await input.setValue('12,5')
+    await input.trigger('blur')
+    expect(w.emitted('update:value')?.at(-1)).toEqual([12.5])
+    expect(inputEl().value).toBe('12,5')
+    await w.setProps({ value: 0.123456 })
+    expect(inputEl().value).toBe('0,123456')
+  })
+  it('grouping=false — без разделителя тысяч (годы, номера)', () => {
+    w = mountWithI18n(ZNumber, { props: { value: 2026, precision: 0, grouping: false } })
+    expect(inputEl().value).toBe('2026')
   })
   it('вставка «1,234.56» и «−5» разбирается', async () => {
     w = mountWithI18n(ZNumber, { props: { value: null } })

@@ -65,7 +65,7 @@ export const formatMoneyIn = (locale: string, n: number, currency = '₸'): stri
   return `${f.format(n).replace(/[\u202f\u2009\u00a0 ]/g, '\u00a0')}\u00a0${currency}`
 }
 
-/** Число по языку интерфейса (курс, количество): до maxDigits знаков после запятой. */
-export const formatNumberIn = (locale: string, n: number, maxDigits = 2, minDigits = 0): string =>
-  new Intl.NumberFormat(NUMBER_LOCALES[locale] ?? 'ru-RU', { minimumFractionDigits: minDigits, maximumFractionDigits: maxDigits })
+/** Число по языку интерфейса (курс, количество): до maxDigits знаков после запятой; grouping false — без тысяч («2026»). */
+export const formatNumberIn = (locale: string, n: number, maxDigits = 2, minDigits = 0, grouping = true): string =>
+  new Intl.NumberFormat(NUMBER_LOCALES[locale] ?? 'ru-RU', { minimumFractionDigits: minDigits, maximumFractionDigits: maxDigits, useGrouping: grouping })
     .format(n).replace(/[\u202f\u2009\u00a0 ]/g, '\u00a0')
