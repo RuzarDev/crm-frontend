@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { nextTick, reactive, ref } from 'vue'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { emptyDtForm, type DtFormState } from '../../dtPayload'
-import { useDtGoods, type GoodsReadinessItem } from '../useDtGoods'
+import { dtGoodsHasData, newDtGoodsItem, useDtGoods, type GoodsReadinessItem } from '../useDtGoods'
 
 const item = (o: Partial<Import40GoodsItemInput> = {}): Import40GoodsItemInput => ({
   description: 'X', tnvedCode: '7318150000', tnvedDescription: null, countryOfOrigin: 'CN', quantity: 1, unit: null,
@@ -124,9 +124,20 @@ describe('useDtGoods: список', () => {
     expect(form.goodsItems[0].countryOfOrigin).toBe('CN')
   })
 
-  it('removalImpact: сколько товаров с данными', () => {
-    const { api } = setup([item(), item({ description: null, tnvedCode: null, countryOfOrigin: null, quantity: null, unitCode: null, grossWeightKg: null, netWeightKg: null, packagesCount: null, customsValue: null })])
-    expect(api.removalImpact([0, 1])).toMatchObject({ count: 2, withData: 1 })
+  it('removalImpact: сколько товаров с данными — в т.ч. только КЕДЕН-данные (гр. 36, гр. 33, маркировка, доп. сведения, платежи)', () => {
+    const { api } = setup([
+      item(),
+      newDtGoodsItem('EUR'), // пустой: валюта и признаки по умолчанию — не данные
+      { ...newDtGoodsItem('USD'), prefDutyCode: 'ОО' },
+      { ...newDtGoodsItem('USD'), prohibitionCode: 'D0110' },
+      { ...newDtGoodsItem('USD'), markings: [{ number: 'KIZ' }] },
+      { ...newDtGoodsItem('USD'), extras: { exciseStamps: [], vehicles: [{ vin: 'X' }], packages: [] } },
+      { ...newDtGoodsItem('USD'), extras: { exciseStamps: [], vehicles: [], packages: [], traceable: false } },
+      { ...newDtGoodsItem('USD'), payments: [{ taxModeCode: '1010' } as never] },
+      { ...newDtGoodsItem('USD'), needsTpinRecalc: true },
+    ])
+    expect(api.removalImpact([0, 1, 2, 3, 4, 5, 6, 7, 8])).toMatchObject({ count: 9, withData: 6 })
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => dtGoodsHasData(api.items.value[i]))).toEqual([true, false, true, true, true, true, false, true, false])
   })
 })
 
@@ -173,8 +184,9 @@ describe('useDtGoods: привязки гр. 44 / гр. 40 (G1)', () => {
       { docTypeCode: '01011', docTypeName: null, docNumber: 'ALL', docDate: null, goodsItemIndex: null, appliesToAll: true, goodsItemIndexes: null },
     ]
     s.form.prevDocItems = [
-      { docTypeCode: '09013', docNumber: 'P-C', docDate: null, goodsNumber: '3', goodsItemIndex: null, sortOrder: 0 },
-      { docTypeCode: '09013', docNumber: 'P-B', docDate: null, goodsNumber: '2', goodsItemIndex: null, sortOrder: 1 },
+      { docTypeCode: '09013', docNumber: 'P-C', docDate: null, goodsNumber: '7', goodsItemIndex: 2, sortOrder: 0 },
+      { docTypeCode: '09013', docNumber: 'P-B', docDate: null, goodsNumber: '1', goodsItemIndex: 1, sortOrder: 1 },
+      { docTypeCode: '09013', docNumber: 'P-ALL', docDate: null, goodsNumber: '2', goodsItemIndex: null, sortOrder: 2 },
     ]
     return s
   }
@@ -186,7 +198,7 @@ describe('useDtGoods: привязки гр. 44 / гр. 40 (G1)', () => {
     const res = api.remove([1])
     expect(names(form)).toEqual(['A', 'C'])
     expect(docGoods(form)).toEqual(['C-ONLY:1', 'ALL:*'])
-    expect(form.prevDocItems.map((p) => [p.docNumber, p.goodsNumber, p.sortOrder])).toEqual([['P-C', '2', 0]])
+    expect(form.prevDocItems.map((p) => [p.docNumber, p.goodsItemIndex, p.goodsNumber, p.sortOrder])).toEqual([['P-C', 1, '7', 0], ['P-ALL', null, '2', 1]])
     expect(res).toMatchObject({ removed: 1 })
     expect(res.droppedDoc44.map((d) => d.docNumber)).toEqual(['B-ONLY'])
     expect(res.droppedPrevDocs.map((p) => p.docNumber)).toEqual(['P-B'])
@@ -197,13 +209,13 @@ describe('useDtGoods: привязки гр. 44 / гр. 40 (G1)', () => {
     api.move(2, 0) // C, A, B
     expect(names(form)).toEqual(['C', 'A', 'B'])
     expect(docGoods(form)).toEqual(['C-ONLY:0', 'B-ONLY:2', 'ALL:*'])
-    expect(form.prevDocItems.map((p) => p.goodsNumber)).toEqual(['1', '3'])
+    expect(form.prevDocItems.map((p) => [p.goodsItemIndex, p.goodsNumber])).toEqual([[0, '7'], [2, '1'], [null, '2']])
   })
 
   it('дублирование: копия без привязок, товары после неё сдвигаются', () => {
     const { form, api } = withDocs()
     api.duplicate([0]) // A, A', B, C
     expect(docGoods(form)).toEqual(['C-ONLY:3', 'B-ONLY:2', 'ALL:*'])
-    expect(form.prevDocItems.map((p) => p.goodsNumber)).toEqual(['4', '3'])
+    expect(form.prevDocItems.map((p) => [p.goodsItemIndex, p.goodsNumber])).toEqual([[3, '7'], [2, '1'], [null, '2']])
   })
 })

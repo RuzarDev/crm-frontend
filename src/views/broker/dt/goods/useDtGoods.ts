@@ -7,7 +7,7 @@
 //   только данные; removalImpact — что сказать в вопросе.
 // - Удаление, перестановка и дублирование пересчитывают привязки гр. 44 / гр. 40 к товарам (по позиции — G1, см.
 //   goodsRefs): документы едут за своим товаром, копия товара привязок не получает, документ только удалённых
-//   товаров удаляется вместе с ними.
+//   товаров удаляется вместе с ними. goodsNumber гр. 40 (№ в предш. документе) не трогается.
 // - Статус товара (готов / не хватает N / «Пересчитать»): пункты серверной готовности по goodsIndex (позиция с 0)
 //   запоминаются за ОБЪЕКТОМ товара в момент ответа сервера — после удаления или перестановки (до следующего ответа)
 //   статус не «переезжает» на соседа; товар, которого в ответе не было (новый, копия), и всё без ответа сервера —
@@ -17,7 +17,6 @@
 import { computed, shallowRef, toRaw, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { cloneGoodsExtras } from '@/types/api'
-import { goodsHasData } from '@/views/broker/transit/record/sections/goods'
 import type { DtFormState } from '../dtPayload'
 import { applyBulkPatch, type BulkPatch } from './goodsBulk'
 import { goodsRefsImpact, remapGoodsRefs, type GoodsIndexMap, type GoodsRefsResult } from './goodsRefs'
@@ -49,9 +48,9 @@ export interface GoodsRemovalImpact {
   count: number
   /** Из них с данными пользователя (тогда спрашивать). */
   withData: number
-  /** Документов гр. 44, привязанных только к этим товарам, — уйдут вместе с ними. */
+  /** Документов гр. 44, у которых не останется привязки к товарам, — уйдут вместе с товарами. */
   doc44: number
-  /** То же для гр. 40. */
+  /** Строк гр. 40, привязанных (goodsItemIndex) к этим товарам, — уйдут вместе с ними. */
   prevDocs: number
 }
 
@@ -127,6 +126,26 @@ export const newDtGoodsItem = (currency: string | null | undefined): Goods => ({
   engineVolumeCm3: null,
 })
 
+/** Значения по умолчанию, а не данные пользователя: валюта (гр. 22 / USD) и служебный признак «Пересчитать». */
+const NOT_DATA_KEYS: ReadonlySet<string> = new Set(['currency', 'needsTpinRecalc'])
+
+const valueHasData = (v: unknown): boolean => {
+  if (v === null || v === undefined || v === false) return false
+  if (typeof v === 'string') return v.trim() !== ''
+  if (typeof v === 'number') return !Number.isNaN(v)
+  if (Array.isArray(v)) return v.length > 0
+  if (typeof v === 'object') return Object.values(v as Record<string, unknown>).some(valueHasData)
+  return true
+}
+
+/**
+ * Есть ли в товаре данные пользователя (тогда удаление спрашивает): любое заполненное поле — и базовое, и КЕДЕН
+ * (гр. 36, гр. 33, ОИС, упаковка…), строки платежей и маркировки, доп. сведения. Валюта и «Пересчитать» — не в счёт.
+ */
+export function dtGoodsHasData(g: Goods): boolean {
+  return Object.entries(g).some(([k, v]) => !NOT_DATA_KEYS.has(k) && valueHasData(v))
+}
+
 /** Глубокая копия товара: платежи, маркировки (без id строки) и доп. сведения — свои объекты. */
 export function cloneGoodsItem(g: Goods): Goods {
   return {
@@ -184,7 +203,7 @@ export function useDtGoods(form: DtFormState, opts: DtGoodsOptions) {
     const drop = new Set(at)
     const kept = form.goodsItems.map((_, i) => i).filter((i) => !drop.has(i))
     const refs = goodsRefsImpact(form, indexMap(form.goodsItems.length, kept))
-    return { count: at.length, withData: at.filter((i) => goodsHasData(form.goodsItems[i])).length, ...refs }
+    return { count: at.length, withData: at.filter((i) => dtGoodsHasData(form.goodsItems[i])).length, ...refs }
   }
 
   /** Удалить товары на позициях indexes (с 0). */

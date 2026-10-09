@@ -50,25 +50,24 @@ describe('goodsRefs (G1): привязки гр. 44 / гр. 40 к товарам
     ])
   })
 
-  it('гр. 40: goodsNumber (строка, с 1) и goodsItemIndex (с 0) сдвигаются; документ удалённого товара — удаляется; sortOrder по месту', () => {
+  it('гр. 40: привязка к товару ДТ — только goodsItemIndex (с 0); goodsNumber — № в предш. документе, не трогаем', () => {
     const form = {
       doc44Items: [],
       prevDocItems: [
-        prev({ docNumber: 'P1', goodsNumber: '3', sortOrder: 0 }),
-        prev({ docNumber: 'P2', goodsNumber: '2', sortOrder: 1 }),
-        prev({ docNumber: 'P3', goodsItemIndex: 2, goodsNumber: '3', sortOrder: 2 }),
-        prev({ docNumber: 'ALL', sortOrder: 3 }),
-        prev({ docNumber: 'ODD', goodsNumber: 'см. 2', sortOrder: 4 }),
+        prev({ docNumber: 'P1', goodsItemIndex: 2, goodsNumber: '7', sortOrder: 0 }),
+        prev({ docNumber: 'P2', goodsItemIndex: 1, goodsNumber: '1', sortOrder: 1 }), // товар удаляется → строка уходит
+        prev({ docNumber: 'ALL', goodsNumber: '2', sortOrder: 2 }), // ко всем товарам — никогда не удаляется
+        prev({ docNumber: 'P0', goodsItemIndex: 0, sortOrder: 3 }),
       ],
     }
     const res = remapGoodsRefs(form, removing(3, [1]))
-    expect(form.prevDocItems.map((p) => [p.docNumber, p.goodsNumber, p.goodsItemIndex, p.sortOrder])).toEqual([
-      ['P1', '2', null, 0], ['P3', '2', 1, 1], ['ALL', null, null, 2], ['ODD', 'см. 2', null, 3],
+    expect(form.prevDocItems.map((p) => [p.docNumber, p.goodsItemIndex, p.goodsNumber, p.sortOrder])).toEqual([
+      ['P1', 1, '7', 0], ['ALL', null, '2', 1], ['P0', 0, null, 2],
     ])
     expect(res.droppedPrevDocs.map((p) => p.docNumber)).toEqual(['P2'])
   })
 
-  it('перестановка: привязки едут за товаром (CSV, одиночный, гр. 40)', () => {
+  it('перестановка: привязки едут за товаром (CSV, одиночный, гр. 40); goodsNumber гр. 40 не меняется', () => {
     const form = {
       doc44Items: [doc({ docNumber: 'A', goodsItemIndexes: '0,2' }), doc({ docNumber: 'S', goodsItemIndex: 1 })],
       prevDocItems: [prev({ goodsNumber: '1', goodsItemIndex: 0 })],
@@ -76,27 +75,40 @@ describe('goodsRefs (G1): привязки гр. 44 / гр. 40 к товарам
     // товар 0 → в конец: [1, 2, 0]; карта старое → новое
     const res = remapGoodsRefs(form, [2, 0, 1])
     expect(form.doc44Items.map((d) => [d.goodsItemIndexes ?? null, d.goodsItemIndex ?? null])).toEqual([['2,1', null], [null, 0]])
-    expect(form.prevDocItems[0]).toMatchObject({ goodsNumber: '3', goodsItemIndex: 2 })
+    expect(form.prevDocItems[0]).toMatchObject({ goodsNumber: '1', goodsItemIndex: 2 })
     expect(res.droppedDoc44).toEqual([])
   })
 
-  it('индекс вне списка товаров (товара уже нет) — не трогаем; без изменений — те же значения', () => {
-    const d = doc({ goodsItemIndexes: '1,9' })
-    const form = { doc44Items: [d], prevDocItems: [prev({ goodsNumber: '12' })] }
-    remapGoodsRefs(form, [0, 1, 2]) // вставка в конец — тождество
-    expect(d.goodsItemIndexes).toBe('1,9')
-    remapGoodsRefs(form, [1, 0, 2])
-    expect(d.goodsItemIndexes).toBe('0,9')
-    expect(form.prevDocItems[0].goodsNumber).toBe('12')
+  it('индексы, не указывающие на товар (вне списка, мусор), при пересчёте выбрасываются — не привяжутся к будущему товару', () => {
+    const d = doc({ docNumber: 'MIX', goodsItemIndexes: '1,9,x' })
+    const lost = doc({ docNumber: 'LOST', goodsItemIndexes: '9' })
+    const single = doc({ docNumber: 'SINGLE', goodsItemIndex: 12 })
+    const p = prev({ docNumber: 'P', goodsItemIndex: 5, goodsNumber: '12' })
+    const form = { doc44Items: [d, lost, single], prevDocItems: [p] }
+    expect(goodsRefsImpact(form, [0, 1, 2])).toEqual({ doc44: 2, prevDocs: 1 })
+    const res = remapGoodsRefs(form, [1, 0, 2])
+    expect(d.goodsItemIndexes).toBe('0')
+    expect(form.doc44Items).toEqual([d])
+    expect(res.droppedDoc44.map((x) => x.docNumber)).toEqual(['LOST', 'SINGLE'])
+    expect(res.droppedPrevDocs).toEqual([p])
+  })
+
+  it('без изменений позиций — те же значения', () => {
+    const d = doc({ goodsItemIndexes: '0,2' })
+    const form = { doc44Items: [d], prevDocItems: [prev({ goodsItemIndex: 1, goodsNumber: '3' })] }
+    remapGoodsRefs(form, [0, 1, 2])
+    expect(d.goodsItemIndexes).toBe('0,2')
+    expect(form.prevDocItems[0]).toMatchObject({ goodsItemIndex: 1, goodsNumber: '3' })
   })
 
   it('goodsRefsImpact: сколько документов уйдёт вместе с товарами, форма не меняется', () => {
     const form = {
       doc44Items: [doc({ goodsItemIndexes: '1' }), doc({ goodsItemIndexes: '1,2' }), doc({ appliesToAll: true })],
-      prevDocItems: [prev({ goodsNumber: '2' }), prev({ goodsNumber: '3' })],
+      prevDocItems: [prev({ goodsItemIndex: 1 }), prev({ goodsItemIndex: 2 }), prev({ goodsNumber: '2' })],
     }
     expect(goodsRefsImpact(form, removing(3, [1]))).toEqual({ doc44: 1, prevDocs: 1 })
     expect(form.doc44Items).toHaveLength(3)
     expect(form.doc44Items[1].goodsItemIndexes).toBe('1,2')
+    expect(form.prevDocItems).toHaveLength(3)
   })
 })

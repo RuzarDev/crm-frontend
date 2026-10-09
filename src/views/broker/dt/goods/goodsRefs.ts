@@ -1,16 +1,19 @@
 // Привязки документов к товарам ДТ по ПОЗИЦИИ товара (G1): при удалении, перестановке и вставке товаров их надо
 // пересчитать, иначе документ «переезжает» на чужой товар (PUT пишет индексы как есть, XML и бланк берут их же).
 //
-// Что ссылается на товар по позиции (больше нигде в форме ДТ):
+// Что ссылается на товар этой ДТ по позиции (больше нигде в форме ДТ):
 // - гр. 44 (doc44Items): goodsItemIndexes — CSV позиций с 0 («0,2»), goodsItemIndex — одиночная позиция с 0 (старые ДТ),
 //   appliesToAll — «на все товары». Ни индекса, ни CSV — тоже «на все товары» (KedenXmlExporter.DocAppliesToGood).
-// - гр. 40 (prevDocItems): goodsNumber — номер товара строкой с 1 (ConsignmentItemOrdinal в XML), goodsItemIndex —
-//   позиция с 0 (старые ДТ; null — на все товары).
+// - гр. 40 (prevDocItems): ТОЛЬКО goodsItemIndex — позиция с 0 (null — ко всем товарам, PrevDocAppliesToGood).
+//   goodsNumber гр. 40 — № товара В ПРЕДШЕСТВУЮЩЕМ документе (ConsignmentItemOrdinal), к товарам этой ДТ отношения не
+//   имеет и здесь не трогается.
 //
-// Правила: позиция удалённого товара из привязки выпадает, остальные сдвигаются. Документ, привязанный ТОЛЬКО к удалённым
-// товарам, удаляется вместе с ними: «без привязки» для обеих граф значит «на все товары» — оставить его значило бы
-// молча приписать документ всем товарам (интерфейс заранее говорит, сколько документов уйдёт: goodsRefsImpact).
-// Позиция вне списка товаров (товара уже не было) и нечисловой номер гр. 40 не трогаем. sortOrder гр. 40 = место в списке.
+// Правила: позиция удалённого товара из привязки выпадает, остальные сдвигаются. Позиции, которые и так не указывают на
+// товар (вне списка, нечисловые), при пересчёте тоже выбрасываются — иначе после добавления товаров документ молча
+// привязался бы к новому. Документ, у которого не осталось ни одной привязки, удаляется: «без привязки» для обеих граф
+// значит «на все товары» — оставить его значило бы молча приписать документ всем товарам (интерфейс заранее говорит,
+// сколько документов уйдёт: goodsRefsImpact). Строки «ко всем товарам» (appliesToAll; гр. 44 без индекса и CSV;
+// гр. 40 с goodsItemIndex null) не меняются никогда. sortOrder гр. 40 = место в списке.
 import type { Import40PrevDocItem } from '@/api/import40'
 import type { Import40Doc44ItemInput } from '@/types/api'
 
@@ -23,16 +26,15 @@ export interface GoodsRefsHolder {
 export type GoodsIndexMap = readonly (number | null)[]
 
 export interface GoodsRefsResult {
-  /** Документы гр. 44, привязанные только к удалённым товарам (убраны из формы). */
+  /** Документы гр. 44, не оставшиеся привязанными ни к одному товару (убраны из формы). */
   droppedDoc44: Import40Doc44ItemInput[]
-  /** Документы гр. 40, привязанные только к удалённым товарам (убраны из формы). */
+  /** Строки гр. 40, чей товар (goodsItemIndex) удалён или не существует (убраны из формы). */
   droppedPrevDocs: Import40PrevDocItem[]
 }
 
-/** Новая позиция: вне карты — как была; null — товар удалён. */
-const mapIndex = (map: GoodsIndexMap, i: number): number | null => (i >= 0 && i < map.length ? map[i] : i)
-
-const isIndexToken = (s: string) => /^\d+$/.test(s)
+/** Новая позиция товара; null — товар удалён или позиции нет в списке (вне карты). */
+const mapIndex = (map: GoodsIndexMap, i: number): number | null =>
+  Number.isInteger(i) && i >= 0 && i < map.length ? map[i] : null
 
 type Doc44Plan = { drop: true } | { drop: false; goodsItemIndex: number | null; goodsItemIndexes: string | null }
 
@@ -43,30 +45,19 @@ function planDoc44(d: Import40Doc44ItemInput, map: GoodsIndexMap): Doc44Plan | n
   if (single == null && !tokens.length) return null // «на все товары»
   const nextSingle = single == null ? null : mapIndex(map, single)
   const nextTokens = tokens.flatMap((s) => {
-    if (!isIndexToken(s)) return [s]
-    const n = mapIndex(map, Number(s))
+    const n = /^\d+$/.test(s) ? mapIndex(map, Number(s)) : null
     return n == null ? [] : [String(n)]
   })
   if (nextSingle == null && !nextTokens.length) return { drop: true }
   return { drop: false, goodsItemIndex: nextSingle, goodsItemIndexes: nextTokens.length ? nextTokens.join(',') : null }
 }
 
-type PrevPlan = { drop: true } | { drop: false; goodsItemIndex: number | null; goodsNumber: string | null }
+type PrevPlan = { drop: true } | { drop: false; goodsItemIndex: number }
 
 function planPrev(p: Import40PrevDocItem, map: GoodsIndexMap): PrevPlan | null {
-  const idx = p.goodsItemIndex ?? null
-  const raw = (p.goodsNumber ?? '').trim()
-  const num = isIndexToken(raw) && Number(raw) > 0 ? Number(raw) : null
-  if (idx == null && num == null) return null
-  const nextIdx = idx == null ? null : mapIndex(map, idx)
-  const nextNumIdx = num == null ? null : mapIndex(map, num - 1)
-  if (nextIdx == null && nextNumIdx == null) return { drop: true }
-  return {
-    drop: false,
-    goodsItemIndex: nextIdx,
-    // нечисловой номер — как был; числовой удалённого товара — пусто (вторая привязка осталась)
-    goodsNumber: num == null ? p.goodsNumber : nextNumIdx == null ? null : String(nextNumIdx + 1),
-  }
+  if (p.goodsItemIndex == null) return null // ко всем товарам
+  const next = mapIndex(map, p.goodsItemIndex)
+  return next == null ? { drop: true } : { drop: false, goodsItemIndex: next }
 }
 
 /** Сколько документов гр. 44 / гр. 40 уйдёт вместе с товарами (форма не меняется). */
@@ -107,7 +98,6 @@ export function remapGoodsRefs(holder: GoodsRefsHolder, map: GoodsIndexMap): Goo
       continue
     }
     if (p.goodsItemIndex !== plan.goodsItemIndex) p.goodsItemIndex = plan.goodsItemIndex
-    if (p.goodsNumber !== plan.goodsNumber) p.goodsNumber = plan.goodsNumber
   }
   if (droppedPrevDocs.length) prevs.forEach((p, i) => { if (p.sortOrder !== i) p.sortOrder = i })
 
