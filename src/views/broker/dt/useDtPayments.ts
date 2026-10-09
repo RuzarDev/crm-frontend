@@ -10,6 +10,7 @@ import { i18n } from '@/i18n'
 import { message } from '@/ui/message'
 import { formatNumberIn } from '@/ui/number'
 import { toIsoDate, type DtFormState } from './dtPayload'
+import { markStale } from './goods/goodsStatus'
 
 const t = (key: string, p?: Record<string, unknown>) => (p ? i18n.global.t(key, p) : i18n.global.t(key))
 const locale = () => String(i18n.global.locale.value)
@@ -136,6 +137,8 @@ export function useDtPayments(
     res.goods.forEach((r) => {
       const g = form.goodsItems[r.index]
       if (g) {
+        // гр. 45 — основа гр. 47: изменилась — платежи товара устарели (снимет следующий расчёт платежей).
+        if ((g.customsValueKzt ?? null) !== (r.customsValueKzt ?? null)) markStale(g)
         g.customsValueKzt = r.customsValueKzt
         // гр.46 — вместе с гр.45 и по тому же курсу.
         if (r.statisticValueUsd != null) g.statisticValueUsd = r.statisticValueUsd

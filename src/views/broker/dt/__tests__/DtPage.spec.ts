@@ -770,14 +770,26 @@ describe('DtPage: правила товаров без открытия «Тов
     expect(w.find('[data-stub="DtSectionGoods"]').exists()).toBe(false)
   })
 
-  it('загрузка: товары в другой валюте молча приводятся к гр. 22 (без пометки «изменено»)', async () => {
-    server = sheets1({ currency: 'CNY' })
+  it('загрузка: товары в другой валюте молча приводятся к гр. 22 (без пометки «изменено» и без «Пересчитать»)', async () => {
+    server = sheets1({ currency: 'CNY', needsTpinRecalc: false })
     await open()
     expect(w.get('[data-dt-header]').text()).not.toContain('Есть несохранённые изменения')
     expect(api.updateDeclaration).not.toHaveBeenCalled()
     key({ key: 's', code: 'KeyS', metaKey: true })
     await settle()
     expect(lastPutGoods()[0].currency).toBe('USD')
+    expect((lastPutGoods()[0] as { needsTpinRecalc?: boolean }).needsTpinRecalc).toBe(false)
+  })
+
+  it('смена гр. 22 пользователем: валюта товара меняется — платежи товара помечаются «Пересчитать»', async () => {
+    server = sheets1({ currency: 'USD', needsTpinRecalc: false })
+    await open('?s=finance')
+    await w.get('[data-set-currency]').trigger('click')
+    await settle()
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(lastPutGoods()[0].currency).toBe('EUR')
+    expect((lastPutGoods()[0] as { needsTpinRecalc?: boolean }).needsTpinRecalc).toBe(true)
   })
 
   it('гр. 46 пустая — гр. 45 / курс USD на дату гр. А (0,01) уходит в PUT; введённую не трогает', async () => {

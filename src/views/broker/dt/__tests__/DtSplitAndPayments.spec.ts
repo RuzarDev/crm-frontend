@@ -126,6 +126,21 @@ describe('useDtPayments (перенос из прежнего экрана)', ()
     expect([a, b, c].map((g) => g.needsTpinRecalc)).toEqual([false, true, true])
   })
 
+  it('«Рассчитать там. стоимость»: гр. 45 изменилась — платежи товара «Пересчитать»; не изменилась — нет', async () => {
+    const form = reactive(emptyDtForm()) as DtFormState
+    form.goodsItems = [
+      goods({ customsValueKzt: 1000, needsTpinRecalc: false }),
+      goods({ customsValueKzt: 2000, needsTpinRecalc: false }),
+      goods({ customsValueKzt: 3000, needsTpinRecalc: false }),
+    ] as never
+    api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 1500 }, { index: 1, customsValueKzt: 2000 }] })
+    const scope = effectScope()
+    const p = scope.run(() => useDtPayments(form, 'c1', 'd1', { save: async () => true }))!
+    await p.calcCustomsValue()
+    expect(form.goodsItems.map((g) => g.needsTpinRecalc)).toEqual([true, false, false])
+    scope.stop()
+  })
+
   it('ТПиН: замечания по товарам — в окно (tpinProblems), флаг пересчёта снимается', async () => {
     const form = reactive(emptyDtForm()) as DtFormState
     form.goodsItems = [goods({ needsTpinRecalc: true }), goods({ tnvedCode: '1' })] as never

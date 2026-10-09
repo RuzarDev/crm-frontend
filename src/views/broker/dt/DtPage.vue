@@ -154,12 +154,13 @@ watch(goodsOriginKey, (key) => {
 // Правила правят товары на месте (ключи товаров не меняются); новый массив с теми же объектами — только для
 // прежнего раздела товаров (держит строки-копии и пересобирает их по смене массива) до его замены в волне 6б.
 const touchGoods = () => { form.goodsItems = [...form.goodsItems] }
-function syncGoodsCurrency() {
-  if (lockGoodsCurrency(form.goodsItems, form.currency)) touchGoods()
+// Загрузка (onLoaded) — молча; смена гр. 22 и новые товары после загрузки — правка: изменённым товарам «Пересчитать».
+function syncGoodsCurrency(markStale = false) {
+  if (lockGoodsCurrency(form.goodsItems, form.currency, { markStale })) touchGoods()
 }
 watch(
   () => `${form.currency ?? ''}#${form.goodsItems.map((g) => g.currency ?? '').join('|')}`,
-  () => { if (!dt.applying.value) syncGoodsCurrency() },
+  () => { if (!dt.applying.value) syncGoodsCurrency(true) },
 )
 // гр. 46 пустая — гр. 45 / курс USD на дату гр. А (Item I), как только известны курс и гр. 45; только при праве
 // править. Введённая гр. 46 живёт до следующей правки гр. 45 (пересчёт по правке — в карточке товара).

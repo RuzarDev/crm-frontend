@@ -1,4 +1,5 @@
 import type { Import40GoodsItemInput } from '@/types/api'
+import { markStale } from './goods/goodsStatus'
 
 // Правила товаров ДТ, которые действуют независимо от того, открыт ли раздел «Товары» (он монтируется лениво):
 // страница применяет их к форме сама, разделы товаров берут отсюда тот же расчёт.
@@ -14,15 +15,20 @@ export const statUsdFrom = (customsValueKzt: number | null | undefined, usdRate:
 
 /**
  * Пакет 6 №4: при заданной гр. 22 валюта каждого товара = гр. 22. Правит товары НА МЕСТЕ (те же объекты — ключ
- * товара в списке и открытый редактор не теряются, волна 6б) и платежи устаревшими не помечает (правило страницы,
- * не правка пользователя). false — менять нечего.
+ * товара в списке и открытый редактор не теряются, волна 6б). markStale — смена гр. 22 пользователем (не загрузка):
+ * товары, чья валюта изменилась, получают «Пересчитать» (валюта — основа расчёта платежей). false — менять нечего.
  */
-export function lockGoodsCurrency(goods: Import40GoodsItemInput[], currency: string | null | undefined): boolean {
+export function lockGoodsCurrency(
+  goods: Import40GoodsItemInput[],
+  currency: string | null | undefined,
+  opts: { markStale?: boolean } = {},
+): boolean {
   if (!currency) return false
   let changed = false
   for (const g of goods) {
     if (g.currency === currency) continue
     g.currency = currency
+    if (opts.markStale) markStale(g)
     changed = true
   }
   return changed

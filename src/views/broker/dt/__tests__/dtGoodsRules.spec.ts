@@ -40,10 +40,16 @@ describe('dtGoodsRules', () => {
     expect(fillStatUsd(goods, 495.12)).toBe(false)
   })
 
-  it('правила страницы не помечают платежи устаревшими', () => {
+  it('загрузка и гр. 46 не помечают платежи устаревшими', () => {
     const goods = [g({ currency: 'USD', customsValueKzt: 1, statisticValueUsd: null, needsTpinRecalc: false })]
     lockGoodsCurrency(goods, 'EUR')
     fillStatUsd(goods, 2)
     expect(goods[0].needsTpinRecalc).toBe(false)
+  })
+
+  it('смена гр. 22 пользователем (markStale) помечает «Пересчитать» только товары, у которых валюта изменилась', () => {
+    const goods = [g({ currency: 'USD', needsTpinRecalc: false }), g({ currency: 'EUR', needsTpinRecalc: false })]
+    expect(lockGoodsCurrency(goods, 'EUR', { markStale: true })).toBe(true)
+    expect(goods.map((x) => x.needsTpinRecalc)).toEqual([true, false])
   })
 })
