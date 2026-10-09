@@ -122,6 +122,13 @@ describe('оболочки', () => {
     expect(header().get('a[aria-current="page"]').text().trim()).toBe('Счета и акты')
   })
 
+  it('корень — колонка на телефоне: белая панель растёт на всю высоту экрана и у коротких страниц (уведомления), на lg — строка', async () => {
+    await mountAs('administrator', '/home')
+    const root = w!.get('[data-shell-root]')
+    expect(root.classes()).toEqual(expect.arrayContaining(['flex', 'flex-col', 'lg:flex-row', 'min-h-dvh']))
+    const panel = [...root.element.children].find((c) => c.className.includes('bg-surface'))!
+    expect(panel.className).toContain('flex-1')
+  })
   it('на /home в шапке — сегодняшняя дата с заглавной буквы, вкладок нет', async () => {
     await mountAs('administrator', '/home')
     const date = header().findAll('span').find((s) => /\d/.test(s.text()) && s.classes().includes('text-muted'))

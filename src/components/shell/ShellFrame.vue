@@ -125,7 +125,7 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
 
 <template>
   <div
-    class="min-h-dvh bg-canvas font-sans text-ink lg:flex"
+    class="flex min-h-dvh flex-col bg-canvas font-sans text-ink lg:flex-row"
     :style="rootStyle"
     data-shell-root
     :data-density="comfortable ? 'comfortable' : 'compact'"
