@@ -253,7 +253,7 @@ const router = createRouter({
         {
           path: '/settings/audit',
           name: 'settings-audit',
-          component: () => import('@/views/AuditLogView.vue'),
+          component: () => import('@/views/broker/settings/audit/AuditPage.vue'),
           meta: { requiresRole: 'administrator' },
         },
         {
