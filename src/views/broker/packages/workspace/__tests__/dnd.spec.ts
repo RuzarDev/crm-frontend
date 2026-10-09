@@ -108,6 +108,37 @@ describe('перетаскивание файла', () => {
     expect(hints()).toEqual([])
   })
 
+  it('файл с компьютера над деревом не открывается во вкладке: preventDefault и dropEffect «none» (и без права правки)', async () => {
+    for (const perms of [BROKER, ['reestr.read']]) {
+      as('importer', perms)
+      await mountPage()
+      const seen: Event[] = []
+      const spy = (e: Event) => { seen.push(e) }
+      for (const type of ['dragenter', 'dragover', 'drop']) document.addEventListener(type, spy)
+      for (const el of [partia(), containerCard('c2'), w.get('[data-ws-tree]')]) {
+        const dt = { ...dataTransfer(), dropEffect: 'copy', types: ['Files'] }
+        await el.trigger('dragover', { dataTransfer: dt })
+        expect(dt.dropEffect).toBe('none')
+        await el.trigger('drop', { dataTransfer: dt })
+      }
+      for (const type of ['dragenter', 'dragover', 'drop']) document.removeEventListener(type, spy)
+      expect(seen.map((e) => e.defaultPrevented)).toEqual([true, true, true, true, true, true])
+      expect(api.linkFile).not.toHaveBeenCalled()
+      expect(hints()).toEqual([])
+      w.unmount()
+    }
+  })
+
+  it('перетаскивание без файлов (текст, ссылка) дерево не трогает', async () => {
+    await mountPage()
+    const seen: Event[] = []
+    const spy = (e: Event) => { seen.push(e) }
+    document.addEventListener('dragover', spy)
+    await w.get('[data-ws-tree]').trigger('dragover', { dataTransfer: { ...dataTransfer(), types: ['text/plain'] } })
+    document.removeEventListener('dragover', spy)
+    expect(seen.map((e) => e.defaultPrevented)).toEqual([false])
+  })
+
   it('без reestr.write перетаскивания нет', async () => {
     as('expeditor', ['reestr.read'])
     await mountPage()

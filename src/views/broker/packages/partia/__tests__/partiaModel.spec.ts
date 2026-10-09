@@ -180,6 +180,25 @@ describe('partiaToBody', () => {
     expect(t.departureCustomsOffice).toBe('57507')
   })
 
+  it('несуществующая дата календаря (30 февраля, 31 апреля) — null, а не строка, которую сервер не разберёт', () => {
+    const d = draftFromPartia(null)
+    const rows = ['2026-02-30', '31.02.2026', '2026-04-31T00:00:00Z', '2026-13-01', '00.01.2026', '2028-02-29', '29.02.2028', '2026-12-31']
+    for (const date of rows) d.record.precedingDocs.push({ docTypeCode: '09013', number: date, date } as never)
+    d.record.transit.transportDocDate = '2026-02-30'
+    const t = JSON.parse(partiaToBody(d).transitDataJson!)
+    expect(t.precedingDocs.map((x: { date: string | null }) => x.date)).toEqual([null, null, null, null, null, '2028-02-29', '2028-02-29', '2026-12-31'])
+    expect(t.transportDocDate).toBeNull()
+  })
+
+  it('целые — в пределах Int32 (иначе сервер выбросит весь транзит)', () => {
+    const d = draftFromPartia(null)
+    d.record.transit.goodsQuantity = 1e12
+    d.record.transit.cargoPlacesCount = -5e9
+    const t = JSON.parse(partiaToBody(d).transitDataJson!)
+    expect(t.goodsQuantity).toBe(2147483647)
+    expect(t.cargoPlacesCount).toBe(-2147483648)
+  })
+
   it('флаг без ключа в строке появляется как false; ключи, неизвестные серверу, не теряются', () => {
     const d = draftFromPartia(null)
     d.record.transportMeans.push({ transportModeCode: '20' } as never)
@@ -240,6 +259,47 @@ describe('validatePartia', () => {
     d.consignee.city = 'г'.repeat(201)
     expect(partyTooLong(d.shipper)).toEqual(['countryCode', 'street'])
     expect(validatePartia(d)).toEqual(['broker.partia.errors.shipperTooLong', 'broker.partia.errors.consigneeTooLong'])
+  })
+
+  it('товары: лимиты колонок партии (описания 500, код ТН ВЭД 20, единица 50, валюта 10…) — с номером товара и полем', () => {
+    const d = ok()
+    const g = d.record.goods[0]
+    Object.assign(g, {
+      description: 'о'.repeat(500), tnvedDescription: 'т'.repeat(500), tnvedCode: '1'.repeat(20), unit: 'е'.repeat(50),
+      currency: 'U'.repeat(10), countryOfOrigin: 'с'.repeat(100), unitCode: '7'.repeat(16), quantityTypeCode: 'К'.repeat(8),
+    })
+    d.record.goods.push({ ...g })
+    expect(validatePartia(d)).toEqual([])
+    d.record.goods[1].description = 'о'.repeat(501)
+    d.record.goods[1].tnvedCode = '1'.repeat(21)
+    d.record.goods[0].unit = 'е'.repeat(51)
+    d.record.goods[0].currency = 'U'.repeat(11)
+    d.record.goods[0].tnvedDescription = 'т'.repeat(501)
+    expect(validatePartia(d)).toEqual([
+      { key: 'broker.partia.errors.goodsTooLong', params: { n: 1, field: 'tnvedDescription', max: 500 } },
+      { key: 'broker.partia.errors.goodsTooLong', params: { n: 1, field: 'unit', max: 50 } },
+      { key: 'broker.partia.errors.goodsTooLong', params: { n: 1, field: 'currency', max: 10 } },
+      { key: 'broker.partia.errors.goodsTooLong', params: { n: 2, field: 'description', max: 500 } },
+      { key: 'broker.partia.errors.goodsTooLong', params: { n: 2, field: 'tnvedCode', max: 20 } },
+    ])
+  })
+
+  it('гр.44: номер ≤ 200, код ≤ 20, вид ≤ 1000 — с номером строки и полем', () => {
+    const d = ok()
+    d.record.doc44 = [
+      { docTypeCode: '0'.repeat(20), docTypeName: 'в'.repeat(1000), docNumber: 'N'.repeat(200), docDate: null },
+      { docTypeCode: '04021', docTypeName: 'Инвойс', docNumber: 'N'.repeat(201), docDate: null },
+    ]
+    expect(validatePartia(d)).toEqual([{ key: 'broker.partia.errors.doc44TooLong', params: { n: 2, field: 'docNumber', max: 200 } }])
+  })
+
+  it('длинных полей много — первые пять и «и ещё n»', () => {
+    const d = ok()
+    d.record.goods = Array.from({ length: 7 }, () => ({ ...d.record.goods[0], description: 'о'.repeat(501) }))
+    const errors = validatePartia(d)
+    expect(errors).toHaveLength(6)
+    expect(errors[4]).toEqual({ key: 'broker.partia.errors.goodsTooLong', params: { n: 5, field: 'description', max: 500 } })
+    expect(errors[5]).toEqual({ key: 'broker.partia.errors.moreTooLong', params: { count: 2 } })
   })
 
   it('таможня отправления длиннее 32 знаков — как в записи транзита', () => {

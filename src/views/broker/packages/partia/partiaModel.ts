@@ -54,6 +54,17 @@ export const PARTIA_TRANSIT_SECTIONS: SectionKey[] = [
 /** Лимиты колонок сервера (DocumentPackageClientConsolidationConfiguration). */
 export const PARTIA_LIMITS = { clientName: 200, destinationStation: 200, destinationCustomsAuthority: 200, sealNumber: 100 } as const
 
+/** Лимиты колонок товаров партии (DocumentPackageConsolidationGoodsItemConfiguration) — уже, чем у товаров записи реестра. */
+export const PARTIA_GOODS_LIMITS = {
+  description: 500, tnvedCode: 20, tnvedDescription: 500, countryOfOrigin: 100, unit: 50, unitCode: 16, quantityTypeCode: 8, currency: 10,
+} as const satisfies Partial<Record<keyof ReestrGoodsItemInput, number>>
+
+/** Лимиты колонок гр.44 партии (DocumentPackageConsolidationDoc44ItemConfiguration). */
+export const PARTIA_DOC44_LIMITS = { docTypeCode: 20, docTypeName: 1000, docNumber: 200 } as const satisfies Partial<Record<keyof ReestrDoc44ItemInput, number>>
+
+/** Сколько ошибок длины строк товаров и гр.44 показывать — остальное «и ещё n». */
+const ROW_ERRORS_SHOWN = 5
+
 /** Лимиты колонок сторон (колонки Shipper… и Consignee… в DocumentPackageClientConsolidationConfiguration); сервер хранит как прислали. */
 export const PARTY_LIMITS: Record<keyof PartyAddress, number> = { name: 200, countryCode: 8, region: 200, city: 200, street: 300 }
 
@@ -186,21 +197,32 @@ const toNumber = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
-/** Дата для DateTime?: yyyy-MM-dd (из ISO берётся дата, «дд.мм.гггг» переворачивается); пустое и прочее — null. */
+/** Существует ли такой день календаря (30 февраля — нет): сервер не разберёт его в DateTime и выбросит весь транзит. */
+const calendarDate = (y: string, m: string, d: string): string | null => {
+  const dt = new Date(Date.UTC(+y, +m - 1, +d))
+  dt.setUTCFullYear(+y) // годы 0–99 Date.UTC переносит в 19xx
+  const ok = dt.getUTCFullYear() === +y && dt.getUTCMonth() === +m - 1 && dt.getUTCDate() === +d && +y >= 1
+  return ok ? `${y}-${m}-${d}` : null
+}
+
+/** Дата для DateTime?: yyyy-MM-dd (из ISO берётся дата, «дд.мм.гггг» переворачивается); пустое, несуществующий день и прочее — null. */
 const toDate = (v: unknown): string | null => {
   if (typeof v !== 'string') return null
   const s = v.trim()
-  const iso = /^(\d{4}-\d{2}-\d{2})(?:$|T)/.exec(s)
-  if (iso) return iso[1]
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:$|T)/.exec(s)
+  if (iso) return calendarDate(iso[1], iso[2], iso[3])
   const ru = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(s)
-  return ru ? `${ru[3]}-${ru[2]}-${ru[1]}` : null
+  return ru ? calendarDate(ru[3], ru[2], ru[1]) : null
 }
+
+const INT32_MIN = -2147483648
+const INT32_MAX = 2147483647
 
 const coerce = (kind: Kind, v: unknown): unknown => {
   switch (kind) {
     case 'int': {
       const n = toNumber(v)
-      return n == null ? null : Math.round(n)
+      return n == null ? null : Math.min(INT32_MAX, Math.max(INT32_MIN, Math.round(n)))
     }
     case 'dec':
       return toNumber(v)
@@ -255,9 +277,36 @@ export function partyTooLong(p: PartyAddress): (keyof PartyAddress)[] {
   return (Object.keys(PARTY_LIMITS) as (keyof PartyAddress)[]).filter((k) => (p[k] ?? '').length > PARTY_LIMITS[k])
 }
 
-/** Ошибки перед сохранением — ключи i18n. */
-export function validatePartia(d: PartiaDraft): string[] {
-  const errors: string[] = []
+/** Ошибка проверки: ключ i18n или ключ с параметрами (поле строки — имя поля, текст подписи — в partiaErrorText). */
+export type PartiaError = string | { key: string; params: Record<string, string | number> }
+
+/** Поля строк длиннее колонок партии (длина как есть — сервер строки не обрезает): «Товар n: поле длиннее max». */
+function rowLengthErrors(d: PartiaDraft): PartiaError[] {
+  const out: PartiaError[] = []
+  const scan = <T extends object>(rows: T[], limits: Record<string, number>, key: string) => {
+    rows.forEach((row, i) => {
+      for (const [field, max] of Object.entries(limits)) {
+        const v = (row as Record<string, unknown>)[field]
+        if (typeof v === 'string' && v.length > max) out.push({ key, params: { n: i + 1, field, max } })
+      }
+    })
+  }
+  scan(d.record.goods, PARTIA_GOODS_LIMITS, 'broker.partia.errors.goodsTooLong')
+  scan(d.record.doc44, PARTIA_DOC44_LIMITS, 'broker.partia.errors.doc44TooLong')
+  if (out.length <= ROW_ERRORS_SHOWN) return out
+  return [...out.slice(0, ROW_ERRORS_SHOWN), { key: 'broker.partia.errors.moreTooLong', params: { count: out.length - ROW_ERRORS_SHOWN } }]
+}
+
+/** Текст ошибки проверки; имя поля строки переводится подписью поля (broker.partia.errors.fields.*). */
+export function partiaErrorText(e: PartiaError, t: (key: string, params?: Record<string, unknown>) => string): string {
+  if (typeof e === 'string') return t(e)
+  const { field, ...rest } = e.params
+  return t(e.key, field === undefined ? rest : { ...rest, field: t(`broker.partia.errors.fields.${field}`) })
+}
+
+/** Ошибки перед сохранением — ключи i18n (у длинных полей товаров и гр.44 — с номером строки и полем). */
+export function validatePartia(d: PartiaDraft): PartiaError[] {
+  const errors: PartiaError[] = []
   if (!d.clientName.trim()) errors.push('broker.partia.errors.needClient')
   if (tooLong(d.clientName, PARTIA_LIMITS.clientName)) errors.push('broker.partia.errors.clientTooLong')
   if (tooLong(d.destinationStation, PARTIA_LIMITS.destinationStation)) errors.push('broker.partia.errors.stationTooLong')
@@ -267,6 +316,8 @@ export function validatePartia(d: PartiaDraft): string[] {
   if (partyTooLong(d.consignee).length) errors.push('broker.partia.errors.consigneeTooLong')
   // При генерации строк таможня отправления уходит в колонку записи (32 знака) — длинная уронит генерацию.
   if (departureOfficeTooLong(d.record.transit.departureCustomsOffice)) errors.push('broker.partia.errors.departureOfficeTooLong')
+  // Колонки товаров и гр.44 партии уже, чем у записи реестра (поля карточки рассчитаны на запись): длинное — 500 без подсказки.
+  errors.push(...rowLengthErrors(d))
   return errors
 }
 

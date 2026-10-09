@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhClock, PhShippingContainer, PhUser } from '@phosphor-icons/vue'
+import { PhArrowClockwise, PhClock, PhShippingContainer, PhUser } from '@phosphor-icons/vue'
 import ZBreadcrumbs from '@/components/z/ZBreadcrumbs.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZTag from '@/components/z/ZTag.vue'
@@ -13,15 +13,17 @@ import { packageCounts } from './workspace'
 
 // Шапка «Разбора поезда» (доска Workspace): крошки «Пакеты документов / Поезд n», заголовок и тег статуса
 // (тона и подписи — из списка пакетов), строка «экспедитор · загружен · контейнеры · партии»; справа
-// «Решение по пакету» (packages.manage + reestr.write) и «Сформировать строки реестра» (reestr.write).
+// «Обновить» (всем: тихое перечитывание), «Решение по пакету» (packages.manage + reestr.write) и «Сформировать строки
+// реестра» (reestr.write).
 // Ниже — плашка решения: при замечании проверки или статусе «Нужна правка», со ссылкой «Изменить решение».
 const props = defineProps<{
   pkg: DocumentPackageDto
   canDecide: boolean
   canGenerate: boolean
   generating: boolean
+  refreshing?: boolean
 }>()
-const emit = defineEmits<{ decide: []; generate: [] }>()
+const emit = defineEmits<{ decide: []; generate: []; refresh: [] }>()
 const { t, locale } = useI18n()
 
 const counts = computed(() => packageCounts(props.pkg))
@@ -37,6 +39,8 @@ const bannerGold = computed(() => props.pkg.status === 'needsFix')
 const reviewedAt = computed(() => (props.pkg.reviewedAtUtc ? formatStamp(props.pkg.reviewedAtUtc) : ''))
 
 const metaItem = 'inline-flex min-w-0 items-center gap-1.5'
+// Выключенная кнопка фокус не берёт — его берёт обёртка (для подсказки); имя обёртки — кнопка и причина.
+const generateDisabledLabel = computed(() => `${t('broker.packageWorkspace.generate')}. ${t('broker.packageWorkspace.generateNeedsPartias')}`)
 </script>
 
 <template>
@@ -65,7 +69,11 @@ const metaItem = 'inline-flex min-w-0 items-center gap-1.5'
         </div>
         <p v-if="pkg.comment" class="m-0 mt-1.5 text-sm text-ink-2 [overflow-wrap:anywhere]" data-ws-comment>{{ pkg.comment }}</p>
       </div>
-      <div v-if="canDecide || canGenerate" class="flex shrink-0 flex-wrap items-center gap-2 max-sm:w-full max-sm:flex-col max-sm:items-stretch">
+      <div class="flex shrink-0 flex-wrap items-center gap-2 max-sm:w-full max-sm:flex-col max-sm:items-stretch">
+        <ZButton variant="ghost" :loading="refreshing" class="max-sm:h-11" data-ws-refresh @click="emit('refresh')">
+          <template #icon><PhArrowClockwise :size="16" aria-hidden="true" /></template>
+          {{ t('broker.list.refresh') }}
+        </ZButton>
         <ZButton
           v-if="canDecide"
           class="border border-line-strong bg-surface enabled:hover:bg-sunken max-sm:h-11"
@@ -74,8 +82,15 @@ const metaItem = 'inline-flex min-w-0 items-center gap-1.5'
         >{{ t('broker.packageWorkspace.decide') }}</ZButton>
         <template v-if="canGenerate">
           <ZTooltip v-if="!counts.partias" :title="t('broker.packageWorkspace.generateNeedsPartias')">
-            <span class="inline-flex max-sm:w-full" tabindex="0">
-              <ZButton variant="primary" disabled class="max-sm:h-11 max-sm:w-full" data-ws-generate>{{ t('broker.packageWorkspace.generate') }}</ZButton>
+            <span
+              class="inline-flex rounded-field outline-hidden focus-visible:shadow-focus max-sm:w-full"
+              tabindex="0"
+              role="button"
+              aria-disabled="true"
+              :aria-label="generateDisabledLabel"
+              data-ws-generate-wrap
+            >
+              <ZButton variant="primary" disabled aria-hidden="true" class="max-sm:h-11 max-sm:w-full" data-ws-generate>{{ t('broker.packageWorkspace.generate') }}</ZButton>
             </span>
           </ZTooltip>
           <ZButton

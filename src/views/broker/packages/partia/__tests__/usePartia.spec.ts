@@ -246,6 +246,18 @@ describe('usePartia — сохранение правки', () => {
     expect(api.updateClientConsolidation).not.toHaveBeenCalled()
   })
 
+  it('длинное поле товара или гр.44 — без запроса, текст называет строку и поле', async () => {
+    const { r } = start()
+    await settle()
+    r.draft.record.goods[0].description = 'о'.repeat(501)
+    r.draft.record.doc44.push({ docTypeCode: null, docTypeName: null, docNumber: 'N'.repeat(201), docDate: null })
+    expect(await r.save()).toBeNull()
+    expect(r.saveError.value).toBe(
+      `Товар 1: «Описание из инвойса» длиннее 500 знаков — сервер его не сохранит. Документ гр. 44, строка ${r.draft.record.doc44.length}: «Номер» длиннее 200 знаков — сервер его не сохранит.`,
+    )
+    expect(api.updateClientConsolidation).not.toHaveBeenCalled()
+  })
+
   it('битый транзит: без force — отказ; с force — сохраняет', async () => {
     stored = pkg({ containers: [container({ consolidations: [fullPartia({ transitDataJson: '{oops' })] })] })
     const { r } = start()

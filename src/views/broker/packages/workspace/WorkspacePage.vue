@@ -88,7 +88,8 @@ const link = async (file: DocumentPackageFileDto, to: LinkTarget) => {
   if (ok) message.success(t(to.kind === 'none' ? 'broker.packageWorkspace.files.unlinked' : 'broker.packageWorkspace.files.linked'))
 }
 const dnd = provideWorkspaceDnd(computed(() => canEdit.value && !phone.value), (file, to) => { void link(file, to) })
-const bgListeners = computed(() => (dnd.enabled.value ? dnd.target('none', { kind: 'none' }) : {}))
+// Фон дерева слушает всегда: без права правки (и на телефоне) — чтобы файл с компьютера не открылся во вкладке.
+const bgListeners = dnd.target('none', { kind: 'none' })
 const overBackground = computed(() => dnd.over.value === 'none' && !!dnd.dragging.value)
 
 const linkOpen = ref(false)
@@ -185,6 +186,11 @@ const addPartia = (c: DocumentPackageContainerDto) => {
   void router.push({ path: `/document-packages/${id.value}/partia/new`, query: { container: c.id } })
 }
 
+// ---- «Обновить»: тихо, без скелетона; не вышло — тост (запрос тихий, перехватчик молчит) ----
+const refresh = async () => {
+  if (!(await ws.refresh())) message.error(t('broker.packageWorkspace.page.refreshError'))
+}
+
 // ---- Решение и строки реестра ----
 const statusOpen = ref(false)
 const onStatusChanged = (d: DocumentPackageDto) => ws.apply(d)
@@ -250,8 +256,10 @@ const generate = async () => {
         :can-decide="canDecide"
         :can-generate="canEdit"
         :generating="generating"
+        :refreshing="ws.refreshing.value"
         @decide="statusOpen = true"
         @generate="generate"
+        @refresh="refresh"
       />
 
       <div class="grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-[18px] lg:grid-cols-[340px_minmax(0,1fr)]">

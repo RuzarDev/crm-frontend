@@ -11,6 +11,10 @@ export type ContainerInput = { containerNumber: string; secondaryContainerNumber
 
 const statusOf = (e: unknown): number | undefined => (e as { response?: { status?: number } })?.response?.status
 
+/** Ошибка запроса (ответ сервера или нет связи) — её показал перехватчик. Прочее — ошибка кода, её не прячем. */
+const isHttpError = (e: unknown): boolean =>
+  typeof e === 'object' && e !== null && ('response' in e || (e as { isAxiosError?: unknown }).isAxiosError === true)
+
 /** Совпадает ли место привязки — повторная привязка туда же запроса не шлёт. */
 export const sameTarget = (a: LinkTarget, b: LinkTarget): boolean => {
   if (a.kind !== b.kind) return false
@@ -27,7 +31,8 @@ export function useWorkspace(pkgId: () => string) {
 
   // Номер загрузки: ответ по прежнему пакету (ушли на другой) не подменяет новый.
   let seq = 0
-  const load = async (opts: { quiet?: boolean } = {}) => {
+  /** false — не удалось (тихое перечитывание: на экране остаётся прежнее). */
+  const load = async (opts: { quiet?: boolean } = {}): Promise<boolean> => {
     const id = pkgId()
     const my = ++seq
     if (!opts.quiet) {
@@ -37,15 +42,18 @@ export function useWorkspace(pkgId: () => string) {
     }
     try {
       const d = await documentPackagesApi.getById(id, { silent: true })
-      if (my !== seq) return
+      if (my !== seq) return true
       pkg.value = d
       notFound.value = false
       loadError.value = false
+      return true
     } catch (e) {
-      if (my !== seq || opts.quiet) return // тихое перечитывание: остаётся то, что на экране
+      if (my !== seq) return true
+      if (opts.quiet) return false // тихое перечитывание: остаётся то, что на экране
       const s = statusOf(e)
       if (s === 404 || s === 403 || s === 400) notFound.value = true
       else loadError.value = true
+      return false
     } finally {
       if (my === seq && !opts.quiet) loading.value = false
     }
@@ -54,6 +62,18 @@ export function useWorkspace(pkgId: () => string) {
     pkg.value = null
     void load()
   }, { immediate: true })
+
+  /** «Обновить»: тихое перечитывание (экспедитор загружает файлы, пока брокер держит страницу открытой). */
+  const refreshing = ref(false)
+  const refresh = async (): Promise<boolean> => {
+    if (refreshing.value) return true
+    refreshing.value = true
+    try {
+      return await load({ quiet: true })
+    } finally {
+      refreshing.value = false
+    }
+  }
 
   /** Ответ мутации — новый пакет, если он про тот пакет, что открыт сейчас. */
   const apply = (d: DocumentPackageDto) => {
@@ -66,13 +86,17 @@ export function useWorkspace(pkgId: () => string) {
   // ---- Занятость по ключу элемента ----
   const pending = reactive(new Set<string>())
   const isPending = (key: string) => pending.has(key)
-  /** Запрос под ключом; повторный под тем же ключом, пока идёт первый, не уходит. false — не вышло (тост показал перехватчик). */
+  /**
+   * Запрос под ключом; повторный под тем же ключом, пока идёт первый, не уходит. false — не вышло (тост показал перехватчик).
+   * Гасится только ошибка запроса; ошибка кода уходит наверх.
+   */
   const run = async <T>(key: string, fn: () => Promise<T>): Promise<{ ok: true; value: T } | { ok: false }> => {
     if (pending.has(key)) return { ok: false }
     pending.add(key)
     try {
       return { ok: true, value: await fn() }
-    } catch {
+    } catch (e) {
+      if (!isHttpError(e)) throw e
       return { ok: false }
     } finally {
       pending.delete(key)
@@ -99,8 +123,8 @@ export function useWorkspace(pkgId: () => string) {
         try {
           await documentPackagesApi.uploadFile(id, f)
           done++
-        } catch {
-          // тост показал перехватчик
+        } catch (e) {
+          if (!isHttpError(e)) throw e // тост об ошибке запроса показал перехватчик
         }
       }
       return done
@@ -138,8 +162,8 @@ export function useWorkspace(pkgId: () => string) {
   }
 
   return {
-    pkg, loading, notFound, loadError,
-    load: () => load(), apply, isPending,
+    pkg, loading, notFound, loadError, refreshing,
+    load: () => load(), refresh, apply, isPending,
     linkFile, uploadFiles, deleteFile, saveContainer, deleteContainer, deletePartia, generateRows,
   }
 }
@@ -158,7 +182,7 @@ export interface WorkspaceDnd {
   over: Ref<DropKey | null>
   start: (e: DragEvent, file: DocumentPackageFileDto) => void
   end: () => void
-  /** Слушатели элемента-цели (v-on). */
+  /** Слушатели элемента-цели (v-on). Без перетаскивания строки — только защита от файла с компьютера. */
   target: (key: DropKey, to: LinkTarget) => Record<string, (e: DragEvent) => void>
 }
 
@@ -185,15 +209,24 @@ export function provideWorkspaceDnd(enabled: Ref<boolean>, onDrop: (file: Docume
     dragging.value = null
     over.value = null
   }
+  /**
+   * Файл с компьютера над деревом: браузер по умолчанию открыл бы его во вкладке вместо страницы. Отменяем
+   * действие по умолчанию и показываем «нельзя» (dropEffect none) — загрузка только через панель файлов.
+   */
+  const blockOsFile = (e: DragEvent) => {
+    if (dragging.value || !Array.from(e.dataTransfer?.types ?? []).includes('Files')) return
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'none'
+  }
   const target = (key: DropKey, to: LinkTarget) => ({
     dragenter: (e: DragEvent) => {
-      if (!active.value) return
+      if (!active.value) return blockOsFile(e)
       e.preventDefault()
       e.stopPropagation()
       over.value = key
     },
     dragover: (e: DragEvent) => {
-      if (!active.value) return
+      if (!active.value) return blockOsFile(e)
       e.preventDefault()
       e.stopPropagation()
       over.value = key
@@ -209,7 +242,7 @@ export function provideWorkspaceDnd(enabled: Ref<boolean>, onDrop: (file: Docume
     },
     drop: (e: DragEvent) => {
       const file = dragging.value
-      if (!enabled.value || !file) return // файлы с компьютера и чужое перетаскивание — не наше
+      if (!enabled.value || !file) return blockOsFile(e) // файлы с компьютера и чужое перетаскивание — не привязка
       e.preventDefault()
       e.stopPropagation()
       end()

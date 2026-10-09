@@ -81,6 +81,35 @@ describe('WorkspacePage: состояния', () => {
   })
 })
 
+describe('WorkspacePage: «Обновить»', () => {
+  it('тихо перечитывает пакет (без скелетона) — и у брокера, и у экспедитора', async () => {
+    for (const [role, perms] of [['importer', BROKER], ['expeditor', ['reestr.read']]] as const) {
+      as(role, [...perms])
+      await mountPage()
+      api.getById.mockClear()
+      api.getById.mockResolvedValueOnce(pkg({ status: 'accepted' }))
+      await w.get('[data-ws-refresh]').trigger('click')
+      expect(has('[data-ws-skeleton]')).toBe(false)
+      await settle()
+      expect(api.getById).toHaveBeenCalledTimes(1)
+      expect(api.getById).toHaveBeenCalledWith('pkg1', { silent: true })
+      expect(w.get('[data-ws-status]').text()).toBe('Принят брокером')
+      expect(w.get('[data-ws-refresh]').text()).toContain('Обновить')
+      w.unmount()
+    }
+  })
+
+  it('не вышло — тост, на экране прежний пакет', async () => {
+    await mountPage()
+    api.getById.mockRejectedValueOnce(httpError(500))
+    await w.get('[data-ws-refresh]').trigger('click')
+    await settle()
+    expect(toast.error).toHaveBeenCalledWith('Не удалось обновить пакет')
+    expect(has('[data-ws-error]')).toBe(false)
+    expect(w.get('[data-ws-title]').text()).toBe('Поезд 1234')
+  })
+})
+
 describe('WorkspacePage: шапка и плашка решения', () => {
   it('статус из списка пакетов, экспедитор, счётчики контейнеров и партий', async () => {
     await mountPage(pkg({ status: 'accepted' }))
@@ -149,9 +178,13 @@ describe('WorkspacePage: «Сформировать строки реестра�
     expect(w.get('[data-ws-status]').text()).toBe('Обработан')
   })
 
-  it('без партий кнопка выключена', async () => {
+  it('без партий кнопка выключена; обёртка в фокусе называет кнопку и причину (подсказка)', async () => {
     await mountPage(pkg({ containers: [container({ consolidations: [] })] }))
     expect(w.get('[data-ws-generate]').attributes('disabled')).toBeDefined()
+    const wrap = w.get('[data-ws-generate-wrap]')
+    expect(wrap.attributes('tabindex')).toBe('0')
+    expect(wrap.attributes('aria-disabled')).toBe('true')
+    expect(wrap.attributes('aria-label')).toBe('Сформировать строки реестра. Добавьте в контейнеры партии — строки реестра формируются по ним')
   })
 })
 
@@ -298,6 +331,8 @@ describe('WorkspacePage: контейнеры и партии', () => {
 
     await w.get('[data-ws-partia] [data-menu-item="delete"]').trigger('click')
     expect(confirmState.title).toBe('Удалить партию «ТОО «Казахмыс Трейд»»?')
+    // Файлы из дерева остаются в своём контейнере, инвойсы из редактора — свободными: текст нейтральный.
+    expect(confirmState.content).toBe('Файлы партии останутся в пакете.')
     confirmState.resolve(true)
     await settle()
     expect(api.deleteClientConsolidation).toHaveBeenCalledWith('pkg1', 'c1', 'p1')

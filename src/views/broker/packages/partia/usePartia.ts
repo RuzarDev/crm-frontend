@@ -10,6 +10,7 @@ import {
   assignPartia,
   draftFromPartia,
   mergePartia,
+  partiaErrorText,
   partiaToBody,
   transitJsonBroken,
   validatePartia,
@@ -352,7 +353,7 @@ export function usePartia(pkgId: () => string, containerId: () => string, partia
       if (transitParseFailed.value && !opts?.force) return fail('transitBroken', 'broker.partia.errors.transitUnreadable')
       const errors = validatePartia(draft)
       if (errors.length) {
-        saveError.value = errors.map((k) => t(k)).join(' ')
+        saveError.value = errors.map((e) => partiaErrorText(e, t)).join(' ')
         saveErrorKind.value = 'validation'
         return null
       }

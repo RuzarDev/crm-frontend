@@ -255,7 +255,8 @@ export function useTransitRecord(id: () => string): TransitRecord {
     } catch (e) {
       saving.value = false
       if (gen === loadGen) {
-        saveError.value = serverErrorText(e, t('dt.netSvyazi'))
+        // 5xx и трассировка стека — коротко «ошибка сервера» (сырой текст сервера в плашку не идёт).
+        saveError.value = serverErrorText(e, t('dt.netSvyazi'), { friendly: t('broker.transitRecord.errors.serverShort') })
         saveErrorLocal.value = false
       }
       return null

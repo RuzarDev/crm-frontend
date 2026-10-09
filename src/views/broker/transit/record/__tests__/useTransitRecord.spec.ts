@@ -319,6 +319,18 @@ describe('useTransitRecord — сохранение', () => {
     expect(api.getById).toHaveBeenCalledTimes(1)
   })
 
+  it('5xx и трассировка стека → «ошибка сервера», а не сырой текст сервера', async () => {
+    const { r } = start()
+    await settle()
+    r.draft.fields['Груз'] = 'x'
+    api.update.mockRejectedValueOnce(httpError(500, 'System.InvalidOperationException: boom\n   at CRM.API.Controllers.ReestrController.Update()'))
+    await r.save()
+    expect(r.saveError.value).toBe('ошибка сервера')
+    api.update.mockRejectedValueOnce(httpError(400, { error: 'Npgsql.PostgresException: 22001: value too long\n   at Npgsql.Foo()' }))
+    await r.save()
+    expect(r.saveError.value).toBe('ошибка сервера')
+  })
+
   it('нет связи → «нет связи с сервером»; следующий успешный save снимает ошибку', async () => {
     const { r } = start()
     await settle()

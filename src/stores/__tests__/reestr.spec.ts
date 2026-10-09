@@ -6,9 +6,13 @@ const api = vi.hoisted(() => ({
   changeStatus: vi.fn(),
   del: vi.fn(),
   bulkDelete: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
-vi.mock('@/api/reestr', () => ({ reestrApi: { getList: api.getList, changeStatus: api.changeStatus, delete: api.del, bulkDelete: api.bulkDelete } }))
+vi.mock('@/api/reestr', () => ({
+  reestrApi: { getList: api.getList, changeStatus: api.changeStatus, delete: api.del, bulkDelete: api.bulkDelete, create: api.create, update: api.update },
+}))
 vi.mock('@/ui/message', () => ({ message: api.toast }))
 
 import { useReestrStore } from '../reestr'
@@ -157,5 +161,25 @@ describe('useReestrStore: удаление', () => {
     await s.deleteEntry('x')
     expect(api.getList.mock.calls.length).toBe(calls + 1)
     expect(s.currentPage).toBe(1)
+  })
+})
+
+describe('useReestrStore: ошибка сохранения записи', () => {
+  const httpError = (status: number, data?: unknown) => Object.assign(new Error(`HTTP ${status}`), { response: { status, data } })
+
+  it('5xx — «ошибка сервера», а не сырой текст или трассировка; 4xx — текст сервера; без ответа — «нет связи»', async () => {
+    const s = useReestrStore()
+    api.create.mockRejectedValueOnce(httpError(500, 'System.NullReferenceException\n   at CRM.API.Foo()'))
+    expect(await s.create({} as never)).toBe(false)
+    expect(s.saveError).toBe('ошибка сервера')
+    api.update.mockRejectedValueOnce(httpError(502))
+    expect(await s.update('a', {} as never)).toBe(false)
+    expect(s.saveError).toBe('ошибка сервера')
+    api.update.mockRejectedValueOnce(httpError(400, { error: 'Код ТН ВЭД не найден' }))
+    await s.update('a', {} as never)
+    expect(s.saveError).toBe('Код ТН ВЭД не найден')
+    api.update.mockRejectedValueOnce(new Error('Network Error'))
+    await s.update('a', {} as never)
+    expect(s.saveError).toBe('нет связи с сервером')
   })
 })
