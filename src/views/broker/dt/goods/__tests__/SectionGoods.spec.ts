@@ -104,8 +104,14 @@ describe('SectionGoods: таблица', () => {
     expect(w.get('[data-goods-count]').text()).toBe('3')
     const heads = w.findAll('thead th').map((th) => th.text())
     expect(heads).toEqual(expect.arrayContaining(['№', 'Код ТН ВЭД', 'Описание · страна', 'Брутто / нетто, кг', 'Фактурная, USD', 'Гр. 45, ₸', 'ТПиН, ₸', 'Статус']))
-    expect(cellTexts(0)).toEqual(['', '1', '8471300000', 'НОУТБУКИCN', '420,5 / 384,0', '25 000,00', '12 610 400', '2 017 664', 'Готов'])
-    expect(rows()[1].find('[data-goods-no-code]').text()).toBe('нет кода')
+    expect(cellTexts(0)).toEqual(['', '1', '8471 30 000 0, Открыть товар 1', 'НОУТБУКИCN', '420,5 / 384,0', '25 000,00', '12 610 400', '2 017 664', 'Готов'])
+    expect(rows()[1].find('[data-goods-no-code]').text()).toBe('нет кода, Открыть товар 2')
+    // строка без aria-label (не прячет содержимое ячеек); открыть — кнопкой в ячейке кода
+    expect(rows()[0].attributes('aria-label')).toBeUndefined()
+    expect(rows()[0].attributes('tabindex')).toBeUndefined()
+    expect(rows()[0].get('button[data-goods-open]').text()).toContain('8471 30 000 0')
+    // у корня раздела нет data-graph: «к недостающему» не подсвечивает весь раздел
+    expect(w.get('[data-dt-goods]').attributes('data-graph')).toBeUndefined()
     expect(cellTexts(1).slice(-2)).toEqual(['—', 'Не хватает 2'])
     expect(rows()[2].text()).toContain('MY')
     expect(rows()[2].get('[data-goods-status]').attributes('data-goods-status')).toBe('stale')
@@ -184,9 +190,13 @@ describe('SectionGoods: выбор и массовые действия', () => 
   it('выбор строк → тёмная панель «Выбрано N»; Esc снимает выделение', async () => {
     await mount([item(), item(), item()])
     expect(w.find('[data-goods-bulk]').exists()).toBe(false)
+    // живая область смонтирована заранее (иначе первое появление панели не озвучивается)
+    const live = w.get('[role="status"][aria-live="polite"]')
+    expect(live.text()).toBe('')
     await check(0)
     await check(2)
     expect(w.get('[data-goods-bulk-count]').text()).toBe('Выбрано 2')
+    expect(w.get('[role="status"][aria-live="polite"]').text()).toBe('Выбрано 2')
     key({ key: 'Escape' })
     await settle()
     expect(w.find('[data-goods-bulk]').exists()).toBe(false)
@@ -304,6 +314,15 @@ describe('SectionGoods: итоги и расчёт', () => {
 })
 
 describe('SectionGoods: открытие товара (?item=N)', () => {
+  it('кнопка кода (клавиатура) открывает товар — один переход', async () => {
+    await mount([item(), item({ description: 'БЛОКИ' })])
+    const replace = vi.spyOn(router, 'replace')
+    await rows()[1].get('button[data-goods-open]').trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toMatchObject({ s: 'goods', item: '2' })
+    expect(replace).toHaveBeenCalledTimes(1)
+  })
+
   it('клик по строке — ?item=N (с 1) вместе с ?s=goods и панель «Товар N из M»; закрытие убирает item', async () => {
     await mount([item(), item({ description: 'БЛОКИ' })])
     await rows()[1].trigger('click')
@@ -452,7 +471,13 @@ describe('SectionGoods: 200 товаров', () => {
     const t3 = performance.now()
     await check(5)
     const selectMs = performance.now() - t3
-    console.info(`[perf 200] mount ${mountMs.toFixed(0)} ms, search ${searchMs.toFixed(0)} ms, reset ${resetMs.toFixed(0)} ms, select ${selectMs.toFixed(0)} ms`)
+    // Правка одного поля товара (как ввод в редакторе) → таблица обновилась
+    const t4 = performance.now()
+    form.goodsItems[7].customsValue = 12345
+    await nextTick()
+    const editMs = performance.now() - t4
+    expect(cellTexts(7)[5]).toBe('12 345,00')
+    console.info(`[perf 200] mount ${mountMs.toFixed(0)} ms, search ${searchMs.toFixed(0)} ms, reset ${resetMs.toFixed(0)} ms, select ${selectMs.toFixed(0)} ms, edit ${editMs.toFixed(0)} ms`)
     expect(rows()).toHaveLength(200)
     expect(searchMs).toBeLessThan(1500)
     expect(selectMs).toBeLessThan(1500)

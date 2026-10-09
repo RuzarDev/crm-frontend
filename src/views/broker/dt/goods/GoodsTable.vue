@@ -6,13 +6,14 @@ import StatusDot from '@/components/broker/StatusDot.vue'
 import type { ZTone } from '@/components/z/ZTag.vue'
 import type { ZColumn, ZKey } from '@/ui/table'
 import type { Import40GoodsItemInput } from '@/types/api'
+import { formatTnved } from '@/utils/tnvedFormat'
 import { formatKg, formatValue } from '@/views/broker/transit/record/sections/goods'
 import { formatMoney, goodsTpin, type GoodsRow } from './goodsList'
 import type { GoodsStatus } from './goodsStatus'
 
 // Таблица товаров ДТ (доска DtGoods): чекбокс, №, код ТН ВЭД (моно; «нет кода» красным), описание · страна,
 // брутто / нетто, фактурная (валюта гр. 22 в заголовке), гр. 45 ₸, ТПиН ₸, статус (точка + текст). Клик по строке
-// (или Enter на ней) — открыть товар. На телефоне — строки-карточки: код, описание, фактурная, статус.
+// (или кнопка кода с клавиатуры) — открыть товар. На телефоне — строки-карточки: код, описание, фактурная, статус.
 // Строка лёгкая: только текст и точка статуса, без тяжёлых компонентов (200 товаров без виртуализации). Узкий раздел
 // (рядом панель «До подачи») — таблица прокручивается внутри себя, описанию остаётся не меньше ~200px.
 const props = defineProps<{
@@ -57,6 +58,14 @@ const statusView = (s: GoodsStatus): { tone: ZTone; label: string } => {
   return { tone: 'done', label: tg('status.ready') }
 }
 
+// Статусы — один раз на отрисовку (по ключу товара), а не по вызову на ячейку.
+const statusByKey = computed(() => new Map(props.rows.map((r) => [r.key, props.statusOf(r.item)])))
+
+// Открыть товар: кнопка в ячейке кода — её имя читается вместе с кодом («8471 30 000 0, открыть товар 1»),
+// а содержимое строки остаётся читаемым (без aria-label на <tr>). Клик по любой ячейке строки — тоже открыть.
+const openButton = 'cursor-pointer rounded-field border-0 bg-transparent p-0 text-left font-[inherit] text-inherit outline-hidden focus-visible:shadow-focus'
+const srOpen = (n: number) => h('span', { class: 'sr-only' }, `, ${tg('openItem', { n })}`)
+
 // Ячейки — рендер-функциями (без компонента на ячейку): так 200 строк остаются дешёвыми.
 const cell = (key: string | undefined, r: GoodsRow) => {
   const g = r.item
@@ -65,8 +74,10 @@ const cell = (key: string | undefined, r: GoodsRow) => {
       return String(r.index + 1)
     case 'code':
       return g.tnvedCode
-        ? h('span', { class: 'font-mono text-[13px] whitespace-nowrap text-ink', 'data-goods-code': '' }, g.tnvedCode)
-        : h('span', { class: 'text-[13px] text-danger', 'data-goods-no-code': '' }, tg('noCode'))
+        ? h('button', { type: 'button', class: [openButton, 'font-mono text-[13px] whitespace-nowrap text-ink'], 'data-goods-code': '', 'data-goods-open': '' },
+          [formatTnved(g.tnvedCode), srOpen(r.index + 1)])
+        : h('button', { type: 'button', class: [openButton, 'text-[13px] text-danger'], 'data-goods-no-code': '', 'data-goods-open': '' },
+          [tg('noCode'), srOpen(r.index + 1)])
     case 'description': {
       const text = g.description || g.tnvedDescription || dash
       const c = (g.countryOfOrigin ?? '').trim()
@@ -90,8 +101,9 @@ const cell = (key: string | undefined, r: GoodsRow) => {
       return v == null ? dash : formatValue(v, locale.value)
     }
     case 'status': {
-      const s = statusView(props.statusOf(g))
-      return h(StatusDot, { tone: s.tone, label: s.label, 'data-goods-status': props.statusOf(g).kind })
+      const st = statusByKey.value.get(r.key) ?? props.statusOf(g)
+      const s = statusView(st)
+      return h(StatusDot, { tone: s.tone, label: s.label, 'data-goods-status': st.kind })
     }
   }
   return null
@@ -108,18 +120,12 @@ const rowSelection = computed(() => (props.readonly
       onChange: (keys: ZKey[]) => emit('update:selectedKeys', keys.map(Number)),
     }))
 
+// Клик по строке (и Enter/Space на кнопке кода — это тоже click) открывает товар.
 const customRow = (r: GoodsRow) => ({
-  tabindex: 0,
   'data-goods-row': r.index,
   'data-open': r.key === props.openKey || undefined,
-  'aria-label': tg('openItem', { n: r.index + 1 }),
-  class: 'cursor-pointer outline-hidden focus-visible:shadow-focus',
+  class: 'cursor-pointer',
   onClick: () => emit('open', r.index),
-  onKeydown: (e: KeyboardEvent) => {
-    if (e.key !== 'Enter' || e.target !== e.currentTarget) return
-    e.preventDefault()
-    emit('open', r.index)
-  },
 })
 const rowClassName = (r: GoodsRow) => (r.key === props.openKey ? 'bg-zircon-soft' : '')
 </script>

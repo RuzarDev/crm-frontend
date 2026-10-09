@@ -3,7 +3,8 @@ import { useI18n } from 'vue-i18n'
 import { PhCopy, PhPencilSimple, PhX } from '@phosphor-icons/vue'
 
 // Тёмная панель выбора товаров (доска DtGoods): «Выбрано N · Применить к выбранным… · Дублировать · Удалить ·
-// Снять выделение (Esc)». При 0 не рисуется; живая область для чтения с экрана смонтирована всегда.
+// Снять выделение (Esc)». При 0 не рисуется. Живая область «Выбрано N» для чтения с экрана — у раздела (SectionGoods),
+// смонтирована всегда: панель появляется и исчезает вместе с выбором.
 // На телефоне кнопки переносятся и вырастают до 44px.
 defineProps<{ count: number }>()
 const emit = defineEmits<{ apply: []; duplicate: []; remove: []; clear: [] }>()
@@ -14,7 +15,6 @@ const action =
 </script>
 
 <template>
-  <span class="sr-only" role="status" aria-live="polite">{{ count > 0 ? tg('selected', { n: count }) : '' }}</span>
   <div
     v-if="count > 0"
     role="toolbar"

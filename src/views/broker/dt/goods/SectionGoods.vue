@@ -137,7 +137,7 @@ const openApply = () => {
   applyOpen.value = true
 }
 const onApply = (patch: BulkPatch) => {
-  const n = props.model.applyToSelected(selectedIndexes.value, patch)
+  const n = props.model.applyToSelected(applyIndexes.value, patch)
   applyOpen.value = false
   message.success(tg('apply.done', { n }))
 }
@@ -248,7 +248,7 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
 </script>
 
 <template>
-  <section class="flex min-w-0 flex-col gap-3" data-dt-goods data-graph="31">
+  <section class="flex min-w-0 flex-col gap-3" data-dt-goods>
     <header class="flex flex-wrap items-center gap-x-3 gap-y-2">
       <h2 class="m-0 mr-auto flex items-baseline gap-2 text-[15px] font-semibold text-ink">
         {{ tg('title') }}
@@ -294,6 +294,7 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
     </div>
 
     <template v-else>
+      <span class="sr-only" role="status" aria-live="polite">{{ selectedIndexes.length ? tg('bulk.selected', { n: selectedIndexes.length }) : '' }}</span>
       <div v-if="!selectedIndexes.length" class="flex min-h-12 flex-wrap items-center gap-2">
         <ZInput
           ref="searchEl"

@@ -37,9 +37,17 @@ export function useGoodsItemRoute(items: () => readonly Import40GoodsItemInput[]
     const { [ITEM_QUERY]: _drop, ...rest } = route.query
     return n == null ? rest : { ...rest, s: 'goods', [ITEM_QUERY]: String(n) }
   }
+  // Переход, ещё не дошедший до адреса: второй такой же (openItem и следом watch номера) не повторяется.
+  let inflight: string | undefined | null = null
   const replace = async (n: number | null) => {
-    if (route.query[ITEM_QUERY] === (n == null ? undefined : String(n))) return
-    await router.replace({ query: withItem(n) })
+    const target = n == null ? undefined : String(n)
+    if (route.query[ITEM_QUERY] === target || (inflight !== null && inflight === target)) return
+    inflight = target
+    try {
+      await router.replace({ query: withItem(n) })
+    } finally {
+      if (inflight === target) inflight = null
+    }
   }
 
   // Адрес → ключ товара.

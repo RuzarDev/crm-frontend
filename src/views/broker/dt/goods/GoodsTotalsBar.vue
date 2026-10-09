@@ -39,7 +39,7 @@ const moreItems = computed<ZDropdownItem[]>(() => [{ key: 'tpin', label: tt('tpi
   <div
     role="region"
     :aria-label="tt('label')"
-    class="z-[2] -mx-4 -mb-4 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line bg-surface px-4 py-3 sm:sticky sm:bottom-0 sm:-mx-5 sm:-mb-5 sm:px-5"
+    class="z-[2] -mx-4 -mb-4 flex rounded-b-panel flex-wrap items-center gap-x-6 gap-y-3 border-t border-line bg-surface px-4 py-3 sm:sticky sm:bottom-0 sm:-mx-5 sm:-mb-5 sm:px-5"
     data-goods-totals
   >
     <dl class="m-0 flex min-w-0 flex-wrap gap-x-0 gap-y-2">
