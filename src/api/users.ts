@@ -11,7 +11,13 @@ import type {
   EditStaffClientsRequest,
   LinkUsersRequest,
   RegisterRequest,
+  TeamMemberDto,
 } from '@/types/api'
+import type { DeclarantProfileDto } from './declarantProfile'
+
+// opts.silent — экран «Команда» сам показывает ошибку на месте (без тоста перехватчика).
+export interface SilentOpts { silent?: boolean }
+const cfg = (opts?: SilentOpts) => (opts?.silent ? { silent: true } : undefined)
 
 export const usersApi = {
   getCatalogAdministrators: async (): Promise<CatalogAdministratorRow[]> => {
@@ -24,14 +30,29 @@ export const usersApi = {
     return response.data
   },
 
-  getCatalogClients: async (): Promise<CatalogClientRow[]> => {
-    const response = await apiClient.get<CatalogClientRow[]>('/catalog/clients')
+  getCatalogClients: async (opts?: SilentOpts): Promise<CatalogClientRow[]> => {
+    const response = await apiClient.get<CatalogClientRow[]>('/catalog/clients', cfg(opts))
     return response.data
   },
 
-  getCatalogExpeditors: async (): Promise<CatalogExpeditorRow[]> => {
-    const response = await apiClient.get<CatalogExpeditorRow[]>('/catalog/expeditors')
+  getCatalogExpeditors: async (opts?: SilentOpts): Promise<CatalogExpeditorRow[]> => {
+    const response = await apiClient.get<CatalogExpeditorRow[]>('/catalog/expeditors', cfg(opts))
     return response.data
+  },
+
+  // Сотрудники одной выборкой: имя, роли, представитель по доверенности, число клиентов (users.read).
+  team: async (opts?: SilentOpts): Promise<TeamMemberDto[]> =>
+    (await apiClient.get<TeamMemberDto[]>('/users/team', cfg(opts))).data,
+
+  // Профиль декларанта сотрудника (users.read): 204 — профиль не заполнен.
+  declarantProfile: async (id: string, opts?: SilentOpts): Promise<DeclarantProfileDto | null> => {
+    const res = await apiClient.get<DeclarantProfileDto | ''>(`/users/${encodeURIComponent(id)}/declarant-profile`, cfg(opts))
+    return res.status === 204 || !res.data ? null : (res.data as DeclarantProfileDto)
+  },
+
+  // Новый сотрудник: ошибку (в т.ч. 403 «администратора заводит только администратор») показывает форма.
+  registerStaff: async (data: { username: string; password: string; role: string; businessRole?: string }): Promise<void> => {
+    await apiClient.post('/auth/register/staff', data, { silent: true })
   },
 
   getCatalogImporters: async (): Promise<CatalogImporterRow[]> => {
@@ -81,11 +102,11 @@ export const usersApi = {
     })
   },
 
-  editExpeditor: async (expeditorId: string, data: EditExpeditorRequest): Promise<void> => {
+  editExpeditor: async (expeditorId: string, data: EditExpeditorRequest, opts?: SilentOpts): Promise<void> => {
     await apiClient.put(`/users/expeditors/${encodeURIComponent(expeditorId)}`, {
       username: data.username,
       clientsId: data.clientsId,
-    })
+    }, cfg(opts))
   },
 
   // Волна 5: привязка клиентов реестра транзита для сотрудника не из таблицы Broker (мпп-importer).

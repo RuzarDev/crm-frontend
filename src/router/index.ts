@@ -235,7 +235,7 @@ const router = createRouter({
         {
           path: '/settings/team',
           name: 'settings-team',
-          component: () => import('@/views/UsersView.vue'),
+          component: () => import('@/views/broker/settings/team/TeamPage.vue'),
           meta: { requiresPermission: 'users.read' },
         },
         {

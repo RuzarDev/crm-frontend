@@ -14,11 +14,12 @@ export const permissionsApi = {
     await apiClient.put(`/system/permissions/${encodeURIComponent(role)}`, { permissions })
   },
   reset: async () => { await apiClient.post('/system/permissions/reset') },
-  catalog: async (): Promise<BusinessRoleInfo[]> => (await apiClient.get<BusinessRoleInfo[]>('/users/business-roles/catalog')).data,
+  catalog: async (opts?: { silent?: boolean }): Promise<BusinessRoleInfo[]> =>
+    (await apiClient.get<BusinessRoleInfo[]>('/users/business-roles/catalog', opts?.silent ? { silent: true } : undefined)).data,
   userRoles: async (userId: string): Promise<string[]> =>
     (await apiClient.get<{ userId: string; roles: string[] }>(`/users/${encodeURIComponent(userId)}/business-roles`)).data.roles,
-  setUserRoles: async (userId: string, roles: string[]) => {
-    await apiClient.put(`/users/${encodeURIComponent(userId)}/business-roles`, { roles })
+  setUserRoles: async (userId: string, roles: string[], opts?: { silent?: boolean }) => {
+    await apiClient.put(`/users/${encodeURIComponent(userId)}/business-roles`, { roles }, opts?.silent ? { silent: true } : undefined)
   },
   // Представители по доверенности клиентов (флаг в профиле декларанта; complete = есть ФИО/ИИН/удостоверение).
   poaRepresentatives: async (): Promise<{ userId: string; enabled: boolean; complete: boolean }[]> =>

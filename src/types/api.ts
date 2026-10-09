@@ -100,6 +100,19 @@ export interface CatalogSalespersonRow {
   clients: CatalogLinkedPerson[]
 }
 
+// «Команда» (волна 5б): GET /users/team — сотрудники одной выборкой, отсортированы по имени.
+export interface TeamMemberDto {
+  id: string
+  username: string
+  displayName: string | null
+  /** Системный тип аккаунта: administrator / broker / importer / sales (expeditor и client — отдельные вкладки). */
+  systemRole: string
+  businessRoles: string[]
+  createdAtUtc: string
+  isPoaRepresentative: boolean
+  clientCount: number
+}
+
 export type CatalogTabKey = 'administrators' | 'staff' | 'brokers' | 'clients' | 'expeditors' | 'importers' | 'salespersons'
 
 export type CatalogTableRow =
