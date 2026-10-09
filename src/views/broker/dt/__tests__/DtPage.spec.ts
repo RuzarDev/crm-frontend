@@ -507,6 +507,28 @@ describe('DtPage: сохранение и режимы', () => {
     expect(api.updateDeclaration).toHaveBeenCalledTimes(2)
   })
 
+  it('правка: «Печать бланка» сначала сохраняет; сохранение не удалось — бланк не печатается', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const printFromMore = async () => {
+      await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
+      await settle()
+      ;([...document.body.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent?.includes('Печать бланка')) as HTMLElement).click()
+      await settle()
+    }
+    await open()
+    await printFromMore()
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
+    expect(api.updateDeclaration.mock.invocationCallOrder[0]).toBeLessThan(api.blankPdf.mock.invocationCallOrder[0])
+    expect(api.blankPdf).toHaveBeenCalledWith('case1', 'dt1')
+    expect(openSpy).toHaveBeenCalledTimes(1)
+    api.updateDeclaration.mockRejectedValueOnce(Object.assign(new Error('500'), { response: { status: 500 } }))
+    await printFromMore()
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(2)
+    expect(api.blankPdf).toHaveBeenCalledTimes(1)
+    expect(openSpy).toHaveBeenCalledTimes(1)
+    openSpy.mockRestore()
+  })
+
   it('просмотр (закреплена за другим): плашка с ФИО и этапом, печать без PUT, ⌘S не сохраняет', async () => {
     server = caseDto({
       status: 3, assignedDeclarantId: 'other', assignedDeclarantName: 'Сейткали Д.',
