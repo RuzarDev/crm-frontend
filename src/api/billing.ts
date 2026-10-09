@@ -76,6 +76,8 @@ export interface OrganizationSettings {
   vatPayer: boolean
   vatRate: number
   updatedAtUtc: string | null
+  /** Кто сохранил в последний раз (имя сотрудника); старые сервера и пустая запись — без него. */
+  updatedByName?: string | null
 }
 
 /** Реквизиты организации для клиента: куда платить (GET /billing/requisites). */
@@ -147,9 +149,10 @@ export const billingApi = {
   downloadPaymentCheck: async (id: string, fileId: string): Promise<Blob> =>
     (await apiClient.get(`/billing/invoices/${id}/files/${fileId}/download`, { responseType: 'blob' })).data,
 
-  organization: async (): Promise<OrganizationSettings> =>
-    (await apiClient.get<OrganizationSettings>('/settings/organization')).data,
+  // silent — страница «Организация» сама показывает ошибку (одно сообщение, без тоста поверх).
+  organization: async (opts?: { silent?: boolean }): Promise<OrganizationSettings> =>
+    (await apiClient.get<OrganizationSettings>('/settings/organization', opts?.silent ? { silent: true } : undefined)).data,
 
-  saveOrganization: async (data: OrganizationSettings): Promise<OrganizationSettings> =>
-    (await apiClient.put<OrganizationSettings>('/settings/organization', data)).data,
+  saveOrganization: async (data: OrganizationSettings, opts?: { silent?: boolean }): Promise<OrganizationSettings> =>
+    (await apiClient.put<OrganizationSettings>('/settings/organization', data, opts?.silent ? { silent: true } : undefined)).data,
 }

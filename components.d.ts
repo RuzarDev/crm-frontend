@@ -99,6 +99,7 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     RowActions: typeof import('./src/components/broker/RowActions.vue')['default']
+    SaveBar: typeof import('./src/components/broker/SaveBar.vue')['default']
     SelectionBar: typeof import('./src/components/broker/SelectionBar.vue')['default']
     ShellFrame: typeof import('./src/components/shell/ShellFrame.vue')['default']
     ShellSectionTabs: typeof import('./src/components/shell/ShellSectionTabs.vue')['default']
