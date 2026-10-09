@@ -3,6 +3,7 @@ import {
   DECLARING_STATUS,
   canEditDt,
   canManageDeclarations,
+  dtUserFrom,
   isDtReadOnly,
   saveBeforeAction,
   type DtAccessUser,
@@ -14,6 +15,7 @@ const OTHER = 'user-other'
 const user = (over: Partial<DtAccessUser> = {}): DtAccessUser => ({
   isAdmin: false,
   isClient: false,
+  isRop: false,
   canDeclare: false,
   userId: ME,
   ...over,
@@ -51,6 +53,12 @@ describe('dtAccess — редактирование ДТ как на серве�
     expect(canEditDt(declarant, { status: DECLARING_STATUS, assignedDeclarantId: null })).toBe(true)
     expect(canEditDt(declarant, { status: 3 })).toBe(true)
     expect(canEditDt(declarant, { status: DECLARING_STATUS, assignedDeclarantId: OTHER })).toBe(false)
+  })
+
+  it('РОП (решение 09.10): любая ДТ при любом статусе и назначении, даже без права import40.declarant', () => {
+    const rop = user({ isRop: true })
+    for (const status of [0, 2, 4, 8, 9]) expect(canEditDt(rop, { status, assignedDeclarantId: OTHER })).toBe(true)
+    expect(canManageDeclarations(rop)).toBe(true)
   })
 
   it('R3: после выпуска/отмены (статусы 4–9) назначенный декларант правит, как пускает сервер', () => {
@@ -95,5 +103,22 @@ describe('saveBeforeAction — печать/XML без сохранения в �
     const fail = vi.fn().mockResolvedValue(false)
     await expect(saveBeforeAction(false, fail)).resolves.toBe(false)
     expect(fail).toHaveBeenCalledOnce()
+  })
+})
+
+describe('dtUserFrom — пользователь из стора auth / CaseAuth', () => {
+  const src = (o: Record<string, unknown> = {}) => ({ role: 'broker', businessRole: null, businessRoles: [], permissions: [], userId: ME, ...o })
+
+  it('РОП — по любой из бизнес-ролей, а не только по основной', () => {
+    expect(dtUserFrom(src({ businessRole: 'kpp', businessRoles: ['kpp', 'rop'] })).isRop).toBe(true)
+    expect(dtUserFrom(src({ businessRole: 'rop' })).isRop).toBe(true)
+    expect(dtUserFrom(src({ businessRole: 'kpp', businessRoles: ['kpp'] })).isRop).toBe(false)
+  })
+
+  it('право декларанта — из permissions; администратору — всегда; клиент — по системной или бизнес-роли', () => {
+    expect(dtUserFrom(src({ permissions: ['import40.declarant'] })).canDeclare).toBe(true)
+    expect(dtUserFrom(src({ role: 'Administrator' })).canDeclare).toBe(true)
+    expect(dtUserFrom(src({ role: 'client' })).isClient).toBe(true)
+    expect(dtUserFrom(src({ businessRole: 'client' })).isClient).toBe(true)
   })
 })

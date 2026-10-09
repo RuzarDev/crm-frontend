@@ -233,6 +233,9 @@ export interface Import40DeclarationDto {
   // Исходная ДТ после разделения ЕТТ/ВТО (задача 2.4, H5/3.3) — заменена дочерними декларациями,
   // исключена из готовности/пакетной выгрузки, в списке показывается серой.
   isSplitReplaced?: boolean
+  // Оптимистичная блокировка (09.10): строка ISO как пришла с сервера (микросекунды) — НЕ превращать в Date,
+  // иначе точность упадёт до миллисекунд и сервер ответит 409. Редактор шлёт её обратно как expectedUpdatedAtUtc.
+  updatedAtUtc?: string | null
   factPayments?: Import40FactPayment[]
   declarationTypeCode: string
   declarationFeatureCode: string | null
@@ -314,6 +317,8 @@ export type Import40GoodsUpsert = Omit<Import40GoodsItemInput, 'customsValue'> &
 }
 
 export interface Import40DeclarationUpsert {
+  /** Только PUT: updatedAtUtc ДТ, на которой основана правка; не совпало — 409. Нет — без проверки. */
+  expectedUpdatedAtUtc?: string | null
   declarationNumber?: string | null
   corridor?: string | null
   procedureCode?: string | null

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  actionDisabled, actionHint, assignedTag, can, canAssign, canCancel, canCompleteWithoutInvoice, canConfirmSvhWithoutCheck,
+  actionDisabled, actionHint, assignedTag, can, canAssign, canCancel, canCompleteWithoutInvoice, canConfirmSvhWithoutCheck, canEditCaseDt, dtEditHint,
   canIssueAqnietInvoice, canManageDraft, canOpenClient, canProblem, canSeeBilling, canStepBack, casePerms, claimVisible, hintText,
   readinessAvailable, roleModeOf, showProblemAction, stepBlockedBy, stepRoleOf,
 } from '../casePermissions'
@@ -133,5 +133,35 @@ describe('casePermissions: статусы', () => {
     expect(p.stepBlockedBy('declarant')).toEqual({ name: 'Айгерим К.' })
     expect(p.canAssign).toBe(false)
     expect(p.userId).toBe('me')
+  })
+})
+
+describe('canEditCaseDt / dtEditHint — правка ДТ из карточки как на странице ДТ и сервере (решения 09.10)', () => {
+  const k = (status: number, assignedDeclarantId: string | null, assignedDeclarantName: string | null = null) =>
+    caseDto({ status, assignedDeclarantId, assignedDeclarantName })
+
+  it('РОП и админ — любая ДТ при любом статусе и назначении', () => {
+    for (const s of [0, 2, 4, 8, 9]) {
+      expect(canEditCaseDt(USERS.rop, k(s, 'other'))).toBe(true)
+      expect(canEditCaseDt(USERS.admin, k(s, 'other'))).toBe(true)
+    }
+  })
+
+  it('РОП второй ролью и без права import40.declarant в матрице — тоже правит', () => {
+    const kppRop = { ...USERS.kpp, businessRoles: ['kpp', 'rop'] }
+    expect(canEditCaseDt(kppRop, k(4, 'other'))).toBe(true)
+  })
+
+  it('декларант: назначен я или никто — правит и после выпуска; назначен другой — нет, подсказка с именем', () => {
+    expect(canEditCaseDt(USERS.declarant, k(8, 'me'))).toBe(true)
+    expect(canEditCaseDt(USERS.declarant, k(9, null))).toBe(true)
+    expect(canEditCaseDt(USERS.declarant, k(4, 'other'))).toBe(false)
+    expect(dtEditHint(USERS.declarant, k(4, 'other', 'Асель'))).toEqual({ kind: 'busy', name: 'Асель' })
+  })
+
+  it('без права декларанта — нет, подсказка «выполняет декларант»', () => {
+    expect(canEditCaseDt(USERS.kpp, k(2, null))).toBe(false)
+    expect(dtEditHint(USERS.accountant, k(2, null))).toEqual({ kind: 'role', role: 'declarant' })
+    expect(dtEditHint(USERS.declarant, k(2, null))).toBeNull()
   })
 })

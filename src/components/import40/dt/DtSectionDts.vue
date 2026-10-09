@@ -11,12 +11,13 @@
       <div class="dts-actions">
         <!-- Обновить/печать/инф.лист — просмотр, не редактирование: явный :disabled
              нужен, иначе a-form :disabled="readOnly" родителя каскадом гасит кнопки
-             (AntD прокидывает disabled формы в a-button). XML — правка/выгрузка,
-             остаётся под readonly-каскадом как есть. -->
+             (AntD прокидывает disabled формы в a-button). XML — тоже выгрузка, а не правка:
+             сервер отдаёт её всем, кому виден раздел ДТС (CanManageDeclarations), в просмотре —
+             без сохранения (родитель передаёт save, который в просмотре не шлёт PUT). -->
         <a-button :disabled="false" :loading="loading" @click="load">{{ t('dt.dtsObnovit') }}</a-button>
         <a-button :disabled="false" :loading="pdfLoading" @click="printPdf">{{ t('dt.dtsPechat') }}</a-button>
         <a-button :disabled="false" :loading="infoLoading" @click="printInfoSheet">{{ t('dt.dtsInfoSheet') }}</a-button>
-        <a-button type="primary" :loading="xmlLoading" @click="generateXml">{{ t('dt.dtsXml') }}</a-button>
+        <a-button type="primary" :disabled="false" :loading="xmlLoading" @click="generateXml">{{ t('dt.dtsXml') }}</a-button>
       </div>
     </div>
 

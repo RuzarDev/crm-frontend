@@ -31,13 +31,16 @@ vi.mock('@/api/tnved', () => ({ tnvedApi: { currencies: vi.fn().mockResolvedValu
 vi.mock('@/api/import40Contract', () => ({ import40ContractApi: { getProfile: vi.fn().mockRejectedValue(new Error('403')) } }))
 vi.mock('@/stores/classifiers', () => ({ useClassifiersStore: () => ({ loadMany: vi.fn().mockResolvedValue(undefined) }) }))
 
+import { Modal } from 'ant-design-vue'
 import Import40DtView from '../Import40DtView.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const ME = 'user-me'
 
+const STAMP = '2026-10-09T10:00:00.123456Z'
 const decl = {
   id: 'dt-1',
+  updatedAtUtc: STAMP,
   declarationNumber: '',
   goodsItems: [],
   doc44Items: [],
@@ -54,10 +57,11 @@ let w: VueWrapper
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const vm = () => w.vm as any
 
-const mountAs = async (opts: { permissions: string[]; status: number; assigned: string | null }) => {
+const mountAs = async (opts: { permissions: string[]; status: number; assigned: string | null; businessRoles?: string[] }) => {
   const auth = useAuthStore()
   auth.role = 'Employee'
   auth.permissions = opts.permissions
+  auth.businessRoles = opts.businessRoles ?? []
   auth.userId = ME
   api.get.mockResolvedValue(theCase(opts.status, opts.assigned))
   w = mountWithI18n(Import40DtView, {
@@ -134,5 +138,65 @@ describe('Import40DtView — доступ и печать', () => {
     await vm().printBlank()
     await flushPromises()
     expect(api.blankPdf).toHaveBeenCalledOnce()
+  })
+
+  it('XML в просмотре доступен декларанту (сервер пускает по CanManageDeclarations), без сохранения', async () => {
+    await mountAs({ permissions: ['import40.declarant'], status: 2, assigned: 'user-other' })
+    expect(vm().readOnly).toBe(true)
+    expect(w.find('[data-dt-xml]').exists()).toBe(true)
+  })
+
+  it('решение 09.10: РОП (роль rop, даже без права декларанта) правит чужую ДТ после выпуска', async () => {
+    await mountAs({ permissions: ['import40.read'], businessRoles: ['kpp', 'rop'], status: 8, assigned: 'user-other' })
+    expect(vm().readOnly).toBe(false)
+    expect(vm().showDtsSection).toBe(true)
+    expect(api.kedenReadiness).toHaveBeenCalled()
+  })
+})
+
+describe('Import40DtView — оптимистичная блокировка', () => {
+  const conflictError = () => Object.assign(new Error('409'), {
+    response: { status: 409, data: { detail: 'ДТ изменена в другом окне или другим пользователем — перезагрузите' } },
+  })
+
+  it('PUT несёт отметку ДТ, следующий — отметку из ответа сервера', async () => {
+    await mountAs({ permissions: ['import40.declarant'], status: 2, assigned: ME })
+    api.updateDeclaration.mockResolvedValueOnce({ ...decl, updatedAtUtc: '2026-10-09T10:05:00.654321Z' })
+    api.updateDeclaration.mockResolvedValueOnce({ ...decl, updatedAtUtc: '2026-10-09T10:06:00.000001Z' })
+
+    await expect(vm().saveDt(true)).resolves.toBe(true)
+    await expect(vm().saveDt(true)).resolves.toBe(true)
+    expect(api.updateDeclaration.mock.calls[0][2].expectedUpdatedAtUtc).toBe(STAMP)
+    expect(api.updateDeclaration.mock.calls[1][2].expectedUpdatedAtUtc).toBe('2026-10-09T10:05:00.654321Z')
+  })
+
+  it('409: плашка «ДТ изменена в другом окне», без автоповтора и автосейва; «Перезагрузить» перечитывает ДТ', async () => {
+    await mountAs({ permissions: ['import40.declarant'], status: 2, assigned: ME })
+    api.updateDeclaration.mockRejectedValue(conflictError())
+
+    await expect(vm().saveDt(true)).resolves.toBe(false)
+    await flushPromises()
+    expect(vm().conflict).toBe(true)
+    expect(w.find('[data-dt-conflict]').exists()).toBe(true)
+
+    // Правка на экране после 409 не уходит ни автосейвом, ни автоповтором.
+    vm().dtForm.declarationNumber = 'X'
+    await flushPromises()
+    vi.advanceTimersByTime(60_000)
+    await flushPromises()
+    expect(api.updateDeclaration).toHaveBeenCalledOnce()
+    await expect(vm().saveDt()).resolves.toBe(false)
+    expect(api.updateDeclaration).toHaveBeenCalledOnce()
+
+    // Есть несохранённое — сначала подтверждение; «Перезагрузить» — ДТ перечитывается, плашка уходит.
+    const confirm = vi.spyOn(Modal, 'confirm').mockImplementation(((o: { onOk: () => unknown }) => { void o.onOk() }) as never)
+    api.get.mockClear()
+    await vm().reloadAfterConflict()
+    await flushPromises()
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(api.get).toHaveBeenCalledOnce()
+    expect(vm().conflict).toBe(false)
+    expect(vm().dirty).toBe(false)
+    expect(w.find('[data-dt-conflict]').exists()).toBe(false)
   })
 })
