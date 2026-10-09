@@ -1314,7 +1314,7 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   payments?: Import40GoodsPayment[]
   // Товар пришёл из КП без веса/количества (см. KpToDtMapper.MapGoods на бэке) —
   // сумма ТПиН требует пересчёта декларантом. Пробрасываем через форму,
-  // чтобы бейдж и снятие флага (Import40GoodsKedenPanel/calcTpin) переживали save.
+  // чтобы статус «Пересчитать» и снятие флага расчётом (useDtPayments) переживали save.
   needsTpinRecalc?: boolean | null
   // Номер контейнера (гр.31.3), актуален при заполненном признаке контейнерных
   // перевозок гр.19 (containerIndicator на декларации) — Task 1 (бэк).
@@ -1339,8 +1339,8 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   // (гр.33 «О») — Task 1 (бэк)/Task 9 (фронт).
   oisIndicatorCode?: string | null
   // CSV кодов классификатора restriction-marks (С/М/П) — на форме показывается
-  // multi-select, хранится строкой через запятую (см. restrictionMarksArray в
-  // Import40GoodsKedenPanel.vue).
+  // multi-select, хранится строкой через запятую (см. редактор товара ДТ —
+  // views/broker/dt/goods/editor/GoodsGr33Section.vue).
   restrictionMarks?: string | null
   oisRegNumber?: string | null
   oisCountryCode?: string | null

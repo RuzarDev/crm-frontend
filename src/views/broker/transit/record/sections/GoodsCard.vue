@@ -55,7 +55,7 @@ const summary = computed(() => {
 })
 const valueLabel = computed(() => (props.item.currency ? tr('valueIn', { currency: props.item.currency }) : tr('value')))
 
-// ── ТН ВЭД: проверка, «Найти», «Справочник» (те же вызовы, что в ReestrGoodsSection) ──────────────────
+// ── ТН ВЭД: проверка, «Найти», «Справочник» (те же вызовы, что в редакторе товара ДТ) ──────────────────
 const codeError = computed(() => (check.isInvalid(props.item.tnvedCode) ? t('dt.kodaNetVSpravochnikeTnved') : undefined))
 const finding = ref(false)
 const pickerUsed = ref(false)

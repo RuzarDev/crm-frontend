@@ -118,8 +118,8 @@ const emit = defineEmits<{
 }>()
 
 // Коды видов платежа гр.47 → русские названия (см. tax-modes в
-// DatabaseExtensions.cs на бэке) — тот же список, что и в Import40GoodsKedenPanel,
-// намеренно не выносим в общий модуль ради простоты (Task 10, две небольших карты).
+// DatabaseExtensions.cs на бэке). Окно — до волны 6в; подписи раздела «Платежи» товара —
+// views/broker/dt/goods/editor/payments.ts.
 const TAX_MODE_LABELS = computed((): Record<string, string> => ({
 
   '2010': t('dt.poshlina'),

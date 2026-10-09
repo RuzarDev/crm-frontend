@@ -1,5 +1,5 @@
-/* Общие стили прежних разделов ДТ, что ещё остались: «Товары» и ДТС (DtSectionGoods, DtSectionDts) — заменятся
-   в волнах 6б/6в. Остальные разделы ДТ переехали на Z-кит (src/views/broker/dt/sections). */
+/* Стили прежнего раздела ДТ, что ещё остался: ДТС (DtSectionDts) — заменится в волне 6в. Остальные разделы ДТ
+   переехали на Z-кит (src/views/broker/dt/sections, src/views/broker/dt/goods). */
 
 .dt-section-bar {
   display: flex;
