@@ -1874,6 +1874,24 @@ export default {
         keep: 'Keep',
       },
     },
+    // Справочники (редизайн, волна 5а): дерево ТН ВЭД и окно выбора кода.
+    references: {
+      tree: {
+        label: 'HS classifier',
+        loadError: 'Could not load',
+        retry: 'Retry',
+        empty: 'The classifier is empty for now',
+      },
+      picker: {
+        tree: 'Tree',
+        results: 'Search',
+        searchLabel: 'Product code or name',
+        loadError: 'Could not load',
+        limit: 'Too many requests, try again in a minute',
+        retry: 'Retry',
+        digits10: '10 digits',
+      },
+    },
   },
   // Клиентский раздел «Мои поставки» (редизайн, волна 2a).
   client: {

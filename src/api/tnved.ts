@@ -35,8 +35,9 @@ const quiet = (o?: TnvedRequestOptions) => (o?.silent ? { silent: true } : {})
 
 export const tnvedApi = {
   // ── Import tree ─────────────────────────────────────────────────────────────
-  children: (parentId = 0) =>
-    apiClient.get<TnvedNodeDto[]>('/tnved/children', { params: { parentId } }),
+  /** silent — без тоста перехватчика (корень дерева показывает ошибку сам). */
+  children: (parentId = 0, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedNodeDto[]>('/tnved/children', { params: { parentId }, ...quiet(opts) }),
 
   /** silent — без тоста перехватчика (проверка кода у поля: «кода нет» показывает само поле). */
   node: (code: string, opts?: TnvedRequestOptions) =>
@@ -63,8 +64,8 @@ export const tnvedApi = {
       : apiClient.get<TnvedRateDto>(`/tnved/node/${encodeURIComponent(code)}/rates`),
 
   // ── Reference (нетарифка / справка по товару) ──────────────────────────────
-  reference: (code: string) =>
-    apiClient.get<TnvedReferenceDto>(`/tnved/node/${encodeURIComponent(code)}/reference`),
+  reference: (code: string, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedReferenceDto>(`/tnved/node/${encodeURIComponent(code)}/reference`, quiet(opts)),
 
   // ── Export reference (вывоз: ставка + нетарифка по направлению OUT) ────────
   exportReference: (code: string) =>
