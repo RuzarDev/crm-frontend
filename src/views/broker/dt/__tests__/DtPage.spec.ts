@@ -86,7 +86,6 @@ const stubs = {
   SectionDocs: sectionStub('SectionDocs'),
   SectionDts: sectionStub('SectionDts'),
   SectionClosing: sectionStub('SectionClosing'),
-  Import40FactPaymentsSection: { template: '<div data-fact-payments />' },
 }
 
 const App = defineComponent({ render: () => h(RouterView) })
@@ -243,6 +242,8 @@ describe('DtPage: разделы и ?s=', () => {
     await settle()
     expect(w.get('[data-dt-payments]').find('[data-dt-fact-payments]').exists()).toBe(true)
     expect(w.find('[data-payments-calc]').exists()).toBe(true)
+    // гр. В сохранённой ДТ — в таблице (строка 1010)
+    expect(w.findAll('[data-dt-fact-payments] [data-fact-row]').map((r) => r.attributes('data-fact-row'))).toEqual(['1010'])
   })
 })
 
@@ -1198,14 +1199,16 @@ describe('DtPage: раздел «Платежи» (волна 6в)', () => {
     expect(w.findAll('[data-payments-goods]')).toHaveLength(6)
   })
 
-  it('пункт гр. В «До подачи» — фактические платежи', async () => {
+  it('пункт гр. В «До подачи» — таблица фактических платежей, фокус в первой строке', async () => {
     const text = 'гр.B: нет фактических платежей'
     api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: 'В', goodsIndex: null }] }))
     await open('?s=goods')
     await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
     await settle()
     expect(router.currentRoute.value.query).toEqual({ s: 'payments' })
-    expect(w.get('[data-dt-fact-payments]').attributes('data-dt-flash')).toBeDefined()
+    const rows = w.get('[data-fact-rows]')
+    expect(rows.attributes('data-dt-flash')).toBeDefined()
+    expect(rows.get('[data-fact-row]').element.contains(document.activeElement)).toBe(true)
   })
 
   it('«Медизделие — НДС 5%» в карточке: «Пересчитать» у товара, предпросмотр сброшен («Записать» недоступно), НДС — в PUT', async () => {
@@ -1235,6 +1238,23 @@ describe('DtPage: раздел «Платежи» (волна 6в)', () => {
     await settle()
     const body = api.updateDeclaration.mock.calls.at(-1)![2] as { goodsItems: { vatRatePreferential: number | null; needsTpinRecalc: boolean }[] }
     expect(body.goodsItems[0]).toMatchObject({ vatRatePreferential: null, needsTpinRecalc: true })
+  })
+
+  it('(§5-1) после «Записать» гр. В в таблице — новые суммы; правка плательщика их не откатывает (в PUT — новые)', async () => {
+    await open('?s=payments')
+    await calcFromHeader()
+    await w.get('[data-payments-apply]').trigger('click')
+    await settle()
+    expect(w.findAll('[data-fact-row]').map((r) => r.attributes('data-fact-row'))).toEqual(['1010', '5060'])
+    expect((w.get('[data-fact-row="1010"] input[data-fact="amount"]').element as HTMLInputElement).value).toMatch(/^8\s650$/)
+    const payer = w.get('[data-fact-row="5060"] input[data-fact="payer"]').element as HTMLInputElement
+    payer.value = '201140012345'
+    payer.dispatchEvent(new Event('input'))
+    await settle()
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    const body = api.updateDeclaration.mock.calls.at(-1)![2] as { factPayments: { taxModeCode: string; amount: number; payerTaxpayerId: string | null }[] }
+    expect(body.factPayments.map((p) => [p.taxModeCode, p.amount, p.payerTaxpayerId])).toEqual([['1010', 8650, '123'], ['5060', 84000, '201140012345']])
   })
 
   it('«Открыть товар →» в карточке с ошибкой расчёта — редактор этого товара', async () => {

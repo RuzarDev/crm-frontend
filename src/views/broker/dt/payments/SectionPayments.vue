@@ -4,13 +4,13 @@ import { useI18n } from 'vue-i18n'
 import { PhCalculator } from '@phosphor-icons/vue'
 import ZAlert from '@/components/z/ZAlert.vue'
 import ZButton from '@/components/z/ZButton.vue'
-import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
 import { formatNumberIn } from '@/ui/number'
 import type { Import40GoodsItemInput } from '@/types/api'
 import type { DtFormState } from '../dtPayload'
 import { formatItemNumbers } from '../goods/goodsList'
 import type { DtGoodsModel } from '../goods/useDtGoods'
 import type { DtPayments } from '../useDtPayments'
+import FactPaymentsTable from './FactPaymentsTable.vue'
 import PaymentsGoodsCard from './PaymentsGoodsCard.vue'
 import PaymentsTotalsCard from './PaymentsTotalsCard.vue'
 import { factVsGoodsDiff } from './paymentsModel'
@@ -25,7 +25,7 @@ import { MEDICAL_VAT, paymentsGoodsEntries, staleGoodsIndexes } from './payments
 //   остальные свёрнуты «Ещё N … · показать все» (200 товаров открываются быстро); до 5 товаров видны все. «До подачи» раскрывает нужную
 //   карточку событием payments-reveal на корне раздела (detail.index — позиция товара).
 // - «Итого по видам» — здесь только на узких (totalsInline), на ≥ 1280 — правая колонка страницы.
-// - Фактические платежи гр. В — пока прежняя таблица.
+// - Фактические платежи гр. В — таблица прямо по form.factPayments.
 // Просмотр: без «Рассчитать», «Записать» и правок; суммы и таблица видны.
 const props = defineProps<{
   form: DtFormState
@@ -172,11 +172,6 @@ const onReveal = (e: Event) => {
       </span>
     </ZAlert>
 
-    <section class="flex flex-col gap-3" data-dt-fact-payments data-graph="В">
-      <h3 class="m-0 text-[14px] font-semibold text-ink">
-        {{ tp('fact.title') }} <span class="font-mono text-xs font-normal text-muted">{{ t('broker.dt.nav.graphs', { list: 'В' }) }}</span>
-      </h3>
-      <Import40FactPaymentsSection v-model="form.factPayments" :readonly="readonly" />
-    </section>
+    <FactPaymentsTable :form="form" :readonly="readonly" />
   </section>
 </template>

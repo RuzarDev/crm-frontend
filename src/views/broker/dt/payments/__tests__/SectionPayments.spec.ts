@@ -74,7 +74,6 @@ function setup(o: { goods?: Import40GoodsItemInput[]; fact?: Import40FactPayment
   w = mountWithI18n(SectionPayments, {
     props: { form, payments, goods, readonly: !!o.readonly, totalsInline: true },
     attachTo: document.body,
-    global: { stubs: { Import40FactPaymentsSection: { props: ['modelValue', 'readonly'], template: '<div data-fact-payments :data-readonly="String(readonly)" />' } } },
   })
   return { form, payments, goods, save, w: w as VueWrapper }
 }
@@ -235,7 +234,9 @@ describe('SectionPayments: карточки и плашки', () => {
     expect(w.find('[data-payments-apply]').exists()).toBe(false)
     expect(w.get('[data-payments-medical]').attributes('disabled')).toBeDefined()
     expect(w.get('[data-payments-total="1010"]').text()).toMatch(/2\s500\s₸/)
-    expect(w.get('[data-fact-payments]').attributes('data-readonly')).toBe('true')
+    expect(w.findAll('[data-fact-row]')).toHaveLength(1)
+    expect(w.find('[data-fact-add]').exists()).toBe(false)
+    expect(w.get('[data-fact="amount"]').attributes('disabled')).toBeDefined()
   })
 })
 
@@ -269,5 +270,27 @@ describe('SectionPayments: 200 товаров', () => {
     console.info(`[perf 200 goods, jsdom] mount ${mountMs.toFixed(0)} ms, edit with live preview ${editMs.toFixed(1)} ms, show all ${showAllMs.toFixed(0)} ms`)
     expect(mountMs).toBeLessThan(1500)
     expect(editMs).toBeLessThan(100)
+  })
+})
+
+describe('SectionPayments: гр. В после «Записать» (§5-1)', () => {
+  it('таблица сразу показывает новые суммы и новую строку, правка строки их не откатывает', async () => {
+    const { w, form } = setup({ goods: [goodsItem({ needsTpinRecalc: true })], fact: [fact('5060', 100, { payerTaxpayerId: '111' })] })
+    await settle()
+    const amountOf = (code: string) => (w.get(`[data-fact-row="${code}"] input[data-fact="amount"]`).element as HTMLInputElement).value
+    expect(amountOf('5060')).toBe('100')
+    await w.get('[data-payments-calc]').trigger('click')
+    await settle()
+    await w.get('[data-payments-apply]').trigger('click')
+    await settle()
+    expect(w.findAll('[data-fact-row]').map((r) => r.attributes('data-fact-row'))).toEqual(['5060', '1010'])
+    expect(amountOf('5060')).toMatch(/^84\s000$/)
+    expect(amountOf('1010')).toMatch(/^8\s650$/)
+    const payer = w.get('[data-fact-row="5060"] input[data-fact="payer"]').element as HTMLInputElement
+    payer.value = '201140012345'
+    payer.dispatchEvent(new Event('input'))
+    await settle()
+    expect(form.factPayments.map((p) => [p.taxModeCode, p.amount, p.payerTaxpayerId])).toEqual([['5060', 84000, '201140012345'], ['1010', 8650, null]])
+    expect(amountOf('5060')).toMatch(/^84\s000$/)
   })
 })
