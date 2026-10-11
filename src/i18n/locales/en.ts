@@ -72,8 +72,6 @@ export default {
     export: 'Export',
     loading: 'Loading…',
     clear: 'Clear',
-    yes: 'Yes',
-    no: 'No',
   },
   registration: {
     title: 'Complete registration to submit requests',

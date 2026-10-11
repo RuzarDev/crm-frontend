@@ -33,7 +33,8 @@ describe('goodsStatus: признак «платежи устарели»', () =
   })
 
   it('PAYMENT_FIELDS: все поля товара, которые уходят в расчёт платежей, + гр. 36 ×4', () => {
-    // поля товара, которые сервер берёт для расчёта платежей из сохранённой ДТ (вход calculate-payments)
+    // поля товара, которые сервер берёт для расчёта платежей из сохранённой ДТ (вход calculate-payments).
+    // Список СТАТИЧЕСКИЙ (раньше сверялся с toPaymentsInput): при новом входном поле расчёта обновить его вручную и PAYMENT_FIELDS.
     const inputToItem: Record<string, keyof Import40GoodsItemInput> = {
       tnvedCode: 'tnvedCode', invoiceValue: 'customsValue', currency: 'currency', grossWeightKg: 'grossWeightKg',
       quantity: 'quantity', vatRatePreferential: 'vatRatePreferential', tempImportMonths: 'tempImportMonths',

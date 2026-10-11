@@ -72,8 +72,6 @@ export default {
     export: 'Экспорт',
     loading: 'Жүктелуде…',
     clear: 'Тазалау',
-    yes: 'Иә',
-    no: 'Жоқ',
   },
   registration: {
     title: 'Өтінім беру үшін тіркеуді аяқтаңыз',

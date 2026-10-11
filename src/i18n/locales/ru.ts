@@ -74,8 +74,6 @@ export default {
     export: 'Экспорт',
     loading: 'Загрузка…',
     clear: 'Очистить',
-    yes: 'Да',
-    no: 'Нет',
   },
   registration: {
     title: 'Завершите регистрацию, чтобы подавать заявки',
