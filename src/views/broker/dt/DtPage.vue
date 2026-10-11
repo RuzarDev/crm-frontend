@@ -501,8 +501,9 @@ onBeforeUnmount(() => {
   headerObserver?.disconnect()
 })
 
-// ДТС перечитывается при каждом входе в раздел (кроме загрузки и сохранений — их ведёт onLoaded/onSaved).
-watch(active, (k, prev) => { if (k === 'dts' && prev !== 'dts') void dts.refresh() })
+// ДТС перечитывается при каждом входе в раздел (загрузку и сохранения ведут onLoaded/onSaved); идёт загрузка после
+// сохранения — вход ждёт её, второго запроса нет.
+watch(active, (k, prev) => { if (k === 'dts' && prev !== 'dts') void dts.refresh({ reuse: true }) })
 // Справочник расходов — подписи статей добавочного листа ДТС.
 const expenseLabels = computed(() => Object.fromEntries(expenseTypeOptions.value.map((o) => [String(o.value), o.label])))
 // На «ДТС» правой колонки нет (добавочный лист — на всю ширину): «До подачи» — кнопкой в шапке и на широком экране.

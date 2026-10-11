@@ -1017,6 +1017,43 @@ describe('DtPage: ДТС', () => {
   const dtsGets = () => dts.get.mock.calls.length
   const savedToast = () => toast.success.mock.calls.some(([m]) => m === 'ДТ сохранена')
 
+  it('один GET …/dts: при загрузке, на каждое сохранение и на каждый вход — и при открытом разделе (§5-8)', async () => {
+    dts.get.mockResolvedValue(dtsView())
+    await open('?s=dts', ['SectionDts'])
+    expect(dtsGets()).toBe(1)
+    expect(dts.get).toHaveBeenCalledWith('case1', 'dt1', { silent: true })
+    // Раздел и навигация — из одного ответа: в плашке и в числе раздела только пункты ДТС, пункт ДТ — числом.
+    expect(w.findAll('[data-dts-missing-item]').map((i) => i.text())).toEqual(['ДТС: не указано место для гр.17 (Условия поставки и финансы)'])
+    expect(navItem('dts').get('[data-dt-nav-count]').text()).toBe('1')
+    expect(w.get('[data-dts-dt-missing]').text()).toContain('не хватает 1')
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
+    expect(dtsGets()).toBe(2)
+    await navItem('docs').trigger('click')
+    await settle()
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(dtsGets()).toBe(3) // сохранение вне раздела — отметка и «До подачи» тоже свежие
+    await navItem('dts').trigger('click')
+    await settle()
+    expect(dtsGets()).toBe(4) // вход в раздел
+    // Вход в раздел, пока идёт загрузка после сохранения, — тот же запрос, а не второй.
+    await navItem('docs').trigger('click')
+    await settle()
+    let release!: (v: unknown) => void
+    dts.get.mockImplementationOnce(() => new Promise((r) => { release = r }))
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(dtsGets()).toBe(5)
+    await navItem('dts').trigger('click')
+    await settle()
+    expect(dtsGets()).toBe(5)
+    release(dtsView({ items: [], missing: [] }))
+    await settle()
+    expect(w.find('[data-dts-missing]').exists()).toBe(false)
+  })
+
   it('правой колонки нет — «До подачи» кнопкой в шапке и на широком экране; ссылка из плашки открывает панель', async () => {
     dts.get.mockResolvedValue(dtsView())
     await open('?s=dts', ['SectionDts'])

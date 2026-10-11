@@ -5,6 +5,7 @@
 //   сам не грузит: прежде он делал свой GET, и при открытом разделе каждое сохранение давало два запроса (§5-8).
 //   Без права декларанта или у ДТ, заменённой разделением (enabled = false), — без запроса.
 //   Ответы по порядку: ответ устаревшего запроса (после reset или более нового запроса) состояние не меняет.
+//   Вход в раздел, пока идёт загрузка (сразу после сохранения), — тот же запрос, а не второй (refresh({ reuse })).
 //   Не загрузилось — прежний лист остаётся (раздел говорит, что он не обновлён), отметки раздела — «неизвестно».
 // - Пункты: раздел и «До подачи» показывают только пункты самой ДТС (Graph «ДТС»); пункты ДТ из того же ответа —
 //   только числом («XML ДТС требует и готовности ДТ»), их показывает готовность ДТ (§5-7).
@@ -50,26 +51,20 @@ export function useDts(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGetter<
   const recalcLoading = ref(false)
 
   let seq = 0
+  /** Идущая загрузка (для reuse). */
+  let pending: Promise<void> | null = null
 
   /** Новая ДТ или перезагрузка: прежний ответ не показываем, идущий запрос не применяем. */
   const reset = () => {
     seq += 1
+    pending = null
     view.value = null
     failed.value = false
     loading.value = false
     xmlErrors.value = null
   }
 
-  const refresh = async (): Promise<void> => {
-    const my = ++seq
-    xmlErrors.value = null
-    if (!toValue(opts.enabled)) {
-      view.value = null
-      failed.value = false
-      loading.value = false
-      return
-    }
-    loading.value = true
+  const load = async (my: number): Promise<void> => {
     try {
       const v = await dtsApi.get(toValue(caseId), toValue(dtId), { silent: true })
       if (my !== seq) return
@@ -78,8 +73,31 @@ export function useDts(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGetter<
     } catch {
       if (my === seq) failed.value = true
     } finally {
-      if (my === seq) loading.value = false
+      if (my === seq) {
+        loading.value = false
+        pending = null
+      }
     }
+  }
+
+  /**
+   * Перечитать ДТС. reuse — если загрузка уже идёт (её начало сохранение или загрузка ДТ), дождаться её, а не
+   * спрашивать снова: она не старше последнего сохранения.
+   */
+  const refresh = (o: { reuse?: boolean } = {}): Promise<void> => {
+    if (o.reuse && pending) return pending
+    const my = ++seq
+    xmlErrors.value = null
+    if (!toValue(opts.enabled)) {
+      pending = null
+      view.value = null
+      failed.value = false
+      loading.value = false
+      return Promise.resolve()
+    }
+    loading.value = true
+    pending = load(my)
+    return pending
   }
 
   /** Пункты самой ДТС (число и галочка раздела «ДТС», строки «До подачи»); null — ответа нет. */

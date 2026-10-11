@@ -78,6 +78,20 @@ describe('useDts: загрузка', () => {
     expect(d.view.value).toBeNull()
   })
 
+  it('refresh({ reuse }) во время загрузки — тот же запрос (вход в раздел сразу после сохранения); без загрузки — новый', async () => {
+    const pending = deferred<unknown>()
+    dtsApi.get.mockReturnValueOnce(pending.promise)
+    const { d } = setup()
+    const a = d.refresh()
+    const b = d.refresh({ reuse: true })
+    expect(dtsApi.get).toHaveBeenCalledTimes(1)
+    pending.resolve(dtsView({ mismatchGoods: [3] }))
+    await Promise.all([a, b])
+    expect([...d.mismatch.value]).toEqual([3])
+    await d.refresh({ reuse: true })
+    expect(dtsApi.get).toHaveBeenCalledTimes(2)
+  })
+
   it('ошибка: прежний лист остаётся (failed), пункты — неизвестно', async () => {
     const { d } = setup()
     await d.refresh()
