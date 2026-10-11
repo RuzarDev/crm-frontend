@@ -233,7 +233,7 @@ describe('DtPage: разделы и ?s=', () => {
   it('«Платежи» (гр. 47, В) — между «Товарами» и «Документами», с фактическими платежами гр. В; в «Завершении» их нет', async () => {
     await open('?s=closing')
     expect(stub()).toBe('SectionClosing')
-    expect(w.find('[data-fact-payments]').exists()).toBe(false)
+    expect(w.find('[data-dt-fact-payments]').exists()).toBe(false)
     const nav = w.findAll('[data-dt-nav-item]').map((a) => a.attributes('data-dt-nav-item'))
     expect(nav.slice(nav.indexOf('goods'), nav.indexOf('goods') + 3)).toEqual(['goods', 'payments', 'docs'])
     expect(navItem('payments').text()).toContain('гр. 47, В')
@@ -241,7 +241,7 @@ describe('DtPage: разделы и ?s=', () => {
     expect(navItem('closing').text()).toContain('гр. 48, 52, 54')
     await navItem('payments').trigger('click')
     await settle()
-    expect(w.get('[data-dt-payments]').find('[data-fact-payments]').exists()).toBe(true)
+    expect(w.get('[data-dt-payments]').find('[data-dt-fact-payments]').exists()).toBe(true)
     expect(w.find('[data-payments-calc]').exists()).toBe(true)
   })
 })
@@ -894,7 +894,9 @@ describe('DtPage: события прежних разделов', () => {
     expect(router.currentRoute.value.query.s).toBe('payments')
     expect(api.calculatePayments).toHaveBeenCalledTimes(1)
     expect(w.find('[data-payments-preview]').exists()).toBe(true)
-    expect(w.get('[data-payments-issues]').text()).toBe('Товар 1: Нет кода ТН ВЭД')
+    // ошибка расчёта — в карточке товара, товар — в списке «не пересчитаны»
+    expect(w.get('[data-payments-goods][data-goods-index="0"] [data-payments-goods-issue]').text()).toContain('Нет кода ТН ВЭД — платежи не рассчитаны')
+    expect(w.get('[data-payments-not-recalculated]').text()).toContain('товары 1')
   })
 
   it('авто гр. 16: разные страны происхождения у товаров — «000»', async () => {
@@ -937,7 +939,13 @@ describe('DtPage: события прежних разделов', () => {
     expect(w.find('[data-dt-payments]').exists()).toBe(true)
     expect(w.find('[data-payments-calc]').exists()).toBe(false)
     expect(w.find('[data-dt-calc-payments]').exists()).toBe(false)
-    expect(w.find('[data-fact-payments]').exists()).toBe(true)
+    // суммы и таблица видны, правок нет
+    expect(w.find('[data-dt-fact-payments]').exists()).toBe(true)
+    expect(w.find('[data-fact-add]').exists()).toBe(false)
+    expect(w.find('[data-fact-remove]').exists()).toBe(false)
+    expect(w.get('[data-payments-total="1010"]').text()).toMatch(/3\s₸/)
+    expect(w.get('[data-payments-medical]').attributes('disabled')).toBeDefined()
+    expect(w.find('[data-payments-recalc]').exists()).toBe(false)
   })
 })
 
@@ -1149,5 +1157,121 @@ describe('DtPage: ДТС', () => {
     expect(w.find('[data-dt-dts]').exists()).toBe(true)
     expect(dts.get).not.toHaveBeenCalled()
     expect(w.find('[data-dts-skeleton]').exists()).toBe(false)
+  })
+})
+
+describe('DtPage: раздел «Платежи» (волна 6в)', () => {
+  const calcRes = () => ({
+    goodsRows: [{ index: 0, rows: [{ taxModeCode: '1010', amount: 8650 }, { taxModeCode: '5060', amount: 84000, base: 700000, rate: 12 }] }],
+    totalsByTaxMode: { 1010: 8650, 5060: 84000 },
+    grandTotalB: 92650,
+  })
+  beforeEach(() => {
+    api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 700000 }] })
+    api.calculatePayments.mockImplementation(async () => calcRes())
+  })
+  const calcFromHeader = async () => {
+    await w.get('[data-dt-calc-payments]').trigger('click')
+    await settle()
+  }
+
+  it('пункт гр. 47 «До подачи» — карточка того же товара (по снимку ответа после несохранённого удаления); свёрнутая раскрывается', async () => {
+    const clean = fullGoodsDto({ needsTpinRecalc: false })
+    server = caseDto({
+      status: 2, assignedDeclarantId: 'me',
+      declarations: [fullDto({ splitRole: null, goodsItems: ['ПЕРВЫЙ', 'ВТОРОЙ', 'ТРЕТИЙ', '4', '5', '6', '7'].map((description) => ({ ...clean, description })) })],
+    })
+    const text = 'Товар 3: нет ни одной строки платежа (гр.47)'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '47', goodsIndex: 2 }] }))
+    await open('?s=goods')
+    await w.get('[data-goods-remove-first]').trigger('click')
+    await settle()
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toEqual({ s: 'payments' })
+    // товары без замечаний свёрнуты (их больше 5); «Товар 3» ответа теперь на позиции 1 — раскрыта только его карточка
+    expect(w.findAll('[data-payments-goods]').map((c) => c.attributes('data-goods-index'))).toEqual(['1'])
+    expect(w.get('[data-payments-goods][data-goods-index="1"]').text()).toContain('ТРЕТИЙ')
+    expect(w.get('[data-payments-goods][data-goods-index="1"] [data-graph="47"]').attributes('data-dt-flash')).toBeDefined()
+    expect(w.get('[data-payments-more]').text()).toContain('Ещё 5 тов.')
+    await w.get('[data-payments-show-all]').trigger('click')
+    expect(w.findAll('[data-payments-goods]')).toHaveLength(6)
+  })
+
+  it('пункт гр. В «До подачи» — фактические платежи', async () => {
+    const text = 'гр.B: нет фактических платежей'
+    api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: 'В', goodsIndex: null }] }))
+    await open('?s=goods')
+    await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toEqual({ s: 'payments' })
+    expect(w.get('[data-dt-fact-payments]').attributes('data-dt-flash')).toBeDefined()
+  })
+
+  it('«Медизделие — НДС 5%» в карточке: «Пересчитать» у товара, предпросмотр сброшен («Записать» недоступно), НДС — в PUT', async () => {
+    await open()
+    // записанный расчёт — платежи свежие
+    await calcFromHeader()
+    await w.get('[data-payments-apply]').trigger('click')
+    await settle()
+    expect(navItem('payments').find('[data-dt-nav-stale]').exists()).toBe(false)
+    await calcFromHeader()
+    expect(w.get('[data-dt-payments]').attributes('data-state')).toBe('preview')
+    // предпросмотр: суммы расчёта в карточке с пометкой «расчёт, не записан»
+    const line = w.get('[data-payments-goods][data-goods-index="0"] [data-payments-line="5060"]')
+    expect(line.attributes('data-fresh')).toBeDefined()
+    expect(line.text()).toMatch(/84\s000,00/)
+    expect(line.text()).toContain('расчёт, не записан')
+    const medical = () => w.get('[data-payments-goods][data-goods-index="0"] [data-payments-medical]')
+    expect(medical().attributes('aria-checked')).toBe('true') // фикстура: НДС 5%
+    ;(medical().element as HTMLElement).click()
+    await settle()
+    expect(medical().attributes('aria-checked')).toBe('false')
+    expect(w.get('[data-dt-payments]').attributes('data-state')).toBe('stale-preview')
+    expect(w.find('[data-payments-changed]').exists()).toBe(true)
+    expect(w.get('[data-payments-apply]').attributes('disabled')).toBeDefined()
+    expect(navItem('payments').find('[data-dt-nav-stale]').exists()).toBe(true)
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    const body = api.updateDeclaration.mock.calls.at(-1)![2] as { goodsItems: { vatRatePreferential: number | null; needsTpinRecalc: boolean }[] }
+    expect(body.goodsItems[0]).toMatchObject({ vatRatePreferential: null, needsTpinRecalc: true })
+  })
+
+  it('«Открыть товар →» в карточке с ошибкой расчёта — редактор этого товара', async () => {
+    api.calculatePayments.mockResolvedValue({ goodsRows: [{ index: 0, rows: [], error: 'Укажите код ТНВЭД и стоимость' }], totalsByTaxMode: {}, grandTotalB: 0 })
+    await open()
+    await calcFromHeader()
+    await w.get('[data-payments-goods][data-goods-index="0"] [data-payments-open-goods]').trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toEqual({ s: 'goods', item: '1' })
+  })
+
+  it('≥ 1280: «Итого по видам» — в правой колонке вместо «До подачи» (в разделе — нет), «До подачи» — кнопкой в шапке', async () => {
+    const mm = vi.fn((q: string) => ({ matches: q.includes('80rem'), media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }))
+    vi.stubGlobal('matchMedia', mm)
+    try {
+      await open('?s=payments')
+      const aside = w.get('[data-dt-panel-aside]')
+      expect(aside.find('[data-payments-totals]').exists()).toBe(true)
+      expect(aside.find('[data-dt-panel-readiness]').exists()).toBe(false)
+      expect(w.get('[data-dt-section]').find('[data-payments-totals]').exists()).toBe(false)
+      expect(w.get('[data-dt-panel-toggle]').classes()).not.toContain('xl:hidden')
+      await navItem('docs').trigger('click')
+      await settle()
+      expect(w.get('[data-dt-panel-aside]').find('[data-dt-panel-readiness]').exists()).toBe(true)
+      expect(w.get('[data-dt-panel-toggle]').classes()).toContain('xl:hidden')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('уже 1280: «Итого по видам» — в разделе над фактическими платежами; сверка гр. 47 ↔ гр. В', async () => {
+    await open('?s=payments')
+    const section = w.get('[data-dt-payments]')
+    const html = section.html()
+    expect(html.indexOf('data-payments-totals')).toBeGreaterThan(-1)
+    expect(html.indexOf('data-payments-totals')).toBeLessThan(html.indexOf('data-dt-fact-payments'))
+    // гр. 47 фикстуры: 1010 = 3 ₸, гр. В: 1010 = 20 000 ₸ — расходятся
+    expect(section.get('[data-payments-diff-code="1010"]').text()).toMatch(/гр\. 47 — 3 ₸, гр\. В — 20\s000 ₸/)
   })
 })

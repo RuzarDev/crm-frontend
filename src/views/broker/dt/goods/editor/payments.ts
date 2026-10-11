@@ -7,8 +7,11 @@ const TAX_MODE_PRIORITY: Record<string, number> = { '1010': 0, '2010': 1, '5060'
 const priority = (code: string | null | undefined) =>
   (code != null && code in TAX_MODE_PRIORITY ? TAX_MODE_PRIORITY[code] : 99)
 
-/** Строки в порядке показа (копия массива, сами строки — те же объекты; сортировка устойчивая). */
-export const sortPayments = (payments: readonly Import40GoodsPayment[] | null | undefined): Import40GoodsPayment[] =>
+/**
+ * Строки в порядке показа (копия массива, сами строки — те же объекты; сортировка устойчивая). Годится и для строк
+ * расчёта (раздел «Платежи»: предпросмотр) — у них тот же код вида.
+ */
+export const sortPayments = <T extends { taxModeCode?: string | null }>(payments: readonly T[] | null | undefined): T[] =>
   [...(payments ?? [])].sort((a, b) => priority(a.taxModeCode) - priority(b.taxModeCode))
 
 /**
