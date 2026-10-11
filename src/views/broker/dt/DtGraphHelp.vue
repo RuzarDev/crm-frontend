@@ -70,7 +70,7 @@ const canOpenGuide = computed(() => canManageDeclarations(dtUserFrom(auth)))
       <RouterLink
         v-if="canOpenGuide"
         :to="{ path: '/dt-guide', query: { graph } }"
-        class="w-fit rounded-field text-sm font-medium text-zircon-ink outline-hidden underline-offset-2 underline focus-visible:shadow-focus"
+        class="w-fit rounded-field text-sm font-medium text-zircon-ink outline-hidden underline-offset-2 hover:underline focus-visible:shadow-focus"
         data-dt-guide-link
       >{{ t('broker.dt.guide.open', { n: graph }) }}</RouterLink>
     </div>

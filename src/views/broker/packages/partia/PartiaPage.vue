@@ -392,7 +392,7 @@ const fileChip = 'inline-flex max-w-full min-h-8 items-center gap-1.5 rounded-pi
       </ZAlert>
       <ZAlert v-if="createdLost" type="error" show-icon :message="t('broker.partia.page.saveError')" data-partia-created-lost>
         {{ saveError ?? t('broker.partia.errors.createdNotFound') }}
-        <RouterLink :to="workspacePath" class="font-semibold text-zircon-ink underline-offset-2 underline">{{ t('broker.partia.page.toWorkspace') }}</RouterLink>
+        <RouterLink :to="workspacePath" class="font-semibold text-zircon-ink underline-offset-2 hover:underline">{{ t('broker.partia.page.toWorkspace') }}</RouterLink>
         <template v-if="canEdit" #action>
           <ZButton size="sm" :loading="saving" :disabled="busy" class="max-sm:h-11" data-partia-refresh @click="onRecover">{{ t('broker.partia.page.refresh') }}</ZButton>
         </template>

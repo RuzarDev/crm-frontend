@@ -27,7 +27,7 @@ const updated = computed(() => formatUpdated(props.state?.data?.updatedAtUtc, lo
             :href="l.url"
             target="_blank"
             rel="noopener noreferrer"
-            class="inline-flex min-h-8 items-center gap-1 rounded-field text-zircon-ink underline-offset-2 outline-hidden underline focus-visible:shadow-focus max-sm:min-h-11"
+            class="inline-flex min-h-8 items-center gap-1 rounded-field text-zircon-ink underline-offset-2 outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
           >{{ t(l.key) }}<PhArrowSquareOut :size="13" aria-hidden="true" /></a>
         </li>
       </ul>

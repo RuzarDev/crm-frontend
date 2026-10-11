@@ -45,7 +45,7 @@ void vto.load()
 const open = ref<string[]>([])
 const sectionKey = (name: string, i: number) => `${i}:${name}`
 
-const codeLink = 'inline-flex min-h-7 shrink-0 items-center rounded-field font-mono text-[12.5px] tabular-nums text-zircon-ink underline-offset-2 outline-hidden underline focus-visible:shadow-focus max-sm:min-h-11'
+const codeLink = 'inline-flex min-h-7 shrink-0 items-center rounded-field font-mono text-[12.5px] tabular-nums text-zircon-ink underline-offset-2 outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11'
 const treeTo = (code: string) => ({ path: '/tnved/tree', query: { code } })
 </script>
 
