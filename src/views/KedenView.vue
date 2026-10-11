@@ -48,7 +48,9 @@ const reload = async () => {
   loading.value = true
   failed.value = false
   try {
-    declaration.value = await kedenApi.get(route.params.id as string)
+    // Без карточки на экране ошибку рисует плашка с повтором (тихий запрос); «Обновить» поверх карточки — с тостом.
+    const first = !declaration.value
+    declaration.value = await kedenApi.get(route.params.id as string, first ? { silent: true } : undefined)
   } catch {
     // Карточка уже была на экране — остаётся как есть (ошибку покажет общий перехватчик); иначе — плашка с повтором.
     failed.value = true

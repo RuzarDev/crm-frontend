@@ -43,7 +43,7 @@ describe('KedenView', () => {
     expect(w.find('[data-keden-card]').exists()).toBe(false)
     resolve(dto())
     await flushPromises()
-    expect(api.get).toHaveBeenCalledWith('KID-77')
+    expect(api.get).toHaveBeenCalledWith('KID-77', { silent: true })
     expect(w.find('[data-keden-skeleton]').exists()).toBe(false)
     expect(w.get('[data-keden-card]').text()).toContain('60900/101026/0000123')
     expect(w.get('[data-keden-card]').text()).toContain('Транзитная декларация')
@@ -59,6 +59,8 @@ describe('KedenView', () => {
     await w.get('[data-keden-reload]').trigger('click')
     await flushPromises()
     expect(api.get).toHaveBeenCalledTimes(2)
+    // Поверх карточки ошибка пойдёт тостом перехватчика — запрос не тихий.
+    expect(api.get).toHaveBeenLastCalledWith('KID-77', undefined)
     expect(w.get('[data-keden-status]').text()).toBe('Принята')
   })
 
