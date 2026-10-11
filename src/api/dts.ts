@@ -102,17 +102,29 @@ const fileName = (cd: string, fallback: string) => {
   return m ? decodeURIComponent(m[1]) : fallback
 }
 
+/** Текст ошибки сервера из тела-blob ({ message } / { error }); не JSON или пусто — null. */
+const serverMessage = async (data: unknown): Promise<string | null> => {
+  try {
+    const parsed = JSON.parse(await (data as Blob).text()) as { message?: string; error?: string }
+    return parsed.message ?? parsed.error ?? null
+  } catch {
+    return null
+  }
+}
+
 export const dtsApi = {
   get: async (caseId: string, declId: string, opts?: { silent?: boolean }): Promise<DtsView> =>
     (await apiClient.get<DtsView>(base(caseId, declId), opts?.silent ? { silent: true } : undefined)).data,
 
+  // validateStatus: ошибку разбираем сами — без общего тоста перехватчика (иначе два тоста с разным текстом).
+  // 400 — список недостающего; прочая ошибка — Error с текстом сервера (пустой — пусть вызывающий подставит свой).
   xml: async (caseId: string, declId: string): Promise<{ blob: Blob; fileName: string } | { errors: string[] }> => {
     const res = await apiClient.get(`${base(caseId, declId)}/xml`, { responseType: 'blob', validateStatus: () => true })
     if (res.status === 400) {
       const parsed = JSON.parse(await (res.data as Blob).text()) as { errors?: string[] }
       return { errors: parsed.errors ?? ['Не удалось сформировать XML ДТС'] }
     }
-    if (res.status >= 400) throw new Error(String(res.status))
+    if (res.status >= 400) throw new Error((await serverMessage(res.data)) ?? '')
     return { blob: res.data as Blob, fileName: fileName(String(res.headers['content-disposition'] ?? ''), 'dts.xml') }
   },
 
@@ -120,18 +132,10 @@ export const dtsApi = {
     // validateStatus: без него axios на 4xx/5xx кидает reject → срабатывает и
     // глобальный интерцептор apiClient (общий тост), и catch в компоненте —
     // двойной тост с разным текстом. Разбираем ошибку сами и кидаем одно
-    // сообщение (напр. «Печать ДТС-2 пока не поддерживается» для формы 2).
+    // сообщение (напр. «Печать ДТС-2 пока не поддерживается» для формы 2); без текста сервера — пустое (вызывающий
+    // подставит свой, на языке интерфейса).
     const res = await apiClient.get(`${base(caseId, declId)}/${kind}`, { responseType: 'blob', validateStatus: () => true })
-    if (res.status >= 400) {
-      let msg = `Не удалось сформировать PDF (${res.status})`
-      try {
-        const parsed = JSON.parse(await (res.data as Blob).text()) as { message?: string; error?: string }
-        msg = parsed.message ?? parsed.error ?? msg
-      } catch {
-        /* тело не JSON — оставляем сообщение по умолчанию */
-      }
-      throw new Error(msg)
-    }
+    if (res.status >= 400) throw new Error((await serverMessage(res.data)) ?? '')
     return res.data as Blob
   },
 }

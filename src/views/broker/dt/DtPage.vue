@@ -1,17 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch, type ComponentPublicInstance } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
 import ZDrawer from '@/components/z/ZDrawer.vue'
 import ZAlert from '@/components/z/ZAlert.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
-import DtLegacyForm from '@/components/import40/dt/DtLegacyForm.vue'
-import DtSectionDts from '@/components/import40/dt/DtSectionDts.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
-import { import40Api, type Import40CaseDto, type Import40DtFormState, type Import40SplitResult } from '@/api/import40'
+import { import40Api, type Import40CaseDto, type Import40SplitResult } from '@/api/import40'
 import { import40ContractApi, type ClientCompanyProfileDto } from '@/api/import40Contract'
-import { dtsApi } from '@/api/dts'
 import { referencesApi } from '@/api/references'
 import { useDtTotals } from '@/composables/useDtTotals'
 import { useImport40Status } from '@/composables/useImport40Status'
@@ -36,6 +33,9 @@ import SectionNumber from './sections/SectionNumber.vue'
 import SectionParties from './sections/SectionParties.vue'
 import SectionTransport from './sections/SectionTransport.vue'
 import SectionGoods from './goods/SectionGoods.vue'
+import SectionDts from './dts/SectionDts.vue'
+import { useDts } from './dts/useDts'
+import { saveFile } from './dtFiles'
 import { useDtGoods } from './goods/useDtGoods'
 import { goodsFieldFromReadiness } from './goods/goodsFieldTarget'
 import { taxModeLabelKey } from './goods/editor/payments'
@@ -44,7 +44,7 @@ import { DT_CLASSIFIERS } from './dtClassifiers'
 import { fillStatUsd, lockGoodsCurrency } from './dtGoodsRules'
 import { syncLoadedParties } from './dtParties'
 import {
-  adjacentSection, dtsReadinessItems, navMarks, paymentsStale, rateTag, readonlyReason, sectionFromQuery, splitChildren, visibleSections,
+  adjacentSection, navMarks, paymentsStale, rateTag, readonlyReason, sectionFromQuery, splitChildren, visibleSections,
 } from './dtPageModel'
 import { DT_ROUTE, type DtSectionKey } from './dtSections'
 import { useDtForm } from './useDtForm'
@@ -56,8 +56,9 @@ import { useDtReadiness, type DtReadinessItem } from './useDtReadiness'
 // разделы с графами и отметками готовности сервера, справа «До подачи» (< 1280 — выезжающая из шапки), плашки
 // просмотра и разделения. Активный раздел — в адресе (?s=), разделы монтируются лениво (v-if + KeepAlive).
 // Разделы шапки (номер … завершение) — свои, на Z-ките (sections/); «Товары» — goods/ (волна 6б); «Платежи» (гр. 47, В) —
-// одно действие «Рассчитать» (волна 6в, useDtPayments); прежним остаётся ДТС. Логика — в composables: форма и сохранение
-// (useDtForm), курсы (useDtRates), готовность (useDtReadiness), расчёты (useDtPayments).
+// одно действие «Рассчитать» (волна 6в, useDtPayments); «ДТС» — dts/ (волна 6в, один загрузчик useDts; правой колонки
+// там нет). Логика — в composables: форма и сохранение (useDtForm), курсы (useDtRates), готовность (useDtReadiness),
+// расчёты (useDtPayments), ДТС (useDts).
 const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -80,19 +81,15 @@ const canManage = computed(() => canManageDeclarations(user.value))
 const replaced = ref(false)
 const readinessOn = computed(() => canManage.value && !replaced.value)
 const readiness = useDtReadiness(caseId, dtId, { enabled: readinessOn })
-const dtsItems = shallowRef<DtReadinessItem[] | null>(null)
-let dtsSeq = 0
-const resetDts = () => { dtsSeq++; dtsItems.value = null }
-const refreshDts = async () => {
-  const my = ++dtsSeq
-  if (!readinessOn.value) { dtsItems.value = null; return }
-  try {
-    const view = await dtsApi.get(caseId, dtId, { silent: true })
-    if (my === dtsSeq) dtsItems.value = dtsReadinessItems(view)
-  } catch {
-    if (my === dtsSeq) dtsItems.value = null
-  }
-}
+// ДТС: один загрузчик GET …/dts — для навигации, «До подачи» и самого раздела (§5-8: прежде раздел грузил ещё раз).
+// Действиям раздела — сохранение и шаг 1 расчёта платежей (форма и платежи создаются ниже — вызываются позже).
+const dts = useDts(caseId, dtId, {
+  enabled: readinessOn,
+  editable: () => dt.editable.value,
+  saveForAction: () => dt.saveForAction(),
+  save: () => dt.save(),
+  recalcCustomsValues: () => payments.recalcCustomsValues(),
+})
 
 // ---- Форма ----
 const clientProfile = ref<ClientCompanyProfileDto | null>(null)
@@ -104,7 +101,7 @@ const loadClientProfile = (kase: Import40CaseDto) => {
 }
 const dt = useDtForm(caseId, dtId, {
   canEdit: (kase) => canEditDt(user.value, kase),
-  onLoadStart: () => { readiness.reset(); resetDts() },
+  onLoadStart: () => { readiness.reset(); dts.reset() },
   onLoaded: (dto, kase) => {
     replaced.value = !!dto.isSplitReplaced
     // Как прежний экран при загрузке: гр. 8 / 9 с «Совпадает с декларантом» повторяют гр. 14, валюта товаров = гр. 22
@@ -112,18 +109,15 @@ const dt = useDtForm(caseId, dtId, {
     syncLoadedParties(form)
     syncGoodsCurrency()
     void readiness.refresh()
-    void refreshDts()
+    void dts.refresh()
     loadClientProfile(kase)
   },
   onSaved: () => {
     void readiness.afterSave()
-    void refreshDts()
+    void dts.refresh()
   },
 })
 const form = dt.form
-// Прежние разделы типизируют форму общим Import40DtFormState (у товаров — invoiceValue), страница — DtFormState.
-const legacyForm = computed(() => form as unknown as Import40DtFormState)
-const onLegacyUpdate = (v: Import40DtFormState) => { Object.assign(form, v) }
 
 const rates = useDtRates(form, { applying: () => dt.applying.value })
 const expenseTypeOptions = ref<{ value: string; label: string }[]>([])
@@ -248,11 +242,11 @@ const money0 = (n: number) => formatNumberIn(String(locale.value), n, 0)
 const previewIssues = computed(() => (payments.result.value?.goodsRows ?? []).flatMap((r) =>
   [r.error, r.notes].filter((x): x is string => !!x).map((x) => `${t('broker.dt.payments.item', { n: r.index + 1 })}: ${x}`)))
 
-const allItems = computed<DtReadinessItem[]>(() => [...readiness.items.value, ...(dtsItems.value ?? [])])
+const allItems = computed<DtReadinessItem[]>(() => [...readiness.items.value, ...(dts.items.value ?? [])])
 const marks = computed(() => {
   const bySection: Partial<Record<DtSectionKey, number>> = {}
   for (const i of allItems.value) bySection[i.section] = (bySection[i.section] ?? 0) + 1
-  return navMarks({ keys: sectionKeys.value, readinessLoaded: readiness.loaded.value, bySection, dtsLoaded: dtsItems.value !== null })
+  return navMarks({ keys: sectionKeys.value, readinessLoaded: readiness.loaded.value, bySection, dtsLoaded: dts.items.value !== null })
 })
 const staleSections = computed<DtSectionKey[]>(() => (paymentsStale(form.goodsItems) ? ['payments'] : []))
 
@@ -343,16 +337,6 @@ const onReload = async () => {
 const xmlLoading = ref(false)
 const printLoading = ref(false)
 const docsLoading = ref(false)
-const saveFile = (blob: Blob, fileName: string) => {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = fileName
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
-}
 const onXml = async () => {
   // Несохранённое не теряется при выгрузке; в просмотре — без сохранения (B2).
   if (!(await dt.saveForAction(true))) return
@@ -517,13 +501,12 @@ onBeforeUnmount(() => {
   headerObserver?.disconnect()
 })
 
-// Раздел ДТС под KeepAlive: при каждом открытии (не только после сохранения) перечитывает расчёт — счётчик
-// открытий входит в его reload-key (у скрытого экземпляра пропсы не обновляются, watch(active) не сработал бы).
-const dtsOpens = ref(0)
-watch(active, (k, prev) => { if (k === 'dts' && prev !== 'dts') dtsOpens.value += 1 })
-
-// Сохранение для раздела ДТС (его XML/печать): прежний контракт save(silent?) — без silent с сообщением.
-const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
+// ДТС перечитывается при каждом входе в раздел (кроме загрузки и сохранений — их ведёт onLoaded/onSaved).
+watch(active, (k, prev) => { if (k === 'dts' && prev !== 'dts') void dts.refresh() })
+// Справочник расходов — подписи статей добавочного листа ДТС.
+const expenseLabels = computed(() => Object.fromEntries(expenseTypeOptions.value.map((o) => [String(o.value), o.label])))
+// На «ДТС» правой колонки нет (добавочный лист — на всю ширину): «До подачи» — кнопкой в шапке и на широком экране.
+const asideOff = computed(() => active.value === 'dts')
 </script>
 
 <template>
@@ -569,7 +552,7 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
         :docs-loading="docsLoading"
         :payments-loading="payments.loading.value"
         :split="splitInfo"
-        :panel-toggle="{ show: true, count: readiness.loaded.value ? allItems.length : null, ratesOnly: !readinessOn }"
+        :panel-toggle="{ show: true, count: readiness.loaded.value ? allItems.length : null, ratesOnly: !readinessOn, wide: asideOff }"
         @save="onSave"
         @calc-payments="calcPayments"
         @xml="onXml"
@@ -582,7 +565,7 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
       <div
         :class="[
           'grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-x-6 gap-y-4 pt-5 md:grid-cols-[200px_minmax(0,1fr)]',
-          'xl:grid-cols-[200px_minmax(0,1fr)_268px]',
+          !asideOff && 'xl:grid-cols-[200px_minmax(0,1fr)_268px]',
         ]"
       >
         <DtSectionNav
@@ -683,21 +666,15 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
                 :form="form"
                 :readonly="!editable"
               />
-              <!-- GET …/dts — только декларанту: раздел не рендерится вовсе (не просто скрыт).
-                   a-form — только вокруг ДТС (AntD): его сброс стилей форм (input[type=file] { display: block },
-                   label, legend…) не должен попадать в разделы на Z. KeepAlive кэширует саму обёртку. -->
-              <DtLegacyForm v-else-if="active === 'dts' && canManage" :disabled="!editable">
-                <DtSectionDts
-                  :model-value="legacyForm"
-                  :readonly="!editable"
-                  :case-id="caseId"
-                  :declaration-id="dtId"
-                  :reload-key="dt.savedCounter.value + dtsOpens"
-                  :active="active === 'dts'"
-                  :save="saveForDts"
-                  @update:model-value="onLegacyUpdate"
-                />
-              </DtLegacyForm>
+              <!-- GET …/dts — только декларанту: раздел не рендерится вовсе (не просто скрыт). Данные — общий загрузчик. -->
+              <SectionDts
+                v-else-if="active === 'dts' && canManage"
+                :form="form"
+                :readonly="!editable"
+                :dts="dts"
+                :expense-labels="expenseLabels"
+                @open-panel="panelOpen = true"
+              />
               <SectionClosing
                 v-else-if="active === 'closing'"
                 :form="form"
@@ -751,7 +728,7 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
           </div>
         </div>
 
-        <aside class="hidden xl:sticky xl:top-[calc(var(--dt-header-h)+20px)] xl:block xl:self-start" data-dt-panel-aside>
+        <aside v-if="!asideOff" class="hidden xl:sticky xl:top-[calc(var(--dt-header-h)+20px)] xl:block xl:self-start" data-dt-panel-aside>
           <DtReadinessPanel
             :enabled="readinessOn"
             :loaded="readiness.loaded.value"

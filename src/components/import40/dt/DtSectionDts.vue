@@ -138,7 +138,7 @@ import { message } from '@/ui/message'
 import { dtsApi, type DtsSheet, type DtsParty, type DtsDocRef, type DtsGoodsColumn, type DtsCurrencyLine } from '@/api/dts'
 import { referencesApi } from '@/api/references'
 import type { Import40DtFormState } from '@/api/import40'
-import { syncGoodsValuationForDts } from './dtsFreeOfCharge'
+import { syncGoodsValuationForDts } from '@/views/broker/dt/dts/dtsFreeOfCharge'
 import './dt-sections.css'
 
 const { t } = useI18n()

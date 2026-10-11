@@ -137,13 +137,10 @@ describe('SectionFinance — условия (гр. 20, 22, 23, 12, 24)', () => {
     expect(form.transactionFeatureCode).toBe('PRE')
   })
 
-  it('«Место для ДТС» — здесь, с пометкой «для ДТС», в верхнем регистре', async () => {
+  it('«Места для ДТС» здесь нет — оно в разделе «ДТС»', () => {
     mount({ incotermsPlace: 'АЛМАТЫ' })
-    expect(w.get('[data-dts-tag]').text()).toBe('для ДТС')
-    const input = w.get('[data-dts-place]')
-    expect(input.attributes('placeholder')).toBe('АЛМАТЫ')
-    await input.setValue('астана')
-    expect(form.dtsPlaceName).toBe('АСТАНА')
+    expect(w.find('[data-dts-place]').exists()).toBe(false)
+    expect(w.text()).not.toContain('для ДТС')
   })
 })
 

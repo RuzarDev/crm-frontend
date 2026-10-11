@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { reactive } from 'vue'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { keyOf } from '@/views/broker/dt/goods/useDtGoods'
-import { syncGoodsValuationForDts } from '../dtsFreeOfCharge'
+import { countGoodsValuationChanges, syncGoodsValuationForDts } from '../dtsFreeOfCharge'
 
 const g = (valuationMethodCode: string | null) => ({ description: 'X', valuationMethodCode } as unknown as Import40GoodsItemInput)
 
@@ -21,5 +21,13 @@ describe('ДТС-2: метод гр. 43 товаров', () => {
     const goods = [g('6'), g(null), g('3')]
     expect(syncGoodsValuationForDts(goods, false)).toBe(2)
     expect(goods.map((x) => x.valuationMethodCode)).toEqual(['1', '1', '3'])
+  })
+
+  it('число товаров, у которых сменится гр. 43, — до правки (то же, что вернёт синхронизация)', () => {
+    const goods = [g('1'), g(null), g('6'), g('2')]
+    expect(countGoodsValuationChanges(goods, true)).toBe(2)
+    expect(countGoodsValuationChanges(goods, false)).toBe(2)
+    expect(goods.map((x) => x.valuationMethodCode)).toEqual(['1', null, '6', '2'])
+    expect(syncGoodsValuationForDts(goods, true)).toBe(2)
   })
 })

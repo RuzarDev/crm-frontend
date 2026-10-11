@@ -34,8 +34,11 @@ const props = defineProps<{
   paymentsLoading?: boolean
   /** Пункт «Разделить на ЕТТ/ВТО»: показан (не клиенту), причина недоступности ('' — доступен). */
   split: { show: boolean; reason: string }
-  /** Кнопка «До подачи» для узкого экрана; число пунктов (null — неизвестно); ratesOnly — в панели только курсы. */
-  panelToggle: { show: boolean; count: number | null; ratesOnly?: boolean }
+  /**
+   * Кнопка «До подачи» для узкого экрана; число пунктов (null — неизвестно); ratesOnly — в панели только курсы;
+   * wide — и на широком экране (в разделе нет правой колонки — «ДТС»).
+   */
+  panelToggle: { show: boolean; count: number | null; ratesOnly?: boolean; wide?: boolean }
 }>()
 const emit = defineEmits<{
   save: []
@@ -128,7 +131,7 @@ const outline = 'border border-line-strong bg-surface enabled:hover:bg-sunken ma
       <div class="ml-auto flex flex-wrap items-center gap-2">
         <ZButton
           v-if="panelToggle.show"
-          :class="cn(outline, 'xl:hidden')"
+          :class="cn(outline, !panelToggle.wide && 'xl:hidden')"
           aria-haspopup="dialog"
           data-dt-panel-toggle
           @click="emit('openPanel')"
