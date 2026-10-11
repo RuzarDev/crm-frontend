@@ -1720,6 +1720,7 @@ export default {
           recalcHint: 'Boxes 45 and 46 are recalculated from the invoice and expenses — the same way as the payments calculation — then the declaration is saved and the CVD refreshed.',
           recalcDone: 'Box 45 recalculated (goods items: {n}), CVD refreshed. Recalculate the payments in the “Payments” section.',
           recalcNotSaved: 'Box 45 recalculated, but the declaration was not saved — the CVD was not refreshed',
+          recalcBlocked: 'The declaration cannot be saved right now — box 45 was not recalculated',
           recalcSame: 'Box 45 did not change — the recalculation gave the same amounts',
           recalcNoRefresh: 'Box 45 was recalculated and saved, but the CVD calculation was not refreshed — press “Retry”',
           place: 'Place for box 17 (“to …”)',

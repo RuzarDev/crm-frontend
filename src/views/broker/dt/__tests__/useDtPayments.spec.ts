@@ -96,6 +96,21 @@ describe('useDtPayments.calculate: шаги', () => {
     expect(p.problem.value).toBe('notSaved')
   })
 
+  it('(баг m11) нажатие, которое не начнёт расчёт (409, нет товаров), не отбрасывает живой предпросмотр', async () => {
+    let can = true
+    const { form, p } = setup({ canSave: () => can })
+    expect(await p.calculate()).toBe(true)
+    const res = p.result.value
+    can = false
+    expect(await p.calculate()).toBe(false)
+    expect(p.state.value).toBe('preview')
+    expect(p.result.value).toBe(res)
+    expect(p.problem.value).toBe('notSaved')
+    can = true
+    expect(await p.apply()).toBe(true)
+    expect(form.factPayments.map((f) => f.taxModeCode)).toEqual(['1010', '5060'])
+  })
+
   it('шаг 1: товар без фактурной стоимости или валюты — в запросе (доли расходов), но введённая гр. 45 остаётся', async () => {
     const { form, p } = setup({ goods: [
       goods({ customsValueKzt: 1, needsTpinRecalc: false }),
@@ -372,5 +387,19 @@ describe('useDtPayments.calcCustomsValue («Рассчитать там. сто�
     expect(form.goodsItems.map((g) => g.needsTpinRecalc)).toEqual([true, false, false])
     expect(log).toEqual([])
     expect(p.customsResult.value).toEqual({ updated: 2, total: 3500 })
+  })
+
+  it('(баг m6) товар удалили, пока шёл запрос, — гр. 45 пишется по ключу товара, а не по позиции', async () => {
+    const { form, p } = setup({
+      goods: [goods({ customsValueKzt: 1000, description: 'A' }), goods({ customsValueKzt: 2000, description: 'B' }), goods({ customsValueKzt: 3000, description: 'C' })],
+    })
+    let release: (v: unknown) => void = () => {}
+    api.calculateCustomsValue.mockImplementationOnce(() => new Promise((r) => { release = r }))
+    const run = p.calcCustomsValue()
+    form.goodsItems.splice(0, 1) // удалили «A»: «B» и «C» сдвинулись на позиции 0 и 1
+    release({ goods: [{ index: 0, customsValueKzt: 1111 }, { index: 1, customsValueKzt: 2222 }, { index: 2, customsValueKzt: 3333 }] })
+    await run
+    expect(form.goodsItems.map((g) => [g.description, g.customsValueKzt])).toEqual([['B', 2222], ['C', 3333]])
+    expect(p.customsResult.value).toEqual({ updated: 2, total: 5555 })
   })
 })

@@ -26,6 +26,7 @@ import { message } from '@/ui/message'
 import { formatNumberIn } from '@/ui/number'
 import { toIsoDate, type DtFormState } from './dtPayload'
 import { markStale } from './goods/goodsStatus'
+import { keyOf } from './goods/useDtGoods'
 import { applyPaymentsCalculation } from './payments/paymentRows'
 import {
   calcSnapshot, goodsTotalsAfterApply, mergeFactPayments, notRecalculatedGoods, totalsByMode, totalsRecord,
@@ -114,8 +115,11 @@ export function useDtPayments(
    * Пересчёт гр.45 (с расходами, по курсам НБ РК на дату гр.А) и гр.46. В запросе — все товары (доли расходов
    * распределяются как прежде), записываются только товары с фактурной стоимостью > 0 и валютой: у прочих посчитать
    * гр. 45 не из чего — введённая вручную остаётся. Ошибку пробрасывает.
+   * Ответ приходит по позициям запроса, а товары за это время могли удалить или переставить: гр. 45 пишется по ключу
+   * товара (keyOf), снятому до запроса; удалённого товара уже нет — его строка ответа пропускается.
    */
   const recalcCustomsValues = async (): Promise<{ updated: number; total: number }> => {
+    const keys = form.goodsItems.map(keyOf)
     const goods = form.goodsItems.map((g, index) => ({
       index,
       grossWeightKg: g.grossWeightKg ?? null,
@@ -128,8 +132,10 @@ export function useDtPayments(
     const res = await import40Api.calculateCustomsValue({ goods, expenses, onDate: toIsoDate(form.submissionDate) })
     let updated = 0
     let total = 0
+    const byKey = new Map(form.goodsItems.map((g) => [keyOf(g), g]))
     res.goods.forEach((r) => {
-      const g = form.goodsItems[r.index]
+      const key = keys[r.index]
+      const g = key === undefined ? undefined : byKey.get(key)
       if (g && customsValueComputable(g)) {
         // гр. 45 — основа гр. 47: изменилась — платежи товара устарели (снимет следующий расчёт платежей).
         if ((g.customsValueKzt ?? null) !== (r.customsValueKzt ?? null)) markStale(g)
@@ -170,22 +176,25 @@ export function useDtPayments(
 
   /**
    * «Рассчитать»: гр. 45/46 → сохранить → расчёт по сохранённой ДТ → предпросмотр. true — предпросмотр готов.
-   * Прежний предпросмотр отбрасывается сразу.
+   * Нажатие, которое не начнёт расчёт (нет товаров, сохранить сейчас нельзя), прежний предпросмотр не трогает;
+   * начавшийся расчёт отбрасывает его сразу.
    */
   const calculate = async (): Promise<boolean> => {
     if (!editable() || busy.value) return false
+    if (!form.goodsItems.length) {
+      message.warning(t('broker.dt.payments.noGoods'))
+      problem.value = 'noGoods'
+      return false
+    }
+    // Сохранить не получится (409, идёт загрузка) — не трогаем гр. 45, «Пересчитать» и прежний предпросмотр.
+    if (opts.canSave && !opts.canSave()) {
+      message.warning(t('broker.dt.payments.notSaved'))
+      problem.value = 'notSaved'
+      return false
+    }
     result.value = null
     snapshot = null
     problem.value = null
-    if (!form.goodsItems.length) {
-      message.warning(t('broker.dt.payments.noGoods'))
-      return stop('noGoods')
-    }
-    // Сохранить не получится (409, идёт загрузка) — не трогаем гр. 45 и «Пересчитать».
-    if (opts.canSave && !opts.canSave()) {
-      message.warning(t('broker.dt.payments.notSaved'))
-      return stop('notSaved')
-    }
     state.value = 'calculating'
     step.value = 'customs'
     try {

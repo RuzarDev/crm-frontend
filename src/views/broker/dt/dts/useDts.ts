@@ -40,6 +40,11 @@ export interface UseDtsOptions {
   recalcCustomsValues?: () => Promise<{ updated: number; total: number }>
   /** Гр. 45 товаров формы (до и после шага 1 — сколько изменилось). */
   customsValues?: () => readonly (number | null | undefined)[]
+  /**
+   * Сохранить сейчас можно (нет конфликта 409, ДТ не грузится): иначе «Пересчитать гр. 45» останавливается до шага 1 —
+   * гр. 45 и «Пересчитать» не тронуты (как «Рассчитать» в «Платежах»). По умолчанию — да.
+   */
+  canSave?: () => boolean
 }
 
 export function useDts(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGetter<string>, opts: UseDtsOptions) {
@@ -156,6 +161,10 @@ export function useDts(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGetter<
   /** «Пересчитать гр. 45»: шаг 1 расчёта платежей → тихое сохранение (после него страница обновит ДТС). */
   const recalc45 = async (): Promise<boolean> => {
     if (!toValue(opts.editable) || recalcLoading.value || !opts.recalcCustomsValues || !opts.save) return false
+    if (opts.canSave && !opts.canSave()) {
+      message.warning(t('broker.dt.dts.sheet.recalcBlocked'))
+      return false
+    }
     recalcLoading.value = true
     try {
       const before = opts.customsValues?.().slice() ?? null

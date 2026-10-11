@@ -89,6 +89,7 @@ const dts = useDts(caseId, dtId, {
   save: () => dt.save(),
   recalcCustomsValues: () => payments.recalcCustomsValues(),
   customsValues: () => form.goodsItems.map((g) => g.customsValueKzt),
+  canSave: () => !dt.conflict.value && !dt.loading.value,
 })
 
 // ---- Форма ----

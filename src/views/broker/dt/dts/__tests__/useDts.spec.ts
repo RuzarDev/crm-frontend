@@ -193,6 +193,21 @@ describe('useDts: «Пересчитать гр. 45»', () => {
     expect(toast.warning).toHaveBeenCalledWith('Гр. 45 пересчитана и сохранена, но расчёт ДТС не обновился — нажмите «Повторить»')
   })
 
+  it('(баг m7) сохранить сейчас нельзя (409, загрузка) — стоп до шага 1: гр. 45 и «Пересчитать» не тронуты', async () => {
+    const recalcCustomsValues = vi.fn(async () => ({ updated: 1, total: 1 }))
+    const save = vi.fn(async () => true)
+    let can = false
+    const { d } = setup({ editable: true, save, recalcCustomsValues, canSave: () => can })
+    expect(await d.recalc45()).toBe(false)
+    expect(recalcCustomsValues).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
+    expect(toast.warning).toHaveBeenCalledWith('ДТ сейчас не сохранить — гр. 45 не пересчитана')
+    expect(d.recalcLoading.value).toBe(false)
+    can = true
+    expect(await d.recalc45()).toBe(true)
+    expect(recalcCustomsValues).toHaveBeenCalledTimes(1)
+  })
+
   it('ошибка шага 1 — без сохранения; не сохранилось — предупреждение', async () => {
     const save = vi.fn(async () => false)
     const { d } = setup({ editable: true, save, recalcCustomsValues: vi.fn().mockRejectedValueOnce(new Error('x')).mockResolvedValue({ updated: 1, total: 1 }) })
