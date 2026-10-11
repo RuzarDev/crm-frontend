@@ -14,8 +14,8 @@ import ClientSigexModal from '../ClientSigexModal.vue'
 const START = { qrCode: 'QQ', eGovMobileLaunchLink: 'egov://m', eGovBusinessLaunchLink: 'egov://b', dataUrl: '', qrId: 'q1', expireAt: 0 }
 let w: VueWrapper
 const $ = (sel: string) => document.body.querySelector(sel) as HTMLElement | null
-const mountModal = async () => {
-  w = mountWithI18n(ClientSigexModal, { attachTo: document.body, props: { open: true, clientId: 'cl1', docId: 'd1' } })
+const mountModal = async (extra: Record<string, unknown> = {}) => {
+  w = mountWithI18n(ClientSigexModal, { attachTo: document.body, props: { open: true, clientId: 'cl1', docId: 'd1', ...extra } })
   await flushPromises()
 }
 
@@ -52,6 +52,17 @@ describe('ClientSigexModal', () => {
     ;(document.body.querySelector('[role="dialog"] button[aria-label="Закрыть"]') as HTMLButtonElement).click()
     expect(w.emitted('signed')).toHaveLength(2)
     expect(w.emitted('update:open')).toBeUndefined()
+  })
+
+  it('side="provider" (сотрудник подписывает за AQNIET) — завершение со стороной provider; ошибка — текст сервера', async () => {
+    api.sigexStartSigningDocument.mockResolvedValue(START)
+    api.sigexPollDocument.mockResolvedValue({ pending: false, sign: 's' })
+    api.sigexCompleteDocument.mockRejectedValueOnce({ response: { status: 400, data: { error: 'Подпись не принадлежит руководителю' } } })
+    await mountModal({ side: 'provider' })
+    $('[data-sigex-check]')!.click()
+    await flushPromises()
+    expect(api.sigexCompleteDocument).toHaveBeenCalledWith('cl1', 'd1', 'q1', 'provider')
+    expect($('[data-sigex-error]')?.textContent).toBe('Подпись не принадлежит руководителю')
   })
 
   it('ошибка сессии — текст сервера и «Попробовать снова»', async () => {

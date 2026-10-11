@@ -15,7 +15,7 @@ vi.mock('@/api/sales', async (orig) => ({
 vi.mock('@/api/tnved', () => ({ tnvedApi: { currencies: api.currencies, node: api.node } }))
 vi.mock('@/api/references', () => ({ referencesApi: { listCountries: api.listCountries, listClassifiers: api.listClassifiers } }))
 vi.mock('@/ui/message', () => ({ message: api.toast }))
-// Пикер ТН ВЭД (AntD) — заглушка: кнопка «выбрать» отдаёт код.
+// Пикер ТН ВЭД — заглушка: кнопка «выбрать» отдаёт код.
 vi.mock('@/components/TnvedPickerModal.vue', () => ({
   default: {
     props: ['open', 'initialQuery'], emits: ['update:open', 'select'],

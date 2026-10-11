@@ -248,7 +248,7 @@ const sectionTitle = 'm-0 mb-1.5 mt-4 text-xs font-semibold tracking-[0.04em] te
 
                 <h3 :class="sectionTitle">{{ t('sales.razreshitelnyeDokumentyNetarifnyeMery') }}</h3>
                 <p v-if="!measures.length" class="m-0 text-sm text-ink-3">{{ t('sales.neTrebuyutsyaNetDannyh') }}</p>
-                <ul v-else class="m-0 pl-[18px] text-sm text-ink-2">
+                <ul v-else class="m-0 list-disc pl-[18px] text-sm text-ink-2">
                   <li v-for="(m, i) in measures" :key="i" class="my-0.5">{{ m.docType ? m.docType + ': ' : '' }}{{ m.name || m.description }}</li>
                 </ul>
               </template>

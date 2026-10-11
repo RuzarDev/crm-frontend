@@ -42,7 +42,7 @@ const updated = computed(() => formatUpdated(props.state?.data?.updatedAtUtc, lo
     <TnvedTabStatus v-else-if="state.status !== 'done'" :status="state.status" @retry="emit('retry')" />
     <template v-else>
       <!-- eslint-disable-next-line vue/no-v-html -- очищено sanitizeHtml: белый список тегов, без скриптов и on* -->
-      <div class="tnved-notes-html overflow-x-auto text-sm leading-6 text-ink" data-notes-html v-html="html" />
+      <div class="rich-html tnved-notes-html overflow-x-auto text-sm leading-6 text-ink" data-notes-html v-html="html" />
       <p v-if="updated" class="m-0 text-[13px] text-muted">{{ t('broker.references.tnved.notes.updated', { date: updated }) }}</p>
     </template>
   </div>

@@ -28,7 +28,7 @@ describe('fieldShell', () => {
 })
 
 describe('всплывающая поверхность', () => {
-  it('слой выше окон AntD и анимация', () => {
+  it('слой выше окон и анимация', () => {
     expect(floatingSurface).toContain(Z_LAYER_FLOATING)
     expect(floatingSurface).toContain('data-[state=open]:animate-pop-in')
     expect(listItem).toContain('data-[highlighted]:bg-sunken')

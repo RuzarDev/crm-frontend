@@ -1,7 +1,59 @@
-/* Tailwind без preflight: пока в сборке AntD, базовый сброс сломал бы непереведённые экраны
-   (спека §6; включается в волне 7). theme и utilities — БЕЗ CSS-слоёв: в main.css есть неслоёные
-   правила (* { margin:0; padding:0 }, h1…h4, p), которые перебили бы слоёные утилиты.
-   Неслоёная утилита (.p-4, специфичность класса) их побеждает. */
+/* Базовый сброс — preflight Tailwind в слое base (с волны 7, вместо reset AntD).
+   theme и utilities — БЕЗ CSS-слоёв, как и main.css: неслоёные правила побеждают слоёные, поэтому
+   preflight уступает и утилитам, и scoped-стилям, а между утилитами и main.css решает специфичность
+   (класс сильнее тега). */
+@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/theme.css";
 @import "./tokens.css";
 @import "tailwindcss/utilities.css";
+
+/* Совместимость с reset AntD, поверх которого настраивались экраны волн 0–6 (сверено сравнением
+   вычисленных стилей до/после на экранах брокера, входа и /_ui). Снимать — только отдельным шагом
+   с визуальной проверкой. Утилиты на самом элементе по-прежнему главнее. */
+@layer base {
+  /* Без этого у всего, что не задаёт свою высоту строки (≈250 мест с text-[Npx] без leading-*),
+     строка выросла бы с 1.15 до 1.5. */
+  html {
+    line-height: 1.15;
+  }
+
+  /* reset AntD: dt — 500 (подписи в списках «Главной», ДТС, калькуляторов). */
+  dt {
+    font-weight: 500;
+  }
+
+  /* reset AntD наследовал кнопкам и полям только размер, семейство и высоту строки; preflight
+     наследует весь шрифт — кнопка в полужирной строке стала бы полужирной, цифры в tabular-nums — тоже. */
+  button,
+  input,
+  select,
+  textarea {
+    font-weight: 400;
+    font-style: normal;
+    font-variant-numeric: normal;
+    letter-spacing: normal;
+  }
+
+  /* reset AntD: без системного вида текстовых полей (iOS Safari рисует свою рамку и тень). */
+  input[type='text'],
+  input[type='password'],
+  input[type='number'],
+  input[type='search'],
+  textarea {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* reset AntD: быстрые повторные нажатия (± и шаги) не запускают масштабирование двойным тапом в iOS Safari. */
+  a,
+  area,
+  button,
+  [role='button'],
+  input:not([type='range']),
+  label,
+  select,
+  summary,
+  textarea {
+    touch-action: manipulation;
+  }
+}

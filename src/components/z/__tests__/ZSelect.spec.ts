@@ -310,4 +310,24 @@ describe('ZSelect', () => {
     expect(el.value).toBe('abc')
     expect(w.emitted('search')?.at(-1)).toEqual(['abc'])
   })
+  it('на телефоне рамка поля — 44px (single: высота, multiple: минимальная высота)', () => {
+    w = mountWithI18n(ZSelect, { props: { value: null, options }, attachTo: document.body })
+    const frame = w.get('input').element.parentElement!
+    expect(frame.className).toContain('h-9')
+    expect(frame.className).toContain('max-sm:h-11')
+    w.unmount()
+    w = mountWithI18n(ZSelect, { props: { value: [], options, mode: 'multiple' }, attachTo: document.body })
+    const multi = w.get('input').element.parentElement!
+    expect(multi.className).toContain('max-sm:min-h-11')
+  })
+  it('size="sm" на телефоне не растёт до 44px (как ZInput/ZNumber sm)', () => {
+    w = mountWithI18n(ZSelect, { props: { value: null, options, size: 'sm' }, attachTo: document.body })
+    const frame = w.get('input').element.parentElement!
+    expect(frame.className).toContain('h-7')
+    expect(frame.className).not.toContain('max-sm:h-11')
+    w.unmount()
+    w = mountWithI18n(ZSelect, { props: { value: [], options, mode: 'multiple', size: 'sm' }, attachTo: document.body })
+    const multi = w.get('input').element.parentElement!
+    expect(multi.className).not.toContain('max-sm:min-h-11')
+  })
 })

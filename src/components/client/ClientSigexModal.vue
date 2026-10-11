@@ -8,14 +8,16 @@ import ZSpin from '@/components/z/ZSpin.vue'
 import { import40ContractApi } from '@/api/import40Contract'
 import { extractServerText } from '@/api/client'
 
-// Подпись документа клиентом через eGov (Sigex): сессия → QR и ссылки в приложения → «Я подписал — проверить»
-// → успех или ошибка с «Попробовать снова». Как прежний SigexSignModal, но только клиентская сторона.
-// Запросы silent: ошибки показываются в самом окне. Ответы запросов, начатых до закрытия/повтора, отбрасываются.
-const props = defineProps<{
+// Подпись документа через eGov (Sigex): сессия → QR и ссылки в приложения → «Я подписал — проверить»
+// → успех или ошибка с «Попробовать снова». side — чья подпись: клиента (кабинет клиента; сотрудник-администратор
+// за клиента) или AQNIET (сотрудник: администратор или РОП). Запросы silent: ошибки показываются в самом окне.
+// Ответы запросов, начатых до закрытия/повтора, отбрасываются.
+const props = withDefaults(defineProps<{
   open: boolean
   clientId: string
   docId: string | null
-}>()
+  side?: 'client' | 'provider'
+}>(), { side: 'client' })
 const emit = defineEmits<{ 'update:open': [open: boolean]; signed: [] }>()
 const { t } = useI18n()
 
@@ -72,7 +74,7 @@ async function check() {
       pending.value = true
       return
     }
-    await import40ContractApi.sigexCompleteDocument(props.clientId, props.docId, qrId.value, 'client')
+    await import40ContractApi.sigexCompleteDocument(props.clientId, props.docId, qrId.value, props.side)
     // Подпись уже сохранена на сервере: даже если окно успели закрыть, экран должен перечитать документ.
     if (my !== seq) {
       emit('signed')

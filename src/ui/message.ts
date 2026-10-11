@@ -1,7 +1,7 @@
 import { toast } from 'vue-sonner'
 
-// Тот же API, что у message из ant-design-vue (спека §6): перевод ≈300 вызовов — замена импорта.
-// duration — в секундах, 0 = не закрывать; key — заменить плашку с тем же ключом (как в AntD).
+// Плашки-уведомления поверх vue-sonner: message.success/error/warning/info(текст | { content, key, duration }).
+// duration — в секундах, 0 = не закрывать; key — заменить плашку с тем же ключом.
 export interface MessageArgs {
   content: string
   key?: string | number

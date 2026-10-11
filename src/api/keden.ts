@@ -59,9 +59,11 @@ export const kedenApi = {
     return response.data
   },
 
-  get: async (id: string): Promise<KedenDeclarationDetailDto> => {
+  // opts.silent — пока карточки нет на экране, ошибку с «Повторить» рисует сам экран, без тоста перехватчика.
+  get: async (id: string, opts?: { silent?: boolean }): Promise<KedenDeclarationDetailDto> => {
     const response = await apiClient.get<KedenDeclarationDetailDto>(
       `/keden-declarations/${encodeURIComponent(id)}`,
+      opts?.silent ? { silent: true } : undefined,
     )
     return response.data
   },

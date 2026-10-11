@@ -66,7 +66,7 @@ const canOpenGuide = computed(() => canManageDeclarations(dtUserFrom(auth)))
         <ZButton size="sm" @click="load">{{ t('broker.dt.page.retry') }}</ZButton>
       </div>
       <!-- eslint-disable-next-line vue/no-v-html -- очищено sanitizeHtml: белый список тегов, без скриптов и on* -->
-      <div v-else-if="html" class="dt-guide-body max-h-96 overflow-y-auto text-[13px] leading-relaxed text-ink-2" data-dt-guide-html v-html="html" />
+      <div v-else-if="html" class="rich-html dt-guide-body max-h-96 overflow-y-auto text-[13px] leading-relaxed text-ink-2" data-dt-guide-html v-html="html" />
       <RouterLink
         v-if="canOpenGuide"
         :to="{ path: '/dt-guide', query: { graph } }"
