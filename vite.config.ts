@@ -2,14 +2,13 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import Components from 'unplugin-vue-components/vite'
-import { AntDesignVueResolver } from 'unplugin-vue-components/resolvers'
 import AutoImport from 'unplugin-auto-import/vite'
 import { fileURLToPath, URL } from 'node:url'
 
 const proxyTarget = process.env.VITE_PROXY_TARGET || 'http://localhost:5110'
 
-// Z-набор подключается только явным импортом: иначе z/ZTable|ZField|ZFilterBar
-// (волна 0c) столкнулись бы по имени со старыми components/ui/* (8 экранов).
+// Z-набор подключается только явным импортом (так заведено с волны 0c): видно, откуда компонент,
+// и автоподключение не тянет z/ в каждый экран.
 // Только положительные глобы: unplugin-vue-components 0.26 в dev-наблюдателе
 // объединяет глобы через OR, и исключение «!…» там не работает.
 export const componentGlobs = ['src/components/*.vue', 'src/components/!(z)/**/*.vue']
@@ -20,11 +19,6 @@ export default defineConfig({
     vue(),
     Components({
       globs: componentGlobs,
-      resolvers: [
-        AntDesignVueResolver({
-          importStyle: false,
-        }),
-      ],
     }),
     AutoImport({
       imports: ['vue', 'vue-router', 'pinia'],

@@ -1,6 +1,6 @@
 <template>
   <div class="inline-block">
-    <ZButton v-if="!hideTrigger" data-import-invoice-trigger @click="openPicker">
+    <ZButton v-if="!hideTrigger" @click="openPicker">
       <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
       {{ t('transit.importIzInvoysa') }}
     </ZButton>
@@ -12,7 +12,6 @@
             v-model:value="clientId"
             :options="clientOptions"
             :placeholder="t('transit.vyberiteKlienta')"
-            data-import-invoice-client
           />
         </ZField>
         <ZUpload
@@ -20,7 +19,6 @@
           :loading="busy"
           :disabled="!clientId"
           :before-upload="beforeUpload"
-          data-import-invoice-upload
         />
       </div>
     </ZModal>
