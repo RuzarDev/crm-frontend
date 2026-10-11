@@ -30,9 +30,10 @@ vi.mock('@/components/ExtractionReviewModal.vue', async () => {
 
 import ImportInvoiceButton from '../ImportInvoiceButton.vue'
 
-const Pass = defineComponent({ setup: (_, { slots }) => () => h('div', slots.default?.()) })
+const Pass = defineComponent({ inheritAttrs: false, setup: (_, { slots }) => () => h('div', slots.default?.()) })
 let beforeUpload: ((f: File) => unknown) | null = null
 const Upload = defineComponent({
+  name: 'ZUpload',
   props: ['beforeUpload'],
   setup: (p, { slots }) => {
     beforeUpload = p.beforeUpload
@@ -40,6 +41,7 @@ const Upload = defineComponent({
   },
 })
 const Select = defineComponent({
+  name: 'ZSelect',
   props: ['value'], emits: ['update:value'],
   setup: (_, { emit }) => () => h('button', { type: 'button', 'data-pick': '', onClick: () => emit('update:value', 'c1') }),
 })
@@ -58,7 +60,7 @@ describe('ImportInvoiceButton', () => {
       props: { clientOptions: [{ value: 'c1', label: 'Альфа' }], hideTrigger: true },
       global: {
         plugins: [i18n],
-        stubs: { AModal: Pass, ASpace: Pass, AFormItem: Pass, AButton: Pass, ASelect: Select, AUpload: Upload },
+        stubs: { ZModal: Pass, ZField: Pass, ZButton: Pass, ZSelect: Select, ZUpload: Upload },
       },
     })
     ;(w.vm as unknown as { open: () => void }).open()
@@ -70,5 +72,21 @@ describe('ImportInvoiceButton', () => {
 
     expect(api.update).toHaveBeenCalledWith('d1', { cargoDescription: null })
     expect(w.emitted('imported')?.[0]).toEqual([1])
+  })
+
+  it('файл больше 10 МБ отклоняется до создания черновика', async () => {
+    const i18n = createI18n({ legacy: false, locale: 'ru', messages: { ru, en } })
+    api.create.mockClear()
+    const w = mount(ImportInvoiceButton, {
+      props: { clientOptions: [{ value: 'c1', label: 'Альфа' }], hideTrigger: true },
+      global: { plugins: [i18n], stubs: { ZModal: Pass, ZField: Pass, ZButton: Pass, ZSelect: Select, ZUpload: Upload } },
+    })
+    ;(w.vm as unknown as { open: () => void }).open()
+    await w.find('[data-pick]').trigger('click')
+    const big = new File(['x'], 'big.pdf')
+    Object.defineProperty(big, 'size', { value: 11 * 1024 * 1024 })
+    expect(await beforeUpload!(big)).toBe(false)
+    expect(api.create).not.toHaveBeenCalled()
+    expect(api.toast.error).toHaveBeenCalledWith(ru.transit.razmerFaylaNeDolzhen)
   })
 })

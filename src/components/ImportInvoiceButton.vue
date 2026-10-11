@@ -1,29 +1,29 @@
 <template>
-  <div class="import-invoice">
-    <a-button v-if="!hideTrigger" @click="openPicker">
-      <ImportOutlined /> {{ t('transit.importIzInvoysa') }} </a-button>
+  <div class="inline-block">
+    <ZButton v-if="!hideTrigger" data-import-invoice-trigger @click="openPicker">
+      <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
+      {{ t('transit.importIzInvoysa') }}
+    </ZButton>
 
-    <a-modal v-model:open="pickerOpen" :title="t('transit.importIzInvoysa')" :footer="null" width="520px">
-      <a-space direction="vertical" style="width: 100%" :size="16">
-        <a-form-item :label="t('transit.klient')">
-          <a-select
+    <ZModal v-model:open="pickerOpen" :title="t('transit.importIzInvoysa')" :footer="null" :width="520">
+      <div class="flex flex-col gap-4 pb-4">
+        <ZField :label="t('transit.klient')">
+          <ZSelect
             v-model:value="clientId"
             :options="clientOptions"
             :placeholder="t('transit.vyberiteKlienta')"
-            style="width: 100%"
+            data-import-invoice-client
           />
-        </a-form-item>
-        <a-upload
-          :show-upload-list="false"
-          :before-upload="beforeUpload"
-          :custom-request="() => {}"
+        </ZField>
+        <ZUpload
           accept=".pdf,.xlsx"
-        >
-          <a-button :loading="busy" :disabled="!clientId">
-            <UploadOutlined /> {{ t('transit.vybratFayl') }} </a-button>
-        </a-upload>
-      </a-space>
-    </a-modal>
+          :loading="busy"
+          :disabled="!clientId"
+          :before-upload="beforeUpload"
+          data-import-invoice-upload
+        />
+      </div>
+    </ZModal>
 
     <ExtractionReviewModal
       v-if="draftEntryId && documentId"
@@ -42,8 +42,12 @@
 import { useI18n } from 'vue-i18n'
 import { ref } from 'vue'
 import { message } from '@/ui/message'
-import type { UploadProps } from 'ant-design-vue'
-import { ImportOutlined, UploadOutlined } from '@ant-design/icons-vue'
+import { PhDownloadSimple } from '@phosphor-icons/vue'
+import ZButton from '@/components/z/ZButton.vue'
+import ZField from '@/components/z/ZField.vue'
+import ZModal from '@/components/z/ZModal.vue'
+import ZSelect from '@/components/z/ZSelect.vue'
+import ZUpload from '@/components/z/ZUpload.vue'
 import { reestrApi } from '@/api/reestr'
 import { ReestrEntryStatus } from '@/types/api'
 import type { ExtractionResultDto } from '@/types/api'
@@ -66,7 +70,7 @@ withDefaults(defineProps<Props>(), { hideTrigger: false })
 const emit = defineEmits<{ (e: 'imported', count: number): void }>()
 
 const pickerOpen = ref(false)
-const clientId = ref<string | undefined>()
+const clientId = ref<string | null>(null)
 const busy = ref(false)
 const reviewOpen = ref(false)
 const draftEntryId = ref('')
@@ -75,27 +79,23 @@ const result = ref<ExtractionResultDto | null>(null)
 const errorMessage = ref('')
 
 const openPicker = () => {
-  clientId.value = undefined
+  clientId.value = null
   pickerOpen.value = true
 }
 
 defineExpose({ open: openPicker })
 
-const beforeUpload: UploadProps['beforeUpload'] = (file) => {
+// Тип файла (.pdf/.xlsx) проверяет сам ZUpload по accept; здесь — клиент и размер.
+const beforeUpload = (file: File) => {
   if (!clientId.value) {
     message.error(t('transit.vyberiteKlienta'))
-    return false
-  }
-  const name = file.name.toLowerCase()
-  if (!name.endsWith('.pdf') && !name.endsWith('.xlsx')) {
-    message.error(t('transit.dopustimyTolkoPdfI'))
     return false
   }
   if (file.size > 10 * 1024 * 1024) {
     message.error(t('transit.razmerFaylaNeDolzhen'))
     return false
   }
-  void startImport(file as File)
+  void startImport(file)
   return false
 }
 
@@ -200,9 +200,3 @@ const resetState = () => {
   reviewOpen.value = false
 }
 </script>
-
-<style scoped>
-.import-invoice {
-  display: inline-block;
-}
-</style>
