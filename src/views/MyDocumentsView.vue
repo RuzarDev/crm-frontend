@@ -1,185 +1,105 @@
-<template>
-  <div class="my-documents-view crm-page">
-    <PageHeader
-      :kicker="t('transit.klientskiyKabinet')"
-      :title="t('transit.moiDokumenty')"
-      :subtitle="t('transit.faylyPoKonteyneramDeklaraciyam')"
-    />
-
-    <a-card class="crm-shell-card" :bordered="false">
-      <a-space direction="vertical" style="width: 100%" :size="16">
-        <div class="crm-toolbar crm-toolbar-surface">
-          <a-input
-            v-model:value="search"
-            :placeholder="t('transit.poiskPoFayluIli')"
-            allow-clear
-            style="width: 320px; max-width: 100%"
-            @pressEnter="handleSearch"
-            @change="handleSearch"
-          >
-            <template #prefix>
-              <SearchOutlined style="color: var(--z-muted)" />
-            </template>
-          </a-input>
-          <a-select
-            v-model:value="sectionFilter"
-            allow-clear
-            :placeholder="t('transit.vseSekcii')"
-            style="width: 200px"
-            :options="sectionOptions"
-            @change="handleFilterChange"
-          />
-        </div>
-
-        <ZTable
-          :columns="columns"
-          :data-source="items"
-          :loading="loading"
-          :pagination="pagination"
-          row-key="id"
-          @change="handleTableChange"
-          :scroll="{ x: 900 }"
-        >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'section'">
-              {{ record.section === 'client' ? t('transit.klient') : t('transit.broker') }}
-            </template>
-            <template v-else-if="column.key === 'reestrStatus'">
-              <ReestrStatusCell :status="dtoStatusToEntryStatus(record.reestrStatus)" />
-            </template>
-            <template v-else-if="column.key === 'createdAtUtc'">
-              {{ formatDate(record.createdAtUtc) }}
-            </template>
-            <template v-else-if="column.key === 'sizeBytes'">
-              {{ formatSize(record.sizeBytes) }}
-            </template>
-            <template v-else-if="column.key === 'actions'">
-              <a-space size="small">
-                <a-button type="link" size="small" @click="handleDownload(record)"> {{ t('transit.skachat') }} </a-button>
-                <a-button type="link" size="small" @click="openDeclaration(record)"> {{ t('transit.deklaraciya') }} </a-button>
-              </a-space>
-            </template>
-          </template>
-        </ZTable>
-      </a-space>
-    </a-card>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n'
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import type { TableProps } from 'ant-design-vue'
+import ZButton from '@/components/z/ZButton.vue'
+import ZPage from '@/components/z/ZPage.vue'
+import ZSelect from '@/components/z/ZSelect.vue'
+import ZTable from '@/components/z/ZTable.vue'
+import ListSearch from '@/components/broker/ListSearch.vue'
+import StatusDot from '@/components/broker/StatusDot.vue'
 import { reestrApi } from '@/api/reestr'
 import type { MyReestrDocumentListItem, ReestrDocumentSection } from '@/types/api'
 import { dtoStatusToEntryStatus } from '@/utils/reestrDtoMap'
-import ReestrStatusCell from '@/components/ReestrStatusCell.vue'
-import { SearchOutlined } from '@ant-design/icons-vue'
-import PageHeader from '@/components/PageHeader.vue'
+import { statusKey, statusTone } from '@/views/broker/transit/transit'
+import { saveBlob } from '@/ui/download'
+import type { ZColumn } from '@/ui/table'
 
+// «Мои документы» клиента транзита (/my-documents, редизайн, волна 7): файлы по записям клиента, страницы — серверные.
+// Поиск — с задержкой, раздел — выбор; смена любого из них начинает с первой страницы.
 const { t } = useI18n()
 const router = useRouter()
+
+const PAGE_SIZE = 25
 
 const loading = ref(false)
 const items = ref<MyReestrDocumentListItem[]>([])
 const totalCount = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(20)
 const search = ref('')
 const sectionFilter = ref<ReestrDocumentSection | null>(null)
+// Ответы приходят не по порядку (поиск набирается быстрее сервера): применяем только последний запрос.
+let requestSeq = 0
 
-const sectionOptions = computed(() => ([
-
+const sectionOptions = computed(() => [
   { value: 'client', label: t('transit.dokumentyKlienta') },
   { value: 'broker', label: t('transit.dokumentyBrokera') },
-]))
-const columns = computed(() => ([
-
-  { title: t('transit.konteyner'), dataIndex: 'container', key: 'container', width: 140, ellipsis: true },
-  { title: t('transit.status'), key: 'reestrStatus', width: 140 },
-  { title: t('transit.sekciya'), key: 'section', width: 120 },
-  { title: t('transit.fayl'), dataIndex: 'originalFileName', key: 'originalFileName', ellipsis: true },
-  { title: t('transit.razmer'), key: 'sizeBytes', width: 90 },
-  { title: t('transit.zagruzhen'), key: 'createdAtUtc', width: 150 },
-  { title: t('transit.deystviya'), key: 'actions', width: 180, fixed: 'right' as const },
-]))
+])
+const columns = computed<ZColumn<MyReestrDocumentListItem>[]>(() => [
+  { key: 'container', title: t('transit.konteyner'), dataIndex: 'container', width: 150, ellipsis: true },
+  { key: 'reestrStatus', title: t('transit.status'), width: 160 },
+  { key: 'section', title: t('transit.sekciya'), width: 120 },
+  { key: 'originalFileName', title: t('transit.fayl'), dataIndex: 'originalFileName', ellipsis: true },
+  { key: 'sizeBytes', title: t('transit.razmer'), width: 100 },
+  { key: 'createdAtUtc', title: t('transit.zagruzhen'), width: 150 },
+  { key: 'actions', title: t('transit.deystviya'), width: 190 },
+])
+const tableWidth = computed(() => columns.value.reduce((sum, c) => sum + (typeof c.width === 'number' ? c.width : 220), 0))
 const pagination = computed(() => ({
   current: currentPage.value,
-  pageSize: pageSize.value,
+  pageSize: PAGE_SIZE,
   total: totalCount.value,
-  showSizeChanger: true,
+  onChange: (p: number) => { currentPage.value = p; void fetchList() },
   showTotal: (total: number) => t('transit.vsego', { n: total }),
-  pageSizeOptions: ['10', '20', '50', '100'],
 }))
 
 const formatDate = (iso: string) => dayjs(iso).format('DD.MM.YYYY HH:mm')
 
 const formatSize = (bytes: number) => {
-  if (bytes < 1024) {
-    return `${bytes} ${t('transit.b')}`
-  }
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} ${t('transit.kb')}`
-  }
+  if (bytes < 1024) return `${bytes} ${t('transit.b')}`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} ${t('transit.kb')}`
   return `${(bytes / (1024 * 1024)).toFixed(1)} ${t('transit.mb')}`
 }
 
 const fetchList = async () => {
+  const seq = ++requestSeq
   loading.value = true
   try {
     const response = await reestrApi.listMyDocuments({
       page: currentPage.value,
-      pageSize: pageSize.value,
+      pageSize: PAGE_SIZE,
       section: sectionFilter.value,
       search: search.value || undefined,
     })
+    if (seq !== requestSeq) return
     items.value = response.items
     totalCount.value = response.totalCount
     currentPage.value = response.page
-    pageSize.value = response.pageSize
   } catch {
+    if (seq !== requestSeq) return
     items.value = []
     totalCount.value = 0
   } finally {
-    loading.value = false
+    if (seq === requestSeq) loading.value = false
   }
 }
 
-onMounted(() => {
-  fetchList()
-})
+onMounted(() => { void fetchList() })
 
 const handleSearch = () => {
   currentPage.value = 1
-  fetchList()
+  void fetchList()
 }
 
 const handleFilterChange = () => {
   currentPage.value = 1
-  fetchList()
-}
-
-const handleTableChange: TableProps['onChange'] = (pag) => {
-  if (pag.current) {
-    currentPage.value = pag.current
-  }
-  if (pag.pageSize) {
-    pageSize.value = pag.pageSize
-  }
-  fetchList()
+  void fetchList()
 }
 
 const handleDownload = async (record: MyReestrDocumentListItem) => {
   try {
-    const blob = await reestrApi.downloadDocument(record.reestrEntryId, record.id)
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = record.originalFileName
-    link.click()
-    window.URL.revokeObjectURL(url)
+    saveBlob(await reestrApi.downloadDocument(record.reestrEntryId, record.id), record.originalFileName)
   } catch {
     //
   }
@@ -189,10 +109,64 @@ const handleDownload = async (record: MyReestrDocumentListItem) => {
 const openDeclaration = (record: MyReestrDocumentListItem) => {
   void router.push({ path: `/reestr/${encodeURIComponent(record.reestrEntryId)}`, query: { from: 'my-documents' } })
 }
+
+const LINK = 'max-sm:min-h-11'
 </script>
 
-<style scoped>
-.my-documents-view {
-  width: 100%;
-}
-</style>
+<template>
+  <ZPage :title="t('transit.moiDokumenty')" :subtitle="t('transit.faylyPoKonteyneramDeklaraciyam')" data-my-documents>
+    <div class="flex flex-wrap items-center gap-2">
+      <ListSearch
+        :value="search"
+        :placeholder="t('transit.poiskPoFayluIli')"
+        :debounce="300"
+        data-my-docs-search
+        @update:value="search = $event"
+        @search="handleSearch"
+      />
+      <ZSelect
+        v-model:value="sectionFilter"
+        allow-clear
+        :placeholder="t('transit.vseSekcii')"
+        :options="sectionOptions"
+        :aria-label="t('transit.sekciya')"
+        class="w-full sm:w-[200px] max-sm:h-11"
+        data-my-docs-section
+        @change="handleFilterChange"
+      />
+    </div>
+
+    <ZTable
+      :columns="columns"
+      :data-source="items"
+      :loading="loading"
+      :pagination="pagination"
+      row-key="id"
+      :scroll="{ x: tableWidth }"
+      :aria-label="t('transit.moiDokumenty')"
+      class="overflow-hidden rounded-panel border border-line bg-surface max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent"
+      data-my-docs-table
+    >
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'section'">
+          {{ record.section === 'client' ? t('transit.klient') : t('transit.broker') }}
+        </template>
+        <StatusDot
+          v-else-if="column.key === 'reestrStatus'"
+          :tone="statusTone(dtoStatusToEntryStatus(record.reestrStatus))"
+          :label="t(`enum.reestrStatus.${statusKey(dtoStatusToEntryStatus(record.reestrStatus))}`)"
+        />
+        <template v-else-if="column.key === 'createdAtUtc'">
+          {{ formatDate(record.createdAtUtc) }}
+        </template>
+        <template v-else-if="column.key === 'sizeBytes'">
+          {{ formatSize(record.sizeBytes) }}
+        </template>
+        <span v-else-if="column.key === 'actions'" class="inline-flex items-center gap-4">
+          <ZButton variant="link" size="sm" :class="LINK" data-my-doc-download @click="handleDownload(record)">{{ t('transit.skachat') }}</ZButton>
+          <ZButton variant="link" size="sm" :class="LINK" data-my-doc-declaration @click="openDeclaration(record)">{{ t('transit.deklaraciya') }}</ZButton>
+        </span>
+      </template>
+    </ZTable>
+  </ZPage>
+</template>

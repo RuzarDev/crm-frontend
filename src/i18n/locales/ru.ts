@@ -4991,7 +4991,6 @@ export default {
     klientDobavlenVKonteyner: 'Клиент добавлен в контейнер',
     klientPartiya: 'Клиент/Партия',
     klientUsernamePoluchatelyaV: 'Клиент (Username получателя в CRM)',
-    klientskiyKabinet: 'Клиентский кабинет',
     klientyPokaNePrivyazany: 'Клиенты пока не привязаны',
     klientyVKonteynereNe: 'Клиенты в контейнере не созданы',
     kodNazvanieOrgana: 'Код/название органа',

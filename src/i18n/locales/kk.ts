@@ -4987,7 +4987,6 @@ export default {
     klientDobavlenVKonteyner: 'Клиент контейнерге қосылды',
     klientPartiya: 'Клиент/Партия',
     klientUsernamePoluchatelyaV: 'Клиент (CRM-дегі алушының Username-і)',
-    klientskiyKabinet: 'Клиент кабинеті',
     klientyPokaNePrivyazany: 'Клиенттер әзірге байланыстырылмаған',
     klientyVKonteynereNe: 'Контейнерде клиенттер жасалмаған',
     kodNazvanieOrgana: 'Орган коды/атауы',

@@ -4988,7 +4988,6 @@ export default {
     klientDobavlenVKonteyner: 'Client added to the container',
     klientPartiya: 'Client/Consignment',
     klientUsernamePoluchatelyaV: 'Client (consignee username in CRM)',
-    klientskiyKabinet: 'Client area',
     klientyPokaNePrivyazany: 'No clients linked yet',
     klientyVKonteynereNe: 'No clients created in the container',
     kodNazvanieOrgana: 'Office code/name',

@@ -52,7 +52,6 @@ declare module 'vue' {
     PageHeader: typeof import('./src/components/PageHeader.vue')['default']
     PeriodChip: typeof import('./src/components/broker/PeriodChip.vue')['default']
     PhoneInput: typeof import('./src/components/ui/PhoneInput.vue')['default']
-    ReestrStatusCell: typeof import('./src/components/ReestrStatusCell.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     RowActions: typeof import('./src/components/broker/RowActions.vue')['default']
@@ -71,6 +70,5 @@ declare module 'vue' {
     ZField: typeof import('./src/components/ui/ZField.vue')['default']
     ZFilterBar: typeof import('./src/components/ui/ZFilterBar.vue')['default']
     ZirconLogo: typeof import('./src/components/shell/ZirconLogo.vue')['default']
-    ZTable: typeof import('./src/components/ui/ZTable.vue')['default']
   }
 }

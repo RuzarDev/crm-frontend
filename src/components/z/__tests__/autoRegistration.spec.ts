@@ -26,7 +26,7 @@ describe('автоподключение компонентов (unplugin-vue-co
     expect(devMatches('.superpowers/sdd/x/task.diff')).toBe(false)
     expect(devMatches('.superpowers/sdd/x/Foo.vue')).toBe(false)
     expect(devMatches('src/components/PageHeader.vue')).toBe(true)
-    expect(devMatches('src/components/ui/ZTable.vue')).toBe(true)
+    expect(devMatches('src/components/broker/X.vue')).toBe(true)
     expect(devMatches('src/components/import40/deep/nested/X.vue')).toBe(true)
     expect(devMatches('src/components/zeta/X.vue')).toBe(true)
   })
