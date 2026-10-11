@@ -13,7 +13,7 @@ import { useModeLabel } from './useModeLabel'
 // «Итого по видам» (доска DtPayments): на ≥ 1280 — правая колонка страницы вместо «До подачи», уже — в разделе над
 // фактическими платежами. С предпросмотром — итоги, которые «Записать» внесёт в гр. В (Σ гр. 47 после записи), кнопка
 // «Записать в гр. 47 и гр. В» и что станет с гр. В (удалим виды, которых больше нет в расчёте; несколько строк вида —
-// не тронем). Без предпросмотра — Σ записанной гр. 47 по видам (как печать ДТ). Суммы — без копеек.
+// не тронем). Без предпросмотра (и при устаревшем) — Σ записанной гр. 47 по видам (как печать ДТ). Суммы — без копеек.
 const props = defineProps<{
   form: DtFormState
   payments: DtPayments
@@ -24,7 +24,10 @@ const { t, locale } = useI18n()
 const tt = (key: string, p?: Record<string, unknown>) => t(`broker.dt.payments.totals.${key}`, p ?? {})
 const modeLabel = useModeLabel()
 
-const preview = computed(() => !!props.payments.result.value)
+// Живой предпросмотр — итоги расчёта; устаревший ('stale-preview') — записанная гр. 47 и пометка «расчёт устарел»,
+// без «Записать» и списка удаляемых видов (они относились к прежним данным).
+const preview = computed(() => !!props.payments.result.value && (props.payments.state.value === 'preview' || props.payments.state.value === 'applying'))
+const outdated = computed(() => props.payments.state.value === 'stale-preview')
 const rows = computed<PaymentModeTotal[]>(() =>
   (preview.value ? props.payments.previewTotals.value : totalsByMode(props.form.goodsItems).filter((x) => x.code)))
 const grand = computed(() => rows.value.reduce((s, r) => s + r.amount, 0))
@@ -38,6 +41,8 @@ const money0 = (n: number) => formatNumberIn(String(locale.value), n, 0)
       <h3 class="m-0 text-[14px] font-semibold text-ink">{{ tt('title') }}</h3>
       <ZTag v-if="preview" tone="info" size="sm" class="ml-auto" data-payments-totals-preview>{{ tt('preview') }}</ZTag>
     </div>
+
+    <p v-if="outdated" class="m-0 text-[13px] text-gold-ink" data-payments-totals-outdated>{{ tt('outdated') }}</p>
 
     <p v-if="!rows.length" class="m-0 text-[13px] text-muted" data-payments-totals-empty>{{ editable ? tt('empty') : tt('emptyView') }}</p>
     <dl v-else class="m-0 flex flex-col">

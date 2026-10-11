@@ -1758,6 +1758,7 @@ export default {
         stale: { title: 'Payments are out of date', text: 'Not calculated or changed after the calculation: items {list}' },
         noGoodsInDt: 'The declaration has no goods — there is nothing to calculate',
         more: '{n} more items calculated without remarks',
+        moreAny: '{n} more items',
         showAll: 'show all',
         collapse: 'collapse',
         diff: {
@@ -1778,6 +1779,7 @@ export default {
         totals: {
           title: 'Totals by type',
           preview: 'calculation',
+          outdated: 'The calculation is out of date — calculate again. Below is the saved box 47.',
           grand: 'Box B total',
           empty: 'No payments yet — press «Calculate»',
           emptyView: 'No payments yet',
@@ -1792,6 +1794,7 @@ export default {
           emptyView: 'No payments',
           row: 'Payment {n}',
           remove: 'Delete payment {n}',
+          notInList: '{code} is not in the payment type list — kept as is',
           col: {
             mode: 'Type',
             amount: 'Amount, ₸',

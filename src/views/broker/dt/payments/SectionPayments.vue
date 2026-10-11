@@ -22,7 +22,8 @@ import { MEDICAL_VAT, paymentsGoodsEntries, staleGoodsIndexes } from './payments
 //   (предпросмотр сброшен), расчёт готов (с товарами, которые он не пересчитал), почему расчёт остановился, сверка
 //   гр. 47 ↔ гр. В (печать считает гр. В из гр. 47, XML — из фактических платежей).
 // - Карточки товаров: с замечанием — всегда (ошибка/примечание расчёта; без предпросмотра — устаревшие платежи),
-//   остальные свёрнуты «Ещё N … · показать все» (200 товаров открываются быстро); до 5 товаров видны все. «До подачи» раскрывает нужную
+//   остальные свёрнуты «Ещё N … · показать все» (200 товаров открываются быстро); до 5 товаров видны все, с замечаниями —
+//   не больше 5 карточек (до первого расчёта замечание у всех). «До подачи» раскрывает нужную
 //   карточку событием payments-reveal на корне раздела (detail.index — позиция товара).
 // - «Итого по видам» — здесь только на узких (totalsInline), на ≥ 1280 — правая колонка страницы.
 // - Фактические платежи гр. В — таблица прямо по form.factPayments.
@@ -47,13 +48,30 @@ const live = computed(() => state.value === 'preview' || state.value === 'applyi
 
 const entries = computed(() => paymentsGoodsEntries(props.form.goodsItems, live.value ? p.result.value : null))
 const showAll = ref(false)
+/** Карточки, раскрытые «До подачи», — по ключу товара (keyOf): удаление или перестановка товаров их не путает. */
 const revealed = ref<ReadonlySet<number>>(new Set())
-// Немного товаров — видны все (сворачивать нечего); дальше — только с замечаниями.
+const keyAt = (index: number) => props.goods.keyOf(props.form.goodsItems[index])
+// Немного товаров — видны все (сворачивать нечего). Дальше — только с замечаниями и не больше ISSUES_SHOWN карточек
+// (до первого расчёта замечание у всех: 200 полных карточек по умолчанию не рисуем); остальное — «показать все».
 const COLLAPSE_FROM = 6
+const ISSUES_SHOWN = 5
 const expanded = computed(() => showAll.value || entries.value.length < COLLAPSE_FROM)
-const visible = computed(() => entries.value.filter((e) => expanded.value || e.issue || revealed.value.has(e.index)))
+const visible = computed(() => {
+  if (expanded.value) return entries.value
+  let issues = 0
+  return entries.value.filter((e) => {
+    if (revealed.value.size && revealed.value.has(keyAt(e.index))) return true
+    if (!e.issue || issues >= ISSUES_SHOWN) return false
+    issues += 1
+    return true
+  })
+})
 const hidden = computed(() => entries.value.length - visible.value.length)
-const cleanCount = computed(() => entries.value.reduce((n, e) => n + (e.issue ? 0 : 1), 0))
+/** Среди свёрнутых есть товары с замечаниями — подпись без «без замечаний». */
+const hiddenIssues = computed(() => {
+  const shown = new Set(visible.value.map((e) => e.index))
+  return entries.value.some((e) => e.issue && !shown.has(e.index))
+})
 
 const staleList = computed(() => (p.result.value ? [] : staleGoodsIndexes(props.form.goodsItems)))
 const notRecalculated = computed(() => (live.value ? p.notRecalculated.value : []))
@@ -84,8 +102,9 @@ const collapse = () => {
 // «До подачи» про гр. 47 товара: карточка свёрнута — раскрыть только её.
 const onReveal = (e: Event) => {
   const index = (e as CustomEvent<{ index?: number }>).detail?.index
-  if (typeof index !== 'number' || revealed.value.has(index)) return
-  revealed.value = new Set([...revealed.value, index])
+  if (typeof index !== 'number' || !props.form.goodsItems[index]) return
+  const key = keyAt(index)
+  if (!revealed.value.has(key)) revealed.value = new Set([...revealed.value, key])
 }
 </script>
 
@@ -143,9 +162,9 @@ const onReveal = (e: Event) => {
         @medical="onMedical(form.goodsItems[e.index], $event)"
         @open="emit('open-goods', e.index)"
       />
-      <p v-if="hidden > 0 || (showAll && cleanCount > 0 && entries.length >= COLLAPSE_FROM)" class="m-0 flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted" data-payments-more>
+      <p v-if="hidden > 0 || (showAll && entries.length >= COLLAPSE_FROM)" class="m-0 flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted" data-payments-more>
         <template v-if="hidden > 0">
-          <span>{{ tp('more', { n: hidden }) }}</span>
+          <span>{{ hiddenIssues ? tp('moreAny', { n: hidden }) : tp('more', { n: hidden }) }}</span>
           <span aria-hidden="true">·</span>
           <button
             type="button"

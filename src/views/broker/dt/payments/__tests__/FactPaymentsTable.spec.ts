@@ -86,3 +86,14 @@ describe('FactPaymentsTable', () => {
     expect(w.get('input[data-fact="payer"]').attributes('disabled')).toBeDefined()
   })
 })
+
+describe('FactPaymentsTable: вид не из справочника', () => {
+  it('остаётся и показывается как есть (с пометкой), правка строки его не сбрасывает', async () => {
+    const { form, w } = setup([fact('9999', 5)])
+    expect((w.get('input[data-fact="mode"]').element as HTMLInputElement).value).toBe('9999')
+    expect(w.get('[data-fact-mode-unknown]').text()).toBe('9999 — нет в справочнике видов платежа, оставлен как есть')
+    await typeIn(row(w, 0).get('input[data-fact="amount"]').element, '6')
+    expect(form.factPayments[0]).toMatchObject({ taxModeCode: '9999', amount: 6 })
+    expect(w.find('[data-fact-row="1010"] [data-fact-mode-unknown]').exists()).toBe(false)
+  })
+})

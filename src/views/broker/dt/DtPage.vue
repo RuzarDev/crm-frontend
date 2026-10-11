@@ -262,11 +262,22 @@ const openGoodsItem = async (index: number) => {
   }
 }
 // «Открыть товар →» в карточке «Платежей»: редактор товара, к его платежам гр. 47.
+// Редактор монтируется не сразу (адрес → раздел → панель): блок платежей ждём до ~1 с, а не один тик.
+const waitForElement = async (selector: string, tries = 60): Promise<HTMLElement | null> => {
+  for (let i = 0; i < tries; i++) {
+    const el = document.querySelector<HTMLElement>(selector)
+    if (el) return el
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 16))
+  }
+  return null
+}
 const openGoodsFromPayments = async (index: number) => {
   await openGoodsItem(index)
-  await nextTick()
-  document.querySelector<HTMLElement>(`[data-dt-goods-editor] [data-goods-index="${index}"] [data-goods-field="payments"]`)
-    ?.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
+  const block = await waitForElement(`[data-dt-goods-editor] [data-goods-index="${index}"] [data-goods-field="payments"]`)
+  // Пока ждали, ушли в другой раздел или товар — не прокручивать.
+  if (!block || route.query.s !== 'goods' || route.query.item !== String(index + 1)) return
+  block.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
 }
 const goTo = async (item: DtReadinessItem) => {
   panelOpen.value = false
@@ -324,6 +335,8 @@ const goTo = async (item: DtReadinessItem) => {
     // Фокус — на само поле, а не на «?» справки КТС 257 в подписи (DtGraphHelp, data-dt-guide-trigger).
     // Без tabindex=-1: крестики меток мультивыбора (коды гр. 33, признаки), скрытый input загрузки файла.
     const control = [...field.querySelectorAll<HTMLElement>(FOCUSABLE)].find((el) => el.tabIndex >= 0 && !el.closest('[data-dt-guide-trigger]'))
+      // гр. 47 в «Платежах»: в строках платежей полей нет — фокус на саму карточку товара (tabindex="-1").
+      ?? (paymentsAt != null ? field.closest<HTMLElement>('[data-payments-goods]') : null)
     control?.focus({ preventScroll: true })
   }
 }

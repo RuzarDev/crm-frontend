@@ -109,7 +109,7 @@ describe('SectionPayments: карточки и плашки', () => {
 
   it('свёртка: от 6 товаров — без замечаний свёрнуты, «показать все» / «свернуть»; payments-reveal раскрывает одну карточку', async () => {
     const goods = Array.from({ length: 8 }, (_, i) => goodsItem({ description: `Т${i + 1}`, needsTpinRecalc: i === 3 }))
-    const { w } = setup({ goods })
+    const { w, goods: model } = setup({ goods })
     await settle()
     expect(cards(w)).toEqual(['3'])
     expect(w.get('[data-payments-goods][data-goods-index="3"] [data-payments-goods-stale]').text()).toBe('Пересчитать')
@@ -117,10 +117,25 @@ describe('SectionPayments: карточки и плашки', () => {
     w.get('[data-dt-payments]').element.dispatchEvent(new CustomEvent('payments-reveal', { detail: { index: 6 } }))
     await nextTick()
     expect(cards(w)).toEqual(['3', '6'])
+    // раскрытая карточка помнится по товару, а не по позиции: удалили первый — «Т7» теперь на позиции 5
+    model.remove([0])
+    await nextTick()
+    expect(cards(w)).toEqual(['2', '5'])
+    expect(w.get('[data-payments-goods][data-goods-index="5"]').text()).toContain('Т7')
+    await w.get('[data-payments-show-all]').trigger('click')
+    expect(cards(w)).toHaveLength(7)
+    await w.get('[data-payments-collapse]').trigger('click')
+    expect(cards(w)).toEqual(['2'])
+  })
+
+  it('до первого расчёта от 6 товаров (замечание у всех) — первые 5 карточек и «Ещё N тов. · показать все»', async () => {
+    const { w } = setup({ goods: Array.from({ length: 8 }, () => goodsItem({ payments: [] })) })
+    await settle()
+    expect(cards(w)).toEqual(['0', '1', '2', '3', '4'])
+    expect(w.get('[data-payments-more]').text()).toMatch(/^Ещё 3 тов\.\s*·\s*показать все$/)
+    expect(w.get('[data-payments-stale]').text()).toContain('товары 1–8')
     await w.get('[data-payments-show-all]').trigger('click')
     expect(cards(w)).toHaveLength(8)
-    await w.get('[data-payments-collapse]').trigger('click')
-    expect(cards(w)).toEqual(['3'])
   })
 
   it('до 5 товаров видны все; «Рассчитать» — шаги и предпросмотр', async () => {
@@ -184,7 +199,12 @@ describe('SectionPayments: карточки и плашки', () => {
     expect(form.goodsItems[0]).toMatchObject({ vatRatePreferential: 0.05, needsTpinRecalc: true })
     expect(w.get('[data-dt-payments]').attributes('data-state')).toBe('stale-preview')
     expect(w.get('[data-payments-changed]').text()).toContain('Данные изменились — рассчитайте заново')
-    expect(w.get('[data-payments-apply]').attributes('disabled')).toBeDefined()
+    // итоги — не прежний расчёт: записанная гр. 47 с пометкой «расчёт устарел», без «Записать» и «удалим»
+    expect(w.find('[data-payments-apply]').exists()).toBe(false)
+    expect(w.find('[data-payments-totals-preview]').exists()).toBe(false)
+    expect(w.find('[data-payments-removed]').exists()).toBe(false)
+    expect(w.get('[data-payments-totals-outdated]').text()).toContain('Расчёт устарел — рассчитайте заново')
+    expect(w.get('[data-payments-total="5060"]').text()).toMatch(/7\s922\s₸/)
     // карточки — по текущим данным, без сумм предпросмотра
     expect(w.find('[data-payments-line][data-fresh]').exists()).toBe(false)
     await w.get('[data-payments-changed] [data-payments-recalc]').trigger('click')

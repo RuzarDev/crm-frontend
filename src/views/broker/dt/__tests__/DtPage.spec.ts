@@ -1194,6 +1194,8 @@ describe('DtPage: раздел «Платежи» (волна 6в)', () => {
     expect(w.findAll('[data-payments-goods]').map((c) => c.attributes('data-goods-index'))).toEqual(['1'])
     expect(w.get('[data-payments-goods][data-goods-index="1"]').text()).toContain('ТРЕТИЙ')
     expect(w.get('[data-payments-goods][data-goods-index="1"] [data-graph="47"]').attributes('data-dt-flash')).toBeDefined()
+    // фокус — на карточку товара (в строках платежей полей нет)
+    expect(document.activeElement).toBe(w.get('[data-payments-goods][data-goods-index="1"]').element)
     expect(w.get('[data-payments-more]').text()).toContain('Ещё 5 тов.')
     await w.get('[data-payments-show-all]').trigger('click')
     expect(w.findAll('[data-payments-goods]')).toHaveLength(6)
@@ -1232,7 +1234,8 @@ describe('DtPage: раздел «Платежи» (волна 6в)', () => {
     expect(medical().attributes('aria-checked')).toBe('false')
     expect(w.get('[data-dt-payments]').attributes('data-state')).toBe('stale-preview')
     expect(w.find('[data-payments-changed]').exists()).toBe(true)
-    expect(w.get('[data-payments-apply]').attributes('disabled')).toBeDefined()
+    expect(w.find('[data-payments-apply]').exists()).toBe(false)
+    expect(w.find('[data-payments-totals-outdated]').exists()).toBe(true)
     expect(navItem('payments').find('[data-dt-nav-stale]').exists()).toBe(true)
     key({ key: 's', code: 'KeyS', metaKey: true })
     await settle()
@@ -1264,6 +1267,30 @@ describe('DtPage: раздел «Платежи» (волна 6в)', () => {
     await w.get('[data-payments-goods][data-goods-index="0"] [data-payments-open-goods]').trigger('click')
     await settle()
     expect(router.currentRoute.value.query).toEqual({ s: 'goods', item: '1' })
+  })
+
+  it('«Открыть товар →» — прокрутка к платежам товара, когда редактор смонтировался (не через один тик)', async () => {
+    api.calculatePayments.mockResolvedValue({ goodsRows: [{ index: 0, rows: [], error: 'Укажите код ТНВЭД и стоимость' }], totalsByTaxMode: {}, grandTotalB: 0 })
+    const scrolled: Element[] = []
+    const spy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(function (this: Element) { scrolled.push(this) })
+    // Редактор «монтируется» не сразу: первые 3 поиска блока платежей ничего не находят.
+    const qs = Document.prototype.querySelector
+    let misses = 3
+    const qsSpy = vi.spyOn(Document.prototype, 'querySelector').mockImplementation(function (this: Document, sel: string) {
+      if (sel.includes('[data-goods-field="payments"]') && misses > 0) { misses -= 1; return null }
+      return qs.call(this, sel)
+    })
+    try {
+      await open('', ['SectionGoods'])
+      await calcFromHeader()
+      await w.get('[data-payments-goods][data-goods-index="0"] [data-payments-open-goods]').trigger('click')
+      await vi.waitFor(() => expect(scrolled.some((el) => el.matches('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="payments"]'))).toBe(true), { timeout: 2000 })
+      expect(router.currentRoute.value.query).toEqual({ s: 'goods', item: '1' })
+      expect(misses).toBe(0)
+    } finally {
+      spy.mockRestore()
+      qsSpy.mockRestore()
+    }
   })
 
   it('≥ 1280: «Итого по видам» — в правой колонке вместо «До подачи» (в разделе — нет), «До подачи» — кнопкой в шапке', async () => {

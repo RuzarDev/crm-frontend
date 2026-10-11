@@ -17,7 +17,7 @@ import type { DtFormState } from '../dtPayload'
 // курс, плательщик ИИН/БИН, дата платёжки, дата платежа, способ (payment-methods). Правка — прямо в form.factPayments,
 // без своей копии: «Записать» заменяет массив гр. В, и таблица сразу показывает новые суммы, а правка строки не
 // возвращает старые (прежняя таблица держала копию — §5-1). Добавление и удаление заменяют массив (как расходы).
-// Новая строка — курс 1, способ «БН» (как прежде). Номера платёжки в модели нет (вопрос владельцу).
+// Новая строка — курс 1, способ «БН» (как прежде). Вид и способ не из справочника не сбрасываются (withCurrent). Номера платёжки в модели нет (вопрос владельцу).
 const props = defineProps<{
   form: DtFormState
   readonly: boolean
@@ -29,6 +29,8 @@ const classifiers = useClassifiersStore()
 const rows = computed<Import40FactPayment[]>(() => props.form.factPayments ?? [])
 const modeOptions = computed(() => classifiers.options('tax-modes'))
 const methodOptions = computed(() => classifiers.options('payment-methods'))
+// Вид не из справочника (старая строка, ручной код) — остаётся и показывается как есть, с пометкой; данные не теряются.
+const modeOf = (p: Import40FactPayment) => withCurrent(modeOptions.value, p.taxModeCode)
 
 // Стабильный ключ строки: удаление строки выше не переносит набранное в соседнюю.
 const rowKeys = new WeakMap<object, number>()
@@ -84,9 +86,10 @@ const tall = 'max-sm:h-11'
           <span :class="label">{{ tf('col.mode') }}</span>
           <ZSelect
             :value="p.taxModeCode || null"
-            :options="withCurrent(modeOptions, p.taxModeCode).options"
+            :options="modeOf(p).options"
             show-search
             :disabled="readonly"
+            :status="modeOf(p).unknown ? 'warning' : undefined"
             placeholder="2010"
             popup-width="320px"
             :class="tall"
@@ -94,6 +97,7 @@ const tall = 'max-sm:h-11'
             data-fact="mode"
             @update:value="p.taxModeCode = str($event)"
           />
+          <span v-if="modeOf(p).unknown" class="text-xs text-gold-ink" data-fact-mode-unknown>{{ tf('notInList', { code: p.taxModeCode }) }}</span>
         </div>
         <div :class="field">
           <span :class="label">{{ tf('col.amount') }}</span>

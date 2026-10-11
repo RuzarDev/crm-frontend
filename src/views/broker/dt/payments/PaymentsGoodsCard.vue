@@ -18,7 +18,7 @@ import { useModeLabel } from './useModeLabel'
 // ставка, сумма, СП). Во время предпросмотра — строки, какими их запишет «Записать» (виды из расчёта помечены «расчёт,
 // не записан»); ошибка расчёта и примечания сервера — внизу, со ссылкой «Открыть товар». Суммы — только с сервера.
 // Переключатель «Медизделие» не пишет в товар сам: событие medical — страница правит товар через setField модели
-// товаров («Пересчитать», сброс предпросмотра).
+// товаров («Пересчитать», сброс предпросмотра). tabindex="-1" — переход «До подачи» к гр. 47 ставит фокус на карточку.
 const props = defineProps<{
   item: Import40GoodsItemInput
   /** Позиция товара (с 0). */
@@ -64,7 +64,8 @@ const cell = 'flex min-w-0 flex-col gap-0.5'
 
 <template>
   <article
-    class="@container min-w-0 overflow-hidden rounded-row border border-line bg-surface"
+    class="@container min-w-0 overflow-hidden rounded-row border border-line bg-surface outline-hidden focus-visible:shadow-focus"
+    tabindex="-1"
     data-payments-goods
     :data-goods-index="index"
     :data-state="state"
