@@ -25,7 +25,7 @@ afterEach(() => {
 })
 
 /** Страница в миниатюре: форма, версия правок (как useDtForm.editVersion) и журнал вызовов по порядку. */
-function setup(o: { goods?: unknown[]; save?: () => Promise<boolean>; editable?: boolean } = {}) {
+function setup(o: { goods?: unknown[]; save?: () => Promise<boolean>; editable?: boolean; canSave?: () => boolean } = {}) {
   const form = reactive(emptyDtForm()) as DtFormState
   form.goodsItems = (o.goods ?? [goods(), goods({ tnvedCode: '7318150000' })]) as never
   const editVersion = ref(0)
@@ -43,7 +43,7 @@ function setup(o: { goods?: unknown[]; save?: () => Promise<boolean>; editable?:
     ])
   })
   const save = vi.fn(async () => { log.push('save'); return o.save ? o.save() : true })
-  const opts: DtPaymentsOptions = { save, editable, editVersion }
+  const opts: DtPaymentsOptions = { save, editable, editVersion, canSave: o.canSave }
   scope = effectScope()
   const p = scope.run(() => useDtPayments(form, 'c1', 'd1', opts))!
   /** Правка формы пользователем: как наблюдатель useDtForm — версия правок + 1. */
@@ -85,6 +85,28 @@ describe('useDtPayments.calculate: шаги', () => {
     expect(await p.calculate()).toBe(false)
     expect(log).toEqual([])
     expect(p.state.value).toBe('idle')
+  })
+
+  it('сохранить нельзя (409, загрузка) — стоп до шага 1: гр. 45 и «Пересчитать» не тронуты', async () => {
+    const { form, p, log } = setup({ goods: [goods({ customsValueKzt: 1, needsTpinRecalc: false })], canSave: () => false })
+    expect(await p.calculate()).toBe(false)
+    expect(log).toEqual([])
+    expect(form.goodsItems[0]).toMatchObject({ customsValueKzt: 1, needsTpinRecalc: false })
+    expect(toast.warning).toHaveBeenCalledWith('ДТ не сохранилась — платежи не рассчитаны')
+    expect(p.problem.value).toBe('notSaved')
+  })
+
+  it('шаг 1: товар без фактурной стоимости или валюты — в запросе (доли расходов), но введённая гр. 45 остаётся', async () => {
+    const { form, p } = setup({ goods: [
+      goods({ customsValueKzt: 1, needsTpinRecalc: false }),
+      goods({ customsValue: null, customsValueKzt: 777, needsTpinRecalc: false }),
+      goods({ customsValue: 0, customsValueKzt: 888, needsTpinRecalc: false }),
+      goods({ currency: null, customsValueKzt: 999, needsTpinRecalc: false }),
+    ] })
+    await p.calculate()
+    expect(api.calculateCustomsValue.mock.calls[0][0].goods).toHaveLength(4)
+    expect(form.goodsItems.map((g) => [g.customsValueKzt, g.needsTpinRecalc])).toEqual([[50000, true], [777, false], [888, false], [999, false]])
+    expect(p.customsResult.value).toEqual({ updated: 1, total: 50000 })
   })
 
   it('нет товаров — «Нет товаров для расчёта», запросов нет', async () => {
@@ -177,6 +199,16 @@ describe('useDtPayments: предпросмотр сбрасывается по 
     expect(p.state.value).toBe('stale-preview')
   })
 
+  it('дата гр. А или ЕТТ/ВТО изменились после расчёта — «Данные изменились»', async () => {
+    for (const change of [(f: DtFormState) => { f.submissionDate = '2026-10-06' }, (f: DtFormState) => { f.rateType = 'EATT' }]) {
+      const { form, p, edit } = setup()
+      await p.calculate()
+      await edit(() => change(form))
+      expect(p.state.value).toBe('stale-preview')
+      scope?.stop()
+    }
+  })
+
   it('перезагрузка ДТ (другие товары) — предпросмотр устарел', async () => {
     const { form, p } = setup()
     await p.calculate()
@@ -245,6 +277,24 @@ describe('useDtPayments.apply: «Записать в гр. 47 и гр. В»', ()
     await p.apply()
     expect(form.factPayments.map((f) => [f.taxModeCode, f.amount])).toEqual([['1010', 5], ['6010', 1], ['4400', 12]])
     expect(form.goodsItems[0].payments?.map((x) => x.taxModeCode)).toEqual(['1010', '4400'])
+  })
+
+  it('товар с ошибкой расчёта: его виды остаются в гр. В (с реквизитами платёжки), суммы гр. В = Σ гр. 47 после записи', async () => {
+    const { form, p } = setup({ goods: [goods(), goods({ payments: [{ taxModeCode: '4420', amountKzt: 9 }, { taxModeCode: '5060', amountKzt: 2 }] })] })
+    const row = (taxModeCode: string, amount: number, o: Record<string, unknown> = {}) => ({ taxModeCode, amount, exchangeRate: 1, paymentDocDate: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН', ...o })
+    form.factPayments = [row('4420', 9, { payerTaxpayerId: '123456789012', paymentDocDate: '2026-10-09' }), row('5060', 1)]
+    api.calculatePayments.mockResolvedValueOnce(calc([
+      { index: 0, rows: [{ taxModeCode: '1010', amount: 5 }, { taxModeCode: '5060', amount: 4 }] },
+      { index: 1, rows: [], error: 'Нет кода ТН ВЭД' },
+    ], { 1010: 5, 5060: 4 }))
+    await p.calculate()
+    expect(p.notRecalculated.value).toEqual([1])
+    expect(p.previewTotals.value).toEqual([{ code: '1010', amount: 5 }, { code: '4420', amount: 9 }, { code: '5060', amount: 6 }])
+    expect(p.factPreview.value).toMatchObject({ removed: [], added: ['1010'], updated: ['4420', '5060'] })
+    await p.apply()
+    expect(form.factPayments.map((f) => [f.taxModeCode, f.amount])).toEqual([['4420', 9], ['5060', 6], ['1010', 5]])
+    expect(form.factPayments[0]).toMatchObject({ payerTaxpayerId: '123456789012', paymentDocDate: '2026-10-09' })
+    expect(form.goodsItems[1].payments?.map((x) => [x.taxModeCode, x.amountKzt])).toEqual([['4420', 9], ['5060', 2]])
   })
 
   it('несколько строк вида в гр. В — суммы не тронуты, предупреждение', async () => {

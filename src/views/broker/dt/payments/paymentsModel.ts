@@ -1,11 +1,12 @@
 // Чистые правила раздела «Платежи» (волна 6в, Task 2): итоги гр. 47 по видам, слияние расчёта с гр. В, сверка
 // гр. 47 ↔ гр. В и снимок товаров для предпросмотра расчёта. Суммы — только с сервера (расчёт или записанные гр. 47),
 // фронт их не пересчитывает, только складывает по виду (как печать ДТ).
+import type { Import40CalculatePaymentsResponse } from '@/api/import40'
 import type { Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
 import type { DtFormState } from '../dtPayload'
 import { keyOf } from '../goods/useDtGoods'
 import { PAYMENT_FIELDS } from '../goods/goodsStatus'
-import { isCalculatedTaxMode } from './paymentRows'
+import { applyGoodsPaymentRows, isCalculatedTaxMode } from './paymentRows'
 
 export interface PaymentModeTotal {
   /** Вид платежа (классификатор 2010); строки без вида — ''. */
@@ -29,6 +30,33 @@ export function totalsByMode(goods: readonly Pick<Import40GoodsItemInput, 'payme
     }
   }
   return [...sums].map(([code, amount]) => ({ code, amount })).sort(byCode)
+}
+
+/**
+ * Σ гр. 47 по виду, какой она станет после «Записать»: строки товаров пишутся теми же правилами (applyGoodsPaymentRows)
+ * в копию; товары с ошибкой расчёта и не попавшие в расчёт — со своими строками (их виды остаются в гр. В). Без ошибок
+ * совпадает с totalsByTaxMode сервера (Σ округлённых строк). Форма не меняется.
+ */
+export function goodsTotalsAfterApply(
+  goods: readonly Pick<Import40GoodsItemInput, 'payments'>[],
+  res: Import40CalculatePaymentsResponse,
+): PaymentModeTotal[] {
+  const copy = { goodsItems: goods.map((g) => ({ payments: (g.payments ?? []).map((p) => ({ ...p })) })) }
+  applyGoodsPaymentRows(copy as unknown as Pick<DtFormState, 'goodsItems'>, res)
+  return totalsByMode(copy.goodsItems)
+}
+
+/** Итоги списком → { вид: сумма } для гр. В (строки гр. 47 без вида в гр. В не идут). */
+export const totalsRecord = (list: readonly PaymentModeTotal[]): Record<string, number> =>
+  Object.fromEntries(list.filter((x) => x.code).map((x) => [x.code, x.amount]))
+
+/**
+ * Позиции товаров (с 0), которые расчёт не пересчитал: ошибка расчёта или товара нет в ответе — их гр. 47 остаётся
+ * прежней.
+ */
+export function notRecalculatedGoods(goodsCount: number, res: Import40CalculatePaymentsResponse): number[] {
+  const ok = new Set(res.goodsRows.filter((r) => !r.error).map((r) => r.index))
+  return Array.from({ length: goodsCount }, (_, i) => i).filter((i) => !ok.has(i))
 }
 
 /** Итоги расчёта (totalsByTaxMode сервера) списком по коду. */
@@ -56,8 +84,9 @@ const newFactRow = (code: string, amount: number): Import40FactPayment => ({
 /**
  * Расчёт → гр. В (фактические платежи). Для каждого вида из расчёта: строки нет — добавить в конец; одна строка —
  * заменить её сумму; несколько строк (несколько платёжек) — не трогать и предупредить. Строки рассчитываемых видов
- * (1010, 2010, 2050, 5060, 4xxx), которых в расчёте больше нет, удаляются (сменился вид акциза — старый не уходит в
- * XML, §5-10); прочие виды и строки без вида — как были. fact не меняется: изменённые строки — копии, неизменённые —
+ * (1010, 2010, 2050, 5060, 4xxx), которых в totals больше нет, удаляются (сменился вид акциза — старый не уходит в
+ * XML, §5-10); прочие виды и строки без вида — как были. totals — Σ гр. 47 после записи (goodsTotalsAfterApply):
+ * вид товара с ошибкой расчёта в нём остаётся, и его строка гр. В не удаляется. fact не меняется: изменённые строки — копии, неизменённые —
  * те же объекты.
  */
 export function mergeFactPayments(
@@ -123,4 +152,9 @@ export function factVsGoodsDiff(form: Pick<DtFormState, 'goodsItems' | 'factPaym
  */
 export function goodsSnapshot(goods: readonly Import40GoodsItemInput[]): string {
   return JSON.stringify(goods.map((g) => [keyOf(g), PAYMENT_FIELDS.map((f) => g[f] ?? null), g.payments ?? []]))
+}
+
+/** Снимок для предпросмотра: товары (goodsSnapshot) и графы шапки, от которых зависит расчёт — дата гр. А (курсы), ЕТТ/ВТО. */
+export function calcSnapshot(form: Pick<DtFormState, 'goodsItems' | 'submissionDate' | 'rateType'>): string {
+  return JSON.stringify([form.submissionDate ?? null, (form.rateType ?? '').toUpperCase(), goodsSnapshot(form.goodsItems)])
 }

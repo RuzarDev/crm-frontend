@@ -2,16 +2,20 @@
 //
 // calculate():
 //   0) только при праве править (просмотр, разделённая ДТ — ничего); без товаров — «Нет товаров для расчёта»;
-//   1) гр. 45/46 по данным экрана (тот же запрос, что «Рассчитать там. стоимость», дата гр. А); ошибка — стоп
-//      (текст показал общий перехватчик);
+//      сохранить сейчас нельзя (409, идёт загрузка — canSave) — стоп ДО шага 1, гр. 45 и «Пересчитать» не тронуты;
+//   1) гр. 45/46 по данным экрана (тот же запрос, что «Рассчитать там. стоимость», дата гр. А); пишутся только товары
+//      с фактурной стоимостью > 0 и валютой — у прочих введённая вручную гр. 45 остаётся; ошибка — стоп (текст
+//      показал общий перехватчик);
 //   2) тихое сохранение ДТ: не сохранилась (409, ошибка, нет права) — расчёт не выполняется, сказано почему;
 //   3) calculate-payments по СОХРАНЁННОЙ ДТ → предпросмотр (state 'preview'): суммы по товарам и итоги по видам.
-// Предпросмотр живёт, пока товары те же: после правки товаров (состав, порядок, поля расчёта, строки гр. 47) —
+// Предпросмотр живёт, пока товары те же: после правки товаров (состав, порядок, поля расчёта, строки гр. 47), даты гр. А
+// или ЕТТ/ВТО —
 // 'stale-preview' («Данные изменились — рассчитайте заново»). Сигнал — версия правок формы (useDtForm.editVersion,
 // её уже ведёт наблюдатель страницы); на её смене сравнивается снимок товаров (goodsSnapshot) — сам расчёт форму
 // не обходит. Правка «Медизделие» через setField модели товаров — тоже правка: предпросмотр сбрасывается.
-// apply(): снимок ещё тот же (иначе — 'stale-preview') → гр. 47 (applyGoodsPaymentRows, правила без изменений) и
-// гр. В (mergeFactPayments) → сохранение → «Записано».
+// apply(): снимок ещё тот же (иначе — 'stale-preview') → гр. 47 (applyGoodsPaymentRows, правила без изменений) →
+// гр. В (mergeFactPayments) из Σ гр. 47 по видам ПОСЛЕ записи (как печать): товары с ошибкой расчёта сохраняют свои
+// строки, и их виды остаются в гр. В → сохранение → «Записано».
 // «ТПиН по данным экрана» удалён: платежи считаются только по сохранённой ДТ (§5-5).
 import { computed, ref, shallowRef, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import { import40Api, type Import40CalculatePaymentsResponse } from '@/api/import40'
@@ -21,7 +25,10 @@ import { formatNumberIn } from '@/ui/number'
 import { toIsoDate, type DtFormState } from './dtPayload'
 import { markStale } from './goods/goodsStatus'
 import { applyGoodsPaymentRows } from './payments/paymentRows'
-import { goodsSnapshot, mergeFactPayments, totalsFromResponse, type FactMergeResult, type PaymentModeTotal } from './payments/paymentsModel'
+import {
+  calcSnapshot, goodsTotalsAfterApply, mergeFactPayments, notRecalculatedGoods, totalsByMode, totalsRecord,
+  type FactMergeResult, type PaymentModeTotal,
+} from './payments/paymentsModel'
 
 const t = (key: string, p?: Record<string, unknown>) => (p ? i18n.global.t(key, p) : i18n.global.t(key))
 const locale = () => String(i18n.global.locale.value)
@@ -43,7 +50,16 @@ export interface DtPaymentsOptions {
   editable?: MaybeRefOrGetter<boolean>
   /** Версия правок формы (useDtForm.editVersion): на её смене проверяется, не изменились ли товары после расчёта. */
   editVersion?: MaybeRefOrGetter<number>
+  /**
+   * Сохранить сейчас можно (нет конфликта 409, ДТ не грузится): иначе «Рассчитать» останавливается до шага 1.
+   * Страница: `() => !dt.conflict.value && !dt.loading.value`. По умолчанию — да.
+   */
+  canSave?: () => boolean
 }
+
+/** Гр. 45 товара считается по фактурной стоимости: есть стоимость > 0 и валюта (иначе остаётся введённая вручную). */
+const customsValueComputable = (g: { customsValue?: number | null; currency?: string | null }) =>
+  g.customsValue != null && g.customsValue > 0 && !!g.currency
 
 export function useDtPayments(
   form: DtFormState,
@@ -61,20 +77,27 @@ export function useDtPayments(
   const customsLoading = ref(false)
 
   const editable = () => (opts.editable === undefined ? true : !!toValue(opts.editable))
-  /** Снимок товаров, по которому сохранена ДТ для расчёта (см. goodsSnapshot). */
+  /** Снимок товаров и граф шапки, по которому сохранена ДТ для расчёта (см. calcSnapshot). */
   let snapshot: string | null = null
 
   const loading = computed(() => state.value === 'calculating')
   const applying = computed(() => state.value === 'applying')
   const busy = computed(() => state.value === 'calculating' || state.value === 'applying')
 
-  /** Итоги расчёта по видам (по коду). */
-  const previewTotals = computed<PaymentModeTotal[]>(() => totalsFromResponse(result.value?.totalsByTaxMode))
-  /** Какой станет гр. В после «Записать» (добавятся / заменятся / несколько строк — не тронем). */
+  /**
+   * Итоги по видам, которые «Записать» внесёт в гр. В: Σ гр. 47 всех товаров после записи (товары с ошибкой — со своими
+   * строками). Без ошибок равны итогам расчёта сервера.
+   */
+  const previewTotals = computed<PaymentModeTotal[]>(() =>
+    (result.value ? goodsTotalsAfterApply(form.goodsItems, result.value) : []).filter((x) => x.code))
+  /** Какой станет гр. В после «Записать»: добавятся / заменятся / удалятся / несколько строк — не тронем. */
   const factPreview = computed<FactMergeResult | null>(() =>
-    result.value ? mergeFactPayments(form.factPayments ?? [], result.value.totalsByTaxMode) : null)
+    result.value ? mergeFactPayments(form.factPayments ?? [], totalsRecord(previewTotals.value)) : null)
+  /** Позиции товаров (с 0), которые расчёт не пересчитал (ошибка или нет в ответе): гр. 47 у них остаётся прежней. */
+  const notRecalculated = computed<number[]>(() =>
+    (result.value ? notRecalculatedGoods(form.goodsItems.length, result.value) : []))
 
-  const snapshotMatches = () => snapshot !== null && goodsSnapshot(form.goodsItems) === snapshot
+  const snapshotMatches = () => snapshot !== null && calcSnapshot(form) === snapshot
 
   // Сброс предпросмотра: правка формы (версия правок) или другие товары (перезагрузка ДТ) — сравнить снимок.
   // Снимок строится только пока предпросмотр живой: в остальное время наблюдатель ничего не обходит.
@@ -85,7 +108,11 @@ export function useDtPayments(
     },
   )
 
-  /** Пересчёт гр.45 (с расходами, по курсам НБ РК на дату гр.А) и гр.46 по всем товарам. Ошибку пробрасывает. */
+  /**
+   * Пересчёт гр.45 (с расходами, по курсам НБ РК на дату гр.А) и гр.46. В запросе — все товары (доли расходов
+   * распределяются как прежде), записываются только товары с фактурной стоимостью > 0 и валютой: у прочих посчитать
+   * гр. 45 не из чего — введённая вручную остаётся. Ошибку пробрасывает.
+   */
   const recalcCustomsValues = async (): Promise<{ updated: number; total: number }> => {
     const goods = form.goodsItems.map((g, index) => ({
       index,
@@ -101,7 +128,7 @@ export function useDtPayments(
     let total = 0
     res.goods.forEach((r) => {
       const g = form.goodsItems[r.index]
-      if (g) {
+      if (g && customsValueComputable(g)) {
         // гр. 45 — основа гр. 47: изменилась — платежи товара устарели (снимет следующий расчёт платежей).
         if ((g.customsValueKzt ?? null) !== (r.customsValueKzt ?? null)) markStale(g)
         g.customsValueKzt = r.customsValueKzt
@@ -152,6 +179,11 @@ export function useDtPayments(
       message.warning(t('broker.dt.payments.noGoods'))
       return stop('noGoods')
     }
+    // Сохранить не получится (409, идёт загрузка) — не трогаем гр. 45 и «Пересчитать».
+    if (opts.canSave && !opts.canSave()) {
+      message.warning(t('broker.dt.payments.notSaved'))
+      return stop('notSaved')
+    }
     state.value = 'calculating'
     step.value = 'customs'
     try {
@@ -161,7 +193,7 @@ export function useDtPayments(
     }
     step.value = 'save'
     // Снимок — до сохранения: правки во время запросов сделают предпросмотр устаревшим сразу по ответу.
-    const snap = goodsSnapshot(form.goodsItems)
+    const snap = calcSnapshot(form)
     if (!(await opts.save())) {
       message.warning(t('broker.dt.payments.notSaved'))
       return stop('notSaved')
@@ -202,7 +234,8 @@ export function useDtPayments(
     }
     state.value = 'applying'
     applyGoodsPaymentRows(form, res)
-    const merged = mergeFactPayments(form.factPayments ?? [], res.totalsByTaxMode)
+    // гр. В — из Σ гр. 47 после записи (как печать): виды товаров с ошибкой расчёта не удаляются.
+    const merged = mergeFactPayments(form.factPayments ?? [], totalsRecord(totalsByMode(form.goodsItems)))
     // Новый массив гр. В: таблица фактических платежей видит запись (§5-1), XML-порядок = порядок строк.
     form.factPayments = merged.rows
     if (merged.multiple.length) message.warning(t('broker.dt.payments.multipleRows', { codes: merged.multiple.join(', ') }))
@@ -223,6 +256,7 @@ export function useDtPayments(
     result,
     previewTotals,
     factPreview,
+    notRecalculated,
     loading,
     applying,
     busy,

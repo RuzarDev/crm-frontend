@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { reactive } from 'vue'
 import type { Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
-import { factVsGoodsDiff, goodsSnapshot, mergeFactPayments, totalsByMode, totalsFromResponse } from '../paymentsModel'
+import {
+  calcSnapshot, factVsGoodsDiff, goodsSnapshot, goodsTotalsAfterApply, mergeFactPayments, notRecalculatedGoods, totalsByMode, totalsFromResponse,
+  totalsRecord,
+} from '../paymentsModel'
 
 const pay = (taxModeCode: string | null, amountKzt: number | null) => ({ taxModeCode, amountKzt }) as never
 const fact = (taxModeCode: string | null, amount: number | null, o: Partial<Import40FactPayment> = {}): Import40FactPayment => ({
@@ -121,5 +124,49 @@ describe('goodsSnapshot: снимок товаров для предпросмо
     expect(goodsSnapshot([a, b])).toBe(base)
     a.payments = [pay('2010', 1)]
     expect(goodsSnapshot([a, b])).not.toBe(base)
+  })
+})
+
+describe('Σ гр. 47 после «Записать» (основа гр. В)', () => {
+  const res = {
+    goodsRows: [
+      { index: 0, rows: [{ taxModeCode: '1010', amount: 5 }, { taxModeCode: '5060', amount: 4 }] },
+      { index: 1, rows: [], error: 'Нет кода ТН ВЭД' },
+    ],
+    totalsByTaxMode: { 1010: 5, 5060: 4 },
+    grandTotalB: 9,
+  } as never
+
+  it('посчитанные товары — строки расчёта (устаревшие расчётные уходят); товар с ошибкой — свои строки; форма не меняется', () => {
+    const goods = [
+      { payments: [pay('2010', 7), pay('6010', 1)] },
+      { payments: [pay('4420', 9), pay('5060', 2)] },
+    ]
+    expect(goodsTotalsAfterApply(goods, res)).toEqual([
+      { code: '1010', amount: 5 }, { code: '4420', amount: 9 }, { code: '5060', amount: 6 }, { code: '6010', amount: 1 },
+    ])
+    expect(goods[0].payments.map((p: { taxModeCode: string }) => p.taxModeCode)).toEqual(['2010', '6010'])
+  })
+
+  it('не пересчитаны: ошибка расчёта или товара нет в ответе', () => {
+    expect(notRecalculatedGoods(3, res)).toEqual([1, 2])
+  })
+
+  it('итоги → { вид: сумма } без строк без вида', () => {
+    expect(totalsRecord([{ code: '', amount: 3 }, { code: '1010', amount: 5 }])).toEqual({ 1010: 5 })
+  })
+})
+
+describe('calcSnapshot: товары и графы шапки расчёта', () => {
+  it('дата гр. А и ЕТТ/ВТО меняют снимок; прочие графы шапки — нет', () => {
+    const form = reactive({ goodsItems: [{ tnvedCode: '1', payments: [] }], submissionDate: '2026-10-05', rateType: 'ETT', declarationNumber: 'x' }) as never as Parameters<typeof calcSnapshot>[0] & { declarationNumber: string }
+    const base = calcSnapshot(form)
+    form.declarationNumber = 'y'
+    expect(calcSnapshot(form)).toBe(base)
+    form.submissionDate = '2026-10-06'
+    expect(calcSnapshot(form)).not.toBe(base)
+    form.submissionDate = '2026-10-05'
+    form.rateType = 'EATT'
+    expect(calcSnapshot(form)).not.toBe(base)
   })
 })

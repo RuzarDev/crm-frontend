@@ -179,6 +179,7 @@ const payments = useDtPayments(form, caseId, dtId, {
   save: () => dt.save(),
   editable: () => dt.editable.value,
   editVersion: dt.editVersion,
+  canSave: () => !dt.conflict.value && !dt.loading.value,
 })
 
 // Товары (волна 6б): одна модель на страницу — список и редактор правят form.goodsItems на месте. Статусы — по
