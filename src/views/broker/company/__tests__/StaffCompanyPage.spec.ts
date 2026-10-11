@@ -230,7 +230,8 @@ describe('StaffCompanyPage', () => {
     expect(clientId).toBe('c1')
     expect(req.kind).toBe('poa')
     expect(req.isSingleUse).toBe(true)
-    expect(req.validUntilUtc).toBe(new Date(2027, 11, 31, 23, 59, 59, 999).toISOString())
+    // Конец выбранного дня по UTC — как сервер ставит сроки по умолчанию и как их показывает кабинет клиента.
+    expect(req.validUntilUtc).toBe('2027-12-31T23:59:59.000Z')
     expect(opts).toEqual({ silent: true })
     expect(api.listDocuments).toHaveBeenCalledWith('c1', 'poa', { silent: true })
     expect(msg.success).toHaveBeenCalledWith('Доверенность сформирована')
@@ -260,13 +261,27 @@ describe('StaffCompanyPage', () => {
     setDocs('c1', [ACTIVE_CONTRACT], [])
     await mountAt('/import-40/company?step=contract')
     expect(w.get('[data-already-active]').text()).toContain('Действует многоразовый договор')
-    expect(w.get('[data-already-active]').text()).toContain('отзовите действующий')
+    expect(w.get('[data-already-active]').text()).toContain('отзовите текущий')
     expect(w.get('[data-opt-single]').attributes('aria-checked')).toBe('true')
     expect(w.get('[data-opt-single]').attributes('disabled')).toBeDefined()
     w.unmount()
     as('Declarant', ['rop'])
     await mountAt('/import-40/company?step=contract')
-    expect(w.get('[data-already-active]').text()).toContain('Отозвать действующий может администратор')
+    expect(w.get('[data-already-active]').text()).toContain('Отозвать текущий может администратор')
+  })
+
+  it('(баг) многоразовый договор ждёт подписей — сервер второй не выпустит (409): тоже только разовый', async () => {
+    setDocs('c1', [doc({ id: 'd1', status: 1, clientSigned: true })], [])
+    await mountAt('/import-40/company?step=contract')
+    expect(w.get('[data-already-active]').text()).toContain('Многоразовый договор ждёт подписей')
+    expect(w.get('[data-opt-single]').attributes('aria-checked')).toBe('true')
+    expect(w.get('[data-opt-single]').attributes('disabled')).toBeDefined()
+    w.unmount()
+    // Ждёт подписей разовый — ограничения нет; у доверенности его нет вовсе.
+    setDocs('c1', [doc({ id: 'd1', status: 1, isSingleUse: true })], [doc({ id: 'p1', kind: 'poa', status: 2, clientSigned: true })])
+    await mountAt('/import-40/company?step=contract')
+    expect(w.find('[data-already-active]').exists()).toBe(false)
+    expect(w.get('[data-opt-single]').attributes('aria-checked')).toBe('false')
   })
 
   it('отозвать — только администратор и не для отозванного; подтверждение → revokeDocument и перечитывание', async () => {
@@ -320,6 +335,19 @@ describe('StaffCompanyPage', () => {
     as('Administrator')
     await mountAt('/import-40/company?step=poa')
     expect(w.find('[data-plate="provider"]').exists()).toBe(false) // доверенность — односторонний документ клиента
+  })
+
+  it('(баг) подпись за клиента с экрана сотрудника — только администратор (иначе сервер 403 уже после eGov)', async () => {
+    setDocs('c1', [doc({ id: 'd1' })], [doc({ id: 'p1', kind: 'poa' })])
+    as('Declarant', ['rop'])
+    await mountAt('/import-40/company?step=contract')
+    expect(w.get('[data-plate="client"]').text()).toContain('Ожидается')
+    expect(w.get('[data-plate="client"]').find('[data-sign-egov]').exists()).toBe(false)
+    expect(w.get('[data-plate="client"]').find('[data-sign-upload]').exists()).toBe(false)
+    expect(w.get('[data-plate="provider"]').find('[data-sign-egov]').exists()).toBe(true) // РОП подписывает за AQNIET
+    w.unmount()
+    await mountAt('/import-40/company?step=poa')
+    expect(w.find('[data-sign-egov]').exists()).toBe(false)
   })
 
   it('подписано обеими сторонами — кнопок подписи нет', async () => {
@@ -385,6 +413,12 @@ describe('StaffCompanyPage', () => {
     const tags = w.findAll('[data-doc-tags] [data-tag]').map((t) => t.text())
     expect(tags).toEqual(['Активен', 'разовый · использован', 'до 31.12.2099'])
     expect(tags).not.toContain('Действует') // использованная разовая уже не «действует»
+  })
+
+  it('(баг) срок «до» — календарная дата по UTC: конец года сервера не «переезжает» на 01.01', async () => {
+    setDocs('c1', [], [doc({ id: 'p1', kind: 'poa', status: 1, validUntilUtc: '2026-12-31T23:59:59Z' })])
+    await mountAt('/import-40/company?step=poa')
+    expect(w.get('[data-tag="until"]').text()).toBe('до 31.12.2026')
   })
 
   it('скачать .docx — имя файла по виду, номеру и году', async () => {

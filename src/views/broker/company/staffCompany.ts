@@ -57,11 +57,16 @@ export function stepStates(profileComplete: boolean, ob: Onboarding): Record<Sta
 }
 
 /**
- * Многоразовый договор у клиента один: пока действует многоразовый, второй не выпускается — остаётся только
- * разовый (флажок включён и закреплён). У доверенности такого правила нет.
+ * Многоразовый договор у клиента один: пока многоразовый действует или ждёт подписей, сервер второй не выпустит
+ * (409) — остаётся только разовый (флажок включён и закреплён). У доверенности такого правила нет.
+ * 'active' — действует, 'awaiting' — ждёт подписей, null — ограничения нет.
  */
-export function multiBlocked(kind: DocKind, docs: Import40DocumentDto[]): boolean {
-  return kind === 'contract' && docs.some((d) => !d.isSingleUse && isDocumentEffective(d))
+export function multiBlocked(kind: DocKind, docs: Import40DocumentDto[]): 'active' | 'awaiting' | null {
+  if (kind !== 'contract') return null
+  const multi = docs.filter((d) => !d.isSingleUse)
+  if (multi.some((d) => isDocumentEffective(d))) return 'active'
+  if (multi.some((d) => d.status === 1)) return 'awaiting'
+  return null
 }
 
 // ---- Статус документа ----

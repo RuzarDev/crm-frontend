@@ -2672,6 +2672,7 @@ export default {
         singleUse: 'Single-use (for one request)',
       },
       alreadyActive: 'A multi-use agreement is in force',
+      alreadyAwaiting: 'A multi-use agreement is awaiting signatures',
       alreadyActiveAdmin: 'A second multi-use agreement cannot be issued: generate a single-use one (for one request) or revoke the current one with “Revoke”.',
       alreadyActiveStaff: 'A second multi-use agreement cannot be issued: generate a single-use one (for one request). Only an administrator can revoke the current one.',
       validUntil: 'Valid until',

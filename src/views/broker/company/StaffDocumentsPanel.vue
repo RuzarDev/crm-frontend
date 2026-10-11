@@ -12,7 +12,7 @@ import { extractServerText } from '@/api/client'
 import { message } from '@/ui/message'
 import { useConfirm } from '@/ui/confirm'
 import { saveBlob } from '@/ui/download'
-import { localDate, todayYmd } from '@/views/client/company/company'
+import { endOfDayUtc, localDate, todayYmd, validDate } from '@/views/client/company/company'
 import { REVOKED, isExpired, multiBlocked, statusKey, statusTone, type DocKind, type SignSide } from './staffCompany'
 
 // Договор / доверенность клиента для сотрудника (волна 7, замена Import40DocumentStep): сформировать (разовый,
@@ -24,6 +24,7 @@ const props = defineProps<{
   docs: Import40DocumentDto[]
   clientId: string
   profileComplete: boolean
+  /** Отзыв и подпись за клиента — только администратор (как на сервере). */
   isAdmin: boolean
   /** Подпись за AQNIET: администратор или руководитель отдела (как на сервере). */
   canSignProvider: boolean
@@ -51,7 +52,8 @@ const refreshAfter = async () => {
 }
 
 // ---- Сформировать ----
-const blocked = computed(() => multiBlocked(props.kind, props.docs))
+const blockedBy = computed(() => multiBlocked(props.kind, props.docs))
+const blocked = computed(() => blockedBy.value !== null)
 const singleUse = ref(false)
 watch(blocked, (v) => { if (v) singleUse.value = true }, { immediate: true })
 const validUntil = ref<string | null>(null)
@@ -61,12 +63,6 @@ const minDate = todayYmd()
 // Календарь (Reka DatePicker) — отдельным куском, как в кабинете клиента.
 const ZDate = defineAsyncComponent(() => import('@/components/z/ZDate.vue'))
 
-/** «Действует до» выбранного дня — конец этого дня по местному времени (как прежний экран). */
-const endOfLocalDay = (ymd: string) => {
-  const [y, m, d] = ymd.split('-').map(Number)
-  return new Date(y, m - 1, d, 23, 59, 59, 999).toISOString()
-}
-
 const generate = async () => {
   if (generating.value || refreshing.value || !props.profileComplete) return
   generating.value = true
@@ -75,7 +71,8 @@ const generate = async () => {
     await import40ContractApi.generateDocument(props.clientId, {
       kind: props.kind,
       isSingleUse: singleUse.value,
-      validUntilUtc: validUntil.value ? endOfLocalDay(validUntil.value) : null,
+      // Конец выбранного дня по UTC — как сервер ставит сроки по умолчанию и как их показывает кабинет клиента.
+      validUntilUtc: validUntil.value ? endOfDayUtc(validUntil.value) : null,
     }, { silent: true })
     message.success(t(k('generated')))
     await refreshAfter()
@@ -174,8 +171,9 @@ const onSigned = () => {
   void refreshAfter()
 }
 
-// Кто какую подпись ставит с этого экрана.
-const canSign = (side: SignSide) => (side === 'provider' ? props.canSignProvider : true)
+// Кто какую подпись ставит с этого экрана (как на сервере): за клиента — только администратор,
+// за AQNIET — администратор или РОП. Остальным кнопок нет — сервер ответил бы 403 уже после подписи в eGov.
+const canSign = (side: SignSide) => (side === 'provider' ? props.canSignProvider : props.isAdmin)
 const sides = computed<SignSide[]>(() => (hasProvider.value ? ['client', 'provider'] : ['client']))
 const isSigned = (d: Import40DocumentDto, side: SignSide) => (side === 'client' ? d.clientSigned : d.providerSigned)
 
@@ -193,7 +191,7 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
       v-if="blocked"
       type="info"
       show-icon
-      :message="t('broker.company.alreadyActive')"
+      :message="t(blockedBy === 'awaiting' ? 'broker.company.alreadyAwaiting' : 'broker.company.alreadyActive')"
       :description="t(isAdmin ? 'broker.company.alreadyActiveAdmin' : 'broker.company.alreadyActiveStaff')"
       data-already-active
     />
@@ -255,7 +253,7 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
               {{ t('broker.company.singleTag') }}{{ d.consumedByCaseId ? ` · ${t('broker.company.consumed')}` : '' }}
             </ZTag>
             <ZTag v-if="d.validUntilUtc" :tone="isExpired(d) ? 'danger' : 'neutral'" data-tag="until">
-              {{ t('broker.company.until', { date: localDate(d.validUntilUtc, true) }) }}
+              {{ t('broker.company.until', { date: validDate(d.validUntilUtc) }) }}
             </ZTag>
           </div>
         </div>
