@@ -5210,7 +5210,6 @@ export default {
     vyberiteTip: 'Выберите тип',
     vyberiteTovary: 'Выберите товары',
     vyberiteVidDokumenta: 'Выберите вид документа',
-    vybratFayl: 'Выбрать файл',
     vybratVse: 'Выбрать все',
     vygruzitReestr: 'Выгрузить реестр',
     vypuschen: 'выпущен',

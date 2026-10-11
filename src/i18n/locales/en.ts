@@ -5207,7 +5207,6 @@ export default {
     vyberiteTip: 'Select a type',
     vyberiteTovary: 'Select goods',
     vyberiteVidDokumenta: 'Select document kind',
-    vybratFayl: 'Choose file',
     vybratVse: 'Select all',
     vygruzitReestr: 'Export registry',
     vypuschen: 'released',

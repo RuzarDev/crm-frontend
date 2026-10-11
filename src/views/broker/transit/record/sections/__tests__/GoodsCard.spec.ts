@@ -15,7 +15,7 @@ import GoodsCard from '../GoodsCard.vue'
 import SectionGoods from '../SectionGoods.vue'
 import { SelectStub, emptyDraft, primeRefs, refsApi } from './harness'
 
-// Справочник ТН ВЭД (AntD-окно) — заглушка: видно, открыт ли и с каким запросом; «выбор» — кнопка.
+// Справочник ТН ВЭД (окно) — заглушка: видно, открыт ли и с каким запросом; «выбор» — кнопка.
 const PickerStub = defineComponent({
   props: { open: Boolean, initialQuery: { type: String, default: '' } },
   emits: ['update:open', 'select'],

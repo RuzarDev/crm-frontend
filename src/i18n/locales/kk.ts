@@ -5206,7 +5206,6 @@ export default {
     vyberiteTip: 'Түрін таңдаңыз',
     vyberiteTovary: 'Тауарларды таңдаңыз',
     vyberiteVidDokumenta: 'Құжат түрін таңдаңыз',
-    vybratFayl: 'Файл таңдау',
     vybratVse: 'Барлығын таңдау',
     vygruzitReestr: 'Тізілімді жүктеп алу',
     vypuschen: 'шығарылды',
