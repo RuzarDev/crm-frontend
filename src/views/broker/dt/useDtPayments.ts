@@ -236,6 +236,8 @@ export function useDtPayments(
       return false
     }
     state.value = 'applying'
+    // Прежняя причина остановки (заблокированное «Рассчитать» при живом предпросмотре) к записи не относится.
+    problem.value = null
     applyPaymentsCalculation(form, res)
     // гр. В — из Σ гр. 47 после записи (как печать, до копеек): виды товаров с ошибкой расчёта не удаляются.
     const merged = mergeFactPayments(form.factPayments ?? [], totalsRecord(totalsByMode(form.goodsItems)))

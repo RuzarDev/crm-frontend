@@ -109,6 +109,7 @@ describe('useDtPayments.calculate: шаги', () => {
     can = true
     expect(await p.apply()).toBe(true)
     expect(form.factPayments.map((f) => f.taxModeCode)).toEqual(['1010', '5060'])
+    expect(p.problem.value).toBeNull()
   })
 
   it('шаг 1: товар без фактурной стоимости или валюты — в запросе (доли расходов), но введённая гр. 45 остаётся', async () => {
