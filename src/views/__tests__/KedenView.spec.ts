@@ -77,4 +77,27 @@ describe('KedenView', () => {
     expect(w.get('h1').text()).toBe('KID-77')
     expect(w.get('[data-keden-card]').text()).toContain('—')
   })
+
+  it('ошибка загрузки: плашка с «Повторить», повтор перечитывает и показывает карточку', async () => {
+    api.get.mockRejectedValueOnce(new Error('boom'))
+    await mountView()
+    await flushPromises()
+    expect(w.find('[data-keden-card]').exists()).toBe(false)
+    expect(w.get('[data-keden-error]').text()).toContain('Не удалось загрузить')
+    await w.get('[data-keden-retry]').trigger('click')
+    await flushPromises()
+    expect(api.get).toHaveBeenCalledTimes(2)
+    expect(w.find('[data-keden-error]').exists()).toBe(false)
+    expect(w.get('[data-keden-card]').text()).toContain('60900/101026/0000123')
+  })
+
+  it('ошибка при «Обновить»: прежняя карточка остаётся на экране', async () => {
+    await mountView()
+    await flushPromises()
+    api.get.mockRejectedValue(new Error('boom'))
+    await w.get('[data-keden-reload]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-keden-card]').exists()).toBe(true)
+    expect(w.find('[data-keden-error]').exists()).toBe(false)
+  })
 })

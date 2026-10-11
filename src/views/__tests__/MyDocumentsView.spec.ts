@@ -10,6 +10,7 @@ const saveBlob = vi.hoisted(() => vi.fn())
 vi.mock('@/ui/download', () => ({ saveBlob }))
 
 import MyDocumentsView from '../MyDocumentsView.vue'
+import ZSelect from '@/components/z/ZSelect.vue'
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: 'd1', reestrEntryId: 'r1', container: 'DRYU9953726', reestrStatus: 2, section: 'client', originalFileName: 'invoice.pdf',
@@ -93,9 +94,55 @@ describe('MyDocumentsView', () => {
     expect(api.listMyDocuments).toHaveBeenCalledWith({ page: 2, pageSize: 25, section: null, search: undefined })
   })
 
-  it('пустой ответ сервера и сбой запроса дают пустую таблицу, а не ошибку', async () => {
-    api.listMyDocuments.mockRejectedValue(new Error('boom'))
+  it('раздел: выбор отправляет section и начинает с первой страницы, очистка снимает фильтр', async () => {
+    api.listMyDocuments.mockResolvedValue({ items: [row()], totalCount: 60, page: 1, pageSize: 25 })
     await mountView()
-    expect(w.findAll('tbody tr [data-my-doc-download]')).toHaveLength(0)
+    api.listMyDocuments.mockResolvedValue({ items: [row({ id: 'd2' })], totalCount: 60, page: 2, pageSize: 25 })
+    await w.get('nav button[aria-label="Следующая страница"]').trigger('click')
+    await flushPromises()
+    api.listMyDocuments.mockClear()
+    const select = w.getComponent(ZSelect)
+    select.vm.$emit('update:value', 'broker')
+    select.vm.$emit('change', 'broker', undefined)
+    await flushPromises()
+    expect(api.listMyDocuments).toHaveBeenLastCalledWith({ page: 1, pageSize: 25, section: 'broker', search: undefined })
+    select.vm.$emit('update:value', null)
+    select.vm.$emit('change', null, undefined)
+    await flushPromises()
+    expect(api.listMyDocuments).toHaveBeenLastCalledWith({ page: 1, pageSize: 25, section: null, search: undefined })
+  })
+
+  it('крестик в поиске сразу сбрасывает запрос, без ожидания паузы', async () => {
+    vi.useFakeTimers()
+    await mountView()
+    const input = w.get('[data-my-docs-search]')
+    await input.setValue('DRYU')
+    await vi.advanceTimersByTimeAsync(350)
+    await flushPromises()
+    api.listMyDocuments.mockClear()
+    await w.get('button[aria-label="Очистить"]').trigger('click')
+    await flushPromises()
+    expect(api.listMyDocuments).toHaveBeenCalledTimes(1)
+    expect(api.listMyDocuments).toHaveBeenLastCalledWith({ page: 1, pageSize: 25, section: null, search: undefined })
+  })
+
+  it('пустой ответ: таблица без строк и с пустым состоянием', async () => {
+    api.listMyDocuments.mockResolvedValue({ items: [], totalCount: 0, page: 1, pageSize: 25 })
+    await mountView()
+    expect(api.listMyDocuments).toHaveBeenCalledTimes(1)
+    expect(w.findAll('[data-my-doc-download]')).toHaveLength(0)
+    expect(w.get('[data-my-docs-table]').text()).toContain('Здесь пока пусто')
+  })
+
+  it('сбой запроса: таблица пустая, строк нет, страница не падает', async () => {
+    api.listMyDocuments.mockResolvedValueOnce({ items: [row()], totalCount: 1, page: 1, pageSize: 25 })
+    await mountView()
+    expect(w.findAll('[data-my-doc-download]')).toHaveLength(1)
+    api.listMyDocuments.mockRejectedValue(new Error('boom'))
+    w.getComponent(ZSelect).vm.$emit('change', 'client', undefined)
+    await flushPromises()
+    expect(api.listMyDocuments).toHaveBeenCalledTimes(2)
+    expect(w.findAll('[data-my-doc-download]')).toHaveLength(0)
+    expect(w.get('[data-my-docs-table]').exists()).toBe(true)
   })
 })

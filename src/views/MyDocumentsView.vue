@@ -43,9 +43,9 @@ const columns = computed<ZColumn<MyReestrDocumentListItem>[]>(() => [
   { key: 'originalFileName', title: t('transit.fayl'), dataIndex: 'originalFileName', ellipsis: true },
   { key: 'sizeBytes', title: t('transit.razmer'), width: 100 },
   { key: 'createdAtUtc', title: t('transit.zagruzhen'), width: 150 },
-  { key: 'actions', title: t('transit.deystviya'), width: 190 },
+  { key: 'actions', title: t('transit.deystviya'), width: 190, fixed: 'right' },
 ])
-const tableWidth = computed(() => columns.value.reduce((sum, c) => sum + (typeof c.width === 'number' ? c.width : 220), 0))
+const tableWidth = computed(() => columns.value.reduce((sum, c) => sum + (typeof c.width === 'number' ? c.width : 0), 0))
 const pagination = computed(() => ({
   current: currentPage.value,
   pageSize: PAGE_SIZE,
@@ -130,7 +130,7 @@ const LINK = 'max-sm:min-h-11'
         :placeholder="t('transit.vseSekcii')"
         :options="sectionOptions"
         :aria-label="t('transit.sekciya')"
-        class="w-full sm:w-[200px] max-sm:h-11"
+        class="w-full sm:w-[200px]"
         data-my-docs-section
         @change="handleFilterChange"
       />

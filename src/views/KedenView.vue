@@ -19,6 +19,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
+const failed = ref(false)
 const declaration = ref<KedenDeclarationDetailDto | null>(null)
 
 const typeLabel = computed(
@@ -45,8 +46,12 @@ const formatDate = (iso: string | null | undefined) => (iso ? dayjs(iso).format(
 
 const reload = async () => {
   loading.value = true
+  failed.value = false
   try {
     declaration.value = await kedenApi.get(route.params.id as string)
+  } catch {
+    // Карточка уже была на экране — остаётся как есть (ошибку покажет общий перехватчик); иначе — плашка с повтором.
+    failed.value = true
   } finally {
     loading.value = false
   }
@@ -97,6 +102,19 @@ const BTN = 'max-sm:h-11'
     <ZPanel :title="t('transit.polnyeDannyeIzKeden')">
       <pre class="m-0 max-h-[480px] overflow-auto rounded-row bg-sunken p-4 font-mono text-xs leading-normal text-ink" data-keden-raw>{{ rawJson }}</pre>
     </ZPanel>
+  </ZPage>
+  <ZPage v-else-if="failed && !loading" :title="String(route.params.id)" data-keden-failed>
+    <template #breadcrumbs>{{ t('transit.isKedenDeklaraciya') }}</template>
+    <template #actions>
+      <ZButton variant="ghost" :class="BTN" data-keden-back @click="router.push('/keden')">
+        <template #icon><PhCaretLeft :size="16" aria-hidden="true" /></template>
+        {{ t('transit.kSpisku') }}
+      </ZButton>
+    </template>
+    <div role="alert" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-keden-error>
+      <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('broker.list.loadError') }}</p>
+      <ZButton size="sm" class="max-sm:h-11 max-sm:px-4 max-sm:text-sm" data-keden-retry @click="reload">{{ t('broker.list.retry') }}</ZButton>
+    </div>
   </ZPage>
   <div v-else-if="loading" class="flex flex-col gap-5" aria-busy="true" data-keden-skeleton>
     <div class="flex flex-col gap-2">

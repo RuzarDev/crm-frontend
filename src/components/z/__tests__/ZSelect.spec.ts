@@ -310,4 +310,14 @@ describe('ZSelect', () => {
     expect(el.value).toBe('abc')
     expect(w.emitted('search')?.at(-1)).toEqual(['abc'])
   })
+  it('на телефоне рамка поля — 44px (single: высота, multiple: минимальная высота)', () => {
+    w = mountWithI18n(ZSelect, { props: { value: null, options }, attachTo: document.body })
+    const frame = w.get('input').element.parentElement!
+    expect(frame.className).toContain('h-9')
+    expect(frame.className).toContain('max-sm:h-11')
+    w.unmount()
+    w = mountWithI18n(ZSelect, { props: { value: [], options, mode: 'multiple' }, attachTo: document.body })
+    const multi = w.get('input').element.parentElement!
+    expect(multi.className).toContain('max-sm:min-h-11')
+  })
 })
