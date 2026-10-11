@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Import40GoodsItemInput } from '@/types/api'
-import { toPaymentsInput } from '../../useDtPayments'
+import { toPaymentsInput } from '../../payments/paymentRows'
 import { paymentsStale } from '../../dtPageModel'
 import {
   PAYMENT_FIELDS, goodsPaymentsStale, localMissingFields, localStatus, markStale, missingByGoodsIndex, setGoodsField, statusFrom,

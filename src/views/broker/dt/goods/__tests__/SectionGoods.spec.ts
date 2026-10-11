@@ -64,7 +64,6 @@ const mount = async (goods: Import40GoodsItemInput[], o: { readonly?: boolean; q
       readonly: !!o.readonly,
       countryOptions: [{ value: '156', label: '156 — КИТАЙ', alpha2: 'CN' }, { value: '458', label: '458 — МАЛАЙЗИЯ', alpha2: 'MY' }],
       'onCalc-payments': () => emitted.push('calc-payments'),
-      'onCalc-tpin': () => emitted.push('calc-tpin'),
     }),
   })
   router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/import-40/:caseId/dt/:dtId', name: 'import-40-dt', component: Page }] })
@@ -339,19 +338,13 @@ describe('SectionGoods: итоги и расчёт', () => {
     expect(w.find('[data-goods-stale]').exists()).toBe(true)
   })
 
-  it('«Рассчитать» — расчёт платежей страницы; «Ещё» → «ТПиН по данным экрана»', async () => {
+  it('«Рассчитать» — расчёт платежей страницы; «ТПиН по данным экрана» больше нет (волна 6в)', async () => {
     await mount([item()])
     expect(w.find('[data-goods-stale]').exists()).toBe(false)
     await w.get('[data-goods-calc]').trigger('click')
     expect(emitted).toEqual(['calc-payments'])
-    await w.get('[data-goods-calc-more]').trigger('pointerdown', { button: 0, ctrlKey: false })
-    await w.get('[data-goods-calc-more]').trigger('keydown', { key: 'Enter' })
-    await settle()
-    const tpin = [...document.querySelectorAll('[role="menuitem"]')].find((el) => el.textContent?.includes('ТПиН по данным экрана')) as HTMLElement
-    expect(tpin).toBeTruthy()
-    tpin.click()
-    await settle()
-    expect(emitted).toEqual(['calc-payments', 'calc-tpin'])
+    expect(w.find('[data-goods-calc-more]').exists()).toBe(false)
+    expect(w.text()).not.toContain('ТПиН по данным экрана')
   })
 })
 

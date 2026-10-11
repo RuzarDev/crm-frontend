@@ -11,7 +11,7 @@ import { caseDto, fullDto, fullGoodsDto } from './dtFixture'
 const api = vi.hoisted(() => ({
   get: vi.fn(), updateDeclaration: vi.fn(), kedenReadiness: vi.fn(), ratesOnDate: vi.fn(),
   downloadKedenXml: vi.fn(), blankPdf: vi.fn(), downloadAllDocuments: vi.fn(),
-  splitSuggestion: vi.fn(), splitDeclaration: vi.fn(), calculatePayments: vi.fn(), calculateTpin: vi.fn(), calculateCustomsValue: vi.fn(),
+  splitSuggestion: vi.fn(), splitDeclaration: vi.fn(), calculatePayments: vi.fn(), calculateCustomsValue: vi.fn(),
 }))
 const dts = vi.hoisted(() => ({ get: vi.fn() }))
 const refs = vi.hoisted(() => ({ listCountries: vi.fn(), listCustomsPosts: vi.fn(), listExpenseTypes: vi.fn(), listOkeiUnits: vi.fn(async () => []) }))
@@ -51,12 +51,12 @@ const sectionStub = (name: string, inner = '', emits: string[] = []) => defineCo
   emits: ['update:modelValue', ...emits],
   template: `<div data-stub="${name}" :data-readonly="String(readonly)" :data-reload-key="reloadKey">${inner}</div>`,
 })
-// Товары: две страны происхождения (гр. 16 → «000»), «Рассчитать» и «ТПиН по данным экрана». Раздел правит товары
+// Товары: две страны происхождения (гр. 16 → «000»), «Рассчитать». Раздел правит товары
 // через модель страницы (useDtGoods) на месте — как настоящий SectionGoods.
 const goodsStub = defineComponent({
   name: 'SectionGoods',
   props: ['model', 'readonly', 'currency', 'dtNumber', 'countryOptions', 'paymentsLoading'],
-  emits: ['calc-tpin', 'calc-payments'],
+  emits: ['calc-payments'],
   setup(props) {
     const mixed = () => {
       const items = props.model.items.value as { countryOfOrigin: string | null }[]
@@ -68,7 +68,6 @@ const goodsStub = defineComponent({
   template: `<div data-stub="SectionGoods" :data-readonly="String(readonly)">
     <button data-goods-mixed type="button" @click="mixed" />
     <button data-goods-remove-first type="button" @click="model.remove([0])" />
-    <button data-emit="calc-tpin" type="button" @click="$emit('calc-tpin')" />
     <button data-emit="calc-payments" type="button" @click="$emit('calc-payments')" />
   </div>`,
 })
@@ -87,11 +86,6 @@ const stubs = {
   SectionDocs: sectionStub('SectionDocs'),
   DtSectionDts: sectionStub('DtSectionDts', `<button data-dts-save type="button" @click="save()" />`),
   SectionClosing: sectionStub('SectionClosing'),
-  DtPaymentsCalcModal: {
-    props: ['open'],
-    emits: ['toggle-medical', 'apply'],
-    template: `<div v-if="open" data-payments-modal><button data-emit="toggle-medical" type="button" @click="$emit('toggle-medical', 0, false)" /></div>`,
-  },
   Import40FactPaymentsSection: { template: '<div data-fact-payments />' },
 }
 
@@ -229,17 +223,26 @@ describe('DtPage: разделы и ?s=', () => {
     await open('?s=goods')
     key({ key: 'ArrowDown', altKey: true })
     await settle()
-    expect(router.currentRoute.value.query.s).toBe('docs')
+    expect(router.currentRoute.value.query.s).toBe('payments')
     key({ key: 'ArrowUp', altKey: true })
     key({ key: 'ArrowUp', altKey: true })
     await settle()
     expect(stub()).toBe('SectionCustoms')
   })
 
-  it('«Завершение» — с фактическими платежами гр. В', async () => {
+  it('«Платежи» (гр. 47, В) — между «Товарами» и «Документами», с фактическими платежами гр. В; в «Завершении» их нет', async () => {
     await open('?s=closing')
     expect(stub()).toBe('SectionClosing')
-    expect(w.find('[data-fact-payments]').exists()).toBe(true)
+    expect(w.find('[data-fact-payments]').exists()).toBe(false)
+    const nav = w.findAll('[data-dt-nav-item]').map((a) => a.attributes('data-dt-nav-item'))
+    expect(nav.slice(nav.indexOf('goods'), nav.indexOf('goods') + 3)).toEqual(['goods', 'payments', 'docs'])
+    expect(navItem('payments').text()).toContain('гр. 47, В')
+    expect(navItem('goods').text()).toContain('гр. 31–46')
+    expect(navItem('closing').text()).toContain('гр. 48, 52, 54')
+    await navItem('payments').trigger('click')
+    await settle()
+    expect(w.get('[data-dt-payments]').find('[data-fact-payments]').exists()).toBe(true)
+    expect(w.find('[data-payments-calc]').exists()).toBe(true)
   })
 })
 
@@ -253,8 +256,9 @@ describe('DtPage: готовность', () => {
     expect(navItem('dts').get('[data-dt-nav-count]').text()).toBe('1')
     expect(navItem('countries').attributes('data-mark')).toBe('done')
     expect(navItem('general').attributes('data-mark')).toBe('unknown')
-    // Товар фикстуры помечен «пересчитать ТПиН» — точка «платежи устарели».
-    expect(navItem('goods').find('[data-dt-nav-stale]').exists()).toBe(true)
+    // Товар фикстуры помечен «пересчитать ТПиН» — точка «платежи устарели» у раздела «Платежи».
+    expect(navItem('payments').find('[data-dt-nav-stale]').exists()).toBe(true)
+    expect(navItem('goods').find('[data-dt-nav-stale]').exists()).toBe(false)
   })
 
   it('клик по пункту «До подачи» — раздел и подсветка поля по data-graph', async () => {
@@ -293,15 +297,15 @@ describe('DtPage: готовность', () => {
     expect(document.activeElement).toBe(places.querySelector('input'))
   })
 
-  it('пункт «нет ни одной строки платежа (гр.47)» — подсветка платежей товара в редакторе', async () => {
+  it('пункт «нет ни одной строки платежа (гр.47)» — раздел «Платежи» (волна 6в)', async () => {
     const text = 'Товар 1: нет ни одной строки платежа (гр.47)'
     api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '47', goodsIndex: 0 }] }))
     await open('', ['SectionGoods'])
+    expect(navItem('payments').get('[data-dt-nav-count]').text()).toBe('1')
     await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
     await settle()
-    const payments = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="payments"]') as HTMLElement
-    expect(payments.closest('[data-goods-payments-section]')).not.toBeNull()
-    expect(payments.hasAttribute('data-dt-flash')).toBe(true)
+    expect(router.currentRoute.value.query).toEqual({ s: 'payments' })
+    expect(w.find('[data-dt-payments]').exists()).toBe(true)
   })
 
   it('пункт «гр. 36 вне списка КЕДЕН» — фокус на поле названной льготы (пошлина), а не на первом поле гр. 36', async () => {
@@ -650,7 +654,6 @@ describe('DtPage: настоящие разделы «Документы» и «
     key({ key: 's', code: 'KeyS', metaKey: true })
     await settle()
     expect(api.updateDeclaration.mock.calls[0][2]).toMatchObject({ signatoryFullName: 'ПЕТРОВ П.', brokerContractNumber: null })
-    expect(w.find('[data-fact-payments]').exists()).toBe(true)
   })
 
   it('просмотр: «Завершение» без справочника фирм-брокеров (он не запрашивается)', async () => {
@@ -795,13 +798,29 @@ describe('DtPage: сохранение и режимы', () => {
     expect(w.find('[data-dt-conflict]').exists()).toBe(false)
   })
 
-  it('?calc=payments после разделения — окно расчёта платежей и адрес без параметра', async () => {
-    api.calculatePayments.mockResolvedValue({ goodsRows: [], totalsByTaxMode: {} })
+  it('?calc=payments после разделения — «Платежи», расчёт (гр. 45 → сохранить → расчёт) и адрес без параметра', async () => {
+    api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 700000 }] })
+    api.calculatePayments.mockResolvedValue({ goodsRows: [{ index: 0, rows: [{ taxModeCode: '5060', amount: 84000 }] }], totalsByTaxMode: { 5060: 84000 }, grandTotalB: 84000 })
     await open('?calc=payments')
-    expect(router.currentRoute.value.query.calc).toBeUndefined()
+    expect(router.currentRoute.value.query).toEqual({ s: 'payments' })
+    expect(api.calculateCustomsValue).toHaveBeenCalledTimes(1)
     expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
     expect(api.calculatePayments).toHaveBeenCalledWith('case1', 'dt1')
-    expect(w.find('[data-payments-modal]').exists()).toBe(true)
+    expect(api.calculateCustomsValue.mock.invocationCallOrder[0]).toBeLessThan(api.updateDeclaration.mock.invocationCallOrder[0])
+    expect(api.updateDeclaration.mock.invocationCallOrder[0]).toBeLessThan(api.calculatePayments.mock.invocationCallOrder[0])
+    // гр. 45 шага 1 — в сохранённой перед расчётом ДТ
+    expect((api.updateDeclaration.mock.calls[0][2] as { goodsItems: { customsValueKzt: number }[] }).goodsItems[0].customsValueKzt).toBe(700000)
+    expect(w.get('[data-dt-payments]').attributes('data-state')).toBe('preview')
+    expect(w.get('[data-payments-total="5060"]').text()).toMatch(/НДС\s*84\s000\s₸/)
+  })
+
+  it('?calc=payments в просмотре — без расчёта и сохранения', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'someone-else', declarations: [fullDto({ splitRole: null })] })
+    await open('?calc=payments')
+    expect(router.currentRoute.value.query.calc).toBeUndefined()
+    expect(api.calculateCustomsValue).not.toHaveBeenCalled()
+    expect(api.calculatePayments).not.toHaveBeenCalled()
+    expect(api.updateDeclaration).not.toHaveBeenCalled()
   })
 
   it('успешная выгрузка XML: сохранить, скачать, сообщение с подсказкой про гр. 54, свежая готовность', async () => {
@@ -870,22 +889,15 @@ describe('DtPage: события прежних разделов', () => {
     expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Таможенная стоимость рассчитана (1 тов.)'))
   })
 
-  it('«Рассчитать ТПиН» (Товары) — гр. 45, затем ТПиН по товарам с экрана', async () => {
+  it('«Рассчитать» в итогах товаров — «Платежи» и расчёт с предпросмотром', async () => {
     api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 700000 }] })
-    api.calculateTpin.mockResolvedValue({ goodsRows: [{ index: 0, rows: [{ taxModeCode: '2010', amount: 70000, rate: 10 }] }], totalsByTaxMode: {} })
-    await open('?s=goods')
-    await emit('calc-tpin')
-    expect(api.calculateTpin).toHaveBeenCalledTimes(1)
-    expect(api.calculateTpin.mock.calls[0][0][0]).toMatchObject({ index: 0, tnvedCode: '7318150000', customsValueKzt: 700000 })
-    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('ТПиН рассчитан для 1 тов.'))
-  })
-
-  it('«Рассчитать» в итогах товаров — сохранить и окно расчёта платежей', async () => {
-    api.calculatePayments.mockResolvedValue({ goodsRows: [], totalsByTaxMode: {} })
+    api.calculatePayments.mockResolvedValue({ goodsRows: [{ index: 0, rows: [], error: 'Нет кода ТН ВЭД' }], totalsByTaxMode: {}, grandTotalB: 0 })
     await open('?s=goods')
     await emit('calc-payments')
+    expect(router.currentRoute.value.query.s).toBe('payments')
     expect(api.calculatePayments).toHaveBeenCalledTimes(1)
-    expect(w.find('[data-payments-modal]').exists()).toBe(true)
+    expect(w.find('[data-payments-preview]').exists()).toBe(true)
+    expect(w.get('[data-payments-issues]').text()).toBe('Товар 1: Нет кода ТН ВЭД')
   })
 
   it('авто гр. 16: разные страны происхождения у товаров — «000»', async () => {
@@ -915,16 +927,38 @@ describe('DtPage: события прежних разделов', () => {
     expect(w.get('[data-stub="DtSectionDts"]').attributes('data-reload-key')).not.toBe(afterSave)
   })
 
-  it('«Медизделие» в окне платежей — сохранить с новым НДС и пересчитать', async () => {
-    api.calculatePayments.mockResolvedValue({ goodsRows: [], totalsByTaxMode: {} })
+  it('«Рассчитать платежи» в шапке → «Платежи» → предпросмотр → «Записать в гр. 47 и гр. В» — гр. 47 и гр. В в PUT', async () => {
+    api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 700000 }] })
+    api.calculatePayments.mockResolvedValue({
+      goodsRows: [{ index: 0, rows: [{ taxModeCode: '1010', amount: 8650 }, { taxModeCode: '5060', amount: 84000, base: 700000, rate: 12 }] }],
+      totalsByTaxMode: { 1010: 8650, 5060: 84000 },
+      grandTotalB: 92650,
+    })
     await open()
     await w.get('[data-dt-calc-payments]').trigger('click')
     await settle()
-    expect(api.calculatePayments).toHaveBeenCalledTimes(1)
-    await emit('toggle-medical')
-    expect(api.calculatePayments).toHaveBeenCalledTimes(2)
-    const body = api.updateDeclaration.mock.calls.at(-1)![2] as { goodsItems: { vatRatePreferential: number | null }[] }
-    expect(body.goodsItems[0].vatRatePreferential).toBeNull()
+    expect(router.currentRoute.value.query.s).toBe('payments')
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
+    expect(w.get('[data-dt-payments]').attributes('data-state')).toBe('preview')
+    await w.get('[data-payments-apply]').trigger('click')
+    await settle()
+    expect(api.updateDeclaration).toHaveBeenCalledTimes(2)
+    const body = api.updateDeclaration.mock.calls[1][2] as { goodsItems: { payments: { taxModeCode: string; amountKzt: number }[]; needsTpinRecalc: boolean }[]; factPayments: { taxModeCode: string; amount: number; paymentMethodCode: string }[] }
+    expect(body.goodsItems[0].payments.map((p) => [p.taxModeCode, p.amountKzt])).toEqual(expect.arrayContaining([['1010', 8650], ['5060', 84000]]))
+    expect(body.goodsItems[0].needsTpinRecalc).toBe(false)
+    expect(body.factPayments.map((p) => [p.taxModeCode, p.amount])).toEqual(expect.arrayContaining([['1010', 8650], ['5060', 84000]]))
+    expect(toast.success).toHaveBeenCalledWith('Платежи записаны в гр.47 и гр.B')
+    expect(w.get('[data-dt-payments]').attributes('data-state')).toBe('idle')
+    expect(navItem('payments').find('[data-dt-nav-stale]').exists()).toBe(false)
+  })
+
+  it('просмотр: «Платежи» без «Рассчитать», в шапке нет «Рассчитать платежи»', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'someone-else', declarations: [fullDto({ splitRole: null })] })
+    await open('?s=payments')
+    expect(w.find('[data-dt-payments]').exists()).toBe(true)
+    expect(w.find('[data-payments-calc]').exists()).toBe(false)
+    expect(w.find('[data-dt-calc-payments]').exists()).toBe(false)
+    expect(w.find('[data-fact-payments]').exists()).toBe(true)
   })
 })
 

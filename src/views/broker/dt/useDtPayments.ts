@@ -1,106 +1,48 @@
-// Расчёты ДТ на странице (волна 6а, Task 3) — перенос из Import40DtView.vue без изменения правил:
-// гр.45/46 («Рассчитать там. стоимость»), ТПиН по товарам с экрана, «Рассчитать платежи» (save → calc → окно →
-// «Записать» → save), «Медизделие (НДС 5%)». Строки гр.47 сливаются по виду платежа; расчётные виды (1010, 2010,
-// 2050, 5060, 4xxx), которых в новом расчёте нет, удаляются; вручную выбранный вид ставки не затирается.
-// Замечания ТПиН по товарам — в окне (tpinProblems), а не в Modal.warning.
-import { ref, toValue, type MaybeRefOrGetter } from 'vue'
-import { import40Api, type Import40CalculatePaymentsResponse, type Import40TpinGoodsInput } from '@/api/import40'
-import type { Import40GoodsItemInput } from '@/types/api'
+// Расчёты платежей страницы ДТ (волна 6в, Task 2): одно действие «Рассчитать» и «Записать в гр. 47 и гр. В».
+//
+// calculate():
+//   0) только при праве править (просмотр, разделённая ДТ — ничего); без товаров — «Нет товаров для расчёта»;
+//   1) гр. 45/46 по данным экрана (тот же запрос, что «Рассчитать там. стоимость», дата гр. А); ошибка — стоп
+//      (текст показал общий перехватчик);
+//   2) тихое сохранение ДТ: не сохранилась (409, ошибка, нет права) — расчёт не выполняется, сказано почему;
+//   3) calculate-payments по СОХРАНЁННОЙ ДТ → предпросмотр (state 'preview'): суммы по товарам и итоги по видам.
+// Предпросмотр живёт, пока товары те же: после правки товаров (состав, порядок, поля расчёта, строки гр. 47) —
+// 'stale-preview' («Данные изменились — рассчитайте заново»). Сигнал — версия правок формы (useDtForm.editVersion,
+// её уже ведёт наблюдатель страницы); на её смене сравнивается снимок товаров (goodsSnapshot) — сам расчёт форму
+// не обходит. Правка «Медизделие» через setField модели товаров — тоже правка: предпросмотр сбрасывается.
+// apply(): снимок ещё тот же (иначе — 'stale-preview') → гр. 47 (applyGoodsPaymentRows, правила без изменений) и
+// гр. В (mergeFactPayments) → сохранение → «Записано».
+// «ТПиН по данным экрана» удалён: платежи считаются только по сохранённой ДТ (§5-5).
+import { computed, ref, shallowRef, toValue, watch, type MaybeRefOrGetter } from 'vue'
+import { import40Api, type Import40CalculatePaymentsResponse } from '@/api/import40'
 import { i18n } from '@/i18n'
 import { message } from '@/ui/message'
 import { formatNumberIn } from '@/ui/number'
 import { toIsoDate, type DtFormState } from './dtPayload'
 import { markStale } from './goods/goodsStatus'
+import { applyGoodsPaymentRows } from './payments/paymentRows'
+import { goodsSnapshot, mergeFactPayments, totalsFromResponse, type FactMergeResult, type PaymentModeTotal } from './payments/paymentsModel'
 
 const t = (key: string, p?: Record<string, unknown>) => (p ? i18n.global.t(key, p) : i18n.global.t(key))
 const locale = () => String(i18n.global.locale.value)
 
-const CALCULATED_TAX_MODES = ['1010', '2010', '2050', '5060']
-// Акциз в КЕДЕН — код по виду товара (4420 сигареты, 4400 пиво…; 06.10.2026), поэтому любой 4xxx.
-export const isCalculatedTaxMode = (code: string) => CALCULATED_TAX_MODES.includes(code) || /^4\d{3}$/.test(code)
-
 /**
- * Строки гр.47 товаров из серверного расчёта (calculate-payments / calculate-tpin — один движок). Посчитанный без ошибки
- * товар теряет признак «Пересчитать» (needsTpinRecalc); товары с ошибкой и не попавшие в расчёт — как были.
+ * Состояние расчёта: 'idle' — предпросмотра нет; 'calculating' — идёт «Рассчитать» (step — шаг); 'preview' — расчёт
+ * готов, можно «Записать»; 'stale-preview' — после расчёта товары изменились, писать нельзя; 'applying' — идёт «Записать».
  */
-export function applyGoodsPaymentRows(form: Pick<DtFormState, 'goodsItems'>, res: Import40CalculatePaymentsResponse) {
-  res.goodsRows.forEach((row) => {
-    const g = form.goodsItems[row.index]
-    if (!g || row.error) return
-    const fresh = new Set(row.rows.map((r) => r.taxModeCode))
-    const rows = (g.payments ?? []).filter(
-      (p) => !p.taxModeCode || !isCalculatedTaxMode(p.taxModeCode) || fresh.has(p.taxModeCode),
-    )
-    row.rows.forEach((pr) => {
-      const existing = rows.find((p) => p.taxModeCode === pr.taxModeCode)
-      if (existing) {
-        existing.taxBase = pr.base ?? null
-        existing.rateValue = pr.rate ?? null
-        existing.amountKzt = pr.amount
-        // Вид ставки не затираем, если декларант выбрал его сам ('*' с весовым коэффициентом и т.п.).
-        if (!existing.rateKindCode && pr.rate != null) existing.rateKindCode = '%'
-        // Сервер знает, какая часть ставки сработала («%» или «*» за кг/шт/см³) — тогда пишем как в КЕДЕН.
-        if (pr.rateKind) {
-          existing.rateKindCode = pr.rateKind
-          existing.rateUnitCode = pr.rateUnitCode ?? null
-          existing.rateCurrencyCode = pr.rateCurrencyCode ?? null
-          existing.weightRatio = pr.rateKind === '*' ? existing.weightRatio ?? 1 : null
-        }
-        existing.paymentFeatureCode = pr.featureCode ?? existing.paymentFeatureCode ?? 'ИУ'
-        existing.basisLabel = pr.basisLabel ?? null
-        existing.rateLabel = pr.rateLabel ?? null
-        existing.bLine = pr.bLine ?? null
-      } else {
-        rows.push({
-          taxModeCode: pr.taxModeCode,
-          taxBase: pr.base ?? null,
-          rateKindCode: pr.rateKind ?? (pr.rate != null ? '%' : null),
-          rateValue: pr.rate ?? null,
-          rateUnitCode: pr.rateUnitCode ?? null,
-          rateCurrencyCode: pr.rateCurrencyCode ?? null,
-          weightRatio: pr.rateKind === '*' ? 1 : null,
-          rateDate: null,
-          paymentFeatureCode: pr.featureCode ?? 'ИУ',
-          amountKzt: pr.amount,
-          basisLabel: pr.basisLabel ?? null,
-          rateLabel: pr.rateLabel ?? null,
-          bLine: pr.bLine ?? null,
-        })
-      }
-    })
-    g.payments = rows
-    // Платежи товара свежие — снять «Пересчитать» (и для «Записать» расчёта по сохранённой ДТ, и для ТПиН с экрана).
-    g.needsTpinRecalc = false
-  })
-  // Товары правятся на месте (тот же массив и объекты) — ключи товаров и открытый товар не теряются (волна 6б).
-}
-
-/** Товар ДТ → вход серверного расчёта платежей (то же, что бэк берёт из сохранённой ДТ). */
-export const toPaymentsInput = (g: Import40GoodsItemInput, index: number): Import40TpinGoodsInput => ({
-  index,
-  description: g.description ?? null,
-  tnvedCode: g.tnvedCode ?? null,
-  invoiceValue: g.customsValue ?? null,
-  currency: g.currency ?? null,
-  grossWeightKg: g.grossWeightKg ?? null,
-  quantity: g.quantity ?? null,
-  vatRatePreferential: g.vatRatePreferential ?? null,
-  tempImportMonths: g.tempImportMonths ?? null,
-  netWeightKg: g.netWeightKg ?? null,
-  customsValueKzt: g.customsValueKzt ?? null,
-  originCountry: g.countryOfOrigin ?? null,
-  exciseKind: g.exciseKind ?? null,
-  antiDumpingKind: g.antiDumpingKind ?? null,
-  unitCode: g.unitCode ?? null,
-  volumeL: g.taxVolumeL ?? null,
-  alcoholL: g.taxAlcoholL ?? null,
-  pieces: g.taxPieces ?? null,
-  engineVolumeCm3: g.engineVolumeCm3 ?? null,
-})
+export type DtPaymentsState = 'idle' | 'calculating' | 'preview' | 'stale-preview' | 'applying'
+/** Шаг «Рассчитать»: гр. 45/46 → сохранение → расчёт платежей. */
+export type DtPaymentsStep = 'customs' | 'save' | 'calc'
+/** Почему последний «Рассчитать» не дошёл до предпросмотра (для строки в разделе); null — дошёл или не запускался. */
+export type DtPaymentsProblem = 'noGoods' | 'customsFailed' | 'notSaved' | 'calcFailed'
 
 export interface DtPaymentsOptions {
-  /** Сохранить ДТ (тихо): расчёт платежей сервер ведёт по СОХРАНЁННОЙ ДТ. */
+  /** Сохранить ДТ (тихо): расчёт платежей сервер ведёт по СОХРАНЁННОЙ ДТ. false — не сохранилась. */
   save: () => Promise<boolean>
+  /** Право править (useDtForm.editable): без него «Рассчитать» и «Записать» ничего не делают. По умолчанию — да. */
+  editable?: MaybeRefOrGetter<boolean>
+  /** Версия правок формы (useDtForm.editVersion): на её смене проверяется, не изменились ли товары после расчёта. */
+  editVersion?: MaybeRefOrGetter<number>
 }
 
 export function useDtPayments(
@@ -109,15 +51,39 @@ export function useDtPayments(
   dtId: MaybeRefOrGetter<string>,
   opts: DtPaymentsOptions,
 ) {
-  const modalOpen = ref(false)
-  const loading = ref(false)
-  const applying = ref(false)
-  const result = ref<Import40CalculatePaymentsResponse | null>(null)
-  /** Замечания ТПиН по товарам (окно «ТПиН: проверьте товары»); пусто — окна нет. */
-  const tpinProblems = ref<string[]>([])
-  /** Итог последнего «Рассчитать там. стоимость» — показывается в разделе «Условия», а не только тостом (F4). */
+  const state = ref<DtPaymentsState>('idle')
+  const step = ref<DtPaymentsStep | null>(null)
+  const problem = ref<DtPaymentsProblem | null>(null)
+  /** Предпросмотр: ответ calculate-payments (index — позиция товара в момент расчёта). Есть в 'preview' и 'stale-preview'. */
+  const result = shallowRef<Import40CalculatePaymentsResponse | null>(null)
+  /** Итог последнего пересчёта гр. 45 — показывается в разделе «Условия», а не только тостом (F4). */
   const customsResult = ref<{ updated: number; total: number } | null>(null)
   const customsLoading = ref(false)
+
+  const editable = () => (opts.editable === undefined ? true : !!toValue(opts.editable))
+  /** Снимок товаров, по которому сохранена ДТ для расчёта (см. goodsSnapshot). */
+  let snapshot: string | null = null
+
+  const loading = computed(() => state.value === 'calculating')
+  const applying = computed(() => state.value === 'applying')
+  const busy = computed(() => state.value === 'calculating' || state.value === 'applying')
+
+  /** Итоги расчёта по видам (по коду). */
+  const previewTotals = computed<PaymentModeTotal[]>(() => totalsFromResponse(result.value?.totalsByTaxMode))
+  /** Какой станет гр. В после «Записать» (добавятся / заменятся / несколько строк — не тронем). */
+  const factPreview = computed<FactMergeResult | null>(() =>
+    result.value ? mergeFactPayments(form.factPayments ?? [], result.value.totalsByTaxMode) : null)
+
+  const snapshotMatches = () => snapshot !== null && goodsSnapshot(form.goodsItems) === snapshot
+
+  // Сброс предпросмотра: правка формы (версия правок) или другие товары (перезагрузка ДТ) — сравнить снимок.
+  // Снимок строится только пока предпросмотр живой: в остальное время наблюдатель ничего не обходит.
+  watch(
+    [() => toValue(opts.editVersion), () => form.goodsItems],
+    () => {
+      if (state.value === 'preview' && !snapshotMatches()) state.value = 'stale-preview'
+    },
+  )
 
   /** Пересчёт гр.45 (с расходами, по курсам НБ РК на дату гр.А) и гр.46 по всем товарам. Ошибку пробрасывает. */
   const recalcCustomsValues = async (): Promise<{ updated: number; total: number }> => {
@@ -145,10 +111,11 @@ export function useDtPayments(
         updated += 1
       }
     })
+    customsResult.value = { updated, total }
     return { updated, total }
   }
 
-  /** «Рассчитать там. стоимость» (раздел «Условия»): итог — в сообщении. */
+  /** «Рассчитать там. стоимость» (раздел «Условия», шаг 1 отдельно): итог — в сообщении. */
   const calcCustomsValue = async () => {
     if (!form.goodsItems.length) {
       message.warning(t('broker.dt.payments.noGoods'))
@@ -157,7 +124,6 @@ export function useDtPayments(
     customsLoading.value = true
     try {
       const { updated, total } = await recalcCustomsValues()
-      customsResult.value = { updated, total }
       message.success(t('broker.dt.payments.customsValueDone', { n: updated, total: formatNumberIn(locale(), total) }))
     } catch {
       // Текст ошибки уже показал общий перехватчик (api/client.ts).
@@ -166,110 +132,108 @@ export function useDtPayments(
     }
   }
 
-  /** «Рассчитать ТПиН (авто)»: серверный расчёт по товарам с экрана (без сохранения); сначала гр.45. */
-  const calcTpin = async () => {
-    const targets = form.goodsItems
-      .map((g, index) => ({ g, index }))
-      .filter(({ g }) => g.tnvedCode && g.customsValue != null && g.currency && (g.netWeightKg != null || g.quantity != null))
-    if (!targets.length) {
-      message.info(t('broker.dt.payments.noGoodsData'))
-      return
+  const stop = (why: DtPaymentsProblem) => {
+    problem.value = why
+    state.value = 'idle'
+    step.value = null
+    return false
+  }
+
+  /**
+   * «Рассчитать»: гр. 45/46 → сохранить → расчёт по сохранённой ДТ → предпросмотр. true — предпросмотр готов.
+   * Прежний предпросмотр отбрасывается сразу.
+   */
+  const calculate = async (): Promise<boolean> => {
+    if (!editable() || busy.value) return false
+    result.value = null
+    snapshot = null
+    problem.value = null
+    if (!form.goodsItems.length) {
+      message.warning(t('broker.dt.payments.noGoods'))
+      return stop('noGoods')
     }
+    state.value = 'calculating'
+    step.value = 'customs'
     try {
       await recalcCustomsValues()
     } catch {
-      return
+      return stop('customsFailed') // текст ошибки — общий перехватчик
     }
+    step.value = 'save'
+    // Снимок — до сохранения: правки во время запросов сделают предпросмотр устаревшим сразу по ответу.
+    const snap = goodsSnapshot(form.goodsItems)
+    if (!(await opts.save())) {
+      message.warning(t('broker.dt.payments.notSaved'))
+      return stop('notSaved')
+    }
+    step.value = 'calc'
+    let res: Import40CalculatePaymentsResponse
     try {
-      const res = await import40Api.calculateTpin(
-        targets.map(({ g, index }) => toPaymentsInput(g, index)),
-        toIsoDate(form.submissionDate),
-        (form.rateType ?? '').toUpperCase() === 'EATT',
-      )
-      applyGoodsPaymentRows(form, res)
-      let recalculated = 0
-      const problems: string[] = []
-      res.goodsRows.forEach((row) => {
-        const g = form.goodsItems[row.index]
-        const n = row.index + 1
-        if (!g) return
-        if (row.error) {
-          problems.push(`${t('broker.dt.payments.item', { n })}: ${row.error}`)
-          return
-        }
-        recalculated += 1
-        if (row.notes) problems.push(`${t('broker.dt.payments.item', { n })}: ${row.notes}`)
-      })
-      if (recalculated) message.success(t('broker.dt.payments.tpinDone', { n: recalculated }))
-      if (problems.length) tpinProblems.value = problems
-      else if (!recalculated) message.warning(t('broker.dt.payments.tpinCheckData'))
+      res = await import40Api.calculatePayments(toValue(caseId), toValue(dtId))
     } catch {
-      message.error(t('broker.dt.payments.tpinError'))
+      return stop('calcFailed') // текст ошибки — общий перехватчик
     }
+    result.value = res
+    snapshot = snap
+    step.value = null
+    state.value = snapshotMatches() ? 'preview' : 'stale-preview'
+    return true
   }
 
-  const runCalc = async (): Promise<boolean> => {
-    const saved = await opts.save()
-    if (!saved) return false
-    loading.value = true
-    try {
-      result.value = await import40Api.calculatePayments(toValue(caseId), toValue(dtId))
-      return true
-    } catch {
-      return false
-    } finally {
-      loading.value = false
-    }
-  }
-
-  /** «Рассчитать платежи»: сохранить, посчитать на сервере, показать окно. */
-  const openModal = async () => {
+  /** Убрать предпросмотр (без записи). */
+  const discard = () => {
+    if (busy.value) return
     result.value = null
-    modalOpen.value = true
-    const ok = await runCalc()
-    if (!ok) modalOpen.value = false
+    snapshot = null
+    state.value = 'idle'
   }
 
-  /** «Медизделие (НДС 5%)»: льготный НДС живёт на товаре — сохранить и пересчитать заново. */
-  const toggleMedical = async (index: number, checked: boolean) => {
-    const g = form.goodsItems[index]
-    if (!g) return
-    g.vatRatePreferential = checked ? 0.05 : null
-    await runCalc()
-  }
-
-  /** Последний расчёт → гр.47 товаров и гр.B (способ «БН», курс 1). */
-  const applyResult = () => {
+  /**
+   * «Записать в гр. 47 и гр. В»: только живой предпросмотр и те же товары (ключи, порядок, поля расчёта) — иначе
+   * 'stale-preview' и «Данные изменились — рассчитайте заново». Затем сохранить; «Записано». true — записано и сохранено.
+   */
+  const apply = async (): Promise<boolean> => {
     const res = result.value
-    if (!res) return
-    applyGoodsPaymentRows(form, res)
-    const factRows = form.factPayments ?? []
-    Object.entries(res.totalsByTaxMode).forEach(([code, amount]) => {
-      const existing = factRows.find((p) => p.taxModeCode === code)
-      if (existing) existing.amount = amount
-      else {
-        factRows.push({
-          taxModeCode: code, amount, exchangeRate: 1, paymentDocDate: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН',
-        })
-      }
-    })
-    form.factPayments = factRows
-  }
-
-  /** «Записать»: в форму и сохранить. */
-  const apply = async () => {
-    if (!result.value) return
-    applying.value = true
-    try {
-      applyResult()
-      if (await opts.save()) {
-        message.success(t('broker.dt.payments.written'))
-        modalOpen.value = false
-      }
-    } finally {
-      applying.value = false
+    if (!res || !editable() || (state.value !== 'preview' && state.value !== 'stale-preview')) return false
+    if (state.value === 'stale-preview' || !snapshotMatches()) {
+      state.value = 'stale-preview'
+      message.warning(t('broker.dt.payments.changed'))
+      return false
     }
+    state.value = 'applying'
+    applyGoodsPaymentRows(form, res)
+    const merged = mergeFactPayments(form.factPayments ?? [], res.totalsByTaxMode)
+    // Новый массив гр. В: таблица фактических платежей видит запись (§5-1), XML-порядок = порядок строк.
+    form.factPayments = merged.rows
+    if (merged.multiple.length) message.warning(t('broker.dt.payments.multipleRows', { codes: merged.multiple.join(', ') }))
+    const saved = await opts.save()
+    result.value = null
+    snapshot = null
+    state.value = 'idle'
+    // Не сохранилось — записанное остаётся в форме (досохранит автосейв; при 409 — плашка конфликта).
+    if (saved) message.success(t('broker.dt.payments.written'))
+    else message.warning(t('broker.dt.payments.writtenNotSaved'))
+    return saved
   }
 
-  return { modalOpen, loading, applying, result, tpinProblems, customsResult, customsLoading, calcCustomsValue, calcTpin, openModal, toggleMedical, apply }
+  return {
+    state,
+    step,
+    problem,
+    result,
+    previewTotals,
+    factPreview,
+    loading,
+    applying,
+    busy,
+    customsResult,
+    customsLoading,
+    calcCustomsValue,
+    recalcCustomsValues,
+    calculate,
+    apply,
+    discard,
+  }
 }
+
+export type DtPayments = ReturnType<typeof useDtPayments>

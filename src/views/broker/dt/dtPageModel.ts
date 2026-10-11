@@ -30,7 +30,7 @@ export function adjacentSection(keys: readonly DtSectionKey[], current: DtSectio
  * (иначе пустой раздел выглядел бы готовым — та же ошибка, что B4).
  */
 export const SERVER_CHECKED_SECTIONS: readonly DtSectionKey[] = [
-  'number', 'parties', 'countries', 'transport', 'finance', 'customs', 'goods', 'docs',
+  'number', 'parties', 'countries', 'transport', 'finance', 'customs', 'goods', 'payments', 'docs',
 ]
 
 export type DtNavMark = { kind: 'done' } | { kind: 'count'; count: number } | { kind: 'unknown' }
@@ -57,7 +57,7 @@ export function navMarks(input: DtNavMarksInput): Record<DtSectionKey, DtNavMark
 }
 
 /**
- * Платежи устарели (точка у раздела «Товары», пока нет отдельного раздела «Платежи»): у товара стоит признак
+ * Платежи устарели (точка у раздела «Платежи»): у товара стоит признак
  * «пересчитать ТПиН» (импорт из КП, разделение, правка полей платежей) или у него нет ни одной строки гр. 47 —
  * то же правило, что статус «Пересчитать» в списке товаров (goods/goodsStatus).
  */

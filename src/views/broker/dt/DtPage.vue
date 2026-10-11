@@ -4,11 +4,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
 import ZDrawer from '@/components/z/ZDrawer.vue'
-import ZModal from '@/components/z/ZModal.vue'
+import ZAlert from '@/components/z/ZAlert.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import DtLegacyForm from '@/components/import40/dt/DtLegacyForm.vue'
 import DtSectionDts from '@/components/import40/dt/DtSectionDts.vue'
-import DtPaymentsCalcModal from '@/components/import40/dt/DtPaymentsCalcModal.vue'
 import Import40FactPaymentsSection from '@/components/Import40FactPaymentsSection.vue'
 import { import40Api, type Import40CaseDto, type Import40DtFormState, type Import40SplitResult } from '@/api/import40'
 import { import40ContractApi, type ClientCompanyProfileDto } from '@/api/import40Contract'
@@ -20,6 +19,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { confirmState, useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
+import { formatNumberIn } from '@/ui/number'
 import { canEditDt, canManageDeclarations, dtUserFrom } from '@/views/import40/dtAccess'
 import DtBanners from './DtBanners.vue'
 import DtHeaderBar from './DtHeaderBar.vue'
@@ -38,6 +38,7 @@ import SectionTransport from './sections/SectionTransport.vue'
 import SectionGoods from './goods/SectionGoods.vue'
 import { useDtGoods } from './goods/useDtGoods'
 import { goodsFieldFromReadiness } from './goods/goodsFieldTarget'
+import { taxModeLabelKey } from './goods/editor/payments'
 import type { GoodsPageContext, GoodsSaveState } from './goods/editor/types'
 import { DT_CLASSIFIERS } from './dtClassifiers'
 import { fillStatUsd, lockGoodsCurrency } from './dtGoodsRules'
@@ -54,10 +55,10 @@ import { useDtReadiness, type DtReadinessItem } from './useDtReadiness'
 // Страница ДТ Импорт 40 (редизайн, волна 6а, Task 3; доски DtGeneral, DtReadonly): закреплённая шапка, слева
 // разделы с графами и отметками готовности сервера, справа «До подачи» (< 1280 — выезжающая из шапки), плашки
 // просмотра и разделения. Активный раздел — в адресе (?s=), разделы монтируются лениво (v-if + KeepAlive).
-// Разделы шапки (номер … завершение) — свои, на Z-ките (sections/); «Товары» — goods/ (волна 6б); прежними остаются
-// ДТС и окно расчёта платежей (волна 6в). Логика — в composables: форма и сохранение (useDtForm), курсы (useDtRates), готовность
-// (useDtReadiness), расчёты (useDtPayments).
-const { t } = useI18n()
+// Разделы шапки (номер … завершение) — свои, на Z-ките (sections/); «Товары» — goods/ (волна 6б); «Платежи» (гр. 47, В) —
+// одно действие «Рассчитать» (волна 6в, useDtPayments); прежним остаётся ДТС. Логика — в composables: форма и сохранение
+// (useDtForm), курсы (useDtRates), готовность (useDtReadiness), расчёты (useDtPayments).
+const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -172,7 +173,13 @@ watch(
   },
 )
 
-const payments = useDtPayments(form, caseId, dtId, { save: () => dt.save() })
+// Расчёт платежей: «Рассчитать» (шапка, итоги товаров, раздел «Платежи», ?calc=payments) → предпросмотр → «Записать».
+// Предпросмотр сбрасывается по версии правок формы (изменились товары после расчёта).
+const payments = useDtPayments(form, caseId, dtId, {
+  save: () => dt.save(),
+  editable: () => dt.editable.value,
+  editVersion: dt.editVersion,
+})
 
 // Товары (волна 6б): одна модель на страницу — список и редактор правят form.goodsItems на месте. Статусы — по
 // серверной готовности (пока её нет — местная проверка).
@@ -223,13 +230,30 @@ const setSection = async (key: DtSectionKey) => {
   }
 }
 
+// «Рассчитать платежи» (шапка, итоги товаров, ?calc=payments): открыть «Платежи» и запустить расчёт (только при праве).
+const calcPayments = async () => {
+  if (!editable.value) return
+  await setSection('payments')
+  void payments.calculate()
+}
+
+// Временный контейнер «Платежей» (до Task 3): подпись вида и сумма без копеек.
+const modeLabel = (code: string) => {
+  const key = taxModeLabelKey(code)
+  return key ? t(`broker.dt.goods.editor.payments.modes.${key}`) : ''
+}
+const money0 = (n: number) => formatNumberIn(String(locale.value), n, 0)
+/** Ошибки и примечания расчёта по товарам («Товар N: …»). */
+const previewIssues = computed(() => (payments.result.value?.goodsRows ?? []).flatMap((r) =>
+  [r.error, r.notes].filter((x): x is string => !!x).map((x) => `${t('broker.dt.payments.item', { n: r.index + 1 })}: ${x}`)))
+
 const allItems = computed<DtReadinessItem[]>(() => [...readiness.items.value, ...(dtsItems.value ?? [])])
 const marks = computed(() => {
   const bySection: Partial<Record<DtSectionKey, number>> = {}
   for (const i of allItems.value) bySection[i.section] = (bySection[i.section] ?? 0) + 1
   return navMarks({ keys: sectionKeys.value, readinessLoaded: readiness.loaded.value, bySection, dtsLoaded: dtsItems.value !== null })
 })
-const staleSections = computed<DtSectionKey[]>(() => (paymentsStale(form.goodsItems) ? ['goods'] : []))
+const staleSections = computed<DtSectionKey[]>(() => (paymentsStale(form.goodsItems) ? ['payments'] : []))
 
 // ---- «До подачи»: переход к полю ----
 const panelOpen = ref(false)
@@ -404,7 +428,7 @@ const saveBeforeSplit = async () => {
   return ok
 }
 const onSplitDone = async (res: Import40SplitResult) => {
-  // Сервер пересчитывает платежи новых ДТ; не по всем — «Рассчитать платежи» откроется в ДТ ВТО само (?calc=payments).
+  // Сервер пересчитывает платежи новых ДТ; не по всем — в ДТ ВТО сразу откроются «Платежи» с расчётом (?calc=payments).
   if (!res.paymentsRecalculated) message.warning(t('broker.dt.split.notRecalculated'))
   message.success(res.ettDeclarationId ? t('broker.dt.split.done') : t('broker.dt.split.vtoCreated'))
   await router.push({
@@ -443,15 +467,14 @@ watch(dt.notFound, (nf) => {
   void router.push('/import-40')
 })
 
-// Только что созданная ДТ ВТО (разделение): сразу расчёт платежей по ставкам ВТО.
+// Только что созданная ДТ ВТО (разделение): «Платежи» и сразу расчёт по ставкам ВТО (только при праве править).
 let calcHandled = false
 watch(() => dt.loading.value, (loading) => {
   if (loading || calcHandled || !form.id) return
   calcHandled = true
   if (route.query.calc !== 'payments') return
   const { calc: _drop, ...rest } = route.query
-  void router.replace({ query: rest })
-  if (editable.value) void payments.openModal()
+  void router.replace({ query: rest }).then(() => calcPayments())
 })
 
 // ---- Клавиатура: ⌘/Ctrl+S — сохранить, Alt+↑/↓ — соседний раздел ----
@@ -547,7 +570,7 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
         :split="splitInfo"
         :panel-toggle="{ show: true, count: readiness.loaded.value ? allItems.length : null, ratesOnly: !readinessOn }"
         @save="onSave"
-        @calc-payments="payments.openModal()"
+        @calc-payments="calcPayments"
         @xml="onXml"
         @print="onPrint"
         @docs="onDocs"
@@ -652,8 +675,7 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
                 :payments-loading="payments.loading.value"
                 :editor-context="goodsEditorContext"
                 :save-state="goodsSaveState"
-                @calc-payments="payments.openModal()"
-                @calc-tpin="payments.calcTpin()"
+                @calc-payments="calcPayments"
               />
               <SectionDocs
                 v-else-if="active === 'docs'"
@@ -681,11 +703,49 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
                 :readonly="!editable"
               />
             </KeepAlive>
-            <section v-if="active === 'closing'" class="mt-5" data-dt-fact-payments>
-              <h2 class="m-0 mb-3 text-[15px] font-semibold text-ink">
-                {{ t('broker.dt.payments.fact') }} <span class="font-mono text-xs font-normal text-muted">{{ t('broker.dt.nav.graphs', { list: 'В' }) }}</span>
-              </h2>
-              <Import40FactPaymentsSection v-model="form.factPayments" :readonly="!editable" />
+            <!-- «Платежи» (волна 6в, Task 2 — временный контейнер до раздела SectionPayments, Task 3): «Рассчитать»,
+                 предпросмотр итогов по видам с «Записать», фактические платежи гр. В (перенесены из «Завершения»). -->
+            <section v-if="active === 'payments'" class="flex flex-col gap-4" data-dt-payments :data-state="payments.state.value">
+              <div class="flex flex-wrap items-center gap-3">
+                <h2 class="m-0 text-[15px] font-semibold text-ink">
+                  {{ t('broker.dt.sections.payments') }} <span class="font-mono text-xs font-normal text-muted">{{ t('broker.dt.nav.graphs', { list: '47, В' }) }}</span>
+                </h2>
+                <ZButton
+                  v-if="editable"
+                  class="ml-auto max-sm:h-11"
+                  :loading="payments.loading.value"
+                  :disabled="payments.applying.value"
+                  data-payments-calc
+                  @click="payments.calculate()"
+                >{{ t('broker.dt.payments.calc') }}</ZButton>
+              </div>
+              <div v-if="payments.result.value" class="flex flex-col gap-3 rounded-row border border-line p-4" data-payments-preview>
+                <ZAlert v-if="payments.state.value === 'stale-preview'" type="warning" :message="t('broker.dt.payments.changed')" data-payments-changed />
+                <dl class="m-0 flex flex-col gap-1.5">
+                  <div v-for="row in payments.previewTotals.value" :key="row.code" class="flex justify-between gap-4 text-sm" :data-payments-total="row.code">
+                    <dt class="text-ink-2"><span class="font-mono text-muted">{{ row.code }}</span> {{ modeLabel(row.code) }}</dt>
+                    <dd class="m-0 font-semibold tabular-nums text-ink">{{ money0(row.amount) }} ₸</dd>
+                  </div>
+                </dl>
+                <ul v-if="previewIssues.length" class="m-0 flex list-none flex-col gap-1 p-0 text-[13px] text-ink-2" data-payments-issues>
+                  <li v-for="line in previewIssues" :key="line">{{ line }}</li>
+                </ul>
+                <ZButton
+                  v-if="editable"
+                  variant="primary"
+                  class="self-start max-sm:h-11"
+                  :loading="payments.applying.value"
+                  :disabled="payments.state.value !== 'preview'"
+                  data-payments-apply
+                  @click="payments.apply()"
+                >{{ t('broker.dt.payments.apply') }}</ZButton>
+              </div>
+              <section data-dt-fact-payments data-graph="В">
+                <h3 class="m-0 mb-3 text-[14px] font-semibold text-ink">
+                  {{ t('broker.dt.payments.fact') }} <span class="font-mono text-xs font-normal text-muted">{{ t('broker.dt.nav.graphs', { list: 'В' }) }}</span>
+                </h3>
+                <Import40FactPaymentsSection v-model="form.factPayments" :readonly="!editable" />
+              </section>
             </section>
           </div>
         </div>
@@ -725,33 +785,6 @@ const saveForDts = (silent?: boolean) => dt.saveForAction(!silent)
         :save="saveBeforeSplit"
         @done="onSplitDone"
       />
-
-      <DtPaymentsCalcModal
-        v-model:open="payments.modalOpen.value"
-        :loading="payments.loading.value"
-        :applying="payments.applying.value"
-        :readonly="!editable"
-        :result="payments.result.value"
-        :goods="form.goodsItems"
-        @toggle-medical="payments.toggleMedical"
-        @apply="payments.apply()"
-      />
-
-      <ZModal
-        :open="payments.tpinProblems.value.length > 0"
-        :title="t('broker.dt.payments.tpinCheck')"
-        :width="640"
-        :footer="null"
-        data-dt-tpin-problems
-        @update:open="(v: boolean) => { if (!v) payments.tpinProblems.value = [] }"
-      >
-        <ul class="m-0 flex list-none flex-col gap-1.5 p-0 text-sm text-ink-2">
-          <li v-for="(line, i) in payments.tpinProblems.value" :key="i">{{ line }}</li>
-        </ul>
-        <div class="mt-4 flex justify-end">
-          <ZButton variant="primary" @click="payments.tpinProblems.value = []">{{ t('broker.dt.payments.gotIt') }}</ZButton>
-        </div>
-      </ZModal>
     </template>
   </div>
 </template>

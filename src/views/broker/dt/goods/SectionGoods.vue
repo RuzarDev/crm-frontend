@@ -49,7 +49,7 @@ const props = defineProps<{
   /** Состояние сохранения ДТ — подвал редактора. */
   saveState?: GoodsSaveState | null
 }>()
-const emit = defineEmits<{ 'calc-payments': []; 'calc-tpin': [] }>()
+const emit = defineEmits<{ 'calc-payments': [] }>()
 const { t } = useI18n()
 const tg = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.${key}`, p ?? {})
 const { confirm } = useConfirm()
@@ -410,7 +410,6 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
         :readonly="readonly"
         :loading="paymentsLoading"
         @calc-payments="emit('calc-payments')"
-        @calc-tpin="emit('calc-tpin')"
       />
     </template>
 

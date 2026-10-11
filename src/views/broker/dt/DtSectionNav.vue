@@ -21,7 +21,7 @@ const props = defineProps<{
 const emit = defineEmits<{ select: [key: DtSectionKey] }>()
 const { t } = useI18n()
 
-// Подпись граф раздела — как на бланке и доске (диапазоны пишем вручную: «31–47», а не перечень).
+// Подпись граф раздела — как на бланке и доске (диапазоны пишем вручную: «31–46», а не перечень).
 const GRAPHS: Record<DtSectionKey, string> = {
   number: 'А',
   general: '1, 3–7',
@@ -30,10 +30,11 @@ const GRAPHS: Record<DtSectionKey, string> = {
   transport: '18, 19, 21, 25, 26',
   finance: '12, 20, 22–24',
   customs: '29, 30',
-  goods: '31–47',
+  goods: '31–46',
+  payments: '47, В',
   docs: '40, 44',
   dts: 'ДТС',
-  closing: '48, 52, 54, В',
+  closing: '48, 52, 54',
 }
 
 const markOf = (k: DtSectionKey): DtNavMark => props.marks[k] ?? { kind: 'unknown' }
