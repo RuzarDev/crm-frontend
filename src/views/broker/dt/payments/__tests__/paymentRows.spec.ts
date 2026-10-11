@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { reactive } from 'vue'
 import type { Import40CalculatePaymentsResponse } from '@/api/import40'
 import { emptyDtForm, type DtFormState } from '../../dtPayload'
-import { applyGoodsPaymentRows, isCalculatedTaxMode, toPaymentsInput } from '../paymentRows'
+import { applyGoodsPaymentRows, isCalculatedTaxMode } from '../paymentRows'
 
 // Перенос из useDtPayments (волна 6в): правила гр. 47 — один в один.
 const goods = (o: Record<string, unknown> = {}) => ({
@@ -69,13 +69,5 @@ describe('paymentRows: строки гр. 47 из расчёта', () => {
     expect(form.goodsItems[0]).toBe(a)
     expect(form.goodsItems[1]).toBe(b)
     expect(b.payments?.[0]).toMatchObject({ taxModeCode: '1010', amountKzt: 5 })
-  })
-
-  it('toPaymentsInput: товар → вход расчёта (фактурная стоимость → invoiceValue, количества ставок)', () => {
-    const input = toPaymentsInput(goods({ countryOfOrigin: '156', taxVolumeL: 2, taxAlcoholL: 0.8, taxPieces: 10, engineVolumeCm3: 1600 }) as never, 3)
-    expect(input).toMatchObject({
-      index: 3, tnvedCode: '8471300000', invoiceValue: 100, currency: 'USD', netWeightKg: 1, originCountry: '156',
-      volumeL: 2, alcoholL: 0.8, pieces: 10, engineVolumeCm3: 1600, customsValueKzt: null,
-    })
   })
 })

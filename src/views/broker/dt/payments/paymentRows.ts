@@ -6,7 +6,7 @@
 //   весовой коэффициент);
 // - товар с ошибкой расчёта не трогается; посчитанный — теряет «Пересчитать» (needsTpinRecalc);
 // - товары и массив правятся на месте (ключ товара и открытый товар не теряются, волна 6б).
-import type { Import40CalculatePaymentsResponse, Import40TpinGoodsInput } from '@/api/import40'
+import type { Import40CalculatePaymentsResponse } from '@/api/import40'
 import type { Import40GoodsItemInput } from '@/types/api'
 import type { DtFormState } from '../dtPayload'
 
@@ -69,26 +69,3 @@ export function applyGoodsPaymentRows(form: Pick<DtFormState, 'goodsItems'>, res
   })
   // Товары правятся на месте (тот же массив и объекты) — ключи товаров и открытый товар не теряются (волна 6б).
 }
-
-/** Товар ДТ → вход серверного расчёта платежей (то же, что бэк берёт из сохранённой ДТ). */
-export const toPaymentsInput = (g: Import40GoodsItemInput, index: number): Import40TpinGoodsInput => ({
-  index,
-  description: g.description ?? null,
-  tnvedCode: g.tnvedCode ?? null,
-  invoiceValue: g.customsValue ?? null,
-  currency: g.currency ?? null,
-  grossWeightKg: g.grossWeightKg ?? null,
-  quantity: g.quantity ?? null,
-  vatRatePreferential: g.vatRatePreferential ?? null,
-  tempImportMonths: g.tempImportMonths ?? null,
-  netWeightKg: g.netWeightKg ?? null,
-  customsValueKzt: g.customsValueKzt ?? null,
-  originCountry: g.countryOfOrigin ?? null,
-  exciseKind: g.exciseKind ?? null,
-  antiDumpingKind: g.antiDumpingKind ?? null,
-  unitCode: g.unitCode ?? null,
-  volumeL: g.taxVolumeL ?? null,
-  alcoholL: g.taxAlcoholL ?? null,
-  pieces: g.taxPieces ?? null,
-  engineVolumeCm3: g.engineVolumeCm3 ?? null,
-})

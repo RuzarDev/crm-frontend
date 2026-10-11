@@ -80,8 +80,6 @@ export function useDtForm(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGett
   /** Сервер ответил 409: ДТ сохранили в другом окне или другой пользователь. */
   const conflict = ref(false)
   const savedAt = ref<Date | null>(null)
-  /** Растёт после каждого успешного сохранения (раздел ДТС перечитывает расчёт). */
-  const savedCounter = ref(0)
   const editVersion = ref(0)
 
   const canEditNow = (): boolean =>
@@ -190,7 +188,6 @@ export function useDtForm(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGett
       lastServerDto.value = updated
       serverStamp = updated.updatedAtUtc ?? serverStamp
       if (manual) message.success(t('dt.dtSohranena'))
-      savedCounter.value += 1
       savedAt.value = new Date()
       saveError.value = null
       // Правки, сделанные пока шёл запрос, ещё не сохранены — остаёмся «грязными» и досохраняем.
@@ -304,7 +301,6 @@ export function useDtForm(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGett
     saveError,
     conflict,
     savedAt,
-    savedCounter,
     editVersion,
     editable,
     reload,

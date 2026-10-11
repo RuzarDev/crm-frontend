@@ -765,29 +765,6 @@ export interface Import40PaymentGoodsRowDto {
   notes?: string | null
 }
 
-/** Товар для «Рассчитать ТПиН» (CalculatePaymentsGoodsInput на бэке). */
-export interface Import40TpinGoodsInput {
-  index: number
-  description?: string | null
-  tnvedCode?: string | null
-  invoiceValue?: number | null
-  currency?: string | null
-  grossWeightKg?: number | null
-  quantity?: number | null
-  vatRatePreferential?: number | null
-  tempImportMonths?: number | null
-  netWeightKg?: number | null
-  customsValueKzt?: number | null
-  originCountry?: string | null
-  exciseKind?: string | null
-  antiDumpingKind?: string | null
-  unitCode?: string | null
-  volumeL?: number | null
-  alcoholL?: number | null
-  pieces?: number | null
-  engineVolumeCm3?: number | null
-}
-
 export interface Import40CalculatePaymentsResponse {
   goodsRows: Import40PaymentGoodsRowDto[]
   totalsByTaxMode: Record<string, number>
@@ -1188,22 +1165,6 @@ export const import40Api = {
     const response = await apiClient.post<Import40CalculatePaymentsResponse>(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/calculate-payments`,
     )
-    return response.data
-  },
-
-  // «Рассчитать ТПиН (авто)» в мастере ДТ — по товарам с экрана (ещё не сохранённым), тем же
-  // серверным расчётом, что «Рассчитать платежи» (гр.45, курсы на дату гр.А, вид акциза, антидемпинг,
-  // временный ввоз, льготный НДС, ставки ВТО). index — позиция товара в списке ДТ.
-  calculateTpin: async (
-    goods: Import40TpinGoodsInput[],
-    submissionDate?: string | null,
-    useVtoRate = false,
-  ): Promise<Import40CalculatePaymentsResponse> => {
-    const response = await apiClient.post<Import40CalculatePaymentsResponse>('/import40/calculate-tpin', {
-      goods,
-      submissionDate: submissionDate ?? null,
-      useVtoRate,
-    })
     return response.data
   },
 

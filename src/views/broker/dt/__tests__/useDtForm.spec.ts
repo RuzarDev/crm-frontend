@@ -189,7 +189,6 @@ describe('useDtForm — автосейв', () => {
     expect(body).toEqual(formToPayload(expected, '2026-10-09T12:00:00.000001Z'))
     expect(f.dirty.value).toBe(false)
     expect(f.savedAt.value).toBeInstanceOf(Date)
-    expect(f.savedCounter.value).toBe(1)
     expect(f.saveError.value).toBeNull()
     // ответ PUT применяется: серверная гр.12 и отметка блокировки
     expect(f.lastServerDto.value?.totalCustomsValue).toBe(111)

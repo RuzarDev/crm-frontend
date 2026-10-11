@@ -271,6 +271,26 @@ describe('SectionPayments: 200 товаров', () => {
     expect(mountMs).toBeLessThan(1500)
     expect(editMs).toBeLessThan(100)
   })
+
+  it('рассчитать и записать при 200 товарах: гр. 47 у всех, гр. В — по видам, замеры', async () => {
+    const { w, form, payments, save } = setup({ goods: many(200) })
+    await nextTick()
+    const t0 = performance.now()
+    await w.get('[data-payments-calc]').trigger('click')
+    await settle()
+    const calcMs = performance.now() - t0
+    expect(payments.state.value).toBe('preview')
+    const t1 = performance.now()
+    await w.get('[data-payments-apply]').trigger('click')
+    await settle()
+    const applyMs = performance.now() - t1
+    expect(save).toHaveBeenCalledTimes(2)
+    expect(form.goodsItems.every((g) => g.payments!.length === 2 && !g.needsTpinRecalc)).toBe(true)
+    expect(form.factPayments.map((p) => [p.taxModeCode, p.amount])).toEqual([['1010', 8650 * 200], ['5060', 84000 * 200]])
+    console.info(`[perf 200 goods, jsdom] calc+preview ${calcMs.toFixed(0)} ms, apply ${applyMs.toFixed(0)} ms`)
+    expect(calcMs).toBeLessThan(3000)
+    expect(applyMs).toBeLessThan(3000)
+  })
 })
 
 describe('SectionPayments: гр. В после «Записать» (§5-1)', () => {

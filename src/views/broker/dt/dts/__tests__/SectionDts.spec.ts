@@ -304,3 +304,27 @@ describe('SectionDts: добавочный лист', () => {
     expect(w.findAll('[data-dts-form] button').every((b) => b.classes().includes('max-sm:h-11'))).toBe(true)
   })
 })
+
+describe('SectionDts: 200 товаров', () => {
+  it('добавочный лист с 200 строками открывается и раскрывает строку, правка формы не перечитывает ДТС', async () => {
+    const t0 = performance.now()
+    const view = dtsView({ sheet: dtsSheet({ goods: Array.from({ length: 200 }, (_, i) => dtsGoods(i + 1)) }) })
+    const { form } = await mount({ view, form: { goodsItems: Array.from({ length: 200 }, () => goods('1')) } })
+    const mountMs = performance.now() - t0
+    expect(w.findAll('[data-dts-row]')).toHaveLength(200)
+    const t2 = performance.now()
+    await w.get('[data-dts-row="100"] [data-dts-expand]').trigger('click')
+    const expandMs = performance.now() - t2
+    const getsBefore = dtsApi.get.mock.calls.length
+    const t1 = performance.now()
+    for (let i = 0; i < 20; i++) {
+      form.goodsItems[i].description = `ПРАВКА ${i}`
+      await nextTick()
+    }
+    const editMs = (performance.now() - t1) / 20
+    expect(dtsApi.get.mock.calls.length).toBe(getsBefore)
+    console.info(`[perf 200 goods ДТС, jsdom] mount ${mountMs.toFixed(0)} ms, expand row ${expandMs.toFixed(0)} ms, edit ${editMs.toFixed(1)} ms`)
+    expect(mountMs).toBeLessThan(3000)
+    expect(editMs).toBeLessThan(100)
+  })
+})
