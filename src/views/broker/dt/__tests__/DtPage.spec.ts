@@ -1023,7 +1023,7 @@ describe('DtPage: ДТС', () => {
     expect(dtsGets()).toBe(1)
     expect(dts.get).toHaveBeenCalledWith('case1', 'dt1', { silent: true })
     // Раздел и навигация — из одного ответа: в плашке и в числе раздела только пункты ДТС, пункт ДТ — числом.
-    expect(w.findAll('[data-dts-missing-item]').map((i) => i.text())).toEqual(['ДТС: не указано место для гр.17 (Условия поставки и финансы)'])
+    expect(w.findAll('[data-dts-missing-item]').map((i) => i.text())).toEqual(['ДТС: не указано место для гр.17 (раздел «ДТС»)'])
     expect(navItem('dts').get('[data-dt-nav-count]').text()).toBe('1')
     expect(w.get('[data-dts-dt-missing]').text()).toContain('не хватает 1')
     key({ key: 's', code: 'KeyS', metaKey: true })
@@ -1122,6 +1122,18 @@ describe('DtPage: ДТС', () => {
     expect(w.find('[data-dts-mismatch]').exists()).toBe(false)
     expect(navItem('payments').find('[data-dt-nav-stale]').exists()).toBe(true)
     expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Гр. 45 пересчитана (товаров: 1)'))
+  })
+
+  it('пункт «место для гр. 17» в «До подачи» — к полю «Место для гр. 17» раздела «ДТС» (фокус в поле)', async () => {
+    dts.get.mockResolvedValue(dtsView())
+    await open('', ['SectionDts'])
+    const item = w.findAll('[data-dt-panel-aside] [data-dt-panel-item]').find((i) => i.attributes('data-section') === 'dts')!
+    await item.trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query.s).toBe('dts')
+    const field = document.querySelector('[data-dts-place-field]') as HTMLElement
+    expect(field.hasAttribute('data-dt-flash')).toBe(true)
+    expect(document.activeElement).toBe(field.querySelector('input'))
   })
 
   it('разделённая ДТ: раздел «ДТС» без GET …/dts', async () => {

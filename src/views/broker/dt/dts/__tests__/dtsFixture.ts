@@ -64,11 +64,11 @@ export const dtsSheet = (over: Partial<DtsSheet> = {}): DtsSheet => ({
 /** Ответ GET …/dts: пункт ДТ (гр. 8) и пункт самой ДТС. */
 export const dtsView = (over: Partial<DtsView> = {}): DtsView => ({
   sheet: dtsSheet(),
-  missing: ['Гр.8, получатель: дом длиннее 20 знаков', 'ДТС: не указано место для гр.17 (Условия поставки и финансы)'],
+  missing: ['Гр.8, получатель: дом длиннее 20 знаков', 'ДТС: не указано место для гр.17 (раздел «ДТС»)'],
   mismatchGoods: [],
   items: [
     { text: 'Гр.8, получатель: дом длиннее 20 знаков', graph: '8', goodsIndex: null },
-    { text: 'ДТС: не указано место для гр.17 (Условия поставки и финансы)', graph: 'ДТС', goodsIndex: null },
+    { text: 'ДТС: не указано место для гр.17 (раздел «ДТС»)', graph: 'ДТС', goodsIndex: null },
   ],
   ...over,
 })

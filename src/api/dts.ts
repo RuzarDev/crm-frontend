@@ -141,8 +141,16 @@ export const dtsApi = {
   xml: async (caseId: string, declId: string): Promise<{ blob: Blob; fileName: string } | { errors: string[] }> => {
     const res = await apiClient.get(`${base(caseId, declId)}/xml`, { responseType: 'blob', validateStatus: () => true })
     if (res.status === 400) {
-      const parsed = JSON.parse(await (res.data as Blob).text()) as { errors?: string[] }
-      return { errors: parsed.errors ?? ['Не удалось сформировать XML ДТС'] }
+      // 400 без списка (не JSON, нет errors) — как прочая ошибка: текст сервера или пусто (вызывающий подставит свой).
+      let errors: string[] | null = null
+      try {
+        const parsed = JSON.parse(await (res.data as Blob).text()) as { errors?: unknown }
+        if (Array.isArray(parsed.errors) && parsed.errors.length) errors = parsed.errors.map(String)
+      } catch {
+        /* тело не JSON */
+      }
+      if (errors) return { errors }
+      throw new Error((await serverMessage(res.data)) ?? '')
     }
     if (res.status >= 400) throw new Error((await serverMessage(res.data)) ?? '')
     return { blob: res.data as Blob, fileName: fileName(String(res.headers['content-disposition'] ?? ''), 'dts.xml') }

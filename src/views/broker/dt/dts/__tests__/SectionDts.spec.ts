@@ -29,13 +29,14 @@ afterEach(() => {
 const goods = (valuationMethodCode: string | null, o: Record<string, unknown> = {}) =>
   ({ description: 'ВИНТЫ', tnvedCode: '7318150000', valuationMethodCode, ...o }) as never
 
-async function mount(o: { view?: DtsView; readonly?: boolean; form?: Partial<DtFormState>; editable?: boolean } = {}) {
-  dtsApi.get.mockResolvedValue(o.view ?? dtsView())
+async function mount(o: { view?: DtsView; readonly?: boolean; form?: Partial<DtFormState>; editable?: boolean; enabled?: boolean; fail?: boolean } = {}) {
+  if (o.fail) dtsApi.get.mockRejectedValue(new Error('500'))
+  else dtsApi.get.mockResolvedValue(o.view ?? dtsView())
   const form = reactive({ ...emptyDtForm(), goodsItems: [goods('1')], ...o.form }) as DtFormState
   const recalcCustomsValues = vi.fn(async () => ({ updated: 1, total: 1 }))
   const save = vi.fn(async () => true)
   scope = effectScope()
-  const dts = scope.run(() => useDts('c1', 'd1', { enabled: true, editable: ref(o.editable ?? !o.readonly), save, saveForAction: save, recalcCustomsValues }))!
+  const dts = scope.run(() => useDts('c1', 'd1', { enabled: o.enabled ?? true, editable: ref(o.editable ?? !o.readonly), save, saveForAction: save, recalcCustomsValues }))!
   await dts.refresh()
   w = mountWithI18n(SectionDts, {
     attachTo: document.body,
@@ -56,7 +57,7 @@ describe('SectionDts: плашка', () => {
     await mount()
     const banner = w.get('[data-dts-missing]')
     expect(banner.text()).toContain('Для ДТС не хватает: 1')
-    expect(w.findAll('[data-dts-missing-item]').map((i) => i.text())).toEqual(['ДТС: не указано место для гр.17 (Условия поставки и финансы)'])
+    expect(w.findAll('[data-dts-missing-item]').map((i) => i.text())).toEqual(['ДТС: не указано место для гр.17 (раздел «ДТС»)'])
     expect(banner.text()).not.toContain('Гр.8')
     expect(w.get('[data-dts-dt-missing]').text()).toContain('XML ДТС требует и готовности самой ДТ: не хватает 1')
     await w.get('[data-dts-open-panel]').trigger('click')
@@ -94,6 +95,29 @@ describe('SectionDts: основной лист', () => {
     expect(main.get('[data-dts-detail="buyer"]').text()).toContain('АЛМАТЫ, АБАЯ, 1')
     expect(main.get('[data-dts-detail="reg"]').text()).toContain('55302/051026/0000123')
     expect(main.get('[data-dts-detail="box10b"]').text()).toContain('ИВАНОВ И.И.')
+    // Вид документа — как на бланке («04021/1 …»), в «Подробнее»; в компактной строке — только номер.
+    expect(main.get('[data-dts-detail="box4"]').text()).toContain('04021/1 INV-2026-0912 от 12.09.2026')
+    expect(main.get('[data-dts-detail="box5"]').text()).toContain('03011/1 SB-KZ-2026/04')
+    expect(main.get('[data-dts-main-row="box4"]').text()).not.toContain('04021')
+  })
+
+  it('ДТС не загрузилась — ошибка с «Повторить»; вопросы и «Место для гр. 17» правятся и без листа', async () => {
+    const { form } = await mount({ fail: true })
+    expect(w.get('[data-dts-load-error]').text()).toContain('Не удалось загрузить расчёт ДТС')
+    expect(w.find('[data-dts-main]').exists()).toBe(false)
+    expect(w.find('[data-dts-sheet]').exists()).toBe(false)
+    await w.get('[data-dts-place]').setValue('астана')
+    expect(form.dtsPlaceName).toBe('АСТАНА')
+    expect(w.get('[data-dts-place-field]').attributes('data-goods-field')).toBe('dtsPlace')
+    expect(w.find('[data-dts-questions]').exists()).toBe(true)
+  })
+
+  it('ДТ заменена разделением — без запроса, строка «оформляйте в ДТ ЕТТ и ВТО» вместо листа', async () => {
+    await mount({ enabled: false, readonly: true })
+    expect(dtsApi.get).not.toHaveBeenCalled()
+    expect(w.get('[data-dts-replaced]').text()).toBe('ДТ уже разделена — ДТС оформляйте в ДТ ЕТТ и ВТО.')
+    expect(w.find('[data-dts-skeleton]').exists()).toBe(false)
+    expect(w.find('[data-dts-load-error]').exists()).toBe(false)
   })
 })
 
@@ -115,7 +139,8 @@ describe('SectionDts: ДТС-2', () => {
     await mount({ view: form2(), form: { dtsFreeOfCharge: true, goodsItems: [goods('6'), goods('6')] } })
     const box4 = w.get('[data-dts-main-row="box4"]')
     expect(box4.text()).toContain('Основания поставки, гр. 4')
-    expect(box4.text()).toContain('ДОГ-7 от 01.08.2026')
+    // Гр. 4 ДТС-2 — вперемешку 03… и 04…: вид документа и в компактной строке.
+    expect(box4.text()).toContain('03011/1 ДОГ-7 от 01.08.2026')
     expect(box4.text()).not.toContain('Счета')
     expect(w.get('[data-dts-main-row="evidence"]').text()).toContain('есть у товаров: 1 из 2')
   })

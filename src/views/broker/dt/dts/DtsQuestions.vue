@@ -77,7 +77,7 @@ const answer = (key: QuestionKey, v: ZOptionValue) => {
     </div>
     <p class="m-0 mt-1.5 text-xs text-muted" data-dts-questions-note>{{ tq('note') }}</p>
 
-    <ZField v-if="form.dtsFreeOfCharge" class="mt-4 max-w-2xl" :label="tq('reason')" :extra="tq('reasonHint')" data-dts-reason>
+    <ZField v-if="form.dtsFreeOfCharge" class="mt-4 max-w-2xl" :label="tq('reason')" :extra="tq('reasonHint')" data-graph="ДТС" data-goods-field="dtsReason" data-dts-reason>
       <ZTextarea
         :value="form.dtsMethodReason ?? ''"
         :rows="3"

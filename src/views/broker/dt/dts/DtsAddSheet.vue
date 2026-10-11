@@ -3,11 +3,8 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhCalculator, PhCaretRight } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
-import ZField from '@/components/z/ZField.vue'
-import ZInput from '@/components/z/ZInput.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import type { DtsDocRef, DtsGoodsColumn, DtsSheet } from '@/api/dts'
-import { vUppercase } from '@/directives/uppercase'
 import { cn } from '@/ui/cn'
 import { formatDateText } from '@/ui/date'
 import { formatNumberIn } from '@/ui/number'
@@ -16,7 +13,7 @@ import type { DtFormState } from '../dtPayload'
 // Добавочный лист ДТС (гр. 11–25; доска DtDts): товары — строками (удобно и при 100+ товарах), колонки 11а в валюте,
 // 12, Σ13–19, Σ21–23, 25а ₸, 25б USD и гр. 45 ДТ; «не совпадает» — гр. 45 ДТ ≠ гр. 25а ДТС (до копейки — сервер).
 // Строка раскрывается в статьи (13а…23 с названиями из справочника расходов) и пересчёт валют. Всё — с сервера,
-// по сохранённой ДТ. Правится только «Место для гр. 17» (форма ДТ). «Пересчитать гр. 45» — у строки «не совпадает»
+// по сохранённой ДТ, только чтение. «Пересчитать гр. 45» — у строки «не совпадает»
 // и общей кнопкой: шаг 1 расчёта платежей (страница), а не копия гр. 25. ДТС-2: в раскрытой строке — документы о
 // стоимости товара для гр. 8 (04051) или что их нет. На телефоне строки — карточки.
 const props = defineProps<{
@@ -114,17 +111,6 @@ const td = 'px-3 py-2.5 text-right tabular-nums whitespace-nowrap max-sm:flex ma
     <h3 class="m-0 flex items-baseline gap-2 text-[14px] font-semibold text-ink">
       {{ ts('title') }} <span class="font-mono text-xs font-normal text-muted">{{ t('broker.dt.nav.graphs', { list: '11–25' }) }}</span>
     </h3>
-
-    <ZField class="max-w-md" :label="ts('place')" :extra="ts('placeHint')" data-dts-place-field>
-      <ZInput
-        v-uppercase
-        :value="form.dtsPlaceName"
-        :disabled="readonly"
-        :placeholder="form.incotermsPlace || ts('placePlaceholder')"
-        data-dts-place
-        @update:value="form.dtsPlaceName = $event || null"
-      />
-    </ZField>
 
     <p v-if="!rows.length" class="m-0 rounded-row bg-canvas px-4 py-3 text-sm text-muted" data-dts-sheet-empty>{{ ts('empty') }}</p>
     <div v-else class="overflow-x-auto rounded-row border border-line max-sm:overflow-visible max-sm:border-0">

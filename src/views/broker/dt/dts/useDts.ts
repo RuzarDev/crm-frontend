@@ -14,7 +14,8 @@
 //   (xmlErrors) до следующей загрузки.
 // - «Пересчитать гр. 45» — шаг 1 расчёта платежей (recalcCustomsValues: гр. 45/46 по счёту и расходам — та же
 //   формула, а не копия гр. 25 ДТС; изменённые товары — «Пересчитать»), затем тихое сохранение — после него
-//   страница обновит ДТС (onSaved).
+//   страница обновит ДТС (onSaved); итог — после того, как ДТС обновилась. Гр. 45 не изменилась — без сохранения,
+//   ДТС перечитывается, итог — «гр. 45 не изменилась».
 import { computed, ref, shallowRef, toValue, type MaybeRefOrGetter } from 'vue'
 import { dtsApi, type DtsView } from '@/api/dts'
 import { i18n } from '@/i18n'
@@ -37,6 +38,8 @@ export interface UseDtsOptions {
   save?: () => Promise<boolean>
   /** Шаг 1 расчёта платежей (useDtPayments.recalcCustomsValues): ошибку пробрасывает. */
   recalcCustomsValues?: () => Promise<{ updated: number; total: number }>
+  /** Гр. 45 товаров формы (до и после шага 1 — сколько изменилось). */
+  customsValues?: () => readonly (number | null | undefined)[]
 }
 
 export function useDts(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGetter<string>, opts: UseDtsOptions) {
@@ -112,6 +115,9 @@ export function useDts(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGetter<
   /** Товары (номер с 1), у которых гр. 45 ДТ не совпадает с гр. 25а ДТС (до копейки — сервер). */
   const mismatch = computed(() => new Set(view.value?.mismatchGoods ?? []))
 
+  /** Спрашивается ли ДТС (нет — ДТ заменена разделением или нет права). */
+  const enabled = computed(() => !!toValue(opts.enabled))
+
   const busy = computed(() => printing.value !== null || xmlLoading.value)
 
   const print = async (kind: 'pdf' | 'info-sheet-pdf') => {
@@ -152,17 +158,28 @@ export function useDts(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGetter<
     if (!toValue(opts.editable) || recalcLoading.value || !opts.recalcCustomsValues || !opts.save) return false
     recalcLoading.value = true
     try {
+      const before = opts.customsValues?.().slice() ?? null
       let updated: number
       try {
         ({ updated } = await opts.recalcCustomsValues())
       } catch {
         return false // текст ошибки показал общий перехватчик
       }
-      if (!(await opts.save())) {
+      const after = opts.customsValues?.() ?? null
+      const changed = before && after
+        ? Math.max(before.length, after.length) - before.filter((v, i) => (v ?? null) === (after[i] ?? null)).length
+        : updated
+      const seqBefore = seq
+      if (changed > 0 && !(await opts.save())) {
         message.warning(t('broker.dt.dts.sheet.recalcNotSaved'))
         return false
       }
-      message.success(t('broker.dt.dts.sheet.recalcDone', { n: updated }))
+      // Сохранение уже начало загрузку ДТС (onSaved страницы) — ждём её (могла и закончиться); не начало — сами.
+      if (seq !== seqBefore) await (pending ?? Promise.resolve())
+      else await refresh()
+      if (failed.value) message.warning(t('broker.dt.dts.sheet.recalcNoRefresh'))
+      else if (changed > 0) message.success(t('broker.dt.dts.sheet.recalcDone', { n: changed }))
+      else message.info(t('broker.dt.dts.sheet.recalcSame'))
       return true
     } finally {
       recalcLoading.value = false
@@ -170,6 +187,7 @@ export function useDts(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGetter<
   }
 
   return {
+    enabled,
     view,
     loading,
     failed,

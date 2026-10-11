@@ -38,6 +38,7 @@ import { useDts } from './dts/useDts'
 import { saveFile } from './dtFiles'
 import { useDtGoods } from './goods/useDtGoods'
 import { goodsFieldFromReadiness } from './goods/goodsFieldTarget'
+import { dtsFieldFromReadiness } from './dts/dtsFieldTarget'
 import { taxModeLabelKey } from './goods/editor/payments'
 import type { GoodsPageContext, GoodsSaveState } from './goods/editor/types'
 import { DT_CLASSIFIERS } from './dtClassifiers'
@@ -89,6 +90,7 @@ const dts = useDts(caseId, dtId, {
   saveForAction: () => dt.saveForAction(),
   save: () => dt.save(),
   recalcCustomsValues: () => payments.recalcCustomsValues(),
+  customsValues: () => form.goodsItems.map((g) => g.customsValueKzt),
 })
 
 // ---- Форма ----
@@ -289,7 +291,8 @@ const goTo = async (item: DtReadinessItem) => {
   const scope = editor ?? (gi != null && item.section !== 'goods' ? host.querySelector<HTMLElement>(`[data-goods-index="${gi}"]`) : null) ?? host
   // Поле товара — точно по ключу (data-goods-field: гр. 31 — и описание, и места; гр. 33 — и код, и коды запретов),
   // иначе — поле графы: первое подсвеченное (предупреждение/ошибка у поля — напр. гр. 36 вне списка КЕДЕН), иначе первое.
-  const fieldKey = goodsAt != null ? goodsFieldFromReadiness(item.text) : null
+  // Пункт ДТС без товара (место для гр. 17, причины выбора метода) — к своему полю раздела «ДТС».
+  const fieldKey = goodsAt != null ? goodsFieldFromReadiness(item.text) : item.section === 'dts' ? dtsFieldFromReadiness(item.text) : null
   // Поле в свёрнутом блоке (доп. сведения): блок объявляет свои поля в data-goods-reveal — раскрываем и ищем снова.
   if (fieldKey && !scope.querySelector(`[data-goods-field="${fieldKey}"]`)) {
     const holder = scope.querySelector<HTMLElement>(`[data-goods-reveal~="${fieldKey}"]`)

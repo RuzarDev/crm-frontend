@@ -39,7 +39,7 @@ describe('useDts: загрузка', () => {
     expect(d.items.value).toBeNull()
     await d.refresh()
     expect(dtsApi.get).toHaveBeenCalledWith('c1', 'd1', { silent: true })
-    expect(d.items.value).toEqual([{ text: 'ДТС: не указано место для гр.17 (Условия поставки и финансы)', goodsIndex: null, graph: 'ДТС', section: 'dts', fromXml: false }])
+    expect(d.items.value).toEqual([{ text: 'ДТС: не указано место для гр.17 (раздел «ДТС»)', goodsIndex: null, graph: 'ДТС', section: 'dts', fromXml: false }])
     expect(d.dtMissingCount.value).toBe(1)
   })
 
@@ -163,6 +163,34 @@ describe('useDts: «Пересчитать гр. 45»', () => {
     expect(await d.recalc45()).toBe(true)
     expect(log).toEqual(['customs', 'save'])
     expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Гр. 45 пересчитана (товаров: 2)'))
+  })
+
+  it('итог — только после того, как ДТС перечиталась; число — изменённые гр. 45', async () => {
+    const values = [100, 200, 300]
+    const recalcCustomsValues = vi.fn(async () => { values[0] = 101; values[2] = 301; return { updated: 3, total: 1 } })
+    const pending = deferred<unknown>()
+    dtsApi.get.mockReturnValueOnce(pending.promise)
+    const { d } = setup({ editable: true, save: async () => true, recalcCustomsValues, customsValues: () => values })
+    const run = d.recalc45()
+    await vi.waitFor(() => expect(dtsApi.get).toHaveBeenCalledTimes(1))
+    expect(toast.success).not.toHaveBeenCalled()
+    pending.resolve(dtsView())
+    expect(await run).toBe(true)
+    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Гр. 45 пересчитана (товаров: 2), ДТС обновлена'))
+  })
+
+  it('гр. 45 не изменилась — без сохранения, ДТС перечитана, «не изменилась»; ДТС не перечиталась — сказано', async () => {
+    const values = [100]
+    const save = vi.fn(async () => true)
+    const { d } = setup({ editable: true, save, recalcCustomsValues: async () => ({ updated: 1, total: 100 }), customsValues: () => values })
+    expect(await d.recalc45()).toBe(true)
+    expect(save).not.toHaveBeenCalled()
+    expect(dtsApi.get).toHaveBeenCalledTimes(1)
+    expect(toast.info).toHaveBeenCalledWith('Гр. 45 не изменилась — пересчёт дал те же суммы')
+    expect(toast.success).not.toHaveBeenCalled()
+    dtsApi.get.mockRejectedValueOnce(new Error('500'))
+    await d.recalc45()
+    expect(toast.warning).toHaveBeenCalledWith('Гр. 45 пересчитана и сохранена, но расчёт ДТС не обновился — нажмите «Повторить»')
   })
 
   it('ошибка шага 1 — без сохранения; не сохранилось — предупреждение', async () => {

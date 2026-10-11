@@ -10,15 +10,19 @@ import { cn } from '@/ui/cn'
 // условия поставки, документы гр. 4 и 5 — номерами. «Подробнее» раскрывает адреса и БИН сторон, гр. 6, рег. номер,
 // число добавочных листов и гр. 10б. ДТС-2 (по листу сервера, formCode 2): гр. 4 — основания поставки (box4Docs:
 // договор и документы 03…/04…, счёта при бесплатной поставке нет), и сколько товаров имеют документ о стоимости
-// для гр. 8 (evidence, 04051; сами документы — в раскрытой строке добавочного листа).
+// для гр. 8 (evidence, 04051; сами документы — в раскрытой строке добавочного листа). Вид документа («04021/1 …»,
+// как на бланке) — в «Подробнее» для гр. 4–6 и всегда у гр. 4 ДТС-2 (там вперемешку договоры 03… и документы 04…).
 const props = defineProps<{ sheet: DtsSheet }>()
 const { t } = useI18n()
 const tm = (key: string, p?: Record<string, unknown>) => t(`broker.dt.dts.main.${key}`, p ?? {})
 
 const open = ref(false)
 
-const docLine = (d: DtsDocRef) => (d.date ? tm('docLine', { number: d.number, date: formatDateText(d.date) }) : d.number)
-const docs = (list: readonly DtsDocRef[] | null | undefined) => (list ?? []).map(docLine).join('\n')
+const docLine = (d: DtsDocRef, kind = false) => {
+  const number = kind && d.kindCode ? `${d.kindCode}/1 ${d.number}` : d.number
+  return d.date ? tm('docLine', { number, date: formatDateText(d.date) }) : number
+}
+const docs = (list: readonly DtsDocRef[] | null | undefined, kind = false) => (list ?? []).map((d) => docLine(d, kind)).join('\n')
 const terms = computed(() => [props.sheet.incotermsCode, props.sheet.incotermsPlace].filter(Boolean).join(' · '))
 const partyFull = (p: DtsParty) => {
   const address = [p.region, p.city, p.street, p.house, p.apt].filter((x) => !!x?.trim()).join(', ')
@@ -35,7 +39,7 @@ const evidenceGoods = computed(() => new Set((props.sheet.evidence ?? []).filter
 const right = computed(() => [
   { key: 'terms', label: tm('terms'), value: terms.value, mono: false },
   form2.value
-    ? { key: 'box4', label: tm('box4'), value: docs(props.sheet.box4Docs), mono: true }
+    ? { key: 'box4', label: tm('box4'), value: docs(props.sheet.box4Docs, true), mono: true }
     : { key: 'box4', label: tm('invoices'), value: docs(props.sheet.invoices), mono: true },
   { key: 'box5', label: tm('contracts'), value: docs(props.sheet.contracts), mono: true },
   ...(form2.value
@@ -46,7 +50,11 @@ const more = computed(() => [
   { key: 'seller', label: tm('seller'), value: partyFull(props.sheet.seller ?? ({} as DtsParty)) },
   { key: 'buyer', label: tm('buyer'), value: partyFull(props.sheet.buyer ?? ({} as DtsParty)) },
   { key: 'declarant', label: tm('declarant'), value: partyFull(props.sheet.declarant ?? ({} as DtsParty)) },
-  { key: 'box6', label: tm('box6'), value: docs(props.sheet.box6Docs) },
+  form2.value
+    ? { key: 'box4', label: tm('box4'), value: docs(props.sheet.box4Docs, true) }
+    : { key: 'box4', label: tm('invoices'), value: docs(props.sheet.invoices, true) },
+  { key: 'box5', label: tm('contracts'), value: docs(props.sheet.contracts, true) },
+  { key: 'box6', label: tm('box6'), value: docs(props.sheet.box6Docs, true) },
   { key: 'reg', label: tm('regNumber'), value: props.sheet.registrationNumber ?? '' },
   { key: 'add', label: tm('addSheets'), value: String(props.sheet.addSheets ?? 0) },
   { key: 'box10b', label: tm('box10b'), value: props.sheet.box10b ?? '' },
