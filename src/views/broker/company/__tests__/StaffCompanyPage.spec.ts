@@ -305,6 +305,21 @@ describe('StaffCompanyPage', () => {
     expect(w.find('[data-doc-revoke]').exists()).toBe(false)
   })
 
+  it('пока документы перечитываются после действия, «Сформировать» в состоянии загрузки, а не молча игнорирует клик', async () => {
+    api.revokeDocument.mockResolvedValue(doc({ status: 4 }))
+    setDocs('c1', [doc({ id: 'd1' })], [])
+    await mountAt('/import-40/company?step=contract')
+    expect(w.get('[data-doc-generate]').attributes('aria-busy')).toBeUndefined()
+    let release!: (v: unknown[]) => void
+    api.listDocuments.mockReturnValueOnce(new Promise((r) => { release = r }))
+    await w.get('[data-doc="d1"] [data-doc-revoke]').trigger('click')
+    await flushPromises()
+    expect(w.get('[data-doc-generate]').attributes('aria-busy')).toBe('true')
+    release([])
+    await flushPromises()
+    expect(w.get('[data-doc-generate]').attributes('aria-busy')).toBeUndefined()
+  })
+
   it('отзыв: отказ в подтверждении — запроса нет; отказ сервера — его текст у документа', async () => {
     setDocs('c1', [doc({ id: 'd1' })], [])
     await mountAt('/import-40/company?step=contract')

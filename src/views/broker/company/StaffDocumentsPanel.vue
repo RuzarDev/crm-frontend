@@ -222,7 +222,7 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
       </label>
       <ZButton
         variant="primary"
-        :loading="generating"
+        :loading="generating || refreshing"
         :disabled="!profileComplete"
         class="h-9 px-4 max-sm:h-11 max-sm:w-full sm:ml-auto"
         data-doc-generate
