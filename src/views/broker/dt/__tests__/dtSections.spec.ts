@@ -12,7 +12,7 @@ import {
 describe('dtSections — разделы и графы', () => {
   it('порядок разделов как на доске', () => {
     expect(DT_SECTIONS.map((s) => s.key)).toEqual([
-      'number', 'general', 'parties', 'countries', 'transport', 'finance', 'customs', 'goods', 'docs', 'dts', 'closing',
+      'number', 'general', 'parties', 'countries', 'transport', 'finance', 'customs', 'goods', 'payments', 'docs', 'dts', 'closing',
     ])
   })
 
@@ -32,10 +32,11 @@ describe('dtSections — разделы и графы', () => {
     ['18', 'transport'], ['19', 'transport'], ['21', 'transport'], ['25', 'transport'], ['26', 'transport'],
     ['12', 'finance'], ['20', 'finance'], ['22', 'finance'], ['23', 'finance'], ['24', 'finance'],
     ['29', 'customs'], ['30', 'customs'],
-    ['31', 'goods'], ['33', 'goods'], ['36', 'goods'], ['37', 'goods'], ['45', 'goods'], ['47', 'goods'], ['31.2', 'goods'],
+    ['31', 'goods'], ['33', 'goods'], ['36', 'goods'], ['37', 'goods'], ['45', 'goods'], ['46', 'goods'], ['31.2', 'goods'],
+    ['47', 'payments'], ['В', 'payments'], ['B', 'payments'], ['b', 'payments'], ['гр.47', 'payments'],
     ['40', 'docs'], ['44', 'docs'],
     ['ДТС', 'dts'], ['дтс', 'dts'],
-    ['48', 'closing'], ['52', 'closing'], ['54', 'closing'], ['В', 'closing'], ['B', 'closing'], ['b', 'closing'],
+    ['48', 'closing'], ['52', 'closing'], ['54', 'closing'],
     ['Гр.8', 'parties'], ['гр. 30', 'customs'], [' 44 ', 'docs'],
   ])('гр.%s → %s (регистр и латиница не важны)', (graph, key) => {
     expect(sectionForGraph(graph)).toBe(key)
@@ -81,6 +82,8 @@ describe('dtSections — запасной разбор строки (нет item
     expect(sectionForReadinessItem({ text: 'x', graph: 'А', goodsIndex: null })).toBe('number')
     expect(sectionForReadinessItem({ text: 'Товар 1: гр.33 D0110 — в гр.44 нужен документ', graph: '44', goodsIndex: 0 })).toBe('docs')
     expect(sectionForReadinessItem({ text: 'x', graph: null, goodsIndex: 2 })).toBe('goods')
+    // гр. 47 товара — раздел «Платежи» (волна 6в), а не «Товары».
+    expect(sectionForReadinessItem({ text: 'Товар 1: нет ни одной строки платежа (гр.47)', graph: '47', goodsIndex: 0 })).toBe('payments')
     expect(sectionForReadinessItem({ text: 'Товар 2: КЕДЕН при процедуре ИМ40 не предлагает 0Z' })).toBe('goods')
     expect(sectionForReadinessItem({ text: 'Гр.14, декларант: длина полей адреса' })).toBe('parties')
     expect(sectionForReadinessItem({ text: 'Орган подачи декларации (код таможенного органа)' })).toBe('number')

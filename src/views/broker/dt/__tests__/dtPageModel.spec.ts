@@ -11,7 +11,7 @@ const user = (o: Partial<DtAccessUser> = {}): DtAccessUser =>
 describe('разделы и ?s=', () => {
   it('ДТС — только с правом декларанта; порядок как на доске', () => {
     expect(visibleSections(true)).toEqual(
-      ['number', 'general', 'parties', 'countries', 'transport', 'finance', 'customs', 'goods', 'docs', 'dts', 'closing'])
+      ['number', 'general', 'parties', 'countries', 'transport', 'finance', 'customs', 'goods', 'payments', 'docs', 'dts', 'closing'])
     expect(visibleSections(false)).not.toContain('dts')
   })
   it('раздел из адреса: известный — он, чужой или скрытый — «Номер и дата»', () => {
@@ -39,6 +39,8 @@ describe('отметки разделов', () => {
     expect(m.goods).toEqual({ kind: 'count', count: 1 })
     expect(m.countries).toEqual({ kind: 'done' })
     expect(m.number).toEqual({ kind: 'done' })
+    // гр. 47 сервер проверяет (строки платежей у каждого товара) — у «Платежей» галочка.
+    expect(m.payments).toEqual({ kind: 'done' })
     // Сервер не проверяет гр. 1, 3–7 и 48–54 — «готово» там было бы ложью.
     expect(m.general).toEqual({ kind: 'unknown' })
     expect(m.closing).toEqual({ kind: 'unknown' })

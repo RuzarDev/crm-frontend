@@ -21,7 +21,8 @@ import type { DtFormState } from '../dtPayload'
 import ExpensesTable from './ExpensesTable.vue'
 
 // Условия и стоимость: гр. 20 (Инкотермс и место), 22 (валюта и фактурная стоимость), 23 (курс), 12 (общая таможенная
-// стоимость — только чтение), 24 (характер сделки, форма расчётов), «Место для ДТС», расходы и пересчёт гр. 45.
+// стоимость — только чтение), 24 (характер сделки, форма расчётов), расходы и пересчёт гр. 45. «Место для ДТС» (гр. 17
+// ДТС) — в разделе «ДТС» (волна 6в).
 // Инкотермс, характер и форма расчётов — выбор из классификаторов без свободного ввода (значение вне списка видно с
 // предупреждением). Курс гр. 23 не правится молча: расхождение с курсом НБ РК на дату гр. А подсвечено, «Подставить» —
 // по клику. Гр. 12: пока есть несохранённые правки — предпросмотр, после сохранения — значение сервера (с пометкой).
@@ -184,11 +185,6 @@ const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @2xl:grid-cols-3'
           <span class="text-xs text-muted">{{ tf('rateTypeNote') }}</span>
         </div>
       </div>
-      <!-- «Место для ДТС» живёт здесь (в 6в переедет в раздел ДТС); к самой ДТ не относится — пометка «для ДТС». -->
-      <ZField class="max-w-md" :extra="tf('dtsPlaceHint')">
-        <template #label>{{ tf('dtsPlace') }} <ZTag tone="info" size="sm" class="ml-1.5 align-middle" data-dts-tag>{{ tf('dtsTag') }}</ZTag></template>
-        <ZInput v-uppercase :value="form.dtsPlaceName" :disabled="readonly" :placeholder="form.incotermsPlace || tf('dtsPlacePlaceholder')" data-dts-place @update:value="form.dtsPlaceName = $event" />
-      </ZField>
     </div>
 
     <div class="flex flex-col gap-4 border-t border-line pt-5" data-finance-expenses>

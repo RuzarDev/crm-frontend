@@ -16,7 +16,7 @@ import type { ZOption, ZOptionValue } from '@/ui/options'
 import type { Import40GoodsPayment } from '@/types/api'
 import { formatMoney } from '../goodsList'
 import { goodsPaymentsStale } from '../goodsStatus'
-import { emptyPayment, paymentsTotal, setPaymentField, sortPayments, taxModeLabelKey, TEMP_IMPORT_CODES } from './payments'
+import { emptyPayment, formatBasisLabel, paymentsTotal, setPaymentField, sortPayments, taxModeLabelKey, TEMP_IMPORT_CODES } from './payments'
 import type { GoodsSectionProps } from './types'
 
 // «Платежи» (гр. 47 этого товара). По умолчанию — только чтение: суммы рассчитывает сервер («Рассчитать платежи» /
@@ -26,7 +26,7 @@ import type { GoodsSectionProps } from './types'
 // основа, вид ставки, ставка, дата, сумма; для вида ставки «*» — единица, валюта и коэффициент. Правка поля снимает
 // устаревшие подписи расчёта (payments.setPaymentField). Ручная правка не ставит «Пересчитать» и уходит в PUT как есть;
 // следующий расчёт перезапишет строки тех же видов, а расчётные виды, которых в нём нет, удалит
-// (useDtPayments.applyGoodsPaymentRows). Вид ставки, выбранный вручную, расчёт без своего вида не затирает.
+// (payments/paymentRows.applyGoodsPaymentRows). Вид ставки, выбранный вручную, расчёт без своего вида не затирает.
 // Просмотр — без «Править вручную».
 const props = defineProps<GoodsSectionProps>()
 const { t, te, locale } = useI18n()
@@ -59,7 +59,7 @@ const modeLabel = (code: string | null | undefined) => {
 
 const num = (v: number | null | undefined) => (v == null ? '—' : formatMoney(v, locale.value))
 const exact = (v: number) => formatNumberIn(locale.value, v, 6)
-const baseText = (p: Import40GoodsPayment) => p.basisLabel?.trim() || num(p.taxBase)
+const baseText = (p: Import40GoodsPayment) => (p.basisLabel?.trim() ? formatBasisLabel(p.basisLabel, locale.value) : num(p.taxBase))
 const rateText = (p: Import40GoodsPayment) => {
   const label = p.rateLabel?.trim() || null
   // Без подписи расчёта — число как есть (специфические ставки бывают 0,004 EUR/кг: не округлять до 0,00).

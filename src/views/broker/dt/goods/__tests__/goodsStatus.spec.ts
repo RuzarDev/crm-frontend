@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import type { Import40GoodsItemInput } from '@/types/api'
-import { toPaymentsInput } from '../../useDtPayments'
 import { paymentsStale } from '../../dtPageModel'
 import {
   PAYMENT_FIELDS, goodsPaymentsStale, localMissingFields, localStatus, markStale, missingByGoodsIndex, setGoodsField, statusFrom,
@@ -34,7 +33,8 @@ describe('goodsStatus: признак «платежи устарели»', () =
   })
 
   it('PAYMENT_FIELDS: все поля товара, которые уходят в расчёт платежей, + гр. 36 ×4', () => {
-    // поле входа расчёта → поле товара (toPaymentsInput)
+    // поля товара, которые сервер берёт для расчёта платежей из сохранённой ДТ (вход calculate-payments).
+    // Список СТАТИЧЕСКИЙ (раньше сверялся с toPaymentsInput): при новом входном поле расчёта обновить его вручную и PAYMENT_FIELDS.
     const inputToItem: Record<string, keyof Import40GoodsItemInput> = {
       tnvedCode: 'tnvedCode', invoiceValue: 'customsValue', currency: 'currency', grossWeightKg: 'grossWeightKg',
       quantity: 'quantity', vatRatePreferential: 'vatRatePreferential', tempImportMonths: 'tempImportMonths',
@@ -42,8 +42,6 @@ describe('goodsStatus: признак «платежи устарели»', () =
       exciseKind: 'exciseKind', antiDumpingKind: 'antiDumpingKind', unitCode: 'unitCode', volumeL: 'taxVolumeL',
       alcoholL: 'taxAlcoholL', pieces: 'taxPieces', engineVolumeCm3: 'engineVolumeCm3',
     }
-    const used = Object.keys(toPaymentsInput(complete(), 0)).filter((k) => k !== 'index' && k !== 'description')
-    expect(used.sort()).toEqual(Object.keys(inputToItem).sort())
     for (const f of Object.values(inputToItem)) expect(PAYMENT_FIELDS).toContain(f)
     for (const f of ['prefClearanceCode', 'prefDutyCode', 'prefExciseCode', 'prefVatCode'] as const) expect(PAYMENT_FIELDS).toContain(f)
     expect(PAYMENT_FIELDS).not.toContain('description')

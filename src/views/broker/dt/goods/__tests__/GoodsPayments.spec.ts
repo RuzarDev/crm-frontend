@@ -7,7 +7,7 @@ import { mountWithI18n } from '@/test/mountWithI18n'
 import { useClassifiersStore } from '@/stores/classifiers'
 import type { ClassifierItem, Import40GoodsItemInput, Import40GoodsPayment } from '@/types/api'
 import { emptyDtForm, formToPayload, type DtFormState } from '../../dtPayload'
-import { applyGoodsPaymentRows } from '../../useDtPayments'
+import { applyGoodsPaymentRows } from '../../payments/paymentRows'
 import { useDtGoods } from '../useDtGoods'
 import { clearTariffCache } from '../useTariffOptions'
 import { resetOkeiUnits } from '../editor/okei'
@@ -53,8 +53,8 @@ const item = (o: Partial<Import40GoodsItemInput> = {}): Import40GoodsItemInput =
 })
 const PAYMENTS = (): Import40GoodsPayment[] => [
   pay({ taxModeCode: '5060', taxBase: 480000, rateKindCode: '%', rateValue: 16, amountKzt: 76800, paymentFeatureCode: 'ИУ', rateLabel: '16%', basisLabel: '480 000,00 ₸' }),
-  pay({ taxModeCode: '4420', amountKzt: 300, paymentFeatureCode: 'ИУ' }),
-  pay({ taxModeCode: '2050', amountKzt: 2000.5, paymentFeatureCode: 'ИУ' }),
+  pay({ taxModeCode: '4420', amountKzt: 300, paymentFeatureCode: 'ИУ', basisLabel: '296046.44' }),
+  pay({ taxModeCode: '2050', amountKzt: 2000.5, paymentFeatureCode: 'ИУ', basisLabel: '12.5' }),
   pay({ taxModeCode: '2010', taxBase: 453980, rateKindCode: '%', rateValue: 6.5, amountKzt: 29508.7, paymentFeatureCode: 'ИУ', rateDate: '2026-10-09' }),
   pay({ taxModeCode: '1010', amountKzt: 6000, paymentFeatureCode: 'ИУ', rateLabel: 'фикс.' }),
 ]
@@ -188,6 +188,9 @@ describe('Редактор товара: «Платежи» (гр. 47 этого
     expect(cell(rowOf('2050'), 'mode')).toBe('2050 Антидемпинговая пошлина')
     expect(cell(rowOf('4420'), 'mode')).toBe('4420 Акциз')
     expect(cell(rowOf('5060'), 'base')).toContain('480 000,00 ₸') // basisLabel сервера
+    // (QA Q1) основа-число сервера («296046.44», количество «12.5») — по языку интерфейса, знаков столько же
+    expect(cell(rowOf('4420'), 'base')).toBe('296 046,44')
+    expect(cell(rowOf('2050'), 'base')).toBe('12,5')
     expect(cell(rowOf('2010'), 'base')).toContain('453 980,00')
     expect(cell(rowOf('2010'), 'rate')).toBe('6,5%')
     expect(cell(rowOf('5060'), 'rate')).toContain('16%')

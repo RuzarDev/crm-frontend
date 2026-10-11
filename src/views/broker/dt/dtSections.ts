@@ -15,6 +15,7 @@ export type DtSectionKey =
   | 'finance'
   | 'customs'
   | 'goods'
+  | 'payments'
   | 'docs'
   | 'dts'
   | 'closing'
@@ -33,10 +34,12 @@ export const DT_SECTIONS: readonly DtSectionDef[] = [
   { key: 'transport', graphs: ['18', '19', '21', '25', '26'] },
   { key: 'finance', graphs: ['12', '20', '22', '23', '24'] },
   { key: 'customs', graphs: ['29', '30'] },
-  { key: 'goods', graphs: ['31', '32', '33', '34', '35', '36', '37', '38', '39', '41', '42', '43', '45', '46', '47'] },
+  { key: 'goods', graphs: ['31', '32', '33', '34', '35', '36', '37', '38', '39', '41', '42', '43', '45', '46'] },
+  // Платежи (волна 6в): гр. 47 товаров и гр. В — один раздел с расчётом.
+  { key: 'payments', graphs: ['47', 'В'] },
   { key: 'docs', graphs: ['40', '44'] },
   { key: 'dts', graphs: ['ДТС'] },
-  { key: 'closing', graphs: ['48', '52', '54', 'В'] },
+  { key: 'closing', graphs: ['48', '52', '54'] },
 ]
 
 export const DT_SECTION_KEYS: readonly DtSectionKey[] = DT_SECTIONS.map((s) => s.key)

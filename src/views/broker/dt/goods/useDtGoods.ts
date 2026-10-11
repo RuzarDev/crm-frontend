@@ -13,7 +13,7 @@
 //   статус не «переезжает» на соседа; товар, которого в ответе не было (новый, копия), и всё без ответа сервера —
 //   местная проверка.
 // - Признак «платежи устарели» ставит редактор на правке пользователя (markStale / setGoodsField из goodsStatus),
-//   снимает расчёт (useDtPayments.applyGoodsPaymentRows).
+//   снимает расчёт (payments/paymentRows.applyGoodsPaymentRows).
 import { computed, shallowRef, toRaw, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { cloneGoodsExtras } from '@/types/api'

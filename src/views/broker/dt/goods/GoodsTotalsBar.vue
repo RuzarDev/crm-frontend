@@ -1,18 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhCalculator, PhDotsThree } from '@phosphor-icons/vue'
+import { PhCalculator } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
-import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import { formatKg, formatQty, formatValue } from '@/views/broker/transit/record/sections/goods'
 import { formatMoney, type GoodsTotals } from './goodsList'
 
 // Итоги раздела «Товары» (доска DtGoods), закреплены внизу раздела (на телефоне — просто в конце списка): товаров,
 // мест, брутто, нетто, фактурная (с кодом валюты — P1), Σ гр. 45 ₸, ТПиН ₸; «Платежи устарели», если у товаров есть
-// «Пересчитать»; «Рассчитать» (окно расчёта платежей useDtPayments) и «Ещё» → «ТПиН по данным экрана».
-// В просмотре — только итоги.
+// «Пересчитать»; «Рассчитать» — раздел «Платежи» и расчёт (useDtPayments.calculate; «ТПиН по данным экрана» убран
+// в волне 6в — платежи считаются только по сохранённой ДТ). В просмотре — только итоги.
 const props = defineProps<{ totals: GoodsTotals; stale: boolean; readonly: boolean; loading?: boolean }>()
-const emit = defineEmits<{ 'calc-payments': []; 'calc-tpin': [] }>()
+const emit = defineEmits<{ 'calc-payments': [] }>()
 const { t, locale } = useI18n()
 const tt = (key: string) => t(`broker.dt.goods.totals.${key}`)
 
@@ -32,7 +31,6 @@ const cells = computed(() => {
     { key: 'tpin', label: tt('tpin'), value: `${formatValue(s.tpin, l)} ₸` },
   ]
 })
-const moreItems = computed<ZDropdownItem[]>(() => [{ key: 'tpin', label: tt('tpinScreen') }])
 </script>
 
 <template>
@@ -58,22 +56,10 @@ const moreItems = computed<ZDropdownItem[]>(() => [{ key: 'tpin', label: tt('tpi
       <span v-if="stale" class="inline-flex items-center gap-1.5 text-[13px] text-gold-ink" data-goods-stale>
         <span class="size-2 rounded-pill bg-gold" aria-hidden="true" />{{ tt('stale') }}
       </span>
-      <template v-if="!readonly">
-        <ZButton :loading="loading" class="max-sm:h-11" data-goods-calc @click="emit('calc-payments')">
-          <template #icon><PhCalculator :size="16" aria-hidden="true" /></template>
-          {{ tt('calc') }}
-        </ZButton>
-        <ZDropdown :items="moreItems" @select="(k) => k === 'tpin' && emit('calc-tpin')">
-          <button
-            type="button"
-            :aria-label="tt('more')"
-            class="flex size-9 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-2 outline-hidden hover:bg-sunken hover:text-ink focus-visible:shadow-focus max-sm:size-11"
-            data-goods-calc-more
-          >
-            <PhDotsThree :size="20" weight="bold" aria-hidden="true" />
-          </button>
-        </ZDropdown>
-      </template>
+      <ZButton v-if="!readonly" :loading="loading" class="max-sm:h-11" data-goods-calc @click="emit('calc-payments')">
+        <template #icon><PhCalculator :size="16" aria-hidden="true" /></template>
+        {{ tt('calc') }}
+      </ZButton>
     </div>
   </div>
 </template>
