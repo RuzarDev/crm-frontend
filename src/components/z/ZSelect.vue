@@ -237,7 +237,7 @@ const inputClass = computed(() => cn(
     @update:model-value="onModel"
   >
     <ComboboxAnchor
-      :class="cn(fieldShell({ size, invalid: isInvalid, warning: isWarning, disabled, multiline: isMulti }), 'pr-1.5', isMulti ? 'max-sm:min-h-11' : 'max-sm:h-11', !disabled && 'cursor-pointer')"
+      :class="cn(fieldShell({ size, invalid: isInvalid, warning: isWarning, disabled, multiline: isMulti }), 'pr-1.5', size !== 'sm' && (isMulti ? 'max-sm:min-h-11' : 'max-sm:h-11'), !disabled && 'cursor-pointer')"
       @click="onAnchorClick"
     >
       <ZSelectChips v-if="isMulti" :values="selected" :label-of="labelOf" :disabled="disabled" @remove="removeValue" />
