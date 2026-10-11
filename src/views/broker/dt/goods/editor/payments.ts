@@ -2,6 +2,7 @@
 // порядок показа 1010 → 2010 → 5060 → прочие (как отдаёт расчёт); суммы — только из ответа сервера, клиент их не
 // пересчитывает; пустая ручная строка — вид ставки «%», СП «ИУ», как раньше.
 import type { Import40GoodsPayment } from '@/types/api'
+import { formatNumberIn } from '@/ui/number'
 
 const TAX_MODE_PRIORITY: Record<string, number> = { '1010': 0, '2010': 1, '5060': 2 }
 const priority = (code: string | null | undefined) =>
@@ -60,4 +61,16 @@ export function setPaymentField<K extends keyof Import40GoodsPayment>(p: Import4
     p.rateLabel = null
   }
   return true
+}
+
+/**
+ * Подпись основы (basisLabel сервера) по языку интерфейса. Сервер пишет число без группировки и с точкой
+ * («25950.00», количество — «12.5»): такое показываем как число с тем же числом знаков после запятой («25 950,00»).
+ * Подпись с текстом («10 кг», «0.06 EUR за кг») — как есть.
+ */
+export const formatBasisLabel = (label: string, locale: string): string => {
+  const s = label.trim()
+  if (!/^-?\d+(\.\d+)?$/.test(s)) return s
+  const digits = s.split('.')[1]?.length ?? 0
+  return formatNumberIn(locale, Number(s), digits, digits)
 }

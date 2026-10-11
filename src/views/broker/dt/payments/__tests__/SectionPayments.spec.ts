@@ -175,11 +175,18 @@ describe('SectionPayments: карточки и плашки', () => {
     expect(w.find('[data-payments-stale]').exists()).toBe(false)
     expect(w.get('[data-payments-goods][data-goods-index="0"] [data-payments-line="5060"]').text()).toMatch(/84\s000,00.*расчёт, не записан/s)
     expect(w.get('[data-payments-goods][data-goods-index="0"] [data-payments-goods-issue]').text()).toContain('Акциз взят по умолчанию')
+    expect(w.findAll('[data-payments-goods][data-goods-index="0"] [data-payments-note]').map((n) => n.text())).toEqual(['Акциз взят по умолчанию'])
     expect(w.get('[data-payments-goods][data-goods-index="1"]').attributes('data-state')).toBe('error')
     expect(w.get('[data-payments-goods][data-goods-index="1"] [data-payments-goods-issue]').text()).toContain('Укажите код ТНВЭД и стоимость — платежи не рассчитаны')
     expect(w.get('[data-payments-not-recalculated]').text()).toContain('товары 2')
-    // итоги — Σ гр. 47 после записи: товар 2 с ошибкой остаётся со своими 1010 = 2500 и 5060 = 7922
-    expect(w.get('[data-payments-total="1010"]').text()).toMatch(/11\s150\s₸/)
+    // сбор распределён между пересчитанными — строку 1010 у товара 2 с ошибкой «Записать» уберёт (I1-A); 5060 остаётся
+    expect(w.get('[data-payments-fee-dropped-list]').text()).toBe('Сбор 1010 уберём у товаров 2: сбор за ДТ распределён между пересчитанными товарами')
+    expect(w.find('[data-payments-goods][data-goods-index="1"] [data-payments-line="1010"]').exists()).toBe(false)
+    expect(w.get('[data-payments-goods][data-goods-index="1"] [data-payments-line="5060"]').text()).toMatch(/7\s922,00/)
+    expect(w.get('[data-payments-goods][data-goods-index="1"] [data-payments-fee-dropped]').text()).toContain('Строку 1010 уберём')
+    expect(w.find('[data-payments-goods][data-goods-index="0"] [data-payments-fee-dropped]').exists()).toBe(false)
+    // итоги — Σ гр. 47 после записи: товар 2 с ошибкой — без 1010, со своим 5060 = 7922
+    expect(w.get('[data-payments-total="1010"]').text()).toMatch(/8\s650\s₸/)
     expect(w.get('[data-payments-total="5060"]').text()).toMatch(/91\s938\s₸/)
     expect(w.get('[data-payments-removed]').text()).toBe('Удалим из гр. В: 2050')
     expect(w.get('[data-payments-multiple="5060"]').text()).toContain('По виду 5060 в гр. В несколько платежей')
@@ -243,7 +250,8 @@ describe('SectionPayments: карточки и плашки', () => {
     const { w } = setup({ fact: [fact('1010', 2500), fact('5060', 7000)] })
     await settle()
     expect(w.find('[data-payments-diff-code="1010"]').exists()).toBe(false)
-    expect(w.get('[data-payments-diff-code="5060"]').text()).toMatch(/5060: гр\. 47 — 7\s922 ₸, гр\. В — 7\s000 ₸/)
+    // до копейки: расхождение в копейках без них выглядело бы как равные суммы
+    expect(w.get('[data-payments-diff-code="5060"]').text()).toMatch(/5060: гр\. 47 — 7\s922,00 ₸, гр\. В — 7\s000,00 ₸/)
   })
 
   it('просмотр: без «Рассчитать», «Записать» и правок; суммы, карточки и таблица видны', async () => {

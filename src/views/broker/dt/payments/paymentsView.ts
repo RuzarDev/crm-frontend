@@ -6,7 +6,7 @@ import type { Import40GoodsItemInput, Import40GoodsPayment } from '@/types/api'
 import type { DtFormState } from '../dtPayload'
 import { sortPayments } from '../goods/editor/payments'
 import { goodsPaymentsStale } from '../goods/goodsStatus'
-import { applyGoodsPaymentRows } from './paymentRows'
+import { applyGoodsPaymentRows, FEE_TAX_MODE, feeDroppedGoods } from './paymentRows'
 
 type Goods = Import40GoodsItemInput
 
@@ -19,6 +19,8 @@ export interface PaymentsGoodsEntry {
   notRecalculated: boolean
   /** Есть замечание — карточка видна всегда; без замечаний — под «показать все». */
   issue: boolean
+  /** «Записать» уберёт у товара строку сбора 1010 (товар не пересчитан, сбор распределён между рассчитанными). */
+  feeDropped: boolean
 }
 
 /**
@@ -26,12 +28,13 @@ export interface PaymentsGoodsEntry {
  * без предпросмотра — платежи товара устарели («Пересчитать» или нет ни одной строки гр. 47).
  */
 export function paymentsGoodsEntries(goods: readonly Goods[], res: Import40CalculatePaymentsResponse | null): PaymentsGoodsEntry[] {
-  if (!res) return goods.map((g, index) => ({ index, calc: null, notRecalculated: false, issue: goodsPaymentsStale(g) }))
+  if (!res) return goods.map((g, index) => ({ index, calc: null, notRecalculated: false, issue: goodsPaymentsStale(g), feeDropped: false }))
   const byIndex = new Map(res.goodsRows.map((r) => [r.index, r]))
+  const dropFee = new Set(feeDroppedGoods(goods, res))
   return goods.map((_, index) => {
     const calc = byIndex.get(index) ?? null
     const notRecalculated = !calc || !!calc.error
-    return { index, calc, notRecalculated, issue: notRecalculated || !!calc?.notes?.trim() }
+    return { index, calc, notRecalculated, issue: notRecalculated || !!calc?.notes?.trim(), feeDropped: dropFee.has(index) }
   })
 }
 
@@ -64,9 +67,34 @@ const lineOf = (p: Import40GoodsPayment, fresh: boolean): PaymentLine => ({
   fresh,
 })
 
-/** Записанные строки гр. 47 товара в порядке показа (1010 → 2010 → 5060 → прочие). */
-export const savedLines = (payments: readonly Import40GoodsPayment[] | null | undefined): PaymentLine[] =>
-  sortPayments(payments).map((p) => lineOf(p, false))
+/**
+ * Записанные строки гр. 47 товара в порядке показа (1010 → 2010 → 5060 → прочие). dropFee — без строки сбора 1010:
+ * так их запишет «Записать» у не пересчитанного товара (сбор распределён между рассчитанными).
+ */
+export const savedLines = (payments: readonly Import40GoodsPayment[] | null | undefined, dropFee = false): PaymentLine[] =>
+  sortPayments(payments).filter((p) => !dropFee || p.taxModeCode !== FEE_TAX_MODE).map((p) => lineOf(p, false))
+
+/**
+ * Примечания расчёта строками (как в прежнем окне расчёта): сервер склеивает их через «; ». Внутри скобок «; » —
+ * часть одного примечания (варианты антидемпинговой пошлины), там не делим.
+ */
+export function noteLines(notes: string | null | undefined): string[] {
+  const out: string[] = []
+  let depth = 0
+  let from = 0
+  const s = notes ?? ''
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (c === '(') depth += 1
+    else if (c === ')') depth = Math.max(0, depth - 1)
+    else if (c === ';' && depth === 0 && s[i + 1] === ' ') {
+      out.push(s.slice(from, i))
+      from = i + 2
+    }
+  }
+  out.push(s.slice(from))
+  return out.map((x) => x.trim()).filter(Boolean)
+}
 
 /**
  * Строки гр. 47 товара, какими их сделает «Записать»: правила applyGoodsPaymentRows на копии строк; товар с ошибкой

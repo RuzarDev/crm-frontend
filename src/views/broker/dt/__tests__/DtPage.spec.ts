@@ -1319,6 +1319,6 @@ describe('DtPage: раздел «Платежи» (волна 6в)', () => {
     expect(html.indexOf('data-payments-totals')).toBeGreaterThan(-1)
     expect(html.indexOf('data-payments-totals')).toBeLessThan(html.indexOf('data-dt-fact-payments'))
     // гр. 47 фикстуры: 1010 = 3 ₸, гр. В: 1010 = 20 000 ₸ — расходятся
-    expect(section.get('[data-payments-diff-code="1010"]').text()).toMatch(/гр\. 47 — 3 ₸, гр\. В — 20\s000 ₸/)
+    expect(section.get('[data-payments-diff-code="1010"]').text()).toMatch(/гр\. 47 — 3,00 ₸, гр\. В — 20\s000,00 ₸/)
   })
 })

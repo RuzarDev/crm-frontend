@@ -13,9 +13,11 @@
 // 'stale-preview' («Данные изменились — рассчитайте заново»). Сигнал — версия правок формы (useDtForm.editVersion,
 // её уже ведёт наблюдатель страницы); на её смене сравнивается снимок товаров (goodsSnapshot) — сам расчёт форму
 // не обходит. Правка «Медизделие» через setField модели товаров — тоже правка: предпросмотр сбрасывается.
-// apply(): снимок ещё тот же (иначе — 'stale-preview') → гр. 47 (applyGoodsPaymentRows, правила без изменений) →
-// гр. В (mergeFactPayments) из Σ гр. 47 по видам ПОСЛЕ записи (как печать): товары с ошибкой расчёта сохраняют свои
-// строки, и их виды остаются в гр. В → сохранение → «Записано».
+// apply(): снимок ещё тот же (иначе — 'stale-preview') → гр. 47 (applyPaymentsCalculation: правила applyGoodsPaymentRows
+// без изменений + у не пересчитанных товаров убирается строка сбора 1010, если расчёт распределил сбор между
+// рассчитанными — иначе сбор посчитан дважды) → гр. В (mergeFactPayments) из Σ гр. 47 по видам ПОСЛЕ записи (как
+// печать, до копеек): прочие строки товаров с ошибкой расчёта остаются, и их виды остаются в гр. В → сохранение →
+// «Записано».
 // «ТПиН по данным экрана» удалён: платежи считаются только по сохранённой ДТ (§5-5).
 import { computed, ref, shallowRef, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import { import40Api, type Import40CalculatePaymentsResponse } from '@/api/import40'
@@ -24,7 +26,7 @@ import { message } from '@/ui/message'
 import { formatNumberIn } from '@/ui/number'
 import { toIsoDate, type DtFormState } from './dtPayload'
 import { markStale } from './goods/goodsStatus'
-import { applyGoodsPaymentRows } from './payments/paymentRows'
+import { applyPaymentsCalculation } from './payments/paymentRows'
 import {
   calcSnapshot, goodsTotalsAfterApply, mergeFactPayments, notRecalculatedGoods, totalsByMode, totalsRecord,
   type FactMergeResult, type PaymentModeTotal,
@@ -86,7 +88,7 @@ export function useDtPayments(
 
   /**
    * Итоги по видам, которые «Записать» внесёт в гр. В: Σ гр. 47 всех товаров после записи (товары с ошибкой — со своими
-   * строками). Без ошибок равны итогам расчёта сервера.
+   * строками, кроме сбора 1010). Без ошибок равны итогам расчёта сервера.
    */
   const previewTotals = computed<PaymentModeTotal[]>(() =>
     (result.value ? goodsTotalsAfterApply(form.goodsItems, result.value) : []).filter((x) => x.code))
@@ -233,8 +235,8 @@ export function useDtPayments(
       return false
     }
     state.value = 'applying'
-    applyGoodsPaymentRows(form, res)
-    // гр. В — из Σ гр. 47 после записи (как печать): виды товаров с ошибкой расчёта не удаляются.
+    applyPaymentsCalculation(form, res)
+    // гр. В — из Σ гр. 47 после записи (как печать, до копеек): виды товаров с ошибкой расчёта не удаляются.
     const merged = mergeFactPayments(form.factPayments ?? [], totalsRecord(totalsByMode(form.goodsItems)))
     // Новый массив гр. В: таблица фактических платежей видит запись (§5-1), XML-порядок = порядок строк.
     form.factPayments = merged.rows

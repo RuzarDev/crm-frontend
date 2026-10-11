@@ -8,15 +8,17 @@ import type { Import40PaymentGoodsRowDto } from '@/api/import40'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { formatNumberIn } from '@/ui/number'
 import { formatTnved } from '@/utils/tnvedFormat'
-import { TEMP_IMPORT_CODES } from '../goods/editor/payments'
+import { formatBasisLabel, TEMP_IMPORT_CODES } from '../goods/editor/payments'
 import { formatMoney } from '../goods/goodsList'
 import { goodsPaymentsStale } from '../goods/goodsStatus'
-import { isMedical, previewLines, savedLines, type PaymentLine } from './paymentsView'
+import { isMedical, noteLines, previewLines, savedLines, type PaymentLine } from './paymentsView'
 import { useModeLabel } from './useModeLabel'
 
 // Карточка товара в «Платежах» (доска DtPayments): №, код, описание, «Медизделие — НДС 5%», строки гр. 47 (вид, основа,
 // ставка, сумма, СП). Во время предпросмотра — строки, какими их запишет «Записать» (виды из расчёта помечены «расчёт,
-// не записан»); ошибка расчёта и примечания сервера — внизу, со ссылкой «Открыть товар». Суммы — только с сервера.
+// не записан»); ошибка расчёта и примечания сервера (по строке на примечание) — внизу, со ссылкой «Открыть товар».
+// Не пересчитанный товар показывает свои строки, кроме сбора 1010, если «Записать» его уберёт (feeDropped). Суммы —
+// только с сервера; основа — по языку интерфейса.
 // Переключатель «Медизделие» не пишет в товар сам: событие medical — страница правит товар через setField модели
 // товаров («Пересчитать», сброс предпросмотра). tabindex="-1" — переход «До подачи» к гр. 47 ставит фокус на карточку.
 const props = defineProps<{
@@ -27,6 +29,8 @@ const props = defineProps<{
   calc: Import40PaymentGoodsRowDto | null
   /** Расчёт товар не пересчитал (в предпросмотре). */
   notRecalculated: boolean
+  /** «Записать» уберёт у товара строку сбора 1010 (в предпросмотре). */
+  feeDropped?: boolean
   readonly: boolean
 }>()
 const emit = defineEmits<{ medical: [checked: boolean]; open: [] }>()
@@ -34,20 +38,21 @@ const { t, locale } = useI18n()
 const tc = (key: string, p?: Record<string, unknown>) => t(`broker.dt.payments.card.${key}`, p ?? {})
 const modeLabel = useModeLabel()
 
-const lines = computed<PaymentLine[]>(() => (props.calc ? previewLines(props.item, props.calc) : savedLines(props.item.payments)))
+const lines = computed<PaymentLine[]>(() =>
+  (props.calc && !props.calc.error ? previewLines(props.item, props.calc) : savedLines(props.item.payments, !!props.feeDropped)))
 const preview = computed(() => !!props.calc)
 const stale = computed(() => !preview.value && goodsPaymentsStale(props.item) && !!props.item.payments?.length)
 const error = computed(() => props.calc?.error?.trim() || null)
-const notes = computed(() => (props.calc && !props.calc.error ? props.calc.notes?.trim() || null : null))
+const notes = computed(() => (props.calc && !props.calc.error ? noteLines(props.calc.notes) : []))
 const medical = computed(() => isMedical(props.item))
 const months = computed(() => props.item.tempImportMonths || null)
 const code = computed(() => (props.item.tnvedCode ? formatTnved(props.item.tnvedCode) : null))
 const description = computed(() => props.item.description?.trim() || props.item.tnvedDescription?.trim() || '')
-const state = computed(() => (error.value ? 'error' : props.notRecalculated ? 'not-recalculated' : notes.value ? 'note' : stale.value ? 'stale' : lines.value.length ? 'ok' : 'empty'))
+const state = computed(() => (error.value ? 'error' : props.notRecalculated ? 'not-recalculated' : notes.value.length ? 'note' : stale.value ? 'stale' : lines.value.length ? 'ok' : 'empty'))
 
 const money = (v: number | null) => (v == null ? '—' : formatMoney(v, locale.value))
 const exact = (v: number) => formatNumberIn(locale.value, v, 6)
-const baseText = (l: PaymentLine) => l.basisLabel ?? money(l.base)
+const baseText = (l: PaymentLine) => (l.basisLabel ? formatBasisLabel(l.basisLabel, locale.value) : money(l.base))
 const rateText = (l: PaymentLine) => {
   const label = l.rateLabel
   const text = label ?? (l.rate == null ? '—' : `${exact(l.rate)}${l.rateKind === '%' ? '%' : ''}`)
@@ -130,7 +135,7 @@ const cell = 'flex min-w-0 flex-col gap-0.5'
     </div>
 
     <footer
-      v-if="error || notes || notRecalculated"
+      v-if="error || notes.length || notRecalculated"
       :class="[
         'flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line px-4 py-2 text-[13px]',
         error ? 'bg-tone-danger-bg text-danger' : 'text-ink-2',
@@ -141,7 +146,10 @@ const cell = 'flex min-w-0 flex-col gap-0.5'
       <span class="min-w-0 flex-1">
         <template v-if="error">{{ tc('error', { error }) }}</template>
         <template v-else-if="notRecalculated">{{ tc('notRecalculated') }}</template>
-        <template v-else>{{ notes }}</template>
+        <template v-else>
+          <span v-for="(n, i) in notes" :key="i" class="block" data-payments-note>{{ n }}</span>
+        </template>
+        <span v-if="feeDropped" class="block" data-payments-fee-dropped>{{ tc('feeDropped') }}</span>
       </span>
       <button
         type="button"

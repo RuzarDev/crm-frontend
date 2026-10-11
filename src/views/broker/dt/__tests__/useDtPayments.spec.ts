@@ -297,6 +297,40 @@ describe('useDtPayments.apply: «Записать в гр. 47 и гр. В»', ()
     expect(form.goodsItems[1].payments?.map((x) => [x.taxModeCode, x.amountKzt])).toEqual([['4420', 9], ['5060', 2]])
   })
 
+  it('(баг I1) сбор 1010 — один на ДТ: 3 товара по 8 650, у второго ошибка → его 1010 уходит, Σ 1010 в гр. 47 и гр. В = 25 950', async () => {
+    const fee = (o: Record<string, unknown> = {}) => goods({ payments: [{ taxModeCode: '1010', amountKzt: 8650 }, { taxModeCode: '5060', amountKzt: 100 }], ...o })
+    const { form, p } = setup({ goods: [fee(), fee({ tnvedCode: null, needsTpinRecalc: false, customsValueKzt: 50001 }), fee()] })
+    form.factPayments = [{ taxModeCode: '1010', amount: 25950, exchangeRate: 1, paymentDocDate: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН' }]
+    api.calculatePayments.mockResolvedValueOnce(calc([
+      { index: 0, rows: [{ taxModeCode: '1010', amount: 12975 }, { taxModeCode: '5060', amount: 110 }] },
+      { index: 1, rows: [], error: 'Нет кода ТН ВЭД' },
+      { index: 2, rows: [{ taxModeCode: '1010', amount: 12975 }, { taxModeCode: '5060', amount: 330 }] },
+    ], { 1010: 25950, 5060: 440 }))
+    await p.calculate()
+    // предпросмотр уже без доли товара 2 (было бы 34 600)
+    expect(p.previewTotals.value).toEqual([{ code: '1010', amount: 25950 }, { code: '5060', amount: 540 }])
+    await p.apply()
+    const fees = form.goodsItems.map((g) => g.payments!.filter((x) => x.taxModeCode === '1010').reduce((s, x) => s + (x.amountKzt ?? 0), 0))
+    expect(fees).toEqual([12975, 0, 12975])
+    // прочие строки товара с ошибкой и его «Пересчитать» — как были
+    expect(form.goodsItems[1].payments!.map((x) => [x.taxModeCode, x.amountKzt])).toEqual([['5060', 100]])
+    expect(form.goodsItems[1].needsTpinRecalc).toBe(false)
+    expect(form.factPayments.map((f) => [f.taxModeCode, f.amount])).toEqual([['1010', 25950], ['5060', 540]])
+  })
+
+  it('(баг QA Q3) гр. В — Σ гр. 47 до копеек: шум сложения не уходит в форму и PUT', async () => {
+    const { form, p } = setup({ goods: [goods(), goods(), goods()] })
+    api.calculatePayments.mockResolvedValueOnce(calc([
+      { index: 0, rows: [{ taxModeCode: '5060', amount: 100000.38 }] },
+      { index: 1, rows: [{ taxModeCode: '5060', amount: 1009505.76 }] },
+      { index: 2, rows: [{ taxModeCode: '5060', amount: 200000.33 }] },
+    ], { 5060: 1309506.47 }))
+    await p.calculate()
+    expect(p.previewTotals.value).toEqual([{ code: '5060', amount: 1309506.47 }])
+    await p.apply()
+    expect(form.factPayments.map((f) => f.amount)).toEqual([1309506.47])
+  })
+
   it('несколько строк вида в гр. В — суммы не тронуты, предупреждение', async () => {
     const { form, p } = setup()
     const row = (amount: number) => ({ taxModeCode: '5060', amount, exchangeRate: 1, paymentDocDate: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'ПП' })

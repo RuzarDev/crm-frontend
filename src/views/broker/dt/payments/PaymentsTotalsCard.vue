@@ -7,7 +7,7 @@ import ZTag from '@/components/z/ZTag.vue'
 import { formatNumberIn } from '@/ui/number'
 import type { DtFormState } from '../dtPayload'
 import type { DtPayments } from '../useDtPayments'
-import { totalsByMode, type PaymentModeTotal } from './paymentsModel'
+import { grandTotal, totalsByMode, type PaymentModeTotal } from './paymentsModel'
 import { useModeLabel } from './useModeLabel'
 
 // «Итого по видам» (доска DtPayments): на ≥ 1280 — правая колонка страницы вместо «До подачи», уже — в разделе над
@@ -30,7 +30,7 @@ const preview = computed(() => !!props.payments.result.value && (props.payments.
 const outdated = computed(() => props.payments.state.value === 'stale-preview')
 const rows = computed<PaymentModeTotal[]>(() =>
   (preview.value ? props.payments.previewTotals.value : totalsByMode(props.form.goodsItems).filter((x) => x.code)))
-const grand = computed(() => rows.value.reduce((s, r) => s + r.amount, 0))
+const grand = computed(() => grandTotal(rows.value))
 const merge = computed(() => props.payments.factPreview.value)
 const money0 = (n: number) => formatNumberIn(String(locale.value), n, 0)
 </script>

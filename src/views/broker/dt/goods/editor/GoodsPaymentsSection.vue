@@ -16,7 +16,7 @@ import type { ZOption, ZOptionValue } from '@/ui/options'
 import type { Import40GoodsPayment } from '@/types/api'
 import { formatMoney } from '../goodsList'
 import { goodsPaymentsStale } from '../goodsStatus'
-import { emptyPayment, paymentsTotal, setPaymentField, sortPayments, taxModeLabelKey, TEMP_IMPORT_CODES } from './payments'
+import { emptyPayment, formatBasisLabel, paymentsTotal, setPaymentField, sortPayments, taxModeLabelKey, TEMP_IMPORT_CODES } from './payments'
 import type { GoodsSectionProps } from './types'
 
 // «Платежи» (гр. 47 этого товара). По умолчанию — только чтение: суммы рассчитывает сервер («Рассчитать платежи» /
@@ -59,7 +59,7 @@ const modeLabel = (code: string | null | undefined) => {
 
 const num = (v: number | null | undefined) => (v == null ? '—' : formatMoney(v, locale.value))
 const exact = (v: number) => formatNumberIn(locale.value, v, 6)
-const baseText = (p: Import40GoodsPayment) => p.basisLabel?.trim() || num(p.taxBase)
+const baseText = (p: Import40GoodsPayment) => (p.basisLabel?.trim() ? formatBasisLabel(p.basisLabel, locale.value) : num(p.taxBase))
 const rateText = (p: Import40GoodsPayment) => {
   const label = p.rateLabel?.trim() || null
   // Без подписи расчёта — число как есть (специфические ставки бывают 0,004 EUR/кг: не округлять до 0,00).

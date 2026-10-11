@@ -6,7 +6,7 @@ import type { Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
 import type { DtFormState } from '../dtPayload'
 import { keyOf } from '../goods/useDtGoods'
 import { PAYMENT_FIELDS } from '../goods/goodsStatus'
-import { applyGoodsPaymentRows, isCalculatedTaxMode } from './paymentRows'
+import { applyPaymentsCalculation, isCalculatedTaxMode } from './paymentRows'
 
 export interface PaymentModeTotal {
   /** Вид платежа (классификатор 2010); строки без вида — ''. */
@@ -18,8 +18,15 @@ export interface PaymentModeTotal {
 const byCode = (a: PaymentModeTotal, b: PaymentModeTotal) => (a.code < b.code ? -1 : a.code > b.code ? 1 : 0)
 
 /**
+ * Сумма до копеек. Суммы гр. 47 с сервера — с копейками, но сложение двоичных дробей даёт шум (1 309 506,47 →
+ * 1309506.4700000002): он попадал в гр. В, на экран и в PUT. Округлённая Σ равна точной десятичной Σ сервера (печать,
+ * totalsByTaxMode).
+ */
+export const toKopecks = (x: number): number => Math.round((x + Number.EPSILON) * 100) / 100 + 0 // + 0 убирает -0
+
+/**
  * Σ гр. 47 товаров по виду платежа, по коду — то же, что печать ДТ («В подробности подсчёта») и инф. лист ДТС:
- * без округления, пустая сумма — 0, строки без вида — в группе ''.
+ * Σ по виду — до копеек (toKopecks), пустая сумма — 0, строки без вида — в группе ''.
  */
 export function totalsByMode(goods: readonly Pick<Import40GoodsItemInput, 'payments'>[]): PaymentModeTotal[] {
   const sums = new Map<string, number>()
@@ -29,20 +36,24 @@ export function totalsByMode(goods: readonly Pick<Import40GoodsItemInput, 'payme
       sums.set(code, (sums.get(code) ?? 0) + (p.amountKzt ?? 0))
     }
   }
-  return [...sums].map(([code, amount]) => ({ code, amount })).sort(byCode)
+  return [...sums].map(([code, amount]) => ({ code, amount: toKopecks(amount) })).sort(byCode)
 }
 
+/** Итого по видам (гр. В) — до копеек. */
+export const grandTotal = (list: readonly PaymentModeTotal[]): number => toKopecks(list.reduce((s, r) => s + r.amount, 0))
+
 /**
- * Σ гр. 47 по виду, какой она станет после «Записать»: строки товаров пишутся теми же правилами (applyGoodsPaymentRows)
- * в копию; товары с ошибкой расчёта и не попавшие в расчёт — со своими строками (их виды остаются в гр. В). Без ошибок
- * совпадает с totalsByTaxMode сервера (Σ округлённых строк). Форма не меняется.
+ * Σ гр. 47 по виду, какой она станет после «Записать»: строки товаров пишутся теми же правилами (applyPaymentsCalculation)
+ * в копию; товары с ошибкой расчёта и не попавшие в расчёт — со своими строками (их виды остаются в гр. В), кроме сбора
+ * 1010 — его строку у них «Записать» уберёт (сбор уже распределён между рассчитанными товарами). Без ошибок совпадает с
+ * totalsByTaxMode сервера (Σ округлённых строк). Форма не меняется.
  */
 export function goodsTotalsAfterApply(
   goods: readonly Pick<Import40GoodsItemInput, 'payments'>[],
   res: Import40CalculatePaymentsResponse,
 ): PaymentModeTotal[] {
   const copy = { goodsItems: goods.map((g) => ({ payments: (g.payments ?? []).map((p) => ({ ...p })) })) }
-  applyGoodsPaymentRows(copy as unknown as Pick<DtFormState, 'goodsItems'>, res)
+  applyPaymentsCalculation(copy as unknown as Pick<DtFormState, 'goodsItems'>, res)
   return totalsByMode(copy.goodsItems)
 }
 
@@ -58,10 +69,6 @@ export function notRecalculatedGoods(goodsCount: number, res: Import40CalculateP
   const ok = new Set(res.goodsRows.filter((r) => !r.error).map((r) => r.index))
   return Array.from({ length: goodsCount }, (_, i) => i).filter((i) => !ok.has(i))
 }
-
-/** Итоги расчёта (totalsByTaxMode сервера) списком по коду. */
-export const totalsFromResponse = (totals: Readonly<Record<string, number>> | null | undefined): PaymentModeTotal[] =>
-  Object.entries(totals ?? {}).map(([code, amount]) => ({ code, amount })).sort(byCode)
 
 export interface FactMergeResult {
   /** Новые строки гр. В (порядок = порядок в XML): существующие на месте, новые — в конец. */
@@ -140,6 +147,7 @@ export function factVsGoodsDiff(form: Pick<DtFormState, 'goodsItems' | 'factPaym
     if (!p.taxModeCode) continue
     fact.set(p.taxModeCode, (fact.get(p.taxModeCode) ?? 0) + (p.amount ?? 0))
   }
+  for (const [code, amount] of fact) fact.set(code, toKopecks(amount))
   const codes = [...new Set([...goods.keys(), ...fact.keys()])].sort()
   return codes
     .map((code) => ({ code, goods: goods.get(code) ?? 0, fact: fact.get(code) ?? 0 }))

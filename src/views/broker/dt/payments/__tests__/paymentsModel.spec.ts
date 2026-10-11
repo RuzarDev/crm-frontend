@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { reactive } from 'vue'
 import type { Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
 import {
-  calcSnapshot, factVsGoodsDiff, goodsSnapshot, goodsTotalsAfterApply, mergeFactPayments, notRecalculatedGoods, totalsByMode, totalsFromResponse,
-  totalsRecord,
+  calcSnapshot, factVsGoodsDiff, goodsSnapshot, goodsTotalsAfterApply, grandTotal, mergeFactPayments, notRecalculatedGoods, toKopecks,
+  totalsByMode, totalsRecord,
 } from '../paymentsModel'
 
 const pay = (taxModeCode: string | null, amountKzt: number | null) => ({ taxModeCode, amountKzt }) as never
@@ -12,7 +12,7 @@ const fact = (taxModeCode: string | null, amount: number | null, o: Partial<Impo
 })
 
 describe('totalsByMode: Σ гр. 47 по виду (как печать ДТ)', () => {
-  it('сумма по видам всех товаров, порядок по коду, без округления; пустая сумма — 0; без вида — группа ""', () => {
+  it('сумма по видам всех товаров, порядок по коду; пустая сумма — 0; без вида — группа ""', () => {
     const goods = [
       { payments: [pay('5060', 100.25), pay('1010', 2000), pay('2010', 10)] },
       { payments: [pay('2010', 5.5), pay('5060', null), pay('4420', 7)] },
@@ -29,11 +29,20 @@ describe('totalsByMode: Σ гр. 47 по виду (как печать ДТ)', (
     expect(totalsByMode([])).toEqual([])
   })
 
-  it('итоги ответа сервера — списком по коду', () => {
-    expect(totalsFromResponse({ 5060: 7, 1010: 5, 4420: 1 })).toEqual([
-      { code: '1010', amount: 5 }, { code: '4420', amount: 1 }, { code: '5060', amount: 7 },
-    ])
-    expect(totalsFromResponse(null)).toEqual([])
+  it('(баг QA Q3) Σ по виду и итого — до копеек: шум двоичных дробей не попадает в гр. В и на экран', () => {
+    // 100 000,38 + 1 009 505,76 + 200 000,33 в JS = 1309506.4700000002
+    expect(100000.38 + 1009505.76 + 200000.33).not.toBe(1309506.47)
+    const goods = [
+      { payments: [pay('5060', 100000.38), pay('1010', 0.1)] },
+      { payments: [pay('5060', 1009505.76), pay('1010', 0.2)] },
+      { payments: [pay('5060', 200000.33)] },
+    ]
+    const totals = totalsByMode(goods)
+    expect(totals).toEqual([{ code: '1010', amount: 0.3 }, { code: '5060', amount: 1309506.47 }])
+    expect(grandTotal(totals)).toBe(1309506.77)
+    expect(toKopecks(-0.001)).toBe(0)
+    expect(Object.is(toKopecks(-0.001), -0)).toBe(false)
+    expect(toKopecks(2.675)).toBe(2.68)
   })
 })
 
@@ -98,6 +107,14 @@ describe('factVsGoodsDiff: сверка гр. 47 ↔ гр. В', () => {
     ])
   })
 
+  it('(баг QA Q3) обе стороны — до копеек: шум сложения не даёт ложного «расходится», суммы в строке точные', () => {
+    const form = {
+      goodsItems: [{ payments: [pay('5060', 100000.38)] }, { payments: [pay('5060', 1009505.76)] }, { payments: [pay('5060', 200000.33), pay('1010', 1)] }] as never,
+      factPayments: [fact('5060', 0.1), fact('5060', 0.2), fact('5060', 1309506.17), fact('1010', 0.1), fact('1010', 0.2)],
+    }
+    expect(factVsGoodsDiff(form)).toEqual([{ code: '1010', goods: 1, fact: 0.3 }])
+  })
+
   it('совпадает — пусто', () => {
     expect(factVsGoodsDiff({ goodsItems: [{ payments: [pay('1010', 5)] }] as never, factPayments: [fact('1010', 5)] })).toEqual([])
     expect(factVsGoodsDiff({ goodsItems: [], factPayments: [] })).toEqual([])
@@ -146,6 +163,29 @@ describe('Σ гр. 47 после «Записать» (основа гр. В)', 
       { code: '1010', amount: 5 }, { code: '4420', amount: 9 }, { code: '5060', amount: 6 }, { code: '6010', amount: 1 },
     ])
     expect(goods[0].payments.map((p: { taxModeCode: string }) => p.taxModeCode)).toEqual(['2010', '6010'])
+  })
+
+  it('(баг I1) сбор 1010 — один на ДТ: у товара с ошибкой его строка 1010 уходит, прочие строки остаются (3 × 8 650, ошибка у 2-го → Σ 25 950)', () => {
+    const goods = [
+      { payments: [pay('1010', 8650), pay('5060', 100)] },
+      { payments: [pay('1010', 8650), pay('5060', 200)] },
+      { payments: [pay('1010', 8650), pay('5060', 300)] },
+    ]
+    const calc = {
+      goodsRows: [
+        { index: 0, rows: [{ taxModeCode: '1010', amount: 12975 }, { taxModeCode: '5060', amount: 110 }] },
+        { index: 1, rows: [], error: 'Нет кода ТН ВЭД' },
+        { index: 2, rows: [{ taxModeCode: '1010', amount: 12975 }, { taxModeCode: '5060', amount: 330 }] },
+      ],
+      totalsByTaxMode: { 1010: 25950, 5060: 440 },
+      grandTotalB: 26390,
+    } as never
+    // без исключения было бы 12 975 + 8 650 + 12 975 = 34 600 — сбор дважды в гр. В, XML и печати
+    expect(goodsTotalsAfterApply(goods, calc)).toEqual([{ code: '1010', amount: 25950 }, { code: '5060', amount: 640 }])
+    expect(goods[1].payments.map((p: { taxModeCode: string }) => p.taxModeCode)).toEqual(['1010', '5060']) // форма не тронута
+    // расчёт не распределил сбор (ни один товар не посчитан) — строки 1010 остаются
+    const none = { goodsRows: [{ index: 0, rows: [], error: 'x' }, { index: 1, rows: [], error: 'x' }, { index: 2, rows: [], error: 'x' }], totalsByTaxMode: {}, grandTotalB: 0 } as never
+    expect(goodsTotalsAfterApply(goods, none)).toEqual([{ code: '1010', amount: 25950 }, { code: '5060', amount: 600 }])
   })
 
   it('не пересчитаны: ошибка расчёта или товара нет в ответе', () => {

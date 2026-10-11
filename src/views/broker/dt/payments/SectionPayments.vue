@@ -75,8 +75,11 @@ const hiddenIssues = computed(() => {
 
 const staleList = computed(() => (p.result.value ? [] : staleGoodsIndexes(props.form.goodsItems)))
 const notRecalculated = computed(() => (live.value ? p.notRecalculated.value : []))
+/** Товары, у которых «Записать» уберёт строку сбора 1010 (не пересчитаны, сбор распределён между пересчитанными). */
+const feeDropped = computed(() => entries.value.flatMap((e) => (e.feeDropped ? [e.index] : [])))
 const diffs = computed(() => (p.result.value ? [] : factVsGoodsDiff(props.form)))
-const money0 = (n: number) => formatNumberIn(String(locale.value), n, 0)
+// Сверка — до копейки (расхождение в 0,30 ₸ без копеек выглядело бы как «1 000 ₸ и 1 000 ₸»).
+const money2 = (n: number) => formatNumberIn(String(locale.value), n, 2, 2)
 
 const problemText = computed(() => {
   switch (p.problem.value) {
@@ -140,6 +143,9 @@ const onReveal = (e: Event) => {
       <span v-if="notRecalculated.length" class="mt-1 block" data-payments-not-recalculated>
         {{ tp('preview.notRecalculated', { list: formatItemNumbers(notRecalculated) }) }}
       </span>
+      <span v-if="feeDropped.length" class="mt-1 block" data-payments-fee-dropped-list>
+        {{ tp('preview.feeDropped', { list: formatItemNumbers(feeDropped) }) }}
+      </span>
     </ZAlert>
 
     <ZAlert v-else-if="staleList.length && state !== 'calculating'" type="warning" :message="tp('stale.title')" data-payments-stale>
@@ -158,6 +164,7 @@ const onReveal = (e: Event) => {
         :index="e.index"
         :calc="e.calc"
         :not-recalculated="e.notRecalculated"
+        :fee-dropped="e.feeDropped"
         :readonly="readonly"
         @medical="onMedical(form.goodsItems[e.index], $event)"
         @open="emit('open-goods', e.index)"
@@ -187,7 +194,7 @@ const onReveal = (e: Event) => {
 
     <ZAlert v-if="diffs.length" type="warning" :message="tp('diff.title')" data-payments-diff>
       <span v-for="d in diffs" :key="d.code" class="block" :data-payments-diff-code="d.code">
-        {{ tp('diff.line', { code: d.code, goods: money0(d.goods), fact: money0(d.fact) }) }}
+        {{ tp('diff.line', { code: d.code, goods: money2(d.goods), fact: money2(d.fact) }) }}
       </span>
     </ZAlert>
 

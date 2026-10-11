@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Import40CalculatePaymentsResponse } from '@/api/import40'
 import type { Import40GoodsItemInput } from '@/types/api'
-import { isMedical, paymentsGoodsEntries, previewLines, savedLines, staleGoodsIndexes } from '../paymentsView'
+import { formatBasisLabel } from '../../goods/editor/payments'
+import { isMedical, noteLines, paymentsGoodsEntries, previewLines, savedLines, staleGoodsIndexes } from '../paymentsView'
 
 const g = (o: Partial<Import40GoodsItemInput> = {}) => ({ payments: [], needsTpinRecalc: false, ...o }) as unknown as Import40GoodsItemInput
 const pay = (code: string, amount: number, o: Record<string, unknown> = {}) => ({ taxModeCode: code, amountKzt: amount, ...o }) as never
@@ -47,6 +48,37 @@ describe('строки карточки', () => {
   it('ошибка расчёта — строки товара как были', () => {
     const item = { payments: [pay('1010', 1)] }
     expect(previewLines(item, { index: 0, rows: [], excisePossible: false, error: 'x' }).map((l) => [l.code, l.fresh])).toEqual([['1010', false]])
+  })
+
+  it('(I1-A) не пересчитанный товар: строки без 1010, если «Записать» её уберёт; отметка feeDropped у таких товаров', () => {
+    const goods = [g({ payments: [pay('1010', 1)] }), g({ payments: [pay('1010', 1), pay('5060', 2)] }), g({ payments: [pay('5060', 2)] }), g({ payments: [pay('1010', 1)] })]
+    const e = paymentsGoodsEntries(goods, res([
+      { index: 0, rows: [{ taxModeCode: '1010', amount: 3 }] },
+      { index: 1, rows: [], error: 'Нет кода' },
+      { index: 2, rows: [], error: 'Нет кода' },
+    ]))
+    expect(e.map((x) => x.feeDropped)).toEqual([false, true, false, true])
+    expect(paymentsGoodsEntries(goods, null).some((x) => x.feeDropped)).toBe(false)
+    expect(savedLines(goods[1].payments, true).map((l) => l.code)).toEqual(['5060'])
+    expect(savedLines(goods[1].payments).map((l) => l.code)).toEqual(['1010', '5060'])
+  })
+
+  it('(m9) примечания расчёта — строками по «; », внутри скобок не делим', () => {
+    expect(noteLines('Акциз взят по умолчанию; Возможна антидемпинговая пошлина (A; B) — выберите вариант;  ')).toEqual([
+      'Акциз взят по умолчанию', 'Возможна антидемпинговая пошлина (A; B) — выберите вариант',
+    ])
+    expect(noteLines(null)).toEqual([])
+    expect(noteLines('одно')).toEqual(['одно'])
+  })
+
+  it('(QA Q1) основа-число сервера — по языку интерфейса с теми же знаками; подпись с текстом — как есть', () => {
+    expect(formatBasisLabel('25950.00', 'ru')).toBe('25\u00a0950,00')
+    expect(formatBasisLabel('296046.44', 'en')).toBe('296,046.44')
+    expect(formatBasisLabel(' 12.5 ', 'kk')).toBe('12,5')
+    expect(formatBasisLabel('300', 'ru')).toBe('300')
+    expect(formatBasisLabel('-1.20', 'ru')).toBe('-1,20')
+    expect(formatBasisLabel('10 кг', 'ru')).toBe('10 кг')
+    expect(formatBasisLabel('0.06 EUR за кг', 'ru')).toBe('0.06 EUR за кг')
   })
 
   it('медизделие — НДС 5%', () => {
