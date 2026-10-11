@@ -6,9 +6,10 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZTag from '@/components/z/ZTag.vue'
-import type { DtsGoodsColumn, DtsSheet } from '@/api/dts'
+import type { DtsDocRef, DtsGoodsColumn, DtsSheet } from '@/api/dts'
 import { vUppercase } from '@/directives/uppercase'
 import { cn } from '@/ui/cn'
+import { formatDateText } from '@/ui/date'
 import { formatNumberIn } from '@/ui/number'
 import type { DtFormState } from '../dtPayload'
 
@@ -16,7 +17,8 @@ import type { DtFormState } from '../dtPayload'
 // 12, Σ13–19, Σ21–23, 25а ₸, 25б USD и гр. 45 ДТ; «не совпадает» — гр. 45 ДТ ≠ гр. 25а ДТС (до копейки — сервер).
 // Строка раскрывается в статьи (13а…23 с названиями из справочника расходов) и пересчёт валют. Всё — с сервера,
 // по сохранённой ДТ. Правится только «Место для гр. 17» (форма ДТ). «Пересчитать гр. 45» — у строки «не совпадает»
-// и общей кнопкой: шаг 1 расчёта платежей (страница), а не копия гр. 25. На телефоне строки — карточки.
+// и общей кнопкой: шаг 1 расчёта платежей (страница), а не копия гр. 25. ДТС-2: в раскрытой строке — документы о
+// стоимости товара для гр. 8 (04051) или что их нет. На телефоне строки — карточки.
 const props = defineProps<{
   sheet: DtsSheet
   form: DtFormState
@@ -95,6 +97,14 @@ const details = (g: DtsGoodsColumn) => [
 const currencyLines = (g: DtsGoodsColumn) => (g.currencyLines ?? []).map((l) =>
   ts('currencyLine', { box: articleLabel(l.box), amount: money2(l.amount), currency: l.currency, rate: formatNumberIn(locale.value, l.rate, 4) }))
 
+// ДТС-2: документы о стоимости (гр. 8) по номеру товара.
+const form2 = computed(() => props.sheet.formCode === 2)
+const evidenceBy = computed(() => new Map((props.sheet.evidence ?? []).map((e) => [e.goodsNumber, e.docs])))
+const docText = (d: DtsDocRef) => {
+  const head = `${d.kindCode} · ${d.number}`
+  return d.date ? t('broker.dt.dts.main.docLine', { number: head, date: formatDateText(d.date) }) : head
+}
+
 const th = 'border-b border-line bg-canvas px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap text-ink-3'
 const td = 'px-3 py-2.5 text-right tabular-nums whitespace-nowrap max-sm:flex max-sm:flex-col max-sm:items-start max-sm:gap-0.5 max-sm:px-0 max-sm:py-1 max-sm:text-left'
 </script>
@@ -170,6 +180,13 @@ const td = 'px-3 py-2.5 text-right tabular-nums whitespace-nowrap max-sm:flex ma
                     <dd class="m-0 tabular-nums text-ink">{{ d.value }}</dd>
                   </div>
                 </dl>
+                <div v-if="form2" class="mt-3 text-[13px]" data-dts-evidence>
+                  <p class="m-0 text-xs font-semibold text-ink-2">{{ ts('evidence') }}</p>
+                  <ul v-if="evidenceBy.get(r.g.number)?.length" class="m-0 mt-1 flex list-none flex-col gap-0.5 p-0 font-mono text-ink">
+                    <li v-for="(d, i) in evidenceBy.get(r.g.number)" :key="i">{{ docText(d) }}</li>
+                  </ul>
+                  <p v-else class="m-0 mt-1 text-danger">{{ ts('noEvidence') }}</p>
+                </div>
                 <template v-if="r.g.currencyLines?.length">
                   <p class="m-0 mt-3 text-xs font-semibold text-ink-2">{{ ts('currency') }}</p>
                   <ul class="m-0 mt-1 flex list-none flex-col gap-0.5 p-0 text-[13px] text-ink-2" data-dts-currency>

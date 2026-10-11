@@ -8,7 +8,9 @@ import { cn } from '@/ui/cn'
 
 // Основной лист ДТС (гр. 1–10) — только чтение, всё с сервера (перенос из сохранённой ДТ). Компактно: имена сторон,
 // условия поставки, документы гр. 4 и 5 — номерами. «Подробнее» раскрывает адреса и БИН сторон, гр. 6, рег. номер,
-// число добавочных листов и гр. 10б.
+// число добавочных листов и гр. 10б. ДТС-2 (по листу сервера, formCode 2): гр. 4 — основания поставки (box4Docs:
+// договор и документы 03…/04…, счёта при бесплатной поставке нет), и сколько товаров имеют документ о стоимости
+// для гр. 8 (evidence, 04051; сами документы — в раскрытой строке добавочного листа).
 const props = defineProps<{ sheet: DtsSheet }>()
 const { t } = useI18n()
 const tm = (key: string, p?: Record<string, unknown>) => t(`broker.dt.dts.main.${key}`, p ?? {})
@@ -28,10 +30,17 @@ const left = computed(() => [
   { key: 'buyer', label: tm('buyer'), value: props.sheet.buyer?.name ?? '' },
   { key: 'declarant', label: tm('declarant'), value: props.sheet.declarant?.name ?? '' },
 ])
+const form2 = computed(() => props.sheet.formCode === 2)
+const evidenceGoods = computed(() => new Set((props.sheet.evidence ?? []).filter((e) => e.docs.length).map((e) => e.goodsNumber)).size)
 const right = computed(() => [
   { key: 'terms', label: tm('terms'), value: terms.value, mono: false },
-  { key: 'box4', label: tm('invoices'), value: docs(props.sheet.invoices), mono: true },
+  form2.value
+    ? { key: 'box4', label: tm('box4'), value: docs(props.sheet.box4Docs), mono: true }
+    : { key: 'box4', label: tm('invoices'), value: docs(props.sheet.invoices), mono: true },
   { key: 'box5', label: tm('contracts'), value: docs(props.sheet.contracts), mono: true },
+  ...(form2.value
+    ? [{ key: 'evidence', label: tm('evidence'), value: tm('evidenceCount', { n: evidenceGoods.value, total: props.sheet.goods?.length ?? 0 }), mono: false }]
+    : []),
 ])
 const more = computed(() => [
   { key: 'seller', label: tm('seller'), value: partyFull(props.sheet.seller ?? ({} as DtsParty)) },

@@ -54,6 +54,10 @@ export const dtsSheet = (over: Partial<DtsSheet> = {}): DtsSheet => ({
   goods: [dtsGoods(1)],
   documentDate: '2026-10-05',
   expenseCurrenciesWithoutRate: [],
+  box4Docs: [],
+  evidence: [],
+  dtValuationMethods: ['1'],
+  signatory: { signedDate: '2026-10-05', fullName: 'ИВАНОВ И.И.', docKindCode: null, docNumber: null, docIssueDate: null, docCountry: null },
   ...over,
 })
 

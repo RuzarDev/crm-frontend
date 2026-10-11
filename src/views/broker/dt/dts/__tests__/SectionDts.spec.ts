@@ -97,6 +97,46 @@ describe('SectionDts: основной лист', () => {
   })
 })
 
+describe('SectionDts: ДТС-2', () => {
+  const form2 = () => dtsView({
+    sheet: dtsSheet({
+      formCode: 2,
+      methodCode: '6',
+      baseMethodCode: '1',
+      invoices: [],
+      box4Docs: [{ kindCode: '03011', name: 'Договор', number: 'ДОГ-7', date: '2026-08-01' }],
+      evidence: [{ goodsNumber: 1, docs: [{ kindCode: '04051', name: 'Справка о стоимости', number: 'СПР-1', date: '2026-09-30' }] }],
+      dtValuationMethods: ['6', '6'],
+      goods: [dtsGoods(1), dtsGoods(2)],
+    }),
+  })
+
+  it('гр. 4 — основания поставки (box4Docs), а не счета; документы о стоимости (гр. 8) — сколько товаров с ними', async () => {
+    await mount({ view: form2(), form: { dtsFreeOfCharge: true, goodsItems: [goods('6'), goods('6')] } })
+    const box4 = w.get('[data-dts-main-row="box4"]')
+    expect(box4.text()).toContain('Основания поставки, гр. 4')
+    expect(box4.text()).toContain('ДОГ-7 от 01.08.2026')
+    expect(box4.text()).not.toContain('Счета')
+    expect(w.get('[data-dts-main-row="evidence"]').text()).toContain('есть у товаров: 1 из 2')
+  })
+
+  it('документы о стоимости — по товару в раскрытой строке; нет документа — сказано', async () => {
+    await mount({ view: form2(), form: { dtsFreeOfCharge: true, goodsItems: [goods('6'), goods('6')] } })
+    await w.get('[data-dts-row="1"] [data-dts-expand]').trigger('click')
+    expect(w.get('[data-dts-details="1"] [data-dts-evidence]').text()).toContain('04051 · СПР-1 от 30.09.2026')
+    await w.get('[data-dts-row="2"] [data-dts-expand]').trigger('click')
+    expect(w.get('[data-dts-details="2"] [data-dts-evidence]').text()).toContain('нет документа 04051, привязанного к товару')
+  })
+
+  it('ДТС-1 — счета гр. 4, строки о документах о стоимости нет', async () => {
+    await mount()
+    expect(w.get('[data-dts-main-row="box4"]').text()).toContain('Счета, гр. 4')
+    expect(w.find('[data-dts-main-row="evidence"]').exists()).toBe(false)
+    await w.get('[data-dts-expand]').trigger('click')
+    expect(w.find('[data-dts-evidence]').exists()).toBe(false)
+  })
+})
+
 describe('SectionDts: вопросы', () => {
   it('7а «Нет» — 7б и 7в «Нет» и недоступны; 7а «Да» — доступны; вопрос «только в XML» есть', async () => {
     const { form } = await mount({ form: { dtsRelation: true, dtsRelationPriceInfluence: true, dtsRelationApproxValue: true } })

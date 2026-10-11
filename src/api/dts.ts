@@ -25,6 +25,22 @@ export interface DtsParty {
   countryName: string | null
 }
 
+/** Гр. 8 ДТС-2: документы о стоимости бесплатно предоставленных товаров (04051) — по товару (номер с 1). */
+export interface DtsEvidence {
+  goodsNumber: number
+  docs: DtsDocRef[]
+}
+
+/** Лицо, заполнившее ДТС (гр. 10б ДТС-1, гр. 10 ДТС-2) — подписант ДТ (гр. 54). Даты — "yyyy-MM-dd". */
+export interface DtsSignatory {
+  signedDate: string | null
+  fullName: string | null
+  docKindCode: string | null
+  docNumber: string | null
+  docIssueDate: string | null
+  docCountry: string | null
+}
+
 export interface DtsCurrencyLine {
   goodsNumber: number
   box: string
@@ -84,6 +100,10 @@ export interface DtsSheet {
   goods: DtsGoodsColumn[]
   documentDate: string | null // дата гр.А ДТ ("yyyy-MM-dd") — EDocDateTime XML
   expenseCurrenciesWithoutRate: string[] // валюты статей расходов без курса на дату гр.А
+  box4Docs: DtsDocRef[] // гр.4 ДТС-2: основания поставки — документы гр.44 с кодами 03…/04…
+  evidence: DtsEvidence[] // гр.8 ДТС-2: документы 04051 по товарам (только товары с документами)
+  dtValuationMethods: (string | null)[] // гр.43 ДТ по товарам 1..N — должна совпадать с методом ДТС
+  signatory: DtsSignatory // гр.10б ДТС-1 / гр.10 ДТС-2
 }
 
 export interface DtsView {
