@@ -44,6 +44,8 @@ export interface FactMergeResult {
   updated: string[]
   /** Виды с несколькими строками — не тронуты, «проверьте сумму». */
   multiple: string[]
+  /** Рассчитываемые виды, которых больше нет в расчёте, — их строки удалены (§5-10). */
+  removed: string[]
 }
 
 /** Новая строка гр. В из расчёта: курс 1, способ «БН», прочее пусто (XML гр. В — как прежде). */
@@ -53,14 +55,22 @@ const newFactRow = (code: string, amount: number): Import40FactPayment => ({
 
 /**
  * Расчёт → гр. В (фактические платежи). Для каждого вида из расчёта: строки нет — добавить в конец; одна строка —
- * заменить её сумму; несколько строк (несколько платёжек) — не трогать и предупредить. Прочие строки — как были.
- * fact не меняется: изменённые строки — копии, неизменённые — те же объекты.
+ * заменить её сумму; несколько строк (несколько платёжек) — не трогать и предупредить. Строки рассчитываемых видов
+ * (1010, 2010, 2050, 5060, 4xxx), которых в расчёте больше нет, удаляются (сменился вид акциза — старый не уходит в
+ * XML, §5-10); прочие виды и строки без вида — как были. fact не меняется: изменённые строки — копии, неизменённые —
+ * те же объекты.
  */
 export function mergeFactPayments(
   fact: readonly Import40FactPayment[],
   totals: Readonly<Record<string, number>>,
 ): FactMergeResult {
-  const rows = [...fact]
+  const removed: string[] = []
+  const rows = fact.filter((p) => {
+    const code = p.taxModeCode
+    if (!code || !isCalculatedTaxMode(code) || Object.prototype.hasOwnProperty.call(totals, code)) return true
+    if (!removed.includes(code)) removed.push(code)
+    return false
+  })
   const added: string[] = []
   const updated: string[] = []
   const multiple: string[] = []
@@ -76,7 +86,7 @@ export function mergeFactPayments(
       multiple.push(code)
     }
   }
-  return { rows, added, updated, multiple }
+  return { rows, added, updated, multiple, removed }
 }
 
 export interface FactDiff {

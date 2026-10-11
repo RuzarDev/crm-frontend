@@ -63,6 +63,20 @@ describe('mergeFactPayments: расчёт → гр. В', () => {
     expect(res.updated).toEqual([])
   })
 
+  it('(баг §5-10) рассчитываемые виды, которых больше нет в расчёте, удаляются (все строки); прочие и без вида — остаются', () => {
+    const own = fact('6010', 2)
+    const blank = fact(null, 3)
+    const res = mergeFactPayments(
+      [fact('4420', 9), fact('5060', 1), own, fact('2050', 4), fact('2050', 1), blank],
+      { 4400: 5, 5060: 7 },
+    )
+    expect(res.rows.map((r) => [r.taxModeCode, r.amount])).toEqual([['5060', 7], ['6010', 2], [null, 3], ['4400', 5]])
+    expect(res.rows[1]).toBe(own)
+    expect(res.rows[2]).toBe(blank)
+    expect(res.removed).toEqual(['4420', '2050'])
+    expect(res.added).toEqual(['4400'])
+  })
+
   it('пустая гр. В — строки в порядке видов', () => {
     const res = mergeFactPayments([], { 5060: 7, 1010: 5 })
     expect(res.rows.map((r) => [r.taxModeCode, r.amount])).toEqual([['1010', 5], ['5060', 7]])

@@ -235,6 +235,18 @@ describe('useDtPayments.apply: «Записать в гр. 47 и гр. В»', ()
     expect(form.goodsItems.every((g) => !g.payments?.length)).toBe(true)
   })
 
+  it('(баг §5-10) вид акциза сменился 4420 → 4400 — в гр. В остаётся только 4400 (старый вид удалён, в XML не уйдёт)', async () => {
+    const { form, p } = setup({ goods: [goods({ payments: [{ taxModeCode: '4420', amountKzt: 9 }] })] })
+    const row = (taxModeCode: string, amount: number) => ({ taxModeCode, amount, exchangeRate: 1, paymentDocDate: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН' })
+    form.factPayments = [row('1010', 5), row('4420', 9), row('6010', 1)]
+    api.calculatePayments.mockResolvedValueOnce(calc([{ index: 0, rows: [{ taxModeCode: '1010', amount: 5 }, { taxModeCode: '4400', amount: 12 }] }], { 1010: 5, 4400: 12 }))
+    await p.calculate()
+    expect(p.factPreview.value?.removed).toEqual(['4420'])
+    await p.apply()
+    expect(form.factPayments.map((f) => [f.taxModeCode, f.amount])).toEqual([['1010', 5], ['6010', 1], ['4400', 12]])
+    expect(form.goodsItems[0].payments?.map((x) => x.taxModeCode)).toEqual(['1010', '4400'])
+  })
+
   it('несколько строк вида в гр. В — суммы не тронуты, предупреждение', async () => {
     const { form, p } = setup()
     const row = (amount: number) => ({ taxModeCode: '5060', amount, exchangeRate: 1, paymentDocDate: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'ПП' })
