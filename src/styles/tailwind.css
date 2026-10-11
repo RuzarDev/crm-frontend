@@ -43,4 +43,17 @@
     -webkit-appearance: none;
     appearance: none;
   }
+
+  /* reset AntD: быстрые повторные нажатия (± и шаги) не запускают масштабирование двойным тапом в iOS Safari. */
+  a,
+  area,
+  button,
+  [role='button'],
+  input:not([type='range']),
+  label,
+  select,
+  summary,
+  textarea {
+    touch-action: manipulation;
+  }
 }

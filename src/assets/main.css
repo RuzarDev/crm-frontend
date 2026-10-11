@@ -57,6 +57,7 @@ a {
 .rich-html :where(pre) { margin: 0 0 1em; overflow: auto; }
 .rich-html :where(dd) { margin: 0 0 0.5em; }
 .rich-html :where(hr) { box-sizing: content-box; overflow: visible; border: 1px inset; color: gray; }
+.rich-html :where(img) { display: inline; }
 .rich-html :where(mark) { padding: 0.2em; background-color: #feffe6; }
 .rich-html :where(caption) { padding: 0.75em 0 0.3em; text-align: left; caption-side: bottom; }
 

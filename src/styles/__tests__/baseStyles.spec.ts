@@ -36,6 +36,14 @@ describe('базовые стили', () => {
     for (const v of vars) expect(tokens, v).toContain(`${v}:`)
   })
 
+  it('.rich-html: картинки из серверного HTML остаются в строке текста (preflight делает img блочным)', () => {
+    expect(main).toMatch(/\.rich-html :where\(img\)\s*\{\s*display:\s*inline;/)
+  })
+
+  it('совместимость с reset AntD: touch-action: manipulation на интерактивных элементах', () => {
+    expect(tailwind).toMatch(/touch-action:\s*manipulation/)
+  })
+
   it.each([
     '../../views/broker/dt/DtGraphHelp.vue',
     '../../views/broker/references/DtGuidePage.vue',
