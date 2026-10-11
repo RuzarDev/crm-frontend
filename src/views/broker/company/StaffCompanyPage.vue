@@ -95,7 +95,8 @@ const load = async () => {
   const my = ++seq
   status.value = 'loading'
   try {
-    clients.value = await import40Api.listClients()
+    // silent: ошибку показывает сама страница («Не удалось загрузить» и «Повторить»), без тоста перехватчика.
+    clients.value = await import40Api.listClients({ silent: true })
   } catch (e) {
     if (import.meta.env.DEV) console.error(e)
     if (my === seq) status.value = 'error'
@@ -112,10 +113,11 @@ const load = async () => {
 watch(clientId, (id, prev) => { if (id && prev) void loadClient() })
 void load()
 
-// После формирования, отзыва и подписи — перечитать документы (без скелетона).
+// После формирования, отзыва и подписи — перечитать документы (без скелетона). Свой номер запроса, как у
+// остальных загрузок: ответ более раннего перечитывания (или другого клиента) не затрёт свежий.
 const reloadDocs = async () => {
   const id = clientId.value
-  const my = seq
+  const my = ++seq
   reloadError.value = false
   try {
     const [c, a] = await fetchDocs(id)

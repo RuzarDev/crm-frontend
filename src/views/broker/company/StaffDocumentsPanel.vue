@@ -12,7 +12,7 @@ import { extractServerText } from '@/api/client'
 import { message } from '@/ui/message'
 import { useConfirm } from '@/ui/confirm'
 import { saveBlob } from '@/ui/download'
-import { endOfDayUtc, localDate, todayYmd, validDate } from '@/views/client/company/company'
+import { endOfDayUtc, isOpen, localDate, todayYmd, validDate } from '@/views/client/company/company'
 import { REVOKED, isExpired, multiBlocked, statusKey, statusTone, type DocKind, type SignSide } from './staffCompany'
 
 // Договор / доверенность клиента для сотрудника (волна 7, замена Import40DocumentStep): сформировать (разовый,
@@ -171,6 +171,8 @@ const onSigned = () => {
   void refreshAfter()
 }
 
+// Подписывать можно только ждущий подписей документ (черновик или «на подписи»), как в кабинете клиента:
+// отозванный или истёкший сервер при подписи сделал бы снова действующим.
 // Кто какую подпись ставит с этого экрана (как на сервере): за клиента — только администратор,
 // за AQNIET — администратор или РОП. Остальным кнопок нет — сервер ответил бы 403 уже после подписи в eGov.
 const canSign = (side: SignSide) => (side === 'provider' ? props.canSignProvider : props.isAdmin)
@@ -287,7 +289,7 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
                 {{ t(isSigned(d, side) ? 'broker.company.signed' : 'broker.company.pending') }}
               </ZTag>
             </div>
-            <template v-if="!isSigned(d, side) && canSign(side)">
+            <template v-if="!isSigned(d, side) && isOpen(d) && canSign(side)">
               <div class="flex flex-wrap gap-2">
                 <ZButton variant="primary" :class="actionBtn" data-sign-egov @click="openSigex(d, side)">
                   <PhSealCheck :size="16" aria-hidden="true" />{{ t('broker.company.signEgov') }}

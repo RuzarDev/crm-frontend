@@ -104,6 +104,8 @@ describe('StaffCompanyPage', () => {
     await mountAt()
     expect((picker().props('options') as { label: string }[]).map((o) => o.label)).toEqual(['ТОО «Альфа» (alpha)', 'beta'])
     expect(picker().props('value')).toBe('c1')
+    // Ошибку списка клиентов страница показывает сама — без тоста перехватчика.
+    expect(imp.listClients).toHaveBeenCalledWith({ silent: true })
     expect(api.getProfile).toHaveBeenCalledWith('c1', { silent: true })
     expect(api.listDocuments).toHaveBeenCalledWith('c1', 'contract', { silent: true })
     expect(api.listDocuments).toHaveBeenCalledWith('c1', 'poa', { silent: true })
@@ -416,9 +418,37 @@ describe('StaffCompanyPage', () => {
   })
 
   it('(баг) срок «до» — календарная дата по UTC: конец года сервера не «переезжает» на 01.01', async () => {
-    setDocs('c1', [], [doc({ id: 'p1', kind: 'poa', status: 1, validUntilUtc: '2026-12-31T23:59:59Z' })])
+    // Часовой пояс восточнее UTC (как у пользователей): на машине с UTC тест иначе прошёл бы и на старом коде.
+    const tz = process.env.TZ
+    process.env.TZ = 'Asia/Almaty'
+    try {
+      expect(new Date('2026-12-31T23:59:59Z').getDate()).toBe(1) // пояс действительно применился
+      setDocs('c1', [], [doc({ id: 'p1', kind: 'poa', status: 1, validUntilUtc: '2026-12-31T23:59:59Z' })])
+      await mountAt('/import-40/company?step=poa')
+      expect(w.get('[data-tag="until"]').text()).toBe('до 31.12.2026')
+    } finally {
+      if (tz === undefined) delete process.env.TZ
+      else process.env.TZ = tz
+    }
+  })
+
+  it('(баг) отозванный и истёкший документ подписать нельзя — сервер сделал бы его снова действующим', async () => {
+    setDocs('c1', [
+      doc({ id: 'd4', status: 4 }),
+      doc({ id: 'd3', number: '13', status: 3, clientSigned: true }),
+      doc({ id: 'd0', number: '14', status: 0 }),
+    ], [doc({ id: 'p4', kind: 'poa', status: 4 })])
+    await mountAt('/import-40/company?step=contract')
+    for (const id of ['d4', 'd3']) {
+      expect(w.get(`[data-doc="${id}"]`).find('[data-sign-egov]').exists()).toBe(false)
+      expect(w.get(`[data-doc="${id}"]`).find('[data-sign-upload]').exists()).toBe(false)
+    }
+    expect(w.get('[data-doc="d4"] [data-plate="provider"]').text()).toContain('Ожидается')
+    // Черновик (0) ждёт подписей — подписать можно.
+    expect(w.findAll('[data-doc="d0"] [data-sign-egov]')).toHaveLength(2)
+    w.unmount()
     await mountAt('/import-40/company?step=poa')
-    expect(w.get('[data-tag="until"]').text()).toBe('до 31.12.2026')
+    expect(w.find('[data-sign-egov]').exists()).toBe(false)
   })
 
   it('скачать .docx — имя файла по виду, номеру и году', async () => {
