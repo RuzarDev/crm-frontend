@@ -378,7 +378,7 @@ const OUTLINE = 'border border-line-strong bg-surface'
       <template v-else-if="status.kind === 'kato'">
         <p class="m-0 text-sm text-ink-2">
           {{ t(`${P}.kato.source`) }}:
-          <a v-if="status.status.sourceUrl" :href="status.status.sourceUrl" target="_blank" rel="noopener" class="break-all text-zircon-ink underline-offset-4 hover:underline">{{ status.status.sourceUrl }}</a>
+          <a v-if="status.status.sourceUrl" :href="status.status.sourceUrl" target="_blank" rel="noopener" class="break-all text-zircon-ink underline-offset-4 underline">{{ status.status.sourceUrl }}</a>
           <span v-else>—</span>
         </p>
         <p class="m-0 text-sm text-muted">{{ t(`${P}.kato.hint`) }}</p>

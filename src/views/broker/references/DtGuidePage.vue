@@ -169,7 +169,7 @@ const SKELETON = ['88%', '72%', '80%', '64%', '76%']
             <p class="m-0 text-xs font-medium tracking-wide text-muted uppercase" data-dtguide-kicker>{{ t('broker.references.dtGuide.graphTitle', { n: current.graph }) }}</p>
             <h2 class="m-0 mt-0.5 mb-3.5 text-[20px] leading-7 font-semibold text-ink" data-dtguide-title>{{ current.title }}</h2>
             <!-- eslint-disable-next-line vue/no-v-html -- очищено sanitizeHtml: белый список тегов, без скриптов и on* -->
-            <div v-if="bodyHtml" class="dt-guide-html text-[14.5px] leading-[1.65] text-ink-2" data-dtguide-html @error.capture="onHtmlError" v-html="bodyHtml" />
+            <div v-if="bodyHtml" class="rich-html dt-guide-html text-[14.5px] leading-[1.65] text-ink-2" data-dtguide-html @error.capture="onHtmlError" v-html="bodyHtml" />
             <p v-else class="m-0 text-sm text-ink-3">{{ t('broker.references.dtGuide.textEmpty') }}</p>
             <p class="m-0 mt-4 rounded-row bg-tone-info-bg px-3.5 py-3 text-[13px] text-tone-info-fg">{{ t('broker.references.dtGuide.tip') }}</p>
           </div>

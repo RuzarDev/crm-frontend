@@ -61,7 +61,7 @@ const td = 'border-t border-line px-3 py-2.5 align-top'
                     :href="r.url"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="inline-flex items-center gap-1 rounded-field text-zircon-ink underline-offset-2 outline-hidden hover:underline focus-visible:shadow-focus"
+                    class="inline-flex items-center gap-1 rounded-field text-zircon-ink underline-offset-2 outline-hidden underline focus-visible:shadow-focus"
                   >{{ r.basis }}<PhArrowSquareOut :size="13" aria-hidden="true" /></a>
                   <span v-else>{{ r.basis }}</span>
                 </td>

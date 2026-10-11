@@ -127,7 +127,7 @@ const customRow = (r: RegulationRow) => ({ 'data-regulation-row': r.id })
               target="_blank"
               rel="noopener noreferrer"
               :aria-label="t('broker.references.regulations.openDoc', { number: record.number })"
-              class="inline-flex min-h-8 items-center gap-1.5 rounded-field font-medium text-zircon-ink underline-offset-2 outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
+              class="inline-flex min-h-8 items-center gap-1.5 rounded-field font-medium text-zircon-ink underline-offset-2 outline-hidden underline focus-visible:shadow-focus max-sm:min-h-11"
               data-regulation-link
             >{{ record.number }}<PhArrowSquareOut :size="13" aria-hidden="true" class="shrink-0" /></a>
             <span v-else class="font-medium text-ink">{{ record.number }}</span>

@@ -180,7 +180,7 @@ const emptyHint = computed(() => (filtered.value ? t('broker.list.nothingFoundHi
             <RouterLink
               v-if="isAll && (record.registrationNumber || record.kedenId)"
               :to="`/keden/${record.id}`"
-              class="inline-flex max-w-full items-center truncate rounded-field font-mono text-sm font-medium text-ink outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
+              class="inline-flex max-w-full items-center truncate rounded-field font-mono text-sm font-medium text-ink outline-hidden underline focus-visible:shadow-focus max-sm:min-h-11"
               data-keden-open
             >{{ record.registrationNumber || record.kedenId }}</RouterLink>
             <span v-else-if="record.registrationNumber" class="block truncate font-mono text-sm font-medium text-ink" data-keden-no>{{ record.registrationNumber }}</span>

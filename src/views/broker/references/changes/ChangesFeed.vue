@@ -11,7 +11,7 @@ defineProps<{ entries: ChangeEntry[]; today: string }>()
 const { t, locale } = useI18n()
 const tr = (key: string, named?: Record<string, unknown>) => t(key, named ?? {})
 
-const codeLink = 'inline-flex min-h-7 items-center rounded-field font-mono text-[12.5px] tabular-nums text-zircon-ink underline-offset-2 outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11'
+const codeLink = 'inline-flex min-h-7 items-center rounded-field font-mono text-[12.5px] tabular-nums text-zircon-ink underline-offset-2 outline-hidden underline focus-visible:shadow-focus max-sm:min-h-11'
 </script>
 
 <template>

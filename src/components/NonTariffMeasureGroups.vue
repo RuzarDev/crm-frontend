@@ -50,7 +50,7 @@ const groups = computed<Group[]>(() => {
               :href="safeUrl(m.resolutionUrl)!"
               target="_blank"
               rel="noopener noreferrer"
-              class="inline-flex items-center gap-1 rounded-field text-zircon-ink underline-offset-2 outline-hidden hover:underline focus-visible:shadow-focus"
+              class="inline-flex items-center gap-1 rounded-field text-zircon-ink underline-offset-2 outline-hidden underline focus-visible:shadow-focus"
             >{{ m.resolutionName }}<PhArrowSquareOut :size="13" aria-hidden="true" /></a>
             <span v-else>{{ m.resolutionName }}</span>
             <span v-if="m.resolutionNumber" class="ml-1">{{ t('broker.references.tnved.measures.resolutionNo', { n: m.resolutionNumber }) }}</span>

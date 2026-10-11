@@ -1,12 +1,6 @@
-/* Глобальные стили приложения (Tailwind подключён в src/styles/tailwind.css).
-   Правила здесь НЕ в слоях — как и утилиты: класс (.text-sm, .m-0) перебивает их по специфичности.
-   Цвета — токены tokens.css. */
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* Глобальные стили приложения поверх preflight Tailwind (src/styles/tailwind.css).
+   Правила здесь НЕ в слоях — как и утилиты: класс (.text-sm, .m-0) перебивает их по специфичности,
+   а слоёный preflight проигрывает им всегда. Цвета — токены tokens.css (кроме совместимости в .rich-html). */
 
 body {
   font-family: var(--font-sans);
@@ -49,6 +43,22 @@ a {
   color: var(--color-zircon-ink);
   transition: color 0.15s var(--ease-out);
 }
+
+/* ─── HTML с сервера (.rich-html) ────────────────────────────
+   Чужая разметка через sanitizeHtml + v-html (нормативка граф ДТ, пояснения ТН ВЭД): preflight снял бы
+   с неё маркеры списков, подчёркивание ссылок и отступы — возвращаем вид, который был при reset AntD.
+   Абзацы, отступы списков и таблицы задаёт сам экран (scoped-стили с :deep сильнее этих правил). */
+.rich-html :where(ul, ol) { list-style: revert; }
+.rich-html :where(a) { text-decoration: revert; }
+.rich-html :where(h1, h2, h3, h4, h5, h6) { margin: 0 0 0.5em; }
+.rich-html :where(h5, h6) { font-size: revert; font-weight: 500; }
+.rich-html :where(ul, ol, dl, blockquote) { margin: 0 0 1em; }
+.rich-html :where(ul, ol) :where(ul, ol) { margin-bottom: 0; }
+.rich-html :where(pre) { margin: 0 0 1em; overflow: auto; }
+.rich-html :where(dd) { margin: 0 0 0.5em; }
+.rich-html :where(hr) { box-sizing: content-box; overflow: visible; border: 1px inset; color: gray; }
+.rich-html :where(mark) { padding: 0.2em; background-color: #feffe6; }
+.rich-html :where(caption) { padding: 0.75em 0 0.3em; text-align: left; caption-side: bottom; }
 
 /* ─── Полосы прокрутки ───────────────────────────────────── */
 
