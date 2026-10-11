@@ -223,14 +223,6 @@ export function useDtPayments(
     return true
   }
 
-  /** Убрать предпросмотр (без записи). */
-  const discard = () => {
-    if (busy.value) return
-    result.value = null
-    snapshot = null
-    state.value = 'idle'
-  }
-
   /**
    * «Записать в гр. 47 и гр. В»: только живой предпросмотр и те же товары (ключи, порядок, поля расчёта) — иначе
    * 'stale-preview' и «Данные изменились — рассчитайте заново». Затем сохранить; «Записано». true — записано и сохранено.
@@ -277,7 +269,6 @@ export function useDtPayments(
     recalcCustomsValues,
     calculate,
     apply,
-    discard,
   }
 }
 

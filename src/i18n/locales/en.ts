@@ -1759,8 +1759,8 @@ export default {
         },
         stale: { title: 'Payments are out of date', text: 'Not calculated or changed after the calculation: items {list}' },
         noGoodsInDt: 'The declaration has no goods — there is nothing to calculate',
-        more: '{n} more items calculated without remarks',
-        moreAny: '{n} more items',
+        more: 'More items without remarks: {n}',
+        moreAny: 'More items: {n}',
         showAll: 'show all',
         collapse: 'collapse',
         diff: {
