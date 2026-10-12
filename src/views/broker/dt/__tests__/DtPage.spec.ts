@@ -1202,7 +1202,7 @@ describe('DtPage: раздел «Платежи» (волна 6в)', () => {
   })
 
   it('пункт гр. В «До подачи» — таблица фактических платежей, фокус в первой строке', async () => {
-    const text = 'гр.B: нет фактических платежей'
+    const text = 'гр.В: нет фактических платежей'
     api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: 'В', goodsIndex: null }] }))
     await open('?s=goods')
     await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')

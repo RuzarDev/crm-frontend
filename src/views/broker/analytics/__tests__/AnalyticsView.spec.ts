@@ -88,7 +88,7 @@ describe('«Аналитика»', () => {
     const parts = (i: number) => [...cells[i].element.querySelectorAll(':scope > div')].map((d) => nb(d.textContent ?? '').trim())
     expect(parts(0)).toEqual(['Новых заявок', '33', '+14% к прошлым 30 дням'])
     expect(parts(1)).toEqual(['Подано ДТ', '41', '+8%'])
-    expect(parts(2)).toEqual(['Платежи гр. B', '18,2 млн ₸', '−9%'])
+    expect(parts(2)).toEqual(['Платежи гр. В', '18,2 млн ₸', '−9%'])
     expect(nb(cells[2].get('[data-stat-value]').attributes('title')!)).toMatch(/^18 \d{3} \d{3} ₸$/)
     expect(cells[0].get('[data-stat-value]').attributes('title')).toBeUndefined()
     expect(parts(3)).toEqual(['Срок оформления', '4,6 дн.', 'в работе 36 · с проблемой 2'])

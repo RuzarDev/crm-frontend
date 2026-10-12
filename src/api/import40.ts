@@ -728,7 +728,7 @@ export interface Import40CalculateCustomsValueResult {
   goods: Import40CvGoodsResult[]
 }
 
-// Task 9 (бэк) / Task 10 (фронт): расчёт платежей гр.47 (по товару) и гр.B
+// Task 9 (бэк) / Task 10 (фронт): расчёт платежей гр.47 (по товару) и гр.В
 // (итог по ДТ) — POST .../declarations/{id}/calculate-payments. Товары
 // берутся сервером из уже СОХРАНЁННОЙ декларации (см. CalculatePayments в
 // Import40Endpoints.cs), запрос без тела не нужен — поэтому вызывающая
@@ -747,7 +747,7 @@ export interface Import40PaymentRowDto {
   basisLabel?: string | null
   rateLabel?: string | null
   featureCode?: string | null
-  // Детальная строка гр.B: "{код}-{сумма}-398-{дата ддммгггг}-БН".
+  // Детальная строка гр.В: "{код}-{сумма}-398-{дата ддммгггг}-БН".
   bLine?: string | null
   // Вид ставки («%» / «*» за единицу), единица ОКЕИ и валюта (N3) специфической ставки — как в КЕДЕН.
   rateKind?: string | null
@@ -1157,7 +1157,7 @@ export const import40Api = {
     return response.data
   },
 
-  // Task 10: расчёт платежей гр.47/гр.B. Никакого тела запроса — сервер сам
+  // Task 10: расчёт платежей гр.47/гр.В. Никакого тела запроса — сервер сам
   // читает товары из сохранённой декларации (см. комментарий у
   // Import40CalculatePaymentsResponse выше). Вызывающая сторона должна
   // сохранить ДТ непосредственно перед вызовом.

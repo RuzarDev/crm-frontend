@@ -90,7 +90,7 @@ describe('«Финансы»: обзор', () => {
     expect(parts(0)).toEqual(['Счета СВХ выставлены', '12', '4 312 400 ₸'])
     expect(parts(1)).toEqual(['Ждут оплаты клиента', '3'])
     expect(parts(2)).toEqual(['Оплачено клиентами', '9', '3 691 500 ₸'])
-    expect(parts(3)).toEqual(['Таможенные платежи гр. B', '18 406 900 ₸', 'по 3 ДТ'])
+    expect(parts(3)).toEqual(['Таможенные платежи гр. В', '18 406 900 ₸', 'по 3 ДТ'])
   })
 
   it('период уходит на сервер: смена и сброс — новый запрос с датами', async () => {
@@ -106,7 +106,7 @@ describe('«Финансы»: обзор', () => {
 
   it('колонки; этап, счёт, оплата, платежи, файлы, дата', async () => {
     await mountView()
-    expect(w.findAll('thead th').map((th) => th.text())).toEqual(['Заявка', 'Этап', 'Счёт СВХ', 'Оплата', 'Платежи гр. B', 'Файлы', 'Создана'])
+    expect(w.findAll('thead th').map((th) => th.text())).toEqual(['Заявка', 'Этап', 'Счёт СВХ', 'Оплата', 'Платежи гр. В', 'Файлы', 'Создана'])
     const r = bodyRows()
     expect(r[0].get('[data-finance-sub]').text()).toBe('ТОО «Altyn Med» · медицинские перчатки')
     expect(r[0].get('[data-finance-invoice]').text()).toBe('312\u00a0400\u00a0₸')
