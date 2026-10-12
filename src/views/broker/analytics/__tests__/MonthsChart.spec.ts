@@ -20,7 +20,7 @@ describe('MonthsChart', () => {
     w = mountWithI18n(MonthsChart, { props: { months: MONTHS } })
     const root = w.get('[data-months-chart]')
     expect(root.attributes('role')).toBe('img')
-    expect(nb(root.attributes('aria-label')!)).toContain('сен 26: заявки 33, ДТ 41, транзит 16, платежи гр. B 18,2 млн ₸')
+    expect(nb(root.attributes('aria-label')!)).toContain('сен 26: заявки 33, ДТ 41, транзит 16, платежи гр. В 18,2 млн ₸')
     const first = w.findAll('[data-month]')[0]
     expect(first.findAll('[data-bar]').map((b) => b.attributes('title'))).toEqual(['Заявки: 18', 'ДТ: 22', 'Транзит: 9'])
     expect(w.findAll('[data-bar]').every((b) => b.attributes('aria-label') === undefined)).toBe(true)

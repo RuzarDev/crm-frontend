@@ -116,7 +116,7 @@ describe('люди', () => {
       { month: '2026-09', cases: 33, declarations: 41, paymentsKzt: 18_200_000, transitEntries: 16 },
       { month: '2026-10', cases: 9, declarations: 11, paymentsKzt: 0, transitEntries: 4 },
     ], t, 'ru')
-    expect(nb(d)).toContain('сен 26: заявки 33, ДТ 41, транзит 16, платежи гр. B 18,2 млн ₸')
+    expect(nb(d)).toContain('сен 26: заявки 33, ДТ 41, транзит 16, платежи гр. В 18,2 млн ₸')
     expect(nb(d)).toContain('окт 26: заявки 9, ДТ 11, транзит 4')
     expect(d).not.toContain('транзит 4, платежи')
   })

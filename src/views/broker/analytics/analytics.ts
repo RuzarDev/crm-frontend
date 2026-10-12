@@ -101,7 +101,7 @@ export function roleShort(role: string, t: Translate, te: (key: string) => boole
 export const staffName = (s: AnalyticsStaff, names: Record<string, string>): string =>
   names[s.userId] || (s.username || '').trim() || '—'
 
-/** Общее описание графика для скринридера: ряды по месяцам и платежи гр. B (если были). */
+/** Общее описание графика для скринридера: ряды по месяцам и платежи гр. В (если были). */
 export function chartDescription(months: AnalyticsMonth[], t: Translate, locale: string): string {
   const parts = months.map((m) => {
     const params = { month: monthLabel(m.month, t), cases: m.cases, declarations: m.declarations, transit: m.transitEntries }

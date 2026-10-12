@@ -24,7 +24,7 @@ describe('dtPayload — туда и обратно', () => {
     expect(payload.expectedUpdatedAtUtc).toBe('2026-10-09T10:11:12.123456Z')
   })
 
-  it('списки целиком: гр.44, гр.40, расходы, гр.B, транспорт', () => {
+  it('списки целиком: гр.44, гр.40, расходы, гр.В, транспорт', () => {
     const dto = fullDto()
     const p = formToPayload(dtoToForm(dto), null)
     const { id: _d, sortOrder: _s, ...doc44 } = dto.doc44Items[0]

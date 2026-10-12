@@ -6,7 +6,7 @@
 // поэтому пустое уходит именно null (`|| null` для строк — '' → null; `?? null` для чисел — 0 остаётся),
 // ключи не опускаются (undefined JSON.stringify выбросил бы). Частичный PUT не поддерживается.
 // Товары: на сервере фактурная стоимость — invoiceValue, в форме — customsValue; места — одно видимое поле
-// packagesCount, КЕДЕН-поле cargoPlacesQuantity — его копия. Гр.44/40/расходы/гр.B/транспорт — массивами целиком.
+// packagesCount, КЕДЕН-поле cargoPlacesQuantity — его копия. Гр.44/40/расходы/гр.В/транспорт — массивами целиком.
 // Отличие от прежнего тела: `?? []` у списков и `?? null` у сторон (раньше undefined → ключ выпадал → сервер не трогал).
 // Форма из emptyDtForm/dtoToForm их всегда заполняет (тест), так что на деле это ничего не меняет — ключи просто всегда есть.
 import dayjs from 'dayjs'
@@ -23,7 +23,7 @@ import { cloneGoodsExtras } from '@/types/api'
 import { placesOfGoods } from '@/utils/goodsPlaces'
 
 /**
- * Состояние редактора ДТ: общий тип секций, где товары и гр.B — непустые массивы, а товар
+ * Состояние редактора ДТ: общий тип секций, где товары и гр.В — непустые массивы, а товар
  * держит фактурную стоимость в customsValue (на сервере invoiceValue).
  */
 export type DtFormState = Omit<Import40DtFormState, 'goodsItems' | 'factPayments' | 'doc44Items' | 'prevDocItems'> & {
