@@ -123,41 +123,46 @@ const tall = 'max-sm:h-11'
           />
         </div>
 
-        <div :class="[field, 'col-span-2 @xl:col-span-1']">
-          <span :class="label">{{ tf('col.payer') }}</span>
-          <ZInput
-            :value="p.payerTaxpayerId ?? ''"
-            mono
-            :maxlength="12"
-            :disabled="readonly"
-            placeholder="000000000000"
-            :class="tall"
-            :aria-label="tf('col.payer')"
-            data-fact="payer"
-            @update:value="p.payerTaxpayerId = text($event)"
-          />
-        </div>
-        <div :class="[field, 'col-span-2 @xl:col-span-1']">
-          <span :class="label">{{ tf('col.docNumber') }}</span>
-          <ZInput
-            :value="p.paymentDocNumber ?? ''"
-            mono
-            :maxlength="50"
-            :disabled="readonly"
-            placeholder="—"
-            :class="tall"
-            :aria-label="tf('col.docNumber')"
-            data-fact="docNumber"
-            @update:value="p.paymentDocNumber = text($event)"
-          />
-        </div>
-        <div :class="field">
-          <span :class="label">{{ tf('col.docDate') }}</span>
-          <ZDate :value="p.paymentDocDate" allow-clear :disabled="readonly" :class="tall" :aria-label="tf('col.docDate')" data-fact="docDate" @update:value="p.paymentDocDate = $event" />
-        </div>
-        <div :class="field">
-          <span :class="label">{{ tf('col.payDate') }}</span>
-          <ZDate :value="p.paymentDate" allow-clear :disabled="readonly" :class="tall" :aria-label="tf('col.payDate')" data-fact="payDate" @update:value="p.paymentDate = $event" />
+        <!-- Реквизиты платёжки — своя сетка: в колонках первой строки (0,8fr — курс) дата не помещается.
+             <36rem: плательщик и номер во всю ширину, даты парой (375); 36–48rem: два на два; от 48rem: в одну строку,
+             даты не уже 9,5rem (дд.мм.гггг + очистка + календарь). -->
+        <div class="col-span-2 grid grid-cols-2 items-end gap-x-3 gap-y-2.5 @xl:col-span-5 @3xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(9.5rem,1fr)_minmax(9.5rem,1fr)]" data-fact-paydoc>
+          <div :class="[field, 'col-span-2 @xl:col-span-1']">
+            <span :class="label">{{ tf('col.payer') }}</span>
+            <ZInput
+              :value="p.payerTaxpayerId ?? ''"
+              mono
+              :maxlength="12"
+              :disabled="readonly"
+              placeholder="000000000000"
+              :class="tall"
+              :aria-label="tf('col.payer')"
+              data-fact="payer"
+              @update:value="p.payerTaxpayerId = text($event)"
+            />
+          </div>
+          <div :class="[field, 'col-span-2 @xl:col-span-1']">
+            <span :class="label">{{ tf('col.docNumber') }}</span>
+            <ZInput
+              :value="p.paymentDocNumber ?? ''"
+              mono
+              :maxlength="50"
+              :disabled="readonly"
+              placeholder="—"
+              :class="tall"
+              :aria-label="tf('col.docNumber')"
+              data-fact="docNumber"
+              @update:value="p.paymentDocNumber = text($event)"
+            />
+          </div>
+          <div :class="field">
+            <span :class="label">{{ tf('col.docDate') }}</span>
+            <ZDate :value="p.paymentDocDate" allow-clear :disabled="readonly" :class="tall" :aria-label="tf('col.docDate')" data-fact="docDate" @update:value="p.paymentDocDate = $event" />
+          </div>
+          <div :class="field">
+            <span :class="label">{{ tf('col.payDate') }}</span>
+            <ZDate :value="p.paymentDate" allow-clear :disabled="readonly" :class="tall" :aria-label="tf('col.payDate')" data-fact="payDate" @update:value="p.paymentDate = $event" />
+          </div>
         </div>
         <ZButton
           v-if="!readonly"
