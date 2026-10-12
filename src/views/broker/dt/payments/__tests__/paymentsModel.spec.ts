@@ -8,7 +8,7 @@ import {
 
 const pay = (taxModeCode: string | null, amountKzt: number | null) => ({ taxModeCode, amountKzt }) as never
 const fact = (taxModeCode: string | null, amount: number | null, o: Partial<Import40FactPayment> = {}): Import40FactPayment => ({
-  taxModeCode, amount, exchangeRate: 1, paymentDocDate: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН', ...o,
+  taxModeCode, amount, exchangeRate: 1, paymentDocDate: null, paymentDocNumber: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН', ...o,
 })
 
 describe('totalsByMode: Σ гр. 47 по виду (как печать ДТ)', () => {
@@ -49,14 +49,16 @@ describe('totalsByMode: Σ гр. 47 по виду (как печать ДТ)', (
 describe('mergeFactPayments: расчёт → гр. В', () => {
   it('нет строки вида — добавить в конец (курс 1, «БН», прочее пусто); одна — заменить сумму; прочие — как были', () => {
     const own = fact('6010', 50, { payerTaxpayerId: '123456789012' })
-    const vat = fact('5060', 1, { paymentDocDate: '2026-10-09', paymentMethodCode: 'ПП' })
+    const vat = fact('5060', 1, { paymentDocDate: '2026-10-09', paymentDocNumber: '490380', paymentMethodCode: 'ПП' })
     const before = [own, vat]
     const res = mergeFactPayments(before, { 1010: 8650, 5060: 120000 })
     expect(res.rows).toEqual([
       own,
       { ...vat, amount: 120000 },
-      { taxModeCode: '1010', amount: 8650, exchangeRate: 1, paymentDocDate: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН' },
+      { taxModeCode: '1010', amount: 8650, exchangeRate: 1, paymentDocDate: null, paymentDocNumber: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН' },
     ])
+    expect(res.rows[1].paymentDocNumber).toBe('490380') // номер платёжки при замене суммы сохраняется
+    expect(res.rows[2].paymentDocNumber).toBeNull() // новая строка — без номера
     expect(res.rows[0]).toBe(own) // не тронутая строка — тот же объект
     expect(res.added).toEqual(['1010'])
     expect(res.updated).toEqual(['5060'])

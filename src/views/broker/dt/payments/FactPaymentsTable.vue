@@ -14,10 +14,11 @@ import { withCurrent } from '../dtOptions'
 import type { DtFormState } from '../dtPayload'
 
 // «Фактические платежи гр. В» (уходят в XML КЕДЕН как есть, порядок строк = порядок в XML): вид (tax-modes), сумма,
-// курс, плательщик ИИН/БИН, дата платёжки, дата платежа, способ (payment-methods). Правка — прямо в form.factPayments,
+// курс, плательщик ИИН/БИН, номер и дата платёжки, дата платежа, способ (payment-methods). Правка — прямо в form.factPayments,
 // без своей копии: «Записать» заменяет массив гр. В, и таблица сразу показывает новые суммы, а правка строки не
 // возвращает старые (прежняя таблица держала копию — §5-1). Добавление и удаление заменяют массив (как расходы).
-// Новая строка — курс 1, способ «БН» (как прежде). Вид и способ не из справочника не сбрасываются (withCurrent). Номера платёжки в модели нет (вопрос владельцу).
+// Новая строка — курс 1, способ «БН» (как прежде), номер платёжки пуст. Вид и способ не из справочника не сбрасываются
+// (withCurrent). Номер платёжки — R.055 csdo:DocId, до 50 знаков; пустой в XML не выгружается.
 const props = defineProps<{
   form: DtFormState
   readonly: boolean
@@ -47,7 +48,7 @@ const text = (v: string) => (v.trim() ? v.trim() : null)
 const add = () => {
   props.form.factPayments = [
     ...(props.form.factPayments ?? []),
-    { taxModeCode: null, amount: null, exchangeRate: 1, paymentDocDate: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН' },
+    { taxModeCode: null, amount: null, exchangeRate: 1, paymentDocDate: null, paymentDocNumber: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН' },
   ]
 }
 const remove = (p: Import40FactPayment) => {
@@ -136,11 +137,25 @@ const tall = 'max-sm:h-11'
             @update:value="p.payerTaxpayerId = text($event)"
           />
         </div>
+        <div :class="[field, 'col-span-2 @xl:col-span-1']">
+          <span :class="label">{{ tf('col.docNumber') }}</span>
+          <ZInput
+            :value="p.paymentDocNumber ?? ''"
+            mono
+            :maxlength="50"
+            :disabled="readonly"
+            placeholder="—"
+            :class="tall"
+            :aria-label="tf('col.docNumber')"
+            data-fact="docNumber"
+            @update:value="p.paymentDocNumber = text($event)"
+          />
+        </div>
         <div :class="field">
           <span :class="label">{{ tf('col.docDate') }}</span>
           <ZDate :value="p.paymentDocDate" allow-clear :disabled="readonly" :class="tall" :aria-label="tf('col.docDate')" data-fact="docDate" @update:value="p.paymentDocDate = $event" />
         </div>
-        <div :class="[field, '@xl:col-span-2 @xl:max-w-56']">
+        <div :class="field">
           <span :class="label">{{ tf('col.payDate') }}</span>
           <ZDate :value="p.paymentDate" allow-clear :disabled="readonly" :class="tall" :aria-label="tf('col.payDate')" data-fact="payDate" @update:value="p.paymentDate = $event" />
         </div>

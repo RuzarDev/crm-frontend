@@ -1803,6 +1803,7 @@ export default {
             rate: 'Rate',
             method: 'Method',
             payer: 'Payer (IIN/BIN)',
+            docNumber: 'Payment order number',
             docDate: 'Payment order date',
             payDate: 'Payment date',
           },

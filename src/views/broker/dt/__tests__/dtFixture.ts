@@ -115,7 +115,7 @@ export const fullDto = (over: Partial<Import40DeclarationDto> = {}): Import40Dec
   splitRole: 'vto',
   isSplitReplaced: false,
   updatedAtUtc: '2026-10-09T10:11:12.123456Z',
-  factPayments: [{ sortOrder: 0, taxModeCode: '1010', amount: 20000, exchangeRate: 1, paymentDocDate: '2026-10-05', payerTaxpayerId: '123', paymentDate: '2026-10-05', paymentMethodCode: 'БН' }],
+  factPayments: [{ sortOrder: 0, taxModeCode: '1010', amount: 20000, exchangeRate: 1, paymentDocDate: '2026-10-05', paymentDocNumber: '490380', payerTaxpayerId: '123', paymentDate: '2026-10-05', paymentMethodCode: 'БН' }],
   declarationTypeCode: 'ЭК',
   declarationFeatureCode: 'ЭД',
   sheetNumber: 1,

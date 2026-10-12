@@ -32,8 +32,18 @@ describe('dtPayload — туда и обратно', () => {
     expect(p.prevDocItems).toEqual(dto.prevDocItems)
     expect(p.expenses).toEqual([{ expenseTypeCode: '17', amount: 300, currencyCode: 'USD' }])
     expect(p.factPayments).toEqual(dto.factPayments)
+    expect(p.factPayments?.[0].paymentDocNumber).toBe('490380') // номер платёжки гр. В доходит до PUT
     expect(p.borderTransportNumbers).toEqual(dto.borderTransportNumbers)
     expect(p.arrivalTransportNumbers).toEqual(dto.arrivalTransportNumbers)
+  })
+
+  it('гр. В: ответ без номера платёжки (старый сервер) — номер null, строка полная', () => {
+    const dto = fullDto()
+    const { paymentDocNumber: _n, ...old } = dto.factPayments[0]
+    dto.factPayments = [old as never]
+    const form = dtoToForm(dto)
+    expect(form.factPayments[0].paymentDocNumber).toBeNull()
+    expect(formToPayload(form, null).factPayments?.[0]).toMatchObject({ taxModeCode: '1010', paymentDocNumber: null })
   })
 
   it('товар: invoiceValue ↔ customsValue, места packagesCount = cargoPlacesQuantity, остальное как есть', () => {

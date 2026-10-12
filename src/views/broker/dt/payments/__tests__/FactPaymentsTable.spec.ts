@@ -17,7 +17,7 @@ import { emptyDtForm, type DtFormState } from '../../dtPayload'
 import FactPaymentsTable from '../FactPaymentsTable.vue'
 
 const fact = (code: string, amount: number, o: Partial<Import40FactPayment> = {}): Import40FactPayment => ({
-  taxModeCode: code, amount, exchangeRate: 1, paymentDocDate: '2026-10-09', payerTaxpayerId: '201140012345', paymentDate: '2026-10-10', paymentMethodCode: 'БН', ...o,
+  taxModeCode: code, amount, exchangeRate: 1, paymentDocDate: '2026-10-09', paymentDocNumber: '490380', payerTaxpayerId: '201140012345', paymentDate: '2026-10-10', paymentMethodCode: 'БН', ...o,
 })
 
 let w: VueWrapper | null = null
@@ -58,11 +58,24 @@ describe('FactPaymentsTable', () => {
     expect(form.factPayments[0]).toMatchObject({ amount: 21000, exchangeRate: 2, payerTaxpayerId: '990140000001' })
   })
 
+  it('номер платёжки: виден, правится в ту же строку (обрезка пробелов, до 50 знаков), пустой — null', async () => {
+    const { form, w } = setup([fact('1010', 1), fact('5060', 2, { paymentDocNumber: null })])
+    const num = (i: number) => row(w, i).get('input[data-fact="docNumber"]')
+    expect((num(0).element as HTMLInputElement).value).toBe('490380')
+    expect((num(1).element as HTMLInputElement).value).toBe('')
+    expect(num(0).attributes('maxlength')).toBe('50')
+    expect(num(0).attributes('aria-label')).toBe('Номер платёжки')
+    await typeIn(num(1).element, ' ПП-17 ')
+    expect(form.factPayments[1].paymentDocNumber).toBe('ПП-17')
+    await typeIn(num(0).element, '   ')
+    expect(form.factPayments[0].paymentDocNumber).toBeNull()
+  })
+
   it('«Добавить» — строка с курсом 1 и «БН»; удалить — именно эту строку', async () => {
     const { form, w } = setup([fact('1010', 1), fact('5060', 2)])
     await w.get('[data-fact-add]').trigger('click')
     expect(form.factPayments).toHaveLength(3)
-    expect(form.factPayments[2]).toEqual({ taxModeCode: null, amount: null, exchangeRate: 1, paymentDocDate: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН' })
+    expect(form.factPayments[2]).toEqual({ taxModeCode: null, amount: null, exchangeRate: 1, paymentDocDate: null, paymentDocNumber: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН' })
     await row(w, 0).get('[data-fact-remove]').trigger('click')
     expect(form.factPayments.map((p) => p.taxModeCode)).toEqual(['5060', null])
     expect(w.findAll('[data-fact-row]')).toHaveLength(2)
@@ -84,6 +97,7 @@ describe('FactPaymentsTable', () => {
     expect(w.find('[data-fact-remove]').exists()).toBe(false)
     expect(w.get('input[data-fact="amount"]').attributes('disabled')).toBeDefined()
     expect(w.get('input[data-fact="payer"]').attributes('disabled')).toBeDefined()
+    expect(w.get('input[data-fact="docNumber"]').attributes('disabled')).toBeDefined()
   })
 })
 

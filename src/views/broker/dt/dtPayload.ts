@@ -234,7 +234,8 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
   f.arrivalTransportNationality = dto.arrivalTransportNationality ?? 'KZ'
   f.arrivalTransportNumbers = (dto.arrivalTransportNumbers ?? []).map((m) => ({ ...m }))
   f.rateType = dto.rateType ?? 'ETT'
-  f.factPayments = (dto.factPayments ?? []).map((p) => ({ ...p }))
+  // Номер платёжки: ответ сервера без поля (старая версия API) — null, чтобы строка была полной.
+  f.factPayments = (dto.factPayments ?? []).map((p) => ({ ...p, paymentDocNumber: p.paymentDocNumber ?? null }))
   // Фаза 2 — новые графы бланка
   f.declarationTypeCode = dto.declarationTypeCode ?? 'ИМ'
   f.declarationFeatureCode = dto.declarationFeatureCode ?? null

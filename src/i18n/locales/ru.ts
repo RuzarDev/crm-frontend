@@ -1807,6 +1807,7 @@ export default {
             rate: 'Курс',
             method: 'Способ',
             payer: 'Плательщик (ИИН/БИН)',
+            docNumber: 'Номер платёжки',
             docDate: 'Дата платёжки',
             payDate: 'Дата платежа',
           },

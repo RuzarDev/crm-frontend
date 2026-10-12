@@ -85,7 +85,7 @@ export interface FactMergeResult {
 
 /** Новая строка гр. В из расчёта: курс 1, способ «БН», прочее пусто (XML гр. В — как прежде). */
 const newFactRow = (code: string, amount: number): Import40FactPayment => ({
-  taxModeCode: code, amount, exchangeRate: 1, paymentDocDate: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН',
+  taxModeCode: code, amount, exchangeRate: 1, paymentDocDate: null, paymentDocNumber: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН',
 })
 
 /**
