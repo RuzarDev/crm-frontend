@@ -1266,7 +1266,7 @@ export interface Import40FactPayment {
   amount: number | null
   exchangeRate: number | null
   paymentDocDate: string | null
-  /** Номер платёжного документа (R.055 GDPaymentDocDetails/csdo:DocId, до 50 знаков); в XML — только если заполнен. */
+  /** Номер платёжного документа, до 50 знаков (R.055 csdo:DocId); в XML КЕДЕН пока не выгружается — в РК не используется. */
   paymentDocNumber: string | null
   payerTaxpayerId: string | null
   paymentDate: string | null
