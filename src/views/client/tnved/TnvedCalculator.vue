@@ -9,6 +9,7 @@ import ZNumber from '@/components/z/ZNumber.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import NonTariffMeasureGroups from '@/components/NonTariffMeasureGroups.vue'
+import { goodsOf, isGr33Doc } from '@/components/nonTariffMeasures'
 import { tnvedApi } from '@/api/tnved'
 import { byCurrencyRank, currencyName, loadCurrencies, POPULAR_CURRENCIES } from '@/views/client/tnved/currency'
 import { referencesApi } from '@/api/references'
@@ -189,14 +190,19 @@ const antiDumpingKind = computed<ZOptionValue | null>({
 })
 
 const positive = (n: number | null | undefined): n is number => typeof n === 'number' && n > 0
+// Расширенный режим — все меры (компонент сам группирует по актам); клиенту — простой список
+// документов без повторов и без строки кодов гр. 33 (это для декларанта), с товарами под документом.
+const allMeasures = computed(() => result.value?.nonTariffMeasures ?? [])
 const measures = computed(() => {
-  const seen = new Set<string>()
-  return (result.value?.nonTariffMeasures ?? []).filter((m) => {
+  const byKey = new Map<string, { name: string; comment: string | null; goods: string[] }>()
+  for (const m of allMeasures.value) {
+    if (!m.name || isGr33Doc(m)) continue
     const k = `${m.name}|${m.comment ?? ''}`
-    if (!m.name || seen.has(k)) return false
-    seen.add(k)
-    return true
-  })
+    let doc = byKey.get(k)
+    if (!doc) byKey.set(k, (doc = { name: m.name, comment: m.comment, goods: [] }))
+    for (const g of goodsOf(m)) if (!doc.goods.includes(g)) doc.goods.push(g)
+  }
+  return [...byKey.values()]
 })
 // Пояснения сервера — одним абзацем: «; » внутри — часть фразы (перечисления, оговорки), а не разделитель пунктов.
 const notes = computed(() => (result.value?.notes ?? '').trim())
@@ -364,10 +370,10 @@ const dd = 'm-0 text-right tabular-nums text-ink'
         {{ extended ? t('broker.references.calc.disclaimer') : t('client.tnved.calc.disclaimer') }}
       </p>
 
-      <template v-if="result && measures.length">
+      <template v-if="result && (extended ? allMeasures.length : measures.length)">
         <div v-if="extended" class="flex flex-col gap-2" data-calc-docs>
           <h4 class="m-0 text-sm font-semibold text-ink">{{ t('broker.references.calc.docs') }}</h4>
-          <NonTariffMeasureGroups :measures="measures" by="required" />
+          <NonTariffMeasureGroups :measures="allMeasures" by="required" />
         </div>
         <div v-else class="flex flex-col gap-2" data-calc-docs>
           <h4 class="m-0 text-sm font-semibold text-ink">{{ t('client.tnved.calc.docs') }}</h4>
@@ -377,6 +383,7 @@ const dd = 'm-0 text-right tabular-nums text-ink'
               <span class="min-w-0">
                 <span class="block text-sm font-medium text-ink">{{ m.name }}</span>
                 <span v-if="m.comment" class="block text-[13px] leading-5 text-ink-3">{{ m.comment }}</span>
+                <span v-for="(g, j) in m.goods" :key="j" class="block text-[13px] leading-5 break-words text-ink-2" data-calc-doc-goods>{{ g }}</span>
               </span>
             </li>
           </ul>

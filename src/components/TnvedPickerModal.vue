@@ -8,8 +8,9 @@ import ZSegmented from '@/components/z/ZSegmented.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import TnvedTree from '@/views/broker/references/tnved/TnvedTree.vue'
+import NonTariffMeasureGroups from '@/components/NonTariffMeasureGroups.vue'
 import { tnvedApi } from '@/api/tnved'
-import type { TnvedNodeDto, TnvedRateDto } from '@/types/api'
+import type { TnvedNodeDto, TnvedNonTariffMeasureDto, TnvedRateDto } from '@/types/api'
 import { cleanName, formatTnvedCode, httpStatus, isRateLimited } from '@/views/references/tnvedShared'
 
 // Окно выбора кода ТН ВЭД (редизайн, волна 5а) — общее для товаров ДТ (редактор товара, GoodsCodeSection), товаров записи
@@ -103,7 +104,7 @@ const openResult = async (n: TnvedNodeDto) => {
 // ---- Выбранный код: ставки и нетарифные меры ----
 const selected = ref<TnvedNodeDto | null>(null)
 const rates = shallowRef<TnvedRateDto[]>([])
-const measures = shallowRef<{ docType?: string; name?: string; description?: string }[]>([])
+const measures = shallowRef<TnvedNonTariffMeasureDto[]>([])
 const detailState = ref<LoadState>('idle')
 let detailSeq = 0
 
@@ -248,9 +249,7 @@ const sectionTitle = 'm-0 mb-1.5 mt-4 text-xs font-semibold tracking-[0.04em] te
 
                 <h3 :class="sectionTitle">{{ t('sales.razreshitelnyeDokumentyNetarifnyeMery') }}</h3>
                 <p v-if="!measures.length" class="m-0 text-sm text-ink-3">{{ t('sales.neTrebuyutsyaNetDannyh') }}</p>
-                <ul v-else class="m-0 list-disc pl-[18px] text-sm text-ink-2">
-                  <li v-for="(m, i) in measures" :key="i" class="my-0.5">{{ m.docType ? m.docType + ': ' : '' }}{{ m.name || m.description }}</li>
-                </ul>
+                <NonTariffMeasureGroups v-else :measures="measures" />
               </template>
             </template>
           </div>

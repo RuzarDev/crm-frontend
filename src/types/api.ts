@@ -823,6 +823,24 @@ export interface TnvedNonTariffMeasureDto {
   resolutionNumber: string | null
   resolutionName: string | null
   resolutionUrl: string | null
+  /** Конкретные товары кода, к которым относится документ (у «Документ запретов или ограничений» — коды гр. 33). */
+  goods?: string[] | null
+  resolutionId?: string | null
+  /** Заголовок акта: «О порядке осуществления …». */
+  resolutionTitle?: string | null
+  /** Дата акта, «yyyy-MM-dd». */
+  resolutionDate?: string | null
+  resolutionEndDate?: string | null
+  /** Изменения акта — «… с изменениями …». */
+  amendments?: TnvedNonTariffAmendmentDto[] | null
+}
+
+export interface TnvedNonTariffAmendmentDto {
+  name: string | null
+  number: string | null
+  url: string | null
+  title: string | null
+  date: string | null
 }
 
 export interface TnvedCurrencyDto {
