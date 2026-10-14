@@ -13,6 +13,10 @@ declare module 'axios' {
     silentStatuses?: number[]
     /** Запрос уже повторён с новым токеном после 401 (см. перехватчик) — второй раз не повторяем. */
     _replayed?: boolean
+    /** false — не повторять GET при сбое сети/502/503/504 (по умолчанию повторяем). */
+    retry?: boolean
+    /** Сколько раз чтение уже повторено после сбоя сети (см. перехватчик). */
+    _retries?: number
   }
 }
 
@@ -92,6 +96,24 @@ const sentToken = (config: InternalAxiosRequestConfig | undefined): string | nul
   return typeof raw === 'string' && raw.startsWith('Bearer ') ? raw.slice(7) : null
 }
 
+// Чтение (GET/HEAD) повторяем при обрыве сети и 502/503/504: на мобильной сети и в роуминге часть запросов из
+// пачки при открытии страницы (ДТ — ~40 сразу) отбивается по дороге, хотя сервер их не видел (14.10.2026:
+// «Не удалось загрузить ДТ» лечилось «Повторить»). Запись не повторяем — она могла дойти. Таймаут — тоже нет.
+export const RETRY_DELAYS_MS = [500, 1500]
+const RETRY_STATUSES = new Set([502, 503, 504])
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const shouldRetry = (error: any): boolean => {
+  const config = error?.config
+  if (!config || config.retry === false) return false
+  const method = String(config.method ?? 'get').toLowerCase()
+  if (method !== 'get' && method !== 'head') return false
+  if ((config._retries ?? 0) >= RETRY_DELAYS_MS.length) return false
+  if (error.code === 'ERR_CANCELED' || error.code === 'ECONNABORTED') return false
+  if (error.response) return RETRY_STATUSES.has(error.response.status)
+  return error.request != null || error.code === 'ERR_NETWORK'
+}
+
 apiClient.interceptors.response.use(
   (response) => {
     // Скользящая сессия: бэк присылает свежий токен, когда у текущего осталось < половины срока.
@@ -106,7 +128,13 @@ apiClient.interceptors.response.use(
     }
     return response
   },
-  (error) => {
+  async (error) => {
+    if (shouldRetry(error)) {
+      const attempt = error.config._retries ?? 0
+      error.config._retries = attempt + 1
+      await sleep(RETRY_DELAYS_MS[attempt])
+      return apiClient.request(error.config)
+    }
     const silent = error.config?.silent === true
       || (error.response != null && (error.config?.silentStatuses ?? []).includes(error.response.status))
 
