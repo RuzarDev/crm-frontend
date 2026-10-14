@@ -294,6 +294,11 @@ describe('GoodsEditor: пределы полей по структуре ДТ (�
     expect(desc.textContent).toContain('5 из 1000 знаков')
     await type('description', 'а'.repeat(260))
     expect(q('[data-goods-field="description"]')!.textContent).toContain('260 из 1000 знаков — в КЕДЕН уйдёт 2 частями по 250')
+    // Части считаются как на сервере — по пробелам и запятым, а не n / 250 (I-2): 494 знака словами — 3 части.
+    await type('description', Array.from({ length: 55 }, (_, i) => `ДЕТАЛЬ${String(i).padStart(2, '0')}`).join(' '))
+    expect(q('[data-goods-field="description"]')!.textContent).toContain('494 из 1000 знаков — в КЕДЕН уйдёт 3 частями по 250')
+    await type('description', Array.from({ length: 5 }, (_, i) => String.fromCharCode(0x410 + i).repeat(180)).join(', '))
+    expect(q('[data-goods-field="description"]')!.textContent).toContain('908 из 1000 знаков — делится на 5 частей по 250 (по запятым и пробелам), а КЕДЕН принимает до 4')
     const max = (f: string) => (q(`[data-goods-field="${f}"]`)!.querySelector('input') as HTMLInputElement).maxLength
     expect([max('tradeMarkName'), max('productMarkName'), max('productModelName'), max('productArticle')]).toEqual([250, 250, 250, 50])
   })

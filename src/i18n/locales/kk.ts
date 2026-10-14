@@ -1991,6 +1991,7 @@ export default {
             descriptionPlaceholder: 'Инвойстағыдай',
             descriptionCount: '{max} таңбаның {n}',
             descriptionParts: '{max} таңбаның {n} — КЕДЕН-ге {part} таңбадан {parts} бөлікпен кетеді',
+            descriptionTooManyParts: '{max} таңбаның {n} — {part} таңбадан {parts} бөлікке бөлінеді (үтір мен бос орын бойынша), ал КЕДЕН {limit} бөлікке дейін қабылдайды: сипаттаманы қысқартыңыз',
             tradeMark: 'Сауда маркасы',
             productMark: 'Белгі',
             model: 'Үлгі',

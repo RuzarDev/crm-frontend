@@ -1991,6 +1991,7 @@ export default {
             descriptionPlaceholder: 'As in the invoice',
             descriptionCount: '{n} of {max} characters',
             descriptionParts: '{n} of {max} characters — goes to KEDEN as {parts} parts of {part}',
+            descriptionTooManyParts: '{n} of {max} characters — splits into {parts} parts of {part} (at commas and spaces), but KEDEN accepts up to {limit}: shorten the description',
             tradeMark: 'Trade name',
             productMark: 'Mark',
             model: 'Model',

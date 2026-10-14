@@ -1995,6 +1995,7 @@ export default {
             descriptionPlaceholder: 'Как в инвойсе',
             descriptionCount: '{n} из {max} знаков',
             descriptionParts: '{n} из {max} знаков — в КЕДЕН уйдёт {parts} частями по {part}',
+            descriptionTooManyParts: '{n} из {max} знаков — делится на {parts} частей по {part} (по запятым и пробелам), а КЕДЕН принимает до {limit}: сократите описание',
             tradeMark: 'Торговая марка',
             productMark: 'Знак',
             model: 'Модель',
