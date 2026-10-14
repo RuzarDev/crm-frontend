@@ -178,6 +178,12 @@ export interface Import40PrevDocItem {
   sortOrder: number
 }
 
+/** Гр. 29: пост на границе (таможенный орган въезда/выезда). */
+export interface Import40CustomsOffice {
+  code: string | null
+  name: string | null
+}
+
 export interface Import40DeclarationDto {
   id: string
   caseId: string
@@ -222,6 +228,8 @@ export interface Import40DeclarationDto {
   goodsLocationCustomsOfficeCode?: string | null
   borderCustomsOfficeCode?: string | null
   borderCustomsOfficeName?: string | null
+  /** Гр. 29: все посты на границе по порядку, первый — основной (он же в borderCustomsOfficeCode/Name). Старый сервер — нет поля. */
+  borderCustomsOffices?: Import40CustomsOffice[] | null
   submissionCustomsOfficeCode?: string | null
   submissionDate?: string | null
   borderTransportModeCode?: string | null
@@ -362,6 +370,8 @@ export interface Import40DeclarationUpsert {
   goodsLocationCustomsOfficeCode?: string | null
   borderCustomsOfficeCode?: string | null
   borderCustomsOfficeName?: string | null
+  /** Гр. 29: все посты на границе по порядку, первый — основной (он же в borderCustomsOfficeCode/Name). Старый сервер — нет поля. */
+  borderCustomsOffices?: Import40CustomsOffice[] | null
   submissionCustomsOfficeCode?: string | null
   submissionDate?: string | null
   borderTransportModeCode?: string | null

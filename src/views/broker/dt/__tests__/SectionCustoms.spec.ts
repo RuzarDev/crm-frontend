@@ -66,29 +66,63 @@ const typeNumber = async (text: string) => { await numberInput().setValue(text);
 const PAUSE = 300
 
 describe('SectionCustoms — гр. 29', () => {
+  const postInput = (i: number) => w.findAll('input[data-border-post]')[i]
+  const openPost = async (i: number) => { await postInput(i).trigger('keydown', { key: 'ArrowDown' }); await nextTick() }
+
   it('один выбор поста заполняет код и название — без «код —» (как у КЕДЕН, M8)', async () => {
     await mount()
-    await open('[data-border-post]')
+    expect(w.findAll('[data-border-row]')).toHaveLength(1)
+    expect(w.find('[data-border-add]').exists()).toBe(false) // «Добавить» — после выбора первого поста
+    await openPost(0)
     expect(optionTexts()).toEqual(['55302 — ТАМОЖЕННЫЙ ПОСТ «КОРГАС»', '55300 — ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»'])
     await pick('ДОСТЫК')
-    expect(form.borderCustomsOfficeName).toBe('ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»')
-    expect(form.borderCustomsOfficeCode).toBe('55300')
+    expect(form.borderCustomsOffices).toEqual([{ code: '55300', name: 'ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»' }])
     await w.get('[data-graph="29"] button[aria-label="Очистить"]').trigger('click')
-    expect(form.borderCustomsOfficeName).toBe('')
-    expect(form.borderCustomsOfficeCode).toBe('')
+    expect(form.borderCustomsOffices).toEqual([{ code: '', name: '' }])
+  })
+
+  it('несколько постов: добавить, выбранный пост второй раз не предлагается, первый — основной, убрать', async () => {
+    await mount({ borderCustomsOffices: [{ code: '55300', name: 'ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»' }] })
+    expect(w.find('[data-border-main]').exists()).toBe(false)
+    expect(w.find('[data-border-remove]').exists()).toBe(false)
+
+    await w.get('[data-border-add]').trigger('click')
+    expect(w.findAll('[data-border-row]')).toHaveLength(2)
+    expect(w.findAll('[data-border-row]')[1].text()).toContain('Пост на границе № 2')
+    expect(w.get('[data-border-main]').text()).toBe('основной')
+    await openPost(1)
+    expect(optionTexts()).toEqual(['55302 — ТАМОЖЕННЫЙ ПОСТ «КОРГАС»'])
+    await pick('КОРГАС')
+    expect(form.borderCustomsOffices).toEqual([
+      { code: '55300', name: 'ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»' },
+      { code: '55302', name: 'ТАМОЖЕННЫЙ ПОСТ «КОРГАС»' },
+    ])
+
+    // Убираем основной — основным становится следующий.
+    await w.findAll('[data-border-remove]')[0].trigger('click')
+    expect(form.borderCustomsOffices).toEqual([{ code: '55302', name: 'ТАМОЖЕННЫЙ ПОСТ «КОРГАС»' }])
+    expect((postInput(0).element as HTMLInputElement).value).toBe('55302 — ТАМОЖЕННЫЙ ПОСТ «КОРГАС»')
+    expect(w.find('[data-border-remove]').exists()).toBe(false)
+  })
+
+  it('только чтение — без кнопок добавления и удаления', async () => {
+    await mount({ borderCustomsOffices: [{ code: '55300', name: 'А' }, { code: '55302', name: 'Б' }] }, { readonly: true })
+    expect(w.findAll('[data-border-row]')).toHaveLength(2)
+    expect(w.find('[data-border-add]').exists()).toBe(false)
+    expect(w.find('[data-border-remove]').exists()).toBe(false)
   })
 
   it('старая запись с подписью целиком («код — название») — пост узнаётся по коду, без предупреждения', async () => {
-    await mount({ borderCustomsOfficeName: '55300 — ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»', borderCustomsOfficeCode: '' })
+    await mount({ borderCustomsOffices: [{ code: '', name: '55300 — ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»' }] })
     expect((inputOf('[data-border-post]').element as HTMLInputElement).value).toBe('55300 — ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»')
     expect(w.get('[data-graph="29"]').text()).not.toContain('нет в справочнике')
   })
 
   it('старое значение вне справочника показано с предупреждением; справочник не загружен — без него', async () => {
-    await mount({ borderCustomsOfficeName: 'СТАРЫЙ ПОСТ', borderCustomsOfficeCode: '' })
+    await mount({ borderCustomsOffices: [{ code: '', name: 'СТАРЫЙ ПОСТ' }] })
     expect(w.get('[data-graph="29"]').text()).toContain('Значения «СТАРЫЙ ПОСТ» нет в справочнике')
     w.unmount()
-    await mount({ borderCustomsOfficeName: 'СТАРЫЙ ПОСТ' }, { postOptions: [] })
+    await mount({ borderCustomsOffices: [{ code: '', name: 'СТАРЫЙ ПОСТ' }] }, { postOptions: [] })
     expect(w.text()).not.toContain('нет в справочнике')
   })
 })

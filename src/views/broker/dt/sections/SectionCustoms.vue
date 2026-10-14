@@ -5,9 +5,9 @@ const previousLocationCodes = new WeakMap<object, string>()
 </script>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, toRaw } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhPlus } from '@phosphor-icons/vue'
+import { PhPlus, PhX } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZCheckbox from '@/components/z/ZCheckbox.vue'
 import ZCombobox from '@/components/z/ZCombobox.vue'
@@ -18,6 +18,7 @@ import ZTag from '@/components/z/ZTag.vue'
 import { warehouseRegistryApi, warehouseValue, type WarehouseOfficeSuggestion, type WarehouseRegistryItem } from '@/api/warehouseRegistry'
 import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import { vUppercase } from '@/directives/uppercase'
+import type { Import40CustomsOffice } from '@/api/import40'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { message } from '@/ui/message'
 import type { ZOption } from '@/ui/options'
@@ -27,7 +28,7 @@ import { dedupeOptions, officeNameOnly, withCurrent } from '../dtOptions'
 import type { DtFormState } from '../dtPayload'
 import GoodsLocationModal from './GoodsLocationModal.vue'
 
-// Органы и место товаров: гр. 29 (пост на границе — один выбор заполняет код и название) и гр. 30 (место
+// Органы и место товаров: гр. 29 (посты на границе по порядку, первый — основной; выбор заполняет код и название) и гр. 30 (место
 // нахождения товаров): код места из классификатора (новый добавляется окном «Добавить в справочник»), номер СВХ /
 // таможенного склада с поиском по реестрам КГД / КЕДЕН (поиск после паузы, устаревший ответ отбрасывается; ручной
 // ввод остаётся — реестр стареет), проверка номера — предупреждение, не блокировка; страна места, таможенный орган
@@ -47,22 +48,46 @@ const warn = (unknown: boolean, value: string | null | undefined) =>
 const str = (v: unknown): string => (v == null ? '' : String(v))
 
 // ---- Гр. 29 ----
-// Значение выбора — код поста; в название (borderCustomsOfficeName → CustomsOfficeName, Name50) идёт только название без
-// «код —», как у КЕДЕН (сверка 14.10, M8; экспортёр дополнительно сокращает «ТАМОЖЕННЫЙ ПОСТ» до «Т/П»). Старые записи
-// хранили подпись целиком («55300 — ТАМОЖЕННЫЙ ПОСТ …») — их код берётся из ведущих цифр, если кода нет.
-const border = computed(() => {
-  const name = (props.form.borderCustomsOfficeName ?? '').trim()
-  const code = (props.form.borderCustomsOfficeCode ?? '').trim() || name.match(/^\d{5,8}(?=\s*[—–-])/)?.[0] || ''
+// Несколько постов (14.10): список по порядку, первый — основной; в XML уходят все (R.055 BorderCustomsOfficeDetails 0..*).
+// Значение выбора — код поста; в название (→ CustomsOfficeName, Name50) идёт только название без «код —», как у КЕДЕН
+// (сверка 14.10, M8; экспортёр дополнительно сокращает «ТАМОЖЕННЫЙ ПОСТ» до «Т/П»). Старые записи хранили подпись
+// целиком («55300 — ТАМОЖЕННЫЙ ПОСТ …») — их код берётся из ведущих цифр, если кода нет.
+const offices = computed(() => props.form.borderCustomsOffices)
+// Пустой список показываем одной пустой строкой: выбор в ней добавляет первый пост.
+const borderRows = computed<Import40CustomsOffice[]>(() => (offices.value.length ? offices.value : [{ code: '', name: '' }]))
+const codeOf = (o: Import40CustomsOffice) => {
+  const name = (o.name ?? '').trim()
+  return (o.code ?? '').trim() || name.match(/^\d{5,8}(?=\s*[—–-])/)?.[0] || ''
+}
+const borderOf = (o: Import40CustomsOffice, i: number) => {
+  const name = (o.name ?? '').trim()
+  const code = codeOf(o)
   const value = code || name
-  if (!value || props.postOptions.some((o) => o.value === value)) return { options: props.postOptions, unknown: false, value: value || null }
+  // Пост, уже выбранный в другой строке, второй раз не предлагаем.
+  const taken = new Set(offices.value.filter((_, j) => j !== i).map(codeOf).filter(Boolean))
+  const free = props.postOptions.filter((p) => p.value === value || !taken.has(String(p.value)))
+  if (!value || props.postOptions.some((p) => p.value === value)) return { options: free, unknown: false, value: value || null }
   const label = code && name && !name.startsWith(code) ? `${code} — ${name}` : name || code
-  return { options: [{ value, label }, ...props.postOptions], unknown: props.postOptions.length > 0, value }
-})
-const onBorder = (v: unknown) => {
+  return { options: [{ value, label }, ...free], unknown: props.postOptions.length > 0, value }
+}
+const onBorder = (i: number, v: unknown) => {
   const code = str(v)
   const label = props.postOptions.find((o) => o.value === code)?.label ?? code
-  props.form.borderCustomsOfficeCode = code
-  props.form.borderCustomsOfficeName = code ? officeNameOnly(label) : ''
+  const row = { code, name: code ? officeNameOnly(label) : '' }
+  const list = props.form.borderCustomsOffices
+  if (i < list.length) Object.assign(list[i], row)
+  else list.push(row)
+}
+const addBorder = () => { props.form.borderCustomsOffices.push({ code: '', name: '' }) }
+const removeBorder = (i: number) => { props.form.borderCustomsOffices.splice(i, 1) }
+// Стабильный ключ строки (не индекс): после удаления средней остальные поля не перемешиваются.
+const borderIds = new WeakMap<object, number>()
+let borderNextId = 0
+const borderKey = (o: Import40CustomsOffice): number => {
+  const raw = toRaw(o)
+  let id = borderIds.get(raw)
+  if (id === undefined) { id = ++borderNextId; borderIds.set(raw, id) }
+  return id
 }
 
 // ---- Гр. 30: код места ----
@@ -186,10 +211,51 @@ const graphTag = 'font-mono text-xs font-normal text-muted'
         <span :class="graphTag">{{ t('broker.dt.nav.graphs', { list: '29' }) }}</span>
       </h2>
       <div class="grid grid-cols-1 gap-4 @2xl:grid-cols-2">
-        <ZField graph="29" data-graph="29" v-bind="warn(border.unknown, form.borderCustomsOfficeName || form.borderCustomsOfficeCode)">
-          <template #label>{{ tc('border') }}<DtGraphHelp graph="29" /></template>
-          <ZSelect :value="border.value" :options="border.options" show-search allow-clear :disabled="readonly" :placeholder="tc('borderPlaceholder')" popup-width="560px" data-border-post @update:value="onBorder" />
+        <ZField
+          v-for="(o, i) in borderRows"
+          :key="borderKey(o)"
+          graph="29"
+          data-graph="29"
+          data-border-row
+          v-bind="warn(borderOf(o, i).unknown, o.name || o.code)"
+        >
+          <template #label>
+            <template v-if="i === 0">{{ tc('border') }}<DtGraphHelp graph="29" /></template>
+            <template v-else>{{ tc('borderN', { n: i + 1 }) }}</template>
+            <ZTag v-if="i === 0 && borderRows.length > 1" size="sm" class="ml-1.5" data-border-main>{{ tc('borderMain') }}</ZTag>
+          </template>
+          <div class="flex min-w-0 items-center gap-2">
+            <ZSelect
+              class="min-w-0 flex-1"
+              :value="borderOf(o, i).value"
+              :options="borderOf(o, i).options"
+              show-search
+              allow-clear
+              :disabled="readonly"
+              :placeholder="tc('borderPlaceholder')"
+              popup-width="560px"
+              data-border-post
+              @update:value="(v: unknown) => onBorder(i, v)"
+            />
+            <ZButton
+              v-if="!readonly && borderRows.length > 1"
+              variant="danger-ghost"
+              class="size-11 shrink-0 px-0 @md:size-9"
+              :aria-label="tc('borderRemove')"
+              :title="tc('borderRemove')"
+              data-border-remove
+              @click="removeBorder(i)"
+            >
+              <PhX :size="16" aria-hidden="true" />
+            </ZButton>
+          </div>
         </ZField>
+      </div>
+      <div v-if="!readonly && offices.length" class="flex flex-col items-start gap-1">
+        <ZButton variant="ghost" class="max-sm:h-11" data-border-add @click="addBorder">
+          <PhPlus :size="16" aria-hidden="true" />{{ tc('borderAdd') }}
+        </ZButton>
+        <span class="text-xs text-muted">{{ tc('borderHint') }}</span>
       </div>
     </div>
 

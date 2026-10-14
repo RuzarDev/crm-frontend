@@ -103,6 +103,10 @@ export const fullDto = (over: Partial<Import40DeclarationDto> = {}): Import40Dec
   goodsLocationCustomsOfficeCode: '55302',
   borderCustomsOfficeCode: '55201',
   borderCustomsOfficeName: 'ТП ХОРГОС',
+  borderCustomsOffices: [
+    { code: '55201', name: 'ТП ХОРГОС' },
+    { code: '57301', name: 'Т/П "БАХТЫ"' },
+  ],
   submissionCustomsOfficeCode: '55302',
   submissionDate: '2026-10-05T00:00:00Z',
   borderTransportModeCode: '31',

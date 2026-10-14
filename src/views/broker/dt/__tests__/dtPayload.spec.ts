@@ -9,7 +9,7 @@ const SERVER_ONLY = new Set([
   'id', 'caseId', 'splitRole', 'splitSourceDeclarationId', 'isSplitReplaced', 'updatedAtUtc', 'svhCost', 'releasedAtUtc',
   'totalGoodsCount', 'totalPackagesCount', 'totalCustomsValue',
 ])
-const LISTS = new Set(['goodsItems', 'doc44Items', 'prevDocItems', 'expenses', 'factPayments', 'borderTransportNumbers', 'arrivalTransportNumbers'])
+const LISTS = new Set(['goodsItems', 'doc44Items', 'prevDocItems', 'expenses', 'factPayments', 'borderTransportNumbers', 'arrivalTransportNumbers', 'borderCustomsOffices'])
 
 describe('dtPayload — туда и обратно', () => {
   it('каждая графа шапки полного образца DTO доходит до тела PUT без изменений', () => {
@@ -47,10 +47,39 @@ describe('dtPayload — туда и обратно', () => {
 
   it('гр. 29: в PUT — название поста без «код —» (M8)', () => {
     const dto = fullDto()
+    dto.borderCustomsOffices = null
     dto.borderCustomsOfficeName = '55300 — ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»'
     expect(formToPayload(dtoToForm(dto), null).borderCustomsOfficeName).toBe('ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»')
     dto.borderCustomsOfficeName = 'Т/П "НУР ЖОЛЫ"'
     expect(formToPayload(dtoToForm(dto), null).borderCustomsOfficeName).toBe('Т/П "НУР ЖОЛЫ"')
+  })
+
+  it('гр. 29: все посты по порядку уходят списком, старые поля — первый пост', () => {
+    const dto = fullDto()
+    const p = formToPayload(dtoToForm(dto), null)
+    expect(p.borderCustomsOffices).toEqual([{ code: '55201', name: 'ТП ХОРГОС' }, { code: '57301', name: 'Т/П "БАХТЫ"' }])
+    expect(p.borderCustomsOfficeCode).toBe('55201')
+    expect(p.borderCustomsOfficeName).toBe('ТП ХОРГОС')
+  })
+
+  it('гр. 29: старый сервер без списка — один пост из старых полей; пустые строки и «код —» не уходят', () => {
+    const dto = fullDto()
+    delete dto.borderCustomsOffices
+    const form = dtoToForm(dto)
+    expect(form.borderCustomsOffices).toEqual([{ code: '55201', name: 'ТП ХОРГОС' }])
+    form.borderCustomsOffices.push({ code: '', name: '' }, { code: '55300', name: '55300 — ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»' })
+    expect(formToPayload(form, null).borderCustomsOffices).toEqual([
+      { code: '55201', name: 'ТП ХОРГОС' },
+      { code: '55300', name: 'ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»' },
+    ])
+
+    // Графа пуста — пустой список (сервер очищает графу), старые поля null.
+    dto.borderCustomsOfficeCode = null
+    dto.borderCustomsOfficeName = null
+    const empty = formToPayload(dtoToForm(dto), null)
+    expect(empty.borderCustomsOffices).toEqual([])
+    expect(empty.borderCustomsOfficeCode).toBeNull()
+    expect(empty.borderCustomsOfficeName).toBeNull()
   })
 
   it('гр. В: ответ без номера платёжки (старый сервер) — номер null, строка полная', () => {
