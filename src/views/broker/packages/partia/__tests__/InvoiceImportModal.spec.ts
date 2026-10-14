@@ -27,7 +27,7 @@ const result = (o: Partial<ExtractionResultDto> = {}): ExtractionResultDto => ({
 let w: VueWrapper
 const mount = (existingCount = 0) => {
   w = mountWithI18n(InvoiceImportModal, {
-    props: { clientId: 'u-k', existingCount },
+    props: { existingCount },
     attachTo: document.body,
     global: { stubs: { ZModal: ModalStub } },
   })
@@ -49,7 +49,7 @@ describe('InvoiceImportModal', () => {
     expect(w.get('[data-import-button]').text()).toBe('Из инвойса')
     expect(w.get('[data-import-input]').attributes('accept')).toBe('.pdf,.xlsx')
     await choose(pdf())
-    expect(invoice.extractGoods).toHaveBeenCalledWith(expect.any(File), 'u-k')
+    expect(invoice.extractGoods).toHaveBeenCalledWith(expect.any(File))
     expect(w.get('[data-modal]').attributes('data-title')).toBe('Товары из инвойса')
     expect(w.get('[data-import-source]').text()).toBe('Распознано ИИ')
     expect(w.get('[data-import-confidence]').text()).toBe('Уверенность: 87%')
