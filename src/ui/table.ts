@@ -29,6 +29,11 @@ export interface ZColumn<T = Record<string, unknown>> {
   customRender?: (o: { text: unknown; value: unknown; record: T; index: number; column: ZColumn<T> }) => unknown
   /** Класс на <th> и <td> колонки. */
   className?: string
+  /**
+   * Карточка на телефоне: эта колонка — первой строкой карточки (рядом с чекбоксом выбора в правом верхнем углу).
+   * Не задано ни у одной — первая строка та, что первой видна на телефоне (без max-sm:hidden).
+   */
+  cardLead?: boolean
 }
 
 /** Сортировка для @change — как sorter у AntD. */

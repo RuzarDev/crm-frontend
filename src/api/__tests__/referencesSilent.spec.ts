@@ -36,6 +36,11 @@ describe('referencesApi / prohibitionCodesApi: silent', () => {
     expect(client.get).toHaveBeenCalledTimes(2)
   })
 
+  it('listClassifiersBatch — один GET с кодами через запятую, без тоста (стор сам догрузит по одному)', async () => {
+    await referencesApi.listClassifiersBatch(['2004', 'pref-fee'])
+    expect(client.get).toHaveBeenLastCalledWith('/ref/classifiers/batch', { params: { codes: '2004,pref-fee' }, silent: true })
+  })
+
   it('kedenUsage — тихий: сбой подписи использования не даёт тоста', async () => {
     await prohibitionCodesApi.kedenUsage()
     expect(client.get).toHaveBeenLastCalledWith('/ref/prohibition-codes/keden-usage', { silent: true })

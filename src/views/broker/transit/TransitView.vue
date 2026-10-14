@@ -187,7 +187,8 @@ const columns = computed<ZColumn<Row>[]>(() => {
     title: t(`broker.transit.col.${id}`),
     width: WIDTH[id],
     align: RIGHT.includes(id) ? 'right' : undefined,
-    className: cn(!PHONE.includes(id) && 'max-sm:hidden', id === 'container' && 'max-sm:-order-1'),
+    className: cn(!PHONE.includes(id) && 'max-sm:hidden'),
+    cardLead: id === 'container',
   }))
   const status: ZColumn<Row> = { key: 'status', title: t('broker.transit.col.status'), width: 168 }
   // «№» (не скрывается) — первой, статус — за ней.

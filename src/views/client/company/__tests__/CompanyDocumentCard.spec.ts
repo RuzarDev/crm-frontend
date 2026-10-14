@@ -113,6 +113,13 @@ describe('CompanyDocumentCard', () => {
     expect(help()).toContain('без даты доверенность действует до конца года')
   })
 
+  it('на телефоне заголовок документа — на всю ширину, «Действует» и «Скачать» — строкой ниже', async () => {
+    await mountCard({ docs: [ACTIVE] })
+    expect(w.get('[data-doc-title]').element.parentElement!.className).toContain('max-sm:basis-full')
+    expect(w.find('[data-doc-effective]').exists()).toBe(true)
+    expect(w.get('[data-doc-download]').classes()).toContain('max-sm:flex-1')
+  })
+
   it('история: прежние документы со статусами; актуальный — ждущий подписи', async () => {
     const revoked = doc({ id: 'r', number: '3', status: 4, generatedAtUtc: '2026-01-01T06:00:00Z' })
     const expired = doc({ id: 'e', number: '7', status: 2, validUntilUtc: '2026-02-01T06:00:00Z', generatedAtUtc: '2026-01-05T06:00:00Z' })

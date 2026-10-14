@@ -267,13 +267,47 @@ describe('ZTable — выбор строк', () => {
     expect(rowClick).not.toHaveBeenCalled()
   })
 
-  it('карточки на телефоне: чекбокс строки с областью нажатия 44px (отступ внутри label)', () => {
+  it('карточки на телефоне: чекбокс строки в правом верхнем углу, область нажатия 44px', () => {
     w = mountWithI18n(ZTable, { props: { columns, dataSource: rows, rowKey: 'id', rowSelection: { selectedRowKeys: [] } } })
     const label = bodyRows()[0].get('[role="checkbox"]').element.closest('label')!
-    expect(label.className).toContain('max-sm:p-3.5')
+    expect(label.className).toContain('max-sm:size-11')
+    const td = label.closest('td')!
+    expect(td.className).toEqual(expect.stringContaining('max-sm:absolute'))
+    expect(td.className).toEqual(expect.stringContaining('max-sm:right-0.5'))
+    expect(bodyRows()[0].classes()).toContain('max-sm:relative')
+    // Ведущая (первая) строка карточки — с отступом справа под чекбокс.
+    expect(bodyRows()[0].findAll('td')[1].classes()).toEqual(expect.arrayContaining(['max-sm:pr-9', 'max-sm:min-h-8.5']))
     w.unmount()
     w = mountWithI18n(ZTable, { props: { columns, dataSource: rows, rowKey: 'id', cards: false, rowSelection: { selectedRowKeys: [] } } })
-    expect(bodyRows()[0].get('[role="checkbox"]').element.closest('label')!.className).not.toContain('max-sm:p-3.5')
+    expect(bodyRows()[0].get('[role="checkbox"]').element.closest('label')!.className).not.toContain('max-sm:')
+    expect(bodyRows()[0].html()).not.toContain('max-sm:')
+  })
+
+  it('карточки: ведущая строка — колонка cardLead (первой, -order-1), иначе первая видимая на телефоне', () => {
+    const cols: ZColumn<Row>[] = [
+      { key: 'hidden', title: 'Скрыта', dataIndex: 'id', className: 'max-sm:hidden' },
+      { key: 'name', title: 'Название', dataIndex: 'name' },
+      { key: 'sum', title: 'Сумма', dataIndex: 'sum' },
+    ]
+    w = mountWithI18n(ZTable, { props: { columns: cols, dataSource: rows, rowKey: 'id', rowSelection: { selectedRowKeys: [] } } })
+    let tds = bodyRows()[0].findAll('td')
+    expect(tds[1].classes()).not.toContain('max-sm:pr-9') // скрыта на телефоне
+    expect(tds[2].classes()).toContain('max-sm:pr-9')
+    w.unmount()
+
+    w = mountWithI18n(ZTable, {
+      props: { columns: cols.map((c) => (c.key === 'sum' ? { ...c, cardLead: true } : c)), dataSource: rows, rowKey: 'id', rowSelection: { selectedRowKeys: [] } },
+    })
+    tds = bodyRows()[0].findAll('td')
+    expect(tds[3].classes()).toEqual(expect.arrayContaining(['max-sm:pr-9', 'max-sm:-order-1']))
+    expect(tds[2].classes()).not.toContain('max-sm:pr-9')
+    w.unmount()
+
+    // Без выбора отступа под чекбокс нет, но cardLead всё равно первой строкой.
+    w = mountWithI18n(ZTable, { props: { columns: cols.map((c) => (c.key === 'sum' ? { ...c, cardLead: true } : c)), dataSource: rows, rowKey: 'id' } })
+    tds = bodyRows()[0].findAll('td')
+    expect(tds[2].classes()).toContain('max-sm:-order-1')
+    expect(w.html()).not.toContain('max-sm:pr-9')
   })
 
   it('rowKey-функция (record, index)', async () => {
@@ -335,7 +369,9 @@ describe('ZTable — закреплённые колонки и прокрутк
     w = mountWithI18n(ZTable, { props: { columns, dataSource: rows, rowKey: 'id', rowSelection: { selectedRowKeys: [] }, scroll: { x: 900 } } })
     const cells = bodyRows()[0].findAll('td')
     expect(cells[0].classes()).toContain('sticky')
-    expect(cells[0].attributes('style')).toContain('left: 0px')
+    // Колонка выбора всегда с края — left-0 классом (в карточке его снимает max-sm:left-auto без !important).
+    expect(cells[0].classes()).toEqual(expect.arrayContaining(['left-0', 'max-sm:left-auto']))
+    expect(cells[0].classes().some((c) => c.includes('!'))).toBe(false)
     expect(cells[1].attributes('style')).toContain('left: 40px')
     expect(cells[2].classes()).not.toContain('sticky')
     expect(cells[3].attributes('style')).toContain('right: 0px')

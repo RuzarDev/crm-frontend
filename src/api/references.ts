@@ -55,6 +55,10 @@ export const referencesApi = {
     (await apiClient.get('/ref/classifiers', opts?.silent ? { silent: true } : undefined)).data,
   listClassifiers: async (classifierCode: string, opts?: RefListOptions): Promise<ClassifierItem[]> =>
     (await apiClient.get(`/ref/classifiers/${classifierCode}`, refListConfig(opts))).data,
+  // Несколько классификаторов одним запросом: { [код]: элементы }, неизвестный код — пустой массив. Сервер берёт
+  // не больше 64 кодов (делит стор). Без тоста: стор при сбое сам догружает коды по одному.
+  listClassifiersBatch: async (codes: string[]): Promise<Record<string, ClassifierItem[]>> =>
+    (await apiClient.get('/ref/classifiers/batch', { params: { codes: codes.join(',') }, silent: true })).data,
   // silent — окно «Данных системы» само показывает 409 (такой код уже есть) под полем, общий тост был бы вторым.
   createClassifier: async (classifierCode: string, code: string, nameRu: string, sortOrder = 0, opts?: { silent?: boolean }): Promise<ClassifierItem> =>
     (await apiClient.post('/ref/classifiers', { classifierCode, code, nameRu, sortOrder }, opts?.silent ? { silent: true } : undefined)).data,

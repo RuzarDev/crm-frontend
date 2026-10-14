@@ -187,11 +187,22 @@ const firstCellId = (index: number) => `${uid}-r${index}`
 const Content = (p: { node: unknown }) => p.node as VNodeChild
 Content.props = ['node']
 
+// Карточка на телефоне с выбором: чекбокс — в правом верхнем углу (а не отдельной строкой), рядом с первой
+// («ведущей») строкой карточки; у неё справа отступ под чекбокс. Ведущая — колонка с cardLead, иначе первая
+// видимая на телефоне.
+const HIDDEN_ON_PHONE = /(^|\s)max-sm:hidden(\s|$)/
+const cardLeadKey = computed(() => {
+  if (!props.cards || !hasSelection.value) return undefined
+  const vs = views.value
+  return (vs.find((v) => v.column.cardLead) ?? vs.find((v) => !HIDDEN_ON_PHONE.test(v.column.className ?? '')))?.key
+})
+
 const rowClass = (r: T, i: number) => cn(
   'group/row',
   small.value ? 'h-8' : 'h-10',
   isSelected(r) ? 'bg-zircon-soft' : 'bg-surface hover:bg-canvas',
   props.cards && 'max-sm:flex max-sm:h-auto max-sm:flex-col max-sm:rounded-row max-sm:border max-sm:border-line max-sm:p-3',
+  props.cards && hasSelection.value && 'max-sm:relative',
   typeof props.rowClassName === 'function' ? props.rowClassName(r, i) : props.rowClassName,
 )
 const tdBase = computed(() => cn(
@@ -200,9 +211,22 @@ const tdBase = computed(() => cn(
   props.cards && 'max-sm:flex max-sm:items-baseline max-sm:justify-between max-sm:gap-3 max-sm:border-0 max-sm:px-0 max-sm:py-1',
 ))
 const tdClass = (v: ZColumnView<T>) =>
-  cn(tdBase.value, alignClass(v.column.align), v.fixed.side && 'z-[1] bg-inherit', fixedClass(v.fixed, edges, props.cards), v.column.className)
+  cn(
+    tdBase.value, alignClass(v.column.align), v.fixed.side && 'z-[1] bg-inherit', fixedClass(v.fixed, edges, props.cards), v.column.className,
+    props.cards && v.column.cardLead && 'max-sm:-order-1',
+    // Отступ справа (pr-9) и высота (min-h-8.5) — под всю область нажатия чекбокса 44px: она не заходит ни на
+    // значение ведущей строки, ни на следующую строку карточки.
+    v.key === cardLeadKey.value && 'max-sm:min-h-8.5 max-sm:pr-9',
+  )
 const selTdClass = computed(() =>
-  cn(tdBase.value, 'w-10', leadFixed.value && 'z-[1] bg-inherit', fixedClass(selectionFixed.value, edges, props.cards), props.cards && 'max-sm:justify-start'))
+  cn(
+    // Закреплённая колонка выбора всегда с края (offset 0) — left-0 классом, не inline-стилем: в карточке его
+    // перебивает max-sm:left-auto без !important.
+    tdBase.value, 'w-10', leadFixed.value && 'left-0 z-[1] bg-inherit', fixedClass(selectionFixed.value, edges, props.cards),
+    // Карточка: правый верхний угол; z-[2] — над ячейками закреплённых колонок (у них z-[1] и фон, в
+    // карточке-флексе z-index действует и без sticky); фон прозрачный — не закрывает текст ведущей строки.
+    props.cards && 'max-sm:absolute max-sm:top-0.5 max-sm:right-0.5 max-sm:left-auto max-sm:z-[2] max-sm:w-auto max-sm:bg-transparent max-sm:p-0',
+  ))
 
 // --- раскладка и прокрутка ---
 const colCount = computed(() => props.columns.length + (hasSelection.value ? 1 : 0))
@@ -295,13 +319,13 @@ watch([pageRows, () => props.columns], () => nextTick(updateEdges))
               :data-selected="(hasSelection && isSelected(record)) || undefined"
               :aria-selected="hasSelection ? isSelected(record) : undefined"
             >
-              <td v-if="hasSelection" :class="selTdClass" :style="fixedStyle(selectionFixed)" @click.stop>
+              <td v-if="hasSelection" :class="selTdClass" @click.stop>
                 <ZCheckbox
                   :checked="isSelected(record)"
                   :disabled="!isSelectable(record)"
                   :aria-label="t('z.selectRow')"
                   :aria-labelledby="views.length ? `${selectLabelId} ${firstCellId(index)}` : undefined"
-                  :class="cn('align-middle', cards && 'max-sm:-m-3.5 max-sm:p-3.5')"
+                  :class="cn('align-middle', cards && 'max-sm:size-11 max-sm:justify-center')"
                   @change="toggleRow(record, $event)"
                 />
               </td>

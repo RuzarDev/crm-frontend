@@ -193,14 +193,16 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
 
     <!-- Актуальный документ -->
     <template v-if="current">
-      <div class="flex flex-wrap items-start gap-3">
-        <div class="min-w-0 flex-1">
+      <!-- На телефоне заголовок — на всю ширину, статус и «Скачать» — строкой ниже (иначе зажатый между ними
+           «Договор № …» ломался по слову в строку). -->
+      <div class="flex flex-wrap items-start gap-3 max-sm:items-center">
+        <div class="min-w-0 flex-1 max-sm:basis-full">
           <h2 :id="titleId" class="m-0 text-lg leading-[26px] font-semibold tracking-[-0.01em] text-ink" data-doc-title>
             {{ docTitle(current) }}
           </h2>
           <p class="m-0 mt-1 text-base text-ink-3" data-doc-meta>{{ metaParts(current) }}</p>
         </div>
-        <ZTag v-if="isDocumentEffective(current)" tone="done" class="mt-1">{{ t('client.company.doc.effective') }}</ZTag>
+        <ZTag v-if="isDocumentEffective(current)" tone="done" class="mt-1 max-sm:mt-0" data-doc-effective>{{ t('client.company.doc.effective') }}</ZTag>
         <ZButton
           :loading="downloadingId === current.id"
           :class="cn(actionBtn, 'border border-solid border-line-strong bg-surface font-medium enabled:hover:bg-sunken max-sm:w-full')"
