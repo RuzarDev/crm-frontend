@@ -1,5 +1,6 @@
 // Гр. 31 «Характеристики товара в группе» (как окно КЕДЕН, пакет 7): строки товара — наименование, количество в своей
-// единице ОКЕИ (не гр. 41), фактурная стоимость (валюта гр. 22), производитель, товарный знак, марка, модель, артикул,
+// единице ОКЕИ (не гр. 41; у единственной строки без своего — гр. 41), фактурная стоимость (валюта гр. 22; у единственной
+// строки без своей — гр. 42), производитель, товарный знак, марка, модель, артикул,
 // стандарт, сорт, серийные номера. Чистые функции: пустая строка, копия, строка 1 из прежних одиночных полей ответа,
 // итоги строк против гр. 41 / гр. 42, марки для ТРОИС.
 import type { Import40GoodsCharacteristic, Import40GoodsItemInput } from '@/types/api'
@@ -33,11 +34,12 @@ const has = (v: unknown) => v !== null && v !== undefined && (typeof v !== 'stri
 /** Строка пустая (сервер такие отбрасывает). */
 export const isBlankCharacteristic = (r: GoodsRowValue): boolean => !Object.values(r).some(has)
 
-/** Прежний ответ сервера (без строк): одиночные поля товара — строка 1. Все пусто — строк нет. */
+/**
+ * Прежний ответ сервера (без строк) и распознанный инвойс: одиночные поля товара — строка 1. Все пусто — строк нет.
+ * Количество, единица и стоимость в строку не копируются: единственная строка без них берёт гр. 41 / гр. 42 товара
+ * (rowMeasure, gr31Text, сервер), а копия не следовала бы правкам гр. 41 / гр. 42 (итоговое ревью пакета 7, I1).
+ */
 export interface LegacyGoodsFields {
-  quantity?: number | null
-  unitCode?: string | null
-  invoiceValue?: number | null
   tradeMarkName?: string | null
   productMarkName?: string | null
   productModelName?: string | null
@@ -48,9 +50,6 @@ export interface LegacyGoodsFields {
 export function rowsFromLegacy(g: LegacyGoodsFields): GoodsRowValue[] {
   const row: GoodsRowValue = {
     ...blankCharacteristic(),
-    quantity: g.quantity ?? null,
-    unitCode: g.unitCode ?? null,
-    invoiceValue: g.invoiceValue ?? null,
     tradeMarkName: g.tradeMarkName ?? null,
     productMarkName: g.productMarkName ?? null,
     productModelName: g.productModelName ?? null,
@@ -95,6 +94,17 @@ export function characteristicTotals(
     quantityMismatch: quantity != null && g.quantity != null && quantity !== round6(g.quantity),
     valueMismatch: value != null && g.customsValue != null && value !== round6(g.customsValue),
   }
+}
+
+/**
+ * Строка, которая следует за товаром (гр. 41 / гр. 42): единственная непустая строка; непустых нет — единственная строка
+ * таблицы (новая пустая). Иначе (2+ строк) — null: подстановки нет. То же правило, что сервер (Measure, Gr31Text).
+ */
+export function singleRowOf(rows: readonly GoodsRowValue[] | null | undefined): GoodsRowValue | null {
+  const all = rows ?? []
+  const filled = all.filter((r) => !isBlankCharacteristic(r))
+  if (filled.length === 1) return filled[0]
+  return !filled.length && all.length === 1 ? all[0] : null
 }
 
 /**

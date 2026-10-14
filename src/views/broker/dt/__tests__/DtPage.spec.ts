@@ -161,6 +161,7 @@ beforeEach(() => {
   ;(globalThis as { URL: typeof URL }).URL.revokeObjectURL = vi.fn()
 })
 afterEach(() => {
+  confirmState.resolve(false) // незакрытое окно подтверждения (напр. «Печатная форма готова») не переходит в следующий тест
   w?.unmount()
   document.body.innerHTML = ''
   vi.clearAllMocks()
@@ -677,10 +678,17 @@ describe('DtPage: сохранение и режимы', () => {
     expect(api.updateDeclaration).toHaveBeenCalledTimes(2)
   })
 
+  // Вкладка печати — заглушка окна (window.open по клику, PDF — в её location).
+  const fakeTab = () => {
+    const tab = { closed: false, location: { href: '' }, document: { title: '', body: { textContent: '' } }, close: vi.fn(() => { tab.closed = true }) }
+    return tab
+  }
+
   it('правка: «Печать бланка» сначала сохраняет; сохранение не удалось — бланк не печатается', async () => {
     // Платежи товара записаны и свежие — вопроса о гр. 47 перед печатью нет.
     server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, goodsItems: [fullGoodsDto({ needsTpinRecalc: false })] })] })
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const tabs = [fakeTab(), fakeTab()]
+    const openSpy = vi.spyOn(window, 'open').mockReturnValueOnce(tabs[0] as unknown as Window).mockReturnValueOnce(tabs[1] as unknown as Window)
     const printFromMore = async () => {
       await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
       await settle()
@@ -692,12 +700,40 @@ describe('DtPage: сохранение и режимы', () => {
     expect(api.updateDeclaration).toHaveBeenCalledTimes(1)
     expect(api.updateDeclaration.mock.invocationCallOrder[0]).toBeLessThan(api.blankPdf.mock.invocationCallOrder[0])
     expect(api.blankPdf).toHaveBeenCalledWith('case1', 'dt1')
+    // (баг, итоговое ревью I2) Вкладка — по клику, до сохранения и PDF (поздний window.open блокируется); PDF — в неё.
     expect(openSpy).toHaveBeenCalledTimes(1)
+    expect(openSpy).toHaveBeenCalledWith('', '_blank')
+    expect(openSpy.mock.invocationCallOrder[0]).toBeLessThan(api.updateDeclaration.mock.invocationCallOrder[0])
+    expect(tabs[0].location.href).toBe('blob:x')
+    expect(tabs[0].document.body.textContent).toBe('Готовим печатную форму ДТ…')
+    expect(confirmState.open).toBe(false)
     api.updateDeclaration.mockRejectedValueOnce(Object.assign(new Error('500'), { response: { status: 500 } }))
     await printFromMore()
     expect(api.updateDeclaration).toHaveBeenCalledTimes(2)
     expect(api.blankPdf).toHaveBeenCalledTimes(1)
-    expect(openSpy).toHaveBeenCalledTimes(1)
+    // Сохранение не удалось — открытая по клику вкладка закрывается.
+    expect(openSpy).toHaveBeenCalledTimes(2)
+    expect(tabs[1].close).toHaveBeenCalled()
+    expect(tabs[1].location.href).toBe('')
+    openSpy.mockRestore()
+  })
+
+  it('(баг) печать: браузер заблокировал вкладку — окно «Открыть печатную форму», по кнопке — PDF', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, goodsItems: [fullGoodsDto({ needsTpinRecalc: false })] })] })
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    await open()
+    await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
+    await settle()
+    ;([...document.body.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent?.includes('Печать бланка')) as HTMLElement).click()
+    await settle()
+    expect(api.blankPdf).toHaveBeenCalledTimes(1)
+    expect(confirmState.open).toBe(true)
+    expect(confirmState.title).toBe('Печатная форма готова')
+    expect(confirmState.content).toContain('блокировка всплывающих окон')
+    expect(confirmState.okText).toBe('Открыть печатную форму')
+    confirmState.resolve(true)
+    await settle()
+    expect(openSpy).toHaveBeenLastCalledWith('blob:x', '_blank')
     openSpy.mockRestore()
   })
 
@@ -728,6 +764,23 @@ describe('DtPage: сохранение и режимы', () => {
     openSpy.mockRestore()
   })
 
+  it('(баг) печать: расчёт перед печатью не удался — бланк не печатается, вкладка закрывается', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, factPayments: [], goodsItems: [fullGoodsDto({ payments: [], needsTpinRecalc: false })] })] })
+    api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 841067.1 }] })
+    api.calculatePayments.mockRejectedValueOnce(Object.assign(new Error('500'), { response: { status: 500 } }))
+    const tab = fakeTab()
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    await open()
+    await printFromMenu()
+    confirmState.resolve(true)
+    await settle()
+    await settle()
+    expect(api.calculatePayments).toHaveBeenCalledTimes(1)
+    expect(api.blankPdf).not.toHaveBeenCalled()
+    expect(tab.close).toHaveBeenCalled()
+    openSpy.mockRestore()
+  })
+
   it('печать: «Рассчитать и печатать» — расчёт, запись гр. 47 и гр. В, сохранение, затем бланк', async () => {
     server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, factPayments: [], goodsItems: [fullGoodsDto({ payments: [], needsTpinRecalc: false })] })] })
     api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 841067.1 }] })
@@ -738,14 +791,20 @@ describe('DtPage: сохранение и режимы', () => {
       ] }],
       totalsByTaxMode: { 1010: 665.38, 5060: 175442.94 }, grandTotalB: 176109,
     })
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const tab = fakeTab()
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
     await open()
     await printFromMenu()
+    // С вопросом вкладка открывается по клику ответа — иначе она закрыла бы окно вопроса.
+    expect(openSpy).not.toHaveBeenCalled()
     confirmState.resolve(true)
     await settle()
     await settle()
+    expect(openSpy).toHaveBeenCalledTimes(1)
+    expect(openSpy.mock.invocationCallOrder[0]).toBeLessThan(api.calculatePayments.mock.invocationCallOrder[0])
     expect(api.calculatePayments).toHaveBeenCalledTimes(1)
     expect(api.blankPdf).toHaveBeenCalledTimes(1)
+    expect(tab.location.href).toBe('blob:x')
     const lastPut = api.updateDeclaration.mock.calls.at(-1)![2] as { goodsItems: { payments: { taxModeCode: string; amountKzt: number }[] }[]; factPayments: { taxModeCode: string; amount: number }[] }
     expect(lastPut.goodsItems[0].payments.map((p) => [p.taxModeCode, p.amountKzt])).toEqual([['1010', 665.38], ['5060', 175442.94]])
     expect(lastPut.factPayments.map((p) => [p.taxModeCode, p.amount])).toEqual([['1010', 666], ['5060', 175443]])

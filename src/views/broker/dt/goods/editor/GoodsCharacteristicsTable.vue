@@ -11,9 +11,9 @@ import { cn } from '@/ui/cn'
 import { formatNumberIn } from '@/ui/number'
 import GoodsTroisHint from './GoodsTroisHint.vue'
 import OkeiUnitSelect from './OkeiUnitSelect.vue'
-import { blankCharacteristic, characteristicTotals, cloneCharacteristic, rowsWithoutMeasure, type GoodsRowValue } from './characteristics'
+import { blankCharacteristic, characteristicTotals, cloneCharacteristic, rowsWithoutMeasure, singleRowOf, type GoodsRowValue } from './characteristics'
 import { gr31Text } from './gr31Text'
-import { okeiLabel, okeiShort } from './okei'
+import { okeiCode, okeiLabel, okeiShort } from './okei'
 import type { GoodsSectionProps } from './types'
 
 // Гр. 31 «Характеристики товара в группе» (как окно КЕДЕН): строки товара — наименование, количество в своей единице ОКЕИ
@@ -79,10 +79,24 @@ const setStr = (r: GoodsRowValue, key: StrKey, v: string) => { r[key] = v.trim()
 
 // Сводка строки (свёрнутая строка таблицы / карточки).
 const num = (v: number | null | undefined) => (v == null ? '' : formatNumberIn(locale.value, v, 6))
-const qtyText = (r: GoodsRowValue) => (r.quantity == null ? '—' : [num(r.quantity), okeiShort(r.unitCode) ?? r.unitCode ?? ''].join(' ').trim())
-const valueText = (r: GoodsRowValue) => (r.invoiceValue == null ? '—' : num(r.invoiceValue))
+const measureText = (q: number, unitCode: string | null | undefined, unitName?: string | null) =>
+  [num(q), okeiShort(unitCode) ?? (unitName || okeiCode(unitCode)) ?? ''].join(' ').trim()
+
+// Единственная строка следует за товаром (как сервер и текст гр. 31): без своего количества — гр. 41, без своей стоимости —
+// гр. 42. Такие значения показываются подсказкой «из гр. 41: …» (поле пустое, копия в строку не пишется).
+const single = computed(() => singleRowOf(rows.value))
+const fromGr41 = (r: GoodsRowValue): string | null =>
+  r === single.value && r.quantity == null && props.item.quantity != null
+    ? tc('fromGr41', { value: measureText(props.item.quantity, props.item.unitCode, props.item.unit) })
+    : null
+const fromGr42 = (r: GoodsRowValue): string | null =>
+  r === single.value && r.invoiceValue == null && props.item.customsValue != null
+    ? tc('fromGr42', { value: num(props.item.customsValue) })
+    : null
+const qtyText = (r: GoodsRowValue) => (r.quantity == null ? fromGr41(r) ?? '—' : measureText(r.quantity, r.unitCode, r.unitCode))
+const valueText = (r: GoodsRowValue) => (r.invoiceValue == null ? fromGr42(r) ?? '—' : num(r.invoiceValue))
 const nameText = (r: GoodsRowValue) => r.name || props.item.description || props.item.tnvedDescription || tc('noName')
-const modelText = (r: GoodsRowValue) => [r.productModelName, r.productArticle].filter(Boolean).join(' · ') || '—'
+const modelText = (r: GoodsRowValue) => [r.productModelName, r.productArticle].map((x) => (x ?? '').trim()).filter(Boolean).join(' · ') || '—'
 
 const currency = computed(() => props.ctx.currency || props.item.currency || '')
 const totals = computed(() => characteristicTotals(props.item))
@@ -117,12 +131,23 @@ const rowKey = (r: GoodsRowValue) => {
   return k
 }
 
-const head = 'hidden gap-3 px-2 text-xs text-muted @2xl:grid @2xl:grid-cols-[2rem_minmax(0,1fr)_8rem_8rem_minmax(0,10rem)_6.5rem]'
-const summary = cn(
-  'grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1',
-  '@2xl:grid-cols-[2rem_minmax(0,1fr)_8rem_8rem_minmax(0,10rem)_6.5rem]',
-)
-const meta = 'col-start-2 text-[13px] text-ink-2 @2xl:col-start-auto @2xl:row-start-1 tabular-nums'
+// Широко — одна сетка у заголовка и у свёрнутой строки: № · наименование · количество · стоимость · модель/артикул ·
+// кнопки (3 × 36 px). У каждой ячейки явные строка и колонка: ячейка с одной лишь строкой (row-start) раскладчик сетки
+// ставит раньше ячеек без позиции — количество и кнопки «уезжали» перед № и наименованием (баг 14.10, ящик ~800 px).
+// Узко — карточка: № · наименование · кнопки, ниже — количество, стоимость, модель/артикул на всю ширину (подпись не режется).
+const cols = '@2xl:grid-cols-[2rem_minmax(0,1fr)_8rem_8rem_minmax(0,10rem)_7.25rem]'
+const head = cn('hidden gap-x-3 border border-transparent px-2 text-xs text-muted @2xl:grid', cols)
+const summary = cn('grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1', cols)
+const cell = {
+  no: 'col-start-1 row-start-1',
+  name: 'col-start-2 row-start-1',
+  qty: '@2xl:col-start-3',
+  value: '@2xl:col-start-4',
+  model: '@2xl:col-start-5',
+  actions: 'col-start-3 row-start-1 @2xl:col-start-6',
+}
+const meta = 'col-span-2 col-start-2 flex min-w-0 gap-1 text-[13px] text-ink-2 tabular-nums @2xl:col-span-1 @2xl:row-start-1'
+const metaLabel = 'shrink-0 text-muted @2xl:hidden'
 const iconBtn = cn(
   'inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3',
   'outline-hidden transition-colors hover:bg-sunken hover:text-ink focus-visible:shadow-focus max-sm:size-11',
@@ -142,8 +167,13 @@ const tall = 'max-sm:h-11'
 
     <p v-if="!rows.length" class="m-0 text-[13px] text-muted" data-chars-empty>{{ tc('empty') }}</p>
     <template v-else>
-      <div :class="head" aria-hidden="true">
-        <span>№</span><span>{{ tc('name') }}</span><span>{{ tc('quantity') }}</span><span>{{ tc('value') }}</span><span>{{ tc('modelArticle') }}</span><span />
+      <div :class="head" aria-hidden="true" data-chars-head>
+        <span :class="cell.no">№</span>
+        <span :class="cell.name">{{ tc('name') }}</span>
+        <span :class="[cell.qty, '@2xl:row-start-1']">{{ tc('quantity') }}</span>
+        <span :class="[cell.value, '@2xl:row-start-1']">{{ tc('value') }}</span>
+        <span :class="[cell.model, '@2xl:row-start-1']">{{ tc('modelArticle') }}</span>
+        <span :class="cell.actions" />
       </div>
       <div
         v-for="(r, i) in rows"
@@ -152,20 +182,30 @@ const tall = 'max-sm:h-11'
         :data-char-row="i"
         :data-open="open.has(r) ? 'true' : undefined"
       >
-        <div :class="summary">
-          <span class="text-[13px] text-muted tabular-nums">{{ i + 1 }}</span>
+        <div :class="summary" data-char-summary>
+          <span :class="[cell.no, 'text-[13px] text-muted tabular-nums']" data-cell="no">{{ i + 1 }}</span>
           <button
             type="button"
-            class="min-w-0 cursor-pointer truncate border-0 bg-transparent p-0 text-left text-[13px] text-ink outline-hidden focus-visible:shadow-focus"
+            :class="[cell.name, 'min-w-0 cursor-pointer truncate border-0 bg-transparent p-0 text-left text-[13px] text-ink outline-hidden focus-visible:shadow-focus']"
+            data-cell="name"
             :aria-expanded="open.has(r)"
             :title="nameText(r)"
             :data-char-toggle="i"
             @click="toggle(r)"
           >{{ nameText(r) }}</button>
-          <span :class="meta" :data-char-qty="i"><span class="text-muted @2xl:hidden">{{ tc('quantity') }}: </span>{{ qtyText(r) }}</span>
-          <span :class="meta"><span class="text-muted @2xl:hidden">{{ tc('value') }}: </span>{{ valueText(r) }}</span>
-          <span :class="[meta, 'truncate']"><span class="text-muted @2xl:hidden">{{ tc('modelArticle') }}: </span>{{ modelText(r) }}</span>
-          <div class="col-start-3 row-start-1 flex items-center justify-end gap-0.5 @2xl:col-start-auto">
+          <span :class="[meta, cell.qty]" data-cell="qty" :data-char-qty="i">
+            <span :class="metaLabel">{{ tc('quantity') }}:</span>
+            <span class="truncate" :class="r.quantity == null && fromGr41(r) ? 'text-muted' : ''" :title="qtyText(r)" :data-char-qty-from-goods="r.quantity == null && fromGr41(r) ? i : undefined">{{ qtyText(r) }}</span>
+          </span>
+          <span :class="[meta, cell.value]" data-cell="value" :data-char-value="i">
+            <span :class="metaLabel">{{ tc('value') }}:</span>
+            <span class="truncate" :class="r.invoiceValue == null && fromGr42(r) ? 'text-muted' : ''" :title="valueText(r)">{{ valueText(r) }}</span>
+          </span>
+          <span :class="[meta, cell.model]" data-cell="model" :data-char-model="i">
+            <span :class="metaLabel">{{ tc('modelArticle') }}:</span>
+            <span class="truncate" :title="modelText(r)">{{ modelText(r) }}</span>
+          </span>
+          <div :class="[cell.actions, 'flex items-center justify-end gap-0.5']" data-cell="actions">
             <button type="button" :class="iconBtn" :aria-label="tc('toggle', { n: i + 1 })" :title="tc('toggle', { n: i + 1 })" @click="toggle(r)">
               <PhCaretDown :size="16" aria-hidden="true" :class="open.has(r) ? 'rotate-180' : ''" />
             </button>
@@ -185,13 +225,13 @@ const tall = 'max-sm:h-11'
             <ZInput v-uppercase :value="r.name ?? ''" :maxlength="ROW_NAME_MAX" :disabled="readonly" :class="tall" :data-f="`char-${i}-name`" @update:value="setStr(r, 'name', $event)" />
           </ZField>
           <ZField graph="31" :label="tc('quantity')">
-            <ZNumber :value="r.quantity ?? null" :min="0" :disabled="readonly" :class="tall" :data-f="`char-${i}-quantity`" @update:value="r.quantity = $event" />
+            <ZNumber :value="r.quantity ?? null" :min="0" :disabled="readonly" :placeholder="fromGr41(r) ?? undefined" :class="tall" :data-f="`char-${i}-quantity`" @update:value="r.quantity = $event" />
           </ZField>
           <ZField graph="31" :label="tc('unit')">
             <OkeiUnitSelect v-model:value="r.unitCode" :disabled="readonly" :placeholder="tc('unitPlaceholder')" :class="tall" :data-f="`char-${i}-unit`" />
           </ZField>
           <ZField graph="31" :label="currency ? tc('valueIn', { currency }) : tc('value')" :class="wide">
-            <ZNumber :value="r.invoiceValue ?? null" :min="0" :disabled="readonly" :class="tall" :data-f="`char-${i}-value`" @update:value="r.invoiceValue = $event" />
+            <ZNumber :value="r.invoiceValue ?? null" :min="0" :disabled="readonly" :placeholder="fromGr42(r) ?? undefined" :class="tall" :data-f="`char-${i}-value`" @update:value="r.invoiceValue = $event" />
           </ZField>
           <ZField graph="31" :label="tc('manufacturer')" :class="full">
             <ZInput v-uppercase :value="r.manufacturerName ?? ''" :maxlength="MANUFACTURER_MAX" :disabled="readonly" :class="tall" :data-f="`char-${i}-manufacturer`" @update:value="setStr(r, 'manufacturerName', $event)" />

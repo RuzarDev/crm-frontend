@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ensureOkeiUnits, resetOkeiUnits } from '../editor/okei'
-import { characteristicTotals, isBlankCharacteristic, rowsFromLegacy, rowsWithoutMeasure, tradeMarksOf } from '../editor/characteristics'
+import { characteristicTotals, isBlankCharacteristic, rowsFromLegacy, rowsWithoutMeasure, singleRowOf, tradeMarksOf } from '../editor/characteristics'
 import { gr31Number, gr31Packaging, gr31Text } from '../editor/gr31Text'
 
 // Тот же образец, что в серверном Gr31CharacteristicRowsTests (печать бланка) — текст должен совпадать.
@@ -58,6 +58,19 @@ describe('текст гр. 31 как в КЕДЕН', () => {
     expect(two.split('\n')[1]).toContain('КОЛИЧЕСТВО: 5 ШТ;')
   })
 
+  // (баг, итоговое ревью пакета 7, I1) Единственная строка следует за гр. 41 / гр. 42 — так же, как сервер (Gr31Text).
+  it('единственная строка без стоимости — гр. 42; строк нет, а гр. 41 / гр. 42 есть — одна строка с ними', () => {
+    const base = { description: 'ПАРТА', tnvedDescription: null, cargoPlacesQuantity: null, packagesCount: null, packageKindCode: null, packageQuantity: null }
+    expect(gr31Text({ ...base, quantity: 800, unitCode: '796', customsValue: 4233.6, characteristics: [{ tradeMarkName: 'SUNO' }] }))
+      .toContain('СТОИМОСТЬ: 4233.6, КОЛИЧЕСТВО: 800 ШТ;')
+    expect(gr31Text({ ...base, quantity: 800, unitCode: '796', customsValue: 4233.6, characteristics: [{ tradeMarkName: 'SUNO' }, { productModelName: 'M2' }] }))
+      .not.toContain('4233.6')
+    expect(gr31Text({ ...base, quantity: 800, unitCode: '796', customsValue: 4233.6, characteristics: [{}] })).toBe(
+      '1. ПАРТА, ПАРТА: ПРОИЗВОДИТЕЛЬ: ОТСУТСТВУЕТ, ТОВАРНЫЙ ЗНАК: ОТСУТСТВУЕТ, МАРКА: ОТСУТСТВУЕТ, МОДЕЛЬ: ОТСУТСТВУЕТ, '
+      + 'АРТИКУЛ: ОТСУТСТВУЕТ, СТАНДАРТ (ГОСТ): ОТСУТСТВУЕТ, СОРТ: ОТСУТСТВУЕТ, СТОИМОСТЬ: 4233.6, КОЛИЧЕСТВО: 800 ШТ;')
+    expect(gr31Text({ ...base, quantity: null, unitCode: null, customsValue: null, characteristics: [] })).toBe('1. ПАРТА')
+  })
+
   it('строк нет — только описание; ни описания, ни мест — пусто', () => {
     const base = { tnvedDescription: 'ВИНТЫ', cargoPlacesQuantity: null, packagesCount: null, packageKindCode: null, packageQuantity: null }
     expect(gr31Text({ ...base, description: null, characteristics: [] })).toBe('1. ВИНТЫ')
@@ -75,11 +88,13 @@ describe('текст гр. 31 как в КЕДЕН', () => {
 })
 
 describe('строки характеристик: помощники', () => {
-  it('строка 1 из прежних одиночных полей; всё пусто — строк нет', () => {
-    expect(rowsFromLegacy({ tradeMarkName: 'ACME', quantity: 5, unitCode: '796', extras: { standardName: 'ГОСТ' } })).toEqual([
-      expect.objectContaining({ tradeMarkName: 'ACME', quantity: 5, unitCode: '796', standardName: 'ГОСТ', name: null }),
+  it('строка 1 из прежних одиночных полей — без копии гр. 41 / гр. 42; всё пусто — строк нет', () => {
+    const legacy = { tradeMarkName: 'ACME', quantity: 5, unitCode: '796', invoiceValue: 9, extras: { standardName: 'ГОСТ' } }
+    expect(rowsFromLegacy(legacy)).toEqual([
+      expect.objectContaining({ tradeMarkName: 'ACME', quantity: null, unitCode: null, invoiceValue: null, standardName: 'ГОСТ', name: null }),
     ])
     expect(rowsFromLegacy({})).toEqual([])
+    expect(rowsFromLegacy({ quantity: 5, invoiceValue: 9 } as Parameters<typeof rowsFromLegacy>[0])).toEqual([])
     expect(isBlankCharacteristic({ name: ' ', quantity: null })).toBe(true)
   })
 
@@ -100,6 +115,17 @@ describe('строки характеристик: помощники', () => {
     expect(rowsWithoutMeasure({ quantity: null, unitCode: null, characteristics: [{ quantity: 5 }] })).toEqual({ noUnit: [1], noQuantity: [] })
     expect(rowsWithoutMeasure({ quantity: 800, unitCode: '796', characteristics: [{ tradeMarkName: 'A' }, {}, { quantity: 3 }, { quantity: 1, unitCode: '796' }] }))
       .toEqual({ noUnit: [3], noQuantity: [1] })
+  })
+
+  it('строка, которая следует за товаром: единственная непустая или единственная пустая', () => {
+    const a = { tradeMarkName: 'A' }
+    const blank = { name: null }
+    expect(singleRowOf([a])).toBe(a)
+    expect(singleRowOf([blank, a])).toBe(a)
+    expect(singleRowOf([blank])).toBe(blank)
+    expect(singleRowOf([blank, { name: ' ' }])).toBeNull()
+    expect(singleRowOf([a, { productModelName: 'B' }])).toBeNull()
+    expect(singleRowOf([])).toBeNull()
   })
 
   it('марки всех строк (ТРОИС), без пустых', () => {

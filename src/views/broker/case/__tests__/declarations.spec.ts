@@ -33,14 +33,15 @@ describe('dtRowActions — «Заполнить»/XML в строке ДТ (ре
 })
 
 describe('previewToUpsert — распознавание инвойса в ДТ', () => {
-  it('марка, знак и производитель — в строку 1 характеристик гр. 31 (с количеством и стоимостью товара)', () => {
+  it('марка, знак и производитель — в строку 1 характеристик гр. 31; количество и стоимость — у товара, не копией', () => {
     const body = previewToUpsert({ goodsItems: [
       { description: 'СУМКИ', quantity: 300, invoiceValue: 900, tradeMarkName: 'SAMSONITE', productMarkName: 'S', manufacturerName: 'SAMSONITE LTD' },
       { description: 'РЕМНИ' },
     ] })
     expect(body.goodsItems![0].characteristics).toEqual([expect.objectContaining({
-      tradeMarkName: 'SAMSONITE', productMarkName: 'S', manufacturerName: 'SAMSONITE LTD', quantity: 300, invoiceValue: 900, unitCode: null,
+      tradeMarkName: 'SAMSONITE', productMarkName: 'S', manufacturerName: 'SAMSONITE LTD', quantity: null, invoiceValue: null, unitCode: null,
     })])
+    expect(body.goodsItems![0]).toMatchObject({ quantity: 300, invoiceValue: 900 })
     expect(body.goodsItems![0]).not.toHaveProperty('tradeMarkName')
     expect(body.goodsItems![1].characteristics).toEqual([])
   })

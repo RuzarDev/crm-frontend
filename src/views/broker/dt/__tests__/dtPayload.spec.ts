@@ -129,7 +129,7 @@ describe('dtPayload — туда и обратно', () => {
     const g = dtoToForm(legacy).goodsItems[0]
     expect(g.characteristics).toEqual([expect.objectContaining({
       tradeMarkName: 'ACME', productModelName: 'M-1', manufacturerName: 'ACME LTD', productSortName: 'I', standardName: 'ГОСТ 1',
-      quantity: 100, unitCode: '796', invoiceValue: 1500.5,
+      quantity: null, unitCode: null, invoiceValue: null,
     })])
     // Сорт и стандарт — только в строках: в доп. сведениях формы их нет (сервер берёт строки).
     expect(g.extras).not.toHaveProperty('productSortName')
