@@ -276,7 +276,7 @@ describe('ZTable — выбор строк', () => {
     expect(td.className).toEqual(expect.stringContaining('max-sm:right-0.5'))
     expect(bodyRows()[0].classes()).toContain('max-sm:relative')
     // Ведущая (первая) строка карточки — с отступом справа под чекбокс.
-    expect(bodyRows()[0].findAll('td')[1].classes()).toContain('max-sm:pr-9')
+    expect(bodyRows()[0].findAll('td')[1].classes()).toEqual(expect.arrayContaining(['max-sm:pr-9', 'max-sm:min-h-8.5']))
     w.unmount()
     w = mountWithI18n(ZTable, { props: { columns, dataSource: rows, rowKey: 'id', cards: false, rowSelection: { selectedRowKeys: [] } } })
     expect(bodyRows()[0].get('[role="checkbox"]').element.closest('label')!.className).not.toContain('max-sm:')
@@ -369,7 +369,9 @@ describe('ZTable — закреплённые колонки и прокрутк
     w = mountWithI18n(ZTable, { props: { columns, dataSource: rows, rowKey: 'id', rowSelection: { selectedRowKeys: [] }, scroll: { x: 900 } } })
     const cells = bodyRows()[0].findAll('td')
     expect(cells[0].classes()).toContain('sticky')
-    expect(cells[0].attributes('style')).toContain('left: 0px')
+    // Колонка выбора всегда с края — left-0 классом (в карточке его снимает max-sm:left-auto без !important).
+    expect(cells[0].classes()).toEqual(expect.arrayContaining(['left-0', 'max-sm:left-auto']))
+    expect(cells[0].classes().some((c) => c.includes('!'))).toBe(false)
     expect(cells[1].attributes('style')).toContain('left: 40px')
     expect(cells[2].classes()).not.toContain('sticky')
     expect(cells[3].attributes('style')).toContain('right: 0px')

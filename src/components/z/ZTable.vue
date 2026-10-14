@@ -214,15 +214,18 @@ const tdClass = (v: ZColumnView<T>) =>
   cn(
     tdBase.value, alignClass(v.column.align), v.fixed.side && 'z-[1] bg-inherit', fixedClass(v.fixed, edges, props.cards), v.column.className,
     props.cards && v.column.cardLead && 'max-sm:-order-1',
-    v.key === cardLeadKey.value && 'max-sm:pr-9',
+    // Отступ справа (pr-9) и высота (min-h-8.5) — под всю область нажатия чекбокса 44px: она не заходит ни на
+    // значение ведущей строки, ни на следующую строку карточки.
+    v.key === cardLeadKey.value && 'max-sm:min-h-8.5 max-sm:pr-9',
   )
 const selTdClass = computed(() =>
   cn(
-    tdBase.value, 'w-10', leadFixed.value && 'z-[1] bg-inherit', fixedClass(selectionFixed.value, edges, props.cards),
-    // left! — перебить inline left закреплённой колонки выбора (fixedStyle); z-[2] — над ячейками закреплённых
-    // колонок (у них z-[1] и фон, в карточке-флексе z-index действует и без sticky); фон прозрачный — не закрывает
-    // текст ведущей строки. Отступ ведущей строки (pr-9) — под всю область нажатия 44px.
-    props.cards && 'max-sm:absolute max-sm:top-0.5 max-sm:right-0.5 max-sm:left-auto! max-sm:z-[2] max-sm:w-auto max-sm:bg-transparent max-sm:p-0',
+    // Закреплённая колонка выбора всегда с края (offset 0) — left-0 классом, не inline-стилем: в карточке его
+    // перебивает max-sm:left-auto без !important.
+    tdBase.value, 'w-10', leadFixed.value && 'left-0 z-[1] bg-inherit', fixedClass(selectionFixed.value, edges, props.cards),
+    // Карточка: правый верхний угол; z-[2] — над ячейками закреплённых колонок (у них z-[1] и фон, в
+    // карточке-флексе z-index действует и без sticky); фон прозрачный — не закрывает текст ведущей строки.
+    props.cards && 'max-sm:absolute max-sm:top-0.5 max-sm:right-0.5 max-sm:left-auto max-sm:z-[2] max-sm:w-auto max-sm:bg-transparent max-sm:p-0',
   ))
 
 // --- раскладка и прокрутка ---
@@ -316,7 +319,7 @@ watch([pageRows, () => props.columns], () => nextTick(updateEdges))
               :data-selected="(hasSelection && isSelected(record)) || undefined"
               :aria-selected="hasSelection ? isSelected(record) : undefined"
             >
-              <td v-if="hasSelection" :class="selTdClass" :style="fixedStyle(selectionFixed)" @click.stop>
+              <td v-if="hasSelection" :class="selTdClass" @click.stop>
                 <ZCheckbox
                   :checked="isSelected(record)"
                   :disabled="!isSelectable(record)"
