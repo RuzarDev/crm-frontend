@@ -150,8 +150,10 @@ const suggestOffice = (row: WarehouseRegistryItem) => {
   }
 }
 const pickOffice = (code: string) => { props.form.goodsLocationCustomsOfficeCode = code }
+// В XML гр. 30 уходит код уровня ДГД (КЕДЕН требует при импорте): пост 55302 → 55300.
 const officePlaceholder = computed(() => {
-  const code = (props.form.submissionCustomsOfficeCode ?? '').trim()
+  const post = (props.form.submissionCustomsOfficeCode ?? '').trim()
+  const code = /^\d{5}$/.test(post) ? `${post.slice(0, 3)}00` : post
   return code ? tc('officeAsSubmission', { code }) : tc('officeAsSubmissionEmpty')
 })
 

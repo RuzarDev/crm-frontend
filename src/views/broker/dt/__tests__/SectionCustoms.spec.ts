@@ -286,9 +286,9 @@ describe('SectionCustoms — гр. 30: страна, орган, станция,
     expect(form.goodsLocationCountryCode).toBe('CN')
   })
 
-  it('орган места: пусто = пост подачи (подсказка называет код); выбор и очистка', async () => {
+  it('орган места: пусто = ДГД поста подачи (подсказка называет код уровня ДГД); выбор и очистка', async () => {
     await mount({ submissionCustomsOfficeCode: '55302' })
-    expect(inputOf('[data-location-office]').attributes('placeholder')).toBe('как пост подачи: 55302')
+    expect(inputOf('[data-location-office]').attributes('placeholder')).toBe('ДГД поста подачи: 55300')
     await open('[data-location-office]')
     await pick('55300')
     expect(form.goodsLocationCustomsOfficeCode).toBe('55300')
