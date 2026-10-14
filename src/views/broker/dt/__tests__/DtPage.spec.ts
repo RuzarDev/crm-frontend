@@ -678,6 +678,8 @@ describe('DtPage: сохранение и режимы', () => {
   })
 
   it('правка: «Печать бланка» сначала сохраняет; сохранение не удалось — бланк не печатается', async () => {
+    // Платежи товара записаны и свежие — вопроса о гр. 47 перед печатью нет.
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, goodsItems: [fullGoodsDto({ needsTpinRecalc: false })] })] })
     const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
     const printFromMore = async () => {
       await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
@@ -696,6 +698,79 @@ describe('DtPage: сохранение и режимы', () => {
     expect(api.updateDeclaration).toHaveBeenCalledTimes(2)
     expect(api.blankPdf).toHaveBeenCalledTimes(1)
     expect(openSpy).toHaveBeenCalledTimes(1)
+    openSpy.mockRestore()
+  })
+
+  // В правке «Печать бланка» — в меню «Ещё».
+  const printFromMenu = async () => {
+    await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
+    await settle()
+    ;([...document.body.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent?.includes('Печать бланка')) as HTMLElement).click()
+    await settle()
+  }
+
+  // (баг 13.10) Бланк печатает только записанные строки гр. 47: у ДТ владельца их не было — «Всего: 0,00» и пустая гр. В.
+  it('печать: у товара нет записанных платежей — вопрос; «Печатать как есть» — бланк без расчёта', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, goodsItems: [fullGoodsDto({ payments: [], needsTpinRecalc: false })] })] })
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    await open()
+    await printFromMenu()
+    expect(confirmState.open).toBe(true)
+    expect(confirmState.title).toBe('Платежи гр. 47 и гр. В не записаны')
+    expect(confirmState.content).toContain('У товаров 1 нет записанных строк гр. 47')
+    expect(confirmState.okText).toBe('Рассчитать и печатать')
+    expect(api.blankPdf).not.toHaveBeenCalled()
+    confirmState.resolve(false)
+    await settle()
+    expect(api.calculatePayments).not.toHaveBeenCalled()
+    expect(api.blankPdf).toHaveBeenCalledWith('case1', 'dt1')
+    expect(openSpy).toHaveBeenCalledTimes(1)
+    openSpy.mockRestore()
+  })
+
+  it('печать: «Рассчитать и печатать» — расчёт, запись гр. 47 и гр. В, сохранение, затем бланк', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, factPayments: [], goodsItems: [fullGoodsDto({ payments: [], needsTpinRecalc: false })] })] })
+    api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 841067.1 }] })
+    api.calculatePayments.mockResolvedValue({
+      goodsRows: [{ index: 0, rows: [
+        { taxModeCode: '1010', amount: 665.38, rate: 6, rateKind: 'S', rateLabel: '6 МРП' },
+        { taxModeCode: '5060', amount: 175442.94, base: 1096518.38, rate: 16, rateKind: '%', rateLabel: '16%' },
+      ] }],
+      totalsByTaxMode: { 1010: 665.38, 5060: 175442.94 }, grandTotalB: 176109,
+    })
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    await open()
+    await printFromMenu()
+    confirmState.resolve(true)
+    await settle()
+    await settle()
+    expect(api.calculatePayments).toHaveBeenCalledTimes(1)
+    expect(api.blankPdf).toHaveBeenCalledTimes(1)
+    const lastPut = api.updateDeclaration.mock.calls.at(-1)![2] as { goodsItems: { payments: { taxModeCode: string; amountKzt: number }[] }[]; factPayments: { taxModeCode: string; amount: number }[] }
+    expect(lastPut.goodsItems[0].payments.map((p) => [p.taxModeCode, p.amountKzt])).toEqual([['1010', 665.38], ['5060', 175442.94]])
+    expect(lastPut.factPayments.map((p) => [p.taxModeCode, p.amount])).toEqual([['1010', 666], ['5060', 175443]])
+    expect(api.updateDeclaration.mock.invocationCallOrder.at(-1)!).toBeLessThan(api.blankPdf.mock.invocationCallOrder[0])
+    expect(api.calculatePayments.mock.invocationCallOrder[0]).toBeLessThan(api.blankPdf.mock.invocationCallOrder[0])
+    openSpy.mockRestore()
+  })
+
+  it('печать: расчёт готов, но не записан — «Записать и печатать» пишет предпросмотр без нового расчёта', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, factPayments: [], goodsItems: [fullGoodsDto({ payments: [], needsTpinRecalc: false })] })] })
+    api.calculateCustomsValue.mockResolvedValue({ goods: [{ index: 0, customsValueKzt: 750000 }] })
+    api.calculatePayments.mockResolvedValue({ goodsRows: [{ index: 0, rows: [{ taxModeCode: '5060', amount: 84000 }] }], totalsByTaxMode: { 5060: 84000 }, grandTotalB: 84000 })
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    await open('?calc=payments')
+    expect(w.get('[data-dt-payments]').attributes('data-state')).toBe('preview')
+    await printFromMenu()
+    expect(confirmState.okText).toBe('Записать и печатать')
+    expect(confirmState.content).toContain('не записан')
+    confirmState.resolve(true)
+    await settle()
+    await settle()
+    expect(api.calculatePayments).toHaveBeenCalledTimes(1)
+    const lastPut = api.updateDeclaration.mock.calls.at(-1)![2] as { goodsItems: { payments: { taxModeCode: string }[] }[] }
+    expect(lastPut.goodsItems[0].payments.map((p) => p.taxModeCode)).toEqual(['5060'])
+    expect(api.blankPdf).toHaveBeenCalledTimes(1)
     openSpy.mockRestore()
   })
 

@@ -1351,6 +1351,12 @@ export default {
         xmlGr54: 'After uploading to KEDEN, set «Who declares» and «Who fills in the DT» in box 54 — KEDEN does not take them from XML.',
         xmlError: 'Could not generate XML',
         printError: 'Could not generate the declaration form',
+        printPaymentsTitle: 'Payments in boxes 47 and B are not recorded',
+        printPaymentsStale: 'Goods {list} have no recorded box 47 lines or need recalculation — boxes 47 and B will be empty on the form. Calculate and record payments before printing?',
+        printPaymentsPreview: 'The payment calculation is ready but not recorded in boxes 47 and B, and the form prints only recorded payments. Record before printing?',
+        printPaymentsCalc: 'Calculate and print',
+        printPaymentsWrite: 'Record and print',
+        printWithout: 'Print as is',
         docsError: 'Could not download documents',
       },
       number: {
