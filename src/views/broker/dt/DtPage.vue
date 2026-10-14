@@ -36,6 +36,8 @@ import SectionDts from './dts/SectionDts.vue'
 import { useDts } from './dts/useDts'
 import { saveFile } from './dtFiles'
 import { useDtGoods } from './goods/useDtGoods'
+import { formatItemNumbers } from './goods/goodsList'
+import { staleGoodsIndexes } from './payments/paymentsView'
 import { goodsFieldFromReadiness } from './goods/goodsFieldTarget'
 import { dtsFieldFromReadiness } from './dts/dtsFieldTarget'
 import type { GoodsPageContext, GoodsSaveState } from './goods/editor/types'
@@ -388,7 +390,31 @@ const onXml = async () => {
     xmlLoading.value = false
   }
 }
+/**
+ * Бланк печатает только ЗАПИСАННЫЕ строки гр. 47 (гр. В — их сумма). Печать 13.10: гр. 47 и гр. В пустые («Всего: 0,00»),
+ * хотя декларант «рассчитывал» — у товаров не было ни одной записанной строки (раздел «Платежи ● 4»). Перед печатью:
+ * расчёт готов, но не записан — предложить «Записать»; у товаров нет строк гр. 47 или «Пересчитать» — «Рассчитать» и
+ * записать. Отказ — печать как есть. Только при праве править (в просмотре расчёта нет).
+ */
+const preparePaymentsForPrint = async () => {
+  if (!editable.value || payments.busy.value) return
+  const live = payments.state.value === 'preview'
+  const stale = staleGoodsIndexes(form.goodsItems)
+  if (!live && !stale.length) return
+  const ok = await confirm({
+    title: t('broker.dt.actions.printPaymentsTitle'),
+    content: live
+      ? t('broker.dt.actions.printPaymentsPreview')
+      : t('broker.dt.actions.printPaymentsStale', { list: formatItemNumbers(stale) }),
+    okText: live ? t('broker.dt.actions.printPaymentsWrite') : t('broker.dt.actions.printPaymentsCalc'),
+    cancelText: t('broker.dt.actions.printWithout'),
+  })
+  if (!ok) return
+  if (!live && !(await payments.calculate())) return
+  if (payments.state.value === 'preview') await payments.apply()
+}
 const onPrint = async () => {
+  await preparePaymentsForPrint()
   // В просмотре печатаем без сохранения (B2).
   if (!(await dt.saveForAction(true))) return
   printLoading.value = true
