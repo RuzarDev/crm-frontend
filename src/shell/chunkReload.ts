@@ -28,6 +28,30 @@ export function reloadOnceOnChunkError(e: Event, deps: Deps): boolean {
   return true
 }
 
+/** Ошибка загрузки модуля маршрута (import() страницы не скачался: выкладка удалила старые чанки или сеть оборвала запрос). */
+export function isChunkLoadError(err: unknown): boolean {
+  const text = err instanceof Error ? `${err.name} ${err.message}` : String(err ?? '')
+  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|ChunkLoadError|Loading chunk/i.test(text)
+}
+
+/**
+ * Страница маршрута не скачалась — роутер получает ошибку, а vite:preloadError не приходит (14.10.2026: белый экран
+ * на ДТ при обрыве мобильной сети). Перезагружаем один раз на тот адрес, куда шли; повторно в окне защиты — false,
+ * вызывающий показывает ошибку вместо пустого экрана.
+ */
+export function reloadOnceToRoute(fullPath: string, deps: Deps & { assign: (url: string) => void }): boolean {
+  const { storage, now, assign } = deps
+  try {
+    const last = Number(storage.getItem(CHUNK_RELOAD_KEY)) || 0
+    if (now() - last < LOOP_WINDOW_MS) return false
+    storage.setItem(CHUNK_RELOAD_KEY, String(now()))
+  } catch {
+    return false
+  }
+  assign(fullPath)
+  return true
+}
+
 export function installChunkReload(win: Window = window): void {
   win.addEventListener('vite:preloadError', (e) => {
     let storage: Storage

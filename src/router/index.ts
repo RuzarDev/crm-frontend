@@ -1,4 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { isChunkLoadError, reloadOnceToRoute } from '@/shell/chunkReload'
+import { message } from '@/ui/message'
+import { i18n } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { guardRedirect } from '@/router/guard'
 
@@ -340,6 +343,18 @@ router.beforeEach((to, _from, next) => {
   })
   if (target) next(target)
   else next()
+})
+
+// Страница маршрута не скачалась (обрыв сети или старая вкладка после выкладки) — один раз перезагружаем на целевой
+// адрес; повторный сбой в течение минуты — сообщение вместо белого экрана.
+router.onError((err, to) => {
+  if (!isChunkLoadError(err)) return
+  let storage: Storage | null = null
+  try { storage = window.sessionStorage } catch { /* приватный режим */ }
+  const reloaded = storage != null && reloadOnceToRoute(to.fullPath, {
+    storage, now: Date.now, reload: () => window.location.reload(), assign: (url) => window.location.assign(url),
+  })
+  if (!reloaded) message.error({ content: i18n.global.t('errors.network'), key: 'chunk-load', duration: 6 })
 })
 
 export default router
