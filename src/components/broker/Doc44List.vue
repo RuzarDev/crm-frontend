@@ -23,7 +23,9 @@ import type { ZOption } from '@/ui/options'
 // Два набора доп. сведений под строкой «Ещё»:
 //   extended     — запись транзита: уполномоченный орган, ИД органа, номер бланка (их хранит запись реестра);
 //   goodsOptions — ДТ: к каким товарам относится документ («на все» или выбранные: у ДТ связь по индексу товара) —
-//                  отдельной строкой, она важна всегда; период действия и страна выдачи (alpha-2) — под «Ещё».
+//                  отдельной строкой, она важна всегда; период действия, страна выдачи (alpha-2) и признак
+//                  представления (R.055 DocPresentKindCode, по умолчанию «0» — не представлен при подаче) — под «Ещё».
+//                  Номер документа у ДТ — до 50 знаков (DocId, Id50 структуры ДТ).
 // Без обоих — только код, вид, номер, дата (гр. 44 партии пакета).
 const props = withDefaults(defineProps<{
   items: Import40Doc44ItemInput[]
@@ -68,11 +70,23 @@ const toggleMore = (item: Import40Doc44ItemInput) => {
   else more.add(k)
 }
 
+// ---- Признак представления документа (ДТ, R.055 19.18.53 DocPresentKindCode) ----
+const DEFAULT_PRESENT_KIND = '0'
+const PRESENT_KINDS = ['0', '1', '2', '3'] as const
+const presentKindOptions = computed<ZOption[]>(() => PRESENT_KINDS.map((k) => ({ value: k, label: `${k} — ${tr(`presentKinds.k${k}`)}` })))
+const presentKindOf = (item: Import40Doc44ItemInput) => item.presentKindCode || DEFAULT_PRESENT_KIND
+const presentKindText = (item: Import40Doc44ItemInput) => {
+  const k = presentKindOf(item)
+  return (PRESENT_KINDS as readonly string[]).includes(k) ? `${k} — ${tr(`presentKinds.k${k}`)}` : k
+}
+/** Номер документа: у ДТ — DocId (Id50), у записи транзита и партии — как раньше. */
+const numberMax = computed(() => (props.goodsOptions ? 50 : 256))
+
 /** Новая строка — только поля, которые хранит приёмник (запись реестра — своё, ДТ — своё). */
 const newDoc = (): Import40Doc44ItemInput => {
   const base = { docTypeCode: null, docTypeName: null, docNumber: null, docDate: null }
   if (props.goodsOptions) {
-    return { ...base, goodsItemIndex: null, appliesToAll: false, goodsItemIndexes: null, docStartDate: null, docValidityDate: null, issueCountryCode: null }
+    return { ...base, goodsItemIndex: null, appliesToAll: false, goodsItemIndexes: null, docStartDate: null, docValidityDate: null, issueCountryCode: null, presentKindCode: DEFAULT_PRESENT_KIND }
   }
   return props.extended ? { ...base, authorizedBody: null, authorizedBodyId: null, formBlankNumber: null } : base
 }
@@ -132,16 +146,20 @@ const goodsSummary = (item: Import40Doc44ItemInput) => {
 const extraKeys = computed<(keyof Import40Doc44ItemInput)[]>(() => props.goodsOptions
   ? ['docStartDate', 'docValidityDate', 'issueCountryCode']
   : props.extended ? ['authorizedBody', 'authorizedBodyId', 'formBlankNumber'] : [])
-const extrasCount = (item: Import40Doc44ItemInput) => extraKeys.value.filter((k) => item[k]).length
+// Признак представления заполнен всегда; в счётчик и строку сведений попадает, только если он не «0» (по умолчанию).
+const presentKindSet = (item: Import40Doc44ItemInput) => !!props.goodsOptions && presentKindOf(item) !== DEFAULT_PRESENT_KIND
+const extrasCount = (item: Import40Doc44ItemInput) => extraKeys.value.filter((k) => item[k]).length + (presentKindSet(item) ? 1 : 0)
 const moreAria = (item: Import40Doc44ItemInput, n: number) => {
   const c = extrasCount(item)
   return c ? `${tr('moreLabel', { n })}, ${tr('moreFilled', { count: c })}` : tr('moreLabel', { n })
 }
 
-const extras = (item: Import40Doc44ItemInput) => extraKeys.value
-  .filter((k) => item[k])
-  .map((k) => `${tr(k)}: ${k === 'docStartDate' || k === 'docValidityDate' ? formatDateText(item[k] as string) : item[k]}`)
-  .join(' · ')
+const extras = (item: Import40Doc44ItemInput) => [
+  ...extraKeys.value
+    .filter((k) => item[k])
+    .map((k) => `${tr(k)}: ${k === 'docStartDate' || k === 'docValidityDate' ? formatDateText(item[k] as string) : item[k]}`),
+  ...(presentKindSet(item) ? [`${tr('presentKind')}: ${presentKindText(item)}`] : []),
+].join(' · ')
 
 const countryOf = (item: Import40Doc44ItemInput) => {
   const v = (item.issueCountryCode ?? '').trim()
@@ -212,7 +230,7 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
               </div>
               <div :class="cell">
                 <label :for="domId(item, 'number')" :class="cellLabel">{{ tr('number') }}</label>
-                <ZInput :id="domId(item, 'number')" :value="item.docNumber" mono :maxlength="256" :class="ctl" data-f="docNumber" @update:value="setStr(item, 'docNumber', $event)" />
+                <ZInput :id="domId(item, 'number')" :value="item.docNumber" mono :maxlength="numberMax" :class="ctl" data-f="docNumber" @update:value="setStr(item, 'docNumber', $event)" />
               </div>
               <div :class="cell">
                 <label :for="domId(item, 'date')" :class="cellLabel">{{ tr('date') }}</label>
@@ -276,7 +294,7 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
             <div
               v-if="hasMore && more.has(keyOf(item))"
               :id="domId(item, 'more')"
-              class="grid grid-cols-1 gap-3 @2xl:grid-cols-3 @2xl:bg-canvas @2xl:px-3 @2xl:pt-2 @2xl:pb-3"
+              :class="['grid grid-cols-1 gap-3 @2xl:bg-canvas @2xl:px-3 @2xl:pt-2 @2xl:pb-3', goodsOptions ? '@2xl:grid-cols-2 @4xl:grid-cols-4' : '@2xl:grid-cols-3']"
               data-doc44-extra
             >
               <template v-if="goodsOptions">
@@ -297,6 +315,16 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
                     placeholder="KZ"
                     data-f="issueCountryCode"
                     @update:value="item.issueCountryCode = str($event)"
+                  />
+                </ZField>
+                <ZField :label="tr('presentKind')">
+                  <ZSelect
+                    :value="presentKindOf(item)"
+                    :options="presentKindOptions"
+                    :class="boxCtl"
+                    :popup-width="360"
+                    data-f="presentKindCode"
+                    @update:value="item.presentKindCode = str($event) ?? DEFAULT_PRESENT_KIND"
                   />
                 </ZField>
               </template>

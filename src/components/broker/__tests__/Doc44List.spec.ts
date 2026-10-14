@@ -23,7 +23,7 @@ const SelectStub = {
 const goods = [{ value: 0, label: 'Товар 1 · 7318150000' }, { value: 1, label: 'Товар 2 · 8501' }]
 const doc = (o: Partial<Import40Doc44ItemInput> = {}): Import40Doc44ItemInput => ({
   docTypeCode: null, docTypeName: null, docNumber: null, docDate: null, goodsItemIndex: null, appliesToAll: false, goodsItemIndexes: null,
-  docStartDate: null, docValidityDate: null, issueCountryCode: null, ...o,
+  docStartDate: null, docValidityDate: null, issueCountryCode: null, presentKindCode: '0', ...o,
 })
 
 let w: VueWrapper
@@ -108,6 +108,38 @@ describe('Doc44List — ДТ (привязка к товарам)', () => {
     expect(rows()[0].get('[data-doc44-goods-text]').text()).toBe('Товары: Товар 1 · 7318150000, Товар 2 · 8501')
     expect(rows()[0].get('[data-doc44-extras]').text()).toBe('Действует по: 31.12.2026 · Страна выдачи: CN')
     expect(rows()[1].get('[data-doc44-goods-text]').text()).toBe('Товары: все товары')
+  })
+
+  it('признак представления (R.055): новая строка — «0», выбор 0–3 под «Ещё»; не «0» — в счётчике и тексте', async () => {
+    await mount([doc(), doc({ presentKindCode: '1' })])
+    expect(rows()[0].find('[data-doc44-more-count]').exists()).toBe(false) // «0» — по умолчанию, не считается
+    expect(rows()[1].get('[data-doc44-more-count]').text()).toBe('1')
+    await rows()[0].get('[data-doc44-more]').trigger('click')
+    const sel = f('presentKindCode')
+    expect(sel.attributes('data-value')).toBe('"0"')
+    expect(sel.findAll('[data-option]').map((b) => b.text())).toEqual([
+      '0 — не представлен при подаче', '1 — представлен', '2 — не представлен (п. 10 ст. 109 ТК ЕАЭС)', '3 — представлен после выпуска',
+    ])
+    await sel.get('[data-option="3"]').trigger('click')
+    expect(items[0].presentKindCode).toBe('3')
+    await sel.get('[data-clear]').trigger('click')
+    expect(items[0].presentKindCode).toBe('0') // пустым не бывает
+    await (w.vm as unknown as { add: () => Promise<void> }).add()
+    expect(items[2].presentKindCode).toBe('0')
+  })
+
+  it('только чтение: признак представления не «0» — в строке сведений', async () => {
+    await mount([doc({ presentKindCode: '1' }), doc()], { readonly: true })
+    expect(rows()[0].get('[data-doc44-extras]').text()).toBe('Признак представления: 1 — представлен')
+    expect(rows()[1].find('[data-doc44-extras]').exists()).toBe(false)
+  })
+
+  it('номер документа у ДТ — до 50 знаков (DocId), у записи транзита — как раньше', async () => {
+    await mount([doc()])
+    expect(f('docNumber').attributes('maxlength')).toBe('50')
+    w.unmount()
+    await mount([doc()], { goodsOptions: null, extended: true })
+    expect(f('docNumber').attributes('maxlength')).toBe('256')
   })
 
   it('без опций товаров (запись транзита) привязки к товарам нет', async () => {

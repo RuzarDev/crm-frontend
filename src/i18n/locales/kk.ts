@@ -1239,6 +1239,13 @@ export default {
       docStartDate: 'Қолданылу басы',
       docValidityDate: 'Қолданылу соңы',
       issueCountryCode: 'Берген ел',
+      presentKind: 'Ұсыну белгісі',
+      presentKinds: {
+        k0: 'беру кезінде ұсынылмаған',
+        k1: 'ұсынылған',
+        k2: 'ұсынылмаған (ЕАЭО КК 109-бабының 10-тармағы)',
+        k3: 'шығарылғаннан кейін ұсынылған',
+      },
     },
     dt: {
       leave: {
@@ -1475,6 +1482,8 @@ export default {
         currencyPlaceholder: 'USD',
         totalInvoice: 'Жалпы фактуралық құн',
         totalInvoiceAuto: 'Тауарлар бойынша есептеледі.',
+        invoiceMismatch: 'Тауарлар бойынша 42-баған сомасы — {sum}: КЕДЕН оны 22-бағанмен салыстырады',
+        invoiceApply: 'Σ 42-бағанды қою',
         rate: 'Бағам',
         rateHint: '{date} күніне ҚР ҰБ бағамы: {rate}',
         rateHintNoDate: 'ҚР ҰБ бағамы: {rate}',
@@ -1980,6 +1989,8 @@ export default {
             tnvedDescriptionEmpty: 'Код бойынша толтырылады: «Табу» немесе «Анықтамалық»',
             description: 'Инвойстағы сипаттама',
             descriptionPlaceholder: 'Инвойстағыдай',
+            descriptionCount: '{max} таңбаның {n}',
+            descriptionParts: '{max} таңбаның {n} — КЕДЕН-ге {part} таңбадан {parts} бөлікпен кетеді',
             tradeMark: 'Сауда маркасы',
             productMark: 'Белгі',
             model: 'Үлгі',

@@ -144,6 +144,38 @@ describe('SectionFinance — условия (гр. 20, 22, 23, 12, 24)', () => {
   })
 })
 
+describe('SectionFinance — гр. 22 = Σ гр. 42 (сверка КЕДЕН 14.10, I6)', () => {
+  const g = (customsValue: number | null, currency: string | null = null) => ({ customsValue, currency }) as never
+
+  it('расходится — подсказка с суммой и «Подставить Σ гр. 42»; совпадает (до копейки) — подсказки нет', async () => {
+    mount({ currency: 'CNY', totalInvoiceValue: 354000, goodsItems: [g(187368), g(166732.004, 'CNY')] })
+    expect(w.get('[data-invoice-hint]').text()).toMatch(/^Сумма гр\. 42 по товарам — 354\s100,00 CNY: КЕДЕН сверяет её с гр\. 22$/)
+    await w.get('[data-invoice-apply]').trigger('click')
+    expect(form.totalInvoiceValue).toBe(354100)
+    await nextTick()
+    expect(w.find('[data-invoice-hint]').exists()).toBe(false)
+    expect(w.text()).toContain('Считается по товарам.')
+    form.totalInvoiceValue = 354100.01
+    await nextTick()
+    expect(w.find('[data-invoice-hint]').exists()).toBe(false)
+    form.totalInvoiceValue = null
+    await nextTick()
+    expect(w.find('[data-invoice-hint]').exists()).toBe(true) // пустая гр. 22 при товарах со стоимостью — тоже подсказка
+  })
+
+  it('товар в другой валюте или нет стоимости — не сверяем; только чтение — без «Подставить»', async () => {
+    mount({ currency: 'CNY', totalInvoiceValue: 1, goodsItems: [g(100), g(50, 'USD')] })
+    expect(w.find('[data-invoice-hint]').exists()).toBe(false)
+    w.unmount()
+    mount({ currency: 'CNY', totalInvoiceValue: 1, goodsItems: [g(null)] })
+    expect(w.find('[data-invoice-hint]').exists()).toBe(false)
+    w.unmount()
+    mount({ currency: 'CNY', totalInvoiceValue: 1, goodsItems: [g(100)] }, { readonly: true })
+    expect(w.find('[data-invoice-hint]').exists()).toBe(true)
+    expect(w.find('[data-invoice-apply]').exists()).toBe(false)
+  })
+})
+
 describe('SectionFinance — тип ставок', () => {
   it('показан тегом (ЕТТ / ВТО), свободного поля нет', () => {
     mount({ rateType: 'ETT' })

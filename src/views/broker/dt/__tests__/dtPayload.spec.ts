@@ -37,6 +37,22 @@ describe('dtPayload — туда и обратно', () => {
     expect(p.arrivalTransportNumbers).toEqual(dto.arrivalTransportNumbers)
   })
 
+  it('гр.44: признак представления доходит до PUT; ответ без него (старый сервер) — «0»', () => {
+    const dto = fullDto()
+    expect(formToPayload(dtoToForm(dto), null).doc44Items?.[0].presentKindCode).toBe('1')
+    const { presentKindCode: _k, ...old } = dto.doc44Items[0]
+    dto.doc44Items = [old as never]
+    expect(formToPayload(dtoToForm(dto), null).doc44Items?.[0].presentKindCode).toBe('0')
+  })
+
+  it('гр. 29: в PUT — название поста без «код —» (M8)', () => {
+    const dto = fullDto()
+    dto.borderCustomsOfficeName = '55300 — ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»'
+    expect(formToPayload(dtoToForm(dto), null).borderCustomsOfficeName).toBe('ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»')
+    dto.borderCustomsOfficeName = 'Т/П "НУР ЖОЛЫ"'
+    expect(formToPayload(dtoToForm(dto), null).borderCustomsOfficeName).toBe('Т/П "НУР ЖОЛЫ"')
+  })
+
   it('гр. В: ответ без номера платёжки (старый сервер) — номер null, строка полная', () => {
     const dto = fullDto()
     const { paymentDocNumber: _n, ...old } = dto.factPayments[0]

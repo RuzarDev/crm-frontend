@@ -1243,6 +1243,13 @@ export default {
       docStartDate: 'Действует с',
       docValidityDate: 'Действует по',
       issueCountryCode: 'Страна выдачи',
+      presentKind: 'Признак представления',
+      presentKinds: {
+        k0: 'не представлен при подаче',
+        k1: 'представлен',
+        k2: 'не представлен (п. 10 ст. 109 ТК ЕАЭС)',
+        k3: 'представлен после выпуска',
+      },
     },
     dt: {
       leave: {
@@ -1479,6 +1486,8 @@ export default {
         currencyPlaceholder: 'USD',
         totalInvoice: 'Общая фактурная стоимость',
         totalInvoiceAuto: 'Считается по товарам.',
+        invoiceMismatch: 'Сумма гр. 42 по товарам — {sum}: КЕДЕН сверяет её с гр. 22',
+        invoiceApply: 'Подставить Σ гр. 42',
         rate: 'Курс',
         rateHint: 'Курс НБ РК на {date}: {rate}',
         rateHintNoDate: 'Курс НБ РК: {rate}',
@@ -1984,6 +1993,8 @@ export default {
             tnvedDescriptionEmpty: 'Заполнится по коду: «Найти» или «Справочник»',
             description: 'Описание из инвойса',
             descriptionPlaceholder: 'Как в инвойсе',
+            descriptionCount: '{n} из {max} знаков',
+            descriptionParts: '{n} из {max} знаков — в КЕДЕН уйдёт {parts} частями по {part}',
             tradeMark: 'Торговая марка',
             productMark: 'Знак',
             model: 'Модель',

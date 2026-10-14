@@ -66,16 +66,22 @@ const typeNumber = async (text: string) => { await numberInput().setValue(text);
 const PAUSE = 300
 
 describe('SectionCustoms — гр. 29', () => {
-  it('один выбор поста заполняет и название, и код', async () => {
+  it('один выбор поста заполняет код и название — без «код —» (как у КЕДЕН, M8)', async () => {
     await mount()
     await open('[data-border-post]')
     expect(optionTexts()).toEqual(['55302 — ТАМОЖЕННЫЙ ПОСТ «КОРГАС»', '55300 — ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»'])
     await pick('ДОСТЫК')
-    expect(form.borderCustomsOfficeName).toBe('55300 — ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»')
+    expect(form.borderCustomsOfficeName).toBe('ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»')
     expect(form.borderCustomsOfficeCode).toBe('55300')
     await w.get('[data-graph="29"] button[aria-label="Очистить"]').trigger('click')
     expect(form.borderCustomsOfficeName).toBe('')
     expect(form.borderCustomsOfficeCode).toBe('')
+  })
+
+  it('старая запись с подписью целиком («код — название») — пост узнаётся по коду, без предупреждения', async () => {
+    await mount({ borderCustomsOfficeName: '55300 — ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»', borderCustomsOfficeCode: '' })
+    expect((inputOf('[data-border-post]').element as HTMLInputElement).value).toBe('55300 — ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»')
+    expect(w.get('[data-graph="29"]').text()).not.toContain('нет в справочнике')
   })
 
   it('старое значение вне справочника показано с предупреждением; справочник не загружен — без него', async () => {

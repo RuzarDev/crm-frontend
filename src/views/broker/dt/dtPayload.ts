@@ -21,6 +21,7 @@ import type {
 import type { Import40Doc44ItemInput, Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
 import { cloneGoodsExtras } from '@/types/api'
 import { placesOfGoods } from '@/utils/goodsPlaces'
+import { officeNameOnly } from './dtOptions'
 
 /**
  * Состояние редактора ДТ: общий тип секций, где товары и гр.В — непустые массивы, а товар
@@ -377,6 +378,8 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
     docStartDate: d.docStartDate ?? null,
     docValidityDate: d.docValidityDate ?? null,
     issueCountryCode: d.issueCountryCode ?? null,
+    // Признак представления: сервер всегда отдаёт значение; старый ответ без поля — «0», как у новой строки.
+    presentKindCode: d.presentKindCode ?? '0',
   }))
   return f
 }
@@ -447,7 +450,8 @@ export function formToPayload(form: DtFormState, expectedUpdatedAtUtc: string | 
     goodsLocationAddress: form.goodsLocationAddress || null,
     goodsLocationCustomsOfficeCode: form.goodsLocationCustomsOfficeCode || null,
     borderCustomsOfficeCode: form.borderCustomsOfficeCode || null,
-    borderCustomsOfficeName: form.borderCustomsOfficeName || null,
+    // Гр. 29: только название поста, без «код —» (старые записи хранили подпись опции целиком; сверка 14.10, M8).
+    borderCustomsOfficeName: officeNameOnly(form.borderCustomsOfficeName ?? '') || null,
     submissionCustomsOfficeCode: form.submissionCustomsOfficeCode || null,
     submissionDate: form.submissionDate || null,
     borderTransportModeCode: form.borderTransportModeCode || null,

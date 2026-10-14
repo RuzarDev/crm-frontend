@@ -1239,6 +1239,13 @@ export default {
       docStartDate: 'Valid from',
       docValidityDate: 'Valid until',
       issueCountryCode: 'Issuing country',
+      presentKind: 'Presentation status',
+      presentKinds: {
+        k0: 'not presented at filing',
+        k1: 'presented',
+        k2: 'not presented (EAEU Customs Code art. 109(10))',
+        k3: 'presented after release',
+      },
     },
     dt: {
       leave: {
@@ -1475,6 +1482,8 @@ export default {
         currencyPlaceholder: 'USD',
         totalInvoice: 'Total invoice value',
         totalInvoiceAuto: 'Calculated from the goods.',
+        invoiceMismatch: 'Box 42 total over the goods is {sum}: KEDEN checks it against box 22',
+        invoiceApply: 'Use Σ box 42',
         rate: 'Exchange rate',
         rateHint: 'NBK rate on {date}: {rate}',
         rateHintNoDate: 'NBK rate: {rate}',
@@ -1980,6 +1989,8 @@ export default {
             tnvedDescriptionEmpty: 'Filled from the code: "Find" or "Catalogue"',
             description: 'Invoice description',
             descriptionPlaceholder: 'As in the invoice',
+            descriptionCount: '{n} of {max} characters',
+            descriptionParts: '{n} of {max} characters — goes to KEDEN as {parts} parts of {part}',
             tradeMark: 'Trade name',
             productMark: 'Mark',
             model: 'Model',
