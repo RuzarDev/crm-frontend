@@ -9,18 +9,24 @@ const LOAD_CONCURRENCY = 4
 /** Предел кодов в одном запросе пачки (ClassifierEndpoints.MaxBatchCodes на сервере). */
 export const BATCH_MAX_CODES = 64
 
+const isBatchMap = (m: unknown): m is Record<string, unknown> => !!m && typeof m === 'object' && !Array.isArray(m)
+
 export const useClassifiersStore = defineStore('classifiers', () => {
   const cache = ref<Record<string, ClassifierItem[]>>({})
   const inFlight = new Map<string, Promise<ClassifierItem[]>>()
 
-  // Запрос кода живёт в inFlight до ответа: второй желающий ждёт тот же промис, а не шлёт свой.
+  // Запрос кода живёт в inFlight до ответа: второй желающий ждёт тот же промис, а не шлёт свой. В кэш пишет,
+  // только если его не сменили: invalidate() во время запроса снимает его из inFlight — устаревший ответ
+  // (список до добавления кода) не должен лечь поверх.
   const track = (code: string, fetch: Promise<ClassifierItem[]>): Promise<ClassifierItem[]> => {
-    const request = fetch
+    const request: Promise<ClassifierItem[]> = fetch
       .then((items) => {
-        cache.value[code] = items
+        if (inFlight.get(code) === request) cache.value[code] = items
         return items
       })
-      .finally(() => inFlight.delete(code))
+      .finally(() => {
+        if (inFlight.get(code) === request) inFlight.delete(code)
+      })
     inFlight.set(code, request)
     return request
   }
@@ -52,6 +58,8 @@ export const useClassifiersStore = defineStore('classifiers', () => {
   // по дороге (503 не от нашего сервера, 14.10.2026), поэтому всё, чего нет в кэше, берём одним запросом
   // (по BATCH_MAX_CODES кодов). Не вышло (сеть, старый сервер без /batch) — каждый код догружается сам
   // по себе через очередь. Ошибка одного кода не отменяет остальные; пачка отклоняется первой ошибкой.
+  // Ответ пачки проверяем: старый сервер отвечает на /batch как на одиночный код «batch» — 200 и [] (не 404).
+  // Годится только объект, и у кода — массив; иначе (нет кода, чужая форма) — этот код запросом по одному.
   const loadMany = async (codes: string[]): Promise<void> => {
     const wanted = [...new Set(codes)].filter((c) => !cache.value[c])
     const fresh = wanted.filter((c) => !inFlight.has(c))
@@ -69,7 +77,10 @@ export const useClassifiersStore = defineStore('classifiers', () => {
         for (const code of chunk) {
           track(
             code,
-            batch.then((map) => (map ? (map[code] ?? []) : limited(() => referencesApi.listClassifiers(code)))),
+            batch.then((map) => {
+              const items = isBatchMap(map) ? map[code] : undefined
+              return Array.isArray(items) ? (items as ClassifierItem[]) : limited(() => referencesApi.listClassifiers(code))
+            }),
           ).catch(() => { /* ошибку отдаст ожидание ниже */ })
         }
       }
@@ -94,8 +105,13 @@ export const useClassifiersStore = defineStore('classifiers', () => {
       .map((c) => ({ value: c.code, label: `${c.code} — ${c.nameRu}` }))
 
   const invalidate = (code?: string) => {
-    if (code) delete cache.value[code]
-    else cache.value = {}
+    if (code) {
+      delete cache.value[code]
+      inFlight.delete(code)
+    } else {
+      cache.value = {}
+      inFlight.clear()
+    }
   }
 
   return { cache, load, loadMany, options, invalidate }

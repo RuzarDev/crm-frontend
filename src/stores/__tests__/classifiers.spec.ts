@@ -38,11 +38,12 @@ describe('классификаторы: одним запросом', () => {
     expect(api.listClassifiersBatch).toHaveBeenLastCalledWith(['x1', 'x2'])
   })
 
-  it('код, которого нет в ответе, кэшируется пустым списком', async () => {
-    api.listClassifiersBatch.mockResolvedValue({ a: item('a') })
+  it('неизвестный код (сервер отдал пустой массив) кэшируется пустым списком без второго запроса', async () => {
+    api.listClassifiersBatch.mockResolvedValue({ a: item('a'), nope: [] })
     const store = useClassifiersStore()
     await store.loadMany(['a', 'nope'])
     expect(store.cache.nope).toEqual([])
+    expect(api.listClassifiers).not.toHaveBeenCalled()
   })
 
   it('больше предела — делит на части', async () => {
@@ -80,6 +81,75 @@ describe('классификаторы: одним запросом', () => {
     expect(api.listClassifiersBatch).toHaveBeenCalledTimes(1)
     expect(api.listClassifiers).toHaveBeenCalledTimes(3)
     expect(['a', 'b', 'c'].every((c) => store.cache[c])).toBe(true)
+  })
+
+  it('старый сервер: /batch отвечает как код «batch» — 200 и [] → коды догружаются по одному, [] не кэшируется', async () => {
+    api.listClassifiersBatch.mockResolvedValue([])
+    api.listClassifiers.mockImplementation(async (code: string) => item(code))
+    const store = useClassifiersStore()
+    await store.loadMany(['2004', 'pref-fee', 'tax-modes'])
+    expect(api.listClassifiers).toHaveBeenCalledTimes(3)
+    expect(store.cache['2004']).toEqual(item('2004'))
+    expect(store.cache['pref-fee']).toEqual(item('pref-fee'))
+  })
+
+  it('чужая форма ответа (строка, null, не массив у кода) и неполный объект → недостающие по одному', async () => {
+    api.listClassifiers.mockImplementation(async (code: string) => item(code))
+    const store = useClassifiersStore()
+    api.listClassifiersBatch.mockResolvedValueOnce('<!doctype html>')
+    await store.loadMany(['h1', 'h2'])
+    expect(api.listClassifiers).toHaveBeenCalledTimes(2)
+    expect(store.cache.h1).toEqual(item('h1'))
+
+    api.listClassifiers.mockClear()
+    api.listClassifiersBatch.mockResolvedValueOnce({ a: item('a'), c: 'oops' })
+    await store.loadMany(['a', 'b', 'c'])
+    expect(api.listClassifiers.mock.calls.map((c) => c[0]).sort()).toEqual(['b', 'c'])
+    expect(store.cache.a).toEqual(item('a'))
+    expect(store.cache.b).toEqual(item('b'))
+    expect(store.cache.c).toEqual(item('c'))
+  })
+
+  it('одна часть пачки упала — по одному догружается только она', async () => {
+    let call = 0
+    api.listClassifiersBatch.mockImplementation(async (codes: string[]) => {
+      call++
+      if (call === 2) throw new Error('chunk 2 down')
+      return batchOf(codes)
+    })
+    api.listClassifiers.mockImplementation(async (code: string) => item(code))
+    const store = useClassifiersStore()
+    const codes = Array.from({ length: 70 }, (_, i) => `c${i}`)
+    await store.loadMany(codes)
+    expect(api.listClassifiersBatch).toHaveBeenCalledTimes(2)
+    expect(api.listClassifiers).toHaveBeenCalledTimes(6)
+    expect(api.listClassifiers.mock.calls.map((c) => c[0])).toEqual(codes.slice(64))
+    expect(codes.every((c) => store.cache[c])).toBe(true)
+  })
+
+  it('invalidate во время пачки: устаревший ответ не ложится в кэш, новый load шлёт свой запрос', async () => {
+    let release!: (v: Record<string, unknown>) => void
+    api.listClassifiersBatch.mockReturnValue(new Promise((r) => { release = r }))
+    api.listClassifiers.mockResolvedValue([{ code: 'NEW', nameRu: 'после добавления' }])
+    const store = useClassifiersStore()
+    const many = store.loadMany(['goods-locations', 'x'])
+    store.invalidate('goods-locations')
+    const fresh = await store.load('goods-locations')
+    expect(api.listClassifiers).toHaveBeenCalledWith('goods-locations')
+    release({ 'goods-locations': [{ code: 'OLD', nameRu: 'до добавления' }], x: item('x') })
+    await many
+    expect(fresh).toEqual([{ code: 'NEW', nameRu: 'после добавления' }])
+    expect(store.cache['goods-locations']).toEqual([{ code: 'NEW', nameRu: 'после добавления' }])
+    expect(store.cache.x).toEqual(item('x'))
+
+    // invalidate() целиком — тоже снимает запросы в полёте.
+    api.listClassifiersBatch.mockReturnValue(new Promise((r) => { release = r }))
+    const again = store.loadMany(['y', 'z'])
+    store.invalidate()
+    release(batchOf(['y', 'z']))
+    await again
+    expect(store.cache.y).toBeUndefined()
+    expect(store.cache.z).toBeUndefined()
   })
 
   it('один недостающий код — обычный одиночный запрос', async () => {
