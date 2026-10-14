@@ -7,6 +7,8 @@ export default {
     serverError: 'Server error. Please try again later.',
     sessionExpired: 'Session expired — please sign in again',
     network: 'Network error. Check your connection.',
+    pageLoadFailed: 'The page didn’t load. Please refresh it.',
+    reloadPage: 'Refresh',
     generic: 'Could not complete the request. Please try again.',
     invalidCredentials: 'Invalid username or password',
     loginNoToken: 'Login error: no token in the response',

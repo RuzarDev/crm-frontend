@@ -354,7 +354,15 @@ router.onError((err, to) => {
   const reloaded = storage != null && reloadOnceToRoute(to.fullPath, {
     storage, now: Date.now, reload: () => window.location.reload(), assign: (url) => window.location.assign(url),
   })
-  if (!reloaded) message.error({ content: i18n.global.t('errors.network'), key: 'chunk-load', duration: 6 })
+  // Браузер запоминает неудачную загрузку модуля до перезагрузки страницы — повторный клик не поможет, только обновление.
+  if (!reloaded) {
+    message.error({
+      content: i18n.global.t('errors.pageLoadFailed'),
+      key: 'chunk-load',
+      duration: 0,
+      action: { label: i18n.global.t('errors.reloadPage'), onClick: () => window.location.assign(to.fullPath) },
+    })
+  }
 })
 
 export default router

@@ -6,13 +6,16 @@ export interface MessageArgs {
   content: string
   key?: string | number
   duration?: number
+  /** Кнопка в плашке (например «Обновить»). */
+  action?: { label: string; onClick: () => void }
 }
 type Level = 'success' | 'error' | 'warning' | 'info'
 
 const show = (level: Level, arg: string | MessageArgs, duration?: number) => {
   const a: MessageArgs = typeof arg === 'string' ? { content: arg, duration } : arg
-  const opts: { id?: string | number; duration?: number } = {}
+  const opts: { id?: string | number; duration?: number; action?: { label: string; onClick: () => void } } = {}
   if (a.key !== undefined) opts.id = a.key
+  if (a.action) opts.action = a.action
   const sec = a.duration ?? (typeof arg === 'string' ? undefined : duration)
   if (sec !== undefined) opts.duration = sec === 0 ? Infinity : sec * 1000
   return toast[level](a.content, opts)
