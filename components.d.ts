@@ -7,7 +7,6 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
-    AtgLogo: typeof import('./src/components/AtgLogo.vue')['default']
     AuthLayout: typeof import('./src/components/auth/AuthLayout.vue')['default']
     ClientCell: typeof import('./src/components/broker/ClientCell.vue')['default']
     ClientShipmentRow: typeof import('./src/components/client/ClientShipmentRow.vue')['default']

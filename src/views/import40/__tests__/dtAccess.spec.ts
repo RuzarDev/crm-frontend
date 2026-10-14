@@ -4,7 +4,6 @@ import {
   canEditDt,
   canManageDeclarations,
   dtUserFrom,
-  isDtReadOnly,
   saveBeforeAction,
   type DtAccessUser,
 } from '../dtAccess'
@@ -34,14 +33,14 @@ describe('dtAccess — редактирование ДТ как на серве�
   })
 
   it('R1: сотрудник без права import40.declarant не правит даже до «Декларирования»', () => {
-    expect(isDtReadOnly(staffNoPerm, { status: 0 })).toBe(true)
-    expect(isDtReadOnly(staffNoPerm, { status: 1, assignedDeclarantId: null })).toBe(true)
-    expect(isDtReadOnly(staffNoPerm, { status: DECLARING_STATUS, assignedDeclarantId: ME })).toBe(true)
+    expect(canEditDt(staffNoPerm, { status: 0 })).toBe(false)
+    expect(canEditDt(staffNoPerm, { status: 1, assignedDeclarantId: null })).toBe(false)
+    expect(canEditDt(staffNoPerm, { status: DECLARING_STATUS, assignedDeclarantId: ME })).toBe(false)
   })
 
   it('клиент — только просмотр', () => {
-    expect(isDtReadOnly(client, { status: 0 })).toBe(true)
-    expect(isDtReadOnly({ ...client, canDeclare: true }, { status: 0 })).toBe(true)
+    expect(canEditDt(client, { status: 0 })).toBe(false)
+    expect(canEditDt({ ...client, canDeclare: true }, { status: 0 })).toBe(false)
   })
 
   it('декларант до «Декларирования» правит независимо от назначения', () => {

@@ -8,7 +8,6 @@ import ZDrawer from '../ZDrawer.vue'
 import ZConfirmHost from '../ZConfirmHost.vue'
 import ZDate from '../ZDate.vue'
 import ZSelect from '../ZSelect.vue'
-import ZPopconfirm from '../ZPopconfirm.vue'
 
 let w: VueWrapper
 afterEach(() => {
@@ -564,37 +563,6 @@ describe('ZModal/ZDrawer — раунд 1', () => {
       expect(dialog()).toBeNull()
       expect(document.activeElement).toBe(opener)
     }
-  })
-  it('ZPopconfirm в окне: подтверждение и Escape касаются только подтверждения', async () => {
-    const onConfirm = vi.fn()
-    const onPcCancel = vi.fn()
-    mountModal({}, {
-      default: () => h(ZPopconfirm, { title: 'Удалить строку?', okText: 'Да', onConfirm, onCancel: onPcCancel }, () => h('button', { type: 'button' }, 'Удалить строку')),
-    })
-    await nextTick()
-    await macrotask()
-    btn('Удалить строку').click()
-    await nextTick()
-    await macrotask()
-    pointerDown(btn('Да'))
-    btn('Да').click()
-    await nextTick()
-    await macrotask()
-    expect(onConfirm).toHaveBeenCalledTimes(1)
-    expect(w.emitted('cancel')).toBeUndefined()
-    expect(dialog()).not.toBeNull()
-
-    btn('Удалить строку').click()
-    await nextTick()
-    await macrotask()
-    expect(document.body.textContent).toContain('Удалить строку?')
-    escape()
-    await nextTick()
-    await macrotask()
-    expect(onPcCancel).toHaveBeenCalledTimes(1)
-    expect(document.body.textContent).not.toContain('Удалить строку?')
-    expect(w.emitted('cancel')).toBeUndefined()
-    expect(dialog()).not.toBeNull()
   })
   it('ZSelect в окне: выбор пункта не закрывает окно', async () => {
     const onUpdate = vi.fn()

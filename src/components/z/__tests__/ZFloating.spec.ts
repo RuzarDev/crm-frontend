@@ -5,13 +5,11 @@ import type { VueWrapper } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import ZTooltip from '../ZTooltip.vue'
 import ZDropdown from '../ZDropdown.vue'
-import ZPopconfirm from '../ZPopconfirm.vue'
 
 let w: VueWrapper
 afterEach(() => { w?.unmount(); document.body.innerHTML = '' })
 
 const tick = async () => { await nextTick(); await nextTick() }
-const popButtons = () => [...document.body.querySelectorAll('[role="dialog"] button')] as HTMLButtonElement[]
 
 describe('ZTooltip', () => {
   it('без title — только триггер: подсказка выключена, без содержимого и aria-describedby', async () => {
@@ -262,91 +260,5 @@ describe('ZDropdown', () => {
     expect(menuItems()).toHaveLength(1)
     expect(document.body.querySelector('[data-z-dropdown-header]')).toBeNull()
     expect(document.body.querySelector('[role="separator"]')).toBeNull()
-  })
-})
-
-describe('ZPopconfirm', () => {
-  const mountPc = (props: Record<string, unknown> = {}) =>
-    mountWithI18n(ZPopconfirm, { props: { title: 'Удалить файл?', ...props }, slots: { default: '<button>Удалить</button>' }, attachTo: document.body })
-  const find = (name: string) => popButtons().find((b) => b.textContent?.trim() === name)!
-
-  it('подтверждение эмитит confirm и закрывает окно', async () => {
-    w = mountPc({ danger: true })
-    await w.get('button').trigger('click')
-    await tick()
-    expect(document.body.textContent).toContain('Удалить файл?')
-    find('Подтвердить').click()
-    await tick()
-    expect(w.emitted('confirm')).toHaveLength(1)
-    expect(w.emitted('cancel')).toBeUndefined()
-    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
-  })
-
-  it('отмена эмитит cancel один раз; role dialog подписан заголовком; фокус на «Отмена»', async () => {
-    w = mountPc({ description: 'Файл будет удалён' })
-    await w.get('button').trigger('click')
-    await tick()
-    const dialog = document.body.querySelector('[role="dialog"]') as HTMLElement
-    const titleEl = document.getElementById(dialog.getAttribute('aria-labelledby')!)
-    expect(titleEl?.textContent).toBe('Удалить файл?')
-    expect(document.body.textContent).toContain('Файл будет удалён')
-    expect(document.activeElement).toBe(find('Отмена'))
-    const descId = dialog.getAttribute('aria-describedby')!
-    expect(document.getElementById(descId)?.textContent).toBe('Файл будет удалён')
-    find('Отмена').click()
-    await tick()
-    expect(w.emitted('cancel')).toHaveLength(1)
-    expect(w.emitted('confirm')).toBeUndefined()
-    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
-    // повторное открытие: связи aria остаются
-    await w.get('button').trigger('click')
-    await tick()
-    const again = document.body.querySelector('[role="dialog"]') as HTMLElement
-    expect(document.getElementById(again.getAttribute('aria-labelledby')!)?.textContent).toBe('Удалить файл?')
-    expect(document.getElementById(again.getAttribute('aria-describedby')!)?.textContent).toBe('Файл будет удалён')
-    expect(document.activeElement).toBe(find('Отмена'))
-  })
-
-  it('без описания aria-describedby не ставится', async () => {
-    w = mountPc()
-    await w.get('button').trigger('click')
-    await tick()
-    expect(document.body.querySelector('[role="dialog"]')?.hasAttribute('aria-describedby')).toBe(false)
-  })
-
-  it('Escape — cancel один раз', async () => {
-    w = mountPc()
-    await w.get('button').trigger('click')
-    await tick()
-    find('Отмена').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    await tick()
-    expect(w.emitted('cancel')).toHaveLength(1)
-    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
-  })
-
-  it('клик снаружи — cancel один раз', async () => {
-    w = mountPc()
-    await w.get('button').trigger('click')
-    await tick()
-    await new Promise((r) => setTimeout(r, 20)) // Reka вешает слушатель клика снаружи через setTimeout(0)
-    document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
-    await tick()
-    await new Promise((r) => setTimeout(r, 20)) // Presence снимает окно после макрозадачи
-    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
-    expect(w.emitted('cancel')).toHaveLength(1)
-  })
-
-  it('свои тексты кнопок и disabled — не открывается', async () => {
-    w = mountPc({ okText: 'Да, удалить', cancelText: 'Нет' })
-    await w.get('button').trigger('click')
-    await tick()
-    expect(popButtons().map((b) => b.textContent?.trim())).toEqual(['Нет', 'Да, удалить'])
-    w.unmount()
-    document.body.innerHTML = ''
-    w = mountPc({ title: 'Удалить?', disabled: true })
-    await w.get('button').trigger('click')
-    await tick()
-    expect(document.body.textContent).not.toContain('Удалить?')
-    expect(w.emitted('cancel')).toBeUndefined()
   })
 })

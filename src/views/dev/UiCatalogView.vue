@@ -21,7 +21,6 @@ import ZRadioGroup from '@/components/z/ZRadioGroup.vue'
 import ZSegmented from '@/components/z/ZSegmented.vue'
 import ZTooltip from '@/components/z/ZTooltip.vue'
 import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
-import ZPopconfirm from '@/components/z/ZPopconfirm.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZDrawer from '@/components/z/ZDrawer.vue'
 import ZTabs from '@/components/z/ZTabs.vue'
@@ -37,8 +36,6 @@ import ZDescriptions from '@/components/z/ZDescriptions.vue'
 import ZDescriptionsItem from '@/components/z/ZDescriptionsItem.vue'
 import ZUpload from '@/components/z/ZUpload.vue'
 import ZDateRange from '@/components/z/ZDateRange.vue'
-import ZListRow from '@/components/z/ZListRow.vue'
-import ZStepper, { type ZStep } from '@/components/z/ZStepper.vue'
 import ZAskBanner from '@/components/z/ZAskBanner.vue'
 import ZProgress from '@/components/z/ZProgress.vue'
 import ZBreadcrumbs from '@/components/z/ZBreadcrumbs.vue'
@@ -242,15 +239,6 @@ const uploadedNames = ref<string[]>([])
 const onUploadSelect = (files: File[]) => { uploadedNames.value = files.map((f) => f.name) }
 const period = ref<[string | null, string | null]>(['2026-09-01', '2026-09-28'])
 
-const stages: ZStep[] = [
-  { key: 'request', label: 'Заявка' },
-  { key: 'docs', label: 'Документы' },
-  { key: 'calc', label: 'Расчёт' },
-  { key: 'declaring', label: 'Декларирование' },
-  { key: 'submit', label: 'Подача в КЕДЕН' },
-  { key: 'release', label: 'Выпуск' },
-  { key: 'closed', label: 'Закрыто' },
-]
 const crumbs = [{ label: 'Импорт 40', to: '/_ui' }, { label: 'И40-182', to: '/_ui' }, { label: 'Декларация' }]
 
 // ZTree: ветки догружаются по раскрытию (задержка — как у сервера), reveal раскрывает путь до кода.
@@ -656,10 +644,6 @@ onBeforeUnmount(() => {
             <ZDropdown :items="moreItems" @select="onMenu">
               <ZButton variant="secondary">Ещё</ZButton>
             </ZDropdown>
-            <ZPopconfirm title="Удалить файл?" description="Инвойс INV-2026-0417.pdf будет удалён из заявки." ok-text="Удалить" cancel-text="Отмена" danger @confirm="lastAction = 'Файл удалён'" @cancel="lastAction = 'Удаление отменено'">
-              <ZButton variant="danger-ghost">Удалить файл</ZButton>
-            </ZPopconfirm>
-            <ZPopconfirm title="Отключено" disabled><ZButton disabled>Недоступно</ZButton></ZPopconfirm>
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <ZButton variant="primary" @click="modalOpen = true">Открыть окно</ZButton>
@@ -768,20 +752,11 @@ onBeforeUnmount(() => {
           </div>
         </ZPanel>
 
-        <ZPanel class="min-w-0" title="Стиль C: строки списка">
-          <div class="flex flex-col">
-            <ZListRow v-for="(c, i) in companies.slice(0, 3)" :key="c" :title="c" subtitle="Импорт 40 · ИМ 40" :avatar-name="c">
-              <template #meta><ZTag :tone="rowStatuses[i + 1][1]" size="sm">{{ rowStatuses[i + 1][0] }}</ZTag></template>
-              <template #trailing><span class="font-mono text-sm text-ink">{{ fmtSum(1_240_500 + i * 311_250) }}</span></template>
-            </ZListRow>
-          </div>
-        </ZPanel>
       </div>
 
       <ZPanel class="min-w-0" title="Стиль C: этапы, подсказки, прогресс">
         <div class="flex flex-col gap-5">
           <ZBreadcrumbs :items="crumbs" />
-          <ZStepper :steps="stages" current="declaring" />
           <ZAskBanner title="Нужен сертификат соответствия" description="Для позиции 3 загрузите сертификат до подачи декларации." action-text="Загрузить" @action="message.info('Открыть загрузку')" />
           <div class="flex flex-col gap-3">
             <ZProgress :percent="45" show-info aria-label="Заполнено 45%" />
@@ -874,11 +849,6 @@ onBeforeUnmount(() => {
             <label class="flex min-w-0 flex-col gap-1 text-sm text-ink-2">Вес нетто, кг
               <ZNumber v-model:value="mWeight" :precision="3" :min="0" />
             </label>
-          </div>
-          <div>
-            <ZPopconfirm title="Очистить заявку?" description="Введённые поля будут сброшены." ok-text="Очистить" danger @confirm="mClient = ''; mProc = null; mDate = null; mWeight = null">
-              <ZButton variant="danger-ghost" size="sm">Очистить поля</ZButton>
-            </ZPopconfirm>
           </div>
         </div>
       </ZModal>

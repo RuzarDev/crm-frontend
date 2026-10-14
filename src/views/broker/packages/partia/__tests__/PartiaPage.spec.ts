@@ -243,7 +243,7 @@ describe('PartiaPage: правка и сохранение', () => {
     Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'inv.pdf')], configurable: true })
     await input.trigger('change')
     await settle()
-    expect(invoice.extractGoods).toHaveBeenCalledWith(expect.any(File), 'u-k')
+    expect(invoice.extractGoods).toHaveBeenCalledWith(expect.any(File))
     await w.get('[data-import-append]').trigger('click')
     await settle()
     expect(w.findAll('[data-goods-card]')).toHaveLength(3)

@@ -108,11 +108,6 @@ export function partiaGaps(c: DocumentPackageClientConsolidationDto): PartiaGap[
   return gaps
 }
 
-/** «n товаров · k док.» — товары и документы гр.44. */
-export function partiaSummary(c: DocumentPackageClientConsolidationDto): { goods: number; docs: number } {
-  return { goods: c.goodsItems?.length ?? 0, docs: c.doc44Items?.length ?? 0 }
-}
-
 export function packageCounts(pkg: DocumentPackageDto): { containers: number; partias: number } {
   return {
     containers: pkg.containers.length,

@@ -122,8 +122,6 @@ const clientOptions = computed<ZOption[]>(() => {
   return opts
 })
 const noClients = computed(() => canEdit.value && portfolioLoaded.value && !portfolio.value.length)
-/** id клиента партии — для распознавания инвойса по шаблонам клиента. */
-const clientUuid = computed(() => portfolio.value.find((c) => c.username === draft.clientName)?.id)
 
 // ---- Шапка ----
 const headerTitle = computed(() => {
@@ -464,7 +462,7 @@ const fileChip = 'inline-flex max-w-full min-h-8 items-center gap-1.5 rounded-pi
 
           <SectionGoods :draft="draft.record" :readonly="readonly">
             <template #actions-lead>
-              <InvoiceImportModal :client-id="clientUuid" :existing-count="draft.record.goods.length" @imported="onImported" />
+              <InvoiceImportModal :existing-count="draft.record.goods.length" @imported="onImported" />
             </template>
           </SectionGoods>
 

@@ -22,13 +22,6 @@ export const STEP_EXECUTOR: Record<StepNo, StepExecutor> = { 1: 'client', 2: 'kp
 export const isCancelled = (status: number): boolean => status === 9
 export const isDone = (status: number): boolean => status === 8
 
-/** Текущий шаг 1..6; null — заявка выполнена или отменена (текущего шага нет). */
-export function currentStepOf(status: number): StepNo | null {
-  if (status >= 8) return null
-  const n = stepForStatus(status)
-  return n >= 1 && n <= TOTAL_STEPS ? (n as StepNo) : null
-}
-
 /**
  * Состояние шага: отменённая — все будущие (как раньше: без галочек, тела скрыты);
  * выполненная — все пройдены; иначе до текущего — пройден, текущий, после — будущий.

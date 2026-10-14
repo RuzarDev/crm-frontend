@@ -1,9 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { buildDtNumber, buildFromParts, cleanTail, ddmmyyOf, isStandardNumber, isoOfDdmmyy, lastTail, parseFullNumber, partsOf, tailOf } from '../dtNumber'
+import { buildFromParts, cleanTail, ddmmyyOf, isStandardNumber, isoOfDdmmyy, lastTail, parseFullNumber, partsOf, tailOf } from '../dtNumber'
 import { classifierLabel, dedupeOptions, withCurrent } from '../dtOptions'
 
 describe('dtNumber — номер ДТ гр. А', () => {
+  // как в SectionNumber: дата приходит как 'YYYY-MM-DD' и переводится в ДДММГГ
+  const buildDtNumber = (post: string | null, iso: string | null, tail: string) => buildFromParts(post, ddmmyyOf(iso), tail)
   it('ддммгг из даты ISO, в том числе с меткой времени', () => {
     expect(ddmmyyOf('2026-10-09')).toBe('091026')
     expect(ddmmyyOf('2026-10-09T00:00:00Z')).toBe('091026')

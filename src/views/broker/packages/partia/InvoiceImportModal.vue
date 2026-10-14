@@ -19,7 +19,7 @@ import { pluralForm } from '@/views/broker/list'
 // «Добавить позицию». Позиции → товары реестра, как раньше (описание — из наименования, валюта — общая).
 // Товары уже есть — выбор «Заменить товары» / «Добавить к существующим» (раньше молча заменяло, B13.9).
 // Ошибку распознавания показывает перехватчик — своего тоста нет (B13.6).
-const props = withDefaults(defineProps<{ clientId?: string; existingCount: number; disabled?: boolean }>(), { clientId: undefined, disabled: false })
+const props = withDefaults(defineProps<{ existingCount: number; disabled?: boolean }>(), { disabled: false })
 const emit = defineEmits<{ imported: [items: ReestrGoodsItemInput[], mode: 'replace' | 'append'] }>()
 const { t, locale } = useI18n()
 const tr = (key: string, p?: Record<string, unknown>) => t(`broker.partia.import.${key}`, p ?? {})
@@ -63,7 +63,7 @@ const onFile = async (e: Event) => {
   }
   busy.value = true
   try {
-    const res = await invoiceApi.extractGoods(file, props.clientId)
+    const res = await invoiceApi.extractGoods(file)
     result.value = res
     currency.value = res.header.currencyCode ?? 'USD'
     rows.value = res.items.map((item) => ({

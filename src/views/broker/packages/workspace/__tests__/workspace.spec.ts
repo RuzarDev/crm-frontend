@@ -9,7 +9,6 @@ import {
   packageCounts,
   partiaFiles,
   partiaGaps,
-  partiaSummary,
   targetLabel,
 } from '../workspace'
 import { container, file, fullPartia, pkg } from '../../partia/__tests__/packageFixture'
@@ -133,11 +132,6 @@ describe('partiaGaps', () => {
 })
 
 describe('итоги', () => {
-  it('partiaSummary — товары и документы гр.44', () => {
-    expect(partiaSummary(fullPartia())).toEqual({ goods: 2, docs: 1 })
-    expect(partiaSummary(fullPartia({ goodsItems: [], doc44Items: [] }))).toEqual({ goods: 0, docs: 0 })
-  })
-
   it('packageCounts — контейнеры и партии', () => {
     expect(packageCounts(pkg())).toEqual({ containers: 2, partias: 1 })
     const two = pkg({ containers: [container(), container({ id: 'c2', consolidations: [fullPartia({ id: 'p2' }), fullPartia({ id: 'p3' })] })] })

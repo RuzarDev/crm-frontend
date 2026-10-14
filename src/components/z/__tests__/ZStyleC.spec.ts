@@ -1,17 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { defineComponent, h } from 'vue'
 import type { VueWrapper } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
-import ZListRow from '../ZListRow.vue'
-import ZStepper from '../ZStepper.vue'
 import ZAskBanner from '../ZAskBanner.vue'
 import ZProgress from '../ZProgress.vue'
 import ZBreadcrumbs from '../ZBreadcrumbs.vue'
-import { createI18n } from 'vue-i18n'
-import { mount } from '@vue/test-utils'
-import kk from '@/i18n/locales/kk'
-import en from '@/i18n/locales/en'
-import ru from '@/i18n/locales/ru'
 
 let w: VueWrapper
 afterEach(() => w?.unmount())
@@ -24,141 +17,6 @@ const RouterLinkStub = defineComponent({
   },
 })
 const global = { stubs: { RouterLink: RouterLinkStub } }
-
-describe('ZListRow', () => {
-  it('без to/href/click — div; заголовок и подзаголовок', () => {
-    w = mountWithI18n(ZListRow, { props: { title: 'И40-182', subtitle: 'ТОО «Казахмыс»' }, global })
-    expect(w.element.tagName).toBe('DIV')
-    expect(w.text()).toContain('И40-182')
-    expect(w.find('.font-semibold').text()).toBe('И40-182')
-    expect(w.find('.text-ink-3').text()).toBe('ТОО «Казахмыс»')
-  })
-  it('to — RouterLink (a)', () => {
-    w = mountWithI18n(ZListRow, { props: { title: 'X', to: '/orders/1' }, global })
-    expect(w.element.tagName).toBe('A')
-    expect(w.attributes('data-to')).toBe('/orders/1')
-    expect(w.classes()).toContain('hover:bg-canvas')
-  })
-  it('пустой to считается отсутствующим; базовые классы шрифта на любом элементе', () => {
-    w = mountWithI18n(ZListRow, { props: { title: 'X', to: '' }, global })
-    expect(w.element.tagName).toBe('DIV')
-    expect(w.classes()).toEqual(expect.arrayContaining(['font-sans', 'text-base']))
-    w.unmount()
-    w = mountWithI18n(ZListRow, { props: { title: 'X', href: '/a' }, global })
-    expect(w.classes()).toEqual(expect.arrayContaining(['font-sans', 'text-base']))
-  })
-  it('href — a', () => {
-    w = mountWithI18n(ZListRow, { props: { title: 'X', href: 'https://example.kz' }, global })
-    expect(w.element.tagName).toBe('A')
-    expect(w.attributes('href')).toBe('https://example.kz')
-  })
-  it('слушатель click — button type=button со сбросом нативного вида, click доходит', async () => {
-    const onClick = vi.fn()
-    w = mountWithI18n(ZListRow, { props: { title: 'X' }, attrs: { onClick }, global })
-    expect(w.element.tagName).toBe('BUTTON')
-    expect(w.attributes('type')).toBe('button')
-    for (const c of ['border-0', 'bg-transparent', 'w-full', 'text-left']) expect(w.classes()).toContain(c)
-    await w.trigger('click')
-    expect(onClick).toHaveBeenCalledTimes(1)
-  })
-  it('слоты leading/meta/trailing; avatar-name рисует аватар, leading его заменяет', () => {
-    w = mountWithI18n(ZListRow, {
-      props: { title: 'X', avatarName: 'Иван Петров' },
-      slots: { meta: '<span class="m">тег</span>', trailing: '<span class="t">8 920 000</span>' },
-      global,
-    })
-    expect(w.find('[title="Иван Петров"]').exists()).toBe(true)
-    expect(w.find('.m').exists()).toBe(true)
-    expect(w.find('.t').element.parentElement?.classList.contains('tabular-nums')).toBe(true)
-    w.unmount()
-    w = mountWithI18n(ZListRow, {
-      props: { title: 'X', avatarName: 'Иван Петров' },
-      slots: { leading: '<i class="lead" />' },
-      global,
-    })
-    expect(w.find('.lead').exists()).toBe(true)
-    expect(w.find('[title="Иван Петров"]').exists()).toBe(false)
-  })
-})
-
-const steps = [
-  { key: 'draft', label: 'Черновик' },
-  { key: 'border', label: 'На границе' },
-  { key: 'decl', label: 'Декларирование', hint: 'ДТ' },
-  { key: 'sent', label: 'Подана' },
-  { key: 'rel', label: 'Выпущена' },
-  { key: 'svh', label: 'Закрытие СВХ' },
-  { key: 'pay', label: 'Счёт и оплата' },
-]
-
-describe('ZStepper', () => {
-  it('ol/li, aria-current=step только у текущего', () => {
-    w = mountWithI18n(ZStepper, { props: { steps, current: 'decl' } })
-    expect(w.find('ol').exists()).toBe(true)
-    const items = w.findAll('li')
-    expect(items).toHaveLength(7)
-    expect(items.map((li) => li.attributes('aria-current'))).toEqual([undefined, undefined, 'step', undefined, undefined, undefined, undefined])
-  })
-  it('сегменты: пройденные zircon, текущий zircon-ink, будущие line; без градиентов', () => {
-    w = mountWithI18n(ZStepper, { props: { steps, current: 'decl' } })
-    const bars = w.findAll('[data-z-step-bar]')
-    expect(bars[0].classes()).toContain('bg-zircon')
-    expect(bars[1].classes()).toContain('bg-zircon')
-    expect(bars[2].classes()).toContain('bg-zircon-ink')
-    expect(bars[3].classes()).toContain('bg-line')
-    expect(bars[6].classes()).toContain('bg-line')
-    expect(w.html()).not.toContain('gradient')
-    expect(w.findAll('li')[2].find('[data-z-step-label]').classes()).toEqual(expect.arrayContaining(['text-zircon-ink', 'font-semibold']))
-  })
-  it('status=error — текущий сегмент danger', () => {
-    w = mountWithI18n(ZStepper, { props: { steps, current: 'decl', status: 'error' } })
-    const bars = w.findAll('[data-z-step-bar]')
-    expect(bars[2].classes()).toContain('bg-danger')
-    expect(bars[2].classes()).not.toContain('bg-zircon-ink')
-    expect(bars[1].classes()).toContain('bg-zircon')
-  })
-  it('мобильная подпись «Шаг 3 из 7»; у неактивных подписи скрыты на телефоне', () => {
-    w = mountWithI18n(ZStepper, { props: { steps, current: 'decl' } })
-    expect(w.text()).toContain('Шаг 3 из 7')
-    const labels = w.findAll('li').map((li) => li.find('[data-z-step-label]').classes())
-    expect(labels[0]).toContain('max-sm:hidden')
-    expect(labels[2]).not.toContain('max-sm:hidden')
-  })
-  it('не только цветом: у пройденного галочка и «пройден», у ошибки значок и «ошибка»', () => {
-    w = mountWithI18n(ZStepper, { props: { steps, current: 'decl' } })
-    const lis = w.findAll('li')
-    expect(lis[0].find('svg').exists()).toBe(true)
-    expect(lis[0].find('.sr-only').text()).toContain('пройден')
-    expect(lis[2].find('svg').exists()).toBe(false)
-    expect(lis[3].find('svg').exists()).toBe(false)
-    w.unmount()
-    w = mountWithI18n(ZStepper, { props: { steps, current: 'decl', status: 'error' } })
-    expect(w.findAll('li')[2].find('svg').exists()).toBe(true)
-    expect(w.findAll('li')[2].find('.sr-only').text()).toContain('ошибка')
-  })
-  it('подсказка шага — text-muted text-xs; подпись можно обрезать', () => {
-    w = mountWithI18n(ZStepper, { props: { steps, current: 'decl' } })
-    const hint = w.findAll('li')[2].findAll('span').find((s) => s.text() === 'ДТ')!
-    expect(hint.classes()).toEqual(expect.arrayContaining(['text-muted', 'text-xs']))
-    expect(w.findAll('[data-z-step-label]')[2].classes()).toContain('min-w-0')
-  })
-  it('казахский счётчик без падежных окончаний: «Қадам 3/7»; en — Step 3 of 7', () => {
-    const mk = (locale: string) => mount(ZStepper, {
-      props: { steps, current: 'decl' },
-      global: { plugins: [createI18n({ legacy: false, locale, messages: { ru, kk, en } })] },
-    })
-    w = mk('kk')
-    expect(w.find('p').text()).toBe('Қадам 3/7')
-    w.unmount()
-    w = mk('en')
-    expect(w.find('p').text()).toBe('Step 3 of 7')
-  })
-  it('неизвестный current — нет текущего и нет счётчика', () => {
-    w = mountWithI18n(ZStepper, { props: { steps, current: 'nope' } })
-    expect(w.find('[aria-current="step"]').exists()).toBe(false)
-    expect(w.text()).not.toContain('Шаг')
-  })
-})
 
 describe('ZAskBanner', () => {
   it('role=region с именем-заголовком (не status: постоянный баннер с кнопкой), описание, кнопка; action эмитится', async () => {
