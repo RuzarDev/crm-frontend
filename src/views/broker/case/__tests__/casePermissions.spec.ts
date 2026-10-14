@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  actionDisabled, actionHint, assignedTag, can, canAssign, canCancel, canCompleteWithoutInvoice, canConfirmSvhWithoutCheck, canDeleteCaseDt, canEditCaseDt, dtDeleteBlockedByRelease, dtEditHint,
+  actionDisabled, actionHint, assignedTag, can, canAssign, canAssignTeam, canCancel, canCompleteWithoutInvoice, canConfirmSvhWithoutCheck, canDeleteCaseDt, canEditCaseDt, dtDeleteBlockedByRelease, dtEditHint,
   canIssueAqnietInvoice, canManageDraft, canOpenClient, canProblem, canSeeBilling, canStepBack, casePerms, claimVisible, hintText,
   readinessAvailable, roleModeOf, showProblemAction, stepBlockedBy, stepRoleOf,
 } from '../casePermissions'
@@ -125,6 +125,18 @@ describe('casePermissions: статусы', () => {
     expect(hintText(null, t)).toBe('')
   })
 
+  it('canAssignTeam: администратор, import40.assign и РОП (даже без права в матрице); декларант и прочие — нет', () => {
+    expect(canAssignTeam(USERS.admin)).toBe(true)
+    expect(canAssignTeam(USERS.rop)).toBe(true)
+    expect(canAssignTeam({ ...USERS.rop, permissions: ['import40.read'] })).toBe(true)
+    expect(canAssignTeam({ ...USERS.declarant, permissions: [...USERS.declarant.permissions, 'import40.assign'] })).toBe(true)
+    expect(canAssignTeam(USERS.declarant)).toBe(false)
+    expect(canAssignTeam(USERS.kpp)).toBe(false)
+    expect(canAssignTeam(USERS.accountant)).toBe(false)
+    // остальные действия руководителя (шаг назад, отмена) по-прежнему по import40.assign
+    expect(canAssign({ ...USERS.rop, permissions: ['import40.read'] })).toBe(false)
+  })
+
   it('casePerms собирает всё для заявки', () => {
     const p = casePerms(USERS.declarant, other)
     expect(p.stepRole).toBe('declarant')
@@ -132,6 +144,7 @@ describe('casePermissions: статусы', () => {
     expect(p.actionDisabled('declarant')).toBe(true)
     expect(p.stepBlockedBy('declarant')).toEqual({ name: 'Айгерим К.' })
     expect(p.canAssign).toBe(false)
+    expect(p.canAssignTeam).toBe(false)
     expect(p.userId).toBe('me')
   })
 })

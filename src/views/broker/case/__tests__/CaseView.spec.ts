@@ -297,6 +297,18 @@ describe('CaseView: действия', () => {
     expect(api.update).toHaveBeenLastCalledWith('c1', { assignedDeclarantId: GUID_EMPTY, assignedKppId: GUID_EMPTY })
   })
 
+  it('РОП видит «Сменить» у декларанта, назначенного другим (баг 14.10); у самого декларанта кнопки нет', async () => {
+    await mountCard(USERS.rop, { status: 3, assignedDeclarantId: 'u2', assignedDeclarantName: 'Айгерим К.' })
+    expect(w.get('[data-team-row="declarant"] [data-team-assign]').text()).toBe('Сменить')
+    w.unmount()
+    // РОП без права import40.assign в матрице — кнопка всё равно есть (сервер пускает РОП)
+    await mountCard({ ...USERS.rop, permissions: ['import40.read'] }, { status: 3, assignedDeclarantId: 'u2', assignedDeclarantName: 'Айгерим К.' })
+    expect(w.get('[data-team-row="declarant"] [data-team-assign]').text()).toBe('Сменить')
+    w.unmount()
+    await mountCard(USERS.declarant, { status: 3, assignedDeclarantId: 'me', assignedDeclarantName: 'Я' })
+    expect(w.find('[data-team-assign]').exists()).toBe(false)
+  })
+
   it.each([8, 9])('статус %i (выполнена/отменена) — «Назначить»/«Сменить» нет', async (status) => {
     await mountCard(USERS.admin, { status, assignedKppId: 'k1', assignedKppName: 'Ерлан Б.' })
     expect(w.find('[data-team-row="declarant"]').exists()).toBe(true)

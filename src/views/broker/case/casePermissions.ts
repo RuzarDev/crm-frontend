@@ -57,6 +57,12 @@ export function can(a: CaseAuth, role: StepRole | 'client'): boolean {
 /** Назначать исполнителей, шаг назад, отмена, обход «занято коллегой» — администратор или import40.assign. */
 export const canAssign = (a: CaseAuth): boolean => hasPerm(a, 'import40.assign')
 
+/**
+ * «Команда»: назначить/сменить декларанта и КПП на заявке — canAssign или РОП (бизнес-роль rop), как сервер
+ * (Import40Endpoints.CanAssignStaff, баг 14.10: РОП не мог сменить декларанта). Остальное руководителю — по canAssign.
+ */
+export const canAssignTeam = (a: CaseAuth): boolean => canAssign(a) || hasBiz(a, 'rop')
+
 /** Право именно на роль шага, без «руководитель может всё» (для «Взять в работу»). */
 export const hasStepPermission = (a: CaseAuth, role: StepRole): boolean => hasBiz(a, role) || hasPerm(a, PERM_FOR[role])
 
@@ -172,6 +178,7 @@ export interface CasePerms {
   roleMode: RoleMode
   can: (role: StepRole | 'client') => boolean
   canAssign: boolean
+  canAssignTeam: boolean
   claimVisible: (role: StepRole) => boolean
   stepBlockedBy: (role: StepRole) => { name: string | null } | null
   actionDisabled: (role: StepRole) => boolean
@@ -204,6 +211,7 @@ export function casePerms(a: CaseAuth, c: Import40CaseDto): CasePerms {
     roleMode: roleModeOf(a),
     can: (role) => can(a, role),
     canAssign: canAssign(a),
+    canAssignTeam: canAssignTeam(a),
     claimVisible: (role) => claimVisible(a, c, role),
     stepBlockedBy: (role) => stepBlockedBy(a, c, role),
     actionDisabled: (role) => actionDisabled(a, c, role),
