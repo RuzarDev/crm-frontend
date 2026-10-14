@@ -101,9 +101,9 @@ describe('SectionPayments: карточки и плашки', () => {
     expect(second.find('[data-payments-goods-empty]').text()).toBe('Платежи не рассчитаны')
     // «Платежи устарели» — товар без гр. 47
     expect(w.get('[data-payments-stale]').text()).toContain('товары 2')
-    // «Итого по видам» — Σ записанной гр. 47 без копеек
-    expect(w.get('[data-payments-total="5060"]').text()).toMatch(/2\s018\s064\s₸/)
-    expect(w.get('[data-payments-grand]').text()).toMatch(/2\s020\s565\s₸/)
+    // «Итого по видам» — Σ записанной гр. 47 целыми тенге вверх, как гр. В у КЕДЕН (2 018 064,40 → 2 018 065)
+    expect(w.get('[data-payments-total="5060"]').text()).toMatch(/2\s018\s065\s₸/)
+    expect(w.get('[data-payments-grand]').text()).toMatch(/2\s020\s566\s₸/)
     expect(w.find('[data-payments-apply]').exists()).toBe(false)
   })
 
