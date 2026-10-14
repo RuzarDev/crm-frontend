@@ -26,10 +26,6 @@ export const buildFromParts = (post: string | null | undefined, d6: string | nul
   return code && d6 && /^\d{6}$/.test(d6) && /^\d{7}$/.test(tail) ? `${code}/${d6}/${tail}` : ''
 }
 
-/** То же, но дата — 'YYYY-MM-DD'. */
-export const buildDtNumber = (post: string | null | undefined, iso: string | null | undefined, tail: string): string =>
-  buildFromParts(post, ddmmyyOf(iso), tail)
-
 /** Части стандартного номера; у номера другого формата и у пустого — null. */
 export const partsOf = (num: string | null | undefined): { post: string; d6: string; tail: string } | null => {
   const m = /^(\d+)\/(\d{6})\/(\d{7})$/.exec(num ?? '')

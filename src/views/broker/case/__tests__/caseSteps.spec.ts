@@ -4,7 +4,8 @@ import ru from '@/i18n/locales/ru'
 import kk from '@/i18n/locales/kk'
 import en from '@/i18n/locales/en'
 import { formatMoney } from '@/ui/number'
-import { STEP_NUMBERS, currentStepOf, stepStateOf, stepSummary, whatsLeft } from '../caseSteps'
+import { TOTAL_STEPS, stepForStatus } from '@/utils/import40Steps'
+import { STEP_NUMBERS, stepStateOf, stepSummary, whatsLeft } from '../caseSteps'
 import { formatLogStamp, groupFiles, roleLabel, transportSummary } from '../caseFormat'
 import { caseDto, declaration, fileDto } from './caseFixture'
 
@@ -24,7 +25,7 @@ describe('caseSteps: состояния по статусам 0–9', () => {
     [8, null, ['done', 'done', 'done', 'done', 'done', 'done']],
     [9, null, ['future', 'future', 'future', 'future', 'future', 'future']],
   ])('статус %i → шаг %s', (status, cur, states) => {
-    expect(currentStepOf(status)).toBe(cur)
+    expect(stepForStatus(status)).toBe(cur ?? TOTAL_STEPS + 1) // выполнена/отменена — вне диапазона шагов
     expect(STEP_NUMBERS.map((n) => stepStateOf(status, n))).toEqual(states)
   })
 })

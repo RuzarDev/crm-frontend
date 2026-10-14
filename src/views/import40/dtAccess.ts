@@ -74,8 +74,6 @@ export function canEditDt(u: DtAccessUser, c: DtAccessCase | null | undefined): 
   return !c.assignedDeclarantId || (u.userId != null && c.assignedDeclarantId === u.userId)
 }
 
-export const isDtReadOnly = (u: DtAccessUser, c: DtAccessCase | null | undefined): boolean => !canEditDt(u, c)
-
 /**
  * Сохранение перед действием (печать бланка, XML, ДТС): в просмотре сохранять нечего и нельзя —
  * сервер ответит 403 и действие не выполнится (баг B2). Тогда сразу «можно продолжать».
