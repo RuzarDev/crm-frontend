@@ -264,7 +264,7 @@ describe('InviteAcceptView', () => {
     const loginFrom = vi.spyOn(useAuthStore(), 'loginFromResponse').mockReturnValue(true)
     const push = vi.spyOn(router, 'push')
     await open(InviteAcceptView, '/invite/tok')
-    expect(w.text()).toContain('Вас пригласили в Zircon CRM для ТОО «Аргын».')
+    expect(w.text()).toContain('Вас пригласили в Zircon для ТОО «Аргын».')
     expect(w.text()).toContain('Логин — office@argyn.kz.')
     await field('Пароль').setValue('secret123')
     await field('Повторите пароль').setValue('secret123')
