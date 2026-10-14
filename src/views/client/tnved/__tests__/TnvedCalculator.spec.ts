@@ -12,6 +12,7 @@ vi.mock('@/api/references', () => ({ referencesApi: { listCountries: vi.fn().moc
 import TnvedCalculator from '../TnvedCalculator.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import { resetCurrenciesCache } from '../currency'
+import { measures7308 } from '@/components/__tests__/fixtures/ntm7308'
 
 const RESULT = (o: Partial<TnvedCalculateResult> = {}): TnvedCalculateResult => ({
   code: '8703231981', codeName: null, rateStr: '15%', customsValueKzt: 5_000_000, importDutyKzt: 750_000, customsFeeKzt: 20_000,
@@ -104,5 +105,20 @@ describe('TnvedCalculator', () => {
     await mountCalc({})
     await submit()
     expect(w.find('[data-calc-kinds]').exists()).toBe(false)
+  })
+  it('документы: клиенту — список с товарами без кодов гр. 33; сотруднику — по актам, коды гр. 33 одной строкой', async () => {
+    api.calculate.mockResolvedValue({ data: RESULT({ nonTariffMeasures: measures7308 }) })
+    await mountCalc({})
+    await submit()
+    const docs = w.findAll('[data-calc-doc]')
+    expect(docs).toHaveLength(10) // 11 документов без строки кодов гр. 33
+    expect(docs.some((d) => d.text().includes('Документ запретов'))).toBe(false)
+    expect(docs[0].get('[data-calc-doc-goods]').text()).toBe('Материалы, изделия и оборудование, контактирующие с пищевыми продуктами')
+    w.unmount()
+
+    await mountCalc({ extended: true })
+    await submit()
+    expect(w.findAll('[data-calc-docs] [data-measure-group]').map((g) => g.attributes('data-measure-group'))).toEqual(['required', 'preferences'])
+    expect(w.get('[data-calc-docs] [data-measure-gr33]').findAll('[data-gr33-code]')).toHaveLength(17)
   })
 })

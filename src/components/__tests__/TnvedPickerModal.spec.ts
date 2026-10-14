@@ -105,7 +105,10 @@ describe('TnvedPickerModal', () => {
     expect(detail).toContain('Ноутбуки и планшеты')
     expect(detail).toContain('5%')
     expect(detail).toContain('ВТО: 0%')
-    expect(detail).toContain('RESTRICTION: Сертификат соответствия')
+    // меры — как в справке D-Sector: раздел, документ; вид документа КЕДЕН не показывается
+    expect(detail).toContain('Меры нетарифного регулирования')
+    expect(detail).toContain('Сертификат соответствия')
+    expect(detail).not.toContain('RESTRICTION')
     expect(chooseBtn().disabled).toBe(false)
     await click(chooseBtn())
     expect(w.emitted('select')).toEqual([[{ code: '8471300000', name: 'Ноутбуки и планшеты' }]])
