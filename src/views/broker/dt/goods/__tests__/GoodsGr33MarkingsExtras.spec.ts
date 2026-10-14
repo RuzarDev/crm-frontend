@@ -448,6 +448,9 @@ describe('Редактор товара: «Доп. сведения»', () => {
     await settle()
     expect(g0().extras!.traceable).toBe(true)
     expect(g0().extras!.traceUnitCode).toBe('796')
+    // единица — выбор из ОКЕИ (окно «Единицы измерения» КЕДЕН), а не свободный ввод
+    expect(q('input[data-f="traceUnitCode"]')!.hasAttribute('data-okei-select')).toBe(true)
+    expect(q<HTMLInputElement>('input[data-f="traceUnitCode"]')!.value).toBe('796')
     expect(q('[data-extras-warn="trace"]')).not.toBeNull()
   })
 })

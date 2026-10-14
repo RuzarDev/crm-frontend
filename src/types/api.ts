@@ -697,6 +697,12 @@ export interface RefCodeItem {
   alpha2?: string | null
 }
 
+/** ref/okei-units — единица ОКЕИ (классификатор ЕЭК 2016), как в окне «Единицы измерения» КЕДЕН:
+ *  код, наименование, краткое наименование («166», «Килограмм», «КГ»). */
+export interface RefOkeiUnit extends RefCodeItem {
+  shortName?: string | null
+}
+
 // ref/foreign-customs-offices — иностранные таможенные органы назначения
 // (§5 DestinationCustomsOffice в КЕДЕН-транзите).
 export interface RefForeignCustomsOfficeDto {
@@ -745,9 +751,12 @@ export interface TnvedRateDto {
   rateSourceName: string | null
   rateSourceUrl: string | null
   vtoStatus: string | null
+  /** ДЕИ (гр. 41) по коду: null — у кода нет дополнительной единицы. */
   unitCode: string | null
   unitName: string | null
   updatedAtUtc: string | null
+  /** Краткое наименование ДЕИ из ОКЕИ: «М2», «ШТ». */
+  unitShortName?: string | null
 }
 
 export interface TnvedGroupDto {

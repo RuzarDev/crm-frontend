@@ -11,6 +11,7 @@ import { emptyDtForm, type DtFormState } from '../../dtPayload'
 import { useDtGoods } from '../useDtGoods'
 import { clearTariffCache } from '../useTariffOptions'
 import { resetOkeiUnits } from '../editor/okei'
+import { resetTnvedDeiCache } from '../editor/tnvedDei'
 import type { GoodsPageContext, GoodsSaveState } from '../editor/types'
 import { resetDtTnvedCheckCache } from '../tnvedCodeCheck'
 
@@ -18,7 +19,7 @@ const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.
 vi.mock('@/ui/message', () => ({ message: toast }))
 const refsApi = vi.hoisted(() => ({
   listClassifiers: vi.fn(async () => []),
-  listOkeiUnits: vi.fn(async () => [{ id: '1', code: '796', name: 'шт', isActive: true }, { id: '2', code: '112', name: 'л', isActive: true }]),
+  listOkeiUnits: vi.fn(async () => [{ id: '1', code: '796', name: 'Штука', shortName: 'ШТ', isActive: true }, { id: '2', code: '112', name: 'Литр', shortName: 'Л', isActive: true }]),
   listCountries: vi.fn(async () => []),
 }))
 vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: { list: vi.fn(async () => []), suggest: vi.fn(async () => ({ tnved: '', codes: [], fetchedAtUtc: null, stale: false, warning: null })) } }))
@@ -108,6 +109,7 @@ beforeEach(() => {
   useClassifiersStore().cache = {}
   clearTariffCache()
   resetOkeiUnits()
+  resetTnvedDeiCache()
   tnved.node.mockReset().mockImplementation(async (code: string) => ({ data: { code, name: `УЗЕЛ ${code}`, is10: code.length === 10 } }))
   tnved.rates.mockReset().mockResolvedValue({ data: { unitCode: '796', unitName: 'шт' } })
   tnved.tariffOptions.mockReset().mockResolvedValue({ data: tariff() })
@@ -240,23 +242,59 @@ describe('GoodsEditor: «Код и описание»', () => {
     expect(form.goodsItems[0].needsTpinRecalc).toBe(true)
   })
 
-  it('«Найти»: лист — описание ТН ВЭД и ДЕИ (только пустая); не лист — окно выбора', async () => {
+  it('«Найти»: лист — описание ТН ВЭД и ДЕИ кода («796 — ШТ»); не лист — окно выбора', async () => {
     await mount([item({ tnvedCode: '8471300000', tnvedDescription: null, unit: null, unitCode: null })], { query: '&item=1' })
     expect(form.goodsItems[0].needsTpinRecalc).toBe(false)
     await click('[data-goods-find]')
     expect(form.goodsItems[0].tnvedDescription).toBe('УЗЕЛ 8471300000')
     expect(form.goodsItems[0].unitCode).toBe('796')
-    expect(field('unitCode').value).toBe('796 — шт')
+    expect(field('unitCode').value).toBe('796 — ШТ')
     // ДЕИ влияет на платежи: подставлена по «Найти» — «Пересчитать»
     expect(form.goodsItems[0].needsTpinRecalc).toBe(true)
-    // ДЕИ уже есть — не трогается
-    tnved.rates.mockResolvedValue({ data: { unitCode: '112', unitName: 'л' } })
-    await click('[data-goods-find]')
-    expect(form.goodsItems[0].unitCode).toBe('796')
     // не лист — справочник с этим кодом
     await type('tnvedCode', '847130')
     await click('[data-goods-find]')
     expect(document.querySelectorAll('[role="dialog"][data-state="open"]').length).toBe(2)
+  })
+
+  it('гр. 41: ДЕИ по коду ТН ВЭД — код и кр. наименование ОКЕИ, «по ТН ВЭД»; нет ДЕИ — «нет доп. единицы»', async () => {
+    tnved.rates.mockImplementation(async (code: string) => ({
+      data: code === '2201900000' ? { unitCode: '112', unitName: 'ЛИТР', unitShortName: 'Л' } : { unitCode: null, unitName: null },
+    }))
+    await mount([item({ tnvedCode: '2201900000', unit: null, unitCode: null }), item({ tnvedCode: '9403105100', unit: 'шт', unitCode: '796' })], { query: '&item=1' })
+    expect(field('unitCode').value).toBe('112 — Л')
+    expect(q('[data-goods-field="unitCode"]')!.textContent).toContain('по ТН ВЭД')
+    expect(field('unitCode').readOnly).toBe(true)
+    // Открытие товара ничего не меняет — единицу ставит сервер при сохранении (или действие пользователя).
+    expect(form.goodsItems[0].unitCode).toBeNull()
+    expect(form.goodsItems[0].needsTpinRecalc).toBe(false)
+
+    await click('[data-goods-next]')
+    expect(field('unitCode').value).toBe('нет доп. единицы')
+    expect(field('unitCode').getAttribute('data-dei')).toBe('none')
+  })
+
+  it('гр. 41: ввод другого кода — ДЕИ кода подставляется, у кода без ДЕИ — снимается («Пересчитать»)', async () => {
+    tnved.rates.mockImplementation(async (code: string) => ({
+      data: code === '2201900000' ? { unitCode: '112', unitName: 'ЛИТР', unitShortName: 'Л' } : { unitCode: null, unitName: null },
+    }))
+    await mount([item({ tnvedCode: '4202121900', unit: 'шт', unitCode: '796' })], { query: '&item=1' })
+    await type('tnvedCode', '2201900000')
+    field('tnvedCode').dispatchEvent(new FocusEvent('blur'))
+    await new Promise((r) => setTimeout(r, 0))
+    await settle()
+    expect(form.goodsItems[0].unitCode).toBe('112')
+    expect(form.goodsItems[0].unit).toBe('ЛИТР')
+    expect(field('unitCode').value).toBe('112 — Л')
+    expect(form.goodsItems[0].needsTpinRecalc).toBe(true)
+
+    await type('tnvedCode', '9403105100')
+    field('tnvedCode').dispatchEvent(new FocusEvent('blur'))
+    await new Promise((r) => setTimeout(r, 0))
+    await settle()
+    expect(form.goodsItems[0].unitCode).toBeNull()
+    expect(form.goodsItems[0].unit).toBeNull()
+    expect(field('unitCode').value).toBe('нет доп. единицы')
   })
 
   it('кода нет в справочнике — ошибка у поля (проверка при открытии товара, тихо)', async () => {

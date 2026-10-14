@@ -14,6 +14,7 @@ import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import type { Import40GoodsExciseStamp, Import40GoodsExtras, Import40GoodsVehicle } from '@/types/api'
 import type { ZOption, ZOptionValue } from '@/ui/options'
 import { cn } from '@/ui/cn'
+import OkeiUnitSelect from './OkeiUnitSelect.vue'
 import type { GoodsSectionProps } from './types'
 
 // «Доп. сведения» (гр. 31 по структуре ДТ R.055, Решение Коллегии ЕЭК № 75): 31.1 характеристики, 31.4 акцизные марки,
@@ -278,7 +279,7 @@ const warnText = 'm-0 rounded-field bg-gold-soft px-3 py-2 text-[13px] text-gold
               <ZNumber :value="x.traceQuantity ?? null" :min="0" :disabled="readonly" :class="tall" data-f="traceQuantity" @update:value="set('traceQuantity', $event)" />
             </ZField>
             <ZField graph="31.15" :label="tx('traceUnit')" data-graph="31" :data-goods-index="index" data-goods-field="traceUnitCode">
-              <ZInput :value="x.traceUnitCode ?? ''" :maxlength="4" mono placeholder="796" :disabled="readonly" :class="tall" data-f="traceUnitCode" @update:value="set('traceUnitCode', text($event))" />
+              <OkeiUnitSelect :value="x.traceUnitCode ?? null" :disabled="readonly" :class="tall" data-f="traceUnitCode" @update:value="set('traceUnitCode', $event)" />
             </ZField>
           </div>
           <p v-if="traceWarn" :class="warnText" role="status" data-extras-warn="trace">{{ tx('traceRequired') }}</p>

@@ -2,6 +2,7 @@ import apiClient from './client'
 import type {
   RefItem,
   RefCodeItem,
+  RefOkeiUnit,
   RefForeignCustomsOfficeDto,
   ClassifierItem,
   ClassifierGroup,
@@ -43,12 +44,13 @@ export const referencesApi = {
   listForeignCustomsOffices: async (opts?: { silent?: boolean }): Promise<RefForeignCustomsOfficeDto[]> =>
     (await apiClient.get('/ref/foreign-customs-offices', opts?.silent ? { silent: true } : undefined)).data,
 
-  listOkeiUnits: async (opts?: { silent?: boolean }): Promise<RefCodeItem[]> =>
+  listOkeiUnits: async (opts?: { silent?: boolean }): Promise<RefOkeiUnit[]> =>
     (await apiClient.get('/ref/okei-units', opts?.silent ? { silent: true } : undefined)).data,
-  createOkeiUnit: async (code: string, name: string): Promise<RefCodeItem> =>
-    (await apiClient.post('/ref/okei-units', { code, name })).data,
-  updateOkeiUnit: async (id: string, code: string, name: string, isActive: boolean): Promise<RefCodeItem> =>
-    (await apiClient.put(`/ref/okei-units/${id}`, { code, name, isActive })).data,
+  // shortName не передан — сервер берёт краткое наименование ЕЭК (создание) или оставляет прежнее (правка).
+  createOkeiUnit: async (code: string, name: string, shortName?: string): Promise<RefOkeiUnit> =>
+    (await apiClient.post('/ref/okei-units', { code, name, shortName })).data,
+  updateOkeiUnit: async (id: string, code: string, name: string, isActive: boolean, shortName?: string): Promise<RefOkeiUnit> =>
+    (await apiClient.put(`/ref/okei-units/${id}`, { code, name, isActive, shortName })).data,
   deleteOkeiUnit: async (id: string): Promise<void> => { await apiClient.delete(`/ref/okei-units/${id}`) },
 
   listClassifierGroups: async (opts?: { silent?: boolean }): Promise<ClassifierGroup[]> =>

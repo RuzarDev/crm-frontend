@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhLock } from '@phosphor-icons/vue'
 import ZField from '@/components/z/ZField.vue'
@@ -13,7 +13,8 @@ import { placesOfGoods } from '@/utils/goodsPlaces'
 import { statUsdFrom } from '../../dtGoodsRules'
 import { withCurrent } from '../../dtOptions'
 import GoodsTariffHint from './GoodsTariffHint.vue'
-import { ensureOkeiUnits, okeiName } from './okei'
+import { ensureOkeiUnits, okeiLabel } from './okei'
+import { deiOf, loadDei } from './tnvedDei'
 import type { GoodsSectionProps } from './types'
 
 // «Количество и стоимость» (доска DtGoodsEditor): гр. 41 количество, ДЕИ (заблокирована — по коду ТН ВЭД) и тип
@@ -31,12 +32,18 @@ type NumKey = 'quantity' | 'grossWeightKg' | 'netWeightKg' | 'customsValue'
 const setNum = (key: NumKey, v: number | null) => { props.model.setField(props.item, key, v) }
 const str = (v: ZOptionValue | ZOptionValue[] | null) => (v == null || Array.isArray(v) || v === '' ? null : String(v))
 
-// ДЕИ — «796 — шт»: код и наименование из справочника ОКЕИ (или из товара).
+// ДЕИ — «055 — М2»: код и краткое наименование ОКЕИ; только чтение, по коду ТН ВЭД (как сервер при сохранении).
+// Ответ справочника по коду известен — показывается он (сохранённая единица могла остаться от прежнего кода — сервер
+// её поправит при сохранении); не известен — сохранённая единица товара. У кода нет ДЕИ — «нет доп. единицы».
+watch(() => props.item.tnvedCode, (c) => { void loadDei(c) }, { immediate: true })
+const dei = computed(() => deiOf(props.item.tnvedCode))
 const unitText = computed(() => {
-  const code = (props.item.unitCode ?? '').trim()
-  const name = okeiName(code) ?? props.item.unit ?? ''
-  return code ? (name ? `${code} — ${name}` : code) : name
+  const d = dei.value
+  if (d === null) return tq('unitNone')
+  if (d) return okeiLabel(d.code, d.shortName || d.name)
+  return okeiLabel(props.item.unitCode, props.item.unit)
 })
+const unitHint = computed(() => (dei.value === undefined && !(props.item.unitCode ?? '').trim() ? undefined : tq('unitByTnved')))
 const quantityTypes = OKEI_QUANTITY_TYPE_CODES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
 
 const netOverGross = computed(() => {
@@ -83,8 +90,8 @@ const autoTag = 'absolute top-1/2 right-2 -translate-y-1/2'
       <ZField graph="41" :label="tq('quantity')" data-graph="41" data-goods-field="quantity" :data-goods-index="index">
         <ZNumber :value="item.quantity ?? null" :min="0" :disabled="readonly" class="max-sm:h-11" data-f="quantity" @update:value="setNum('quantity', $event)" />
       </ZField>
-      <ZField graph="41" :label="tq('unit')" :title="tq('unitLocked')" data-graph="41" data-goods-field="unitCode" :data-goods-index="index">
-        <ZInput :value="unitText" readonly mono :placeholder="tq('unitAuto')" :class="lockedInput" :title="tq('unitLocked')" data-f="unitCode">
+      <ZField graph="41" :label="tq('unit')" :title="tq('unitLocked')" :extra="unitHint" data-graph="41" data-goods-field="unitCode" :data-goods-index="index">
+        <ZInput :value="unitText" readonly mono :placeholder="tq('unitAuto')" :class="lockedInput" :title="tq('unitLocked')" data-f="unitCode" :data-dei="dei === null ? 'none' : dei ? dei.code : undefined">
           <template #suffix><PhLock :size="14" aria-hidden="true" /></template>
         </ZInput>
       </ZField>

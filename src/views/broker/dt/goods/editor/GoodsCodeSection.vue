@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
 import ZField from '@/components/z/ZField.vue'
@@ -11,6 +11,7 @@ import type { Import40GoodsItemInput } from '@/types/api'
 import { useDtTnvedCheck } from '../tnvedCodeCheck'
 import GoodsTroisHint from './GoodsTroisHint.vue'
 import { okeiName } from './okei'
+import { loadDei } from './tnvedDei'
 import { DESCRIPTION_MAX_PARTS, DESCRIPTION_PART, splitDescription } from './descriptionParts'
 import type { GoodsSectionProps } from './types'
 
@@ -18,7 +19,7 @@ import type { GoodsSectionProps } from './types'
 // (TnvedPickerModal, контракт прежний), проверка существования кода (общий кэш редактора — useTnvedCheck), описание из
 // ТН ВЭД (только чтение), описание из инвойса (до 1000 знаков, счётчик и число частей по 250 для КЕДЕН) и бланк товара
 // (марка, знак, модель — до 250, артикул — до 50, изготовитель) ЗАГЛАВНЫМИ,
-// подсказка ТРОИС под маркой. ДЕИ подставляется по коду, только когда пуст (ставки ТН ВЭД).
+// подсказка ТРОИС под маркой. ДЕИ (гр. 41) задаёт код ТН ВЭД — подставляется и снимается вместе с кодом.
 // Правки — на месте; код — поле платежей (setField → «Пересчитать»); описание ТН ВЭД и ДЕИ по коду — производные.
 const props = defineProps<GoodsSectionProps>()
 const { t } = useI18n()
@@ -35,21 +36,39 @@ const code = computed(() => (props.item.tnvedCode ?? '').trim())
 const codeError = computed(() => (check.isInvalid(props.item.tnvedCode) ? tc('notFound') : undefined))
 onMounted(() => { void check.validate(props.item.tnvedCode) })
 
-// ДЕИ по коду ТН ВЭД — только если единицы ещё нет (как прежняя карточка). Подставляется по действию пользователя
-// («Найти», «Справочник»), а ДЕИ влияет на платежи (количество в единице ставки) — товар получает «Пересчитать».
-async function fillUnit(c: string) {
+// ДЕИ (гр. 41) задаёт код ТН ВЭД — тем же правилом, что сервер при сохранении: после «Найти», «Справочник» и ввода
+// кода (пауза в наборе или уход из поля) — единица кода; у кода нет ДЕИ — единица снимается; код не найден или сбой —
+// не трогается. ДЕИ влияет на платежи (количество в единице ставки): изменилась — товар получает «Пересчитать».
+// Открытие товара ничего не меняет (только действие пользователя).
+const compact = (v: string | null | undefined) => (v ?? '').replace(/\s+/g, '')
+async function applyDei(c: string) {
+  const dei = await loadDei(c)
   const g = props.item
-  if (g.unitCode || g.unit) return
-  try {
-    const rates = await tnvedApi.rates(c, { silent: true })
-    if (rates.data.unitCode && !g.unitCode && !g.unit) {
-      g.unitCode = rates.data.unitCode
-      g.unit = rates.data.unitName || okeiName(rates.data.unitCode) || null
-      props.model.markStale(g)
-    }
-  } catch (e) {
-    console.error('Failed to look up TNVED unit', e)
+  if (dei === undefined || compact(g.tnvedCode) !== c) return
+  const unitCode = dei?.code ?? null
+  if ((g.unitCode || null) === unitCode) {
+    if (dei && !g.unit) g.unit = dei.name || okeiName(dei.code) || null
+    return
   }
+  g.unitCode = unitCode
+  g.unit = dei ? dei.name || okeiName(dei.code) || null : null
+  props.model.markStale(g)
+}
+let deiTimer: ReturnType<typeof setTimeout> | undefined
+const scheduleDei = (delay: number) => {
+  clearTimeout(deiTimer)
+  const c = compact(props.item.tnvedCode)
+  if (!/^\d{10}$/.test(c)) return
+  deiTimer = setTimeout(() => { void applyDei(c) }, delay)
+}
+onBeforeUnmount(() => clearTimeout(deiTimer))
+const onCodeInput = (v: string) => {
+  onCode(v)
+  scheduleDei(600)
+}
+const onCodeBlur = () => {
+  void check.validate(props.item.tnvedCode)
+  scheduleDei(0)
 }
 
 const finding = ref(false)
@@ -65,7 +84,7 @@ const onPickerSelect = (payload: { code: string; name: string }) => {
   props.model.setField(props.item, 'tnvedCode', payload.code)
   check.markValid(payload.code)
   if (!props.item.tnvedDescription) props.item.tnvedDescription = payload.name
-  void fillUnit(payload.code)
+  void applyDei(compact(payload.code))
 }
 
 async function lookup() {
@@ -82,7 +101,7 @@ async function lookup() {
     }
     check.markValid(c)
     props.item.tnvedDescription = res.data.name
-    await fillUnit(c)
+    await applyDei(compact(c))
   } catch (e) {
     // Нет точного совпадения (частичный код) — справочник с поиском по нему.
     console.error('Failed to look up TNVED code', e)
@@ -137,8 +156,8 @@ const sideBtn = 'shrink-0 max-sm:h-11'
           :disabled="readonly"
           class="min-w-[12rem] flex-1 max-sm:h-11"
           data-f="tnvedCode"
-          @update:value="onCode"
-          @blur="check.validate(item.tnvedCode)"
+          @update:value="onCodeInput"
+          @blur="onCodeBlur"
           @press-enter="lookup"
         />
         <template v-if="!readonly">
