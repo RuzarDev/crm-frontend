@@ -178,6 +178,16 @@ describe('TransitView: роли', () => {
     expect(w.get('[data-import-stub]').attributes('data-hide')).toBe('true')
   })
 
+  it('карточка на телефоне: контейнер первой строкой, чекбокс выбора в её правом углу (не отдельной строкой)', async () => {
+    await mountAt()
+    const container = w.get('tbody [data-transit-container]').element.closest('td')!
+    expect(container.className).toEqual(expect.stringContaining('max-sm:-order-1'))
+    expect(container.className).toEqual(expect.stringContaining('max-sm:pr-9'))
+    const sel = w.get('tbody [role="checkbox"]').element.closest('td')!
+    expect(sel.className).toEqual(expect.stringContaining('max-sm:absolute'))
+    expect(sel.className).toEqual(expect.stringContaining('max-sm:right-0.5'))
+  })
+
   it('колонка выбора — только при reestr.delete или status.change', async () => {
     as('importer', ['reestr.read', 'reestr.write'])
     await mountAt()
