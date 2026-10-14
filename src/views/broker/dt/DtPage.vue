@@ -394,39 +394,82 @@ const onXml = async () => {
  * Бланк печатает только ЗАПИСАННЫЕ строки гр. 47 (гр. В — их сумма). Печать 13.10: гр. 47 и гр. В пустые («Всего: 0,00»),
  * хотя декларант «рассчитывал» — у товаров не было ни одной записанной строки (раздел «Платежи ● 4»). Перед печатью:
  * расчёт готов, но не записан — предложить «Записать»; у товаров нет строк гр. 47 или «Пересчитать» — «Рассчитать» и
- * записать. Отказ — печать как есть. Только при праве править (в просмотре расчёта нет).
+ * записать. Отказ — печать как есть. Только при праве править (в просмотре расчёта нет). Вопрос нужен — синхронно (до
+ * открытия вкладки печати): его ответ — новый клик, вкладка открывается по нему.
  */
-const preparePaymentsForPrint = async () => {
-  if (!editable.value || payments.busy.value) return
+const paymentsQuestion = (): { live: boolean; stale: number[] } | null => {
+  if (!editable.value || payments.busy.value) return null
   const live = payments.state.value === 'preview'
   const stale = staleGoodsIndexes(form.goodsItems)
-  if (!live && !stale.length) return
-  const ok = await confirm({
-    title: t('broker.dt.actions.printPaymentsTitle'),
-    content: live
-      ? t('broker.dt.actions.printPaymentsPreview')
-      : t('broker.dt.actions.printPaymentsStale', { list: formatItemNumbers(stale) }),
-    okText: live ? t('broker.dt.actions.printPaymentsWrite') : t('broker.dt.actions.printPaymentsCalc'),
-    cancelText: t('broker.dt.actions.printWithout'),
+  return live || stale.length ? { live, stale } : null
+}
+const askPayments = (q: { live: boolean; stale: number[] }) => confirm({
+  title: t('broker.dt.actions.printPaymentsTitle'),
+  content: q.live
+    ? t('broker.dt.actions.printPaymentsPreview')
+    : t('broker.dt.actions.printPaymentsStale', { list: formatItemNumbers(q.stale) }),
+  okText: q.live ? t('broker.dt.actions.printPaymentsWrite') : t('broker.dt.actions.printPaymentsCalc'),
+  cancelText: t('broker.dt.actions.printWithout'),
+})
+
+/**
+ * Вкладка печати открывается СРАЗУ по клику (до расчёта, сохранений и PDF — они идут дольше, чем браузер помнит клик, и
+ * поздний window.open блокируется как всплывающее окно; итоговое ревью пакета 7, I2), а PDF загружается в неё, когда готов.
+ * Браузер всё же не дал открыть вкладку — по готовности бланка окно с кнопкой «Открыть печатную форму» (новый клик).
+ */
+const openPrintTab = (): Window | null => {
+  const tab = window.open('', '_blank')
+  if (!tab) return null
+  try {
+    tab.document.title = t('broker.dt.actions.printTabTitle')
+    tab.document.body.textContent = t('broker.dt.actions.printTabLoading')
+  } catch { /* вкладка другого источника — без заглушки */ }
+  return tab
+}
+const showPrintForm = async (tab: Window | null, url: string) => {
+  if (tab && !tab.closed) {
+    tab.location.href = url
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    return
+  }
+  const open = await confirm({
+    title: t('broker.dt.actions.printBlockedTitle'),
+    content: t('broker.dt.actions.printBlockedText'),
+    okText: t('broker.dt.actions.printOpen'),
+    cancelText: t('broker.dt.actions.printBlockedClose'),
   })
-  if (!ok) return
-  if (!live && !(await payments.calculate())) return
-  if (payments.state.value === 'preview') await payments.apply()
+  if (open) window.open(url, '_blank')
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 const onPrint = async () => {
-  await preparePaymentsForPrint()
-  // В просмотре печатаем без сохранения (B2).
-  if (!(await dt.saveForAction(true))) return
+  if (printLoading.value) return
+  const question = paymentsQuestion()
+  // Без вопроса — вкладка по этому клику; с вопросом — по клику ответа (иначе вкладка закрыла бы окно вопроса).
+  let tab = question ? null : openPrintTab()
   printLoading.value = true
+  let shown = false
   try {
+    if (question) {
+      const ok = await askPayments(question)
+      tab = openPrintTab()
+      if (ok) {
+        // Расчёт, о котором просили, не удался — не печатать бланк с пустыми гр. 47 и гр. В (ошибку уже показали).
+        if (!question.live && !(await payments.calculate())) return
+        if (payments.state.value === 'preview' && !(await payments.apply())) return
+      }
+    }
+    // В просмотре печатаем без сохранения (B2).
+    if (!(await dt.saveForAction(true))) return
     const { blob } = await import40Api.blankPdf(caseId, dtId)
     const url = URL.createObjectURL(blob)
-    window.open(url, '_blank')
-    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    shown = true
+    printLoading.value = false
+    await showPrintForm(tab, url)
   } catch {
     message.error(t('broker.dt.actions.printError'))
   } finally {
     printLoading.value = false
+    if (!shown && tab && !tab.closed) tab.close()
   }
 }
 const onDocs = async () => {
