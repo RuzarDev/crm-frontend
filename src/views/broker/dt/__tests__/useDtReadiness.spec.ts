@@ -46,6 +46,17 @@ afterEach(() => {
 })
 
 describe('useDtReadiness — серверная готовность', () => {
+  it('предупреждения сервера — отдельно, «готово» не отменяют', async () => {
+    api.kedenReadiness.mockResolvedValue(withItems({
+      missing: [], items: [],
+      warnings: [{ text: 'Товар 1: гр.31 — у количества нет единицы измерения — в XML строка уйдёт без количества', graph: '31', goodsIndex: 0 }],
+    }))
+    const { r } = start()
+    await r.refresh()
+    expect(r.ready.value).toBe(true)
+    expect(r.warnings.value.map((i) => [i.section, i.graph, i.goodsIndex])).toEqual([['goods', '31', 0]])
+  })
+
   it('тихий запрос; пункты по разделам с графой и номером товара; бланк «заполнено из»', async () => {
     const { r } = start()
     await r.refresh()

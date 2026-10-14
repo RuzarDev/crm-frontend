@@ -1,5 +1,6 @@
 import type { Import40DeclarationDto, Import40DeclarationUpsert, Import40ExtractionPreview } from '@/api/import40'
 import type { CaseStepMode } from './caseContext'
+import { rowsFromLegacy } from '@/views/broker/dt/goods/editor/characteristics'
 
 // Список ДТ на шаге 3 карточки заявки (редизайн, волна 4а).
 
@@ -88,9 +89,11 @@ export const previewToUpsert = (preview: Import40ExtractionPreview): Import40Dec
         quantityTypeCode: null,
         invoiceValue: g.invoiceValue ?? null,
         currency: g.currency ?? null,
-        tradeMarkName: g.tradeMarkName ?? null,
-        productMarkName: g.productMarkName ?? null,
-        manufacturerName: g.manufacturerName ?? null,
+        // Распознанные марка, знак и производитель — в строку 1 характеристик гр. 31 (с количеством и стоимостью товара).
+        characteristics: rowsFromLegacy({
+          quantity: g.quantity, invoiceValue: g.invoiceValue,
+          tradeMarkName: g.tradeMarkName, productMarkName: g.productMarkName, manufacturerName: g.manufacturerName,
+        }),
       }))
     : undefined,
 })

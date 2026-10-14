@@ -17,6 +17,7 @@
 import { computed, shallowRef, toRaw, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { cloneGoodsExtras } from '@/types/api'
+import { blankCharacteristic, cloneCharacteristics } from './editor/characteristics'
 import type { DtFormState } from '../dtPayload'
 import { applyBulkPatch, type BulkPatch } from './goodsBulk'
 import { goodsRefsImpact, remapGoodsRefs, type GoodsIndexMap, type GoodsRefsResult } from './goodsRefs'
@@ -87,11 +88,8 @@ export const newDtGoodsItem = (currency: string | null | undefined): Goods => ({
   procedureCode: null,
   previousProcedureCode: null,
   goodsMoveFeatureCode: null,
-  tradeMarkName: null,
-  productMarkName: null,
-  productModelName: null,
-  productArticle: null,
-  manufacturerName: null,
+  // Гр. 31: одна пустая строка характеристик — заполняется сразу (пустую сервер не сохраняет).
+  characteristics: [blankCharacteristic()],
   packageAvailabilityCode: null,
   cargoPlacesQuantity: null,
   packageKindCode: null,
@@ -143,7 +141,9 @@ const valueHasData = (v: unknown): boolean => {
  * (гр. 36, гр. 33, ОИС, упаковка…), строки платежей и маркировки, доп. сведения. Валюта и «Пересчитать» — не в счёт.
  */
 export function dtGoodsHasData(g: Goods): boolean {
-  return Object.entries(g).some(([k, v]) => !NOT_DATA_KEYS.has(k) && valueHasData(v))
+  // Строки характеристик: пустая строка нового товара — не данные (считаются только заполненные строки).
+  return Object.entries(g).some(([k, v]) =>
+    !NOT_DATA_KEYS.has(k) && (k === 'characteristics' ? Array.isArray(v) && v.some(valueHasData) : valueHasData(v)))
 }
 
 /** Глубокая копия товара: платежи, маркировки (без id строки) и доп. сведения — свои объекты. */
@@ -153,6 +153,7 @@ export function cloneGoodsItem(g: Goods): Goods {
     payments: (g.payments ?? []).map((p) => ({ ...p })),
     markings: (g.markings ?? []).map(({ id: _id, ...m }) => ({ ...m })),
     extras: cloneGoodsExtras(g.extras),
+    characteristics: cloneCharacteristics(g.characteristics),
   }
 }
 

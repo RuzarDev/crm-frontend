@@ -12,6 +12,7 @@
 import dayjs from 'dayjs'
 import type {
   Import40CaseDto,
+  Import40CustomsOffice,
   Import40DeclarationDto,
   Import40DeclarationUpsert,
   Import40DtFormState,
@@ -19,7 +20,8 @@ import type {
   Import40PrevDocItem,
 } from '@/api/import40'
 import type { Import40Doc44ItemInput, Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
-import { cloneGoodsExtras } from '@/types/api'
+import { cloneGoodsExtras, type Import40GoodsExtras } from '@/types/api'
+import { cloneCharacteristics, rowsFromLegacy } from './goods/editor/characteristics'
 import { placesOfGoods } from '@/utils/goodsPlaces'
 import { officeNameOnly } from './dtOptions'
 
@@ -27,11 +29,17 @@ import { officeNameOnly } from './dtOptions'
  * Состояние редактора ДТ: общий тип секций, где товары и гр.В — непустые массивы, а товар
  * держит фактурную стоимость в customsValue (на сервере invoiceValue).
  */
-export type DtFormState = Omit<Import40DtFormState, 'goodsItems' | 'factPayments' | 'doc44Items' | 'prevDocItems'> & {
+export type DtFormState = Omit<
+  Import40DtFormState,
+  'goodsItems' | 'factPayments' | 'doc44Items' | 'prevDocItems' | 'borderCustomsOffices' | 'borderCustomsOfficeCode' | 'borderCustomsOfficeName'
+> & {
   goodsItems: Import40GoodsItemInput[]
   factPayments: Import40FactPayment[]
   doc44Items: Import40Doc44ItemInput[]
   prevDocItems: Import40PrevDocItem[]
+  /** Гр. 29: посты на границе по порядку (первый — основной). Старые поля borderCustomsOfficeCode/Name в форме не
+   * держим — в PUT они собираются из первого поста (formToPayload). */
+  borderCustomsOffices: Import40CustomsOffice[]
 }
 
 export const emptyParty = (): Import40Party => ({
@@ -86,8 +94,7 @@ export const emptyDtForm = (): DtFormState => ({
   goodsLocationStation: '',
   goodsLocationAddress: '',
   goodsLocationCustomsOfficeCode: '',
-  borderCustomsOfficeCode: '',
-  borderCustomsOfficeName: '',
+  borderCustomsOffices: [],
   submissionCustomsOfficeCode: '',
   submissionDate: null,
   borderTransportModeCode: '',
@@ -176,6 +183,26 @@ export const toIsoDate = (v: string | null | undefined): string | null => {
 }
 
 /**
+ * Гр. 29 из ДТ сервера: список постов; сервер без списка (до 14.10) — единственный пост из старых полей.
+ */
+export function borderOfficesOf(dto: Import40DeclarationDto): Import40CustomsOffice[] {
+  if (dto.borderCustomsOffices?.length) return dto.borderCustomsOffices.map((o) => ({ code: o.code ?? '', name: o.name ?? '' }))
+  const code = dto.borderCustomsOfficeCode ?? ''
+  const name = dto.borderCustomsOfficeName ?? ''
+  return code.trim() || name.trim() ? [{ code, name }] : []
+}
+
+/**
+ * Гр. 29 в PUT: пустые строки (добавлен пост, но не выбран) не уходят; название — без «код —» (старые записи хранили
+ * подпись опции целиком; сверка 14.10, M8).
+ */
+export function borderOfficesPayload(rows: Import40CustomsOffice[] | undefined): Import40CustomsOffice[] {
+  return (rows ?? [])
+    .map((o) => ({ code: (o.code ?? '').trim() || null, name: officeNameOnly(o.name ?? '') || null }))
+    .filter((o) => o.code || o.name)
+}
+
+/**
  * Форма из ДТ сервера (новые объекты и массивы — правка формы не трогает DTO).
  * Пустая дата гр.А (ДТ ещё не сохранялась) → today (по умолчанию — сегодня); сохранится с первой правкой.
  */
@@ -219,8 +246,7 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
   f.goodsLocationStation = dto.goodsLocationStation ?? ''
   f.goodsLocationAddress = dto.goodsLocationAddress ?? ''
   f.goodsLocationCustomsOfficeCode = dto.goodsLocationCustomsOfficeCode ?? ''
-  f.borderCustomsOfficeCode = dto.borderCustomsOfficeCode ?? ''
-  f.borderCustomsOfficeName = dto.borderCustomsOfficeName ?? ''
+  f.borderCustomsOffices = borderOfficesOf(dto)
   f.submissionCustomsOfficeCode = dto.submissionCustomsOfficeCode ?? ''
   // dto.submissionDate === null для свежей ДТ (ещё не сохранялась) — в этом
   // случае подставляем сегодняшнюю дату по умолчанию (гр. А: дата по умолчанию — сегодня;
@@ -327,11 +353,8 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
     procedureCode: g.procedureCode ?? null,
     previousProcedureCode: g.previousProcedureCode ?? null,
     goodsMoveFeatureCode: g.goodsMoveFeatureCode ?? null,
-    tradeMarkName: g.tradeMarkName ?? null,
-    productMarkName: g.productMarkName ?? null,
-    productModelName: g.productModelName ?? null,
-    productArticle: g.productArticle ?? null,
-    manufacturerName: g.manufacturerName ?? null,
+    // Гр. 31 строки характеристик; ответ сервера до пакета 7 (без строк) — строка 1 из одиночных полей товара.
+    characteristics: g.characteristics ? cloneCharacteristics(g.characteristics) : rowsFromLegacy(g),
     packageAvailabilityCode: g.packageAvailabilityCode ?? null,
     cargoPlacesQuantity: placesOfGoods(g),
     packageKindCode: g.packageKindCode ?? null,
@@ -357,7 +380,7 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
     oisRegNumber: g.oisRegNumber ?? null,
     oisCountryCode: g.oisCountryCode ?? null,
     markings: (g.markings ?? []).map((m) => ({ ...m })),
-    extras: cloneGoodsExtras(g.extras),
+    extras: extrasWithoutRowFields(g.extras),
     // Выбор по КЕДЕН (вид акциза, антидемпинг) и количества в единицах ставок. Без них при загрузке
     // ДТ выбор терялся, а автосейв затирал его в базе — расчёт снова брал первый вид акциза.
     exciseKind: g.exciseKind ?? null,
@@ -382,6 +405,16 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
     presentKindCode: d.presentKindCode ?? '0',
   }))
   return f
+}
+
+/** Доп. сведения товара без сорта и стандарта: они — в строках характеристик (сервер отдаёт здесь строку 1). */
+function extrasWithoutRowFields(x: Import40GoodsExtras | null | undefined): Import40GoodsExtras | null {
+  const copy = cloneGoodsExtras(x)
+  if (copy) {
+    delete copy.productSortName
+    delete copy.standardName
+  }
+  return copy
 }
 
 /**
@@ -410,6 +443,7 @@ export function prefillFromClientCase(form: DtFormState, c: Import40CaseDto | nu
 
 /** Тело PUT /import40/{caseId}/declarations/{id}: все графы шапки, пустое — null. */
 export function formToPayload(form: DtFormState, expectedUpdatedAtUtc: string | null): Import40DeclarationUpsert {
+  const offices = borderOfficesPayload(form.borderCustomsOffices)
   return {
     expectedUpdatedAtUtc,
     declarationNumber: form.declarationNumber || null,
@@ -449,9 +483,10 @@ export function formToPayload(form: DtFormState, expectedUpdatedAtUtc: string | 
     goodsLocationStation: form.goodsLocationStation || null,
     goodsLocationAddress: form.goodsLocationAddress || null,
     goodsLocationCustomsOfficeCode: form.goodsLocationCustomsOfficeCode || null,
-    borderCustomsOfficeCode: form.borderCustomsOfficeCode || null,
-    // Гр. 29: только название поста, без «код —» (старые записи хранили подпись опции целиком; сверка 14.10, M8).
-    borderCustomsOfficeName: officeNameOnly(form.borderCustomsOfficeName ?? '') || null,
+    // Гр. 29: весь список постов (сервер заменяет его целиком); старые поля — первый пост, для совместимости.
+    borderCustomsOffices: offices,
+    borderCustomsOfficeCode: offices[0]?.code ?? null,
+    borderCustomsOfficeName: offices[0]?.name ?? null,
     submissionCustomsOfficeCode: form.submissionCustomsOfficeCode || null,
     submissionDate: form.submissionDate || null,
     borderTransportModeCode: form.borderTransportModeCode || null,

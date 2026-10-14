@@ -14,6 +14,7 @@ import { invalidFeatureCodes, joinFeatureCodes, splitFeatureCodes } from '@/util
 import type { ZOption, ZOptionValue } from '@/ui/options'
 import { cn } from '@/ui/cn'
 import { useGr33Suggest } from '../useGr33Suggest'
+import { tradeMarksOf } from './characteristics'
 import type { GoodsSectionProps } from './types'
 
 // «Гр. 33» (доска DtGoodsEditor): ОИС — индикатор, рег. № (подсказки ТРОИС), страна; признаки соблюдения запретов С/М/П
@@ -47,7 +48,12 @@ const oisCountryOptions = computed<ZOption[]>(() => withValue(
 
 // ТРОИС: торговая марка найдена среди действующих знаков (точно или «похоже») — подсказка у ОИС; сам признак не ставим.
 const trois = useTroisCheck()
-const troisMatches = computed(() => trois?.resultFor(props.item.tradeMarkName)?.matches ?? [])
+// Знаки всех строк характеристик гр. 31 (без повторов по рег. номеру).
+const troisMatches = computed(() => {
+  const seen = new Set<string>()
+  return tradeMarksOf(props.item).flatMap((n) => trois?.resultFor(n)?.matches ?? [])
+    .filter((m) => !seen.has(m.registrationNumber) && !!seen.add(m.registrationNumber))
+})
 const troisFound = computed(() => troisMatches.value.some((m) => m.isActive && (m.match === 'exact' || m.match === 'similar')))
 
 // Рег. № по ОИС: пока не ищут — знаки по торговой марке товара (действующие сначала); ввод от 2 знаков — поиск по номеру,

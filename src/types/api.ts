@@ -697,6 +697,12 @@ export interface RefCodeItem {
   alpha2?: string | null
 }
 
+/** ref/okei-units — единица ОКЕИ (классификатор ЕЭК 2016), как в окне «Единицы измерения» КЕДЕН:
+ *  код, наименование, краткое наименование («166», «Килограмм», «КГ»). */
+export interface RefOkeiUnit extends RefCodeItem {
+  shortName?: string | null
+}
+
 // ref/foreign-customs-offices — иностранные таможенные органы назначения
 // (§5 DestinationCustomsOffice в КЕДЕН-транзите).
 export interface RefForeignCustomsOfficeDto {
@@ -745,9 +751,12 @@ export interface TnvedRateDto {
   rateSourceName: string | null
   rateSourceUrl: string | null
   vtoStatus: string | null
+  /** ДЕИ (гр. 41) по коду: null — у кода нет дополнительной единицы. */
   unitCode: string | null
   unitName: string | null
   updatedAtUtc: string | null
+  /** Краткое наименование ДЕИ из ОКЕИ: «М2», «ШТ». */
+  unitShortName?: string | null
 }
 
 export interface TnvedGroupDto {
@@ -1308,11 +1317,10 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   procedureCode?: string | null
   previousProcedureCode?: string | null
   goodsMoveFeatureCode?: string | null
-  tradeMarkName?: string | null
-  productMarkName?: string | null
-  productModelName?: string | null
-  productArticle?: string | null
-  manufacturerName?: string | null
+  // Гр.31 «Характеристики товара в группе» (пакет 7): строки с наименованием, количеством в своей единице ОКЕИ (не гр.41),
+  // стоимостью, производителем, знаком, маркой, моделью, артикулом, стандартом, сортом, серийными номерами. Прежние
+  // одиночные поля товара (tradeMarkName…manufacturerName, extras.productSortName/standardName) — строка 1 на сервере.
+  characteristics?: Import40GoodsCharacteristic[]
   packageAvailabilityCode?: string | null
   cargoPlacesQuantity?: number | null
   packageKindCode?: string | null
@@ -1372,10 +1380,31 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   extras?: Import40GoodsExtras | null
 }
 
+/** Строка «Характеристики товара в группе» гр.31 — зеркалит Import40GoodsCharacteristicDto на бэке. */
+export interface Import40GoodsCharacteristic {
+  name?: string | null
+  quantity?: number | null
+  /** Код ОКЕИ (классификатор 2016), 3 цифры — своя единица строки, не ДЕИ гр.41. */
+  unitCode?: string | null
+  /** Фактурная стоимость строки в валюте гр.22 (в XML не выгружается). */
+  invoiceValue?: number | null
+  manufacturerName?: string | null
+  tradeMarkName?: string | null
+  productMarkName?: string | null
+  productModelName?: string | null
+  productArticle?: string | null
+  standardName?: string | null
+  productSortName?: string | null
+  /** Серийные номера через запятую. */
+  serialNumbers?: string | null
+}
+
 /** Зеркалит Import40GoodsExtrasDto на бэке; даты — 'YYYY-MM-DD'. */
 export interface Import40GoodsExtras {
   productionPlaceName?: string | null
+  /** @deprecated Сорт и стандарт — в строках характеристик (characteristics); сервер отдаёт здесь строку 1. */
   productSortName?: string | null
+  /** @deprecated См. productSortName. */
   standardName?: string | null
   manufactureDate?: string | null
   periodStartDate?: string | null

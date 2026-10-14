@@ -83,6 +83,9 @@ export function useDtReadiness(
     return out
   })
 
+  /** Предупреждения сервера — не блокируют выгрузку (в «готово» не учитываются). */
+  const warnings = computed<DtReadinessItem[]>(() => (readiness.value?.warnings ?? []).map((i) => fromServer(i, false)))
+
   /** Готово к выгрузке: ответ сервера есть и пунктов нет. */
   const ready = computed(() => loaded.value && items.value.length === 0)
 
@@ -134,5 +137,5 @@ export function useDtReadiness(
   watch(() => toValue(opts.enabled), (on) => { if (!on) reset() })
   watch(() => [toValue(caseId), toValue(dtId)] as const, () => reset())
 
-  return { readiness, loaded, items, bySection, ready, blank, xmlErrors, refresh, setXmlErrors, clearXmlErrors, afterSave, reset }
+  return { readiness, loaded, items, warnings, bySection, ready, blank, xmlErrors, refresh, setXmlErrors, clearXmlErrors, afterSave, reset }
 }

@@ -25,10 +25,11 @@ export interface GoodsFilterOptions {
   statusOf: (g: Goods) => GoodsStatus
 }
 
-/** Поля поиска: код ТН ВЭД, описание (инвойса и ТН ВЭД), марка, знак, модель, артикул, изготовитель. */
+/** Поля поиска: код ТН ВЭД, описание (инвойса и ТН ВЭД) и строки характеристик гр. 31 (наименование, знак, марка, модель,
+ *  артикул, изготовитель). */
 const searchParts = (g: Goods) => [
-  g.tnvedCode, g.description, g.tnvedDescription, g.tradeMarkName, g.productMarkName, g.productModelName, g.productArticle,
-  g.manufacturerName,
+  g.tnvedCode, g.description, g.tnvedDescription,
+  ...(g.characteristics ?? []).flatMap((r) => [r.name, r.tradeMarkName, r.productMarkName, r.productModelName, r.productArticle, r.manufacturerName]),
 ]
 
 /** Строки списка по запросу и фильтру; порядок — как в форме. */

@@ -16,6 +16,8 @@ const props = defineProps<{
   /** Ответ готовности получен. */
   loaded: boolean
   items: DtReadinessItem[]
+  /** Предупреждения — выгрузку не блокируют (клик — к полю, как у пунктов). */
+  warnings?: DtReadinessItem[]
   blank: DtBlankProgress | null
   /** Курсы для показа: код и курс (₸ за единицу). */
   rates: { code: string; rate: number }[]
@@ -72,6 +74,23 @@ const graphLabel = (i: DtReadinessItem) => i.graph ?? '—'
       <p v-if="items.length" class="m-0 mt-2 text-xs text-muted">
         {{ fromXml ? t('broker.dt.panel.xmlNote') : t('broker.dt.panel.note') }}
       </p>
+      <div v-if="loaded && warnings?.length" class="mt-3" data-dt-panel-warnings>
+        <h3 class="m-0 text-xs font-medium text-gold-ink">{{ t('broker.dt.panel.warnings') }}</h3>
+        <ul class="m-0 mt-1 list-none p-0">
+          <li v-for="(it, i) in warnings" :key="`w-${i}-${it.text}`" :class="i ? 'border-t border-line' : ''">
+            <button
+              type="button"
+              class="flex min-h-11 w-full cursor-pointer items-start gap-2 rounded-field border-0 bg-transparent px-0 py-[7px] text-left font-sans text-[12.5px] leading-[1.35] text-ink-3 outline-hidden transition-colors duration-150 hover:text-ink focus-visible:shadow-focus motion-reduce:transition-none"
+              :aria-label="t('broker.dt.panel.goto', { graph: graphLabel(it), text: it.text })"
+              data-dt-panel-warning
+              @click="emit('go', it)"
+            >
+              <span class="min-w-[26px] shrink-0 font-mono font-medium text-muted" aria-hidden="true">{{ graphLabel(it) }}</span>
+              <span class="min-w-0 flex-1 [overflow-wrap:anywhere]" aria-hidden="true">{{ it.text }}</span>
+            </button>
+          </li>
+        </ul>
+      </div>
     </section>
 
     <section class="rounded-panel border border-line bg-surface px-4 py-3.5" data-dt-panel-rates>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
 import ZField from '@/components/z/ZField.vue'
@@ -9,16 +9,17 @@ import { tnvedApi } from '@/api/tnved'
 import { vUppercase } from '@/directives/uppercase'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { useDtTnvedCheck } from '../tnvedCodeCheck'
-import GoodsTroisHint from './GoodsTroisHint.vue'
+import GoodsCharacteristicsTable from './GoodsCharacteristicsTable.vue'
 import { okeiName } from './okei'
+import { loadDei } from './tnvedDei'
 import { DESCRIPTION_MAX_PARTS, DESCRIPTION_PART, splitDescription } from './descriptionParts'
 import type { GoodsSectionProps } from './types'
 
 // «Код и описание» (гр. 33, гр. 31): код ТН ВЭД (моно) с «Найти» (проверка узла: не лист — окно выбора) и «Справочник»
 // (TnvedPickerModal, контракт прежний), проверка существования кода (общий кэш редактора — useTnvedCheck), описание из
-// ТН ВЭД (только чтение), описание из инвойса (до 1000 знаков, счётчик и число частей по 250 для КЕДЕН) и бланк товара
-// (марка, знак, модель — до 250, артикул — до 50, изготовитель) ЗАГЛАВНЫМИ,
-// подсказка ТРОИС под маркой. ДЕИ подставляется по коду, только когда пуст (ставки ТН ВЭД).
+// ТН ВЭД (только чтение), описание из инвойса (до 1000 знаков, счётчик и число частей по 250 для КЕДЕН) и строки
+// «Характеристики товара в группе» (GoodsCharacteristicsTable: производитель, знак, марка, модель, артикул… по строке,
+// с текстом гр. 31 как в КЕДЕН). ДЕИ (гр. 41) задаёт код ТН ВЭД — подставляется и снимается вместе с кодом.
 // Правки — на месте; код — поле платежей (setField → «Пересчитать»); описание ТН ВЭД и ДЕИ по коду — производные.
 const props = defineProps<GoodsSectionProps>()
 const { t } = useI18n()
@@ -26,7 +27,7 @@ const tc = (key: string) => t(`broker.dt.goods.editor.code.${key}`)
 const check = useDtTnvedCheck()
 
 type Goods = Import40GoodsItemInput
-type StrKey = 'tnvedCode' | 'description' | 'tradeMarkName' | 'productMarkName' | 'productModelName' | 'productArticle' | 'manufacturerName'
+type StrKey = 'tnvedCode' | 'description'
 const setStr = (key: StrKey, v: string) => { props.model.setField(props.item, key, (v || null) as Goods[StrKey]) }
 // Код вставляют и с пробелами («4202 12 190 0») — храним без них.
 const onCode = (v: string) => setStr('tnvedCode', v.replace(/\s+/g, ''))
@@ -35,21 +36,47 @@ const code = computed(() => (props.item.tnvedCode ?? '').trim())
 const codeError = computed(() => (check.isInvalid(props.item.tnvedCode) ? tc('notFound') : undefined))
 onMounted(() => { void check.validate(props.item.tnvedCode) })
 
-// ДЕИ по коду ТН ВЭД — только если единицы ещё нет (как прежняя карточка). Подставляется по действию пользователя
-// («Найти», «Справочник»), а ДЕИ влияет на платежи (количество в единице ставки) — товар получает «Пересчитать».
-async function fillUnit(c: string) {
+// ДЕИ (гр. 41) задаёт код ТН ВЭД (правило сервера, tnved/node/{code}/rates). Меняет единицу только СМЕНА кода
+// пользователем («Найти», «Справочник», ввод — пауза в наборе или уход из поля): единица нового кода; у кода без ДЕИ —
+// снимается; код не найден или сбой — не трогается. Код не менялся (уход из поля, повторное «Найти») — единица не
+// трогается; «Найти»/«Справочник» только заполняют пустую (как прежняя карточка). Открытие товара ничего не меняет;
+// сервер при сохранении единицу не снимает. ДЕИ влияет на платежи: изменилась — товар получает «Пересчитать».
+const compact = (v: string | null | undefined) => (v ?? '').replace(/\s+/g, '')
+// Код, для которого единица товара уже выставлена: сохранённый при первом открытии, затем — последний применённый.
+const deiBase = new WeakMap<object, string>()
+watch(() => props.item, (g) => { if (!deiBase.has(g)) deiBase.set(g, compact(g.tnvedCode)) }, { immediate: true })
+async function applyDei(c: string, fillEmptyIfSame = false) {
   const g = props.item
-  if (g.unitCode || g.unit) return
-  try {
-    const rates = await tnvedApi.rates(c, { silent: true })
-    if (rates.data.unitCode && !g.unitCode && !g.unit) {
-      g.unitCode = rates.data.unitCode
-      g.unit = rates.data.unitName || okeiName(rates.data.unitCode) || null
-      props.model.markStale(g)
-    }
-  } catch (e) {
-    console.error('Failed to look up TNVED unit', e)
+  const same = deiBase.get(g) === c
+  if (same && !(fillEmptyIfSame && !g.unitCode)) return
+  const dei = await loadDei(c)
+  if (dei === undefined || compact(g.tnvedCode) !== c || g !== props.item) return
+  deiBase.set(g, c)
+  const unitCode = dei?.code ?? null
+  if (same && !unitCode) return
+  if ((g.unitCode || null) === unitCode) {
+    if (dei && !g.unit) g.unit = dei.name || okeiName(dei.code) || null
+    return
   }
+  g.unitCode = unitCode
+  g.unit = dei ? dei.name || okeiName(dei.code) || null : null
+  props.model.markStale(g)
+}
+let deiTimer: ReturnType<typeof setTimeout> | undefined
+const scheduleDei = (delay: number) => {
+  clearTimeout(deiTimer)
+  const c = compact(props.item.tnvedCode)
+  if (!/^\d{10}$/.test(c) || deiBase.get(props.item) === c) return
+  deiTimer = setTimeout(() => { void applyDei(c) }, delay)
+}
+onBeforeUnmount(() => clearTimeout(deiTimer))
+const onCodeInput = (v: string) => {
+  onCode(v)
+  scheduleDei(600)
+}
+const onCodeBlur = () => {
+  void check.validate(props.item.tnvedCode)
+  scheduleDei(0)
 }
 
 const finding = ref(false)
@@ -65,7 +92,7 @@ const onPickerSelect = (payload: { code: string; name: string }) => {
   props.model.setField(props.item, 'tnvedCode', payload.code)
   check.markValid(payload.code)
   if (!props.item.tnvedDescription) props.item.tnvedDescription = payload.name
-  void fillUnit(payload.code)
+  void applyDei(compact(payload.code), true)
 }
 
 async function lookup() {
@@ -82,7 +109,7 @@ async function lookup() {
     }
     check.markValid(c)
     props.item.tnvedDescription = res.data.name
-    await fillUnit(c)
+    await applyDei(compact(c), true)
   } catch (e) {
     // Нет точного совпадения (частичный код) — справочник с поиском по нему.
     console.error('Failed to look up TNVED code', e)
@@ -92,11 +119,8 @@ async function lookup() {
   }
 }
 
-// Пределы структуры ДТ (Решение Коллегии ЕЭК №75): описание — Text250, до 4 частей на товар (XML делит его сам);
-// товарный знак, марка, модель — Name250; артикул — Id50. Изготовитель — Name300 (как было).
+// Пределы структуры ДТ (Решение Коллегии ЕЭК №75): описание — Text250, до 4 частей на товар (XML делит его сам).
 const DESCRIPTION_MAX = 1000
-const NAME_MAX = 250
-const ARTICLE_MAX = 50
 const descriptionLength = computed(() => (props.item.description ?? '').trim().length)
 /** Части по 250 знаков — тем же правилом, что сервер (по запятым и пробелам), а не n / 250. */
 const descriptionPartCount = computed(() => splitDescription(props.item.description).length)
@@ -121,7 +145,6 @@ const descriptionWarning = computed(() =>
     : undefined,
 )
 
-const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @4xl:grid-cols-4'
 const sideBtn = 'shrink-0 max-sm:h-11'
 </script>
 
@@ -137,8 +160,8 @@ const sideBtn = 'shrink-0 max-sm:h-11'
           :disabled="readonly"
           class="min-w-[12rem] flex-1 max-sm:h-11"
           data-f="tnvedCode"
-          @update:value="onCode"
-          @blur="check.validate(item.tnvedCode)"
+          @update:value="onCodeInput"
+          @blur="onCodeBlur"
           @press-enter="lookup"
         />
         <template v-if="!readonly">
@@ -159,26 +182,7 @@ const sideBtn = 'shrink-0 max-sm:h-11'
       <ZInput v-uppercase :value="item.description" :maxlength="DESCRIPTION_MAX" :disabled="readonly" :placeholder="tc('descriptionPlaceholder')" class="max-sm:h-11" data-f="description" @update:value="setStr('description', $event)" />
     </ZField>
 
-    <div :class="grid">
-      <div class="flex min-w-0 flex-col gap-1 @md:col-span-2 @4xl:col-span-4">
-        <ZField graph="31" :label="tc('tradeMark')" data-graph="31" data-goods-field="tradeMarkName" :data-goods-index="index">
-          <ZInput v-uppercase :value="item.tradeMarkName" :maxlength="NAME_MAX" :disabled="readonly" class="max-sm:h-11" data-f="tradeMarkName" @update:value="setStr('tradeMarkName', $event)" />
-        </ZField>
-        <GoodsTroisHint :name="item.tradeMarkName" />
-      </div>
-      <ZField graph="31" :label="tc('productMark')" data-graph="31" data-goods-field="productMarkName" :data-goods-index="index">
-        <ZInput v-uppercase :value="item.productMarkName" :maxlength="NAME_MAX" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productMarkName" @update:value="setStr('productMarkName', $event)" />
-      </ZField>
-      <ZField graph="31" :label="tc('model')" data-graph="31" data-goods-field="productModelName" :data-goods-index="index">
-        <ZInput v-uppercase :value="item.productModelName" :maxlength="NAME_MAX" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productModelName" @update:value="setStr('productModelName', $event)" />
-      </ZField>
-      <ZField graph="31" :label="tc('article')" data-graph="31" data-goods-field="productArticle" :data-goods-index="index">
-        <ZInput v-uppercase :value="item.productArticle" :maxlength="ARTICLE_MAX" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productArticle" @update:value="setStr('productArticle', $event)" />
-      </ZField>
-      <ZField graph="31" :label="tc('manufacturer')" data-graph="31" data-goods-field="manufacturerName" :data-goods-index="index">
-        <ZInput v-uppercase :value="item.manufacturerName" :maxlength="300" :disabled="readonly" class="max-sm:h-11" data-f="manufacturerName" @update:value="setStr('manufacturerName', $event)" />
-      </ZField>
-    </div>
+    <GoodsCharacteristicsTable :item="item" :index="index" :model="model" :readonly="readonly" :ctx="ctx" />
 
     <TnvedPickerModal v-if="pickerUsed" v-model:open="pickerOpen" :initial-query="pickerQuery" @select="onPickerSelect" />
   </div>

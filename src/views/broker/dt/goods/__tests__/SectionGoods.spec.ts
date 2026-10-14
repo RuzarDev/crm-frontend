@@ -172,7 +172,7 @@ describe('SectionGoods: таблица', () => {
 describe('SectionGoods: поиск и фильтры', () => {
   const three = () => [
     item({ tnvedCode: '8471300000', description: 'НОУТБУКИ' }),
-    item({ tnvedCode: null, description: 'МЫШИ', tradeMarkName: 'LOGITECH' }),
+    item({ tnvedCode: null, description: 'МЫШИ', characteristics: [{ tradeMarkName: 'LOGITECH' }] }),
     item({ tnvedCode: '4202121900', description: 'СУМКИ', needsTpinRecalc: true }),
   ]
 

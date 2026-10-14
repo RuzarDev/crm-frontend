@@ -256,7 +256,7 @@ describe('Редактор товара: «Гр. 33» — коды запрет�
 describe('Редактор товара: «Гр. 33» — ОИС и ТРОИС', () => {
   it('знак найден в ТРОИС — подсказка у индикатора, сам индикатор не ставится; выбор рег. № ставит KZ, если пусто', async () => {
     trois.check.mockResolvedValue([{ name: 'ACME', checked: true, matches: [MARK({ no: '1234' }), MARK({ no: '777', isActive: false })] }])
-    await mount([item({ tradeMarkName: 'ACME' })])
+    await mount([item({ characteristics: [{ tradeMarkName: 'ACME' }] })])
     await new Promise((r) => setTimeout(r, 750))
     await settle()
     expect(fieldOf('oisIndicatorCode').textContent).toContain('Знак есть в ТРОИС')
@@ -397,7 +397,6 @@ describe('Редактор товара: «Доп. сведения»', () => {
     await click('[data-extras-toggle="chars"]')
     await type('productionPlaceName', 'гуанчжоу')
     expect(g0().extras).toMatchObject({ productionPlaceName: 'ГУАНЧЖОУ', exciseStamps: [], vehicles: [], traceable: false })
-    expect(input('standardName').maxLength).toBe(40)
     expect(input('productionPlaceName').maxLength).toBe(250)
 
     await click('[data-extras-toggle="stamps"]')
@@ -421,16 +420,18 @@ describe('Редактор товара: «Доп. сведения»', () => {
   })
 
   it('переход в поле свёрнутого блока: блок объявляет поля (data-goods-reveal) и раскрывается по goods-reveal', async () => {
-    await mount([item({ extras: { standardName: 'ГОСТ', exciseStamps: [], vehicles: [], traceable: false } })])
+    await mount([item({ extras: { productionPlaceName: 'ШАНХАЙ', exciseStamps: [], vehicles: [], traceable: false } })])
     await click('[data-extras-toggle="chars"]')
     expect(q('[data-extras-body="chars"]')).toBeNull()
-    expect(q('[data-goods-field="standardName"]')).toBeNull()
-    const holder = q('[data-goods-reveal~="standardName"]')!
+    expect(q('[data-goods-field="productionPlaceName"]')).toBeNull()
+    const holder = q('[data-goods-reveal~="productionPlaceName"]')!
     expect(holder.dataset.extrasToggle).toBe('chars')
     holder.dispatchEvent(new CustomEvent('goods-reveal'))
     await settle()
-    expect(q('[data-goods-field="standardName"] input[data-f="standardName"]')).not.toBeNull()
-    expect(q('[data-goods-reveal~="standardName"]')).toBeNull()
+    expect(q('[data-goods-field="productionPlaceName"] input[data-f="productionPlaceName"]')).not.toBeNull()
+    expect(q('[data-goods-reveal~="productionPlaceName"]')).toBeNull()
+    // Сорт и стандарт — в строках характеристик («Код и описание»), не в доп. сведениях.
+    expect(q('input[data-f="standardName"]')).toBeNull()
   })
 
   it('подсказки-чипы гр. 33 — высотой 44px на телефоне и сенсорном экране', async () => {
@@ -448,6 +449,9 @@ describe('Редактор товара: «Доп. сведения»', () => {
     await settle()
     expect(g0().extras!.traceable).toBe(true)
     expect(g0().extras!.traceUnitCode).toBe('796')
+    // единица — выбор из ОКЕИ (окно «Единицы измерения» КЕДЕН), а не свободный ввод
+    expect(q('input[data-f="traceUnitCode"]')!.hasAttribute('data-okei-select')).toBe(true)
+    expect(q<HTMLInputElement>('input[data-f="traceUnitCode"]')!.value).toBe('796')
     expect(q('[data-extras-warn="trace"]')).not.toBeNull()
   })
 })

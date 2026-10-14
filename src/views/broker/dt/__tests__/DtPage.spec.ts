@@ -358,16 +358,16 @@ describe('DtPage: готовность', () => {
     expect(marks.contains(document.activeElement)).toBe(true)
   })
 
-  it('пункт «доп. сведения — стандарт …» — свёрнутый блок раскрывается, фокус в поле стандарта', async () => {
-    const text = 'Товар 1: гр.31 доп. сведения — стандарт (НД) длиннее 40 символов'
+  it('пункт «гр.31 — строка …: стандарт (ГОСТ) длиннее 40» — к строкам характеристик товара', async () => {
+    const text = 'Товар 1: гр.31 — стандарт (ГОСТ) длиннее 40 символов'
     api.kedenReadiness.mockResolvedValue(readinessDto({ missing: [text], items: [{ text, graph: '31', goodsIndex: 0 }] }))
     await open('', ['SectionGoods'])
     await w.get('[data-dt-panel-aside] [data-dt-panel-item]').trigger('click')
     await settle()
-    const field = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="standardName"]') as HTMLElement
+    const field = document.querySelector('[data-dt-goods-editor] [data-goods-index="0"] [data-goods-field="characteristics"]') as HTMLElement
     expect(field).not.toBeNull()
     expect(field.hasAttribute('data-dt-flash')).toBe(true)
-    expect(document.activeElement).toBe(field.querySelector('input[data-f="standardName"]'))
+    expect(field.contains(document.activeElement)).toBe(true)
   })
 
   it('переход к пункту после несохранённого удаления: открывается тот самый товар (по снимку ответа), удалённый — только раздел', async () => {

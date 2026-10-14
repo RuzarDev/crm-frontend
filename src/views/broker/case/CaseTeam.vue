@@ -11,7 +11,7 @@ import { manageApi, type StaffMember } from '@/api/manage'
 import { GUID_EMPTY, assignedIdOf, assignedNameOf, type CasePerms, type StepRole } from './casePermissions'
 import type { CaseActions } from './useCaseActions'
 
-// «Команда»: декларант и КПП заявки. Руководитель/администратор (canAssign) назначает или меняет — окно с выбором
+// «Команда»: декларант и КПП заявки. Руководитель/администратор (canAssignTeam) назначает или меняет — окно с выбором
 // сотрудника; сохраняется прежним PUT с обоими полями (Guid.Empty — снять). Сотрудник с правом роли берёт
 // незанятую заявку в работу (claim) на строке роли текущего шага. «занято коллегой» — шаг ведёт другой (тег — строкой
 // под именем, чтобы имя переносилось по словам, а не посреди слова). Выполненной и отменённой заявке назначать некого.
@@ -111,7 +111,7 @@ const linkBtn = 'inline-flex min-h-8 cursor-pointer items-center rounded-field b
       >{{ t('import40Case.claim') }}</ZButton>
 
       <ZPopover
-        v-if="perms.canAssign && kase.status < 8"
+        v-if="perms.canAssignTeam && kase.status < 8"
         :open="open[r.role]"
         :title="t(r.role === 'kpp' ? 'broker.case.team.assignKpp' : 'broker.case.team.assignDeclarant')"
         align="end"

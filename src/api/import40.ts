@@ -6,6 +6,7 @@ import type {
   Import40FactPayment,
   Import40GoodsItemInput,
   Import40GoodsExtras,
+  Import40GoodsCharacteristic,
   Import40Doc44ItemInput,
   Import40DeclarationExpense,
   DeclarationReadiness,
@@ -132,6 +133,8 @@ export interface Import40GoodsItemDto {
   taxPieces?: number | null
   engineVolumeCm3?: number | null
   extras?: Import40GoodsExtras | null
+  // Гр.31 строки характеристик (пакет 7). Ответ сервера до пакета 7 — без них: строка 1 из одиночных полей выше.
+  characteristics?: Import40GoodsCharacteristic[] | null
 }
 
 // Зеркалит Import40GoodsMarkingDto / Import40GoodsMarkingRequest на бэке (Task 2).
@@ -178,6 +181,12 @@ export interface Import40PrevDocItem {
   sortOrder: number
 }
 
+/** Гр. 29: пост на границе (таможенный орган въезда/выезда). */
+export interface Import40CustomsOffice {
+  code: string | null
+  name: string | null
+}
+
 export interface Import40DeclarationDto {
   id: string
   caseId: string
@@ -222,6 +231,8 @@ export interface Import40DeclarationDto {
   goodsLocationCustomsOfficeCode?: string | null
   borderCustomsOfficeCode?: string | null
   borderCustomsOfficeName?: string | null
+  /** Гр. 29: все посты на границе по порядку, первый — основной (он же в borderCustomsOfficeCode/Name). Старый сервер — нет поля. */
+  borderCustomsOffices?: Import40CustomsOffice[] | null
   submissionCustomsOfficeCode?: string | null
   submissionDate?: string | null
   borderTransportModeCode?: string | null
@@ -362,6 +373,8 @@ export interface Import40DeclarationUpsert {
   goodsLocationCustomsOfficeCode?: string | null
   borderCustomsOfficeCode?: string | null
   borderCustomsOfficeName?: string | null
+  /** Гр. 29: все посты на границе по порядку, первый — основной (он же в borderCustomsOfficeCode/Name). Старый сервер — нет поля. */
+  borderCustomsOffices?: Import40CustomsOffice[] | null
   submissionCustomsOfficeCode?: string | null
   submissionDate?: string | null
   borderTransportModeCode?: string | null
@@ -633,6 +646,8 @@ export interface KedenReadinessDto {
   // Те же пункты, что в missing, с привязкой к графе бланка (волна 6а): graph — «А», «8», «30», «44», «ДТС»…;
   // goodsIndex — номер товара с 0 для пунктов по товару. Старый сервер поля не отдаёт — тогда разбор строки.
   items?: KedenReadinessItem[]
+  // Предупреждения (выгрузку не блокируют, в missing не входят): напр. строка гр.31 без количества с единицей.
+  warnings?: KedenReadinessItem[]
 }
 
 export interface KedenReadinessItem {
