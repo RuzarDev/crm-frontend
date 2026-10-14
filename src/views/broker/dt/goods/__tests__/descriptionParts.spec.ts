@@ -50,4 +50,11 @@ describe('splitDescription — части описания гр.31 как на �
     const five = Array.from({ length: 5 }, (_, i) => String.fromCharCode(0x410 + i).repeat(180)).join(', ') // 908
     expect(splitDescription(five).length).toBe(5)
   })
+
+  it('запятая в начале части не дробит описание — режем по пробелу', () => {
+    const words = 'ЛАМИНАТ, ' + Array.from({ length: 40 }, (_, k) => `СЛОВО${k}`).join(' ')
+    const parts = splitDescription(words)
+    expect(parts[0].length).toBeGreaterThan(125)
+    expect(parts.length).toBe(2)
+  })
 })
