@@ -17,6 +17,7 @@ import { formatTnved } from '@/utils/tnvedFormat'
 import type { Import40GoodsItemInput } from '@/types/api'
 import type { GoodsStatus } from '../goodsStatus'
 import { keyOf, type DtGoodsModel } from '../useDtGoods'
+import { tradeMarksOf } from './characteristics'
 import { GOODS_EDITOR_SECTIONS } from './sections'
 import type { GoodsEditorContext, GoodsSaveState } from './types'
 
@@ -51,7 +52,7 @@ const uid = `goods-editor-${useId()}`
 
 // ТРОИС: все марки ДТ одной пачкой (как раньше) — но только когда редактор открывали: список без редактора их не показывает.
 const everOpened = ref(false)
-useTroisCheckProvider(() => (everOpened.value ? props.model.items.value.map((g) => g.tradeMarkName) : []))
+useTroisCheckProvider(() => (everOpened.value ? props.model.items.value.flatMap(tradeMarksOf) : []))
 
 const items = computed(() => props.model.items.value)
 const item = computed(() => (props.index == null ? null : items.value[props.index] ?? null))

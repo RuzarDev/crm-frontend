@@ -17,7 +17,8 @@ import { cn } from '@/ui/cn'
 import OkeiUnitSelect from './OkeiUnitSelect.vue'
 import type { GoodsSectionProps } from './types'
 
-// «Доп. сведения» (гр. 31 по структуре ДТ R.055, Решение Коллегии ЕЭК № 75): 31.1 характеристики, 31.4 акцизные марки,
+// «Доп. сведения» (гр. 31 по структуре ДТ R.055, Решение Коллегии ЕЭК № 75): 31.1 характеристики товара в целом (место
+// происхождения, дата выпуска — уходят в каждую строку характеристик; сорт и стандарт — в строках, «Код и описание»), 31.4 акцизные марки,
 // сведения об автомобиле, 31.7 период поставки, 31.12 инвестпроект, 31.15 прослеживаемость. Поля и длины — как в старом
 // Import40GoodsExtras; в XML уходят только заполненные блоки, правила формата — на сервере (KedenXmlReadiness), здесь —
 // те же подсказки у полей. Блок раскрыт, если в нём что-то есть (автомобили — ещё и для 8701–8705, 8711), иначе свёрнут
@@ -54,7 +55,7 @@ const FIELD: Record<BlockKey, string> = {
 // Поля внутри блока — для перехода «До подачи» в свёрнутый блок: DtPage.goTo не находит [data-goods-field=…], находит
 // свёрнутый блок по data-goods-reveal и шлёт ему goods-reveal — блок раскрывается, переход попадает в само поле.
 const REVEAL: Record<BlockKey, readonly string[]> = {
-  chars: ['chars', 'productionPlaceName', 'productSortName', 'standardName', 'manufactureDate'],
+  chars: ['chars', 'productionPlaceName', 'manufactureDate'],
   stamps: ['exciseStamps'],
   vehicles: ['vehicles'],
   period: ['period', 'periodStartDate', 'periodEndDate'],
@@ -64,7 +65,7 @@ const REVEAL: Record<BlockKey, readonly string[]> = {
 const filled = computed<Record<BlockKey, boolean>>(() => {
   const e = x.value
   return {
-    chars: !!(e.productionPlaceName || e.productSortName || e.standardName || e.manufactureDate),
+    chars: !!(e.productionPlaceName || e.manufactureDate),
     stamps: !!e.exciseStamps?.length,
     vehicles: !!e.vehicles?.length,
     period: !!(e.periodStartDate || e.periodEndDate),
@@ -173,12 +174,6 @@ const warnText = 'm-0 rounded-field bg-gold-soft px-3 py-2 text-[13px] text-gold
         <div v-if="b === 'chars'" :class="grid">
           <ZField graph="31.1" :label="tx('productionPlace')" data-graph="31" :data-goods-index="index" data-goods-field="productionPlaceName">
             <ZInput v-uppercase :value="x.productionPlaceName ?? ''" :maxlength="250" :disabled="readonly" :class="tall" data-f="productionPlaceName" @update:value="set('productionPlaceName', text($event))" />
-          </ZField>
-          <ZField graph="31.1" :label="tx('sort')" data-graph="31" :data-goods-index="index" data-goods-field="productSortName">
-            <ZInput v-uppercase :value="x.productSortName ?? ''" :maxlength="250" :disabled="readonly" :class="tall" data-f="productSortName" @update:value="set('productSortName', text($event))" />
-          </ZField>
-          <ZField graph="31.1" :label="tx('standard')" :title="tx('standardHint')" data-graph="31" :data-goods-index="index" data-goods-field="standardName">
-            <ZInput v-uppercase :value="x.standardName ?? ''" :maxlength="40" :disabled="readonly" :title="tx('standardHint')" :class="tall" data-f="standardName" @update:value="set('standardName', text($event))" />
           </ZField>
           <ZField graph="31.1" :label="tx('manufactureDate')" data-graph="31" :data-goods-index="index" data-goods-field="manufactureDate">
             <ZDate :value="x.manufactureDate ?? null" :disabled="readonly" allow-clear :class="tall" data-f="manufactureDate" @update:value="set('manufactureDate', $event)" />

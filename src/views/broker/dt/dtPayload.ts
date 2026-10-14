@@ -20,7 +20,8 @@ import type {
   Import40PrevDocItem,
 } from '@/api/import40'
 import type { Import40Doc44ItemInput, Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
-import { cloneGoodsExtras } from '@/types/api'
+import { cloneGoodsExtras, type Import40GoodsExtras } from '@/types/api'
+import { cloneCharacteristics, rowsFromLegacy } from './goods/editor/characteristics'
 import { placesOfGoods } from '@/utils/goodsPlaces'
 import { officeNameOnly } from './dtOptions'
 
@@ -352,11 +353,8 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
     procedureCode: g.procedureCode ?? null,
     previousProcedureCode: g.previousProcedureCode ?? null,
     goodsMoveFeatureCode: g.goodsMoveFeatureCode ?? null,
-    tradeMarkName: g.tradeMarkName ?? null,
-    productMarkName: g.productMarkName ?? null,
-    productModelName: g.productModelName ?? null,
-    productArticle: g.productArticle ?? null,
-    manufacturerName: g.manufacturerName ?? null,
+    // Гр. 31 строки характеристик; ответ сервера до пакета 7 (без строк) — строка 1 из одиночных полей товара.
+    characteristics: g.characteristics ? cloneCharacteristics(g.characteristics) : rowsFromLegacy(g),
     packageAvailabilityCode: g.packageAvailabilityCode ?? null,
     cargoPlacesQuantity: placesOfGoods(g),
     packageKindCode: g.packageKindCode ?? null,
@@ -382,7 +380,7 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
     oisRegNumber: g.oisRegNumber ?? null,
     oisCountryCode: g.oisCountryCode ?? null,
     markings: (g.markings ?? []).map((m) => ({ ...m })),
-    extras: cloneGoodsExtras(g.extras),
+    extras: extrasWithoutRowFields(g.extras),
     // Выбор по КЕДЕН (вид акциза, антидемпинг) и количества в единицах ставок. Без них при загрузке
     // ДТ выбор терялся, а автосейв затирал его в базе — расчёт снова брал первый вид акциза.
     exciseKind: g.exciseKind ?? null,
@@ -407,6 +405,16 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
     presentKindCode: d.presentKindCode ?? '0',
   }))
   return f
+}
+
+/** Доп. сведения товара без сорта и стандарта: они — в строках характеристик (сервер отдаёт здесь строку 1). */
+function extrasWithoutRowFields(x: Import40GoodsExtras | null | undefined): Import40GoodsExtras | null {
+  const copy = cloneGoodsExtras(x)
+  if (copy) {
+    delete copy.productSortName
+    delete copy.standardName
+  }
+  return copy
 }
 
 /**

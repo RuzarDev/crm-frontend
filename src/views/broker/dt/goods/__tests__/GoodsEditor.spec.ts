@@ -43,7 +43,7 @@ const item = (o: Partial<Import40GoodsItemInput> = {}): Import40GoodsItemInput =
   unit: 'шт', unitCode: '796', grossWeightKg: 54, netWeightKg: 49.5, packagesCount: 3, cargoPlacesQuantity: 3, quantityTypeCode: null,
   customsValue: 900, currency: 'USD', customsValueKzt: 453980, statisticValueUsd: 916.92, valuationMethodCode: '1',
   payments: [{ taxModeCode: '2010', amountKzt: 1000 } as never], needsTpinRecalc: false, markings: [], extras: null,
-  tradeMarkName: 'SAMSONITE', ...o,
+  characteristics: [{ tradeMarkName: 'SAMSONITE' }], ...o,
 })
 const tariff = (o: Record<string, unknown> = {}) => ({ countryRate: null, excise: [], antiDumping: [], dutyRates: ['6.5%'], ...o })
 
@@ -352,7 +352,7 @@ describe('GoodsEditor: «Код и описание»', () => {
 
   it('описание и бланк — ЗАГЛАВНЫМИ; подсказка ТРОИС под маркой (пакетная проверка марок после открытия)', async () => {
     trois.check.mockImplementation(async (names: string[]) => names.map((name) => ({ name, checked: true, matches: [] })))
-    await mount([item({ tradeMarkName: 'SONY' }), item({ tradeMarkName: 'LG' })])
+    await mount([item({ characteristics: [{ tradeMarkName: 'SONY' }] }), item({ characteristics: [{ tradeMarkName: 'LG' }, { tradeMarkName: 'LG PRO' }] })])
     await new Promise((r) => setTimeout(r, 800))
     await settle()
     // Редактор ещё не открывали — марки не проверяются.
@@ -361,12 +361,12 @@ describe('GoodsEditor: «Код и описание»', () => {
     await settle()
     await new Promise((r) => setTimeout(r, 800))
     await settle()
-    expect(trois.check).toHaveBeenCalledWith(['LG', 'SONY'])
+    expect(trois.check).toHaveBeenCalledWith(['LG', 'LG PRO', 'SONY'])
     expect(q('[data-goods-trois]')!.textContent).toContain('В ТРОИС не найден')
     await type('description', 'сумки')
     expect(form.goodsItems[0].description).toBe('СУМКИ')
-    await type('manufacturerName', 'acme')
-    expect(form.goodsItems[0].manufacturerName).toBe('ACME')
+    await type('char-0-manufacturer', 'acme')
+    expect(form.goodsItems[0].characteristics![0].manufacturerName).toBe('ACME')
   })
 })
 
@@ -383,8 +383,9 @@ describe('GoodsEditor: пределы полей по структуре ДТ (�
     expect(q('[data-goods-field="description"]')!.textContent).toContain('494 из 1000 знаков — в КЕДЕН уйдёт 3 частями по 250')
     await type('description', Array.from({ length: 5 }, (_, i) => String.fromCharCode(0x410 + i).repeat(180)).join(', '))
     expect(q('[data-goods-field="description"]')!.textContent).toContain('908 из 1000 знаков — делится на 5 частей по 250 (по запятым и пробелам), а КЕДЕН принимает до 4')
-    const max = (f: string) => (q(`[data-goods-field="${f}"]`)!.querySelector('input') as HTMLInputElement).maxLength
-    expect([max('tradeMarkName'), max('productMarkName'), max('productModelName'), max('productArticle')]).toEqual([250, 250, 250, 50])
+    // Строка характеристик гр. 31: знак/марка/модель/сорт — Name250, артикул — Id50, стандарт — 40.
+    const max = (f: string) => field(`char-0-${f}`).maxLength
+    expect(['tradeMark', 'mark', 'model', 'sort', 'article', 'standard'].map(max)).toEqual([250, 250, 250, 250, 50, 40])
   })
 })
 
@@ -545,7 +546,7 @@ describe('GoodsEditor: поля для перехода «к недостающ�
     const fields = [...panel()!.querySelectorAll<HTMLElement>('[data-goods-section="code"] [data-goods-field], [data-goods-section="qty"] [data-goods-field]')]
     const keys = fields.map((f) => f.dataset.goodsField)
     expect(keys).toEqual(expect.arrayContaining([
-      'tnvedCode', 'description', 'tradeMarkName', 'productMarkName', 'productModelName', 'productArticle', 'manufacturerName',
+      'tnvedCode', 'description', 'characteristics',
       'quantity', 'unitCode', 'grossWeightKg', 'netWeightKg', 'packagesCount', 'customsValue', 'currency', 'countryOfOrigin',
       'customsValueKzt', 'statisticValueUsd', 'quantityTypeCode', 'exciseKind', 'antiDumpingKind', 'taxVolumeL', 'vatRatePreferential',
     ]))
@@ -587,4 +588,85 @@ describe('GoodsEditor: 200 товаров', () => {
     expect(Math.min(...opens)).toBeLessThan(CATASTROPHIC_MS)
     expect(Math.min(...switches)).toBeLessThan(CATASTROPHIC_MS)
   }, 30_000)
+})
+
+describe('GoodsEditor: строки характеристик гр. 31 (как «Характеристика товаров в группе» КЕДЕН)', () => {
+  const rowsOf = () => form.goodsItems[0].characteristics!
+  const rowEls = () => [...panel()!.querySelectorAll<HTMLElement>('[data-char-row]')]
+
+  it('добавить, копировать предыдущую, копировать строку, удалить; правка на месте без «Пересчитать»', async () => {
+    await mount([item({ characteristics: [{ name: 'ДУХОВКА', tradeMarkName: 'DESSUS', productModelName: 'DBO-1', quantity: 100, unitCode: '796' }] })], { query: '&item=1' })
+    // Одна строка — раскрыта сразу.
+    expect(rowEls()).toHaveLength(1)
+    expect(q('[data-char-editor="0"]')).not.toBeNull()
+
+    await click('[data-chars-copy-last]')
+    expect(rowsOf()).toHaveLength(2)
+    expect(rowsOf()[1]).toMatchObject({ name: 'ДУХОВКА', tradeMarkName: 'DESSUS', productModelName: 'DBO-1', quantity: 100 })
+    expect(rowsOf()[1]).not.toBe(rowsOf()[0])
+    // Новая строка раскрыта и в фокусе — меняется модель.
+    expect(document.activeElement).toBe(field('char-1-name'))
+    await type('char-1-model', 'dbo-2')
+    expect(rowsOf()[1].productModelName).toBe('DBO-2')
+    expect(rowsOf()[0].productModelName).toBe('DBO-1')
+
+    await click('[data-chars-add]')
+    expect(rowsOf()).toHaveLength(3)
+    expect(rowsOf()[2].tradeMarkName ?? null).toBeNull()
+
+    await click('[data-char-copy="0"]')
+    expect(rowsOf().map((r) => r.productModelName ?? null)).toEqual(['DBO-1', 'DBO-1', 'DBO-2', null])
+
+    await click('[data-char-remove="1"]')
+    expect(rowsOf().map((r) => r.productModelName ?? null)).toEqual(['DBO-1', 'DBO-2', null])
+    expect(form.goodsItems[0].needsTpinRecalc).toBe(false)
+  })
+
+  it('единица строки — из ОКЕИ (своя, не гр. 41); сводка строки «100 ШТ»', async () => {
+    await mount([item({ characteristics: [{ quantity: 2.5 }, { quantity: 100, unitCode: '796' }] })], { query: '&item=1' })
+    // Две строки — свёрнуты; раскрывается по нажатию.
+    expect(q('[data-char-editor="1"]')).toBeNull()
+    expect(q('[data-char-qty="1"]')!.textContent).toContain('100 ШТ')
+    await click('[data-char-toggle="0"]')
+    expect(field('char-0-unit')).not.toBeNull()
+    expect(form.goodsItems[0].unitCode).toBe('796')
+  })
+
+  it('сумма строк против гр. 41 / гр. 42 — предупреждение (не блок) под таблицей и у полей', async () => {
+    await mount([item({ quantity: 300, unitCode: '796', customsValue: 900, characteristics: [
+      { quantity: 100, unitCode: '796', invoiceValue: 300 },
+      { quantity: 150, unitCode: '796', invoiceValue: 600 },
+      { quantity: 5, unitCode: '166' }, // другая единица — в сумму гр. 41 не идёт
+    ] })], { query: '&item=1' })
+    expect(q('[data-chars-qty-warning]')!.textContent).toContain('250')
+    expect(q('[data-chars-value-warning]')).toBeNull()
+    expect(q('[data-goods-field="quantity"]')!.textContent).toContain('250')
+
+    form.goodsItems[0].characteristics![1].quantity = 200
+    await settle()
+    expect(q('[data-chars-qty-warning]')).toBeNull()
+    form.goodsItems[0].customsValue = 1000
+    await settle()
+    expect(q('[data-chars-value-warning]')!.textContent).toContain('900')
+  })
+
+  it('текст гр. 31 как в КЕДЕН: «1. {описание}, {строка}: ПРОИЗВОДИТЕЛЬ … КОЛИЧЕСТВО …;» и «2. места, упаковка»', async () => {
+    await mount([item({
+      description: 'ШТОРЫ ДЛЯ ВАННОЙ', packagesCount: 30, cargoPlacesQuantity: 30, packageKindCode: 'BX', packageQuantity: 30,
+      characteristics: [{ name: 'ШТОРЫ ДЛЯ ВАННОЙ', manufacturerName: 'YIWU', tradeMarkName: 'YIWU', productArticle: 'JJ-17', invoiceValue: 1854, quantity: 1800, unitCode: '796' }],
+    })], { query: '&item=1' })
+    expect(q('[data-gr31-preview]')!.textContent).toContain(
+      '1. ШТОРЫ ДЛЯ ВАННОЙ, ШТОРЫ ДЛЯ ВАННОЙ: ПРОИЗВОДИТЕЛЬ: YIWU, ТОВАРНЫЙ ЗНАК: YIWU, МАРКА: ОТСУТСТВУЕТ, МОДЕЛЬ: ОТСУТСТВУЕТ, '
+      + 'АРТИКУЛ: JJ-17, СТАНДАРТ (ГОСТ): ОТСУТСТВУЕТ, СОРТ: ОТСУТСТВУЕТ, СТОИМОСТЬ: 1854, КОЛИЧЕСТВО: 1800 ШТ;\n2. 30, BX-30')
+  })
+
+  it('просмотр: строки не правятся, кнопок нет; строк нет — подсказка', async () => {
+    await mount([item({ characteristics: [{ tradeMarkName: 'A' }] }), item({ characteristics: [] })], { readonly: true, query: '&item=1' })
+    expect(q('[data-chars-add]')).toBeNull()
+    expect(q('[data-char-remove="0"]')).toBeNull()
+    expect(field('char-0-tradeMark').disabled).toBe(true)
+    await router.replace({ query: { s: 'goods', item: '2' } })
+    await settle()
+    expect(q('[data-chars-empty]')).not.toBeNull()
+  })
 })

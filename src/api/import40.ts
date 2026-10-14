@@ -6,6 +6,7 @@ import type {
   Import40FactPayment,
   Import40GoodsItemInput,
   Import40GoodsExtras,
+  Import40GoodsCharacteristic,
   Import40Doc44ItemInput,
   Import40DeclarationExpense,
   DeclarationReadiness,
@@ -132,6 +133,8 @@ export interface Import40GoodsItemDto {
   taxPieces?: number | null
   engineVolumeCm3?: number | null
   extras?: Import40GoodsExtras | null
+  // Гр.31 строки характеристик (пакет 7). Ответ сервера до пакета 7 — без них: строка 1 из одиночных полей выше.
+  characteristics?: Import40GoodsCharacteristic[] | null
 }
 
 // Зеркалит Import40GoodsMarkingDto / Import40GoodsMarkingRequest на бэке (Task 2).

@@ -9,7 +9,7 @@ import { tnvedApi } from '@/api/tnved'
 import { vUppercase } from '@/directives/uppercase'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { useDtTnvedCheck } from '../tnvedCodeCheck'
-import GoodsTroisHint from './GoodsTroisHint.vue'
+import GoodsCharacteristicsTable from './GoodsCharacteristicsTable.vue'
 import { okeiName } from './okei'
 import { loadDei } from './tnvedDei'
 import { DESCRIPTION_MAX_PARTS, DESCRIPTION_PART, splitDescription } from './descriptionParts'
@@ -17,9 +17,9 @@ import type { GoodsSectionProps } from './types'
 
 // «Код и описание» (гр. 33, гр. 31): код ТН ВЭД (моно) с «Найти» (проверка узла: не лист — окно выбора) и «Справочник»
 // (TnvedPickerModal, контракт прежний), проверка существования кода (общий кэш редактора — useTnvedCheck), описание из
-// ТН ВЭД (только чтение), описание из инвойса (до 1000 знаков, счётчик и число частей по 250 для КЕДЕН) и бланк товара
-// (марка, знак, модель — до 250, артикул — до 50, изготовитель) ЗАГЛАВНЫМИ,
-// подсказка ТРОИС под маркой. ДЕИ (гр. 41) задаёт код ТН ВЭД — подставляется и снимается вместе с кодом.
+// ТН ВЭД (только чтение), описание из инвойса (до 1000 знаков, счётчик и число частей по 250 для КЕДЕН) и строки
+// «Характеристики товара в группе» (GoodsCharacteristicsTable: производитель, знак, марка, модель, артикул… по строке,
+// с текстом гр. 31 как в КЕДЕН). ДЕИ (гр. 41) задаёт код ТН ВЭД — подставляется и снимается вместе с кодом.
 // Правки — на месте; код — поле платежей (setField → «Пересчитать»); описание ТН ВЭД и ДЕИ по коду — производные.
 const props = defineProps<GoodsSectionProps>()
 const { t } = useI18n()
@@ -27,7 +27,7 @@ const tc = (key: string) => t(`broker.dt.goods.editor.code.${key}`)
 const check = useDtTnvedCheck()
 
 type Goods = Import40GoodsItemInput
-type StrKey = 'tnvedCode' | 'description' | 'tradeMarkName' | 'productMarkName' | 'productModelName' | 'productArticle' | 'manufacturerName'
+type StrKey = 'tnvedCode' | 'description'
 const setStr = (key: StrKey, v: string) => { props.model.setField(props.item, key, (v || null) as Goods[StrKey]) }
 // Код вставляют и с пробелами («4202 12 190 0») — храним без них.
 const onCode = (v: string) => setStr('tnvedCode', v.replace(/\s+/g, ''))
@@ -119,11 +119,8 @@ async function lookup() {
   }
 }
 
-// Пределы структуры ДТ (Решение Коллегии ЕЭК №75): описание — Text250, до 4 частей на товар (XML делит его сам);
-// товарный знак, марка, модель — Name250; артикул — Id50. Изготовитель — Name300 (как было).
+// Пределы структуры ДТ (Решение Коллегии ЕЭК №75): описание — Text250, до 4 частей на товар (XML делит его сам).
 const DESCRIPTION_MAX = 1000
-const NAME_MAX = 250
-const ARTICLE_MAX = 50
 const descriptionLength = computed(() => (props.item.description ?? '').trim().length)
 /** Части по 250 знаков — тем же правилом, что сервер (по запятым и пробелам), а не n / 250. */
 const descriptionPartCount = computed(() => splitDescription(props.item.description).length)
@@ -148,7 +145,6 @@ const descriptionWarning = computed(() =>
     : undefined,
 )
 
-const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @4xl:grid-cols-4'
 const sideBtn = 'shrink-0 max-sm:h-11'
 </script>
 
@@ -186,26 +182,7 @@ const sideBtn = 'shrink-0 max-sm:h-11'
       <ZInput v-uppercase :value="item.description" :maxlength="DESCRIPTION_MAX" :disabled="readonly" :placeholder="tc('descriptionPlaceholder')" class="max-sm:h-11" data-f="description" @update:value="setStr('description', $event)" />
     </ZField>
 
-    <div :class="grid">
-      <div class="flex min-w-0 flex-col gap-1 @md:col-span-2 @4xl:col-span-4">
-        <ZField graph="31" :label="tc('tradeMark')" data-graph="31" data-goods-field="tradeMarkName" :data-goods-index="index">
-          <ZInput v-uppercase :value="item.tradeMarkName" :maxlength="NAME_MAX" :disabled="readonly" class="max-sm:h-11" data-f="tradeMarkName" @update:value="setStr('tradeMarkName', $event)" />
-        </ZField>
-        <GoodsTroisHint :name="item.tradeMarkName" />
-      </div>
-      <ZField graph="31" :label="tc('productMark')" data-graph="31" data-goods-field="productMarkName" :data-goods-index="index">
-        <ZInput v-uppercase :value="item.productMarkName" :maxlength="NAME_MAX" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productMarkName" @update:value="setStr('productMarkName', $event)" />
-      </ZField>
-      <ZField graph="31" :label="tc('model')" data-graph="31" data-goods-field="productModelName" :data-goods-index="index">
-        <ZInput v-uppercase :value="item.productModelName" :maxlength="NAME_MAX" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productModelName" @update:value="setStr('productModelName', $event)" />
-      </ZField>
-      <ZField graph="31" :label="tc('article')" data-graph="31" data-goods-field="productArticle" :data-goods-index="index">
-        <ZInput v-uppercase :value="item.productArticle" :maxlength="ARTICLE_MAX" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productArticle" @update:value="setStr('productArticle', $event)" />
-      </ZField>
-      <ZField graph="31" :label="tc('manufacturer')" data-graph="31" data-goods-field="manufacturerName" :data-goods-index="index">
-        <ZInput v-uppercase :value="item.manufacturerName" :maxlength="300" :disabled="readonly" class="max-sm:h-11" data-f="manufacturerName" @update:value="setStr('manufacturerName', $event)" />
-      </ZField>
-    </div>
+    <GoodsCharacteristicsTable :item="item" :index="index" :model="model" :readonly="readonly" :ctx="ctx" />
 
     <TnvedPickerModal v-if="pickerUsed" v-model:open="pickerOpen" :initial-query="pickerQuery" @select="onPickerSelect" />
   </div>

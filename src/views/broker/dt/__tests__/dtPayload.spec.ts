@@ -110,6 +110,32 @@ describe('dtPayload — туда и обратно', () => {
     for (const [k, v] of Object.entries(rest)) expect(sent[k], k).toEqual(v)
   })
 
+  it('гр. 31: строки характеристик туда и обратно — свои объекты; старый ответ без строк — строка 1 из одиночных полей', () => {
+    const dto = fullDto()
+    const form = dtoToForm(dto)
+    const rows = form.goodsItems[0].characteristics!
+    expect(rows).toHaveLength(1)
+    rows[0].tradeMarkName = 'X'
+    expect(dto.goodsItems[0].characteristics![0].tradeMarkName).toBe('ACME')
+    const sent = formToPayload(form, null).goodsItems![0]
+    expect(sent.characteristics![0]).toMatchObject({ tradeMarkName: 'X', quantity: 100, unitCode: '796', serialNumbers: 'S1, S2' })
+
+    // Ответ до пакета 7: строк нет — одиночные поля, сорт и стандарт в extras.
+    const legacy = fullDto()
+    legacy.goodsItems[0] = fullGoodsDto({
+      characteristics: undefined, tradeMarkName: 'ACME', productModelName: 'M-1', manufacturerName: 'ACME LTD',
+      extras: { productSortName: 'I', standardName: 'ГОСТ 1', exciseStamps: [], vehicles: [] },
+    })
+    const g = dtoToForm(legacy).goodsItems[0]
+    expect(g.characteristics).toEqual([expect.objectContaining({
+      tradeMarkName: 'ACME', productModelName: 'M-1', manufacturerName: 'ACME LTD', productSortName: 'I', standardName: 'ГОСТ 1',
+      quantity: 100, unitCode: '796', invoiceValue: 1500.5,
+    })])
+    // Сорт и стандарт — только в строках: в доп. сведениях формы их нет (сервер берёт строки).
+    expect(g.extras).not.toHaveProperty('productSortName')
+    expect(g.extras).not.toHaveProperty('standardName')
+  })
+
   it('видимое поле мест в форме — источник для обоих полей товара', () => {
     const form = dtoToForm(fullDto())
     form.goodsItems[0].packagesCount = 9

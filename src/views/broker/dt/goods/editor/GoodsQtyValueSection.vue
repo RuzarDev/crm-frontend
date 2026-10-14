@@ -10,9 +10,11 @@ import ZTag from '@/components/z/ZTag.vue'
 import { OKEI_QUANTITY_TYPE_CODES, type Import40GoodsItemInput } from '@/types/api'
 import type { ZOption, ZOptionValue } from '@/ui/options'
 import { placesOfGoods } from '@/utils/goodsPlaces'
+import { formatNumberIn } from '@/ui/number'
 import { statUsdFrom } from '../../dtGoodsRules'
 import { withCurrent } from '../../dtOptions'
 import GoodsTariffHint from './GoodsTariffHint.vue'
+import { characteristicTotals } from './characteristics'
 import { ensureOkeiUnits, okeiLabel } from './okei'
 import { deiOf, loadDei } from './tnvedDei'
 import type { GoodsSectionProps } from './types'
@@ -23,7 +25,7 @@ import type { GoodsSectionProps } from './types'
 // задана — заблокирована); гр. 34 страна; гр. 45 / гр. 46; подсказка ставок. Числа пишутся сразу при вводе, с запятой.
 // гр. 46 = гр. 45 / курс USD на дату гр. А (0,01) при правке гр. 45; ручная гр. 46 живёт до следующей правки гр. 45.
 const props = defineProps<GoodsSectionProps>()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const tq = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.editor.qty.${key}`, p ?? {})
 void ensureOkeiUnits()
 
@@ -46,6 +48,16 @@ const unitText = computed(() => {
 })
 const unitHint = computed(() => (dei.value === undefined ? undefined : tq('unitByTnved')))
 const quantityTypes = OKEI_QUANTITY_TYPE_CODES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
+
+// Сумма строк характеристик гр. 31 против гр. 41 / гр. 42 — предупреждение (не блок), как под таблицей строк.
+const totals = computed(() => characteristicTotals(props.item))
+const fmt = (v: number | null | undefined) => (v == null ? '' : formatNumberIn(locale.value, v, 6))
+const rowsQtyHelp = computed(() => (totals.value.quantityMismatch
+  ? t('broker.dt.goods.editor.chars.qtyMismatchShort', { rows: fmt(totals.value.quantity) })
+  : undefined))
+const rowsValueHelp = computed(() => (totals.value.valueMismatch
+  ? t('broker.dt.goods.editor.chars.valueMismatchShort', { rows: fmt(totals.value.value) })
+  : undefined))
 
 const netOverGross = computed(() => {
   const { grossWeightKg: g, netWeightKg: n } = props.item
@@ -88,7 +100,7 @@ const autoTag = 'absolute top-1/2 right-2 -translate-y-1/2'
 <template>
   <div class="flex flex-col gap-5" data-goods-qty-section>
     <div :class="grid">
-      <ZField graph="41" :label="tq('quantity')" data-graph="41" data-goods-field="quantity" :data-goods-index="index">
+      <ZField graph="41" :label="tq('quantity')" data-graph="41" data-goods-field="quantity" :data-goods-index="index" :validate-status="rowsQtyHelp ? 'warning' : ''" :help="rowsQtyHelp">
         <ZNumber :value="item.quantity ?? null" :min="0" :disabled="readonly" class="max-sm:h-11" data-f="quantity" @update:value="setNum('quantity', $event)" />
       </ZField>
       <ZField graph="41" :label="tq('unit')" :title="tq('unitLocked')" :extra="unitHint" data-graph="41" data-goods-field="unitCode" :data-goods-index="index">
@@ -106,7 +118,7 @@ const autoTag = 'absolute top-1/2 right-2 -translate-y-1/2'
       <ZField graph="31" :label="tq('places')" data-graph="31" data-goods-field="packagesCount" :data-goods-index="index">
         <ZNumber :value="places" :min="0" :precision="0" :disabled="readonly" class="max-sm:h-11" data-f="packagesCount" @update:value="onPlaces" />
       </ZField>
-      <ZField graph="42" :label="tq('invoice')" data-graph="42" data-goods-field="customsValue" :data-goods-index="index">
+      <ZField graph="42" :label="tq('invoice')" data-graph="42" data-goods-field="customsValue" :data-goods-index="index" :validate-status="rowsValueHelp ? 'warning' : ''" :help="rowsValueHelp">
         <ZNumber :value="item.customsValue ?? null" :min="0" :disabled="readonly" class="max-sm:h-11" data-f="customsValue" @update:value="setNum('customsValue', $event)" />
       </ZField>
       <ZField v-if="lockedCurrency" graph="22" :label="tq('currency')" :title="tq('currencyLocked')" data-graph="42" data-goods-field="currency" :data-goods-index="index">

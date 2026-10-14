@@ -14,12 +14,12 @@ const indexes = (rows: GoodsRow[]) => rows.map((r) => r.index)
 describe('goodsList: поиск и фильтры', () => {
   const goods = [
     item({ tnvedCode: '8471300000', description: 'НОУТБУКИ LENOVO' }),
-    item({ tnvedCode: '8504403009', description: 'БЛОКИ ПИТАНИЯ', tradeMarkName: 'DELL' }),
-    item({ tnvedCode: null, description: 'МЫШИ', productModelName: 'MX-3' }),
+    item({ tnvedCode: '8504403009', description: 'БЛОКИ ПИТАНИЯ', characteristics: [{ tradeMarkName: 'DELL' }] }),
+    item({ tnvedCode: null, description: 'МЫШИ', characteristics: [{ name: 'МЫШЬ', productModelName: 'MX-2' }, { productModelName: 'MX-3' }] }),
   ]
   const ready: GoodsStatus = { kind: 'ready' }
   const statusOf = (g: Import40GoodsItemInput): GoodsStatus =>
-    g.tnvedCode === null ? { kind: 'missing', count: 2 } : g.tradeMarkName ? { kind: 'stale' } : ready
+    g.tnvedCode === null ? { kind: 'missing', count: 2 } : g.characteristics?.[0]?.tradeMarkName ? { kind: 'stale' } : ready
 
   it('без запроса и фильтра — все строки с позицией и ключом', () => {
     const rows = filterGoods(goods, { query: '', filter: null, statusOf })
@@ -29,12 +29,12 @@ describe('goodsList: поиск и фильтры', () => {
   })
 
   it('пустой запрос — поля поиска не читаются: правка описания в редакторе не пересобирает список', () => {
-    const list = reactive(goods.map((g) => ({ ...g })))
+    const list = reactive(goods.map((g) => ({ ...g, characteristics: g.characteristics?.map((r) => ({ ...r })) })))
     let runs = 0
     const rows = computed(() => { runs += 1; return filterGoods(list, { query: '  ', filter: null, statusOf }) })
     expect(rows.value).toHaveLength(3)
     list[0].description = 'ПЛАНШЕТЫ'
-    list[1].tradeMarkName = 'HP'
+    list[1].characteristics![0].tradeMarkName = 'HP'
     expect(rows.value).toHaveLength(3)
     expect(runs).toBe(1)
     // с запросом — читаются и пересобираются
@@ -44,7 +44,7 @@ describe('goodsList: поиск и фильтры', () => {
     expect(found.value).toEqual([])
   })
 
-  it('поиск по коду (с пробелами), описанию, марке и модели — без регистра', () => {
+  it('поиск по коду (с пробелами), описанию, марке и модели любой строки характеристик — без регистра', () => {
     expect(indexes(filterGoods(goods, { query: '8471 30', filter: null, statusOf }))).toEqual([0])
     expect(indexes(filterGoods(goods, { query: 'питания', filter: null, statusOf }))).toEqual([1])
     expect(indexes(filterGoods(goods, { query: 'dell', filter: null, statusOf }))).toEqual([1])
