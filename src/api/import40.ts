@@ -646,6 +646,8 @@ export interface KedenReadinessDto {
   // Те же пункты, что в missing, с привязкой к графе бланка (волна 6а): graph — «А», «8», «30», «44», «ДТС»…;
   // goodsIndex — номер товара с 0 для пунктов по товару. Старый сервер поля не отдаёт — тогда разбор строки.
   items?: KedenReadinessItem[]
+  // Предупреждения (выгрузку не блокируют, в missing не входят): напр. строка гр.31 без количества с единицей.
+  warnings?: KedenReadinessItem[]
 }
 
 export interface KedenReadinessItem {

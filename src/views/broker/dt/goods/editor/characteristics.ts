@@ -96,3 +96,38 @@ export function characteristicTotals(
     valueMismatch: value != null && g.customsValue != null && value !== round6(g.customsValue),
   }
 }
+
+/**
+ * Количество строки для XML и текста гр. 31 (то же правило, что сервер Import40GoodsCharacteristics.Measure): своё количество
+ * с единицей; у единственной строки без них — гр. 41 товара (singleOf), как до строк; иначе — своё количество без единицы.
+ */
+export function rowMeasure(
+  r: GoodsRowValue,
+  singleOf: { quantity?: number | null; unitCode?: string | null } | null,
+): { quantity: number; unitCode: string | null } | null {
+  const unit = (r.unitCode ?? '').trim()
+  if (r.quantity != null && unit) return { quantity: r.quantity, unitCode: unit }
+  if (singleOf && singleOf.quantity != null) return { quantity: singleOf.quantity, unitCode: (singleOf.unitCode ?? '').trim() || null }
+  return r.quantity != null ? { quantity: r.quantity, unitCode: null } : null
+}
+
+/**
+ * Строки, которые уйдут в XML без количества (предупреждение, не блок — как в готовности сервера): номера строк с 1.
+ * noUnit — количество есть, а единицы нет; noQuantity — при 2+ строках у строки нет количества.
+ */
+export function rowsWithoutMeasure(
+  g: Pick<Import40GoodsItemInput, 'characteristics' | 'quantity' | 'unitCode'>,
+): { noUnit: number[]; noQuantity: number[] } {
+  const all = g.characteristics ?? []
+  const filled = all.filter((r) => !isBlankCharacteristic(r)).length
+  const res = { noUnit: [] as number[], noQuantity: [] as number[] }
+  // Номера — позиции в таблице (пустые строки пропускаются, но не сдвигают номера).
+  all.forEach((r, i) => {
+    if (isBlankCharacteristic(r)) return
+    const m = rowMeasure(r, filled === 1 ? g : null)
+    if (m?.unitCode) return
+    if (r.quantity != null) res.noUnit.push(i + 1)
+    else if (filled > 1) res.noQuantity.push(i + 1)
+  })
+  return res
+}

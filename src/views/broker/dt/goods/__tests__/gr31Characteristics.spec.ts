@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ensureOkeiUnits, resetOkeiUnits } from '../editor/okei'
-import { characteristicTotals, isBlankCharacteristic, rowsFromLegacy, tradeMarksOf } from '../editor/characteristics'
+import { characteristicTotals, isBlankCharacteristic, rowsFromLegacy, rowsWithoutMeasure, tradeMarksOf } from '../editor/characteristics'
 import { gr31Number, gr31Packaging, gr31Text } from '../editor/gr31Text'
 
 // Тот же образец, что в серверном Gr31CharacteristicRowsTests (печать бланка) — текст должен совпадать.
@@ -47,6 +47,17 @@ describe('текст гр. 31 как в КЕДЕН', () => {
     expect(text[2]).toBe('2. 2')
   })
 
+  it('единственная строка без количества — гр. 41 товара (как сервер); пустые строки не печатаются', () => {
+    const base = { description: 'ПАРТА', tnvedDescription: null, cargoPlacesQuantity: null, packagesCount: null, packageKindCode: null, packageQuantity: null }
+    const one = gr31Text({ ...base, quantity: 800, unitCode: '796', characteristics: [{ tradeMarkName: 'SUNO' }, { name: ' ' }] })
+    expect(one.split('\n')).toHaveLength(1)
+    expect(one).toContain('КОЛИЧЕСТВО: 800 ШТ;')
+    // 2+ строк — без подстановки
+    const two = gr31Text({ ...base, quantity: 800, unitCode: '796', characteristics: [{ tradeMarkName: 'SUNO' }, { productModelName: 'M2', quantity: 5, unitCode: '796' }] })
+    expect(two.split('\n')[0]).toContain('КОЛИЧЕСТВО: ОТСУТСТВУЕТ;')
+    expect(two.split('\n')[1]).toContain('КОЛИЧЕСТВО: 5 ШТ;')
+  })
+
   it('строк нет — только описание; ни описания, ни мест — пусто', () => {
     const base = { tnvedDescription: 'ВИНТЫ', cargoPlacesQuantity: null, packagesCount: null, packageKindCode: null, packageQuantity: null }
     expect(gr31Text({ ...base, description: null, characteristics: [] })).toBe('1. ВИНТЫ')
@@ -82,6 +93,13 @@ describe('строки характеристик: помощники', () => {
     expect(off.quantityMismatch && off.valueMismatch).toBe(true)
     // у товара нет ДЕИ (гр. 41 пуста) — количество не сверяется
     expect(characteristicTotals({ quantity: null, unitCode: null, customsValue: null, characteristics: [{ quantity: 1, unitCode: '796' }] }).quantityMismatch).toBe(false)
+  })
+
+  it('строки, которые уйдут в XML без количества: номера как в таблице', () => {
+    expect(rowsWithoutMeasure({ quantity: 800, unitCode: '796', characteristics: [{ tradeMarkName: 'A' }] })).toEqual({ noUnit: [], noQuantity: [] })
+    expect(rowsWithoutMeasure({ quantity: null, unitCode: null, characteristics: [{ quantity: 5 }] })).toEqual({ noUnit: [1], noQuantity: [] })
+    expect(rowsWithoutMeasure({ quantity: 800, unitCode: '796', characteristics: [{ tradeMarkName: 'A' }, {}, { quantity: 3 }, { quantity: 1, unitCode: '796' }] }))
+      .toEqual({ noUnit: [3], noQuantity: [1] })
   })
 
   it('марки всех строк (ТРОИС), без пустых', () => {

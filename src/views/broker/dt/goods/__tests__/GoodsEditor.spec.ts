@@ -650,6 +650,14 @@ describe('GoodsEditor: строки характеристик гр. 31 (как 
     expect(q('[data-chars-value-warning]')!.textContent).toContain('900')
   })
 
+  it('строка без количества с единицей — предупреждение под таблицей (не блок); единственная строка — гр. 41', async () => {
+    await mount([item({ quantity: 300, unitCode: '796', characteristics: [{ tradeMarkName: 'A' }] })], { query: '&item=1' })
+    expect(q('[data-chars-measure-warning]')).toBeNull()
+    expect(q('[data-gr31-preview]')!.textContent).toContain('КОЛИЧЕСТВО: 300 ШТ;')
+    await click('[data-chars-copy-last]')
+    expect(q('[data-chars-measure-warning]')!.textContent).toContain('1, 2')
+  })
+
   it('текст гр. 31 как в КЕДЕН: «1. {описание}, {строка}: ПРОИЗВОДИТЕЛЬ … КОЛИЧЕСТВО …;» и «2. места, упаковка»', async () => {
     await mount([item({
       description: 'ШТОРЫ ДЛЯ ВАННОЙ', packagesCount: 30, cargoPlacesQuantity: 30, packageKindCode: 'BX', packageQuantity: 30,

@@ -1318,6 +1318,7 @@ export default {
         emptyGraphs: 'Empty boxes: {list}',
         note: 'The list comes from the server and refreshes after every save. Click an item to go to the field.',
         xmlNote: 'These are errors from the last XML export — the list refreshes after you save.',
+        warnings: 'Warnings — do not block the export',
         goto: 'Go to box {graph}: {text}',
         rates: 'NBK exchange rates',
         ratesOn: 'on {date}',
@@ -2028,6 +2029,8 @@ export default {
             valueMismatch: 'Lines value total is {rows}, but box 42 is {goods} {currency}',
             qtyMismatchShort: 'Differs from the total of box 31 characteristic lines ({rows})',
             valueMismatchShort: 'Differs from the total value of box 31 lines ({rows})',
+            noUnit: 'Lines {rows}: quantity has no unit — exported to XML without quantity',
+            noQuantity: 'Lines {rows}: no quantity — exported to XML without quantity',
             preview: 'Box 31 text (as in KEDEN)',
           },
           okei: {

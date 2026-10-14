@@ -94,6 +94,16 @@ describe('DtReadinessPanel', () => {
     expect(w.find('[data-dt-panel-rates]').exists()).toBe(true)
   })
 
+  it('предупреждения — отдельным списком, «готово» не отменяют; клик — go', async () => {
+    const warn = item({ text: 'Товар 1: гр.31 — строка 2: нет количества — в XML строка уйдёт без количества', graph: '31', goodsIndex: 0, section: 'goods' })
+    w = mountPanel({ items: [], warnings: [warn] })
+    expect(w.find('[data-dt-panel-ready]').exists()).toBe(true)
+    const box = w.get('[data-dt-panel-warnings]')
+    expect(box.text()).toContain('выгрузку не блокируют')
+    await w.get('[data-dt-panel-warning]').trigger('click')
+    expect(w.emitted('go')?.[0]?.[0]).toMatchObject({ graph: '31', goodsIndex: 0 })
+  })
+
   it('ошибки выгрузки XML — своя подсказка', () => {
     w = mountPanel({ items: [item({ fromXml: true })] })
     expect(w.text()).toContain('ошибки последней выгрузки XML')

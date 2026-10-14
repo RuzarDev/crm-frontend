@@ -7,7 +7,7 @@
 // Пустое — «ОТСУТСТВУЕТ», числа без лишних нулей, единица — краткое наименование ОКЕИ. Подписи — по-русски, как бланк.
 import type { Import40GoodsItemInput } from '@/types/api'
 import { placesOfGoods } from '@/utils/goodsPlaces'
-import type { GoodsRowValue } from './characteristics'
+import { isBlankCharacteristic, rowMeasure, type GoodsRowValue } from './characteristics'
 import { okeiCode, okeiShort } from './okei'
 
 export const GR31_MISSING = 'ОТСУТСТВУЕТ'
@@ -31,8 +31,12 @@ const quantityText = (q: number | null | undefined, unitCode: string | null | un
 
 const part = (label: string, value: string | null | undefined) => `${label}: ${upper(value) ?? GR31_MISSING}`
 
-/** «{наименование}: ПРОИЗВОДИТЕЛЬ: …, КОЛИЧЕСТВО: 1800 ШТ;» */
-export function gr31RowText(r: GoodsRowValue, goodsDescription: string | null): string {
+/** «{наименование}: ПРОИЗВОДИТЕЛЬ: …, КОЛИЧЕСТВО: 1800 ШТ;». singleOf — товар, если строка у него единственная (гр.41). */
+export function gr31RowText(
+  r: GoodsRowValue,
+  goodsDescription: string | null,
+  singleOf: { quantity?: number | null; unitCode?: string | null } | null = null,
+): string {
   const name = upper(r.name) ?? goodsDescription
   const parts = [
     part('ПРОИЗВОДИТЕЛЬ', r.manufacturerName),
@@ -45,7 +49,8 @@ export function gr31RowText(r: GoodsRowValue, goodsDescription: string | null): 
   ]
   if ((r.serialNumbers ?? '').trim()) parts.push(part('СЕРИЙНЫЕ НОМЕРА', r.serialNumbers))
   parts.push(`СТОИМОСТЬ: ${gr31Number(r.invoiceValue) ?? GR31_MISSING}`)
-  parts.push(`КОЛИЧЕСТВО: ${quantityText(r.quantity, r.unitCode) ?? GR31_MISSING}`)
+  const m = rowMeasure(r, singleOf)
+  parts.push(`КОЛИЧЕСТВО: ${(m ? quantityText(m.quantity, m.unitCode) : null) ?? GR31_MISSING}`)
   const body = `${parts.join(', ')};`
   return name ? `${name}: ${body}` : body
 }
@@ -61,18 +66,20 @@ export function gr31Packaging(places: number, kindCode: string | null | undefine
 }
 
 type Gr31Goods = Pick<Import40GoodsItemInput, 'description' | 'tnvedDescription' | 'characteristics' | 'packageKindCode' | 'packageQuantity'>
+  & Partial<Pick<Import40GoodsItemInput, 'quantity' | 'unitCode'>>
   & Parameters<typeof placesOfGoods>[0]
 
 /** Текст гр. 31 товара (строки через перевод строки); нечего показать — ''. */
 export function gr31Text(g: Gr31Goods): string {
   const lines: string[] = []
   const description = upper(g.description) ?? upper(g.tnvedDescription)
-  const rows = g.characteristics ?? []
+  // Пустые строки не печатаются (как в XML); у единственной строки без количества — гр. 41 товара.
+  const rows = (g.characteristics ?? []).filter((r) => !isBlankCharacteristic(r))
   if (!rows.length) {
     if (description) lines.push(`1. ${description}`)
   } else {
     rows.forEach((r, i) => {
-      const row = gr31RowText(r, description)
+      const row = gr31RowText(r, description, rows.length === 1 ? g : null)
       lines.push(i === 0 ? `1. ${description ? `${description}, ${row}` : row}` : row)
     })
   }

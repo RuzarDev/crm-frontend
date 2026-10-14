@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, shallowReactive, watch } from 'vue'
+import { computed, nextTick, ref, shallowReactive, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhCaretDown, PhCopy, PhPlus, PhX } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -11,7 +11,7 @@ import { cn } from '@/ui/cn'
 import { formatNumberIn } from '@/ui/number'
 import GoodsTroisHint from './GoodsTroisHint.vue'
 import OkeiUnitSelect from './OkeiUnitSelect.vue'
-import { blankCharacteristic, characteristicTotals, cloneCharacteristic, type GoodsRowValue } from './characteristics'
+import { blankCharacteristic, characteristicTotals, cloneCharacteristic, rowsWithoutMeasure, type GoodsRowValue } from './characteristics'
 import { gr31Text } from './gr31Text'
 import { okeiLabel, okeiShort } from './okei'
 import type { GoodsSectionProps } from './types'
@@ -93,7 +93,29 @@ const valueWarning = computed(() => (totals.value.valueMismatch
   ? tc('valueMismatch', { rows: num(totals.value.value), goods: num(props.item.customsValue), currency: currency.value })
   : null))
 
+// Строки, которые уйдут в XML без количества (не блок; сервер — предупреждение готовности).
+const measureWarnings = computed(() => {
+  const w = rowsWithoutMeasure(props.item)
+  return [
+    ...(w.noUnit.length ? [tc('noUnit', { rows: w.noUnit.join(', ') })] : []),
+    ...(w.noQuantity.length ? [tc('noQuantity', { rows: w.noQuantity.join(', ') })] : []),
+  ]
+})
+
 const preview = computed(() => gr31Text(props.item))
+
+// Стабильный ключ строки (копия в середину, удаление — поля и состояние выбора единицы не «переезжают» на соседнюю строку).
+const rowKeys = new WeakMap<GoodsRowValue, number>()
+let lastRowKey = 0
+const rowKey = (r: GoodsRowValue) => {
+  const raw = toRaw(r)
+  let k = rowKeys.get(raw)
+  if (k === undefined) {
+    k = ++lastRowKey
+    rowKeys.set(raw, k)
+  }
+  return k
+}
 
 const head = 'hidden gap-3 px-2 text-xs text-muted @2xl:grid @2xl:grid-cols-[2rem_minmax(0,1fr)_8rem_8rem_minmax(0,10rem)_6.5rem]'
 const summary = cn(
@@ -125,7 +147,7 @@ const tall = 'max-sm:h-11'
       </div>
       <div
         v-for="(r, i) in rows"
-        :key="i"
+        :key="rowKey(r)"
         class="flex flex-col gap-3 rounded-row border border-line p-2"
         :data-char-row="i"
         :data-open="open.has(r) ? 'true' : undefined"
@@ -211,12 +233,13 @@ const tall = 'max-sm:h-11'
       </ZButton>
     </div>
 
-    <div v-if="rows.length > 1 || qtyWarning || valueWarning" class="flex flex-col gap-1 text-[13px]" data-chars-totals>
+    <div v-if="rows.length > 1 || qtyWarning || valueWarning || measureWarnings.length" class="flex flex-col gap-1 text-[13px]" data-chars-totals>
       <span v-if="rows.length > 1" class="text-ink-2">
         {{ tc('totals', { n: rows.length, quantity: totals.quantity == null ? '—' : num(totals.quantity), value: totals.value == null ? '—' : num(totals.value) }) }}
       </span>
       <span v-if="qtyWarning" class="text-gold-ink" role="status" data-chars-qty-warning>{{ qtyWarning }}</span>
       <span v-if="valueWarning" class="text-gold-ink" role="status" data-chars-value-warning>{{ valueWarning }}</span>
+      <span v-for="w in measureWarnings" :key="w" class="text-gold-ink" role="status" data-chars-measure-warning>{{ w }}</span>
     </div>
 
     <div v-if="preview" class="flex min-w-0 flex-col gap-1" data-gr31-preview>
