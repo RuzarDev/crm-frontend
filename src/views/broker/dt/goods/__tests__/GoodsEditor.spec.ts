@@ -668,6 +668,81 @@ describe('GoodsEditor: строки характеристик гр. 31 (как 
       + 'АРТИКУЛ: JJ-17, СТАНДАРТ (ГОСТ): ОТСУТСТВУЕТ, СОРТ: ОТСУТСТВУЕТ, СТОИМОСТЬ: 1854, КОЛИЧЕСТВО: 1800 ШТ;\n2. 30, BX-30')
   })
 
+  // (баг, итоговое ревью пакета 7, I1) Единственная строка следует за гр. 41 / гр. 42 — пустые поля показывают их подсказкой.
+  it('единственная строка без количества и стоимости — подсказки «из гр. 41: …» / «из гр. 42: …»; 2+ строк — нет', async () => {
+    await mount([item({ quantity: 5443, unitCode: '112', unit: 'ЛИТР', customsValue: 4233.6, characteristics: [{ tradeMarkName: 'ZIGI-ZAGI' }] })], { query: '&item=1' })
+    const nb = (s: string | null | undefined) => (s ?? '').replace(/[\u00a0\u202f]/g, ' ')
+    expect(nb(field('char-0-quantity').placeholder)).toBe('из гр. 41: 5 443 Л')
+    expect(nb(field('char-0-value').placeholder)).toBe('из гр. 42: 4 233,6')
+    expect(nb(q('[data-char-qty="0"]')!.textContent)).toContain('из гр. 41: 5 443 Л')
+    expect(nb(q('[data-char-value="0"]')!.textContent)).toContain('из гр. 42: 4 233,6')
+    expect(q('[data-gr31-preview]')!.textContent).toContain('СТОИМОСТЬ: 4233.6, КОЛИЧЕСТВО: 5443 Л;')
+    // Поле заполнено — своё значение, подсказки нет; копия в строку не пишется.
+    expect(form.goodsItems[0].characteristics![0].quantity ?? null).toBeNull()
+    await type('char-0-quantity', '10')
+    expect(nb(q('[data-char-qty="0"]')!.textContent)).not.toContain('из гр. 41')
+    // Пустая вторая строка не в счёт (сервер её отбросит) — строка 1 по-прежнему следует за товаром.
+    await click('[data-chars-add]')
+    expect(nb(field('char-0-value').placeholder)).toBe('из гр. 42: 4 233,6')
+    // Две заполненные строки — подстановки нет.
+    await type('char-1-model', 'M2')
+    expect(field('char-0-value').placeholder).toBe('')
+    expect(q('[data-char-value="0"]')!.textContent).toContain('—')
+    expect(q('[data-char-value="1"]')!.textContent).toContain('—')
+  })
+
+  // (баг 14.10) Свёрнутая строка в ящике ~800 px: количество, стоимость и кнопки стояли перед № и наименованием.
+  it('свёрнутая строка: ячейки по порядку заголовка, у каждой — явная колонка широкой сетки; кнопки последние', async () => {
+    await mount([item({ characteristics: [{ name: 'НАПИТОК', quantity: 5443, unitCode: '112', invoiceValue: 4233.6 }, { productModelName: 'M2', productArticle: 'A2' }] })], { query: '&item=1' })
+    const cols = (el: Element) => [...el.classList].find((c) => /^@2xl:col-start-\d$/.test(c)) ?? [...el.classList].find((c) => /^col-start-\d$/.test(c))
+    const head = q('[data-chars-head]')!
+    expect([...head.children].map(cols)).toEqual(['col-start-1', 'col-start-2', '@2xl:col-start-3', '@2xl:col-start-4', '@2xl:col-start-5', '@2xl:col-start-6'])
+    for (const row of panel()!.querySelectorAll('[data-char-summary]')) {
+      const cells = [...row.children] as HTMLElement[]
+      expect(cells.map((c) => c.dataset.cell)).toEqual(['no', 'name', 'qty', 'value', 'model', 'actions'])
+      expect(cells.map(cols)).toEqual(['col-start-1', 'col-start-2', '@2xl:col-start-3', '@2xl:col-start-4', '@2xl:col-start-5', '@2xl:col-start-6'])
+      // Ни одна ячейка не стоит в строке сетки без своей колонки (иначе раскладчик ставит её раньше № и наименования).
+      for (const c of cells) {
+        const rowPinned = [...c.classList].some((x) => /^(@2xl:)?row-start-/.test(x))
+        if (rowPinned) expect(cols(c), c.dataset.cell).toBeTruthy()
+      }
+    }
+    // Шаблон колонок заголовка и строки — один.
+    const tpl = (el: Element) => [...el.classList].find((c) => c.startsWith('@2xl:grid-cols-'))
+    expect(tpl(q('[data-char-summary]')!)).toBe(tpl(head))
+  })
+
+  it('пустые модель и артикул — «—» (в карточке подпись не обрезает значение)', async () => {
+    await mount([item({ characteristics: [{ tradeMarkName: 'A' }, { productModelName: ' ', productArticle: null }] })], { query: '&item=1' })
+    for (const i of [0, 1]) {
+      const cellEl = q(`[data-char-model="${i}"]`)!
+      expect(cellEl.querySelector('.truncate')!.textContent).toBe('—')
+      expect(cellEl.querySelector('.shrink-0')!.textContent).toBe('Модель / артикул:')
+    }
+  })
+
+  it('смена кода сменила ДЕИ, а у строки своя единица — подсказка (не блок), пока единица строки другая', async () => {
+    tnved.rates.mockImplementation(async (code: string) => ({
+      data: code === '2201900000' ? { unitCode: '112', unitName: 'ЛИТР', unitShortName: 'Л' } : { unitCode: '796', unitName: 'шт' },
+    }))
+    await mount([item({ tnvedCode: '4202121900', unit: 'шт', unitCode: '796', characteristics: [{ quantity: 800, unitCode: '796' }, { tradeMarkName: 'B' }] })], { query: '&item=1' })
+    expect(q('[data-goods-dei-rows-hint]')).toBeNull()
+    await type('tnvedCode', '2201900000')
+    field('tnvedCode').dispatchEvent(new FocusEvent('blur'))
+    await new Promise((r) => setTimeout(r, 0))
+    await settle()
+    expect(form.goodsItems[0].unitCode).toBe('112')
+    const hint = q('[data-goods-dei-rows-hint]')!
+    expect(hint.getAttribute('role')).toBe('status')
+    expect(hint.textContent).toContain('112 — Л')
+    expect(hint.textContent).toContain('строк характеристик 1 ')
+    expect(hint.textContent).toContain('796 — ШТ')
+    // Единица строки исправлена — подсказка уходит.
+    form.goodsItems[0].characteristics![0].unitCode = '112'
+    await settle()
+    expect(q('[data-goods-dei-rows-hint]')).toBeNull()
+  })
+
   it('просмотр: строки не правятся, кнопок нет; строк нет — подсказка', async () => {
     await mount([item({ characteristics: [{ tradeMarkName: 'A' }] }), item({ characteristics: [] })], { readonly: true, query: '&item=1' })
     expect(q('[data-chars-add]')).toBeNull()

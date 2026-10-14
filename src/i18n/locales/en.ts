@@ -2000,6 +2000,7 @@ export default {
             descriptionCount: '{n} of {max} characters',
             descriptionParts: '{n} of {max} characters — goes to KEDEN as {parts} parts of {part}',
             descriptionTooManyParts: '{n} of {max} characters — splits into {parts} parts of {part} (at commas and spaces), but KEDEN accepts up to {limit}: shorten the description',
+            deiRowsHint: 'The code changed the supplementary unit (box 41) to {unit}, but characteristic lines {rows} have their own unit ({rowUnit}) — check their quantity: the XML sends it in that unit.',
           },
           chars: {
             title: 'Characteristics of goods in the group',
@@ -2038,6 +2039,8 @@ export default {
             noUnit: 'Lines {rows}: quantity has no unit — exported to XML without quantity',
             noQuantity: 'Lines {rows}: no quantity — exported to XML without quantity',
             preview: 'Box 31 text (as in KEDEN)',
+            fromGr41: 'from box 41: {value}',
+            fromGr42: 'from box 42: {value}',
           },
           okei: {
             placeholder: 'Code, name or short name',

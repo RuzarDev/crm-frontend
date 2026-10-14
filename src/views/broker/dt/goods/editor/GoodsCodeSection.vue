@@ -10,7 +10,7 @@ import { vUppercase } from '@/directives/uppercase'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { useDtTnvedCheck } from '../tnvedCodeCheck'
 import GoodsCharacteristicsTable from './GoodsCharacteristicsTable.vue'
-import { okeiName } from './okei'
+import { okeiCode, okeiLabel, okeiName } from './okei'
 import { loadDei } from './tnvedDei'
 import { DESCRIPTION_MAX_PARTS, DESCRIPTION_PART, splitDescription } from './descriptionParts'
 import type { GoodsSectionProps } from './types'
@@ -45,6 +45,27 @@ const compact = (v: string | null | undefined) => (v ?? '').replace(/\s+/g, '')
 // Код, для которого единица товара уже выставлена: сохранённый при первом открытии, затем — последний применённый.
 const deiBase = new WeakMap<object, string>()
 watch(() => props.item, (g) => { if (!deiBase.has(g)) deiBase.set(g, compact(g.tnvedCode)) }, { immediate: true })
+
+// Код сменил ДЕИ (гр. 41), а у строк характеристик своя единица, отличная от новой — подсказка (не блок): количество
+// строки в прежней единице уйдёт в XML как есть, и сверка с гр. 41 его не видит (итоговое ревью пакета 7, сценарий B).
+// Показывается после смены единицы кодом, пока такие строки есть; другой товар — сброс.
+const deiChanged = ref(false)
+watch(() => props.item, () => { deiChanged.value = false })
+const deiRowsHint = computed(() => {
+  const g = props.item
+  const unit = okeiCode(g.unitCode)
+  if (!deiChanged.value || !unit) return null
+  const rows = (g.characteristics ?? [])
+    .map((r, i) => ({ n: i + 1, unit: okeiCode(r.unitCode) }))
+    .filter((x) => x.unit && x.unit !== unit)
+  if (!rows.length) return null
+  return t('broker.dt.goods.editor.code.deiRowsHint', {
+    unit: okeiLabel(g.unitCode, g.unit),
+    rows: rows.map((x) => x.n).join(', '),
+    rowUnit: [...new Set(rows.map((x) => okeiLabel(x.unit)))].join(', '),
+  })
+})
+
 async function applyDei(c: string, fillEmptyIfSame = false) {
   const g = props.item
   const same = deiBase.get(g) === c
@@ -61,7 +82,9 @@ async function applyDei(c: string, fillEmptyIfSame = false) {
   g.unitCode = unitCode
   g.unit = dei ? dei.name || okeiName(dei.code) || null : null
   props.model.markStale(g)
+  deiChanged.value = true
 }
+
 let deiTimer: ReturnType<typeof setTimeout> | undefined
 const scheduleDei = (delay: number) => {
   clearTimeout(deiTimer)
@@ -181,6 +204,8 @@ const sideBtn = 'shrink-0 max-sm:h-11'
     <ZField graph="31" :label="tc('description')" :extra="descriptionHint" :help="descriptionWarning" :validate-status="descriptionWarning ? 'warning' : ''" data-graph="31" data-goods-field="description" :data-goods-index="index">
       <ZInput v-uppercase :value="item.description" :maxlength="DESCRIPTION_MAX" :disabled="readonly" :placeholder="tc('descriptionPlaceholder')" class="max-sm:h-11" data-f="description" @update:value="setStr('description', $event)" />
     </ZField>
+
+    <p v-if="deiRowsHint" class="m-0 rounded-field bg-gold-soft px-3 py-2 text-[13px] text-gold-ink" role="status" data-goods-dei-rows-hint>{{ deiRowsHint }}</p>
 
     <GoodsCharacteristicsTable :item="item" :index="index" :model="model" :readonly="readonly" :ctx="ctx" />
 

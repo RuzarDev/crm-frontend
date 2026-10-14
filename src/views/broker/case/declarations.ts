@@ -89,9 +89,9 @@ export const previewToUpsert = (preview: Import40ExtractionPreview): Import40Dec
         quantityTypeCode: null,
         invoiceValue: g.invoiceValue ?? null,
         currency: g.currency ?? null,
-        // Распознанные марка, знак и производитель — в строку 1 характеристик гр. 31 (с количеством и стоимостью товара).
+        // Распознанные марка, знак и производитель — в строку 1 характеристик гр. 31; количество и стоимость строка берёт
+        // у товара (гр. 41 / гр. 42), копию не пишем.
         characteristics: rowsFromLegacy({
-          quantity: g.quantity, invoiceValue: g.invoiceValue,
           tradeMarkName: g.tradeMarkName, productMarkName: g.productMarkName, manufacturerName: g.manufacturerName,
         }),
       }))
