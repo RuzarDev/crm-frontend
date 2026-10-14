@@ -73,6 +73,22 @@ const onCurrency = (v: unknown) => {
 }
 const applyRate = () => { if (dealRate.value) props.form.exchangeRate = dealRate.value.rate }
 
+// Гр. 22 = Σ гр. 42: во всех выгрузках КЕДЕН общая фактурная стоимость равна сумме по товарам, ФЛК их сверяет (сверка
+// 14.10, I6; сервер проверяет то же при выгрузке XML). Гр. 42 в форме — customsValue товара. Сверяем, только если у всех
+// товаров со стоимостью валюта та же, что в гр. 22 (или не указана); допуск — копейка.
+const goodsInvoiceSum = computed<number | null>(() => {
+  const cur = (props.form.currency ?? '').trim().toUpperCase()
+  const goods = props.form.goodsItems.filter((g) => g.customsValue != null)
+  if (!cur || !goods.length) return null
+  if (goods.some((g) => g.currency && g.currency.trim().toUpperCase() !== cur)) return null
+  return goods.reduce((s, g) => s + Math.round(Number(g.customsValue) * 100), 0) / 100
+})
+const invoiceMismatch = computed(() => goodsInvoiceSum.value != null
+  && (props.form.totalInvoiceValue == null
+    || Math.abs(Math.round(Number(props.form.totalInvoiceValue) * 100) - Math.round(goodsInvoiceSum.value * 100)) > 1))
+const fmtInvoice = (n: number) => `${formatNumberIn(locale.value, n, 2, 2)} ${(props.form.currency ?? '').trim().toUpperCase()}`
+const applyInvoiceSum = () => { if (goodsInvoiceSum.value != null) props.form.totalInvoiceValue = goodsInvoiceSum.value }
+
 // Тип ставок: ЕТТ — обычный; EATT — ВТО. Прочее значение показывается как есть.
 const rateKind = computed(() => {
   const v = (props.form.rateType ?? '').toUpperCase()
@@ -129,9 +145,22 @@ const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @2xl:grid-cols-3'
           <ZSelect :value="form.currency || null" :options="currency.options" show-search allow-clear :disabled="readonly" :placeholder="tf('currencyPlaceholder')" popup-width="320px" @update:value="onCurrency" />
         </ZField>
 
-        <ZField graph="22" :extra="tf('totalInvoiceAuto')">
+        <ZField graph="22" :validate-status="invoiceMismatch ? 'warning' : ''">
           <template #label>{{ tf('totalInvoice') }}</template>
           <ZNumber :value="form.totalInvoiceValue" :min="0" :precision="2" :disabled="readonly" data-total-invoice @update:value="form.totalInvoiceValue = $event" />
+          <template #extra>
+            <template v-if="invoiceMismatch && goodsInvoiceSum != null">
+              <span class="text-gold-ink" data-invoice-hint>{{ tf('invoiceMismatch', { sum: fmtInvoice(goodsInvoiceSum) }) }}</span>
+              <button
+                v-if="!readonly"
+                type="button"
+                class="ml-1.5 inline-flex min-h-6 cursor-pointer items-center rounded-field border-0 bg-transparent px-1 font-sans text-xs font-semibold text-zircon-ink underline-offset-2 outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
+                data-invoice-apply
+                @click="applyInvoiceSum"
+              >{{ tf('invoiceApply') }}</button>
+            </template>
+            <template v-else>{{ tf('totalInvoiceAuto') }}</template>
+          </template>
         </ZField>
         <ZField graph="23" data-graph="23">
           <template #label>{{ tf('rate') }}<DtGraphHelp graph="23" /></template>

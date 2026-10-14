@@ -1436,6 +1436,8 @@ export interface Import40Doc44ItemInput extends ReestrDoc44ItemInput {
   docStartDate?: string | null
   docValidityDate?: string | null
   issueCountryCode?: string | null
+  /** ДТ: признак представления (DocPresentKindCode 0/1/2/3); новой строке — «0» (не представлен при подаче). */
+  presentKindCode?: string | null
   // КЕДЕН-транзит §7 (гр.44): у записи реестра (ReestrDoc44Item) эти три поля хранятся
   // (см. ReestrDoc44ItemInput); колонки для файла-вложения нет.
   authorizedBody?: string | null

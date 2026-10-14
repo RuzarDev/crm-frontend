@@ -23,7 +23,7 @@ import { message } from '@/ui/message'
 import type { ZOption } from '@/ui/options'
 import { checkWarehouseNumber } from '@/utils/warehouseNumber'
 import DtGraphHelp from '../DtGraphHelp.vue'
-import { dedupeOptions, withCurrent } from '../dtOptions'
+import { dedupeOptions, officeNameOnly, withCurrent } from '../dtOptions'
 import type { DtFormState } from '../dtPayload'
 import GoodsLocationModal from './GoodsLocationModal.vue'
 
@@ -47,13 +47,22 @@ const warn = (unknown: boolean, value: string | null | undefined) =>
 const str = (v: unknown): string => (v == null ? '' : String(v))
 
 // ---- Гр. 29 ----
-// Значение выбора — полная строка поста (borderCustomsOfficeName), код — ведущие цифры строки.
-const postSelect = computed(() => props.postOptions.map((o) => ({ value: o.label, label: o.label })))
-const border = computed(() => withCurrent(postSelect.value, props.form.borderCustomsOfficeName))
+// Значение выбора — код поста; в название (borderCustomsOfficeName → CustomsOfficeName, Name50) идёт только название без
+// «код —», как у КЕДЕН (сверка 14.10, M8; экспортёр дополнительно сокращает «ТАМОЖЕННЫЙ ПОСТ» до «Т/П»). Старые записи
+// хранили подпись целиком («55300 — ТАМОЖЕННЫЙ ПОСТ …») — их код берётся из ведущих цифр, если кода нет.
+const border = computed(() => {
+  const name = (props.form.borderCustomsOfficeName ?? '').trim()
+  const code = (props.form.borderCustomsOfficeCode ?? '').trim() || name.match(/^\d{5,8}(?=\s*[—–-])/)?.[0] || ''
+  const value = code || name
+  if (!value || props.postOptions.some((o) => o.value === value)) return { options: props.postOptions, unknown: false, value: value || null }
+  const label = code && name && !name.startsWith(code) ? `${code} — ${name}` : name || code
+  return { options: [{ value, label }, ...props.postOptions], unknown: props.postOptions.length > 0, value }
+})
 const onBorder = (v: unknown) => {
-  const name = str(v)
-  props.form.borderCustomsOfficeName = name
-  props.form.borderCustomsOfficeCode = name ? (name.match(/^\d+/)?.[0] ?? name) : ''
+  const code = str(v)
+  const label = props.postOptions.find((o) => o.value === code)?.label ?? code
+  props.form.borderCustomsOfficeCode = code
+  props.form.borderCustomsOfficeName = code ? officeNameOnly(label) : ''
 }
 
 // ---- Гр. 30: код места ----
@@ -141,8 +150,10 @@ const suggestOffice = (row: WarehouseRegistryItem) => {
   }
 }
 const pickOffice = (code: string) => { props.form.goodsLocationCustomsOfficeCode = code }
+// В XML гр. 30 уходит код уровня ДГД (КЕДЕН требует при импорте): пост 55302 → 55300.
 const officePlaceholder = computed(() => {
-  const code = (props.form.submissionCustomsOfficeCode ?? '').trim()
+  const post = (props.form.submissionCustomsOfficeCode ?? '').trim()
+  const code = /^\d{5}$/.test(post) ? `${post.slice(0, 3)}00` : post
   return code ? tc('officeAsSubmission', { code }) : tc('officeAsSubmissionEmpty')
 })
 
@@ -175,9 +186,9 @@ const graphTag = 'font-mono text-xs font-normal text-muted'
         <span :class="graphTag">{{ t('broker.dt.nav.graphs', { list: '29' }) }}</span>
       </h2>
       <div class="grid grid-cols-1 gap-4 @2xl:grid-cols-2">
-        <ZField graph="29" data-graph="29" v-bind="warn(border.unknown, form.borderCustomsOfficeName)">
+        <ZField graph="29" data-graph="29" v-bind="warn(border.unknown, form.borderCustomsOfficeName || form.borderCustomsOfficeCode)">
           <template #label>{{ tc('border') }}<DtGraphHelp graph="29" /></template>
-          <ZSelect :value="form.borderCustomsOfficeName || null" :options="border.options" show-search allow-clear :disabled="readonly" :placeholder="tc('borderPlaceholder')" popup-width="560px" data-border-post @update:value="onBorder" />
+          <ZSelect :value="border.value" :options="border.options" show-search allow-clear :disabled="readonly" :placeholder="tc('borderPlaceholder')" popup-width="560px" data-border-post @update:value="onBorder" />
         </ZField>
       </div>
     </div>

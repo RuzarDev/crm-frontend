@@ -334,7 +334,15 @@ describe('useDtPayments.apply: «Записать в гр. 47 и гр. В»', ()
     expect(form.factPayments.map((f) => [f.taxModeCode, f.amount])).toEqual([['1010', 25950], ['5060', 540]])
   })
 
-  it('(баг QA Q3) гр. В — Σ гр. 47 до копеек: шум сложения не уходит в форму и PUT', async () => {
+  it('(I11) новые строки гр. В — плательщик БИН гр. 14 декларанта', async () => {
+    const { form, p } = setup()
+    form.declarantBin = '250740008962'
+    await p.calculate()
+    await p.apply()
+    expect(form.factPayments.map((f) => [f.taxModeCode, f.payerTaxpayerId])).toEqual([['1010', '250740008962'], ['5060', '250740008962']])
+  })
+
+  it('(баг QA Q3, I5) гр. В — Σ гр. 47 до копеек, затем вверх до тенге (как КЕДЕН): шум сложения не уходит в форму и PUT', async () => {
     const { form, p } = setup({ goods: [goods(), goods(), goods()] })
     api.calculatePayments.mockResolvedValueOnce(calc([
       { index: 0, rows: [{ taxModeCode: '5060', amount: 100000.38 }] },
@@ -344,7 +352,7 @@ describe('useDtPayments.apply: «Записать в гр. 47 и гр. В»', ()
     await p.calculate()
     expect(p.previewTotals.value).toEqual([{ code: '5060', amount: 1309506.47 }])
     await p.apply()
-    expect(form.factPayments.map((f) => f.amount)).toEqual([1309506.47])
+    expect(form.factPayments.map((f) => f.amount)).toEqual([1309507])
   })
 
   it('несколько строк вида в гр. В — суммы не тронуты, предупреждение', async () => {

@@ -95,7 +95,7 @@ export function useDtPayments(
     (result.value ? goodsTotalsAfterApply(form.goodsItems, result.value) : []).filter((x) => x.code))
   /** Какой станет гр. В после «Записать»: добавятся / заменятся / удалятся / несколько строк — не тронем. */
   const factPreview = computed<FactMergeResult | null>(() =>
-    result.value ? mergeFactPayments(form.factPayments ?? [], totalsRecord(previewTotals.value)) : null)
+    result.value ? mergeFactPayments(form.factPayments ?? [], totalsRecord(previewTotals.value), form.declarantBin) : null)
   /** Позиции товаров (с 0), которые расчёт не пересчитал (ошибка или нет в ответе): гр. 47 у них остаётся прежней. */
   const notRecalculated = computed<number[]>(() =>
     (result.value ? notRecalculatedGoods(form.goodsItems.length, result.value) : []))
@@ -239,8 +239,9 @@ export function useDtPayments(
     // Прежняя причина остановки (заблокированное «Рассчитать» при живом предпросмотре) к записи не относится.
     problem.value = null
     applyPaymentsCalculation(form, res)
-    // гр. В — из Σ гр. 47 после записи (как печать, до копеек): виды товаров с ошибкой расчёта не удаляются.
-    const merged = mergeFactPayments(form.factPayments ?? [], totalsRecord(totalsByMode(form.goodsItems)))
+    // гр. В — из Σ гр. 47 после записи, целыми тенге вверх (как КЕДЕН): виды товаров с ошибкой расчёта не удаляются;
+    // плательщик новых строк — БИН гр. 14.
+    const merged = mergeFactPayments(form.factPayments ?? [], totalsRecord(totalsByMode(form.goodsItems)), form.declarantBin)
     // Новый массив гр. В: таблица фактических платежей видит запись (§5-1), XML-порядок = порядок строк.
     form.factPayments = merged.rows
     if (merged.multiple.length) message.warning(t('broker.dt.payments.multipleRows', { codes: merged.multiple.join(', ') }))

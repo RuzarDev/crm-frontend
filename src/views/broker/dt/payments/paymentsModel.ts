@@ -39,6 +39,12 @@ export function totalsByMode(goods: readonly Pick<Import40GoodsItemInput, 'payme
   return [...sums].map(([code, amount]) => ({ code, amount: toKopecks(amount) })).sort(byCode)
 }
 
+/**
+ * Сумма гр. В по виду платежа — целыми тенге с округлением вверх, как считает КЕДЕН: Σ гр. 47 до копеек, затем вверх
+ * (3 408 800,35 → 3 408 801; 254 086,75 → 254 087). Сервер при разделении ДТ — так же (Import40Endpoints.FactPaymentAmount).
+ */
+export const factAmount = (x: number): number => Math.ceil(toKopecks(x)) + 0 // + 0 убирает -0
+
 /** Итого по видам (гр. В) — до копеек. */
 export const grandTotal = (list: readonly PaymentModeTotal[]): number => toKopecks(list.reduce((s, r) => s + r.amount, 0))
 
@@ -83,14 +89,17 @@ export interface FactMergeResult {
   removed: string[]
 }
 
-/** Новая строка гр. В из расчёта: курс 1, способ «БН», прочее пусто (XML гр. В — как прежде). */
-const newFactRow = (code: string, amount: number): Import40FactPayment => ({
-  taxModeCode: code, amount, exchangeRate: 1, paymentDocDate: null, paymentDocNumber: null, payerTaxpayerId: null, paymentDate: null, paymentMethodCode: 'БН',
+/**
+ * Новая строка гр. В из расчёта: курс 1, способ «БН», плательщик — БИН декларанта гр. 14 (как у КЕДЕН), даты и номер
+ * платёжки пусты.
+ */
+const newFactRow = (code: string, amount: number, payerBin: string | null): Import40FactPayment => ({
+  taxModeCode: code, amount, exchangeRate: 1, paymentDocDate: null, paymentDocNumber: null, payerTaxpayerId: payerBin, paymentDate: null, paymentMethodCode: 'БН',
 })
 
 /**
- * Расчёт → гр. В (фактические платежи). Для каждого вида из расчёта: строки нет — добавить в конец; одна строка —
- * заменить её сумму; несколько строк (несколько платёжек) — не трогать и предупредить. Строки рассчитываемых видов
+ * Расчёт → гр. В (фактические платежи). Сумма вида — Σ гр. 47 целыми тенге вверх (factAmount, как КЕДЕН). Для каждого
+ * вида из расчёта: строки нет — добавить в конец (плательщик — payerBin, БИН гр. 14); одна строка — заменить её сумму; несколько строк (несколько платёжек) — не трогать и предупредить. Строки рассчитываемых видов
  * (1010, 2010, 2050, 5060, 4xxx), которых в totals больше нет, удаляются (сменился вид акциза — старый не уходит в
  * XML, §5-10); прочие виды и строки без вида — как были. totals — Σ гр. 47 после записи (goodsTotalsAfterApply):
  * вид товара с ошибкой расчёта в нём остаётся, и его строка гр. В не удаляется. fact не меняется: изменённые строки — копии, неизменённые —
@@ -99,7 +108,9 @@ const newFactRow = (code: string, amount: number): Import40FactPayment => ({
 export function mergeFactPayments(
   fact: readonly Import40FactPayment[],
   totals: Readonly<Record<string, number>>,
+  payerBin?: string | null,
 ): FactMergeResult {
+  const payer = payerBin?.trim() || null
   const removed: string[] = []
   const rows = fact.filter((p) => {
     const code = p.taxModeCode
@@ -110,10 +121,11 @@ export function mergeFactPayments(
   const added: string[] = []
   const updated: string[] = []
   const multiple: string[] = []
-  for (const [code, amount] of Object.entries(totals)) {
+  for (const [code, sum] of Object.entries(totals)) {
+    const amount = factAmount(sum)
     const at = rows.flatMap((p, i) => (p.taxModeCode === code ? [i] : []))
     if (at.length === 0) {
-      rows.push(newFactRow(code, amount))
+      rows.push(newFactRow(code, amount, payer))
       added.push(code)
     } else if (at.length === 1) {
       rows[at[0]] = { ...rows[at[0]], amount }
@@ -138,7 +150,8 @@ const differs = (a: number, b: number) => Math.abs(a - b) >= 0.005
 
 /**
  * Сверка гр. 47 ↔ гр. В по видам: печать считает гр. В из гр. 47, XML — из фактических платежей (§5-11). Виды, где
- * Σ гр. 47 ≠ Σ гр. В (в том числе вид есть только с одной стороны), по коду. Строки гр. В без вида не сверяются.
+ * Σ гр. В не равна ни Σ гр. 47, ни ей же целыми тенге вверх (как пишет «Записать» и КЕДЕН), — в том числе вид есть
+ * только с одной стороны — по коду. Строки гр. В без вида не сверяются.
  */
 export function factVsGoodsDiff(form: Pick<DtFormState, 'goodsItems' | 'factPayments'>): FactDiff[] {
   const goods = new Map(totalsByMode(form.goodsItems).filter((x) => x.code).map((x) => [x.code, x.amount]))
@@ -151,7 +164,7 @@ export function factVsGoodsDiff(form: Pick<DtFormState, 'goodsItems' | 'factPaym
   const codes = [...new Set([...goods.keys(), ...fact.keys()])].sort()
   return codes
     .map((code) => ({ code, goods: goods.get(code) ?? 0, fact: fact.get(code) ?? 0 }))
-    .filter((d) => differs(d.goods, d.fact))
+    .filter((d) => differs(d.goods, d.fact) && differs(factAmount(d.goods), d.fact))
 }
 
 /**

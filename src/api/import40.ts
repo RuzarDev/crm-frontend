@@ -160,6 +160,9 @@ export interface Import40Doc44ItemDto {
   docStartDate?: string | null
   docValidityDate?: string | null
   issueCountryCode?: string | null
+  /** Признак представления документа (R.055 DocPresentKindCode): 0 — не представлен при подаче, 1 — представлен,
+   *  2 — не представлен по п. 10 ст. 109 ТК ЕАЭС, 3 — представлен после выпуска. */
+  presentKindCode?: string | null
 }
 
 // Гр.40 "Предшествующий документ". Один тип на чтение/запись — сервер отдаёт

@@ -286,6 +286,24 @@ describe('GoodsEditor: «Код и описание»', () => {
   })
 })
 
+describe('GoodsEditor: пределы полей по структуре ДТ (сверка КЕДЕН 14.10, C3, I9)', () => {
+  it('описание до 1000 со счётчиком и числом частей по 250; знак/марка/модель — 250, артикул — 50', async () => {
+    await mount([item({ description: 'СУМКИ' })], { query: '&item=1' })
+    const desc = q('[data-goods-field="description"]')!
+    expect((desc.querySelector('input') as HTMLInputElement).maxLength).toBe(1000)
+    expect(desc.textContent).toContain('5 из 1000 знаков')
+    await type('description', 'а'.repeat(260))
+    expect(q('[data-goods-field="description"]')!.textContent).toContain('260 из 1000 знаков — в КЕДЕН уйдёт 2 частями по 250')
+    // Части считаются как на сервере — по пробелам и запятым, а не n / 250 (I-2): 494 знака словами — 3 части.
+    await type('description', Array.from({ length: 55 }, (_, i) => `ДЕТАЛЬ${String(i).padStart(2, '0')}`).join(' '))
+    expect(q('[data-goods-field="description"]')!.textContent).toContain('494 из 1000 знаков — в КЕДЕН уйдёт 3 частями по 250')
+    await type('description', Array.from({ length: 5 }, (_, i) => String.fromCharCode(0x410 + i).repeat(180)).join(', '))
+    expect(q('[data-goods-field="description"]')!.textContent).toContain('908 из 1000 знаков — делится на 5 частей по 250 (по запятым и пробелам), а КЕДЕН принимает до 4')
+    const max = (f: string) => (q(`[data-goods-field="${f}"]`)!.querySelector('input') as HTMLInputElement).maxLength
+    expect([max('tradeMarkName'), max('productMarkName'), max('productModelName'), max('productArticle')]).toEqual([250, 250, 250, 50])
+  })
+})
+
 describe('GoodsEditor: «Количество и стоимость»', () => {
   it('числа пишутся сразу при вводе, с запятой; правка помечает «Пересчитать»; нетто > брутто — предупреждение', async () => {
     await mount([item()], { query: '&item=1' })

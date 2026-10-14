@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { reactive } from 'vue'
 import type { Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
 import {
-  calcSnapshot, factVsGoodsDiff, goodsSnapshot, goodsTotalsAfterApply, grandTotal, mergeFactPayments, notRecalculatedGoods, toKopecks,
+  calcSnapshot, factAmount, factVsGoodsDiff, goodsSnapshot, goodsTotalsAfterApply, grandTotal, mergeFactPayments, notRecalculatedGoods, toKopecks,
   totalsByMode, totalsRecord,
 } from '../paymentsModel'
 
@@ -94,6 +94,35 @@ describe('mergeFactPayments: расчёт → гр. В', () => {
   it('пустая гр. В — строки в порядке видов', () => {
     const res = mergeFactPayments([], { 5060: 7, 1010: 5 })
     expect(res.rows.map((r) => [r.taxModeCode, r.amount])).toEqual([['1010', 5], ['5060', 7]])
+  })
+})
+
+describe('(I5, I11) гр. В как у КЕДЕН: целые тенге вверх, плательщик — БИН гр. 14', () => {
+  it('factAmount: Σ до копеек, затем вверх до тенге (выгрузки КЕДЕН A и D)', () => {
+    expect(factAmount(3408800.35)).toBe(3408801)
+    expect(factAmount(254086.75)).toBe(254087)
+    expect(factAmount(25950)).toBe(25950)
+    expect(factAmount(100000.38 + 1009505.76 + 200000.33)).toBe(1309507) // шум сложения не даёт лишнего тенге
+    expect(factAmount(2617245.001)).toBe(2617245) // до копеек — 2 617 245,00
+    expect(Object.is(factAmount(-0.001), -0)).toBe(false)
+  })
+
+  it('mergeFactPayments пишет суммы вверх до тенге; новой строке — БИН гр. 14 плательщиком, существующие не трогает', () => {
+    const vat = fact('5060', 1, { payerTaxpayerId: '111111111111' })
+    const res = mergeFactPayments([vat], { 1010: 25950, 5060: 3408800.35 }, ' 250740008962 ')
+    expect(res.rows.map((r) => [r.taxModeCode, r.amount, r.payerTaxpayerId])).toEqual([
+      ['5060', 3408801, '111111111111'],
+      ['1010', 25950, '250740008962'],
+    ])
+    expect(res.rows[1]).toMatchObject({ paymentDocDate: null, paymentDate: null, paymentDocNumber: null })
+    expect(mergeFactPayments([], { 1010: 1 }, '  ').rows[0].payerTaxpayerId).toBeNull()
+  })
+
+  it('сверка гр. 47 ↔ гр. В: сумма вверх до тенге — не расхождение; больше тенге — расхождение', () => {
+    const goodsItems = [{ payments: [pay('2010', 3408800.35)] }] as never
+    expect(factVsGoodsDiff({ goodsItems, factPayments: [fact('2010', 3408801)] })).toEqual([])
+    expect(factVsGoodsDiff({ goodsItems, factPayments: [fact('2010', 3408800.35)] })).toEqual([])
+    expect(factVsGoodsDiff({ goodsItems, factPayments: [fact('2010', 3408802)] })).toEqual([{ code: '2010', goods: 3408800.35, fact: 3408802 }])
   })
 })
 

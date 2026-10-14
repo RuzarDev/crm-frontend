@@ -188,6 +188,7 @@ export const fullDto = (over: Partial<Import40DeclarationDto> = {}): Import40Dec
     id: 'd1', sortOrder: 0, docTypeCode: '04021', docTypeName: 'ИНВОЙС', docNumber: 'INV-1', docDate: '2026-09-01',
     goodsItemIndex: 0, appliesToAll: true, goodsItemIndexes: '1,2', docStartDate: '2026-09-01', docValidityDate: '2027-09-01',
     issueCountryCode: 'CN',
+    presentKindCode: '1',
   }],
   prevDocItems: [{ id: 'p1', docTypeCode: '09013', docNumber: 'PREV-1', docDate: '2026-09-02', goodsNumber: '1', goodsItemIndex: 0, sortOrder: 0 }],
   expenses: [{ sortOrder: 0, expenseTypeCode: '17', amount: 300, currencyCode: 'USD' }],

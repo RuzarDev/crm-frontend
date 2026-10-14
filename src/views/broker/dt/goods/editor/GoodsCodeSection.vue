@@ -11,11 +11,13 @@ import type { Import40GoodsItemInput } from '@/types/api'
 import { useDtTnvedCheck } from '../tnvedCodeCheck'
 import GoodsTroisHint from './GoodsTroisHint.vue'
 import { okeiName } from './okei'
+import { DESCRIPTION_MAX_PARTS, DESCRIPTION_PART, splitDescription } from './descriptionParts'
 import type { GoodsSectionProps } from './types'
 
 // «Код и описание» (гр. 33, гр. 31): код ТН ВЭД (моно) с «Найти» (проверка узла: не лист — окно выбора) и «Справочник»
 // (TnvedPickerModal, контракт прежний), проверка существования кода (общий кэш редактора — useTnvedCheck), описание из
-// ТН ВЭД (только чтение), описание из инвойса и бланк товара (марка, знак, модель, артикул, изготовитель) ЗАГЛАВНЫМИ,
+// ТН ВЭД (только чтение), описание из инвойса (до 1000 знаков, счётчик и число частей по 250 для КЕДЕН) и бланк товара
+// (марка, знак, модель — до 250, артикул — до 50, изготовитель) ЗАГЛАВНЫМИ,
 // подсказка ТРОИС под маркой. ДЕИ подставляется по коду, только когда пуст (ставки ТН ВЭД).
 // Правки — на месте; код — поле платежей (setField → «Пересчитать»); описание ТН ВЭД и ДЕИ по коду — производные.
 const props = defineProps<GoodsSectionProps>()
@@ -90,6 +92,35 @@ async function lookup() {
   }
 }
 
+// Пределы структуры ДТ (Решение Коллегии ЕЭК №75): описание — Text250, до 4 частей на товар (XML делит его сам);
+// товарный знак, марка, модель — Name250; артикул — Id50. Изготовитель — Name300 (как было).
+const DESCRIPTION_MAX = 1000
+const NAME_MAX = 250
+const ARTICLE_MAX = 50
+const descriptionLength = computed(() => (props.item.description ?? '').trim().length)
+/** Части по 250 знаков — тем же правилом, что сервер (по запятым и пробелам), а не n / 250. */
+const descriptionPartCount = computed(() => splitDescription(props.item.description).length)
+const descriptionTooManyParts = computed(() => descriptionPartCount.value > DESCRIPTION_MAX_PARTS)
+/** Под описанием: счётчик и сколько частей по 250 знаков уйдёт в КЕДЕН. */
+const descriptionHint = computed(() => {
+  const n = descriptionLength.value
+  if (descriptionTooManyParts.value) return undefined
+  if (n <= DESCRIPTION_PART) return n ? t('broker.dt.goods.editor.code.descriptionCount', { n, max: DESCRIPTION_MAX }) : undefined
+  return t('broker.dt.goods.editor.code.descriptionParts', { n, max: DESCRIPTION_MAX, parts: descriptionPartCount.value, part: DESCRIPTION_PART })
+})
+/** Больше 4 частей КЕДЕН не примет — предупреждение (выгрузку блокирует проверка готовности гр.31). */
+const descriptionWarning = computed(() =>
+  descriptionTooManyParts.value
+    ? t('broker.dt.goods.editor.code.descriptionTooManyParts', {
+        n: descriptionLength.value,
+        max: DESCRIPTION_MAX,
+        parts: descriptionPartCount.value,
+        part: DESCRIPTION_PART,
+        limit: DESCRIPTION_MAX_PARTS,
+      })
+    : undefined,
+)
+
 const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @4xl:grid-cols-4'
 const sideBtn = 'shrink-0 max-sm:h-11'
 </script>
@@ -124,25 +155,25 @@ const sideBtn = 'shrink-0 max-sm:h-11'
       </p>
     </div>
 
-    <ZField graph="31" :label="tc('description')" data-graph="31" data-goods-field="description" :data-goods-index="index">
-      <ZInput v-uppercase :value="item.description" :maxlength="1000" :disabled="readonly" :placeholder="tc('descriptionPlaceholder')" class="max-sm:h-11" data-f="description" @update:value="setStr('description', $event)" />
+    <ZField graph="31" :label="tc('description')" :extra="descriptionHint" :help="descriptionWarning" :validate-status="descriptionWarning ? 'warning' : ''" data-graph="31" data-goods-field="description" :data-goods-index="index">
+      <ZInput v-uppercase :value="item.description" :maxlength="DESCRIPTION_MAX" :disabled="readonly" :placeholder="tc('descriptionPlaceholder')" class="max-sm:h-11" data-f="description" @update:value="setStr('description', $event)" />
     </ZField>
 
     <div :class="grid">
       <div class="flex min-w-0 flex-col gap-1 @md:col-span-2 @4xl:col-span-4">
         <ZField graph="31" :label="tc('tradeMark')" data-graph="31" data-goods-field="tradeMarkName" :data-goods-index="index">
-          <ZInput v-uppercase :value="item.tradeMarkName" :maxlength="300" :disabled="readonly" class="max-sm:h-11" data-f="tradeMarkName" @update:value="setStr('tradeMarkName', $event)" />
+          <ZInput v-uppercase :value="item.tradeMarkName" :maxlength="NAME_MAX" :disabled="readonly" class="max-sm:h-11" data-f="tradeMarkName" @update:value="setStr('tradeMarkName', $event)" />
         </ZField>
         <GoodsTroisHint :name="item.tradeMarkName" />
       </div>
       <ZField graph="31" :label="tc('productMark')" data-graph="31" data-goods-field="productMarkName" :data-goods-index="index">
-        <ZInput v-uppercase :value="item.productMarkName" :maxlength="300" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productMarkName" @update:value="setStr('productMarkName', $event)" />
+        <ZInput v-uppercase :value="item.productMarkName" :maxlength="NAME_MAX" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productMarkName" @update:value="setStr('productMarkName', $event)" />
       </ZField>
       <ZField graph="31" :label="tc('model')" data-graph="31" data-goods-field="productModelName" :data-goods-index="index">
-        <ZInput v-uppercase :value="item.productModelName" :maxlength="300" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productModelName" @update:value="setStr('productModelName', $event)" />
+        <ZInput v-uppercase :value="item.productModelName" :maxlength="NAME_MAX" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productModelName" @update:value="setStr('productModelName', $event)" />
       </ZField>
       <ZField graph="31" :label="tc('article')" data-graph="31" data-goods-field="productArticle" :data-goods-index="index">
-        <ZInput v-uppercase :value="item.productArticle" :maxlength="300" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productArticle" @update:value="setStr('productArticle', $event)" />
+        <ZInput v-uppercase :value="item.productArticle" :maxlength="ARTICLE_MAX" :disabled="readonly" :placeholder="tc('notSet')" class="max-sm:h-11" data-f="productArticle" @update:value="setStr('productArticle', $event)" />
       </ZField>
       <ZField graph="31" :label="tc('manufacturer')" data-graph="31" data-goods-field="manufacturerName" :data-goods-index="index">
         <ZInput v-uppercase :value="item.manufacturerName" :maxlength="300" :disabled="readonly" class="max-sm:h-11" data-f="manufacturerName" @update:value="setStr('manufacturerName', $event)" />

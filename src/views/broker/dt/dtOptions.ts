@@ -24,3 +24,6 @@ export const withCurrent = (options: ZOption[], value: string | null | undefined
   if (!v || options.some((o) => o.value === v)) return { options, unknown: false }
   return { options: [{ value: v, label: v }, ...options], unknown: options.length > 0 }
 }
+
+/** Название таможенного органа без «код —» из подписи опции («55300 — ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»» → «ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»»). */
+export const officeNameOnly = (label: string): string => label.replace(/^\s*\d{5,8}\s*[—–-]\s*/, '').trim()
