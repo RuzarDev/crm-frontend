@@ -3,6 +3,7 @@
 // Значение: единица; null — у кода нет ДЕИ; нет в кэше (undefined) — ещё не известно, код не найден или сбой сети.
 import { reactive } from 'vue'
 import { tnvedApi } from '@/api/tnved'
+import { okeiCode } from './okei'
 
 export interface TnvedDei {
   code: string
@@ -32,7 +33,7 @@ export function loadDei(tnvedCode: string | null | undefined): Promise<TnvedDei 
   const run = tnvedApi.rates(c, { silent: true })
     .then((res) => {
       const d = res.data
-      const unit = d.unitCode?.trim()
+      const unit = okeiCode(d.unitCode)
       known[c] = unit ? { code: unit, name: d.unitName?.trim() || null, shortName: d.unitShortName?.trim() || null } : null
       return known[c]
     })

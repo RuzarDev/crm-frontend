@@ -297,6 +297,52 @@ describe('GoodsEditor: «Код и описание»', () => {
     expect(field('unitCode').value).toBe('нет доп. единицы')
   })
 
+  it('(баг) гр. 41: уход из поля и «Найти» без смены кода не трогают единицу и не ставят «Пересчитать»', async () => {
+    tnved.rates.mockResolvedValue({ data: { unitCode: null, unitName: null } })
+    await mount([item({ tnvedCode: '9403105100', unit: 'шт', unitCode: '796' })], { query: '&item=1' })
+    field('tnvedCode').focus()
+    field('tnvedCode').dispatchEvent(new FocusEvent('blur'))
+    await new Promise((r) => setTimeout(r, 0))
+    await settle()
+    await click('[data-goods-find]')
+    expect(form.goodsItems[0].unitCode).toBe('796')
+    expect(form.goodsItems[0].unit).toBe('шт')
+    expect(form.goodsItems[0].needsTpinRecalc).toBe(false)
+    // набрали тот же код заново — тоже не смена кода
+    await type('tnvedCode', '9403 105 100')
+    field('tnvedCode').dispatchEvent(new FocusEvent('blur'))
+    await new Promise((r) => setTimeout(r, 0))
+    await settle()
+    expect(form.goodsItems[0].unitCode).toBe('796')
+    expect(form.goodsItems[0].needsTpinRecalc).toBe(false)
+  })
+
+  it('(баг) гр. 41: просмотр (выпущенная ДТ) — сохранённая единица, а не нынешний ответ справочника', async () => {
+    tnved.rates.mockResolvedValue({ data: { unitCode: null, unitName: null } })
+    await mount([item({ tnvedCode: '9403105100', unit: 'шт', unitCode: '796' })], { query: '&item=1', readonly: true })
+    expect(field('unitCode').value).toBe('796 — ШТ')
+    expect(q('[data-goods-field="unitCode"]')!.textContent).not.toContain('по ТН ВЭД')
+    expect(tnved.rates).not.toHaveBeenCalled()
+  })
+
+  it('(баг) гр. 41: код ОКЕИ без ведущих нулей («55») — трёхзначный «055 — М2»', async () => {
+    refsApi.listOkeiUnits.mockResolvedValueOnce([{ id: '3', code: '055', name: 'Квадратный метр', shortName: 'М2', isActive: true }] as never)
+    tnved.rates.mockImplementation(async (code: string) => ({
+      data: code === '6907210000' ? { unitCode: '55', unitName: 'КВАДРАТНЫЙ МЕТР', unitShortName: 'М2' } : { unitCode: null, unitName: null },
+    }))
+    await mount([item({ tnvedCode: '4202121900', unit: 'КВАДРАТНЫЙ МЕТР', unitCode: '55' })], { query: '&item=1', readonly: true })
+    expect(field('unitCode').value).toBe('055 — М2')
+    w.unmount()
+    document.body.innerHTML = ''
+    await mount([item({ tnvedCode: '4202121900', unit: null, unitCode: null })], { query: '&item=1' })
+    await type('tnvedCode', '6907210000')
+    field('tnvedCode').dispatchEvent(new FocusEvent('blur'))
+    await new Promise((r) => setTimeout(r, 0))
+    await settle()
+    expect(form.goodsItems[0].unitCode).toBe('055')
+    expect(field('unitCode').value).toBe('055 — М2')
+  })
+
   it('кода нет в справочнике — ошибка у поля (проверка при открытии товара, тихо)', async () => {
     tnved.node.mockRejectedValue(Object.assign(new Error('404'), { response: { status: 404 } }))
     await mount([item({ tnvedCode: '1902303000' })], { query: '&item=1' })

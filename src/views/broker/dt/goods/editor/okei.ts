@@ -23,7 +23,7 @@ export function ensureOkeiUnits(): Promise<void> {
       .then((list: RefOkeiUnit[]) => {
         const units = list
           .filter((u) => u.isActive !== false && u.code)
-          .map((u) => ({ code: u.code.trim(), name: u.name, shortName: u.shortName?.trim() || null }))
+          .map((u) => ({ code: okeiCode(u.code), name: u.name, shortName: u.shortName?.trim() || null }))
           .sort((a, b) => a.code.localeCompare(b.code))
         okeiUnits.value = units
         byCode.value = new Map(units.map((u) => [u.code, u]))
@@ -36,7 +36,12 @@ export function ensureOkeiUnits(): Promise<void> {
   return loading
 }
 
-const norm = (code: string | null | undefined) => (code ?? '').trim()
+/** Код ОКЕИ — три цифры с ведущими нулями («55» → «055», «6» → «006»), как в классификаторе ЕЭК 2016 и КЕДЕН. */
+export function okeiCode(code: string | null | undefined): string {
+  const c = (code ?? '').trim()
+  return /^\d{1,2}$/.test(c) ? c.padStart(3, '0') : c
+}
+const norm = okeiCode
 
 /** Единица по коду ОКЕИ; нет в справочнике (или не загрузился) — null. */
 export const okeiUnit = (code: string | null | undefined): OkeiUnit | null => byCode.value.get(norm(code)) ?? null

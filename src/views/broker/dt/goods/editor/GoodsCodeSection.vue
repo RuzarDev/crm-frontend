@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
 import ZField from '@/components/z/ZField.vue'
@@ -36,16 +36,24 @@ const code = computed(() => (props.item.tnvedCode ?? '').trim())
 const codeError = computed(() => (check.isInvalid(props.item.tnvedCode) ? tc('notFound') : undefined))
 onMounted(() => { void check.validate(props.item.tnvedCode) })
 
-// ДЕИ (гр. 41) задаёт код ТН ВЭД — тем же правилом, что сервер при сохранении: после «Найти», «Справочник» и ввода
-// кода (пауза в наборе или уход из поля) — единица кода; у кода нет ДЕИ — единица снимается; код не найден или сбой —
-// не трогается. ДЕИ влияет на платежи (количество в единице ставки): изменилась — товар получает «Пересчитать».
-// Открытие товара ничего не меняет (только действие пользователя).
+// ДЕИ (гр. 41) задаёт код ТН ВЭД (правило сервера, tnved/node/{code}/rates). Меняет единицу только СМЕНА кода
+// пользователем («Найти», «Справочник», ввод — пауза в наборе или уход из поля): единица нового кода; у кода без ДЕИ —
+// снимается; код не найден или сбой — не трогается. Код не менялся (уход из поля, повторное «Найти») — единица не
+// трогается; «Найти»/«Справочник» только заполняют пустую (как прежняя карточка). Открытие товара ничего не меняет;
+// сервер при сохранении единицу не снимает. ДЕИ влияет на платежи: изменилась — товар получает «Пересчитать».
 const compact = (v: string | null | undefined) => (v ?? '').replace(/\s+/g, '')
-async function applyDei(c: string) {
-  const dei = await loadDei(c)
+// Код, для которого единица товара уже выставлена: сохранённый при первом открытии, затем — последний применённый.
+const deiBase = new WeakMap<object, string>()
+watch(() => props.item, (g) => { if (!deiBase.has(g)) deiBase.set(g, compact(g.tnvedCode)) }, { immediate: true })
+async function applyDei(c: string, fillEmptyIfSame = false) {
   const g = props.item
-  if (dei === undefined || compact(g.tnvedCode) !== c) return
+  const same = deiBase.get(g) === c
+  if (same && !(fillEmptyIfSame && !g.unitCode)) return
+  const dei = await loadDei(c)
+  if (dei === undefined || compact(g.tnvedCode) !== c || g !== props.item) return
+  deiBase.set(g, c)
   const unitCode = dei?.code ?? null
+  if (same && !unitCode) return
   if ((g.unitCode || null) === unitCode) {
     if (dei && !g.unit) g.unit = dei.name || okeiName(dei.code) || null
     return
@@ -58,7 +66,7 @@ let deiTimer: ReturnType<typeof setTimeout> | undefined
 const scheduleDei = (delay: number) => {
   clearTimeout(deiTimer)
   const c = compact(props.item.tnvedCode)
-  if (!/^\d{10}$/.test(c)) return
+  if (!/^\d{10}$/.test(c) || deiBase.get(props.item) === c) return
   deiTimer = setTimeout(() => { void applyDei(c) }, delay)
 }
 onBeforeUnmount(() => clearTimeout(deiTimer))
@@ -84,7 +92,7 @@ const onPickerSelect = (payload: { code: string; name: string }) => {
   props.model.setField(props.item, 'tnvedCode', payload.code)
   check.markValid(payload.code)
   if (!props.item.tnvedDescription) props.item.tnvedDescription = payload.name
-  void applyDei(compact(payload.code))
+  void applyDei(compact(payload.code), true)
 }
 
 async function lookup() {
@@ -101,7 +109,7 @@ async function lookup() {
     }
     check.markValid(c)
     props.item.tnvedDescription = res.data.name
-    await applyDei(compact(c))
+    await applyDei(compact(c), true)
   } catch (e) {
     // Нет точного совпадения (частичный код) — справочник с поиском по нему.
     console.error('Failed to look up TNVED code', e)

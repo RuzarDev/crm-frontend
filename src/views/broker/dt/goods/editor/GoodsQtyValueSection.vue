@@ -32,18 +32,19 @@ type NumKey = 'quantity' | 'grossWeightKg' | 'netWeightKg' | 'customsValue'
 const setNum = (key: NumKey, v: number | null) => { props.model.setField(props.item, key, v) }
 const str = (v: ZOptionValue | ZOptionValue[] | null) => (v == null || Array.isArray(v) || v === '' ? null : String(v))
 
-// ДЕИ — «055 — М2»: код и краткое наименование ОКЕИ; только чтение, по коду ТН ВЭД (как сервер при сохранении).
-// Ответ справочника по коду известен — показывается он (сохранённая единица могла остаться от прежнего кода — сервер
-// её поправит при сохранении); не известен — сохранённая единица товара. У кода нет ДЕИ — «нет доп. единицы».
-watch(() => props.item.tnvedCode, (c) => { void loadDei(c) }, { immediate: true })
-const dei = computed(() => deiOf(props.item.tnvedCode))
+// ДЕИ — «055 — М2»: код и краткое наименование ОКЕИ; только чтение, по коду ТН ВЭД (tnved/node/{code}/rates).
+// Редактируемая ДТ: ответ справочника по коду известен — показывается он (с пометкой «по ТН ВЭД»), иначе сохранённая
+// единица товара. Только просмотр (выпущенная ДТ) — всегда сохранённая единица: она ушла в XML, справочник мог
+// измениться. У кода нет ДЕИ — «нет доп. единицы».
+watch(() => [props.item.tnvedCode, props.readonly] as const, ([c, ro]) => { if (!ro) void loadDei(c) }, { immediate: true })
+const dei = computed(() => (props.readonly ? undefined : deiOf(props.item.tnvedCode)))
 const unitText = computed(() => {
   const d = dei.value
   if (d === null) return tq('unitNone')
   if (d) return okeiLabel(d.code, d.shortName || d.name)
   return okeiLabel(props.item.unitCode, props.item.unit)
 })
-const unitHint = computed(() => (dei.value === undefined && !(props.item.unitCode ?? '').trim() ? undefined : tq('unitByTnved')))
+const unitHint = computed(() => (dei.value === undefined ? undefined : tq('unitByTnved')))
 const quantityTypes = OKEI_QUANTITY_TYPE_CODES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
 
 const netOverGross = computed(() => {
