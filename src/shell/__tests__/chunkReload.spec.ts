@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { CHUNK_RELOAD_KEY, installChunkReload, reloadOnceOnChunkError } from '../chunkReload'
+import { CHUNK_RELOAD_KEY, installChunkReload, isChunkLoadError, reloadOnceOnChunkError, reloadOnceToRoute } from '../chunkReload'
 
 const memory = (init: Record<string, string> = {}) => {
   const m = new Map(Object.entries(init))
@@ -40,5 +40,39 @@ describe('reloadOnceOnChunkError', () => {
     const add = vi.fn()
     installChunkReload({ addEventListener: add } as unknown as Window)
     expect(add).toHaveBeenCalledWith('vite:preloadError', expect.any(Function))
+  })
+})
+
+describe('страница маршрута не скачалась', () => {
+  const mk = () => {
+    const store: Record<string, string> = {}
+    return {
+      storage: { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => { store[k] = v } },
+      reload: vi.fn(),
+      assign: vi.fn(),
+      now: () => 1_000_000,
+    }
+  }
+
+  it('распознаёт ошибки загрузки модуля в разных браузерах', () => {
+    expect(isChunkLoadError(new TypeError('Failed to fetch dynamically imported module: https://x/a.js'))).toBe(true)
+    expect(isChunkLoadError(new TypeError('Importing a module script failed.'))).toBe(true)
+    expect(isChunkLoadError(new Error('error loading dynamically imported module'))).toBe(true)
+    expect(isChunkLoadError(new Error('Request failed with status code 500'))).toBe(false)
+    expect(isChunkLoadError(null)).toBe(false)
+  })
+
+  it('первый сбой — переход на целевой адрес; второй в течение минуты — false (сообщение вместо перезагрузки)', () => {
+    const deps = mk()
+    expect(reloadOnceToRoute('/import-40/c/dt/d?s=payments', deps)).toBe(true)
+    expect(deps.assign).toHaveBeenCalledWith('/import-40/c/dt/d?s=payments')
+    expect(reloadOnceToRoute('/import-40/c/dt/d?s=payments', deps)).toBe(false)
+    expect(deps.assign).toHaveBeenCalledTimes(1)
+  })
+
+  it('без sessionStorage не перезагружает', () => {
+    const deps = { ...mk(), storage: { getItem: () => { throw new Error('denied') }, setItem: () => undefined } }
+    expect(reloadOnceToRoute('/x', deps)).toBe(false)
+    expect(deps.assign).not.toHaveBeenCalled()
   })
 })
