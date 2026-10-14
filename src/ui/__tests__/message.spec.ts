@@ -24,4 +24,9 @@ describe('message (совместимо с AntD)', () => {
     message.info({ content: 'Висит', duration: 0 })
     expect(toast.info).toHaveBeenCalledWith('Висит', { duration: Infinity })
   })
+  it('action — кнопка в плашке', () => {
+    const onClick = vi.fn()
+    message.error({ content: 'Страница не загрузилась', key: 'chunk-load', duration: 0, action: { label: 'Обновить', onClick } })
+    expect(toast.error).toHaveBeenCalledWith('Страница не загрузилась', { id: 'chunk-load', duration: Infinity, action: { label: 'Обновить', onClick } })
+  })
 })
