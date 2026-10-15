@@ -66,6 +66,16 @@ export const formatMoneyIn = (locale: string, n: number, currency = '₸'): stri
 }
 
 /** Число по языку интерфейса (курс, количество): до maxDigits знаков после запятой; grouping false — без тысяч («2026»). */
-export const formatNumberIn = (locale: string, n: number, maxDigits = 2, minDigits = 0, grouping = true): string =>
-  new Intl.NumberFormat(NUMBER_LOCALES[locale] ?? 'ru-RU', { minimumFractionDigits: minDigits, maximumFractionDigits: maxDigits, useGrouping: grouping })
-    .format(n).replace(/[\u202f\u2009\u00a0 ]/g, '\u00a0')
+// Форматтеры — по (язык, знаки, разделитель тысяч): создание Intl.NumberFormat дорогое (≈0,1–0,5 мс), а таблица строк
+// гр. 31 и итоги форматируют сотни чисел на каждую правку.
+const numberFormats = new Map<string, Intl.NumberFormat>()
+export const formatNumberIn = (locale: string, n: number, maxDigits = 2, minDigits = 0, grouping = true): string => {
+  const tag = NUMBER_LOCALES[locale] ?? 'ru-RU'
+  const key = `${tag}|${minDigits}|${maxDigits}|${grouping}`
+  let f = numberFormats.get(key)
+  if (!f) {
+    f = new Intl.NumberFormat(tag, { minimumFractionDigits: minDigits, maximumFractionDigits: maxDigits, useGrouping: grouping })
+    numberFormats.set(key, f)
+  }
+  return f.format(n).replace(/[\u202f\u2009\u00a0 ]/g, '\u00a0')
+}

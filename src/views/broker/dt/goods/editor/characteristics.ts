@@ -141,3 +141,50 @@ export function rowsWithoutMeasure(
   })
   return res
 }
+
+/** Предел строк у товара — как у сервера (Import40GoodsCharacteristics.MaxRows: больше — 400). */
+export const CHARACTERISTICS_MAX_ROWS = 500
+
+/**
+ * Поля строки по порядку колонок таблицы (как окно КЕДЕН): вид значения и предел длины по структуре ДТ (Решение Коллегии
+ * ЕЭК №75): знак, марка, модель, сорт — Name250; артикул — Id50; стандарт — 40; производитель — 300 (как прежнее поле);
+ * наименование строки в XML не идёт (только текст гр. 31) — 500. f — суффикс data-f поля («char-{i}-{f}») и подписи колонки
+ * broker.dt.goods.editor.chars.col.<f>.
+ */
+export type CharacteristicField = keyof GoodsRowValue
+export interface CharacteristicFieldDef {
+  key: CharacteristicField
+  kind: 'text' | 'number' | 'unit'
+  max?: number
+  f: string
+}
+export const CHARACTERISTIC_FIELDS: readonly CharacteristicFieldDef[] = [
+  { key: 'name', kind: 'text', max: 500, f: 'name' },
+  { key: 'quantity', kind: 'number', f: 'quantity' },
+  { key: 'unitCode', kind: 'unit', f: 'unit' },
+  { key: 'invoiceValue', kind: 'number', f: 'value' },
+  { key: 'manufacturerName', kind: 'text', max: 300, f: 'manufacturer' },
+  { key: 'tradeMarkName', kind: 'text', max: 250, f: 'tradeMark' },
+  { key: 'productMarkName', kind: 'text', max: 250, f: 'mark' },
+  { key: 'productModelName', kind: 'text', max: 250, f: 'model' },
+  { key: 'productArticle', kind: 'text', max: 50, f: 'article' },
+  { key: 'standardName', kind: 'text', max: 40, f: 'standard' },
+  { key: 'productSortName', kind: 'text', max: 250, f: 'sort' },
+  { key: 'serialNumbers', kind: 'text', max: 2000, f: 'serials' },
+]
+export const characteristicField = (key: CharacteristicField): CharacteristicFieldDef =>
+  CHARACTERISTIC_FIELDS.find((c) => c.key === key)!
+
+/**
+ * Сумма количества строк по единицам (код ОКЕИ, '' — без единицы) — итог под таблицей: «1 800 ШТ · 25 КГ».
+ * Порядок — первого появления единицы.
+ */
+export function quantityByUnit(rows: readonly GoodsRowValue[] | null | undefined): { unitCode: string; quantity: number }[] {
+  const sums = new Map<string, number>()
+  for (const r of rows ?? []) {
+    if (r.quantity == null) continue
+    const u = okeiCode(r.unitCode)
+    sums.set(u, (sums.get(u) ?? 0) + r.quantity)
+  }
+  return [...sums].map(([unitCode, q]) => ({ unitCode, quantity: round6(q) }))
+}

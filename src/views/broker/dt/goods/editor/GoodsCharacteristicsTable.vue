@@ -1,38 +1,53 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, shallowReactive, toRaw, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowReactive, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhCaretDown, PhCopy, PhPlus, PhX } from '@phosphor-icons/vue'
+import { PhArrowDown, PhArrowUp, PhCaretDown, PhClipboardText, PhCopy, PhPlus, PhTrash, PhX } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZNumber from '@/components/z/ZNumber.vue'
+import ZSegmented from '@/components/z/ZSegmented.vue'
 import { vUppercase } from '@/directives/uppercase'
 import { cn } from '@/ui/cn'
+import { useConfirm } from '@/ui/confirm'
+import { message } from '@/ui/message'
 import { formatNumberIn } from '@/ui/number'
+import type { ZOptionValue } from '@/ui/options'
+import GoodsCharacteristicsGrid from './GoodsCharacteristicsGrid.vue'
+import GoodsCharacteristicsPasteModal from './GoodsCharacteristicsPasteModal.vue'
 import GoodsTroisHint from './GoodsTroisHint.vue'
 import OkeiUnitSelect from './OkeiUnitSelect.vue'
-import { blankCharacteristic, characteristicTotals, cloneCharacteristic, rowsWithoutMeasure, singleRowOf, type GoodsRowValue } from './characteristics'
+import {
+  blankCharacteristic, CHARACTERISTICS_MAX_ROWS, characteristicField, characteristicTotals, cloneCharacteristic,
+  isBlankCharacteristic, quantityByUnit, rowsWithoutMeasure, singleRowOf, type GoodsRowValue,
+} from './characteristics'
+import { readCharsMode, writeCharsMode, type CharsMode } from './charsMode'
 import { gr31Text } from './gr31Text'
 import { okeiCode, okeiLabel, okeiShort } from './okei'
 import type { GoodsSectionProps } from './types'
 
 // Гр. 31 «Характеристики товара в группе» (как окно КЕДЕН): строки товара — наименование, количество в своей единице ОКЕИ
 // (не гр. 41), стоимость (валюта гр. 22), производитель, товарный знак (подсказка ТРОИС), марка, модель, артикул, стандарт,
-// сорт, серийные номера. Широко — таблица (№, наименование, количество, стоимость, модель/артикул) с раскрытием строки для
-// правки; на телефоне — карточки. Добавить / копировать предыдущую / копировать строку / удалить. Итоги строк против
-// гр. 41 и гр. 42 — предупреждение при расхождении (не блок). Ниже — текст гр. 31, как его напечатает КЕДЕН (gr31Text).
-// Строки — не поля платежей: правятся на месте (без «Пересчитать»).
+// сорт, серийные номера. Два вида (выбор помнится у пользователя, charsMode.ts):
+//   «Таблица» (по умолчанию на компьютере) — сетка с правкой в ячейках, как в КЕДЕН / D-Sector (GoodsCharacteristicsGrid);
+//   «Карточки» (всегда на телефоне < 640px) — строка-сводка (№, наименование, количество, стоимость, модель/артикул),
+//   раскрывается в форму.
+// Над строками: добавить, копировать предыдущую (карточки), «Заполнить через текст / из Excel» (окно вставки), ↑/↓
+// (таблица: строка, где фокус), «Удалить все». Предел — 500 строк, как у сервера. Итоги строк (количество по единицам,
+// стоимость) против гр. 41 и гр. 42 — предупреждение при расхождении (не блок). Ниже — текст гр. 31, как его напечатает
+// КЕДЕН (gr31Text). Строки — не поля платежей: правятся на месте (без «Пересчитать»).
 const props = defineProps<GoodsSectionProps>()
 const { t, locale } = useI18n()
 const tc = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.editor.chars.${key}`, p ?? {})
 
-// Пределы структуры ДТ (Решение Коллегии ЕЭК №75): знак, марка, модель, сорт — Name250; артикул — Id50; стандарт — 40;
-// производитель — как прежнее поле (300). Наименование строки в XML не идёт (только текст гр. 31).
-const NAME_MAX = 250
-const ARTICLE_MAX = 50
-const STANDARD_MAX = 40
-const MANUFACTURER_MAX = 300
-const ROW_NAME_MAX = 500
+// Пределы структуры ДТ (characteristics.ts: CHARACTERISTIC_FIELDS).
+const NAME_MAX = characteristicField('tradeMarkName').max
+const ARTICLE_MAX = characteristicField('productArticle').max
+const STANDARD_MAX = characteristicField('standardName').max
+const MANUFACTURER_MAX = characteristicField('manufacturerName').max
+const ROW_NAME_MAX = characteristicField('name').max
+const MAX = CHARACTERISTICS_MAX_ROWS
+const { confirm } = useConfirm()
 
 const rows = computed<GoodsRowValue[]>(() => props.item.characteristics ?? [])
 const list = (): GoodsRowValue[] => {
@@ -53,13 +68,25 @@ const focusRow = async (i: number) => {
   await nextTick()
   root.value?.querySelector<HTMLInputElement>(`input[data-f="char-${i}-name"]`)?.focus()
 }
+const canAdd = computed(() => !props.readonly && rows.value.length < MAX)
 const insert = (r: GoodsRowValue, at: number) => {
+  if (!canAdd.value) return
   const arr = list()
   arr.splice(at, 0, r)
   open.add(r)
   void focusRow(at)
 }
-const add = () => insert(blankCharacteristic(), rows.value.length)
+const gridRef = ref<InstanceType<typeof GoodsCharacteristicsGrid>>()
+const add = async () => {
+  if (!canAdd.value) return
+  if (mode.value !== 'table') return insert(blankCharacteristic(), rows.value.length)
+  const gridNow = () => gridRef.value
+  if (gridNow()) return gridNow()!.add()
+  // Строк не было — таблицы ещё нет: строка, затем фокус в её первую ячейку.
+  list().push(blankCharacteristic())
+  await nextTick()
+  await gridNow()?.focusFirst()
+}
 /** «Копировать предыдущую» — новая строка в конце, копия последней (модели одного производителя — меняется модель). */
 const copyLast = () => {
   const last = rows.value[rows.value.length - 1]
@@ -71,6 +98,56 @@ const remove = (r: GoodsRowValue) => {
   const i = arr.indexOf(r)
   if (i >= 0) arr.splice(i, 1)
   open.delete(r)
+}
+
+// ---- Вид: «Таблица» / «Карточки» ----
+// Телефон (< 640px) — всегда карточки (сетка там непригодна); на компьютере — выбор пользователя, по умолчанию таблица.
+const isWide = ref(true)
+let media: MediaQueryList | null = null
+const onMedia = () => { isWide.value = media?.matches ?? true }
+onMounted(() => {
+  if (typeof window.matchMedia !== 'function') return
+  media = window.matchMedia('(min-width: 640px)')
+  onMedia()
+  media.addEventListener?.('change', onMedia)
+})
+onBeforeUnmount(() => media?.removeEventListener?.('change', onMedia))
+const chosen = ref<CharsMode>(readCharsMode())
+const mode = computed<CharsMode>(() => (isWide.value ? chosen.value : 'cards'))
+const modeOptions = computed(() => [{ value: 'table', label: tc('mode.table') }, { value: 'cards', label: tc('mode.cards') }])
+const setMode = (v: ZOptionValue) => {
+  const m: CharsMode = v === 'cards' ? 'cards' : 'table'
+  chosen.value = m
+  writeCharsMode(m)
+}
+
+// ---- Над строками: ↑/↓ (таблица), «Удалить все», вставка ----
+const current = ref<number | null>(null)
+watch(() => props.item, () => { current.value = null })
+const removeAll = async () => {
+  if (props.readonly || !rows.value.length) return
+  const ok = await confirm({
+    title: tc('removeAll.title'),
+    content: tc('removeAll.text', { n: rows.value.length }),
+    okText: tc('removeAll.ok'),
+    cancelText: t('common.cancel'),
+    danger: true,
+  })
+  if (!ok) return
+  list().splice(0)
+  open.clear()
+  current.value = null
+}
+const pasteOpen = ref(false)
+const filledCount = computed(() => rows.value.filter((r) => !isBlankCharacteristic(r)).length)
+const onPaste = ({ mode: how, rows: pasted }: { mode: 'append' | 'replace'; rows: GoodsRowValue[] }) => {
+  const arr = list()
+  // Пустые строки (новый товар) не остаются перед вставленными — сервер их всё равно отбросит.
+  const keep = how === 'append' ? arr.filter((r) => !isBlankCharacteristic(r)) : []
+  arr.splice(0, arr.length, ...keep, ...pasted)
+  open.clear()
+  if (arr.length === 1) open.add(arr[0])
+  message.success(tc(how === 'append' ? 'paste.appended' : 'paste.replaced', { n: pasted.length }))
 }
 
 type StrKey = 'name' | 'manufacturerName' | 'tradeMarkName' | 'productMarkName' | 'productModelName' | 'productArticle'
@@ -116,7 +193,22 @@ const measureWarnings = computed(() => {
   ]
 })
 
+// Итоги под строками: количество по единицам («1 800 ШТ · 25 КГ»), стоимость — против гр. 41 / гр. 42.
+const unitText = (code: string) => (code ? okeiShort(code) ?? code : tc('noUnitShort'))
+const qtySum = computed(() => quantityByUnit(rows.value).map((x) => `${num(x.quantity)} ${unitText(x.unitCode)}`).join(' · '))
+const goodsQty = computed(() => (props.item.quantity == null ? '—' : measureText(props.item.quantity, props.item.unitCode, props.item.unit)))
+const goodsValue = computed(() => (props.item.customsValue == null ? '—' : num(props.item.customsValue)))
+const showTotals = computed(() => filledCount.value > 0)
+
+// Текст гр. 31 — при сотнях строк длинный: сначала первые PREVIEW_LINES строк, «Показать весь текст».
 const preview = computed(() => gr31Text(props.item))
+const PREVIEW_LINES = 30
+const previewAll = ref(false)
+watch(() => props.item, () => { previewAll.value = false })
+const previewLines = computed(() => (preview.value ? preview.value.split('\n').length : 0))
+const previewShown = computed(() => (previewAll.value || previewLines.value <= PREVIEW_LINES
+  ? preview.value
+  : preview.value.split('\n').slice(0, PREVIEW_LINES).join('\n')))
 
 // Стабильный ключ строки (копия в середину, удаление — поля и состояние выбора единицы не «переезжают» на соседнюю строку).
 const rowKeys = new WeakMap<GoodsRowValue, number>()
@@ -156,16 +248,61 @@ const grid = 'grid grid-cols-1 gap-x-4 gap-y-3 @md:grid-cols-2 @4xl:grid-cols-4'
 const wide = '@md:col-span-2'
 const full = '@md:col-span-2 @4xl:col-span-4'
 const tall = 'max-sm:h-11'
+const toolBtn = 'max-sm:h-11'
 </script>
 
 <template>
-  <div ref="root" class="flex flex-col gap-3" data-goods-characteristics data-graph="31" data-goods-field="characteristics" :data-goods-index="index">
-    <div class="flex flex-col gap-0.5">
-      <span class="text-sm font-medium text-ink-2">{{ tc('title') }}</span>
-      <span class="text-xs text-muted">{{ tc('hint') }}</span>
+  <div ref="root" class="flex min-w-0 flex-col gap-3 outline-hidden" tabindex="-1" data-goods-characteristics data-graph="31" data-goods-field="characteristics" :data-goods-index="index">
+    <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+      <div class="flex min-w-0 flex-1 basis-64 flex-col gap-0.5">
+        <span class="text-sm font-medium text-ink-2" data-chars-title>{{ tc('title') }}</span>
+        <span class="text-xs text-muted">{{ tc('hint') }}</span>
+      </div>
+      <ZSegmented v-if="isWide" :value="mode" :options="modeOptions" :aria-label="tc('mode.label')" data-chars-mode @update:value="setMode" />
     </div>
 
+    <div v-if="!readonly" class="flex flex-wrap items-center gap-1" role="toolbar" :aria-label="tc('toolbar')" data-chars-toolbar>
+      <ZButton variant="ghost" size="sm" :class="toolBtn" :disabled="!canAdd" data-chars-add @click="add">
+        <PhPlus :size="14" aria-hidden="true" />{{ tc('add') }}
+      </ZButton>
+      <ZButton v-if="mode === 'cards' && rows.length" variant="ghost" size="sm" :class="toolBtn" :disabled="!canAdd" data-chars-copy-last @click="copyLast">
+        <PhCopy :size="14" aria-hidden="true" />{{ tc('copyLast') }}
+      </ZButton>
+      <ZButton variant="ghost" size="sm" :class="toolBtn" data-chars-paste @click="pasteOpen = true">
+        <PhClipboardText :size="14" aria-hidden="true" />{{ tc('paste.open') }}
+      </ZButton>
+      <template v-if="mode === 'table' && rows.length > 1">
+        <ZButton
+          variant="ghost"
+          size="sm"
+          :class="toolBtn"
+          :disabled="current == null || current <= 0"
+          :aria-label="tc('moveUp')"
+          :title="tc('moveUpHint')"
+          data-chars-move-up
+          @mousedown.prevent
+          @click="gridRef?.moveCurrent(-1)"
+        ><PhArrowUp :size="14" aria-hidden="true" /></ZButton>
+        <ZButton
+          variant="ghost"
+          size="sm"
+          :class="toolBtn"
+          :disabled="current == null || current >= rows.length - 1"
+          :aria-label="tc('moveDown')"
+          :title="tc('moveDownHint')"
+          data-chars-move-down
+          @mousedown.prevent
+          @click="gridRef?.moveCurrent(1)"
+        ><PhArrowDown :size="14" aria-hidden="true" /></ZButton>
+      </template>
+      <ZButton v-if="rows.length" variant="danger-ghost" size="sm" :class="[toolBtn, 'ml-auto']" data-chars-remove-all @click="removeAll">
+        <PhTrash :size="14" aria-hidden="true" />{{ tc('removeAll.button') }}
+      </ZButton>
+    </div>
+    <p v-if="!readonly && !canAdd" class="m-0 text-[13px] text-gold-ink" role="status" data-chars-cap>{{ tc('capReached', { max: MAX }) }}</p>
+
     <p v-if="!rows.length" class="m-0 text-[13px] text-muted" data-chars-empty>{{ tc('empty') }}</p>
+    <GoodsCharacteristicsGrid v-else-if="mode === 'table'" ref="gridRef" v-model:current="current" :item="item" :readonly="readonly" :max="MAX" />
     <template v-else>
       <div :class="head" aria-hidden="true" data-chars-head>
         <span :class="cell.no">№</span>
@@ -264,18 +401,11 @@ const tall = 'max-sm:h-11'
       </div>
     </template>
 
-    <div v-if="!readonly" class="flex flex-wrap items-center gap-2">
-      <ZButton variant="ghost" size="sm" class="max-sm:h-11" data-chars-add @click="add">
-        <PhPlus :size="14" aria-hidden="true" />{{ tc('add') }}
-      </ZButton>
-      <ZButton v-if="rows.length" variant="ghost" size="sm" class="max-sm:h-11" data-chars-copy-last @click="copyLast">
-        <PhCopy :size="14" aria-hidden="true" />{{ tc('copyLast') }}
-      </ZButton>
-    </div>
-
-    <div v-if="rows.length > 1 || qtyWarning || valueWarning || measureWarnings.length" class="flex flex-col gap-1 text-[13px]" data-chars-totals>
-      <span v-if="rows.length > 1" class="text-ink-2">
-        {{ tc('totals', { n: rows.length, quantity: totals.quantity == null ? '—' : num(totals.quantity), value: totals.value == null ? '—' : num(totals.value) }) }}
+    <div v-if="showTotals || qtyWarning || valueWarning || measureWarnings.length" class="flex flex-col gap-1 text-[13px]" data-chars-totals>
+      <span v-if="showTotals" class="flex flex-wrap gap-x-4 gap-y-0.5 text-ink-2">
+        <span data-chars-sum-rows>{{ tc('sum.rows', { n: filledCount }) }}</span>
+        <span data-chars-sum-qty>{{ tc('sum.quantity', { value: qtySum || '—' }) }} <span class="text-muted">({{ tc('sum.gr41', { value: goodsQty }) }})</span></span>
+        <span data-chars-sum-value>{{ tc('sum.value', { value: totals.value == null ? '—' : num(totals.value), currency }) }} <span class="text-muted">({{ tc('sum.gr42', { value: goodsValue }) }})</span></span>
       </span>
       <span v-if="qtyWarning" class="text-gold-ink" role="status" data-chars-qty-warning>{{ qtyWarning }}</span>
       <span v-if="valueWarning" class="text-gold-ink" role="status" data-chars-value-warning>{{ valueWarning }}</span>
@@ -284,7 +414,17 @@ const tall = 'max-sm:h-11'
 
     <div v-if="preview" class="flex min-w-0 flex-col gap-1" data-gr31-preview>
       <span class="text-sm font-medium text-ink-2">{{ tc('preview') }}</span>
-      <p class="m-0 rounded-field bg-sunken px-3 py-2 text-[13px] break-words whitespace-pre-line text-ink">{{ preview }}</p>
+      <p class="m-0 rounded-field bg-sunken px-3 py-2 text-[13px] break-words whitespace-pre-line text-ink" data-gr31-preview-text>{{ previewShown }}</p>
+      <button
+        v-if="previewLines > PREVIEW_LINES"
+        type="button"
+        class="cursor-pointer self-start rounded-field border-0 bg-transparent p-0 text-[13px] text-zircon-ink outline-hidden hover:underline focus-visible:shadow-focus"
+        :aria-expanded="previewAll"
+        data-gr31-preview-all
+        @click="previewAll = !previewAll"
+      >{{ previewAll ? tc('previewLess') : tc('previewAll', { n: previewLines }) }}</button>
     </div>
+
+    <GoodsCharacteristicsPasteModal v-if="!readonly" v-model:open="pasteOpen" :existing="filledCount" :max="MAX" @apply="onPaste" />
   </div>
 </template>

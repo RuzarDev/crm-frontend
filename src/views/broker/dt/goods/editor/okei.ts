@@ -61,6 +61,37 @@ export function okeiLabel(code: string | null | undefined, fallback?: string | n
   return name ? `${c} — ${name}` : c
 }
 
+// Единица, введённая текстом (ячейка таблицы строк, вставка из Excel): «ШТ», «шт.», «М2», «м²», «796», «PCS», «Килограмм».
+// Латинские двойники кириллицы (M, K, T…) сравниваются как кириллица; частые латинские обозначения — по таблице ниже.
+const LATIN_ALIASES: Record<string, string> = {
+  PCS: '796', PC: '796', PCE: '796', EA: '796', ШТУК: '796', ШТУКИ: '796', ШТУКА: '796',
+  KG: '166', KGS: '166', G: '163', GR: '163', T: '168', TN: '168', TNE: '168',
+  L: '112', LTR: '112', M: '006', MTR: '006', M2: '055', SQM: '055', MTK: '055', M3: '113', CBM: '113', MTQ: '113',
+  PR: '715', PAIR: '715', PAIRS: '715', SET: '839', SETS: '839',
+}
+const LOOKALIKE: Record<string, string> = { A: 'А', B: 'В', C: 'С', E: 'Е', H: 'Н', K: 'К', M: 'М', O: 'О', P: 'Р', T: 'Т', X: 'Х', Y: 'У' }
+const unitKey = (s: string) => s.toLocaleUpperCase('ru-RU').replace(/[\s.]/g, '').replace(/²/g, '2').replace(/³/g, '3')
+const cyr = (s: string) => s.replace(/[ABCEHKMOPTXY]/g, (ch) => LOOKALIKE[ch] ?? ch)
+
+/**
+ * Код ОКЕИ по тексту: код (1–3 цифры, «55» → «055»), краткое наименование, наименование или латинское обозначение.
+ * Не распознано — null. Справочник загружен — код должен в нём быть; не загружен — код и латинские обозначения как есть.
+ */
+export function okeiFromText(text: string | null | undefined): string | null {
+  const raw = (text ?? '').trim()
+  if (!raw) return null
+  const loaded = byCode.value.size > 0
+  const known = (code: string) => (!loaded || byCode.value.has(code) ? code : null)
+  if (/^\d{1,3}$/.test(raw)) return known(okeiCode(raw))
+  const key = unitKey(raw)
+  if (!key) return null
+  const k = cyr(key)
+  for (const u of okeiUnits.value) if (u.shortName && cyr(unitKey(u.shortName)) === k) return u.code
+  for (const u of okeiUnits.value) if (cyr(unitKey(u.name)) === k) return u.code
+  const alias = LATIN_ALIASES[key]
+  return alias ? known(alias) : null
+}
+
 /** Для тестов. */
 export function resetOkeiUnits(): void {
   okeiUnits.value = []
