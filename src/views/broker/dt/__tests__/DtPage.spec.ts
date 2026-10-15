@@ -15,7 +15,7 @@ const api = vi.hoisted(() => ({
   splitSuggestion: vi.fn(), splitDeclaration: vi.fn(), calculatePayments: vi.fn(), calculateCustomsValue: vi.fn(),
 }))
 const dts = vi.hoisted(() => ({ get: vi.fn(), pdf: vi.fn(), xml: vi.fn() }))
-const refs = vi.hoisted(() => ({ listCountries: vi.fn(), listCustomsPosts: vi.fn(), listExpenseTypes: vi.fn(), listOkeiUnits: vi.fn(async () => []) }))
+const refs = vi.hoisted(() => ({ listCountries: vi.fn(), listCustomsPosts: vi.fn(), listCustomsDgds: vi.fn(async () => []), listExpenseTypes: vi.fn(), listOkeiUnits: vi.fn(async () => []) }))
 // Редактор товара: проверка кода, ДЕИ и ставки КЕДЕН — без сети.
 const tnved = vi.hoisted(() => ({
   currencies: vi.fn(),

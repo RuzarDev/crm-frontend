@@ -688,6 +688,18 @@ export interface RefItem {
   isActive: boolean
 }
 
+/** Таможенный пост (ref/customs-posts): parentCode/parentName — ДГД поста по справочнику КЕДЕН (гр. 30 уходит этим кодом). */
+export interface CustomsPostItem extends RefItem {
+  parentCode?: string | null
+  parentName?: string | null
+}
+
+/** ДГД (ref/customs-dgds) — орган уровня, который КЕДЕН ждёт в гр. 30. */
+export interface CustomsDgdItem {
+  code: string
+  name: string
+}
+
 export interface RefCodeItem {
   id: string
   code: string

@@ -559,7 +559,8 @@ const countryOptions = computed<{ value: string; label: string; alpha2: string |
   const alpha2 = special === 'unknown' ? '00' : special === 'eu' ? 'EU' : c.alpha2 ?? null
   return { value: c.code, label, alpha2 }
 }))
-const customsPostOptions = ref<{ value: string; label: string }[]>([])
+const customsPostOptions = ref<{ value: string; label: string; parentCode?: string | null; parentName?: string | null }[]>([])
+const customsDgds = ref<{ code: string; name: string }[]>([])
 onMounted(async () => {
   classifiers.loadMany([...DT_CLASSIFIERS]).catch(() => message.warning(t('broker.dt.page.classifiersFailed')))
   void rates.loadCurrencies()
@@ -568,9 +569,15 @@ onMounted(async () => {
     .then((list) => { countryList.value = list })
     .catch(() => { /* селекты стран — без списка */ })
   // Имя поста — «57505 — ТАМОЖЕННЫЙ ПОСТ …»: value — ведущий код (для номера ДТ), label — строка справочника.
+  // parentCode — ДГД поста (гр. 30 уходит в КЕДЕН этим кодом).
   referencesApi.listCustomsPosts()
-    .then((posts) => { customsPostOptions.value = posts.map((p) => ({ value: p.name.match(/^\d+/)?.[0] ?? p.name, label: p.name })) })
+    .then((posts) => {
+      customsPostOptions.value = posts.map((p) => ({ value: p.name.match(/^\d+/)?.[0] ?? p.name, label: p.name, parentCode: p.parentCode, parentName: p.parentName }))
+    })
     .catch(() => { /* код поста можно ввести вручную */ })
+  referencesApi.listCustomsDgds({ silent: true })
+    .then((list) => { customsDgds.value = list })
+    .catch(() => { /* ДГД известны по постам; без списка — только посты */ })
   try {
     const types = [...(await referencesApi.listExpenseTypes())].sort((a, b) => a.sortOrder - b.sortOrder)
     expenseTypeOptions.value = types.map((x) => ({ value: x.code, label: x.nameRu }))
@@ -798,6 +805,7 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
                 :form="form"
                 :readonly="!editable"
                 :post-options="customsPostOptions"
+                :dgds="customsDgds"
               />
               <SectionGoods
                 v-else-if="active === 'goods'"

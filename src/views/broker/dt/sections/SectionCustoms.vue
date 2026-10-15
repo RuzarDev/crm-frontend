@@ -25,6 +25,7 @@ import type { ZOption } from '@/ui/options'
 import { checkWarehouseNumber } from '@/utils/warehouseNumber'
 import DtGraphHelp from '../DtGraphHelp.vue'
 import { dedupeOptions, officeNameOnly, withCurrent } from '../dtOptions'
+import { dgdLabel, dgdOf, isWarehouseLocation, looksLikeCustomsCode, officeFilter, officeOptions, type CustomsDgd, type OfficeOption, type PostOption } from '../customsDgd'
 import type { DtFormState } from '../dtPayload'
 import GoodsLocationModal from './GoodsLocationModal.vue'
 
@@ -33,11 +34,13 @@ import GoodsLocationModal from './GoodsLocationModal.vue'
 // таможенного склада с поиском по реестрам КГД / КЕДЕН (поиск после паузы, устаревший ответ отбрасывается; ручной
 // ввод остаётся — реестр стареет), проверка номера — предупреждение, не блокировка; страна места, таможенный орган
 // места (из НСИ; несколько — выбор; пусто — пост подачи), станция и адрес, «Товар на транспортном средстве» (код 52).
-const props = defineProps<{
+// Орган места уходит в КЕДЕН кодом ДГД: в списке ДГД и их посты (dgds — /ref/customs-dgds, ДГД поста — parentCode).
+const props = withDefaults(defineProps<{
   form: DtFormState
   readonly: boolean
   postOptions: ZOption[]
-}>()
+  dgds?: CustomsDgd[]
+}>(), { dgds: () => [] })
 const { t } = useI18n()
 const classifiers = useClassifiersStore()
 const countries = useCountryAlpha2Options()
@@ -162,7 +165,22 @@ const onRegistrySelect = async (key: unknown) => {
     numberCombo.value?.focus()
   }
 }
+// Пятизначный код органа в номере при коде места не-склад (жалоба 15.10: «50700» вписали в номер СВХ при коде 99) —
+// не «старый номер реестра», а орган не в том поле: предлагаем перенести одним нажатием (не блокирует).
+const numberIsOffice = computed(() => {
+  const code = (props.form.goodsLocationCode ?? '').trim()
+  return !!code && !isWarehouseLocation(code) && looksLikeCustomsCode(props.form.goodsLocationRegisterNumber)
+})
+const moveNumberToOffice = async () => {
+  const code = (props.form.goodsLocationRegisterNumber ?? '').trim()
+  props.form.goodsLocationCustomsOfficeCode = code
+  props.form.goodsLocationRegisterNumber = ''
+  comboKey.value++ // поле номера показывает введённый текст — пересоздаём, чтобы оно опустело
+  await nextTick()
+  message.info(tc('numberMoved', { code }))
+}
 const numberHelp = computed(() => {
+  if (numberIsOffice.value) return tc('numberIsOffice', { code: (props.form.goodsLocationRegisterNumber ?? '').trim() })
   switch (checkWarehouseNumber(props.form.goodsLocationRegisterNumber)) {
     case 'checksum': return tc('numberChecksum')
     case 'format': return tc('numberFormat')
@@ -173,7 +191,8 @@ const numberHelp = computed(() => {
 
 // ---- Гр. 30: страна и орган места ----
 const country = computed(() => withCurrent(countries.value as ZOption[], props.form.goodsLocationCountryCode))
-const office = computed(() => withCurrent(props.postOptions, props.form.goodsLocationCustomsOfficeCode))
+const posts = computed(() => props.postOptions as PostOption[])
+const office = computed(() => withCurrent(officeOptions(posts.value, props.dgds), props.form.goodsLocationCustomsOfficeCode))
 const officeChoices = ref<WarehouseOfficeSuggestion[]>([])
 // Орган из НСИ: однозначный — подставляем в пустое поле, несколько — варианты под полем (выбранное вручную не затираем).
 const suggestOffice = (row: WarehouseRegistryItem) => {
@@ -186,11 +205,18 @@ const suggestOffice = (row: WarehouseRegistryItem) => {
   }
 }
 const pickOffice = (code: string) => { props.form.goodsLocationCustomsOfficeCode = code }
-// В XML гр. 30 уходит код уровня ДГД (КЕДЕН требует при импорте): пост 55302 → 55300.
-const officePlaceholder = computed(() => {
-  const post = (props.form.submissionCustomsOfficeCode ?? '').trim()
-  const code = /^\d{5}$/.test(post) ? `${post.slice(0, 3)}00` : post
-  return code ? tc('officeAsSubmission', { code }) : tc('officeAsSubmissionEmpty')
+// В XML гр. 30 уходит код уровня ДГД (КЕДЕН требует при импорте): пост 50717 → 50700 по справочнику постов КЕДЕН.
+const submissionDgd = computed(() => dgdOf(props.form.submissionCustomsOfficeCode, posts.value, props.dgds))
+const officePlaceholder = computed(() =>
+  submissionDgd.value ? tc('officeAsSubmission', { code: submissionDgd.value }) : tc('officeAsSubmissionEmpty'))
+// Под полем — что именно уйдёт в КЕДЕН: «50700 — ДГД ПО МАНГИСТАУСКОЙ ОБЛАСТИ». Склады (11/21) органа не выгружают.
+const officeSends = computed(() => {
+  if (isWarehouseLocation(props.form.goodsLocationCode)) return tc('officeWarehouse')
+  const own = (props.form.goodsLocationCustomsOfficeCode ?? '').trim()
+  const dgd = own ? dgdOf(own, posts.value, props.dgds) : submissionDgd.value
+  if (!dgd) return tc('officeHint')
+  const label = dgdLabel(dgd, posts.value, props.dgds)
+  return own ? tc('officeSends', { label }) : tc('officeSendsSubmission', { label })
 })
 
 // ---- Гр. 30: станция, адрес, код 52 ----
@@ -317,6 +343,9 @@ const graphTag = 'font-mono text-xs font-normal text-muted'
               </span>
             </template>
           </ZCombobox>
+          <ZButton v-if="numberIsOffice && !readonly" variant="ghost" size="sm" class="mt-1.5 max-sm:h-11" data-number-move @click="moveNumberToOffice">
+            {{ tc('numberMoveToOffice') }}
+          </ZButton>
         </ZField>
         <ZField graph="30" :label="tc('country')" v-bind="warn(country.unknown, form.goodsLocationCountryCode)">
           <ZSelect :value="form.goodsLocationCountryCode || null" :options="country.options" show-search allow-clear :disabled="readonly" placeholder="KZ" data-location-country @update:value="form.goodsLocationCountryCode = str($event)" />
@@ -325,8 +354,30 @@ const graphTag = 'font-mono text-xs font-normal text-muted'
 
       <!-- Орган места нахождения (CustomsOfficeCode гр. 30) может отличаться от поста подачи; пусто — уходит пост подачи. -->
       <div class="grid grid-cols-1 gap-4 @2xl:grid-cols-2">
-        <ZField graph="30" :label="tc('office')" :extra="tc('officeHint')" v-bind="warn(office.unknown, form.goodsLocationCustomsOfficeCode)">
-          <ZSelect :value="form.goodsLocationCustomsOfficeCode || null" :options="office.options" show-search allow-clear :disabled="readonly" :placeholder="officePlaceholder" popup-width="560px" data-location-office @update:value="form.goodsLocationCustomsOfficeCode = str($event)" />
+        <ZField graph="30" :label="tc('office')" v-bind="warn(office.unknown, form.goodsLocationCustomsOfficeCode)">
+          <template #extra><span data-office-sends>{{ officeSends }}</span></template>
+          <ZSelect
+            :value="form.goodsLocationCustomsOfficeCode || null"
+            :options="office.options"
+            :filter-option="officeFilter"
+            show-search
+            allow-clear
+            :disabled="readonly"
+            :placeholder="officePlaceholder"
+            popup-width="560px"
+            data-location-office
+            @update:value="form.goodsLocationCustomsOfficeCode = str($event)"
+          >
+            <template #option="{ option }">
+              <span
+                v-if="(option as OfficeOption).kind === 'dgd'"
+                class="flex min-w-0 items-center gap-1.5 font-semibold text-ink"
+                data-office-dgd
+              ><ZTag size="sm">{{ tc('officeKindDgd') }}</ZTag> <span class="truncate">{{ option.label }}</span></span>
+              <span v-else-if="(option as OfficeOption).kind === 'post'" class="block truncate pl-4" data-office-post>{{ option.label }}</span>
+              <template v-else>{{ option.label }}</template>
+            </template>
+          </ZSelect>
           <div v-if="officeChoices.length > 1 && !readonly" class="mt-2 flex flex-col gap-1.5" data-office-choices>
             <span class="text-xs text-muted">{{ tc('officeChoose') }}</span>
             <div class="flex flex-wrap gap-1.5">
