@@ -448,3 +448,71 @@ describe('SectionCustoms — гр. 30: страна, орган, станция,
     expect(JSON.stringify(form)).toBe(before)
   })
 })
+
+describe('SectionCustoms — гр. 30: орган уровня ДГД (жалоба 15.10: «не находит ДГД поста»)', () => {
+  const kedenPosts = [
+    { value: '50717', label: '50717 — ТАМОЖЕННЫЙ ПОСТ «КУРЫК»', parentCode: '50700', parentName: 'ДГД ПО МАНГИСТАУСКОЙ ОБЛАСТИ' },
+    { value: '55302', label: '55302 — ТАМОЖЕННЫЙ ПОСТ «АЛМАТЫ – ЦТО»', parentCode: '55300', parentName: 'ДГД ПО ГОРОДУ АЛМАТЫ' },
+  ]
+  const dgds = [{ code: '50700', name: 'ДГД ПО МАНГИСТАУСКОЙ ОБЛАСТИ' }, { code: '55300', name: 'ДГД ПО ГОРОДУ АЛМАТЫ' }]
+  const sends = () => w.get('[data-office-sends]').text()
+
+  it('ДГД можно выбрать напрямую: в списке ДГД и их посты, поиск по названию ДГД', async () => {
+    await mount({ goodsLocationCode: '99' }, { postOptions: kedenPosts, dgds })
+    await open('[data-location-office]')
+    expect(optionTexts()).toEqual([
+      'ДГД 50700 — ДГД ПО МАНГИСТАУСКОЙ ОБЛАСТИ', '50717 — ТАМОЖЕННЫЙ ПОСТ «КУРЫК»',
+      'ДГД 55300 — ДГД ПО ГОРОДУ АЛМАТЫ', '55302 — ТАМОЖЕННЫЙ ПОСТ «АЛМАТЫ – ЦТО»',
+    ])
+    expect(document.body.querySelectorAll('[data-office-dgd]')).toHaveLength(2)
+    await inputOf('[data-location-office]').setValue('мангист')
+    await nextTick()
+    expect(optionTexts()).toEqual(['ДГД 50700 — ДГД ПО МАНГИСТАУСКОЙ ОБЛАСТИ', '50717 — ТАМОЖЕННЫЙ ПОСТ «КУРЫК»'])
+    await pick('50700 — ДГД')
+    expect(form.goodsLocationCustomsOfficeCode).toBe('50700')
+    expect(sends()).toBe('В КЕДЕН уйдёт: 50700 — ДГД ПО МАНГИСТАУСКОЙ ОБЛАСТИ')
+  })
+
+  it('выбран пост — под полем видно, какой ДГД уйдёт в КЕДЕН', async () => {
+    await mount({ goodsLocationCode: '99', goodsLocationCustomsOfficeCode: '50717' }, { postOptions: kedenPosts, dgds })
+    expect(sends()).toBe('В КЕДЕН уйдёт: 50700 — ДГД ПО МАНГИСТАУСКОЙ ОБЛАСТИ')
+  })
+
+  it('пусто — ДГД поста подачи (по справочнику, не по цифрам); склады органа не выгружают', async () => {
+    await mount({ goodsLocationCode: '99', submissionCustomsOfficeCode: '55302' }, { postOptions: kedenPosts, dgds })
+    expect(inputOf('[data-location-office]').attributes('placeholder')).toBe('ДГД поста подачи: 55300')
+    expect(sends()).toBe('В КЕДЕН уйдёт: 55300 — ДГД ПО ГОРОДУ АЛМАТЫ — ДГД поста подачи')
+    form.goodsLocationCode = '11'
+    await nextTick()
+    expect(sends()).toContain('Для СВХ и таможенного склада орган в КЕДЕН не уходит')
+  })
+
+  it('код органа в «Номер СВХ» при коде места не-склад: подсказка и перенос одним нажатием', async () => {
+    await mount({ goodsLocationCode: '99' }, { postOptions: kedenPosts, dgds })
+    expect(w.find('[data-number-move]').exists()).toBe(false)
+    await typeNumber('50700')
+    expect(w.text()).toContain('50700 похоже на код таможенного органа, а не на номер свидетельства')
+    expect(w.text()).not.toContain('старый номер реестра')
+    await w.get('[data-number-move]').trigger('click')
+    await flushPromises()
+    expect(form.goodsLocationCustomsOfficeCode).toBe('50700')
+    expect(form.goodsLocationRegisterNumber).toBe('')
+    expect((numberInput().element as HTMLInputElement).value).toBe('')
+    expect(toast.info).toHaveBeenCalledWith('Код 50700 перенесён в «Таможенный орган (местонахождение)»')
+    expect(w.find('[data-number-move]').exists()).toBe(false)
+    expect(sends()).toBe('В КЕДЕН уйдёт: 50700 — ДГД ПО МАНГИСТАУСКОЙ ОБЛАСТИ')
+  })
+
+  it('при коде склада (11) пятизначный номер — прежняя подсказка «старый номер реестра», переноса нет', async () => {
+    await mount({ goodsLocationCode: '11' }, { postOptions: kedenPosts, dgds })
+    await typeNumber('50700')
+    expect(w.text()).toContain('Похоже на старый номер реестра')
+    expect(w.find('[data-number-move]').exists()).toBe(false)
+  })
+
+  it('просмотр: кнопки переноса нет', async () => {
+    await mount({ goodsLocationCode: '99', goodsLocationRegisterNumber: '50700' }, { postOptions: kedenPosts, dgds, readonly: true })
+    expect(w.text()).toContain('похоже на код таможенного органа')
+    expect(w.find('[data-number-move]').exists()).toBe(false)
+  })
+})
