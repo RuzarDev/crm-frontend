@@ -89,7 +89,8 @@ const invoiceMismatch = computed(() => goodsInvoiceSum.value != null
 const fmtInvoice = (n: number) => `${formatNumberIn(locale.value, n, 2, 2)} ${(props.form.currency ?? '').trim().toUpperCase()}`
 const applyInvoiceSum = () => { if (goodsInvoiceSum.value != null) props.form.totalInvoiceValue = goodsInvoiceSum.value }
 
-// Тип ставок: ЕТТ — обычный; EATT — ВТО. Прочее значение показывается как есть.
+// «Вид ставки» (как поле КЕДЕН): ETT — ЕТТ, EATT — ВТО (наш внутренний код; что уходит в XML — сервер, DtRateTypes).
+// Прочее значение показывается как есть.
 const rateKind = computed(() => {
   const v = (props.form.rateType ?? '').toUpperCase()
   if (v === 'EATT') return 'vto'

@@ -176,9 +176,10 @@ describe('SectionFinance — гр. 22 = Σ гр. 42 (сверка КЕДЕН 14.
   })
 })
 
-describe('SectionFinance — тип ставок', () => {
+describe('SectionFinance — вид ставки', () => {
   it('показан тегом (ЕТТ / ВТО), свободного поля нет', () => {
     mount({ rateType: 'ETT' })
+    expect(w.get('[data-rate-type]').text()).toContain('Вид ставки') // подпись как у поля КЕДЕН
     expect(w.get('[data-rate-type-tag]').text()).toBe('ЕТТ')
     expect(w.find('[data-rate-type] input').exists()).toBe(false)
     w.unmount()
@@ -196,11 +197,11 @@ describe('SectionFinance — тип ставок', () => {
     w.unmount()
     mount({ rateType: 'ETT' }, { canChangeRateType: true })
     const menuItem = await openMenu()
-    expect(menuItem.textContent).toContain('Сменить тип ставок на ВТО')
+    expect(menuItem.textContent).toContain('Сменить вид ставки на ВТО')
     menuItem.click()
     await vi.waitFor(() => expect(confirmState.open).toBe(true))
     // Пока не подтвердили — тип прежний.
-    expect(confirmState.title).toBe('Сменить тип ставок?')
+    expect(confirmState.title).toBe('Сменить вид ставки?')
     expect(form.rateType).toBe('ETT')
     confirmState.resolve(true)
     await nextTick(); await nextTick()
