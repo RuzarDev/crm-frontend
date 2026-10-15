@@ -42,6 +42,7 @@ const cls = (classifierCode: string, ...codes: [string, string][]): ClassifierIt
 const CLASSIFIERS: Record<string, ClassifierItem[]> = {
   'tax-modes': cls('tax-modes', ['1010', 'Таможенные сборы'], ['2010', 'Ввозная пошлина'], ['5060', 'НДС'], ['6010', 'Особый вид']),
   'rate-kinds': cls('rate-kinds', ['%', 'Адвалорная'], ['*', 'Специфическая']),
+  'payment-features': cls('payment-features', ['ИУ', 'Уплата до выпуска'], ['ОП', 'Отсрочка уплаты']),
 }
 
 const pay = (o: Partial<Import40GoodsPayment>): Import40GoodsPayment => ({ ...emptyPayment(), rateKindCode: null, paymentFeatureCode: null, ...o })
@@ -233,6 +234,9 @@ describe('Редактор товара: «Платежи» (гр. 47 этого
     await pickIn(rowOf('2010'), 'payment-rate-kind', '*')
     const p2010 = g0().payments!.find((p) => p.taxModeCode === '2010')!
     expect(p2010.rateKindCode).toBe('*')
+    // СП — из справочника особенностей уплаты (было только «ИУ» без выбора)
+    await pickIn(rowOf('2010'), 'payment-feature', 'ОП')
+    expect(p2010.paymentFeatureCode).toBe('ОП')
     await typeIn(rowOf('2010'), 'payment-unit', '166')
     await typeIn(rowOf('2010'), 'payment-currency', '978')
     await typeIn(rowOf('2010'), 'payment-ratio', '1,2')

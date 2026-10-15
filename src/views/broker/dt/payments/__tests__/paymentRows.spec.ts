@@ -36,6 +36,18 @@ describe('paymentRows: строки гр. 47 из расчёта', () => {
     expect(p[2]).toMatchObject({ amountKzt: 13.2, rateKindCode: '%', rateDate: null, weightRatio: null })
   })
 
+  it('СП, выбранную декларантом, расчёт не затирает (сервер всегда шлёт ИУ); новая строка — ИУ', () => {
+    const form = reactive(emptyDtForm()) as DtFormState
+    form.goodsItems = [goods({ payments: [{ taxModeCode: '2010', rateKindCode: '%', amountKzt: 1, paymentFeatureCode: 'ОП' }] })] as never
+    applyGoodsPaymentRows(form, calc([{ index: 0, rows: [
+      { taxModeCode: '2010', base: 5, rate: 5, amount: 0.25, featureCode: 'ИУ' },
+      { taxModeCode: '5060', base: 5, rate: 16, amount: 0.8, featureCode: 'ИУ' },
+    ] } as never]))
+    const [duty, vat] = form.goodsItems[0].payments!
+    expect(duty.paymentFeatureCode).toBe('ОП')
+    expect(vat.paymentFeatureCode).toBe('ИУ')
+  })
+
   it('вид ставки с сервера (rateKind) — вместе с единицей, валютой и коэффициентом', () => {
     const form = reactive(emptyDtForm()) as DtFormState
     form.goodsItems = [goods({ payments: [{ taxModeCode: '2010', rateKindCode: '%', amountKzt: 1, paymentFeatureCode: 'УН' }] })] as never
