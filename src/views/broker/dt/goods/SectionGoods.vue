@@ -277,7 +277,9 @@ const countryAlpha = computed(() => {
 // «В Excel»: страна — как в таблице, буквами, и с названием («CN — КИТАЙ»), а не цифровой ОКСМ.
 const countryText = computed(() => {
   const map = new Map((props.countryOptions ?? []).map((c) => {
-    const name = c.label.startsWith(`${c.value} — `) ? c.label.slice(c.value.length + 3) : c.label
+    // Подпись «код — название»; у особых записей («ЕС») подпись начинается с буквенного кода («EU — Евросоюз»).
+    const prefix = [`${c.value} — `, c.alpha2 ? `${c.alpha2} — ` : null].find((p) => p && c.label.startsWith(p))
+    const name = prefix ? c.label.slice(prefix.length) : c.label
     return [c.value, [c.alpha2, name].filter((s) => !!s && String(s).trim()).join(' — ')]
   }))
   return (code: string) => map.get(code) || null

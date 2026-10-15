@@ -52,7 +52,7 @@ const sectionStub = (name: string, inner = '', emits: string[] = []) => defineCo
   emits: ['update:modelValue', ...emits],
   template: `<div data-stub="${name}" :data-readonly="String(readonly)" :data-reload-key="reloadKey">${inner}</div>`,
 })
-// Товары: две страны происхождения (гр. 16 → «000»), «Рассчитать». Раздел правит товары
+// Товары: две страны происхождения (гр. 16 → «99»), у всех неизвестна (гр. 16 → «00»), «Рассчитать». Раздел правит товары
 // через модель страницы (useDtGoods) на месте — как настоящий SectionGoods.
 const goodsStub = defineComponent({
   name: 'SectionGoods',
@@ -64,10 +64,22 @@ const goodsStub = defineComponent({
       items.forEach((g, i) => { g.countryOfOrigin = i ? 'DE' : 'CN' })
       if (items.length < 2) props.model.append([{ ...items[0], countryOfOrigin: 'DE' }])
     }
-    return { mixed }
+    const unknown = () => {
+      const items = props.model.items.value as { countryOfOrigin: string | null }[]
+      if (items.length < 2) props.model.append([{ ...items[0] }])
+      ;(props.model.items.value as { countryOfOrigin: string | null }[]).forEach((g) => { g.countryOfOrigin = '00' })
+    }
+    const sameCountry = () => {
+      const items = props.model.items.value as { countryOfOrigin: string | null }[]
+      if (items.length < 2) props.model.append([{ ...items[0] }])
+      ;(props.model.items.value as { countryOfOrigin: string | null }[]).forEach((g, i) => { g.countryOfOrigin = i ? '156' : 'CN' })
+    }
+    return { mixed, unknown, sameCountry }
   },
   template: `<div data-stub="SectionGoods" :data-readonly="String(readonly)">
     <button data-goods-mixed type="button" @click="mixed" />
+    <button data-goods-unknown type="button" @click="unknown" />
+    <button data-goods-same-country type="button" @click="sameCountry" />
     <button data-goods-remove-first type="button" @click="model.remove([0])" />
     <button data-emit="calc-payments" type="button" @click="$emit('calc-payments')" />
   </div>`,
@@ -1096,13 +1108,46 @@ describe('DtPage: события прежних разделов', () => {
     expect(w.get('[data-payments-not-recalculated]').text()).toContain('товары 1')
   })
 
-  it('авто гр. 16: разные страны происхождения у товаров — «000»', async () => {
+  it('авто гр. 16: разные страны происхождения у товаров — «99» (РАЗНЫЕ, код КЕДЕН)', async () => {
     await open('?s=goods')
     await w.get('[data-goods-mixed]').trigger('click')
     await settle()
     key({ key: 's', code: 'KeyS', metaKey: true })
     await settle()
-    expect(api.updateDeclaration.mock.calls.at(-1)![2]).toMatchObject({ originCountryCode: '000' })
+    expect(api.updateDeclaration.mock.calls.at(-1)![2]).toMatchObject({ originCountryCode: '99' })
+  })
+
+  it('авто гр. 16: у всех товаров страна неизвестна — «00» (НЕИЗВЕСТНО)', async () => {
+    await open('?s=goods')
+    await w.get('[data-goods-unknown]').trigger('click')
+    await settle()
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    expect(api.updateDeclaration.mock.calls.at(-1)![2]).toMatchObject({ originCountryCode: '00' })
+  })
+
+  it('авто гр. 16: «CN» и «156» у товаров — одна страна по справочнику, не «99»', async () => {
+    refs.listCountries.mockResolvedValue([{ id: 'c1', code: '156', name: 'Китай', isActive: true, alpha2: 'CN' }])
+    await open('?s=goods')
+    await w.get('[data-goods-same-country]').trigger('click')
+    await settle()
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    // Код одной из записей той же страны (по набору стран — «156»), но не «99» РАЗНЫЕ.
+    expect(api.updateDeclaration.mock.calls.at(-1)![2]).toMatchObject({ originCountryCode: '156' })
+  })
+
+  it('страны справочника: «00» и «ЕС» подписаны кодами КЕДЕН («00 — неизвестна», «EU — Евросоюз»)', async () => {
+    refs.listCountries.mockResolvedValue([
+      { id: 'c1', code: '156', name: 'Китай', isActive: true, alpha2: 'CN' },
+      { id: 'c2', code: '00', name: 'Страна происхождения неизвестна', isActive: true, alpha2: null },
+      { id: 'c3', code: 'ЕС', name: 'Европейский союз', isActive: true, alpha2: null },
+    ])
+    await open('?s=goods')
+    const options = w.getComponent({ name: 'SectionGoods' }).props('countryOptions') as { value: string; label: string }[]
+    expect((options as { value: string; label: string; alpha2: string | null }[]).map((o) => [o.value, o.label, o.alpha2])).toEqual([
+      ['156', '156 — Китай', 'CN'], ['00', '00 — неизвестна', '00'], ['ЕС', 'EU — Евросоюз', 'EU'],
+    ])
   })
 
   it('«Рассчитать платежи» в шапке → «Платежи» → предпросмотр → «Записать в гр. 47 и гр. В» — гр. 47 и гр. В в PUT', async () => {

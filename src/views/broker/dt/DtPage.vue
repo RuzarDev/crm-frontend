@@ -49,6 +49,7 @@ import {
 } from './dtPageModel'
 import { DT_ROUTE, type DtSectionKey } from './dtSections'
 import { useDtForm } from './useDtForm'
+import { originForGoods, specialCountryKey } from './originCountry'
 import { useDtPayments } from './useDtPayments'
 import { useDtRates } from './useDtRates'
 import { useDtReadiness, type DtReadinessItem } from './useDtReadiness'
@@ -137,14 +138,16 @@ const legacyTotals = computed(() => ({
   customsValue: totals.customsValueKzt.value,
 }))
 
-// Авто гр.16 из товаров: одна страна происхождения — её код, разные — «000». Только при смене набора стран
-// (не при загрузке): ручную правку не перезаписывает, пока набор не изменится.
+// Авто гр.16 из гр.34а товаров (Решение 257): одна страна — её код, разные или неизвестна хотя бы у одного — «99»
+// РАЗНЫЕ, у всех неизвестна — «00». Только при смене набора стран (не при загрузке): ручную правку не перезаписывает,
+// пока набор не изменится.
 const goodsOriginKey = computed(() =>
   Array.from(new Set(form.goodsItems.map((g) => (g.countryOfOrigin ?? '').trim()).filter(Boolean))).sort().join('|'))
 watch(goodsOriginKey, (key) => {
   if (dt.applying.value || !key) return
-  const codes = key.split('|')
-  form.originCountryCode = codes.length === 1 ? codes[0] : '000'
+  // «CN» и «156» у разных товаров — одна страна (буквенный код по справочнику), а не «РАЗНЫЕ».
+  const alpha = new Map(countryOptions.value.filter((c) => c.alpha2).map((c) => [c.value, c.alpha2 as string]))
+  form.originCountryCode = originForGoods(key.split('|'), (c) => alpha.get(c)) ?? form.originCountryCode
 })
 
 // Правила товаров, которые прежний экран выполнял всегда смонтированным разделом «Товары» (теперь он ленивый):
@@ -545,14 +548,24 @@ const onSplitDone = async (res: Import40SplitResult) => {
 }
 
 // ---- Загрузка: справочники, «не найдено», ?calc=payments ----
-const countryOptions = ref<{ value: string; label: string; alpha2: string | null }[]>([])
+// Страны ОКСМ; особые записи справочника — подписью КЕДЕН: «00 — неизвестна», Евросоюз «ЕС» — «EU — Евросоюз».
+const countryList = ref<{ code: string; name: string; alpha2?: string | null }[]>([])
+const countryOptions = computed<{ value: string; label: string; alpha2: string | null }[]>(() => countryList.value.map((c) => {
+  const special = specialCountryKey(c.code)
+  const label = special === 'unknown' ? t('broker.dt.countries.countryUnknown')
+    : special === 'eu' ? t('broker.dt.countries.countryEu')
+      : `${c.code} — ${c.name}`
+  // Буквенный код особых записей — как в КЕДЕН (таблица товаров, Excel): «00», «EU».
+  const alpha2 = special === 'unknown' ? '00' : special === 'eu' ? 'EU' : c.alpha2 ?? null
+  return { value: c.code, label, alpha2 }
+}))
 const customsPostOptions = ref<{ value: string; label: string }[]>([])
 onMounted(async () => {
   classifiers.loadMany([...DT_CLASSIFIERS]).catch(() => message.warning(t('broker.dt.page.classifiersFailed')))
   void rates.loadCurrencies()
   referencesApi.listCountries()
     // alpha2 — чтобы старый буквенный код стороны («KZ») показать и привести к цифровому ОКСМ (dtParties).
-    .then((list) => { countryOptions.value = list.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}`, alpha2: c.alpha2 ?? null })) })
+    .then((list) => { countryList.value = list })
     .catch(() => { /* селекты стран — без списка */ })
   // Имя поста — «57505 — ТАМОЖЕННЫЙ ПОСТ …»: value — ведущий код (для номера ДТ), label — строка справочника.
   referencesApi.listCustomsPosts()

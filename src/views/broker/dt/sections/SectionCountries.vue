@@ -7,10 +7,12 @@ import type { ZOption } from '@/ui/options'
 import DtGraphHelp from '../DtGraphHelp.vue'
 import { withCurrent } from '../dtOptions'
 import type { DtFormState } from '../dtPayload'
+import { EU_CODES, isEuCode, normalizeOrigin, ORIGIN_UNKNOWN, ORIGIN_VARIOUS, specialCountryKey } from '../originCountry'
 
 // Гр. 11 (торгующая страна), 15 (отправления), 16 (происхождения, шапка), 17 (назначения). Страны — ОКСМ,
-// числовой код («398»), с поиском по коду и названию. Гр. 16 страница считает по товарам: одна страна — её код,
-// разные — «000» (такой пункт добавлен в список, в ОКСМ его нет).
+// числовой код («398»), с поиском по коду и названию. Гр. 16 страница считает по товарам (originForGoods). В гр. 16 —
+// ровно особые значения КЕДЕН / R.055 19.14.1: «99» РАЗНЫЕ, «00» НЕИЗВЕСТНО, «EU» ЕВРОСОЮЗ (в справочнике — «ЕС»);
+// прежнее «000» показывается как «99».
 const props = defineProps<{
   form: DtFormState
   readonly: boolean
@@ -18,15 +20,26 @@ const props = defineProps<{
 }>()
 const { t } = useI18n()
 
-const MIXED = '000'
 const base = computed<ZOption[]>(() => props.countryOptions)
-const originBase = computed<ZOption[]>(() =>
-  base.value.some((o) => o.value === MIXED) ? base.value : [{ value: MIXED, label: t('broker.dt.countries.mixed') }, ...base.value])
+// Евросоюз — тем кодом, что у товаров в гр. 34а (запись справочника «ЕС»), иначе авто-расчёт и выбор разойдутся.
+const euValue = computed(() => String(base.value.find((o) => isEuCode(String(o.value)))?.value ?? EU_CODES[0]))
+const originBase = computed<ZOption[]>(() => {
+  const specials: ZOption[] = [
+    { value: ORIGIN_VARIOUS, label: t('broker.dt.countries.originVarious') },
+    { value: ORIGIN_UNKNOWN, label: t('broker.dt.countries.originUnknown') },
+    { value: euValue.value, label: t('broker.dt.countries.originEu') },
+  ]
+  return [...specials, ...base.value.filter((o) => specialCountryKey(String(o.value)) === null)]
+})
 
 const departure = computed(() => withCurrent(base.value, props.form.departureCountryCode))
 const destination = computed(() => withCurrent(base.value, props.form.destinationCountryCode))
 const trade = computed(() => withCurrent(base.value, props.form.tradeCountryCode))
-const origin = computed(() => withCurrent(originBase.value, props.form.originCountryCode))
+const originShown = computed(() => {
+  const v = normalizeOrigin(props.form.originCountryCode)
+  return isEuCode(v) ? euValue.value : v
+})
+const origin = computed(() => withCurrent(originBase.value, originShown.value))
 
 const warn = (unknown: boolean, value: string | null | undefined) =>
   unknown ? { validateStatus: 'warning' as const, help: t('broker.dt.countries.notInList', { value: value ?? '' }) } : {}
@@ -62,10 +75,10 @@ const onOrigin = (v: unknown) => { props.form.originCountryCode = code(v) ?? '' 
         graph="16"
         data-graph="16"
         :extra="t('broker.dt.countries.originAuto')"
-        v-bind="warn(origin.unknown, form.originCountryCode)"
+        v-bind="warn(origin.unknown, originShown)"
       >
         <template #label>{{ t('broker.dt.countries.origin') }}<DtGraphHelp graph="16" /></template>
-        <ZSelect :value="form.originCountryCode || null" :options="origin.options" show-search allow-clear :disabled="readonly" :placeholder="t('broker.dt.countries.select')" @update:value="onOrigin" />
+        <ZSelect :value="originShown || null" :options="origin.options" show-search allow-clear :disabled="readonly" :placeholder="t('broker.dt.countries.select')" @update:value="onOrigin" />
       </ZField>
     </div>
   </section>
