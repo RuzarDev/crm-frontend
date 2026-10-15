@@ -43,7 +43,8 @@ export function applyGoodsPaymentRows(form: Pick<DtFormState, 'goodsItems'>, res
           existing.rateCurrencyCode = pr.rateCurrencyCode ?? null
           existing.weightRatio = pr.rateKind === '*' ? existing.weightRatio ?? 1 : null
         }
-        existing.paymentFeatureCode = pr.featureCode ?? existing.paymentFeatureCode ?? 'ИУ'
+        // СП, выбранную декларантом (ОП, УН, ЗН…), расчёт не затирает: сервер всегда отдаёт ИУ.
+        existing.paymentFeatureCode = existing.paymentFeatureCode?.trim() || pr.featureCode || 'ИУ'
         existing.basisLabel = pr.basisLabel ?? null
         existing.rateLabel = pr.rateLabel ?? null
         existing.bLine = pr.bLine ?? null

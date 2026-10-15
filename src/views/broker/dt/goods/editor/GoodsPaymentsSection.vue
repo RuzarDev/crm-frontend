@@ -78,6 +78,8 @@ const withValue = (opts: ZOption[], v: string | null | undefined): ZOption[] =>
   (!v || opts.some((o) => o.value === v) ? opts : [{ value: v, label: v }, ...opts])
 const taxModeOptions = computed(() => classifiers.options('tax-modes'))
 const rateKindOptions = computed(() => classifiers.options('rate-kinds'))
+// СП — справочник особенностей уплаты (ЕЭК 2008… «payment-features»): ИУ, ПУ, ОП, УН, ЗН…; по умолчанию ИУ.
+const featureOptions = computed(() => classifiers.options('payment-features'))
 const str = (v: ZOptionValue | ZOptionValue[] | null) => (v == null || Array.isArray(v) || v === '' ? null : String(v))
 const text = (v: string) => (v.trim() ? v.trim() : null)
 const set = <K extends keyof Import40GoodsPayment>(p: Import40GoodsPayment, key: K, v: Import40GoodsPayment[K]) => { setPaymentField(p, key, v) }
@@ -173,7 +175,7 @@ const removeBtn = cn(
             <span :class="cellLabel">{{ tp('col.amount') }}</span><span class="font-semibold whitespace-nowrap tabular-nums">{{ money(p.amountKzt) }}</span>
           </span>
           <span role="cell" :class="field" data-payment-cell="feature">
-            <span :class="cellLabel">{{ tp('col.feature') }}</span><span class="font-mono">{{ p.paymentFeatureCode || '—' }}</span>
+            <span :class="cellLabel">{{ tp('col.feature') }}</span><span class="font-mono" :title="classifierName('payment-features', p.paymentFeatureCode)">{{ p.paymentFeatureCode || '—' }}</span>
           </span>
         </div>
       </div>
@@ -229,10 +231,20 @@ const removeBtn = cn(
               <span :class="fieldLabel">{{ tp('col.amount') }}</span>
               <ZNumber :value="p.amountKzt" placeholder="—" :aria-label="tp('col.amount')" :class="tall" data-f="payment-amount" @update:value="set(p, 'amountKzt', $event)" />
             </div>
-            <span :class="[field, 'w-12']">
+            <div :class="[field, 'w-28']">
               <span :class="fieldLabel">{{ tp('col.feature') }}</span>
-              <span class="flex h-9 items-center font-mono text-[13px] text-ink-2">{{ p.paymentFeatureCode || '—' }}</span>
-            </span>
+              <ZSelect
+                :value="p.paymentFeatureCode || null"
+                :options="withValue(featureOptions, p.paymentFeatureCode)"
+                show-search
+                :aria-label="tp('col.feature')"
+                :title="classifierName('payment-features', p.paymentFeatureCode)"
+                popup-width="560px"
+                :class="tall"
+                data-f="payment-feature"
+                @update:value="set(p, 'paymentFeatureCode', str($event) ?? 'ИУ')"
+              />
+            </div>
             <button type="button" :class="[removeBtn, 'ml-auto']" :aria-label="tp('remove')" :title="tp('remove')" data-payment-remove @click="remove(p)">
               <PhX :size="16" aria-hidden="true" />
             </button>
