@@ -135,6 +135,9 @@ export interface Import40GoodsItemDto {
   extras?: Import40GoodsExtras | null
   // Гр.31 строки характеристик (пакет 7). Ответ сервера до пакета 7 — без них: строка 1 из одиночных полей выше.
   characteristics?: Import40GoodsCharacteristic[] | null
+  // Гр.33.3 «Маркировка»: NTIN по порядку и GTIN (многострочный текст). Сервер до 15.10 — без них.
+  ntins?: string[] | null
+  gtin?: string | null
 }
 
 // Зеркалит Import40GoodsMarkingDto / Import40GoodsMarkingRequest на бэке (Task 2).

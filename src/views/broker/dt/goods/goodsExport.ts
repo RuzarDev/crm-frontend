@@ -10,6 +10,7 @@ export type CountryText = (code: string) => string | null
 
 export const GOODS_EXPORT_COLUMNS = [
   'n', 'code', 'description', 'country', 'quantity', 'unit', 'gross', 'net', 'places', 'invoice', 'currency', 'kzt45', 'usd46', 'tpin',
+  'ntin', 'gtin',
 ] as const
 export type GoodsExportColumn = (typeof GOODS_EXPORT_COLUMNS)[number]
 
@@ -34,6 +35,9 @@ const cell = (g: Import40GoodsItemInput, index: number, col: GoodsExportColumn, 
     case 'kzt45': return g.customsValueKzt ?? null
     case 'usd46': return g.statisticValueUsd ?? null
     case 'tpin': return goodsTpin(g)
+    // Гр. 33.3: NTIN через «, », GTIN — строки поля (обратно читаются «Из Excel» столбцами NTIN / GTIN).
+    case 'ntin': return (g.ntins ?? []).map((c) => c.trim()).filter(Boolean).join(', ') || null
+    case 'gtin': return g.gtin?.trim() || null
   }
 }
 

@@ -15,6 +15,9 @@ const RULES: readonly (readonly [RegExp, string])[] = [
   [/не предлагает\s+гр\.?\s*36\s+НДС/iu, 'prefVatCode'],
   [/не предлагает\s+гр\.?\s*37\s+предшествующая/iu, 'previousProcedureCode'],
   [/не предлагает\s+гр\.?\s*37\s+особенность/iu, 'goodsMoveFeatureCode'],
+  // гр. 33.3 «Маркировка» (KedenXmlReadiness, Import40GoodsTradeCodes.Warnings): «гр.33.3 — GTIN …» / «гр.33.3 — NTIN …».
+  [/гр\.?\s*33\.3\s*—\s*GTIN/iu, 'gtin'],
+  [/гр\.?\s*33\.3/iu, 'ntins'],
   // гр. 33: коды запретов и ограничений (КЕДЕН) — до кода ТН ВЭД: «гр.33 — КЕДЕН для ТН ВЭД … не примет …».
   [/коды запретов|коды гр\.?\s*33|гр\.?\s*33\s*—/iu, 'prohibitionCode'],
   [/интеллектуальной собственности/iu, 'oisIndicatorCode'],

@@ -33,6 +33,8 @@ const recognized = computed(() => {
     { key: 'quantity', n: r.quantity },
     { key: 'packaging', n: r.packaging },
     { key: 'places', n: r.places },
+    // Гр. 33.3 NTIN/GTIN — только если в файле есть такие столбцы со значениями.
+    ...(r.tradeCodes ? [{ key: 'tradeCodes', n: r.tradeCodes }] : []),
   ]
 })
 const head = computed(() => props.rows.slice(0, PREVIEW_ROWS))

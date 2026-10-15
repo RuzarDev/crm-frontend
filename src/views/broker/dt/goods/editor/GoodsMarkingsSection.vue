@@ -15,12 +15,14 @@ import type { Import40GoodsMarking } from '@/types/api'
 import type { ZOption, ZOptionValue } from '@/ui/options'
 import { cn } from '@/ui/cn'
 import { parseMarkingsSheet } from './markingsExcel'
+import GoodsTradeCodesBlock from './GoodsTradeCodesBlock.vue'
 import type { GoodsSectionProps } from './types'
 
 // «Маркировка» (гр. 31.13, коллекция строк): номер (код идентификации), уровень, идентификатор применения, вид средства
 // идентификации, количество КИЗ, агрегированная упаковка, маркировка после выпуска; импорт из Excel — формат без шапки
 // как раньше (markingsExcel.ts), строки добавляются в конец. Справочники кодов — те же, что в старой карточке (Решение 257 /
 // окно КЕДЕН). Не поля платежей. Строк бывает сотни (коды из Excel) — показываем первые 10, дальше «Показать ещё».
+// Сверху — гр. 33.3 «Маркировка» (NTIN и GTIN, как в КЕДЕН и D-Sector): GoodsTradeCodesBlock.
 const props = defineProps<GoodsSectionProps>()
 const { t } = useI18n()
 const tm = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.editor.markings.${key}`, p ?? {})
@@ -113,6 +115,9 @@ const removeBtn = cn(
 
 <template>
   <div ref="root" class="flex flex-col gap-3" data-goods-markings-section>
+    <GoodsTradeCodesBlock v-bind="props" />
+
+    <h3 class="m-0 mt-2 border-t border-line pt-4 text-[13px] font-semibold text-ink">{{ tm('kizTitle') }}</h3>
     <p class="m-0 text-xs text-muted">{{ tm('hint') }}</p>
 
     <div class="flex flex-col gap-2" data-graph="31" data-goods-field="markings" :data-goods-index="index">
