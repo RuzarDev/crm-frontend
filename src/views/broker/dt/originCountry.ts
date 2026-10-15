@@ -25,17 +25,29 @@ export const normalizeOrigin = (code: string | null | undefined): string => {
   return v === LEGACY_VARIOUS ? ORIGIN_VARIOUS : v
 }
 
-const originKey = (code: string): string => (isEuCode(code) ? 'EU' : normalizeOrigin(code).toUpperCase())
+/** Буквенный код страны по справочнику («156» → «CN»); нет в справочнике — null. */
+export type CountryAlphaOf = (code: string) => string | null | undefined
+
+/** Ключ страны: особое значение — код КЕДЕН; иначе буквенный код по справочнику («156» = «CN»), иначе написание. */
+const originKey = (code: string, alphaOf?: CountryAlphaOf): string => {
+  const special = specialCountryKey(code)
+  if (special === 'eu') return 'EU'
+  if (special) return normalizeOrigin(code)
+  const v = code.trim()
+  return (alphaOf?.(v) || v).trim().toUpperCase()
+}
 
 /**
  * Гр. 16 по гр. 34а товаров: у всех одна страна — её код (и «00», если неизвестна у всех; и Евросоюз), иначе «99».
- * Товары без страны не считаются; ни у одного нет страны — null.
+ * Страны сравниваются по сути через alphaOf: «CN» и «156» — одна страна. Товары без страны не считаются; ни у одного
+ * нет страны — null.
  */
-export const originForGoods = (codes: (string | null | undefined)[]): string | null => {
+export const originForGoods = (codes: (string | null | undefined)[], alphaOf?: CountryAlphaOf): string | null => {
   const byKey = new Map<string, string>()
   for (const raw of codes) {
     const c = (raw ?? '').trim()
-    if (c && !byKey.has(originKey(c))) byKey.set(originKey(c), c)
+    const k = c ? originKey(c, alphaOf) : ''
+    if (c && !byKey.has(k)) byKey.set(k, c)
   }
   if (byKey.size === 0) return null
   return byKey.size === 1 ? [...byKey.values()][0] : ORIGIN_VARIOUS

@@ -69,11 +69,17 @@ const goodsStub = defineComponent({
       if (items.length < 2) props.model.append([{ ...items[0] }])
       ;(props.model.items.value as { countryOfOrigin: string | null }[]).forEach((g) => { g.countryOfOrigin = '00' })
     }
-    return { mixed, unknown }
+    const sameCountry = () => {
+      const items = props.model.items.value as { countryOfOrigin: string | null }[]
+      if (items.length < 2) props.model.append([{ ...items[0] }])
+      ;(props.model.items.value as { countryOfOrigin: string | null }[]).forEach((g, i) => { g.countryOfOrigin = i ? '156' : 'CN' })
+    }
+    return { mixed, unknown, sameCountry }
   },
   template: `<div data-stub="SectionGoods" :data-readonly="String(readonly)">
     <button data-goods-mixed type="button" @click="mixed" />
     <button data-goods-unknown type="button" @click="unknown" />
+    <button data-goods-same-country type="button" @click="sameCountry" />
     <button data-goods-remove-first type="button" @click="model.remove([0])" />
     <button data-emit="calc-payments" type="button" @click="$emit('calc-payments')" />
   </div>`,
@@ -1118,6 +1124,17 @@ describe('DtPage: события прежних разделов', () => {
     key({ key: 's', code: 'KeyS', metaKey: true })
     await settle()
     expect(api.updateDeclaration.mock.calls.at(-1)![2]).toMatchObject({ originCountryCode: '00' })
+  })
+
+  it('авто гр. 16: «CN» и «156» у товаров — одна страна по справочнику, не «99»', async () => {
+    refs.listCountries.mockResolvedValue([{ id: 'c1', code: '156', name: 'Китай', isActive: true, alpha2: 'CN' }])
+    await open('?s=goods')
+    await w.get('[data-goods-same-country]').trigger('click')
+    await settle()
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    // Код одной из записей той же страны (по набору стран — «156»), но не «99» РАЗНЫЕ.
+    expect(api.updateDeclaration.mock.calls.at(-1)![2]).toMatchObject({ originCountryCode: '156' })
   })
 
   it('страны справочника: «00» и «ЕС» подписаны кодами КЕДЕН («00 — неизвестна», «EU — Евросоюз»)', async () => {

@@ -145,7 +145,9 @@ const goodsOriginKey = computed(() =>
   Array.from(new Set(form.goodsItems.map((g) => (g.countryOfOrigin ?? '').trim()).filter(Boolean))).sort().join('|'))
 watch(goodsOriginKey, (key) => {
   if (dt.applying.value || !key) return
-  form.originCountryCode = originForGoods(key.split('|')) ?? form.originCountryCode
+  // «CN» и «156» у разных товаров — одна страна (буквенный код по справочнику), а не «РАЗНЫЕ».
+  const alpha = new Map(countryOptions.value.filter((c) => c.alpha2).map((c) => [c.value, c.alpha2 as string]))
+  form.originCountryCode = originForGoods(key.split('|'), (c) => alpha.get(c)) ?? form.originCountryCode
 })
 
 // Правила товаров, которые прежний экран выполнял всегда смонтированным разделом «Товары» (теперь он ленивый):

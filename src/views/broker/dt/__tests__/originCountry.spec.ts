@@ -17,6 +17,16 @@ describe('originCountry — гр. 16 и особые значения стран
     expect(originForGoods(goods)).toBe(expected)
   })
 
+  it('страны сравниваются по сути через справочник: «CN» и «156» — одна страна, а не «РАЗНЫЕ»', () => {
+    const alpha: Record<string, string> = { 156: 'CN', 268: 'GE' }
+    const alphaOf = (c: string) => alpha[c]
+    expect(originForGoods(['CN', '156'], alphaOf)).toBe('CN')
+    expect(originForGoods(['156', 'cn'], alphaOf)).toBe('156')
+    expect(originForGoods(['CN', '268'], alphaOf)).toBe('99')
+    expect(originForGoods(['00', '156'], alphaOf)).toBe('99')
+    expect(originForGoods(['CN', '156'])).toBe('99') // без справочника — по написанию
+  })
+
   it('прежнее «000» — это «99»; Евросоюз — «ЕС» и «EU»', () => {
     expect(normalizeOrigin('000')).toBe('99')
     expect(normalizeOrigin(' 156 ')).toBe('156')
