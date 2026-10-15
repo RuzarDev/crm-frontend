@@ -61,17 +61,37 @@ describe('SectionCountries — гр. 11, 15–17', () => {
     expect(form.tradeCountryCode).toBe('')
   })
 
-  it('гр. 16: подпись «считается по товарам» и пункт 000 — разные страны', async () => {
+  it('гр. 16: подпись «считается по товарам» и особые значения КЕДЕН первыми; «000» показывается как «99»', async () => {
     mount({ originCountryCode: '000' })
-    expect(field('16').text()).toContain('Считается по товарам: одна страна — её код, разные — 000.')
-    expect((field('16').get('input').element as HTMLInputElement).value).toBe('000 — разные страны')
+    expect(field('16').text()).toContain('разные или неизвестна хотя бы у одного — 99 РАЗНЫЕ; неизвестна у всех — 00 НЕИЗВЕСТНО')
+    expect((field('16').get('input').element as HTMLInputElement).value).toBe('99 — РАЗНЫЕ (товары из разных стран)')
     expect(w.text()).not.toContain('нет в справочнике')
     await open('16')
-    expect(optionTexts()[0]).toBe('000 — разные страны')
-    await field('16').get('input').trigger('keydown', { key: 'Escape' })
-    await nextTick()
+    expect(optionTexts().slice(0, 3)).toEqual(['99 — РАЗНЫЕ (товары из разных стран)', '00 — НЕИЗВЕСТНО (у всех товаров)', 'EU — ЕВРОСОЮЗ'])
+    await pick('00 — НЕИЗВЕСТНО')
+    expect(form.originCountryCode).toBe('00')
     await open('15')
-    expect(optionTexts()).not.toContain('000 — разные страны')
+    expect(optionTexts()).not.toContain('99 — РАЗНЫЕ (товары из разных стран)')
+  })
+
+  it('гр. 16: записи справочника «00» и «ЕС» не дублируются, Евросоюз — кодом справочника «ЕС»', async () => {
+    const withSpecial = [
+      ...countries,
+      { value: '00', label: '00 — неизвестна' },
+      { value: 'ЕС', label: 'EU — Евросоюз' },
+    ]
+    mount({}, { countryOptions: withSpecial })
+    await open('16')
+    expect(optionTexts()).toEqual([
+      '99 — РАЗНЫЕ (товары из разных стран)', '00 — НЕИЗВЕСТНО (у всех товаров)', 'EU — ЕВРОСОЮЗ',
+      '398 — Казахстан', '156 — Китай', '792 — Турция',
+    ])
+    await pick('ЕВРОСОЮЗ')
+    expect(form.originCountryCode).toBe('ЕС')
+    w.unmount()
+    mount({ originCountryCode: 'EU' }, { countryOptions: withSpecial }) // латинское написание — тот же пункт
+    expect((field('16').get('input').element as HTMLInputElement).value).toBe('EU — ЕВРОСОЮЗ')
+    expect(w.text()).not.toContain('нет в справочнике')
   })
 
   it('страна вне справочника (старый «KZ») показывается с предупреждением', () => {

@@ -24,6 +24,12 @@ describe('dtPayload — туда и обратно', () => {
     expect(payload.expectedUpdatedAtUtc).toBe('2026-10-09T10:11:12.123456Z')
   })
 
+  it('гр. 16: прежнее «000» (разные) читается и уходит как «99», остальное — как есть', () => {
+    expect(formToPayload(dtoToForm(fullDto({ originCountryCode: '000' })), null).originCountryCode).toBe('99')
+    expect(formToPayload(dtoToForm(fullDto({ originCountryCode: '00' })), null).originCountryCode).toBe('00')
+    expect(formToPayload(dtoToForm(fullDto({ originCountryCode: 'ЕС' })), null).originCountryCode).toBe('ЕС')
+  })
+
   it('списки целиком: гр.44, гр.40, расходы, гр.В, транспорт', () => {
     const dto = fullDto()
     const p = formToPayload(dtoToForm(dto), null)

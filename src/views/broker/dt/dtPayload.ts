@@ -24,6 +24,7 @@ import { cloneGoodsExtras, type Import40GoodsExtras } from '@/types/api'
 import { cloneCharacteristics, rowsFromLegacy } from './goods/editor/characteristics'
 import { placesOfGoods } from '@/utils/goodsPlaces'
 import { officeNameOnly } from './dtOptions'
+import { normalizeOrigin } from './originCountry'
 
 /**
  * Состояние редактора ДТ: общий тип секций, где товары и гр.В — непустые массивы, а товар
@@ -236,7 +237,7 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
   f.transactionNatureCode = dto.transactionNatureCode ?? ''
   f.transactionFeatureCode = dto.transactionFeatureCode ?? ''
   f.tradeCountryCode = dto.tradeCountryCode ?? ''
-  f.originCountryCode = dto.originCountryCode ?? ''
+  f.originCountryCode = normalizeOrigin(dto.originCountryCode) // прежнее «000» (разные) — «99»
   f.incotermsPlace = dto.incotermsPlace ?? ''
   f.consigneeEqualsDeclarant = dto.consigneeEqualsDeclarant ?? false
   f.financialSubjectEqualsDeclarant = dto.financialSubjectEqualsDeclarant ?? false

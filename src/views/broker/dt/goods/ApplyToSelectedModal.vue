@@ -44,7 +44,7 @@ const classifier = (code: string) => () => classifiers.options(code)
 // гр. 36: «ОО, О, Z» сверху, остальные по коду (как в карточке товара).
 const pref = (code: string) => () => pinPreferences(classifiers.options(code))
 const countries = () => props.countryOptions.map((c) => ({ value: c.value, label: c.label }))
-const alpha2 = () => props.countryOptions.filter((c) => c.alpha2).map((c) => ({ value: c.alpha2 as string, label: `${c.alpha2} — ${c.label.replace(/^\d+\s*—\s*/, '')}` }))
+const alpha2 = () => props.countryOptions.filter((c) => c.alpha2).map((c) => ({ value: c.alpha2 as string, label: `${c.alpha2} — ${c.label.replace(/^(\d+|[A-Z]{2})\s*—\s*/, '')}` }))
 
 const FIELD_UI: Record<BulkField, FieldUi> = {
   countryOfOrigin: { kind: 'select', options: countries },
