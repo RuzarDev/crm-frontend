@@ -833,6 +833,68 @@ describe('DtPage: сохранение и режимы', () => {
     openSpy.mockRestore()
   })
 
+  it('просмотр: у товаров нет записанных гр. 47 — предупреждение перед печатью; «Отмена» — без печати, «Печатать» — бланк', async () => {
+    server = caseDto({
+      status: 3, assignedDeclarantId: 'other', assignedDeclarantName: 'Сейткали Д.',
+      declarations: [fullDto({ splitRole: null, goodsItems: [fullGoodsDto(), fullGoodsDto({ id: 'g2', sortOrder: 1, payments: [] }), fullGoodsDto({ id: 'g3', sortOrder: 2, payments: [] })] })],
+    })
+    const tab = fakeTab()
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    await open()
+    await w.get('[data-dt-print]').trigger('click')
+    await settle()
+    expect(confirmState.open).toBe(true)
+    expect(confirmState.title).toBe('Платежи гр. 47 и гр. В не записаны')
+    expect(confirmState.content).toBe('В ДТ нет записанных платежей по товарам № 2–3, гр. 47 и гр. В будут пустыми.')
+    expect([confirmState.okText, confirmState.cancelText]).toEqual(['Печатать', 'Отмена'])
+    expect(openSpy).not.toHaveBeenCalled() // вкладка — по клику ответа, иначе закрыла бы окно
+    confirmState.resolve(false)
+    await settle()
+    expect(api.blankPdf).not.toHaveBeenCalled()
+    expect(openSpy).not.toHaveBeenCalled()
+
+    await w.get('[data-dt-print]').trigger('click')
+    await settle()
+    confirmState.resolve(true)
+    await settle()
+    expect(openSpy).toHaveBeenCalledTimes(1)
+    expect(api.blankPdf).toHaveBeenCalledWith('case1', 'dt1')
+    expect(tab.location.href).toBe('blob:x')
+    expect(api.calculatePayments).not.toHaveBeenCalled()
+    expect(api.updateDeclaration).not.toHaveBeenCalled()
+    openSpy.mockRestore()
+  })
+
+  it('выпущенная ДТ (правка открыта): вопроса о расчёте нет; без записанных гр. 47 — только предупреждение', async () => {
+    server = caseDto({ status: 4, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, goodsItems: [fullGoodsDto({ payments: [], needsTpinRecalc: true })] })] })
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    await open()
+    await printFromMenu()
+    expect(confirmState.open).toBe(true)
+    expect(confirmState.content).toBe('В ДТ нет записанных платежей по товарам № 1, гр. 47 и гр. В будут пустыми.')
+    expect(confirmState.okText).toBe('Печатать')
+    confirmState.resolve(true)
+    await settle()
+    expect(api.calculateCustomsValue).not.toHaveBeenCalled()
+    expect(api.calculatePayments).not.toHaveBeenCalled()
+    expect(api.blankPdf).toHaveBeenCalledTimes(1)
+    openSpy.mockRestore()
+  })
+
+  it('выпущенная ДТ: платежи записаны, но «Пересчитать» — печать сразу, без вопроса и без расчёта', async () => {
+    server = caseDto({ status: 4, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, goodsItems: [fullGoodsDto({ needsTpinRecalc: true })] })] })
+    const tab = fakeTab()
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    await open()
+    await printFromMenu()
+    expect(confirmState.open).toBe(false)
+    expect(openSpy).toHaveBeenCalledTimes(1)
+    await settle()
+    expect(api.calculatePayments).not.toHaveBeenCalled()
+    expect(api.blankPdf).toHaveBeenCalledTimes(1)
+    openSpy.mockRestore()
+  })
+
   it('просмотр (закреплена за другим): плашка с ФИО и этапом, печать без PUT, ⌘S не сохраняет', async () => {
     server = caseDto({
       status: 3, assignedDeclarantId: 'other', assignedDeclarantName: 'Сейткали Д.',

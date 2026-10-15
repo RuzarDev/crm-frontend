@@ -14,7 +14,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { confirmState, useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
-import { canEditDt, canManageDeclarations, dtUserFrom } from '@/views/import40/dtAccess'
+import { canEditDt, canManageDeclarations, dtUserFrom, RELEASED_STATUS } from '@/views/import40/dtAccess'
 import DtBanners from './DtBanners.vue'
 import DtHeaderBar from './DtHeaderBar.vue'
 import DtReadinessPanel from './DtReadinessPanel.vue'
@@ -397,12 +397,30 @@ const onXml = async () => {
  * записать. Отказ — печать как есть. Только при праве править (в просмотре расчёта нет). Вопрос нужен — синхронно (до
  * открытия вкладки печати): его ответ — новый клик, вкладка открывается по нему.
  */
+// Выпущенная ДТ (и дальше по статусам) не пересчитывается перед печатью: расчёт переписал бы гр. 45/47/В
+// зарегистрированной декларации по сегодняшним ставкам (итоговое ревью пакета 7, M5), даже если править её ещё можно.
+const released = computed(() => (kase.value?.status ?? 0) >= RELEASED_STATUS)
 const paymentsQuestion = (): { live: boolean; stale: number[] } | null => {
-  if (!editable.value || payments.busy.value) return null
+  if (!editable.value || released.value || payments.busy.value) return null
   const live = payments.state.value === 'preview'
   const stale = staleGoodsIndexes(form.goodsItems)
   return live || stale.length ? { live, stale } : null
 }
+/**
+ * В просмотре и у выпущенной ДТ вопроса о расчёте нет — но если у товаров нет записанных строк гр. 47, предупредить, что
+ * гр. 47 и гр. В в бланке будут пустыми (не блок: «Печатать» / «Отмена»). Позиции товаров (с 0) или null — без окна.
+ */
+const unpaidNotice = (): number[] | null => {
+  if (editable.value && !released.value) return null
+  const unpaid = form.goodsItems.flatMap((g, i) => (g.payments?.length ? [] : [i]))
+  return unpaid.length ? unpaid : null
+}
+const askPrintUnpaid = (unpaid: number[]) => confirm({
+  title: t('broker.dt.actions.printPaymentsTitle'),
+  content: t('broker.dt.actions.printNoPaymentsText', { list: formatItemNumbers(unpaid) }),
+  okText: t('broker.dt.actions.printConfirm'),
+  cancelText: t('common.cancel'),
+})
 const askPayments = (q: { live: boolean; stale: number[] }) => confirm({
   title: t('broker.dt.actions.printPaymentsTitle'),
   content: q.live
@@ -444,11 +462,17 @@ const showPrintForm = async (tab: Window | null, url: string) => {
 const onPrint = async () => {
   if (printLoading.value) return
   const question = paymentsQuestion()
+  const unpaid = question ? null : unpaidNotice()
   // Без вопроса — вкладка по этому клику; с вопросом — по клику ответа (иначе вкладка закрыла бы окно вопроса).
-  let tab = question ? null : openPrintTab()
+  let tab = question || unpaid ? null : openPrintTab()
   printLoading.value = true
   let shown = false
   try {
+    if (unpaid) {
+      // «Отмена» (и закрытие окна) — без печати.
+      if (!(await askPrintUnpaid(unpaid))) return
+      tab = openPrintTab()
+    }
     if (question) {
       const ok = await askPayments(question)
       tab = openPrintTab()

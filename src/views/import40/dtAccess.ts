@@ -11,6 +11,8 @@
 
 /** Статус заявки «Декларирование» (Import40Status.Declaring). */
 export const DECLARING_STATUS = 2
+/** Статус заявки «ДТ выпущена» (Import40Status.Released); дальше — СВХ, счета, «Выполнено», «Отменена». */
+export const RELEASED_STATUS = 4
 
 export interface DtAccessUser {
   /** Системная роль administrator. */

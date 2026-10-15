@@ -1363,6 +1363,8 @@ export default {
         printOpen: 'Open the print form',
         printBlockedClose: 'Close',
         printWithout: 'Print as is',
+        printNoPaymentsText: 'The DT has no recorded payments for goods No. {list}; boxes 47 and B will be empty.',
+        printConfirm: 'Print',
         docsError: 'Could not download documents',
       },
       number: {

@@ -1363,6 +1363,8 @@ export default {
         printOpen: 'Баспа нысанын ашу',
         printBlockedClose: 'Жабу',
         printWithout: 'Сол күйінде басып шығару',
+        printNoPaymentsText: 'ТД-да № {list} тауарлар бойынша жазылған төлемдер жоқ, 47 және В бағандары бос болады.',
+        printConfirm: 'Басып шығару',
         docsError: 'Құжаттарды жүктеу мүмкін болмады',
       },
       number: {

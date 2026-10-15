@@ -1367,6 +1367,8 @@ export default {
         printOpen: 'Открыть печатную форму',
         printBlockedClose: 'Закрыть',
         printWithout: 'Печатать как есть',
+        printNoPaymentsText: 'В ДТ нет записанных платежей по товарам № {list}, гр. 47 и гр. В будут пустыми.',
+        printConfirm: 'Печатать',
         docsError: 'Не удалось скачать документы',
       },
       number: {
