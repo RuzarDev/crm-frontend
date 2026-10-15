@@ -382,6 +382,8 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
     oisCountryCode: g.oisCountryCode ?? null,
     markings: (g.markings ?? []).map((m) => ({ ...m })),
     extras: extrasWithoutRowFields(g.extras),
+    ntins: [...(g.ntins ?? [])],
+    gtin: g.gtin ?? null,
     // Выбор по КЕДЕН (вид акциза, антидемпинг) и количества в единицах ставок. Без них при загрузке
     // ДТ выбор терялся, а автосейв затирал его в базе — расчёт снова брал первый вид акциза.
     exciseKind: g.exciseKind ?? null,

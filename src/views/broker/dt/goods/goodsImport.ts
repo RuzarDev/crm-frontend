@@ -7,6 +7,7 @@
 // packageKindCode, классификатор 2013): по коду, названию или «код — название». Не распознано — никуда не пишется,
 // предпросмотр показывает такие значения.
 import type { ClassifierItem, Import40GoodsItemInput, ReestrGoodsItemInput } from '@/types/api'
+import type { GoodsExcelRow } from '@/utils/goodsExcel'
 import { newDtGoodsItem } from './useDtGoods'
 
 export interface DtExcelContext {
@@ -34,7 +35,7 @@ export function packageKindFrom(raw: string | null | undefined, kinds: readonly 
 }
 
 /** Товары ДТ из строк Excel: пустой товар ДТ + распознанные поля; места — и в «места груза» (гр. 31, = кол-во мест). */
-export function dtGoodsFromExcel(rows: readonly ReestrGoodsItemInput[], ctx: DtExcelContext): Import40GoodsItemInput[] {
+export function dtGoodsFromExcel(rows: readonly GoodsExcelRow[], ctx: DtExcelContext): Import40GoodsItemInput[] {
   return rows.map((r) => {
     const g = newDtGoodsItem(ctx.currency)
     g.currency = ctx.currency || null
@@ -46,6 +47,9 @@ export function dtGoodsFromExcel(rows: readonly ReestrGoodsItemInput[], ctx: DtE
     g.grossWeightKg = r.grossWeightKg
     g.packagesCount = r.packagesCount
     g.cargoPlacesQuantity = r.packagesCount
+    // Гр. 33.3: NTIN (без повторов) и GTIN из столбцов «NTIN» / «GTIN».
+    g.ntins = [...new Set(r.ntins ?? [])]
+    g.gtin = r.gtin ?? null
     return g
   })
 }
@@ -55,12 +59,12 @@ export interface DtExcelPreview {
   rows: number
   withCode: number
   withoutCode: number
-  recognized: { description: number; gross: number; quantity: number; packaging: number; places: number }
+  recognized: { description: number; gross: number; quantity: number; packaging: number; places: number; tradeCodes: number }
   /** Значения «Вида упаковки», которых нет в классификаторе (без повторов) — в товары не попадут. */
   unknownPackaging: string[]
 }
 
-export function excelPreview(rows: readonly ReestrGoodsItemInput[], packageKinds: readonly ClassifierItem[]): DtExcelPreview {
+export function excelPreview(rows: readonly GoodsExcelRow[], packageKinds: readonly ClassifierItem[]): DtExcelPreview {
   const has = (v: unknown) => v !== null && v !== undefined && v !== ''
   const count = (pick: (r: ReestrGoodsItemInput) => unknown) => rows.filter((r) => has(pick(r))).length
   const withCode = count((r) => r.tnvedCode)
@@ -81,6 +85,7 @@ export function excelPreview(rows: readonly ReestrGoodsItemInput[], packageKinds
       quantity: count((r) => r.quantity),
       packaging,
       places: count((r) => r.packagesCount),
+      tradeCodes: rows.filter((r) => (r.ntins?.length ?? 0) > 0 || !!r.gtin).length,
     },
     unknownPackaging: [...unknown],
   }

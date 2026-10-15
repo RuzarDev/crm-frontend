@@ -116,6 +116,8 @@ export const newDtGoodsItem = (currency: string | null | undefined): Goods => ({
   oisCountryCode: null,
   markings: [],
   extras: null,
+  ntins: [],
+  gtin: null,
   exciseKind: null,
   antiDumpingKind: null,
   taxVolumeL: null,
@@ -154,6 +156,7 @@ export function cloneGoodsItem(g: Goods): Goods {
     markings: (g.markings ?? []).map(({ id: _id, ...m }) => ({ ...m })),
     extras: cloneGoodsExtras(g.extras),
     characteristics: cloneCharacteristics(g.characteristics),
+    ...(g.ntins ? { ntins: [...g.ntins] } : {}),
   }
 }
 

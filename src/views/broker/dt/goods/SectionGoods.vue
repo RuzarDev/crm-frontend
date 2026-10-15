@@ -11,7 +11,7 @@ import type { ReestrGoodsItemInput } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { confirmState, useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
-import { GOODS_EXCEL_ACCEPT, GOODS_EXCEL_MESSAGES, isExcelFileName, readGoodsExcel } from '@/utils/goodsExcel'
+import { GOODS_EXCEL_ACCEPT, GOODS_EXCEL_MESSAGES, isExcelFileName, readGoodsExcel, type GoodsExcelRow } from '@/utils/goodsExcel'
 import ApplyToSelectedModal from './ApplyToSelectedModal.vue'
 import GoodsBulkBar from './GoodsBulkBar.vue'
 import GoodsExcelImportModal from './GoodsExcelImportModal.vue'
@@ -177,7 +177,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const excelBusy = ref(false)
 const excelOpen = ref(false)
 const excelFile = ref('')
-const excelRows = shallowRef<ReestrGoodsItemInput[]>([])
+const excelRows = shallowRef<GoodsExcelRow[]>([])
 // Виды упаковки (классификатор 2013, грузит страница): «Вид упаковки товара» из Excel — в гр. 31 товара (X1).
 const packageKinds = computed(() => classifiers.cache['2013'] ?? [])
 const pickExcel = () => { if (editable.value) fileInput.value?.click() }
@@ -192,7 +192,7 @@ const onFile = async (e: Event) => {
   }
   excelBusy.value = true
   try {
-    const result = await readGoodsExcel(file)
+    const result = await readGoodsExcel(file, { tradeCodes: true })
     if ('problem' in result) {
       message.warning(t(GOODS_EXCEL_MESSAGES[result.problem]))
       return
