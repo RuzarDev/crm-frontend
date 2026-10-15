@@ -78,7 +78,18 @@ const onBorder = (i: number, v: unknown) => {
   if (i < list.length) Object.assign(list[i], row)
   else list.push(row)
 }
-const addBorder = () => { props.form.borderCustomsOffices.push({ code: '', name: '' }) }
+// Сервер принимает не больше 10 постов (400 сверх) — столько же даёт добавить форма.
+const MAX_BORDER_OFFICES = 10
+const isEmptyOffice = (o: Import40CustomsOffice) => !codeOf(o) && !(o.name ?? '').trim()
+// Новую строку — только когда все уже заполнены: пустые строки не копятся (в PUT они всё равно не уходят).
+const atBorderLimit = computed(() => offices.value.length >= MAX_BORDER_OFFICES)
+const canAddBorder = computed(() => !atBorderLimit.value && !offices.value.some(isEmptyOffice))
+const addBorder = () => { if (canAddBorder.value) props.form.borderCustomsOffices.push({ code: '', name: '' }) }
+// Для скринридера кнопки «удалить» различаются номером и кодом поста.
+const removeBorderLabel = (o: Import40CustomsOffice, i: number) => {
+  const code = codeOf(o)
+  return code ? tc('borderRemoveNCode', { n: i + 1, code }) : tc('borderRemoveN', { n: i + 1 })
+}
 const removeBorder = (i: number) => { props.form.borderCustomsOffices.splice(i, 1) }
 // Стабильный ключ строки (не индекс): после удаления средней остальные поля не перемешиваются.
 const borderIds = new WeakMap<object, number>()
@@ -241,8 +252,8 @@ const graphTag = 'font-mono text-xs font-normal text-muted'
               v-if="!readonly && borderRows.length > 1"
               variant="danger-ghost"
               class="size-11 shrink-0 px-0 @md:size-9"
-              :aria-label="tc('borderRemove')"
-              :title="tc('borderRemove')"
+              :aria-label="removeBorderLabel(o, i)"
+              :title="removeBorderLabel(o, i)"
               data-border-remove
               @click="removeBorder(i)"
             >
@@ -252,10 +263,10 @@ const graphTag = 'font-mono text-xs font-normal text-muted'
         </ZField>
       </div>
       <div v-if="!readonly && offices.length" class="flex flex-col items-start gap-1">
-        <ZButton variant="ghost" class="max-sm:h-11" data-border-add @click="addBorder">
+        <ZButton variant="ghost" class="max-sm:h-11" :disabled="!canAddBorder" data-border-add @click="addBorder">
           <PhPlus :size="16" aria-hidden="true" />{{ tc('borderAdd') }}
         </ZButton>
-        <span class="text-xs text-muted">{{ tc('borderHint') }}</span>
+        <span class="text-xs text-muted" data-border-hint>{{ atBorderLimit ? tc('borderLimit', { n: MAX_BORDER_OFFICES }) : tc('borderHint') }}</span>
       </div>
     </div>
 

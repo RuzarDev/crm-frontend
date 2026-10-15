@@ -105,6 +105,47 @@ describe('SectionCustoms — гр. 29', () => {
     expect(w.find('[data-border-remove]').exists()).toBe(false)
   })
 
+  it('«Добавить пост» недоступна, пока есть пустая строка; доступна снова после выбора', async () => {
+    await mount({ borderCustomsOffices: [{ code: '55300', name: 'ТАМОЖЕННЫЙ ПОСТ «ДОСТЫК»' }] })
+    const add = () => w.get('[data-border-add]')
+    expect(add().attributes('disabled')).toBeUndefined()
+    await add().trigger('click')
+    expect(form.borderCustomsOffices).toHaveLength(2)
+    expect(add().attributes('disabled')).toBeDefined()
+    await add().trigger('click') // выключенная кнопка строку не добавляет
+    expect(form.borderCustomsOffices).toHaveLength(2)
+
+    await openPost(1)
+    await pick('КОРГАС')
+    expect(add().attributes('disabled')).toBeUndefined()
+
+    // Очистили основной пост — снова есть пустая строка.
+    await w.findAll('[data-graph="29"] button[aria-label="Очистить"]')[0].trigger('click')
+    expect(add().attributes('disabled')).toBeDefined()
+  })
+
+  it('не больше 10 постов: на десятом «Добавить пост» недоступна и есть подсказка', async () => {
+    const ten = Array.from({ length: 10 }, (_, i) => ({ code: String(57000 + i), name: `ПОСТ ${i}` }))
+    await mount({ borderCustomsOffices: ten.slice(0, 9) })
+    expect(w.get('[data-border-add]').attributes('disabled')).toBeUndefined()
+    expect(w.get('[data-border-hint]').text()).not.toContain('Не больше')
+    w.unmount()
+    form.borderCustomsOffices = ten
+    await mount()
+    expect(w.get('[data-border-add]').attributes('disabled')).toBeDefined()
+    expect(w.get('[data-border-hint]').text()).toBe('Не больше 10 постов на границе.')
+  })
+
+  it('у кнопок удаления разные подписи: номер поста и его код', async () => {
+    await mount({ borderCustomsOffices: [{ code: '55300', name: 'А' }, { code: '', name: '57505 — ТАМОЖЕННЫЙ ПОСТ' }, { code: '', name: '' }] })
+    const labels = w.findAll('[data-border-remove]').map((b) => [b.attributes('aria-label'), b.attributes('title')])
+    expect(labels).toEqual([
+      ['Удалить пост № 1 (55300)', 'Удалить пост № 1 (55300)'],
+      ['Удалить пост № 2 (57505)', 'Удалить пост № 2 (57505)'],
+      ['Удалить пост № 3', 'Удалить пост № 3'],
+    ])
+  })
+
   it('только чтение — без кнопок добавления и удаления', async () => {
     await mount({ borderCustomsOffices: [{ code: '55300', name: 'А' }, { code: '55302', name: 'Б' }] }, { readonly: true })
     expect(w.findAll('[data-border-row]')).toHaveLength(2)
