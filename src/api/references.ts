@@ -46,7 +46,8 @@ export const referencesApi = {
 
   listOkeiUnits: async (opts?: { silent?: boolean }): Promise<RefOkeiUnit[]> =>
     (await apiClient.get('/ref/okei-units', opts?.silent ? { silent: true } : undefined)).data,
-  // shortName не передан — сервер берёт краткое наименование ЕЭК (создание) или оставляет прежнее (правка).
+  // shortName не передан — сервер берёт краткое наименование ЕЭК (создание) или оставляет прежнее (правка);
+  // '' — очистить: хранится пустым, сидер и синк ЕЭК его больше не восстанавливают.
   createOkeiUnit: async (code: string, name: string, shortName?: string): Promise<RefOkeiUnit> =>
     (await apiClient.post('/ref/okei-units', { code, name, shortName })).data,
   updateOkeiUnit: async (id: string, code: string, name: string, isActive: boolean, shortName?: string): Promise<RefOkeiUnit> =>
