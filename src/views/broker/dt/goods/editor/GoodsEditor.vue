@@ -2,7 +2,7 @@
 import { computed, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { injectDialogRootContext } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
-import { PhCaretDown, PhCaretUp, PhCopy, PhDotsThree, PhX } from '@phosphor-icons/vue'
+import { PhCaretDown, PhCaretUp, PhCopy, PhDotsThree, PhListBullets, PhX } from '@phosphor-icons/vue'
 import ZDrawer from '@/components/z/ZDrawer.vue'
 import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import ZKbd from '@/components/z/ZKbd.vue'
@@ -14,10 +14,11 @@ import { calendarLocale } from '@/ui/date'
 import { useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import { formatTnved } from '@/utils/tnvedFormat'
+import { pluralForm } from '@/views/broker/list'
 import type { Import40GoodsItemInput } from '@/types/api'
 import type { GoodsStatus } from '../goodsStatus'
 import { keyOf, type DtGoodsModel } from '../useDtGoods'
-import { tradeMarksOf } from './characteristics'
+import { isBlankCharacteristic, tradeMarksOf } from './characteristics'
 import { GOODS_EDITOR_SECTIONS } from './sections'
 import type { GoodsEditorContext, GoodsSaveState } from './types'
 
@@ -128,6 +129,23 @@ const goSection = (key: string) => {
   clearTimeout(scrollTimer)
   scrollTimer = setTimeout(() => { scrollingTo = null }, 600)
   el?.scrollIntoView?.({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' })
+}
+// «Характеристики: N строк» в шапке — строки гр. 31 (вкладка «Код и описание»): прокрутка к ним и фокус в первую ячейку
+// (декларант не находил, где заполнять строки, 15.10).
+const charsCount = computed(() => (item.value?.characteristics ?? []).filter((r) => !isBlankCharacteristic(r)).length)
+const charsLabel = computed(() => (charsCount.value
+  ? te(`charsEntry.${pluralForm(charsCount.value, locale.value)}`, { n: charsCount.value })
+  : te('charsEntry.none')))
+const goChars = async () => {
+  goSection('code')
+  await nextTick()
+  const block = scroller.value?.querySelector<HTMLElement>('[data-goods-characteristics]')
+  if (!block) return
+  block.scrollIntoView?.({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' })
+  // По порядку: первая ячейка таблицы, первая карточка, «Добавить строку» (querySelector со списком брал бы первый в DOM).
+  const target = ['input[data-f="char-0-name"]', '[data-char-toggle="0"]', '[data-chars-add]:not(:disabled)']
+    .map((sel) => block.querySelector<HTMLElement>(sel)).find(Boolean) ?? block
+  target.focus({ preventScroll: true })
 }
 const onScroll = () => {
   const box = scroller.value
@@ -292,6 +310,13 @@ const tabBtn = (on: boolean) => cn(
           <span class="shrink-0 font-mono font-semibold" :class="code ? 'text-ink' : 'text-danger'" data-goods-editor-code>{{ code ? formatTnved(code) : tg('noCode') }}</span>
           <span class="min-w-0 truncate text-ink-2" data-goods-editor-caption>{{ caption }}</span>
         </p>
+        <button
+          type="button"
+          class="mt-1.5 inline-flex cursor-pointer items-center gap-1.5 rounded-field border-0 bg-transparent p-0 font-sans text-[13px] text-zircon-ink outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
+          :title="te('charsEntry.hint')"
+          :data-goods-chars-entry="charsCount"
+          @click="goChars"
+        ><PhListBullets :size="15" aria-hidden="true" />{{ charsLabel }}</button>
         <nav class="-mb-px mt-3 flex gap-5 overflow-x-auto" :aria-label="te('tabs')" data-goods-tabs>
           <button
             v-for="s in sections"

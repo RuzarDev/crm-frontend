@@ -11,6 +11,7 @@ import { emptyDtForm, type DtFormState } from '../../dtPayload'
 import { useDtGoods } from '../useDtGoods'
 import { clearTariffCache } from '../useTariffOptions'
 import { resetOkeiUnits } from '../editor/okei'
+import { writeCharsMode } from '../editor/charsMode'
 import { resetTnvedDeiCache } from '../editor/tnvedDei'
 import type { GoodsPageContext, GoodsSaveState } from '../editor/types'
 import { resetDtTnvedCheckCache } from '../tnvedCodeCheck'
@@ -119,6 +120,7 @@ beforeEach(() => {
 afterEach(() => {
   w?.unmount()
   document.body.innerHTML = ''
+  localStorage.clear()
   confirmState.resolve(false)
   vi.clearAllMocks()
 })
@@ -351,6 +353,7 @@ describe('GoodsEditor: «Код и описание»', () => {
   })
 
   it('описание и бланк — ЗАГЛАВНЫМИ; подсказка ТРОИС под маркой (пакетная проверка марок после открытия)', async () => {
+    writeCharsMode('cards') // подсказка под полем марки — в карточке строки (таблица показывает только совпадения)
     trois.check.mockImplementation(async (names: string[]) => names.map((name) => ({ name, checked: true, matches: [] })))
     await mount([item({ characteristics: [{ tradeMarkName: 'SONY' }] }), item({ characteristics: [{ tradeMarkName: 'LG' }, { tradeMarkName: 'LG PRO' }] })])
     await new Promise((r) => setTimeout(r, 800))
@@ -590,7 +593,35 @@ describe('GoodsEditor: 200 товаров', () => {
   }, 30_000)
 })
 
+describe('GoodsEditor: «Характеристики: N строк» в шапке (декларант не находил строки, 15.10)', () => {
+  it('число непустых строк; нажатие — к таблице строк и фокус в первую ячейку; строк нет — «строк нет», фокус на «Добавить»', async () => {
+    await mount([
+      item({ characteristics: [{ name: 'А' }, { name: 'Б' }, {}] }),
+      item({ characteristics: Array.from({ length: 21 }, (_, i) => ({ name: `Т${i}` })) }),
+      item({ characteristics: [] }),
+    ], { query: '&item=1' })
+    const entry = () => q('[data-goods-chars-entry]')!
+    expect(entry().textContent).toBe('Характеристики: 2 строки')
+    expect(entry().getAttribute('title')).toContain('гр. 31')
+    entry().click()
+    await settle()
+    expect(q('[data-goods-tab="code"]')!.getAttribute('aria-current')).toBe('true')
+    expect(document.activeElement).toBe(field('char-0-name'))
+    expect(field('char-0-name').closest('[data-chars-grid]')).not.toBeNull()
+
+    await click('[data-goods-next]')
+    expect(entry().textContent).toBe('Характеристики: 21 строка')
+    await click('[data-goods-next]')
+    expect(entry().textContent).toBe('Характеристики: строк нет')
+    entry().click()
+    await settle()
+    expect(document.activeElement).toBe(q('[data-chars-add]'))
+  })
+})
+
 describe('GoodsEditor: строки характеристик гр. 31 (как «Характеристика товаров в группе» КЕДЕН)', () => {
+  // Вид «Карточки» (телефон или выбор пользователя); «Таблица» — GoodsCharacteristicsGrid.spec.
+  beforeEach(() => { writeCharsMode('cards') })
   const rowsOf = () => form.goodsItems[0].characteristics!
   const rowEls = () => [...panel()!.querySelectorAll<HTMLElement>('[data-char-row]')]
 
