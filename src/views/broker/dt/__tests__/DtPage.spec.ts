@@ -557,6 +557,21 @@ describe('DtPage: настоящие разделы «Условия и стои
     expect(w.find('[data-rate-type-more]').exists()).toBe(true)
   })
 
+  it('открытие ДТ с устаревшей гр. 23 не сохраняет: показан курс на дату, гр. 12 — по нему (16.10.2026)', async () => {
+    api.ratesOnDate.mockResolvedValue({ date: '2026-10-05', rates: { USD: 495.12, EUR: 541.3, KZT: 1 }, official: true })
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, rateType: 'ETT', totalSheets: 1, exchangeRate: 470 })] })
+    await open('?s=finance', ['SectionFinance'])
+    await settle()
+    expect((w.get('[data-exchange-rate]').element as HTMLInputElement).value).toBe('495,12 (НБ РК на 05.10.2026)')
+    expect(w.get('[data-dt-header]').text()).not.toContain('Есть несохранённые изменения')
+    expect(api.updateDeclaration).not.toHaveBeenCalled()
+    // Предпросмотр гр. 12 — по курсу на дату, не по сохранённым 470.
+    await w.get('[data-total-invoice]').setValue('1000')
+    await w.get('[data-total-invoice]').trigger('blur')
+    await settle()
+    expect((w.get('[data-customs-value]').element as HTMLInputElement).value.replace(/\s/g, ' ')).toContain('643 656,00') // 1000 × 495,12 + расходы 300 USD × 495,12
+  })
+
   it('«Органы»: правка номера СВХ и кода 52 уходит в PUT; открытие раздела форму не меняет', async () => {
     server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, rateType: 'ETT', totalSheets: 1 })] })
     await open('?s=customs', ['SectionCustoms'])

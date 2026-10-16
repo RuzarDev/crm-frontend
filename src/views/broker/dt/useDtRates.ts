@@ -2,9 +2,10 @@
 // Перенос из Import40DtView.vue (loadRatesOnDate, currencyBoxCodes, справочник валют) — волна 6а, Task 2.
 //
 // Решение владельца 16.10.2026: ручного курса нет. Дата курсов — дата гр.А, а пустая гр.А — сегодня (сервер отвечает
-// на запрос без даты курсами на сегодня и называет этот день). Гр.23 — курс валюты сделки (гр.22) на эту дату, только
-// чтение: как только курс известен и отличается от записанного, он пишется в гр.23 (при праве править) — и при смене
-// даты, и при загрузке ДТ со старым или правленым вручную курсом. Тот же курс и день у гр.45/46/47, ДТС и печати.
+// на запрос без даты курсами на сегодня и называет этот день). Гр.23 — курс валюты сделки (гр.22) на эту дату (dealRate),
+// только чтение; экран показывает и считает гр.12 по нему, сервер (печать, 1С, полнота) — так же сам. Сохранённый
+// form.exchangeRate — колонка для совместимости, на неё не опираемся: она обновляется только вслед за правкой
+// пользователя (смена даты гр.А или валюты гр.22), а при загрузке ДТ не пишется — открытие ДТ не должно её сохранять.
 import { computed, ref, watch } from 'vue'
 import { import40Api } from '@/api/import40'
 import { tnvedApi } from '@/api/tnved'
@@ -30,7 +31,7 @@ export interface DtRatesForm {
 export interface DtRatesOptions {
   /** Идёт загрузка ДТ в форму. */
   applying: () => boolean
-  /** Право править ДТ: только с ним гр.23 приводится к курсу на дату. По умолчанию — да. */
+  /** Право править ДТ: только с ним сохранённая гр.23 следует за правкой даты/валюты. По умолчанию — да. */
   canWrite?: () => boolean
 }
 
@@ -94,11 +95,16 @@ export function useDtRates(form: DtRatesForm, opts: DtRatesOptions) {
     }
   }
 
-  /** Гр.23 = курс сделки на дату курсов ДТ — при праве править и если отличается (ручного курса нет). */
+  // Пользователь сменил дату гр.А или валюту гр.22 — сохранённая гр.23 (совместимость) встанет на курс сделки, как только
+  // он известен. Загрузка ДТ флаг не ставит: открытие ДТ гр.23 не пишет и автосейв не будит.
+  let syncPending = false
   const syncDealRate = () => {
-    if (opts.canWrite && !opts.canWrite()) return
+    if (!syncPending) return
+    if (opts.canWrite && !opts.canWrite()) { syncPending = false; return }
     const deal = dealRate.value
-    if (deal && Number(form.exchangeRate) !== deal.rate) form.exchangeRate = deal.rate
+    if (!deal) return
+    syncPending = false
+    if (Number(form.exchangeRate) !== deal.rate) form.exchangeRate = deal.rate
   }
 
   let seq = 0
@@ -122,10 +128,17 @@ export function useDtRates(form: DtRatesForm, opts: DtRatesOptions) {
 
   watch(
     () => [toIsoDate(form.submissionDate), rateCodes.value.join(',')] as const,
-    () => { void refresh() },
+    (next, prev) => {
+      if (!opts.applying() && prev && next[0] !== prev[0]) syncPending = true
+      void refresh()
+    },
   )
-  // Смена валюты сделки на уже загруженную (набор кодов тот же) — гр.23 сразу за ней.
-  watch(() => up(form.currency), () => { if (!opts.applying()) syncDealRate() })
+  // Смена валюты сделки пользователем — гр.23 за ней (сразу, если курс уже загружен, иначе по ответу).
+  watch(() => up(form.currency), () => {
+    if (opts.applying()) return
+    syncPending = true
+    syncDealRate()
+  })
 
   return {
     currencyOptions,

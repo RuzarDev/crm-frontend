@@ -131,6 +131,7 @@ const totals = useDtTotals(() => form.goodsItems, form, rates.rates, dt.applying
   isDeduction: (code) => !!code && !!expenseDeductionByCode.value[code],
   serverCustomsValue: () => dt.lastServerDto.value?.totalCustomsValue,
   dirty: () => dt.dirty.value,
+  dealRate: () => rates.dealRate.value?.rate ?? null,
 })
 const legacyTotals = computed(() => ({
   goods: totals.goodsCount.value,

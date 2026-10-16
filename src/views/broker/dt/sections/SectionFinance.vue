@@ -65,11 +65,12 @@ const str = (v: unknown): string => (v == null ? '' : String(v))
 const fmtRate = (n: number) => formatNumberIn(locale.value, n, 4, 2)
 const fmtMoney = (n: number) => `${formatNumberIn(locale.value, n, 2, 2)} ₸`
 
-// Гр. 23 — «448,45 (НБ РК на 16.10.2026)». Курса на дату нет (валюта не выбрана, курсы не загрузились) — записанный, без даты.
+// Гр. 23 — «448,45 (НБ РК на 16.10.2026)». Курса на дату нет (валюта не выбрана, курсы не загрузились) — пусто: сохранённый
+// form.exchangeRate — колонка для совместимости, на неё не опираемся (решение 16.10.2026).
 const rateText = computed(() => {
   const d = props.dealRate
-  if (d) return d.date ? tf('rateValue', { rate: fmtRate(d.rate), date: formatDateText(d.date) }) : fmtRate(d.rate)
-  return props.form.exchangeRate != null ? fmtRate(Number(props.form.exchangeRate)) : ''
+  if (!d) return ''
+  return d.date ? tf('rateValue', { rate: fmtRate(d.rate), date: formatDateText(d.date) }) : fmtRate(d.rate)
 })
 
 // Выбор валюты — гр. 23 за ней ставит useDtRates (курс на дату курсов ДТ).
@@ -119,7 +120,7 @@ const onRateMenu = async () => {
 const stale = ref(false)
 watch(() => props.recalc, () => { stale.value = false })
 watch(
-  () => [props.form.exchangeRate, props.form.currency, props.form.totalInvoiceValue, JSON.stringify(props.form.expenses ?? [])],
+  () => [props.dealRate?.rate, props.form.currency, props.form.totalInvoiceValue, JSON.stringify(props.form.expenses ?? [])],
   () => { if (props.recalc) stale.value = true },
 )
 

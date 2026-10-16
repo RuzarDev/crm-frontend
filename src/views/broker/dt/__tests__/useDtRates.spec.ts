@@ -89,17 +89,19 @@ describe('useDtRates — курсы на дату гр.А', () => {
     expect(r.nbUnavailable.value).toBe(false)
   })
 
-  it('ручного курса нет (16.10.2026): при загрузке старый или правленый гр.23 встаёт на курс сделки на дату гр.А', async () => {
+  it('ручного курса нет (16.10.2026): гр.23 — курс сделки на дату гр.А; при загрузке сохранённый не пишется (открытие не сохраняет)', async () => {
     const { form, applying, r } = start()
     await load(form, applying, { submissionDate: '2026-10-05', currency: 'USD', exchangeRate: 470 })
     expect(r.dealRate.value).toEqual({ rate: 490, date: '2026-10-05' })
-    expect(form.exchangeRate).toBe(490)
+    expect(form.exchangeRate).toBe(470)
   })
 
-  it('без права править гр.23 не пишется — только показ курса на дату', async () => {
+  it('без права править гр.23 не пишется и при смене даты — только показ курса на дату', async () => {
     const { form, applying, r } = start({}, ref(false))
     await load(form, applying, { submissionDate: '2026-10-05', currency: 'USD', exchangeRate: 470 })
-    expect(r.dealRate.value?.rate).toBe(490)
+    form.submissionDate = '2026-10-01'
+    await flushPromises()
+    expect(r.dealRate.value?.rate).toBe(480)
     expect(form.exchangeRate).toBe(470)
   })
 
@@ -123,13 +125,14 @@ describe('useDtRates — курсы на дату гр.А', () => {
   it('смена набора валют — новый запрос, гр.23 — курс сделки; смена валюты сделки — гр.23 за ней', async () => {
     const { form, applying } = start()
     await load(form, applying, { submissionDate: '2026-10-05', currency: 'USD', exchangeRate: 490 })
+    api.ratesOnDate.mockImplementationOnce(async (date: string, codes: string[]) => ({
+      date, official: true, rates: Object.fromEntries(codes.map((c) => [c, c === 'CNY' ? 68 : 490])),
+    }))
     form.expenses = [{ currencyCode: 'CNY' }]
     await flushPromises()
     expect(api.ratesOnDate).toHaveBeenLastCalledWith('2026-10-05', ['CNY', 'EUR', 'USD'])
     expect(form.exchangeRate).toBe(490)
-    api.ratesOnDate.mockImplementationOnce(async (date: string, codes: string[]) => ({
-      date, official: true, rates: Object.fromEntries(codes.map((c) => [c, c === 'CNY' ? 68 : 490])),
-    }))
+    // Курс CNY уже загружен — гр.23 за валютой сразу, без нового запроса.
     form.currency = 'CNY'
     await flushPromises()
     expect(form.exchangeRate).toBe(68)
@@ -152,7 +155,8 @@ describe('useDtRates — курсы на дату гр.А', () => {
     expect(r.rates.value.USD).toEqual({ rate: 512.3, date: '2026-10-16' })
     expect(r.usdRate.value).toBe(512.3)
     expect(r.dealRate.value).toEqual({ rate: 512.3, date: '2026-10-16' })
-    expect(form.exchangeRate).toBe(512.3)
+    expect(form.exchangeRate).toBe(500) // открытие не пишет
+
   })
 
   it('ответ на прежнюю дату, пришедший позже, отбрасывается', async () => {

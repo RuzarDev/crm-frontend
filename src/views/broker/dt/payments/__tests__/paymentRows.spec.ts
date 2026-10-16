@@ -168,3 +168,20 @@ describe('ручные строки гр. 47 (решение 16.10.2026): «За
     expect(form.goodsItems[1].payments).toEqual([expect.objectContaining({ taxModeCode: '1010', amountKzt: 100, manual: true })])
   })
 })
+
+describe('НДС 5060 и ручная пошлина (16.10.2026)', () => {
+  it('НДС не ручной — пишется из расчёта (сервер считает его основу от ручной пошлины); ручной НДС — не трогается', () => {
+    const form = reactive(emptyDtForm()) as DtFormState
+    form.goodsItems = [
+      goods({ payments: [{ taxModeCode: '2010', amountKzt: 50000, manual: true }, { taxModeCode: '5060', amountKzt: 1 }] }),
+      goods({ payments: [{ taxModeCode: '2010', amountKzt: 50000, manual: true }, { taxModeCode: '5060', taxBase: 7, rateValue: 8, amountKzt: 9, manual: true }] }),
+    ] as never
+    const row = { taxModeCode: '5060', base: 1075950, rate: 16, amount: 172152 }
+    applyGoodsPaymentRows(form, calc([
+      { index: 0, rows: [{ taxModeCode: '2010', amount: 100000 }, row] } as never,
+      { index: 1, rows: [{ taxModeCode: '2010', amount: 100000 }, row] } as never,
+    ]))
+    expect(form.goodsItems[0].payments!.find((p) => p.taxModeCode === '5060')).toMatchObject({ taxBase: 1075950, amountKzt: 172152, calcAmountKzt: null })
+    expect(form.goodsItems[1].payments!.find((p) => p.taxModeCode === '5060')).toMatchObject({ taxBase: 7, rateValue: 8, amountKzt: 9, manual: true, calcAmountKzt: 172152 })
+  })
+})

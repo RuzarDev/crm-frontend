@@ -96,9 +96,9 @@ describe('SectionFinance — условия (гр. 20, 22, 23, 12, 24)', () => {
     expect(field('23').text()).toContain('если она пуста — на сегодня')
   })
 
-  it('гр. 23 без курса на дату — записанный курс без даты; без валюты — подсказка про гр. 22', () => {
+  it('гр. 23 без курса на дату — пусто (сохранённый курс не показываем); без валюты — подсказка про гр. 22', () => {
     mount({ currency: 'USD', exchangeRate: 470.5 }, { dealRate: null })
-    expect((w.get('[data-exchange-rate]').element as HTMLInputElement).value).toBe('470,50')
+    expect((w.get('[data-exchange-rate]').element as HTMLInputElement).value).toBe('')
     w.unmount()
     mount({ currency: '', exchangeRate: null }, { dealRate: null })
     expect((w.get('[data-exchange-rate]').element as HTMLInputElement).value).toBe('')
@@ -270,8 +270,7 @@ describe('SectionFinance — расходы и пересчёт гр. 45', () =>
     expect(res.text().replace(/\s/g, ' ')).toContain('1 234 567,50 ₸')
     expect(res.attributes('role')).toBe('status')
     expect(res.attributes('data-stale')).toBeUndefined()
-    form.exchangeRate = 500
-    await nextTick()
+    await w.setProps({ dealRate: { rate: 500, date: '2026-10-06' } })
     expect(w.get('[data-recalc-result]').attributes('data-stale')).toBeDefined()
     expect(w.get('[data-recalc-result]').text()).toContain('пересчитайте ещё раз')
     // Новый расчёт снимает пометку.
