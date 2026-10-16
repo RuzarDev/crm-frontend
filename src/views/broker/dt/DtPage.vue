@@ -518,13 +518,23 @@ const onDocs = async () => {
 
 // ---- Разделение ЕТТ/ВТО ----
 const splitOpen = ref(false)
-const splitInfo = computed(() => {
+// Решение владельца 16.10.2026: часть разделения повторно не делится — «Измените разделение из исходной ДТ»; у исходной
+// (все товары, только просмотр) пункт — «Изменить разделение» (окно в режиме change), право — как у правки ДТ.
+const isSplitPart = computed(() => !!dt.lastServerDto.value?.splitSourceDeclarationId)
+const splitMode = computed<'split' | 'change'>(() => (splitReplaced.value && !isSplitPart.value ? 'change' : 'split'))
+const noSplitRight = () => {
+  const c = kase.value
+  return c?.assignedDeclarantId && c.assignedDeclarantId !== user.value.userId ? t('broker.dt.header.splitAssigned') : t('broker.dt.header.splitRole')
+}
+const splitInfo = computed<{ show: boolean; reason: string; label?: string }>(() => {
   const show = !user.value.isClient
-  if (splitReplaced.value) return { show, reason: t('broker.dt.header.splitReplaced') }
+  if (isSplitPart.value) return { show, reason: t('broker.dt.header.splitPart') }
+  if (splitMode.value === 'change') {
+    return { show, label: t('broker.dt.header.changeSplit'), reason: kase.value && canEditDt(user.value, kase.value) ? '' : noSplitRight() }
+  }
   if (form.goodsItems.length < 1) return { show, reason: t('broker.dt.header.splitNoGoods') }
   if (editable.value) return { show, reason: '' }
-  const c = kase.value
-  return { show, reason: c?.assignedDeclarantId && c.assignedDeclarantId !== user.value.userId ? t('broker.dt.header.splitAssigned') : t('broker.dt.header.splitRole') }
+  return { show, reason: noSplitRight() }
 })
 const onSplit = async () => {
   if (splitInfo.value.reason) return
@@ -541,7 +551,16 @@ const saveBeforeSplit = async () => {
 const onSplitDone = async (res: Import40SplitResult) => {
   // Сервер пересчитывает платежи новых ДТ; не по всем — в ДТ ВТО сразу откроются «Платежи» с расчётом (?calc=payments).
   if (!res.paymentsRecalculated) message.warning(t('broker.dt.split.notRecalculated'))
-  message.success(res.ettDeclarationId ? t('broker.dt.split.done') : t('broker.dt.split.vtoCreated'))
+  if (res.replaced) {
+    // «Изменить разделение»: остаёмся на исходной ДТ — плашка покажет новые части; платежи не досчитаны — в ДТ ВТО.
+    message.success(t('broker.dt.split.changeDone'))
+    if (res.paymentsRecalculated) {
+      await dt.reload()
+      return
+    }
+  } else {
+    message.success(res.ettDeclarationId ? t('broker.dt.split.done') : t('broker.dt.split.vtoCreated'))
+  }
   await router.push({
     path: `/import-40/${caseId}/dt/${res.vtoDeclarationId}`,
     query: res.paymentsRecalculated ? {} : { calc: 'payments' },
@@ -742,11 +761,14 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
             :assigned-name="kase?.assignedDeclarantName ?? null"
             :stage="stage"
             :split="split"
+            :can-change-split="splitMode === 'change' && !splitInfo.reason"
+            :resplit="isSplitPart"
             :conflict="dt.conflict.value && editable"
             :save-error="editable ? dt.saveError.value : null"
             :saving="dt.saving.value"
             @reload="onReload"
             @retry="onSave"
+            @change-split="onSplit"
           />
 
           <div
@@ -890,6 +912,7 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
         :case-id="caseId"
         :dt-id="dtId"
         :goods-count="form.goodsItems.length"
+        :mode="splitMode"
         :save="saveBeforeSplit"
         @done="onSplitDone"
       />

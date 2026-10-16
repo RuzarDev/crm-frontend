@@ -32,8 +32,11 @@ const props = defineProps<{
   printLoading?: boolean
   docsLoading?: boolean
   paymentsLoading?: boolean
-  /** Пункт «Разделить на ЕТТ/ВТО»: показан (не клиенту), причина недоступности ('' — доступен). */
-  split: { show: boolean; reason: string }
+  /**
+   * Пункт «Разделить на ЕТТ/ВТО»: показан (не клиенту), причина недоступности ('' — доступен); label — другой текст пункта
+   * («Изменить разделение» у исходной ДТ).
+   */
+  split: { show: boolean; reason: string; label?: string }
   /**
    * Кнопка «До подачи» для узкого экрана; число пунктов (null — неизвестно); ratesOnly — в панели только курсы;
    * wide — и на широком экране (в разделе нет правой колонки — «ДТС»).
@@ -62,7 +65,7 @@ const crumbs = computed(() => [
   { label: t('broker.dt.page.dtCrumb') },
 ])
 
-const TAG_DOT = { ett: 'bg-zircon-ink', vto: 'bg-tone-submitted-fg', replaced: 'bg-ink-3' } as const
+const TAG_DOT = { ett: 'bg-zircon-ink', vto: 'bg-tone-submitted-fg', source: 'bg-ink-3' } as const
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
 const kbd = isMac ? '⌘S' : 'Ctrl S'
@@ -90,7 +93,7 @@ const moreItems = computed<ZDropdownItem[]>(() => [
       ]
     : []),
   ...(props.split.show
-    ? [{ key: 'split', label: t('broker.dt.header.split'), disabled: !!props.split.reason, hint: props.split.reason || undefined, divider: props.editable }]
+    ? [{ key: 'split', label: props.split.label ?? t('broker.dt.header.split'), disabled: !!props.split.reason, hint: props.split.reason || undefined, divider: props.editable }]
     : []),
 ])
 const onMore = (key: string) => {

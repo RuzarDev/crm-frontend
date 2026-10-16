@@ -4,7 +4,7 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
 
 const api = vi.hoisted(() => ({
-  splitSuggestion: vi.fn(), splitDeclaration: vi.fn(),
+  splitSuggestion: vi.fn(), splitState: vi.fn(), splitDeclaration: vi.fn(),
 }))
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/import40', async (orig) => ({ ...(await orig<typeof import('@/api/import40')>()), import40Api: api }))
@@ -83,6 +83,22 @@ describe('DtSplitModal', () => {
     bodyButton('Разделить')!.click()
     await settle()
     expect(api.splitDeclaration).not.toHaveBeenCalled()
+  })
+
+  it('«Изменить разделение»: предвыбор — текущая ВТО (и не-кандидат в ней), тот же выбор — кнопка выключена', async () => {
+    api.splitSuggestion.mockResolvedValue(rows)
+    api.splitState.mockResolvedValue({
+      sourceDeclarationId: 'd1', parts: [], vtoSortOrders: [2], goodsCarryOver: true, addedGoods: [], returnedSortOrders: [],
+      expensesFromSource: false, manualPaymentSortOrders: [], blockedReason: null,
+    })
+    w = mountModal({ mode: 'change' })
+    await settle()
+    const dialog = document.body.querySelector('[role="dialog"]') as HTMLElement
+    expect(dialog.textContent).toContain('Изменить разделение ЕТТ/ВТО')
+    expect(dialog.textContent).toContain('8473302008') // не кандидат, но сейчас в ВТО
+    expect(dialog.querySelectorAll('tbody [role="checkbox"][data-state="checked"]')).toHaveLength(1)
+    expect(dialog.querySelector('[data-dt-split-same]')).not.toBeNull()
+    expect(bodyButton('Изменить разделение')!.disabled).toBe(true)
   })
 })
 

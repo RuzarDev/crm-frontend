@@ -65,12 +65,17 @@ export function paymentsStale(goods: readonly { needsTpinRecalc?: boolean | null
   return goods.length > 0 && goods.some(goodsPaymentsStale)
 }
 
-export type DtRateTag = { kind: 'replaced' } | { kind: 'ett' } | { kind: 'vto' }
+export type DtRateTag = { kind: 'source' } | { kind: 'ett' } | { kind: 'vto' }
 
-/** Тег в шапке: заменённая разделением — «Разделена»; ВТО — по роли разделения или типу ставок EATT; иначе ЕТТ. */
-export function rateTag(dto: Pick<Import40DeclarationDto, 'isSplitReplaced' | 'splitRole' | 'rateType'> | null | undefined): DtRateTag | null {
+/**
+ * Тег в шапке: исходная ДТ разделения — «Исходная ДТ · все товары»; часть — по роли разделения (и часть, которую до 16.10
+ * разделили ещё раз, — тоже по роли, а не «Разделена»); иначе ВТО по типу ставок EATT, остальное — ЕТТ.
+ */
+export function rateTag(
+  dto: Pick<Import40DeclarationDto, 'isSplitReplaced' | 'splitRole' | 'rateType' | 'splitSourceDeclarationId'> | null | undefined,
+): DtRateTag | null {
   if (!dto) return null
-  if (dto.isSplitReplaced) return { kind: 'replaced' }
+  if (dto.isSplitReplaced && !dto.splitSourceDeclarationId) return { kind: 'source' }
   const role = (dto.splitRole ?? '').toUpperCase()
   if (role === 'VTO') return { kind: 'vto' }
   if (role === 'ETT') return { kind: 'ett' }

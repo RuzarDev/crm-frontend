@@ -7,7 +7,8 @@ import ZButton from '@/components/z/ZButton.vue'
 import { dtPath } from '@/views/broker/case/declarations'
 import type { DtReadonlyReason } from './dtPageModel'
 
-// Плашки над разделами ДТ (доска DtReadonly): «ДТ разделена — правки закрыты» со ссылками на ЕТТ и ВТО;
+// Плашки над разделами ДТ (доска DtReadonly): исходная ДТ разделения — «все товары, только просмотр, печать и Excel» со
+// ссылками на части ЕТТ и ВТО и «Изменить разделение» (16.10);
 // «Только просмотр» с причиной (закреплена за …, этап …); 409 «изменена в другом окне» с «Перезагрузить»;
 // ошибка сохранения с причиной и «Повторить».
 interface DtLink { id: string; declarationNumber?: string | null }
@@ -16,13 +17,17 @@ defineProps<{
   readonlyReason: DtReadonlyReason | null
   assignedName: string | null
   stage: string
-  /** ДТ заменена разделением: ДТ ЕТТ и ВТО вместо неё; null — не разделена. */
+  /** Исходная ДТ разделения: её части ЕТТ и ВТО; null — не исходная. */
   split: { ett: DtLink | null; vto: DtLink | null } | null
+  /** Кнопка «Изменить разделение» в плашке исходной ДТ (право править ДТ). */
+  canChangeSplit?: boolean
+  /** Не исходная, а часть, которую до 16.10 разделили ещё раз: те же ссылки на её части, другой текст. */
+  resplit?: boolean
   conflict: boolean
   saveError: string | null
   saving: boolean
 }>()
-const emit = defineEmits<{ reload: []; retry: [] }>()
+const emit = defineEmits<{ reload: []; retry: []; changeSplit: [] }>()
 const { t } = useI18n()
 
 const linkClass = 'rounded-field font-mono text-zircon-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus'
@@ -33,9 +38,9 @@ const linkClass = 'rounded-field font-mono text-zircon-ink no-underline outline-
     <div v-if="split" class="flex items-start gap-3 rounded-panel border border-line bg-sunken px-4 py-3 text-[13.5px] text-ink-2" role="status" data-dt-banner-split>
       <PhArrowsSplit :size="18" class="mt-px shrink-0 text-ink-3" aria-hidden="true" />
       <p class="m-0 min-w-0">
-        <b class="font-semibold text-ink">{{ t('broker.dt.banners.splitTitle') }}</b>
+        <b class="font-semibold text-ink">{{ resplit ? t('broker.dt.banners.resplitTitle') : t('broker.dt.banners.splitTitle') }}</b>
         <template v-if="split.ett || split.vto">
-          {{ ' ' }}{{ t('broker.dt.banners.splitInstead') }}
+          {{ ' ' }}{{ resplit ? t('broker.dt.banners.resplitText') : t('broker.dt.banners.splitInstead') }}
           <template v-if="split.ett">
             {{ t('broker.dt.header.tag.ett') }}
             <RouterLink :to="dtPath(caseId, split.ett.id)" :class="linkClass" data-dt-split-ett>{{ split.ett.declarationNumber || t('broker.dt.banners.noNumber') }}</RouterLink>
@@ -47,6 +52,9 @@ const linkClass = 'rounded-field font-mono text-zircon-ink no-underline outline-
           </template>.
         </template>
       </p>
+      <ZButton v-if="canChangeSplit" size="sm" class="ml-auto shrink-0 max-sm:h-11" data-dt-change-split @click="emit('changeSplit')">
+        {{ t('broker.dt.banners.changeSplit') }}
+      </ZButton>
     </div>
 
     <div v-if="readonlyReason" class="flex items-start gap-3 rounded-panel border border-tone-info-bg bg-tone-info-bg px-4 py-3 text-[13.5px] text-ink-2" role="status" data-dt-banner-view>

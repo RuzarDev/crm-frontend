@@ -12,7 +12,7 @@ import { dtsGoods, dtsSheet, dtsView } from '../dts/__tests__/dtsFixture'
 const api = vi.hoisted(() => ({
   get: vi.fn(), updateDeclaration: vi.fn(), kedenReadiness: vi.fn(), ratesOnDate: vi.fn(),
   downloadKedenXml: vi.fn(), blankPdf: vi.fn(), downloadAllDocuments: vi.fn(),
-  splitSuggestion: vi.fn(), splitDeclaration: vi.fn(), calculatePayments: vi.fn(), calculateCustomsValue: vi.fn(),
+  splitSuggestion: vi.fn(), splitState: vi.fn(), splitDeclaration: vi.fn(), calculatePayments: vi.fn(), calculateCustomsValue: vi.fn(),
 }))
 const dts = vi.hoisted(() => ({ get: vi.fn(), pdf: vi.fn(), xml: vi.fn() }))
 const refs = vi.hoisted(() => ({ listCountries: vi.fn(), listCustomsPosts: vi.fn(), listCustomsDgds: vi.fn(async () => []), listExpenseTypes: vi.fn(), listOkeiUnits: vi.fn(async () => []) }))
@@ -960,7 +960,7 @@ describe('DtPage: сохранение и режимы', () => {
     openSpy.mockRestore()
   })
 
-  it('разделённая ДТ: плашка со ссылками на ЕТТ и ВТО, тег «Разделена», правка и XML закрыты', async () => {
+  it('исходная ДТ: плашка со ссылками на ЕТТ и ВТО, тег «Исходная ДТ», правка и XML закрыты', async () => {
     server = caseDto({
       status: 2, assignedDeclarantId: 'me',
       declarations: [
@@ -973,7 +973,9 @@ describe('DtPage: сохранение и режимы', () => {
     const banner = w.get('[data-dt-banner-split]')
     expect(banner.get('[data-dt-split-ett]').attributes('href')).toBe('/import-40/case1/dt/e1')
     expect(banner.get('[data-dt-split-vto]').attributes('href')).toBe('/import-40/case1/dt/v1')
-    expect(w.get('[data-dt-tag]').text()).toBe('Разделена')
+    expect(w.get('[data-dt-tag]').text()).toBe('Исходная ДТ · все товары')
+    // Просмотр: печать бланка и документы — кнопками.
+    expect(w.find('[data-dt-print]').exists()).toBe(true)
     expect(w.find('[data-dt-banner-view]').exists()).toBe(false)
     expect(w.find('[data-dt-xml]').exists()).toBe(false)
     expect(w.find('[data-dt-save]').exists()).toBe(false)
@@ -1082,6 +1084,98 @@ describe('DtPage: сохранение и режимы', () => {
     expect(toast.success).toHaveBeenCalledWith('Создана ДТ по ставкам ВТО, платежи пересчитаны по пониженной ставке')
     expect(router.currentRoute.value.path).toBe('/import-40/case1/dt/v1')
     expect(router.currentRoute.value.query.calc).toBe('payments')
+  })
+
+  // Решение владельца 16.10.2026: часть разделения повторно не делится.
+  it('часть разделения: «Разделить» выключен — «Измените разделение из исходной ДТ»', async () => {
+    server = caseDto({
+      status: 2, assignedDeclarantId: 'me',
+      declarations: [
+        fullDto({ id: 'src', isSplitReplaced: true, splitRole: null }),
+        fullDto({ splitSourceDeclarationId: 'src', splitRole: 'VTO', rateType: 'EATT' }),
+      ],
+    })
+    await open()
+    expect(w.get('[data-dt-tag]').text()).toBe('ВТО')
+    await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
+    await settle()
+    const item = [...document.body.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent?.includes('Разделить на ЕТТ/ВТО')) as HTMLElement
+    expect(item.getAttribute('data-disabled')).not.toBeNull()
+    expect(item.querySelector('[data-z-dropdown-hint]')?.textContent).toBe('Измените разделение из исходной ДТ')
+  })
+
+  it('исходная ДТ: «Изменить разделение» — предвыбор текущей ВТО, список последствий, подтверждение, замена частей', async () => {
+    server = caseDto({
+      status: 2, assignedDeclarantId: 'me',
+      declarations: [
+        fullDto({ isSplitReplaced: true, splitRole: null, goodsItems: [fullGoodsDto(), fullGoodsDto({ id: 'g2', sortOrder: 1 })] }),
+        fullDto({ id: 'e1', declarationNumber: 'E-1', splitSourceDeclarationId: 'dt1', splitRole: 'ETT' }),
+        fullDto({ id: 'v1', declarationNumber: '', splitSourceDeclarationId: 'dt1', splitRole: 'VTO' }),
+      ],
+    })
+    api.splitSuggestion.mockResolvedValue([
+      { sortOrder: 0, tnvedCode: '7318150000', vtoStatus: 'ВТО', isVtoCandidate: true },
+      { sortOrder: 1, tnvedCode: '8471300000', vtoStatus: 'ВТО', isVtoCandidate: false },
+    ])
+    api.splitState.mockResolvedValue({
+      sourceDeclarationId: 'dt1',
+      parts: [
+        { id: 'e1', role: 'ETT', declarationNumber: 'E-1', goodsCount: 1, hasPayments: true, factPaymentsCount: 1, hasChildren: false },
+        { id: 'v1', role: 'VTO', declarationNumber: '', goodsCount: 1, hasPayments: true, factPaymentsCount: 1, hasChildren: false },
+      ],
+      vtoSortOrders: [1], goodsCarryOver: true, addedGoods: [{ declarationId: 'e1', role: 'ETT', sortOrder: 1, description: 'ДОБАВЛЕН', tnvedCode: null }],
+      returnedSortOrders: [], expensesFromSource: false, manualPaymentSortOrders: [0], blockedReason: null,
+    })
+    api.splitDeclaration.mockResolvedValue({ originalDeclarationId: 'dt1', ettDeclarationId: null, vtoDeclarationId: 'v1', paymentsRecalculated: true, replaced: true })
+    await open()
+    expect(w.get('[data-dt-banner-split] [data-dt-change-split]').text()).toBe('Изменить разделение')
+    const gets = api.get.mock.calls.length
+    await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
+    await settle()
+    ;([...document.body.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent?.includes('Изменить разделение')) as HTMLElement).click()
+    await settle()
+    expect(api.splitState).toHaveBeenCalledWith('case1', 'dt1')
+    const dialog = document.body.querySelector('[data-dt-split-modal="change"]') as HTMLElement
+    // Товар 2 — не кандидат, но сейчас в ВТО: в списке и отмечен.
+    expect(dialog.textContent).toContain('8471300000')
+    expect(dialog.querySelectorAll('tbody [role="checkbox"][data-state="checked"]')).toHaveLength(1)
+    ;(dialog.querySelector('tbody [role="checkbox"][data-state="unchecked"]') as HTMLElement).click()
+    await settle()
+    const notes = (document.body.querySelector('[data-dt-split-notes]') as HTMLElement).textContent!
+    expect(notes).toContain('Часть ЕТТ E-1 будет удалена')
+    expect(notes).toContain('Пропадут товары, добавленные в части вручную: ДОБАВЛЕН.')
+    expect(notes).toContain('Ручные строки гр.47 останутся у товаров № 1')
+    ;([...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Изменить разделение' && b.closest('[data-dt-split-modal]')) as HTMLButtonElement).click()
+    await settle()
+    expect(confirmState.open).toBe(true)
+    expect(confirmState.title).toBe('Заменить части ЕТТ/ВТО?')
+    expect(confirmState.content).toContain('Часть ЕТТ E-1 будет удалена')
+    expect(api.splitDeclaration).not.toHaveBeenCalled()
+    confirmState.resolve(true)
+    await settle()
+    expect(api.splitDeclaration).toHaveBeenCalledWith('case1', 'dt1', { vtoGoodSortOrders: [0, 1], replaceExisting: true })
+    expect(toast.success).toHaveBeenCalledWith('Разделение изменено: части пересобраны, платежи пересчитаны')
+    // Остаёмся на исходной ДТ, данные перечитаны.
+    expect(router.currentRoute.value.path).toBe('/import-40/case1/dt/dt1')
+    expect(api.get.mock.calls.length).toBeGreaterThan(gets)
+  })
+
+  it('исходная ДТ: изменить нельзя (часть выпущена) — причина, окно закрывается', async () => {
+    server = caseDto({
+      status: 2, assignedDeclarantId: 'me',
+      declarations: [fullDto({ isSplitReplaced: true, splitRole: null }), fullDto({ id: 'v1', splitSourceDeclarationId: 'dt1', splitRole: 'VTO' })],
+    })
+    api.splitSuggestion.mockResolvedValue([{ sortOrder: 0, tnvedCode: '7318150000', vtoStatus: 'ВТО', isVtoCandidate: true }])
+    api.splitState.mockResolvedValue({
+      sourceDeclarationId: 'dt1', parts: [], vtoSortOrders: [0], goodsCarryOver: true, addedGoods: [], returnedSortOrders: [],
+      expensesFromSource: false, manualPaymentSortOrders: [], blockedReason: 'Часть ВТО без номера выпущена — менять разделение нельзя',
+    })
+    await open()
+    await w.get('[data-dt-banner-split] [data-dt-change-split]').trigger('click')
+    await settle()
+    expect(toast.warning).toHaveBeenCalledWith('Часть ВТО без номера выпущена — менять разделение нельзя')
+    expect(document.body.querySelector('[data-dt-split-notes]')).toBeNull()
+    expect(api.splitDeclaration).not.toHaveBeenCalled()
   })
 })
 

@@ -5,14 +5,19 @@ import ZAlert from '@/components/z/ZAlert.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZTable from '@/components/z/ZTable.vue'
 import ZTooltip from '@/components/z/ZTooltip.vue'
-import { import40Api, type Import40SplitResult, type Import40SplitSuggestionRow } from '@/api/import40'
+import { import40Api, type Import40SplitResult, type Import40SplitState, type Import40SplitSuggestionRow } from '@/api/import40'
+import { useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import type { ZColumn, ZKey } from '@/ui/table'
+import { splitChangeNotes, splitUnchanged } from './splitChange'
 
 // «Разделить на ЕТТ/ВТО» (поведение как в прежнем окне): при открытии — подсказка сервера по СОХРАНЁННОЙ ДТ
 // (страница сохраняет перед открытием); в таблице только кандидаты ВТО, по умолчанию отмечены; кандидатов нет —
 // сообщение и окно не показывается. Отмечены все товары ДТ — одна ДТ ВТО без ЕТТ-части. Перед разделением —
 // ещё одно сохранение (правки, сделанные после открытия), затем POST split; результат — родителю (переход в ВТО).
+// mode 'change' — «Изменить разделение» исходной ДТ (16.10): те же товары исходной (кандидаты и те, что сейчас в ВТО),
+// предвыбор — текущая часть ВТО; под таблицей — что сохранится, пропадёт или вернётся; «Заменить части» — ещё одно
+// подтверждение со списком, затем POST split с replaceExisting. Изменить нельзя (часть подана/выпущена) — причина, окно закрывается.
 const props = defineProps<{
   open: boolean
   caseId: string
@@ -20,10 +25,15 @@ const props = defineProps<{
   goodsCount: number
   /** Сохранить ДТ перед разделением (тихо). */
   save: () => Promise<boolean>
+  /** 'change' — «Изменить разделение» исходной ДТ (части заменяются). */
+  mode?: 'split' | 'change'
 }>()
 const emit = defineEmits<{ 'update:open': [open: boolean]; done: [res: Import40SplitResult] }>()
 const { t } = useI18n()
+const { confirm } = useConfirm()
 
+const changing = computed(() => props.mode === 'change')
+const state = ref<Import40SplitState | null>(null)
 const loading = ref(false)
 const splitting = ref(false)
 const rows = ref<Import40SplitSuggestionRow[]>([])
@@ -36,16 +46,27 @@ watch(() => props.open, async (open) => {
   loading.value = true
   rows.value = []
   selected.value = []
+  state.value = null
   try {
-    const all = await import40Api.splitSuggestion(props.caseId, props.dtId)
-    const candidates = all.filter((r) => r.isVtoCandidate)
+    const [all, st] = await Promise.all([
+      import40Api.splitSuggestion(props.caseId, props.dtId),
+      changing.value ? import40Api.splitState(props.caseId, props.dtId) : Promise.resolve(null),
+    ])
+    if (st?.blockedReason) {
+      close()
+      message.warning(st.blockedReason)
+      return
+    }
+    const current = new Set(st?.vtoSortOrders ?? [])
+    const candidates = all.filter((r) => r.isVtoCandidate || current.has(r.sortOrder))
     if (!candidates.length) {
       close()
       message.info(t('broker.dt.split.noCandidates'))
       return
     }
+    state.value = st
     rows.value = candidates
-    selected.value = candidates.map((r) => r.sortOrder)
+    selected.value = st ? candidates.filter((r) => current.has(r.sortOrder)).map((r) => r.sortOrder) : candidates.map((r) => r.sortOrder)
   } catch {
     close() // текст ошибки показал общий перехватчик
   } finally {
@@ -53,10 +74,16 @@ watch(() => props.open, async (open) => {
   }
 }, { immediate: true })
 
+const picked = computed(() => rows.value.filter((r) => selected.value.includes(r.sortOrder)).map((r) => r.sortOrder))
+/** «Изменить разделение»: что сохранится, пропадёт или вернётся при текущем выборе. */
+const notes = computed(() => (state.value ? splitChangeNotes(state.value, picked.value, props.goodsCount, t) : []))
+const unchanged = computed(() => !!state.value && splitUnchanged(state.value, picked.value))
+
 /** Отмечены все товары ДТ (в т.ч. единственный) — ЕТТ-части не будет. */
 const vtoOnly = computed(() => rows.value.length > 0 && selected.value.length === props.goodsCount)
 
 const columns = computed<ZColumn<Import40SplitSuggestionRow>[]>(() => [
+  { title: '№', dataIndex: 'sortOrder', key: 'no', width: 56 },
   { title: t('broker.dt.split.tnved'), dataIndex: 'tnvedCode', key: 'tnvedCode', width: 140 },
   { title: t('broker.dt.split.vtoStatus'), dataIndex: 'vtoStatus', key: 'vtoStatus' },
   { title: t('broker.dt.split.ettDuty'), dataIndex: 'ettRate', key: 'ettRate', width: 110 },
@@ -68,12 +95,23 @@ const rowSelection = computed(() => ({
 }))
 
 const onOk = async () => {
-  if (splitting.value || !selected.value.length) return
-  const vtoGoodSortOrders = rows.value.filter((r) => selected.value.includes(r.sortOrder)).map((r) => r.sortOrder)
+  if (splitting.value || !selected.value.length || unchanged.value) return
+  const vtoGoodSortOrders = picked.value
+  if (changing.value) {
+    const ok = await confirm({
+      title: t('broker.dt.split.changeConfirmTitle'),
+      content: notes.value.join('\n'),
+      okText: t('broker.dt.split.changeConfirmOk'),
+      cancelText: t('broker.dt.split.cancel'),
+      danger: true,
+    })
+    if (!ok) return
+  }
   splitting.value = true
   try {
     if (!(await props.save())) return
-    const res = await import40Api.splitDeclaration(props.caseId, props.dtId, { vtoGoodSortOrders })
+    const res = await import40Api.splitDeclaration(props.caseId, props.dtId,
+      changing.value ? { vtoGoodSortOrders, replaceExisting: true } : { vtoGoodSortOrders })
     close()
     emit('done', res)
   } catch {
@@ -87,18 +125,18 @@ const onOk = async () => {
 <template>
   <ZModal
     :open="open"
-    :title="t('broker.dt.split.title')"
+    :title="changing ? t('broker.dt.split.changeTitle') : t('broker.dt.split.title')"
     :width="760"
-    :ok-text="vtoOnly ? t('broker.dt.split.createVto') : t('broker.dt.split.split')"
+    :ok-text="changing ? t('broker.dt.split.change') : vtoOnly ? t('broker.dt.split.createVto') : t('broker.dt.split.split')"
     :cancel-text="t('broker.dt.split.cancel')"
     :confirm-loading="splitting"
-    :ok-button-props="{ disabled: loading || !selected.length }"
-    data-dt-split-modal
+    :ok-button-props="{ disabled: loading || !selected.length || unchanged }"
+    :data-dt-split-modal="changing ? 'change' : 'split'"
     @update:open="emit('update:open', $event)"
     @ok="onOk"
   >
-    <p class="m-0 mb-3 text-sm text-ink-3">{{ t('broker.dt.split.hint') }}</p>
-    <ZAlert v-if="vtoOnly" type="info" show-icon :message="t('broker.dt.split.vtoOnly')" class="mb-3" data-dt-split-vto-only />
+    <p class="m-0 mb-3 text-sm text-ink-3">{{ changing ? t('broker.dt.split.changeHint') : t('broker.dt.split.hint') }}</p>
+    <ZAlert v-if="vtoOnly && !changing" type="info" show-icon :message="t('broker.dt.split.vtoOnly')" class="mb-3" data-dt-split-vto-only />
     <ZTable
       :columns="columns"
       :data-source="rows"
@@ -110,7 +148,8 @@ const onOk = async () => {
       :aria-label="t('broker.dt.split.tableLabel')"
     >
       <template #bodyCell="{ column, record }">
-        <span v-if="column.key === 'tnvedCode'" class="font-mono">{{ record.tnvedCode || '—' }}</span>
+        <span v-if="column.key === 'no'" class="tabular-nums text-ink-3">{{ record.sortOrder + 1 }}</span>
+        <span v-else-if="column.key === 'tnvedCode'" class="font-mono">{{ record.tnvedCode || '—' }}</span>
         <ZTooltip v-else-if="column.key === 'vtoStatus'" :title="record.vtoStatus || ''">
           <span class="line-clamp-2 text-ink-2">{{ record.vtoStatus || '—' }}</span>
         </ZTooltip>
@@ -118,5 +157,11 @@ const onOk = async () => {
         <template v-else-if="column.key === 'vtoRate'">{{ record.vtoRate || '—' }}</template>
       </template>
     </ZTable>
+    <p v-if="unchanged" class="m-0 mt-3 text-[13px] text-ink-3" data-dt-split-same>{{ t('broker.dt.split.changeSame') }}</p>
+    <ZAlert v-else-if="notes.length" type="warning" show-icon :message="t('broker.dt.split.changeConfirmTitle')" class="mt-3" data-dt-split-notes>
+      <ul class="m-0 mt-1 flex list-disc flex-col gap-0.5 pl-5 text-[13px]">
+        <li v-for="n in notes" :key="n">{{ n }}</li>
+      </ul>
+    </ZAlert>
   </ZModal>
 </template>

@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
-import { PhCode, PhDotsThree, PhDownloadSimple, PhPlus, PhSparkle } from '@phosphor-icons/vue'
+import { PhArrowElbowDownRight, PhCode, PhDotsThree, PhDownloadSimple, PhPlus, PhSparkle } from '@phosphor-icons/vue'
 import ZAlert from '@/components/z/ZAlert.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZDropdown from '@/components/z/ZDropdown.vue'
@@ -19,13 +19,19 @@ import { formatMoney } from '@/ui/number'
 import type { CaseStepProps } from '../caseContext'
 import { hintText } from '../casePermissions'
 import { dtLabel } from '../caseSteps'
-import { dtListActive, dtPath, dtRowActions, filterDeclarations, missingPreview, previewToUpsert, splitTag } from '../declarations'
+import {
+  dtListActive, dtPath, dtRowActions, filterDeclarations, groupDeclarations, hasSplitParts, missingPreview, previewToUpsert, splitTag,
+  type DtListRow,
+} from '../declarations'
 import ExtractionIssuesModal from './ExtractionIssuesModal.vue'
 import QuoteImportModal from './QuoteImportModal.vue'
 
 // Список ДТ шага 3 (доска Case): полоса «Декларации · N» с действиями, поиск при N > 1, строки ДТ.
-// Строка: номер или «ДТ i» (ссылка на страницу ДТ), тег разделения ЕТТ/ВТО/«Разделена» (заменённая приглушена),
-// «товаров: N», полоса заполненности из сводки готовности (ctx.readiness — без запросов по каждой ДТ) и «не хватает: …».
+// Строка: номер или «ДТ i» (ссылка на страницу ДТ), тег разделения, «товаров: N», полоса заполненности из сводки
+// готовности (ctx.readiness — без запросов по каждой ДТ) и «не хватает: …».
+// Разделение ЕТТ/ВТО (решение владельца 16.10.2026): исходная ДТ — «Исходная ДТ», «все товары: N», только «Открыть»
+// (просмотр, печать, Excel); её части — сразу под ней со сдвигом; часть, разделённая ещё раз до 16.10, — тег роли и
+// «Разделена повторно», её части — ниже. Исходную с частями удалить нельзя — пункт выключен с причиной.
 // Действия над списком (добавить, из документов, из КП, пакетная выгрузка) — только на текущем шаге 3
 // (declarations.dtListActive). «Заполнить» и XML в строке — на текущем шаге 3 и после него тем, кто может править ДТ
 // (perms.canEditDt — правило страницы ДТ и сервера: админ, РОП, назначенный декларант; решения владельца 09.10),
@@ -51,7 +57,9 @@ const blocked = (key: string) => !canDeclare.value || (busy() && !pending(key))
 const tags = computed(() => new Map(all.value.map((d) => [d.id, splitTag(d, all.value, t)])))
 
 const query = ref('')
-const rows = computed(() => filterDeclarations(all.value, query.value))
+const rows = computed(() => groupDeclarations(filterDeclarations(all.value, query.value)))
+/** Строка только для просмотра: исходная ДТ разделения или повторно разделённая часть — правят их части. */
+const viewOnly = (row: DtListRow<Import40DeclarationDto>) => row.kind === 'source' || row.resplit
 
 const readinessById = computed(() => new Map<string, DeclarationReadiness>((props.ctx.readiness ?? []).map((r) => [r.declarationId, r])))
 const readyCount = computed(() => (props.ctx.readiness ?? []).filter((r) => r.isReady).length)
@@ -63,8 +71,9 @@ const expanded = reactive<Record<string, boolean>>({})
 // Свёрнутый «не хватает: …» — не больше двух строк (длинные названия граф не распирают строку ДТ), полный список — в title.
 const missingShown = (r: DeclarationReadiness) => (expanded[r.declarationId] ? { shown: r.missing, rest: 0 } : missingPreview(r.missing))
 
-const metaLine = (dt: Import40DeclarationDto) => {
-  const parts = [t('import40Case.goodsCount', { n: dt.goodsItems?.length ?? 0 })]
+const metaLine = (dt: Import40DeclarationDto, kind: DtListRow<Import40DeclarationDto>['kind']) => {
+  const n = dt.goodsItems?.length ?? 0
+  const parts = [kind === 'source' ? t('import40Case.splitSourceGoods', { n }) : t('import40Case.goodsCount', { n })]
   if (dt.totalInvoiceValue != null) parts.push(t('broker.case.declaring.list.value', { value: formatMoney(dt.totalInvoiceValue, dt.currency || '').trim() }))
   return parts.join(' · ')
 }
@@ -86,9 +95,14 @@ const removeDt = async (dt: Import40DeclarationDto) => {
 // Удаление (решение владельца 09.10): до выпуска — кто может править ДТ; с выпуска — только администратор,
 // остальным пункт виден выключенным с причиной «После выпуска ДТ удалить нельзя».
 const showMenu = computed(() => rowActions.value && (props.ctx.perms.canDeleteDt || props.ctx.perms.dtDeleteBlockedByRelease))
-const menuItems = computed(() => props.ctx.perms.canDeleteDt
-  ? [{ key: 'delete', label: t('broker.case.declaring.list.delete'), danger: true }]
-  : [{ key: 'delete-blocked', label: t('broker.case.declaring.list.deleteAfterRelease'), disabled: true }])
+const menuItems = (dt: Import40DeclarationDto) => {
+  if (!props.ctx.perms.canDeleteDt) return [{ key: 'delete-blocked', label: t('broker.case.declaring.list.deleteAfterRelease'), disabled: true }]
+  // Исходная ДТ разделения — пока есть части, сервер ответит 409: пункт выключен с причиной.
+  if (hasSplitParts(dt, all.value)) {
+    return [{ key: 'delete-has-parts', label: t('broker.case.declaring.list.delete'), disabled: true, hint: t('broker.case.declaring.list.deleteHasParts') }]
+  }
+  return [{ key: 'delete', label: t('broker.case.declaring.list.delete'), danger: true }]
+}
 const onMenu = (dt: Import40DeclarationDto, key: string) => { if (key === 'delete') void removeDt(dt) }
 
 // XML для КЕДЕН по одной ДТ: 400 → список «Для XML не хватает данных» под строкой; файл — скачивание и подсказка про гр.54.
@@ -175,6 +189,7 @@ const quoteOpen = ref(false)
 
 const iconBase = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden transition-colors duration-150 focus-visible:shadow-focus enabled:hover:bg-sunken enabled:hover:text-ink disabled:cursor-not-allowed disabled:opacity-45 aria-busy:cursor-progress motion-reduce:transition-none max-sm:size-11'
 const toolBtn = 'max-sm:min-h-11'
+const openLink = 'inline-flex h-7 items-center rounded-field bg-sunken px-2.5 text-xs font-semibold text-ink no-underline outline-hidden hover:bg-line-strong focus-visible:shadow-focus max-sm:min-h-11'
 </script>
 
 <template>
@@ -248,116 +263,126 @@ const toolBtn = 'max-sm:min-h-11'
 
     <ul v-else role="list" class="m-0 list-none p-0">
       <li
-        v-for="dt in rows"
-        :key="dt.id"
-        class="grid grid-cols-1 items-center gap-x-4 gap-y-2.5 border-t border-line px-4 py-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto]"
-        :data-dt-row="dt.id"
+        v-for="row in rows"
+        :key="row.dt.id"
+        :class="cn(
+          'grid grid-cols-1 items-center gap-x-4 gap-y-2.5 border-t border-line px-4 py-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto]',
+          row.kind === 'source' && 'bg-canvas',
+        )"
+        :style="row.depth ? { paddingLeft: `${1 + row.depth * 1.5}rem` } : undefined"
+        :data-dt-row="row.dt.id"
+        :data-dt-kind="row.kind"
+        :data-dt-depth="row.depth"
       >
-        <div :class="cn('min-w-0', dt.isSplitReplaced && 'opacity-55')">
+        <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
+            <PhArrowElbowDownRight v-if="row.depth" :size="14" class="shrink-0 text-ink-3" aria-hidden="true" />
             <RouterLink
-              :to="dtPath(kase.id, dt.id)"
+              :to="dtPath(kase.id, row.dt.id)"
               class="rounded-[4px] font-mono text-sm font-medium text-ink no-underline outline-hidden hover:text-zircon-ink hover:underline focus-visible:shadow-focus"
               data-dt-link
-            >{{ dtLabel(kase, dt.id, t) }}</RouterLink>
-            <ZTooltip v-if="tags.get(dt.id)" :title="tags.get(dt.id)!.tip">
-              <span class="inline-flex" :tabindex="tags.get(dt.id)!.tip ? 0 : undefined">
-                <ZTag :tone="tags.get(dt.id)!.tone" size="sm" data-dt-split>{{ tags.get(dt.id)!.label }}</ZTag>
+            >{{ dtLabel(kase, row.dt.id, t) }}</RouterLink>
+            <ZTooltip v-if="tags.get(row.dt.id)" :title="tags.get(row.dt.id)!.tip">
+              <span class="inline-flex" :tabindex="tags.get(row.dt.id)!.tip ? 0 : undefined">
+                <ZTag :tone="tags.get(row.dt.id)!.tone" size="sm" data-dt-split>{{ tags.get(row.dt.id)!.label }}</ZTag>
+              </span>
+            </ZTooltip>
+            <ZTooltip v-if="row.resplit" :title="t('import40Case.splitResplitTooltip')">
+              <span class="inline-flex" tabindex="0">
+                <ZTag tone="neutral" size="sm" data-dt-resplit>{{ t('import40Case.splitResplit') }}</ZTag>
               </span>
             </ZTooltip>
           </div>
-          <div class="mt-0.5 text-[12.5px] text-muted tabular-nums" data-dt-meta>{{ metaLine(dt) }}</div>
+          <div class="mt-0.5 text-[12.5px] text-muted tabular-nums" data-dt-meta>{{ metaLine(row.dt, row.kind) }}</div>
         </div>
 
         <div class="min-w-0" data-dt-readiness>
-          <template v-if="readinessOf(dt)">
+          <template v-if="readinessOf(row.dt)">
             <div class="flex items-center gap-2.5">
               <span
                 role="progressbar"
                 :aria-valuemin="0"
-                :aria-valuemax="readinessOf(dt)!.total"
-                :aria-valuenow="readinessOf(dt)!.filled"
-                :aria-label="t('broker.case.declaring.list.progress', { filled: readinessOf(dt)!.filled, total: readinessOf(dt)!.total })"
+                :aria-valuemax="readinessOf(row.dt)!.total"
+                :aria-valuenow="readinessOf(row.dt)!.filled"
+                :aria-label="t('broker.case.declaring.list.progress', { filled: readinessOf(row.dt)!.filled, total: readinessOf(row.dt)!.total })"
                 class="block h-1.5 w-[120px] max-w-full shrink overflow-hidden rounded-pill bg-sunken"
               >
                 <span
-                  :class="cn('block h-full rounded-pill', readinessOf(dt)!.isReady ? 'bg-tone-done-fg' : 'bg-gold')"
-                  :style="{ width: `${percent(readinessOf(dt)!)}%` }"
+                  :class="cn('block h-full rounded-pill', readinessOf(row.dt)!.isReady ? 'bg-tone-done-fg' : 'bg-gold')"
+                  :style="{ width: `${percent(readinessOf(row.dt)!)}%` }"
                 />
               </span>
               <span class="text-[12.5px] font-medium tabular-nums text-ink-2" data-dt-graphs>
-                {{ t('broker.case.declaring.list.graphs', { filled: readinessOf(dt)!.filled, total: readinessOf(dt)!.total }) }}
+                {{ t('broker.case.declaring.list.graphs', { filled: readinessOf(row.dt)!.filled, total: readinessOf(row.dt)!.total }) }}
               </span>
             </div>
-            <div v-if="readinessOf(dt)!.isReady" class="mt-1 text-xs text-tone-done-fg" data-dt-ready>{{ t('broker.case.declaring.list.ready') }}</div>
+            <div v-if="readinessOf(row.dt)!.isReady" class="mt-1 text-xs text-tone-done-fg" data-dt-ready>{{ t('broker.case.declaring.list.ready') }}</div>
             <div
-              v-else-if="readinessOf(dt)!.missing.length"
+              v-else-if="readinessOf(row.dt)!.missing.length"
               class="mt-1 text-xs text-gold-ink"
-              :title="t('broker.case.declaring.list.missing', { list: readinessOf(dt)!.missing.join(', ') })"
+              :title="t('broker.case.declaring.list.missing', { list: readinessOf(row.dt)!.missing.join(', ') })"
               data-dt-missing
             >
-              <span :class="['break-words', !expanded[dt.id] && 'line-clamp-2']" data-dt-missing-text>{{
-                t('broker.case.declaring.list.missing', { list: missingShown(readinessOf(dt)!).shown.join(', ') })
+              <span :class="['break-words', !expanded[row.dt.id] && 'line-clamp-2']" data-dt-missing-text>{{
+                t('broker.case.declaring.list.missing', { list: missingShown(readinessOf(row.dt)!).shown.join(', ') })
               }}</span>
               <button
-                v-if="missingPreview(readinessOf(dt)!.missing).rest > 0"
+                v-if="missingPreview(readinessOf(row.dt)!.missing).rest > 0"
                 type="button"
-                :aria-expanded="!!expanded[dt.id]"
+                :aria-expanded="!!expanded[row.dt.id]"
                 class="cursor-pointer rounded-[4px] border-0 bg-transparent p-0 font-sans text-xs font-medium text-gold-ink underline underline-offset-2 outline-hidden focus-visible:shadow-focus max-sm:min-h-11"
                 data-dt-missing-more
-                @click="expanded[dt.id] = !expanded[dt.id]"
-              >{{ expanded[dt.id] ? t('broker.case.declaring.list.less') : t('broker.case.declaring.list.more', { n: missingPreview(readinessOf(dt)!.missing).rest }) }}</button>
+                @click="expanded[row.dt.id] = !expanded[row.dt.id]"
+              >{{ expanded[row.dt.id] ? t('broker.case.declaring.list.less') : t('broker.case.declaring.list.more', { n: missingPreview(readinessOf(row.dt)!.missing).rest }) }}</button>
             </div>
           </template>
         </div>
 
         <div class="flex items-center gap-1.5 sm:justify-end" data-dt-actions>
           <template v-if="rowActions">
-            <ZTooltip :title="fillHint">
-              <span class="inline-flex" :tabindex="fillHint ? 0 : undefined">
-                <ZButton size="sm" :class="toolBtn" :disabled="!canEditDt" data-dt-fill @click="router.push(dtPath(kase.id, dt.id))">
-                  {{ t('import40Case.fill') }}
-                </ZButton>
-              </span>
-            </ZTooltip>
-            <ZTooltip :title="declHint || t('import40Case.xmlForKeden')">
-              <span class="inline-flex" :tabindex="declHint ? 0 : undefined">
-                <button
-                  type="button"
-                  :class="iconBase"
-                  :disabled="blocked(`dt-xml:${dt.id}`)"
-                  :aria-busy="pending(`dt-xml:${dt.id}`) || undefined"
-                  :aria-label="t('import40Case.xmlForKeden')"
-                  data-dt-xml
-                  @click="!pending(`dt-xml:${dt.id}`) && exportXml(dt)"
-                >
-                  <PhCode :size="16" aria-hidden="true" />
-                </button>
-              </span>
-            </ZTooltip>
-            <ZDropdown v-if="showMenu" :items="menuItems" @select="onMenu(dt, $event)">
+            <RouterLink v-if="viewOnly(row)" :to="dtPath(kase.id, row.dt.id)" :class="openLink" data-dt-open>{{ t('broker.case.declaring.list.open') }}</RouterLink>
+            <template v-else>
+              <ZTooltip :title="fillHint">
+                <span class="inline-flex" :tabindex="fillHint ? 0 : undefined">
+                  <ZButton size="sm" :class="toolBtn" :disabled="!canEditDt" data-dt-fill @click="router.push(dtPath(kase.id, row.dt.id))">
+                    {{ t('import40Case.fill') }}
+                  </ZButton>
+                </span>
+              </ZTooltip>
+              <ZTooltip :title="declHint || t('import40Case.xmlForKeden')">
+                <span class="inline-flex" :tabindex="declHint ? 0 : undefined">
+                  <button
+                    type="button"
+                    :class="iconBase"
+                    :disabled="blocked(`dt-xml:${row.dt.id}`)"
+                    :aria-busy="pending(`dt-xml:${row.dt.id}`) || undefined"
+                    :aria-label="t('import40Case.xmlForKeden')"
+                    data-dt-xml
+                    @click="!pending(`dt-xml:${row.dt.id}`) && exportXml(row.dt)"
+                  >
+                    <PhCode :size="16" aria-hidden="true" />
+                  </button>
+                </span>
+              </ZTooltip>
+            </template>
+            <ZDropdown v-if="showMenu" :items="menuItems(row.dt)" @select="onMenu(row.dt, $event)">
               <button
                 type="button"
                 :class="iconBase"
-                :disabled="busy() && !pending(`dt-delete:${dt.id}`)"
-                :aria-busy="pending(`dt-delete:${dt.id}`) || undefined"
-                :aria-label="t('broker.case.declaring.list.actions', { label: dtLabel(kase, dt.id, t) })"
+                :disabled="busy() && !pending(`dt-delete:${row.dt.id}`)"
+                :aria-busy="pending(`dt-delete:${row.dt.id}`) || undefined"
+                :aria-label="t('broker.case.declaring.list.actions', { label: dtLabel(kase, row.dt.id, t) })"
                 data-dt-more
               >
                 <PhDotsThree :size="18" weight="bold" aria-hidden="true" />
               </button>
             </ZDropdown>
           </template>
-          <RouterLink
-            v-else
-            :to="dtPath(kase.id, dt.id)"
-            class="inline-flex h-7 items-center rounded-field bg-sunken px-2.5 text-xs font-semibold text-ink no-underline outline-hidden hover:bg-line-strong focus-visible:shadow-focus max-sm:min-h-11"
-            data-dt-open
-          >{{ t('broker.case.declaring.list.open') }}</RouterLink>
+          <RouterLink v-else :to="dtPath(kase.id, row.dt.id)" :class="openLink" data-dt-open>{{ t('broker.case.declaring.list.open') }}</RouterLink>
         </div>
 
         <ZAlert
-          v-if="rowActions && xmlMissing?.id === dt.id"
+          v-if="rowActions && xmlMissing?.id === row.dt.id"
           type="warning"
           show-icon
           :message="t('import40Case.xmlMissingTitle')"

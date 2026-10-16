@@ -63,8 +63,10 @@ describe('отметки разделов', () => {
 })
 
 describe('тег ЕТТ/ВТО', () => {
-  it('разделена, роль разделения, тип ставок', () => {
-    expect(rateTag(fullDto({ isSplitReplaced: true, splitRole: 'VTO' }))).toEqual({ kind: 'replaced' })
+  it('исходная ДТ, роль разделения, тип ставок', () => {
+    expect(rateTag(fullDto({ isSplitReplaced: true, splitRole: null }))).toEqual({ kind: 'source' })
+    // Часть, которую до 16.10 разделили ещё раз, — по роли, а не «Разделена».
+    expect(rateTag(fullDto({ isSplitReplaced: true, splitRole: 'VTO', splitSourceDeclarationId: 'src' }))).toEqual({ kind: 'vto' })
     expect(rateTag(fullDto({ splitRole: 'VTO', rateType: 'ETT' }))).toEqual({ kind: 'vto' })
     expect(rateTag(fullDto({ splitRole: 'ETT', rateType: 'EATT' }))).toEqual({ kind: 'ett' })
     expect(rateTag(fullDto({ splitRole: null, rateType: 'eatt' }))).toEqual({ kind: 'vto' })

@@ -144,6 +144,8 @@ export interface Import40GoodsItemDto {
   customsValueKztCalc?: number | null
   statisticValueUsdManual?: boolean
   statisticValueUsdCalc?: number | null
+  // Часть разделения ЕТТ/ВТО (16.10): SortOrder товара исходной ДТ — по нему «Изменить разделение» переносит правки товара.
+  splitSourceSortOrder?: number | null
 }
 
 // Зеркалит Import40GoodsMarkingDto / Import40GoodsMarkingRequest на бэке (Task 2).
@@ -814,6 +816,44 @@ export interface Import40SplitSuggestionRow {
 
 export interface Import40SplitRequest {
   vtoGoodSortOrders: number[]
+  // «Изменить разделение» (16.10): у исходной ДТ уже есть части — заменить их новыми.
+  replaceExisting?: boolean
+}
+
+// GET split-state исходной ДТ (16.10): части и что потеряется/вернётся при «Изменить разделение».
+export interface Import40SplitPart {
+  id: string
+  role: string | null
+  declarationNumber: string
+  goodsCount: number
+  hasPayments: boolean
+  factPaymentsCount: number
+  // Часть разделена ещё раз (старая цепочка до 16.10).
+  hasChildren: boolean
+}
+export interface Import40SplitAddedGoods {
+  declarationId: string
+  role: string | null
+  sortOrder: number
+  description: string | null
+  tnvedCode: string | null
+}
+export interface Import40SplitState {
+  sourceDeclarationId: string
+  parts: Import40SplitPart[]
+  // SortOrder товаров исходной ДТ, которые сейчас в ВТО — предвыбор.
+  vtoSortOrders: number[]
+  // Правки товаров частей переносятся; false — ДТ разделена до 16.10: товары, документы, расходы — из исходной.
+  goodsCarryOver: boolean
+  // Добавлены в части вручную — пропадут.
+  addedGoods: Import40SplitAddedGoods[]
+  // Удалены из частей — вернутся из исходной ДТ.
+  returnedSortOrders: number[]
+  expensesFromSource: boolean
+  // Товары с ручными строками гр.47 в частях (SortOrder исходной ДТ).
+  manualPaymentSortOrders: number[]
+  // Почему изменить нельзя; null — можно.
+  blockedReason: string | null
 }
 
 export interface Import40SplitResult {
@@ -823,6 +863,8 @@ export interface Import40SplitResult {
   vtoDeclarationId: string
   // Платежи новых ДТ пересчитаны сервером по их ставкам; false — нужно «Рассчитать платежи».
   paymentsRecalculated: boolean
+  // Части заменены («Изменить разделение»).
+  replaced?: boolean
 }
 
 export interface Import40CanCreateDto {
@@ -1170,6 +1212,13 @@ export const import40Api = {
   ): Promise<Import40SplitSuggestionRow[]> => {
     const response = await apiClient.get<Import40SplitSuggestionRow[]>(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/split-suggestion`,
+    )
+    return response.data
+  },
+
+  splitState: async (caseId: string, declarationId: string): Promise<Import40SplitState> => {
+    const response = await apiClient.get<Import40SplitState>(
+      `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/split-state`,
     )
     return response.data
   },
