@@ -5,7 +5,8 @@ import apiClient from './client'
 // Перечисления приходят camelCase-строками; даты (DateOnly) — 'YYYY-MM-DD', метки времени — UTC.
 
 export type EecEditionKind = 'group' | 'ettNotes'
-export type EecEditionStatus = 'staged' | 'applied' | 'held' | 'rejected' | 'superseded'
+/** parseFailed — PDF не разобрался: применить/отклонить нельзя, только «Повторно разобрать». */
+export type EecEditionStatus = 'staged' | 'applied' | 'held' | 'rejected' | 'superseded' | 'parseFailed'
 export type EecSyncRunStatus = 'running' | 'completed' | 'failed' | 'stopped' | 'interrupted'
 export type EecSyncItemAction = 'skipped' | 'applied' | 'held' | 'failed' | 'warning'
 export type EecDiscrepancyKind = 'rate' | 'eecOnly' | 'kedenOnly' | 'eecNotInForce' | 'eecUncertain'
@@ -31,6 +32,9 @@ export interface EecEditionSummary {
   addedCount: number
   removedCount: number
   changedCount: number
+  /** Редакция получена повторным разбором файла этой редакции. */
+  restagedFromEditionId?: number | null
+  contentHash?: string
 }
 
 export interface EecRateState {
@@ -112,7 +116,12 @@ export interface EecApplyResult {
   warnings: string[]
   treeLeavesReopened: number
   addedLeafCodes: string[]
+  /** Отложенные/загруженные редакции той же группы, ставшие устаревшими. */
+  staleSuperseded?: number
 }
+
+/** «Повторно разобрать»: новая Staged-редакция из сохранённого PDF; исходная не меняется. */
+export interface EecRestageResult { editionId: number; fromEditionId: number; status: string; suspicionReasons: string[] }
 
 export interface EecSyncRunItem {
   file: string
@@ -248,6 +257,7 @@ export const tnvedEecApi = {
   edition: (id: number) => apiClient.get<EecEditionDetail>(`/tnved/eec/editions/${id}`, silent),
   apply: (id: number, note?: string) => apiClient.post<EecApplyResult>(`/tnved/eec/editions/${id}/apply`, { note: note || null }),
   reject: (id: number, reason?: string) => apiClient.post<void>(`/tnved/eec/editions/${id}/reject`, { reason: reason || null }),
+  restage: (id: number) => apiClient.post<EecRestageResult>(`/tnved/eec/editions/${id}/restage`),
 
   startSync: () => apiClient.post<EecSyncStart>('/tnved/eec/sync'),
   syncStatus: (runId?: number | null) =>

@@ -110,6 +110,7 @@ describe('прочее', () => {
     expect(runBy('admin:ivanov', t)).toBe('ivanov')
     expect(runBy('scheduler', t)).toBe('по расписанию')
     expect(runBy('startup', t)).toBe('при запуске')
+    expect(runBy('reevaluate:ivanov', t)).toBe('перепроверка отложенных (ivanov)')
   })
   it('прогон идёт: флаг процесса или статус running', () => {
     expect(runActive(null)).toBe(false)

@@ -16,15 +16,17 @@ export const parseTab = (raw: unknown): EecTab =>
   (typeof raw === 'string' && (EEC_TABS as readonly string[]).includes(raw) ? raw as EecTab : 'editions')
 
 // ---- Статусы редакций и прогонов ----
-export const EDITION_STATUSES: readonly EecEditionStatus[] = ['held', 'staged', 'applied', 'rejected', 'superseded']
+export const EDITION_STATUSES: readonly EecEditionStatus[] = ['held', 'staged', 'parseFailed', 'applied', 'rejected', 'superseded']
 const EDITION_TONE: Record<EecEditionStatus, ZTone> = {
-  staged: 'info', applied: 'done', held: 'wait', rejected: 'danger', superseded: 'neutral',
+  staged: 'info', applied: 'done', held: 'wait', rejected: 'danger', superseded: 'neutral', parseFailed: 'danger',
 }
 export const editionTone = (s: string): ZTone => EDITION_TONE[s as EecEditionStatus] ?? 'neutral'
 export const editionStatusLabel = (s: string, t: T): string =>
   (s in EDITION_TONE ? t(`${P}.status.${s}`) : s)
 /** Ждёт решения человека: подтвердить или отклонить можно staged и held. */
 export const canDecide = (s: string): boolean => s === 'held' || s === 'staged'
+/** «Повторно разобрать» (новая редакция из того же файла): отложенная, отклонённая, не разобранная. */
+export const canRestage = (s: string): boolean => s === 'held' || s === 'rejected' || s === 'parseFailed'
 
 const RUN_TONE: Record<EecSyncRunStatus, ZTone> = {
   running: 'info', completed: 'done', failed: 'danger', stopped: 'wait', interrupted: 'neutral',
@@ -40,6 +42,7 @@ export const runBy = (by: string, t: T): string => {
   if (by.startsWith('admin:')) return by.slice('admin:'.length) || t(`${P}.run.byHand`)
   if (by === 'scheduler' || by === 'schedule') return t(`${P}.run.byScheduler`)
   if (by === 'startup') return t(`${P}.run.byStartup`)
+  if (by.startsWith('reevaluate:')) return t(`${P}.run.byReevaluate`, { who: by.slice('reevaluate:'.length) })
   return by
 }
 

@@ -3,10 +3,11 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { mountWithI18n } from '@/test/mountWithI18n'
+import { confirmState } from '@/ui/confirm'
 import type { EecCodeChange, EecEditionDetail } from '@/api/tnvedEec'
 
 const api = vi.hoisted(() => ({
-  edition: vi.fn(), apply: vi.fn(), reject: vi.fn(),
+  edition: vi.fn(), apply: vi.fn(), reject: vi.fn(), restage: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 vi.mock('@/api/tnvedEec', () => ({ tnvedEecApi: api }))
@@ -22,11 +23,11 @@ const ModalStub = {
 const state = (rateText: string, refs: string[] = [], name = '– – бензин') => ({ rateText, kedenRate: null, footnoteRefs: refs, addUnit: null, nameRu: name })
 const change = (code: string, kind: string, before: ReturnType<typeof state> | null, after: ReturnType<typeof state> | null): EecCodeChange =>
   ({ code, kind, before, after, kedenRate: '5%' })
-const detail = (o: { status?: string; kind?: 'group' | 'ettNotes' } = {}): EecEditionDetail => ({
+const detail = (o: { status?: string; kind?: 'group' | 'ettNotes'; reason?: string; from?: number } = {}): EecEditionDetail => ({
   edition: {
     id: 3, kind: o.kind ?? 'group', group: o.kind === 'ettNotes' ? null : '22', fileName: 'ru.22_2022_01.10.2026.pdf', editionDate: '2026-10-01',
     status: (o.status ?? 'held') as never, stagedAtUtc: '2026-10-16T03:00:00Z', appliedAtUtc: null, statusChangedAtUtc: '2026-10-16T03:00:02Z',
-    statusChangedBy: 'system', statusReason: 'ушло 7 % кодов', isClean: false, leafCount: 120, unparsedCount: 1, addedCount: 1, removedCount: 9, changedCount: 2,
+    statusChangedBy: 'system', statusReason: o.reason ?? 'ушло 7 % кодов', restagedFromEditionId: o.from ?? null, isClean: false, leafCount: 120, unparsedCount: 1, addedCount: 1, removedCount: 9, changedCount: 2,
   },
   diff: {
     editionId: 3, kind: o.kind ?? 'group', group: '22', baselineEditionId: 1, isBaseline: false, codesBefore: 128, codesAfter: 120,
@@ -65,6 +66,7 @@ beforeEach(() => {
 afterEach(() => {
   w?.unmount()
   document.body.innerHTML = ''
+  confirmState.resolve(false)
   vi.clearAllMocks()
 })
 
@@ -149,5 +151,44 @@ describe('EecEditionPage', () => {
     api.edition.mockRejectedValue(Object.assign(new Error('404'), { response: { status: 404 } }))
     await mountAt(99)
     expect(w.get('[data-eec-ed-not-found]').text()).toContain('Редакция не найдена')
+  })
+
+  it('отложенная: «Отклонить» с пояснением, что это окончательно; «Повторно разобрать» — подтверждение и переход к новой', async () => {
+    await mountAt()
+    expect(w.get('[data-eec-ed-reject-hint]').text()).toContain('Отклонение окончательно для этой редакции')
+    await w.get('[data-eec-ed-restage]').trigger('click')
+    expect(confirmState.title).toBe('Разобрать файл заново?')
+    api.restage.mockResolvedValue({ data: { editionId: 8, fromEditionId: 3, status: 'staged', suspicionReasons: [] } })
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(api.restage).toHaveBeenCalledWith(3)
+    expect(api.toast.success).toHaveBeenCalledWith('Создана новая редакция №8')
+    expect(router.currentRoute.value.path).toBe('/tnved/eec/editions/8')
+    expect(api.edition).toHaveBeenLastCalledWith(8)
+  })
+
+  it('не разобрана: причина, без сравнения и без «Подтвердить/Отклонить» — только «Повторно разобрать»', async () => {
+    api.edition.mockResolvedValue({ data: detail({ status: 'parseFailed', reason: 'файл не разобран: нет таблицы' }) })
+    await mountAt()
+    expect(w.get('[data-eec-ed-status]').text()).toBe('Не разобрана')
+    expect(w.get('[data-eec-ed-reasons]').text()).toContain('Файл не разобран')
+    expect(w.find('[data-eec-ed-stats]').exists()).toBe(false)
+    expect(w.find('[data-eec-ed-codes]').exists()).toBe(false)
+    expect(w.find('[data-eec-ed-apply]').exists()).toBe(false)
+    expect(w.find('[data-eec-ed-reject]').exists()).toBe(false)
+    expect(w.find('[data-eec-ed-restage]').exists()).toBe(true)
+  })
+
+  it('отклонённая — «Повторно разобрать»; новая редакция ссылается на исходную', async () => {
+    api.edition.mockResolvedValue({ data: detail({ status: 'rejected' }) })
+    await mountAt()
+    expect(w.find('[data-eec-ed-restage]').exists()).toBe(true)
+    expect(w.find('[data-eec-ed-apply]').exists()).toBe(false)
+    w.unmount()
+    api.edition.mockResolvedValue({ data: detail({ status: 'staged', from: 3 }) })
+    await mountAt(8)
+    expect(w.get('[data-eec-ed-origin]').text()).toBe('Повторный разбор файла редакции №3')
+    expect(w.get('[data-eec-ed-origin] a').attributes('href')).toBe('/tnved/eec/editions/3')
+    expect(w.find('[data-eec-ed-restage]').exists()).toBe(false)
   })
 })

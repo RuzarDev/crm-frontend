@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import ListSearch from '@/components/broker/ListSearch.vue'
 import ZAlert from '@/components/z/ZAlert.vue'
@@ -18,10 +18,11 @@ import { formatDay } from '@/views/broker/list'
 import { formatCount, formatDateTime, responseStatus } from '@/views/broker/references/system/systemData'
 import { cleanName, formatTnvedCode } from '@/views/references/tnvedShared'
 import { message } from '@/ui/message'
+import { useConfirm } from '@/ui/confirm'
 import type { ZColumn } from '@/ui/table'
 import EecActionModal, { type EecActionValue } from './EecActionModal.vue'
 import {
-  CHANGE_FILTERS, P, canDecide, changeCounts, changeFlags, changeTone, editionStatusLabel, editionTitle, editionTone,
+  CHANGE_FILTERS, P, canDecide, canRestage, changeCounts, changeFlags, changeTone, editionStatusLabel, editionTitle, editionTone,
   filterCodeChanges, rateStateText, unparsedLabel, utc, type ChangeFilter,
 } from './eec'
 
@@ -30,6 +31,8 @@ import {
 // загруженную (staged) редакцию можно подтвердить (применить) или отклонить — с комментарием.
 const { t, locale } = useI18n()
 const route = useRoute()
+const router = useRouter()
+const { confirm } = useConfirm()
 
 const id = computed(() => Number(route.params.id))
 const detail = shallowRef<EecEditionDetail | null>(null)
@@ -57,6 +60,8 @@ const ed = computed(() => detail.value?.edition ?? null)
 const diff = computed(() => detail.value?.diff ?? null)
 const report = computed(() => detail.value?.report ?? null)
 const isNotes = computed(() => ed.value?.kind === 'ettNotes')
+// Файл не разобран: сравнивать нечего (в редакции нет строк) — только причина и «Повторно разобрать».
+const parseFailed = computed(() => ed.value?.status === 'parseFailed')
 const title = computed(() => (ed.value ? editionTitle(ed.value, t) : t(`${P}.edition`)))
 const crumbs = computed(() => [{ label: t(`${P}.title`), to: '/tnved/eec' }, { label: title.value }])
 const num = (n: number) => formatCount(n, locale.value)
@@ -138,7 +143,7 @@ const listOf = (key: string, all: readonly string[]) => (expanded.value.has(key)
 const expand = (key: string) => { expanded.value = new Set([...expanded.value, key]) }
 const lists = computed(() => {
   const d = diff.value
-  if (!d) return []
+  if (!d || parseFailed.value) return []
   return [
     { key: 'newTreeCodes', items: d.newTreeCodes, codes: true },
     { key: 'endedInTree', items: d.endedInTree, codes: true },
@@ -165,6 +170,24 @@ const save = async (v: EecActionValue) => {
   }
   await load()
 }
+// ---- Повторно разобрать: новая редакция из того же файла текущим разбором; исходная не меняется ----
+const restageable = computed(() => !!ed.value && canRestage(ed.value.status))
+const restaging = ref(false)
+const restage = async () => {
+  const e = ed.value
+  if (!e || restaging.value) return
+  const ok = await confirm({ title: t(`${P}.ed.restageTitle`), content: t(`${P}.ed.restageText`), okText: t(`${P}.ed.restage`) })
+  if (!ok) return
+  restaging.value = true
+  try {
+    const { data } = await tnvedEecApi.restage(e.id)
+    message.success(data.suspicionReasons.length ? t(`${P}.ed.restagedHeld`, { id: data.editionId }) : t(`${P}.ed.restaged`, { id: data.editionId }))
+    await router.push(`/tnved/eec/editions/${data.editionId}`)
+  } catch { /* текст ошибки (409/502) показал общий перехватчик */ } finally {
+    restaging.value = false
+  }
+}
+
 const resultLine = computed(() => {
   const r = applyResult.value
   if (!r) return ''
@@ -173,7 +196,7 @@ const resultLine = computed(() => {
     : t(`${P}.ed.resultGroup`, {
         changed: r.ratesChanged, added: r.ratesAdded + r.ratesReturned, removed: r.ratesRemoved,
         tree: r.treeNodesAdded, ended: r.treeLeavesEnded,
-      })
+      }) + (r.staleSuperseded ? ` ${t(`${P}.ed.resultStale`, { n: r.staleSuperseded })}` : '')
 })
 </script>
 
@@ -208,13 +231,27 @@ const resultLine = computed(() => {
             <span>{{ t(`${P}.ed.pages`, { n: report.pageCount }) }}</span>
             <span v-if="report.detectedGroup && report.detectedGroup !== ed.group" class="text-tone-danger-fg">{{ t(`${P}.ed.detectedGroup`, { n: report.detectedGroup }) }}</span>
           </p>
+          <p v-if="ed.restagedFromEditionId" class="m-0 mt-1 text-xs text-ink-3" data-eec-ed-origin>
+            <RouterLink :to="`/tnved/eec/editions/${ed.restagedFromEditionId}`" class="text-zircon-ink underline-offset-2 hover:underline">{{ t(`${P}.ed.restagedFrom`, { id: ed.restagedFromEditionId }) }}</RouterLink>
+          </p>
           <p v-if="ed.statusChangedAtUtc" class="m-0 mt-1 text-xs text-ink-3" data-eec-ed-changed>
             {{ t(`${P}.ed.statusChanged`, { date: formatDateTime(utc(ed.statusChangedAtUtc), locale), by: ed.statusChangedBy || '—' }) }}
           </p>
         </div>
-        <div v-if="decidable" class="flex flex-wrap gap-2 max-sm:w-full">
-          <ZButton variant="danger-ghost" class="max-sm:h-11 max-sm:flex-1" data-eec-ed-reject @click="modal = 'reject'">{{ t(`${P}.ed.reject`) }}</ZButton>
-          <ZButton variant="primary" class="max-sm:h-11 max-sm:flex-1" data-eec-ed-apply @click="modal = 'apply'">{{ t(`${P}.ed.apply`) }}</ZButton>
+        <div v-if="decidable || restageable" class="flex flex-col items-end gap-1.5 max-sm:w-full max-sm:items-stretch">
+          <div class="flex flex-wrap justify-end gap-2 max-sm:w-full">
+            <ZButton
+              v-if="restageable"
+              variant="secondary"
+              :loading="restaging"
+              class="border border-line-strong bg-surface max-sm:h-11 max-sm:flex-1"
+              data-eec-ed-restage
+              @click="restage"
+            >{{ t(`${P}.ed.restage`) }}</ZButton>
+            <ZButton v-if="decidable" variant="danger-ghost" class="max-sm:h-11 max-sm:flex-1" data-eec-ed-reject @click="modal = 'reject'">{{ t(`${P}.ed.reject`) }}</ZButton>
+            <ZButton v-if="decidable" variant="primary" class="max-sm:h-11 max-sm:flex-1" data-eec-ed-apply @click="modal = 'apply'">{{ t(`${P}.ed.apply`) }}</ZButton>
+          </div>
+          <p v-if="decidable" class="m-0 max-w-[420px] text-right text-xs text-ink-3 text-pretty max-sm:text-left" data-eec-ed-reject-hint>{{ t(`${P}.ed.rejectFinal`) }}</p>
         </div>
       </div>
 
@@ -224,15 +261,15 @@ const resultLine = computed(() => {
       </ul>
 
       <div v-if="ed.statusReason || detail?.suspicionReasons.length" class="rounded-panel border border-gold-line bg-gold-soft px-5 py-3 text-sm text-ink max-sm:px-4" data-eec-ed-reasons>
-        <p class="m-0 font-semibold">{{ ed.status === 'held' ? t(`${P}.ed.heldWhy`) : t(`${P}.ed.reason`) }}</p>
+        <p class="m-0 font-semibold">{{ ed.status === 'held' ? t(`${P}.ed.heldWhy`) : ed.status === 'parseFailed' ? t(`${P}.ed.parseFailedWhy`) : t(`${P}.ed.reason`) }}</p>
         <p v-if="ed.statusReason" class="m-0 mt-1 text-ink-2 [overflow-wrap:anywhere]">{{ ed.statusReason }}</p>
         <ul v-if="detail?.suspicionReasons.length" class="m-0 mt-1 flex list-disc flex-col gap-0.5 pl-5 text-ink-2">
           <li v-for="(r, i) in detail.suspicionReasons" :key="i" data-eec-ed-reason>{{ r }}</li>
         </ul>
       </div>
-      <p v-if="diff.isBaseline" class="m-0 text-sm text-ink-3" data-eec-ed-baseline>{{ t(`${P}.ed.baseline`) }}</p>
+      <p v-if="diff.isBaseline && !parseFailed" class="m-0 text-sm text-ink-3" data-eec-ed-baseline>{{ t(`${P}.ed.baseline`) }}</p>
 
-      <dl class="m-0 grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-line bg-line sm:grid-cols-4 xl:grid-cols-7" data-eec-ed-stats>
+      <dl v-if="!parseFailed" class="m-0 grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-line bg-line sm:grid-cols-4 xl:grid-cols-7" data-eec-ed-stats>
         <div v-for="s in stats" :key="s.key" class="flex flex-col gap-0.5 bg-surface px-4 py-3" :data-stat="s.key">
           <dt class="text-xs text-ink-3">{{ t(`${P}.ed.stat.${s.key}`) }}</dt>
           <dd :class="['m-0 text-base font-semibold tabular-nums', s.warn ? 'text-tone-wait-fg' : 'text-ink']">{{ s.value }}</dd>
@@ -240,7 +277,7 @@ const resultLine = computed(() => {
       </dl>
 
       <!-- Изменения кодов (группа) -->
-      <section v-if="!isNotes" class="flex flex-col gap-3" :aria-label="t(`${P}.ed.codesTitle`)">
+      <section v-if="!isNotes && !parseFailed" class="flex flex-col gap-3" :aria-label="t(`${P}.ed.codesTitle`)">
         <h2 class="m-0 text-[17px] leading-6 font-semibold text-ink">{{ t(`${P}.ed.codesTitle`) }}</h2>
         <div class="flex flex-wrap items-center gap-2">
           <ListSearch :value="q" :placeholder="t(`${P}.ed.codesSearch`)" data-eec-ed-search @update:value="q = $event" />
@@ -282,7 +319,7 @@ const resultLine = computed(() => {
       </section>
 
       <!-- Изменения сносок (примечания) -->
-      <section v-if="isNotes" class="flex flex-col gap-3" :aria-label="t(`${P}.ed.footnotesTitle`)">
+      <section v-if="isNotes && !parseFailed" class="flex flex-col gap-3" :aria-label="t(`${P}.ed.footnotesTitle`)">
         <h2 class="m-0 text-[17px] leading-6 font-semibold text-ink">{{ t(`${P}.ed.footnotesTitle`) }}</h2>
         <ZTable
           :columns="footnoteColumns"
@@ -356,7 +393,7 @@ const resultLine = computed(() => {
     <EecActionModal
       v-model:open="modalOpen"
       :title="modal === 'reject' ? t(`${P}.ed.rejectTitle`, { title }) : t(`${P}.ed.applyTitle`, { title })"
-      :text="modal === 'reject' ? t(`${P}.ed.rejectText`) : t(`${P}.ed.applyText`)"
+      :text="modal === 'reject' ? t(`${P}.ed.rejectFinal`) : t(`${P}.ed.applyText`)"
       :ok-text="modal === 'reject' ? t(`${P}.ed.reject`) : t(`${P}.ed.apply`)"
       :danger="modal === 'reject'"
       :note-label="modal === 'reject' ? t(`${P}.ed.rejectNote`) : t(`${P}.ed.applyNote`)"

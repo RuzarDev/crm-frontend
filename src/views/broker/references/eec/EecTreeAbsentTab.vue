@@ -175,6 +175,7 @@ const modalText = computed(() => {
       :date-label="t(`${P}.absent.endDate`)"
       date-required
       :date-max="todayIso()"
+      date-min="2010-01-01"
       :date-help="target?.suggestedEndDate ? t(`${P}.absent.dateHelp`) : undefined"
       :initial-date="target ? defaultCloseDate(target, todayIso()) : null"
       :note-label="t(`${P}.absent.noteLabel`)"

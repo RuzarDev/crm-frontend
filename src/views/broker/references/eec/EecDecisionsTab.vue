@@ -57,6 +57,8 @@ const save = async (v: EecActionValue) => {
   void board.load()
 }
 const num = (n: number) => formatCount(n, locale.value)
+// Сервер не примет дату позже даты принятия + 5 лет.
+const plusYears = (iso: string, n: number) => `${Number(iso.slice(0, 4)) + n}${iso.slice(4, 10)}`
 </script>
 
 <template>
@@ -128,6 +130,7 @@ const num = (n: number) => formatCount(n, locale.value)
       :date-label="t(`${P}.dec.entry`)"
       date-required
       :date-min="target?.decisionDate ?? null"
+      :date-max="target ? plusYears(target.decisionDate, 5) : null"
       :date-help="target ? t(`${P}.dec.dateHelp`, { date: formatDay(target.decisionDate) }) : undefined"
       :initial-date="target?.entryIntoForce ?? null"
       :note-label="t(`${P}.dec.noteLabel`)"
