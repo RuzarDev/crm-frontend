@@ -4994,6 +4994,7 @@ export default {
     unavailable: 'data.egov.kz is temporarily unavailable',
     foundIp: 'Found: {name}. Enter the address manually — the tax register has none.',
     inactive: '{name}: {status}. Check whether you can work with this counterparty.',
+    renamed: 'Found in the tax registry (KGD): {name}. The Ministry of Justice registry still has the old name “{old}” — address and director were not filled in, enter them manually.',
   },
   // Прежние разделы ДТ («Товары», ДТС, окно расчёта платежей: DtSection*, Import40GoodsKeden*); ключи — транслит RU-строки.
   dt: {
