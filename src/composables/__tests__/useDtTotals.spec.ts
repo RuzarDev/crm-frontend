@@ -16,6 +16,7 @@ const setup = (opts: {
   deductions?: string[]
   server?: number | null
   dirty?: boolean
+  dealRate?: number | null
 } = {}) => {
   const state = reactive({ goods: opts.goods ?? [] })
   const form = reactive<DtTotalsFormRef>({})
@@ -27,6 +28,7 @@ const setup = (opts: {
     isDeduction: (code) => (opts.deductions ?? []).includes(code ?? ''),
     serverCustomsValue: () => server.value,
     dirty: () => dirty.value,
+    dealRate: () => opts.dealRate ?? null,
   })
   // Форма приходит после создания (как загрузка ДТ): первый прогон с пустым списком товаров пишет гр.22 = 0.
   Object.assign(form, opts.form ?? {})
@@ -87,8 +89,9 @@ describe('useDtTotals — гр.12 (B6)', () => {
     const { totals } = setup({
       dirty: true,
       form: {
+        currency: 'USD',
         totalInvoiceValue: 1000,
-        exchangeRate: 500,
+        exchangeRate: 1, // сохранённый курс не берётся (16.10.2026)
         expenses: [
           { expenseTypeCode: '17', amount: 100, currencyCode: 'USD' },
           { expenseTypeCode: '21', amount: 20, currencyCode: 'USD' },
@@ -108,7 +111,8 @@ describe('useDtTotals — гр.12 (B6)', () => {
   it('без несохранённых правок — серверная гр.12 (как в печати и XML)', async () => {
     const { totals, dirty, server } = setup({
       server: 123456.78,
-      form: { totalInvoiceValue: 1000, exchangeRate: 500, expenses: [] },
+      dealRate: 500,
+      form: { currency: 'USD', totalInvoiceValue: 1000, exchangeRate: 1, expenses: [] },
     })
     expect(totals.customsValueKzt.value).toBe(123456.78)
     expect(totals.customsValueFromServer.value).toBe(true)
@@ -119,9 +123,17 @@ describe('useDtTotals — гр.12 (B6)', () => {
     expect(totals.customsValueKzt.value).toBe(500000)
   })
 
-  it('без опций — прежний вызов работает (предпросмотр, вычетов нет)', () => {
-    const form = reactive<DtTotalsFormRef>({ totalInvoiceValue: 10, exchangeRate: 2, expenses: [{ expenseTypeCode: 'x', amount: 5, currencyCode: 'KZT' }] })
-    const totals = useDtTotals(() => [good({ customsValue: 10 })], form, ref({}), ref(false))
+  it('без опций — прежний вызов работает (предпросмотр по курсу справочника, вычетов нет)', () => {
+    const form = reactive<DtTotalsFormRef>({ currency: 'EUR', totalInvoiceValue: 10, exchangeRate: 7, expenses: [{ expenseTypeCode: 'x', amount: 5, currencyCode: 'KZT' }] })
+    const totals = useDtTotals(() => [good({ customsValue: 10 })], form, ref({ EUR: { rate: 2, date: '' } }), ref(false))
     expect(totals.customsValueKzt.value).toBe(25)
+  })
+
+  it('гр.23 предпросмотра — курс на дату (dealRate), а не сохранённый и не справочника (16.10.2026)', () => {
+    const { totals } = setup({
+      dirty: true, dealRate: 495.12, rates: { USD: { rate: 400, date: '' } },
+      form: { currency: 'USD', totalInvoiceValue: 100, exchangeRate: 470, expenses: [] },
+    })
+    expect(totals.customsValuePreview.value).toBe(49512)
   })
 })

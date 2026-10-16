@@ -49,6 +49,8 @@ export interface DtTotalsOptions {
   serverCustomsValue?: () => number | null | undefined
   /** Есть несохранённые правки: пока true, гр.12 — предпросмотр, иначе — серверное значение. */
   dirty?: () => boolean
+  /** Гр.23 — курс НБ РК гр.22 на дату курсов ДТ (useDtRates.dealRate); null — ещё не известен. */
+  dealRate?: () => number | null | undefined
 }
 
 /** Всего листов ДТ как в печати (DtBlankPdf.cs): ТД1 — первый товар, ТД2 — по 3 товара. Нет товаров — null. */
@@ -56,6 +58,7 @@ export const totalSheetsFor = (goodsCount: number): number | null =>
   goodsCount > 0 ? 1 + Math.ceil((goodsCount - 1) / 3) : null
 
 export interface DtTotalsFormRef {
+  currency?: string | null
   totalInvoiceValue?: number | null
   sheetNumber?: number | null
   totalSheets?: number | null
@@ -95,7 +98,10 @@ export function useDtTotals(
     }, 0),
   )
   const customsValuePreview = computed(() => {
-    const rate = form.exchangeRate ?? 1
+    // Гр.23 — курс НБ РК гр.22 на дату курсов ДТ (opts.dealRate), не сохранённый form.exchangeRate (решение 16.10.2026:
+    // на сохранённый не опираемся). Курса на дату ещё нет — курс справочника валют.
+    const cur = (form.currency ?? '').toUpperCase()
+    const rate = opts.dealRate?.() ?? (cur === 'KZT' ? 1 : currencyRates.value[cur]?.rate) ?? 1
     return round2((form.totalInvoiceValue ?? 0) * rate + expensesKzt.value)
   })
   const customsValueFromServer = computed(() => {

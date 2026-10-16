@@ -11,7 +11,8 @@ import { OKEI_QUANTITY_TYPE_CODES, type Import40GoodsItemInput } from '@/types/a
 import type { ZOption, ZOptionValue } from '@/ui/options'
 import { placesOfGoods } from '@/utils/goodsPlaces'
 import { formatNumberIn } from '@/ui/number'
-import { statUsdFrom } from '../../dtGoodsRules'
+import { resetCustomsValue, resetStatValue, setManualCustomsValue, setManualStatValue, statUsdFrom } from '../../dtGoodsRules'
+import ManualMark from '../../ManualMark.vue'
 import { withCurrent } from '../../dtOptions'
 import GoodsTariffHint from './GoodsTariffHint.vue'
 import { characteristicTotals } from './characteristics'
@@ -23,7 +24,8 @@ import type { GoodsSectionProps } from './types'
 // количества; гр. 35 брутто, гр. 38 нетто (нетто > брутто — предупреждение); места (гр. 6/31: одно поле, КЕДЕН-поле
 // cargoPlacesQuantity = ему); гр. 42 фактурная (в форме customsValue, на сервере invoiceValue) и валюта (= гр. 22, когда
 // задана — заблокирована); гр. 34 страна; гр. 45 / гр. 46; подсказка ставок. Числа пишутся сразу при вводе, с запятой.
-// гр. 46 = гр. 45 / курс USD на дату гр. А (0,01) при правке гр. 45; ручная гр. 46 живёт до следующей правки гр. 45.
+// гр. 46 = гр. 45 / курс USD на дату гр. А (0,01) при правке гр. 45, пока гр. 46 не ручная. Правка гр. 45 или гр. 46 делает
+// значение ручным (решение 16.10.2026): «вручную», «расчёт: X» и «Сбросить к расчёту»; «Рассчитать» его не перезаписывает.
 const props = defineProps<GoodsSectionProps>()
 const { t, locale } = useI18n()
 const tq = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.editor.qty.${key}`, p ?? {})
@@ -77,17 +79,19 @@ const lockedCurrency = computed(() => props.ctx.currency || null)
 const currency = computed(() => withCurrent(props.ctx.currencyOptions, props.item.currency))
 const country = computed(() => withCurrent(props.ctx.countryOptions as ZOption[], props.item.countryOfOrigin))
 
-// гр. 45 — поле платежей; гр. 46 пересчитывается по ней (производное, если курс и гр. 45 известны).
-const onCustomsKzt = (v: number | null) => {
-  if (!props.model.setField(props.item, 'customsValueKzt', v)) return
-  const stat = statUsdFrom(v, props.ctx.usdRate)
-  if (stat != null) props.item.statisticValueUsd = stat
-}
-const onStatUsd = (v: number | null) => { props.item.statisticValueUsd = v }
+// гр. 45 — поле платежей (setField ставит «Пересчитать»); гр. 46 пересчитывается по ней, пока сама не ручная.
+const setCustomsField = (key: 'customsValueKzt', v: number | null) => props.model.setField(props.item, key, v)
+const onCustomsKzt = (v: number | null) => { setManualCustomsValue(props.item, v, props.ctx.usdRate, setCustomsField) }
+const onStatUsd = (v: number | null) => { setManualStatValue(props.item, v) }
+const resetCustoms = () => { resetCustomsValue(props.item, props.ctx.usdRate, setCustomsField) }
+const resetStat = () => { resetStatValue(props.item, props.ctx.usdRate) }
 const statAuto = computed(() => {
+  if (props.item.statisticValueUsdManual) return false
   const derived = statUsdFrom(props.item.customsValueKzt, props.ctx.usdRate)
   return derived != null && props.item.statisticValueUsd === derived
 })
+const kzt = (v: number | null | undefined) => (v == null ? null : `${formatNumberIn(locale.value, v, 2, 2)} ₸`)
+const usd = (v: number | null | undefined) => (v == null ? null : `${formatNumberIn(locale.value, v, 2, 2)} $`)
 
 // Колонки — по ширине панели: в панели 780px — три (подписи «Гр.34 Страна происхождения» целиком), во всю ширину
 // (< 1024) — четыре, на телефоне — одна.
@@ -133,15 +137,24 @@ const autoTag = 'absolute top-1/2 right-2 -translate-y-1/2'
         <ZSelect :value="item.countryOfOrigin || null" :options="country.options" show-search allow-clear :disabled="readonly" :placeholder="tq('countryPlaceholder')" popup-width="320px" class="max-sm:h-11" data-f="countryOfOrigin" @update:value="model.setField(item, 'countryOfOrigin', str($event))" />
       </ZField>
 
-      <!-- гр. 45 без «авто»: ручное значение от расчётного не отличить (в данных нет признака). -->
-      <ZField graph="45" :label="tq('customsValue')" data-graph="45" data-goods-field="customsValueKzt" :data-goods-index="index" :extra="tq('customsValueHint')">
+      <!-- гр. 45 / 46: ручное значение — «вручную», «расчёт: X» и «Сбросить к расчёту» под полем. -->
+      <ZField graph="45" :label="tq('customsValue')" data-graph="45" data-goods-field="customsValueKzt" :data-goods-index="index" :data-manual="item.customsValueKztManual || undefined">
         <ZNumber :value="item.customsValueKzt ?? null" :min="0" :disabled="readonly" class="max-sm:h-11" data-f="customsValueKzt" @update:value="onCustomsKzt" />
+        <template #extra>
+          <ManualMark v-if="item.customsValueKztManual" :calc="kzt(item.customsValueKztCalc)" :can-reset="!readonly" data-manual-of="45" @reset="resetCustoms" />
+          <template v-else>{{ tq('customsValueHint') }}</template>
+        </template>
       </ZField>
-      <ZField graph="46" :label="tq('statValue')" data-graph="46" data-goods-field="statisticValueUsd" :data-goods-index="index">
+      <ZField graph="46" :label="tq('statValue')" data-graph="46" data-goods-field="statisticValueUsd" :data-goods-index="index" :data-manual="item.statisticValueUsdManual || undefined">
         <div class="relative">
           <ZNumber :value="item.statisticValueUsd ?? null" :min="0" :disabled="readonly" :class="['max-sm:h-11', statAuto && 'pr-14']" data-f="statisticValueUsd" @update:value="onStatUsd" />
           <ZTag v-if="statAuto" tone="info" size="sm" :class="autoTag" :title="tq('statAuto')" data-goods-auto="46">{{ tq('auto') }}</ZTag>
         </div>
+        <!-- Слот подписи — всегда (ZField не следит за появлением слота): ручная — отметка, иначе — откуда значение. -->
+        <template #extra>
+          <ManualMark v-if="item.statisticValueUsdManual" :calc="usd(item.statisticValueUsdCalc)" :can-reset="!readonly" data-manual-of="46" @reset="resetStat" />
+          <template v-else>{{ tq('statValueHint') }}</template>
+        </template>
       </ZField>
       <ZField graph="41" :label="tq('quantityType')" data-graph="41" data-goods-field="quantityTypeCode" :data-goods-index="index">
         <ZSelect :value="item.quantityTypeCode || null" :options="quantityTypes" show-search allow-clear :disabled="readonly" :placeholder="tq('quantityTypePlaceholder')" popup-width="320px" class="max-sm:h-11" data-f="quantityTypeCode" @update:value="model.setField(item, 'quantityTypeCode', str($event))" />

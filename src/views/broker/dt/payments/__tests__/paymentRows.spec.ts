@@ -123,3 +123,65 @@ describe('applyPaymentsCalculation: «Записать» — правила гр
     expect(form.goodsItems[1].payments!.map((p) => p.taxModeCode)).toEqual(['1010'])
   })
 })
+
+describe('ручные строки гр. 47 (решение 16.10.2026): «Записать» их не перезаписывает и не удаляет', () => {
+  it('ручная строка: основа, ставка, сумма, вид ставки и подписи — декларанта; расчёт — в calcAmountKzt; СП — как была', () => {
+    const form = reactive(emptyDtForm()) as DtFormState
+    form.goodsItems = [goods({
+      needsTpinRecalc: true,
+      payments: [
+        { taxModeCode: '2010', taxBase: 500, rateKindCode: '%', rateValue: 1, amountKzt: 5, basisLabel: null, rateLabel: null, paymentFeatureCode: 'ОП', manual: true },
+        { taxModeCode: '2050', amountKzt: 777, manual: true }, // расчётный вид, которого в расчёте нет — остаётся, «расчёт: 0»
+        { taxModeCode: '4420', amountKzt: 9 },                 // не ручной — уходит
+        { taxModeCode: '5060', amountKzt: 1, manual: false, calcAmountKzt: 99 },
+      ],
+    })] as never
+    applyGoodsPaymentRows(form, calc([{ index: 0, rows: [
+      { taxModeCode: '2010', base: 100, rate: 10, amount: 10, rateKind: '*', rateUnitCode: '166', basisLabel: '100.00', rateLabel: '10%' },
+      { taxModeCode: '5060', base: 110, rate: 12, amount: 13.2 },
+    ] } as never]))
+    const p = form.goodsItems[0].payments!
+    expect(p.map((x) => x.taxModeCode)).toEqual(['2010', '2050', '5060'])
+    expect(p[0]).toMatchObject({
+      taxBase: 500, rateKindCode: '%', rateValue: 1, amountKzt: 5, basisLabel: null, rateLabel: null,
+      paymentFeatureCode: 'ОП', manual: true, calcAmountKzt: 10,
+    })
+    expect(p[0].rateUnitCode).toBeUndefined()
+    expect(p[1]).toMatchObject({ amountKzt: 777, manual: true, calcAmountKzt: 0 })
+    expect(p[2]).toMatchObject({ amountKzt: 13.2, calcAmountKzt: null })
+    // Товар посчитан — «Пересчитать» снят и с ручными строками.
+    expect(form.goodsItems[0].needsTpinRecalc).toBe(false)
+  })
+
+  it('ручную строку сбора 1010 у товара с ошибкой расчёта «Записать» не убирает', () => {
+    const form = reactive(emptyDtForm()) as DtFormState
+    form.goodsItems = [
+      goods({ payments: [{ taxModeCode: '1010', amountKzt: 25950 }] }),
+      goods({ payments: [{ taxModeCode: '1010', amountKzt: 100, manual: true }] }),
+    ] as never
+    const res = calc([
+      { index: 0, rows: [{ taxModeCode: '1010', amount: 25950 }] } as never,
+      { index: 1, rows: [], error: 'нет ставки' } as never,
+    ])
+    expect(feeDroppedGoods(form.goodsItems, res)).toEqual([])
+    applyPaymentsCalculation(form, res)
+    expect(form.goodsItems[1].payments).toEqual([expect.objectContaining({ taxModeCode: '1010', amountKzt: 100, manual: true })])
+  })
+})
+
+describe('НДС 5060 и ручная пошлина (16.10.2026)', () => {
+  it('НДС не ручной — пишется из расчёта (сервер считает его основу от ручной пошлины); ручной НДС — не трогается', () => {
+    const form = reactive(emptyDtForm()) as DtFormState
+    form.goodsItems = [
+      goods({ payments: [{ taxModeCode: '2010', amountKzt: 50000, manual: true }, { taxModeCode: '5060', amountKzt: 1 }] }),
+      goods({ payments: [{ taxModeCode: '2010', amountKzt: 50000, manual: true }, { taxModeCode: '5060', taxBase: 7, rateValue: 8, amountKzt: 9, manual: true }] }),
+    ] as never
+    const row = { taxModeCode: '5060', base: 1075950, rate: 16, amount: 172152 }
+    applyGoodsPaymentRows(form, calc([
+      { index: 0, rows: [{ taxModeCode: '2010', amount: 100000 }, row] } as never,
+      { index: 1, rows: [{ taxModeCode: '2010', amount: 100000 }, row] } as never,
+    ]))
+    expect(form.goodsItems[0].payments!.find((p) => p.taxModeCode === '5060')).toMatchObject({ taxBase: 1075950, amountKzt: 172152, calcAmountKzt: null })
+    expect(form.goodsItems[1].payments!.find((p) => p.taxModeCode === '5060')).toMatchObject({ taxBase: 7, rateValue: 8, amountKzt: 9, manual: true, calcAmountKzt: 172152 })
+  })
+})

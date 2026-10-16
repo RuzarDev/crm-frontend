@@ -10,7 +10,8 @@ import type { Import40GoodsItemInput } from '@/types/api'
 import { formatNumberIn } from '@/ui/number'
 import { formatTnved } from '@/utils/tnvedFormat'
 import PaymentFeatureCell from '../goods/editor/PaymentFeatureCell.vue'
-import { formatBasisLabel, setPaymentField, TEMP_IMPORT_CODES, VAT_TAX_MODE } from '../goods/editor/payments'
+import { formatBasisLabel, resetPaymentToCalc, setPaymentField, TEMP_IMPORT_CODES, VAT_TAX_MODE } from '../goods/editor/payments'
+import ManualMark from '../ManualMark.vue'
 import VatOffsetHint from '../goods/editor/VatOffsetHint.vue'
 import { formatMoney } from '../goods/goodsList'
 import { goodsPaymentsStale } from '../goods/goodsStatus'
@@ -27,6 +28,8 @@ import { useModeLabel } from './useModeLabel'
 // СП записанной строки — компактный выбор, когда ДТ можно править и нет предпросмотра (правка СП меняет гр. 47 — живой
 // предпросмотр стал бы «Данные изменились»): пишется в строку товара (setPaymentField — без «Пересчитать»), уходит
 // автосейвом. У 5060 — подсказка о перечнях для зачёта НДС (vatOffset — строки перечней по коду товара) с «Поставить ЗН».
+// Ручная строка (решение 16.10.2026) — «вручную» и «расчёт: X» (в предпросмотре — этого расчёта); «Сбросить к расчёту» —
+// там же, где правится СП (записанная строка, ДТ можно править, нет предпросмотра): товару — «Пересчитать».
 const props = defineProps<{
   item: Import40GoodsItemInput
   /** Позиция товара (с 0). */
@@ -74,6 +77,8 @@ const rateText = (l: PaymentLine) => {
 const featureEditable = (l: PaymentLine) => !props.readonly && !preview.value && !!l.source
 const anyFeatureEditable = computed(() => !props.readonly && !preview.value)
 const setFeature = (l: PaymentLine, code: string) => { if (l.source) setPaymentField(l.source, 'paymentFeatureCode', code) }
+const resetLine = (l: PaymentLine) => { if (l.source) resetPaymentToCalc(props.item, l.source) }
+const calcText = (l: PaymentLine) => (l.calcAmount == null ? null : `${money(l.calcAmount)} ₸`)
 const offsetRows = computed(() => props.vatOffset ?? [])
 const grid = computed(() => `@2xl:grid-cols-[3.5rem_minmax(0,1.5fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.1fr)_${anyFeatureEditable.value ? '6.5rem' : '2.5rem'}]`)
 const cellLabel = 'text-xs text-muted @2xl:hidden'
@@ -149,6 +154,15 @@ const cell = 'flex min-w-0 flex-col gap-0.5'
               @change="setFeature(l, $event)"
             />
           </span>
+          <ManualMark
+            v-if="l.manual"
+            class="col-span-full @2xl:justify-end"
+            :calc="calcText(l)"
+            :can-reset="featureEditable(l)"
+            :reset-title="t('broker.dt.manual.resetPaymentTitle')"
+            :data-manual-of="l.code ?? ''"
+            @reset="resetLine(l)"
+          />
           <VatOffsetHint
             v-if="l.code === VAT_TAX_MODE && offsetRows.length"
             :rows="offsetRows"

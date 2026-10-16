@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhCalculator, PhDotsThree } from '@phosphor-icons/vue'
+import { PhCalculator, PhDotsThree, PhLock } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import ZField from '@/components/z/ZField.vue'
@@ -24,9 +24,10 @@ import ExpensesTable from './ExpensesTable.vue'
 // стоимость — только чтение), 24 (характер сделки, форма расчётов), расходы и пересчёт гр. 45. «Место для ДТС» (гр. 17
 // ДТС) — в разделе «ДТС» (волна 6в).
 // Инкотермс, характер и форма расчётов — выбор из классификаторов без свободного ввода (значение вне списка видно с
-// предупреждением). Курс гр. 23 не правится молча: расхождение с курсом НБ РК на дату гр. А подсвечено, «Подставить» —
-// по клику. Гр. 12: пока есть несохранённые правки — предпросмотр, после сохранения — значение сервера (с пометкой).
-// Тип ставок (ЕТТ/ВТО) — не графа, а служебный признак: тегом; меняет его разделение ДТ, администратор — в «Ещё»,
+// предупреждением). Курс гр. 23 — только чтение (решение 16.10.2026): курс НБ РК валюты гр. 22 на дату гр. А (пустая —
+// сегодня) с датой, тот же, что у гр. 45/46/47 и ДТС; в форму его пишет useDtRates. Гр. 12: пока есть несохранённые
+// правки — предпросмотр, после сохранения — значение сервера (с пометкой). Тип ставок (ЕТТ/ВТО) — не графа, а служебный
+// признак: тегом; меняет его разделение ДТ, а вручную — тот, кто правит ДТ (назначенный декларант, РОП, админ), в «Ещё»,
 // с подтверждением. Результат пересчёта гр. 45 показан в самом разделе (recalc), а не только тостом.
 const props = defineProps<{
   form: DtFormState
@@ -35,14 +36,15 @@ const props = defineProps<{
   customsValue: number
   customsValueFromServer: boolean
   currencyOptions: ZOption[]
-  currencyRates?: Record<string, { rate: number; date: string }>
+  /** Гр. 23: курс НБ РК валюты гр. 22 на дату курсов ДТ (useDtRates.dealRate); null — валюты нет или курс не загрузился. */
+  dealRate?: { rate: number; date: string } | null
   expenseTypeOptions: ZOption[]
   expenseDistributionByCode?: Record<string, 'GrossWeight' | 'CustomsValue'>
   expenseDeductionByCode?: Record<string, boolean>
   /** Итог последнего «Рассчитать там. стоимость» (по товарам); null — не считали. */
-  recalc?: { updated: number; total: number } | null
+  recalc?: { updated: number; total: number; kept?: number } | null
   recalcLoading?: boolean
-  /** Администратор: может сменить тип ставок вручную (в «Ещё», с подтверждением). */
+  /** Может сменить тип ставок вручную (в «Ещё», с подтверждением): тот, кто правит ДТ. */
   canChangeRateType?: boolean
 }>()
 const emit = defineEmits<{ 'calc-customs-value': [] }>()
@@ -60,18 +62,19 @@ const warn = (unknown: boolean, value: string | null | undefined) =>
   unknown ? { validateStatus: 'warning' as const, help: t('broker.dt.general.notInList', { value: value ?? '' }) } : {}
 
 const str = (v: unknown): string => (v == null ? '' : String(v))
-const dealRate = computed(() => props.currencyRates?.[props.form.currency ?? ''] ?? null)
-const rateMismatch = computed(() => !!dealRate.value && props.form.exchangeRate != null && Number(props.form.exchangeRate) !== dealRate.value.rate)
-const fmtRate = (n: number) => formatNumberIn(locale.value, n, 4)
+const fmtRate = (n: number) => formatNumberIn(locale.value, n, 4, 2)
 const fmtMoney = (n: number) => `${formatNumberIn(locale.value, n, 2, 2)} ₸`
 
-// Выбор валюты — гр. 23 встаёт на курс НБ РК (как раньше); очистка курс не трогает.
-const onCurrency = (v: unknown) => {
-  props.form.currency = str(v)
-  const info = v ? props.currencyRates?.[str(v)] : null
-  if (info) props.form.exchangeRate = info.rate
-}
-const applyRate = () => { if (dealRate.value) props.form.exchangeRate = dealRate.value.rate }
+// Гр. 23 — «448,45 (НБ РК на 16.10.2026)». Курса на дату нет (валюта не выбрана, курсы не загрузились) — пусто: сохранённый
+// form.exchangeRate — колонка для совместимости, на неё не опираемся (решение 16.10.2026).
+const rateText = computed(() => {
+  const d = props.dealRate
+  if (!d) return ''
+  return d.date ? tf('rateValue', { rate: fmtRate(d.rate), date: formatDateText(d.date) }) : fmtRate(d.rate)
+})
+
+// Выбор валюты — гр. 23 за ней ставит useDtRates (курс на дату курсов ДТ).
+const onCurrency = (v: unknown) => { props.form.currency = str(v) }
 
 // Гр. 22 = Σ гр. 42: во всех выгрузках КЕДЕН общая фактурная стоимость равна сумме по товарам, ФЛК их сверяет (сверка
 // 14.10, I6; сервер проверяет то же при выгрузке XML). Гр. 42 в форме — customsValue товара. Сверяем, только если у всех
@@ -117,7 +120,7 @@ const onRateMenu = async () => {
 const stale = ref(false)
 watch(() => props.recalc, () => { stale.value = false })
 watch(
-  () => [props.form.exchangeRate, props.form.currency, props.form.totalInvoiceValue, JSON.stringify(props.form.expenses ?? [])],
+  () => [props.dealRate?.rate, props.form.currency, props.form.totalInvoiceValue, JSON.stringify(props.form.expenses ?? [])],
   () => { if (props.recalc) stale.value = true },
 )
 
@@ -163,22 +166,11 @@ const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @2xl:grid-cols-3'
             <template v-else>{{ tf('totalInvoiceAuto') }}</template>
           </template>
         </ZField>
-        <ZField graph="23" data-graph="23">
+        <ZField graph="23" data-graph="23" :extra="form.currency ? tf('rateNote') : tf('rateNone')">
           <template #label>{{ tf('rate') }}<DtGraphHelp graph="23" /></template>
-          <ZNumber :value="form.exchangeRate" :min="0" :disabled="readonly" data-exchange-rate @update:value="form.exchangeRate = $event" />
-          <template v-if="dealRate" #extra>
-            <span :class="rateMismatch ? 'text-danger' : ''" data-rate-hint>
-              {{ dealRate.date ? tf('rateHint', { date: formatDateText(dealRate.date), rate: fmtRate(dealRate.rate) }) : tf('rateHintNoDate', { rate: fmtRate(dealRate.rate) }) }}
-              <template v-if="rateMismatch"> — {{ tf('rateMismatch') }}</template>
-            </span>
-            <button
-              v-if="rateMismatch && !readonly"
-              type="button"
-              class="ml-1.5 inline-flex min-h-6 cursor-pointer items-center rounded-field border-0 bg-transparent px-1 font-sans text-xs font-semibold text-zircon-ink underline-offset-2 outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
-              data-rate-apply
-              @click="applyRate"
-            >{{ tf('apply') }}</button>
-          </template>
+          <ZInput :value="rateText" readonly mono class="bg-sunken" placeholder="—" data-exchange-rate :data-rate-date="dealRate?.date || undefined">
+            <template #suffix><PhLock :size="14" aria-hidden="true" /></template>
+          </ZInput>
         </ZField>
         <ZField graph="12" data-graph="12" :extra="tf('customsValueNote')">
           <template #label>{{ tf('customsValue') }}<DtGraphHelp graph="12" /></template>
@@ -241,6 +233,7 @@ const grid = 'grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @2xl:grid-cols-3'
         :data-stale="stale || undefined"
       >
         {{ tf('recalcDone', { n: recalc.updated, total: fmtMoney(recalc.total) }) }}
+        <template v-if="recalc.kept"> {{ tf('recalcKept', { n: recalc.kept }) }}</template>
         <template v-if="stale"> {{ tf('recalcStale') }}</template>
       </p>
     </div>

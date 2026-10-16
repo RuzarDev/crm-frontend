@@ -282,6 +282,15 @@ describe('SectionDts: добавочный лист', () => {
     expect(recalcCustomsValues).toHaveBeenCalledTimes(2)
   })
 
+  it('гр. 45 товара введена вручную (16.10.2026) — у «не совпадает» отметка «гр. 45 вручную» вместо «Пересчитать гр. 45»', async () => {
+    const view = dtsView({ mismatchGoods: [1], sheet: dtsSheet({ goods: [dtsGoods(1)] }) })
+    await mount({ view, form: { goodsItems: [{ ...goods('1'), tnvedCode: '7318150000', customsValueKztManual: true }] as never } })
+    const row = w.get('[data-dts-row="1"]')
+    expect(row.get('[data-dts-mismatch]').text()).toBe('не совпадает')
+    expect(row.get('[data-dts-manual]').text()).toBe('гр. 45 вручную')
+    expect(row.find('[data-dts-row-recalc]').exists()).toBe(false)
+  })
+
   it('«Место для гр. 17» — в верхнем регистре в форму ДТ, подсказка — место поставки', async () => {
     const { form } = await mount({ form: { incotermsPlace: 'ALMATY', dtsPlaceName: null } })
     const input = w.get('[data-dts-place]')

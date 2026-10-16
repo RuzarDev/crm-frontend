@@ -1,8 +1,9 @@
 // Платежи гр. 47 товара (волна 6б, перенос из прежней карточки товара без изменения правил):
 // порядок показа 1010 → 2010 → 5060 → прочие (как отдаёт расчёт); суммы — только из ответа сервера, клиент их не
 // пересчитывает; пустая ручная строка — вид ставки «%», СП «ИУ», как раньше.
-import type { Import40GoodsPayment } from '@/types/api'
+import type { Import40GoodsItemInput, Import40GoodsPayment } from '@/types/api'
 import { formatNumberIn } from '@/ui/number'
+import { markStale } from '../goodsStatus'
 
 const TAX_MODE_PRIORITY: Record<string, number> = { '1010': 0, '2010': 1, '5060': 2 }
 const priority = (code: string | null | undefined) =>
@@ -50,10 +51,20 @@ export const paymentsTotal = (payments: readonly Import40GoodsPayment[] | null |
 const BASE_FIELDS: ReadonlySet<keyof Import40GoodsPayment> = new Set(['taxBase'])
 const RATE_FIELDS: ReadonlySet<keyof Import40GoodsPayment> = new Set(['rateValue', 'rateKindCode', 'rateUnitCode', 'rateCurrencyCode', 'weightRatio'])
 
-/** Ручная правка поля строки гр. 47: присвоить; изменилось — снять устаревшие подписи расчёта. «Пересчитать» не ставит. */
+/**
+ * Поля строки, правка которых делает её ручной (решение 16.10.2026): основа, ставка (вид, единица, валюта, коэффициент) и
+ * сумма. Вид платежа, дата ставки и СП — нет (СП и так переживает расчёт).
+ */
+const MANUAL_FIELDS: ReadonlySet<keyof Import40GoodsPayment> = new Set([...BASE_FIELDS, ...RATE_FIELDS, 'amountKzt'])
+
+/**
+ * Ручная правка поля строки гр. 47: присвоить; изменилось — снять устаревшие подписи расчёта. Правка основы, ставки или
+ * суммы делает строку ручной («вручную»: расчёт её не перезапишет, пока её не сбросят к расчёту). «Пересчитать» не ставит.
+ */
 export function setPaymentField<K extends keyof Import40GoodsPayment>(p: Import40GoodsPayment, key: K, value: Import40GoodsPayment[K]): boolean {
   if ((p[key] ?? null) === (value ?? null)) return false
   p[key] = value
+  if (MANUAL_FIELDS.has(key)) p.manual = true
   if (key === 'taxModeCode') {
     p.basisLabel = null
     p.rateLabel = null
@@ -63,6 +74,19 @@ export function setPaymentField<K extends keyof Import40GoodsPayment>(p: Import4
   } else if (RATE_FIELDS.has(key)) {
     p.rateLabel = null
   }
+  return true
+}
+
+/**
+ * «Сбросить к расчёту» строки гр. 47: снять «вручную» и подсказку; товару — «Пересчитать»: следующий «Рассчитать →
+ * Записать» запишет в строку расчётные основу, ставку и сумму (или удалит её, если расчёт этот вид не начисляет).
+ * false — строка и так не ручная.
+ */
+export function resetPaymentToCalc(g: Import40GoodsItemInput, p: Import40GoodsPayment): boolean {
+  if (!p.manual) return false
+  p.manual = false
+  p.calcAmountKzt = null
+  markStale(g)
   return true
 }
 

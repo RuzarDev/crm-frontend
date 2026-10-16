@@ -138,6 +138,12 @@ export interface Import40GoodsItemDto {
   // Гр.33.3 «Маркировка»: NTIN по порядку и GTIN (многострочный текст). Сервер до 15.10 — без них.
   ntins?: string[] | null
   gtin?: string | null
+  // Ручные гр.45/46 (решение 16.10.2026): введены декларантом — «Рассчитать» и разделение ДТ их не перезаписывают, пока
+  // их не сбросят к расчёту; *Calc — значение последнего расчёта (подсказка «расчёт: X»). Сервер до 16.10 — без них.
+  customsValueKztManual?: boolean
+  customsValueKztCalc?: number | null
+  statisticValueUsdManual?: boolean
+  statisticValueUsdCalc?: number | null
 }
 
 // Зеркалит Import40GoodsMarkingDto / Import40GoodsMarkingRequest на бэке (Task 2).
@@ -715,6 +721,8 @@ export interface Import40CvGoodsInput {
   grossWeightKg?: number | null
   invoiceValue?: number | null
   currency?: string | null
+  /** Гр.45, введённая вручную: гр.46 ответа считается от неё (customsValueKzt ответа — всё равно расчётная). */
+  manualCustomsValueKzt?: number | null
 }
 
 export interface Import40CvExpenseInput {

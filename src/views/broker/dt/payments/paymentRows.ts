@@ -4,6 +4,8 @@
 //   удаляются; прочие и ручные — остаются;
 // - вручную выбранный вид ставки не затирается, пока сервер не прислал свой (rateKind — тогда и единица, валюта,
 //   весовой коэффициент);
+// - ручная строка (manual, решение 16.10.2026) — не перезаписывается и не удаляется: её основа, ставка, сумма и подписи
+//   остаются, расчёт кладётся в подсказку calcAmountKzt (вида нет в расчёте — 0); СП — как у всех строк;
 // - товар с ошибкой расчёта не трогается; посчитанный — теряет «Пересчитать» (needsTpinRecalc);
 // - товары и массив правятся на месте (ключ товара и открытый товар не теряются, волна 6б).
 import type { Import40CalculatePaymentsResponse } from '@/api/import40'
@@ -26,14 +28,21 @@ export function applyGoodsPaymentRows(form: Pick<DtFormState, 'goodsItems'>, res
     if (!g || row.error) return
     const fresh = new Set(row.rows.map((r) => r.taxModeCode))
     const rows = (g.payments ?? []).filter(
-      (p) => !p.taxModeCode || !isCalculatedTaxMode(p.taxModeCode) || fresh.has(p.taxModeCode),
+      (p) => p.manual || !p.taxModeCode || !isCalculatedTaxMode(p.taxModeCode) || fresh.has(p.taxModeCode),
     )
+    // Ручная строка вида, которого в расчёте нет: остаётся, «расчёт: 0».
+    for (const p of rows) if (p.manual && p.taxModeCode && isCalculatedTaxMode(p.taxModeCode) && !fresh.has(p.taxModeCode)) p.calcAmountKzt = 0
     row.rows.forEach((pr) => {
       const existing = rows.find((p) => p.taxModeCode === pr.taxModeCode)
-      if (existing) {
+      if (existing?.manual) {
+        // Ручная строка: значения декларанта, расчёт — в подсказку; СП, выбранная декларантом, остаётся.
+        existing.calcAmountKzt = pr.amount
+        existing.paymentFeatureCode = existing.paymentFeatureCode?.trim() || pr.featureCode || 'ИУ'
+      } else if (existing) {
         existing.taxBase = pr.base ?? null
         existing.rateValue = pr.rate ?? null
         existing.amountKzt = pr.amount
+        existing.calcAmountKzt = null
         // Вид ставки не затираем, если декларант выбрал его сам ('*' с весовым коэффициентом и т.п.).
         if (!existing.rateKindCode && pr.rate != null) existing.rateKindCode = '%'
         // Сервер знает, какая часть ставки сработала («%» или «*» за кг/шт/см³) — тогда пишем как в КЕДЕН.
@@ -84,7 +93,8 @@ export const feeAssigned = (res: Pick<Import40CalculatePaymentsResponse, 'goodsR
 export function feeDroppedGoods(goods: readonly Pick<Import40GoodsItemInput, 'payments'>[], res: Pick<Import40CalculatePaymentsResponse, 'goodsRows'>): number[] {
   if (!feeAssigned(res)) return []
   const ok = new Set(res.goodsRows.filter((r) => !r.error).map((r) => r.index))
-  return goods.flatMap((g, i) => (!ok.has(i) && (g.payments ?? []).some((p) => p.taxModeCode === FEE_TAX_MODE) ? [i] : []))
+  // Ручную строку сбора «Записать» не убирает (её ведёт декларант).
+  return goods.flatMap((g, i) => (!ok.has(i) && (g.payments ?? []).some((p) => p.taxModeCode === FEE_TAX_MODE && !p.manual) ? [i] : []))
 }
 
 /**
@@ -100,6 +110,6 @@ export function applyPaymentsCalculation(form: Pick<DtFormState, 'goodsItems'>, 
   applyGoodsPaymentRows(form, res)
   for (const i of dropFee) {
     const g = form.goodsItems[i]
-    g.payments = (g.payments ?? []).filter((p) => p.taxModeCode !== FEE_TAX_MODE)
+    g.payments = (g.payments ?? []).filter((p) => p.taxModeCode !== FEE_TAX_MODE || p.manual)
   }
 }

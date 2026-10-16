@@ -532,23 +532,44 @@ describe('DtPage: настоящие разделы «Условия и стои
     await open('?s=finance', ['SectionFinance'])
     expect(w.get('[data-customs-value]').attributes('data-source')).toBe('server')
     expect(w.get('[data-customs-value-tag]').text()).toBe('по сохранённой ДТ')
-    await w.get('[data-exchange-rate]').setValue('500')
-    await w.get('[data-exchange-rate]').trigger('blur')
+    // гр. 23 — только чтение (16.10.2026): правка гр. 22 делает гр. 12 предварительной.
+    expect(w.get('[data-exchange-rate]').attributes('readonly')).toBeDefined()
+    await w.get('[data-total-invoice]').setValue('500')
+    await w.get('[data-total-invoice]').trigger('blur')
     await settle()
     expect(w.get('[data-customs-value]').attributes('data-source')).toBe('preview')
     expect(w.get('[data-customs-value-tag]').text()).toBe('предварительно')
   })
 
-  it('тип ставок — тегом; «Ещё» со сменой — только администратору', async () => {
+  it('тип ставок — тегом; «Ещё» со сменой — тому, кто правит ДТ (назначенный декларант, админ), в просмотре — нет (16.10.2026)', async () => {
     server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, rateType: 'EATT', totalSheets: 1 })] })
     await open('?s=finance', ['SectionFinance'])
     expect(w.get('[data-rate-type-tag]').text()).toBe('ВТО')
     expect(finance().find('[data-rate-type] input').exists()).toBe(false)
+    expect(w.find('[data-rate-type-more]').exists()).toBe(true)
+    w.unmount()
+    server = caseDto({ status: 3, assignedDeclarantId: 'other', declarations: [fullDto({ splitRole: null, rateType: 'EATT', totalSheets: 1 })] })
+    await open('?s=finance', ['SectionFinance'])
     expect(w.find('[data-rate-type-more]').exists()).toBe(false)
     w.unmount()
     as({ role: 'administrator' })
     await open('?s=finance', ['SectionFinance'])
     expect(w.find('[data-rate-type-more]').exists()).toBe(true)
+  })
+
+  it('открытие ДТ с устаревшей гр. 23 не сохраняет: показан курс на дату, гр. 12 — по нему (16.10.2026)', async () => {
+    api.ratesOnDate.mockResolvedValue({ date: '2026-10-05', rates: { USD: 495.12, EUR: 541.3, KZT: 1 }, official: true })
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, rateType: 'ETT', totalSheets: 1, exchangeRate: 470 })] })
+    await open('?s=finance', ['SectionFinance'])
+    await settle()
+    expect((w.get('[data-exchange-rate]').element as HTMLInputElement).value).toBe('495,12 (НБ РК на 05.10.2026)')
+    expect(w.get('[data-dt-header]').text()).not.toContain('Есть несохранённые изменения')
+    expect(api.updateDeclaration).not.toHaveBeenCalled()
+    // Предпросмотр гр. 12 — по курсу на дату, не по сохранённым 470.
+    await w.get('[data-total-invoice]').setValue('1000')
+    await w.get('[data-total-invoice]').trigger('blur')
+    await settle()
+    expect((w.get('[data-customs-value]').element as HTMLInputElement).value.replace(/\s/g, ' ')).toContain('643 656,00') // 1000 × 495,12 + расходы 300 USD × 495,12
   })
 
   it('«Органы»: правка номера СВХ и кода 52 уходит в PUT; открытие раздела форму не меняет', async () => {

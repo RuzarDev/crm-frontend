@@ -394,3 +394,44 @@ describe('SectionPayments: СП в карточке и зачёт НДС', () =>
     expect(live.w.find('input[data-f="payment-feature-inline"]').exists()).toBe(false)
   })
 })
+
+describe('SectionPayments: ручные строки гр. 47 (решение 16.10.2026)', () => {
+  it('«вручную» и «расчёт: X»; расчёт и «Записать» ручную сумму не трогают — гр. В из неё; сброс — «Пересчитать»', async () => {
+    const { form, w, payments } = setup({ goods: [goodsItem({ payments: [pay('1010', 2500), pay('5060', 7000, { manual: true, calcAmountKzt: 7500 })] })] })
+    await settle()
+    const line = () => w.get('[data-payments-goods][data-goods-index="0"] [data-payments-line="5060"]')
+    expect(line().get('[data-manual-badge]').text()).toBe('вручную')
+    expect(line().get('[data-manual-calc]').text().replace(/\s/g, ' ')).toBe('расчёт: 7 500,00 ₸')
+    expect(line().find('[data-manual-reset]').exists()).toBe(true)
+    expect(w.find('[data-payments-line="1010"] [data-manual-mark]').exists()).toBe(false)
+
+    // Предпросмотр: ручная строка — не «расчёт, не записан», а «вручную» с расчётом этого прогона; сброса нет.
+    await w.get('[data-payments-calc]').trigger('click')
+    await settle()
+    expect(payments.state.value).toBe('preview')
+    expect(line().attributes('data-fresh')).toBeUndefined()
+    expect(line().get('[data-payments-line-amount]').text().replace(/\s/g, ' ')).toContain('7 000,00')
+    expect(line().get('[data-manual-calc]').text().replace(/\s/g, ' ')).toBe('расчёт: 84 000,00 ₸')
+    expect(line().find('[data-manual-reset]').exists()).toBe(false)
+
+    await w.get('[data-payments-apply]').trigger('click')
+    await settle()
+    expect(form.goodsItems[0].payments!.find((p) => p.taxModeCode === '5060')).toMatchObject({ amountKzt: 7000, manual: true, calcAmountKzt: 84000 })
+    expect(form.factPayments!.find((f) => f.taxModeCode === '5060')!.amount).toBe(7000)
+
+    await line().get('[data-manual-reset]').trigger('click')
+    await settle()
+    expect(form.goodsItems[0].payments!.find((p) => p.taxModeCode === '5060')).toMatchObject({ manual: false, calcAmountKzt: null })
+    expect(form.goodsItems[0].needsTpinRecalc).toBe(true)
+    expect(line().find('[data-manual-mark]').exists()).toBe(false)
+  })
+
+  it('просмотр: «вручную» и расчёт без «Сбросить к расчёту»', async () => {
+    const { w } = setup({ readonly: true, goods: [goodsItem({ payments: [pay('5060', 7000, { manual: true, calcAmountKzt: null })] })] })
+    await settle()
+    const line = w.get('[data-payments-line="5060"]')
+    expect(line.find('[data-manual-badge]').exists()).toBe(true)
+    expect(line.find('[data-manual-calc]').exists()).toBe(false)
+    expect(line.find('[data-manual-reset]').exists()).toBe(false)
+  })
+})

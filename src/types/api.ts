@@ -1355,6 +1355,11 @@ export interface Import40GoodsPayment {
   basisLabel?: string | null
   rateLabel?: string | null
   bLine?: string | null
+  // Ручная строка (решение 16.10.2026): декларант правил основу, ставку или сумму — «Рассчитать → Записать» и разделение ДТ
+  // её не перезаписывают и не удаляют, пока её не сбросят к расчёту. calcAmountKzt — сумма последнего расчёта по этому виду
+  // (подсказка «расчёт: X»; 0 — расчёт вид не начисляет), только у ручной строки.
+  manual?: boolean
+  calcAmountKzt?: number | null
 }
 
 export interface Import40FactPayment {
@@ -1453,6 +1458,12 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   // есть — заменить (список целиком), нет — сервер оставит прежнее (старая вкладка).
   ntins?: string[]
   gtin?: string | null
+  // Ручные гр.45/46 (решение 16.10.2026): введены декларантом — «Рассчитать» и разделение ДТ их не перезаписывают, пока
+  // их не сбросят к расчёту; *Calc — значение последнего расчёта (подсказка «расчёт: X»). Сервер до 16.10 — без них.
+  customsValueKztManual?: boolean
+  customsValueKztCalc?: number | null
+  statisticValueUsdManual?: boolean
+  statisticValueUsdCalc?: number | null
 }
 
 /** Строка «Характеристики товара в группе» гр.31 — зеркалит Import40GoodsCharacteristicDto на бэке. */

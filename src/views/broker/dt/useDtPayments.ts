@@ -3,8 +3,9 @@
 // calculate():
 //   0) только при праве править (просмотр, разделённая ДТ — ничего); без товаров — «Нет товаров для расчёта»;
 //      сохранить сейчас нельзя (409, идёт загрузка — canSave) — стоп ДО шага 1, гр. 45 и «Пересчитать» не тронуты;
-//   1) гр. 45/46 по данным экрана (тот же запрос, что «Рассчитать там. стоимость», дата гр. А); пишутся только товары
-//      с фактурной стоимостью > 0 и валютой — у прочих введённая вручную гр. 45 остаётся; ошибка — стоп (текст
+//   1) гр. 45/46 по данным экрана (тот же запрос, что «Рассчитать там. стоимость», дата гр. А, пустая — сегодня); пишутся
+//      только товары с фактурной стоимостью > 0 и валютой — у прочих введённая вручную гр. 45 остаётся; ручные гр. 45/46
+//      (признак «вручную», решение 16.10.2026) не перезаписываются — расчёт идёт в подсказку; ошибка — стоп (текст
 //      показал общий перехватчик);
 //   2) тихое сохранение ДТ: не сохранилась (409, ошибка, нет права) — расчёт не выполняется, сказано почему;
 //   3) calculate-payments по СОХРАНЁННОЙ ДТ → предпросмотр (state 'preview'): суммы по товарам и итоги по видам.
@@ -75,8 +76,11 @@ export function useDtPayments(
   const problem = ref<DtPaymentsProblem | null>(null)
   /** Предпросмотр: ответ calculate-payments (index — позиция товара в момент расчёта). Есть в 'preview' и 'stale-preview'. */
   const result = shallowRef<Import40CalculatePaymentsResponse | null>(null)
-  /** Итог последнего пересчёта гр. 45 — показывается в разделе «Условия», а не только тостом (F4). */
-  const customsResult = ref<{ updated: number; total: number } | null>(null)
+  /**
+   * Итог последнего пересчёта гр. 45 — показывается в разделе «Условия», а не только тостом (F4). kept — товары с ручной
+   * гр. 45: их значение осталось, расчёт — в подсказке.
+   */
+  const customsResult = ref<{ updated: number; total: number; kept: number } | null>(null)
   const customsLoading = ref(false)
 
   const editable = () => (opts.editable === undefined ? true : !!toValue(opts.editable))
@@ -118,13 +122,15 @@ export function useDtPayments(
    * Ответ приходит по позициям запроса, а товары за это время могли удалить или переставить: гр. 45 пишется по ключу
    * товара (keyOf), снятому до запроса; удалённого товара уже нет — его строка ответа пропускается.
    */
-  const recalcCustomsValues = async (): Promise<{ updated: number; total: number }> => {
+  const recalcCustomsValues = async (): Promise<{ updated: number; total: number; kept: number }> => {
     const keys = form.goodsItems.map(keyOf)
     const goods = form.goodsItems.map((g, index) => ({
       index,
       grossWeightKg: g.grossWeightKg ?? null,
       invoiceValue: g.customsValue ?? null,
       currency: g.currency ?? null,
+      // Ручная гр. 45 — гр. 46 сервер считает от неё.
+      manualCustomsValueKzt: g.customsValueKztManual ? g.customsValueKzt ?? null : null,
     }))
     const expenses = (form.expenses ?? [])
       .filter((e) => e.expenseTypeCode && e.amount != null && e.currencyCode)
@@ -132,22 +138,36 @@ export function useDtPayments(
     const res = await import40Api.calculateCustomsValue({ goods, expenses, onDate: toIsoDate(form.submissionDate) })
     let updated = 0
     let total = 0
+    let kept = 0
     const byKey = new Map(form.goodsItems.map((g) => [keyOf(g), g]))
     res.goods.forEach((r) => {
       const key = keys[r.index]
       const g = key === undefined ? undefined : byKey.get(key)
       if (g && customsValueComputable(g)) {
-        // гр. 45 — основа гр. 47: изменилась — платежи товара устарели (снимет следующий расчёт платежей).
-        if ((g.customsValueKzt ?? null) !== (r.customsValueKzt ?? null)) markStale(g)
-        g.customsValueKzt = r.customsValueKzt
-        // гр.46 — вместе с гр.45 и по тому же курсу.
-        if (r.statisticValueUsd != null) g.statisticValueUsd = r.statisticValueUsd
-        total += r.customsValueKzt ?? 0
-        updated += 1
+        if (g.customsValueKztManual) {
+          // Ручная гр. 45 остаётся; расчёт — подсказка «расчёт: X».
+          g.customsValueKztCalc = r.customsValueKzt
+          kept += 1
+        } else {
+          // гр. 45 — основа гр. 47: изменилась — платежи товара устарели (снимет следующий расчёт платежей).
+          if ((g.customsValueKzt ?? null) !== (r.customsValueKzt ?? null)) markStale(g)
+          g.customsValueKzt = r.customsValueKzt
+          g.customsValueKztCalc = null
+          total += r.customsValueKzt ?? 0
+          updated += 1
+        }
+        // гр.46 — вместе с гр.45 (от ручной, если она ручная) и по тому же курсу; ручная гр.46 остаётся.
+        if (r.statisticValueUsd != null) {
+          if (g.statisticValueUsdManual) g.statisticValueUsdCalc = r.statisticValueUsd
+          else {
+            g.statisticValueUsd = r.statisticValueUsd
+            g.statisticValueUsdCalc = null
+          }
+        }
       }
     })
-    customsResult.value = { updated, total }
-    return { updated, total }
+    customsResult.value = { updated, total, kept }
+    return { updated, total, kept }
   }
 
   /** «Рассчитать там. стоимость» (раздел «Условия», шаг 1 отдельно): итог — в сообщении. */

@@ -424,20 +424,31 @@ describe('GoodsEditor: «Количество и стоимость»', () => {
     expect(field('currency').getAttribute('role')).toBe('combobox')
   })
 
-  it('гр. 45 → гр. 46 = гр. 45 / курс USD (0,01), «авто»; ручная гр. 46 живёт до следующей правки гр. 45', async () => {
-    await mount([item({ customsValueKzt: null, statisticValueUsd: null })], { query: '&item=1' })
+  it('гр. 45 → гр. 46 = гр. 45 / курс USD (0,01), «авто»; правка гр. 45/46 — «вручную» с расчётом и сбросом (16.10.2026)', async () => {
+    await mount([item({ customsValueKzt: 450000, statisticValueUsd: null })], { query: '&item=1' })
+    const g = () => form.goodsItems[0]
     await type('customsValueKzt', '495120')
-    expect(form.goodsItems[0].customsValueKzt).toBe(495120)
-    expect(form.goodsItems[0].statisticValueUsd).toBe(1000)
-    expect(form.goodsItems[0].needsTpinRecalc).toBe(true)
+    expect(g()).toMatchObject({ customsValueKzt: 495120, statisticValueUsd: 1000, needsTpinRecalc: true })
+    // Ручная гр. 45: расчётной считается прежняя (450 000) — «расчёт: …» и «Сбросить к расчёту».
+    expect(g()).toMatchObject({ customsValueKztManual: true, customsValueKztCalc: 450000 })
+    expect(q('[data-manual-of="45"] [data-manual-badge]')!.textContent).toBe('вручную')
+    expect(q('[data-manual-of="45"] [data-manual-calc]')!.textContent!.replace(/\s/g, ' ')).toBe('расчёт: 450 000,00 ₸')
     expect(q('[data-goods-auto="46"]')).not.toBeNull()
-    // гр. 45: ручное от расчётного не отличить — без «авто»
-    expect(q('[data-goods-auto="45"]')).toBeNull()
+    expect(q('[data-manual-of="46"]')).toBeNull()
     await type('statisticValueUsd', '999')
-    expect(form.goodsItems[0].statisticValueUsd).toBe(999)
+    expect(g()).toMatchObject({ statisticValueUsd: 999, statisticValueUsdManual: true, statisticValueUsdCalc: 1000 })
     expect(q('[data-goods-auto="46"]')).toBeNull()
+    // Ручная гр. 46 правкой гр. 45 не перезаписывается.
     await type('customsValueKzt', '990240')
-    expect(form.goodsItems[0].statisticValueUsd).toBe(2000)
+    expect(g().statisticValueUsd).toBe(999)
+    // Сброс гр. 46 — гр. 45 / курс USD; сброс гр. 45 — расчётная, гр. 46 за ней.
+    ;(q('[data-manual-of="46"] [data-manual-reset]') as HTMLButtonElement).click()
+    await settle()
+    expect(g()).toMatchObject({ statisticValueUsd: 2000, statisticValueUsdManual: false, statisticValueUsdCalc: null })
+    ;(q('[data-manual-of="45"] [data-manual-reset]') as HTMLButtonElement).click()
+    await settle()
+    expect(g()).toMatchObject({ customsValueKzt: 450000, customsValueKztManual: false, customsValueKztCalc: null, statisticValueUsd: 908.87 })
+    expect(q('[data-manual-of="45"]')).toBeNull()
   })
 })
 

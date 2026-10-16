@@ -48,6 +48,12 @@ const nameOf = (g: DtsGoodsColumn): string => {
   return same ? (fg.description ?? '').trim() : ''
 }
 
+// Гр. 45 товара введена вручную (решение 16.10.2026): «Пересчитать гр. 45» её не изменит — у строки вместо кнопки отметка.
+const manualOf = (g: DtsGoodsColumn): boolean => {
+  const fg = props.form.goodsItems[g.number - 1]
+  return !!fg?.customsValueKztManual && (fg.tnvedCode ?? '').trim() === (g.tnvedCode ?? '').trim()
+}
+
 const rows = computed(() => (props.sheet.goods ?? []).map((g) => {
   const off = props.mismatch.has(g.number)
   // Расхождение до копейки: в строке «не совпадает» 25а и гр. 45 — с копейками, иначе разница не видна.
@@ -55,6 +61,7 @@ const rows = computed(() => (props.sheet.goods ?? []).map((g) => {
   return {
     g,
     off,
+    manual: manualOf(g),
     name: nameOf(g),
     cells: [
       { key: '11a', label: ts('col11a'), text: `${money2(g.invoicePrice)} ${g.invoiceCurrency ?? ''}`.trim() },
@@ -149,7 +156,8 @@ const td = 'px-3 py-2.5 text-right tabular-nums whitespace-nowrap max-sm:flex ma
                     <span class="max-w-[16rem] truncate">{{ r.name || r.g.tnvedCode || '—' }}</span>
                   </button>
                   <ZTag v-if="r.off" tone="danger" size="sm" :title="ts('mismatchHint')" data-dts-mismatch>{{ ts('mismatch') }}</ZTag>
-                  <ZButton v-if="r.off && !readonly" variant="link" size="sm" class="max-sm:h-11" :disabled="recalcLoading" data-dts-row-recalc @click="emit('recalc')">
+                  <ZTag v-if="r.off && r.manual" tone="accent" size="sm" :title="t('broker.dt.manual.badgeTitle')" data-dts-manual>{{ t('broker.dt.manual.gr45') }}</ZTag>
+                  <ZButton v-else-if="r.off && !readonly" variant="link" size="sm" class="max-sm:h-11" :disabled="recalcLoading" data-dts-row-recalc @click="emit('recalc')">
                     {{ ts('recalc') }}
                   </ZButton>
                 </div>
