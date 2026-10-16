@@ -60,10 +60,8 @@ export function splitChangeNotes(
   // Части: ЕТТ и ВТО переиспользуются (несколько частей одной роли — запрет, см. splitDuplicateRoles); ненужная ЕТТ удаляется.
   const firstEtt = state.parts.find((p) => roleOf(p) === 'ETT')
   const firstVto = state.parts.find((p) => roleOf(p) === 'VTO')
-  for (const p of state.parts) {
-    const kept = (p === firstEtt && needsEtt) || p === firstVto
-    if (!kept) notes.push(t('broker.dt.split.changeRemovePart', { label: splitPartLabel(p, t) }))
-  }
+  const removed = new Set(state.parts.filter((p) => !((p === firstEtt && needsEtt) || p === firstVto)))
+  for (const p of removed) notes.push(t('broker.dt.split.changeRemovePart', { label: splitPartLabel(p, t) }))
   if (needsEtt && !firstEtt) notes.push(t('broker.dt.split.changeNewPart', { role: 'ЕТТ' }))
   if (!firstVto) notes.push(t('broker.dt.split.changeNewPart', { role: 'ВТО' }))
 
@@ -72,15 +70,18 @@ export function splitChangeNotes(
     const name = names.get(o)?.trim()
     return name ? t('broker.dt.split.changeGoodsItem', { n: o + 1, name }) : `№ ${o + 1}`
   }).join(', ')
-  const toVto = [...sel].filter((s) => !wasVto.has(s))
+  // Вернувшиеся из исходной ДТ (их не было ни в одной части) — не «переход», они перечислены в «Вернутся…».
+  const returned = new Set(state.returnedSortOrders)
+  const toVto = [...sel].filter((s) => !wasVto.has(s) && !returned.has(s))
   const toEtt = [...wasVto].filter((s) => !sel.has(s))
   if (toVto.length) notes.push(t('broker.dt.split.changeToVto', { list: goods(toVto) }))
   if (toEtt.length) notes.push(t('broker.dt.split.changeToEtt', { list: goods(toEtt) }))
 
   notes.push(t('broker.dt.split.changePayments'))
-  // Часть уже в КЕДЕН: сброс EDocId — следующий XML создаст новый черновик, старый (прежний состав) останется там.
+  // Часть уже в КЕДЕН: остающаяся — сброс EDocId, следующий XML создаст новый черновик, старый (прежний состав) останется
+  // там; удаляемая — XML у неё больше не будет, её черновик в КЕДЕН удаляют вручную.
   for (const p of state.parts.filter((x) => x.uploadedToKeden)) {
-    notes.push(t('broker.dt.split.changeKeden', { label: splitPartLabel(p, t) }))
+    notes.push(t(removed.has(p) ? 'broker.dt.split.changeKedenRemoved' : 'broker.dt.split.changeKeden', { label: splitPartLabel(p, t) }))
   }
   const switching = state.manualPaymentSortOrders.filter((s) => wasVto.has(s) !== sel.has(s))
   if (switching.length) notes.push(t('broker.dt.split.changeManual', { list: nums(switching) }))

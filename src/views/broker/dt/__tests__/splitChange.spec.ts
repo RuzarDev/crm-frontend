@@ -81,6 +81,23 @@ describe('«Изменить разделение»: что изменится',
     expect(notes.filter((n) => n.includes('КЕДЕН'))).toHaveLength(1)
   })
 
+  // Повторное ревью N3: удаляемая часть (все товары ушли в ВТО) — XML у неё больше не будет, черновик удалить вручную.
+  it('удаляемая часть уже в КЕДЕН — «черновик удалите вручную», без «следующий XML»', () => {
+    const st = state()
+    st.parts[0].uploadedToKeden = true
+    const notes = splitChangeNotes(st, [0, 1, 2], 3, t)
+    expect(notes).toContain('Часть ЕТТ E-1 удаляется, но уже выгружалась в КЕДЕН — её черновик в КЕДЕН удалите вручную.')
+    expect(notes.some((n) => n.includes('следующий XML'))).toBe(false)
+  })
+
+  // Повторное ревью N4: товар, который возвращается из исходной ДТ, — не «переход из ЕТТ в ВТО».
+  it('вернувшийся из исходной ДТ товар не попадает в «Перейдут…»', () => {
+    const notes = splitChangeNotes(state({ returnedSortOrders: [2] }), [1, 2], 3, t)
+    expect(notes.some((n) => n.startsWith('Перейдут'))).toBe(false)
+    expect(notes).toContain('Вернутся из исходной ДТ товары, удалённые из частей: № 3.')
+    expect(splitChangeNotes(state({ returnedSortOrders: [2] }), [0, 1, 2], 3, t)).toContain('Перейдут из ЕТТ в ВТО: № 1.')
+  })
+
   // Ревью I2: несколько частей одной роли; I1: отметки частей — строкой, как пришли.
   it('несколько частей одной роли; отметки частей для запроса', () => {
     expect(splitDuplicateRoles(state())).toBe(false)

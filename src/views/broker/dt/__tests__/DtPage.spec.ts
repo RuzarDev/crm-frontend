@@ -1148,7 +1148,8 @@ describe('DtPage: сохранение и режимы', () => {
     expect(notes).toContain('Пропадут товары, добавленные в части вручную: ДОБАВЛЕН.')
     expect(notes).toContain('Ручные строки гр.47 останутся у товаров № 1')
     expect(notes).toContain('Перейдут из ЕТТ в ВТО: № 1.')
-    expect(notes).toContain('Часть ЕТТ E-1 уже выгружалась в КЕДЕН')
+    // ЕТТ удаляется (все товары ушли в ВТО) и уже была в КЕДЕН — её черновик удалить вручную.
+    expect(notes).toContain('Часть ЕТТ E-1 удаляется, но уже выгружалась в КЕДЕН — её черновик в КЕДЕН удалите вручную.')
     ;([...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Изменить разделение' && b.closest('[data-dt-split-modal]')) as HTMLButtonElement).click()
     await settle()
     expect(confirmState.open).toBe(true)

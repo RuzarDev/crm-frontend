@@ -2524,6 +2524,7 @@ export default {
         changeToVto: 'Will move from ETT to VTO: {list}.',
         changeToEtt: 'Will move from VTO to ETT: {list}.',
         changeKeden: 'Part {label} has already been uploaded to KEDEN. After the change the next XML creates a new KEDEN draft, and the old one (with the previous goods) stays — delete it in KEDEN manually.',
+        changeKedenRemoved: 'Part {label} is deleted but has already been uploaded to KEDEN — delete its KEDEN draft manually.',
         changeBlocked: 'The split cannot be changed',
         changeDuplicateParts: 'This declaration already has several ETT/VTO parts ({list}) — the split cannot be changed, contact the head of department.',
         changeStale: 'The ETT/VTO parts changed while this window was open. The “what changes” list has been refreshed — check it and confirm again.',
