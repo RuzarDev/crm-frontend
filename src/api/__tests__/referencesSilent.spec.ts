@@ -45,4 +45,28 @@ describe('referencesApi / prohibitionCodesApi: silent', () => {
     await prohibitionCodesApi.kedenUsage()
     expect(client.get).toHaveBeenLastCalledWith('/ref/prohibition-codes/keden-usage', { silent: true })
   })
+
+  it('гр. 33 по редакции Приказа № 259: дата уходит в запрос и в ключ кэша; без даты — прежний вызов', async () => {
+    client.get.mockClear()
+    client.get.mockResolvedValue({ data: { tnved: '2222222222', codes: [], fetchedAtUtc: null, stale: false, warning: null } })
+    await prohibitionCodesApi.suggest('2222222222')
+    expect(client.get).toHaveBeenLastCalledWith('/ref/prohibition-codes/suggest', { params: { tnved: '2222222222' }, timeout: 30000, silent: true })
+    await prohibitionCodesApi.suggest('2222222222', '2026-11-02')
+    expect(client.get).toHaveBeenLastCalledWith('/ref/prohibition-codes/suggest', { params: { tnved: '2222222222', date: '2026-11-02' }, timeout: 30000, silent: true })
+    await prohibitionCodesApi.suggest('2222222222', '2026-11-02')
+    expect(client.get).toHaveBeenCalledTimes(2)
+
+    client.get.mockResolvedValue({ data: [] })
+    await prohibitionCodesApi.list()
+    expect(client.get).toHaveBeenLastCalledWith('/ref/prohibition-codes', { silent: true })
+    await prohibitionCodesApi.list('2026-11-02')
+    expect(client.get).toHaveBeenLastCalledWith('/ref/prohibition-codes', { params: { date: '2026-11-02' }, silent: true })
+
+    client.get.mockResolvedValue({ data: '' }) // 204 — редакции нет
+    expect(await prohibitionCodesApi.editionStatus()).toBeNull()
+    expect(client.get).toHaveBeenLastCalledWith('/ref/prohibition-codes/edition-status', { silent: true })
+    client.get.mockResolvedValue({ data: [] })
+    await prohibitionCodesApi.editionDiff()
+    expect(client.get).toHaveBeenLastCalledWith('/ref/prohibition-codes/edition-diff', { silent: true })
+  })
 })

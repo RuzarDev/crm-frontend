@@ -16,6 +16,9 @@ export interface CompanyLookupDto {
   fetchedAtUtc: string
   kind?: 'ul' | 'ip'
   isActive?: boolean
+  // Реестр Минюста отстал от переименования: nameRu — из КГД, а адрес/руководитель/ОКЭД сервер не отдаёт
+  // (в устаревшей записи они прежние); здесь старое название из реестра.
+  outdatedRegistryName?: string | null
 }
 
 export const isBinLike = (v: string | null | undefined) => /^\d{12}$/.test((v ?? '').replace(/\D/g, ''))

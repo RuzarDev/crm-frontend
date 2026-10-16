@@ -68,6 +68,7 @@ const CLASSIFIER_KEYS: Record<string, string> = {
   'prev-doc-types': 'prevDocTypes',
   'restriction-marks': 'restrictionMarks',
   'settlement-terms': 'settlementTerms',
+  'foreign-deal-features': 'foreignDealFeatures',
   'transport-mode': 'transportMode',
   'transport-purpose': 'transportPurpose',
   'used-as-declaration': 'usedAsDeclaration',

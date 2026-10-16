@@ -20,7 +20,10 @@ export function useBinLookup(opts: { anonymous?: boolean } = {}) {
     try {
       const company = await companyLookupApi.byBin(bin!, opts.anonymous ?? false)
       const name = company.nameRu ?? company.nameKz ?? company.bin
-      if (company.isActive === false) {
+      if (company.outdatedRegistryName) {
+        // Компания переименована, открытый реестр Минюста отстаёт: подставлено только название из КГД.
+        message.warning({ content: t('binLookup.renamed', { name, old: company.outdatedRegistryName }), duration: 12 })
+      } else if (company.isActive === false) {
         // ИП/юрлицо прекратило деятельность — данные подставлены, но декларант должен это увидеть.
         message.warning({ content: t('binLookup.inactive', { name, status: company.statusRu ?? '' }), duration: 8 })
       } else if (company.kind === 'ip') {
