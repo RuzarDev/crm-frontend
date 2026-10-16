@@ -3,6 +3,7 @@ import type {
   EecCodeChange, EecDiscrepancy, EecDiscrepancyKind, EecEditionStatus, EecEditionSummary, EecSyncRunStatus,
   EecSyncRunView, EecTreeAbsentCode,
 } from '@/api/tnvedEec'
+import type { TnvedEttRateDto } from '@/types/api'
 import { formatDay } from '@/views/broker/list'
 
 // Логика экрана «Обновления ЕЭК» без компонентов: подписи статусов, флаги изменений кода, строка источника ставки,
@@ -187,3 +188,45 @@ export const runActive = (s: { isRunning: boolean; run: EecSyncRunView | null } 
 /** Метка времени UTC без пояса — как UTC (иначе браузер прочёл бы её как местное время). */
 export const utc = (iso: string | null | undefined): string | null =>
   (!iso ? null : /(?:Z|[+-]\d\d:?\d\d)$/.test(iso) ? iso : `${iso}Z`)
+
+// ---- Источник ставки ЕТТ (карточка кода, товар ДТ) ----
+export interface EttSourceView {
+  /** Откуда действующая ставка: «ЕЭК, ред. 24.08.2026, сноска 109С до 31.12.2028» или «КЕДЕН». */
+  source: string
+  /** Вторая ставка: «в КЕДЕН: 5%» (расчёт на ЕЭК) / «в ЕЭК: 0% (ЕЭК, ред. …)» (расчёт на КЕДЕН). */
+  other: string | null
+  /** Ставки различаются — подсветить. */
+  differs: boolean
+  /** Почему при расчёте на ЕЭК взята ставка КЕДЕН. */
+  fallback: string | null
+  /** «Проверить вручную: сн. 109С — дата вступления решения не известна». */
+  uncertain: string | null
+}
+const FALLBACKS = ['eecNoRate', 'eecNotInForce', 'eecUnrecognized', 'eecUncertain']
+export function ettSourceView(ett: TnvedEttRateDto | null | undefined, t: T): EttSourceView | null {
+  if (!ett) return null
+  const eec = ett.eec
+  const eecSource = eec ? eecSourceText(eec, t) : ''
+  const eecRate = eec ? (eec.rate || eec.rateText || '—') : ''
+  const onEec = ett.effectiveSource === 'eec' && !!eec
+  const kedenSource = ett.kedenManualOverride ? t(`${P}.ett.kedenOverride`) : t(`${P}.ett.keden`)
+  let other: string | null = null
+  if (onEec) {
+    if (ett.differs) other = t(`${P}.ett.inKeden`, { rate: ett.kedenRate || '—' })
+  } else if (eec && eec.inForce) {
+    other = ett.differs
+      ? t(`${P}.ett.inEec`, { rate: eecRate, source: eecSource })
+      : t(`${P}.ett.sameAsEec`, { source: eecSource })
+  }
+  const reason = ett.effectiveSource === 'kedenFallback' && ett.fallbackReason && FALLBACKS.includes(ett.fallbackReason)
+    ? t(`${P}.ett.fallback.${ett.fallbackReason}`)
+    : null
+  const uncertain = eec && !eec.isCertain
+    ? t(`${P}.ett.uncertain`, {
+        list: eec.pending.length
+          ? eec.pending.map((p) => t(`${P}.disc.pendingLine`, { n: p.number, reason: pendingReasonLabel(p.reason, t) })).join('; ')
+          : t(`${P}.ett.uncertainNoDetail`),
+      })
+    : null
+  return { source: onEec ? eecSource : kedenSource, other, differs: ett.differs, fallback: reason, uncertain }
+}

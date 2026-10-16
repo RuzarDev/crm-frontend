@@ -126,6 +126,7 @@ describe('TnvedPage', () => {
     expect(router.currentRoute.value.query.code).toBe('8471300000')
     expect(api.rates).toHaveBeenCalledWith('8471300000', { silent: true })
     expect(w.get('[data-rate-row="duty"] [data-rate-value]').text()).toBe('0%')
+    expect(w.find('[data-ett-source]').exists()).toBe(false)
     expect(api.notes).not.toHaveBeenCalled()
     expect(api.reference).not.toHaveBeenCalled()
     expect(api.exportReference).not.toHaveBeenCalled()
@@ -170,6 +171,32 @@ describe('TnvedPage', () => {
     expect(card().get('[data-card-code]').text()).toBe('8471 41 000 0')
     expect(w.get('[data-rate-row="duty"] [data-rate-value]').text()).toBe('5%')
     expect(w.text()).not.toContain('15%')
+  })
+
+  it('ставка ЕТТ: расчёт на ЕЭК — действующая ставка и её источник в «Основании», «в КЕДЕН: X»; на КЕДЕН — «в ЕЭК: Y»', async () => {
+    const eec = {
+      rateText: '0', rate: '0%', kind: 'footnote', baseRateText: '5', baseRate: '5%', footnoteNumber: '109С', footnoteFrom: null,
+      footnoteTo: '2028-12-31', footnoteDecision: null, group: '84', editionId: 7, editionDate: '2026-08-24', fileName: 'ru.84.pdf',
+      inForce: true, notInForceSince: null, isCertain: true, pending: [],
+    }
+    const ett = {
+      date: '2026-10-16', configuredSource: 'eec' as const, effectiveSource: 'eec' as const, effectiveRate: '0%', fallbackReason: null,
+      kedenRate: '5%', kedenSourceName: null, kedenManualOverride: false, eec, differs: true,
+    }
+    api.rates.mockImplementation((code: string) => ok({ ...rate(code, '5%'), ettRate: ett }))
+    await mountAt('/tnved/tree?code=8471300000')
+    const duty = w.get('[data-rate-row="duty"]')
+    expect(duty.get('[data-rate-value]').text()).toBe('0%')
+    expect(duty.text()).toContain('ЕЭК, ред. 24.08.2026, сноска 109С до 31.12.2028')
+    expect(w.find('[data-ett-source-main]').exists()).toBe(false)
+    expect(w.get('[data-ett-source-other]').text()).toBe('в КЕДЕН: 5%')
+    w.unmount()
+    api.rates.mockImplementation((code: string) =>
+      ok({ ...rate(code, '5%'), ettRate: { ...ett, configuredSource: 'keden' as const, effectiveSource: 'keden' as const, effectiveRate: '5%' } }))
+    await mountAt('/tnved/tree?code=8471410000')
+    expect(w.get('[data-rate-row="duty"] [data-rate-value]').text()).toBe('5%')
+    expect(w.get('[data-rate-row="duty"]').text()).toContain('Решение ЕЭК № 80')
+    expect(w.get('[data-ett-source-other]').text()).toBe('в ЕЭК: 0% (ЕЭК, ред. 24.08.2026, сноска 109С до 31.12.2028)')
   })
 
   it('?code= открывает код и раскрывает путь в дереве', async () => {
