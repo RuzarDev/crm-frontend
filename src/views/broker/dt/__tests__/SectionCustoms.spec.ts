@@ -496,11 +496,24 @@ describe('SectionCustoms — гр. 30: орган уровня ДГД (жало�
     await w.get('[data-number-move]').trigger('click')
     await flushPromises()
     expect(form.goodsLocationCustomsOfficeCode).toBe('50700')
+    // Код 99: после переноса номер — «иное место» D-Sector, а не пустота.
+    expect(form.goodsLocationRegisterNumber).toBe('9900000000000000')
+    expect((numberInput().element as HTMLInputElement).value).toBe('9900000000000000')
+    expect(toast.info).toHaveBeenCalledWith('Код 50700 перенесён в «Таможенный орган (местонахождение)», номер — 9900000000000000')
+    expect(w.find('[data-number-move]').exists()).toBe(false)
+    expect(w.text()).not.toContain('похоже на код таможенного органа')
+    expect(sends()).toBe('В КЕДЕН уйдёт: 50700 — ДГД ПО МАНГИСТАУСКОЙ ОБЛАСТИ')
+  })
+
+  it('перенос при коде не 99 (31) оставляет номер пустым', async () => {
+    await mount({ goodsLocationCode: '31' }, { postOptions: kedenPosts, dgds })
+    await typeNumber('50700')
+    await w.get('[data-number-move]').trigger('click')
+    await flushPromises()
+    expect(form.goodsLocationCustomsOfficeCode).toBe('50700')
     expect(form.goodsLocationRegisterNumber).toBe('')
     expect((numberInput().element as HTMLInputElement).value).toBe('')
     expect(toast.info).toHaveBeenCalledWith('Код 50700 перенесён в «Таможенный орган (местонахождение)»')
-    expect(w.find('[data-number-move]').exists()).toBe(false)
-    expect(sends()).toBe('В КЕДЕН уйдёт: 50700 — ДГД ПО МАНГИСТАУСКОЙ ОБЛАСТИ')
   })
 
   it('при коде склада (11) пятизначный номер — прежняя подсказка «старый номер реестра», переноса нет', async () => {
@@ -514,5 +527,62 @@ describe('SectionCustoms — гр. 30: орган уровня ДГД (жало�
     await mount({ goodsLocationCode: '99', goodsLocationRegisterNumber: '50700' }, { postOptions: kedenPosts, dgds, readonly: true })
     expect(w.text()).toContain('похоже на код таможенного органа')
     expect(w.find('[data-number-move]').exists()).toBe(false)
+  })
+})
+
+describe('SectionCustoms — гр. 30, код 99: номер «иного места» (скриншот D-Sector 16.10)', () => {
+  const OTHER = '9900000000000000'
+  const HINT = 'Для иного места КЕДЕН/D-Sector используют номер 9900000000000000 «Иное место хранения товаров»'
+
+  it('выбор кода 99 заполняет пустой номер 9900000000000000, подпись «Номер (НИКАД)» и подсказка', async () => {
+    await mount()
+    expect(w.text()).toContain('Номер СВХ или таможенного склада')
+    expect(w.text()).not.toContain(HINT)
+    form.goodsLocationCode = '99'
+    await flushPromises()
+    expect(form.goodsLocationRegisterNumber).toBe(OTHER)
+    expect((numberInput().element as HTMLInputElement).value).toBe(OTHER)
+    expect(w.text()).toContain('Номер (НИКАД)')
+    expect(w.text()).not.toContain('Номер СВХ или таможенного склада')
+    expect(w.text()).toContain(HINT)
+  })
+
+  it('ДТ открыта с кодом 99 и пустым номером — номер подставляется; введённый — не трогается', async () => {
+    await mount({ goodsLocationCode: '99', goodsLocationRegisterNumber: '' })
+    expect(form.goodsLocationRegisterNumber).toBe(OTHER)
+    w.unmount()
+    await mount({ goodsLocationCode: '99', goodsLocationRegisterNumber: 'KZ56VSX00000119' })
+    expect(form.goodsLocationRegisterNumber).toBe('KZ56VSX00000119')
+  })
+
+  it('для 9900000000000000 нет подсказки «похоже на код органа» и проверки формата СВХ', async () => {
+    await mount({ goodsLocationCode: '99' })
+    expect(form.goodsLocationRegisterNumber).toBe(OTHER)
+    expect(w.text()).not.toContain('похоже на код таможенного органа')
+    expect(w.text()).not.toContain('старый номер реестра')
+    expect(w.text()).not.toContain('KZ56VSX00000119')
+    expect(w.find('[data-number-move]').exists()).toBe(false)
+  })
+
+  it('смена кода с 99 убирает номер по умолчанию, свой номер оставляет', async () => {
+    await mount({ goodsLocationCode: '99' })
+    expect(form.goodsLocationRegisterNumber).toBe(OTHER)
+    form.goodsLocationCode = '11'
+    await flushPromises()
+    expect(form.goodsLocationRegisterNumber).toBe('')
+    expect(w.text()).toContain('Номер СВХ или таможенного склада')
+    expect(w.text()).not.toContain(HINT)
+    form.goodsLocationCode = '99'
+    await flushPromises()
+    await typeNumber('ABC123')
+    form.goodsLocationCode = '31'
+    await flushPromises()
+    expect(form.goodsLocationRegisterNumber).toBe('ABC123')
+  })
+
+  it('просмотр: номер не подставляется', async () => {
+    await mount({ goodsLocationCode: '99', goodsLocationRegisterNumber: '' }, { readonly: true })
+    expect(form.goodsLocationRegisterNumber).toBe('')
+    expect(w.text()).toContain(HINT)
   })
 })
