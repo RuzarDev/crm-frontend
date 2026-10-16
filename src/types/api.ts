@@ -883,6 +883,16 @@ export interface TnvedCalculateResult {
   antiDumpingOptions?: TnvedTariffOptionDto[] | null
 }
 
+/** Статус акта меры: 'replaced' — заменён, 'repealed' — утратил силу, 'partial' — действует частично; since — «yyyy-MM-dd». */
+export interface TnvedActStatusDto {
+  status: 'replaced' | 'repealed' | 'partial' | string
+  since: string
+  replacedBy: string | null
+  replacedByUrl: string | null
+  note: string | null
+  source: string
+}
+
 export interface TnvedNonTariffMeasureDto {
   docType: string
   name: string
@@ -900,6 +910,8 @@ export interface TnvedNonTariffMeasureDto {
   resolutionEndDate?: string | null
   /** Изменения акта — «… с изменениями …». */
   amendments?: TnvedNonTariffAmendmentDto[] | null
+  /** Акт заменён / утратил силу / действует частично, хотя КЕДЕН показывает его действующим (справочник статусов актов). */
+  actStatus?: TnvedActStatusDto | null
 }
 
 export interface TnvedNonTariffAmendmentDto {

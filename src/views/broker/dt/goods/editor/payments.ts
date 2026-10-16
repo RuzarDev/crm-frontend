@@ -32,6 +32,9 @@ export const emptyPayment = (): Import40GoodsPayment => ({
   rateDate: null, paymentFeatureCode: 'ИУ', amountKzt: null,
 })
 
+/** Вид платежа НДС (гр. 47). */
+export const VAT_TAX_MODE = '5060'
+
 /** Ставка номинальная (rateLabel сервера) — при временном ввозе у пошлины и НДС показываем множитель 3% × мес. */
 export const TEMP_IMPORT_CODES: ReadonlySet<string> = new Set(['2010', '5060'])
 

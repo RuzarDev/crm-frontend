@@ -5,10 +5,13 @@ import { PhArrowRight, PhWarningCircle } from '@phosphor-icons/vue'
 import ZSwitch from '@/components/z/ZSwitch.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import type { Import40PaymentGoodsRowDto } from '@/api/import40'
+import type { VatOffsetMatchRow } from '@/api/vatOffset'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { formatNumberIn } from '@/ui/number'
 import { formatTnved } from '@/utils/tnvedFormat'
-import { formatBasisLabel, TEMP_IMPORT_CODES } from '../goods/editor/payments'
+import PaymentFeatureCell from '../goods/editor/PaymentFeatureCell.vue'
+import { formatBasisLabel, setPaymentField, TEMP_IMPORT_CODES, VAT_TAX_MODE } from '../goods/editor/payments'
+import VatOffsetHint from '../goods/editor/VatOffsetHint.vue'
 import { formatMoney } from '../goods/goodsList'
 import { goodsPaymentsStale } from '../goods/goodsStatus'
 import { isMedical, noteLines, previewLines, savedLines, type PaymentLine } from './paymentsView'
@@ -21,6 +24,9 @@ import { useModeLabel } from './useModeLabel'
 // только с сервера; основа — по языку интерфейса.
 // Переключатель «Медизделие» не пишет в товар сам: событие medical — страница правит товар через setField модели
 // товаров («Пересчитать», сброс предпросмотра). tabindex="-1" — переход «До подачи» к гр. 47 ставит фокус на карточку.
+// СП записанной строки — компактный выбор, когда ДТ можно править и нет предпросмотра (правка СП меняет гр. 47 — живой
+// предпросмотр стал бы «Данные изменились»): пишется в строку товара (setPaymentField — без «Пересчитать»), уходит
+// автосейвом. У 5060 — подсказка о перечнях для зачёта НДС (vatOffset — строки перечней по коду товара) с «Поставить ЗН».
 const props = defineProps<{
   item: Import40GoodsItemInput
   /** Позиция товара (с 0). */
@@ -32,6 +38,8 @@ const props = defineProps<{
   /** «Записать» уберёт у товара строку сбора 1010 (в предпросмотре). */
   feeDropped?: boolean
   readonly: boolean
+  /** Строки перечней для зачёта НДС (ПП РК № 1199, Приказ МСХ № 302), покрывающие код товара. */
+  vatOffset?: readonly VatOffsetMatchRow[]
 }>()
 const emit = defineEmits<{ medical: [checked: boolean]; open: [] }>()
 const { t, locale } = useI18n()
@@ -62,7 +70,12 @@ const rateText = (l: PaymentLine) => {
     : text
 }
 
-const grid = '@2xl:grid-cols-[3.5rem_minmax(0,1.5fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.1fr)_2.5rem]'
+// СП правится — строка без предпросмотра и ДТ можно править.
+const featureEditable = (l: PaymentLine) => !props.readonly && !preview.value && !!l.source
+const anyFeatureEditable = computed(() => !props.readonly && !preview.value)
+const setFeature = (l: PaymentLine, code: string) => { if (l.source) setPaymentField(l.source, 'paymentFeatureCode', code) }
+const offsetRows = computed(() => props.vatOffset ?? [])
+const grid = computed(() => `@2xl:grid-cols-[3.5rem_minmax(0,1.5fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.1fr)_${anyFeatureEditable.value ? '6.5rem' : '2.5rem'}]`)
 const cellLabel = 'text-xs text-muted @2xl:hidden'
 const cell = 'flex min-w-0 flex-col gap-0.5'
 </script>
@@ -127,9 +140,23 @@ const cell = 'flex min-w-0 flex-col gap-0.5'
             <span class="font-semibold whitespace-nowrap tabular-nums">{{ money(l.amount) }}</span>
             <span v-if="l.fresh" class="text-xs text-zircon-ink" data-payments-unsaved>{{ tc('unsaved') }}</span>
           </span>
-          <span role="cell" :class="cell">
-            <span :class="cellLabel">{{ tc('col.feature') }}</span><span class="font-mono text-ink-2">{{ l.feature || '—' }}</span>
+          <span role="cell" :class="[cell, 'text-ink-2']">
+            <span :class="cellLabel">{{ tc('col.feature') }}</span>
+            <PaymentFeatureCell
+              :value="l.feature"
+              :editable="featureEditable(l)"
+              :label="t('broker.dt.goods.editor.payments.featureOf', { mode: l.code || '—' })"
+              @change="setFeature(l, $event)"
+            />
           </span>
+          <VatOffsetHint
+            v-if="l.code === VAT_TAX_MODE && offsetRows.length"
+            :rows="offsetRows"
+            :feature="l.feature"
+            :editable="featureEditable(l)"
+            class="col-span-full"
+            @set-zn="setFeature(l, 'ЗН')"
+          />
         </div>
       </div>
     </div>

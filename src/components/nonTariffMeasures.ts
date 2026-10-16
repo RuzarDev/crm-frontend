@@ -1,10 +1,12 @@
-import type { TnvedNonTariffAmendmentDto, TnvedNonTariffMeasureDto } from '@/types/api'
+import type { TnvedActStatusDto, TnvedNonTariffAmendmentDto, TnvedNonTariffMeasureDto } from '@/types/api'
 import { FEATURE_CODE_RE, normalizeFeatureCode } from '@/utils/nonTariffCodes'
 
 // Нетарифные меры кода «как в справке D-Sector»: разделы по виду документа КЕДЕН, внутри — акты
 // (ссылка «Решение … №299 от 28.05.2010 с изменениями …», заголовок акта), под актом — документы
 // (что требуется), под документом — конкретные товары кода. Строка перечня мер нетарифного
 // регулирования «Документ запретов или ограничений» несёт коды гр. 33 — их показываем одной строкой.
+// Акт, который КЕДЕН показывает действующим, хотя он заменён или утратил силу (actStatus сервера: приказы № 67/№ 83
+// о зачёте НДС → ПП РК № 1199), — с пометкой и после действующих актов раздела.
 
 export type MeasureSectionKey = 'restrictions' | 'preferences' | 'others' | 'required'
 export type MeasureGrouping = 'docType' | 'required'
@@ -21,6 +23,8 @@ export interface MeasureAct {
   docs: TnvedNonTariffMeasureDto[]
   /** Коды гр. 33 из «Документ запретов или ограничений»: без повторов, по порядку. */
   gr33: string[]
+  /** Акт заменён / утратил силу / действует частично — показывается с пометкой, после действующих. */
+  status: TnvedActStatusDto | null
 }
 
 export interface MeasureSection {
@@ -68,6 +72,9 @@ const actKey = (m: TnvedNonTariffMeasureDto) =>
 
 const codeSort = (a: string, b: string) => a.localeCompare(b, 'en', { numeric: true })
 
+/** Действующие акты — первыми, заменённые и утратившие силу — после (порядок внутри групп прежний). */
+const currentFirst = (acts: MeasureAct[]): MeasureAct[] => [...acts.filter((a) => !a.status), ...acts.filter((a) => a.status)]
+
 export function groupMeasures(measures: TnvedNonTariffMeasureDto[] | null | undefined, by: MeasureGrouping = 'docType'): MeasureSection[] {
   const sections = new Map<MeasureSectionKey, { acts: Map<string, MeasureAct>; count: number }>()
 
@@ -90,6 +97,7 @@ export function groupMeasures(measures: TnvedNonTariffMeasureDto[] | null | unde
         amendments: [],
         docs: [],
         gr33: [],
+        status: m.actStatus ?? null,
       }
       section.acts.set(key, act)
     }
@@ -111,7 +119,7 @@ export function groupMeasures(measures: TnvedNonTariffMeasureDto[] | null | unde
 
   return ORDER[by]
     .filter((k) => sections.has(k))
-    .map((k) => ({ key: k, acts: [...sections.get(k)!.acts.values()], count: sections.get(k)!.count }))
+    .map((k) => ({ key: k, acts: currentFirst([...sections.get(k)!.acts.values()]), count: sections.get(k)!.count }))
 }
 
 /** Товары документа: без пустых и повторов (сервер уже чистит — на случай старых строк). */

@@ -15,6 +15,7 @@ import ZUpload from '@/components/z/ZUpload.vue'
 import { katoApi, type KatoDto, type KatoStatus, type KatoSyncResult } from '@/api/kato'
 import { prohibitionCodesApi, type ProhibitionCodeItem, type ProhibitionCodeUsage } from '@/api/prohibitionCodes'
 import { troisApi, type TroisItem, type TroisStatus } from '@/api/trois'
+import { vatOffsetApi, type VatOffsetList, type VatOffsetListRow, type VatOffsetSyncResult } from '@/api/vatOffset'
 import {
   kedenRegistriesApi, warehouseNsiApi, warehouseRegistryApi,
   type KedenRefreshResult, type WarehouseImportKindResult, type WarehouseKind, type WarehouseKindStatus, type WarehouseNsiImportKindResult,
@@ -23,7 +24,8 @@ import { message } from '@/ui/message'
 import type { ZColumn } from '@/ui/table'
 import { formatCount, formatDateTime, formatDay, latest, type RegistryKind } from './systemData'
 
-// Реестры «Данных системы»: гр.33, КАТО, СВХ/ТС (реестр КГД), НСИ КГД, ТРОИС. Подписи кнопок говорят, куда идёт
+// Реестры «Данных системы»: гр.33, КАТО, СВХ/ТС (реестр КГД), НСИ КГД, ТРОИС, перечни для зачёта НДС (ПП РК № 1199,
+// Приказ МСХ № 302: редакция, изменения, источник, строки с поиском; «Обновить из сети» и загрузка страницы акта). Подписи кнопок говорят, куда идёт
 // загрузка: «… (xlsx) в реестр КГД» ≠ «… (xlsx) в НСИ КГД». «Обновить из КЕДЕН» обновляет СВХ, таможенные склады
 // и ТРОИС сразу. Долгие операции — загрузка на кнопке и «Это может занять до 5 минут». Итоги — тостами, как раньше.
 // changed — какие счётчики меню перечитать.
@@ -41,8 +43,10 @@ type Status =
   | { kind: 'kato'; status: KatoStatus }
   | { kind: 'warehouses' | 'nsi'; kinds: WarehouseKindStatus[] }
   | { kind: 'trois'; status: TroisStatus }
+  | { kind: 'vatOffset'; lists: VatOffsetList[] }
 const status = shallowRef<Status | null>(null)
 const q = ref('') // поиск по кодам гр.33
+const vo = ref('') // поиск по строкам перечней для зачёта НДС
 const loading = ref(true)
 const error = ref(false)
 let seq = 0
@@ -56,6 +60,7 @@ const fetchStatus = async (kind: RegistryKind): Promise<Status> => {
     case 'warehouses': return { kind, kinds: (await warehouseRegistryApi.status({ silent: true })).kinds }
     case 'nsi': return { kind, kinds: (await warehouseNsiApi.status({ silent: true })).kinds }
     case 'trois': return { kind, status: await troisApi.status({ silent: true }) }
+    case 'vatOffset': return { kind, lists: await vatOffsetApi.lists({ silent: true }) }
   }
 }
 const load = async () => {
@@ -72,7 +77,7 @@ const load = async () => {
     if (my === seq) loading.value = false
   }
 }
-watch(() => props.kind, () => { status.value = null; q.value = ''; void load() }, { immediate: true })
+watch(() => props.kind, () => { status.value = null; q.value = ''; vo.value = ''; void load() }, { immediate: true })
 
 const kindCount = (list: WarehouseKindStatus[], k: WarehouseKind) => list.find((x) => x.kind === k)?.total ?? 0
 const stats = computed<StatItem[]>(() => {
@@ -97,6 +102,11 @@ const stats = computed<StatItem[]>(() => {
       { key: 'total', label: t(`${P}.trois.total`), value: num(s.status.total) },
       { key: 'active', label: t(`${P}.trois.active`), value: num(s.status.active) },
       { key: 'updated', label: t(`${P}.updated`), value: when(s.status.importedAtUtc) },
+    ]
+    case 'vatOffset': return [
+      { key: 'lists', label: t(`${P}.vatOffset.lists`), value: num(s.lists.length) },
+      { key: 'rows', label: t(`${P}.vatOffset.rows`), value: num(s.lists.reduce((n, l) => n + l.rows.length, 0)) },
+      { key: 'updated', label: t(`${P}.updated`), value: when(latest(s.lists.map((l) => l.checkedAtUtc ?? l.loadedAtUtc))) },
     ]
   }
   return []
@@ -160,6 +170,28 @@ const uploadTrois = (f: File) => run('trois-file', async () => {
   message.success(t(`${P}.trois.result`, { total: r.total, added: r.added, updated: r.updated, removed: r.removed }))
   return ['trois']
 })
+
+// Перечни для зачёта НДС
+const reportVatOffset = (r: VatOffsetSyncResult) => {
+  const edition = formatDay(r.editionDate, locale.value)
+  if (r.applied) message.success(t(`${P}.vatOffset.applied`, { edition, rows: r.rows }))
+  else message.info(t(r.reason === 'older' ? `${P}.vatOffset.older` : `${P}.vatOffset.same`, { edition }))
+}
+const syncVatOffset = (key: string) => run(`vo-sync-${key}`, async () => { reportVatOffset(await vatOffsetApi.sync(key)); return ['vatOffset'] })
+const uploadVatOffset = (key: string, f: File) => run(`vo-file-${key}`, async () => { reportVatOffset(await vatOffsetApi.import(key, f)); return ['vatOffset'] })
+const vatOffsetLists = computed(() => (status.value?.kind === 'vatOffset' ? status.value.lists : []))
+const actLine = (l: VatOffsetList) => t(`${P}.vatOffset.act`, { name: l.actName, number: l.actNumber, date: formatDay(l.actDate, locale.value) })
+const voRows = (l: VatOffsetList): VatOffsetListRow[] => {
+  const term = vo.value.trim().toLocaleLowerCase('ru')
+  if (!term) return l.rows
+  const digits = term.replace(/\s+/g, '')
+  return l.rows.filter((r) => r.name.toLocaleLowerCase('ru').includes(term) || (digits && r.codeText.replace(/\s+/g, '').includes(digits)) || String(r.number) === term)
+}
+const voColumns = computed<ZColumn<VatOffsetListRow>[]>(() => [
+  { key: 'number', dataIndex: 'number', title: t(`${P}.vatOffset.colNumber`), width: 64, align: 'right' },
+  { key: 'name', title: t(`${P}.vatOffset.colName`) },
+  { key: 'codeText', title: t(`${P}.vatOffset.colCodes`), width: 220 },
+])
 
 const first = (files: File[]) => files[0]
 
@@ -307,6 +339,19 @@ const OUTLINE = 'border border-line-strong bg-surface'
           </ZUpload>
         </div>
       </template>
+      <template v-else-if="kind === 'vatOffset'">
+        <div v-for="l in vatOffsetLists" :key="l.key" class="flex flex-wrap items-center gap-2" :data-vo-actions="l.key">
+          <span class="w-full text-sm font-medium text-ink-2">{{ actLine(l) }}</span>
+          <ZButton variant="primary" :class="BTN" :loading="busy === `vo-sync-${l.key}`" :disabled="!!busy && busy !== `vo-sync-${l.key}`" data-vo-sync @click="syncVatOffset(l.key)">
+            <template #icon><PhArrowsClockwise :size="15" aria-hidden="true" /></template>
+            {{ t(`${P}.vatOffset.sync`) }}
+          </ZButton>
+          <ZUpload accept=".html,.htm" :loading="busy === `vo-file-${l.key}`" :disabled="!!busy && busy !== `vo-file-${l.key}`" :button-variant="'secondary'" :class="UPLOAD" data-vo-upload @select="uploadVatOffset(l.key, first($event))">
+            {{ t(`${P}.vatOffset.upload`) }}
+          </ZUpload>
+        </div>
+        <p class="m-0 text-xs text-muted">{{ t(`${P}.vatOffset.uploadHint`) }}</p>
+      </template>
       <template v-else-if="kind === 'trois'">
         <div class="flex flex-wrap items-center gap-2">
           <ZUpload accept=".xlsx" :loading="busy === 'trois-file'" :disabled="!!busy && busy !== 'trois-file'" :class="UPLOAD" data-trois-upload @select="uploadTrois(first($event))">
@@ -410,6 +455,60 @@ const OUTLINE = 'border border-line-strong bg-surface'
 
       <!-- СВХ / ТС (реестр КГД), НСИ КГД -->
       <p v-else-if="status.kind === 'warehouses' || status.kind === 'nsi'" class="m-0 text-sm text-muted">{{ t(`${P}.${status.kind}.hint`) }}</p>
+
+      <!-- Перечни для зачёта НДС -->
+      <template v-else-if="status.kind === 'vatOffset'">
+        <p class="m-0 text-sm text-muted">{{ t(`${P}.vatOffset.hint`) }}</p>
+        <ZInput
+          :value="vo"
+          type="search"
+          allow-clear
+          autocomplete="off"
+          :placeholder="t(`${P}.vatOffset.search`)"
+          :aria-label="t(`${P}.vatOffset.search`)"
+          class="w-full max-sm:h-11 sm:max-w-[420px]"
+          data-vo-search
+          @update:value="vo = $event ?? ''"
+        >
+          <template #prefix><PhMagnifyingGlass :size="16" class="text-ink-3" aria-hidden="true" /></template>
+        </ZInput>
+        <section v-for="l in status.lists" :key="l.key" class="flex flex-col gap-2 rounded-panel border border-line bg-surface p-4" :aria-label="actLine(l)" :data-vo-list="l.key">
+          <h3 class="m-0 text-[15px] leading-6 font-semibold text-ink">
+            <a :href="l.actUrl" target="_blank" rel="noopener" class="text-zircon-ink underline-offset-4 hover:underline">{{ actLine(l) }}</a>
+          </h3>
+          <p class="m-0 text-sm text-ink-2">{{ l.actTitle }}</p>
+          <p class="m-0 text-sm text-ink-2" data-vo-edition>
+            {{ t(`${P}.vatOffset.edition`, { date: formatDay(l.editionDate, locale), from: formatDay(l.effectiveFrom, locale) }) }}
+            <template v-if="l.amendments.length">
+              · {{ t(`${P}.vatOffset.amendments`) }}
+              <template v-for="(a, i) in l.amendments" :key="a.number">
+                <a v-if="a.url" :href="a.url" target="_blank" rel="noopener" class="text-zircon-ink underline-offset-4 hover:underline">№ {{ a.number }}<template v-if="a.date"> {{ t(`${P}.vatOffset.from`, { date: formatDay(a.date, locale) }) }}</template></a>
+                <span v-else>№ {{ a.number }}</span>{{ i < l.amendments.length - 1 ? ', ' : '' }}
+              </template>
+            </template>
+          </p>
+          <p class="m-0 text-xs break-all text-muted" data-vo-source>
+            {{ t(`${P}.vatOffset.origin.${l.origin}`) }}<template v-if="l.sourceUrl">: {{ l.sourceUrl }}</template>
+            · {{ t(`${P}.vatOffset.checked`, { when: when(l.checkedAtUtc ?? l.loadedAtUtc) }) }}
+          </p>
+          <ZTable
+            :columns="voColumns"
+            :data-source="voRows(l)"
+            row-key="number"
+            :aria-label="actLine(l)"
+            class="overflow-hidden rounded-panel border border-line bg-surface max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent"
+            data-vo-table
+          >
+            <template #bodyCell="{ column, record }">
+              <span v-if="column.key === 'name'" class="text-sm text-ink">{{ record.name }}<span v-if="record.footnote" class="ml-1 text-ink-3" :title="record.condition ?? undefined">{{ record.footnote }}</span></span>
+              <span v-else-if="column.key === 'codeText'" class="font-mono text-xs whitespace-pre-line text-ink-2">{{ record.codeText }}</span>
+            </template>
+            <template #emptyText>
+              <ZEmpty :title="t('broker.references.system.list.nothing')" />
+            </template>
+          </ZTable>
+        </section>
+      </template>
 
       <!-- ТРОИС -->
       <template v-else-if="status.kind === 'trois'">

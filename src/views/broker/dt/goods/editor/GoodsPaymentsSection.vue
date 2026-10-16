@@ -16,8 +16,11 @@ import type { ZOption, ZOptionValue } from '@/ui/options'
 import type { Import40GoodsPayment } from '@/types/api'
 import { formatMoney } from '../goodsList'
 import { goodsPaymentsStale } from '../goodsStatus'
-import { emptyPayment, formatBasisLabel, paymentsTotal, setPaymentField, sortPayments, taxModeLabelKey, TEMP_IMPORT_CODES } from './payments'
+import { useVatOffset } from '../useVatOffset'
+import { emptyPayment, formatBasisLabel, paymentsTotal, setPaymentField, sortPayments, taxModeLabelKey, TEMP_IMPORT_CODES, VAT_TAX_MODE } from './payments'
+import PaymentFeatureCell from './PaymentFeatureCell.vue'
 import type { GoodsSectionProps } from './types'
+import VatOffsetHint from './VatOffsetHint.vue'
 
 // «Платежи» (гр. 47 этого товара). По умолчанию — только чтение: суммы рассчитывает сервер («Рассчитать платежи» /
 // «ТПиН по данным экрана» в итогах списка), клиент их не пересчитывает. Порядок 1010 → 2010 → 5060 → прочие; подпись
@@ -28,6 +31,9 @@ import type { GoodsSectionProps } from './types'
 // следующий расчёт перезапишет строки тех же видов, а расчётные виды, которых в нём нет, удалит
 // (payments/paymentRows.applyGoodsPaymentRows). Вид ставки, выбранный вручную, расчёт без своего вида не затирает.
 // Просмотр — без «Править вручную».
+// В чтении СП — компактный выбор (ДТ можно править): правка пишется в строку (setPaymentField, без «Пересчитать», уходит
+// автосейвом); в просмотре/выпущенной ДТ — текст. У 5060 — подсказка «товар в перечне ПП РК № 1199 / Приказа МСХ № 302 —
+// НДС можно уплатить методом зачёта» с «Поставить ЗН» (никогда не ставится сама: право на зачёт — у импортёра).
 const props = defineProps<GoodsSectionProps>()
 const { t, te, locale } = useI18n()
 const tp = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.editor.payments.${key}`, p ?? {})
@@ -37,6 +43,9 @@ const editing = ref(false)
 const canEdit = computed(() => editing.value && !props.readonly)
 
 const rows = computed(() => sortPayments(props.item.payments))
+const vatOffset = useVatOffset(() => ({ codes: [props.item.tnvedCode], onDate: props.ctx.onDate }))
+const offsetRows = computed(() => vatOffset.rowsOf(props.item.tnvedCode))
+const setFeature = (p: Import40GoodsPayment, code: string) => { setPaymentField(p, 'paymentFeatureCode', code) }
 const stale = computed(() => !!rows.value.length && goodsPaymentsStale(props.item))
 const total = computed(() => paymentsTotal(props.item.payments))
 const months = computed(() => props.item.tempImportMonths || null)
@@ -96,7 +105,8 @@ const remove = (p: Import40GoodsPayment) => {
   if (i >= 0) arr.splice(i, 1)
 }
 
-const grid = '@xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1.3fr)_4.5rem_minmax(0,1.2fr)_5.75rem_minmax(0,1.2fr)_2.75rem]'
+// Колонка СП шире, когда в ней выбор (ДТ можно править).
+const grid = computed(() => `@xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1.3fr)_4.5rem_minmax(0,1.2fr)_5.75rem_minmax(0,1.2fr)_${props.readonly ? '2.75rem' : '6.5rem'}]`)
 const cellLabel = 'text-xs text-muted @xl:hidden'
 const field = 'flex min-w-0 flex-col gap-1'
 const fieldLabel = 'text-xs text-muted'
@@ -175,8 +185,17 @@ const removeBtn = cn(
             <span :class="cellLabel">{{ tp('col.amount') }}</span><span class="font-semibold whitespace-nowrap tabular-nums">{{ money(p.amountKzt) }}</span>
           </span>
           <span role="cell" :class="field" data-payment-cell="feature">
-            <span :class="cellLabel">{{ tp('col.feature') }}</span><span class="font-mono" :title="classifierName('payment-features', p.paymentFeatureCode)">{{ p.paymentFeatureCode || '—' }}</span>
+            <span :class="cellLabel">{{ tp('col.feature') }}</span>
+            <PaymentFeatureCell :value="p.paymentFeatureCode" :editable="!readonly" :label="tp('featureOf', { mode: p.taxModeCode || '—' })" @change="setFeature(p, $event)" />
           </span>
+          <VatOffsetHint
+            v-if="p.taxModeCode === VAT_TAX_MODE && offsetRows.length"
+            :rows="offsetRows"
+            :feature="p.paymentFeatureCode"
+            :editable="!readonly"
+            class="col-span-full"
+            @set-zn="setFeature(p, 'ЗН')"
+          />
         </div>
       </div>
 

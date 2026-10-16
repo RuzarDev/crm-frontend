@@ -4,12 +4,12 @@ import { calendarLocale } from '@/ui/date'
 // фильтр списков (поиск + «Активные / Скрытые / Все»), даты и числа по языку интерфейса.
 
 export type RefKind = 'stations' | 'posts'
-export type RegistryKind = 'gr33' | 'kato' | 'warehouses' | 'nsi' | 'trois'
+export type RegistryKind = 'gr33' | 'kato' | 'warehouses' | 'nsi' | 'trois' | 'vatOffset'
 /** Пункт меню: справочник, классификатор ЕЭК (cls:<код>), реестр или синхронизация ТН ВЭД. Он же ?item= в адресе. */
 export type SystemItem = RefKind | RegistryKind | 'tnved-sync' | `cls:${string}`
 
 export const REF_KINDS: readonly RefKind[] = ['stations', 'posts']
-export const REGISTRY_KINDS: readonly RegistryKind[] = ['gr33', 'kato', 'warehouses', 'nsi', 'trois']
+export const REGISTRY_KINDS: readonly RegistryKind[] = ['gr33', 'kato', 'warehouses', 'nsi', 'trois', 'vatOffset']
 export const SYNC_ITEM = 'tnved-sync' as const
 export const CLS_PREFIX = 'cls:'
 

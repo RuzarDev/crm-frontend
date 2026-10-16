@@ -6,9 +6,10 @@ import ZAlert from '@/components/z/ZAlert.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import { formatNumberIn } from '@/ui/number'
 import type { Import40GoodsItemInput } from '@/types/api'
-import type { DtFormState } from '../dtPayload'
+import { toIsoDate, type DtFormState } from '../dtPayload'
 import { formatItemNumbers } from '../goods/goodsList'
 import type { DtGoodsModel } from '../goods/useDtGoods'
+import { useVatOffset } from '../goods/useVatOffset'
 import type { DtPayments } from '../useDtPayments'
 import FactPaymentsTable from './FactPaymentsTable.vue'
 import PaymentsGoodsCard from './PaymentsGoodsCard.vue'
@@ -46,6 +47,8 @@ const state = computed(() => p.state.value)
 /** Живой предпросмотр: позиции товаров — как при расчёте (в 'stale-preview' — уже нет). */
 const live = computed(() => state.value === 'preview' || state.value === 'applying')
 
+// Перечни для зачёта НДС по кодам товаров (подсказка у 5060 в карточках) — один запрос на недостающие коды.
+const vatOffset = useVatOffset(() => ({ codes: props.form.goodsItems.map((g) => g.tnvedCode), onDate: toIsoDate(props.form.submissionDate) }))
 const entries = computed(() => paymentsGoodsEntries(props.form.goodsItems, live.value ? p.result.value : null))
 const showAll = ref(false)
 /** Карточки, раскрытые «До подачи», — по ключу товара (keyOf): удаление или перестановка товаров их не путает. */
@@ -166,6 +169,7 @@ const onReveal = (e: Event) => {
         :not-recalculated="e.notRecalculated"
         :fee-dropped="e.feeDropped"
         :readonly="readonly"
+        :vat-offset="vatOffset.rowsOf(form.goodsItems[e.index].tnvedCode)"
         @medical="onMedical(form.goodsItems[e.index], $event)"
         @open="emit('open-goods', e.index)"
       />

@@ -9,6 +9,7 @@ import { referencesApi } from '@/api/references'
 import { katoApi } from '@/api/kato'
 import { prohibitionCodesApi } from '@/api/prohibitionCodes'
 import { troisApi } from '@/api/trois'
+import { vatOffsetApi } from '@/api/vatOffset'
 import { tnvedApi } from '@/api/tnved'
 import { warehouseNsiApi, warehouseRegistryApi } from '@/api/warehouseRegistry'
 import { useAuthStore } from '@/stores/auth'
@@ -63,6 +64,7 @@ const COUNTERS: Record<CounterKey, () => Promise<number | string | null>> = {
   warehouses: async () => (await warehouseRegistryApi.status({ silent: true })).kinds.reduce((s, k) => s + k.total, 0),
   nsi: async () => (await warehouseNsiApi.status({ silent: true })).kinds.reduce((s, k) => s + k.total, 0),
   trois: async () => (await troisApi.status({ silent: true })).active,
+  vatOffset: async () => (await vatOffsetApi.lists({ silent: true })).reduce((n, l) => n + l.rows.length, 0),
   [SYNC_ITEM]: async () => {
     const { data } = await tnvedApi.syncHistory({ silent: true })
     return Array.isArray(data) && data.length ? data[0].startedAtUtc : null

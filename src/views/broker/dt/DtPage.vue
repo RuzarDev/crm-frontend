@@ -340,9 +340,9 @@ const goTo = async (item: DtReadinessItem) => {
     flash(field)
     // Фокус — на само поле, а не на «?» справки КТС 257 в подписи (DtGraphHelp, data-dt-guide-trigger).
     // Без tabindex=-1: крестики меток мультивыбора (коды гр. 33, признаки), скрытый input загрузки файла.
-    const control = [...field.querySelectorAll<HTMLElement>(FOCUSABLE)].find((el) => el.tabIndex >= 0 && !el.closest('[data-dt-guide-trigger]'))
-      // гр. 47 в «Платежах»: в строках платежей полей нет — фокус на саму карточку товара (tabindex="-1").
-      ?? (paymentsAt != null ? field.closest<HTMLElement>('[data-payments-goods]') : null)
+    // гр. 47 в «Платежах» — фокус на саму карточку товара (tabindex="-1"), а не на выбор СП первой строки.
+    const control = (paymentsAt != null ? field.closest<HTMLElement>('[data-payments-goods]') : null)
+      ?? [...field.querySelectorAll<HTMLElement>(FOCUSABLE)].find((el) => el.tabIndex >= 0 && !el.closest('[data-dt-guide-trigger]'))
     control?.focus({ preventScroll: true })
   }
 }
