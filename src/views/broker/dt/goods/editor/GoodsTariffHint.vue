@@ -16,7 +16,9 @@ import type { GoodsSectionProps } from './types'
 // гр. А (useTariffOptions: кэш, тихо): ставки пошлины и НДС, ставка по стране (ЗСТ — в расчёте сама), выбор вида
 // акциза (у кода их бывает несколько; не выбран — считается первый), антидемпинг (по умолчанию «не начислять»),
 // количества в единицах специфических ставок (л, л 100%, шт, см³) — когда единица ставки не покрыта ДЕИ товара.
-// «Медизделие — НДС 5%» — свойство товара (vatRatePreferential = 0,05; M5), не только в окне расчёта.
+// «Медизделие — НДС 5%» — свойство товара (vatRatePreferential = 0,05; M5), не только в окне расчёта. Под ним — перечень
+// ПП РК №1204 (reducedVat ответа): код целиком в перечне — 5% ставится сам; в перечне для части товаров — товары перечня
+// и «включите, если подходит»; 5% включён вручную на коде вне перечня — предупреждение (то же — примечанием расчёта).
 // Все выборы — поля платежей: правка помечает «Пересчитать».
 // Под сводкой — источник ставки ЕТТ на дату гр. А (ЕЭК, ред. …, сноска … / КЕДЕН), «в КЕДЕН: X» при расхождении,
 // «проверить вручную» (EttRateSource; нет ettRate в ответе — строк нет).
@@ -37,14 +39,23 @@ const countryName = computed(() => {
 const dateText = computed(() => (props.ctx.onDate ? th('onDate', { date: formatDateText(props.ctx.onDate) }) : th('onToday')))
 
 // ---- Сводная строка: пошлина (ЕТТ, ВТО, если действует), НДС, антидемпинг ----
-// НДС: «Медизделие» — 5%; после расчёта — ставка из строки 5060 гр. 47 (сервер сам находит пониженный НДС по коду);
-// иначе — общая ставка расчёта (Import40PaymentCalculator.DefaultVatRate = 16%).
+// НДС: «Медизделие» — 5%; после расчёта — ставка из строки 5060 гр. 47; до расчёта — 5%, если код целиком в перечне
+// ПП РК №1204 (сервер ставит сам, ReducedVatList), иначе — общая ставка 16%.
 const DEFAULT_VAT = '16%'
 const medical = computed(() => props.item.vatRatePreferential === 0.05)
+const reducedVat = computed(() => opts.value?.reducedVat ?? null)
 const vatRate = computed(() => {
   if (medical.value) return '5%'
   const label = (props.item.payments ?? []).find((p) => p.taxModeCode === '5060')?.rateLabel?.trim()
-  return label || DEFAULT_VAT
+  return label || (reducedVat.value?.status === 'auto' ? '5%' : DEFAULT_VAT)
+})
+// Подсказка перечня под «Медизделие» (нет ответа или перечень не загружен — ничего).
+const vatList = computed<'auto' | 'confirm' | 'missing' | null>(() => {
+  const s = reducedVat.value?.status
+  if (!s) return null
+  if (s === 'none') return medical.value ? 'missing' : null
+  if (s === 'auto') return medical.value ? null : 'auto'
+  return 'confirm'
 })
 const summary = computed(() => {
   const o = opts.value
@@ -163,6 +174,17 @@ const choice = 'flex flex-col gap-2 rounded-field px-3 py-2.5'
 
     <div data-graph="47" data-goods-field="vatRatePreferential" :data-goods-index="index">
       <ZSwitch :checked="medical" :disabled="readonly" class="max-sm:min-h-11" data-goods-medical @update:checked="onMedical">{{ th('medical') }}</ZSwitch>
+      <p v-if="vatList === 'auto'" class="m-0 mt-1.5 text-[13px] text-muted" data-goods-vat-list="auto">{{ th('vatListAuto') }}</p>
+      <div v-else-if="vatList === 'confirm'" class="mt-1.5 rounded-field bg-tone-info-bg px-2.5 py-1.5 text-[13px] text-tone-info-fg" data-goods-vat-list="confirm">
+        <p class="m-0">{{ th('vatListConfirm') }}</p>
+        <ul class="m-0 mt-1 list-disc pl-5">
+          <li v-for="(g, i) in reducedVat?.goods ?? []" :key="i">{{ g }}</li>
+        </ul>
+        <p v-if="!medical" class="m-0 mt-1">{{ th('vatListConfirmAction') }}</p>
+      </div>
+      <p v-else-if="vatList === 'missing'" class="m-0 mt-1.5 rounded-field bg-gold-soft px-2.5 py-1.5 text-[13px] text-gold-ink" role="alert" data-goods-vat-list="missing">
+        {{ th('vatListMissing') }}
+      </p>
     </div>
   </div>
 </template>

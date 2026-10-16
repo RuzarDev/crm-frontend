@@ -529,6 +529,53 @@ describe('GoodsEditor: подсказка ставок', () => {
     expect(form.goodsItems[0].needsTpinRecalc).toBe(true)
     expect(q('[data-goods-tariff-summary]')!.textContent).toContain('НДС 5%')
   })
+
+  // (баг) НДС 5% — по перечню ПП РК №1204, а не по префиксу группы 30/9018/9019/9021/9022.
+  const medicalSwitch = () => q<HTMLElement>('[data-goods-medical]')!
+  const clothes = ['предметы одежды, используемые в фармацевтической и медицинской деятельности', 'предметы одежды, используемые при производстве фармацевтической продукции и медицинских изделий']
+
+  it('перечень №1204, часть товаров кода: товары перечня и «включите», 5% не ставится сам; включили — 5%, без призыва', async () => {
+    tnved.tariffOptions.mockResolvedValue({ data: tariff({ reducedVat: { status: 'confirm', goods: clothes } }) })
+    await mount([item({ tnvedCode: '6204420000', payments: [] })], { query: '&item=1' })
+    const hint = q('[data-goods-vat-list="confirm"]')!
+    expect(hint.textContent).toContain('Код в перечне ПП РК №1204 (НДС 5%) только для товаров:')
+    expect([...hint.querySelectorAll('li')].map((li) => li.textContent)).toEqual(clothes)
+    expect(hint.textContent).toContain('включите «Медизделие»')
+    expect(medicalSwitch().getAttribute('aria-checked')).toBe('false')
+    expect(q('[data-goods-tariff-summary]')!.textContent).toContain('НДС 16%')
+    medicalSwitch().click()
+    await settle()
+    expect(form.goodsItems[0].vatRatePreferential).toBe(0.05)
+    expect(q('[data-goods-tariff-summary]')!.textContent).toContain('НДС 5%')
+    expect(q('[data-goods-vat-list="confirm"]')!.textContent).not.toContain('включите')
+    expect(q('[data-goods-vat-list="missing"]')).toBeNull()
+  })
+
+  it('перечень №1204, вся позиция: НДС 5% до расчёта, «ставится сам», переключатель как раньше не включается', async () => {
+    tnved.tariffOptions.mockResolvedValue({ data: tariff({ reducedVat: { status: 'auto', goods: ['фармацевтическая продукция'] } }) })
+    await mount([item({ tnvedCode: '3004900002', payments: [] })], { query: '&item=1' })
+    expect(q('[data-goods-tariff-summary]')!.textContent).toContain('НДС 5%')
+    expect(q('[data-goods-vat-list="auto"]')!.textContent).toBe('НДС 5% по перечню ПП РК №1204 — ставится сам')
+    expect(medicalSwitch().getAttribute('aria-checked')).toBe('false')
+    expect(form.goodsItems[0].vatRatePreferential ?? null).toBeNull()
+  })
+
+  it('код не в перечне №1204: без «Медизделие» — ничего; включено вручную — остаётся, с предупреждением', async () => {
+    tnved.tariffOptions.mockResolvedValue({ data: tariff({ reducedVat: { status: 'none', goods: [] } }) })
+    await mount([item({ tnvedCode: '3004901000', vatRatePreferential: 0.05 }), item({ tnvedCode: '3004901000' })], { query: '&item=1' })
+    expect(medicalSwitch().getAttribute('aria-checked')).toBe('true')
+    expect(q('[data-goods-vat-list="missing"]')!.textContent).toContain('Код не входит в перечень ПП РК №1204')
+    expect(q('[data-goods-tariff-summary]')!.textContent).toContain('НДС 5%')
+    expect(form.goodsItems[0].vatRatePreferential).toBe(0.05)
+    await click('[data-goods-next]')
+    expect(q('[data-goods-vat-list]')).toBeNull()
+  })
+
+  it('перечень не загружен (нет reducedVat) — подсказок перечня нет', async () => {
+    await mount([item({ vatRatePreferential: 0.05 })], { query: '&item=1' })
+    expect(q('[data-goods-tariff-summary]')).not.toBeNull()
+    expect(q('[data-goods-vat-list]')).toBeNull()
+  })
 })
 
 describe('Коды ТН ВЭД всех товаров (без открытия)', () => {
