@@ -32,7 +32,7 @@ describe('buildBrokerNav', () => {
       'sales:sales',
       'finance:financeOverview,billing',
       'analytics:analytics',
-      'references:tnvedTree,currencies,npa,timeline,dtGuide,systemData',
+      'references:tnvedTree,currencies,npa,timeline,eecUpdates,dtGuide,systemData',
       'settings:team,roles,organization,audit,system',
     ])
   })
@@ -66,8 +66,10 @@ describe('buildBrokerNav', () => {
   it('«Данные системы»: администратору — /references; с tnved.manage и доступом к справочникам — /tnved/sync', () => {
     const m = buildBrokerNav(access({ perms: ['tnved.manage'] }))
     expect(keys(m).some((k) => k.includes('systemData'))).toBe(false)
+    // «Обновления ЕЭК» — как «Данные системы»: tnved.manage и доступ к справочникам ТН ВЭД.
+    expect(keys(m).some((k) => k.includes('eecUpdates'))).toBe(false)
     const m2 = buildBrokerNav(access({ perms: ['tnved.manage', 'references.read'] }))
-    expect(keys(m2)).toContain('references:tnvedTree,currencies,npa,timeline,systemData')
+    expect(keys(m2)).toContain('references:tnvedTree,currencies,npa,timeline,eecUpdates,systemData')
     expect(allSections(m2).find((s) => s.key === 'references')!.pages.at(-1)!.to).toBe('/tnved/sync')
     expect(keys(m2).some((k) => k.startsWith('settings:'))).toBe(false)
     const admin = buildBrokerNav(access({ role: 'administrator' }))
@@ -189,6 +191,8 @@ describe('resolveActive', () => {
     ['/client-documents', 'clients', 'clientDocuments'],
     ['/billing', 'finance', 'billing'],
     ['/tnved/sync', 'references', 'systemData'],
+    ['/tnved/eec', 'references', 'eecUpdates'],
+    ['/tnved/eec/editions/12', 'references', 'eecUpdates'],
     ['/references', 'references', 'systemData'],
     ['/document-packages/1/workspace', 'packages', 'packages'],
     ['/document-packages/1/partia/p1', 'packages', 'packages'],
