@@ -9,6 +9,8 @@ const api = vi.hoisted(() => ({ calculateCustomsValue: vi.fn(), calculatePayment
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/import40', async (orig) => ({ ...(await orig<typeof import('@/api/import40')>()), import40Api: api }))
 vi.mock('@/ui/message', () => ({ message: toast }))
+const vatOffset = vi.hoisted(() => ({ match: vi.fn(async () => ({ items: [] as unknown[] })) }))
+vi.mock('@/api/vatOffset', () => ({ vatOffsetApi: vatOffset }))
 vi.mock('@/stores/classifiers', () => ({
   useClassifiersStore: () => ({
     cache: { 'tax-modes': [{ code: '9999', nameRu: 'ПРОЧИЙ ПЛАТЁЖ' }] },
@@ -21,6 +23,7 @@ vi.mock('@/stores/classifiers', () => ({
 import { emptyDtForm, type DtFormState } from '../../dtPayload'
 import { useDtGoods } from '../../goods/useDtGoods'
 import { useDtPayments } from '../../useDtPayments'
+import { clearVatOffsetCache } from '../../goods/useVatOffset'
 import SectionPayments from '../SectionPayments.vue'
 
 const pay = (code: string, amount: number, o: Record<string, unknown> = {}) =>
@@ -42,6 +45,7 @@ afterEach(() => {
   scope = null
   document.body.innerHTML = ''
   vi.clearAllMocks()
+  clearVatOffsetCache()
 })
 
 const settle = async () => {
@@ -92,7 +96,8 @@ describe('SectionPayments: карточки и плашки', () => {
     expect(card.text()).toContain('8471 30 000 0')
     expect(card.text()).toContain('НОУТБУКИ')
     expect(card.findAll('[data-payments-line]').map((l) => l.attributes('data-payments-line'))).toEqual(['1010', '5060', '9999'])
-    expect(card.get('[data-payments-line="1010"]').text()).toMatch(/Таможенный сбор.*6 МРП.*2\s500,00.*ИУ/s)
+    expect(card.get('[data-payments-line="1010"]').text()).toMatch(/Таможенный сбор.*6 МРП.*2\s500,00/s)
+    expect(card.get<HTMLInputElement>('[data-payments-line="1010"] input[data-f="payment-feature-inline"]').element.value).toBe('ИУ')
     expect(card.get('[data-payments-line="5060"]').text()).toMatch(/12\s612\s900,00.*16%.*2\s018\s064,40/s)
     expect(card.get('[data-payments-line="9999"]').text()).toContain('ПРОЧИЙ ПЛАТЁЖ')
     // до первого расчёта: товар без гр. 47 — коротко, без кода — «—»
@@ -341,5 +346,51 @@ describe('SectionPayments: гр. В после «Записать» (§5-1)', ()
     await settle()
     expect(form.factPayments.map((p) => [p.taxModeCode, p.amount, p.payerTaxpayerId])).toEqual([['5060', 84000, '201140012345'], ['1010', 8650, null]])
     expect(amountOf('5060')).toMatch(/^84\s000$/)
+  })
+})
+
+describe('SectionPayments: СП в карточке и зачёт НДС', () => {
+  const ROW = { list: 'pp-1199', actNumber: '1199', hintLabel: 'ПП РК №1199', number: 94, name: 'Весы платформенные', partial: true, footnote: null, condition: null, codeText: 'из 8423 89 000 0' }
+
+  it('коды товаров — одним запросом; у 5060 подсказка и «Поставить ЗН» пишет СП в товар без «Пересчитать»', async () => {
+    vatOffset.match.mockResolvedValueOnce({ items: [{ code: '8423890000', rows: [ROW] }] })
+    const { form, w } = setup({ goods: [goodsItem({ tnvedCode: '8423890000' }), goodsItem({ tnvedCode: '8423890000' }), goodsItem()] })
+    form.submissionDate = '2026-10-09'
+    await settle()
+    expect(vatOffset.match).toHaveBeenCalledTimes(2) // без даты гр. А и с ней
+    expect(vatOffset.match).toHaveBeenLastCalledWith(['8423890000', '8471300000'], '2026-10-09', { silent: true })
+
+    vatOffset.match.mockResolvedValueOnce({ items: [{ code: '8423890000', rows: [ROW] }] })
+    form.submissionDate = '2026-10-10'
+    await settle()
+    const card = w.get('[data-payments-goods][data-goods-index="0"]')
+    const hint = card.get('[data-payments-line="5060"] [data-vat-offset-hint]')
+    expect(hint.text()).toContain('Товар в перечне ПП РК №1199')
+    expect(w.find('[data-payments-goods][data-goods-index="2"] [data-vat-offset-hint]').exists()).toBe(false)
+
+    await hint.get('[data-vat-offset-set-zn]').trigger('click')
+    await settle()
+    const p5060 = form.goodsItems[0].payments!.find((p) => p.taxModeCode === '5060')!
+    expect(p5060.paymentFeatureCode).toBe('ЗН')
+    expect(p5060.amountKzt).toBe(7922)
+    expect(form.goodsItems[0].needsTpinRecalc).toBe(false)
+    expect(card.find('[data-payments-line="5060"] [data-vat-offset-hint]').exists()).toBe(false)
+  })
+
+  it('просмотр и живой предпросмотр — СП текстом (правка СП сбросила бы предпросмотр)', async () => {
+    const ro = setup({ readonly: true })
+    await settle()
+    expect(ro.w.find('input[data-f="payment-feature-inline"]').exists()).toBe(false)
+    expect(ro.w.get('[data-payments-line="1010"] [data-payment-feature]').text()).toBe('ИУ')
+    ro.w.unmount()
+    w = null
+
+    const live = setup()
+    await settle()
+    expect(live.w.find('input[data-f="payment-feature-inline"]').exists()).toBe(true)
+    await live.w.get('[data-payments-calc]').trigger('click')
+    await settle()
+    expect(live.payments.state.value).toBe('preview')
+    expect(live.w.find('input[data-f="payment-feature-inline"]').exists()).toBe(false)
   })
 })

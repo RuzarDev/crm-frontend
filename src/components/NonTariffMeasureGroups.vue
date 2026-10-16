@@ -12,6 +12,8 @@ import { cleanActNumber, formatActDate, goodsOf, groupMeasures, type MeasureAct,
 // регулирования, льготы, прочая информация; by='required' — требуемые документы и льготы.
 // В разделе — акты: ссылка «Решение … №299 от 28.05.2010 с изменениями …», заголовок акта; под ним
 // документы (что требуется) и товары кода, к которым документ относится; коды гр. 33 — одной строкой.
+// Акт, который КЕДЕН показывает действующим, но он заменён / утратил силу (actStatus) — приглушённой карточкой с
+// пометкой «Утратил силу с 01.01.2026, заменён ПП РК № 1199 от 31.12.2025» (ссылка на новый акт), после действующих.
 const props = withDefaults(defineProps<{ measures: TnvedNonTariffMeasureDto[]; by?: MeasureGrouping }>(), { by: 'docType' })
 const { t } = useI18n()
 const tm = (key: string, params?: Record<string, unknown>) => t(`broker.references.tnved.measures.${key}`, params ?? {})
@@ -36,6 +38,15 @@ const mainLink = (a: MeasureAct): ActLink | null =>
 const amendmentLinks = (a: MeasureAct): ActLink[] =>
   a.amendments.map((x) => ({ text: actText(x.name, cleanActNumber(x.number), formatActDate(x.date)).trim(), href: safeUrl(x.url) }))
 
+const statusText = (a: MeasureAct): string | null => {
+  const st = a.status
+  if (!st) return null
+  const since = formatActDate(st.since) ?? st.since
+  if (st.status === 'partial') return tm('actPartial', { since })
+  if (st.status === 'replaced' && st.replacedBy) return tm('actReplaced', { since })
+  return tm('actRepealed', { since })
+}
+
 const linkClass = 'rounded-field underline-offset-2 outline-hidden hover:underline focus-visible:shadow-focus'
 </script>
 
@@ -47,7 +58,28 @@ const linkClass = 'rounded-field underline-offset-2 outline-hidden hover:underli
         <span class="text-xs font-normal tabular-nums text-muted">{{ s.count }}</span>
       </h4>
       <ul role="list" class="m-0 flex list-none flex-col gap-2.5 p-0">
-        <li v-for="a in s.acts" :key="a.key" class="min-w-0 rounded-row border border-line px-3.5 py-3" data-measure-act>
+        <li
+          v-for="a in s.acts"
+          :key="a.key"
+          :class="['min-w-0 rounded-row border px-3.5 py-3', a.status ? 'border-dashed border-line bg-sunken' : 'border-line']"
+          data-measure-act
+          :data-act-status="a.status?.status"
+        >
+          <p v-if="a.status" class="m-0 mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] leading-5" data-measure-act-status>
+            <ZTag :tone="a.status.status === 'partial' ? 'wait' : 'neutral'" size="sm">{{ statusText(a) }}</ZTag>{{ ' ' }}
+            <template v-if="a.status.status === 'replaced' && a.status.replacedBy">
+              <a
+                v-if="safeUrl(a.status.replacedByUrl)"
+                :href="safeUrl(a.status.replacedByUrl)!"
+                target="_blank"
+                rel="noopener noreferrer"
+                :class="[linkClass, 'font-medium text-zircon-ink']"
+                data-measure-replaced-by
+              >{{ a.status.replacedBy }}<span class="sr-only"> ({{ tm('opensInNewTab') }})</span></a>
+              <span v-else class="font-medium text-ink" data-measure-replaced-by>{{ a.status.replacedBy }}</span>
+            </template>
+          </p>
+          <p v-if="a.status?.note" class="m-0 mb-1.5 text-xs leading-5 text-muted" data-measure-act-status-note>{{ a.status.note }}</p>
           <p v-if="mainLink(a) || a.amendments.length" class="m-0 text-[13px] leading-5 break-words text-pretty text-ink-2" data-measure-act-line>
             <template v-if="mainLink(a)">
               <a

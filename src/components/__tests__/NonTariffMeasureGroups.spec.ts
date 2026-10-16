@@ -139,3 +139,44 @@ describe('NonTariffMeasureGroups: карточка 7308200000', () => {
     expect(w.find('[data-measure-gr33]').exists()).toBe(false)
   })
 })
+
+describe('Льготы: перечень ПП РК № 1199 и заменённые акты КЕДЕН (№ 67 / № 83)', () => {
+  // Как отдаёт сервер для 8423890000: меры КЕДЕН (приказ № 67 со статусом «заменён») и мера национального перечня.
+  const old67: TnvedNonTariffMeasureDto = {
+    docType: 'PREFERENCE', name: 'Входит в перечень импортируемых товаров, по которым НДС уплачивается методом зачета.', comment: null,
+    resolutionNumber: '67', resolutionName: 'Приказ и.о. Министра национальной экономики РК', resolutionUrl: 'http://adilet.zan.kz/rus/docs/V1800016509',
+    resolutionId: 'keden-67', resolutionDate: '2018-02-21',
+    actStatus: { status: 'replaced', since: '2026-01-01', replacedBy: 'ПП РК № 1199 от 31.12.2025', replacedByUrl: 'https://adilet.zan.kz/rus/docs/P2500001199', note: 'Перечень с 01.01.2026 утверждает Правительство.', source: 'x' },
+  }
+  const pp1199: TnvedNonTariffMeasureDto = {
+    docType: 'PREFERENCE', name: 'Входит в перечень импортируемых товаров, по которым НДС уплачивается методом зачета (строка 94)', comment: null,
+    resolutionNumber: '1199', resolutionName: 'Постановление Правительства Республики Казахстан', resolutionUrl: 'https://adilet.zan.kz/rus/docs/P2500001199',
+    resolutionId: 'KZ-VAT-OFFSET-PP-1199', resolutionDate: '2025-12-31',
+    resolutionTitle: 'Об утверждении перечня импортируемых товаров, по которым налог на добавленную стоимость уплачивается методом зачета, и правил его формирования',
+    goods: ['Только: Оборудование для взвешивания …: прочие: платформенные весы, весы рольганговые'],
+    amendments: [{ name: 'Постановление Правительства Республики Казахстан', number: '611', url: 'https://adilet.zan.kz/rus/docs/P2600000611', title: null, date: '2026-07-13' }],
+  }
+
+  it('действующий перечень — первым в «Льготах»; заменённый акт — после него, с пометкой и ссылкой на замену', () => {
+    const [pref] = groupMeasures([old67, pp1199])
+    expect(pref.key).toBe('preferences')
+    expect(pref.acts.map((a) => a.number)).toEqual(['1199', '67'])
+    expect(pref.acts[0].status).toBeNull()
+    expect(pref.acts[1].status?.replacedBy).toBe('ПП РК № 1199 от 31.12.2025')
+  })
+
+  it('карточка: акт № 1199 со ссылкой и изменениями, «Только: …»; № 67 — «Утратил силу с 01.01.2026, заменён: ПП РК № 1199»', () => {
+    const w = mountWithI18n(NonTariffMeasureGroups, { props: { measures: [old67, pp1199] } })
+    const acts = w.findAll('[data-measure-act]')
+    expect(acts).toHaveLength(2)
+    expect(acts[0].get('[data-measure-act-link]').text()).toContain('Постановление Правительства Республики Казахстан №1199 от 31.12.2025')
+    expect(acts[0].text()).toContain('с изменениями')
+    expect(acts[0].get('[data-measure-goods]').text()).toBe('Только: Оборудование для взвешивания …: прочие: платформенные весы, весы рольганговые')
+    expect(acts[0].find('[data-measure-act-status]').exists()).toBe(false)
+
+    expect(acts[1].attributes('data-act-status')).toBe('replaced')
+    expect(acts[1].get('[data-measure-act-status]').text()).toMatch(/^Утратил силу с 01\.01\.2026, заменён:\s+ПП РК № 1199 от 31\.12\.2025/)
+    expect(acts[1].get('[data-measure-replaced-by]').attributes('href')).toBe('https://adilet.zan.kz/rus/docs/P2500001199')
+    expect(acts[1].get('[data-measure-act-status-note]').text()).toBe('Перечень с 01.01.2026 утверждает Правительство.')
+  })
+})

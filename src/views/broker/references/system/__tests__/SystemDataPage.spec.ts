@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   katoStatus: vi.fn(), katoSearch: vi.fn(), katoSync: vi.fn(), katoImport: vi.fn(),
   gr33List: vi.fn(), gr33Usage: vi.fn(),
   troisStatus: vi.fn(), troisSearch: vi.fn(), troisImport: vi.fn(),
+  voLists: vi.fn(), voSync: vi.fn(), voImport: vi.fn(),
   whStatus: vi.fn(), whImport: vi.fn(), nsiStatus: vi.fn(), nsiImportKgd: vi.fn(), nsiImport: vi.fn(), kedenRefresh: vi.fn(),
   syncHistory: vi.fn(), syncTrigger: vi.fn(), seedTransitions: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -31,6 +32,7 @@ vi.mock('@/api/references', () => ({
 vi.mock('@/api/kato', () => ({ katoApi: { status: api.katoStatus, search: api.katoSearch, sync: api.katoSync, import: api.katoImport } }))
 vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: { list: api.gr33List, kedenUsage: api.gr33Usage } }))
 vi.mock('@/api/trois', () => ({ troisApi: { status: api.troisStatus, search: api.troisSearch, importFile: api.troisImport } }))
+vi.mock('@/api/vatOffset', () => ({ vatOffsetApi: { lists: api.voLists, sync: api.voSync, import: api.voImport } }))
 vi.mock('@/api/warehouseRegistry', () => ({
   warehouseRegistryApi: { status: api.whStatus, importFile: api.whImport },
   warehouseNsiApi: { status: api.nsiStatus, importFromKgd: api.nsiImportKgd, importFile: api.nsiImport },
@@ -64,6 +66,13 @@ const httpError = (status: number) => Object.assign(new Error(`HTTP ${status}`),
 
 let w: VueWrapper
 let router: Router
+const voList = (key: string, number: string, actName: string, rows: unknown[]) => ({
+  key, actName, actNumber: number, actDate: key === 'pp-1199' ? '2025-12-31' : '2025-09-18', actTitle: 'Об утверждении перечня',
+  actUrl: `https://adilet.zan.kz/rus/docs/${key}`, effectiveFrom: '2026-01-01', editionDate: key === 'pp-1199' ? '2026-08-27' : '2025-09-18',
+  amendments: key === 'pp-1199' ? [{ number: '611', date: '2026-07-13', url: 'https://adilet.zan.kz/rus/docs/P2600000611' }] : [],
+  origin: 'seed', sourceUrl: 'https://zakon.uchet.kz/rus/docs/x', loadedAtUtc: '2026-10-16T05:00:00Z', checkedAtUtc: null,
+  configuredSourceUrl: 'https://zakon.uchet.kz/rus/docs/x', rows,
+})
 const mountAt = async (path: string, role = 'administrator', permissions: string[] = []) => {
   const pinia = createPinia()
   setActivePinia(pinia)
@@ -106,6 +115,12 @@ beforeEach(() => {
   api.gr33List.mockResolvedValue([{ code: 'D01', name: 'Запрет', categoryCode: 'D', categoryName: 'Меры', kind: 'x', isNegative: false }])
   api.gr33Usage.mockResolvedValue([])
   api.troisStatus.mockResolvedValue({ total: 2500, active: 2140, importedAtUtc: '2026-10-05T05:00:00Z' })
+  api.voLists.mockResolvedValue([voList('pp-1199', '1199', 'Постановление Правительства Республики Казахстан', [
+    { number: 94, name: 'Оборудование для взвешивания … платформенные весы, весы рольганговые', footnote: null, condition: null, codeText: 'из 8423 89 000 0' },
+    { number: 1, name: 'Ящики КLТ', footnote: '***', condition: 'Номенклатура…', codeText: 'из 3923 10 000 0' },
+  ]), voList('msh-302', '302', 'Приказ Министра сельского хозяйства Республики Казахстан', [
+    { number: 9, name: 'Двигатели внутреннего сгорания поршневые…', footnote: '*', condition: null, codeText: 'из 8408' },
+  ])])
   api.whStatus.mockResolvedValue({ kinds: [{ kind: 'svh', total: 300, importedAtUtc: '2026-10-05T05:00:00Z' }, { kind: 'customs_warehouse', total: 88, importedAtUtc: null }] })
   api.nsiStatus.mockResolvedValue({ kinds: [{ kind: 'svh', total: 10, importedAtUtc: null }] })
   api.syncHistory.mockResolvedValue({ data: [log({})] })
@@ -128,13 +143,14 @@ describe('SystemDataPage — меню и адрес', () => {
     await mountAt('/references')
     expect(w.get('h1').text()).toBe('Данные системы')
     expect(w.findAll('[data-nav-group]').map((g) => g.attributes('data-nav-group'))).toEqual(['base', 'eec', 'registries', 'tnved'])
-    expect(navItems()).toEqual(['stations', 'posts', 'cls:2009', 'cls:new-eec', 'gr33', 'kato', 'warehouses', 'nsi', 'trois', 'tnved-sync'])
+    expect(navItems()).toEqual(['stations', 'posts', 'cls:2009', 'cls:new-eec', 'gr33', 'kato', 'warehouses', 'nsi', 'trois', 'vatOffset', 'tnved-sync'])
     expect(nav('cls:2009').text()).toContain('Виды документов (2009)')
     expect(count('cls:2009')).toBe('1 482')
     expect(nav('cls:new-eec').text()).toContain('new-eec')
     expect(count('kato')).toBe('15 612')
     expect(count('warehouses')).toBe('388')
     expect(count('trois')).toBe('2 140')
+    expect(count('vatOffset')).toBe('3')
     expect(count('tnved-sync')).toBe('06.10')
     expect(count('posts')).toBe('3')
     // открытый пункт (станции) считает активные сам — второго запроса за счётчиком нет
@@ -443,6 +459,29 @@ describe('SystemDataPage — реестры', () => {
     await mountAt('/references?item=nsi')
     expect(w.get('[data-nsi-upload="svh"]').text()).toBe('Загрузить СВХ (xlsx) в НСИ КГД')
     expect(w.get('[data-nsi-upload="ts"]').text()).toBe('Загрузить таможенные склады (xlsx) в НСИ КГД')
+  })
+
+  it('перечни для зачёта НДС: акт со ссылкой, редакция и изменения, поиск по коду; «Обновить из сети» и файл — по своему перечню', async () => {
+    await mountAt('/references?item=vatOffset')
+    const panel = w.get('[data-registry="vatOffset"]')
+    expect(panel.findAll('[data-vo-list]').map((x) => x.attributes('data-vo-list'))).toEqual(['pp-1199', 'msh-302'])
+    const pp = panel.get('[data-vo-list="pp-1199"]')
+    expect(pp.get('h3 a').text()).toBe('Постановление Правительства Республики Казахстан № 1199 от 31.12.2025')
+    expect(pp.get('[data-vo-edition]').text()).toContain('Редакция на 27.08.2026, действует с 01.01.2026')
+    expect(pp.get('[data-vo-edition]').text()).toContain('№ 611')
+    expect(pp.get('[data-vo-source]').text()).toContain('Встроенная редакция')
+
+    await panel.get('input[data-vo-search]').setValue('8423 89')
+    await flushPromises()
+    expect(pp.findAll('[data-vo-table] tbody tr').length).toBe(1)
+    expect(panel.get('[data-vo-list="msh-302"]').text()).toContain(w.vm.$t('broker.references.system.list.nothing'))
+
+    api.voSync.mockResolvedValueOnce({ list: 'msh-302', applied: false, reason: 'same', editionDate: '2025-09-18', rows: 49, origin: 'network', source: null })
+    await panel.get('[data-vo-actions="msh-302"] [data-vo-sync]').trigger('click')
+    await flushPromises()
+    expect(api.voSync).toHaveBeenCalledWith('msh-302')
+    expect(api.toast.info).toHaveBeenCalledWith('Изменений нет: редакция на 18.09.2025 уже загружена')
+    expect(api.voLists).toHaveBeenCalledTimes(4) // счётчик меню и панель; после обновления — оба заново
   })
 
   it('ошибка статуса реестра — «Не удалось загрузить» и «Повторить»', async () => {

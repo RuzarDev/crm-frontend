@@ -16,6 +16,7 @@ import { resetGr33Suggest } from '../useGr33Suggest'
 import { emptyPayment, paymentsTotal, setPaymentField, sortPayments, taxModeLabelKey } from '../editor/payments'
 import type { GoodsPageContext } from '../editor/types'
 import { resetDtTnvedCheckCache } from '../tnvedCodeCheck'
+import { clearVatOffsetCache } from '../useVatOffset'
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/ui/message', () => ({ message: toast }))
@@ -34,6 +35,8 @@ vi.mock('@/api/tnved', () => ({ tnvedApi: {
 vi.mock('@/api/trois', async (orig) => ({ ...(await orig<typeof import('@/api/trois')>()), troisApi: { check: vi.fn(async () => []), search: vi.fn(async () => []) } }))
 vi.mock('@/api/kedenProcedureLists', async (orig) => ({ ...(await orig<typeof import('@/api/kedenProcedureLists')>()), kedenProcedureListsApi: { get: vi.fn(async () => ({})) } }))
 vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: { list: vi.fn(async () => []), suggest: vi.fn(async () => null) } }))
+const vatOffset = vi.hoisted(() => ({ match: vi.fn() }))
+vi.mock('@/api/vatOffset', () => ({ vatOffsetApi: vatOffset }))
 
 import SectionGoods from '../SectionGoods.vue'
 
@@ -127,6 +130,8 @@ beforeEach(() => {
   resetOkeiUnits()
   resetKedenLists()
   resetGr33Suggest()
+  clearVatOffsetCache()
+  vatOffset.match.mockResolvedValue({ items: [] })
 })
 afterEach(() => {
   w?.unmount()
@@ -181,8 +186,9 @@ describe('Редактор товара: «Платежи» (гр. 47 этого
     const host = q('[data-goods-field="payments"]')!
     expect(host.dataset.graph).toBe('47')
     expect(host.dataset.goodsIndex).toBe('0')
-    // Ни одного поля ввода в режиме чтения.
-    expect(qa('input')).toHaveLength(0)
+    // В режиме чтения поля ввода — только выбор СП у каждой строки (ДТ можно править).
+    expect(qa('input')).toHaveLength(5)
+    expect(qa('input').every((i) => i.closest('[data-payment-feature-edit]'))).toBe(true)
 
     expect(rowEls().map((r) => r.dataset.paymentRow)).toEqual(['1010', '2010', '5060', '4420', '2050'])
     expect(cell(rowOf('1010'), 'mode')).toBe('1010 Таможенный сбор')
@@ -198,7 +204,7 @@ describe('Редактор товара: «Платежи» (гр. 47 этого
     expect(cell(rowOf('2010'), 'date')).toContain('09.10.2026')
     expect(cell(rowOf('2010'), 'amount')).toContain('29 508,70 ₸')
     expect(cell(rowOf('2050'), 'amount')).toContain('2 000,50 ₸')
-    expect(cell(rowOf('2010'), 'feature')).toContain('ИУ')
+    expect(rowOf('2010').querySelector<HTMLInputElement>('input[data-f="payment-feature-inline"]')!.value).toBe('ИУ — Уплата до выпуска')
     expect(q('[data-payments-total]')!.textContent!.replace(/\s+/g, ' ')).toContain('114 609,20 ₸')
     // Порядок в данных не меняется — сортируется только показ.
     expect(g0().payments!.map((p) => p.taxModeCode)).toEqual(['5060', '4420', '2050', '2010', '1010'])
@@ -295,5 +301,61 @@ describe('Редактор товара: «Платежи» (гр. 47 этого
     expect(q('[data-payment-add]')).toBeNull()
     expect(qa('input')).toHaveLength(0)
     expect(rowEls()).toHaveLength(5)
+    // СП — текстом, полное название — во всплывающей подсказке.
+    const feature = rowOf('2010').querySelector<HTMLElement>('[data-payment-feature]')!
+    expect(feature.textContent).toBe('ИУ')
+    expect(feature.title).toBe('Уплата до выпуска')
+  })
+})
+
+describe('Платежи: СП в чтении и подсказка о зачёте НДС (ПП РК № 1199 / Приказ МСХ № 302)', () => {
+  const ROW_1199 = { list: 'pp-1199', actNumber: '1199', hintLabel: 'ПП РК №1199', number: 94, name: 'Оборудование для взвешивания …: платформенные весы, весы рольганговые', partial: true, footnote: null, condition: null, codeText: 'из 8423 89 000 0' }
+
+  it('СП правится выбором прямо в таблице: пишется в строку, «Пересчитать» не ставит, подписи расчёта остаются', async () => {
+    await mount([item({ payments: PAYMENTS() })])
+    const p2010 = g0().payments!.find((p) => p.taxModeCode === '2010')!
+    await pickIn(rowOf('2010'), 'payment-feature-inline', 'ОП')
+    expect(p2010.paymentFeatureCode).toBe('ОП')
+    expect(g0().needsTpinRecalc).toBe(false)
+    expect(q('[data-payments-stale]')).toBeNull()
+    expect(g0().payments!.find((p) => p.taxModeCode === '5060')!.rateLabel).toBe('16%')
+    // уходит в сохранение ДТ как есть
+    expect(formToPayload(form).goodsItems[0].payments!.find((p) => p.taxModeCode === '2010')!.paymentFeatureCode).toBe('ОП')
+    // полное название — подсказкой у поля
+    expect(rowOf('2010').querySelector<HTMLElement>('[data-payment-feature-edit]')!.title).toBe('Отсрочка уплаты')
+  })
+
+  it('код в перечне ПП РК № 1199 — у 5060 подсказка и «Поставить ЗН»; сама СП не меняется', async () => {
+    vatOffset.match.mockResolvedValue({ items: [{ code: '8423890000', rows: [ROW_1199] }] })
+    await mount([item({ tnvedCode: '8423890000', payments: PAYMENTS() })])
+    expect(vatOffset.match).toHaveBeenCalledWith(['8423890000'], '2026-10-09', { silent: true })
+    const hint = rowOf('5060').querySelector<HTMLElement>('[data-vat-offset-hint]')!
+    expect(hint.textContent).toContain('Товар в перечне ПП РК №1199 — НДС можно уплатить методом зачёта (СП «ЗН»), если импортёр вправе')
+    expect(hint.querySelector('[data-vat-offset-only]')!.textContent).toBe('ПП РК №1199, строка 94 — только: Оборудование для взвешивания …: платформенные весы, весы рольганговые')
+    // только у НДС
+    expect(rowOf('2010').querySelector('[data-vat-offset-hint]')).toBeNull()
+    const p5060 = g0().payments!.find((p) => p.taxModeCode === '5060')!
+    expect(p5060.paymentFeatureCode).toBe('ИУ')
+
+    hint.querySelector<HTMLButtonElement>('[data-vat-offset-set-zn]')!.click()
+    await settle()
+    expect(p5060.paymentFeatureCode).toBe('ЗН')
+    expect(g0().needsTpinRecalc).toBe(false)
+    expect(p5060.amountKzt).toBe(76800) // суммы не трогаются
+    expect(rowOf('5060').querySelector('[data-vat-offset-hint]')).toBeNull()
+  })
+
+  it('кода нет в перечнях — подсказки нет; просмотр — подсказка без кнопки', async () => {
+    await mount([item({ payments: PAYMENTS() })])
+    expect(q('[data-vat-offset-hint]')).toBeNull()
+    w.unmount()
+    document.body.innerHTML = ''
+
+    vatOffset.match.mockResolvedValue({ items: [{ code: '8423890000', rows: [{ ...ROW_1199, list: 'msh-302', hintLabel: 'Приказа МСХ РК №302', partial: false }] }] })
+    await mount([item({ tnvedCode: '8423890000', payments: PAYMENTS() })], { readonly: true })
+    const hint = rowOf('5060').querySelector<HTMLElement>('[data-vat-offset-hint]')!
+    expect(hint.textContent).toContain('Товар в перечне Приказа МСХ РК №302')
+    expect(hint.querySelector('[data-vat-offset-set-zn]')).toBeNull()
+    expect(hint.querySelector('[data-vat-offset-only]')).toBeNull()
   })
 })

@@ -53,9 +53,11 @@ export interface PaymentLine {
   feature: string | null
   /** Строка из расчёта предпросмотра (ещё не записана). */
   fresh: boolean
+  /** Записанная строка гр. 47 товара (только у savedLines): правка СП в карточке пишется в неё. */
+  source?: Import40GoodsPayment
 }
 
-const lineOf = (p: Import40GoodsPayment, fresh: boolean): PaymentLine => ({
+const lineOf = (p: Import40GoodsPayment, fresh: boolean, source?: Import40GoodsPayment): PaymentLine => ({
   code: p.taxModeCode ?? null,
   base: p.taxBase ?? null,
   basisLabel: p.basisLabel?.trim() || null,
@@ -65,6 +67,7 @@ const lineOf = (p: Import40GoodsPayment, fresh: boolean): PaymentLine => ({
   amount: p.amountKzt ?? null,
   feature: p.paymentFeatureCode ?? null,
   fresh,
+  ...(source ? { source } : {}),
 })
 
 /**
@@ -72,7 +75,7 @@ const lineOf = (p: Import40GoodsPayment, fresh: boolean): PaymentLine => ({
  * так их запишет «Записать» у не пересчитанного товара (сбор распределён между рассчитанными).
  */
 export const savedLines = (payments: readonly Import40GoodsPayment[] | null | undefined, dropFee = false): PaymentLine[] =>
-  sortPayments(payments).filter((p) => !dropFee || p.taxModeCode !== FEE_TAX_MODE).map((p) => lineOf(p, false))
+  sortPayments(payments).filter((p) => !dropFee || p.taxModeCode !== FEE_TAX_MODE).map((p) => lineOf(p, false, p))
 
 /**
  * Примечания расчёта строками (как в прежнем окне расчёта): сервер склеивает их через «; ». Внутри скобок «; » —
