@@ -863,6 +863,7 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
                 :readonly="!editable"
                 :dts="dts"
                 :expense-labels="expenseLabels"
+                :no-xml="splitReplaced"
                 @open-panel="panelOpen = true"
               />
               <SectionClosing

@@ -1120,8 +1120,10 @@ describe('DtPage: сохранение и режимы', () => {
     api.splitState.mockResolvedValue({
       sourceDeclarationId: 'dt1',
       parts: [
-        { id: 'e1', role: 'ETT', declarationNumber: 'E-1', goodsCount: 1, hasPayments: true, factPaymentsCount: 1, hasChildren: false },
-        { id: 'v1', role: 'VTO', declarationNumber: '', goodsCount: 1, hasPayments: true, factPaymentsCount: 1, hasChildren: false },
+        { id: 'e1', role: 'ETT', declarationNumber: 'E-1', goodsCount: 1, hasPayments: true, factPaymentsCount: 1, hasChildren: false,
+          updatedAtUtc: '2026-10-16T10:00:00.1234567Z', uploadedToKeden: true },
+        { id: 'v1', role: 'VTO', declarationNumber: '', goodsCount: 1, hasPayments: true, factPaymentsCount: 1, hasChildren: false,
+          updatedAtUtc: '2026-10-16T10:00:01Z', uploadedToKeden: false },
       ],
       vtoSortOrders: [1], goodsCarryOver: true, addedGoods: [{ declarationId: 'e1', role: 'ETT', sortOrder: 1, description: 'ДОБАВЛЕН', tnvedCode: null }],
       returnedSortOrders: [], expensesFromSource: false, manualPaymentSortOrders: [0], blockedReason: null,
@@ -1145,6 +1147,8 @@ describe('DtPage: сохранение и режимы', () => {
     expect(notes).toContain('Часть ЕТТ E-1 будет удалена')
     expect(notes).toContain('Пропадут товары, добавленные в части вручную: ДОБАВЛЕН.')
     expect(notes).toContain('Ручные строки гр.47 останутся у товаров № 1')
+    expect(notes).toContain('Перейдут из ЕТТ в ВТО: № 1.')
+    expect(notes).toContain('Часть ЕТТ E-1 уже выгружалась в КЕДЕН')
     ;([...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Изменить разделение' && b.closest('[data-dt-split-modal]')) as HTMLButtonElement).click()
     await settle()
     expect(confirmState.open).toBe(true)
@@ -1153,14 +1157,17 @@ describe('DtPage: сохранение и режимы', () => {
     expect(api.splitDeclaration).not.toHaveBeenCalled()
     confirmState.resolve(true)
     await settle()
-    expect(api.splitDeclaration).toHaveBeenCalledWith('case1', 'dt1', { vtoGoodSortOrders: [0, 1], replaceExisting: true })
+    expect(api.splitDeclaration).toHaveBeenCalledWith('case1', 'dt1', {
+      vtoGoodSortOrders: [0, 1], replaceExisting: true,
+      expectedParts: [{ id: 'e1', updatedAtUtc: '2026-10-16T10:00:00.1234567Z' }, { id: 'v1', updatedAtUtc: '2026-10-16T10:00:01Z' }],
+    }, { silentConflict: true })
     expect(toast.success).toHaveBeenCalledWith('Разделение изменено: части пересобраны, платежи пересчитаны')
     // Остаёмся на исходной ДТ, данные перечитаны.
     expect(router.currentRoute.value.path).toBe('/import-40/case1/dt/dt1')
     expect(api.get.mock.calls.length).toBeGreaterThan(gets)
   })
 
-  it('исходная ДТ: изменить нельзя (часть выпущена) — причина, окно закрывается', async () => {
+  it('исходная ДТ: изменить нельзя (часть выпущена) — причина в окне, кнопка выключена', async () => {
     server = caseDto({
       status: 2, assignedDeclarantId: 'me',
       declarations: [fullDto({ isSplitReplaced: true, splitRole: null }), fullDto({ id: 'v1', splitSourceDeclarationId: 'dt1', splitRole: 'VTO' })],
@@ -1173,8 +1180,9 @@ describe('DtPage: сохранение и режимы', () => {
     await open()
     await w.get('[data-dt-banner-split] [data-dt-change-split]').trigger('click')
     await settle()
-    expect(toast.warning).toHaveBeenCalledWith('Часть ВТО без номера выпущена — менять разделение нельзя')
+    expect(document.body.querySelector('[data-dt-split-blocked]')!.textContent).toContain('Часть ВТО без номера выпущена — менять разделение нельзя')
     expect(document.body.querySelector('[data-dt-split-notes]')).toBeNull()
+    expect(([...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Изменить разделение' && b.closest('[data-dt-split-modal]')) as HTMLButtonElement).disabled).toBe(true)
     expect(api.splitDeclaration).not.toHaveBeenCalled()
   })
 })

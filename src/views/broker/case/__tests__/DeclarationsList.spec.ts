@@ -163,6 +163,30 @@ describe('DeclarationsList: строки и готовность', () => {
     expect(w.get('[data-dt-nothing]').text()).toBe('ДТ с таким номером нет')
   })
 
+  // Ревью I3: вид строки — по полному списку. Раньше поиск по номеру исходной убирал её части, и исходная становилась
+  // обычной ДТ с «Заполнить» и XML (выгрузка всех товаров второй раз).
+  it('поиск по номеру исходной ДТ — она остаётся «Исходной ДТ» без «Заполнить» и XML', async () => {
+    const dts = [
+      declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC-777' }),
+      declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src', declarationNumber: 'E-1' }),
+      declaration({ id: 'v1', splitRole: 'VTO', splitSourceDeclarationId: 'src', declarationNumber: 'V-1' }),
+    ]
+    mount(USERS.declarant, { kase: { declarations: dts } })
+    await w.get('[data-dt-search]').setValue('777')
+    expect(w.findAll('[data-dt-row]').map((r) => r.attributes('data-dt-row'))).toEqual(['src'])
+    expect(row('src').attributes('data-dt-kind')).toBe('source')
+    expect(row('src').get('[data-dt-split]').text()).toBe('Исходная ДТ')
+    expect(row('src').find('[data-dt-fill]').exists()).toBe(false)
+    expect(row('src').find('[data-dt-xml]').exists()).toBe(false)
+    expect(row('src').find('[data-dt-open]').exists()).toBe(true)
+    // Найдена только часть — она остаётся частью (со сдвигом), с «Заполнить».
+    await w.get('[data-dt-search]').setValue('V-1')
+    expect(w.findAll('[data-dt-row]').map((r) => r.attributes('data-dt-row'))).toEqual(['v1'])
+    expect(row('v1').attributes('data-dt-kind')).toBe('part')
+    expect(row('v1').attributes('data-dt-depth')).toBe('1')
+    expect(row('v1').find('[data-dt-fill]').exists()).toBe(true)
+  })
+
   it('пусто — «ДТ ещё не создана» с подсказкой', () => {
     mount(USERS.declarant)
     expect(w.get('[data-dt-empty]').text()).toContain('ДТ ещё не создана')

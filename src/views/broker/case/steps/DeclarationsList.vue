@@ -57,7 +57,12 @@ const blocked = (key: string) => !canDeclare.value || (busy() && !pending(key))
 const tags = computed(() => new Map(all.value.map((d) => [d.id, splitTag(d, all.value, t)])))
 
 const query = ref('')
-const rows = computed(() => groupDeclarations(filterDeclarations(all.value, query.value)))
+// Группы и вид строки — по ПОЛНОМУ списку, поиск — уже по строкам: иначе исходная ДТ, чьи части не подошли под поиск,
+// становилась обычной строкой с «Заполнить» и XML (выгрузка всех товаров второй раз).
+const rows = computed(() => {
+  const matched = new Set(filterDeclarations(all.value, query.value).map((d) => d.id))
+  return groupDeclarations(all.value).filter((r) => matched.has(r.dt.id))
+})
 /** Строка только для просмотра: исходная ДТ разделения или повторно разделённая часть — правят их части. */
 const viewOnly = (row: DtListRow<Import40DeclarationDto>) => row.kind === 'source' || row.resplit
 
