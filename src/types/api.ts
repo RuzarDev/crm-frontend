@@ -1464,6 +1464,9 @@ export interface Import40GoodsItemInput extends ReestrGoodsItemInput {
   customsValueKztCalc?: number | null
   statisticValueUsdManual?: boolean
   statisticValueUsdCalc?: number | null
+  // Часть разделения ЕТТ/ВТО (16.10): SortOrder товара исходной ДТ, редактор возвращает полученное значение. Новый товар
+  // и копия товара — без связи (null): их правки при «Изменить разделение» не переносятся.
+  splitSourceSortOrder?: number | null
 }
 
 /** Строка «Характеристики товара в группе» гр.31 — зеркалит Import40GoodsCharacteristicDto на бэке. */

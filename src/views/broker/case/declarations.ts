@@ -33,22 +33,91 @@ export function filterDeclarations<D extends { declarationNumber?: string | null
 }
 
 /**
- * Тег разделения ЕТТ/ВТО (прежние splitTagLabel/Color/Tooltip): заменённая — «Разделена» (приглушена);
- * дочерние — по splitRole; без splitRole, но rateType EATT — «ВТО»; обычная ДТ — без тега.
+ * Роль строки в списке ДТ (решение владельца 16.10.2026): исходная ДТ разделения — «Исходная ДТ (все товары)», её части
+ * ЕТТ/ВТО — под ней со сдвигом; часть, которую до 16.10 разделили ещё раз, — тоже часть (со своими частями ниже), а не
+ * «Разделена».
+ */
+export type DtRowKind = 'plain' | 'source' | 'part'
+type SplitFields = Pick<Import40DeclarationDto, 'id' | 'splitRole' | 'splitSourceDeclarationId'>
+export interface DtListRow<D> {
+  dt: D
+  /** Глубина вложенности: 0 — исходная или обычная ДТ, 1 — её часть, 2 — часть повторного разделения. */
+  depth: number
+  kind: DtRowKind
+  /** Частей разделения у этой ДТ (у исходной; у повторно разделённой части — её части). */
+  parts: number
+  /** Часть, у которой есть свои части (старая цепочка). */
+  resplit: boolean
+  /** Часть, исходной ДТ которой нет в списке (удалили до запрета 16.10). */
+  orphan: boolean
+}
+
+const roleRank = (role?: string | null) => ((role ?? '').toUpperCase() === 'ETT' ? 0 : (role ?? '').toUpperCase() === 'VTO' ? 1 : 2)
+
+/**
+ * Список ДТ группами: обычные ДТ и исходные — в своём порядке, части исходной — сразу под ней (ЕТТ, затем ВТО), части
+ * частей — под частью. Часть без исходной в списке — сама по себе (orphan). Порядок внутри — как в исходном списке.
+ */
+export function groupDeclarations<D extends SplitFields>(list: readonly D[]): DtListRow<D>[] {
+  const byId = new Set(list.map((d) => d.id))
+  const children = new Map<string, D[]>()
+  for (const d of list) {
+    const parent = d.splitSourceDeclarationId
+    if (parent && byId.has(parent) && parent !== d.id) children.set(parent, [...(children.get(parent) ?? []), d])
+  }
+  for (const [k, v] of children) children.set(k, [...v].sort((a, b) => roleRank(a.splitRole) - roleRank(b.splitRole)))
+  const rows: DtListRow<D>[] = []
+  const seen = new Set<string>()
+  const walk = (d: D, depth: number) => {
+    if (seen.has(d.id)) return
+    seen.add(d.id)
+    const kids = children.get(d.id) ?? []
+    const isPart = !!d.splitSourceDeclarationId
+    rows.push({
+      dt: d,
+      depth,
+      kind: isPart ? 'part' : kids.length ? 'source' : 'plain',
+      parts: kids.length,
+      resplit: isPart && kids.length > 0,
+      orphan: isPart && !byId.has(d.splitSourceDeclarationId!),
+    })
+    for (const k of kids) walk(k, depth + 1)
+  }
+  for (const d of list) {
+    const parent = d.splitSourceDeclarationId
+    if (!parent || !byId.has(parent) || parent === d.id) walk(d, 0)
+  }
+  for (const d of list) walk(d, 0) // цикл в данных — не терять строки
+  return rows
+}
+
+/** У ДТ есть части разделения — исходную ДТ не удалить, пока они есть (сервер отвечает 409). */
+export const hasSplitParts = (dt: Pick<Import40DeclarationDto, 'id'>, all: readonly Pick<Import40DeclarationDto, 'splitSourceDeclarationId'>[]): boolean =>
+  all.some((d) => d.splitSourceDeclarationId === dt.id)
+
+/**
+ * Тег строки: исходная ДТ разделения — «Исходная ДТ» с подсказкой (только просмотр, печать, Excel); часть — «ЕТТ»/«ВТО»
+ * по splitRole (без splitRole, но rateType EATT — «ВТО»), в подсказке — от какой ДТ (или что исходная удалена);
+ * обычная ДТ — без тега.
  */
 export interface SplitTag { label: string; tone: 'neutral' | 'submitted' | 'info'; tip: string }
 export function splitTag(
-  dt: Pick<Import40DeclarationDto, 'isSplitReplaced' | 'splitRole' | 'rateType' | 'splitSourceDeclarationId'>,
-  all: Pick<Import40DeclarationDto, 'id' | 'declarationNumber'>[],
+  dt: Pick<Import40DeclarationDto, 'id' | 'splitRole' | 'rateType' | 'splitSourceDeclarationId'>,
+  all: Pick<Import40DeclarationDto, 'id' | 'declarationNumber' | 'splitSourceDeclarationId'>[],
   t: T,
 ): SplitTag | null {
-  if (dt.isSplitReplaced) return { label: t('import40Case.splitReplaced'), tone: 'neutral', tip: t('import40Case.splitReplacedTooltip') }
-  const label = dt.splitRole === 'VTO' ? 'ВТО' : dt.splitRole === 'ETT' ? 'ЕТТ' : !dt.splitRole && dt.rateType === 'EATT' ? 'ВТО' : null
+  if (!dt.splitSourceDeclarationId && hasSplitParts(dt, all)) {
+    return { label: t('import40Case.splitSource'), tone: 'neutral', tip: t('import40Case.splitSourceTooltip') }
+  }
+  const role = (dt.splitRole ?? '').toUpperCase()
+  const label = role === 'VTO' ? 'ВТО' : role === 'ETT' ? 'ЕТТ' : !dt.splitRole && (dt.rateType ?? '').toUpperCase() === 'EATT' ? 'ВТО' : null
   if (!label) return null
   let tip = ''
   if (dt.splitSourceDeclarationId) {
-    const source = all.find((d) => d.id === dt.splitSourceDeclarationId)
-    tip = t('import40Case.splitTooltip', { num: source?.declarationNumber || dt.splitSourceDeclarationId })
+    const i = all.findIndex((d) => d.id === dt.splitSourceDeclarationId)
+    tip = i < 0
+      ? t('import40Case.splitOrphanTooltip')
+      : t('import40Case.splitTooltip', { num: all[i].declarationNumber || t('import40Case.dtFallback', { n: i + 1 }) })
   }
   return { label, tone: label === 'ВТО' ? 'submitted' : 'info', tip }
 }

@@ -90,6 +90,29 @@ describe('QuoteImportModal', () => {
     expect(api.importQuote).toHaveBeenCalledWith('c1', { quoteId: 'q2', targetDeclarationId: 'd2', force: false })
   })
 
+  // Ревью M8: исходная ДТ разделения (у неё есть части) — не цель импорта: сервер ответит 409, окно приняло бы его за
+  // «КП уже импортирован». В списке — только её части и обычные ДТ.
+  it('исходная ДТ разделения в список целей не попадает', async () => {
+    await open({ declarations: [
+      declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC' }),
+      declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src', declarationNumber: 'E-1' }),
+    ] })
+    await w.get('[data-quote-select] [data-option="q1"]').trigger('click')
+    await w.get('[data-radio-option="existing"]').trigger('click')
+    expect(w.get('[data-quote-dt]').findAll('[data-option]').map((b) => b.attributes('data-option'))).toEqual(['e1'])
+  })
+
+  it('повторно разделённая часть старой цепочки — тоже не цель', async () => {
+    await open({ declarations: [
+      declaration({ id: 'src', isSplitReplaced: true }),
+      declaration({ id: 'v1', splitRole: 'VTO', splitSourceDeclarationId: 'src', isSplitReplaced: true }),
+      declaration({ id: 'v2', splitRole: 'VTO', splitSourceDeclarationId: 'v1' }),
+    ] })
+    await w.get('[data-quote-select] [data-option="q1"]').trigger('click')
+    await w.get('[data-radio-option="existing"]').trigger('click')
+    expect(w.get('[data-quote-dt]').findAll('[data-option]').map((b) => b.attributes('data-option'))).toEqual(['v2'])
+  })
+
   it('409 (КП уже импортирован) — вопрос «Добавить ещё раз?», «Добавить» — повтор с force', async () => {
     api.importQuote.mockRejectedValueOnce(conflict()).mockResolvedValueOnce({ declarationId: 'n1', addedGoods: 2 })
     await open()

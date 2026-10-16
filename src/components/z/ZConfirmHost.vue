@@ -21,6 +21,7 @@ import ZModal from './ZModal.vue'
     @ok="confirmState.resolve(true)"
     @cancel="confirmState.resolve(false)"
   >
-    <template v-if="confirmState.content" #description>{{ confirmState.content }}</template>
+    <!-- Переводы строк в тексте — отдельные строки (список «что изменится» при замене частей ЕТТ/ВТО). -->
+    <template v-if="confirmState.content" #description><span class="whitespace-pre-line">{{ confirmState.content }}</span></template>
   </ZModal>
 </template>

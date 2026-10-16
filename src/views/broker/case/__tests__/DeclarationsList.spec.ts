@@ -23,7 +23,7 @@ import DeclarationsList from '../steps/DeclarationsList.vue'
 
 const DropdownStub = {
   props: ['items'], emits: ['select'],
-  template: '<div data-dropdown><slot /><button v-for="it in items" :key="it.key" type="button" :data-menu-item="it.key" @click="$emit(\'select\', it.key)">{{ it.label }}</button></div>',
+  template: '<div data-dropdown><slot /><button v-for="it in items" :key="it.key" type="button" :data-menu-item="it.key" :disabled="it.disabled" :title="it.hint" @click="$emit(\'select\', it.key)">{{ it.label }}</button></div>',
 }
 const ModalStub = { props: ['open'], emits: ['update:open'], template: '<div v-if="open" data-modal><slot /><slot name="footer" /></div>' }
 
@@ -79,9 +79,9 @@ describe('DeclarationsList: строки и готовность', () => {
     expect(row('d2').get('[data-dt-ready]').text()).toBe('готова к выгрузке')
   })
 
-  it('номер или «ДТ i» ссылкой на страницу ДТ, теги разделения, заменённая приглушена, «товаров: N»', () => {
+  it('номер или «ДТ i» ссылкой на страницу ДТ, теги разделения, «товаров: N»', () => {
     const dts = [
-      declaration({ id: 'd0', isSplitReplaced: true, declarationNumber: 'SRC-1' }),
+      declaration({ id: 'd0', isSplitReplaced: true, declarationNumber: 'SRC-1', goodsItems: [{}, {}, {}] as never }),
       declaration({ id: 'd1', splitRole: 'ETT', splitSourceDeclarationId: 'd0' }),
       declaration({ id: 'd2', splitRole: 'VTO', goodsItems: [{}, {}] as never, totalInvoiceValue: 25000, currency: 'USD' }),
       declaration({ id: 'd3', rateType: 'EATT' }),
@@ -91,15 +91,65 @@ describe('DeclarationsList: строки и готовность', () => {
     expect(row('d0').get('[data-dt-link]').text()).toBe('SRC-1')
     expect(row('d1').get('[data-dt-link]').text()).toBe('ДТ 2')
     expect(row('d1').get('[data-dt-link]').attributes('href')).toBe('/import-40/c1/dt/d1')
-    expect(row('d0').get('[data-dt-split]').text()).toBe('Разделена')
-    expect(tipOf(row('d0').get('[data-dt-split]').element)).toContain('Заменена декларациями ЕТТ/ВТО')
-    expect(row('d0').find('.opacity-55').exists()).toBe(true)
+    // Исходная ДТ разделения — «Исходная ДТ», «все товары: N», не приглушена.
+    expect(row('d0').get('[data-dt-split]').text()).toBe('Исходная ДТ')
+    expect(tipOf(row('d0').get('[data-dt-split]').element)).toContain('Все товары до разделения на ЕТТ/ВТО')
+    expect(row('d0').get('[data-dt-meta]').text()).toBe('все товары: 3')
+    expect(row('d0').find('.opacity-55').exists()).toBe(false)
     expect(row('d1').get('[data-dt-split]').text()).toBe('ЕТТ')
-    expect(tipOf(row('d1').get('[data-dt-split]').element)).toBe('часть разделения ДТ №SRC-1')
+    expect(tipOf(row('d1').get('[data-dt-split]').element)).toBe('Часть разделения исходной ДТ «SRC-1»')
     expect(row('d2').get('[data-dt-split]').text()).toBe('ВТО')
     expect(row('d3').get('[data-dt-split]').text()).toBe('ВТО')
     expect(row('d4').find('[data-dt-split]').exists()).toBe(false)
     expect(row('d2').get('[data-dt-meta]').text()).toBe(`товаров: 2 · стоимость ${formatMoney(25000, 'USD')}`)
+  })
+
+  // Решение владельца 16.10.2026: исходная ДТ — первой в своей группе, её части — под ней со сдвигом (ЕТТ, затем ВТО).
+  it('разделение: исходная ДТ, под ней её части; повторно разделённая часть — «Разделена повторно» и свои части ниже', () => {
+    const dts = [
+      declaration({ id: 'other', declarationNumber: 'OTHER' }),
+      declaration({ id: 'v1', splitRole: 'VTO', splitSourceDeclarationId: 'src', isSplitReplaced: true }),
+      declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src' }),
+      declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC' }),
+      declaration({ id: 'v2', splitRole: 'VTO', splitSourceDeclarationId: 'v1' }),
+      declaration({ id: 'orphan', splitRole: 'VTO', splitSourceDeclarationId: 'gone' }),
+    ]
+    mount(USERS.declarant, { kase: { declarations: dts } })
+    const rows = w.findAll('[data-dt-row]')
+    expect(rows.map((r) => r.attributes('data-dt-row'))).toEqual(['other', 'src', 'e1', 'v1', 'v2', 'orphan'])
+    expect(rows.map((r) => r.attributes('data-dt-depth'))).toEqual(['0', '0', '1', '1', '2', '0'])
+    expect(row('src').attributes('data-dt-kind')).toBe('source')
+    expect(row('v1').attributes('data-dt-kind')).toBe('part')
+    // Промежуточная часть — роль, а не «Разделена»; отдельный тег «Разделена повторно».
+    expect(row('v1').get('[data-dt-split]').text()).toBe('ВТО')
+    expect(row('v1').get('[data-dt-resplit]').text()).toBe('Разделена повторно')
+    expect(row('e1').find('[data-dt-resplit]').exists()).toBe(false)
+    expect(tipOf(row('orphan').get('[data-dt-split]').element)).toBe('Часть разделения — исходная ДТ удалена')
+    // Исходная и повторно разделённая часть — только «Открыть» (просмотр, печать, Excel), без «Заполнить» и XML.
+    for (const id of ['src', 'v1']) {
+      expect(row(id).find('[data-dt-fill]').exists()).toBe(false)
+      expect(row(id).find('[data-dt-xml]').exists()).toBe(false)
+      expect(row(id).get('[data-dt-open]').attributes('href')).toBe(`/import-40/c1/dt/${id}`)
+    }
+    expect(row('e1').find('[data-dt-fill]').exists()).toBe(true)
+  })
+
+  it('исходную ДТ с частями удалить нельзя — пункт выключен с причиной; часть удаляется', async () => {
+    api.deleteDeclaration.mockResolvedValue(undefined)
+    const dts = [
+      declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC' }),
+      declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src' }),
+    ]
+    mount(USERS.declarant, { kase: { declarations: dts } })
+    const blocked = row('src').get('[data-menu-item="delete-has-parts"]')
+    expect(blocked.attributes('disabled')).toBeDefined()
+    expect(blocked.attributes('title')).toBe('Сначала удалите её части ЕТТ/ВТО — пока они есть, исходную ДТ удалить нельзя')
+    expect(row('src').find('[data-menu-item="delete"]').exists()).toBe(false)
+    await row('e1').get('[data-menu-item="delete"]').trigger('click')
+    await flushPromises()
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(api.deleteDeclaration).toHaveBeenCalledWith('c1', 'e1')
   })
 
   it('поиск — только при числе ДТ > 1, по номеру', async () => {
@@ -111,6 +161,30 @@ describe('DeclarationsList: строки и готовность', () => {
     expect(w.findAll('[data-dt-row]').map((r) => r.attributes('data-dt-row'))).toEqual(['d2'])
     await w.get('[data-dt-search]').setValue('нет такой')
     expect(w.get('[data-dt-nothing]').text()).toBe('ДТ с таким номером нет')
+  })
+
+  // Ревью I3: вид строки — по полному списку. Раньше поиск по номеру исходной убирал её части, и исходная становилась
+  // обычной ДТ с «Заполнить» и XML (выгрузка всех товаров второй раз).
+  it('поиск по номеру исходной ДТ — она остаётся «Исходной ДТ» без «Заполнить» и XML', async () => {
+    const dts = [
+      declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC-777' }),
+      declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src', declarationNumber: 'E-1' }),
+      declaration({ id: 'v1', splitRole: 'VTO', splitSourceDeclarationId: 'src', declarationNumber: 'V-1' }),
+    ]
+    mount(USERS.declarant, { kase: { declarations: dts } })
+    await w.get('[data-dt-search]').setValue('777')
+    expect(w.findAll('[data-dt-row]').map((r) => r.attributes('data-dt-row'))).toEqual(['src'])
+    expect(row('src').attributes('data-dt-kind')).toBe('source')
+    expect(row('src').get('[data-dt-split]').text()).toBe('Исходная ДТ')
+    expect(row('src').find('[data-dt-fill]').exists()).toBe(false)
+    expect(row('src').find('[data-dt-xml]').exists()).toBe(false)
+    expect(row('src').find('[data-dt-open]').exists()).toBe(true)
+    // Найдена только часть — она остаётся частью (со сдвигом), с «Заполнить».
+    await w.get('[data-dt-search]').setValue('V-1')
+    expect(w.findAll('[data-dt-row]').map((r) => r.attributes('data-dt-row'))).toEqual(['v1'])
+    expect(row('v1').attributes('data-dt-kind')).toBe('part')
+    expect(row('v1').attributes('data-dt-depth')).toBe('1')
+    expect(row('v1').find('[data-dt-fill]').exists()).toBe(true)
   })
 
   it('пусто — «ДТ ещё не создана» с подсказкой', () => {

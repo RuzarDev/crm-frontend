@@ -12,7 +12,7 @@ import { useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import type { CaseStepContext } from '../caseContext'
 import { dtLabel } from '../caseSteps'
-import { dtPath } from '../declarations'
+import { dtPath, hasSplitParts } from '../declarations'
 
 // «Импорт из КП» (прежнее окно карточки): КП клиента этой заявки (GET quotes, с поиском), куда добавить товары —
 // новая ДТ или существующая. POST import-quote { quoteId, targetDeclarationId, force }; 409 (КП уже импортирован) —
@@ -49,12 +49,15 @@ watch(() => props.open, (v) => {
 }, { immediate: true })
 
 const quoteOptions = computed(() => quotes.value.map((q) => ({ value: q.id, label: `№${q.number}/${q.year} — ${q.clientName}` })))
-const hasDts = computed(() => props.ctx.kase.declarations.length > 0)
+// Куда можно добавить товары: не в исходную ДТ разделения (и не в повторно разделённую часть) — у неё есть части,
+// дописывать в неё нельзя (сервер ответит 409, а окно приняло бы его за «КП уже импортирован»).
+const targets = computed(() => props.ctx.kase.declarations.filter((d) => !hasSplitParts(d, props.ctx.kase.declarations)))
+const hasDts = computed(() => targets.value.length > 0)
 const targetOptions = computed(() => [
   { value: 'new', label: t('import40Case.targetNew') },
   { value: 'existing', label: t('import40Case.targetExisting'), disabled: !hasDts.value },
 ])
-const dtOptions = computed(() => props.ctx.kase.declarations.map((d) => ({ value: d.id, label: dtLabel(props.ctx.kase, d.id, t) })))
+const dtOptions = computed(() => targets.value.map((d) => ({ value: d.id, label: dtLabel(props.ctx.kase, d.id, t) })))
 const canSubmit = computed(() => !!form.quoteId && (form.target === 'new' || !!form.declarationId))
 const importing = computed(() => props.ctx.actions.isPending(KEY))
 

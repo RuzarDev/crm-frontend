@@ -29,7 +29,7 @@ afterEach(() => {
 const goods = (valuationMethodCode: string | null, o: Record<string, unknown> = {}) =>
   ({ description: 'ВИНТЫ', tnvedCode: '7318150000', valuationMethodCode, ...o }) as never
 
-async function mount(o: { view?: DtsView; readonly?: boolean; form?: Partial<DtFormState>; editable?: boolean; enabled?: boolean; fail?: boolean } = {}) {
+async function mount(o: { view?: DtsView; readonly?: boolean; form?: Partial<DtFormState>; editable?: boolean; enabled?: boolean; fail?: boolean; noXml?: boolean } = {}) {
   if (o.fail) dtsApi.get.mockRejectedValue(new Error('500'))
   else dtsApi.get.mockResolvedValue(o.view ?? dtsView())
   const form = reactive({ ...emptyDtForm(), goodsItems: [goods('1')], ...o.form }) as DtFormState
@@ -40,7 +40,7 @@ async function mount(o: { view?: DtsView; readonly?: boolean; form?: Partial<DtF
   await dts.refresh()
   w = mountWithI18n(SectionDts, {
     attachTo: document.body,
-    props: { form, readonly: !!o.readonly, dts, expenseLabels: { '13a': 'Комиссионные', '17': 'Перевозка до границы' } },
+    props: { form, readonly: !!o.readonly, dts, expenseLabels: { '13a': 'Комиссионные', '17': 'Перевозка до границы' }, noXml: o.noXml },
     global: { directives: { uppercase: vUppercase } },
   })
   await flushPromises()
@@ -201,6 +201,13 @@ describe('SectionDts: вопросы', () => {
     expect(w.find('[data-dts-row-recalc]').exists()).toBe(false)
     expect(w.get('[data-dts-print]').attributes('disabled')).toBeUndefined()
     expect(w.get('[data-dts-xml]').attributes('disabled')).toBeUndefined()
+  })
+
+  // Ревью I3: исходная ДТ разделения не подаётся — XML ДТС только у частей (сервер тоже отвечает 409); печать остаётся.
+  it('исходная ДТ разделения — без «XML», печать есть', async () => {
+    await mount({ readonly: true, noXml: true })
+    expect(w.find('[data-dts-xml]').exists()).toBe(false)
+    expect(w.find('[data-dts-print]').exists()).toBe(true)
   })
 })
 

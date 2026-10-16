@@ -127,7 +127,7 @@ export const newDtGoodsItem = (currency: string | null | undefined): Goods => ({
 })
 
 /** Значения по умолчанию, а не данные пользователя: валюта (гр. 22 / USD) и служебный признак «Пересчитать». */
-const NOT_DATA_KEYS: ReadonlySet<string> = new Set(['currency', 'needsTpinRecalc'])
+const NOT_DATA_KEYS: ReadonlySet<string> = new Set(['currency', 'needsTpinRecalc', 'splitSourceSortOrder'])
 
 const valueHasData = (v: unknown): boolean => {
   if (v === null || v === undefined || v === false) return false
@@ -148,10 +148,14 @@ export function dtGoodsHasData(g: Goods): boolean {
     !NOT_DATA_KEYS.has(k) && (k === 'characteristics' ? Array.isArray(v) && v.some(valueHasData) : valueHasData(v)))
 }
 
-/** Глубокая копия товара: платежи, маркировки (без id строки) и доп. сведения — свои объекты. */
+/**
+ * Глубокая копия товара: платежи, маркировки (без id строки) и доп. сведения — свои объекты. Связь с товаром исходной ДТ
+ * разделения (splitSourceSortOrder) копия не наследует — это новый товар части.
+ */
 export function cloneGoodsItem(g: Goods): Goods {
   return {
     ...g,
+    splitSourceSortOrder: null,
     payments: (g.payments ?? []).map((p) => ({ ...p })),
     markings: (g.markings ?? []).map(({ id: _id, ...m }) => ({ ...m })),
     extras: cloneGoodsExtras(g.extras),

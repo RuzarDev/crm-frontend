@@ -371,6 +371,7 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
     customsValueKztCalc: g.customsValueKztCalc ?? null,
     statisticValueUsdManual: !!g.statisticValueUsdManual,
     statisticValueUsdCalc: g.statisticValueUsdCalc ?? null,
+    splitSourceSortOrder: g.splitSourceSortOrder ?? null,
     valuationMethodCode: g.valuationMethodCode ?? null,
     quotaAmount: g.quotaAmount ?? null,
     prohibitionCode: g.prohibitionCode ?? null,

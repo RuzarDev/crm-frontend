@@ -130,13 +130,26 @@ describe('DtBanners', () => {
     expect(b).toContain('Печать и документы доступны')
   })
 
-  it('разделена: ссылки на ЕТТ и ВТО', () => {
+  it('исходная ДТ: ссылки на ЕТТ и ВТО, «Изменить разделение» — по праву', async () => {
     w = mountBanners({ split: { ett: { id: 'e1', declarationNumber: '55302/091026/0001235' }, vto: { id: 'v1', declarationNumber: '' } } })
+    expect(w.find('[data-dt-change-split]').exists()).toBe(false)
+    w.unmount()
+    w = mountBanners({ canChangeSplit: true, split: { ett: { id: 'e1', declarationNumber: '55302/091026/0001235' }, vto: { id: 'v1', declarationNumber: '' } } })
     const b = w.get('[data-dt-banner-split]')
-    expect(b.text()).toContain('ДТ разделена — правки закрыты.')
+    expect(b.text()).toContain('Исходная ДТ — все товары до разделения.')
+    expect(b.text()).toContain('Только просмотр, печать и Excel; правьте её части:')
+    await b.get('[data-dt-change-split]').trigger('click')
+    expect(w.emitted('changeSplit')).toHaveLength(1)
     expect(b.get('[data-dt-split-ett]').attributes('href')).toBe('/import-40/c1/dt/e1')
     expect(b.get('[data-dt-split-ett]').text()).toBe('55302/091026/0001235')
     expect(b.get('[data-dt-split-vto]').text()).toBe('без номера')
+  })
+
+  it('повторно разделённая часть: свой текст, без «Изменить разделение»', () => {
+    w = mountBanners({ resplit: true, split: { ett: null, vto: { id: 'v2', declarationNumber: '' } } })
+    const b = w.get('[data-dt-banner-split]')
+    expect(b.text()).toContain('Часть разделена повторно.')
+    expect(b.text()).not.toContain('Исходная ДТ')
   })
 
   it('409 — «Перезагрузить»; ошибка сохранения — «Повторить»', async () => {

@@ -32,6 +32,8 @@ const props = defineProps<{
   dts: DtsState
   /** Код статьи расхода → название (справочник расходов страницы). */
   expenseLabels: Record<string, string>
+  /** Без «XML» ДТС (исходная ДТ разделения). */
+  noXml?: boolean
 }>()
 const emit = defineEmits<{ 'open-panel': [] }>()
 const { t } = useI18n()
@@ -67,6 +69,7 @@ const onForm = async (free: boolean) => {
       :readonly="readonly"
       :printing="dts.printing.value"
       :xml-loading="dts.xmlLoading.value"
+      :no-xml="noXml"
       @form="onForm"
       @print="dts.print"
       @xml="dts.xml"
