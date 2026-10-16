@@ -241,3 +241,18 @@ describe('calcSnapshot: товары и графы шапки расчёта', (
     expect(calcSnapshot(form)).not.toBe(base)
   })
 })
+
+describe('гр. В следует за записанной гр. 47 и с ручными строками (решение 16.10.2026)', () => {
+  it('Σ после «Записать» берёт ручную сумму, а не расчётную; гр. В — она же вверх до тенге', () => {
+    const goods = [{ payments: [{ taxModeCode: '2010', amountKzt: 20000.4, manual: true }, pay('5060', 1)] }] as never[]
+    const res = {
+      goodsRows: [{ index: 0, rows: [{ taxModeCode: '2010', amount: 9000 }, { taxModeCode: '5060', amount: 3000 }] }],
+      totalsByTaxMode: { 2010: 9000, 5060: 3000 },
+      grandTotalB: 12000,
+    } as never
+    const totals = goodsTotalsAfterApply(goods as never, res)
+    expect(totals).toEqual([{ code: '2010', amount: 20000.4 }, { code: '5060', amount: 3000 }])
+    const merged = mergeFactPayments([], totalsRecord(totals), null)
+    expect(merged.rows.map((r) => [r.taxModeCode, r.amount])).toEqual([['2010', 20001], ['5060', 3000]])
+  })
+})

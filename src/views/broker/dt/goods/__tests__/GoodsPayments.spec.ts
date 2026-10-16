@@ -13,7 +13,7 @@ import { clearTariffCache } from '../useTariffOptions'
 import { resetOkeiUnits } from '../editor/okei'
 import { resetKedenLists } from '../useKedenLists'
 import { resetGr33Suggest } from '../useGr33Suggest'
-import { emptyPayment, paymentsTotal, setPaymentField, sortPayments, taxModeLabelKey } from '../editor/payments'
+import { emptyPayment, paymentsTotal, resetPaymentToCalc, setPaymentField, sortPayments, taxModeLabelKey } from '../editor/payments'
 import type { GoodsPageContext } from '../editor/types'
 import { resetDtTnvedCheckCache } from '../tnvedCodeCheck'
 import { clearVatOffsetCache } from '../useVatOffset'
@@ -173,6 +173,28 @@ describe('payments.ts', () => {
     setPaymentField(p, 'rateDate', '2026-10-10')
     expect(p).toMatchObject({ basisLabel: '100 ₸', rateLabel: '10%', bLine: '2010-10' })
   })
+
+  it('setPaymentField: правка основы, ставки или суммы — «вручную»; вид, дата, СП — нет; сброс снимает и ставит «Пересчитать»', () => {
+    for (const [k, v] of [['taxBase', 1], ['rateValue', 2], ['rateKindCode', '*'], ['rateUnitCode', '166'], ['rateCurrencyCode', '978'], ['weightRatio', 2], ['amountKzt', 3]] as const) {
+      const p = pay({ taxModeCode: '2010' })
+      setPaymentField(p, k, v as never)
+      expect(p.manual, k).toBe(true)
+    }
+    for (const [k, v] of [['taxModeCode', '5060'], ['rateDate', '2026-10-10'], ['paymentFeatureCode', 'ОП']] as const) {
+      const p = pay({ taxModeCode: '2010' })
+      setPaymentField(p, k, v as never)
+      expect(p.manual, k).toBeFalsy()
+    }
+    const p = pay({ taxModeCode: '2010', amountKzt: 5 })
+    expect(setPaymentField(p, 'amountKzt', 5)).toBe(false)
+    expect(p.manual).toBeFalsy()
+
+    const g = { needsTpinRecalc: false, payments: [pay({ taxModeCode: '2010', manual: true, calcAmountKzt: 7 })] }
+    expect(resetPaymentToCalc(g, g.payments[0])).toBe(true)
+    expect(g.payments[0]).toMatchObject({ manual: false, calcAmountKzt: null })
+    expect(g.needsTpinRecalc).toBe(true)
+    expect(resetPaymentToCalc(g, g.payments[0])).toBe(false)
+  })
 })
 
 describe('Редактор товара: «Платежи» (гр. 47 этого товара)', () => {
@@ -230,7 +252,7 @@ describe('Редактор товара: «Платежи» (гр. 47 этого
   it('«Править вручную»: правка суммы/вида ставки, «*» — единица/валюта/коэф., добавить/удалить строку; «Пересчитать» не ставится, PUT — как есть', async () => {
     await mount([item({ payments: PAYMENTS() })])
     await click('[data-payments-manual]')
-    expect(q('[data-payments-hint]')!.textContent).toContain('Ручная правка')
+    expect(q('[data-payments-hint]')!.textContent).toContain('помечает строку «вручную»')
     expect(q('[data-payments-table]')).toBeNull()
 
     await typeIn(rowOf('2010'), 'payment-amount', '30000,5')
@@ -284,10 +306,36 @@ describe('Редактор товара: «Платежи» (гр. 47 этого
     expect(cell(rowOf('5060'), 'base')).toBe('500 000,00')
     expect(cell(rowOf('2010'), 'rate')).toBe('6,5 166 · 978 · × 1,2')
 
-    // Следующий расчёт: вид ставки «*», выбранный вручную, не затирается, ручной некрасчётный 6010 остаётся.
+    // Правленые строки — «вручную» (16.10.2026), нетронутые (2050, 1010) — нет.
+    expect(g0().payments!.filter((p) => p.manual).map((p) => p.taxModeCode)).toEqual(['5060', '2010', '6010'])
+    expect(rowOf('2010').querySelector('[data-manual-badge]')!.textContent).toBe('вручную')
+    expect(rowOf('2050').querySelector('[data-manual-mark]')).toBeNull()
+
+    // Следующий расчёт ручные строки не перезаписывает и не удаляет: расчёт — подсказка; нетронутые расчётные виды без
+    // расчёта уходят, ручной некрасчётный 6010 остаётся.
     applyGoodsPaymentRows(form, { goodsRows: [{ index: 0, rows: [{ taxModeCode: '2010', base: 1, rate: 2, amount: 3 }] }] } as never)
-    expect(g0().payments!.find((p) => p.taxModeCode === '2010')).toMatchObject({ rateKindCode: '*', amountKzt: 3, weightRatio: 1.2 })
-    expect(g0().payments!.map((p) => p.taxModeCode)).toEqual(['2010', '6010'])
+    expect(g0().payments!.find((p) => p.taxModeCode === '2010')).toMatchObject({
+      rateKindCode: '*', amountKzt: 30000.5, weightRatio: 1.2, manual: true, calcAmountKzt: 3, paymentFeatureCode: 'ОП',
+    })
+    expect(g0().payments!.find((p) => p.taxModeCode === '5060')).toMatchObject({ amountKzt: 76800, manual: true, calcAmountKzt: 0 })
+    expect(g0().payments!.map((p) => p.taxModeCode)).toEqual(['5060', '2010', '6010'])
+    await settle()
+    expect(rowOf('2010').querySelector('[data-manual-calc]')!.textContent!.replace(/\s/g, ' ')).toBe('расчёт: 3,00 ₸')
+
+    // «Сбросить к расчёту»: признак снят, товару — «Пересчитать»; следующий расчёт пишет расчётные значения.
+    ;(rowOf('2010').querySelector('[data-manual-reset]') as HTMLButtonElement).click()
+    await settle()
+    expect(g0().payments!.find((p) => p.taxModeCode === '2010')).toMatchObject({ manual: false, calcAmountKzt: null, amountKzt: 30000.5 })
+    expect(g0().needsTpinRecalc).toBe(true)
+    applyGoodsPaymentRows(form, { goodsRows: [{ index: 0, rows: [{ taxModeCode: '2010', base: 1, rate: 2, amount: 3 }] }] } as never)
+    expect(g0().payments!.find((p) => p.taxModeCode === '2010')).toMatchObject({ amountKzt: 3, taxBase: 1, rateValue: 2, manual: false })
+  })
+
+  it('просмотр: ручная строка — «вручную» и «расчёт: X» без «Сбросить к расчёту»', async () => {
+    await mount([item({ payments: [pay({ taxModeCode: '2010', amountKzt: 500, manual: true, calcAmountKzt: 450.5 })] })], { readonly: true })
+    expect(rowOf('2010').querySelector('[data-manual-badge]')).not.toBeNull()
+    expect(rowOf('2010').querySelector('[data-manual-calc]')!.textContent!.replace(/\s/g, ' ')).toBe('расчёт: 450,50 ₸')
+    expect(rowOf('2010').querySelector('[data-manual-reset]')).toBeNull()
   })
 
   it('ставка без подписи расчёта — без округления до 0,00; коэффициент — по языку интерфейса', async () => {

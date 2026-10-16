@@ -16,12 +16,12 @@ const deferred = <T>() => {
   return { promise, resolve }
 }
 
-const start = (init: Partial<DtRatesForm> = {}) => {
+const start = (init: Partial<DtRatesForm> = {}, canWrite = ref(true)) => {
   scope = effectScope()
   const form = reactive<DtRatesForm>({ submissionDate: null, currency: '', exchangeRate: null, goodsItems: [], expenses: [], ...init })
   const applying = ref(false)
-  const r = scope.run(() => useDtRates(form, { applying: () => applying.value }))!
-  return { form, applying, r }
+  const r = scope.run(() => useDtRates(form, { applying: () => applying.value, canWrite: () => canWrite.value }))!
+  return { form, applying, r, canWrite }
 }
 
 /** Загрузка ДТ: поля ставятся под флагом applying, флаг снимается после nextTick (как useDtForm). */
@@ -89,15 +89,26 @@ describe('useDtRates — курсы на дату гр.А', () => {
     expect(r.nbUnavailable.value).toBe(false)
   })
 
-  it('при загрузке гр.23 не трогается — только расхождение и «Подставить»', async () => {
+  it('ручного курса нет (16.10.2026): при загрузке старый или правленый гр.23 встаёт на курс сделки на дату гр.А', async () => {
     const { form, applying, r } = start()
     await load(form, applying, { submissionDate: '2026-10-05', currency: 'USD', exchangeRate: 470 })
-    expect(form.exchangeRate).toBe(470)
-    expect(r.dealRate.value?.rate).toBe(490)
-    expect(r.rateMismatch.value).toBe(true)
-    r.applyDealRate()
+    expect(r.dealRate.value).toEqual({ rate: 490, date: '2026-10-05' })
     expect(form.exchangeRate).toBe(490)
-    expect(r.rateMismatch.value).toBe(false)
+  })
+
+  it('без права править гр.23 не пишется — только показ курса на дату', async () => {
+    const { form, applying, r } = start({}, ref(false))
+    await load(form, applying, { submissionDate: '2026-10-05', currency: 'USD', exchangeRate: 470 })
+    expect(r.dealRate.value?.rate).toBe(490)
+    expect(form.exchangeRate).toBe(470)
+  })
+
+  it('курс сделки — только из ответа «на дату», не из текущего справочника', async () => {
+    const { form, r } = start({ currency: 'CNY' })
+    await r.loadCurrencies()
+    expect(r.rates.value.CNY.rate).toBe(70)
+    expect(r.dealRate.value).toBeNull()
+    expect(form.exchangeRate).toBeNull()
   })
 
   it('смена даты пользователем → гр.23 следует за курсом валюты сделки на новую дату', async () => {
@@ -109,13 +120,19 @@ describe('useDtRates — курсы на дату гр.А', () => {
     expect(form.exchangeRate).toBe(480)
   })
 
-  it('смена только набора валют — гр.23 не трогается', async () => {
+  it('смена набора валют — новый запрос, гр.23 — курс сделки; смена валюты сделки — гр.23 за ней', async () => {
     const { form, applying } = start()
-    await load(form, applying, { submissionDate: '2026-10-05', currency: 'USD', exchangeRate: 1 })
+    await load(form, applying, { submissionDate: '2026-10-05', currency: 'USD', exchangeRate: 490 })
     form.expenses = [{ currencyCode: 'CNY' }]
     await flushPromises()
     expect(api.ratesOnDate).toHaveBeenLastCalledWith('2026-10-05', ['CNY', 'EUR', 'USD'])
-    expect(form.exchangeRate).toBe(1)
+    expect(form.exchangeRate).toBe(490)
+    api.ratesOnDate.mockImplementationOnce(async (date: string, codes: string[]) => ({
+      date, official: true, rates: Object.fromEntries(codes.map((c) => [c, c === 'CNY' ? 68 : 490])),
+    }))
+    form.currency = 'CNY'
+    await flushPromises()
+    expect(form.exchangeRate).toBe(68)
   })
 
   it('official=false → признак «НБ РК недоступен»', async () => {
@@ -126,13 +143,16 @@ describe('useDtRates — курсы на дату гр.А', () => {
     expect(r.nbUnavailable.value).toBe(true)
   })
 
-  it('без даты гр.А — текущие курсы, без запроса', async () => {
+  it('без даты гр.А — запрос без даты: курсы на сегодня, их день — из ответа сервера; гр.23 — по ним', async () => {
+    api.ratesOnDate.mockResolvedValue({ date: '2026-10-16', official: true, rates: { USD: 512.3, EUR: 600, KZT: 1 } })
     const { form, applying, r } = start()
     await r.loadCurrencies()
-    await load(form, applying, { currency: 'USD' })
-    expect(api.ratesOnDate).not.toHaveBeenCalled()
-    expect(r.rates.value.USD.rate).toBe(500)
-    expect(r.official.value).toBe(true)
+    await load(form, applying, { currency: 'USD', exchangeRate: 500 })
+    expect(api.ratesOnDate).toHaveBeenLastCalledWith(null, ['EUR', 'USD'])
+    expect(r.rates.value.USD).toEqual({ rate: 512.3, date: '2026-10-16' })
+    expect(r.usdRate.value).toBe(512.3)
+    expect(r.dealRate.value).toEqual({ rate: 512.3, date: '2026-10-16' })
+    expect(form.exchangeRate).toBe(512.3)
   })
 
   it('ответ на прежнюю дату, пришедший позже, отбрасывается', async () => {

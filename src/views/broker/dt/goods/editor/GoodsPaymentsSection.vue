@@ -17,7 +17,8 @@ import type { Import40GoodsPayment } from '@/types/api'
 import { formatMoney } from '../goodsList'
 import { goodsPaymentsStale } from '../goodsStatus'
 import { useVatOffset } from '../useVatOffset'
-import { emptyPayment, formatBasisLabel, paymentsTotal, setPaymentField, sortPayments, taxModeLabelKey, TEMP_IMPORT_CODES, VAT_TAX_MODE } from './payments'
+import ManualMark from '../../ManualMark.vue'
+import { emptyPayment, formatBasisLabel, paymentsTotal, resetPaymentToCalc, setPaymentField, sortPayments, taxModeLabelKey, TEMP_IMPORT_CODES, VAT_TAX_MODE } from './payments'
 import PaymentFeatureCell from './PaymentFeatureCell.vue'
 import type { GoodsSectionProps } from './types'
 import VatOffsetHint from './VatOffsetHint.vue'
@@ -27,9 +28,10 @@ import VatOffsetHint from './VatOffsetHint.vue'
 // вида по коду (2050 — «Антидемпинговая пошлина», P3); основа и ставка — подписи последнего расчёта (basisLabel /
 // rateLabel), иначе числа; сумма — в ₸. «Править вручную» — как в прежней карточке: добавить/удалить строку, вид,
 // основа, вид ставки, ставка, дата, сумма; для вида ставки «*» — единица, валюта и коэффициент. Правка поля снимает
-// устаревшие подписи расчёта (payments.setPaymentField). Ручная правка не ставит «Пересчитать» и уходит в PUT как есть;
-// следующий расчёт перезапишет строки тех же видов, а расчётные виды, которых в нём нет, удалит
-// (payments/paymentRows.applyGoodsPaymentRows). Вид ставки, выбранный вручную, расчёт без своего вида не затирает.
+// устаревшие подписи расчёта (payments.setPaymentField). Правка основы, ставки или суммы делает строку ручной (решение
+// 16.10.2026): «вручную», «расчёт: X» (сумма последнего расчёта) и «Сбросить к расчёту»; расчёт её не перезаписывает и не
+// удаляет (payments/paymentRows.applyGoodsPaymentRows), прочие строки — как прежде: виды из расчёта перезаписываются,
+// расчётные виды, которых в нём нет, удаляются. Ручная правка не ставит «Пересчитать»; сброс — ставит.
 // Просмотр — без «Править вручную».
 // В чтении СП — компактный выбор (ДТ можно править): правка пишется в строку (setPaymentField, без «Пересчитать», уходит
 // автосейвом); в просмотре/выпущенной ДТ — текст. У 5060 — подсказка «товар в перечне ПП РК № 1199 / Приказа МСХ № 302 —
@@ -46,6 +48,8 @@ const rows = computed(() => sortPayments(props.item.payments))
 const vatOffset = useVatOffset(() => ({ codes: [props.item.tnvedCode], onDate: props.ctx.onDate }))
 const offsetRows = computed(() => vatOffset.rowsOf(props.item.tnvedCode))
 const setFeature = (p: Import40GoodsPayment, code: string) => { setPaymentField(p, 'paymentFeatureCode', code) }
+const resetRow = (p: Import40GoodsPayment) => { resetPaymentToCalc(props.item, p) }
+const calcText = (p: Import40GoodsPayment) => (p.calcAmountKzt == null ? null : money(p.calcAmountKzt))
 const stale = computed(() => !!rows.value.length && goodsPaymentsStale(props.item))
 const total = computed(() => paymentsTotal(props.item.payments))
 const months = computed(() => props.item.tempImportMonths || null)
@@ -188,6 +192,15 @@ const removeBtn = cn(
             <span :class="cellLabel">{{ tp('col.feature') }}</span>
             <PaymentFeatureCell :value="p.paymentFeatureCode" :editable="!readonly" :label="tp('featureOf', { mode: p.taxModeCode || '—' })" @change="setFeature(p, $event)" />
           </span>
+          <ManualMark
+            v-if="p.manual"
+            class="col-span-full @xl:justify-end"
+            :calc="calcText(p)"
+            :can-reset="!readonly"
+            :reset-title="t('broker.dt.manual.resetPaymentTitle')"
+            :data-manual-of="p.taxModeCode ?? ''"
+            @reset="resetRow(p)"
+          />
           <VatOffsetHint
             v-if="p.taxModeCode === VAT_TAX_MODE && offsetRows.length"
             :rows="offsetRows"
@@ -264,6 +277,15 @@ const removeBtn = cn(
                 @update:value="set(p, 'paymentFeatureCode', str($event) ?? 'ИУ')"
               />
             </div>
+            <ManualMark
+              v-if="p.manual"
+              class="self-center"
+              :calc="calcText(p)"
+              can-reset
+              :reset-title="t('broker.dt.manual.resetPaymentTitle')"
+              :data-manual-of="p.taxModeCode ?? ''"
+              @reset="resetRow(p)"
+            />
             <button type="button" :class="[removeBtn, 'ml-auto']" :aria-label="tp('remove')" :title="tp('remove')" data-payment-remove @click="remove(p)">
               <PhX :size="16" aria-hidden="true" />
             </button>

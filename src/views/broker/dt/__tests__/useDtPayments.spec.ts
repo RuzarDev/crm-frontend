@@ -69,7 +69,7 @@ describe('useDtPayments.calculate: шаги', () => {
     expect(api.calculatePayments).toHaveBeenCalledWith('c1', 'd1')
     // шаг 1 записан в товары (гр. 45/46), изменённая гр. 45 — «Пересчитать»
     expect(form.goodsItems.map((g) => [g.customsValueKzt, g.statisticValueUsd])).toEqual([[50000, 101], [50001, 101]])
-    expect(p.customsResult.value).toEqual({ updated: 2, total: 100001 })
+    expect(p.customsResult.value).toEqual({ updated: 2, total: 100001, kept: 0 })
     expect(p.state.value).toBe('preview')
     expect(p.step.value).toBeNull()
     expect(p.problem.value).toBeNull()
@@ -122,7 +122,7 @@ describe('useDtPayments.calculate: шаги', () => {
     await p.calculate()
     expect(api.calculateCustomsValue.mock.calls[0][0].goods).toHaveLength(4)
     expect(form.goodsItems.map((g) => [g.customsValueKzt, g.needsTpinRecalc])).toEqual([[50000, true], [777, false], [888, false], [999, false]])
-    expect(p.customsResult.value).toEqual({ updated: 1, total: 50000 })
+    expect(p.customsResult.value).toEqual({ updated: 1, total: 50000, kept: 0 })
   })
 
   it('нет товаров — «Нет товаров для расчёта», запросов нет', async () => {
@@ -395,7 +395,7 @@ describe('useDtPayments.calcCustomsValue («Рассчитать там. сто�
     await p.calcCustomsValue()
     expect(form.goodsItems.map((g) => g.needsTpinRecalc)).toEqual([true, false, false])
     expect(log).toEqual([])
-    expect(p.customsResult.value).toEqual({ updated: 2, total: 3500 })
+    expect(p.customsResult.value).toEqual({ updated: 2, total: 3500, kept: 0 })
   })
 
   it('(баг m6) товар удалили, пока шёл запрос, — гр. 45 пишется по ключу товара, а не по позиции', async () => {
@@ -409,6 +409,34 @@ describe('useDtPayments.calcCustomsValue («Рассчитать там. сто�
     release({ goods: [{ index: 0, customsValueKzt: 1111 }, { index: 1, customsValueKzt: 2222 }, { index: 2, customsValueKzt: 3333 }] })
     await run
     expect(form.goodsItems.map((g) => [g.description, g.customsValueKzt])).toEqual([['B', 2222], ['C', 3333]])
-    expect(p.customsResult.value).toEqual({ updated: 2, total: 5555 })
+    expect(p.customsResult.value).toEqual({ updated: 2, total: 5555, kept: 0 })
+  })
+})
+
+describe('ручные гр. 45/46 (решение 16.10.2026): «Рассчитать» их не перезаписывает', () => {
+  it('ручная гр. 45 остаётся (расчёт — подсказка), гр. 46 сервер считает от неё; ручная гр. 46 остаётся; итог — kept', async () => {
+    const { form, p } = setup({
+      goods: [
+        goods({ customsValueKzt: 70000, customsValueKztManual: true, needsTpinRecalc: false }),
+        goods({ customsValueKzt: 1000, statisticValueUsd: 5, statisticValueUsdManual: true, needsTpinRecalc: false }),
+        goods({ customsValueKzt: 1000, customsValueKztManual: false, customsValueKztCalc: 1, needsTpinRecalc: false }),
+      ],
+    })
+    api.calculateCustomsValue.mockResolvedValueOnce({ goods: [
+      { index: 0, customsValueKzt: 50000, statisticValueUsd: 141.38 },
+      { index: 1, customsValueKzt: 2000, statisticValueUsd: 4.04 },
+      { index: 2, customsValueKzt: 3000, statisticValueUsd: 6.06 },
+    ] })
+    await p.calcCustomsValue()
+    const req = api.calculateCustomsValue.mock.calls[0][0]
+    expect(req.goods.map((x: { manualCustomsValueKzt: number | null }) => x.manualCustomsValueKzt)).toEqual([70000, null, null])
+    expect(form.goodsItems[0]).toMatchObject({
+      customsValueKzt: 70000, customsValueKztManual: true, customsValueKztCalc: 50000, statisticValueUsd: 141.38, needsTpinRecalc: false,
+    })
+    expect(form.goodsItems[1]).toMatchObject({
+      customsValueKzt: 2000, statisticValueUsd: 5, statisticValueUsdManual: true, statisticValueUsdCalc: 4.04, needsTpinRecalc: true,
+    })
+    expect(form.goodsItems[2]).toMatchObject({ customsValueKzt: 3000, customsValueKztCalc: null, statisticValueUsd: 6.06 })
+    expect(p.customsResult.value).toEqual({ updated: 2, total: 5000, kept: 1 })
   })
 })

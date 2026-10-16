@@ -32,14 +32,14 @@ const currencyOptions = [
   { value: 'USD', label: 'USD / 840 — Доллар США' },
   { value: 'EUR', label: 'EUR / 978 — Евро' },
 ]
-const rates = { KZT: { rate: 1, date: '' }, USD: { rate: 495.12, date: '2026-10-05' }, EUR: { rate: 580, date: '2026-10-05' } }
+const usdRate = { rate: 495.12, date: '2026-10-05' }
 const types = [{ value: '17', label: 'Транспортные расходы' }, { value: '29', label: 'Скидка' }]
 
 const mount = (over: Partial<DtFormState> = {}, props: Record<string, unknown> = {}) => {
   Object.assign(form, over)
   w = mountWithI18n(SectionFinance, {
     props: {
-      form, readonly: false, customsValue: 750000, customsValueFromServer: true, currencyOptions, currencyRates: rates,
+      form, readonly: false, customsValue: 750000, customsValueFromServer: true, currencyOptions, dealRate: usdRate,
       expenseTypeOptions: types, expenseDistributionByCode: { '17': 'GrossWeight' }, expenseDeductionByCode: { '29': true }, ...props,
     },
     global: { plugins: [pinia], directives: { uppercase: vUppercase }, stubs: { DtGraphHelp: { props: ['graph'], template: '<i data-help />' } } },
@@ -77,34 +77,37 @@ describe('SectionFinance — условия (гр. 20, 22, 23, 12, 24)', () => {
     expect(w.text()).toContain('Значения «XYZ» нет в справочнике')
   })
 
-  it('валюта гр. 22 — ZSelect валют; выбор ставит курс НБ РК в гр. 23', async () => {
+  it('валюта гр. 22 — ZSelect валют; гр. 23 сам раздел не пишет (курс на дату ставит страница)', async () => {
     mount({ currency: 'EUR', exchangeRate: 580 })
     expect((comboOf('22').element as HTMLInputElement).value).toBe('EUR / 978 — Евро')
     await open(comboOf('22'))
     await pick('USD')
     expect(form.currency).toBe('USD')
-    expect(form.exchangeRate).toBe(495.12)
+    expect(form.exchangeRate).toBe(580)
   })
 
-  it('курс: подсказка «курс НБ РК на дату»; совпадает — без «Подставить»; не совпадает — с «Подставить»', async () => {
-    mount({ currency: 'USD', exchangeRate: 495.12 })
-    expect(w.get('[data-rate-hint]').text()).toBe('Курс НБ РК на 05.10.2026: 495,12')
+  it('гр. 23 — только чтение: курс НБ РК на дату курсов ДТ с датой (16.10.2026); правки и «Подставить» нет', () => {
+    mount({ currency: 'USD', exchangeRate: 500 })
+    const rate = w.get('[data-exchange-rate]')
+    expect((rate.element as HTMLInputElement).value).toBe('495,12 (НБ РК на 05.10.2026)')
+    expect(rate.attributes('readonly')).toBeDefined()
+    expect(rate.attributes('data-rate-date')).toBe('2026-10-05')
     expect(w.find('[data-rate-apply]').exists()).toBe(false)
-    form.exchangeRate = 500
-    await nextTick()
-    expect(w.get('[data-rate-hint]').text()).toContain('в гр. 23 другой курс')
-    expect(w.get('[data-rate-hint]').classes()).toContain('text-danger')
-    // Подсвечено, но молча не правится.
-    expect(form.exchangeRate).toBe(500)
-    await w.get('[data-rate-apply]').trigger('click')
-    expect(form.exchangeRate).toBe(495.12)
-    expect(w.find('[data-rate-apply]').exists()).toBe(false)
+    expect(field('23').text()).toContain('если она пуста — на сегодня')
   })
 
-  it('просмотр: «Подставить» не показывается, поля недоступны', () => {
+  it('гр. 23 без курса на дату — записанный курс без даты; без валюты — подсказка про гр. 22', () => {
+    mount({ currency: 'USD', exchangeRate: 470.5 }, { dealRate: null })
+    expect((w.get('[data-exchange-rate]').element as HTMLInputElement).value).toBe('470,50')
+    w.unmount()
+    mount({ currency: '', exchangeRate: null }, { dealRate: null })
+    expect((w.get('[data-exchange-rate]').element as HTMLInputElement).value).toBe('')
+    expect(field('23').text()).toContain('после выбора валюты в гр. 22')
+  })
+
+  it('просмотр: поля недоступны', () => {
     mount({ currency: 'USD', exchangeRate: 500 }, { readonly: true })
     expect(w.find('[data-rate-apply]').exists()).toBe(false)
-    expect(w.get('[data-rate-hint]').text()).toContain('в гр. 23 другой курс')
     expect(comboOf('22').attributes('disabled')).toBeDefined()
     expect(w.find('[data-calc-customs-value]').exists()).toBe(false)
     expect(w.find('[data-expense-add]').exists()).toBe(false)
@@ -191,7 +194,7 @@ describe('SectionFinance — вид ставки', () => {
     expect(w.get('[data-rate-type-tag]').text()).toBe('WTO')
   })
 
-  it('без права администратора «Ещё» нет; у администратора — смена с подтверждением', async () => {
+  it('без права править ДТ «Ещё» нет; у того, кто правит (декларант, РОП, админ), — смена с подтверждением', async () => {
     mount({ rateType: 'ETT' })
     expect(w.find('[data-rate-type-more]').exists()).toBe(false)
     w.unmount()
@@ -209,7 +212,7 @@ describe('SectionFinance — вид ставки', () => {
     expect(w.get('[data-rate-type-tag]').text()).toBe('ВТО')
   })
 
-  it('отказ в подтверждении — тип не меняется; в просмотре «Ещё» нет даже администратору', async () => {
+  it('отказ в подтверждении — тип не меняется; в просмотре «Ещё» нет', async () => {
     mount({ rateType: 'EATT' }, { canChangeRateType: true })
     ;(await openMenu()).click()
     await vi.waitFor(() => expect(confirmState.open).toBe(true))
@@ -274,6 +277,10 @@ describe('SectionFinance — расходы и пересчёт гр. 45', () =>
     // Новый расчёт снимает пометку.
     await w.setProps({ recalc: { updated: 3, total: 1 } })
     expect(w.get('[data-recalc-result]').attributes('data-stale')).toBeUndefined()
+    expect(w.get('[data-recalc-result]').text()).not.toContain('вручную')
+    // Ручные гр. 45 (16.10.2026) — сколько оставлено.
+    await w.setProps({ recalc: { updated: 1, total: 1, kept: 2 } })
+    expect(w.get('[data-recalc-result]').text()).toContain('Гр. 45 вручную оставлена у товаров: 2.')
   })
 
   it('открытие раздела форму не меняет', () => {

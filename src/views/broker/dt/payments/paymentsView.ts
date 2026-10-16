@@ -53,6 +53,10 @@ export interface PaymentLine {
   feature: string | null
   /** Строка из расчёта предпросмотра (ещё не записана). */
   fresh: boolean
+  /** Ручная строка (решение 16.10.2026): расчёт её не перезаписывает. */
+  manual: boolean
+  /** Сумма последнего расчёта у ручной строки (в предпросмотре — этого расчёта); null — не считали. */
+  calcAmount: number | null
   /** Записанная строка гр. 47 товара (только у savedLines): правка СП в карточке пишется в неё. */
   source?: Import40GoodsPayment
 }
@@ -67,6 +71,8 @@ const lineOf = (p: Import40GoodsPayment, fresh: boolean, source?: Import40GoodsP
   amount: p.amountKzt ?? null,
   feature: p.paymentFeatureCode ?? null,
   fresh,
+  manual: !!p.manual,
+  calcAmount: p.manual ? p.calcAmountKzt ?? null : null,
   ...(source ? { source } : {}),
 })
 
@@ -108,7 +114,8 @@ export function previewLines(item: Pick<Goods, 'payments'>, calc: Import40Paymen
   const copy = { goodsItems: [{ payments: (item.payments ?? []).map((p) => ({ ...p })) }] }
   applyGoodsPaymentRows(copy as unknown as Pick<DtFormState, 'goodsItems'>, { goodsRows: [{ ...calc, index: 0 }], totalsByTaxMode: {}, grandTotalB: 0 })
   const fresh = new Set(calc.rows.map((r) => r.taxModeCode))
-  return sortPayments(copy.goodsItems[0].payments as Import40GoodsPayment[]).map((p) => lineOf(p, !!p.taxModeCode && fresh.has(p.taxModeCode)))
+  // Ручная строка расчётом не пишется — не «расчёт, не записан», а «вручную» с новой подсказкой.
+  return sortPayments(copy.goodsItems[0].payments as Import40GoodsPayment[]).map((p) => lineOf(p, !p.manual && !!p.taxModeCode && fresh.has(p.taxModeCode)))
 }
 
 /** «Медизделие — НДС 5%»: льготная ставка НДС товара (как переключатель в редакторе товара). */

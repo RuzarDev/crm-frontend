@@ -116,6 +116,26 @@ describe('dtPayload — туда и обратно', () => {
     for (const [k, v] of Object.entries(rest)) expect(sent[k], k).toEqual(v)
   })
 
+  it('ручные гр. 45/46 и строки гр. 47 (16.10.2026) — туда и обратно; старый ответ без признаков — не ручные', () => {
+    const dto = fullDto({
+      goodsItems: [fullGoodsDto({
+        customsValueKztManual: true, customsValueKztCalc: 670000, statisticValueUsdManual: true, statisticValueUsdCalc: 1400,
+        payments: [{ taxModeCode: '2010', taxBase: 1, rateValue: 2, amountKzt: 3, manual: true, calcAmountKzt: 4 } as never],
+      })],
+    })
+    const sent = formToPayload(dtoToForm(dto), null).goodsItems![0]
+    expect(sent).toMatchObject({ customsValueKztManual: true, customsValueKztCalc: 670000, statisticValueUsdManual: true, statisticValueUsdCalc: 1400 })
+    expect(sent.payments![0]).toMatchObject({ manual: true, calcAmountKzt: 4 })
+
+    const old = fullDto({ goodsItems: [fullGoodsDto({
+      customsValueKztManual: undefined, customsValueKztCalc: undefined, statisticValueUsdManual: undefined, statisticValueUsdCalc: undefined,
+      payments: [{ taxModeCode: '2010', amountKzt: 3 } as never],
+    })] })
+    const g = dtoToForm(old).goodsItems[0]
+    expect(g).toMatchObject({ customsValueKztManual: false, customsValueKztCalc: null, statisticValueUsdManual: false, statisticValueUsdCalc: null })
+    expect(g.payments![0]).toMatchObject({ manual: false, calcAmountKzt: null })
+  })
+
   it('гр. 31: строки характеристик туда и обратно — свои объекты; старый ответ без строк — строка 1 из одиночных полей', () => {
     const dto = fullDto()
     const form = dtoToForm(dto)

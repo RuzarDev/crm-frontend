@@ -1,8 +1,10 @@
 // Курсы НБ РК для страницы ДТ — НА ДАТУ гр.А (/import40/rates-on-date) поверх текущих из справочника валют.
 // Перенос из Import40DtView.vue (loadRatesOnDate, currencyBoxCodes, справочник валют) — волна 6а, Task 2.
 //
-// Правило гр.23: смена даты гр.А ПОЛЬЗОВАТЕЛЕМ → гр.23 следует за курсом валюты сделки (гр.22) на новую дату.
-// При загрузке ДТ гр.23 не трогается молча: расхождение подсвечивается (rateMismatch), «Подставить» — applyDealRate.
+// Решение владельца 16.10.2026: ручного курса нет. Дата курсов — дата гр.А, а пустая гр.А — сегодня (сервер отвечает
+// на запрос без даты курсами на сегодня и называет этот день). Гр.23 — курс валюты сделки (гр.22) на эту дату, только
+// чтение: как только курс известен и отличается от записанного, он пишется в гр.23 (при праве править) — и при смене
+// даты, и при загрузке ДТ со старым или правленым вручную курсом. Тот же курс и день у гр.45/46/47, ДТС и печати.
 import { computed, ref, watch } from 'vue'
 import { import40Api } from '@/api/import40'
 import { tnvedApi } from '@/api/tnved'
@@ -26,8 +28,10 @@ export interface DtRatesForm {
 }
 
 export interface DtRatesOptions {
-  /** Идёт загрузка ДТ в форму: смена даты — не правка пользователя. */
+  /** Идёт загрузка ДТ в форму. */
   applying: () => boolean
+  /** Право править ДТ: только с ним гр.23 приводится к курсу на дату. По умолчанию — да. */
+  canWrite?: () => boolean
 }
 
 const up = (c: string | null | undefined) => (c ? c.toUpperCase() : '')
@@ -36,7 +40,7 @@ export function useDtRates(form: DtRatesForm, opts: DtRatesOptions) {
   const currencyOptions = ref<{ value: string; label: string }[]>([])
   /** Текущие курсы справочника валют (на день заполнения). */
   const currentRates = ref<RateMap>({})
-  /** Курсы на дату гр.А — последний успешный ответ. */
+  /** Курсы на дату курсов ДТ (гр.А или сегодня) — последний успешный ответ. */
   const onDateRates = ref<RateMap>({})
   /** false — НБ РК недоступен, сервер отдал курсы не на дату гр.А. */
   const official = ref(true)
@@ -44,11 +48,11 @@ export function useDtRates(form: DtRatesForm, opts: DtRatesOptions) {
   const rates = computed<RateMap>(() => ({ ...currentRates.value, ...onDateRates.value }))
   const usdRate = computed(() => rates.value.USD?.rate ?? null)
   const nbUnavailable = computed(() => !official.value)
-  /** Курс валюты сделки (гр.22) на дату гр.А. */
-  const dealRate = computed<RateInfo | null>(() => rates.value[up(form.currency)] ?? null)
-  const rateMismatch = computed(
-    () => !!dealRate.value && form.exchangeRate != null && Number(form.exchangeRate) !== dealRate.value.rate,
-  )
+  /**
+   * Гр.23 — курс валюты сделки (гр.22) на дату курсов ДТ: только из ответа «на дату» (не текущий справочника — его день
+   * другой). null — валюта не выбрана или ответа ещё нет.
+   */
+  const dealRate = computed<RateInfo | null>(() => (form.currency ? onDateRates.value[up(form.currency)] ?? null : null))
 
   /** Валюты, чьи курсы нужны ДТ: USD (гр.46), EUR (специфические ставки), гр.22, товары, расходы. */
   const rateCodes = computed(() => {
@@ -90,46 +94,38 @@ export function useDtRates(form: DtRatesForm, opts: DtRatesOptions) {
     }
   }
 
-  // Пользователь сменил дату — после ответа на эту дату гр.23 встанет на курс сделки.
-  let syncPending = false
+  /** Гр.23 = курс сделки на дату курсов ДТ — при праве править и если отличается (ручного курса нет). */
+  const syncDealRate = () => {
+    if (opts.canWrite && !opts.canWrite()) return
+    const deal = dealRate.value
+    if (deal && Number(form.exchangeRate) !== deal.rate) form.exchangeRate = deal.rate
+  }
+
   let seq = 0
   const refresh = async () => {
     const my = ++seq
+    // Пустая гр.А — запрос без даты: сервер берёт курсы на сегодня и возвращает этот день.
     const date = toIsoDate(form.submissionDate)
-    if (!date) {
-      onDateRates.value = {}
-      official.value = true
-      syncPending = false
-      return
-    }
     try {
       const res = await import40Api.ratesOnDate(date, rateCodes.value)
       if (my !== seq) return
+      const day = res.date ?? date ?? ''
       const next: RateMap = {}
-      for (const [code, rate] of Object.entries(res.rates)) next[code] = { rate, date }
+      for (const [code, rate] of Object.entries(res.rates)) next[code] = { rate, date: day }
       onDateRates.value = next
       official.value = res.official
-      const deal = up(form.currency)
-      if (syncPending && deal && rates.value[deal]) form.exchangeRate = rates.value[deal].rate
+      syncDealRate()
     } catch {
-      /* курсы на дату не загрузились — остаются прежние; расчёты на сервере всё равно по дате гр.А */
-    } finally {
-      if (my === seq) syncPending = false
+      /* курсы на дату не загрузились — остаются прежние; расчёты на сервере всё равно по той же дате */
     }
-  }
-
-  /** «Подставить»: гр.23 = курс валюты сделки на дату гр.А. */
-  const applyDealRate = () => {
-    if (dealRate.value) form.exchangeRate = dealRate.value.rate
   }
 
   watch(
     () => [toIsoDate(form.submissionDate), rateCodes.value.join(',')] as const,
-    (next, prev) => {
-      if (!opts.applying() && prev && next[0] !== prev[0]) syncPending = true
-      void refresh()
-    },
+    () => { void refresh() },
   )
+  // Смена валюты сделки на уже загруженную (набор кодов тот же) — гр.23 сразу за ней.
+  watch(() => up(form.currency), () => { if (!opts.applying()) syncDealRate() })
 
   return {
     currencyOptions,
@@ -138,11 +134,9 @@ export function useDtRates(form: DtRatesForm, opts: DtRatesOptions) {
     nbUnavailable,
     usdRate,
     dealRate,
-    rateMismatch,
     rateCodes,
     boxCodes,
     loadCurrencies,
     refresh,
-    applyDealRate,
   }
 }

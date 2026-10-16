@@ -532,18 +532,24 @@ describe('DtPage: настоящие разделы «Условия и стои
     await open('?s=finance', ['SectionFinance'])
     expect(w.get('[data-customs-value]').attributes('data-source')).toBe('server')
     expect(w.get('[data-customs-value-tag]').text()).toBe('по сохранённой ДТ')
-    await w.get('[data-exchange-rate]').setValue('500')
-    await w.get('[data-exchange-rate]').trigger('blur')
+    // гр. 23 — только чтение (16.10.2026): правка гр. 22 делает гр. 12 предварительной.
+    expect(w.get('[data-exchange-rate]').attributes('readonly')).toBeDefined()
+    await w.get('[data-total-invoice]').setValue('500')
+    await w.get('[data-total-invoice]').trigger('blur')
     await settle()
     expect(w.get('[data-customs-value]').attributes('data-source')).toBe('preview')
     expect(w.get('[data-customs-value-tag]').text()).toBe('предварительно')
   })
 
-  it('тип ставок — тегом; «Ещё» со сменой — только администратору', async () => {
+  it('тип ставок — тегом; «Ещё» со сменой — тому, кто правит ДТ (назначенный декларант, админ), в просмотре — нет (16.10.2026)', async () => {
     server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, rateType: 'EATT', totalSheets: 1 })] })
     await open('?s=finance', ['SectionFinance'])
     expect(w.get('[data-rate-type-tag]').text()).toBe('ВТО')
     expect(finance().find('[data-rate-type] input').exists()).toBe(false)
+    expect(w.find('[data-rate-type-more]').exists()).toBe(true)
+    w.unmount()
+    server = caseDto({ status: 3, assignedDeclarantId: 'other', declarations: [fullDto({ splitRole: null, rateType: 'EATT', totalSheets: 1 })] })
+    await open('?s=finance', ['SectionFinance'])
     expect(w.find('[data-rate-type-more]').exists()).toBe(false)
     w.unmount()
     as({ role: 'administrator' })

@@ -123,7 +123,7 @@ const dt = useDtForm(caseId, dtId, {
 })
 const form = dt.form
 
-const rates = useDtRates(form, { applying: () => dt.applying.value })
+const rates = useDtRates(form, { applying: () => dt.applying.value, canWrite: () => dt.editable.value })
 const expenseTypeOptions = ref<{ value: string; label: string }[]>([])
 const expenseDistributionByCode = ref<Record<string, 'GrossWeight' | 'CustomsValue'>>({})
 const expenseDeductionByCode = ref<Record<string, boolean>>({})
@@ -791,13 +791,13 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
                 :customs-value="totals.customsValueKzt.value"
                 :customs-value-from-server="totals.customsValueFromServer.value"
                 :currency-options="rates.currencyOptions.value"
-                :currency-rates="rates.rates.value"
+                :deal-rate="rates.dealRate.value"
                 :expense-type-options="expenseTypeOptions"
                 :expense-distribution-by-code="expenseDistributionByCode"
                 :expense-deduction-by-code="expenseDeductionByCode"
                 :recalc="payments.customsResult.value"
                 :recalc-loading="payments.customsLoading.value"
-                :can-change-rate-type="user.isAdmin"
+                :can-change-rate-type="editable"
                 @calc-customs-value="payments.calcCustomsValue()"
               />
               <SectionCustoms
