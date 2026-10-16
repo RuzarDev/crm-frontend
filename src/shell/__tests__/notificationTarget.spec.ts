@@ -26,4 +26,15 @@ describe('notificationTarget', () => {
     expect(notificationTarget(n, false)).toBe('/billing')
     expect(notificationTarget(n, true)).toBe('/billing')
   })
+  it('новая редакция ЕЭК (без заявки и реестра) — «Обновления ЕЭК»; тип без учёта регистра', () => {
+    const n = { type: 'EecTariffUpdate', caseId: null, reestrEntryId: null }
+    expect(notificationTarget(n, false)).toBe('/tnved/eec')
+    expect(notificationTarget({ ...n, type: 'eecTariffUpdate' }, false)).toBe('/tnved/eec')
+    expect(notificationTarget(n, false, (p) => p === 'tnved.manage')).toBe('/tnved/eec')
+  })
+  it('редакция ЕЭК без права tnved.manage или у финансиста — никуда не ведёт (экран закрыт)', () => {
+    const n = { type: 'EecTariffUpdate', caseId: null, reestrEntryId: null }
+    expect(notificationTarget(n, false, () => false)).toBeNull()
+    expect(notificationTarget(n, true)).toBeNull()
+  })
 })

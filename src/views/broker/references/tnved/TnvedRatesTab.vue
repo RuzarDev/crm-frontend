@@ -4,11 +4,15 @@ import { useI18n } from 'vue-i18n'
 import { PhArrowSquareOut } from '@phosphor-icons/vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import TnvedTabStatus from './TnvedTabStatus.vue'
+import EttRateSource from '@/views/broker/references/eec/EttRateSource.vue'
+import { ettSourceView } from '@/views/broker/references/eec/eec'
 import type { TnvedNodeDto, TnvedRateDto } from '@/types/api'
 import { VAT_RATE } from '@/views/references/tnvedShared'
 import { formatUpdated, hasRates, type Loaded } from './tnvedRules'
 
 // Вкладка «Ставки»: ввозная пошлина ЕТТ (с основанием), статус ВТО и НДС. У группы — подсказка раскрыть её.
+// Ставка ЕТТ — та, по которой считается пошлина (ettRate.effectiveRate при расчёте на ЕЭК), основание — её источник
+// («ЕЭК, ред. …, сноска …»); под таблицей — вторая ставка при расхождении и «проверить вручную» (EttRateSource).
 const props = defineProps<{ node: TnvedNodeDto; state?: Loaded<TnvedRateDto> }>()
 const emit = defineEmits<{ retry: [] }>()
 const { t, locale } = useI18n()
@@ -17,9 +21,13 @@ interface Row { key: string; rate: string; kind: string; unit: string; basis: st
 const rows = computed<Row[]>(() => {
   const r = props.state?.data
   if (!r) return []
+  const ett = r.ettRate
+  const onEec = ett?.configuredSource === 'eec'
+  const fromEec = ett?.effectiveSource === 'eec'
   const out: Row[] = [{
-    key: 'duty', rate: r.rateStr || '—', kind: t('broker.references.tnved.rates.duty'), unit: r.unitName || '—',
-    basis: r.rateSourceName || (r.rateSourceUrl ? t('broker.references.tnved.rates.source') : '—'), url: r.rateSourceUrl,
+    key: 'duty', rate: (onEec ? ett!.effectiveRate : r.rateStr) || '—', kind: t('broker.references.tnved.rates.duty'), unit: r.unitName || '—',
+    basis: fromEec ? ettSourceView(ett, t)!.source : r.rateSourceName || (r.rateSourceUrl ? t('broker.references.tnved.rates.source') : '—'),
+    url: fromEec ? null : r.rateSourceUrl,
   }]
   if (r.vtoStatus) out.push({ key: 'vto', rate: r.vtoStatus, kind: t('broker.references.tnved.rates.vto'), unit: '—', basis: '—', url: null })
   out.push({ key: 'vat', rate: VAT_RATE, kind: t('broker.references.tnved.rates.vat'), unit: '—', basis: t('broker.references.tnved.rates.vatBasis'), url: null })
@@ -70,6 +78,7 @@ const td = 'border-t border-line px-3 py-2.5 align-top'
           </table>
         </div>
       </div>
+      <EttRateSource :ett="state.data?.ettRate" hide-source class="mt-2" />
       <p v-if="updated" class="m-0 mt-2 text-[13px] text-muted">{{ t('broker.references.tnved.rates.updated', { date: updated }) }}</p>
     </template>
   </div>

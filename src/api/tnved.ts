@@ -19,6 +19,7 @@ import type {
   TnvedTransitionSeedResult,
   TnvedReferenceDto,
   TnvedExportReferenceDto,
+  TnvedEttRateDto,
 } from '@/types/api'
 
 export interface TariffOptionsDto {
@@ -27,6 +28,8 @@ export interface TariffOptionsDto {
   antiDumping: TnvedTariffOptionDto[]
   // Действующие ставки пошлины (ЕТТ, ВТО) — по ним видно, нужны ли л / шт / см³ для специфической части.
   dutyRates?: string[]
+  /** Ставка ЕТТ на дату onDate: ЕЭК и КЕДЕН рядом, источник действующей. */
+  ettRate?: TnvedEttRateDto | null
 }
 
 // Экран сам показывает ошибку (свой блок, 429 — «слишком много запросов»): перехватчик тост не рисует.

@@ -66,7 +66,7 @@ const openNotification = async (n: AppNotification) => {
   if (!n.isRead) {
     try { await notifStore.markRead(n.id) } catch { /* тост показал перехватчик */ }
   }
-  const to = notificationTarget(n, auth.isFinanceOnly)
+  const to = notificationTarget(n, auth.isFinanceOnly, auth.hasPermission)
   if (to) await router.push(to)
 }
 

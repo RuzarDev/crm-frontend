@@ -769,6 +769,52 @@ export interface TnvedRateDto {
   updatedAtUtc: string | null
   /** Краткое наименование ДЕИ из ОКЕИ: «М2», «ШТ». */
   unitShortName?: string | null
+  /** Ставка ЕТТ: ЕЭК и КЕДЕН рядом, какая действует в расчёте (флаг Tariff:EttSource). rateStr — по-прежнему КЕДЕН. */
+  ettRate?: TnvedEttRateDto | null
+}
+
+/** Ставка ЕТТ ЕЭК на дату (резолвер сервера): как в PDF (rateText) и в записи КЕДЕН (rate), сноска, редакция, надёжность. */
+export interface TnvedEecEttRateDto {
+  rateText: string | null
+  rate: string | null
+  /** 'base' — основная ставка группы, 'footnote' — временная из сноски. */
+  kind: string
+  baseRateText: string | null
+  baseRate: string | null
+  footnoteNumber: string | null
+  footnoteFrom: string | null
+  footnoteTo: string | null
+  footnoteDecision: { body: string; date: string; number: string; text: string } | null
+  group: string
+  editionId: number
+  editionDate: string | null
+  fileName: string
+  inForce: boolean
+  notInForceSince: string | null
+  /** false — сноска «проверить вручную» (pending не пуст). */
+  isCertain: boolean
+  pending: { number: string; reason: string; rateText: string | null; kedenRate: string | null; validFrom: string | null; validTo: string | null }[]
+}
+
+export type TnvedEttEffectiveSource = 'keden' | 'eec' | 'kedenFallback'
+export type TnvedEttFallbackReason = 'eecNoRate' | 'eecNotInForce' | 'eecUnrecognized' | 'eecUncertain' | 'eecError'
+
+/** Ставка ввозной пошлины ЕТТ по коду на дату: ЕЭК и КЕДЕН рядом и какая из них действует в расчёте. */
+export interface TnvedEttRateDto {
+  date: string
+  configuredSource: 'keden' | 'eec'
+  effectiveSource: TnvedEttEffectiveSource
+  effectiveRate: string | null
+  fallbackReason: TnvedEttFallbackReason | null
+  kedenRate: string | null
+  kedenSourceName: string | null
+  kedenManualOverride: boolean
+  /** null — кода нет в данных ЕЭК. */
+  eec: TnvedEecEttRateDto | null
+  /** Данные ЕЭК не прочитались (сбой) — ставка по КЕДЕН. */
+  eecError?: boolean
+  /** Обе ставки есть, код в ЕЭК действует, и они различаются по смыслу. */
+  differs: boolean
 }
 
 export interface TnvedGroupDto {

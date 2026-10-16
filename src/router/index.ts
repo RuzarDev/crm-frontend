@@ -304,6 +304,19 @@ const router = createRouter({
           redirect: { path: '/tnved/timeline', query: { view: 'stats' } },
         },
         {
+          // «Обновления ЕЭК»: редакции ЕТТ из PDF ЕЭК, сверка с КЕДЕН — по праву tnved.manage, как и сервер.
+          path: '/tnved/eec',
+          name: 'tnved-eec',
+          component: () => import('@/views/broker/references/eec/EecUpdatesPage.vue'),
+          meta: { requiresPermission: 'tnved.manage' },
+        },
+        {
+          path: '/tnved/eec/editions/:id',
+          name: 'tnved-eec-edition',
+          component: () => import('@/views/broker/references/eec/EecEditionPage.vue'),
+          meta: { requiresPermission: 'tnved.manage' },
+        },
+        {
           // «Данные системы» с открытой «Синхронизацией ТН ВЭД»: по праву tnved.manage (не только администратору).
           path: '/tnved/sync',
           name: 'tnved-sync',

@@ -9,6 +9,7 @@ import ZSwitch from '@/components/z/ZSwitch.vue'
 import type { TnvedTariffOptionDto } from '@/types/api'
 import { formatDateText } from '@/ui/date'
 import { useTariffOptions } from '../useTariffOptions'
+import EttRateSource from '@/views/broker/references/eec/EttRateSource.vue'
 import type { GoodsSectionProps } from './types'
 
 // Подсказка ставок под стоимостью товара (перенос прежней подсказки ставок на Z): что есть в КЕДЕН по коду и стране на дату
@@ -17,6 +18,8 @@ import type { GoodsSectionProps } from './types'
 // количества в единицах специфических ставок (л, л 100%, шт, см³) — когда единица ставки не покрыта ДЕИ товара.
 // «Медизделие — НДС 5%» — свойство товара (vatRatePreferential = 0,05; M5), не только в окне расчёта.
 // Все выборы — поля платежей: правка помечает «Пересчитать».
+// Под сводкой — источник ставки ЕТТ на дату гр. А (ЕЭК, ред. …, сноска … / КЕДЕН), «в КЕДЕН: X» при расхождении,
+// «проверить вручную» (EttRateSource; нет ettRate в ответе — строк нет).
 const props = defineProps<Pick<GoodsSectionProps, 'item' | 'index' | 'model' | 'readonly' | 'ctx'>>()
 const { t } = useI18n()
 const th = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.editor.tariff.${key}`, p ?? {})
@@ -124,6 +127,7 @@ const choice = 'flex flex-col gap-2 rounded-field px-3 py-2.5'
       <p v-else-if="!opts" class="m-0 text-[13px] text-muted" data-goods-tariff-loading>{{ th('loading') }}</p>
       <template v-else>
         <p class="m-0 text-[13px] text-ink-2" data-goods-tariff-summary>{{ summary }}</p>
+        <EttRateSource :ett="opts.ettRate" />
         <p v-if="opts.countryRate" class="m-0 rounded-field bg-tone-info-bg px-2.5 py-1.5 text-[13px] text-tone-info-fg" data-goods-tariff-country>
           {{ th('countryRate', { country: opts.countryRate.country, rate: opts.countryRate.rate }) }}
         </p>

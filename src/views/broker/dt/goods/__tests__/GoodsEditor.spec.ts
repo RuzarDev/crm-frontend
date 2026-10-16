@@ -467,6 +467,27 @@ describe('GoodsEditor: подсказка ставок', () => {
     expect(q('[data-goods-tariff-summary]')!.textContent).toBe('Пошлина ЕТТ 10% · ВТО 5% · НДС 16% · антидемпинга нет')
   })
 
+  it('источник ставки ЕТТ на дату гр. А: «ЕЭК, ред. …, сноска … до …» и «в КЕДЕН: X» при расхождении', async () => {
+    tnved.tariffOptions.mockResolvedValue({ data: tariff({ dutyRates: ['0%'], ettRate: {
+      date: '2026-10-09', configuredSource: 'eec', effectiveSource: 'eec', effectiveRate: '0%', fallbackReason: null, kedenRate: '6.5%',
+      kedenSourceName: null, kedenManualOverride: false, differs: true,
+      eec: {
+        rateText: '0', rate: '0%', kind: 'footnote', baseRateText: '5', baseRate: '5%', footnoteNumber: '109С', footnoteFrom: null,
+        footnoteTo: '2028-12-31', footnoteDecision: null, group: '42', editionId: 7, editionDate: '2026-08-24', fileName: 'ru.42.pdf',
+        inForce: true, notInForceSince: null, isCertain: true, pending: [],
+      },
+    } }) })
+    await mount([item()], { query: '&item=1' })
+    expect(q('[data-ett-source-main]')!.textContent).toBe('ЕЭК, ред. 24.08.2026, сноска 109С до 31.12.2028')
+    expect(q('[data-ett-source-other]')!.textContent).toBe('в КЕДЕН: 6.5%')
+  })
+
+  it('без ettRate (прежний ответ) — строки источника нет', async () => {
+    await mount([item()], { query: '&item=1' })
+    expect(q('[data-goods-tariff-summary]')).not.toBeNull()
+    expect(q('[data-ett-source]')).toBeNull()
+  })
+
   it('сбой — текст в подсказке с «Повторить», без тоста', async () => {
     tnved.tariffOptions.mockRejectedValueOnce(new Error('500'))
     await mount([item()], { query: '&item=1' })
