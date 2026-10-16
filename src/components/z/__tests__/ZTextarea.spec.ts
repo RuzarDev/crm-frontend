@@ -19,19 +19,25 @@ describe('ZTextarea', () => {
     expect(ta.classes()).toContain('focus:shadow-focus')
   })
   describe('autoGrow', () => {
-    const metric = (name: 'scrollHeight' | 'offsetHeight' | 'clientHeight', value: number) =>
+    const metric = (name: 'scrollHeight' | 'offsetHeight' | 'clientHeight' | 'clientWidth', value: number) =>
       vi.spyOn(HTMLTextAreaElement.prototype, name, 'get').mockReturnValue(value)
     afterEach(() => vi.restoreAllMocks())
 
     it('высота учитывает рамки (border-box): scrollHeight + offsetHeight − clientHeight', () => {
-      metric('scrollHeight', 100); metric('offsetHeight', 102); metric('clientHeight', 100)
+      metric('scrollHeight', 100); metric('offsetHeight', 102); metric('clientHeight', 100); metric('clientWidth', 300)
       const ta = mount(ZTextarea, { props: { autoGrow: true, value: 'a' } }).find('textarea')
       expect((ta.element as HTMLTextAreaElement).style.height).toBe('102px')
     })
     it('предел — 12 строк содержимого (256px) плюс рамки', () => {
-      metric('scrollHeight', 400); metric('offsetHeight', 102); metric('clientHeight', 100)
+      metric('scrollHeight', 400); metric('offsetHeight', 102); metric('clientHeight', 100); metric('clientWidth', 300)
       const ta = mount(ZTextarea, { props: { autoGrow: true, value: 'a' } }).find('textarea')
       expect((ta.element as HTMLTextAreaElement).style.height).toBe('258px')
+    })
+    it('скрытое поле (ширина 0) не схлопывается: высота остаётся по rows', () => {
+      metric('scrollHeight', 0); metric('offsetHeight', 0); metric('clientHeight', 0); metric('clientWidth', 0)
+      const ta = mount(ZTextarea, { props: { autoGrow: true, rows: 2, value: '4006381333931' } }).find('textarea')
+      expect((ta.element as HTMLTextAreaElement).style.height).toBe('')
+      expect(ta.attributes('rows')).toBe('2')
     })
   })
   it('disabled — текст и плейсхолдер ink-3 на sunken, не muted', () => {

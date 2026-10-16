@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, useAttrs, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useAttrs, watch } from 'vue'
 import { cn } from '@/ui/cn'
 import { useFieldControl } from '@/ui/form'
 
@@ -36,6 +36,9 @@ const isInvalid = computed(() => props.invalid || fieldInvalid.value)
 const fit = () => {
   if (!props.autoGrow || !el.value) return
   const ta = el.value
+  // Скрытое поле (свёрнутая секция, неактивная вкладка) мерить нельзя: scrollHeight = 0 и поле схлопывалось
+  // в полоску с обрезанным текстом. Оставляем высоту по rows — подгоним, когда поле станет видимым (ResizeObserver).
+  if (ta.clientWidth === 0) { ta.style.height = ''; return }
   ta.style.height = 'auto'
   // box-sizing: border-box — style.height включает рамки, а scrollHeight их не считает: добавляем
   // offsetHeight − clientHeight, иначе поле на 2px ниже содержимого и появляется прокрутка.
@@ -52,7 +55,21 @@ const onBlur = (e: FocusEvent) => {
   notifyBlur()
 }
 watch(() => props.value, () => nextTick(fit))
-onMounted(fit)
+// Подгонка при смене ширины (поле стало видимым, перенос строк изменился); на свою же смену высоты не реагируем.
+let ro: ResizeObserver | undefined
+let lastWidth = -1
+onMounted(() => {
+  fit()
+  if (!props.autoGrow || !el.value || typeof ResizeObserver === 'undefined') return
+  ro = new ResizeObserver(() => {
+    const w = el.value?.clientWidth ?? 0
+    if (w === lastWidth) return
+    lastWidth = w
+    fit()
+  })
+  ro.observe(el.value)
+})
+onBeforeUnmount(() => ro?.disconnect())
 </script>
 
 <template>

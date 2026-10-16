@@ -194,7 +194,13 @@ describe('GoodsEditor: каркас и навигация', () => {
     let bottom = 96
     let onResize: (() => void) | null = null
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('min-width: 640px'), addEventListener() {}, removeEventListener() {} }))
-    vi.stubGlobal('ResizeObserver', class { constructor(cb: () => void) { onResize = cb } observe() {} disconnect() { onResize = null } })
+    // Наблюдатели есть и у полей (ZTextarea auto-grow) — ловим только того, кто следит за шапкой ДТ.
+    vi.stubGlobal('ResizeObserver', class {
+      private watchesHeader = false
+      constructor(private cb: () => void) {}
+      observe(el: Element) { if (el.hasAttribute('data-dt-header')) { this.watchesHeader = true; onResize = this.cb } }
+      disconnect() { if (this.watchesHeader) onResize = null }
+    })
     const header = document.createElement('div')
     header.setAttribute('data-dt-header', '')
     header.getBoundingClientRect = () => ({ bottom } as DOMRect)
