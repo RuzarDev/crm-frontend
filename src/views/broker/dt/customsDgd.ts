@@ -69,3 +69,12 @@ export const looksLikeCustomsCode = (value: string | null | undefined): boolean 
 
 /** Коды мест-складов (СВХ, таможенный склад): номер свидетельства обязателен, орган в XML не уходит. */
 export const isWarehouseLocation = (code: string | null | undefined): boolean => ['11', '21'].includes((code ?? '').trim())
+
+/** Код 99 «Иное место нахождения товаров». */
+export const isOtherPlaceLocation = (code: string | null | undefined): boolean => (code ?? '').trim() === '99'
+
+/**
+ * Номер «иного места» в КЕДЕН / D-Sector: НИКАД 9900000000000000 «ИНОЕ МЕСТО ХРАНЕНИЯ ТОВАРОВ» (скриншот D-Sector «Брокер»
+ * 16.10.2026; ждёт подтверждения выгрузкой КЕДЕН). Сервер подставляет его же, если поле пустое (GoodsLocationRules).
+ */
+export const OTHER_PLACE_NUMBER = '9900000000000000'

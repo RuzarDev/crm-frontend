@@ -5,7 +5,7 @@ const previousLocationCodes = new WeakMap<object, string>()
 </script>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, toRaw } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhPlus, PhX } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -25,7 +25,10 @@ import type { ZOption } from '@/ui/options'
 import { checkWarehouseNumber } from '@/utils/warehouseNumber'
 import DtGraphHelp from '../DtGraphHelp.vue'
 import { dedupeOptions, officeNameOnly, withCurrent } from '../dtOptions'
-import { dgdLabel, dgdOf, isWarehouseLocation, looksLikeCustomsCode, officeFilter, officeOptions, type CustomsDgd, type OfficeOption, type PostOption } from '../customsDgd'
+import {
+  OTHER_PLACE_NUMBER, dgdLabel, dgdOf, isOtherPlaceLocation, isWarehouseLocation, looksLikeCustomsCode, officeFilter, officeOptions,
+  type CustomsDgd, type OfficeOption, type PostOption,
+} from '../customsDgd'
 import type { DtFormState } from '../dtPayload'
 import GoodsLocationModal from './GoodsLocationModal.vue'
 
@@ -174,13 +177,31 @@ const numberIsOffice = computed(() => {
 const moveNumberToOffice = async () => {
   const code = (props.form.goodsLocationRegisterNumber ?? '').trim()
   props.form.goodsLocationCustomsOfficeCode = code
-  props.form.goodsLocationRegisterNumber = ''
-  comboKey.value++ // поле номера показывает введённый текст — пересоздаём, чтобы оно опустело
+  // Для 99 номер не пустеет, а становится номером «иного места» (как в D-Sector).
+  const other = isOtherPlace.value
+  props.form.goodsLocationRegisterNumber = other ? OTHER_PLACE_NUMBER : ''
+  comboKey.value++ // поле номера показывает введённый текст — пересоздаём, чтобы оно обновилось
   await nextTick()
-  message.info(tc('numberMoved', { code }))
+  message.info(other ? tc('numberMovedOther', { code, number: OTHER_PLACE_NUMBER }) : tc('numberMoved', { code }))
 }
+
+// Код 99 «иное место» (скриншот D-Sector «Брокер» 16.10): номер — НИКАД 9900000000000000 «ИНОЕ МЕСТО ХРАНЕНИЯ ТОВАРОВ».
+// Пустое поле заполняем им при выборе 99 (и при открытии ДТ с 99 — сервер всё равно выгрузит его же); при смене кода
+// с 99 на другой номер по умолчанию убираем — для СВХ и прочих он неверен. Введённое декларантом не трогаем.
+const isOtherPlace = computed(() => isOtherPlaceLocation(props.form.goodsLocationCode))
+watch(() => (props.form.goodsLocationCode ?? '').trim(), (code, prev) => {
+  if (props.readonly) return
+  const number = (props.form.goodsLocationRegisterNumber ?? '').trim()
+  if (isOtherPlaceLocation(code) && !number) props.form.goodsLocationRegisterNumber = OTHER_PLACE_NUMBER
+  else if (isOtherPlaceLocation(prev) && !isOtherPlaceLocation(code) && number === OTHER_PLACE_NUMBER) props.form.goodsLocationRegisterNumber = ''
+  else return
+  comboKey.value++
+}, { immediate: true })
+const numberLabel = computed(() => (isOtherPlace.value ? tc('numberOther') : tc('number')))
 const numberHelp = computed(() => {
   if (numberIsOffice.value) return tc('numberIsOffice', { code: (props.form.goodsLocationRegisterNumber ?? '').trim() })
+  // Формат KZ…VSX… — для СВХ; у «иного места» свой номер, проверка формата к нему неприменима.
+  if (isOtherPlace.value) return null
   switch (checkWarehouseNumber(props.form.goodsLocationRegisterNumber)) {
     case 'checksum': return tc('numberChecksum')
     case 'format': return tc('numberFormat')
@@ -315,8 +336,9 @@ const graphTag = 'font-mono text-xs font-normal text-muted'
             ><PhPlus :size="12" weight="bold" aria-hidden="true" />{{ tc('locationAdd') }}</button>
           </template>
         </ZField>
-        <ZField graph="30" :validate-status="numberHelp ? 'warning' : ''" :help="numberHelp ?? undefined">
-          <template #label>{{ tc('number') }}</template>
+        <!-- extra — пропом, не условным слотом: ZField считает наличие слота один раз (смена кода места его не обновит). -->
+        <ZField graph="30" :validate-status="numberHelp ? 'warning' : ''" :help="numberHelp ?? undefined" :extra="isOtherPlace ? tc('numberOtherHint') : undefined">
+          <template #label>{{ numberLabel }}</template>
           <ZCombobox
             :key="comboKey"
             ref="numberCombo"
