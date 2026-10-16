@@ -105,7 +105,8 @@ const onMarks = (v: ZOptionValue | ZOptionValue[] | null) => {
 }
 
 // ---- Коды запретов и ограничений ----
-const gr33 = useGr33Suggest(() => ({ tnved: props.item.tnvedCode, procedure: props.item.procedureCode || props.ctx.declProcedure }))
+// Дата гр. А — для редакции Приказа № 259 (после перехода КЕДЕН; до него не влияет).
+const gr33 = useGr33Suggest(() => ({ tnved: props.item.tnvedCode, procedure: props.item.procedureCode || props.ctx.declProcedure, date: props.ctx.onDate }))
 const codes = computed(() => splitFeatureCodes(props.item.prohibitionCode))
 const codeChoices = computed<ZOption[]>(() => {
   const opts: ZOption[] = gr33.choices.value.map((c) => ({

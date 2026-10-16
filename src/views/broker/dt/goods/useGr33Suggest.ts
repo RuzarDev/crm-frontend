@@ -1,6 +1,6 @@
 import { computed, reactive, readonly, shallowRef, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import {
-  prohibitionCodesApi, type ProhibitionCodeItem, type ProhibitionSuggestResult, type SuggestedProhibitionCode,
+  prohibitionCodesApi, type Gr33EditionStatus, type ProhibitionCodeItem, type ProhibitionSuggestResult, type SuggestedProhibitionCode,
 } from '@/api/prohibitionCodes'
 
 // Гр. 33 — коды запретов и ограничений (признаки нетарифного регулирования, XML ProhibitionCode) по ТН ВЭД товара.
@@ -12,27 +12,64 @@ import {
 //   Gr33Direction.IsExportProcedure на сервере).
 // - НИЧЕГО не подставляется само: коды выбирает декларант (юридическая ответственность) — здесь только списки.
 // Ответы кэшируются на сессию по коду: повторное открытие товара получает подсказки сразу, без запроса и «загрузки».
+// Редакция Приказа № 259 (с 09.10.2026): пока переход не включён на сервере (activeFrom = null — КЕДЕН ещё на своей
+// нумерации), всё как раньше, запросы без даты. После перехода ДТ с гр. А от даты перехода получают справочник и подсказки
+// по редакции Приказа (в запросы уходит дата перехода — ответ одинаков для всех дат после неё), ДТ раньше — по-старому.
 
 /** Процедура вывоза (гр. 1 «10», гр. 37 товара «1000» — первые две цифры). */
 export const isExportProcedure = (procedure: string | null | undefined): boolean =>
   ['10', '21', '23', '31'].includes((procedure ?? '').trim().slice(0, 2))
 
 const resolved = new Map<string, ProhibitionSuggestResult>()
-const reference = shallowRef<readonly ProhibitionCodeItem[]>([])
-let referenceRequested = false
+/** Справочники по редакции: '' — список КЕДЕН, дата перехода — редакция Приказа № 259. */
+const references = shallowRef<ReadonlyMap<string, readonly ProhibitionCodeItem[]>>(new Map())
+const referenceRequested = new Set<string>()
+const edition = shallowRef<Gr33EditionStatus | null>(null)
+let editionRequested = false
 
-/** Справочник кодов гр. 33 — один запрос на сессию, тихо; не загрузился — повторим при следующем товаре. */
-export function ensureGr33Reference(): void {
-  if (referenceRequested) return
-  referenceRequested = true
-  prohibitionCodesApi.list().then((list) => { reference.value = list }).catch(() => { referenceRequested = false })
+/** Справочник кодов гр. 33 — один запрос на сессию (на редакцию), тихо; не загрузился — повторим при следующем товаре. */
+export function ensureGr33Reference(key = ''): void {
+  if (referenceRequested.has(key)) return
+  referenceRequested.add(key)
+  ;(key ? prohibitionCodesApi.list(key) : prohibitionCodesApi.list())
+    .then((list) => { references.value = new Map(references.value).set(key, list) })
+    .catch(() => { referenceRequested.delete(key) })
 }
 
-/** Для тестов: забыть кэш подсказок и справочник. */
+/** Включён ли переход на редакцию Приказа № 259 — один тихий запрос на сессию; сбой = как раньше (список КЕДЕН). */
+function ensureGr33Edition(): void {
+  if (editionRequested) return
+  editionRequested = true
+  Promise.resolve()
+    .then(() => prohibitionCodesApi.editionStatus())
+    .then((s) => { edition.value = s })
+    .catch(() => { editionRequested = false })
+}
+
+const todayKz = (): string => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10)
+
+/** Дата гр. А → YYYY-MM-DD (принимает ISO и ДД.ММ.ГГГГ); пусто — сегодня. */
+export function gr33Date(raw: string | null | undefined): string {
+  const v = (raw ?? '').trim()
+  const iso = /^(\d{4}-\d{2}-\d{2})/.exec(v)
+  if (iso) return iso[1]
+  const ru = /^(\d{2})\.(\d{2})\.(\d{4})/.exec(v)
+  return ru ? `${ru[3]}-${ru[2]}-${ru[1]}` : todayKz()
+}
+
+/** Редакция для даты гр. А: '' — список КЕДЕН; иначе дата перехода (activeFrom) — по редакции Приказа № 259. */
+export function gr33EditionKey(activeFrom: string | null | undefined, date: string | null | undefined): string {
+  if (!activeFrom) return ''
+  return gr33Date(date) >= activeFrom ? activeFrom : ''
+}
+
+/** Для тестов: забыть кэш подсказок, справочники и статус редакции. */
 export function resetGr33Suggest(): void {
   resolved.clear()
-  reference.value = []
-  referenceRequested = false
+  references.value = new Map()
+  referenceRequested.clear()
+  edition.value = null
+  editionRequested = false
 }
 
 export interface Gr33Source {
@@ -40,6 +77,8 @@ export interface Gr33Source {
   tnved: string | null | undefined
   /** Процедура товара, иначе ДТ — для «экспортные скрыты при импорте». */
   procedure: string | null | undefined
+  /** Дата гр. А ДТ (пусто — сегодня): после перехода на редакцию Приказа № 259 выбирает нумерацию кодов. */
+  date?: string | null
 }
 
 export interface Gr33SuggestState {
@@ -54,7 +93,11 @@ export interface Gr33SuggestState {
 }
 
 export function useGr33Suggest(source: MaybeRefOrGetter<Gr33Source>) {
-  ensureGr33Reference()
+  ensureGr33Edition()
+  /** '' — список КЕДЕН (как до редакции), иначе дата перехода на редакцию Приказа № 259. */
+  const editionKey = computed(() => gr33EditionKey(edition.value?.activeFrom, toValue(source).date))
+  watch(editionKey, (k) => ensureGr33Reference(k), { immediate: true })
+  const reference = computed(() => references.value.get(editionKey.value) ?? [])
   const state = reactive<Gr33SuggestState>({ tnved: '', loading: false, failed: false, warning: false, codes: [] })
 
   const apply = (r: ProhibitionSuggestResult) => {
@@ -64,15 +107,16 @@ export function useGr33Suggest(source: MaybeRefOrGetter<Gr33Source>) {
   }
 
   let seq = 0
-  const load = async (raw: string | null | undefined) => {
+  const load = async (raw: string | null | undefined, key: string) => {
     const tnved = (raw ?? '').replace(/\D/g, '')
+    const cacheKey = key ? `${key}|${tnved}` : tnved
     const my = ++seq
     if (tnved.length !== 10) {
       Object.assign(state, { tnved: '', loading: false, failed: false, warning: false, codes: [] })
       return
     }
     state.tnved = tnved
-    const hit = resolved.get(tnved)
+    const hit = resolved.get(cacheKey)
     if (hit) {
       apply(hit)
       state.loading = false
@@ -80,10 +124,10 @@ export function useGr33Suggest(source: MaybeRefOrGetter<Gr33Source>) {
     }
     Object.assign(state, { loading: true, failed: false, warning: false, codes: [] })
     try {
-      const r = await prohibitionCodesApi.suggest(tnved)
+      const r = await (key ? prohibitionCodesApi.suggest(tnved, key) : prohibitionCodesApi.suggest(tnved))
       // Старый кэш сервера (КЕДЕН не ответил — пусто или с прежними кодами) не запоминаем: следующее открытие товара
       // спросит снова, и «КЕДЕН не отвечает» / «сохранённые ранее» уйдут, когда он ответит.
-      if (!r.stale) resolved.set(tnved, r)
+      if (!r.stale) resolved.set(cacheKey, r)
       if (my === seq) apply(r)
     } catch {
       if (my === seq) state.failed = true
@@ -91,7 +135,7 @@ export function useGr33Suggest(source: MaybeRefOrGetter<Gr33Source>) {
       if (my === seq) state.loading = false
     }
   }
-  watch(() => toValue(source).tnved, (v) => { void load(v) }, { immediate: true })
+  watch(() => [toValue(source).tnved, editionKey.value] as const, ([v, k]) => { void load(v, k) }, { immediate: true })
 
   const isExport = computed(() => isExportProcedure(toValue(source).procedure))
   /** Подсказки, которые можно выбрать: при импорте — без экспортных. */
@@ -126,6 +170,8 @@ export function useGr33Suggest(source: MaybeRefOrGetter<Gr33Source>) {
     byTnved,
     choices,
     referenceSize: computed(() => reference.value.length),
+    /** '' — коды КЕДЕН; иначе дата, с которой коды по редакции Приказа № 259. */
+    editionKey,
     nameOf,
     rejected,
     negativeToAdd,
