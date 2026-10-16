@@ -14,7 +14,7 @@ const api = vi.hoisted(() => ({
   listClassifierGroups: vi.fn(), listClassifiers: vi.fn(), createClassifier: vi.fn(), updateClassifier: vi.fn(), deleteClassifier: vi.fn(),
   syncEec: vi.fn(),
   katoStatus: vi.fn(), katoSearch: vi.fn(), katoSync: vi.fn(), katoImport: vi.fn(),
-  gr33List: vi.fn(), gr33Usage: vi.fn(),
+  gr33List: vi.fn(), gr33Usage: vi.fn(), gr33Edition: vi.fn(), gr33Diff: vi.fn(),
   troisStatus: vi.fn(), troisSearch: vi.fn(), troisImport: vi.fn(),
   voLists: vi.fn(), voSync: vi.fn(), voImport: vi.fn(),
   whStatus: vi.fn(), whImport: vi.fn(), nsiStatus: vi.fn(), nsiImportKgd: vi.fn(), nsiImport: vi.fn(), kedenRefresh: vi.fn(),
@@ -30,7 +30,9 @@ vi.mock('@/api/references', () => ({
   },
 }))
 vi.mock('@/api/kato', () => ({ katoApi: { status: api.katoStatus, search: api.katoSearch, sync: api.katoSync, import: api.katoImport } }))
-vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: { list: api.gr33List, kedenUsage: api.gr33Usage } }))
+vi.mock('@/api/prohibitionCodes', () => ({
+  prohibitionCodesApi: { list: api.gr33List, kedenUsage: api.gr33Usage, editionStatus: api.gr33Edition, editionDiff: api.gr33Diff },
+}))
 vi.mock('@/api/trois', () => ({ troisApi: { status: api.troisStatus, search: api.troisSearch, importFile: api.troisImport } }))
 vi.mock('@/api/vatOffset', () => ({ vatOffsetApi: { lists: api.voLists, sync: api.voSync, import: api.voImport } }))
 vi.mock('@/api/warehouseRegistry', () => ({
@@ -114,6 +116,8 @@ beforeEach(() => {
   api.katoStatus.mockResolvedValue({ total: 15612, updatedAtUtc: '2026-10-01T05:00:00Z', sourceUrl: 'https://stat.gov.kz/kato' })
   api.gr33List.mockResolvedValue([{ code: 'D01', name: 'Запрет', categoryCode: 'D', categoryName: 'Меры', kind: 'x', isNegative: false }])
   api.gr33Usage.mockResolvedValue([])
+  api.gr33Edition.mockResolvedValue(null)
+  api.gr33Diff.mockResolvedValue([])
   api.troisStatus.mockResolvedValue({ total: 2500, active: 2140, importedAtUtc: '2026-10-05T05:00:00Z' })
   api.voLists.mockResolvedValue([voList('pp-1199', '1199', 'Постановление Правительства Республики Казахстан', [
     { number: 94, name: 'Оборудование для взвешивания … платформенные весы, весы рольганговые', footnote: null, condition: null, codeText: 'из 8423 89 000 0' },
@@ -559,5 +563,48 @@ describe('маршруты', () => {
     }
     expect(await load(refs)).toBe(SystemDataPage)
     expect(await load(sync)).toBe(SystemDataPage)
+  })
+
+  describe('гр. 33: редакция Приказа № 259 (с 09.10.2026)', () => {
+    const edition = (activeFrom: string | null) => ({
+      edition: 'order259-2026-10-09', title: 'Приказ 259', validFrom: '2026-10-09', codes: 174, changed: 32, activeFrom,
+      configKey: 'Classifiers:Order259EditionFrom',
+    })
+    const diff = [
+      { kedenCode: 'D0120', kedenName: 'б/у продукция', order259Code: 'D0125', order259Name: 'бывшая в употреблении', change: 'meaningChanged', approximate: false, note: null },
+      { kedenCode: 'D0113', kedenName: 'образцы для НИОКР', order259Code: 'D0126', order259Name: 'единичные экземпляры', change: 'meaningChanged', approximate: true, note: null },
+      { kedenCode: 'B0112', kedenName: 'квоты экспорта', order259Code: null, order259Name: null, change: 'kedenOnly', approximate: false, note: null },
+      { kedenCode: '', kedenName: null, order259Code: 'D0120', order259Name: 'рекламная печатная продукция', change: 'order259Only', approximate: false, note: null },
+    ]
+
+    it('загружена, переход КЕДЕН не включён — информационная плашка и таблица отличий', async () => {
+      api.gr33Edition.mockResolvedValue(edition(null))
+      api.gr33Diff.mockResolvedValue(diff)
+      await mountAt('/references?item=gr33')
+      const note = w.get('[data-gr33-edition]')
+      expect(note.text()).toContain('Новая редакция Приказа 259 (с 09.10.2026) загружена, ждёт перехода КЕДЕН')
+      expect(note.text()).toContain('Classifiers:Order259EditionFrom')
+      const table = note.get('[data-gr33-edition-diff]')
+      expect(table.text()).toContain('Отличия списка КЕДЕН от Приказа 259: 4')
+      expect(table.text()).toContain('тот же номер — другая мера')
+      expect(table.text()).toContain('частично')
+      expect(table.text()).toContain('только в КЕДЕН (останется)')
+      expect(table.text()).toContain('аналога нет')
+    })
+
+    it('переход включён — плашка с датой применения', async () => {
+      api.gr33Edition.mockResolvedValue(edition('2026-11-02'))
+      await mountAt('/references?item=gr33')
+      expect(w.get('[data-gr33-edition]').text()).toContain('применяется к ДТ с датой гр. А от 02.11.2026')
+      expect(w.find('[data-gr33-edition-diff]').exists()).toBe(false) // отличий не пришло — таблицы нет
+    })
+
+    it('редакции нет или запрос упал — справочник показывается как раньше, без плашки', async () => {
+      api.gr33Edition.mockRejectedValue(new Error('down'))
+      api.gr33Diff.mockRejectedValue(new Error('down'))
+      await mountAt('/references?item=gr33')
+      expect(w.find('[data-gr33-edition]').exists()).toBe(false)
+      expect(w.find('[data-gr33-table]').exists()).toBe(true)
+    })
   })
 })

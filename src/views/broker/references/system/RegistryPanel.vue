@@ -13,7 +13,9 @@ import ZTable from '@/components/z/ZTable.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ZUpload from '@/components/z/ZUpload.vue'
 import { katoApi, type KatoDto, type KatoStatus, type KatoSyncResult } from '@/api/kato'
-import { prohibitionCodesApi, type ProhibitionCodeItem, type ProhibitionCodeUsage } from '@/api/prohibitionCodes'
+import {
+  prohibitionCodesApi, type Gr33EditionDiffRow, type Gr33EditionStatus, type ProhibitionCodeItem, type ProhibitionCodeUsage,
+} from '@/api/prohibitionCodes'
 import { troisApi, type TroisItem, type TroisStatus } from '@/api/trois'
 import { vatOffsetApi, type VatOffsetList, type VatOffsetListRow, type VatOffsetSyncResult } from '@/api/vatOffset'
 import {
@@ -39,7 +41,7 @@ const when = (iso: string | null | undefined) => formatDateTime(iso, locale.valu
 
 // ---- Статус выбранного реестра (тихо; ошибка — «Не удалось загрузить» с «Повторить») ----
 type Status =
-  | { kind: 'gr33'; refs: ProhibitionCodeItem[]; usage: ProhibitionCodeUsage[] }
+  | { kind: 'gr33'; refs: ProhibitionCodeItem[]; usage: ProhibitionCodeUsage[]; edition: Gr33EditionStatus | null; diff: Gr33EditionDiffRow[] }
   | { kind: 'kato'; status: KatoStatus }
   | { kind: 'warehouses' | 'nsi'; kinds: WarehouseKindStatus[] }
   | { kind: 'trois'; status: TroisStatus }
@@ -53,8 +55,14 @@ let seq = 0
 const fetchStatus = async (kind: RegistryKind): Promise<Status> => {
   switch (kind) {
     case 'gr33': {
-      const [refs, usage] = await Promise.all([prohibitionCodesApi.list(), prohibitionCodesApi.kedenUsage().catch(() => [] as ProhibitionCodeUsage[])])
-      return { kind, refs, usage }
+      // Редакция Приказа № 259 и расхождения — необязательны: сбой не мешает показать справочник.
+      const [refs, usage, edition, diff] = await Promise.all([
+        prohibitionCodesApi.list(),
+        prohibitionCodesApi.kedenUsage().catch(() => [] as ProhibitionCodeUsage[]),
+        Promise.resolve().then(() => prohibitionCodesApi.editionStatus()).catch(() => null),
+        Promise.resolve().then(() => prohibitionCodesApi.editionDiff()).catch(() => [] as Gr33EditionDiffRow[]),
+      ])
+      return { kind, refs, usage, edition, diff }
     }
     case 'kato': return { kind, status: await katoApi.status({ silent: true }) }
     case 'warehouses': return { kind, kinds: (await warehouseRegistryApi.status({ silent: true })).kinds }
@@ -215,6 +223,25 @@ const gr33Columns = computed<ZColumn<Gr33Row>[]>(() => [
   { key: 'measure', dataIndex: 'measure', title: t(`${P}.gr33.colMeasure`), width: 260 },
   { key: 'keden', title: t(`${P}.gr33.colKeden`), width: 110, align: 'right' },
 ])
+
+// Редакция Приказа № 259 (с 09.10.2026): загружена и ждёт перехода КЕДЕН (activeFrom = null) или уже применяется
+// к ДТ с гр. А от даты перехода. Расхождения со списком КЕДЕН — свёрнутой таблицей.
+const gr33Edition = computed(() => (status.value?.kind === 'gr33' ? status.value.edition : null))
+const gr33Diff = computed(() => (status.value?.kind === 'gr33' ? status.value.diff : []))
+const gr33EditionMessage = computed(() => {
+  const e = gr33Edition.value
+  if (!e) return ''
+  const validFrom = formatDay(e.validFrom, locale.value)
+  return e.activeFrom
+    ? t(`${P}.gr33.editionActive`, { validFrom, activeFrom: formatDay(e.activeFrom, locale.value) })
+    : t(`${P}.gr33.editionPending`, { validFrom })
+})
+const diffColumns = computed<ZColumn<Gr33EditionDiffRow>[]>(() => [
+  { key: 'keden', title: t(`${P}.gr33.diffKeden`) },
+  { key: 'order259', title: t(`${P}.gr33.diffOrder259`) },
+  { key: 'change', title: t(`${P}.gr33.diffChange`), width: 200 },
+])
+const short = (s: string | null) => (s && s.length > 140 ? `${s.slice(0, 137).trimEnd()}…` : s ?? '')
 
 // ---- КАТО: проверка поиска (как в ДТ, гр. 8/9/14) ----
 const probe = ref('')
@@ -382,6 +409,33 @@ const OUTLINE = 'border border-line-strong bg-surface'
               <b class="font-mono">{{ u.code }}</b> — {{ t(`${P}.gr33.tnvedCount`, { n: u.tnvedCount }) }}<template v-if="u.sampleTnved">, {{ t(`${P}.gr33.example`, { code: u.sampleTnved }) }}</template>
             </span>
           </template>
+        </ZAlert>
+        <ZAlert v-if="gr33Edition" :type="gr33Edition.activeFrom ? 'success' : 'info'" show-icon :message="gr33EditionMessage" data-gr33-edition>
+          <p class="m-0">{{ t(`${P}.gr33.editionHint`, { codes: gr33Edition.codes, changed: gr33Edition.changed, key: gr33Edition.configKey }) }}</p>
+          <details v-if="gr33Diff.length" class="mt-2" data-gr33-edition-diff>
+            <summary class="cursor-pointer font-medium">{{ t(`${P}.gr33.diffTitle`, { n: gr33Diff.length }) }}</summary>
+            <ZTable
+              :columns="diffColumns"
+              :data-source="gr33Diff"
+              :row-key="(r: Gr33EditionDiffRow) => `${r.kedenCode}|${r.order259Code ?? ''}`"
+              :aria-label="t(`${P}.gr33.diffTitle`, { n: gr33Diff.length })"
+              class="mt-2 overflow-hidden rounded-panel border border-line bg-surface text-ink"
+            >
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.key === 'keden'">
+                  <span v-if="record.kedenCode" class="text-sm"><b class="font-mono">{{ record.kedenCode }}</b> {{ short(record.kedenName) }}</span>
+                  <span v-else class="text-sm text-muted">—</span>
+                </template>
+                <template v-else-if="column.key === 'order259'">
+                  <span v-if="record.order259Code" class="text-sm"><b class="font-mono">{{ record.order259Code }}</b> {{ short(record.order259Name) }}</span>
+                  <span v-else class="text-sm text-muted">{{ t(`${P}.gr33.diffNone`) }}</span>
+                </template>
+                <span v-else-if="column.key === 'change'" class="text-sm">
+                  {{ t(`${P}.gr33.change.${record.change}`) }}<template v-if="record.approximate"> · {{ t(`${P}.gr33.diffApprox`) }}</template>
+                </span>
+              </template>
+            </ZTable>
+          </details>
         </ZAlert>
         <ZInput
           :value="q"

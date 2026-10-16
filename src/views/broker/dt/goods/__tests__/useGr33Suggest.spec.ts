@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 
-const api = vi.hoisted(() => ({ list: vi.fn(), suggest: vi.fn() }))
+const api = vi.hoisted(() => ({ list: vi.fn(), suggest: vi.fn(), editionStatus: vi.fn() }))
 vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: api }))
 
-import { isExportProcedure, resetGr33Suggest, useGr33Suggest } from '../useGr33Suggest'
+import { gr33Date, gr33EditionKey, isExportProcedure, resetGr33Suggest, useGr33Suggest } from '../useGr33Suggest'
 
 const REF = [
   { code: 'C1700', name: 'Не подпадает под культурные ценности', categoryCode: 'C17', categoryName: 'Культурные ценности', kind: '', isNegative: true },
@@ -29,6 +29,7 @@ beforeEach(() => {
   scope = effectScope()
   api.list.mockReset().mockResolvedValue(REF)
   api.suggest.mockReset().mockResolvedValue(SUGGEST)
+  api.editionStatus.mockReset().mockResolvedValue(null)
 })
 afterEach(() => scope.stop())
 
@@ -131,5 +132,60 @@ describe('useGr33Suggest', () => {
     await flushPromises()
     expect(s.state.tnved).toBe('4202121900')
     expect(s.choices.value.map((c) => c.code)).toEqual(['D0100', 'D0110'])
+  })
+
+  describe('редакция Приказа № 259 (по дате гр. А)', () => {
+    const status = (activeFrom: string | null) => ({
+      edition: 'order259-2026-10-09', title: '', validFrom: '2026-10-09', codes: 174, changed: 32, activeFrom, configKey: 'Classifiers:Order259EditionFrom',
+    })
+    const ORDER259 = [{ code: 'D0125', name: 'Бывшая в употреблении', categoryCode: 'D01', categoryName: 'Тех. регулирование', kind: 'D', isNegative: false, source: 'order259' }]
+
+    it('дата гр. А и ключ редакции: ISO и ДД.ММ.ГГГГ; без перехода — всегда список КЕДЕН', () => {
+      expect(gr33Date('2026-11-05T00:00:00Z')).toBe('2026-11-05')
+      expect(gr33Date('05.11.2026')).toBe('2026-11-05')
+      expect(gr33Date('')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+      expect(gr33EditionKey(null, '2030-01-01')).toBe('')
+      expect(gr33EditionKey('2026-11-02', '2026-11-01')).toBe('')
+      expect(gr33EditionKey('2026-11-02', '2026-11-02')).toBe('2026-11-02')
+      expect(gr33EditionKey('2026-11-02', '15.12.2026')).toBe('2026-11-02')
+    })
+
+    it('переход не включён — запросы без даты, как раньше', async () => {
+      const s = run(() => useGr33Suggest({ tnved: '4202121900', procedure: '40', date: '2026-12-01' }))
+      await flushPromises()
+      expect(api.editionStatus).toHaveBeenCalledTimes(1)
+      expect(api.list).toHaveBeenCalledWith()
+      expect(api.suggest).toHaveBeenCalledWith('4202121900')
+      expect(s.editionKey.value).toBe('')
+    })
+
+    it('переход включён — ДТ от даты перехода получает справочник и подсказки по Приказу, более ранняя — по-старому', async () => {
+      api.editionStatus.mockResolvedValue(status('2026-11-02'))
+      api.list.mockImplementation(async (date?: string) => (date ? ORDER259 : REF))
+      const date = ref<string | null>('2026-11-10')
+      const s = run(() => useGr33Suggest(() => ({ tnved: '8471', procedure: '40', date: date.value })))
+      await flushPromises()
+      expect(s.editionKey.value).toBe('2026-11-02')
+      expect(api.list).toHaveBeenCalledWith('2026-11-02')
+      expect(s.choices.value.map((c) => c.code)).toEqual(['D0125'])
+
+      date.value = '2026-11-01'
+      await nextTick()
+      await flushPromises()
+      expect(s.editionKey.value).toBe('')
+      expect(s.choices.value.map((c) => c.code)).toEqual(['C1700', 'D0110', 'D0100'])
+
+      run(() => useGr33Suggest({ tnved: '4202121900', procedure: '40', date: '2026-11-03' }))
+      await flushPromises()
+      expect(api.suggest).toHaveBeenLastCalledWith('4202121900', '2026-11-02')
+    })
+
+    it('статус редакции не загрузился — как раньше, без ошибок', async () => {
+      api.editionStatus.mockRejectedValue(new Error('down'))
+      const s = run(() => useGr33Suggest({ tnved: '4202121900', procedure: '40', date: '2026-12-01' }))
+      await flushPromises()
+      expect(s.editionKey.value).toBe('')
+      expect(s.choices.value.map((c) => c.code)).toEqual(['D0100', 'D0110'])
+    })
   })
 })
