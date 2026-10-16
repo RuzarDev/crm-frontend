@@ -797,7 +797,7 @@ export interface TnvedEecEttRateDto {
 }
 
 export type TnvedEttEffectiveSource = 'keden' | 'eec' | 'kedenFallback'
-export type TnvedEttFallbackReason = 'eecNoRate' | 'eecNotInForce' | 'eecUnrecognized' | 'eecUncertain'
+export type TnvedEttFallbackReason = 'eecNoRate' | 'eecNotInForce' | 'eecUnrecognized' | 'eecUncertain' | 'eecError'
 
 /** Ставка ввозной пошлины ЕТТ по коду на дату: ЕЭК и КЕДЕН рядом и какая из них действует в расчёте. */
 export interface TnvedEttRateDto {
@@ -811,6 +811,8 @@ export interface TnvedEttRateDto {
   kedenManualOverride: boolean
   /** null — кода нет в данных ЕЭК. */
   eec: TnvedEecEttRateDto | null
+  /** Данные ЕЭК не прочитались (сбой) — ставка по КЕДЕН. */
+  eecError?: boolean
   /** Обе ставки есть, код в ЕЭК действует, и они различаются по смыслу. */
   differs: boolean
 }

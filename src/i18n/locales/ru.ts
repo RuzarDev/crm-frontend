@@ -3516,6 +3516,7 @@ export default {
             eecNotInForce: 'по КЕДЕН: код ушёл из ЕЭК',
             eecUnrecognized: 'по КЕДЕН: ставка ЕЭК не распознана',
             eecUncertain: 'по КЕДЕН: ставку ЕЭК нужно проверить',
+            eecError: 'по КЕДЕН: данные ЕЭК сейчас не прочитались',
           },
           uncertain: 'проверить вручную: {list}',
           uncertainNoDetail: 'ставка ЕЭК не однозначна',

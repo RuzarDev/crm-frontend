@@ -3512,6 +3512,7 @@ export default {
             eecNotInForce: 'by KEDEN: the code was removed from EEC',
             eecUnrecognized: 'by KEDEN: the EEC rate was not recognized',
             eecUncertain: 'by KEDEN: the EEC rate needs checking',
+            eecError: 'by KEDEN: EEC data could not be read right now',
           },
           uncertain: 'check manually: {list}',
           uncertainNoDetail: 'the EEC rate is ambiguous',
