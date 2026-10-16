@@ -2209,6 +2209,10 @@ export default {
             qtyFor: 'Required for rate {rate}',
             qty: { taxVolumeL: 'Volume of goods, l', taxAlcoholL: 'Volume of pure (100%) alcohol, l', taxPieces: 'Quantity, pcs', engineVolumeCm3: 'Engine displacement, cm³' },
             medical: 'Medical device — VAT 5%',
+            vatListAuto: 'VAT 5% per the RK Government Decree No. 1204 list — applied automatically',
+            vatListConfirm: 'The code is on the RK Government Decree No. 1204 list (VAT 5%) only for these goods:',
+            vatListConfirmAction: 'If the goods qualify, turn on «Medical device».',
+            vatListMissing: 'The code is not on the RK Government Decree No. 1204 list — VAT 5% was turned on manually, check the grounds',
           },
           packaging: {
             availability: 'Packaging present',
