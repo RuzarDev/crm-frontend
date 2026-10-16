@@ -30,6 +30,17 @@ export interface TariffOptionsDto {
   dutyRates?: string[]
   /** Ставка ЕТТ на дату onDate: ЕЭК и КЕДЕН рядом, источник действующей. */
   ettRate?: TnvedEttRateDto | null
+  /** НДС 5% по перечню ПП РК №1204; null/нет — перечень не загружен (сервер считает по прежним группам). */
+  reducedVat?: ReducedVatDto | null
+}
+
+/**
+ * Код в перечне ПП РК №1204 (НДС 5%): «auto» — 5% ставится сам (вся позиция в перечне), «confirm» — только часть товаров
+ * кода, 5% по «Медизделие», «none» — не в перечне. goods — товары перечня по коду (КЕДЕН).
+ */
+export interface ReducedVatDto {
+  status: 'auto' | 'confirm' | 'none'
+  goods: string[]
 }
 
 // Экран сам показывает ошибку (свой блок, 429 — «слишком много запросов»): перехватчик тост не рисует.
