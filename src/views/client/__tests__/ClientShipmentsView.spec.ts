@@ -8,7 +8,10 @@ import type { ClientShipment } from '@/api/clientShipments'
 
 const api = vi.hoisted(() => ({ list: vi.fn() }))
 const reg = vi.hoisted(() => ({ loaded: null as unknown, complete: null as unknown }))
+const cost = vi.hoisted(() => ({ xlsx: vi.fn(), saveBlob: vi.fn() }))
 vi.mock('@/api/clientShipments', () => ({ clientShipmentsApi: { list: api.list } }))
+vi.mock('@/api/shipmentCost', () => ({ shipmentCostApi: { xlsx: cost.xlsx } }))
+vi.mock('@/ui/download', () => ({ saveBlob: cost.saveBlob }))
 vi.mock('@/composables/useClientRegistration', () => ({
   useClientRegistration: () => ({ loaded: reg.loaded, complete: reg.complete }),
 }))
@@ -76,6 +79,19 @@ afterEach(() => {
 })
 
 describe('ClientShipmentsView', () => {
+  it('«Себестоимость в Excel» — есть выпущенные поставки; выгружает все на языке интерфейса', async () => {
+    cost.xlsx.mockResolvedValue({ blob: new Blob(['x']), fileName: 'costs-2026-10-17.xlsx' })
+    await mountAt('/import-40')
+    await w.get('[data-client-cost-xlsx]').trigger('click')
+    await flushPromises()
+    expect(cost.xlsx).toHaveBeenCalledWith('ru')
+    expect(cost.saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'costs-2026-10-17.xlsx')
+    w.unmount()
+    api.list.mockResolvedValue(FIXTURE.filter((k) => k.status < 4 || k.status === 9))
+    await mountAt('/import-40')
+    expect(w.find('[data-client-cost-xlsx]').exists()).toBe(false)
+  })
+
   it('вкладки со счётчиками; по умолчанию — только «В работе»', async () => {
     await mountAt('/import-40')
     expect(api.list).toHaveBeenCalledTimes(1)

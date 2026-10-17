@@ -10,6 +10,7 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ShipmentAskPanel from '@/views/client/shipment/ShipmentAskPanel.vue'
 import ShipmentCustomsPanel from '@/views/client/shipment/ShipmentCustomsPanel.vue'
+import ShipmentCostPanel from '@/views/client/shipment/ShipmentCostPanel.vue'
 import { useCustomsRequests } from '@/composables/useCustomsRequests'
 import ShipmentConditionalRelease from '@/views/client/shipment/ShipmentConditionalRelease.vue'
 import ShipmentDocuments from '@/views/client/shipment/ShipmentDocuments.vue'
@@ -325,6 +326,8 @@ const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
         </div>
 
         <div class="flex min-w-0 flex-col gap-[18px]">
+          <!-- Себестоимость (17.10) — после выпуска; сам блок решает, показываться ли. -->
+          <ShipmentCostPanel :case-id="kase.id" :status="kase.status" :case-number="kase.number" :stamp="kase.updatedAtUtc" />
           <section :aria-labelledby="servicesId" :class="cn(card, 'max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:px-0')" data-ship-services>
             <h2 :id="servicesId" class="m-0 mb-1.5 text-[15px] leading-6 font-semibold text-ink">{{ t('client.card.servicesTitle') }}</h2>
             <div v-if="invoicesError" class="flex flex-wrap items-center gap-x-3 gap-y-2" data-services-error>

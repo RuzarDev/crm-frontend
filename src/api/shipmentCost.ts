@@ -1,0 +1,71 @@
+import apiClient from './client'
+
+// Себестоимость поставки для клиента после выпуска (17.10), всё в тенге: ТиН из ДТ (гр. В — уплачено, иначе гр. 47),
+// услуги AQNIET, СВХ, сертификаты и транспорт клиента. missing — чего ещё нет (итог неполный).
+export type ShipmentCostPart = 'customs' | 'broker' | 'svh' | 'certificates' | 'transport'
+
+export interface ShipmentCostDeclaration {
+  declarationId: string
+  number: string
+  /** 'B' — гр. В (уплачено); '47' — начислено по товарам, гр. В ещё не записана. */
+  source: 'B' | '47'
+  feesKzt: number
+  dutyKzt: number
+  vatKzt: number
+  otherKzt: number
+  totalKzt: number
+}
+
+export interface ShipmentCostInvoice {
+  id: string
+  number: string
+  year: number
+  total: number
+  paid: boolean
+}
+
+export interface ShipmentCostDto {
+  caseId: string
+  caseNumber: string
+  cargo: string
+  releasedAtUtc: string | null
+  customsKzt: number | null
+  declarations: ShipmentCostDeclaration[]
+  brokerKzt: number | null
+  brokerInvoices: ShipmentCostInvoice[]
+  svhKzt: number | null
+  svhInvoiceNumber: string
+  certificatesKzt: number | null
+  transportKzt: number | null
+  note: string
+  totalKzt: number
+  missing: ShipmentCostPart[]
+  clientUpdatedAtUtc: string | null
+}
+
+export interface ShipmentCostUpdate {
+  certificatesKzt: number | null
+  transportKzt: number | null
+  note: string
+}
+
+const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+export const shipmentCostApi = {
+  // silent — блок необязателен на экране: сбой — блок показывает свою ошибку с «Повторить», без тоста.
+  get: async (caseId: string): Promise<ShipmentCostDto> =>
+    (await apiClient.get<ShipmentCostDto>(`/import40/${encodeURIComponent(caseId)}/cost`, { silent: true })).data,
+  update: async (caseId: string, body: ShipmentCostUpdate): Promise<ShipmentCostDto> =>
+    (await apiClient.put<ShipmentCostDto>(`/import40/${encodeURIComponent(caseId)}/cost`, body)).data,
+  /** Excel себестоимости: по одной поставке (caseId) или по всем выпущенным; язык листов — как интерфейс. */
+  xlsx: async (lang: string, caseId?: string): Promise<{ blob: Blob; fileName: string }> => {
+    const res = await apiClient.get('/import40/client/costs/xlsx', {
+      params: caseId ? { caseId, lang } : { lang },
+      responseType: 'blob',
+    })
+    const cd = String(res.headers['content-disposition'] ?? '')
+    const m = /filename\*?=(?:UTF-8'')?"?([^";]+)/i.exec(cd)
+    const fileName = m ? decodeURIComponent(m[1]) : caseId ? 'cost.xlsx' : 'costs.xlsx'
+    return { blob: new Blob([res.data as BlobPart], { type: XLSX_TYPE }), fileName }
+  },
+}
