@@ -23,6 +23,7 @@ import { saveBlob } from '@/ui/download'
 import { useBlock } from '@/views/home/useBlock'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
+import ClientRegistryPanel from '@/views/clientRegistry/ClientRegistryPanel.vue'
 
 // «Документы» клиента (/documents, редизайн, волна 2b, доска Documents): договор и доверенность компании
 // карточками (ведут в «Мою компанию»), ниже — все файлы поставок: и загруженные клиентом, и выданные AQNIET.
@@ -230,6 +231,9 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
           </RouterLink>
         </div>
       </section>
+
+      <!-- Реестр документов (волна 17.10): контракты, УНК, сертификаты, разрешения — со сроками -->
+      <ClientRegistryPanel v-if="auth.userId" :client-id="auth.userId" />
 
       <!-- По поставкам -->
       <section aria-labelledby="docs-files" class="flex flex-col gap-2.5">

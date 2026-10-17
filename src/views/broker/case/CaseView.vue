@@ -12,6 +12,7 @@ import CaseActionModals from './CaseActionModals.vue'
 import CaseBanners from './CaseBanners.vue'
 import CaseCondRelBanner from './CaseCondRelBanner.vue'
 import CaseHeader from './CaseHeader.vue'
+import CaseReworkPanel from './CaseReworkPanel.vue'
 import CaseSide from './CaseSide.vue'
 import CaseStepper from './CaseStepper.vue'
 import StepBorder from './steps/StepBorder.vue'
@@ -139,6 +140,7 @@ const panel = 'rounded-panel border border-line bg-surface'
       <CaseStepper :steps="steps" :status="kase.status" />
       <CaseBanners :kase="kase" :perms="perms" :actions="actions" />
       <CaseCondRelBanner :kase="kase" />
+      <CaseReworkPanel :kase="kase" :perms="perms" :actions="actions" />
 
       <div class="flex flex-wrap items-start gap-[18px]">
         <div class="flex min-w-0 flex-[999_1_480px] flex-col gap-4" data-case-main>
@@ -183,7 +185,7 @@ const panel = 'rounded-panel border border-line bg-surface'
         <CaseSide class="flex-[1_1_320px]" :kase="kase" :files="files" :perms="perms" :actions="actions" @edit="focusCurrent" />
       </div>
 
-      <CaseActionModals v-model:kind="reasonKind" :actions="actions" />
+      <CaseActionModals v-model:kind="reasonKind" :actions="actions" :kase="kase" />
     </template>
   </div>
 </template>

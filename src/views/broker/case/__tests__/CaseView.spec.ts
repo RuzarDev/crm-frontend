@@ -18,6 +18,8 @@ vi.mock('@/api/import40', () => ({ import40Api: api }))
 vi.mock('@/api/manage', () => ({ manageApi: manage }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
 vi.mock('@/ui/message', () => ({ message: msg }))
+const reworkApiMock = vi.hoisted(() => ({ list: vi.fn(async () => ({ comment: null, items: [] })), suggestions: vi.fn(async () => ({ codes: [], items: [] })) }))
+vi.mock('@/api/import40Rework', async (orig) => ({ ...(await orig<typeof import('@/api/import40Rework')>()), reworkApi: reworkApiMock }))
 
 import CaseView from '../CaseView.vue'
 

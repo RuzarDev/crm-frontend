@@ -57,10 +57,11 @@ describe('StepDocuments', () => {
     expect(api.listFiles).toHaveBeenCalledWith('c1', { silent: true })
     expect(w.get('h2').text()).toBe('Документы на груз')
     const rows = w.findAll('[data-doc-kind]')
-    expect(rows.map((r) => r.attributes('data-doc-kind'))).toEqual(['invoice', 'transport', 'packing', 'contract', 'origin', 'conformity', 'permit'])
+    expect(rows.map((r) => r.attributes('data-doc-kind'))).toEqual(['invoice', 'transport', 'packing', 'contract', 'origin', 'conformity', 'permit', 'certificate'])
     expect(rows.map((r) => r.get('[data-doc-name]').text())).toEqual([
       'Инвойс (коммерческий счёт)', 'Транспортный документ', 'Упаковочный лист', 'Внешнеторговый контракт',
       'Сертификат происхождения', 'Сертификат или декларация соответствия ЕАЭС', 'Разрешения и лицензии',
+      'Ветеринарный, фитосанитарный сертификат, СГР',
     ])
     expect(row('invoice').get('[data-doc-need]').text()).toBe('обязательно')
     expect(row('invoice').get('[data-doc-need]').classes()).toContain('text-gold-ink')

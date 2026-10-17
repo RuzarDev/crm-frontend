@@ -1,5 +1,6 @@
 import apiClient from './client'
 import type { ConditionalReleaseBrief } from './conditionalRelease'
+import type { ReworkBrief } from './import40Rework'
 
 // Лёгкий список поставок клиента (редизайн, волна 2a): всё нужное для списка и «Нужно от вас».
 export interface ClientShipment {
@@ -25,6 +26,10 @@ export interface ClientShipment {
   conditionalRelease?: ConditionalReleaseBrief | null
   createdAtUtc: string
   updatedAtUtc: string
+  /** Возврат на доработку с пунктами (17.10) — «вернули на доработку» и без комментария. */
+  reworkRequested?: boolean
+  /** Незакрытые пункты доработки — текст «Нужно от вас» на языке клиента. */
+  reworkOpen?: ReworkBrief[]
 }
 
 export const clientShipmentsApi = {
