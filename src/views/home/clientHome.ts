@@ -9,12 +9,22 @@ import { greetingName } from '@/views/home/greeting'
 const ASK_ORDER: Record<AskKind, number> = { problem: 0, returned: 1, paySvh: 2, draft: 3 }
 const updatedDesc = (a: ClientShipment, b: ClientShipment) => Date.parse(b.updatedAtUtc) - Date.parse(a.updatedAtUtc)
 
-/** Поставки, где ход за клиентом: проблемы, возвраты, оплата склада, черновики; внутри — свежие сверху. */
+/** Условный выпуск (17.10): ждём от клиента документ (не загружен), поставка не отменена — даже если выполнена. */
+export const needsCondRelDoc = (s: ClientShipment): boolean =>
+  s.status !== 9 && !!s.conditionalRelease && !s.conditionalRelease.uploaded
+
+// Условный выпуск без другого хода клиента — после оплаты склада, перед черновиками.
+const askRank = (s: ClientShipment): number => {
+  const ask = askFor(s)
+  return ask ? ASK_ORDER[ask] : 2.5
+}
+
+/** Поставки, где ход за клиентом: проблемы, возвраты, оплата склада, условный выпуск, черновики; внутри — свежие сверху. */
 export function clientAsks(list: ClientShipment[]): ClientShipment[] {
   return list
-    .filter((s) => askFor(s))
+    .filter((s) => askFor(s) || needsCondRelDoc(s))
     .sort(updatedDesc)
-    .sort((a, b) => ASK_ORDER[askFor(a)!] - ASK_ORDER[askFor(b)!])
+    .sort((a, b) => askRank(a) - askRank(b))
 }
 
 /** Поставки в работе: не выполненные и не отменённые, последние изменения сверху. */

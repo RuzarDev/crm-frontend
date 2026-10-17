@@ -16,7 +16,7 @@ import { saveBlob } from '@/ui/download'
 import { formatDateText } from '@/ui/date'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
-import { briefOf, isCondRelOpen } from '@/utils/conditionalRelease'
+import { briefOf, condRelKindName, isCondRelOpen } from '@/utils/conditionalRelease'
 
 // Блок «Условный выпуск» на странице ДТ (17.10): отметить (вид недостающего документа + основание + срок, по умолчанию
 // выпуск + 60 дней), изменить, снять, загрузить за клиента, подтвердить закрытие. Свои запросы, без автосейва ДТ:
@@ -47,7 +47,7 @@ const kind = ref<string | null>(null)
 const note = ref('')
 const deadline = ref<string | null>(null)
 const tried = ref(false)
-const kindOptions = computed(() => COND_REL_KINDS.map((k) => ({ value: k, label: t(`condRel.kindName.${k}`) })))
+const kindOptions = computed(() => COND_REL_KINDS.map((k) => ({ value: k, label: condRelKindName(k, t) })))
 const noteMissing = computed(() => kind.value === 'other' && !note.value.trim())
 
 const startEdit = (fresh: boolean) => {
@@ -145,7 +145,7 @@ const dayOf = (iso: string | null | undefined) => {
 const docText = computed(() => {
   const c = cr.value
   if (!c?.docKind) return ''
-  const name = t(`condRel.kindName.${(COND_REL_KINDS as readonly string[]).includes(c.docKind) ? c.docKind : 'other'}`)
+  const name = condRelKindName(c.docKind, t)
   return c.note ? `${name} — ${c.note}` : name
 })
 const daysText = computed(() => {

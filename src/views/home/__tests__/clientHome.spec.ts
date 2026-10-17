@@ -82,3 +82,17 @@ describe('clientGreetingName', () => {
     expect(clientGreetingName(null, 'ТОО')).toBe('')
   })
 })
+
+describe('clientAsks: условный выпуск (17.10)', () => {
+  const cr = { declarationId: 'd1', declarationNumber: null, docKind: 'origin', note: null, deadline: '2026-12-01', overdue: false, daysLeft: 5, openCount: 1 }
+  it('ждём документ — в «Нужно от вас» (и у выполненной), после оплаты склада; загружен или отменена — нет', () => {
+    const list = clientAsks([
+      ship({ id: 'cr', status: 8, conditionalRelease: { ...cr, uploaded: false } }),
+      ship({ id: 'up', status: 8, conditionalRelease: { ...cr, uploaded: true } }),
+      ship({ id: 'cx', status: 9, conditionalRelease: { ...cr, uploaded: false } }),
+      ship({ id: 'pay', status: 6 }),
+      ship({ id: 'draft', status: 0 }),
+    ])
+    expect(list.map((s) => s.id)).toEqual(['pay', 'cr', 'draft'])
+  })
+})

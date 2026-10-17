@@ -24,8 +24,8 @@ describe('conditionalRelease', () => {
 
   it('документ: вид словарём, «другой» — текстом основания', () => {
     expect(condRelDoc('origin', null, t)).toBe('сертификат происхождения')
-    expect(condRelDoc('certificate', null, t)).toBe('сертификат')
-    expect(condRelDoc('other', 'письмо производителя', t)).toBe('письмо производителя')
+    expect(condRelDoc('certificate', null, t)).toBe('ветеринарный, фитосанитарный сертификат или СГР')
+    expect(condRelDoc('other', 'письмо производителя', t)).toBe('документ: письмо производителя')
     expect(condRelDoc('other', '', t)).toBe('документ')
     expect(condRelDoc('weird', null, t)).toBe('документ')
   })

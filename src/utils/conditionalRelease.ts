@@ -12,12 +12,16 @@ export function condRelDate(iso: string | null | undefined, now: Date = new Date
   return Number(m[1]) === now.getFullYear() ? `${m[3]}.${m[2]}` : `${m[3]}.${m[2]}.${m[1]}`
 }
 
-/** Что нужно: «сертификат происхождения»; «Другой» с текстом — сам текст. */
+/** Что нужно (после «нужен …»): «сертификат происхождения»; «Другой» с текстом — «документ: …» (согласование рода, как на сервере). */
 export function condRelDoc(kind: string | null | undefined, note: string | null | undefined, t: T): string {
-  if (kind === 'other' && note?.trim()) return note.trim()
+  if (kind === 'other' && note?.trim()) return t('condRel.otherDoc', { note: note.trim() })
   const k = (COND_REL_KINDS as readonly string[]).includes(kind ?? '') ? kind : 'other'
   return t(`condRel.kind.${k}`)
 }
+
+/** Название вида для списка выбора и карточки — общие подписи чек-листа клиента (client.docKind.*). */
+export const condRelKindName = (kind: string | null | undefined, t: T): string =>
+  t(`client.docKind.${(COND_REL_KINDS as readonly string[]).includes(kind ?? '') ? kind : 'other'}.name`)
 
 export type CondRelState = 'open' | 'overdue' | 'uploaded'
 

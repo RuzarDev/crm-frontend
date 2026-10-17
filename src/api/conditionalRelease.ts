@@ -1,11 +1,12 @@
 import apiClient from './client'
+import { DOC_CHECKLIST, type DocKind } from '@/views/client/docKinds'
 
 // Условный выпуск ДТ (17.10): срок, недостающий документ, загрузка клиентом, закрытие декларантом.
 // Сервер: Import40ConditionalReleaseEndpoints, напоминания — ConditionalReleaseNotifier (каждые 2 дня, после срока — ежедневно).
 
-/** Виды недостающего документа — виды документов клиента (views/client/docKinds.ts) + certificate и other. */
-export const COND_REL_KINDS = ['invoice', 'transport', 'packing', 'contract', 'origin', 'conformity', 'permit', 'certificate', 'other'] as const
-export type CondRelKind = (typeof COND_REL_KINDS)[number]
+/** Виды недостающего документа — общие виды документов клиента (views/client/docKinds.ts): чек-лист + «Другой». */
+export const COND_REL_KINDS: DocKind[] = [...DOC_CHECKLIST.map((d) => d.key), 'other']
+export type CondRelKind = DocKind
 
 export interface ConditionalReleaseDto {
   docKind: string | null

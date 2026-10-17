@@ -275,7 +275,8 @@ const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
         @changed="reload"
       />
 
-      <ShipmentConditionalRelease :case-id="kase.id" :declarations="liveDeclarations" @changed="reload" />
+      <!-- Отменённая поставка — загружать нечего (сервер ответит 409). -->
+      <ShipmentConditionalRelease v-if="kase.status !== 9" :case-id="kase.id" :declarations="liveDeclarations" @changed="reload" />
 
       <div class="flex flex-wrap items-start gap-x-6 gap-y-[18px]">
         <div class="min-w-0 flex-[999_1_480px]">

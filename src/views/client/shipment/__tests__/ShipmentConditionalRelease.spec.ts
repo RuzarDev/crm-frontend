@@ -32,7 +32,7 @@ describe('ShipmentConditionalRelease', () => {
     const blocks = w.findAll('[data-ship-condrel]')
     expect(blocks).toHaveLength(1)
     expect(blocks[0].attributes('data-condrel-state')).toBe('open')
-    expect(blocks[0].get('[data-condrel-text]').text()).toBe('55302/1 выпущена условно. До 15.12 загрузите: сертификат происхождения.')
+    expect(blocks[0].get('[data-condrel-text]').text()).toBe('55302/1 выпущена условно. До 15.12 загрузите сертификат происхождения.')
   })
 
   it('просрочено — «срок истёк»; загрузка отправляет файл и сообщает родителю', async () => {
