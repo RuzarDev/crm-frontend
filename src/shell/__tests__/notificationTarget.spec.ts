@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { notificationTarget } from '@/shell/notificationTarget'
 
 describe('notificationTarget', () => {
+  it('срок контракта: карточка контракта клиента', () => {
+    expect(notificationTarget({ caseId: null, reestrEntryId: null, type: 'ForeignContractDeadline', foreignContractId: 'k 1' }, false))
+      .toBe('/contracts/k%201')
+  })
   it('заявка: сотруднику — карточка заявки', () => {
     expect(notificationTarget({ caseId: 'c1', reestrEntryId: null }, false)).toBe('/import-40/c1')
   })

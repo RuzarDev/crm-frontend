@@ -204,6 +204,8 @@ export interface Import40CustomsOffice {
 export interface Import40DeclarationDto {
   id: string
   caseId: string
+  /** Внешнеторговый контракт ДТ (17.10); null — как у заявки. */
+  foreignContractId?: string | null
   declarationNumber: string
   corridor: string
   procedureCode: string
@@ -574,6 +576,8 @@ export interface Import40CaseDto {
   updatedAtUtc: string
   clientId: string
   clientName: string
+  /** Внешнеторговый контракт заявки (17.10). */
+  foreignContractId?: string | null
   cargo: string
   post: string
   status: number

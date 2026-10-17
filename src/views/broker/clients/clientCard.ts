@@ -19,8 +19,8 @@ export const directorBasisOf = (p: Pick<ClientCardProfile, 'directorBasis' | 'up
   p.updatedAtUtc == null ? '—' : p.directorBasis || '—'
 
 // ---- Вкладки ----
-export type ClientCardTab = 'overview' | 'cases' | 'transit' | 'docs' | 'invoices'
-export const CLIENT_CARD_TABS: ClientCardTab[] = ['overview', 'cases', 'transit', 'docs', 'invoices']
+export type ClientCardTab = 'overview' | 'cases' | 'transit' | 'docs' | 'contracts' | 'invoices'
+export const CLIENT_CARD_TABS: ClientCardTab[] = ['overview', 'cases', 'transit', 'docs', 'contracts', 'invoices']
 
 /** Вкладки по правам: «Транзит» — reestr.read, «Счета» — finance.read. */
 export const availableTabs = (can: { reestr: boolean; finance: boolean }): ClientCardTab[] =>

@@ -221,6 +221,13 @@ const kase = computed(() => dt.activeCase.value)
 // Запрос таможни по этой ДТ (волна 17.10, задача 5): запросы этой ДТ и всей заявки, «Запрос таможни», «Напомнить клиенту».
 const customs = useCustomsRequests(() => caseId)
 // Условный выпуск (17.10) — из ДТ в составе заявки (обновляется при перечитывании); исходная ДТ разделения — без блока.
+// Внешнеторговый контракт ДТ (17.10): контракт заявки и свой контракт ДТ — из карточки заявки.
+const dtContract = computed(() => {
+  const k = kase.value
+  if (!k?.clientId) return null
+  const d = k.declarations.find((x) => x.id === dtId)
+  return { caseId, dtId, clientId: k.clientId, caseContractId: k.foreignContractId ?? null, dtContractId: d?.foreignContractId ?? null, canLink: canManage.value }
+})
 const condRelDt = computed(() => kase.value?.declarations.find((d) => d.id === dtId && !d.isSplitReplaced) ?? null)
 // КЕДЕН (17.10): снимок связи ДТ с журналом КЕДЕН — из карточки заявки (и у исходной ДТ разделения).
 const kedenOfDt = computed(() => kase.value?.declarations.find((d) => d.id === dtId)?.keden ?? null)
@@ -930,6 +937,7 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
                 v-else-if="active === 'docs'"
                 :form="form"
                 :readonly="!editable"
+                :contract="dtContract"
               />
               <!-- GET …/dts — только декларанту: раздел не рендерится вовсе (не просто скрыт). Данные — общий загрузчик. -->
               <SectionDts

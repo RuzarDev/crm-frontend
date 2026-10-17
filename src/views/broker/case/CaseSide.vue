@@ -7,6 +7,8 @@ import { referencesApi } from '@/api/references'
 import type { RefCodeItem } from '@/types/api'
 import { countryName } from '@/utils/countries'
 import { formatDay } from '@/views/broker/list'
+import { useAuthStore } from '@/stores/auth'
+import CaseContractBlock from '@/views/foreignContracts/CaseContractBlock.vue'
 import CaseTeam from './CaseTeam.vue'
 import CaseFilesDrawer from './CaseFilesDrawer.vue'
 import CaseHistoryDrawer from './CaseHistoryDrawer.vue'
@@ -47,6 +49,11 @@ const info = computed(() => {
   return rows
 })
 
+// Внешнеторговый контракт заявки (17.10): менять — сотрудник Импорта 40; ссылка — карточка контракта в карточке клиента.
+const auth = useAuthStore()
+const canImport = computed(() => auth.hasPermission('import40.read'))
+const contractHref = (id: string) => `/clients/${encodeURIComponent(props.kase.clientId)}/contracts/${encodeURIComponent(id)}`
+
 const fileCounts = computed(() => FILE_SECTIONS.map((key) => ({ key, n: props.files.filter((f) => sectionOf(f) === key).length })))
 const filesOpen = ref(false)
 const historyOpen = ref(false)
@@ -79,6 +86,8 @@ const link = 'ml-auto inline-flex min-h-8 cursor-pointer items-center rounded-fi
         </div>
       </dl>
     </section>
+
+    <CaseContractBlock :case-id="kase.id" :client-id="kase.clientId" :can-edit="canImport" :href="contractHref" />
 
     <section aria-labelledby="case-files-title" :class="panel" data-case-files>
       <div :class="head">

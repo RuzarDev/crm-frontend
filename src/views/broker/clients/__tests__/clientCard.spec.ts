@@ -34,10 +34,10 @@ describe('directorBasisOf', () => {
 
 describe('вкладки', () => {
   it('«Транзит» — по reestr.read, «Счета» — по finance.read', () => {
-    expect(availableTabs({ reestr: true, finance: true })).toEqual(['overview', 'cases', 'transit', 'docs', 'invoices'])
-    expect(availableTabs({ reestr: false, finance: true })).toEqual(['overview', 'cases', 'docs', 'invoices'])
-    expect(availableTabs({ reestr: true, finance: false })).toEqual(['overview', 'cases', 'transit', 'docs'])
-    expect(availableTabs({ reestr: false, finance: false })).toEqual(['overview', 'cases', 'docs'])
+    expect(availableTabs({ reestr: true, finance: true })).toEqual(['overview', 'cases', 'transit', 'docs', 'contracts', 'invoices'])
+    expect(availableTabs({ reestr: false, finance: true })).toEqual(['overview', 'cases', 'docs', 'contracts', 'invoices'])
+    expect(availableTabs({ reestr: true, finance: false })).toEqual(['overview', 'cases', 'transit', 'docs', 'contracts'])
+    expect(availableTabs({ reestr: false, finance: false })).toEqual(['overview', 'cases', 'docs', 'contracts'])
   })
   it('?tab=: известная и доступная вкладка; иначе «Обзор»', () => {
     const tabs = availableTabs({ reestr: false, finance: false })

@@ -8,12 +8,22 @@ import type { ZOption } from '@/ui/options'
 import DtGraphHelp from '../DtGraphHelp.vue'
 import type { DtFormState } from '../dtPayload'
 import PrevDocsTable from './PrevDocsTable.vue'
+import DtContractBlock from '@/views/foreignContracts/DtContractBlock.vue'
 
 // Документы: гр. 40 (общая декларация / предшествующий документ) и гр. 44 (дополнительная информация, представленные
 // документы). Оба списка правятся прямо в форме. Документ гр. 44 привязывается к товарам по номеру позиции; варианты —
 // «Товар N · код» (код ТН ВЭД, а пока его нет — описание). У гр. 40 «№ товара» — номер в предшествующем документе. Готовность раздела отмечает сервер
 // (нужен хотя бы один документ гр. 44), страница лишь показывает отметку.
-const props = defineProps<{ form: DtFormState; readonly: boolean }>()
+// contract — внешнеторговый контракт ДТ (17.10): выбор и «Заполнить из контракта» над гр.44; нет — блока нет.
+export interface DtContractContext {
+  caseId: string
+  dtId: string
+  clientId: string
+  caseContractId: string | null
+  dtContractId: string | null
+  canLink: boolean
+}
+const props = defineProps<{ form: DtFormState; readonly: boolean; contract?: DtContractContext | null }>()
 const { t } = useI18n()
 const td = (key: string, p?: Record<string, unknown>) => t(`broker.dt.docs.${key}`, p ?? {})
 
@@ -51,6 +61,17 @@ const addBtn = 'self-start max-sm:h-11'
         <span :class="graphTag">{{ t('broker.dt.nav.graphs', { list: '44' }) }}</span>
         <DtGraphHelp graph="44" />
       </h2>
+      <DtContractBlock
+        v-if="contract"
+        :doc44-items="form.doc44Items"
+        :case-id="contract.caseId"
+        :dt-id="contract.dtId"
+        :client-id="contract.clientId"
+        :case-contract-id="contract.caseContractId"
+        :dt-contract-id="contract.dtContractId"
+        :can-link="contract.canLink"
+        :readonly="readonly"
+      />
       <Doc44List ref="doc44" :items="form.doc44Items" :readonly="readonly" :goods-options="goodsOptions" />
       <ZButton v-if="!readonly" :class="addBtn" data-doc44-add @click="doc44?.add()">
         <template #icon><PhPlus :size="16" aria-hidden="true" /></template>
