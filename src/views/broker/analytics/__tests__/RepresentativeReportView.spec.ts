@@ -24,6 +24,7 @@ const counters = (n: number, released: number, pay: number, value: number) => ({
 const DATA = (): CustomsRepresentativeReport => ({
   from: '2026-07-01', to: '2026-09-30', organizationName: 'ТОО «AQNIET»', organizationBin: '990440001234', generatedAtUtc: '2026-10-17T05:00:00Z',
   totals: counters(3, 1, 3500, 9000),
+  cancelledExcluded: 2,
   authorities: [
     {
       code: '55300', name: '55300 — ДГД ПО ГОРОДУ АЛМАТЫ', ...counters(2, 1, 3000, 8000),
@@ -37,6 +38,8 @@ const DATA = (): CustomsRepresentativeReport => ({
     row({}),
     row({ declarationId: 'd2', caseId: 'c2', number: '', status: 'submitted', splitRole: 'VTO', dateSource: 'number', paymentsKzt: 2000 }),
     row({ declarationId: 'd3', dgdCode: null, postCode: null, dgdName: 'Орган не указан', postName: 'Орган не указан', status: 'cancelled' }),
+    row({ declarationId: 'd4', caseId: 'c4', postCode: '55302', number: '55302/200726/0000004', status: 'cancelled' }),
+    row({ declarationId: 'd5', dgdCode: null, postCode: null, number: '', status: 'submitted', dateSource: 'caseSubmitted', date: '2026-07-20' }),
   ],
 })
 
@@ -118,13 +121,39 @@ describe('«Отчёт представителя»', () => {
     expect(w.find('[data-rep-post-rows]').exists()).toBe(false)
   })
 
-  it('без import40.read номер ДТ — текстом, без ссылки', async () => {
+  it('без import40.read номер ДТ — текстом, без ссылки; дата без номера — с подсказкой', async () => {
     useAuthStore().permissions = ['analytics.read']
     await mountView()
     await w.findAll('[data-rep-post-toggle]')[1].trigger('click')
     const dt = w.get('[data-rep-post-rows]').get('[data-rep-dt]')
     expect(dt.find('[data-rep-dt-link]').exists()).toBe(false)
-    expect(dt.get('[data-rep-dt-status]').text()).toBe('Заявка отменена')
+    expect(dt.text()).toContain('20.07.2026')
+    expect(dt.find('[title="Номера ДТ нет — дата перехода заявки в «ДТ подана»"]').exists()).toBe(true)
+  })
+
+  it('отменённые заявки: в посте их нет, сноска с числом раскрывается списком', async () => {
+    await mountView()
+    await w.findAll('[data-rep-post-toggle]')[0].trigger('click')
+    expect(w.get('[data-rep-post-rows]').findAll('[data-rep-dt]')).toHaveLength(2) // d4 (отменена) не показан
+    const toggle = w.get('[data-rep-cancelled-toggle]')
+    expect(toggle.text()).toBe('ДТ отменённых заявок не учтены: 2')
+    expect(w.find('[data-rep-cancelled-dt]').exists()).toBe(false)
+    await toggle.trigger('click')
+    const rows = w.findAll('[data-rep-cancelled-dt]')
+    expect(rows).toHaveLength(2)
+    expect(rows[1].text()).toContain('55302/200726/0000004')
+    expect(rows[1].text()).toContain('Заявка отменена')
+  })
+
+  it('ошибка загрузки нового периода — данные прежнего периода не остаются', async () => {
+    await mountView()
+    expect(w.findAll('[data-rep-authority]').length).toBeGreaterThan(0)
+    api.report.mockRejectedValueOnce(new Error('400'))
+    await w.findAll('[data-rep-quarter]')[0].trigger('click')
+    await flushPromises()
+    expect(w.find('[data-rep-error]').exists()).toBe(true)
+    expect(w.find('[data-rep-authority]').exists()).toBe(false)
+    expect(w.find('[data-rep-summary]').exists()).toBe(false)
   })
 
   it('«Скачать Excel» — за выбранный период, имя файла с периодом', async () => {
@@ -136,7 +165,7 @@ describe('«Отчёт представителя»', () => {
   })
 
   it('пустой период и не заполненные реквизиты', async () => {
-    api.report.mockResolvedValue({ ...DATA(), organizationName: '', organizationBin: '', totals: { ...counters(0, 0, 0, 0), procedures: [] }, authorities: [], declarations: [] })
+    api.report.mockResolvedValue({ ...DATA(), organizationName: '', organizationBin: '', totals: { ...counters(0, 0, 0, 0), procedures: [] }, authorities: [], declarations: [], cancelledExcluded: 0 })
     await mountView()
     expect(w.get('[data-rep-empty]').text()).toContain('За период поданных ДТ нет')
     expect(w.get('[data-rep-org]').text()).toContain('Реквизиты организации не заполнены')

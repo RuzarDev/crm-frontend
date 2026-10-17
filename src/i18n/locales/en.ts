@@ -3287,7 +3287,7 @@ export default {
       quarter: 'Q{q} {year}',
       custom: 'Custom period',
       orgLine: '{org}, BIN {bin} · {period}',
-      orgMissing: 'Organization details are not filled in — the Excel file will have no header.',
+      orgMissing: 'Organization details are not filled in — the Excel header will say “Organization not specified”.',
       orgLink: 'Fill in',
       stat: { declarations: 'Declarations filed', released: 'Of them released', customsValue: 'Customs value', payments: 'Customs payments' },
       summaryTitle: 'Summary by authority',
@@ -3297,9 +3297,11 @@ export default {
       noAuthority: 'Authority not specified',
       noNumber: 'no number',
       dateFromNumber: 'Filing date is empty — taken from the declaration number',
+      dateFromCase: 'No declaration number — date the request moved to “Declaration filed”',
+      cancelledNote: 'Declarations of cancelled requests not counted: {n}',
       status: { released: 'Released', submitted: 'Filed', cancelled: 'Request cancelled' },
       split: { ett: 'CCT', vto: 'WTO' },
-      note: 'Counts filed declarations (with a registration number, or whose request is at “Declaration filed” or later). Date is the filing date, otherwise taken from the number. A split CCT/WTO source declaration is not counted while its parts exist. Payments are from box B, otherwise box 47.',
+      note: 'Counts filed declarations: with a registration number, or whose request is at “Declaration filed” or later. Date is the filing date (numbered) or the date the request moved to “Declaration filed” (no number). “Released” follows the request step. A split CCT/WTO source declaration is not counted while its parts exist; declarations of cancelled requests are left out of the summary. Payments are from box B (in tenge), otherwise box 47.',
     },
     // Staff request card (redesign, wave 4a).
     case: {

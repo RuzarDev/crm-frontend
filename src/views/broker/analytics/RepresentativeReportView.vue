@@ -18,7 +18,7 @@ import { saveBlob } from '@/ui/download'
 import { formatAmount, formatMoney } from '@/ui/number'
 import {
   defaultPeriod, matchingQuarter, periodText, postKey, proceduresText, quarterKey, quarterPeriod, quickQuarters,
-  romanQuarter, rowsOfPost, xlsxFileName, type Period, type Quarter,
+  romanQuarter, rowsOfPost, cancelledRows, xlsxFileName, type Period, type Quarter,
 } from './representativeReport'
 
 // «Отчёт представителя» (17.10): сколько ДТ подано за период в каждый таможенный орган — ДГД → пост, выпущено, процедуры,
@@ -43,6 +43,9 @@ const setPeriod = (p: Period) => {
   if (p.from === period.value.from && p.to === period.value.to) return
   period.value = p
   expanded.clear()
+  showCancelled.value = false
+  // Данные прежнего периода не показываем под новым: при ошибке загрузки видна ошибка, а не чужие цифры.
+  report.reset()
   void report.load()
 }
 const pickQuarter = (q: Quarter) => setPeriod(quarterPeriod(q))
@@ -67,11 +70,15 @@ const stats = computed<StatItem[]>(() => {
 const expanded = reactive(new Set<string>())
 const toggle = (key: string) => (expanded.has(key) ? expanded.delete(key) : expanded.add(key))
 const postRows = (dgd: string | null, post: string | null): RepDeclarationRow[] => rowsOfPost(report.data?.declarations ?? [], dgd, post)
+const showCancelled = ref(false)
+const cancelled = computed(() => cancelledRows(report.data?.declarations ?? []))
 const authorityName = (code: string | null, name: string) => (code ? name : t('broker.repReport.noAuthority'))
 
 const STATUS_TONE: Record<string, 'done' | 'submitted' | 'neutral'> = { released: 'done', submitted: 'submitted', cancelled: 'neutral' }
 const statusTone = (s: string) => STATUS_TONE[s] ?? 'neutral'
 const statusLabel = (s: string) => (s in STATUS_TONE ? t(`broker.repReport.status.${s}`) : s)
+const dateHint = (r: RepDeclarationRow) =>
+  r.dateSource === 'number' ? t('broker.repReport.dateFromNumber') : r.dateSource === 'caseSubmitted' ? t('broker.repReport.dateFromCase') : undefined
 const procedureLabel = (r: RepDeclarationRow) =>
   r.splitRole === 'ETT' ? `${r.procedure} · ${t('broker.repReport.split.ett')}` : r.splitRole === 'VTO' ? `${r.procedure} · ${t('broker.repReport.split.vto')}` : r.procedure
 
@@ -225,7 +232,7 @@ const num = 'px-3 py-2.5 text-right tabular-nums whitespace-nowrap'
                           >{{ r.number || t('broker.repReport.noNumber') }}</RouterLink>
                           <template v-else>{{ r.number || t('broker.repReport.noNumber') }}</template>
                         </span>
-                        <span class="text-ink-2 tabular-nums" :title="r.dateSource === 'number' ? t('broker.repReport.dateFromNumber') : undefined">{{ formatDateText(r.date) }}</span>
+                        <span class="text-ink-2 tabular-nums" :title="dateHint(r)">{{ formatDateText(r.date) }}</span>
                         <span class="min-w-0 truncate text-ink-2" :title="r.clientName">
                           {{ r.clientName || '—' }}<span v-if="r.clientBin" class="text-muted"> · {{ r.clientBin }}</span>
                           <span class="text-muted"> · {{ procedureLabel(r) }}</span>
@@ -250,6 +257,41 @@ const num = 'px-3 py-2.5 text-right tabular-nums whitespace-nowrap'
             </tfoot>
           </table>
         </div>
+      </section>
+      <section v-if="report.data && report.data.cancelledExcluded > 0" :class="[panel, 'px-5 py-3']" data-rep-cancelled>
+        <button
+          type="button"
+          class="inline-flex min-h-9 items-center gap-1.5 rounded-field text-left text-sm text-ink-2 outline-hidden hover:text-zircon-ink focus-visible:shadow-focus max-sm:min-h-11"
+          :aria-expanded="showCancelled ? 'true' : 'false'"
+          aria-controls="rep-cancelled-rows"
+          data-rep-cancelled-toggle
+          @click="showCancelled = !showCancelled"
+        >
+          <PhCaretRight
+            :size="13"
+            aria-hidden="true"
+            :class="cn('shrink-0 text-muted transition-transform duration-150 motion-reduce:transition-none', showCancelled && 'rotate-90')"
+          />
+          {{ t('broker.repReport.cancelledNote', { n: report.data.cancelledExcluded }) }}
+        </button>
+        <ul v-if="showCancelled" id="rep-cancelled-rows" class="m-0 mt-1 list-none p-0 pl-5">
+          <li
+            v-for="r in cancelled"
+            :key="r.declarationId"
+            class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-t border-line py-2 text-[13px]"
+            data-rep-cancelled-dt
+          >
+            <RouterLink
+              v-if="canOpenCase"
+              :to="`/import-40/${r.caseId}`"
+              class="rounded-field font-medium text-ink tabular-nums no-underline outline-hidden hover:underline focus-visible:shadow-focus"
+            >{{ r.number || t('broker.repReport.noNumber') }}</RouterLink>
+            <span v-else class="font-medium text-ink tabular-nums">{{ r.number || t('broker.repReport.noNumber') }}</span>
+            <span class="text-ink-2 tabular-nums" :title="dateHint(r)">{{ formatDateText(r.date) }}</span>
+            <span class="min-w-0 text-ink-2">{{ r.clientName || '—' }} · {{ authorityName(r.postCode, r.postName) }}</span>
+            <ZTag size="sm" tone="neutral">{{ statusLabel(r.status) }}</ZTag>
+          </li>
+        </ul>
       </section>
       <p class="m-0 text-[12.5px] text-muted">{{ t('broker.repReport.note') }}</p>
     </template>

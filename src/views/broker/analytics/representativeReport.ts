@@ -46,8 +46,11 @@ export const xlsxFileName = (prefix: string, p: Period): string => `${prefix} ${
 /** «ИМ 40: 12 · ЭК 10: 1». */
 export const proceduresText = (list: RepProcedureCount[]): string => list.map((p) => `${p.procedure}: ${p.count}`).join(' · ')
 
-/** ДТ поста: по коду органа (null — «Орган не указан»). */
+/** ДТ поста в сводке: по коду органа (null — «Орган не указан»), без отменённых заявок — их в сводке нет. */
 export const rowsOfPost = (rows: RepDeclarationRow[], dgdCode: string | null, postCode: string | null): RepDeclarationRow[] =>
-  rows.filter((r) => r.dgdCode === dgdCode && r.postCode === postCode)
+  rows.filter((r) => r.status !== 'cancelled' && r.dgdCode === dgdCode && r.postCode === postCode)
+
+/** ДТ отменённых заявок — отдельным списком под сводкой. */
+export const cancelledRows = (rows: RepDeclarationRow[]): RepDeclarationRow[] => rows.filter((r) => r.status === 'cancelled')
 
 export const postKey = (dgdCode: string | null, postCode: string | null): string => `${dgdCode ?? '-'}_${postCode ?? '-'}`

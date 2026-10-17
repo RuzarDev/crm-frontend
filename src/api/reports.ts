@@ -1,7 +1,7 @@
 import apiClient from './client'
 
 // Отчёт таможенного представителя (право analytics.read), см. сервер Features/Reports/CustomsRepresentativeReport.cs.
-// Code органа = null — «Орган не указан» (в ДТ нет органа подачи и номера).
+// Code органа = null — «Орган не указан» (в ДТ нет органа подачи и номера). Сводка и итоги — без отменённых заявок.
 export interface RepProcedureCount { procedure: string; count: number }
 export interface RepCounters {
   declarations: number
@@ -19,7 +19,8 @@ export interface RepDeclarationRow {
   caseNumber: string
   number: string
   date: string
-  dateSource: 'submission' | 'number'
+  /** submission — дата подачи; number — из номера ДТ; caseSubmitted — номера нет, дата перехода заявки в «ДТ подана». */
+  dateSource: 'submission' | 'number' | 'caseSubmitted'
   clientId: string
   clientName: string
   clientBin: string | null
@@ -41,7 +42,10 @@ export interface CustomsRepresentativeReport {
   generatedAtUtc: string
   totals: RepCounters
   authorities: RepAuthority[]
+  /** Перечень: все ДТ периода, включая ДТ отменённых заявок (status = cancelled). */
   declarations: RepDeclarationRow[]
+  /** ДТ отменённых заявок: в перечне есть, в сводку и итоги не входят. */
+  cancelledExcluded: number
 }
 
 const base = '/reports/customs-representative'

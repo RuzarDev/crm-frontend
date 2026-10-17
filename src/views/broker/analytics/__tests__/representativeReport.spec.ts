@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  defaultPeriod, matchingQuarter, periodText, postKey, proceduresText, quarterPeriod, quickQuarters, rowsOfPost, shiftQuarter, xlsxFileName,
+  cancelledRows, defaultPeriod, matchingQuarter, periodText, postKey, proceduresText, quarterPeriod, quickQuarters, rowsOfPost, shiftQuarter, xlsxFileName,
 } from '../representativeReport'
 import type { RepDeclarationRow } from '@/api/reports'
 
@@ -34,11 +34,14 @@ describe('отчёт представителя: кварталы и подпи�
     expect(proceduresText([])).toBe('')
   })
 
-  it('ДТ поста — по паре ДГД/пост, «Орган не указан» — по null', () => {
-    const r = (id: string, dgdCode: string | null, postCode: string | null) => ({ declarationId: id, dgdCode, postCode }) as RepDeclarationRow
+  it('ДТ поста — по паре ДГД/пост, «Орган не указан» — по null, без отменённых', () => {
+    const r = (id: string, dgdCode: string | null, postCode: string | null) => ({ declarationId: id, dgdCode, postCode, status: 'submitted' }) as RepDeclarationRow
     const rows = [r('a', '55300', '55302'), r('b', '55300', '55301'), r('c', null, null)]
     expect(rowsOfPost(rows, '55300', '55302').map((x) => x.declarationId)).toEqual(['a'])
     expect(rowsOfPost(rows, null, null).map((x) => x.declarationId)).toEqual(['c'])
+    const withCancelled = [...rows, { ...r('d', '55300', '55302'), status: 'cancelled' } as RepDeclarationRow]
+    expect(rowsOfPost(withCancelled, '55300', '55302').map((x) => x.declarationId)).toEqual(['a'])
+    expect(cancelledRows(withCancelled).map((x) => x.declarationId)).toEqual(['d'])
     expect(postKey(null, null)).toBe('-_-')
     expect(postKey('55300', '55302')).toBe('55300_55302')
   })
