@@ -24,6 +24,7 @@ import {
 } from '@/views/home/clientHome'
 import { askFor, askHref, segments, shipmentHref, shipmentTag } from '@/views/client/shipment'
 import { useShipmentText } from '@/views/client/useShipmentText'
+import { condRelLabel } from '@/utils/conditionalRelease'
 import { greetingKey } from '@/views/home/greeting'
 import { useBlock } from '@/views/home/useBlock'
 
@@ -149,9 +150,9 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
             <div :id="askRowId(i)" class="min-w-0 flex-1">
               <!-- На телефоне суть — своей строкой под номером, а не обрезается рядом с кнопкой. -->
               <p class="m-0 truncate text-sm text-ink max-sm:whitespace-normal">
-                <span class="font-mono font-medium">{{ a.number }}</span><span class="max-sm:hidden"> · </span><span class="font-medium max-sm:block">{{ t(`client.ask.${askFor(a)}.title`) }}</span>
+                <span class="font-mono font-medium">{{ a.number }}</span><span class="max-sm:hidden"> · </span><span class="font-medium max-sm:block">{{ askFor(a) ? t(`client.ask.${askFor(a)}.title`) : t('condRel.client.title') }}</span>
               </p>
-              <p class="m-0 truncate text-sm text-ink-3">{{ text.askText(a) }}</p>
+              <p class="m-0 truncate text-sm text-ink-3">{{ askFor(a) || !a.conditionalRelease ? text.askText(a) : condRelLabel(a.conditionalRelease, t) }}</p>
             </div>
             <RouterLink
               :to="askHref(a)"

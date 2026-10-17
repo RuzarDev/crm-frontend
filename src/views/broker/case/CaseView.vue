@@ -11,6 +11,7 @@ import { cn } from '@/ui/cn'
 import CaseActionModals from './CaseActionModals.vue'
 import CaseBanners from './CaseBanners.vue'
 import CaseCustomsRequests from './CaseCustomsRequests.vue'
+import CaseCondRelBanner from './CaseCondRelBanner.vue'
 import CaseHeader from './CaseHeader.vue'
 import CaseReworkPanel from './CaseReworkPanel.vue'
 import CaseSide from './CaseSide.vue'
@@ -151,6 +152,7 @@ const panel = 'rounded-panel border border-line bg-surface'
       <CaseHeader :kase="kase" :perms="perms" @ask="actions.ask" />
       <CaseStepper :steps="steps" :status="kase.status" :alerts="stepAlerts" />
       <CaseBanners :kase="kase" :perms="perms" :actions="actions" />
+      <CaseCondRelBanner :kase="kase" />
       <CaseReworkPanel :kase="kase" :perms="perms" :actions="actions" />
       <CaseCustomsRequests
         :case-id="kase.id"
