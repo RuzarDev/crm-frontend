@@ -6649,6 +6649,28 @@ export default {
       state: { none: 'No contract', draft: 'Draft', awaiting: 'Awaiting signature', active: 'In force', expired: 'Expired', revoked: 'Revoked' },
     },
   },
+  // Shipment document cross-check (17.10).
+  docCheck: {
+    title: 'Document cross-check: {n} discrepancies',
+    allGood: 'Document cross-check: no discrepancies',
+    noDiscrepancies: 'The documents match each other, the request and the declaration.',
+    forDt: 'Declaration {n}',
+    forDtNoNumber: 'Declaration without a number',
+    noDt: 'Not linked to a declaration',
+    contract: 'Contract {n}',
+    invoice: 'Invoice {n}',
+    transport: 'Transport {n}',
+    item: 'line {n}',
+    scope: { documents: 'Between documents', case: 'Documents vs request', declaration: 'Documents vs declaration' },
+    source: { case: 'Request', dt: 'Declaration {n}', documents: 'Documents', document: 'Document' },
+    field: {
+      contract: 'Contract number', invoice: 'Invoice number', invoiceDate: 'Invoice date', transport: 'Transport',
+      transportDoc: 'Transport document', tractor: 'Truck plate', trailer: 'Trailer plate', sender: 'Consignor',
+      receiver: 'Consignee', currency: 'Currency', incoterms: 'Delivery terms', origin: 'Country of origin',
+      destination: 'Destination', quantity: 'Quantity', packages: 'Packages', gross: 'Gross weight, kg',
+      net: 'Net weight, kg', value: 'Value',
+    },
+  },
   customsRequest: {
     title: 'Customs requests',
     create: 'Customs request',

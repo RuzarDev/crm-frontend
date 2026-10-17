@@ -6648,6 +6648,28 @@ export default {
       state: { none: 'Шарт жоқ', draft: 'Жоба', awaiting: 'Қолтаңба күтуде', active: 'Күшінде', expired: 'Мерзімі өтті', revoked: 'Кері қайтарылды' },
     },
   },
+  // Жеткізілім құжаттарын салыстыру (17.10).
+  docCheck: {
+    title: 'Құжаттарды салыстыру: айырмашылық — {n}',
+    allGood: 'Құжаттарды салыстыру: айырмашылық жоқ',
+    noDiscrepancies: 'Құжаттар өзара, өтініммен және ДТ-мен сәйкес келеді.',
+    forDt: 'ДТ {n}',
+    forDtNoNumber: 'Нөмірсіз ДТ',
+    noDt: 'ДТ-сыз талдау',
+    contract: 'Келісімшарт {n}',
+    invoice: 'Инвойс {n}',
+    transport: 'Көлік {n}',
+    item: '{n}-жол',
+    scope: { documents: 'Құжаттар өзара', case: 'Құжаттар мен өтінім', declaration: 'Құжаттар мен ДТ' },
+    source: { case: 'Өтінім', dt: 'ДТ {n}', documents: 'Құжаттар', document: 'Құжат' },
+    field: {
+      contract: 'Келісімшарт нөмірі', invoice: 'Инвойс нөмірі', invoiceDate: 'Инвойс күні', transport: 'Көлік',
+      transportDoc: 'Көлік құжаты', tractor: 'Тартқыш нөмірі', trailer: 'Тіркеме нөмірі', sender: 'Жіберуші',
+      receiver: 'Алушы', currency: 'Валюта', incoterms: 'Жеткізу шарттары', origin: 'Шығарылған елі',
+      destination: 'Баратын пункт', quantity: 'Саны', packages: 'Орындар', gross: 'Брутто салмағы, кг',
+      net: 'Нетто салмағы, кг', value: 'Құны',
+    },
+  },
   customsRequest: {
     title: 'Кеден сұраулары',
     create: 'Кеден сұрауы',

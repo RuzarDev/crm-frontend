@@ -24,6 +24,7 @@ const reworkApiMock = vi.hoisted(() => ({ list: vi.fn(async () => ({ comment: nu
 vi.mock('@/api/import40Rework', async (orig) => ({ ...(await orig<typeof import('@/api/import40Rework')>()), reworkApi: reworkApiMock }))
 const customs = vi.hoisted(() => ({ list: vi.fn(async () => [] as unknown[]), create: vi.fn(), answer: vi.fn(), close: vi.fn(), remindClient: vi.fn() }))
 vi.mock('@/api/customsRequests', () => ({ customsRequestsApi: customs }))
+vi.mock('@/api/documentChecks', () => ({ documentChecksApi: { list: vi.fn().mockResolvedValue([]), link: vi.fn() } }))
 
 import CaseView from '../CaseView.vue'
 

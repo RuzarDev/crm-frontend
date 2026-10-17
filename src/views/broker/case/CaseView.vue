@@ -11,6 +11,7 @@ import { cn } from '@/ui/cn'
 import CaseActionModals from './CaseActionModals.vue'
 import CaseBanners from './CaseBanners.vue'
 import CaseCustomsRequests from './CaseCustomsRequests.vue'
+import CaseDocumentCheck from './CaseDocumentCheck.vue'
 import CaseCondRelBanner from './CaseCondRelBanner.vue'
 import CaseHeader from './CaseHeader.vue'
 import CaseReworkPanel from './CaseReworkPanel.vue'
@@ -159,6 +160,8 @@ const panel = 'rounded-panel border border-line bg-surface'
         :can-remind="canRemindClient(auth)"
         @changed="onCustomsChanged"
       />
+      <!-- Сверка документов (17.10): расхождения инвойса, упаковочного листа, контракта и CMR между собой, с заявкой и ДТ. -->
+      <CaseDocumentCheck :case-id="kase.id" :stamp="kase.updatedAtUtc" />
 
       <div class="flex flex-wrap items-start gap-[18px]">
         <div class="flex min-w-0 flex-[999_1_480px] flex-col gap-4" data-case-main>
