@@ -16,6 +16,8 @@ const refs = vi.hoisted(() => ({ listCountries: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
 vi.mock('@/api/manage', () => ({ manageApi: manage }))
+const stagesMock = vi.hoisted(() => ({ caseStages: vi.fn() }))
+vi.mock('@/api/stages', () => ({ stagesApi: stagesMock }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 const reworkApiMock = vi.hoisted(() => ({ list: vi.fn(async () => ({ comment: null, items: [] })), suggestions: vi.fn(async () => ({ codes: [], items: [] })) }))
@@ -80,6 +82,7 @@ beforeEach(() => {
     ],
   })
   api.get.mockImplementation(async () => server.kase)
+  stagesMock.caseStages.mockRejectedValue(new Error('no stages'))
   api.listFiles.mockImplementation(async () => server.files)
   api.listBrokerInvoices.mockResolvedValue([])
   api.kedenReadinessSummary.mockResolvedValue([])
@@ -136,13 +139,17 @@ describe('CaseView: шапка и шаги', () => {
 
   it('статус 3: шаги 1–2 пройдены со сводкой, 3 — текущий, панель шага и «Пройденные шаги» с раскрытием', async () => {
     await mountCard(USERS.declarant, { status: 3 }, [fileDto(), fileDto({ id: 'f2' })])
-    const states = w.findAll('[data-case-stepper] li').map((li) => li.attributes('data-state'))
+    const states = w.findAll('[data-case-stepper] li[data-step]').map((li) => li.attributes('data-state'))
     expect(states).toEqual(['done', 'done', 'current', 'future', 'future', 'future'])
-    expect(w.get('[data-case-stepper] li[data-step="1"] [data-step-sub]').text()).toBe('2 файла')
-    expect(w.get('[data-case-stepper] li[data-step="3"] [data-step-sub]').text()).toBe('сейчас · декларант')
-    expect(w.get('[data-case-stepper] li[data-step="4"] [data-step-sub]').text()).toBe('КПП')
+    // Итоги по макету 17.10: без хронометража (запрос этапов не удался) — по статусу и файлам.
+    expect(w.get('[data-case-stepper] li[data-step="1"] [data-step-sub]').text()).toBe('Документы приняты')
+    expect(w.get('[data-case-stepper] li[data-step="1"] [data-step-note]').text()).toBe('2 файла')
+    expect(w.get('[data-case-stepper] li[data-step="3"] [data-step-sub]').text()).toBe('ДТ подана')
+    expect(w.get('[data-case-stepper] li[data-step="4"] [data-step-sub]').text()).toBe('Ждёт выпуска')
+    expect(w.get('[data-case-stepper] li[data-step="4"] [data-step-who]').text()).toBe('КПП')
+    expect(w.get('[data-case-stepper] li[data-step="5"] [data-stage-parallel]').text()).toBe('Параллельно')
     expect(w.get('[data-case-step-panel="3"]').text()).toContain('Декларирование и выпуск')
-    expect(w.get('[data-case-stepper-phone]').text()).toContain('Шаг 3 из 6 · Декларирование и выпуск')
+    expect(w.get('[data-case-stepper] [data-stage-aside]').text()).toBe('Шаг 3 из 6')
 
     const passed = w.findAll('[data-passed-step]')
     expect(passed.map((p) => p.attributes('data-passed-step'))).toEqual(['1', '2'])
@@ -153,9 +160,44 @@ describe('CaseView: шапка и шаги', () => {
     expect(passed[1].get('[data-passed-body]').text()).toContain('Авто · 777 KTA 02')
   })
 
+  it('хронометраж: «на шаге · норма» с полосой, просрочка, ответственный; нажатие на шаг — история с ФИО', async () => {
+    const ev = (kind: string, atUtc: string, step: number, userName: string | null = null, note = '') =>
+      ({ id: `${kind}-${atUtc}`, kind, atUtc, step, declarationId: null, userName, note })
+    const st = (n: number, o: Record<string, unknown> = {}) => ({
+      step: n, state: 'future', responsibleRole: 'kpp', responsibleId: null, responsibleName: null, startedAtUtc: null, endedAtUtc: null,
+      elapsedMinutes: null, spentMinutes: null, normMinutes: null, overdue: false, inRework: false, history: [], ...o,
+    })
+    stagesMock.caseStages.mockResolvedValue({
+      status: 2, currentStep: 3, nowUtc: '2026-10-16T12:00:00Z',
+      steps: [
+        st(1, { state: 'done', history: [ev('submitted', '2026-10-14T06:05:00Z', 1)] }),
+        st(2, { state: 'done', responsibleName: 'Ерлан Б.', spentMinutes: 70, history: [ev('taken', '2026-10-14T07:00:00Z', 2, 'Ерлан Б.'), ev('borderPassed', '2026-10-15T09:20:00Z', 2, 'Ерлан Б.')] }),
+        st(3, { state: 'current', responsibleName: 'Айгерим К.', elapsedMinutes: 300, normMinutes: 240, overdue: true }),
+        st(4, { normMinutes: 1440 }), st(5), st(6),
+      ],
+    })
+    await mountCard(USERS.declarant, { status: 2 })
+    expect(stagesMock.caseStages).toHaveBeenCalledWith('c1', { silent: true })
+    const s3 = w.get('[data-case-stepper] li[data-step="3"]')
+    expect(s3.get('[data-step-timing]').text()).toContain('5 ч · просрочено')
+    expect(s3.get('[data-step-timing]').text()).toContain('норма 4 ч')
+    expect(s3.get('[data-step-who]').text()).toContain('Айгерим К.')
+    expect(w.get('[data-case-stepper] li[data-step="2"] [data-step-who]').text()).toContain('Ерлан Б. · 1 ч 10 мин')
+    expect(w.get('[data-case-stepper] li[data-step="4"] [data-step-meta], [data-case-stepper] li[data-step="4"] [data-step-who]').text()).toContain('норма 1 д')
+    // По умолчанию открыта история текущего шага; нажатие на шаг 2 — его события с ФИО.
+    expect(w.get('[data-stage-detail]').attributes('data-detail-step')).toBe('3')
+    await w.get('[data-case-stepper] li[data-step="2"] button[data-stage-card]').trigger('click')
+    const detail = w.get('[data-stage-detail]')
+    expect(detail.attributes('data-detail-step')).toBe('2')
+    const rows = detail.findAll('[data-history-event]')
+    expect(rows.map((r) => r.attributes('data-kind'))).toEqual(['borderPassed', 'taken'])
+    expect(rows[0]!.text()).toContain('Граница пройдена')
+    expect(rows[0]!.text()).toContain('Ерлан Б.')
+  })
+
   it('отменённая: все шаги будущие, тег «Отменена», причина, без панели шага', async () => {
     await mountCard(USERS.admin, { status: 9, cancelReason: 'Клиент передумал' })
-    expect(w.findAll('[data-case-stepper] li').every((li) => li.attributes('data-state') === 'future')).toBe(true)
+    expect(w.findAll('[data-case-stepper] li[data-step]').every((li) => li.attributes('data-state') === 'future')).toBe(true)
     expect(w.get('[data-case-stepper-tag]').text()).toBe('Отменена')
     expect(w.get('[data-case-banner="cancelled"]').text()).toContain('Клиент передумал')
     expect(w.find('[data-case-step-panel]').exists()).toBe(false)
@@ -164,7 +206,7 @@ describe('CaseView: шапка и шаги', () => {
 
   it('выполненная: все шесть пройдены, тег «Выполнено»', async () => {
     await mountCard(USERS.admin, { status: 8 })
-    expect(w.findAll('[data-case-stepper] li').every((li) => li.attributes('data-state') === 'done')).toBe(true)
+    expect(w.findAll('[data-case-stepper] li[data-step]').every((li) => li.attributes('data-state') === 'done')).toBe(true)
     expect(w.get('[data-case-stepper-tag]').text()).toBe('Выполнено')
     expect(w.findAll('[data-passed-step]')).toHaveLength(6)
   })

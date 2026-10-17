@@ -33,7 +33,7 @@ describe('buildBrokerNav', () => {
       'finance:financeOverview,billing',
       'analytics:analytics,representativeReport',
       'references:tnvedTree,currencies,npa,timeline,eecUpdates,dtGuide,systemData',
-      'settings:team,roles,organization,audit,system',
+      'settings:team,roles,organization,stageNorms,audit,system',
     ])
   })
 
@@ -92,7 +92,7 @@ describe('раздел «Настройки»: вкладки по правам'
   it('адреса вкладок и порядок', () => {
     expect(settings({ role: 'administrator' })).toEqual([
       'team=/settings/team', 'roles=/settings/roles', 'organization=/settings/organization',
-      'audit=/settings/audit', 'system=/settings/system',
+      'stageNorms=/settings/stage-norms', 'audit=/settings/audit', 'system=/settings/system',
     ])
   })
   it('команда и роли — users.read; организация — finance.read | finance.write | users.write; система — endpoints.read', () => {
@@ -101,6 +101,7 @@ describe('раздел «Настройки»: вкладки по правам'
     expect(settings({ perms: ['finance.read'] })).toEqual(['organization=/settings/organization'])
     expect(settings({ perms: ['finance.write'] })).toEqual(['organization=/settings/organization'])
     expect(settings({ perms: ['endpoints.read'] })).toEqual(['system=/settings/system'])
+    expect(settings({ perms: ['import40.assign'] })).toEqual(['stageNorms=/settings/stage-norms'])
   })
   it('журнал — только администратор; без единой вкладки раздел скрыт', () => {
     expect(settings({ perms: ['users.read', 'users.write', 'endpoints.read', 'roles.manage'] })?.some((x) => x.startsWith('audit'))).toBe(false)
@@ -221,6 +222,7 @@ describe('resolveActive', () => {
     for (const [path, page] of [
       ['/settings/team', 'team'], ['/settings/team/42', 'team'], ['/settings/roles', 'roles'],
       ['/settings/organization', 'organization'], ['/settings/audit', 'audit'], ['/settings/system', 'system'],
+      ['/settings/stage-norms', 'stageNorms'],
     ] as const) {
       const r = resolveActive(admin, path)
       expect(r?.section.key, path).toBe('settings')

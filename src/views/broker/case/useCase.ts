@@ -1,5 +1,6 @@
 import { getCurrentScope, onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue'
 import { import40Api, type Import40CaseDto, type Import40CaseInvoiceDto, type Import40FileDto } from '@/api/import40'
+import { stagesApi, type CaseStages } from '@/api/stages'
 import type { DeclarationReadiness } from '@/types/api'
 
 /** Не чаще раза в 30 с: возврат на вкладку перечитывает карточку (оплату отметили в «Счетах», файл добавил коллега). */
@@ -17,6 +18,7 @@ interface Loaded {
   files: Import40FileDto[]
   invoices: Import40CaseInvoiceDto[]
   readiness: DeclarationReadiness[] | null
+  stages: CaseStages | null
 }
 
 const statusOf = (e: unknown): number | undefined => (e as { response?: { status?: number } })?.response?.status
@@ -38,21 +40,24 @@ export function useCase(id: Ref<string>, opts: UseCaseOptions) {
   const files = shallowRef<Import40FileDto[]>([])
   const invoices = shallowRef<Import40CaseInvoiceDto[]>([])
   const readiness = shallowRef<DeclarationReadiness[] | null>(null)
+  // Хронометраж этапов (17.10): ошибка — null, карточка рисует шаги только по статусу.
+  const stages = shallowRef<CaseStages | null>(null)
   const refreshing = ref(false)
   let seq = 0
   let loadedAt = Date.now()
 
   const fetchAll = async (caseId: string, quiet: boolean): Promise<Loaded> => {
     const silent = quiet ? { silent: true } : undefined
-    const [k, f, inv, rd] = await Promise.all([
+    const [k, f, inv, rd, st] = await Promise.all([
       import40Api.get(caseId, silent),
       import40Api.listFiles(caseId, silent),
       import40Api.listBrokerInvoices(caseId, { silent: true }).catch(() => [] as Import40CaseInvoiceDto[]),
       opts.readiness()
         ? import40Api.kedenReadinessSummary(caseId, { silent: true }).catch(() => null)
         : Promise.resolve(null),
+      Promise.resolve().then(() => stagesApi.caseStages(caseId, { silent: true })).catch(() => null),
     ])
-    return { kase: k, files: f, invoices: inv, readiness: rd }
+    return { kase: k, files: f, invoices: inv, readiness: rd, stages: st ?? null }
   }
 
   const apply = (d: Loaded) => {
@@ -60,6 +65,7 @@ export function useCase(id: Ref<string>, opts: UseCaseOptions) {
     files.value = d.files
     invoices.value = d.invoices
     readiness.value = d.readiness
+    stages.value = d.stages
   }
 
   /** Первый показ: сброс прежних данных и скелетон. Пустой :id (уход с карточки) — без запросов, прежний ответ отбрасывается. */
@@ -74,6 +80,7 @@ export function useCase(id: Ref<string>, opts: UseCaseOptions) {
     files.value = []
     invoices.value = []
     readiness.value = null
+    stages.value = null
     try {
       const d = await fetchAll(caseId, true)
       if (my !== seq) return
@@ -127,5 +134,5 @@ export function useCase(id: Ref<string>, opts: UseCaseOptions) {
   document.addEventListener('visibilitychange', onVisible)
   if (getCurrentScope()) onScopeDispose(() => document.removeEventListener('visibilitychange', onVisible))
 
-  return { state, kase, files, invoices, readiness, refreshing, reload, retry: load, setCase }
+  return { state, kase, files, invoices, readiness, stages, refreshing, reload, retry: load, setCase }
 }

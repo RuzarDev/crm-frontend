@@ -18,6 +18,8 @@ const refs = vi.hoisted(() => ({ listCountries: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
 vi.mock('@/api/billing', () => ({ billingApi: billing }))
+const stagesMock = vi.hoisted(() => ({ caseStages: vi.fn() }))
+vi.mock('@/api/stages', () => ({ stagesApi: stagesMock }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 const rework = vi.hoisted(() => ({ list: vi.fn(), uploadForItem: vi.fn() }))
@@ -61,6 +63,7 @@ beforeEach(() => {
     ],
   })
   api.get.mockImplementation(async () => server.kase)
+  stagesMock.caseStages.mockRejectedValue(new Error('no stages'))
   api.listFiles.mockImplementation(async () => server.files)
   api.listBrokerInvoices.mockImplementation(async () => server.invoices)
   api.action.mockImplementation(async () => server.kase)
@@ -299,9 +302,9 @@ describe('ClientShipmentView', () => {
 
   it('таймлайн: шаг 3 текущий — по data-state; документы: бланк ДТ после подачи', async () => {
     await mountCard({ status: 3, declarations: [declaration({ id: 'd1' }), declaration({ id: 'd0', declarationNumber: 'OLD', isSplitReplaced: true })] }, [fileDto()])
-    expect(w.findAll('[data-ship-timeline] li').map((li) => li.attributes('data-state')))
+    expect(w.findAll('[data-ship-timeline] li[data-step]').map((li) => li.attributes('data-state')))
       .toEqual(['done', 'done', 'current', 'todo', 'todo', 'todo'])
-    expect(w.findAll('[data-ship-timeline] li')[2].get('[data-step-note]').text()).toBe('50612/021025/0012345')
+    expect(w.findAll('[data-ship-timeline] li[data-step]')[2].get('[data-step-sub]').text()).toBe('ДТ подана')
     const us = w.findAll('[data-doc-row="us"]')
     expect(us).toHaveLength(1)
     expect(us[0].text()).toContain('50612/021025/0012345')
@@ -366,6 +369,19 @@ describe('ClientShipmentView', () => {
     expect(api.uploadFile).toHaveBeenCalledWith('c1', 'payment-check', check, undefined)
   })
 
+  it('вопрос AQNIET (не запрос таможни) — прежняя красная панель над этапами, на шаге — красная «Нужен ваш ответ»', async () => {
+    await mountCard({ status: 3, isProblem: true, problemClientMessage: 'Нужен сертификат' })
+    const panel = w.get('[data-ask="problem"]')
+    expect(panel.find('[data-ask-eyebrow]').exists()).toBe(false)
+    expect(panel.classes()).toContain('bg-tone-danger-bg')
+    const flag = w.get('[data-ship-timeline] li[data-step="3"] [data-step-flag]')
+    expect(flag.text()).toBe('Нужен ваш ответ')
+    expect(flag.classes()).toContain('bg-tone-danger-bg')
+    // Панель хода клиента — над этапами.
+    const html = w.html()
+    expect(html.indexOf('data-ask="problem"')).toBeLessThan(html.indexOf('data-ship-timeline'))
+  })
+
   it('вопрос AQNIET вне оплаты склада — кнопки чека нет', async () => {
     await mountCard({ status: 3, isProblem: true, problemClientMessage: 'Нужен сертификат' })
     expect(w.find('[data-problem-check]').exists()).toBe(false)
@@ -390,12 +406,12 @@ describe('ClientShipmentView', () => {
     expect(w.find('[data-docs-empty]').exists()).toBe(false)
     expect(w.find('[data-ask="paySvh"]').exists()).toBe(false)
     expect(w.find('[data-notice="check"]').exists()).toBe(false)
-    expect(w.findAll('[data-ship-timeline] li')[0].find('[data-step-note]').exists()).toBe(false)
+    expect(w.findAll('[data-ship-timeline] li[data-step]')[0].find('[data-step-note]').exists()).toBe(false)
     // Шапка и полоса тоже не гадают: нейтральное «Оформляем», без «Ждём оплату склада» и золотого «ваш ход».
     const tag = w.get('[data-ship-tag]')
     expect(tag.text()).toBe('Оформляем')
     expect(tag.classes().join(' ')).not.toMatch(/wait|gold/)
-    const step5 = w.findAll('[data-ship-timeline] li')[4]
+    const step5 = w.findAll('[data-ship-timeline] li[data-step]')[4]
     expect(step5.attributes('data-state')).toBe('current')
     expect(step5.get('[data-step-now]').text()).toBe('сейчас — работает AQNIET')
 
@@ -415,13 +431,13 @@ describe('ClientShipmentView', () => {
     await w.get('[data-docs-retry]').trigger('click')
     await flushPromises()
     expect(w.get('[data-ship-tag]').text()).toBe('Ждём оплату склада')
-    expect(w.findAll('[data-ship-timeline] li')[4].attributes('data-state')).toBe('currentAsk')
+    expect(w.findAll('[data-ship-timeline] li[data-step]')[4].attributes('data-state')).toBe('currentAsk')
   })
 
   it('отменённая — тег «Отменена», все этапы впереди, без «сейчас»', async () => {
     await mountCard({ status: 9 }, [])
     expect(w.get('[data-ship-tag]').text()).toBe('Отменена')
-    expect(w.findAll('[data-ship-timeline] li').map((li) => li.attributes('data-state'))).toEqual(Array(6).fill('todo'))
+    expect(w.findAll('[data-ship-timeline] li[data-step]').map((li) => li.attributes('data-state'))).toEqual(Array(6).fill('todo'))
     expect(w.find('[data-ship-timeline] [data-step-now]').exists()).toBe(false)
   })
 

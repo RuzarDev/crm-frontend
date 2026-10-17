@@ -28,7 +28,7 @@ import type { CaseStepContext, CaseStepInfo } from './caseContext'
 import { useCase } from './useCase'
 import { useCaseActions } from './useCaseActions'
 import { useCustomsRequests } from '@/composables/useCustomsRequests'
-import { canManageCustoms, canRemindClient, waitingLabel } from '@/utils/customsRequests'
+import { canManageCustoms, canRemindClient } from '@/utils/customsRequests'
 
 // Карточка заявки сотрудника /import-40/:id (редизайн, волна 4а; доски Case и CaseSvh).
 // Шапка, полоса шагов, плашки; слева — текущий шаг и «Пройденные шаги», справа — команда, заявка, файлы, история.
@@ -47,19 +47,15 @@ const STEP_COMPONENTS: Record<StepNo, Component> = {
 }
 
 const id = computed(() => String(route.params.id ?? ''))
-const { state, kase, files, invoices, readiness, reload, retry, setCase } = useCase(id, { readiness: () => readinessAvailable(auth) })
+const { state, kase, files, invoices, readiness, stages, reload, retry, setCase } = useCase(id, { readiness: () => readinessAvailable(auth) })
 const { actions, reasonKind } = useCaseActions(() => kase.value?.id ?? null, reload)
 // Окно причины (отмена, шаг назад, возврат…) не переживает смену заявки: иначе действие ушло бы на другую заявку.
 watch(id, () => { reasonKind.value = null })
 
 const perms = computed(() => (kase.value ? casePerms(auth, kase.value) : null))
 
-// Запросы таможни (волна 17.10, задача 5): своя загрузка; красная метка на шаге 3, пока клиент не ответил.
+// Запросы таможни (волна 17.10, задача 5): своя загрузка; красная метка на шаге 3 этапов, пока клиент не ответил.
 const customs = useCustomsRequests(() => kase.value?.id ?? null)
-const stepAlerts = computed(() => {
-  const label = waitingLabel(customs.list.value, t)
-  return label ? { 3: label } : undefined
-})
 const onCustomsChanged = async () => {
   await Promise.all([customs.reload(), reload()])
 }
@@ -150,7 +146,7 @@ const panel = 'rounded-panel border border-line bg-surface'
 
     <template v-else-if="kase && perms">
       <CaseHeader :kase="kase" :perms="perms" @ask="actions.ask" />
-      <CaseStepper :steps="steps" :status="kase.status" :alerts="stepAlerts" />
+      <CaseStepper :steps="steps" :status="kase.status" :kase="kase" :stages="stages" :invoices="invoices" :files="files" :customs="customs.list.value" />
       <CaseBanners :kase="kase" :perms="perms" :actions="actions" />
       <CaseCondRelBanner :kase="kase" />
       <CaseReworkPanel :kase="kase" :perms="perms" :actions="actions" />

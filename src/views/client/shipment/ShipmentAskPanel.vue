@@ -212,6 +212,8 @@ const notice = computed<'check' | 'paid' | 'cancelled' | null>(() => {
 const panel = 'flex flex-col gap-2.5 rounded-panel border p-4 sm:px-[22px] sm:py-5'
 const badge = 'hidden size-9 shrink-0 items-center justify-center rounded-[10px] sm:flex'
 const h2 = 'm-0 text-base leading-6 font-semibold text-ink'
+// «Нужно от вас» над заголовком панели хода клиента (макет этапов 17.10): золото — только для действия клиента.
+const eyebrow = 'm-0 text-xs leading-4 font-semibold tracking-[0.06em] text-gold-ink uppercase'
 const text = 'm-0 text-sm leading-[1.45] text-ink-2'
 // Главная кнопка панели: 42px на компьютере, на телефоне — во всю ширину и 48px.
 const mainBtn = 'h-[42px] rounded-row px-[18px] text-[14.5px] max-sm:h-12 max-sm:w-full max-sm:rounded-[12px] max-sm:text-[15px]'
@@ -232,6 +234,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
     <div class="flex min-w-0 items-start gap-3.5">
       <span aria-hidden="true" :class="cn(badge, 'bg-gold text-base font-extrabold text-navy')">₸</span>
       <div class="flex min-w-0 flex-col gap-2.5 sm:gap-[3px]">
+        <p :class="eyebrow" data-ask-eyebrow>{{ t('client.ask.eyebrow') }}</p>
         <h2 :id="titleId" :class="h2">
           <span class="sm:hidden">{{ t('client.ask.paySvh.title') }}</span>
           <span class="max-sm:hidden">{{ t('client.ask.paySvh.panelTitle') }}</span>
@@ -352,6 +355,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
     <div class="flex min-w-0 items-start gap-3.5">
       <span aria-hidden="true" :class="cn(badge, 'bg-gold text-navy')"><PhPencilSimpleLine :size="18" weight="bold" /></span>
       <div class="flex min-w-0 flex-col gap-1">
+        <p :class="eyebrow" data-ask-eyebrow>{{ t('client.ask.eyebrow') }}</p>
         <h2 :id="titleId" :class="h2">{{ reworkItems.length ? t('rework.client.title') : t(`client.ask.${ask}.title`) }}</h2>
         <p v-if="ask === 'draft'" :class="text">{{ t('client.ask.draft.text') }}</p>
         <p v-else-if="returnedText" :class="cn(text, 'whitespace-pre-line [overflow-wrap:anywhere]')" data-returned-text>{{ returnedText }}</p>

@@ -5,6 +5,8 @@ import { caseDto, fileDto } from './caseFixture'
 
 const api = vi.hoisted(() => ({ get: vi.fn(), listFiles: vi.fn(), listBrokerInvoices: vi.fn(), kedenReadinessSummary: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
+const stagesMock = vi.hoisted(() => ({ caseStages: vi.fn() }))
+vi.mock('@/api/stages', () => ({ stagesApi: stagesMock }))
 
 import { useCase } from '../useCase'
 
@@ -26,6 +28,7 @@ beforeEach(() => {
   api.get.mockImplementation(async (id: string) => caseDto({ id }))
   api.listFiles.mockResolvedValue([fileDto()])
   api.listBrokerInvoices.mockResolvedValue([])
+  stagesMock.caseStages.mockResolvedValue({ status: 2, currentStep: 3, nowUtc: '2026-10-16T12:00:00Z', steps: [] })
   api.kedenReadinessSummary.mockResolvedValue([{ declarationId: 'd1', declarationNumber: '', isReady: true, missing: [], filled: 22, total: 22 }])
 })
 afterEach(() => {
@@ -34,6 +37,19 @@ afterEach(() => {
 })
 
 describe('useCase', () => {
+  it('этапы (хронометраж) грузятся вместе с заявкой; их сбой не ломает карточку — null', async () => {
+    const { c } = start()
+    await flushPromises()
+    expect(stagesMock.caseStages).toHaveBeenCalledWith('c1', { silent: true })
+    expect(c.stages.value?.currentStep).toBe(3)
+    scope.stop()
+    stagesMock.caseStages.mockRejectedValueOnce(new Error('500'))
+    const second = start('c2')
+    await flushPromises()
+    expect(second.c.state.value).toBe('ready')
+    expect(second.c.stages.value).toBeNull()
+  })
+
   it('грузит заявку, файлы, счета и сводку готовности одним запросом — без тоста при первом показе', async () => {
     const { c } = start()
     expect(c.state.value).toBe('loading')
