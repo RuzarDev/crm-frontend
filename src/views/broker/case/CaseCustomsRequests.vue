@@ -93,8 +93,11 @@ watch(() => [props.autoCreate, canCreate.value] as const, ([auto, can]) => {
 const toggleKind = (k: string, on: boolean) => {
   form.value.kinds = on ? [...form.value.kinds, k] : form.value.kinds.filter((x) => x !== k)
 }
-// Срок в прошлом не принимаем (как сервер): дата раньше сегодняшней по Алматы или время уже прошло.
+// Срок в прошлом не принимаем (как сервер): дата раньше сегодняшней по Алматы или время уже прошло. Ошибка — у того
+// поля, которое её дало: дата (обычно её не даёт выбрать min) или время.
 const duePast = computed(() => isDuePast(form.value.due, form.value.time))
+const dueDatePast = computed(() => !!form.value.due && form.value.due < almatyToday())
+const dueTimePast = computed(() => duePast.value && !dueDatePast.value)
 const dueMin = computed(() => (createOpen.value ? almatyToday() : undefined))
 const submitCreate = async () => {
   const text = form.value.text.trim()
@@ -332,10 +335,10 @@ const outlineBtn = 'bg-surface shadow-[inset_0_0_0_1px_var(--color-line-strong)]
           </div>
         </fieldset>
         <div class="grid gap-4 sm:grid-cols-2">
-          <ZField :label="t('customsRequest.dueLabel')" :error="duePast ? t('customsRequest.duePast') : undefined">
+          <ZField :label="t('customsRequest.dueLabel')" :error="dueDatePast ? t('customsRequest.duePast') : undefined">
             <ZDate v-model:value="form.due" :min="dueMin" allow-clear data-customs-due />
           </ZField>
-          <ZField :label="t('customsRequest.dueTimeLabel')">
+          <ZField :label="t('customsRequest.dueTimeLabel')" :error="dueTimePast ? t('customsRequest.dueTimePast') : undefined">
             <ZInput v-model:value="form.time" type="time" :disabled="!form.due" data-customs-due-time />
           </ZField>
           <ZField v-if="!declarationId && declarations.length" :label="t('customsRequest.dtLabel')">

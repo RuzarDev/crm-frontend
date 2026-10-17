@@ -6743,6 +6743,7 @@ export default {
     rule4h: 'Documents must be submitted no later than 4 hours before the release deadline expires — otherwise customs will refuse release (Art. 125). Set the deadline with a time.',
     dueTimeLabel: 'Time (optional)',
     duePast: 'The response deadline has already passed — choose today or a later date',
+    dueTimePast: 'This time has already passed — choose a later time or another date',
     waitingBorder: 'Border request · {time} without reply',
     waitingPostRelease: 'Post-release request · {time} without reply',
     clientDueAt: 'Reply by {date} at {time}',

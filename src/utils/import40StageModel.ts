@@ -198,12 +198,13 @@ export function buildStageCards(input: StageInput, t: T, te: Te): StageCard[] {
       case 6: {
         // Шаги 5 и 6 идут параллельно: оплаченный счёт AQNIET — шаг пройден, даже если склад ещё не оплачен. Но шаг 6
         // открывается только после шага 4 (СВХ выставил счёт): счёт AQNIET раньше (предоплата) — итог под шагом,
-        // шаг остаётся впереди (как на сервере, Import40Stages.Step6Open).
-        const opened = status !== 9 && stepForStatus(status) >= 5
+        // шаг остаётся впереди. Открыт ли он — решает сервер по событиям (Import40Stages.Step6StartOf); без данных
+        // хронометража — по статусу (шаг 5+).
+        const opened = status !== 9 && (s ? s.state !== 'future' : stepForStatus(status) >= 5)
         const paid = paidInvoice(invoices)
         const issued = issuedInvoice(invoices)
         // Сотруднику шаг 6 идёт, пока счёт AQNIET ждёт оплаты, — даже до оплаты склада (сервер считает время от счёта).
-        if (!client && opened && s?.state === 'current' && state === 'future') state = 'current'
+        if (!client && s?.state === 'current' && state === 'future' && status !== 9) state = 'current'
         if (paid && !issued && status !== 9) {
           if (opened) state = 'done'
           result = client

@@ -209,7 +209,9 @@ describe('CaseCustomsRequests', () => {
     time.value = '00:01'
     time.dispatchEvent(new Event('input'))
     await flushPromises()
-    expect(document.querySelector('[data-customs-create-modal]')?.textContent).toContain('Срок ответа уже прошёл')
+    // Ошибка — у поля времени, не у даты (дату выбрали верно — сегодня).
+    expect(document.querySelector('[data-customs-create-modal]')?.textContent).toContain('Это время уже прошло')
+    expect(document.querySelector('[data-customs-create-modal]')?.textContent).not.toContain('Срок ответа уже прошёл')
     expect(okBtn().disabled).toBe(true)
     okBtn().click()
     await flushPromises()
