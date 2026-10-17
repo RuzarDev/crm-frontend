@@ -16,6 +16,7 @@ import { confirmState, useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import { canEditDt, canManageDeclarations, dtUserFrom, RELEASED_STATUS } from '@/views/import40/dtAccess'
 import DtBanners from './DtBanners.vue'
+import DtConditionalRelease from './DtConditionalRelease.vue'
 import DtHeaderBar from './DtHeaderBar.vue'
 import DtReadinessPanel from './DtReadinessPanel.vue'
 import DtSectionNav from './DtSectionNav.vue'
@@ -211,6 +212,8 @@ const goodsSaveState = computed<GoodsSaveState>(() => ({
 const editable = computed(() => dt.editable.value)
 const splitReplaced = computed(() => !!dt.lastServerDto.value?.isSplitReplaced)
 const kase = computed(() => dt.activeCase.value)
+// Условный выпуск (17.10) — из ДТ в составе заявки (обновляется при перечитывании); исходная ДТ разделения — без блока.
+const condRelDt = computed(() => kase.value?.declarations.find((d) => d.id === dtId && !d.isSplitReplaced) ?? null)
 const roReason = computed(() => readonlyReason(user.value, kase.value))
 const stage = computed(() => (kase.value ? statusLabel(kase.value.status) : ''))
 const split = computed(() => (splitReplaced.value ? splitChildren(kase.value, dtId) : null))
@@ -797,6 +800,14 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
             @reload="onReload"
             @retry="onSave"
             @change-split="onSplit"
+          />
+
+          <DtConditionalRelease
+            v-if="condRelDt && kase"
+            :case-id="caseId"
+            :dt="condRelDt"
+            :case-status="kase.status"
+            :can-edit="canEditDt(user, kase)"
           />
 
           <div

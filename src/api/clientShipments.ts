@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { ConditionalReleaseBrief } from './conditionalRelease'
 
 // Лёгкий список поставок клиента (редизайн, волна 2a): всё нужное для списка и «Нужно от вас».
 export interface ClientShipment {
@@ -20,6 +21,8 @@ export interface ClientShipment {
   paymentConfirmed: boolean
   declarationsCount: number
   assignedDeclarantName: string | null
+  /** Незакрытый условный выпуск (самый срочный); null — нет. */
+  conditionalRelease?: ConditionalReleaseBrief | null
   createdAtUtc: string
   updatedAtUtc: string
 }

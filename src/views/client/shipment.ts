@@ -2,6 +2,8 @@ import type { ClientShipment } from '@/api/clientShipments'
 import type { Import40CaseDto, Import40FileDto } from '@/api/import40'
 import type { ZTone } from '@/components/z/ZTag.vue'
 import { stepForStatus } from '@/utils/import40Steps'
+import type { ConditionalReleaseBrief } from '@/api/conditionalRelease'
+import { briefOf } from '@/utils/conditionalRelease'
 
 // Правила поставки клиента (редизайн, волна 2a): чей ход, вкладка списка, тег, полоса этапов.
 // Одни на «Главную», список «Мои поставки» и карточку — чтобы экраны не расходились.
@@ -28,6 +30,8 @@ export function askFor(s: ClientShipment, ctx: ShipmentCtx = {}): AskKind | null
 }
 
 export function tabOf(s: ClientShipment): ShipmentTab {
+  // Условный выпуск (17.10): ждём от клиента документ — поставка «ждёт вас», даже если в остальном завершена.
+  if (s.status !== 9 && s.conditionalRelease && !s.conditionalRelease.uploaded) return 'waiting'
   if (s.status === 8 || s.status === 9) return 'done'
   if (s.status === 0 && !s.isProblem && !s.returnReason) return 'drafts'
   return askFor(s) ? 'waiting' : 'active'
@@ -110,7 +114,18 @@ export function toShipmentSummary(c: Import40CaseDto, files: Pick<Import40FileDt
     paymentConfirmed: !!c.paymentConfirmed,
     declarationsCount: c.declarations?.length ?? 0,
     assignedDeclarantName: c.assignedDeclarantName ?? null,
+    conditionalRelease: condRelBriefOfCase(c),
     createdAtUtc: c.createdAtUtc,
     updatedAtUtc: c.updatedAtUtc,
   }
+}
+
+/** Самый срочный незакрытый условный выпуск по ДТ заявки (как присылает список), ДТ, заменённые разделением, — не в счёт. */
+export function condRelBriefOfCase(c: Pick<Import40CaseDto, 'declarations'>): ConditionalReleaseBrief | null {
+  const open = (c.declarations ?? [])
+    .filter((d) => !d.isSplitReplaced)
+    .map((d) => briefOf(d))
+    .filter((b): b is ConditionalReleaseBrief => !!b)
+    .sort((a, b) => (a.deadline ?? '9999').localeCompare(b.deadline ?? '9999'))
+  return open.length ? { ...open[0], openCount: open.length } : null
 }

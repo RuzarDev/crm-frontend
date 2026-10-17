@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/ui/cn'
 import CaseActionModals from './CaseActionModals.vue'
 import CaseBanners from './CaseBanners.vue'
+import CaseCondRelBanner from './CaseCondRelBanner.vue'
 import CaseHeader from './CaseHeader.vue'
 import CaseSide from './CaseSide.vue'
 import CaseStepper from './CaseStepper.vue'
@@ -137,6 +138,7 @@ const panel = 'rounded-panel border border-line bg-surface'
       <CaseHeader :kase="kase" :perms="perms" @ask="actions.ask" />
       <CaseStepper :steps="steps" :status="kase.status" />
       <CaseBanners :kase="kase" :perms="perms" :actions="actions" />
+      <CaseCondRelBanner :kase="kase" />
 
       <div class="flex flex-wrap items-start gap-[18px]">
         <div class="flex min-w-0 flex-[999_1_480px] flex-col gap-4" data-case-main>
