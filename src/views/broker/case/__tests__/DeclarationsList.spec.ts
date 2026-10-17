@@ -15,7 +15,9 @@ const api = vi.hoisted(() => ({
 }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 const dl = vi.hoisted(() => ({ saveBlob: vi.fn() }))
+const checks = vi.hoisted(() => ({ link: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
+vi.mock('@/api/documentChecks', () => ({ documentChecksApi: checks }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 vi.mock('@/ui/download', () => dl)
 
@@ -522,6 +524,16 @@ describe('DeclarationsList: «Из документов»', () => {
     }))
     expect(msg.success).toHaveBeenCalledWith('Пакет обработан — откройте ДТ, чтобы проверить предзаполненные поля')
     expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n1')
+  })
+
+  it('сверка документов разбора привязывается к созданной ДТ; сбой привязки не мешает перейти к ДТ', async () => {
+    api.extractBatch.mockResolvedValue(result({ documentCheckId: 'chk1' }))
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n9' }))
+    checks.link.mockRejectedValueOnce(new Error('x'))
+    mount(USERS.declarant)
+    await pick()
+    expect(checks.link).toHaveBeenCalledWith('c1', 'chk1', 'n9')
+    expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n9')
   })
 
   it('с конфликтами — окно замечаний, переход к ДТ после его закрытия', async () => {

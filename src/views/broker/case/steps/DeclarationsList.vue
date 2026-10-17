@@ -9,6 +9,7 @@ import ZDropdown from '@/components/z/ZDropdown.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ZTooltip from '@/components/z/ZTooltip.vue'
+import { documentChecksApi } from '@/api/documentChecks'
 import { import40Api, type Import40DeclarationDto, type Import40ExtractionResult } from '@/api/import40'
 import type { DeclarationReadiness } from '@/types/api'
 import { cn } from '@/ui/cn'
@@ -203,6 +204,10 @@ const onBatchFiles = async (e: Event) => {
     stage = 'create'
     const created = await import40Api.createDeclaration(caseId, previewToUpsert(result.declaration))
     createdId = created.id
+    // Сверка документов этого разбора — к созданной ДТ (17.10); не вышло — сверка просто не привязана к ДТ.
+    if (result.documentCheckId) {
+      await documentChecksApi.link(caseId, result.documentCheckId, created.id).catch(() => undefined)
+    }
   }, { reload: false })
   const extracted = result as Import40ExtractionResult | null
   const dtId = createdId as string | null

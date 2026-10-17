@@ -543,6 +543,8 @@ export interface Import40ExtractionResult {
   declaration: Import40ExtractionPreview
   warnings: string[]
   conflicts: Import40ExtractionConflict[]
+  /** Сохранённая сверка документов этого разбора (17.10); после создания ДТ связываем её с ДТ. */
+  documentCheckId?: string | null
 }
 
 export const IMPORT40_TRANSPORT_MODES: { value: number; label: string }[] = [

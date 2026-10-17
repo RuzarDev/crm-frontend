@@ -6657,6 +6657,28 @@ export default {
       state: { none: 'Нет договора', draft: 'Черновик', awaiting: 'Ждёт подписи', active: 'Действует', expired: 'Истёк', revoked: 'Отозван' },
     },
   },
+  // Сверка документов поставки (17.10).
+  docCheck: {
+    title: 'Сверка документов: расхождений — {n}',
+    allGood: 'Сверка документов: расхождений нет',
+    noDiscrepancies: 'Документы между собой, с заявкой и с ДТ сходятся.',
+    forDt: 'ДТ {n}',
+    forDtNoNumber: 'ДТ без номера',
+    noDt: 'Разбор без ДТ',
+    contract: 'Контракт {n}',
+    invoice: 'Инвойс {n}',
+    transport: 'Транспорт {n}',
+    item: 'строка {n}',
+    scope: { documents: 'Документы между собой', case: 'Документы и заявка', declaration: 'Документы и ДТ' },
+    source: { case: 'Заявка', dt: 'ДТ {n}', documents: 'Документы', document: 'Документ' },
+    field: {
+      contract: 'Номер контракта', invoice: 'Номер инвойса', invoiceDate: 'Дата инвойса', transport: 'Транспорт',
+      transportDoc: 'Транспортный документ', tractor: 'Номер тягача', trailer: 'Номер прицепа', sender: 'Отправитель',
+      receiver: 'Получатель', currency: 'Валюта', incoterms: 'Условия поставки', origin: 'Страна происхождения',
+      destination: 'Пункт назначения', quantity: 'Количество', packages: 'Места', gross: 'Вес брутто, кг',
+      net: 'Вес нетто, кг', value: 'Стоимость',
+    },
+  },
   customsRequest: {
     title: 'Запросы таможни',
     create: 'Запрос таможни',
