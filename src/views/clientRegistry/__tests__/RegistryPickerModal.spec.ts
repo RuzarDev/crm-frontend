@@ -55,7 +55,7 @@ describe('RegistryPickerModal', () => {
     q('[data-picker-doc="cert"]')!.click()
     await flushPromises()
     expect(q('[data-picker-expired]')).toBeNull()
-    expect(w.findComponent(ZSelect).props('value')).toBe('conformity')
+    expect(w.findComponent(ZSelect).props('value')).toBe('certificate')
   })
 
   it('«Приложить» — копия в заявку с видом документа, событие attached', async () => {
@@ -97,7 +97,7 @@ describe('StepDocuments: «Выбрать из реестра»', () => {
     imp.listFiles.mockResolvedValue([fileDto({ id: 'n1', originalFileName: 'cert.pdf', docKind: 'conformity' })])
     qa('[data-registry-picker] button').find((b) => b.textContent?.trim() === 'Приложить')!.click()
     await flushPromises()
-    expect(api.attachToCase).toHaveBeenCalledWith('case1', 'cert', 'conformity')
+    expect(api.attachToCase).toHaveBeenCalledWith('case1', 'cert', 'certificate')
     expect(w.get('[data-docs-registry-attached]').text()).toBe('Приложено из реестра: cert.pdf')
     expect(docs.filesOf('conformity').map((f) => f.originalFileName)).toEqual(['cert.pdf'])
   })

@@ -23,6 +23,7 @@ export const defaultDocKind = (c: RegistryCategory): string => {
     case 'unk':
       return 'contract'
     case 'certificate':
+      return 'certificate'
     case 'conformityDeclaration':
       return 'conformity'
     case 'permit':

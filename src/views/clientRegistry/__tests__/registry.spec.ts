@@ -22,7 +22,7 @@ describe('реестр документов: логика', () => {
   it('вид документа заявки по категории — как на сервере', () => {
     expect(defaultDocKind('supplyContract')).toBe('contract')
     expect(defaultDocKind('unk')).toBe('contract')
-    expect(defaultDocKind('certificate')).toBe('conformity')
+    expect(defaultDocKind('certificate')).toBe('certificate')
     expect(defaultDocKind('conformityDeclaration')).toBe('conformity')
     expect(defaultDocKind('permit')).toBe('permit')
     expect(defaultDocKind('license')).toBe('permit')
