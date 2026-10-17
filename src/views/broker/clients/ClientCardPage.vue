@@ -37,6 +37,7 @@ import {
   accountStatusOf, availableTabs, awaitingAqniet, canRenewPoa, caseTone, cardTitle, contactRows, currentDocs, directorBasisOf, docTag,
   invoicesOf, matchesCase, recentCases, resolveTab, transitQuery, unpaidOf, type ClientCardTab,
 } from './clientCard'
+import ClientRegistryPanel from '@/views/clientRegistry/ClientRegistryPanel.vue'
 
 // Карточка клиента /clients/:id (редизайн, волна 4а; доска ClientCard): «клиент 360» для сотрудников.
 // Шапка, показатели, вкладки (?tab=): обзор, заявки, транзит, документы, счета. Всё только читается;
@@ -673,7 +674,7 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
           </div>
 
           <!-- ④ Документы -->
-          <div v-else-if="key === 'docs'" data-tab-panel="docs">
+          <div v-else-if="key === 'docs'" class="flex flex-col gap-4" data-tab-panel="docs">
             <ZTable
               :columns="docColumns"
               :data-source="card.documents"
@@ -716,6 +717,8 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                 <ZEmpty :title="t('broker.clientCard.doc.empty')" />
               </template>
             </ZTable>
+            <!-- Реестр документов клиента (волна 17.10): контракты, УНК, сертификаты, разрешения — рядом с договором и доверенностью -->
+            <ClientRegistryPanel :client-id="card.id" />
           </div>
 
           <!-- ⑤ Счета -->

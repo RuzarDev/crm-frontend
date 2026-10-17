@@ -11,12 +11,14 @@ import { useConfirm } from '@/ui/confirm'
 import { cn } from '@/ui/cn'
 import { DOC_ACCEPT, DOC_MAX_MB, rowOf, type RowError, type RowKind, type ShipmentFilesApi } from './useShipmentFiles'
 import { stepHint, stepTitle } from './wizardUi'
+import RegistryPickerModal from '@/views/clientRegistry/RegistryPickerModal.vue'
 
 // Шаг 4 «Документы» мастера (доска Wizard): чек-лист видов документов (у строки — своя загрузка с видом),
 // зона «Другие документы», отметка ответственности. Состояние файлов и загрузок — в мастере (useShipmentFiles):
 // загрузка переживает уход на другой шаг. Отправку делает мастер (кнопка в его нижней панели).
 // Удалять свои файлы клиент может только в черновике — мастер открывается лишь для черновика.
-const props = defineProps<{ docs: ShipmentFilesApi }>()
+// caseId и clientId — для «Выбрать из реестра» (волна 17.10): документ реестра клиента копируется в заявку.
+const props = defineProps<{ docs: ShipmentFilesApi; caseId?: string | null; clientId?: string | null }>()
 const accepted = defineModel<boolean>('accepted', { default: false })
 
 const { t, te, locale } = useI18n()
@@ -84,6 +86,14 @@ const remove = async (f: Import40FileDto) => {
 
 defineExpose({ focusKind: (kind: RowKind) => focusKind(kind, true) })
 
+// ---- «Выбрать из реестра» ----
+const pickerOpen = ref(false)
+const fromRegistry = ref('')
+const onRegistryAttached = (picked: Import40FileDto[]) => {
+  fromRegistry.value = t('clientRegistry.picker.attached', { names: picked.map((f) => f.originalFileName).join(', ') })
+  void load()
+}
+
 // ---- Вид ----
 const sizeText = (bytes: number) => {
   if (bytes < 1024 * 1024) return t('client.wizard.docs.kb', { n: Math.max(1, Math.round(bytes / 1024)) })
@@ -108,6 +118,20 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
     <div>
       <h2 :id="headingId" tabindex="-1" :class="stepTitle">{{ t('client.wizard.docs.title') }}</h2>
       <p :class="stepHint">{{ t('client.wizard.docs.hint') }}</p>
+    </div>
+
+    <div v-if="caseId && clientId" class="-mt-2 flex flex-wrap items-center gap-x-3 gap-y-1" data-docs-registry>
+      <ZButton variant="secondary" class="max-sm:h-11 max-sm:w-full" data-docs-from-registry @click="pickerOpen = true">
+        {{ t('clientRegistry.picker.open') }}
+      </ZButton>
+      <span class="text-[13px] text-muted max-sm:w-full">{{ t('clientRegistry.picker.openHint') }}</span>
+      <p v-if="fromRegistry" class="m-0 w-full text-[13px] text-tone-done-fg" role="status" data-docs-registry-attached>{{ fromRegistry }}</p>
+      <RegistryPickerModal
+        v-model:open="pickerOpen"
+        :client-id="clientId ?? ''"
+        :case-id="caseId ?? ''"
+        @attached="onRegistryAttached"
+      />
     </div>
 
     <div v-if="loadState === 'error'" class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-panel border border-solid border-line px-4 py-3 sm:px-[18px]" role="alert" data-docs-load-error>
