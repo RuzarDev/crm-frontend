@@ -196,13 +196,17 @@ export function buildStageCards(input: StageInput, t: T, te: Te): StageCard[] {
         } else if (status !== 9) result = k('s5Future', 's5FutureClient')
         break
       case 6: {
-        // Шаги 5 и 6 идут параллельно: оплаченный счёт AQNIET — шаг пройден, даже если склад ещё не оплачен.
+        // Шаги 5 и 6 идут параллельно: оплаченный счёт AQNIET — шаг пройден, даже если склад ещё не оплачен. Но шаг 6
+        // открывается только после шага 4 (СВХ выставил счёт): счёт AQNIET раньше (предоплата) — итог под шагом,
+        // шаг остаётся впереди. Открыт ли он — решает сервер по событиям (Import40Stages.Step6StartOf); без данных
+        // хронометража — по статусу (шаг 5+).
+        const opened = status !== 9 && (s ? s.state !== 'future' : stepForStatus(status) >= 5)
         const paid = paidInvoice(invoices)
         const issued = issuedInvoice(invoices)
         // Сотруднику шаг 6 идёт, пока счёт AQNIET ждёт оплаты, — даже до оплаты склада (сервер считает время от счёта).
         if (!client && s?.state === 'current' && state === 'future' && status !== 9) state = 'current'
         if (paid && !issued && status !== 9) {
-          state = 'done'
+          if (opened) state = 'done'
           result = client
             ? t('stages.result.s6Paid', { n: paid.number, date: dayMonth(paid.paidAtUtc) })
             : t('stages.result.s6PaidSum', { n: paid.number, sum: formatMoney(paid.total), date: dayMonth(paid.paidAtUtc) })
@@ -234,7 +238,9 @@ export function buildStageCards(input: StageInput, t: T, te: Te): StageCard[] {
     let timing: StageTiming | null = null
     let meta = ''
     if (!client && s) {
-      if (state === 'current' && s.elapsedMinutes != null && s.normMinutes) {
+      // Шаг до хронометража (заявка начата до 17.10): времени и просрочки нет — только подпись.
+      if (s.historyMissing && state !== 'future') meta = t('stages.noHistory')
+      else if (state === 'current' && s.elapsedMinutes != null && s.normMinutes) {
         timing = {
           elapsed: durationText(s.elapsedMinutes, t),
           norm: t('stages.norm', { time: durationText(s.normMinutes, t) }),

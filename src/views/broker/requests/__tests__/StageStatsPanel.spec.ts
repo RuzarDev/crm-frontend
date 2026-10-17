@@ -60,6 +60,32 @@ describe('StageStatsPanel', () => {
     expect(w.get('[data-stage-stats-empty]').text()).toBe('Пока нет данных')
   })
 
+  it('фильтр «До 17.10» — заявки без истории отдельно и не красным; в счётчике просрочек их нет', async () => {
+    api.stats.mockResolvedValueOnce({
+      ...structuredClone(STATS),
+      untracked: [{ caseId: 'c6', number: 'ИМ-2026-0006', clientName: 'ТОО «Бета»', step: 6, inRework: false, elapsedMinutes: 60 * 24 * 60, normMinutes: 72 * 60, responsibleName: null, historyMissing: true }],
+    })
+    await mountPanel()
+    expect(w.get('[data-stage-overdue] h3').text()).toContain('1')
+    expect(w.findAll('[data-stage-untracked-row]')).toHaveLength(0)
+    const btn = w.findAll('[data-stage-overdue-filter] button').find((b) => b.text().startsWith('До 17.10'))!
+    expect(btn.text()).toBe('До 17.10 — без истории · 1')
+    await btn.trigger('click')
+    await flushPromises()
+    const row = w.get('[data-stage-untracked-row]')
+    expect(row.text()).toContain('ИМ-2026-0006')
+    expect(row.text()).toContain('до 17.10')
+    expect(row.text()).toContain('≥ 60 д без изменений')
+    expect(row.find('.text-tone-danger-fg').exists()).toBe(false)
+    expect(w.find('[data-stage-overdue-row]').exists()).toBe(false)
+    expect(w.get('[data-stage-untracked-hint]').text()).toContain('В просрочки и среднее не входят')
+  })
+
+  it('старый сервер без untracked — фильтра нет', async () => {
+    await mountPanel()
+    expect(w.find('[data-stage-overdue-filter]').exists()).toBe(false)
+  })
+
   it('ошибка — сообщение и «Повторить»', async () => {
     api.stats.mockRejectedValueOnce(new Error('500'))
     await mountPanel()

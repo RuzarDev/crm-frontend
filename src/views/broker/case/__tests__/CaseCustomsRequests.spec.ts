@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { CustomsRequestDto } from '@/api/customsRequests'
@@ -85,6 +85,10 @@ describe('CaseCustomsRequests', () => {
   })
 
   it('при проверке ДТ — подсказка о 4 часах до срока выпуска; срок со временем уходит моментом', async () => {
+    // «Сегодня» зафиксировано: срок в прошлом форма не принимает.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-17T06:00:00Z'))
+    onTestFinished(() => { vi.useRealTimers() })
     api.create.mockResolvedValue(req())
     mountIt({ status: 2 })
     await w.get('[data-customs-create]').trigger('click')
@@ -157,6 +161,70 @@ describe('CaseCustomsRequests', () => {
     ok.click()
     await flushPromises()
     expect(api.remindClient).toHaveBeenCalledWith('c1', '')
+  })
+
+  it('статус 6: «Напомнить клиенту» — пока нет чека об оплате СВХ; на странице ДТ (чек неизвестен) — нет', () => {
+    mountIt({ status: 6, canManage: false, svhCheckMissing: true })
+    expect(w.find('[data-customs-remind-case]').exists()).toBe(true)
+    w.unmount()
+    document.body.innerHTML = ''
+    mountIt({ status: 6, canManage: false, svhCheckMissing: false })
+    expect(w.find('[data-customs-remind-case]').exists()).toBe(false)
+    w.unmount()
+    document.body.innerHTML = ''
+    mountIt({ status: 6, canManage: false })
+    expect(w.find('[data-customs-remind-case]').exists()).toBe(false)
+    w.unmount()
+    document.body.innerHTML = ''
+    // Чек загружен, но открыт запрос после выпуска — у запроса своя кнопка напоминания.
+    mountIt({ status: 6, canManage: false, svhCheckMissing: false, list: [req({ stage: 'postRelease' })] })
+    expect(w.find('[data-customs-remind]').exists()).toBe(true)
+  })
+
+  it('срок в прошлом: вчера не выбрать, сегодня с прошедшим временем — ошибка и «Отправить» выключена', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-17T12:00:00Z'))
+    onTestFinished(() => { vi.useRealTimers() })
+    api.create.mockResolvedValue(req())
+    mountIt({ status: 3 })
+    await w.get('[data-customs-create]').trigger('click')
+    await flushPromises()
+    const text = document.querySelector('[data-customs-text-input]') as HTMLTextAreaElement
+    text.value = 'Нужен контракт'
+    text.dispatchEvent(new Event('input'))
+    const due = document.querySelector('[data-customs-due]') as HTMLInputElement
+    const typeDate = async (v: string) => {
+      due.value = v
+      due.dispatchEvent(new Event('input'))
+      due.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+      await flushPromises()
+    }
+    const time = document.querySelector('[data-customs-due-time]') as HTMLInputElement
+    const okBtn = () => [...document.querySelectorAll('[data-customs-create-modal] button')].find((b) => b.textContent?.includes('Отправить клиенту')) as HTMLButtonElement
+
+    await typeDate('16.10.2026') // вчера — ZDate не принимает дату раньше min
+    expect(time.disabled).toBe(true)
+    await typeDate('17.10.2026')
+    expect(time.disabled).toBe(false)
+    time.value = '00:01'
+    time.dispatchEvent(new Event('input'))
+    await flushPromises()
+    // Ошибка — у поля времени, не у даты (дату выбрали верно — сегодня).
+    expect(document.querySelector('[data-customs-create-modal]')?.textContent).toContain('Это время уже прошло')
+    expect(document.querySelector('[data-customs-create-modal]')?.textContent).not.toContain('Срок ответа уже прошёл')
+    expect(okBtn().disabled).toBe(true)
+    okBtn().click()
+    await flushPromises()
+    expect(api.create).not.toHaveBeenCalled()
+
+    await typeDate('18.10.2026')
+    time.value = '10:00'
+    time.dispatchEvent(new Event('input'))
+    await flushPromises()
+    expect(okBtn().disabled).toBe(false)
+    okBtn().click()
+    await flushPromises()
+    expect(api.create).toHaveBeenCalledWith('c1', expect.objectContaining({ dueHasTime: true }))
   })
 
   it('на странице ДТ — запросы этой ДТ и всей заявки, чужая ДТ не показывается', () => {

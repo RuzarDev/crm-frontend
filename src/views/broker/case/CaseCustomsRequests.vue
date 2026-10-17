@@ -18,8 +18,8 @@ import {
 import { import40Api } from '@/api/import40'
 import { ALL_DOC_KINDS } from '@/views/client/docKinds'
 import {
-  STAGES, canCreateAtStatus, dateLabel, defaultStage, docKindName, dueDateLabel, dueForApi, dueTimeLabel, elapsedLabel, hasClientDebt,
-  isActive, isWaiting, stageOf, stagesAt, waitingKey,
+  STAGES, almatyToday, canCreateAtStatus, dateLabel, defaultStage, docKindName, dueDateLabel, dueForApi, dueTimeLabel,
+  elapsedLabel, hasClientDebt, isActive, isDuePast, isWaiting, stageOf, stagesAt, waitingKey,
 } from '@/utils/customsRequests'
 import { saveBlob } from '@/ui/download'
 import { message } from '@/ui/message'
@@ -40,6 +40,9 @@ const props = defineProps<{
   canRemind: boolean
   /** Открыть форму нового запроса сразу (кнопка «Завести запрос таможни» в уведомлении КЕДЕН, 17.10). */
   autoCreate?: boolean
+  /** Чек об оплате СВХ ещё не загружен (статус 6 — есть о чём напомнить). Не передан — неизвестно (страница ДТ):
+   * отдельной «Напомнить клиенту» на статусе 6 нет. */
+  svhCheckMissing?: boolean
 }>()
 const emit = defineEmits<{ changed: []; autoOpened: [] }>()
 const { t } = useI18n()
@@ -52,7 +55,8 @@ const closed = computed(() => scoped.value.filter((r) => !isActive(r)))
 const canCreate = computed(() => props.canManage && canCreateAtStatus(props.status))
 // Отдельная «Напомнить клиенту» — когда ждём клиента не по запросу (черновик, счёт СВХ); у запроса — своя кнопка.
 const remindStandalone = computed(() =>
-  props.canRemind && props.status < 8 && !active.value.some(isWaiting) && hasClientDebt(props.status, []))
+  props.canRemind && props.status < 8 && !active.value.some(isWaiting)
+  && hasClientDebt(props.status, [], !props.svhCheckMissing))
 const visible = computed(() => active.value.length > 0 || closed.value.length > 0 || canCreate.value || remindStandalone.value)
 
 const showClosed = ref(false)
@@ -89,9 +93,15 @@ watch(() => [props.autoCreate, canCreate.value] as const, ([auto, can]) => {
 const toggleKind = (k: string, on: boolean) => {
   form.value.kinds = on ? [...form.value.kinds, k] : form.value.kinds.filter((x) => x !== k)
 }
+// Срок в прошлом не принимаем (как сервер): дата раньше сегодняшней по Алматы или время уже прошло. Ошибка — у того
+// поля, которое её дало: дата (обычно её не даёт выбрать min) или время.
+const duePast = computed(() => isDuePast(form.value.due, form.value.time))
+const dueDatePast = computed(() => !!form.value.due && form.value.due < almatyToday())
+const dueTimePast = computed(() => duePast.value && !dueDatePast.value)
+const dueMin = computed(() => (createOpen.value ? almatyToday() : undefined))
 const submitCreate = async () => {
   const text = form.value.text.trim()
-  if (!text || busy.value) return
+  if (!text || duePast.value || busy.value) return
   busy.value = 'create'
   try {
     await customsRequestsApi.create(props.caseId, {
@@ -290,7 +300,7 @@ const outlineBtn = 'bg-surface shadow-[inset_0_0_0_1px_var(--color-line-strong)]
       :ok-text="t('customsRequest.createOk')"
       :cancel-text="t('common.cancel')"
       :confirm-loading="busy === 'create'"
-      :ok-button-props="{ disabled: !form.text.trim() }"
+      :ok-button-props="{ disabled: !form.text.trim() || duePast }"
       :width="560"
       data-customs-create-modal
       @ok="submitCreate"
@@ -325,10 +335,10 @@ const outlineBtn = 'bg-surface shadow-[inset_0_0_0_1px_var(--color-line-strong)]
           </div>
         </fieldset>
         <div class="grid gap-4 sm:grid-cols-2">
-          <ZField :label="t('customsRequest.dueLabel')">
-            <ZDate v-model:value="form.due" allow-clear data-customs-due />
+          <ZField :label="t('customsRequest.dueLabel')" :error="dueDatePast ? t('customsRequest.duePast') : undefined">
+            <ZDate v-model:value="form.due" :min="dueMin" allow-clear data-customs-due />
           </ZField>
-          <ZField :label="t('customsRequest.dueTimeLabel')">
+          <ZField :label="t('customsRequest.dueTimeLabel')" :error="dueTimePast ? t('customsRequest.dueTimePast') : undefined">
             <ZInput v-model:value="form.time" type="time" :disabled="!form.due" data-customs-due-time />
           </ZField>
           <ZField v-if="!declarationId && declarations.length" :label="t('customsRequest.dtLabel')">

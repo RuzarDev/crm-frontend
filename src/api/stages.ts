@@ -41,6 +41,8 @@ export interface CaseStageStep {
   /** Шаг 1 после возврата — подэтап «доработка у клиента» (своя норма). */
   inRework: boolean
   history: StageEvent[]
+  /** Шаг пройден или начат до хронометража (заявка начата до 17.10): без просрочки; старый сервер — нет поля. */
+  historyMissing?: boolean
 }
 
 export interface CaseStages {
@@ -58,13 +60,18 @@ export interface StageEmployeeStat { userId: string; name: string; count: number
 export interface StageOverdue {
   caseId: string; number: string; clientName: string; step: number; inRework: boolean
   elapsedMinutes: number; normMinutes: number; responsibleName: string | null
+  /** Шаг начат до хронометража: время — с последнего изменения заявки. */
+  historyMissing?: boolean
 }
 export interface StageStats {
   days: number
   steps: StageStepStat[]
   rework: StageStepStat
   employees: StageEmployeeStat[]
+  /** Просрочено сейчас — только шаги с историей. */
   overdue: StageOverdue[]
+  /** Отдельный фильтр «до 17.10 — без истории»: старые заявки, где с последнего изменения прошло больше нормы. */
+  untracked?: StageOverdue[]
 }
 
 const silentCfg = (silent?: boolean) => (silent ? { silent: true } : undefined)

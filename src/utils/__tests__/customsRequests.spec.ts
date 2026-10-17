@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CustomsRequestDto } from '@/api/customsRequests'
 import {
   canCreateAtStatus, canManageCustoms, canRemindClient, dateLabel, defaultStage, defaultUploadKind, dueDateLabel, dueForApi, dueTimeLabel,
-  elapsedLabel, hasClientDebt, isOverdue, oldestWaiting, stageOf, stagesAt, waitingForClient, waitingLabel, waitingOfStage,
+  elapsedLabel, almatyToday, hasClientDebt, isDuePast, isOverdue, oldestWaiting, stageOf, stagesAt, waitingForClient, waitingLabel, waitingOfStage,
 } from '../customsRequests'
 
 const t = (key: string, named?: Record<string, unknown>) => `${key}${named ? JSON.stringify(named) : ''}`
@@ -96,11 +96,30 @@ describe('customsRequests', () => {
     expect(isOverdue(dateOnly, new Date('2026-10-21T00:30:00'))).toBe(true)
   })
 
+  it('срок в прошлом: дата — по Алматы, время — до минуты', () => {
+    const now = new Date('2026-10-17T19:30:00Z') // в Алматы уже 18.10 00:30
+    expect(almatyToday(now)).toBe('2026-10-18')
+    expect(almatyToday(new Date('2026-10-17T18:59:00Z'))).toBe('2026-10-17')
+    expect(isDuePast('2026-10-17', '', now)).toBe(true)
+    expect(isDuePast('2026-10-18', '', now)).toBe(false)
+    expect(isDuePast(null, '10:00', now)).toBe(false)
+    const at = new Date('2026-10-17T10:00:40Z')
+    const local = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const sameMinute = new Date(at.getTime() - 30_000)
+    const minuteAgo = new Date(at.getTime() - 61_000)
+    expect(isDuePast(ymd(sameMinute), local(sameMinute), at)).toBe(false) // «сейчас» — можно
+    expect(isDuePast(ymd(minuteAgo), local(minuteAgo), at)).toBe(true)
+  })
+
   it('долги клиента, вид документа и дата', () => {
     expect(hasClientDebt(0, [])).toBe(true)
     expect(hasClientDebt(6, [])).toBe(true)
     expect(hasClientDebt(3, [])).toBe(false)
     expect(hasClientDebt(3, [req()])).toBe(true)
+    // Статус 6 с загруженным чеком об оплате СВХ — клиент своё сделал; открытый запрос таможни — всё равно долг.
+    expect(hasClientDebt(6, [], true)).toBe(false)
+    expect(hasClientDebt(6, [req()], true)).toBe(true)
     expect(defaultUploadKind(req({ docKinds: ['certificate', 'invoice'] }))).toBe('certificate')
     expect(defaultUploadKind(req({ docKinds: [] }))).toBe('other')
     expect(dateLabel('2026-10-20T12:00:00Z')).toBe('20.10.2026')

@@ -138,6 +138,47 @@ describe('buildStageCards — сотрудник', () => {
   })
 })
 
+describe('buildStageCards — шаги до 17.10 и предоплата AQNIET', () => {
+  const base = (o: Partial<StageInput> = {}): StageInput => ({
+    audience: 'staff', kase: caseDto({ status: 3 }), stages: null, invoices: [], docsCount: 0, locale: 'ru', ...o,
+  })
+
+  it('шаг без истории (до 17.10) — без полосы и «просрочено», подпись «до 17.10 — история не велась»', () => {
+    const st = stages([
+      step(1, { state: 'done', historyMissing: true }),
+      step(2, { state: 'done', historyMissing: true }),
+      step(3, { state: 'current', historyMissing: true, elapsedMinutes: 9000, normMinutes: 480, overdue: false }),
+    ])
+    const cards = buildStageCards(base({ stages: st }), t, te)
+    expect(cards[2]!.timing).toBeNull()
+    expect(cards[2]!.meta).toBe('до 17.10 — история не велась')
+    expect(cards[0]!.meta).toBe('до 17.10 — история не велась')
+    expect(cards[3]!.meta).toBe('') // будущий шаг — не помечается
+  })
+
+  it('выставленная предоплата до шага 4 — шаг 6 впереди (сервер: future), итог — под шагом', () => {
+    const issued: Import40CaseInvoiceDto = { id: 'i3', kind: 'invoice', status: 1, number: '156', year: 2026, total: 50000, issuedAtUtc: '2026-10-10T06:00:00Z', paidAtUtc: null }
+    const st = stages([step(3, { state: 'current' }), step(6, { state: 'future', normMinutes: 4320 })], 3)
+    const cards = buildStageCards(base({ stages: st, invoices: [issued] }), t, te)
+    expect(cards[5]!.state).toBe('future')
+    expect(cards[5]!.timing).toBeNull()
+    expect(cards[5]!.result).toBe(`№ 156 · ${formatMoney(50000)} · ждёт оплаты`)
+  })
+
+  it('оплаченная предоплата до шага 4 — итог под шагом 6, но шаг не пройден (сотрудник и клиент)', () => {
+    const paid: Import40CaseInvoiceDto = { id: 'i4', kind: 'invoice', status: 2, number: '154', year: 2026, total: 240000, issuedAtUtc: null, paidAtUtc: '2026-10-14T06:00:00Z' }
+    const staff = buildStageCards(base({ kase: caseDto({ status: 4 }), invoices: [paid] }), t, te)
+    expect(staff[5]!.state).toBe('future')
+    // Сервер прошёл шаг 4 (после возврата 5→4 счёт выставлен на шаге 5) — шаг 6 пройден и при статусе 4.
+    const after = buildStageCards(base({ kase: caseDto({ status: 4 }), invoices: [paid], stages: stages([step(6, { state: 'done' })], 4) }), t, te)
+    expect(after[5]!.state).toBe('done')
+    expect(staff[5]!.result).toBe(`№ 154 · ${formatMoney(240000)} · оплачен 14.10`)
+    const client = buildStageCards(base({ audience: 'client', kase: caseDto({ status: 4 }), invoices: [paid] }), t, te)
+    expect(client[5]!.state).toBe('future')
+    expect(client[5]!.result).toBe('Счёт № 154 оплачен 14.10')
+  })
+})
+
 describe('buildStageCards — клиент', () => {
   it('без времени и ФИО сотрудников, кроме своего декларанта; запрос таможни — золотая метка', () => {
     const kase = caseDto({ status: 3, assignedKppName: 'Ерлан Б.', assignedDeclarantName: 'Айгерим К.' })
