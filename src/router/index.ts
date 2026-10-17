@@ -296,6 +296,13 @@ const router = createRouter({
           meta: { requiresPermission: 'import40.assign' },
         },
         {
+          // Настройки ИИ: подбор кода ТН ВЭД (17.10) — провайдер, «ИИ для клиентов», лимиты, статистика.
+          path: '/settings/ai',
+          name: 'settings-ai',
+          component: () => import('@/views/broker/settings/ai/AiSettingsPage.vue'),
+          meta: { requiresRole: 'administrator' },
+        },
+        {
           path: '/settings/audit',
           name: 'settings-audit',
           component: () => import('@/views/broker/settings/audit/AuditPage.vue'),

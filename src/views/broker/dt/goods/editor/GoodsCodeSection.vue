@@ -5,6 +5,9 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import TnvedPickerModal from '@/components/TnvedPickerModal.vue'
+import AiTnvedModal from '@/components/aiTnved/AiTnvedModal.vue'
+import { PhSparkle } from '@phosphor-icons/vue'
+import { useRoute } from 'vue-router'
 import { tnvedApi } from '@/api/tnved'
 import { vUppercase } from '@/directives/uppercase'
 import type { Import40GoodsItemInput } from '@/types/api'
@@ -111,6 +114,15 @@ const openPicker = (query: string) => {
   pickerUsed.value = true
   pickerOpen.value = true
 }
+// «С ИИ» (17.10): подбор кода по описанию гр.31 — модель предлагает, декларант выбирает.
+const route = useRoute()
+const aiUsed = ref(false)
+const aiOpen = ref(false)
+const openAi = () => {
+  aiUsed.value = true
+  aiOpen.value = true
+}
+const caseId = computed(() => (typeof route.params.caseId === 'string' ? route.params.caseId : null))
 const onPickerSelect = (payload: { code: string; name: string }) => {
   props.model.setField(props.item, 'tnvedCode', payload.code)
   check.markValid(payload.code)
@@ -190,6 +202,9 @@ const sideBtn = 'shrink-0 max-sm:h-11'
         <template v-if="!readonly">
           <ZButton :class="sideBtn" :loading="finding" data-goods-find @click="lookup">{{ tc('find') }}</ZButton>
           <ZButton :class="sideBtn" data-goods-picker @click="openPicker(code)">{{ tc('picker') }}</ZButton>
+          <ZButton :class="sideBtn" data-goods-ai @click="openAi">
+            <template #icon><PhSparkle :size="15" aria-hidden="true" /></template>{{ tc('ai') }}
+          </ZButton>
         </template>
       </div>
     </ZField>
@@ -210,5 +225,6 @@ const sideBtn = 'shrink-0 max-sm:h-11'
     <GoodsCharacteristicsTable :item="item" :index="index" :model="model" :readonly="readonly" :ctx="ctx" />
 
     <TnvedPickerModal v-if="pickerUsed" v-model:open="pickerOpen" :initial-query="pickerQuery" @select="onPickerSelect" />
+    <AiTnvedModal v-if="aiUsed" v-model:open="aiOpen" :description="item.description ?? ''" source="dt" :case-id="caseId" @select="onPickerSelect" />
   </div>
 </template>

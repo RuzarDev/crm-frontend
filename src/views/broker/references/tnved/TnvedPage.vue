@@ -2,7 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { PhMagnifyingGlass, PhSparkle } from '@phosphor-icons/vue'
+import { PhListMagnifyingGlass, PhMagnifyingGlass, PhSparkle } from '@phosphor-icons/vue'
+import AiTnvedModal from '@/components/aiTnved/AiTnvedModal.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZSegmented from '@/components/z/ZSegmented.vue'
@@ -94,6 +95,10 @@ const runClassify = async () => {
     searchState.value = failState(e)
   }
 }
+const aiUsed = ref(false)
+const aiOpen = ref(false)
+const openAi = () => { aiUsed.value = true; aiOpen.value = true }
+const onAiSelect = ({ code }: { code: string }) => { void openCode(code) }
 const retrySearch = () => (source.value === 'classify' ? runClassify() : runSearch())
 
 // Ввод — поиск после паузы; поле уже другое — поздний ответ на прежний запрос не учитывается.
@@ -270,8 +275,13 @@ const notFoundHint = computed(() => t('broker.references.tnved.notFoundHint', { 
               data-tnved-classify
               @click="runClassify"
             >
-              <template #icon><PhSparkle :size="15" aria-hidden="true" /></template>
+              <template #icon><PhListMagnifyingGlass :size="15" aria-hidden="true" /></template>
               {{ t('broker.references.tnved.classify') }}
+            </ZButton>
+            <!-- Подбор с ИИ (17.10): модель выбирает из кандидатов по своим данным; «Выбрать» открывает код -->
+            <ZButton variant="ghost" size="sm" class="text-zircon-ink max-sm:h-11" data-tnved-ai @click="openAi">
+              <template #icon><PhSparkle :size="15" aria-hidden="true" /></template>
+              {{ t('aiTnved.button') }}
             </ZButton>
           </div>
           <div v-if="mode === 'tree' || source === 'search'" class="flex min-h-7 flex-wrap items-center gap-2">
@@ -338,5 +348,6 @@ const notFoundHint = computed(() => t('broker.references.tnved.notFoundHint', { 
         </div>
       </div>
     </div>
+    <AiTnvedModal v-if="aiUsed" v-model:open="aiOpen" :description="isCodeLike(q) ? '' : q" source="reference" :confirm="false" :select-label="t('aiTnved.open')" @select="onAiSelect" />
   </div>
 </template>

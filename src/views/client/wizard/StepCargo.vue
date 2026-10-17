@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, ref, useId } from 'vue'
+import { PhSparkle } from '@phosphor-icons/vue'
+import ZButton from '@/components/z/ZButton.vue'
+import AiTnvedModal from '@/components/aiTnved/AiTnvedModal.vue'
+import { useAiTnvedButton } from '@/components/aiTnved/aiTnved'
+import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import ZField from '@/components/z/ZField.vue'
 import ZNumber from '@/components/z/ZNumber.vue'
@@ -20,6 +25,27 @@ const props = defineProps<{
 
 const { t, locale } = useI18n()
 const uid = useId()
+
+// «Подобрать код с ИИ» (17.10): по описанию груза; выбранный код дописывается в груз — декларант его увидит и проверит.
+// Кнопка — если администратор не выключил «ИИ для клиентов».
+const auth = useAuthStore()
+const aiVisible = useAiTnvedButton(() => auth.role === 'client')
+const aiOpen = ref(false)
+const aiUsed = ref(false)
+const openAi = () => { aiUsed.value = true; aiOpen.value = true }
+// Пометка «(код ТН ВЭД …)» — одна: прежняя убирается (и из текста для ИИ), длинный груз обрезается, а не пометка.
+const CARGO_MAX = 500
+const notePattern = computed(() => {
+  const [before, after] = t('client.wizard.cargo.aiCode', { code: '\u0000' }).split('\u0000')
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`\\s*\\(${esc(before)}\\d{10}${esc(after)}\\)`, 'g')
+})
+const cargoWithoutNote = computed(() => (props.draft.cargo ?? '').replace(notePattern.value, '').trim())
+const onAiSelect = ({ code }: { code: string }) => {
+  const note = ` (${t('client.wizard.cargo.aiCode', { code })})`
+  const cargo = cargoWithoutNote.value
+  props.draft.cargo = cargo ? `${cargo.slice(0, CARGO_MAX - note.length)}${note}` : note.trim().replace(/^\(|\)$/g, '')
+}
 const headingId = `wz-cargo-${uid}`
 
 /** Груз годится для «Далее»: хотя бы два символа (как в прежнем мастере). */
@@ -89,6 +115,13 @@ const currency = computed<ZOptionValue | null>({
         data-wz-cargo
       />
     </ZField>
+    <div v-if="aiVisible" class="-mt-2 flex flex-col gap-1">
+      <ZButton size="sm" class="w-fit max-sm:h-11 max-sm:w-full" :disabled="(draft.cargo ?? '').trim().length < 3" data-wz-ai @click="openAi">
+        <template #icon><PhSparkle :size="15" aria-hidden="true" /></template>{{ t('client.wizard.cargo.ai') }}
+      </ZButton>
+      <span class="text-xs text-muted">{{ t('client.wizard.cargo.aiHint') }}</span>
+    </div>
+    <AiTnvedModal v-if="aiUsed" v-model:open="aiOpen" :description="cargoWithoutNote" source="wizard" @select="onAiSelect" />
 
     <ZField :label="t('client.wizard.cargo.post')" :extra="t('client.wizard.cargo.postHelp')">
       <ZSelect

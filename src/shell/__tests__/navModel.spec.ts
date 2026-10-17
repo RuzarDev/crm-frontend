@@ -33,7 +33,7 @@ describe('buildBrokerNav', () => {
       'finance:financeOverview,billing',
       'analytics:analytics,representativeReport',
       'references:tnvedTree,currencies,npa,timeline,eecUpdates,nationalLists,dtGuide,systemData',
-      'settings:team,roles,organization,stageNorms,audit,system',
+      'settings:team,roles,organization,stageNorms,ai,audit,system',
     ])
   })
 
@@ -95,7 +95,7 @@ describe('раздел «Настройки»: вкладки по правам'
   it('адреса вкладок и порядок', () => {
     expect(settings({ role: 'administrator' })).toEqual([
       'team=/settings/team', 'roles=/settings/roles', 'organization=/settings/organization',
-      'stageNorms=/settings/stage-norms', 'audit=/settings/audit', 'system=/settings/system',
+      'stageNorms=/settings/stage-norms', 'ai=/settings/ai', 'audit=/settings/audit', 'system=/settings/system',
     ])
   })
   it('команда и роли — users.read; организация — finance.read | finance.write | users.write; система — endpoints.read', () => {
@@ -226,7 +226,7 @@ describe('resolveActive', () => {
   it('«Настройки»: новые адреса и вложенные страницы подсвечивают свою вкладку', () => {
     for (const [path, page] of [
       ['/settings/team', 'team'], ['/settings/team/42', 'team'], ['/settings/roles', 'roles'],
-      ['/settings/organization', 'organization'], ['/settings/audit', 'audit'], ['/settings/system', 'system'],
+      ['/settings/organization', 'organization'], ['/settings/audit', 'audit'], ['/settings/system', 'system'], ['/settings/ai', 'ai'],
       ['/settings/stage-norms', 'stageNorms'],
     ] as const) {
       const r = resolveActive(admin, path)
