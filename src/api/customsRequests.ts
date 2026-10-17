@@ -6,7 +6,7 @@ export type CustomsRequestStatus = 'open' | 'answered' | 'closed'
 
 // Момент запроса (17.10): declaration — при проверке ДТ до выпуска (ТК ЕАЭС ст. 325, 4 ч до срока выпуска),
 // border — на границе (пункт пропуска: транзит/прибытие, санитарный, ветеринарный, фитосанитарный контроль),
-// postRelease — после выпуска / камеральная проверка (Кодекс РК «О таможенном регулировании», ст. 416–417).
+// postRelease — после выпуска / камеральная проверка (Кодекс РК «О таможенном регулировании», гл. 46–47).
 export type CustomsRequestStage = 'declaration' | 'border' | 'postRelease'
 
 export interface CustomsRequestFile {
@@ -25,7 +25,10 @@ export interface CustomsRequestDto {
   corridor: string | null
   text: string
   docKinds: string[]
+  /** Срок ответа. Без времени (dueHasTime ≠ true) — календарная дата: полдень UTC этой даты, дата — по UTC. */
   dueAtUtc: string | null
+  /** У срока задано время (срок — момент dueAtUtc); нет поля (старый сервер) — срок только датой. */
+  dueHasTime?: boolean
   createdAtUtc: string
   /** Кто завёл — только сотрудникам. */
   createdByName: string | null
@@ -47,6 +50,8 @@ export interface CustomsRequestCreate {
   text: string
   docKinds: string[]
   dueAtUtc?: string | null
+  /** У срока задано время; false — срок только датой. */
+  dueHasTime?: boolean
 }
 
 export interface RemindClientResult {

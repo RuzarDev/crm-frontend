@@ -18,7 +18,7 @@ import {
 import { import40Api } from '@/api/import40'
 import { ALL_DOC_KINDS } from '@/views/client/docKinds'
 import {
-  STAGES, canCreateAtStatus, dateLabel, defaultStage, docKindName, dueTimeLabel, dueToIso, elapsedLabel, hasClientDebt,
+  STAGES, canCreateAtStatus, dateLabel, defaultStage, docKindName, dueDateLabel, dueForApi, dueTimeLabel, elapsedLabel, hasClientDebt,
   isActive, isWaiting, stageOf, stagesAt, waitingKey,
 } from '@/utils/customsRequests'
 import { saveBlob } from '@/ui/download'
@@ -91,8 +91,8 @@ const submitCreate = async () => {
       stage: form.value.stage,
       docKinds: form.value.kinds,
       declarationId: form.value.dt || null,
-      // Срок — день и (необязательно) время; без времени — полдень UTC, чтобы дата не съехала в часовом поясе.
-      dueAtUtc: dueToIso(form.value.due, form.value.time),
+      // Срок — день и (необязательно) время; без времени — только дата (dueHasTime = false).
+      ...dueForApi(form.value.due, form.value.time),
     })
     createOpen.value = false
     message.success(t('customsRequest.created'))
@@ -152,14 +152,14 @@ const download = async (f: CustomsRequestFile) => {
 }
 
 /** «17.10.2026» или «17.10.2026 15:00» — срок со временем, если его указали. */
-const dueText = (iso: string) => [dateLabel(iso), dueTimeLabel(iso)].filter(Boolean).join(' ')
+const dueText = (r: CustomsRequestDto) => [dueDateLabel(r), dueTimeLabel(r)].filter(Boolean).join(' ')
 const stageName = (r: CustomsRequestDto) => t(`customsRequest.stage.${stageOf(r)}`)
 
 const metaOf = (r: CustomsRequestDto): string[] => {
   const parts: string[] = [stageName(r)]
   if (r.declarationNumber) parts.push(t('customsRequest.dt', { n: r.declarationNumber }))
   if (r.corridor) parts.push(t('customsRequest.corridor', { c: t(`customsRequest.corridorName.${r.corridor}`) }))
-  if (r.dueAtUtc) parts.push(t('customsRequest.due', { date: dueText(r.dueAtUtc) }))
+  if (r.dueAtUtc) parts.push(t('customsRequest.due', { date: dueText(r) }))
   if (r.createdByName) parts.push(t('customsRequest.by', { name: r.createdByName }))
   if (r.lastReminderAtUtc) parts.push(t('customsRequest.lastReminder', { time: elapsedLabel(r.lastReminderAtUtc, t) }))
   return parts

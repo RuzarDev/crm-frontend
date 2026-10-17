@@ -73,7 +73,7 @@ describe('CaseCustomsRequests', () => {
     ok.click()
     await flushPromises()
     expect(api.create).toHaveBeenCalledWith('c1', {
-      text: 'Инспектор просит инвойс', stage: 'declaration', docKinds: ['invoice'], declarationId: 'd1', dueAtUtc: null,
+      text: 'Инспектор просит инвойс', stage: 'declaration', docKinds: ['invoice'], declarationId: 'd1', dueAtUtc: null, dueHasTime: false,
     })
     // Черновик и отменённая — запрос таможни не заводится.
     for (const status of [0, 9]) {
@@ -108,7 +108,7 @@ describe('CaseCustomsRequests', () => {
     ok.click()
     await flushPromises()
     expect(api.create).toHaveBeenCalledWith('c1', expect.objectContaining({
-      stage: 'declaration', dueAtUtc: new Date('2026-10-20T15:30:00').toISOString(),
+      stage: 'declaration', dueAtUtc: new Date('2026-10-20T15:30:00').toISOString(), dueHasTime: true,
     }))
   })
 

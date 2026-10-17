@@ -99,35 +99,49 @@ export function waitingForClient<R extends Pick<CustomsRequestDto, 'status' | 's
 export const waitingOfStage = <R extends Pick<CustomsRequestDto, 'status' | 'stage'>>(list: readonly R[], stage: CustomsRequestStage): R[] =>
   list.filter((r) => isWaiting(r) && stageOf(r) === stage)
 
-// Срок без времени сохраняется полднем UTC (так дата не съезжает в часовом поясе) — время у такого срока не показываем.
-const isDateOnly = (d: Date) =>
-  d.getUTCHours() === 12 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0
+type DueFields = Pick<CustomsRequestDto, 'dueAtUtc' | 'dueHasTime'>
 
-/** «ЧЧ:ММ» срока по местному времени; '' — срок без времени. */
-export function dueTimeLabel(iso: string | null | undefined): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime()) || isDateOnly(d)) return ''
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+const p2 = (n: number) => String(n).padStart(2, '0')
+const parseDue = (r: DueFields): Date | null => {
+  if (!r.dueAtUtc) return null
+  const d = new Date(r.dueAtUtc)
+  return Number.isNaN(d.getTime()) ? null : d
 }
 
-/** Срок прошёл: со временем — по моменту, без времени — после конца дня срока. */
-export function isOverdue(r: Pick<CustomsRequestDto, 'dueAtUtc' | 'status'>, now: Date = new Date()): boolean {
-  if (!r.dueAtUtc || r.status !== 'open') return false
-  const d = new Date(r.dueAtUtc)
-  if (Number.isNaN(d.getTime())) return false
-  if (!isDateOnly(d)) return now.getTime() > d.getTime()
-  const end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)
+/** Дата срока «ДД.ММ.ГГГГ»: со временем — по местному времени, без времени — календарная дата (по UTC). */
+export function dueDateLabel(r: DueFields): string {
+  const d = parseDue(r)
+  if (!d) return ''
+  return r.dueHasTime
+    ? `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()}`
+    : `${p2(d.getUTCDate())}.${p2(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`
+}
+
+/** «ЧЧ:ММ» срока по местному времени; '' — срок без времени. */
+export function dueTimeLabel(r: DueFields): string {
+  const d = parseDue(r)
+  if (!d || !r.dueHasTime) return ''
+  return `${p2(d.getHours())}:${p2(d.getMinutes())}`
+}
+
+/** Срок прошёл: со временем — по моменту, без времени — после конца дня срока (по местному времени). */
+export function isOverdue(r: DueFields & Pick<CustomsRequestDto, 'status'>, now: Date = new Date()): boolean {
+  if (r.status !== 'open') return false
+  const d = parseDue(r)
+  if (!d) return false
+  if (r.dueHasTime) return now.getTime() > d.getTime()
+  const end = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)
   return now.getTime() >= end.getTime()
 }
 
-/** Срок для API: дата 'YYYY-MM-DD' и необязательное время 'HH:MM' (местное) → ISO; без времени — полдень UTC. */
-export function dueToIso(date: string | null | undefined, time: string | null | undefined): string | null {
-  if (!date) return null
+/** Срок для API: дата 'YYYY-MM-DD' и необязательное время 'HH:MM' (местное). Без времени — дата полднем UTC
+ * (сервер так и хранит) и dueHasTime = false. */
+export function dueForApi(date: string | null | undefined, time: string | null | undefined): { dueAtUtc: string | null; dueHasTime: boolean } {
+  if (!date) return { dueAtUtc: null, dueHasTime: false }
   const tm = (time ?? '').trim()
-  if (!/^\d{2}:\d{2}$/.test(tm)) return `${date}T12:00:00Z`
-  const local = new Date(`${date}T${tm}:00`)
-  return Number.isNaN(local.getTime()) ? `${date}T12:00:00Z` : local.toISOString()
+  const local = /^\d{2}:\d{2}$/.test(tm) ? new Date(`${date}T${tm}:00`) : null
+  if (!local || Number.isNaN(local.getTime())) return { dueAtUtc: `${date}T12:00:00Z`, dueHasTime: false }
+  return { dueAtUtc: local.toISOString(), dueHasTime: true }
 }
 
 /** Есть ли что напомнить клиенту: ждущий запрос таможни, черновик (0) или счёт СВХ без оплаты (6). */

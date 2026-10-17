@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CustomsRequestDto } from '@/api/customsRequests'
 import {
-  canCreateAtStatus, canManageCustoms, canRemindClient, dateLabel, defaultStage, defaultUploadKind, dueTimeLabel, dueToIso,
+  canCreateAtStatus, canManageCustoms, canRemindClient, dateLabel, defaultStage, defaultUploadKind, dueDateLabel, dueForApi, dueTimeLabel,
   elapsedLabel, hasClientDebt, isOverdue, oldestWaiting, stageOf, stagesAt, waitingForClient, waitingLabel, waitingOfStage,
 } from '../customsRequests'
 
@@ -74,17 +74,24 @@ describe('customsRequests', () => {
     expect(waitingLabel(waitingOfStage(list, 'postRelease'), t, now)).toBe('customsRequest.waitingPostRelease{"time":"customsRequest.time.hour{\\"n\\":3}"}')
   })
 
-  it('срок: без времени — полдень UTC; со временем — местный момент; просрочка', () => {
-    expect(dueToIso(null, '10:00')).toBeNull()
-    expect(dueToIso('2026-10-20', '')).toBe('2026-10-20T12:00:00Z')
-    expect(dueToIso('2026-10-20', '15:30')).toBe(new Date('2026-10-20T15:30:00').toISOString())
-    expect(dueTimeLabel('2026-10-20T12:00:00Z')).toBe('')
-    expect(dueTimeLabel(new Date('2026-10-20T15:30:00').toISOString())).toBe('15:30')
-    const withTime = req({ dueAtUtc: new Date('2026-10-20T15:30:00').toISOString() })
+  it('срок: время — явным флагом dueHasTime, а не «полдень UTC»; просрочка', () => {
+    expect(dueForApi(null, '10:00')).toEqual({ dueAtUtc: null, dueHasTime: false })
+    expect(dueForApi('2026-10-20', '')).toEqual({ dueAtUtc: '2026-10-20T12:00:00Z', dueHasTime: false })
+    expect(dueForApi('2026-10-20', '15:30')).toEqual({ dueAtUtc: new Date('2026-10-20T15:30:00').toISOString(), dueHasTime: true })
+    // Время, которое в UTC выпадает ровно на полдень, — всё равно срок со временем.
+    const noonUtc = new Date('2026-10-20T12:00:00Z')
+    const noonLocal = `${String(noonUtc.getHours()).padStart(2, '0')}:${String(noonUtc.getMinutes()).padStart(2, '0')}`
+    expect(dueTimeLabel({ dueAtUtc: '2026-10-20T12:00:00Z', dueHasTime: true })).toBe(noonLocal)
+    expect(dueTimeLabel({ dueAtUtc: '2026-10-20T12:00:00Z', dueHasTime: false })).toBe('')
+    expect(dueTimeLabel({ dueAtUtc: '2026-10-20T12:00:00Z' })).toBe('')
+    expect(dueTimeLabel({ dueAtUtc: new Date('2026-10-20T15:30:00').toISOString(), dueHasTime: true })).toBe('15:30')
+    expect(dueDateLabel({ dueAtUtc: '2026-10-20T12:00:00Z', dueHasTime: false })).toBe('20.10.2026')
+    expect(dueDateLabel({ dueAtUtc: null })).toBe('')
+    const withTime = req({ dueAtUtc: new Date('2026-10-20T15:30:00').toISOString(), dueHasTime: true })
     expect(isOverdue(withTime, new Date('2026-10-20T15:00:00'))).toBe(false)
     expect(isOverdue(withTime, new Date('2026-10-20T16:00:00'))).toBe(true)
     expect(isOverdue({ ...withTime, status: 'answered' }, new Date('2026-10-21T00:00:00'))).toBe(false)
-    const dateOnly = req({ dueAtUtc: '2026-10-20T12:00:00Z' })
+    const dateOnly = req({ dueAtUtc: '2026-10-20T12:00:00Z', dueHasTime: false })
     expect(isOverdue(dateOnly, new Date('2026-10-20T22:00:00'))).toBe(false)
     expect(isOverdue(dateOnly, new Date('2026-10-21T00:30:00'))).toBe(true)
   })

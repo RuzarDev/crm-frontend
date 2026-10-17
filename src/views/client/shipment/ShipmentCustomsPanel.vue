@@ -9,7 +9,7 @@ import ZTextarea from '@/components/z/ZTextarea.vue'
 import ZUpload from '@/components/z/ZUpload.vue'
 import { customsRequestsApi, type CustomsRequestDto } from '@/api/customsRequests'
 import { import40Api } from '@/api/import40'
-import { dateLabel, defaultUploadKind, docKindName, dueTimeLabel, isActive, isOverdue, stageOf } from '@/utils/customsRequests'
+import { defaultUploadKind, docKindName, dueDateLabel, dueTimeLabel, isActive, isOverdue, stageOf } from '@/utils/customsRequests'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
 
@@ -77,8 +77,8 @@ const docsOf = (r: CustomsRequestDto) => r.docKinds.map((k) => docKindName(k, t)
 /** «Ответьте до 17.10.2026 в 15:00» / «Ответьте до 17.10.2026»; срок прошёл — «Срок ответа прошёл …». */
 const dueText = (r: CustomsRequestDto) => {
   if (!r.dueAtUtc) return ''
-  const date = dateLabel(r.dueAtUtc)
-  const time = dueTimeLabel(r.dueAtUtc)
+  const date = dueDateLabel(r)
+  const time = dueTimeLabel(r)
   if (isOverdue(r)) return t('customsRequest.clientOverdue', { date: time ? `${date} ${time}` : date })
   return time ? t('customsRequest.clientDueAt', { date, time }) : t('customsRequest.clientDue', { date })
 }

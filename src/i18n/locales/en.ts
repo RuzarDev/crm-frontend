@@ -6635,7 +6635,7 @@ export default {
     stageHint: {
       declaration: 'Customs is checking the filed declaration and requests documents (EAEU Customs Code, Art. 325).',
       border: 'Border crossing point: transit or arrival documents, sanitary, veterinary or phytosanitary control.',
-      postRelease: 'Post-release customs control, desk audit (RK Code “On Customs Regulation”, Art. 416–417). Also allowed for completed requests.',
+      postRelease: 'Post-release customs control, desk audit (RK Code “On Customs Regulation”, Chapters 46–47). Also allowed for completed requests.',
     },
     rule4h: 'Documents must be submitted no later than 4 hours before the release deadline expires — otherwise customs will refuse release (Art. 125). Set the deadline with a time.',
     dueTimeLabel: 'Time (optional)',

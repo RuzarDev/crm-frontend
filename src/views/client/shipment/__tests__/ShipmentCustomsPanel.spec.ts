@@ -45,7 +45,7 @@ describe('ShipmentCustomsPanel', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-10-20T09:00:00'))
     try {
-      mountIt([req({ dueAtUtc: new Date('2026-10-20T15:30:00').toISOString() })])
+      mountIt([req({ dueAtUtc: new Date('2026-10-20T15:30:00').toISOString(), dueHasTime: true })])
       const p = w.get('[data-customs-ask]')
       expect(p.get('[data-customs-ask-stage]').text()).toBe('Запрос таможни при проверке ДТ')
       expect(p.get('[data-customs-ask-due]').text()).toBe('Ответьте до 20.10.2026 в 15:30')
