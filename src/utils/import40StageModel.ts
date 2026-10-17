@@ -5,6 +5,7 @@ import type { CaseStages, CaseStageStep, StageEvent, StageEventKind, StageState 
 import { formatMoney } from '@/ui/number'
 import { TOTAL_STEPS, stepForStatus } from '@/utils/import40Steps'
 import { pluralForm } from '@/views/broker/list'
+import { kedenCaseSummary, type KedenCaseSummary } from '@/utils/kedenLink'
 
 // Модель этапов заявки по утверждённому макету (17.10) — общая для карточки сотрудника и поставки клиента.
 // Подписи-итоги под шагами, ответственный, «на шаге · норма» (сотрудник), метки «нужен ваш ответ» / «запрос таможни»,
@@ -329,7 +330,55 @@ export function declaringSubstages(input: StageInput, t: T, te: Te): SubStage[] 
     ? { key: 'release', label: releaseLabel, state: 'done', tone: 'ok', caption: ready(released?.atUtc) }
     : todo('release', releaseLabel, t('stages.sub.expected'))
 
-  return [fill, submit, check, release]
+  const base = [fill, submit, check, release]
+  // Сотруднику — по статусу КЕДЕН связанных ДТ (17.10): подача/проверка/выпуск видны до того, как заявку передвинут вручную.
+  const keden = !client && !cancelled ? kedenCaseSummary(kase.declarations ?? []) : null
+  return keden ? withKeden(base, keden, status, corridorLine, !!oldestWaiting(input.customs ?? []), t) : base
+}
+
+/**
+ * Подэтапы шага 3 с учётом КЕДЕН (только сотрудник): статус заявки не меняем — подсказываем, что отметить.
+ * Подача — если КЕДЕН уже зарегистрировал ДТ; «Коридор» — запрос документов/отказ/отзыв или текущий статус КЕДЕН;
+ * «Выпуск» — когда КЕДЕН выпустил все живые ДТ (часть — «выпущено N из M»).
+ */
+function withKeden(base: SubStage[], k: KedenCaseSummary, status: number, corridorLine: string, customsWaiting: boolean, t: T): SubStage[] {
+  const [fill, submit, check, release] = base as [SubStage, SubStage, SubStage, SubStage]
+  const at = (iso: string | null) => (iso ? whenText(iso, t) : '')
+  const registered = k.firstAtUtc ? t('kedenLink.sub.registered', { when: at(k.firstAtUtc) }) : ''
+  const allReleased = k.released > 0 && k.released === k.total
+  const pre = status < 3
+
+  const nextFill: SubStage = pre ? { ...fill, state: 'done', tone: 'ok', caption: t('stages.sub.ready') } : fill
+  const nextSubmit: SubStage = pre
+    ? { ...submit, state: 'done', tone: 'ok', caption: [registered, t('kedenLink.sub.markSubmit')].filter(Boolean).join(' · ') }
+    : registered ? { ...submit, caption: registered } : submit
+
+  let nextCheck = check
+  if (status <= 3) {
+    if (allReleased) {
+      nextCheck = { ...check, state: 'done', tone: 'ok', caption: corridorLine || t('stages.sub.ready') }
+    } else {
+      const issue = k.refused ? t('kedenLink.sub.refused')
+        : k.withdrawn ? t('kedenLink.sub.withdrawn')
+        : k.docs ? t('kedenLink.sub.docs')
+        : ''
+      const statusLine = issue || (k.latestName ? t('kedenLink.sub.status', { status: k.latestName }) : '')
+      const parts = [corridorLine, statusLine, customsWaiting && !k.docs ? t('stages.sub.docsRequest') : ''].filter(Boolean)
+      nextCheck = {
+        ...check, state: 'current',
+        tone: issue || customsWaiting ? 'problem' : 'current',
+        caption: parts.join(' · ') || t('stages.sub.inProgress'),
+      }
+    }
+  }
+
+  let nextRelease = release
+  if (status < 4 && k.released > 0) {
+    nextRelease = allReleased
+      ? { ...release, state: 'done', tone: 'ok', caption: [t('kedenLink.sub.released', { when: at(k.releasedAtUtc) }), t('kedenLink.sub.markRelease')].join(' · ') }
+      : { ...release, state: 'current', tone: 'current', caption: t('kedenLink.sub.releasedPart', { n: k.released, total: k.total }) }
+  }
+  return [nextFill, nextSubmit, nextCheck, nextRelease]
 }
 
 // ───────────────────────── история ─────────────────────────

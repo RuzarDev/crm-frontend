@@ -745,6 +745,8 @@ export interface AppNotification {
   reestrEntryId: string | null
   isRead: boolean
   createdAtUtc: string
+  /** ДТ заявки (уведомления КЕДЕН, 17.10): клик ведёт на страницу ДТ, «Завести запрос таможни» — форма по ней. */
+  declarationId?: string | null
 }
 
 // ── TNVED extended types ──────────────────────────────────────────────────────

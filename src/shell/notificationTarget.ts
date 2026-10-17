@@ -1,4 +1,5 @@
 import type { AppNotification } from '@/types/api'
+import { kedenNotificationDtPath } from '@/utils/kedenLink'
 
 // Чек об оплате по счёту AQNIET (редизайн, волна 2b): уведомление получают бухгалтерия и админы —
 // всегда в «Счета и акты», а не в карточку заявки, даже если у получателя есть доступ к заявкам.
@@ -14,7 +15,7 @@ export const EEC_UPDATES_PATH = '/tnved/eec'
 // hasPermission (если передан): экран «Обновления ЕЭК» — по праву tnved.manage; без права (РОП получает уведомление,
 // но экран ему закрыт) клик только отмечает прочитанным, а не уводит guard'ом на главную.
 export function notificationTarget(
-  n: Pick<AppNotification, 'caseId' | 'reestrEntryId'> & Partial<Pick<AppNotification, 'type'>>,
+  n: Pick<AppNotification, 'caseId' | 'reestrEntryId'> & Partial<Pick<AppNotification, 'type' | 'declarationId'>>,
   isFinanceOnly: boolean,
   hasPermission?: (p: string) => boolean,
 ): string | null {
@@ -24,6 +25,9 @@ export function notificationTarget(
   if (n.type === INVOICE_CHECK_UPLOADED) {
     return n.caseId ? `/billing?case=${encodeURIComponent(n.caseId)}` : '/billing'
   }
+  // Статус КЕДЕН по ДТ (17.10) — сразу страница этой ДТ (финансисту — как прочие уведомления по заявке).
+  const dtPath = isFinanceOnly ? null : kedenNotificationDtPath(n)
+  if (dtPath) return dtPath
   if (n.caseId) {
     const id = encodeURIComponent(n.caseId)
     return isFinanceOnly ? `/billing?case=${id}` : `/import-40/${id}`

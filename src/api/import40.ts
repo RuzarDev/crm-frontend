@@ -1,5 +1,6 @@
 import apiClient from './client'
 import type { ConditionalReleaseDto } from './conditionalRelease'
+import type { KedenLinkDto } from './kedenLink'
 import type { ReworkItemDto } from './import40Rework'
 import { i18n } from '@/i18n'
 import type {
@@ -264,6 +265,8 @@ export interface Import40DeclarationDto {
   uploadedToKeden?: boolean
   /** Условный выпуск (17.10); null — без условия. */
   conditionalRelease?: ConditionalReleaseDto | null
+  /** Связь с журналом КЕДЕН (17.10): статус, дата, коридор, ДХТ; старый сервер — нет поля. */
+  keden?: KedenLinkDto | null
   // Оптимистичная блокировка (09.10): строка ISO как пришла с сервера (микросекунды) — НЕ превращать в Date,
   // иначе точность упадёт до миллисекунд и сервер ответит 409. Редактор шлёт её обратно как expectedUpdatedAtUtc.
   updatedAtUtc?: string | null

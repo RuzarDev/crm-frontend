@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useId } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhBell, PhCaretDown, PhChatCircleText, PhCheckCircle, PhPaperclip, PhSiren } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -38,8 +38,10 @@ const props = defineProps<{
   declarationId?: string | null
   canManage: boolean
   canRemind: boolean
+  /** Открыть форму нового запроса сразу (кнопка «Завести запрос таможни» в уведомлении КЕДЕН, 17.10). */
+  autoCreate?: boolean
 }>()
-const emit = defineEmits<{ changed: [] }>()
+const emit = defineEmits<{ changed: []; autoOpened: [] }>()
 const { t } = useI18n()
 const uid = useId()
 
@@ -78,6 +80,12 @@ const openCreate = () => {
   }
   createOpen.value = true
 }
+// Форма открывается один раз, когда запрос можно завести (статус и права известны); иначе — просто снимаем флаг.
+watch(() => [props.autoCreate, canCreate.value] as const, ([auto, can]) => {
+  if (!auto) return
+  if (can) openCreate()
+  emit('autoOpened')
+}, { immediate: true })
 const toggleKind = (k: string, on: boolean) => {
   form.value.kinds = on ? [...form.value.kinds, k] : form.value.kinds.filter((x) => x !== k)
 }

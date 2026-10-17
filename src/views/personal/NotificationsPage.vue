@@ -8,6 +8,7 @@ import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import { notificationsApi } from '@/api/notifications'
 import { notificationTarget } from '@/shell/notificationTarget'
+import { kedenCustomsRequestPath } from '@/utils/kedenLink'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import { calendarLocale } from '@/ui/date'
@@ -80,6 +81,21 @@ const open = async (n: AppNotification) => {
   if (to) void router.push(to)
 }
 
+// «КЕДЕН: таможня запрашивает документы» (17.10) — кнопка «Завести запрос таможни»: страница ДТ с открытой формой.
+// Запрос сам не создаётся — решает декларант.
+const actionOf = (n: AppNotification) => (auth.isFinanceOnly ? null : kedenCustomsRequestPath(n))
+const runAction = async (n: AppNotification) => {
+  const to = actionOf(n)
+  if (!to) return
+  if (!n.isRead) {
+    try {
+      await store.markRead(n.id)
+      n.isRead = true
+    } catch { /* тост показал перехватчик */ }
+  }
+  void router.push(to)
+}
+
 // Время — по языку интерфейса; сервер отдаёт UTC (если пояса нет — добавляем, иначе браузер прочёл бы его как местное).
 const when = (utc: string) => {
   const iso = /(?:Z|[+-]\d\d:?\d\d)$/.test(utc) ? utc : `${utc}Z`
@@ -135,6 +151,9 @@ const when = (utc: string) => {
             <span class="text-[12.5px] text-muted tabular-nums" data-notification-time>{{ when(n.createdAtUtc) }}</span>
           </span>
         </button>
+        <div v-if="actionOf(n)" class="flex px-3 pb-2.5 pl-8">
+          <ZButton size="sm" class="max-sm:h-11" data-notification-action @click="runAction(n)">{{ t('kedenLink.createRequest') }}</ZButton>
+        </div>
       </li>
     </ul>
 

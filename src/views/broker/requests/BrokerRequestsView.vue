@@ -86,6 +86,7 @@ const known = computed(() => [...allRows.value, ...myRows.value])
 const clientOptions = computed(() => buildClientOptions(known.value))
 const executorOptions = computed(() => buildExecutorOptions(known.value, t))
 const stageOptions = computed(() => IMPORT40_STATUSES.map((s) => ({ value: String(s.id), label: statusLabel(s.id) })))
+const kedenOptions = computed(() => [{ value: 'unlinked', label: t('kedenLink.filter.unlinked') }])
 const condRelOptions = computed(() => (['any', 'open', 'overdue', 'uploaded'] as const).map((k) => ({ value: k, label: t(`condRel.filter.${k}`) })))
 
 // Шапка — число заявок «В работе» без фильтров; счётчики вкладок — по найденному (видно, где совпадения).
@@ -267,6 +268,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
       <FilterChip :label="t('broker.requests.filter.stage')" :options="stageOptions" :value="filters.stage" @update:value="patch({ stage: $event })" />
       <PeriodChip :label="t('broker.list.period')" :value="filters.period" @update:value="patch({ period: $event })" />
       <FilterChip :label="t('condRel.filter.label')" :options="condRelOptions" :value="filters.condRel ?? null" data-requests-condrel @update:value="patch({ condRel: $event as CondRelFilter | null })" />
+      <FilterChip :label="t('kedenLink.filter.label')" :options="kedenOptions" :value="filters.keden ?? null" data-requests-keden @update:value="patch({ keden: $event as 'unlinked' | null })" />
     </div>
 
     <div v-if="source.error && !source.data" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-requests-error>
