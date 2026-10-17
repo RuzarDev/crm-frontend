@@ -21,13 +21,17 @@ import type { ZColumn } from '@/ui/table'
 import { formatDay } from '@/views/broker/list'
 import {
   activeServices, antiDumpingChoices, buildPayload, exciseChoices, formatRate, goodsErrorText, hasAntiDumping,
-  hasKedenBlock, isStale, payloadKey, serviceLineTotal, tpinBreakdown, type GoodsRow, type ServiceRow,
+  hasKedenBlock, isStale, payloadKey, serviceLineTotal, tpinBreakdown, utilizationGoods, utilizationIncomplete,
+  type GoodsRow, type ServiceRow,
 } from './sales'
+import { isUtilizationCode, utilizationCategory, utilizationInputs, utilizationStatusText } from '@/utils/utilizationFee'
 
 // Расчёт услуг и таможенных платежей (редизайн, волна 3б, доска Sales). Слева форма, справа «Итог».
 // Сервер считает всё сам (/sales/calculate); после правки строк результат помечается устаревшим.
 // «Сохранить как КП» пересчитывает на сервере по текущим строкам — сохранить можно и устаревший результат.
 // Инкотермс и доставка в расчёте не участвуют — только сохраняются в КП, как раньше.
+// Утильсбор (8701–8705, 8429, 8433) — параметры ТС под товарами; в «Итоге» отдельной строкой (оператору РОП, не в гр. 47),
+// в «Всего» — только по сверенной ставке, остальное — «не сверено» / «не хватает данных» в расчёте по товарам.
 // «Итог» закреплён ниже липкой шапки оболочки (≈63px) — отсюда top-20, а не top-4 из брифа.
 const emit = defineEmits<{ saved: [] }>()
 const { t } = useI18n()
@@ -161,6 +165,24 @@ const setAntiDumping = (gi: number, v: unknown) => {
 const breakdown = computed(() => tpinBreakdown(result.value?.goods ?? []))
 const goodsErrors = computed(() => (result.value?.goods ?? []).filter((g) => g.error))
 const kedenGoods = computed(() => (result.value?.goods ?? []).map((g, gi) => ({ g, gi })).filter(({ g }) => hasKedenBlock(g)))
+
+// ---- Утильсбор ----
+const vehicleRows = computed(() => goodsLines.value.filter((r) => isUtilizationCode(r.code)))
+const utilResults = computed(() => utilizationGoods(result.value?.goods ?? []))
+const utilIncomplete = computed(() => utilizationIncomplete(result.value?.goods ?? []))
+const rbRfOptions = computed(() => [
+  { value: 'auto', label: t('broker.sales.util.rbRfAuto') },
+  { value: 'yes', label: t('broker.sales.util.yes') },
+  { value: 'no', label: t('broker.sales.util.no') },
+])
+const rbRfValue = (r: GoodsRow) => (r.fromRbRf === true ? 'yes' : r.fromRbRf === false ? 'no' : 'auto')
+const setRbRf = (r: GoodsRow, v: unknown) => { r.fromRbRf = v === 'yes' ? true : v === 'no' ? false : null }
+// Сервер считает ТС штуками строки, если её единица — «шт»: пустую единицу заполняем при вводе количества.
+const setVehicleCount = (r: GoodsRow, v: number | null) => {
+  r.quantity = v
+  if (v && !r.unit) r.unit = t('sales.sht')
+}
+const moneyText = (n: number) => formatMoney(n)
 
 // ---- Сохранение ----
 const saving = ref(false)
@@ -439,6 +461,33 @@ const h2 = 'm-0 text-[15px] leading-6 font-semibold text-ink'
           </template>
         </ZTable>
         <p :class="['m-0 px-5 py-3 text-sm text-muted', goodsLines.length ? '' : 'border-t border-line']">{{ t('sales.poshlinaNdsISbory') }}</p>
+        <!-- Утильсбор: параметры ТС для кодов 8701–8705, 8429, 8433. -->
+        <div v-if="vehicleRows.length" class="flex flex-col gap-4 border-t border-line px-5 py-4" data-sales-util-inputs>
+          <div>
+            <h3 class="m-0 text-sm font-semibold text-ink">{{ t('broker.sales.util.title') }}</h3>
+            <p class="m-0 mt-0.5 text-xs text-muted text-pretty">{{ t('broker.sales.util.hint') }}</p>
+          </div>
+          <div v-for="r in vehicleRows" :key="r._k" class="flex flex-col gap-2" :data-util-row="r.code">
+            <div class="text-sm text-ink [overflow-wrap:anywhere]"><span class="font-mono">{{ r.code }}</span><template v-if="r.description"> — {{ r.description }}</template></div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <ZField v-if="utilizationInputs(r.code).engineVolume" :label="t('broker.sales.util.engineVolume')">
+                <ZNumber :value="r.engineVolumeCm3 ?? null" :min="0" :max="100000" class="max-sm:h-11" data-util-engine @update:value="r.engineVolumeCm3 = $event" />
+              </ZField>
+              <ZField v-if="utilizationInputs(r.code).mass" :label="t('broker.sales.util.mass')">
+                <ZNumber :value="r.grossMassKg ?? null" :min="0" :max="200000" class="max-sm:h-11" data-util-mass @update:value="r.grossMassKg = $event" />
+              </ZField>
+              <ZField v-if="utilizationInputs(r.code).power" :label="t('broker.sales.util.power')">
+                <ZNumber :value="r.powerHp ?? null" :min="0" :max="5000" class="max-sm:h-11" data-util-power @update:value="r.powerHp = $event" />
+              </ZField>
+              <ZField :label="t('broker.sales.util.count')">
+                <ZNumber :value="r.quantity ?? null" :min="0" :max="100000" :precision="0" class="max-sm:h-11" data-util-count @update:value="setVehicleCount(r, $event)" />
+              </ZField>
+              <ZField :label="t('broker.sales.util.rbRf')">
+                <ZSelect :value="rbRfValue(r)" :options="rbRfOptions" class="max-sm:h-11" data-util-rbrf @update:value="setRbRf(r, $event)" />
+              </ZField>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- Расчёт по товарам -->
@@ -464,6 +513,13 @@ const h2 = 'm-0 text-[15px] leading-6 font-semibold text-ink'
             <span v-else-if="isResultNum(column.key)" :class="['text-sm whitespace-nowrap tabular-nums', column.key === 'tpin' ? 'font-semibold text-ink' : 'text-ink-2']" :data-result-cell="column.key">{{ resultCell(record, column.key!) }}</span>
           </template>
         </ZTable>
+        <div v-if="utilResults.length" class="flex flex-col gap-1.5 border-t border-line px-5 py-4" data-sales-util-results>
+          <h3 class="m-0 text-sm font-semibold text-ink">{{ t('utilization.title') }}</h3>
+          <div v-for="{ g, gi } in utilResults" :key="gi" class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm" :data-util-result="g.utilization!.status">
+            <span class="min-w-0 text-ink-2 [overflow-wrap:anywhere]"><span class="font-mono">{{ g.code }}</span> · {{ utilizationCategory(t, g.utilization!.category) }}</span>
+            <span :class="['[overflow-wrap:anywhere]', g.utilization!.status === 'ok' ? 'font-semibold whitespace-nowrap text-ink tabular-nums' : 'text-gold-ink']">{{ utilizationStatusText(t, g.utilization!, moneyText) }}</span>
+          </div>
+        </div>
         <div v-if="kedenGoods.length" class="flex flex-col gap-4 border-t border-line px-5 py-4" data-sales-keden>
           <p v-if="stale" class="m-0 text-sm text-gold-ink" data-keden-stale>{{ t('broker.sales.kedenStale') }}</p>
           <div v-for="{ g, gi } in kedenGoods" :key="gi" class="flex flex-col gap-2" :data-keden-goods="gi">
@@ -536,6 +592,11 @@ const h2 = 'm-0 text-[15px] leading-6 font-semibold text-ink'
             <dt class="text-muted">{{ t('broker.sales.breakdown.fee') }}</dt>
             <dd class="m-0 whitespace-nowrap text-ink-3 tabular-nums" data-sum-fee>{{ formatMoney(breakdown.fee) }}</dd>
           </div>
+          <div v-if="utilResults.length" class="flex items-baseline justify-between gap-3">
+            <dt class="text-ink-2">{{ t('utilization.title') }}</dt>
+            <dd class="m-0 font-semibold whitespace-nowrap text-ink tabular-nums" data-sum-util>{{ formatMoney(result.utilizationTotal ?? 0) }}</dd>
+          </div>
+          <p v-if="utilIncomplete" class="m-0 text-xs text-gold-ink" data-sum-util-partial>{{ t('broker.sales.util.partial') }}</p>
         </dl>
         <div class="border-t border-line pt-3">
           <div class="text-sm text-ink-3">{{ t('broker.sales.grandTotal') }}</div>

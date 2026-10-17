@@ -54,6 +54,20 @@ describe('печать КП', () => {
     expect(PRINT_RULE_COLOR).toBe('#0E1B35')
   })
 
+  it('утильсбор — колонкой и строкой итога, только если в КП есть сумма (оператору РОП, не в ТПиН)', () => {
+    const without = buildQuoteHtml(quote(), tFor('ru'))
+    expect(without).not.toContain('Утильсбор')
+    const withUtil = nb(buildQuoteHtml(quote({
+      utilizationTotal: 756875, grandTotal: 2510365,
+      goodsLines: [{ ...quote().goodsLines[0]!, code: '8703231981', utilizationFeeKzt: 756875, utilizationNote: 'x' }],
+    }), tFor('ru')))
+    expect(withUtil).toContain('<th>Утильсбор</th>')
+    expect(withUtil).toContain('Утильсбор (оператору РОП, не в гр. 47): <b>756 875 ₸</b>')
+    expect(withUtil.match(/<th>/g)).toHaveLength(5 + 8)
+    const en = buildQuoteHtml(quote({ utilizationTotal: 1, goodsLines: [{ ...quote().goodsLines[0]!, utilizationFeeKzt: 1 }] }), tFor('en'))
+    expect(en).toContain('Recycling fee (to the EPR operator, not in box 47):')
+  })
+
   it('(баг) колонка антидемпинга — только если есть ненулевые суммы', () => {
     const without = buildQuoteHtml(quote(), tFor('ru'))
     expect(without).not.toContain('Антидемп.')

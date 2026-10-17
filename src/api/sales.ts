@@ -1,5 +1,6 @@
 import type { TnvedTariffOptionDto } from '@/types/api'
 import apiClient from './client'
+import type { UtilizationFee } from './nationalLists'
 
 export interface SalesServiceItem {
   id: string
@@ -33,6 +34,11 @@ export interface SalesCalcGoodsLine {
   originCountry?: string | null
   exciseKind?: string | null
   antiDumpingKind?: string | null
+  // Утильсбор (8701–8705, 8429, 8433): мощность (тракторы), полная масса (грузовые, тягачи), ввоз из РБ/РФ
+  // (null — по стране происхождения). Объём — engineVolumeCm3, штук — quantity в «шт».
+  powerHp?: number | null
+  grossMassKg?: number | null
+  fromRbRf?: boolean | null
 }
 
 export interface SalesCalcServiceResult {
@@ -60,6 +66,11 @@ export interface SalesCalcGoodsResult {
   exciseKind?: string | null
   exciseOptions?: TnvedTariffOptionDto[] | null
   antiDumpingOptions?: TnvedTariffOptionDto[] | null
+  /** Расчёт: утильсбор строки (null — код не под утильсбором). */
+  utilization?: UtilizationFee | null
+  /** Сохранённое КП: утильсбор по сверенной ставке и строка расчёта (что не хватило / не сверено). */
+  utilizationFeeKzt?: number | null
+  utilizationNote?: string | null
 }
 
 export interface SalesCalcResponse {
@@ -67,7 +78,10 @@ export interface SalesCalcResponse {
   goods: SalesCalcGoodsResult[]
   servicesTotal: number
   tpinTotal: number
+  /** Услуги + ТПиН + утильсбор (сверенный). */
   grandTotal: number
+  /** Утильсбор оператору РОП (не гр. 47) по сверенным ставкам. */
+  utilizationTotal?: number
 }
 
 export interface SalesQuoteListItem {
@@ -99,6 +113,7 @@ export interface SalesQuoteDto {
   incoterms?: string | null
   transportCost?: number | null
   transportCurrency?: string | null
+  utilizationTotal?: number
 }
 
 // Коды статусов КП по индексу (0..3) — значение хранится числом в БД. Раньше здесь лежали

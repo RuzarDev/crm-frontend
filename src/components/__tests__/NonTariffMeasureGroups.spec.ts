@@ -180,3 +180,44 @@ describe('Льготы: перечень ПП РК № 1199 и заменённ�
     expect(acts[1].get('[data-measure-act-status-note]').text()).toBe('Перечень с 01.01.2026 утверждает Правительство.')
   })
 })
+
+describe('Пакет 17.10: «утратил основание», «отменён», «не сверено»', () => {
+  const pref = (number: string, date: string, actStatus: TnvedNonTariffMeasureDto['actStatus']): TnvedNonTariffMeasureDto => ({
+    docType: 'PREFERENCE', name: `Льгота по акту № ${number}`, comment: null,
+    resolutionNumber: number, resolutionName: 'Приказ', resolutionUrl: null, resolutionId: `keden-${number}`, resolutionDate: date, actStatus,
+  })
+
+  it('№ 396: «Утратил основание с 01.01.2026», действующая норма — ссылка на НК, метка «не сверено»', () => {
+    const w = mountWithI18n(NonTariffMeasureGroups, {
+      props: {
+        measures: [pref('396', '2016-04-22', {
+          status: 'basis_lost', since: '2026-01-01', replacedBy: 'Налоговый кодекс РК (с 01.01.2026), ст. 479',
+          replacedByUrl: 'https://adilet.zan.kz/rus/docs/K2500000214', note: 'Нет основания в НК-2026 (ст. 479).', source: 'x', confidence: 'unverified',
+        })],
+      },
+    })
+    const act = w.get('[data-measure-act]')
+    expect(act.attributes('data-act-status')).toBe('basis_lost')
+    expect(act.get('[data-measure-act-status]').text()).toMatch(/^Утратил основание с 01\.01\.2026\s+действующая норма:\s+Налоговый кодекс РК/)
+    expect(act.get('[data-measure-replaced-by]').attributes('href')).toBe('https://adilet.zan.kz/rus/docs/K2500000214')
+    expect(act.get('[data-measure-act-unverified]').text()).toBe('не сверено')
+    expect(act.find('[data-measure-repealed-by]').exists()).toBe(false)
+  })
+
+  it('№ 327: «Утратил силу» и строка «Отменён: приказ № 455» со ссылкой; сверенный — без метки', () => {
+    const w = mountWithI18n(NonTariffMeasureGroups, {
+      props: {
+        measures: [pref('327', '2023-05-05', {
+          status: 'repealed', since: '2026-01-01', replacedBy: null, replacedByUrl: null, note: null, source: 'x', confidence: 'confirmed',
+          repealedBy: 'Приказ МПС РК № 455 от 29.10.2025', repealedByUrl: 'https://example.kz/455',
+        })],
+      },
+    })
+    const act = w.get('[data-measure-act]')
+    expect(act.get('[data-measure-act-status]').text()).toBe('Утратил силу с 01.01.2026')
+    expect(act.find('[data-measure-act-unverified]').exists()).toBe(false)
+    const repealed = act.get('[data-measure-repealed-by]')
+    expect(repealed.text()).toMatch(/^Отменён:\s+Приказ МПС РК № 455 от 29\.10\.2025/)
+    expect(repealed.get('a').attributes('href')).toBe('https://example.kz/455')
+  })
+})

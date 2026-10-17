@@ -32,7 +32,7 @@ describe('buildBrokerNav', () => {
       'sales:sales',
       'finance:financeOverview,billing',
       'analytics:analytics,representativeReport',
-      'references:tnvedTree,currencies,npa,timeline,eecUpdates,dtGuide,systemData',
+      'references:tnvedTree,currencies,npa,timeline,eecUpdates,nationalLists,dtGuide,systemData',
       'settings:team,roles,organization,stageNorms,audit,system',
     ])
   })
@@ -43,7 +43,7 @@ describe('buildBrokerNav', () => {
       'home:home',
       'requests:requests',
       'keden:kedenStatuses',
-      'references:tnvedTree,currencies,npa,timeline,dtGuide',
+      'references:tnvedTree,currencies,npa,timeline,nationalLists,dtGuide',
     ])
   })
 
@@ -72,13 +72,13 @@ describe('buildBrokerNav', () => {
     // «Обновления ЕЭК» — как «Данные системы»: tnved.manage и доступ к справочникам ТН ВЭД.
     expect(keys(m).some((k) => k.includes('eecUpdates'))).toBe(false)
     const m2 = buildBrokerNav(access({ perms: ['tnved.manage', 'references.read'] }))
-    expect(keys(m2)).toContain('references:tnvedTree,currencies,npa,timeline,eecUpdates,systemData')
+    expect(keys(m2)).toContain('references:tnvedTree,currencies,npa,timeline,eecUpdates,nationalLists,systemData')
     expect(allSections(m2).find((s) => s.key === 'references')!.pages.at(-1)!.to).toBe('/tnved/sync')
     expect(keys(m2).some((k) => k.startsWith('settings:'))).toBe(false)
     const admin = buildBrokerNav(access({ role: 'administrator' }))
     expect(allSections(admin).find((s) => s.key === 'references')!.pages.at(-1)!.to).toBe('/references')
     const reader = buildBrokerNav(access({ perms: ['references.read'] }))
-    expect(keys(reader)).toContain('references:tnvedTree,currencies,npa,timeline')
+    expect(keys(reader)).toContain('references:tnvedTree,currencies,npa,timeline,nationalLists')
   })
 
   it('пустые группы не выводятся', () => {
@@ -197,6 +197,7 @@ describe('resolveActive', () => {
     ['/tnved/sync', 'references', 'systemData'],
     ['/tnved/eec', 'references', 'eecUpdates'],
     ['/tnved/eec/editions/12', 'references', 'eecUpdates'],
+    ['/tnved/national-lists', 'references', 'nationalLists'],
     ['/references', 'references', 'systemData'],
     ['/document-packages/1/workspace', 'packages', 'packages'],
     ['/document-packages/1/partia/p1', 'packages', 'packages'],

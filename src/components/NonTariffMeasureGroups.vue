@@ -13,7 +13,9 @@ import { cleanActNumber, formatActDate, goodsOf, groupMeasures, type MeasureAct,
 // В разделе — акты: ссылка «Решение … №299 от 28.05.2010 с изменениями …», заголовок акта; под ним
 // документы (что требуется) и товары кода, к которым документ относится; коды гр. 33 — одной строкой.
 // Акт, который КЕДЕН показывает действующим, но он заменён / утратил силу (actStatus) — приглушённой карточкой с
-// пометкой «Утратил силу с 01.01.2026, заменён ПП РК № 1199 от 31.12.2025» (ссылка на новый акт), после действующих.
+// пометкой «Утратил силу с 01.01.2026, заменён ПП РК № 1199 от 31.12.2025» (ссылка на новый акт), после действующих;
+// «Утратил основание с …» — акт формально не отменён, но в НК-2026 нормы под него нет (ссылка на действующую норму);
+// «не сверено» — статус по сводкам, первоисточник не открывался.
 const props = withDefaults(defineProps<{ measures: TnvedNonTariffMeasureDto[]; by?: MeasureGrouping }>(), { by: 'docType' })
 const { t } = useI18n()
 const tm = (key: string, params?: Record<string, unknown>) => t(`broker.references.tnved.measures.${key}`, params ?? {})
@@ -43,6 +45,7 @@ const statusText = (a: MeasureAct): string | null => {
   if (!st) return null
   const since = formatActDate(st.since) ?? st.since
   if (st.status === 'partial') return tm('actPartial', { since })
+  if (st.status === 'basis_lost') return tm('actBasisLost', { since })
   if (st.status === 'replaced' && st.replacedBy) return tm('actReplaced', { since })
   return tm('actRepealed', { since })
 }
@@ -67,7 +70,8 @@ const linkClass = 'rounded-field underline-offset-2 outline-hidden hover:underli
         >
           <p v-if="a.status" class="m-0 mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] leading-5" data-measure-act-status>
             <ZTag :tone="a.status.status === 'partial' ? 'wait' : 'neutral'" size="sm">{{ statusText(a) }}</ZTag>{{ ' ' }}
-            <template v-if="a.status.status === 'replaced' && a.status.replacedBy">
+            <template v-if="a.status.replacedBy">
+              <span v-if="a.status.status !== 'replaced'" class="text-ink-3">{{ tm('actNowIn') }}{{ ' ' }}</span>
               <a
                 v-if="safeUrl(a.status.replacedByUrl)"
                 :href="safeUrl(a.status.replacedByUrl)!"
@@ -78,6 +82,20 @@ const linkClass = 'rounded-field underline-offset-2 outline-hidden hover:underli
               >{{ a.status.replacedBy }}<span class="sr-only"> ({{ tm('opensInNewTab') }})</span></a>
               <span v-else class="font-medium text-ink" data-measure-replaced-by>{{ a.status.replacedBy }}</span>
             </template>
+            <ZTag v-if="a.status.confidence === 'unverified'" tone="neutral" size="sm" :title="tm('actUnverifiedHint')" data-measure-act-unverified>
+              {{ tm('actUnverified') }}
+            </ZTag>
+          </p>
+          <p v-if="a.status?.repealedBy" class="m-0 mb-1.5 text-xs leading-5 break-words text-muted" data-measure-repealed-by>
+            {{ tm('actRepealedBy') }}{{ ' ' }}
+            <a
+              v-if="safeUrl(a.status.repealedByUrl)"
+              :href="safeUrl(a.status.repealedByUrl)!"
+              target="_blank"
+              rel="noopener noreferrer"
+              :class="[linkClass, 'text-zircon-ink']"
+            >{{ a.status.repealedBy }}<span class="sr-only"> ({{ tm('opensInNewTab') }})</span></a>
+            <span v-else class="text-ink-2">{{ a.status.repealedBy }}</span>
           </p>
           <p v-if="a.status?.note" class="m-0 mb-1.5 text-xs leading-5 text-muted" data-measure-act-status-note>{{ a.status.note }}</p>
           <p v-if="mainLink(a) || a.amendments.length" class="m-0 text-[13px] leading-5 break-words text-pretty text-ink-2" data-measure-act-line>

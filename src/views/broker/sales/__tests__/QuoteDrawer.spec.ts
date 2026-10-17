@@ -70,6 +70,18 @@ describe('панель КП', () => {
     expect(w.get('[data-quote-comment]').text()).toBe('Комментарий: две партии')
   })
 
+  it('утильсбор: строка сумм, только если в КП есть ТС; в разбивке товара — «утильсбор»', async () => {
+    await mountDrawer()
+    expect(w.find('[data-quote-util-total]').exists()).toBe(false)
+    w.unmount()
+    api.getQuote.mockResolvedValue({
+      ...FULL, utilizationTotal: 756_875,
+      goodsLines: [{ ...FULL.goodsLines[0]!, code: '8703231981', utilizationFeeKzt: 756_875, utilizationNote: 'x' }],
+    })
+    await mountDrawer()
+    expect(nb(w.get('[data-quote-util-total]').text())).toBe('756 875 ₸')
+  })
+
   it('строки услуг и товаров видны в свёрнутых списках', async () => {
     await mountDrawer()
     expect(w.get('[data-quote-services]').text()).toContain('Услуги (2)')

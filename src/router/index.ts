@@ -325,6 +325,14 @@ const router = createRouter({
           redirect: { path: '/tnved/timeline', query: { view: 'stats' } },
         },
         {
+          // «Национальные перечни» (17.10): временные меры РК, маркировка, МУЦ, ставки утильсбора — смотрят все со
+          // справочниками; добавить/продлить/снять меру — tnved.manage (кнопки на экране, проверка на сервере).
+          path: '/tnved/national-lists',
+          name: 'tnved-national-lists',
+          component: () => import('@/views/broker/references/national/NationalListsPage.vue'),
+          meta: { requiresReferences: true },
+        },
+        {
           // «Обновления ЕЭК»: редакции ЕТТ из PDF ЕЭК, сверка с КЕДЕН — по праву tnved.manage, как и сервер.
           path: '/tnved/eec',
           name: 'tnved-eec',

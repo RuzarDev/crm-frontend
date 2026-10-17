@@ -15,6 +15,7 @@ import { resetGr33Suggest } from '../useGr33Suggest'
 import { parseMarkingsSheet } from '../editor/markingsExcel'
 import type { GoodsPageContext } from '../editor/types'
 import { resetDtTnvedCheckCache } from '../tnvedCodeCheck'
+import { clearMarkingListCache } from '../useMarkingList'
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/ui/message', () => ({ message: toast }))
@@ -36,6 +37,8 @@ const keden = vi.hoisted(() => ({ get: vi.fn() }))
 vi.mock('@/api/kedenProcedureLists', async (orig) => ({ ...(await orig<typeof import('@/api/kedenProcedureLists')>()), kedenProcedureListsApi: keden }))
 const gr33Api = vi.hoisted(() => ({ list: vi.fn(), suggest: vi.fn() }))
 vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: gr33Api }))
+const nl = vi.hoisted(() => ({ marking: vi.fn() }))
+vi.mock('@/api/nationalLists', async (orig) => ({ ...(await orig<typeof import('@/api/nationalLists')>()), nationalListsApi: nl }))
 const xlsx = vi.hoisted(() => ({ rows: [] as unknown[] }))
 vi.mock('@/utils/xlsx', () => ({ loadXlsx: async () => ({
   read: () => ({ SheetNames: ['Лист1'], Sheets: { Лист1: {} } }),
@@ -153,6 +156,8 @@ beforeEach(() => {
   gr33Api.suggest.mockReset().mockResolvedValue(SUGGEST)
   trois.check.mockReset().mockResolvedValue([])
   trois.search.mockReset().mockResolvedValue([])
+  clearMarkingListCache()
+  nl.marking.mockReset().mockResolvedValue({ actLabel: 'Приказ МТИ РК № 199-НҚ', actUrl: 'u', items: [] })
   xlsx.rows = []
 })
 afterEach(() => {
@@ -301,6 +306,20 @@ describe('Редактор товара: «Гр. 33» — ОИС и ТРОИС',
 })
 
 describe('Редактор товара: «Маркировка»', () => {
+  it('подсказка «подлежит маркировке с …» по перечню Приказа МТИ № 199-НҚ на дату гр. А', async () => {
+    nl.marking.mockResolvedValue({ actLabel: 'Приказ МТИ РК № 199-НҚ', actUrl: 'u', items: [{ code: '2402209000', rows: [
+      { number: 1, codeText: '2402 20 900 0', name: 'прочие сигареты', partial: false, startDate: '2020-10-01', required: true, condition: null, check: null },
+    ] }] })
+    await mount([item({ tnvedCode: '2402209000' })])
+    expect(nl.marking).toHaveBeenCalledWith(['2402209000'], '2026-10-09', { silent: true })
+    expect(q('[data-marking-hint]')!.textContent).toContain('Подлежит маркировке с 01.10.2020 · Приказ МТИ РК № 199-НҚ, поз. 1')
+  })
+
+  it('код не в перечне — подсказки нет', async () => {
+    await mount([item()])
+    expect(q('[data-marking-hint]')).toBeNull()
+  })
+
   it('добавить строку, номер — верхним регистром, уровень/идентификатор/вид из списков, удалить', async () => {
     await mount([item()])
     expect(q('[data-markings-empty]')).not.toBeNull()

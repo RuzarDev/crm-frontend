@@ -14,9 +14,12 @@ import { formatMoneyIn } from '@/ui/number'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
 import { costAvailable, COST_NOTE_MAX } from '@/views/client/shipment/cost'
+import { utilizationStatusText } from '@/utils/utilizationFee'
 
 // Себестоимость поставки (17.10): после выпуска ДТ, в том числе по выполненной поставке. Наши данные — ТиН из ДТ,
-// услуги AQNIET, СВХ; свои — сертификаты и транспорт — клиент вводит сам. Итог неполный — пишем, чего не хватает.
+// услуги AQNIET, СВХ; свои — сертификаты и транспорт — клиент вводит сам. Утильсбор (оператору РОП, не в гр. 47) — только
+// если в ДТ есть ТС под утильсбором: расчёт по сверенной ставке или сумма, которую клиент указал сам (она важнее).
+// Итог неполный — пишем, чего не хватает.
 // Excel — по этой поставке (по всем — в «Моих поставках»).
 const props = defineProps<{ caseId: string; status: number; caseNumber: string; stamp?: string | null }>()
 const { t, locale } = useI18n()
@@ -58,17 +61,29 @@ const rows = computed<Row[]>(() => {
     { key: 'svh', label: t('shipmentCost.svh'), value: c.svhKzt, hint: c.svhInvoiceNumber ? `№ ${c.svhInvoiceNumber}` : '', empty: t('shipmentCost.svhEmpty') },
     { key: 'certificates', label: t('shipmentCost.certificates'), value: c.certificatesKzt, hint: t('shipmentCost.yours'), empty: t('shipmentCost.notEntered') },
     { key: 'transport', label: t('shipmentCost.transport'), value: c.transportKzt, hint: t('shipmentCost.yours'), empty: t('shipmentCost.notEntered') },
+    ...(hasUtilization.value ? [{
+      key: 'utilization' as const, label: t('shipmentCost.utilization'), value: c.utilizationKzt ?? null,
+      hint: c.utilizationSource === 'input' ? t('shipmentCost.utilizationInput') : t('shipmentCost.utilizationCalc'),
+      empty: t('shipmentCost.utilizationEmpty'),
+    }] : []),
   ]
 })
+const hasUtilization = computed(() => !!cost.value?.utilizationLines?.length || cost.value?.utilizationInputKzt != null)
+const utilLines = computed(() => cost.value?.utilizationLines ?? [])
+const utilLineLabel = (l: { declarationNumber: string; goodsNumber: number; vin: string | null }) =>
+  [t('shipmentCost.dt', { n: l.declarationNumber || '—' }), t('shipmentCost.goodsN', { n: l.goodsNumber }), l.vin].filter(Boolean).join(' · ')
 const missingText = computed(() =>
   (cost.value?.missing ?? []).map((m) => t(`shipmentCost.part.${m}`)).join(', '))
 
 // ---- Ввод клиента ----
 const editOpen = ref(false)
-const form = ref({ certificates: null as number | null, transport: null as number | null, note: '' })
+const form = ref({ certificates: null as number | null, transport: null as number | null, utilization: null as number | null, note: '' })
 const saving = ref(false)
 const openEdit = () => {
-  form.value = { certificates: cost.value?.certificatesKzt ?? null, transport: cost.value?.transportKzt ?? null, note: cost.value?.note ?? '' }
+  form.value = {
+    certificates: cost.value?.certificatesKzt ?? null, transport: cost.value?.transportKzt ?? null,
+    utilization: cost.value?.utilizationInputKzt ?? null, note: cost.value?.note ?? '',
+  }
   editOpen.value = true
 }
 const save = async () => {
@@ -77,6 +92,7 @@ const save = async () => {
   try {
     cost.value = await shipmentCostApi.update(props.caseId, {
       certificatesKzt: form.value.certificates, transportKzt: form.value.transport, note: form.value.note.trim(),
+      utilizationKzt: form.value.utilization,
     })
     editOpen.value = false
     message.success(t('shipmentCost.saved'))
@@ -161,6 +177,18 @@ const btn = 'max-sm:h-11 max-sm:w-full max-sm:text-sm'
           <p v-else-if="r.key === 'customs' && cost.declarations.length === 1" class="col-span-2 m-0 mt-0.5 text-xs text-ink-3" data-cost-decl>
             {{ declSource(cost.declarations[0]!.source) }}
           </p>
+          <!-- Утильсбор — по каждому ТС/товару: сумма, оценка «не сверено» или чего не хватает. -->
+          <ul v-if="r.key === 'utilization' && utilLines.length" role="list" class="col-span-2 m-0 mt-1 flex list-none flex-col gap-0.5 p-0">
+            <li
+              v-for="(l, i) in utilLines"
+              :key="i"
+              class="flex flex-wrap justify-between gap-x-3 text-xs text-ink-3"
+              :data-cost-util-line="l.fee.status"
+            >
+              <span class="min-w-0 [overflow-wrap:anywhere]">{{ utilLineLabel(l) }}</span>
+              <span :class="cn('[overflow-wrap:anywhere]', l.fee.status === 'ok' && 'tabular-nums')">{{ utilizationStatusText(t, l.fee, money) }}</span>
+            </li>
+          </ul>
         </div>
         <div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 pt-2.5" data-cost-row="total">
           <dt class="text-[15px] font-semibold text-ink">{{ t('shipmentCost.total') }}</dt>
@@ -188,6 +216,9 @@ const btn = 'max-sm:h-11 max-sm:w-full max-sm:text-sm'
         </ZField>
         <ZField :label="t('shipmentCost.transportLabel')">
           <ZNumber v-model:value="form.transport" :min="0" :max="1e12" :precision="2" class="tabular-nums" data-cost-transport />
+        </ZField>
+        <ZField v-if="hasUtilization" :label="t('shipmentCost.utilizationLabel')" :help="t('shipmentCost.utilizationHelp')">
+          <ZNumber v-model:value="form.utilization" :min="0" :max="1e12" :precision="2" class="tabular-nums" data-cost-utilization />
         </ZField>
         <ZField :label="t('shipmentCost.noteLabel')">
           <ZTextarea v-model:value="form.note" :rows="2" :maxlength="COST_NOTE_MAX" :placeholder="t('shipmentCost.notePh')" data-cost-note-input />

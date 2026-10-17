@@ -60,9 +60,26 @@ export interface ReworkSuggestionDto {
   act: string | null
 }
 
+/** Временная национальная мера РК на код (запрет/ограничение ввоза на сегодня): предупреждение, не документ. */
+export interface ReworkBanDto {
+  code: string
+  kind: 'ban' | 'restriction' | string
+  goods: string
+  name: string
+  validFrom: string
+  validTo: string | null
+  /** «Приказ … № … от …» (по-русски, как в акте). */
+  act: string
+  actUrl: string | null
+  exceptions: string | null
+  /** Мера на часть кода («из …»). */
+  partial: boolean
+}
+
 export interface ReworkSuggestionsResponse {
   codes: string[]
   items: ReworkSuggestionDto[]
+  bans?: ReworkBanDto[] | null
 }
 
 const base = (id: string) => `/import40/${encodeURIComponent(id)}`

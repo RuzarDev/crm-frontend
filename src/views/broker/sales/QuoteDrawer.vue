@@ -93,7 +93,10 @@ const goodsMeta = (g: SalesQuoteDto['goodsLines'][number]) => [
   g.exciseKzt ? `${t('broker.sales.breakdown.excise')} ${formatMoney(g.exciseKzt)}` : '',
   `${t('broker.sales.breakdown.vat')} ${formatMoney(g.vatKzt)}`,
   `${t('broker.sales.breakdown.feeShort')} ${formatMoney(g.customsFeeKzt)}`,
+  g.utilizationFeeKzt ? `${t('broker.sales.drawer.utilShort')} ${formatMoney(g.utilizationFeeKzt)}` : '',
 ].filter(Boolean).join(' · ')
+// Утильсбор КП: сумма по сверенным ставкам; строка видна, если в КП есть ТС (сумма или пояснение расчёта).
+const hasUtil = computed(() => !!full.value && ((full.value.utilizationTotal ?? 0) > 0 || full.value.goodsLines.some((g) => !!g.utilizationNote)))
 
 const print = () => { if (full.value) printQuote({ ...full.value, status: status.value }) }
 </script>
@@ -139,6 +142,10 @@ const print = () => { if (full.value) printQuote({ ...full.value, status: status
         <div class="flex items-baseline justify-between gap-3">
           <dt class="text-ink-2">{{ t('broker.sales.customsTotal') }}</dt>
           <dd class="m-0 whitespace-nowrap text-ink tabular-nums" data-quote-customs-total>{{ full ? formatMoney(full.tpinTotal) : '—' }}</dd>
+        </div>
+        <div v-if="hasUtil" class="flex items-baseline justify-between gap-3">
+          <dt class="text-ink-2">{{ t('utilization.title') }}</dt>
+          <dd class="m-0 whitespace-nowrap text-ink tabular-nums" data-quote-util-total>{{ formatMoney(full?.utilizationTotal ?? 0) }}</dd>
         </div>
         <div class="flex items-baseline justify-between gap-3 border-t border-line pt-2">
           <dt class="font-semibold text-ink">{{ t('broker.sales.drawer.total') }}</dt>

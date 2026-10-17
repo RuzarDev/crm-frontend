@@ -124,6 +124,26 @@ describe('ReturnToClientModal', () => {
     ])
   })
 
+  it('код под временной мерой РК — красная плашка запрета над подсказками, не пункт', async () => {
+    rework.suggestions.mockResolvedValueOnce({
+      codes: ['8471300000'], items: [],
+      bans: [{
+        code: '8471300000', kind: 'ban', goods: 'Пшеница', name: 'Запрет ввоза автомобильным транспортом', validFrom: '2026-07-27',
+        validTo: '2027-01-26', act: 'Приказ Министра сельского хозяйства РК № 273 от 11.07.2026', actUrl: 'https://adilet.zan.kz/rus/docs/V2600039292',
+        exceptions: 'ж/д в адрес элеваторов', partial: true,
+      }],
+    })
+    await mount()
+    const ban = w.get('[data-rework-ban]')
+    expect(ban.text()).toContain('8471300000 · Временный запрет ввоза РК')
+    expect(ban.text()).toContain('Запрет ввоза автомобильным транспортом — Пшеница, с 27.07.2026 по 26.01.2027')
+    expect(ban.text()).toContain('Мера на часть кода')
+    expect(ban.text()).toContain('Исключения: ж/д в адрес элеваторов')
+    expect(ban.get('a').attributes('href')).toBe('https://adilet.zan.kz/rus/docs/V2600039292')
+    expect(w.find('[data-rework-sugg-row]').exists()).toBe(false)
+    expect(w.find('[data-rework-sugg-empty]').exists()).toBe(true)
+  })
+
   it('«Другой документ» без названия не отправить; с пунктами общий комментарий не обязателен', async () => {
     const actions = await mount()
     await w.get('[data-rework-kind="invoice"] button[role="checkbox"]').trigger('click')

@@ -79,6 +79,14 @@ export const antiDumpingChoices = (opts: TnvedTariffOptionDto[] | null | undefin
   ...(opts ?? []).map((o) => ({ value: o.key, label: `${o.rate} (${o.country ?? ''}) — ${o.condition ?? ''}` })),
 ]
 
+/** Товары расчёта с утильсбором (8701–8705, 8429, 8433) — с индексом строки. */
+export const utilizationGoods = (goods: SalesCalcGoodsResult[]): { g: SalesCalcGoodsResult; gi: number }[] =>
+  goods.map((g, gi) => ({ g, gi })).filter((x) => !!x.g.utilization)
+
+/** Часть утильсбора не вошла в итог: ставка не сверена, нет данных или ставки. */
+export const utilizationIncomplete = (goods: SalesCalcGoodsResult[]): boolean =>
+  goods.some((g) => g.utilization && g.utilization.status !== 'ok')
+
 /** Блок КЕДЕН у товара: есть пояснение, выбор вида акциза (вариантов больше одного) или антидемпинг. */
 export const hasKedenBlock = (g: SalesCalcGoodsResult): boolean =>
   !!g.notes || (g.exciseOptions?.length ?? 0) > 1 || (g.antiDumpingOptions?.length ?? 0) > 0

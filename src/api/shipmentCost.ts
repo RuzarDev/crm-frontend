@@ -1,8 +1,20 @@
 import apiClient from './client'
+import type { UtilizationFee } from './nationalLists'
 
 // Себестоимость поставки для клиента после выпуска (17.10), всё в тенге: ТиН из ДТ (гр. В — уплачено, иначе гр. 47),
-// услуги AQNIET, СВХ, сертификаты и транспорт клиента. missing — чего ещё нет (итог неполный).
-export type ShipmentCostPart = 'customs' | 'broker' | 'svh' | 'certificates' | 'transport'
+// услуги AQNIET, СВХ, сертификаты и транспорт клиента, утильсбор оператору РОП (не в гр. 47: ввод клиента или расчёт
+// по ТС из ДТ по сверенной ставке). missing — чего ещё нет (итог неполный).
+export type ShipmentCostPart = 'customs' | 'broker' | 'svh' | 'certificates' | 'transport' | 'utilization'
+
+/** Утильсбор по товару ДТ под утильсбором (8701–8705, 8429, 8433): по ТС (VIN) или товару целиком. */
+export interface ShipmentCostUtilizationLine {
+  declarationId: string
+  declarationNumber: string
+  goodsNumber: number
+  code: string
+  vin: string | null
+  fee: UtilizationFee
+}
 
 export interface ShipmentCostDeclaration {
   declarationId: string
@@ -41,12 +53,20 @@ export interface ShipmentCostDto {
   totalKzt: number
   missing: ShipmentCostPart[]
   clientUpdatedAtUtc: string | null
+  /** Утильсбор в итоге: ввод клиента или сумма сверенных расчётов; null — нет ТС или суммы. */
+  utilizationKzt?: number | null
+  /** 'input' — ввёл клиент, 'calc' — расчёт. */
+  utilizationSource?: 'input' | 'calc' | null
+  utilizationInputKzt?: number | null
+  /** Строки расчёта; null — в ДТ нет ТС под утильсбором. */
+  utilizationLines?: ShipmentCostUtilizationLine[] | null
 }
 
 export interface ShipmentCostUpdate {
   certificatesKzt: number | null
   transportKzt: number | null
   note: string
+  utilizationKzt?: number | null
 }
 
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
