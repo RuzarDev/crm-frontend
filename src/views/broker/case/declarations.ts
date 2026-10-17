@@ -156,6 +156,20 @@ export function splitExportWarning(dt: ExportFields, all: readonly ExportFields[
   return src?.uploadedToKeden ? t('import40Case.splitExportPart') : null
 }
 
+/** Исходные ДТ заявки, у которых есть живые части: пока они есть, вариант подачи не выбран. */
+export const splitSourcesWithParts = <D extends Pick<Import40DeclarationDto, 'id' | 'splitSourceDeclarationId'>>(all: readonly D[]): D[] =>
+  all.filter((d) => all.some((p) => p.splitSourceDeclarationId === d.id && p.id !== d.id))
+
+/**
+ * Предупреждение перед «XML готовых» (C2): в заявке есть исходная ДТ с частями — пакет выгрузит только части (исходную
+ * сервер пропускает), а в КЕДЕН подаётся один вариант. Если исходная уже выгружалась — отдельной строкой. null — без окна.
+ */
+export function splitBatchWarning(all: readonly ExportFields[], t: T): string | null {
+  const sources = splitSourcesWithParts(all)
+  if (!sources.length) return null
+  return [t('import40Case.splitBatchWarning'), ...(sources.some((s) => s.uploadedToKeden) ? [t('import40Case.splitBatchSourceUploaded')] : [])].join(' ')
+}
+
 /** «не хватает: …» — первые n пунктов и сколько осталось. */
 export const missingPreview = (missing: string[], n = 3): { shown: string[]; rest: number } =>
   ({ shown: missing.slice(0, n), rest: Math.max(0, missing.length - n) })

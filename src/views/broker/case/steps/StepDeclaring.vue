@@ -9,6 +9,7 @@ import CaseStepPanel from '../CaseStepPanel.vue'
 import type { CaseStepProps } from '../caseContext'
 import { hintText } from '../casePermissions'
 import { countText, whatsLeft, type WhatsLeftItem } from '../caseSteps'
+import { splitSourcesWithParts } from '../declarations'
 import DeclarationsList from './DeclarationsList.vue'
 
 // Шаг 3 «Декларирование и выпуск» (статусы 2 и 3, декларант; доска Case).
@@ -41,8 +42,11 @@ const leftKey = (it: WhatsLeftItem) => (it.id === 'fill' ? `fill:${it.declaratio
 // «Подать ДТ»
 const SUBMIT = 'submit-declaration'
 const noDt = computed(() => !kase.value.declarations.length)
-const submitDisabled = computed(() => props.ctx.perms.actionDisabled('declarant') || noDt.value || otherBusy(SUBMIT))
-const submitHint = computed(() => declHint.value || (noDt.value ? t('broker.case.declaring.needDt') : ''))
+// Разделение ЕТТ/ВТО: подаётся один вариант — пока есть и исходная ДТ, и её части, подать нельзя (сервер — 400 с тем же текстом).
+const splitPending = computed(() => splitSourcesWithParts(kase.value.declarations).length > 0)
+const submitDisabled = computed(() => props.ctx.perms.actionDisabled('declarant') || noDt.value || splitPending.value || otherBusy(SUBMIT))
+const submitHint = computed(() => declHint.value
+  || (noDt.value ? t('broker.case.declaring.needDt') : splitPending.value ? t('broker.case.declaring.splitChoice') : ''))
 const submit = async () => {
   const ok = await confirm({
     title: t('broker.case.declaring.confirmSubmit'),

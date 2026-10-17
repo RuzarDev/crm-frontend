@@ -36,6 +36,8 @@ export interface UseDtsOptions {
   saveForAction?: () => Promise<boolean>
   /** Подтверждение перед XML ДТС (вариант разделения ЕТТ/ВТО — как у XML ДТ): false — не выгружать. */
   confirmXml?: () => Promise<boolean>
+  /** XML ДТС сформирован (сервер присвоил DtsEDocId) — страница отмечает ДТ «выгружалась». */
+  onXmlDone?: () => void
   /** Тихое сохранение после «Пересчитать гр. 45» (useDtForm.save). */
   save?: () => Promise<boolean>
   /** Шаг 1 расчёта платежей (useDtPayments.recalcCustomsValues): ошибку пробрасывает. */
@@ -153,6 +155,7 @@ export function useDts(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGetter<
         return
       }
       saveFile(res.blob, res.fileName)
+      opts.onXmlDone?.()
       message.success(t('broker.dt.dts.xmlDone'))
     } catch (e) {
       message.error((e as Error | undefined)?.message || t('broker.dt.dts.xmlError'))

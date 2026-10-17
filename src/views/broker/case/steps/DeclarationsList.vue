@@ -20,8 +20,8 @@ import type { CaseStepProps } from '../caseContext'
 import { hintText } from '../casePermissions'
 import { dtLabel } from '../caseSteps'
 import {
-  dtListActive, dtPath, dtRowActions, filterDeclarations, groupDeclarations, hasSplitParts, missingPreview, previewToUpsert,
-  splitExportWarning, splitTag, type DtListRow,
+  dtListActive, dtPath, dtRowActions, filterDeclarations, groupDeclarations, hasSplitParts, isLiveSplitPart, missingPreview,
+  previewToUpsert, splitBatchWarning, splitExportWarning, splitTag, type DtListRow,
 } from '../declarations'
 import ExtractionIssuesModal from './ExtractionIssuesModal.vue'
 import QuoteImportModal from './QuoteImportModal.vue'
@@ -89,10 +89,18 @@ const addDt = () => props.ctx.actions.mutate('dt-add', () => import40Api.createD
 
 const removeDt = async (dt: Import40DeclarationDto) => {
   // Исходная ДТ с частями: части отцепятся и подаются как обычные ДТ (сервер), изменить разделение будет нельзя.
-  const source = hasSplitParts(dt, all.value)
+  // Промежуточная часть старой цепочки — то же для её частей, но это не «исходная ДТ». Уже выгружалась в КЕДЕН — её
+  // черновик там остаётся (C3).
+  const withParts = hasSplitParts(dt, all.value)
+  const midChain = withParts && isLiveSplitPart(dt, all.value)
+  const lines = [
+    dtLabel(kase.value, dt.id, t) + '.',
+    ...(withParts ? [t(midChain ? 'import40Case.deleteMidChainText' : 'import40Case.deleteSourceText')] : []),
+    ...(dt.uploadedToKeden ? [t('import40Case.deleteUploadedText')] : []),
+  ]
   const ok = await confirm({
-    title: t(source ? 'import40Case.deleteSourceTitle' : 'import40Case.deleteDt'),
-    content: source ? `${dtLabel(kase.value, dt.id, t)}. ${t('import40Case.deleteSourceText')}` : dtLabel(kase.value, dt.id, t),
+    title: t(withParts && !midChain ? 'import40Case.deleteSourceTitle' : 'import40Case.deleteDt'),
+    content: lines.length > 1 ? lines.join(' ') : dtLabel(kase.value, dt.id, t),
     okText: t('broker.case.declaring.list.deleteOk'),
     cancelText: t('broker.case.declaring.list.keep'),
     danger: true,
@@ -106,8 +114,10 @@ const showMenu = computed(() => rowActions.value && (props.ctx.perms.canDeleteDt
 const menuItems = (dt: Import40DeclarationDto) => {
   if (!props.ctx.perms.canDeleteDt) return [{ key: 'delete-blocked', label: t('broker.case.declaring.list.deleteAfterRelease'), disabled: true }]
   // Исходная ДТ разделения удаляется и при частях (подтверждение говорит, что части останутся отдельными ДТ).
+  // Промежуточная часть старой цепочки — «Удалить ДТ» с той же подсказкой (это не исходная).
   if (hasSplitParts(dt, all.value)) {
-    return [{ key: 'delete', label: t('broker.case.declaring.list.deleteSource'), danger: true, hint: t('broker.case.declaring.list.deleteSourceHint') }]
+    const label = isLiveSplitPart(dt, all.value) ? 'broker.case.declaring.list.delete' : 'broker.case.declaring.list.deleteSource'
+    return [{ key: 'delete', label: t(label), danger: true, hint: t('broker.case.declaring.list.deleteSourceHint') }]
   }
   return [{ key: 'delete', label: t('broker.case.declaring.list.delete'), danger: true }]
 }
@@ -135,6 +145,9 @@ const exportXml = async (dt: Import40DeclarationDto) => {
     return
   }
   saveBlob(out.blob, out.fileName)
+  // Сервер присвоил EDocId: флаг сразу, не дожидаясь перечитывания, — следующее предупреждение (XML части после исходной
+  // и наоборот) уже его видит (C1).
+  dt.uploadedToKeden = true
   // Гр.54 КЕДЕН из XML не переносит — подсказка, как раньше, 8 секунд.
   message.success({ content: `${t('import40Case.xmlFormed')}. ${t('dt.xmlGr54Hint')}`, duration: 8 })
   void props.ctx.actions.reload() // в журнале появилась запись о выгрузке
@@ -142,6 +155,14 @@ const exportXml = async (dt: Import40DeclarationDto) => {
 
 // Пакетная выгрузка готовых ДТ одним zip.
 const exportBatch = async () => {
+  // Исходная с частями: пакет выгрузит части — в КЕДЕН подаётся один вариант (C2). Предупреждение, не запрет.
+  const warning = splitBatchWarning(all.value, t)
+  if (warning && !(await confirm({
+    title: t('import40Case.splitExportTitle'),
+    content: warning,
+    okText: t('import40Case.splitExportOk'),
+    cancelText: t('import40Case.splitExportCancel'),
+  }))) return
   let res: Awaited<ReturnType<typeof import40Api.downloadKedenBatch>> | null = null
   const ok = await props.ctx.actions.mutate('dt-xml-batch', async () => { res = await import40Api.downloadKedenBatch(kase.value.id) }, { reload: false })
   const out = res as Awaited<ReturnType<typeof import40Api.downloadKedenBatch>> | null

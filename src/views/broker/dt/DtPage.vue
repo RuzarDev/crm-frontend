@@ -90,6 +90,7 @@ const dts = useDts(caseId, dtId, {
   editable: () => dt.editable.value,
   saveForAction: () => dt.saveForAction(),
   confirmXml: () => confirmSplitExport(),
+  onXmlDone: () => markUploaded(),
   save: () => dt.save(),
   recalcCustomsValues: () => payments.recalcCustomsValues(),
   customsValues: () => form.goodsItems.map((g) => g.customsValueKzt),
@@ -388,6 +389,12 @@ const confirmSplitExport = async (): Promise<boolean> => {
     cancelText: t('import40Case.splitExportCancel'),
   })
 }
+/** XML сформирован — сервер присвоил EDocId: флаг в данных страницы, чтобы следующее предупреждение его видело (C1). */
+const markUploaded = () => {
+  const self = kase.value?.declarations.find((d) => d.id === dtId)
+  if (self) self.uploadedToKeden = true
+  if (dt.lastServerDto.value) dt.lastServerDto.value.uploadedToKeden = true
+}
 const onXml = async () => {
   if (!(await confirmSplitExport())) return
   // Несохранённое не теряется при выгрузке; в просмотре — без сохранения (B2).
@@ -402,6 +409,7 @@ const onXml = async () => {
       return
     }
     saveFile(res.blob, res.fileName)
+    markUploaded()
     // Гр.54 КЕДЕН из XML не импортирует — подсказка вместе с сообщением.
     message.success({ content: `${t('broker.dt.actions.xmlDone')}. ${t('broker.dt.actions.xmlGr54')}`, duration: 8 })
     void readiness.refresh()
