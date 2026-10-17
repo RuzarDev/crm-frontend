@@ -13,7 +13,7 @@ export const confidenceTone = (c: number): 'done' | 'wait' | 'neutral' => (c >= 
 
 /** Ключ i18n подписи НДС: 16%, 5% по ПП №1204 или «5% — если товар в перечне». */
 export const vatKey = (status: AiTnvedCode['info']['vatStatus']): string =>
-  status === 'auto' ? 'aiTnved.vat.auto' : status === 'confirm' ? 'aiTnved.vat.confirm' : 'aiTnved.vat.none'
+  status === 'auto' ? 'aiTnved.vat.auto' : status === 'confirm' ? 'aiTnved.vat.confirm' : status === 'none' ? 'aiTnved.vat.none' : 'aiTnved.vat.unknown'
 
 /** Уточняющие вопросы: общие и по кодам, без повторов (регистр и пробелы не важны), не больше max. */
 export function collectQuestions(r: AiTnvedResponseLike, max = 6): string[] {
@@ -40,9 +40,9 @@ export const resetAiTnvedStatus = () => { status.value = null; loading = null }
 
 /**
  * Показывать ли кнопку «Подобрать с ИИ»: сотруднику — всегда (без ключа — обычный поиск с плашкой «ИИ недоступен»),
- * клиенту — только если администратор включил «ИИ для клиентов».
+ * клиенту — только если модель подключена и администратор включил «ИИ для клиентов».
  */
 export function useAiTnvedButton(isClient: () => boolean) {
   void loadAiTnvedStatus()
-  return computed(() => (isClient() ? !!status.value?.clientsEnabled : true))
+  return computed(() => (isClient() ? !!status.value?.available : true))
 }

@@ -348,6 +348,6 @@ const notFoundHint = computed(() => t('broker.references.tnved.notFoundHint', { 
         </div>
       </div>
     </div>
-    <AiTnvedModal v-if="aiUsed" v-model:open="aiOpen" :description="isCodeLike(q) ? '' : q" source="reference" @select="onAiSelect" />
+    <AiTnvedModal v-if="aiUsed" v-model:open="aiOpen" :description="isCodeLike(q) ? '' : q" source="reference" :confirm="false" :select-label="t('aiTnved.open')" @select="onAiSelect" />
   </div>
 </template>

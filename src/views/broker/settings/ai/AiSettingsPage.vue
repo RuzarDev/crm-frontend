@@ -63,13 +63,17 @@ const save = async () => {
 const days = ref(30)
 const stats = shallowRef<AiTnvedStats | null>(null)
 const statsState = ref<'loading' | 'error' | 'ready'>('loading')
+let statsSeq = 0
 const loadStats = async () => {
+  const my = ++statsSeq
   statsState.value = 'loading'
   try {
-    stats.value = await aiTnvedApi.stats(days.value)
+    const res = await aiTnvedApi.stats(days.value)
+    if (my !== statsSeq) return
+    stats.value = res
     statsState.value = 'ready'
   } catch {
-    statsState.value = 'error'
+    if (my === statsSeq) statsState.value = 'error'
   }
 }
 const pct = (n: number, of: number) => (of > 0 ? `${Math.round((n / of) * 100)}%` : '—')

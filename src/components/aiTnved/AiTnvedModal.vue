@@ -5,7 +5,9 @@ import type { AiTnvedSource } from '@/api/aiTnved'
 import AiTnvedPanel from './AiTnvedPanel.vue'
 
 // Окно «Подобрать с ИИ»: панель подбора; «Выбрать» закрывает окно и отдаёт код.
-defineProps<{ open: boolean; description?: string; source: AiTnvedSource; caseId?: string | null }>()
+withDefaults(defineProps<{
+  open: boolean; description?: string; source: AiTnvedSource; caseId?: string | null; selectLabel?: string; confirm?: boolean
+}>(), { description: '', caseId: null, selectLabel: '', confirm: true })
 const emit = defineEmits<{ 'update:open': [open: boolean]; select: [payload: { code: string; name: string }] }>()
 const { t } = useI18n()
 const onSelect = (p: { code: string; name: string }) => {
@@ -16,6 +18,6 @@ const onSelect = (p: { code: string; name: string }) => {
 
 <template>
   <ZModal :open="open" :title="t('aiTnved.title')" :width="760" :footer="null" destroy-on-close data-ai-modal @update:open="emit('update:open', $event)">
-    <AiTnvedPanel :initial-description="description ?? ''" :source="source" :case-id="caseId" @select="onSelect" />
+    <AiTnvedPanel :initial-description="description" :source="source" :case-id="caseId" :select-label="selectLabel" :confirm="confirm" @select="onSelect" />
   </ZModal>
 </template>

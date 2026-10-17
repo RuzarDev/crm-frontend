@@ -128,6 +128,29 @@ describe('AiTnvedPanel', () => {
     }))
   })
 
+  it('в справочнике выбор — просмотр: подтверждение не записывается, кнопка «Открыть»', async () => {
+    api.suggest.mockResolvedValue(answer())
+    await mount({ confirm: false, selectLabel: 'Открыть' })
+    await run()
+    expect(w.get('[data-ai-select]').text()).toBe('Открыть')
+    await w.get('[data-ai-select]').trigger('click')
+    expect(api.select).not.toHaveBeenCalled()
+    expect(w.emitted('select')).toHaveLength(1)
+  })
+
+  it('«Повторить» после сбоя «Уточнить» повторяет запрос с ответами', async () => {
+    api.suggest.mockResolvedValueOnce(answer()).mockRejectedValueOnce(new Error('net')).mockResolvedValueOnce(answer())
+    await mount()
+    await run()
+    await w.findAll('[data-ai-questions] input')[0].setValue('для дома')
+    await w.get('[data-ai-refine]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-ai-error]').exists()).toBe(true)
+    await w.get('[data-ai-retry]').trigger('click')
+    await flushPromises()
+    expect(api.suggest).toHaveBeenLastCalledWith(expect.objectContaining({ answers: [{ question: 'Для бытовых нужд?', answer: 'для дома' }] }))
+  })
+
   it('429 — «слишком много запросов» с «Повторить»', async () => {
     api.suggest.mockRejectedValue(Object.assign(new Error('HTTP 429'), { isAxiosError: true, response: { status: 429 } }))
     await mount()
@@ -144,7 +167,8 @@ describe('aiTnved: логика', () => {
     expect(confidenceTone(0.5)).toBe('wait')
     expect(confidenceTone(0.1)).toBe('neutral')
     expect(vatKey('auto')).toBe('aiTnved.vat.auto')
-    expect(vatKey(null)).toBe('aiTnved.vat.none')
+    expect(vatKey('none')).toBe('aiTnved.vat.none')
+    expect(vatKey(null)).toBe('aiTnved.vat.unknown')
     expect(collectQuestions({ questions: ['А?', ' а? '], suggestions: [{ questions: ['Б?', 'А?'] }] })).toEqual(['А?', 'Б?'])
   })
 

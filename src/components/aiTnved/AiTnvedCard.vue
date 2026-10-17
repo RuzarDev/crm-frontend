@@ -10,7 +10,7 @@ import { confidencePct, confidenceTone, vatKey } from './aiTnved'
 
 // Карточка кода из подсказки ИИ: код и путь, уверенность, обоснование по ОПИ и отличие от соседних, пошлина, НДС,
 // акциз, антидемпинг, меры, маркировка, запреты (это — из справочников, не от модели) и «Выбрать».
-const props = defineProps<{ item: AiTnvedCode; rank: number; selectable: boolean }>()
+const props = defineProps<{ item: AiTnvedCode; rank: number; selectable: boolean; selectLabel?: string }>()
 const emit = defineEmits<{ select: [item: AiTnvedCode] }>()
 const { t } = useI18n()
 
@@ -40,7 +40,7 @@ const row = 'grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-3 gap-y-0.5 py-1 text-[
         </p>
       </div>
       <ZButton v-if="selectable" variant="primary" size="sm" class="max-sm:h-11 max-sm:w-full" data-ai-select @click="emit('select', item)">
-        <template #icon><PhCheck :size="14" aria-hidden="true" /></template>{{ t('aiTnved.select') }}
+        <template #icon><PhCheck :size="14" aria-hidden="true" /></template>{{ selectLabel || t('aiTnved.select') }}
       </ZButton>
     </header>
 

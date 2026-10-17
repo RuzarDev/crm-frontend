@@ -7193,6 +7193,7 @@ export default {
     fallbackEmpty: 'Nothing matched the words of the description. Refine it or open the reference.',
     dutyShort: 'duty {rate}',
     select: 'Select',
+    open: 'Open',
     fromCache: 'AI answer to the same request (saved within the last 7 days).',
     answered: 'AI options, most confident first.',
     questionsTitle: 'Answer to narrow it down',
@@ -7243,6 +7244,7 @@ export default {
       auto: '5%: the item is on Government Resolution No. 1204 list',
       confirm: '16%; 5% if the item is on Government Resolution No. 1204 list',
       none: '16%',
+      unknown: 'Government Resolution No. 1204 list not loaded; check the rate',
     },
   },
   aiSettings: {

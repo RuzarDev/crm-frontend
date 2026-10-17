@@ -33,11 +33,18 @@ const aiVisible = useAiTnvedButton(() => auth.role === 'client')
 const aiOpen = ref(false)
 const aiUsed = ref(false)
 const openAi = () => { aiUsed.value = true; aiOpen.value = true }
+// Пометка «(код ТН ВЭД …)» — одна: прежняя убирается (и из текста для ИИ), длинный груз обрезается, а не пометка.
+const CARGO_MAX = 500
+const notePattern = computed(() => {
+  const [before, after] = t('client.wizard.cargo.aiCode', { code: '\u0000' }).split('\u0000')
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`\\s*\\(${esc(before)}\\d{10}${esc(after)}\\)`, 'g')
+})
+const cargoWithoutNote = computed(() => (props.draft.cargo ?? '').replace(notePattern.value, '').trim())
 const onAiSelect = ({ code }: { code: string }) => {
-  const note = t('client.wizard.cargo.aiCode', { code })
-  const cargo = (props.draft.cargo ?? '').trim()
-  if (cargo.includes(code)) return
-  props.draft.cargo = (cargo ? `${cargo} (${note})` : note).slice(0, 500)
+  const note = ` (${t('client.wizard.cargo.aiCode', { code })})`
+  const cargo = cargoWithoutNote.value
+  props.draft.cargo = cargo ? `${cargo.slice(0, CARGO_MAX - note.length)}${note}` : note.trim().replace(/^\(|\)$/g, '')
 }
 const headingId = `wz-cargo-${uid}`
 
@@ -114,7 +121,7 @@ const currency = computed<ZOptionValue | null>({
       </ZButton>
       <span class="text-xs text-muted">{{ t('client.wizard.cargo.aiHint') }}</span>
     </div>
-    <AiTnvedModal v-if="aiUsed" v-model:open="aiOpen" :description="draft.cargo" source="wizard" @select="onAiSelect" />
+    <AiTnvedModal v-if="aiUsed" v-model:open="aiOpen" :description="cargoWithoutNote" source="wizard" @select="onAiSelect" />
 
     <ZField :label="t('client.wizard.cargo.post')" :extra="t('client.wizard.cargo.postHelp')">
       <ZSelect

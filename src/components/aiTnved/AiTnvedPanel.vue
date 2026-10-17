@@ -22,9 +22,11 @@ const props = withDefaults(defineProps<{
   initialDescription?: string
   source: AiTnvedSource
   caseId?: string | null
-  /** Показывать «Выбрать» (в справочнике — «Открыть»). */
+  /** Подпись кнопки выбора (в справочнике — «Открыть»). */
   selectLabel?: string
-}>(), { initialDescription: '', caseId: null, selectLabel: '' })
+  /** Записывать выбор как подтверждённый код (история). В справочнике — нет: там это просмотр. */
+  confirm?: boolean
+}>(), { initialDescription: '', caseId: null, selectLabel: '', confirm: true })
 const emit = defineEmits<{ select: [payload: { code: string; name: string }] }>()
 const { t } = useI18n()
 const uid = useId()
@@ -49,9 +51,11 @@ const characteristics = (): AiTnvedCharacteristics | null => {
 }
 
 let seq = 0
+let lastWithAnswers = false
 const run = async (withAnswers = false) => {
   if (tooShort.value || state.value === 'loading') return
   const my = ++seq
+  lastWithAnswers = withAnswers
   state.value = 'loading'
   try {
     const res = await aiTnvedApi.suggest({
@@ -81,7 +85,7 @@ const unavailableText = computed(() => (result.value?.unavailable ? t(`aiTnved.u
 
 const pick = (code: string, name: string) => {
   const id = result.value?.suggestionId
-  if (id) void aiTnvedApi.select(id, code).catch(() => { /* подтверждение — не главное: код всё равно выбран */ })
+  if (id && props.confirm) void aiTnvedApi.select(id, code).catch(() => { /* подтверждение — не главное: код всё равно выбран */ })
   emit('select', { code, name })
 }
 const onCard = (c: AiTnvedCode) => pick(c.code, c.name)
@@ -132,7 +136,7 @@ const retailOptions = computed(() => [
     </div>
     <p v-else-if="state === 'error' || state === 'limit'" class="m-0 flex flex-wrap items-center gap-2 rounded-row border border-solid border-line px-4 py-3 text-sm text-ink-2" role="alert" data-ai-error>
       {{ t(state === 'limit' ? 'aiTnved.rateLimited' : 'aiTnved.error') }}
-      <ZButton size="sm" class="max-sm:h-11" @click="run(false)">{{ t('aiTnved.retry') }}</ZButton>
+      <ZButton size="sm" class="max-sm:h-11" data-ai-retry @click="run(lastWithAnswers)">{{ t('aiTnved.retry') }}</ZButton>
     </p>
 
     <div v-else-if="state === 'ready' && result" ref="resultEl" class="flex scroll-mt-2 flex-col gap-4" data-ai-result>
@@ -162,7 +166,7 @@ const retailOptions = computed(() => [
           {{ result.fromCache ? t('aiTnved.fromCache') : t('aiTnved.answered') }}
         </p>
         <div class="flex flex-col gap-2.5" data-ai-cards>
-          <AiTnvedCard v-for="(s, i) in result.suggestions" :key="s.code" :item="s" :rank="i + 1" selectable @select="onCard" />
+          <AiTnvedCard v-for="(s, i) in result.suggestions" :key="s.code" :item="s" :rank="i + 1" selectable :select-label="selectLabel" @select="onCard" />
         </div>
         <section v-if="questions.length" class="flex flex-col gap-2 rounded-row border border-solid border-line px-4 py-3" :aria-labelledby="`ai-q-${uid}`" data-ai-questions>
           <h3 :id="`ai-q-${uid}`" class="m-0 text-sm font-semibold text-ink">{{ t('aiTnved.questionsTitle') }}</h3>
