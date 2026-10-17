@@ -22,6 +22,8 @@ export interface ClientShipment {
   assignedDeclarantName: string | null
   createdAtUtc: string
   updatedAtUtc: string
+  /** Запрос таможни ждёт ответа клиента — с какого момента (самый ранний); null/нет — не ждёт (волна 17.10, задача 5). */
+  customsRequestSinceUtc?: string | null
 }
 
 export const clientShipmentsApi = {

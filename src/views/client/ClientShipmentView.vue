@@ -9,6 +9,8 @@ import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ShipmentAskPanel from '@/views/client/shipment/ShipmentAskPanel.vue'
+import ShipmentCustomsPanel from '@/views/client/shipment/ShipmentCustomsPanel.vue'
+import { useCustomsRequests } from '@/composables/useCustomsRequests'
 import ShipmentDocuments from '@/views/client/shipment/ShipmentDocuments.vue'
 import ShipmentHistory from '@/views/client/shipment/ShipmentHistory.vue'
 import ShipmentTimeline from '@/views/client/shipment/ShipmentTimeline.vue'
@@ -107,7 +109,10 @@ const load = async (initial: boolean) => {
   state.value = 'ready'
 }
 watch(id, () => { void load(true) }, { immediate: true })
+// Запросы таможни (волна 17.10, задача 5) — своя тихая загрузка; ответ клиента перечитывает и заявку (история).
+const customs = useCustomsRequests(() => id.value)
 const reload = () => load(false)
+const onCustomsChanged = async () => { await Promise.all([customs.reload(), load(false)]) }
 const retryFiles = () => loadFiles(id.value)
 const retryInvoices = () => loadInvoices(id.value)
 
@@ -116,7 +121,7 @@ const countries = ref<RefCodeItem[]>([])
 void referencesApi.listCountries({ silent: true }).then((r) => { countries.value = r }).catch(() => {})
 
 // ---- Шапка ----
-const summary = computed(() => (kase.value ? toShipmentSummary(kase.value, files.value) : null))
+const summary = computed(() => (kase.value ? toShipmentSummary(kase.value, files.value, customs.list.value) : null))
 // Файлы не загрузились — тег не гадает про чек («Ждём оплату склада» / «Чек на проверке»).
 const tag = computed(() => (summary.value ? shipmentTag(summary.value, { filesUnknown: filesError.value }) : null))
 const metaParts = computed(() => {
@@ -264,6 +269,8 @@ const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
           {{ t('client.card.zip') }}
         </ZButton>
       </div>
+
+      <ShipmentCustomsPanel :case-id="kase.id" :requests="customs.list.value" @changed="onCustomsChanged" />
 
       <ShipmentAskPanel
         :shipment="summary"

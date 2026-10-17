@@ -32,6 +32,7 @@ export function useShipmentText() {
   /** Пояснение к вопросу «Нужно от вас». */
   const askText = (s: ClientShipment) => {
     switch (askFor(s)) {
+      case 'customs': return t('client.ask.customs.text')
       case 'problem': return s.problemClientMessage || s.cargo
       case 'returned': return s.returnReason
       case 'draft': return t('client.ask.draft.text')

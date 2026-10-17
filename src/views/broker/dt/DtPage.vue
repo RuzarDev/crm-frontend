@@ -16,6 +16,9 @@ import { confirmState, useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import { canEditDt, canManageDeclarations, dtUserFrom, RELEASED_STATUS } from '@/views/import40/dtAccess'
 import DtBanners from './DtBanners.vue'
+import CaseCustomsRequests from '@/views/broker/case/CaseCustomsRequests.vue'
+import { useCustomsRequests } from '@/composables/useCustomsRequests'
+import { canManageCustoms, canRemindClient } from '@/utils/customsRequests'
 import DtHeaderBar from './DtHeaderBar.vue'
 import DtReadinessPanel from './DtReadinessPanel.vue'
 import DtSectionNav from './DtSectionNav.vue'
@@ -211,6 +214,8 @@ const goodsSaveState = computed<GoodsSaveState>(() => ({
 const editable = computed(() => dt.editable.value)
 const splitReplaced = computed(() => !!dt.lastServerDto.value?.isSplitReplaced)
 const kase = computed(() => dt.activeCase.value)
+// Запрос таможни по этой ДТ (волна 17.10, задача 5): запросы этой ДТ и всей заявки, «Запрос таможни», «Напомнить клиенту».
+const customs = useCustomsRequests(() => caseId)
 const roReason = computed(() => readonlyReason(user.value, kase.value))
 const stage = computed(() => (kase.value ? statusLabel(kase.value.status) : ''))
 const split = computed(() => (splitReplaced.value ? splitChildren(kase.value, dtId) : null))
@@ -783,6 +788,17 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
         />
 
         <div class="flex min-w-0 flex-col gap-4">
+          <CaseCustomsRequests
+            v-if="kase"
+            :case-id="caseId"
+            :status="kase.status"
+            :list="customs.list.value"
+            :declarations="[]"
+            :declaration-id="dtId"
+            :can-manage="canManageCustoms(auth)"
+            :can-remind="canRemindClient(auth)"
+            @changed="customs.reload()"
+          />
           <DtBanners
             :case-id="caseId"
             :readonly-reason="roReason"

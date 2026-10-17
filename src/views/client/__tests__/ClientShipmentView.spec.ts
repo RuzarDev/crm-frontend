@@ -18,6 +18,8 @@ vi.mock('@/api/import40', () => ({ import40Api: api }))
 vi.mock('@/api/billing', () => ({ billingApi: billing }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
 vi.mock('@/ui/message', () => ({ message: msg }))
+const customs = vi.hoisted(() => ({ list: vi.fn(async () => [] as unknown[]), create: vi.fn(), answer: vi.fn(), close: vi.fn(), remindClient: vi.fn() }))
+vi.mock('@/api/customsRequests', () => ({ customsRequestsApi: customs }))
 
 import ClientShipmentView from '../ClientShipmentView.vue'
 
@@ -368,6 +370,18 @@ describe('ClientShipmentView', () => {
     expect(box.text()).toContain('Поставка не найдена')
     expect(box.get('a').attributes('href')).toBe('/import-40')
     expect(api.listFiles).not.toHaveBeenCalled()
+  })
+
+  it('запрос таможни без ответа — жёлтая панель «Нужно от вас · ответ таможне» и тег «Ответ таможне»', async () => {
+    customs.list.mockResolvedValueOnce([{
+      id: 'r1', declarationId: null, declarationNumber: null, corridor: null, text: 'Нужен сертификат', docKinds: ['certificate'], dueAtUtc: null,
+      createdAtUtc: '2026-10-17T08:00:00Z', createdByName: null, status: 'open', answeredAtUtc: null, answerText: '', answerFiles: [],
+      closedAtUtc: null, closedByName: null, closeNote: '', lastReminderAtUtc: null, reminderCount: 0,
+    }])
+    await mountCard({ status: 3 })
+    expect(customs.list).toHaveBeenCalledWith('c1', { silent: true })
+    expect(w.get('[data-customs-ask] h2').text()).toBe('Нужно от вас · ответ таможне')
+    expect(w.get('[data-ship-tag]').text()).toBe('Ответ таможне')
   })
 
   it('ошибка сети — «Повторить» загружает снова', async () => {

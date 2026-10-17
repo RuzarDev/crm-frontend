@@ -6,7 +6,7 @@ import { greetingName } from '@/views/home/greeting'
 // Расчёты «Главной» клиента (макет Client.dc): что нужно от клиента, поставки в работе, счёт к оплате.
 // Чей ход и тег поставки — общие правила views/client/shipment.ts.
 
-const ASK_ORDER: Record<AskKind, number> = { problem: 0, returned: 1, paySvh: 2, draft: 3 }
+const ASK_ORDER: Record<AskKind, number> = { customs: 0, problem: 1, returned: 2, paySvh: 3, draft: 4 }
 const updatedDesc = (a: ClientShipment, b: ClientShipment) => Date.parse(b.updatedAtUtc) - Date.parse(a.updatedAtUtc)
 
 /** Поставки, где ход за клиентом: проблемы, возвраты, оплата склада, черновики; внутри — свежие сверху. */

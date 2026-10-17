@@ -39,7 +39,8 @@ const titleId = `ship-ask-${useId()}`
 
 const status = computed(() => props.shipment.status)
 // «Оплатите склад» зависит от файлов (есть ли чек) — без них не гадаем (то же правило у тега и полосы).
-const ask = computed(() => askFor(props.shipment, { filesUnknown: props.filesUnknown }))
+// Запрос таможни — своя панель (ShipmentCustomsPanel) над этой: здесь его не учитываем, чтобы не спрятать остальное.
+const ask = computed(() => askFor({ ...props.shipment, customsRequestSinceUtc: null }, { filesUnknown: props.filesUnknown }))
 // Чек можно загрузить (и заменить) на всём этапе оплаты склада — сервер раздел payment-check по статусу не ограничивает.
 const svhPayStage = computed(() => status.value === 6)
 // Клиент отменяет только свой черновик (статус 0) — и с открытым вопросом AQNIET тоже.
