@@ -129,7 +129,7 @@ const nowText = (c: BoardCard) => (client.value && c.state === 'current' && !c.f
                 <PhCheck v-if="c.state === 'done'" :size="13" weight="bold" />
                 <template v-else>{{ c.n }}</template>
               </span>
-              <span class="min-w-0 text-[14.5px] leading-[22px] font-semibold text-ink [overflow-wrap:anywhere]" data-step-title>{{ c.title }}</span>
+              <span class="min-w-0 text-[14.5px] leading-[22px] font-semibold text-ink hyphens-auto [overflow-wrap:break-word]" data-step-title>{{ c.title }}</span>
               <span class="sr-only"> — {{ stateText(c) }}</span>
             </span>
             <span v-if="c.result" :class="cn('text-[13px] leading-[18px] [overflow-wrap:anywhere]', RESULT[c.tone])" data-step-sub>{{ c.result }}</span>
