@@ -121,6 +121,8 @@ const outline = 'border border-line-strong bg-surface enabled:hover:bg-sunken ma
         <span v-if="tag" class="inline-flex items-center gap-1.5 text-[13px] text-ink-2" :data-dt-tag="tag.kind">
           <span :class="cn('size-[7px] rounded-pill', TAG_DOT[tag.kind])" aria-hidden="true" />{{ t(`broker.dt.header.tag.${tag.kind}`) }}
         </span>
+        <!-- Чип «КЕДЕН» (17.10): статус ДТ из журнала КЕДЕН, связь/отвязка — DtKedenChip. -->
+        <slot name="status" />
         <span v-if="!editable" class="inline-flex items-center gap-1.5 text-[12.5px] text-muted" data-dt-save-state="view">
           <PhEye :size="14" aria-hidden="true" />{{ t('broker.dt.header.state.view') }}
         </span>

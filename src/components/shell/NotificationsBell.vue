@@ -9,6 +9,7 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useAuthStore } from '@/stores/auth'
 import { notificationTarget } from '@/shell/notificationTarget'
+import { kedenCustomsRequestPath } from '@/utils/kedenLink'
 import type { AppNotification } from '@/types/api'
 import { cn } from '@/ui/cn'
 
@@ -68,6 +69,18 @@ const openNotification = async (n: AppNotification) => {
   }
   const to = notificationTarget(n, auth.isFinanceOnly, auth.hasPermission)
   if (to) await router.push(to)
+}
+
+// «КЕДЕН: таможня запрашивает документы» (17.10): «Завести запрос таможни» — страница ДТ с открытой формой.
+const actionOf = (n: AppNotification) => (auth.isFinanceOnly ? null : kedenCustomsRequestPath(n))
+const runAction = async (n: AppNotification) => {
+  const to = actionOf(n)
+  if (!to) return
+  open.value = false
+  if (!n.isRead) {
+    try { await notifStore.markRead(n.id) } catch { /* тост показал перехватчик */ }
+  }
+  await router.push(to)
 }
 
 const onAllClick = (e: MouseEvent, navigate: (e?: MouseEvent) => unknown) => {
@@ -161,6 +174,14 @@ const itemClass = cn(
             <span v-if="n.body" class="line-clamp-2 text-[13px] leading-[18px] text-ink-3">{{ n.body }}</span>
           </span>
         </button>
+        <div v-if="actionOf(n)" class="px-4 pb-2.5 pl-8">
+          <button
+            type="button"
+            class="inline-flex h-8 cursor-pointer items-center rounded-field border border-line-strong bg-surface px-2.5 font-sans text-[12.5px] font-medium text-ink outline-hidden transition-colors duration-150 hover:bg-sunken focus-visible:shadow-focus motion-reduce:transition-none max-sm:h-11"
+            data-notification-action
+            @click="runAction(n)"
+          >{{ t('kedenLink.createRequest') }}</button>
+        </div>
       </li>
     </ul>
 

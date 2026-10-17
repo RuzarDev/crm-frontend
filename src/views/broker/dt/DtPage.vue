@@ -21,6 +21,9 @@ import { useCustomsRequests } from '@/composables/useCustomsRequests'
 import { canManageCustoms, canRemindClient } from '@/utils/customsRequests'
 import DtConditionalRelease from './DtConditionalRelease.vue'
 import DtHeaderBar from './DtHeaderBar.vue'
+import DtKedenChip from './DtKedenChip.vue'
+import { CUSTOMS_REQUEST_QUERY } from '@/utils/kedenLink'
+import type { KedenLinkDto } from '@/api/kedenLink'
 import DtReadinessPanel from './DtReadinessPanel.vue'
 import DtSectionNav from './DtSectionNav.vue'
 import DtSplitModal from './DtSplitModal.vue'
@@ -219,6 +222,17 @@ const kase = computed(() => dt.activeCase.value)
 const customs = useCustomsRequests(() => caseId)
 // Условный выпуск (17.10) — из ДТ в составе заявки (обновляется при перечитывании); исходная ДТ разделения — без блока.
 const condRelDt = computed(() => kase.value?.declarations.find((d) => d.id === dtId && !d.isSplitReplaced) ?? null)
+// КЕДЕН (17.10): снимок связи ДТ с журналом КЕДЕН — из карточки заявки (и у исходной ДТ разделения).
+const kedenOfDt = computed(() => kase.value?.declarations.find((d) => d.id === dtId)?.keden ?? null)
+// После связи сервер мог заполнить номер/коридор ДТ (и сдвинуть замок редактора) — перечитываем, если нет несохранённого.
+const onKedenChanged = (_v: KedenLinkDto) => { if (!dt.dirty.value) void dt.reload() }
+// Уведомление «КЕДЕН: таможня запрашивает документы» → «Завести запрос таможни»: ?customsRequest=new открывает форму по этой ДТ.
+const customsAutoCreate = ref(route.query[CUSTOMS_REQUEST_QUERY] === 'new')
+const onCustomsAutoOpened = () => {
+  customsAutoCreate.value = false
+  const { [CUSTOMS_REQUEST_QUERY]: _drop, ...rest } = route.query
+  void router.replace({ query: rest })
+}
 const roReason = computed(() => readonlyReason(user.value, kase.value))
 const stage = computed(() => (kase.value ? statusLabel(kase.value.status) : ''))
 const split = computed(() => (splitReplaced.value ? splitChildren(kase.value, dtId) : null))
@@ -773,7 +787,11 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
         @docs="onDocs"
         @split="onSplit"
         @open-panel="panelOpen = true"
-      />
+      >
+        <template #status>
+          <DtKedenChip :case-id="caseId" :dt-id="dtId" :keden="kedenOfDt" :can-link="canManage" @changed="onKedenChanged" />
+        </template>
+      </DtHeaderBar>
 
       <div
         :class="[
@@ -800,7 +818,9 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
             :declaration-id="dtId"
             :can-manage="canManageCustoms(auth)"
             :can-remind="canRemindClient(auth)"
+            :auto-create="customsAutoCreate"
             @changed="customs.reload()"
+            @auto-opened="onCustomsAutoOpened"
           />
           <DtBanners
             :case-id="caseId"

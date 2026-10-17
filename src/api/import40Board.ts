@@ -27,6 +27,8 @@ export interface Import40BoardRow {
   customsPaymentsKzt: number
   /** Незакрытый условный выпуск (самый срочный); null — нет. */
   conditionalRelease?: ConditionalReleaseBrief | null
+  /** ДТ заявки без связи с журналом КЕДЕН (17.10; исходная ДТ разделения с частями не считается). */
+  kedenUnlinkedCount?: number
   createdAtUtc: string
   updatedAtUtc: string
 }

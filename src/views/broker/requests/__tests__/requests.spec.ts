@@ -198,3 +198,18 @@ describe('фильтр «Условный выпуск» (17.10)', () => {
     expect(hasFilters({ ...emptyFilters(), condRel: 'any' })).toBe(true)
   })
 })
+
+describe('фильтр «Нет связи с КЕДЕН» (17.10)', () => {
+  const rows = [
+    row({ id: 'a', status: 2, kedenUnlinkedCount: 1 }),
+    row({ id: 'b', status: 3, kedenUnlinkedCount: 1 }),
+    row({ id: 'c', status: 4, kedenUnlinkedCount: 0 }),
+    row({ id: 'd', status: 9, kedenUnlinkedCount: 1 }),
+    row({ id: 'e', status: 5 }),
+  ]
+  it('только поданные (3–8) с несвязанной ДТ; фильтр считается активным', () => {
+    expect(filterRows(rows, { ...emptyFilters(), keden: 'unlinked' }).map((r) => r.id)).toEqual(['b'])
+    expect(filterRows(rows, emptyFilters())).toHaveLength(5)
+    expect(hasFilters({ ...emptyFilters(), keden: 'unlinked' })).toBe(true)
+  })
+})
