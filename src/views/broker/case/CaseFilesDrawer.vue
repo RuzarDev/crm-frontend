@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhDownloadSimple, PhFile } from '@phosphor-icons/vue'
+import { PhBookmarkSimple, PhDownloadSimple, PhFile } from '@phosphor-icons/vue'
 import ZDrawer from '@/components/z/ZDrawer.vue'
 import { import40Api, type Import40FileDto } from '@/api/import40'
 import { saveBlob } from '@/ui/download'
 import { formatFileSize, formatStamp } from '@/views/broker/packages/packages'
 import { groupFiles, roleLabel, sectionLabelKey } from './caseFormat'
+import { clientRegistryApi, type RegistryCategory, type RegistryFields } from '@/api/clientRegistry'
+import { message } from '@/ui/message'
+import RegistryDocModal from '@/views/clientRegistry/RegistryDocModal.vue'
+import { emptyFields } from '@/views/clientRegistry/registry'
 
 // «Все файлы» заявки по разделам: имя, размер, кто загрузил, когда; скачивание каждого.
 const props = defineProps<{ open: boolean; caseId: string; files: Import40FileDto[] }>()
@@ -29,6 +33,27 @@ const download = async (f: Import40FileDto) => {
     downloading.value = null
   }
 }
+// «Сохранить в реестр клиента» (волна 17.10): копия файла заявки становится документом реестра клиента
+// (контракт, сертификат, разрешение…) — со сроком и напоминаниями; в следующей заявке клиент выберет его из реестра.
+// Только документы клиента (раздел documents): служебные файлы AQNIET (счёт СВХ, закрытая ДТ, чек) — нет.
+const CATEGORY_BY_KIND: Record<string, RegistryCategory> = {
+  contract: 'supplyContract', conformity: 'certificate', origin: 'certificate', permit: 'permit',
+}
+const saveOpen = ref(false)
+const saveFile = ref<Import40FileDto | null>(null)
+const saveInitial = ref<RegistryFields | null>(null)
+const openSave = (f: Import40FileDto) => {
+  saveFile.value = f
+  saveInitial.value = emptyFields(CATEGORY_BY_KIND[f.docKind ?? ''] ?? 'other')
+  saveOpen.value = true
+}
+const saveToRegistry = async (fields: RegistryFields) => {
+  const f = saveFile.value
+  if (!f) return
+  await clientRegistryApi.saveCaseFile(props.caseId, f.id, fields)
+  message.success(t('clientRegistry.toRegistry.saved'))
+}
+
 const iconBtn = 'inline-flex size-[30px] shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden hover:bg-sunken hover:text-ink focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-45 max-sm:size-11'
 </script>
 
@@ -59,9 +84,21 @@ const iconBtn = 'inline-flex size-[30px] shrink-0 cursor-pointer items-center ju
             >
               <PhDownloadSimple :size="16" aria-hidden="true" />
             </button>
+            <button
+              v-if="f.section === 'documents'"
+              type="button"
+              :class="iconBtn"
+              :aria-label="t('clientRegistry.toRegistry.actionFor', { name: f.originalFileName })"
+              :title="t('clientRegistry.toRegistry.action')"
+              data-file-to-registry
+              @click="openSave(f)"
+            >
+              <PhBookmarkSimple :size="16" aria-hidden="true" />
+            </button>
           </li>
         </ul>
       </section>
     </div>
+    <RegistryDocModal v-model:open="saveOpen" mode="fromFile" :initial="saveInitial" :file-name="saveFile?.originalFileName ?? ''" :save="saveToRegistry" />
   </ZDrawer>
 </template>

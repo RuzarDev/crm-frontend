@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { ReworkItemDto } from './import40Rework'
 import { i18n } from '@/i18n'
 import type {
   Import40TransportMeans,
@@ -606,6 +607,10 @@ export interface Import40CaseDto {
   containers: Import40ContainerDto[]
   declarations: Import40DeclarationDto[]
   logs: Import40LogDto[]
+  /** Возврат на доработку с пунктами (17.10) — «вернули на доработку» и без комментария. */
+  reworkRequested?: boolean
+  /** Незакрытые пункты доработки (карточка заявки, ответ отправки на оформление). */
+  openReworkItems?: ReworkItemDto[] | null
 }
 
 export interface Import40ListResponse {

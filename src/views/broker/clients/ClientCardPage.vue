@@ -37,10 +37,12 @@ import {
   accountStatusOf, availableTabs, awaitingAqniet, canRenewPoa, caseTone, cardTitle, contactRows, currentDocs, directorBasisOf, docTag,
   invoicesOf, matchesCase, recentCases, resolveTab, transitQuery, unpaidOf, type ClientCardTab,
 } from './clientCard'
+import ClientRegistryPanel from '@/views/clientRegistry/ClientRegistryPanel.vue'
 
 // Карточка клиента /clients/:id (редизайн, волна 4а; доска ClientCard): «клиент 360» для сотрудников.
-// Шапка, показатели, вкладки (?tab=): обзор, заявки, транзит, документы, счета. Всё только читается;
-// действия — переходы и скачивание бланка. Вторичные блоки (транзит, счета) грузятся тихо и по праву:
+// Шапка, показатели, вкладки (?tab=): обзор, заявки, транзит, документы, счета. Карточка только читается
+// (действия — переходы и скачивание бланка), кроме раздела «Реестр документов» во вкладке «Документы»:
+// его меняют сотрудники Импорта 40 (import40.read), остальным — просмотр. Вторичные блоки (транзит, счета) грузятся тихо и по праву:
 // сбой одного показывает «—» и не ломает карточку.
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -673,7 +675,7 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
           </div>
 
           <!-- ④ Документы -->
-          <div v-else-if="key === 'docs'" data-tab-panel="docs">
+          <div v-else-if="key === 'docs'" class="flex flex-col gap-4" data-tab-panel="docs">
             <ZTable
               :columns="docColumns"
               :data-source="card.documents"
@@ -716,6 +718,8 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                 <ZEmpty :title="t('broker.clientCard.doc.empty')" />
               </template>
             </ZTable>
+            <!-- Реестр документов клиента (волна 17.10): контракты, УНК, сертификаты, разрешения — рядом с договором и доверенностью -->
+            <ClientRegistryPanel :client-id="card.id" :readonly="!canImport" />
           </div>
 
           <!-- ⑤ Счета -->

@@ -1,4 +1,5 @@
 // Чек-лист документов на импорт (утверждён владельцем 09.10, доска Wizard). key = DocKind на сервере.
+// certificate (17.10) — ветеринарный/фитосанитарный сертификат, СГР: их просят при возврате на доработку по нетарифным мерам.
 export type DocKind = 'invoice' | 'transport' | 'packing' | 'contract' | 'origin' | 'conformity' | 'permit' | 'certificate' | 'other'
 export type DocNeed = 'required' | 'ifAny' | 'ifRequired'
 export interface DocKindDef { key: Exclude<DocKind, 'other'>; need: DocNeed }
@@ -11,6 +12,7 @@ export const DOC_CHECKLIST: DocKindDef[] = [
   { key: 'origin', need: 'ifAny' },
   { key: 'conformity', need: 'ifRequired' },
   { key: 'permit', need: 'ifRequired' },
+  { key: 'certificate', need: 'ifRequired' },
 ]
 
 /** Все виды документов клиента (сервер: Import40FileEndpoints.DocKinds); certificate — иной сертификат (запрос таможни). */

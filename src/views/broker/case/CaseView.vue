@@ -12,6 +12,7 @@ import CaseActionModals from './CaseActionModals.vue'
 import CaseBanners from './CaseBanners.vue'
 import CaseCustomsRequests from './CaseCustomsRequests.vue'
 import CaseHeader from './CaseHeader.vue'
+import CaseReworkPanel from './CaseReworkPanel.vue'
 import CaseSide from './CaseSide.vue'
 import CaseStepper from './CaseStepper.vue'
 import StepBorder from './steps/StepBorder.vue'
@@ -150,6 +151,7 @@ const panel = 'rounded-panel border border-line bg-surface'
       <CaseHeader :kase="kase" :perms="perms" @ask="actions.ask" />
       <CaseStepper :steps="steps" :status="kase.status" :alerts="stepAlerts" />
       <CaseBanners :kase="kase" :perms="perms" :actions="actions" />
+      <CaseReworkPanel :kase="kase" :perms="perms" :actions="actions" />
       <CaseCustomsRequests
         :case-id="kase.id"
         :status="kase.status"
@@ -203,7 +205,7 @@ const panel = 'rounded-panel border border-line bg-surface'
         <CaseSide class="flex-[1_1_320px]" :kase="kase" :files="files" :perms="perms" :actions="actions" @edit="focusCurrent" />
       </div>
 
-      <CaseActionModals v-model:kind="reasonKind" :actions="actions" />
+      <CaseActionModals v-model:kind="reasonKind" :actions="actions" :kase="kase" />
     </template>
   </div>
 </template>

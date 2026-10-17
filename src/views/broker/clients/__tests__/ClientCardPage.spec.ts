@@ -9,7 +9,7 @@ import type { ReestrEntry } from '@/types/api'
 import { useAuthStore } from '@/stores/auth'
 
 const api = vi.hoisted(() => ({
-  card: vi.fn(), reestr: vi.fn(), billing: vi.fn(), download: vi.fn(), saveBlob: vi.fn(),
+  card: vi.fn(), reestr: vi.fn(), billing: vi.fn(), download: vi.fn(), saveBlob: vi.fn(), registry: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 vi.mock('@/api/clientCard', () => ({ clientCardApi: { card: api.card } }))
@@ -17,6 +17,10 @@ vi.mock('@/api/reestr', () => ({ reestrApi: { getList: api.reestr } }))
 vi.mock('@/api/billing', () => ({ billingApi: { list: api.billing } }))
 vi.mock('@/api/import40Contract', () => ({ import40ContractApi: { downloadDocument: api.download } }))
 vi.mock('@/ui/download', () => ({ saveBlob: api.saveBlob }))
+vi.mock('@/api/clientRegistry', async (orig) => ({
+  ...(await orig<typeof import('@/api/clientRegistry')>()),
+  clientRegistryApi: { list: api.registry },
+}))
 vi.mock('@/ui/message', () => ({ message: api.toast }))
 
 import ClientCardPage from '../ClientCardPage.vue'
@@ -119,6 +123,7 @@ beforeEach(async () => {
   api.card.mockResolvedValue(card())
   api.reestr.mockResolvedValue({ items: ENTRIES, totalCount: 8, page: 1, pageSize: 25, totalPages: 1 })
   api.billing.mockResolvedValue(INVOICES)
+  api.registry.mockResolvedValue([])
   as('manager', ALL)
 })
 afterEach(() => {
@@ -577,5 +582,19 @@ describe('карточка клиента: состояния', () => {
     await flushPromises()
     expect(api.card).toHaveBeenLastCalledWith('b', { silent: true })
     expect(w.get('[data-card-title]').text()).toBe('ТОО «Другой»')
+  })
+})
+
+describe('карточка клиента: реестр документов', () => {
+  it('вкладка «Документы» — реестр клиента; правка только с import40.read, с clients.read — просмотр', async () => {
+    await mountAt('/clients/c1?tab=docs')
+    expect(api.registry).toHaveBeenCalledWith('c1', { includeArchived: false, silent: true })
+    expect(has('[data-client-registry]')).toBe(true)
+    expect(has('[data-registry-add]')).toBe(true)
+    w.unmount()
+    as('manager', ['clients.read'])
+    await mountAt('/clients/c1?tab=docs')
+    expect(has('[data-client-registry]')).toBe(true)
+    expect(has('[data-registry-add]')).toBe(false)
   })
 })

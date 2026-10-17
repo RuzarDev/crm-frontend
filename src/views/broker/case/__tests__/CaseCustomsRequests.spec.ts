@@ -38,7 +38,7 @@ describe('CaseCustomsRequests', () => {
     const card = w.get('[data-customs-request="open"]')
     expect(card.get('[data-customs-label]').text()).toBe('Запрос таможни · 2 ч без ответа')
     expect(card.get('[data-customs-meta]').text()).toContain('ДТ 50408/171026/0001 · коридор: красный · срок 20.10.2026 · завёл Иванов')
-    expect(card.get('[data-customs-docs]').text()).toBe('Документы: Другой сертификат')
+    expect(card.get('[data-customs-docs]').text()).toBe('Документы: Ветеринарный, фитосанитарный сертификат, СГР')
     expect(card.find('[data-customs-close]').exists()).toBe(true)
     expect(card.find('[data-customs-remind]').exists()).toBe(true)
   })

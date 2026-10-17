@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useId } from 'vue'
+import { computed, ref, shallowRef, useId, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -11,6 +11,9 @@ import ZModal from '@/components/z/ZModal.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
 import ZUpload from '@/components/z/ZUpload.vue'
 import { import40Api, type Import40CaseDto, type Import40FileDto } from '@/api/import40'
+import { currentRound, openItems, reworkApi, reworkList, type ReworkResponse } from '@/api/import40Rework'
+import ShipmentReworkList from '@/views/client/shipment/ShipmentReworkList.vue'
+import { useConfirm } from '@/ui/confirm'
 import type { ClientShipment } from '@/api/clientShipments'
 import { askFor } from '@/views/client/shipment'
 import { dayMonthOf } from '@/views/client/shipment/util'
@@ -135,6 +138,64 @@ const confirmCancel = async () => {
     // Текст ошибки уже показал общий перехватчик (api/client.ts).
   } finally {
     cancelling.value = false
+  }
+}
+
+// ---- Возврат на доработку по чек-листу (17.10): «Нужно от вас: догрузить» и «Отправить снова» ----
+// Пункты читаются, пока поставка «вернули на доработку»; после загрузки файла карточка перечитывает заявку
+// (updatedAtUtc меняется) — и список. Сбой — без пунктов, как раньше (причина и «Продолжить заполнение»).
+const rework = shallowRef<ReworkResponse | null>(null)
+let reworkSeq = 0
+watch(() => (ask.value === 'returned' ? `${props.caseDto.id}:${props.caseDto.updatedAtUtc}` : null), async (key) => {
+  const my = ++reworkSeq
+  if (!key) {
+    rework.value = null
+    return
+  }
+  try {
+    const r = await reworkApi.list(props.caseDto.id, { silent: true })
+    if (my === reworkSeq) rework.value = r
+  } catch {
+    if (my === reworkSeq) rework.value = null
+  }
+}, { immediate: true })
+const reworkItems = computed(() => currentRound(rework.value?.items ?? []))
+// ReturnReason — только комментарий сотрудника. Пункты не загрузились — их перечень из строки поставки (на языке клиента).
+const returnedText = computed(() => {
+  if (props.shipment.returnReason || reworkItems.value.length || !props.shipment.reworkRequested) return props.shipment.returnReason
+  const open = props.shipment.reworkOpen ?? []
+  return open.length ? t('rework.client.rowText', { list: reworkList(t, open) }) : t('rework.client.rowAllDone')
+})
+
+const { confirm } = useConfirm()
+const resending = ref(false)
+const resend = async () => {
+  if (resending.value) return
+  // Как в мастере: отправка = подтверждение, что документы полные и достоверные; незагруженное — перечисляем.
+  const open = openItems(reworkItems.value)
+  const go = await confirm(open.length
+    ? {
+        title: t('rework.client.resendWarnTitle'),
+        content: t('rework.client.resendWarnText', { list: reworkList(t, open) }),
+        okText: t('rework.client.resendOk'),
+        cancelText: t('rework.client.resendCancel'),
+      }
+    : {
+        title: t('rework.client.resendTitle'),
+        content: t('rework.client.resendResp'),
+        okText: t('rework.client.resendOk'),
+        cancelText: t('common.cancel'),
+      })
+  if (!go) return
+  resending.value = true
+  try {
+    await import40Api.action(props.caseDto.id, 'submit-for-processing')
+    message.success(t('rework.client.resent'))
+    emit('changed')
+  } catch {
+    // Текст ошибки (например, «приложите хотя бы один документ») уже показал общий перехватчик.
+  } finally {
+    resending.value = false
   }
 }
 
@@ -291,14 +352,30 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
     <div class="flex min-w-0 items-start gap-3.5">
       <span aria-hidden="true" :class="cn(badge, 'bg-gold text-navy')"><PhPencilSimpleLine :size="18" weight="bold" /></span>
       <div class="flex min-w-0 flex-col gap-1">
-        <h2 :id="titleId" :class="h2">{{ t(`client.ask.${ask}.title`) }}</h2>
-        <p :class="cn(text, 'whitespace-pre-line [overflow-wrap:anywhere]')">{{ ask === 'returned' ? shipment.returnReason : t('client.ask.draft.text') }}</p>
+        <h2 :id="titleId" :class="h2">{{ reworkItems.length ? t('rework.client.title') : t(`client.ask.${ask}.title`) }}</h2>
+        <p v-if="ask === 'draft'" :class="text">{{ t('client.ask.draft.text') }}</p>
+        <p v-else-if="returnedText" :class="cn(text, 'whitespace-pre-line [overflow-wrap:anywhere]')" data-returned-text>{{ returnedText }}</p>
       </div>
     </div>
-    <div class="mt-1 flex flex-col gap-2.5 sm:mt-0 sm:flex-row-reverse sm:items-center">
+    <ShipmentReworkList
+      v-if="reworkItems.length"
+      :case-id="caseDto.id"
+      :items="reworkItems"
+      class="sm:col-span-2 sm:ml-[50px]"
+      @changed="emit('changed')"
+    />
+    <div :class="cn('mt-1 flex flex-col gap-2.5 sm:mt-0 sm:flex-row-reverse sm:items-center', reworkItems.length && 'sm:col-span-2 sm:ml-[50px] sm:justify-end')">
+      <ZButton
+        v-if="reworkItems.length"
+        variant="primary"
+        :class="mainBtn"
+        :loading="resending"
+        data-rework-resend
+        @click="resend"
+      >{{ t('rework.client.resend') }}</ZButton>
       <RouterLink
         :to="`/import-40/new/${shipment.id}`"
-        :class="cn(linkBtn, mainBtn, 'bg-navy text-white hover:bg-navy-hover')"
+        :class="cn(linkBtn, reworkItems.length ? cn(secondBtn, 'bg-surface text-ink hover:bg-sunken') : cn(mainBtn, 'bg-navy text-white hover:bg-navy-hover'))"
         data-draft-continue
       >{{ t('client.card.draft.continue') }}</RouterLink>
       <ZButton variant="ghost" :class="cn(secondBtn, 'max-sm:bg-surface')" data-draft-cancel @click="promptCancel">

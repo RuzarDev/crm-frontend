@@ -37,7 +37,7 @@ describe('словари чек-листа', () => {
     })
     it(`${lang}: подсказки и признаки обязательности`, () => {
       // у инвойса и упаковочного листа подсказки нет
-      for (const k of ['transport', 'contract', 'origin', 'conformity', 'permit']) expect(d.client.docKind[k].hint, `${lang} ${k}`).toBeTruthy()
+      for (const k of ['transport', 'contract', 'origin', 'conformity', 'permit', 'certificate']) expect(d.client.docKind[k].hint, `${lang} ${k}`).toBeTruthy()
       for (const n of ['required', 'ifAny', 'ifRequired']) expect(d.client.docNeed[n], `${lang} ${n}`).toBeTruthy()
     })
   }
