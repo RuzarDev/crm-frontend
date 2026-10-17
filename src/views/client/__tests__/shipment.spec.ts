@@ -3,7 +3,7 @@ import ru from '@/i18n/locales/ru'
 import kk from '@/i18n/locales/kk'
 import en from '@/i18n/locales/en'
 import type { ClientShipment } from '@/api/clientShipments'
-import { askFor, askHref, segments, shipmentHref, shipmentTag, stepNo, tabCounts, tabOf, toShipmentSummary } from '../shipment'
+import { askFor, askHref, condRelBriefOfCase, segments, shipmentHref, shipmentTag, stepNo, tabCounts, tabOf, toShipmentSummary } from '../shipment'
 import { caseDto, declaration, fileDto } from './caseFixture'
 
 const ship = (o: Partial<ClientShipment>): ClientShipment => ({
@@ -175,5 +175,29 @@ describe('toShipmentSummary', () => {
       estimatedValue: 120000, currencyCode: 'EUR', svhInvoiceNumber: '1187', declarationsCount: 2,
       assignedDeclarantName: 'Айгерим К.', paymentCheckUploaded: false,
     })
+  })
+})
+
+describe('условный выпуск (17.10)', () => {
+  const cr = { declarationId: 'd1', declarationNumber: null, docKind: 'origin', note: null, deadline: '2026-12-01', overdue: false, daysLeft: 5, openCount: 1 }
+  it('ждём документ — «Ждут вас» даже у выполненной; загружен или отменена — как обычно', () => {
+    expect(tabOf(ship({ status: 8, step: 0, conditionalRelease: { ...cr, uploaded: false } }))).toBe('waiting')
+    expect(tabOf(ship({ status: 8, step: 0, conditionalRelease: { ...cr, uploaded: true } }))).toBe('done')
+    expect(tabOf(ship({ status: 9, step: 0, conditionalRelease: { ...cr, uploaded: false } }))).toBe('done')
+  })
+
+  it('из полной заявки — самый срочный открытый, без исходных ДТ разделения', () => {
+    const base = { setAtUtc: null, fileId: null, fileName: null, uploadedAtUtc: null, resolvedAtUtc: null, overdue: false, daysLeft: 1, note: null }
+    const c = caseDto({
+      declarations: [
+        declaration({ id: 'a', conditionalRelease: { ...base, docKind: 'permit', deadline: '2026-12-20' } }),
+        declaration({ id: 'b', conditionalRelease: { ...base, docKind: 'origin', deadline: '2026-11-20' } }),
+        declaration({ id: 'c', isSplitReplaced: true, conditionalRelease: { ...base, docKind: 'origin', deadline: '2026-10-20' } }),
+        declaration({ id: 'd', conditionalRelease: { ...base, docKind: 'origin', deadline: '2026-10-01', resolvedAtUtc: '2026-10-02T00:00:00Z' } }),
+      ],
+    })
+    expect(condRelBriefOfCase(c)).toMatchObject({ declarationId: 'b', openCount: 2, deadline: '2026-11-20' })
+    expect(toShipmentSummary(c, []).conditionalRelease?.declarationId).toBe('b')
+    expect(condRelBriefOfCase(caseDto({ declarations: [] }))).toBeNull()
   })
 })

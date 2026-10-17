@@ -1,6 +1,7 @@
 import type { ZTone } from '@/components/z/ZTag.vue'
 import type { Import40BoardRow } from '@/api/import40Board'
 import { inPeriod, matchesQuery } from '@/views/broker/list'
+import { matchesCondRel, type CondRelFilter } from '@/utils/conditionalRelease'
 
 // Чистая логика списка «Заявки» (вкладки, исполнитель, фильтры) — без Vue и запросов, чтобы проверять тестами.
 
@@ -106,10 +107,12 @@ export interface RequestFilters {
   /** статус как строка: '2' */
   stage: string | null
   period: [string, string] | null
+  /** Условный выпуск (17.10): любой открытый или по состоянию; null — без фильтра. */
+  condRel?: CondRelFilter | null
 }
 
-export const emptyFilters = (): RequestFilters => ({ q: '', client: null, executor: null, stage: null, period: null })
-export const hasFilters = (f: RequestFilters): boolean => !!(f.q.trim() || f.client || f.executor || f.stage || f.period)
+export const emptyFilters = (): RequestFilters => ({ q: '', client: null, executor: null, stage: null, period: null, condRel: null })
+export const hasFilters = (f: RequestFilters): boolean => !!(f.q.trim() || f.client || f.executor || f.stage || f.period || f.condRel)
 
 /** Фильтры и поиск — все на клиенте, по загруженным строкам. */
 export function filterRows(rows: Import40BoardRow[], f: RequestFilters): Import40BoardRow[] {
@@ -123,6 +126,7 @@ export function filterRows(rows: Import40BoardRow[], f: RequestFilters): Import4
       } else if (r.assignedDeclarantId !== f.executor && r.assignedKppId !== f.executor) return false
     }
     if (!inPeriod(r.updatedAtUtc, f.period)) return false
+    if (!matchesCondRel(r.conditionalRelease, f.condRel ?? null)) return false
     return matchesQuery(f.q, [r.number, r.clientName, r.cargo, r.post, ...r.tnvedCodes, ...r.containerNumbers])
   })
 }

@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { ConditionalReleaseDto } from './conditionalRelease'
 import type { ReworkItemDto } from './import40Rework'
 import { i18n } from '@/i18n'
 import type {
@@ -261,6 +262,8 @@ export interface Import40DeclarationDto {
   isSplitReplaced?: boolean
   /** ДТ уже выгружалась XML для КЕДЕН (есть EDocId ДТ или ДТС) — предупреждение перед выгрузкой другого варианта разделения. */
   uploadedToKeden?: boolean
+  /** Условный выпуск (17.10); null — без условия. */
+  conditionalRelease?: ConditionalReleaseDto | null
   // Оптимистичная блокировка (09.10): строка ISO как пришла с сервера (микросекунды) — НЕ превращать в Date,
   // иначе точность упадёт до миллисекунд и сервер ответит 409. Редактор шлёт её обратно как expectedUpdatedAtUtc.
   updatedAtUtc?: string | null

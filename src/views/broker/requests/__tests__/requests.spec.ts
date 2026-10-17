@@ -180,3 +180,21 @@ describe('варианты фильтров', () => {
     ])
   })
 })
+
+describe('фильтр «Условный выпуск» (17.10)', () => {
+  const cr = { declarationId: 'd1', declarationNumber: null, docKind: 'origin', note: null, deadline: '2026-12-01', daysLeft: 5, openCount: 1 }
+  const rows = [
+    row({ id: 'a' }),
+    row({ id: 'b', status: 8, conditionalRelease: { ...cr, overdue: false, uploaded: false } }),
+    row({ id: 'c', status: 8, conditionalRelease: { ...cr, overdue: true, uploaded: false } }),
+    row({ id: 'd', status: 4, conditionalRelease: { ...cr, overdue: false, uploaded: true } }),
+  ]
+  it('«все открытые» и по состоянию; фильтр считается активным', () => {
+    expect(filterRows(rows, { ...emptyFilters(), condRel: 'any' }).map((r) => r.id)).toEqual(['b', 'c', 'd'])
+    expect(filterRows(rows, { ...emptyFilters(), condRel: 'overdue' }).map((r) => r.id)).toEqual(['c'])
+    expect(filterRows(rows, { ...emptyFilters(), condRel: 'uploaded' }).map((r) => r.id)).toEqual(['d'])
+    expect(filterRows(rows, { ...emptyFilters(), condRel: 'open' }).map((r) => r.id)).toEqual(['b'])
+    expect(filterRows(rows, emptyFilters())).toHaveLength(4)
+    expect(hasFilters({ ...emptyFilters(), condRel: 'any' })).toBe(true)
+  })
+})

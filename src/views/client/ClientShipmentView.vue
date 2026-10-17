@@ -9,6 +9,7 @@ import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ShipmentAskPanel from '@/views/client/shipment/ShipmentAskPanel.vue'
+import ShipmentConditionalRelease from '@/views/client/shipment/ShipmentConditionalRelease.vue'
 import ShipmentDocuments from '@/views/client/shipment/ShipmentDocuments.vue'
 import ShipmentHistory from '@/views/client/shipment/ShipmentHistory.vue'
 import ShipmentTimeline from '@/views/client/shipment/ShipmentTimeline.vue'
@@ -273,6 +274,9 @@ const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
         :files-unknown="filesError"
         @changed="reload"
       />
+
+      <!-- Отменённая поставка — загружать нечего (сервер ответит 409). -->
+      <ShipmentConditionalRelease v-if="kase.status !== 9" :case-id="kase.id" :declarations="liveDeclarations" @changed="reload" />
 
       <div class="flex flex-wrap items-start gap-x-6 gap-y-[18px]">
         <div class="min-w-0 flex-[999_1_480px]">
