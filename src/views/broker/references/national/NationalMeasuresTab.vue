@@ -9,6 +9,7 @@ import { nationalListsApi, type NationalMeasure, type NationalMeasureExtendReque
 import { useAuthStore } from '@/stores/auth'
 import { useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
+import { almatyToday } from '@/utils/customsRequests'
 import { safeUrl } from '@/views/references/regulations'
 import NationalMeasureExtendModal from './NationalMeasureExtendModal.vue'
 import NationalMeasureModal from './NationalMeasureModal.vue'
@@ -117,7 +118,7 @@ const btn = 'max-sm:h-11 max-sm:flex-1'
           <ZTag :tone="STATE_TONE[m.state]" size="sm" data-nm-state-tag>{{ tm(`state.${m.state}`) }}</ZTag>
           <ZTag :tone="m.kind === 'ban' ? 'danger' : 'wait'" size="sm">{{ tm(`kind.${m.kind}`) }}</ZTag>
           <span class="text-xs text-muted">{{ tm(`direction.${m.direction}`) }}</span>
-          <span class="inline-flex h-6 items-center rounded-pill border border-line bg-sunken px-2 font-mono text-xs text-ink" data-nm-codes>{{ m.codeText }}</span>
+          <span class="inline-flex min-h-6 max-w-full items-center rounded-pill border border-line bg-sunken px-2 py-0.5 font-mono text-xs leading-4 text-ink [overflow-wrap:anywhere]" data-nm-codes>{{ m.codeText }}</span>
         </div>
         <p class="m-0 mt-2 text-[15px] leading-6 font-semibold text-ink [overflow-wrap:anywhere]" data-nm-goods>{{ m.goods }}</p>
         <p class="m-0 text-sm text-ink-2 [overflow-wrap:anywhere]">{{ m.name }}</p>
@@ -142,7 +143,7 @@ const btn = 'max-sm:h-11 max-sm:flex-1'
           </li>
         </ul>
         <div class="mt-3 flex flex-wrap items-center gap-2">
-          <span class="min-w-0 basis-full text-xs text-muted sm:basis-48 sm:flex-1">{{ tm('updated', { date: d(m.updatedAtUtc.slice(0, 10)), by: m.updatedBy || '—' }) }}</span>
+          <span class="min-w-0 basis-full text-xs text-muted sm:basis-48 sm:flex-1">{{ tm('updated', { date: d(almatyToday(new Date(m.updatedAtUtc))), by: m.updatedBy || '—' }) }}</span>
           <template v-if="canManage">
             <ZButton size="sm" :class="btn" data-nm-edit @click="openEdit(m)">{{ tm('edit') }}</ZButton>
             <ZButton v-if="m.isActive && m.validTo" size="sm" :class="btn" data-nm-extend @click="openExtend(m)">{{ tm('extend') }}</ZButton>

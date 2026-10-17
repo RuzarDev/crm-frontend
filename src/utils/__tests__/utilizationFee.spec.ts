@@ -9,9 +9,9 @@ const fee = (p: Partial<UtilizationFee>): UtilizationFee => ({
 })
 
 describe('utilizationFee', () => {
-  it('коды под утильсбором: 8701–8705, 8429, 8433', () => {
-    expect(['8703231981', '8701941000', '8705100009', '8429521000', '8433510001', '8706001100', '8471300000', ''].map(isUtilizationCode))
-      .toEqual([true, true, true, true, true, false, false, false])
+  it('коды под утильсбором: 8701–8705, 8429, 8433 5x', () => {
+    expect(['8703231981', '8701941000', '8705100009', '8429521000', '8433510001', '8433590000', '8433900000', '8433110000', '8706001100', '8471300000', ''].map(isUtilizationCode))
+      .toEqual([true, true, true, true, true, true, false, false, false, false, false])
   })
 
   it('какие параметры ТС спрашивать по коду', () => {

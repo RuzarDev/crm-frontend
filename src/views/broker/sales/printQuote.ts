@@ -36,6 +36,8 @@ export function buildQuoteHtml(q: SalesQuoteDto, t: T, opts: QuoteHtmlOptions = 
   const hasAntiDumping = q.goodsLines.some((g) => (g.antiDumpingKzt ?? 0) > 0)
   // Утильсбор — оператору РОП, не в ТПиН: отдельной колонкой и строкой итога, только если в КП есть сумма.
   const hasUtil = (q.utilizationTotal ?? 0) > 0
+  // ТС есть, но суммы нет (ставка не сверена, не хватает данных) — строка итога «уточняется», а не молчание.
+  const utilPending = q.goodsLines.some((g) => !!g.utilizationNote && g.utilizationFeeKzt == null)
 
   const svcRows = q.serviceLines
     .map((s) => `<tr><td>${escapeHtml(s.name)}</td><td${R}>${formatAmount(s.unitPrice)}</td><td${C}>${escapeHtml(`${s.quantity} ${s.unit ?? ''}`.trim())}</td><td${C}>${s.discountPercent}%</td><td${R}>${money(s.total)}</td></tr>`)
@@ -91,7 +93,7 @@ export function buildQuoteHtml(q: SalesQuoteDto, t: T, opts: QuoteHtmlOptions = 
     <div class="totals">
       <div>${p('servicesTotal')} <b>${money(q.servicesTotal)}</b></div>
       <div>${p('customsTotal')} <b>${money(q.tpinTotal)}</b></div>
-      ${hasUtil ? `<div>${p('utilizationTotal')} <b>${money(q.utilizationTotal)}</b></div>` : ''}
+      ${hasUtil || utilPending ? `<div>${p('utilizationTotal')}${hasUtil ? ` <b>${money(q.utilizationTotal)}</b>` : ''}${utilPending ? ` <span class="muted">${p('utilizationPending')}</span>` : ''}</div>` : ''}
       <div class="grand">${p('grandTotal')} ${money(q.grandTotal)}</div>
     </div>
     <div class="foot">${p('disclaimer')}</div>

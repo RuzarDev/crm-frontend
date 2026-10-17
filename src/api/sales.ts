@@ -34,8 +34,8 @@ export interface SalesCalcGoodsLine {
   originCountry?: string | null
   exciseKind?: string | null
   antiDumpingKind?: string | null
-  // Утильсбор (8701–8705, 8429, 8433): мощность (тракторы), полная масса (грузовые, тягачи), ввоз из РБ/РФ
-  // (null — по стране происхождения). Объём — engineVolumeCm3, штук — quantity в «шт».
+  // Утильсбор (8701–8705, 8429, 8433 5x): мощность (тракторы), полная масса (грузовые, тягачи), ввоз из РБ/РФ
+  // (null — не выбран: суммы нет). Объём — engineVolumeCm3, штук — quantity в «шт».
   powerHp?: number | null
   grossMassKg?: number | null
   fromRbRf?: boolean | null

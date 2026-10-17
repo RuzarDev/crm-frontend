@@ -7,7 +7,8 @@ import { formatActDate } from '@/components/nonTariffMeasures'
 
 // Подсказка у маркировки товара (гр. 31.13): код в перечне товаров, подлежащих маркировке (Приказ МТИ РК № 199-НҚ,
 // ред. 04.09.2026) — «Подлежит маркировке с …» на дату гр. А или «Будет подлежать с …». Позиция «из …» — только часть
-// кода: «возможно подлежит» и наименование. Позиции под вопросом после Приказа № 253-ОД — «сверить». Только подсказка:
+// кода: «возможно подлежит» и наименование. Позиции под вопросом после Приказа № 253-ОД — «возможно подлежит» и «сверьте».
+// Только подсказка:
 // строки маркировки и признак «М» гр. 33 сами не ставятся.
 const props = defineProps<{ rows: readonly MarkingMatchRow[]; act: string }>()
 const { t } = useI18n()
@@ -15,9 +16,12 @@ const tm = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.edit
 
 const lines = computed(() => props.rows.map((r) => {
   const date = formatActDate(r.startDate) ?? r.startDate
-  const head = r.partial
-    ? tm(r.required ? 'maybeRequired' : 'maybeUpcoming', { date })
-    : tm(r.required ? 'required' : 'upcoming', { date })
+  // Позиция под вопросом после 253-ОД — «возможно подлежит … под вопросом»; «из …» — «возможно подлежит, часть кода».
+  const head = r.check
+    ? tm(r.required ? 'checkRequired' : 'checkUpcoming', { date })
+    : r.partial
+      ? tm(r.required ? 'maybeRequired' : 'maybeUpcoming', { date })
+      : tm(r.required ? 'required' : 'upcoming', { date })
   return { r, head, source: tm('source', { act: props.act, n: r.number }) }
 }))
 </script>

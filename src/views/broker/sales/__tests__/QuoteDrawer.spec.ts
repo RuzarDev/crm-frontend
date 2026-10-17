@@ -80,6 +80,11 @@ describe('панель КП', () => {
     })
     await mountDrawer()
     expect(nb(w.get('[data-quote-util-total]').text())).toBe('756 875 ₸')
+    expect(w.find('[data-quote-util-partial]').exists()).toBe(false)
+    w.unmount()
+    api.getQuote.mockResolvedValue({ ...FULL, utilizationTotal: 0, goodsLines: [{ ...FULL.goodsLines[0]!, code: '8704219100', utilizationFeeKzt: null, utilizationNote: 'не сверен' }] })
+    await mountDrawer()
+    expect(w.find('[data-quote-util-partial]').exists()).toBe(true)
   })
 
   it('строки услуг и товаров видны в свёрнутых списках', async () => {

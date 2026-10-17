@@ -79,7 +79,7 @@ export const antiDumpingChoices = (opts: TnvedTariffOptionDto[] | null | undefin
   ...(opts ?? []).map((o) => ({ value: o.key, label: `${o.rate} (${o.country ?? ''}) — ${o.condition ?? ''}` })),
 ]
 
-/** Товары расчёта с утильсбором (8701–8705, 8429, 8433) — с индексом строки. */
+/** Товары расчёта с утильсбором (8701–8705, 8429, 8433 5x) — с индексом строки. */
 export const utilizationGoods = (goods: SalesCalcGoodsResult[]): { g: SalesCalcGoodsResult; gi: number }[] =>
   goods.map((g, gi) => ({ g, gi })).filter((x) => !!x.g.utilization)
 

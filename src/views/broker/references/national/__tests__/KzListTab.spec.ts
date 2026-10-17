@@ -24,6 +24,7 @@ const lists = (): KzList[] => [
       row({}),
       row({ number: 31, codeText: 'из 3304, 3305, 3306, 3307', name: 'косметика', partial: true, startDate: '2027-03-01', condition: null }),
       row({ number: 183, codeText: '1512 21 900 0', name: 'масло', startDate: '2027-04-01', check: 'код — хлопковое масло' }),
+      row({ number: 126, codeText: '2202 99 180 0', name: 'напитки', startDate: '2026-09-01', excluded: 'Считается исключённой Приказом № 253-ОД' }),
       ...Array.from({ length: 60 }, (_, i) => row({ number: 300 + i, codeText: `9999 ${String(i).padStart(2, '0')}`, name: `строка ${i}` })),
     ],
   },
@@ -48,14 +49,17 @@ describe('KzListTab', () => {
     w = mountWithI18n(KzListTab, { props: { listKey: 'marking' } })
     await flushPromises()
     expect(w.get('[data-kz-act]').text()).toContain('Приказ Министра торговли и интеграции РК № 199-НҚ от 26.05.2026')
-    expect(w.get('[data-kz-act]').text()).toContain('Редакция 04.09.2026, действует с 03.08.2026 · позиций: 63')
+    expect(w.get('[data-kz-act]').text()).toContain('Редакция 04.09.2026, действует с 03.08.2026 · позиций: 64')
     expect(w.get('[data-kz-row="1"] [data-kz-start]').text()).toBe('обязательна с 01.10.2020')
     expect(w.get('[data-kz-row="31"] [data-kz-start]').text()).toBe('с 01.03.2027')
     expect(w.find('[data-kz-row="31"] [data-kz-partial]').exists()).toBe(true)
     expect(w.get('[data-kz-row="183"] [data-kz-check]').text()).toContain('код — хлопковое масло')
+    expect(w.get('[data-kz-row="126"] [data-kz-excluded]').text()).toBe('исключена')
+    expect(w.find('[data-kz-row="126"] [data-kz-start]').exists()).toBe(false)
+    expect(w.get('[data-kz-row="126"] [data-kz-excluded-note]').text()).toContain('253-ОД')
     expect(w.findAll('[data-kz-row]')).toHaveLength(50)
     await w.get('[data-kz-more]').trigger('click')
-    expect(w.findAll('[data-kz-row]')).toHaveLength(63)
+    expect(w.findAll('[data-kz-row]')).toHaveLength(64)
 
     await w.get('[data-kz-search] input, input[data-kz-search]').setValue('3305')
     expect(w.findAll('[data-kz-row]').map((x) => x.attributes('data-kz-row'))).toEqual(['31'])

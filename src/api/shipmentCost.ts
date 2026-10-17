@@ -6,7 +6,7 @@ import type { UtilizationFee } from './nationalLists'
 // по ТС из ДТ по сверенной ставке). missing — чего ещё нет (итог неполный).
 export type ShipmentCostPart = 'customs' | 'broker' | 'svh' | 'certificates' | 'transport' | 'utilization'
 
-/** Утильсбор по товару ДТ под утильсбором (8701–8705, 8429, 8433): по ТС (VIN) или товару целиком. */
+/** Утильсбор по товару ДТ под утильсбором (8701–8705, 8429, 8433 5x): по ТС (VIN) или товару целиком. */
 export interface ShipmentCostUtilizationLine {
   declarationId: string
   declarationNumber: string

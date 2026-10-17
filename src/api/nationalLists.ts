@@ -81,6 +81,8 @@ export interface KzListRow {
   section: string | null
   /** Позиция под вопросом — что сверить. */
   check: string | null
+  /** Позиция считается исключённой (почему): в подсказки и справку не попадает. */
+  excluded?: string | null
 }
 
 export interface KzList {

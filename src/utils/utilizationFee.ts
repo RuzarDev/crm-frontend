@@ -5,8 +5,8 @@ import type { UtilizationFee } from '@/api/nationalLists'
 
 type T = (key: string, params?: Record<string, unknown>) => string
 
-/** Коды, за которые платится утильсбор: 8701–8705, 8429, 8433 (как UtilizationFee.CategoryOf на сервере). */
-export const isUtilizationCode = (code: string | null | undefined): boolean => /^(870[1-5]|8429|8433)/.test((code ?? '').replace(/\D/g, ''))
+/** Коды, за которые платится утильсбор: 8701–8705, 8429, 8433 5x — уборочная техника (как UtilizationFee.CategoryOf). */
+export const isUtilizationCode = (code: string | null | undefined): boolean => /^(870[1-5]|8429|84335)/.test((code ?? '').replace(/\D/g, ''))
 
 /** Какие параметры ТС нужны по коду: 8703 (кроме 8703 80 — электро) — объём; 8704 и 8701 2x — масса; прочие 8701 — мощность. */
 export function utilizationInputs(code: string | null | undefined): { engineVolume: boolean; mass: boolean; power: boolean } {

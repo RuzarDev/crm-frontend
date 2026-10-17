@@ -34,6 +34,7 @@ describe('MarkingHint', () => {
     expect(rows[1].attributes('data-marking-hint-row')).toBe('upcoming')
     expect(rows[1].text()).toContain('Возможно будет подлежать маркировке с 01.03.2027')
     expect(rows[1].get('[data-marking-hint-only]').text()).toBe('Только: косметика')
+    expect(rows[2].text()).toContain('Возможно будет подлежать маркировке с 01.04.2027 — позиция под вопросом после Приказа № 253-ОД')
     expect(rows[2].get('[data-marking-hint-check]').text()).toContain('№ 253-ОД')
   })
 

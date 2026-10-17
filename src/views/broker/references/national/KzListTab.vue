@@ -78,17 +78,24 @@ const link = 'rounded-field font-medium text-zircon-ink underline-offset-2 outli
       <p v-if="!found.length" class="m-0 text-sm text-muted" data-kz-empty>{{ tl('notFound') }}</p>
 
       <ul v-else role="list" class="m-0 flex list-none flex-col gap-2 p-0">
-        <li v-for="r in shown" :key="r.number" class="min-w-0 rounded-row border border-line bg-surface px-3.5 py-2.5" :data-kz-row="r.number">
+        <li
+          v-for="r in shown"
+          :key="r.number"
+          :class="['min-w-0 rounded-row border px-3.5 py-2.5', r.excluded ? 'border-dashed border-line bg-sunken' : 'border-line bg-surface']"
+          :data-kz-row="r.number"
+        >
           <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span class="text-xs text-muted tabular-nums">{{ tl('position', { n: r.number }) }}</span>
             <span class="font-mono text-[13px] text-ink">{{ r.codeText }}</span>
-            <template v-if="listKey === 'marking' && r.startDate">
+            <ZTag v-if="r.excluded" tone="neutral" size="sm" data-kz-excluded>{{ tl('excluded') }}</ZTag>
+            <template v-else-if="listKey === 'marking' && r.startDate">
               <ZTag :tone="required(r) ? 'danger' : 'wait'" size="sm" data-kz-start>{{ tl(required(r) ? 'requiredSince' : 'from', { date: d(r.startDate) }) }}</ZTag>
             </template>
             <ZTag v-if="r.partial" tone="info" size="sm" data-kz-partial>{{ tl('partial') }}</ZTag>
             <ZTag v-if="r.section" tone="neutral" size="sm" data-kz-section>{{ sectionShort(r.section) }}</ZTag>
           </div>
           <p class="m-0 mt-1 text-sm leading-5 text-ink [overflow-wrap:anywhere]">{{ r.name }}</p>
+          <p v-if="r.excluded" class="m-0 mt-1 text-xs leading-5 text-ink-3 [overflow-wrap:anywhere]" data-kz-excluded-note>{{ r.excluded }}</p>
           <p v-if="r.check" class="m-0 mt-1 text-xs leading-5 text-gold-ink [overflow-wrap:anywhere]" data-kz-check>{{ tl('check') }} {{ r.check }}</p>
           <details v-if="r.condition" class="mt-1 text-xs leading-5 text-ink-2">
             <summary class="cursor-pointer text-ink-3 select-none">{{ tl('condition') }}</summary>

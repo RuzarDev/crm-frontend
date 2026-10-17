@@ -44,15 +44,27 @@ export function isGr33Doc(m: TnvedNonTariffMeasureDto): boolean {
     && goods.every((g) => FEATURE_CODE_RE.test(normalizeFeatureCode(g)))
 }
 
-export function sectionOf(docType: string, by: MeasureGrouping): MeasureSectionKey {
+/** Временная национальная мера РК (запрет/ограничение ввоза на срок, сервер NationalMeasureQuery): не документ. */
+export const isNationalMeasure = (m: Pick<TnvedNonTariffMeasureDto, 'resolutionId'>): boolean =>
+  (m.resolutionId ?? '').startsWith('KZ-NAT-')
+/** Сведения национальных перечней (маркировка МТИ № 199-НҚ, МУЦ МФ № 658): справка, не документ к ДТ. */
+export const isNationalInfo = (m: Pick<TnvedNonTariffMeasureDto, 'resolutionId'>): boolean =>
+  m.resolutionId === 'KZ-MARKING-199' || m.resolutionId === 'KZ-MUC-658'
+
+export function sectionOf(docType: string, by: MeasureGrouping, resolutionId?: string | null): MeasureSectionKey {
   if (docType === 'PREFERENCE') return 'preferences'
-  if (by === 'required') return 'required'
+  if (by === 'required') {
+    // Запрет на срок и сведения перечней РК — не «требуемые документы»: своими разделами.
+    if (isNationalMeasure({ resolutionId })) return 'restrictions'
+    if (isNationalInfo({ resolutionId })) return 'others'
+    return 'required'
+  }
   return docType === 'RESTRICTION' ? 'restrictions' : 'others'
 }
 
 const ORDER: Record<MeasureGrouping, MeasureSectionKey[]> = {
   docType: ['restrictions', 'preferences', 'others'],
-  required: ['required', 'preferences'],
+  required: ['restrictions', 'required', 'preferences', 'others'],
 }
 
 /** «2010-05-28» → «28.05.2010» (без Date — без сдвига часового пояса). */
@@ -79,7 +91,7 @@ export function groupMeasures(measures: TnvedNonTariffMeasureDto[] | null | unde
   const sections = new Map<MeasureSectionKey, { acts: Map<string, MeasureAct>; count: number }>()
 
   for (const m of measures ?? []) {
-    const sKey = sectionOf(m.docType, by)
+    const sKey = sectionOf(m.docType, by, m.resolutionId)
     let section = sections.get(sKey)
     if (!section) sections.set(sKey, (section = { acts: new Map(), count: 0 }))
 

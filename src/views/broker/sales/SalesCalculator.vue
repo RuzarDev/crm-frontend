@@ -30,7 +30,7 @@ import { isUtilizationCode, utilizationCategory, utilizationInputs, utilizationS
 // Сервер считает всё сам (/sales/calculate); после правки строк результат помечается устаревшим.
 // «Сохранить как КП» пересчитывает на сервере по текущим строкам — сохранить можно и устаревший результат.
 // Инкотермс и доставка в расчёте не участвуют — только сохраняются в КП, как раньше.
-// Утильсбор (8701–8705, 8429, 8433) — параметры ТС под товарами; в «Итоге» отдельной строкой (оператору РОП, не в гр. 47),
+// Утильсбор (8701–8705, 8429, 8433 5x) — параметры ТС под товарами; в «Итоге» отдельной строкой (оператору РОП, не в гр. 47),
 // в «Всего» — только по сверенной ставке, остальное — «не сверено» / «не хватает данных» в расчёте по товарам.
 // «Итог» закреплён ниже липкой шапки оболочки (≈63px) — отсюда top-20, а не top-4 из брифа.
 const emit = defineEmits<{ saved: [] }>()
@@ -171,11 +171,12 @@ const vehicleRows = computed(() => goodsLines.value.filter((r) => isUtilizationC
 const utilResults = computed(() => utilizationGoods(result.value?.goods ?? []))
 const utilIncomplete = computed(() => utilizationIncomplete(result.value?.goods ?? []))
 const rbRfOptions = computed(() => [
-  { value: 'auto', label: t('broker.sales.util.rbRfAuto') },
+  { value: 'unset', label: t('broker.sales.util.rbRfUnset') },
   { value: 'yes', label: t('broker.sales.util.yes') },
   { value: 'no', label: t('broker.sales.util.no') },
 ])
-const rbRfValue = (r: GoodsRow) => (r.fromRbRf === true ? 'yes' : r.fromRbRf === false ? 'no' : 'auto')
+// Откуда ввезено ТС (коэф. 2 — из РБ/РФ) — только явный выбор: страна происхождения на это не отвечает.
+const rbRfValue = (r: GoodsRow) => (r.fromRbRf === true ? 'yes' : r.fromRbRf === false ? 'no' : 'unset')
 const setRbRf = (r: GoodsRow, v: unknown) => { r.fromRbRf = v === 'yes' ? true : v === 'no' ? false : null }
 // Сервер считает ТС штуками строки, если её единица — «шт»: пустую единицу заполняем при вводе количества.
 const setVehicleCount = (r: GoodsRow, v: number | null) => {
@@ -461,7 +462,7 @@ const h2 = 'm-0 text-[15px] leading-6 font-semibold text-ink'
           </template>
         </ZTable>
         <p :class="['m-0 px-5 py-3 text-sm text-muted', goodsLines.length ? '' : 'border-t border-line']">{{ t('sales.poshlinaNdsISbory') }}</p>
-        <!-- Утильсбор: параметры ТС для кодов 8701–8705, 8429, 8433. -->
+        <!-- Утильсбор: параметры ТС для кодов 8701–8705, 8429, 8433 5x. -->
         <div v-if="vehicleRows.length" class="flex flex-col gap-4 border-t border-line px-5 py-4" data-sales-util-inputs>
           <div>
             <h3 class="m-0 text-sm font-semibold text-ink">{{ t('broker.sales.util.title') }}</h3>
