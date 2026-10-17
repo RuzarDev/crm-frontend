@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter, type LocationQuery } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { PhPlus } from '@phosphor-icons/vue'
+import { PhFileXls, PhPlus } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZInput from '@/components/z/ZInput.vue'
@@ -15,11 +15,14 @@ import { useClientRegistration } from '@/composables/useClientRegistration'
 import { tabCounts, tabOf, type ShipmentTab } from '@/views/client/shipment'
 import { useBlock } from '@/views/home/useBlock'
 import { cn } from '@/ui/cn'
+import { shipmentCostApi } from '@/api/shipmentCost'
+import { saveBlob } from '@/ui/download'
+import { costAvailable } from '@/views/client/shipment/cost'
 
 // «Мои поставки» клиента (редизайн, волна 2a, доска Main): вкладки по чьему ходу, поиск, строки поставок.
 // Вкладка и поиск живут в адресе (?tab=, ?q=) — ссылку можно переслать, обновление страницы сохраняет вид.
 // Переходы между вкладками и ввод в поиск — replace: «Назад» уводит со списка, а не листает вкладки и буквы.
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -81,6 +84,21 @@ const onSearch = async (v: string) => {
 const norm = (s: string | null | undefined) => (s ?? '').toLocaleLowerCase().replace(/\s+/g, ' ').trim()
 const needle = computed(() => norm(q.value))
 const all = computed(() => cases.data ?? [])
+// Себестоимость всех выпущенных поставок в Excel (17.10) — кнопка, только если есть что выгружать.
+const hasCost = computed(() => all.value.some((s) => costAvailable(s.status)))
+const exporting = ref(false)
+const exportCost = async () => {
+  if (exporting.value) return
+  exporting.value = true
+  try {
+    const { blob, fileName } = await shipmentCostApi.xlsx(locale.value)
+    saveBlob(blob, fileName)
+  } catch {
+    // Текст ошибки показал общий перехватчик.
+  } finally {
+    exporting.value = false
+  }
+}
 const found = computed<ClientShipment[]>(() => {
   const n = needle.value
   if (!n) return all.value
@@ -112,8 +130,18 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
           {{ t('client.list.summary', { active: total.active }) }}<template v-if="total.waiting"> · {{ t('client.list.summaryWaiting', { waiting: total.waiting }) }}</template>
         </p>
       </div>
+      <ZButton
+        v-if="hasCost"
+        :class="cn(cta, 'ml-auto')"
+        :loading="exporting"
+        data-client-cost-xlsx
+        @click="exportCost"
+      >
+        <template #icon><PhFileXls :size="16" aria-hidden="true" /></template>
+        {{ t('shipmentCost.excelAll') }}
+      </ZButton>
       <ZTooltip :title="locked ? t('clientHome.newLocked') : ''">
-        <span :tabindex="locked ? 0 : undefined" class="ml-auto inline-flex rounded-row outline-hidden focus-visible:shadow-focus max-sm:w-full">
+        <span :tabindex="locked ? 0 : undefined" :class="cn('inline-flex rounded-row outline-hidden focus-visible:shadow-focus max-sm:w-full', !hasCost && 'ml-auto')">
           <ZButton variant="primary" :class="cta" :disabled="locked" data-client-new @click="newShipment">
             <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
             {{ t('shell.client.newShipment') }}
