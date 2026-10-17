@@ -37,7 +37,7 @@ describe('CaseCustomsRequests', () => {
     mountIt({ list: [req()] })
     const card = w.get('[data-customs-request="open"]')
     expect(card.get('[data-customs-label]').text()).toBe('Запрос таможни · 2 ч без ответа')
-    expect(card.get('[data-customs-meta]').text()).toContain('ДТ 50408/171026/0001 · коридор: красный · срок 20.10.2026 · завёл Иванов')
+    expect(card.get('[data-customs-meta]').text()).toBe('Запрос таможни при проверке ДТ · ДТ 50408/171026/0001 · коридор: красный · срок 20.10.2026 · завёл Иванов')
     expect(card.get('[data-customs-docs]').text()).toBe('Документы: Ветеринарный, фитосанитарный сертификат, СГР')
     expect(card.find('[data-customs-close]').exists()).toBe(true)
     expect(card.find('[data-customs-remind]').exists()).toBe(true)
@@ -72,11 +72,74 @@ describe('CaseCustomsRequests', () => {
     const ok = [...document.querySelectorAll('[data-customs-create-modal] button')].find((b) => b.textContent?.includes('Отправить клиенту')) as HTMLButtonElement
     ok.click()
     await flushPromises()
-    expect(api.create).toHaveBeenCalledWith('c1', { text: 'Инспектор просит инвойс', docKinds: ['invoice'], declarationId: 'd1', dueAtUtc: null })
-    w.unmount()
-    document.body.innerHTML = ''
-    mountIt({ status: 1 })
-    expect(w.find('[data-customs-create]').exists()).toBe(false)
+    expect(api.create).toHaveBeenCalledWith('c1', {
+      text: 'Инспектор просит инвойс', stage: 'declaration', docKinds: ['invoice'], declarationId: 'd1', dueAtUtc: null, dueHasTime: false,
+    })
+    // Черновик и отменённая — запрос таможни не заводится.
+    for (const status of [0, 9]) {
+      w.unmount()
+      document.body.innerHTML = ''
+      mountIt({ status })
+      expect(w.find('[data-customs-create]').exists()).toBe(false)
+    }
+  })
+
+  it('при проверке ДТ — подсказка о 4 часах до срока выпуска; срок со временем уходит моментом', async () => {
+    api.create.mockResolvedValue(req())
+    mountIt({ status: 2 })
+    await w.get('[data-customs-create]').trigger('click')
+    await flushPromises()
+    expect(document.querySelector('[data-customs-rule4h]')?.textContent).toContain('за 4 часа до истечения срока выпуска')
+    const radios = [...document.querySelectorAll('[data-customs-stage-input] button[role="radio"]')] as HTMLButtonElement[]
+    expect(radios.map((r) => r.disabled)).toEqual([true, false, true])
+    const text = document.querySelector('[data-customs-text-input]') as HTMLTextAreaElement
+    text.value = 'Нужен контракт'
+    text.dispatchEvent(new Event('input'))
+    const due = document.querySelector('[data-customs-due]') as HTMLInputElement
+    due.value = '20.10.2026'
+    due.dispatchEvent(new Event('input'))
+    due.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+    await flushPromises()
+    const time = document.querySelector('[data-customs-due-time]') as HTMLInputElement
+    time.value = '15:30'
+    time.dispatchEvent(new Event('input'))
+    await flushPromises()
+    const ok = [...document.querySelectorAll('[data-customs-create-modal] button')].find((b) => b.textContent?.includes('Отправить клиенту')) as HTMLButtonElement
+    ok.click()
+    await flushPromises()
+    expect(api.create).toHaveBeenCalledWith('c1', expect.objectContaining({
+      stage: 'declaration', dueAtUtc: new Date('2026-10-20T15:30:00').toISOString(), dueHasTime: true,
+    }))
+  })
+
+  it('на границе (шаг 2) — момент «на границе» по умолчанию, без подсказки о 4 часах', async () => {
+    api.create.mockResolvedValue(req({ stage: 'border' }))
+    mountIt({ status: 1, declarations: [] })
+    await w.get('[data-customs-create]').trigger('click')
+    await flushPromises()
+    expect(document.querySelector('[data-customs-rule4h]')).toBeNull()
+    const checked = document.querySelector('[data-customs-stage-input] button[role="radio"][data-state="checked"]')
+    expect(checked?.parentElement?.textContent).toContain('Запрос на границе')
+    const text = document.querySelector('[data-customs-text-input]') as HTMLTextAreaElement
+    text.value = 'Фитосанитарный сертификат'
+    text.dispatchEvent(new Event('input'))
+    await flushPromises()
+    const ok = [...document.querySelectorAll('[data-customs-create-modal] button')].find((b) => b.textContent?.includes('Отправить клиенту')) as HTMLButtonElement
+    ok.click()
+    await flushPromises()
+    expect(api.create).toHaveBeenCalledWith('c1', expect.objectContaining({ stage: 'border', text: 'Фитосанитарный сертификат' }))
+  })
+
+  it('после выпуска — и по выполненной заявке: метка «после выпуска», момент в подписи, кнопка нового запроса', () => {
+    mountIt({ status: 8, list: [req({ stage: 'postRelease', corridor: null, declarationNumber: null, createdByName: null, dueAtUtc: null })] })
+    const card = w.get('[data-customs-request="open"]')
+    expect(card.attributes('data-customs-stage')).toBe('postRelease')
+    expect(card.get('[data-customs-label]').text()).toBe('Запрос после выпуска · 2 ч без ответа')
+    expect(card.get('[data-customs-meta]').text()).toBe('Запрос после выпуска (камеральная проверка)')
+    expect(card.find('[data-customs-remind]').exists()).toBe(true)
+    expect(w.find('[data-customs-create]').exists()).toBe(true)
+    // Напоминание «по заявке» (черновик/счёт СВХ) у выполненной не нужно.
+    expect(w.find('[data-customs-remind-case]').exists()).toBe(false)
   })
 
   it('без права ведения ДТ — только «Напомнить клиенту»; черновик — отдельная кнопка напоминания', async () => {

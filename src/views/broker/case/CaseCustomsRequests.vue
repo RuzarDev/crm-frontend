@@ -5,15 +5,21 @@ import { PhBell, PhCaretDown, PhChatCircleText, PhCheckCircle, PhPaperclip, PhSi
 import ZButton from '@/components/z/ZButton.vue'
 import ZCheckbox from '@/components/z/ZCheckbox.vue'
 import ZDate from '@/components/z/ZDate.vue'
+import ZAlert from '@/components/z/ZAlert.vue'
 import ZField from '@/components/z/ZField.vue'
+import ZInput from '@/components/z/ZInput.vue'
 import ZModal from '@/components/z/ZModal.vue'
+import ZRadioGroup from '@/components/z/ZRadioGroup.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
-import { customsRequestsApi, type CustomsRequestDto, type CustomsRequestFile } from '@/api/customsRequests'
+import {
+  customsRequestsApi, type CustomsRequestDto, type CustomsRequestFile, type CustomsRequestStage,
+} from '@/api/customsRequests'
 import { import40Api } from '@/api/import40'
 import { ALL_DOC_KINDS } from '@/views/client/docKinds'
 import {
-  canCreateAtStatus, dateLabel, docKindName, elapsedLabel, hasClientDebt, isActive, isWaiting,
+  STAGES, canCreateAtStatus, dateLabel, defaultStage, docKindName, dueDateLabel, dueForApi, dueTimeLabel, elapsedLabel, hasClientDebt,
+  isActive, isWaiting, stageOf, stagesAt, waitingKey,
 } from '@/utils/customsRequests'
 import { saveBlob } from '@/ui/download'
 import { message } from '@/ui/message'
@@ -21,7 +27,8 @@ import { cn } from '@/ui/cn'
 
 // Запросы таможни сотрудника (волна 17.10, задача 5) — карточка заявки и страница ДТ (там — запросы этой ДТ и всей
 // заявки). Ждёт клиента — красная плашка «Запрос таможни · N ч без ответа» с «Ответить таможне» и «Напомнить
-// клиенту»; клиент ответил — его ответ и файлы; закрытые — свёрнуты. Кнопка «Запрос таможни» — на шаге 3.
+// клиенту»; клиент ответил — его ответ и файлы; закрытые — свёрнуты. Кнопка «Запрос таможни» (17.10) — в три момента:
+// на границе (шаг 2), при проверке ДТ (шаг 3), после выпуска — в том числе по выполненной заявке (камеральная проверка).
 const props = defineProps<{
   caseId: string
   status: number
@@ -51,13 +58,24 @@ const busy = ref<string | null>(null)
 
 // ---- Новый запрос ----
 const createOpen = ref(false)
-const form = ref({ text: '', kinds: [] as string[], due: null as string | null, dt: '' })
+const form = ref({
+  text: '', kinds: [] as string[], due: null as string | null, time: '', dt: '', stage: 'declaration' as CustomsRequestStage,
+})
+// Все три момента видны, недоступные на этом статусе — выключены (как CanCreateAt на сервере).
+const stageOptions = computed(() => {
+  const allowed = stagesAt(props.status)
+  return STAGES.map((s) => ({ value: s, label: t(`customsRequest.stage.${s}`), disabled: !allowed.includes(s) }))
+})
 const dtOptions = computed(() => [
   { value: '', label: t('customsRequest.dtNone') },
   ...props.declarations.map((d) => ({ value: d.id, label: d.declarationNumber || t('broker.dt.banners.noNumber') })),
 ])
 const openCreate = () => {
-  form.value = { text: '', kinds: [], due: null, dt: props.declarationId ?? (props.declarations.length === 1 ? props.declarations[0].id : '') }
+  form.value = {
+    text: '', kinds: [], due: null, time: '',
+    dt: props.declarationId ?? (props.declarations.length === 1 ? props.declarations[0].id : ''),
+    stage: defaultStage(props.status) ?? 'declaration',
+  }
   createOpen.value = true
 }
 const toggleKind = (k: string, on: boolean) => {
@@ -70,10 +88,11 @@ const submitCreate = async () => {
   try {
     await customsRequestsApi.create(props.caseId, {
       text,
+      stage: form.value.stage,
       docKinds: form.value.kinds,
       declarationId: form.value.dt || null,
-      // Срок — день; полдень UTC, чтобы дата не съехала в часовом поясе.
-      dueAtUtc: form.value.due ? `${form.value.due}T12:00:00Z` : null,
+      // Срок — день и (необязательно) время; без времени — только дата (dueHasTime = false).
+      ...dueForApi(form.value.due, form.value.time),
     })
     createOpen.value = false
     message.success(t('customsRequest.created'))
@@ -132,11 +151,15 @@ const download = async (f: CustomsRequestFile) => {
   }
 }
 
+/** «17.10.2026» или «17.10.2026 15:00» — срок со временем, если его указали. */
+const dueText = (r: CustomsRequestDto) => [dueDateLabel(r), dueTimeLabel(r)].filter(Boolean).join(' ')
+const stageName = (r: CustomsRequestDto) => t(`customsRequest.stage.${stageOf(r)}`)
+
 const metaOf = (r: CustomsRequestDto): string[] => {
-  const parts: string[] = []
+  const parts: string[] = [stageName(r)]
   if (r.declarationNumber) parts.push(t('customsRequest.dt', { n: r.declarationNumber }))
   if (r.corridor) parts.push(t('customsRequest.corridor', { c: t(`customsRequest.corridorName.${r.corridor}`) }))
-  if (r.dueAtUtc) parts.push(t('customsRequest.due', { date: dateLabel(r.dueAtUtc) }))
+  if (r.dueAtUtc) parts.push(t('customsRequest.due', { date: dueText(r) }))
   if (r.createdByName) parts.push(t('customsRequest.by', { name: r.createdByName }))
   if (r.lastReminderAtUtc) parts.push(t('customsRequest.lastReminder', { time: elapsedLabel(r.lastReminderAtUtc, t) }))
   return parts
@@ -159,13 +182,14 @@ const outlineBtn = 'bg-surface shadow-[inset_0_0_0_1px_var(--color-line-strong)]
         r.status === 'open' ? 'border-tone-danger-fg/20 bg-tone-danger-bg' : 'border-line bg-surface',
       )"
       :data-customs-request="r.status"
+      :data-customs-stage="stageOf(r)"
     >
       <div class="flex flex-wrap items-start gap-x-3.5 gap-y-2">
         <PhSiren v-if="r.status === 'open'" :size="18" class="mt-0.5 shrink-0 text-tone-danger-fg" aria-hidden="true" />
         <PhChatCircleText v-else :size="18" class="mt-0.5 shrink-0 text-zircon-ink" aria-hidden="true" />
         <div class="min-w-0 flex-1 basis-60">
           <div :class="cn('font-semibold', r.status === 'open' ? 'text-tone-danger-fg' : 'text-ink')" data-customs-label>
-            <template v-if="r.status === 'open'">{{ t('customsRequest.waiting', { time: elapsedLabel(r.createdAtUtc, t) }) }}</template>
+            <template v-if="r.status === 'open'">{{ t(waitingKey(stageOf(r)), { time: elapsedLabel(r.createdAtUtc, t) }) }}</template>
             <template v-else>{{ t('customsRequest.answeredLabel') }} · {{ elapsedLabel(r.answeredAtUtc ?? r.createdAtUtc, t) }}</template>
           </div>
           <p v-if="metaOf(r).length" class="m-0 mt-0.5 text-xs text-ink-3" data-customs-meta>{{ metaOf(r).join(' · ') }}</p>
@@ -246,7 +270,7 @@ const outlineBtn = 'bg-surface shadow-[inset_0_0_0_1px_var(--color-line-strong)]
         <li v-for="r in closed" :key="r.id" class="border-t border-line px-[18px] py-2.5 text-[13px]" data-customs-closed-row>
           <div class="text-ink-2 [overflow-wrap:anywhere]">{{ r.text }}</div>
           <div class="mt-0.5 text-xs text-ink-3">
-            {{ t('customsRequest.closedLabel') }} · {{ dateLabel(r.closedAtUtc) }}<template v-if="r.closedByName"> · {{ r.closedByName }}</template><template v-if="r.closeNote"> · {{ r.closeNote }}</template>
+            {{ stageName(r) }} · {{ t('customsRequest.closedLabel') }} · {{ dateLabel(r.closedAtUtc) }}<template v-if="r.closedByName"> · {{ r.closedByName }}</template><template v-if="r.closeNote"> · {{ r.closeNote }}</template>
           </div>
         </li>
       </ul>
@@ -265,6 +289,17 @@ const outlineBtn = 'bg-surface shadow-[inset_0_0_0_1px_var(--color-line-strong)]
     >
       <p class="m-0 mb-3 text-sm text-ink-3">{{ t('customsRequest.createHint') }}</p>
       <div class="flex flex-col gap-4">
+        <ZField :label="t('customsRequest.stageLabel')" :extra="t(`customsRequest.stageHint.${form.stage}`)">
+          <ZRadioGroup
+            :value="form.stage"
+            :options="stageOptions"
+            orientation="vertical"
+            data-customs-stage-input
+            @update:value="(v) => { form.stage = v as CustomsRequestStage }"
+          />
+        </ZField>
+        <!-- ТК ЕАЭС ст. 325 / 125: при проверке ДТ документы — не позднее чем за 4 ч до истечения срока выпуска. -->
+        <ZAlert v-if="form.stage === 'declaration'" type="warning" show-icon :message="t('customsRequest.rule4h')" data-customs-rule4h />
         <ZField :label="t('customsRequest.textLabel')" required>
           <ZTextarea v-model:value="form.text" :rows="3" :placeholder="t('customsRequest.textPh')" data-customs-text-input />
         </ZField>
@@ -284,6 +319,9 @@ const outlineBtn = 'bg-surface shadow-[inset_0_0_0_1px_var(--color-line-strong)]
         <div class="grid gap-4 sm:grid-cols-2">
           <ZField :label="t('customsRequest.dueLabel')">
             <ZDate v-model:value="form.due" allow-clear data-customs-due />
+          </ZField>
+          <ZField :label="t('customsRequest.dueTimeLabel')">
+            <ZInput v-model:value="form.time" type="time" :disabled="!form.due" data-customs-due-time />
           </ZField>
           <ZField v-if="!declarationId && declarations.length" :label="t('customsRequest.dtLabel')">
             <ZSelect v-model:value="form.dt" :options="dtOptions" data-customs-dt />

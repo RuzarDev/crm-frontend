@@ -18,7 +18,8 @@ const inputAttrs = computed(() => {
 
 const props = withDefaults(defineProps<{
   value?: string | null
-  type?: 'text' | 'password' | 'search' | 'email' | 'tel'
+  /** time — нативный выбор времени ЧЧ:ММ (значение 'HH:MM' или ''). */
+  type?: 'text' | 'password' | 'search' | 'email' | 'tel' | 'time'
   placeholder?: string
   /** lg — 42px, только страницы входа/регистрации. */
   size?: 'sm' | 'md' | 'lg'

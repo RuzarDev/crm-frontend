@@ -87,6 +87,20 @@ describe('buildStageCards — сотрудник', () => {
     expect(buildStageCards(input({ customs: [custReq({ status: 'answered' })], now }), t, te)[2]!.flag).toBeNull()
   })
 
+  it('запрос на границе — метка на шаге 2; после выпуска — без метки шага (не просрочка этапа)', () => {
+    const now = new Date(Date.UTC(2026, 9, 16, 11, 52))
+    const atBorder = buildStageCards(input({ kase: caseDto({ status: 1 }), stages: null, customs: [custReq({ stage: 'border' })], now }), t, te)
+    expect(atBorder[1]!.flag).toEqual({ tone: 'danger', text: 'Запрос на границе · 52 мин без ответа' })
+    expect(atBorder[1]!.tone).toBe('problem')
+    expect(atBorder[2]!.flag).toBeNull()
+    // Запрос при проверке ДТ на шаге 2 не помечается и наоборот.
+    expect(buildStageCards(input({ customs: [custReq({ stage: 'border' })], now }), t, te)[2]!.flag).toBeNull()
+    for (const status of [4, 6, 8]) {
+      const cards = buildStageCards(input({ kase: caseDto({ status }), stages: null, customs: [custReq({ stage: 'postRelease' })], now }), t, te)
+      expect(cards.every((c) => c.flag === null)).toBe(true)
+    }
+  })
+
   it('внутренняя проблема заявки — не запрос таможни: метки на этапах нет (её показывает плашка карточки)', () => {
     const base = input()
     const cards = buildStageCards({ ...base, kase: { ...base.kase, isProblem: true } }, t, te)
@@ -169,6 +183,9 @@ describe('подэтапы шага 3', () => {
     expect(client[2]).toMatchObject({ tone: 'ask', caption: 'жёлтый коридор · ждём ваш документ' })
     const staff = declaringSubstages({ audience: 'staff', kase, stages: null, invoices: [], customs: [custReq()] }, t, te)
     expect(staff[2]).toMatchObject({ label: 'Коридор', tone: 'problem', caption: 'жёлтый коридор · запрос документов' })
+    // Запрос на границе или после выпуска — не «запрос документов» проверки ДТ.
+    const other = declaringSubstages({ audience: 'staff', kase, stages: null, invoices: [], customs: [custReq({ stage: 'border' }), custReq({ stage: 'postRelease' })] }, t, te)
+    expect(other[2]).toMatchObject({ tone: 'current', caption: 'жёлтый коридор' })
     // Внутренняя проблема без запроса таможни — не «запрос документов».
     const problem = declaringSubstages({ audience: 'staff', kase: { ...kase, isProblem: true }, stages: null, invoices: [] }, t, te)
     expect(problem[2]).toMatchObject({ tone: 'current', caption: 'жёлтый коридор' })

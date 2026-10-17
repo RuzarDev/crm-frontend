@@ -1,7 +1,7 @@
 import type { ClientShipment } from '@/api/clientShipments'
 import type { Import40CaseDto, Import40FileDto } from '@/api/import40'
 import type { CustomsRequestDto } from '@/api/customsRequests'
-import { oldestWaiting } from '@/utils/customsRequests'
+import { oldestWaiting, waitingForClient } from '@/utils/customsRequests'
 import type { ZTone } from '@/components/z/ZTag.vue'
 import { stepForStatus } from '@/utils/import40Steps'
 import type { ConditionalReleaseBrief } from '@/api/conditionalRelease'
@@ -24,8 +24,11 @@ export type ShipmentCtx = { filesUnknown?: boolean }
  * не подтвердили; выполненная и отменённая поставка не спрашивает ничего. Без файлов (filesUnknown) про чек не гадаем.
  */
 export function askFor(s: ClientShipment, ctx: ShipmentCtx = {}): AskKind | null {
-  if (s.status === 8 || s.status === 9) return null
+  if (s.status === 9) return null
+  // Запрос таможни после выпуска (камеральная проверка, 17.10) ждёт клиента и по выполненной поставке:
+  // сервер для выполненной считает только такие запросы.
   if (s.customsRequestSinceUtc) return 'customs'
+  if (s.status === 8) return null
   if (s.isProblem) return 'problem'
   if (s.status === 0) return s.returnReason || s.reworkRequested ? 'returned' : 'draft'
   if (s.status === 6 && !s.paymentCheckUploaded && !ctx.filesUnknown) return 'paySvh'
@@ -35,6 +38,8 @@ export function askFor(s: ClientShipment, ctx: ShipmentCtx = {}): AskKind | null
 export function tabOf(s: ClientShipment): ShipmentTab {
   // Условный выпуск (17.10): ждём от клиента документ — поставка «ждёт вас», даже если в остальном завершена.
   if (s.status !== 9 && s.conditionalRelease && !s.conditionalRelease.uploaded) return 'waiting'
+  // Запрос таможни после выпуска — тоже «ждёт вас», даже у выполненной поставки.
+  if (s.status === 8 && s.customsRequestSinceUtc) return 'waiting'
   if (s.status === 8 || s.status === 9) return 'done'
   if (s.status === 0 && !s.isProblem && !s.returnReason && !s.reworkRequested) return 'drafts'
   return askFor(s) ? 'waiting' : 'active'
@@ -43,7 +48,7 @@ export function tabOf(s: ClientShipment): ShipmentTab {
 /** Тег в словаре клиента (ключ client.tag.*) и тон. */
 export function shipmentTag(s: ClientShipment, ctx: ShipmentCtx = {}): { key: string; tone: ZTone } {
   if (s.status === 9) return { key: 'cancelled', tone: 'neutral' }
-  if (s.status === 8) return { key: 'done', tone: 'done' }
+  if (s.status === 8) return s.customsRequestSinceUtc ? { key: 'customs', tone: 'wait' } : { key: 'done', tone: 'done' }
   const ask = askFor(s, ctx)
   if (ask === 'customs') return { key: 'customs', tone: 'wait' }
   if (ask === 'problem') return { key: 'needDoc', tone: 'danger' }
@@ -103,7 +108,7 @@ export const askHref = (s: ClientShipment): string => {
 export function toShipmentSummary(
   c: Import40CaseDto,
   files: Pick<Import40FileDto, 'section'>[],
-  customs: readonly Pick<CustomsRequestDto, 'status' | 'createdAtUtc'>[] = [],
+  customs: readonly Pick<CustomsRequestDto, 'status' | 'createdAtUtc' | 'stage'>[] = [],
 ): ClientShipment {
   return {
     id: c.id,
@@ -129,7 +134,7 @@ export function toShipmentSummary(
     updatedAtUtc: c.updatedAtUtc,
     reworkRequested: !!c.reworkRequested,
     reworkOpen: c.openReworkItems ?? [],
-    customsRequestSinceUtc: oldestWaiting(customs)?.createdAtUtc ?? null,
+    customsRequestSinceUtc: oldestWaiting(waitingForClient(customs, c.status))?.createdAtUtc ?? null,
   }
 }
 
