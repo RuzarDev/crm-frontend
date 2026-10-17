@@ -28,6 +28,8 @@ const reg = vi.hoisted(() => ({
 vi.mock('@/api/import40', () => ({ import40Api: api }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
 vi.mock('@/api/import40Contract', () => ({ import40ContractApi: contract }))
+const reworkApiMock = vi.hoisted(() => ({ list: vi.fn(async () => ({ comment: null, items: [] })), suggestions: vi.fn(async () => ({ codes: [], items: [] })) }))
+vi.mock('@/api/import40Rework', async (orig) => ({ ...(await orig<typeof import('@/api/import40Rework')>()), reworkApi: reworkApiMock }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 vi.mock('@/composables/useClientRegistration', () => ({
   useClientRegistration: () => ({ loaded: reg.loaded, complete: reg.complete, reason: reg.reason, needNew: reg.needNew, refresh: reg.refresh }),
@@ -323,6 +325,15 @@ describe('ClientWizardView', () => {
     expect(banner.attributes('role')).toBe('region')
   })
 
+  it('возврат по чек-листу без комментария — в баннере пункты на языке клиента, не русская «причина»', async () => {
+    server = caseDto({
+      id: 'c1', status: 0, cargo: 'Станки', returnReason: '', reworkRequested: true,
+      openReworkItems: [{ id: 'r1', kind: 'certificate', title: '', docKey: 'vet', note: '', tnvedCode: null, actRef: null, createdAtUtc: '2026-10-17T05:00:00Z', createdByName: null, resolvedAtUtc: null, resolvedFileId: null, resolvedFileName: null, resolvedByName: null }],
+    })
+    await mountAt('/import-40/new/c1')
+    expect(w.get('[data-wz-returned]').text()).toContain('Догрузите: Ветеринарный сертификат')
+  })
+
   it('обычный черновик — баннера возврата нет', async () => {
     server = caseDto({ id: 'c1', status: 0, cargo: 'Станки', returnReason: '' })
     await mountAt('/import-40/new/c1')
@@ -412,6 +423,27 @@ describe('ClientWizardView', () => {
       expect(router.currentRoute.value.fullPath).toBe('/import-40/c1')
       expect(confirmState.open).toBe(false)
       expect(api.update).not.toHaveBeenCalled()
+    })
+
+    it('возврат по чек-листу: незагруженные пункты — вопрос перед отправкой', async () => {
+      server = { ...fullDraft(), returnReason: '', reworkRequested: true }
+      api.listFiles.mockResolvedValue(['invoice', 'transport', 'packing', 'contract'].map((k, i) =>
+        fileDto({ id: `f${i}`, docKind: k, originalFileName: `${k}.pdf` })))
+      reworkApiMock.list.mockResolvedValueOnce({
+        comment: null,
+        reworkRequested: true,
+        items: [{ id: 'r1', kind: 'permit', title: '', docKey: 'importPermit', tnvedCode: null, actRef: null, note: '', createdAtUtc: '2026-10-17T05:00:00Z', createdByName: null, resolvedAtUtc: null, resolvedFileId: null, resolvedFileName: null, resolvedByName: null }],
+      } as never)
+      await mountAt('/import-40/new/c1')
+      await w.get('[data-docs-resp]').trigger('click')
+      await submitBtn().trigger('click')
+      await flushPromises()
+      expect(reworkApiMock.list).toHaveBeenCalledWith('c1', { silent: true })
+      expect(confirmState.open).toBe(true)
+      expect(confirmState.content).toBe('Ещё не загружено: Разрешение на ввоз. Отправить заявку всё равно? Отправляя, вы подтверждаете, что документы полные и достоверные.')
+      confirmState.resolve(true)
+      await flushPromises()
+      expect(api.action).toHaveBeenCalledWith('c1', 'submit-for-processing')
     })
 
     it('все обязательные приложены — без вопроса; несохранённое уходит до отправки, не сохранилось — не отправляем', async () => {

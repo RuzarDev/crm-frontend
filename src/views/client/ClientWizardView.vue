@@ -15,6 +15,7 @@ import { isBinOk, isCargoOk, useShipmentDraft } from '@/views/client/wizard/useS
 import { useShipmentFiles } from '@/views/client/wizard/useShipmentFiles'
 import { import40ContractApi, type ClientCompanyProfileDto } from '@/api/import40Contract'
 import { import40Api } from '@/api/import40'
+import { currentRound, openItems, reworkApi, reworkList } from '@/api/import40Rework'
 import { missingRequired } from '@/views/client/docKinds'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
@@ -37,7 +38,12 @@ const { confirm } = useConfirm()
 const uid = useId()
 
 const shipment = useShipmentDraft()
-const { draft, caseId, number, saving, savedAt, saveError, returnReason } = shipment
+const { draft, caseId, number, saving, savedAt, saveError, returnReason, reworkRequested, reworkOpen } = shipment
+// Баннер возврата: комментарий сотрудника; без него — пункты доработки на языке клиента (17.10).
+const returnedText = computed(() => {
+  if (returnReason.value || !reworkRequested.value) return returnReason.value
+  return reworkOpen.value.length ? t('rework.client.rowText', { list: reworkList(t, reworkOpen.value) }) : t('rework.client.rowAllDone')
+})
 
 const STEPS = ['cargo', 'transport', 'parties', 'docs'] as const
 const LAST = STEPS.length - 1
@@ -259,6 +265,19 @@ const canSubmit = computed(() => !!caseId.value && !submitBlock.value && !submit
 const submit = async () => {
   const id = caseId.value
   if (!id || !canSubmit.value || submitting.value) return
+  // Возврат на доработку по чек-листу (17.10): незагруженные пункты не блокируют отправку, но спрашиваем.
+  if (returnReason.value || reworkRequested.value) {
+    const open = await reworkApi.list(id, { silent: true }).then((r) => openItems(currentRound(r.items))).catch(() => [])
+    if (open.length) {
+      const go = await confirm({
+        title: t('rework.client.resendWarnTitle'),
+        content: t('rework.client.resendWarnText', { list: reworkList(t, open) }),
+        okText: t('rework.client.resendOk'),
+        cancelText: t('rework.client.resendCancel'),
+      })
+      if (!go) return
+    }
+  }
   const missing = missingRequired(docs.files.value.map((f) => f.docKind))
   if (missing.length) {
     const go = await confirm({
@@ -581,9 +600,9 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
         <div class="flex min-w-0 max-w-[720px] flex-1 flex-col gap-7 sm:gap-8">
           <!-- Возврат на доработку: причина над шагами, пока черновик открыт в мастере -->
           <ZAskBanner
-            v-if="returnReason"
+            v-if="returnedText"
             :title="t('client.ask.returned.title')"
-            :description="returnReason"
+            :description="returnedText"
             class="[overflow-wrap:anywhere]"
             data-wz-returned
           />

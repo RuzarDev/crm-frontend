@@ -1,5 +1,6 @@
-import { computed, getCurrentScope, onScopeDispose, reactive, ref, type Ref } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, reactive, ref, shallowRef, type Ref } from 'vue'
 import { import40Api, type Import40CaseDto, type Import40UpdateRequest } from '@/api/import40'
+import type { ReworkBrief } from '@/api/import40Rework'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
 import { i18n } from '@/i18n'
@@ -117,6 +118,9 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
   const status = ref<number | null>(null)
   /** Причина возврата на доработку (у загруженного черновика); пусто — не возвращали. */
   const returnReason = ref('')
+  // Возврат по чек-листу документов (17.10): признак и открытые пункты — для баннера на языке клиента.
+  const reworkRequested = ref(false)
+  const reworkOpen = shallowRef<ReworkBrief[]>([])
   const saving = ref(false)
   const savedAt = ref<Date | null>(null)
   const saveError = ref(false)
@@ -349,6 +353,8 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
     number.value = c.number
     status.value = c.status
     returnReason.value = c.returnReason ?? ''
+    reworkRequested.value = !!c.reworkRequested
+    reworkOpen.value = c.openReworkItems ?? []
     savedKey.value = payloadKey()
     savedAt.value = null
     saveError.value = false
@@ -362,6 +368,8 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
     number.value = ''
     status.value = null
     returnReason.value = ''
+    reworkRequested.value = false
+    reworkOpen.value = []
     savedKey.value = null
     clearServer()
     savedAt.value = null
@@ -374,6 +382,8 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
     number,
     status,
     returnReason,
+    reworkRequested,
+    reworkOpen,
     saving,
     savedAt,
     saveError,

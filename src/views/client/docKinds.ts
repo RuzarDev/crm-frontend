@@ -1,5 +1,6 @@
 // Чек-лист документов на импорт (утверждён владельцем 09.10, доска Wizard). key = DocKind на сервере.
-export type DocKind = 'invoice' | 'transport' | 'packing' | 'contract' | 'origin' | 'conformity' | 'permit' | 'other'
+// certificate (17.10) — ветеринарный/фитосанитарный сертификат, СГР: их просят при возврате на доработку по нетарифным мерам.
+export type DocKind = 'invoice' | 'transport' | 'packing' | 'contract' | 'origin' | 'conformity' | 'permit' | 'certificate' | 'other'
 export type DocNeed = 'required' | 'ifAny' | 'ifRequired'
 export interface DocKindDef { key: Exclude<DocKind, 'other'>; need: DocNeed }
 
@@ -11,10 +12,11 @@ export const DOC_CHECKLIST: DocKindDef[] = [
   { key: 'origin', need: 'ifAny' },
   { key: 'conformity', need: 'ifRequired' },
   { key: 'permit', need: 'ifRequired' },
+  { key: 'certificate', need: 'ifRequired' },
 ]
 
 export const isDocKind = (v: unknown): v is DocKind =>
-  typeof v === 'string' && ['invoice', 'transport', 'packing', 'contract', 'origin', 'conformity', 'permit', 'other'].includes(v)
+  typeof v === 'string' && ['invoice', 'transport', 'packing', 'contract', 'origin', 'conformity', 'permit', 'certificate', 'other'].includes(v)
 
 /** Обязательные позиции чек-листа без файла — для подсказки перед отправкой (сервер требует лишь ≥1 файл). */
 export const missingRequired = (kindsPresent: (string | null | undefined)[]): DocKindDef[] =>
