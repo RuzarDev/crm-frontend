@@ -6,17 +6,18 @@ import { greetingName } from '@/views/home/greeting'
 // Расчёты «Главной» клиента (макет Client.dc): что нужно от клиента, поставки в работе, счёт к оплате.
 // Чей ход и тег поставки — общие правила views/client/shipment.ts.
 
-const ASK_ORDER: Record<AskKind, number> = { problem: 0, returned: 1, paySvh: 2, draft: 3 }
+const ASK_ORDER: Record<AskKind, number> = { customs: 0, problem: 1, returned: 2, paySvh: 3, draft: 4 }
 const updatedDesc = (a: ClientShipment, b: ClientShipment) => Date.parse(b.updatedAtUtc) - Date.parse(a.updatedAtUtc)
 
 /** Условный выпуск (17.10): ждём от клиента документ (не загружен), поставка не отменена — даже если выполнена. */
 export const needsCondRelDoc = (s: ClientShipment): boolean =>
   s.status !== 9 && !!s.conditionalRelease && !s.conditionalRelease.uploaded
 
-// Условный выпуск без другого хода клиента — после оплаты склада, перед черновиками.
+// Условный выпуск без другого хода клиента — после оплаты склада (3), перед черновиками (4).
+export const COND_REL_RANK = 3.5
 const askRank = (s: ClientShipment): number => {
   const ask = askFor(s)
-  return ask ? ASK_ORDER[ask] : 2.5
+  return ask ? ASK_ORDER[ask] : COND_REL_RANK
 }
 
 /** Поставки, где ход за клиентом: проблемы, возвраты, оплата склада, условный выпуск, черновики; внутри — свежие сверху. */

@@ -15,8 +15,11 @@ export const DOC_CHECKLIST: DocKindDef[] = [
   { key: 'certificate', need: 'ifRequired' },
 ]
 
+/** Все виды документов клиента (сервер: Import40FileEndpoints.DocKinds); certificate — иной сертификат (запрос таможни). */
+export const ALL_DOC_KINDS: DocKind[] = ['invoice', 'transport', 'packing', 'contract', 'origin', 'conformity', 'permit', 'certificate', 'other']
+
 export const isDocKind = (v: unknown): v is DocKind =>
-  typeof v === 'string' && ['invoice', 'transport', 'packing', 'contract', 'origin', 'conformity', 'permit', 'certificate', 'other'].includes(v)
+  typeof v === 'string' && ALL_DOC_KINDS.includes(v as DocKind)
 
 /** Обязательные позиции чек-листа без файла — для подсказки перед отправкой (сервер требует лишь ≥1 файл). */
 export const missingRequired = (kindsPresent: (string | null | undefined)[]): DocKindDef[] =>

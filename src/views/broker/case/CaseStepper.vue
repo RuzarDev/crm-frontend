@@ -10,7 +10,8 @@ import type { CaseStepInfo } from './caseContext'
 // Полоса из 6 шагов (доски Case/CaseSvh): пройденный — тёмный круг с галочкой и сводкой; текущий — кольцо zircon
 // и «сейчас · исполнитель»; будущий — серый и исполнитель. Отменённая — все будущие и тег «Отменена»;
 // выполненная — все пройдены и тег «Выполнено». Уже 1024px (планшет, телефон) — одна строка «Шаг N из 6 · название».
-const props = defineProps<{ steps: CaseStepInfo[]; status: number }>()
+// alerts — красная метка под шагом вместо подписи (запрос таможни на шаге 3: «Запрос таможни · 2 ч без ответа»).
+const props = defineProps<{ steps: CaseStepInfo[]; status: number; alerts?: Partial<Record<number, string>> }>()
 const { t } = useI18n()
 
 const current = computed(() => props.steps.find((s) => s.state === 'current') ?? null)
@@ -58,6 +59,13 @@ const sub = (s: CaseStepInfo) =>
             {{ s.title }}<span class="sr-only"> — {{ t(`broker.case.stepper.${s.state}`) }}</span>
           </div>
           <div
+            v-if="alerts?.[s.n]"
+            class="mt-px truncate text-xs font-semibold text-tone-danger-fg"
+            :title="alerts[s.n]"
+            data-step-alert
+          >{{ alerts[s.n] }}</div>
+          <div
+            v-else
             :class="cn('mt-px truncate text-xs', s.state === 'current' ? 'text-zircon-ink' : 'text-muted')"
             :title="sub(s)"
             data-step-sub
@@ -69,7 +77,8 @@ const sub = (s: CaseStepInfo) =>
     <p class="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm lg:hidden" data-case-stepper-phone>
       <template v-if="current">
         <span class="font-semibold text-ink tabular-nums">{{ t('broker.case.stepper.phone', { n: current.n, total: TOTAL_STEPS, title: current.title }) }}</span>
-        <span class="text-zircon-ink">{{ t('broker.case.stepper.now', { executor: current.executorLabel }) }}</span>
+        <span v-if="alerts?.[current.n]" class="font-semibold text-tone-danger-fg" data-step-alert-phone>{{ alerts[current.n] }}</span>
+        <span v-else class="text-zircon-ink">{{ t('broker.case.stepper.now', { executor: current.executorLabel }) }}</span>
       </template>
       <ZTag v-else-if="tag" :tone="tag.tone">{{ tag.text }}</ZTag>
     </p>

@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/ui/cn'
 import CaseActionModals from './CaseActionModals.vue'
 import CaseBanners from './CaseBanners.vue'
+import CaseCustomsRequests from './CaseCustomsRequests.vue'
 import CaseCondRelBanner from './CaseCondRelBanner.vue'
 import CaseHeader from './CaseHeader.vue'
 import CaseReworkPanel from './CaseReworkPanel.vue'
@@ -26,6 +27,8 @@ import { STEP_EXECUTOR, STEP_NUMBERS, isCancelled, stepStateOf, stepSummary, typ
 import type { CaseStepContext, CaseStepInfo } from './caseContext'
 import { useCase } from './useCase'
 import { useCaseActions } from './useCaseActions'
+import { useCustomsRequests } from '@/composables/useCustomsRequests'
+import { canManageCustoms, canRemindClient, waitingLabel } from '@/utils/customsRequests'
 
 // Карточка заявки сотрудника /import-40/:id (редизайн, волна 4а; доски Case и CaseSvh).
 // Шапка, полоса шагов, плашки; слева — текущий шаг и «Пройденные шаги», справа — команда, заявка, файлы, история.
@@ -50,6 +53,16 @@ const { actions, reasonKind } = useCaseActions(() => kase.value?.id ?? null, rel
 watch(id, () => { reasonKind.value = null })
 
 const perms = computed(() => (kase.value ? casePerms(auth, kase.value) : null))
+
+// Запросы таможни (волна 17.10, задача 5): своя загрузка; красная метка на шаге 3, пока клиент не ответил.
+const customs = useCustomsRequests(() => kase.value?.id ?? null)
+const stepAlerts = computed(() => {
+  const label = waitingLabel(customs.list.value, t)
+  return label ? { 3: label } : undefined
+})
+const onCustomsChanged = async () => {
+  await Promise.all([customs.reload(), reload()])
+}
 
 const steps = computed<CaseStepInfo[]>(() => {
   const c = kase.value
@@ -137,10 +150,19 @@ const panel = 'rounded-panel border border-line bg-surface'
 
     <template v-else-if="kase && perms">
       <CaseHeader :kase="kase" :perms="perms" @ask="actions.ask" />
-      <CaseStepper :steps="steps" :status="kase.status" />
+      <CaseStepper :steps="steps" :status="kase.status" :alerts="stepAlerts" />
       <CaseBanners :kase="kase" :perms="perms" :actions="actions" />
       <CaseCondRelBanner :kase="kase" />
       <CaseReworkPanel :kase="kase" :perms="perms" :actions="actions" />
+      <CaseCustomsRequests
+        :case-id="kase.id"
+        :status="kase.status"
+        :list="customs.list.value"
+        :declarations="(kase.declarations ?? []).filter((d) => !d.isSplitReplaced)"
+        :can-manage="canManageCustoms(auth)"
+        :can-remind="canRemindClient(auth)"
+        @changed="onCustomsChanged"
+      />
 
       <div class="flex flex-wrap items-start gap-[18px]">
         <div class="flex min-w-0 flex-[999_1_480px] flex-col gap-4" data-case-main>

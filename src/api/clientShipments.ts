@@ -30,6 +30,8 @@ export interface ClientShipment {
   reworkRequested?: boolean
   /** Незакрытые пункты доработки — текст «Нужно от вас» на языке клиента. */
   reworkOpen?: ReworkBrief[]
+  /** Запрос таможни ждёт ответа клиента — с какого момента (самый ранний); null/нет — не ждёт (волна 17.10, задача 5). */
+  customsRequestSinceUtc?: string | null
 }
 
 export const clientShipmentsApi = {

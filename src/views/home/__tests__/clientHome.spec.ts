@@ -92,7 +92,9 @@ describe('clientAsks: условный выпуск (17.10)', () => {
       ship({ id: 'cx', status: 9, conditionalRelease: { ...cr, uploaded: false } }),
       ship({ id: 'pay', status: 6 }),
       ship({ id: 'draft', status: 0 }),
+      ship({ id: 'cust', status: 3, customsRequestSinceUtc: '2026-10-17T08:00:00Z' }),
     ])
-    expect(list.map((s) => s.id)).toEqual(['pay', 'cr', 'draft'])
+    // Шкала с запросом таможни (customs 0 … paySvh 3, draft 4): условный выпуск — 3.5, после оплаты склада.
+    expect(list.map((s) => s.id)).toEqual(['cust', 'pay', 'cr', 'draft'])
   })
 })
