@@ -277,17 +277,17 @@ describe('карточка клиента: показатели', () => {
 describe('карточка клиента: вкладки и ?tab=', () => {
   it('вкладки по правам, со счётчиками', async () => {
     await mountAt()
-    expect(tabs()).toEqual(['Обзор', 'Заявки 4', 'Транзит 8', 'Документы 3', 'Счета 4'])
+    expect(tabs()).toEqual(['Обзор', 'Заявки 4', 'Транзит 8', 'Документы 3', 'Контракты', 'Счета 4'])
   })
 
   it('без reestr.read нет «Транзита», без finance.read — «Счетов»', async () => {
     as('manager', ['clients.read', 'import40.read', 'finance.read'])
     await mountAt()
-    expect(tabs().map((x) => x.split(' ')[0])).toEqual(['Обзор', 'Заявки', 'Документы', 'Счета'])
+    expect(tabs().map((x) => x.split(' ')[0])).toEqual(['Обзор', 'Заявки', 'Документы', 'Контракты', 'Счета'])
     w.unmount()
     as('manager', ['clients.read', 'import40.read', 'reestr.read'])
     await mountAt()
-    expect(tabs().map((x) => x.split(' ')[0])).toEqual(['Обзор', 'Заявки', 'Транзит', 'Документы'])
+    expect(tabs().map((x) => x.split(' ')[0])).toEqual(['Обзор', 'Заявки', 'Транзит', 'Документы', 'Контракты'])
   })
 
   it('?tab= читается: открывает вкладку; неизвестная или недоступная — «Обзор»', async () => {

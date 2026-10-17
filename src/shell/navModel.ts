@@ -4,7 +4,7 @@ import type { useAuthStore } from '@/stores/auth'
 // разделы, которые спека объединяет, — одна строка меню и вкладки-ссылки в шапке (pages).
 export type NavIcon =
   | 'home' | 'requests' | 'transit' | 'packages' | 'keden' | 'clients' | 'sales' | 'finance' | 'analytics'
-  | 'references' | 'settings' | 'shipments' | 'plus' | 'documents' | 'invoices' | 'search' | 'rates' | 'npa' | 'company'
+  | 'references' | 'settings' | 'shipments' | 'plus' | 'documents' | 'invoices' | 'search' | 'rates' | 'npa' | 'company' | 'contracts'
 
 export interface NavPage { key: string; to: string; labelKey: string; match?: string[] }
 export interface NavSection {
@@ -169,6 +169,10 @@ export function buildClientNav(a: NavAccess): NavModel {
         ] }),
         section({ key: 'invoices', labelKey: 'shell.client.invoices', icon: 'invoices', pages: [
           page('invoices', '/billing', 'shell.client.invoices', imp),
+        ] }),
+        // Внешнеторговые контракты и валютный контроль (17.10): остаток, оплаты, сроки репатриации и УНК.
+        section({ key: 'contracts', labelKey: 'shell.client.contracts', icon: 'contracts', pages: [
+          page('contracts', '/contracts', 'shell.client.contracts', imp),
         ] }),
       ]),
       group('tools', 'shell.group.tools', [

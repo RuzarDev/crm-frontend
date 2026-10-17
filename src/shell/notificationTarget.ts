@@ -15,13 +15,15 @@ export const EEC_UPDATES_PATH = '/tnved/eec'
 // hasPermission (если передан): экран «Обновления ЕЭК» — по праву tnved.manage; без права (РОП получает уведомление,
 // но экран ему закрыт) клик только отмечает прочитанным, а не уводит guard'ом на главную.
 export function notificationTarget(
-  n: Pick<AppNotification, 'caseId' | 'reestrEntryId'> & Partial<Pick<AppNotification, 'type' | 'declarationId'>>,
+  n: Pick<AppNotification, 'caseId' | 'reestrEntryId'> & Partial<Pick<AppNotification, 'type' | 'declarationId' | 'foreignContractId'>>,
   isFinanceOnly: boolean,
   hasPermission?: (p: string) => boolean,
 ): string | null {
   if (n.type && n.type.toLowerCase() === EEC_TARIFF_UPDATE.toLowerCase()) {
     return !isFinanceOnly && (!hasPermission || hasPermission('tnved.manage')) ? EEC_UPDATES_PATH : null
   }
+  // Срок внешнеторгового контракта (17.10): получает только клиент — его карточка контракта.
+  if (n.foreignContractId) return `/contracts/${encodeURIComponent(n.foreignContractId)}`
   if (n.type === INVOICE_CHECK_UPLOADED) {
     return n.caseId ? `/billing?case=${encodeURIComponent(n.caseId)}` : '/billing'
   }
