@@ -28,7 +28,8 @@ import {
 // «Реестр документов» клиента (волна 17.10, задача 2): контракты, УНК, сертификаты, декларации о соответствии,
 // разрешения, лицензии, ТРОИС — со сроками, фильтрами «действует / истекает / истёк / бессрочный» и загрузкой.
 // Один и тот же раздел у клиента («Документы») и у сотрудника (карточка клиента). Удаления нет — «В архив».
-const props = defineProps<{ clientId: string }>()
+// readonly — просмотр без правки (сотрудник с clients.read без import40.read: сервер тоже не даст писать).
+const props = withDefaults(defineProps<{ clientId: string; readonly?: boolean }>(), { readonly: false })
 const { t } = useI18n()
 const { confirm } = useConfirm()
 const uid = useId()
@@ -102,8 +103,16 @@ const save = async (fields: RegistryFields, files: File[]) => {
     replace(await clientRegistryApi.update(props.clientId, editing.value.id, fields))
     message.success(t('clientRegistry.saved'))
   } else {
-    replace(await clientRegistryApi.create(props.clientId, fields, files))
-    message.success(t('clientRegistry.added'))
+    // Файлы — по одному запросу на файл (лимит тела запроса на сервере — один файл): документ с первым,
+    // остальные дозагрузкой. Сбой дозагрузки — документ уже есть, окно закрывается, список перечитывается.
+    const [first, ...rest] = files
+    let doc = await clientRegistryApi.create(props.clientId, fields, first ? [first] : [])
+    replace(doc)
+    try {
+      for (const f of rest) doc = await clientRegistryApi.addFiles(props.clientId, doc.id, [f])
+      replace(doc)
+      message.success(t('clientRegistry.added'))
+    } catch { /* причину показал общий перехватчик */ }
   }
   void load()
 }
@@ -176,7 +185,7 @@ defineExpose({ reload: load })
         <h2 :id="headingId" class="m-0 text-md font-semibold text-ink">{{ t('clientRegistry.title') }}</h2>
         <p class="m-0 mt-0.5 text-sm text-ink-3">{{ t('clientRegistry.subtitle') }}</p>
       </div>
-      <ZButton class="max-sm:h-11 max-sm:w-full" data-registry-add @click="openCreate">
+      <ZButton v-if="!readonly" class="max-sm:h-11 max-sm:w-full" data-registry-add @click="openCreate">
         <template #icon><PhPlus :size="16" aria-hidden="true" /></template>
         {{ t('clientRegistry.add') }}
       </ZButton>
@@ -280,7 +289,7 @@ defineExpose({ reload: load })
           </span>
           <span v-if="d.validUntil" :class="cn('text-xs', hintClass(d))" data-registry-hint>{{ validityHint(d, t) }}</span>
           <span class="text-xs text-muted" data-registry-added-by>{{ t(d.addedByClient ? 'clientRegistry.addedByClient' : 'clientRegistry.addedByStaff') }}</span>
-          <div class="-mr-1.5 mt-1 flex flex-wrap gap-x-1 sm:justify-end">
+          <div v-if="!readonly" class="-mr-1.5 mt-1 flex flex-wrap gap-x-1 sm:justify-end">
             <button v-if="!d.isArchived" type="button" :class="actionBtn" :disabled="busy === d.id" data-registry-edit @click="openEdit(d)">
               <PhPencilSimple :size="14" aria-hidden="true" />{{ t('clientRegistry.edit') }}
             </button>

@@ -103,4 +103,15 @@ describe('Файлы заявки → «Сохранить в реестр кл�
     expect(api.saveCaseFile).toHaveBeenCalledWith('case1', 'f9', expect.objectContaining({ category: 'supplyContract', number: 'SC-2026/9' }))
     expect(msg.success).toHaveBeenCalledWith('Документ сохранён в реестр клиента')
   })
+
+  it('кнопка — только у документов клиента, не у служебных файлов AQNIET', async () => {
+    const files = [
+      fileDto({ id: 'd1', section: 'documents', originalFileName: 'inv.pdf' }),
+      fileDto({ id: 's1', section: 'svh-invoice', originalFileName: 'svh.pdf' }),
+      fileDto({ id: 'p1', section: 'payment-check', originalFileName: 'check.pdf' }),
+    ]
+    w = mountWithI18n(CaseFilesDrawer, { props: { open: true, caseId: 'case1', files }, attachTo: document.body })
+    await flushPromises()
+    expect(document.body.querySelectorAll('[data-file-to-registry]')).toHaveLength(1)
+  })
 })

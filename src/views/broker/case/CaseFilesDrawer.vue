@@ -35,6 +35,7 @@ const download = async (f: Import40FileDto) => {
 }
 // «Сохранить в реестр клиента» (волна 17.10): копия файла заявки становится документом реестра клиента
 // (контракт, сертификат, разрешение…) — со сроком и напоминаниями; в следующей заявке клиент выберет его из реестра.
+// Только документы клиента (раздел documents): служебные файлы AQNIET (счёт СВХ, закрытая ДТ, чек) — нет.
 const CATEGORY_BY_KIND: Record<string, RegistryCategory> = {
   contract: 'supplyContract', conformity: 'certificate', origin: 'certificate', permit: 'permit',
 }
@@ -84,6 +85,7 @@ const iconBtn = 'inline-flex size-[30px] shrink-0 cursor-pointer items-center ju
               <PhDownloadSimple :size="16" aria-hidden="true" />
             </button>
             <button
+              v-if="f.section === 'documents'"
               type="button"
               :class="iconBtn"
               :aria-label="t('clientRegistry.toRegistry.actionFor', { name: f.originalFileName })"

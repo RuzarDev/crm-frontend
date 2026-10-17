@@ -120,4 +120,37 @@ describe('ClientRegistryPanel', () => {
     expect(modal!.textContent).toContain('Укажите номер документа')
     expect(modal!.textContent).toContain('Приложите файл документа')
   })
+
+  it('readonly — без «Добавить» и действий со строками, скачивание остаётся', async () => {
+    w = mountWithI18n(ClientRegistryPanel, { props: { clientId: 'c1', readonly: true }, attachTo: document.body })
+    await flushPromises()
+    expect(ids()).toEqual(['a', 'b', 'c', 'd'])
+    expect(w.find('[data-registry-add]').exists()).toBe(false)
+    expect(w.find('[data-registry-edit]').exists()).toBe(false)
+    expect(w.find('[data-registry-archive]').exists()).toBe(false)
+    expect(w.find('[data-registry-download]').exists()).toBe(true)
+  })
+
+  it('новый документ с несколькими файлами — по одному запросу на файл', async () => {
+    api.create.mockImplementation(async () => regDoc({ id: 'n', number: 'N-1' }))
+    api.addFiles.mockImplementation(async () => regDoc({ id: 'n', number: 'N-1' }))
+    await mountPanel()
+    await w.get('[data-registry-add]').trigger('click')
+    await flushPromises()
+    const modal = document.body.querySelector('[data-registry-modal]')!
+    const number = modal.querySelector('input[data-registry-number]') as HTMLInputElement
+    number.value = 'N-1'
+    number.dispatchEvent(new Event('input'))
+    const input = modal.querySelector('input[type="file"]') as HTMLInputElement
+    const files = [new File(['a'], 'a.pdf', { type: 'application/pdf' }), new File(['b'], 'b.pdf', { type: 'application/pdf' }), new File(['c'], 'c.pdf', { type: 'application/pdf' })]
+    Object.defineProperty(input, 'files', { value: files, configurable: true })
+    input.dispatchEvent(new Event('change'))
+    await flushPromises()
+    modal.querySelector('form')!.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    expect(api.create).toHaveBeenCalledTimes(1)
+    expect(api.create.mock.calls[0][2].map((f: File) => f.name)).toEqual(['a.pdf'])
+    expect(api.addFiles.mock.calls.map((c) => c[2].map((f: File) => f.name))).toEqual([['b.pdf'], ['c.pdf']])
+    expect(msg.success).toHaveBeenCalledWith('Документ добавлен в реестр')
+  })
 })
