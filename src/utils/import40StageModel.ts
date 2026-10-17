@@ -1,6 +1,6 @@
 import type { Import40CaseDto, Import40CaseInvoiceDto } from '@/api/import40'
 import type { CustomsRequestDto } from '@/api/customsRequests'
-import { oldestWaiting, waitingLabel } from '@/utils/customsRequests'
+import { oldestWaiting, waitingForClient, waitingLabel, waitingOfStage } from '@/utils/customsRequests'
 import type { CaseStages, CaseStageStep, StageEvent, StageEventKind, StageState } from '@/api/stages'
 import { formatMoney } from '@/ui/number'
 import { TOTAL_STEPS, stepForStatus } from '@/utils/import40Steps'
@@ -56,7 +56,8 @@ export interface StageInput {
   docsCount?: number | null
   /** Клиент: его ход на текущем шаге — askFor ('customs' | 'problem' | 'returned' | …); true/false — без вида. */
   clientAsk?: string | boolean | null
-  /** Запросы таможни заявки: открытый (ждёт клиента) — метка на шаге 3 и «запрос документов» в подэтапах. */
+  /** Запросы таможни заявки: открытый (ждёт клиента) — метка сотрудника на шаге 2 (на границе) или 3 (проверка ДТ),
+   * «запрос документов» в подэтапах — только проверка ДТ; после выпуска — без метки шага. */
   customs?: readonly CustomsRequestDto[]
   /** Клиент: чек об оплате СВХ загружен. */
   checkUploaded?: boolean
@@ -134,7 +135,7 @@ export function buildStageCards(input: StageInput, t: T, te: Te): StageCard[] {
   const { audience, kase, stages, invoices } = input
   const client = audience === 'client'
   const now = input.now ?? new Date()
-  const waiting = oldestWaiting(input.customs ?? [])
+  const waiting = oldestWaiting(waitingForClient(input.customs ?? [], kase.status))
   const status = kase.status
   const byStep = new Map<number, CaseStageStep>((stages?.steps ?? []).map((s) => [s.step, s]))
   const k = (staffKey: string, clientKey?: string) => t(`stages.result.${client && clientKey ? clientKey : staffKey}`)
@@ -257,9 +258,14 @@ export function buildStageCards(input: StageInput, t: T, te: Te): StageCard[] {
         flag = { tone: 'danger', text: t('stages.flag.ask') }
         tone = 'problem'
       }
-    } else if (!client && n === 3 && waiting && status !== 8 && status !== 9) {
-      flag = { tone: 'danger', text: waitingLabel(input.customs ?? [], t, now) ?? t('stages.flag.customs') }
-      tone = 'problem'
+    } else if (!client && (n === 2 || n === 3) && status !== 8 && status !== 9) {
+      // Запрос на границе — метка на шаге 2, при проверке ДТ — на шаге 3; после выпуска — без метки шага
+      // (не просрочка этапа: его показывает блок запросов карточки).
+      const ofStep = waitingOfStage(input.customs ?? [], n === 2 ? 'border' : 'declaration')
+      if (ofStep.length) {
+        flag = { tone: 'danger', text: waitingLabel(ofStep, t, now) ?? t('stages.flag.customs') }
+        tone = 'problem'
+      }
     }
 
     cards.push({
@@ -309,7 +315,7 @@ export function declaringSubstages(input: StageInput, t: T, te: Te): SubStage[] 
   let check: SubStage
   if (status === 3) {
     // «Запрос документов» — только открытый запрос таможни (не внутренняя проблема заявки).
-    const problem = !!oldestWaiting(input.customs ?? [])
+    const problem = waitingOfStage(input.customs ?? [], 'declaration').length > 0
     const parts = [corridorLine, problem ? t(client ? 'stages.sub.waitYou' : 'stages.sub.docsRequest') : ''].filter(Boolean)
     check = {
       key: 'check', label: checkLabel, state: 'current',
