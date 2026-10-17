@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { ClientShipment } from '@/api/clientShipments'
 import type { Import40CaseDto, Import40CaseInvoiceDto } from '@/api/import40'
+import type { CustomsRequestDto } from '@/api/customsRequests'
 import type { CaseStages, CaseStageStep, StageEvent } from '@/api/stages'
 import { caseDto, declaration } from '@/views/client/__tests__/caseFixture'
 import ShipmentTimeline from '../ShipmentTimeline.vue'
@@ -20,7 +21,10 @@ const stepOf = (n: number, o: Partial<CaseStageStep> = {}): CaseStageStep => ({
 })
 const local = (d: number, h: number, m: number) => new Date(2026, 9, d, h, m).toISOString()
 
-type Extra = { docsCount?: number | null; filesUnknown?: boolean; kase?: Partial<Import40CaseDto>; stages?: CaseStages | null; invoices?: Import40CaseInvoiceDto[] }
+type Extra = {
+  docsCount?: number | null; filesUnknown?: boolean; kase?: Partial<Import40CaseDto>; stages?: CaseStages | null
+  invoices?: Import40CaseInvoiceDto[]; customs?: CustomsRequestDto[]
+}
 const mountWith = (s: Partial<ClientShipment>, extra: Extra = {}) =>
   mountWithI18n(ShipmentTimeline, {
     props: {
@@ -30,6 +34,7 @@ const mountWith = (s: Partial<ClientShipment>, extra: Extra = {}) =>
       filesUnknown: extra.filesUnknown,
       stages: extra.stages ?? null,
       invoices: extra.invoices ?? [],
+      customs: extra.customs ?? [],
     },
   })
 
@@ -49,13 +54,27 @@ describe('ShipmentTimeline', () => {
     expect(card(w, 5).get('[data-stage-parallel]').text()).toBe('Шаги 5 и 6 — в любом порядке')
   })
 
-  it('ход клиента — золотой текущий и «Нужен ваш ответ»; проблема — тоже ход клиента', () => {
+  it('ход клиента — золотой текущий и «Нужен ваш ответ»; вопрос AQNIET (проблема) — красная метка', () => {
     const pay = mountWith({ status: 6, step: 5 })
     expect(statesOf(pay)[4]).toBe('currentAsk')
     expect(card(pay, 5).get('[data-step-flag]').text()).toBe('Нужен ваш ответ')
     const problem = mountWith({ status: 1, step: 2, isProblem: true })
     expect(statesOf(problem)).toEqual(['done', 'currentProblem', 'todo', 'todo', 'todo', 'todo'])
     expect(card(problem, 2).get('[data-step-flag]').text()).toBe('Нужен ваш ответ')
+    expect(card(problem, 2).get('[data-step-flag]').classes()).toContain('bg-tone-danger-bg')
+  })
+
+  it('открытый запрос таможни — золотое «Нужен ваш ответ» и «ждём ваш документ» в подэтапах', () => {
+    const req: CustomsRequestDto = {
+      id: 'r1', declarationId: null, declarationNumber: null, corridor: null, text: 'Нужен сертификат', docKinds: [],
+      dueAtUtc: null, createdAtUtc: '2026-10-16T11:00:00Z', createdByName: null, status: 'open', answeredAtUtc: null,
+      answerText: '', answerFiles: [], closedAtUtc: null, closedByName: null, closeNote: '', lastReminderAtUtc: null, reminderCount: 0,
+    }
+    const w = mountWith({ status: 3, step: 3, customsRequestSinceUtc: req.createdAtUtc }, { customs: [req] })
+    const flag = card(w, 3).get('[data-step-flag]')
+    expect(flag.text()).toBe('Нужен ваш ответ')
+    expect(flag.classes()).toContain('bg-gold-soft')
+    expect(w.get('[data-stage-detail] [data-sub="check"]').text()).toContain('ждём ваш документ')
   })
 
   it('файлы не загрузились — оплата склада без «ваш ход»: текущий этап обычный, работает AQNIET', () => {
@@ -93,7 +112,7 @@ describe('ShipmentTimeline', () => {
     expect(detail.findAll('[data-sub]').map((s) => s.attributes('data-sub-state'))).toEqual(['done', 'done', 'current', 'todo'])
     const events = detail.findAll('[data-history-event]')
     expect(events.map((e) => e.attributes('data-kind'))).toEqual(['customsRequest', 'dtSubmitted'])
-    expect(events[0]!.text()).toContain('Запрос по заявке')
+    expect(events[0]!.text()).toContain('Запрос таможни')
     expect(events[0]!.text()).toContain('Договор поставки')
   })
 

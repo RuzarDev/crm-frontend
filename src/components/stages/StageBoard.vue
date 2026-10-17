@@ -159,6 +159,7 @@ const nowText = (c: BoardCard) => (client.value && c.state === 'current' && !c.f
                 c.flag.tone === 'gold' ? 'bg-gold-soft text-gold-ink' : 'bg-tone-danger-bg text-tone-danger-fg',
               )"
               data-step-flag
+              :data-step-alert="c.flag.tone === 'danger' ? '' : undefined"
               :data-step-now="client ? '' : undefined"
             >
               <span v-if="c.flag.tone === 'gold'" aria-hidden="true" class="size-1.5 rounded-pill bg-gold" />

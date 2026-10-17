@@ -1,4 +1,6 @@
 import type { Import40CaseDto, Import40CaseInvoiceDto } from '@/api/import40'
+import type { CustomsRequestDto } from '@/api/customsRequests'
+import { oldestWaiting, waitingLabel } from '@/utils/customsRequests'
 import type { CaseStages, CaseStageStep, StageEvent, StageEventKind, StageState } from '@/api/stages'
 import { formatMoney } from '@/ui/number'
 import { TOTAL_STEPS, stepForStatus } from '@/utils/import40Steps'
@@ -6,7 +8,8 @@ import { pluralForm } from '@/views/broker/list'
 
 // Модель этапов заявки по утверждённому макету (17.10) — общая для карточки сотрудника и поставки клиента.
 // Подписи-итоги под шагами, ответственный, «на шаге · норма» (сотрудник), метки «нужен ваш ответ» / «запрос таможни»,
-// подэтапы шага 3 и история шага. Время и нормы — с сервера (GET import40/{id}/stages); без них — только статус.
+// подэтапы шага 3 и история шага. Запрос таможни — только по открытым запросам (Task 5, Import40CustomsRequest):
+// внутренняя проблема заявки (isProblem) — не запрос таможни, у сотрудника её показывает своя плашка в карточке. Время и нормы — с сервера (GET import40/{id}/stages); без них — только статус.
 
 type T = (k: string, p?: Record<string, unknown>) => string
 type Te = (k: string) => boolean
@@ -50,8 +53,10 @@ export interface StageInput {
   invoices: Import40CaseInvoiceDto[]
   /** Сколько документов клиента (раздел documents); null — неизвестно. */
   docsCount?: number | null
-  /** Клиент: на текущем шаге его ход (askFor). */
-  clientAsk?: boolean
+  /** Клиент: его ход на текущем шаге — askFor ('customs' | 'problem' | 'returned' | …); true/false — без вида. */
+  clientAsk?: string | boolean | null
+  /** Запросы таможни заявки: открытый (ждёт клиента) — метка на шаге 3 и «запрос документов» в подэтапах. */
+  customs?: readonly CustomsRequestDto[]
   /** Клиент: чек об оплате СВХ загружен. */
   checkUploaded?: boolean
   /** Язык интерфейса — формы числа («2 файла»). */
@@ -128,6 +133,7 @@ export function buildStageCards(input: StageInput, t: T, te: Te): StageCard[] {
   const { audience, kase, stages, invoices } = input
   const client = audience === 'client'
   const now = input.now ?? new Date()
+  const waiting = oldestWaiting(input.customs ?? [])
   const status = kase.status
   const byStep = new Map<number, CaseStageStep>((stages?.steps ?? []).map((s) => [s.step, s]))
   const k = (staffKey: string, clientKey?: string) => t(`stages.result.${client && clientKey ? clientKey : staffKey}`)
@@ -150,7 +156,8 @@ export function buildStageCards(input: StageInput, t: T, te: Te): StageCard[] {
           const files = input.docsCount != null && input.docsCount > 0 ? t(`broker.case.count.files.${pluralForm(input.docsCount, input.locale ?? 'ru')}`, { n: input.docsCount }) : ''
           detail = [whenText(sent?.atUtc, t), files].filter(Boolean).join(' · ')
         } else if (state === 'current') {
-          const rework = s?.inRework || !!kase.returnReason
+          // Возврат по чек-листу (ReworkRequested) — тоже доработка, даже без общей причины.
+          const rework = s?.inRework || !!kase.reworkRequested || !!kase.returnReason
           result = rework ? k('s1Rework', 's1ReworkClient') : k('s1Draft', 's1DraftClient')
         }
         break
@@ -190,7 +197,9 @@ export function buildStageCards(input: StageInput, t: T, te: Te): StageCard[] {
         // Шаги 5 и 6 идут параллельно: оплаченный счёт AQNIET — шаг пройден, даже если склад ещё не оплачен.
         const paid = paidInvoice(invoices)
         const issued = issuedInvoice(invoices)
-        if (paid && status !== 9) {
+        // Сотруднику шаг 6 идёт, пока счёт AQNIET ждёт оплаты, — даже до оплаты склада (сервер считает время от счёта).
+        if (!client && s?.state === 'current' && state === 'future' && status !== 9) state = 'current'
+        if (paid && !issued && status !== 9) {
           state = 'done'
           result = client
             ? t('stages.result.s6Paid', { n: paid.number, date: dayMonth(paid.paidAtUtc) })
@@ -234,30 +243,31 @@ export function buildStageCards(input: StageInput, t: T, te: Te): StageCard[] {
       else if (state === 'future' && s.normMinutes) meta = t('stages.norm', { time: durationText(s.normMinutes, t) })
     }
 
-    // Метки текущего шага.
+    // Метки: клиенту — ход клиента на текущем шаге (золото; внутренняя проблема — прежний красный),
+    // сотруднику — открытый запрос таможни на шаге 3 («Запрос таможни · 2 ч без ответа»).
     let flag: StageCard['flag'] = null
     let tone: StageTone = state === 'done' ? 'ok' : state === 'current' ? 'current' : 'future'
-    if (state === 'current') {
-      if (client && (kase.isProblem || input.clientAsk)) {
+    if (client && state === 'current') {
+      const ask = input.clientAsk
+      if (waiting || (ask && ask !== 'problem')) {
         flag = { tone: 'gold', text: t('stages.flag.ask') }
         tone = 'ask'
-      } else if (!client && kase.isProblem) {
-        const req = last(history, 'customsRequest') ?? last(allEvents(stages), 'customsRequest')
-        const mins = req ? (now.getTime() - new Date(req.atUtc).getTime()) / 60000 : null
-        flag = { tone: 'danger', text: mins != null && mins >= 0 ? t('stages.flag.customsFor', { time: durationText(mins, t) }) : t('stages.flag.customs') }
+      } else if (ask === 'problem' || (ask == null && kase.isProblem)) {
+        flag = { tone: 'danger', text: t('stages.flag.ask') }
         tone = 'problem'
       }
+    } else if (!client && n === 3 && waiting && status !== 8 && status !== 9) {
+      flag = { tone: 'danger', text: waitingLabel(input.customs ?? [], t, now) ?? t('stages.flag.customs') }
+      tone = 'problem'
     }
 
     cards.push({
       n, state, tone, result, detail, responsible, initials: name ? initialsOf(name) : '', timing, meta, flag,
-      history: [...history].sort((a, b) => b.atUtc.localeCompare(a.atUtc)),
+      history: [...history].sort((a, b) => Date.parse(b.atUtc) - Date.parse(a.atUtc)),
     })
   }
   return cards
 }
-
-const allEvents = (stages: CaseStages | null): StageEvent[] => (stages?.steps ?? []).flatMap((s) => s.history)
 
 const capitalize = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) : s)
 
@@ -297,7 +307,8 @@ export function declaringSubstages(input: StageInput, t: T, te: Te): SubStage[] 
   const corridorLine = corridor ? corridorText(corridor, t, te) : ''
   let check: SubStage
   if (status === 3) {
-    const problem = kase.isProblem
+    // «Запрос документов» — только открытый запрос таможни (не внутренняя проблема заявки).
+    const problem = !!oldestWaiting(input.customs ?? [])
     const parts = [corridorLine, problem ? t(client ? 'stages.sub.waitYou' : 'stages.sub.docsRequest') : ''].filter(Boolean)
     check = {
       key: 'check', label: checkLabel, state: 'current',

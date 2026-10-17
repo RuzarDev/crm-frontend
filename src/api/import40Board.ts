@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { ConditionalReleaseBrief } from './conditionalRelease'
 
 // Лёгкая доска заявок для сотрудников (редизайн, волна 3а): всё нужное списку «Заявки» одним запросом,
 // без вложенных деклараций. Клиенту сервер отвечает 403 — он до этого экрана не доходит.
@@ -24,6 +25,8 @@ export interface Import40BoardRow {
   /** До 5 кодов, как в базе: 10 цифр без пробелов. */
   tnvedCodes: string[]
   customsPaymentsKzt: number
+  /** Незакрытый условный выпуск (самый срочный); null — нет. */
+  conditionalRelease?: ConditionalReleaseBrief | null
   createdAtUtc: string
   updatedAtUtc: string
 }

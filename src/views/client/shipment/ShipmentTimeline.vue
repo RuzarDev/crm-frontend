@@ -5,11 +5,13 @@ import StageBoard, { type BoardCard } from '@/components/stages/StageBoard.vue'
 import type { ClientShipment } from '@/api/clientShipments'
 import type { Import40CaseDto, Import40CaseInvoiceDto } from '@/api/import40'
 import type { CaseStages } from '@/api/stages'
+import type { CustomsRequestDto } from '@/api/customsRequests'
 import { askFor, segments, TOTAL_STEPS, type SegState } from '@/views/client/shipment'
 import { buildStageCards, declaringSubstages, defaultSelectedStep } from '@/utils/import40StageModel'
 
 // «Ход оформления» клиента по макету (17.10): под шагом — итог («Документы приняты · 14.10 в 11:05», «Граница пройдена»,
-// «ДТ подана · жёлтый коридор»), на шаге 3 — ваш декларант, золотая метка «Нужен ваш ответ», шаги 5 и 6 — «в любом порядке»;
+// «ДТ подана · жёлтый коридор»), на шаге 3 — ваш декларант, золотая метка «Нужен ваш ответ» (ваш ход, в т.ч. запрос
+// таможни; вопрос AQNIET по заявке — красная, как его панель), шаги 5 и 6 — «в любом порядке»;
 // нажатие на шаг — его история (шаг 3 — с подэтапами). Без времени, норм и ФИО сотрудников. На телефоне — вертикально.
 // data-state на li — сегменты полосы (segments): те же правила, что у полосы в списке поставок.
 const props = withDefaults(defineProps<{
@@ -21,7 +23,9 @@ const props = withDefaults(defineProps<{
   filesUnknown?: boolean
   stages?: CaseStages | null
   invoices?: Import40CaseInvoiceDto[]
-}>(), { filesUnknown: false, stages: null, invoices: () => [] })
+  /** Запросы таможни поставки: открытый — «Нужен ваш ответ» и «ждём ваш документ» в подэтапах шага 3. */
+  customs?: CustomsRequestDto[]
+}>(), { filesUnknown: false, stages: null, invoices: () => [], customs: () => [] })
 
 const { t, te, locale } = useI18n()
 
@@ -32,7 +36,8 @@ const input = computed(() => ({
   stages: props.stages,
   invoices: props.invoices,
   docsCount: props.docsCount,
-  clientAsk: askFor(props.shipment, { filesUnknown: props.filesUnknown }) != null,
+  clientAsk: askFor(props.shipment, { filesUnknown: props.filesUnknown }),
+  customs: props.customs,
   checkUploaded: props.shipment.paymentCheckUploaded && !props.filesUnknown,
   locale: locale.value,
 }))

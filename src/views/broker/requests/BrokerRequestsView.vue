@@ -15,6 +15,8 @@ import ListSearch from '@/components/broker/ListSearch.vue'
 import PeriodChip from '@/components/broker/PeriodChip.vue'
 import SelectionBar from '@/components/broker/SelectionBar.vue'
 import CreateRequestModal from './CreateRequestModal.vue'
+import CondRelTag from '@/components/condrel/CondRelTag.vue'
+import { condRelLabel, type CondRelFilter } from '@/utils/conditionalRelease'
 import { import40BoardApi, type Import40BoardRow } from '@/api/import40Board'
 import { import40Api, IMPORT40_STATUSES } from '@/api/import40'
 import { manageApi, type StaffMember } from '@/api/manage'
@@ -84,6 +86,7 @@ const known = computed(() => [...allRows.value, ...myRows.value])
 const clientOptions = computed(() => buildClientOptions(known.value))
 const executorOptions = computed(() => buildExecutorOptions(known.value, t))
 const stageOptions = computed(() => IMPORT40_STATUSES.map((s) => ({ value: String(s.id), label: statusLabel(s.id) })))
+const condRelOptions = computed(() => (['any', 'open', 'overdue', 'uploaded'] as const).map((k) => ({ value: k, label: t(`condRel.filter.${k}`) })))
 
 // Шапка — число заявок «В работе» без фильтров; счётчики вкладок — по найденному (видно, где совпадения).
 const headCount = computed(() => tabCounts(allRows.value).active)
@@ -213,6 +216,7 @@ const exportExcel = async () => {
       [t('broker.requests.create.post')]: r.post ?? '',
       [c('tnved')]: r.tnvedCodes.join(', '),
       [c('stage')]: statusLabel(r.status),
+      [t('condRel.tag')]: r.conditionalRelease ? condRelLabel(r.conditionalRelease, t) : '',
       [c('executor')]: executorText(r, you.value, t),
       [c('payments')]: r.customsPaymentsKzt,
       [c('updated')]: stamp(r.updatedAtUtc),
@@ -262,6 +266,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
       <FilterChip :label="t('broker.requests.filter.executor')" :options="executorOptions" :value="filters.executor" @update:value="patch({ executor: $event })" />
       <FilterChip :label="t('broker.requests.filter.stage')" :options="stageOptions" :value="filters.stage" @update:value="patch({ stage: $event })" />
       <PeriodChip :label="t('broker.list.period')" :value="filters.period" @update:value="patch({ period: $event })" />
+      <FilterChip :label="t('condRel.filter.label')" :options="condRelOptions" :value="filters.condRel ?? null" data-requests-condrel @update:value="patch({ condRel: $event as CondRelFilter | null })" />
     </div>
 
     <div v-if="source.error && !source.data" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-requests-error>
@@ -304,6 +309,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
             <ZTag v-if="record.isProblem" tone="danger">
               <PhFlag :size="12" weight="fill" class="mr-1" aria-hidden="true" />{{ t('broker.requests.problem') }}
             </ZTag>
+            <CondRelTag v-if="record.conditionalRelease" :brief="record.conditionalRelease" short />
           </span>
           <template v-else-if="column.key === 'executor'">
             <span v-if="executor(record).text" class="text-sm text-ink-2" :title="executorText(record, you, t)">{{ executor(record).text }}<template v-if="executor(record).missing"> · </template></span>

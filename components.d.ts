@@ -13,6 +13,7 @@ declare module 'vue' {
     ClientSigexModal: typeof import('./src/components/client/ClientSigexModal.vue')['default']
     ClientStepBar: typeof import('./src/components/client/ClientStepBar.vue')['default']
     CommandPalette: typeof import('./src/components/shell/CommandPalette.vue')['default']
+    CondRelTag: typeof import('./src/components/condrel/CondRelTag.vue')['default']
     Doc44List: typeof import('./src/components/broker/Doc44List.vue')['default']
     ExtractionReviewModal: typeof import('./src/components/ExtractionReviewModal.vue')['default']
     FilterChip: typeof import('./src/components/broker/FilterChip.vue')['default']

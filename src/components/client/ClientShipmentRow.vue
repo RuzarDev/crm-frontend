@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import ZTag from '@/components/z/ZTag.vue'
 import ClientStepBar from '@/components/client/ClientStepBar.vue'
+import CondRelTag from '@/components/condrel/CondRelTag.vue'
 import type { ClientShipment } from '@/api/clientShipments'
 import { askFor, segments, shipmentHref, shipmentTag } from '@/views/client/shipment'
 import { useShipmentText } from '@/views/client/useShipmentText'
@@ -39,6 +40,7 @@ const tag = computed(() => shipmentTag(s.value))
       <span class="mt-[3px] block truncate text-sm text-ink-3">
         <span class="font-mono">{{ s.number }}</span><template v-if="s.post"> · {{ s.post }}</template>
       </span>
+      <CondRelTag v-if="s.conditionalRelease" :brief="s.conditionalRelease" blink class="mt-1.5" />
     </span>
 
     <span class="flex min-w-0 flex-col gap-[7px] max-md:order-2">

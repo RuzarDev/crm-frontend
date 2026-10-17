@@ -5,7 +5,8 @@ import apiClient from './client'
 
 export type StageEventKind =
   | 'created' | 'submitted' | 'taken' | 'returnedToClient' | 'resubmitted' | 'atBorder' | 'borderPassed'
-  | 'dtSubmitted' | 'customsRequest' | 'customsRequestAnswered' | 'customsRequestClosed' | 'released'
+  | 'dtSubmitted' | 'customsRequest' | 'customsRequestAnswered' | 'customsRequestClosed'
+  | 'problemSet' | 'problemAnswered' | 'problemCleared' | 'released'
   | 'svhClosed' | 'svhInvoiced' | 'svhPaid' | 'brokerInvoiced' | 'brokerPaid' | 'steppedBack' | 'done' | 'cancelled'
 
 export interface StageEvent {

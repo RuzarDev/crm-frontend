@@ -31,7 +31,7 @@ describe('buildBrokerNav', () => {
       'clients:clientsList,clientDocuments',
       'sales:sales',
       'finance:financeOverview,billing',
-      'analytics:analytics',
+      'analytics:analytics,representativeReport',
       'references:tnvedTree,currencies,npa,timeline,eecUpdates,dtGuide,systemData',
       'settings:team,roles,organization,stageNorms,audit,system',
     ])

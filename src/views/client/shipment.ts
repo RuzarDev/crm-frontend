@@ -1,13 +1,17 @@
 import type { ClientShipment } from '@/api/clientShipments'
 import type { Import40CaseDto, Import40FileDto } from '@/api/import40'
+import type { CustomsRequestDto } from '@/api/customsRequests'
+import { oldestWaiting } from '@/utils/customsRequests'
 import type { ZTone } from '@/components/z/ZTag.vue'
 import { stepForStatus } from '@/utils/import40Steps'
+import type { ConditionalReleaseBrief } from '@/api/conditionalRelease'
+import { briefOf } from '@/utils/conditionalRelease'
 
 // Правила поставки клиента (редизайн, волна 2a): чей ход, вкладка списка, тег, полоса этапов.
 // Одни на «Главную», список «Мои поставки» и карточку — чтобы экраны не расходились.
 
 export type ShipmentTab = 'active' | 'waiting' | 'drafts' | 'done'
-export type AskKind = 'problem' | 'returned' | 'draft' | 'paySvh'
+export type AskKind = 'customs' | 'problem' | 'returned' | 'draft' | 'paySvh'
 
 export const TOTAL_STEPS = 6
 
@@ -15,21 +19,24 @@ export const TOTAL_STEPS = 6
 export type ShipmentCtx = { filesUnknown?: boolean }
 
 /**
- * «Нужно от вас» — ход клиента: проблема (вопрос AQNIET), черновик (возврат на доработку — черновик с причиной),
+ * «Нужно от вас» — ход клиента: запрос таможни без ответа (волна 17.10 — самый срочный), проблема (вопрос AQNIET), черновик (возврат на доработку — черновик с причиной),
  * счёт СВХ без загруженного чека. Загруженный чек — уже не ход клиента (ждём подтверждения), даже пока оплату
  * не подтвердили; выполненная и отменённая поставка не спрашивает ничего. Без файлов (filesUnknown) про чек не гадаем.
  */
 export function askFor(s: ClientShipment, ctx: ShipmentCtx = {}): AskKind | null {
   if (s.status === 8 || s.status === 9) return null
+  if (s.customsRequestSinceUtc) return 'customs'
   if (s.isProblem) return 'problem'
-  if (s.status === 0) return s.returnReason ? 'returned' : 'draft'
+  if (s.status === 0) return s.returnReason || s.reworkRequested ? 'returned' : 'draft'
   if (s.status === 6 && !s.paymentCheckUploaded && !ctx.filesUnknown) return 'paySvh'
   return null
 }
 
 export function tabOf(s: ClientShipment): ShipmentTab {
+  // Условный выпуск (17.10): ждём от клиента документ — поставка «ждёт вас», даже если в остальном завершена.
+  if (s.status !== 9 && s.conditionalRelease && !s.conditionalRelease.uploaded) return 'waiting'
   if (s.status === 8 || s.status === 9) return 'done'
-  if (s.status === 0 && !s.isProblem && !s.returnReason) return 'drafts'
+  if (s.status === 0 && !s.isProblem && !s.returnReason && !s.reworkRequested) return 'drafts'
   return askFor(s) ? 'waiting' : 'active'
 }
 
@@ -38,6 +45,7 @@ export function shipmentTag(s: ClientShipment, ctx: ShipmentCtx = {}): { key: st
   if (s.status === 9) return { key: 'cancelled', tone: 'neutral' }
   if (s.status === 8) return { key: 'done', tone: 'done' }
   const ask = askFor(s, ctx)
+  if (ask === 'customs') return { key: 'customs', tone: 'wait' }
   if (ask === 'problem') return { key: 'needDoc', tone: 'danger' }
   if (ask === 'returned') return { key: 'returned', tone: 'wait' }
   if (ask === 'draft') return { key: 'draft', tone: 'neutral' }
@@ -78,10 +86,12 @@ export const shipmentHref = (s: ClientShipment): string =>
 
 /**
  * Куда ведёт строка «Нужно от вас»: черновик и возврат на доработку дописываются в мастере (причину возврата
- * мастер показывает сверху), остальное — включая черновик с вопросом AQNIET — карточка.
+ * мастер показывает сверху), остальное — включая черновик с вопросом AQNIET — карточка. Возврат по чек-листу
+ * документов (17.10) — в карточку: там загрузка к каждому пункту и «Отправить снова».
  */
 export const askHref = (s: ClientShipment): string => {
   const ask = askFor(s)
+  if (ask === 'returned' && s.reworkRequested) return `/import-40/${s.id}`
   return ask === 'draft' || ask === 'returned' ? `/import-40/new/${s.id}` : `/import-40/${s.id}`
 }
 
@@ -90,7 +100,11 @@ export const askHref = (s: ClientShipment): string => {
  * чтобы askFor/shipmentTag/segments карточки совпадали со списком. Шаг — как Import40Steps.StepOf на сервере
  * (выполнена/отменена — 0); чек «загружен», если в разделе payment-check есть файл.
  */
-export function toShipmentSummary(c: Import40CaseDto, files: Pick<Import40FileDto, 'section'>[]): ClientShipment {
+export function toShipmentSummary(
+  c: Import40CaseDto,
+  files: Pick<Import40FileDto, 'section'>[],
+  customs: readonly Pick<CustomsRequestDto, 'status' | 'createdAtUtc'>[] = [],
+): ClientShipment {
   return {
     id: c.id,
     number: c.number,
@@ -110,7 +124,21 @@ export function toShipmentSummary(c: Import40CaseDto, files: Pick<Import40FileDt
     paymentConfirmed: !!c.paymentConfirmed,
     declarationsCount: c.declarations?.length ?? 0,
     assignedDeclarantName: c.assignedDeclarantName ?? null,
+    conditionalRelease: condRelBriefOfCase(c),
     createdAtUtc: c.createdAtUtc,
     updatedAtUtc: c.updatedAtUtc,
+    reworkRequested: !!c.reworkRequested,
+    reworkOpen: c.openReworkItems ?? [],
+    customsRequestSinceUtc: oldestWaiting(customs)?.createdAtUtc ?? null,
   }
+}
+
+/** Самый срочный незакрытый условный выпуск по ДТ заявки (как присылает список), ДТ, заменённые разделением, — не в счёт. */
+export function condRelBriefOfCase(c: Pick<Import40CaseDto, 'declarations'>): ConditionalReleaseBrief | null {
+  const open = (c.declarations ?? [])
+    .filter((d) => !d.isSplitReplaced)
+    .map((d) => briefOf(d))
+    .filter((b): b is ConditionalReleaseBrief => !!b)
+    .sort((a, b) => (a.deadline ?? '9999').localeCompare(b.deadline ?? '9999'))
+  return open.length ? { ...open[0], openCount: open.length } : null
 }

@@ -4,6 +4,7 @@ import { formatMoney } from '@/ui/number'
 import { shortWhen } from '@/views/home/brokerHome'
 import { dayMonth } from '@/views/home/clientHome'
 import { TOTAL_STEPS, askFor, shipmentTag, stepNo } from '@/views/client/shipment'
+import { reworkList } from '@/api/import40Rework'
 
 /** Подписи поставки в словаре клиента — общие для строки списка и карточек «Главной». */
 export function useShipmentText() {
@@ -32,8 +33,12 @@ export function useShipmentText() {
   /** Пояснение к вопросу «Нужно от вас». */
   const askText = (s: ClientShipment) => {
     switch (askFor(s)) {
+      case 'customs': return t('client.ask.customs.text')
       case 'problem': return s.problemClientMessage || s.cargo
-      case 'returned': return s.returnReason
+      // Комментарий сотрудника; без него — пункты доработки на языке клиента (17.10).
+      case 'returned':
+        if (s.returnReason) return s.returnReason
+        return s.reworkOpen?.length ? t('rework.client.rowText', { list: reworkList(t, s.reworkOpen) }) : t('rework.client.rowAllDone')
       case 'draft': return t('client.ask.draft.text')
       case 'paySvh':
         return s.svhInvoiceAmount

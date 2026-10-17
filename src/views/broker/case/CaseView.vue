@@ -10,7 +10,10 @@ import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/ui/cn'
 import CaseActionModals from './CaseActionModals.vue'
 import CaseBanners from './CaseBanners.vue'
+import CaseCustomsRequests from './CaseCustomsRequests.vue'
+import CaseCondRelBanner from './CaseCondRelBanner.vue'
 import CaseHeader from './CaseHeader.vue'
+import CaseReworkPanel from './CaseReworkPanel.vue'
 import CaseSide from './CaseSide.vue'
 import CaseStepper from './CaseStepper.vue'
 import StepBorder from './steps/StepBorder.vue'
@@ -24,6 +27,8 @@ import { STEP_EXECUTOR, STEP_NUMBERS, isCancelled, stepStateOf, stepSummary, typ
 import type { CaseStepContext, CaseStepInfo } from './caseContext'
 import { useCase } from './useCase'
 import { useCaseActions } from './useCaseActions'
+import { useCustomsRequests } from '@/composables/useCustomsRequests'
+import { canManageCustoms, canRemindClient } from '@/utils/customsRequests'
 
 // Карточка заявки сотрудника /import-40/:id (редизайн, волна 4а; доски Case и CaseSvh).
 // Шапка, полоса шагов, плашки; слева — текущий шаг и «Пройденные шаги», справа — команда, заявка, файлы, история.
@@ -48,6 +53,12 @@ const { actions, reasonKind } = useCaseActions(() => kase.value?.id ?? null, rel
 watch(id, () => { reasonKind.value = null })
 
 const perms = computed(() => (kase.value ? casePerms(auth, kase.value) : null))
+
+// Запросы таможни (волна 17.10, задача 5): своя загрузка; красная метка на шаге 3 этапов, пока клиент не ответил.
+const customs = useCustomsRequests(() => kase.value?.id ?? null)
+const onCustomsChanged = async () => {
+  await Promise.all([customs.reload(), reload()])
+}
 
 const steps = computed<CaseStepInfo[]>(() => {
   const c = kase.value
@@ -135,8 +146,19 @@ const panel = 'rounded-panel border border-line bg-surface'
 
     <template v-else-if="kase && perms">
       <CaseHeader :kase="kase" :perms="perms" @ask="actions.ask" />
-      <CaseStepper :steps="steps" :status="kase.status" :kase="kase" :stages="stages" :invoices="invoices" :files="files" />
+      <CaseStepper :steps="steps" :status="kase.status" :kase="kase" :stages="stages" :invoices="invoices" :files="files" :customs="customs.list.value" />
       <CaseBanners :kase="kase" :perms="perms" :actions="actions" />
+      <CaseCondRelBanner :kase="kase" />
+      <CaseReworkPanel :kase="kase" :perms="perms" :actions="actions" />
+      <CaseCustomsRequests
+        :case-id="kase.id"
+        :status="kase.status"
+        :list="customs.list.value"
+        :declarations="(kase.declarations ?? []).filter((d) => !d.isSplitReplaced)"
+        :can-manage="canManageCustoms(auth)"
+        :can-remind="canRemindClient(auth)"
+        @changed="onCustomsChanged"
+      />
 
       <div class="flex flex-wrap items-start gap-[18px]">
         <div class="flex min-w-0 flex-[999_1_480px] flex-col gap-4" data-case-main>
@@ -181,7 +203,7 @@ const panel = 'rounded-panel border border-line bg-surface'
         <CaseSide class="flex-[1_1_320px]" :kase="kase" :files="files" :perms="perms" :actions="actions" @edit="focusCurrent" />
       </div>
 
-      <CaseActionModals v-model:kind="reasonKind" :actions="actions" />
+      <CaseActionModals v-model:kind="reasonKind" :actions="actions" :kase="kase" />
     </template>
   </div>
 </template>

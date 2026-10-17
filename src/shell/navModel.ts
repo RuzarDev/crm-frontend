@@ -103,7 +103,8 @@ export function buildBrokerNav(a: NavAccess): NavModel {
           page('billing', '/billing', 'shell.page.billing', p('finance.read') && role !== 'client'),
         ] }),
         section({ key: 'analytics', labelKey: 'shell.nav.analytics', icon: 'analytics', pages: [
-          page('analytics', '/analytics', 'shell.nav.analytics', p('analytics.read')),
+          page('analytics', '/analytics', 'shell.page.analyticsOverview', p('analytics.read')),
+          page('representativeReport', '/analytics/representative-report', 'shell.page.representativeReport', p('analytics.read')),
         ] }),
       ]),
       group('knowledge', 'shell.group.knowledge', [

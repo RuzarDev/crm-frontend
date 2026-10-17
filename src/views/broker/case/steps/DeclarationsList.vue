@@ -24,6 +24,8 @@ import {
   previewToUpsert, splitBatchWarning, splitExportWarning, splitTag, type DtListRow,
 } from '../declarations'
 import ExtractionIssuesModal from './ExtractionIssuesModal.vue'
+import CondRelTag from '@/components/condrel/CondRelTag.vue'
+import { briefOf } from '@/utils/conditionalRelease'
 import QuoteImportModal from './QuoteImportModal.vue'
 
 // Список ДТ шага 3 (доска Case): полоса «Декларации · N» с действиями, поиск при N > 1, строки ДТ.
@@ -56,6 +58,8 @@ const pending = (key: string) => props.ctx.actions.isPending(key)
 const blocked = (key: string) => !canDeclare.value || (busy() && !pending(key))
 
 const tags = computed(() => new Map(all.value.map((d) => [d.id, splitTag(d, all.value, t)])))
+// Условный выпуск (17.10): открытый — красная метка у строки ДТ.
+const condRel = computed(() => new Map(all.value.map((d) => [d.id, briefOf(d)])))
 
 const query = ref('')
 // Группы и вид строки — по ПОЛНОМУ списку, поиск — уже по строкам: иначе исходная ДТ, чьи части не подошли под поиск,
@@ -324,6 +328,7 @@ const openLink = 'inline-flex h-7 items-center rounded-field bg-sunken px-2.5 te
                 <ZTag :tone="tags.get(row.dt.id)!.tone" size="sm" data-dt-split>{{ tags.get(row.dt.id)!.label }}</ZTag>
               </span>
             </ZTooltip>
+            <CondRelTag v-if="condRel.get(row.dt.id)" :brief="condRel.get(row.dt.id)!" short />
             <ZTooltip v-if="row.resplit" :title="t('import40Case.splitResplitTooltip')">
               <span class="inline-flex" tabindex="0">
                 <ZTag tone="neutral" size="sm" data-dt-resplit>{{ t('import40Case.splitResplit') }}</ZTag>

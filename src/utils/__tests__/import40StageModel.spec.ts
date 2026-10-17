@@ -3,6 +3,7 @@ import { createI18n } from 'vue-i18n'
 import ru from '@/i18n/locales/ru'
 import type { CaseStages, CaseStageStep, StageEvent } from '@/api/stages'
 import type { Import40CaseInvoiceDto } from '@/api/import40'
+import type { CustomsRequestDto } from '@/api/customsRequests'
 import { formatMoney } from '@/ui/number'
 import { caseDto, declaration } from '@/views/client/__tests__/caseFixture'
 import {
@@ -21,6 +22,12 @@ const step = (n: number, o: Partial<CaseStageStep> = {}): CaseStageStep => ({
 })
 const stages = (steps: CaseStageStep[], status = 3): CaseStages => ({
   status, currentStep: 3, nowUtc: '2026-10-16T12:00:00Z', steps: [1, 2, 3, 4, 5, 6].map((n) => steps.find((s) => s.step === n) ?? step(n)),
+})
+
+const custReq = (o: Partial<CustomsRequestDto> = {}): CustomsRequestDto => ({
+  id: 'r1', declarationId: null, declarationNumber: null, corridor: null, text: 'Нужен сертификат', docKinds: ['conformity'],
+  dueAtUtc: null, createdAtUtc: '2026-10-16T11:00:00Z', createdByName: null, status: 'open', answeredAtUtc: null, answerText: '',
+  answerFiles: [], closedAtUtc: null, closedByName: null, closeNote: '', lastReminderAtUtc: null, reminderCount: 0, ...o,
 })
 
 // Локальное время событий: подписи «14.10 в 11:05» считаются по часовому поясу браузера.
@@ -71,14 +78,34 @@ describe('buildStageCards — сотрудник', () => {
     expect(cards[3]!.responsible).toBe('КПП')
   })
 
-  it('проблема — красная метка «Запрос таможни · время» на текущем шаге', () => {
-    const req = new Date(Date.UTC(2026, 9, 16, 11, 0)).toISOString()
-    const base = input()
-    const kase = { ...base.kase, isProblem: true }
-    const st = stages([step(3, { state: 'current', history: [ev('customsRequest', req, 3)] })])
-    const cards = buildStageCards({ ...base, kase, stages: st, now: new Date(Date.UTC(2026, 9, 16, 11, 52)) }, t, te)
-    expect(cards[2]!.flag).toEqual({ tone: 'danger', text: 'Запрос таможни · 52 мин' })
+  it('открытый запрос таможни — красная метка «Запрос таможни · время без ответа» на шаге 3', () => {
+    const now = new Date(Date.UTC(2026, 9, 16, 11, 52))
+    const cards = buildStageCards(input({ customs: [custReq()], now }), t, te)
+    expect(cards[2]!.flag).toEqual({ tone: 'danger', text: 'Запрос таможни · 52 мин без ответа' })
     expect(cards[2]!.tone).toBe('problem')
+    // Клиент ответил (answered) или запрос закрыт — метки нет.
+    expect(buildStageCards(input({ customs: [custReq({ status: 'answered' })], now }), t, te)[2]!.flag).toBeNull()
+  })
+
+  it('внутренняя проблема заявки — не запрос таможни: метки на этапах нет (её показывает плашка карточки)', () => {
+    const base = input()
+    const cards = buildStageCards({ ...base, kase: { ...base.kase, isProblem: true } }, t, te)
+    expect(cards.every((c) => c.flag === null)).toBe(true)
+    expect(cards[2]!.tone).toBe('current')
+  })
+
+  it('возврат по чек-листу без причины — «На доработке у клиента»', () => {
+    const cards = buildStageCards(input({ kase: caseDto({ status: 0, returnReason: '', reworkRequested: true }), stages: null }), t, te)
+    expect(cards[0]!.result).toBe('На доработке у клиента')
+  })
+
+  it('счёт AQNIET ждёт оплаты при текущем шаге 5 — шаг 6 тоже идёт (время с сервера)', () => {
+    const issued: Import40CaseInvoiceDto = { id: 'i2', kind: 'invoice', status: 1, number: '155', year: 2026, total: 100000, issuedAtUtc: '2026-10-14T06:00:00Z', paidAtUtc: null }
+    const st = stages([step(5, { state: 'current' }), step(6, { state: 'current', elapsedMinutes: 600, normMinutes: 72 * 60 })], 6)
+    const cards = buildStageCards(input({ kase: caseDto({ status: 6 }), stages: st, invoices: [issued] }), t, te)
+    expect(cards[4]!.state).toBe('current')
+    expect(cards[5]!.state).toBe('current')
+    expect(cards[5]!.timing).toMatchObject({ elapsed: '10 ч', norm: 'норма 3 д' })
   })
 
   it('без данных хронометража — только статус, без времени', () => {
@@ -98,13 +125,13 @@ describe('buildStageCards — сотрудник', () => {
 })
 
 describe('buildStageCards — клиент', () => {
-  it('без времени и ФИО сотрудников, кроме своего декларанта; ход клиента — золотая метка', () => {
-    const kase = caseDto({ status: 3, isProblem: true, assignedKppName: 'Ерлан Б.', assignedDeclarantName: 'Айгерим К.' })
+  it('без времени и ФИО сотрудников, кроме своего декларанта; запрос таможни — золотая метка', () => {
+    const kase = caseDto({ status: 3, assignedKppName: 'Ерлан Б.', assignedDeclarantName: 'Айгерим К.' })
     const st = stages([
       step(2, { state: 'done', responsibleName: 'Ерлан Б.', spentMinutes: 100 }),
       step(3, { state: 'current', responsibleName: 'Айгерим К.', elapsedMinutes: 30, normMinutes: 240 }),
     ])
-    const cards = buildStageCards({ audience: 'client', kase, stages: st, invoices: [] }, t, te)
+    const cards = buildStageCards({ audience: 'client', kase, stages: st, invoices: [], customs: [custReq()] }, t, te)
     expect(cards[1]!.responsible).toBe('')
     expect(cards[1]!.meta).toBe('')
     expect(cards[2]!.responsible).toBe('Декларант Айгерим К.')
@@ -114,8 +141,17 @@ describe('buildStageCards — клиент', () => {
     expect(cards[4]!.result).toBe('Счёт придёт после закрытия на СВХ')
   })
 
+  it('вопрос AQNIET по заявке (не запрос таможни) — прежний красный, без золота', () => {
+    const kase = caseDto({ status: 3, isProblem: true })
+    const cards = buildStageCards({ audience: 'client', kase, stages: null, invoices: [], clientAsk: 'problem' }, t, te)
+    expect(cards[2]!.flag).toEqual({ tone: 'danger', text: 'Нужен ваш ответ' })
+    expect(cards[2]!.tone).toBe('problem')
+    const customs = buildStageCards({ audience: 'client', kase: caseDto({ status: 3 }), stages: null, invoices: [], clientAsk: 'customs' }, t, te)
+    expect(customs[2]!.flag).toEqual({ tone: 'gold', text: 'Нужен ваш ответ' })
+  })
+
   it('возврат на доработку и оплата склада: формулировки клиента', () => {
-    const returned = buildStageCards({ audience: 'client', kase: caseDto({ status: 0, returnReason: 'нет инвойса' }), stages: null, invoices: [], clientAsk: true }, t, te)
+    const returned = buildStageCards({ audience: 'client', kase: caseDto({ status: 0, returnReason: 'нет инвойса' }), stages: null, invoices: [], clientAsk: 'returned' }, t, te)
     expect(returned[0]!.result).toBe('Нужно доработать заявку')
     expect(returned[0]!.tone).toBe('ask')
     const check = buildStageCards({ audience: 'client', kase: caseDto({ status: 6 }), stages: null, invoices: [], checkUploaded: true }, t, te)
@@ -126,13 +162,16 @@ describe('buildStageCards — клиент', () => {
 
 describe('подэтапы шага 3', () => {
   it('подана, жёлтый коридор и запрос: клиенту — «ждём ваш документ» (золото), сотруднику — «запрос документов»', () => {
-    const kase = caseDto({ status: 3, isProblem: true, declarations: [declaration({ corridor: 'yellow' })] })
-    const client = declaringSubstages({ audience: 'client', kase, stages: null, invoices: [] }, t, te)
+    const kase = caseDto({ status: 3, declarations: [declaration({ corridor: 'yellow' })] })
+    const client = declaringSubstages({ audience: 'client', kase, stages: null, invoices: [], customs: [custReq()] }, t, te)
     expect(client.map((s) => s.state)).toEqual(['done', 'done', 'current', 'todo'])
     expect(client.map((s) => s.label)).toEqual(['Заполнение', 'Подача в КЕДЕН', 'Проверка таможней', 'Выпуск'])
     expect(client[2]).toMatchObject({ tone: 'ask', caption: 'жёлтый коридор · ждём ваш документ' })
-    const staff = declaringSubstages({ audience: 'staff', kase, stages: null, invoices: [] }, t, te)
+    const staff = declaringSubstages({ audience: 'staff', kase, stages: null, invoices: [], customs: [custReq()] }, t, te)
     expect(staff[2]).toMatchObject({ label: 'Коридор', tone: 'problem', caption: 'жёлтый коридор · запрос документов' })
+    // Внутренняя проблема без запроса таможни — не «запрос документов».
+    const problem = declaringSubstages({ audience: 'staff', kase: { ...kase, isProblem: true }, stages: null, invoices: [] }, t, te)
+    expect(problem[2]).toMatchObject({ tone: 'current', caption: 'жёлтый коридор' })
   })
 
   it('заполнение идёт; после выпуска — всё готово', () => {
@@ -152,8 +191,10 @@ describe('подэтапы шага 3', () => {
 describe('история и шаг по умолчанию', () => {
   it('клиенту — его формулировки событий', () => {
     const e = ev('customsRequest', '2026-10-16T06:48:00Z', 3)
-    expect(eventLabel(e, 'client', t, te)).toBe('Запрос по заявке')
+    expect(eventLabel(e, 'client', t, te)).toBe('Запрос таможни')
     expect(eventLabel(e, 'staff', t, te)).toBe('Запрос таможни')
+    expect(eventLabel(ev('problemSet', '2026-10-16T06:48:00Z', 3), 'client', t, te)).toBe('Запрос по заявке')
+    expect(eventLabel(ev('problemSet', '2026-10-16T06:48:00Z', 3), 'staff', t, te)).toBe('Отмечена проблема')
     expect(eventLabel(ev('brokerPaid', '2026-10-16T06:48:00Z', 6), 'client', t, te)).toBe('Счёт за услуги брокера оплачен')
   })
   it('текущий шаг; выполненная — 6; отменённая — нет', () => {

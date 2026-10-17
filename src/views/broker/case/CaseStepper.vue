@@ -5,12 +5,13 @@ import ZTag from '@/components/z/ZTag.vue'
 import StageBoard, { type BoardCard } from '@/components/stages/StageBoard.vue'
 import type { Import40CaseDto, Import40CaseInvoiceDto, Import40FileDto } from '@/api/import40'
 import type { CaseStages } from '@/api/stages'
+import type { CustomsRequestDto } from '@/api/customsRequests'
 import { buildStageCards, declaringSubstages, defaultSelectedStep, whenText } from '@/utils/import40StageModel'
 import { TOTAL_STEPS, isCancelled, isDone } from './caseSteps'
 import type { CaseStepInfo } from './caseContext'
 
 // Этапы карточки заявки сотрудника по макету (17.10): под каждым шагом итог, ответственный, «на шаге · норма» с полосой,
-// метка «Запрос таможни»; шаги 5 и 6 — «Параллельно»; нажатие на шаг — его история (шаг 3 — с подэтапами).
+// красная метка «Запрос таможни · N без ответа» по открытым запросам таможни (Task 5); шаги 5 и 6 — «Параллельно»; нажатие на шаг — его история (шаг 3 — с подэтапами).
 // Время и нормы — GET import40/{id}/stages; без них (ошибка) — только статус и сводки, как раньше.
 const props = withDefaults(defineProps<{
   steps: CaseStepInfo[]
@@ -19,7 +20,9 @@ const props = withDefaults(defineProps<{
   stages?: CaseStages | null
   invoices?: Import40CaseInvoiceDto[]
   files?: Import40FileDto[]
-}>(), { stages: null, invoices: () => [], files: () => [] })
+  /** Запросы таможни заявки (useCustomsRequests): открытый — красная метка на шаге 3 и «запрос документов» в подэтапах. */
+  customs?: CustomsRequestDto[]
+}>(), { stages: null, invoices: () => [], files: () => [], customs: () => [] })
 const { t, te, locale } = useI18n()
 
 const tag = computed(() =>
@@ -33,6 +36,7 @@ const input = computed(() => ({
   stages: props.stages,
   invoices: props.invoices,
   docsCount: props.files.filter((f) => f.section === 'documents').length,
+  customs: props.customs,
   locale: locale.value,
 }))
 

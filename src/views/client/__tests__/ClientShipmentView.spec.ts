@@ -5,6 +5,8 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { Import40CaseDto, Import40CaseInvoiceDto, Import40FileDto } from '@/api/import40'
 import { formatMoney } from '@/ui/number'
+import { confirmState } from '@/ui/confirm'
+import type { ReworkItemDto } from '@/api/import40Rework'
 import { caseDto, declaration, fileDto } from './caseFixture'
 
 const api = vi.hoisted(() => ({
@@ -20,6 +22,10 @@ const stagesMock = vi.hoisted(() => ({ caseStages: vi.fn() }))
 vi.mock('@/api/stages', () => ({ stagesApi: stagesMock }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
 vi.mock('@/ui/message', () => ({ message: msg }))
+const rework = vi.hoisted(() => ({ list: vi.fn(), uploadForItem: vi.fn() }))
+vi.mock('@/api/import40Rework', async (orig) => ({ ...(await orig<typeof import('@/api/import40Rework')>()), reworkApi: rework }))
+const customs = vi.hoisted(() => ({ list: vi.fn(async () => [] as unknown[]), create: vi.fn(), answer: vi.fn(), close: vi.fn(), remindClient: vi.fn() }))
+vi.mock('@/api/customsRequests', () => ({ customsRequestsApi: customs }))
 
 import ClientShipmentView from '../ClientShipmentView.vue'
 
@@ -61,9 +67,11 @@ beforeEach(() => {
   api.listFiles.mockImplementation(async () => server.files)
   api.listBrokerInvoices.mockImplementation(async () => server.invoices)
   api.action.mockImplementation(async () => server.kase)
+  rework.list.mockResolvedValue({ comment: null, items: [] })
   refs.listCountries.mockResolvedValue([{ id: 'r1', code: '276', name: 'Германия', alpha2: 'DE', isActive: true }])
 })
 afterEach(() => {
+  confirmState.resolve(false)
   w?.unmount()
   document.body.innerHTML = ''
   vi.clearAllMocks()
@@ -173,6 +181,101 @@ describe('ClientShipmentView', () => {
     expect(panel.text()).toContain('Нет инвойса')
   })
 
+  describe('возврат на доработку по чек-листу', () => {
+    const ri = (o: Partial<ReworkItemDto> = {}): ReworkItemDto => ({
+      id: 'r1', kind: 'invoice', title: '', note: '', docKey: null, tnvedCode: null, actRef: null, createdAtUtc: '2026-10-17T05:00:00Z', createdByName: null,
+      resolvedAtUtc: null, resolvedFileId: null, resolvedFileName: null, resolvedByName: null, ...o,
+    })
+    const returned = { status: 0, returnReason: '', reworkRequested: true }
+
+    it('«Нужно от вас: догрузить» — пункты списком на языке клиента, с кодом и актом', async () => {
+      rework.list.mockResolvedValue({
+        comment: null,
+        reworkRequested: true,
+        items: [ri(), ri({ id: 'r2', kind: 'certificate', docKey: 'vet', tnvedCode: '0101210000', actRef: 'Решение КТС № 317', note: 'на партию', resolvedAtUtc: '2026-10-17T06:00:00Z', resolvedFileId: 'f5', resolvedFileName: 'vet.pdf' })],
+      })
+      await mountCard(returned)
+      expect(rework.list).toHaveBeenCalledWith('c1', { silent: true })
+      const panel = w.get('[data-ask="returned"]')
+      expect(panel.get('h2').text()).toBe('Нужно от вас: догрузить')
+      expect(panel.find('[data-returned-text]').exists()).toBe(false)
+      const rows = panel.findAll('[data-rework-row]')
+      expect(rows.map((r) => r.attributes('data-rework-state'))).toEqual(['open', 'done'])
+      expect(rows[0].get('[data-rework-title]').text()).toBe('Инвойс (коммерческий счёт)')
+      expect(rows[1].get('[data-rework-title]').text()).toBe('Ветеринарный сертификат')
+      expect(rows[1].get('[data-rework-ref]').text()).toBe('Код ТН ВЭД 0101210000 · Акт: Решение КТС № 317')
+      expect(rows[1].text()).toContain('на партию')
+      expect(rows[1].get('[data-rework-done]').text()).toBe('Загружено: vet.pdf')
+      expect(rows[1].find('input[type="file"]').exists()).toBe(false)
+    })
+
+    it('комментарий сотрудника показывается над списком', async () => {
+      rework.list.mockResolvedValue({ comment: 'Проверьте вес', reworkRequested: true, items: [ri()] })
+      await mountCard({ status: 0, returnReason: 'Проверьте вес', reworkRequested: true })
+      expect(w.get('[data-returned-text]').text()).toBe('Проверьте вес')
+    })
+
+    it('загрузка файла в строку пункта — к этому пункту; карточка перечитывается', async () => {
+      rework.list.mockResolvedValue({ comment: null, reworkRequested: true, items: [ri()] })
+      rework.uploadForItem.mockResolvedValue(fileDto({ id: 'f7', docKind: 'invoice' }))
+      await mountCard(returned)
+      api.get.mockClear()
+      const file = new File(['x'], 'inv.pdf', { type: 'application/pdf' })
+      await pickFile('[data-rework-row="invoice"]', file)
+      expect(rework.uploadForItem).toHaveBeenCalledWith('c1', expect.objectContaining({ id: 'r1', kind: 'invoice' }), file)
+      expect(msg.success).toHaveBeenCalledWith('Документ загружен')
+      expect(api.get).toHaveBeenCalled()
+    })
+
+    it('«Отправить снова» с незагруженным — предупреждение; согласие отправляет', async () => {
+      rework.list.mockResolvedValue({ comment: null, reworkRequested: true, items: [ri(), ri({ id: 'r2', kind: 'packing' })] })
+      await mountCard(returned)
+      await w.get('[data-rework-resend]').trigger('click')
+      await flushPromises()
+      expect(confirmState.open).toBe(true)
+      expect(confirmState.content).toBe('Ещё не загружено: Инвойс (коммерческий счёт), Упаковочный лист. Отправить заявку всё равно? Отправляя, вы подтверждаете, что документы полные и достоверные.')
+      expect(api.action).not.toHaveBeenCalled()
+      confirmState.resolve(true)
+      await flushPromises()
+      expect(api.action).toHaveBeenCalledWith('c1', 'submit-for-processing')
+      expect(msg.success).toHaveBeenCalledWith('Заявка отправлена снова')
+    })
+
+    it('всё загружено — подтверждение достоверности документов (как в мастере); отказ ничего не шлёт', async () => {
+      rework.list.mockResolvedValue({ comment: null, reworkRequested: true, items: [ri({ resolvedAtUtc: '2026-10-17T06:00:00Z', resolvedFileName: 'inv.pdf' })] })
+      await mountCard(returned)
+      await w.get('[data-rework-resend]').trigger('click')
+      await flushPromises()
+      expect(confirmState.title).toBe('Отправить заявку снова?')
+      expect(confirmState.content).toBe('Отправляя, вы подтверждаете, что документы полные и достоверные.')
+      confirmState.resolve(true)
+      await flushPromises()
+      expect(api.action).toHaveBeenCalledWith('c1', 'submit-for-processing')
+
+      api.action.mockClear()
+      rework.list.mockResolvedValue({ comment: null, reworkRequested: true, items: [ri()] })
+      w.unmount()
+      await mountCard(returned)
+      await w.get('[data-rework-resend]').trigger('click')
+      await flushPromises()
+      confirmState.resolve(false)
+      await flushPromises()
+      expect(api.action).not.toHaveBeenCalled()
+    })
+
+    it('пункты не загрузились — перечень из заявки на языке клиента', async () => {
+      rework.list.mockRejectedValue(new Error('net'))
+      await mountCard({ ...returned, openReworkItems: [ri({ kind: 'packing' })] })
+      expect(w.get('[data-returned-text]').text()).toBe('Догрузите: Упаковочный лист')
+    })
+
+    it('без пунктов — прежняя панель без «Отправить снова»', async () => {
+      await mountCard({ status: 0, returnReason: 'Нет инвойса' })
+      expect(w.find('[data-rework-resend]').exists()).toBe(false)
+      expect(w.get('[data-returned-text]').text()).toBe('Нет инвойса')
+    })
+  })
+
   it('склад оплачен, счёт AQNIET выставлен — плашка со ссылкой на «Счета» и строка счёта', async () => {
     const inv: Import40CaseInvoiceDto = { id: 'i1', kind: 'invoice', status: 1, number: '42', year: 2026, total: 150000, issuedAtUtc: null, paidAtUtc: null }
     await mountCard({ status: 7 }, [], [inv])
@@ -266,13 +369,14 @@ describe('ClientShipmentView', () => {
     expect(api.uploadFile).toHaveBeenCalledWith('c1', 'payment-check', check, undefined)
   })
 
-  it('«Нужно от вас» наверху: вопрос AQNIET — золотая панель (ход клиента), на шаге — метка «Нужен ваш ответ»', async () => {
+  it('вопрос AQNIET (не запрос таможни) — прежняя красная панель над этапами, на шаге — красная «Нужен ваш ответ»', async () => {
     await mountCard({ status: 3, isProblem: true, problemClientMessage: 'Нужен сертификат' })
     const panel = w.get('[data-ask="problem"]')
-    expect(panel.get('[data-ask-eyebrow]').text()).toBe('Нужно от вас')
-    expect(panel.classes()).toContain('bg-gold-soft')
-    expect(panel.classes().join(' ')).not.toMatch(/danger/)
-    expect(w.get('[data-ship-timeline] li[data-step="3"] [data-step-flag]').text()).toBe('Нужен ваш ответ')
+    expect(panel.find('[data-ask-eyebrow]').exists()).toBe(false)
+    expect(panel.classes()).toContain('bg-tone-danger-bg')
+    const flag = w.get('[data-ship-timeline] li[data-step="3"] [data-step-flag]')
+    expect(flag.text()).toBe('Нужен ваш ответ')
+    expect(flag.classes()).toContain('bg-tone-danger-bg')
     // Панель хода клиента — над этапами.
     const html = w.html()
     expect(html.indexOf('data-ask="problem"')).toBeLessThan(html.indexOf('data-ship-timeline'))
@@ -383,6 +487,18 @@ describe('ClientShipmentView', () => {
     expect(box.text()).toContain('Поставка не найдена')
     expect(box.get('a').attributes('href')).toBe('/import-40')
     expect(api.listFiles).not.toHaveBeenCalled()
+  })
+
+  it('запрос таможни без ответа — жёлтая панель «Нужно от вас · ответ таможне» и тег «Ответ таможне»', async () => {
+    customs.list.mockResolvedValueOnce([{
+      id: 'r1', declarationId: null, declarationNumber: null, corridor: null, text: 'Нужен сертификат', docKinds: ['certificate'], dueAtUtc: null,
+      createdAtUtc: '2026-10-17T08:00:00Z', createdByName: null, status: 'open', answeredAtUtc: null, answerText: '', answerFiles: [],
+      closedAtUtc: null, closedByName: null, closeNote: '', lastReminderAtUtc: null, reminderCount: 0,
+    }])
+    await mountCard({ status: 3 })
+    expect(customs.list).toHaveBeenCalledWith('c1', { silent: true })
+    expect(w.get('[data-customs-ask] h2').text()).toBe('Нужно от вас · ответ таможне')
+    expect(w.get('[data-ship-tag]').text()).toBe('Ответ таможне')
   })
 
   it('ошибка сети — «Повторить» загружает снова', async () => {

@@ -20,6 +20,10 @@ const stagesMock = vi.hoisted(() => ({ caseStages: vi.fn() }))
 vi.mock('@/api/stages', () => ({ stagesApi: stagesMock }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
 vi.mock('@/ui/message', () => ({ message: msg }))
+const reworkApiMock = vi.hoisted(() => ({ list: vi.fn(async () => ({ comment: null, items: [] })), suggestions: vi.fn(async () => ({ codes: [], items: [] })) }))
+vi.mock('@/api/import40Rework', async (orig) => ({ ...(await orig<typeof import('@/api/import40Rework')>()), reworkApi: reworkApiMock }))
+const customs = vi.hoisted(() => ({ list: vi.fn(async () => [] as unknown[]), create: vi.fn(), answer: vi.fn(), close: vi.fn(), remindClient: vi.fn() }))
+vi.mock('@/api/customsRequests', () => ({ customsRequestsApi: customs }))
 
 import CaseView from '../CaseView.vue'
 
@@ -408,5 +412,28 @@ describe('CaseView: правая колонка', () => {
   it('черновик: «Изменить» для тех, кто ведёт черновик', async () => {
     await mountCard(USERS.declarant, { status: 0 })
     expect(w.find('[data-case-edit]').exists()).toBe(true)
+  })
+
+  it('запрос таможни без ответа: красная метка на шаге 3 и плашка с «Ответить таможне» / «Напомнить клиенту»', async () => {
+    customs.list.mockResolvedValueOnce([{
+      id: 'r1', declarationId: null, declarationNumber: null, corridor: null, text: 'Нужен сертификат', docKinds: [], dueAtUtc: null,
+      createdAtUtc: new Date(Date.now() - 3 * 3600_000).toISOString(), createdByName: null, status: 'open', answeredAtUtc: null,
+      answerText: '', answerFiles: [], closedAtUtc: null, closedByName: null, closeNote: '', lastReminderAtUtc: null, reminderCount: 0,
+    }])
+    await mountCard(USERS.declarant, { status: 3 })
+    expect(customs.list).toHaveBeenCalledWith('c1', { silent: true })
+    expect(w.get('[data-step="3"] [data-step-alert]').text()).toBe('Запрос таможни · 3 ч без ответа')
+    const card = w.get('[data-customs-request="open"]')
+    expect(card.find('[data-customs-close]').exists()).toBe(true)
+    expect(card.find('[data-customs-remind]').exists()).toBe(true)
+  })
+
+  it('шаг 3 без запросов: кнопка «Запрос таможни» у декларанта, у КПП — нет', async () => {
+    await mountCard(USERS.declarant, { status: 2 })
+    expect(w.find('[data-customs-create]').exists()).toBe(true)
+    expect(w.find('[data-step-alert]').exists()).toBe(false)
+    w.unmount()
+    await mountCard(USERS.kpp, { status: 2 })
+    expect(w.find('[data-customs-create]').exists()).toBe(false)
   })
 })

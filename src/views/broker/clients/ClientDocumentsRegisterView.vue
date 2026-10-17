@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhArrowClockwise, PhCheck, PhDownloadSimple } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -11,6 +11,7 @@ import ZTag from '@/components/z/ZTag.vue'
 import ClientCell from '@/components/broker/ClientCell.vue'
 import ListSearch from '@/components/broker/ListSearch.vue'
 import NoticeBanner from '@/components/broker/NoticeBanner.vue'
+import ClientRegistryRegister from '@/views/clientRegistry/ClientRegistryRegister.vue'
 import { clientCardApi, type ClientDocumentRow } from '@/api/clientCard'
 import { useAuthStore } from '@/stores/auth'
 import { useBlock } from '@/views/home/useBlock'
@@ -28,7 +29,20 @@ import {
 // Строка открывает карточку клиента; «Подписать за AQNIET» — только администратору и руководителю отдела.
 const { t, locale } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
+
+// Вкладки (волна 17.10): договоры и доверенности AQNIET | реестр документов клиентов (контракты, УНК,
+// сертификаты, разрешения…). Выбор — в адресе (?view=registry), replace: «Назад» уводит со страницы.
+type RegisterView = 'contracts' | 'registry'
+const view = computed<RegisterView>(() => (route.query.view === 'registry' ? 'registry' : 'contracts'))
+const viewOptions = computed(() => [
+  { value: 'contracts', label: t('clientRegistry.register.contracts') },
+  { value: 'registry', label: t('clientRegistry.register.registry') },
+])
+const setView = (v: RegisterView) => {
+  void router.replace({ query: { ...route.query, view: v === 'registry' ? 'registry' : undefined } })
+}
 
 // Как и на сервере (CanSignForProvider): администратор или бизнес-роль rop.
 const canSignProvider = computed(() => (auth.role || '').toLowerCase() === 'administrator' || auth.hasBusinessRole('rop'))
@@ -134,14 +148,14 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
         <div class="flex min-w-0 items-center gap-3">
           <h1 class="m-0 text-[22px] leading-7 font-semibold tracking-[-0.015em] text-ink">{{ t('clientDocs.title') }}</h1>
           <span
-            v-if="board.data"
+            v-if="board.data && view === 'contracts'"
             class="rounded-pill bg-sunken px-2.5 text-[12.5px] leading-5 font-semibold tabular-nums text-ink-3"
             data-docs-count
           >{{ board.data.length }}</span>
         </div>
         <p class="m-0 mt-1 text-sm text-ink-3">{{ t('clientDocs.subtitle') }}</p>
       </div>
-      <div class="flex flex-wrap gap-2 max-sm:w-full">
+      <div v-if="view === 'contracts'" class="flex flex-wrap gap-2 max-sm:w-full">
         <ZButton variant="ghost" :loading="board.loading && !!board.data" class="max-sm:h-11 max-sm:flex-1" data-docs-refresh @click="board.load()">
           <template #icon><PhArrowClockwise :size="16" aria-hidden="true" /></template>
           {{ t('broker.list.refresh') }}
@@ -161,6 +175,17 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
       </div>
     </div>
 
+    <ZSegmented
+      :value="view"
+      :options="viewOptions"
+      :aria-label="t('clientRegistry.register.viewLabel')"
+      class="max-w-full self-start overflow-x-auto [&_button]:whitespace-nowrap"
+      data-docs-view
+      @update:value="setView($event as RegisterView)"
+    />
+
+    <ClientRegistryRegister v-if="view === 'registry'" />
+    <template v-else>
     <div v-if="showAqnietBanner || showExpiringBanner" class="flex flex-wrap gap-2.5 [&>*]:flex-1 [&>*]:basis-80">
       <NoticeBanner v-if="showAqnietBanner" tone="gold" data-docs-banner-aqniet>
         <i18n-t :keypath="aqnietBanner.keypath" tag="span" scope="global">
@@ -273,6 +298,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
           </ZEmpty>
         </template>
       </ZTable>
+    </template>
     </template>
   </div>
 </template>
