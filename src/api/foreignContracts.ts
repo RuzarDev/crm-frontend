@@ -98,6 +98,8 @@ export interface ContractPayment {
   note: string | null
   createdAtUtc: string
   addedByClient: boolean
+  /** Курс НБ РК на дату оплаты (false — своя история / текущий). */
+  rateOfficial?: boolean
 }
 
 export interface ContractReminder {

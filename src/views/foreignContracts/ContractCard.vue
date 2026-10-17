@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhArchive, PhArrowLeft, PhFileXls, PhPencilSimple, PhPlus, PhTrash, PhWarning } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -27,13 +27,15 @@ import { DEADLINE_TONE, day, deadlineHint, deliveredPercent, fieldsOf, money } f
 const props = withDefaults(defineProps<{
   clientId: string
   contractId: string
-  backTo: string
+  /** null — «Назад» по истории браузера. */
+  backTo: string | null
   readonly?: boolean
   /** Ссылка на ДТ (сотруднику); у клиента — только на поставку. */
   dtLinks?: boolean
 }>(), { readonly: false, dtLinks: false })
 const { t, locale } = useI18n()
 const { confirm } = useConfirm()
+const router = useRouter()
 
 const card = shallowRef<ForeignContractCard | null>(null)
 const state = ref<'loading' | 'error' | 'notFound' | 'ready'>('loading')
@@ -157,15 +159,19 @@ const ruleKind = (rule: string) => rule.replace('contract-', '') === 'unk-remova
 const sentAt = (iso: string) => new Date(iso).toLocaleString(locale.value === 'en' ? 'en-GB' : locale.value === 'kk' ? 'kk-KZ' : 'ru-RU',
   { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Almaty' })
 
+const backClass = 'inline-flex min-h-11 w-fit items-center gap-1 rounded-[4px] text-sm font-medium text-zircon-ink no-underline outline-hidden hover:text-ink focus-visible:shadow-focus sm:min-h-6'
 const panel = 'flex flex-col gap-3 rounded-panel border border-line bg-surface px-6 py-[18px] max-sm:px-4'
 const h2 = 'm-0 text-md font-semibold text-ink'
 </script>
 
 <template>
   <div class="flex flex-col gap-4" data-contract-card>
-    <RouterLink :to="backTo" class="inline-flex min-h-11 w-fit items-center gap-1 rounded-[4px] text-sm font-medium text-zircon-ink no-underline outline-hidden hover:text-ink focus-visible:shadow-focus sm:min-h-6" data-contract-back>
+    <RouterLink v-if="backTo" :to="backTo" :class="backClass" data-contract-back>
       <PhArrowLeft :size="14" aria-hidden="true" />{{ t('foreignContracts.back') }}
     </RouterLink>
+    <button v-else type="button" :class="[backClass, 'cursor-pointer border-0 bg-transparent p-0 font-sans']" data-contract-back @click="router.back()">
+      <PhArrowLeft :size="14" aria-hidden="true" />{{ t('foreignContracts.backHistory') }}
+    </button>
 
     <div v-if="state === 'loading'" class="flex flex-col gap-3" aria-busy="true" data-contract-skeleton>
       <ZSkeleton height="40px" /><ZSkeleton height="160px" /><ZSkeleton height="120px" />

@@ -7027,6 +7027,7 @@ export default {
     retry: 'Қайталау',
     notFound: 'Келісімшарт табылмады',
     back: 'Барлық келісімшарттар',
+    backHistory: 'Артқа',
     attention: 'Мерзімі жақындаған келісімшарттар: {n}',
     numberFrom: '{date} жылғы № {n}',
     from: '{date} жылғы',

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { createPinia, setActivePinia } from 'pinia'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import { confirmState } from '@/ui/confirm'
 import { card, contract } from './contractFixture'
@@ -21,10 +22,14 @@ vi.mock('@/ui/download', () => ({ saveBlob: save }))
 import ContractsPanel from '../ContractsPanel.vue'
 import ContractCard from '../ContractCard.vue'
 import CaseContractBlock from '../CaseContractBlock.vue'
+import DtContractBlock from '../DtContractBlock.vue'
+import ContractModal from '../ContractModal.vue'
+import { fieldsOf } from '../contracts'
 
 let w: VueWrapper
 let router: Router
 beforeEach(async () => {
+  setActivePinia(createPinia())
   router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:p(.*)*', component: { template: '<div/>' } }] })
   await router.push('/')
 })
@@ -145,5 +150,47 @@ describe('CaseContractBlock', () => {
     expect(api.list).not.toHaveBeenCalled()
     expect(w.find('[data-case-contract-select]').exists()).toBe(false)
     expect(w.text()).toContain('Контракт не выбран')
+  })
+})
+
+describe('DtContractBlock', () => {
+  const props = (over: Record<string, unknown> = {}) => ({
+    doc44Items: [] as Record<string, unknown>[], caseId: 'case1', dtId: 'd1', clientId: 'c1', caseContractId: 'k1', dtContractId: null,
+    canLink: true, readonly: false, ...over,
+  })
+
+  it('«Заполнить из контракта» дописывает 03011 и 03031 в форму; смена контракта ДТ — сразу заполняет', async () => {
+    api.list.mockResolvedValue([contract(), contract({ id: 'k2', number: 'X-2', unkNumber: null })])
+    const p = props()
+    await mount(DtContractBlock, p)
+    await w.get('[data-dt-contract-fill]').trigger('click')
+    expect(p.doc44Items.map((x) => [x.docTypeCode, x.docNumber])).toEqual([['03011', 'FC-1'], ['03031', '26010001/0001/1/1']])
+    api.linkDeclaration.mockResolvedValue({ foreignContractId: 'k2', effectiveContractId: 'k2' })
+    w.getComponent({ name: 'ZSelect' }).vm.$emit('update:value', 'k2')
+    await flushPromises()
+    expect(api.linkDeclaration).toHaveBeenCalledWith('case1', 'd1', 'k2')
+    expect(p.doc44Items.find((x) => x.docTypeCode === '03011')?.docNumber).toBe('X-2')
+  })
+
+  it('сбой загрузки — ошибка с «Повторить», а не «контракт не выбран»', async () => {
+    api.list.mockRejectedValueOnce(new Error('x'))
+    await mount(DtContractBlock, props())
+    expect(w.find('[data-dt-contract-error]').exists()).toBe(true)
+    expect(w.find('[data-dt-contract]').exists()).toBe(false)
+  })
+})
+
+describe('ContractModal', () => {
+  it('УНК стёрли — выключенные поля УНК очищаются и контракт сохраняется', async () => {
+    const save = vi.fn().mockResolvedValue(undefined)
+    const initial = { ...fieldsOf(contract()), unkRemovedOn: '2026-05-01', unkRemovalDeadline: '2026-06-01' }
+    await mount(ContractModal, { open: true, mode: 'edit', clientId: 'c1', initial, save })
+    const unk = document.querySelector('[data-contract-unk] input, input[data-contract-unk]') as HTMLInputElement
+    unk.value = ''
+    unk.dispatchEvent(new Event('input'))
+    await flushPromises()
+    ;(document.querySelector('[data-contract-modal] form') as HTMLFormElement).dispatchEvent(new Event('submit'))
+    await flushPromises()
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ unkNumber: '', unkDate: null, unkBank: '', unkRemovalDeadline: null, unkRemovedOn: null }))
   })
 })

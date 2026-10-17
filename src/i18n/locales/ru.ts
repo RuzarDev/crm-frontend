@@ -7037,6 +7037,7 @@ export default {
     retry: 'Повторить',
     notFound: 'Контракт не найден',
     back: 'Все контракты',
+    backHistory: 'Назад',
     attention: 'Сроки подходят по контрактам: {n}',
     numberFrom: '№ {n} от {date}',
     from: 'от {date}',

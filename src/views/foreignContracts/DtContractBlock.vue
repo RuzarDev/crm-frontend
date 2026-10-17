@@ -32,11 +32,13 @@ const classifiers = useClassifiersStore()
 const contracts = shallowRef<ForeignContract[]>([])
 const own = ref<string | null>(props.dtContractId)
 watch(() => props.dtContractId, (v) => { own.value = v })
-const loaded = ref(false)
+const state = ref<'loading' | 'error' | 'ready'>('loading')
 const load = async () => {
+  state.value = 'loading'
   try {
     contracts.value = await foreignContractsApi.list(props.clientId, { includeArchived: true, silent: true })
-  } catch { contracts.value = [] } finally { loaded.value = true }
+    state.value = 'ready'
+  } catch { state.value = 'error' }
 }
 watch(() => props.clientId, (v) => { if (v) void load() }, { immediate: true })
 
@@ -59,6 +61,8 @@ const onChange = async (v: unknown) => {
     const res = await foreignContractsApi.linkDeclaration(props.caseId, props.dtId, id)
     own.value = res.foreignContractId
     message.success(t('foreignContracts.dt.linked'))
+    // Сменили контракт ДТ — гр.44 сразу из него (форма сохранится как обычно).
+    if (!props.readonly && effective.value) fill()
   } catch { /* общий перехватчик */ } finally {
     saving.value = false
   }
@@ -79,7 +83,11 @@ const href = computed(() => (effective.value
 </script>
 
 <template>
-  <div v-if="loaded && (contracts.length || caseContractId)" class="flex flex-col gap-2 rounded-row border border-solid border-line px-4 py-3" data-dt-contract>
+  <p v-if="state === 'error'" class="m-0 flex flex-wrap items-center gap-2 rounded-row border border-solid border-line px-4 py-3 text-[13px] text-ink-3" data-dt-contract-error>
+    {{ t('foreignContracts.loadError') }}
+    <button type="button" class="cursor-pointer border-0 bg-transparent p-0 font-sans text-[13px] font-medium text-zircon-ink underline max-sm:min-h-11" @click="load">{{ t('foreignContracts.retry') }}</button>
+  </p>
+  <div v-else-if="state === 'ready' && (contracts.length || caseContractId)" class="flex flex-col gap-2 rounded-row border border-solid border-line px-4 py-3" data-dt-contract>
     <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
       <span class="text-sm font-semibold text-ink">{{ t('foreignContracts.dt.title') }}</span>
       <ZSelect

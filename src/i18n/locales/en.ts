@@ -7028,6 +7028,7 @@ export default {
     retry: 'Retry',
     notFound: 'Contract not found',
     back: 'All contracts',
+    backHistory: 'Back',
     attention: 'Contracts with deadlines approaching: {n}',
     numberFrom: 'No. {n} of {date}',
     from: 'of {date}',

@@ -37,13 +37,6 @@ const fields = ref<ForeignContractFields>(emptyFields())
 const touched = ref(false)
 const saving = ref(false)
 const serverErrors = ref<Record<string, string>>({})
-watch(() => props.open, (v) => {
-  if (!v) return
-  fields.value = { ...(props.initial ?? emptyFields()) }
-  touched.value = false
-  serverErrors.value = {}
-  void loadRefs()
-}, { immediate: true })
 
 // ---- Справочники: валюты НБ РК, страны, документы реестра клиента ----
 const currencyOptions = shallowRef<ZOption[]>([{ value: 'KZT', label: 'KZT' }])
@@ -73,6 +66,13 @@ const docOptions = (category: 'supplyContract' | 'unk', selected: string | null)
     value: d.id,
     label: `${d.number || d.title || '—'}${d.issuedOn ? ` · ${day(d.issuedOn)}` : ''} · ${t('foreignContracts.form.files', { n: d.files.length })}`,
   }))
+watch(() => props.open, (v) => {
+  if (!v) return
+  fields.value = { ...(props.initial ?? emptyFields()) }
+  touched.value = false
+  serverErrors.value = {}
+  void loadRefs()
+}, { immediate: true })
 const contractDocOptions = computed(() => docOptions('supplyContract', fields.value.contractDocumentId))
 const unkDocOptions = computed(() => docOptions('unk', fields.value.unkDocumentId))
 const incotermsOptions = INCOTERMS.map((c) => ({ value: c, label: c }))
@@ -83,6 +83,11 @@ const err = (f: ContractField): string | undefined => {
   return local ? t(local) : serverErrors.value[f]
 }
 const hasUnk = computed(() => !!fields.value.unkNumber.trim())
+// УНК стёрли — поля УНК (выключены) очищаются: иначе их нельзя ни поправить, ни сохранить контракт.
+watch(hasUnk, (v) => {
+  if (v) return
+  Object.assign(fields.value, { unkDate: null, unkBank: '', unkRemovalDeadline: null, unkRemovedOn: null })
+})
 const title = computed(() => t(props.mode === 'edit' ? 'foreignContracts.form.editTitle' : 'foreignContracts.form.createTitle'))
 
 const submit = async () => {

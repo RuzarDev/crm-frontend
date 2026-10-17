@@ -11,7 +11,10 @@ const auth = useAuthStore()
 const isClient = computed(() => auth.role === 'client')
 const clientId = computed(() => (isClient.value ? auth.userId ?? '' : String(route.params.id ?? '')))
 const contractId = computed(() => String(route.params.contractId ?? ''))
-const backTo = computed(() => (isClient.value ? '/contracts' : `/clients/${encodeURIComponent(clientId.value)}?tab=contracts`))
+// Сотрудник без clients.read (декларант пришёл из заявки или ДТ) в карточку клиента не попадёт — «Назад» по истории.
+const backTo = computed(() => (isClient.value
+  ? '/contracts'
+  : auth.hasPermission('clients.read') ? `/clients/${encodeURIComponent(clientId.value)}?tab=contracts` : null))
 const readonly = computed(() => !isClient.value && !auth.hasPermission('import40.read'))
 </script>
 
