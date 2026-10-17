@@ -6517,6 +6517,7 @@ export default {
       svhPaid: 'TWH payment confirmed',
       brokerInvoiced: 'AQNIET invoice issued',
       brokerPaid: 'AQNIET invoice paid',
+      brokerInvoiceCancelled: 'AQNIET invoice cancelled',
       steppedBack: 'Moved one step back',
       done: 'Request completed',
       cancelled: 'Request cancelled',
@@ -6531,6 +6532,7 @@ export default {
       problemCleared: 'Question resolved',
       brokerInvoiced: 'Broker service invoice issued',
       brokerPaid: 'Broker service invoice paid',
+      brokerInvoiceCancelled: 'Broker service invoice cancelled',
       steppedBack: 'Step is being clarified',
     },
     norms: {

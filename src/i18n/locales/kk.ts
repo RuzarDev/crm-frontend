@@ -6516,6 +6516,7 @@ export default {
       svhPaid: 'УҚҚ төлемі расталды',
       brokerInvoiced: 'AQNIET шоты қойылды',
       brokerPaid: 'AQNIET шоты төленді',
+      brokerInvoiceCancelled: 'AQNIET шотының күші жойылды',
       steppedBack: 'Бір қадам артқа қайтарылды',
       done: 'Өтінім орындалды',
       cancelled: 'Өтінім тоқтатылды',
@@ -6530,6 +6531,7 @@ export default {
       problemCleared: 'Мәселе шешілді',
       brokerInvoiced: 'Брокер қызметтеріне шот қойылды',
       brokerPaid: 'Брокер қызметтерінің шоты төленді',
+      brokerInvoiceCancelled: 'Брокер қызметтерінің шотының күші жойылды',
       steppedBack: 'Қадам нақтылануда',
     },
     norms: {

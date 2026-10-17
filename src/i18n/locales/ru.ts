@@ -6525,6 +6525,7 @@ export default {
       svhPaid: 'Оплата СВХ подтверждена',
       brokerInvoiced: 'Выставлен счёт AQNIET',
       brokerPaid: 'Счёт AQNIET оплачен',
+      brokerInvoiceCancelled: 'Счёт AQNIET аннулирован',
       steppedBack: 'Возврат на шаг назад',
       done: 'Заявка выполнена',
       cancelled: 'Заявка отменена',
@@ -6539,6 +6540,7 @@ export default {
       problemCleared: 'Вопрос решён',
       brokerInvoiced: 'Выставлен счёт за услуги брокера',
       brokerPaid: 'Счёт за услуги брокера оплачен',
+      brokerInvoiceCancelled: 'Счёт за услуги брокера аннулирован',
       steppedBack: 'Шаг уточняется',
     },
     norms: {

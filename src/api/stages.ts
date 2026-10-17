@@ -7,7 +7,8 @@ export type StageEventKind =
   | 'created' | 'submitted' | 'taken' | 'returnedToClient' | 'resubmitted' | 'atBorder' | 'borderPassed'
   | 'dtSubmitted' | 'customsRequest' | 'customsRequestAnswered' | 'customsRequestClosed'
   | 'problemSet' | 'problemAnswered' | 'problemCleared' | 'released'
-  | 'svhClosed' | 'svhInvoiced' | 'svhPaid' | 'brokerInvoiced' | 'brokerPaid' | 'steppedBack' | 'done' | 'cancelled'
+  | 'svhClosed' | 'svhInvoiced' | 'svhPaid' | 'brokerInvoiced' | 'brokerPaid' | 'brokerInvoiceCancelled'
+  | 'steppedBack' | 'done' | 'cancelled'
 
 export interface StageEvent {
   id: string
