@@ -58,9 +58,12 @@ describe('buildBrokerNav', () => {
     expect(keys(m)).toContain('requests:requests,manage')
   })
 
-  it('экспедитор: пакеты и статусы КЕДЕН', () => {
+  it('экспедитор: Импорт 40 своих клиентов (только чтение), пакеты и статусы КЕДЕН', () => {
     const m = buildBrokerNav(access({ role: 'expeditor' }))
-    expect(keys(m)).toEqual(['home:home', 'packages:packages', 'keden:kedenStatuses'])
+    expect(keys(m)).toEqual(['home:home', 'requests:expeditorImport40', 'packages:packages', 'keden:kedenStatuses'])
+    expect(allSections(m).find((s) => s.key === 'requests')!.pages[0]!.to).toBe('/expeditor/import-40')
+    // Сотруднику с import40.read пункта логиста нет.
+    expect(keys(buildBrokerNav(access({ perms: ['import40.read'] })))).not.toContain('requests:expeditorImport40')
   })
 
   it('«Данные системы»: администратору — /references; с tnved.manage и доступом к справочникам — /tnved/sync', () => {

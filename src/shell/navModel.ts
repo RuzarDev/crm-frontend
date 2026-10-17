@@ -77,6 +77,8 @@ export function buildBrokerNav(a: NavAccess): NavModel {
           page('requests', '/import-40', 'shell.page.requests', a.canUseImport40 && !fo),
           page('manage', '/import-40/manage', 'shell.page.manage', p('import40.assign')),
           page('registry', '/requests-registry', 'shell.page.registry', admin),
+          // Логист (экспедитор): Импорт 40 своих клиентов — только чтение (17.10).
+          page('expeditorImport40', '/expeditor/import-40', 'shell.page.expeditorImport40', !fo && role === 'expeditor'),
         ] }),
         section({ key: 'transit', labelKey: 'shell.nav.transit', icon: 'transit', pages: [
           page('transit', '/reestr', 'shell.nav.transit', !fo && (admin || (role !== 'client' && p('reestr.read')))),

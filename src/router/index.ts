@@ -178,6 +178,13 @@ const router = createRouter({
           props: { mode: 'mine' },
         },
         {
+          // Логист (экспедитор), Импорт 40 своих клиентов — только чтение (17.10): статус груза и договоры.
+          path: '/expeditor/import-40',
+          name: 'expeditor-import40',
+          component: () => import('@/views/broker/expeditor/ExpeditorImport40View.vue'),
+          meta: { requiresRole: 'expeditor' },
+        },
+        {
           path: '/sales',
           name: 'sales',
           component: () => import('@/views/broker/sales/SalesWorkspaceView.vue'),
