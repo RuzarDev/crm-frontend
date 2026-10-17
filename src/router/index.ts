@@ -65,6 +65,13 @@ const router = createRouter({
           meta: { requiresPermission: 'analytics.read' },
         },
         {
+          // Отчёт таможенного представителя (17.10): ДТ по органам за период, Excel.
+          path: '/analytics/representative-report',
+          name: 'representative-report',
+          component: () => import('@/views/broker/analytics/RepresentativeReportView.vue'),
+          meta: { requiresPermission: 'analytics.read' },
+        },
+        {
           path: '/reestr',
           name: 'reestr',
           component: () => import('@/views/broker/transit/TransitView.vue'),
