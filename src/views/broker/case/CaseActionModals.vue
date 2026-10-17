@@ -4,14 +4,16 @@ import { useI18n } from 'vue-i18n'
 import ZField from '@/components/z/ZField.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
-import type { Import40Action } from '@/api/import40'
+import type { Import40Action, Import40CaseDto } from '@/api/import40'
+import ReturnToClientModal from './ReturnToClientModal.vue'
 import type { CaseActions, ReasonKind } from './useCaseActions'
 
 // Общее окно «причины» (тексты — прежние import40Case.*): проблема (заметка обязательна + сообщение клиенту),
 // шаг назад, отмена, возврат клиенту, завершение без счёта AQNIET. Тело действия — как раньше:
 // value — причина (возврат и заметка проблемы — как введены, остальные — без пробелов по краям);
 // у проблемы clientMessage — без пробелов по краям или null. Окно закрывается после успеха; при ошибке остаётся.
-const props = defineProps<{ kind: ReasonKind | null; actions: CaseActions }>()
+// Возврат клиенту (17.10) — своё окно ReturnToClientModal: чек-лист документов, подсказки нетарифных мер, комментарий.
+const props = defineProps<{ kind: ReasonKind | null; actions: CaseActions; kase?: Import40CaseDto | null }>()
 const emit = defineEmits<{ 'update:kind': [kind: ReasonKind | null] }>()
 const { t } = useI18n()
 
@@ -53,8 +55,14 @@ const submit = async () => {
 </script>
 
 <template>
+  <ReturnToClientModal
+    :open="kind === 'return'"
+    :kase="kase ?? null"
+    :actions="actions"
+    @update:open="(v: boolean) => { if (!v) emit('update:kind', null) }"
+  />
   <ZModal
-    :open="kind !== null"
+    :open="kind !== null && kind !== 'return'"
     :title="t(conf.title)"
     :ok-text="t(conf.ok)"
     :cancel-text="t('common.cancel')"

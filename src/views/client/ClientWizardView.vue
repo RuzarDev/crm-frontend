@@ -15,6 +15,7 @@ import { isBinOk, isCargoOk, useShipmentDraft } from '@/views/client/wizard/useS
 import { useShipmentFiles } from '@/views/client/wizard/useShipmentFiles'
 import { import40ContractApi, type ClientCompanyProfileDto } from '@/api/import40Contract'
 import { import40Api } from '@/api/import40'
+import { currentRound, openItems, reworkApi } from '@/api/import40Rework'
 import { missingRequired } from '@/views/client/docKinds'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
@@ -259,6 +260,19 @@ const canSubmit = computed(() => !!caseId.value && !submitBlock.value && !submit
 const submit = async () => {
   const id = caseId.value
   if (!id || !canSubmit.value || submitting.value) return
+  // Возврат на доработку по чек-листу (17.10): незагруженные пункты не блокируют отправку, но спрашиваем.
+  if (returnReason.value) {
+    const open = await reworkApi.list(id, { silent: true }).then((r) => openItems(currentRound(r.items))).catch(() => [])
+    if (open.length) {
+      const go = await confirm({
+        title: t('rework.client.resendWarnTitle'),
+        content: t('rework.client.resendWarnText', { list: open.map((x) => x.title).join(', ') }),
+        okText: t('rework.client.resendOk'),
+        cancelText: t('rework.client.resendCancel'),
+      })
+      if (!go) return
+    }
+  }
   const missing = missingRequired(docs.files.value.map((f) => f.docKind))
   if (missing.length) {
     const go = await confirm({
