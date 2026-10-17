@@ -158,6 +158,7 @@ const panel = 'rounded-panel border border-line bg-surface'
         :declarations="(kase.declarations ?? []).filter((d) => !d.isSplitReplaced)"
         :can-manage="canManageCustoms(auth)"
         :can-remind="canRemindClient(auth)"
+        :svh-check-missing="!files.some((f) => f.section === 'payment-check')"
         @changed="onCustomsChanged"
       />
       <!-- Сверка документов (17.10): расхождения инвойса, упаковочного листа, контракта и CMR между собой, с заявкой и ДТ. -->

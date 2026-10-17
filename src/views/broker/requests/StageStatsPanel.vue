@@ -11,7 +11,8 @@ import { durationText } from '@/utils/import40StageModel'
 import { cn } from '@/ui/cn'
 
 // «Время этапов» в «Распределении» (хронометраж 17.10, руководитель/админ): среднее и медиана по шагам и по сотрудникам
-// (по ролям: декларант — шаг 3 до подачи ДТ, КПП — шаги 2 и 4–5), доработка у клиента, текущие просрочки со ссылками на заявки.
+// (по ролям: декларант — шаг 3 до подачи ДТ, КПП — граница и шаг 4 до счёта СВХ), доработка у клиента, текущие просрочки
+// со ссылками на заявки. Заявки, начатые до 17.10 (истории нет), — не в просрочках: отдельный фильтр «До 17.10».
 // GET import40/manage/stage-stats?days= — право import40.assign, как у самого «Распределения».
 const { t } = useI18n()
 
@@ -46,6 +47,16 @@ const stepRows = computed(() => {
     { key: 'rework', label: t('stages.stats.rework'), s: st.rework },
   ]
 })
+// Просрочки или заявки без истории (до 17.10): фильтр — только если такие есть (старый сервер — поля нет).
+const view = ref<'overdue' | 'noHistory'>('overdue')
+const untracked = computed(() => stats.value?.untracked ?? [])
+const viewOptions = computed(() => [
+  { value: 'overdue', label: `${t('stages.stats.filterOverdue')} · ${stats.value?.overdue.length ?? 0}` },
+  { value: 'noHistory', label: `${t('stages.stats.filterNoHistory')} · ${untracked.value.length}` },
+])
+const rows = computed(() => (view.value === 'noHistory' && untracked.value.length ? untracked.value : stats.value?.overdue ?? []))
+const showingNoHistory = computed(() => view.value === 'noHistory' && untracked.value.length > 0)
+
 const hasData = computed(() => !!stats.value && (stepRows.value.some((r) => r.s.count > 0) || stats.value.employees.length > 0))
 
 const th = 'px-3 py-2 text-left text-xs font-medium text-muted whitespace-nowrap'
@@ -78,10 +89,28 @@ const td = 'px-3 py-2 text-[13.5px] tabular-nums text-ink-2 whitespace-nowrap'
     <template v-else-if="stats">
       <!-- Просрочки сейчас — первым: с ними руководитель что-то делает. -->
       <div class="flex flex-col gap-2" data-stage-overdue>
-        <h3 class="m-0 text-sm font-semibold text-ink">{{ t('stages.stats.overdueTitle') }} <span class="font-normal text-muted tabular-nums">{{ stats.overdue.length }}</span></h3>
-        <p v-if="!stats.overdue.length" class="m-0 text-sm text-ink-3" data-stage-overdue-empty>{{ t('stages.stats.overdueEmpty') }}</p>
+        <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <h3 class="m-0 text-sm font-semibold text-ink">{{ t('stages.stats.overdueTitle') }} <span class="font-normal text-muted tabular-nums">{{ stats.overdue.length }}</span></h3>
+          <ZSegmented
+            v-if="untracked.length"
+            :value="view"
+            :options="viewOptions"
+            :aria-label="t('stages.stats.filterLabel')"
+            class="max-w-full overflow-x-auto max-sm:w-full max-sm:[&>button]:min-h-11 max-sm:[&>button]:flex-1 [&_button]:whitespace-nowrap"
+            data-stage-overdue-filter
+            @update:value="(v) => { view = v as 'overdue' | 'noHistory' }"
+          />
+        </div>
+        <p v-if="showingNoHistory" class="m-0 text-[13px] text-muted" data-stage-untracked-hint>{{ t('stages.stats.noHistoryHint') }}</p>
+        <p v-if="!rows.length" class="m-0 text-sm text-ink-3" data-stage-overdue-empty>{{ t('stages.stats.overdueEmpty') }}</p>
         <ul v-else class="m-0 flex list-none flex-col p-0">
-          <li v-for="o in stats.overdue" :key="o.caseId" class="border-t border-line first:border-t-0" data-stage-overdue-row>
+          <li
+            v-for="o in rows"
+            :key="`${o.caseId}:${o.step}`"
+            class="border-t border-line first:border-t-0"
+            :data-stage-overdue-row="o.historyMissing ? undefined : ''"
+            :data-stage-untracked-row="o.historyMissing ? '' : undefined"
+          >
             <RouterLink
               :to="`/import-40/${o.caseId}`"
               class="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-0.5 rounded-row px-1 py-2 text-sm text-ink no-underline outline-hidden hover:bg-canvas focus-visible:shadow-focus"
@@ -90,7 +119,11 @@ const td = 'px-3 py-2 text-[13.5px] tabular-nums text-ink-2 whitespace-nowrap'
               <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">{{ o.clientName }}</span>
               <span class="text-ink-2">{{ o.step }}. {{ t(`enum.step.s${o.step}`) }}</span>
               <ZTag v-if="o.inRework" tone="wait" size="sm">{{ t('stages.stats.reworkTag') }}</ZTag>
-              <span class="font-semibold text-tone-danger-fg tabular-nums">{{ durationText(o.elapsedMinutes, t) }}</span>
+              <template v-if="o.historyMissing">
+                <ZTag tone="neutral" size="sm">{{ t('stages.stats.noHistoryTag') }}</ZTag>
+                <span class="text-ink-2 tabular-nums">{{ t('stages.stats.sinceChange', { time: durationText(o.elapsedMinutes, t) }) }}</span>
+              </template>
+              <span v-else class="font-semibold text-tone-danger-fg tabular-nums">{{ durationText(o.elapsedMinutes, t) }}</span>
               <span class="text-xs text-muted">{{ t('stages.norm', { time: durationText(o.normMinutes, t) }) }}</span>
               <span v-if="o.responsibleName" class="w-full text-xs text-muted sm:w-auto">{{ o.responsibleName }}</span>
             </RouterLink>

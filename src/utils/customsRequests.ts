@@ -144,6 +144,21 @@ export function dueForApi(date: string | null | undefined, time: string | null |
   return { dueAtUtc: local.toISOString(), dueHasTime: true }
 }
 
-/** Есть ли что напомнить клиенту: ждущий запрос таможни, черновик (0) или счёт СВХ без оплаты (6). */
-export const hasClientDebt = (status: number, list: readonly Pick<CustomsRequestDto, 'status'>[]): boolean =>
-  list.some(isWaiting) || status === 0 || status === 6
+/** Есть ли что напомнить клиенту: ждущий запрос таможни, черновик (0) или счёт СВХ без оплаты (6; чек об оплате загружен —
+ * клиент своё сделал, ждём подтверждения КПП). */
+export const hasClientDebt = (
+  status: number, list: readonly Pick<CustomsRequestDto, 'status'>[], paymentCheckUploaded = false,
+): boolean => list.some(isWaiting) || status === 0 || (status === 6 && !paymentCheckUploaded)
+
+const ALMATY_OFFSET_MS = 5 * 3_600_000
+
+/** Сегодня по Алматы (UTC+5), 'YYYY-MM-DD' — нижняя граница срока ответа (как на сервере). */
+export const almatyToday = (now: Date = new Date()): string => new Date(now.getTime() + ALMATY_OFFSET_MS).toISOString().slice(0, 10)
+
+/** Срок ответа уже прошёл: без времени — дата раньше сегодняшней по Алматы; со временем — момент раньше текущей
+ * минуты (как Import40CustomsRequestFlow.IsDuePast на сервере). */
+export function isDuePast(date: string | null | undefined, time: string | null | undefined, now: Date = new Date()): boolean {
+  const { dueAtUtc, dueHasTime } = dueForApi(date, time)
+  if (!dueAtUtc || !date) return false
+  return dueHasTime ? Date.parse(dueAtUtc) < Math.floor(now.getTime() / 60_000) * 60_000 : date < almatyToday(now)
+}
