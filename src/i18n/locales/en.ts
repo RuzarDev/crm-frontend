@@ -7041,7 +7041,7 @@ export default {
     addedByClient: 'Added by the client',
     addedByStaff: 'Added by AQNIET staff',
     deadlinesTitle: 'Deadlines',
-    repatriationHint: 'By the repatriation deadline everything paid must be imported or the money returned; otherwise the bank and the State Revenue Committee will see a breach (currency control).',
+    repatriationHint: 'By the repatriation deadline everything paid must be imported or the money returned (Law No. 167-VI, repatriation requirement). Otherwise a fine under art. 251 of the Code of Administrative Offences applies: 20% of the amount not credited, capped at 2,000 MCI; it is imposed by a court, with proceedings run by the state revenue authorities.',
     balanceTitle: 'Paid and delivered',
     balanceHint: 'Amounts are in the contract currency at the National Bank rate on the declaration date and the payment date. Delivered means released declarations.',
     ratesMissing: 'Some declarations or payments have no exchange rate and are not included in the totals.',
