@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { CustomsRequestDto } from '@/api/customsRequests'
 import {
-  canCreateAtStatus, canManageCustoms, canRemindClient, dateLabel, defaultUploadKind, elapsedLabel, hasClientDebt,
-  oldestWaiting, waitingLabel,
+  canCreateAtStatus, canManageCustoms, canRemindClient, dateLabel, defaultStage, defaultUploadKind, dueTimeLabel, dueToIso,
+  elapsedLabel, hasClientDebt, isOverdue, oldestWaiting, stageOf, stagesAt, waitingForClient, waitingLabel, waitingOfStage,
 } from '../customsRequests'
 
 const t = (key: string, named?: Record<string, unknown>) => `${key}${named ? JSON.stringify(named) : ''}`
@@ -46,8 +46,50 @@ describe('customsRequests', () => {
     expect(canRemindClient(user({ role: 'client', businessRole: 'client', permissions: ['import40.read'] }))).toBe(false)
   })
 
-  it('шаг 3 для нового запроса, долги клиента, вид документа и дата', () => {
-    expect([0, 1, 2, 3, 4].map(canCreateAtStatus)).toEqual([false, false, true, true, false])
+  it('моменты запроса по статусу — как CanCreateAt/DefaultStage на сервере', () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(canCreateAtStatus))
+      .toEqual([false, true, true, true, true, true, true, true, true, false])
+    expect(stagesAt(1)).toEqual(['border'])
+    expect(stagesAt(3)).toEqual(['declaration'])
+    expect(stagesAt(8)).toEqual(['postRelease'])
+    expect(stagesAt(9)).toEqual([])
+    expect([0, 1, 2, 4, 8, 9].map(defaultStage)).toEqual([null, 'border', 'declaration', 'postRelease', 'postRelease', null])
+    expect(stageOf(req())).toBe('declaration')
+    expect(stageOf(req({ stage: 'border' }))).toBe('border')
+  })
+
+  it('ждём клиента: выполненная — только после выпуска, отменённая — ничего; метка по моменту', () => {
+    const now = new Date('2026-10-17T10:00:00Z')
+    const list = [
+      req({ id: 'd', stage: 'declaration' }),
+      req({ id: 'b', stage: 'border', createdAtUtc: '2026-10-17T09:00:00Z' }),
+      req({ id: 'p', stage: 'postRelease', createdAtUtc: '2026-10-17T07:00:00Z' }),
+      req({ id: 'x', stage: 'postRelease', status: 'answered' }),
+    ]
+    expect(waitingForClient(list, 3).map((r) => r.id)).toEqual(['d', 'b', 'p'])
+    expect(waitingForClient(list, 8).map((r) => r.id)).toEqual(['p'])
+    expect(waitingForClient(list, 9)).toEqual([])
+    expect(waitingOfStage(list, 'border').map((r) => r.id)).toEqual(['b'])
+    expect(waitingLabel(waitingOfStage(list, 'border'), t, now)).toBe('customsRequest.waitingBorder{"time":"customsRequest.time.hour{\\"n\\":1}"}')
+    expect(waitingLabel(waitingOfStage(list, 'postRelease'), t, now)).toBe('customsRequest.waitingPostRelease{"time":"customsRequest.time.hour{\\"n\\":3}"}')
+  })
+
+  it('срок: без времени — полдень UTC; со временем — местный момент; просрочка', () => {
+    expect(dueToIso(null, '10:00')).toBeNull()
+    expect(dueToIso('2026-10-20', '')).toBe('2026-10-20T12:00:00Z')
+    expect(dueToIso('2026-10-20', '15:30')).toBe(new Date('2026-10-20T15:30:00').toISOString())
+    expect(dueTimeLabel('2026-10-20T12:00:00Z')).toBe('')
+    expect(dueTimeLabel(new Date('2026-10-20T15:30:00').toISOString())).toBe('15:30')
+    const withTime = req({ dueAtUtc: new Date('2026-10-20T15:30:00').toISOString() })
+    expect(isOverdue(withTime, new Date('2026-10-20T15:00:00'))).toBe(false)
+    expect(isOverdue(withTime, new Date('2026-10-20T16:00:00'))).toBe(true)
+    expect(isOverdue({ ...withTime, status: 'answered' }, new Date('2026-10-21T00:00:00'))).toBe(false)
+    const dateOnly = req({ dueAtUtc: '2026-10-20T12:00:00Z' })
+    expect(isOverdue(dateOnly, new Date('2026-10-20T22:00:00'))).toBe(false)
+    expect(isOverdue(dateOnly, new Date('2026-10-21T00:30:00'))).toBe(true)
+  })
+
+  it('долги клиента, вид документа и дата', () => {
     expect(hasClientDebt(0, [])).toBe(true)
     expect(hasClientDebt(6, [])).toBe(true)
     expect(hasClientDebt(3, [])).toBe(false)

@@ -4,6 +4,11 @@ import apiClient from './client'
 // status: open — ждёт ответа клиента, answered — клиент ответил (декларант ещё не передал), closed — передано в таможню.
 export type CustomsRequestStatus = 'open' | 'answered' | 'closed'
 
+// Момент запроса (17.10): declaration — при проверке ДТ до выпуска (ТК ЕАЭС ст. 325, 4 ч до срока выпуска),
+// border — на границе (пункт пропуска: транзит/прибытие, санитарный, ветеринарный, фитосанитарный контроль),
+// postRelease — после выпуска / камеральная проверка (Кодекс РК «О таможенном регулировании», ст. 416–417).
+export type CustomsRequestStage = 'declaration' | 'border' | 'postRelease'
+
 export interface CustomsRequestFile {
   id: string
   fileName: string
@@ -12,6 +17,8 @@ export interface CustomsRequestFile {
 
 export interface CustomsRequestDto {
   id: string
+  /** Момент запроса; старый сервер без поля — при проверке ДТ. */
+  stage?: CustomsRequestStage
   declarationId: string | null
   declarationNumber: string | null
   /** Коридор ДТ — только сотрудникам (клиенту null). */
@@ -34,6 +41,8 @@ export interface CustomsRequestDto {
 }
 
 export interface CustomsRequestCreate {
+  /** Пусто — сервер выберет по статусу заявки. */
+  stage?: CustomsRequestStage
   declarationId?: string | null
   text: string
   docKinds: string[]

@@ -41,6 +41,42 @@ describe('ShipmentCustomsPanel', () => {
     expect(p.get('[data-customs-ask-due]').text()).toBe('Ответьте до 20.10.2026')
   })
 
+  it('момент запроса и пояснение: при проверке ДТ — правило 4 часов; срок со временем крупно', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-20T09:00:00'))
+    try {
+      mountIt([req({ dueAtUtc: new Date('2026-10-20T15:30:00').toISOString() })])
+      const p = w.get('[data-customs-ask]')
+      expect(p.get('[data-customs-ask-stage]').text()).toBe('Запрос таможни при проверке ДТ')
+      expect(p.get('[data-customs-ask-due]').text()).toBe('Ответьте до 20.10.2026 в 15:30')
+      expect(p.get('[data-customs-ask-due]').attributes('data-overdue')).toBeUndefined()
+      expect(p.get('[data-customs-ask-hint]').text()).toContain('не позднее чем за 4 часа до окончания срока выпуска')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('срок прошёл — красным; на границе и после выпуска — свои пояснения', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-22T09:00:00'))
+    try {
+      mountIt([
+        req({ id: 'b', stage: 'border' }),
+        req({ id: 'p', stage: 'postRelease', declarationNumber: null, dueAtUtc: null }),
+      ])
+      const [border, post] = w.findAll('[data-customs-ask]')
+      expect(border!.get('[data-customs-ask-stage]').text()).toBe('Запрос на границе')
+      expect(border!.get('[data-customs-ask-due]').text()).toBe('Срок ответа прошёл: 20.10.2026')
+      expect(border!.get('[data-customs-ask-due]').attributes('data-overdue')).toBe('true')
+      expect(border!.get('[data-customs-ask-hint]').text()).toContain('пункт пропуска')
+      expect(post!.get('[data-customs-ask-stage]').text()).toBe('Запрос после выпуска (камеральная проверка)')
+      expect(post!.find('[data-customs-ask-due]').exists()).toBe(false)
+      expect(post!.get('[data-customs-ask-hint]').text()).toContain('камеральная проверка')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('«Загрузить документ» — файл нужного вида сразу уходит ответом', async () => {
     i40.uploadFile.mockResolvedValue({ id: 'f1' })
     api.answer.mockResolvedValue(req({ status: 'answered' }))

@@ -6626,6 +6626,28 @@ export default {
     answeredClientTitle: 'Reply sent',
     answeredClientText: 'The declarant will pass it to customs. You can add to your reply.',
     addMore: 'Add to reply',
+    stage: {
+      declaration: 'Customs request during declaration check',
+      border: 'Request at the border',
+      postRelease: 'Post-release request (desk audit)',
+    },
+    stageLabel: 'When the request came',
+    stageHint: {
+      declaration: 'Customs is checking the filed declaration and requests documents (EAEU Customs Code, Art. 325).',
+      border: 'Border crossing point: transit or arrival documents, sanitary, veterinary or phytosanitary control.',
+      postRelease: 'Post-release customs control, desk audit (RK Code “On Customs Regulation”, Art. 416–417). Also allowed for completed requests.',
+    },
+    rule4h: 'Documents must be submitted no later than 4 hours before the release deadline expires — otherwise customs will refuse release (Art. 125). Set the deadline with a time.',
+    dueTimeLabel: 'Time (optional)',
+    waitingBorder: 'Border request · {time} without reply',
+    waitingPostRelease: 'Post-release request · {time} without reply',
+    clientDueAt: 'Reply by {date} at {time}',
+    clientOverdue: 'Reply deadline has passed: {date}',
+    clientStageHint: {
+      declaration: 'Customs is checking the declaration. Documents are needed no later than 4 hours before the release deadline, otherwise release will be refused. Please reply as soon as possible.',
+      border: 'The cargo is at the border: it will not clear the crossing point without your reply.',
+      postRelease: 'The shipment has already been released; customs is checking it after release (desk audit). Please reply on time.',
+    },
   },
   misc: {
     kpNomer: 'CO No. {n}/CO/{y}',

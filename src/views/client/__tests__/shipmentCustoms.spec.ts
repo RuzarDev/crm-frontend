@@ -23,9 +23,29 @@ describe('запрос таможни в правилах поставки', () 
     expect(segments(ship({ customsRequestSinceUtc: '2026-10-17T08:00:00Z' }))[2]).toBe('currentAsk')
   })
 
-  it('выполненная и отменённая не спрашивают; без запроса — как раньше', () => {
-    expect(askFor(ship({ status: 8, customsRequestSinceUtc: '2026-10-17T08:00:00Z' }))).toBeNull()
+  it('отменённая не спрашивает; выполненная без запроса — тоже; без запроса — как раньше', () => {
+    expect(askFor(ship({ status: 9, customsRequestSinceUtc: '2026-10-17T08:00:00Z' }))).toBeNull()
+    expect(askFor(ship({ status: 8, customsRequestSinceUtc: null }))).toBeNull()
+    expect(tabOf(ship({ status: 8, step: 0 }))).toBe('done')
     expect(askFor(ship({ customsRequestSinceUtc: null }))).toBeNull()
+  })
+
+  it('запрос после выпуска по выполненной поставке: «Нужно от вас», «Ждут вас», тег, «Главная»', () => {
+    const s = ship({ id: 'done', status: 8, step: 0, customsRequestSinceUtc: '2026-10-17T08:00:00Z' })
+    expect(askFor(s)).toBe('customs')
+    expect(tabOf(s)).toBe('waiting')
+    expect(shipmentTag(s)).toEqual({ key: 'customs', tone: 'wait' })
+    expect(clientAsks([ship({ id: 'other', status: 8, step: 0 }), s]).map((x) => x.id)).toEqual(['done'])
+  })
+
+  it('сводка карточки выполненной: только запрос после выпуска; отменённой — ничего', () => {
+    const reqs = [
+      { status: 'open', stage: 'declaration', createdAtUtc: '2026-10-10T00:00:00Z' },
+      { status: 'open', stage: 'postRelease', createdAtUtc: '2026-10-17T08:00:00Z' },
+    ] as Pick<CustomsRequestDto, 'status' | 'createdAtUtc' | 'stage'>[]
+    expect(toShipmentSummary(caseDto({ status: 8 }), [], reqs).customsRequestSinceUtc).toBe('2026-10-17T08:00:00Z')
+    expect(toShipmentSummary(caseDto({ status: 3 }), [], reqs).customsRequestSinceUtc).toBe('2026-10-10T00:00:00Z')
+    expect(toShipmentSummary(caseDto({ status: 9 }), [], reqs).customsRequestSinceUtc).toBeNull()
   })
 
   it('«Главная»: запрос таможни первым среди дел клиента', () => {
