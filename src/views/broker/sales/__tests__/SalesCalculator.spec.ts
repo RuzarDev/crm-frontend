@@ -138,6 +138,41 @@ describe('«Продажи»: расчёт', () => {
     expect(nb(w.get('[data-result-cell="tpin"]').text())).toBe('276 800')
   })
 
+  it('утильсбор: параметры ТС под строкой с кодом 8703, строка в «Итоге» и расчёт по товарам; не сверенное — не в «Всего»', async () => {
+    const util = (p: Record<string, unknown>) => ({
+      status: 'ok', category: 'M1', measure: 'cm3', over: 1000, upTo: 2000, fromRbRf: false, coefficient: 3.5, baseRateKzt: 216250, units: 2,
+      amountKzt: 1513750, estimateKzt: null, missing: [], text: 'x', note: null, ...p,
+    })
+    api.calculate.mockResolvedValue({
+      ...RESULT([good({ code: '8703231981', description: 'Авто', utilization: util({}) as never }), good({ code: '8704219100', description: 'Грузовик', utilization: util({ status: 'needInput', category: 'N', amountKzt: null, missing: ['mass'] }) as never })]),
+      utilizationTotal: 1513750,
+    })
+    await mountCalc()
+    expect(w.find('[data-sales-util-inputs]').exists()).toBe(false)
+    await btn('data-sales-add-goods').trigger('click')
+    input('data-goods-code').vm.$emit('update:value', '8703231981')
+    await flushPromises()
+    const block = w.get('[data-util-row="8703231981"]')
+    expect(block.find('[data-util-engine]').exists()).toBe(true)
+    expect(block.find('[data-util-mass]').exists()).toBe(false)
+    w.findAllComponents(ZNumber).find((c) => c.find('[data-util-engine]').exists())!.vm.$emit('update:value', 1598)
+    w.findAllComponents(ZNumber).find((c) => c.find('[data-util-count]').exists())!.vm.$emit('update:value', 2)
+    select('data-util-rbrf').vm.$emit('update:value', 'no')
+    await flushPromises()
+    await btn('data-sales-calculate').trigger('click')
+    await flushPromises()
+    expect(api.calculate).toHaveBeenCalledWith(expect.objectContaining({
+      goods: [expect.objectContaining({ code: '8703231981', engineVolumeCm3: 1598, quantity: 2, unit: 'шт.', fromRbRf: false })],
+    }))
+    expect(nb(w.get('[data-sum-util]').text())).toBe('1 513 750 ₸')
+    expect(w.find('[data-sum-util-partial]').exists()).toBe(true)
+    const lines = w.findAll('[data-util-result]')
+    expect(lines.map((l) => l.attributes('data-util-result'))).toEqual(['ok', 'needInput'])
+    expect(nb(lines[0].text())).toContain('8703231981 · Легковой (M1)')
+    expect(nb(lines[0].text())).toContain('1 513 750 ₸')
+    expect(lines[1].text()).toContain('Не хватает: полная масса')
+  })
+
   it('«Сохранить как КП» неактивна без клиента и без результата', async () => {
     await mountCalc()
     const save = () => btn('data-sales-save').attributes('disabled')

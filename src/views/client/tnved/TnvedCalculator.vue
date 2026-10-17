@@ -9,7 +9,7 @@ import ZNumber from '@/components/z/ZNumber.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import NonTariffMeasureGroups from '@/components/NonTariffMeasureGroups.vue'
-import { goodsOf, isGr33Doc } from '@/components/nonTariffMeasures'
+import { goodsOf, isGr33Doc, isNationalInfo, isNationalMeasure } from '@/components/nonTariffMeasures'
 import { tnvedApi } from '@/api/tnved'
 import { byCurrencyRank, currencyName, loadCurrencies, POPULAR_CURRENCIES } from '@/views/client/tnved/currency'
 import { referencesApi } from '@/api/references'
@@ -193,10 +193,12 @@ const positive = (n: number | null | undefined): n is number => typeof n === 'nu
 // Расширенный режим — все меры (компонент сам группирует по актам); клиенту — простой список
 // документов без повторов и без строки кодов гр. 33 (это для декларанта), с товарами под документом.
 const allMeasures = computed(() => result.value?.nonTariffMeasures ?? [])
+// Временный запрет РК — предупреждением над документами; сведения перечней (маркировка, МУЦ) — не документы.
+const bans = computed(() => allMeasures.value.filter(isNationalMeasure))
 const measures = computed(() => {
   const byKey = new Map<string, { name: string; comment: string | null; goods: string[] }>()
   for (const m of allMeasures.value) {
-    if (!m.name || isGr33Doc(m)) continue
+    if (!m.name || isGr33Doc(m) || isNationalMeasure(m) || isNationalInfo(m)) continue
     const k = `${m.name}|${m.comment ?? ''}`
     let doc = byKey.get(k)
     if (!doc) byKey.set(k, (doc = { name: m.name, comment: m.comment, goods: [] }))
@@ -370,6 +372,13 @@ const dd = 'm-0 text-right tabular-nums text-ink'
         {{ extended ? t('broker.references.calc.disclaimer') : t('client.tnved.calc.disclaimer') }}
       </p>
 
+      <ul v-if="result && !extended && bans.length" role="list" class="m-0 flex list-none flex-col gap-2 p-0" data-calc-bans>
+        <li v-for="(b, i) in bans" :key="i" class="rounded-row bg-tone-danger-bg px-3.5 py-2.5 text-[13px] leading-5 text-tone-danger-fg" data-calc-ban>
+          <span class="block font-semibold">{{ t('client.tnved.calc.ban') }}</span>
+          <span class="block [overflow-wrap:anywhere]">{{ b.name }}</span>
+          <span v-if="b.comment" class="block [overflow-wrap:anywhere]">{{ b.comment }}</span>
+        </li>
+      </ul>
       <template v-if="result && (extended ? allMeasures.length : measures.length)">
         <div v-if="extended" class="flex flex-col gap-2" data-calc-docs>
           <h4 class="m-0 text-sm font-semibold text-ink">{{ t('broker.references.calc.docs') }}</h4>

@@ -9,7 +9,9 @@ import ZInput from '@/components/z/ZInput.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
 import type { Import40CaseDto } from '@/api/import40'
-import { reworkApi, reworkTitle, type ReworkSuggestionDto } from '@/api/import40Rework'
+import { reworkApi, reworkTitle, type ReworkBanDto, type ReworkSuggestionDto } from '@/api/import40Rework'
+import { formatActDate } from '@/components/nonTariffMeasures'
+import { safeUrl } from '@/views/references/regulations'
 import {
   REWORK_KINDS, buildItems, dtCodesOf, emptyChecks, otherMissingTitle, parseCodes, suggestionAdded,
   type ReworkChecks, type ReworkExtraRow,
@@ -19,6 +21,7 @@ import { doneKey, type CaseActions } from './useCaseActions'
 // «Вернуть на доработку» (17.10): галочки видов документов с комментарием к каждому, «Другой документ» с названием,
 // подсказки по нетарифным мерам (коды ТН ВЭД, по умолчанию — товаров ДТ) и общий комментарий — необязательный,
 // если отмечен хотя бы один документ. Отправка — return-to-client с items; окно закрывается после успеха.
+// Код под временной национальной мерой РК (запрет ввоза пшеницы, яиц…) — красная плашка над подсказками: это не документ.
 const props = defineProps<{ open: boolean; kase: Import40CaseDto | null; actions: CaseActions }>()
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
 const { t } = useI18n()
@@ -31,6 +34,12 @@ let rowSeq = 0
 // ---- Подсказки по нетарифным мерам ----
 const codesText = ref('')
 const sugg = ref<ReworkSuggestionDto[] | null>(null)
+// Временные национальные меры РК на коды (запрет ввоза пшеницы, яиц…) — предупреждение над подсказками, не пункт.
+const bans = ref<ReworkBanDto[]>([])
+const banPeriod = (b: ReworkBanDto) => {
+  const from = formatActDate(b.validFrom) ?? b.validFrom
+  return b.validTo ? t('rework.sugg.banPeriod', { from, to: formatActDate(b.validTo) ?? b.validTo }) : t('rework.sugg.banFrom', { from })
+}
 const suggLoading = ref(false)
 const suggError = ref(false)
 const suggCodes = ref<string[]>([])
@@ -43,6 +52,7 @@ const find = async () => {
   suggError.value = false
   if (!id || !codes.length) {
     sugg.value = null
+    bans.value = []
     return
   }
   const my = ++suggSeq
@@ -50,10 +60,14 @@ const find = async () => {
   try {
     // Поле кодов — единственный источник: коды ДТ сервер не добавляет (dt=false), их уже подставили в поле.
     const r = await reworkApi.suggestions(id, codes, { dt: false, silent: true })
-    if (my === suggSeq) sugg.value = r.items
+    if (my === suggSeq) {
+      sugg.value = r.items
+      bans.value = r.bans ?? []
+    }
   } catch {
     if (my === suggSeq) {
       sugg.value = null
+      bans.value = []
       suggError.value = true
     }
   } finally {
@@ -68,6 +82,7 @@ watch(() => props.open, (v) => {
   extra.value = []
   comment.value = ''
   sugg.value = null
+  bans.value = []
   suggError.value = false
   const codes = dtCodesOf(props.kase)
   codesText.value = codes.join(', ')
@@ -187,6 +202,25 @@ const iconBtn = 'inline-flex size-11 shrink-0 cursor-pointer items-center justif
             <ZButton :loading="suggLoading" class="max-sm:h-11 max-sm:w-full" data-rework-find @click="find">{{ t('rework.sugg.find') }}</ZButton>
           </div>
         </ZField>
+        <ul v-if="!suggError && bans.length" role="list" class="m-0 flex list-none flex-col gap-2 p-0" data-rework-bans>
+          <li
+            v-for="(b, i) in bans"
+            :key="`${b.code}:${i}`"
+            class="flex flex-col gap-0.5 rounded-row bg-tone-danger-bg px-3 py-2 text-[13px] leading-5 text-tone-danger-fg"
+            data-rework-ban
+          >
+            <span class="font-semibold [overflow-wrap:anywhere]">
+              <span class="font-mono">{{ b.code }}</span> · {{ t(b.kind === 'ban' ? 'rework.sugg.banTitle' : 'rework.sugg.restrictionTitle') }}
+            </span>
+            <span class="[overflow-wrap:anywhere]">{{ b.name }} — {{ b.goods }}, {{ banPeriod(b) }}</span>
+            <span v-if="b.partial" class="text-xs">{{ t('rework.sugg.banPartial') }}</span>
+            <span class="text-xs [overflow-wrap:anywhere]">
+              <a v-if="safeUrl(b.actUrl)" :href="safeUrl(b.actUrl)!" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2">{{ b.act }}<span class="sr-only"> ({{ t('rework.sugg.opensInNewTab') }})</span></a>
+              <template v-else>{{ b.act }}</template>
+            </span>
+            <span v-if="b.exceptions" class="text-xs [overflow-wrap:anywhere]">{{ t('rework.sugg.banExceptions', { text: b.exceptions }) }}</span>
+          </li>
+        </ul>
         <p v-if="suggError" role="alert" class="m-0 text-sm text-tone-danger-fg" data-rework-sugg-error>{{ t('rework.sugg.error') }}</p>
         <p v-else-if="!suggCodes.length" class="m-0 text-sm text-ink-3" data-rework-sugg-nocodes>{{ t('rework.sugg.noCodes') }}</p>
         <p v-else-if="sugg && !sugg.length" class="m-0 text-sm text-ink-3" data-rework-sugg-empty>{{ t('rework.sugg.empty') }}</p>

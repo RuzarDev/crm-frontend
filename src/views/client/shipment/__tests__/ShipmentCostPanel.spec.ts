@@ -81,9 +81,48 @@ describe('ShipmentCostPanel', () => {
     const ok = [...document.querySelectorAll('[data-cost-modal] button')].find((b) => b.textContent?.includes('Сохранить')) as HTMLButtonElement
     ok.click()
     await flushPromises()
-    expect(api.update).toHaveBeenCalledWith('c1', { certificatesKzt: 25000, transportKzt: 300000.5, note: 'фрахт' })
+    expect(api.update).toHaveBeenCalledWith('c1', { certificatesKzt: 25000, transportKzt: 300000.5, note: 'фрахт', utilizationKzt: null })
+    expect(document.querySelector('[data-cost-utilization]')).toBeNull() // ТС нет — поля утильсбора нет
     expect(msg.success).toHaveBeenCalledWith('Расходы сохранены')
     expect(w.get('[data-cost-note]').text()).toBe('Пояснение: фрахт')
+  })
+
+  it('утильсбор: расчёт по ТС из ДТ построчно (сумма / не сверено / не хватает), ввод клиента в окне', async () => {
+    const fee = (p: Record<string, unknown>) => ({
+      category: 'M1', measure: 'cm3', over: 1000, upTo: 2000, fromRbRf: false, coefficient: 3.5, baseRateKzt: 216250, units: 1,
+      amountKzt: null, estimateKzt: null, missing: [], text: 'x', note: null, ...p,
+    })
+    api.get.mockResolvedValue(cost({
+      utilizationKzt: 756875, utilizationSource: 'calc', utilizationInputKzt: null, missing: ['svh', 'certificates', 'utilization'],
+      utilizationLines: [
+        { declarationId: 'd1', declarationNumber: '50408/151026/0001', goodsNumber: 1, code: '8703231981', vin: 'VIN1', fee: fee({ status: 'ok', amountKzt: 756875 }) },
+        { declarationId: 'd1', declarationNumber: '50408/151026/0001', goodsNumber: 2, code: '8703211000', vin: null, fee: fee({ status: 'unverified', estimateKzt: 4757500 }) },
+        { declarationId: 'd1', declarationNumber: '50408/151026/0001', goodsNumber: 3, code: '8704219100', vin: null, fee: fee({ status: 'needInput', category: 'N', missing: ['mass'] }) },
+      ],
+    } as Partial<ShipmentCostDto>))
+    api.update.mockResolvedValue(cost())
+    mountIt()
+    await flushPromises()
+    expect(nbsp(w.get('[data-cost-row="utilization"] [data-cost-value]').text())).toBe('756 875 ₸')
+    expect(w.get('[data-cost-row="utilization"]').text()).toContain('Утильсбор (оператору РОП, не в гр. 47)')
+    const lines = w.findAll('[data-cost-util-line]').map((x) => nbsp(x.text()))
+    expect(lines[0]).toContain('ДТ 50408/151026/0001 · товар 1 · VIN1')
+    expect(lines[0]).toContain('756 875 ₸')
+    expect(lines[1]).toContain('≈ 4 757 500 ₸ — коэффициент не сверен с приказом')
+    expect(lines[2]).toContain('Не хватает: полная масса')
+    expect(w.get('[data-cost-missing]').text()).toContain('утильсбора')
+
+    await w.get('[data-cost-edit]').trigger('click')
+    await flushPromises()
+    const util = document.querySelector('[data-cost-utilization] input, input[data-cost-utilization]') as HTMLInputElement
+    util.value = '2000000'
+    util.dispatchEvent(new Event('input'))
+    util.dispatchEvent(new Event('blur'))
+    await flushPromises()
+    const ok = [...document.querySelectorAll('[data-cost-modal] button')].find((b) => b.textContent?.includes('Сохранить')) as HTMLButtonElement
+    ok.click()
+    await flushPromises()
+    expect(api.update).toHaveBeenCalledWith('c1', expect.objectContaining({ utilizationKzt: 2000000 }))
   })
 
   it('Excel по поставке — на языке интерфейса; ошибка загрузки — «Повторить»', async () => {

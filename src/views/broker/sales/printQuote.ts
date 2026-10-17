@@ -29,11 +29,15 @@ const money = (n: number | null | undefined): string => formatMoney(n ?? 0)
 const R = ' style="text-align:right"'
 const C = ' style="text-align:center"'
 
-/** HTML документа печати КП. Колонка антидемпинга — только если в КП есть ненулевые суммы. */
+/** HTML документа печати КП. Колонки антидемпинга и утильсбора — только если в КП есть ненулевые суммы. */
 export function buildQuoteHtml(q: SalesQuoteDto, t: T, opts: QuoteHtmlOptions = {}): string {
   const no = t('sales.kpNumber', { n: q.number, y: q.year })
   const p = (k: string, params?: Record<string, unknown>) => escapeHtml(t(`broker.sales.print.${k}`, params))
   const hasAntiDumping = q.goodsLines.some((g) => (g.antiDumpingKzt ?? 0) > 0)
+  // Утильсбор — оператору РОП, не в ТПиН: отдельной колонкой и строкой итога, только если в КП есть сумма.
+  const hasUtil = (q.utilizationTotal ?? 0) > 0
+  // ТС есть, но суммы нет (ставка не сверена, не хватает данных) — строка итога «уточняется», а не молчание.
+  const utilPending = q.goodsLines.some((g) => !!g.utilizationNote && g.utilizationFeeKzt == null)
 
   const svcRows = q.serviceLines
     .map((s) => `<tr><td>${escapeHtml(s.name)}</td><td${R}>${formatAmount(s.unitPrice)}</td><td${C}>${escapeHtml(`${s.quantity} ${s.unit ?? ''}`.trim())}</td><td${C}>${s.discountPercent}%</td><td${R}>${money(s.total)}</td></tr>`)
@@ -48,14 +52,18 @@ export function buildQuoteHtml(q: SalesQuoteDto, t: T, opts: QuoteHtmlOptions = 
       `<td${R}>${formatAmount(g.importDutyKzt)}</td>`,
       hasAntiDumping ? `<td${R}>${formatAmount(g.antiDumpingKzt)}</td>` : '',
       `<td${R}>${formatAmount(g.exciseKzt)}</td><td${R}>${formatAmount(g.vatKzt)}</td><td${R}>${formatAmount(g.customsFeeKzt)}</td>`,
-      `<td${R}>${money(g.tpinTotalKzt)}</td></tr>`,
+      `<td${R}>${money(g.tpinTotalKzt)}</td>`,
+      hasUtil ? `<td${R}>${g.utilizationFeeKzt ? money(g.utilizationFeeKzt) : '—'}</td>` : '',
+      '</tr>',
     ].join(''))
     .join('')
   const goodsTable = goodsRows
     ? [
       `<h3>${p('customs')}</h3><table><thead><tr><th>${p('col.goods')}</th><th>${p('col.code')}</th><th>${p('col.duty')}</th>`,
       hasAntiDumping ? `<th>${p('col.antiDumping')}</th>` : '',
-      `<th>${p('col.excise')}</th><th>${p('col.vat')}</th><th>${p('col.fee')}</th><th>${p('col.total')}</th></tr></thead>`,
+      `<th>${p('col.excise')}</th><th>${p('col.vat')}</th><th>${p('col.fee')}</th><th>${p('col.total')}</th>`,
+      hasUtil ? `<th>${p('col.utilization')}</th>` : '',
+      '</tr></thead>',
       `<tbody>${goodsRows}</tbody></table>`,
     ].join('')
     : ''
@@ -85,6 +93,7 @@ export function buildQuoteHtml(q: SalesQuoteDto, t: T, opts: QuoteHtmlOptions = 
     <div class="totals">
       <div>${p('servicesTotal')} <b>${money(q.servicesTotal)}</b></div>
       <div>${p('customsTotal')} <b>${money(q.tpinTotal)}</b></div>
+      ${hasUtil || utilPending ? `<div>${p('utilizationTotal')}${hasUtil ? ` <b>${money(q.utilizationTotal)}</b>` : ''}${utilPending ? ` <span class="muted">${p('utilizationPending')}</span>` : ''}</div>` : ''}
       <div class="grand">${p('grandTotal')} ${money(q.grandTotal)}</div>
     </div>
     <div class="foot">${p('disclaimer')}</div>

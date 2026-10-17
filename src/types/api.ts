@@ -885,14 +885,20 @@ export interface TnvedCalculateResult {
   antiDumpingOptions?: TnvedTariffOptionDto[] | null
 }
 
-/** Статус акта меры: 'replaced' — заменён, 'repealed' — утратил силу, 'partial' — действует частично; since — «yyyy-MM-dd». */
+/** Статус акта меры: 'replaced' — заменён, 'repealed' — утратил силу, 'partial' — действует частично,
+ *  'basis_lost' — не отменён, но в НК-2026 нет нормы, на которой он держался; since — «yyyy-MM-dd».
+ *  replacedBy — действующий акт (для basis_lost — норма НК), repealedBy — акт, которым отменён;
+ *  confidence 'unverified' — статус по сводкам, первоисточник не сверен. */
 export interface TnvedActStatusDto {
-  status: 'replaced' | 'repealed' | 'partial' | string
+  status: 'replaced' | 'repealed' | 'partial' | 'basis_lost' | string
   since: string
   replacedBy: string | null
   replacedByUrl: string | null
   note: string | null
   source: string
+  repealedBy?: string | null
+  repealedByUrl?: string | null
+  confidence?: 'confirmed' | 'unverified' | string | null
 }
 
 export interface TnvedNonTariffMeasureDto {

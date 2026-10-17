@@ -120,6 +120,8 @@ export function buildBrokerNav(a: NavAccess): NavModel {
           page('timeline', '/tnved/timeline', 'shell.page.timeline', tnved),
           // «Обновления ЕЭК» — по праву tnved.manage (как сервер), в группе ТН ВЭД — при доступе к справочникам.
           page('eecUpdates', '/tnved/eec', 'shell.page.eecUpdates', tnved && p('tnved.manage')),
+          // «Национальные перечни» (17.10): смотрят все со справочниками, меры ведёт tnved.manage (кнопки на экране).
+          page('nationalLists', '/tnved/national-lists', 'shell.page.nationalLists', tnved),
           page('dtGuide', '/dt-guide', 'shell.page.dtGuide', !fo && (admin || p('import40.declarant'))),
           page('systemData', admin ? '/references' : '/tnved/sync', 'shell.page.systemData', admin || (tnved && p('tnved.manage')),
             ['/references', '/tnved/sync']),
