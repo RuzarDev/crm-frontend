@@ -21,6 +21,7 @@ import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
 import type { ZColumn } from '@/ui/table'
 import { stageTone } from './requests'
+import StageStatsPanel from './StageStatsPanel.vue'
 import {
   HEAVY_LOAD, MANAGE_SEGMENTS, defaultSegment, isStale, lacksDeclarant, lacksKpp, loadPercent, segmentCounts, segmentOf,
   staffLoad, type ManageSegment,
@@ -271,5 +272,7 @@ const emptyTitle = computed(() => (search.value.trim() ? t('broker.list.nothingF
         </ul>
       </section>
     </div>
+
+    <StageStatsPanel />
   </div>
 </template>

@@ -33,6 +33,8 @@ declare module 'vue' {
     ShellFrame: typeof import('./src/components/shell/ShellFrame.vue')['default']
     ShellSectionTabs: typeof import('./src/components/shell/ShellSectionTabs.vue')['default']
     ShellSidebar: typeof import('./src/components/shell/ShellSidebar.vue')['default']
+    StageBoard: typeof import('./src/components/stages/StageBoard.vue')['default']
+    StageHistory: typeof import('./src/components/stages/StageHistory.vue')['default']
     StatStrip: typeof import('./src/components/broker/StatStrip.vue')['default']
     StatusDot: typeof import('./src/components/broker/StatusDot.vue')['default']
     TnvedPickerModal: typeof import('./src/components/TnvedPickerModal.vue')['default']

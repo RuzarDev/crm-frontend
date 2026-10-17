@@ -63,7 +63,7 @@ describe('ClientShipmentRow', () => {
     expect(w.findAll('[data-seg]')[4].classes()).toContain('bg-gold')
     const label = w.get('[data-step-label]')
     expect(label.classes()).toContain('sr-only')
-    expect(label.text()).toBe('Этап 5 из 6 · Оплата склада')
+    expect(label.text()).toBe('Этап 5 из 6 · Оплата склада (СВХ)')
     expect(w.get('[data-seg]').element.parentElement!.getAttribute('aria-hidden')).toBe('true')
     expect(w.text()).toContain(formatMoney(312400))
   })

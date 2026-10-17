@@ -255,6 +255,13 @@ const router = createRouter({
           meta: { requiresAnyPermission: ['finance.read', 'finance.write', 'users.write'] },
         },
         {
+          // Нормы этапов заявки (хронометраж 17.10) — руководитель отдела и администратор.
+          path: '/settings/stage-norms',
+          name: 'settings-stage-norms',
+          component: () => import('@/views/broker/settings/stageNorms/StageNormsPage.vue'),
+          meta: { requiresPermission: 'import40.assign' },
+        },
+        {
           path: '/settings/audit',
           name: 'settings-audit',
           component: () => import('@/views/broker/settings/audit/AuditPage.vue'),

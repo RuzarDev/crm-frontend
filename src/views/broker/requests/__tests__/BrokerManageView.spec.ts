@@ -13,6 +13,8 @@ vi.mock('@/api/import40', async (orig) => ({
   import40Api: { update: api.update, action: api.action },
 }))
 vi.mock('@/ui/message', () => ({ message: api.toast }))
+const stagesMock = vi.hoisted(() => ({ stats: vi.fn() }))
+vi.mock('@/api/stages', () => ({ stagesApi: stagesMock }))
 
 import BrokerManageView from '../BrokerManageView.vue'
 
@@ -66,6 +68,7 @@ const rowOf = (n: string) => w.findAll('tbody tr').find((r) => r.text().includes
 
 beforeEach(() => {
   api.overview.mockImplementation(async () => overviewOf(structuredClone(CASES)))
+  stagesMock.stats.mockResolvedValue({ days: 90, steps: [], rework: { step: 0, count: 0, avgHours: null, medianHours: null, normHours: 24 }, employees: [], overdue: [] })
   api.update.mockResolvedValue({})
   api.action.mockResolvedValue({})
 })

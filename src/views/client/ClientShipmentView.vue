@@ -13,6 +13,7 @@ import ShipmentDocuments from '@/views/client/shipment/ShipmentDocuments.vue'
 import ShipmentHistory from '@/views/client/shipment/ShipmentHistory.vue'
 import ShipmentTimeline from '@/views/client/shipment/ShipmentTimeline.vue'
 import { import40Api, type Import40CaseDto, type Import40CaseInvoiceDto, type Import40FileDto } from '@/api/import40'
+import { stagesApi, type CaseStages } from '@/api/stages'
 import { billingApi } from '@/api/billing'
 import { referencesApi } from '@/api/references'
 import type { RefCodeItem } from '@/types/api'
@@ -42,12 +43,27 @@ const invoices = ref<Import40CaseInvoiceDto[]>([])
 // («Документов пока нет», «Счёт выставим…», панель оплаты без учёта загруженного чека).
 const filesError = ref(false)
 const invoicesError = ref(false)
+// Этапы (хронометраж 17.10): события шагов для подписей и истории; ошибка — шаги только по статусу.
+const stages = shallowRef<CaseStages | null>(null)
 
 // Номера запросов: ответ прежней поставки (переход по уведомлению на другую) или устаревший повтор
 // не перетирает текущее. caseId сверяем с адресом — блок не возьмёт файлы чужой поставки.
 let seq = 0
 let filesSeq = 0
 let invoicesSeq = 0
+let stagesSeq = 0
+
+const loadStages = async (caseId: string) => {
+  const my = ++stagesSeq
+  try {
+    const st = await stagesApi.caseStages(caseId, { silent: true })
+    if (my !== stagesSeq || caseId !== id.value) return
+    stages.value = st ?? null
+  } catch {
+    if (my !== stagesSeq || caseId !== id.value) return
+    stages.value = null
+  }
+}
 
 const loadFiles = async (caseId: string) => {
   const my = ++filesSeq
@@ -91,6 +107,7 @@ const load = async (initial: boolean) => {
     invoices.value = []
     filesError.value = false
     invoicesError.value = false
+    stages.value = null
   }
   let c: Import40CaseDto
   try {
@@ -101,7 +118,7 @@ const load = async (initial: boolean) => {
     if (initial) state.value = code === 404 || code === 403 || code === 400 ? 'notFound' : 'error'
     return
   }
-  await Promise.all([loadFiles(caseId), loadInvoices(caseId)])
+  await Promise.all([loadFiles(caseId), loadInvoices(caseId), loadStages(caseId)])
   if (my !== seq) return
   kase.value = c
   state.value = 'ready'
@@ -153,7 +170,6 @@ const downloadAll = async () => {
 // ---- Таймлайн и документы ----
 // ДТ, заменённые разделением ЕТТ/ВТО, клиенту не показываем — их место заняли дочерние.
 const liveDeclarations = computed(() => (kase.value?.declarations ?? []).filter((d) => !d.isSplitReplaced))
-const dtNumbers = computed(() => liveDeclarations.value.map((d) => d.declarationNumber).filter((n): n is string => !!n))
 // Бланк ДТ — документ AQNIET только после подачи в таможню (статус ≥ 3); пока ДТ заполняется, её нет.
 const docDeclarations = computed(() => ((kase.value?.status ?? 0) >= 3 ? liveDeclarations.value : []))
 const docsCount = computed(() => (filesError.value ? null : files.value.filter((f) => f.section === 'documents').length))
@@ -274,12 +290,18 @@ const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
         @changed="reload"
       />
 
-      <div class="flex flex-wrap items-start gap-x-6 gap-y-[18px]">
-        <div class="min-w-0 flex-[999_1_480px]">
-          <ShipmentTimeline :shipment="summary" :docs-count="docsCount" :dt-numbers="dtNumbers" :files-unknown="filesError" />
-        </div>
+      <ShipmentTimeline
+        :shipment="summary"
+        :case-dto="kase"
+        :docs-count="docsCount"
+        :files-unknown="filesError"
+        :stages="stages"
+        :invoices="invoices"
+      />
 
-        <div class="flex min-w-0 flex-[1_1_320px] flex-col gap-[18px]">
+      <!-- Документы слева, услуги и декларант справа; уже 1024px — одной колонкой. -->
+      <div class="grid items-start gap-x-6 gap-y-[18px] lg:grid-cols-2">
+        <div class="flex min-w-0 flex-col gap-[18px]">
           <ShipmentDocuments
             :case-id="kase.id"
             :files="files"
@@ -288,7 +310,9 @@ const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
             :error="filesError"
             @retry="retryFiles"
           />
+        </div>
 
+        <div class="flex min-w-0 flex-col gap-[18px]">
           <section :aria-labelledby="servicesId" :class="cn(card, 'max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:px-0')" data-ship-services>
             <h2 :id="servicesId" class="m-0 mb-1.5 text-[15px] leading-6 font-semibold text-ink">{{ t('client.card.servicesTitle') }}</h2>
             <div v-if="invoicesError" class="flex flex-wrap items-center gap-x-3 gap-y-2" data-services-error>

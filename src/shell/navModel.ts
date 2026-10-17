@@ -130,6 +130,8 @@ export function buildBrokerNav(a: NavAccess): NavModel {
         page('roles', '/settings/roles', 'shell.page.roles', p('users.read')),
         page('organization', '/settings/organization', 'shell.page.organization',
           p('finance.read') || p('finance.write') || p('users.write')),
+        // Нормы этапов (хронометраж 17.10): правит руководитель отдела (import40.assign) и администратор — как сервер.
+        page('stageNorms', '/settings/stage-norms', 'shell.page.stageNorms', p('import40.assign')),
         page('audit', '/settings/audit', 'shell.page.audit', admin),
         page('system', '/settings/system', 'shell.page.system', p('endpoints.read')),
       ] }),

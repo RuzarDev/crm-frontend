@@ -1,84 +1,82 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhCheck } from '@phosphor-icons/vue'
 import ZTag from '@/components/z/ZTag.vue'
-import { cn } from '@/ui/cn'
+import StageBoard, { type BoardCard } from '@/components/stages/StageBoard.vue'
+import type { Import40CaseDto, Import40CaseInvoiceDto, Import40FileDto } from '@/api/import40'
+import type { CaseStages } from '@/api/stages'
+import { buildStageCards, declaringSubstages, defaultSelectedStep, whenText } from '@/utils/import40StageModel'
 import { TOTAL_STEPS, isCancelled, isDone } from './caseSteps'
 import type { CaseStepInfo } from './caseContext'
 
-// Полоса из 6 шагов (доски Case/CaseSvh): пройденный — тёмный круг с галочкой и сводкой; текущий — кольцо zircon
-// и «сейчас · исполнитель»; будущий — серый и исполнитель. Отменённая — все будущие и тег «Отменена»;
-// выполненная — все пройдены и тег «Выполнено». Уже 1024px (планшет, телефон) — одна строка «Шаг N из 6 · название».
-const props = defineProps<{ steps: CaseStepInfo[]; status: number }>()
-const { t } = useI18n()
+// Этапы карточки заявки сотрудника по макету (17.10): под каждым шагом итог, ответственный, «на шаге · норма» с полосой,
+// метка «Запрос таможни»; шаги 5 и 6 — «Параллельно»; нажатие на шаг — его история (шаг 3 — с подэтапами).
+// Время и нормы — GET import40/{id}/stages; без них (ошибка) — только статус и сводки, как раньше.
+const props = withDefaults(defineProps<{
+  steps: CaseStepInfo[]
+  status: number
+  kase: Import40CaseDto
+  stages?: CaseStages | null
+  invoices?: Import40CaseInvoiceDto[]
+  files?: Import40FileDto[]
+}>(), { stages: null, invoices: () => [], files: () => [] })
+const { t, te, locale } = useI18n()
 
-const current = computed(() => props.steps.find((s) => s.state === 'current') ?? null)
 const tag = computed(() =>
   isCancelled(props.status) ? { text: t('import40Case.cancelled'), tone: 'neutral' as const }
   : isDone(props.status) ? { text: t('import40Case.completed'), tone: 'done' as const }
   : null)
 
-const circle = (s: CaseStepInfo) => cn(
-  'inline-flex size-[26px] shrink-0 items-center justify-center rounded-pill text-xs font-semibold tabular-nums',
-  s.state === 'done' && 'bg-navy text-white',
-  s.state === 'current' && 'bg-surface font-bold text-zircon-ink shadow-[inset_0_0_0_2px_var(--color-zircon)]',
-  s.state === 'future' && 'bg-sunken text-muted',
-)
-const sub = (s: CaseStepInfo) =>
-  s.state === 'done' ? s.summary : s.state === 'current' ? t('broker.case.stepper.now', { executor: s.executorLabel }) : s.executorLabel
+const input = computed(() => ({
+  audience: 'staff' as const,
+  kase: props.kase,
+  stages: props.stages,
+  invoices: props.invoices,
+  docsCount: props.files.filter((f) => f.section === 'documents').length,
+  locale: locale.value,
+}))
+
+const cards = computed<BoardCard[]>(() => {
+  const model = buildStageCards(input.value, t, te)
+  return props.steps.map((s) => {
+    const m = model[s.n - 1]!
+    // Без итога (будущий шаг без пояснения) — исполнитель шага, как прежняя полоса; пройденный без событий — прежняя сводка.
+    const result = m.result || (s.state === 'done' ? s.summary : '')
+    return { ...m, result, title: s.title, state: s.state === 'done' && m.state === 'done' ? 'done' : m.state, dataState: s.state }
+  })
+})
+const substeps = computed(() => declaringSubstages(input.value, t, te))
+
+const selected = ref<number | null>(defaultSelectedStep(props.status))
+watch(() => [props.kase.id, props.status] as const, ([id, status], [prevId]) => {
+  if (id !== prevId || selected.value == null) selected.value = defaultSelectedStep(status)
+})
+
+const current = computed(() => props.steps.find((s) => s.state === 'current') ?? null)
+const sinceIso = computed(() => {
+  const events = (props.stages?.steps ?? []).flatMap((s) => s.history).filter((e) => e.kind === 'submitted' || e.kind === 'resubmitted')
+  return events.map((e) => e.atUtc).sort()[0] ?? null
+})
+const aside = computed(() => {
+  if (!current.value) return ''
+  const parts = [t('stages.stepOf', { n: current.value.n, total: TOTAL_STEPS })]
+  if (sinceIso.value) parts.push(t('stages.inWorkSince', { when: whenText(sinceIso.value, t) }))
+  return parts.join(' · ')
+})
 </script>
 
 <template>
-  <div class="rounded-panel border border-line bg-surface px-5 pt-4 pb-3.5 max-sm:px-4 max-sm:py-3" data-case-stepper>
-    <div v-if="tag" class="mb-3 max-lg:hidden" data-case-stepper-tag><ZTag :tone="tag.tone">{{ tag.text }}</ZTag></div>
-
-    <ol :aria-label="t('broker.case.stepper.label')" class="m-0 flex list-none p-0 max-lg:hidden">
-      <li
-        v-for="(s, i) in steps"
-        :key="s.n"
-        :aria-current="s.state === 'current' ? 'step' : undefined"
-        class="flex min-w-0 flex-1 flex-col gap-2"
-        :data-step="s.n"
-        :data-state="s.state"
-      >
-        <div class="flex items-center">
-          <span :class="circle(s)" aria-hidden="true">
-            <PhCheck v-if="s.state === 'done'" :size="14" weight="bold" />
-            <template v-else>{{ s.n }}</template>
-          </span>
-          <span
-            v-if="i < steps.length - 1"
-            aria-hidden="true"
-            :class="cn('mx-2.5 h-0.5 flex-1 rounded-[2px]', s.state === 'done' ? 'bg-navy' : 'bg-line')"
-          />
-        </div>
-        <div class="min-w-0 pr-3">
-          <div :class="cn('text-[13px] leading-[18px] [overflow-wrap:anywhere]', s.state === 'current' ? 'font-semibold text-ink' : s.state === 'done' ? 'font-medium text-ink-2' : 'font-medium text-muted')" :title="s.title">
-            {{ s.title }}<span class="sr-only"> — {{ t(`broker.case.stepper.${s.state}`) }}</span>
-          </div>
-          <div
-            :class="cn('mt-px truncate text-xs', s.state === 'current' ? 'text-zircon-ink' : 'text-muted')"
-            :title="sub(s)"
-            data-step-sub
-          >{{ sub(s) }}</div>
-        </div>
-      </li>
-    </ol>
-
-    <p class="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm lg:hidden" data-case-stepper-phone>
-      <template v-if="current">
-        <span class="font-semibold text-ink tabular-nums">{{ t('broker.case.stepper.phone', { n: current.n, total: TOTAL_STEPS, title: current.title }) }}</span>
-        <span class="text-zircon-ink">{{ t('broker.case.stepper.now', { executor: current.executorLabel }) }}</span>
-      </template>
-      <ZTag v-else-if="tag" :tone="tag.tone">{{ tag.text }}</ZTag>
-    </p>
-    <div class="mt-2.5 flex gap-1 lg:hidden" aria-hidden="true">
-      <span
-        v-for="s in steps"
-        :key="s.n"
-        :class="cn('h-1 flex-1 rounded-pill', s.state === 'done' ? 'bg-navy' : s.state === 'current' ? 'bg-zircon' : 'bg-line')"
-      />
-    </div>
+  <div data-case-stepper>
+    <StageBoard
+      v-model:selected="selected"
+      :cards="cards"
+      audience="staff"
+      :heading="t('stages.titleStaff')"
+      :aside="aside"
+      :substeps="substeps"
+      :history-empty-note="t('stages.historyStaffNote')"
+    >
+      <template v-if="tag" #tag><ZTag :tone="tag.tone" data-case-stepper-tag>{{ tag.text }}</ZTag></template>
+    </StageBoard>
   </div>
 </template>

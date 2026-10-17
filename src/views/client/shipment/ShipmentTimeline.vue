@@ -1,99 +1,66 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhCheck } from '@phosphor-icons/vue'
+import StageBoard, { type BoardCard } from '@/components/stages/StageBoard.vue'
 import type { ClientShipment } from '@/api/clientShipments'
-import { segments, type SegState } from '@/views/client/shipment'
-import { formatMoney } from '@/ui/number'
-import { cn } from '@/ui/cn'
+import type { Import40CaseDto, Import40CaseInvoiceDto } from '@/api/import40'
+import type { CaseStages } from '@/api/stages'
+import { askFor, segments, TOTAL_STEPS, type SegState } from '@/views/client/shipment'
+import { buildStageCards, declaringSubstages, defaultSelectedStep } from '@/utils/import40StageModel'
 
-// «Ход оформления» (доска Shipment): 6 этапов клиента, состояние — по segments() (те же правила, что у полосы
-// в списке). Дат по этапам сервер не хранит — даты в истории; под названием — короткое пояснение этапа.
-const props = defineProps<{
+// «Ход оформления» клиента по макету (17.10): под шагом — итог («Документы приняты · 14.10 в 11:05», «Граница пройдена»,
+// «ДТ подана · жёлтый коридор»), на шаге 3 — ваш декларант, золотая метка «Нужен ваш ответ», шаги 5 и 6 — «в любом порядке»;
+// нажатие на шаг — его история (шаг 3 — с подэтапами). Без времени, норм и ФИО сотрудников. На телефоне — вертикально.
+// data-state на li — сегменты полосы (segments): те же правила, что у полосы в списке поставок.
+const props = withDefaults(defineProps<{
   shipment: ClientShipment
-  /** Сколько документов приложено к заявке (раздел documents); null — файлы не загрузились, пояснения нет. */
+  caseDto: Import40CaseDto
+  /** Сколько документов приложено к заявке (раздел documents); null — файлы не загрузились. */
   docsCount: number | null
-  /** Номера выпущенных/поданных ДТ — пояснение к этапу 3. */
-  dtNumbers: string[]
   /** Файлы не загрузились: загружен ли чек — неизвестно, поэтому оплату склада «ваш ход» не показываем. */
   filesUnknown?: boolean
-}>()
+  stages?: CaseStages | null
+  invoices?: Import40CaseInvoiceDto[]
+}>(), { filesUnknown: false, stages: null, invoices: () => [] })
 
-const { t } = useI18n()
-const headingId = `ship-path-${useId()}`
+const { t, te, locale } = useI18n()
 
-// Отменённая поставка — все этапы впереди (segments); без файлов про чек не гадаем — этап 5 не «ваш ход».
 const states = computed<SegState[]>(() => segments(props.shipment, { filesUnknown: props.filesUnknown }))
+const input = computed(() => ({
+  audience: 'client' as const,
+  kase: props.caseDto,
+  stages: props.stages,
+  invoices: props.invoices,
+  docsCount: props.docsCount,
+  clientAsk: askFor(props.shipment, { filesUnknown: props.filesUnknown }) != null,
+  checkUploaded: props.shipment.paymentCheckUploaded && !props.filesUnknown,
+  locale: locale.value,
+}))
 
-const isCurrent = (s: SegState) => s === 'current' || s === 'currentAsk' || s === 'currentProblem'
+const cards = computed<BoardCard[]>(() =>
+  buildStageCards(input.value, t, te).map((m, i) => ({ ...m, title: t(`enum.stepClient.s${m.n}`), dataState: states.value[i] ?? 'todo' })))
+const substeps = computed(() => declaringSubstages(input.value, t, te))
 
-// Статические строки — сканер Tailwind должен видеть каждый класс целиком.
-const DOT: Record<SegState, string> = {
-  done: 'bg-zircon text-white',
-  current: 'bg-zircon-ink text-white',
-  currentAsk: 'bg-gold text-navy',
-  currentProblem: 'bg-danger text-white',
-  todo: 'border-[1.5px] border-line-strong bg-surface text-muted',
-}
-const LINE: Record<SegState, string> = {
-  done: 'bg-zircon',
-  current: 'bg-line',
-  currentAsk: 'bg-line',
-  currentProblem: 'bg-line',
-  todo: 'bg-transparent',
-}
+const selected = ref<number | null>(defaultSelectedStep(props.caseDto.status))
+watch(() => [props.caseDto.id, props.caseDto.status] as const, ([id, status], [prevId]) => {
+  if (id !== prevId || selected.value == null) selected.value = defaultSelectedStep(status)
+})
 
-/** Чей ход на текущем этапе: у вопроса к клиенту и у проблемы — клиента. */
-const nowLabel = (s: SegState) => (s === 'current' ? t('client.card.nowUs') : t('client.card.nowYou'))
-
-const note = (n: number): string => {
-  if (n === 1) return props.docsCount == null ? '' : t('client.card.stepDocs', { n: props.docsCount })
-  if (n === 3 && props.dtNumbers.length) return props.dtNumbers.join(', ')
-  if (n === 4 && props.shipment.svhInvoiceAmount != null) return t('client.card.stepSvh', { sum: formatMoney(props.shipment.svhInvoiceAmount) })
-  return ''
-}
+const aside = computed(() => {
+  const n = props.shipment.step
+  return n >= 1 && props.shipment.status < 8 ? `${t('stages.stepOf', { n, total: TOTAL_STEPS })} · ${t('stages.hint')}` : t('stages.hint')
+})
 </script>
 
 <template>
-  <section :aria-labelledby="headingId" data-ship-timeline>
-    <h2 :id="headingId" class="m-0 mb-3 text-[15px] leading-6 font-semibold text-ink sm:mb-3.5">{{ t('client.card.path') }}</h2>
-    <ol class="m-0 flex list-none flex-col p-0">
-      <li
-        v-for="(s, i) in states"
-        :key="i"
-        :data-state="s"
-        :aria-current="isCurrent(s) ? 'step' : undefined"
-        class="grid grid-cols-[26px_minmax(0,1fr)] gap-3 sm:grid-cols-[28px_minmax(0,1fr)] sm:gap-3.5"
-      >
-        <span aria-hidden="true" class="flex flex-col items-center">
-          <span
-            :class="cn(
-              'box-border flex size-6 shrink-0 items-center justify-center rounded-pill text-[11.5px] leading-none font-bold tabular-nums sm:size-[26px] sm:text-xs',
-              DOT[s],
-            )"
-          >
-            <PhCheck v-if="s === 'done'" :size="13" weight="bold" />
-            <template v-else>{{ i + 1 }}</template>
-          </span>
-          <span v-if="i < states.length - 1" :class="cn('min-h-3.5 w-0.5 flex-1 sm:min-h-[18px]', LINE[s])" />
-        </span>
-        <span :class="cn('min-w-0 pt-px sm:pt-0.5', i < states.length - 1 ? 'pb-3.5 sm:pb-[18px]' : 'pb-0')">
-          <span class="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-            <span
-              :class="cn(
-                'text-[14.5px] leading-[22px] sm:text-[15px]',
-                isCurrent(s) ? 'font-semibold text-ink' : 'font-medium',
-                s === 'done' && 'text-ink',
-                s === 'todo' && 'text-ink-3',
-              )"
-              data-step-title
-            >{{ t(`enum.stepClient.s${i + 1}`) }}</span>
-            <span v-if="isCurrent(s)" class="text-[13px] text-muted" data-step-now>{{ nowLabel(s) }}</span>
-            <span v-else-if="s === 'done'" class="sr-only">{{ t('client.card.stepDone') }}</span>
-          </span>
-          <span v-if="note(i + 1)" class="mt-0.5 block text-[13px] leading-5 text-ink-3 [overflow-wrap:anywhere] sm:mt-[3px] sm:text-[13.5px]" data-step-note>{{ note(i + 1) }}</span>
-        </span>
-      </li>
-    </ol>
-  </section>
+  <div data-ship-timeline>
+    <StageBoard
+      v-model:selected="selected"
+      :cards="cards"
+      audience="client"
+      :heading="t('stages.titleClient')"
+      :aside="aside"
+      :substeps="substeps"
+    />
+  </div>
 </template>

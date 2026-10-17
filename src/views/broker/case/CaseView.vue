@@ -42,7 +42,7 @@ const STEP_COMPONENTS: Record<StepNo, Component> = {
 }
 
 const id = computed(() => String(route.params.id ?? ''))
-const { state, kase, files, invoices, readiness, reload, retry, setCase } = useCase(id, { readiness: () => readinessAvailable(auth) })
+const { state, kase, files, invoices, readiness, stages, reload, retry, setCase } = useCase(id, { readiness: () => readinessAvailable(auth) })
 const { actions, reasonKind } = useCaseActions(() => kase.value?.id ?? null, reload)
 // Окно причины (отмена, шаг назад, возврат…) не переживает смену заявки: иначе действие ушло бы на другую заявку.
 watch(id, () => { reasonKind.value = null })
@@ -135,7 +135,7 @@ const panel = 'rounded-panel border border-line bg-surface'
 
     <template v-else-if="kase && perms">
       <CaseHeader :kase="kase" :perms="perms" @ask="actions.ask" />
-      <CaseStepper :steps="steps" :status="kase.status" />
+      <CaseStepper :steps="steps" :status="kase.status" :kase="kase" :stages="stages" :invoices="invoices" :files="files" />
       <CaseBanners :kase="kase" :perms="perms" :actions="actions" />
 
       <div class="flex flex-wrap items-start gap-[18px]">
