@@ -602,6 +602,8 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
               ref="stepDocs"
               v-model:accepted="docsAccepted"
               :docs="docs"
+              :case-id="caseId"
+              :client-id="authStore.userId"
             />
           </div>
 
