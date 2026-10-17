@@ -2,7 +2,9 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { PhArrowRight, PhMagnifyingGlass } from '@phosphor-icons/vue'
+import { PhArrowRight, PhMagnifyingGlass, PhSparkle } from '@phosphor-icons/vue'
+import AiTnvedModal from '@/components/aiTnved/AiTnvedModal.vue'
+import { useAiTnvedButton } from '@/components/aiTnved/aiTnved'
 import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZInput from '@/components/z/ZInput.vue'
@@ -28,6 +30,11 @@ const formatMoney = (n: number) => formatMoneyIn(locale.value, n)
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+// «Подобрать с ИИ» (17.10) — если администратор не выключил «ИИ для клиентов»; «Выбрать» открывает код с калькулятором.
+const aiVisible = useAiTnvedButton(() => auth.role === 'client')
+const aiUsed = ref(false)
+const aiOpen = ref(false)
+const openAi = () => { aiUsed.value = true; aiOpen.value = true }
 const canShip = computed(() => auth.clientHasModule('import40'))
 
 const DEBOUNCE_MS = 400
@@ -233,6 +240,10 @@ const LIST_SKELETON = ['72%', '58%', '66%', '50%']
     >
       <template #prefix><PhMagnifyingGlass :size="18" class="text-ink-2" aria-hidden="true" /></template>
     </ZInput>
+    <ZButton v-if="aiVisible" class="-mt-3 w-fit max-sm:h-11 max-sm:w-full" data-tnved-ai @click="openAi">
+      <template #icon><PhSparkle :size="16" aria-hidden="true" /></template>{{ t('aiTnved.button') }}
+    </ZButton>
+    <AiTnvedModal v-if="aiUsed" v-model:open="aiOpen" :description="isCodeLike(q) ? '' : q" source="calculator" @select="({ code }) => router.replace(codeTo(code))" />
     <p class="sr-only" role="status">{{ statusText }}</p>
 
     <!-- До поиска: что ввести, с примерами -->

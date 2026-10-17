@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhBookOpen, PhCalculator, PhPlus, PhX } from '@phosphor-icons/vue'
+import { PhBookOpen, PhSparkle, PhCalculator, PhPlus, PhX } from '@phosphor-icons/vue'
+import AiTnvedModal from '@/components/aiTnved/AiTnvedModal.vue'
 import ZAlert from '@/components/z/ZAlert.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZField from '@/components/z/ZField.vue'
@@ -123,6 +124,17 @@ const onPick = (p: { code: string; name: string }) => {
   row.code = p.code
   if (!row.description) row.description = p.name
   void fillUnit(row)
+}
+
+// Подбор кода с ИИ (17.10) по описанию строки: «Выбрать» ставит код, как справочник.
+const aiUsed = ref(false)
+const aiOpen = ref(false)
+const aiDescription = ref('')
+const openAi = (row: GoodsRow) => {
+  pickerRow.value = row
+  aiDescription.value = row.description ?? ''
+  aiUsed.value = true
+  aiOpen.value = true
 }
 
 // ---- Расчёт ----
@@ -412,6 +424,16 @@ const h2 = 'm-0 text-[15px] leading-6 font-semibold text-ink'
               >
                 <PhBookOpen :size="15" aria-hidden="true" />
               </button>
+              <button
+                type="button"
+                :class="iconBtn"
+                :aria-label="t('aiTnved.button')"
+                :title="t('aiTnved.button')"
+                data-goods-ai
+                @click="openAi(record)"
+              >
+                <PhSparkle :size="15" aria-hidden="true" />
+              </button>
             </span>
             <ZNumber v-else-if="column.key === 'val'" :value="record.customsValue" :min="0" size="sm" :aria-label="t('sales.stoimost')" data-goods-value @update:value="record.customsValue = $event ?? 0" />
             <span v-else-if="column.key === 'cur'" class="flex flex-col gap-0.5">
@@ -626,5 +648,7 @@ const h2 = 'm-0 text-[15px] leading-6 font-semibold text-ink'
     </aside>
 
     <TnvedPickerModal v-model:open="pickerOpen" :initial-query="pickerQuery" @select="onPick" />
+
+    <AiTnvedModal v-if="aiUsed" v-model:open="aiOpen" :description="aiDescription" source="calculator" @select="onPick" />
   </div>
 </template>

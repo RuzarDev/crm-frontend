@@ -7,6 +7,9 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
+    AiTnvedCard: typeof import('./src/components/aiTnved/AiTnvedCard.vue')['default']
+    AiTnvedModal: typeof import('./src/components/aiTnved/AiTnvedModal.vue')['default']
+    AiTnvedPanel: typeof import('./src/components/aiTnved/AiTnvedPanel.vue')['default']
     AuthLayout: typeof import('./src/components/auth/AuthLayout.vue')['default']
     ClientCell: typeof import('./src/components/broker/ClientCell.vue')['default']
     ClientShipmentRow: typeof import('./src/components/client/ClientShipmentRow.vue')['default']
