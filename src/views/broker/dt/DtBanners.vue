@@ -7,8 +7,8 @@ import ZButton from '@/components/z/ZButton.vue'
 import { dtPath } from '@/views/broker/case/declarations'
 import type { DtReadonlyReason } from './dtPageModel'
 
-// Плашки над разделами ДТ (доска DtReadonly): исходная ДТ разделения — «все товары, только просмотр, печать и Excel» со
-// ссылками на части ЕТТ и ВТО и «Изменить разделение» (16.10);
+// Плашки над разделами ДТ (доска DtReadonly): исходная ДТ разделения — «все товары; подать можно её (удалите части) или
+// части ЕТТ/ВТО (удалите исходную)» со ссылками на части ЕТТ и ВТО и «Изменить разделение» (16.10);
 // «Только просмотр» с причиной (закреплена за …, этап …); 409 «изменена в другом окне» с «Перезагрузить»;
 // ошибка сохранения с причиной и «Повторить».
 interface DtLink { id: string; declarationNumber?: string | null }
@@ -40,16 +40,11 @@ const linkClass = 'rounded-field font-mono text-zircon-ink no-underline outline-
       <p class="m-0 min-w-0">
         <b class="font-semibold text-ink">{{ resplit ? t('broker.dt.banners.resplitTitle') : t('broker.dt.banners.splitTitle') }}</b>
         <template v-if="split.ett || split.vto">
-          {{ ' ' }}{{ resplit ? t('broker.dt.banners.resplitText') : t('broker.dt.banners.splitInstead') }}
-          <template v-if="split.ett">
-            {{ t('broker.dt.header.tag.ett') }}
-            <RouterLink :to="dtPath(caseId, split.ett.id)" :class="linkClass" data-dt-split-ett>{{ split.ett.declarationNumber || t('broker.dt.banners.noNumber') }}</RouterLink>
-          </template>
-          <template v-if="split.ett && split.vto"> {{ t('broker.dt.banners.splitAnd') }} </template>
-          <template v-if="split.vto">
-            {{ t('broker.dt.header.tag.vto') }}
-            <RouterLink :to="dtPath(caseId, split.vto.id)" :class="linkClass" data-dt-split-vto>{{ split.vto.declarationNumber || t('broker.dt.banners.noNumber') }}</RouterLink>
-          </template>.
+          <template v-if="!resplit">{{ ' ' }}<span data-dt-split-choice>{{ t('broker.dt.banners.splitChoice') }}</span></template>
+          {{ resplit ? t('broker.dt.banners.resplitText') : t('broker.dt.banners.splitInstead') }}
+          <template v-if="split.ett">{{ t('broker.dt.header.tag.ett') }}{{ ' ' }}<RouterLink :to="dtPath(caseId, split.ett.id)" :class="linkClass" data-dt-split-ett>{{ split.ett.declarationNumber || t('broker.dt.banners.noNumber') }}</RouterLink></template>
+          <template v-if="split.ett && split.vto">{{ ' ' }}{{ t('broker.dt.banners.splitAnd') }}{{ ' ' }}</template>
+          <template v-if="split.vto">{{ t('broker.dt.header.tag.vto') }}{{ ' ' }}<RouterLink :to="dtPath(caseId, split.vto.id)" :class="linkClass" data-dt-split-vto>{{ split.vto.declarationNumber || t('broker.dt.banners.noNumber') }}</RouterLink></template>.
         </template>
       </p>
       <ZButton v-if="canChangeSplit" size="sm" class="ml-auto shrink-0 max-sm:h-11" data-dt-change-split @click="emit('changeSplit')">

@@ -35,7 +35,7 @@ export function filterDeclarations<D extends { declarationNumber?: string | null
 /**
  * Роль строки в списке ДТ (решение владельца 16.10.2026): исходная ДТ разделения — «Исходная ДТ (все товары)», её части
  * ЕТТ/ВТО — под ней со сдвигом; часть, которую до 16.10 разделили ещё раз, — тоже часть (со своими частями ниже), а не
- * «Разделена».
+ * «Разделена». Бывшая часть (исходную удалили — 16.10 вечер: подают части) — обычная строка с тегом роли.
  */
 export type DtRowKind = 'plain' | 'source' | 'part'
 type SplitFields = Pick<Import40DeclarationDto, 'id' | 'splitRole' | 'splitSourceDeclarationId'>
@@ -48,15 +48,34 @@ export interface DtListRow<D> {
   parts: number
   /** Часть, у которой есть свои части (старая цепочка). */
   resplit: boolean
-  /** Часть, исходной ДТ которой нет в списке (удалили до запрета 16.10). */
-  orphan: boolean
+  /**
+   * Бывшая часть: исходной ДТ нет — удалили с частями (связь снята сервером) или до 16.10 (связь висит на удалённую ДТ).
+   * Подаётся как обычная ДТ, повторно не делится.
+   */
+  detached: boolean
 }
 
 const roleRank = (role?: string | null) => ((role ?? '').toUpperCase() === 'ETT' ? 0 : (role ?? '').toUpperCase() === 'VTO' ? 1 : 2)
 
+/** Живая часть разделения: её исходная ДТ есть в заявке. */
+export const isLiveSplitPart = (
+  dt: Pick<Import40DeclarationDto, 'id' | 'splitSourceDeclarationId'>,
+  all: readonly Pick<Import40DeclarationDto, 'id'>[],
+): boolean => {
+  const src = dt.splitSourceDeclarationId
+  return !!src && src !== dt.id && all.some((d) => d.id === src)
+}
+
+/** Бывшая часть разделения: роль (или висячая связь) есть, а исходной ДТ в заявке нет. */
+export const isDetachedSplitPart = (
+  dt: Pick<Import40DeclarationDto, 'id' | 'splitRole' | 'splitSourceDeclarationId'>,
+  all: readonly Pick<Import40DeclarationDto, 'id'>[],
+): boolean => !!(dt.splitRole || dt.splitSourceDeclarationId) && !isLiveSplitPart(dt, all)
+
 /**
  * Список ДТ группами: обычные ДТ и исходные — в своём порядке, части исходной — сразу под ней (ЕТТ, затем ВТО), части
- * частей — под частью. Часть без исходной в списке — сама по себе (orphan). Порядок внутри — как в исходном списке.
+ * частей — под частью. Бывшая часть (исходной в списке нет) — сама по себе, обычной строкой. Порядок внутри — как в
+ * исходном списке.
  */
 export function groupDeclarations<D extends SplitFields>(list: readonly D[]): DtListRow<D>[] {
   const byId = new Set(list.map((d) => d.id))
@@ -72,14 +91,14 @@ export function groupDeclarations<D extends SplitFields>(list: readonly D[]): Dt
     if (seen.has(d.id)) return
     seen.add(d.id)
     const kids = children.get(d.id) ?? []
-    const isPart = !!d.splitSourceDeclarationId
+    const isPart = !!d.splitSourceDeclarationId && byId.has(d.splitSourceDeclarationId) && d.splitSourceDeclarationId !== d.id
     rows.push({
       dt: d,
       depth,
       kind: isPart ? 'part' : kids.length ? 'source' : 'plain',
       parts: kids.length,
       resplit: isPart && kids.length > 0,
-      orphan: isPart && !byId.has(d.splitSourceDeclarationId!),
+      detached: !isPart && !!(d.splitRole || d.splitSourceDeclarationId),
     })
     for (const k of kids) walk(k, depth + 1)
   }
@@ -91,13 +110,13 @@ export function groupDeclarations<D extends SplitFields>(list: readonly D[]): Dt
   return rows
 }
 
-/** У ДТ есть части разделения — исходную ДТ не удалить, пока они есть (сервер отвечает 409). */
+/** У ДТ есть части разделения — исходная ДТ (только просмотр; удаление отцепляет части). */
 export const hasSplitParts = (dt: Pick<Import40DeclarationDto, 'id'>, all: readonly Pick<Import40DeclarationDto, 'splitSourceDeclarationId'>[]): boolean =>
   all.some((d) => d.splitSourceDeclarationId === dt.id)
 
 /**
- * Тег строки: исходная ДТ разделения — «Исходная ДТ» с подсказкой (только просмотр, печать, Excel); часть — «ЕТТ»/«ВТО»
- * по splitRole (без splitRole, но rateType EATT — «ВТО»), в подсказке — от какой ДТ (или что исходная удалена);
+ * Тег строки: исходная ДТ разделения — «Исходная ДТ» с подсказкой (подать её или части); часть — «ЕТТ»/«ВТО» по splitRole
+ * (без splitRole, но rateType EATT — «ВТО»), в подсказке — от какой ДТ (или что исходная удалена и это обычная ДТ);
  * обычная ДТ — без тега.
  */
 export interface SplitTag { label: string; tone: 'neutral' | 'submitted' | 'info'; tip: string }
@@ -106,20 +125,49 @@ export function splitTag(
   all: Pick<Import40DeclarationDto, 'id' | 'declarationNumber' | 'splitSourceDeclarationId'>[],
   t: T,
 ): SplitTag | null {
-  if (!dt.splitSourceDeclarationId && hasSplitParts(dt, all)) {
+  if (!isLiveSplitPart(dt, all) && hasSplitParts(dt, all)) {
     return { label: t('import40Case.splitSource'), tone: 'neutral', tip: t('import40Case.splitSourceTooltip') }
   }
   const role = (dt.splitRole ?? '').toUpperCase()
   const label = role === 'VTO' ? 'ВТО' : role === 'ETT' ? 'ЕТТ' : !dt.splitRole && (dt.rateType ?? '').toUpperCase() === 'EATT' ? 'ВТО' : null
   if (!label) return null
   let tip = ''
-  if (dt.splitSourceDeclarationId) {
+  if (isLiveSplitPart(dt, all)) {
     const i = all.findIndex((d) => d.id === dt.splitSourceDeclarationId)
-    tip = i < 0
-      ? t('import40Case.splitOrphanTooltip')
-      : t('import40Case.splitTooltip', { num: all[i].declarationNumber || t('import40Case.dtFallback', { n: i + 1 }) })
+    tip = t('import40Case.splitTooltip', { num: all[i].declarationNumber || t('import40Case.dtFallback', { n: i + 1 }) })
+  } else if (dt.splitRole || dt.splitSourceDeclarationId) {
+    tip = t('import40Case.splitOrphanTooltip')
   }
   return { label, tone: label === 'ВТО' ? 'submitted' : 'info', tip }
+}
+
+type ExportFields = Pick<Import40DeclarationDto, 'id' | 'splitSourceDeclarationId' | 'uploadedToKeden'>
+/**
+ * Предупреждение перед XML для КЕДЕН (ДТ или ДТС; решение владельца 16.10, вечер): в КЕДЕН подаётся один вариант разделения —
+ * исходная ДТ целиком или её части ЕТТ/ВТО. Исходная с частями — всегда (и строка, если части уже выгружались); часть —
+ * если исходная уже выгружалась. null — без предупреждения. Только предупреждение, выгрузку не запрещает.
+ */
+export function splitExportWarning(dt: ExportFields, all: readonly ExportFields[], t: T): string | null {
+  const parts = all.filter((d) => d.splitSourceDeclarationId === dt.id && d.id !== dt.id)
+  if (parts.length) {
+    return [t('import40Case.splitExportSource'), ...(parts.some((p) => p.uploadedToKeden) ? [t('import40Case.splitExportPartsUploaded')] : [])].join(' ')
+  }
+  const src = isLiveSplitPart(dt, all) ? all.find((d) => d.id === dt.splitSourceDeclarationId) : undefined
+  return src?.uploadedToKeden ? t('import40Case.splitExportPart') : null
+}
+
+/** Исходные ДТ заявки, у которых есть живые части: пока они есть, вариант подачи не выбран. */
+export const splitSourcesWithParts = <D extends Pick<Import40DeclarationDto, 'id' | 'splitSourceDeclarationId'>>(all: readonly D[]): D[] =>
+  all.filter((d) => all.some((p) => p.splitSourceDeclarationId === d.id && p.id !== d.id))
+
+/**
+ * Предупреждение перед «XML готовых» (C2): в заявке есть исходная ДТ с частями — пакет выгрузит только части (исходную
+ * сервер пропускает), а в КЕДЕН подаётся один вариант. Если исходная уже выгружалась — отдельной строкой. null — без окна.
+ */
+export function splitBatchWarning(all: readonly ExportFields[], t: T): string | null {
+  const sources = splitSourcesWithParts(all)
+  if (!sources.length) return null
+  return [t('import40Case.splitBatchWarning'), ...(sources.some((s) => s.uploadedToKeden) ? [t('import40Case.splitBatchSourceUploaded')] : [])].join(' ')
 }
 
 /** «не хватает: …» — первые n пунктов и сколько осталось. */

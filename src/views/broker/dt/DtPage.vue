@@ -48,6 +48,7 @@ import {
   adjacentSection, navMarks, paymentsStale, rateTag, readonlyReason, sectionFromQuery, splitChildren, visibleSections,
 } from './dtPageModel'
 import { DT_ROUTE, type DtSectionKey } from './dtSections'
+import { isDetachedSplitPart, isLiveSplitPart, splitExportWarning } from '@/views/broker/case/declarations'
 import { useDtForm } from './useDtForm'
 import { originForGoods, specialCountryKey } from './originCountry'
 import { useDtPayments } from './useDtPayments'
@@ -78,10 +79,9 @@ const user = computed(() => dtUserFrom(auth))
 const canManage = computed(() => canManageDeclarations(user.value))
 
 // ---- Готовность ДТ и ДТС ----
-// ДТ заменена разделением: готовность и ДТС не спрашиваем (сервер исключает её из выгрузки). Флаг — из ответа
-// загрузки (onLoaded): useDtForm здесь ещё не создан.
-const replaced = ref(false)
-const readinessOn = computed(() => canManage.value && !replaced.value)
+// Декларанту — всегда, и у исходной ДТ разделения: её XML тоже выгружают (16.10, вечер: подают её или части), а XML 400
+// показывается в готовности.
+const readinessOn = computed(() => canManage.value)
 const readiness = useDtReadiness(caseId, dtId, { enabled: readinessOn })
 // ДТС: один загрузчик GET …/dts — для навигации, «До подачи» и самого раздела (§5-8: прежде раздел грузил ещё раз).
 // Действиям раздела — сохранение и шаг 1 расчёта платежей (форма и платежи создаются ниже — вызываются позже).
@@ -89,6 +89,8 @@ const dts = useDts(caseId, dtId, {
   enabled: readinessOn,
   editable: () => dt.editable.value,
   saveForAction: () => dt.saveForAction(),
+  confirmXml: () => confirmSplitExport(),
+  onXmlDone: () => markUploaded(),
   save: () => dt.save(),
   recalcCustomsValues: () => payments.recalcCustomsValues(),
   customsValues: () => form.goodsItems.map((g) => g.customsValueKzt),
@@ -107,7 +109,6 @@ const dt = useDtForm(caseId, dtId, {
   canEdit: (kase) => canEditDt(user.value, kase),
   onLoadStart: () => { readiness.reset(); dts.reset() },
   onLoaded: (dto, kase) => {
-    replaced.value = !!dto.isSplitReplaced
     // Как прежний экран при загрузке: гр. 8 / 9 с «Совпадает с декларантом» повторяют гр. 14, валюта товаров = гр. 22
     // (под applying — без автосейва).
     syncLoadedParties(form)
@@ -372,7 +373,30 @@ const onReload = async () => {
 const xmlLoading = ref(false)
 const printLoading = ref(false)
 const docsLoading = ref(false)
+/**
+ * Перед XML ДТ и ДТС: в КЕДЕН подаётся один вариант разделения — исходная ДТ целиком или её части ЕТТ/ВТО (16.10, вечер).
+ * Исходная с частями — предупреждение всегда; часть — если исходная уже выгружалась. Только предупреждение.
+ */
+const confirmSplitExport = async (): Promise<boolean> => {
+  const all = kase.value?.declarations ?? []
+  const self = all.find((d) => d.id === dtId) ?? dt.lastServerDto.value
+  const warning = self ? splitExportWarning(self, all, t) : null
+  if (!warning) return true
+  return confirm({
+    title: t('import40Case.splitExportTitle'),
+    content: warning,
+    okText: t('import40Case.splitExportOk'),
+    cancelText: t('import40Case.splitExportCancel'),
+  })
+}
+/** XML сформирован — сервер присвоил EDocId: флаг в данных страницы, чтобы следующее предупреждение его видело (C1). */
+const markUploaded = () => {
+  const self = kase.value?.declarations.find((d) => d.id === dtId)
+  if (self) self.uploadedToKeden = true
+  if (dt.lastServerDto.value) dt.lastServerDto.value.uploadedToKeden = true
+}
 const onXml = async () => {
+  if (!(await confirmSplitExport())) return
   // Несохранённое не теряется при выгрузке; в просмотре — без сохранения (B2).
   if (!(await dt.saveForAction(true))) return
   xmlLoading.value = true
@@ -385,6 +409,7 @@ const onXml = async () => {
       return
     }
     saveFile(res.blob, res.fileName)
+    markUploaded()
     // Гр.54 КЕДЕН из XML не импортирует — подсказка вместе с сообщением.
     message.success({ content: `${t('broker.dt.actions.xmlDone')}. ${t('broker.dt.actions.xmlGr54')}`, duration: 8 })
     void readiness.refresh()
@@ -520,8 +545,10 @@ const onDocs = async () => {
 const splitOpen = ref(false)
 // Решение владельца 16.10.2026: часть разделения повторно не делится — «Измените разделение из исходной ДТ»; у исходной
 // (все товары, только просмотр) пункт — «Изменить разделение» (окно в режиме change), право — как у правки ДТ.
-const isSplitPart = computed(() => !!dt.lastServerDto.value?.splitSourceDeclarationId)
-const splitMode = computed<'split' | 'change'>(() => (splitReplaced.value && !isSplitPart.value ? 'change' : 'split'))
+// Бывшая часть (исходную удалили) — обычная ДТ, но тоже не делится (сервер: 400), иначе снова цепочки.
+const isSplitPart = computed(() => !!dt.lastServerDto.value && isLiveSplitPart(dt.lastServerDto.value, kase.value?.declarations ?? []))
+const isDetachedPart = computed(() => !!dt.lastServerDto.value && isDetachedSplitPart(dt.lastServerDto.value, kase.value?.declarations ?? []))
+const splitMode = computed<'split' | 'change'>(() => (splitReplaced.value && !isSplitPart.value && !isDetachedPart.value ? 'change' : 'split'))
 const noSplitRight = () => {
   const c = kase.value
   return c?.assignedDeclarantId && c.assignedDeclarantId !== user.value.userId ? t('broker.dt.header.splitAssigned') : t('broker.dt.header.splitRole')
@@ -529,6 +556,7 @@ const noSplitRight = () => {
 const splitInfo = computed<{ show: boolean; reason: string; label?: string }>(() => {
   const show = !user.value.isClient
   if (isSplitPart.value) return { show, reason: t('broker.dt.header.splitPart') }
+  if (isDetachedPart.value) return { show, reason: t('broker.dt.header.splitDetached') }
   if (splitMode.value === 'change') {
     return { show, label: t('broker.dt.header.changeSplit'), reason: kase.value && canEditDt(user.value, kase.value) ? '' : noSplitRight() }
   }
@@ -719,7 +747,7 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
         :number="form.declarationNumber || null"
         :tag="tag"
         :editable="editable"
-        :can-xml="canManage && !splitReplaced"
+        :can-xml="canManage"
         :saving="dt.saving.value"
         :dirty="dt.dirty.value"
         :failed="!!dt.saveError.value || dt.conflict.value"
@@ -863,7 +891,6 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
                 :readonly="!editable"
                 :dts="dts"
                 :expense-labels="expenseLabels"
-                :no-xml="splitReplaced"
                 @open-panel="panelOpen = true"
               />
               <SectionClosing

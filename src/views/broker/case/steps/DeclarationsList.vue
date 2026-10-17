@@ -20,8 +20,8 @@ import type { CaseStepProps } from '../caseContext'
 import { hintText } from '../casePermissions'
 import { dtLabel } from '../caseSteps'
 import {
-  dtListActive, dtPath, dtRowActions, filterDeclarations, groupDeclarations, hasSplitParts, missingPreview, previewToUpsert, splitTag,
-  type DtListRow,
+  dtListActive, dtPath, dtRowActions, filterDeclarations, groupDeclarations, hasSplitParts, isLiveSplitPart, missingPreview,
+  previewToUpsert, splitBatchWarning, splitExportWarning, splitTag, type DtListRow,
 } from '../declarations'
 import ExtractionIssuesModal from './ExtractionIssuesModal.vue'
 import QuoteImportModal from './QuoteImportModal.vue'
@@ -29,9 +29,10 @@ import QuoteImportModal from './QuoteImportModal.vue'
 // Список ДТ шага 3 (доска Case): полоса «Декларации · N» с действиями, поиск при N > 1, строки ДТ.
 // Строка: номер или «ДТ i» (ссылка на страницу ДТ), тег разделения, «товаров: N», полоса заполненности из сводки
 // готовности (ctx.readiness — без запросов по каждой ДТ) и «не хватает: …».
-// Разделение ЕТТ/ВТО (решение владельца 16.10.2026): исходная ДТ — «Исходная ДТ», «все товары: N», только «Открыть»
-// (просмотр, печать, Excel); её части — сразу под ней со сдвигом; часть, разделённая ещё раз до 16.10, — тег роли и
-// «Разделена повторно», её части — ниже. Исходную с частями удалить нельзя — пункт выключен с причиной.
+// Разделение ЕТТ/ВТО (решение владельца 16.10.2026): исходная ДТ — «Исходная ДТ», «все товары: N», «Открыть» и XML
+// (правят её части); её части — сразу под ней со сдвигом; часть, разделённая ещё раз до 16.10, — тег роли и
+// «Разделена повторно», её части — ниже. 16.10 (вечер) — выбор, что подавать: XML исходной и частей с предупреждением
+// (подаётся один вариант), удаление исходной — с подтверждением, части остаются отдельными ДТ.
 // Действия над списком (добавить, из документов, из КП, пакетная выгрузка) — только на текущем шаге 3
 // (declarations.dtListActive). «Заполнить» и XML в строке — на текущем шаге 3 и после него тем, кто может править ДТ
 // (perms.canEditDt — правило страницы ДТ и сервера: админ, РОП, назначенный декларант; решения владельца 09.10),
@@ -63,7 +64,7 @@ const rows = computed(() => {
   const matched = new Set(filterDeclarations(all.value, query.value).map((d) => d.id))
   return groupDeclarations(all.value).filter((r) => matched.has(r.dt.id))
 })
-/** Строка только для просмотра: исходная ДТ разделения или повторно разделённая часть — правят их части. */
+/** Строка только для просмотра (без «Заполнить», XML можно): исходная ДТ разделения или повторно разделённая часть. */
 const viewOnly = (row: DtListRow<Import40DeclarationDto>) => row.kind === 'source' || row.resplit
 
 const readinessById = computed(() => new Map<string, DeclarationReadiness>((props.ctx.readiness ?? []).map((r) => [r.declarationId, r])))
@@ -87,9 +88,19 @@ const metaLine = (dt: Import40DeclarationDto, kind: DtListRow<Import40Declaratio
 const addDt = () => props.ctx.actions.mutate('dt-add', () => import40Api.createDeclaration(kase.value.id, {}), { done: 'broker.case.done.dtAdded' })
 
 const removeDt = async (dt: Import40DeclarationDto) => {
+  // Исходная ДТ с частями: части отцепятся и подаются как обычные ДТ (сервер), изменить разделение будет нельзя.
+  // Промежуточная часть старой цепочки — то же для её частей, но это не «исходная ДТ». Уже выгружалась в КЕДЕН — её
+  // черновик там остаётся (C3).
+  const withParts = hasSplitParts(dt, all.value)
+  const midChain = withParts && isLiveSplitPart(dt, all.value)
+  const lines = [
+    dtLabel(kase.value, dt.id, t) + '.',
+    ...(withParts ? [t(midChain ? 'import40Case.deleteMidChainText' : 'import40Case.deleteSourceText')] : []),
+    ...(dt.uploadedToKeden ? [t('import40Case.deleteUploadedText')] : []),
+  ]
   const ok = await confirm({
-    title: t('import40Case.deleteDt'),
-    content: dtLabel(kase.value, dt.id, t),
+    title: t(withParts && !midChain ? 'import40Case.deleteSourceTitle' : 'import40Case.deleteDt'),
+    content: lines.length > 1 ? lines.join(' ') : dtLabel(kase.value, dt.id, t),
     okText: t('broker.case.declaring.list.deleteOk'),
     cancelText: t('broker.case.declaring.list.keep'),
     danger: true,
@@ -102,9 +113,11 @@ const removeDt = async (dt: Import40DeclarationDto) => {
 const showMenu = computed(() => rowActions.value && (props.ctx.perms.canDeleteDt || props.ctx.perms.dtDeleteBlockedByRelease))
 const menuItems = (dt: Import40DeclarationDto) => {
   if (!props.ctx.perms.canDeleteDt) return [{ key: 'delete-blocked', label: t('broker.case.declaring.list.deleteAfterRelease'), disabled: true }]
-  // Исходная ДТ разделения — пока есть части, сервер ответит 409: пункт выключен с причиной.
+  // Исходная ДТ разделения удаляется и при частях (подтверждение говорит, что части останутся отдельными ДТ).
+  // Промежуточная часть старой цепочки — «Удалить ДТ» с той же подсказкой (это не исходная).
   if (hasSplitParts(dt, all.value)) {
-    return [{ key: 'delete-has-parts', label: t('broker.case.declaring.list.delete'), disabled: true, hint: t('broker.case.declaring.list.deleteHasParts') }]
+    const label = isLiveSplitPart(dt, all.value) ? 'broker.case.declaring.list.delete' : 'broker.case.declaring.list.deleteSource'
+    return [{ key: 'delete', label: t(label), danger: true, hint: t('broker.case.declaring.list.deleteSourceHint') }]
   }
   return [{ key: 'delete', label: t('broker.case.declaring.list.delete'), danger: true }]
 }
@@ -113,6 +126,14 @@ const onMenu = (dt: Import40DeclarationDto, key: string) => { if (key === 'delet
 // XML для КЕДЕН по одной ДТ: 400 → список «Для XML не хватает данных» под строкой; файл — скачивание и подсказка про гр.54.
 const xmlMissing = ref<{ id: string; errors: string[] } | null>(null)
 const exportXml = async (dt: Import40DeclarationDto) => {
+  // Один вариант разделения в КЕДЕН: исходная целиком или части — предупредить, выгрузку не запрещать.
+  const warning = splitExportWarning(dt, all.value, t)
+  if (warning && !(await confirm({
+    title: t('import40Case.splitExportTitle'),
+    content: warning,
+    okText: t('import40Case.splitExportOk'),
+    cancelText: t('import40Case.splitExportCancel'),
+  }))) return
   xmlMissing.value = null
   let res: Awaited<ReturnType<typeof import40Api.downloadKedenXml>> | null = null
   const ok = await props.ctx.actions.mutate(`dt-xml:${dt.id}`, async () => { res = await import40Api.downloadKedenXml(kase.value.id, dt.id) }, { reload: false })
@@ -124,6 +145,9 @@ const exportXml = async (dt: Import40DeclarationDto) => {
     return
   }
   saveBlob(out.blob, out.fileName)
+  // Сервер присвоил EDocId: флаг сразу, не дожидаясь перечитывания, — следующее предупреждение (XML части после исходной
+  // и наоборот) уже его видит (C1).
+  dt.uploadedToKeden = true
   // Гр.54 КЕДЕН из XML не переносит — подсказка, как раньше, 8 секунд.
   message.success({ content: `${t('import40Case.xmlFormed')}. ${t('dt.xmlGr54Hint')}`, duration: 8 })
   void props.ctx.actions.reload() // в журнале появилась запись о выгрузке
@@ -131,6 +155,14 @@ const exportXml = async (dt: Import40DeclarationDto) => {
 
 // Пакетная выгрузка готовых ДТ одним zip.
 const exportBatch = async () => {
+  // Исходная с частями: пакет выгрузит части — в КЕДЕН подаётся один вариант (C2). Предупреждение, не запрет.
+  const warning = splitBatchWarning(all.value, t)
+  if (warning && !(await confirm({
+    title: t('import40Case.splitExportTitle'),
+    content: warning,
+    okText: t('import40Case.splitExportOk'),
+    cancelText: t('import40Case.splitExportCancel'),
+  }))) return
   let res: Awaited<ReturnType<typeof import40Api.downloadKedenBatch>> | null = null
   const ok = await props.ctx.actions.mutate('dt-xml-batch', async () => { res = await import40Api.downloadKedenBatch(kase.value.id) }, { reload: false })
   const out = res as Awaited<ReturnType<typeof import40Api.downloadKedenBatch>> | null
@@ -346,30 +378,28 @@ const openLink = 'inline-flex h-7 items-center rounded-field bg-sunken px-2.5 te
         <div class="flex items-center gap-1.5 sm:justify-end" data-dt-actions>
           <template v-if="rowActions">
             <RouterLink v-if="viewOnly(row)" :to="dtPath(kase.id, row.dt.id)" :class="openLink" data-dt-open>{{ t('broker.case.declaring.list.open') }}</RouterLink>
-            <template v-else>
-              <ZTooltip :title="fillHint">
-                <span class="inline-flex" :tabindex="fillHint ? 0 : undefined">
-                  <ZButton size="sm" :class="toolBtn" :disabled="!canEditDt" data-dt-fill @click="router.push(dtPath(kase.id, row.dt.id))">
-                    {{ t('import40Case.fill') }}
-                  </ZButton>
-                </span>
-              </ZTooltip>
-              <ZTooltip :title="declHint || t('import40Case.xmlForKeden')">
-                <span class="inline-flex" :tabindex="declHint ? 0 : undefined">
-                  <button
-                    type="button"
-                    :class="iconBase"
-                    :disabled="blocked(`dt-xml:${row.dt.id}`)"
-                    :aria-busy="pending(`dt-xml:${row.dt.id}`) || undefined"
-                    :aria-label="t('import40Case.xmlForKeden')"
-                    data-dt-xml
-                    @click="!pending(`dt-xml:${row.dt.id}`) && exportXml(row.dt)"
-                  >
-                    <PhCode :size="16" aria-hidden="true" />
-                  </button>
-                </span>
-              </ZTooltip>
-            </template>
+            <ZTooltip v-else :title="fillHint">
+              <span class="inline-flex" :tabindex="fillHint ? 0 : undefined">
+                <ZButton size="sm" :class="toolBtn" :disabled="!canEditDt" data-dt-fill @click="router.push(dtPath(kase.id, row.dt.id))">
+                  {{ t('import40Case.fill') }}
+                </ZButton>
+              </span>
+            </ZTooltip>
+            <ZTooltip :title="declHint || t('import40Case.xmlForKeden')">
+              <span class="inline-flex" :tabindex="declHint ? 0 : undefined">
+                <button
+                  type="button"
+                  :class="iconBase"
+                  :disabled="blocked(`dt-xml:${row.dt.id}`)"
+                  :aria-busy="pending(`dt-xml:${row.dt.id}`) || undefined"
+                  :aria-label="t('import40Case.xmlForKeden')"
+                  data-dt-xml
+                  @click="!pending(`dt-xml:${row.dt.id}`) && exportXml(row.dt)"
+                >
+                  <PhCode :size="16" aria-hidden="true" />
+                </button>
+              </span>
+            </ZTooltip>
             <ZDropdown v-if="showMenu" :items="menuItems(row.dt)" @select="onMenu(row.dt, $event)">
               <button
                 type="button"

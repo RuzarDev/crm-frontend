@@ -136,8 +136,10 @@ describe('DtBanners', () => {
     w.unmount()
     w = mountBanners({ canChangeSplit: true, split: { ett: { id: 'e1', declarationNumber: '55302/091026/0001235' }, vto: { id: 'v1', declarationNumber: '' } } })
     const b = w.get('[data-dt-banner-split]')
-    expect(b.text()).toContain('Исходная ДТ — все товары до разделения.')
-    expect(b.text()).toContain('Только просмотр, печать и Excel; правьте её части:')
+    // 16.10 (вечер): выбор, что подавать — исходную (удалить части) или части (удалить исходную).
+    expect(b.text()).toContain('Исходная ДТ, все товары.')
+    expect(b.get('[data-dt-split-choice]').text()).toBe('Подать можно её (удалите части) или части ЕТТ/ВТО (удалите исходную).')
+    expect(b.text()).toContain('Пока есть части — только просмотр, печать, Excel и XML. Части: ЕТТ 55302/091026/0001235 и ВТО без номера.')
     await b.get('[data-dt-change-split]').trigger('click')
     expect(w.emitted('changeSplit')).toHaveLength(1)
     expect(b.get('[data-dt-split-ett]').attributes('href')).toBe('/import-40/c1/dt/e1')
@@ -150,6 +152,7 @@ describe('DtBanners', () => {
     const b = w.get('[data-dt-banner-split]')
     expect(b.text()).toContain('Часть разделена повторно.')
     expect(b.text()).not.toContain('Исходная ДТ')
+    expect(b.find('[data-dt-split-choice]').exists()).toBe(false)
   })
 
   it('409 — «Перезагрузить»; ошибка сохранения — «Повторить»', async () => {

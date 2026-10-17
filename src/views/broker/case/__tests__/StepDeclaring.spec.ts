@@ -112,6 +112,19 @@ describe('StepDeclaring: «Что осталось до подачи»', () => {
     expect(api.action).not.toHaveBeenCalled()
   })
 
+  // C4: подаётся один вариант разделения — пока есть и исходная ДТ, и её части, «Подать ДТ» выключена (сервер — 400).
+  it('исходная ДТ с частями — «Подать ДТ» выключена: «Выберите вариант подачи…»; бывшая часть — не мешает', () => {
+    mount(USERS.declarant, { kase: { declarations: [
+      declaration({ id: 'src', isSplitReplaced: true }),
+      declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src' }),
+    ] } })
+    expect(w.get('[data-declaring-submit]').attributes('disabled')).toBeDefined()
+    expect(tipOf('[data-declaring-submit]')).toBe('Выберите вариант подачи: удалите исходную ДТ или её части ЕТТ/ВТО')
+    w.unmount()
+    mount(USERS.declarant, { kase: { declarations: [declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'gone' })] } })
+    expect(w.get('[data-declaring-submit]').attributes('disabled')).toBeUndefined()
+  })
+
   it('без ДТ «Подать ДТ» выключена с подсказкой; без права декларанта — «Действие выполняет декларант»', () => {
     mount(USERS.declarant)
     expect(w.get('[data-declaring-submit]').attributes('disabled')).toBeDefined()

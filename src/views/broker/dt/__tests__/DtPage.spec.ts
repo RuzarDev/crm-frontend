@@ -960,7 +960,7 @@ describe('DtPage: сохранение и режимы', () => {
     openSpy.mockRestore()
   })
 
-  it('исходная ДТ: плашка со ссылками на ЕТТ и ВТО, тег «Исходная ДТ», правка и XML закрыты', async () => {
+  it('исходная ДТ: плашка «подать её или части» со ссылками, тег «Исходная ДТ», правка закрыта, XML — с предупреждением', async () => {
     server = caseDto({
       status: 2, assignedDeclarantId: 'me',
       declarations: [
@@ -977,15 +977,32 @@ describe('DtPage: сохранение и режимы', () => {
     // Просмотр: печать бланка и документы — кнопками.
     expect(w.find('[data-dt-print]').exists()).toBe(true)
     expect(w.find('[data-dt-banner-view]').exists()).toBe(false)
-    expect(w.find('[data-dt-xml]').exists()).toBe(false)
+    expect(banner.get('[data-dt-split-choice]').text()).toBe('Подать можно её (удалите части) или части ЕТТ/ВТО (удалите исходную).')
     expect(w.find('[data-dt-save]').exists()).toBe(false)
-    // Заменённая ДТ из выгрузки исключена — готовность и ДТС не спрашиваем, курсы остаются.
-    expect(api.kedenReadiness).not.toHaveBeenCalled()
-    expect(dts.get).not.toHaveBeenCalled()
-    expect(w.get('[data-dt-panel-aside]').find('[data-dt-panel-readiness]').exists()).toBe(false)
+    // 16.10 (вечер): исходную тоже подают — готовность и ДТС спрашиваем, XML есть.
+    expect(api.kedenReadiness).toHaveBeenCalled()
+    expect(dts.get).toHaveBeenCalled()
     key({ key: 's', code: 'KeyS', metaKey: true })
     await settle()
     expect(api.updateDeclaration).not.toHaveBeenCalled()
+    // XML: в КЕДЕН подаётся один вариант — предупреждение; отмена — без выгрузки, «Выгрузить XML» — выгрузка без PUT.
+    api.downloadKedenXml.mockResolvedValue({ blob: new Blob(['<xml/>']), fileName: 'src.xml' })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    await w.get('[data-dt-xml]').trigger('click')
+    await settle()
+    expect(confirmState.open).toBe(true)
+    expect(confirmState.title).toBe('В КЕДЕН подаётся один вариант')
+    expect(confirmState.content).toBe('У этой ДТ есть части ЕТТ/ВТО. В КЕДЕН подаётся один вариант: либо эта ДТ целиком, либо части. После выбора удалите лишнее.')
+    confirmState.resolve(false)
+    await settle()
+    expect(api.downloadKedenXml).not.toHaveBeenCalled()
+    await w.get('[data-dt-xml]').trigger('click')
+    await settle()
+    confirmState.resolve(true)
+    await settle()
+    expect(api.downloadKedenXml).toHaveBeenCalledWith('case1', 'dt1')
+    expect(api.updateDeclaration).not.toHaveBeenCalled()
+    click.mockRestore()
   })
 
   it('XML с ошибками — пункты из ответа в панели; после сохранения — снова готовность', async () => {
@@ -1102,6 +1119,25 @@ describe('DtPage: сохранение и режимы', () => {
     const item = [...document.body.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent?.includes('Разделить на ЕТТ/ВТО')) as HTMLElement
     expect(item.getAttribute('data-disabled')).not.toBeNull()
     expect(item.querySelector('[data-z-dropdown-hint]')?.textContent).toBe('Измените разделение из исходной ДТ')
+  })
+
+  // Бывшая часть (исходную удалили — связь снята или висит на удалённую ДТ): обычная ДТ, но повторно не делится.
+  it('бывшая часть: правка открыта, «Разделить» выключен — «бывшая часть, повторно не делится»', async () => {
+    for (const link of [null, 'gone']) {
+      server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitSourceDeclarationId: link, splitRole: 'ETT' })] })
+      await open()
+      expect(w.find('[data-dt-banner-split]').exists()).toBe(false)
+      expect(w.find('[data-dt-save]').exists()).toBe(true)
+      expect(w.find('[data-dt-xml]').exists()).toBe(true)
+      await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
+      await settle()
+      const item = [...document.body.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent?.includes('Разделить на ЕТТ/ВТО')) as HTMLElement
+      expect(item.getAttribute('data-disabled')).not.toBeNull()
+      expect(item.querySelector('[data-z-dropdown-hint]')?.textContent).toBe('Бывшая часть ЕТТ/ВТО (исходная ДТ удалена) — повторно не делится')
+      key({ key: 'Escape' })
+      w.unmount()
+      document.body.innerHTML = ''
+    }
   })
 
   it('исходная ДТ: «Изменить разделение» — предвыбор текущей ВТО, список последствий, подтверждение, замена частей', async () => {
@@ -1510,19 +1546,54 @@ describe('DtPage: ДТС', () => {
     expect(document.activeElement).toBe(field.querySelector('input'))
   })
 
-  it('разделённая ДТ: раздел «ДТС» без GET …/dts', async () => {
+  // 16.10 (вечер): у исходной ДТ ДТС считается и выгружается; XML ДТС — с тем же предупреждением, что XML ДТ. Часть —
+  // с предупреждением, только если исходная уже выгружалась.
+  it('исходная ДТ: ДТС с GET …/dts, XML ДТС — после предупреждения «один вариант»', async () => {
     server = caseDto({
       status: 2, assignedDeclarantId: 'me',
       declarations: [fullDto({ isSplitReplaced: true }), fullDto({ id: 'v1', splitSourceDeclarationId: 'dt1', splitRole: 'VTO' })],
     })
+    dts.get.mockResolvedValue(dtsView())
+    dts.xml.mockResolvedValue({ blob: new Blob(['<x/>']), fileName: 'dts.xml' })
     await open('?s=dts', ['SectionDts'])
-    await navItem('docs').trigger('click')
+    expect(dts.get).toHaveBeenCalled()
+    await w.get('[data-dts-xml]').trigger('click')
     await settle()
-    await navItem('dts').trigger('click')
+    expect(confirmState.title).toBe('В КЕДЕН подаётся один вариант')
+    confirmState.resolve(false)
     await settle()
-    expect(w.find('[data-dt-dts]').exists()).toBe(true)
-    expect(dts.get).not.toHaveBeenCalled()
-    expect(w.find('[data-dts-skeleton]').exists()).toBe(false)
+    expect(dts.xml).not.toHaveBeenCalled()
+    await w.get('[data-dts-xml]').trigger('click')
+    await settle()
+    confirmState.resolve(true)
+    await settle()
+    expect(dts.xml).toHaveBeenCalledWith('case1', 'dt1')
+  })
+
+  it('часть: XML ДТС без предупреждения, пока исходная не выгружалась; выгружалась — предупреждение', async () => {
+    server = caseDto({
+      status: 2, assignedDeclarantId: 'me',
+      declarations: [fullDto({ id: 'src', isSplitReplaced: true, splitRole: null }), fullDto({ splitSourceDeclarationId: 'src', splitRole: 'VTO' })],
+    })
+    dts.get.mockResolvedValue(dtsView())
+    dts.xml.mockResolvedValue({ blob: new Blob(['<x/>']), fileName: 'dts.xml' })
+    await open('?s=dts', ['SectionDts'])
+    await w.get('[data-dts-xml]').trigger('click')
+    await settle()
+    expect(confirmState.open).toBe(false)
+    expect(dts.xml).toHaveBeenCalledTimes(1)
+    w.unmount()
+    server = caseDto({
+      status: 2, assignedDeclarantId: 'me',
+      declarations: [fullDto({ id: 'src', isSplitReplaced: true, splitRole: null, uploadedToKeden: true }), fullDto({ splitSourceDeclarationId: 'src', splitRole: 'VTO' })],
+    })
+    await open('?s=dts', ['SectionDts'])
+    await w.get('[data-dts-xml]').trigger('click')
+    await settle()
+    expect(confirmState.content).toContain('Исходная ДТ (все товары) уже выгружалась в КЕДЕН')
+    confirmState.resolve(false)
+    await settle()
+    expect(dts.xml).toHaveBeenCalledTimes(1)
   })
 })
 

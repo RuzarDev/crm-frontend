@@ -3,7 +3,7 @@
 //
 // - Загрузка: при загрузке ДТ, после каждого сохранения и при каждом входе в раздел (вызывает страница). Раздел
 //   сам не грузит: прежде он делал свой GET, и при открытом разделе каждое сохранение давало два запроса (§5-8).
-//   Без права декларанта или у ДТ, заменённой разделением (enabled = false), — без запроса.
+//   Без права декларанта (enabled = false) — без запроса.
 //   Ответы по порядку: ответ устаревшего запроса (после reset или более нового запроса) состояние не меняет.
 //   Вход в раздел, пока идёт загрузка (сразу после сохранения), — тот же запрос, а не второй (refresh({ reuse })).
 //   Не загрузилось — прежний лист остаётся (раздел говорит, что он не обновлён), отметки раздела — «неизвестно».
@@ -28,12 +28,16 @@ import type { DtReadinessItem } from '../useDtReadiness'
 const t = (key: string, p?: Record<string, unknown>) => (p ? i18n.global.t(key, p) : i18n.global.t(key))
 
 export interface UseDtsOptions {
-  /** Спрашивать ли ДТС: право декларанта и ДТ не заменена разделением. */
+  /** Спрашивать ли ДТС: право декларанта. */
   enabled: MaybeRefOrGetter<boolean>
   /** Право править ДТ: «Пересчитать гр. 45» только с ним. По умолчанию — нет. */
   editable?: MaybeRefOrGetter<boolean>
   /** Сохранение перед печатью и XML (useDtForm.saveForAction, тихо): в просмотре — true без PUT. */
   saveForAction?: () => Promise<boolean>
+  /** Подтверждение перед XML ДТС (вариант разделения ЕТТ/ВТО — как у XML ДТ): false — не выгружать. */
+  confirmXml?: () => Promise<boolean>
+  /** XML ДТС сформирован (сервер присвоил DtsEDocId) — страница отмечает ДТ «выгружалась». */
+  onXmlDone?: () => void
   /** Тихое сохранение после «Пересчитать гр. 45» (useDtForm.save). */
   save?: () => Promise<boolean>
   /** Шаг 1 расчёта платежей (useDtPayments.recalcCustomsValues): ошибку пробрасывает. */
@@ -120,7 +124,7 @@ export function useDts(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGetter<
   /** Товары (номер с 1), у которых гр. 45 ДТ не совпадает с гр. 25а ДТС (до копейки — сервер). */
   const mismatch = computed(() => new Set(view.value?.mismatchGoods ?? []))
 
-  /** Спрашивается ли ДТС (нет — ДТ заменена разделением или нет права). */
+  /** Спрашивается ли ДТС (нет — нет права декларанта). */
   const enabled = computed(() => !!toValue(opts.enabled))
 
   const busy = computed(() => printing.value !== null || xmlLoading.value)
@@ -140,6 +144,7 @@ export function useDts(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGetter<
 
   const xml = async () => {
     if (busy.value) return
+    if (opts.confirmXml && !(await opts.confirmXml())) return
     if (opts.saveForAction && !(await opts.saveForAction())) return
     xmlLoading.value = true
     try {
@@ -150,6 +155,7 @@ export function useDts(caseId: MaybeRefOrGetter<string>, dtId: MaybeRefOrGetter<
         return
       }
       saveFile(res.blob, res.fileName)
+      opts.onXmlDone?.()
       message.success(t('broker.dt.dts.xmlDone'))
     } catch (e) {
       message.error((e as Error | undefined)?.message || t('broker.dt.dts.xmlError'))

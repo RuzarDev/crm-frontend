@@ -124,29 +124,43 @@ describe('DeclarationsList: строки и готовность', () => {
     expect(row('v1').get('[data-dt-split]').text()).toBe('ВТО')
     expect(row('v1').get('[data-dt-resplit]').text()).toBe('Разделена повторно')
     expect(row('e1').find('[data-dt-resplit]').exists()).toBe(false)
-    expect(tipOf(row('orphan').get('[data-dt-split]').element)).toBe('Часть разделения — исходная ДТ удалена')
-    // Исходная и повторно разделённая часть — только «Открыть» (просмотр, печать, Excel), без «Заполнить» и XML.
+    // Бывшая часть (исходной нет) — обычная строка: тег роли, «Заполнить» и XML.
+    expect(row('orphan').attributes('data-dt-kind')).toBe('plain')
+    expect(tipOf(row('orphan').get('[data-dt-split]').element)).toBe('Бывшая часть разделения — исходная ДТ удалена. Подаётся как обычная ДТ, повторно не делится.')
+    expect(row('orphan').find('[data-dt-fill]').exists()).toBe(true)
+    expect(row('orphan').find('[data-dt-xml]').exists()).toBe(true)
+    // Исходная и повторно разделённая часть — «Открыть» вместо «Заполнить»; XML есть (16.10, вечер: подают её или части).
     for (const id of ['src', 'v1']) {
       expect(row(id).find('[data-dt-fill]').exists()).toBe(false)
-      expect(row(id).find('[data-dt-xml]').exists()).toBe(false)
+      expect(row(id).find('[data-dt-xml]').exists()).toBe(true)
       expect(row(id).get('[data-dt-open]').attributes('href')).toBe(`/import-40/c1/dt/${id}`)
     }
     expect(row('e1').find('[data-dt-fill]').exists()).toBe(true)
   })
 
-  it('исходную ДТ с частями удалить нельзя — пункт выключен с причиной; часть удаляется', async () => {
+  // 16.10 (вечер): исходную с частями удалить можно — подтверждение говорит, что части останутся отдельными ДТ.
+  it('исходная ДТ с частями удаляется с подтверждением «части останутся отдельными ДТ»; часть — обычным', async () => {
     api.deleteDeclaration.mockResolvedValue(undefined)
     const dts = [
       declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC' }),
       declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src' }),
     ]
     mount(USERS.declarant, { kase: { declarations: dts } })
-    const blocked = row('src').get('[data-menu-item="delete-has-parts"]')
-    expect(blocked.attributes('disabled')).toBeDefined()
-    expect(blocked.attributes('title')).toBe('Сначала удалите её части ЕТТ/ВТО — пока они есть, исходную ДТ удалить нельзя')
-    expect(row('src').find('[data-menu-item="delete"]').exists()).toBe(false)
-    await row('e1').get('[data-menu-item="delete"]').trigger('click')
+    const item = row('src').get('[data-menu-item="delete"]')
+    expect(item.text()).toBe('Удалить исходную ДТ')
+    expect(item.attributes('disabled')).toBeUndefined()
+    expect(item.attributes('title')).toBe('Части ЕТТ/ВТО останутся отдельными ДТ')
+    await item.trigger('click')
+    expect(confirmState.title).toBe('Удалить исходную ДТ?')
+    expect(confirmState.content).toBe('SRC. Части ЕТТ и ВТО останутся отдельными ДТ и подаются как обычно; изменить разделение после этого будет нельзя.')
+    expect(confirmState.danger).toBe(true)
+    confirmState.resolve(true)
     await flushPromises()
+    expect(api.deleteDeclaration).toHaveBeenCalledWith('c1', 'src')
+
+    api.deleteDeclaration.mockClear()
+    await row('e1').get('[data-menu-item="delete"]').trigger('click')
+    expect(confirmState.title).toBe('Удалить ДТ?')
     confirmState.resolve(true)
     await flushPromises()
     expect(api.deleteDeclaration).toHaveBeenCalledWith('c1', 'e1')
@@ -165,7 +179,7 @@ describe('DeclarationsList: строки и готовность', () => {
 
   // Ревью I3: вид строки — по полному списку. Раньше поиск по номеру исходной убирал её части, и исходная становилась
   // обычной ДТ с «Заполнить» и XML (выгрузка всех товаров второй раз).
-  it('поиск по номеру исходной ДТ — она остаётся «Исходной ДТ» без «Заполнить» и XML', async () => {
+  it('поиск по номеру исходной ДТ — она остаётся «Исходной ДТ» без «Заполнить»', async () => {
     const dts = [
       declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC-777' }),
       declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src', declarationNumber: 'E-1' }),
@@ -177,7 +191,6 @@ describe('DeclarationsList: строки и готовность', () => {
     expect(row('src').attributes('data-dt-kind')).toBe('source')
     expect(row('src').get('[data-dt-split]').text()).toBe('Исходная ДТ')
     expect(row('src').find('[data-dt-fill]').exists()).toBe(false)
-    expect(row('src').find('[data-dt-xml]').exists()).toBe(false)
     expect(row('src').find('[data-dt-open]').exists()).toBe(true)
     // Найдена только часть — она остаётся частью (со сдвигом), с «Заполнить».
     await w.get('[data-dt-search]').setValue('V-1')
@@ -218,6 +231,139 @@ describe('DeclarationsList: действия', () => {
     expect(dl.saveBlob).toHaveBeenCalledWith(blob, 'DT-1.xml')
     expect(msg.success).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('XML сформирован. После загрузки в КЕДЕН'), duration: 8 }))
     expect(m.reload).toHaveBeenCalled()
+  })
+
+  // 16.10 (вечер): в КЕДЕН подаётся один вариант — исходная целиком или части. Предупреждение, не запрет.
+  it('XML исходной ДТ с частями — предупреждение «один вариант»; отмена — без запроса, «Выгрузить XML» — запрос', async () => {
+    const blob = new Blob(['<x/>'])
+    api.downloadKedenXml.mockResolvedValue({ blob, fileName: 'SRC.xml' })
+    const dts = [
+      declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC' }),
+      declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src' }),
+      declaration({ id: 'v1', splitRole: 'VTO', splitSourceDeclarationId: 'src', uploadedToKeden: true }),
+    ]
+    mount(USERS.declarant, { kase: { declarations: dts } })
+    await row('src').get('[data-dt-xml]').trigger('click')
+    expect(confirmState.title).toBe('В КЕДЕН подаётся один вариант')
+    expect(confirmState.content).toBe('У этой ДТ есть части ЕТТ/ВТО. В КЕДЕН подаётся один вариант: либо эта ДТ целиком, либо части. ' +
+      'После выбора удалите лишнее. Части ЕТТ/ВТО уже выгружались в КЕДЕН.')
+    expect(confirmState.okText).toBe('Выгрузить XML')
+    expect(confirmState.danger).toBe(false)
+    confirmState.resolve(false)
+    await flushPromises()
+    expect(api.downloadKedenXml).not.toHaveBeenCalled()
+    await row('src').get('[data-dt-xml]').trigger('click')
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(api.downloadKedenXml).toHaveBeenCalledWith('c1', 'src')
+    expect(dl.saveBlob).toHaveBeenCalledWith(blob, 'SRC.xml')
+  })
+
+  it('XML части — предупреждение, только если исходная уже выгружалась; бывшая часть и обычная ДТ — без него', async () => {
+    api.downloadKedenXml.mockResolvedValue({ blob: new Blob(['<x/>']), fileName: 'E.xml' })
+    mount(USERS.declarant, { kase: { declarations: [
+      declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC' }),
+      declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src' }),
+      declaration({ id: 'gone', splitRole: 'VTO', splitSourceDeclarationId: 'deleted' }),
+    ] } })
+    await row('e1').get('[data-dt-xml]').trigger('click')
+    await flushPromises()
+    expect(confirmState.open).toBe(false)
+    expect(api.downloadKedenXml).toHaveBeenCalledWith('c1', 'e1')
+    await row('gone').get('[data-dt-xml]').trigger('click')
+    await flushPromises()
+    expect(confirmState.open).toBe(false)
+    expect(api.downloadKedenXml).toHaveBeenCalledWith('c1', 'gone')
+    w.unmount()
+
+    api.downloadKedenXml.mockClear()
+    mount(USERS.declarant, { kase: { declarations: [
+      declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC', uploadedToKeden: true }),
+      declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src' }),
+    ] } })
+    await row('e1').get('[data-dt-xml]').trigger('click')
+    expect(confirmState.content).toBe('Исходная ДТ (все товары) уже выгружалась в КЕДЕН. В КЕДЕН подаётся один вариант: либо исходная ДТ ' +
+      'целиком, либо части ЕТТ/ВТО. После выбора удалите лишнее.')
+    confirmState.resolve(false)
+    await flushPromises()
+    expect(api.downloadKedenXml).not.toHaveBeenCalled()
+  })
+
+  // C1: после XML исходной флаг «выгружалась» ставится сразу — XML части тут же предупреждает (без ожидания перечитывания).
+  it('XML исходной, затем XML части — у части предупреждение «исходная уже выгружалась»', async () => {
+    api.downloadKedenXml.mockResolvedValue({ blob: new Blob(['<x/>']), fileName: 'x.xml' })
+    mount(USERS.declarant, { kase: { declarations: [
+      declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC' }),
+      declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src' }),
+    ] } })
+    await row('src').get('[data-dt-xml]').trigger('click')
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(api.downloadKedenXml).toHaveBeenCalledWith('c1', 'src')
+    await row('e1').get('[data-dt-xml]').trigger('click')
+    await flushPromises()
+    expect(confirmState.open).toBe(true)
+    expect(confirmState.content).toContain('Исходная ДТ (все товары) уже выгружалась в КЕДЕН')
+  })
+
+  // C2: «XML готовых» при исходной с частями — то же окно «один вариант» (+ строка, если исходная выгружалась).
+  it('«XML готовых» при исходной с частями — предупреждение; отмена — без запроса; без разделения — без окна', async () => {
+    api.downloadKedenBatch.mockResolvedValue({ blob: new Blob(['zip']), fileName: 'k.zip' })
+    const dts = [
+      declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC', uploadedToKeden: true }),
+      declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src' }),
+    ]
+    mount(USERS.declarant, { kase: { declarations: dts }, readiness: [rd({ declarationId: 'e1', isReady: true, filled: 22 })] })
+    await w.get('[data-dt-xml-batch]').trigger('click')
+    expect(confirmState.title).toBe('В КЕДЕН подаётся один вариант')
+    expect(confirmState.content).toBe('В заявке есть исходная ДТ и её части ЕТТ/ВТО. В пакет войдут только части (исходная пропускается). ' +
+      'В КЕДЕН подаётся один вариант: если подаёте исходную целиком, части не выгружайте и удалите. Исходная ДТ уже выгружалась в КЕДЕН.')
+    confirmState.resolve(false)
+    await flushPromises()
+    expect(api.downloadKedenBatch).not.toHaveBeenCalled()
+    await w.get('[data-dt-xml-batch]').trigger('click')
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(api.downloadKedenBatch).toHaveBeenCalledWith('c1')
+    w.unmount()
+    api.downloadKedenBatch.mockClear()
+    mount(USERS.declarant, { kase: { declarations: two }, readiness: [rd({ declarationId: 'd1', isReady: true, filled: 22 })] })
+    await w.get('[data-dt-xml-batch]').trigger('click')
+    await flushPromises()
+    expect(confirmState.open).toBe(false)
+    expect(api.downloadKedenBatch).toHaveBeenCalledWith('c1')
+  })
+
+  // C3: удаляемая ДТ уже выгружалась — подтверждение напоминает удалить черновик в КЕДЕН.
+  it('удаление выгружавшейся ДТ (исходной или части) — строка про черновик в КЕДЕН', async () => {
+    api.deleteDeclaration.mockResolvedValue(undefined)
+    mount(USERS.declarant, { kase: { declarations: [
+      declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC', uploadedToKeden: true }),
+      declaration({ id: 'e1', splitRole: 'ETT', splitSourceDeclarationId: 'src', declarationNumber: 'E-1', uploadedToKeden: true }),
+    ] } })
+    await row('src').get('[data-menu-item="delete"]').trigger('click')
+    expect(confirmState.content).toBe('SRC. Части ЕТТ и ВТО останутся отдельными ДТ и подаются как обычно; изменить разделение после этого будет нельзя. ' +
+      'Эта ДТ уже выгружалась в КЕДЕН — удалите её черновик там.')
+    confirmState.resolve(false)
+    await flushPromises()
+    await row('e1').get('[data-menu-item="delete"]').trigger('click')
+    expect(confirmState.title).toBe('Удалить ДТ?')
+    expect(confirmState.content).toBe('E-1. Эта ДТ уже выгружалась в КЕДЕН — удалите её черновик там.')
+  })
+
+  // M3: промежуточная часть старой цепочки — «Удалить ДТ» (не «исходную»), окно — про её части; подсказка цепочки согласована.
+  it('промежуточная часть старой цепочки — «Удалить ДТ», её части останутся отдельными ДТ', async () => {
+    mount(USERS.declarant, { kase: { declarations: [
+      declaration({ id: 'src', isSplitReplaced: true, declarationNumber: 'SRC' }),
+      declaration({ id: 'v1', splitRole: 'VTO', splitSourceDeclarationId: 'src', isSplitReplaced: true, declarationNumber: 'V-1' }),
+      declaration({ id: 'v2', splitRole: 'VTO', splitSourceDeclarationId: 'v1' }),
+    ] } })
+    expect(tipOf(row('v1').get('[data-dt-resplit]').element)).toContain('удалите эту часть — они останутся отдельными ДТ')
+    const item = row('v1').get('[data-menu-item="delete"]')
+    expect(item.text()).toBe('Удалить ДТ')
+    await item.trigger('click')
+    expect(confirmState.title).toBe('Удалить ДТ?')
+    expect(confirmState.content).toBe('V-1. Её части останутся отдельными ДТ и подаются как обычно.')
   })
 
   it('удаление ДТ спрашивает подтверждение; «Не удалять» — без запроса, «Удалить» — DELETE, тост, перечитывание', async () => {
