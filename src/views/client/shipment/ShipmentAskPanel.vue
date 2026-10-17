@@ -11,7 +11,7 @@ import ZModal from '@/components/z/ZModal.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
 import ZUpload from '@/components/z/ZUpload.vue'
 import { import40Api, type Import40CaseDto, type Import40FileDto } from '@/api/import40'
-import { currentRound, openItems, reworkApi, type ReworkResponse } from '@/api/import40Rework'
+import { currentRound, openItems, reworkApi, reworkList, type ReworkResponse } from '@/api/import40Rework'
 import ShipmentReworkList from '@/views/client/shipment/ShipmentReworkList.vue'
 import { useConfirm } from '@/ui/confirm'
 import type { ClientShipment } from '@/api/clientShipments'
@@ -159,23 +159,33 @@ watch(() => (ask.value === 'returned' ? `${props.caseDto.id}:${props.caseDto.upd
   }
 }, { immediate: true })
 const reworkItems = computed(() => currentRound(rework.value?.items ?? []))
-// Причину, составленную сервером из пунктов, не повторяем — пункты и так списком; комментарий сотрудника — показываем.
-const returnedText = computed(() => (reworkItems.value.length ? rework.value?.comment ?? '' : props.shipment.returnReason))
+// ReturnReason — только комментарий сотрудника. Пункты не загрузились — их перечень из строки поставки (на языке клиента).
+const returnedText = computed(() => {
+  if (props.shipment.returnReason || reworkItems.value.length || !props.shipment.reworkRequested) return props.shipment.returnReason
+  const open = props.shipment.reworkOpen ?? []
+  return open.length ? t('rework.client.rowText', { list: reworkList(t, open) }) : t('rework.client.rowAllDone')
+})
 
 const { confirm } = useConfirm()
 const resending = ref(false)
 const resend = async () => {
   if (resending.value) return
+  // Как в мастере: отправка = подтверждение, что документы полные и достоверные; незагруженное — перечисляем.
   const open = openItems(reworkItems.value)
-  if (open.length) {
-    const go = await confirm({
-      title: t('rework.client.resendWarnTitle'),
-      content: t('rework.client.resendWarnText', { list: open.map((x) => x.title).join(', ') }),
-      okText: t('rework.client.resendOk'),
-      cancelText: t('rework.client.resendCancel'),
-    })
-    if (!go) return
-  }
+  const go = await confirm(open.length
+    ? {
+        title: t('rework.client.resendWarnTitle'),
+        content: t('rework.client.resendWarnText', { list: reworkList(t, open) }),
+        okText: t('rework.client.resendOk'),
+        cancelText: t('rework.client.resendCancel'),
+      }
+    : {
+        title: t('rework.client.resendTitle'),
+        content: t('rework.client.resendResp'),
+        okText: t('rework.client.resendOk'),
+        cancelText: t('common.cancel'),
+      })
+  if (!go) return
   resending.value = true
   try {
     await import40Api.action(props.caseDto.id, 'submit-for-processing')

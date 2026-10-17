@@ -9,7 +9,7 @@ import ZInput from '@/components/z/ZInput.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
 import type { Import40CaseDto } from '@/api/import40'
-import { reworkApi, type ReworkSuggestionDto } from '@/api/import40Rework'
+import { reworkApi, reworkTitle, type ReworkSuggestionDto } from '@/api/import40Rework'
 import {
   REWORK_KINDS, buildItems, dtCodesOf, emptyChecks, otherMissingTitle, parseCodes, suggestionAdded,
   type ReworkChecks, type ReworkExtraRow,
@@ -76,14 +76,15 @@ watch(() => props.open, (v) => {
 }, { immediate: true })
 
 const addOther = () => {
-  extra.value.push({ key: `o${++rowSeq}`, kind: 'other', title: '', note: '', code: null })
+  extra.value.push({ key: `o${++rowSeq}`, kind: 'other', title: '', note: '', docKey: null, code: null, act: null })
 }
+// Подсказка — документ ключом (клиент увидит его на своём языке), код ТН ВЭД и акт отдельными полями.
 const addSuggestion = (s: ReworkSuggestionDto) => {
   if (suggestionAdded(extra.value, s)) return
-  extra.value.push({ key: `s${++rowSeq}`, kind: s.kind, title: s.title, note: t('rework.sugg.codeNote', { code: s.code }), code: s.code })
+  extra.value.push({ key: `s${++rowSeq}`, kind: s.kind, title: '', note: '', docKey: s.docKey, code: s.code, act: s.act })
 }
 const removeRow = (key: string) => { extra.value = extra.value.filter((r) => r.key !== key) }
-const rowTitle = (r: ReworkExtraRow) => r.title.trim() || t('client.docKind.other.name')
+const rowTitle = (r: ReworkExtraRow) => reworkTitle(t, { kind: r.kind, title: r.title.trim(), docKey: r.docKey })
 
 // ---- Отправка ----
 const items = computed(() => buildItems(checks, extra.value))
@@ -145,7 +146,7 @@ const iconBtn = 'inline-flex size-11 shrink-0 cursor-pointer items-center justif
           <div class="flex items-start gap-2">
             <div class="flex min-w-0 flex-1 flex-col gap-1">
               <span class="text-xs text-muted">
-                {{ t(`client.docKind.${r.kind}.name`) }}<template v-if="r.code"> · <span class="font-mono">{{ r.code }}</span></template>
+                {{ t(`client.docKind.${r.kind}.name`) }}<template v-if="r.code"> · {{ t('rework.sugg.codeNote', { code: r.code }) }}</template>
               </span>
               <ZInput
                 v-if="r.kind === 'other'"
@@ -156,7 +157,8 @@ const iconBtn = 'inline-flex size-11 shrink-0 cursor-pointer items-center justif
                 :maxlength="300"
                 data-rework-other-title
               />
-              <span v-else class="text-sm font-medium text-ink [overflow-wrap:anywhere]">{{ r.title }}</span>
+              <span v-else class="text-sm font-medium text-ink [overflow-wrap:anywhere]">{{ rowTitle(r) }}</span>
+              <span v-if="r.act" class="text-xs text-muted [overflow-wrap:anywhere]">{{ t('rework.act', { act: r.act }) }}</span>
             </div>
             <button type="button" :class="iconBtn" :aria-label="t('rework.removeRow', { title: rowTitle(r) })" data-rework-remove @click="removeRow(r.key)">
               <PhX :size="16" aria-hidden="true" />
@@ -191,20 +193,20 @@ const iconBtn = 'inline-flex size-11 shrink-0 cursor-pointer items-center justif
         <ul v-else-if="sugg" role="list" class="m-0 flex list-none flex-col p-0">
           <li
             v-for="s in sugg"
-            :key="`${s.code}:${s.kind}:${s.title}`"
+            :key="`${s.code}:${s.docKey}`"
             class="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-line py-2 last:border-b-0"
             data-rework-sugg-row
           >
             <div class="flex min-w-0 flex-[1_1_240px] flex-col gap-0.5">
               <span class="text-sm text-ink [overflow-wrap:anywhere]">
-                <span class="font-mono text-[13px] text-ink-2">{{ s.code }}</span> · {{ s.title }}
+                <span class="font-mono text-[13px] text-ink-2">{{ s.code }}</span> · {{ t(`rework.doc.${s.docKey}`) }}
               </span>
               <span v-if="s.act" class="text-xs text-muted [overflow-wrap:anywhere]" :title="s.measure">{{ s.act }}</span>
             </div>
             <ZButton
               size="sm"
               :disabled="suggestionAdded(extra, s)"
-              :aria-label="t('rework.sugg.addAria', { title: s.title, code: s.code })"
+              :aria-label="t('rework.sugg.addAria', { title: t(`rework.doc.${s.docKey}`), code: s.code })"
               class="max-sm:h-11 max-sm:w-full"
               data-rework-sugg-add
               @click="addSuggestion(s)"

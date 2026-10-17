@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhCheckCircle, PhCircleDashed, PhUploadSimple } from '@phosphor-icons/vue'
 import ZUpload from '@/components/z/ZUpload.vue'
-import { reworkApi, type ReworkItemDto } from '@/api/import40Rework'
+import { reworkApi, reworkTitle, type ReworkItemDto } from '@/api/import40Rework'
 import { message } from '@/ui/message'
 
 // «Нужно от вас: догрузить» (17.10): пункты возврата на доработку — у каждого своя загрузка файла нужного вида
@@ -31,6 +31,9 @@ const upload = async (item: ReworkItemDto, file: File) => {
   }
 }
 
+// Подпись на языке клиента: русских названий с сервера не показываем (у «Другого» — текст сотрудника).
+const titleOf = (x: ReworkItemDto) => reworkTitle(t, x)
+
 const doneText = (x: ReworkItemDto) =>
   x.resolvedFileName ? t('rework.client.uploadedFile', { file: x.resolvedFileName }) : t('rework.client.closed')
 
@@ -49,7 +52,10 @@ const uploadBtn = 'max-sm:block max-sm:w-full [&>button]:h-9 [&>button]:bg-surfa
       <PhCheckCircle v-if="x.resolvedAtUtc" :size="18" weight="fill" class="shrink-0 text-tone-done-fg" aria-hidden="true" />
       <PhCircleDashed v-else :size="18" class="shrink-0 text-gold-ink" aria-hidden="true" />
       <div class="flex min-w-0 flex-[1_1_200px] flex-col gap-0.5">
-        <span class="text-sm font-medium text-ink [overflow-wrap:anywhere]">{{ x.title }}</span>
+        <span class="text-sm font-medium text-ink [overflow-wrap:anywhere]" data-rework-title>{{ titleOf(x) }}</span>
+        <span v-if="x.tnvedCode || x.actRef" class="text-xs text-muted [overflow-wrap:anywhere]" data-rework-ref>
+          <template v-if="x.tnvedCode">{{ t('rework.sugg.codeNote', { code: x.tnvedCode }) }}</template><template v-if="x.tnvedCode && x.actRef"> · </template><template v-if="x.actRef">{{ t('rework.act', { act: x.actRef }) }}</template>
+        </span>
         <span v-if="x.note" class="text-[13px] text-ink-2 [overflow-wrap:anywhere]">{{ x.note }}</span>
         <span v-if="x.resolvedAtUtc" class="text-[13px] text-tone-done-fg [overflow-wrap:anywhere]" data-rework-done>{{ doneText(x) }}</span>
       </div>
@@ -61,7 +67,7 @@ const uploadBtn = 'max-sm:block max-sm:w-full [&>button]:h-9 [&>button]:bg-surfa
         :disabled="!!uploading && uploading !== x.id"
         button-variant="secondary"
         :class="uploadBtn"
-        :aria-label="t('rework.client.uploadAria', { title: x.title })"
+        :aria-label="t('rework.client.uploadAria', { title: titleOf(x) })"
         :custom-request="({ file }) => upload(x, file)"
         data-rework-upload
       >

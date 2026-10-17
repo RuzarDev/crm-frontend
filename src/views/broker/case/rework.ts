@@ -7,14 +7,17 @@ import { DOC_CHECKLIST } from '@/views/client/docKinds'
 /** Галочки окна — виды чек-листа клиента (вкл. certificate); «Другое» — отдельными строками с названием. */
 export const REWORK_KINDS: ReworkKind[] = DOC_CHECKLIST.map((d) => d.key)
 
-/** Строка сверх галочек: «Другой документ» (название пишет сотрудник) или подсказка нетарифных мер (название готово). */
+/** Строка сверх галочек: «Другой документ» (название пишет сотрудник) или подсказка нетарифных мер (документ docKey). */
 export interface ReworkExtraRow {
   key: string
   kind: ReworkKind
+  /** Только у «Другого документа». */
   title: string
   note: string
-  /** Код ТН ВЭД подсказки; у «Другого документа» — нет. */
+  /** Подсказка: документ (rework.doc.*), код ТН ВЭД и акт; у «Другого документа» — null. */
+  docKey: string | null
   code: string | null
+  act: string | null
 }
 
 export type ReworkChecks = Record<ReworkKind, { on: boolean; note: string }>
@@ -50,7 +53,11 @@ export function buildItems(checks: ReworkChecks, extra: ReworkExtraRow[]): Rewor
   const items: ReworkItemInput[] = REWORK_KINDS
     .filter((k) => checks[k].on)
     .map((k) => ({ kind: k, note: checks[k].note.trim() || null }))
-  for (const r of extra) items.push({ kind: r.kind, title: r.title.trim(), note: r.note.trim() || null })
+  for (const r of extra) {
+    items.push(r.kind === 'other'
+      ? { kind: r.kind, title: r.title.trim(), note: r.note.trim() || null }
+      : { kind: r.kind, note: r.note.trim() || null, docKey: r.docKey, code: r.code, act: r.act })
+  }
   return items
 }
 
@@ -58,8 +65,8 @@ export const otherMissingTitle = (extra: ReworkExtraRow[]): boolean =>
   extra.some((r) => r.kind === 'other' && !r.title.trim())
 
 export const suggestionAdded = (extra: ReworkExtraRow[], s: ReworkSuggestionDto): boolean =>
-  extra.some((r) => r.code === s.code && r.kind === s.kind && r.title === s.title)
+  extra.some((r) => r.code === s.code && r.docKey === s.docKey)
 
 /** Открытые сверху, внутри — по времени возврата. */
 export const sortItems = (items: ReworkItemDto[]): ReworkItemDto[] =>
-  [...items].sort((a, b) => Number(!!a.resolvedAtUtc) - Number(!!b.resolvedAtUtc) || a.createdAtUtc.localeCompare(b.createdAtUtc))
+  [...items].sort((a, b) => Number(!!a.resolvedAtUtc) - Number(!!b.resolvedAtUtc) || Date.parse(a.createdAtUtc) - Date.parse(b.createdAtUtc))

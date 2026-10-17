@@ -5,7 +5,7 @@ import { PhCheckCircle, PhCircleDashed, PhTrash } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import type { Import40CaseDto } from '@/api/import40'
-import { reworkApi, type ReworkItemDto } from '@/api/import40Rework'
+import { reworkApi, reworkTitle, type ReworkItemDto } from '@/api/import40Rework'
 import { useConfirm } from '@/ui/confirm'
 import { cn } from '@/ui/cn'
 import type { CasePerms } from './casePermissions'
@@ -38,7 +38,9 @@ watch(() => `${props.kase.id}:${props.kase.updatedAtUtc}:${props.kase.status}`, 
 
 const sorted = computed(() => sortItems(items.value))
 const doneCount = computed(() => items.value.filter((x) => x.resolvedAtUtc).length)
-const canManage = computed(() => props.perms.can('kpp') || props.perms.can('declarant'))
+// Как сервер (Import40Rework.CanManage): kpp / declarant / rop по роли или праву матрицы, руководитель с import40.assign, админ.
+const canManage = computed(() => props.perms.can('kpp') || props.perms.can('declarant') || props.perms.canAssign)
+const titleOf = (x: ReworkItemDto) => reworkTitle(t, x)
 
 const resolutionText = (x: ReworkItemDto) => {
   if (!x.resolvedAtUtc) return ''
@@ -49,7 +51,7 @@ const resolutionText = (x: ReworkItemDto) => {
 const resolve = (x: ReworkItemDto) =>
   props.actions.mutate(`rework:${x.id}`, () => reworkApi.resolve(props.kase.id, x.id), { done: 'rework.list.resolved' })
 const remove = async (x: ReworkItemDto) => {
-  const ok = await confirm({ title: t('rework.list.removeTitle', { title: x.title }), content: t('rework.list.removeText'), okText: t('rework.list.remove'), danger: true })
+  const ok = await confirm({ title: t('rework.list.removeTitle', { title: titleOf(x) }), content: t('rework.list.removeText'), okText: t('rework.list.remove'), danger: true })
   if (!ok) return
   await props.actions.mutate(`rework:${x.id}`, () => reworkApi.remove(props.kase.id, x.id), { done: 'rework.list.removed' })
 }
@@ -74,7 +76,10 @@ const btn = 'max-sm:h-11 max-sm:px-4'
         <PhCheckCircle v-if="x.resolvedAtUtc" :size="18" weight="fill" class="mt-0.5 shrink-0 text-tone-done-fg" aria-hidden="true" />
         <PhCircleDashed v-else :size="18" class="mt-0.5 shrink-0 text-gold-ink" aria-hidden="true" />
         <div class="flex min-w-0 flex-[1_1_220px] flex-col gap-0.5">
-          <span :class="cn('text-sm text-ink [overflow-wrap:anywhere]', !x.resolvedAtUtc && 'font-medium')">{{ x.title }}</span>
+          <span :class="cn('text-sm text-ink [overflow-wrap:anywhere]', !x.resolvedAtUtc && 'font-medium')">{{ titleOf(x) }}</span>
+          <span v-if="x.tnvedCode || x.actRef" class="text-xs text-muted [overflow-wrap:anywhere]" data-rework-item-ref>
+            <template v-if="x.tnvedCode">{{ t('rework.sugg.codeNote', { code: x.tnvedCode }) }}</template><template v-if="x.tnvedCode && x.actRef"> · </template><template v-if="x.actRef">{{ t('rework.act', { act: x.actRef }) }}</template>
+          </span>
           <span v-if="x.note" class="text-[13px] text-ink-2 [overflow-wrap:anywhere]" data-rework-item-note>{{ x.note }}</span>
           <span v-if="x.resolvedAtUtc" class="text-xs text-muted [overflow-wrap:anywhere]" data-rework-resolution>{{ resolutionText(x) }}</span>
         </div>
@@ -87,14 +92,14 @@ const btn = 'max-sm:h-11 max-sm:px-4'
               :class="btn"
               :loading="actions.isPending(`rework:${x.id}`)"
               :disabled="actions.busy() && !actions.isPending(`rework:${x.id}`)"
-              :aria-label="t('rework.list.resolveAria', { title: x.title })"
+              :aria-label="t('rework.list.resolveAria', { title: titleOf(x) })"
               data-rework-resolve
               @click="resolve(x)"
             >{{ t('rework.list.resolve') }}</ZButton>
             <button
               type="button"
               :disabled="actions.busy()"
-              :aria-label="t('rework.list.removeAria', { title: x.title })"
+              :aria-label="t('rework.list.removeAria', { title: titleOf(x) })"
               class="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent text-muted outline-hidden hover:bg-sunken hover:text-ink focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-50 sm:size-8"
               data-rework-remove-item
               @click="remove(x)"

@@ -325,6 +325,15 @@ describe('ClientWizardView', () => {
     expect(banner.attributes('role')).toBe('region')
   })
 
+  it('возврат по чек-листу без комментария — в баннере пункты на языке клиента, не русская «причина»', async () => {
+    server = caseDto({
+      id: 'c1', status: 0, cargo: 'Станки', returnReason: '', reworkRequested: true,
+      openReworkItems: [{ id: 'r1', kind: 'certificate', title: '', docKey: 'vet', note: '', tnvedCode: null, actRef: null, createdAtUtc: '2026-10-17T05:00:00Z', createdByName: null, resolvedAtUtc: null, resolvedFileId: null, resolvedFileName: null, resolvedByName: null }],
+    })
+    await mountAt('/import-40/new/c1')
+    expect(w.get('[data-wz-returned]').text()).toContain('Догрузите: Ветеринарный сертификат')
+  })
+
   it('обычный черновик — баннера возврата нет', async () => {
     server = caseDto({ id: 'c1', status: 0, cargo: 'Станки', returnReason: '' })
     await mountAt('/import-40/new/c1')
@@ -417,12 +426,13 @@ describe('ClientWizardView', () => {
     })
 
     it('возврат по чек-листу: незагруженные пункты — вопрос перед отправкой', async () => {
-      server = { ...fullDraft(), returnReason: 'Догрузите документы: Упаковочный лист' }
+      server = { ...fullDraft(), returnReason: '', reworkRequested: true }
       api.listFiles.mockResolvedValue(['invoice', 'transport', 'packing', 'contract'].map((k, i) =>
         fileDto({ id: `f${i}`, docKind: k, originalFileName: `${k}.pdf` })))
       reworkApiMock.list.mockResolvedValueOnce({
         comment: null,
-        items: [{ id: 'r1', kind: 'permit', title: 'Разрешение на ввоз', note: '', createdAtUtc: '2026-10-17T05:00:00Z', createdByName: null, resolvedAtUtc: null, resolvedFileId: null, resolvedFileName: null, resolvedByName: null }],
+        reworkRequested: true,
+        items: [{ id: 'r1', kind: 'permit', title: '', docKey: 'importPermit', tnvedCode: null, actRef: null, note: '', createdAtUtc: '2026-10-17T05:00:00Z', createdByName: null, resolvedAtUtc: null, resolvedFileId: null, resolvedFileName: null, resolvedByName: null }],
       } as never)
       await mountAt('/import-40/new/c1')
       await w.get('[data-docs-resp]').trigger('click')
@@ -430,7 +440,7 @@ describe('ClientWizardView', () => {
       await flushPromises()
       expect(reworkApiMock.list).toHaveBeenCalledWith('c1', { silent: true })
       expect(confirmState.open).toBe(true)
-      expect(confirmState.content).toBe('Ещё не загружено: Разрешение на ввоз. Отправить заявку всё равно?')
+      expect(confirmState.content).toBe('Ещё не загружено: Разрешение на ввоз. Отправить заявку всё равно? Отправляя, вы подтверждаете, что документы полные и достоверные.')
       confirmState.resolve(true)
       await flushPromises()
       expect(api.action).toHaveBeenCalledWith('c1', 'submit-for-processing')

@@ -1,15 +1,25 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhArrowUUpLeft, PhFlag, PhXCircle } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import type { Import40CaseDto } from '@/api/import40'
+import { reworkList } from '@/api/import40Rework'
 import type { CasePerms } from './casePermissions'
 import type { CaseActions } from './useCaseActions'
 
 // Плашки над шагами: отменена (причина), проблема (внутренняя заметка, что ушло клиенту, «Снять проблему»),
 // возвращена клиенту (причина, только в статусе 0).
-defineProps<{ kase: Import40CaseDto; perms: CasePerms; actions: CaseActions }>()
+const props = defineProps<{ kase: Import40CaseDto; perms: CasePerms; actions: CaseActions }>()
 const { t } = useI18n()
+
+// Возврат клиенту: комментарий сотрудника; без него (возврат по чек-листу, 17.10) — что клиенту осталось догрузить.
+const returned = computed(() => props.kase.status === 0 && (!!props.kase.returnReason || !!props.kase.reworkRequested))
+const returnedText = computed(() => {
+  if (props.kase.returnReason) return props.kase.returnReason
+  const open = props.kase.openReworkItems ?? []
+  return open.length ? t('rework.list.bannerItems', { list: reworkList(t, open) }) : t('rework.list.bannerAllDone')
+})
 </script>
 
 <template>
@@ -52,7 +62,7 @@ const { t } = useI18n()
   </div>
 
   <div
-    v-if="kase.returnReason && kase.status === 0"
+    v-if="returned"
     role="status"
     class="flex items-start gap-3.5 rounded-panel border border-gold-line bg-gold-soft px-[18px] py-3.5 text-sm"
     data-case-banner="returned"
@@ -60,7 +70,7 @@ const { t } = useI18n()
     <PhArrowUUpLeft :size="18" class="mt-0.5 shrink-0 text-gold-ink" aria-hidden="true" />
     <div class="min-w-0 flex-1">
       <div class="font-semibold text-gold-ink">{{ t('import40Case.returnedTitle') }}</div>
-      <div class="mt-0.5 text-ink-2 [overflow-wrap:anywhere]">{{ kase.returnReason }}</div>
+      <div class="mt-0.5 text-ink-2 [overflow-wrap:anywhere]" data-returned-text>{{ returnedText }}</div>
     </div>
   </div>
 </template>

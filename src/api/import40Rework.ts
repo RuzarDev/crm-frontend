@@ -9,16 +9,28 @@ export type ReworkKind = 'invoice' | 'transport' | 'packing' | 'contract' | 'ori
 
 export interface ReworkItemInput {
   kind: ReworkKind
-  /** Подпись: для other — обязательна; для остальных — по желанию (подсказка нетарифных мер), иначе название вида. */
+  /** Название — только у other (обязательно); остальные подписываются по kind/docKey на языке пользователя. */
   title?: string | null
   note?: string | null
+  /** Документ подсказки нетарифных мер (rework.doc.*), код ТН ВЭД и акт. */
+  docKey?: string | null
+  code?: string | null
+  act?: string | null
 }
 
-export interface ReworkItemDto {
-  id: string
+/** Что нужно для подписи пункта: вид, название (только у other), документ подсказки. */
+export interface ReworkBrief {
   kind: string
   title: string
+  docKey: string | null
+}
+
+export interface ReworkItemDto extends ReworkBrief {
+  id: string
   note: string
+  tnvedCode: string | null
+  /** Официальная ссылка на акт(ы) меры — не переводится. */
+  actRef: string | null
   createdAtUtc: string
   createdByName: string | null
   resolvedAtUtc: string | null
@@ -29,14 +41,19 @@ export interface ReworkItemDto {
 }
 
 export interface ReworkResponse {
-  /** Общий комментарий последнего возврата; null — сотрудник его не писал (причина составлена из пунктов). */
+  /** Общий комментарий сотрудника; null — не писал. */
   comment: string | null
+  /** Возврат с пунктами: «вернули на доработку» и без комментария. */
+  reworkRequested: boolean
   items: ReworkItemDto[]
 }
 
 export interface ReworkSuggestionDto {
   code: string
   kind: ReworkKind
+  /** Документ (rework.doc.*) — подписывается на языке пользователя. */
+  docKey: string
+  /** Русское название (журнал заявки). */
   title: string
   /** Формулировка меры КЕДЕН. */
   measure: string
@@ -95,11 +112,27 @@ export const reworkApi = {
   },
 }
 
+const ms = (iso: string) => Date.parse(iso)
+
 /** Пункты текущего возврата для клиента: незакрытые + закрытые в последнем возврате (старые закрытые — история). */
 export function currentRound(items: ReworkItemDto[]): ReworkItemDto[] {
   if (!items.length) return []
-  const last = items.reduce((m, x) => (x.createdAtUtc > m ? x.createdAtUtc : m), items[0].createdAtUtc)
-  return items.filter((x) => !x.resolvedAtUtc || x.createdAtUtc === last)
+  const last = Math.max(...items.map((x) => ms(x.createdAtUtc)))
+  return items.filter((x) => !x.resolvedAtUtc || ms(x.createdAtUtc) === last)
 }
+
+type Tr = (key: string, named?: Record<string, unknown>) => string
+
+/**
+ * Подпись пункта на языке пользователя: у «Другого» — название сотрудника, у подсказки — документ (rework.doc.*),
+ * иначе — вид из чек-листа клиента (client.docKind.*). Русских названий с сервера не показываем.
+ */
+export const reworkTitle = (t: Tr, x: ReworkBrief): string =>
+  x.kind === 'other' ? x.title || t('client.docKind.other.name')
+  : x.docKey ? t(`rework.doc.${x.docKey}`)
+  : t(`client.docKind.${x.kind}.name`)
+
+/** Пункты через запятую — для строки «Нужно от вас», плашек и предупреждения перед отправкой. */
+export const reworkList = (t: Tr, items: ReworkBrief[]): string => items.map((x) => reworkTitle(t, x)).join(', ')
 
 export const openItems = (items: ReworkItemDto[]): ReworkItemDto[] => items.filter((x) => !x.resolvedAtUtc)

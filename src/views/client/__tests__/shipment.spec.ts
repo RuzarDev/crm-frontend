@@ -18,6 +18,7 @@ describe('askFor / tabOf', () => {
   it.each([
     ['черновик', { status: 0, step: 1 }, 'draft', 'drafts'],
     ['возврат на доработку', { status: 0, step: 1, returnReason: 'Нет инвойса' }, 'returned', 'waiting'],
+    ['возврат по чек-листу без комментария', { status: 0, step: 1, reworkRequested: true }, 'returned', 'waiting'],
     ['черновик с проблемой', { status: 0, step: 1, isProblem: true }, 'problem', 'waiting'],
     ['граница', { status: 1, step: 2 }, null, 'active'],
     ['ДТ подана', { status: 3, step: 3 }, null, 'active'],
@@ -135,6 +136,8 @@ describe('stepNo / shipmentHref', () => {
     expect(askHref(ship({ id: 'd', status: 0 }))).toBe('/import-40/new/d')
     expect(askHref(ship({ id: 'r', status: 0, returnReason: 'Нет инвойса' }))).toBe('/import-40/new/r')
     expect(askHref(ship({ id: 'p', status: 0, isProblem: true }))).toBe('/import-40/p')
+    // Возврат по чек-листу документов — в карточку: загрузка к пунктам и «Отправить снова».
+    expect(askHref(ship({ id: 'c', status: 0, returnReason: 'Комментарий', reworkRequested: true }))).toBe('/import-40/c')
     expect(askHref(ship({ id: 'v', status: 6 }))).toBe('/import-40/v')
     expect(askHref(ship({ id: 'q', status: 3, isProblem: true }))).toBe('/import-40/q')
   })

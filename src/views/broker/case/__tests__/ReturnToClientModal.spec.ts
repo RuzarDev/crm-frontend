@@ -14,6 +14,7 @@ vi.mock('@/api/import40Rework', async (orig) => ({ ...(await orig<typeof import(
 
 import ReturnToClientModal from '../ReturnToClientModal.vue'
 import CaseReworkPanel from '../CaseReworkPanel.vue'
+import CaseBanners from '../CaseBanners.vue'
 
 const ModalStub = {
   props: ['open', 'okButtonProps', 'title'], emits: ['ok', 'update:open'],
@@ -40,7 +41,7 @@ const fakeActions = (): CaseActions => ({
 })
 
 const item = (o: Partial<ReworkItemDto> = {}): ReworkItemDto => ({
-  id: 'r1', kind: 'invoice', title: 'Инвойс (коммерческий счёт)', note: '', createdAtUtc: '2026-10-17T05:00:00Z', createdByName: 'Айгерим К.',
+  id: 'r1', kind: 'invoice', title: '', note: '', docKey: null, tnvedCode: null, actRef: null, createdAtUtc: '2026-10-17T05:00:00Z', createdByName: 'Айгерим К.',
   resolvedAtUtc: null, resolvedFileId: null, resolvedFileName: null, resolvedByName: null, ...o,
 })
 
@@ -48,7 +49,7 @@ let w: VueWrapper
 beforeEach(() => {
   rework.suggestions.mockResolvedValue({
     codes: ['8471300000'],
-    items: [{ code: '8471300000', kind: 'conformity', title: 'Сертификат соответствия ЕАЭС', measure: 'Входит в перечень…', act: 'Решение Коллегии ЕЭК № 91' }],
+    items: [{ code: '8471300000', kind: 'conformity', docKey: 'conformityCert', title: 'Сертификат соответствия ЕАЭС', measure: 'Входит в перечень…', act: 'Решение Коллегии ЕЭК № 91 (12.08.2020)' }],
   })
   rework.returnToClient.mockResolvedValue(kase)
   rework.list.mockResolvedValue({ comment: null, items: [] })
@@ -69,10 +70,14 @@ describe('rework.ts', () => {
     c.packing.on = true
     c.invoice.on = true
     c.invoice.note = ' подписанный '
-    expect(buildItems(c, [{ key: 'o1', kind: 'other', title: ' Письмо ', note: '', code: null }])).toEqual([
+    expect(buildItems(c, [
+      { key: 'o1', kind: 'other', title: ' Письмо ', note: '', docKey: null, code: null, act: null },
+      { key: 's1', kind: 'certificate', title: '', note: ' партия 2 ', docKey: 'vet', code: '0101210000', act: 'Решение КТС № 317' },
+    ])).toEqual([
       { kind: 'invoice', note: 'подписанный' },
       { kind: 'packing', note: null },
       { kind: 'other', title: 'Письмо', note: null },
+      { kind: 'certificate', note: 'партия 2', docKey: 'vet', code: '0101210000', act: 'Решение КТС № 317' },
     ])
   })
   it('сортировка: открытые сверху', () => {
@@ -104,10 +109,19 @@ describe('ReturnToClientModal', () => {
     expect(row.text()).toContain('Сертификат соответствия ЕАЭС')
     expect(row.text()).toContain('Решение Коллегии ЕЭК № 91')
     await w.get('[data-rework-sugg-add]').trigger('click')
-    expect(w.get('[data-rework-extra-kind="conformity"]').text()).toContain('8471300000')
+    const added = w.get('[data-rework-extra-kind="conformity"]')
+    expect(added.text()).toContain('Код ТН ВЭД 8471300000')
+    expect(added.text()).toContain('Сертификат соответствия ЕАЭС')
+    expect(added.text()).toContain('Акт: Решение Коллегии ЕЭК № 91 (12.08.2020)')
     expect(w.get('[data-rework-sugg-add]').text()).toBe('Добавлено')
     expect(w.get('[data-rework-sugg-add]').attributes('disabled')).toBeDefined()
     expect(w.get('[data-ok]').attributes('disabled')).toBeUndefined()
+    await w.get('[data-ok]').trigger('click')
+    await flushPromises()
+    // Документ подсказки — ключом с кодом и актом, без русского названия и без комментария-кода.
+    expect(rework.returnToClient).toHaveBeenCalledWith('c1', null, [
+      { kind: 'conformity', note: null, docKey: 'conformityCert', code: '8471300000', act: 'Решение Коллегии ЕЭК № 91 (12.08.2020)' },
+    ])
   })
 
   it('«Другой документ» без названия не отправить; с пунктами общий комментарий не обязателен', async () => {
@@ -162,13 +176,16 @@ describe('CaseReworkPanel', () => {
 
   it('пункты со статусом: открытые сверху, файл у закрытого; закрыть вручную и удалить', async () => {
     const actions = await mountPanel([
-      item({ id: 'r1', kind: 'packing', title: 'Упаковочный лист', resolvedAtUtc: '2026-10-17T07:00:00Z', resolvedFileId: 'f9', resolvedFileName: 'pl.pdf' }),
-      item({ id: 'r2', kind: 'certificate', title: 'Ветеринарный сертификат', note: 'на партию' }),
+      item({ id: 'r1', kind: 'packing', resolvedAtUtc: '2026-10-17T07:00:00Z', resolvedFileId: 'f9', resolvedFileName: 'pl.pdf' }),
+      item({ id: 'r2', kind: 'certificate', docKey: 'vet', tnvedCode: '0101210000', actRef: 'Решение КТС № 317', note: 'на партию' }),
     ])
     expect(w.get('[data-rework-summary]').text()).toBe('загружено 1 из 2')
     const rows = w.findAll('[data-rework-item]')
     expect(rows.map((r) => r.attributes('data-rework-state'))).toEqual(['open', 'done'])
+    expect(rows[0].text()).toContain('Ветеринарный сертификат')
     expect(rows[0].text()).toContain('на партию')
+    expect(rows[0].get('[data-rework-item-ref]').text()).toBe('Код ТН ВЭД 0101210000 · Акт: Решение КТС № 317')
+    expect(rows[1].text()).toContain('Упаковочный лист')
     expect(rows[1].get('[data-rework-resolution]').text()).toBe('Файл: pl.pdf')
     expect(rows[1].find('[data-rework-resolve]').exists()).toBe(false)
 
@@ -190,5 +207,27 @@ describe('CaseReworkPanel', () => {
     expect(w.find('[data-rework-item]').exists()).toBe(true)
     expect(w.find('[data-rework-resolve]').exists()).toBe(false)
     expect(w.find('[data-rework-remove-item]').exists()).toBe(false)
+  })
+})
+
+describe('CaseBanners: возврат клиенту', () => {
+  const mountBanner = (o: Parameters<typeof caseDto>[0]) => {
+    const k = caseDto(o)
+    w = mountWithI18n(CaseBanners, { props: { kase: k, perms: casePerms(USERS.declarant, k), actions: fakeActions() } })
+  }
+  it('без комментария — что клиенту осталось догрузить, на языке интерфейса', () => {
+    mountBanner({ status: 0, returnReason: '', reworkRequested: true, openReworkItems: [item(), item({ id: 'r2', kind: 'other', title: 'Письмо' })] })
+    expect(w.get('[data-returned-text]').text()).toBe('Клиенту нужно догрузить: Инвойс (коммерческий счёт), Письмо')
+  })
+  it('комментарий сотрудника — как есть; всё загружено — «Клиент загрузил…»', () => {
+    mountBanner({ status: 0, returnReason: 'Догрузите документы: сертификат', reworkRequested: true, openReworkItems: [] })
+    expect(w.get('[data-returned-text]').text()).toBe('Догрузите документы: сертификат')
+    w.unmount()
+    mountBanner({ status: 0, returnReason: '', reworkRequested: true, openReworkItems: [] })
+    expect(w.get('[data-returned-text]').text()).toBe('Клиент загрузил все запрошенные документы')
+  })
+  it('обычный черновик — плашки нет', () => {
+    mountBanner({ status: 0, returnReason: '' })
+    expect(w.find('[data-case-banner="returned"]').exists()).toBe(false)
   })
 })

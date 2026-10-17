@@ -22,14 +22,14 @@ export type ShipmentCtx = { filesUnknown?: boolean }
 export function askFor(s: ClientShipment, ctx: ShipmentCtx = {}): AskKind | null {
   if (s.status === 8 || s.status === 9) return null
   if (s.isProblem) return 'problem'
-  if (s.status === 0) return s.returnReason ? 'returned' : 'draft'
+  if (s.status === 0) return s.returnReason || s.reworkRequested ? 'returned' : 'draft'
   if (s.status === 6 && !s.paymentCheckUploaded && !ctx.filesUnknown) return 'paySvh'
   return null
 }
 
 export function tabOf(s: ClientShipment): ShipmentTab {
   if (s.status === 8 || s.status === 9) return 'done'
-  if (s.status === 0 && !s.isProblem && !s.returnReason) return 'drafts'
+  if (s.status === 0 && !s.isProblem && !s.returnReason && !s.reworkRequested) return 'drafts'
   return askFor(s) ? 'waiting' : 'active'
 }
 
@@ -78,10 +78,12 @@ export const shipmentHref = (s: ClientShipment): string =>
 
 /**
  * Куда ведёт строка «Нужно от вас»: черновик и возврат на доработку дописываются в мастере (причину возврата
- * мастер показывает сверху), остальное — включая черновик с вопросом AQNIET — карточка.
+ * мастер показывает сверху), остальное — включая черновик с вопросом AQNIET — карточка. Возврат по чек-листу
+ * документов (17.10) — в карточку: там загрузка к каждому пункту и «Отправить снова».
  */
 export const askHref = (s: ClientShipment): string => {
   const ask = askFor(s)
+  if (ask === 'returned' && s.reworkRequested) return `/import-40/${s.id}`
   return ask === 'draft' || ask === 'returned' ? `/import-40/new/${s.id}` : `/import-40/${s.id}`
 }
 
@@ -112,5 +114,7 @@ export function toShipmentSummary(c: Import40CaseDto, files: Pick<Import40FileDt
     assignedDeclarantName: c.assignedDeclarantName ?? null,
     createdAtUtc: c.createdAtUtc,
     updatedAtUtc: c.updatedAtUtc,
+    reworkRequested: !!c.reworkRequested,
+    reworkOpen: c.openReworkItems ?? [],
   }
 }
