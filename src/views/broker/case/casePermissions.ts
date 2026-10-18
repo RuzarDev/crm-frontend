@@ -92,8 +92,8 @@ export function canBorderWork(a: CaseAuth, c: Import40CaseDto): boolean {
   const id = assignedIdOf(c, 'kpp')
   return id ? id === a.userId : hasBiz(a, 'kpp')
 }
-/** Сканы с границы грузят и удаляют КПП (роль), руководитель и администратор. */
-export const canBorderScans = (a: CaseAuth): boolean => canAssign(a) || hasBiz(a, 'kpp')
+/** Сканы с границы грузят и удаляют те же, кто работает на границе (canBorderWork), пока заявка в работе — как сервер. */
+export const canBorderScans = (a: CaseAuth, c: Import40CaseDto): boolean => c.status >= 1 && c.status < 8 && canBorderWork(a, c)
 
 /** Кнопка действия шага выключена: нет права на роль или шаг ведёт коллега. */
 export const actionDisabled = (a: CaseAuth, c: Import40CaseDto, role: StepRole): boolean =>
@@ -234,7 +234,7 @@ export function casePerms(a: CaseAuth, c: Import40CaseDto): CasePerms {
     actionHint: (role) => actionHint(a, c, role),
     canProblem: canProblem(a),
     canBorderWork: canBorderWork(a, c),
-    canBorderScans: canBorderScans(a),
+    canBorderScans: canBorderScans(a, c),
     showProblemAction: showProblemAction(a, c),
     canStepBack: canStepBack(a, c),
     canCancel: canCancel(a, c),
