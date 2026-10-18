@@ -16,6 +16,7 @@ import DeclarantCard from './DeclarantCard.vue'
 import PasswordCard from './PasswordCard.vue'
 import PersonalCard from './PersonalCard.vue'
 import ProfileCard from './ProfileCard.vue'
+import TelegramCard from './TelegramCard.vue'
 import { profileSections, type ProfileCard as CardKey } from './profileSections'
 
 // «Профиль» (редизайн, волна 5б, доска Profile): шапка с инициалами и карточки, у каждой своя кнопка «Сохранить».
@@ -111,6 +112,7 @@ const cardTitle = (c: CardKey) => t(`personal.profile.${c}.title`)
           <ZButton variant="primary" class="max-sm:h-11 max-sm:w-full" data-open-company @click="router.push('/import-40/company')">{{ t('personal.profile.company.open') }}</ZButton>
         </div>
       </ProfileCard>
+      <TelegramCard v-else-if="c === 'telegram'" />
       <DeclarantCard v-else-if="c === 'declarant'" />
       <ProfileCard v-else-if="c === 'language'" :title="cardTitle('language')" data-profile-card="language">
         <!-- Подпись слева, переключатель справа (на телефоне — под подписью): сегмент не растягивается на всю карточку. -->

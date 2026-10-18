@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
 vi.mock('@/api/profile', () => ({ profileApi: { get: api.profileGet, update: api.profileUpdate } }))
 vi.mock('@/api/declarantProfile', () => ({ declarantProfileApi: { get: api.declGet, update: api.declUpdate } }))
 vi.mock('@/api/auth', () => ({ authApi: { changePassword: api.changePassword } }))
+vi.mock('@/api/telegram', () => ({ telegramApi: { status: vi.fn(async () => ({ botConfigured: false, botUsername: null, linked: false, username: null, firstName: null, linkedAtUtc: null, notificationsEnabled: true })), createLink: vi.fn(), unlink: vi.fn(), setNotifications: vi.fn() } }))
 vi.mock('@/api/references', () => ({ referencesApi: { listClassifiers: api.listClassifiers, listCountries: vi.fn(async () => [{ alpha2: 'KZ', name: 'Казахстан' }]) } }))
 vi.mock('@/ui/message', () => ({ message: api.toast }))
 vi.mock('@/i18n', async (orig) => ({ ...(await orig<typeof import('@/i18n')>()), setLocale: api.setLocale }))
@@ -106,7 +107,7 @@ describe('ProfilePage: шапка и карточки', () => {
   it('клиент Импорта 40: «Компания» со ссылкой в /import-40/company, формы имени нет', async () => {
     as('client', [], { modules: ['import40'] })
     await open()
-    expect(cards()).toEqual(['company', 'language', 'password'])
+    expect(cards()).toEqual(['company', 'telegram', 'language', 'password'])
     await w.get('[data-open-company]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/import-40/company')
