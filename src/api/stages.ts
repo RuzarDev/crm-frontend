@@ -8,7 +8,7 @@ export type StageEventKind =
   | 'dtSubmitted' | 'customsRequest' | 'customsRequestAnswered' | 'customsRequestClosed'
   | 'problemSet' | 'problemAnswered' | 'problemCleared' | 'released'
   | 'svhClosed' | 'svhInvoiced' | 'svhPaid' | 'brokerInvoiced' | 'brokerPaid' | 'brokerInvoiceCancelled'
-  | 'steppedBack' | 'done' | 'cancelled'
+  | 'steppedBack' | 'done' | 'cancelled' | 'borderControl'
 
 export interface StageEvent {
   id: string
@@ -72,7 +72,15 @@ export interface StageStats {
   overdue: StageOverdue[]
   /** Отдельный фильтр «до 17.10 — без истории»: старые заявки, где с последнего изменения прошло больше нормы. */
   untracked?: StageOverdue[]
+  /** «Время на границе» (18.10): прибытие → прохождение, по постам; старый сервер — нет поля. */
+  borderByPost?: StageBorderPostStat[]
 }
+
+/** post — пост; пусто — не указан. */
+export interface StageBorderPostStat { post: string; count: number; avgHours: number | null; medianHours: number | null }
+
+/** Настройки процесса «Импорт 40» (18.10): показывать ли клиенту сканы с границы. */
+export interface Import40ProcessSettings { showBorderScansToClient: boolean }
 
 const silentCfg = (silent?: boolean) => (silent ? { silent: true } : undefined)
 
@@ -85,4 +93,8 @@ export const stagesApi = {
     (await apiClient.put<StageNorm[]>('/import40/stage-norms', { norms })).data,
   stats: async (days: number, opts?: { silent?: boolean }): Promise<StageStats> =>
     (await apiClient.get<StageStats>('/import40/manage/stage-stats', { params: { days }, ...(opts?.silent ? { silent: true } : {}) })).data,
+  processSettings: async (opts?: { silent?: boolean }): Promise<Import40ProcessSettings> =>
+    (await apiClient.get<Import40ProcessSettings>('/import40/process-settings', silentCfg(opts?.silent))).data,
+  saveProcessSettings: async (s: Import40ProcessSettings): Promise<Import40ProcessSettings> =>
+    (await apiClient.put<Import40ProcessSettings>('/import40/process-settings', s)).data,
 }

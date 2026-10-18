@@ -92,7 +92,7 @@ describe('caseFormat', () => {
   it('файлы по разделам; неизвестный раздел — «Прочее»', () => {
     const g = groupFiles([fileDto(), fileDto({ id: 'e', section: 'extraction-batch' as never }), fileDto({ id: 'z', section: 'weird' as never })])
     expect(g.map((x) => [x.key, x.files.length])).toEqual([
-      ['documents', 1], ['extraction-batch', 1], ['power-of-attorney', 0], ['declaration-stamp', 0], ['svh-invoice', 0], ['payment-check', 0], ['other', 1],
+      ['documents', 1], ['extraction-batch', 1], ['power-of-attorney', 0], ['border-scans', 0], ['declaration-stamp', 0], ['svh-invoice', 0], ['payment-check', 0], ['other', 1],
     ])
   })
   it('время записи истории', () => {

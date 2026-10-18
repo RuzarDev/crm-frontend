@@ -261,3 +261,42 @@ describe('история и шаг по умолчанию', () => {
     expect(defaultSelectedStep(9)).toBeNull()
   })
 })
+
+describe('buildStageCards — шаг 2 «Граница» (КПП, 18.10)', () => {
+  const arrived = local(2026, 10, 18, 14, 20)
+  const passed = local(2026, 10, 18, 16, 5)
+  const base = (audience: 'staff' | 'client', status: number, s2: CaseStageStep, kase: Record<string, unknown> = {}): StageInput => ({
+    audience,
+    kase: caseDto({ status, post: 'Хоргос', borderArrivedAtUtc: arrived, borderArrivalPost: 'Нур Жолы', ...kase }),
+    stages: stages([step(1, { state: 'done' }), s2], status),
+    invoices: [],
+    locale: 'ru',
+  })
+
+  it('текущий шаг: «Машина на границе» и «Прибыла 18.10 в 14:20 · пост …» — и сотруднику, и клиенту', () => {
+    for (const audience of ['staff', 'client'] as const) {
+      const card = buildStageCards(base(audience, 1, step(2, { state: 'current', history: [ev('atBorder', arrived, 2)] })), t, te)[1]!
+      expect(card.result).toBe('Машина на границе')
+      expect(card.detail).toBe('Прибыла 18.10 в 14:20 · пост Нур Жолы')
+    }
+  })
+
+  it('прибытие не отмечено — как раньше', () => {
+    const card = buildStageCards(base('client', 1, step(2, { state: 'current' }), { borderArrivedAtUtc: null }), t, te)[1]!
+    expect(card.result).toBe('Груз проходит границу')
+    expect(card.detail).toBe('')
+  })
+
+  it('пройден: прибытие и прохождение; прибытие тем же действием — только время прохождения и пост', () => {
+    const card = buildStageCards(base('staff', 3, step(2, { state: 'done', history: [ev('atBorder', arrived, 2), ev('borderPassed', passed, 2)] })), t, te)[1]!
+    expect(card.detail).toBe('Прибыла 18.10 в 14:20 · пост Нур Жолы · пройдена 18.10 в 16:05')
+    const same = buildStageCards(base('staff', 3, step(2, { state: 'done', history: [ev('atBorder', passed, 2), ev('borderPassed', passed, 2)] }),
+      { borderArrivedAtUtc: passed, borderArrivalPost: 'Хоргос' }), t, te)[1]!
+    expect(same.detail).toBe('18.10 в 16:05 · Хоргос')
+  })
+
+  it('контроль в истории: клиенту — «Пройден контроль» с видом', () => {
+    const e = ev('borderControl', arrived, 2, { note: 'фитосанитарный контроль' })
+    expect(eventLabel(e, 'client', t, te)).toBe('Пройден контроль')
+  })
+})

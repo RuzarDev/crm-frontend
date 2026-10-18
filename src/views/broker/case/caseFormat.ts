@@ -25,7 +25,7 @@ export function transportSummary(c: Import40CaseDto, t: T): string {
 }
 
 /** Разделы файлов в порядке показа (правая колонка и панель «Все файлы»). Неизвестные — в «Прочее». */
-export const FILE_SECTIONS = ['documents', 'extraction-batch', 'power-of-attorney', 'declaration-stamp', 'svh-invoice', 'payment-check'] as const
+export const FILE_SECTIONS = ['documents', 'extraction-batch', 'power-of-attorney', 'border-scans', 'declaration-stamp', 'svh-invoice', 'payment-check'] as const
 export type FileSectionKey = (typeof FILE_SECTIONS)[number] | 'other'
 
 export const sectionOf = (f: Import40FileDto): FileSectionKey =>

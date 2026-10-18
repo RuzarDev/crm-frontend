@@ -83,6 +83,18 @@ export function stepBlockedBy(a: CaseAuth, c: Import40CaseDto, role: StepRole): 
   return { name: assignedNameOf(c, role) }
 }
 
+/**
+ * Работа на границе (18.10: «Машина прибыла», контроли) — строже can('kpp'), как сервер: администратор, руководитель
+ * (import40.assign), назначенный КПП; КПП не назначен — сотрудник с ролью «Менеджер КПП» (право import40.kpp есть и у декларанта).
+ */
+export function canBorderWork(a: CaseAuth, c: Import40CaseDto): boolean {
+  if (canAssign(a)) return true
+  const id = assignedIdOf(c, 'kpp')
+  return id ? id === a.userId : hasBiz(a, 'kpp')
+}
+/** Сканы с границы грузят и удаляют те же, кто работает на границе (canBorderWork), пока заявка в работе — как сервер. */
+export const canBorderScans = (a: CaseAuth, c: Import40CaseDto): boolean => c.status >= 1 && c.status < 8 && canBorderWork(a, c)
+
 /** Кнопка действия шага выключена: нет права на роль или шаг ведёт коллега. */
 export const actionDisabled = (a: CaseAuth, c: Import40CaseDto, role: StepRole): boolean =>
   !can(a, role) || !!stepBlockedBy(a, c, role)
@@ -184,6 +196,10 @@ export interface CasePerms {
   actionDisabled: (role: StepRole) => boolean
   actionHint: (role: StepRole | 'client') => ActionHint
   canProblem: boolean
+  /** «Машина прибыла», отметки контроля (canBorderWork). */
+  canBorderWork: boolean
+  /** Загрузка сканов с границы (canBorderScans). */
+  canBorderScans: boolean
   showProblemAction: boolean
   canStepBack: boolean
   canCancel: boolean
@@ -217,6 +233,8 @@ export function casePerms(a: CaseAuth, c: Import40CaseDto): CasePerms {
     actionDisabled: (role) => actionDisabled(a, c, role),
     actionHint: (role) => actionHint(a, c, role),
     canProblem: canProblem(a),
+    canBorderWork: canBorderWork(a, c),
+    canBorderScans: canBorderScans(a, c),
     showProblemAction: showProblemAction(a, c),
     canStepBack: canStepBack(a, c),
     canCancel: canCancel(a, c),

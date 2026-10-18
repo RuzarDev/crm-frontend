@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
 import ZNumber from '@/components/z/ZNumber.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
+import ZSwitch from '@/components/z/ZSwitch.vue'
 import { stagesApi, type StageNorm, type StageNormKey } from '@/api/stages'
 import { useAuthStore } from '@/stores/auth'
 import { message } from '@/ui/message'
@@ -35,6 +36,31 @@ const load = async () => {
   }
 }
 onMounted(load)
+
+// «Граница» (18.10): показывать ли клиенту сканы с границы (по умолчанию да). Сохраняется сразу при переключении.
+const scansToClient = ref<boolean | null>(null)
+const savingScans = ref(false)
+onMounted(async () => {
+  try {
+    scansToClient.value = (await stagesApi.processSettings({ silent: true })).showBorderScansToClient
+  } catch {
+    scansToClient.value = null // нет данных — переключатель не показываем
+  }
+})
+const toggleScans = async (v: boolean) => {
+  if (!canEdit.value || savingScans.value) return
+  const prev = scansToClient.value
+  scansToClient.value = v
+  savingScans.value = true
+  try {
+    scansToClient.value = (await stagesApi.saveProcessSettings({ showBorderScansToClient: v })).showBorderScansToClient
+    message.success(t('stages.border.saved'))
+  } catch {
+    scansToClient.value = prev // текст ошибки показал перехватчик
+  } finally {
+    savingScans.value = false
+  }
+}
 
 const label = (key: StageNormKey) =>
   key === 'rework' ? t('stages.norms.rework') : `${key.slice(4)}. ${t(`enum.step.s${key.slice(4)}`)}`
@@ -111,5 +137,27 @@ const save = async () => {
         >{{ t('stages.norms.save') }}</ZButton>
       </div>
     </form>
+
+    <section
+      v-if="scansToClient !== null"
+      class="flex max-w-[40rem] flex-col gap-1 rounded-panel border border-line bg-surface px-5 py-4 max-sm:px-4"
+      data-border-settings
+    >
+      <h2 class="m-0 text-base font-semibold text-ink">{{ t('stages.border.title') }}</h2>
+      <div class="flex items-start gap-3">
+        <label for="border-scans-client" class="min-w-0 flex-1 text-sm">
+          <span class="block font-medium text-ink">{{ t('stages.border.scansToClient') }}</span>
+          <span class="block text-xs text-muted">{{ t('stages.border.scansToClientHint') }}</span>
+        </label>
+        <ZSwitch
+          id="border-scans-client"
+          :checked="scansToClient"
+          :disabled="!canEdit || savingScans"
+          class="max-sm:min-h-11"
+          data-border-scans-client
+          @update:checked="(v: boolean) => toggleScans(v)"
+        />
+      </div>
+    </section>
   </div>
 </template>

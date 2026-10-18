@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhCheck } from '@phosphor-icons/vue'
+import { PhCheck, PhSparkle } from '@phosphor-icons/vue'
+import { import40Api } from '@/api/import40'
+import { BORDER_SCAN_KINDS } from '../borderKinds'
 import ZButton from '@/components/z/ZButton.vue'
 import ZTooltip from '@/components/z/ZTooltip.vue'
 import { useConfirm } from '@/ui/confirm'
+import CaseDocsSlot from '../CaseDocsSlot.vue'
 import CaseStepPanel from '../CaseStepPanel.vue'
 import type { CaseStepProps } from '../caseContext'
 import { hintText } from '../casePermissions'
@@ -38,6 +41,30 @@ const leftText = (it: WhatsLeftItem): string => {
   }
 }
 const leftKey = (it: WhatsLeftItem) => (it.id === 'fill' ? `fill:${it.declarationId}` : it.id)
+
+// «Сканы с границы» (18.10): загружает КПП; декларант заполняет по ним ДТ. «Из сканов» — те же «Из документов»
+// (DeclarationsList.runBatch) по уже загруженным сканам подходящего формата.
+const scans = computed(() => props.ctx.files.filter((f) => f.section === 'border-scans'))
+const scanKinds = computed(() => BORDER_SCAN_KINDS.map((k) => ({ value: k, label: t(`broker.case.border.scanKind.${k}`) })))
+const PARSEABLE = /\.(pdf|jpe?g|png|docx|xlsx)$/i
+const parseable = computed(() => scans.value.filter((f) => PARSEABLE.test(f.originalFileName)))
+const listRef = ref<InstanceType<typeof DeclarationsList> | null>(null)
+const loadingScans = ref(false)
+const canParse = computed(() => isDeclaring.value && !props.ctx.perms.actionDisabled('declarant') && parseable.value.length > 0)
+const parseScans = async () => {
+  if (loadingScans.value || props.ctx.actions.busy() || !listRef.value) return
+  loadingScans.value = true
+  let files: File[] = []
+  try {
+    files = await Promise.all(parseable.value.map(async (f) =>
+      new File([await import40Api.downloadFile(kase.value.id, f.id)], f.originalFileName, { type: f.contentType })))
+  } catch {
+    return // текст ошибки показал перехватчик
+  } finally {
+    loadingScans.value = false
+  }
+  await listRef.value.runBatch(files)
+}
 
 // «Подать ДТ»
 const SUBMIT = 'submit-declaration'
@@ -130,9 +157,35 @@ const release = async () => {
         </ul>
       </section>
       <p v-else class="m-0 text-[13px] text-muted" data-declaring-submitted>{{ t('import40Case.status3Note') }}</p>
+
+      <CaseDocsSlot
+        class="mt-3.5"
+        :ctx="ctx"
+        section="border-scans"
+        :label="t('broker.case.border.scans')"
+        with-kind
+        :kinds="scanKinds"
+        :empty-text="t('broker.case.declaring.scansEmpty')"
+        data-declaring-scans
+      >
+        <template #label-extra>
+          <ZButton
+            v-if="canParse"
+            variant="ghost"
+            size="sm"
+            class="max-sm:min-h-11"
+            :disabled="ctx.actions.busy() || loadingScans"
+            :loading="loadingScans || ctx.actions.isPending('dt-batch')"
+            data-scans-parse
+            @click="parseScans"
+          >
+            <PhSparkle :size="15" aria-hidden="true" />{{ t('broker.case.declaring.scansParse') }}
+          </ZButton>
+        </template>
+      </CaseDocsSlot>
     </div>
 
-    <DeclarationsList :ctx="ctx" mode="current" />
+    <DeclarationsList ref="listRef" :ctx="ctx" mode="current" />
   </CaseStepPanel>
 
   <DeclarationsList v-else :ctx="ctx" mode="done" />

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Import40DocumentDto } from '@/api/import40Contract'
 import type { ClientCaseFile } from '@/api/clientDocuments'
-import { companyCard, normSearch, sortFiles } from '@/views/client/documents/documents'
+import { companyCard, fileKindKey, normSearch, sortFiles } from '@/views/client/documents/documents'
 
 const NOW = Date.parse('2026-10-08T12:00:00Z')
 const doc = (o: Partial<Import40DocumentDto>): Import40DocumentDto => ({
@@ -88,5 +88,13 @@ describe('normSearch', () => {
   it('регистр, пробелы и ё/е не различаются', () => {
     expect(normSearch('  Счёт   СВХ ')).toBe('счет свх')
     expect(normSearch(null)).toBe('')
+  })
+})
+
+describe('fileKindKey', () => {
+  it('скан с границы — подпись раздела, даже если вид скана совпадает с видом документа (other)', () => {
+    expect(fileKindKey({ section: 'border-scans', docKind: 'other' })).toBe('client.documents.section.borderScans')
+    expect(fileKindKey({ section: 'border-scans', docKind: 'cmr' })).toBe('client.documents.section.borderScans')
+    expect(fileKindKey({ section: 'documents', docKind: 'invoice' })).toBe('client.docKind.invoice.name')
   })
 })

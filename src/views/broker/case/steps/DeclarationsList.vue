@@ -194,6 +194,10 @@ const onBatchFiles = async (e: Event) => {
   const input = e.target as HTMLInputElement
   const files = input.files ? Array.from(input.files) : []
   input.value = '' // тот же набор можно выбрать снова
+  await runBatch(files)
+}
+/** Разбор набора файлов в новую ДТ — и выбранных с диска, и сканов с границы (StepDeclaring, 18.10). */
+const runBatch = async (files: File[]) => {
   if (!files.length || busy()) return
   const caseId = kase.value.id
   let stage: 'extract' | 'create' = 'extract'
@@ -224,6 +228,7 @@ const onBatchFiles = async (e: Event) => {
   }
   await router.push(dtPath(caseId, dtId))
 }
+defineExpose({ runBatch })
 const closeIssues = () => {
   issuesOpen.value = false
   const dtId = pendingDt

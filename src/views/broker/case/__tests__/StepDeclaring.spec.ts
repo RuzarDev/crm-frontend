@@ -10,7 +10,7 @@ import { mountStep } from './stepHarness'
 
 const api = vi.hoisted(() => ({
   action: vi.fn(), createDeclaration: vi.fn(), deleteDeclaration: vi.fn(), downloadKedenXml: vi.fn(), downloadKedenBatch: vi.fn(),
-  extractBatch: vi.fn(), caseQuotes: vi.fn(), importQuote: vi.fn(), kedenReadiness: vi.fn(), kedenReadinessSummary: vi.fn(),
+  extractBatch: vi.fn(), downloadFile: vi.fn(), caseQuotes: vi.fn(), importQuote: vi.fn(), kedenReadiness: vi.fn(), kedenReadinessSummary: vi.fn(),
 }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
@@ -183,5 +183,48 @@ describe('StepDeclaring: ДТ подана (статус 3)', () => {
     for (const sel of ['[data-dt-toolbar]', '[data-dt-xml-batch]', '[data-declaring-release]']) {
       expect(w.find(sel).exists()).toBe(false)
     }
+  })
+})
+
+describe('StepDeclaring: «Сканы с границы» (18.10)', () => {
+  const scans = [
+    fileDto({ id: 's1', section: 'border-scans', originalFileName: 'cmr.pdf', docKind: 'cmr', uploadedByBusinessRole: 'kpp' }),
+    fileDto({ id: 's2', section: 'border-scans', originalFileName: 'photo.heic', docKind: 'photo', uploadedByBusinessRole: 'kpp' }),
+  ]
+
+  it('блок со ссылками на сканы и их видами; загрузки у декларанта нет', () => {
+    mount(USERS.declarant, { files: [...docs(1), ...scans] })
+    const block = w.get('[data-docs-slot="border-scans"]')
+    expect(block.text()).toContain('Сканы с границы')
+    expect(block.findAll('[data-slot-file]')).toHaveLength(2)
+    expect(block.findAll('[data-slot-file-kind]').map((k) => k.text())).toEqual(['CMR с отметками', 'Фото'])
+    expect(block.findAll('[data-slot-download]')).toHaveLength(2)
+    expect(block.find('[data-slot-upload]').exists()).toBe(false)
+    expect(block.find('[data-slot-remove]').exists()).toBe(false)
+  })
+
+  it('сканов нет — подсказка, что их загрузит КПП; кнопки «из сканов» нет', () => {
+    mount(USERS.declarant, { files: docs(1) })
+    expect(w.get('[data-docs-slot="border-scans"]').text()).toContain('Сканов с границы пока нет — их загрузит КПП')
+    expect(w.find('[data-scans-parse]').exists()).toBe(false)
+  })
+
+  it('«Заполнить ДТ из сканов»: скачивает сканы подходящего формата и отдаёт их в «Из документов»', async () => {
+    api.downloadFile.mockResolvedValue(new Blob(['%PDF']))
+    api.extractBatch.mockResolvedValue({ declaration: { goods: [] }, conflicts: [], warnings: [], documentCheckId: null })
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'd9' }))
+    mount(USERS.declarant, { files: scans })
+    await w.get('[data-scans-parse]').trigger('click')
+    await flushPromises()
+    expect(api.downloadFile).toHaveBeenCalledTimes(1) // .heic не разбирается
+    expect(api.downloadFile).toHaveBeenCalledWith('c1', 's1')
+    const files = api.extractBatch.mock.calls[0][1] as File[]
+    expect(files.map((f) => f.name)).toEqual(['cmr.pdf'])
+    expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/d9')
+  })
+
+  it('КПП (без права декларанта на шаг) кнопку «из сканов» не видит', () => {
+    mount(USERS.kpp, { files: scans })
+    expect(w.find('[data-scans-parse]').exists()).toBe(false)
   })
 })
