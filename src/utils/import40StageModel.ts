@@ -164,12 +164,25 @@ export function buildStageCards(input: StageInput, t: T, te: Te): StageCard[] {
         }
         break
       }
-      case 2:
+      case 2: {
+        // «Машина прибыла» (КПП, 18.10): «Прибыла 18.10 в 14:20 · пост …» — видят все, и клиент.
+        const arrivedAt = kase.borderArrivedAtUtc
+        const arrival = arrivedAt
+          ? [t('stages.arrived', { when: whenText(arrivedAt, t) }), kase.borderArrivalPost ? t('stages.post', { post: kase.borderArrivalPost }) : '']
+            .filter(Boolean).join(' · ')
+          : ''
+        const passed = last(history, 'borderPassed')
         if (state === 'done') {
           result = k('s2Done')
-          detail = [whenText(last(history, 'borderPassed')?.atUtc, t), kase.post].filter(Boolean).join(' · ')
-        } else if (state === 'current') result = k('s2Current', 's2CurrentClient')
+          detail = arrival && passed && passed.atUtc !== last(history, 'atBorder')?.atUtc
+            ? [arrival, t('stages.passed', { when: whenText(passed.atUtc, t) })].join(' · ')
+            : [whenText(passed?.atUtc, t), kase.borderArrivalPost || kase.post].filter(Boolean).join(' · ')
+        } else if (state === 'current') {
+          result = arrival ? k('s2Arrived', 's2ArrivedClient') : k('s2Current', 's2CurrentClient')
+          detail = arrival
+        }
         break
+      }
       case 3: {
         const released = last(history, 'released')
         const filed = last(history, 'dtSubmitted')

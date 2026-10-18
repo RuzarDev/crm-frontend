@@ -67,6 +67,8 @@ const fromUs = computed<DocRow[]>(() => [
   ...bySection('svh-invoice').map((f) => fileRow(f,
     props.svhInvoiceNumber ? t('client.card.docs.svhInvoiceNo', { n: props.svhInvoiceNumber }) : t('client.card.docs.svhInvoice'), false)),
   ...bySection('declaration-stamp').map((f) => fileRow(f, t('client.card.docs.stamp'), false)),
+  // Сканы с границы (18.10) — если руководитель не скрыл их от клиентов (сервер тогда их не отдаёт).
+  ...bySection('border-scans').map((f) => fileRow(f, t('client.card.docs.borderScan'), true)),
 ])
 
 const kindName = (k: string | null | undefined) =>

@@ -34,7 +34,9 @@ const props = withDefaults(defineProps<{
   emptyText?: string
   /** Подпись в зоне загрузки (по умолчанию — по multiple). */
   dropText?: string
-}>(), { label: '', hint: '', canUpload: false, canRemove: false, multiple: false, withKind: false, emptyText: '', dropText: '' })
+  /** Свой список видов вместо видов документов клиента (сканы с границы: CMR, транзит, акт…); с withKind. */
+  kinds?: { value: string; label: string }[]
+}>(), { label: '', hint: '', canUpload: false, canRemove: false, multiple: false, withKind: false, emptyText: '', dropText: '', kinds: undefined })
 
 const { t } = useI18n()
 const { confirm } = useConfirm()
@@ -49,11 +51,15 @@ const files = computed(() => props.ctx.files.filter((f) => f.section === props.s
 
 // ---- Вид документа (docKind) ----
 const kind = ref<string | null>(null)
-const kindOptions = computed(() => [
+const kindOptions = computed(() => props.kinds ?? [
   ...DOC_CHECKLIST.map((d) => d.key),
   'other',
 ].map((k) => ({ value: k, label: t(`client.docKind.${k}.name`) })))
-const kindLabel = (f: Import40FileDto) => (props.withKind && isDocKind(f.docKind) ? t(`client.docKind.${f.docKind}.name`) : '')
+const kindLabel = (f: Import40FileDto) => {
+  if (!props.withKind) return ''
+  if (props.kinds) return props.kinds.find((k) => k.value === f.docKind)?.label ?? ''
+  return isDocKind(f.docKind) ? t(`client.docKind.${f.docKind}.name`) : ''
+}
 
 const uploadKey = computed(() => `upload:${props.section}`)
 const uploading = computed(() => props.ctx.actions.isPending(uploadKey.value))

@@ -18,6 +18,11 @@ import type {
 export type Import40Action =
   | 'submit-for-processing'
   | 'border-passed'
+  // Работа КПП на границе (18.10): прибытие (время, пост, комментарий), отмена отметки, отметки контроля.
+  | 'border-arrived'
+  | 'border-arrived-cancel'
+  | 'border-control'
+  | 'border-control-remove'
   | 'submit-declaration'
   | 'release-declaration'
   | 'close-svh'
@@ -563,6 +568,26 @@ export interface Import40ContainerDto {
   notes: string
 }
 
+export interface Import40BorderControlDto {
+  id: string
+  /** phyto | veterinary | sanitary | transport | customs | other (views/broker/case/borderKinds.ts). */
+  kind: string
+  /** Текст «другого» контроля. */
+  text: string | null
+  atUtc: string
+  /** Кто отметил — только сотрудникам. */
+  userName: string | null
+}
+
+/** Поля тела действия, кроме value: счёт СВХ (сумма/номер/дата), сообщение клиенту, пост прибытия. */
+export interface Import40ActionExtra {
+  amount?: number | null
+  number?: string | null
+  date?: string | null
+  clientMessage?: string | null
+  post?: string | null
+}
+
 export interface Import40CaseDto {
   id: string
   /** ИМ-2026-0001 — сквозной номер заявки */
@@ -580,6 +605,12 @@ export interface Import40CaseDto {
   foreignContractId?: string | null
   cargo: string
   post: string
+  /** «Машина прибыла» (КПП, 18.10): время и пост; комментарий — только сотрудникам. null — не отмечено. */
+  borderArrivedAtUtc?: string | null
+  borderArrivalPost?: string | null
+  borderArrivalNote?: string | null
+  /** Отметки контроля на границе (по времени). */
+  borderControls?: Import40BorderControlDto[]
   status: number
   isProblem: boolean
   // Внутренняя заметка — сервер отдаёт клиенту пустую строку (аудит 2.9).
@@ -635,6 +666,7 @@ export type Import40FileSection =
   | 'svh-invoice'
   | 'payment-check'
   | 'declaration-stamp'
+  | 'border-scans'
 
 export interface Import40FileDto {
   id: string
@@ -952,7 +984,7 @@ export const import40Api = {
     id: string,
     action: Import40Action,
     value?: string,
-    extra?: { amount?: number | null; number?: string | null; date?: string | null; clientMessage?: string | null },
+    extra?: Import40ActionExtra,
   ): Promise<Import40CaseDto> => {
     const response = await apiClient.post<Import40CaseDto>(
       `/import40/${encodeURIComponent(id)}/actions/${action}`,

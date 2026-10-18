@@ -65,6 +65,16 @@ describe('ShipmentDocuments', () => {
     expect(rows[1]).toContain('PNG')
   })
 
+  it('от AQNIET: скан с границы — с датой загрузки (18.10)', () => {
+    const w = mountWith([
+      fileDto({ id: 'b1', section: 'border-scans', docKind: 'cmr', originalFileName: 'cmr_stamped.pdf', uploadedByBusinessRole: 'kpp', createdAtUtc: '2026-10-18T09:10:00' }),
+    ])
+    const row = w.get('[data-doc-row="us"]')
+    expect(row.text()).toContain('Скан с границы')
+    expect(row.text()).toContain('18.10')
+    expect(w.find('[data-doc-row="yours"]').exists()).toBe(false)
+  })
+
   it('доверенность — в «Ваших» с подписью «Доверенность»; подписи групп связаны со списками', () => {
     const w = mountWith([
       fileDto({ id: 'poa', section: 'power-of-attorney', originalFileName: 'poa.pdf' }),

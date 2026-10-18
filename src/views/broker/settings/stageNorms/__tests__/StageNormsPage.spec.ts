@@ -5,7 +5,7 @@ import { mountWithI18n } from '@/test/mountWithI18n'
 import type { StageNorm } from '@/api/stages'
 import { useAuthStore } from '@/stores/auth'
 
-const api = vi.hoisted(() => ({ norms: vi.fn(), saveNorms: vi.fn() }))
+const api = vi.hoisted(() => ({ norms: vi.fn(), saveNorms: vi.fn(), processSettings: vi.fn(), saveProcessSettings: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/stages', () => ({ stagesApi: api }))
 vi.mock('@/ui/message', () => ({ message: msg }))
@@ -31,6 +31,7 @@ const input = (key: string) => w.get(`[data-norm-input="${key}"]`)
 beforeEach(() => {
   setActivePinia(createPinia())
   api.norms.mockResolvedValue(structuredClone(NORMS))
+  api.processSettings.mockResolvedValue({ showBorderScansToClient: true })
 })
 afterEach(() => {
   w?.unmount()
@@ -76,5 +77,26 @@ describe('StageNormsPage', () => {
     await w.get('[data-norms-retry]').trigger('click')
     await flushPromises()
     expect(w.findAll('[data-norm]')).toHaveLength(7)
+  })
+
+  it('«Граница»: показывать клиенту сканы — по умолчанию да; руководитель выключает, сохраняется сразу', async () => {
+    api.saveProcessSettings.mockResolvedValue({ showBorderScansToClient: false })
+    await mountAs(['import40.assign'])
+    const sw = w.get('[data-border-scans-client]')
+    expect(sw.attributes('aria-checked')).toBe('true')
+    await sw.trigger('click')
+    await flushPromises()
+    expect(api.saveProcessSettings).toHaveBeenCalledWith({ showBorderScansToClient: false })
+    expect(w.get('[data-border-scans-client]').attributes('aria-checked')).toBe('false')
+    expect(msg.success).toHaveBeenCalledWith('Настройка сохранена')
+  })
+
+  it('«Граница»: без права — переключатель только для чтения; не загрузилось — блока нет', async () => {
+    await mountAs(['import40.read'])
+    expect(w.get('[data-border-scans-client]').attributes('disabled')).toBeDefined()
+    w.unmount()
+    api.processSettings.mockRejectedValue(new Error('x'))
+    await mountAs(['import40.assign'])
+    expect(w.find('[data-border-settings]').exists()).toBe(false)
   })
 })

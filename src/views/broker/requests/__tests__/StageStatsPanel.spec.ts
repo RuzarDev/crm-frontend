@@ -91,4 +91,21 @@ describe('StageStatsPanel', () => {
     await mountPanel()
     expect(w.get('[data-stage-stats-error]').text()).toContain('Не удалось загрузить время этапов')
   })
+
+  it('«Время на границе по постам»: пост, заявки, среднее, медиана; без данных — таблицы нет', async () => {
+    api.stats.mockResolvedValue({ ...structuredClone(STATS), borderByPost: [
+      { post: 'Хоргос', count: 3, avgHours: 4, medianHours: 3.5 },
+      { post: '', count: 1, avgHours: 1, medianHours: 1 },
+    ] })
+    await mountPanel()
+    const rows = w.findAll('[data-stage-border-post-row]')
+    expect(rows.map((r) => r.findAll('th, td').map((c) => c.text()))).toEqual([
+      ['Хоргос', '3', '4 ч', '3 ч 30 мин'],
+      ['Пост не указан', '1', '1 ч', '1 ч'],
+    ])
+    w.unmount()
+    api.stats.mockResolvedValue(structuredClone(STATS))
+    await mountPanel()
+    expect(w.find('[data-stage-border-posts]').exists()).toBe(false)
+  })
 })

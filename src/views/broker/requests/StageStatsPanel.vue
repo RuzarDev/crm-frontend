@@ -57,6 +57,9 @@ const viewOptions = computed(() => [
 const rows = computed(() => (view.value === 'noHistory' && untracked.value.length ? untracked.value : stats.value?.overdue ?? []))
 const showingNoHistory = computed(() => view.value === 'noHistory' && untracked.value.length > 0)
 
+// «Время на границе» по постам (18.10): прибытие → прохождение; старый сервер — поля нет.
+const borderByPost = computed(() => stats.value?.borderByPost ?? [])
+
 const hasData = computed(() => !!stats.value && (stepRows.value.some((r) => r.s.count > 0) || stats.value.employees.length > 0))
 
 const th = 'px-3 py-2 text-left text-xs font-medium text-muted whitespace-nowrap'
@@ -154,6 +157,31 @@ const td = 'px-3 py-2 text-[13.5px] tabular-nums text-ink-2 whitespace-nowrap'
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div v-if="borderByPost.length" class="flex flex-col gap-2" data-stage-border-posts>
+          <h3 class="m-0 text-sm font-semibold text-ink">{{ t('stages.stats.borderByPost') }}</h3>
+          <p class="m-0 text-xs text-muted">{{ t('stages.stats.borderByPostHint') }}</p>
+          <div class="min-w-0 overflow-x-auto rounded-row border border-line">
+            <table class="w-full border-collapse">
+              <thead class="bg-canvas">
+                <tr>
+                  <th :class="th" scope="col">{{ t('stages.stats.post') }}</th>
+                  <th :class="cn(th, 'text-right')" scope="col">{{ t('stages.stats.count') }}</th>
+                  <th :class="cn(th, 'text-right')" scope="col">{{ t('stages.stats.avg') }}</th>
+                  <th :class="cn(th, 'text-right')" scope="col">{{ t('stages.stats.median') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in borderByPost" :key="p.post" class="border-t border-line" data-stage-border-post-row>
+                  <th scope="row" :class="cn(td, 'text-left font-medium text-ink [overflow-wrap:anywhere]')">{{ p.post || t('stages.stats.noPost') }}</th>
+                  <td :class="cn(td, 'text-right')">{{ p.count }}</td>
+                  <td :class="cn(td, 'text-right')">{{ hours(p.avgHours) }}</td>
+                  <td :class="cn(td, 'text-right')">{{ hours(p.medianHours) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div v-if="stats.employees.length" class="flex flex-col gap-2" data-stage-employees>

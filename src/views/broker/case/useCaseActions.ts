@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { import40Api, type Import40Action } from '@/api/import40'
+import { import40Api, type Import40Action, type Import40ActionExtra } from '@/api/import40'
 import { message } from '@/ui/message'
 
 /** Окна «причины» (CaseActionModals): проблема, шаг назад, отмена, возврат клиенту, завершение без счёта AQNIET. */
@@ -9,8 +9,8 @@ export type ReasonKind = 'problem' | 'stepBack' | 'cancel' | 'return' | 'complet
 export interface RunOptions {
   /** value тела действия (причина, заметка). */
   value?: string | null
-  /** Прочие поля тела: сумма/номер/дата счёта СВХ, сообщение клиенту. */
-  extra?: { amount?: number | null; number?: string | null; date?: string | null; clientMessage?: string | null }
+  /** Прочие поля тела: сумма/номер/дата счёта СВХ, сообщение клиенту, пост прибытия. */
+  extra?: Import40ActionExtra
   /** Ключ тоста успеха; по умолчанию broker.case.done.<действие>; false — без тоста. */
   done?: string | false
 }

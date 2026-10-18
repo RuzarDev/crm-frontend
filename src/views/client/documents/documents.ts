@@ -12,8 +12,11 @@ const SECTION_KEY: Record<string, string> = {
   'payment-check': 'client.documents.section.check',
   'power-of-attorney': 'client.documents.section.poa',
   documents: 'client.documents.section.doc',
+  'border-scans': 'client.documents.section.borderScans',
 }
 export function fileKindKey(f: Pick<ClientCaseFile, 'docKind' | 'section'>): string {
+  // Сканы с границы (18.10): вид скана (cmr, photo…) — не вид документа клиента, даже если имя совпадает (other).
+  if (f.section === 'border-scans') return SECTION_KEY[f.section]
   if (isDocKind(f.docKind)) return `client.docKind.${f.docKind}.name`
   return SECTION_KEY[f.section] ?? 'client.documents.section.doc'
 }
