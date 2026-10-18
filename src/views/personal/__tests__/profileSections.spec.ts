@@ -43,13 +43,13 @@ describe('profileSections: какие карточки кому', () => {
 
   it('клиент Импорта 40: «Компания» со ссылкой вместо формы; декларанта нет, даже если право пришло', () => {
     const s = profileSections(access({ role: 'client', permissions: ['import40.declarant'] }))
-    expect(s.cards).toEqual(['company', 'language', 'password'])
+    expect(s.cards).toEqual(['company', 'telegram', 'language', 'password'])
     expect(s.companyFields).toBe(false)
   })
 
   it('клиент транзита: форма имени и телефона остаётся его единственным способом их сменить', () => {
     const s = profileSections(access({ role: 'client', clientHasModule: (m) => m === 'transit' }))
-    expect(s.cards).toEqual(['personal', 'language', 'password'])
+    expect(s.cards).toEqual(['personal', 'telegram', 'language', 'password'])
   })
 
   it('временный пароль: пароль первым, остальные закрыты', () => {
