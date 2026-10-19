@@ -112,7 +112,9 @@ function excelToStr(v: unknown): string | null {
  */
 function excelToNum(v: unknown): number | null {
   if (v == null || v === '') return null
-  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+  // Excel хранит дроби с шумом (30.900000000000002) — до 6 знаков.
+  const tidy = (n: number) => Math.round(n * 1e6) / 1e6
+  if (typeof v === 'number') return Number.isFinite(v) ? tidy(v) : null
   let s = String(v).replace(/[\s ]/g, '')
   const lastComma = s.lastIndexOf(',')
   const lastDot = s.lastIndexOf('.')
@@ -123,7 +125,7 @@ function excelToNum(v: unknown): number | null {
     s = s.indexOf(',') !== lastComma ? s.replace(/,/g, '') : s.replace(',', '.')
   }
   const n = parseFloat(s.replace(/[^0-9.+-]/g, ''))
-  return isNaN(n) ? null : n
+  return isNaN(n) ? null : tidy(n)
 }
 
 /** Страна происхождения — только двухбуквенный код (CN, KZ); названия стран не угадываем. */
@@ -136,21 +138,33 @@ function matches(norm: string, pattern: string): boolean {
   return pattern.startsWith('=') ? norm === pattern.slice(1) : norm.includes(pattern)
 }
 
-/** Столбцы строки заголовков: поле → индекс столбца. */
-function headerColumns(headerRow: readonly unknown[], opts: GoodsExcelOptions): Partial<Record<ExcelField, number>> {
+/** Поля-итоги по товару: из «НЕТТО» (вес штуки) и «Вес нетто итого» в гр. 38 идёт итог. */
+const TOTAL_FIELDS: ReadonlySet<ExcelField> = new Set(['grossWeightKg', 'netWeightKg', 'customsValue'])
+const TOTAL_HEADER = /итого|всего|total/
+
+/**
+ * Столбцы строки заголовков: поле → индекс столбца. Под одно поле бывает несколько столбцов (шаблон декларанта
+ * 19.10.2026: «НЕТТО» — вес штуки, «Вес нетто итого» и его пустой дубль; «ХС (ВИД УПАКОВКИ)» пустой, «СТ (ВИД
+ * УПАКОВКИ)» заполнен). Поэтому среди подходящих под самый точный образец: сначала столбец с данными (dataRows —
+ * строки под шапкой), для весов и стоимости — с «итого/всего/total» в заголовке, затем первый по порядку.
+ */
+function headerColumns(
+  headerRow: readonly unknown[], opts: GoodsExcelOptions, dataRows: readonly unknown[][] = [],
+): Partial<Record<ExcelField, number>> {
   const norms = headerRow.map(normalizeHeader)
+  const hasData = (idx: number) => dataRows.some((r) => r?.[idx] != null && String(r[idx]).trim() !== '')
   const used = new Set<number>()
   const colIndex: Partial<Record<ExcelField, number>> = {}
   for (const matcher of EXCEL_COLUMN_MATCHERS) {
     if (!opts.tradeCodes && TRADE_CODE_FIELDS.has(matcher.field)) continue
-    // Сначала более точный образец (по порядку в списке), затем — первый подходящий свободный столбец.
     for (const pattern of matcher.patterns) {
-      const idx = norms.findIndex((n, i) => n && !used.has(i) && matches(n, pattern))
-      if (idx >= 0) {
-        colIndex[matcher.field] = idx
-        used.add(idx)
-        break
-      }
+      const candidates = norms.flatMap((n, i) => (n && !used.has(i) && matches(n, pattern) ? [i] : []))
+      if (!candidates.length) continue
+      const rank = (i: number) => (hasData(i) ? 0 : 2) + (TOTAL_FIELDS.has(matcher.field) && TOTAL_HEADER.test(norms[i]) ? 0 : 1)
+      const idx = candidates.reduce((best, i) => (rank(i) < rank(best) ? i : best))
+      colIndex[matcher.field] = idx
+      used.add(idx)
+      break
     }
   }
   return colIndex
@@ -172,7 +186,7 @@ export function findGoodsHeader(rows: unknown[][], opts: GoodsExcelOptions = {})
 export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = {}): GoodsExcelRow[] {
   const header = findGoodsHeader(rows, opts)
   if (!header) return []
-  const colIndex = headerColumns(rows[header.index] ?? [], opts)
+  const colIndex = headerColumns(rows[header.index] ?? [], opts, rows.slice(header.index + 1, header.index + 201))
   const cell = (row: unknown[], f: ExcelField) => (colIndex[f] != null ? row[colIndex[f]!] : null)
 
   const goods: GoodsExcelRow[] = []
