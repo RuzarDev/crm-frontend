@@ -6,8 +6,9 @@
 // ДЕИ (поле заблокировано, его задаёт код ТН ВЭД), поэтому здесь значение идёт в вид упаковки товара (гр. 31,
 // packageKindCode, классификатор 2013): по коду, названию или «код — название». Не распознано — никуда не пишется,
 // предпросмотр показывает такие значения.
-import type { ClassifierItem, Import40GoodsItemInput, ReestrGoodsItemInput } from '@/types/api'
-import type { GoodsExcelRow } from '@/utils/goodsExcel'
+import type { ClassifierItem, Import40Doc44ItemInput, Import40GoodsItemInput, ReestrGoodsItemInput } from '@/types/api'
+import type { GoodsExcelDetails, GoodsExcelRow } from '@/utils/goodsExcel'
+import { okeiFromText } from './editor/okei'
 import { newDtGoodsItem } from './useDtGoods'
 
 export interface DtExcelContext {
@@ -54,8 +55,78 @@ export function dtGoodsFromExcel(rows: readonly GoodsExcelRow[], ctx: DtExcelCon
     // Гр. 33.3: NTIN (без повторов) и GTIN из столбцов «NTIN» / «GTIN».
     g.ntins = [...new Set(r.ntins ?? [])]
     g.gtin = r.gtin ?? null
+    if (r.details) applyDetails(g, r, r.details)
     return g
   })
+}
+
+/**
+ * Шаблон декларанта: строка характеристик гр. 31 (производитель, знак, марка, модель, артикул, серийные, ГОСТ, сорт;
+ * количество — со своей единицей из файла, если она есть), часть места, индивидуальные упаковки (вид выбирается в
+ * карточке), наличие упаковки.
+ */
+function applyDetails(g: Import40GoodsItemInput, r: GoodsExcelRow, d: GoodsExcelDetails): void {
+  const row = g.characteristics?.[0]
+  if (row) {
+    row.manufacturerName = d.manufacturerName
+    row.tradeMarkName = d.tradeMarkName
+    row.productMarkName = d.productMarkName
+    row.productModelName = d.productModelName
+    row.productArticle = d.productArticle
+    row.serialNumbers = d.serialNumbers
+    row.standardName = d.standardName
+    row.productSortName = d.productSortName
+    // Своя единица строки («47 ШТ» в тексте гр. 31); без неё строка берёт количество и ДЕИ из гр. 41.
+    const unitCode = d.measureUnit ? okeiFromText(d.measureUnit) : null
+    if (unitCode && r.quantity != null) {
+      row.quantity = r.quantity
+      row.unitCode = unitCode
+    }
+  }
+  if (d.packageAvailabilityCode) g.packageAvailabilityCode = d.packageAvailabilityCode
+  const cargoPart = d.cargoPartQuantity != null && d.cargoPartQuantity > 0 ? Math.round(d.cargoPartQuantity) : null
+  const indiv = d.individualPackages != null && d.individualPackages > 0 ? d.individualPackages : null
+  if (cargoPart != null || indiv != null) {
+    // Как в редакторе (GoodsPackagingSection.ensureExtras): пустые списки марок и автомобилей.
+    const extras = (g.extras ??= { traceable: false, exciseStamps: [], vehicles: [] })
+    if (cargoPart != null) extras.cargoPartQuantity = cargoPart
+    if (indiv != null) extras.packages = [{ kind: '1', packageKindCode: null, quantity: indiv, description: null }]
+  }
+}
+
+/** Код вида документа «Инвойс» гр. 44. */
+export const INVOICE_DOC_CODE = '04021'
+
+/**
+ * Документы гр. 44 из шаблона: «КОД / НОМЕР / ДАТА ДОКУМЕНТА» и инвойс (04021) по каждой строке. Одинаковые
+ * документы (код + номер + дата) — одна строка гр. 44 со всеми своими товарами (goodsItemIndexes — позиции с 0;
+ * firstIndex — позиция первого добавляемого товара). Документ без кода или номера не создаётся.
+ */
+export function dtDocsFromExcel(rows: readonly GoodsExcelRow[], firstIndex: number): Import40Doc44ItemInput[] {
+  const byKey = new Map<string, { doc: Import40Doc44ItemInput; goods: number[] }>()
+  const add = (code: string | null, number: string | null, date: string | null, goodsIndex: number) => {
+    if (!code || !number) return
+    const key = `${code}|${number}|${date ?? ''}`
+    let e = byKey.get(key)
+    if (!e) {
+      e = {
+        doc: {
+          docTypeCode: code, docTypeName: null, docNumber: number, docDate: date, goodsItemIndex: null, appliesToAll: false,
+          goodsItemIndexes: null, docStartDate: null, docValidityDate: null, issueCountryCode: null, presentKindCode: '0',
+        },
+        goods: [],
+      }
+      byKey.set(key, e)
+    }
+    if (!e.goods.includes(goodsIndex)) e.goods.push(goodsIndex)
+  }
+  rows.forEach((r, i) => {
+    const d = r.details
+    if (!d) return
+    add(d.docTypeCode, d.docNumber, d.docDate, firstIndex + i)
+    add(INVOICE_DOC_CODE, d.invoiceNumber, d.invoiceDate, firstIndex + i)
+  })
+  return [...byKey.values()].map(({ doc, goods }) => ({ ...doc, goodsItemIndexes: goods.join(',') }))
 }
 
 /** Что распознано в файле: по каждому полю — в скольких строках есть значение. */
@@ -66,7 +137,13 @@ export interface DtExcelPreview {
   recognized: {
     description: number; gross: number; net: number; quantity: number; packaging: number; places: number; value: number
     country: number; tradeCodes: number
+    /** Строк со сведениями для строки характеристик гр. 31 (производитель, знак, марка, модель, артикул…). */
+    characteristics: number
+    cargoPart: number
+    individualPackages: number
   }
+  /** Документов гр. 44 (с инвойсами), которые добавятся. */
+  documents: number
   /** Значения «Вида упаковки», которых нет в классификаторе (без повторов) — в товары не попадут. */
   unknownPackaging: string[]
   /** Строк, где нетто больше брутто: перенесутся, но такой товар — ошибка (XML не сформируется). */
@@ -98,7 +175,15 @@ export function excelPreview(rows: readonly GoodsExcelRow[], packageKinds: reado
       value: count((r) => r.customsValue),
       country: count((r) => r.countryOfOrigin),
       tradeCodes: rows.filter((r) => (r.ntins?.length ?? 0) > 0 || !!r.gtin).length,
+      characteristics: rows.filter((r) => {
+        const d = r.details
+        return !!d && [d.manufacturerName, d.tradeMarkName, d.productMarkName, d.productModelName, d.productArticle,
+          d.serialNumbers, d.standardName, d.productSortName].some((v) => !!v)
+      }).length,
+      cargoPart: rows.filter((r) => (r.details?.cargoPartQuantity ?? 0) > 0).length,
+      individualPackages: rows.filter((r) => (r.details?.individualPackages ?? 0) > 0).length,
     },
+    documents: dtDocsFromExcel(rows, 0).length,
     unknownPackaging: [...unknown],
     netOverGross: rows.filter((r) => r.grossWeightKg != null && r.netWeightKg != null && r.netWeightKg > r.grossWeightKg).length,
   }

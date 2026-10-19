@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ClassifierItem, ReestrGoodsItemInput } from '@/types/api'
-import { goodsFromSheetRows } from '@/utils/goodsExcel'
-import { dtGoodsFromExcel, excelPreview } from '../goodsImport'
+import { goodsFromSheetRows, type GoodsExcelRow } from '@/utils/goodsExcel'
+import { dtDocsFromExcel, dtGoodsFromExcel, excelPreview } from '../goodsImport'
 
 const HEAD = ['Код ТН ВЭД', 'Коммерческое описание', 'Вес брутто', 'Количество товара', 'Вид упаковки товара', 'Количество грузовых мест']
 const parsed = (rows: unknown[][]): ReestrGoodsItemInput[] => goodsFromSheetRows([HEAD, ...rows])
@@ -75,7 +75,37 @@ describe('goodsImport: предпросмотр', () => {
       [null, 'Гайки', 4, null, null, null],
     ]), KINDS)
     expect(p).toEqual({
-      rows: 2, withCode: 1, withoutCode: 1, recognized: { description: 2, gross: 2, net: 0, quantity: 1, packaging: 1, places: 1, value: 0, country: 0, tradeCodes: 0 }, unknownPackaging: [], netOverGross: 0,
+      rows: 2, withCode: 1, withoutCode: 1, recognized: { description: 2, gross: 2, net: 0, quantity: 1, packaging: 1, places: 1, value: 0, country: 0, tradeCodes: 0, characteristics: 0, cargoPart: 0, individualPackages: 0 }, documents: 0, unknownPackaging: [], netOverGross: 0,
     })
+  })
+})
+
+describe('goodsImport: сведения шаблона декларанта', () => {
+  const details = (over: Partial<NonNullable<GoodsExcelRow['details']>> = {}): NonNullable<GoodsExcelRow['details']> => ({
+    manufacturerName: 'YIWU', tradeMarkName: null, productMarkName: null, productModelName: null, productArticle: 'URS07',
+    serialNumbers: null, standardName: null, productSortName: null, measureUnit: null, cargoPartQuantity: null,
+    individualPackages: null, packageAvailabilityCode: '1', docTypeCode: null, docNumber: null, docDate: null,
+    invoiceNumber: 'UR0910', invoiceDate: '2026-09-10', ...over,
+  })
+  const row = (over: Partial<NonNullable<GoodsExcelRow['details']>> = {}): GoodsExcelRow =>
+    ({ ...parsed([['7323990000', 'Сушилка', null, 47, null, 47]])[0], details: details(over) })
+
+  it('строка характеристик, наличие упаковки, часть места и индивидуальные упаковки', () => {
+    const [g] = dtGoodsFromExcel([row({ cargoPartQuantity: 1, individualPackages: 47 })], { currency: 'USD', packageKinds: KINDS })
+    expect(g.characteristics?.[0]).toMatchObject({ manufacturerName: 'YIWU', productArticle: 'URS07', tradeMarkName: null })
+    expect(g.packageAvailabilityCode).toBe('1')
+    expect(g.extras).toMatchObject({ cargoPartQuantity: 1, packages: [{ kind: '1', packageKindCode: null, quantity: 47 }] })
+  })
+
+  it('документы гр. 44: одинаковые — одна строка со всеми товарами, позиции считаются от первого нового товара', () => {
+    const docs = dtDocsFromExcel([
+      row(), row(), row({ invoiceDate: '2026-10-10', docTypeCode: '01401', docNumber: 'KZ.1', docDate: null }),
+    ], 5)
+    expect(docs.map((d) => [d.docTypeCode, d.docNumber, d.docDate, d.goodsItemIndexes])).toEqual([
+      ['04021', 'UR0910', '2026-09-10', '5,6'],
+      ['01401', 'KZ.1', null, '7'],
+      ['04021', 'UR0910', '2026-10-10', '7'],
+    ])
+    expect(docs[0]).toMatchObject({ appliesToAll: false, presentKindCode: '0' })
   })
 })

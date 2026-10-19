@@ -21,7 +21,8 @@ import GoodsEditor from './editor/GoodsEditor.vue'
 import { emptyGoodsPageContext, type GoodsEditorContext, type GoodsPageContext, type GoodsSaveState } from './editor/types'
 import type { BulkPatch } from './goodsBulk'
 import { exportGoodsXlsx } from './goodsExport'
-import { dtGoodsFromExcel } from './goodsImport'
+import { dtDocsFromExcel, dtGoodsFromExcel } from './goodsImport'
+import { ensureOkeiUnits } from './editor/okei'
 import { filterGoods, formatItemNumbers, goodsTotals, type GoodsFilter } from './goodsList'
 import { goodsPaymentsStale, isErrorStatus, withCodeCheck, type GoodsStatus } from './goodsStatus'
 import { provideDtTnvedCheck, useGoodsCodesValidation } from './tnvedCodeCheck'
@@ -192,7 +193,7 @@ const onFile = async (e: Event) => {
   }
   excelBusy.value = true
   try {
-    const result = await readGoodsExcel(file, { tradeCodes: true })
+    const result = await readGoodsExcel(file, { tradeCodes: true, details: true })
     if ('problem' in result) {
       message.warning(t(GOODS_EXCEL_MESSAGES[result.problem]))
       return
@@ -207,11 +208,16 @@ const onFile = async (e: Event) => {
     excelBusy.value = false
   }
 }
-const appendExcel = () => {
-  const n = props.model.append(dtGoodsFromExcel(excelRows.value, { currency: props.currency, packageKinds: packageKinds.value }))
+const appendExcel = async () => {
+  // Единица строки характеристик («шт» → 796) — по справочнику ОКЕИ; не загрузился — строка возьмёт ДЕИ гр. 41.
+  await ensureOkeiUnits().catch(() => undefined)
+  const rows = excelRows.value
+  const firstIndex = props.model.items.value.length
+  const n = props.model.append(dtGoodsFromExcel(rows, { currency: props.currency, packageKinds: packageKinds.value }))
+  const docs = n ? props.model.appendDocs(dtDocsFromExcel(rows, firstIndex)) : 0
   excelOpen.value = false
   excelRows.value = []
-  if (n) message.success(tg('excel.done', { n }))
+  if (n) message.success(docs ? tg('excel.doneWithDocs', { n, docs }) : tg('excel.done', { n }))
 }
 
 const exporting = ref(false)

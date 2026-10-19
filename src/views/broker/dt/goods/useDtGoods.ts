@@ -15,7 +15,7 @@
 // - Признак «платежи устарели» ставит редактор на правке пользователя (markStale / setGoodsField из goodsStatus),
 //   снимает расчёт (payments/paymentRows.applyGoodsPaymentRows).
 import { computed, shallowRef, toRaw, toValue, watch, type MaybeRefOrGetter } from 'vue'
-import type { Import40GoodsItemInput } from '@/types/api'
+import type { Import40Doc44ItemInput, Import40GoodsItemInput } from '@/types/api'
 import { cloneGoodsExtras } from '@/types/api'
 import { blankCharacteristic, cloneCharacteristics } from './editor/characteristics'
 import type { DtFormState } from '../dtPayload'
@@ -205,6 +205,32 @@ export function useDtGoods(form: DtFormState, opts: DtGoodsOptions) {
     return list.length
   }
 
+  /**
+   * Документы гр. 44 из Excel (dtDocsFromExcel): такой же документ (код + номер + дата) уже есть — его товары
+   * дополняются (если он не «на все товары»), иначе строка добавляется в конец. Возвращает число новых строк.
+   */
+  const appendDocs = (docs: readonly Import40Doc44ItemInput[]): number => {
+    if (!editable() || !docs.length) return 0
+    const norm = (v: string | null | undefined) => (v ?? '').trim().toUpperCase()
+    const same = (a: Import40Doc44ItemInput, b: Import40Doc44ItemInput) =>
+      norm(a.docTypeCode) === norm(b.docTypeCode) && norm(a.docNumber) === norm(b.docNumber) && (a.docDate ?? '') === (b.docDate ?? '')
+    let added = 0
+    for (const doc of docs) {
+      const existing = form.doc44Items.find((d) => same(d, doc))
+      if (!existing) {
+        form.doc44Items.push({ ...doc })
+        added += 1
+        continue
+      }
+      if (existing.appliesToAll) continue
+      const tokens = new Set((existing.goodsItemIndexes ?? '').split(',').map((s) => s.trim()).filter(Boolean))
+      if (existing.goodsItemIndex != null) tokens.add(String(existing.goodsItemIndex))
+      for (const t of (doc.goodsItemIndexes ?? '').split(',').map((s) => s.trim()).filter(Boolean)) tokens.add(t)
+      existing.goodsItemIndexes = [...tokens].sort((a, b) => Number(a) - Number(b)).join(',')
+    }
+    return added
+  }
+
   /** Что будет удалено (для вопроса перед удалением). */
   const removalImpact = (indexes: Iterable<number>): GoodsRemovalImpact => {
     const at = validIndexes(indexes, form.goodsItems.length)
@@ -316,6 +342,7 @@ export function useDtGoods(form: DtFormState, opts: DtGoodsOptions) {
     keyOf,
     add,
     append,
+    appendDocs,
     remove,
     removalImpact,
     duplicate,

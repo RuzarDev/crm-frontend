@@ -9,11 +9,40 @@ import type { ReestrGoodsItemInput } from '@/types/api'
  * Строка Excel. NTIN/GTIN (гр. 33.3, ДТ) — только с опцией tradeCodes: транзит их не знает, и лишние поля не должны
  * уйти в его товары.
  */
-export type GoodsExcelRow = ReestrGoodsItemInput & { ntins?: string[]; gtin?: string | null }
+export type GoodsExcelRow = ReestrGoodsItemInput & { ntins?: string[]; gtin?: string | null; details?: GoodsExcelDetails }
+
+/**
+ * Сведения для ДТ из шаблона декларанта (опция details): строка характеристик гр. 31, часть места, индивидуальные
+ * упаковки, наличие упаковки, документ гр. 44 и инвойс. «Отсутствует», «нет», «-» — пусто (бланк сам пишет
+ * «ОТСУТСТВУЕТ»); текст — ЗАГЛАВНЫМИ, даты — 'YYYY-MM-DD'.
+ */
+export interface GoodsExcelDetails {
+  manufacturerName: string | null
+  tradeMarkName: string | null
+  productMarkName: string | null
+  productModelName: string | null
+  productArticle: string | null
+  serialNumbers: string | null
+  standardName: string | null
+  productSortName: string | null
+  /** Единица количества как в файле («шт», «пара») — в строку характеристик кодом ОКЕИ. */
+  measureUnit: string | null
+  cargoPartQuantity: number | null
+  individualPackages: number | null
+  /** Код наличия упаковки гр. 31: 1 — с упаковкой, 0 — без, 2 — в оборудованных ёмкостях. */
+  packageAvailabilityCode: string | null
+  docTypeCode: string | null
+  docNumber: string | null
+  docDate: string | null
+  invoiceNumber: string | null
+  invoiceDate: string | null
+}
 
 export interface GoodsExcelOptions {
   /** Столбцы «NTIN» и «GTIN» (гр. 33.3 ДТ): коды через запятую/пробел/перевод строки. */
   tradeCodes?: boolean
+  /** Сведения шаблона декларанта для ДТ (GoodsExcelDetails); транзит их не знает. */
+  details?: boolean
 }
 
 export const GOODS_EXCEL_ACCEPT = '.xlsx,.xls'
@@ -37,13 +66,33 @@ export const GOODS_EXCEL_MESSAGES: Record<GoodsExcelProblem, string> = {
 // «КЕДЕН ШАПКА», но и инвойсы/спецификации поставщиков: шапка компании сверху, «Наименование» вместо «Коммерческое
 // описание», «ТН ВЭД» без «Код», английские заголовки (19.10.2026: декларант не смогла загрузить такой файл).
 // Поэтому заголовки матчим по нормализованной подстроке, а «=…» — только точным совпадением (короткие слова).
+type DetailField = keyof GoodsExcelDetails
 type ExcelField =
   | 'tnvedCode' | 'description' | 'grossWeightKg' | 'netWeightKg' | 'quantity' | 'unit' | 'packagesCount'
-  | 'customsValue' | 'countryOfOrigin' | 'ntins' | 'gtin'
+  | 'customsValue' | 'countryOfOrigin' | 'ntins' | 'gtin' | DetailField
 
 // Порядок важен: сначала более узкие поля, чтобы «Количество грузовых мест» досталось местам, а не количеству,
 // «Вес нетто» — нетто, «Код ТН ВЭД» — коду, а не описанию. Каждый столбец — не больше чем одному полю.
 const EXCEL_COLUMN_MATCHERS: { field: ExcelField; patterns: string[] }[] = [
+  // Сведения ДТ (details) — до общих полей: «ЧАСТЬ МЕСТА» — не места, «КОЛ-ВО ИНДИВ. УПАК.» — не количество,
+  // «№ ИНВОЙСА»/«КОД ДОКУМЕНТА» — не код ТН ВЭД, «ЕД.ИЗМЕРЕНИЯ» — не вид упаковки.
+  { field: 'cargoPartQuantity', patterns: ['частьместа', 'частичнозанят'] },
+  { field: 'individualPackages', patterns: ['колвоиндив', 'количествоиндив', 'индивупак', 'индивидуальн'] },
+  { field: 'packageAvailabilityCode', patterns: ['наличиеупаковки', 'супаковкой', 'безупаковки'] },
+  { field: 'invoiceDate', patterns: ['датаинвойса', 'invoicedate', 'датасчета'] },
+  { field: 'invoiceNumber', patterns: ['инвойс', 'invoiceno', 'invoicenumber', 'номерсчета'] },
+  { field: 'docDate', patterns: ['датадокумента'] },
+  { field: 'docNumber', patterns: ['номердокумента'] },
+  { field: 'docTypeCode', patterns: ['коддокумента', 'виддокумента'] },
+  { field: 'measureUnit', patterns: ['единицаизмерения', 'едизмерения', 'едизм', '=ед', 'uom', '=unit'] },
+  { field: 'manufacturerName', patterns: ['производитель', 'изготовитель', 'manufacturer'] },
+  { field: 'tradeMarkName', patterns: ['товарныйзнак', 'trademark', 'бренд', '=brand'] },
+  { field: 'productMarkName', patterns: ['=марка', 'маркатовара', '=mark'] },
+  { field: 'productModelName', patterns: ['модель', '=model'] },
+  { field: 'productArticle', patterns: ['артикул', 'article', '=sku', '=art'] },
+  { field: 'serialNumbers', patterns: ['серийн', 'serial'] },
+  { field: 'standardName', patterns: ['гост', 'стандарт', '=ту'] },
+  { field: 'productSortName', patterns: ['=сорт', 'сорттовара', '=grade'] },
   { field: 'packagesCount', patterns: ['количествогрузовыхмест', 'грузовыхмест', 'колвомест', 'количествомест', 'местгруза', '=мест', '=места', 'cartons', 'ctns', '=pkgs', 'places', 'numberofpackages'] },
   { field: 'grossWeightKg', patterns: ['брутто', 'grossweight', '=gross', 'gw'] },
   { field: 'netWeightKg', patterns: ['нетто', 'netweight', '=net', 'netto', 'nw'] },
@@ -58,6 +107,13 @@ const EXCEL_COLUMN_MATCHERS: { field: ExcelField; patterns: string[] }[] = [
   { field: 'description', patterns: ['коммерческоеописание', 'наименование', 'описание', 'description', 'goodsname', 'productname', '=товар', '=товары', '=product', '=goods', '=name'] },
 ]
 const TRADE_CODE_FIELDS: ReadonlySet<ExcelField> = new Set(['ntins', 'gtin'])
+const DETAIL_FIELDS: ReadonlySet<ExcelField> = new Set<DetailField>([
+  'manufacturerName', 'tradeMarkName', 'productMarkName', 'productModelName', 'productArticle', 'serialNumbers',
+  'standardName', 'productSortName', 'measureUnit', 'cargoPartQuantity', 'individualPackages', 'packageAvailabilityCode',
+  'docTypeCode', 'docNumber', 'docDate', 'invoiceNumber', 'invoiceDate',
+])
+/** «Отсутствует», «нет», «-», «N/A» — значения нет. */
+const ABSENT = /^(отсутству\S*|нет|не\s*указан\S*|[-—–]+|n\/?a|none)$/i
 /** Шапку таблицы ищем в первых строках листа (сверху бывают реквизиты, номер инвойса и т. п.). */
 const HEADER_SCAN_ROWS = 30
 /** Строки «Итого/Всего/Total» — не товары. */
@@ -134,6 +190,47 @@ function excelCountry(v: unknown): string | null {
   return s && /^[A-Z]{2}$/.test(s) ? s : null
 }
 
+/** Текст сведения: «Отсутствует» и т. п. — пусто, иначе ЗАГЛАВНЫМИ (как поля ДТ). */
+function excelText(v: unknown): string | null {
+  const s = excelToStr(v)
+  if (!s || ABSENT.test(s)) return null
+  return s.toLocaleUpperCase('ru-RU')
+}
+
+/** Дата: число Excel (46275 = 2026-09-10) или «10.09.2026» / «2026-09-10» → 'YYYY-MM-DD'; иначе пусто. */
+function excelDate(v: unknown): string | null {
+  if (v == null || v === '') return null
+  const iso = (y: number, m: number, d: number) =>
+    y > 1900 && m >= 1 && m <= 12 && d >= 1 && d <= 31 ? `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null
+  if (v instanceof Date && !isNaN(v.getTime())) return iso(v.getFullYear(), v.getMonth() + 1, v.getDate())
+  if (typeof v === 'number' && Number.isFinite(v) && v > 20000 && v < 80000) {
+    const dt = new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86400000)
+    return iso(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate())
+  }
+  const s = String(v).trim()
+  const ru = /^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/.exec(s)
+  if (ru) return iso(+ru[3], +ru[2], +ru[1])
+  const is = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s)
+  return is ? iso(+is[1], +is[2], +is[3]) : null
+}
+
+/** Код вида документа гр. 44 — 5 цифр (Excel теряет ведущий ноль: 4021 → 04021). */
+function excelDocCode(v: unknown): string | null {
+  const s = excelToStr(v)?.replace(/\s/g, '') ?? null
+  if (!s) return null
+  return /^\d{4}$/.test(s) ? `0${s}` : /^\d{5}$/.test(s) ? s : null
+}
+
+/** Наличие упаковки: «С упаковкой» — 1, «Без упаковки» — 0, «в оборудованных ёмкостях» — 2, код 0/1/2 — как есть. */
+function excelPackageAvailability(v: unknown): string | null {
+  const s = excelToStr(v)?.toLowerCase() ?? null
+  if (!s) return null
+  if (/^[012]$/.test(s)) return s
+  if (/без/.test(s)) return '0'
+  if (/емкост|ёмкост|налив|насып/.test(s)) return '2'
+  return /упаков/.test(s) ? '1' : null
+}
+
 function matches(norm: string, pattern: string): boolean {
   return pattern.startsWith('=') ? norm === pattern.slice(1) : norm.includes(pattern)
 }
@@ -157,6 +254,7 @@ function headerColumns(
   const colIndex: Partial<Record<ExcelField, number>> = {}
   for (const matcher of EXCEL_COLUMN_MATCHERS) {
     if (!opts.tradeCodes && TRADE_CODE_FIELDS.has(matcher.field)) continue
+    if (!opts.details && DETAIL_FIELDS.has(matcher.field)) continue
     for (const pattern of matcher.patterns) {
       const candidates = norms.flatMap((n, i) => (n && !used.has(i) && matches(n, pattern) ? [i] : []))
       if (!candidates.length) continue
@@ -219,8 +317,31 @@ export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = 
       && packagesCount == null && customsValue == null && !ntins.length && !gtin
     if (isEmptyRow) continue
 
+    const details: GoodsExcelDetails | undefined = opts.details
+      ? {
+          manufacturerName: excelText(cell(row, 'manufacturerName')),
+          tradeMarkName: excelText(cell(row, 'tradeMarkName')),
+          productMarkName: excelText(cell(row, 'productMarkName')),
+          productModelName: excelText(cell(row, 'productModelName')),
+          productArticle: excelText(cell(row, 'productArticle')),
+          serialNumbers: excelText(cell(row, 'serialNumbers')),
+          standardName: excelText(cell(row, 'standardName')),
+          productSortName: excelText(cell(row, 'productSortName')),
+          measureUnit: excelText(cell(row, 'measureUnit')),
+          cargoPartQuantity: excelToNum(cell(row, 'cargoPartQuantity')),
+          individualPackages: excelToNum(cell(row, 'individualPackages')),
+          packageAvailabilityCode: excelPackageAvailability(cell(row, 'packageAvailabilityCode')),
+          docTypeCode: excelDocCode(cell(row, 'docTypeCode')),
+          docNumber: excelText(cell(row, 'docNumber')),
+          docDate: excelDate(cell(row, 'docDate')),
+          invoiceNumber: excelText(cell(row, 'invoiceNumber')),
+          invoiceDate: excelDate(cell(row, 'invoiceDate')),
+        }
+      : undefined
+
     goods.push({
       ...(opts.tradeCodes ? { ntins, gtin } : {}),
+      ...(details ? { details } : {}),
       description,
       tnvedCode,
       tnvedDescription: description,

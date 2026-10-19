@@ -2011,6 +2011,9 @@ export default {
             net: 'Net',
             value: 'Invoice value',
             country: 'Country of origin',
+            characteristics: 'Box 31 characteristics',
+            cargoPart: 'Part of package',
+            individualPackages: 'Individual packages',
             tradeCodes: 'NTIN / GTIN (box 33.3)',
           },
           netOverGross: 'Rows where net exceeds gross: {n}. The goods will be added, but the XML will not be generated with this error — fix the weights in the file or in the goods card.',
@@ -2021,6 +2024,8 @@ export default {
           more: 'And {n} more rows',
           append: 'Add to the end',
           appendNote: 'Goods will be added after the existing ones ({n}); existing goods do not change.',
+          doneWithDocs: 'Goods added from Excel: {n}; box 44 documents: {docs}',
+          documents: 'Box 44 documents in the file (invoices included): {n}. They will be added to “Documents” and linked to their goods.',
           done: 'Goods added from Excel: {n}',
         },
         export: {

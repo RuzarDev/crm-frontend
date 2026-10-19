@@ -121,6 +121,31 @@ describe('goodsFromSheetRows: инвойсы и спецификации', () =>
   })
 })
 
+describe('goodsFromSheetRows: сведения шаблона декларанта (details, только ДТ)', () => {
+  const HEAD = ['№ ИНВОЙСА', 'ДАТА ИНВОЙСА', 'ПРОИЗВОДИТЕЛЬ', 'МАРКА', 'ТОВАРНЫЙ ЗНАК', 'Артикул', 'СЕРИЙНЫЙ НОМЕР', 'Наименование',
+    'ЕД.ИЗМЕРЕНИЯ (ШТ.,ПАРА)', 'Количество', 'Код ТНВЭД', 'КОЛ-ВО МЕСТ', 'ЧАСТЬ МЕСТА', 'МОДЕЛЬ', 'ГОСТ', 'СОРТ', 'НОМЕР ДОКУМЕНТА',
+    'ДАТА ДОКУМЕНТА', 'КОД ДОКУМЕНТА', 'КОЛ-ВО ИНДИВ. УПАК.', 'С УПАКОВКОЙ']
+  const ROW = ['UR0910 ', 46275, 'Yiwu Longju Trading Firm', 'Отсутствует', 'ОТСУТСТВУЕТ', 'URS07', '-', 'Сушилка', 'шт', 47, 7323990000, 0, 1,
+    'X-200', 'ГОСТ 123', 'ОТСУТСТВУЕТ', 'KZ.123', '05.09.2026', 1401, 47, 'С УПАКОВКОЙ']
+
+  it('читает сведения: «Отсутствует» — пусто, текст заглавными, даты и код документа нормализуются', () => {
+    const [g] = goodsFromSheetRows([HEAD, ROW], { details: true })
+    expect(g.details).toEqual({
+      manufacturerName: 'YIWU LONGJU TRADING FIRM', tradeMarkName: null, productMarkName: null, productModelName: 'X-200',
+      productArticle: 'URS07', serialNumbers: null, standardName: 'ГОСТ 123', productSortName: null, measureUnit: 'ШТ',
+      cargoPartQuantity: 1, individualPackages: 47, packageAvailabilityCode: '1',
+      docTypeCode: '01401', docNumber: 'KZ.123', docDate: '2026-09-05', invoiceNumber: 'UR0910', invoiceDate: '2026-09-10',
+    })
+    // «ЧАСТЬ МЕСТА» и «КОЛ-ВО ИНДИВ. УПАК.» не перехватывают места и количество
+    expect(g).toMatchObject({ quantity: 47, packagesCount: 0, tnvedCode: '7323990000' })
+  })
+
+  it('без опции details (транзит) сведений нет', () => {
+    const [g] = goodsFromSheetRows([HEAD, ROW])
+    expect(g.details).toBeUndefined()
+  })
+})
+
 describe('readGoodsExcel', () => {
   it('читает первый лист файла', async () => {
     const r = await readGoodsExcel(workbookFile([HEADER, [1, '4202121900', 'Сумки', 54, 120, 'шт', 20]]))

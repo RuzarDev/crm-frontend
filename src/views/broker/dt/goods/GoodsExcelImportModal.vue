@@ -37,6 +37,10 @@ const recognized = computed(() => {
     { key: 'value', n: r.value },
     // Страна — только если в файле есть двухбуквенные коды (названия стран не переносим).
     ...(r.country ? [{ key: 'country', n: r.country }] : []),
+    // Шаблон декларанта: строка характеристик гр. 31, часть места, индивидуальные упаковки — только если есть.
+    ...(r.characteristics ? [{ key: 'characteristics', n: r.characteristics }] : []),
+    ...(r.cargoPart ? [{ key: 'cargoPart', n: r.cargoPart }] : []),
+    ...(r.individualPackages ? [{ key: 'individualPackages', n: r.individualPackages }] : []),
     // Гр. 33.3 NTIN/GTIN — только если в файле есть такие столбцы со значениями.
     ...(r.tradeCodes ? [{ key: 'tradeCodes', n: r.tradeCodes }] : []),
   ]
@@ -75,6 +79,9 @@ const td = 'border-b border-line px-2 py-1.5 align-top'
       </div>
       <p v-if="summary.withoutCode" class="m-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink" data-goods-excel-no-code>
         {{ tx('withoutCode', { n: summary.withoutCode }) }}
+      </p>
+      <p v-if="summary.documents" class="m-0 text-ink-2" data-goods-excel-documents>
+        {{ tx('documents', { n: summary.documents }) }}
       </p>
       <p v-if="summary.netOverGross" class="m-0 rounded-row border border-danger/30 bg-danger/5 px-3 py-2 text-danger" data-goods-excel-net-over-gross>
         {{ tx('netOverGross', { n: summary.netOverGross }) }}
