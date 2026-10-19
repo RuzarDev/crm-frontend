@@ -26,6 +26,8 @@ import {
 } from '../declarations'
 import ExtractionIssuesModal from './ExtractionIssuesModal.vue'
 import ExtractDocsModal from './ExtractDocsModal.vue'
+import { applyExcelFallback, docHeaderFrom, type ExcelDoc } from './excelFallback'
+import { readExcelDocument } from '@/utils/goodsExcel'
 import CondRelTag from '@/components/condrel/CondRelTag.vue'
 import { briefOf } from '@/utils/conditionalRelease'
 import QuoteImportModal from './QuoteImportModal.vue'
@@ -199,16 +201,44 @@ const onPicked = async ({ fileIds, uploads }: { fileIds: string[]; uploads: File
  * Разбор в новую ДТ: files — с диска (сохраняются в заявку), fileIds — уже загруженные документы заявки (выбранные в
  * окне или сканы с границы, StepDeclaring) — их сервер берёт из хранилища.
  */
+/**
+ * Excel из набора — нашим разбором (excelFallback): файлы с компьютера как есть, документы заявки — скачиванием.
+ * Ошибка чтения одного файла не мешает остальным (и самому распознаванию).
+ */
+const readExcelDocs = async (caseId: string, files: File[], fileIds: readonly string[]): Promise<ExcelDoc[]> => {
+  const isXlsx = (name: string) => /\.xlsx$/i.test(name)
+  const sources: { name: string; load: () => Promise<Blob> }[] = [
+    ...files.filter((f) => isXlsx(f.name)).map((f) => ({ name: f.name, load: async () => f as Blob })),
+    ...props.ctx.files.filter((f) => fileIds.includes(f.id) && isXlsx(f.originalFileName))
+      .map((f) => ({ name: f.originalFileName, load: () => import40Api.downloadFile(caseId, f.id) })),
+  ]
+  const docs: ExcelDoc[] = []
+  for (const s of sources) {
+    try {
+      const doc = await readExcelDocument(await s.load(), { details: true })
+      if ('problem' in doc) continue
+      docs.push({ fileName: s.name, goods: doc.goods, header: docHeaderFrom(s.name, doc.headerRows, doc.tableHeader) })
+    } catch { /* не прочитался — остаётся то, что распознал Zircon AI */ }
+  }
+  return docs
+}
+
 const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
   if ((!files.length && !fileIds.length) || busy()) return
   const caseId = kase.value.id
   let stage: 'extract' | 'create' = 'extract'
   let result: Import40ExtractionResult | null = null
   let createdId: string | null = null
+  let usedExcel = false
   const ok = await props.ctx.actions.mutate('dt-batch', async () => {
     result = await import40Api.extractBatch(caseId, files, fileIds)
+    // Zircon AI знает только шаблон KTZE: инвойс и упаковочный лист поставщика дочитывает наш разбор Excel.
+    const excel = applyExcelFallback(result.declaration, await readExcelDocs(caseId, files, fileIds))
+    usedExcel = excel.usedExcelGoods
     stage = 'create'
-    const created = await import40Api.createDeclaration(caseId, previewToUpsert(result.declaration))
+    const body = previewToUpsert(excel.preview)
+    if (excel.doc44Items.length) body.doc44Items = excel.doc44Items
+    const created = await import40Api.createDeclaration(caseId, body)
     createdId = created.id
     // Сверка документов этого разбора — к созданной ДТ (17.10); не вышло — сверка просто не привязана к ДТ.
     if (result.documentCheckId) {
@@ -221,7 +251,7 @@ const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
     message.error(t(stage === 'extract' ? 'broker.case.declaring.batch.failedExtract' : 'broker.case.declaring.batch.failedCreate'))
     return
   }
-  message.success(t('import40Case.batchProcessed'))
+  message.success(t(usedExcel ? 'broker.case.declaring.batch.doneFromExcel' : 'import40Case.batchProcessed'))
   if (extracted.conflicts.length || extracted.warnings.length) {
     issues.value = extracted
     pendingDt = dtId

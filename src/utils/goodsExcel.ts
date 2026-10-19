@@ -117,8 +117,8 @@ const ABSENT = /^(отсутству\S*|нет|не\s*указан\S*|[-—–]+
 /** Шапку таблицы ищем в первых строках листа (сверху бывают реквизиты, номер инвойса и т. п.). */
 const HEADER_SCAN_ROWS = 30
 /** Строки «Итого/Всего/Total» — не товары. */
-// \b в JS не видит границу кириллического слова — конец слова проверяем явно.
-const TOTAL_ROW = /^(итого|всего|total|subtotal|grand\s*total)(?=$|[\s:.,;])/i
+// «Итого», «合计 / TOTAL» — где угодно в начале слова (\b в JS не видит границу кириллического слова).
+const TOTAL_ROW = /(^|[\s/|(])(итого|всего|total|subtotal|grand\s*total|合计|总计)(?=$|[\s:.,;/)])/i
 
 /**
  * Ячейка с кодами (NTIN/GTIN). Excel хранит код числом и теряет ведущий ноль: NTIN «0200…» (13 цифр) читается как
@@ -237,7 +237,10 @@ function matches(norm: string, pattern: string): boolean {
 
 /** Поля-итоги по товару: из «НЕТТО» (вес штуки) и «Вес нетто итого» в гр. 38 идёт итог. */
 const TOTAL_FIELDS: ReadonlySet<ExcelField> = new Set(['grossWeightKg', 'netWeightKg', 'customsValue'])
-const TOTAL_HEADER = /итого|всего|total/
+// «TTL G.W», «TTL N.W» в инвойсах и упаковочных листах поставщиков (19.10.2026: UR0910) — тоже итог.
+const TOTAL_HEADER = /итого|всего|total|ttl/
+/** «на коробку / за единицу» (G.W/ctn, Цена за ед.) — не итог по товару. */
+const PER_UNIT_HEADER = /ctn|carton|perpc|заед|накороб|коробк/
 
 /**
  * Столбцы строки заголовков: поле → индекс столбца. Под одно поле бывает несколько столбцов (шаблон декларанта
@@ -258,7 +261,8 @@ function headerColumns(
     for (const pattern of matcher.patterns) {
       const candidates = norms.flatMap((n, i) => (n && !used.has(i) && matches(n, pattern) ? [i] : []))
       if (!candidates.length) continue
-      const rank = (i: number) => (hasData(i) ? 0 : 2) + (TOTAL_FIELDS.has(matcher.field) && TOTAL_HEADER.test(norms[i]) ? 0 : 1)
+      const rank = (i: number) => (hasData(i) ? 0 : 4)
+        + (TOTAL_FIELDS.has(matcher.field) ? (TOTAL_HEADER.test(norms[i]) ? 0 : PER_UNIT_HEADER.test(norms[i]) ? 2 : 1) : 0)
       const idx = candidates.reduce((best, i) => (rank(i) < rank(best) ? i : best))
       colIndex[matcher.field] = idx
       used.add(idx)
@@ -311,6 +315,8 @@ export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = 
     // «Итого» без кода — не товар (в инвойсах итог стоит в столбце описания или в первой ячейке).
     const firstText = row.find((c) => typeof c === 'string' && c.trim()) as string | undefined
     if (!tnvedCode && (TOTAL_ROW.test(description ?? '') || TOTAL_ROW.test(firstText?.trim() ?? ''))) continue
+    // Без кода и без наименования — не товар (итоги, подписи, «Всего мест» в объединённых ячейках).
+    if (!tnvedCode && !description && (colIndex.tnvedCode != null || colIndex.description != null)) continue
 
     const isEmptyRow =
       !tnvedCode && !description && grossWeightKg == null && netWeightKg == null && quantity == null && unit == null
@@ -369,19 +375,33 @@ export async function readGoodsExcel(
   file: Blob,
   opts: GoodsExcelOptions = {},
 ): Promise<{ goods: GoodsExcelRow[] } | { problem: GoodsExcelProblem }> {
+  const doc = await readExcelDocument(file, opts)
+  if ('problem' in doc) return doc
+  return { goods: doc.goods }
+}
+
+/**
+ * Документ Excel целиком: товары лучшего листа, строки над таблицей (шапка инвойса/упаковочного листа — номер, дата,
+ * продавец, условия поставки) и строка заголовков таблицы. Для «Из документов» (case/steps/excelFallback).
+ */
+export async function readExcelDocument(
+  file: Blob,
+  opts: GoodsExcelOptions = {},
+): Promise<{ goods: GoodsExcelRow[]; headerRows: unknown[][]; tableHeader: unknown[] } | { problem: GoodsExcelProblem }> {
   const XLSX = await loadXlsx()
   const buf = await file.arrayBuffer()
   const wb = XLSX.read(buf, { type: 'array' })
   if (!wb.SheetNames.length) return { problem: 'noSheets' }
-  let best: { rows: unknown[][]; score: number } | null = null
+  let best: { rows: unknown[][]; score: number; index: number } | null = null
   let anyRows = false
   for (const name of wb.SheetNames) {
     const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[name], { header: 1, defval: null, raw: true })
     if (rows.length) anyRows = true
     const header = findGoodsHeader(rows, opts)
-    if (header && (!best || header.score > best.score)) best = { rows, score: header.score }
+    if (header && (!best || header.score > best.score)) best = { rows, score: header.score, index: header.index }
   }
   if (!anyRows) return { problem: 'empty' }
   const goods = best ? goodsFromSheetRows(best.rows, opts) : []
-  return goods.length ? { goods } : { problem: 'noGoods' }
+  if (!best || !goods.length) return { problem: 'noGoods' }
+  return { goods, headerRows: best.rows.slice(0, best.index), tableHeader: best.rows[best.index] ?? [] }
 }

@@ -210,6 +210,7 @@ export const previewToUpsert = (preview: Import40ExtractionPreview): Import40Dec
         // у товара (гр. 41 / гр. 42), копию не пишем.
         characteristics: rowsFromLegacy({
           tradeMarkName: g.tradeMarkName, productMarkName: g.productMarkName, manufacturerName: g.manufacturerName,
+          productArticle: g.productArticle,
         }),
       }))
     : undefined,

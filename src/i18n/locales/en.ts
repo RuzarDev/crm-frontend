@@ -3632,6 +3632,7 @@ export default {
           okEmpty: 'Recognise',
         },
         batch: {
+          doneFromExcel: 'Declaration created: goods, delivery terms and invoice were taken from the Excel documents — please check them',
           failedExtract: 'Could not recognise the document package',
           failedCreate: 'The package was recognised, but the DT was not created',
         },

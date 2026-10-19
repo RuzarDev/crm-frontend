@@ -510,6 +510,8 @@ export interface Import40ExtractionPreviewGoodsItem {
   tradeMarkName?: string | null
   productMarkName?: string | null
   manufacturerName?: string | null
+  /** Артикул — из нашего разбора Excel (case/steps/excelFallback), Zircon AI его не отдаёт. */
+  productArticle?: string | null
 }
 
 export interface Import40ExtractionPreview {
