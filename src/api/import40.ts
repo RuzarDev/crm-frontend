@@ -1181,9 +1181,11 @@ export const import40Api = {
   // plus any warnings/conflicts spotted between source documents (e.g. two files
   // giving different receiver BINs) — nothing is persisted until the broker
   // reviews/edits and calls createDeclaration explicitly.
-  extractBatch: async (caseId: string, files: File[]): Promise<Import40ExtractionResult> => {
+  // fileIds — документы, уже загруженные в заявку (19.10.2026): сервер берёт их из хранилища и не сохраняет повторно.
+  extractBatch: async (caseId: string, files: File[], fileIds: readonly string[] = []): Promise<Import40ExtractionResult> => {
     const formData = new FormData()
     files.forEach((file) => formData.append('files', file))
+    fileIds.forEach((id) => formData.append('fileIds', id))
     const response = await apiClient.post<Import40ExtractionResult>(
       `/import40/${encodeURIComponent(caseId)}/declarations/extract-batch`,
       formData,

@@ -3619,6 +3619,18 @@ export default {
           xmlReady: 'XML of ready · {n}',
           emptyHint: 'Add a DT manually, from a document package or from a quote.',
         },
+        extract: {
+          title: 'Recognise documents into a new declaration',
+          lead: 'Tick the request documents to fill the declaration from. The invoice and packing list are ticked already.',
+          noCaseFiles: 'The request has no documents that can be recognised yet (Excel, PDF, Word, photos).',
+          section: { documents: 'request documents', border: 'border scan', other: 'earlier batch' },
+          add: 'Add files from computer',
+          fromComputer: 'from computer',
+          remove: 'Remove {name}',
+          note: 'Documents already in the request are not saved again; files from your computer are saved to the request. Excel and text PDFs are recognised best.',
+          ok: 'Recognise ({n})',
+          okEmpty: 'Recognise',
+        },
         batch: {
           failedExtract: 'Could not recognise the document package',
           failedCreate: 'The package was recognised, but the DT was not created',

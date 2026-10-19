@@ -209,17 +209,15 @@ describe('StepDeclaring: «Сканы с границы» (18.10)', () => {
     expect(w.find('[data-scans-parse]').exists()).toBe(false)
   })
 
-  it('«Заполнить ДТ из сканов»: скачивает сканы подходящего формата и отдаёт их в «Из документов»', async () => {
-    api.downloadFile.mockResolvedValue(new Blob(['%PDF']))
+  it('«Заполнить ДТ из сканов»: сканы подходящего формата уходят в «Из документов» номерами, без скачивания', async () => {
     api.extractBatch.mockResolvedValue({ declaration: { goods: [] }, conflicts: [], warnings: [], documentCheckId: null })
     api.createDeclaration.mockResolvedValue(declaration({ id: 'd9' }))
     mount(USERS.declarant, { files: scans })
     await w.get('[data-scans-parse]').trigger('click')
     await flushPromises()
-    expect(api.downloadFile).toHaveBeenCalledTimes(1) // .heic не разбирается
-    expect(api.downloadFile).toHaveBeenCalledWith('c1', 's1')
-    const files = api.extractBatch.mock.calls[0][1] as File[]
-    expect(files.map((f) => f.name)).toEqual(['cmr.pdf'])
+    expect(api.downloadFile).not.toHaveBeenCalled()
+    // .heic не разбирается — только s1 (cmr.pdf)
+    expect(api.extractBatch).toHaveBeenCalledWith('c1', [], ['s1'])
     expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/d9')
   })
 

@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhCheck, PhSparkle } from '@phosphor-icons/vue'
-import { import40Api } from '@/api/import40'
 import { BORDER_SCAN_KINDS } from '../borderKinds'
 import ZButton from '@/components/z/ZButton.vue'
 import ZTooltip from '@/components/z/ZTooltip.vue'
@@ -51,19 +50,16 @@ const parseable = computed(() => scans.value.filter((f) => PARSEABLE.test(f.orig
 const listRef = ref<InstanceType<typeof DeclarationsList> | null>(null)
 const loadingScans = ref(false)
 const canParse = computed(() => isDeclaring.value && !props.ctx.perms.actionDisabled('declarant') && parseable.value.length > 0)
+// 19.10.2026: сканы уже в заявке — отдаём их номера, сервер берёт файлы из хранилища (раньше браузер скачивал их и
+// загружал обратно, и в заявке появлялись копии).
 const parseScans = async () => {
   if (loadingScans.value || props.ctx.actions.busy() || !listRef.value) return
   loadingScans.value = true
-  let files: File[] = []
   try {
-    files = await Promise.all(parseable.value.map(async (f) =>
-      new File([await import40Api.downloadFile(kase.value.id, f.id)], f.originalFileName, { type: f.contentType })))
-  } catch {
-    return // текст ошибки показал перехватчик
+    await listRef.value.runBatch([], parseable.value.map((f) => f.id))
   } finally {
     loadingScans.value = false
   }
-  await listRef.value.runBatch(files)
 }
 
 // «Подать ДТ»

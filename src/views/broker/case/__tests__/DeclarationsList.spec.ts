@@ -21,6 +21,7 @@ vi.mock('@/api/documentChecks', () => ({ documentChecksApi: checks }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 vi.mock('@/ui/download', () => dl)
 
+import ExtractDocsModal from '../steps/ExtractDocsModal.vue'
 import DeclarationsList from '../steps/DeclarationsList.vue'
 
 const DropdownStub = {
@@ -501,23 +502,30 @@ describe('DeclarationsList: действия', () => {
 })
 
 describe('DeclarationsList: «Из документов»', () => {
-  const pick = async (names = ['inv.pdf', 'cmr.jpg']) => {
-    const input = w.get('[data-dt-batch-input]')
+  // 19.10.2026: файлы выбирают в окне ExtractDocsModal (документы заявки и/или с компьютера) — его ответ.
+  const pick = async (names = ['inv.pdf', 'cmr.jpg'], fileIds: string[] = []) => {
     const files = names.map((n) => new File(['x'], n))
-    Object.defineProperty(input.element, 'files', { value: files, configurable: true })
-    await input.trigger('change')
+    w.findComponent(ExtractDocsModal).vm.$emit('submit', { fileIds, uploads: files })
     await flushPromises()
     return files
   }
   const result = (o: Partial<Import40ExtractionResult> = {}): Import40ExtractionResult =>
     ({ declaration: { declarationNumber: null, currency: 'USD', goodsItems: [{ description: 'Ноутбук', quantity: 10 }] }, warnings: [], conflicts: [], ...o })
 
+  it('документы заявки из окна уходят номерами, файлы с компьютера — файлами', async () => {
+    api.extractBatch.mockResolvedValue(result())
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n1' }))
+    mount(USERS.declarant)
+    const files = await pick(['new.xlsx'], ['f1', 'f2'])
+    expect(api.extractBatch).toHaveBeenCalledWith('c1', files, ['f1', 'f2'])
+  })
+
   it('без замечаний: извлечение, создание ДТ из предпросмотра, тост и сразу переход к ДТ', async () => {
     api.extractBatch.mockResolvedValue(result())
     api.createDeclaration.mockResolvedValue(declaration({ id: 'n1' }))
     mount(USERS.declarant)
     const files = await pick()
-    expect(api.extractBatch).toHaveBeenCalledWith('c1', files)
+    expect(api.extractBatch).toHaveBeenCalledWith('c1', files, [])
     expect(api.createDeclaration).toHaveBeenCalledWith('c1', expect.objectContaining({
       currency: 'USD', declarationNumber: null,
       goodsItems: [expect.objectContaining({ description: 'Ноутбук', quantity: 10, tnvedDescription: null, unit: null })],

@@ -25,6 +25,7 @@ import {
   previewToUpsert, splitBatchWarning, splitExportWarning, splitTag, type DtListRow,
 } from '../declarations'
 import ExtractionIssuesModal from './ExtractionIssuesModal.vue'
+import ExtractDocsModal from './ExtractDocsModal.vue'
 import CondRelTag from '@/components/condrel/CondRelTag.vue'
 import { briefOf } from '@/utils/conditionalRelease'
 import QuoteImportModal from './QuoteImportModal.vue'
@@ -183,28 +184,29 @@ const exportBatch = async () => {
 
 // «Из документов»: пакет файлов → извлечение (Aqniet) → создание ДТ → переход к ней; при конфликтах/замечаниях —
 // сначала окно замечаний, переход — при его закрытии. Ошибка — тост с этапом, на котором остановились.
-const ACCEPT = '.pdf,.jpg,.jpeg,.png,.docx,.xlsx'
-const fileInput = ref<HTMLInputElement | null>(null)
+// 19.10.2026: сначала окно выбора — документы заявки (уже загруженные, без повторной загрузки) и/или файлы с диска.
 const issues = ref<Import40ExtractionResult | null>(null)
 const issuesOpen = ref(false)
+const pickOpen = ref(false)
 let pendingDt: string | null = null
 
-const pickBatch = () => fileInput.value?.click()
-const onBatchFiles = async (e: Event) => {
-  const input = e.target as HTMLInputElement
-  const files = input.files ? Array.from(input.files) : []
-  input.value = '' // тот же набор можно выбрать снова
-  await runBatch(files)
+const pickBatch = () => { if (!busy()) pickOpen.value = true }
+const onPicked = async ({ fileIds, uploads }: { fileIds: string[]; uploads: File[] }) => {
+  pickOpen.value = false
+  await runBatch(uploads, fileIds)
 }
-/** Разбор набора файлов в новую ДТ — и выбранных с диска, и сканов с границы (StepDeclaring, 18.10). */
-const runBatch = async (files: File[]) => {
-  if (!files.length || busy()) return
+/**
+ * Разбор в новую ДТ: files — с диска (сохраняются в заявку), fileIds — уже загруженные документы заявки (выбранные в
+ * окне или сканы с границы, StepDeclaring) — их сервер берёт из хранилища.
+ */
+const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
+  if ((!files.length && !fileIds.length) || busy()) return
   const caseId = kase.value.id
   let stage: 'extract' | 'create' = 'extract'
   let result: Import40ExtractionResult | null = null
   let createdId: string | null = null
   const ok = await props.ctx.actions.mutate('dt-batch', async () => {
-    result = await import40Api.extractBatch(caseId, files)
+    result = await import40Api.extractBatch(caseId, files, fileIds)
     stage = 'create'
     const created = await import40Api.createDeclaration(caseId, previewToUpsert(result.declaration))
     createdId = created.id
@@ -268,7 +270,6 @@ const openLink = 'inline-flex h-7 items-center rounded-field bg-sunken px-2.5 te
               </ZButton>
             </span>
           </ZTooltip>
-          <input ref="fileInput" type="file" multiple :accept="ACCEPT" class="hidden" data-dt-batch-input @change="onBatchFiles" />
           <ZTooltip :title="declHint">
             <span class="inline-flex" :tabindex="declHint ? 0 : undefined">
               <ZButton variant="ghost" size="sm" :class="toolBtn" :disabled="blocked('dt-quote')" data-dt-quote @click="quoteOpen = true">
@@ -448,5 +449,6 @@ const openLink = 'inline-flex h-7 items-center rounded-field bg-sunken px-2.5 te
 
     <QuoteImportModal v-if="editable" v-model:open="quoteOpen" :ctx="ctx" />
     <ExtractionIssuesModal v-if="editable" :open="issuesOpen" :issues="issues" @close="closeIssues" />
+    <ExtractDocsModal v-if="editable" v-model:open="pickOpen" :files="ctx.files" :busy="pending('dt-batch')" @submit="onPicked" />
   </div>
 </template>
