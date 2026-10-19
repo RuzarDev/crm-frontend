@@ -8,6 +8,8 @@ import type { AiTnvedCode, AiTnvedSuggestResponse } from '@/api/aiTnved'
 
 const api = vi.hoisted(() => ({ suggest: vi.fn(), select: vi.fn(), status: vi.fn(), settings: vi.fn(), saveSettings: vi.fn(), stats: vi.fn() }))
 vi.mock('@/api/aiTnved', async (orig) => ({ ...(await orig<typeof import('@/api/aiTnved')>()), aiTnvedApi: api }))
+const tnved = vi.hoisted(() => ({ classify: vi.fn() }))
+vi.mock('@/api/tnved', async (orig) => ({ ...(await orig<typeof import('@/api/tnved')>()), tnvedApi: tnved }))
 
 import AiTnvedPanel from '../AiTnvedPanel.vue'
 import { collectQuestions, confidencePct, confidenceTone, vatKey } from '../aiTnved'
@@ -52,6 +54,23 @@ const run = async () => {
 }
 
 describe('AiTnvedPanel', () => {
+  it('пока ИИ думает — сразу варианты по словам, их можно выбрать', async () => {
+    tnved.classify.mockResolvedValue({ data: { matches: [{ code: '6109100000', description: 'из хлопчатобумажной пряжи', rateStr: '1,75 EUR/кг' }] } })
+    let finish!: (v: AiTnvedSuggestResponse) => void
+    api.suggest.mockReturnValue(new Promise<AiTnvedSuggestResponse>((r) => { finish = r }))
+    await mount()
+    await run()
+    await flushPromises()
+    expect(tnved.classify).toHaveBeenCalledWith('насос центробежный для воды', 8, { silent: true })
+    const row = w.get('[data-ai-quick-row="6109100000"]')
+    expect(row.text()).toContain('6109 10 000 0')
+    await row.get('[data-ai-quick-select]').trigger('click')
+    expect(w.emitted('select')?.[0]).toEqual([{ code: '6109100000', name: 'из хлопчатобумажной пряжи' }])
+    finish(answer())
+    await flushPromises()
+    expect(w.find('[data-ai-quick]').exists()).toBe(false)
+  })
+
   it('надпись «Подсказка ИИ — код выбирает декларант» видна всегда', async () => {
     await mount()
     expect(w.get('[data-ai-disclaimer]').text()).toContain('Подсказка ИИ — код выбирает декларант')

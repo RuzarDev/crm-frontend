@@ -11,6 +11,8 @@ import ZTextarea from '@/components/z/ZTextarea.vue'
 import {
   aiTnvedApi, type AiTnvedCharacteristics, type AiTnvedCode, type AiTnvedSource, type AiTnvedSuggestResponse,
 } from '@/api/aiTnved'
+import { tnvedApi } from '@/api/tnved'
+import type { TnvedClassifyMatch } from '@/types/api'
 import { formatTnvedCode, isRateLimited } from '@/views/references/tnvedShared'
 import AiTnvedCard from './AiTnvedCard.vue'
 import { collectQuestions } from './aiTnved'
@@ -39,6 +41,8 @@ const ch = reactive<{ material: string; purpose: string; composition: string; mo
 const answers = reactive<Record<string, string>>({})
 const state = ref<'idle' | 'loading' | 'ready' | 'error' | 'limit'>('idle')
 const result = shallowRef<AiTnvedSuggestResponse | null>(null)
+// Быстрые варианты по словам — сразу, пока ИИ думает (ответ ИИ — 10–30 с).
+const quick = shallowRef<TnvedClassifyMatch[]>([])
 const resultEl = ref<HTMLElement | null>(null)
 const tooShort = computed(() => description.value.trim().length < 3)
 
@@ -57,6 +61,13 @@ const run = async (withAnswers = false) => {
   const my = ++seq
   lastWithAnswers = withAnswers
   state.value = 'loading'
+  result.value = null
+  if (!withAnswers) {
+    quick.value = []
+    void tnvedApi.classify(description.value.trim(), 8, { silent: true })
+      .then((r) => { if (my === seq && state.value === 'loading') quick.value = r.data?.matches ?? [] })
+      .catch(() => { /* быстрые варианты — не главное */ })
+  }
   try {
     const res = await aiTnvedApi.suggest({
       description: description.value.trim(),
@@ -132,7 +143,22 @@ const retailOptions = computed(() => [
 
     <div v-if="state === 'loading'" class="flex flex-col gap-2" aria-busy="true" data-ai-loading>
       <p class="m-0 text-sm text-ink-3" role="status">{{ t('aiTnved.loading') }}</p>
-      <ZSkeleton v-for="i in 3" :key="i" height="96px" />
+      <section v-if="quick.length" class="flex flex-col gap-2" data-ai-quick>
+        <h3 class="m-0 text-[13px] font-medium text-ink-2">{{ t('aiTnved.quickTitle') }}</h3>
+        <ul role="list" class="m-0 list-none rounded-row border border-solid border-line p-0">
+          <li v-for="(m, i) in quick" :key="m.code" :class="['flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5', i > 0 && 'border-0 border-t border-solid border-line']" :data-ai-quick-row="m.code">
+            <div class="min-w-0 flex-1 basis-56">
+              <span class="font-mono text-sm font-semibold text-ink tabular-nums">{{ formatTnvedCode(m.code) }}</span>
+              <span class="block text-[13px] break-words text-ink-2">{{ m.description }}</span>
+            </div>
+            <span v-if="m.rateStr" class="text-xs text-muted">{{ t('aiTnved.dutyShort', { rate: m.rateStr }) }}</span>
+            <ZButton size="sm" class="max-sm:h-11 max-sm:w-full" data-ai-quick-select @click="pick(m.code, m.description)">{{ selectLabel || t('aiTnved.select') }}</ZButton>
+          </li>
+        </ul>
+      </section>
+      <template v-else>
+        <ZSkeleton v-for="i in 3" :key="i" height="96px" />
+      </template>
     </div>
     <p v-else-if="state === 'error' || state === 'limit'" class="m-0 flex flex-wrap items-center gap-2 rounded-row border border-solid border-line px-4 py-3 text-sm text-ink-2" role="alert" data-ai-error>
       {{ t(state === 'limit' ? 'aiTnved.rateLimited' : 'aiTnved.error') }}
