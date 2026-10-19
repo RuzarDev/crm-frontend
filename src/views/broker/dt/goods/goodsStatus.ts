@@ -69,7 +69,7 @@ export function setGoodsField<K extends keyof Goods>(g: Goods, key: K, value: Go
 /** Поля местной проверки (как прежняя отметка раздела «Товары»; гр. 47 — отдельно, это «Пересчитать»). */
 export type LocalMissingField =
   | 'tnvedCode' | 'description' | 'grossWeightKg' | 'netWeightKg' | 'quantity' | 'unitCode'
-  | 'customsValue' | 'customsValueKzt' | 'valuationMethodCode'
+  | 'customsValue' | 'customsValueKzt' | 'valuationMethodCode' | 'netOverGross'
 
 const blank = (v: unknown) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '')
 
@@ -80,6 +80,8 @@ export function localMissingFields(g: Goods): LocalMissingField[] {
   if (blank(g.description) && blank(g.tnvedDescription)) out.push('description')
   if (blank(g.grossWeightKg)) out.push('grossWeightKg')
   if (blank(g.netWeightKg)) out.push('netWeightKg')
+  // Нетто больше брутто — ошибка (как в проверке перед выгрузкой XML на сервере).
+  else if (!blank(g.grossWeightKg) && Number(g.netWeightKg) > Number(g.grossWeightKg)) out.push('netOverGross')
   if (blank(g.quantity)) out.push('quantity')
   if (blank(g.unitCode)) out.push('unitCode')
   if (blank(g.customsValue)) out.push('customsValue')

@@ -21,7 +21,7 @@ import { deiOf, loadDei } from './tnvedDei'
 import type { GoodsSectionProps } from './types'
 
 // «Количество и стоимость» (доска DtGoodsEditor): гр. 41 количество, ДЕИ (заблокирована — по коду ТН ВЭД) и тип
-// количества; гр. 35 брутто, гр. 38 нетто (нетто > брутто — предупреждение); места (гр. 6/31: одно поле, КЕДЕН-поле
+// количества; гр. 35 брутто, гр. 38 нетто (нетто > брутто — ошибка, XML не сформируется); места (гр. 6/31: одно поле, КЕДЕН-поле
 // cargoPlacesQuantity = ему); гр. 42 фактурная (в форме customsValue, на сервере invoiceValue) и валюта (= гр. 22, когда
 // задана — заблокирована); гр. 34 страна; гр. 45 / гр. 46; подсказка ставок. Числа пишутся сразу при вводе, с запятой.
 // гр. 46 = гр. 45 / курс USD на дату гр. А (0,01) при правке гр. 45, пока гр. 46 не ручная. Правка гр. 45 или гр. 46 делает
@@ -112,10 +112,10 @@ const autoTag = 'absolute top-1/2 right-2 -translate-y-1/2'
           <template #suffix><PhLock :size="14" aria-hidden="true" /></template>
         </ZInput>
       </ZField>
-      <ZField graph="35" :label="tq('gross')" data-graph="35" data-goods-field="grossWeightKg" :data-goods-index="index">
+      <ZField graph="35" :label="tq('gross')" data-graph="35" data-goods-field="grossWeightKg" :data-goods-index="index" :validate-status="netOverGross ? 'error' : ''">
         <ZNumber :value="item.grossWeightKg ?? null" :min="0" :disabled="readonly" class="max-sm:h-11" data-f="grossWeightKg" @update:value="setNum('grossWeightKg', $event)" />
       </ZField>
-      <ZField graph="38" :label="tq('net')" data-graph="38" data-goods-field="netWeightKg" :data-goods-index="index" :validate-status="netOverGross ? 'warning' : ''" :help="netOverGross ? tq('netOverGross') : undefined">
+      <ZField graph="38" :label="tq('net')" data-graph="38" data-goods-field="netWeightKg" :data-goods-index="index" :validate-status="netOverGross ? 'error' : ''" :help="netOverGross ? tq('netOverGross') : undefined">
         <ZNumber :value="item.netWeightKg ?? null" :min="0" :disabled="readonly" class="max-sm:h-11" data-f="netWeightKg" @update:value="setNum('netWeightKg', $event)" />
       </ZField>
 

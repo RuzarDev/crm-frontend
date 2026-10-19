@@ -61,13 +61,21 @@ describe('goodsImport: «Вид упаковки товара» (X1)', () => {
 })
 
 describe('goodsImport: предпросмотр', () => {
+  it('строки, где нетто больше брутто, считаются отдельно', () => {
+    const rows = [
+      { ...parsed([['7323990000', 'Сушилка', 719.1, 47, 'CT', 47]])[0], netWeightKg: 1128 },
+      { ...parsed([['9403208009', 'Полка', 1438.2, 47, 'CT', 47]])[0], netWeightKg: 1363 },
+    ]
+    expect(excelPreview(rows, KINDS).netOverGross).toBe(1)
+  })
+
   it('строк, с кодом / без кода, распознано по полям', () => {
     const p = excelPreview(parsed([
       ['7318150000', 'Болты', 12.5, 100, 'CT', 3],
       [null, 'Гайки', 4, null, null, null],
     ]), KINDS)
     expect(p).toEqual({
-      rows: 2, withCode: 1, withoutCode: 1, recognized: { description: 2, gross: 2, net: 0, quantity: 1, packaging: 1, places: 1, value: 0, country: 0, tradeCodes: 0 }, unknownPackaging: [],
+      rows: 2, withCode: 1, withoutCode: 1, recognized: { description: 2, gross: 2, net: 0, quantity: 1, packaging: 1, places: 1, value: 0, country: 0, tradeCodes: 0 }, unknownPackaging: [], netOverGross: 0,
     })
   })
 })

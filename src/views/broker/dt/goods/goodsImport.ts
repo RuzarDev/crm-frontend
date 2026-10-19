@@ -69,6 +69,8 @@ export interface DtExcelPreview {
   }
   /** Значения «Вида упаковки», которых нет в классификаторе (без повторов) — в товары не попадут. */
   unknownPackaging: string[]
+  /** Строк, где нетто больше брутто: перенесутся, но такой товар — ошибка (XML не сформируется). */
+  netOverGross: number
 }
 
 export function excelPreview(rows: readonly GoodsExcelRow[], packageKinds: readonly ClassifierItem[]): DtExcelPreview {
@@ -98,5 +100,6 @@ export function excelPreview(rows: readonly GoodsExcelRow[], packageKinds: reado
       tradeCodes: rows.filter((r) => (r.ntins?.length ?? 0) > 0 || !!r.gtin).length,
     },
     unknownPackaging: [...unknown],
+    netOverGross: rows.filter((r) => r.grossWeightKg != null && r.netWeightKg != null && r.netWeightKg > r.grossWeightKg).length,
   }
 }

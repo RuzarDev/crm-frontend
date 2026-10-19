@@ -99,7 +99,10 @@ describe('goodsStatus: статус товара', () => {
     expect(fields).toEqual(['tnvedCode', 'description', 'grossWeightKg', 'netWeightKg', 'quantity', 'unitCode', 'customsValue', 'customsValueKzt', 'valuationMethodCode'])
     expect(goodsStatus(empty, 0, null)).toEqual({ kind: 'missing', count: 9, fields })
     // 0 — это значение, не пусто
-    expect(localMissingFields(complete({ grossWeightKg: 0 }))).toEqual([])
+    expect(localMissingFields(complete({ grossWeightKg: 0, netWeightKg: 0 }))).toEqual([])
+    // нетто больше брутто — ошибка (как в проверке перед XML на сервере); равны — можно
+    expect(localMissingFields(complete({ grossWeightKg: 719.1, netWeightKg: 1128 }))).toEqual(['netOverGross'])
+    expect(localMissingFields(complete({ grossWeightKg: 11, netWeightKg: 11 }))).toEqual([])
     expect(goodsStatus(complete({ needsTpinRecalc: true }), 0, null)).toEqual({ kind: 'stale' })
   })
 })
