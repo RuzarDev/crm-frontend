@@ -45,6 +45,10 @@ export function dtGoodsFromExcel(rows: readonly GoodsExcelRow[], ctx: DtExcelCon
     g.quantity = r.quantity
     g.packageKindCode = packageKindFrom(r.unit, ctx.packageKinds)
     g.grossWeightKg = r.grossWeightKg
+    g.netWeightKg = r.netWeightKg ?? null
+    // Фактурная стоимость (гр. 42): в общем разборе — customsValue, как и в товаре ДТ на фронте (см. dtPayload).
+    g.customsValue = r.customsValue ?? null
+    if (r.countryOfOrigin) g.countryOfOrigin = r.countryOfOrigin
     g.packagesCount = r.packagesCount
     g.cargoPlacesQuantity = r.packagesCount
     // Гр. 33.3: NTIN (без повторов) и GTIN из столбцов «NTIN» / «GTIN».
@@ -59,7 +63,10 @@ export interface DtExcelPreview {
   rows: number
   withCode: number
   withoutCode: number
-  recognized: { description: number; gross: number; quantity: number; packaging: number; places: number; tradeCodes: number }
+  recognized: {
+    description: number; gross: number; net: number; quantity: number; packaging: number; places: number; value: number
+    country: number; tradeCodes: number
+  }
   /** Значения «Вида упаковки», которых нет в классификаторе (без повторов) — в товары не попадут. */
   unknownPackaging: string[]
 }
@@ -82,9 +89,12 @@ export function excelPreview(rows: readonly GoodsExcelRow[], packageKinds: reado
     recognized: {
       description: count((r) => r.description),
       gross: count((r) => r.grossWeightKg),
+      net: count((r) => r.netWeightKg),
       quantity: count((r) => r.quantity),
       packaging,
       places: count((r) => r.packagesCount),
+      value: count((r) => r.customsValue),
+      country: count((r) => r.countryOfOrigin),
       tradeCodes: rows.filter((r) => (r.ntins?.length ?? 0) > 0 || !!r.gtin).length,
     },
     unknownPackaging: [...unknown],

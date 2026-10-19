@@ -30,9 +30,13 @@ const recognized = computed(() => {
     { key: 'code', n: summary.value.withCode },
     { key: 'description', n: r.description },
     { key: 'gross', n: r.gross },
+    { key: 'net', n: r.net },
     { key: 'quantity', n: r.quantity },
     { key: 'packaging', n: r.packaging },
     { key: 'places', n: r.places },
+    { key: 'value', n: r.value },
+    // Страна — только если в файле есть двухбуквенные коды (названия стран не переносим).
+    ...(r.country ? [{ key: 'country', n: r.country }] : []),
     // Гр. 33.3 NTIN/GTIN — только если в файле есть такие столбцы со значениями.
     ...(r.tradeCodes ? [{ key: 'tradeCodes', n: r.tradeCodes }] : []),
   ]

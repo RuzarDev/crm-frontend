@@ -172,7 +172,7 @@ describe('SectionGoods', () => {
     await chooseFile(new File(['x'], 'goods.pdf'))
     expect(api.toast.error).toHaveBeenCalledWith('Допустим только Excel-файл (.xlsx)')
     await chooseFile(excelFile('goods.xlsx', [['Наименование'], ['Ноутбук']]))
-    expect(api.toast.warning).toHaveBeenCalledWith('Не найдено товаров для импорта')
+    expect(api.toast.warning).toHaveBeenCalledWith('Не нашли в файле таблицу товаров. Нужна строка заголовков со столбцом «Наименование» (или «Описание») либо «Код ТН ВЭД» и ещё хотя бы одним: количество, вес брутто/нетто, места, стоимость.')
     expect(d.goods).toHaveLength(0)
   })
 

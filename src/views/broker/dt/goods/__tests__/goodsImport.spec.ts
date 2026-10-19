@@ -67,7 +67,7 @@ describe('goodsImport: предпросмотр', () => {
       [null, 'Гайки', 4, null, null, null],
     ]), KINDS)
     expect(p).toEqual({
-      rows: 2, withCode: 1, withoutCode: 1, recognized: { description: 2, gross: 2, quantity: 1, packaging: 1, places: 1, tradeCodes: 0 }, unknownPackaging: [],
+      rows: 2, withCode: 1, withoutCode: 1, recognized: { description: 2, gross: 2, net: 0, quantity: 1, packaging: 1, places: 1, value: 0, country: 0, tradeCodes: 0 }, unknownPackaging: [],
     })
   })
 })
