@@ -20,6 +20,8 @@ const FINANCE_BLOCKED = ['/import-40', '/reestr', '/document-packages', '/keden'
 export const MUST_CHANGE_PASSWORD_TARGET = '/profile?tab=password'
 
 export function guardRedirect(path: string, meta: Record<string, unknown>, a: GuardAuth): string | null {
+  // Проверка подписей по QR (20.10.2026) — публичная для всех, даже при незаменённом временном пароле.
+  if (path.startsWith('/verify/')) return null
   // Временный пароль (волна 5б): пока не сменён, всё, кроме профиля и входа, ведёт на смену пароля.
   if (a.mustChangePassword && a.isAuthenticated) {
     return path === '/profile' || path === '/login' ? null : MUST_CHANGE_PASSWORD_TARGET

@@ -44,6 +44,13 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
+      // Проверка подписей договора/доверенности по QR-коду из документа (20.10.2026) — без входа.
+      path: '/verify/:token',
+      name: 'verify-document',
+      component: () => import('@/views/VerifyDocumentView.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
       path: '/',
       component: () => import('@/layouts/AppShell.vue'),
       meta: { requiresAuth: true },

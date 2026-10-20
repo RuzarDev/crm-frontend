@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhCaretRight, PhCheckCircle, PhDownloadSimple, PhFileText } from '@phosphor-icons/vue'
+import { PhCaretRight, PhCheckCircle, PhDownloadSimple, PhFileText, PhQrCode } from '@phosphor-icons/vue'
 import ZAlert from '@/components/z/ZAlert.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZCheckbox from '@/components/z/ZCheckbox.vue'
@@ -18,6 +18,7 @@ import {
   currentDoc, endOfDayUtc, historyDocs, historyStatus, isOpen, localDate, todayYmd, validDate,
   type DocKind, type HistoryStatus,
 } from './company'
+import { ncaErrorText, signDocumentWithNcaLayer } from './ncaSign'
 
 // Раздел «Договор» / «Доверенность» (доска Company): актуальный документ — номер, срок, «Скачать .docx» и
 // плашки подписи («Ваша подпись»: eGov по QR или загрузка .cms; «Подпись AQNIET» — только у договора).
@@ -55,7 +56,7 @@ const metaParts = (d: Import40DocumentDto) => [
 
 const signedText = (at: string | null, method: string | null) => {
   const date = localDate(at)
-  const key = method === 'egov' ? 'signedEgov' : method === 'upload' ? 'signedFile' : 'signed'
+  const key = method === 'egov' ? 'signedEgov' : method === 'ncalayer' ? 'signedNca' : method === 'upload' ? 'signedFile' : 'signed'
   return date ? t(`client.company.doc.${key}`, { date }) : t('client.company.doc.signedNoDate')
 }
 
@@ -113,6 +114,24 @@ const onFile = async (e: Event) => {
     uploadError.value = errText(err, t('client.company.doc.uploadError'))
   } finally {
     uploading.value = false
+  }
+}
+
+// ---- Подпись в NCALayer (20.10.2026): ключ на компьютере/токене, без загрузки файла вручную ----
+const ncaSigning = ref(false)
+const signNca = async () => {
+  const doc = current.value
+  if (!doc || ncaSigning.value || uploading.value || refreshing.value) return
+  ncaSigning.value = true
+  uploadError.value = ''
+  try {
+    await signDocumentWithNcaLayer(props.clientId, doc, 'client')
+    message.success(t('client.company.doc.signedNcaToast'))
+    await refreshAfter()
+  } catch (err) {
+    uploadError.value = ncaErrorText(err, t) ?? errText(err, t('client.company.doc.uploadError'))
+  } finally {
+    ncaSigning.value = false
   }
 }
 
@@ -227,7 +246,10 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
             <ZButton variant="primary" :loading="refreshing && !uploading" :class="actionBtn" data-sign-egov @click="openSigex">
               {{ t('client.company.doc.signEgov') }}
             </ZButton>
-            <ZButton :loading="uploading" :class="cn(actionBtn, 'bg-surface font-medium enabled:hover:bg-line')" data-sign-upload @click="pickFile">
+            <ZButton :loading="ncaSigning" :disabled="uploading" :class="cn(actionBtn, 'bg-surface font-medium enabled:hover:bg-line')" data-sign-nca @click="signNca">
+              {{ t('client.company.doc.signNca') }}
+            </ZButton>
+            <ZButton :loading="uploading" :disabled="ncaSigning" :class="cn(actionBtn, 'bg-surface font-medium enabled:hover:bg-line')" data-sign-upload @click="pickFile">
               {{ t('client.company.doc.uploadCms') }}
             </ZButton>
           </span>
@@ -251,6 +273,15 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
           </span>
         </div>
       </div>
+
+      <a
+        v-if="current.verifyUrl"
+        :href="current.verifyUrl"
+        target="_blank"
+        rel="noopener"
+        class="inline-flex items-center gap-1.5 self-start rounded-field text-sm font-medium text-zircon-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
+        data-doc-verify
+      ><PhQrCode :size="16" aria-hidden="true" />{{ t('client.company.doc.verifyLink') }}</a>
 
       <!-- Действует, но для новой поставки не годится (разовый занят открытой поставкой) — нужен новый -->
       <div v-if="needNew" class="flex flex-col items-start gap-2.5 rounded-row border border-gold-line bg-gold-soft px-[18px] py-4" data-need-new>

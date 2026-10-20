@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhDownloadSimple, PhFilePlus, PhSealCheck, PhUploadSimple } from '@phosphor-icons/vue'
+import { PhDownloadSimple, PhFilePlus, PhKey, PhQrCode, PhSealCheck, PhUploadSimple } from '@phosphor-icons/vue'
 import ZAlert from '@/components/z/ZAlert.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZCheckbox from '@/components/z/ZCheckbox.vue'
@@ -13,6 +13,7 @@ import { message } from '@/ui/message'
 import { useConfirm } from '@/ui/confirm'
 import { saveBlob } from '@/ui/download'
 import { endOfDayUtc, isOpen, localDate, todayYmd, validDate } from '@/views/client/company/company'
+import { ncaErrorText, signDocumentWithNcaLayer } from '@/views/client/company/ncaSign'
 import { REVOKED, isExpired, multiBlocked, statusKey, statusTone, type DocKind, type SignSide } from './staffCompany'
 
 // Договор / доверенность клиента для сотрудника (волна 7, замена Import40DocumentStep): сформировать (разовый,
@@ -155,6 +156,22 @@ const onFile = async (e: Event) => {
   }
 }
 
+// ---- Подпись в NCALayer (20.10.2026) ----
+const ncaSigning = ref<string | null>(null)
+const signNca = async (doc: Import40DocumentDto, side: SignSide) => {
+  if (ncaSigning.value || uploading.value || refreshing.value) return
+  ncaSigning.value = `${doc.id}:${side}`
+  try {
+    await signDocumentWithNcaLayer(props.clientId, doc, side)
+    message.success(t('broker.company.signedNca'))
+    await refreshAfter()
+  } catch (err) {
+    setDocError(doc.id, ncaErrorText(err, t) ?? errText(err, t('broker.company.fileUploadError')))
+  } finally {
+    ncaSigning.value = null
+  }
+}
+
 // ---- Подпись через eGov ----
 const sigexOpen = ref(false)
 const sigexDocId = ref<string | null>(null)
@@ -264,6 +281,14 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
           <ZButton :loading="downloadingId === d.id" :class="actionBtn" data-doc-download @click="download(d)">
             <PhDownloadSimple :size="16" aria-hidden="true" />{{ t('broker.company.download') }}
           </ZButton>
+          <a
+            v-if="d.verifyUrl"
+            :href="d.verifyUrl"
+            target="_blank"
+            rel="noopener"
+            class="inline-flex h-9 items-center gap-1.5 rounded-field px-2 text-sm font-medium text-zircon-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus max-sm:h-11"
+            data-doc-verify
+          ><PhQrCode :size="16" aria-hidden="true" />{{ t('broker.company.verifyLink') }}</a>
           <ZButton
             v-if="isAdmin && d.status !== REVOKED"
             variant="danger-ghost"
@@ -293,6 +318,9 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
               <div class="flex flex-wrap gap-2">
                 <ZButton variant="primary" :class="actionBtn" data-sign-egov @click="openSigex(d, side)">
                   <PhSealCheck :size="16" aria-hidden="true" />{{ t('broker.company.signEgov') }}
+                </ZButton>
+                <ZButton :loading="ncaSigning === `${d.id}:${side}`" :class="actionBtn" data-sign-nca @click="signNca(d, side)">
+                  <PhKey :size="16" aria-hidden="true" />{{ t('broker.company.signNca') }}
                 </ZButton>
                 <ZButton :loading="uploading === `${d.id}:${side}`" :class="actionBtn" data-sign-upload @click="pickFile(d, side)">
                   <PhUploadSimple :size="16" aria-hidden="true" />{{ t('broker.company.uploadSigned') }}

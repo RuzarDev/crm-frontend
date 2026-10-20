@@ -16,6 +16,8 @@ const save = vi.hoisted(() => vi.fn())
 vi.mock('@/api/import40Contract', async (orig) => ({ ...(await orig<object>()), import40ContractApi: api }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 vi.mock('@/ui/download', () => ({ saveBlob: save }))
+const nca = vi.hoisted(() => ({ sign: vi.fn() }))
+vi.mock('@/utils/ncalayer', async (orig) => ({ ...(await orig<object>()), signWithNcaLayer: nca.sign }))
 
 import CompanyDocumentCard from '../CompanyDocumentCard.vue'
 
@@ -201,4 +203,39 @@ describe('CompanyDocumentCard', () => {
     await w.setProps({ needNewReason: 'Текст сервера' })
     expect(w.get('[data-need-new]').text()).toContain('Текст сервера')
   })
+
+  it('«Подписать в NCALayer»: подписывается скачанный .docx, CMS уходит как подпись клиента способом ncalayer', async () => {
+    api.downloadDocument.mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])]))
+    nca.sign.mockResolvedValue(btoa('cms-bytes'))
+    api.signDocument.mockResolvedValue(doc({ clientSigned: true }))
+    await mountCard({ docs: [doc({})] })
+    await w.get('[data-sign-nca]').trigger('click')
+    // FileReader (base64 документа) — не микрозадача: ждём загрузку подписи.
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalled())
+    expect(api.downloadDocument).toHaveBeenCalledWith('cl1', 'd1')
+    expect(nca.sign).toHaveBeenCalledWith('AQID')
+    const [clientId, docId, side, file, opts] = api.signDocument.mock.calls[0]
+    expect([clientId, docId, side]).toEqual(['cl1', 'd1', 'client'])
+    expect(file.name).toBe('12-2026-client.cms')
+    expect(opts).toEqual({ silent: true, method: 'ncalayer' })
+    expect(msg.success).toHaveBeenCalledWith('Документ подписан через NCALayer')
+    expect(refresh).toHaveBeenCalled()
+  })
+
+  it('NCALayer не запущен — подсказка на месте, подпись не загружается', async () => {
+    const { NcaLayerError } = await import('@/utils/ncalayer')
+    api.downloadDocument.mockResolvedValue(new Blob([new Uint8Array([1])]))
+    nca.sign.mockRejectedValue(new NcaLayerError('unavailable'))
+    await mountCard({ docs: [doc({})] })
+    await w.get('[data-sign-nca]').trigger('click')
+    await vi.waitFor(() => expect(w.get('[data-upload-error]').text()).toContain('NCALayer не отвечает'))
+    expect(api.signDocument).not.toHaveBeenCalled()
+  })
+
+  it('подписан с QR — ссылка «Проверить подписи по QR» и способ «через NCALayer»', async () => {
+    await mountCard({ docs: [doc({ clientSigned: true, clientSignedAtUtc: at(2026, 10, 20), clientSignMethod: 'ncalayer', verifyUrl: 'https://zircon.kz/verify/tok' })] })
+    expect(w.get('[data-doc-verify]').attributes('href')).toBe('https://zircon.kz/verify/tok')
+    expect(w.get('[data-plate="client"]').text()).toContain('через NCALayer')
+  })
 })
+

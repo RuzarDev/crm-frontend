@@ -64,13 +64,15 @@ export interface Import40DocumentDto {
   clientSignedAtUtc: string | null
   providerSigned: boolean
   providerSignedAtUtc: string | null
-  // 'egov' — ЭЦП через eGov/Sigex, 'upload' — загружен подписанный файл, null — не подписано
+  // 'egov' — ЭЦП через eGov/Sigex, 'ncalayer' — подписано в Zircon через NCALayer, 'upload' — загружен подписанный файл, null — не подписано
   clientSignMethod: string | null
   providerSignMethod: string | null
   isSingleUse: boolean
   validUntilUtc: string | null
   consumedByCaseId: string | null
   files: Import40DocumentFileDto[]
+  /** Страница проверки подписей по QR (20.10.2026); null — документ ещё не подписан. */
+  verifyUrl?: string | null
 }
 
 export interface Import40DocumentGenerateRequest {
@@ -148,14 +150,18 @@ export const import40ContractApi = {
     docId: string,
     side: 'client' | 'provider',
     file: File,
-    opts?: { silent?: boolean },
+    opts?: { silent?: boolean; method?: 'ncalayer' },
   ): Promise<Import40DocumentDto> => {
     const formData = new FormData()
     formData.append('file', file)
     const response = await apiClient.post<Import40DocumentDto>(
       `${base(clientId)}/documents/${encodeURIComponent(docId)}/sign`,
       formData,
-      { params: { side }, headers: { 'Content-Type': 'multipart/form-data' }, ...(opts?.silent ? { silent: true } : {}) },
+      {
+        params: opts?.method ? { side, method: opts.method } : { side },
+        headers: { 'Content-Type': 'multipart/form-data' },
+        ...(opts?.silent ? { silent: true } : {}),
+      },
     )
     return response.data
   },
