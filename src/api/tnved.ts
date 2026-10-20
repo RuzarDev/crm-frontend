@@ -22,8 +22,23 @@ import type {
   TnvedEttRateDto,
 } from '@/types/api'
 
+/**
+ * Ставка по стране происхождения. kind — по перечню ЕЭК к соглашению о свободной торговле (Вьетнам, Сербия, Иран):
+ * «zero» — товар вне перечня, 0 %; «listedEtt» — в перечне со «ставкой ЕТТ» (rate — ЕТТ, льготы нет); «listedRate» — своя
+ * ставка перечня (если по ЕТТ ниже — ЕТТ). Нет kind — строка страны из КЕДЕН. note — пояснение сервера (ВТО РК, квота,
+ * «проверьте наименование/сезон»), uncertain — строка перечня зависит от наименования/сезона.
+ */
+export interface TariffCountryRateDto {
+  rate: string
+  country: string
+  source: string | null
+  kind?: 'zero' | 'listedEtt' | 'listedRate' | null
+  note?: string | null
+  uncertain?: boolean
+}
+
 export interface TariffOptionsDto {
-  countryRate: { rate: string; country: string; source: string | null } | null
+  countryRate: TariffCountryRateDto | null
   excise: TnvedTariffOptionDto[]
   antiDumping: TnvedTariffOptionDto[]
   // Действующие ставки пошлины (ЕТТ, ВТО) — по ним видно, нужны ли л / шт / см³ для специфической части.

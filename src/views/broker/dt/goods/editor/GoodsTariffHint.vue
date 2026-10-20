@@ -13,7 +13,8 @@ import EttRateSource from '@/views/broker/references/eec/EttRateSource.vue'
 import type { GoodsSectionProps } from './types'
 
 // Подсказка ставок под стоимостью товара (перенос прежней подсказки ставок на Z): что есть в КЕДЕН по коду и стране на дату
-// гр. А (useTariffOptions: кэш, тихо): ставки пошлины и НДС, ставка по стране (ЗСТ — в расчёте сама), выбор вида
+// гр. А (useTariffOptions: кэш, тихо): ставки пошлины и НДС, ставка по стране (ЗСТ — в расчёте сама; Вьетнам/Сербия/Иран —
+// по перечням ЕЭК), выбор вида
 // акциза (у кода их бывает несколько; не выбран — считается первый), антидемпинг (по умолчанию «не начислять»),
 // количества в единицах специфических ставок (л, л 100%, шт, см³) — когда единица ставки не покрыта ДЕИ товара.
 // «Медизделие — НДС 5%» — свойство товара (vatRatePreferential = 0,05; M5), не только в окне расчёта. Под ним — перечень
@@ -73,6 +74,16 @@ const summary = computed(() => {
   parts.push(th('vat', { rate: vatRate.value }))
   if (!o.antiDumping.length && countryName.value) parts.push(th('noAntiDumping'))
   return parts.join(' · ')
+})
+
+// ---- Ставка по стране происхождения ----
+// Вьетнам, Сербия, Иран — по перечню ЕЭК к соглашению (kind: вне перечня 0 % / «ставка ЕТТ» / своя ставка — так же считает
+// расчёт гр. 47); без kind — строка страны КЕДЕН. Пояснение сервера (note: ВТО РК, квота, наименование/сезон) — строкой ниже.
+const COUNTRY_KEY: Record<string, string> = { zero: 'ftaZero', listedEtt: 'ftaListedEtt', listedRate: 'ftaListedRate' }
+const countryText = computed(() => {
+  const c = opts.value?.countryRate
+  if (!c) return ''
+  return th(COUNTRY_KEY[c.kind ?? ''] ?? 'countryRate', { country: c.country, rate: c.rate })
 })
 
 // ---- Акциз и антидемпинг ----
@@ -141,9 +152,13 @@ const choice = 'flex flex-col gap-2 rounded-field px-3 py-2.5'
       <template v-else>
         <p class="m-0 text-[13px] text-ink-2" data-goods-tariff-summary>{{ summary }}</p>
         <EttRateSource :ett="opts.ettRate" />
-        <p v-if="opts.countryRate" class="m-0 rounded-field bg-tone-info-bg px-2.5 py-1.5 text-[13px] text-tone-info-fg" data-goods-tariff-country>
-          {{ th('countryRate', { country: opts.countryRate.country, rate: opts.countryRate.rate }) }}
-        </p>
+        <div v-if="opts.countryRate" class="rounded-field bg-tone-info-bg px-2.5 py-1.5 text-[13px] text-tone-info-fg" data-goods-tariff-country :data-goods-tariff-country-kind="opts.countryRate.kind ?? 'keden'">
+          <p class="m-0">{{ countryText }}</p>
+          <p v-if="opts.countryRate.note" class="m-0 mt-1 opacity-80" data-goods-tariff-country-note>{{ opts.countryRate.note }}</p>
+          <p v-if="opts.countryRate.uncertain" class="m-0 mt-1 rounded-field bg-gold-soft px-2 py-1 text-gold-ink" role="alert" data-goods-tariff-country-uncertain>
+            {{ th('ftaUncertain') }}
+          </p>
+        </div>
         <div v-if="opts.excise.length > 1" :class="[choice, !item.exciseKind ? 'bg-gold-soft' : 'bg-surface']" data-goods-excise>
           <ZField data-graph="47" data-goods-field="exciseKind" :data-goods-index="index">
             <template #label>{{ th('exciseKind') }}<span v-if="!item.exciseKind" class="font-normal text-gold-ink"> · {{ th('exciseDefault') }}</span></template>

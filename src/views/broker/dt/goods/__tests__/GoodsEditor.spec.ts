@@ -501,6 +501,36 @@ describe('GoodsEditor: подсказка ставок', () => {
     expect(q('[data-goods-tariff-title]')!.textContent).toBe('Ставки · Китай')
   })
 
+  it('ставка по стране: перечень ЕЭК к соглашению (вне перечня 0 %, «ставка ЕТТ», пояснение, «проверьте») и строка КЕДЕН', async () => {
+    tnved.tariffOptions.mockResolvedValue({ data: tariff({ countryRate: {
+      rate: '0%', country: 'Вьетнам', source: 'Соглашение', kind: 'zero',
+      note: 'Пошлина по Соглашению о свободной торговле с Вьетнамом: 0 % (товар вне перечня исключений)', uncertain: false,
+    } }) })
+    await mount([item()], { query: '&item=1' })
+    const box = q('[data-goods-tariff-country]')!
+    expect(box.getAttribute('data-goods-tariff-country-kind')).toBe('zero')
+    expect(box.textContent).toContain('Страна происхождения Вьетнам: товар вне перечня исключений соглашения о свободной торговле — пошлина 0 %')
+    expect(q('[data-goods-tariff-country-note]')!.textContent).toContain('вне перечня исключений')
+    expect(q('[data-goods-tariff-country-uncertain]')).toBeNull()
+  })
+
+  it('ставка по стране: строка перечня зависит от наименования — предупреждение', async () => {
+    tnved.tariffOptions.mockResolvedValue({ data: tariff({ countryRate: {
+      rate: '2.5%', country: 'Иран', source: null, kind: 'listedRate', note: 'проверьте наименование', uncertain: true,
+    } }) })
+    await mount([item()], { query: '&item=1' })
+    expect(q('[data-goods-tariff-country]')!.textContent).toContain('ставка по перечню соглашения о свободной торговле — 2.5%')
+    expect(q('[data-goods-tariff-country-uncertain]')).not.toBeNull()
+  })
+
+  it('ставка по стране из КЕДЕН (без kind) — прежний текст', async () => {
+    tnved.tariffOptions.mockResolvedValue({ data: tariff({ countryRate: { rate: '0%', country: 'ЕГИПЕТ', source: null } }) })
+    await mount([item()], { query: '&item=1' })
+    expect(q('[data-goods-tariff-country]')!.getAttribute('data-goods-tariff-country-kind')).toBe('keden')
+    expect(q('[data-goods-tariff-country]')!.textContent).toContain('ставка по соглашению о свободной торговле — 0%')
+    expect(q('[data-goods-tariff-country-note]')).toBeNull()
+  })
+
   it('без ettRate (прежний ответ) — строки источника нет', async () => {
     await mount([item()], { query: '&item=1' })
     expect(q('[data-goods-tariff-summary]')).not.toBeNull()
