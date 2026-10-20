@@ -7331,6 +7331,7 @@ export default {
       currency: 'Currency',
       case: 'Shipment',
       caseHelp: 'An invoice for a shipment goes into its landed cost as freight.',
+      currentCase: 'Current shipment',
       noCase: 'No shipment',
       noCases: 'No shipments',
       paid: 'Paid',

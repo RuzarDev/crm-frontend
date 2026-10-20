@@ -115,9 +115,13 @@ const invOpen = ref(false)
 const invMode = ref<'create' | 'edit'>('create')
 const invInitial = shallowRef<CarrierInvoiceFields | null>(null)
 const invEditing = ref<string | null>(null)
-const openAddInvoice = () => { invMode.value = 'create'; invInitial.value = null; invEditing.value = null; invOpen.value = true }
+// Поставка, уже привязанная к счёту: в выборе — её номер, даже если её нет в списке (отменена или старше 300 последних).
+const invCase = shallowRef<{ id: string; number: string } | null>(null)
+const openAddInvoice = () => { invMode.value = 'create'; invInitial.value = null; invEditing.value = null; invCase.value = null; invOpen.value = true }
 const openEditInvoice = (i: CarrierInvoice) => {
-  invMode.value = 'edit'; invInitial.value = invoiceFieldsOf(i); invEditing.value = i.id; invOpen.value = true
+  invMode.value = 'edit'; invInitial.value = invoiceFieldsOf(i); invEditing.value = i.id
+  invCase.value = i.caseId ? { id: i.caseId, number: i.caseNumber ?? '' } : null
+  invOpen.value = true
 }
 const saveInvoice = async (fields: CarrierInvoiceFields, file: File | null) => {
   card.value = invMode.value === 'edit' && invEditing.value
@@ -314,7 +318,7 @@ const iconBtn = 'inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-cen
       </section>
 
       <CarrierModal v-model:open="editOpen" mode="edit" :client-id="clientId" :initial="editInitial" :save="saveEdit" />
-      <InvoiceModal v-model:open="invOpen" :mode="invMode" :client-id="clientId" :initial="invInitial" :save="saveInvoice" />
+      <InvoiceModal v-model:open="invOpen" :mode="invMode" :client-id="clientId" :initial="invInitial" :current-case="invCase" :save="saveInvoice" />
     </template>
   </div>
 </template>
