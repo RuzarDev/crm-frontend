@@ -202,7 +202,7 @@ export interface EttSourceView {
   /** «Проверить вручную: сн. 109С — дата вступления решения не известна». */
   uncertain: string | null
 }
-const FALLBACKS = ['eecNoRate', 'eecNotInForce', 'eecUnrecognized', 'eecUncertain', 'eecError']
+const FALLBACKS = ['eecNoRate', 'eecNotInForce', 'eecUnrecognized', 'eecUncertain', 'eecError', 'manualOverride']
 export function ettSourceView(ett: TnvedEttRateDto | null | undefined, t: T): EttSourceView | null {
   if (!ett) return null
   const eec = ett.eec

@@ -3866,6 +3866,7 @@ export default {
           inEec: 'in EEC: {rate} ({source})',
           sameAsEec: 'matches EEC ({source})',
           fallback: {
+            manualOverride: 'from KEDEN: a manual exception confirmed by the declarant takes priority over the EEC',
             eecNoRate: 'by KEDEN: the code is not in EEC data',
             eecNotInForce: 'by KEDEN: the code was removed from EEC',
             eecUnrecognized: 'by KEDEN: the EEC rate was not recognized',

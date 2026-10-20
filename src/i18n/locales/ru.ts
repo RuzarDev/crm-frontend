@@ -3870,6 +3870,7 @@ export default {
           inEec: 'в ЕЭК: {rate} ({source})',
           sameAsEec: 'совпадает с ЕЭК ({source})',
           fallback: {
+            manualOverride: 'по КЕДЕН: ручное исключение, подтверждённое декларантом, важнее ЕЭК',
             eecNoRate: 'по КЕДЕН: кода нет в данных ЕЭК',
             eecNotInForce: 'по КЕДЕН: код ушёл из ЕЭК',
             eecUnrecognized: 'по КЕДЕН: ставка ЕЭК не распознана',
