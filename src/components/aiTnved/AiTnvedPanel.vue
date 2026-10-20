@@ -12,7 +12,6 @@ import {
   aiTnvedApi, type AiTnvedCharacteristics, type AiTnvedCode, type AiTnvedSource, type AiTnvedSuggestResponse,
 } from '@/api/aiTnved'
 import { tnvedApi } from '@/api/tnved'
-import type { TnvedClassifyMatch } from '@/types/api'
 import { formatTnvedCode, isRateLimited } from '@/views/references/tnvedShared'
 import AiTnvedCard from './AiTnvedCard.vue'
 import { collectQuestions } from './aiTnved'
@@ -41,8 +40,11 @@ const ch = reactive<{ material: string; purpose: string; composition: string; mo
 const answers = reactive<Record<string, string>>({})
 const state = ref<'idle' | 'loading' | 'ready' | 'error' | 'limit'>('idle')
 const result = shallowRef<AiTnvedSuggestResponse | null>(null)
-// Быстрые варианты по словам — сразу, пока ИИ думает (ответ ИИ — 10–30 с).
-const quick = shallowRef<TnvedClassifyMatch[]>([])
+// Быстрые варианты — сразу, пока ИИ думает (ответ ИИ — 10–30 с): смысловой поиск (21.10, доли секунды), а если модели
+// на сервере нет — поиск по словам.
+interface QuickMatch { code: string; description: string; rateStr: string | null; fromHistory?: boolean }
+const quick = shallowRef<QuickMatch[]>([])
+const quickKind = ref<'semantic' | 'words'>('words')
 const resultEl = ref<HTMLElement | null>(null)
 const tooShort = computed(() => description.value.trim().length < 3)
 
@@ -55,6 +57,21 @@ const characteristics = (): AiTnvedCharacteristics | null => {
 }
 
 let seq = 0
+// Быстрые варианты — не главное: ошибки молча, сначала по смыслу, нет модели или пусто — по словам.
+const loadQuick = async (text: string, my: number) => {
+  const alive = () => my === seq && state.value === 'loading'
+  try {
+    const r = await tnvedApi.semantic(text, 8, { silent: true })
+    if (r.data?.available && r.data.matches.length) {
+      if (alive()) { quick.value = r.data.matches; quickKind.value = 'semantic' }
+      return
+    }
+  } catch { /* дальше — по словам */ }
+  try {
+    const r = await tnvedApi.classify(text, 8, { silent: true })
+    if (alive()) { quick.value = r.data?.matches ?? []; quickKind.value = 'words' }
+  } catch { /* без быстрых вариантов */ }
+}
 let lastWithAnswers = false
 const run = async (withAnswers = false) => {
   if (tooShort.value || state.value === 'loading') return
@@ -64,9 +81,7 @@ const run = async (withAnswers = false) => {
   result.value = null
   if (!withAnswers) {
     quick.value = []
-    void tnvedApi.classify(description.value.trim(), 8, { silent: true })
-      .then((r) => { if (my === seq && state.value === 'loading') quick.value = r.data?.matches ?? [] })
-      .catch(() => { /* быстрые варианты — не главное */ })
+    void loadQuick(description.value.trim(), my)
   }
   try {
     const res = await aiTnvedApi.suggest({
@@ -144,11 +159,12 @@ const retailOptions = computed(() => [
     <div v-if="state === 'loading'" class="flex flex-col gap-2" aria-busy="true" data-ai-loading>
       <p class="m-0 text-sm text-ink-3" role="status">{{ t('aiTnved.loading') }}</p>
       <section v-if="quick.length" class="flex flex-col gap-2" data-ai-quick>
-        <h3 class="m-0 text-[13px] font-medium text-ink-2">{{ t('aiTnved.quickTitle') }}</h3>
+        <h3 class="m-0 text-[13px] font-medium text-ink-2" :data-ai-quick-kind="quickKind">{{ t(quickKind === 'semantic' ? 'aiTnved.quickTitleSemantic' : 'aiTnved.quickTitle') }}</h3>
         <ul role="list" class="m-0 list-none rounded-row border border-solid border-line p-0">
           <li v-for="(m, i) in quick" :key="m.code" :class="['flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5', i > 0 && 'border-0 border-t border-solid border-line']" :data-ai-quick-row="m.code">
             <div class="min-w-0 flex-1 basis-56">
               <span class="font-mono text-sm font-semibold text-ink tabular-nums">{{ formatTnvedCode(m.code) }}</span>
+              <span v-if="m.fromHistory" class="ml-2 text-xs text-muted" data-ai-quick-history>{{ t('aiTnved.quickHistory') }}</span>
               <span class="block text-[13px] break-words text-ink-2">{{ m.description }}</span>
             </div>
             <span v-if="m.rateStr" class="text-xs text-muted">{{ t('aiTnved.dutyShort', { rate: m.rateStr }) }}</span>

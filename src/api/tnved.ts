@@ -6,6 +6,7 @@ import type {
   TnvedTransitionDto,
   TnvedRateDto,
   TnvedClassifyResponse,
+  TnvedSemanticResponse,
   TnvedCalculateRequest,
   TnvedCalculateResult,
   TnvedCurrencyDto,
@@ -81,6 +82,10 @@ export const tnvedApi = {
 
   classify: (description: string, limit = 10, opts?: TnvedRequestOptions) =>
     apiClient.get<TnvedClassifyResponse>('/tnved/classify', { params: { description, limit }, ...quiet(opts) }),
+
+  /** Смысловой поиск (21.10): мгновенно, по смыслу описания; available = false — модели нет, искать по словам. */
+  semantic: (q: string, limit = 10, opts?: TnvedRequestOptions) =>
+    apiClient.get<TnvedSemanticResponse>('/tnved/semantic', { params: { q, limit }, ...quiet(opts) }),
 
   // ── Notes / explanations ────────────────────────────────────────────────────
   notes: (code: string, opts?: TnvedRequestOptions) =>

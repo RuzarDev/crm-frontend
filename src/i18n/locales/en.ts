@@ -7736,6 +7736,8 @@ export default {
     run: 'Suggest with AI',
     loading: 'The AI is choosing the code and explaining why; this usually takes 10–30 seconds…',
     quickTitle: 'While the AI thinks: matches by words',
+    quickTitleSemantic: 'While the AI thinks: similar by meaning',
+    quickHistory: 'chosen before',
     rateLimited: 'Too many requests. Wait a minute and try again.',
     error: 'Could not suggest a code.',
     retry: 'Retry',

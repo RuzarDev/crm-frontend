@@ -8,7 +8,7 @@ import type { AiTnvedCode, AiTnvedSuggestResponse } from '@/api/aiTnved'
 
 const api = vi.hoisted(() => ({ suggest: vi.fn(), select: vi.fn(), status: vi.fn(), settings: vi.fn(), saveSettings: vi.fn(), stats: vi.fn() }))
 vi.mock('@/api/aiTnved', async (orig) => ({ ...(await orig<typeof import('@/api/aiTnved')>()), aiTnvedApi: api }))
-const tnved = vi.hoisted(() => ({ classify: vi.fn() }))
+const tnved = vi.hoisted(() => ({ classify: vi.fn(), semantic: vi.fn() }))
 vi.mock('@/api/tnved', async (orig) => ({ ...(await orig<typeof import('@/api/tnved')>()), tnvedApi: tnved }))
 
 import AiTnvedPanel from '../AiTnvedPanel.vue'
@@ -54,7 +54,37 @@ const run = async () => {
 }
 
 describe('AiTnvedPanel', () => {
+  it('пока ИИ думает — сразу варианты по смыслу, с отметкой «уже выбирали»; поиск по словам не нужен', async () => {
+    tnved.semantic.mockResolvedValue({ data: { available: true, model: 'e5', tookMs: 40, matches: [
+      { code: '6109100000', description: 'Майки, фуфайки трикотажные', score: 0.86, rateStr: '1,75 EUR/кг', unitName: null, fromHistory: true, path: [] },
+      { code: '6109909000', description: 'Майки из прочих материалов', score: 0.81, rateStr: null, unitName: null, fromHistory: false, path: [] },
+    ] } })
+    api.suggest.mockReturnValue(new Promise<AiTnvedSuggestResponse>(() => {}))
+    await mount({ initialDescription: 'футболка хлопковая' })
+    await run()
+    await flushPromises()
+    expect(tnved.semantic).toHaveBeenCalledWith('футболка хлопковая', 8, { silent: true })
+    expect(tnved.classify).not.toHaveBeenCalled()
+    expect(w.get('[data-ai-quick-kind]').text()).toBe('Пока ИИ думает — похожие по смыслу')
+    expect(w.get('[data-ai-quick-row="6109100000"] [data-ai-quick-history]').text()).toBe('уже выбирали')
+    expect(w.find('[data-ai-quick-row="6109909000"] [data-ai-quick-history]').exists()).toBe(false)
+    await w.get('[data-ai-quick-row="6109909000"] [data-ai-quick-select]').trigger('click')
+    expect(w.emitted('select')?.[0]).toEqual([{ code: '6109909000', name: 'Майки из прочих материалов' }])
+  })
+
+  it('смыслового поиска нет на сервере или он упал — варианты по словам', async () => {
+    tnved.semantic.mockRejectedValueOnce(new Error('404'))
+    tnved.classify.mockResolvedValue({ data: { matches: [{ code: '8413708100', description: 'насосы центробежные', rateStr: null }] } })
+    api.suggest.mockReturnValue(new Promise<AiTnvedSuggestResponse>(() => {}))
+    await mount()
+    await run()
+    await flushPromises()
+    expect(w.get('[data-ai-quick-kind]').text()).toBe('Пока ИИ думает — варианты по словам')
+    expect(w.find('[data-ai-quick-row="8413708100"]').exists()).toBe(true)
+  })
+
   it('пока ИИ думает — сразу варианты по словам, их можно выбрать', async () => {
+    tnved.semantic.mockResolvedValue({ data: { available: false, model: null, tookMs: 0, matches: [] } })
     tnved.classify.mockResolvedValue({ data: { matches: [{ code: '6109100000', description: 'из хлопчатобумажной пряжи', rateStr: '1,75 EUR/кг' }] } })
     let finish!: (v: AiTnvedSuggestResponse) => void
     api.suggest.mockReturnValue(new Promise<AiTnvedSuggestResponse>((r) => { finish = r }))
