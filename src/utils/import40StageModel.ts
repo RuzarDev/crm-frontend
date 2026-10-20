@@ -63,10 +63,14 @@ export interface StageInput {
   checkUploaded?: boolean
   /** Язык интерфейса — формы числа («2 файла»). */
   locale?: string
+  /** Поставка до границы: ожидаемая дата на границе ('YYYY-MM-DD') — подпись шага 2, пока машина не прибыла. */
+  borderEta?: string | null
   now?: Date
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
+/** 'YYYY-MM-DD' → «14.10». */
+const isoDayMonth = (iso: string) => { const m = /^\d{4}-(\d{2})-(\d{2})/.exec(iso); return m ? `${m[2]}.${m[1]}` : '' }
 
 /** «2 ч 15 мин», «45 мин», «3 д 4 ч». */
 export function durationText(minutes: number, t: T): string {
@@ -179,7 +183,7 @@ export function buildStageCards(input: StageInput, t: T, te: Te): StageCard[] {
             : [whenText(passed?.atUtc, t), kase.borderArrivalPost || kase.post].filter(Boolean).join(' · ')
         } else if (state === 'current') {
           result = arrival ? k('s2Arrived', 's2ArrivedClient') : k('s2Current', 's2CurrentClient')
-          detail = arrival
+          detail = arrival || (input.borderEta ? t('preBorder.sub.eta', { date: isoDayMonth(input.borderEta) }) : '')
         }
         break
       }

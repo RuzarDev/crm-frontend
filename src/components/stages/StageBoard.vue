@@ -11,6 +11,7 @@ import StageHistory from './StageHistory.vue'
 // список с линией слева. Шаг — кнопка: нажатие открывает историю шага под доской (шаг 3 — ещё и подэтапы).
 // data-step / data-state на li — общие хуки тестов (state задаёт обёртка: статусы сотрудника или сегменты клиента).
 export type BoardCard = StageCard & { title: string; dataState: string }
+export type BoardSubStage = Omit<SubStage, 'key'> & { key: string }
 
 const props = withDefaults(defineProps<{
   cards: BoardCard[]
@@ -19,9 +20,11 @@ const props = withDefaults(defineProps<{
   aside?: string
   selected: number | null
   substeps?: SubStage[]
+  /** Подшаги до границы (поставка до границы, очередь 4): оплата → погрузка → в пути → прибытие — под шагом 2. */
+  borderSubsteps?: BoardSubStage[]
   /** Сотрудник: пояснение под пустой историей (события пишутся с 17.10). */
   historyEmptyNote?: string
-}>(), { aside: '', substeps: () => [], historyEmptyNote: '' })
+}>(), { aside: '', substeps: () => [], borderSubsteps: () => [], historyEmptyNote: '' })
 const emit = defineEmits<{ 'update:selected': [n: number | null] }>()
 
 const { t } = useI18n()
@@ -32,6 +35,9 @@ const client = computed(() => props.audience === 'client')
 
 const selectedCard = computed(() => props.cards.find((c) => c.n === props.selected) ?? null)
 const toggle = (n: number) => emit('update:selected', props.selected === n ? null : n)
+// Подшаги под выбранным шагом: шаг 3 — оформление ДТ, шаг 2 — путь до границы.
+const panelSubsteps = computed<BoardSubStage[]>(() =>
+  props.selected === 3 ? props.substeps : props.selected === 2 ? props.borderSubsteps : [])
 
 // Статические строки — сканер Tailwind должен видеть каждый класс целиком.
 const CIRCLE: Record<StageTone, string> = {
@@ -179,11 +185,11 @@ const nowText = (c: BoardCard) => (client.value && c.state === 'current' && !c.f
       data-stage-detail
       :data-detail-step="selectedCard.n"
     >
-      <div v-if="selectedCard.n === 3 && substeps.length" class="flex min-w-0 flex-col gap-3">
-        <h3 class="m-0 text-[13px] font-semibold tracking-[0.04em] text-muted uppercase">{{ t('stages.sub.label') }}</h3>
-        <ol class="m-0 flex list-none flex-col gap-2 p-0 @xl:grid @xl:grid-cols-4 @xl:gap-2" data-stage-substeps>
+      <div v-if="panelSubsteps.length" class="flex min-w-0 flex-col gap-3">
+        <h3 class="m-0 text-[13px] font-semibold tracking-[0.04em] text-muted uppercase">{{ selectedCard.n === 2 ? t('preBorder.sub.label') : t('stages.sub.label') }}</h3>
+        <ol class="m-0 flex list-none flex-col gap-2 p-0 @xl:grid @xl:grid-cols-4 @xl:gap-2" data-stage-substeps :data-substeps-step="selectedCard.n">
           <li
-            v-for="s in substeps"
+            v-for="s in panelSubsteps"
             :key="s.key"
             :data-sub="s.key"
             :data-sub-state="s.state"
@@ -204,7 +210,7 @@ const nowText = (c: BoardCard) => (client.value && c.state === 'current' && !c.f
         </ol>
       </div>
       <StageHistory
-        :class="selectedCard.n === 3 && substeps.length ? '' : '@3xl:col-span-2'"
+        :class="panelSubsteps.length ? '' : '@3xl:col-span-2'"
         :title="t('stages.history', { n: selectedCard.n }) + ' · ' + selectedCard.title"
         :events="selectedCard.history"
         :audience="audience"

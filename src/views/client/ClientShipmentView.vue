@@ -13,6 +13,11 @@ import ShipmentCustomsPanel from '@/views/client/shipment/ShipmentCustomsPanel.v
 import ShipmentCostPanel from '@/views/client/shipment/ShipmentCostPanel.vue'
 import ShipmentTransportBlock from '@/views/carriers/ShipmentTransportBlock.vue'
 import CaseContractBlock from '@/views/foreignContracts/CaseContractBlock.vue'
+import PreBorderPanel from '@/views/preBorder/PreBorderPanel.vue'
+import { usePreBorder } from '@/composables/usePreBorder'
+import { useTranslations } from '@/composables/useTranslations'
+import { showPreBorder } from '@/utils/preBorder'
+import type { PreBorder } from '@/api/preBorder'
 import { useCustomsRequests } from '@/composables/useCustomsRequests'
 import ShipmentConditionalRelease from '@/views/client/shipment/ShipmentConditionalRelease.vue'
 import ShipmentDocuments from '@/views/client/shipment/ShipmentDocuments.vue'
@@ -142,7 +147,17 @@ const countries = ref<RefCodeItem[]>([])
 void referencesApi.listCountries({ silent: true }).then((r) => { countries.value = r }).catch(() => {})
 
 // ---- Шапка ----
-const summary = computed(() => (kase.value ? toShipmentSummary(kase.value, files.value, customs.list.value) : null))
+// Поставка до границы (очередь 4): подшаги перед «Границей», «Нужно от вас» по недостающему до прибытия и свой блок.
+const preBorder = usePreBorder(() => id.value)
+const preBorderVisible = computed(() =>
+  showPreBorder(preBorder.data.value) || (preBorder.state.value === 'error' && (kase.value?.status ?? 9) <= 1))
+const onPreBorderChanged = (dto: PreBorder) => {
+  preBorder.set(dto)
+  void reload()
+}
+// «Перевести (ИИ)» у документов: какие уже переведены.
+const translations = useTranslations(() => id.value)
+const summary = computed(() => (kase.value ? toShipmentSummary(kase.value, files.value, customs.list.value, preBorder.data.value?.missing ?? []) : null))
 // Файлы не загрузились — тег не гадает про чек («Ждём оплату склада» / «Чек на проверке»).
 const tag = computed(() => (summary.value ? shipmentTag(summary.value, { filesUnknown: filesError.value }) : null))
 const metaParts = computed(() => {
@@ -314,6 +329,19 @@ const carrierHref = (id: string) => `/carriers/${encodeURIComponent(id)}`
         :stages="stages"
         :invoices="invoices"
         :customs="customs.list.value"
+        :pre-border="preBorder.data.value"
+      />
+
+      <!-- Поставка до границы (очередь 4): оплата, погрузка, путь, прибытие — необязательно. -->
+      <PreBorderPanel
+        v-if="preBorderVisible"
+        :case-id="kase.id"
+        :data="preBorder.data.value"
+        :state="preBorder.state.value"
+        audience="client"
+        :class="cn(card, 'max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:px-0')"
+        @changed="onPreBorderChanged"
+        @retry="preBorder.reload"
       />
 
       <!-- Документы слева, услуги и декларант справа; уже 1024px — одной колонкой. -->
@@ -325,7 +353,9 @@ const carrierHref = (id: string) => `/carriers/${encodeURIComponent(id)}`
             :declarations="docDeclarations"
             :svh-invoice-number="kase.svhInvoiceNumber"
             :error="filesError"
+            :translated-ids="translations.ids.value"
             @retry="retryFiles"
+            @translated="translations.mark"
           />
         </div>
 

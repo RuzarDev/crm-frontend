@@ -672,6 +672,7 @@ export type Import40FileSection =
   | 'payment-check'
   | 'declaration-stamp'
   | 'border-scans'
+  | 'loading-photos'
 
 export interface Import40FileDto {
   id: string

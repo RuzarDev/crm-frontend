@@ -13,6 +13,8 @@ import { extOf } from '@/views/client/shipment/util'
 import { formatFileSize, formatStamp } from '@/views/broker/packages/packages'
 import { roleLabel } from './caseFormat'
 import type { CaseStepContext } from './caseContext'
+import FileTranslateButton from '@/views/preBorder/FileTranslateButton.vue'
+import { canTranslate, injectCaseTranslations } from '@/views/preBorder/translate'
 
 // «Место для файлов» раздела заявки (доски Case/CaseSvh): подпись, файлы раздела карточками (расширение, имя, вид документа,
 // размер · кто загрузил · когда, скачивание, удаление) и зона загрузки. Используется в шагах: «Заявка и документы»
@@ -125,6 +127,7 @@ const meta = (f: Import40FileDto) => [formatFileSize(f.sizeBytes, t), who(f), fo
 const iconBase = 'inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden transition-colors duration-150 focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-45 aria-busy:cursor-progress motion-reduce:transition-none max-sm:size-11'
 const iconBtn = `${iconBase} hover:bg-sunken hover:text-ink`
 const removeBtn = `${iconBase} hover:bg-tone-danger-bg hover:text-tone-danger-fg`
+const translations = injectCaseTranslations()
 </script>
 
 <template>
@@ -163,6 +166,16 @@ const removeBtn = `${iconBase} hover:bg-tone-danger-bg hover:text-tone-danger-fg
         >
           <PhDownloadSimple :size="17" aria-hidden="true" />
         </button>
+        <!-- «Перевести (ИИ)» (очередь 4): документы и сканы на китайском/английском — на русский. -->
+        <FileTranslateButton
+          v-if="canTranslate(f)"
+          :case-id="ctx.kase.id"
+          :file-id="f.id"
+          :file-name="f.originalFileName"
+          :translated="translations?.ids.value.has(f.id)"
+          variant="icon"
+          @translated="translations?.mark($event)"
+        />
         <button
           v-if="canRemove"
           type="button"

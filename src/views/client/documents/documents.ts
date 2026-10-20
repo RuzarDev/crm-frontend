@@ -13,6 +13,7 @@ const SECTION_KEY: Record<string, string> = {
   'power-of-attorney': 'client.documents.section.poa',
   documents: 'client.documents.section.doc',
   'border-scans': 'client.documents.section.borderScans',
+  'loading-photos': 'client.documents.section.loadingPhoto',
 }
 export function fileKindKey(f: Pick<ClientCaseFile, 'docKind' | 'section'>): string {
   // Сканы с границы (18.10): вид скана (cmr, photo…) — не вид документа клиента, даже если имя совпадает (other).

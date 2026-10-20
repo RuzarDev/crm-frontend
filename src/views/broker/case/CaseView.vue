@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, watch, type Component } from 'vue'
+import { computed, nextTick, provide, reactive, watch, type Component } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhCaretDown, PhCheck } from '@phosphor-icons/vue'
@@ -30,6 +30,12 @@ import { useCase } from './useCase'
 import { useCaseActions } from './useCaseActions'
 import { useCustomsRequests } from '@/composables/useCustomsRequests'
 import { canManageCustoms, canRemindClient } from '@/utils/customsRequests'
+import PreBorderPanel from '@/views/preBorder/PreBorderPanel.vue'
+import { usePreBorder } from '@/composables/usePreBorder'
+import { useTranslations } from '@/composables/useTranslations'
+import { CASE_TRANSLATIONS } from '@/views/preBorder/translate'
+import { showPreBorder } from '@/utils/preBorder'
+import type { PreBorder } from '@/api/preBorder'
 
 // Карточка заявки сотрудника /import-40/:id (редизайн, волна 4а; доски Case и CaseSvh).
 // Шапка, полоса шагов, плашки; слева — текущий шаг и «Пройденные шаги», справа — команда, заявка, файлы, история.
@@ -54,6 +60,20 @@ const { actions, reasonKind } = useCaseActions(() => kase.value?.id ?? null, rel
 watch(id, () => { reasonKind.value = null })
 
 const perms = computed(() => (kase.value ? casePerms(auth, kase.value) : null))
+
+// Поставка до границы (очередь 4, задача 1): подшаги перед «Границей» в этапах и блок под текущим шагом. Необязательно:
+// у начатой или ещё не прошедшей границу заявки; ошибка загрузки — этапы без подшагов, блок с «Повторить».
+const preBorder = usePreBorder(() => kase.value?.id ?? '')
+const preBorderVisible = computed(() =>
+  showPreBorder(preBorder.data.value) || (preBorder.state.value === 'error' && (kase.value?.status ?? 9) <= 1))
+const onPreBorderChanged = (dto: PreBorder) => {
+  preBorder.set(dto)
+  // Номера транспорта — поля заявки, а запись — в историю: перечитываем заявку тихо.
+  void reload({ silent: true })
+}
+// «Перевести (ИИ)» у файлов: какие уже переведены — один список на карточку.
+const translations = useTranslations(() => kase.value?.id ?? '')
+provide(CASE_TRANSLATIONS, translations)
 
 // Запросы таможни (волна 17.10, задача 5): своя загрузка; красная метка на шаге 3 этапов, пока клиент не ответил.
 const customs = useCustomsRequests(() => kase.value?.id ?? null)
@@ -147,7 +167,7 @@ const panel = 'rounded-panel border border-line bg-surface'
 
     <template v-else-if="kase && perms">
       <CaseHeader :kase="kase" :perms="perms" @ask="actions.ask" />
-      <CaseStepper :steps="steps" :status="kase.status" :kase="kase" :stages="stages" :invoices="invoices" :files="files" :customs="customs.list.value" />
+      <CaseStepper :steps="steps" :status="kase.status" :kase="kase" :stages="stages" :invoices="invoices" :files="files" :customs="customs.list.value" :pre-border="preBorder.data.value" />
       <CaseBanners :kase="kase" :perms="perms" :actions="actions" />
       <CaseCondRelBanner :kase="kase" />
       <CaseReworkPanel :kase="kase" :perms="perms" :actions="actions" />
@@ -170,6 +190,17 @@ const panel = 'rounded-panel border border-line bg-surface'
           <p v-else-if="isCancelled(kase.status)" :class="cn(panel, 'm-0 px-[18px] py-4 text-sm text-ink-3')" data-case-cancelled-note>
             {{ t('broker.case.step.cancelledNote') }}
           </p>
+
+          <PreBorderPanel
+            v-if="preBorderVisible"
+            :case-id="kase.id"
+            :data="preBorder.data.value"
+            :state="preBorder.state.value"
+            audience="staff"
+            :class="cn(panel, 'px-[18px] py-4')"
+            @changed="onPreBorderChanged"
+            @retry="preBorder.reload"
+          />
 
           <section v-if="passed.length" aria-labelledby="case-passed-title" :class="cn(panel, 'overflow-hidden')" data-case-passed>
             <h2 id="case-passed-title" class="m-0 px-[18px] py-3 text-xs font-medium text-muted">{{ t('broker.case.step.passedTitle') }}</h2>

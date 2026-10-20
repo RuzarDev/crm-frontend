@@ -1,6 +1,7 @@
 import apiClient from './client'
 import type { ConditionalReleaseBrief } from './conditionalRelease'
 import type { ReworkBrief } from './import40Rework'
+import type { PreBorderMissingKey } from './preBorder'
 
 // Лёгкий список поставок клиента (редизайн, волна 2a): всё нужное для списка и «Нужно от вас».
 export interface ClientShipment {
@@ -32,6 +33,8 @@ export interface ClientShipment {
   reworkOpen?: ReworkBrief[]
   /** Запрос таможни ждёт ответа клиента — с какого момента (самый ранний); null/нет — не ждёт (волна 17.10, задача 5). */
   customsRequestSinceUtc?: string | null
+  /** Поставка до границы (очередь 4): чего не хватает до прибытия; пусто — ничего (не начато, заполнено, уже на границе). */
+  preBorderMissing?: PreBorderMissingKey[]
 }
 
 export const clientShipmentsApi = {

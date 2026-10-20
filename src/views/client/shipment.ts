@@ -11,7 +11,7 @@ import { briefOf } from '@/utils/conditionalRelease'
 // Одни на «Главную», список «Мои поставки» и карточку — чтобы экраны не расходились.
 
 export type ShipmentTab = 'active' | 'waiting' | 'drafts' | 'done'
-export type AskKind = 'customs' | 'problem' | 'returned' | 'draft' | 'paySvh'
+export type AskKind = 'customs' | 'problem' | 'returned' | 'draft' | 'paySvh' | 'preBorder'
 
 export const TOTAL_STEPS = 6
 
@@ -20,7 +20,7 @@ export type ShipmentCtx = { filesUnknown?: boolean }
 
 /**
  * «Нужно от вас» — ход клиента: запрос таможни без ответа (волна 17.10 — самый срочный), проблема (вопрос AQNIET), черновик (возврат на доработку — черновик с причиной),
- * счёт СВХ без загруженного чека. Загруженный чек — уже не ход клиента (ждём подтверждения), даже пока оплату
+ * счёт СВХ без загруженного чека, недостающее до прибытия на границу (поставка до границы, только начатая). Загруженный чек — уже не ход клиента (ждём подтверждения), даже пока оплату
  * не подтвердили; выполненная и отменённая поставка не спрашивает ничего. Без файлов (filesUnknown) про чек не гадаем.
  */
 export function askFor(s: ClientShipment, ctx: ShipmentCtx = {}): AskKind | null {
@@ -32,6 +32,8 @@ export function askFor(s: ClientShipment, ctx: ShipmentCtx = {}): AskKind | null
   if (s.isProblem) return 'problem'
   if (s.status === 0) return s.returnReason || s.reworkRequested ? 'returned' : 'draft'
   if (s.status === 6 && !s.paymentCheckUploaded && !ctx.filesUnknown) return 'paySvh'
+  // Поставка до границы (очередь 4): клиент начал заполнять, а до прибытия чего-то не хватает — самое слабое «нужно».
+  if (s.status === 1 && (s.preBorderMissing?.length ?? 0) > 0) return 'preBorder'
   return null
 }
 
@@ -55,6 +57,7 @@ export function shipmentTag(s: ClientShipment, ctx: ShipmentCtx = {}): { key: st
   if (ask === 'returned') return { key: 'returned', tone: 'wait' }
   if (ask === 'draft') return { key: 'draft', tone: 'neutral' }
   if (ask === 'paySvh') return { key: 'paySvh', tone: 'wait' }
+  if (ask === 'preBorder') return { key: 'preBorder', tone: 'wait' }
   // Файлы не загрузились — ни «Ждём оплату склада», ни «Чек на проверке»: нейтральное «Оформляем».
   if (s.status === 6 && ctx.filesUnknown) return { key: 'processing', tone: 'neutral' }
   if (s.status === 6) return { key: 'checkReview', tone: 'pay' } // чек загружен, ждём подтверждения
@@ -109,6 +112,7 @@ export function toShipmentSummary(
   c: Import40CaseDto,
   files: Pick<Import40FileDto, 'section'>[],
   customs: readonly Pick<CustomsRequestDto, 'status' | 'createdAtUtc' | 'stage'>[] = [],
+  preBorderMissing: ClientShipment['preBorderMissing'] = [],
 ): ClientShipment {
   return {
     id: c.id,
@@ -135,6 +139,7 @@ export function toShipmentSummary(
     reworkRequested: !!c.reworkRequested,
     reworkOpen: c.openReworkItems ?? [],
     customsRequestSinceUtc: oldestWaiting(waitingForClient(customs, c.status))?.createdAtUtc ?? null,
+    preBorderMissing,
   }
 }
 

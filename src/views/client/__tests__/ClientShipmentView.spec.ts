@@ -33,10 +33,19 @@ const rework = vi.hoisted(() => ({ list: vi.fn(), uploadForItem: vi.fn() }))
 vi.mock('@/api/import40Rework', async (orig) => ({ ...(await orig<typeof import('@/api/import40Rework')>()), reworkApi: rework }))
 const customs = vi.hoisted(() => ({ list: vi.fn(async () => [] as unknown[]), create: vi.fn(), answer: vi.fn(), close: vi.fn(), remindClient: vi.fn() }))
 vi.mock('@/api/customsRequests', () => ({ customsRequestsApi: customs }))
+const preBorder = vi.hoisted(() => ({ get: vi.fn() }))
+const translations = vi.hoisted(() => ({ list: vi.fn(async () => [] as unknown[]), get: vi.fn(), translate: vi.fn() }))
+vi.mock('@/api/preBorder', async (orig) => ({ ...(await orig<typeof import('@/api/preBorder')>()), preBorderApi: preBorder, translationApi: translations }))
 
 import ClientShipmentView from '../ClientShipmentView.vue'
 
 let w: VueWrapper
+const preBorderDto = (p: Record<string, unknown> = {}) => ({
+  caseId: 'c1', started: true, canEdit: true, status: 1, transportMode: 1, supplierPaymentDeferred: false, payments: [], availablePayments: [],
+  loadingDate: null, loadingCity: null, loadingWarehouse: null, sealNumbers: null, photos: [], serialCount: 0, imeiCount: 0,
+  carrierId: null, carrierName: null, carrierArchived: false, vehicleNumber: '', trailerNumber: '', containerNumber: null, wagonNumber: '',
+  expectedBorderDate: null, marks: [], borderArrivedAtUtc: null, borderArrivalPost: null, missing: [], updatedAtUtc: null, ...p,
+})
 let router: Router
 const stub = { template: '<div/>' }
 
@@ -75,6 +84,8 @@ beforeEach(() => {
   api.listBrokerInvoices.mockImplementation(async () => server.invoices)
   api.action.mockImplementation(async () => server.kase)
   rework.list.mockResolvedValue({ comment: null, items: [] })
+  // Поставка до границы: по умолчанию не начата (у заявок после границы блока нет).
+  preBorder.get.mockImplementation(async () => preBorderDto({ status: server.kase.status, started: false }))
   refs.listCountries.mockResolvedValue([{ id: 'r1', code: '276', name: 'Германия', alpha2: 'DE', isActive: true }])
 })
 afterEach(() => {
@@ -85,6 +96,23 @@ afterEach(() => {
 })
 
 describe('ClientShipmentView', () => {
+  it('поставка до границы: подшаги под «Границей», «нужно от вас» в теге и блоке; после границы не начатой — блока нет', async () => {
+    preBorder.get.mockResolvedValue(preBorderDto({ loadingDate: '2026-10-10', loadingCity: 'Урумчи', missing: ['payment', 'transport', 'eta'] }))
+    await mountCard({ status: 1 })
+    expect(w.get('[data-ship-tag]').text()).toBe('Нужны сведения о пути')
+    expect(w.get('[data-pre-border-missing]').text()).toContain('оплата поставщику')
+    const subs = w.get('[data-stage-substeps]')
+    expect(subs.attributes('data-substeps-step')).toBe('2')
+    expect(subs.findAll('[data-sub]').map((x) => x.attributes('data-sub'))).toEqual(['pay', 'load', 'transit', 'arrival'])
+    expect(subs.get('[data-sub="pay"]').attributes('data-sub-state')).toBe('current')
+    expect(subs.get('[data-sub="load"]').attributes('data-sub-state')).toBe('done')
+    w.unmount()
+
+    preBorder.get.mockImplementation(async () => preBorderDto({ status: 3, started: false }))
+    await mountCard({ status: 3 })
+    expect(w.find('[data-pre-border]').exists()).toBe(false)
+  })
+
   it('шапка: груз, тег, номер · страна · пост · дата создания', async () => {
     await mountCard({ status: 2, createdAtUtc: '2026-09-24T09:00:00' }, [fileDto()])
     expect(api.get).toHaveBeenCalledWith('c1', { silent: true })
