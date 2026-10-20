@@ -18,7 +18,7 @@ const api = vi.hoisted(() => ({
   troisStatus: vi.fn(), troisSearch: vi.fn(), troisImport: vi.fn(),
   voLists: vi.fn(), voSync: vi.fn(), voImport: vi.fn(),
   whStatus: vi.fn(), whImport: vi.fn(), nsiStatus: vi.fn(), nsiImportKgd: vi.fn(), nsiImport: vi.fn(), kedenRefresh: vi.fn(),
-  syncHistory: vi.fn(), syncTrigger: vi.fn(), seedTransitions: vi.fn(),
+  syncHistory: vi.fn(), syncTrigger: vi.fn(), seedTransitions: vi.fn(), refreshKedenReference: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 vi.mock('@/api/references', () => ({
@@ -40,7 +40,7 @@ vi.mock('@/api/warehouseRegistry', () => ({
   warehouseNsiApi: { status: api.nsiStatus, importFromKgd: api.nsiImportKgd, importFile: api.nsiImport },
   kedenRegistriesApi: { refresh: api.kedenRefresh },
 }))
-vi.mock('@/api/tnved', () => ({ tnvedApi: { syncHistory: api.syncHistory, syncTrigger: api.syncTrigger, seedTransitions: api.seedTransitions } }))
+vi.mock('@/api/tnved', () => ({ tnvedApi: { syncHistory: api.syncHistory, syncTrigger: api.syncTrigger, seedTransitions: api.seedTransitions, refreshKedenReference: api.refreshKedenReference } }))
 vi.mock('@/ui/message', () => ({ message: api.toast }))
 
 import SystemDataPage from '../SystemDataPage.vue'
@@ -547,6 +547,20 @@ describe('SystemDataPage — синхронизация ТН ВЭД', () => {
     await w.get('[data-sync-seed]').trigger('click')
     await flushPromises()
     expect(api.toast.success).toHaveBeenCalledWith('Переходы кодов загружены: 120 записей (2026-10)')
+  })
+
+  it('«Перекачать справку КЕДЕН» — с подтверждением, запуск в фоне тостом; «Отмена» — без запроса', async () => {
+    api.refreshKedenReference.mockResolvedValue({ data: {} })
+    await mountAt('/tnved/sync', 'broker', ['tnved.manage'])
+    await w.get('[data-sync-keden]').trigger('click')
+    confirmState.resolve(false)
+    await flushPromises()
+    expect(api.refreshKedenReference).not.toHaveBeenCalled()
+    await w.get('[data-sync-keden]').trigger('click')
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(api.refreshKedenReference).toHaveBeenCalledTimes(1)
+    expect(api.toast.success).toHaveBeenCalledWith('Перекачка справки КЕДЕН запущена — идёт в фоне')
   })
 })
 

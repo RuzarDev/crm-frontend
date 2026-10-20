@@ -83,6 +83,21 @@ const run = async () => {
   }
 }
 
+// Перекачка справки КЕДЕН по всем кодам (20.10.2026): идёт в фоне на сервере, ответ сразу.
+const refreshing = ref(false)
+const refreshKeden = async () => {
+  if (refreshing.value) return
+  const ok = await confirm({ title: t(`${P}.kedenTitle`), content: t(`${P}.kedenText`), okText: t(`${P}.kedenOk`) })
+  if (!ok) return
+  refreshing.value = true
+  try {
+    await tnvedApi.refreshKedenReference()
+    message.success(t(`${P}.kedenStarted`))
+  } catch { /* текст ошибки показал общий перехватчик */ } finally {
+    refreshing.value = false
+  }
+}
+
 const seeding = ref(false)
 const seed = async () => {
   if (seeding.value) return
@@ -104,6 +119,10 @@ const seed = async () => {
         <p class="m-0 mt-1 text-sm text-ink-3">{{ t(`${P}.sub`) }}</p>
       </div>
       <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+        <ZButton variant="secondary" class="border border-line-strong bg-surface max-sm:h-11 max-sm:flex-1" :loading="refreshing" data-sync-keden @click="refreshKeden">
+          <template #icon><PhArrowsClockwise :size="15" aria-hidden="true" /></template>
+          {{ t(`${P}.keden`) }}
+        </ZButton>
         <ZButton variant="secondary" class="border border-line-strong bg-surface max-sm:h-11 max-sm:flex-1" :loading="seeding" data-sync-seed @click="seed">
           <template #icon><PhDatabase :size="15" aria-hidden="true" /></template>
           {{ t(`${P}.seed`) }}

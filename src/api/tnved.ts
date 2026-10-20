@@ -134,6 +134,11 @@ export const tnvedApi = {
   tariffOptions: (code: string, country?: string | null, onDate?: string | null, opts?: TnvedRequestOptions) =>
     apiClient.get<TariffOptionsDto>('/tnved/tariff-options', { params: { code, country, onDate }, ...quiet(opts) }),
 
+  // Перекачать «Справку по товару» КЕДЕН по всем действующим кодам (в фоне, ~час): новые ставки и меры сразу,
+  // без ожидания еженедельного обновления.
+  refreshKedenReference: () =>
+    apiClient.post('/tnved/sync/reference', null, { params: { full: true } }),
+
   seedTransitions: () =>
     apiClient.post<TnvedTransitionSeedResult>('/tnved/transition/seed'),
 
