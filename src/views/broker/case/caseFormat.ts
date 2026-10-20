@@ -25,7 +25,7 @@ export function transportSummary(c: Import40CaseDto, t: T): string {
 }
 
 /** Разделы файлов в порядке показа (правая колонка и панель «Все файлы»). Неизвестные — в «Прочее». */
-export const FILE_SECTIONS = ['documents', 'extraction-batch', 'power-of-attorney', 'border-scans', 'declaration-stamp', 'svh-invoice', 'payment-check'] as const
+export const FILE_SECTIONS = ['documents', 'extraction-batch', 'power-of-attorney', 'loading-photos', 'border-scans', 'declaration-stamp', 'svh-invoice', 'payment-check'] as const
 export type FileSectionKey = (typeof FILE_SECTIONS)[number] | 'other'
 
 export const sectionOf = (f: Import40FileDto): FileSectionKey =>
@@ -36,7 +36,8 @@ export function groupFiles(files: Import40FileDto[]): { key: FileSectionKey; fil
   const keys: FileSectionKey[] = [...FILE_SECTIONS, 'other']
   return keys
     .map((key) => ({ key, files: files.filter((f) => sectionOf(f) === key) }))
-    .filter((g) => g.key !== 'other' || g.files.length > 0)
+    // «Прочее» и фото погрузки (поставка до границы — необязательно) — только если есть.
+    .filter((g) => (g.key !== 'other' && g.key !== 'loading-photos') || g.files.length > 0)
 }
 
 /** Ключ подписи раздела: broker.case.section.<camel>. */

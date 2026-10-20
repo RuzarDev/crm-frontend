@@ -5,6 +5,7 @@ import { shortWhen } from '@/views/home/brokerHome'
 import { dayMonth } from '@/views/home/clientHome'
 import { TOTAL_STEPS, askFor, shipmentTag, stepNo } from '@/views/client/shipment'
 import { reworkList } from '@/api/import40Rework'
+import { missingText } from '@/utils/preBorder'
 
 /** Подписи поставки в словаре клиента — общие для строки списка и карточек «Главной». */
 export function useShipmentText() {
@@ -44,6 +45,7 @@ export function useShipmentText() {
         return s.svhInvoiceAmount
           ? t('client.ask.paySvh.text', { sum: formatMoney(s.svhInvoiceAmount) })
           : t('client.ask.paySvh.textNoSum')
+      case 'preBorder': return t('client.ask.preBorder.text', { list: missingText(s.preBorderMissing ?? [], t) })
       default: return ''
     }
   }

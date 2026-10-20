@@ -11,6 +11,8 @@ import { clientRegistryApi, type RegistryCategory, type RegistryFields } from '@
 import { message } from '@/ui/message'
 import RegistryDocModal from '@/views/clientRegistry/RegistryDocModal.vue'
 import { emptyFields } from '@/views/clientRegistry/registry'
+import FileTranslateButton from '@/views/preBorder/FileTranslateButton.vue'
+import { canTranslate, injectCaseTranslations } from '@/views/preBorder/translate'
 
 // «Все файлы» заявки по разделам: имя, размер, кто загрузил, когда; скачивание каждого.
 const props = defineProps<{ open: boolean; caseId: string; files: Import40FileDto[] }>()
@@ -54,6 +56,7 @@ const saveToRegistry = async (fields: RegistryFields) => {
   message.success(t('clientRegistry.toRegistry.saved'))
 }
 
+const translations = injectCaseTranslations()
 const iconBtn = 'inline-flex size-[30px] shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden hover:bg-sunken hover:text-ink focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-45 max-sm:size-11'
 </script>
 
@@ -84,6 +87,15 @@ const iconBtn = 'inline-flex size-[30px] shrink-0 cursor-pointer items-center ju
             >
               <PhDownloadSimple :size="16" aria-hidden="true" />
             </button>
+            <FileTranslateButton
+              v-if="canTranslate(f)"
+              :case-id="caseId"
+              :file-id="f.id"
+              :file-name="f.originalFileName"
+              :translated="translations?.ids.value.has(f.id)"
+              variant="icon"
+              @translated="translations?.mark($event)"
+            />
             <button
               v-if="f.section === 'documents'"
               type="button"

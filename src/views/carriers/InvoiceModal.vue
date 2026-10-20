@@ -25,8 +25,10 @@ const props = withDefaults(defineProps<{
   mode: 'create' | 'edit'
   clientId: string
   initial?: CarrierInvoiceFields | null
+  /** Поставка, уже привязанная к счёту (правка): всегда в выборе, даже отменённая или не попавшая в список. */
+  currentCase?: { id: string; number: string } | null
   save: (fields: CarrierInvoiceFields, file: File | null) => Promise<void>
-}>(), { initial: null })
+}>(), { initial: null, currentCase: null })
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
 const { t } = useI18n()
 
@@ -49,9 +51,14 @@ watch(() => props.open, (v) => {
   void carriersApi.cases(props.clientId).then((r) => { cases.value = r }).catch(() => { cases.value = [] })
 }, { immediate: true })
 
-const caseOptions = computed<ZOption[]>(() => cases.value.map((c) => ({
-  value: c.id, label: `${c.number}${c.cargo ? ` · ${c.cargo}` : ''} · ${formatDay(c.createdAtUtc)}`,
-})))
+const caseOptions = computed<ZOption[]>(() => {
+  const list: ZOption[] = cases.value.map((c) => ({
+    value: c.id, label: `${c.number}${c.cargo ? ` · ${c.cargo}` : ''} · ${formatDay(c.createdAtUtc)}`,
+  }))
+  const cur = props.currentCase
+  if (cur && !cases.value.some((c) => c.id === cur.id)) list.unshift({ value: cur.id, label: cur.number || t('carriers.invoice.currentCase') })
+  return list
+})
 const currencyOptions = computed(() => currencies.withValue(fields.value.currency))
 const localErrors = computed(() => (touched.value ? invoiceErrors(fields.value, todayIso()) : {}))
 const err = (f: InvoiceField): string | undefined => {

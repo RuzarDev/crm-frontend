@@ -6,6 +6,8 @@ import type { ClientShipment } from '@/api/clientShipments'
 import type { Import40CaseDto, Import40CaseInvoiceDto } from '@/api/import40'
 import type { CaseStages } from '@/api/stages'
 import type { CustomsRequestDto } from '@/api/customsRequests'
+import type { PreBorder } from '@/api/preBorder'
+import { preBorderSubstages, showPreBorder } from '@/utils/preBorder'
 import { askFor, segments, TOTAL_STEPS, type SegState } from '@/views/client/shipment'
 import { buildStageCards, declaringSubstages, defaultSelectedStep } from '@/utils/import40StageModel'
 
@@ -25,7 +27,9 @@ const props = withDefaults(defineProps<{
   invoices?: Import40CaseInvoiceDto[]
   /** Запросы таможни поставки: открытый — «Нужен ваш ответ» и «ждём ваш документ» в подэтапах шага 3. */
   customs?: CustomsRequestDto[]
-}>(), { filesUnknown: false, stages: null, invoices: () => [], customs: () => [] })
+  /** Поставка до границы: подшаги под шагом 2 и ожидаемая дата на границе. */
+  preBorder?: PreBorder | null
+}>(), { filesUnknown: false, stages: null, invoices: () => [], customs: () => [], preBorder: null })
 
 const { t, te, locale } = useI18n()
 
@@ -40,11 +44,13 @@ const input = computed(() => ({
   customs: props.customs,
   checkUploaded: props.shipment.paymentCheckUploaded && !props.filesUnknown,
   locale: locale.value,
+  borderEta: props.preBorder?.expectedBorderDate ?? null,
 }))
 
 const cards = computed<BoardCard[]>(() =>
   buildStageCards(input.value, t, te).map((m, i) => ({ ...m, title: t(`enum.stepClient.s${m.n}`), dataState: states.value[i] ?? 'todo' })))
 const substeps = computed(() => declaringSubstages(input.value, t, te))
+const borderSubsteps = computed(() => (showPreBorder(props.preBorder) ? preBorderSubstages(props.preBorder, t) : []))
 
 const selected = ref<number | null>(defaultSelectedStep(props.caseDto.status))
 watch(() => [props.caseDto.id, props.caseDto.status] as const, ([id, status], [prevId]) => {
@@ -66,6 +72,7 @@ const aside = computed(() => {
       :heading="t('stages.titleClient')"
       :aside="aside"
       :substeps="substeps"
+      :border-substeps="borderSubsteps"
     />
   </div>
 </template>

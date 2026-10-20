@@ -6,6 +6,8 @@ import { isDocKind } from '@/views/client/docKinds'
 import { dayMonthOf, extOf } from '@/views/client/shipment/util'
 import { saveBlob } from '@/ui/download'
 import ZButton from '@/components/z/ZButton.vue'
+import FileTranslateButton from '@/views/preBorder/FileTranslateButton.vue'
+import { canTranslate } from '@/views/preBorder/translate'
 import { cn } from '@/ui/cn'
 
 // «Документы» карточки поставки (доска Shipment): «От AQNIET» — ДТ (бланк PDF), счёт СВХ, отметка о выпуске;
@@ -19,8 +21,10 @@ const props = defineProps<{
   svhInvoiceNumber: string
   /** Список файлов не загрузился — вместо «Документов пока нет» ошибка и «Повторить». */
   error?: boolean
+  /** Уже переведённые ИИ файлы (кнопка «Перевод» вместо «Перевести (ИИ)»). */
+  translatedIds?: Set<string>
 }>()
-const emit = defineEmits<{ retry: [] }>()
+const emit = defineEmits<{ retry: []; translated: [fileId: string] }>()
 
 const { t } = useI18n()
 const uid = useId()
@@ -39,12 +43,15 @@ interface DocRow {
   trail: string
   trailIsDate: boolean
   open: () => Promise<void>
+  /** Файл заявки, который можно перевести ИИ (документы, сканы с границы). */
+  translate?: { id: string; name: string }
 }
 
 const bySection = (s: string) => props.files.filter((f) => f.section === s)
 
 const fileRow = (f: Import40FileDto, label: string, withName: boolean): DocRow => ({
   key: f.id,
+  translate: canTranslate(f) ? { id: f.id, name: f.originalFileName } : undefined,
   label,
   fileName: withName ? f.originalFileName : undefined,
   trail: withName ? dayMonthOf(f.createdAtUtc) : extOf(f.originalFileName) || t('client.card.docs.open'),
@@ -78,6 +85,8 @@ const yours = computed<DocRow[]>(() => [
   ...bySection('documents').map((f) => fileRow(f, kindName(f.docKind), true)),
   ...bySection('power-of-attorney').map((f) => fileRow(f, t('client.card.poaFile'), true)),
   ...bySection('payment-check').map((f) => fileRow(f, t('client.card.docs.check'), true)),
+  // Фото погрузки (поставка до границы) — загружает клиент или AQNIET за него.
+  ...bySection('loading-photos').map((f) => fileRow(f, t('client.card.docs.loadingPhoto'), true)),
 ])
 
 const total = computed(() => fromUs.value.length + yours.value.length)
@@ -126,13 +135,22 @@ const groupLabel = 'm-0 mb-1 text-[12.5px] text-muted'
       <template v-if="fromUs.length">
         <p :id="fromUsId" :class="cn(groupLabel, !expanded && 'max-sm:hidden')">{{ t('client.card.docs.fromUs') }}</p>
         <ul role="list" :aria-labelledby="fromUsId" class="m-0 mb-3 flex list-none flex-col p-0 max-sm:mb-0">
-          <li v-for="(row, i) in fromUs" :key="row.key" :class="cn(hiddenOnPhone(i) && 'max-sm:hidden')" data-doc-row="us">
-            <button type="button" :class="rowClass" :aria-busy="busy === row.key || undefined" @click="open(row)">
+          <li v-for="(row, i) in fromUs" :key="row.key" :class="cn('flex items-center gap-1', hiddenOnPhone(i) && 'max-sm:hidden')" data-doc-row="us">
+            <button type="button" :class="cn(rowClass, row.translate && 'mr-0 w-auto min-w-0 flex-1')" :aria-busy="busy === row.key || undefined" @click="open(row)">
               <span class="min-w-0 flex-1">
                 <span class="sr-only">{{ t('client.card.docs.download') }}: </span>{{ row.label }}<template v-if="row.mono"> <span class="font-mono text-[13px] text-ink-3 [overflow-wrap:anywhere]">{{ row.mono }}</span></template>
               </span>
               <span class="shrink-0 font-medium text-zircon-ink">{{ row.trail }}</span>
             </button>
+            <FileTranslateButton
+              v-if="row.translate"
+              :case-id="caseId"
+              :file-id="row.translate.id"
+              :file-name="row.translate.name"
+              :translated="translatedIds?.has(row.translate.id)"
+              variant="icon"
+              @translated="emit('translated', $event)"
+            />
           </li>
         </ul>
       </template>
@@ -140,13 +158,22 @@ const groupLabel = 'm-0 mb-1 text-[12.5px] text-muted'
       <template v-if="yours.length">
         <p :id="yoursId" :class="cn(groupLabel, !expanded && 'max-sm:hidden')">{{ t('client.card.docs.yours') }}</p>
         <ul role="list" :aria-labelledby="yoursId" class="m-0 flex list-none flex-col p-0">
-          <li v-for="(row, i) in yours" :key="row.key" :class="cn(hiddenOnPhone(fromUs.length + i) && 'max-sm:hidden')" data-doc-row="yours">
-            <button type="button" :class="rowClass" :aria-busy="busy === row.key || undefined" @click="open(row)">
+          <li v-for="(row, i) in yours" :key="row.key" :class="cn('flex items-center gap-1', hiddenOnPhone(fromUs.length + i) && 'max-sm:hidden')" data-doc-row="yours">
+            <button type="button" :class="cn(rowClass, row.translate && 'mr-0 w-auto min-w-0 flex-1')" :aria-busy="busy === row.key || undefined" @click="open(row)">
               <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">
                 <span class="sr-only">{{ t('client.card.docs.download') }}: </span><span data-doc-label>{{ row.label }}</span><span class="text-ink-3"> · {{ row.fileName }}</span>
               </span>
               <span class="shrink-0 text-[12.5px] tabular-nums text-muted">{{ row.trail }}</span>
             </button>
+            <FileTranslateButton
+              v-if="row.translate"
+              :case-id="caseId"
+              :file-id="row.translate.id"
+              :file-name="row.translate.name"
+              :translated="translatedIds?.has(row.translate.id)"
+              variant="icon"
+              @translated="emit('translated', $event)"
+            />
           </li>
         </ul>
       </template>

@@ -30,6 +30,12 @@ const reworkApiMock = vi.hoisted(() => ({ list: vi.fn(async () => ({ comment: nu
 vi.mock('@/api/import40Rework', async (orig) => ({ ...(await orig<typeof import('@/api/import40Rework')>()), reworkApi: reworkApiMock }))
 const customs = vi.hoisted(() => ({ list: vi.fn(async () => [] as unknown[]), create: vi.fn(), answer: vi.fn(), close: vi.fn(), remindClient: vi.fn() }))
 vi.mock('@/api/customsRequests', () => ({ customsRequestsApi: customs }))
+const preBorder = vi.hoisted(() => ({ get: vi.fn() }))
+vi.mock('@/api/preBorder', async (orig) => ({
+  ...(await orig<typeof import('@/api/preBorder')>()),
+  preBorderApi: preBorder,
+  translationApi: { list: vi.fn(async () => [] as unknown[]), get: vi.fn(), translate: vi.fn() },
+}))
 vi.mock('@/api/documentChecks', () => ({ documentChecksApi: { list: vi.fn().mockResolvedValue([]), link: vi.fn() } }))
 
 import CaseView from '../CaseView.vue'
@@ -96,6 +102,13 @@ beforeEach(() => {
   api.action.mockImplementation(async () => server.kase)
   api.update.mockImplementation(async () => server.kase)
   refs.listCountries.mockResolvedValue([])
+  // Поставка до границы: по умолчанию не начата.
+  preBorder.get.mockImplementation(async () => ({
+    caseId: 'c1', started: false, canEdit: true, status: server.kase.status, transportMode: 1, supplierPaymentDeferred: false, payments: [],
+    availablePayments: [], loadingDate: null, loadingCity: null, loadingWarehouse: null, sealNumbers: null, photos: [], serialCount: 0, imeiCount: 0,
+    carrierId: null, carrierName: null, carrierArchived: false, vehicleNumber: '', trailerNumber: '', containerNumber: null, wagonNumber: '',
+    expectedBorderDate: null, marks: [], borderArrivedAtUtc: null, borderArrivalPost: null, missing: [], updatedAtUtc: null,
+  }))
   manage.staff.mockResolvedValue([
     { id: 's1', username: 'aigerim', displayName: 'Айгерим К.', roles: ['declarant'] },
     { id: 's2', username: 'daulet', displayName: 'Даулет С.', roles: ['declarant', 'kpp'] },
@@ -123,6 +136,35 @@ describe('CaseView: загрузка', () => {
     await w.get('[data-case-retry]').trigger('click')
     await flushPromises()
     expect(w.find('[data-case-header]').exists()).toBe(true)
+  })
+})
+
+describe('CaseView: поставка до границы', () => {
+  it('блок под текущим шагом и подшаги под «Границей»; у заявки после границы без данных — нет', async () => {
+    preBorder.get.mockImplementation(async () => ({
+      caseId: 'c1', started: true, canEdit: true, status: 1, transportMode: 1, supplierPaymentDeferred: true, payments: [], availablePayments: [],
+      loadingDate: '2026-10-10', loadingCity: 'Урумчи', loadingWarehouse: null, sealNumbers: null, photos: [], serialCount: 0, imeiCount: 0,
+      carrierId: null, carrierName: null, carrierArchived: false, vehicleNumber: '123', trailerNumber: '', containerNumber: null, wagonNumber: '',
+      expectedBorderDate: '2026-10-20', marks: [{ id: 'm', atUtc: '2026-10-15T05:00:00Z', place: 'Хоргос', comment: null, byClient: true, canDelete: true }],
+      borderArrivedAtUtc: null, borderArrivalPost: null, missing: [], updatedAtUtc: null,
+    }))
+    await mountCard(USERS.declarant, { status: 1 })
+    expect(w.find('[data-case-main] [data-pre-border]').exists()).toBe(true)
+    expect(w.get('[data-pb-mark]').text()).toContain('Хоргос')
+    const subs = w.get('[data-stage-substeps]')
+    expect(subs.attributes('data-substeps-step')).toBe('2')
+    expect(subs.get('[data-sub="transit"]').text()).toContain('Хоргос')
+    expect(w.get('[data-step="2"] [data-step-note]').text()).toContain('20.10')
+    w.unmount()
+
+    preBorder.get.mockImplementation(async () => ({
+      caseId: 'c1', started: false, canEdit: true, status: 3, transportMode: 1, supplierPaymentDeferred: false, payments: [], availablePayments: [],
+      loadingDate: null, loadingCity: null, loadingWarehouse: null, sealNumbers: null, photos: [], serialCount: 0, imeiCount: 0, carrierId: null,
+      carrierName: null, carrierArchived: false, vehicleNumber: '', trailerNumber: '', containerNumber: null, wagonNumber: '', expectedBorderDate: null,
+      marks: [], borderArrivedAtUtc: null, borderArrivalPost: null, missing: [], updatedAtUtc: null,
+    }))
+    await mountCard(USERS.declarant, { status: 3 })
+    expect(w.find('[data-pre-border]').exists()).toBe(false)
   })
 })
 

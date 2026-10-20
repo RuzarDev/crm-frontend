@@ -54,10 +54,11 @@ describe('shipmentTag', () => {
   })
 
   it('каждый ключ тега и вопроса есть в ru/kk/en', () => {
-    const keys = ['cancelled', 'done', 'needDoc', 'returned', 'draft', 'paySvh', 'checkReview', 'payService', 'released', 'inTransit', 'processing', 'customs']
+    const keys = ['cancelled', 'done', 'needDoc', 'returned', 'draft', 'paySvh', 'checkReview', 'payService', 'released', 'inTransit', 'processing', 'customs', 'preBorder']
     for (const loc of [ru, kk, en]) {
       expect(Object.keys(loc.client.tag).sort()).toEqual([...keys].sort())
-      for (const k of ['customs', 'problem', 'returned', 'draft', 'paySvh'] as const) expect(loc.client.ask[k].title).toBeTruthy()
+      for (const k of ['customs', 'problem', 'returned', 'draft', 'paySvh', 'preBorder'] as const) expect(loc.client.ask[k].title).toBeTruthy()
+      expect(loc.client.ask.preBorder.text).toContain('{list}')
       expect(loc.client.ask.paySvh.text).toContain('{sum}')
     }
   })

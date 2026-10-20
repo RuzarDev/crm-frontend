@@ -6,6 +6,8 @@ import StageBoard, { type BoardCard } from '@/components/stages/StageBoard.vue'
 import type { Import40CaseDto, Import40CaseInvoiceDto, Import40FileDto } from '@/api/import40'
 import type { CaseStages } from '@/api/stages'
 import type { CustomsRequestDto } from '@/api/customsRequests'
+import type { PreBorder } from '@/api/preBorder'
+import { preBorderSubstages, showPreBorder } from '@/utils/preBorder'
 import { buildStageCards, declaringSubstages, defaultSelectedStep, whenText } from '@/utils/import40StageModel'
 import { TOTAL_STEPS, isCancelled, isDone } from './caseSteps'
 import type { CaseStepInfo } from './caseContext'
@@ -22,7 +24,9 @@ const props = withDefaults(defineProps<{
   files?: Import40FileDto[]
   /** Запросы таможни заявки (useCustomsRequests): открытый — красная метка на шаге 3 и «запрос документов» в подэтапах. */
   customs?: CustomsRequestDto[]
-}>(), { stages: null, invoices: () => [], files: () => [], customs: () => [] })
+  /** Поставка до границы: подшаги под шагом 2 и ожидаемая дата на границе. */
+  preBorder?: PreBorder | null
+}>(), { stages: null, invoices: () => [], files: () => [], customs: () => [], preBorder: null })
 const { t, te, locale } = useI18n()
 
 const tag = computed(() =>
@@ -38,6 +42,7 @@ const input = computed(() => ({
   docsCount: props.files.filter((f) => f.section === 'documents').length,
   customs: props.customs,
   locale: locale.value,
+  borderEta: props.preBorder?.expectedBorderDate ?? null,
 }))
 
 const cards = computed<BoardCard[]>(() => {
@@ -50,6 +55,7 @@ const cards = computed<BoardCard[]>(() => {
   })
 })
 const substeps = computed(() => declaringSubstages(input.value, t, te))
+const borderSubsteps = computed(() => (showPreBorder(props.preBorder) ? preBorderSubstages(props.preBorder, t) : []))
 
 const selected = ref<number | null>(defaultSelectedStep(props.status))
 watch(() => [props.kase.id, props.status] as const, ([id, status], [prevId]) => {
@@ -78,6 +84,7 @@ const aside = computed(() => {
       :heading="t('stages.titleStaff')"
       :aside="aside"
       :substeps="substeps"
+      :border-substeps="borderSubsteps"
       :history-empty-note="t('stages.historyStaffNote')"
     >
       <template v-if="tag" #tag><ZTag :tone="tag.tone" data-case-stepper-tag>{{ tag.text }}</ZTag></template>
