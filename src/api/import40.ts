@@ -1041,6 +1041,26 @@ export const import40Api = {
     return response.data
   },
 
+  /** «Копировать ДТ» (20.10.2026): ДТ-образцы — этой и прошлых заявок того же клиента, свежие сверху. */
+  copySources: async (caseId: string): Promise<Import40CopySource[]> => {
+    const response = await apiClient.get<Import40CopySource[]>(
+      `/import40/${encodeURIComponent(caseId)}/declarations/copy-sources`,
+    )
+    return response.data
+  },
+
+  /** Новая ДТ в заявке caseId по образцу; includeGoods=false — без товаров (шапка, документы на все товары, расходы). */
+  copyDeclaration: async (
+    caseId: string,
+    data: { sourceDeclarationId: string; includeGoods: boolean },
+  ): Promise<Import40DeclarationDto> => {
+    const response = await apiClient.post<Import40DeclarationDto>(
+      `/import40/${encodeURIComponent(caseId)}/declarations/copy`,
+      data,
+    )
+    return response.data
+  },
+
   updateDeclaration: async (
     caseId: string,
     declarationId: string,
@@ -1327,4 +1347,21 @@ export const import40Api = {
     })
     return data
   },
+}
+
+/** ДТ-образец для «Копировать ДТ» (CopySourceDeclarationDto сервера). */
+export interface Import40CopySource {
+  id: string
+  caseId: string
+  caseNumber: string
+  caseCreatedAtUtc: string
+  declarationNumber: string
+  rateType: string
+  splitRole: string | null
+  senderName: string | null
+  goodsCount: number
+  firstGoodsDescription: string | null
+  totalInvoiceValue: number | null
+  currency: string | null
+  updatedAtUtc: string
 }

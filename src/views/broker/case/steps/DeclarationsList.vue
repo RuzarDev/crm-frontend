@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
-import { PhArrowElbowDownRight, PhCode, PhDotsThree, PhDownloadSimple, PhPlus, PhSparkle } from '@phosphor-icons/vue'
+import { PhArrowElbowDownRight, PhCode, PhCopy, PhDotsThree, PhDownloadSimple, PhPlus, PhSparkle } from '@phosphor-icons/vue'
 import ZAlert from '@/components/z/ZAlert.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZDropdown from '@/components/z/ZDropdown.vue'
@@ -26,6 +26,7 @@ import {
 } from '../declarations'
 import ExtractionIssuesModal from './ExtractionIssuesModal.vue'
 import ExtractDocsModal from './ExtractDocsModal.vue'
+import CopyDtModal from './CopyDtModal.vue'
 import { applyExcelFallback, docHeaderFrom, type ExcelDoc } from './excelFallback'
 import { readExcelDocument } from '@/utils/goodsExcel'
 import CondRelTag from '@/components/condrel/CondRelTag.vue'
@@ -270,6 +271,19 @@ const closeIssues = () => {
 
 const quoteOpen = ref(false)
 
+// «Копировать ДТ» (20.10.2026): новая ДТ по образцу ДТ этой или прошлой заявки клиента — сразу на её страницу.
+const copyOpen = ref(false)
+const copyDt = async (payload: { sourceDeclarationId: string; includeGoods: boolean }) => {
+  const caseId = kase.value.id
+  let createdId: string | null = null
+  const ok = await props.ctx.actions.mutate('dt-copy', async () => {
+    createdId = (await import40Api.copyDeclaration(caseId, payload)).id
+  }, { done: 'broker.case.done.dtCopied' })
+  copyOpen.value = false
+  const id = createdId as string | null
+  if (ok && id) await router.push(dtPath(caseId, id))
+}
+
 const iconBase = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden transition-colors duration-150 focus-visible:shadow-focus enabled:hover:bg-sunken enabled:hover:text-ink disabled:cursor-not-allowed disabled:opacity-45 aria-busy:cursor-progress motion-reduce:transition-none max-sm:size-11'
 const toolBtn = 'max-sm:min-h-11'
 const openLink = 'inline-flex h-7 items-center rounded-field bg-sunken px-2.5 text-xs font-semibold text-ink no-underline outline-hidden hover:bg-line-strong focus-visible:shadow-focus max-sm:min-h-11'
@@ -290,6 +304,13 @@ const openLink = 'inline-flex h-7 items-center rounded-field bg-sunken px-2.5 te
             <span class="inline-flex" :tabindex="declHint ? 0 : undefined">
               <ZButton variant="ghost" size="sm" :class="toolBtn" :disabled="blocked('dt-add')" :loading="pending('dt-add')" data-dt-add @click="addDt">
                 <PhPlus :size="15" aria-hidden="true" />{{ t('import40Case.addDt') }}
+              </ZButton>
+            </span>
+          </ZTooltip>
+          <ZTooltip :title="declHint || t('broker.case.declaring.list.copyHint')">
+            <span class="inline-flex" :tabindex="declHint ? 0 : undefined">
+              <ZButton variant="ghost" size="sm" :class="toolBtn" :disabled="blocked('dt-copy')" :loading="pending('dt-copy')" data-dt-copy @click="copyOpen = true">
+                <PhCopy :size="15" aria-hidden="true" />{{ t('broker.case.declaring.list.copy') }}
               </ZButton>
             </span>
           </ZTooltip>
@@ -479,6 +500,7 @@ const openLink = 'inline-flex h-7 items-center rounded-field bg-sunken px-2.5 te
 
     <QuoteImportModal v-if="editable" v-model:open="quoteOpen" :ctx="ctx" />
     <ExtractionIssuesModal v-if="editable" :open="issuesOpen" :issues="issues" @close="closeIssues" />
+    <CopyDtModal v-if="editable" v-model:open="copyOpen" :case-id="kase.id" :busy="pending('dt-copy')" @submit="copyDt" />
     <ExtractDocsModal v-if="editable" v-model:open="pickOpen" :files="ctx.files" :busy="pending('dt-batch')" @submit="onPicked" />
   </div>
 </template>

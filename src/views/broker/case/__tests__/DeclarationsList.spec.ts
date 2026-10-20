@@ -12,6 +12,7 @@ import { mountStep } from './stepHarness'
 const api = vi.hoisted(() => ({
   createDeclaration: vi.fn(), deleteDeclaration: vi.fn(), downloadKedenXml: vi.fn(), downloadKedenBatch: vi.fn(), extractBatch: vi.fn(),
   caseQuotes: vi.fn(), importQuote: vi.fn(), kedenReadiness: vi.fn(), kedenReadinessSummary: vi.fn(), get: vi.fn(),
+  copySources: vi.fn(), copyDeclaration: vi.fn(),
 }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 const dl = vi.hoisted(() => ({ saveBlob: vi.fn() }))
@@ -22,6 +23,7 @@ vi.mock('@/ui/message', () => ({ message: msg }))
 vi.mock('@/ui/download', () => dl)
 
 import ExtractDocsModal from '../steps/ExtractDocsModal.vue'
+import CopyDtModal from '../steps/CopyDtModal.vue'
 import DeclarationsList from '../steps/DeclarationsList.vue'
 
 const DropdownStub = {
@@ -576,5 +578,39 @@ describe('DeclarationsList: «Из документов»', () => {
     await pick()
     expect(msg.error).toHaveBeenCalledWith('Пакет распознан, но ДТ не создана')
     expect(router.currentRoute.value.path).toBe('/import-40/c1')
+  })
+})
+
+describe('DeclarationsList: «Копировать ДТ»', () => {
+  it('окно со списком ДТ клиента; выбор — копия с товарами, тост и переход к новой ДТ', async () => {
+    api.copySources.mockResolvedValue([
+      { id: 'old', caseId: 'c0', caseNumber: 'ИМ-2026-0001', caseCreatedAtUtc: '2026-10-01T00:00:00Z', declarationNumber: '55301/011026/0000001',
+        rateType: 'ETT', splitRole: null, senderName: 'YIWU', goodsCount: 3, firstGoodsDescription: 'Сушилка', totalInvoiceValue: 100, currency: 'USD', updatedAtUtc: '2026-10-02T00:00:00Z' },
+    ])
+    api.copyDeclaration.mockResolvedValue(declaration({ id: 'copy1' }))
+    const m = mount(USERS.declarant)
+    await w.get('[data-dt-copy]').trigger('click')
+    await flushPromises()
+    expect(api.copySources).toHaveBeenCalledWith('c1')
+    const src = w.get('[data-copy-source="old"]')
+    expect(src.text()).toContain('55301/011026/0000001')
+    expect(src.text()).toContain('ИМ-2026-0001')
+    expect(src.text()).toContain('товаров: 3 — Сушилка')
+    // прошлая заявка выбрана сразу
+    expect((src.get('input').element as HTMLInputElement).checked).toBe(true)
+    w.findComponent(CopyDtModal).vm.$emit('submit', { sourceDeclarationId: 'old', includeGoods: true })
+    await flushPromises()
+    expect(api.copyDeclaration).toHaveBeenCalledWith('c1', { sourceDeclarationId: 'old', includeGoods: true })
+    expect(msg.success).toHaveBeenCalledWith('ДТ скопирована — измените, что отличается')
+    expect(m.reload).toHaveBeenCalled()
+    expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/copy1')
+  })
+
+  it('без права декларанта кнопка выключена; статус 3 — кнопки нет', () => {
+    mount(USERS.kpp)
+    expect(w.get('[data-dt-copy]').attributes('disabled')).toBeDefined()
+    w.unmount()
+    mount(USERS.declarant, { kase: { status: 3 } })
+    expect(w.find('[data-dt-copy]').exists()).toBe(false)
   })
 })
