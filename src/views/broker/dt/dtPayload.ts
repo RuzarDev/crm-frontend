@@ -456,7 +456,7 @@ export function formToPayload(form: DtFormState, expectedUpdatedAtUtc: string | 
   return {
     expectedUpdatedAtUtc,
     declarationNumber: form.declarationNumber || null,
-    corridor: form.corridor || null,
+    // Коридор не отправляется (21.10, СУР): отмечается отдельным действием в шапке ДТ (DtCorridorChip).
     procedureCode: form.procedureCode || null,
     departureCountryCode: form.departureCountryCode || null,
     destinationCountryCode: form.destinationCountryCode || null,

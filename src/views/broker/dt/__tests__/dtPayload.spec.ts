@@ -5,7 +5,9 @@ import { dtoToForm, emptyDtForm, formToPayload, prefillFromClientCase, toIsoDate
 import { caseDto, fullDto, fullGoodsDto } from './dtFixture'
 
 // Поля DTO, которые форма не редактирует и в PUT не уходят (считает или ведёт сервер).
+// corridor: в PUT не уходит с 21.10 (СУР) — отмечается действием «Коридор» в шапке ДТ.
 const SERVER_ONLY = new Set([
+  'corridor', 'corridorSetAtUtc',
   'id', 'caseId', 'splitRole', 'splitSourceDeclarationId', 'isSplitReplaced', 'updatedAtUtc', 'svhCost', 'releasedAtUtc',
   'totalGoodsCount', 'totalPackagesCount', 'totalCustomsValue',
 ])
@@ -192,7 +194,7 @@ describe('dtPayload — пустые значения', () => {
     const payload = formToPayload(form, null) as Record<string, unknown>
     const json = JSON.parse(JSON.stringify(payload)) as Record<string, unknown>
     for (const k of Object.keys(form)) {
-      if (k === 'id') continue
+      if (k === 'id' || k === 'corridor') continue
       expect(k in json, `ключ ${k} должен уйти в PUT`).toBe(true)
       const v = (form as unknown as Record<string, unknown>)[k]
       if (v === '') expect(json[k], k).toBeNull()

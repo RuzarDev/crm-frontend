@@ -22,6 +22,7 @@ import { canManageCustoms, canRemindClient } from '@/utils/customsRequests'
 import DtConditionalRelease from './DtConditionalRelease.vue'
 import DtHeaderBar from './DtHeaderBar.vue'
 import DtKedenChip from './DtKedenChip.vue'
+import DtCorridorChip from './DtCorridorChip.vue'
 import { CUSTOMS_REQUEST_QUERY } from '@/utils/kedenLink'
 import type { KedenLinkDto } from '@/api/kedenLink'
 import DtReadinessPanel from './DtReadinessPanel.vue'
@@ -232,6 +233,12 @@ const dtContract = computed(() => {
 const condRelDt = computed(() => kase.value?.declarations.find((d) => d.id === dtId && !d.isSplitReplaced) ?? null)
 // КЕДЕН (17.10): снимок связи ДТ с журналом КЕДЕН — из карточки заявки (и у исходной ДТ разделения).
 const kedenOfDt = computed(() => kase.value?.declarations.find((d) => d.id === dtId)?.keden ?? null)
+// Коридор (21.10, СУР): чип в шапке после подачи — заявка «ДТ подана» и дальше, рег. номер или связь с КЕДЕН.
+const dtOfCase = computed(() => kase.value?.declarations.find((d) => d.id === dtId) ?? null)
+const corridorVisible = computed(() => {
+  const st = kase.value?.status ?? 0
+  return (st >= 3 && st !== 9) || /^\s*\d{5}\s*\/\s*\d{6}\s*\//.test(form.declarationNumber || '') || !!kedenOfDt.value?.linked
+})
 // После связи сервер мог заполнить номер/коридор ДТ (и сдвинуть замок редактора) — перечитываем, если нет несохранённого.
 const onKedenChanged = (_v: KedenLinkDto) => { if (!dt.dirty.value) void dt.reload() }
 // Уведомление «КЕДЕН: таможня запрашивает документы» → «Завести запрос таможни»: ?customsRequest=new открывает форму по этой ДТ.
@@ -798,6 +805,15 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
       >
         <template #status>
           <DtKedenChip :case-id="caseId" :dt-id="dtId" :keden="kedenOfDt" :can-link="canManage" @changed="onKedenChanged" />
+          <DtCorridorChip
+            v-if="corridorVisible"
+            :case-id="caseId"
+            :dt-id="dtId"
+            :corridor="dtOfCase?.corridor"
+            :set-at-utc="dtOfCase?.corridorSetAtUtc"
+            :keden-corridor="kedenOfDt?.corridor"
+            :can-edit="canManage"
+          />
         </template>
       </DtHeaderBar>
 

@@ -75,16 +75,18 @@ const shares = (s: SurCorridorStatsDto) => {
   if (s.bluePct) parts.push(ts('corridor.blue', { pct: s.bluePct }))
   return parts.join(', ')
 }
+// «N с известным коридором из M»: известный — из КЕДЕН или отмеченный сотрудником. N ≥ 10, но данных всё равно нет —
+// клиенту мало других импортёров в выборке (сервер скрывает доли): «мало данных» без чисел.
 const codeLine = computed(() => {
   const d = data.value
   if (!d) return ''
-  return d.byCode.enough
-    ? ts('byCode', { n: d.byCode.n, months: d.months, shares: shares(d.byCode) })
-    : ts('fewData', { n: d.byCode.n, months: d.months, min: d.minN })
+  const s = d.byCode
+  if (s.enough) return ts('byCode', { n: s.n, total: s.total, months: d.months, shares: shares(s) })
+  return s.n >= d.minN ? ts('fewImporters') : ts('fewData', { n: s.n, total: s.total, months: d.months, min: d.minN })
 })
 const postLine = computed(() => {
   const p = data.value?.byPost
-  return p?.enough ? ts('byPost', { post: p.postCode, n: p.n, shares: shares(p) }) : ''
+  return p?.enough ? ts('byPost', { post: p.postCode, n: p.n, total: p.total, shares: shares(p) }) : ''
 })
 const price = computed(() => (data.value?.price?.low ? data.value.price : null))
 const unitText = computed(() => (price.value?.basis === 'unit' ? ts('unitDei') : ts('unitKg')))

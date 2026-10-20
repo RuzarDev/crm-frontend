@@ -5,7 +5,10 @@ import apiClient from './client'
 
 export interface SurCorridorStatsDto {
   postCode: string | null
+  /** ДТ с известным коридором (КЕДЕН или отметка сотрудника). */
   n: number
+  /** Все ДТ с этим кодом за период. */
+  total: number
   enough: boolean
   greenPct: number | null
   yellowPct: number | null
@@ -47,6 +50,16 @@ export interface SurStatsQuery {
 const clean = (q: SurStatsQuery) =>
   Object.fromEntries(Object.entries(q).filter(([, v]) => v !== null && v !== undefined && v !== ''))
 
+export interface DeclarationCorridorDto {
+  corridor: string
+  setAtUtc: string | null
+  setByUserId: string | null
+  kedenCorridor: string | null
+}
+
 export const surApi = {
   stats: (q: SurStatsQuery) => apiClient.get<SurStatsDto>('/sur/stats', { params: clean(q), silent: true }),
+  /** Отметить коридор ДТ (декларант, РОП, админ); null — снять отметку. Только этим действием — PUT ДТ коридор не шлёт. */
+  setCorridor: (caseId: string, dtId: string, corridor: 'green' | 'yellow' | 'red' | null) =>
+    apiClient.post<DeclarationCorridorDto>(`/import40/${caseId}/declarations/${dtId}/corridor`, { corridor }),
 }

@@ -11,7 +11,7 @@ vi.mock('@/api/sur', () => ({ surApi: api }))
 import SurStatsHint from '../SurStatsHint.vue'
 
 const corridor = (o: Partial<SurStatsDto['byCode']> = {}): SurStatsDto['byCode'] => ({
-  postCode: null, n: 12, enough: true, greenPct: 67, yellowPct: 25, redPct: 8, bluePct: 0, ...o,
+  postCode: null, n: 12, total: 15, enough: true, greenPct: 67, yellowPct: 25, redPct: 8, bluePct: 0, ...o,
 })
 const STATS = (o: Partial<SurStatsDto> = {}): SurStatsDto => ({
   code: '8517130000', months: 12, minN: 10, byCode: corridor(), byPost: null, price: null, ...o,
@@ -31,7 +31,7 @@ describe('SurStatsHint', () => {
     api.stats.mockResolvedValue({ data: STATS({ byPost: corridor({ postCode: '55302', n: 10, greenPct: 90, yellowPct: 10, redPct: 0 }) }) })
     await mount({ country: '156', declarationId: 'd1' })
     expect(api.stats).toHaveBeenCalledWith(expect.objectContaining({ code: '8517130000', country: '156', declarationId: 'd1' }))
-    expect(w.get('[data-sur-code="enough"]').text()).toBe('По этому коду у нас 12 ДТ за 12 мес: зелёный 67%, жёлтый 25%, красный 8%.')
+    expect(w.get('[data-sur-code="enough"]').text()).toBe('По этому коду у нас 12 ДТ с известным коридором из 15 за 12 мес: зелёный 67%, жёлтый 25%, красный 8%.')
     expect(w.get('[data-sur-post]').text()).toContain('На посту 55302: 10 ДТ')
     expect(w.get('[data-sur-disclaimer]').text()).toContain('не прогноз таможни')
     expect(w.find('[data-sur-low-price]').exists()).toBe(false)
@@ -40,8 +40,14 @@ describe('SurStatsHint', () => {
   it('says «мало данных» when N < 10 and hides the post line', async () => {
     api.stats.mockResolvedValue({ data: STATS({ byCode: corridor({ n: 3, enough: false, greenPct: null }), byPost: corridor({ n: 2, enough: false }) }) })
     await mount()
-    expect(w.get('[data-sur-code="few"]').text()).toBe('Мало данных: по этому коду 3 ДТ за 12 мес (нужно от 10).')
+    expect(w.get('[data-sur-code="few"]').text()).toBe('Мало данных: по этому коду 3 ДТ с известным коридором из 15 за 12 мес (нужно от 10).')
     expect(w.find('[data-sur-post]').exists()).toBe(false)
+  })
+
+  it('says «мало данных» without numbers when the server hides shares (few other importers)', async () => {
+    api.stats.mockResolvedValue({ data: STATS({ byCode: corridor({ n: 12, enough: false, greenPct: null }) }) })
+    await mount()
+    expect(w.get('[data-sur-code="few"]').text()).toBe('Мало данных: по этому коду пока недостаточно ДТ разных импортёров.')
   })
 
   it('warns about a low price; typical value only when the server sent it', async () => {
