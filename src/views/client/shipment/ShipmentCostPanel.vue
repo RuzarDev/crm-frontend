@@ -10,7 +10,7 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
 import { shipmentCostApi, type ShipmentCostDto, type ShipmentCostPart } from '@/api/shipmentCost'
 import { saveBlob } from '@/ui/download'
-import { formatMoneyIn } from '@/ui/number'
+import { formatMoneyIn, formatNumberIn } from '@/ui/number'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
 import { costAvailable, COST_NOTE_MAX } from '@/views/client/shipment/cost'
@@ -60,7 +60,14 @@ const rows = computed<Row[]>(() => {
     { key: 'broker', label: t('shipmentCost.broker'), value: c.brokerKzt, hint: invoices, empty: t('shipmentCost.brokerEmpty') },
     { key: 'svh', label: t('shipmentCost.svh'), value: c.svhKzt, hint: c.svhInvoiceNumber ? `№ ${c.svhInvoiceNumber}` : '', empty: t('shipmentCost.svhEmpty') },
     { key: 'certificates', label: t('shipmentCost.certificates'), value: c.certificatesKzt, hint: t('shipmentCost.yours'), empty: t('shipmentCost.notEntered') },
-    { key: 'transport', label: t('shipmentCost.transport'), value: c.transportKzt, hint: t('shipmentCost.yours'), empty: t('shipmentCost.notEntered') },
+    ...(hasFreight.value ? [{
+      key: 'freight' as const, label: t('shipmentCost.freight'), value: c.freightKzt ?? null,
+      hint: t('shipmentCost.freightHint'), empty: t('shipmentCost.notEntered'),
+    }] : []),
+    {
+      key: 'transport', label: t(hasFreight.value ? 'shipmentCost.otherTransport' : 'shipmentCost.transport'), value: c.transportKzt,
+      hint: t('shipmentCost.yours'), empty: t(hasFreight.value ? 'shipmentCost.otherTransportEmpty' : 'shipmentCost.notEntered'),
+    },
     ...(hasUtilization.value ? [{
       key: 'utilization' as const, label: t('shipmentCost.utilization'), value: c.utilizationKzt ?? null,
       hint: c.utilizationSource === 'input' ? t('shipmentCost.utilizationInput') : t('shipmentCost.utilizationCalc'),
@@ -68,6 +75,8 @@ const rows = computed<Row[]>(() => {
     }] : []),
   ]
 })
+const hasFreight = computed(() => !!cost.value?.freightInvoices?.length)
+const freightLines = computed(() => cost.value?.freightInvoices ?? [])
 const hasUtilization = computed(() => !!cost.value?.utilizationLines?.length || cost.value?.utilizationInputKzt != null)
 const utilLines = computed(() => cost.value?.utilizationLines ?? [])
 const utilLineLabel = (l: { declarationNumber: string; goodsNumber: number; vin: string | null }) =>
@@ -177,6 +186,13 @@ const btn = 'max-sm:h-11 max-sm:w-full max-sm:text-sm'
           <p v-else-if="r.key === 'customs' && cost.declarations.length === 1" class="col-span-2 m-0 mt-0.5 text-xs text-ink-3" data-cost-decl>
             {{ declSource(cost.declarations[0]!.source) }}
           </p>
+          <!-- Фрахт — по каждому счёту перевозчика: сумма в валюте и ≈ в тенге (нет курса — предупреждение). -->
+          <ul v-if="r.key === 'freight' && freightLines.length" role="list" class="col-span-2 m-0 mt-1 flex list-none flex-col gap-0.5 p-0">
+            <li v-for="f in freightLines" :key="f.id" class="flex flex-wrap justify-between gap-x-3 text-xs text-ink-3" data-cost-freight-line>
+              <span class="min-w-0 [overflow-wrap:anywhere]">{{ t('shipmentCost.freightLine', { carrier: f.carrierName, n: f.number }) }}</span>
+              <span class="tabular-nums">{{ f.currency === 'KZT' ? money(f.amount) : `${formatNumberIn(locale, f.amount, 2, 2)} ${f.currency}` }}<template v-if="f.currency !== 'KZT'"> · {{ f.amountKzt != null ? `≈ ${money(f.amountKzt)}` : t('shipmentCost.freightNoRate') }}</template></span>
+            </li>
+          </ul>
           <!-- Утильсбор — по каждому ТС/товару: сумма, оценка «не сверено» или чего не хватает. -->
           <ul v-if="r.key === 'utilization' && utilLines.length" role="list" class="col-span-2 m-0 mt-1 flex list-none flex-col gap-0.5 p-0">
             <li
@@ -214,7 +230,7 @@ const btn = 'max-sm:h-11 max-sm:w-full max-sm:text-sm'
         <ZField :label="t('shipmentCost.certificatesLabel')">
           <ZNumber v-model:value="form.certificates" :min="0" :max="1e12" :precision="2" class="tabular-nums" data-cost-certificates />
         </ZField>
-        <ZField :label="t('shipmentCost.transportLabel')">
+        <ZField :label="t(hasFreight ? 'shipmentCost.otherTransportLabel' : 'shipmentCost.transportLabel')" :help="hasFreight ? t('shipmentCost.otherTransportHelp') : undefined">
           <ZNumber v-model:value="form.transport" :min="0" :max="1e12" :precision="2" class="tabular-nums" data-cost-transport />
         </ZField>
         <ZField v-if="hasUtilization" :label="t('shipmentCost.utilizationLabel')" :help="t('shipmentCost.utilizationHelp')">

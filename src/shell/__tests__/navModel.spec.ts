@@ -126,7 +126,7 @@ describe('buildClientNav', () => {
       'newShipment:newShipment',
       'documents:documents',
       'invoices:invoices',
-      'contracts:contracts',
+      'contracts:contracts,carriers',
       'tnvedPick:tnvedPick',
       'rates:rates',
       'npa:npa',
