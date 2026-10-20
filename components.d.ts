@@ -41,6 +41,7 @@ declare module 'vue' {
     StageHistory: typeof import('./src/components/stages/StageHistory.vue')['default']
     StatStrip: typeof import('./src/components/broker/StatStrip.vue')['default']
     StatusDot: typeof import('./src/components/broker/StatusDot.vue')['default']
+    SurStatsHint: typeof import('./src/components/sur/SurStatsHint.vue')['default']
     TnvedPickerModal: typeof import('./src/components/TnvedPickerModal.vue')['default']
     UserMenu: typeof import('./src/components/shell/UserMenu.vue')['default']
     ZirconLogo: typeof import('./src/components/shell/ZirconLogo.vue')['default']

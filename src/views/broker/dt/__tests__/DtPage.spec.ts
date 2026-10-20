@@ -25,6 +25,8 @@ const tnved = vi.hoisted(() => ({
 }))
 const contract = vi.hoisted(() => ({ getProfile: vi.fn() }))
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
+// Подсказка СУР — своя спека (SurStatsHint.spec): здесь без сети.
+vi.mock('@/api/sur', () => ({ surApi: { stats: () => Promise.resolve({ data: null }) } }))
 vi.mock('@/api/import40', async (orig) => ({ ...(await orig<typeof import('@/api/import40')>()), import40Api: api }))
 vi.mock('@/api/dts', () => ({ dtsApi: dts }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))

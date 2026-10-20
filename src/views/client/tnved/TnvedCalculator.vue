@@ -9,6 +9,7 @@ import ZNumber from '@/components/z/ZNumber.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import NonTariffMeasureGroups from '@/components/NonTariffMeasureGroups.vue'
+import SurStatsHint from '@/components/sur/SurStatsHint.vue'
 import { goodsOf, isGr33Doc, isNationalInfo, isNationalMeasure } from '@/components/nonTariffMeasures'
 import { tnvedApi } from '@/api/tnved'
 import { byCurrencyRank, currencyName, loadCurrencies, POPULAR_CURRENCIES } from '@/views/client/tnved/currency'
@@ -371,6 +372,15 @@ const dd = 'm-0 text-right tabular-nums text-ink'
       <p v-if="result" class="m-0 text-[13px] leading-5 text-muted" data-calc-disclaimer>
         {{ extended ? t('broker.references.calc.disclaimer') : t('client.tnved.calc.disclaimer') }}
       </p>
+
+      <!-- Коридоры по нашим ДТ (СУР, очередь 4): доли и N; «цена ниже типичной» — по расчёту (стоимость ₸) и весу за кг.
+           Клиенту сервер отдаёт только агрегаты и признак — без чужих стоимостей. -->
+      <SurStatsHint
+        :code="code"
+        :country="form.country"
+        :value-kzt="result && !stale ? result.customsValueKzt : null"
+        :net-kg="result && !stale ? form.weight : null"
+      />
 
       <ul v-if="result && !extended && bans.length" role="list" class="m-0 flex list-none flex-col gap-2 p-0" data-calc-bans>
         <li v-for="(b, i) in bans" :key="i" class="rounded-row bg-tone-danger-bg px-3.5 py-2.5 text-[13px] leading-5 text-tone-danger-fg" data-calc-ban>

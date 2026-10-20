@@ -7363,6 +7363,21 @@ export default {
       deleteTitle: 'Delete the mark?',
     },
   },
+  // Подсказка СУР (очередь 4, задача 4): статистика по нашим ДТ, не прогноз таможни.
+  sur: {
+    title: 'Corridors on our declarations',
+    loading: 'Loading statistics…',
+    failed: 'Could not load the statistics.',
+    byCode: 'For this code we have {n} declarations in {months} months: {shares}.',
+    byPost: 'At post {post}: {n} declarations — {shares}.',
+    fewData: 'Not enough data: {n} declarations for this code in {months} months (at least {min} needed).',
+    corridor: { green: 'green {pct}%', yellow: 'yellow {pct}%', red: 'red {pct}%', blue: 'blue {pct}%' },
+    lowPrice: 'Customs value {unit} is below typical for this code and country (below the 25th percentile of our declarations) — risk of a customs value adjustment.',
+    lowPriceStaff: 'Typical is from {p25} {unit}; this item has {own}.',
+    unitKg: 'per 1 kg net',
+    unitDei: 'per 1 additional unit',
+    disclaimer: 'Statistics on our declarations, not a customs forecast. Customs assigns the corridor — no guarantees, this is only a hint.',
+  },
   translate: {
     action: 'Translate (AI)',
     open: 'Translation',

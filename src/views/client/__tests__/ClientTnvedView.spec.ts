@@ -9,6 +9,8 @@ const api = vi.hoisted(() => ({
   search: vi.fn(), classify: vi.fn(), rates: vi.fn(), calculate: vi.fn(), currencies: vi.fn(),
 }))
 const refs = vi.hoisted(() => ({ listCountries: vi.fn() }))
+// Подсказка СУР — своя спека (SurStatsHint.spec): здесь без сети.
+vi.mock('@/api/sur', () => ({ surApi: { stats: () => Promise.resolve({ data: null }) } }))
 vi.mock('@/api/tnved', () => ({ tnvedApi: api }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
 
