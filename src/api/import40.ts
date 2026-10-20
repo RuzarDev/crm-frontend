@@ -614,6 +614,8 @@ export interface Import40CaseDto {
   borderArrivalNote?: string | null
   /** Отметки контроля на границе (по времени). */
   borderControls?: Import40BorderControlDto[]
+  /** Факт СВХ против ДТ и простой (21.10.2026); null — не вносили. */
+  svhFact?: Import40SvhFact | null
   status: number
   isProblem: boolean
   // Внутренняя заметка — сервер отдаёт клиенту пустую строку (аудит 2.9).
@@ -1013,6 +1015,10 @@ export const import40Api = {
     return response.data
   },
 
+  /** Факт СВХ (21.10.2026): всё целиком, пустое поле очищает. */
+  updateSvhFact: async (id: string, data: Import40SvhFactRequest): Promise<Import40CaseDto> =>
+    (await apiClient.put<Import40CaseDto>(`/import40/${encodeURIComponent(id)}/svh-fact`, data, { silent: true })).data,
+
   updateContainer: async (
     id: string,
     containerId: string,
@@ -1369,4 +1375,37 @@ export interface Import40CopySource {
   totalInvoiceValue: number | null
   currency: string | null
   updatedAtUtc: string
+}
+
+export type SvhDelayReason = 'client' | 'customs' | 'broker' | 'carrier' | 'svh' | 'other'
+
+/** Факт СВХ (Import40SvhFactDto сервера): въезд/выезд, места и вес против ДТ, сутки и простой. */
+export interface Import40SvhFact {
+  enteredAtUtc: string | null
+  leftAtUtc: string | null
+  factPackages: number | null
+  factGrossKg: number | null
+  tariffPerDay: number | null
+  freeDays: number | null
+  delayReason: SvhDelayReason | null
+  /** Только сотрудникам. */
+  note: string | null
+  dtPackages: number | null
+  dtGrossKg: number | null
+  packagesDiffer: boolean
+  weightDiffers: boolean
+  days: number | null
+  paidDays: number | null
+  demurrageKzt: number | null
+}
+
+export interface Import40SvhFactRequest {
+  enteredAtUtc: string | null
+  leftAtUtc: string | null
+  factPackages: number | null
+  factGrossKg: number | null
+  tariffPerDay: number | null
+  freeDays: number | null
+  delayReason: SvhDelayReason | null
+  note: string | null
 }

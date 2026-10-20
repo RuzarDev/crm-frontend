@@ -13,6 +13,7 @@ import { hintText } from '../casePermissions'
 import { countText, whatsLeft, type WhatsLeftItem } from '../caseSteps'
 import { splitSourcesWithParts } from '../declarations'
 import DeclarationsList from './DeclarationsList.vue'
+import SvhFactCard from './SvhFactCard.vue'
 
 // Шаг 3 «Декларирование и выпуск» (статусы 2 и 3, декларант; доска Case).
 // Статус 2: плашка «Что осталось до подачи» (caseSteps.whatsLeft — подсказка, «Подать ДТ» ею не блокируется),
@@ -182,6 +183,7 @@ const release = async () => {
     </div>
 
     <DeclarationsList ref="listRef" :ctx="ctx" mode="current" />
+    <SvhFactCard :ctx="ctx" class="mt-4" />
   </CaseStepPanel>
 
   <DeclarationsList v-else :ctx="ctx" mode="done" />

@@ -10,6 +10,7 @@ import type { CaseStepProps } from '../caseContext'
 import { svhInvoiceLine } from '../caseFormat'
 import { hintText } from '../casePermissions'
 import SvhInvoiceModal from './SvhInvoiceModal.vue'
+import SvhFactCard from './SvhFactCard.vue'
 
 // Шаг 4 «СВХ и счёт» (статусы 4 и 5, КПП; доска CaseSvh). Два места для файлов: «Закрытая ДТ (штамп)» и «Счёт СВХ»
 // (грузит КПП, удалять нельзя). Статус 4 — «Закрыть ДТ на СВХ» (подтверждение → close-svh); статус 5 — «Выставить счёт СВХ»
@@ -89,6 +90,7 @@ const invoiceOpen = ref(false)
         {{ t('broker.case.svh.issued', { line: invoiceLine }) }}<template v-if="kase.svhInvoiceNote"> · <span class="font-normal text-ink-3">{{ kase.svhInvoiceNote }}</span></template>
       </p>
       <p v-else class="m-0 rounded-row bg-canvas px-3.5 py-3 text-[13px] text-ink-3" data-svh-note>{{ t('broker.case.svh.nextNote') }}</p>
+      <SvhFactCard :ctx="ctx" />
     </div>
 
     <SvhInvoiceModal v-model:open="invoiceOpen" :ctx="ctx" />
@@ -102,5 +104,6 @@ const invoiceOpen = ref(false)
     <p v-if="invoiceLine" class="m-0 text-sm font-medium text-ink tabular-nums" data-svh-line>
       {{ t('broker.case.svh.issued', { line: invoiceLine }) }}<template v-if="kase.svhInvoiceNote"> · <span class="font-normal text-ink-3">{{ kase.svhInvoiceNote }}</span></template>
     </p>
+    <SvhFactCard :ctx="ctx" />
   </div>
 </template>
