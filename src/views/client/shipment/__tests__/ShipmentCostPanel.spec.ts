@@ -138,4 +138,25 @@ describe('ShipmentCostPanel', () => {
     expect(api.xlsx).toHaveBeenCalledWith('ru', 'c1')
     expect(dl.saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'cost-1.xlsx')
   })
+
+  it('фрахт по счетам перевозчиков: строка с разбивкой, ручной транспорт — «прочий транспорт»', async () => {
+    api.get.mockResolvedValue(cost({
+      freightKzt: 500000,
+      freightInvoices: [
+        { id: 'f1', carrierId: 'k1', carrierName: 'Trans Asia', number: 'FR-77', invoiceDate: '2026-09-12', amount: 1000, currency: 'USD', paid: false, amountKzt: 500000, rateOfficial: true },
+        { id: 'f2', carrierId: 'k1', carrierName: 'Trans Asia', number: 'FR-78', invoiceDate: '2026-09-13', amount: 10, currency: 'CNY', paid: true, amountKzt: null, rateOfficial: false },
+      ],
+      missing: ['svh', 'certificates', 'freight'],
+    }))
+    mountIt()
+    await flushPromises()
+    const row = (k: string) => nbsp(w.get(`[data-cost-row="${k}"] [data-cost-value]`).text())
+    expect(row('freight')).toBe('500 000 ₸')
+    expect(nbsp(w.get('[data-cost-row="transport"] dt').text())).toContain('Прочий транспорт')
+    const lines = w.findAll('[data-cost-freight-line]').map((x) => nbsp(x.text()))
+    expect(lines[0]).toContain('Trans Asia, счёт № FR-77')
+    expect(lines[0]).toContain('1 000,00 USD · ≈ 500 000 ₸')
+    expect(lines[1]).toContain('нет курса')
+    expect(nbsp(w.get('[data-cost-missing]').text())).toContain('курса к счёту перевозчика')
+  })
 })

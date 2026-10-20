@@ -19,6 +19,12 @@ vi.mock('@/api/manage', () => ({ manageApi: manage }))
 const stagesMock = vi.hoisted(() => ({ caseStages: vi.fn() }))
 vi.mock('@/api/stages', () => ({ stagesApi: stagesMock }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
+vi.mock('@/api/carriers', () => ({
+  carriersApi: {
+    caseFreight: vi.fn().mockResolvedValue([]),
+    insurance: vi.fn().mockResolvedValue({ caseId: 'x', insurer: null, policyNumber: null, insuredAmount: null, insuredCurrency: null, premiumAmount: null, premiumCurrency: null, file: null, updatedAtUtc: null, canEdit: false }),
+  },
+}))
 vi.mock('@/ui/message', () => ({ message: msg }))
 const reworkApiMock = vi.hoisted(() => ({ list: vi.fn(async () => ({ comment: null, items: [] })), suggestions: vi.fn(async () => ({ codes: [], items: [] })) }))
 vi.mock('@/api/import40Rework', async (orig) => ({ ...(await orig<typeof import('@/api/import40Rework')>()), reworkApi: reworkApiMock }))

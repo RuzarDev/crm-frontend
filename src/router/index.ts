@@ -230,6 +230,19 @@ const router = createRouter({
           meta: { requiresImport40: true, requiresRole: 'client' },
         },
         {
+          // Перевозчики клиента: договоры перевозки и счета за фрахт (очередь 4).
+          path: '/carriers',
+          name: 'client-carriers',
+          component: () => import('@/views/client/carriers/ClientCarriersView.vue'),
+          meta: { requiresImport40: true, requiresRole: 'client' },
+        },
+        {
+          path: '/carriers/:carrierId',
+          name: 'client-carrier',
+          component: () => import('@/views/carriers/CarrierPage.vue'),
+          meta: { requiresImport40: true, requiresRole: 'client' },
+        },
+        {
           // Волна 2 ролей: финансы (бухгалтер) и панель руководителя.
           path: '/finance',
           name: 'finance',
@@ -258,6 +271,13 @@ const router = createRouter({
           path: '/clients/:id/contracts/:contractId',
           name: 'client-card-contract',
           component: () => import('@/views/foreignContracts/ContractPage.vue'),
+          // Из карточки заявки сюда идёт и декларант без clients.read — доступ к клиенту проверяет сервер.
+          meta: { requiresAnyPermission: ['clients.read', 'import40.read'] },
+        },
+        {
+          path: '/clients/:id/carriers/:carrierId',
+          name: 'client-card-carrier',
+          component: () => import('@/views/carriers/CarrierPage.vue'),
           // Из карточки заявки сюда идёт и декларант без clients.read — доступ к клиенту проверяет сервер.
           meta: { requiresAnyPermission: ['clients.read', 'import40.read'] },
         },

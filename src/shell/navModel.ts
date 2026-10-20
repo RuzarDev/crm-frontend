@@ -174,6 +174,8 @@ export function buildClientNav(a: NavAccess): NavModel {
         // Внешнеторговые контракты и валютный контроль (17.10): остаток, оплаты, сроки репатриации и УНК.
         section({ key: 'contracts', labelKey: 'shell.client.contracts', icon: 'contracts', pages: [
           page('contracts', '/contracts', 'shell.client.contracts', imp),
+          // Перевозчики (очередь 4): вкладка того же раздела — договоры перевозки и счета за фрахт.
+          page('carriers', '/carriers', 'shell.client.carriers', imp),
         ] }),
       ]),
       group('tools', 'shell.group.tools', [

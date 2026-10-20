@@ -4,7 +4,24 @@ import type { UtilizationFee } from './nationalLists'
 // Себестоимость поставки для клиента после выпуска (17.10), всё в тенге: ТиН из ДТ (гр. В — уплачено, иначе гр. 47),
 // услуги AQNIET, СВХ, сертификаты и транспорт клиента, утильсбор оператору РОП (не в гр. 47: ввод клиента или расчёт
 // по ТС из ДТ по сверенной ставке). missing — чего ещё нет (итог неполный).
-export type ShipmentCostPart = 'customs' | 'broker' | 'svh' | 'certificates' | 'transport' | 'utilization'
+// Фрахт (очередь 4): счета перевозчиков по поставке; есть счета — ручной transportKzt = «прочий транспорт», 'freight' в
+// missing — у счёта нет курса НБ РК.
+export type ShipmentCostPart = 'customs' | 'broker' | 'svh' | 'certificates' | 'transport' | 'utilization' | 'freight'
+
+/** Счёт перевозчика по поставке в себестоимости: сумма в валюте и в тенге по курсу НБ РК на дату счёта. */
+export interface ShipmentCostFreight {
+  id: string
+  carrierId: string
+  carrierName: string
+  number: string
+  invoiceDate: string
+  amount: number
+  currency: string
+  paid: boolean
+  /** null — нет курса на дату счёта. */
+  amountKzt: number | null
+  rateOfficial: boolean
+}
 
 /** Утильсбор по товару ДТ под утильсбором (8701–8705, 8429, 8433 5x): по ТС (VIN) или товару целиком. */
 export interface ShipmentCostUtilizationLine {
@@ -60,6 +77,9 @@ export interface ShipmentCostDto {
   utilizationInputKzt?: number | null
   /** Строки расчёта; null — в ДТ нет ТС под утильсбором. */
   utilizationLines?: ShipmentCostUtilizationLine[] | null
+  /** Фрахт по счетам перевозчиков; null — счетов нет. */
+  freightKzt?: number | null
+  freightInvoices?: ShipmentCostFreight[] | null
 }
 
 export interface ShipmentCostUpdate {

@@ -11,6 +11,7 @@ import ZTag from '@/components/z/ZTag.vue'
 import ShipmentAskPanel from '@/views/client/shipment/ShipmentAskPanel.vue'
 import ShipmentCustomsPanel from '@/views/client/shipment/ShipmentCustomsPanel.vue'
 import ShipmentCostPanel from '@/views/client/shipment/ShipmentCostPanel.vue'
+import ShipmentTransportBlock from '@/views/carriers/ShipmentTransportBlock.vue'
 import CaseContractBlock from '@/views/foreignContracts/CaseContractBlock.vue'
 import { useCustomsRequests } from '@/composables/useCustomsRequests'
 import ShipmentConditionalRelease from '@/views/client/shipment/ShipmentConditionalRelease.vue'
@@ -212,6 +213,7 @@ const card = 'rounded-panel border border-line px-[18px] py-4'
 const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
 const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
 const contractHref = (id: string) => `/contracts/${encodeURIComponent(id)}`
+const carrierHref = (id: string) => `/carriers/${encodeURIComponent(id)}`
 </script>
 
 <template>
@@ -338,6 +340,13 @@ const contractHref = (id: string) => `/contracts/${encodeURIComponent(id)}`
             :href="contractHref"
             :class="cn(card, 'max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:px-0')"
             compact
+          />
+          <!-- Перевозка и страховка (очередь 4): счета перевозчиков по поставке и страховка груза. -->
+          <ShipmentTransportBlock
+            :case-id="kase.id"
+            :client-id="kase.clientId"
+            :carrier-href="carrierHref"
+            :class="cn(card, 'max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:px-0')"
           />
           <section :aria-labelledby="servicesId" :class="cn(card, 'max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:px-0')" data-ship-services>
             <h2 :id="servicesId" class="m-0 mb-1.5 text-[15px] leading-6 font-semibold text-ink">{{ t('client.card.servicesTitle') }}</h2>

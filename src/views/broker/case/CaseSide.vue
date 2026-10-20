@@ -9,6 +9,7 @@ import { countryName } from '@/utils/countries'
 import { formatDay } from '@/views/broker/list'
 import { useAuthStore } from '@/stores/auth'
 import CaseContractBlock from '@/views/foreignContracts/CaseContractBlock.vue'
+import ShipmentTransportBlock from '@/views/carriers/ShipmentTransportBlock.vue'
 import CaseTeam from './CaseTeam.vue'
 import CaseFilesDrawer from './CaseFilesDrawer.vue'
 import CaseHistoryDrawer from './CaseHistoryDrawer.vue'
@@ -53,6 +54,7 @@ const info = computed(() => {
 const auth = useAuthStore()
 const canImport = computed(() => auth.hasPermission('import40.read'))
 const contractHref = (id: string) => `/clients/${encodeURIComponent(props.kase.clientId)}/contracts/${encodeURIComponent(id)}`
+const carrierHref = (id: string) => `/clients/${encodeURIComponent(props.kase.clientId)}/carriers/${encodeURIComponent(id)}`
 
 const fileCounts = computed(() => FILE_SECTIONS.map((key) => ({ key, n: props.files.filter((f) => sectionOf(f) === key).length })))
 const filesOpen = ref(false)
@@ -88,6 +90,8 @@ const link = 'ml-auto inline-flex min-h-8 cursor-pointer items-center rounded-fi
     </section>
 
     <CaseContractBlock :case-id="kase.id" :client-id="kase.clientId" :can-edit="canImport" :href="contractHref" />
+    <!-- Перевозка и страховка (очередь 4): фрахт по счетам перевозчиков клиента и страховка груза. -->
+    <ShipmentTransportBlock :case-id="kase.id" :client-id="kase.clientId" :carrier-href="carrierHref" :class="panel" compact />
 
     <section aria-labelledby="case-files-title" :class="panel" data-case-files>
       <div :class="head">

@@ -21,6 +21,12 @@ vi.mock('@/api/billing', () => ({ billingApi: billing }))
 const stagesMock = vi.hoisted(() => ({ caseStages: vi.fn() }))
 vi.mock('@/api/stages', () => ({ stagesApi: stagesMock }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
+vi.mock('@/api/carriers', () => ({
+  carriersApi: {
+    caseFreight: vi.fn().mockResolvedValue([]),
+    insurance: vi.fn().mockResolvedValue({ caseId: 'x', insurer: null, policyNumber: null, insuredAmount: null, insuredCurrency: null, premiumAmount: null, premiumCurrency: null, file: null, updatedAtUtc: null, canEdit: false }),
+  },
+}))
 vi.mock('@/ui/message', () => ({ message: msg }))
 vi.mock('@/api/shipmentCost', () => ({ shipmentCostApi: { get: vi.fn().mockRejectedValue(new Error('no')), update: vi.fn(), xlsx: vi.fn() } }))
 const rework = vi.hoisted(() => ({ list: vi.fn(), uploadForItem: vi.fn() }))

@@ -39,6 +39,7 @@ import {
 } from './clientCard'
 import ClientRegistryPanel from '@/views/clientRegistry/ClientRegistryPanel.vue'
 import ContractsPanel from '@/views/foreignContracts/ContractsPanel.vue'
+import CarriersPanel from '@/views/carriers/CarriersPanel.vue'
 
 // Карточка клиента /clients/:id (редизайн, волна 4а; доска ClientCard): «клиент 360» для сотрудников.
 // Шапка, показатели, вкладки (?tab=): обзор, заявки, транзит, документы, счета. Карточка только читается
@@ -101,6 +102,7 @@ const load = async () => {
 watch(id, (v) => { if (v) void load() }, { immediate: true })
 
 const contractHref = (contractId: string) => `/clients/${encodeURIComponent(id.value)}/contracts/${encodeURIComponent(contractId)}`
+const carrierHref = (carrierId: string) => `/clients/${encodeURIComponent(id.value)}/carriers/${encodeURIComponent(carrierId)}`
 
 // ---- Вкладки (?tab=) ----
 const tabKeys = computed(() => availableTabs({ reestr: canReestr.value, finance: canFinance.value }))
@@ -728,6 +730,8 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
           <!-- Внешнеторговые контракты клиента и валютный контроль (17.10) -->
           <div v-else-if="key === 'contracts'" class="flex flex-col gap-3" data-tab-panel="contracts">
             <ContractsPanel :client-id="card.id" :href="contractHref" :readonly="!canImport" />
+            <!-- Перевозчики клиента: договоры перевозки и счета за фрахт (очередь 4) -->
+            <CarriersPanel :client-id="card.id" :href="carrierHref" :readonly="!canImport" />
           </div>
 
           <!-- ⑤ Счета -->

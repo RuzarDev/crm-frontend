@@ -5,12 +5,12 @@ import type { Import40FileDto } from './import40'
 // Договор брокера и доверенность — отдельно (import40Contract): их формирует и подписывает AQNIET.
 
 export type RegistryCategory =
-  | 'supplyContract' | 'unk' | 'certificate' | 'conformityDeclaration' | 'permit' | 'license' | 'trois' | 'other'
+  | 'supplyContract' | 'unk' | 'certificate' | 'conformityDeclaration' | 'permit' | 'license' | 'trois' | 'other' | 'carriageContract'
 /** Статус срока: считает сервер по дате «действует до» (сегодня по Казахстану). */
 export type RegistryStatus = 'active' | 'expiring' | 'expired' | 'unlimited'
 
 export const REGISTRY_CATEGORIES: RegistryCategory[] = [
-  'supplyContract', 'unk', 'certificate', 'conformityDeclaration', 'permit', 'license', 'trois', 'other',
+  'supplyContract', 'unk', 'certificate', 'conformityDeclaration', 'permit', 'license', 'trois', 'carriageContract', 'other',
 ]
 
 export interface RegistryFile {
