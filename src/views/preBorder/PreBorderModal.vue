@@ -72,7 +72,7 @@ const save = async () => {
   if (Object.keys(preBorderErrors(fields.value)).length) return
   saving.value = true
   try {
-    const dto = await preBorderApi.save(props.caseId, fields.value)
+    const dto = await preBorderApi.save(props.caseId, fields.value, props.data)
     emit('saved', dto)
     emit('update:open', false)
     message.success(t('preBorder.saved'))

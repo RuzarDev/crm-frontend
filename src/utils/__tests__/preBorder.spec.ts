@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { PreBorder } from '@/api/preBorder'
+import { changedNumber, type PreBorder } from '@/api/preBorder'
 import {
   checkSerial, checkSerialList, luhnValid, missingText, preBorderErrors, preBorderSubstages, serialsFromSheet, serialsFromText, showPreBorder,
   emptyPreBorderFields,
@@ -108,5 +108,14 @@ describe('«Нужно от вас» по поставке до границы',
     expect(shipmentTag(ship({ preBorderMissing: ['eta'] })).key).toBe('preBorder')
     expect(askFor(ship({ preBorderMissing: ['eta'], isProblem: true }))).toBe('problem')
     expect(askFor(ship({ status: 2, preBorderMissing: ['eta'] }))).toBeNull()
+  })
+})
+
+describe('номера транспорта в PUT', () => {
+  it('неизменённый — null (сервер не трогает), изменённый — значение, пустой — очистка', () => {
+    expect(changedNumber(' 777aaa02 ', '777AAA02', true)).toBeNull()
+    expect(changedNumber('111BBB02', '777AAA02', true)).toBe('111BBB02')
+    expect(changedNumber('', '777AAA02', true)).toBe('')
+    expect(changedNumber('', null, false)).toBeNull()
   })
 })

@@ -111,10 +111,21 @@ export interface FileTranslation { fileId: string; fileName: string; sourceLangu
 const url = (caseId: string) => `/import40/${encodeURIComponent(caseId)}/pre-border`
 const formOpt = { silentStatuses: [400] }
 
+/** Номер транспорта для PUT: изменён — новое значение (пустая строка очищает), не изменён — null. */
+export const changedNumber = (value: string, original: string | null | undefined, upper: boolean): string | null => {
+  const norm = (v: string) => (upper ? v.trim().toUpperCase() : v.trim())
+  const next = norm(value)
+  return next === norm(original ?? '') ? null : next
+}
+
 export const preBorderApi = {
   get: async (caseId: string): Promise<PreBorder> =>
     (await apiClient.get<PreBorder>(url(caseId), { silent: true })).data,
-  save: async (caseId: string, f: PreBorderFields): Promise<PreBorder> =>
+  /**
+   * original — что было в окне при открытии: номера тягача/прицепа/вагона (поля заявки) уходят, только если их изменили,
+   * иначе null — сервер их не трогает (устаревшее окно не перезапишет правку декларанта).
+   */
+  save: async (caseId: string, f: PreBorderFields, original?: Pick<PreBorder, 'vehicleNumber' | 'trailerNumber' | 'wagonNumber'> | null): Promise<PreBorder> =>
     (await apiClient.put<PreBorder>(url(caseId), {
       supplierPaymentDeferred: f.supplierPaymentDeferred,
       paymentIds: f.paymentIds,
@@ -123,15 +134,16 @@ export const preBorderApi = {
       loadingWarehouse: f.loadingWarehouse.trim() || null,
       sealNumbers: f.sealNumbers.trim() || null,
       carrierId: f.carrierId || null,
-      vehicleNumber: f.vehicleNumber.trim(),
-      trailerNumber: f.trailerNumber.trim(),
+      vehicleNumber: changedNumber(f.vehicleNumber, original?.vehicleNumber, true),
+      trailerNumber: changedNumber(f.trailerNumber, original?.trailerNumber, true),
       containerNumber: f.containerNumber.trim() || null,
-      wagonNumber: f.wagonNumber.trim(),
+      wagonNumber: changedNumber(f.wagonNumber, original?.wagonNumber, false),
       expectedBorderDate: f.expectedBorderDate || null,
     }, formOpt)).data,
-  uploadPhotos: async (caseId: string, files: File[]): Promise<PreBorder> => {
+  /** Одно фото за запрос: несколько снимков с телефона одним запросом упираются в предел размера запроса сервера. */
+  uploadPhoto: async (caseId: string, file: File): Promise<PreBorder> => {
     const form = new FormData()
-    for (const f of files) form.append('files', f)
+    form.append('files', file)
     return (await apiClient.post<PreBorder>(`${url(caseId)}/photos`, form, {
       headers: { 'Content-Type': 'multipart/form-data' }, silentStatuses: [400], timeout: 120000,
     })).data

@@ -4,7 +4,7 @@ import { mountWithI18n } from '@/test/mountWithI18n'
 import type { PreBorder } from '@/api/preBorder'
 
 const api = vi.hoisted(() => ({
-  get: vi.fn(), save: vi.fn(), uploadPhotos: vi.fn(), deletePhoto: vi.fn(), serials: vi.fn(), saveSerials: vi.fn(), clearSerials: vi.fn(),
+  get: vi.fn(), save: vi.fn(), uploadPhoto: vi.fn(), deletePhoto: vi.fn(), serials: vi.fn(), saveSerials: vi.fn(), clearSerials: vi.fn(),
   addMark: vi.fn(), deleteMark: vi.fn(),
 }))
 const tr = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), translate: vi.fn() }))
@@ -16,6 +16,7 @@ vi.mock('@/ui/download', () => ({ saveBlob: vi.fn() }))
 
 import PreBorderPanel from '../PreBorderPanel.vue'
 import FileTranslateButton from '../FileTranslateButton.vue'
+import ZUpload from '@/components/z/ZUpload.vue'
 
 const pb = (p: Partial<PreBorder> = {}): PreBorder => ({
   caseId: 'c1', started: true, canEdit: true, status: 1, transportMode: 1, supplierPaymentDeferred: false, payments: [], availablePayments: [],
@@ -54,6 +55,18 @@ describe('PreBorderPanel', () => {
     expect(w.find('[data-pb-serials-upload]').exists()).toBe(false)
     expect(w.find('[data-pb-arrived]').text()).toContain('Нур Жолы')
     expect(w.find('[data-pre-border-missing]').exists()).toBe(false)
+  })
+
+  it('фото уходят по одному запросу на файл', async () => {
+    api.uploadPhoto.mockImplementation(async () => pb())
+    const w = mountWithI18n(PreBorderPanel, { props: { caseId: 'c1', data: pb(), state: 'ready', audience: 'client' } })
+    const files = [new File(['a'], 'a.jpg', { type: 'image/jpeg' }), new File(['b'], 'b.png', { type: 'image/png' })]
+    w.findComponent(ZUpload).vm.$emit('select', files)
+    await flushPromises()
+    expect(api.uploadPhoto).toHaveBeenCalledTimes(2)
+    expect(api.uploadPhoto.mock.calls.map((c) => (c[1] as File).name)).toEqual(['a.jpg', 'b.png'])
+    expect(w.emitted('changed')).toHaveLength(2)
+    expect(msg.success).toHaveBeenCalledOnce()
   })
 
   it('ошибка загрузки — «Повторить»', async () => {

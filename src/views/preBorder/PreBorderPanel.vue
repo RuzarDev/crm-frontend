@@ -68,17 +68,31 @@ const missing = computed(() => d.value?.missing ?? [])
 
 // ---- Фото ----
 const photoBusy = ref(false)
+// Ход загрузки: «2 из 5». Фото уходят по одному — сбой одного не теряет уже загруженные.
+const photoProgress = ref<{ done: number; total: number } | null>(null)
 const uploadPhotos = async (files: File[]) => {
-  if (!files.length) return
+  if (!files.length || photoBusy.value) return
   photoBusy.value = true
+  photoProgress.value = { done: 0, total: files.length }
+  let ok = 0
   try {
-    emit('changed', await preBorderApi.uploadPhotos(props.caseId, files))
-    message.success(t('preBorder.photos.saved', { n: files.length }))
-  } catch (e) {
-    const res = (e as { response?: { status?: number; data?: { error?: string } } })?.response
-    if (res?.status === 400) message.error(res.data?.error || t('preBorder.saveError'))
+    for (const f of files) {
+      try {
+        emit('changed', await preBorderApi.uploadPhoto(props.caseId, f))
+        ok++
+      } catch (e) {
+        const res = (e as { response?: { status?: number; data?: { error?: string } } })?.response
+        if (res?.status === 400) message.error(res.data?.error || t('preBorder.saveError'))
+        else if (res?.status === 413) message.error(t('preBorder.photos.tooLarge', { name: f.name }))
+        else if (!res) message.error(t('preBorder.photos.failed', { name: f.name }))
+        if (res?.status === 400 || !res) break
+      }
+      photoProgress.value = { done: photoProgress.value!.done + 1, total: files.length }
+    }
+    if (ok) message.success(t('preBorder.photos.saved', { n: ok }))
   } finally {
     photoBusy.value = false
+    photoProgress.value = null
   }
 }
 const downloadPhoto = async (id: string, name: string) => {
@@ -238,6 +252,9 @@ const linkBtn = 'inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-
               data-pb-photo-upload
               @select="uploadPhotos"
             >{{ t('preBorder.photos.add') }}</ZUpload>
+            <span v-if="photoProgress" class="text-xs tabular-nums text-muted" aria-live="polite" data-pb-photo-progress>
+              {{ t('preBorder.photos.progress', { done: photoProgress.done, total: photoProgress.total }) }}
+            </span>
           </div>
 
           <!-- Серийные номера / IMEI -->

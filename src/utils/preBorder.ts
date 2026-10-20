@@ -208,7 +208,7 @@ export function serialsFromSheet(rows: unknown[][]): { items: { line: number; ra
   }
   if (col < 0) {
     // Без заголовка — первый столбец, где есть хоть одно значение.
-    const width = Math.max(0, ...rows.map((r) => r?.length ?? 0))
+    const width = rows.reduce((m, r) => Math.max(m, r?.length ?? 0), 0)
     for (let c = 0; c < width && col < 0; c++) if (rows.some((r) => cellText(r?.[c]) !== '')) col = c
   }
   if (col < 0) return { items: [], header: null }
