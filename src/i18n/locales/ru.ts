@@ -1863,6 +1863,7 @@ export default {
           error: '{error} — платежи не рассчитаны',
           notRecalculated: 'Расчёт не пересчитал товар — гр. 47 останется прежней',
           feeDropped: 'Строку 1010 уберём: сбор за ДТ распределён между пересчитанными товарами',
+          ettSource: 'Ставка ЕТТ: {source}',
           openGoods: 'Открыть товар',
           col: { mode: 'Вид', label: 'Название', base: 'Основа', rate: 'Ставка', amount: 'Сумма, ₸', feature: 'СП' },
         },
@@ -2242,6 +2243,9 @@ export default {
           tariff: {
             title: 'Ставки КЕДЕН',
             titleCountry: 'Ставки КЕДЕН · {country}',
+            // Расчёт пошлины ЕТТ по ЕЭК (Tariff:EttSource=Eec): прочие ставки — КЕДЕН, источник ЕТТ строкой ниже.
+            titleEec: 'Ставки',
+            titleEecCountry: 'Ставки · {country}',
             onDate: 'на дату гр. А {date}',
             onToday: 'на сегодня — дата гр. А не указана',
             loading: 'Загружаем ставки…',

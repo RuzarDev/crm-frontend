@@ -28,6 +28,8 @@ const th = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.edit
 
 const tariff = useTariffOptions(() => ({ code: props.item.tnvedCode, country: props.item.countryOfOrigin, onDate: props.ctx.onDate }))
 const opts = computed(() => tariff.data.value)
+// Пошлина ЕТТ считается по ЕЭК (Tariff:EttSource=Eec) — заголовок без «КЕДЕН»: источник ЕТТ показывает EttRateSource ниже.
+const onEec = computed(() => opts.value?.ettRate?.configuredSource === 'eec')
 const hasCode = computed(() => /^\d{10}$/.test((props.item.tnvedCode ?? '').trim()))
 
 const countryName = computed(() => {
@@ -128,7 +130,7 @@ const choice = 'flex flex-col gap-2 rounded-field px-3 py-2.5'
   <div class="flex flex-col gap-3 rounded-panel border border-line bg-canvas p-4" data-goods-tariff>
     <template v-if="hasCode">
       <p class="m-0 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
-        <span class="font-semibold text-ink">{{ countryName ? th('titleCountry', { country: countryName }) : th('title') }}</span>
+        <span class="font-semibold text-ink" data-goods-tariff-title>{{ countryName ? th(onEec ? 'titleEecCountry' : 'titleCountry', { country: countryName }) : th(onEec ? 'titleEec' : 'title') }}</span>
         <span class="text-[13px] text-muted" data-goods-tariff-date>{{ dateText }}</span>
       </p>
       <p v-if="tariff.failed.value" class="m-0 flex flex-wrap items-center gap-2 text-[13px] text-ink-3" data-goods-tariff-failed>

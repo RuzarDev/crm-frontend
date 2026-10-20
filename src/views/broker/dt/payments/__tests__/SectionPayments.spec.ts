@@ -200,6 +200,29 @@ describe('SectionPayments: карточки и плашки', () => {
     expect(form.factPayments.map((p) => p.taxModeCode)).toEqual(['2050', '5060', '5060'])
   })
 
+  it('пошлина ЕТТ по ЕЭК: под строкой 2010 — источник ставки; по КЕДЕН (до переключения) и для ставки ВТО — без строки', async () => {
+    const rows = [{ taxModeCode: '2010', amount: 0 }, { taxModeCode: '5060', amount: 100 }]
+    const { w } = setup({
+      goods: [goodsItem(), goodsItem(), goodsItem()],
+      calc: {
+        goodsRows: [
+          { index: 0, rows, excisePossible: false, dutyRateSource: 'ett', ettRate: { date: '2026-10-20', configuredSource: 'eec', effectiveSource: 'eec', effectiveRate: '0', fallbackReason: null, kedenRate: '5%', kedenSourceName: null, kedenManualOverride: false, differs: true, eec: { rateText: '0', rate: '0', kind: 'footnote', baseRateText: '5', baseRate: '5', footnoteNumber: '115С', footnoteFrom: '2026-02-07', footnoteTo: '2028-12-31', footnoteDecision: null, group: '12', editionId: 1, editionDate: '2026-08-24', fileName: 'ru.12.pdf', inForce: true, notInForceSince: null, isCertain: true, pending: [] } } },
+          { index: 1, rows, excisePossible: false, dutyRateSource: 'ett', ettRate: { date: '2026-10-20', configuredSource: 'keden', effectiveSource: 'keden', effectiveRate: '0', fallbackReason: null, kedenRate: '5%', kedenSourceName: null, kedenManualOverride: false, differs: true, eec: { rateText: '0', rate: '0', kind: 'footnote', baseRateText: '5', baseRate: '5', footnoteNumber: '115С', footnoteFrom: '2026-02-07', footnoteTo: '2028-12-31', footnoteDecision: null, group: '12', editionId: 1, editionDate: '2026-08-24', fileName: 'ru.12.pdf', inForce: true, notInForceSince: null, isCertain: true, pending: [] } } },
+          { index: 2, rows, excisePossible: false, dutyRateSource: 'vto', ettRate: { date: '2026-10-20', configuredSource: 'eec', effectiveSource: 'eec', effectiveRate: '0', fallbackReason: null, kedenRate: '5%', kedenSourceName: null, kedenManualOverride: false, differs: true, eec: { rateText: '0', rate: '0', kind: 'footnote', baseRateText: '5', baseRate: '5', footnoteNumber: '115С', footnoteFrom: '2026-02-07', footnoteTo: '2028-12-31', footnoteDecision: null, group: '12', editionId: 1, editionDate: '2026-08-24', fileName: 'ru.12.pdf', inForce: true, notInForceSince: null, isCertain: true, pending: [] } } },
+        ],
+        totalsByTaxMode: {}, grandTotalB: 0,
+      } as Import40CalculatePaymentsResponse,
+    })
+    await settle()
+    await w.get('[data-payments-calc]').trigger('click')
+    await settle()
+    const src = w.get('[data-payments-goods][data-goods-index="0"] [data-payments-line="2010"] [data-payments-ett-source]').text()
+    expect(src).toMatch(/^Ставка ЕТТ: ЕЭК/)
+    expect(src).toContain('115С')
+    expect(w.find('[data-payments-goods][data-goods-index="1"] [data-payments-ett-source]').exists()).toBe(false)
+    expect(w.find('[data-payments-goods][data-goods-index="2"] [data-payments-ett-source]').exists()).toBe(false)
+  })
+
   it('медизделие в карточке → «Пересчитать» у товара и сброс предпросмотра; «Рассчитать заново» считает снова', async () => {
     const { w, form, payments } = setup({ goods: [goodsItem()] })
     await settle()

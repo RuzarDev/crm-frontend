@@ -17,6 +17,7 @@ import { formatMoney } from '../goods/goodsList'
 import { goodsPaymentsStale } from '../goods/goodsStatus'
 import { isMedical, noteLines, previewLines, savedLines, type PaymentLine } from './paymentsView'
 import { useModeLabel } from './useModeLabel'
+import { ettSourceView } from '@/views/broker/references/eec/eec'
 
 // Карточка товара в «Платежах» (доска DtPayments): №, код, описание, «Медизделие — НДС 5%», строки гр. 47 (вид, основа,
 // ставка, сумма, СП). Во время предпросмотра — строки, какими их запишет «Записать» (виды из расчёта помечены «расчёт,
@@ -55,6 +56,14 @@ const preview = computed(() => !!props.calc)
 const stale = computed(() => !preview.value && goodsPaymentsStale(props.item) && !!props.item.payments?.length)
 const error = computed(() => props.calc?.error?.trim() || null)
 const notes = computed(() => (props.calc && !props.calc.error ? noteLines(props.calc.notes) : []))
+// Источник ставки пошлины ЕТТ (после переключения расчёта на ЕЭК, Tariff:EttSource=Eec): «ЕЭК, ред. …» или запасная КЕДЕН
+// с причиной — под строкой 2010 предпросмотра. До переключения (КЕДЕН) не показывается: ставка как раньше.
+const ettNote = computed(() => {
+  const c = props.calc
+  if (!c || c.error || c.dutyRateSource !== 'ett' || c.ettRate?.configuredSource !== 'eec') return null
+  const v = ettSourceView(c.ettRate, t)
+  return v ? [v.source, v.fallback].filter(Boolean).join(' · ') : null
+})
 const medical = computed(() => isMedical(props.item))
 const months = computed(() => props.item.tempImportMonths || null)
 const code = computed(() => (props.item.tnvedCode ? formatTnved(props.item.tnvedCode) : null))
@@ -163,6 +172,7 @@ const cell = 'flex min-w-0 flex-col gap-0.5'
             :data-manual-of="l.code ?? ''"
             @reset="resetLine(l)"
           />
+          <span v-if="l.code === '2010' && l.fresh && ettNote" class="col-span-full text-xs text-ink-3" data-payments-ett-source>{{ tc('ettSource', { source: ettNote }) }}</span>
           <VatOffsetHint
             v-if="l.code === VAT_TAX_MODE && offsetRows.length"
             :rows="offsetRows"

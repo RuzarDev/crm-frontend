@@ -1859,6 +1859,7 @@ export default {
           error: '{error} — payments not calculated',
           notRecalculated: 'The calculation did not recalculate this item — box 47 stays as it was',
           feeDropped: 'The 1010 row will be removed: the declaration fee is split among the recalculated items',
+          ettSource: 'ETT rate: {source}',
           openGoods: 'Open item',
           col: { mode: 'Type', label: 'Name', base: 'Base', rate: 'Rate', amount: 'Amount, ₸', feature: 'PM' },
         },
@@ -2238,6 +2239,9 @@ export default {
           tariff: {
             title: 'KEDEN rates',
             titleCountry: 'KEDEN rates · {country}',
+            // Расчёт пошлины ЕТТ по ЕЭК (Tariff:EttSource=Eec): прочие ставки — КЕДЕН, источник ЕТТ строкой ниже.
+            titleEec: 'Rates',
+            titleEecCountry: 'Rates · {country}',
             onDate: 'on the box A date {date}',
             onToday: 'as of today — box A date is not set',
             loading: 'Loading rates…',

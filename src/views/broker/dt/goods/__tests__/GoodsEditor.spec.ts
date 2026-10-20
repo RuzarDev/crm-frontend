@@ -497,12 +497,15 @@ describe('GoodsEditor: подсказка ставок', () => {
     await mount([item()], { query: '&item=1' })
     expect(q('[data-ett-source-main]')!.textContent).toBe('ЕЭК, ред. 24.08.2026, сноска 109С до 31.12.2028')
     expect(q('[data-ett-source-other]')!.textContent).toBe('в КЕДЕН: 6.5%')
+    // пошлина ЕТТ — по ЕЭК: заголовок без «КЕДЕН»
+    expect(q('[data-goods-tariff-title]')!.textContent).toBe('Ставки · Китай')
   })
 
   it('без ettRate (прежний ответ) — строки источника нет', async () => {
     await mount([item()], { query: '&item=1' })
     expect(q('[data-goods-tariff-summary]')).not.toBeNull()
     expect(q('[data-ett-source]')).toBeNull()
+    expect(q('[data-goods-tariff-title]')!.textContent).toBe('Ставки КЕДЕН · Китай')
   })
 
   it('сбой — текст в подсказке с «Повторить», без тоста', async () => {

@@ -1,3 +1,4 @@
+import type { TnvedEttRateDto } from '@/types/api'
 import apiClient from './client'
 import type { ConditionalReleaseDto } from './conditionalRelease'
 import type { KedenLinkDto } from './kedenLink'
@@ -847,6 +848,10 @@ export interface Import40PaymentGoodsRowDto {
   error?: string | null
   // Пояснения расчёта: акциз/пошлина не посчитаны без количества, вид акциза взят по умолчанию и т.п.
   notes?: string | null
+  /** Ставка ЕТТ товара: ЕЭК или КЕДЕН (флаг Tariff:EttSource) и почему запасная. */
+  ettRate?: TnvedEttRateDto | null
+  /** Чем посчитана пошлина 2010: ЕТТ, ставка ВТО или ставка страны происхождения. */
+  dutyRateSource?: 'ett' | 'vto' | 'country' | null
 }
 
 export interface Import40CalculatePaymentsResponse {
