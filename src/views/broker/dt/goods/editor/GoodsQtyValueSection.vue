@@ -15,6 +15,7 @@ import { resetCustomsValue, resetStatValue, setManualCustomsValue, setManualStat
 import ManualMark from '../../ManualMark.vue'
 import { withCurrent } from '../../dtOptions'
 import GoodsTariffHint from './GoodsTariffHint.vue'
+import SurStatsHint from '@/components/sur/SurStatsHint.vue'
 import { characteristicTotals } from './characteristics'
 import { ensureOkeiUnits, okeiLabel } from './okei'
 import { deiOf, loadDei } from './tnvedDei'
@@ -162,5 +163,15 @@ const autoTag = 'absolute top-1/2 right-2 -translate-y-1/2'
     </div>
 
     <GoodsTariffHint :item="item" :index="index" :model="model" :readonly="readonly" :ctx="ctx" />
+    <!-- Коридоры по нашим ДТ и «цена ниже типичной» (СУР, очередь 4): подсказка, ничего не блокирует. -->
+    <SurStatsHint
+      :code="item.tnvedCode"
+      :country="item.countryOfOrigin"
+      :value-kzt="item.customsValueKzt"
+      :net-kg="item.netWeightKg"
+      :quantity="item.quantity"
+      :unit-code="item.unitCode"
+      :declaration-id="ctx.declarationId"
+    />
   </div>
 </template>

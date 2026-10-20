@@ -6,6 +6,8 @@ import type { TnvedCalculateResult } from '@/types/api'
 // Калькулятор платежей: общее для клиента и сотрудника (extended) — выбор вида акциза и антидемпинга
 // с пересчётом, объём двигателя при ставке в см³, пояснение расчёта; сотруднику — количество и дата.
 const api = vi.hoisted(() => ({ calculate: vi.fn(), currencies: vi.fn() }))
+// Подсказка СУР — своя спека (SurStatsHint.spec): здесь без сети.
+vi.mock('@/api/sur', () => ({ surApi: { stats: () => Promise.resolve({ data: null }) } }))
 vi.mock('@/api/tnved', () => ({ tnvedApi: api }))
 vi.mock('@/api/references', () => ({ referencesApi: { listCountries: vi.fn().mockResolvedValue([]) } }))
 

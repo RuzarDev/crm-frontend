@@ -17,6 +17,8 @@ import type { GoodsPageContext, GoodsSaveState } from '../editor/types'
 import { resetDtTnvedCheckCache } from '../tnvedCodeCheck'
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
+// Подсказка СУР — своя спека (SurStatsHint.spec): здесь без сети.
+vi.mock('@/api/sur', () => ({ surApi: { stats: () => Promise.resolve({ data: null }) } }))
 vi.mock('@/ui/message', () => ({ message: toast }))
 const refsApi = vi.hoisted(() => ({
   listClassifiers: vi.fn(async () => []),

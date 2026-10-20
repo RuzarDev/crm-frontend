@@ -31,6 +31,8 @@ export interface GoodsPageContext {
   declProcedure: string | null
   /** Гр. 19: контейнерная перевозка — поле «Номер контейнера» гр. 31.3 (Task 4). */
   containerIndicator: boolean
+  /** Id открытой ДТ — подсказка СУР берёт из неё пост и не считает её саму. */
+  declarationId?: string | null
 }
 
 export interface GoodsEditorContext extends GoodsPageContext {

@@ -275,6 +275,8 @@ export interface Import40DeclarationDto {
   conditionalRelease?: ConditionalReleaseDto | null
   /** Связь с журналом КЕДЕН (17.10): статус, дата, коридор, ДХТ; старый сервер — нет поля. */
   keden?: KedenLinkDto | null
+  /** Коридор отмечен сотрудником (21.10, СУР); null — corridor лишь умолчание «green» или пришёл из КЕДЕН. */
+  corridorSetAtUtc?: string | null
   // Оптимистичная блокировка (09.10): строка ISO как пришла с сервера (микросекунды) — НЕ превращать в Date,
   // иначе точность упадёт до миллисекунд и сервер ответит 409. Редактор шлёт её обратно как expectedUpdatedAtUtc.
   updatedAtUtc?: string | null
