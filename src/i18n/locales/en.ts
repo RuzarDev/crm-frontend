@@ -890,7 +890,7 @@ export default {
         cargoPh: 'Cargo description',
         cargoMin: 'At least 2 characters',
         post: 'Post / TWH',
-        postPh: 'Select a post',
+        postPh: 'Post code or name',
         optional: 'optional',
         submit: 'Create',
         cancel: 'Cancel',
@@ -5162,7 +5162,8 @@ export default {
         cargoShort: 'Describe the cargo in at least a couple of words',
         post: 'Where the cargo arrives',
         postHelp: 'customs post or warehouse, if you know it',
-        postPh: 'Start typing a name',
+        postPh: 'Code or name: 55103, airport',
+        postNotFound: 'No post found. Enter the code (5 digits) or a city name. Not sure? Leave it empty and the declarant will fill it in',
         value: 'Estimated value',
         currency: 'Currency',
       },
@@ -5576,6 +5577,11 @@ export default {
     foundIp: 'Found: {name}. Enter the address manually — the tax register has none.',
     inactive: '{name}: {status}. Check whether you can work with this counterparty.',
     renamed: 'Found in the tax registry (KGD): {name}. The Ministry of Justice registry still has the old name “{old}” — address and director were not filled in, enter them manually.',
+  },
+  // Customs post (fix No. 11, 21.10).
+  customsPost: {
+    kind: { AIR: 'air', AUTO: 'road', RW: 'rail', VESSEL: 'sea' },
+    notFound: 'No post found — check the code (5 digits) or the name',
   },
   // Conditional release of a customs declaration (17.10).
   condRel: {

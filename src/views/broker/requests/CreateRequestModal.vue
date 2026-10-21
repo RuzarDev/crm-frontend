@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
+import CustomsPostOption from '@/components/customsPost/CustomsPostOption.vue'
 import { import40Api } from '@/api/import40'
 import { referencesApi } from '@/api/references'
 import { message } from '@/ui/message'
+import { buildCustomsPostOptions, filterCustomsPostOption } from '@/utils/customsPosts'
+import type { CustomsPostItem } from '@/types/api'
 
 // Окно «Новая заявка» за клиента (сотрудник): клиент, груз, необязательный пост → создание → карточка заявки.
 // Справочники (клиенты, посты) грузятся при первом открытии окна, а не при открытии списка.
@@ -19,7 +22,9 @@ const router = useRouter()
 
 const draft = reactive<{ clientId: string | null; cargo: string; post: string | null }>({ clientId: null, cargo: '', post: null })
 const clientOptions = ref<{ value: string; label: string }[]>([])
-const postOptions = ref<{ value: string; label: string }[]>([])
+// Посты: поиск по коду, названию, синонимам и адресу (правка №11); значение — полная строка справочника.
+const posts = shallowRef<CustomsPostItem[]>([])
+const postOptions = computed(() => buildCustomsPostOptions(posts.value, (k) => t(`customsPost.kind.${k}`)))
 const clientNames = new Map<string, string>()
 const clientsLoading = ref(false)
 const creating = ref(false)
@@ -32,16 +37,16 @@ const loadRefs = async () => {
   clientsLoading.value = true
   try {
     // Посты — вспомогательный справочник: сбой не мешает создать заявку (как раньше).
-    const [clients, posts] = await Promise.all([
+    const [clients, postList] = await Promise.all([
       import40Api.listClients(),
-      referencesApi.listCustomsPosts().catch(() => []),
+      referencesApi.listCustomsPosts().catch((): CustomsPostItem[] => []),
     ])
     clientOptions.value = clients.map((c) => {
       const name = c.companyName || c.username
       clientNames.set(c.id, name)
       return { value: c.id, label: c.companyName ? `${c.companyName} (${c.username})` : c.username }
     })
-    postOptions.value = posts.map((p) => ({ value: p.name, label: p.name }))
+    posts.value = postList
   } catch {
     // Ошибку показал общий перехватчик; следующее открытие окна пробует снова.
     loaded = false
@@ -129,10 +134,15 @@ const submit = async () => {
           :options="postOptions"
           show-search
           allow-clear
+          :filter-option="filterCustomsPostOption"
+          :not-found-content="t('customsPost.notFound')"
           :placeholder="t('broker.requests.create.postPh')"
+          popup-width="min(460px, calc(100vw - 32px))"
           data-create-post
           @update:value="draft.post = ($event as string | null)"
-        />
+        >
+          <template #option="{ option }"><CustomsPostOption :option="option" /></template>
+        </ZSelect>
       </ZField>
     </div>
   </ZModal>

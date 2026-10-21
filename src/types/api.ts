@@ -692,6 +692,12 @@ export interface RefItem {
 export interface CustomsPostItem extends RefItem {
   parentCode?: string | null
   parentName?: string | null
+  /** Код поста (ведущие 5 цифр имени), если есть. */
+  code?: string | null
+  /** Вид транспорта поста по КЕДЕН: "AIR", "AUTO", "RW", "VESSEL/AUTO/RW". */
+  transportKind?: string | null
+  /** Адрес поста по КЕДЕН. */
+  location?: string | null
 }
 
 /** ДГД (ref/customs-dgds) — орган уровня, который КЕДЕН ждёт в гр. 30. */
