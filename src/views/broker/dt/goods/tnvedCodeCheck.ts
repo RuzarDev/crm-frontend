@@ -57,6 +57,15 @@ const request = (c: string): Promise<CheckResult> => {
   return run
 }
 
+/**
+ * Засеять кэш сессии ответами пакетной проверки (импорт в ДТ, tnved/check-codes): раздел «Товары» и карточка товара не
+ * переспрашивают уже проверенные коды.
+ */
+export function seedTnvedCheck(ok: readonly string[], bad: readonly string[]): void {
+  for (const c of ok.map(norm).filter(Boolean)) setValid(c)
+  for (const c of bad.map(norm).filter(Boolean)) if (!sessionOk.has(c)) sessionBad[c] = true
+}
+
 /** Сбросить кэш сессии (тесты; смена пользователя не нужна — справочник общий). */
 export function resetDtTnvedCheckCache(): void {
   for (const c of Object.keys(sessionBad)) delete sessionBad[c]

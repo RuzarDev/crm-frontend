@@ -14,8 +14,8 @@
 //   местная проверка.
 // - Признак «платежи устарели» ставит редактор на правке пользователя (markStale / setGoodsField из goodsStatus),
 //   снимает расчёт (payments/paymentRows.applyGoodsPaymentRows).
-import { computed, shallowRef, toRaw, toValue, watch, type MaybeRefOrGetter } from 'vue'
-import type { Import40Doc44ItemInput, Import40GoodsItemInput } from '@/types/api'
+import { computed, reactive, shallowRef, toRaw, toValue, watch, type MaybeRefOrGetter } from 'vue'
+import type { Import40Doc44ItemInput, Import40GoodsCharacteristic, Import40GoodsExtras, Import40GoodsItemInput } from '@/types/api'
 import { cloneGoodsExtras } from '@/types/api'
 import { blankCharacteristic, cloneCharacteristics } from './editor/characteristics'
 import type { DtFormState } from '../dtPayload'
@@ -164,6 +164,23 @@ export function cloneGoodsItem(g: Goods): Goods {
   }
 }
 
+/**
+ * Снимок товаров и гр. 44 до импорта («Отменить», пакет импорта 21.10). Хранит САМИ объекты товаров и строк гр. 31 и копии
+ * их полей: отмена возвращает поля на место в тех же объектах (ключи товаров, сеансовые общие значения КИЗ по
+ * toRaw(item) и открытый редактор не теряются), добавленные импортом товары убирает.
+ */
+export interface GoodsSnapshot {
+  objects: Goods[]
+  copies: {
+    fields: Goods
+    rowsArr: Import40GoodsCharacteristic[] | null
+    rows: Import40GoodsCharacteristic[]
+    rowCopies: Import40GoodsCharacteristic[]
+    extras: { obj: Import40GoodsExtras; copy: Import40GoodsExtras } | null
+  }[]
+  doc44: Import40Doc44ItemInput[]
+}
+
 /** from[новая позиция] = прежняя (null — новый товар) → карта «прежняя позиция → новая / null (удалён)». */
 const indexMap = (oldLength: number, from: readonly (number | null)[]): GoodsIndexMap => {
   const map: (number | null)[] = Array.from({ length: oldLength }, () => null)
@@ -229,6 +246,45 @@ export function useDtGoods(form: DtFormState, opts: DtGoodsOptions) {
       existing.goodsItemIndexes = [...tokens].sort((a, b) => Number(a) - Number(b)).join(',')
     }
     return added
+  }
+
+  /** Снимок для «Отменить» импорта (см. GoodsSnapshot). */
+  const snapshot = (): GoodsSnapshot => {
+    const objects = toRaw(form.goodsItems).map((g) => toRaw(g))
+    return {
+      objects,
+      copies: objects.map((g) => {
+        const rows = (g.characteristics ?? []).map((r) => toRaw(r))
+        const extras = g.extras ? toRaw(g.extras) : null
+        return {
+          fields: { ...g },
+          rowsArr: g.characteristics ? toRaw(g.characteristics) : null,
+          rows,
+          rowCopies: rows.map((r) => ({ ...r })),
+          extras: extras ? { obj: extras, copy: { ...extras, packages: extras.packages?.map((p) => ({ ...p })) } } : null,
+        }
+      }),
+      doc44: toRaw(form.doc44Items).map((d) => ({ ...toRaw(d) })),
+    }
+  }
+
+  /** Вернуть товары и гр. 44 к снимку: поля — в тех же объектах, новые товары — убрать. */
+  const restore = (snap: GoodsSnapshot): void => {
+    if (!editable()) return
+    snap.objects.forEach((raw, i) => {
+      const c = snap.copies[i]
+      const g = reactive(raw) as Goods
+      for (const k of Object.keys(raw)) if (!(k in c.fields)) delete (g as unknown as Record<string, unknown>)[k]
+      Object.assign(g, c.fields)
+      if (c.rowsArr) {
+        const arr = reactive(c.rowsArr)
+        arr.splice(0, arr.length, ...c.rows)
+        c.rows.forEach((r, j) => Object.assign(reactive(r), c.rowCopies[j]))
+      }
+      if (c.extras) Object.assign(reactive(c.extras.obj), c.extras.copy)
+    })
+    form.goodsItems.splice(0, form.goodsItems.length, ...snap.objects)
+    form.doc44Items.splice(0, form.doc44Items.length, ...snap.doc44.map((d) => ({ ...d })))
   }
 
   /** Что будет удалено (для вопроса перед удалением). */
@@ -348,6 +404,8 @@ export function useDtGoods(form: DtFormState, opts: DtGoodsOptions) {
     duplicate,
     move,
     applyToSelected,
+    snapshot,
+    restore,
     statusOf,
     indexOfReadinessGoods,
     markStale,

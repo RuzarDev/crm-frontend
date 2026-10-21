@@ -59,6 +59,20 @@ export interface ReducedVatDto {
   goods: string[]
 }
 
+/**
+ * Ответ проверки кода (POST /tnved/check-codes, импорт в ДТ 21.10): действующий ли 10-значный код, его название и ДЕИ
+ * (гр. 41). code — нормализованный (только цифры).
+ */
+export interface TnvedCodeCheckDto {
+  code: string
+  valid: boolean
+  name: string | null
+  endDate: string | null
+  unitCode: string | null
+  unitName: string | null
+  unitShortName: string | null
+}
+
 // Экран сам показывает ошибку (свой блок, 429 — «слишком много запросов»): перехватчик тост не рисует.
 export interface TnvedRequestOptions { silent?: boolean }
 const quiet = (o?: TnvedRequestOptions) => (o?.silent ? { silent: true } : {})
@@ -75,6 +89,10 @@ export const tnvedApi = {
 
   path: (code: string) =>
     apiClient.get<TnvedPathNodeDto[]>(`/tnved/path/${encodeURIComponent(code)}`),
+
+  /** Проверка до 500 кодов одним запросом: действующий ли код, название, ДЕИ (импорт в ДТ). */
+  checkCodes: (codes: readonly string[], opts?: TnvedRequestOptions) =>
+    apiClient.post<TnvedCodeCheckDto[]>('/tnved/check-codes', { codes }, quiet(opts)),
 
   search: (q: string, leafOnly = false, limit = 30, opts?: TnvedRequestOptions) =>
     apiClient.get<TnvedNodeDto[]>('/tnved/search', { params: { q, leafOnly, limit }, ...quiet(opts) }),

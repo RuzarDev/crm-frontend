@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, nextTick, reactive, ref } from 'vue'
+import { defineComponent, h, nextTick, reactive, ref, toRaw } from 'vue'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { RouterView, createMemoryHistory, createRouter, type Router } from 'vue-router'
@@ -13,8 +13,13 @@ import { resetDtTnvedCheckCache } from '../tnvedCodeCheck'
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/ui/message', () => ({ message: toast }))
-const excel = vi.hoisted(() => ({ readGoodsExcel: vi.fn() }))
-vi.mock('@/utils/goodsExcel', async (orig) => ({ ...(await orig<typeof import('@/utils/goodsExcel')>()), readGoodsExcel: excel.readGoodsExcel }))
+const excel = vi.hoisted(() => ({ readExcelDocuments: vi.fn() }))
+vi.mock('@/utils/goodsExcel', async (orig) => ({ ...(await orig<typeof import('@/utils/goodsExcel')>()), readExcelDocuments: excel.readExcelDocuments }))
+const i40 = vi.hoisted(() => ({ translateGoods: vi.fn() }))
+vi.mock('@/api/import40', async (orig) => {
+  const real = await orig<typeof import('@/api/import40')>()
+  return { ...real, import40Api: { ...real.import40Api, translateGoods: i40.translateGoods } }
+})
 const xlsx = vi.hoisted(() => ({ exportXlsx: vi.fn(async () => undefined) }))
 vi.mock('@/views/broker/list', async (orig) => ({ ...(await orig<typeof import('@/views/broker/list')>()), exportXlsx: xlsx.exportXlsx }))
 vi.mock('@/api/references', () => ({ referencesApi: { listClassifiers: vi.fn(async () => []), listOkeiUnits: vi.fn(async () => []), listCountries: vi.fn(async () => []) } }))
@@ -22,6 +27,13 @@ vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: { list: vi.fn(as
 // Редактор товара (открывается по строке): проверка кода, ставки КЕДЕН и ТРОИС — без сети.
 vi.mock('@/api/tnved', () => ({ tnvedApi: {
   node: vi.fn(async (code: string) => ({ data: { code, name: 'УЗЕЛ', is10: true } })),
+  // Импорт (пакет 21.10): коды одним запросом — 7318150000 с ДЕИ «шт», остальные действующие без ДЕИ, 0000000000 — нет.
+  checkCodes: vi.fn(async (codes: string[]) => ({ data: codes.map((code) => ({
+    code, valid: code !== '0000000000', name: code === '7318150000' ? 'БОЛТЫ ПО ТН ВЭД' : 'КОД', endDate: null,
+    unitCode: code === '7318150000' ? '796' : null, unitName: 'Штука', unitShortName: 'ШТ',
+  })) })),
+  semantic: vi.fn(async () => ({ data: { available: false, model: null, tookMs: 0, matches: [] } })),
+  classify: vi.fn(async () => ({ data: { matches: [], exactCodeInfo: null, suggestedGroup: null } })),
   rates: vi.fn(async () => ({ data: {} })),
   tariffOptions: vi.fn(async () => ({ data: { countryRate: null, excise: [], antiDumping: [], dutyRates: [] } })),
 } }))
@@ -471,14 +483,28 @@ describe('SectionGoods: Excel', () => {
     await settle()
   }
 
-  it('«Из Excel»: предпросмотр (строк, что распознано, без кода) → «Добавить в конец»', async () => {
-    excel.readGoodsExcel.mockResolvedValue({
-      goods: [
-        { description: 'БОЛТЫ', tnvedCode: '7318150000', tnvedDescription: 'БОЛТЫ', countryOfOrigin: null, quantity: 100, unit: 'CT', unitCode: null, grossWeightKg: 12.5, netWeightKg: null, packagesCount: 3, quantityTypeCode: null, customsValue: null, currency: null },
-        { description: 'ГАЙКИ', tnvedCode: null, tnvedDescription: 'ГАЙКИ', countryOfOrigin: null, quantity: null, unit: 'шт', unitCode: null, grossWeightKg: 4, netWeightKg: null, packagesCount: null, quantityTypeCode: null, customsValue: null, currency: null },
-      ],
-    })
-    await mount([item({ description: 'ПЕРВЫЙ' })])
+  // Лист книги (readExcelDocuments): шапка таблицы и строки — как вернул бы разбор с опцией details.
+  const sheet = (goods: Record<string, unknown>[], name = 'Лист1') => ({
+    sheet: name, headerRows: [], tableHeader: ['Код', 'Описание'], rows: [],
+    goods: goods.map((g) => ({
+      description: null, tnvedCode: null, tnvedDescription: null, countryOfOrigin: null, quantity: null, unit: null, unitCode: null,
+      grossWeightKg: null, netWeightKg: null, packagesCount: null, quantityTypeCode: null, customsValue: null, currency: null, ...g,
+    })),
+  })
+  const pickMany = async (files: File[]) => {
+    const input = w.get('[data-goods-excel-input]')
+    Object.defineProperty(input.element, 'files', { value: files, configurable: true })
+    await input.trigger('change')
+    await settle()
+  }
+  const button = (text: string) => [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === text) as HTMLButtonElement
+
+  it('«Из Excel»: предпросмотр (строк, что распознано, куда количество) → «Добавить в конец»', async () => {
+    excel.readExcelDocuments.mockResolvedValue({ docs: [sheet([
+      { description: 'БОЛТЫ', tnvedCode: '7318150000', quantity: 100, unit: 'CT', grossWeightKg: 12.5, packagesCount: 3 },
+      { description: 'ГАЙКИ', tnvedCode: null, quantity: null, unit: 'шт', grossWeightKg: 4 },
+    ])] })
+    await mount([])
     await pick(file('goods.xlsx'))
     const modal = document.querySelector('[data-goods-excel-modal]') as HTMLElement
     expect(modal.querySelector('[data-goods-excel-rows]')!.textContent).toBe('Строк с товарами: 2')
@@ -486,27 +512,101 @@ describe('SectionGoods: Excel', () => {
     expect(modal.querySelector('[data-goods-excel-field="gross"]')!.textContent).toContain('2 из 2')
     expect(modal.querySelector('[data-goods-excel-no-code]')!.textContent).toContain('Без кода ТН ВЭД: 1')
     expect(modal.querySelectorAll('[data-goods-excel-preview-row]')).toHaveLength(2)
+    expect(modal.querySelector('[data-goods-excel-qty-to]')!.textContent).toBe('в гр. 41')
     // X1: «Вид упаковки товара» — в вид упаковки гр. 31; нераспознанный не переносится и назван
     expect(modal.querySelector('[data-goods-excel-field="packaging"]')!.textContent).toContain('1 из 2')
     expect(modal.querySelector('[data-goods-excel-unknown-packaging]')!.textContent).toContain('«шт»')
-    expect(form.goodsItems).toHaveLength(1)
-    const append = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Добавить в конец') as HTMLButtonElement
-    append.click()
+    // в ДТ товаров нет — режимов нет
+    expect(modal.querySelector('[data-goods-excel-existing]')).toBeNull()
+    button('Добавить в конец').click()
     await settle()
-    expect(form.goodsItems.map((g) => g.description)).toEqual(['ПЕРВЫЙ', 'БОЛТЫ', 'ГАЙКИ'])
-    expect(form.goodsItems[1]).toMatchObject({ tnvedCode: '7318150000', quantity: 100, grossWeightKg: 12.5, packagesCount: 3, cargoPlacesQuantity: 3, currency: 'USD', payments: [] })
-    expect(form.goodsItems.slice(1).map((g) => [g.packageKindCode, g.unit])).toEqual([['CT', null], [null, null]])
-    expect(toast.success).toHaveBeenCalledWith('Добавлено товаров из Excel: 2')
+    expect(form.goodsItems.map((g) => g.description)).toEqual(['БОЛТЫ', 'ГАЙКИ'])
+    // №1: код с ДЕИ — количество в гр. 41; №9: «Описание из ТН ВЭД» — название кода
+    expect(form.goodsItems[0]).toMatchObject({ tnvedCode: '7318150000', tnvedDescription: 'БОЛТЫ ПО ТН ВЭД', quantity: 100, unitCode: '796', grossWeightKg: 12.5, packagesCount: 3, cargoPlacesQuantity: 3, currency: 'USD', payments: [] })
+    expect(form.goodsItems.map((g) => [g.packageKindCode, g.unit])).toEqual([['CT', 'ШТ'], [null, null]])
+    // №16: строка гр. 31 есть у каждого товара
+    expect(form.goodsItems.map((g) => g.characteristics?.length)).toEqual([1, 1])
+    expect(toast.success).toHaveBeenCalledWith(expect.objectContaining({ content: 'Добавлено товаров из Excel: 2', duration: 15 }))
   })
 
   it('не Excel — ошибка; проблема разбора — предупреждение прежним текстом', async () => {
     await mount([item()])
     await pick(file('goods.csv'))
     expect(toast.error).toHaveBeenCalledWith('Допустим только Excel-файл (.xlsx)')
-    excel.readGoodsExcel.mockResolvedValue({ problem: 'noGoods' })
+    excel.readExcelDocuments.mockResolvedValue({ problem: 'noGoods' })
     await pick(file('goods.xlsx'))
     expect(toast.warning).toHaveBeenCalled()
     expect(document.querySelector('[data-goods-excel-modal]')).toBeNull()
+  })
+
+  it('№15: несколько файлов сразу — строки сливаются (стоимость из инвойса, нетто из упаковочного); ошибка одного не мешает', async () => {
+    excel.readExcelDocuments.mockImplementation(async (f: File) => {
+      if (f.name === 'broken.xlsx') throw new Error('bad')
+      if (f.name === 'invoice.xlsx') return { docs: [sheet([{ description: 'БОЛТЫ', tnvedCode: '7318150000', customsValue: 900, grossWeightKg: 12 }], 'Invoice')] }
+      return { docs: [sheet([{ description: 'БОЛТЫ', tnvedCode: '7318150000', netWeightKg: 10, grossWeightKg: 12.5 }], 'Packing list')] }
+    })
+    await mount([])
+    await pickMany([file('packing.xlsx'), file('broken.xlsx'), file('invoice.xlsx')])
+    expect(toast.error).toHaveBeenCalledWith('Не удалось прочитать файл broken.xlsx')
+    const modal = document.querySelector('[data-goods-excel-modal]') as HTMLElement
+    expect(modal.querySelectorAll('[data-goods-excel-file]')).toHaveLength(2)
+    expect(modal.querySelector('[data-goods-excel-rows]')!.textContent).toBe('Строк с товарами: 1')
+    expect(modal.querySelector('[data-goods-excel-conflicts]')!.textContent).toContain('Разные значения в файлах: 1')
+    button('Добавить в конец').click()
+    await settle()
+    expect(form.goodsItems).toHaveLength(1)
+    expect(form.goodsItems[0]).toMatchObject({ customsValue: 900, netWeightKg: 10, grossWeightKg: 12 })
+  })
+
+  it('№10б: в ДТ уже есть товары — «Дополнить пустые поля» по умолчанию, без дублей; «Отменить» возвращает как было', async () => {
+    excel.readExcelDocuments.mockResolvedValue({ docs: [sheet([
+      { description: 'НОУТБУКИ', tnvedCode: '8471300000', grossWeightKg: 999, customsValue: 1 },
+      { description: 'МЫШИ', tnvedCode: '8471607000', grossWeightKg: 2 },
+    ])] })
+    const first = item({ grossWeightKg: null, customsValue: 25000 })
+    await mount([first])
+    await pick(file('again.xlsx'))
+    const modal = document.querySelector('[data-goods-excel-modal]') as HTMLElement
+    expect(modal.querySelector('[data-goods-excel-existing]')!.textContent).toContain('Совпадают со строками файла: 1')
+    button('Применить').click()
+    await settle()
+    expect(form.goodsItems).toHaveLength(2)
+    expect(toRaw(form.goodsItems[0])).toBe(first)
+    expect(form.goodsItems[0]).toMatchObject({ grossWeightKg: 999, customsValue: 25000 })
+    const call = toast.success.mock.calls.at(-1)![0] as { content: string; action: { label: string; onClick: () => void } }
+    expect(call.content).toBe('Обновлено товаров: 1; добавлено: 1')
+    expect(call.action.label).toBe('Отменить')
+    call.action.onClick()
+    await settle()
+    expect(form.goodsItems).toHaveLength(1)
+    expect(toRaw(form.goodsItems[0])).toBe(first)
+    expect(form.goodsItems[0].grossWeightKg).toBeNull()
+    expect(toast.info).toHaveBeenCalledWith('Импорт отменён')
+  })
+
+  it('№10а: описания на китайском — перевод (ИИ) при «Добавить» по галочке; полоса «Описания на китайском» в разделе', async () => {
+    excel.readExcelDocuments.mockResolvedValue({ docs: [sheet([{ description: '脚手架扣件', tnvedCode: '7326909807', quantity: 3000 }])] })
+    i40.translateGoods.mockResolvedValue({ texts: ['Хомуты строительных лесов'] })
+    await mount([])
+    await pick(file('cn.xlsx'))
+    const modal = document.querySelector('[data-goods-excel-modal]') as HTMLElement
+    expect(modal.querySelector('[data-goods-excel-translate]')!.textContent).toContain('Перевести описания на русский (ИИ): 1')
+    button('Добавить в конец').click()
+    await settle()
+    expect(i40.translateGoods).toHaveBeenCalledWith('c1', ['脚手架扣件'])
+    expect(form.goodsItems[0].description).toBe('ХОМУТЫ СТРОИТЕЛЬНЫХ ЛЕСОВ')
+    // код без ДЕИ — количество в строку гр. 31 (№1)
+    expect(form.goodsItems[0].quantity).toBeNull()
+    expect(form.goodsItems[0].characteristics![0].quantity).toBe(3000)
+
+    w.unmount()
+    i40.translateGoods.mockResolvedValue({ texts: ['Трубы стальные'] })
+    await mount([item({ description: '黑色金属脚手架钢管' })])
+    expect(w.get('[data-goods-han-banner]').text()).toContain('Описания на китайском: 1')
+    await w.get('[data-goods-translate]').trigger('click')
+    await settle()
+    expect(form.goodsItems[0]).toMatchObject({ description: 'ТРУБЫ СТАЛЬНЫЕ' })
+    expect(w.find('[data-goods-han-banner]').exists()).toBe(false)
   })
 
   it('«В Excel» — все товары с ключевыми графами, имя файла с номером ДТ', async () => {

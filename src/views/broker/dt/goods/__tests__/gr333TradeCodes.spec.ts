@@ -5,7 +5,9 @@ import type { Import40GoodsItemInput } from '@/types/api'
 import { goodsFromSheetRows } from '@/utils/goodsExcel'
 import { appendCodes, gs1CheckDigitOk, gtinLineProblems, gtinProblem, ntinProblem, parseCodes } from '../editor/tradeCodes'
 import GoodsTradeCodesBlock from '../editor/GoodsTradeCodesBlock.vue'
-import { dtGoodsFromExcel, excelPreview } from '../goodsImport'
+import { excelPreview } from '../goodsImport'
+import { buildGoods } from '../importBuild'
+import { fromExcelRow } from '../importRows'
 import { goodsExportRows } from '../goodsExport'
 import { goodsFieldFromReadiness } from '../goodsFieldTarget'
 import { cloneGoodsItem, newDtGoodsItem } from '../useDtGoods'
@@ -157,14 +159,16 @@ describe('гр. 33.3 — данные ДТ, Excel, «До подачи»', () =>
     expect(transit).toHaveLength(2)
     expect('ntins' in transit[0]).toBe(false)
 
+    // Строка без кода и наименования (только NTIN) — не товар (правило разбора с 19.10; до пакета импорта тест ждал 3).
     const dt = goodsFromSheetRows(rows, { tradeCodes: true })
-    expect(dt).toHaveLength(3)
+    expect(dt).toHaveLength(2)
     expect(dt[0]).toMatchObject({ ntins: [NTIN1], gtin: '4006381333931' })
     expect(dt[1]).toMatchObject({ ntins: [NTIN1, NTIN2], gtin: 'ART-1\nART-2' })
-    expect(excelPreview(dt, []).recognized.tradeCodes).toBe(3)
-    const goods = dtGoodsFromExcel(dt, { currency: 'USD', packageKinds: [] })
-    expect(goods[1].ntins).toEqual([NTIN1, NTIN2])
-    expect(goods[1].gtin).toBe('ART-1\nART-2')
+    const importRows = dt.map((r) => fromExcelRow(r, 'x.xlsx'))
+    const built = buildGoods(importRows, { currency: 'USD', packageKinds: [], resolved: null })
+    expect(excelPreview(importRows, built).recognized.tradeCodes).toBe(2)
+    expect(built.goods[1].ntins).toEqual([NTIN1, NTIN2])
+    expect(built.goods[1].gtin).toBe('ART-1\nART-2')
   })
 
   it('выгрузка в Excel: столбцы NTIN и GTIN', () => {

@@ -135,6 +135,7 @@ describe('goodsFromSheetRows: сведения шаблона декларант
       productArticle: 'URS07', serialNumbers: null, standardName: 'ГОСТ 123', productSortName: null, measureUnit: 'ШТ',
       cargoPartQuantity: 1, individualPackages: 47, packageAvailabilityCode: '1',
       docTypeCode: '01401', docNumber: 'KZ.123', docDate: '2026-09-05', invoiceNumber: 'UR0910', invoiceDate: '2026-09-10',
+      rowName: null, packageQuantity: null, lineNo: null, originText: null,
     })
     // «ЧАСТЬ МЕСТА» и «КОЛ-ВО ИНДИВ. УПАК.» не перехватывают места и количество
     expect(g).toMatchObject({ quantity: 47, packagesCount: 0, tnvedCode: '7323990000' })

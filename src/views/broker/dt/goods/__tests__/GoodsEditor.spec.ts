@@ -31,6 +31,8 @@ const tnved = vi.hoisted(() => ({
   node: vi.fn(),
   rates: vi.fn(),
   tariffOptions: vi.fn(),
+  semantic: vi.fn(),
+  classify: vi.fn(),
   search: vi.fn(async () => ({ data: [] })),
   reference: vi.fn(async () => ({ data: null })),
 }))
@@ -397,6 +399,65 @@ describe('GoodsEditor: пределы полей по структуре ДТ (�
     // Строка характеристик гр. 31: знак/марка/модель/сорт — Name250, артикул — Id50, стандарт — 40.
     const max = (f: string) => field(`char-0-${f}`).maxLength
     expect(['tradeMark', 'mark', 'model', 'sort', 'article', 'standard'].map(max)).toEqual([250, 250, 250, 250, 50, 40])
+  })
+})
+
+// №1 / №4 (пакет импорта 21.10.2026): гр. 41 — только при ДЕИ; «Тип количества» скрыт без ДЕИ.
+describe('GoodsEditor: гр. 41 без ДЕИ', () => {
+  beforeEach(() => {
+    tnved.rates.mockImplementation(async (code: string) => ({
+      data: code === '7323990000' ? { unitCode: null, unitName: null } : { unitCode: '796', unitName: 'Штука', unitShortName: 'ШТ' },
+    }))
+  })
+
+  it('код без ДЕИ и количество в гр. 41 — предупреждение и «Перенести в гр. 31»; «Тип количества» скрыт', async () => {
+    await mount([item({ tnvedCode: '7323990000', quantity: 470, unitCode: '796', characteristics: [{ productArticle: 'URS07' }] })], { query: '&item=1' })
+    await click('[data-goods-tab="qty"]')
+    expect(q('[data-goods-qty-no-dei]')!.textContent).toContain('У кода нет доп. единицы')
+    expect(q('[data-goods-field="quantityTypeCode"]')).toBeNull()
+    await click('[data-goods-qty-move-to-row]')
+    const g = form.goodsItems[0]
+    expect(g).toMatchObject({ quantity: null, unitCode: null, unit: null, needsTpinRecalc: true })
+    expect(g.characteristics![0]).toMatchObject({ productArticle: 'URS07', quantity: 470, unitCode: '796' })
+    expect(q('[data-goods-qty-no-dei]')).toBeNull()
+  })
+
+  it('строк гр. 31 несколько — без кнопки, «перенесите вручную»; с ДЕИ, гр. 41 пуста, строка в ДЕИ — «Взять из гр. 31»', async () => {
+    await mount([
+      item({ tnvedCode: '7323990000', quantity: 10, characteristics: [{ productArticle: 'A' }, { productArticle: 'B' }] }),
+      item({ tnvedCode: '4202121900', quantity: null, characteristics: [{ quantity: 300, unitCode: '796', tradeMarkName: 'X' }] }),
+    ], { query: '&item=1' })
+    await click('[data-goods-tab="qty"]')
+    expect(q('[data-goods-qty-no-dei]')!.textContent).toContain('перенесите количество в нужную строку вручную')
+    expect(q('[data-goods-qty-move-to-row]')).toBeNull()
+    await click('[data-goods-next]')
+    await click('[data-goods-tab="qty"]')
+    await click('[data-goods-qty-take-from-row]')
+    expect(form.goodsItems[1]).toMatchObject({ quantity: 300, unitCode: '796' })
+    expect(form.goodsItems[1].characteristics![0]).toMatchObject({ quantity: null, unitCode: null, tradeMarkName: 'X' })
+    expect(q('[data-goods-field="quantityTypeCode"]')).not.toBeNull()
+  })
+})
+
+// №9 / №2 (пакет импорта 21.10.2026): товар без кода — «Похожие коды»; у товарного знака — подсказка «ОТСУТСТВУЕТ».
+describe('GoodsEditor: «Похожие коды», «ОТСУТСТВУЕТ» у знака', () => {
+  it('без кода и с описанием — до 3 кодов смыслового поиска (без модели — по словам), «Выбрать» ставит код и описание ТН ВЭД', async () => {
+    tnved.semantic.mockResolvedValue({ data: { available: false, model: null, tookMs: 0, matches: [] } })
+    tnved.classify.mockResolvedValue({ data: { matches: [
+      { code: '7308400000', description: 'ОБОРУДОВАНИЕ ДЛЯ ЛЕСОВ', probability: 0.8, rateStr: null, unitName: null },
+    ], exactCodeInfo: null, suggestedGroup: null } })
+    await mount([item({ tnvedCode: null, tnvedDescription: null, description: 'СТРОИТЕЛЬНЫЕ ЛЕСА' })], { query: '&item=1' })
+    expect(tnved.classify).toHaveBeenCalledWith('СТРОИТЕЛЬНЫЕ ЛЕСА', 3, { silent: true })
+    expect(q('[data-goods-similar-item]')!.textContent).toContain('7308400000')
+    await click('[data-goods-similar-pick]')
+    expect(form.goodsItems[0]).toMatchObject({ tnvedCode: '7308400000', tnvedDescription: 'ОБОРУДОВАНИЕ ДЛЯ ЛЕСОВ' })
+    expect(q('[data-goods-similar]')).toBeNull()
+  })
+
+  it('товарный знак пуст — серая подсказка «ОТСУТСТВУЕТ», как у марки и модели', async () => {
+    writeCharsMode('cards')
+    await mount([item({ characteristics: [{ manufacturerName: 'YIWU' }] })], { query: '&item=1' })
+    expect(field('char-0-tradeMark').placeholder).toBe('ОТСУТСТВУЕТ')
   })
 })
 

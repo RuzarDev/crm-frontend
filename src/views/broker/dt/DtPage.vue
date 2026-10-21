@@ -208,6 +208,8 @@ const goodsEditorContext = computed<GoodsPageContext>(() => ({
   declProcedure: form.procedureCode || null,
   containerIndicator: !!form.containerIndicator,
   declarationId: dtId,
+  senderName: form.sender?.name || null,
+  senderCountryCode: form.sender?.countryCode || null,
 }))
 const goodsSaveState = computed<GoodsSaveState>(() => ({
   saving: dt.saving.value,

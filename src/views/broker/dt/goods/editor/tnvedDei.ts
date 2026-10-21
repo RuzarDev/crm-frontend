@@ -51,6 +51,12 @@ export function loadDei(tnvedCode: string | null | undefined): Promise<TnvedDei 
   return run
 }
 
+/** Засеять кэш ответом пакетной проверки кодов (импорт в ДТ): dei — единица, null — у кода нет ДЕИ. */
+export function seedDei(tnvedCode: string, dei: TnvedDei | null): void {
+  const c = norm(tnvedCode)
+  if (isLeafCode(c)) known[c] = dei
+}
+
 /** Для тестов. */
 export function resetTnvedDeiCache(): void {
   for (const c of Object.keys(known)) delete known[c]

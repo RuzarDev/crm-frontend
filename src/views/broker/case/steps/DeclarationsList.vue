@@ -22,13 +22,16 @@ import { hintText } from '../casePermissions'
 import { dtLabel } from '../caseSteps'
 import {
   dtListActive, dtPath, dtRowActions, filterDeclarations, groupDeclarations, hasSplitParts, isLiveSplitPart, missingPreview,
-  previewToUpsert, splitBatchWarning, splitExportWarning, splitTag, type DtListRow,
+  splitBatchWarning, splitExportWarning, splitTag, type DtListRow,
 } from '../declarations'
 import ExtractionIssuesModal from './ExtractionIssuesModal.vue'
 import ExtractDocsModal from './ExtractDocsModal.vue'
 import CopyDtModal from './CopyDtModal.vue'
-import { applyExcelFallback, docHeaderFrom, type ExcelDoc } from './excelFallback'
-import { readExcelDocument } from '@/utils/goodsExcel'
+import { docHeaderFrom, type ExcelDoc } from './excelFallback'
+import { prepareDocumentsDeclaration, type DocumentsNote } from './documentsImport'
+import { goodsHeaderColumns, readExcelDocuments } from '@/utils/goodsExcel'
+import { countryFromText } from '@/utils/importText'
+import { useClassifiersStore } from '@/stores/classifiers'
 import CondRelTag from '@/components/condrel/CondRelTag.vue'
 import { briefOf } from '@/utils/conditionalRelease'
 import QuoteImportModal from './QuoteImportModal.vue'
@@ -203,25 +206,51 @@ const onPicked = async ({ fileIds, uploads }: { fileIds: string[]; uploads: File
  * окне или сканы с границы, StepDeclaring) — их сервер берёт из хранилища.
  */
 /**
- * Excel из набора — нашим разбором (excelFallback): файлы с компьютера как есть, документы заявки — скачиванием.
+ * Excel из набора — нашим разбором (excelFallback): файлы с компьютера как есть, документы заявки — скачиванием; .xlsx и
+ * .xls (Zircon AI .xls не читает — пакет импорта 21.10), каждый лист с таблицей товаров — отдельный документ.
  * Ошибка чтения одного файла не мешает остальным (и самому распознаванию).
  */
 const readExcelDocs = async (caseId: string, files: File[], fileIds: readonly string[]): Promise<ExcelDoc[]> => {
-  const isXlsx = (name: string) => /\.xlsx$/i.test(name)
+  const isExcel = (name: string) => /\.xlsx?$/i.test(name)
   const sources: { name: string; load: () => Promise<Blob> }[] = [
-    ...files.filter((f) => isXlsx(f.name)).map((f) => ({ name: f.name, load: async () => f as Blob })),
-    ...props.ctx.files.filter((f) => fileIds.includes(f.id) && isXlsx(f.originalFileName))
+    ...files.filter((f) => isExcel(f.name)).map((f) => ({ name: f.name, load: async () => f as Blob })),
+    ...props.ctx.files.filter((f) => fileIds.includes(f.id) && isExcel(f.originalFileName))
       .map((f) => ({ name: f.originalFileName, load: () => import40Api.downloadFile(caseId, f.id) })),
   ]
   const docs: ExcelDoc[] = []
   for (const s of sources) {
     try {
-      const doc = await readExcelDocument(await s.load(), { details: true })
-      if ('problem' in doc) continue
-      docs.push({ fileName: s.name, goods: doc.goods, header: docHeaderFrom(s.name, doc.headerRows, doc.tableHeader) })
+      const res = await readExcelDocuments(await s.load(), { details: true, countryResolver: (text) => countryFromText(text) })
+      if ('problem' in res) continue
+      for (const d of res.docs) {
+        const cols = goodsHeaderColumns(d.tableHeader, { details: true }, d.rows.slice(1, 50))
+        docs.push({
+          fileName: s.name,
+          sheet: res.docs.length > 1 ? d.sheet : null,
+          goods: d.goods,
+          header: docHeaderFrom(`${s.name} ${d.sheet}`, d.headerRows, d.tableHeader),
+          rows: d.rows,
+          placesHeader: cols.packagesCount != null ? String(d.tableHeader[cols.packagesCount] ?? '') : null,
+        })
+      }
     } catch { /* не прочитался — остаётся то, что распознал Zircon AI */ }
   }
   return docs
+}
+
+/** Виды упаковки (классификатор 2013) для товаров «Из документов»; не загрузились — без вида упаковки по словам. */
+const loadPackageKinds = async () => {
+  try {
+    return await useClassifiersStore().load('2013')
+  } catch {
+    return []
+  }
+}
+/** Замечание конвейера импорта → текст окна замечаний. */
+const noteText = (n: DocumentsNote): string => {
+  const p = { ...(n.params ?? {}) }
+  if (typeof p.reasonKey === 'string') p.reason = t(`broker.case.declaring.batch.reason.${p.reasonKey}`)
+  return t(`broker.case.declaring.batch.${n.key}`, p)
 }
 
 const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
@@ -231,16 +260,25 @@ const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
   let result: Import40ExtractionResult | null = null
   let createdId: string | null = null
   let usedExcel = false
+  let extraWarnings: string[] = []
   const ok = await props.ctx.actions.mutate('dt-batch', async () => {
     result = await import40Api.extractBatch(caseId, files, fileIds)
-    // Zircon AI знает только шаблон KTZE: инвойс и упаковочный лист поставщика дочитывает наш разбор Excel.
-    const excel = applyExcelFallback(result.declaration, await readExcelDocs(caseId, files, fileIds))
-    usedExcel = excel.usedExcelGoods
+    // Zircon AI + наш разбор Excel → товары ДТ по одним правилам с «Из Excel» (коды одним запросом, гр. 41 / гр. 31,
+    // упаковка, страна, отправитель с адресом), гр. 44 инвойса, упаковочного и транспортного документа.
+    const [docs, packageKinds] = await Promise.all([
+      readExcelDocs(caseId, files, fileIds),
+      loadPackageKinds(),
+    ])
+    const prepared = await prepareDocumentsDeclaration(result, docs, kase.value, packageKinds)
+    usedExcel = prepared.usedExcelGoods
+    extraWarnings = prepared.notes.map(noteText)
     stage = 'create'
-    const body = previewToUpsert(excel.preview)
-    if (excel.doc44Items.length) body.doc44Items = excel.doc44Items
-    const created = await import40Api.createDeclaration(caseId, body)
+    const created = await import40Api.createDeclaration(caseId, prepared.body)
     createdId = created.id
+    // Получатель из документов не совпал с компанией клиента — сервер не взял поля профиля (В17): предупредить.
+    if (prepared.receiverName && !created.receiver?.city && !created.receiver?.street) {
+      extraWarnings.push(t('broker.case.declaring.batch.receiverMismatch', { name: prepared.receiverName }))
+    }
     // Сверка документов этого разбора — к созданной ДТ (17.10); не вышло — сверка просто не привязана к ДТ.
     if (result.documentCheckId) {
       await documentChecksApi.link(caseId, result.documentCheckId, created.id).catch(() => undefined)
@@ -253,8 +291,9 @@ const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
     return
   }
   message.success(t(usedExcel ? 'broker.case.declaring.batch.doneFromExcel' : 'import40Case.batchProcessed'))
-  if (extracted.conflicts.length || extracted.warnings.length) {
-    issues.value = extracted
+  const warnings = [...extracted.warnings, ...extraWarnings]
+  if (extracted.conflicts.length || warnings.length) {
+    issues.value = { ...extracted, warnings }
     pendingDt = dtId
     issuesOpen.value = true
     return

@@ -36,6 +36,16 @@ export interface GoodsExcelDetails {
   docDate: string | null
   invoiceNumber: string | null
   invoiceDate: string | null
+  /** «ХАРАКТЕРИСТИКА» шаблона — наименование строки характеристик гр. 31 (пакет импорта 21.10). */
+  rowName: string | null
+  /** «Кол-во упаковок» — число упаковок гр. 31 (не места). */
+  packageQuantity: number | null
+  /** «№» строки таблицы — первый ключ сопоставления инвойса и упаковочного листа (№15). */
+  lineNo: number | null
+  /** Страна происхождения текстом, если резолвер (countryResolver) её не узнал («Made in PRC»). */
+  originText: string | null
+  /** Единица количества взята из заголовка столбца количества («Кол-во (pcs)»), а не из своего столбца. */
+  unitFromHeader?: boolean
 }
 
 export interface GoodsExcelOptions {
@@ -43,6 +53,11 @@ export interface GoodsExcelOptions {
   tradeCodes?: boolean
   /** Сведения шаблона декларанта для ДТ (GoodsExcelDetails); транзит их не знает. */
   details?: boolean
+  /**
+   * Страна происхождения текстом → цифровой код ОКСМ (ДТ: справочник стран страницы — «CN», «156», «Китай», «China»,
+   * «中国»). Нет резолвера — как раньше, только две латинские буквы (транзит).
+   */
+  countryResolver?: (text: string) => string | null
 }
 
 export const GOODS_EXCEL_ACCEPT = '.xlsx,.xls'
@@ -66,52 +81,60 @@ export const GOODS_EXCEL_MESSAGES: Record<GoodsExcelProblem, string> = {
 // «КЕДЕН ШАПКА», но и инвойсы/спецификации поставщиков: шапка компании сверху, «Наименование» вместо «Коммерческое
 // описание», «ТН ВЭД» без «Код», английские заголовки (19.10.2026: декларант не смогла загрузить такой файл).
 // Поэтому заголовки матчим по нормализованной подстроке, а «=…» — только точным совпадением (короткие слова).
-type DetailField = keyof GoodsExcelDetails
+type DetailField = Exclude<keyof GoodsExcelDetails, 'originText' | 'unitFromHeader'>
 type ExcelField =
   | 'tnvedCode' | 'description' | 'grossWeightKg' | 'netWeightKg' | 'quantity' | 'unit' | 'packagesCount'
-  | 'customsValue' | 'countryOfOrigin' | 'ntins' | 'gtin' | DetailField
+  | 'customsValue' | 'countryOfOrigin' | 'ntins' | 'gtin' | 'unitPrice' | DetailField
 
 // Порядок важен: сначала более узкие поля, чтобы «Количество грузовых мест» досталось местам, а не количеству,
 // «Вес нетто» — нетто, «Код ТН ВЭД» — коду, а не описанию. Каждый столбец — не больше чем одному полю.
+// Китайские и английские синонимы (пакет импорта 21.10: 毛重 / 净重 / 件数 / 金额 / 品名…) — синхронно с
+// zircon-ai/aqniet/generic.py GENERIC_COLUMNS.
 const EXCEL_COLUMN_MATCHERS: { field: ExcelField; patterns: string[] }[] = [
   // Сведения ДТ (details) — до общих полей: «ЧАСТЬ МЕСТА» — не места, «КОЛ-ВО ИНДИВ. УПАК.» — не количество,
-  // «№ ИНВОЙСА»/«КОД ДОКУМЕНТА» — не код ТН ВЭД, «ЕД.ИЗМЕРЕНИЯ» — не вид упаковки.
+  // «№ ИНВОЙСА»/«КОД ДОКУМЕНТА» — не код ТН ВЭД, «ЕД.ИЗМЕРЕНИЯ» — не вид упаковки, «Кол-во упаковок» — не количество.
   { field: 'cargoPartQuantity', patterns: ['частьместа', 'частичнозанят'] },
   { field: 'individualPackages', patterns: ['колвоиндив', 'количествоиндив', 'индивупак', 'индивидуальн'] },
+  { field: 'packageQuantity', patterns: ['колвоупаковок', 'количествоупаковок'] },
   { field: 'packageAvailabilityCode', patterns: ['наличиеупаковки', 'супаковкой', 'безупаковки'] },
   { field: 'invoiceDate', patterns: ['датаинвойса', 'invoicedate', 'датасчета'] },
   { field: 'invoiceNumber', patterns: ['инвойс', 'invoiceno', 'invoicenumber', 'номерсчета'] },
   { field: 'docDate', patterns: ['датадокумента'] },
   { field: 'docNumber', patterns: ['номердокумента'] },
   { field: 'docTypeCode', patterns: ['коддокумента', 'виддокумента'] },
-  { field: 'measureUnit', patterns: ['единицаизмерения', 'едизмерения', 'едизм', '=ед', 'uom', '=unit'] },
-  { field: 'manufacturerName', patterns: ['производитель', 'изготовитель', 'manufacturer'] },
-  { field: 'tradeMarkName', patterns: ['товарныйзнак', 'trademark', 'бренд', '=brand'] },
-  { field: 'productMarkName', patterns: ['=марка', 'маркатовара', '=mark'] },
-  { field: 'productModelName', patterns: ['модель', '=model'] },
-  { field: 'productArticle', patterns: ['артикул', 'article', '=sku', '=art'] },
+  // Цена за единицу — никуда не переносится; столбец занят, чтобы «单价 / Цена» не взяли стоимость или единицу.
+  { field: 'unitPrice', patterns: ['ценазаединицу', 'ценазаед', '单价', 'unitprice', '=цена', '=price'] },
+  { field: 'measureUnit', patterns: ['единицаизмерения', 'едизмерения', 'едизм', '=ед', 'uom', '=unit', 'unitofmeasure', '计量单位', '=单位'] },
+  { field: 'rowName', patterns: ['наименованиехарактеристики', '=характеристика', 'характеристикатовара'] },
+  { field: 'manufacturerName', patterns: ['производитель', 'изготовитель', 'manufacturer', '生产商', '制造商'] },
+  { field: 'tradeMarkName', patterns: ['товарныйзнак', 'торговыйзнак', 'торговаямарка', 'trademark', 'бренд', '=brand', '商标'] },
+  { field: 'productMarkName', patterns: ['=марка', 'маркатовара', '=mark', '品牌'] },
+  { field: 'productModelName', patterns: ['модель', '=model', 'modelno', '型号'] },
+  { field: 'productArticle', patterns: ['артикул', 'article', '=sku', '=art', 'itemcode', 'productcode', '货号', '款号'] },
   { field: 'serialNumbers', patterns: ['серийн', 'serial'] },
   { field: 'standardName', patterns: ['гост', 'стандарт', '=ту'] },
   { field: 'productSortName', patterns: ['=сорт', 'сорттовара', '=grade'] },
-  { field: 'packagesCount', patterns: ['количествогрузовыхмест', 'грузовыхмест', 'колвомест', 'количествомест', 'местгруза', '=мест', '=места', 'cartons', 'ctns', '=pkgs', 'places', 'numberofpackages'] },
-  { field: 'grossWeightKg', patterns: ['брутто', 'grossweight', '=gross', 'gw'] },
-  { field: 'netWeightKg', patterns: ['нетто', 'netweight', '=net', 'netto', 'nw'] },
-  { field: 'tnvedCode', patterns: ['кодтнвэд', 'тнвэд', 'тнвед', 'hscode', '=hs', 'кодтн'] },
+  { field: 'packagesCount', patterns: ['количествогрузовыхмест', 'грузовыхмест', 'колвомест', 'количествомест', 'местгруза', '=мест', '=места', 'cartons', 'ctns', '=pkgs', 'places', 'numberofpackages', '件数', '箱数', '=boxes', 'cartonqty'] },
+  { field: 'grossWeightKg', patterns: ['брутто', 'grossweight', '=gross', 'gw', '毛重'] },
+  { field: 'netWeightKg', patterns: ['нетто', 'netweight', '=net', 'netto', 'nw', '净重'] },
+  { field: 'tnvedCode', patterns: ['кодтнвэд', 'тнвэд', 'тнвед', 'hscode', '=hs', 'кодтн', '海关编码', 'hs编码', '商品编码'] },
   // Гр. 33.3 (только ДТ, опция tradeCodes): «NTIN», «NTIN (гр. 33.3)», «GTIN или другой идентификационный код (артикул)».
   { field: 'ntins', patterns: ['ntin'] },
   { field: 'gtin', patterns: ['gtin'] },
-  { field: 'unit', patterns: ['видупаковки', 'типупаковки', 'packagetype', 'packingtype'] },
-  { field: 'quantity', patterns: ['количествотовара', 'количество', 'колво', '=кол', 'qty', 'quantity'] },
-  { field: 'customsValue', patterns: ['фактурнаястоимость', 'стоимость', 'сумма', 'amount', 'totalvalue', '=total', '=value'] },
-  { field: 'countryOfOrigin', patterns: ['странапроисхождения', 'countryoforigin', '=origin'] },
-  { field: 'description', patterns: ['коммерческоеописание', 'наименование', 'описание', 'description', 'goodsname', 'productname', '=товар', '=товары', '=product', '=goods', '=name'] },
+  { field: 'unit', patterns: ['видупаковки', 'типупаковки', 'packagetype', 'packingtype', '包装方式'] },
+  { field: 'quantity', patterns: ['количествотовара', 'количество', 'колво', '=кол', 'qty', 'quantity', '数量', '=pcs'] },
+  { field: 'customsValue', patterns: ['фактурнаястоимость', 'стоимость', 'сумма', 'amount', 'totalvalue', '=total', '=value', '金额', '总价', 'totalprice'] },
+  { field: 'countryOfOrigin', patterns: ['странапроисхождения', 'countryoforigin', '=origin', '原产地', '=产地', 'madein'] },
+  { field: 'description', patterns: ['коммерческоеописание', 'наименование', 'описание', 'description', 'goodsname', 'productname', '=товар', '=товары', '=product', '=goods', '=name', '品名', '货物名称', '产品描述', '商品名称', '产品名称', '=variety'] },
 ]
 const TRADE_CODE_FIELDS: ReadonlySet<ExcelField> = new Set(['ntins', 'gtin'])
 const DETAIL_FIELDS: ReadonlySet<ExcelField> = new Set<DetailField>([
   'manufacturerName', 'tradeMarkName', 'productMarkName', 'productModelName', 'productArticle', 'serialNumbers',
   'standardName', 'productSortName', 'measureUnit', 'cargoPartQuantity', 'individualPackages', 'packageAvailabilityCode',
-  'docTypeCode', 'docNumber', 'docDate', 'invoiceNumber', 'invoiceDate',
+  'docTypeCode', 'docNumber', 'docDate', 'invoiceNumber', 'invoiceDate', 'rowName', 'packageQuantity', 'lineNo',
 ])
+/** «№», «No.», «#», «序号», «№ п/п» — номер строки таблицы (только ДТ: ключ сопоставления файлов). */
+const LINE_NO_HEADER = /^(№|#|no\.?|n°|№\s*п\s*\/?\s*п|п\s*\/\s*п|item\s*no\.?|序号)$/i
 /** «Отсутствует», «нет», «-», «N/A» — значения нет. */
 export const ABSENT = /^(отсутству\S*|нет|не\s*указан\S*|[-—–]+|n\/?a|none)$/i
 /** Шапку таблицы ищем в первых строках листа (сверху бывают реквизиты, номер инвойса и т. п.). */
@@ -190,6 +213,26 @@ function excelCountry(v: unknown): string | null {
   return s && /^[A-Z]{2}$/.test(s) ? s : null
 }
 
+/** Номер строки таблицы: целое число 1…99999 (иначе пусто — это не номер позиции). */
+function excelLineNo(v: unknown): number | null {
+  const n = typeof v === 'number' ? v : excelToStr(v) && /^\d{1,5}\.?$/.test(excelToStr(v)!) ? parseInt(excelToStr(v)!, 10) : NaN
+  return Number.isInteger(n) && n > 0 && n < 100000 ? n : null
+}
+
+/**
+ * Единица количества из заголовка столбца: «Кол-во (pcs)», «Quantity, pairs», «数量(套)» → «PCS» / «PAIRS» / «SET».
+ * Нет единицы в заголовке — null. Иероглифы — по смыслу: 个/件/只 → ШТ, 双 → ПАР, 套 → SET.
+ */
+export function unitFromHeader(header: unknown): string | null {
+  const s = String(header ?? '')
+  const m = /[(（,，]\s*(pcs|pc|шт\.?|sets?|pairs?|пар[аы]?|kgs?|кг|m2|м2|㎡|m|м|l|л|套|个|件|双|只)\s*[)）]?\s*$/iu.exec(s)
+    ?? /[(（]\s*(pcs|pc|шт\.?|sets?|pairs?|пар[аы]?|kgs?|кг|m2|м2|㎡|套|个|件|双|只)\s*[)）]/iu.exec(s)
+  if (!m) return null
+  const u = m[1].toLocaleUpperCase('ru-RU').replace(/\.$/, '')
+  const han: Record<string, string> = { 个: 'ШТ', 件: 'ШТ', 只: 'ШТ', 双: 'ПАР', 套: 'SET' }
+  return han[u] ?? (u === '㎡' ? 'M2' : u)
+}
+
 /** Текст сведения: «Отсутствует» и т. п. — пусто, иначе ЗАГЛАВНЫМИ (как поля ДТ). */
 function excelText(v: unknown): string | null {
   const s = excelToStr(v)
@@ -231,8 +274,24 @@ function excelPackageAvailability(v: unknown): string | null {
   return /упаков/.test(s) ? '1' : null
 }
 
-function matches(norm: string, pattern: string): boolean {
-  return pattern.startsWith('=') ? norm === pattern.slice(1) : norm.includes(pattern)
+/**
+ * Части двуязычного заголовка для точных образцов «=…»: «Марка / 品牌», «品牌 Brand», «Brand\n品牌», «Цена (USD)» —
+ * по «/», «|», переводу строки, скобкам и границе иероглифов. Целиком заголовок тоже проверяется.
+ */
+export function headerParts(raw: unknown): string[] {
+  return String(raw ?? '')
+    // «pcs/ctn», «G.W/ctn» — «на коробку», а не два заголовка: косую черту перед единицей не режем.
+    .replace(/\/\s*(?=(ctns?|cartons?|box(es)?|pcs?|kgs?|units?|шт|кор|箱)\b)/giu, ' per ')
+    .split(/[/|\n\r()（）]+/)
+    .flatMap((p) => p.split(/(?<=\p{Script=Han})(?=[^\p{Script=Han}\s])|(?<=[^\p{Script=Han}\s])(?=\p{Script=Han})|(?<=\p{Script=Han})\s+|\s+(?=\p{Script=Han})/u))
+    .map(normalizeHeader)
+    .filter(Boolean)
+}
+
+function matches(norm: string, pattern: string, parts: readonly string[] = []): boolean {
+  if (!pattern.startsWith('=')) return norm.includes(pattern)
+  const p = pattern.slice(1)
+  return norm === p || parts.includes(p)
 }
 
 /** Поля-итоги по товару: из «НЕТТО» (вес штуки) и «Вес нетто итого» в гр. 38 идёт итог. */
@@ -252,14 +311,22 @@ function headerColumns(
   headerRow: readonly unknown[], opts: GoodsExcelOptions, dataRows: readonly unknown[][] = [],
 ): Partial<Record<ExcelField, number>> {
   const norms = headerRow.map(normalizeHeader)
+  const parts = headerRow.map(headerParts)
   const hasData = (idx: number) => dataRows.some((r) => r?.[idx] != null && String(r[idx]).trim() !== '')
   const used = new Set<number>()
   const colIndex: Partial<Record<ExcelField, number>> = {}
+  if (opts.details) {
+    const at = headerRow.findIndex((h) => LINE_NO_HEADER.test(String(h ?? '').trim()))
+    if (at >= 0) {
+      colIndex.lineNo = at
+      used.add(at)
+    }
+  }
   for (const matcher of EXCEL_COLUMN_MATCHERS) {
     if (!opts.tradeCodes && TRADE_CODE_FIELDS.has(matcher.field)) continue
     if (!opts.details && DETAIL_FIELDS.has(matcher.field)) continue
     for (const pattern of matcher.patterns) {
-      const candidates = norms.flatMap((n, i) => (n && !used.has(i) && matches(n, pattern) ? [i] : []))
+      const candidates = norms.flatMap((n, i) => (n && !used.has(i) && matches(n, pattern, parts[i]) ? [i] : []))
       if (!candidates.length) continue
       const rank = (i: number) => (hasData(i) ? 0 : 4)
         + (TOTAL_FIELDS.has(matcher.field) ? (TOTAL_HEADER.test(norms[i]) ? 0 : PER_UNIT_HEADER.test(norms[i]) ? 2 : 1) : 0)
@@ -290,7 +357,8 @@ export function findGoodsHeader(rows: unknown[][], opts: GoodsExcelOptions = {})
   let best: { index: number; score: number } | null = null
   for (let i = 0; i < Math.min(rows.length, HEADER_SCAN_ROWS); i++) {
     const cols = headerColumns(rows[i] ?? [], opts)
-    const score = Object.keys(cols).length
+    // Цена и № строки сами по себе таблицу товаров не делают («Наименование | Цена» — не шапка товаров).
+    const score = Object.keys(cols).filter((k) => k !== 'unitPrice' && k !== 'lineNo').length
     if ((cols.tnvedCode == null && cols.description == null) || score < 2) continue
     if (!best || score > best.score) best = { index: i, score }
   }
@@ -301,8 +369,10 @@ export function findGoodsHeader(rows: unknown[][], opts: GoodsExcelOptions = {})
 export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = {}): GoodsExcelRow[] {
   const header = findGoodsHeader(rows, opts)
   if (!header) return []
-  const colIndex = headerColumns(rows[header.index] ?? [], opts, rows.slice(header.index + 1, header.index + 201))
+  const headerRow = rows[header.index] ?? []
+  const colIndex = headerColumns(headerRow, opts, rows.slice(header.index + 1, header.index + 201))
   const cell = (row: unknown[], f: ExcelField) => (colIndex[f] != null ? row[colIndex[f]!] : null)
+  const headerUnit = opts.details && colIndex.quantity != null ? unitFromHeader(headerRow[colIndex.quantity]) : null
 
   const goods: GoodsExcelRow[] = []
   for (let i = header.index + 1; i < rows.length; i++) {
@@ -317,7 +387,11 @@ export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = 
     const unit = excelToStr(cell(row, 'unit'))
     const packagesCount = excelToNum(cell(row, 'packagesCount'))
     const customsValue = excelToNum(cell(row, 'customsValue'))
-    const countryOfOrigin = excelCountry(cell(row, 'countryOfOrigin'))
+    // ДТ: страна текстом — резолвером страницы (буквенный, цифровой код или название); не узнана — в details.originText.
+    const countryRaw = excelToStr(cell(row, 'countryOfOrigin'))
+    const countryOfOrigin = opts.countryResolver
+      ? (countryRaw ? opts.countryResolver(countryRaw) : null)
+      : excelCountry(cell(row, 'countryOfOrigin'))
 
     const ntinsCell = excelCodes(cell(row, 'ntins'))
     const ntins = ntinsCell ? parseCodes(ntinsCell) : []
@@ -336,6 +410,7 @@ export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = 
       && packagesCount == null && customsValue == null && !ntins.length && !gtin
     if (isEmptyRow) continue
 
+    const cellUnit = excelText(cell(row, 'measureUnit'))
     const details: GoodsExcelDetails | undefined = opts.details
       ? {
           manufacturerName: excelText(cell(row, 'manufacturerName')),
@@ -346,7 +421,9 @@ export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = 
           serialNumbers: excelText(cell(row, 'serialNumbers')),
           standardName: excelText(cell(row, 'standardName')),
           productSortName: excelText(cell(row, 'productSortName')),
-          measureUnit: excelText(cell(row, 'measureUnit')),
+          // Своего столбца единиц нет — единица из заголовка количества («总数量 Кол-во (pcs)» → PCS).
+          measureUnit: cellUnit ?? headerUnit,
+          ...(cellUnit == null && headerUnit ? { unitFromHeader: true } : {}),
           cargoPartQuantity: excelToNum(cell(row, 'cargoPartQuantity')),
           individualPackages: excelToNum(cell(row, 'individualPackages')),
           packageAvailabilityCode: excelPackageAvailability(cell(row, 'packageAvailabilityCode')),
@@ -355,6 +432,10 @@ export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = 
           docDate: excelDate(cell(row, 'docDate')),
           invoiceNumber: excelText(cell(row, 'invoiceNumber')),
           invoiceDate: excelDate(cell(row, 'invoiceDate')),
+          rowName: excelText(cell(row, 'rowName')),
+          packageQuantity: excelToNum(cell(row, 'packageQuantity')),
+          lineNo: excelLineNo(cell(row, 'lineNo')),
+          originText: countryRaw && !countryOfOrigin && opts.countryResolver ? countryRaw : null,
         }
       : undefined
 
@@ -363,7 +444,8 @@ export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = 
       ...(details ? { details } : {}),
       description,
       tnvedCode,
-      tnvedDescription: description,
+      // ДТ: «Описание из ТН ВЭД» — название кода из справочника (подставит импорт после проверки кода), не текст инвойса.
+      tnvedDescription: opts.details ? null : description,
       countryOfOrigin,
       quantity,
       unit,
@@ -393,6 +475,37 @@ export async function readGoodsExcel(
   return { goods: doc.goods }
 }
 
+/** Лист книги с таблицей товаров (пакет импорта 21.10: книга «Invoice» + «Packing list» — два документа). */
+export interface ExcelSheetDoc {
+  sheet: string
+  goods: GoodsExcelRow[]
+  /** Строки над таблицей: шапка инвойса/упаковочного листа (номер, дата, продавец, условия поставки). */
+  headerRows: unknown[][]
+  /** Строка заголовков таблицы. */
+  tableHeader: unknown[]
+  /** Все строки листа — подписи под таблицей («Упаковка / 包装: …», «АВТО: …»). */
+  rows: unknown[][]
+}
+
+type SheetScan = { name: string; rows: unknown[][]; header: { index: number; score: number } | null }
+
+async function scanWorkbook(file: Blob, opts: GoodsExcelOptions): Promise<{ sheets: SheetScan[] } | { problem: GoodsExcelProblem }> {
+  const XLSX = await loadXlsx()
+  const buf = await file.arrayBuffer()
+  const wb = XLSX.read(buf, { type: 'array' })
+  if (!wb.SheetNames.length) return { problem: 'noSheets' }
+  const sheets = wb.SheetNames.map((name) => {
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[name], { header: 1, defval: null, raw: true })
+    return { name, rows, header: findGoodsHeader(rows, opts) }
+  })
+  if (!sheets.some((x) => x.rows.length)) return { problem: 'empty' }
+  return { sheets }
+}
+
+const sheetDoc = (x: SheetScan, goods: GoodsExcelRow[]): ExcelSheetDoc => ({
+  sheet: x.name, goods, headerRows: x.rows.slice(0, x.header!.index), tableHeader: x.rows[x.header!.index] ?? [], rows: x.rows,
+})
+
 /**
  * Документ Excel целиком: товары лучшего листа, строки над таблицей (шапка инвойса/упаковочного листа — номер, дата,
  * продавец, условия поставки) и строка заголовков таблицы. Для «Из документов» (case/steps/excelFallback).
@@ -401,20 +514,30 @@ export async function readExcelDocument(
   file: Blob,
   opts: GoodsExcelOptions = {},
 ): Promise<{ goods: GoodsExcelRow[]; headerRows: unknown[][]; tableHeader: unknown[] } | { problem: GoodsExcelProblem }> {
-  const XLSX = await loadXlsx()
-  const buf = await file.arrayBuffer()
-  const wb = XLSX.read(buf, { type: 'array' })
-  if (!wb.SheetNames.length) return { problem: 'noSheets' }
-  let best: { rows: unknown[][]; score: number; index: number } | null = null
-  let anyRows = false
-  for (const name of wb.SheetNames) {
-    const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[name], { header: 1, defval: null, raw: true })
-    if (rows.length) anyRows = true
-    const header = findGoodsHeader(rows, opts)
-    if (header && (!best || header.score > best.score)) best = { rows, score: header.score, index: header.index }
-  }
-  if (!anyRows) return { problem: 'empty' }
+  const scan = await scanWorkbook(file, opts)
+  if ('problem' in scan) return scan
+  let best: SheetScan | null = null
+  for (const x of scan.sheets) if (x.header && (!best || x.header.score > best.header!.score)) best = x
   const goods = best ? goodsFromSheetRows(best.rows, opts) : []
   if (!best || !goods.length) return { problem: 'noGoods' }
-  return { goods, headerRows: best.rows.slice(0, best.index), tableHeader: best.rows[best.index] ?? [] }
+  const doc = sheetDoc(best, goods)
+  return { goods, headerRows: doc.headerRows, tableHeader: doc.tableHeader }
+}
+
+/**
+ * Все листы книги с таблицей товаров — каждый отдельным документом (пакет импорта 21.10, №15: книга «Invoice» +
+ * «Packing list»). Порядок — как листы в книге. Нет ни одного — { problem }.
+ */
+export async function readExcelDocuments(
+  file: Blob,
+  opts: GoodsExcelOptions = {},
+): Promise<{ docs: ExcelSheetDoc[] } | { problem: GoodsExcelProblem }> {
+  const scan = await scanWorkbook(file, opts)
+  if ('problem' in scan) return scan
+  const docs = scan.sheets.flatMap((x) => {
+    if (!x.header) return []
+    const goods = goodsFromSheetRows(x.rows, opts)
+    return goods.length ? [sheetDoc(x, goods)] : []
+  })
+  return docs.length ? { docs } : { problem: 'noGoods' }
 }

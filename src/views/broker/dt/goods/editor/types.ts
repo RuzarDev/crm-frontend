@@ -33,6 +33,9 @@ export interface GoodsPageContext {
   containerIndicator: boolean
   /** Id открытой ДТ — подсказка СУР берёт из неё пост и не считает её саму. */
   declarationId?: string | null
+  /** Гр. 2: отправитель и его страна — галочки импорта «производитель = отправитель» (В9) и «страна происхождения» (В8). */
+  senderName?: string | null
+  senderCountryCode?: string | null
 }
 
 export interface GoodsEditorContext extends GoodsPageContext {
