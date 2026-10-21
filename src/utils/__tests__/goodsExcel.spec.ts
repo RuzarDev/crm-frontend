@@ -8,7 +8,8 @@ vi.mock('@/utils/xlsx', async () => {
   return { loadXlsx: async () => ({ ...real, read: (...a: unknown[]) => (xlsxRead.impl ?? (real.read as (...x: unknown[]) => unknown))(...a) }) }
 })
 
-import { GOODS_EXCEL_MESSAGES, goodsFromSheetRows, isExcelFileName, readGoodsExcel } from '../goodsExcel'
+import { GOODS_EXCEL_MESSAGES, GOODS_SHEET_MAX_ROWS, goodsFromSheetRows, isExcelFileName, readGoodsExcel } from '../goodsExcel'
+import { MARK_COLUMN_TABLE, MARK_KEY_FIELD } from './markColumnsTable'
 
 const HEADER = ['№', 'Код ТН ВЭД', 'Коммерческое описание товара', 'Вес брутто, кг', 'Количество товара', 'Вид упаковки товара', 'Количество грузовых мест', 'Прочее']
 
@@ -166,27 +167,29 @@ describe('goodsFromSheetRows: сведения шаблона декларант
   })
 })
 
-// Решение владельца 21.10.2026: «Brand / 品牌 / Бренд / Торговая марка» — товарный знак; «Марка» и «Марка товара» — марка
-// (так же разбирает Zircon AI). В двуязычной шапке «Марка / 品牌» русское «Марка» главнее.
+// Решение владельца 21.10.2026: «Brand / 品牌 / Бренд / Торговая марка» — товарный знак; «Марка» и «Марка товара» — марка;
+// бренд + модель — модель. Таблица заголовков — общая с Zircon AI (markColumnsTable ↔ tests/test_generic.py).
 describe('goodsFromSheetRows: столбцы бренда — товарный знак, «Марка» — марка', () => {
   const details = (head: string[]) =>
     goodsFromSheetRows([['Наименование', 'Код ТН ВЭД', ...head], ['Сушилка', '7323990000', ...head.map((_, i) => `v${i}`)]], { details: true })[0].details!
+  const FIELDS = ['productMarkName', 'tradeMarkName', 'productModelName'] as const
 
-  it.each([
-    'Brand', 'BRAND', '品牌', 'Бренд', 'Торговая марка', 'ТОРГОВАЯ МАРКА ТОВАРА', 'Товарный знак', 'Trademark', 'Brand name',
-    'Brand\n品牌', '品牌 Brand', 'Бренд / 品牌', '商标',
-  ])('«%s» → товарный знак', (header) => {
-    expect(details([header])).toMatchObject({ tradeMarkName: 'V0', productMarkName: null })
-  })
-
-  it.each(['Марка', 'МАРКА', 'Марка товара', 'Марка / 品牌', 'Марка / Brand', 'Марка (бренд)'])('«%s» → марка', (header) => {
-    expect(details([header])).toMatchObject({ productMarkName: 'V0', tradeMarkName: null })
+  it.each(MARK_COLUMN_TABLE)('«%s» → %s', (header, key) => {
+    const d = details([header])
+    for (const f of FIELDS) expect(d[f]).toBe(f === MARK_KEY_FIELD[key] ? 'V0' : null)
   })
 
   it('«Марка» и «Brand» в одной таблице — каждый в своё поле', () => {
     expect(details(['Brand', 'Марка'])).toMatchObject({ tradeMarkName: 'V0', productMarkName: 'V1' })
     expect(details(['Марка', '品牌'])).toMatchObject({ productMarkName: 'V0', tradeMarkName: 'V1' })
     expect(details(['МАРКА', 'ТОВАРНЫЙ ЗНАК', 'Бренд'])).toMatchObject({ productMarkName: 'V0', tradeMarkName: 'V1' })
+    expect(details(['Brand/Model', 'Марка', 'Модель'])).toMatchObject({ productModelName: 'V0', productMarkName: 'V1' })
+  })
+
+  it('«Модель», «Model No.» без слов марки — модель, как раньше; производитель с «Brand» — производитель', () => {
+    expect(details(['Модель'])).toMatchObject({ productModelName: 'V0' })
+    expect(details(['Model No.'])).toMatchObject({ productModelName: 'V0' })
+    expect(details(['Manufacturer / Brand'])).toMatchObject({ manufacturerName: 'V0', tradeMarkName: null })
   })
 })
 
@@ -220,6 +223,20 @@ describe('readGoodsExcel', () => {
   it('файл не читается — ошибка наружу (экран показывает «Не удалось прочитать файл Excel»)', async () => {
     xlsxRead.impl = () => { throw new Error('Unsupported file') }
     await expect(readGoodsExcel(workbookFile([HEADER]))).rejects.toThrow('Unsupported file')
+  })
+
+  // Ревью 21.10: «Из документов» сам разбирает файлы заявки — лист с огромным диапазоном не должен подвесить вкладку.
+  it('лист с диапазоном A1:AMJ1000000 читается не дальше предела строк и столбцов', async () => {
+    const ws = realXlsx.utils.aoa_to_sheet([HEADER, [1, '4202121900', 'Сумки', 54, 120, 'шт', 20]])
+    ws['!ref'] = 'A1:AMJ1000000'
+    let readOpts: unknown = null
+    xlsxRead.impl = (_buf: unknown, o: unknown) => {
+      readOpts = o
+      return { SheetNames: ['S'], Sheets: { S: ws } }
+    }
+    const r = await readGoodsExcel(workbookFile([HEADER]))
+    expect(readOpts).toMatchObject({ type: 'array', sheetRows: GOODS_SHEET_MAX_ROWS })
+    expect(r).toMatchObject({ goods: [expect.objectContaining({ tnvedCode: '4202121900', description: 'Сумки' })] })
   })
 
   it('тексты проблем — прежние ключи dt.*', () => {

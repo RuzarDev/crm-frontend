@@ -2,6 +2,7 @@
 // Им пользуются раздел «Товары» записи транзита и раздел «Товары» ДТ (views/broker/dt/goods,
 // с предпросмотром). Строки добавляются в конец списка — это делает экран.
 import { loadXlsx } from '@/utils/xlsx'
+import { markFieldOf, type MarkField } from '@/utils/markColumns'
 import { parseCodes } from '@/views/broker/dt/goods/editor/tradeCodes'
 import type { ReestrGoodsItemInput } from '@/types/api'
 
@@ -109,10 +110,11 @@ const EXCEL_COLUMN_MATCHERS: { field: ExcelField; patterns: string[] }[] = [
   { field: 'rowName', patterns: ['наименованиехарактеристики', '=характеристика', 'характеристикатовара'] },
   { field: 'manufacturerName', patterns: ['производитель', 'изготовитель', 'manufacturer', '生产商', '制造商'] },
   // Решение владельца 21.10.2026: «Brand / 品牌 / Бренд / Торговая марка» — товарный знак, «Марка» и «Марка товара» —
-  // марка (как zircon-ai generic.py). Марка — раньше знака и только точным словом: в двуязычной шапке «Марка / 品牌»
-  // русское «Марка» главнее, а «Торговая марка (товара)» маркой не становится.
-  { field: 'productMarkName', patterns: ['=марка', '=маркатовара', '=mark'] },
-  { field: 'tradeMarkName', patterns: ['товарныйзнак', 'торговыйзнак', 'торговаямарка', 'trademark', 'бренд', '=brand', 'brandname', '品牌', '商标'] },
+  // марка. Марку, знак и модель для заголовков со словом марки / знака / бренда решает общее с Zircon AI правило
+  // markFieldOf (utils/markColumns): «Марка / 品牌» — марка, «Товарный знак / Марка» — знак, «Brand/Model» — модель.
+  // Образцы ниже — только для модели без слов марки («Модель», «Model No.», «型号»).
+  { field: 'productMarkName', patterns: [] },
+  { field: 'tradeMarkName', patterns: [] },
   { field: 'productModelName', patterns: ['модель', '=model', 'modelno', '型号'] },
   { field: 'productArticle', patterns: ['артикул', 'article', '=sku', '=art', 'itemcode', 'productcode', '货号', '款号'] },
   { field: 'serialNumbers', patterns: ['серийн', 'serial'] },
@@ -132,6 +134,8 @@ const EXCEL_COLUMN_MATCHERS: { field: ExcelField; patterns: string[] }[] = [
   { field: 'description', patterns: ['коммерческоеописание', 'наименование', 'описание', 'description', 'goodsname', 'productname', '=товар', '=товары', '=product', '=goods', '=name', '品名', '货物名称', '产品描述', '商品名称', '产品名称', '=variety'] },
 ]
 const TRADE_CODE_FIELDS: ReadonlySet<ExcelField> = new Set(['ntins', 'gtin'])
+/** Марка, товарный знак, модель — по общему с Zircon AI правилу markFieldOf. */
+const MARK_FIELDS: ReadonlySet<ExcelField> = new Set<MarkField>(['productMarkName', 'tradeMarkName', 'productModelName'])
 const DETAIL_FIELDS: ReadonlySet<ExcelField> = new Set<DetailField>([
   'manufacturerName', 'tradeMarkName', 'productMarkName', 'productModelName', 'productArticle', 'serialNumbers',
   'standardName', 'productSortName', 'measureUnit', 'cargoPartQuantity', 'individualPackages', 'packageAvailabilityCode',
@@ -338,17 +342,30 @@ function headerColumns(
       used.add(at)
     }
   }
+  const marks = headerRow.map(markFieldOf)
   for (const matcher of EXCEL_COLUMN_MATCHERS) {
     if (!opts.tradeCodes && TRADE_CODE_FIELDS.has(matcher.field)) continue
     if (!opts.details && DETAIL_FIELDS.has(matcher.field)) continue
-    for (const pattern of matcher.patterns) {
-      const candidates = norms.flatMap((n, i) => (n && !used.has(i) && matches(n, pattern, parts[i]) ? [i] : []))
-      if (!candidates.length) continue
-      const rank = (i: number) => (hasData(i) ? 0 : 4)
-        + (TOTAL_FIELDS.has(matcher.field) ? (TOTAL_HEADER.test(norms[i]) ? 0 : PER_UNIT_HEADER.test(norms[i]) ? 2 : 1) : 0)
+    const rank = (i: number) => (hasData(i) ? 0 : 4)
+      + (TOTAL_FIELDS.has(matcher.field) ? (TOTAL_HEADER.test(norms[i]) ? 0 : PER_UNIT_HEADER.test(norms[i]) ? 2 : 1) : 0)
+    const take = (candidates: number[]) => {
       const idx = candidates.reduce((best, i) => (rank(i) < rank(best) ? i : best))
       colIndex[matcher.field] = idx
       used.add(idx)
+    }
+    const markField = MARK_FIELDS.has(matcher.field)
+    if (markField) {
+      const ruled = norms.flatMap((n, i) => (n && !used.has(i) && marks[i] === matcher.field ? [i] : []))
+      if (ruled.length) {
+        take(ruled)
+        continue
+      }
+    }
+    for (const pattern of matcher.patterns) {
+      // Заголовок со словом марки / знака / бренда — только по правилу markFieldOf, не образцами других полей марки.
+      const candidates = norms.flatMap((n, i) => (n && !used.has(i) && !(markField && marks[i]) && matches(n, pattern, parts[i]) ? [i] : []))
+      if (!candidates.length) continue
+      take(candidates)
       break
     }
   }
@@ -505,13 +522,29 @@ export interface ExcelSheetDoc {
 
 type SheetScan = { name: string; rows: unknown[][]; header: { index: number; score: number } | null }
 
+/**
+ * Предел листа при разборе товаров: строк и столбцов. «Из документов» сам читает файлы заявки, которые мог загрузить
+ * клиент (ревью 21.10): лист с диапазоном вроде A1:XFD1000000 развернулся бы в строки × столбцы null и подвесил вкладку.
+ * Таблица товаров ДТ (до 999 товаров) с шапкой и подписями помещается с запасом.
+ */
+export const GOODS_SHEET_MAX_ROWS = 5000
+export const GOODS_SHEET_MAX_COLS = 256
+
 async function scanWorkbook(file: Blob, opts: GoodsExcelOptions): Promise<{ sheets: SheetScan[] } | { problem: GoodsExcelProblem }> {
   const XLSX = await loadXlsx()
   const buf = await file.arrayBuffer()
-  const wb = XLSX.read(buf, { type: 'array' })
+  const wb = XLSX.read(buf, { type: 'array', sheetRows: GOODS_SHEET_MAX_ROWS })
   if (!wb.SheetNames.length) return { problem: 'noSheets' }
   const sheets = wb.SheetNames.map((name) => {
-    const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[name], { header: 1, defval: null, raw: true })
+    const ws = wb.Sheets[name]
+    const ref = ws?.['!ref']
+    let range: ReturnType<typeof XLSX.utils.decode_range> | undefined
+    if (ref) {
+      range = XLSX.utils.decode_range(ref)
+      range.e.r = Math.min(range.e.r, range.s.r + GOODS_SHEET_MAX_ROWS - 1)
+      range.e.c = Math.min(range.e.c, range.s.c + GOODS_SHEET_MAX_COLS - 1)
+    }
+    const rows = ws ? XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: null, raw: true, ...(range ? { range } : {}) }) : []
     return { name, rows, header: findGoodsHeader(rows, opts) }
   })
   if (!sheets.some((x) => x.rows.length)) return { problem: 'empty' }
