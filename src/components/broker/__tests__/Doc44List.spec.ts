@@ -176,11 +176,35 @@ describe('Doc44List — диапазон дат (№14б, check-dates)', () => {
     await rows()[0].get('[data-doc44-more]').trigger('click')
     const help = rows()[0].get('[data-doc44-extra]').findAll('[data-z-status="warning"]')
     expect(help.map((x) => x.text())).toEqual(['«Действует по» раньше даты документа или «Действует с»'])
+    // «Ещё» раскрыто — текст под полем, строка под документом его не повторяет
+    expect(rows()[0].find('[data-doc44-date-warn]').exists()).toBe(false)
+    await rows()[0].get('[data-doc44-more]').trigger('click')
+    expect(rows()[0].get('[data-doc44-date-warn]').text()).toBe('«Действует по» раньше даты документа или «Действует с»')
+  })
+
+  it('«Ещё» раскрыто: в строке остаётся только то, чего нет под полями (дата документа; «раньше начала» при «позже» у поля)', async () => {
+    await mount([doc({ docTypeCode: '01401', docNumber: 'X', docDate: '2202-09-10', docStartDate: '2203-01-01', docValidityDate: '2099-12-31' })], { checkDates: true })
+    const lines = () => rows()[0].find('[data-doc44-date-warn]').exists() ? rows()[0].get('[data-doc44-date-warn]').findAll('span').map((x) => x.text()) : []
+    expect(lines()).toHaveLength(4)
+    await rows()[0].get('[data-doc44-more]').trigger('click')
+    const help = rows()[0].get('[data-doc44-extra]').findAll('[data-z-status="warning"]').map((x) => x.text())
+    expect(help).toHaveLength(2)
+    expect(help[0]).toMatch(/^01\.01\.2203 позже/)
+    expect(help[1]).toMatch(/^31\.12\.2099 позже/)
+    // дата документа — без поля в «Ещё»; «раньше начала» под полем не показан (там «позже») — остаются в строке
+    expect(lines()).toHaveLength(2)
+    expect(lines()[0]).toMatch(/^Дата: 10\.09\.2202 позже/)
+    expect(lines()[1]).toBe('«Действует по» раньше даты документа или «Действует с»')
   })
 
   it('«действует по» 2099 — «позже» с подписью поля; только чтение — без предупреждений', async () => {
     await mount([doc({ docTypeCode: '01401', docNumber: 'X', docDate: '2026-04-01', docValidityDate: '2099-12-31' })], { checkDates: true })
     expect(rows()[0].get('[data-doc44-date-warn]').text()).toContain('Действует по: 31.12.2099 позже')
+    // «Ещё» раскрыто — «позже» один раз, под полем «Действует по»
+    await rows()[0].get('[data-doc44-more]').trigger('click')
+    expect(rows()[0].find('[data-doc44-date-warn]').exists()).toBe(false)
+    expect(rows()[0].get('[data-doc44-extra]').findAll('[data-z-status="warning"]').map((x) => x.text())).toEqual([expect.stringMatching(/^31\.12\.2099 позже/)])
+    expect(rows()[0].text().match(/31\.12\.2099 позже/g)).toHaveLength(1)
     w.unmount()
     await mount([doc({ docDate: '2202-09-10' })], { checkDates: true, readonly: true })
     expect(w.find('[data-doc44-date-warn]').exists()).toBe(false)

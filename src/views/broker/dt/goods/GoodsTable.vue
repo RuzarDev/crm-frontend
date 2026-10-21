@@ -19,7 +19,7 @@ import { goodsStatusView, netOverGross, type GoodsStatus } from './goodsStatus'
 // прокрутки: по ширине самой таблицы сначала уходят веса, потом гр. 45 / ТПиН (их суммы — в итогах и в редакторе),
 // описанию остаётся не меньше ~160px.
 // Нетто > брутто (№14а): обе цифры колонки весов красные, с подсказкой; колонка скрыта (узко, телефон) — красная метка
-// «нетто > брутто» в ячейке описания; статус — «Нетто > брутто» вместо «Не хватает N».
+// «нетто > брутто» в ячейке описания; статус — «Нетто > брутто» вместо «Не хватает N» («ещё N» — второй строкой).
 const props = defineProps<{
   rows: GoodsRow[]
   statusOf: (g: Import40GoodsItemInput) => GoodsStatus
@@ -76,7 +76,8 @@ const columns = computed<ZColumn<GoodsRow>[]>(() => withCells([
   ...(width.value >= GOODS_MONEY_MIN_WIDTH
     ? [{ key: 'money', title: tg('cols.money'), width: 112, align: 'right', className: 'py-1 tabular-nums max-sm:hidden' } as ZColumn<GoodsRow>]
     : []),
-  { key: 'status', title: tg('cols.status'), width: 124, fixed: 'right' },
+  // Статус: отступы px-2 — тексту 108px («Нетто > брутто» с точкой ≈ 107px в IBM Plex 13,5px); длиннее — в две строки.
+  { key: 'status', title: tg('cols.status'), width: 124, fixed: 'right', className: 'px-2' },
 ]))
 
 // Статусы — один раз на отрисовку (по ключу товара), а не по вызову на ячейку.
@@ -155,7 +156,11 @@ const cell = (key: string | undefined, r: GoodsRow) => {
     case 'status': {
       const st = statusByKey.value.get(r.key) ?? props.statusOf(g)
       const s = goodsStatusView(st, g)
-      return h(StatusDot, { tone: s.tone, label: tg(s.key, s.params), 'data-goods-status': st.kind })
+      // Колонка узкая и закреплена справа: подпись шире 108px раздвигала бы таблицу (горизонтальная прокрутка, хвост
+      // обрезан). «· ещё N» — второй строкой мельче (как нетто под брутто), «Нет в справочнике» — переносится по словам.
+      return s.short
+        ? h(StatusDot, { tone: s.tone, label: tg(s.short.key), sub: tg('status.more', { n: s.short.more }), 'data-goods-status': st.kind })
+        : h(StatusDot, { tone: s.tone, label: tg(s.key, s.params), wrap: true, 'data-goods-status': st.kind })
     }
   }
   return null

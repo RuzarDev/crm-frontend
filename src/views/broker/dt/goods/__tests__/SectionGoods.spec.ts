@@ -168,7 +168,17 @@ describe('SectionGoods: таблица', () => {
     const st = rows()[0].get('[data-goods-status]')
     expect(st.attributes('data-goods-status')).toBe('missing')
     expect(st.text()).toBe('Нетто > брутто')
-    expect(rows()[1].get('[data-goods-status]').text()).toBe('Нетто > брутто · ещё 2')
+    // колонка «Статус» 124px (тексту 108): «ещё N» — второй строкой мельче, а не хвостом «· ещё N» в одну строку —
+    // иначе подпись раздвигала таблицу (горизонтальная прокрутка, хвост обрезан)
+    const more = rows()[1].get('[data-goods-status]')
+    expect(more.get('[data-status-label]').text()).toBe('Нетто > брутто')
+    expect(more.get('[data-status-label]').classes()).toContain('whitespace-nowrap')
+    expect(more.get('[data-status-sub]').text()).toBe('ещё 2')
+    expect(more.get('[data-status-sub]').classes()).toContain('text-xs')
+    expect(more.text()).not.toContain('·')
+    const statusTd = rows()[1].findAll('td').at(-1)!
+    expect(statusTd.classes()).toContain('px-2')
+    expect(statusTd.classes()).not.toContain('px-3')
     const weights = rows()[0].get('[data-goods-weights-error]')
     expect(weights.classes()).toContain('text-danger')
     expect(weights.attributes('title')).toBe('Нетто больше брутто — проверьте вес')
@@ -394,6 +404,16 @@ describe('SectionGoods: итоги и расчёт', () => {
     await warn.get('[data-goods-weights-open]').trigger('click')
     await settle()
     expect(router.currentRoute.value.query).toMatchObject({ s: 'goods', item: '1' })
+  })
+
+  it('нетто > брутто в просмотре: «Открыть» в итогах работает и без права правки (переход к товару)', async () => {
+    await mount([item(), item({ grossWeightKg: 5, netWeightKg: 6 })], { readonly: true })
+    expect(w.find('[data-goods-calc]').exists()).toBe(false)
+    const open = w.get('[data-goods-weights-warn] [data-goods-weights-open]')
+    expect(open.attributes('disabled')).toBeUndefined()
+    await open.trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toMatchObject({ s: 'goods', item: '2' })
   })
 
   it('итог нетто > брутто без такого товара (у части не указан брутто) — пояснение без «Открыть»; в норме — ничего', async () => {
@@ -654,6 +674,16 @@ describe('SectionGoods: проверка кодов ТН ВЭД', () => {
     document.body.innerHTML = ''
     await mount([item(), item({ tnvedCode: '8517620003' }), item({ tnvedCode: '8528521000' })])
     expect(node.mock.calls.map((c) => c[0]).sort()).toEqual(['8471300000', '8517620003', '8528521000'])
+  })
+
+  it('кода нет в справочнике — «Нет в справочнике», подпись переносится по словам (колонка «Статус» узкая)', async () => {
+    vi.mocked(tnvedApi.node).mockRejectedValueOnce(Object.assign(new Error('404'), { response: { status: 404 } }))
+    await mount([item()])
+    const st = rows()[0].get('[data-goods-status]')
+    expect(st.attributes('data-goods-status')).toBe('badCode')
+    expect(st.get('[data-status-label]').text()).toBe('Нет в справочнике')
+    expect(st.get('[data-status-label]').classes()).not.toContain('whitespace-nowrap')
+    expect(st.find('[data-status-sub]').exists()).toBe(false)
   })
 
   it('сбой сети — код не помечен; при повторном входе спрашивается снова один раз', async () => {

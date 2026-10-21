@@ -1942,7 +1942,7 @@ export default {
           money: 'Графа 45 / КТжС, ₸',
           status: 'Мәртебе',
         },
-        status: { ready: 'Дайын', missing: '{n} жетпейді', stale: 'Қайта есептеу', badCode: 'Анықтамалықта жоқ', netOverGross: 'Нетто > брутто', netOverGrossMore: 'Нетто > брутто · тағы {n}' },
+        status: { ready: 'Дайын', missing: '{n} жетпейді', stale: 'Қайта есептеу', badCode: 'Анықтамалықта жоқ', netOverGross: 'Нетто > брутто', netOverGrossMore: 'Нетто > брутто · тағы {n}', more: 'тағы {n}' },
         bulk: {
           label: 'Таңдалған тауарлармен әрекеттер',
           selected: 'Таңдалды: {n}',
@@ -2684,6 +2684,7 @@ export default {
               setZn: 'ЗН қою',
             },
             col: { mode: 'Түрі', base: 'Негізі', rateKind: 'Мөлшерлеме түрі', rate: 'Мөлшерлеме', date: 'Күні', amount: 'Сомасы, ₸', feature: 'ТТ' },
+            rateDate: 'Бағам күні',
             modes: { '1010': 'Кедендік алым', '2010': 'Баж', '2050': 'Демпингке қарсы баж', '5060': 'ҚҚС', excise: 'Акциз' },
             auto: 'авто',
             specific: 'Арнайы мөлшерлеме',

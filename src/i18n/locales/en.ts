@@ -1942,7 +1942,7 @@ export default {
           money: 'Box 45 / duties, ₸',
           status: 'Status',
         },
-        status: { ready: 'Ready', missing: '{n} missing', stale: 'Recalculate', badCode: 'Not in HS reference', netOverGross: 'Net > gross', netOverGrossMore: 'Net > gross · {n} more' },
+        status: { ready: 'Ready', missing: '{n} missing', stale: 'Recalculate', badCode: 'Not in HS reference', netOverGross: 'Net > gross', netOverGrossMore: 'Net > gross · {n} more', more: '{n} more' },
         bulk: {
           label: 'Actions with selected goods',
           selected: 'Selected: {n}',
@@ -2684,6 +2684,7 @@ export default {
               setZn: 'Set ЗН',
             },
             col: { mode: 'Type', base: 'Base', rateKind: 'Rate type', rate: 'Rate', date: 'Date', amount: 'Amount, ₸', feature: 'PM' },
+            rateDate: 'Exchange rate date',
             modes: { '1010': 'Customs fee', '2010': 'Duty', '2050': 'Anti-dumping duty', '5060': 'VAT', excise: 'Excise' },
             auto: 'auto',
             specific: 'Specific rate',

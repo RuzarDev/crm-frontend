@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhPlus, PhX } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -56,8 +56,23 @@ const remove = (p: Import40FactPayment) => {
   props.form.factPayments = (props.form.factPayments ?? []).filter((x) => x !== p)
 }
 
-// Дата вне разумного диапазона (№14б) — золотая рамка и подсказка; таблица плотная, полный текст — в готовности (гр. В).
+// Дата вне разумного диапазона (№14б) — золотая рамка, подсказка title (ПК) и строка под реквизитами платёжки: на телефоне
+// title не показывается, а текст нужен у поля (как гр. 40/44). Строка связана с датой (aria-describedby). В просмотре
+// строки нет (исправить нельзя; текст есть в готовности, гр. В) — как у гр. 40/44.
 const dateWarn = (v: string | null | undefined) => dtDateWarning(t, v, 'event')
+const uid = useId()
+const warnId = (p: Import40FactPayment, f: 'docDate' | 'payDate') => `${uid}-${keyOf(p)}-${f}-warn`
+const dateNotes = (p: Import40FactPayment): { id: string; text: string }[] => {
+  if (props.readonly) return []
+  const out: { id: string; text: string }[] = []
+  for (const [f, v] of [['docDate', p.paymentDocDate], ['payDate', p.paymentDate]] as const) {
+    const w = dateWarn(v)
+    if (w) out.push({ id: warnId(p, f), text: t('broker.doc44.dateWarn', { field: tf(`col.${f}`), text: w }) })
+  }
+  return out
+}
+const describedBy = (p: Import40FactPayment, f: 'docDate' | 'payDate') =>
+  (!props.readonly && dateWarn(f === 'docDate' ? p.paymentDocDate : p.paymentDate) ? warnId(p, f) : undefined)
 
 const field = 'flex min-w-0 flex-col gap-1'
 const label = 'text-xs text-muted'
@@ -161,13 +176,17 @@ const tall = 'max-sm:h-11'
           </div>
           <div :class="field">
             <span :class="label">{{ tf('col.docDate') }}</span>
-            <ZDate :value="p.paymentDocDate" allow-clear :disabled="readonly" :status="dateWarn(p.paymentDocDate) ? 'warning' : ''" :title="dateWarn(p.paymentDocDate) ?? undefined" :class="tall" :aria-label="tf('col.docDate')" data-fact="docDate" @update:value="p.paymentDocDate = $event" />
+            <ZDate :value="p.paymentDocDate" allow-clear :disabled="readonly" :status="dateWarn(p.paymentDocDate) ? 'warning' : ''" :title="dateWarn(p.paymentDocDate) ?? undefined" :class="tall" :aria-label="tf('col.docDate')" :aria-describedby="describedBy(p, 'docDate')" data-fact="docDate" @update:value="p.paymentDocDate = $event" />
           </div>
           <div :class="field">
             <span :class="label">{{ tf('col.payDate') }}</span>
-            <ZDate :value="p.paymentDate" allow-clear :disabled="readonly" :status="dateWarn(p.paymentDate) ? 'warning' : ''" :title="dateWarn(p.paymentDate) ?? undefined" :class="tall" :aria-label="tf('col.payDate')" data-fact="payDate" @update:value="p.paymentDate = $event" />
+            <ZDate :value="p.paymentDate" allow-clear :disabled="readonly" :status="dateWarn(p.paymentDate) ? 'warning' : ''" :title="dateWarn(p.paymentDate) ?? undefined" :class="tall" :aria-label="tf('col.payDate')" :aria-describedby="describedBy(p, 'payDate')" data-fact="payDate" @update:value="p.paymentDate = $event" />
           </div>
         </div>
+        <!-- Даты вне разумного диапазона (№14б) — текстом под реквизитами, по строке на дату. -->
+        <p v-if="dateNotes(p).length" role="status" class="col-span-2 m-0 flex flex-col text-xs leading-5 text-gold-ink @xl:col-span-5" data-fact-date-warn>
+          <span v-for="n in dateNotes(p)" :id="n.id" :key="n.id">{{ n.text }}</span>
+        </p>
         <ZButton
           v-if="!readonly"
           variant="danger-ghost"

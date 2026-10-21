@@ -1946,7 +1946,7 @@ export default {
           money: 'Гр. 45 / ТПиН, ₸',
           status: 'Статус',
         },
-        status: { ready: 'Готов', missing: 'Не хватает {n}', stale: 'Пересчитать', badCode: 'Нет в справочнике', netOverGross: 'Нетто > брутто', netOverGrossMore: 'Нетто > брутто · ещё {n}' },
+        status: { ready: 'Готов', missing: 'Не хватает {n}', stale: 'Пересчитать', badCode: 'Нет в справочнике', netOverGross: 'Нетто > брутто', netOverGrossMore: 'Нетто > брутто · ещё {n}', more: 'ещё {n}' },
         bulk: {
           label: 'Действия с выбранными товарами',
           selected: 'Выбрано {n}',
@@ -2688,6 +2688,7 @@ export default {
               setZn: 'Поставить ЗН',
             },
             col: { mode: 'Вид', base: 'Основа', rateKind: 'Вид ставки', rate: 'Ставка', date: 'Дата', amount: 'Сумма, ₸', feature: 'СП' },
+            rateDate: 'Дата курса',
             modes: { '1010': 'Таможенный сбор', '2010': 'Пошлина', '2050': 'Антидемпинговая пошлина', '5060': 'НДС', excise: 'Акциз' },
             auto: 'авто',
             specific: 'Специфическая ставка',

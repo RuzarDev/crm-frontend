@@ -124,7 +124,10 @@ describe('goodsStatus: нетто > брутто (№14а)', () => {
   it('goodsStatusView: «Нетто > брутто» вместо «Не хватает 1»; больше пунктов — «· ещё N»; прочие виды прежние', () => {
     const bad = complete({ grossWeightKg: 22222, netWeightKg: 44444 })
     expect(goodsStatusView({ kind: 'missing', count: 1 }, bad)).toEqual({ tone: 'danger', key: 'status.netOverGross' })
-    expect(goodsStatusView({ kind: 'missing', count: 3 }, bad)).toEqual({ tone: 'danger', key: 'status.netOverGrossMore', params: { n: 2 } })
+    // узкой колонке списка — короткая подпись и «ещё N» второй строкой; шапке редактора — полная
+    expect(goodsStatusView({ kind: 'missing', count: 3 }, bad)).toEqual({
+      tone: 'danger', key: 'status.netOverGrossMore', params: { n: 2 }, short: { key: 'status.netOverGross', more: 2 },
+    })
     expect(goodsStatusView({ kind: 'missing', count: 2 }, complete())).toEqual({ tone: 'danger', key: 'status.missing', params: { n: 2 } })
     expect(goodsStatusView({ kind: 'badCode' }, bad)).toEqual({ tone: 'danger', key: 'status.badCode' })
     expect(goodsStatusView({ kind: 'stale' }, complete())).toEqual({ tone: 'accent', key: 'status.stale' })

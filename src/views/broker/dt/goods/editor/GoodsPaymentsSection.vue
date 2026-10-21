@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhCheck, PhPencilSimple, PhPlus, PhX } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -97,8 +97,11 @@ const featureOptions = computed(() => classifiers.options('payment-features'))
 const str = (v: ZOptionValue | ZOptionValue[] | null) => (v == null || Array.isArray(v) || v === '' ? null : String(v))
 const text = (v: string) => (v.trim() ? v.trim() : null)
 const set = <K extends keyof Import40GoodsPayment>(p: Import40GoodsPayment, key: K, v: Import40GoodsPayment[K]) => { setPaymentField(p, key, v) }
-// Дата курса обычно ставится расчётом (дата гр. А); предупреждение (№14б) ловит ручную правку года.
+// Дата курса обычно ставится расчётом (дата гр. А); предупреждение (№14б) ловит ручную правку года. Золотая рамка,
+// title (ПК) и строка текста под полями платежа (на телефоне title не показывается), связанная с датой aria-describedby.
 const rateDateWarn = (p: Import40GoodsPayment) => dtDateWarning(t, p.rateDate, 'event')
+const uid = useId()
+const rateWarnId = (p: Import40GoodsPayment) => `${uid}-${keyOfRow(p)}-rate-date-warn`
 
 const list = (): Import40GoodsPayment[] => {
   const g = props.item
@@ -267,6 +270,7 @@ const removeBtn = cn(
                 :aria-label="tp('col.date')"
                 :status="rateDateWarn(p) ? 'warning' : ''"
                 :title="rateDateWarn(p) ?? undefined"
+                :aria-describedby="rateDateWarn(p) ? rateWarnId(p) : undefined"
                 :class="tall"
                 data-f="payment-date"
                 @update:value="set(p, 'rateDate', $event)"
@@ -303,6 +307,9 @@ const removeBtn = cn(
               <PhX :size="16" aria-hidden="true" />
             </button>
           </div>
+          <p v-if="rateDateWarn(p)" :id="rateWarnId(p)" role="status" class="m-0 text-xs leading-5 text-gold-ink" data-payment-date-warn>
+            {{ t('broker.doc44.dateWarn', { field: tp('rateDate'), text: rateDateWarn(p) }) }}
+          </p>
           <!-- Специфическая ставка (*): единица, валюта, коэффициент. Единица и валюта — не длиннее 8 (колонки БД
                RateUnitCode / RateCurrencyCode): длиннее — PUT всей ДТ падал бы. -->
           <div v-if="p.rateKindCode === '*'" class="flex flex-wrap items-end gap-2" data-payment-specific>

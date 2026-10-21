@@ -148,6 +148,11 @@ export interface GoodsStatusView {
   tone: ZTone
   key: string
   params?: Record<string, unknown>
+  /**
+   * Узкая колонка «Статус» списка (124px): подпись без хвоста «· ещё N» (key) и N — второй строкой «ещё N» (status.more).
+   * Шапке редактора хватает места — она берёт полную подпись (key / params выше).
+   */
+  short?: { key: string; more: number }
 }
 
 /**
@@ -160,7 +165,7 @@ export function goodsStatusView(s: GoodsStatus, g: GoodsWeights): GoodsStatusVie
     if (netOverGross(g)) {
       return s.count <= 1
         ? { tone: 'danger', key: 'status.netOverGross' }
-        : { tone: 'danger', key: 'status.netOverGrossMore', params: { n: s.count - 1 } }
+        : { tone: 'danger', key: 'status.netOverGrossMore', params: { n: s.count - 1 }, short: { key: 'status.netOverGross', more: s.count - 1 } }
     }
     return { tone: 'danger', key: 'status.missing', params: { n: s.count } }
   }

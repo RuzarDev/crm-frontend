@@ -339,6 +339,15 @@ describe('Редактор товара: «Платежи» (гр. 47 этого
     expect(date('2010').title).toMatch(/^09\.07\.2202 позже/)
     expect(date('1010').parentElement!.className).not.toContain('border-gold')
     expect(date('1010').title).toBe('')
+    // текст виден под полями платежа (на телефоне title не показывается) и связан с датой
+    const note = rowOf('2010').querySelector<HTMLElement>('[data-payment-date-warn]')!
+    expect(note).not.toBeNull()
+    expect(note.getAttribute('role')).toBe('status')
+    expect(note.className).toContain('text-gold-ink')
+    expect(note.textContent!.trim()).toMatch(/^Дата курса: 09\.07\.2202 позже \d{2}\.\d{2}\.\d{4} — проверьте год$/)
+    expect(date('2010').getAttribute('aria-describedby')).toBe(note.id)
+    expect(rowOf('1010').querySelector('[data-payment-date-warn]')).toBeNull()
+    expect(date('1010').getAttribute('aria-describedby')).toBeNull()
   })
 
   it('просмотр: ручная строка — «вручную» и «расчёт: X» без «Сбросить к расчёту»', async () => {
