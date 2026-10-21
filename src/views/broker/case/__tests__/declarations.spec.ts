@@ -46,3 +46,25 @@ describe('previewToUpsert — распознавание инвойса в ДТ'
     expect(body.goodsItems![1].characteristics).toEqual([])
   })
 })
+
+// Неявный контракт с сервером (правка №8, 21.10.2026): код 31 «Из документов» ставит AddDeclaration по составу гр. 18 и
+// только для кодов, которые подставил сам (в запросе их нет). Поэтому тело создания ДТ несёт гр. 18 с ролями голова/прицеп
+// и никогда не несёт гр. 25 / 26.
+describe('previewToUpsert — транспорт для кода гр. 25 / 26 по составу гр. 18', () => {
+  it('гр. 18 с ролями уходит как есть, гр. 25 / 26 не отправляются', () => {
+    const arrival = [
+      { number: '184AFR19', typeCode: null, isTrailer: false, headNumber: null },
+      { number: '48AEU19', typeCode: null, isTrailer: true, headNumber: '184AFR19' },
+    ]
+    const body = previewToUpsert({ arrivalTransportNumbers: arrival, borderTransportNumbers: [arrival[0]] })
+    expect(body.arrivalTransportNumbers).toEqual(arrival)
+    expect(body.borderTransportNumbers).toEqual([arrival[0]])
+    expect(body).not.toHaveProperty('borderTransportModeCode')
+    expect(body).not.toHaveProperty('inlandTransportModeCode')
+    expect(body).not.toHaveProperty('arrivalTransportModeCode')
+  })
+
+  it('пустая гр. 18 не отправляется — сервер заполнит её головой и прицепом заявки', () => {
+    expect(previewToUpsert({ arrivalTransportNumbers: [] }).arrivalTransportNumbers).toBeUndefined()
+  })
+})

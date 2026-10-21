@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhCopy } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -9,6 +9,7 @@ import ZSwitch from '@/components/z/ZSwitch.vue'
 import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import { useClassifiersStore } from '@/stores/classifiers'
 import type { ZOption } from '@/ui/options'
+import { compositionMode, followComposition, isRoadMode, type RoadMode } from '@/utils/transportMode'
 import DtGraphHelp from '../DtGraphHelp.vue'
 import { dedupeOptions, withCurrent } from '../dtOptions'
 import type { DtFormState } from '../dtPayload'
@@ -19,6 +20,8 @@ import TransportMeansList from './TransportMeansList.vue'
 // из гр. 25 (так же считает сервер); у ЖД (20) гр. 21 не заполняется — вагоны идут в гр. 18; «Скопировать головы» переносит
 // головы гр. 18, которых ещё нет в гр. 21, дописывает в гр. 21 (без прицепов и привязок, ничего не заменяя), а вид и страну
 // ставит, только если они пусты.
+// Вид гр. 25 / 26 идёт за составом гр. 18 (правка №8): голова — 30, с прицепом — 31, с несколькими — 32. Код меняется
+// только при правке гр. 18 и только если не выбран вручную (utils/transportMode.ts); иначе — предупреждение и «Поставить».
 // Страна регистрации ТС — одна на графу (в XML это RegistrationNationalityCode и страна каждого номера), поэтому она
 // стоит над списком с номером графы, а не в каждой строке.
 const props = defineProps<{ form: DtFormState; readonly: boolean }>()
@@ -30,8 +33,6 @@ const countries = useCountryAlpha2Options()
 const arrivalRows = computed(() => props.form.arrivalTransportNumbers ?? [])
 const borderRows = computed(() => props.form.borderTransportNumbers ?? [])
 
-const ROAD = ['30', '31', '32']
-const isRoad = (code: string | null | undefined) => ROAD.includes((code ?? '').trim())
 const isRail = (code: string | null | undefined) => (code ?? '').trim() === '20'
 
 const arrivalMode = computed(() => props.form.inlandTransportModeCode || props.form.borderTransportModeCode || props.form.arrivalTransportModeCode)
@@ -54,6 +55,38 @@ const code = (v: unknown): string | null => (v == null || v === '' ? null : Stri
 const syncArrivalMode = () => {
   props.form.arrivalTransportModeCode = props.form.inlandTransportModeCode || props.form.borderTransportModeCode || props.form.arrivalTransportModeCode
 }
+// Состав гр. 18 → код гр. 25 / 26. Строки гр. 18 правятся на месте (TransportMeansList), а загрузка или перечитывание ДТ
+// подменяет сам массив — это не правка сотрудника: код при открытии ДТ не меняется и автосохранение не срабатывает.
+const expected = computed<RoadMode | null>(() => compositionMode(arrivalRows.value))
+watch([expected, () => props.form.arrivalTransportNumbers], ([after, list], [before, prevList]) => {
+  if (props.readonly || list !== prevList) return
+  const nextBorder = followComposition(props.form.borderTransportModeCode || null, before, after)
+  const nextInland = followComposition(props.form.inlandTransportModeCode, before, after)
+  const borderChanged = nextBorder !== (props.form.borderTransportModeCode || null)
+  const inlandChanged = nextInland !== props.form.inlandTransportModeCode
+  if (borderChanged) props.form.borderTransportModeCode = nextBorder ?? ''
+  if (inlandChanged) props.form.inlandTransportModeCode = nextInland
+  if (borderChanged || inlandChanged) syncArrivalMode()
+})
+const COMPOSITION: Record<RoadMode, string> = {
+  '30': 'broker.dt.transport.compositionHead',
+  '31': 'broker.dt.transport.compositionOne',
+  '32': 'broker.dt.transport.compositionMany',
+}
+/** Автомобильный код графы расходится с составом гр. 18 → нужный код, иначе null. */
+const mismatchOf = (code: string | null | undefined): RoadMode | null =>
+  expected.value && isRoadMode(code) && (code ?? '').trim() !== expected.value ? expected.value : null
+const borderMismatch = computed(() => (border.value.unknown ? null : mismatchOf(props.form.borderTransportModeCode)))
+const inlandMismatch = computed(() => (inland.value.unknown ? null : mismatchOf(props.form.inlandTransportModeCode)))
+const mismatchText = (code: RoadMode) => t('broker.dt.transport.modeMismatch', { expected: code, composition: t(COMPOSITION[code]) })
+// Справочник важнее: код вне 2004 — своё предупреждение; расхождение с составом — жёлтое поле, текст и кнопка в #extra.
+// Тот же текст идёт и пропом extra: ZField решает, показывать ли extra, по пропу (слоты не реактивны), а слот только
+// подменяет содержимое — без пропа предупреждение, появившееся после открытия ДТ, не показалось бы.
+const modeField = (unknown: boolean, value: string | null | undefined, mismatch: RoadMode | null) =>
+  unknown ? warn(true, value) : mismatch ? { validateStatus: 'warning' as const, extra: mismatchText(mismatch) } : {}
+const setBorderMode = (c: RoadMode) => { props.form.borderTransportModeCode = c; syncArrivalMode() }
+const setInlandMode = (c: RoadMode) => { props.form.inlandTransportModeCode = c; syncArrivalMode() }
+
 const onBorderMode = (v: unknown) => { props.form.borderTransportModeCode = code(v) ?? ''; syncArrivalMode() }
 const onInlandMode = (v: unknown) => { props.form.inlandTransportModeCode = code(v); syncArrivalMode() }
 const onContainer = (v: boolean) => { props.form.containerIndicator = v }
@@ -89,13 +122,33 @@ const graphTag = 'font-mono text-xs font-normal text-muted'
         <span :class="graphTag">{{ t('broker.dt.nav.graphs', { list: '19, 25, 26' }) }}</span>
       </h2>
       <div class="grid grid-cols-1 items-end gap-x-4 gap-y-4 @md:grid-cols-2 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-        <ZField graph="25" data-graph="25" v-bind="warn(border.unknown, form.borderTransportModeCode)">
+        <ZField graph="25" data-graph="25" v-bind="modeField(border.unknown, form.borderTransportModeCode, borderMismatch)">
           <template #label>{{ t('broker.dt.transport.borderMode') }}<DtGraphHelp graph="25" /></template>
           <ZSelect :value="form.borderTransportModeCode || null" :options="border.options" show-search allow-clear :disabled="readonly" :placeholder="t('broker.dt.transport.select')" popup-width="320px" @update:value="onBorderMode" />
+          <template v-if="borderMismatch" #extra>
+            <span class="text-gold-ink" data-mode-mismatch="25">{{ mismatchText(borderMismatch) }}</span>
+            <button
+              v-if="!readonly"
+              type="button"
+              class="ml-1.5 inline-flex min-h-6 cursor-pointer items-center rounded-field border-0 bg-transparent px-1 font-sans text-xs font-semibold text-zircon-ink underline-offset-2 outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
+              data-mode-fix="25"
+              @click="setBorderMode(borderMismatch)"
+            >{{ t('broker.dt.transport.setMode', { code: borderMismatch }) }}</button>
+          </template>
         </ZField>
-        <ZField graph="26" data-graph="26" v-bind="warn(inland.unknown, form.inlandTransportModeCode)">
+        <ZField graph="26" data-graph="26" v-bind="modeField(inland.unknown, form.inlandTransportModeCode, inlandMismatch)">
           <template #label>{{ t('broker.dt.transport.inlandMode') }}<DtGraphHelp graph="26" /></template>
           <ZSelect :value="form.inlandTransportModeCode || null" :options="inland.options" show-search allow-clear :disabled="readonly" :placeholder="t('broker.dt.transport.select')" popup-width="320px" @update:value="onInlandMode" />
+          <template v-if="inlandMismatch" #extra>
+            <span class="text-gold-ink" data-mode-mismatch="26">{{ mismatchText(inlandMismatch) }}</span>
+            <button
+              v-if="!readonly"
+              type="button"
+              class="ml-1.5 inline-flex min-h-6 cursor-pointer items-center rounded-field border-0 bg-transparent px-1 font-sans text-xs font-semibold text-zircon-ink underline-offset-2 outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
+              data-mode-fix="26"
+              @click="setInlandMode(inlandMismatch)"
+            >{{ t('broker.dt.transport.setMode', { code: inlandMismatch }) }}</button>
+          </template>
         </ZField>
         <div class="flex min-h-11 items-center gap-1" data-graph="19">
           <ZSwitch :checked="!!form.containerIndicator" :disabled="readonly" @update:checked="onContainer">{{ t('broker.dt.transport.container') }}</ZSwitch>
@@ -103,6 +156,7 @@ const graphTag = 'font-mono text-xs font-normal text-muted'
         </div>
       </div>
       <p class="m-0 text-xs text-muted">{{ t('broker.dt.transport.arrivalModeHint') }}</p>
+      <p class="m-0 text-xs text-muted" data-auto-mode-hint>{{ t('broker.dt.transport.autoModeHint') }}</p>
     </div>
 
     <div class="flex flex-col gap-4 border-t border-line pt-5" data-transport-arrival>
@@ -118,7 +172,7 @@ const graphTag = 'font-mono text-xs font-normal text-muted'
       <TransportMeansList
         graph="18"
         :rows="arrivalRows"
-        :road="isRoad(arrivalMode)"
+        :road="isRoadMode(arrivalMode)"
         :readonly="readonly"
         :type-options="typeOptions"
         :mark-options="markOptions"
@@ -160,7 +214,7 @@ const graphTag = 'font-mono text-xs font-normal text-muted'
         <TransportMeansList
           graph="21"
           :rows="borderRows"
-          :road="isRoad(borderMode)"
+          :road="isRoadMode(borderMode)"
           :readonly="readonly"
           :type-options="typeOptions"
           :mark-options="markOptions"
