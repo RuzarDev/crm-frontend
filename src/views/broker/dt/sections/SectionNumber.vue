@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { PhWarningCircle } from '@phosphor-icons/vue'
 import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
 import ZDate from '@/components/z/ZDate.vue'
@@ -7,7 +8,7 @@ import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import type { DtFormState } from '../dtPayload'
-import { buildFromParts, cleanTail, ddmmyyOf, isoOfDdmmyy, isStandardNumber, lastTail, parseFullNumber, partsOf, tailOf } from '../dtNumber'
+import { buildFromParts, cleanTail, ddmmyyOf, digitsOfShortNumber, isKedenNumber, isoOfDdmmyy, isStandardNumber, lastTail, padTail, parseFullNumber, partsOf, tailOf } from '../dtNumber'
 import { withCurrent } from '../dtOptions'
 
 // Гр. А — регистрационный номер ДТ: пост подачи, дата и 7 цифр. Номер собирается сам («пост/ДДММГГ/7 цифр») и
@@ -96,6 +97,16 @@ const onTail = (e: Event) => {
   tail.value = clean
   rebuild()
 }
+// Ушли из поля цифр с неполным хвостом («25831») — дополняем нулями слева (в КЕДЕН: 0025831) и собираем номер.
+// Только когда собранного номера ещё нет: у готового номера неполный хвост — скорее случайный Backspace, его не трогаем.
+const onTailBlur = (e: Event) => {
+  if (manual.value || isStandardNumber(props.form.declarationNumber)) return
+  const padded = padTail(tail.value)
+  if (!padded || padded === tail.value) return
+  tail.value = padded
+  ;(e.target as HTMLInputElement).value = padded
+  rebuild()
+}
 const onManual = (v: string) => {
   written = v
   props.form.declarationNumber = v
@@ -118,6 +129,26 @@ const toAuto = () => {
   }
   // Номер другого формата: собираем из частей, если они полные; иначе номер остаётся как есть.
   rebuild()
+}
+
+// Номер не в формате КЕДЕН — ДТ не свяжется со статусами КЕДЕН (21.10). Сохранять не мешаем: старые/ручные номера
+// допустимы. Если пост, дата и цифры есть — собрать номер КЕДЕН одним нажатием (цифры — из короткого номера или поля
+// «7 цифр», с нулями слева).
+const notKeden = computed(() => !!props.form.declarationNumber?.trim() && !isKedenNumber(props.form.declarationNumber))
+const assembleTo = computed(() => {
+  if (!notKeden.value) return ''
+  const digits = digitsOfShortNumber(props.form.declarationNumber) || tail.value
+  const built = buildFromParts((props.form.submissionCustomsOfficeCode ?? '').trim(), ddmmyyOf(props.form.submissionDate), padTail(digits))
+  return isKedenNumber(built) ? built : ''
+})
+const assemble = () => {
+  const built = assembleTo.value
+  if (!built) return
+  manual.value = false
+  touchedPost = false
+  touchedDate = false
+  tail.value = built.slice(-7)
+  write(built)
 }
 
 // Пост из справочника КЕДЕН; сохранённый пост вне списка показывается и подсвечивается, а не теряется.
@@ -175,6 +206,7 @@ const result = computed(() => props.form.declarationNumber || '')
           inputmode="numeric"
           autocomplete="off"
           @change="onTail"
+          @blur="onTailBlur"
         />
       </ZField>
     </div>
@@ -201,6 +233,25 @@ const result = computed(() => props.form.declarationNumber || '')
       </template>
       <ZButton v-if="!readonly" size="sm" variant="ghost" class="max-sm:h-11" data-dt-number-toggle @click="manual ? toAuto() : toManual()">
         {{ manual ? t('broker.dt.number.auto') : t('broker.dt.number.manual') }}
+      </ZButton>
+    </div>
+
+    <div
+      v-if="notKeden"
+      class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-field bg-tone-wait-bg px-3 py-2 text-[12.5px] text-tone-wait-fg"
+      role="status"
+      data-dt-number-not-keden
+    >
+      <PhWarningCircle :size="16" class="shrink-0" aria-hidden="true" />
+      <span class="min-w-0 flex-1 basis-56">{{ t('broker.dt.number.notKeden') }}</span>
+      <ZButton
+        v-if="!readonly && assembleTo"
+        size="sm"
+        class="max-sm:h-11 max-sm:w-full"
+        data-dt-number-assemble
+        @click="assemble"
+      >
+        {{ t('broker.dt.number.assembleAs', { n: assembleTo }) }}
       </ZButton>
     </div>
   </section>

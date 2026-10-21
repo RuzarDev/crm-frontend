@@ -137,10 +137,27 @@ const pick = async (c: KedenCandidateDto) => {
   }
 }
 const takenElsewhere = (c: KedenCandidateDto) => !!c.linkedDeclarationId && c.linkedDeclarationId !== props.dtId
+
+// «Нет связи», но в журнале КЕДЕН есть свободные ДТ этого клиента (поиск по умолчанию — по БИН) — кнопка рядом с
+// чипом, чтобы ручную связь не искали в окне чипа (21.10). Ошибка подсказки молчит: это только подсказка.
+const suggestCount = ref(0)
+const prefetch = async () => {
+  try {
+    const found = (await kedenLinkApi.candidates(props.caseId, props.dtId)) ?? []
+    if (linked.value) return
+    suggestCount.value = found.filter((c) => c.declarationType?.trim().toUpperCase() === 'DT' && !c.linkedDeclarationId).length
+  } catch {
+    suggestCount.value = 0
+  }
+}
+watch([linked, () => props.canLink, () => props.dtId], ([isLinked, can]) => {
+  suggestCount.value = 0
+  if (!isLinked && can) void prefetch()
+}, { immediate: true })
 </script>
 
 <template>
-  <span class="inline-flex" data-dt-keden>
+  <span class="inline-flex flex-wrap items-center gap-1.5" data-dt-keden>
     <ZPopover v-model:open="open" :width="360" align="start" :title="t('kedenLink.title')">
       <template #trigger>
         <button
@@ -189,6 +206,15 @@ const takenElsewhere = (c: KedenCandidateDto) => !!c.linkedDeclarationId && c.li
         </div>
       </div>
     </ZPopover>
+    <ZButton
+      v-if="canLink && !linked && suggestCount > 0"
+      size="sm"
+      class="max-sm:h-9"
+      data-dt-keden-suggest
+      @click="openSearch"
+    >
+      <PhLink :size="14" aria-hidden="true" />{{ t('kedenLink.suggest', { n: suggestCount }) }}
+    </ZButton>
 
     <ZModal v-if="canLink" v-model:open="searchOpen" :title="t('kedenLink.search.title')" :footer="false" :width="760" data-dt-keden-search>
       <form class="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]" @submit.prevent="search">

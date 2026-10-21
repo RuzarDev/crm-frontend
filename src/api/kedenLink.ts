@@ -9,8 +9,8 @@ export type KedenStatusKind = 'registered' | 'released' | 'conditionalRelease' |
 export interface KedenLinkDto {
   linked: boolean
   kedenDeclarationId: string | null
-  /** number — по рег. номеру, edoc — по EDocId из XML, manual — вручную. */
-  source: 'number' | 'edoc' | 'manual' | null
+  /** number — по рег. номеру, edoc — по EDocId из XML, fuzzy — по посту, дате гр. А и БИН (21.10), manual — вручную. */
+  source: 'number' | 'edoc' | 'fuzzy' | 'manual' | null
   linkedAtUtc: string | null
   registrationNumber: string | null
   statusCode: string | null

@@ -53,3 +53,21 @@ export const parseFullNumber = (raw: string): { post: string; d6: string; tail: 
 
 /** Хвост из вставленного текста: последние 7 цифр. */
 export const lastTail = (raw: string): string => raw.replace(/\D/g, '').slice(-7)
+
+/** Номер в формате КЕДЕН: ровно 5 цифр поста, ДДММГГ, 7 цифр. Только такой связывается со статусами КЕДЕН. */
+export const isKedenNumber = (num: string | null | undefined): boolean => /^\d{5}\/\d{6}\/\d{7}$/.test((num ?? '').trim())
+
+/** 1–7 цифр → 7 цифр с нулями впереди (в КЕДЕН номера дополнены нулями: 0026650); иначе ''. */
+export const padTail = (raw: string | null | undefined): string => {
+  const d = (raw ?? '').trim()
+  return /^\d{1,7}$/.test(d) ? d.padStart(7, '0') : ''
+}
+
+/**
+ * Цифры номера для «Собрать из частей»: короткий номер одними цифрами («25831») или хвост после последней «/»
+ * («55403/201026/25831»); номер другого вида — ''.
+ */
+export const digitsOfShortNumber = (num: string | null | undefined): string => {
+  const m = /^(?:\d+\/\d{6}\/)?(\d{1,7})$/.exec((num ?? '').replace(/\s+/g, ''))
+  return m ? m[1] : ''
+}
