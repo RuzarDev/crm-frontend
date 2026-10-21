@@ -38,13 +38,18 @@ const write = (num: string) => {
   written = num
   if (props.form.declarationNumber !== num) props.form.declarationNumber = num
 }
-// Пересборка только из полных частей; неполные — номер не трогаем.
-const rebuild = () => {
+// Пост и дата для сборки: тронутые пользователем — из формы, иначе — из самого номера.
+const currentPostDate = () => {
   const n = partsOf(props.form.declarationNumber)
   const formPost = (props.form.submissionCustomsOfficeCode ?? '').trim()
   const formDate = ddmmyyOf(props.form.submissionDate)
   const post = (touchedPost ? formPost : n?.post) || formPost || n?.post || ''
   const d6 = (touchedDate ? formDate : n?.d6) ?? formDate ?? n?.d6 ?? null
+  return { post, d6 }
+}
+// Пересборка только из полных частей; неполные — номер не трогаем.
+const rebuild = () => {
+  const { post, d6 } = currentPostDate()
   const built = buildFromParts(post, d6, tail.value)
   if (built) write(built)
 }
@@ -97,16 +102,15 @@ const onTail = (e: Event) => {
   tail.value = clean
   rebuild()
 }
-// Ушли из поля цифр с неполным хвостом («25831») — дополняем нулями слева (в КЕДЕН: 0025831) и собираем номер.
-// Только когда собранного номера ещё нет: у готового номера неполный хвост — скорее случайный Backspace, его не трогаем.
-const onTailBlur = (e: Event) => {
-  if (manual.value || isStandardNumber(props.form.declarationNumber)) return
-  const padded = padTail(tail.value)
-  if (!padded || padded === tail.value) return
-  tail.value = padded
-  ;(e.target as HTMLInputElement).value = padded
-  rebuild()
-}
+// Неполные цифры («25831») сами нулями НЕ дополняются (21.10, ревью): «2583» при уходе из поля стало бы «0002583» и
+// сохранилось автосейвом, а исправить набором уже нельзя. Вместо этого — кнопка с готовым номером «…/0025831»:
+// нули слева только по нажатию, пользователь видит, что получится.
+const padPreview = computed(() => {
+  if (manual.value || !/^\d{1,6}$/.test(tail.value)) return ''
+  const { post, d6 } = currentPostDate()
+  const built = buildFromParts(post, d6, padTail(tail.value))
+  return built && built !== props.form.declarationNumber ? built : ''
+})
 const onManual = (v: string) => {
   written = v
   props.form.declarationNumber = v
@@ -141,8 +145,8 @@ const assembleTo = computed(() => {
   const built = buildFromParts((props.form.submissionCustomsOfficeCode ?? '').trim(), ddmmyyOf(props.form.submissionDate), padTail(digits))
   return isKedenNumber(built) ? built : ''
 })
-const assemble = () => {
-  const built = assembleTo.value
+const assemble = (to?: string) => {
+  const built = to || assembleTo.value
   if (!built) return
   manual.value = false
   touchedPost = false
@@ -206,7 +210,6 @@ const result = computed(() => props.form.declarationNumber || '')
           inputmode="numeric"
           autocomplete="off"
           @change="onTail"
-          @blur="onTailBlur"
         />
       </ZField>
     </div>
@@ -229,7 +232,16 @@ const result = computed(() => props.form.declarationNumber || '')
       <template v-else>
         <span class="text-xs text-muted">{{ t('broker.dt.number.result') }}</span>
         <output class="font-mono text-lg font-semibold tabular-nums text-ink" data-dt-number-result :aria-label="t('broker.dt.number.result')">{{ result || '—' }}</output>
-        <p class="m-0 min-w-0 flex-1 basis-56 text-xs text-muted">{{ result ? t('broker.dt.number.assembled') : t('broker.dt.number.incomplete') }}</p>
+        <p class="m-0 min-w-0 flex-1 basis-56 text-xs text-muted">{{ padPreview ? t('broker.dt.number.shortTail') : result ? t('broker.dt.number.assembled') : t('broker.dt.number.incomplete') }}</p>
+        <ZButton
+          v-if="!readonly && padPreview && !notKeden"
+          size="sm"
+          class="max-sm:h-11 max-sm:w-full"
+          data-dt-number-pad
+          @click="assemble(padPreview)"
+        >
+          {{ t('broker.dt.number.assembleAs', { n: padPreview }) }}
+        </ZButton>
       </template>
       <ZButton v-if="!readonly" size="sm" variant="ghost" class="max-sm:h-11" data-dt-number-toggle @click="manual ? toAuto() : toManual()">
         {{ manual ? t('broker.dt.number.auto') : t('broker.dt.number.manual') }}
@@ -249,7 +261,7 @@ const result = computed(() => props.form.declarationNumber || '')
         size="sm"
         class="max-sm:h-11 max-sm:w-full"
         data-dt-number-assemble
-        @click="assemble"
+        @click="assemble()"
       >
         {{ t('broker.dt.number.assembleAs', { n: assembleTo }) }}
       </ZButton>

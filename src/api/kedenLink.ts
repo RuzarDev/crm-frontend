@@ -23,6 +23,11 @@ export interface KedenLinkDto {
   dhtNumber: string | null
   /** Рег. номер в КЕДЕН отличается от номера ДТ в карточке (номер не перезаписан). */
   numberConflict: string | null
+  /**
+   * Номер, к которому вернётся ДТ при отвязке: нестрогая связь (fuzzy) дополнила/заполнила его из КЕДЕН ('' — номер
+   * очистится). null/нет — номер при отвязке не изменится (21.10).
+   */
+  numberOnUnlink?: string | null
 }
 
 export interface KedenCandidateDto {
@@ -46,6 +51,10 @@ export interface KedenCandidateQuery {
   /** 'YYYY-MM-DD' */
   from?: string
   to?: string
+  /** Пост подачи (5 цифр) — первые цифры рег. номера КЕДЕН. */
+  post?: string
+  /** Подсказка у чипа: БИН ДТ/клиента при любых фильтрах, только свободные записи типа DT (21.10). */
+  hint?: boolean
 }
 
 const base = (caseId: string, dtId: string) =>

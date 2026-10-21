@@ -1426,6 +1426,7 @@ export default {
         manualHint: 'The number is entered by hand — the post, date and digits do not change it. An empty number is saved too.',
         notKeden: 'The number is not in KEDEN format (post/ddmmyy/7 digits) — the DT will not get KEDEN statuses',
         assembleAs: 'Build from parts: {n}',
+        shortTail: 'Fewer than 7 digits — the number is not built automatically. KEDEN pads the number with leading zeros: check the digits or build the number with the button',
       },
       general: {
         title: 'General information',
@@ -7207,6 +7208,8 @@ export default {
     unlink: 'Unlink',
     unlinkConfirm: 'Unlink the DT from KEDEN?',
     unlinkConfirmHint: 'KEDEN statuses will no longer reach this DT; the number and corridor on the card stay. This declaration will not be linked automatically again.',
+    unlinkConfirmHintRestore: 'KEDEN statuses will no longer reach this DT; the corridor on the card stays, and the DT number completed from KEDEN goes back to the one entered — {n}. This declaration will not be linked automatically again.',
+    unlinkConfirmHintClear: 'KEDEN statuses will no longer reach this DT; the corridor on the card stays, and the DT number filled in from KEDEN will be cleared. This declaration will not be linked automatically again.',
     unlinkedDone: 'DT unlinked from KEDEN',
     linkedDone: 'DT linked to KEDEN',
     search: {

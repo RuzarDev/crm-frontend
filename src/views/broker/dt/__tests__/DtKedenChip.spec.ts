@@ -99,10 +99,11 @@ describe('DtKedenChip', () => {
     expect(w.get('[data-dt-keden-status]').text()).toBe('Выпущена')
   })
 
-  it('нет связи, а в КЕДЕН есть свободные ДТ — кнопка «Найдено в КЕДЕН» открывает поиск', async () => {
+  it('нет связи, а в КЕДЕН есть свободные ДТ того же поста и ±3 дня — кнопка «Найдено в КЕДЕН» открывает поиск', async () => {
     api.candidates.mockResolvedValue([cand(), cand({ id: 'k8', linkedDeclarationId: 'other' }), cand({ id: 'k7', declarationType: 'PI' })])
-    mountWith({ keden: unlinked })
+    mountWith({ keden: unlinked, post: '55302', submissionDate: '2026-10-20' })
     await flushPromises()
+    expect(api.candidates).toHaveBeenCalledWith('c1', 'd1', { hint: true, post: '55302', from: '2026-10-17', to: '2026-10-23' })
     const btn = w.get('[data-dt-keden-suggest]')
     expect(btn.text()).toContain('Найдено в КЕДЕН: 1')
     await btn.trigger('click')
@@ -110,21 +111,54 @@ describe('DtKedenChip', () => {
     expect(q('[data-keden-candidate="k9"]')).not.toBeNull()
   })
 
-  it('кнопки-подсказки нет: связана, нет кандидатов, нет права', async () => {
+  it('кнопки-подсказки нет: связана, нет кандидатов, нет права, нет поста или даты', async () => {
     api.candidates.mockResolvedValue([])
-    mountWith({ keden: unlinked })
+    mountWith({ keden: unlinked, post: '55302', submissionDate: '2026-10-20' })
     await flushPromises()
     expect(w.find('[data-dt-keden-suggest]').exists()).toBe(false)
     w.unmount()
     api.candidates.mockClear()
     api.candidates.mockResolvedValue([cand()])
-    mountWith({})
+    mountWith({ post: '55302', submissionDate: '2026-10-20' })
     await flushPromises()
     expect(api.candidates).not.toHaveBeenCalled()
     expect(w.find('[data-dt-keden-suggest]').exists()).toBe(false)
     w.unmount()
-    mountWith({ keden: unlinked, canLink: false })
+    mountWith({ keden: unlinked, canLink: false, post: '55302', submissionDate: '2026-10-20' })
     await flushPromises()
     expect(api.candidates).not.toHaveBeenCalled()
+    w.unmount()
+    mountWith({ keden: unlinked, post: '', submissionDate: '2026-10-20' })
+    await flushPromises()
+    w.unmount()
+    mountWith({ keden: unlinked, post: '55302', submissionDate: null })
+    await flushPromises()
+    expect(api.candidates).not.toHaveBeenCalled()
+  })
+
+  it('ответ на устаревший запрос не применяется: сменили ДТ — считается по новой', async () => {
+    let resolveOld!: (v: KedenCandidateDto[]) => void
+    api.candidates
+      .mockImplementationOnce(() => new Promise<KedenCandidateDto[]>((r) => { resolveOld = r }))
+      .mockResolvedValueOnce([cand({ id: 'n1' }), cand({ id: 'n2' })])
+    mountWith({ keden: unlinked, post: '55302', submissionDate: '2026-10-20' })
+    await flushPromises()
+    await w.setProps({ dtId: 'd2', submissionDate: '2026-10-21' })
+    await flushPromises()
+    expect(api.candidates).toHaveBeenLastCalledWith('c1', 'd2', { hint: true, post: '55302', from: '2026-10-18', to: '2026-10-24' })
+    expect(w.get('[data-dt-keden-suggest]').text()).toContain('Найдено в КЕДЕН: 2')
+    resolveOld([cand({ id: 'o1' }), cand({ id: 'o2' }), cand({ id: 'o3' })]) // поздний ответ по прежней ДТ
+    await flushPromises()
+    expect(w.get('[data-dt-keden-suggest]').text()).toContain('Найдено в КЕДЕН: 2')
+  })
+
+  it('отвязка нестрогой связи предупреждает, что номер вернётся к введённому', async () => {
+    api.confirm.mockResolvedValue(false)
+    mountWith({ keden: link({ source: 'fuzzy', numberOnUnlink: '25831' }) })
+    await openPanel()
+    q<HTMLButtonElement>('[data-dt-keden-unlink]')!.click()
+    await flushPromises()
+    expect(api.confirm.mock.calls[0][0].content).toContain('вернётся к введённому — 25831')
+    expect(api.unlink).not.toHaveBeenCalled()
   })
 })

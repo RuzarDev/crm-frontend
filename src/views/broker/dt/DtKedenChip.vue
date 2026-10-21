@@ -24,6 +24,9 @@ const props = defineProps<{
   keden: KedenLinkDto | null | undefined
   /** Связывать/отвязывать: право вести ДТ (декларант, РОП, админ). */
   canLink: boolean
+  /** Пост подачи и дата гр. А из формы ДТ — для подсказки «Найдено в КЕДЕН» (21.10). */
+  post?: string | null
+  submissionDate?: string | null
 }>()
 const emit = defineEmits<{ changed: [value: KedenLinkDto] }>()
 const { t, te, locale } = useI18n()
@@ -68,8 +71,14 @@ const open = ref(false)
 
 // ---- Отвязать ----
 const unlinking = ref(false)
+// Нестрогая связь дополнила номер ДТ из КЕДЕН — при отвязке он вернётся к введённому (или очистится): предупреждаем.
+const unlinkHint = computed(() => {
+  const back = state.value?.numberOnUnlink
+  if (back == null) return t('kedenLink.unlinkConfirmHint')
+  return back.trim() ? t('kedenLink.unlinkConfirmHintRestore', { n: back.trim() }) : t('kedenLink.unlinkConfirmHintClear')
+})
 const unlink = async () => {
-  const ok = await confirm({ title: t('kedenLink.unlinkConfirm'), content: t('kedenLink.unlinkConfirmHint'), okText: t('kedenLink.unlink'), cancelText: t('common.cancel'), danger: true })
+  const ok = await confirm({ title: t('kedenLink.unlinkConfirm'), content: unlinkHint.value, okText: t('kedenLink.unlink'), cancelText: t('common.cancel'), danger: true })
   if (!ok) return
   unlinking.value = true
   try {
@@ -138,20 +147,37 @@ const pick = async (c: KedenCandidateDto) => {
 }
 const takenElsewhere = (c: KedenCandidateDto) => !!c.linkedDeclarationId && c.linkedDeclarationId !== props.dtId
 
-// «Нет связи», но в журнале КЕДЕН есть свободные ДТ этого клиента (поиск по умолчанию — по БИН) — кнопка рядом с
-// чипом, чтобы ручную связь не искали в окне чипа (21.10). Ошибка подсказки молчит: это только подсказка.
+// «Нет связи», но в журнале КЕДЕН есть свободные ДТ этого клиента того же поста и ±3 дня от гр. А — кнопка рядом с
+// чипом, чтобы ручную связь не искали в окне чипа (21.10). Без поста или даты подсказки нет. Ошибка молчит: это только
+// подсказка. Ответ на устаревший запрос (сменились ДТ, пост или дата) не применяется.
+const WINDOW_DAYS = 3
+const shiftIso = (iso: string, days: number) => {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10)
+}
+const hintQuery = computed(() => {
+  const post = (props.post ?? '').trim()
+  const date = /^(\d{4}-\d{2}-\d{2})/.exec(props.submissionDate ?? '')?.[1]
+  if (!/^\d{5}$/.test(post) || !date) return null
+  return { hint: true, post, from: shiftIso(date, -WINDOW_DAYS), to: shiftIso(date, WINDOW_DAYS) }
+})
 const suggestCount = ref(0)
+let suggestSeq = 0
 const prefetch = async () => {
+  const my = ++suggestSeq
+  const query = hintQuery.value
+  if (!query) return
   try {
-    const found = (await kedenLinkApi.candidates(props.caseId, props.dtId)) ?? []
-    if (linked.value) return
+    const found = (await kedenLinkApi.candidates(props.caseId, props.dtId, query)) ?? []
+    if (my !== suggestSeq || linked.value) return
     suggestCount.value = found.filter((c) => c.declarationType?.trim().toUpperCase() === 'DT' && !c.linkedDeclarationId).length
   } catch {
-    suggestCount.value = 0
+    if (my === suggestSeq) suggestCount.value = 0
   }
 }
-watch([linked, () => props.canLink, () => props.dtId], ([isLinked, can]) => {
+watch([linked, () => props.canLink, () => props.dtId, () => hintQuery.value?.post, () => hintQuery.value?.from], ([isLinked, can]) => {
   suggestCount.value = 0
+  suggestSeq++ // ответ прежнего запроса больше не нужен
   if (!isLinked && can) void prefetch()
 }, { immediate: true })
 </script>
