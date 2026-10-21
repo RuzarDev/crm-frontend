@@ -33,8 +33,9 @@ export type DocumentCheckVerdict = 'ok' | 'partial' | 'mismatch' | 'unrecognized
 /** Итог строки: не найдено в документе / нет в ДТ — не совпадение, а «не сверено». */
 export type DocumentCheckRowResult = 'match' | 'mismatch' | 'docsDiffer' | 'notInDocument' | 'notInDt' | 'checkName' | 'notCompared'
 
-/** invoice | packing | invoicePacking | contract | transport | other; merged — слитые значения без файла (прежние сверки). */
-export type DocumentCheckDocKind = 'invoice' | 'packing' | 'invoicePacking' | 'contract' | 'transport' | 'other' | 'merged'
+/** invoice | packing | invoicePacking | contract | transport | certificate (сертификат, разрешение — в номер и сумму
+ * инвойса и итоги поставки не входит) | other; merged — слитые значения без файла (прежние сверки). */
+export type DocumentCheckDocKind = 'invoice' | 'packing' | 'invoicePacking' | 'contract' | 'transport' | 'certificate' | 'other' | 'merged'
 
 export interface DocumentCheckDocValue {
   value: string | null
@@ -60,7 +61,7 @@ export interface DocumentCheckRow {
   declarationValue: string | null
   /** dtPartial:k/n | sum42:v | notInGr44 | otherCurrency | mixedUnits | noDt | matchesFile:имя. */
   declarationNote: string | null
-  /** docsSum:n. */
+  /** docsSum:n | packingCitesInvoice (номер упаковочного листа из разбора — номер инвойса из гр. 44: не сверено). */
   documentsNote: string | null
   currency?: string | null
 }
@@ -101,12 +102,21 @@ export interface DocumentCheck {
   caseDiscrepancies?: DocumentDiscrepancy[]
   declarationLabel?: string | null
   declarationSplit?: boolean
+  /** Части разделённой ДТ, которые есть: ETT, VTO (у одного товара — только VTO). */
+  declarationSplitRoles?: string[]
+  /** В заявке нет ни одной ДТ: verdict noDt — не «выберите ДТ», выбирать не из чего. */
+  noDeclarationsInCase?: boolean
   declarationUpdatedAtUtc?: string | null
   comparedAtUtc?: string
   parsedAtUtc?: string | null
   legacy?: boolean
   canRecheck?: boolean
+  /** Почему «Сверить заново» недоступна: файлов сверки в заявке нет / остались только .xls и неподдерживаемые. */
+  recheckBlocked?: 'filesMissing' | 'nothingToParse' | null
 }
+
+/** Таймаут «Сверить заново» — как у extract-batch (import40.ts). */
+export const RECHECK_TIMEOUT_MS = 180000
 
 const base = (caseId: string) => `/import40/${encodeURIComponent(caseId)}/document-checks`
 
@@ -119,7 +129,9 @@ export const documentChecksApi = {
   },
   /** «Сверить заново»: те же файлы — в распознавание, сравнение — с ДТ в её текущем виде. Ошибку показывает блок
    * (silent): 409 — файлы удалены (title Import40.DocumentCheckFilesMissing) / нечего отправить
-   * (Import40.DocumentCheckNothingToParse), 502 — сервис распознавания недоступен. */
+   * (Import40.DocumentCheckNothingToParse), 502 — сервис распознавания недоступен. Таймаут — как у «Из документов»
+   * (extract-batch): те же файлы, сканы и PDF разбираются до пары минут, 30 с по умолчанию обрывали разбор. */
   recheck: async (caseId: string, checkId: string): Promise<DocumentCheck> =>
-    (await apiClient.post<DocumentCheck>(`${base(caseId)}/${encodeURIComponent(checkId)}/recheck`, null, { silent: true })).data,
+    (await apiClient.post<DocumentCheck>(`${base(caseId)}/${encodeURIComponent(checkId)}/recheck`, null,
+      { silent: true, timeout: RECHECK_TIMEOUT_MS })).data,
 }

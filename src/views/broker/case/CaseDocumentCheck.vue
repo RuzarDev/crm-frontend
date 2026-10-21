@@ -27,6 +27,8 @@ export interface DocCheckDeclaration {
   declarationNumber?: string | null
   isSplitReplaced?: boolean
   splitSourceDeclarationId?: string | null
+  /** ETT | VTO — у частей разделённой ДТ. */
+  splitRole?: string | null
 }
 
 const props = withDefaults(defineProps<{
@@ -79,14 +81,24 @@ const title = computed(() => {
   switch (verdict.value) {
     case 'mismatch': return t('docCheck.verdict.mismatch', { n: mismatchTotal.value }) + tail
     case 'partial': return t('docCheck.verdict.partial') + tail
+    // «Выберите ДТ» — только когда есть из чего выбрать; ДТ в заявке нет — так и пишем.
+    case 'noDt': return t(shown.value.some((c) => verdictOf(c) === 'noDt' && !c.noDeclarationsInCase)
+      ? 'docCheck.verdict.noDt' : 'docCheck.verdict.noDtNone')
     default: return t(`docCheck.verdict.${verdict.value}`)
   }
 })
 const tone = computed(() => (verdict.value === 'mismatch' || verdict.value === 'unrecognized' ? 'wait' : verdict.value === 'ok' ? 'done' : 'neutral'))
 
 // ── Подписи ──
+/** Разделённая ДТ — по частям, которые есть: у одного товара бывает только ВТО (без части ЕТТ). */
+const splitLabel = (roles: readonly (string | null | undefined)[]) => {
+  const has = (r: string) => roles.some((x) => x?.toUpperCase() === r)
+  return has('VTO') && !has('ETT') ? t('docCheck.splitDtVto')
+    : has('ETT') && !has('VTO') ? t('docCheck.splitDtEtt')
+      : t('docCheck.splitDt')
+}
 const checkTitle = (c: DocumentCheck) =>
-  c.declarationSplit ? t('docCheck.splitDt')
+  c.declarationSplit ? splitLabel(c.declarationSplitRoles ?? [])
     : c.declarationNumber ? t('docCheck.forDt', { n: c.declarationNumber })
       : c.declarationId ? t('docCheck.forDtNoNumber') : t('docCheck.noDt')
 const when = (iso: string | null | undefined) => {
@@ -146,15 +158,17 @@ const sourceName = (v: DocumentDiscrepancyValue) => {
   return v.source || t('docCheck.source.document')
 }
 
-// ── Выбор ДТ: живые ДТ заявки, разделённая (исходная с частями) — одной позицией «ДТ ЕТТ + ВТО» ──
+// ── Выбор ДТ: живые ДТ заявки, разделённая (исходная с частями) — одной позицией «ДТ ЕТТ + ВТО» (по частям, что есть) ──
 const dtOptions = computed(() => {
   const ids = new Set(props.declarations.map((d) => d.id))
+  const rolesOf = (id: string) => props.declarations
+    .filter((p) => p.splitSourceDeclarationId === id && p.id !== id).map((p) => p.splitRole)
   return props.declarations
     .filter((d) => !d.splitSourceDeclarationId || d.splitSourceDeclarationId === d.id || !ids.has(d.splitSourceDeclarationId))
     .map((d) => ({
       value: d.id,
       label: d.isSplitReplaced
-        ? `${t('docCheck.splitDt')}${d.declarationNumber ? ` · ${d.declarationNumber}` : ''}`
+        ? `${splitLabel(rolesOf(d.id))}${d.declarationNumber ? ` · ${d.declarationNumber}` : ''}`
         : d.declarationNumber ? t('docCheck.forDt', { n: d.declarationNumber }) : t('docCheck.forDtNoNumber'),
     }))
 })
@@ -185,8 +199,13 @@ const recheck = async (c: DocumentCheck) => {
     checks.value = checks.value.map((x) => (x.id === updated.id ? updated : x))
     message.success(t('docCheck.recheckDone'))
   } catch (e) {
-    const res = (e as { response?: { status?: number; data?: { title?: string } } }).response
-    if (res?.status === 409) {
+    const err = e as { code?: string; response?: { status?: number; data?: { title?: string } } }
+    const res = err.response
+    if (!res && (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT')) {
+      // Разбор не уложился в таймаут (сканы, много файлов): сервер его отменил, прежний разбор не менялся.
+      message.error(t('docCheck.recheckTimeout'))
+      await load()
+    } else if (res?.status === 409) {
       message.error(t(res.data?.title === RECHECK_NOTHING_TO_PARSE ? 'docCheck.nothingToParse' : 'docCheck.filesMissing'))
       if (res.data?.title === RECHECK_FILES_MISSING) await load()
     } else {
@@ -230,7 +249,7 @@ const titleId = `case-doccheck-${uid}`
           size="sm"
           :loading="!!pending[c.id]"
           :disabled="c.canRecheck === false"
-          :title="c.canRecheck === false ? t('docCheck.filesMissing') : undefined"
+          :title="c.canRecheck === false ? t(c.recheckBlocked === 'nothingToParse' ? 'docCheck.nothingToParse' : 'docCheck.filesMissing') : undefined"
           :aria-busy="pending[c.id] ? 'true' : undefined"
           data-doccheck-recheck
           @click="recheck(c)"
@@ -271,8 +290,24 @@ const titleId = `case-doccheck-${uid}`
         </li>
       </ul>
 
-      <ZAlert v-if="verdictOf(c) === 'unrecognized'" type="warning" show-icon class="mt-2" :description="t('docCheck.unrecognizedLead')" data-doccheck-unrecognized />
-      <ZAlert v-else-if="verdictOf(c) === 'noDt'" type="info" show-icon class="mt-2" :description="t('docCheck.noDtLead')" data-doccheck-nodt />
+      <!-- Ключевые поля не найдены: при «не удалось сверить» — вместо таблицы; при расхождениях (например, номера ТС
+           с заявкой) — над таблицей, чтобы «не найдено в документе» в строках было объяснено (design §5.2.3). -->
+      <ZAlert
+        v-if="verdictOf(c) === 'unrecognized' || c.unrecognized"
+        type="warning"
+        show-icon
+        class="mt-2"
+        :description="t(verdictOf(c) === 'unrecognized' ? 'docCheck.unrecognizedLead' : 'docCheck.unrecognizedPartLead')"
+        data-doccheck-unrecognized
+      />
+      <ZAlert
+        v-else-if="verdictOf(c) === 'noDt'"
+        type="info"
+        show-icon
+        class="mt-2"
+        :description="t(c.noDeclarationsInCase ? 'docCheck.noDtNoneLead' : 'docCheck.noDtLead')"
+        data-doccheck-nodt
+      />
       <ZAlert v-if="c.legacy" type="info" show-icon class="mt-2" :description="t('docCheck.legacy')" data-doccheck-legacy />
 
       <!-- Поля: в документе / в ДТ / итог. ≥ 640 px — таблица, уже — карточка на строку (без горизонтальной прокрутки). -->

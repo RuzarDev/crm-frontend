@@ -215,6 +215,65 @@ describe('CaseDocumentCheck', () => {
     expect(api.list).toHaveBeenCalledTimes(2)
   })
 
+  // Ревью №13: в заявке нет ни одной ДТ — не «выберите ДТ / в заявке несколько ДТ», а «в заявке нет ДТ», без выбора.
+  it('в заявке нет ДТ — свой заголовок и подсказка, выбора ДТ нет', async () => {
+    api.list.mockResolvedValue([check({ declarationId: null, declarationNumber: null, verdict: 'noDt', mismatchCount: 0, noDeclarationsInCase: true })])
+    await mountIt({ declarations: [] })
+    expect(title()).toBe('Сверка документов: в заявке нет ДТ')
+    expect(w.get('[data-doccheck-nodt]').text()).toContain('В заявке нет ДТ — документы сверены только между собой')
+    expect(w.get('[data-doccheck-nodt]').text()).not.toContain('несколько ДТ')
+    expect(w.find('[data-doccheck-choose-dt]').exists()).toBe(false)
+  })
+
+  // Ревью №13 (design §5.2.3): ключевые поля не найдены, но есть расхождение (номера ТС с заявкой) — предупреждение
+  // над таблицей, таблица остаётся.
+  it('расхождение при нераспознанных ключевых полях — предупреждение и таблица', async () => {
+    api.list.mockResolvedValue([check({
+      verdict: 'mismatch', unrecognized: true, mismatchCount: 1,
+      rows: [row({ field: 'invoiceNumber', result: 'notInDocument', key: true, declarationValue: '11111' })],
+      caseDiscrepancies: [{ scope: 'case', field: 'tractor', fieldLabel: 'Номер тягача', itemIndex: null, itemDescription: null,
+        values: [{ value: '184AFR19', sourceKind: 'documents', source: null }, { value: '01AB123', sourceKind: 'case', source: null }] }],
+    })])
+    await mountIt()
+    expect(title()).toBe('Сверка документов: расхождений — 1 · не сверено — 2')
+    expect(w.get('[data-doccheck-unrecognized]').text()).toContain('Номера, веса и суммы в документах не найдены')
+    expect(w.find('[data-doccheck-table]').exists()).toBe(true)
+  })
+
+  // Ревью №13: разделение одного товара — только часть ВТО; подпись по частям, которые есть.
+  it('разделённая ДТ только с частью ВТО — «ДТ ВТО» в подписи и в выборе ДТ', async () => {
+    api.list.mockResolvedValue([check({ declarationSplit: true, declarationSplitRoles: ['VTO'] })])
+    await mountIt({
+      declarations: [
+        { id: 'd1', declarationNumber: '50408/171026/0001', isSplitReplaced: true },
+        { id: 'p1', declarationNumber: '', splitSourceDeclarationId: 'd1', splitRole: 'VTO' },
+        { id: 'd2', declarationNumber: '7' },
+      ],
+    })
+    expect(w.get('[data-doccheck-dt]').text()).toBe('ДТ ВТО')
+    const select = w.findComponent({ name: 'ZSelect' })
+    expect((select.props('options') as { label: string }[]).map((o) => o.label)).toEqual(['ДТ ВТО · 50408/171026/0001', 'ДТ 7'])
+  })
+
+  it('«Сверить заново»: таймаут — свой тост; остались только .xls — подсказка «нечего отправить»; вид «сертификат»', async () => {
+    api.list.mockResolvedValue([check({
+      documents: [{ fileName: 'CT-1.pdf', kind: 'certificate', recognized: true, reason: null, itemsCount: 0 }],
+    })])
+    api.recheck.mockRejectedValueOnce({ code: 'ECONNABORTED', message: 'timeout of 180000ms exceeded' })
+    await mountIt()
+    expect(w.get('[data-doccheck-doc="recognized"]').text()).toContain('сертификат')
+    await w.get('[data-doccheck-recheck]').trigger('click')
+    await flushPromises()
+    expect(msg.error).toHaveBeenCalledWith('Разбор не уложился в 3 минуты — документы не разобраны заново. Попробуйте ещё раз.')
+    w.unmount()
+
+    api.list.mockResolvedValue([check({ canRecheck: false, recheckBlocked: 'nothingToParse' })])
+    await mountIt()
+    const button = w.get('[data-doccheck-recheck]')
+    expect(button.attributes('disabled')).toBeDefined()
+    expect(button.attributes('title')).toBe('В сервис распознавания нечего отправить: Excel .xls читается только в браузере')
+  })
+
   it('прежняя сверка — подсказка «Сверить заново»; документы между собой и с заявкой — списком', async () => {
     api.list.mockResolvedValue([check({
       legacy: true, documents: [],
