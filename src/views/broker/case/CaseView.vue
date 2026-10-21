@@ -30,6 +30,7 @@ import { useCase } from './useCase'
 import { useCaseActions } from './useCaseActions'
 import { useCustomsRequests } from '@/composables/useCustomsRequests'
 import { canManageCustoms, canRemindClient } from '@/utils/customsRequests'
+import { canManageDeclarations, dtUserFrom } from '@/views/import40/dtAccess'
 import PreBorderPanel from '@/views/preBorder/PreBorderPanel.vue'
 import { usePreBorder } from '@/composables/usePreBorder'
 import { useTranslations } from '@/composables/useTranslations'
@@ -181,8 +182,13 @@ const panel = 'rounded-panel border border-line bg-surface'
         :svh-check-missing="!files.some((f) => f.section === 'payment-check')"
         @changed="onCustomsChanged"
       />
-      <!-- Сверка документов (17.10): расхождения инвойса, упаковочного листа, контракта и CMR между собой, с заявкой и ДТ. -->
-      <CaseDocumentCheck :case-id="kase.id" :stamp="kase.updatedAtUtc" />
+      <!-- Сверка документов (17.10; по полям — с 21.10, №13): что в каждом документе, что в ДТ и итог; «Сверить заново». -->
+      <CaseDocumentCheck
+        :case-id="kase.id"
+        :stamp="kase.updatedAtUtc"
+        :declarations="kase.declarations ?? []"
+        :can-manage="canManageDeclarations(dtUserFrom(auth))"
+      />
 
       <div class="flex flex-wrap items-start gap-[18px]">
         <div class="flex min-w-0 flex-[999_1_480px] flex-col gap-4" data-case-main>

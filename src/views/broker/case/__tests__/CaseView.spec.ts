@@ -36,7 +36,7 @@ vi.mock('@/api/preBorder', async (orig) => ({
   preBorderApi: preBorder,
   translationApi: { list: vi.fn(async () => [] as unknown[]), get: vi.fn(), translate: vi.fn() },
 }))
-vi.mock('@/api/documentChecks', () => ({ documentChecksApi: { list: vi.fn().mockResolvedValue([]), link: vi.fn() } }))
+vi.mock('@/api/documentChecks', () => ({ documentChecksApi: { list: vi.fn().mockResolvedValue([]), link: vi.fn(), recheck: vi.fn() } }))
 
 import CaseView from '../CaseView.vue'
 
