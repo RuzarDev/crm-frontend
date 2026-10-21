@@ -31,12 +31,16 @@ vi.mock('@/api/import40Contract', () => ({ import40ContractApi: contract }))
 const reworkApiMock = vi.hoisted(() => ({ list: vi.fn(async () => ({ comment: null, items: [] })), suggestions: vi.fn(async () => ({ codes: [], items: [] })) }))
 vi.mock('@/api/import40Rework', async (orig) => ({ ...(await orig<typeof import('@/api/import40Rework')>()), reworkApi: reworkApiMock }))
 vi.mock('@/ui/message', () => ({ message: msg }))
+// Шаг «Груз» спрашивает статус ИИ (кнопка «Подобрать с ИИ») — без заглушки тест ходил бы в сеть на localhost:3000.
+const aiApi = vi.hoisted(() => ({ suggest: vi.fn(), select: vi.fn(), status: vi.fn(), settings: vi.fn(), saveSettings: vi.fn(), stats: vi.fn() }))
+vi.mock('@/api/aiTnved', async (orig) => ({ ...(await orig<typeof import('@/api/aiTnved')>()), aiTnvedApi: aiApi }))
 vi.mock('@/composables/useClientRegistration', () => ({
   useClientRegistration: () => ({ loaded: reg.loaded, complete: reg.complete, reason: reg.reason, needNew: reg.needNew, refresh: reg.refresh }),
 }))
 
 import ClientWizardView from '../ClientWizardView.vue'
 import { useAuthStore } from '@/stores/auth'
+import { resetAiTnvedStatus } from '@/components/aiTnved/aiTnved'
 
 let w: VueWrapper
 let pinia: Pinia
@@ -63,6 +67,8 @@ beforeEach(() => {
   reg.reason = ref(null)
   reg.needNew = ref(null)
   reg.refresh.mockResolvedValue(undefined)
+  resetAiTnvedStatus()
+  aiApi.status.mockResolvedValue({ available: false, configured: false, clientsEnabled: false, provider: 'Off', model: null })
   router = createRouter({
     history: createMemoryHistory(),
     routes: [

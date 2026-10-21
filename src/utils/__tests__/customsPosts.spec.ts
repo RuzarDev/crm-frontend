@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CustomsPostItem } from '@/types/api'
 import {
-  buildCustomsPostOptions, filterCustomsPostOption, foldSearch, postCodeOf, shortLocation, transportParts,
+  buildCustomsPostOptions, filterCustomsPostOption, foldSearch, postCodeOf, shortLocation, toLatin, transportParts,
 } from '../customsPosts'
 
 // Посты — по снимку справочника КЕДЕН (crm-server/docs/keden-dt-dicts-2026-10-06.json), имена — как в нашем справочнике.
@@ -37,6 +37,12 @@ describe('customsPosts: код, название, подсказка', () => {
     expect(foldSearch('«НҰР ЖОЛЫ»')).toBe('нур жолы')
     expect(foldSearch('Нур-Жолы')).toBe('нур жолы')
     expect(foldSearch('ӘУЕЖАЙ · Қонаев, Ұлытау, Оңтүстік, Һ, Ғ, Ө, І, Ё')).toBe('ауежай конаев улытау онтустик х г о и е')
+    expect(foldSearch('Qaragandy, Aqtobe')).toBe('karagandy aktobe')
+  })
+
+  it('toLatin: латиница свёрнутого текста', () => {
+    expect(toLatin('г алматы ул ахметова 51')).toBe('g almaty ul akhmetova 51')
+    expect(toLatin('хоргос шымкент жетысу усть каменогорск щучинск')).toBe('khorgos shymkent zhetysu ust kamenogorsk shchuchinsk')
   })
 
   it('опция: значение и подпись — полное имя, код, название без кода, вторая строка из КЕДЕН', () => {
@@ -130,5 +136,67 @@ describe('customsPosts: поиск', () => {
     expect(find('хоргос')).toEqual(['Хоргос — ЦТО'])
     expect(filterCustomsPostOption('нур', { value: 'x', label: 'Нұр жолы' })).toBe(true)
     expect(filterCustomsPostOption('12345', { value: 'x', label: 'Пост 12345' })).toBe(true)
+  })
+})
+
+// Ревью 21.10: слова с окончаниями, казахские написания и латиница (kk/en-подсказки зовут вводить именно так).
+describe('customsPosts: окончания, казахский, латиница', () => {
+  it('окончания: «Алматы әуежайы», «пост аэропорта алматы», «Алматының», «Қарағанды әуежайы»', () => {
+    expect(find('Алматы әуежайы')).toEqual(['55301'])
+    expect(find('пост аэропорта алматы')).toEqual(['55301'])
+    expect(find('Алматының әуежайы')).toEqual(['55301'])
+    // 51810 ещё без данных КЕДЕН — находится по названию «АУЕЖАЙ-КАРАГАНДА».
+    expect(find('Қарағанды әуежайы')).toEqual(['51810'])
+    expect(find('Қарағандының әуежайы')).toEqual(['51810'])
+    expect(find('аэропортом астаны')).toEqual(['55103'])
+  })
+
+  it('основа не расползается: «алматы» — не Алматинская область, «темиртау» — не «ТЕМИРЖОЛ»/«ТЕМИР-БАБА»', () => {
+    const opts = buildCustomsPostOptions([
+      post('55403 — ТАМОЖЕННЫЙ ПОСТ «КАЛЖАТ»', 'AUTO', 'РЕСПУБЛИКА КАЗАХСТАН , 041811 АЛМАТИНСКАЯ ОБЛАСТЬ, УЙГУРСКИЙ Р-Н, С.КАЛЖАТ'),
+      post('51801 — ТАМОЖЕННЫЙ ПОСТ «ТЕМИРТАУ»', null, 'РЕСПУБЛИКА КАЗАХСТАН , КАРАГАНДИНСКАЯ ОБЛАСТЬ, Г. ТЕМИРТАУ'),
+      post('50710 — ТАМОЖЕННЫЙ ПОСТ «ТЕМИР-БАБА»', 'AUTO'),
+      post('57504 — ТАМОЖЕННЫЙ ПОСТ «ТЕМИРЖОЛ»', 'RW'),
+    ], (k) => KIND[k])
+    const hit = (q: string) => opts.filter((o) => filterCustomsPostOption(q, o)).map((o) => o.code)
+    expect(hit('алматы')).toEqual([])
+    expect(hit('Almaty')).toEqual([])
+    expect(hit('темиртау')).toEqual(['51801'])
+    expect(hit('караганда')).toEqual([])
+  })
+
+  it('казахские написания: «Қарағанды», «Жетісу», «Қорғас», «Түркістан»', () => {
+    expect(find('Қарағанды')).toEqual(['55101', '51810'])   // 55101 — по адресу «ТРАССА АСТАНА-КАРАГАНДА», как и «караганда»
+    expect(find('караганда')).toEqual(['55101', '51810'])
+    expect(find('Жетісу')).toEqual(['55301', '57504', '57505'])   // 55301 «ЖЕТЫСУ» по названию, 57504/57505 — по адресу «ЖЕТІСУ»
+    expect(find('Қорғас')).toEqual(['Хоргос — ЦТО'])
+    const [tur] = buildCustomsPostOptions([post('55520 — ТАМОЖЕННЫЙ ПОСТ «ТУРКЕСТАН – ЦЕНТР ТАМОЖЕННОГО ОФОРМЛЕНИЯ – АУЕЖАЙ»')], (k) => KIND[k])
+    expect(filterCustomsPostOption('Түркістан әуежайы', tur)).toBe(true)
+    expect(filterCustomsPostOption('Turkestan', tur)).toBe(true)
+  })
+
+  it('казахские общие слова: «кеден бекеті», «кедендік ресімдеу орталығы», «арнайы экономикалық аймақ»', () => {
+    expect(find('Алматы әуежайы кеден бекеті')).toEqual(['55301'])
+    expect(find('Алматы кедендік ресімдеу орталығы')).toEqual(['55302'])
+    expect(find('арнайы экономикалық аймақ')).toEqual(['55303', '55521'])
+  })
+
+  it('латиница: «Almaty», «airport almaty», «Karaganda», «Qaragandy», «Khorgos»/«Horgos», «sez»', () => {
+    expect(find('Almaty')).toEqual(['55301', '55302'])   // у 55303 в тесте нет адреса
+    expect(find('airport almaty')).toEqual(['55301'])
+    expect(find('Karaganda')).toEqual(['55101', '51810'])
+    expect(find('Qaragandy airport')).toEqual(['51810'])
+    expect(find('Khorgos')).toEqual(['Хоргос — ЦТО'])
+    expect(find('Horgos')).toEqual(['Хоргос — ЦТО'])
+    expect(find('Nur Zholy')).toEqual(['57505'])
+    expect(find('special economic zone')).toEqual(['55303', '55521'])
+    expect(find('sez')).toEqual(['55303', '55521'])
+    expect(find('customs post astana')).toEqual(['55101', '55103'])
+  })
+
+  it('вид транспорта ищется на языке интерфейса, как во второй строке варианта', () => {
+    const en = buildCustomsPostOptions(POSTS, (k) => ({ AIR: 'air', AUTO: 'road', RW: 'rail', VESSEL: 'sea' })[k])
+    expect(en.filter((o) => filterCustomsPostOption('rail', o)).map((o) => o.code)).toEqual(['57504'])
+    expect(en.filter((o) => filterCustomsPostOption('road', o)).map((o) => o.code)).toEqual(['57505'])
   })
 })
