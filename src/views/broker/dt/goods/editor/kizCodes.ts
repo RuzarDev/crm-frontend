@@ -1,7 +1,7 @@
 import type { Import40GoodsItemInput, Import40GoodsMarking } from '@/types/api'
 import { ABSENT, TOTAL_ROW, normalizeHeader } from '@/utils/goodsExcel'
 import { gs1CheckDigitOk, type CodeProblem } from './tradeCodes'
-import { hasKizNumber, markingFromDefaults, type KizDefaults } from './kizDefaults'
+import { hasKizNumber, kizCountOnNumber, markingFromDefaults, type KizDefaults } from './kizDefaults'
 
 // Номера кодов идентификации гр. 31.13 (правка №12): вставка столбца GTIN из буфера, проверка GTIN (контрольная цифра
 // GS1 — только предупреждение, как у сервера KedenXmlReadiness.KizWarnings), добавление без повторов. Те же правила
@@ -11,8 +11,18 @@ import { hasKizNumber, markingFromDefaults, type KizDefaults } from './kizDefaul
 export const KIZ_NUMBER_MAX = 100
 const GTIN_LENGTHS: readonly number[] = [8, 12, 13, 14]
 
-/** Ключ номера для повторов: без пробелов, заглавными. */
-export const kizKey = (v: string | null | undefined) => (v ?? '').replace(/\s+/g, '').toLocaleUpperCase('ru-RU')
+/**
+ * Полный код маркировки: (01) GTIN-14, (21) серийный номер из набора символов GS1 (регистр важен, допустимы «,», «;»,
+ * «'»…), дальше — возможные (91)/(92)/(93). Такой код не переводится в заглавные и не делится (иначе он искажается).
+ */
+export const FULL_KIZ_RE = /^01\d{14}21[\x21-\x7E]{1,82}$/
+export const isFullKizCode = (c: string) => FULL_KIZ_RE.test(c)
+
+/** Ключ номера для повторов: без пробелов, заглавными (полный код — как есть: регистр серийного номера важен). */
+export const kizKey = (v: string | null | undefined) => {
+  const s = (v ?? '').replace(/\s+/g, '')
+  return isFullKizCode(s) ? s : s.toLocaleUpperCase('ru-RU')
+}
 
 /** Код в столбце по шапке (или выбранном вручную): буквы/цифры латиницей, 4–100 знаков, без пробелов. */
 export const KIZ_CODE_RE = /^[0-9A-Z][0-9A-Z\-_./]{3,99}$/
@@ -23,25 +33,46 @@ export const CONTROL_MARK_RE = /^[A-Z]{2}-[A-Z0-9]{6}-[A-Z0-9]{10}$/
 export const isCodeLike = (c: string) => /^\d{12,14}$/.test(c) || CONTROL_MARK_RE.test(c)
 /** Код по содержимому «годный»: GS1 сходится (контрольный знак — годен). */
 export const isValidCode = (c: string) => CONTROL_MARK_RE.test(c) || (/^\d+$/.test(c) && gs1CheckDigitOk(c))
-/** Годится в номер КИЗ из столбца: формат кода, не «Итого», не «нет». */
-export const isKizCode = (c: string) => KIZ_CODE_RE.test(c) && !TOTAL_ROW.test(c) && !ABSENT.test(c)
+/**
+ * Годится в номер КИЗ из вставки или столбца Excel: формат кода (не длиннее KIZ_NUMBER_MAX), хотя бы одна цифра (GTIN,
+ * серийные и контрольные знаки — с цифрами; слова «GTIN», «BARCODE», «HELLO» — нет), не «Итого», не «нет». Полный код и
+ * контрольный знак — по своему формату.
+ */
+export const isKizCode = (c: string) =>
+  (isFullKizCode(c) || CONTROL_MARK_RE.test(c) || (KIZ_CODE_RE.test(c) && /\d/.test(c))) && !TOTAL_ROW.test(c) && !ABSENT.test(c)
+
+const upper = (s: string) => (isFullKizCode(s) ? s : s.toLocaleUpperCase('ru-RU'))
 
 /**
- * Текст → коды: делится по переводам строк, «,» и «;»; ведущий «'» (так Excel помечает текст) снимается. Часть из цифр
- * и пробелов — один код («4 871813 090801»), кроме нескольких GTIN через пробел. Остальное — заглавными; splitSpaces —
- * ещё и по пробелам (вставка из буфера).
+ * Цифры с пробелами: несколько GTIN через пробел — делятся; один GTIN с пробелами («4 871813 090801») — склеивается;
+ * среди групп есть число от 8 цифр (несколько кодов и прочие числа) — делятся, а не склеиваются в один «код» на сотни
+ * цифр; иначе — группы одного номера («0104 6000 0000 0001»).
+ */
+function digitRun(p: string): string[] {
+  const tokens = p.split(/\s+/).filter(Boolean)
+  const glued = tokens.join('')
+  if (tokens.length < 2) return glued ? [glued] : []
+  if (tokens.every((x) => GTIN_LENGTHS.includes(x.length))) return tokens
+  if (GTIN_LENGTHS.includes(glued.length)) return [glued]
+  if (tokens.some((x) => x.length >= 8)) return tokens
+  return [glued]
+}
+
+/**
+ * Текст → коды: делится по переводам строк, «,» и «;»; ведущий «'» (так Excel помечает текст) снимается. Цифры с
+ * пробелами — digitRun. Остальное — заглавными; splitSpaces — ещё и по пробелам (вставка из буфера). Полный код
+ * маркировки (строка целиком или часть) — как есть, без заглавных и без деления по «,»/«;».
  */
 export function splitKizText(text: string, splitSpaces = false): string[] {
-  return text.split(/[\r\n,;]+/).flatMap((part) => {
-    const p = part.trim().replace(/^'+/, '').trim()
-    if (!p) return []
-    if (/^[\d\s]+$/.test(p)) {
-      const tokens = p.split(/\s+/)
-      if (tokens.length > 1 && tokens.every((x) => GTIN_LENGTHS.includes(x.length))) return tokens
-      return [p.replace(/\s+/g, '')]
-    }
-    const up = p.toLocaleUpperCase('ru-RU')
-    return splitSpaces ? up.split(/\s+/).filter(Boolean) : [up]
+  return text.split(/[\r\n]+/).flatMap((line) => {
+    const whole = line.trim().replace(/^'+/, '').trim()
+    if (isFullKizCode(whole)) return [whole]
+    return line.split(/[,;]+/).flatMap((part) => {
+      const p = part.trim().replace(/^'+/, '').trim()
+      if (!p) return []
+      if (/^[\d\s]+$/.test(p)) return digitRun(p)
+      return splitSpaces ? p.split(/\s+/).filter(Boolean).map(upper) : [upper(p)]
+    })
   })
 }
 
@@ -100,27 +131,47 @@ export const contentQualifies = (s: KizColumnStats) => s.codeLike >= 1 && s.code
 export const contentBetter = (a: KizColumnStats, b: KizColumnStats) =>
   a.valid !== b.valid ? a.valid > b.valid : a.distinct > b.distinct
 
+export interface KizPaste {
+  codes: string[]
+  /** Не коды (текст, слишком длинные, «Итого») — пропущены; для сообщения. Слова шапки («GTIN:») не считаются. */
+  skipped: number
+}
+
 /**
  * Коды из вставки (столбец из Excel, письмо): строки по переводам строк, пустые — прочь. Несколько столбцов через Tab —
  * берётся столбец кодов (по шапке в первой строке, иначе по содержимому, как «Из Excel»). Иначе строка делится по «;»
- * и «,», затем по пробелам (цифры с пробелами — один код). Первая строка-шапка («GTIN», «Штрих-код») пропускается.
+ * и «,», затем по пробелам (цифры с пробелами — digitRun). Первая строка без кодов с шапкой («GTIN», «Штрих-код») —
+ * пропускается. В номера идут только коды (isKizCode): прочий текст письма и строки длиннее KIZ_NUMBER_MAX — считаются
+ * в skipped (как столбец Excel).
  */
-export function parseKizPaste(text: string | null | undefined): string[] {
+export function parseKizPaste(text: string | null | undefined): KizPaste {
   const lines = (text ?? '').split(/\r\n|\r|\n/).filter((l) => l.trim())
-  if (!lines.length) return []
+  const codes: string[] = []
+  let skipped = 0
+  const take = (cell: string, splitSpaces: boolean) => {
+    for (const c of splitKizText(cell, splitSpaces)) {
+      if (isKizCode(c)) codes.push(c)
+      else if (kizHeaderRank(c) == null) skipped += 1
+    }
+  }
+  if (!lines.length) return { codes, skipped }
   const rows = lines.map((l) => l.split('\t'))
   if (!rows.some((r) => r.filter((c) => c.trim()).length > 1)) {
-    const start = kizHeaderRank(lines[0]) != null ? 1 : 0
-    return lines.slice(start).flatMap((l) => splitKizText(l, true))
+    const start = kizHeaderRank(lines[0]) != null && !splitKizText(lines[0], true).some(isKizCode) ? 1 : 0
+    for (const l of lines.slice(start)) take(l, true)
+    return { codes, skipped }
   }
   const width = Math.max(...rows.map((r) => r.length))
   let col = -1
   let start = 0
   let bestRank: number | null = null
-  rows[0].forEach((c, i) => {
-    const r = kizHeaderRank(c)
-    if (r != null && (bestRank == null || r < bestRank)) { bestRank = r; col = i }
-  })
+  // Первая строка — шапка, только если в ней нет кодов (строка данных «Сканер штрихкода · 4871813090801» — не шапка).
+  if (!rows[0].some((c) => splitKizText(c).some(isCodeLike))) {
+    rows[0].forEach((c, i) => {
+      const r = kizHeaderRank(c)
+      if (r != null && (bestRank == null || r < bestRank)) { bestRank = r; col = i }
+    })
+  }
   if (col >= 0) start = 1
   else {
     let best: KizColumnStats | null = null
@@ -137,8 +188,9 @@ export function parseKizPaste(text: string | null | undefined): string[] {
       }
     }
   }
-  if (col < 0) return []
-  return rows.slice(start).flatMap((r) => splitKizText(r[col] ?? '').filter(isKizCode))
+  if (col < 0) return { codes, skipped }
+  for (const r of rows.slice(start)) if (r[col]?.trim()) take(r[col], false)
+  return { codes, skipped }
 }
 
 /**
@@ -193,8 +245,10 @@ export function appendKizNumbers(
     if (have.has(k)) { duplicates += 1; continue }
     have.add(k)
     const b = blanks.shift()
-    if (b !== undefined) arr[b].number = n
-    else fresh.push(markingFromDefaults(d, n))
+    if (b !== undefined) {
+      arr[b].number = n
+      kizCountOnNumber(item, arr[b], d.kizCount)
+    } else fresh.push(markingFromDefaults(d, n))
     added += 1
   }
   pushAll(arr, fresh)

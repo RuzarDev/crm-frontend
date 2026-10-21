@@ -17,10 +17,10 @@ import type { ZOption, ZOptionValue } from '@/ui/options'
 import { cn } from '@/ui/cn'
 import type { CodeProblem } from './tradeCodes'
 import {
-  adoptKizDefaults, customFields, hasKizNumber, isCustomMarking, kizDefaultsEmpty, kizFollowers, kizState, markingFromDefaults,
-  resetMarkingToDefaults, setKizAfterRelease, setKizDefault, type KizSharedField,
+  adoptKizDefaults, customFields, hasKizNumber, isCustomMarking, isKizCarrier, kizDefaultsEmpty, kizFollowers, kizState,
+  markingFromDefaults, removeKizRow, resetMarkingToDefaults, setKizAfterRelease, setKizDefault, setKizNumber, type KizSharedField,
 } from './kizDefaults'
-import { KIZ_NUMBER_MAX, appendKizNumbers, appendKizRows, kizKey, kizNumberProblem, parseKizPaste } from './kizCodes'
+import { KIZ_NUMBER_MAX, appendKizNumbers, appendKizRows, isFullKizCode, kizKey, kizNumberProblem, parseKizPaste } from './kizCodes'
 import { readKizWorkbook, scanKizWorkbook, type KizExcelApply, type KizExcelScan, type KizSheet } from './kizExcel'
 import GoodsTradeCodesBlock from './GoodsTradeCodesBlock.vue'
 import KizExcelModal from './KizExcelModal.vue'
@@ -74,7 +74,10 @@ const withValue = (opts: ZOption[], v: string | null | undefined) =>
   (!v || opts.some((o) => o.value === v) ? opts : [{ value: v, label: v, name: v, search: v }, ...opts])
 
 const str = (v: ZOptionValue | ZOptionValue[] | null) => (v == null || Array.isArray(v) || v === '' ? null : String(v))
-const setNumber = (m: Import40GoodsMarking, v: string) => { m.number = v.trim() ? v : null }
+// Номер появился — количество КИЗ из общих значений; стёрт — количество снимается (kizDefaults.setKizNumber).
+const setNumber = (m: Import40GoodsMarking, v: string) => { setKizNumber(props.item, m, v) }
+// Полный код маркировки (01 GTIN 21 серийный…) — без заглавных: регистр серийного номера важен (GS1).
+const uppercaseOpts = { skip: isFullKizCode }
 /** Правка поля в раскрытой строке — ручная правка: смена общего значения её не трогает. */
 const setRow = (m: Import40GoodsMarking, f: KizSharedField, v: string | number | boolean | null) => {
   ;(m as unknown as Record<string, unknown>)[f] = v
@@ -111,8 +114,13 @@ const reset = (m: Import40GoodsMarking) => {
   resetMarkingToDefaults(props.item, m)
   expanded.delete(m)
 }
-// «После выпуска» коды в XML не уходят — GTIN не проверяем (как сервер).
-const problemOf = (m: Import40GoodsMarking) => (defaults.value.afterRelease ? null : kizNumberProblem(m.number, m.idApplicationCode))
+// GTIN не проверяем «после выпуска» (коды в XML не уходят) и у агрегированной упаковки (в XML — таможенный код без
+// идентификатора применения) — как сервер KedenXmlReadiness.KizWarnings.
+const gtinProblem = (m: Import40GoodsMarking, d: { afterRelease: boolean }) =>
+  (d.afterRelease || m.aggregated ? null : kizNumberProblem(m.number, m.idApplicationCode))
+const problemOf = (m: Import40GoodsMarking) => gtinProblem(m, defaults.value)
+// Строка-носитель «после выпуска» без кнопки удаления: снять признак — флажком.
+const isCarrier = (m: Import40GoodsMarking) => isKizCarrier(props.item, m)
 
 const totals = computed(() => {
   const d = defaults.value
@@ -120,15 +128,25 @@ const totals = computed(() => {
   let kiz = 0
   let custom = 0
   let blanks = 0
+  let qtyOnly = 0
+  let codesKiz = 0
   let bad = 0
   for (const m of markings.value) {
-    if (hasKizNumber(m)) codes += 1
-    else blanks += 1
+    if (hasKizNumber(m)) {
+      codes += 1
+      codesKiz += m.kizCount ?? 0
+    } else if (!d.afterRelease) {
+      // Без номера: с количеством — входит в «КИЗ всего» (старые ДТ), удалять не советуем; пустая — «введите или удалите».
+      // «После выпуска» строки без номера не считаются: носитель признака не пустая строка.
+      if ((m.kizCount ?? 0) > 0) qtyOnly += 1
+      else blanks += 1
+    }
     kiz += m.kizCount ?? 0
     if (isCustomMarking(m, d)) custom += 1
-    if (!d.afterRelease && kizNumberProblem(m.number, m.idApplicationCode)) bad += 1
+    if (gtinProblem(m, d)) bad += 1
   }
-  return { codes, kiz, custom, blanks, bad }
+  // Количество и у кодов, и у строк без номера — итог, скорее всего, завышен (как в XML CIMQuantity).
+  return { codes, kiz, custom, blanks, qtyOnly, qtyOnlyMixed: qtyOnly > 0 && codesKiz > 0, bad }
 })
 
 const list = (): Import40GoodsMarking[] => {
@@ -149,9 +167,7 @@ const add = async () => {
   await focusNumber(i)
 }
 const remove = (m: Import40GoodsMarking) => {
-  const arr = list()
-  const i = arr.indexOf(m)
-  if (i >= 0) arr.splice(i, 1)
+  removeKizRow(props.item, m)
   added.delete(m)
   expanded.delete(m)
 }
@@ -163,19 +179,21 @@ const onEnter = async (i: number) => {
     await focusNumber(i + 1)
   } else if (hasKizNumber(arr[i])) await add()
 }
-const report = ({ added: n, duplicates }: { added: number; duplicates: number }) => {
+const report = ({ added: n, duplicates }: { added: number; duplicates: number }, skipped = 0) => {
   if (n) message.success(tm('pasteDone', { n }))
   if (duplicates) message.info(tm('pasteDuplicates', { n: duplicates }))
-  if (!n && !duplicates) message.warning(tm('pasteEmpty'))
+  if (skipped) message.warning(tm('pasteSkipped', { n: skipped }))
+  else if (!n && !duplicates) message.warning(tm('pasteEmpty'))
 }
 // Вставка столбца в поле номера: браузер склеил бы строки в одну — раскладываем по строкам (первый код — в эту строку,
-// если она пуста; дальше — пустые строки, потом новые с общими значениями).
+// если она пуста; дальше — пустые строки, потом новые с общими значениями). Не коды (текст письма, строки длиннее 100)
+// пропускаются с сообщением. Одна строка без кодов или с одним кодом — обычная вставка браузера (maxlength поля).
 const onPaste = (i: number, e: ClipboardEvent) => {
   const text = e.clipboardData?.getData('text') ?? ''
-  const codes = parseKizPaste(text)
-  if (codes.length < 2 && !(codes.length === 1 && /[\r\n\t]/.test(text.trim()))) return
+  const { codes, skipped } = parseKizPaste(text)
+  if (codes.length < 2 && !/[\r\n\t]/.test(text.trim())) return
   e.preventDefault()
-  report(appendKizNumbers(props.item, codes, defaults.value, i))
+  report(appendKizNumbers(props.item, codes, defaults.value, i), skipped)
 }
 
 // «Вставить списком»
@@ -187,8 +205,9 @@ const openPaste = async () => {
   root.value?.querySelector<HTMLTextAreaElement>('textarea[data-f="markings-paste"]')?.focus()
 }
 const applyPaste = () => {
-  const res = appendKizNumbers(props.item, parseKizPaste(pasteText.value), defaults.value)
-  report(res)
+  const { codes, skipped } = parseKizPaste(pasteText.value)
+  const res = appendKizNumbers(props.item, codes, defaults.value)
+  report(res, skipped)
   if (res.added || res.duplicates) {
     pasteText.value = ''
     pasting.value = false
@@ -234,9 +253,11 @@ const onExcelApply = (res: KizExcelApply) => {
     for (const g of res.groups) {
       const target = props.model.items.value[g.goodsIndex]
       if (!target) continue
-      // Товар-получатель без строк и без своих общих значений получает общие значения этого товара.
-      if (toRaw(target) !== toRaw(props.item)) adoptKizDefaults(target, d)
-      const r = appendKizNumbers(target, g.codes, d)
+      // Другой товар — его общие значения: у него есть строки или своё состояние — свои; нет ни того, ни другого — копия
+      // общих значений этого товара без «после выпуска» (признак своего товара: «ПВ» у получателя скрыл бы его коды в XML).
+      const here = toRaw(target) === toRaw(props.item)
+      if (!here) adoptKizDefaults(target, d)
+      const r = appendKizNumbers(target, g.codes, here ? d : { ...kizState(target).defaults })
       n += r.added
       duplicates += r.duplicates
       if (r.added) goods += 1
@@ -253,6 +274,8 @@ watch(() => toRaw(props.item), () => {
   kizFollowersSnap = null
   cancelPaste()
 })
+// Матрицы листов книги держим только пока открыт предпросмотр (большой файл — десятки МБ).
+watch(excelOpen, (open) => { if (!open) excel.value = null })
 
 const fieldCell = 'flex min-w-0 flex-col gap-1'
 const fieldLabel = 'text-xs text-muted'
@@ -312,6 +335,7 @@ const iconBtn = cn(
           <span v-if="totals.custom">· {{ tm('customCount', { n: totals.custom }) }}</span>
           <span v-if="totals.bad" class="text-gold-ink" data-markings-bad>· {{ tm('problemsCount', { n: totals.bad }) }}</span>
           <span v-if="totals.blanks" class="text-gold-ink" data-markings-blanks>· {{ tm('blankRows', { n: totals.blanks }) }}</span>
+          <span v-if="totals.qtyOnly" :class="totals.qtyOnlyMixed ? 'text-gold-ink' : 'text-muted'" data-markings-qty-only>· {{ tm('qtyOnlyRows', { n: totals.qtyOnly }) }}</span>
         </p>
         <p v-if="applied" class="m-0 text-xs text-muted" role="status" data-markings-applied>{{ tm('appliedTo', { n: applied }) }}</p>
       </section>
@@ -322,7 +346,7 @@ const iconBtn = cn(
           <div class="flex items-center gap-2">
             <span class="w-8 shrink-0 text-right font-mono text-xs text-muted" aria-hidden="true">{{ mi + 1 }}</span>
             <ZInput
-              v-uppercase
+              v-uppercase="uppercaseOpts"
               :value="m.number ?? ''"
               mono
               autocomplete="off"
@@ -350,7 +374,7 @@ const iconBtn = cn(
               >
                 <PhGearSix :size="16" aria-hidden="true" />
               </button>
-              <button v-if="!readonly" type="button" :class="[iconBtn, 'hover:text-danger']" :aria-label="tm('removeRow', { n: mi + 1 })" :title="tm('remove')" :data-marking-remove="mi" @click="remove(m)">
+              <button v-if="!readonly && !isCarrier(m)" type="button" :class="[iconBtn, 'hover:text-danger']" :aria-label="tm('removeRow', { n: mi + 1 })" :title="tm('remove')" :data-marking-remove="mi" @click="remove(m)">
                 <PhX :size="16" aria-hidden="true" />
               </button>
             </div>

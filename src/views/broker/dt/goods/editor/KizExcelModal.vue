@@ -5,7 +5,7 @@ import { PhWarning } from '@phosphor-icons/vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZRadioGroup from '@/components/z/ZRadioGroup.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
-import type { Import40GoodsItemInput } from '@/types/api'
+import type { Import40GoodsItemInput, Import40GoodsMarking } from '@/types/api'
 import type { ZOption, ZOptionValue } from '@/ui/options'
 import { kizKey, kizNumberProblem } from './kizCodes'
 import { kizDefaultsEmpty, type KizDefaults } from './kizDefaults'
@@ -50,22 +50,29 @@ const legacy = computed(() => {
   if (choice.value !== LEGACY || !props.scan?.legacy) return null
   const seen = new Set(props.existing)
   let duplicates = 0
-  const numbers: string[] = []
-  for (const r of props.scan.legacy) {
+  const rows: Import40GoodsMarking[] = []
+  for (const r of props.scan.legacy.rows) {
     const k = kizKey(r.number)
     if (!k) continue
     if (seen.has(k)) { duplicates += 1; continue }
     seen.add(k)
-    numbers.push(r.number!.trim())
+    rows.push(r)
   }
-  return { numbers, duplicates }
+  return { rows, numbers: rows.map((r) => r.number!.trim()), duplicates }
 })
 
 const numbers = computed(() => legacy.value?.numbers ?? column.value?.codes.map((c) => c.number) ?? [])
 const found = computed(() => numbers.value.length)
 const ai = computed(() => props.defaults.idApplicationCode)
-const badCheck = computed(() => numbers.value.filter((n) => kizNumberProblem(n, ai.value)).length)
-const sample = computed(() => numbers.value.slice(0, SAMPLE).map((n) => ({ n, bad: !!kizNumberProblem(n, ai.value) })))
+// Старый формат: идентификатор строки — из файла (пусто — из общих значений), как его добавит секция.
+const aiAt = (i: number) => legacy.value?.rows[i]?.idApplicationCode ?? ai.value
+const badCheck = computed(() => numbers.value.filter((n, i) => kizNumberProblem(n, aiAt(i))).length)
+// Старый формат: рядом с номером — уровень · идентификатор · вид из файла (пусто — «—», возьмётся из общих значений).
+const legacyExtra = (r: Import40GoodsMarking) => [r.levelCode, r.idApplicationCode, r.idTypeCode].map((v) => v ?? '—').join(' · ')
+const sample = computed(() => numbers.value.slice(0, SAMPLE).map((n, i) => {
+  const r = legacy.value?.rows[i]
+  return { n, bad: !!kizNumberProblem(n, aiAt(i)), extra: r ? legacyExtra(r) : null }
+}))
 
 const source = computed(() => {
   if (legacy.value) return tm('excelLegacy')
@@ -80,19 +87,22 @@ const columnOptions = computed<ZOption[]>(() => [
   ...(props.scan?.legacy ? [{ value: LEGACY, label: tm('excelLegacyOption') }] : []),
   ...(props.scan?.options ?? []).map((o) => ({
     value: kizColumnKey(o),
-    label: tm('excelColumnOption', { sheet: o.sheetName, letter: o.letter, header: o.header ? ` «${o.header}»` : '', n: o.codes.length }),
+    label: o.header
+      ? tm('excelColumnOption', { sheet: o.sheetName, letter: o.letter, header: o.header, n: o.codes.length })
+      : tm('excelColumnOptionPlain', { sheet: o.sheetName, letter: o.letter, n: o.codes.length }),
   })),
 ])
 const onChoice = (v: ZOptionValue | ZOptionValue[] | null) => { choice.value = v == null || Array.isArray(v) ? null : String(v) }
 
 const counters = computed(() => {
   const c = column.value
+  const old = legacy.value ? props.scan?.legacy : null
   const dup = legacy.value?.duplicates ?? c?.duplicates ?? 0
   return [
     { key: 'excelBadCheck', n: badCheck.value, warn: true },
     { key: 'excelDuplicates', n: dup, warn: false },
-    { key: 'excelSkipped', n: c?.skipped ?? 0, warn: false },
-    { key: 'excelLossy', n: c?.lossy ?? 0, warn: true },
+    { key: 'excelSkipped', n: old?.skipped ?? c?.skipped ?? 0, warn: false },
+    { key: 'excelLossy', n: old?.lossy ?? c?.lossy ?? 0, warn: true },
   ].filter((x) => x.n > 0)
 })
 
@@ -125,7 +135,8 @@ const goodsLabel = (k: number) => props.goods[k]?.description ?? ''
 const apply = () => {
   if (!found.value) return
   if (legacy.value && props.scan?.legacy) {
-    emit('apply', { groups: [], legacy: props.scan.legacy })
+    // Все строки файла: повторы отсеет и посчитает секция (сообщение «Уже в списке»).
+    emit('apply', { groups: [], legacy: props.scan.legacy.rows })
     return
   }
   const m = match.value
@@ -188,6 +199,7 @@ const apply = () => {
           <li v-for="(s, i) in sample" :key="i" class="flex min-w-0 items-center gap-1.5">
             <span class="truncate" :class="s.bad ? 'text-gold-ink' : 'text-ink'">{{ s.n }}</span>
             <PhWarning v-if="s.bad" :size="14" class="shrink-0 text-gold-ink" :aria-label="tm('problems.check')" />
+            <span v-if="s.extra" class="shrink-0 text-xs text-muted" data-kiz-excel-sample-extra>{{ s.extra }}</span>
           </li>
         </ol>
         <p v-if="found > sample.length" class="m-0 mt-1 text-xs text-muted">{{ tm('excelSampleMore', { n: found - sample.length }) }}</p>

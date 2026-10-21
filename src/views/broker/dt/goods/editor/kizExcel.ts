@@ -2,7 +2,7 @@ import type { Import40GoodsItemInput, Import40GoodsMarking } from '@/types/api'
 import { loadXlsx } from '@/utils/xlsx'
 import { ABSENT, TOTAL_ROW, findGoodsHeader, goodsHeaderColumns, normalizeHeader } from '@/utils/goodsExcel'
 import {
-  contentBetter, contentQualifies, isCodeLike, isKizCode, kizColumnStats, kizHeaderRank, kizKey, kizNumberProblem,
+  contentBetter, contentQualifies, isCodeLike, isKizCode, isValidCode, kizColumnStats, kizHeaderRank, kizKey, kizNumberProblem,
   splitKizText,
 } from './kizCodes'
 
@@ -38,10 +38,20 @@ export interface KizColumn {
   codes: KizCode[]
   /** С ошибкой GTIN без учёта идентификатора применения (предпросмотр пересчитывает по общим значениям). */
   badCheck: number
+  /** Годные по содержимому: 12–14 цифр с верной контрольной цифрой GS1 или контрольный знак (выбор среди шапок). */
+  valid: number
   duplicates: number
   /** Не коды: текст, «Итого», «нет», дробные числа. */
   skipped: number
   /** Числа, которые Excel хранит неточно (больше 15 цифр, «4.87181E+12»). */
+  lossy: number
+}
+export interface KizLegacy {
+  /** Строки с номером; уровень, идентификатор и вид — из файла, если в допустимом формате. */
+  rows: Import40GoodsMarking[]
+  /** Номера не в формате кода (текст, длиннее 100 знаков) — пропущены. */
+  skipped: number
+  /** Номера, искажённые Excel (больше 15 цифр, «4.87181E+12»). */
   lossy: number
 }
 export interface KizExcelScan {
@@ -49,11 +59,38 @@ export interface KizExcelScan {
   /** Все непустые столбцы всех листов (выбор вручную); найденный — со своим источником. */
   options: KizColumn[]
   /** Старый формат без шапки — строки со значениями из файла. */
-  legacy: Import40GoodsMarking[] | null
+  legacy: KizLegacy | null
 }
 
 /** Шапку столбца кодов ищем в первых строках листа (сверху — реквизиты инвойса). */
 const HEADER_SCAN_ROWS = 30
+
+const colNumber = (letters: string) => [...letters].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1
+
+/**
+ * Диапазон листа — по реальным ячейкам. Выгрузки 1С/ERP объявляют «A1:AZ300000» при одной заполненной ячейке:
+ * sheet_to_json с defval прошёл бы весь объявленный прямоугольник (секунды и сотни МБ на лист, вкладка могла упасть).
+ * Только сужает: начало диапазона не меняется.
+ */
+export function trimSheetRange(ws: Record<string, unknown>): void {
+  const ref = ws['!ref']
+  const m = typeof ref === 'string' ? /^([A-Z]+)(\d+):([A-Z]+)(\d+)$/.exec(ref) : null
+  if (!m) return
+  let maxR = -1
+  let maxC = -1
+  for (const k of Object.keys(ws)) {
+    const a = /^([A-Z]+)(\d+)$/.exec(k)
+    if (!a) continue
+    maxR = Math.max(maxR, Number(a[2]) - 1)
+    maxC = Math.max(maxC, colNumber(a[1]))
+  }
+  const r0 = Number(m[2]) - 1
+  const c0 = colNumber(m[1])
+  const r1 = Math.min(Number(m[4]) - 1, maxR)
+  const c1 = Math.min(colNumber(m[3]), maxC)
+  if (r1 < r0 || c1 < c0) return
+  ws['!ref'] = `${m[1]}${m[2]}:${columnLetter(c1)}${r1 + 1}`
+}
 
 /** Все листы книги, каждый дважды (значения и текст) с одинаковыми опциями — матрицы совпадают по форме. */
 export async function readKizWorkbook(file: Blob): Promise<KizSheet[]> {
@@ -61,6 +98,7 @@ export async function readKizWorkbook(file: Blob): Promise<KizSheet[]> {
   const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' })
   return wb.SheetNames.map((name) => {
     const ws = wb.Sheets[name]
+    trimSheetRange(ws as unknown as Record<string, unknown>)
     return {
       name,
       rows: XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: null, blankrows: true, raw: true }),
@@ -113,9 +151,41 @@ const isTotalRow = (row: unknown): boolean => {
   const first = row.find((c) => typeof c === 'string' && c.trim()) as string | undefined
   return !!first && TOTAL_ROW.test(first.trim())
 }
+// Строка шапки таблицы товаров — один раз на лист (нужна каждому столбцу при выборе вручную).
+const goodsHeaderCache = new WeakMap<KizSheet, number | null>()
 /** Строка шапки таблицы товаров листа (для подписи столбца и раскладки по товарам). */
-const goodsHeaderRow = (sheet: KizSheet): number | null =>
-  findGoodsHeader(sheet.rows, { details: true, tradeCodes: true })?.index ?? null
+const goodsHeaderRow = (sheet: KizSheet): number | null => {
+  if (goodsHeaderCache.has(sheet)) return goodsHeaderCache.get(sheet)!
+  const r = findGoodsHeader(sheet.rows, { details: true, tradeCodes: true })?.index ?? null
+  goodsHeaderCache.set(sheet, r)
+  return r
+}
+
+const HEADER_CELL_MAX = 40
+const HEADER_CELL_WORDS = 3
+/**
+ * Ячейка с «GTIN / штрихкод / EAN…» — шапка столбца, только если похожа на шапку: строка шапки таблицы товаров, короткая
+ * надпись (до 3 слов и 40 знаков) или строка, где узнаются ещё заголовки. Примечание «Note: barcode labels attached»
+ * над таблицей шапкой не считается (описание товара «Сканер штрихкода» отсеивает уже счёт годных кодов).
+ */
+function headerLike(sheet: KizSheet, r: number, v: unknown): boolean {
+  if (r === goodsHeaderRow(sheet)) return true
+  const s = String(v).trim()
+  if (s.length <= HEADER_CELL_MAX && s.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length <= HEADER_CELL_WORDS) return true
+  const row = sheet.rows[r]
+  return Array.isArray(row) && Object.keys(goodsHeaderColumns(row, { details: true, tradeCodes: true })).length >= 2
+}
+/** Строка шапки столбца в первых строках листа (ранг и строка) — или null. */
+function headerOf(sheet: KizSheet, c: number): { rank: number; row: number } | null {
+  for (let r = 0; r < Math.min(sheet.rows.length, HEADER_SCAN_ROWS); r++) {
+    const v = at(sheet.rows, r, c)
+    const rank = kizHeaderRank(v)
+    if (rank != null && headerLike(sheet, r, v)) return { rank, row: r }
+  }
+  return null
+}
+/** Повтор шапки внутри данных («GTIN», «EAN13» — постраничная выгрузка упаковочного листа): не код. */
+const repeatedHeader = (v: unknown) => typeof v === 'string' && kizHeaderRank(v) != null && !/\d{8,}/.test(v)
 
 const hasNtinHeader = (sheet: KizSheet, c: number) => {
   for (let r = 0; r < Math.min(sheet.rows.length, HEADER_SCAN_ROWS); r++) {
@@ -134,11 +204,14 @@ function buildColumn(
   const seen = new Set(existing)
   const codes: KizCode[] = []
   let badCheck = 0
+  let valid = 0
   let duplicates = 0
   let skipped = 0
   let lossy = 0
   for (let r = headerRow == null ? 0 : headerRow + 1; r < sheet.rows.length; r++) {
-    const cell = cellCode(at(sheet.rows, r, col), at(sheet.texts, r, col))
+    const raw = at(sheet.rows, r, col)
+    if (repeatedHeader(raw)) { skipped += 1; continue }
+    const cell = cellCode(raw, at(sheet.texts, r, col))
     if (!cell) continue
     if ('lossy' in cell) { lossy += 1; continue }
     if (!cell.codes.length) { skipped += 1; continue }
@@ -151,23 +224,20 @@ function buildColumn(
       seen.add(k)
       codes.push({ number: c, row: r })
       if (kizNumberProblem(c, null)) badCheck += 1
+      if (isCodeLike(c) && isValidCode(c)) valid += 1
     }
   }
   return {
     sheet: si, sheetName: sheet.name, col, letter: columnLetter(col),
     header: headerRow == null ? null : textOf(at(sheet.rows, headerRow, col)),
-    headerRow, source, codes, badCheck, duplicates, skipped, lossy,
+    headerRow, source, codes, badCheck, valid, duplicates, skipped, lossy,
   }
 }
 
 /** Столбец, выбранный вручную: разбирается по правилам столбца по шапке (строка шапки — своя или таблицы товаров). */
 export function kizColumn(sheets: readonly KizSheet[], sheet: number, col: number, existing: ReadonlySet<string>): KizColumn {
   const s = sheets[sheet]
-  let headerRow: number | null = null
-  for (let r = 0; r < Math.min(s.rows.length, HEADER_SCAN_ROWS); r++) {
-    if (kizHeaderRank(at(s.rows, r, col)) != null) { headerRow = r; break }
-  }
-  return buildColumn(sheets, sheet, col, headerRow ?? goodsHeaderRow(s), 'manual', existing)
+  return buildColumn(sheets, sheet, col, headerOf(s, col)?.row ?? goodsHeaderRow(s), 'manual', existing)
 }
 
 const APPLICATIONS = ['00', '01', '02', '21', '91', '92']
@@ -175,7 +245,8 @@ const cellStr = (v: unknown): string | null => (v == null || v === '' ? null : S
 
 /**
  * Старый формат без шапки (пакет 5, «Книга1.xlsx»): у ≥80% строк с непустым A — B пусто или 0–4, C пусто / 1–2 цифры /
- * код применения, D пусто или 3 цифры, и хотя бы одно из B–D заполнено.
+ * код применения, D пусто или 3 цифры, и заполнено C или D (в настоящих файлах есть идентификатор и вид; «GTIN | 2» —
+ * это количество, а не уровень).
  */
 export function isLegacyMarkingsSheet(rows: readonly unknown[][]): boolean {
   let n = 0
@@ -187,7 +258,7 @@ export function isLegacyMarkingsSheet(rows: readonly unknown[][]): boolean {
     const c = cellStr(r[2])
     const d = cellStr(r[3])
     if ((b == null || /^[0-4]$/.test(b)) && (c == null || /^\d{1,2}$/.test(c) || APPLICATIONS.includes(c))
-      && (d == null || /^\d{3}$/.test(d)) && (b != null || c != null || d != null)) ok += 1
+      && (d == null || /^\d{3}$/.test(d)) && (c != null || d != null)) ok += 1
   }
   return n > 0 && ok >= 0.8 * n
 }
@@ -197,49 +268,63 @@ const pad2 = (v: unknown): string | null => {
   const s = legacyCell(v)
   return s == null ? null : s.length === 1 ? `0${s}` : s
 }
+const ifFormat = (v: string | null, re: RegExp) => (v != null && re.test(v) ? v : null)
 
 /**
- * Старый формат (прежний parseMarkingsSheet без изменений): A — номер, B — уровень, C — идентификатор применения
- * (Excel теряет ведущий ноль у «02» — дополняем до 2 знаков), D — вид. Пустые строки пропускаются; флаги — «нет».
+ * Старый формат: A — номер (как столбец кодов: заглавными, без «'», искажённые Excel числа и не коды — пропуск), B —
+ * уровень (0–4), C — идентификатор применения (Excel теряет ведущий ноль у «02» — дополняем до 2 знаков; 2–4 цифры), D —
+ * вид (3 цифры). Значение B–D не в формате — пусто (берётся из общих значений), а не текст в поле кода. Строки без номера
+ * не берутся; флаги — «нет».
  */
-export function parseLegacyMarkingsSheet(rows: readonly unknown[]): Import40GoodsMarking[] {
+export function parseLegacyMarkingsSheet(rows: readonly unknown[], texts: readonly unknown[] = []): KizLegacy {
   const out: Import40GoodsMarking[] = []
-  for (const r of rows) {
-    if (!Array.isArray(r)) continue
-    const number = legacyCell(r[0])
-    const levelCode = legacyCell(r[1])
-    const idApplicationCode = pad2(r[2])
-    const idTypeCode = legacyCell(r[3])
-    if (!number && !levelCode && !idApplicationCode && !idTypeCode) continue
-    out.push({ markingAfterRelease: false, kizCount: null, levelCode, idTypeCode, idApplicationCode, number, aggregated: false })
-  }
-  return out
+  let skipped = 0
+  let lossy = 0
+  rows.forEach((r, i) => {
+    if (!Array.isArray(r)) return
+    const t = texts[i]
+    const cell = cellCode(r[0], Array.isArray(t) ? t[0] : null)
+    if (!cell) return
+    if ('lossy' in cell) { lossy += 1; return }
+    const number = cell.codes.length === 1 && isKizCode(cell.codes[0]) ? cell.codes[0] : null
+    if (!number) { skipped += 1; return }
+    out.push({
+      markingAfterRelease: false,
+      kizCount: null,
+      levelCode: ifFormat(legacyCell(r[1]), /^[0-4]$/),
+      idTypeCode: ifFormat(legacyCell(r[3]), /^\d{3}$/),
+      idApplicationCode: ifFormat(pad2(r[2]), /^\d{2,4}$/),
+      number,
+      aggregated: false,
+    })
+  })
+  return { rows: out, skipped, lossy }
 }
 
 const keyOf = (c: { sheet: number; col: number }) => `${c.sheet}:${c.col}`
 
 /**
- * Поиск столбца кодов: 1) по шапке в первых 30 строках каждого листа (ранг образца, затем больше кодов, затем раньше);
- * 2) нет — старый формат без шапки на первом листе; 3) по содержимому (годится, если кодов больше прочего и хотя бы
- * половина с верной контрольной цифрой; лучший — больше годных, больше разных, левее).
+ * Поиск столбца кодов: 1) по шапке в первых 30 строках каждого листа (ячейка, похожая на шапку — headerLike); из шапок —
+ * больше годных GTIN (12–14 цифр с верной GS1), затем ранг образца, затем больше кодов; 2) нет шапки — старый формат без
+ * шапки на первом листе; 3) по содержимому (годится, если кодов больше прочего и хотя бы половина с верной контрольной
+ * цифрой; лучший — больше годных, больше разных, левее). Столбец по шапке без единого годного кода уступает столбцу по
+ * содержимому: случайное «штрихкод» в описании товара не перебивает настоящий столбец GTIN.
  */
 export function scanKizWorkbook(sheets: readonly KizSheet[], existing: ReadonlySet<string>): KizExcelScan {
   const byHeader: { rank: number; col: KizColumn }[] = []
   sheets.forEach((s, si) => {
     const w = widthOf(s.rows)
     for (let c = 0; c < w; c++) {
-      for (let r = 0; r < Math.min(s.rows.length, HEADER_SCAN_ROWS); r++) {
-        const rank = kizHeaderRank(at(s.rows, r, c))
-        if (rank == null) continue
-        byHeader.push({ rank, col: buildColumn(sheets, si, c, r, 'header', existing) })
-        break
-      }
+      const h = headerOf(s, c)
+      if (h) byHeader.push({ rank: h.rank, col: buildColumn(sheets, si, c, h.row, 'header', existing) })
     }
   })
-  let best = byHeader.filter((x) => x.col.codes.length > 0)
-    .sort((a, b) => a.rank - b.rank || b.col.codes.length - a.col.codes.length)[0]?.col ?? null
+  const headerBest = byHeader.filter((x) => x.col.codes.length > 0)
+    .sort((a, b) => b.col.valid - a.col.valid || a.rank - b.rank || b.col.codes.length - a.col.codes.length)[0]?.col ?? null
+  let best = headerBest && headerBest.valid > 0 ? headerBest : null
 
-  const legacy = !best && sheets[0] && isLegacyMarkingsSheet(sheets[0].rows) ? parseLegacyMarkingsSheet(sheets[0].rows) : null
+  const legacy = !headerBest && sheets[0] && isLegacyMarkingsSheet(sheets[0].rows)
+    ? parseLegacyMarkingsSheet(sheets[0].rows, sheets[0].texts) : null
 
   if (!best) {
     let bestStats: ReturnType<typeof kizColumnStats> | null = null
@@ -270,6 +355,7 @@ export function scanKizWorkbook(sheets: readonly KizSheet[], existing: ReadonlyS
       best = buildColumn(sheets, found.si, c, hr != null && hr < firstCode ? hr : null, 'content', existing)
     }
   }
+  best ??= headerBest
 
   const options: KizColumn[] = []
   sheets.forEach((s, si) => {
@@ -363,7 +449,9 @@ export function matchKizRowsToGoods(
     const rules: ((i: number) => boolean)[] = []
     if (fileArts.length) rules.push((i) => fileArts.some((a) => arts[i].has(a)))
     if (tn) rules.push((i) => tns[i] === tn)
-    if (name) rules.push((i) => names[i].some((x) => x === name || (name.length >= 6 && x.startsWith(name))))
+    // Наименование: сначала точное равенство («СУШИЛКА» при товарах «СУШИЛКА» и «СУШИЛКА ДЛЯ БЕЛЬЯ»), затем начало.
+    if (name) rules.push((i) => names[i].some((x) => x === name))
+    if (name && name.length >= 6) rules.push((i) => names[i].some((x) => x.startsWith(name)))
     for (const rule of rules) {
       const m = cand.filter(rule)
       if (m.length === 1) return m[0]

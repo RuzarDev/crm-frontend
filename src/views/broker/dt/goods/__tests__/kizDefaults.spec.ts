@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { reactive } from 'vue'
 import type { Import40GoodsItemInput, Import40GoodsMarking } from '@/types/api'
 import {
-  adoptKizDefaults, deriveKizDefaults, emptyKizDefaults, hasKizState, isCustomMarking, kizDefaultsEmpty, kizFollowers, kizState,
-  markingFromDefaults, resetKizState, resetMarkingToDefaults, sameValue, setKizAfterRelease, setKizDefault,
+  adoptKizDefaults, customFields, deriveKizDefaults, emptyKizDefaults, hasKizState, isCustomMarking, isKizCarrier, kizDefaultsEmpty,
+  kizFollowers, kizState, markingFromDefaults, removeKizRow, resetKizState, resetMarkingToDefaults, sameValue, setKizAfterRelease,
+  setKizDefault, setKizNumber,
 } from '../editor/kizDefaults'
 
 // КИЗ гр. 31.13 (правка №12): общие значения «Для всех кодов» выводятся из строк и в сеансе живут по объекту товара.
@@ -59,6 +60,33 @@ describe('sameValue / isCustomMarking / markingFromDefaults', () => {
     expect(kizDefaultsEmpty(emptyKizDefaults())).toBe(true)
     expect(kizDefaultsEmpty(d)).toBe(false)
   })
+
+  it('ревью: строка без номера — без количества КИЗ (в XML CIMQuantity — сумма по всем строкам) и не «свои значения»', () => {
+    const d = deriveKizDefaults([row({ number: 'A' })])
+    const blankRow = markingFromDefaults(d)
+    expect(blankRow).toMatchObject({ number: null, kizCount: null, levelCode: '0', idApplicationCode: '01', idTypeCode: '999' })
+    expect(isCustomMarking(blankRow, d)).toBe(false)
+    // Строка без номера, но со своим количеством (старые ДТ) — своё значение.
+    expect(customFields(row({ number: null, kizCount: 500 }), d)).toEqual(['kizCount'])
+  })
+})
+
+describe('setKizNumber', () => {
+  it('номер появился — количество из общих значений; стёрт — снято; своё количество и ручная правка — не трогаются', () => {
+    const g = goods([row({ number: 'A' }), row({ number: null, kizCount: null }), row({ number: null, kizCount: 7 })])
+    const [, b, c] = g.markings!
+    setKizNumber(g, b, 'B')
+    expect([b.number, b.kizCount]).toEqual(['B', 1])
+    setKizNumber(g, b, '')
+    expect([b.number, b.kizCount]).toEqual([null, null])
+    setKizNumber(g, c, 'C')
+    expect(c.kizCount).toBe(7)
+    // Изменено вручную — при стирании номера не снимается.
+    setKizNumber(g, b, 'B')
+    kizState(g).markOverride(b, 'kizCount')
+    setKizNumber(g, b, ' ')
+    expect([b.number, b.kizCount]).toEqual([null, 1])
+  })
 })
 
 describe('setKizDefault', () => {
@@ -99,6 +127,29 @@ describe('setKizDefault', () => {
     expect(setKizDefault(g, 'kizCount', 3)).toBe(2)
   })
 
+  it('ревью: «0 → 1 → 0» (промах) не переписывает строку, у которой «1» было своим при открытии ДТ', () => {
+    const g = goods([row({ number: 'A' }), row({ number: 'B' }), row({ number: 'C', levelCode: '1' })])
+    expect(kizState(g).defaults.levelCode).toBe('0')
+    expect(setKizDefault(g, 'levelCode', '1')).toBe(2)
+    expect(g.markings!.map((m) => m.levelCode)).toEqual(['1', '1', '1'])
+    expect(setKizDefault(g, 'levelCode', '0')).toBe(2)
+    expect(g.markings!.map((m) => m.levelCode)).toEqual(['0', '0', '1'])
+    expect(isCustomMarking(g.markings![2], kizState(g).defaults)).toBe(true)
+  })
+
+  it('ревью: общее количество не задаётся строкам без номера', () => {
+    const g = goods([row({ number: 'A' }), row({ number: null, kizCount: null }), row({ number: null, kizCount: 500 })])
+    expect(kizFollowers(g, 'kizCount').map((m) => m.number)).toEqual(['A'])
+    expect(setKizDefault(g, 'kizCount', 2)).toBe(1)
+    expect(g.markings!.map((m) => m.kizCount)).toEqual([2, null, 500])
+    // Строка без номера получила номер — уже новое общее количество.
+    setKizNumber(g, g.markings![1], 'B')
+    expect(g.markings![1].kizCount).toBe(2)
+    // «Как у всех» строке без номера — без количества.
+    resetMarkingToDefaults(g, g.markings![2])
+    expect(g.markings![2].kizCount).toBeNull()
+  })
+
   it('агрегированная: null/undefined в строке = «нет»', () => {
     const g = goods([{ number: 'A', levelCode: '0' }, { number: 'B', levelCode: '0', aggregated: null }])
     expect(setKizDefault(g, 'aggregated', true)).toBe(2)
@@ -128,6 +179,39 @@ describe('setKizAfterRelease', () => {
     expect(g.markings).toEqual([])
   })
 
+  it('ревью: выключение убирает только носитель, созданный признаком, — строку, добавленную «+», не трогает', () => {
+    const g = goods([row({ number: null, levelCode: '1' })])
+    setKizAfterRelease(g, true)
+    setKizAfterRelease(g, false)
+    expect(g.markings).toEqual([expect.objectContaining({ number: null, levelCode: '1', markingAfterRelease: false })])
+    // Носитель получил номер — остаётся.
+    const h = goods([])
+    setKizAfterRelease(h, true)
+    h.markings![0].number = 'A'
+    setKizAfterRelease(h, false)
+    expect(h.markings).toHaveLength(1)
+  })
+
+  it('ДТ открыта с «после выпуска» и одной строкой без номера — это носитель: снять признак — строка уходит', () => {
+    const g = goods([row({ number: null, markingAfterRelease: true })])
+    expect(isKizCarrier(g, g.markings![0])).toBe(true)
+    setKizAfterRelease(g, false)
+    expect(g.markings).toEqual([])
+  })
+
+  it('ревью: удалили последнюю строку при «после выпуска» — вместо пустого списка носитель, признак в данных остаётся', () => {
+    const g = goods([row({ number: 'A' })])
+    setKizAfterRelease(g, true)
+    removeKizRow(g, g.markings![0])
+    expect(g.markings).toEqual([expect.objectContaining({ number: null, markingAfterRelease: true })])
+    expect(isKizCarrier(g, g.markings![0])).toBe(true)
+    expect(kizState(g).defaults.afterRelease).toBe(true)
+    // Без признака — просто удаление.
+    const h = goods([row({ number: 'A' })])
+    removeKizRow(h, h.markings![0])
+    expect(h.markings).toEqual([])
+  })
+
   it('есть строки: признак ставится и снимается у всех, строки с номером остаются', () => {
     const g = goods([row({ number: 'A' }), row({ number: 'B' })])
     setKizAfterRelease(g, true)
@@ -147,5 +231,11 @@ describe('adoptKizDefaults', () => {
     const own = goods([row({ number: 'B', levelCode: '3' })])
     adoptKizDefaults(own, src)
     expect(kizState(own).defaults.levelCode).toBe('3')
+  })
+
+  it('ревью: «после выпуска» другому товару не копируется', () => {
+    const empty = goods([])
+    adoptKizDefaults(empty, { ...deriveKizDefaults([row({ number: 'A' })]), afterRelease: true })
+    expect(kizState(empty).defaults).toMatchObject({ levelCode: '0', afterRelease: false })
   })
 })
