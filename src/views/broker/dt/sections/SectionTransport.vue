@@ -57,9 +57,21 @@ const syncArrivalMode = () => {
 }
 // Состав гр. 18 → код гр. 25 / 26. Строки гр. 18 правятся на месте (TransportMeansList), а загрузка или перечитывание ДТ
 // подменяет сам массив — это не правка сотрудника: код при открытии ДТ не меняется и автосохранение не срабатывает.
-const expected = computed<RoadMode | null>(() => compositionMode(arrivalRows.value))
-watch([expected, () => props.form.arrivalTransportNumbers], ([after, list], [before, prevList]) => {
-  if (props.readonly || list !== prevList) return
+const composition = computed<RoadMode | null>(() => compositionMode(arrivalRows.value))
+// Правило — только для автомобильной гр. 18 (вид гр. 26, без неё гр. 25) или пока вид не выбран: при гр. 26 = 20 в гр. 18
+// вагоны, и ручной 31 гр. 25 (тягач с прицепом на границе) не должен ни меняться, ни давать предупреждение. Так же сервер
+// (TransportComposition.ExpectedRoadMode).
+const roadArrival = computed(() => !(arrivalMode.value ?? '').trim() || isRoadMode(arrivalMode.value))
+const expected = computed<RoadMode | null>(() => (roadArrival.value ? composition.value : null))
+// Последний известный состав. Стёртый на время перенабора номер головы делает состав «неизвестным» (null); если брать
+// прежнее значение слежения, следующий знак номера выглядел бы как «состав появился», и ручной код молча сменился бы.
+let lastKnown: RoadMode | null = composition.value
+watch([composition, () => props.form.arrivalTransportNumbers], ([after, list], [, prevList]) => {
+  if (list !== prevList) { lastKnown = after; return }
+  if (after == null) return
+  const before = lastKnown
+  lastKnown = after
+  if (props.readonly || !roadArrival.value) return
   const nextBorder = followComposition(props.form.borderTransportModeCode || null, before, after)
   const nextInland = followComposition(props.form.inlandTransportModeCode, before, after)
   const borderChanged = nextBorder !== (props.form.borderTransportModeCode || null)
@@ -93,9 +105,10 @@ const onContainer = (v: boolean) => { props.form.containerIndicator = v }
 const onArrivalCountry = (v: unknown) => { props.form.arrivalTransportNationality = code(v) ?? '' }
 const onBorderCountry = (v: unknown) => { props.form.borderTransportNationality = code(v) ?? '' }
 
-// Головы гр. 18, которых ещё нет в гр. 21 (по номеру). Копирование только дописывает недостающие и ничего не заменяет:
+// Головы гр. 18, которых ещё нет в гр. 21 (по номеру, без учёта регистра: в старых ДТ гр. 21 из заявки — «как ввёл
+// клиент», 184afr19, а гр. 18 — заглавными). Копирование только дописывает недостающие и ничего не заменяет:
 // заполненный вручную гр. 21 (типы, марки, свои головы) не стирается.
-const numberKey = (m: { number?: string | null }) => (m.number ?? '').trim()
+const numberKey = (m: { number?: string | null }) => (m.number ?? '').trim().toUpperCase()
 const missingHeads = computed(() => {
   const have = new Set(borderRows.value.map(numberKey))
   return arrivalRows.value.filter((m) => !m.isTrailer && !have.has(numberKey(m)))

@@ -258,6 +258,15 @@ describe('SectionTransport — гр. 18, 19, 21, 25, 26', () => {
     expect(form.borderTransportNationality).toBe('KZ')
   })
 
+  it('копирование сравнивает номера без учёта регистра: голова 184AFR19 уже есть в гр. 21 как «184afr19» — второй раз не копируется', async () => {
+    await mount({
+      inlandTransportModeCode: '31', borderTransportModeCode: '31',
+      arrivalTransportNumbers: [veh('184AFR19'), veh('48AEU19', { isTrailer: true, headNumber: '184AFR19' })],
+      borderTransportNumbers: [veh('184afr19')],
+    })
+    expect(w.find('[data-copy-heads]').exists()).toBe(false)
+  })
+
   it('кнопка копирования скрыта, если голов нет или в просмотре', async () => {
     await mount({ inlandTransportModeCode: '30', arrivalTransportNumbers: [veh('T1', { isTrailer: true })] })
     expect(w.find('[data-copy-heads]').exists()).toBe(false)
@@ -381,6 +390,45 @@ describe('SectionTransport — гр. 25 / 26 по составу гр. 18 (пр�
     expect(w.get('[data-mode-mismatch="25"]').text()).toBe('По гр. 18 нужен код 31: голова с одним прицепом.')
     await addTrailer('T2')
     expect([form.borderTransportModeCode, form.inlandTransportModeCode]).toEqual(['30', '32'])
+  })
+
+  it('стёртый на время перенабора номер головы не делает ручной код «шедшим за составом»', async () => {
+    await mount({
+      borderTransportModeCode: '30', inlandTransportModeCode: '32', arrivalTransportModeCode: '32',
+      arrivalTransportNumbers: [veh('H1'), veh('T1', { isTrailer: true, headNumber: 'H1' })],
+    })
+    const input = rows('18')[0].get('input[data-transport-number]')
+    await input.setValue('') // голов не осталось — состав неизвестен
+    await nextTick()
+    await input.setValue('H') // первый знак — состав снова «голова с прицепом», как до правки
+    await nextTick()
+    await input.setValue('H1')
+    await nextTick()
+    expect([form.borderTransportModeCode, form.inlandTransportModeCode]).toEqual(['30', '32'])
+    expect(w.get('[data-mode-mismatch="25"]').text()).toBe('По гр. 18 нужен код 31: голова с одним прицепом.')
+    expect(w.get('[data-mode-mismatch="26"]').exists()).toBe(true)
+
+    // удалили голову и добавили заново — тоже не правка кода
+    await rows('18')[0].get('[data-transport-remove]').trigger('click')
+    await nextTick()
+    await w.get('[data-transport-arrival] [data-transport-add]').trigger('click')
+    await rows('18')[1].get('input[data-transport-number]').setValue('H1') // прицеп без «К голове» — к первой голове
+    await nextTick()
+    expect([form.borderTransportModeCode, form.inlandTransportModeCode]).toEqual(['30', '32'])
+  })
+
+  it('смешанный вид: гр. 26 = 20 (в гр. 18 вагоны) — ручной 31 гр. 25 не меняется и не предупреждает', async () => {
+    await mount({ borderTransportModeCode: '31', inlandTransportModeCode: '20', arrivalTransportModeCode: '20', arrivalTransportNumbers: [] })
+    await w.get('[data-transport-arrival] [data-transport-add]').trigger('click')
+    await rows('18')[0].get('input[data-transport-number]').setValue('52345678')
+    await nextTick()
+    expect([form.borderTransportModeCode, form.inlandTransportModeCode]).toEqual(['31', '20'])
+    expect(w.find('[data-mode-mismatch]').exists()).toBe(false)
+
+    // гр. 26 убрали — гр. 18 теперь по гр. 25 (автомобильная): правило снова сверяет
+    form.inlandTransportModeCode = null
+    await nextTick()
+    expect(w.get('[data-mode-mismatch="25"]').text()).toBe('По гр. 18 нужен код 30: только голова, без прицепа.')
   })
 
   it('ЖД (20) не трогается и не предупреждает', async () => {
