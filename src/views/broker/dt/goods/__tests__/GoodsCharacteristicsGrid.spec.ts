@@ -186,6 +186,39 @@ describe('строки гр. 31: таблица — правка в ячейка
   })
 })
 
+describe('строки гр. 31: таблица — ширины колонок (правка №17)', () => {
+  const tracks = () => q<HTMLElement>('[data-chars-grid-head]')!.style.gridTemplateColumns
+  const inner = () => q<HTMLElement>('[data-chars-grid]')!.firstElementChild as HTMLElement
+
+  it('подписи колонок не обрезаются (до двух строк, полная — в подсказке); таблица не уже колонок, иначе — во всю ширину', async () => {
+    await mount(goods([{ name: 'ПАРТА' }]))
+    const labels = [...document.querySelectorAll<HTMLElement>('[data-chars-col-label]')]
+    expect(labels).toHaveLength(12)
+    for (const l of labels) {
+      expect(l.className).not.toContain('truncate')
+      expect(l.className).toContain('line-clamp-2')
+    }
+    expect(q('[data-chars-col="manufacturer"]')!.getAttribute('title')).toBe('Производитель')
+    expect(q('[data-chars-col="manufacturer"]')!.textContent).toBe('Производитель')
+    // Ширина таблицы — сумма колонок (прокрутка вправо только при нехватке места), не меньше 100% окна таблицы.
+    expect(inner().style.minWidth).toBe('100%')
+    expect(inner().style.width).toMatch(/^\d+(\.\d+)?rem$/)
+    // Текстовые колонки делят свободное место; строки — та же сетка, что и заголовок.
+    expect(tracks()).toContain('minmax(16rem,3fr)')
+    expect(tracks()).toContain('minmax(12rem,2fr)')
+    expect(q<HTMLElement>('[data-chars-grid] [data-char-row="0"]')!.style.gridTemplateColumns).toBe(tracks())
+  })
+
+  it('длинный производитель — колонка шире, значение видно целиком; таблица растёт вместе с ней', async () => {
+    await mount(goods([{ name: 'КУРТКА', manufacturerName: 'ТОО' }]))
+    const before = parseFloat(inner().style.width)
+    await typeIn(cell(0, 'manufacturer'), 'moncler industries s.p.a. via stephenson')
+    expect(item.characteristics![0].manufacturerName).toBe('MONCLER INDUSTRIES S.P.A. VIA STEPHENSON')
+    expect(tracks()).toContain('minmax(24rem,2fr)')
+    expect(parseFloat(inner().style.width)).toBe(before + 24 - 12)
+  })
+})
+
 describe('строки гр. 31: таблица — клавиши', () => {
   it('Tab / Shift+Tab — по ячейкам с переходом на соседнюю строку; Enter / Shift+Enter и ↑/↓ — по колонке', async () => {
     await mount(goods([{ name: 'А' }, { name: 'Б' }, { name: 'В' }]))

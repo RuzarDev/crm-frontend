@@ -10,12 +10,14 @@ import {
   blankCharacteristic, CHARACTERISTIC_FIELDS, cloneCharacteristic, singleRowOf,
   type CharacteristicField, type GoodsRowValue,
 } from './characteristics'
+import { CHARS_GRID_NO_W, charsGridLayout } from './charsGridLayout'
 import { ensureOkeiUnits, okeiCode, okeiShort, okeiUnits } from './okei'
 
 // Режим «Таблица» строк гр. 31 (как сетка «Характеристика товаров в группе» КЕДЕН / D-Sector): строка — характеристика,
 // колонки № · Наименование · Кол-во · Ед. · Стоимость · Производитель · Тов. знак · Марка · Модель · Артикул · Стандарт ·
 // Сорт · Серийные №, правка прямо в ячейке (GoodsCharacteristicsGridRow). № и Наименование закреплены слева, остальное —
-// прокрутка внутри таблицы.
+// прокрутка внутри таблицы. Ширины колонок (№17) — charsGridLayout: подпись и значения не режутся, свободное место панели
+// делят текстовые колонки, прокрутка вправо — только когда колонки не помещаются.
 // Клавиши: Tab / Shift+Tab — по ячейкам (с переходом на соседнюю строку); Enter / Shift+Enter — вниз / вверх (Enter на
 // последней строке — новая строка); ↑/↓ — соседняя строка (не в ячейке единицы: там список единиц); Ctrl/⌘+↑/↓ — переставить
 // строку. Ctrl/⌘+Enter не перехватывается (следующий товар редактора).
@@ -44,22 +46,19 @@ const list = (): GoodsRowValue[] => {
 }
 
 // ---- Колонки ----
-// Ширины (rem): наименование тянется на свободное место; итог — ширина таблицы (прокрутка вправо).
-const WIDTH: Record<CharacteristicField, number> = {
-  name: 16, quantity: 7.5, unitCode: 5, invoiceValue: 8.5, manufacturerName: 14, tradeMarkName: 10, productMarkName: 8,
-  productModelName: 9, productArticle: 8, standardName: 8, productSortName: 6, serialNumbers: 12,
-}
-const NO_W = 2.75
-const ACT_W = 5
+// Ширины — по подписям на текущем языке и самым длинным значениям (charsGridLayout); итог — ширина таблицы при нехватке
+// места (прокрутка вправо). Подсказки единственной строки («гр. 41: …») тоже помещаются.
+const NO_W = CHARS_GRID_NO_W
 const FIELDS = CHARACTERISTIC_FIELDS
 const fieldCols = FIELDS.map((c) => c.f)
 const controlCols = computed(() => (props.readonly ? fieldCols : [...fieldCols, 'copy', 'remove']))
-const template = computed(() => [
-  `${NO_W}rem`,
-  ...FIELDS.map((c) => (c.key === 'name' ? `minmax(${WIDTH.name}rem,1fr)` : `${WIDTH[c.key]}rem`)),
-  ...(props.readonly ? [] : [`${ACT_W}rem`]),
-].join(' '))
-const totalWidth = computed(() => NO_W + FIELDS.reduce((s, c) => s + WIDTH[c.key], 0) + (props.readonly ? 0 : ACT_W))
+const labels = computed(() => Object.fromEntries(FIELDS.map((c) => [c.key, tc(`col.${c.f}`)])) as Record<CharacteristicField, string>)
+const unitShort = (code: string) => okeiShort(code) ?? okeiCode(code)
+const layout = computed(() => charsGridLayout(rows.value, {
+  readonly: props.readonly, labels: labels.value, unitText: unitShort, placeholders: singlePlaceholders.value,
+}))
+const template = computed(() => layout.value.template)
+const totalWidth = computed(() => layout.value.widthRem)
 const colCount = computed(() => 1 + FIELDS.length + (props.readonly ? 0 : 1))
 const stickyLeft = `${NO_W}rem`
 
@@ -252,7 +251,7 @@ const headCell = 'flex min-w-0 items-center border-r border-line px-2 last:borde
     <div
       ref="box"
       class="relative max-h-[min(60vh,36rem)] overflow-auto overscroll-contain rounded-row border border-line bg-surface"
-      :style="{ scrollPaddingLeft: `${NO_W + WIDTH.name}rem`, scrollPaddingTop: `${HEAD_H}px` }"
+      :style="{ scrollPaddingLeft: `${NO_W + layout.nameRem}rem`, scrollPaddingTop: `${HEAD_H}px` }"
       role="grid"
       :aria-label="tc('gridLabel')"
       :aria-rowcount="rows.length + 1"
@@ -279,9 +278,9 @@ const headCell = 'flex min-w-0 items-center border-r border-line px-2 last:borde
             :aria-colindex="k + 2"
             :class="[headCell, c.kind === 'number' && 'justify-end', c.key === 'name' && 'sticky z-10 bg-sunken shadow-[1px_0_0_var(--color-line-strong)]']"
             :style="c.key === 'name' ? { left: stickyLeft } : undefined"
-            :title="c.key === 'invoiceValue' && item.currency ? tc('valueIn', { currency: item.currency }) : undefined"
+            :title="c.key === 'invoiceValue' && item.currency ? tc('valueIn', { currency: item.currency }) : labels[c.key]"
             :data-chars-col="c.f"
-          ><span class="truncate">{{ tc(`col.${c.f}`) }}</span></div>
+          ><span class="line-clamp-2 leading-tight" data-chars-col-label>{{ labels[c.key] }}</span></div>
           <div v-if="!readonly" role="columnheader" :aria-colindex="colCount" :class="headCell"><span class="sr-only">{{ tc('actions') }}</span></div>
         </div>
 

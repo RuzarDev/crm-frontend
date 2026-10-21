@@ -970,3 +970,164 @@ describe('GoodsEditor: строки характеристик гр. 31 (как 
     expect(q('[data-chars-empty]')).not.toBeNull()
   })
 })
+
+describe('GoodsEditor: ширина панели, полоса списка, вкладки (правка №17)', () => {
+  const width = () => panel()!.style.getPropertyValue('--w')
+  const storedWidth = (user?: string) => localStorage.getItem(user ? `zircon.dt.goodsEditorWidth:${user}` : 'zircon.dt.goodsEditorWidth')
+  const pointer = (target: EventTarget, type: string, clientX: number) =>
+    target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX }))
+
+  it('по умолчанию широкая (90% окна); «Сузить» — 780 px, запоминается у пользователя; Alt+↓ и Esc — как раньше; снова открыли — как выбрали', async () => {
+    localStorage.setItem('userId', 'u-7')
+    await mount([item({ description: 'A' }), item({ description: 'B' })], { query: '&item=1' })
+    expect(width()).toBe('90vw')
+    expect(panel()!.dataset.goodsEditorWidth).toBe('wide')
+    expect(q('[data-goods-width-toggle]')!.getAttribute('aria-label')).toBe('Сузить карточку')
+    // Окно 1024 px (jsdom): панель 922 px — полосе списка места нет.
+    expect(q('[data-goods-rail]')).toBeNull()
+
+    await click('[data-goods-width-toggle]')
+    expect(width()).toBe('780px')
+    expect(panel()!.dataset.goodsEditorWidth).toBe('narrow')
+    expect(q('[data-goods-width-toggle]')!.getAttribute('aria-label')).toBe('Развернуть карточку')
+    expect(storedWidth('u-7')).toBe('narrow')
+
+    await key(q('[data-goods-next]')!, { key: 'ArrowDown', altKey: true })
+    expect(itemQuery()).toBe('2')
+    expect(width()).toBe('780px')
+    await key(field('quantity'), { key: 'Escape' })
+    expect(itemQuery()).toBeUndefined()
+
+    await router.replace({ query: { s: 'goods', item: '1' } })
+    await settle()
+    expect(width()).toBe('780px')
+    w.unmount()
+    document.body.innerHTML = ''
+    await mount([item()], { query: '&item=1' })
+    expect(width()).toBe('780px')
+    await click('[data-goods-width-toggle]')
+    expect(width()).toBe('90vw')
+    expect(storedWidth('u-7')).toBe('wide')
+  })
+
+  it('край панели тянется мышью: ширина вживую, по отпусканию — запоминается; ←/→ на ручке; рядом с 90% — «широко»; двойной щелчок — сузить', async () => {
+    vi.stubGlobal('innerWidth', 1600)
+    try {
+      await mount([item()], { query: '&item=1' })
+      const handle = q('[data-goods-resize]')!
+      expect(handle.getAttribute('role')).toBe('separator')
+      expect(handle.getAttribute('aria-valuenow')).toBe('1440')
+      expect(handle.getAttribute('aria-valuemax')).toBe('1536')
+
+      pointer(handle, 'pointerdown', 160)
+      pointer(window, 'pointermove', 600)
+      await settle()
+      expect(width()).toBe('1000px')
+      expect(panel()!.dataset.goodsEditorDragging).toBe('true')
+      expect(document.body.style.cursor).toBe('col-resize')
+      expect(storedWidth()).toBeNull()
+      pointer(window, 'pointerup', 600)
+      await settle()
+      expect(width()).toBe('min(1000px, calc(100vw - 64px))')
+      expect(storedWidth()).toBe('1000')
+      expect(panel()!.dataset.goodsEditorDragging).toBeUndefined()
+      expect(document.body.style.cursor).toBe('')
+
+      await key(handle, { key: 'ArrowLeft' })
+      expect(storedWidth()).toBe('1048')
+      await key(handle, { key: 'ArrowRight' })
+      await key(handle, { key: 'ArrowRight' })
+      expect(storedWidth()).toBe('952')
+      expect(handle.getAttribute('aria-valuenow')).toBe('952')
+
+      // Отпустили в 10 px от 90% окна (1440) — «широко»: дальше следует за окном.
+      pointer(handle, 'pointerdown', 500)
+      pointer(window, 'pointermove', 22)
+      pointer(window, 'pointerup', 22)
+      await settle()
+      expect(storedWidth()).toBe('wide')
+      expect(width()).toBe('90vw')
+
+      handle.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+      await settle()
+      expect(width()).toBe('780px')
+      expect(storedWidth()).toBe('narrow')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('широкая панель — слева полоса списка товаров: открытый отмечен, нажатие открывает другой, ↑/↓ по полосе; узкая — без полосы', async () => {
+    vi.stubGlobal('innerWidth', 1600)
+    try {
+      await mount([item({ description: 'A' }), item({ description: 'B', tnvedCode: null }), item({ description: 'C' })], { query: '&item=2' })
+      const rail = q('[data-goods-rail]')!
+      expect(rail).not.toBeNull()
+      expect(rail.getAttribute('aria-label')).toBe('Список товаров')
+      // Полоса — после товара в DOM: фокус при открытии и Tab начинаются с шапки товара.
+      expect(q('[data-goods-editor-head]')!.compareDocumentPosition(rail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      const items = () => [...rail.querySelectorAll<HTMLElement>('[data-goods-rail-item]')]
+      expect(items()).toHaveLength(3)
+      expect(items().map((b) => b.getAttribute('aria-current'))).toEqual([null, 'true', null])
+      expect(items().map((b) => b.tabIndex)).toEqual([-1, 0, -1])
+      expect(items()[0].textContent).toContain('4202 12 190 0')
+      expect(items()[1].textContent).toContain('нет кода')
+      // Точка — ошибки товара (как фильтр «С ошибками»): без кода — есть, у полного товара — нет.
+      expect(items()[1].querySelector('[data-goods-rail-error]')).not.toBeNull()
+      expect(items()[1].getAttribute('aria-label')).toContain('есть ошибки')
+      expect(items()[0].querySelector('[data-goods-rail-error]')).toBeNull()
+      expect(items()[2].textContent).toContain('C')
+
+      items()[2].click()
+      await settle()
+      expect(itemQuery()).toBe('3')
+      expect(q('[data-goods-editor-caption]')!.textContent).toBe('C')
+      expect(q('[data-goods-rail-item][aria-current="true"]')!.getAttribute('data-goods-rail-item')).toBe('2')
+
+      items()[2].focus()
+      await key(items()[2], { key: 'ArrowUp' })
+      expect(document.activeElement).toBe(items()[1])
+      await key(items()[1], { key: 'Home' })
+      expect(document.activeElement).toBe(items()[0])
+      expect(itemQuery()).toBe('3')
+
+      await click('[data-goods-width-toggle]')
+      expect(q('[data-goods-rail]')).toBeNull()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('вкладки не помещаются — стрелки ‹ ›; полоса прокручивается, активная вкладка показывается', async () => {
+    await mount([item()], { query: '&item=1' })
+    const nav = q('[data-goods-tabs]')!
+    expect(q('[data-goods-tabs-prev]')).toBeNull()
+    expect(q('[data-goods-tabs-next]')).toBeNull()
+    Object.defineProperty(nav, 'scrollWidth', { configurable: true, value: 900 })
+    Object.defineProperty(nav, 'clientWidth', { configurable: true, value: 400 })
+    nav.dispatchEvent(new Event('scroll'))
+    await settle()
+    expect(q('[data-goods-tabs-prev]')).toBeNull()
+    expect(q('[data-goods-tabs-next]')!.getAttribute('aria-label')).toBe('Следующие разделы')
+
+    await click('[data-goods-tabs-next]')
+    expect(nav.scrollLeft).toBe(264)
+    expect(q('[data-goods-tabs-prev]')).not.toBeNull()
+    await click('[data-goods-tabs-next]')
+    expect(nav.scrollLeft).toBe(500)
+    expect(q('[data-goods-tabs-next]')).toBeNull()
+    await click('[data-goods-tabs-prev]')
+    expect(nav.scrollLeft).toBe(236)
+
+    // Активная вкладка (по нажатию или прокрутке секций) — в видимой части полосы.
+    const tab = q<HTMLElement>('[data-goods-tab="payments"]')!
+    Object.defineProperty(tab, 'offsetLeft', { configurable: true, value: 820 })
+    Object.defineProperty(tab, 'offsetWidth', { configurable: true, value: 70 })
+    await click('[data-goods-tab="payments"]')
+    expect(nav.scrollLeft).toBe(894 - 400)
+    const first = q<HTMLElement>('[data-goods-tab="code"]')!
+    Object.defineProperty(first, 'offsetLeft', { configurable: true, value: 0 })
+    await click('[data-goods-tab="code"]')
+    expect(nav.scrollLeft).toBe(0)
+  })
+})

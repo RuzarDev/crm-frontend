@@ -2163,6 +2163,19 @@ export default {
           tabs: 'Item sections',
           sections: { code: 'Code and description', qty: 'Quantity and value', packaging: 'Packaging', prefs: 'Preferences and procedure', gr33: 'Box 33', markings: 'Marking', extras: 'Additional details', payments: 'Payments' },
           keys: { items: 'items', next: 'next', close: 'close' },
+          tabsPrev: 'Previous sections',
+          tabsNext: 'Next sections',
+          width: {
+            widen: 'Widen the card',
+            narrow: 'Narrow the card',
+            resize: 'Goods card width',
+            resizeHint: 'Drag to change the width; ←/→ — wider or narrower, Enter — widen or narrow',
+          },
+          rail: {
+            label: 'Goods list',
+            item: 'Item {n}',
+            error: 'has errors',
+          },
           code: {
             code: 'HS code',
             find: 'Find',
