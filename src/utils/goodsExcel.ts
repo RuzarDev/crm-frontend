@@ -113,12 +113,12 @@ const DETAIL_FIELDS: ReadonlySet<ExcelField> = new Set<DetailField>([
   'docTypeCode', 'docNumber', 'docDate', 'invoiceNumber', 'invoiceDate',
 ])
 /** «Отсутствует», «нет», «-», «N/A» — значения нет. */
-const ABSENT = /^(отсутству\S*|нет|не\s*указан\S*|[-—–]+|n\/?a|none)$/i
+export const ABSENT = /^(отсутству\S*|нет|не\s*указан\S*|[-—–]+|n\/?a|none)$/i
 /** Шапку таблицы ищем в первых строках листа (сверху бывают реквизиты, номер инвойса и т. п.). */
 const HEADER_SCAN_ROWS = 30
 /** Строки «Итого/Всего/Total» — не товары. */
 // «Итого», «合计 / TOTAL» — где угодно в начале слова (\b в JS не видит границу кириллического слова).
-const TOTAL_ROW = /(^|[\s/|(])(итого|всего|total|subtotal|grand\s*total|合计|总计)(?=$|[\s:.,;/)])/i
+export const TOTAL_ROW = /(^|[\s/|(])(итого|всего|total|subtotal|grand\s*total|合计|总计)(?=$|[\s:.,;/)])/i
 
 /**
  * Ячейка с кодами (NTIN/GTIN). Excel хранит код числом и теряет ведущий ноль: NTIN «0200…» (13 цифр) читается как
@@ -149,7 +149,7 @@ function excelTnved(v: unknown): string | null {
   return /^\d{4,10}$/.test(digits) ? digits : s
 }
 
-function normalizeHeader(v: unknown): string {
+export function normalizeHeader(v: unknown): string {
   return String(v ?? '')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]/gu, '')
@@ -270,6 +270,19 @@ function headerColumns(
     }
   }
   return colIndex
+}
+
+/** Поле товара, узнанное по заголовку столбца. */
+export type GoodsExcelField = ExcelField
+
+/**
+ * Столбцы строки заголовков — та же логика, что у импорта товаров (headerColumns). Нужна КИЗ (гр. 31.13): раскладка
+ * кодов из Excel по товарам ДТ по наименованию, коду ТН ВЭД, артикулу и модели в строке файла.
+ */
+export function goodsHeaderColumns(
+  headerRow: readonly unknown[], opts: GoodsExcelOptions, dataRows: readonly unknown[][] = [],
+): Partial<Record<GoodsExcelField, number>> {
+  return headerColumns(headerRow, opts, dataRows)
 }
 
 /** Шапка таблицы — строка с кодом ТН ВЭД или описанием и хотя бы ещё одним узнанным столбцом; лучшая из первых строк. */

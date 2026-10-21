@@ -12,7 +12,7 @@ import { clearTariffCache } from '../useTariffOptions'
 import { resetOkeiUnits } from '../editor/okei'
 import { resetKedenLists } from '../useKedenLists'
 import { resetGr33Suggest } from '../useGr33Suggest'
-import { parseMarkingsSheet } from '../editor/markingsExcel'
+import { resetKizState } from '../editor/kizDefaults'
 import type { GoodsPageContext } from '../editor/types'
 import { resetDtTnvedCheckCache } from '../tnvedCodeCheck'
 import { clearMarkingListCache } from '../useMarkingList'
@@ -39,10 +39,16 @@ const gr33Api = vi.hoisted(() => ({ list: vi.fn(), suggest: vi.fn() }))
 vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: gr33Api }))
 const nl = vi.hoisted(() => ({ marking: vi.fn() }))
 vi.mock('@/api/nationalLists', async (orig) => ({ ...(await orig<typeof import('@/api/nationalLists')>()), nationalListsApi: nl }))
-const xlsx = vi.hoisted(() => ({ rows: [] as unknown[] }))
+// Книга Excel: листы по имени; sheet_to_json вызывается дважды — raw:true (значения) и raw:false (текст, как показал бы
+// Excel: длинные числа в формате «Общий» — «4.87181E+12»).
+const xlsx = vi.hoisted(() => ({ sheets: { Лист1: [] } as Record<string, unknown[][]> }))
+const shownText = (v: unknown) => (v == null ? null : typeof v === 'number' && v > 1e11 ? v.toExponential(5).replace('e+', 'E+') : String(v))
 vi.mock('@/utils/xlsx', () => ({ loadXlsx: async () => ({
-  read: () => ({ SheetNames: ['Лист1'], Sheets: { Лист1: {} } }),
-  utils: { sheet_to_json: () => xlsx.rows },
+  read: () => ({ SheetNames: Object.keys(xlsx.sheets), Sheets: Object.fromEntries(Object.keys(xlsx.sheets).map((n) => [n, { n }])) }),
+  utils: {
+    sheet_to_json: (ws: { n: string }, o: { raw?: boolean }) =>
+      (o.raw === false ? xlsx.sheets[ws.n].map((r) => r.map(shownText)) : xlsx.sheets[ws.n]),
+  },
 }) }))
 
 import SectionGoods from '../SectionGoods.vue'
@@ -142,6 +148,47 @@ const click = async (sel: string) => {
 }
 const g0 = () => model.items.value[0]
 
+const G1 = '4871813090801'
+const G2 = '4871813090818'
+const G3 = '4006381333931'
+const BAD = '4871813090802'
+/** Строка КИЗ с общими значениями 0 · 01 · 999 · 1. */
+const mk = (number: string | null, o: Partial<Import40GoodsMarking> = {}): Import40GoodsMarking => ({
+  number, levelCode: '0', idApplicationCode: '01', idTypeCode: '999', kizCount: 1, aggregated: false, markingAfterRelease: false, ...o,
+})
+const paste = (f: string, text: string) => {
+  const ev = new Event('paste', { bubbles: true, cancelable: true })
+  Object.defineProperty(ev, 'clipboardData', { value: { getData: () => text } })
+  input(f).dispatchEvent(ev)
+  return ev
+}
+const upload = async () => {
+  const fileInput = q<HTMLInputElement>('[data-goods-markings-section] input[type="file"]')!
+  const file = new File(['x'], 'invoice.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  Object.defineProperty(file, 'arrayBuffer', { value: async () => new ArrayBuffer(1) })
+  Object.defineProperty(fileInput, 'files', { value: [file], configurable: true })
+  fileInput.dispatchEvent(new Event('change'))
+  await settle()
+  expect(document.body.querySelector('[data-kiz-excel-modal]')).not.toBeNull()
+}
+const modal = (sel: string) => document.body.querySelector<HTMLElement>(`[data-kiz-excel-modal] ${sel}`)
+const okBtn = (text: string) => [...document.body.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find((b) => b.textContent?.trim() === text)
+const okButton = async (text: string) => {
+  const b = okBtn(text)
+  expect(b, text).toBeTruthy()
+  b!.click()
+  await settle()
+}
+const pickIn = async (scope: HTMLElement, f: string, startsWith: string) => {
+  const el = scope.querySelector<HTMLInputElement>(`input[data-f="${f}"]`)!
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
+  await settle()
+  const opt = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')].find((o) => o.textContent?.trim().startsWith(startsWith))
+  expect(opt, startsWith).toBeTruthy()
+  opt!.click()
+  await settle()
+}
+
 beforeEach(() => {
   resetDtTnvedCheckCache()
   pinia = createPinia()
@@ -158,7 +205,8 @@ beforeEach(() => {
   trois.search.mockReset().mockResolvedValue([])
   clearMarkingListCache()
   nl.marking.mockReset().mockResolvedValue({ actLabel: 'Приказ МТИ РК № 199-НҚ', actUrl: 'u', items: [] })
-  xlsx.rows = []
+  xlsx.sheets = { Лист1: [] }
+  resetKizState()
 })
 afterEach(() => {
   w?.unmount()
@@ -320,25 +368,122 @@ describe('Редактор товара: «Маркировка»', () => {
     expect(q('[data-marking-hint]')).toBeNull()
   })
 
-  it('добавить строку, номер — верхним регистром, уровень/идентификатор/вид из списков, удалить', async () => {
+  it('«Для всех кодов»: «+» даёт строку с общими значениями — вводится только номер (верхним регистром), удалить', async () => {
     await mount([item()])
     expect(q('[data-markings-empty]')).not.toBeNull()
+    await pick('marking-default-level', '0')
+    await openSelect('marking-default-application')
+    expect(optionTexts()).toEqual(['00', '01', '02', '21', '91', '92'])
+    await closeSelect('marking-default-application')
+    await pick('marking-default-application', '01')
+    await pick('marking-default-type', '999')
+    await type('marking-default-kiz', '1')
     await click('[data-markings-add]')
     expect(g0().markings).toHaveLength(1)
+    expect(document.activeElement).toBe(input('marking-0-number'))
+    // Поля строки скрыты — вводится только номер.
+    expect(q('input[data-f="marking-0-level"]')).toBeNull()
     await type('marking-0-number', '010460abc')
-    expect(g0().markings![0].number).toBe('010460ABC')
-    await pick('marking-0-level', '2')
-    await openSelect('marking-0-application')
-    expect(optionTexts()).toEqual(['00', '01', '02', '21', '91', '92'])
-    await closeSelect('marking-0-application')
-    await pick('marking-0-application', '01')
-    await pick('marking-0-type', '301')
-    await type('marking-0-kiz', '5')
     const m = g0().markings![0]
-    expect([m.levelCode, m.idApplicationCode, m.idTypeCode, m.kizCount]).toEqual(['2', '01', '301', 5])
+    expect([m.number, m.levelCode, m.idApplicationCode, m.idTypeCode, m.kizCount, m.aggregated, m.markingAfterRelease])
+      .toEqual(['010460ABC', '0', '01', '999', 1, false, false])
     expect(g0().needsTpinRecalc).toBe(false)
     await click('[data-marking-remove="0"]')
     expect(g0().markings).toHaveLength(0)
+  })
+
+  it('смена общего значения меняет строки, кроме изменённой вручную; «Как у всех» возвращает строку', async () => {
+    await mount([item({ markings: [mk(G1), mk(G2), mk(G3)] })])
+    expect(q<HTMLInputElement>('input[data-f="marking-default-level"]')!.value).toBe('0')
+    await click('[data-marking-edit="1"]')
+    expect(q('[data-marking-edit="1"]')!.getAttribute('aria-expanded')).toBe('true')
+    await pick('marking-1-level', '2')
+    expect(q('[data-marking-custom="1"]')!.textContent).toContain('свои значения: Уровень 2')
+    await pick('marking-default-level', '1')
+    expect(g0().markings!.map((x) => x.levelCode)).toEqual(['1', '2', '1'])
+    expect(q('[data-markings-applied]')!.textContent).toBe('Изменено у кодов: 2')
+    expect(q('[data-markings-totals]')!.textContent).toContain('со своими значениями: 1')
+    await click('[data-marking-reset="1"]')
+    expect(g0().markings![1].levelCode).toBe('1')
+    expect(q('[data-marking-custom="1"]')).toBeNull()
+    expect(q('input[data-f="marking-1-level"]')).toBeNull()
+  })
+
+  it('Enter в последнем заполненном номере добавляет строку (сканер), в пустом — нет', async () => {
+    await mount([item({ markings: [mk(G1)] })])
+    const enter = async (f: string) => {
+      input(f).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+      await settle()
+    }
+    await enter('marking-0-number')
+    expect(g0().markings).toHaveLength(2)
+    expect(g0().markings![1]).toMatchObject({ number: null, levelCode: '0', idApplicationCode: '01', idTypeCode: '999', kizCount: 1 })
+    expect(document.activeElement).toBe(input('marking-1-number'))
+    await enter('marking-1-number')
+    expect(g0().markings).toHaveLength(2)
+    await enter('marking-0-number')
+    expect(document.activeElement).toBe(input('marking-1-number'))
+  })
+
+  it('вставка столбца в поле номера: коды раскладываются по строкам с общими значениями, повтор — «Уже в списке»', async () => {
+    await mount([item({ markings: [mk(G1)] })])
+    await click('[data-markings-add]')
+    const ev = paste('marking-1-number', `${G2}\r\n${G3}\r\n036000291452\r\n`)
+    await settle()
+    expect(ev.defaultPrevented).toBe(true)
+    expect(g0().markings!.map((x) => x.number)).toEqual([G1, G2, G3, '036000291452'])
+    expect(g0().markings![3]).toMatchObject({ levelCode: '0', idApplicationCode: '01', idTypeCode: '999', kizCount: 1 })
+    expect(toast.success).toHaveBeenCalledWith('Добавлено кодов: 3')
+    paste('marking-0-number', `${G1}\n96385074`)
+    await settle()
+    expect(g0().markings).toHaveLength(5)
+    expect(toast.info).toHaveBeenCalledWith('Уже в списке: 1')
+    // Один код без переводов строк — обычная вставка браузера.
+    expect(paste('marking-0-number', G1).defaultPrevented).toBe(false)
+  })
+
+  it('«Вставить списком»: Ctrl+Enter добавляет коды, Esc закрывает', async () => {
+    await mount([item({ markings: [mk(G1)] })])
+    await click('[data-markings-paste-open]')
+    const ta = q<HTMLTextAreaElement>('textarea[data-f="markings-paste"]')!
+    expect(document.activeElement).toBe(ta)
+    ta.value = `GTIN\n${G2}\n${G1}`
+    ta.dispatchEvent(new Event('input', { bubbles: true }))
+    await settle()
+    ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }))
+    await settle()
+    expect(g0().markings!.map((x) => x.number)).toEqual([G1, G2])
+    expect(toast.success).toHaveBeenCalledWith('Добавлено кодов: 1')
+    expect(toast.info).toHaveBeenCalledWith('Уже в списке: 1')
+    expect(q('[data-markings-paste]')).toBeNull()
+  })
+
+  it('GTIN: неверная контрольная цифра GS1 — подсказка у номера и в итогах; сохранение не блокируется', async () => {
+    await mount([item({ markings: [mk(BAD), mk(G1), mk('0104600000000001', { idApplicationCode: '21' })] })])
+    expect(q('[data-marking-problem="0"]')!.textContent).toContain('не сходится контрольная цифра GS1')
+    expect(input('marking-0-number').getAttribute('aria-describedby')).toBe(q('[data-marking-problem="0"]')!.id)
+    expect(q('[data-marking-problem="1"]')).toBeNull()
+    expect(q('[data-marking-problem="2"]')).toBeNull()
+    expect(q('[data-markings-totals]')!.textContent).toContain('Кодов: 3 · КИЗ всего (в XML): 3')
+    expect(q('[data-markings-bad]')!.textContent).toContain('с ошибкой GTIN: 1')
+  })
+
+  it('итоги: КИЗ всего = сумма по строкам (как CIMQuantity), пустые строки — отдельно', async () => {
+    await mount([item({ markings: [mk(G1), mk(G2, { kizCount: 5 }), mk(null)] })])
+    expect(q('[data-markings-totals]')!.textContent).toContain('Кодов: 2 · КИЗ всего (в XML): 7')
+    expect(q('[data-markings-blanks]')!.textContent).toContain('Пустых строк: 1')
+  })
+
+  it('«После выпуска» — только в общих значениях: при пустом списке включение создаёт строку-носитель, выключение убирает', async () => {
+    await mount([item()])
+    q<HTMLElement>('[data-f="marking-default-after"]')!.click()
+    await settle()
+    expect(g0().markings).toEqual([expect.objectContaining({ number: null, markingAfterRelease: true })])
+    expect(q('[data-f="marking-0-after"]')).toBeNull()
+    expect(q('[data-markings-after-note]')!.textContent).toContain('только признак «ПВ»')
+    q<HTMLElement>('[data-f="marking-default-after"]')!.click()
+    await settle()
+    expect(g0().markings).toEqual([])
   })
 
   it('много строк — первые 10, «Показать» добавляет остальные', async () => {
@@ -362,26 +507,72 @@ describe('Редактор товара: «Маркировка»', () => {
     expect(qa('[data-marking-row]')).toHaveLength(10)
   })
 
-  it('Excel (без шапки): строки добавляются в конец, тост с количеством', async () => {
-    xlsx.rows = [['CODE1', 0, 1, 301], [null, null, null, null], ['CODE2', '1', '21', '101']]
+  it('Excel-инвойс: номер инвойса не берётся, столбец «Штрих-код» по шапке, предпросмотр, «Добавить 2» — с общими значениями', async () => {
+    xlsx.sheets = { Invoice: [
+      ['INVOICE / ИНВОЙС', null, null, null],
+      ['Invoice No', 'Описание', 'Кол-во', 'Штрих-код'],
+      [2026020201, 'Сушилка для белья', 470, 4871813090818],
+      [2026020201, 'Полки для обуви', 300, BAD],
+      ['Итого', null, 770, null],
+    ] }
+    await mount([item({ markings: [mk(G1)] })])
+    await upload()
+    expect(modal('[data-kiz-excel-found]')!.textContent).toBe('Найдено кодов: 2')
+    expect(modal('[data-kiz-excel-source]')!.textContent).toBe('по шапке «Штрих-код» (лист «Invoice», столбец D)')
+    expect(modal('[data-kiz-excel-counter="excelBadCheck"]')!.textContent).toContain('С ошибкой контрольной цифры: 1')
+    expect(modal('[data-kiz-excel-defaults]')!.textContent).toBe('Остальные поля — из «Для всех кодов»: 0 · 01 · 999 · 1')
+    expect(g0().markings).toHaveLength(1)
+    await okButton('Добавить 2')
+    expect(g0().markings!.map((x) => [x.number, x.levelCode, x.idApplicationCode, x.idTypeCode, x.kizCount])).toEqual([
+      [G1, '0', '01', '999', 1], [G2, '0', '01', '999', 1], [BAD, '0', '01', '999', 1],
+    ])
+    expect(toast.success).toHaveBeenCalledWith('Добавлено кодов: 2')
+    expect(q('[data-marking-problem="2"]')).not.toBeNull()
+  })
+
+  it('Excel: выбор столбца вручную пересчитывает «Найдено»; ничего не найдено — «Добавить 0» выключена', async () => {
+    xlsx.sheets = { Invoice: [['Invoice No', 'Описание'], [2026020201, 'Сушилка'], [2026020202, 'Полка']] }
+    await mount([item()])
+    await upload()
+    expect(modal('[data-kiz-excel-found]')!.textContent).toBe('Найдено кодов: 0')
+    expect(modal('[data-kiz-excel-none]')).not.toBeNull()
+    expect(modal('[data-kiz-excel-defaults-empty]')).not.toBeNull()
+    expect(okBtn('Добавить 0')!.disabled).toBe(true)
+    await pickIn(document.body, 'kiz-excel-column', 'Invoice · A «Invoice No»')
+    expect(modal('[data-kiz-excel-found]')!.textContent).toBe('Найдено кодов: 2')
+    expect(modal('[data-kiz-excel-source]')!.textContent).toBe('столбец выбран вручную (лист «Invoice», столбец A)')
+  })
+
+  it('Excel старого формата (без шапки: номер · уровень · идентификатор · вид) — значения из файла', async () => {
+    xlsx.sheets = { Лист1: [['CODE1', 0, 1, 301], [null, null, null, null], ['CODE2', '1', '21', '101']] }
     await mount([item({ markings: [{ number: 'OLD' }] })])
-    const fileInput = q<HTMLInputElement>('[data-goods-markings-section] input[type="file"]')!
-    const file = new File(['x'], 'marks.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    Object.defineProperty(file, 'arrayBuffer', { value: async () => new ArrayBuffer(1) })
-    Object.defineProperty(fileInput, 'files', { value: [file], configurable: true })
-    fileInput.dispatchEvent(new Event('change'))
-    await settle()
+    await upload()
+    expect(modal('[data-kiz-excel-source]')!.textContent).toContain('файл без шапки')
+    await okButton('Добавить 2')
     expect(g0().markings!.map((m) => [m.number, m.levelCode, m.idApplicationCode, m.idTypeCode])).toEqual([
       ['OLD', undefined, undefined, undefined], ['CODE1', '0', '01', '301'], ['CODE2', '1', '21', '101'],
     ])
-    expect(toast.success).toHaveBeenCalledWith('Добавлено строк маркировки: 2')
+    expect(toast.success).toHaveBeenCalledWith('Добавлено кодов: 2')
   })
 
-  it('разбор листа: пустые строки пропускаются, идентификатор применения дополняется до 2 знаков, флаги — «нет»', () => {
-    expect(parseMarkingsSheet([[' A ', 2, 2, '302'], [], ['', null, '', null], 'мусор', [null, '0', null, null]])).toEqual([
-      { markingAfterRelease: false, kizCount: null, levelCode: '2', idTypeCode: '302', idApplicationCode: '02', number: 'A', aggregated: false },
-      { markingAfterRelease: false, kizCount: null, levelCode: '0', idTypeCode: null, idApplicationCode: null, number: null, aggregated: false },
+  it('Excel с артикулами: коды раскладываются по товарам ДТ', async () => {
+    xlsx.sheets = { Invoice: [
+      ['Артикул', 'Наименование', 'Штрих-код'],
+      ['URS07', 'Сушилка', G1],
+      ['GSL010', 'Полка', G2],
+      ['GSL-010', 'Полка', G3],
+    ] }
+    await mount([
+      item({ description: 'СУШИЛКА', characteristics: [{ productArticle: 'URS07' }], markings: [mk(BAD, { levelCode: '1' })] }),
+      item({ description: 'ПОЛКА', characteristics: [{ productArticle: 'GSL010' }] }),
     ])
+    await upload()
+    expect(modal('[data-kiz-excel-group="0"]')!.textContent).toContain('Товар 1: кодов 1')
+    expect(modal('[data-kiz-excel-group="1"]')!.textContent).toContain('Товар 2: кодов 2')
+    await okButton('Добавить 3')
+    expect(model.items.value[0].markings!.map((m) => m.number)).toEqual([BAD, G1])
+    expect(model.items.value[1].markings!.map((m) => [m.number, m.levelCode])).toEqual([[G2, '1'], [G3, '1']])
+    expect(toast.success).toHaveBeenCalledWith('Добавлено кодов: 3, товаров: 2')
   })
 })
 
@@ -493,12 +684,14 @@ describe('Редактор товара: «Доп. сведения» — диа
 describe('Редактор товара: просмотр (Task 5 секции)', () => {
   it('только чтение: поля выключены, нет подсказок-чипов, добавлений и импорта', async () => {
     await mount([item({ markings: [{ number: 'X1', levelCode: '0' }], extras: { exciseStamps: [{ quantity: 1 }], vehicles: [], traceable: false } })], { readonly: true })
-    for (const f of ['oisIndicatorCode', 'oisRegNumber', 'oisCountryCode', 'restrictionMarks', 'prohibitionCode', 'marking-0-number', 'marking-0-level', 'stamp-0-quantity']) {
+    for (const f of ['oisIndicatorCode', 'oisRegNumber', 'oisCountryCode', 'restrictionMarks', 'prohibitionCode', 'marking-0-number', 'marking-default-level', 'marking-default-kiz', 'stamp-0-quantity']) {
       expect(input(f).disabled, f).toBe(true)
     }
     expect(q('[data-gr33-suggest]')).toBeNull()
     expect(q('[data-markings-add]')).toBeNull()
     expect(q('[data-markings-excel]')).toBeNull()
+    expect(q('[data-markings-paste-open]')).toBeNull()
+    expect(q('[data-marking-edit="0"]')).toBeNull()
     expect(q('[data-marking-remove="0"]')).toBeNull()
     expect(q('[data-stamp-add]')).toBeNull()
   })
