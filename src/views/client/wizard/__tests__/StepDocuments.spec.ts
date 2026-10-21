@@ -11,8 +11,10 @@ import en from '@/i18n/locales/en'
 
 const api = vi.hoisted(() => ({ listFiles: vi.fn(), uploadFile: vi.fn(), deleteFile: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
+const heic = vi.hoisted(() => ({ toJpeg: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
 vi.mock('@/ui/message', () => ({ message: msg }))
+vi.mock('@/utils/heic', async (orig) => ({ ...(await orig<object>()), heicToJpeg: heic.toJpeg }))
 
 import StepDocuments from '../StepDocuments.vue'
 import { useShipmentFiles, type ShipmentFilesApi } from '../useShipmentFiles'
@@ -236,5 +238,35 @@ describe('StepDocuments', () => {
     const err = w.get('[data-docs-other] [data-doc-error]')
     expect(err.text()).toContain('setup.exe: такой формат не подходит')
     expect(err.text()).toContain('huge.pdf: больше 25 МБ')
+  })
+
+  it('фото iPhone (HEIC) переводится в JPEG до загрузки; не перевелось — понятная ошибка в строке', async () => {
+    await mountStep()
+    expect(row('invoice').get('[data-doc-input]').attributes('accept')).toContain('.heic')
+    let release!: () => void
+    heic.toJpeg.mockImplementationOnce((f: File) => new Promise<File>((r) => {
+      release = () => r(new File(['jpg'], f.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' }))
+    }))
+    const input = row('invoice').get('[data-doc-input]')
+    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'IMG_0001.HEIC', { type: '' })], configurable: true })
+    await input.trigger('change')
+    await flushPromises()
+    // Пока идёт перевод — «идёт загрузка», мастер ждёт.
+    expect(row('invoice').get('[data-doc-uploading]').text()).toContain('IMG_0001.HEIC')
+    expect(docs.busy.value).toBe(true)
+    release()
+    await flushPromises()
+    const sent = api.uploadFile.mock.calls[0][2] as File
+    expect(sent.name).toBe('IMG_0001.jpg')
+    expect(sent.type).toBe('image/jpeg')
+    expect(lastFiles().map((f) => f.originalFileName)).toEqual(['IMG_0001.jpg'])
+    expect(docs.busy.value).toBe(false)
+
+    heic.toJpeg.mockRejectedValueOnce(new Error('libheif'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await pickFiles('packing', [new File(['x'], 'IMG_0002.heic', { type: 'image/heic' }), pdf('list.pdf')])
+    expect(row('packing').get('[data-doc-error]').text()).toContain('Не удалось перевести фото IMG_0002.heic из HEIC в JPEG')
+    expect(api.uploadFile).toHaveBeenCalledTimes(2) // PDF ушёл, HEIC — нет
+    expect(row('packing').find('[data-doc-uploading]').exists()).toBe(false)
   })
 })

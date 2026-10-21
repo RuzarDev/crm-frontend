@@ -1,5 +1,6 @@
 import { computed, reactive, ref, type Ref } from 'vue'
 import { import40Api, type Import40FileDto } from '@/api/import40'
+import { heicToJpeg, isHeic } from '@/utils/heic'
 import { isDocKind, type DocKindDef } from '@/views/client/docKinds'
 
 // Документы черновика в мастере (шаг «Документы»): список файлов раздела documents, загрузки и удаления в пути,
@@ -20,13 +21,13 @@ export const rowOf = (f: Pick<Import40FileDto, 'docKind'>): RowKind => {
 }
 
 /**
- * Ошибка в строке. type/size — проверка на клиенте (повтор не поможет), server — отказ или сбой сети:
- * file есть, «Повторить» шлёт тот же File. Текст собирает экран (на языке интерфейса).
+ * Ошибка в строке. type/size — проверка на клиенте (повтор не поможет), heic — фото iPhone не перевелось в JPEG,
+ * server — отказ или сбой сети: file есть, «Повторить» шлёт тот же File. Текст собирает экран (на языке интерфейса).
  */
 export interface RowError {
   id: number
   name: string
-  code: 'type' | 'size' | 'server'
+  code: 'type' | 'size' | 'heic' | 'server'
   reason: string | null
   file?: File
 }
@@ -94,10 +95,50 @@ export function useShipmentFiles(caseId: Ref<string | null>) {
     errors[kind] = left
   }
 
-  const upload = async (kind: RowKind, picked: File[]) => {
+  /** Убрать имена из «идёт загрузка» строки (по одному вхождению на имя). */
+  const unpend = (kind: RowKind, names: string[]) => {
+    const left = [...(pending[kind] ?? [])]
+    for (const name of names) {
+      const i = left.indexOf(name)
+      if (i >= 0) left.splice(i, 1)
+    }
+    pending[kind] = left
+  }
+
+  /**
+   * Фото HEIC/HEIF (iPhone) → JPEG в браузере до проверки формата: сервер берёт JPG/PNG (21.10, как ZUpload convert-heic).
+   * Пока идёт перевод, имя файла — в «идёт загрузка» строки (кнопка отправки ждёт). Не перевелось — ошибка в строке.
+   */
+  const convertHeic = async (kind: RowKind, picked: File[], my: number): Promise<File[] | null> => {
+    const heics = picked.filter(isHeic)
+    if (!heics.length) return picked
+    pending[kind] = [...(pending[kind] ?? []), ...heics.map((f) => f.name)]
+    const out: File[] = []
+    const failed: Omit<RowError, 'id'>[] = []
+    for (const f of picked) {
+      if (!isHeic(f)) {
+        out.push(f)
+        continue
+      }
+      try {
+        out.push(await heicToJpeg(f))
+      } catch (error) {
+        console.error(error)
+        failed.push({ name: f.name, code: 'heic', reason: null })
+      }
+    }
+    if (my !== gen) return null
+    unpend(kind, heics.map((f) => f.name))
+    addErrors(kind, failed)
+    return out
+  }
+
+  const upload = async (kind: RowKind, chosen: File[]) => {
     const id = caseId.value
-    if (!id || !picked.length) return
+    if (!id || !chosen.length) return
     const my = gen
+    const picked = await convertHeic(kind, chosen, my)
+    if (!picked) return
     const ok: File[] = []
     const rejected: Omit<RowError, 'id'>[] = []
     for (const f of picked) {
@@ -122,11 +163,7 @@ export function useShipmentFiles(caseId: Ref<string | null>) {
         if (my !== gen) return
         addErrors(kind, [{ name: f.name, code: 'server', reason: serverReason(e), file: f }])
       } finally {
-        if (my === gen) {
-          const left = [...(pending[kind] ?? [])]
-          left.splice(left.indexOf(f.name), 1)
-          pending[kind] = left
-        }
+        if (my === gen) unpend(kind, [f.name])
       }
     }))
     if (my === gen && done.length) attached.value = done

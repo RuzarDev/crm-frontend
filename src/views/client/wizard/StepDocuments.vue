@@ -9,6 +9,7 @@ import type { Import40FileDto } from '@/api/import40'
 import { DOC_CHECKLIST } from '@/views/client/docKinds'
 import { useConfirm } from '@/ui/confirm'
 import { cn } from '@/ui/cn'
+import { HEIC_ACCEPT, isIOS } from '@/utils/heic'
 import { DOC_ACCEPT, DOC_MAX_MB, rowOf, type RowError, type RowKind, type ShipmentFilesApi } from './useShipmentFiles'
 import { stepHint, stepTitle } from './wizardUi'
 import RegistryPickerModal from '@/views/clientRegistry/RegistryPickerModal.vue'
@@ -27,7 +28,9 @@ const uid = useId()
 const headingId = `wz-docs-${uid}`
 
 const { loadState, pending, errors, removing, attached, filesOf, load, upload, retry, canRetry, dismiss } = props.docs
-const ACCEPT = DOC_ACCEPT.join(',')
+// Фото iPhone (HEIC) принимаем и переводим в JPEG (useShipmentFiles). На iOS HEIC в accept не пишем: без него Safari
+// сам отдаёт JPEG, с ним — отдал бы исходник.
+const ACCEPT = (isIOS() ? DOC_ACCEPT : [...DOC_ACCEPT, ...HEIC_ACCEPT]).join(',')
 const otherFiles = computed(() => filesOf('other'))
 
 // Список с сервера — при каждом открытии шага (уже известные файлы видны сразу, без мигания).
@@ -36,6 +39,7 @@ void load()
 const errorText = (e: RowError) => {
   if (e.code === 'type') return t('client.wizard.docs.wrongType', { name: e.name })
   if (e.code === 'size') return t('client.wizard.docs.tooBig', { name: e.name, mb: DOC_MAX_MB })
+  if (e.code === 'heic') return t('z.heicFailed', { name: e.name })
   if (e.reason && e.reason.includes(e.name)) return e.reason
   return t('client.wizard.docs.failed', { name: e.name, reason: e.reason || t('client.wizard.docs.failedGeneric') })
 }
