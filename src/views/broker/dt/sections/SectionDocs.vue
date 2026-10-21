@@ -72,7 +72,7 @@ const addBtn = 'self-start max-sm:h-11'
         :can-link="contract.canLink"
         :readonly="readonly"
       />
-      <Doc44List ref="doc44" :items="form.doc44Items" :readonly="readonly" :goods-options="goodsOptions" />
+      <Doc44List ref="doc44" :items="form.doc44Items" :readonly="readonly" :goods-options="goodsOptions" check-dates />
       <ZButton v-if="!readonly" :class="addBtn" data-doc44-add @click="doc44?.add()">
         <template #icon><PhPlus :size="16" aria-hidden="true" /></template>
         {{ td('doc44Add') }}

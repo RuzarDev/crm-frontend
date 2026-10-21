@@ -7,21 +7,28 @@ import ZInput from '@/components/z/ZInput.vue'
 import ZKbd from '@/components/z/ZKbd.vue'
 import StatusDot from '@/components/broker/StatusDot.vue'
 import { chipFrame, chipTrigger } from '@/components/broker/chipStyles'
-import type { ReestrGoodsItemInput } from '@/types/api'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { confirmState, useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
-import { GOODS_EXCEL_ACCEPT, GOODS_EXCEL_MESSAGES, isExcelFileName, readGoodsExcel, type GoodsExcelRow } from '@/utils/goodsExcel'
+import {
+  GOODS_EXCEL_ACCEPT, GOODS_EXCEL_MESSAGES, goodsHeaderColumns, isExcelFileName, readExcelDocuments, type ExcelSheetDoc,
+} from '@/utils/goodsExcel'
+import { countryFromText, packagingLine, packagingWord } from '@/utils/importText'
+import { docHeaderFrom, docKindOf } from '@/views/broker/case/steps/excelFallback'
 import ApplyToSelectedModal from './ApplyToSelectedModal.vue'
 import GoodsBulkBar from './GoodsBulkBar.vue'
-import GoodsExcelImportModal from './GoodsExcelImportModal.vue'
+import GoodsExcelImportModal, { type ImportFileView, type ImportOptions } from './GoodsExcelImportModal.vue'
 import GoodsTable from './GoodsTable.vue'
 import GoodsTotalsBar from './GoodsTotalsBar.vue'
 import GoodsEditor from './editor/GoodsEditor.vue'
 import { emptyGoodsPageContext, type GoodsEditorContext, type GoodsPageContext, type GoodsSaveState } from './editor/types'
 import type { BulkPatch } from './goodsBulk'
 import { exportGoodsXlsx } from './goodsExport'
-import { dtDocsFromExcel, dtGoodsFromExcel } from './goodsImport'
+import { dtDocsFromRows } from './goodsImport'
+import { buildGoods, DEFAULT_ORIGIN_DEFAULT, SENDER_AS_MANUFACTURER_DEFAULT } from './importBuild'
+import { applyMerge, mergeImportDocs, planMerge, type MergeMode, type MergeResult } from './importMerge'
+import { resolveCodes, type ResolveResult } from './importResolve'
+import { fromExcelRow, type ImportDoc } from './importRows'
 import { ensureOkeiUnits } from './editor/okei'
 import { filterGoods, formatItemNumbers, goodsTotals, type GoodsFilter } from './goodsList'
 import { goodsPaymentsStale, isErrorStatus, withCodeCheck, type GoodsStatus } from './goodsStatus'
@@ -173,51 +180,153 @@ const onApply = (patch: BulkPatch) => {
   message.success(tg('apply.done', { n }))
 }
 
-// ---- Из Excel / В Excel ----
+// ---- Из Excel (пакет импорта 21.10.2026: несколько файлов, листы книги, слияние с товарами ДТ, «Отменить») ----
 const fileInput = ref<HTMLInputElement | null>(null)
 const excelBusy = ref(false)
 const excelOpen = ref(false)
-const excelFile = ref('')
-const excelRows = shallowRef<GoodsExcelRow[]>([])
+const importDocs = shallowRef<(ImportDoc & { invoiceNo: string | null })[]>([])
+const importMerge = shallowRef<MergeResult | null>(null)
+const importResolved = shallowRef<ResolveResult | null>(null)
+const importChecking = ref(false)
+const importMode = ref<MergeMode>('fill')
+// В9/В8 (производитель и страна — выключены): одни значения с «Из документов». Описания — как в документе: перевода ИИ
+// при импорте нет (решение владельца 21.10.2026).
+const importOptions = ref<ImportOptions>({
+  senderAsManufacturer: SENDER_AS_MANUFACTURER_DEFAULT, defaultOrigin: DEFAULT_ORIGIN_DEFAULT, keepInvalidCodes: false,
+})
 // Виды упаковки (классификатор 2013, грузит страница): «Вид упаковки товара» из Excel — в гр. 31 товара (X1).
 const packageKinds = computed(() => classifiers.cache['2013'] ?? [])
+const senderName = computed(() => props.editorContext?.senderName?.trim() || null)
+const senderCountry = computed(() => props.editorContext?.senderCountryCode?.trim() || null)
+const originLabel = computed(() => (senderCountry.value ? (props.countryOptions ?? []).find((c) => c.value === senderCountry.value)?.label ?? senderCountry.value : null))
+const importFiles = computed<ImportFileView[]>(() => importDocs.value.map((d) => ({ source: d.source, kind: d.kind, rows: d.rows.length })))
+const importBuilt = computed(() => {
+  const m = importMerge.value
+  if (!m || importChecking.value) return null
+  const o = importOptions.value
+  return buildGoods(m.rows, {
+    currency: props.currency,
+    packageKinds: packageKinds.value,
+    resolved: importResolved.value,
+    options: {
+      senderAsManufacturer: o.senderAsManufacturer ? senderName.value : null,
+      defaultOriginCode: o.defaultOrigin ? senderCountry.value : null,
+      keepInvalidCodes: o.keepInvalidCodes,
+    },
+  })
+})
+const importPlan = computed(() => (importBuilt.value ? planMerge(items.value, importBuilt.value.goods, items.value.length ? importMode.value : 'append') : null))
+
 const pickExcel = () => { if (editable.value) fileInput.value?.click() }
-const onFile = async (e: Event) => {
-  const el = e.target as HTMLInputElement
-  const file = el.files?.[0]
-  el.value = ''
-  if (!file) return
-  if (!isExcelFileName(file.name)) {
-    message.error(t('dt.dopustimTolkoExcel'))
+
+/** Лист книги → документ импорта: вид (инвойс / упаковочный), номер из шапки, подсказка упаковки (столбец мест, «Упаковка: …»). */
+const sheetToImportDoc = (fileName: string, d: ExcelSheetDoc, many: boolean) => {
+  const source = many ? `${fileName} · ${d.sheet}` : fileName
+  const header = docHeaderFrom(fileName, d.headerRows, d.tableHeader)
+  const kind = docKindOf(`${fileName} ${d.sheet}`, d.headerRows.flat().filter((c) => c != null).join(' ')) ?? header.kind
+  const cols = goodsHeaderColumns(d.tableHeader, { details: true, tradeCodes: true }, d.rows.slice(1, 50))
+  const placesHeader = cols.packagesCount != null ? String(d.tableHeader[cols.packagesCount] ?? '') : ''
+  const hint = packagingLine(d.rows) ?? (packagingWord(placesHeader) ? placesHeader : null)
+  return { source, kind, rows: d.goods.map((g) => fromExcelRow(g, source, hint)), invoiceNo: kind === 'invoice' ? header.number : null }
+}
+
+let importToken = 0
+const recomputeImport = async () => {
+  const token = ++importToken
+  const docs = importDocs.value
+  if (!docs.length) {
+    importMerge.value = null
+    excelOpen.value = false
     return
   }
-  excelBusy.value = true
+  // Только разборы Excel (одно правило столбцов) — без предохранителя пары «марка / товарный знак» (MergeOptions).
+  const merged = mergeImportDocs(docs)
+  importMerge.value = merged
+  importChecking.value = true
   try {
-    const result = await readGoodsExcel(file, { tradeCodes: true, details: true })
-    if ('problem' in result) {
-      message.warning(t(GOODS_EXCEL_MESSAGES[result.problem]))
-      return
+    const [res] = await Promise.all([
+      resolveCodes(merged.rows.map((r) => r.tnvedCode), { invoiceNo: docs.find((d) => d.invoiceNo)?.invoiceNo ?? null }),
+      // Единицы строк («шт» → 796) — по справочнику ОКЕИ; не загрузился — коды и латинские обозначения как есть.
+      ensureOkeiUnits().catch(() => undefined),
+    ])
+    if (token === importToken) importResolved.value = res
+  } finally {
+    if (token === importToken) importChecking.value = false
+  }
+}
+
+const onFile = async (e: Event) => {
+  const el = e.target as HTMLInputElement
+  const files = Array.from(el.files ?? [])
+  el.value = ''
+  if (!files.length) return
+  excelBusy.value = true
+  const added: (ImportDoc & { invoiceNo: string | null })[] = []
+  const countries = props.countryOptions ?? []
+  try {
+    for (const file of files) {
+      if (!isExcelFileName(file.name)) {
+        message.error(files.length > 1 ? tg('excel.notExcel', { name: file.name }) : t('dt.dopustimTolkoExcel'))
+        continue
+      }
+      try {
+        const result = await readExcelDocuments(file, {
+          tradeCodes: true, details: true, countryResolver: (text) => countryFromText(text, countries),
+        })
+        if ('problem' in result) {
+          message.warning(files.length > 1 ? `${file.name}: ${t(GOODS_EXCEL_MESSAGES[result.problem])}` : t(GOODS_EXCEL_MESSAGES[result.problem]))
+          continue
+        }
+        for (const d of result.docs) added.push(sheetToImportDoc(file.name, d, result.docs.length > 1))
+      } catch (err) {
+        console.error('Failed to import goods from Excel', err)
+        message.error(files.length > 1 ? tg('excel.fileFailed', { name: file.name }) : t('dt.neUdalosProchitatFayl'))
+      }
     }
-    excelFile.value = file.name
-    excelRows.value = result.goods
-    excelOpen.value = true
-  } catch (err) {
-    console.error('Failed to import goods from Excel', err)
-    message.error(t('dt.neUdalosProchitatFayl'))
   } finally {
     excelBusy.value = false
   }
+  if (!added.length) return
+  importDocs.value = [...(excelOpen.value ? importDocs.value : []), ...added]
+  if (!excelOpen.value) importMode.value = 'fill'
+  excelOpen.value = true
+  void recomputeImport()
 }
-const appendExcel = async () => {
-  // Единица строки характеристик («шт» → 796) — по справочнику ОКЕИ; не загрузился — строка возьмёт ДЕИ гр. 41.
-  await ensureOkeiUnits().catch(() => undefined)
-  const rows = excelRows.value
-  const firstIndex = props.model.items.value.length
-  const n = props.model.append(dtGoodsFromExcel(rows, { currency: props.currency, packageKinds: packageKinds.value }))
-  const docs = n ? props.model.appendDocs(dtDocsFromExcel(rows, firstIndex)) : 0
+const removeImportFile = (i: number) => {
+  importDocs.value = importDocs.value.filter((_, k) => k !== i)
+  void recomputeImport()
+}
+watch(excelOpen, (open) => {
+  if (open) return
+  importDocs.value = []
+  importMerge.value = null
+  importResolved.value = null
+})
+
+const applyImport = () => {
+  const built = importBuilt.value
+  const plan = importPlan.value
+  const merged = importMerge.value
+  if (!built || !plan || !merged || !editable.value) return
+  const mode: MergeMode = items.value.length ? importMode.value : 'append'
+  const snap = props.model.snapshot()
+  const res = applyMerge(props.model, built.goods, plan, mode)
+  const docs = props.model.appendDocs(dtDocsFromRows(merged.rows, (i) => res.targetIndex[i]))
   excelOpen.value = false
-  excelRows.value = []
-  if (n) message.success(docs ? tg('excel.doneWithDocs', { n, docs }) : tg('excel.done', { n }))
+  const content = res.updated
+    ? tg('excel.doneMerged', { updated: res.updated, added: res.added })
+    : docs ? tg('excel.doneWithDocs', { n: res.added, docs }) : tg('excel.done', { n: res.added })
+  message.success({
+    content: res.rowsSkipped ? `${content}. ${tg('excel.rowsSkipped', { n: res.rowsSkipped })}` : content,
+    duration: 15,
+    action: {
+      label: tg('excel.undo'),
+      onClick: () => {
+        props.model.restore(snap)
+        message.info(tg('excel.undone'))
+      },
+    },
+  })
 }
 
 const exporting = ref(false)
@@ -309,7 +418,7 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
         </ZButton>
       </template>
       <template v-if="editable">
-        <input ref="fileInput" type="file" class="hidden" tabindex="-1" aria-hidden="true" :accept="GOODS_EXCEL_ACCEPT" data-goods-excel-input @change="onFile">
+        <input ref="fileInput" type="file" multiple class="hidden" tabindex="-1" aria-hidden="true" :accept="GOODS_EXCEL_ACCEPT" data-goods-excel-input @change="onFile">
         <ZButton variant="ghost" :loading="excelBusy" class="max-sm:h-11" data-goods-excel @click="pickExcel">
           <template #icon><PhUploadSimple :size="16" aria-hidden="true" /></template>
           {{ tg('fromExcel') }}
@@ -418,6 +527,7 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
         :readonly="readonly"
         :loading="paymentsLoading"
         @calc-payments="emit('calc-payments')"
+        @open="openItem"
       />
     </template>
 
@@ -434,11 +544,20 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
     <GoodsExcelImportModal
       v-if="editable"
       v-model:open="excelOpen"
-      :file-name="excelFile"
-      :rows="excelRows"
-      :package-kinds="packageKinds"
+      v-model:mode="importMode"
+      v-model:options="importOptions"
+      :files="importFiles"
+      :rows="importMerge?.rows ?? []"
+      :built="importBuilt"
+      :merge="importMerge"
+      :plan="importPlan"
       :existing="items.length"
-      @append="appendExcel"
+      :checking="importChecking"
+      :sender-name="senderName"
+      :origin-label="originLabel"
+      @apply="applyImport"
+      @add-file="pickExcel"
+      @remove-file="removeImportFile"
     />
 
     <!-- Редактор открытого товара (?item=N): смонтирован только он. -->

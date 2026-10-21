@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { mountWithI18n } from '@/test/mountWithI18n'
@@ -32,7 +33,7 @@ beforeEach(async () => {
   w = mountWithI18n(CreateRequestModal, { props: { open: true }, global: { plugins: [router], stubs: { ZModal: ModalStub, ZSelect: SelectStub } } })
   await flushPromises()
 })
-afterEach(() => { w.unmount(); vi.clearAllMocks() })
+afterEach(() => { w.unmount(); document.body.innerHTML = ''; vi.clearAllMocks() })
 
 const fill = async (cargo: string) => {
   await w.get('[data-create-client]').trigger('click')
@@ -79,5 +80,58 @@ describe('CreateRequestModal', () => {
     expect(api.success).not.toHaveBeenCalled()
     expect(router.currentRoute.value.path).toBe('/import-40')
     expect(w.emitted('update:open')).toBeUndefined()
+  })
+})
+
+// Правка №11 (21.10): поле «Пост / СВХ» с настоящим выпадающим списком — поиск по коду, полное имя в заявке.
+describe('CreateRequestModal: поиск поста', () => {
+  const mountReal = async () => {
+    w.unmount()
+    api.posts.mockResolvedValue([
+      { id: 'p1', name: '57504 — ТАМОЖЕННЫЙ ПОСТ «ТЕМИРЖОЛ»', isActive: true, transportKind: 'RW', location: 'РЕСПУБЛИКА КАЗАХСТАН , ОБЛАСТЬ ЖЕТІСУ, АЛАКОЛЬСКИЙ Р-Н, СТ.ДОСТЫК' },
+      { id: 'p2', name: '57505 — ТАМОЖЕННЫЙ ПОСТ «НҰР ЖОЛЫ»', isActive: true, transportKind: 'AUTO' },
+    ])
+    w = mountWithI18n(CreateRequestModal, { props: { open: true }, attachTo: document.body, global: { plugins: [router], stubs: { ZModal: ModalStub } } })
+    await flushPromises()
+  }
+  const options = () => [...document.body.querySelectorAll('[role="option"]')] as HTMLElement[]
+  const search = async (sel: string, q: string | null) => {
+    const input = w.get(`input${sel}`)
+    await input.trigger('keydown', { key: 'ArrowDown' })
+    await nextTick()
+    if (q !== null) {
+      await input.setValue(q)
+      await nextTick()
+    }
+  }
+
+  it('«57505» — один пост; выбор уходит в заявку полным именем', async () => {
+    await mountReal()
+    expect(w.get('input[data-create-post]').attributes('placeholder')).toBe('Код или название поста')
+    await search('[data-create-client]', null)
+    options()[0].click()
+    await nextTick()
+    await w.get('[data-create-cargo]').setValue('ткань')
+    await search('[data-create-post]', '57505')
+    expect(options().map((o) => o.querySelector('[data-post-code]')?.textContent)).toEqual(['57505'])
+    options()[0].click()
+    await nextTick()
+    await w.get('[data-ok]').trigger('click')
+    await flushPromises()
+    expect(api.create).toHaveBeenCalledWith({ clientId: 'c1', clientName: 'ТОО Альфа', cargo: 'ткань', post: '57505 — ТАМОЖЕННЫЙ ПОСТ «НҰР ЖОЛЫ»' })
+  })
+
+  it('«нур жолы» и «достык» находят посты; пустой результат — «Пост не найден»', async () => {
+    await mountReal()
+    await search('[data-create-post]', 'нур жолы')
+    expect(options().map((o) => o.querySelector('[data-post-code]')?.textContent)).toEqual(['57505'])
+    await w.get('input[data-create-post]').setValue('достык')
+    await nextTick()
+    expect(options().map((o) => o.querySelector('[data-post-code]')?.textContent)).toEqual(['57504'])
+    expect(options()[0].querySelector('[data-post-hint]')?.textContent).toBe('ж/д · ОБЛАСТЬ ЖЕТІСУ, АЛАКОЛЬСКИЙ Р-Н, СТ.ДОСТЫК')
+    await w.get('input[data-create-post]').setValue('99999')
+    await nextTick()
+    expect(options()).toHaveLength(0)
+    expect(document.body.textContent).toContain('Пост не найден — проверьте код (5 цифр) или название')
   })
 })

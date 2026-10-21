@@ -7,6 +7,7 @@
 // - Устаревание (K4) ставится ЯВНО: редактор товара зовёт setGoodsField / markStale на правке пользователя. Никакого
 //   наблюдателя за полями: загрузка ДТ, ответы расчётов и правила страницы (валюта = гр. 22, гр. 46) платежи не
 //   «портят». Снимает признак расчёт (payments/paymentRows.applyGoodsPaymentRows).
+import type { ZTone } from '@/components/z/ZTag.vue'
 import type { Import40GoodsItemInput } from '@/types/api'
 
 type Goods = Import40GoodsItemInput
@@ -73,6 +74,20 @@ export type LocalMissingField =
 
 const blank = (v: unknown) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '')
 
+/** Веса товара (гр. 35 / 38) — у товара ДТ и у строки Excel/«Из документов» до переноса. */
+export interface GoodsWeights {
+  grossWeightKg?: number | string | null
+  netWeightKg?: number | string | null
+}
+
+/**
+ * Нетто больше брутто — ошибка (нетто без упаковки): оба веса указаны и нетто строго больше. Равные веса допустимы (товар без
+ * упаковки), пустой вес — не эта ошибка, а «не хватает» гр. 35 / 38. Одно правило для статуса, списка, итогов, редактора и
+ * предпросмотра импорта; на сервере — KedenXmlReadiness («вес нетто (гр.38) больше брутто (гр.35)», блокирует XML).
+ */
+export const netOverGross = (g: GoodsWeights): boolean =>
+  !blank(g.grossWeightKg) && !blank(g.netWeightKg) && Number(g.netWeightKg) > Number(g.grossWeightKg)
+
 /** Чего не хватает товару по местной проверке (без сервера). Описание из ТН ВЭД годится вместо описания из инвойса. */
 export function localMissingFields(g: Goods): LocalMissingField[] {
   const out: LocalMissingField[] = []
@@ -81,7 +96,7 @@ export function localMissingFields(g: Goods): LocalMissingField[] {
   if (blank(g.grossWeightKg)) out.push('grossWeightKg')
   if (blank(g.netWeightKg)) out.push('netWeightKg')
   // Нетто больше брутто — ошибка (как в проверке перед выгрузкой XML на сервере).
-  else if (!blank(g.grossWeightKg) && Number(g.netWeightKg) > Number(g.grossWeightKg)) out.push('netOverGross')
+  else if (netOverGross(g)) out.push('netOverGross')
   if (blank(g.quantity)) out.push('quantity')
   if (blank(g.unitCode)) out.push('unitCode')
   if (blank(g.customsValue)) out.push('customsValue')
@@ -126,4 +141,35 @@ export function statusFrom(g: Goods, missing: number, fields?: LocalMissingField
 export function localStatus(g: Goods): GoodsStatus {
   const fields = localMissingFields(g)
   return statusFrom(g, fields.length, fields)
+}
+
+/** Вид статуса для списка и шапки редактора: тон точки и ключ подписи (неймспейс broker.dt.goods). */
+export interface GoodsStatusView {
+  tone: ZTone
+  key: string
+  params?: Record<string, unknown>
+  /**
+   * Узкая колонка «Статус» списка (124px): подпись без хвоста «· ещё N» (key) и N — второй строкой «ещё N» (status.more).
+   * Шапке редактора хватает места — она берёт полную подпись (key / params выше).
+   */
+  short?: { key: string; more: number }
+}
+
+/**
+ * Подпись статуса. «Не хватает» у товара с нетто > брутто — причиной: «Нетто > брутто», а если пунктов больше —
+ * «Нетто > брутто · ещё N» (N — остальные пункты сервера или местной проверки). Причина берётся из значений формы: после
+ * правки веса до автосохранения число пунктов ещё старое — как и прежде, статус обновится с ответом готовности.
+ */
+export function goodsStatusView(s: GoodsStatus, g: GoodsWeights): GoodsStatusView {
+  if (s.kind === 'missing') {
+    if (netOverGross(g)) {
+      return s.count <= 1
+        ? { tone: 'danger', key: 'status.netOverGross' }
+        : { tone: 'danger', key: 'status.netOverGrossMore', params: { n: s.count - 1 }, short: { key: 'status.netOverGross', more: s.count - 1 } }
+    }
+    return { tone: 'danger', key: 'status.missing', params: { n: s.count } }
+  }
+  if (s.kind === 'badCode') return { tone: 'danger', key: 'status.badCode' }
+  if (s.kind === 'stale') return { tone: 'accent', key: 'status.stale' }
+  return { tone: 'done', key: 'status.ready' }
 }

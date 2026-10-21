@@ -259,6 +259,15 @@ describe('SectionNumber — гр. А', () => {
     expect(w.find('[data-dt-number-assemble]').exists()).toBe(false)
   })
 
+  it('дата ДТ вне разумного диапазона (№14б) — предупреждение под полем, дата принимается', async () => {
+    mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302' })
+    const warn = () => w.get('input[placeholder="ДД.ММ.ГГГГ"]').element.closest('[data-z-field]')!.querySelector('[data-z-status="warning"]')
+    expect(warn()).toBeNull()
+    await setDate('10.09.2202')
+    expect(form.submissionDate).toBe('2202-09-10')
+    expect(warn()?.textContent).toMatch(/^10\.09\.2202 позже \d{2}\.\d{2}\.\d{4} — проверьте год$/)
+  })
+
   it('номер КЕДЕН и пустой номер — без предупреждения', () => {
     mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302', declarationNumber: '55302/091026/0001234' })
     expect(w.find('[data-dt-number-not-keden]').exists()).toBe(false)

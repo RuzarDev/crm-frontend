@@ -21,6 +21,8 @@ import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
 import { useClientRegistration } from '@/composables/useClientRegistration'
 import { buildCountryOptions, normalizeCountryCode } from '@/utils/countries'
+import { buildCustomsPostOptions } from '@/utils/customsPosts'
+import type { CustomsPostItem } from '@/types/api'
 import { useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import type { ZOption } from '@/ui/options'
@@ -88,16 +90,18 @@ const checkRegistration = async () => {
 }
 
 // ---- Справочники и профиль ----
-const postOptions = ref<ZOption[]>([])
+// Посты: поиск по коду, названию (и казахским буквам), синонимам «аэропорт»/«цто» и адресу из КЕДЕН (правка №11);
+// значение — полная строка справочника. Опции — computed: подписи вида транспорта следуют за языком.
+const posts = shallowRef<CustomsPostItem[]>([])
+const postOptions = computed<ZOption[]>(() => buildCustomsPostOptions(posts.value, (k) => t(`customsPost.kind.${k}`)))
 const postsLoading = ref(false)
 const loadPosts = async () => {
-  if (postOptions.value.length || postsLoading.value) return
+  if (posts.value.length || postsLoading.value) return
   postsLoading.value = true
   try {
-    const posts = await referencesApi.listCustomsPosts()
-    postOptions.value = posts.map((p) => ({ value: p.name, label: p.name }))
+    posts.value = await referencesApi.listCustomsPosts()
   } catch {
-    postOptions.value = []
+    posts.value = []
   } finally {
     postsLoading.value = false
   }

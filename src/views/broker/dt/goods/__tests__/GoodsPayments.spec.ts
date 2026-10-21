@@ -331,6 +331,25 @@ describe('Редактор товара: «Платежи» (гр. 47 этого
     expect(g0().payments!.find((p) => p.taxModeCode === '2010')).toMatchObject({ amountKzt: 3, taxBase: 1, rateValue: 2, manual: false })
   })
 
+  it('«Править вручную»: дата курса 2202 (№14б) — золотая рамка и подсказка; дата из расчёта — без неё', async () => {
+    await mount([item({ payments: PAYMENTS().map((p) => (p.taxModeCode === '2010' ? { ...p, rateDate: '2202-07-09' } : { ...p, rateDate: '2026-10-09' })) })])
+    await click('[data-payments-manual]')
+    const date = (code: string) => rowOf(code).querySelector<HTMLInputElement>('input[data-f="payment-date"]')!
+    expect(date('2010').parentElement!.className).toContain('border-gold')
+    expect(date('2010').title).toMatch(/^09\.07\.2202 позже/)
+    expect(date('1010').parentElement!.className).not.toContain('border-gold')
+    expect(date('1010').title).toBe('')
+    // текст виден под полями платежа (на телефоне title не показывается) и связан с датой
+    const note = rowOf('2010').querySelector<HTMLElement>('[data-payment-date-warn]')!
+    expect(note).not.toBeNull()
+    expect(note.getAttribute('role')).toBe('status')
+    expect(note.className).toContain('text-gold-ink')
+    expect(note.textContent!.trim()).toMatch(/^Дата курса: 09\.07\.2202 позже \d{2}\.\d{2}\.\d{4} — проверьте год$/)
+    expect(date('2010').getAttribute('aria-describedby')).toBe(note.id)
+    expect(rowOf('1010').querySelector('[data-payment-date-warn]')).toBeNull()
+    expect(date('1010').getAttribute('aria-describedby')).toBeNull()
+  })
+
   it('просмотр: ручная строка — «вручную» и «расчёт: X» без «Сбросить к расчёту»', async () => {
     await mount([item({ payments: [pay({ taxModeCode: '2010', amountKzt: 500, manual: true, calcAmountKzt: 450.5 })] })], { readonly: true })
     expect(rowOf('2010').querySelector('[data-manual-badge]')).not.toBeNull()

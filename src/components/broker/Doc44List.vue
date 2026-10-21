@@ -13,6 +13,7 @@ import { useClassifiersStore } from '@/stores/classifiers'
 import type { Import40Doc44ItemInput } from '@/types/api'
 import { formatDateText } from '@/ui/date'
 import type { ZOption } from '@/ui/options'
+import { dtDateFieldProps, dtDateIssue, dtDateWarning, validityBeforeStart } from '@/utils/dtDateRange'
 
 // Список «Документы гр. 44» — общий для записи транзита (доска TransitRecord, разбор §2.5), партии пакета и ДТ
 // Импорт 40: таблица с правкой на месте — код (классификатор 2009, выбор подставляет вид), вид, номер, дата. Строки
@@ -27,13 +28,19 @@ import type { ZOption } from '@/ui/options'
 //                  представления (R.055 DocPresentKindCode, по умолчанию «0» — не представлен при подаче) — под «Ещё».
 //                  Номер документа у ДТ — до 50 знаков (DocId, Id50 структуры ДТ).
 // Без обоих — только код, вид, номер, дата (гр. 44 партии пакета).
+// checkDates — разумный диапазон дат (№14б, только ДТ): дата и «действует с» — до сегодня + 1 год, «действует по» — до
+// + 10 лет, не раньше 2000 года; «действует по» раньше даты или «действует с». Предупреждение — золотая рамка даты и строка
+// под документом, видна и при свёрнутом «Ещё» (раскрыто — про «Действует с / по» текст под самими полями, без повтора).
+// В просмотре — нет (исправить нельзя; текст есть в готовности).
 const props = withDefaults(defineProps<{
   items: Import40Doc44ItemInput[]
   readonly: boolean
   extended?: boolean
   /** Товары ДТ: value — индекс товара с 0, подпись «Товар N · код». Есть — документ привязывается к товарам. */
   goodsOptions?: ZOption[]
-}>(), { extended: false })
+  /** Проверять диапазон дат (ДТ). Запись транзита и партия пакета — пока без проверки (решение владельца). */
+  checkDates?: boolean
+}>(), { extended: false, checkDates: false })
 const { t } = useI18n()
 const tr = (key: string, p?: Record<string, unknown>) => t(`broker.doc44.${key}`, p ?? {})
 
@@ -161,6 +168,38 @@ const extras = (item: Import40Doc44ItemInput) => [
   ...(presentKindSet(item) ? [`${tr('presentKind')}: ${presentKindText(item)}`] : []),
 ].join(' · ')
 
+// ---- Диапазон дат (checkDates) ----
+const dateWarn = (field: string, text: string | null) => (text ? tr('dateWarn', { field: tr(field), text }) : null)
+/** Поля «Действует с / по» на виду («Ещё» раскрыто у ДТ) — их предупреждения под самими полями (validityProps). */
+const periodShown = (item: Import40Doc44ItemInput) => hasMore.value && !!props.goodsOptions && more.has(keyOf(item))
+/**
+ * Предупреждения строки: дата, «действует с», «действует по» (вне диапазона) и «действует по» раньше начала. «Ещё»
+ * раскрыто — пункты, которые уже видны под полями «Действует с / по», в строке не повторяются (у «Действует по» под
+ * полем один текст: вне диапазона, а если с диапазоном всё в порядке — «раньше начала»).
+ */
+const dateNotes = (item: Import40Doc44ItemInput): string[] => {
+  if (!props.checkDates) return []
+  const shown = periodShown(item)
+  const validityRange = dtDateWarning(t, item.docValidityDate, 'validity')
+  const before = validityBeforeStart(item.docValidityDate, item.docDate, item.docStartDate)
+  const notes = [
+    dateWarn('date', dtDateWarning(t, item.docDate, 'event')),
+    shown ? null : dateWarn('docStartDate', dtDateWarning(t, item.docStartDate, 'event')),
+    shown ? null : dateWarn('docValidityDate', validityRange),
+    before && !(shown && !validityRange) ? t('broker.dt.dates.validityBeforeStart') : null,
+  ]
+  return notes.filter((n): n is string => !!n)
+}
+const dateStatus = (item: Import40Doc44ItemInput) => (props.checkDates && dtDateIssue(item.docDate, 'event') ? 'warning' : '')
+const validityProps = (item: Import40Doc44ItemInput) => {
+  if (!props.checkDates) return {}
+  const range = dtDateFieldProps(t, item.docValidityDate, 'validity')
+  if ('help' in range) return range
+  return validityBeforeStart(item.docValidityDate, item.docDate, item.docStartDate)
+    ? { validateStatus: 'warning' as const, help: t('broker.dt.dates.validityBeforeStart') }
+    : {}
+}
+
 const countryOf = (item: Import40Doc44ItemInput) => {
   const v = (item.issueCountryCode ?? '').trim()
   return !v || countries.value.some((o) => o.value === v) ? countries.value : [{ value: v, label: v }, ...countries.value]
@@ -234,7 +273,7 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
               </div>
               <div :class="cell">
                 <label :for="domId(item, 'date')" :class="cellLabel">{{ tr('date') }}</label>
-                <ZDate :id="domId(item, 'date')" :value="item.docDate" allow-clear :class="ctl" data-f="docDate" @update:value="item.docDate = $event" />
+                <ZDate :id="domId(item, 'date')" :value="item.docDate" allow-clear :status="dateStatus(item)" :class="ctl" data-f="docDate" @update:value="item.docDate = $event" />
               </div>
               <div class="flex items-center justify-end gap-1 @max-2xl:justify-between">
                 <ZButton
@@ -267,6 +306,16 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
               </div>
             </div>
 
+            <!-- Даты вне разумного диапазона (№14б) — всегда видно, даже если «Ещё» свёрнуто. -->
+            <p
+              v-if="dateNotes(item).length"
+              role="status"
+              class="m-0 flex flex-col text-xs leading-5 text-gold-ink @2xl:-mt-1 @2xl:px-3 @2xl:pb-2"
+              data-doc44-date-warn
+            >
+              <span v-for="note in dateNotes(item)" :key="note">{{ note }}</span>
+            </p>
+
             <!-- ДТ: к каким товарам относится документ. Пусто и без «на все» — сервер читает как «на все». -->
             <div v-if="goodsOptions" class="flex min-w-0 flex-col gap-2 @2xl:px-3 @2xl:pb-2 @3xl:flex-row @3xl:items-start" data-doc44-goods>
               <ZCheckbox
@@ -298,10 +347,10 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
               data-doc44-extra
             >
               <template v-if="goodsOptions">
-                <ZField :label="tr('docStartDate')">
+                <ZField :label="tr('docStartDate')" v-bind="checkDates ? dtDateFieldProps(t, item.docStartDate, 'event') : {}">
                   <ZDate :value="item.docStartDate" allow-clear :class="ctl" data-f="docStartDate" @update:value="item.docStartDate = str($event)" />
                 </ZField>
-                <ZField :label="tr('docValidityDate')">
+                <ZField :label="tr('docValidityDate')" v-bind="validityProps(item)">
                   <ZDate :value="item.docValidityDate" allow-clear :class="ctl" data-f="docValidityDate" @update:value="item.docValidityDate = str($event)" />
                 </ZField>
                 <ZField :label="tr('issueCountryCode')">

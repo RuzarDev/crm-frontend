@@ -19,6 +19,12 @@ const dl = vi.hoisted(() => ({ saveBlob: vi.fn() }))
 const checks = vi.hoisted(() => ({ link: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
 vi.mock('@/api/documentChecks', () => ({ documentChecksApi: checks }))
+// «Из документов» (пакет импорта 21.10): коды одним запросом, справочник сторон, ОКЕИ — без сети.
+const tnved = vi.hoisted(() => ({ checkCodes: vi.fn() }))
+vi.mock('@/api/tnved', () => ({ tnvedApi: tnved }))
+const refs = vi.hoisted(() => ({ search: vi.fn(async () => []) }))
+vi.mock('@/api/partyRefs', () => ({ partyRefsApi: refs }))
+vi.mock('@/api/references', () => ({ referencesApi: { listOkeiUnits: vi.fn(async () => []), listClassifiers: vi.fn(async () => []) } }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 vi.mock('@/ui/download', () => dl)
 
@@ -508,11 +514,19 @@ describe('DeclarationsList: «Из документов»', () => {
   const pick = async (names = ['inv.pdf', 'cmr.jpg'], fileIds: string[] = []) => {
     const files = names.map((n) => new File(['x'], n))
     w.findComponent(ExtractDocsModal).vm.$emit('submit', { fileIds, uploads: files })
-    await flushPromises()
+    // Конвейер импорта (пакет 21.10) — несколько шагов с ожиданием: коды, ОКЕИ, справочник сторон, создание ДТ.
+    for (let i = 0; i < 6; i++) await flushPromises()
     return files
   }
   const result = (o: Partial<Import40ExtractionResult> = {}): Import40ExtractionResult =>
-    ({ declaration: { declarationNumber: null, currency: 'USD', goodsItems: [{ description: 'Ноутбук', quantity: 10 }] }, warnings: [], conflicts: [], ...o })
+    ({ declaration: { declarationNumber: null, currency: 'USD', goodsItems: [{ description: 'Ноутбук', tnvedCode: '8471300000', quantity: 10, grossWeightKg: 5 }] }, warnings: [], conflicts: [], ...o })
+  beforeEach(() => {
+    // Код действующий, ДЕИ — штуки: количество идёт в гр. 41, замечаний нет.
+    tnved.checkCodes.mockImplementation(async (codes: string[]) => ({ data: codes.map((code) => ({
+      code, valid: code === '8471300000', name: code === '8471300000' ? 'МАШИНЫ ВЫЧИСЛИТЕЛЬНЫЕ' : null, endDate: null,
+      unitCode: code === '8471300000' ? '796' : null, unitName: 'Штука', unitShortName: 'ШТ',
+    })) }))
+  })
 
   it('документы заявки из окна уходят номерами, файлы с компьютера — файлами', async () => {
     api.extractBatch.mockResolvedValue(result())
@@ -530,8 +544,13 @@ describe('DeclarationsList: «Из документов»', () => {
     expect(api.extractBatch).toHaveBeenCalledWith('c1', files, [])
     expect(api.createDeclaration).toHaveBeenCalledWith('c1', expect.objectContaining({
       currency: 'USD', declarationNumber: null,
-      goodsItems: [expect.objectContaining({ description: 'Ноутбук', quantity: 10, tnvedDescription: null, unit: null })],
+      goodsItems: [expect.objectContaining({ description: 'НОУТБУК', quantity: 10, unitCode: '796', tnvedDescription: 'МАШИНЫ ВЫЧИСЛИТЕЛЬНЫЕ', grossWeightKg: 5 })],
     }))
+    // коды — одним запросом; строка характеристик гр. 31 есть всегда (№16)
+    expect(tnved.checkCodes).toHaveBeenCalledTimes(1)
+    const body = api.createDeclaration.mock.calls[0][1]
+    expect(body.goodsItems[0].characteristics).toHaveLength(1)
+    expect(body).not.toHaveProperty('borderTransportModeCode')
     expect(msg.success).toHaveBeenCalledWith('Пакет обработан — откройте ДТ, чтобы проверить предзаполненные поля')
     expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n1')
   })
@@ -561,6 +580,65 @@ describe('DeclarationsList: «Из документов»', () => {
     await w.get('[data-issues-ok]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n2')
+  })
+
+  it('номер инвойса вместо кода (№9), код без ДЕИ, отправитель с адресом (№7) — замечания в окне, ДТ создаётся', async () => {
+    api.extractBatch.mockResolvedValue(result({
+      declaration: {
+        currency: 'CNY', sender: { name: 'Yiwu Test Trading Firm' } as never,
+        goodsItems: [
+          { description: '脚手架钢管', tnvedCode: '2026020201', quantity: 100, grossWeightKg: 86.8, invoiceValue: 500 },
+          { description: 'Леса', tnvedCode: '7304399209', quantity: 300, grossWeightKg: 10, invoiceValue: 50 },
+        ],
+      },
+      extras: {
+        invoiceNumber: '2026020201', invoiceDate: '2026-02-02', senderAddress: 'Room 7, Jiang Street, Yiwu City, Zhejiang Province, China',
+        hintCodes: [], goods: [{ measureUnitText: 'pcs' }, { measureUnitText: null }],
+      },
+    }))
+    tnved.checkCodes.mockImplementation(async (codes: string[]) => ({ data: codes.map((code) => ({
+      code, valid: true, name: 'ТРУБЫ', endDate: null, unitCode: null, unitName: null, unitShortName: null,
+    })) }))
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n3' }))
+    mount(USERS.declarant)
+    await pick()
+    // номер инвойса не спрашивался как код и не перенесён
+    expect(tnved.checkCodes).toHaveBeenCalledWith(['7304399209'], { silent: true })
+    const body = api.createDeclaration.mock.calls[0][1]
+    expect(body.goodsItems.map((g: { tnvedCode: string | null }) => g.tnvedCode)).toEqual([null, '7304399209'])
+    // у кода без ДЕИ количество — в строке гр. 31, гр. 41 пуста
+    expect(body.goodsItems[1].quantity).toBeNull()
+    expect(body.goodsItems[1].characteristics[0]).toMatchObject({ quantity: 300, unitCode: null })
+    expect(body.goodsItems[0].characteristics[0]).toMatchObject({ quantity: 100, unitCode: '796' })
+    expect(body.sender).toMatchObject({ name: 'YIWU TEST TRADING FIRM', city: 'YIWU', region: 'ZHEJIANG PROVINCE', street: 'JIANG STREET', countryCode: '156' })
+    expect(body).toMatchObject({ senderShortName: 'YIWU TEST TRADING FIRM', senderApt: 'ROOM 7' })
+    expect(body.doc44Items).toEqual([expect.objectContaining({ docTypeCode: '04021', docNumber: '2026020201', docDate: '2026-02-02' })])
+    const warnings = w.get('[data-issues-warnings]').text()
+    expect(warnings).toContain('Код 2026020201 не перенесён: совпадает с номером документа')
+    expect(warnings).toContain('Без единицы количества: 1')
+    expect(warnings).toContain('Описания на китайском: 1')
+    await w.get('[data-issues-ok]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n3')
+  })
+
+  // Ревью 21.10: «получатель не совпадает» — тем же правилом, что сервер (БИН, без БИН — название), а не по пустому адресу.
+  it.each([
+    // профиль с БИН, без города и улицы: сервер взял название и БИН из профиля, адрес пуст — это совпадение
+    ['компания клиента, в профиле нет адреса', { receiver: { name: 'URKER DISTRIBUTION', city: null, street: null }, receiverBin: '220940001302', declarantName: 'URKER DISTRIBUTION', declarantBin: '220940001302' }, false],
+    ['другой БИН', { receiver: { name: 'ТОО "URKER DISTRIBUTION"' }, receiverBin: '220940001302', declarantName: 'ДРУГАЯ КОМПАНИЯ', declarantBin: '111111111111' }, true],
+    ['нет профиля клиента — не с чем сравнить', { receiver: { name: 'ТОО "URKER DISTRIBUTION"' }, receiverBin: '220940001302', declarantName: null, declarantBin: null }, false],
+  ] as const)('получатель из документов: %s', async (_case, created, warned) => {
+    api.extractBatch.mockResolvedValue(result({
+      declaration: { ...result().declaration, receiver: { name: 'ТОО "Urker Distribution"' } as never },
+      extras: { receiverBin: '220940001302', hintCodes: [], goods: [] },
+    }))
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n7', ...(created as object) }))
+    mount(USERS.declarant)
+    await pick()
+    const warnings = w.find('[data-issues-warnings]')
+    expect(warnings.exists() && warnings.text().includes('не совпадает с компанией клиента')).toBe(warned)
+    if (!warned) expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n7')
   })
 
   it('ошибка извлечения — тост «не удалось распознать», ДТ не создаётся', async () => {

@@ -4,16 +4,24 @@ import { useI18n } from 'vue-i18n'
 import { PhCalculator } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import { formatKg, formatQty, formatValue } from '@/views/broker/transit/record/sections/goods'
-import { formatMoney, type GoodsTotals } from './goodsList'
+import { formatItemNumbers, formatMoney, type GoodsTotals } from './goodsList'
 
 // Итоги раздела «Товары» (доска DtGoods), закреплены внизу раздела (на телефоне — просто в конце списка): товаров,
 // мест, брутто, нетто, фактурная (с кодом валюты — P1), Σ гр. 45 ₸, ТПиН ₸; «Платежи устарели», если у товаров есть
 // «Пересчитать»; «Рассчитать» — раздел «Платежи» и расчёт (useDtPayments.calculate; «ТПиН по данным экрана» убран
 // в волне 6в — платежи считаются только по сохранённой ДТ). В просмотре — только итоги.
+// Нетто > брутто (№14а): брутто и нетто красные, если у товара нетто больше брутто или Σ нетто > Σ брутто; под итогами —
+// строка с номерами товаров и «Открыть» (первый такой товар; и в просмотре — открыть для чтения можно).
 const props = defineProps<{ totals: GoodsTotals; stale: boolean; readonly: boolean; loading?: boolean }>()
-const emit = defineEmits<{ 'calc-payments': [] }>()
+const emit = defineEmits<{ 'calc-payments': []; open: [index: number] }>()
 const { t, locale } = useI18n()
-const tt = (key: string) => t(`broker.dt.goods.totals.${key}`)
+const tt = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.totals.${key}`, p ?? {})
+
+const weightWarn = computed(() => props.totals.netOverGross.length > 0 || props.totals.sumNetOverGross)
+const weightWarnText = computed(() => (props.totals.netOverGross.length
+  ? tt('netOverGross', { list: formatItemNumbers(props.totals.netOverGross) })
+  : tt('netOverGrossSum')))
+const isWeight = (key: string) => key === 'gross' || key === 'net'
 
 const cells = computed(() => {
   const s = props.totals
@@ -49,7 +57,11 @@ const cells = computed(() => {
         :data-total="c.key"
       >
         <dt class="text-xs leading-4 text-ink-3">{{ c.label }}</dt>
-        <dd class="m-0 text-sm font-semibold whitespace-nowrap text-ink tabular-nums">{{ c.value }}</dd>
+        <dd
+          class="m-0 text-sm font-semibold whitespace-nowrap tabular-nums"
+          :class="weightWarn && isWeight(c.key) ? 'text-danger' : 'text-ink'"
+          :data-total-warn="weightWarn && isWeight(c.key) ? '' : undefined"
+        >{{ c.value }}</dd>
       </div>
     </dl>
     <div class="ml-auto flex items-center gap-2.5 max-sm:ml-0 max-sm:w-full max-sm:justify-between">
@@ -61,5 +73,15 @@ const cells = computed(() => {
         {{ tt('calc') }}
       </ZButton>
     </div>
+    <p v-if="weightWarn" role="status" class="m-0 flex w-full flex-wrap items-baseline gap-x-2 text-[13px] text-danger" data-goods-weights-warn>
+      <span>{{ weightWarnText }}</span>
+      <ZButton
+        v-if="totals.netOverGross.length"
+        variant="link"
+        class="max-sm:min-h-11"
+        data-goods-weights-open
+        @click="emit('open', totals.netOverGross[0])"
+      >{{ tt('open') }}</ZButton>
+    </p>
   </div>
 </template>

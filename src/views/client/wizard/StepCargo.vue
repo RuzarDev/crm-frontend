@@ -10,6 +10,8 @@ import ZField from '@/components/z/ZField.vue'
 import ZNumber from '@/components/z/ZNumber.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
+import CustomsPostOption from '@/components/customsPost/CustomsPostOption.vue'
+import { filterCustomsPostOption } from '@/utils/customsPosts'
 import type { ZOption, ZOptionValue } from '@/ui/options'
 import { formatNumberIn } from '@/ui/number'
 import type { ZRule } from '@/ui/validation'
@@ -124,16 +126,22 @@ const currency = computed<ZOptionValue | null>({
     <AiTnvedModal v-if="aiUsed" v-model:open="aiOpen" :description="cargoWithoutNote" source="wizard" @select="onAiSelect" />
 
     <ZField :label="t('client.wizard.cargo.post')" :extra="t('client.wizard.cargo.postHelp')">
+      <!-- Поиск по коду и названию поста (правка №11); окно на телефоне — не шире экрана. -->
       <ZSelect
         v-model:value="post"
         :options="postOptions"
         show-search
         allow-clear
+        :filter-option="filterCustomsPostOption"
+        :not-found-content="t('client.wizard.cargo.postNotFound')"
         :loading="postsLoading"
         :placeholder="t('client.wizard.cargo.postPh')"
+        popup-width="min(420px, calc(100vw - 32px))"
         :class="phoneSelect"
         data-wz-post
-      />
+      >
+        <template #option="{ option }"><CustomsPostOption :option="option" /></template>
+      </ZSelect>
     </ZField>
 
     <div class="grid grid-cols-[minmax(0,1fr)_112px] gap-2.5 sm:grid-cols-[minmax(0,1fr)_128px] sm:gap-3">

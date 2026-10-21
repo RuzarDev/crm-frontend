@@ -375,7 +375,7 @@ const toolBtn = 'max-sm:h-11'
           </ZField>
           <div :class="['flex min-w-0 flex-col gap-1', full]">
             <ZField graph="31" :label="tc('tradeMark')">
-              <ZInput v-uppercase :value="r.tradeMarkName ?? ''" :maxlength="NAME_MAX" :disabled="readonly" :class="tall" :data-f="`char-${i}-tradeMark`" @update:value="setStr(r, 'tradeMarkName', $event)" />
+              <ZInput v-uppercase :value="r.tradeMarkName ?? ''" :maxlength="NAME_MAX" :disabled="readonly" :placeholder="tc('missing')" :class="tall" :data-f="`char-${i}-tradeMark`" @update:value="setStr(r, 'tradeMarkName', $event)" />
             </ZField>
             <GoodsTroisHint :name="r.tradeMarkName" />
           </div>
@@ -415,6 +415,8 @@ const toolBtn = 'max-sm:h-11'
     <div v-if="preview" class="flex min-w-0 flex-col gap-1" data-gr31-preview>
       <span class="text-sm font-medium text-ink-2">{{ tc('preview') }}</span>
       <p class="m-0 rounded-field bg-sunken px-3 py-2 text-[13px] break-words whitespace-pre-line text-ink" data-gr31-preview-text>{{ previewShown }}</p>
+      <!-- №16: «2. 90» — места без вида упаковки; формат КЕДЕН «места, вид-кол-во» (В16). -->
+      <span v-if="/(^|\n)2\. /.test(preview)" class="text-xs text-ink-3" data-gr31-packaging-hint>{{ tc('gr31PackagingHint') }}</span>
       <button
         v-if="previewLines > PREVIEW_LINES"
         type="button"

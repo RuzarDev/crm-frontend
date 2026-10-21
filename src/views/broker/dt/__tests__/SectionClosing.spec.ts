@@ -106,6 +106,19 @@ describe('SectionClosing — гр. 48, 52, 54', () => {
     expect(w.text()).toMatch(/нет в справочнике/)
   })
 
+  it('даты вне разумного диапазона (№14б) — предупреждение под полем; сроки (отсрочка, доверенность) — до + 10 лет', async () => {
+    await mount({ powerOfAttorneyDate: '2202-02-02', powerOfAttorneyValidUntil: '2099-01-01', deferralDate: '1999-05-05', deferralDueDate: '2030-01-01', signedDate: '2026-10-20' })
+    const warnOf = (sel: string) => w.get(sel).element.closest('[data-z-field]')!.querySelector('[data-z-status="warning"]')?.textContent ?? null
+    expect(warnOf('[data-poa-date]')).toMatch(/^02\.02\.2202 позже \d{2}\.\d{2}\.\d{4} — проверьте год$/)
+    expect(warnOf('[data-poa-until]')).toMatch(/^01\.01\.2099 позже/)
+    expect(warnOf('[data-deferral-date]')).toBe('05.05.1999 раньше 01.01.2000 — проверьте год')
+    expect(warnOf('[data-deferral-due]')).toBeNull()
+    expect(warnOf('[data-signed-date]')).toBeNull()
+    expect(warnOf('[data-signatory-issuedate]')).toBeNull()
+    // поле дату принимает: предупреждение, а не откат
+    expect(form.powerOfAttorneyDate).toBe('2202-02-02')
+  })
+
   it('«Подставить из профиля декларанта»: текст — UPPER, номера/даты/коды как есть; пустое поле профиля форму не трогает', async () => {
     await mount({ signatoryPosition: 'СТАРАЯ' })
     profile.get.mockResolvedValue(profileDto({ position: '' }))

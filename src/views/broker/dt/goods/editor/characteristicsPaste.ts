@@ -10,6 +10,8 @@
 import { parseNumber } from '@/ui/number'
 import { blankCharacteristic, CHARACTERISTIC_FIELDS, isBlankCharacteristic, type CharacteristicField, type GoodsRowValue } from './characteristics'
 import { okeiFromText } from './okei'
+import { headerParts } from '@/utils/goodsExcel'
+import { markFieldOf } from '@/utils/markColumns'
 
 export const DEFAULT_PASTE_ORDER: readonly CharacteristicField[] = CHARACTERISTIC_FIELDS.map((c) => c.key)
 
@@ -68,8 +70,10 @@ const HEADER_ALIASES: Record<CharacteristicField, readonly string[]> = {
   unitCode: ['ед', 'едизм', 'единица', 'единицаизмерения', 'океи', 'бірлік', 'өлшембірлігі', 'unit', 'uom'],
   invoiceValue: ['стоимость', 'сумма', 'цена', 'фактурнаястоимость', 'құны', 'value', 'amount', 'price', 'total'],
   manufacturerName: ['производитель', 'изготовитель', 'өндіруші', 'manufacturer', 'producer'],
-  tradeMarkName: ['товзнак', 'товарныйзнак', 'бренд', 'тауарлықбелгі', 'trademark', 'brand'],
-  productMarkName: ['марка', 'mark'],
+  // «Brand / 品牌 / Бренд / Торговая марка» — товарный знак, «Марка» — марка (решение владельца 21.10.2026): подписи со
+  // словом марки / знака / бренда решает общее с «Из Excel» и Zircon AI правило markFieldOf; здесь — остальные.
+  tradeMarkName: ['товзнак', 'товарныйзнак', 'торговыйзнак', 'торговаямарка', 'бренд', 'тауарлықбелгі', 'trademark', 'brand', '品牌', '商标'],
+  productMarkName: ['марка', 'маркатовара', 'mark'],
   productModelName: ['модель', 'model'],
   productArticle: ['артикул', 'art', 'article', 'sku', 'partnumber', 'pn'],
   standardName: ['стандарт', 'гост', 'стандартгост', 'standard'],
@@ -81,10 +85,26 @@ const HEADER_LOOKUP = new Map<string, CharacteristicField>(
   (Object.entries(HEADER_ALIASES) as [CharacteristicField, readonly string[]][]).flatMap(([f, list]) => list.map((a) => [a, f] as const)),
 )
 
+/**
+ * Поле колонки по подписи: марка / знак / модель — общим правилом markFieldOf (как «Из Excel»); иначе подпись целиком,
+ * затем её части — двуязычные «品名 Наименование», «Кол-во / 数量» (части — как у «Из Excel», headerParts).
+ */
+function headerField(cell: string): CharacteristicField | null {
+  const mark = markFieldOf(cell)
+  if (mark) return mark
+  const whole = HEADER_LOOKUP.get(headerKey(cell))
+  if (whole) return whole
+  for (const part of headerParts(cell)) {
+    const f = HEADER_LOOKUP.get(part)
+    if (f) return f
+  }
+  return null
+}
+
 /** Первая строка — подписи колонок: колонка → поле (не узнана — null); не похожа на подписи — null. */
 export function detectHeader(first: readonly string[] | undefined): (CharacteristicField | null)[] | null {
   if (!first?.length) return null
-  const fields = first.map((c) => HEADER_LOOKUP.get(headerKey(c)) ?? null)
+  const fields = first.map(headerField)
   const nonEmpty = first.filter((c) => c.trim() !== '').length
   const matched = fields.filter(Boolean).length
   if (!matched || matched < Math.ceil(nonEmpty / 2)) return null

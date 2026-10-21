@@ -68,6 +68,8 @@ const LATIN_ALIASES: Record<string, string> = {
   KG: '166', KGS: '166', G: '163', GR: '163', T: '168', TN: '168', TNE: '168',
   L: '112', LTR: '112', M: '006', MTR: '006', M2: '055', SQM: '055', MTK: '055', M3: '113', CBM: '113', MTQ: '113',
   PR: '715', PAIR: '715', PAIRS: '715', SET: '839', SETS: '839',
+  // Частые русские краткие — и когда справочник ОКЕИ не загрузился (импорт из Excel, пакет 21.10).
+  ШТ: '796', ПАР: '715', ПАРА: '715', ПАРЫ: '715', КГ: '166', Л: '112', М2: '055', М3: '113', КОМПЛ: '839', КОМПЛЕКТ: '839',
 }
 const LOOKALIKE: Record<string, string> = { A: 'А', B: 'В', C: 'С', E: 'Е', H: 'Н', K: 'К', M: 'М', O: 'О', P: 'Р', T: 'Т', X: 'Х', Y: 'У' }
 const unitKey = (s: string) => s.toLocaleUpperCase('ru-RU').replace(/[\s.]/g, '').replace(/²/g, '2').replace(/³/g, '3')

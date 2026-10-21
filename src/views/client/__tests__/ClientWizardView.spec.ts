@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
@@ -31,12 +31,16 @@ vi.mock('@/api/import40Contract', () => ({ import40ContractApi: contract }))
 const reworkApiMock = vi.hoisted(() => ({ list: vi.fn(async () => ({ comment: null, items: [] })), suggestions: vi.fn(async () => ({ codes: [], items: [] })) }))
 vi.mock('@/api/import40Rework', async (orig) => ({ ...(await orig<typeof import('@/api/import40Rework')>()), reworkApi: reworkApiMock }))
 vi.mock('@/ui/message', () => ({ message: msg }))
+// Шаг «Груз» спрашивает статус ИИ (кнопка «Подобрать с ИИ») — без заглушки тест ходил бы в сеть на localhost:3000.
+const aiApi = vi.hoisted(() => ({ suggest: vi.fn(), select: vi.fn(), status: vi.fn(), settings: vi.fn(), saveSettings: vi.fn(), stats: vi.fn() }))
+vi.mock('@/api/aiTnved', async (orig) => ({ ...(await orig<typeof import('@/api/aiTnved')>()), aiTnvedApi: aiApi }))
 vi.mock('@/composables/useClientRegistration', () => ({
   useClientRegistration: () => ({ loaded: reg.loaded, complete: reg.complete, reason: reg.reason, needNew: reg.needNew, refresh: reg.refresh }),
 }))
 
 import ClientWizardView from '../ClientWizardView.vue'
 import { useAuthStore } from '@/stores/auth'
+import { resetAiTnvedStatus } from '@/components/aiTnved/aiTnved'
 
 let w: VueWrapper
 let pinia: Pinia
@@ -63,6 +67,8 @@ beforeEach(() => {
   reg.reason = ref(null)
   reg.needNew = ref(null)
   reg.refresh.mockResolvedValue(undefined)
+  resetAiTnvedStatus()
+  aiApi.status.mockResolvedValue({ available: false, configured: false, clientsEnabled: false, provider: 'Off', model: null })
   router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -86,7 +92,10 @@ beforeEach(() => {
     { id: 'r1', code: '398', name: 'Казахстан', alpha2: 'KZ', isActive: true },
     { id: 'r2', code: '156', name: 'Китай', alpha2: 'CN', isActive: true },
   ])
-  refs.listCustomsPosts.mockResolvedValue([{ id: 'p1', name: 'Хоргос — ЦТО', isActive: true }])
+  refs.listCustomsPosts.mockResolvedValue([
+    { id: 'p1', name: 'Хоргос — ЦТО', isActive: true },
+    { id: 'p2', name: '55103 — ТАМОЖЕННЫЙ ПОСТ «АУЕЖАЙ-АСТАНА»', isActive: true, code: '55103', transportKind: 'AIR', location: 'РЕСПУБЛИКА КАЗАХСТАН Г.АСТАНА, МЕЖДУНАРОДНЫЙ АЭРОПОРТ' },
+  ])
   contract.getProfile.mockResolvedValue({ clientId: 'u1', companyName: 'ТОО «Ромашка»', bin: '123456789012', legalCountryCode: 'KZ' })
 })
 afterEach(() => {
@@ -154,6 +163,23 @@ describe('ClientWizardView', () => {
     expect(api.get).not.toHaveBeenCalled()
   })
 
+  it('шаг 1: пост найден по коду (правка №11) — в черновик уходит полное имя поста из справочника', async () => {
+    await mountAt('/import-40/new')
+    await w.get('[data-wz-cargo]').setValue('Ноутбуки')
+    const post = w.get('input[data-wz-post]')
+    await post.trigger('keydown', { key: 'ArrowDown' })
+    await nextTick()
+    await post.setValue('55103')
+    await nextTick()
+    const opts = [...document.body.querySelectorAll('[role="option"]')] as HTMLElement[]
+    expect(opts.map((o) => o.querySelector('[data-post-hint]')?.textContent)).toEqual(['авиа · Г.АСТАНА, МЕЖДУНАРОДНЫЙ АЭРОПОРТ'])
+    opts[0].click()
+    await nextTick()
+    await w.get('[data-wz-next]').trigger('click')
+    await flushPromises()
+    expect(api.create).toHaveBeenCalledWith({ clientId: 'u1', clientName: 'ТОО «Ромашка»', cargo: 'Ноутбуки', post: '55103 — ТАМОЖЕННЫЙ ПОСТ «АУЕЖАЙ-АСТАНА»' })
+  })
+
   it('/import-40/new/:id — поля черновика заполнены, открыт первый незаполненный шаг', async () => {
     server = caseDto({
       id: 'c1', number: 'ИМ-2026-0184', status: 0, cargo: 'Станки', post: 'Хоргос — ЦТО', transportMode: 0,
@@ -175,6 +201,8 @@ describe('ClientWizardView', () => {
     await w.get('[data-wz-step="cargo"]').trigger('click')
     await flushPromises()
     expect((w.get('[data-wz-cargo]').element as HTMLTextAreaElement).value).toBe('Станки')
+    // Старый пост черновика (не из справочника) показывается как есть.
+    expect((w.get('input[data-wz-post]').element as HTMLInputElement).value).toBe('Хоргос — ЦТО')
     // Без правок переходы не шлют ни PUT, ни контейнеры (раньше продолжение дублировало контейнеры).
     expect(api.update).not.toHaveBeenCalled()
     expect(api.addContainer).not.toHaveBeenCalled()

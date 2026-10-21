@@ -19,8 +19,9 @@ export interface PartyRefDto {
 export type PartyRefUpsert = Omit<PartyRefDto, 'id'>
 
 export const partyRefsApi = {
-  search: async (q: string): Promise<PartyRefDto[]> =>
-    (await apiClient.get<PartyRefDto[]>('/party-refs', { params: { q } })).data,
+  /** silent — без тоста перехватчика (импорт «Из документов» ищет отправителя сам и молча идёт дальше). */
+  search: async (q: string, opts?: { silent?: boolean }): Promise<PartyRefDto[]> =>
+    (await apiClient.get<PartyRefDto[]>('/party-refs', { params: { q }, ...(opts?.silent ? { silent: true } : {}) })).data,
   upsert: async (body: PartyRefUpsert): Promise<PartyRefDto> =>
     (await apiClient.post<PartyRefDto>('/party-refs', body)).data,
 }

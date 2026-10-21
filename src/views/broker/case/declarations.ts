@@ -1,4 +1,6 @@
-import type { Import40DeclarationDto, Import40DeclarationUpsert, Import40ExtractionPreview } from '@/api/import40'
+import type { Import40DeclarationDto, Import40DeclarationUpsert, Import40ExtractionPreview, Import40GoodsUpsert, Import40Party } from '@/api/import40'
+import type { Import40Doc44ItemInput, Import40GoodsItemInput } from '@/types/api'
+import { normalizeIncotermsPlace } from '@/utils/importText'
 import type { CaseStepMode } from './caseContext'
 import { rowsFromLegacy } from '@/views/broker/dt/goods/editor/characteristics'
 
@@ -174,44 +176,81 @@ export function splitBatchWarning(all: readonly ExportFields[], t: T): string | 
 export const missingPreview = (missing: string[], n = 3): { shown: string[]; rest: number } =>
   ({ shown: missing.slice(0, n), rest: Math.max(0, missing.length - n) })
 
-/** Предпросмотр извлечения из пакета документов → тело создания ДТ (как прежний previewToUpsert карточки). */
-export const previewToUpsert = (preview: Import40ExtractionPreview): Import40DeclarationUpsert => ({
-  declarationNumber: preview.declarationNumber ?? null,
+/**
+ * Что «Из документов» построил сам (пакет импорта 21.10.2026): товары importBuild (строка гр. 31 у каждого, количество
+ * по ДЕИ), отправитель с разобранным адресом и кратким наименованием, БИН получателя, гр. 44 (инвойс, упаковочный,
+ * транспортный документ, контракт).
+ */
+export interface DocumentsBuilt {
+  goods?: Import40GoodsItemInput[]
+  sender?: {
+    party: Import40Party
+    shortName?: string | null
+    district?: string | null
+    house?: string | null
+    apt?: string | null
+  } | null
+  receiverBin?: string | null
+  doc44Items?: Import40Doc44ItemInput[]
+}
+
+/** Товар ДТ (форма) → тело запроса: фактурная стоимость на сервере — invoiceValue, места — одной цифрой (как dtPayload). */
+const goodsToUpsert = (g: Import40GoodsItemInput): Import40GoodsUpsert => {
+  const { customsValue, ...rest } = g
+  const places = g.packagesCount ?? g.cargoPlacesQuantity ?? null
+  return { ...rest, packagesCount: places, cargoPlacesQuantity: places, invoiceValue: customsValue ?? null }
+}
+
+/**
+ * Предпросмотр извлечения из пакета документов → тело создания ДТ (как прежний previewToUpsert карточки).
+ * Контракт с сервером (пакет transport, №8): гр. 18 с ролями голова/прицеп уходит как есть, гр. 25 / 26 НЕ отправляются —
+ * код 30/31/32 ставит AddDeclaration по составу гр. 18. Номер инвойса в номер ДТ не идёт (он в гр. 44 04021).
+ */
+export const previewToUpsert = (preview: Import40ExtractionPreview, built: DocumentsBuilt = {}): Import40DeclarationUpsert => ({
+  declarationNumber: null,
   corridor: preview.corridor ?? null,
   procedureCode: preview.procedureCode ?? null,
-  sender: preview.sender ?? null,
+  sender: built.sender?.party ?? preview.sender ?? null,
+  ...(built.sender?.shortName ? { senderShortName: built.sender.shortName } : {}),
+  ...(built.sender?.district ? { senderDistrict: built.sender.district } : {}),
+  ...(built.sender?.house ? { senderHouse: built.sender.house } : {}),
+  ...(built.sender?.apt ? { senderApt: built.sender.apt } : {}),
   receiver: preview.receiver ?? null,
+  ...(built.receiverBin ? { receiverBin: built.receiverBin } : {}),
   departureCountryCode: preview.departureCountryCode ?? null,
   destinationCountryCode: preview.destinationCountryCode ?? null,
   incoterms: preview.incoterms ?? null,
-  incotermsPlace: preview.incotermsPlace ?? null,
+  incotermsPlace: normalizeIncotermsPlace(preview.incotermsPlace),
   originCountryCode: preview.originCountryCode ?? null,
   currency: preview.currency ?? null,
   totalInvoiceValue: preview.totalInvoiceValue ?? null,
   exchangeRate: preview.exchangeRate ?? null,
   borderTransportNumbers: preview.borderTransportNumbers?.length ? preview.borderTransportNumbers : undefined,
   arrivalTransportNumbers: preview.arrivalTransportNumbers?.length ? preview.arrivalTransportNumbers : undefined,
-  goodsItems: preview.goodsItems?.length
-    ? preview.goodsItems.map((g) => ({
-        description: g.description ?? null,
-        tnvedCode: g.tnvedCode ?? null,
-        tnvedDescription: null,
-        countryOfOrigin: g.countryOfOrigin ?? null,
-        quantity: g.quantity ?? null,
-        unit: null,
-        unitCode: null,
-        grossWeightKg: g.grossWeightKg ?? null,
-        netWeightKg: g.netWeightKg ?? null,
-        packagesCount: g.packagesCount ?? null,
-        quantityTypeCode: null,
-        invoiceValue: g.invoiceValue ?? null,
-        currency: g.currency ?? null,
-        // Распознанные марка, знак и производитель — в строку 1 характеристик гр. 31; количество и стоимость строка берёт
-        // у товара (гр. 41 / гр. 42), копию не пишем.
-        characteristics: rowsFromLegacy({
-          tradeMarkName: g.tradeMarkName, productMarkName: g.productMarkName, manufacturerName: g.manufacturerName,
-          productArticle: g.productArticle,
-        }),
-      }))
-    : undefined,
+  ...(built.doc44Items?.length ? { doc44Items: built.doc44Items } : {}),
+  goodsItems: built.goods
+    ? (built.goods.length ? built.goods.map(goodsToUpsert) : undefined)
+    : preview.goodsItems?.length
+      ? preview.goodsItems.map((g) => ({
+          description: g.description ?? null,
+          tnvedCode: g.tnvedCode ?? null,
+          tnvedDescription: null,
+          countryOfOrigin: g.countryOfOrigin ?? null,
+          quantity: g.quantity ?? null,
+          unit: null,
+          unitCode: null,
+          grossWeightKg: g.grossWeightKg ?? null,
+          netWeightKg: g.netWeightKg ?? null,
+          packagesCount: g.packagesCount ?? null,
+          quantityTypeCode: null,
+          invoiceValue: g.invoiceValue ?? null,
+          currency: g.currency ?? null,
+          // Старый путь (без importBuild): марка, знак и производитель — в строку 1 характеристик гр. 31; количество и
+          // стоимость строка берёт у товара (гр. 41 / гр. 42), копию не пишем.
+          characteristics: rowsFromLegacy({
+            tradeMarkName: g.tradeMarkName, productMarkName: g.productMarkName, manufacturerName: g.manufacturerName,
+            productArticle: g.productArticle, productModelName: g.productModelName,
+          }),
+        }))
+      : undefined,
 })

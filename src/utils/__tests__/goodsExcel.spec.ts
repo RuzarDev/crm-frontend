@@ -8,7 +8,8 @@ vi.mock('@/utils/xlsx', async () => {
   return { loadXlsx: async () => ({ ...real, read: (...a: unknown[]) => (xlsxRead.impl ?? (real.read as (...x: unknown[]) => unknown))(...a) }) }
 })
 
-import { GOODS_EXCEL_MESSAGES, goodsFromSheetRows, isExcelFileName, readGoodsExcel } from '../goodsExcel'
+import { GOODS_EXCEL_MESSAGES, GOODS_SHEET_MAX_ROWS, goodsFromSheetRows, isExcelFileName, readGoodsExcel } from '../goodsExcel'
+import { MARK_COLUMN_TABLE, MARK_KEY_FIELD } from './markColumnsTable'
 
 const HEADER = ['№', 'Код ТН ВЭД', 'Коммерческое описание товара', 'Вес брутто, кг', 'Количество товара', 'Вид упаковки товара', 'Количество грузовых мест', 'Прочее']
 
@@ -128,21 +129,67 @@ describe('goodsFromSheetRows: сведения шаблона декларант
   const ROW = ['UR0910 ', 46275, 'Yiwu Longju Trading Firm', 'Отсутствует', 'ОТСУТСТВУЕТ', 'URS07', '-', 'Сушилка', 'шт', 47, 7323990000, 0, 1,
     'X-200', 'ГОСТ 123', 'ОТСУТСТВУЕТ', 'KZ.123', '05.09.2026', 1401, 47, 'С УПАКОВКОЙ']
 
-  it('читает сведения: «Отсутствует» — пусто, текст заглавными, даты и код документа нормализуются', () => {
+  it('читает сведения: «Отсутствует» — как есть заглавными, «-» — пусто, даты и код документа нормализуются', () => {
     const [g] = goodsFromSheetRows([HEAD, ROW], { details: true })
     expect(g.details).toEqual({
-      manufacturerName: 'YIWU LONGJU TRADING FIRM', tradeMarkName: null, productMarkName: null, productModelName: 'X-200',
-      productArticle: 'URS07', serialNumbers: null, standardName: 'ГОСТ 123', productSortName: null, measureUnit: 'ШТ',
+      manufacturerName: 'YIWU LONGJU TRADING FIRM', tradeMarkName: 'ОТСУТСТВУЕТ', productMarkName: 'ОТСУТСТВУЕТ', productModelName: 'X-200',
+      productArticle: 'URS07', serialNumbers: null, standardName: 'ГОСТ 123', productSortName: 'ОТСУТСТВУЕТ', measureUnit: 'ШТ',
       cargoPartQuantity: 1, individualPackages: 47, packageAvailabilityCode: '1',
       docTypeCode: '01401', docNumber: 'KZ.123', docDate: '2026-09-05', invoiceNumber: 'UR0910', invoiceDate: '2026-09-10',
+      rowName: null, packageQuantity: null, lineNo: null, originText: null,
     })
     // «ЧАСТЬ МЕСТА» и «КОЛ-ВО ИНДИВ. УПАК.» не перехватывают места и количество
     expect(g).toMatchObject({ quantity: 47, packagesCount: 0, tnvedCode: '7323990000' })
   })
 
+  // Решение владельца 21.10.2026: «Отсутствует» в марке, знаке, модели, ГОСТ, сорте и серийном — значение декларанта,
+  // переносится как есть (ЗАГЛАВНЫМИ); пустая ячейка остаётся пустой; «нет», «-», «N/A» — пусто, как раньше.
+  it('«Отсутствует» в любом регистре — «ОТСУТСТВУЕТ» в марке, знаке, модели, ГОСТ, сорте, серийном; производитель и артикул — пусто', () => {
+    const [g, empty2] = goodsFromSheetRows([
+      ['Наименование', 'Код ТНВЭД', 'ПРОИЗВОДИТЕЛЬ', 'МАРКА', 'ТОВАРНЫЙ ЗНАК', 'Артикул', 'СЕРИЙНЫЙ НОМЕР', 'МОДЕЛЬ', 'ГОСТ', 'СОРТ'],
+      ['Сушилка', 7323990000, 'Отсутствует', 'отсутствует', 'Отсутствует', 'нет', 'ОтСуТсТвУеТ', 'Отсутствует', 'ОТСУТСТВУЕТ', 'отсутствует'],
+      ['Полка', 9403208009, null, null, '  ', 'N/A', '-', null, null, null],
+    ], { details: true })
+    expect(g.details).toMatchObject({
+      manufacturerName: null, productArticle: null,
+      productMarkName: 'ОТСУТСТВУЕТ', tradeMarkName: 'ОТСУТСТВУЕТ', serialNumbers: 'ОТСУТСТВУЕТ', productModelName: 'ОТСУТСТВУЕТ',
+      standardName: 'ОТСУТСТВУЕТ', productSortName: 'ОТСУТСТВУЕТ',
+    })
+    expect(empty2.details).toMatchObject({
+      productMarkName: null, tradeMarkName: null, serialNumbers: null, productModelName: null, standardName: null, productSortName: null,
+      productArticle: null,
+    })
+  })
+
   it('без опции details (транзит) сведений нет', () => {
     const [g] = goodsFromSheetRows([HEAD, ROW])
     expect(g.details).toBeUndefined()
+  })
+})
+
+// Решение владельца 21.10.2026: «Brand / 品牌 / Бренд / Торговая марка» — товарный знак; «Марка» и «Марка товара» — марка;
+// бренд + модель — модель. Таблица заголовков — общая с Zircon AI (markColumnsTable ↔ tests/test_generic.py).
+describe('goodsFromSheetRows: столбцы бренда — товарный знак, «Марка» — марка', () => {
+  const details = (head: string[]) =>
+    goodsFromSheetRows([['Наименование', 'Код ТН ВЭД', ...head], ['Сушилка', '7323990000', ...head.map((_, i) => `v${i}`)]], { details: true })[0].details!
+  const FIELDS = ['productMarkName', 'tradeMarkName', 'productModelName'] as const
+
+  it.each(MARK_COLUMN_TABLE)('«%s» → %s', (header, key) => {
+    const d = details([header])
+    for (const f of FIELDS) expect(d[f]).toBe(f === MARK_KEY_FIELD[key] ? 'V0' : null)
+  })
+
+  it('«Марка» и «Brand» в одной таблице — каждый в своё поле', () => {
+    expect(details(['Brand', 'Марка'])).toMatchObject({ tradeMarkName: 'V0', productMarkName: 'V1' })
+    expect(details(['Марка', '品牌'])).toMatchObject({ productMarkName: 'V0', tradeMarkName: 'V1' })
+    expect(details(['МАРКА', 'ТОВАРНЫЙ ЗНАК', 'Бренд'])).toMatchObject({ productMarkName: 'V0', tradeMarkName: 'V1' })
+    expect(details(['Brand/Model', 'Марка', 'Модель'])).toMatchObject({ productModelName: 'V0', productMarkName: 'V1' })
+  })
+
+  it('«Модель», «Model No.» без слов марки — модель, как раньше; производитель с «Brand» — производитель', () => {
+    expect(details(['Модель'])).toMatchObject({ productModelName: 'V0' })
+    expect(details(['Model No.'])).toMatchObject({ productModelName: 'V0' })
+    expect(details(['Manufacturer / Brand'])).toMatchObject({ manufacturerName: 'V0', tradeMarkName: null })
   })
 })
 
@@ -176,6 +223,20 @@ describe('readGoodsExcel', () => {
   it('файл не читается — ошибка наружу (экран показывает «Не удалось прочитать файл Excel»)', async () => {
     xlsxRead.impl = () => { throw new Error('Unsupported file') }
     await expect(readGoodsExcel(workbookFile([HEADER]))).rejects.toThrow('Unsupported file')
+  })
+
+  // Ревью 21.10: «Из документов» сам разбирает файлы заявки — лист с огромным диапазоном не должен подвесить вкладку.
+  it('лист с диапазоном A1:AMJ1000000 читается не дальше предела строк и столбцов', async () => {
+    const ws = realXlsx.utils.aoa_to_sheet([HEADER, [1, '4202121900', 'Сумки', 54, 120, 'шт', 20]])
+    ws['!ref'] = 'A1:AMJ1000000'
+    let readOpts: unknown = null
+    xlsxRead.impl = (_buf: unknown, o: unknown) => {
+      readOpts = o
+      return { SheetNames: ['S'], Sheets: { S: ws } }
+    }
+    const r = await readGoodsExcel(workbookFile([HEADER]))
+    expect(readOpts).toMatchObject({ type: 'array', sheetRows: GOODS_SHEET_MAX_ROWS })
+    expect(r).toMatchObject({ goods: [expect.objectContaining({ tnvedCode: '4202121900', description: 'Сумки' })] })
   })
 
   it('тексты проблем — прежние ключи dt.*', () => {

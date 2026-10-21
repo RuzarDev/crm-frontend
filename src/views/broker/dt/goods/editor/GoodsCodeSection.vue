@@ -15,6 +15,7 @@ import { useDtTnvedCheck } from '../tnvedCodeCheck'
 import GoodsCharacteristicsTable from './GoodsCharacteristicsTable.vue'
 import { okeiCode, okeiLabel, okeiName } from './okei'
 import { loadDei } from './tnvedDei'
+import { similarCodes, type SimilarCode } from './similarCodes'
 import { DESCRIPTION_MAX_PARTS, DESCRIPTION_PART, splitDescription } from './descriptionParts'
 import type { GoodsSectionProps } from './types'
 
@@ -27,6 +28,7 @@ import type { GoodsSectionProps } from './types'
 const props = defineProps<GoodsSectionProps>()
 const { t } = useI18n()
 const tc = (key: string) => t(`broker.dt.goods.editor.code.${key}`)
+
 const check = useDtTnvedCheck()
 
 type Goods = Import40GoodsItemInput
@@ -180,6 +182,31 @@ const descriptionWarning = computed(() =>
     : undefined,
 )
 
+// «Похожие коды» (пакет импорта 21.10.2026, №9, В14): у товара без кода и с описанием (импорт не перенёс номер инвойса
+// вместо кода) — до 3 кодов смыслового поиска (без модели — подбор по словам). Один запрос при открытии товара, ответ —
+// в кэше сессии по описанию; при вводе не спрашиваем. «Выбрать» — как выбор в справочнике.
+const similar = ref<SimilarCode[] | null>(null)
+const similarLoading = ref(false)
+const loadSimilar = async (g: Goods) => {
+  similar.value = null
+  const desc = (g.description ?? '').trim()
+  if (props.readonly || code.value || desc.length < 3) return
+  similarLoading.value = true
+  try {
+    const list = await similarCodes(desc)
+    if (g === props.item) similar.value = list
+  } catch (e) {
+    console.error('Failed to load similar TNVED codes', e)
+  } finally {
+    similarLoading.value = false
+  }
+}
+watch(() => props.item, (g) => { void loadSimilar(g) }, { immediate: true })
+const pickSimilar = (c: SimilarCode) => {
+  onPickerSelect({ code: c.code, name: c.description })
+  similar.value = null
+}
+
 const sideBtn = 'shrink-0 max-sm:h-11'
 </script>
 
@@ -219,6 +246,19 @@ const sideBtn = 'shrink-0 max-sm:h-11'
     <ZField graph="31" :label="tc('description')" :extra="descriptionHint" :help="descriptionWarning" :validate-status="descriptionWarning ? 'warning' : ''" data-graph="31" data-goods-field="description" :data-goods-index="index">
       <ZInput v-uppercase :value="item.description" :maxlength="DESCRIPTION_MAX" :disabled="readonly" :placeholder="tc('descriptionPlaceholder')" class="max-sm:h-11" data-f="description" @update:value="setStr('description', $event)" />
     </ZField>
+
+    <div v-if="!readonly && !code && (similarLoading || similar)" class="flex min-w-0 flex-col gap-1.5" data-goods-similar>
+      <span class="text-sm font-medium text-ink-2">{{ tc('similar') }}</span>
+      <p v-if="similarLoading" class="m-0 text-[13px] text-ink-3" role="status">{{ tc('similarLoading') }}</p>
+      <p v-else-if="!similar?.length" class="m-0 text-[13px] text-ink-3" data-goods-similar-none>{{ tc('similarNone') }}</p>
+      <ul v-else class="m-0 flex list-none flex-col gap-1 p-0">
+        <li v-for="c in similar" :key="c.code" class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-field bg-sunken px-3 py-1.5" data-goods-similar-item>
+          <span class="shrink-0 font-mono text-[13px] text-ink">{{ c.code }}</span>
+          <span class="min-w-0 flex-1 text-[13px] break-words text-ink-2">{{ c.description }}</span>
+          <ZButton size="sm" variant="ghost" class="max-sm:h-11" data-goods-similar-pick @click="pickSimilar(c)">{{ tc('similarPick') }}</ZButton>
+        </li>
+      </ul>
+    </div>
 
     <p v-if="deiRowsHint" class="m-0 rounded-field bg-gold-soft px-3 py-2 text-[13px] text-gold-ink" role="status" data-goods-dei-rows-hint>{{ deiRowsHint }}</p>
 

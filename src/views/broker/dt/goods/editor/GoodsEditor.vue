@@ -2,11 +2,13 @@
 import { computed, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { injectDialogRootContext } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
-import { PhCaretDown, PhCaretUp, PhCopy, PhDotsThree, PhListBullets, PhX } from '@phosphor-icons/vue'
+import {
+  PhArrowsInLineHorizontal, PhArrowsOutLineHorizontal, PhCaretDown, PhCaretLeft, PhCaretRight, PhCaretUp, PhCopy, PhDotsThree,
+  PhListBullets, PhX,
+} from '@phosphor-icons/vue'
 import ZDrawer from '@/components/z/ZDrawer.vue'
 import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import ZKbd from '@/components/z/ZKbd.vue'
-import type { ZTone } from '@/components/z/ZTag.vue'
 import StatusDot from '@/components/broker/StatusDot.vue'
 import { useTroisCheckProvider } from '@/composables/useTroisCheck'
 import { cn } from '@/ui/cn'
@@ -16,15 +18,23 @@ import { message } from '@/ui/message'
 import { formatTnved } from '@/utils/tnvedFormat'
 import { pluralForm } from '@/views/broker/list'
 import type { Import40GoodsItemInput } from '@/types/api'
-import type { GoodsStatus } from '../goodsStatus'
+import { goodsStatusView, type GoodsStatus } from '../goodsStatus'
 import { keyOf, type DtGoodsModel } from '../useDtGoods'
 import { isBlankCharacteristic, tradeMarksOf } from './characteristics'
+import { EDITOR_MIN_PX, EDITOR_NUDGE_PX, maxEditorWidth } from './editorWidth'
+import GoodsEditorRail from './GoodsEditorRail.vue'
 import { GOODS_EDITOR_SECTIONS } from './sections'
 import type { GoodsEditorContext, GoodsSaveState } from './types'
+import { useEditorWidth } from './useEditorWidth'
+import { useScrollArrows } from './useScrollArrows'
 
-// Редактор одного товара ДТ (волна 6б, доска DtGoodsEditor) — панель справа (~780px; < 1024 — во всю ширину) под
-// шапкой ДТ. Шапка: «Товар N из M», ↑/↓, статус, «Дублировать», «Ещё» (выше/ниже/удалить), закрыть; код (моно) и
-// описание; вкладки-якоря (прокрутка к секции, активная — по прокрутке). Подвал — сохранение и подсказка клавиш.
+// Редактор одного товара ДТ (волна 6б, доска DtGoodsEditor) — панель справа под шапкой ДТ; < 1024 — во всю ширину.
+// Ширина (правка №17, 21.10.2026; editorWidth.ts): по умолчанию 90% окна, «Развернуть / Сузить» в шапке (узко — прежние
+// 780 px), край панели тянется мышью (и ←/→ на ручке края), выбор помнится у пользователя. Широкая панель — слева полоса
+// списка товаров (GoodsEditorRail): видно, какой товар открыт, и можно перейти к другому.
+// Шапка: «Товар N из M», ↑/↓, статус, ширина, «Дублировать», «Ещё» (выше/ниже/удалить), закрыть; код (моно) и описание;
+// вкладки-якоря (прокрутка к секции, активная — по прокрутке; не помещаются — стрелки ‹ ›). Подвал — сохранение и подсказка
+// клавиш.
 // Клавиши: Esc — закрыть; Alt+↑/↓ — соседний товар (не в полях ввода: там это правка); Ctrl/⌘+Enter — следующий товар
 // (и из поля: «закончил — дальше»), фокус на его код.
 // Смонтирован только открытый товар: содержимое — по ключу товара (keyOf), переключение пересоздаёт секции.
@@ -66,13 +76,14 @@ const sections = GOODS_EDITOR_SECTIONS
 // ---- Шапка ----
 const code = computed(() => (item.value?.tnvedCode ?? '').trim())
 const caption = computed(() => item.value?.description || item.value?.tnvedDescription || '')
-const statusView = (s: GoodsStatus): { tone: ZTone; label: string; kind: string } => {
-  if (s.kind === 'missing') return { tone: 'danger', label: tg('status.missing', { n: s.count }), kind: s.kind }
-  if (s.kind === 'badCode') return { tone: 'danger', label: tg('status.badCode'), kind: s.kind }
-  if (s.kind === 'stale') return { tone: 'accent', label: tg('status.stale'), kind: s.kind }
-  return { tone: 'done', label: tg('status.ready'), kind: s.kind }
-}
-const status = computed(() => (item.value ? statusView((props.statusOf ?? props.model.statusOf)(item.value)) : null))
+// Тот же вид статуса, что в строке списка (goodsStatusView): «Нетто > брутто» вместо «Не хватает N».
+const status = computed(() => {
+  const g = item.value
+  if (!g) return null
+  const s = (props.statusOf ?? props.model.statusOf)(g)
+  const v = goodsStatusView(s, g)
+  return { tone: v.tone, label: tg(v.key, v.params), kind: s.kind }
+})
 const canPrev = computed(() => props.index != null && props.index > 0)
 const canNext = computed(() => props.index != null && props.index < total.value - 1)
 
@@ -117,6 +128,17 @@ const onMore = (key: string) => {
 // ---- Вкладки-якоря: прокрутка к секции; активная — по прокрутке ----
 const scroller = ref<HTMLElement | null>(null)
 const active = ref(sections[0]?.key ?? '')
+// Вкладки не помещаются (узкая панель, длинные подписи на казахском) — полоса прокручивается, стрелки ‹ › там, где есть
+// скрытые; активная вкладка всегда видна (№17: «Доп. све…» обрезалась без намёка на продолжение). Стрелки — поверх полосы
+// (ширина полосы от них не зависит), активная вкладка показывается с отступом в ширину стрелки.
+/** Ширина стрелки вкладок, px: w-7 (28) на компьютере, w-9 (36) на телефоне — берём бо́льшую. */
+const TAB_ARROW_PX = 36
+const tabsEl = ref<HTMLElement | null>(null)
+const tabsScroll = useScrollArrows(tabsEl, { inset: TAB_ARROW_PX })
+watch(active, async (key) => {
+  await nextTick()
+  tabsScroll.reveal(tabsEl.value?.querySelector<HTMLElement>(`[data-goods-tab="${key}"]`))
+})
 const sectionEls = () => [...(scroller.value?.querySelectorAll<HTMLElement>('[data-goods-section]') ?? [])]
 const reducedMotion = () => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 let scrollingTo: string | null = null
@@ -163,6 +185,20 @@ const onScroll = () => {
   active.value = current.dataset.goodsSection ?? active.value
 }
 
+// ---- Ширина панели (№17) ----
+const width = useEditorWidth()
+const onHandleDown = (e: PointerEvent) =>
+  width.startDrag(e, (e.currentTarget as HTMLElement | null)?.closest('[data-dt-goods-editor]')?.getBoundingClientRect().width)
+const onHandleKey = (e: KeyboardEvent) => {
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+  // Ручка на левом краю: ← — шире, → — уже; Enter / пробел — «Развернуть / Сузить».
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') width.nudge(e.key === 'ArrowLeft' ? EDITOR_NUDGE_PX : -EDITOR_NUDGE_PX)
+  else if (e.key === 'Enter' || e.key === ' ') width.toggle()
+  else return
+  e.preventDefault()
+}
+const widthLabel = computed(() => (width.wide.value ? te('width.narrow') : te('width.widen')))
+
 // ---- Открытие, переключение, закрытие ----
 // Под шапкой ДТ (закреплённой): панель и фон начинаются под ней; на телефоне — во весь экран. Высота шапки меняется
 // (перенос строк при сужении окна, плашки) — пока панель открыта, следим за ней (ResizeObserver) и за окном.
@@ -191,6 +227,7 @@ let lastKey: number | null = null
 let focusCodeNext = false
 watch(open, (v) => {
   followHeader(v)
+  width.track(v)
   if (!v) return
   everOpened.value = true
   active.value = sections[0]?.key ?? ''
@@ -269,6 +306,11 @@ const iconBtn = cn(
   'outline-hidden transition-colors hover:bg-sunken hover:text-ink focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-40',
   'max-sm:size-11',
 )
+// Стрелка лежит поверх края полосы вкладок (absolute): появление стрелки не сужает полосу.
+const arrowBtn = cn(
+  'absolute inset-y-0 z-10 inline-flex w-7 cursor-pointer items-center justify-center border-0 bg-surface p-0 pb-1.5 text-ink-3',
+  'outline-hidden transition-colors hover:text-ink max-sm:w-9',
+)
 const tabBtn = (on: boolean) => cn(
   'relative shrink-0 cursor-pointer border-0 bg-transparent px-0 pt-1 pb-2.5 font-sans text-[13.5px] whitespace-nowrap outline-hidden',
   'rounded-field focus-visible:shadow-focus max-sm:min-h-11',
@@ -281,84 +323,159 @@ const tabBtn = (on: boolean) => cn(
     :open="open"
     bare
     :closable="false"
-    :width="780"
+    :width="width.css.value"
     :top="top"
     :aria-label="title"
     class="max-lg:w-screen"
     data-dt-goods-editor
+    :data-goods-editor-width="width.wide.value ? 'wide' : 'narrow'"
+    :data-goods-editor-dragging="width.dragging.value ? 'true' : undefined"
     @update:open="(v: boolean) => { if (!v) emit('close') }"
     @keydown="onKey"
   >
     <FocusReturn />
-    <div v-if="item && index != null" class="flex h-full min-h-0 flex-col">
-      <header class="shrink-0 border-b border-line px-4 pt-3 sm:px-6 sm:pt-4" data-goods-editor-head>
-        <div class="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-          <span class="text-[13px] whitespace-nowrap text-ink-2 tabular-nums" data-goods-editor-title>{{ title }}</span>
-          <button type="button" :class="iconBtn" :disabled="!canPrev" :aria-label="te('prev')" data-goods-prev @click="emit('step', -1)"><PhCaretUp :size="16" aria-hidden="true" /></button>
-          <button type="button" :class="iconBtn" :disabled="!canNext" :aria-label="te('next')" data-goods-next @click="emit('step', 1)"><PhCaretDown :size="16" aria-hidden="true" /></button>
-          <StatusDot v-if="status" class="ml-1.5 max-sm:order-last max-sm:ml-0 max-sm:basis-full" :tone="status.tone" :label="status.label" :data-goods-editor-status="status.kind" />
-          <span class="flex-1" />
-          <template v-if="!readonly">
-            <button type="button" :class="iconBtn" :aria-label="te('duplicate')" :title="te('duplicate')" data-goods-duplicate @click="duplicate"><PhCopy :size="16" aria-hidden="true" /></button>
-            <ZDropdown :items="moreItems" @select="onMore">
-              <button type="button" :class="iconBtn" :aria-label="te('more')" :title="te('more')" data-goods-more><PhDotsThree :size="18" weight="bold" aria-hidden="true" /></button>
-            </ZDropdown>
-          </template>
-          <button type="button" :class="iconBtn" :aria-label="te('close')" data-goods-close @click="emit('close')"><PhX :size="16" aria-hidden="true" /></button>
-        </div>
-        <p class="m-0 mt-2 flex min-w-0 items-baseline gap-3 text-md">
-          <span class="shrink-0 font-mono font-semibold" :class="code ? 'text-ink' : 'text-danger'" data-goods-editor-code>{{ code ? formatTnved(code) : tg('noCode') }}</span>
-          <span class="min-w-0 truncate text-ink-2" data-goods-editor-caption>{{ caption }}</span>
-        </p>
-        <button
-          type="button"
-          class="mt-1.5 inline-flex cursor-pointer items-center gap-1.5 rounded-field border-0 bg-transparent p-0 font-sans text-[13px] text-zircon-ink outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
-          :title="te('charsEntry.hint')"
-          :data-goods-chars-entry="charsCount"
-          @click="goChars"
-        ><PhListBullets :size="15" aria-hidden="true" />{{ charsLabel }}</button>
-        <nav class="-mb-px mt-3 flex gap-5 overflow-x-auto" :aria-label="te('tabs')" data-goods-tabs>
+    <div v-if="item && index != null" class="relative flex h-full min-h-0">
+      <div class="flex min-w-0 flex-1 flex-col">
+        <header class="shrink-0 border-b border-line px-4 pt-3 sm:px-6 sm:pt-4" data-goods-editor-head>
+          <div class="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span class="text-[13px] whitespace-nowrap text-ink-2 tabular-nums" data-goods-editor-title>{{ title }}</span>
+            <button type="button" :class="iconBtn" :disabled="!canPrev" :aria-label="te('prev')" data-goods-prev @click="emit('step', -1)"><PhCaretUp :size="16" aria-hidden="true" /></button>
+            <button type="button" :class="iconBtn" :disabled="!canNext" :aria-label="te('next')" data-goods-next @click="emit('step', 1)"><PhCaretDown :size="16" aria-hidden="true" /></button>
+            <StatusDot v-if="status" class="ml-1.5 max-sm:order-last max-sm:ml-0 max-sm:basis-full" :tone="status.tone" :label="status.label" :data-goods-editor-status="status.kind" />
+            <span class="flex-1" />
+            <button
+              type="button"
+              :class="[iconBtn, 'max-lg:hidden']"
+              :aria-label="widthLabel"
+              :title="widthLabel"
+              data-goods-width-toggle
+              @click="width.toggle()"
+            >
+              <PhArrowsInLineHorizontal v-if="width.wide.value" :size="16" aria-hidden="true" />
+              <PhArrowsOutLineHorizontal v-else :size="16" aria-hidden="true" />
+            </button>
+            <template v-if="!readonly">
+              <button type="button" :class="iconBtn" :aria-label="te('duplicate')" :title="te('duplicate')" data-goods-duplicate @click="duplicate"><PhCopy :size="16" aria-hidden="true" /></button>
+              <ZDropdown :items="moreItems" @select="onMore">
+                <button type="button" :class="iconBtn" :aria-label="te('more')" :title="te('more')" data-goods-more><PhDotsThree :size="18" weight="bold" aria-hidden="true" /></button>
+              </ZDropdown>
+            </template>
+            <button type="button" :class="iconBtn" :aria-label="te('close')" data-goods-close @click="emit('close')"><PhX :size="16" aria-hidden="true" /></button>
+          </div>
+          <p class="m-0 mt-2 flex min-w-0 items-baseline gap-3 text-md">
+            <span class="shrink-0 font-mono font-semibold" :class="code ? 'text-ink' : 'text-danger'" data-goods-editor-code>{{ code ? formatTnved(code) : tg('noCode') }}</span>
+            <span class="min-w-0 truncate text-ink-2" data-goods-editor-caption>{{ caption }}</span>
+          </p>
           <button
-            v-for="s in sections"
-            :key="s.key"
             type="button"
-            :class="tabBtn(active === s.key)"
-            :aria-controls="`${uid}-${s.key}`"
-            :aria-current="active === s.key ? 'true' : undefined"
-            :data-goods-tab="s.key"
-            @click="goSection(s.key)"
-          >{{ te(`sections.${s.key}`) }}</button>
-        </nav>
-      </header>
+            class="mt-1.5 inline-flex cursor-pointer items-center gap-1.5 rounded-field border-0 bg-transparent p-0 font-sans text-[13px] text-zircon-ink outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
+            :title="te('charsEntry.hint')"
+            :data-goods-chars-entry="charsCount"
+            @click="goChars"
+          ><PhListBullets :size="15" aria-hidden="true" />{{ charsLabel }}</button>
+          <div class="relative -mb-px mt-3 flex min-w-0 items-stretch" data-goods-tabs-wrap>
+            <button
+              v-if="tabsScroll.left.value"
+              type="button"
+              tabindex="-1"
+              :class="[arrowBtn, '-left-1 shadow-[6px_0_6px_-4px_var(--color-surface)]']"
+              :aria-label="te('tabsPrev')"
+              :title="te('tabsPrev')"
+              data-goods-tabs-prev
+              @click="tabsScroll.by(-1)"
+            ><PhCaretLeft :size="15" aria-hidden="true" /></button>
+            <nav
+              ref="tabsEl"
+              class="relative flex min-w-0 flex-1 gap-5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              :aria-label="te('tabs')"
+              data-goods-tabs
+              @scroll.passive="tabsScroll.update"
+            >
+              <button
+                v-for="s in sections"
+                :key="s.key"
+                type="button"
+                :class="tabBtn(active === s.key)"
+                :aria-controls="`${uid}-${s.key}`"
+                :aria-current="active === s.key ? 'true' : undefined"
+                :data-goods-tab="s.key"
+                @click="goSection(s.key)"
+              >{{ te(`sections.${s.key}`) }}</button>
+            </nav>
+            <button
+              v-if="tabsScroll.right.value"
+              type="button"
+              tabindex="-1"
+              :class="[arrowBtn, '-right-1 shadow-[-6px_0_6px_-4px_var(--color-surface)]']"
+              :aria-label="te('tabsNext')"
+              :title="te('tabsNext')"
+              data-goods-tabs-next
+              @click="tabsScroll.by(1)"
+            ><PhCaretRight :size="15" aria-hidden="true" /></button>
+          </div>
+        </header>
 
-      <div ref="scroller" class="@container min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 [&_[data-dt-flash]]:rounded-field [&_[data-dt-flash]]:shadow-focus" data-goods-editor-body @scroll.passive="onScroll">
-        <div :key="itemKey ?? undefined" class="flex flex-col gap-6" :data-goods-index="index" :data-goods-key="itemKey">
-          <section
-            v-for="(s, i) in sections"
-            :id="`${uid}-${s.key}`"
-            :key="s.key"
-            :class="cn('scroll-mt-1', i > 0 && 'border-t border-line pt-6')"
-            :data-goods-section="s.key"
-            :aria-labelledby="`${uid}-${s.key}-h`"
-          >
-            <h3 :id="`${uid}-${s.key}-h`" class="m-0 mb-4 text-[15px] font-semibold text-ink">{{ te(`sections.${s.key}`) }}</h3>
-            <component :is="s.component" :item="item" :index="index" :model="model" :readonly="readonly" :ctx="ctx" />
-          </section>
+        <div ref="scroller" class="@container min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 [&_[data-dt-flash]]:rounded-field [&_[data-dt-flash]]:shadow-focus" data-goods-editor-body @scroll.passive="onScroll">
+          <div :key="itemKey ?? undefined" class="flex flex-col gap-6" :data-goods-index="index" :data-goods-key="itemKey">
+            <section
+              v-for="(s, i) in sections"
+              :id="`${uid}-${s.key}`"
+              :key="s.key"
+              :class="cn('scroll-mt-1', i > 0 && 'border-t border-line pt-6')"
+              :data-goods-section="s.key"
+              :aria-labelledby="`${uid}-${s.key}-h`"
+            >
+              <h3 :id="`${uid}-${s.key}-h`" class="m-0 mb-4 text-[15px] font-semibold text-ink">{{ te(`sections.${s.key}`) }}</h3>
+              <component :is="s.component" :item="item" :index="index" :model="model" :readonly="readonly" :ctx="ctx" />
+            </section>
+          </div>
         </div>
+
+        <footer class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-4 py-2.5 text-[12.5px] text-muted sm:px-6" data-goods-editor-foot>
+          <span v-if="saveKind" class="inline-flex items-center gap-1.5" role="status" :data-goods-save-state="saveKind">
+            <span v-if="saveKind !== 'view'" :class="cn('size-[7px] rounded-pill', SAVE_DOT[saveKind])" aria-hidden="true" />
+            <template v-if="saveKind === 'saved'">{{ t('broker.dt.header.state.savedAt', { time: savedTime }) }}</template>
+            <template v-else>{{ t(`broker.dt.header.state.${saveKind}`) }}</template>
+          </span>
+          <span class="ml-auto flex flex-wrap items-center gap-1 max-sm:hidden" data-goods-editor-keys>
+            <ZKbd>{{ altKey }}</ZKbd><ZKbd>↑</ZKbd><ZKbd>↓</ZKbd> {{ te('keys.items') }} ·
+            <ZKbd>{{ ctrlKey }}</ZKbd>+<ZKbd>Enter</ZKbd> {{ te('keys.next') }} ·
+            <ZKbd>Esc</ZKbd> {{ te('keys.close') }}
+          </span>
+        </footer>
       </div>
 
-      <footer class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-4 py-2.5 text-[12.5px] text-muted sm:px-6" data-goods-editor-foot>
-        <span v-if="saveKind" class="inline-flex items-center gap-1.5" role="status" :data-goods-save-state="saveKind">
-          <span v-if="saveKind !== 'view'" :class="cn('size-[7px] rounded-pill', SAVE_DOT[saveKind])" aria-hidden="true" />
-          <template v-if="saveKind === 'saved'">{{ t('broker.dt.header.state.savedAt', { time: savedTime }) }}</template>
-          <template v-else>{{ t(`broker.dt.header.state.${saveKind}`) }}</template>
-        </span>
-        <span class="ml-auto flex flex-wrap items-center gap-1 max-sm:hidden" data-goods-editor-keys>
-          <ZKbd>{{ altKey }}</ZKbd><ZKbd>↑</ZKbd><ZKbd>↓</ZKbd> {{ te('keys.items') }} ·
-          <ZKbd>{{ ctrlKey }}</ZKbd>+<ZKbd>Enter</ZKbd> {{ te('keys.next') }} ·
-          <ZKbd>Esc</ZKbd> {{ te('keys.close') }}
-        </span>
-      </footer>
+      <!-- Полоса списка товаров (широкая панель): слева на экране, в DOM — после товара (фокус и Tab — с шапки товара). -->
+      <GoodsEditorRail
+        v-if="width.rail.value"
+        class="order-first"
+        :items="items"
+        :index="index"
+        :status-of="statusOf ?? model.statusOf"
+        @open="(i: number) => emit('open', i)"
+      />
+
+      <!-- Ручка края: тянуть мышью — ширина панели; ←/→ — шире/уже, Enter — «Развернуть / Сузить». Телефон — нет. -->
+      <div
+        role="separator"
+        tabindex="0"
+        aria-orientation="vertical"
+        :aria-label="te('width.resize')"
+        :title="te('width.resizeHint')"
+        :aria-valuenow="width.px.value"
+        :aria-valuemin="EDITOR_MIN_PX"
+        :aria-valuemax="maxEditorWidth(width.viewport.value)"
+        :class="cn(
+          'group absolute inset-y-0 left-0 z-20 w-3 -translate-x-1/2 cursor-col-resize touch-none outline-hidden max-lg:hidden',
+          'after:absolute after:inset-y-0 after:left-1/2 after:w-0.5 after:-translate-x-1/2 after:transition-colors',
+          'hover:after:bg-zircon-ink/50 focus-visible:after:bg-zircon-ink',
+          width.dragging.value && 'after:bg-zircon-ink',
+        )"
+        data-goods-resize
+        @pointerdown="onHandleDown"
+        @dblclick="width.toggle()"
+        @keydown="onHandleKey"
+      />
     </div>
   </ZDrawer>
 </template>

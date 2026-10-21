@@ -513,8 +513,38 @@ export interface Import40ExtractionPreviewGoodsItem {
   tradeMarkName?: string | null
   productMarkName?: string | null
   manufacturerName?: string | null
-  /** Артикул — из нашего разбора Excel (case/steps/excelFallback), Zircon AI его не отдаёт. */
+  /** Артикул — из нашего разбора Excel (case/steps/excelFallback) и из Zircon AI (generic, 20.10). */
   productArticle?: string | null
+  /** Модель («Model / 型号») — отдельно от артикула (пакет импорта 21.10). */
+  productModelName?: string | null
+}
+
+/** Товар разбора сверх полей ДТ (индексы — как у declaration.goodsItems). */
+export interface Import40ExtractionGoodsExtra {
+  /** Единица количества как в документе («pcs», «шт»). */
+  measureUnitText?: string | null
+  /** Вид упаковки как в документе («картонные коробки», «CT»). */
+  packageKindText?: string | null
+  /** Страна текстом, когда код не определён. */
+  originText?: string | null
+}
+
+/**
+ * Что распознано сверх тела создания ДТ (пакет импорта 21.10): номер и дата инвойса (гр. 44 04021 — в номер ДТ они не
+ * идут), контракт, транспортный документ, адрес отправителя, БИН и адрес получателя, коды из PDF без таблицы (в товары не
+ * перенесены), по товарам — единица, вид упаковки, страна текстом. Старый сервер — поля нет.
+ */
+export interface Import40ExtractionExtras {
+  invoiceNumber?: string | null
+  invoiceDate?: string | null
+  contractNumber?: string | null
+  contractDate?: string | null
+  transportDocument?: string | null
+  senderAddress?: string | null
+  receiverBin?: string | null
+  receiverAddress?: string | null
+  hintCodes?: string[]
+  goods?: Import40ExtractionGoodsExtra[]
 }
 
 export interface Import40ExtractionPreview {
@@ -557,6 +587,8 @@ export interface Import40ExtractionResult {
   conflicts: Import40ExtractionConflict[]
   /** Сохранённая сверка документов этого разбора (17.10); после создания ДТ связываем её с ДТ. */
   documentCheckId?: string | null
+  /** Сведения сверх полей ДТ (пакет импорта 21.10); старый сервер — нет. */
+  extras?: Import40ExtractionExtras | null
 }
 
 export const IMPORT40_TRANSPORT_MODES: { value: number; label: string }[] = [

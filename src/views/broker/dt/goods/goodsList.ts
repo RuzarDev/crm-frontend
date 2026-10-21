@@ -4,7 +4,7 @@ import type { Import40GoodsItemInput } from '@/types/api'
 import { calendarLocale } from '@/ui/date'
 import { placesOfGoods } from '@/utils/goodsPlaces'
 import { matchesQuery } from '@/views/broker/list'
-import { isErrorStatus, type GoodsStatus } from './goodsStatus'
+import { isErrorStatus, netOverGross, type GoodsStatus } from './goodsStatus'
 import { keyOf } from './useDtGoods'
 
 type Goods = Import40GoodsItemInput
@@ -74,6 +74,10 @@ export interface GoodsTotals {
   kzt45: number
   /** Σ гр. 47 всех товаров, ₸. */
   tpin: number
+  /** Позиции товаров (с 0), у которых нетто больше брутто (№14а). */
+  netOverGross: number[]
+  /** Σ нетто больше Σ брутто — бывает и без товара с нетто > брутто, если у части товаров брутто не указан. */
+  sumNetOverGross: boolean
 }
 
 /** Итоги раздела «Товары» (строка внизу). */
@@ -84,7 +88,9 @@ export function goodsTotals(items: readonly Goods[]): GoodsTotals {
   let kzt45 = 0
   let tpin = 0
   const invoice = new Map<string, number>()
-  for (const g of items) {
+  const overGross: number[] = []
+  items.forEach((g, i) => {
+    if (netOverGross(g)) overGross.push(i)
     places += num(placesOfGoods(g))
     gross += num(g.grossWeightKg)
     net += num(g.netWeightKg)
@@ -94,7 +100,7 @@ export function goodsTotals(items: readonly Goods[]): GoodsTotals {
       const cur = (g.currency ?? '').trim()
       invoice.set(cur, (invoice.get(cur) ?? 0) + g.customsValue)
     }
-  }
+  })
   return {
     count: items.length,
     places: round(places, 4),
@@ -103,6 +109,8 @@ export function goodsTotals(items: readonly Goods[]): GoodsTotals {
     invoice: [...invoice].map(([currency, amount]) => ({ currency, amount: round(amount, 2) })),
     kzt45: round(kzt45, 2),
     tpin: round(tpin, 2),
+    netOverGross: overGross,
+    sumNetOverGross: round(net, 4) > round(gross, 4),
   }
 }
 

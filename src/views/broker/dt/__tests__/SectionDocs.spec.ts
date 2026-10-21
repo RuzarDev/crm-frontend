@@ -148,6 +148,19 @@ describe('SectionDocs — гр. 44', () => {
     expect(form.doc44Items[0]).toMatchObject({ docTypeCode: '04021', docTypeName: 'Инвойс', docNumber: 'N1', appliesToAll: true })
   })
 
+  it('даты проверяются (№14б): гр. 44 — check-dates у списка, гр. 40 — строка-предупреждение; в просмотре — нет', async () => {
+    form.doc44Items = [{ docTypeCode: '04021', docTypeName: 'Инвойс', docNumber: '11111', docDate: '2202-09-10', goodsItemIndex: null, appliesToAll: true, goodsItemIndexes: null, docStartDate: null, docValidityDate: null, issueCountryCode: null }]
+    form.prevDocItems = [{ docTypeCode: '09013', docNumber: 'X1', docDate: '2202-03-03', goodsNumber: null, goodsItemIndex: null, sortOrder: 0 }]
+    await mount()
+    expect(docRows()[0].get('[data-doc44-date-warn]').text()).toMatch(/^Дата: 10\.09\.2202 позже/)
+    expect(prevRows()[0].get('[data-prev-date-warn]').text()).toMatch(/^Дата: 03\.03\.2202 позже/)
+    expect(prevRows()[0].get('[data-f="docDate"]').element.parentElement!.className).toContain('border-gold')
+    w.unmount()
+    await mount({}, { readonly: true })
+    expect(w.find('[data-doc44-date-warn]').exists()).toBe(false)
+    expect(w.find('[data-prev-date-warn]').exists()).toBe(false)
+  })
+
   it('открытие со старыми данными (включая документ привязанный к товарам) форму не меняет', async () => {
     form.doc44Items = [{ docTypeCode: '04021', docTypeName: 'Инвойс', docNumber: 'N1', docDate: '2026-09-12', goodsItemIndex: null, appliesToAll: false, goodsItemIndexes: '0,1', docStartDate: null, docValidityDate: null, issueCountryCode: 'KZ' }]
     const before = JSON.stringify(form)

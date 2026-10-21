@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ensureOkeiUnits, okeiFromText, resetOkeiUnits } from '../editor/okei'
 import { quantityByUnit } from '../editor/characteristics'
 import { buildRows, defaultMapping, detectHeader, parseCellNumber, splitPasted } from '../editor/characteristicsPaste'
+import { MARK_COLUMN_TABLE, MARK_KEY_FIELD } from '@/utils/__tests__/markColumnsTable'
 
 const units = vi.hoisted(() => [
   { id: '1', code: '796', name: 'Штука', shortName: 'ШТ', isActive: true },
@@ -99,6 +100,18 @@ describe('вставка строк гр. 31: разбор текста', () => 
     const { rows, issues } = buildRows(cells, header!, true)
     expect(rows).toEqual([expect.objectContaining({ productModelName: 'M1', quantity: 5, unitCode: '055', productArticle: 'A'.repeat(50), name: null })])
     expect(issues).toEqual([{ row: 0, field: 'productArticle', kind: 'tooLong', raw: 'A'.repeat(60), max: 50 }])
+  })
+
+  // Ревью 21.10: подписи из инвойса поставщика — двуязычные; марка / знак / модель — общим правилом с «Из Excel».
+  it('двуязычные подписи: «品名 Наименование», «Brand / 品牌», «Марка / 品牌», «商标», «Торговая марка», «Brand/Model»', () => {
+    expect(detectHeader(['品名 Наименование', 'Brand / 品牌', 'Марка'])).toEqual(['name', 'tradeMarkName', 'productMarkName'])
+    expect(detectHeader(['Марка / 品牌', '商标', 'Кол-во / 数量'])).toEqual(['productMarkName', 'tradeMarkName', 'quantity'])
+    expect(detectHeader(['Торговая марка', 'Марка товара', 'Brand/Model'])).toEqual(['tradeMarkName', 'productMarkName', 'productModelName'])
+    expect(detectHeader(['Товарный знак / Марка', 'Тов. знак'])).toEqual(['tradeMarkName', null])
+  })
+
+  it.each(MARK_COLUMN_TABLE)('подпись «%s» → %s, как «Из Excel» и Zircon AI', (header, key) => {
+    expect(detectHeader([header])).toEqual([MARK_KEY_FIELD[key]])
   })
 
   it('итог количества по единицам — в порядке появления; без единицы — отдельно', () => {

@@ -58,6 +58,44 @@ describe('FactPaymentsTable', () => {
     expect(form.factPayments[0]).toMatchObject({ amount: 21000, exchangeRate: 2, payerTaxpayerId: '990140000001' })
   })
 
+  it('дата платёжки 2202 (№14б) — золотая рамка и подсказка с текстом; обычная дата — без них', () => {
+    const { w } = setup([fact('1010', 20000, { paymentDocDate: '2202-09-10' })])
+    const doc = row(w, 0).get('input[data-fact="docDate"]')
+    expect(doc.element.parentElement!.className).toContain('border-gold')
+    expect(doc.attributes('title')).toMatch(/^10\.09\.2202 позже \d{2}\.\d{2}\.\d{4} — проверьте год$/)
+    expect(doc.attributes('aria-invalid')).toBeUndefined()
+    const pay = row(w, 0).get('input[data-fact="payDate"]')
+    expect(pay.element.parentElement!.className).not.toContain('border-gold')
+    expect(pay.attributes('title')).toBeUndefined()
+    expect(pay.attributes('aria-describedby')).toBeUndefined()
+    // текст виден под реквизитами (на телефоне title не показывается) и связан с полем даты
+    const note = row(w, 0).get('[data-fact-date-warn]')
+    expect(note.attributes('role')).toBe('status')
+    expect(note.classes()).toContain('text-gold-ink')
+    expect(note.findAll('span')).toHaveLength(1)
+    expect(note.text()).toMatch(/^Дата платёжки: 10\.09\.2202 позже \d{2}\.\d{2}\.\d{4} — проверьте год$/)
+    const id = doc.attributes('aria-describedby')
+    expect(id).toBeTruthy()
+    expect(note.get('span').attributes('id')).toBe(id)
+  })
+
+  it('обе даты гр. В вне диапазона — по строке на дату; в норме строки нет; в просмотре — только рамка и подсказка', async () => {
+    const { form, w } = setup([fact('1010', 20000, { paymentDocDate: '1999-12-31', paymentDate: '2202-09-11' }), fact('5060', 1)])
+    const lines = row(w, 0).get('[data-fact-date-warn]').findAll('span').map((s) => s.text())
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toBe('Дата платёжки: 31.12.1999 раньше 01.01.2000 — проверьте год')
+    expect(lines[1]).toMatch(/^Дата платежа: 11\.09\.2202 позже/)
+    expect(row(w, 1).find('[data-fact-date-warn]').exists()).toBe(false)
+    form.factPayments[0].paymentDocDate = '2026-10-09'
+    form.factPayments[0].paymentDate = '2026-10-10'
+    await nextTick()
+    expect(row(w, 0).find('[data-fact-date-warn]').exists()).toBe(false)
+    w.unmount()
+    const view = setup([fact('1010', 20000, { paymentDocDate: '2202-09-10' })], true).w
+    expect(view.find('[data-fact-date-warn]').exists()).toBe(false)
+    expect(view.get('input[data-fact="docDate"]').attributes('title')).toMatch(/^10\.09\.2202 позже/)
+  })
+
   it('номер платёжки: виден, правится в ту же строку (обрезка пробелов, до 50 знаков), пустой — null', async () => {
     const { form, w } = setup([fact('1010', 1), fact('5060', 2, { paymentDocNumber: null })])
     const num = (i: number) => row(w, i).get('input[data-fact="docNumber"]')

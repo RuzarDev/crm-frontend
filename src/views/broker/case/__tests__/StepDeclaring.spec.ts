@@ -214,7 +214,8 @@ describe('StepDeclaring: «Сканы с границы» (18.10)', () => {
     api.createDeclaration.mockResolvedValue(declaration({ id: 'd9' }))
     mount(USERS.declarant, { files: scans })
     await w.get('[data-scans-parse]').trigger('click')
-    await flushPromises()
+    // Конвейер импорта «Из документов» (пакет 21.10) — несколько шагов с ожиданием.
+    for (let i = 0; i < 6; i++) await flushPromises()
     expect(api.downloadFile).not.toHaveBeenCalled()
     // .heic не разбирается — только s1 (cmr.pdf)
     expect(api.extractBatch).toHaveBeenCalledWith('c1', [], ['s1'])

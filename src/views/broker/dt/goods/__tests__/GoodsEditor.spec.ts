@@ -31,6 +31,8 @@ const tnved = vi.hoisted(() => ({
   node: vi.fn(),
   rates: vi.fn(),
   tariffOptions: vi.fn(),
+  semantic: vi.fn(),
+  classify: vi.fn(),
   search: vi.fn(async () => ({ data: [] })),
   reference: vi.fn(async () => ({ data: null })),
 }))
@@ -65,7 +67,7 @@ const settle = async () => {
     await nextTick()
   }
 }
-const mount = async (goods: Import40GoodsItemInput[], o: { readonly?: boolean; query?: string; currency?: string } = {}) => {
+const mount = async (goods: Import40GoodsItemInput[], o: { readonly?: boolean; query?: string; currency?: string; mixins?: object[] } = {}) => {
   form = reactive({ ...emptyDtForm(), currency: o.currency ?? 'USD', goodsItems: goods }) as DtFormState
   canEdit.value = !o.readonly
   model = useDtGoods(form, { readiness: () => null, canEdit })
@@ -82,7 +84,7 @@ const mount = async (goods: Import40GoodsItemInput[], o: { readonly?: boolean; q
   router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/import-40/:caseId/dt/:dtId', name: 'import-40-dt', component: Page }] })
   await router.push(`/import-40/c1/dt/d1?s=goods${o.query ?? ''}`)
   await router.isReady()
-  w = mountWithI18n(defineComponent({ render: () => h(RouterView) }), { attachTo: document.body, global: { plugins: [pinia, router] } })
+  w = mountWithI18n(defineComponent({ render: () => h(RouterView) }), { attachTo: document.body, global: { plugins: [pinia, router], mixins: o.mixins ?? [] } })
   await settle()
 }
 const panel = () => document.querySelector('[data-dt-goods-editor][data-state="open"]') as HTMLElement | null
@@ -400,6 +402,65 @@ describe('GoodsEditor: пределы полей по структуре ДТ (�
   })
 })
 
+// №1 / №4 (пакет импорта 21.10.2026): гр. 41 — только при ДЕИ; «Тип количества» скрыт без ДЕИ.
+describe('GoodsEditor: гр. 41 без ДЕИ', () => {
+  beforeEach(() => {
+    tnved.rates.mockImplementation(async (code: string) => ({
+      data: code === '7323990000' ? { unitCode: null, unitName: null } : { unitCode: '796', unitName: 'Штука', unitShortName: 'ШТ' },
+    }))
+  })
+
+  it('код без ДЕИ и количество в гр. 41 — предупреждение и «Перенести в гр. 31»; «Тип количества» скрыт', async () => {
+    await mount([item({ tnvedCode: '7323990000', quantity: 470, unitCode: '796', characteristics: [{ productArticle: 'URS07' }] })], { query: '&item=1' })
+    await click('[data-goods-tab="qty"]')
+    expect(q('[data-goods-qty-no-dei]')!.textContent).toContain('У кода нет доп. единицы')
+    expect(q('[data-goods-field="quantityTypeCode"]')).toBeNull()
+    await click('[data-goods-qty-move-to-row]')
+    const g = form.goodsItems[0]
+    expect(g).toMatchObject({ quantity: null, unitCode: null, unit: null, needsTpinRecalc: true })
+    expect(g.characteristics![0]).toMatchObject({ productArticle: 'URS07', quantity: 470, unitCode: '796' })
+    expect(q('[data-goods-qty-no-dei]')).toBeNull()
+  })
+
+  it('строк гр. 31 несколько — без кнопки, «перенесите вручную»; с ДЕИ, гр. 41 пуста, строка в ДЕИ — «Взять из гр. 31»', async () => {
+    await mount([
+      item({ tnvedCode: '7323990000', quantity: 10, characteristics: [{ productArticle: 'A' }, { productArticle: 'B' }] }),
+      item({ tnvedCode: '4202121900', quantity: null, characteristics: [{ quantity: 300, unitCode: '796', tradeMarkName: 'X' }] }),
+    ], { query: '&item=1' })
+    await click('[data-goods-tab="qty"]')
+    expect(q('[data-goods-qty-no-dei]')!.textContent).toContain('перенесите количество в нужную строку вручную')
+    expect(q('[data-goods-qty-move-to-row]')).toBeNull()
+    await click('[data-goods-next]')
+    await click('[data-goods-tab="qty"]')
+    await click('[data-goods-qty-take-from-row]')
+    expect(form.goodsItems[1]).toMatchObject({ quantity: 300, unitCode: '796' })
+    expect(form.goodsItems[1].characteristics![0]).toMatchObject({ quantity: null, unitCode: null, tradeMarkName: 'X' })
+    expect(q('[data-goods-field="quantityTypeCode"]')).not.toBeNull()
+  })
+})
+
+// №9 / №2 (пакет импорта 21.10.2026): товар без кода — «Похожие коды»; у товарного знака — подсказка «ОТСУТСТВУЕТ».
+describe('GoodsEditor: «Похожие коды», «ОТСУТСТВУЕТ» у знака', () => {
+  it('без кода и с описанием — до 3 кодов смыслового поиска (без модели — по словам), «Выбрать» ставит код и описание ТН ВЭД', async () => {
+    tnved.semantic.mockResolvedValue({ data: { available: false, model: null, tookMs: 0, matches: [] } })
+    tnved.classify.mockResolvedValue({ data: { matches: [
+      { code: '7308400000', description: 'ОБОРУДОВАНИЕ ДЛЯ ЛЕСОВ', probability: 0.8, rateStr: null, unitName: null },
+    ], exactCodeInfo: null, suggestedGroup: null } })
+    await mount([item({ tnvedCode: null, tnvedDescription: null, description: 'СТРОИТЕЛЬНЫЕ ЛЕСА' })], { query: '&item=1' })
+    expect(tnved.classify).toHaveBeenCalledWith('СТРОИТЕЛЬНЫЕ ЛЕСА', 3, { silent: true })
+    expect(q('[data-goods-similar-item]')!.textContent).toContain('7308400000')
+    await click('[data-goods-similar-pick]')
+    expect(form.goodsItems[0]).toMatchObject({ tnvedCode: '7308400000', tnvedDescription: 'ОБОРУДОВАНИЕ ДЛЯ ЛЕСОВ' })
+    expect(q('[data-goods-similar]')).toBeNull()
+  })
+
+  it('товарный знак пуст — серая подсказка «ОТСУТСТВУЕТ», как у марки и модели', async () => {
+    writeCharsMode('cards')
+    await mount([item({ characteristics: [{ manufacturerName: 'YIWU' }] })], { query: '&item=1' })
+    expect(field('char-0-tradeMark').placeholder).toBe('ОТСУТСТВУЕТ')
+  })
+})
+
 describe('GoodsEditor: «Количество и стоимость»', () => {
   it('числа пишутся сразу при вводе, с запятой; правка помечает «Пересчитать»; нетто > брутто — предупреждение', async () => {
     await mount([item()], { query: '&item=1' })
@@ -407,6 +468,11 @@ describe('GoodsEditor: «Количество и стоимость»', () => {
     expect(form.goodsItems[0].grossWeightKg).toBe(40.5)
     expect(form.goodsItems[0].needsTpinRecalc).toBe(true)
     expect(q('[data-graph="38"]')!.textContent).toContain('Нетто больше брутто')
+    // шапка (№14а): причина вместо «Не хватает 1»; исправили вес — статус сразу другой
+    expect(q('[data-goods-editor-status]')!.getAttribute('data-goods-editor-status')).toBe('missing')
+    expect(q('[data-goods-editor-status]')!.textContent).toContain('Нетто > брутто')
+    await type('grossWeightKg', '60')
+    expect(q('[data-goods-editor-status]')!.textContent).not.toContain('Нетто > брутто')
   })
 
   it('места — одно поле: packagesCount и cargoPlacesQuantity вместе, без «Пересчитать»', async () => {
@@ -903,4 +969,296 @@ describe('GoodsEditor: строки характеристик гр. 31 (как 
     await settle()
     expect(q('[data-chars-empty]')).not.toBeNull()
   })
+})
+
+describe('GoodsEditor: ширина панели, полоса списка, вкладки (правка №17)', () => {
+  const width = () => panel()!.style.getPropertyValue('--w')
+  const storedWidth = (user?: string) => localStorage.getItem(user ? `zircon.dt.goodsEditorWidth:${user}` : 'zircon.dt.goodsEditorWidth')
+  // buttons — нажатые кнопки (как у PointerEvent): при движении с нажатой — 1, при отпускании — 0.
+  const pointer = (target: EventTarget, type: string, clientX: number, buttons = type === 'pointerup' ? 0 : 1) =>
+    target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, buttons, clientX }))
+
+  it('по умолчанию широкая (90% окна); «Сузить» — 780 px, запоминается у пользователя; Alt+↓ и Esc — как раньше; снова открыли — как выбрали', async () => {
+    localStorage.setItem('userId', 'u-7')
+    await mount([item({ description: 'A' }), item({ description: 'B' })], { query: '&item=1' })
+    expect(width()).toBe('90vw')
+    expect(panel()!.dataset.goodsEditorWidth).toBe('wide')
+    expect(q('[data-goods-width-toggle]')!.getAttribute('aria-label')).toBe('Сузить карточку')
+    // Окно 1024 px (jsdom): панель 922 px — полосе списка места нет.
+    expect(q('[data-goods-rail]')).toBeNull()
+
+    await click('[data-goods-width-toggle]')
+    expect(width()).toBe('780px')
+    expect(panel()!.dataset.goodsEditorWidth).toBe('narrow')
+    expect(q('[data-goods-width-toggle]')!.getAttribute('aria-label')).toBe('Развернуть карточку')
+    expect(storedWidth('u-7')).toBe('narrow')
+
+    await key(q('[data-goods-next]')!, { key: 'ArrowDown', altKey: true })
+    expect(itemQuery()).toBe('2')
+    expect(width()).toBe('780px')
+    await key(field('quantity'), { key: 'Escape' })
+    expect(itemQuery()).toBeUndefined()
+
+    await router.replace({ query: { s: 'goods', item: '1' } })
+    await settle()
+    expect(width()).toBe('780px')
+    w.unmount()
+    document.body.innerHTML = ''
+    await mount([item()], { query: '&item=1' })
+    expect(width()).toBe('780px')
+    await click('[data-goods-width-toggle]')
+    expect(width()).toBe('90vw')
+    expect(storedWidth('u-7')).toBe('wide')
+  })
+
+  it('край панели тянется мышью: ширина вживую, по отпусканию — запоминается; ←/→ на ручке; рядом с 90% — «широко»; двойной щелчок — сузить', async () => {
+    vi.stubGlobal('innerWidth', 1600)
+    try {
+      await mount([item()], { query: '&item=1' })
+      const handle = q('[data-goods-resize]')!
+      expect(handle.getAttribute('role')).toBe('separator')
+      expect(handle.getAttribute('aria-valuenow')).toBe('1440')
+      expect(handle.getAttribute('aria-valuemax')).toBe('1536')
+
+      pointer(handle, 'pointerdown', 160)
+      pointer(window, 'pointermove', 600)
+      await settle()
+      expect(width()).toBe('1000px')
+      expect(panel()!.dataset.goodsEditorDragging).toBe('true')
+      expect(document.body.style.cursor).toBe('col-resize')
+      expect(storedWidth()).toBeNull()
+      pointer(window, 'pointerup', 600)
+      await settle()
+      expect(width()).toBe('min(1000px, calc(100vw - 64px))')
+      expect(storedWidth()).toBe('1000')
+      expect(panel()!.dataset.goodsEditorDragging).toBeUndefined()
+      expect(document.body.style.cursor).toBe('')
+
+      await key(handle, { key: 'ArrowLeft' })
+      expect(storedWidth()).toBe('1048')
+      await key(handle, { key: 'ArrowRight' })
+      await key(handle, { key: 'ArrowRight' })
+      expect(storedWidth()).toBe('952')
+      expect(handle.getAttribute('aria-valuenow')).toBe('952')
+
+      // Отпустили в 10 px от 90% окна (1440) — «широко»: дальше следует за окном.
+      pointer(handle, 'pointerdown', 500)
+      pointer(window, 'pointermove', 22)
+      pointer(window, 'pointerup', 22)
+      await settle()
+      expect(storedWidth()).toBe('wide')
+      expect(width()).toBe('90vw')
+
+      handle.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+      await settle()
+      expect(width()).toBe('780px')
+      expect(storedWidth()).toBe('narrow')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('щелчок по ручке без движения не перезаписывает сохранённую ширину (своя 1700 px на окне 1280 — панель ужата окном)', async () => {
+    localStorage.setItem('zircon.dt.goodsEditorWidth', '1700')
+    vi.stubGlobal('innerWidth', 1280)
+    try {
+      await mount([item()], { query: '&item=1' })
+      const handle = q('[data-goods-resize]')!
+      expect(width()).toBe('min(1700px, calc(100vw - 64px))')
+      expect(handle.getAttribute('aria-valuenow')).toBe('1216')
+      pointer(handle, 'pointerdown', 300)
+      pointer(window, 'pointerup', 300)
+      await settle()
+      expect(storedWidth()).toBe('1700')
+      // Дрожание руки на 2 px — тоже щелчок.
+      pointer(handle, 'pointerdown', 300)
+      pointer(window, 'pointermove', 302)
+      pointer(window, 'pointerup', 302)
+      await settle()
+      expect(storedWidth()).toBe('1700')
+      expect(width()).toBe('min(1700px, calc(100vw - 64px))')
+      expect(panel()!.dataset.goodsEditorDragging).toBeUndefined()
+      // Настоящее перетаскивание — запоминается.
+      pointer(handle, 'pointerdown', 300)
+      pointer(window, 'pointermove', 400)
+      pointer(window, 'pointerup', 400)
+      await settle()
+      expect(storedWidth()).toBe('1116')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('отпускание потерялось (окно потеряло фокус, мышь движется без кнопки) — перетаскивание заканчивается, ширина больше не следует за мышью', async () => {
+    vi.stubGlobal('innerWidth', 1600)
+    try {
+      await mount([item()], { query: '&item=1' })
+      const handle = q('[data-goods-resize]')!
+      // ⌘/Alt+Tab посреди перетаскивания: конец на том, что было видно.
+      pointer(handle, 'pointerdown', 160)
+      pointer(window, 'pointermove', 600)
+      await settle()
+      expect(width()).toBe('1000px')
+      window.dispatchEvent(new Event('blur'))
+      await settle()
+      expect(panel()!.dataset.goodsEditorDragging).toBeUndefined()
+      expect(document.body.style.cursor).toBe('')
+      expect(storedWidth()).toBe('1000')
+      pointer(window, 'pointermove', 300, 0)
+      pointer(window, 'pointermove', 300)
+      await settle()
+      expect(width()).toBe('min(1000px, calc(100vw - 64px))')
+
+      // Кнопку отпустили вне страницы: первое же движение без кнопки заканчивает перетаскивание, щелчок потом ничего не пишет.
+      pointer(handle, 'pointerdown', 600)
+      pointer(window, 'pointermove', 500)
+      await settle()
+      expect(width()).toBe('1100px')
+      pointer(window, 'pointermove', 200, 0)
+      await settle()
+      expect(panel()!.dataset.goodsEditorDragging).toBeUndefined()
+      expect(width()).toBe('min(1100px, calc(100vw - 64px))')
+      expect(storedWidth()).toBe('1100')
+      pointer(window, 'pointermove', 100)
+      pointer(window, 'pointerup', 100)
+      await settle()
+      expect(width()).toBe('min(1100px, calc(100vw - 64px))')
+      expect(storedWidth()).toBe('1100')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('широкая панель — слева полоса списка товаров: открытый отмечен, нажатие открывает другой, ↑/↓ по полосе; узкая — без полосы', async () => {
+    vi.stubGlobal('innerWidth', 1600)
+    try {
+      await mount([item({ description: 'A' }), item({ description: 'B', tnvedCode: null }), item({ description: 'C' })], { query: '&item=2' })
+      const rail = q('[data-goods-rail]')!
+      expect(rail).not.toBeNull()
+      expect(rail.getAttribute('aria-label')).toBe('Список товаров')
+      // Полоса — после товара в DOM: фокус при открытии и Tab начинаются с шапки товара.
+      expect(q('[data-goods-editor-head]')!.compareDocumentPosition(rail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      const items = () => [...rail.querySelectorAll<HTMLElement>('[data-goods-rail-item]')]
+      expect(items()).toHaveLength(3)
+      expect(items().map((b) => b.getAttribute('aria-current'))).toEqual([null, 'true', null])
+      expect(items().map((b) => b.tabIndex)).toEqual([-1, 0, -1])
+      expect(items()[0].textContent).toContain('4202 12 190 0')
+      expect(items()[1].textContent).toContain('нет кода')
+      // Точка — ошибки товара (как фильтр «С ошибками»): без кода — есть, у полного товара — нет.
+      expect(items()[1].querySelector('[data-goods-rail-error]')).not.toBeNull()
+      expect(items()[1].getAttribute('aria-label')).toContain('есть ошибки')
+      expect(items()[0].querySelector('[data-goods-rail-error]')).toBeNull()
+      expect(items()[2].textContent).toContain('C')
+
+      items()[2].click()
+      await settle()
+      expect(itemQuery()).toBe('3')
+      expect(q('[data-goods-editor-caption]')!.textContent).toBe('C')
+      expect(q('[data-goods-rail-item][aria-current="true"]')!.getAttribute('data-goods-rail-item')).toBe('2')
+
+      items()[2].focus()
+      await key(items()[2], { key: 'ArrowUp' })
+      expect(document.activeElement).toBe(items()[1])
+      await key(items()[1], { key: 'Home' })
+      expect(document.activeElement).toBe(items()[0])
+      expect(itemQuery()).toBe('3')
+
+      await click('[data-goods-width-toggle]')
+      expect(q('[data-goods-rail]')).toBeNull()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('вкладки не помещаются — стрелки ‹ ›; полоса прокручивается, активная вкладка показывается', async () => {
+    await mount([item()], { query: '&item=1' })
+    const nav = q('[data-goods-tabs]')!
+    expect(q('[data-goods-tabs-prev]')).toBeNull()
+    expect(q('[data-goods-tabs-next]')).toBeNull()
+    Object.defineProperty(nav, 'scrollWidth', { configurable: true, value: 900 })
+    Object.defineProperty(nav, 'clientWidth', { configurable: true, value: 400 })
+    nav.dispatchEvent(new Event('scroll'))
+    await settle()
+    expect(q('[data-goods-tabs-prev]')).toBeNull()
+    expect(q('[data-goods-tabs-next]')!.getAttribute('aria-label')).toBe('Следующие разделы')
+
+    await click('[data-goods-tabs-next]')
+    expect(nav.scrollLeft).toBe(264)
+    expect(q('[data-goods-tabs-prev]')).not.toBeNull()
+    await click('[data-goods-tabs-next]')
+    expect(nav.scrollLeft).toBe(500)
+    expect(q('[data-goods-tabs-next]')).toBeNull()
+    await click('[data-goods-tabs-prev]')
+    expect(nav.scrollLeft).toBe(236)
+
+    // Стрелки — поверх полосы (absolute): появление ‹ не сужает полосу и не уводит показанную вкладку под край (ревью №17).
+    expect(q('[data-goods-tabs-prev]')!.className).toContain('absolute')
+    expect(q('[data-goods-tabs-wrap]')!.className).toContain('relative')
+    expect(nav.className).toContain('flex-1')
+
+    // Активная вкладка (по нажатию или прокрутке секций) — в видимой части полосы и не под стрелкой (стрелка до 36 px).
+    const place = (key: string, left: number, w = 70) => {
+      const tab = q<HTMLElement>(`[data-goods-tab="${key}"]`)!
+      Object.defineProperty(tab, 'offsetLeft', { configurable: true, value: left })
+      Object.defineProperty(tab, 'offsetWidth', { configurable: true, value: w })
+    }
+    const ARROW = 36
+    // «Доп. сведения» в середине, справа ещё вкладки: правый край — левее стрелки ›, слева появилась ‹ — полоса той же ширины.
+    place('extras', 700)
+    await click('[data-goods-tab="extras"]')
+    expect(nav.scrollLeft).toBe(700 + 70 + 4 + ARROW - 400)
+    expect(700 + 70).toBeLessThanOrEqual(nav.scrollLeft + 400 - ARROW)
+    expect(q('[data-goods-tabs-prev]')).not.toBeNull()
+    expect(q('[data-goods-tabs-next]')).not.toBeNull()
+    // Левее видимого: левый край — правее стрелки ‹.
+    place('packaging', 300)
+    await click('[data-goods-tab="packaging"]')
+    expect(nav.scrollLeft).toBe(300 - 4 - ARROW)
+    expect(300).toBeGreaterThanOrEqual(nav.scrollLeft + ARROW)
+    // Последняя вкладка — прокрутка до конца (не дальше), стрелки › нет.
+    place('payments', 820)
+    await click('[data-goods-tab="payments"]')
+    expect(nav.scrollLeft).toBe(500)
+    expect(q('[data-goods-tabs-next]')).toBeNull()
+    place('code', 0)
+    await click('[data-goods-tab="code"]')
+    expect(nav.scrollLeft).toBe(0)
+    expect(q('[data-goods-tabs-prev]')).toBeNull()
+  })
+
+  it('200 товаров, полоса списка видна: ввод в открытый товар перерисовывает одну его строку полосы, а не все', async () => {
+    const updates: Record<string, number> = { GoodsEditorRail: 0, GoodsEditorRailRow: 0 }
+    const counter = {
+      updated(this: { $options: { __name?: string } }) {
+        const n = this.$options.__name
+        if (n && n in updates) updates[n]++
+      },
+    }
+    vi.stubGlobal('innerWidth', 1600)
+    try {
+      const many = Array.from({ length: 200 }, (_, i) => item({ description: `ТОВАР ${i + 1}`, tnvedCode: `84713${String(i).padStart(5, '0')}` }))
+      await mount(many, { query: '&item=100', mixins: [counter] })
+      expect(q('[data-goods-rail]')).not.toBeNull()
+      expect(panel()!.querySelectorAll('[data-goods-rail-item]')).toHaveLength(200)
+      updates.GoodsEditorRail = 0
+      updates.GoodsEditorRailRow = 0
+      const t = performance.now()
+      for (const v of ['Н', 'НО', 'НОВ', 'НОВО', 'НОВОЕ']) await type('description', v)
+      const typeMs = (performance.now() - t) / 5
+      expect(model.items.value[99].description).toBe('НОВОЕ')
+      expect(q('[data-goods-rail-item="99"]')!.textContent).toContain('НОВОЕ')
+      // Строка открытого товара — по разу на букву; полоса и остальные 199 строк не перерисовываются.
+      expect(updates.GoodsEditorRail).toBe(0)
+      expect(updates.GoodsEditorRailRow).toBeLessThanOrEqual(5)
+      console.info(`[perf 200 editor + rail] type ${typeMs.toFixed(0)} ms, rail row updates ${updates.GoodsEditorRailRow}`)
+
+      // Переход к другому товару — перерисовываются только две строки (была открыта — стала открыта).
+      updates.GoodsEditorRailRow = 0
+      await click('[data-goods-next]')
+      expect(q('[data-goods-rail-item][aria-current="true"]')!.getAttribute('data-goods-rail-item')).toBe('100')
+      expect(updates.GoodsEditorRailRow).toBe(2)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  }, 30_000)
 })

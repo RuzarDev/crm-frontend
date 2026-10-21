@@ -16,8 +16,10 @@ import ManualMark from '../../ManualMark.vue'
 import { withCurrent } from '../../dtOptions'
 import GoodsTariffHint from './GoodsTariffHint.vue'
 import SurStatsHint from '@/components/sur/SurStatsHint.vue'
-import { characteristicTotals } from './characteristics'
-import { ensureOkeiUnits, okeiLabel } from './okei'
+import { netOverGross as isNetOverGross } from '../goodsStatus'
+import { blankCharacteristic, characteristicTotals, isBlankCharacteristic } from './characteristics'
+import { ensureOkeiUnits, okeiCode, okeiLabel } from './okei'
+import ZButton from '@/components/z/ZButton.vue'
 import { deiOf, loadDei } from './tnvedDei'
 import type { GoodsSectionProps } from './types'
 
@@ -62,10 +64,48 @@ const rowsValueHelp = computed(() => (totals.value.valueMismatch
   ? t('broker.dt.goods.editor.chars.valueMismatchShort', { rows: fmt(totals.value.value) })
   : undefined))
 
-const netOverGross = computed(() => {
-  const { grossWeightKg: g, netWeightKg: n } = props.item
-  return g != null && n != null && n > g
+// №1 (пакет импорта 21.10.2026): гр. 41 заполняется только при ДЕИ кода. У кода без ДЕИ количество в гр. 41 не уходит в
+// XML — предупреждение и «Перенести в гр. 31» (В1: для уже импортированных ДТ — по кнопке, без массового переноса).
+// Обратно: ДЕИ есть, гр. 41 пуста, у единственной строки количество в единице ДЕИ — «Взять из гр. 31».
+const filledRows = computed(() => (props.item.characteristics ?? []).filter((r) => !isBlankCharacteristic(r)))
+const quantityNoDei = computed(() => dei.value === null && props.item.quantity != null)
+const canMoveToRow = computed(() => quantityNoDei.value && filledRows.value.length <= 1)
+const moveToRow = () => {
+  if (props.readonly || !canMoveToRow.value) return
+  const rows = (props.item.characteristics ??= [])
+  let row = filledRows.value[0] ?? rows[0]
+  if (!row) {
+    rows.push(blankCharacteristic())
+    row = rows[rows.length - 1]
+  }
+  row.quantity = props.item.quantity ?? null
+  row.unitCode = props.item.unitCode ?? null
+  props.model.setField(props.item, 'quantity', null)
+  props.model.setField(props.item, 'unitCode', null)
+  props.item.unit = null
+}
+const rowInDei = computed(() => {
+  const d = dei.value
+  if (!d || props.item.quantity != null || filledRows.value.length !== 1) return null
+  const r = filledRows.value[0]
+  return r.quantity != null && okeiCode(r.unitCode) === d.code ? r : null
 })
+const takeFromRow = () => {
+  const r = rowInDei.value
+  const d = dei.value
+  if (props.readonly || !r || !d) return
+  props.model.setField(props.item, 'quantity', r.quantity ?? null)
+  props.model.setField(props.item, 'unitCode', d.code)
+  props.item.unit = d.shortName || d.name
+  // Строка дальше следует за гр. 41 (своё количество — копия не нужна).
+  r.quantity = null
+  r.unitCode = null
+}
+// «Тип количества» гр. 41 нужен только при ДЕИ (в XML и печать не уходит, В19): у кода без ДЕИ скрыт, если пуст.
+const showQuantityType = computed(() => dei.value !== null || !!props.item.quantityTypeCode)
+
+// Одно правило со списком, итогами и статусом (goodsStatus.netOverGross).
+const netOverGross = computed(() => isNetOverGross(props.item))
 
 // Места: одно видимое поле; КЕДЕН-поле — его копия (одна цифра на бланке и в XML). Не поле платежей.
 const places = computed(() => placesOfGoods(props.item))
@@ -157,9 +197,23 @@ const autoTag = 'absolute top-1/2 right-2 -translate-y-1/2'
           <template v-else>{{ tq('statValueHint') }}</template>
         </template>
       </ZField>
-      <ZField graph="41" :label="tq('quantityType')" data-graph="41" data-goods-field="quantityTypeCode" :data-goods-index="index">
+      <ZField v-if="showQuantityType" graph="41" :label="tq('quantityType')" data-graph="41" data-goods-field="quantityTypeCode" :data-goods-index="index">
         <ZSelect :value="item.quantityTypeCode || null" :options="quantityTypes" show-search allow-clear :disabled="readonly" :placeholder="tq('quantityTypePlaceholder')" popup-width="320px" class="max-sm:h-11" data-f="quantityTypeCode" @update:value="model.setField(item, 'quantityTypeCode', str($event))" />
       </ZField>
+    </div>
+
+    <div
+      v-if="quantityNoDei"
+      class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-row bg-gold-soft px-3 py-2 text-[13px] text-gold-ink"
+      role="status"
+      data-goods-qty-no-dei
+    >
+      <span class="min-w-0 flex-1">{{ tq('quantityNoDei') }}<template v-if="!canMoveToRow"> {{ tq('moveManyRows') }}</template></span>
+      <ZButton v-if="!readonly && canMoveToRow" size="sm" class="max-sm:h-11" data-goods-qty-move-to-row @click="moveToRow">{{ tq('moveToRow') }}</ZButton>
+    </div>
+    <div v-else-if="rowInDei && !readonly" class="flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-ink-2" data-goods-qty-from-row>
+      <span class="min-w-0 flex-1">{{ tq('takeFromRowHint') }}</span>
+      <ZButton size="sm" variant="ghost" class="max-sm:h-11" data-goods-qty-take-from-row @click="takeFromRow">{{ tq('takeFromRow') }}</ZButton>
     </div>
 
     <GoodsTariffHint :item="item" :index="index" :model="model" :readonly="readonly" :ctx="ctx" />

@@ -79,11 +79,27 @@ describe('goodsList: ТПиН и итоги', () => {
       invoice: [{ currency: 'USD', amount: 150.5 }, { currency: 'EUR', amount: 7 }],
       kzt45: 1300,
       tpin: 15.25,
+      netOverGross: [],
+      sumNetOverGross: false,
     })
   })
 
   it('пустой список — нули и пустая фактурная', () => {
-    expect(goodsTotals([])).toEqual({ count: 0, places: 0, gross: 0, net: 0, invoice: [], kzt45: 0, tpin: 0 })
+    expect(goodsTotals([])).toEqual({ count: 0, places: 0, gross: 0, net: 0, invoice: [], kzt45: 0, tpin: 0, netOverGross: [], sumNetOverGross: false })
+  })
+
+  it('нетто > брутто (№14а): позиции таких товаров; Σ нетто > Σ брутто — и без них, если у части брутто не указан', () => {
+    const t = goodsTotals([
+      item({ grossWeightKg: 22222, netWeightKg: 44444 }),
+      item({ grossWeightKg: 10, netWeightKg: 9 }),
+      item({ grossWeightKg: 5, netWeightKg: 6 }),
+    ])
+    expect(t.netOverGross).toEqual([0, 2])
+    expect(t.sumNetOverGross).toBe(true)
+    const sumOnly = goodsTotals([item({ grossWeightKg: null, netWeightKg: 9 }), item({ grossWeightKg: 5, netWeightKg: 4 })])
+    expect(sumOnly.netOverGross).toEqual([])
+    expect(sumOnly.sumNetOverGross).toBe(true)
+    expect(goodsTotals([item({ grossWeightKg: 4, netWeightKg: 4 })]).sumNetOverGross).toBe(false)
   })
 
   it('стоимость без валюты — в группе без кода', () => {
