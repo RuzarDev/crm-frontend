@@ -26,6 +26,11 @@ export const MARK_COLUMN_TABLE: [string, MarkKey][] = [
   // (ревью 22.10: Zircon AI получал заголовок с переводом строки, уже схлопнутым в пробел, — товарный знак)
   ['Марка\nBrand', 'brand'], ['Марка\r\nBrand', 'brand'], ['Brand\nМарка', 'brand'], ['Марка товара\nBrand', 'brand'],
   ['Марка Brand', 'brand'], ['Марка\nБренд', 'brand'],
+  // знаки на границе кириллицы и латиницы — тоже граница частей (ревью 22.10: «Марка - Brand» был товарным знаком)
+  ['Марка - Brand', 'brand'], ['Марка — Brand', 'brand'], ['Марка – Brand', 'brand'], ['Марка: Brand', 'brand'],
+  ['Марка. Brand', 'brand'], ['Brand - Марка', 'brand'], ['Марка «Brand»', 'brand'], ['Марка "Brand"', 'brand'],
+  ['Марка-Brand', 'brand'], ['Марка & Brand', 'brand'], ['Марка товара - Brand', 'brand'], ['Brand: Марка', 'brand'],
+  ['Бренд - Brand', 'trademark'], ['Товарный знак - Brand', 'trademark'], ['Марка - Trademark', 'trademark'],
   // бренд + модель — модель
   ['Brand/Model', 'model'], ['品牌型号', 'model'], ['品牌/型号', 'model'], ['Марка, модель', 'model'],
   ['Brand / Model No.', 'model'],
