@@ -128,11 +128,11 @@ describe('goodsFromSheetRows: сведения шаблона декларант
   const ROW = ['UR0910 ', 46275, 'Yiwu Longju Trading Firm', 'Отсутствует', 'ОТСУТСТВУЕТ', 'URS07', '-', 'Сушилка', 'шт', 47, 7323990000, 0, 1,
     'X-200', 'ГОСТ 123', 'ОТСУТСТВУЕТ', 'KZ.123', '05.09.2026', 1401, 47, 'С УПАКОВКОЙ']
 
-  it('читает сведения: «Отсутствует» — пусто, текст заглавными, даты и код документа нормализуются', () => {
+  it('читает сведения: «Отсутствует» — как есть заглавными, «-» — пусто, даты и код документа нормализуются', () => {
     const [g] = goodsFromSheetRows([HEAD, ROW], { details: true })
     expect(g.details).toEqual({
-      manufacturerName: 'YIWU LONGJU TRADING FIRM', tradeMarkName: null, productMarkName: null, productModelName: 'X-200',
-      productArticle: 'URS07', serialNumbers: null, standardName: 'ГОСТ 123', productSortName: null, measureUnit: 'ШТ',
+      manufacturerName: 'YIWU LONGJU TRADING FIRM', tradeMarkName: 'ОТСУТСТВУЕТ', productMarkName: 'ОТСУТСТВУЕТ', productModelName: 'X-200',
+      productArticle: 'URS07', serialNumbers: null, standardName: 'ГОСТ 123', productSortName: 'ОТСУТСТВУЕТ', measureUnit: 'ШТ',
       cargoPartQuantity: 1, individualPackages: 47, packageAvailabilityCode: '1',
       docTypeCode: '01401', docNumber: 'KZ.123', docDate: '2026-09-05', invoiceNumber: 'UR0910', invoiceDate: '2026-09-10',
       rowName: null, packageQuantity: null, lineNo: null, originText: null,
@@ -141,9 +141,52 @@ describe('goodsFromSheetRows: сведения шаблона декларант
     expect(g).toMatchObject({ quantity: 47, packagesCount: 0, tnvedCode: '7323990000' })
   })
 
+  // Решение владельца 21.10.2026: «Отсутствует» в марке, знаке, модели, ГОСТ, сорте и серийном — значение декларанта,
+  // переносится как есть (ЗАГЛАВНЫМИ); пустая ячейка остаётся пустой; «нет», «-», «N/A» — пусто, как раньше.
+  it('«Отсутствует» в любом регистре — «ОТСУТСТВУЕТ» в марке, знаке, модели, ГОСТ, сорте, серийном; производитель и артикул — пусто', () => {
+    const [g, empty2] = goodsFromSheetRows([
+      ['Наименование', 'Код ТНВЭД', 'ПРОИЗВОДИТЕЛЬ', 'МАРКА', 'ТОВАРНЫЙ ЗНАК', 'Артикул', 'СЕРИЙНЫЙ НОМЕР', 'МОДЕЛЬ', 'ГОСТ', 'СОРТ'],
+      ['Сушилка', 7323990000, 'Отсутствует', 'отсутствует', 'Отсутствует', 'нет', 'ОтСуТсТвУеТ', 'Отсутствует', 'ОТСУТСТВУЕТ', 'отсутствует'],
+      ['Полка', 9403208009, null, null, '  ', 'N/A', '-', null, null, null],
+    ], { details: true })
+    expect(g.details).toMatchObject({
+      manufacturerName: null, productArticle: null,
+      productMarkName: 'ОТСУТСТВУЕТ', tradeMarkName: 'ОТСУТСТВУЕТ', serialNumbers: 'ОТСУТСТВУЕТ', productModelName: 'ОТСУТСТВУЕТ',
+      standardName: 'ОТСУТСТВУЕТ', productSortName: 'ОТСУТСТВУЕТ',
+    })
+    expect(empty2.details).toMatchObject({
+      productMarkName: null, tradeMarkName: null, serialNumbers: null, productModelName: null, standardName: null, productSortName: null,
+      productArticle: null,
+    })
+  })
+
   it('без опции details (транзит) сведений нет', () => {
     const [g] = goodsFromSheetRows([HEAD, ROW])
     expect(g.details).toBeUndefined()
+  })
+})
+
+// Решение владельца 21.10.2026: «Brand / 品牌 / Бренд / Торговая марка» — товарный знак; «Марка» и «Марка товара» — марка
+// (так же разбирает Zircon AI). В двуязычной шапке «Марка / 品牌» русское «Марка» главнее.
+describe('goodsFromSheetRows: столбцы бренда — товарный знак, «Марка» — марка', () => {
+  const details = (head: string[]) =>
+    goodsFromSheetRows([['Наименование', 'Код ТН ВЭД', ...head], ['Сушилка', '7323990000', ...head.map((_, i) => `v${i}`)]], { details: true })[0].details!
+
+  it.each([
+    'Brand', 'BRAND', '品牌', 'Бренд', 'Торговая марка', 'ТОРГОВАЯ МАРКА ТОВАРА', 'Товарный знак', 'Trademark', 'Brand name',
+    'Brand\n品牌', '品牌 Brand', 'Бренд / 品牌', '商标',
+  ])('«%s» → товарный знак', (header) => {
+    expect(details([header])).toMatchObject({ tradeMarkName: 'V0', productMarkName: null })
+  })
+
+  it.each(['Марка', 'МАРКА', 'Марка товара', 'Марка / 品牌', 'Марка / Brand', 'Марка (бренд)'])('«%s» → марка', (header) => {
+    expect(details([header])).toMatchObject({ productMarkName: 'V0', tradeMarkName: null })
+  })
+
+  it('«Марка» и «Brand» в одной таблице — каждый в своё поле', () => {
+    expect(details(['Brand', 'Марка'])).toMatchObject({ tradeMarkName: 'V0', productMarkName: 'V1' })
+    expect(details(['Марка', '品牌'])).toMatchObject({ productMarkName: 'V0', tradeMarkName: 'V1' })
+    expect(details(['МАРКА', 'ТОВАРНЫЙ ЗНАК', 'Бренд'])).toMatchObject({ productMarkName: 'V0', tradeMarkName: 'V1' })
   })
 })
 

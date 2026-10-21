@@ -1,21 +1,19 @@
 <script setup lang="ts">
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
-import { PhDownloadSimple, PhPlus, PhTranslate, PhUploadSimple } from '@phosphor-icons/vue'
+import { PhDownloadSimple, PhPlus, PhUploadSimple } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZKbd from '@/components/z/ZKbd.vue'
 import StatusDot from '@/components/broker/StatusDot.vue'
 import { chipFrame, chipTrigger } from '@/components/broker/chipStyles'
-import { import40Api } from '@/api/import40'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { confirmState, useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import {
   GOODS_EXCEL_ACCEPT, GOODS_EXCEL_MESSAGES, goodsHeaderColumns, isExcelFileName, readExcelDocuments, type ExcelSheetDoc,
 } from '@/utils/goodsExcel'
-import { countryFromText, hasHan, packagingLine, packagingWord, upperRu } from '@/utils/importText'
+import { countryFromText, packagingLine, packagingWord } from '@/utils/importText'
 import { docHeaderFrom, docKindOf } from '@/views/broker/case/steps/excelFallback'
 import ApplyToSelectedModal from './ApplyToSelectedModal.vue'
 import GoodsBulkBar from './GoodsBulkBar.vue'
@@ -183,8 +181,6 @@ const onApply = (patch: BulkPatch) => {
 }
 
 // ---- Из Excel (пакет импорта 21.10.2026: несколько файлов, листы книги, слияние с товарами ДТ, «Отменить») ----
-const route = useRoute()
-const caseId = computed(() => (typeof route.params.caseId === 'string' ? route.params.caseId : null))
 const fileInput = ref<HTMLInputElement | null>(null)
 const excelBusy = ref(false)
 const excelOpen = ref(false)
@@ -192,11 +188,11 @@ const importDocs = shallowRef<(ImportDoc & { invoiceNo: string | null })[]>([])
 const importMerge = shallowRef<MergeResult | null>(null)
 const importResolved = shallowRef<ResolveResult | null>(null)
 const importChecking = ref(false)
-const importApplying = ref(false)
 const importMode = ref<MergeMode>('fill')
-// В13 (по умолчанию перевод включён), В9/В8 (производитель и страна — выключены): одни значения с «Из документов».
+// В9/В8 (производитель и страна — выключены): одни значения с «Из документов». Описания — как в документе: перевода ИИ
+// при импорте нет (решение владельца 21.10.2026).
 const importOptions = ref<ImportOptions>({
-  translate: true, senderAsManufacturer: SENDER_AS_MANUFACTURER_DEFAULT, defaultOrigin: DEFAULT_ORIGIN_DEFAULT, keepInvalidCodes: false,
+  senderAsManufacturer: SENDER_AS_MANUFACTURER_DEFAULT, defaultOrigin: DEFAULT_ORIGIN_DEFAULT, keepInvalidCodes: false,
 })
 // Виды упаковки (классификатор 2013, грузит страница): «Вид упаковки товара» из Excel — в гр. 31 товара (X1).
 const packageKinds = computed(() => classifiers.cache['2013'] ?? [])
@@ -306,87 +302,30 @@ watch(excelOpen, (open) => {
   importResolved.value = null
 })
 
-/** Ошибка перевода (ИИ) → текст для тоста по коду ответа сервера. */
-const translateError = (e: unknown): string => {
-  const code = (e as { response?: { data?: { code?: string } } })?.response?.data?.code
-  return code && ['disabled', 'limit', 'modelError'].includes(code) ? tg(`translate.error.${code}`) : tg('translate.error.modelError')
-}
-
-/** Перевести описания (ИИ) товаров на месте; возвращает число переведённых. Сбой — тост, описания остаются. */
-const translateDescriptions = async (list: { description?: string | null }[], set: (i: number, text: string) => void): Promise<number> => {
-  const at = list.map((g, i) => (hasHan(g.description) ? i : -1)).filter((i) => i >= 0)
-  if (!at.length || !caseId.value) return 0
-  let done = 0
-  for (let from = 0; from < at.length; from += 200) {
-    const part = at.slice(from, from + 200)
-    const res = await import40Api.translateGoods(caseId.value, part.map((i) => (list[i].description ?? '').slice(0, 1000)))
-    part.forEach((i, k) => {
-      const ru = upperRu(res.texts[k])
-      if (ru) {
-        set(i, ru)
-        done += 1
-      }
-    })
-  }
-  return done
-}
-
-const applyImport = async () => {
+const applyImport = () => {
   const built = importBuilt.value
   const plan = importPlan.value
   const merged = importMerge.value
-  if (!built || !plan || !merged || importApplying.value || !editable.value) return
-  importApplying.value = true
-  try {
-    const goods = built.goods
-    if (importOptions.value.translate) {
-      try {
-        await translateDescriptions(goods, (i, text) => { goods[i].description = text })
-      } catch (err) {
-        console.error('Failed to translate goods descriptions', err)
-        message.error(translateError(err))
-      }
-    }
-    const mode: MergeMode = items.value.length ? importMode.value : 'append'
-    const snap = props.model.snapshot()
-    const res = applyMerge(props.model, goods, plan, mode)
-    const docs = props.model.appendDocs(dtDocsFromRows(merged.rows, (i) => res.targetIndex[i]))
-    excelOpen.value = false
-    const content = res.updated
-      ? tg('excel.doneMerged', { updated: res.updated, added: res.added })
-      : docs ? tg('excel.doneWithDocs', { n: res.added, docs }) : tg('excel.done', { n: res.added })
-    message.success({
-      content: res.rowsSkipped ? `${content}. ${tg('excel.rowsSkipped', { n: res.rowsSkipped })}` : content,
-      duration: 15,
-      action: {
-        label: tg('excel.undo'),
-        onClick: () => {
-          props.model.restore(snap)
-          message.info(tg('excel.undone'))
-        },
+  if (!built || !plan || !merged || !editable.value) return
+  const mode: MergeMode = items.value.length ? importMode.value : 'append'
+  const snap = props.model.snapshot()
+  const res = applyMerge(props.model, built.goods, plan, mode)
+  const docs = props.model.appendDocs(dtDocsFromRows(merged.rows, (i) => res.targetIndex[i]))
+  excelOpen.value = false
+  const content = res.updated
+    ? tg('excel.doneMerged', { updated: res.updated, added: res.added })
+    : docs ? tg('excel.doneWithDocs', { n: res.added, docs }) : tg('excel.done', { n: res.added })
+  message.success({
+    content: res.rowsSkipped ? `${content}. ${tg('excel.rowsSkipped', { n: res.rowsSkipped })}` : content,
+    duration: 15,
+    action: {
+      label: tg('excel.undo'),
+      onClick: () => {
+        props.model.restore(snap)
+        message.info(tg('excel.undone'))
       },
-    })
-  } finally {
-    importApplying.value = false
-  }
-}
-
-// ---- Описания на китайском (№10а): перевод уже имеющихся товаров ----
-const hanGoods = computed(() => items.value.filter((g) => hasHan(g.description)))
-const translatingExisting = ref(false)
-const translateExisting = async () => {
-  if (!editable.value || translatingExisting.value) return
-  const list = hanGoods.value
-  translatingExisting.value = true
-  try {
-    const n = await translateDescriptions(list, (i, text) => { props.model.setField(list[i], 'description', text) })
-    message.success(tg('translate.done', { n }))
-  } catch (err) {
-    console.error('Failed to translate goods descriptions', err)
-    message.error(translateError(err))
-  } finally {
-    translatingExisting.value = false
-  }
+    },
+  })
 }
 
 const exporting = ref(false)
@@ -510,18 +449,6 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
     </div>
 
     <template v-else>
-      <!-- №10а: гр. 31 подаётся на русском — описания с иероглифами переводятся по кнопке, сами ничего не меняют. -->
-      <div
-        v-if="editable && hanGoods.length"
-        class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-row bg-gold-soft px-3 py-2 text-[13px] text-gold-ink"
-        data-goods-han-banner
-      >
-        <span class="min-w-0 flex-1">{{ tg('translate.banner', { n: hanGoods.length }) }}</span>
-        <ZButton size="sm" class="max-sm:h-11" :loading="translatingExisting" data-goods-translate @click="translateExisting">
-          <template #icon><PhTranslate :size="15" aria-hidden="true" /></template>
-          {{ translatingExisting ? tg('translate.busy') : tg('translate.action') }}
-        </ZButton>
-      </div>
       <span class="sr-only" role="status" aria-live="polite">{{ selectedIndexes.length ? tg('bulk.selected', { n: selectedIndexes.length }) : '' }}</span>
       <div v-if="!selectedIndexes.length" class="flex min-h-12 flex-wrap items-center gap-2">
         <ZInput
@@ -625,7 +552,6 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
       :plan="importPlan"
       :existing="items.length"
       :checking="importChecking"
-      :applying="importApplying"
       :sender-name="senderName"
       :origin-label="originLabel"
       @apply="applyImport"

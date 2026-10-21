@@ -13,8 +13,9 @@ export type GoodsExcelRow = ReestrGoodsItemInput & { ntins?: string[]; gtin?: st
 
 /**
  * Сведения для ДТ из шаблона декларанта (опция details): строка характеристик гр. 31, часть места, индивидуальные
- * упаковки, наличие упаковки, документ гр. 44 и инвойс. «Отсутствует», «нет», «-» — пусто (бланк сам пишет
- * «ОТСУТСТВУЕТ»); текст — ЗАГЛАВНЫМИ, даты — 'YYYY-MM-DD'.
+ * упаковки, наличие упаковки, документ гр. 44 и инвойс. Текст — ЗАГЛАВНЫМИ, даты — 'YYYY-MM-DD'. «Отсутствует» в марке,
+ * товарном знаке, модели, ГОСТ, сорте и серийном номере — значение декларанта, переносится как есть («ОТСУТСТВУЕТ»,
+ * решение владельца 21.10.2026); в остальных полях, а «нет», «-», «N/A» — везде, — пусто.
  */
 export interface GoodsExcelDetails {
   manufacturerName: string | null
@@ -107,8 +108,11 @@ const EXCEL_COLUMN_MATCHERS: { field: ExcelField; patterns: string[] }[] = [
   { field: 'measureUnit', patterns: ['единицаизмерения', 'едизмерения', 'едизм', '=ед', 'uom', '=unit', 'unitofmeasure', '计量单位', '=单位'] },
   { field: 'rowName', patterns: ['наименованиехарактеристики', '=характеристика', 'характеристикатовара'] },
   { field: 'manufacturerName', patterns: ['производитель', 'изготовитель', 'manufacturer', '生产商', '制造商'] },
-  { field: 'tradeMarkName', patterns: ['товарныйзнак', 'торговыйзнак', 'торговаямарка', 'trademark', 'бренд', '=brand', '商标'] },
-  { field: 'productMarkName', patterns: ['=марка', 'маркатовара', '=mark', '品牌'] },
+  // Решение владельца 21.10.2026: «Brand / 品牌 / Бренд / Торговая марка» — товарный знак, «Марка» и «Марка товара» —
+  // марка (как zircon-ai generic.py). Марка — раньше знака и только точным словом: в двуязычной шапке «Марка / 品牌»
+  // русское «Марка» главнее, а «Торговая марка (товара)» маркой не становится.
+  { field: 'productMarkName', patterns: ['=марка', '=маркатовара', '=mark'] },
+  { field: 'tradeMarkName', patterns: ['товарныйзнак', 'торговыйзнак', 'торговаямарка', 'trademark', 'бренд', '=brand', 'brandname', '品牌', '商标'] },
   { field: 'productModelName', patterns: ['модель', '=model', 'modelno', '型号'] },
   { field: 'productArticle', patterns: ['артикул', 'article', '=sku', '=art', 'itemcode', 'productcode', '货号', '款号'] },
   { field: 'serialNumbers', patterns: ['серийн', 'serial'] },
@@ -137,6 +141,11 @@ const DETAIL_FIELDS: ReadonlySet<ExcelField> = new Set<DetailField>([
 const LINE_NO_HEADER = /^(№|#|no\.?|n°|№\s*п\s*\/?\s*п|п\s*\/\s*п|item\s*no\.?|序号)$/i
 /** «Отсутствует», «нет», «-», «N/A» — значения нет. */
 export const ABSENT = /^(отсутству\S*|нет|не\s*указан\S*|[-—–]+|n\/?a|none)$/i
+/**
+ * «Отсутствует» в любом регистре — осознанное значение декларанта в марке, товарном знаке, модели, ГОСТ, сорте и серийном
+ * номере строки гр. 31 (решение владельца 21.10.2026): переносится как есть, ЗАГЛАВНЫМИ.
+ */
+export const ABSENT_DECLARED = /^отсутству\S*$/i
 /** Шапку таблицы ищем в первых строках листа (сверху бывают реквизиты, номер инвойса и т. п.). */
 const HEADER_SCAN_ROWS = 30
 /** Строки «Итого/Всего/Total» — не товары. */
@@ -237,6 +246,13 @@ export function unitFromHeader(header: unknown): string | null {
 function excelText(v: unknown): string | null {
   const s = excelToStr(v)
   if (!s || ABSENT.test(s)) return null
+  return s.toLocaleUpperCase('ru-RU')
+}
+
+/** Марка, знак, модель, ГОСТ, сорт, серийный: «Отсутствует» — как есть, ЗАГЛАВНЫМИ; «нет», «-», «N/A» — пусто. */
+function excelDeclaredText(v: unknown): string | null {
+  const s = excelToStr(v)
+  if (!s || (ABSENT.test(s) && !ABSENT_DECLARED.test(s))) return null
   return s.toLocaleUpperCase('ru-RU')
 }
 
@@ -414,13 +430,13 @@ export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = 
     const details: GoodsExcelDetails | undefined = opts.details
       ? {
           manufacturerName: excelText(cell(row, 'manufacturerName')),
-          tradeMarkName: excelText(cell(row, 'tradeMarkName')),
-          productMarkName: excelText(cell(row, 'productMarkName')),
-          productModelName: excelText(cell(row, 'productModelName')),
+          tradeMarkName: excelDeclaredText(cell(row, 'tradeMarkName')),
+          productMarkName: excelDeclaredText(cell(row, 'productMarkName')),
+          productModelName: excelDeclaredText(cell(row, 'productModelName')),
           productArticle: excelText(cell(row, 'productArticle')),
-          serialNumbers: excelText(cell(row, 'serialNumbers')),
-          standardName: excelText(cell(row, 'standardName')),
-          productSortName: excelText(cell(row, 'productSortName')),
+          serialNumbers: excelDeclaredText(cell(row, 'serialNumbers')),
+          standardName: excelDeclaredText(cell(row, 'standardName')),
+          productSortName: excelDeclaredText(cell(row, 'productSortName')),
           // Своего столбца единиц нет — единица из заголовка количества («总数量 Кол-во (pcs)» → PCS).
           measureUnit: cellUnit ?? headerUnit,
           ...(cellUnit == null && headerUnit ? { unitFromHeader: true } : {}),

@@ -161,15 +161,27 @@ describe('importBuild №4: страна, прочее', () => {
 })
 
 describe('importRows.fromExtraction: товар «Из документов»', () => {
-  it('«Отсутствует» в сведениях — пусто (как «Из Excel», В23 у владельца); страна текстом и буквами → ОКСМ; единица и упаковка из extras', () => {
+  it('«Отсутствует» в марке, знаке, модели — как есть (решение владельца 21.10, как «Из Excel»); страна текстом и буквами → ОКСМ; единица и упаковка из extras', () => {
     const r = fromExtraction(
-      { description: 'Сушилка', tnvedCode: '7323 99 000 0', quantity: 470, manufacturerName: 'Yiwu', tradeMarkName: 'Отсутствует', productMarkName: 'ОТСУТСТВУЕТ', productModelName: 'M-1' },
+      { description: 'Сушилка', tnvedCode: '7323 99 000 0', quantity: 470, manufacturerName: 'Yiwu', tradeMarkName: 'Отсутствует', productMarkName: 'ОТСУТСТВУЕТ', productModelName: 'отсутствует' },
       { measureUnitText: 'pcs', packageKindText: 'картонные коробки', originText: 'CN' },
       'Zircon AI',
     )
     expect(r).toMatchObject({
-      tnvedCode: '7323990000', manufacturerName: 'Yiwu', tradeMarkName: null, productMarkName: null, productModelName: 'M-1',
+      tnvedCode: '7323990000', manufacturerName: 'Yiwu', tradeMarkName: 'Отсутствует', productMarkName: 'ОТСУТСТВУЕТ', productModelName: 'отсутствует',
       unitText: 'pcs', packageKindText: 'картонные коробки', countryCode: '156', originText: null,
     })
+    // в строку гр. 31 — ЗАГЛАВНЫМИ, как любое значение ДТ
+    const { goods } = buildGoods([r], ctx(null))
+    expect(goods[0].characteristics![0]).toMatchObject({ tradeMarkName: 'ОТСУТСТВУЕТ', productMarkName: 'ОТСУТСТВУЕТ', productModelName: 'ОТСУТСТВУЕТ' })
+  })
+
+  it('«нет», «-», «N/A» и пусто — пусто; производитель и артикул «Отсутствует» — пусто (знак, марка, модель — нет)', () => {
+    const r = fromExtraction(
+      { description: 'Сушилка', manufacturerName: 'Отсутствует', productArticle: 'отсутствует', tradeMarkName: '-', productMarkName: 'нет', productModelName: '  ' },
+      null,
+      'Zircon AI',
+    )
+    expect(r).toMatchObject({ manufacturerName: null, productArticle: null, tradeMarkName: null, productMarkName: null, productModelName: null })
   })
 })

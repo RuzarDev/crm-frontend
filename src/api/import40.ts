@@ -591,12 +591,6 @@ export interface Import40ExtractionResult {
   extras?: Import40ExtractionExtras | null
 }
 
-/** Перевод описаний товаров (POST import40/{caseId}/goods/translate): тот же порядок, пустая строка — не переведено. */
-export interface Import40GoodsTranslation {
-  texts: string[]
-  model?: string | null
-}
-
 export const IMPORT40_TRANSPORT_MODES: { value: number; label: string }[] = [
   { value: 0, label: 'ЖД' },
   { value: 1, label: 'Авто' },
@@ -1271,17 +1265,6 @@ export const import40Api = {
         // a cold model cache.
         timeout: 180000,
       },
-    )
-    return response.data
-  },
-
-  // Перевод описаний товаров ДТ на русский (пакет импорта 21.10, №10а). Тихо: экран сам пишет причину отказа
-  // (503 disabled, 429 limit, 502 modelError — { error, code }). Модель отвечает до ~110 с.
-  translateGoods: async (caseId: string, texts: readonly string[]): Promise<Import40GoodsTranslation> => {
-    const response = await apiClient.post<Import40GoodsTranslation>(
-      `/import40/${encodeURIComponent(caseId)}/goods/translate`,
-      { texts },
-      { silent: true, timeout: 180000 },
     )
     return response.data
   },

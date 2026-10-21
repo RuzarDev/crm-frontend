@@ -15,11 +15,6 @@ const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.
 vi.mock('@/ui/message', () => ({ message: toast }))
 const excel = vi.hoisted(() => ({ readExcelDocuments: vi.fn() }))
 vi.mock('@/utils/goodsExcel', async (orig) => ({ ...(await orig<typeof import('@/utils/goodsExcel')>()), readExcelDocuments: excel.readExcelDocuments }))
-const i40 = vi.hoisted(() => ({ translateGoods: vi.fn() }))
-vi.mock('@/api/import40', async (orig) => {
-  const real = await orig<typeof import('@/api/import40')>()
-  return { ...real, import40Api: { ...real.import40Api, translateGoods: i40.translateGoods } }
-})
 const xlsx = vi.hoisted(() => ({ exportXlsx: vi.fn(async () => undefined) }))
 vi.mock('@/views/broker/list', async (orig) => ({ ...(await orig<typeof import('@/views/broker/list')>()), exportXlsx: xlsx.exportXlsx }))
 vi.mock('@/api/references', () => ({ referencesApi: { listClassifiers: vi.fn(async () => []), listOkeiUnits: vi.fn(async () => []), listCountries: vi.fn(async () => []) } }))
@@ -584,29 +579,26 @@ describe('SectionGoods: Excel', () => {
     expect(toast.info).toHaveBeenCalledWith('Импорт отменён')
   })
 
-  it('№10а: описания на китайском — перевод (ИИ) при «Добавить» по галочке; полоса «Описания на китайском» в разделе', async () => {
+  it('описания на китайском переносятся как в документе — перевода ИИ при импорте нет (решение владельца 21.10)', async () => {
     excel.readExcelDocuments.mockResolvedValue({ docs: [sheet([{ description: '脚手架扣件', tnvedCode: '7326909807', quantity: 3000 }])] })
-    i40.translateGoods.mockResolvedValue({ texts: ['Хомуты строительных лесов'] })
     await mount([])
     await pick(file('cn.xlsx'))
     const modal = document.querySelector('[data-goods-excel-modal]') as HTMLElement
-    expect(modal.querySelector('[data-goods-excel-translate]')!.textContent).toContain('Перевести описания на русский (ИИ): 1')
+    expect(modal.querySelector('[data-goods-excel-translate]')).toBeNull()
+    expect(modal.textContent).not.toContain('ИИ')
+    expect(modal.querySelector('[data-goods-excel-han]')!.textContent).toContain('Описания на китайском: 1 — перенесутся как в документе')
     button('Добавить в конец').click()
     await settle()
-    expect(i40.translateGoods).toHaveBeenCalledWith('c1', ['脚手架扣件'])
-    expect(form.goodsItems[0].description).toBe('ХОМУТЫ СТРОИТЕЛЬНЫХ ЛЕСОВ')
+    expect(form.goodsItems[0].description).toBe('脚手架扣件')
     // код без ДЕИ — количество в строку гр. 31 (№1)
     expect(form.goodsItems[0].quantity).toBeNull()
     expect(form.goodsItems[0].characteristics![0].quantity).toBe(3000)
 
+    // товары на китайском уже в ДТ — полосы с переводом нет
     w.unmount()
-    i40.translateGoods.mockResolvedValue({ texts: ['Трубы стальные'] })
     await mount([item({ description: '黑色金属脚手架钢管' })])
-    expect(w.get('[data-goods-han-banner]').text()).toContain('Описания на китайском: 1')
-    await w.get('[data-goods-translate]').trigger('click')
-    await settle()
-    expect(form.goodsItems[0]).toMatchObject({ description: 'ТРУБЫ СТАЛЬНЫЕ' })
     expect(w.find('[data-goods-han-banner]').exists()).toBe(false)
+    expect(w.find('[data-goods-translate]').exists()).toBe(false)
   })
 
   it('«В Excel» — все товары с ключевыми графами, имя файла с номером ДТ', async () => {

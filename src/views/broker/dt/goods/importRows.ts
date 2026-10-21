@@ -2,7 +2,7 @@
 // документов») и из разбора Zircon AI. Дальше строки сливаются (importMerge), коды проверяются (importResolve), товары
 // ДТ строятся по одним правилам (importBuild).
 import type { Import40ExtractionGoodsExtra, Import40ExtractionPreviewGoodsItem } from '@/api/import40'
-import { ABSENT, type GoodsExcelRow } from '@/utils/goodsExcel'
+import { ABSENT, ABSENT_DECLARED, type GoodsExcelRow } from '@/utils/goodsExcel'
 import { countryFromText, type CountryOption } from '@/utils/importText'
 
 /** Документ гр. 44 строки шаблона декларанта («КОД / НОМЕР / ДАТА ДОКУМЕНТА», инвойс 04021). */
@@ -74,10 +74,18 @@ const text = (v: string | null | undefined) => {
   const t = (v ?? '').trim()
   return t ? t : null
 }
-/** Сведение строки гр. 31 из разбора: «Отсутствует», «нет», «-» — пусто, как в «Из Excel» (решение В23 — у владельца). */
+/** Производитель и артикул из разбора: «Отсутствует», «нет», «-» — пусто, как в «Из Excel». */
 const detail = (v: string | null | undefined) => {
   const t = text(v)
   return t && !ABSENT.test(t) ? t : null
+}
+/**
+ * Марка, товарный знак, модель из разбора: «Отсутствует» — значение декларанта, переносится как есть (решение владельца
+ * 21.10.2026, как «Из Excel»); «нет», «-», «N/A» — пусто.
+ */
+const declared = (v: string | null | undefined) => {
+  const t = text(v)
+  return t && (!ABSENT.test(t) || ABSENT_DECLARED.test(t)) ? t : null
 }
 
 export const emptyImportRow = (source: string): ImportRow => ({
@@ -152,9 +160,9 @@ export function fromExtraction(
     originText: countryCode ? null : text(extra?.originText) ?? (code && !countryCode ? code : null),
     packageKindText: text(extra?.packageKindText),
     manufacturerName: detail(item.manufacturerName),
-    tradeMarkName: detail(item.tradeMarkName),
-    productMarkName: detail(item.productMarkName),
-    productModelName: detail(item.productModelName),
+    tradeMarkName: declared(item.tradeMarkName),
+    productMarkName: declared(item.productMarkName),
+    productModelName: declared(item.productModelName),
     productArticle: detail(item.productArticle),
   }
 }

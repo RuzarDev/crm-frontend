@@ -68,8 +68,9 @@ const HEADER_ALIASES: Record<CharacteristicField, readonly string[]> = {
   unitCode: ['ед', 'едизм', 'единица', 'единицаизмерения', 'океи', 'бірлік', 'өлшембірлігі', 'unit', 'uom'],
   invoiceValue: ['стоимость', 'сумма', 'цена', 'фактурнаястоимость', 'құны', 'value', 'amount', 'price', 'total'],
   manufacturerName: ['производитель', 'изготовитель', 'өндіруші', 'manufacturer', 'producer'],
-  tradeMarkName: ['товзнак', 'товарныйзнак', 'бренд', 'тауарлықбелгі', 'trademark', 'brand'],
-  productMarkName: ['марка', 'mark'],
+  // «Brand / 品牌 / Бренд / Торговая марка» — товарный знак, «Марка» — марка (решение владельца 21.10.2026, как импорт).
+  tradeMarkName: ['товзнак', 'товарныйзнак', 'торговыйзнак', 'торговаямарка', 'бренд', 'тауарлықбелгі', 'trademark', 'brand', '品牌', '商标'],
+  productMarkName: ['марка', 'маркатовара', 'mark'],
   productModelName: ['модель', 'model'],
   productArticle: ['артикул', 'art', 'article', 'sku', 'partnumber', 'pn'],
   standardName: ['стандарт', 'гост', 'стандартгост', 'standard'],

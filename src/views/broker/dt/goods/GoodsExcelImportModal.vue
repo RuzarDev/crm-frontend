@@ -6,7 +6,6 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZCheckbox from '@/components/z/ZCheckbox.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZRadioGroup from '@/components/z/ZRadioGroup.vue'
-import { hasHan } from '@/utils/importText'
 import { formatKg, formatQty } from '@/views/broker/transit/record/sections/goods'
 import { okeiLabel } from './editor/okei'
 import { excelPreview } from './goodsImport'
@@ -16,12 +15,13 @@ import type { ImportRow } from './importRows'
 
 // Предпросмотр «Из Excel» (пакет импорта 21.10.2026, №1–5, №15): файлы (несколько; лист книги — отдельный документ),
 // сколько строк и что распознано, разные значения в файлах, куда пойдёт количество (гр. 41 / строка гр. 31), коды не из
-// справочника, единицы, страны, упаковка по умолчанию; галочки перевода описаний (ИИ), производителя = отправителя и
-// страны происхождения; если в ДТ уже есть товары — сколько совпало и режим: дополнить / заменить / добавить новыми.
+// справочника, единицы, страны, упаковка по умолчанию; галочки производителя = отправителя и страны происхождения
+// (описания переносятся как в документе — перевода ИИ при импорте нет, решение владельца 21.10.2026); если в ДТ уже есть
+// товары — сколько совпало и режим: дополнить / заменить / добавить новыми.
 const PREVIEW_ROWS = 5
 
 export interface ImportFileView { source: string; kind: 'invoice' | 'packing' | null; rows: number }
-export interface ImportOptions { translate: boolean; senderAsManufacturer: boolean; defaultOrigin: boolean; keepInvalidCodes: boolean }
+export interface ImportOptions { senderAsManufacturer: boolean; defaultOrigin: boolean; keepInvalidCodes: boolean }
 
 const props = defineProps<{
   open: boolean
@@ -33,7 +33,6 @@ const props = defineProps<{
   mode: MergeMode
   existing: number
   checking: boolean
-  applying?: boolean
   options: ImportOptions
   /** Отправитель гр. 2 (галочка «Производитель = отправитель», В9). */
   senderName?: string | null
@@ -84,7 +83,6 @@ const docNumberCodes = computed(() => invalidCodes.value.filter((c) => c.reason 
 const otherInvalid = computed(() => invalidCodes.value.filter((c) => c.reason !== 'docNumber'))
 const count = (kind: Parameters<typeof noteCount>[1]) => noteCount(notes.value, kind)
 const codesNotChecked = computed(() => notes.value.some((n) => n.kind === 'codesNotChecked'))
-const hanCount = computed(() => props.rows.filter((r) => hasHan(r.description)).length)
 const withoutManufacturer = computed(() => props.rows.filter((r) => !r.manufacturerName).length)
 const withoutCountry = computed(() => props.rows.filter((r) => !r.countryCode).length)
 const setOption = <K extends keyof ImportOptions>(k: K, v: ImportOptions[K]) => emit('update:options', { ...props.options, [k]: v })
@@ -129,7 +127,6 @@ const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
     :width="760"
     :ok-text="okText"
     :cancel-text="t('common.cancel')"
-    :confirm-loading="applying"
     :ok-button-props="{ disabled: !rows.length || checking || !built }"
     destroy-on-close
     @update:open="emit('update:open', $event)"
@@ -221,14 +218,10 @@ const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
           {{ tx('unknownPackaging', { list: summary.unknownPackaging.map((v) => `«${v}»`).join(', ') }) }}
         </p>
 
+        <p v-if="count('han')" class="m-0 text-ink-2" data-goods-excel-han>{{ tx('han', { n: count('han') }) }}</p>
+
         <!-- Галочки -->
-        <div v-if="hanCount || (senderName && withoutManufacturer) || (originLabel && withoutCountry)" class="flex flex-col gap-2">
-          <div v-if="hanCount" data-goods-excel-translate>
-            <ZCheckbox :checked="options.translate" @update:checked="setOption('translate', $event)">
-              {{ tx('translate', { n: hanCount }) }}
-            </ZCheckbox>
-            <p class="m-0 mt-0.5 pl-6 text-xs text-ink-3">{{ tx('translateHint') }}</p>
-          </div>
+        <div v-if="(senderName && withoutManufacturer) || (originLabel && withoutCountry)" class="flex flex-col gap-2">
           <div v-if="senderName && withoutManufacturer" data-goods-excel-sender-manufacturer>
             <ZCheckbox :checked="options.senderAsManufacturer" @update:checked="setOption('senderAsManufacturer', $event)">
               {{ tx('senderAsManufacturer', { n: withoutManufacturer, name: senderName }) }}
@@ -277,7 +270,6 @@ const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
                 </td>
                 <td :class="[td, 'max-w-60 truncate']" :title="r.description ?? ''">
                   {{ r.description || '—' }}
-                  <span v-if="hasHan(r.description) && options.translate" class="block text-xs text-ink-3">{{ tx('willTranslate') }}</span>
                 </td>
                 <td :class="[td, 'text-right tabular-nums whitespace-nowrap']">
                   {{ num(r.quantity) }} <span class="text-xs text-ink-3">{{ unitOf(i) }}</span>
