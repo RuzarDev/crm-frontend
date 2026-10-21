@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ClassifierItem } from '@/types/api'
 import { buildGoods, noteCount, noteDetails, packageKindByWord, type BuildCtx } from '../importBuild'
 import type { ResolveResult } from '../importResolve'
-import { emptyImportRow, type ImportRow } from '../importRows'
+import { emptyImportRow, fromExtraction, type ImportRow } from '../importRows'
 
 // Пакет импорта 21.10.2026: товар ДТ из строки импорта — одни правила для «Из Excel» и «Из документов».
 const kind = (code: string, nameRu: string): ClassifierItem => ({ id: code, classifierCode: '2013', code, nameRu, sortOrder: 0, isActive: true })
@@ -157,5 +157,19 @@ describe('importBuild №4: страна, прочее', () => {
     const [g] = buildGoods([row({ currency: 'CNY', ntins: ['0200000000001', '0200000000001'], gtin: '4870000000001' })],
       { currency: '', packageKinds: KINDS, resolved: resolved({ '7323990000': {} }) }).goods
     expect(g).toMatchObject({ currency: 'CNY', ntins: ['0200000000001'], gtin: '4870000000001', payments: [] })
+  })
+})
+
+describe('importRows.fromExtraction: товар «Из документов»', () => {
+  it('«Отсутствует» в сведениях — пусто (как «Из Excel», В23 у владельца); страна текстом и буквами → ОКСМ; единица и упаковка из extras', () => {
+    const r = fromExtraction(
+      { description: 'Сушилка', tnvedCode: '7323 99 000 0', quantity: 470, manufacturerName: 'Yiwu', tradeMarkName: 'Отсутствует', productMarkName: 'ОТСУТСТВУЕТ', productModelName: 'M-1' },
+      { measureUnitText: 'pcs', packageKindText: 'картонные коробки', originText: 'CN' },
+      'Zircon AI',
+    )
+    expect(r).toMatchObject({
+      tnvedCode: '7323990000', manufacturerName: 'Yiwu', tradeMarkName: null, productMarkName: null, productModelName: 'M-1',
+      unitText: 'pcs', packageKindText: 'картонные коробки', countryCode: '156', originText: null,
+    })
   })
 })

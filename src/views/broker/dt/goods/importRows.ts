@@ -2,7 +2,7 @@
 // документов») и из разбора Zircon AI. Дальше строки сливаются (importMerge), коды проверяются (importResolve), товары
 // ДТ строятся по одним правилам (importBuild).
 import type { Import40ExtractionGoodsExtra, Import40ExtractionPreviewGoodsItem } from '@/api/import40'
-import type { GoodsExcelRow } from '@/utils/goodsExcel'
+import { ABSENT, type GoodsExcelRow } from '@/utils/goodsExcel'
 import { countryFromText, type CountryOption } from '@/utils/importText'
 
 /** Документ гр. 44 строки шаблона декларанта («КОД / НОМЕР / ДАТА ДОКУМЕНТА», инвойс 04021). */
@@ -73,6 +73,11 @@ const digits = (v: string | null | undefined) => {
 const text = (v: string | null | undefined) => {
   const t = (v ?? '').trim()
   return t ? t : null
+}
+/** Сведение строки гр. 31 из разбора: «Отсутствует», «нет», «-» — пусто, как в «Из Excel» (решение В23 — у владельца). */
+const detail = (v: string | null | undefined) => {
+  const t = text(v)
+  return t && !ABSENT.test(t) ? t : null
 }
 
 export const emptyImportRow = (source: string): ImportRow => ({
@@ -146,11 +151,11 @@ export function fromExtraction(
     countryCode,
     originText: countryCode ? null : text(extra?.originText) ?? (code && !countryCode ? code : null),
     packageKindText: text(extra?.packageKindText),
-    manufacturerName: text(item.manufacturerName),
-    tradeMarkName: text(item.tradeMarkName),
-    productMarkName: text(item.productMarkName),
-    productModelName: text(item.productModelName),
-    productArticle: text(item.productArticle),
+    manufacturerName: detail(item.manufacturerName),
+    tradeMarkName: detail(item.tradeMarkName),
+    productMarkName: detail(item.productMarkName),
+    productModelName: detail(item.productModelName),
+    productArticle: detail(item.productArticle),
   }
 }
 
