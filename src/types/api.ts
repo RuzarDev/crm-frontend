@@ -839,6 +839,25 @@ export interface TnvedClassifyMatch {
   unitName: string | null
 }
 
+/** Код из смыслового поиска (GET /tnved/semantic): близость 0…1; fromHistory — код подтверждали для похожего описания. */
+export interface TnvedSemanticMatch {
+  code: string
+  description: string
+  score: number
+  rateStr: string | null
+  unitName: string | null
+  fromHistory: boolean
+  path: { code: string; name: string }[]
+}
+
+/** available = false — модели нет или индекс не готов: искать по словам (classify). */
+export interface TnvedSemanticResponse {
+  available: boolean
+  model: string | null
+  tookMs: number
+  matches: TnvedSemanticMatch[]
+}
+
 export interface TnvedClassifyResponse {
   matches: TnvedClassifyMatch[]
   exactCodeInfo: TnvedRateDto | null
