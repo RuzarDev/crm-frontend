@@ -12,7 +12,7 @@ const tnved = vi.hoisted(() => ({ classify: vi.fn(), semantic: vi.fn() }))
 vi.mock('@/api/tnved', async (orig) => ({ ...(await orig<typeof import('@/api/tnved')>()), tnvedApi: tnved }))
 
 import AiTnvedPanel from '../AiTnvedPanel.vue'
-import { collectQuestions, confidencePct, confidenceTone, vatKey } from '../aiTnved'
+import { collectQuestions, confidencePct, confidenceTone, resetSemanticGate, vatKey } from '../aiTnved'
 
 const code = (over: Partial<AiTnvedCode> = {}): AiTnvedCode => ({
   code: '8413708100',
@@ -43,6 +43,7 @@ afterEach(() => {
   w?.unmount()
   document.body.innerHTML = ''
   vi.clearAllMocks()
+  resetSemanticGate()
 })
 const mount = async (props: Record<string, unknown> = {}) => {
   w = mountWithI18n(AiTnvedPanel, { props: { initialDescription: 'насос центробежный для воды', source: 'dt', caseId: 'c1', ...props }, attachTo: document.body })
@@ -81,6 +82,18 @@ describe('AiTnvedPanel', () => {
     await flushPromises()
     expect(w.get('[data-ai-quick-kind]').text()).toBe('Пока ИИ думает — варианты по словам')
     expect(w.find('[data-ai-quick-row="8413708100"]').exists()).toBe(true)
+  })
+
+  it('смыслового поиска нет — 5 минут сразу по словам, без лишнего запроса', async () => {
+    tnved.semantic.mockResolvedValue({ data: { available: false, model: null, tookMs: 0, matches: [] } })
+    tnved.classify.mockResolvedValue({ data: { matches: [] } })
+    api.suggest.mockResolvedValue(answer())
+    await mount()
+    await run()
+    expect(tnved.semantic).toHaveBeenCalledTimes(1)
+    await run()
+    expect(tnved.semantic).toHaveBeenCalledTimes(1)
+    expect(tnved.classify).toHaveBeenCalledTimes(2)
   })
 
   it('пока ИИ думает — сразу варианты по словам, их можно выбрать', async () => {

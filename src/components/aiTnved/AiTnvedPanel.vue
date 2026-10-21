@@ -14,7 +14,7 @@ import {
 import { tnvedApi } from '@/api/tnved'
 import { formatTnvedCode, isRateLimited } from '@/views/references/tnvedShared'
 import AiTnvedCard from './AiTnvedCard.vue'
-import { collectQuestions } from './aiTnved'
+import { collectQuestions, markSemanticOff, semanticAllowed } from './aiTnved'
 
 // Подбор кода ТН ВЭД с ИИ (17.10): описание и необязательные характеристики → карточки 3–5 кодов. Уточняющие
 // вопросы — полями, ответы уходят повторным запросом. ИИ недоступен (выключен, не ответил, лимит) — обычный поиск по
@@ -57,16 +57,20 @@ const characteristics = (): AiTnvedCharacteristics | null => {
 }
 
 let seq = 0
-// Быстрые варианты — не главное: ошибки молча, сначала по смыслу, нет модели или пусто — по словам.
+// Быстрые варианты — не главное: ошибки молча, сначала по смыслу, нет модели или пусто — по словам. Смысловой поиск
+// недоступен — 5 минут его не спрашиваем (один запрос из лимита вместо двух).
 const loadQuick = async (text: string, my: number) => {
   const alive = () => my === seq && state.value === 'loading'
-  try {
-    const r = await tnvedApi.semantic(text, 8, { silent: true })
-    if (r.data?.available && r.data.matches.length) {
-      if (alive()) { quick.value = r.data.matches; quickKind.value = 'semantic' }
-      return
-    }
-  } catch { /* дальше — по словам */ }
+  if (semanticAllowed()) {
+    try {
+      const r = await tnvedApi.semantic(text, 8, { silent: true })
+      if (!r.data?.available) markSemanticOff()
+      else if (r.data.matches.length) {
+        if (alive()) { quick.value = r.data.matches; quickKind.value = 'semantic' }
+        return
+      }
+    } catch { markSemanticOff() }
+  }
   try {
     const r = await tnvedApi.classify(text, 8, { silent: true })
     if (alive()) { quick.value = r.data?.matches ?? []; quickKind.value = 'words' }

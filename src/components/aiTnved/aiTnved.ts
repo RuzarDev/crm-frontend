@@ -29,6 +29,14 @@ export function collectQuestions(r: AiTnvedResponseLike, max = 6): string[] {
   return out
 }
 
+// Смысловой поиск недоступен (модели нет, индекс строится, ошибка) — 5 минут сразу идём поиском по словам, чтобы
+// не тратить лишний запрос из лимита на каждый подбор.
+export const SEMANTIC_OFF_MS = 5 * 60 * 1000
+let semanticOffUntil = 0
+export const semanticAllowed = (now = Date.now()): boolean => now >= semanticOffUntil
+export const markSemanticOff = (now = Date.now()) => { semanticOffUntil = now + SEMANTIC_OFF_MS }
+export const resetSemanticGate = () => { semanticOffUntil = 0 }
+
 // Статус ИИ — один запрос на сессию страницы.
 const status = ref<AiTnvedStatus | null>(null)
 let loading: Promise<void> | null = null
