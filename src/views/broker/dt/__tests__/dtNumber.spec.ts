@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { buildFromParts, cleanTail, ddmmyyOf, isStandardNumber, isoOfDdmmyy, lastTail, parseFullNumber, partsOf, tailOf } from '../dtNumber'
+import { buildFromParts, cleanTail, ddmmyyOf, digitsOfShortNumber, isKedenNumber, isStandardNumber, isoOfDdmmyy, lastTail, padTail, parseFullNumber, partsOf, tailOf } from '../dtNumber'
 import { classifierLabel, dedupeOptions, withCurrent } from '../dtOptions'
 
 describe('dtNumber — номер ДТ гр. А', () => {
@@ -18,6 +18,27 @@ describe('dtNumber — номер ДТ гр. А', () => {
     expect(buildDtNumber('55302', null, '0001234')).toBe('')
     expect(buildDtNumber('55302', '2026-10-09', '123456')).toBe('')
     expect(buildDtNumber(' 55302 ', '2026-10-09', '0001234')).toBe('55302/091026/0001234')
+  })
+  it('формат КЕДЕН: ровно 5 цифр поста, ДДММГГ, 7 цифр', () => {
+    expect(isKedenNumber('55403/201026/0026650')).toBe(true)
+    expect(isKedenNumber(' 55403/201026/0026650 ')).toBe(true)
+    expect(isKedenNumber('25831')).toBe(false)
+    expect(isKedenNumber('554031/201026/0026650')).toBe(false)
+    expect(isKedenNumber('55403/201026/26650')).toBe(false)
+    expect(isKedenNumber('')).toBe(false)
+    expect(isKedenNumber(null)).toBe(false)
+  })
+  it('хвост дополняется нулями слева; цифры короткого номера', () => {
+    expect(padTail('25831')).toBe('0025831')
+    expect(padTail('0026650')).toBe('0026650')
+    expect(padTail('')).toBe('')
+    expect(padTail('12345678')).toBe('')
+    expect(padTail('12a')).toBe('')
+    expect(digitsOfShortNumber('25831')).toBe('25831')
+    expect(digitsOfShortNumber(' 25831 ')).toBe('25831')
+    expect(digitsOfShortNumber('55403/201026/25831')).toBe('25831')
+    expect(digitsOfShortNumber('KEDEN/77')).toBe('')
+    expect(digitsOfShortNumber('12345678')).toBe('')
   })
   it('разбор: хвост только у стандартного номера', () => {
     expect(isStandardNumber('55302/091026/0001234')).toBe(true)

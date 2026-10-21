@@ -62,6 +62,7 @@ const uploadBtn = 'max-sm:block max-sm:w-full [&>button]:h-9 [&>button]:bg-surfa
       <ZUpload
         v-if="!x.resolvedAtUtc"
         :accept="ACCEPT"
+        convert-heic
         :max-size-mb="MAX_MB"
         :loading="uploading === x.id"
         :disabled="!!uploading && uploading !== x.id"

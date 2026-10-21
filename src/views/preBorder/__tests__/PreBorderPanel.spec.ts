@@ -13,6 +13,8 @@ vi.mock('@/api/preBorder', async (orig) => ({ ...(await orig<typeof import('@/ap
 vi.mock('@/api/carriers', async (orig) => ({ ...(await orig<typeof import('@/api/carriers')>()), carriersApi: { caseCarriers: vi.fn().mockResolvedValue([]) } }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 vi.mock('@/ui/download', () => ({ saveBlob: vi.fn() }))
+const heic = vi.hoisted(() => ({ toJpeg: vi.fn() }))
+vi.mock('@/utils/heic', async (orig) => ({ ...(await orig<typeof import('@/utils/heic')>()), heicToJpeg: heic.toJpeg }))
 
 import PreBorderPanel from '../PreBorderPanel.vue'
 import FileTranslateButton from '../FileTranslateButton.vue'
@@ -67,6 +69,21 @@ describe('PreBorderPanel', () => {
     expect(api.uploadPhoto.mock.calls.map((c) => (c[1] as File).name)).toEqual(['a.jpg', 'b.png'])
     expect(w.emitted('changed')).toHaveLength(2)
     expect(msg.success).toHaveBeenCalledOnce()
+  })
+
+  it('фото с iPhone (HEIC) переводятся в JPEG до загрузки', async () => {
+    api.uploadPhoto.mockImplementation(async () => pb())
+    heic.toJpeg.mockImplementation(async (f: File) => new File(['j'], f.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' }))
+    const w = mountWithI18n(PreBorderPanel, { props: { caseId: 'c1', data: pb(), state: 'ready', audience: 'staff' } })
+    const input = w.find('[data-pb-photos] input[type="file"]')
+    expect(input.attributes('accept')).toContain('.heic')
+    Object.defineProperty(input.element, 'files', { value: [new File(['h'], 'IMG_0042.HEIC')], configurable: true })
+    await input.trigger('change')
+    await flushPromises()
+    expect(heic.toJpeg).toHaveBeenCalledOnce()
+    const sent = api.uploadPhoto.mock.calls[0][1] as File
+    expect(sent.name).toBe('IMG_0042.jpg')
+    expect(sent.type).toBe('image/jpeg')
   })
 
   it('ошибка загрузки — «Повторить»', async () => {

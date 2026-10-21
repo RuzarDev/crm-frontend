@@ -9,8 +9,8 @@ export type KedenStatusKind = 'registered' | 'released' | 'conditionalRelease' |
 export interface KedenLinkDto {
   linked: boolean
   kedenDeclarationId: string | null
-  /** number — по рег. номеру, edoc — по EDocId из XML, manual — вручную. */
-  source: 'number' | 'edoc' | 'manual' | null
+  /** number — по рег. номеру, edoc — по EDocId из XML, fuzzy — по посту, дате гр. А и БИН (21.10), manual — вручную. */
+  source: 'number' | 'edoc' | 'fuzzy' | 'manual' | null
   linkedAtUtc: string | null
   registrationNumber: string | null
   statusCode: string | null
@@ -23,6 +23,11 @@ export interface KedenLinkDto {
   dhtNumber: string | null
   /** Рег. номер в КЕДЕН отличается от номера ДТ в карточке (номер не перезаписан). */
   numberConflict: string | null
+  /**
+   * Номер, к которому вернётся ДТ при отвязке: нестрогая связь (fuzzy) дополнила/заполнила его из КЕДЕН ('' — номер
+   * очистится). null/нет — номер при отвязке не изменится (21.10).
+   */
+  numberOnUnlink?: string | null
 }
 
 export interface KedenCandidateDto {
@@ -46,6 +51,10 @@ export interface KedenCandidateQuery {
   /** 'YYYY-MM-DD' */
   from?: string
   to?: string
+  /** Пост подачи (5 цифр) — первые цифры рег. номера КЕДЕН. */
+  post?: string
+  /** Подсказка у чипа: БИН ДТ/клиента при любых фильтрах, только свободные записи типа DT (21.10). */
+  hint?: boolean
 }
 
 const base = (caseId: string, dtId: string) =>

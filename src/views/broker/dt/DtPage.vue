@@ -804,7 +804,15 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
         @open-panel="panelOpen = true"
       >
         <template #status>
-          <DtKedenChip :case-id="caseId" :dt-id="dtId" :keden="kedenOfDt" :can-link="canManage" @changed="onKedenChanged" />
+          <DtKedenChip
+            :case-id="caseId"
+            :dt-id="dtId"
+            :keden="kedenOfDt"
+            :can-link="canManage"
+            :post="form.submissionCustomsOfficeCode"
+            :submission-date="form.submissionDate"
+            @changed="onKedenChanged"
+          />
           <DtCorridorChip
             v-if="corridorVisible"
             :case-id="caseId"

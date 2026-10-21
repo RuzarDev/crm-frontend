@@ -234,6 +234,78 @@ describe('SectionNumber — гр. А', () => {
     expect(form.declarationNumber).toBe('55302/091026/0001234')
   })
 
+  it('короткий номер: предупреждение «не в формате КЕДЕН» и «Собрать из частей» с нулями слева', async () => {
+    mount({ submissionDate: '2026-10-20', submissionCustomsOfficeCode: '55302', declarationNumber: '25831' })
+    const warn = w.get('[data-dt-number-not-keden]')
+    expect(warn.text()).toContain('Номер не в формате КЕДЕН (пост/ддммгг/7 цифр)')
+    expect(form.declarationNumber).toBe('25831') // сохранять не мешаем — номер не меняется сам
+    const btn = w.get('[data-dt-number-assemble]')
+    expect(btn.text()).toContain('55302/201026/0025831')
+    await btn.trigger('click')
+    expect(form.declarationNumber).toBe('55302/201026/0025831')
+    expect(w.find('[data-dt-number-not-keden]').exists()).toBe(false)
+    expect(w.find('[data-dt-number-manual]').exists()).toBe(false)
+    expect(tailInput().value).toBe('0025831')
+  })
+
+  it('номер другого вида без частей — предупреждение без кнопки; в просмотре — без кнопки', async () => {
+    mount({ submissionDate: null, submissionCustomsOfficeCode: '', declarationNumber: 'KEDEN/2026/77' })
+    expect(w.find('[data-dt-number-not-keden]').exists()).toBe(true)
+    expect(w.find('[data-dt-number-assemble]').exists()).toBe(false)
+    w.unmount()
+    form = reactive(emptyDtForm())
+    mount({ submissionDate: '2026-10-20', submissionCustomsOfficeCode: '55302', declarationNumber: '25831' }, { readonly: true })
+    expect(w.find('[data-dt-number-not-keden]').exists()).toBe(true)
+    expect(w.find('[data-dt-number-assemble]').exists()).toBe(false)
+  })
+
+  it('номер КЕДЕН и пустой номер — без предупреждения', () => {
+    mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302', declarationNumber: '55302/091026/0001234' })
+    expect(w.find('[data-dt-number-not-keden]').exists()).toBe(false)
+    w.unmount()
+    form = reactive(emptyDtForm())
+    mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302', declarationNumber: '' })
+    expect(w.find('[data-dt-number-not-keden]').exists()).toBe(false)
+  })
+
+  it('неполные цифры сами нулями не дополняются — только кнопкой с готовым номером', async () => {
+    mount({ submissionDate: '2026-10-20', submissionCustomsOfficeCode: '55302' })
+    await type(tailInput(), '2583')
+    tailInput().dispatchEvent(new Event('blur'))
+    await nextTick()
+    // Уход из поля ничего не собирает и не дописывает (раньше «2583» становилось «0002583» и уходило в автосейв).
+    expect(tailInput().value).toBe('2583')
+    expect(form.declarationNumber).toBe('')
+    expect(w.get('[data-dt-number-pad]').text()).toContain('55302/201026/0002583')
+    // Опечатку исправляют набором: подсказка следует за цифрами.
+    await type(tailInput(), '25831')
+    const btn = w.get('[data-dt-number-pad]')
+    expect(btn.text()).toContain('55302/201026/0025831')
+    expect(w.text()).toContain('Цифр меньше 7')
+    await btn.trigger('click')
+    expect(form.declarationNumber).toBe('55302/201026/0025831')
+    expect(tailInput().value).toBe('0025831')
+    expect(w.find('[data-dt-number-pad]').exists()).toBe(false)
+  })
+
+  it('у готового номера неполные цифры номер не меняют; кнопка — без поста/даты нет, в просмотре нет', async () => {
+    mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302', declarationNumber: '55302/091026/0001234' })
+    await type(tailInput(), '000123')
+    tailInput().dispatchEvent(new Event('blur'))
+    await nextTick()
+    expect(form.declarationNumber).toBe('55302/091026/0001234')
+    expect(w.get('[data-dt-number-pad]').text()).toContain('55302/091026/0000123') // только по нажатию
+    w.unmount()
+    form = reactive(emptyDtForm())
+    mount({ submissionDate: null, submissionCustomsOfficeCode: '55302' })
+    await type(tailInput(), '25831')
+    expect(w.find('[data-dt-number-pad]').exists()).toBe(false)
+    w.unmount()
+    form = reactive(emptyDtForm())
+    mount({ submissionDate: '2026-10-09', submissionCustomsOfficeCode: '55302', declarationNumber: '55302/091026/0001234' }, { readonly: true })
+    expect(w.find('[data-dt-number-pad]').exists()).toBe(false)
+  })
+
   it('сохранённый пост вне списка КЕДЕН показывается и подсвечивается', () => {
     mount({ submissionCustomsOfficeCode: '99999', submissionDate: '2026-10-09' })
     expect((w.get('input[role="combobox"]').element as HTMLInputElement).value).toBe('99999')

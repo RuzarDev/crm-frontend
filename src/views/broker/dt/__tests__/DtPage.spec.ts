@@ -36,6 +36,7 @@ vi.mock('@/api/kedenProcedureLists', async (orig) => ({ ...(await orig<typeof im
 vi.mock('@/api/import40Contract', () => ({ import40ContractApi: contract }))
 vi.mock('@/api/prohibitionCodes', () => ({ prohibitionCodesApi: { list: vi.fn(async () => []), suggest: vi.fn(async () => ({ tnved: '', codes: [], fetchedAtUtc: null, stale: false, warning: null })) } }))
 vi.mock('@/ui/message', () => ({ message: toast }))
+vi.mock('@/api/kedenLink', async (orig) => ({ ...(await orig<typeof import('@/api/kedenLink')>()), kedenLinkApi: { candidates: vi.fn(async () => []), link: vi.fn(), unlink: vi.fn() } }))
 vi.mock('@/api/customsRequests', () => ({ customsRequestsApi: { list: vi.fn(async () => []), create: vi.fn(), answer: vi.fn(), close: vi.fn(), remindClient: vi.fn() } }))
 vi.mock('@/stores/classifiers', () => ({ useClassifiersStore: () => ({ loadMany: vi.fn(async () => undefined), load: vi.fn(async () => []), cache: {}, options: () => [] }) }))
 const brokerFirms = vi.hoisted(() => ({ listBrokerFirms: vi.fn(), getBrokerFirmByBin: vi.fn(), upsertBrokerFirm: vi.fn() }))

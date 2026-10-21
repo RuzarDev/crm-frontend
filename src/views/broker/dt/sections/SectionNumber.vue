@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { PhWarningCircle } from '@phosphor-icons/vue'
 import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
 import ZDate from '@/components/z/ZDate.vue'
@@ -7,7 +8,7 @@ import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import type { DtFormState } from '../dtPayload'
-import { buildFromParts, cleanTail, ddmmyyOf, isoOfDdmmyy, isStandardNumber, lastTail, parseFullNumber, partsOf, tailOf } from '../dtNumber'
+import { buildFromParts, cleanTail, ddmmyyOf, digitsOfShortNumber, isKedenNumber, isoOfDdmmyy, isStandardNumber, lastTail, padTail, parseFullNumber, partsOf, tailOf } from '../dtNumber'
 import { withCurrent } from '../dtOptions'
 
 // Гр. А — регистрационный номер ДТ: пост подачи, дата и 7 цифр. Номер собирается сам («пост/ДДММГГ/7 цифр») и
@@ -37,13 +38,18 @@ const write = (num: string) => {
   written = num
   if (props.form.declarationNumber !== num) props.form.declarationNumber = num
 }
-// Пересборка только из полных частей; неполные — номер не трогаем.
-const rebuild = () => {
+// Пост и дата для сборки: тронутые пользователем — из формы, иначе — из самого номера.
+const currentPostDate = () => {
   const n = partsOf(props.form.declarationNumber)
   const formPost = (props.form.submissionCustomsOfficeCode ?? '').trim()
   const formDate = ddmmyyOf(props.form.submissionDate)
   const post = (touchedPost ? formPost : n?.post) || formPost || n?.post || ''
   const d6 = (touchedDate ? formDate : n?.d6) ?? formDate ?? n?.d6 ?? null
+  return { post, d6 }
+}
+// Пересборка только из полных частей; неполные — номер не трогаем.
+const rebuild = () => {
+  const { post, d6 } = currentPostDate()
   const built = buildFromParts(post, d6, tail.value)
   if (built) write(built)
 }
@@ -96,6 +102,15 @@ const onTail = (e: Event) => {
   tail.value = clean
   rebuild()
 }
+// Неполные цифры («25831») сами нулями НЕ дополняются (21.10, ревью): «2583» при уходе из поля стало бы «0002583» и
+// сохранилось автосейвом, а исправить набором уже нельзя. Вместо этого — кнопка с готовым номером «…/0025831»:
+// нули слева только по нажатию, пользователь видит, что получится.
+const padPreview = computed(() => {
+  if (manual.value || !/^\d{1,6}$/.test(tail.value)) return ''
+  const { post, d6 } = currentPostDate()
+  const built = buildFromParts(post, d6, padTail(tail.value))
+  return built && built !== props.form.declarationNumber ? built : ''
+})
 const onManual = (v: string) => {
   written = v
   props.form.declarationNumber = v
@@ -118,6 +133,26 @@ const toAuto = () => {
   }
   // Номер другого формата: собираем из частей, если они полные; иначе номер остаётся как есть.
   rebuild()
+}
+
+// Номер не в формате КЕДЕН — ДТ не свяжется со статусами КЕДЕН (21.10). Сохранять не мешаем: старые/ручные номера
+// допустимы. Если пост, дата и цифры есть — собрать номер КЕДЕН одним нажатием (цифры — из короткого номера или поля
+// «7 цифр», с нулями слева).
+const notKeden = computed(() => !!props.form.declarationNumber?.trim() && !isKedenNumber(props.form.declarationNumber))
+const assembleTo = computed(() => {
+  if (!notKeden.value) return ''
+  const digits = digitsOfShortNumber(props.form.declarationNumber) || tail.value
+  const built = buildFromParts((props.form.submissionCustomsOfficeCode ?? '').trim(), ddmmyyOf(props.form.submissionDate), padTail(digits))
+  return isKedenNumber(built) ? built : ''
+})
+const assemble = (to?: string) => {
+  const built = to || assembleTo.value
+  if (!built) return
+  manual.value = false
+  touchedPost = false
+  touchedDate = false
+  tail.value = built.slice(-7)
+  write(built)
 }
 
 // Пост из справочника КЕДЕН; сохранённый пост вне списка показывается и подсвечивается, а не теряется.
@@ -197,10 +232,38 @@ const result = computed(() => props.form.declarationNumber || '')
       <template v-else>
         <span class="text-xs text-muted">{{ t('broker.dt.number.result') }}</span>
         <output class="font-mono text-lg font-semibold tabular-nums text-ink" data-dt-number-result :aria-label="t('broker.dt.number.result')">{{ result || '—' }}</output>
-        <p class="m-0 min-w-0 flex-1 basis-56 text-xs text-muted">{{ result ? t('broker.dt.number.assembled') : t('broker.dt.number.incomplete') }}</p>
+        <p class="m-0 min-w-0 flex-1 basis-56 text-xs text-muted">{{ padPreview ? t('broker.dt.number.shortTail') : result ? t('broker.dt.number.assembled') : t('broker.dt.number.incomplete') }}</p>
+        <ZButton
+          v-if="!readonly && padPreview && !notKeden"
+          size="sm"
+          class="max-sm:h-11 max-sm:w-full"
+          data-dt-number-pad
+          @click="assemble(padPreview)"
+        >
+          {{ t('broker.dt.number.assembleAs', { n: padPreview }) }}
+        </ZButton>
       </template>
       <ZButton v-if="!readonly" size="sm" variant="ghost" class="max-sm:h-11" data-dt-number-toggle @click="manual ? toAuto() : toManual()">
         {{ manual ? t('broker.dt.number.auto') : t('broker.dt.number.manual') }}
+      </ZButton>
+    </div>
+
+    <div
+      v-if="notKeden"
+      class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-field bg-tone-wait-bg px-3 py-2 text-[12.5px] text-tone-wait-fg"
+      role="status"
+      data-dt-number-not-keden
+    >
+      <PhWarningCircle :size="16" class="shrink-0" aria-hidden="true" />
+      <span class="min-w-0 flex-1 basis-56">{{ t('broker.dt.number.notKeden') }}</span>
+      <ZButton
+        v-if="!readonly && assembleTo"
+        size="sm"
+        class="max-sm:h-11 max-sm:w-full"
+        data-dt-number-assemble
+        @click="assemble()"
+      >
+        {{ t('broker.dt.number.assembleAs', { n: assembleTo }) }}
       </ZButton>
     </div>
   </section>
