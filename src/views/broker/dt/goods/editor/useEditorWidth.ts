@@ -6,9 +6,13 @@ import {
 
 // Ширина панели товара ДТ в редакторе (правила — editorWidth.ts): выбор пользователя, ширина окна (следим, пока панель
 // открыта), перетаскивание края (окно — pointermove/pointerup, чтобы не терять мышь за пределами ручки) и ←/→ на ручке.
-// Пока тянут — ширина в px «вживую», в хранилище пишется по отпусканию.
+// Пока тянут — ширина в px «вживую», в хранилище пишется по отпусканию — и только если край сдвинули (щелчок по ручке
+// без движения не перезаписывает сохранённую ширину нынешней, ужатой окном). Перетаскивание заканчивается и тогда, когда
+// отпускание потерялось: окно потеряло фокус (⌘/Alt+Tab, системное окно) или мышь движется уже без нажатой кнопки.
 /** Панель такой ширины и шире — в ней есть место для полосы списка товаров слева (GoodsEditorRail). */
 export const RAIL_PANEL_MIN_PX = 1040
+/** Сдвиг края меньше этого (px) — щелчок, а не перетаскивание: ширина не запоминается. */
+export const EDITOR_DRAG_MIN_PX = 3
 
 export function useEditorWidth() {
   const pref = ref<EditorWidthPref>(readEditorWidth())
@@ -45,8 +49,15 @@ export function useEditorWidth() {
   // ---- Перетаскивание края ----
   let startX = 0
   let startW = 0
+  /** Ширина в начале перетаскивания (в пределах окна) — с ней сравнивается итог: не сдвинули — не пишем. */
+  let startPx = 0
   let bodyStyle: { cursor: string; userSelect: string } | null = null
   const onMove = (e: PointerEvent) => {
+    // Основная кнопка уже не нажата — отпускание случилось вне страницы (потерялось): заканчиваем на том, что было.
+    if ((e.buttons & 1) === 0) {
+      onUp()
+      return
+    }
     // Панель справа: тянем край влево — шире.
     dragPx.value = clampEditorWidth(startW + (startX - e.clientX), viewport.value)
   }
@@ -54,6 +65,7 @@ export function useEditorWidth() {
     window.removeEventListener('pointermove', onMove)
     window.removeEventListener('pointerup', onUp)
     window.removeEventListener('pointercancel', onUp)
+    window.removeEventListener('blur', onUp)
     if (bodyStyle) {
       document.body.style.cursor = bodyStyle.cursor
       document.body.style.userSelect = bodyStyle.userSelect
@@ -64,7 +76,7 @@ export function useEditorWidth() {
     stopListening()
     const w = dragPx.value
     dragPx.value = null
-    if (w != null) set(snapEditorWidth(w, viewport.value))
+    if (w != null && Math.abs(w - startPx) >= EDITOR_DRAG_MIN_PX) set(snapEditorWidth(w, viewport.value))
   }
   /** Нажали на ручку края; current — ширина панели на экране (px), нет — расчётная. */
   const startDrag = (e: PointerEvent, current?: number) => {
@@ -72,7 +84,8 @@ export function useEditorWidth() {
     e.preventDefault()
     startX = e.clientX
     startW = current && current > 0 ? current : px.value
-    dragPx.value = clampEditorWidth(startW, viewport.value)
+    startPx = clampEditorWidth(startW, viewport.value)
+    dragPx.value = startPx
     // Пока тянут — курсор «изменить ширину» везде и без выделения текста страницы.
     bodyStyle = { cursor: document.body.style.cursor, userSelect: document.body.style.userSelect }
     document.body.style.cursor = 'col-resize'
@@ -80,6 +93,7 @@ export function useEditorWidth() {
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
     window.addEventListener('pointercancel', onUp)
+    window.addEventListener('blur', onUp)
   }
 
   onBeforeUnmount(() => {

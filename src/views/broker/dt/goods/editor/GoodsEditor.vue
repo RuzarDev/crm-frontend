@@ -129,9 +129,12 @@ const onMore = (key: string) => {
 const scroller = ref<HTMLElement | null>(null)
 const active = ref(sections[0]?.key ?? '')
 // Вкладки не помещаются (узкая панель, длинные подписи на казахском) — полоса прокручивается, стрелки ‹ › там, где есть
-// скрытые; активная вкладка всегда видна (№17: «Доп. све…» обрезалась без намёка на продолжение).
+// скрытые; активная вкладка всегда видна (№17: «Доп. све…» обрезалась без намёка на продолжение). Стрелки — поверх полосы
+// (ширина полосы от них не зависит), активная вкладка показывается с отступом в ширину стрелки.
+/** Ширина стрелки вкладок, px: w-7 (28) на компьютере, w-9 (36) на телефоне — берём бо́льшую. */
+const TAB_ARROW_PX = 36
 const tabsEl = ref<HTMLElement | null>(null)
-const tabsScroll = useScrollArrows(tabsEl)
+const tabsScroll = useScrollArrows(tabsEl, { inset: TAB_ARROW_PX })
 watch(active, async (key) => {
   await nextTick()
   tabsScroll.reveal(tabsEl.value?.querySelector<HTMLElement>(`[data-goods-tab="${key}"]`))
@@ -303,8 +306,9 @@ const iconBtn = cn(
   'outline-hidden transition-colors hover:bg-sunken hover:text-ink focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-40',
   'max-sm:size-11',
 )
+// Стрелка лежит поверх края полосы вкладок (absolute): появление стрелки не сужает полосу.
 const arrowBtn = cn(
-  'inline-flex w-7 shrink-0 cursor-pointer items-center justify-center border-0 bg-surface p-0 pb-1.5 text-ink-3',
+  'absolute inset-y-0 z-10 inline-flex w-7 cursor-pointer items-center justify-center border-0 bg-surface p-0 pb-1.5 text-ink-3',
   'outline-hidden transition-colors hover:text-ink max-sm:w-9',
 )
 const tabBtn = (on: boolean) => cn(
@@ -369,12 +373,12 @@ const tabBtn = (on: boolean) => cn(
             :data-goods-chars-entry="charsCount"
             @click="goChars"
           ><PhListBullets :size="15" aria-hidden="true" />{{ charsLabel }}</button>
-          <div class="-mb-px mt-3 flex min-w-0 items-stretch" data-goods-tabs-wrap>
+          <div class="relative -mb-px mt-3 flex min-w-0 items-stretch" data-goods-tabs-wrap>
             <button
               v-if="tabsScroll.left.value"
               type="button"
               tabindex="-1"
-              :class="[arrowBtn, '-ml-1 shadow-[6px_0_6px_-4px_var(--color-surface)]']"
+              :class="[arrowBtn, '-left-1 shadow-[6px_0_6px_-4px_var(--color-surface)]']"
               :aria-label="te('tabsPrev')"
               :title="te('tabsPrev')"
               data-goods-tabs-prev
@@ -402,7 +406,7 @@ const tabBtn = (on: boolean) => cn(
               v-if="tabsScroll.right.value"
               type="button"
               tabindex="-1"
-              :class="[arrowBtn, '-mr-1 shadow-[-6px_0_6px_-4px_var(--color-surface)]']"
+              :class="[arrowBtn, '-right-1 shadow-[-6px_0_6px_-4px_var(--color-surface)]']"
               :aria-label="te('tabsNext')"
               :title="te('tabsNext')"
               data-goods-tabs-next

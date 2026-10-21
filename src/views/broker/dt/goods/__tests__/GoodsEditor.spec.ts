@@ -67,7 +67,7 @@ const settle = async () => {
     await nextTick()
   }
 }
-const mount = async (goods: Import40GoodsItemInput[], o: { readonly?: boolean; query?: string; currency?: string } = {}) => {
+const mount = async (goods: Import40GoodsItemInput[], o: { readonly?: boolean; query?: string; currency?: string; mixins?: object[] } = {}) => {
   form = reactive({ ...emptyDtForm(), currency: o.currency ?? 'USD', goodsItems: goods }) as DtFormState
   canEdit.value = !o.readonly
   model = useDtGoods(form, { readiness: () => null, canEdit })
@@ -84,7 +84,7 @@ const mount = async (goods: Import40GoodsItemInput[], o: { readonly?: boolean; q
   router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/import-40/:caseId/dt/:dtId', name: 'import-40-dt', component: Page }] })
   await router.push(`/import-40/c1/dt/d1?s=goods${o.query ?? ''}`)
   await router.isReady()
-  w = mountWithI18n(defineComponent({ render: () => h(RouterView) }), { attachTo: document.body, global: { plugins: [pinia, router] } })
+  w = mountWithI18n(defineComponent({ render: () => h(RouterView) }), { attachTo: document.body, global: { plugins: [pinia, router], mixins: o.mixins ?? [] } })
   await settle()
 }
 const panel = () => document.querySelector('[data-dt-goods-editor][data-state="open"]') as HTMLElement | null
@@ -974,8 +974,9 @@ describe('GoodsEditor: строки характеристик гр. 31 (как 
 describe('GoodsEditor: ширина панели, полоса списка, вкладки (правка №17)', () => {
   const width = () => panel()!.style.getPropertyValue('--w')
   const storedWidth = (user?: string) => localStorage.getItem(user ? `zircon.dt.goodsEditorWidth:${user}` : 'zircon.dt.goodsEditorWidth')
-  const pointer = (target: EventTarget, type: string, clientX: number) =>
-    target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX }))
+  // buttons — нажатые кнопки (как у PointerEvent): при движении с нажатой — 1, при отпускании — 0.
+  const pointer = (target: EventTarget, type: string, clientX: number, buttons = type === 'pointerup' ? 0 : 1) =>
+    target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, buttons, clientX }))
 
   it('по умолчанию широкая (90% окна); «Сузить» — 780 px, запоминается у пользователя; Alt+↓ и Esc — как раньше; снова открыли — как выбрали', async () => {
     localStorage.setItem('userId', 'u-7')
@@ -1057,6 +1058,77 @@ describe('GoodsEditor: ширина панели, полоса списка, в�
     }
   })
 
+  it('щелчок по ручке без движения не перезаписывает сохранённую ширину (своя 1700 px на окне 1280 — панель ужата окном)', async () => {
+    localStorage.setItem('zircon.dt.goodsEditorWidth', '1700')
+    vi.stubGlobal('innerWidth', 1280)
+    try {
+      await mount([item()], { query: '&item=1' })
+      const handle = q('[data-goods-resize]')!
+      expect(width()).toBe('min(1700px, calc(100vw - 64px))')
+      expect(handle.getAttribute('aria-valuenow')).toBe('1216')
+      pointer(handle, 'pointerdown', 300)
+      pointer(window, 'pointerup', 300)
+      await settle()
+      expect(storedWidth()).toBe('1700')
+      // Дрожание руки на 2 px — тоже щелчок.
+      pointer(handle, 'pointerdown', 300)
+      pointer(window, 'pointermove', 302)
+      pointer(window, 'pointerup', 302)
+      await settle()
+      expect(storedWidth()).toBe('1700')
+      expect(width()).toBe('min(1700px, calc(100vw - 64px))')
+      expect(panel()!.dataset.goodsEditorDragging).toBeUndefined()
+      // Настоящее перетаскивание — запоминается.
+      pointer(handle, 'pointerdown', 300)
+      pointer(window, 'pointermove', 400)
+      pointer(window, 'pointerup', 400)
+      await settle()
+      expect(storedWidth()).toBe('1116')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('отпускание потерялось (окно потеряло фокус, мышь движется без кнопки) — перетаскивание заканчивается, ширина больше не следует за мышью', async () => {
+    vi.stubGlobal('innerWidth', 1600)
+    try {
+      await mount([item()], { query: '&item=1' })
+      const handle = q('[data-goods-resize]')!
+      // ⌘/Alt+Tab посреди перетаскивания: конец на том, что было видно.
+      pointer(handle, 'pointerdown', 160)
+      pointer(window, 'pointermove', 600)
+      await settle()
+      expect(width()).toBe('1000px')
+      window.dispatchEvent(new Event('blur'))
+      await settle()
+      expect(panel()!.dataset.goodsEditorDragging).toBeUndefined()
+      expect(document.body.style.cursor).toBe('')
+      expect(storedWidth()).toBe('1000')
+      pointer(window, 'pointermove', 300, 0)
+      pointer(window, 'pointermove', 300)
+      await settle()
+      expect(width()).toBe('min(1000px, calc(100vw - 64px))')
+
+      // Кнопку отпустили вне страницы: первое же движение без кнопки заканчивает перетаскивание, щелчок потом ничего не пишет.
+      pointer(handle, 'pointerdown', 600)
+      pointer(window, 'pointermove', 500)
+      await settle()
+      expect(width()).toBe('1100px')
+      pointer(window, 'pointermove', 200, 0)
+      await settle()
+      expect(panel()!.dataset.goodsEditorDragging).toBeUndefined()
+      expect(width()).toBe('min(1100px, calc(100vw - 64px))')
+      expect(storedWidth()).toBe('1100')
+      pointer(window, 'pointermove', 100)
+      pointer(window, 'pointerup', 100)
+      await settle()
+      expect(width()).toBe('min(1100px, calc(100vw - 64px))')
+      expect(storedWidth()).toBe('1100')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('широкая панель — слева полоса списка товаров: открытый отмечен, нажатие открывает другой, ↑/↓ по полосе; узкая — без полосы', async () => {
     vi.stubGlobal('innerWidth', 1600)
     try {
@@ -1119,15 +1191,74 @@ describe('GoodsEditor: ширина панели, полоса списка, в�
     await click('[data-goods-tabs-prev]')
     expect(nav.scrollLeft).toBe(236)
 
-    // Активная вкладка (по нажатию или прокрутке секций) — в видимой части полосы.
-    const tab = q<HTMLElement>('[data-goods-tab="payments"]')!
-    Object.defineProperty(tab, 'offsetLeft', { configurable: true, value: 820 })
-    Object.defineProperty(tab, 'offsetWidth', { configurable: true, value: 70 })
+    // Стрелки — поверх полосы (absolute): появление ‹ не сужает полосу и не уводит показанную вкладку под край (ревью №17).
+    expect(q('[data-goods-tabs-prev]')!.className).toContain('absolute')
+    expect(q('[data-goods-tabs-wrap]')!.className).toContain('relative')
+    expect(nav.className).toContain('flex-1')
+
+    // Активная вкладка (по нажатию или прокрутке секций) — в видимой части полосы и не под стрелкой (стрелка до 36 px).
+    const place = (key: string, left: number, w = 70) => {
+      const tab = q<HTMLElement>(`[data-goods-tab="${key}"]`)!
+      Object.defineProperty(tab, 'offsetLeft', { configurable: true, value: left })
+      Object.defineProperty(tab, 'offsetWidth', { configurable: true, value: w })
+    }
+    const ARROW = 36
+    // «Доп. сведения» в середине, справа ещё вкладки: правый край — левее стрелки ›, слева появилась ‹ — полоса той же ширины.
+    place('extras', 700)
+    await click('[data-goods-tab="extras"]')
+    expect(nav.scrollLeft).toBe(700 + 70 + 4 + ARROW - 400)
+    expect(700 + 70).toBeLessThanOrEqual(nav.scrollLeft + 400 - ARROW)
+    expect(q('[data-goods-tabs-prev]')).not.toBeNull()
+    expect(q('[data-goods-tabs-next]')).not.toBeNull()
+    // Левее видимого: левый край — правее стрелки ‹.
+    place('packaging', 300)
+    await click('[data-goods-tab="packaging"]')
+    expect(nav.scrollLeft).toBe(300 - 4 - ARROW)
+    expect(300).toBeGreaterThanOrEqual(nav.scrollLeft + ARROW)
+    // Последняя вкладка — прокрутка до конца (не дальше), стрелки › нет.
+    place('payments', 820)
     await click('[data-goods-tab="payments"]')
-    expect(nav.scrollLeft).toBe(894 - 400)
-    const first = q<HTMLElement>('[data-goods-tab="code"]')!
-    Object.defineProperty(first, 'offsetLeft', { configurable: true, value: 0 })
+    expect(nav.scrollLeft).toBe(500)
+    expect(q('[data-goods-tabs-next]')).toBeNull()
+    place('code', 0)
     await click('[data-goods-tab="code"]')
     expect(nav.scrollLeft).toBe(0)
+    expect(q('[data-goods-tabs-prev]')).toBeNull()
   })
+
+  it('200 товаров, полоса списка видна: ввод в открытый товар перерисовывает одну его строку полосы, а не все', async () => {
+    const updates: Record<string, number> = { GoodsEditorRail: 0, GoodsEditorRailRow: 0 }
+    const counter = {
+      updated(this: { $options: { __name?: string } }) {
+        const n = this.$options.__name
+        if (n && n in updates) updates[n]++
+      },
+    }
+    vi.stubGlobal('innerWidth', 1600)
+    try {
+      const many = Array.from({ length: 200 }, (_, i) => item({ description: `ТОВАР ${i + 1}`, tnvedCode: `84713${String(i).padStart(5, '0')}` }))
+      await mount(many, { query: '&item=100', mixins: [counter] })
+      expect(q('[data-goods-rail]')).not.toBeNull()
+      expect(panel()!.querySelectorAll('[data-goods-rail-item]')).toHaveLength(200)
+      updates.GoodsEditorRail = 0
+      updates.GoodsEditorRailRow = 0
+      const t = performance.now()
+      for (const v of ['Н', 'НО', 'НОВ', 'НОВО', 'НОВОЕ']) await type('description', v)
+      const typeMs = (performance.now() - t) / 5
+      expect(model.items.value[99].description).toBe('НОВОЕ')
+      expect(q('[data-goods-rail-item="99"]')!.textContent).toContain('НОВОЕ')
+      // Строка открытого товара — по разу на букву; полоса и остальные 199 строк не перерисовываются.
+      expect(updates.GoodsEditorRail).toBe(0)
+      expect(updates.GoodsEditorRailRow).toBeLessThanOrEqual(5)
+      console.info(`[perf 200 editor + rail] type ${typeMs.toFixed(0)} ms, rail row updates ${updates.GoodsEditorRailRow}`)
+
+      // Переход к другому товару — перерисовываются только две строки (была открыта — стала открыта).
+      updates.GoodsEditorRailRow = 0
+      await click('[data-goods-next]')
+      expect(q('[data-goods-rail-item][aria-current="true"]')!.getAttribute('data-goods-rail-item')).toBe('100')
+      expect(updates.GoodsEditorRailRow).toBe(2)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  }, 30_000)
 })

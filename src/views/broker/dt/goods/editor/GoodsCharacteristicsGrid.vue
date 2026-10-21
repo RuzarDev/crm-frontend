@@ -55,10 +55,13 @@ const controlCols = computed(() => (props.readonly ? fieldCols : [...fieldCols, 
 const labels = computed(() => Object.fromEntries(FIELDS.map((c) => [c.key, tc(`col.${c.f}`)])) as Record<CharacteristicField, string>)
 const unitShort = (code: string) => okeiShort(code) ?? okeiCode(code)
 const layout = computed(() => charsGridLayout(rows.value, {
-  readonly: props.readonly, labels: labels.value, unitText: unitShort, placeholders: singlePlaceholders.value,
+  readonly: props.readonly, labels: labels.value, unitText: unitShort, placeholders: singlePlaceholders.value, viewRem: viewRem.value,
 }))
+// layout — новый объект на каждую правку ячейки; отрисовка читает только эти простые значения: не изменились — таблица
+// не перерисовывается (правка ячейки перерисовывает только свою строку).
 const template = computed(() => layout.value.template)
 const totalWidth = computed(() => layout.value.widthRem)
+const nameRem = computed(() => layout.value.nameRem)
 const colCount = computed(() => 1 + FIELDS.length + (props.readonly ? 0 : 1))
 const stickyLeft = `${NO_W}rem`
 
@@ -71,17 +74,37 @@ const FALLBACK_VIEW = 480
 const box = ref<HTMLElement>()
 const scrollTop = ref(0)
 const viewH = ref(0)
-// Высота окна таблицы — min(60vh, 36rem): меняется только с окном браузера (и числом строк, пока их мало).
-const measure = () => { viewH.value = box.value?.clientHeight ?? 0 }
+/** Видимая ширина таблицы, целых rem (предел закреплённого наименования); 0 — неизвестна. */
+const viewRem = ref(0)
+let remPx = 16
+// Высота окна таблицы — min(60vh, 36rem): меняется с окном браузера (и числом строк, пока их мало). Ширина — с панелью
+// (её тянут за край, «Развернуть / Сузить», полоса списка): ResizeObserver. offsetWidth — с рамкой и полосами прокрутки:
+// появление полосы прокрутки ширину не меняет (не зацикливается с шириной колонок).
+const measure = () => {
+  const el = box.value
+  viewH.value = el?.clientHeight ?? 0
+  viewRem.value = el ? Math.floor(el.offsetWidth / remPx) : 0
+}
 const onScroll = () => {
   scrollTop.value = box.value?.scrollTop ?? 0
   if (!viewH.value) measure()
 }
+let boxObserver: ResizeObserver | null = null
 onMounted(() => {
+  const root = parseFloat(getComputedStyle(document.documentElement).fontSize)
+  if (root > 0) remPx = root
   measure()
   window.addEventListener('resize', measure)
+  if (box.value && typeof ResizeObserver !== 'undefined') {
+    boxObserver = new ResizeObserver(() => measure())
+    boxObserver.observe(box.value)
+  }
 })
-onBeforeUnmount(() => window.removeEventListener('resize', measure))
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', measure)
+  boxObserver?.disconnect()
+  boxObserver = null
+})
 const first = computed(() => Math.max(0, Math.floor(Math.max(0, scrollTop.value - HEAD_H) / ROW_H) - OVERSCAN))
 const last = computed(() => Math.min(rows.value.length, Math.ceil((scrollTop.value + (viewH.value || FALLBACK_VIEW)) / ROW_H) + OVERSCAN))
 const visible = computed(() => {
@@ -251,7 +274,7 @@ const headCell = 'flex min-w-0 items-center border-r border-line px-2 last:borde
     <div
       ref="box"
       class="relative max-h-[min(60vh,36rem)] overflow-auto overscroll-contain rounded-row border border-line bg-surface"
-      :style="{ scrollPaddingLeft: `${NO_W + layout.nameRem}rem`, scrollPaddingTop: `${HEAD_H}px` }"
+      :style="{ scrollPaddingLeft: `${NO_W + nameRem}rem`, scrollPaddingTop: `${HEAD_H}px` }"
       role="grid"
       :aria-label="tc('gridLabel')"
       :aria-rowcount="rows.length + 1"

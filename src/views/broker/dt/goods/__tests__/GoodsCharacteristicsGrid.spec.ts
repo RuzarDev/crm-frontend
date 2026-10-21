@@ -40,11 +40,12 @@ const settle = async () => {
     await nextTick()
   }
 }
-const mount = async (g: Import40GoodsItemInput, o: { readonly?: boolean } = {}) => {
+const mount = async (g: Import40GoodsItemInput, o: { readonly?: boolean; mixins?: object[] } = {}) => {
   item = g
   w = mountWithI18n(GoodsCharacteristicsTable, {
     props: { item, index: 0, model: {} as never, readonly: !!o.readonly, ctx },
     attachTo: document.body,
+    global: { mixins: o.mixins ?? [] },
   })
   await settle()
 }
@@ -216,6 +217,59 @@ describe('строки гр. 31: таблица — ширины колонок 
     expect(item.characteristics![0].manufacturerName).toBe('MONCLER INDUSTRIES S.P.A. VIA STEPHENSON')
     expect(tracks()).toContain('minmax(24rem,2fr)')
     expect(parseFloat(inner().style.width)).toBe(before + 24 - 12)
+  })
+
+  it('закреплённое наименование растёт не шире 40% видимой таблицы: на узкой панели и планшете остальным колонкам хватает места', async () => {
+    await mount(goods([{ name: 'КУРТКА МУЖСКАЯ ИЗ ТЕКСТИЛЬНЫХ МАТЕРИАЛОВ' }]))
+    const box = q<HTMLElement>('[data-chars-grid]')!
+    const resize = async (px: number) => {
+      Object.defineProperty(box, 'offsetWidth', { configurable: true, value: px })
+      window.dispatchEvent(new Event('resize'))
+      await settle()
+    }
+    // Ширина таблицы неизвестна (jsdom) — по содержимому, до предела 24 rem.
+    expect(tracks()).toContain('minmax(24rem,3fr)')
+    // «Сузить» (таблица ~732 px = 45 rem): 18 rem, № + наименование — меньше половины таблицы.
+    await resize(732)
+    expect(tracks()).toContain('minmax(18rem,3fr)')
+    expect(box.style.scrollPaddingLeft).toBe('20.75rem')
+    // Планшет (~592 px): минимум 16 rem, как до №17.
+    await resize(592)
+    expect(tracks()).toContain('minmax(16rem,3fr)')
+    // «Широко» (окно 1440, ~1072 px): наименование целиком.
+    await resize(1072)
+    expect(tracks()).toContain('minmax(24rem,3fr)')
+    expect(box.style.scrollPaddingLeft).toBe('26.75rem')
+  })
+
+  it('правка ячейки не перерисовывает таблицу (только свою строку), пока ширины колонок не меняются', async () => {
+    const updates: Record<string, number> = { GoodsCharacteristicsGrid: 0, GoodsCharacteristicsGridRow: 0 }
+    const counter = {
+      updated(this: { $options: { __name?: string } }) {
+        const n = this.$options.__name
+        if (n && n in updates) updates[n]++
+      },
+    }
+    await mount(goods(many(30)), { mixins: [counter] })
+    const el = cell(2, 'model')
+    el.focus()
+    await settle()
+    updates.GoodsCharacteristicsGrid = 0
+    updates.GoodsCharacteristicsGridRow = 0
+    for (const v of ['M', 'M3', 'M3X']) {
+      el.value = v
+      el.dispatchEvent(new Event('input', { bubbles: true }))
+      await settle()
+    }
+    expect(item.characteristics![2].productModelName).toBe('M3X')
+    expect(updates.GoodsCharacteristicsGrid).toBe(0)
+    expect(updates.GoodsCharacteristicsGridRow).toBeGreaterThan(0)
+    expect(updates.GoodsCharacteristicsGridRow).toBeLessThanOrEqual(3)
+    // Значение длиннее колонки — колонка шире: тогда таблица перерисовывается (новая сетка у заголовка и строк).
+    el.value = 'MODEL-X 2026 PRO MAX EDITION'
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+    await settle()
+    expect(updates.GoodsCharacteristicsGrid).toBe(1)
   })
 })
 

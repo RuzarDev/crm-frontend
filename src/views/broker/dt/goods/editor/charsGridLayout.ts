@@ -9,7 +9,10 @@ import { CHARACTERISTIC_FIELDS, type CharacteristicField, type GoodsRowValue } f
 // Ширина шагом в 1 rem — при наборе колонка не «дрожит» на каждой букве.
 // Колонки с grow > 0 делят свободное место панели (minmax(ширина, grow·fr)): на широкой панели текст получает больше
 // места, а горизонтальная прокрутка появляется, только когда сумма ширин не помещается.
-// № и наименование закреплены слева (scroll-padding таблицы — по их ширине: nameRem).
+// № и наименование закреплены слева (scroll-padding таблицы — по их ширине: nameRem). Закреплённое наименование по
+// содержимому растёт не шире CHARS_GRID_NAME_SHARE видимой ширины таблицы (viewRem; но не уже своего минимума): иначе
+// на узкой панели и планшете закреплённая часть съедала бы бо́льшую часть таблицы и до остальных колонок было бы трудно
+// докрутить (ревью №17). Полное наименование — в подсказке ячейки и в самой ячейке при фокусе.
 export interface CharsColumnSpec {
   /** Минимум, rem. */
   min: number
@@ -32,6 +35,16 @@ export const CHARS_GRID_COLUMNS: Readonly<Record<CharacteristicField, CharsColum
   standardName: { min: 6, max: 14, grow: 0 },
   productSortName: { min: 4.5, max: 12, grow: 0 },
   serialNumbers: { min: 8, max: 24, grow: 1 },
+}
+
+/** Доля видимой ширины таблицы, до которой закреплённое наименование растёт по содержимому. */
+export const CHARS_GRID_NAME_SHARE = 0.4
+
+/** Предел закреплённого наименования по содержимому при такой видимой ширине таблицы (rem); ширина неизвестна — свой max. */
+export function pinnedNameMaxRem(viewRem?: number | null): number {
+  const spec = CHARS_GRID_COLUMNS.name
+  if (!viewRem || !(viewRem > 0)) return spec.max
+  return Math.min(spec.max, Math.max(spec.min, Math.floor(viewRem * CHARS_GRID_NAME_SHARE)))
 }
 
 /** Колонка «№», rem. */
@@ -69,6 +82,8 @@ export interface CharsGridOptions {
   unitText?: (code: string) => string
   /** Подсказки пустых ячеек (гр. 41 / гр. 42 единственной строки) — тоже должны помещаться. */
   placeholders?: Partial<Record<CharacteristicField, string>> | null
+  /** Видимая ширина таблицы, rem (окно прокрутки); нет или 0 — неизвестна (наименование — до своего max). */
+  viewRem?: number | null
 }
 
 /** Знаков в значении ячейки строки. */
@@ -93,7 +108,8 @@ export function charsColumnWidths(rows: readonly GoodsRowValue[], o: Omit<CharsG
   const out = {} as Record<CharacteristicField, number>
   for (const c of CHARACTERISTIC_FIELDS) {
     const spec = CHARS_GRID_COLUMNS[c.key]
-    const content = Math.min(spec.max, cellWidthRem(longest[c.key]))
+    const cap = c.key === 'name' ? pinnedNameMaxRem(o.viewRem) : spec.max
+    const content = Math.min(cap, cellWidthRem(longest[c.key]))
     out[c.key] = Math.max(spec.min, headWidthRem(o.labels?.[c.key] ?? ''), content)
   }
   return out
