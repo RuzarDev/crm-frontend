@@ -44,8 +44,15 @@ export interface ImportConflict {
   chosen: unknown
 }
 
-/** Поля, расхождение которых между документами показывается конфликтом. */
-export const CONFLICT_FIELDS = ['tnvedCode', 'quantity', 'places', 'grossWeightKg', 'netWeightKg', 'value', 'countryCode'] as const
+/**
+ * Поля, расхождение которых между документами показывается конфликтом. Марка, знак, модель, ГОСТ, сорт и серийный — тоже:
+ * «ОТСУТСТВУЕТ» — значение декларанта (решение владельца 21.10.2026), и «ОТСУТСТВУЕТ» базы против «LONGJU» упаковочного
+ * листа — расхождение, а не пустое поле (ревью 21.10).
+ */
+export const CONFLICT_FIELDS = [
+  'tnvedCode', 'quantity', 'places', 'grossWeightKg', 'netWeightKg', 'value', 'countryCode',
+  'tradeMarkName', 'productMarkName', 'productModelName', 'standardName', 'productSortName', 'serialNumbers',
+] as const
 export type ConflictField = (typeof CONFLICT_FIELDS)[number]
 
 const FILL_FIELDS = [
@@ -263,15 +270,24 @@ function targetRow(e: Goods, article: string | null | undefined): Import40GoodsC
 /** Записать товар файла в товар ДТ (fill — только пустые поля; replace — значения файла поверх, пустое не стирает). */
 function mergeInto(model: DtGoodsModel, e: Goods, g: Goods, mode: 'fill' | 'replace'): { rowSkipped: boolean } {
   const take = (cur: unknown, next: unknown) => !blank(next) && (mode === 'replace' || blank(cur))
+  // «Дополнить»: код ДТ остаётся, а у файла другой (сопоставлено по артикулу или описанию) — описание ТН ВЭД и гр. 41,
+  // выведенные из кода файла и его ДЕИ, к коду ДТ не подходят (ревью 21.10, ошибка №1). ДЕИ кода ДТ здесь неизвестна —
+  // как в importBuild при неизвестной ДЕИ, количество файла идёт в строку гр. 31.
+  const otherCode = mode === 'fill' && !blank(e.tnvedCode) && !blank(g.tnvedCode) && !sameValue(e.tnvedCode, g.tnvedCode)
   for (const f of GOODS_FIELDS) {
+    if (otherCode && f === 'tnvedDescription') continue
     if (take(e[f], g[f])) model.setField(e, f, g[f] as never)
   }
   if (blank(e.currency) && !blank(g.currency)) model.setField(e, 'currency', g.currency)
   // Гр. 41 — тройкой (количество, ДЕИ, наименование ДЕИ).
+  let rowQuantity: { quantity: number; unitCode: string | null } | null = null
   if (take(e.quantity, g.quantity)) {
-    model.setField(e, 'quantity', g.quantity)
-    model.setField(e, 'unitCode', g.unitCode ?? null)
-    e.unit = g.unit ?? null
+    if (otherCode) rowQuantity = { quantity: g.quantity!, unitCode: g.unitCode ?? null }
+    else {
+      model.setField(e, 'quantity', g.quantity)
+      model.setField(e, 'unitCode', g.unitCode ?? null)
+      e.unit = g.unit ?? null
+    }
   }
   if ((g.ntins?.length ?? 0) > 0 && (mode === 'replace' || !(e.ntins?.length))) e.ntins = [...g.ntins!]
   if (g.extras) {
@@ -284,11 +300,18 @@ function mergeInto(model: DtGoodsModel, e: Goods, g: Goods, mode: 'fill' | 'repl
     }
   }
   const src = g.characteristics?.[0]
-  if (!src || isBlankCharacteristic(src)) return { rowSkipped: false }
-  const row = targetRow(e, src.productArticle)
+  const srcBlank = !src || isBlankCharacteristic(src)
+  if (srcBlank && !rowQuantity) return { rowSkipped: false }
+  const row = targetRow(e, src?.productArticle)
   if (!row) return { rowSkipped: true }
-  for (const f of ROW_FIELDS) {
-    if (take(row[f], src[f])) (row as unknown as Record<string, unknown>)[f] = src[f]
+  if (!srcBlank) {
+    for (const f of ROW_FIELDS) {
+      if (take(row[f], src![f])) (row as unknown as Record<string, unknown>)[f] = src![f]
+    }
+  }
+  if (rowQuantity && blank(row.quantity)) {
+    row.quantity = rowQuantity.quantity
+    if (blank(row.unitCode)) row.unitCode = rowQuantity.unitCode
   }
   return { rowSkipped: false }
 }

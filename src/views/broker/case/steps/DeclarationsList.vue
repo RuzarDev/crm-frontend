@@ -28,7 +28,7 @@ import ExtractionIssuesModal from './ExtractionIssuesModal.vue'
 import ExtractDocsModal from './ExtractDocsModal.vue'
 import CopyDtModal from './CopyDtModal.vue'
 import { docHeaderFrom, type ExcelDoc } from './excelFallback'
-import { prepareDocumentsDeclaration, type DocumentsNote } from './documentsImport'
+import { prepareDocumentsDeclaration, receiverIsClient, type DocumentsNote } from './documentsImport'
 import { goodsHeaderColumns, readExcelDocuments } from '@/utils/goodsExcel'
 import { countryFromText } from '@/utils/importText'
 import { useClassifiersStore } from '@/stores/classifiers'
@@ -275,8 +275,9 @@ const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
     stage = 'create'
     const created = await import40Api.createDeclaration(caseId, prepared.body)
     createdId = created.id
-    // Получатель из документов не совпал с компанией клиента — сервер не взял поля профиля (В17): предупредить.
-    if (prepared.receiverName && !created.receiver?.city && !created.receiver?.street) {
+    // Получатель из документов не совпал с компанией клиента — сервер не взял поля профиля (В17): предупредить. Тем же
+    // правилом, что сервер (БИН, без БИН — название); нет профиля клиента — не с чем сравнить, без предупреждения.
+    if (prepared.receiverName && receiverIsClient(created) === false) {
       extraWarnings.push(t('broker.case.declaring.batch.receiverMismatch', { name: prepared.receiverName }))
     }
     // Сверка документов этого разбора — к созданной ДТ (17.10); не вышло — сверка просто не привязана к ДТ.

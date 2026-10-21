@@ -2076,6 +2076,12 @@ export default {
             netWeightKg: 'нетто',
             value: 'стоимость',
             countryCode: 'страна',
+            tradeMarkName: 'товарный знак',
+            productMarkName: 'марка',
+            productModelName: 'модель',
+            standardName: 'стандарт (ГОСТ)',
+            productSortName: 'сорт',
+            serialNumbers: 'серийные номера',
           },
           existing: 'В ДТ уже есть товары: {n}. Совпадают со строками файла: {matched}',
           matchBy: {

@@ -2072,6 +2072,12 @@ export default {
             netWeightKg: 'net',
             value: 'value',
             countryCode: 'country',
+            tradeMarkName: 'trademark',
+            productMarkName: 'brand',
+            productModelName: 'model',
+            standardName: 'standard (GOST)',
+            productSortName: 'grade',
+            serialNumbers: 'serial numbers',
           },
           existing: 'The declaration already has goods: {n}. Matching file rows: {matched}',
           matchBy: {

@@ -81,6 +81,20 @@ describe('mergeImportDocs: инвойс + упаковочный лист (UR091
   })
 })
 
+describe('mergeImportDocs: марка, знак, модель, ГОСТ, сорт, серийный — расхождение показывается (ревью 21.10)', () => {
+  it('«ОТСУТСТВУЕТ» базы против «LONGJU» упаковочного — конфликт, взято значение базы; одинаковые — без конфликта', () => {
+    const m = mergeImportDocs([
+      inv([{ lineNo: 1, tnvedCode: '7323990000', productArticle: 'URS07', value: 1602.7, tradeMarkName: 'ОТСУТСТВУЕТ', productModelName: 'X-1', standardName: 'ГОСТ 1' }]),
+      pl([{ lineNo: 1, tnvedCode: '7323990000', productArticle: 'URS07', netWeightKg: 1128, tradeMarkName: 'LONGJU', productModelName: 'x-1', serialNumbers: 'SN1' }]),
+    ])
+    expect(m.rows[0]).toMatchObject({ tradeMarkName: 'ОТСУТСТВУЕТ', productModelName: 'X-1', standardName: 'ГОСТ 1', serialNumbers: 'SN1', netWeightKg: 1128 })
+    expect(m.conflicts).toEqual([{
+      rowIndex: 0, field: 'tradeMarkName', chosen: 'ОТСУТСТВУЕТ',
+      values: [{ value: 'ОТСУТСТВУЕТ', source: 'invoice.xlsx' }, { value: 'LONGJU', source: 'packing.xlsx' }],
+    }])
+  })
+})
+
 const goods = (o: Partial<Import40GoodsItemInput>): Import40GoodsItemInput => ({ ...newDtGoodsItem('USD'), ...o })
 const withArticle = (article: string, o: Partial<Import40GoodsItemInput> = {}) =>
   goods({ ...o, characteristics: [{ ...blankCharacteristic(), productArticle: article }] })
@@ -112,6 +126,27 @@ describe('matchExisting / planMerge / applyMerge: повторный импор�
     expect(form.goodsItems[0]).toMatchObject({ grossWeightKg: 1000, netWeightKg: 1128, customsValue: 1602.7, needsTpinRecalc: true })
     expect(form.goodsItems[0].characteristics![0]).toMatchObject({ productArticle: 'URS07', manufacturerName: 'YIWU' })
     expect(form.goodsItems[1].description).toBe('ПОЛКА')
+  })
+
+  it('«Дополнить» при другом коде в ДТ: описание ТН ВЭД и гр. 41 кода файла не переносятся, количество — в строку гр. 31', () => {
+    // ДТ: 7323990000 без ДЕИ; файл (тот же артикул): 8516797000 с ДЕИ 796, 470 ШТ в гр. 41
+    const { form, model } = setup([withArticle('URS07', { tnvedCode: '7323990000', tnvedDescription: null })])
+    const incoming = [withArticle('URS07', {
+      tnvedCode: '8516797000', tnvedDescription: 'ПРОЧИЕ ЭЛЕКТРОНАГРЕВАТЕЛЬНЫЕ ПРИБОРЫ', quantity: 470, unitCode: '796', unit: 'ШТ', netWeightKg: 1128,
+    })]
+    const plan = planMerge(form.goodsItems, incoming, 'fill')
+    expect(plan.matches[0]).toMatchObject({ existing: 0, by: 'article' })
+    expect(plan.conflicts.map((c) => c.field)).toEqual(['tnvedCode'])
+    applyMerge(model, incoming, plan, 'fill')
+    const g = form.goodsItems[0]
+    expect(g).toMatchObject({ tnvedCode: '7323990000', tnvedDescription: null, quantity: null, unitCode: null, netWeightKg: 1128 })
+    expect(g.characteristics![0]).toMatchObject({ productArticle: 'URS07', quantity: 470, unitCode: '796' })
+
+    // тот же код — гр. 41 и описание ТН ВЭД переносятся, как раньше
+    const same = setup([withArticle('URS07', { tnvedCode: '8516797000' })])
+    applyMerge(same.model, incoming, planMerge(same.form.goodsItems, incoming, 'fill'), 'fill')
+    expect(same.form.goodsItems[0]).toMatchObject({ tnvedDescription: 'ПРОЧИЕ ЭЛЕКТРОНАГРЕВАТЕЛЬНЫЕ ПРИБОРЫ', quantity: 470, unitCode: '796', unit: 'ШТ' })
+    expect(same.form.goodsItems[0].characteristics![0].quantity ?? null).toBeNull()
   })
 
   it('«Заменить»: значения файла поверх, пустое в файле не стирает; «Добавить» — все новыми', () => {

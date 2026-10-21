@@ -2072,6 +2072,12 @@ export default {
             netWeightKg: 'нетто',
             value: 'құны',
             countryCode: 'ел',
+            tradeMarkName: 'тауар белгісі',
+            productMarkName: 'марка',
+            productModelName: 'модель',
+            standardName: 'стандарт (МЕМСТ)',
+            productSortName: 'сұрып',
+            serialNumbers: 'сериялық нөмірлер',
           },
           existing: 'ДТ-да тауарлар бар: {n}. Файл жолдарымен сәйкес келеді: {matched}',
           matchBy: {

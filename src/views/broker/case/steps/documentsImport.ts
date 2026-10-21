@@ -5,7 +5,7 @@
 //   3. buildGoods — товары ДТ по одним правилам (гр. 41 / строка гр. 31, упаковка, страна, заглавные);
 //   4. отправитель — из справочника сторон (точное совпадение названия) или разбором адреса из документа.
 import { partyRefsApi } from '@/api/partyRefs'
-import type { Import40DeclarationUpsert, Import40ExtractionResult, Import40Party } from '@/api/import40'
+import type { Import40DeclarationDto, Import40DeclarationUpsert, Import40ExtractionResult, Import40Party } from '@/api/import40'
 import type { ClassifierItem } from '@/types/api'
 import { countryFromText, hasHan, normPartyName, parseForeignAddress, upperRu } from '@/utils/importText'
 import { ensureOkeiUnits } from '@/views/broker/dt/goods/editor/okei'
@@ -32,6 +32,22 @@ export interface DocumentsCase {
 
 /** Краткое наименование стороны в R.055 — Name120. */
 const SHORT_NAME_MAX = 120
+
+const digits = (s: string | null | undefined) => (s ?? '').replace(/\D/g, '')
+
+/**
+ * Получатель созданной ДТ — компания клиента? Тем же правилом, что IsClientCompany на сервере (В17): тот же БИН, а без БИН —
+ * то же название без форм собственности и кавычек. Компания клиента — декларант новой ДТ: его сервер ставит из профиля
+ * клиента. null — профиля нет (декларант пуст), сравнивать не с чем и предупреждать не о чем (ревью 21.10: раньше вывод
+ * делался по пустому городу и улице получателя и ошибался, когда в профиле нет адреса).
+ */
+export function receiverIsClient(dt: Pick<Import40DeclarationDto, 'receiver' | 'receiverBin' | 'declarantName' | 'declarantBin'>): boolean | null {
+  if (!dt.declarantName?.trim()) return null
+  const receiverBin = digits(dt.receiverBin)
+  if (receiverBin) return digits(dt.declarantBin) === receiverBin
+  const name = normPartyName(dt.receiver?.name)
+  return !!name && name === normPartyName(dt.declarantName)
+}
 
 /**
  * Отправитель гр. 2 (№7): справочник сторон — точное совпадение названия без форм собственности → все поля из

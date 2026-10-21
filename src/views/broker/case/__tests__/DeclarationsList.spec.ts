@@ -622,6 +622,25 @@ describe('DeclarationsList: «Из документов»', () => {
     expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n3')
   })
 
+  // Ревью 21.10: «получатель не совпадает» — тем же правилом, что сервер (БИН, без БИН — название), а не по пустому адресу.
+  it.each([
+    // профиль с БИН, без города и улицы: сервер взял название и БИН из профиля, адрес пуст — это совпадение
+    ['компания клиента, в профиле нет адреса', { receiver: { name: 'URKER DISTRIBUTION', city: null, street: null }, receiverBin: '220940001302', declarantName: 'URKER DISTRIBUTION', declarantBin: '220940001302' }, false],
+    ['другой БИН', { receiver: { name: 'ТОО "URKER DISTRIBUTION"' }, receiverBin: '220940001302', declarantName: 'ДРУГАЯ КОМПАНИЯ', declarantBin: '111111111111' }, true],
+    ['нет профиля клиента — не с чем сравнить', { receiver: { name: 'ТОО "URKER DISTRIBUTION"' }, receiverBin: '220940001302', declarantName: null, declarantBin: null }, false],
+  ] as const)('получатель из документов: %s', async (_case, created, warned) => {
+    api.extractBatch.mockResolvedValue(result({
+      declaration: { ...result().declaration, receiver: { name: 'ТОО "Urker Distribution"' } as never },
+      extras: { receiverBin: '220940001302', hintCodes: [], goods: [] },
+    }))
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n7', ...(created as object) }))
+    mount(USERS.declarant)
+    await pick()
+    const warnings = w.find('[data-issues-warnings]')
+    expect(warnings.exists() && warnings.text().includes('не совпадает с компанией клиента')).toBe(warned)
+    if (!warned) expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n7')
+  })
+
   it('ошибка извлечения — тост «не удалось распознать», ДТ не создаётся', async () => {
     api.extractBatch.mockRejectedValue(new Error('502'))
     mount(USERS.declarant)
