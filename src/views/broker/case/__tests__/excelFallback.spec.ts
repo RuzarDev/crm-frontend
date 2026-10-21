@@ -114,4 +114,32 @@ describe('excelFallback: инвойс и упаковочный лист пос�
     expect(old.rows[0]).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: null })
     expect(old.conflicts).toMatchObject([{ rowIndex: 0, field: 'tradeMarkName', crossField: 'productMarkName' }])
   })
+
+  it('ревью 22.10: товары только из Excel — «Товарный знак» инвойса и «Марка» упаковочного переносятся оба; шаблон с МАРКА и ТОВАРНЫЙ ЗНАК', () => {
+    const sushilka = [1, 7323990000, 'URS07', 'Сушилка для белья 18 м', 10, 47, 470]
+    const inv = (mark: string) => doc('invoice_UR0910.xlsx', [...INV_HEAD, 'Товарный знак'], [[...sushilka, 3.41, 1602.7, 25.5, 1198.5, mark]])
+    const pl = (mark: string) => doc('PACKING_LIST_UR0910.xlsx', [...PL_HEAD, 'Марка'], [[...sushilka, 25.5, 1198.5, 24, 1128, mark]])
+    expect(inv('LONGJU').goods[0].details).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: null })
+    expect(pl('LONGJU').goods[0].details).toMatchObject({ productMarkName: 'LONGJU', tradeMarkName: null })
+    // Zircon AI без чисел — ветка «только Excel», предохранителя пары нет: два столбца одного правила — обе графы
+    const r = applyExcelFallback({ goodsItems: [] }, [inv('LONGJU'), pl('LONGJU')])
+    expect(r.usedExcelGoods).toBe(true)
+    expect(r.rows).toHaveLength(1)
+    expect(r.rows[0]).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: 'LONGJU', value: 1602.7, netWeightKg: 1128 })
+    expect(r.conflicts).toEqual([])
+
+    // форма шаблона декларанта hozka-template: МАРКА и ТОВАРНЫЙ ЗНАК — «Отсутствует» в одном файле, плюс инвойс и упаковочный
+    const TPL_HEAD = ['№ ИНВОЙСА', 'ПРОИЗВОДИТЕЛЬ', 'МАРКА', 'ТОВАРНЫЙ ЗНАК', 'Артикул', 'Наименование', 'Количество',
+      'Стоимость итого USD', 'Код ТНВЭД', 'Вес нетто итого', 'Вес БРУТТО итого', 'КОЛ-ВО МЕСТ']
+    const tplRows = [[], TPL_HEAD, ['UR0910', 'Yiwu Test Trading Firm', 'Отсутствует', 'Отсутствует', 'URS07', 'Сушилка для белья 18 м', 470, 1602.7, 7323990000, 1128, 1198.5, 47]]
+    const template: ExcelDoc = {
+      fileName: 'hozka-template.xlsx', goods: goodsFromSheetRows(tplRows, { details: true }),
+      header: docHeaderFrom('hozka-template.xlsx', [[]], TPL_HEAD), rows: tplRows, placesHeader: 'КОЛ-ВО МЕСТ',
+    }
+    expect(template.goods[0].details).toMatchObject({ productMarkName: 'ОТСУТСТВУЕТ', tradeMarkName: 'ОТСУТСТВУЕТ' })
+    const t = applyExcelFallback({ goodsItems: [] }, [template, inv('Отсутствует'), pl('Отсутствует')])
+    expect(t.rows).toHaveLength(1)
+    expect(t.rows[0]).toMatchObject({ productMarkName: 'ОТСУТСТВУЕТ', tradeMarkName: 'ОТСУТСТВУЕТ', value: 1602.7, netWeightKg: 1128 })
+    expect(t.conflicts).toEqual([])
+  })
 })

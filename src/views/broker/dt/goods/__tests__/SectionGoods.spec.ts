@@ -573,7 +573,8 @@ describe('SectionGoods: Excel', () => {
     expect(form.goodsItems[0]).toMatchObject({ customsValue: 900, netWeightKg: 10, grossWeightKg: 12 })
   })
 
-  it('ревью 22.10: одно значение прочитано товарным знаком и маркой — в ДТ одна графа, в окне строка расхождения', async () => {
+  it('ревью 22.10: «Товарный знак» одного файла и «Марка» другого с одним значением — обе графы, без расхождений', async () => {
+    // «Из Excel» сливает только разборы Excel (одно правило столбцов) — это два столбца, переносятся оба
     const row = { description: 'СУШИЛКА', tnvedCode: '7323990000' }
     excel.readExcelDocuments.mockImplementation(async (f: File) => (f.name === 'invoice.xlsx'
       ? { docs: [sheet([{ ...row, customsValue: 1602.7, details: { tradeMarkName: 'LONGJU' } }], 'Invoice')] }
@@ -581,12 +582,29 @@ describe('SectionGoods: Excel', () => {
     await mount([])
     await pickMany([file('invoice.xlsx'), file('packing.xlsx')])
     const modal = document.querySelector('[data-goods-excel-modal]') as HTMLElement
-    expect(modal.querySelector('[data-goods-excel-conflicts]')!.textContent)
-      .toContain('Товар 1, LONGJU: товарный знак (invoice.xlsx), марка (packing.xlsx) — записано только как товарный знак')
+    expect(modal.querySelector('[data-goods-excel-conflicts]')).toBeNull()
     button('Добавить в конец').click()
     await settle()
-    expect(form.goodsItems[0].characteristics?.[0]).toMatchObject({ tradeMarkName: 'LONGJU' })
-    expect(form.goodsItems[0].characteristics?.[0]?.productMarkName ?? null).toBeNull()
+    expect(form.goodsItems[0].characteristics?.[0]).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: 'LONGJU' })
+  })
+
+  it('ревью 22.10: шаблон декларанта (МАРКА и ТОВАРНЫЙ ЗНАК «Отсутствует») + инвойс + упаковочный — «ОТСУТСТВУЕТ» в обеих графах', async () => {
+    const row = { description: 'СУШИЛКА', tnvedCode: '7323990000' }
+    excel.readExcelDocuments.mockImplementation(async (f: File) => (f.name === 'hozka-template.xlsx'
+      ? { docs: [sheet([{ ...row, customsValue: 1602.7, details: { productMarkName: 'Отсутствует', tradeMarkName: 'Отсутствует' } }])] }
+      : f.name === 'invoice.xlsx'
+        ? { docs: [sheet([{ ...row, customsValue: 1602.7, details: { tradeMarkName: 'Отсутствует' } }], 'Invoice')] }
+        : { docs: [sheet([{ ...row, netWeightKg: 1128, details: { productMarkName: 'Отсутствует' } }], 'Packing list')] }))
+    await mount([])
+    await pickMany([file('hozka-template.xlsx'), file('invoice.xlsx'), file('packing.xlsx')])
+    const modal = document.querySelector('[data-goods-excel-modal]') as HTMLElement
+    expect(modal.querySelector('[data-goods-excel-rows]')!.textContent).toBe('Строк с товарами: 1')
+    expect(modal.querySelector('[data-goods-excel-conflicts]')).toBeNull()
+    button('Добавить в конец').click()
+    await settle()
+    expect(form.goodsItems).toHaveLength(1)
+    expect(form.goodsItems[0]).toMatchObject({ customsValue: 1602.7, netWeightKg: 1128 })
+    expect(form.goodsItems[0].characteristics?.[0]).toMatchObject({ productMarkName: 'ОТСУТСТВУЕТ', tradeMarkName: 'ОТСУТСТВУЕТ' })
   })
 
   it('№10б: в ДТ уже есть товары — «Дополнить пустые поля» по умолчанию, без дублей; «Отменить» возвращает как было', async () => {

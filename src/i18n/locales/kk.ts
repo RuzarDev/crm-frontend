@@ -2064,7 +2064,6 @@ export default {
           onlyIn: 'Тек {file} ішінде бар: {n}',
           conflicts: 'Файлдарда әртүрлі мәндер: {n}',
           conflictLine: '{n}-тауар, {field}: {values} — алынғаны {chosen}',
-          crossLine: '{n}-тауар, {value}: {reads} — тек {field} ретінде жазылды',
           conflictField: {
             tnvedCode: 'СЭҚ ТН коды',
             quantity: 'саны',

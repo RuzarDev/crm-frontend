@@ -2064,7 +2064,6 @@ export default {
           onlyIn: 'Only in {file}: {n}',
           conflicts: 'Values differ between files: {n}',
           conflictLine: 'Item {n}, {field}: {values} — taken {chosen}',
-          crossLine: 'Item {n}, {value}: {reads} — written only as {field}',
           conflictField: {
             tnvedCode: 'HS code',
             quantity: 'quantity',

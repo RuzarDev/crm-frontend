@@ -165,12 +165,14 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
   let conflicts: ImportConflict[] = []
   let usedExcelGoods = false
   if (excelDocs.length && zirconHasNumbers) {
-    // База — товары Zircon AI, Excel дозаполняет пробелы и добавляет строки, которых у Zircon AI нет.
-    const m = mergeImportDocs([{ source: 'Zircon AI', kind: 'invoice', rows: zirconRows }, ...excelDocs])
+    // База — товары Zircon AI, Excel дозаполняет пробелы и добавляет строки, которых у Zircon AI нет. Разборы разные —
+    // предохранитель пары «марка / товарный знак»: столбец, прочитанный ими по-разному, не попадёт в обе графы.
+    const m = mergeImportDocs([{ source: 'Zircon AI', kind: 'invoice', rows: zirconRows }, ...excelDocs], { markTwinGuard: true })
     rows = m.rows
     conflicts = m.conflicts
     usedExcelGoods = m.rows.length > zirconRows.length
   } else if (excelDocs.length) {
+    // Только Excel — одно правило столбцов, предохранителя нет: «Товарный знак» одного файла и «Марка» другого — обе графы.
     const m = mergeImportDocs(excelDocs)
     if (m.rows.length) {
       rows = m.rows

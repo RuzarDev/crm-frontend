@@ -1,8 +1,9 @@
 // Импорт в ДТ (пакет 21.10.2026, №15 и №10б): несколько файлов одной поставки и повторный импорт.
 //
 // mergeImportDocs — строки документов (инвойс, упаковочный лист, листы одной книги) в один список: база — документ со
-//   стоимостью (инвойс), остальные дозаполняют пустые поля; разные значения — конфликт (взято значение базы). Одно
-//   значение в разных графах пары «марка / товарный знак» в обе не пишется — тоже конфликт (crossField, ревью 22.10).
+//   стоимостью (инвойс), остальные дозаполняют пустые поля; разные значения — конфликт (взято значение базы). При слиянии
+//   строк Zircon AI с разбором Excel (markTwinGuard) одно значение в разных графах пары «марка / товарный знак» в обе не
+//   пишется — тоже конфликт (crossField, ревью 22.10).
 //   Сопоставление строки, по порядку ключей, только однозначное (один кандидат): № строки (если он есть в обоих файлах и
 //   не противоречит коду/артикулу) → код + артикул → артикул + описание (артикулы в UR0910 повторяются с разным
 //   наименованием) → код + описание → артикул → описание → порядок (равное число строк, коды на тех же местах не
@@ -81,13 +82,25 @@ export interface MergeResult {
 }
 
 /**
- * Предохранитель пары «марка / товарный знак» (ревью 22.10). У слитой строки значение в одной графе пары, документ даёт
- * то же значение в другой графе и своей «первой» графы не имеет — почти наверняка это один столбец («Марка ↵ Brand»),
- * который разборы прочитали по-разному: «Из документов» сливает строки Zircon AI и разбора Excel того же файла. В обе
- * графы одно значение не пишется: остаётся графа слитой строки, расхождение — конфликтом crossField, решает декларант.
- * Документ, где обе графы заполнены одним значением (два столбца), — его данные, они переносятся как есть.
+ * Предохранитель пары «марка / товарный знак» (ревью 22.10) — только при MergeOptions.markTwinGuard. У слитой строки
+ * значение в одной графе пары, документ даёт то же значение в другой графе и своей «первой» графы не имеет — почти
+ * наверняка это один столбец («Марка ↵ Brand»), который разные разборы прочитали по-разному: «Из документов» сливает
+ * строки Zircon AI и разбора Excel того же файла. В обе графы одно значение не пишется: остаётся графа слитой строки,
+ * расхождение — конфликтом crossField, решает декларант. Документ, где обе графы заполнены одним значением (два столбца),
+ * — его данные, они переносятся как есть.
  */
 const MARK_TWIN: Partial<Record<keyof ImportRow, MarkPairField>> = { tradeMarkName: 'productMarkName', productMarkName: 'tradeMarkName' }
+
+export interface MergeOptions {
+  /**
+   * Предохранитель MARK_TWIN. Включать только при слиянии разных разборов — строк Zircon AI с разбором Excel
+   * («Из документов», excelFallback.applyExcelFallback). Документы одного разбора Excel («Из Excel» с несколькими файлами
+   * или листами) читают столбцы одним правилом markFieldOf: один столбец двумя графами они не прочитают, и одно значение
+   * в «Товарном знаке» инвойса и в «Марке» упаковочного листа — два столбца, переносятся оба (решение владельца 21.10:
+   * «Отсутствует» — как есть в каждую графу; ревью 22.10).
+   */
+  markTwinGuard?: boolean
+}
 
 type RowKey = (r: ImportRow) => string | null
 const rowKeys: { by: Exclude<DocMatchBy, 'position'>; key: RowKey }[] = [
@@ -107,7 +120,7 @@ const copyRow = (r: ImportRow): ImportRow => ({ ...r, ntins: [...r.ntins], docs:
 /** Документ со стоимостью (инвойс) — база слияния; дальше — в исходном порядке. */
 const docRank = (d: ImportDoc) => (d.kind === 'invoice' ? 0 : d.rows.some((r) => r.value != null) ? 1 : 2)
 
-export function mergeImportDocs(docs: readonly ImportDoc[]): MergeResult {
+export function mergeImportDocs(docs: readonly ImportDoc[], opts: MergeOptions = {}): MergeResult {
   const ordered = docs.map((d, i) => ({ d, i })).sort((a, b) => docRank(a.d) - docRank(b.d) || a.i - b.i).map((x) => x.d)
   const rows: ImportRow[] = []
   const conflicts: ImportConflict[] = []
@@ -115,7 +128,7 @@ export function mergeImportDocs(docs: readonly ImportDoc[]): MergeResult {
   const matchedBy: MergeResult['matchedBy'] = {}
   // Источники значений полей-конфликтов по строке: { field → [{value, source}] }.
   const valueSources: Map<ConflictField, { value: unknown; source: string }[]>[] = []
-  // Значения, не записанные во вторую графу пары «марка / товарный знак» (MARK_TWIN).
+  // Значения, не записанные во вторую графу пары «марка / товарный знак» (MARK_TWIN, при markTwinGuard).
   const crossed: { at: number; kept: MarkPairField; field: MarkPairField; value: unknown; source: string }[] = []
   const record = (at: number, r: ImportRow) => {
     for (const f of CONFLICT_FIELDS) {
@@ -171,7 +184,7 @@ export function mergeImportDocs(docs: readonly ImportDoc[]): MergeResult {
       const m = rows[at]
       for (const f of FILL_FIELDS) {
         if (!blank(m[f]) || blank(r[f])) continue
-        const kept = MARK_TWIN[f]
+        const kept = opts.markTwinGuard ? MARK_TWIN[f] : undefined
         if (kept && blank(r[kept]) && sameValue(r[f], m[kept])) {
           crossed.push({ at, kept, field: f as MarkPairField, value: r[f], source: r.source })
           continue

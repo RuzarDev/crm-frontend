@@ -96,13 +96,16 @@ describe('mergeImportDocs: марка, знак, модель, ГОСТ, сор�
 })
 
 // Ревью 22.10: «Марка ↵ Brand» фронт читал маркой, Zircon AI — товарным знаком; «Из документов» сливает строки Zircon AI и
-// Excel того же файла и писало LONGJU в обе графы (гр. 31 и XML КЕДЕН). Предохранитель — одно значение в одну графу.
+// Excel того же файла и писало LONGJU в обе графы (гр. 31 и XML КЕДЕН). Предохранитель — одно значение в одну графу, но
+// только при слиянии разных разборов (markTwinGuard): документы одного разбора Excel читают столбцы одним правилом, и
+// «Товарный знак» одного файла с «Маркой» другого — два столбца, переносятся оба (решение владельца 21.10, ревью 22.10).
 describe('mergeImportDocs: одно значение — не в обе графы «марка» и «товарный знак» (ревью 22.10)', () => {
   const zircon = (rows: Partial<ImportRow>[]): ImportDoc => ({ source: 'Zircon AI', kind: 'invoice', rows: rows.map((x) => r({ source: 'Zircon AI', ...x })) })
   const base = { tnvedCode: '7323990000', productArticle: 'URS07', description: 'СУШИЛКА' }
+  const guard = { markTwinGuard: true }
 
   it('Zircon AI — товарный знак, Excel того же файла — марка: остаётся графа базы, конфликт «кто как прочитал»', () => {
-    const m = mergeImportDocs([zircon([{ ...base, value: 1602.7, tradeMarkName: 'LONGJU' }]), inv([{ ...base, netWeightKg: 1128, productMarkName: 'longju' }])])
+    const m = mergeImportDocs([zircon([{ ...base, value: 1602.7, tradeMarkName: 'LONGJU' }]), inv([{ ...base, netWeightKg: 1128, productMarkName: 'longju' }])], guard)
     expect(m.rows[0]).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: null, netWeightKg: 1128 })
     expect(m.conflicts).toEqual([{
       rowIndex: 0, field: 'tradeMarkName', crossField: 'productMarkName', chosen: 'LONGJU',
@@ -113,31 +116,53 @@ describe('mergeImportDocs: одно значение — не в обе граф
     }])
   })
 
-  it('и наоборот: база — марка, другой документ — товарный знак; два документа с одним прочтением — один конфликт', () => {
-    const m = mergeImportDocs([
-      inv([{ ...base, value: 1, productMarkName: 'ОТСУТСТВУЕТ' }]),
+  it('и наоборот: Zircon AI — марка, файлы Excel — товарный знак: один конфликт; одни файлы Excel — обе графы', () => {
+    const excel = [
       pl([{ ...base, netWeightKg: 2, tradeMarkName: 'ОТСУТСТВУЕТ' }]),
       { source: 'other.xlsx', kind: null, rows: [r({ ...base, source: 'other.xlsx', grossWeightKg: 3, tradeMarkName: 'ОТСУТСТВУЕТ' })] },
-    ])
+    ]
+    const m = mergeImportDocs([zircon([{ ...base, value: 1, productMarkName: 'ОТСУТСТВУЕТ' }]), ...excel], guard)
     expect(m.rows[0]).toMatchObject({ productMarkName: 'ОТСУТСТВУЕТ', tradeMarkName: null, netWeightKg: 2, grossWeightKg: 3 })
     expect(m.conflicts).toEqual([{
       rowIndex: 0, field: 'productMarkName', crossField: 'tradeMarkName', chosen: 'ОТСУТСТВУЕТ',
       values: [
-        { value: 'ОТСУТСТВУЕТ', source: 'invoice.xlsx', field: 'productMarkName' },
+        { value: 'ОТСУТСТВУЕТ', source: 'Zircon AI', field: 'productMarkName' },
         { value: 'ОТСУТСТВУЕТ', source: 'packing.xlsx', field: 'tradeMarkName' },
         { value: 'ОТСУТСТВУЕТ', source: 'other.xlsx', field: 'tradeMarkName' },
       ],
     }])
+
+    // «Из Excel»: «Марка» инвойса и «Товарный знак» упаковочного — два столбца одного правила, «ОТСУТСТВУЕТ» в обе графы
+    const onlyExcel = mergeImportDocs([inv([{ ...base, value: 1, productMarkName: 'ОТСУТСТВУЕТ' }]), ...excel])
+    expect(onlyExcel.rows[0]).toMatchObject({ productMarkName: 'ОТСУТСТВУЕТ', tradeMarkName: 'ОТСУТСТВУЕТ', netWeightKg: 2, grossWeightKg: 3 })
+    expect(onlyExcel.conflicts).toEqual([])
+  })
+
+  it('одни файлы Excel: «Товарный знак» инвойса и «Марка» упаковочного с одним значением — обе графы, без расхождений', () => {
+    const m = mergeImportDocs([inv([{ ...base, value: 1602.7, tradeMarkName: 'LONGJU' }]), pl([{ ...base, netWeightKg: 1128, productMarkName: 'LONGJU' }])])
+    expect(m.rows[0]).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: 'LONGJU', value: 1602.7, netWeightKg: 1128 })
+    expect(m.conflicts).toEqual([])
+  })
+
+  it('форма шаблона декларанта (МАРКА и ТОВАРНЫЙ ЗНАК — «ОТСУТСТВУЕТ») + инвойс + упаковочный — «ОТСУТСТВУЕТ» в обеих графах', () => {
+    const template: ImportDoc = {
+      source: 'hozka-template.xlsx', kind: null,
+      rows: [r({ ...base, source: 'hozka-template.xlsx', value: 1602.7, productMarkName: 'ОТСУТСТВУЕТ', tradeMarkName: 'ОТСУТСТВУЕТ', productModelName: 'ОТСУТСТВУЕТ' })],
+    }
+    const m = mergeImportDocs([template, inv([{ ...base, value: 1602.7, tradeMarkName: 'ОТСУТСТВУЕТ' }]), pl([{ ...base, netWeightKg: 1128, productMarkName: 'ОТСУТСТВУЕТ' }])])
+    expect(m.rows).toHaveLength(1)
+    expect(m.rows[0]).toMatchObject({ productMarkName: 'ОТСУТСТВУЕТ', tradeMarkName: 'ОТСУТСТВУЕТ', productModelName: 'ОТСУТСТВУЕТ', netWeightKg: 1128 })
+    expect(m.conflicts).toEqual([])
   })
 
   it('документ с обеими графами (два столбца) — его данные; разные значения в графах — дозаполняются как раньше', () => {
-    const both = mergeImportDocs([inv([{ ...base, value: 1, tradeMarkName: 'LONGJU' }]), pl([{ ...base, productMarkName: 'LONGJU', tradeMarkName: 'LONGJU' }])])
+    const both = mergeImportDocs([zircon([{ ...base, value: 1, tradeMarkName: 'LONGJU' }]), pl([{ ...base, productMarkName: 'LONGJU', tradeMarkName: 'LONGJU' }])], guard)
     expect(both.rows[0]).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: 'LONGJU' })
     expect(both.conflicts).toEqual([])
-    const one = mergeImportDocs([inv([{ ...base, value: 1, productMarkName: 'LONGJU', tradeMarkName: 'LONGJU' }])])
+    const one = mergeImportDocs([zircon([{ ...base, value: 1, productMarkName: 'LONGJU', tradeMarkName: 'LONGJU' }])], guard)
     expect(one.rows[0]).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: 'LONGJU' })
     expect(one.conflicts).toEqual([])
-    const other = mergeImportDocs([inv([{ ...base, value: 1, tradeMarkName: 'LONGJU' }]), pl([{ ...base, productMarkName: 'ОТСУТСТВУЕТ' }])])
+    const other = mergeImportDocs([zircon([{ ...base, value: 1, tradeMarkName: 'LONGJU' }]), pl([{ ...base, productMarkName: 'ОТСУТСТВУЕТ' }])], guard)
     expect(other.rows[0]).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: 'ОТСУТСТВУЕТ' })
     expect(other.conflicts).toEqual([])
   })

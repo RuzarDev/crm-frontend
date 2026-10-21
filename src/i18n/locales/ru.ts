@@ -2068,7 +2068,6 @@ export default {
           onlyIn: 'Есть только в {file}: {n}',
           conflicts: 'Разные значения в файлах: {n}',
           conflictLine: 'Товар {n}, {field}: {values} — взято {chosen}',
-          crossLine: 'Товар {n}, {value}: {reads} — записано только как {field}',
           conflictField: {
             tnvedCode: 'код ТН ВЭД',
             quantity: 'количество',

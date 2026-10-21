@@ -89,20 +89,13 @@ const setOption = <K extends keyof ImportOptions>(k: K, v: ImportOptions[K]) => 
 
 const fieldLabel = (f: string) => tx(`conflictField.${f}`)
 const fmt = (v: unknown) => (typeof v === 'number' ? formatQty(v, locale.value) : String(v ?? '—'))
-// Одно значение прочитано как марка в одном документе и как товарный знак в другом — записано только в одну графу.
-const conflictLines = computed(() => (props.merge?.conflicts ?? []).map((c) => (c.crossField
-  ? tx('crossLine', {
-    n: c.rowIndex + 1,
-    value: fmt(c.chosen),
-    reads: c.values.map((v) => `${fieldLabel(v.field ?? c.field)} (${v.source})`).join(', '),
-    field: fieldLabel(c.field),
-  })
-  : tx('conflictLine', {
-    n: c.rowIndex + 1,
-    field: fieldLabel(c.field),
-    values: c.values.map((v) => `${fmt(v.value)} (${v.source})`).join(' / '),
-    chosen: fmt(c.chosen),
-  }))))
+// Окно «Из Excel» сливает только разборы Excel — предохранителя пары «марка / товарный знак» (crossField) здесь нет.
+const conflictLines = computed(() => (props.merge?.conflicts ?? []).map((c) => tx('conflictLine', {
+  n: c.rowIndex + 1,
+  field: fieldLabel(c.field),
+  values: c.values.map((v) => `${fmt(v.value)} (${v.source})`).join(' / '),
+  chosen: fmt(c.chosen),
+})))
 
 const matched = computed(() => props.plan?.matches.filter((m) => m.existing != null) ?? [])
 const matchedBy = computed(() => {

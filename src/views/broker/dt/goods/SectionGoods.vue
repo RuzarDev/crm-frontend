@@ -239,6 +239,7 @@ const recomputeImport = async () => {
     excelOpen.value = false
     return
   }
+  // Только разборы Excel (одно правило столбцов) — без предохранителя пары «марка / товарный знак» (MergeOptions).
   const merged = mergeImportDocs(docs)
   importMerge.value = merged
   importChecking.value = true
