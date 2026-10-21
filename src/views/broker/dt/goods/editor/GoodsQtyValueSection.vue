@@ -16,6 +16,7 @@ import ManualMark from '../../ManualMark.vue'
 import { withCurrent } from '../../dtOptions'
 import GoodsTariffHint from './GoodsTariffHint.vue'
 import SurStatsHint from '@/components/sur/SurStatsHint.vue'
+import { netOverGross as isNetOverGross } from '../goodsStatus'
 import { characteristicTotals } from './characteristics'
 import { ensureOkeiUnits, okeiLabel } from './okei'
 import { deiOf, loadDei } from './tnvedDei'
@@ -62,10 +63,8 @@ const rowsValueHelp = computed(() => (totals.value.valueMismatch
   ? t('broker.dt.goods.editor.chars.valueMismatchShort', { rows: fmt(totals.value.value) })
   : undefined))
 
-const netOverGross = computed(() => {
-  const { grossWeightKg: g, netWeightKg: n } = props.item
-  return g != null && n != null && n > g
-})
+// Одно правило со списком, итогами и статусом (goodsStatus.netOverGross).
+const netOverGross = computed(() => isNetOverGross(props.item))
 
 // Места: одно видимое поле; КЕДЕН-поле — его копия (одна цифра на бланке и в XML). Не поле платежей.
 const places = computed(() => placesOfGoods(props.item))

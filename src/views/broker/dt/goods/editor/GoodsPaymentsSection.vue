@@ -14,6 +14,7 @@ import { formatNumberIn } from '@/ui/number'
 import { cn } from '@/ui/cn'
 import type { ZOption, ZOptionValue } from '@/ui/options'
 import type { Import40GoodsPayment } from '@/types/api'
+import { dtDateWarning } from '@/utils/dtDateRange'
 import { formatMoney } from '../goodsList'
 import { goodsPaymentsStale } from '../goodsStatus'
 import { useVatOffset } from '../useVatOffset'
@@ -96,6 +97,8 @@ const featureOptions = computed(() => classifiers.options('payment-features'))
 const str = (v: ZOptionValue | ZOptionValue[] | null) => (v == null || Array.isArray(v) || v === '' ? null : String(v))
 const text = (v: string) => (v.trim() ? v.trim() : null)
 const set = <K extends keyof Import40GoodsPayment>(p: Import40GoodsPayment, key: K, v: Import40GoodsPayment[K]) => { setPaymentField(p, key, v) }
+// Дата курса обычно ставится расчётом (дата гр. А); предупреждение (№14б) ловит ручную правку года.
+const rateDateWarn = (p: Import40GoodsPayment) => dtDateWarning(t, p.rateDate, 'event')
 
 const list = (): Import40GoodsPayment[] => {
   const g = props.item
@@ -257,7 +260,17 @@ const removeBtn = cn(
           <div class="flex flex-wrap items-end gap-2">
             <div :class="[field, 'w-40']">
               <span :class="fieldLabel">{{ tp('col.date') }}</span>
-              <ZDate :value="p.rateDate" allow-clear :placeholder="tp('auto')" :aria-label="tp('col.date')" :class="tall" data-f="payment-date" @update:value="set(p, 'rateDate', $event)" />
+              <ZDate
+                :value="p.rateDate"
+                allow-clear
+                :placeholder="tp('auto')"
+                :aria-label="tp('col.date')"
+                :status="rateDateWarn(p) ? 'warning' : ''"
+                :title="rateDateWarn(p) ?? undefined"
+                :class="tall"
+                data-f="payment-date"
+                @update:value="set(p, 'rateDate', $event)"
+              />
             </div>
             <div :class="[field, 'w-40']">
               <span :class="fieldLabel">{{ tp('col.amount') }}</span>

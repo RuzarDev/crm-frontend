@@ -14,6 +14,7 @@ import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import type { Import40GoodsExciseStamp, Import40GoodsExtras, Import40GoodsVehicle } from '@/types/api'
 import type { ZOption, ZOptionValue } from '@/ui/options'
 import { cn } from '@/ui/cn'
+import { dtDateFieldProps } from '@/utils/dtDateRange'
 import OkeiUnitSelect from './OkeiUnitSelect.vue'
 import type { GoodsSectionProps } from './types'
 
@@ -175,7 +176,7 @@ const warnText = 'm-0 rounded-field bg-gold-soft px-3 py-2 text-[13px] text-gold
           <ZField graph="31.1" :label="tx('productionPlace')" data-graph="31" :data-goods-index="index" data-goods-field="productionPlaceName">
             <ZInput v-uppercase :value="x.productionPlaceName ?? ''" :maxlength="250" :disabled="readonly" :class="tall" data-f="productionPlaceName" @update:value="set('productionPlaceName', text($event))" />
           </ZField>
-          <ZField graph="31.1" :label="tx('manufactureDate')" data-graph="31" :data-goods-index="index" data-goods-field="manufactureDate">
+          <ZField graph="31.1" :label="tx('manufactureDate')" data-graph="31" :data-goods-index="index" data-goods-field="manufactureDate" v-bind="dtDateFieldProps(t, x.manufactureDate, 'manufacture')">
             <ZDate :value="x.manufactureDate ?? null" :disabled="readonly" allow-clear :class="tall" data-f="manufactureDate" @update:value="set('manufactureDate', $event)" />
           </ZField>
         </div>
@@ -215,7 +216,7 @@ const warnText = 'm-0 rounded-field bg-gold-soft px-3 py-2 text-[13px] text-gold
               <ZField :label="tx('model')" class="@sm:col-span-2" v-bind="!v.modelName?.trim() ? { validateStatus: 'warning', help: tx('modelRequired') } : {}">
                 <ZInput v-uppercase :value="v.modelName ?? ''" :maxlength="250" :disabled="readonly" :class="tall" :data-f="`car-${vi}-model`" @update:value="setCar(v, 'modelName', text($event))" />
               </ZField>
-              <ZField :label="tx('carDate')"><ZDate :value="v.manufactureDate ?? null" allow-clear :disabled="readonly" :class="tall" :data-f="`car-${vi}-date`" @update:value="setCar(v, 'manufactureDate', $event)" /></ZField>
+              <ZField :label="tx('carDate')" v-bind="dtDateFieldProps(t, v.manufactureDate, 'manufacture')"><ZDate :value="v.manufactureDate ?? null" allow-clear :disabled="readonly" :class="tall" :data-f="`car-${vi}-date`" @update:value="setCar(v, 'manufactureDate', $event)" /></ZField>
               <ZField :label="tx('engineVolume')"><ZNumber :value="v.engineVolumeCm3 ?? null" :min="0" :disabled="readonly" :class="tall" :data-f="`car-${vi}-volume`" @update:value="setCar(v, 'engineVolumeCm3', $event)" /></ZField>
               <ZField :label="tx('powerKw')"><ZNumber :value="v.powerKw ?? null" :min="0" :disabled="readonly" :class="tall" :data-f="`car-${vi}-kw`" @update:value="setCar(v, 'powerKw', $event)" /></ZField>
               <ZField :label="tx('powerHp')"><ZNumber :value="v.powerHp ?? null" :min="0" :disabled="readonly" :class="tall" :data-f="`car-${vi}-hp`" @update:value="setCar(v, 'powerHp', $event)" /></ZField>
@@ -234,10 +235,10 @@ const warnText = 'm-0 rounded-field bg-gold-soft px-3 py-2 text-[13px] text-gold
         <!-- 31.7 период поставки -->
         <template v-else-if="b === 'period'">
           <div :class="grid">
-            <ZField graph="31.7" :label="tx('periodStart')" data-graph="31" :data-goods-index="index" data-goods-field="periodStartDate">
+            <ZField graph="31.7" :label="tx('periodStart')" data-graph="31" :data-goods-index="index" data-goods-field="periodStartDate" v-bind="dtDateFieldProps(t, x.periodStartDate, 'event')">
               <ZDate :value="x.periodStartDate ?? null" allow-clear :disabled="readonly" :class="tall" data-f="periodStartDate" @update:value="set('periodStartDate', $event)" />
             </ZField>
-            <ZField graph="31.7" :label="tx('periodEnd')" data-graph="31" :data-goods-index="index" data-goods-field="periodEndDate">
+            <ZField graph="31.7" :label="tx('periodEnd')" data-graph="31" :data-goods-index="index" data-goods-field="periodEndDate" v-bind="dtDateFieldProps(t, x.periodEndDate, 'event')">
               <ZDate :value="x.periodEndDate ?? null" allow-clear :disabled="readonly" :class="tall" data-f="periodEndDate" @update:value="set('periodEndDate', $event)" />
             </ZField>
           </div>

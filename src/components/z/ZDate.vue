@@ -45,6 +45,9 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   readonly?: boolean
   invalid?: boolean
+  /** Как у ZSelect: 'error' — как invalid (красная рамка, aria-invalid), 'warning' — золотая рамка без aria-invalid
+   *  (дата принята, но вызывает вопрос — например, вне разумного диапазона дат ДТ). */
+  status?: 'error' | 'warning' | ''
   allowClear?: boolean
   id?: string
   name?: string
@@ -68,7 +71,7 @@ const wrapEl = ref<HTMLElement>()
 // Внутри ZField: id/aria-* поля, красная рамка при ошибке; change — на фиксации, blur — на уходе из поля
 // (не в календарь) — полю (см. src/ui/form.ts).
 const { fieldId, fieldDescribedBy, fieldInvalid, fieldAriaInvalid, fieldRequired, notifyChange, notifyBlur } = useFieldControl({
-  attrs, invalid: () => !!props.invalid || draftInvalid.value, id: () => props.id, focus: () => inputEl.value?.focus(), value: () => props.value,
+  attrs, invalid: () => !!props.invalid || props.status === 'error' || draftInvalid.value, id: () => props.id, focus: () => inputEl.value?.focus(), value: () => props.value,
 })
 const text = ref(formatDateText(props.value))
 // Пользователь правил текст с последней синхронизации со значением (черновик).
@@ -92,7 +95,9 @@ const draftInvalid = computed(() => {
   if (isCompleteDateText(text.value)) return !draftValid.value
   return /^\d{1,2}\.\d{1,2}\.\d{2}$/.test(text.value.trim()) && parsed.value === undefined
 })
-const isInvalid = computed(() => props.invalid || draftInvalid.value || fieldInvalid.value)
+const isInvalid = computed(() => props.invalid || props.status === 'error' || draftInvalid.value || fieldInvalid.value)
+// status='warning' — золотая рамка; ошибка (в том числе неверный черновик) важнее.
+const isWarning = computed(() => props.status === 'warning' && !isInvalid.value)
 // Календарь показывает набранную дату, если она верна, иначе значение.
 const calendarModel = computed(() => (parsed.value && draftValid.value ? parsed.value : toCalendarDate(props.value) ?? null))
 
@@ -246,7 +251,7 @@ const cellClass = cn(
       <span
         ref="wrapEl"
         :style="attrs.style as StyleValue"
-        :class="cn(fieldShell({ size, invalid: isInvalid, disabled }), 'pr-1.5', readonly && !disabled && 'bg-sunken', attrs.class as ClassValue)"
+        :class="cn(fieldShell({ size, invalid: isInvalid, warning: isWarning, disabled }), 'pr-1.5', readonly && !disabled && 'bg-sunken', attrs.class as ClassValue)"
         @focusout="onFocusOut"
       >
         <input

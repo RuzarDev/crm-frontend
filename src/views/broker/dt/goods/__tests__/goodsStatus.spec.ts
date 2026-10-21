@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { paymentsStale } from '../../dtPageModel'
 import {
-  PAYMENT_FIELDS, goodsPaymentsStale, localMissingFields, localStatus, markStale, missingByGoodsIndex, setGoodsField, statusFrom,
-  type GoodsReadinessItem,
+  PAYMENT_FIELDS, goodsPaymentsStale, goodsStatusView, localMissingFields, localStatus, markStale, missingByGoodsIndex, netOverGross,
+  setGoodsField, statusFrom, type GoodsReadinessItem,
 } from '../goodsStatus'
 
 const complete = (o: Partial<Import40GoodsItemInput> = {}): Import40GoodsItemInput => ({
@@ -104,5 +104,32 @@ describe('goodsStatus: статус товара', () => {
     expect(localMissingFields(complete({ grossWeightKg: 719.1, netWeightKg: 1128 }))).toEqual(['netOverGross'])
     expect(localMissingFields(complete({ grossWeightKg: 11, netWeightKg: 11 }))).toEqual([])
     expect(goodsStatus(complete({ needsTpinRecalc: true }), 0, null)).toEqual({ kind: 'stale' })
+  })
+})
+
+describe('goodsStatus: нетто > брутто (№14а)', () => {
+  it('netOverGross: оба веса указаны и нетто строго больше; равны, пусто — не эта ошибка; 0 — значение', () => {
+    expect(netOverGross({ grossWeightKg: 22222, netWeightKg: 44444 })).toBe(true)
+    expect(netOverGross({ grossWeightKg: 11, netWeightKg: 11 })).toBe(false)
+    expect(netOverGross({ grossWeightKg: 12, netWeightKg: 11 })).toBe(false)
+    expect(netOverGross({ grossWeightKg: null, netWeightKg: 11 })).toBe(false)
+    expect(netOverGross({ grossWeightKg: 12, netWeightKg: undefined })).toBe(false)
+    expect(netOverGross({ grossWeightKg: 0, netWeightKg: 1 })).toBe(true)
+    expect(netOverGross({ grossWeightKg: 0, netWeightKg: 0 })).toBe(false)
+    // строка Excel до переноса: строки чисел тоже сравниваются как числа
+    expect(netOverGross({ grossWeightKg: '9', netWeightKg: '10' })).toBe(true)
+    expect(netOverGross({ grossWeightKg: ' ', netWeightKg: '10' })).toBe(false)
+  })
+
+  it('goodsStatusView: «Нетто > брутто» вместо «Не хватает 1»; больше пунктов — «· ещё N»; прочие виды прежние', () => {
+    const bad = complete({ grossWeightKg: 22222, netWeightKg: 44444 })
+    expect(goodsStatusView({ kind: 'missing', count: 1 }, bad)).toEqual({ tone: 'danger', key: 'status.netOverGross' })
+    expect(goodsStatusView({ kind: 'missing', count: 3 }, bad)).toEqual({ tone: 'danger', key: 'status.netOverGrossMore', params: { n: 2 } })
+    expect(goodsStatusView({ kind: 'missing', count: 2 }, complete())).toEqual({ tone: 'danger', key: 'status.missing', params: { n: 2 } })
+    expect(goodsStatusView({ kind: 'badCode' }, bad)).toEqual({ tone: 'danger', key: 'status.badCode' })
+    expect(goodsStatusView({ kind: 'stale' }, complete())).toEqual({ tone: 'accent', key: 'status.stale' })
+    expect(goodsStatusView({ kind: 'ready' }, complete())).toEqual({ tone: 'done', key: 'status.ready' })
+    // без ответа сервера: местная проверка считает netOverGross одним пунктом
+    expect(goodsStatusView(localStatus(bad), bad)).toEqual({ tone: 'danger', key: 'status.netOverGross' })
   })
 })

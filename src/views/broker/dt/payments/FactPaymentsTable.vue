@@ -10,6 +10,7 @@ import ZSelect from '@/components/z/ZSelect.vue'
 import { useClassifiersStore } from '@/stores/classifiers'
 import type { ZOptionValue } from '@/ui/options'
 import type { Import40FactPayment } from '@/types/api'
+import { dtDateWarning } from '@/utils/dtDateRange'
 import { withCurrent } from '../dtOptions'
 import type { DtFormState } from '../dtPayload'
 
@@ -54,6 +55,9 @@ const add = () => {
 const remove = (p: Import40FactPayment) => {
   props.form.factPayments = (props.form.factPayments ?? []).filter((x) => x !== p)
 }
+
+// Дата вне разумного диапазона (№14б) — золотая рамка и подсказка; таблица плотная, полный текст — в готовности (гр. В).
+const dateWarn = (v: string | null | undefined) => dtDateWarning(t, v, 'event')
 
 const field = 'flex min-w-0 flex-col gap-1'
 const label = 'text-xs text-muted'
@@ -157,11 +161,11 @@ const tall = 'max-sm:h-11'
           </div>
           <div :class="field">
             <span :class="label">{{ tf('col.docDate') }}</span>
-            <ZDate :value="p.paymentDocDate" allow-clear :disabled="readonly" :class="tall" :aria-label="tf('col.docDate')" data-fact="docDate" @update:value="p.paymentDocDate = $event" />
+            <ZDate :value="p.paymentDocDate" allow-clear :disabled="readonly" :status="dateWarn(p.paymentDocDate) ? 'warning' : ''" :title="dateWarn(p.paymentDocDate) ?? undefined" :class="tall" :aria-label="tf('col.docDate')" data-fact="docDate" @update:value="p.paymentDocDate = $event" />
           </div>
           <div :class="field">
             <span :class="label">{{ tf('col.payDate') }}</span>
-            <ZDate :value="p.paymentDate" allow-clear :disabled="readonly" :class="tall" :aria-label="tf('col.payDate')" data-fact="payDate" @update:value="p.paymentDate = $event" />
+            <ZDate :value="p.paymentDate" allow-clear :disabled="readonly" :status="dateWarn(p.paymentDate) ? 'warning' : ''" :title="dateWarn(p.paymentDate) ?? undefined" :class="tall" :aria-label="tf('col.payDate')" data-fact="payDate" @update:value="p.paymentDate = $event" />
           </div>
         </div>
         <ZButton

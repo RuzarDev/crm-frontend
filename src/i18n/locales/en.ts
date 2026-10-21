@@ -1262,6 +1262,7 @@ export default {
       goodsN: 'Item {n}',
       docStartDate: 'Valid from',
       docValidityDate: 'Valid until',
+      dateWarn: '{field}: {text}',
       issueCountryCode: 'Issuing country',
       presentKind: 'Presentation status',
       presentKinds: {
@@ -1272,6 +1273,12 @@ export default {
       },
     },
     dt: {
+      // Разумный диапазон дат ДТ (правка №14б): предупреждение у поля, XML не блокирует.
+      dates: {
+        tooEarly: '{date} is before {limit} — check the year',
+        tooLate: '{date} is after {limit} — check the year',
+        validityBeforeStart: '“Valid until” is earlier than the document date or “Valid from”',
+      },
       manual: {
         badge: 'manual',
         badgeTitle: 'Entered by hand: “Calculate” and the declaration split do not overwrite it until it is reset to the calculated value',
@@ -1923,6 +1930,8 @@ export default {
         tableLabel: 'Declaration goods',
         openItem: 'Open item {n}',
         noCode: 'no code',
+        netOverGrossCell: 'Net weight exceeds gross — check the weights',
+        netOverGrossBadge: 'net > gross',
         cols: {
           n: 'No.',
           code: 'HS code',
@@ -1933,7 +1942,7 @@ export default {
           money: 'Box 45 / duties, ₸',
           status: 'Status',
         },
-        status: { ready: 'Ready', missing: '{n} missing', stale: 'Recalculate', badCode: 'Not in HS reference' },
+        status: { ready: 'Ready', missing: '{n} missing', stale: 'Recalculate', badCode: 'Not in HS reference', netOverGross: 'Net > gross', netOverGrossMore: 'Net > gross · {n} more' },
         bulk: {
           label: 'Actions with selected goods',
           selected: 'Selected: {n}',
@@ -2007,6 +2016,9 @@ export default {
           tpin: 'Duties & taxes',
           stale: 'Payments out of date',
           calc: 'Calculate',
+          netOverGross: 'Net exceeds gross: item No. {list}',
+          netOverGrossSum: 'Total net exceeds total gross — some items have no gross weight',
+          open: 'Open',
         },
         excel: {
           title: 'Goods from Excel',

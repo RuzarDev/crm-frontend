@@ -3,13 +3,12 @@ import { computed, h, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vu
 import { useI18n } from 'vue-i18n'
 import ZTable from '@/components/z/ZTable.vue'
 import StatusDot from '@/components/broker/StatusDot.vue'
-import type { ZTone } from '@/components/z/ZTag.vue'
 import type { ZColumn, ZKey } from '@/ui/table'
 import type { Import40GoodsItemInput } from '@/types/api'
 import { formatTnved } from '@/utils/tnvedFormat'
 import { formatKg, formatValue } from '@/views/broker/transit/record/sections/goods'
 import { formatMoney, goodsTpin, type GoodsRow } from './goodsList'
-import type { GoodsStatus } from './goodsStatus'
+import { goodsStatusView, netOverGross, type GoodsStatus } from './goodsStatus'
 
 // Таблица товаров ДТ (доска DtGoods): чекбокс, №, код ТН ВЭД (моно; «нет кода» красным), описание · страна,
 // брутто / нетто (в две строки), фактурная (валюта гр. 22 в заголовке), гр. 45 / ТПиН ₸ (в две строки), статус
@@ -19,6 +18,8 @@ import type { GoodsStatus } from './goodsStatus'
 // Узкий раздел (1280 с панелью «До подачи» ≈ 580px, 1024 ≈ 620px, 1440 с панелью ≈ 740px) — без горизонтальной
 // прокрутки: по ширине самой таблицы сначала уходят веса, потом гр. 45 / ТПиН (их суммы — в итогах и в редакторе),
 // описанию остаётся не меньше ~160px.
+// Нетто > брутто (№14а): обе цифры колонки весов красные, с подсказкой; колонка скрыта (узко, телефон) — красная метка
+// «нетто > брутто» в ячейке описания; статус — «Нетто > брутто» вместо «Не хватает N».
 const props = defineProps<{
   rows: GoodsRow[]
   statusOf: (g: Import40GoodsItemInput) => GoodsStatus
@@ -43,6 +44,7 @@ const GOODS_WEIGHTS_MIN_WIDTH = 840
 const GOODS_MONEY_MIN_WIDTH = 700
 const tableRef = useTemplateRef<{ $el: HTMLElement }>('table')
 const width = ref(Number.POSITIVE_INFINITY)
+const weightsShown = computed(() => width.value >= GOODS_WEIGHTS_MIN_WIDTH)
 let ro: ResizeObserver | undefined
 onMounted(() => {
   const el = tableRef.value?.$el
@@ -61,7 +63,7 @@ const columns = computed<ZColumn<GoodsRow>[]>(() => withCells([
   { key: 'n', title: tg('cols.n'), width: 36, className: 'px-2 text-ink-3 tabular-nums max-sm:hidden' },
   { key: 'code', title: tg('cols.code'), width: 112, className: 'px-2' },
   { key: 'description', title: tg('cols.description'), ellipsis: true },
-  ...(width.value >= GOODS_WEIGHTS_MIN_WIDTH
+  ...(weightsShown.value
     ? [{ key: 'weights', title: tg('cols.weights'), width: 100, align: 'right', className: 'py-1 tabular-nums max-sm:hidden' } as ZColumn<GoodsRow>]
     : []),
   {
@@ -77,13 +79,6 @@ const columns = computed<ZColumn<GoodsRow>[]>(() => withCells([
   { key: 'status', title: tg('cols.status'), width: 124, fixed: 'right' },
 ]))
 
-const statusView = (s: GoodsStatus): { tone: ZTone; label: string } => {
-  if (s.kind === 'missing') return { tone: 'danger', label: tg('status.missing', { n: s.count }) }
-  if (s.kind === 'badCode') return { tone: 'danger', label: tg('status.badCode') }
-  if (s.kind === 'stale') return { tone: 'accent', label: tg('status.stale') }
-  return { tone: 'done', label: tg('status.ready') }
-}
-
 // Статусы — один раз на отрисовку (по ключу товара), а не по вызову на ячейку.
 const statusByKey = computed(() => new Map(props.rows.map((r) => [r.key, props.statusOf(r.item)])))
 
@@ -97,6 +92,7 @@ const stacked = (top: string, bottom: string) => h('span', { class: 'flex flex-c
   h('span', null, top),
   h('span', { class: 'text-xs text-ink-3' }, bottom),
 ])
+const srOnly = (text: string) => h('span', { class: 'sr-only' }, text)
 
 // Ячейки — рендер-функциями (без компонента на ячейку): так 200 строк остаются дешёвыми.
 const cell = (key: string | undefined, r: GoodsRow) => {
@@ -127,10 +123,23 @@ const cell = (key: string | undefined, r: GoodsRow) => {
       return h('span', { class: 'flex min-w-0 items-baseline gap-1.5' }, [
         h('span', { class: 'truncate' }, text),
         country ? h('span', { class: 'shrink-0 font-mono text-[11px] text-muted' }, country) : null,
+        // Веса не видны (узкий раздел, телефон) — метка здесь; колонка видна — на ПК метка её не дублирует.
+        netOverGross(g)
+          ? h('span', {
+            class: ['shrink-0 rounded-pill bg-tone-danger-bg px-1.5 text-[11px] text-tone-danger-fg', weightsShown.value && 'sm:hidden'],
+            title: tg('netOverGrossCell'),
+            'data-goods-net-over-gross': '',
+          }, tg('netOverGrossBadge'))
+          : null,
       ])
     }
     case 'weights':
-      return stacked(kg(g.grossWeightKg), kg(g.netWeightKg))
+      if (!netOverGross(g)) return stacked(kg(g.grossWeightKg), kg(g.netWeightKg))
+      return h('span', { class: 'flex flex-col leading-tight text-danger', title: tg('netOverGrossCell'), 'data-goods-weights-error': '' }, [
+        h('span', null, kg(g.grossWeightKg)),
+        h('span', { class: 'text-xs' }, kg(g.netWeightKg)),
+        srOnly(`, ${tg('netOverGrossCell')}`),
+      ])
     case 'invoice': {
       if (typeof g.customsValue !== 'number') return dash
       const v = formatMoney(g.customsValue, locale.value)
@@ -145,8 +154,8 @@ const cell = (key: string | undefined, r: GoodsRow) => {
     }
     case 'status': {
       const st = statusByKey.value.get(r.key) ?? props.statusOf(g)
-      const s = statusView(st)
-      return h(StatusDot, { tone: s.tone, label: s.label, 'data-goods-status': st.kind })
+      const s = goodsStatusView(st, g)
+      return h(StatusDot, { tone: s.tone, label: tg(s.key, s.params), 'data-goods-status': st.kind })
     }
   }
   return null

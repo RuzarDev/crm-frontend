@@ -1266,6 +1266,7 @@ export default {
       goodsN: 'Товар {n}',
       docStartDate: 'Действует с',
       docValidityDate: 'Действует по',
+      dateWarn: '{field}: {text}',
       issueCountryCode: 'Страна выдачи',
       presentKind: 'Признак представления',
       presentKinds: {
@@ -1276,6 +1277,12 @@ export default {
       },
     },
     dt: {
+      // Разумный диапазон дат ДТ (правка №14б): предупреждение у поля, XML не блокирует.
+      dates: {
+        tooEarly: '{date} раньше {limit} — проверьте год',
+        tooLate: '{date} позже {limit} — проверьте год',
+        validityBeforeStart: '«Действует по» раньше даты документа или «Действует с»',
+      },
       manual: {
         badge: 'вручную',
         badgeTitle: 'Введено вручную: «Рассчитать» и разделение ДТ это значение не перезаписывают, пока его не сбросят к расчёту',
@@ -1927,6 +1934,8 @@ export default {
         tableLabel: 'Товары декларации',
         openItem: 'Открыть товар {n}',
         noCode: 'нет кода',
+        netOverGrossCell: 'Нетто больше брутто — проверьте вес',
+        netOverGrossBadge: 'нетто > брутто',
         cols: {
           n: '№',
           code: 'Код ТН ВЭД',
@@ -1937,7 +1946,7 @@ export default {
           money: 'Гр. 45 / ТПиН, ₸',
           status: 'Статус',
         },
-        status: { ready: 'Готов', missing: 'Не хватает {n}', stale: 'Пересчитать', badCode: 'Нет в справочнике' },
+        status: { ready: 'Готов', missing: 'Не хватает {n}', stale: 'Пересчитать', badCode: 'Нет в справочнике', netOverGross: 'Нетто > брутто', netOverGrossMore: 'Нетто > брутто · ещё {n}' },
         bulk: {
           label: 'Действия с выбранными товарами',
           selected: 'Выбрано {n}',
@@ -2011,6 +2020,9 @@ export default {
           tpin: 'ТПиН',
           stale: 'Платежи устарели',
           calc: 'Рассчитать',
+          netOverGross: 'Нетто больше брутто: товар № {list}',
+          netOverGrossSum: 'Итого нетто больше брутто — у части товаров не указан брутто',
+          open: 'Открыть',
         },
         excel: {
           title: 'Товары из Excel',

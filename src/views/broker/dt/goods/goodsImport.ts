@@ -9,6 +9,7 @@
 import type { ClassifierItem, Import40Doc44ItemInput, Import40GoodsItemInput, ReestrGoodsItemInput } from '@/types/api'
 import type { GoodsExcelDetails, GoodsExcelRow } from '@/utils/goodsExcel'
 import { okeiFromText } from './editor/okei'
+import { netOverGross } from './goodsStatus'
 import { newDtGoodsItem } from './useDtGoods'
 
 export interface DtExcelContext {
@@ -185,6 +186,6 @@ export function excelPreview(rows: readonly GoodsExcelRow[], packageKinds: reado
     },
     documents: dtDocsFromExcel(rows, 0).length,
     unknownPackaging: [...unknown],
-    netOverGross: rows.filter((r) => r.grossWeightKg != null && r.netWeightKg != null && r.netWeightKg > r.grossWeightKg).length,
+    netOverGross: rows.filter(netOverGross).length,
   }
 }

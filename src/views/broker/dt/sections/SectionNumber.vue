@@ -7,6 +7,7 @@ import ZDate from '@/components/z/ZDate.vue'
 import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
+import { dtDateFieldProps } from '@/utils/dtDateRange'
 import type { DtFormState } from '../dtPayload'
 import { buildFromParts, cleanTail, ddmmyyOf, digitsOfShortNumber, isKedenNumber, isoOfDdmmyy, isStandardNumber, lastTail, padTail, parseFullNumber, partsOf, tailOf } from '../dtNumber'
 import { withCurrent } from '../dtOptions'
@@ -198,7 +199,8 @@ const result = computed(() => props.form.declarationNumber || '')
           @update:value="onPostText"
         />
       </ZField>
-      <ZField :label="t('broker.dt.number.date')">
+      <!-- Дата вне разумного диапазона (№14б) — предупреждение под полем, ДТ сохраняется. -->
+      <ZField :label="t('broker.dt.number.date')" v-bind="dtDateFieldProps(t, form.submissionDate, 'event')">
         <ZDate :value="form.submissionDate" :disabled="readonly" @update:value="onDate" />
       </ZField>
       <ZField :label="t('broker.dt.number.tail')">

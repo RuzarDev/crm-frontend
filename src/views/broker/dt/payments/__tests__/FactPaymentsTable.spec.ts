@@ -58,6 +58,17 @@ describe('FactPaymentsTable', () => {
     expect(form.factPayments[0]).toMatchObject({ amount: 21000, exchangeRate: 2, payerTaxpayerId: '990140000001' })
   })
 
+  it('дата платёжки 2202 (№14б) — золотая рамка и подсказка с текстом; обычная дата — без них', () => {
+    const { w } = setup([fact('1010', 20000, { paymentDocDate: '2202-09-10' })])
+    const doc = row(w, 0).get('input[data-fact="docDate"]')
+    expect(doc.element.parentElement!.className).toContain('border-gold')
+    expect(doc.attributes('title')).toMatch(/^10\.09\.2202 позже \d{2}\.\d{2}\.\d{4} — проверьте год$/)
+    expect(doc.attributes('aria-invalid')).toBeUndefined()
+    const pay = row(w, 0).get('input[data-fact="payDate"]')
+    expect(pay.element.parentElement!.className).not.toContain('border-gold')
+    expect(pay.attributes('title')).toBeUndefined()
+  })
+
   it('номер платёжки: виден, правится в ту же строку (обрезка пробелов, до 50 знаков), пустой — null', async () => {
     const { form, w } = setup([fact('1010', 1), fact('5060', 2, { paymentDocNumber: null })])
     const num = (i: number) => row(w, i).get('input[data-fact="docNumber"]')

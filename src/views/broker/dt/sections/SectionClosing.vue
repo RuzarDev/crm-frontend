@@ -14,6 +14,7 @@ import { vUppercase } from '@/directives/uppercase'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { message } from '@/ui/message'
 import type { ZOption } from '@/ui/options'
+import { dtDateFieldProps, type DtDateKind } from '@/utils/dtDateRange'
 import DtGraphHelp from '../DtGraphHelp.vue'
 import { dedupeOptions, withCurrent } from '../dtOptions'
 import type { DtFormState } from '../dtPayload'
@@ -34,6 +35,8 @@ const country = computed(() => withCurrent(countries.value as ZOption[], props.f
 const warn = (unknown: boolean, value: string | null | undefined) =>
   unknown ? { validateStatus: 'warning' as const, help: t('broker.dt.general.notInList', { value: value ?? '' }) } : {}
 const str = (v: unknown): string | null => (v == null || v === '' ? null : String(v))
+// Даты вне разумного диапазона (№14б): события — до сегодня + 1 год, сроки (отсрочка, доверенность) — до + 10 лет.
+const dateWarn = (value: string | null | undefined, kind: DtDateKind) => dtDateFieldProps(t, value, kind)
 const filterByLabel = (input: string, o: ZOption) => o.label.toLocaleLowerCase('ru').includes(input.toLocaleLowerCase('ru'))
 
 const profileLoading = ref(false)
@@ -86,10 +89,10 @@ const grid3 = 'grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @2xl:grid-cols-3
         <ZField graph="48" :label="tc('number')">
           <ZInput v-uppercase :value="form.deferralNumber" :disabled="readonly" :class="ctl" data-deferral-number @update:value="form.deferralNumber = str($event)" />
         </ZField>
-        <ZField graph="48" :label="tc('date')">
+        <ZField graph="48" :label="tc('date')" v-bind="dateWarn(form.deferralDate, 'event')">
           <ZDate :value="form.deferralDate" allow-clear :disabled="readonly" :class="ctl" data-deferral-date @update:value="form.deferralDate = str($event)" />
         </ZField>
-        <ZField graph="48" :label="tc('deferralDue')">
+        <ZField graph="48" :label="tc('deferralDue')" v-bind="dateWarn(form.deferralDueDate, 'validity')">
           <ZDate :value="form.deferralDueDate" allow-clear :disabled="readonly" :class="ctl" data-deferral-due @update:value="form.deferralDueDate = str($event)" />
         </ZField>
       </div>
@@ -133,7 +136,7 @@ const grid3 = 'grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @2xl:grid-cols-3
         <ZField graph="54" :label="tc('docNumber')">
           <ZInput v-uppercase :value="form.signatoryDocNumber" :disabled="readonly" :class="ctl" data-signatory-docnumber @update:value="form.signatoryDocNumber = str($event)" />
         </ZField>
-        <ZField graph="54" :label="tc('docIssueDate')">
+        <ZField graph="54" :label="tc('docIssueDate')" v-bind="dateWarn(form.signatoryDocIssueDate, 'event')">
           <ZDate :value="form.signatoryDocIssueDate" allow-clear :disabled="readonly" :class="ctl" data-signatory-issuedate @update:value="form.signatoryDocIssueDate = str($event)" />
         </ZField>
         <ZField graph="54" :label="tc('docIssuedBy')">
@@ -145,10 +148,10 @@ const grid3 = 'grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @2xl:grid-cols-3
         <ZField graph="54" :label="tc('poaNumber')">
           <ZInput v-uppercase :value="form.powerOfAttorney" :disabled="readonly" :class="ctl" data-poa-number @update:value="form.powerOfAttorney = str($event)" />
         </ZField>
-        <ZField graph="54" :label="tc('poaDate')">
+        <ZField graph="54" :label="tc('poaDate')" v-bind="dateWarn(form.powerOfAttorneyDate, 'event')">
           <ZDate :value="form.powerOfAttorneyDate" allow-clear :disabled="readonly" :class="ctl" data-poa-date @update:value="form.powerOfAttorneyDate = str($event)" />
         </ZField>
-        <ZField graph="54" :label="tc('poaUntil')">
+        <ZField graph="54" :label="tc('poaUntil')" v-bind="dateWarn(form.powerOfAttorneyValidUntil, 'validity')">
           <ZDate :value="form.powerOfAttorneyValidUntil" allow-clear :disabled="readonly" :class="ctl" data-poa-until @update:value="form.powerOfAttorneyValidUntil = str($event)" />
         </ZField>
         <ZField graph="54" :label="tc('document')">
@@ -157,7 +160,7 @@ const grid3 = 'grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @2xl:grid-cols-3
         <ZField graph="54" :label="tc('phone')">
           <ZPhone :value="form.signatoryPhone" :disabled="readonly" :class="ctl" data-signatory-phone @update:value="form.signatoryPhone = str($event)" />
         </ZField>
-        <ZField graph="54" :label="tc('signedDate')">
+        <ZField graph="54" :label="tc('signedDate')" v-bind="dateWarn(form.signedDate, 'event')">
           <ZDate :value="form.signedDate" allow-clear :disabled="readonly" :class="ctl" data-signed-date @update:value="form.signedDate = str($event)" />
         </ZField>
       </div>

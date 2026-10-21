@@ -9,6 +9,7 @@ import { vUppercase } from '@/directives/uppercase'
 import type { Import40PrevDocItem } from '@/api/import40'
 import { useClassifiersStore } from '@/stores/classifiers'
 import { formatDateText } from '@/ui/date'
+import { dtDateIssue, dtDateWarning } from '@/utils/dtDateRange'
 import { dedupeOptions, withCurrent } from '../dtOptions'
 
 // Предшествующие документы (гр. 40): строки «вид (классификатор) · номер · дата · № товара». Строки правятся прямо в
@@ -17,6 +18,7 @@ import { dedupeOptions, withCurrent } from '../dtOptions'
 // цифры (как прежнее свободное поле «№ товара»); старое значение показывается как есть, пока его не исправят.
 // Привязка строки к товару этой ДТ — goodsItemIndex (старые ДТ; null — ко всем товарам), здесь она не правится.
 // Таблица или карточки — по ширине раздела (@container), как у списка гр. 44.
+// Дата вне разумного диапазона (№14б: 2000 … сегодня + 1 год) — золотая рамка и строка под документом; в просмотре — нет.
 const props = defineProps<{
   items: Import40PrevDocItem[]
   readonly: boolean
@@ -63,6 +65,7 @@ const remove = (item: Import40PrevDocItem) => {
   renumber()
 }
 const str = (v: unknown): string | null => (v === null || v === undefined || v === '' ? null : String(v))
+const dateWarn = (item: Import40PrevDocItem) => dtDateWarning(t, item.docDate, 'event')
 
 const cols = '@2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_9.5rem_minmax(0,1.2fr)_auto]'
 const cellLabel = 'text-xs leading-4 text-ink-3 @2xl:sr-only'
@@ -119,7 +122,7 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
             </div>
             <div :class="cell">
               <label :for="domId(item, 'date')" :class="cellLabel">{{ tr('date') }}</label>
-              <ZDate :id="domId(item, 'date')" :value="item.docDate" allow-clear :class="ctl" data-f="docDate" @update:value="item.docDate = str($event)" />
+              <ZDate :id="domId(item, 'date')" :value="item.docDate" allow-clear :status="dtDateIssue(item.docDate, 'event') ? 'warning' : ''" :class="ctl" data-f="docDate" @update:value="item.docDate = str($event)" />
             </div>
             <div :class="cell">
               <label :for="domId(item, 'goods')" :class="cellLabel">{{ tr('goods') }}</label>
@@ -139,6 +142,9 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
               <button type="button" :class="iconBtn" :aria-label="tr('deleteLabel', { n: index + 1 })" data-prev-delete @click="remove(item)"><PhX :size="16" aria-hidden="true" /></button>
             </div>
           </div>
+          <p v-if="!readonly && dateWarn(item)" role="status" class="m-0 pt-2 text-xs leading-5 text-gold-ink @2xl:-mt-1 @2xl:px-3 @2xl:pt-0 @2xl:pb-2" data-prev-date-warn>
+            {{ t('broker.doc44.dateWarn', { field: tr('date'), text: dateWarn(item) }) }}
+          </p>
         </li>
       </ul>
     </div>

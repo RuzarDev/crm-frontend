@@ -6,7 +6,6 @@ import { PhCaretDown, PhCaretUp, PhCopy, PhDotsThree, PhListBullets, PhX } from 
 import ZDrawer from '@/components/z/ZDrawer.vue'
 import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import ZKbd from '@/components/z/ZKbd.vue'
-import type { ZTone } from '@/components/z/ZTag.vue'
 import StatusDot from '@/components/broker/StatusDot.vue'
 import { useTroisCheckProvider } from '@/composables/useTroisCheck'
 import { cn } from '@/ui/cn'
@@ -16,7 +15,7 @@ import { message } from '@/ui/message'
 import { formatTnved } from '@/utils/tnvedFormat'
 import { pluralForm } from '@/views/broker/list'
 import type { Import40GoodsItemInput } from '@/types/api'
-import type { GoodsStatus } from '../goodsStatus'
+import { goodsStatusView, type GoodsStatus } from '../goodsStatus'
 import { keyOf, type DtGoodsModel } from '../useDtGoods'
 import { isBlankCharacteristic, tradeMarksOf } from './characteristics'
 import { GOODS_EDITOR_SECTIONS } from './sections'
@@ -66,13 +65,14 @@ const sections = GOODS_EDITOR_SECTIONS
 // ---- Шапка ----
 const code = computed(() => (item.value?.tnvedCode ?? '').trim())
 const caption = computed(() => item.value?.description || item.value?.tnvedDescription || '')
-const statusView = (s: GoodsStatus): { tone: ZTone; label: string; kind: string } => {
-  if (s.kind === 'missing') return { tone: 'danger', label: tg('status.missing', { n: s.count }), kind: s.kind }
-  if (s.kind === 'badCode') return { tone: 'danger', label: tg('status.badCode'), kind: s.kind }
-  if (s.kind === 'stale') return { tone: 'accent', label: tg('status.stale'), kind: s.kind }
-  return { tone: 'done', label: tg('status.ready'), kind: s.kind }
-}
-const status = computed(() => (item.value ? statusView((props.statusOf ?? props.model.statusOf)(item.value)) : null))
+// Тот же вид статуса, что в строке списка (goodsStatusView): «Нетто > брутто» вместо «Не хватает N».
+const status = computed(() => {
+  const g = item.value
+  if (!g) return null
+  const s = (props.statusOf ?? props.model.statusOf)(g)
+  const v = goodsStatusView(s, g)
+  return { tone: v.tone, label: tg(v.key, v.params), kind: s.kind }
+})
 const canPrev = computed(() => props.index != null && props.index > 0)
 const canNext = computed(() => props.index != null && props.index < total.value - 1)
 

@@ -407,6 +407,11 @@ describe('GoodsEditor: «Количество и стоимость»', () => {
     expect(form.goodsItems[0].grossWeightKg).toBe(40.5)
     expect(form.goodsItems[0].needsTpinRecalc).toBe(true)
     expect(q('[data-graph="38"]')!.textContent).toContain('Нетто больше брутто')
+    // шапка (№14а): причина вместо «Не хватает 1»; исправили вес — статус сразу другой
+    expect(q('[data-goods-editor-status]')!.getAttribute('data-goods-editor-status')).toBe('missing')
+    expect(q('[data-goods-editor-status]')!.textContent).toContain('Нетто > брутто')
+    await type('grossWeightKg', '60')
+    expect(q('[data-goods-editor-status]')!.textContent).not.toContain('Нетто > брутто')
   })
 
   it('места — одно поле: packagesCount и cargoPlacesQuantity вместе, без «Пересчитать»', async () => {

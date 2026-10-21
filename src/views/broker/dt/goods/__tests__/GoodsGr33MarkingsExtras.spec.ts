@@ -475,6 +475,21 @@ describe('Редактор товара: «Доп. сведения»', () => {
   })
 })
 
+describe('Редактор товара: «Доп. сведения» — диапазон дат (№14б)', () => {
+  it('дата выпуска 1995 (товар и автомобиль) — без предупреждения (нижняя граница 1900); 2202/2207 — предупреждение у поля', async () => {
+    await mount([item({ extras: {
+      manufactureDate: '1995-06-01', periodStartDate: '2026-10-01', periodEndDate: '2202-01-01', traceable: false, exciseStamps: [],
+      vehicles: [{ modelName: 'CAMRY', manufactureDate: '1985-05-05' }, { modelName: 'CAMRY', manufactureDate: '2207-05-05' }],
+    } })])
+    const warnAt = (sel: string) => q(sel)!.closest('[data-z-field]')!.querySelector('[data-z-status="warning"]')?.textContent ?? null
+    expect(warnAt('input[data-f="manufactureDate"]')).toBeNull()
+    expect(warnAt('input[data-f="car-0-date"]')).toBeNull()
+    expect(warnAt('input[data-f="car-1-date"]')).toMatch(/^05\.05\.2207 позже/)
+    expect(warnAt('input[data-f="periodStartDate"]')).toBeNull()
+    expect(warnAt('input[data-f="periodEndDate"]')).toMatch(/^01\.01\.2202 позже/)
+  })
+})
+
 describe('Редактор товара: просмотр (Task 5 секции)', () => {
   it('только чтение: поля выключены, нет подсказок-чипов, добавлений и импорта', async () => {
     await mount([item({ markings: [{ number: 'X1', levelCode: '0' }], extras: { exciseStamps: [{ quantity: 1 }], vehicles: [], traceable: false } })], { readonly: true })

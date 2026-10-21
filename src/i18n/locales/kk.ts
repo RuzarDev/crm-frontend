@@ -1262,6 +1262,7 @@ export default {
       goodsN: '{n}-тауар',
       docStartDate: 'Қолданылу басы',
       docValidityDate: 'Қолданылу соңы',
+      dateWarn: '{field}: {text}',
       issueCountryCode: 'Берген ел',
       presentKind: 'Ұсыну белгісі',
       presentKinds: {
@@ -1272,6 +1273,12 @@ export default {
       },
     },
     dt: {
+      // Разумный диапазон дат ДТ (правка №14б): предупреждение у поля, XML не блокирует.
+      dates: {
+        tooEarly: '{date} күні {limit} күнінен ерте — жылды тексеріңіз',
+        tooLate: '{date} күні {limit} күнінен кеш — жылды тексеріңіз',
+        validityBeforeStart: '«Қолданылу соңы» құжат күнінен немесе «Қолданылу басы» күнінен ерте',
+      },
       manual: {
         badge: 'қолмен',
         badgeTitle: 'Қолмен енгізілген: «Есептеу» мен ДТ-ны бөлу бұл мәнді есепке қайтарылғанша қайта жазбайды',
@@ -1923,6 +1930,8 @@ export default {
         tableLabel: 'Декларация тауарлары',
         openItem: '{n}-тауарды ашу',
         noCode: 'коды жоқ',
+        netOverGrossCell: 'Нетто бруттодан артық — салмақты тексеріңіз',
+        netOverGrossBadge: 'нетто > брутто',
         cols: {
           n: '№',
           code: 'СЭҚ ТН коды',
@@ -1933,7 +1942,7 @@ export default {
           money: 'Графа 45 / КТжС, ₸',
           status: 'Мәртебе',
         },
-        status: { ready: 'Дайын', missing: '{n} жетпейді', stale: 'Қайта есептеу', badCode: 'Анықтамалықта жоқ' },
+        status: { ready: 'Дайын', missing: '{n} жетпейді', stale: 'Қайта есептеу', badCode: 'Анықтамалықта жоқ', netOverGross: 'Нетто > брутто', netOverGrossMore: 'Нетто > брутто · тағы {n}' },
         bulk: {
           label: 'Таңдалған тауарлармен әрекеттер',
           selected: 'Таңдалды: {n}',
@@ -2007,6 +2016,9 @@ export default {
           tpin: 'КТжС',
           stale: 'Төлемдер ескірді',
           calc: 'Есептеу',
+          netOverGross: 'Нетто бруттодан артық: № {list} тауар',
+          netOverGrossSum: 'Жалпы нетто бруттодан артық — кейбір тауарларда брутто көрсетілмеген',
+          open: 'Ашу',
         },
         excel: {
           title: 'Excel-ден тауарлар',

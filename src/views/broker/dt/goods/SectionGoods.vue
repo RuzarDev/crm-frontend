@@ -418,6 +418,7 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
         :readonly="readonly"
         :loading="paymentsLoading"
         @calc-payments="emit('calc-payments')"
+        @open="openItem"
       />
     </template>
 

@@ -151,6 +151,40 @@ describe('SectionGoods: таблица', () => {
     }
   })
 
+  it('нетто > брутто (№14а): статус «Нетто > брутто», веса красные с подсказкой; на ПК метки в описании нет', async () => {
+    readiness.value = [{ goodsIndex: 0 }, { goodsIndex: 1 }, { goodsIndex: 1 }, { goodsIndex: 1 }]
+    await mount([
+      item({ grossWeightKg: 22222, netWeightKg: 44444 }),
+      item({ description: 'СУМКИ', grossWeightKg: 5, netWeightKg: 6 }),
+      item({ description: 'МЫШИ' }),
+    ])
+    const st = rows()[0].get('[data-goods-status]')
+    expect(st.attributes('data-goods-status')).toBe('missing')
+    expect(st.text()).toBe('Нетто > брутто')
+    expect(rows()[1].get('[data-goods-status]').text()).toBe('Нетто > брутто · ещё 2')
+    const weights = rows()[0].get('[data-goods-weights-error]')
+    expect(weights.classes()).toContain('text-danger')
+    expect(weights.attributes('title')).toBe('Нетто больше брутто — проверьте вес')
+    expect(weights.get('.sr-only').text()).toContain('Нетто больше брутто — проверьте вес')
+    expect(rows()[2].find('[data-goods-weights-error]').exists()).toBe(false)
+    // колонка весов видна — метка в описании только для телефона (там колонка скрыта)
+    expect(rows()[0].get('[data-goods-net-over-gross]').classes()).toContain('sm:hidden')
+    expect(rows()[2].find('[data-goods-net-over-gross]').exists()).toBe(false)
+  })
+
+  it('нетто > брутто, колонка весов скрыта (узкий раздел): метка «нетто > брутто» в описании видна всегда', async () => {
+    const spy = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(743)
+    try {
+      await mount([item({ grossWeightKg: 22222, netWeightKg: 44444 })])
+      expect(w.find('[data-goods-weights-error]').exists()).toBe(false)
+      const badge = rows()[0].get('[data-goods-net-over-gross]')
+      expect(badge.text()).toBe('нетто > брутто')
+      expect(badge.classes()).not.toContain('sm:hidden')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   it('без гр. 22 — «Фактурная» без валюты, код валюты у суммы', async () => {
     await mount([item({ currency: 'EUR' })], { currency: '' })
     expect(w.findAll('thead th').map((th) => th.text())).toContain('Фактурная')
@@ -336,6 +370,33 @@ describe('SectionGoods: итоги и расчёт', () => {
     expect(total('kzt45')).toBe('13 110 400 ₸')
     expect(total('tpin')).toBe('2 018 664,5 ₸')
     expect(w.find('[data-goods-stale]').exists()).toBe(true)
+  })
+
+  it('нетто > брутто (№14а): брутто и нетто в итогах красные, строка «товар № 1, 3» и «Открыть» — первый такой товар', async () => {
+    await mount([
+      item({ grossWeightKg: 22222, netWeightKg: 44444 }),
+      item(),
+      item({ description: 'СУМКИ', grossWeightKg: 5, netWeightKg: 6 }),
+    ])
+    expect(w.get('[data-total="gross"] dd').attributes('data-total-warn')).toBeDefined()
+    expect(w.get('[data-total="net"] dd').classes()).toContain('text-danger')
+    expect(w.get('[data-total="places"] dd').attributes('data-total-warn')).toBeUndefined()
+    const warn = w.get('[data-goods-weights-warn]')
+    expect(warn.attributes('role')).toBe('status')
+    expect(warn.text()).toContain('Нетто больше брутто: товар № 1, 3')
+    await warn.get('[data-goods-weights-open]').trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query).toMatchObject({ s: 'goods', item: '1' })
+  })
+
+  it('итог нетто > брутто без такого товара (у части не указан брутто) — пояснение без «Открыть»; в норме — ничего', async () => {
+    await mount([item({ grossWeightKg: null, netWeightKg: 500 }), item()])
+    expect(w.get('[data-goods-weights-warn]').text()).toBe('Итого нетто больше брутто — у части товаров не указан брутто')
+    expect(w.find('[data-goods-weights-open]').exists()).toBe(false)
+    w.unmount()
+    await mount([item()])
+    expect(w.find('[data-goods-weights-warn]').exists()).toBe(false)
+    expect(w.get('[data-total="gross"] dd').attributes('data-total-warn')).toBeUndefined()
   })
 
   it('«Рассчитать» — расчёт платежей страницы; «ТПиН по данным экрана» больше нет (волна 6в)', async () => {
