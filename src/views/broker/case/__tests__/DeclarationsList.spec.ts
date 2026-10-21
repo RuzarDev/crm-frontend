@@ -514,7 +514,8 @@ describe('DeclarationsList: «Из документов»', () => {
   const pick = async (names = ['inv.pdf', 'cmr.jpg'], fileIds: string[] = []) => {
     const files = names.map((n) => new File(['x'], n))
     w.findComponent(ExtractDocsModal).vm.$emit('submit', { fileIds, uploads: files })
-    await flushPromises()
+    // Конвейер импорта (пакет 21.10) — несколько шагов с ожиданием: коды, ОКЕИ, справочник сторон, создание ДТ.
+    for (let i = 0; i < 6; i++) await flushPromises()
     return files
   }
   const result = (o: Partial<Import40ExtractionResult> = {}): Import40ExtractionResult =>
