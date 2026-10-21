@@ -573,6 +573,22 @@ describe('SectionGoods: Excel', () => {
     expect(form.goodsItems[0]).toMatchObject({ customsValue: 900, netWeightKg: 10, grossWeightKg: 12 })
   })
 
+  it('ревью 22.10: одно значение прочитано товарным знаком и маркой — в ДТ одна графа, в окне строка расхождения', async () => {
+    const row = { description: 'СУШИЛКА', tnvedCode: '7323990000' }
+    excel.readExcelDocuments.mockImplementation(async (f: File) => (f.name === 'invoice.xlsx'
+      ? { docs: [sheet([{ ...row, customsValue: 1602.7, details: { tradeMarkName: 'LONGJU' } }], 'Invoice')] }
+      : { docs: [sheet([{ ...row, netWeightKg: 1128, details: { productMarkName: 'LONGJU' } }], 'Packing list')] }))
+    await mount([])
+    await pickMany([file('invoice.xlsx'), file('packing.xlsx')])
+    const modal = document.querySelector('[data-goods-excel-modal]') as HTMLElement
+    expect(modal.querySelector('[data-goods-excel-conflicts]')!.textContent)
+      .toContain('Товар 1, LONGJU: товарный знак (invoice.xlsx), марка (packing.xlsx) — записано только как товарный знак')
+    button('Добавить в конец').click()
+    await settle()
+    expect(form.goodsItems[0].characteristics?.[0]).toMatchObject({ tradeMarkName: 'LONGJU' })
+    expect(form.goodsItems[0].characteristics?.[0]?.productMarkName ?? null).toBeNull()
+  })
+
   it('№10б: в ДТ уже есть товары — «Дополнить пустые поля» по умолчанию, без дублей; «Отменить» возвращает как было', async () => {
     excel.readExcelDocuments.mockResolvedValue({ docs: [sheet([
       { description: 'НОУТБУКИ', tnvedCode: '8471300000', grossWeightKg: 999, customsValue: 1 },

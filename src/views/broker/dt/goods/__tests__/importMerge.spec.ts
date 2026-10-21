@@ -95,6 +95,54 @@ describe('mergeImportDocs: марка, знак, модель, ГОСТ, сор�
   })
 })
 
+// Ревью 22.10: «Марка ↵ Brand» фронт читал маркой, Zircon AI — товарным знаком; «Из документов» сливает строки Zircon AI и
+// Excel того же файла и писало LONGJU в обе графы (гр. 31 и XML КЕДЕН). Предохранитель — одно значение в одну графу.
+describe('mergeImportDocs: одно значение — не в обе графы «марка» и «товарный знак» (ревью 22.10)', () => {
+  const zircon = (rows: Partial<ImportRow>[]): ImportDoc => ({ source: 'Zircon AI', kind: 'invoice', rows: rows.map((x) => r({ source: 'Zircon AI', ...x })) })
+  const base = { tnvedCode: '7323990000', productArticle: 'URS07', description: 'СУШИЛКА' }
+
+  it('Zircon AI — товарный знак, Excel того же файла — марка: остаётся графа базы, конфликт «кто как прочитал»', () => {
+    const m = mergeImportDocs([zircon([{ ...base, value: 1602.7, tradeMarkName: 'LONGJU' }]), inv([{ ...base, netWeightKg: 1128, productMarkName: 'longju' }])])
+    expect(m.rows[0]).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: null, netWeightKg: 1128 })
+    expect(m.conflicts).toEqual([{
+      rowIndex: 0, field: 'tradeMarkName', crossField: 'productMarkName', chosen: 'LONGJU',
+      values: [
+        { value: 'LONGJU', source: 'Zircon AI', field: 'tradeMarkName' },
+        { value: 'longju', source: 'invoice.xlsx', field: 'productMarkName' },
+      ],
+    }])
+  })
+
+  it('и наоборот: база — марка, другой документ — товарный знак; два документа с одним прочтением — один конфликт', () => {
+    const m = mergeImportDocs([
+      inv([{ ...base, value: 1, productMarkName: 'ОТСУТСТВУЕТ' }]),
+      pl([{ ...base, netWeightKg: 2, tradeMarkName: 'ОТСУТСТВУЕТ' }]),
+      { source: 'other.xlsx', kind: null, rows: [r({ ...base, source: 'other.xlsx', grossWeightKg: 3, tradeMarkName: 'ОТСУТСТВУЕТ' })] },
+    ])
+    expect(m.rows[0]).toMatchObject({ productMarkName: 'ОТСУТСТВУЕТ', tradeMarkName: null, netWeightKg: 2, grossWeightKg: 3 })
+    expect(m.conflicts).toEqual([{
+      rowIndex: 0, field: 'productMarkName', crossField: 'tradeMarkName', chosen: 'ОТСУТСТВУЕТ',
+      values: [
+        { value: 'ОТСУТСТВУЕТ', source: 'invoice.xlsx', field: 'productMarkName' },
+        { value: 'ОТСУТСТВУЕТ', source: 'packing.xlsx', field: 'tradeMarkName' },
+        { value: 'ОТСУТСТВУЕТ', source: 'other.xlsx', field: 'tradeMarkName' },
+      ],
+    }])
+  })
+
+  it('документ с обеими графами (два столбца) — его данные; разные значения в графах — дозаполняются как раньше', () => {
+    const both = mergeImportDocs([inv([{ ...base, value: 1, tradeMarkName: 'LONGJU' }]), pl([{ ...base, productMarkName: 'LONGJU', tradeMarkName: 'LONGJU' }])])
+    expect(both.rows[0]).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: 'LONGJU' })
+    expect(both.conflicts).toEqual([])
+    const one = mergeImportDocs([inv([{ ...base, value: 1, productMarkName: 'LONGJU', tradeMarkName: 'LONGJU' }])])
+    expect(one.rows[0]).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: 'LONGJU' })
+    expect(one.conflicts).toEqual([])
+    const other = mergeImportDocs([inv([{ ...base, value: 1, tradeMarkName: 'LONGJU' }]), pl([{ ...base, productMarkName: 'ОТСУТСТВУЕТ' }])])
+    expect(other.rows[0]).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: 'ОТСУТСТВУЕТ' })
+    expect(other.conflicts).toEqual([])
+  })
+})
+
 const goods = (o: Partial<Import40GoodsItemInput>): Import40GoodsItemInput => ({ ...newDtGoodsItem('USD'), ...o })
 const withArticle = (article: string, o: Partial<Import40GoodsItemInput> = {}) =>
   goods({ ...o, characteristics: [{ ...blankCharacteristic(), productArticle: article }] })

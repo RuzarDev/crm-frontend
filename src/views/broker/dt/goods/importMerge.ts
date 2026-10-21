@@ -1,7 +1,8 @@
 // Импорт в ДТ (пакет 21.10.2026, №15 и №10б): несколько файлов одной поставки и повторный импорт.
 //
 // mergeImportDocs — строки документов (инвойс, упаковочный лист, листы одной книги) в один список: база — документ со
-//   стоимостью (инвойс), остальные дозаполняют пустые поля; разные значения — конфликт (взято значение базы).
+//   стоимостью (инвойс), остальные дозаполняют пустые поля; разные значения — конфликт (взято значение базы). Одно
+//   значение в разных графах пары «марка / товарный знак» в обе не пишется — тоже конфликт (crossField, ревью 22.10).
 //   Сопоставление строки, по порядку ключей, только однозначное (один кандидат): № строки (если он есть в обоих файлах и
 //   не противоречит коду/артикулу) → код + артикул → артикул + описание (артикулы в UR0910 повторяются с разным
 //   наименованием) → код + описание → артикул → описание → порядок (равное число строк, коды на тех же местах не
@@ -40,9 +41,17 @@ export interface ImportConflict {
   /** Позиция строки в слитом списке (с 0). */
   rowIndex: number
   field: ConflictField
-  values: { value: unknown; source: string }[]
+  /** Значения документов; field — графа, в которой его прочитал документ (только у конфликта crossField). */
+  values: { value: unknown; source: string; field?: ConflictField }[]
   chosen: unknown
+  /**
+   * Одно значение в разных графах пары «марка / товарный знак»: field — графа, где оно осталось (как в слитой строке),
+   * crossField — графа, куда его не записали (так его прочитал другой документ). См. MARK_TWIN.
+   */
+  crossField?: MarkPairField
 }
+
+export type MarkPairField = 'tradeMarkName' | 'productMarkName'
 
 /**
  * Поля, расхождение которых между документами показывается конфликтом. Марка, знак, модель, ГОСТ, сорт и серийный — тоже:
@@ -71,6 +80,15 @@ export interface MergeResult {
   matchedBy: Partial<Record<DocMatchBy, number>>
 }
 
+/**
+ * Предохранитель пары «марка / товарный знак» (ревью 22.10). У слитой строки значение в одной графе пары, документ даёт
+ * то же значение в другой графе и своей «первой» графы не имеет — почти наверняка это один столбец («Марка ↵ Brand»),
+ * который разборы прочитали по-разному: «Из документов» сливает строки Zircon AI и разбора Excel того же файла. В обе
+ * графы одно значение не пишется: остаётся графа слитой строки, расхождение — конфликтом crossField, решает декларант.
+ * Документ, где обе графы заполнены одним значением (два столбца), — его данные, они переносятся как есть.
+ */
+const MARK_TWIN: Partial<Record<keyof ImportRow, MarkPairField>> = { tradeMarkName: 'productMarkName', productMarkName: 'tradeMarkName' }
+
 type RowKey = (r: ImportRow) => string | null
 const rowKeys: { by: Exclude<DocMatchBy, 'position'>; key: RowKey }[] = [
   { by: 'lineNo', key: (r) => (r.lineNo != null ? String(r.lineNo) : null) },
@@ -97,6 +115,8 @@ export function mergeImportDocs(docs: readonly ImportDoc[]): MergeResult {
   const matchedBy: MergeResult['matchedBy'] = {}
   // Источники значений полей-конфликтов по строке: { field → [{value, source}] }.
   const valueSources: Map<ConflictField, { value: unknown; source: string }[]>[] = []
+  // Значения, не записанные во вторую графу пары «марка / товарный знак» (MARK_TWIN).
+  const crossed: { at: number; kept: MarkPairField; field: MarkPairField; value: unknown; source: string }[] = []
   const record = (at: number, r: ImportRow) => {
     for (const f of CONFLICT_FIELDS) {
       if (blank(r[f])) continue
@@ -150,7 +170,13 @@ export function mergeImportDocs(docs: readonly ImportDoc[]): MergeResult {
       taken.add(at)
       const m = rows[at]
       for (const f of FILL_FIELDS) {
-        if (blank(m[f]) && !blank(r[f])) (m as unknown as Record<string, unknown>)[f] = r[f]
+        if (!blank(m[f]) || blank(r[f])) continue
+        const kept = MARK_TWIN[f]
+        if (kept && blank(r[kept]) && sameValue(r[f], m[kept])) {
+          crossed.push({ at, kept, field: f as MarkPairField, value: r[f], source: r.source })
+          continue
+        }
+        (m as unknown as Record<string, unknown>)[f] = r[f]
       }
       m.ntins = [...new Set([...m.ntins, ...r.ntins])]
       for (const d of r.docs) {
@@ -167,6 +193,22 @@ export function mergeImportDocs(docs: readonly ImportDoc[]): MergeResult {
       conflicts.push({ rowIndex, field, values, chosen: rows[rowIndex][field] })
     }
   })
+  // Пара «марка / товарный знак»: по строке и оставленной графе — один конфликт, кто как прочитал значение.
+  const crossGroups = new Map<string, typeof crossed>()
+  for (const c of crossed) {
+    const key = `${c.at}|${c.kept}`
+    crossGroups.set(key, [...(crossGroups.get(key) ?? []), c])
+  }
+  for (const group of crossGroups.values()) {
+    const { at, kept, field } = group[0]
+    const chosen = rows[at][kept]
+    const keptBy = (valueSources[at]?.get(kept) ?? []).filter((v) => sameValue(v.value, chosen))
+    conflicts.push({
+      rowIndex: at, field: kept, crossField: field, chosen,
+      values: [...keptBy.map((v) => ({ ...v, field: kept })), ...group.map((c) => ({ value: c.value, source: c.source, field: c.field }))],
+    })
+  }
+  conflicts.sort((a, b) => a.rowIndex - b.rowIndex)
   return { rows, conflicts, onlyIn, matchedBy }
 }
 

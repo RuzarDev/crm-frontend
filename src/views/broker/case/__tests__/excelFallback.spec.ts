@@ -98,4 +98,20 @@ describe('excelFallback: инвойс и упаковочный лист пос�
     expect(alone.rows).toHaveLength(2)
     expect(alone.doc44Items).toEqual([])
   })
+
+  it('ревью 22.10: столбец «Марка ↵ Brand» — марка; прочитан Zircon AI по-другому — LONGJU не попадает в обе графы', () => {
+    const withMark = doc('invoice_UR0910.xlsx', [...INV_HEAD, 'Марка\nBrand'], [
+      [1, 7323990000, 'URS07', 'Сушилка для белья 18 м', 10, 47, 470, 3.41, 1602.7, 25.5, 1198.5, 'LONGJU'],
+    ])
+    expect(withMark.goods[0].details).toMatchObject({ productMarkName: 'LONGJU', tradeMarkName: null })
+    const item = { tnvedCode: '7323990000', description: 'Сушилка для белья 18 м', productArticle: 'URS07', grossWeightKg: 1198.5, invoiceValue: 1602.7 }
+    // Zircon AI с тем же правилом (марка) — одна графа, без расхождений
+    const same = applyExcelFallback({ goodsItems: [{ ...item, productMarkName: 'LONGJU' }] }, [withMark])
+    expect(same.rows[0]).toMatchObject({ productMarkName: 'LONGJU', tradeMarkName: null })
+    expect(same.conflicts).toEqual([])
+    // старый образ Zircon AI (товарный знак) — остаётся его графа, расхождение видно
+    const old = applyExcelFallback({ goodsItems: [{ ...item, tradeMarkName: 'LONGJU' }] }, [withMark])
+    expect(old.rows[0]).toMatchObject({ tradeMarkName: 'LONGJU', productMarkName: null })
+    expect(old.conflicts).toMatchObject([{ rowIndex: 0, field: 'tradeMarkName', crossField: 'productMarkName' }])
+  })
 })
