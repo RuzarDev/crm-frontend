@@ -211,6 +211,7 @@ const translations = injectCaseTranslations()
         type="drag"
         :multiple="multiple"
         :accept="ACCEPT"
+        convert-heic
         :max-size-mb="MAX_MB"
         :loading="uploading"
         :disabled="anotherBusy"

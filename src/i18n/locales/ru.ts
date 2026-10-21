@@ -54,6 +54,7 @@ export default {
     uploadDrop: 'Перетащите файл или нажмите, чтобы выбрать',
     uploadWrongType: 'Этот тип файла не подходит: {name}',
     uploadTooBig: 'Файл больше {mb} МБ: {name}',
+    heicFailed: 'Не удалось перевести фото {name} из HEIC в JPEG. Сохраните его в JPG (на iPhone: Настройки → Камера → Форматы → «Наиболее совместимый») и загрузите снова.',
     breadcrumbs: 'Навигация',
     progress: 'Выполнено',
   },

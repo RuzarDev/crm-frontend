@@ -140,6 +140,7 @@ const uploadMain = 'max-sm:block max-sm:w-full [&>button]:h-[42px] [&>button]:ro
           </ZField>
           <ZUpload
             :accept="ACCEPT"
+            convert-heic
             :max-size-mb="MAX_MB"
             :loading="busy === `upload:${r.id}`"
             :disabled="!!busy && busy !== `upload:${r.id}`"
@@ -201,6 +202,7 @@ const uploadMain = 'max-sm:block max-sm:w-full [&>button]:h-[42px] [&>button]:ro
           <div class="mt-1 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
             <ZUpload
               :accept="ACCEPT"
+              convert-heic
               :max-size-mb="MAX_MB"
               :loading="busy === `upload:${r.id}`"
               :disabled="!!busy && busy !== `upload:${r.id}`"

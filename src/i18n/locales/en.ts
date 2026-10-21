@@ -52,6 +52,7 @@ export default {
     uploadDrop: 'Drag a file here or click to choose',
     uploadWrongType: 'This file type is not allowed: {name}',
     uploadTooBig: 'File is larger than {mb} MB: {name}',
+    heicFailed: 'Could not convert the photo {name} from HEIC to JPEG. Save it as JPG (on iPhone: Settings → Camera → Formats → “Most Compatible”) and upload it again.',
     breadcrumbs: 'Breadcrumb',
     progress: 'Progress',
   },

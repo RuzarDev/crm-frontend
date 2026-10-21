@@ -244,6 +244,7 @@ const linkBtn = 'inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-
             <ZUpload
               v-if="canEdit"
               accept=".jpg,.jpeg,.png"
+              convert-heic
               multiple
               :max-size-mb="25"
               :loading="photoBusy"

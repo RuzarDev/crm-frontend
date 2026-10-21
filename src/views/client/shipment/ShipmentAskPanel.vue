@@ -247,6 +247,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
     </div>
     <ZUpload
       :accept="ACCEPT"
+      convert-heic
       :max-size-mb="MAX_MB"
       :loading="uploading === 'payment-check'"
       button-variant="primary"
@@ -309,6 +310,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
         >{{ t('import40Case.problemReplySend') }}</ZButton>
         <ZUpload
           :accept="ACCEPT"
+          convert-heic
           :max-size-mb="MAX_MB"
           :loading="uploading === 'documents'"
           button-variant="secondary"
@@ -322,6 +324,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
         <ZUpload
           v-if="svhPayStage"
           :accept="ACCEPT"
+          convert-heic
           :max-size-mb="MAX_MB"
           :loading="uploading === 'payment-check'"
           button-variant="secondary"
@@ -406,6 +409,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
         <ZUpload
           v-if="notice === 'check'"
           :accept="ACCEPT"
+          convert-heic
           :max-size-mb="MAX_MB"
           :loading="uploading === 'payment-check'"
           button-variant="secondary"

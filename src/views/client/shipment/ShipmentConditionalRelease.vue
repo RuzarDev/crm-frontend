@@ -81,6 +81,7 @@ const uploadBtn = 'max-sm:block max-sm:w-full [&>button]:h-[42px] [&>button]:rou
     </div>
     <ZUpload
       :accept="ACCEPT"
+      convert-heic
       :max-size-mb="25"
       :loading="uploading === d.id"
       :disabled="!!uploading && uploading !== d.id"

@@ -5,11 +5,13 @@ import { PhUploadSimple } from '@phosphor-icons/vue'
 import { cn } from '@/ui/cn'
 import { message } from '@/ui/message'
 import { useFieldControl } from '@/ui/form'
+import { HEIC_ACCEPT, heicToJpeg, isHeic, isIOS } from '@/utils/heic'
 import ZButton, { type ZButtonSize, type ZButtonVariant } from './ZButton.vue'
 
 // Замена a-upload / a-upload-dragger. Загрузка всегда ручная: компонент только выбирает файлы, проверяет
 // тип (accept) и размер (maxSizeMb), затем для каждого принятого файла зовёт beforeUpload (false — стоп)
-// и customRequest. Списка загруженных файлов нет — его рисуют экраны (поэтому и show-upload-list не нужен).
+// и customRequest. convertHeic: фото HEIC/HEIF (iPhone) принимаются и переводятся в JPEG до select (сервер берёт JPG/PNG).
+// Списка загруженных файлов нет — его рисуют экраны (поэтому и show-upload-list не нужен).
 // type="button": рисуется ZButton (слот — подпись, иначе z.uploadChoose; иконка — слот icon, по умолчанию PhUploadSimple).
 // type="drag": зона с role=button (слот — подсказка, иначе z.uploadDrop). Слот НЕ заменяет сам элемент управления:
 // у a-upload внутри лежала своя a-button, здесь на её месте остаётся только подпись.
@@ -38,7 +40,9 @@ const props = withDefaults(defineProps<{
   customRequest?: (options: CustomRequestOptions) => void
   buttonVariant?: ZButtonVariant
   buttonSize?: ZButtonSize
-}>(), { type: 'button', multiple: false, disabled: false, loading: false, buttonVariant: 'secondary', buttonSize: 'md' })
+  /** Принимать фото HEIC/HEIF и переводить их в JPEG в браузере (21.10). */
+  convertHeic?: boolean
+}>(), { type: 'button', multiple: false, disabled: false, loading: false, buttonVariant: 'secondary', buttonSize: 'md', convertHeic: false })
 
 const emit = defineEmits<{ select: [files: File[]] }>()
 const { t } = useI18n()
@@ -52,7 +56,7 @@ const controlEl = () => {
   return c instanceof HTMLElement ? c : (c?.$el as HTMLElement | undefined)
 }
 const open = () => {
-  if (props.disabled || props.loading) return
+  if (props.disabled || busy.value) return
   input.value?.click()
 }
 defineExpose({ focus: () => controlEl()?.focus(), blur: () => controlEl()?.blur(), open })
@@ -75,7 +79,12 @@ const fieldAttrs = computed(() => ({
 }))
 
 // accept: расширения («.xlsx», без учёта регистра), MIME («application/pdf») и маски («image/*»).
-const tokens = computed(() => (props.accept ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean))
+const baseTokens = computed(() => (props.accept ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean))
+const tokens = computed(() => (props.convertHeic && baseTokens.value.length ? [...baseTokens.value, ...HEIC_ACCEPT] : baseTokens.value))
+// В диалоге выбора HEIC показываем везде, кроме iOS: там Safari сам отдаёт JPEG, если HEIC в accept не указан.
+const inputAccept = computed(() => (props.convertHeic && props.accept && !isIOS() ? [props.accept, ...HEIC_ACCEPT].join(',') : props.accept))
+const converting = ref(false)
+const busy = computed(() => props.loading || converting.value)
 const typeOk = (f: File) => {
   if (!tokens.value.length) return true
   const name = f.name.toLowerCase()
@@ -88,17 +97,34 @@ const typeOk = (f: File) => {
 }
 
 const handle = async (list: File[]) => {
-  if (props.disabled || props.loading) return
+  if (props.disabled || busy.value) return
   const picked = props.multiple ? list : list.slice(0, 1)
   const accepted: File[] = []
-  for (const f of picked) {
-    if (!typeOk(f)) {
-      message.error(t('z.uploadWrongType', { name: f.name }))
-    } else if (props.maxSizeMb != null && f.size > props.maxSizeMb * 1024 * 1024) {
-      message.error(t('z.uploadTooBig', { mb: props.maxSizeMb, name: f.name }))
-    } else {
-      accepted.push(f)
+  try {
+    for (const original of picked) {
+      let f = original
+      if (!typeOk(f)) {
+        message.error(t('z.uploadWrongType', { name: f.name }))
+        continue
+      }
+      if (props.convertHeic && isHeic(f)) {
+        converting.value = true
+        try {
+          f = await heicToJpeg(f)
+        } catch (error) {
+          console.error(error)
+          message.error(t('z.heicFailed', { name: original.name }))
+          continue
+        }
+      }
+      if (props.maxSizeMb != null && f.size > props.maxSizeMb * 1024 * 1024) {
+        message.error(t('z.uploadTooBig', { mb: props.maxSizeMb, name: f.name }))
+      } else {
+        accepted.push(f)
+      }
     }
+  } finally {
+    converting.value = false
   }
   if (!accepted.length) return
   chosen.value = accepted
@@ -130,7 +156,7 @@ const onChange = (e: Event) => {
 // preventDefault — всегда, даже у выключенной зоны: иначе браузер откроет брошенный файл вместо страницы.
 // Выключенная (или занятая загрузкой) зона показывает «нельзя» (dropEffect none), не подсвечивается и не берёт файлы.
 // Подсветка — по счётчику входов/выходов: dragenter/dragleave приходят и от дочерних элементов (иначе мигает).
-const inactive = () => props.disabled || props.loading
+const inactive = () => props.disabled || busy.value
 let depth = 0
 const block = (e: DragEvent) => {
   e.preventDefault()
@@ -184,7 +210,7 @@ const zoneClasses = computed(() => cn(
       class="hidden"
       tabindex="-1"
       aria-hidden="true"
-      :accept="accept"
+      :accept="inputAccept"
       :multiple="multiple"
       :disabled="disabled"
       @change="onChange"
@@ -214,7 +240,7 @@ const zoneClasses = computed(() => cn(
       v-bind="{ ...innerAttrs, ...fieldAttrs }"
       :variant="buttonVariant"
       :size="buttonSize"
-      :loading="loading"
+      :loading="busy"
       :disabled="disabled"
       @click="open"
     >
