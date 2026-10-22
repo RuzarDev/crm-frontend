@@ -9,7 +9,7 @@ describe('documentChecksApi.recheck', () => {
   // Ревью №13: те же файлы, что у «Из документов» (extract-batch, 180 с); 30 с по умолчанию обрывали разбор сканов и PDF.
   it('таймаут как у extract-batch — 180 с, ошибку показывает блок (silent)', async () => {
     await documentChecksApi.recheck('c 1', 'k1')
-    expect(RECHECK_TIMEOUT_MS).toBe(180000)
-    expect(client.post).toHaveBeenCalledWith('/import40/c%201/document-checks/k1/recheck', null, { silent: true, timeout: 180000 })
+    expect(RECHECK_TIMEOUT_MS).toBe(220000)
+    expect(client.post).toHaveBeenCalledWith('/import40/c%201/document-checks/k1/recheck', null, { silent: true, timeout: 220000 })
   })
 })

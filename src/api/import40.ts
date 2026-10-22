@@ -1260,10 +1260,10 @@ export const import40Api = {
       {
         headers: { 'Content-Type': 'multipart/form-data' },
         // apiClient's default 30s timeout is fine for ordinary requests but too short
-        // here: Aqniet runs OCR (PaddleOCR) over every scanned PDF in the batch, which
-        // for a handful of files can genuinely take a couple of minutes, especially on
-        // a cold model cache.
-        timeout: 180000,
+        // here: Zircon AI runs OCR over every scanned PDF and photo in the batch. Цепочка таймаутов (пакет «ocr»):
+        // Zircon AI заканчивает OCR пакета к 170 с → сервер CRM ждёт 200 с → nginx 210 с → здесь 220 с, чтобы
+        // ответ сервера (или его 504) пришёл раньше, чем браузер оборвёт запрос.
+        timeout: 220000,
       },
     )
     return response.data

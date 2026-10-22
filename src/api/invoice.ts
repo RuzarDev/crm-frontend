@@ -10,6 +10,9 @@ export const invoiceApi = {
       formData,
       {
         headers: { 'Content-Type': 'multipart/form-data' },
+        // скан или фото инвойса распознаётся OCR в Zircon AI (до ~170 с), сервер ждёт 200 с, nginx 210 с —
+        // 30 с по умолчанию обрывали разбор, а сервер всё равно его доделывал (пакет «ocr», ревью 22.10)
+        timeout: 220000,
       },
     )
     return response.data
