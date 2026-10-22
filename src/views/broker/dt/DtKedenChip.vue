@@ -102,6 +102,9 @@ const list = ref<KedenCandidateDto[]>([])
 const loading = ref(false)
 const loadError = ref(false)
 const searched = ref(false)
+// Поиск открыт кнопкой «Найдено в КЕДЕН» (22.10): тот же запрос, что посчитал подсказку, — свободные ДТ этого поста, даты
+// ±3 дня от гр. А уже в полях. Иначе список по умолчанию (50 последних записей БИН клиента) мог не содержать найденных.
+const hintPost = ref<string | null>(null)
 
 const search = async () => {
   loading.value = true
@@ -109,6 +112,7 @@ const search = async () => {
   try {
     list.value = await kedenLinkApi.candidates(props.caseId, props.dtId, {
       q: q.value.trim() || undefined, bin: bin.value.trim() || undefined, from: from.value ?? undefined, to: to.value ?? undefined,
+      ...(hintPost.value ? { post: hintPost.value, hint: true } : {}),
     })
     searched.value = true
   } catch {
@@ -118,15 +122,25 @@ const search = async () => {
     loading.value = false
   }
 }
-const isDefaultSearch = computed(() => !q.value.trim() && !bin.value.trim() && !from.value && !to.value)
-const openSearch = () => {
+const isDefaultSearch = computed(() => !hintPost.value && !q.value.trim() && !bin.value.trim() && !from.value && !to.value)
+/** fromHint — из кнопки «Найдено в КЕДЕН»: поиск сразу с фильтром подсказки (пост, даты, только свободные ДТ). */
+const openSearch = (fromHint = false) => {
   open.value = false
+  const h = fromHint ? hintQuery.value : null
   q.value = ''
   bin.value = ''
-  from.value = null
-  to.value = null
+  from.value = h?.from ?? null
+  to.value = h?.to ?? null
+  hintPost.value = h?.post ?? null
   searched.value = false
   searchOpen.value = true
+  void search()
+}
+/** Снять фильтр подсказки — обычный поиск по умолчанию. */
+const clearHint = () => {
+  hintPost.value = null
+  from.value = null
+  to.value = null
   void search()
 }
 
@@ -223,7 +237,7 @@ watch([linked, () => props.canLink, () => props.dtId, () => hintQuery.value?.pos
         </p>
 
         <div v-if="canLink" class="flex flex-wrap gap-2">
-          <ZButton size="sm" class="max-sm:h-11" data-dt-keden-link @click="openSearch">
+          <ZButton size="sm" class="max-sm:h-11" data-dt-keden-link @click="openSearch()">
             <PhLink :size="14" aria-hidden="true" />{{ linked ? t('kedenLink.relink') : t('kedenLink.link') }}
           </ZButton>
           <ZButton v-if="linked" size="sm" variant="ghost" class="max-sm:h-11" :loading="unlinking" data-dt-keden-unlink @click="unlink">
@@ -237,7 +251,7 @@ watch([linked, () => props.canLink, () => props.dtId, () => hintQuery.value?.pos
       size="sm"
       class="max-sm:h-9"
       data-dt-keden-suggest
-      @click="openSearch"
+      @click="openSearch(true)"
     >
       <PhLink :size="14" aria-hidden="true" />{{ t('kedenLink.suggest', { n: suggestCount }) }}
     </ZButton>
@@ -263,6 +277,14 @@ watch([linked, () => props.canLink, () => props.dtId, () => hintQuery.value?.pos
         </div>
       </form>
 
+      <div
+        v-if="hintPost"
+        class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-field bg-sunken px-3 py-2 text-[13px] text-ink-2"
+        data-keden-search-hint
+      >
+        <span class="min-w-[12rem] flex-1 [overflow-wrap:anywhere]">{{ t('kedenLink.search.hintFilter', { post: hintPost, days: WINDOW_DAYS }) }}</span>
+        <ZButton size="sm" variant="ghost" class="max-sm:h-11" data-keden-search-hint-clear @click="clearHint">{{ t('kedenLink.search.hintClear') }}</ZButton>
+      </div>
       <p v-if="isDefaultSearch" class="mt-3 mb-0 text-[13px] text-ink-3">{{ t('kedenLink.search.defaultHint') }}</p>
       <p v-if="loadError" role="alert" class="mt-3 mb-0 text-sm text-danger" data-keden-search-error>{{ t('kedenLink.search.loadError') }}</p>
       <p v-else-if="searched && !loading && !list.length" class="mt-3 mb-0 text-sm text-muted" data-keden-search-empty>{{ t('kedenLink.search.empty') }}</p>
