@@ -56,9 +56,9 @@ describe('шапка двуязычного инвойса-упаковочно�
   })
 
   it('даты и контракт словами', () => {
-    expect(dateInText('HZSN-1     September,21, 2026')).toBe('2026-09-21')
+    expect(dateInText('INV-1     September,21, 2026')).toBe('2026-09-21')
     expect(dateInText('21 Sep 2026')).toBe('2026-09-21')
-    expect(contractFrom('STCC-1 date 02.02.2026')).toEqual({ number: 'STCC-1', date: '2026-02-02' })
+    expect(contractFrom('CTR-1 date 02.02.2026')).toEqual({ number: 'CTR-1', date: '2026-02-02' })
     expect(contractFrom('№ 36/СМ от 26.01.2026')).toEqual({ number: '36/СМ', date: '2026-01-26' })
     expect(looksLikeLabel('2Consignee')).toBe(true)
     expect(looksLikeLabel('ТОО «Пример Трейдинг»')).toBe(false)

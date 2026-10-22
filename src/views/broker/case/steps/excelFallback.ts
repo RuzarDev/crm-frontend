@@ -147,13 +147,13 @@ export function dateInText(text: string): string | null {
   return null
 }
 
-/** Номер документа — первое слово, если в нём есть цифра («HZSN-PIT-CI-092101     September,21, 2026» → HZSN-PIT-CI-092101). */
+/** Номер документа — первое слово, если в нём есть цифра («INV-0921     September,21, 2026» → INV-0921). */
 function docNumberIn(text: string): string | null {
   const word = /^[\s:#№.]*([A-Za-zА-Яа-я0-9][\w\-/.]*)/.exec(text)?.[1]?.replace(/[.]+$/, '') ?? ''
   return /\d/.test(word) ? word : null
 }
 
-/** Контракт «STCC-… date 02.02.2026», «№ 36/СМ от 26.01.2026» → номер и дата. */
+/** Контракт «CTR-… date 02.02.2026», «№ 36/СМ от 26.01.2026» → номер и дата. */
 export function contractFrom(text: string): { number: string | null; date: string | null } {
   const s = text.normalize('NFKC').replace(/^[\s:#№]+/, '').trim()
   const [no, rest] = s.split(/\s+(?:от|from|dated|date|dd\.?)\s*[:.]?\s*(?=\d)/i)
@@ -196,7 +196,7 @@ export function docHeaderFrom(
     }
   }
 
-  // Контракт: «CONTRACT NO: STCC-… date 02.02.2026».
+  // Контракт: «CONTRACT NO: CTR-… date 02.02.2026».
   let contract: { number: string | null; date: string | null } = { number: null, date: null }
   for (const cell of cells) {
     const at = cell.lines.findIndex((l) => CONTRACT_LABEL.test(l))
