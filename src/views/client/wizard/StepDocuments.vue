@@ -28,8 +28,8 @@ const uid = useId()
 const headingId = `wz-docs-${uid}`
 
 const { loadState, pending, errors, removing, attached, filesOf, load, upload, retry, canRetry, dismiss } = props.docs
-// Фото iPhone (HEIC) принимаем и переводим в JPEG (useShipmentFiles). На iOS HEIC в accept не пишем: без него Safari
-// сам отдаёт JPEG, с ним — отдал бы исходник.
+// Фото iPhone (HEIC) принимаем: в JPEG его переводит браузер (Safari) или сервер (useShipmentFiles). На iOS HEIC в accept
+// не пишем: без него Safari сам отдаёт JPEG, с ним — отдал бы исходник.
 const ACCEPT = (isIOS() ? DOC_ACCEPT : [...DOC_ACCEPT, ...HEIC_ACCEPT]).join(',')
 const otherFiles = computed(() => filesOf('other'))
 

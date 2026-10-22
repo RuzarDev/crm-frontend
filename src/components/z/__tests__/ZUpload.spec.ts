@@ -8,8 +8,8 @@ import ZForm from '../ZForm.vue'
 
 const err = vi.hoisted(() => vi.fn())
 vi.mock('@/ui/message', () => ({ message: { error: err, success: vi.fn(), warning: vi.fn(), info: vi.fn() } }))
-const heic = vi.hoisted(() => ({ toJpeg: vi.fn() }))
-vi.mock('@/utils/heic', async (orig) => ({ ...(await orig<typeof import('@/utils/heic')>()), heicToJpeg: heic.toJpeg }))
+const heic = vi.hoisted(() => ({ forUpload: vi.fn() }))
+vi.mock('@/utils/heic', async (orig) => ({ ...(await orig<typeof import('@/utils/heic')>()), heicForUpload: heic.forUpload }))
 
 const file = (name: string, size = 10, type = '') => {
   const f = new File(['x'], name, { type })
@@ -387,33 +387,42 @@ describe('ZUpload — перетаскивание: выключенная зо�
 })
 
 describe('ZUpload — фото HEIC (convert-heic)', () => {
-  afterEach(() => heic.toJpeg.mockReset())
+  afterEach(() => heic.forUpload.mockReset())
 
-  it('HEIC принимается и переводится в JPEG до select; JPG идёт как есть', async () => {
+  it('браузер открыл HEIC сам (Safari) — до select уже JPEG; JPG идёт как есть', async () => {
     const jpeg = new File(['j'], 'IMG_1.jpg', { type: 'image/jpeg' })
-    heic.toJpeg.mockResolvedValue(jpeg)
+    heic.forUpload.mockResolvedValue(jpeg)
     const w = mountWithI18n(ZUpload, { props: { accept: '.jpg,.jpeg,.png', multiple: true, convertHeic: true } })
     expect(w.find('input[type="file"]').attributes('accept')).toBe('.jpg,.jpeg,.png,.heic,.heif,image/heic,image/heif')
     const plain = file('a.png', 10, 'image/png')
     await pick(w, [file('IMG_1.HEIC'), plain])
-    expect(heic.toJpeg).toHaveBeenCalledTimes(1)
+    expect(heic.forUpload).toHaveBeenCalledTimes(1)
     expect(w.emitted('select')?.[0]).toEqual([[jpeg, plain]])
     expect(err).not.toHaveBeenCalled()
   })
 
-  it('не получилось перевести — понятное сообщение, остальные файлы идут', async () => {
-    heic.toJpeg.mockRejectedValue(new Error('ERR_LIBHEIF'))
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const w = mountWithI18n(ZUpload, { props: { accept: '.jpg,.png', multiple: true, convertHeic: true } })
+  it('браузер HEIC не открыл (Chrome, Firefox) — исходник уходит в загрузку как есть, переводит сервер', async () => {
+    heic.forUpload.mockImplementation(async (f: File) => f)
+    const customRequest = vi.fn()
+    const w = mountWithI18n(ZUpload, { props: { accept: '.jpg,.png', multiple: true, convertHeic: true, customRequest } })
+    const photo = file('IMG_2.heic', 10, 'image/heic')
     const plain = file('b.jpg', 10, 'image/jpeg')
-    await pick(w, [file('IMG_2.heic', 10, 'image/heic'), plain])
-    expect(err).toHaveBeenCalledWith(expect.stringContaining('Не удалось перевести фото IMG_2.heic из HEIC в JPEG'))
-    expect(w.emitted('select')?.[0]).toEqual([[plain]])
-    spy.mockRestore()
+    await pick(w, [photo, plain])
+    expect(err).not.toHaveBeenCalled()
+    expect(w.emitted('select')?.[0]).toEqual([[photo, plain]])
+    expect(customRequest.mock.calls.map(([o]) => (o as { file: File }).file)).toEqual([photo, plain])
+  })
+
+  it('размер HEIC, ушедшего как есть, проверяется тем же пределом', async () => {
+    heic.forUpload.mockImplementation(async (f: File) => f)
+    const w = mountWithI18n(ZUpload, { props: { accept: '.jpg', convertHeic: true, maxSizeMb: 25 } })
+    await pick(w, [file('huge.heic', 30 * 1024 * 1024)])
+    expect(err).toHaveBeenCalledWith(expect.stringContaining('huge.heic'))
+    expect(w.emitted('select')).toBeUndefined()
   })
 
   it('размер проверяется у готового JPEG', async () => {
-    heic.toJpeg.mockResolvedValue(file('big.jpg', 30 * 1024 * 1024, 'image/jpeg'))
+    heic.forUpload.mockResolvedValue(file('big.jpg', 30 * 1024 * 1024, 'image/jpeg'))
     const w = mountWithI18n(ZUpload, { props: { accept: '.jpg', convertHeic: true, maxSizeMb: 25 } })
     await pick(w, [file('big.heic', 5 * 1024 * 1024)])
     expect(err).toHaveBeenCalledWith(expect.stringContaining('big.jpg'))
@@ -424,7 +433,7 @@ describe('ZUpload — фото HEIC (convert-heic)', () => {
     const w = mountWithI18n(ZUpload, { props: { accept: '.jpg,.png' } })
     expect(w.find('input[type="file"]').attributes('accept')).toBe('.jpg,.png')
     await pick(w, [file('IMG_3.heic')])
-    expect(heic.toJpeg).not.toHaveBeenCalled()
+    expect(heic.forUpload).not.toHaveBeenCalled()
     expect(err).toHaveBeenCalledWith(expect.stringContaining('IMG_3.heic'))
   })
 

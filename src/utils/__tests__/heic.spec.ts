@@ -1,11 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const lib = vi.hoisted(() => ({ convert: vi.fn() }))
-vi.mock('@/utils/heicLoader', () => ({ loadHeic2any: async () => lib.convert }))
+import { heicErrorName, heicForUpload, isHeic, isIOS, jpegName } from '../heic'
 
-import { heicToJpeg, isHeic, isIOS, jpegName } from '../heic'
-
-afterEach(() => { lib.convert.mockReset(); vi.unstubAllGlobals() })
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('heic — фото iPhone', () => {
   it('HEIC узнаётся по типу и по расширению (тип часто пуст на компьютере)', () => {
@@ -24,42 +21,49 @@ describe('heic — фото iPhone', () => {
     expect(jpegName('.heic')).toBe('photo.jpg')
   })
 
-  it('браузер сам HEIC не открывает — heic2any (лениво); результат — JPEG-файл .jpg', async () => {
-    lib.convert.mockResolvedValue(new Blob(['jpeg'], { type: 'image/jpeg' }))
+  it('браузер HEIC не открывает (Chrome, Firefox) — файл уходит как есть, в JPEG переведёт сервер', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn(async () => { throw new DOMException('The source image could not be decoded.', 'InvalidStateError') }))
     const src = new File(['heic'], 'IMG_7.HEIC', { type: 'image/heic', lastModified: 1700000000000 })
-    const out = await heicToJpeg(src)
-    expect(lib.convert).toHaveBeenCalledWith({ blob: src, toType: 'image/jpeg', quality: 0.9 })
-    expect(out.name).toBe('IMG_7.jpg')
-    expect(out.type).toBe('image/jpeg')
-    expect(out.lastModified).toBe(1700000000000)
+    await expect(heicForUpload(src)).resolves.toBe(src)
   })
 
-  it('heic2any вернул несколько кадров — берётся первый; ошибка — исключение', async () => {
-    lib.convert.mockResolvedValue([new Blob(['first'], { type: 'image/jpeg' }), new Blob(['second-frame'])])
-    const out = await heicToJpeg(new File(['h'], 'live.heic'))
-    expect(out.size).toBe(5)
-    lib.convert.mockRejectedValue(new Error('ERR_LIBHEIF format not supported'))
-    await expect(heicToJpeg(new File(['h'], 'bad.heic'))).rejects.toThrow('ERR_LIBHEIF')
+  it('без createImageBitmap — тоже исходник', async () => {
+    vi.stubGlobal('createImageBitmap', undefined)
+    const src = new File(['heic'], 'IMG_8.heic')
+    await expect(heicForUpload(src)).resolves.toBe(src)
   })
 
-  it('браузер открыл HEIC сам (Safari) — без библиотеки', async () => {
+  it('браузер открыл HEIC сам (Safari) — JPEG с тем же именем и .jpg, не больше 16 Мп', async () => {
     const close = vi.fn()
     vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 8000, height: 6000, close })))
     const draw = vi.fn()
-    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: draw } as never)
-    const toBlob = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (cb) { cb(new Blob(['native'], { type: 'image/jpeg' })) })
-    try {
-      const out = await heicToJpeg(new File(['h'], 'IMG_9.heic', { type: 'image/heic' }))
-      expect(out.size).toBe(6) // 'native'
-      expect(lib.convert).not.toHaveBeenCalled()
-      // 48 Мп ужаты до ~16 Мп (предел холста iOS)
-      const [, , , w, h] = draw.mock.calls[0] as number[]
-      expect(w * h).toBeLessThanOrEqual(16_000_000)
-      expect(close).toHaveBeenCalled()
-    } finally {
-      getContext.mockRestore()
-      toBlob.mockRestore()
-    }
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: draw } as never)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (cb) { cb(new Blob(['native'], { type: 'image/jpeg' })) })
+    const out = await heicForUpload(new File(['h'], 'IMG_9.heic', { type: 'image/heic', lastModified: 1700000000000 }))
+    expect(out.name).toBe('IMG_9.jpg')
+    expect(out.type).toBe('image/jpeg')
+    expect(out.size).toBe(6) // 'native'
+    expect(out.lastModified).toBe(1700000000000)
+    // 48 Мп ужаты до ~16 Мп (предел холста iOS; сервер ужимает так же)
+    const [, , , w, h] = draw.mock.calls[0] as number[]
+    expect(w * h).toBeLessThanOrEqual(16_000_000)
+    expect(close).toHaveBeenCalled()
+  })
+
+  it('холст не отдал JPEG — исходник (переведёт сервер)', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 10, height: 10, close: vi.fn() })))
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() } as never)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (cb) { cb(null) })
+    const src = new File(['h'], 'IMG_10.heic')
+    await expect(heicForUpload(src)).resolves.toBe(src)
+  })
+
+  it('отказ сервера по HEIC: { code: "heic", name } → имя файла; остальное — null', () => {
+    expect(heicErrorName({ error: 'по-русски', code: 'heic', name: 'IMG_1.HEIC' })).toBe('IMG_1.HEIC')
+    expect(heicErrorName({ code: 'heic' })).toBe('')
+    expect(heicErrorName({ error: 'другое', code: 'limit' })).toBeNull()
+    expect(heicErrorName('строка')).toBeNull()
+    expect(heicErrorName(null)).toBeNull()
   })
 
   it('iOS: iPhone и iPad (в том числе «настольный» iPad)', () => {

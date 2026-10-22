@@ -1,6 +1,7 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
 import { message } from '@/ui/message'
 import { i18n } from '@/i18n'
+import { heicErrorName } from '@/utils/heic'
 
 // Флаг для отдельного запроса: перехватчик не покажет свой тост об ошибке —
 // экран сам рисует ошибку (свой Result/Alert, форма «ссылка недействительна» и т.п.).
@@ -75,6 +76,9 @@ const errorToast = (key: string, content: string) => {
 // вообще ничего не прислал: раньше сюда протекало техническое «Request failed
 // with status code 400» из самого axios (аудит 2026-09-28, п.1.2/1.4).
 export const extractServerText = (data: unknown): string | null => {
+  // Фото HEIC не перевелось на сервере ({ code: 'heic', name }) — свой текст на языке интерфейса вместо русского сервера.
+  const heicName = heicErrorName(data)
+  if (heicName !== null) return i18n.global.t('z.heicFailed', { name: heicName })
   if (typeof data === 'string' && data.trim()) {
     return data
   }

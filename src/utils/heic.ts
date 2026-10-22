@@ -1,5 +1,7 @@
-// HEIC/HEIF — формат фото iPhone. Сервер принимает только JPG/PNG, поэтому такие фото переводим в JPEG в браузере
-// до загрузки (21.10). Сначала — средствами самого браузера (Safari открывает HEIC без библиотек), иначе — heic2any.
+// HEIC/HEIF — формат фото iPhone. Хранилище берёт только JPG/PNG, поэтому такие фото переводятся в JPEG до сохранения.
+// Сначала — средствами самого браузера (Safari открывает HEIC без библиотек, 21.10). Не смог (Chrome, Firefox) —
+// исходник уходит на сервер как есть и переводится там (Zircon AI, свежий libheif; 22.10, fix-wave-2 e2e-1).
+// Браузерная библиотека heic2any убрана: её libheif 1.10 не открывал фото iPhone 15/16 (iOS 18, HDR).
 
 const HEIC_MIME = ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence']
 
@@ -10,7 +12,7 @@ export const HEIC_ACCEPT = ['.heic', '.heif', 'image/heic', 'image/heif']
 export const isHeic = (f: Pick<File, 'name' | 'type'>): boolean =>
   HEIC_MIME.includes((f.type || '').toLowerCase()) || /\.(heic|heif)$/i.test(f.name)
 
-/** Имя JPEG-копии: IMG_0001.HEIC → IMG_0001.jpg. */
+/** Имя JPEG-копии: IMG_0001.HEIC → IMG_0001.jpg (то же имя даёт сервер, если переводит он). */
 export const jpegName = (name: string): string => `${name.replace(/\.(heic|heif)$/i, '') || 'photo'}.jpg`
 
 /**
@@ -22,7 +24,7 @@ export const isIOS = (): boolean => {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 }
 
-/** Холст больше ~16 млн точек iOS не рисует; фото погрузки такое разрешение и не нужно. */
+/** Холст больше ~16 млн точек iOS не рисует; фото погрузки такое разрешение и не нужно (сервер ужимает так же). */
 const MAX_PIXELS = 16_000_000
 const QUALITY = 0.9
 
@@ -40,24 +42,28 @@ const nativeToJpeg = async (file: File): Promise<Blob | null> => {
     ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height)
     return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', QUALITY))
   } catch {
-    return null // браузер не умеет HEIC (Chrome, Firefox) — дальше heic2any
+    return null // браузер не умеет HEIC (Chrome, Firefox) — переведёт сервер
   } finally {
     bmp?.close?.()
   }
 }
 
-const libToJpeg = async (file: File): Promise<Blob> => {
-  // Загрузчик — динамически: библиотека и её модуль попадают в отдельный чанк и грузятся только здесь.
-  const { loadHeic2any } = await import('./heicLoader')
-  const heic2any = await loadHeic2any()
-  const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: QUALITY })
-  const blob = Array.isArray(out) ? out[0] : out
-  if (!blob) throw new Error('heic2any: пустой результат')
-  return blob
+/**
+ * Фото HEIC/HEIF к загрузке: браузер открыл сам — JPEG-файл с тем же именем и .jpg; не открыл — исходный файл
+ * (сервер переведёт его в JPEG при сохранении). Не бросает.
+ */
+export const heicForUpload = async (file: File): Promise<File> => {
+  const blob = await nativeToJpeg(file)
+  return blob ? new File([blob], jpegName(file.name), { type: 'image/jpeg', lastModified: file.lastModified }) : file
 }
 
-/** HEIC/HEIF → JPEG-файл с тем же именем и расширением .jpg. Не получилось — исключение (экран показывает сообщение). */
-export const heicToJpeg = async (file: File): Promise<File> => {
-  const blob = (await nativeToJpeg(file)) ?? (await libToJpeg(file))
-  return new File([blob], jpegName(file.name), { type: 'image/jpeg', lastModified: file.lastModified })
+/**
+ * Отказ сервера по фото HEIC ({ code: 'heic', name } — не перевелось или служба перевода недоступна): имя файла
+ * для текста z.heicFailed на языке интерфейса; иначе null.
+ */
+export const heicErrorName = (data: unknown): string | null => {
+  if (!data || typeof data !== 'object') return null
+  const d = data as Record<string, unknown>
+  if (d.code !== 'heic') return null
+  return typeof d.name === 'string' ? d.name : ''
 }

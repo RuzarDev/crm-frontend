@@ -1,6 +1,6 @@
 import { computed, reactive, ref, type Ref } from 'vue'
 import { import40Api, type Import40FileDto } from '@/api/import40'
-import { heicToJpeg, isHeic } from '@/utils/heic'
+import { heicErrorName, heicForUpload, isHeic } from '@/utils/heic'
 import { isDocKind, type DocKindDef } from '@/views/client/docKinds'
 
 // Документы черновика в мастере (шаг «Документы»): список файлов раздела documents, загрузки и удаления в пути,
@@ -21,8 +21,9 @@ export const rowOf = (f: Pick<Import40FileDto, 'docKind'>): RowKind => {
 }
 
 /**
- * Ошибка в строке. type/size — проверка на клиенте (повтор не поможет), heic — фото iPhone не перевелось в JPEG,
- * server — отказ или сбой сети: file есть, «Повторить» шлёт тот же File. Текст собирает экран (на языке интерфейса).
+ * Ошибка в строке. type/size — проверка на клиенте (повтор не поможет), heic — сервер не перевёл фото iPhone в JPEG
+ * (file есть, только если служба перевода была недоступна — тогда повтор может помочь), server — отказ или сбой сети:
+ * file есть, «Повторить» шлёт тот же File. Текст собирает экран (на языке интерфейса).
  */
 export interface RowError {
   id: number
@@ -43,9 +44,9 @@ const serverReason = (e: unknown): string | null => {
   return null
 }
 
-/** Причина отказа на клиенте или null — файл можно слать. */
+/** Причина отказа на клиенте или null — файл можно слать. HEIC, который браузер не перевёл сам, переведёт сервер. */
 export const rejectReason = (f: File): 'type' | 'size' | null => {
-  if (!DOC_ACCEPT.some((ext) => f.name.toLowerCase().endsWith(ext))) return 'type'
+  if (!DOC_ACCEPT.some((ext) => f.name.toLowerCase().endsWith(ext)) && !isHeic(f)) return 'type'
   if (f.size > DOC_MAX_MB * 1024 * 1024) return 'size'
   return null
 }
@@ -106,30 +107,18 @@ export function useShipmentFiles(caseId: Ref<string | null>) {
   }
 
   /**
-   * Фото HEIC/HEIF (iPhone) → JPEG в браузере до проверки формата: сервер берёт JPG/PNG (21.10, как ZUpload convert-heic).
-   * Пока идёт перевод, имя файла — в «идёт загрузка» строки (кнопка отправки ждёт). Не перевелось — ошибка в строке.
+   * Фото HEIC/HEIF (iPhone): браузер, который открывает HEIC сам (Safari), переводит его в JPEG до загрузки; остальные
+   * шлют исходник — переводит сервер (22.10, как ZUpload convert-heic). Пока идёт перевод в браузере, имя файла —
+   * в «идёт загрузка» строки (кнопка отправки ждёт).
    */
   const convertHeic = async (kind: RowKind, picked: File[], my: number): Promise<File[] | null> => {
     const heics = picked.filter(isHeic)
     if (!heics.length) return picked
     pending[kind] = [...(pending[kind] ?? []), ...heics.map((f) => f.name)]
     const out: File[] = []
-    const failed: Omit<RowError, 'id'>[] = []
-    for (const f of picked) {
-      if (!isHeic(f)) {
-        out.push(f)
-        continue
-      }
-      try {
-        out.push(await heicToJpeg(f))
-      } catch (error) {
-        console.error(error)
-        failed.push({ name: f.name, code: 'heic', reason: null })
-      }
-    }
+    for (const f of picked) out.push(isHeic(f) ? await heicForUpload(f) : f)
     if (my !== gen) return null
     unpend(kind, heics.map((f) => f.name))
-    addErrors(kind, failed)
     return out
   }
 
@@ -161,7 +150,14 @@ export function useShipmentFiles(caseId: Ref<string | null>) {
         done.push(dto.originalFileName || f.name)
       } catch (e) {
         if (my !== gen) return
-        addErrors(kind, [{ name: f.name, code: 'server', reason: serverReason(e), file: f }])
+        const response = (e as { response?: { status?: number, data?: unknown } })?.response
+        const heicName = heicErrorName(response?.data)
+        if (heicName !== null) {
+          // Сервер не перевёл фото iPhone: повтор имеет смысл, только если служба перевода была недоступна (503).
+          addErrors(kind, [{ name: heicName || f.name, code: 'heic', reason: null, file: response?.status === 503 ? f : undefined }])
+        } else {
+          addErrors(kind, [{ name: f.name, code: 'server', reason: serverReason(e), file: f }])
+        }
       } finally {
         if (my === gen) unpend(kind, [f.name])
       }
