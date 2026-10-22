@@ -13,6 +13,7 @@ vi.mock('@/ui/confirm', () => ({ useConfirm: () => ({ confirm: api.confirm }) })
 vi.mock('@/ui/message', () => ({ message: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
 
 import DtKedenChip from '../DtKedenChip.vue'
+import ZDate from '@/components/z/ZDate.vue'
 
 const link = (o: Partial<KedenLinkDto> = {}): KedenLinkDto => ({
   linked: true, kedenDeclarationId: 'k1', source: 'number', linkedAtUtc: '2026-10-17T08:00:00Z',
@@ -125,6 +126,52 @@ describe('DtKedenChip', () => {
     expect(q('[data-keden-search-hint]')).toBeNull()
     expect(q('[data-keden-candidate="k9"]')).toBeNull()
     expect(q('[data-keden-candidate="r0"]')).not.toBeNull()
+  })
+
+  it('плашка подсказки: даты стёрли или поменяли — текст по датам, ушедшим в запрос, а не «±3 дн. от гр. А»', async () => {
+    api.candidates.mockResolvedValue([cand()])
+    mountWith({ keden: unlinked, post: '55302', submissionDate: '2026-10-20' })
+    await flushPromises()
+    await w.get('[data-dt-keden-suggest]').trigger('click')
+    await flushPromises()
+    const banner = () => q('[data-keden-search-hint-text]')!.textContent ?? ''
+    expect(banner()).toContain('±3 дн. от гр. А')
+    const submit = async () => {
+      q('[data-keden-search-find]')!.closest('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
+      await flushPromises()
+    }
+
+    const [fromDate, toDate] = w.findAllComponents(ZDate)
+    fromDate.vm.$emit('update:value', null)
+    toDate.vm.$emit('update:value', null)
+    await nextTick()
+    expect(banner()).toContain('±3 дн. от гр. А') // список ещё по окну подсказки — «Найти» не нажимали
+    await submit()
+    expect(api.candidates).toHaveBeenLastCalledWith('c1', 'd1', {
+      q: undefined, bin: undefined, from: undefined, to: undefined, post: '55302', hint: true,
+    })
+    expect(banner()).not.toContain('±3')
+    expect(banner()).toContain('Свободные ДТ поста 55302')
+    expect(banner()).toContain('без ограничения по датам')
+
+    fromDate.vm.$emit('update:value', '2026-10-01')
+    toDate.vm.$emit('update:value', '2026-10-10')
+    await submit()
+    expect(api.candidates).toHaveBeenLastCalledWith('c1', 'd1', {
+      q: undefined, bin: undefined, from: '2026-10-01', to: '2026-10-10', post: '55302', hint: true,
+    })
+    expect(banner()).toContain('регистрация 01.10.2026 – 10.10.2026')
+    expect(banner()).not.toContain('±3')
+
+    toDate.vm.$emit('update:value', null)
+    await submit()
+    expect(banner()).toContain('регистрация с 01.10.2026')
+
+    // Вернули ровно окно подсказки — снова «±3 дн. от гр. А».
+    fromDate.vm.$emit('update:value', '2026-10-17')
+    toDate.vm.$emit('update:value', '2026-10-23')
+    await submit()
+    expect(banner()).toContain('±3 дн. от гр. А')
   })
 
   it('«Связать вручную» после подсказки — снова без фильтра подсказки', async () => {

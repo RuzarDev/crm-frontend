@@ -105,15 +105,21 @@ const searched = ref(false)
 // Поиск открыт кнопкой «Найдено в КЕДЕН» (22.10): тот же запрос, что посчитал подсказку, — свободные ДТ этого поста, даты
 // ±3 дня от гр. А уже в полях. Иначе список по умолчанию (50 последних записей БИН клиента) мог не содержать найденных.
 const hintPost = ref<string | null>(null)
+// Окно дат подсказки (±3 дня от гр. А при открытии) и даты, с которыми прошёл последний поиск: плашка говорит «±3 дн. от
+// гр. А», только пока поиск шёл ровно с этим окном; даты поменяли или стёрли — показывает те, что ушли в запрос (22.10).
+const hintWindow = ref<{ from: string; to: string } | null>(null)
+const ranDates = ref<{ from: string | null; to: string | null } | null>(null)
 
 const search = async () => {
   loading.value = true
   loadError.value = false
+  const dates = { from: from.value, to: to.value }
   try {
     list.value = await kedenLinkApi.candidates(props.caseId, props.dtId, {
-      q: q.value.trim() || undefined, bin: bin.value.trim() || undefined, from: from.value ?? undefined, to: to.value ?? undefined,
+      q: q.value.trim() || undefined, bin: bin.value.trim() || undefined, from: dates.from ?? undefined, to: dates.to ?? undefined,
       ...(hintPost.value ? { post: hintPost.value, hint: true } : {}),
     })
+    ranDates.value = dates
     searched.value = true
   } catch {
     loadError.value = true
@@ -132,6 +138,8 @@ const openSearch = (fromHint = false) => {
   from.value = h?.from ?? null
   to.value = h?.to ?? null
   hintPost.value = h?.post ?? null
+  hintWindow.value = h ? { from: h.from, to: h.to } : null
+  ranDates.value = null
   searched.value = false
   searchOpen.value = true
   void search()
@@ -139,10 +147,29 @@ const openSearch = (fromHint = false) => {
 /** Снять фильтр подсказки — обычный поиск по умолчанию. */
 const clearHint = () => {
   hintPost.value = null
+  hintWindow.value = null
   from.value = null
   to.value = null
   void search()
 }
+const fmtDay = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00Z`)
+  if (Number.isNaN(d.getTime())) return iso
+  return new Intl.DateTimeFormat(calendarLocale(locale.value), { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }).format(d)
+}
+/** Текст плашки фильтра подсказки — по датам, с которыми поиск на самом деле прошёл. */
+const hintBanner = computed(() => {
+  const post = hintPost.value
+  if (!post) return ''
+  const w = hintWindow.value
+  const r = ranDates.value ?? { from: from.value, to: to.value }
+  if (w && r.from === w.from && r.to === w.to) return t('kedenLink.search.hintFilter', { post, days: WINDOW_DAYS })
+  if (!r.from && !r.to) return t('kedenLink.search.hintFilterAnyDate', { post })
+  const range = r.from && r.to
+    ? `${fmtDay(r.from)} – ${fmtDay(r.to)}`
+    : r.from ? t('kedenLink.search.rangeFrom', { d: fmtDay(r.from) }) : t('kedenLink.search.rangeTo', { d: fmtDay(r.to!) })
+  return t('kedenLink.search.hintFilterDates', { post, range })
+})
 
 const linking = ref<string | null>(null)
 const pick = async (c: KedenCandidateDto) => {
@@ -282,7 +309,7 @@ watch([linked, () => props.canLink, () => props.dtId, () => hintQuery.value?.pos
         class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-field bg-sunken px-3 py-2 text-[13px] text-ink-2"
         data-keden-search-hint
       >
-        <span class="min-w-[12rem] flex-1 [overflow-wrap:anywhere]">{{ t('kedenLink.search.hintFilter', { post: hintPost, days: WINDOW_DAYS }) }}</span>
+        <span class="min-w-[12rem] flex-1 [overflow-wrap:anywhere]" data-keden-search-hint-text>{{ hintBanner }}</span>
         <ZButton size="sm" variant="ghost" class="max-sm:h-11" data-keden-search-hint-clear @click="clearHint">{{ t('kedenLink.search.hintClear') }}</ZButton>
       </div>
       <p v-if="isDefaultSearch" class="mt-3 mb-0 text-[13px] text-ink-3">{{ t('kedenLink.search.defaultHint') }}</p>
