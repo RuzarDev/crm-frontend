@@ -7687,6 +7687,18 @@ export default {
     retry: 'Try again',
     failed: 'Could not translate the document.',
     network: 'No connection to the server — try again.',
+    // Ошибки сервера по коду ответа (code): окно перевода показывает текст на языке интерфейса.
+    errors: {
+      noText: 'The file has no text — it is a scan or a photo. Translation needs a text PDF, Word or Excel file, or a PDF with recognised text (OCR).',
+      unreadable: 'Could not read the text of the file. Translation needs a text PDF, Word or Excel file.',
+      alreadyRussian: 'The document is already in Russian — there is nothing to translate.',
+      tooLarge: 'The file is too large to translate. Save the sheets or pages you need as a separate file and translate that.',
+      disabled: 'AI translation is turned off right now.',
+      limit: 'The daily AI translation limit is used up — try again tomorrow.',
+      rate: 'Too many translation requests — wait a minute and try again.',
+      busy: 'The server is processing other files right now — try the translation again in a minute.',
+      modelError: 'The model did not respond — try again later.',
+    },
     lang: { zh: 'Chinese', en: 'English' },
   },
   carriers: {
