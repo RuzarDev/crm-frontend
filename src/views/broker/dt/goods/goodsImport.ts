@@ -35,7 +35,9 @@ export function packageKindFrom(raw: string | null | undefined, kinds: readonly 
  * (код + номер + дата) — одна строка гр. 44 со всеми своими товарами; indexOf — позиция товара ДТ строки i (новый товар
  * в конце или сопоставленный при повторном импорте). Документ без кода или номера не создаётся.
  */
-export function dtDocsFromRows(rows: readonly ImportRow[], indexOf: (i: number) => number): Import40Doc44ItemInput[] {
+export function dtDocsFromRows(
+  rows: readonly ImportRow[], indexOf: (i: number) => number, names?: ReadonlyMap<string, string> | null,
+): Import40Doc44ItemInput[] {
   const byKey = new Map<string, { doc: Import40Doc44ItemInput; goods: number[] }>()
   rows.forEach((r, i) => {
     for (const d of r.docs) {
@@ -45,7 +47,9 @@ export function dtDocsFromRows(rows: readonly ImportRow[], indexOf: (i: number) 
       if (!e) {
         e = {
           doc: {
-            docTypeCode: d.typeCode, docTypeName: null, docNumber: d.number, docDate: d.date, goodsItemIndex: null, appliesToAll: false,
+            // «Вид документа» — из классификатора 2009 (e2e-4: пустое название не уходило в XML); нет — сервер по коду
+            docTypeCode: d.typeCode, docTypeName: names?.get(d.typeCode) ?? null, docNumber: d.number, docDate: d.date,
+            goodsItemIndex: null, appliesToAll: false,
             goodsItemIndexes: null, docStartDate: null, docValidityDate: null, issueCountryCode: null, presentKindCode: '0',
           },
           goods: [],
@@ -62,6 +66,47 @@ export function dtDocsFromRows(rows: readonly ImportRow[], indexOf: (i: number) 
 /** Документы гр. 44 строк Excel, новые товары — с позиции firstIndex (прежний вызов «Добавить в конец»). */
 export function dtDocsFromExcel(rows: readonly GoodsExcelRow[], firstIndex: number): Import40Doc44ItemInput[] {
   return dtDocsFromRows(rows.map((r) => fromExcelRow(r, '')), (i) => firstIndex + i)
+}
+
+/** Один документ (код + номер) с разными датами в файлах (e2e-5: опечатка в дате одной строки шаблона). */
+export interface DocDateConflict {
+  code: string
+  number: string
+  /** Даты и сколько строк с каждой; header — дата из шапки самого документа (инвойс в наборе файлов). */
+  dates: { date: string | null; rows: number; header?: boolean }[]
+}
+
+const docKey = (code: string | null | undefined, number: string | null | undefined) =>
+  `${(code ?? '').trim()}|${(number ?? '').toLocaleUpperCase('ru-RU').replace(/[^\p{L}\p{N}]/gu, '')}`
+
+/**
+ * Документы гр. 44 с одним кодом и номером, но разными датами: в строках файла (шаблон: «ДАТА ИНВОЙСА») и в шапке
+ * документа (инвойс в наборе файлов). Одна дата — не расхождение.
+ */
+export function docDateConflicts(rows: readonly ImportRow[], headerDocs: readonly Import40Doc44ItemInput[] = []): DocDateConflict[] {
+  const groups = new Map<string, DocDateConflict>()
+  const group = (code: string, number: string) => {
+    const k = docKey(code, number)
+    let g = groups.get(k)
+    if (!g) groups.set(k, (g = { code, number, dates: [] }))
+    return g
+  }
+  for (const r of rows) {
+    for (const d of r.docs) {
+      if (!d.typeCode || !d.number) continue
+      const g = group(d.typeCode, d.number)
+      const at = g.dates.find((x) => x.date === (d.date ?? null) && !x.header)
+      if (at) at.rows += 1
+      else g.dates.push({ date: d.date ?? null, rows: 1 })
+    }
+  }
+  for (const d of headerDocs) {
+    if (!d.docTypeCode || !d.docNumber || !d.docDate) continue
+    const g = groups.get(docKey(d.docTypeCode, d.docNumber))
+    if (g && !g.dates.some((x) => x.date === d.docDate)) g.dates.push({ date: d.docDate, rows: 0, header: true })
+  }
+  return [...groups.values()].filter((g) => new Set(g.dates.map((x) => x.date)).size > 1)
+    .map((g) => ({ ...g, dates: [...g.dates].sort((a, b) => b.rows - a.rows) }))
 }
 
 /** Что распознано в файлах: по каждому полю — в скольких строках есть значение. */
@@ -86,11 +131,19 @@ export interface DtExcelPreview {
   unknownPackaging: string[]
   /** Строк, где нетто больше брутто (goodsStatus.netOverGross): перенесутся, но такой товар — ошибка (XML не сформируется). */
   netOverGross: number
+  /** Один документ с разными датами (e2e-5). */
+  docDates: DocDateConflict[]
 }
 
 const has = (v: unknown) => v !== null && v !== undefined && v !== ''
 
-export function excelPreview(rows: readonly ImportRow[], built: BuildResult): DtExcelPreview {
+/** Документы гр. 44 из шапок файлов (инвойс, упаковочный, контракт), которых нет среди документов строк. */
+export function extraHeaderDocs(rows: readonly ImportRow[], headerDocs: readonly Import40Doc44ItemInput[]): Import40Doc44ItemInput[] {
+  const inRows = new Set(rows.flatMap((r) => r.docs.map((d) => docKey(d.typeCode, d.number))))
+  return headerDocs.filter((d) => !inRows.has(docKey(d.docTypeCode, d.docNumber)))
+}
+
+export function excelPreview(rows: readonly ImportRow[], built: BuildResult, headerDocs: readonly Import40Doc44ItemInput[] = []): DtExcelPreview {
   const count = (pick: (r: ImportRow) => unknown) => rows.filter((r) => has(pick(r))).length
   const goods = built.goods
   const withCode = goods.filter((g) => has(g.tnvedCode)).length
@@ -116,8 +169,9 @@ export function excelPreview(rows: readonly ImportRow[], built: BuildResult): Dt
       unit: count((r) => r.unitText),
       rowName: count((r) => r.rowName),
     },
-    documents: dtDocsFromRows(rows, (i) => i).length,
+    documents: dtDocsFromRows(rows, (i) => i).length + extraHeaderDocs(rows, headerDocs).length,
     unknownPackaging: [...new Set(built.notes.filter((n) => n.kind === 'unknownPackaging' && n.detail).map((n) => n.detail!.trim()))],
     netOverGross: noteRows('netOverGross'),
+    docDates: docDateConflicts(rows, headerDocs),
   }
 }

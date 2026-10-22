@@ -228,9 +228,10 @@ const readExcelDocs = async (caseId: string, files: File[], fileIds: readonly st
           fileName: s.name,
           sheet: res.docs.length > 1 ? d.sheet : null,
           goods: d.goods,
-          header: docHeaderFrom(`${s.name} ${d.sheet}`, d.headerRows, d.tableHeader),
+          header: docHeaderFrom(`${s.name} ${d.sheet}`, d.headerRows, d.tableHeader, d.rows),
           rows: d.rows,
           placesHeader: cols.packagesCount != null ? String(d.tableHeader[cols.packagesCount] ?? '') : null,
+          totals: d.totals,
         })
       }
     } catch { /* не прочитался — остаётся то, что распознал Zircon AI */ }
@@ -244,6 +245,15 @@ const loadPackageKinds = async () => {
     return await useClassifiersStore().load('2013')
   } catch {
     return []
+  }
+}
+/** Названия видов документов (2009) для гр. 44 (e2e-4); не загрузились — сервер дозаполнит по коду. */
+const loadDocKindNames = async (): Promise<Map<string, string>> => {
+  try {
+    const items = await useClassifiersStore().load('2009')
+    return new Map(items.flatMap((k) => (k.nameRu ? [[k.code, k.nameRu.trim().toLocaleUpperCase('ru-RU')] as [string, string]] : [])))
+  } catch {
+    return new Map()
   }
 }
 /** Замечание конвейера импорта → текст окна замечаний. */
@@ -265,11 +275,15 @@ const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
     result = await import40Api.extractBatch(caseId, files, fileIds)
     // Zircon AI + наш разбор Excel → товары ДТ по одним правилам с «Из Excel» (коды одним запросом, гр. 41 / гр. 31,
     // упаковка, страна, отправитель с адресом), гр. 44 инвойса, упаковочного и транспортного документа.
-    const [docs, packageKinds] = await Promise.all([
+    const [docs, packageKinds, docKindNames] = await Promise.all([
       readExcelDocs(caseId, files, fileIds),
       loadPackageKinds(),
+      loadDocKindNames(),
     ])
-    const prepared = await prepareDocumentsDeclaration(result, docs, kase.value, packageKinds)
+    // CMR в наборе (вид документа «CMR» или «cmr» в имени) — гр. 44 02015, а не документ по виду транспорта заявки.
+    const cmrInBatch = files.some((f) => /cmr/i.test(f.name))
+      || props.ctx.files.some((f) => fileIds.includes(f.id) && (f.docKind === 'cmr' || /cmr/i.test(f.originalFileName)))
+    const prepared = await prepareDocumentsDeclaration(result, docs, kase.value, packageKinds, { docKindNames, cmrInBatch })
     usedExcel = prepared.usedExcelGoods
     extraWarnings = prepared.notes.map(noteText)
     stage = 'create'

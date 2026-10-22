@@ -6,7 +6,9 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZCheckbox from '@/components/z/ZCheckbox.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZRadioGroup from '@/components/z/ZRadioGroup.vue'
+import type { Import40Doc44ItemInput } from '@/types/api'
 import { formatKg, formatQty } from '@/views/broker/transit/record/sections/goods'
+import type { PlacesCheck } from '@/views/broker/case/steps/excelFallback'
 import { okeiLabel } from './editor/okei'
 import { excelPreview } from './goodsImport'
 import { noteCount, noteDetails, type BuildResult } from './importBuild'
@@ -38,6 +40,10 @@ const props = defineProps<{
   senderName?: string | null
   /** Страна отправителя «156 — КИТАЙ» (галочка страны происхождения, В8). */
   originLabel?: string | null
+  /** Гр. 44 из шапок файлов (инвойс, упаковочный, контракт) — в счёт документов и сверку дат (Импорт 2.0). */
+  headerDocs?: readonly Import40Doc44ItemInput[]
+  /** Места по строкам против итога документа; null — сошлось или итога нет. */
+  placesCheck?: PlacesCheck | null
 }>()
 const emit = defineEmits<{
   'update:open': [open: boolean]
@@ -50,7 +56,7 @@ const emit = defineEmits<{
 const { t, locale } = useI18n()
 const tx = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.excel.${key}`, p ?? {})
 
-const summary = computed(() => (props.built ? excelPreview(props.rows, props.built) : null))
+const summary = computed(() => (props.built ? excelPreview(props.rows, props.built, props.headerDocs ?? []) : null))
 const recognized = computed(() => {
   const s = summary.value
   if (!s) return []
@@ -84,6 +90,14 @@ const otherInvalid = computed(() => invalidCodes.value.filter((c) => c.reason !=
 const count = (kind: Parameters<typeof noteCount>[1]) => noteCount(notes.value, kind)
 const codesNotChecked = computed(() => notes.value.some((n) => n.kind === 'codesNotChecked'))
 const withoutManufacturer = computed(() => props.rows.filter((r) => !r.manufacturerName).length)
+const fmtDate = (d: string | null) => (d ? d.split('-').reverse().join('.') : '—')
+// Один документ с разными датами (e2e-5): «инвойс UR0910: 10.09.2026 (37 строк), 10.10.2026 (1 строка)».
+const docDateLines = computed(() => (summary.value?.docDates ?? []).map((c) => tx('docDates', {
+  code: c.code,
+  number: c.number,
+  dates: c.dates.map((d) => (d.header ? tx('docDateHeader', { date: fmtDate(d.date) }) : tx('docDateRows', { date: fmtDate(d.date), n: d.rows }))).join(', '),
+})))
+const placesAmbiguous = computed(() => noteDetails(notes.value, 'placesAmbiguous'))
 const withoutCountry = computed(() => props.rows.filter((r) => !r.countryCode).length)
 const setOption = <K extends keyof ImportOptions>(k: K, v: ImportOptions[K]) => emit('update:options', { ...props.options, [k]: v })
 
@@ -211,6 +225,13 @@ const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
           {{ tx('unknownCountries', { list: noteDetails(notes, 'unknownCountry').map((v) => `«${v}»`).join(', ') }) }}
         </p>
         <p v-if="count('packagingDefault')" class="m-0 text-ink-2" data-goods-excel-packaging-default>{{ tx('packagingDefault', { n: count('packagingDefault') }) }}</p>
+        <p v-if="placesAmbiguous.length" :class="warn" data-goods-excel-places-ambiguous>
+          {{ tx('placesAmbiguous', { n: count('placesAmbiguous'), list: placesAmbiguous.slice(0, 3).map((v) => `«${v}»`).join('; ') }) }}
+        </p>
+        <p v-if="placesCheck" :class="warn" data-goods-excel-places-total>
+          {{ tx(placesCheck.unknown ? 'placesTotalUnknown' : 'placesTotal', { ...placesCheck }) }}
+        </p>
+        <p v-for="(l, i) in docDateLines" :key="`dd-${i}`" :class="warn" data-goods-excel-doc-dates>{{ l }}</p>
         <p v-if="summary.documents" class="m-0 text-ink-2" data-goods-excel-documents>{{ tx('documents', { n: summary.documents }) }}</p>
         <p v-if="summary.netOverGross" class="m-0 rounded-row bg-tone-danger-bg px-3 py-2 text-tone-danger-fg" data-goods-excel-net-over-gross>
           {{ tx('netOverGross', { n: summary.netOverGross }) }}
@@ -220,6 +241,8 @@ const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
         </p>
 
         <p v-if="count('han')" class="m-0 text-ink-2" data-goods-excel-han>{{ tx('han', { n: count('han') }) }}</p>
+        <p v-if="count('hanDropped')" class="m-0 text-ink-2" data-goods-excel-han-dropped>{{ tx('hanDropped', { n: count('hanDropped') }) }}</p>
+        <p v-if="count('modelFromDescription')" class="m-0 text-ink-2" data-goods-excel-model>{{ tx('modelFromDescription', { n: count('modelFromDescription') }) }}</p>
 
         <!-- Галочки -->
         <div v-if="(senderName && withoutManufacturer) || (originLabel && withoutCountry)" class="flex flex-col gap-2">
@@ -269,8 +292,8 @@ const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
                   </template>
                   <span v-else class="font-sans text-danger">{{ t('broker.dt.goods.noCode') }}</span>
                 </td>
-                <td :class="[td, 'max-w-60 truncate']" :title="r.description ?? ''">
-                  {{ r.description || '—' }}
+                <td :class="[td, 'max-w-60 truncate']" :title="goodsAt(i)?.description ?? r.description ?? ''">
+                  {{ goodsAt(i)?.description || r.description || '—' }}
                 </td>
                 <td :class="[td, 'text-right tabular-nums whitespace-nowrap']">
                   {{ num(r.quantity) }} <span class="text-xs text-ink-3">{{ unitOf(i) }}</span>
@@ -282,7 +305,7 @@ const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
                   <span v-else-if="r.packageKindText" class="text-muted line-through" :title="tx('packagingSkipped')">{{ r.packageKindText }}</span>
                   <template v-else>—</template>
                 </td>
-                <td :class="[td, 'text-right tabular-nums']">{{ num(r.places) }}</td>
+                <td :class="[td, 'text-right tabular-nums']" :title="r.placesNote ?? undefined">{{ num(r.places) }}</td>
               </tr>
             </tbody>
           </table>

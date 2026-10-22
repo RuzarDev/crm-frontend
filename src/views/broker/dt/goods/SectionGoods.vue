@@ -13,8 +13,8 @@ import { message } from '@/ui/message'
 import {
   GOODS_EXCEL_ACCEPT, GOODS_EXCEL_MESSAGES, goodsHeaderColumns, isExcelFileName, readExcelDocuments, type ExcelSheetDoc,
 } from '@/utils/goodsExcel'
-import { countryFromText, packagingLine, packagingWord } from '@/utils/importText'
-import { docHeaderFrom, docKindOf } from '@/views/broker/case/steps/excelFallback'
+import { countryFromText, packagingWord, upperRu } from '@/utils/importText'
+import { docHeaderFrom, docKindOf, excelImportDoc, headerDocs, placesCheckOf, type ExcelDoc } from '@/views/broker/case/steps/excelFallback'
 import ApplyToSelectedModal from './ApplyToSelectedModal.vue'
 import GoodsBulkBar from './GoodsBulkBar.vue'
 import GoodsExcelImportModal, { type ImportFileView, type ImportOptions } from './GoodsExcelImportModal.vue'
@@ -24,11 +24,11 @@ import GoodsEditor from './editor/GoodsEditor.vue'
 import { emptyGoodsPageContext, type GoodsEditorContext, type GoodsPageContext, type GoodsSaveState } from './editor/types'
 import type { BulkPatch } from './goodsBulk'
 import { exportGoodsXlsx } from './goodsExport'
-import { dtDocsFromRows } from './goodsImport'
+import { dtDocsFromRows, extraHeaderDocs } from './goodsImport'
 import { buildGoods, DEFAULT_ORIGIN_DEFAULT, SENDER_AS_MANUFACTURER_DEFAULT } from './importBuild'
 import { applyMerge, mergeImportDocs, planMerge, type MergeMode, type MergeResult } from './importMerge'
 import { resolveCodes, type ResolveResult } from './importResolve'
-import { fromExcelRow, type ImportDoc } from './importRows'
+import type { ImportDoc } from './importRows'
 import { ensureOkeiUnits } from './editor/okei'
 import { filterGoods, formatItemNumbers, goodsTotals, type GoodsFilter } from './goodsList'
 import { goodsPaymentsStale, isErrorStatus, withCodeCheck, type GoodsStatus } from './goodsStatus'
@@ -184,7 +184,9 @@ const onApply = (patch: BulkPatch) => {
 const fileInput = ref<HTMLInputElement | null>(null)
 const excelBusy = ref(false)
 const excelOpen = ref(false)
-const importDocs = shallowRef<(ImportDoc & { invoiceNo: string | null })[]>([])
+/** Документ импорта (лист книги) с разбором его шапки и итога — для гр. 44 из шапок и сверки мест (Импорт 2.0). */
+type ImportFileDoc = ImportDoc & { invoiceNo: string | null; excel: ExcelDoc }
+const importDocs = shallowRef<ImportFileDoc[]>([])
 const importMerge = shallowRef<MergeResult | null>(null)
 const importResolved = shallowRef<ResolveResult | null>(null)
 const importChecking = ref(false)
@@ -216,18 +218,29 @@ const importBuilt = computed(() => {
   })
 })
 const importPlan = computed(() => (importBuilt.value ? planMerge(items.value, importBuilt.value.goods, items.value.length ? importMode.value : 'append') : null))
+// «Вид документа» строк гр. 44 — из классификатора 2009 (e2e-4), ЗАГЛАВНЫМИ, как сервер.
+const docKindNames = computed(() => new Map((classifiers.cache['2009'] ?? []).flatMap((k) => (k.nameRu ? [[k.code, upperRu(k.nameRu)!] as const] : []))))
+// Гр. 44 из шапок файлов (правка 2.8): инвойс 04021, упаковочный лист 04131, контракт 03011.
+const importHeaderDocs = computed(() => headerDocs({ headers: importDocs.value.map((d) => d.excel.header), docKindNames: docKindNames.value }))
+// Места по строкам против итога документа («共计19件. 19 мест»).
+const importPlacesCheck = computed(() => (importMerge.value ? placesCheckOf(importMerge.value.rows, importDocs.value.map((d) => d.excel)) : null))
 
 const pickExcel = () => { if (editable.value) fileInput.value?.click() }
 
-/** Лист книги → документ импорта: вид (инвойс / упаковочный), номер из шапки, подсказка упаковки (столбец мест, «Упаковка: …»). */
-const sheetToImportDoc = (fileName: string, d: ExcelSheetDoc, many: boolean) => {
-  const source = many ? `${fileName} · ${d.sheet}` : fileName
-  const header = docHeaderFrom(fileName, d.headerRows, d.tableHeader)
+/**
+ * Лист книги → документ импорта: вид (инвойс / упаковочный), шапка (номер и дата, контракт, «MADE IN …» под таблицей),
+ * подсказка упаковки (столбец мест, «Упаковка: …»), итог таблицы — одним правилом с «Из документов» (excelImportDoc).
+ */
+const sheetToImportDoc = (fileName: string, d: ExcelSheetDoc, many: boolean): ImportFileDoc => {
+  const header = docHeaderFrom(fileName, d.headerRows, d.tableHeader, d.rows)
   const kind = docKindOf(`${fileName} ${d.sheet}`, d.headerRows.flat().filter((c) => c != null).join(' ')) ?? header.kind
   const cols = goodsHeaderColumns(d.tableHeader, { details: true, tradeCodes: true }, d.rows.slice(1, 50))
   const placesHeader = cols.packagesCount != null ? String(d.tableHeader[cols.packagesCount] ?? '') : ''
-  const hint = packagingLine(d.rows) ?? (packagingWord(placesHeader) ? placesHeader : null)
-  return { source, kind, rows: d.goods.map((g) => fromExcelRow(g, source, hint)), invoiceNo: kind === 'invoice' ? header.number : null }
+  const excel: ExcelDoc = {
+    fileName, sheet: many ? d.sheet : null, goods: d.goods, header: { ...header, kind }, rows: d.rows,
+    placesHeader: packagingWord(placesHeader) ? placesHeader : null, totals: d.totals,
+  }
+  return { ...excelImportDoc(excel, props.countryOptions ?? []), invoiceNo: kind === 'invoice' ? header.number : null, excel }
 }
 
 let importToken = 0
@@ -261,7 +274,9 @@ const onFile = async (e: Event) => {
   el.value = ''
   if (!files.length) return
   excelBusy.value = true
-  const added: (ImportDoc & { invoiceNo: string | null })[] = []
+  // Названия видов документов гр. 44 (2009) — к моменту «Добавить» уже будут; не загрузились — сервер дозаполнит по коду.
+  void classifiers.load('2009').catch(() => undefined)
+  const added: ImportFileDoc[] = []
   const countries = props.countryOptions ?? []
   try {
     for (const file of files) {
@@ -311,7 +326,10 @@ const applyImport = () => {
   const mode: MergeMode = items.value.length ? importMode.value : 'append'
   const snap = props.model.snapshot()
   const res = applyMerge(props.model, built.goods, plan, mode)
-  const docs = props.model.appendDocs(dtDocsFromRows(merged.rows, (i) => res.targetIndex[i]))
+  // Гр. 44: документы строк (шаблон) и шапок файлов; контракт из шапки — если в ДТ контракта ещё нет (его ставит заявка).
+  const hasContract = snap.doc44.some((d) => d.docTypeCode === '03011')
+  const fromHeaders = extraHeaderDocs(merged.rows, importHeaderDocs.value).filter((d) => !(hasContract && d.docTypeCode === '03011'))
+  const docs = props.model.appendDocs([...dtDocsFromRows(merged.rows, (i) => res.targetIndex[i], docKindNames.value), ...fromHeaders])
   excelOpen.value = false
   const content = res.updated
     ? tg('excel.doneMerged', { updated: res.updated, added: res.added })
@@ -555,6 +573,8 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
       :checking="importChecking"
       :sender-name="senderName"
       :origin-label="originLabel"
+      :header-docs="importHeaderDocs"
+      :places-check="importPlacesCheck"
       @apply="applyImport"
       @add-file="pickExcel"
       @remove-file="removeImportFile"

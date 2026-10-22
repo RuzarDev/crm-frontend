@@ -25,6 +25,9 @@ vi.mock('@/api/tnved', () => ({ tnvedApi: tnved }))
 const refs = vi.hoisted(() => ({ search: vi.fn(async () => []) }))
 vi.mock('@/api/partyRefs', () => ({ partyRefsApi: refs }))
 vi.mock('@/api/references', () => ({ referencesApi: { listOkeiUnits: vi.fn(async () => []), listClassifiers: vi.fn(async () => []) } }))
+// Получатель по БИН (Импорт 2.0) — реестр юрлиц без сети: по умолчанию «не найден».
+const lookup = vi.hoisted(() => ({ byBin: vi.fn(async () => { throw new Error('404') }) }))
+vi.mock('@/api/companyLookup', () => ({ companyLookupApi: lookup, isBinLike: (v: string) => /^\d{12}$/.test((v ?? '').replace(/\D/g, '')) }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 vi.mock('@/ui/download', () => dl)
 
@@ -514,8 +517,8 @@ describe('DeclarationsList: «Из документов»', () => {
   const pick = async (names = ['inv.pdf', 'cmr.jpg'], fileIds: string[] = []) => {
     const files = names.map((n) => new File(['x'], n))
     w.findComponent(ExtractDocsModal).vm.$emit('submit', { fileIds, uploads: files })
-    // Конвейер импорта (пакет 21.10) — несколько шагов с ожиданием: коды, ОКЕИ, справочник сторон, создание ДТ.
-    for (let i = 0; i < 6; i++) await flushPromises()
+    // Конвейер импорта (пакет 21.10) — несколько шагов с ожиданием: коды, ОКЕИ, справочники, стороны, создание ДТ.
+    for (let i = 0; i < 10; i++) await flushPromises()
     return files
   }
   const result = (o: Partial<Import40ExtractionResult> = {}): Import40ExtractionResult =>
@@ -612,7 +615,11 @@ describe('DeclarationsList: «Из документов»', () => {
     expect(body.goodsItems[0].characteristics[0]).toMatchObject({ quantity: 100, unitCode: '796' })
     expect(body.sender).toMatchObject({ name: 'YIWU TEST TRADING FIRM', city: 'YIWU', region: 'ZHEJIANG PROVINCE', street: 'JIANG STREET', countryCode: '156' })
     expect(body).toMatchObject({ senderShortName: 'YIWU TEST TRADING FIRM', senderApt: 'ROOM 7' })
-    expect(body.doc44Items).toEqual([expect.objectContaining({ docTypeCode: '04021', docNumber: '2026020201', docDate: '2026-02-02' })])
+    // «cmr.jpg» в наборе — строка CMR 02015 без номера (номер со скана не распознан; правка 2.8)
+    expect(body.doc44Items).toEqual([
+      expect.objectContaining({ docTypeCode: '04021', docNumber: '2026020201', docDate: '2026-02-02' }),
+      expect.objectContaining({ docTypeCode: '02015', docNumber: null }),
+    ])
     const warnings = w.get('[data-issues-warnings]').text()
     expect(warnings).toContain('Код 2026020201 не перенесён: совпадает с номером документа')
     expect(warnings).toContain('Без единицы количества: 1')
@@ -639,6 +646,35 @@ describe('DeclarationsList: «Из документов»', () => {
     const warnings = w.find('[data-issues-warnings]')
     expect(warnings.exists() && warnings.text().includes('не совпадает с компанией клиента')).toBe(warned)
     if (!warned) expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n7')
+  })
+
+  // Импорт 2.0 (правка 2.1, e2e-3): адрес получателя — из реестра юрлиц по БИН документов; гр. 22 — сумма товаров, а не
+  // ориентировочная сумма заявки.
+  it('получатель по БИН из реестра, гр. 22 — сумма товаров', async () => {
+    lookup.byBin.mockResolvedValueOnce({
+      bin: '123456789012', nameRu: 'ТОО «Пример»', nameKz: null, addressRu: 'Казахстан, Атырауская область, город Атырау, улица Примерная, дом 12',
+      addressKz: null, director: null, okedRu: null, statusRu: null, dateReg: null, source: 'egov', fetchedAtUtc: '',
+    } as never)
+    api.extractBatch.mockResolvedValue(result({
+      declaration: {
+        currency: 'CNY', totalInvoiceValue: 24000, receiver: { name: 'ТОО «Пример»' } as never,
+        goodsItems: [
+          { description: 'Таль', tnvedCode: '8471300000', quantity: 4, invoiceValue: 224908 },
+          { description: 'Тележка', tnvedCode: '8471300000', quantity: 50, invoiceValue: 18500 },
+        ],
+      },
+      extras: { receiverBin: '123456789012', hintCodes: [], goods: [] },
+    }))
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n8' }))
+    mount(USERS.declarant)
+    await pick(['inv.pdf'])
+    expect(lookup.byBin).toHaveBeenCalledWith('123456789012')
+    const body = api.createDeclaration.mock.calls[0][1]
+    expect(body).toMatchObject({
+      totalInvoiceValue: 243408, receiverBin: '123456789012', receiverHouse: '12',
+      receiver: { name: 'ТОО «ПРИМЕР»', countryCode: '398', region: 'АТЫРАУСКАЯ ОБЛАСТЬ', city: 'АТЫРАУ', street: 'УЛИЦА ПРИМЕРНАЯ' },
+    })
+    expect(w.get('[data-issues-warnings]').text()).toContain('из реестра юрлиц по БИН 123456789012')
   })
 
   it('ошибка извлечения — тост «не удалось распознать», ДТ не создаётся', async () => {

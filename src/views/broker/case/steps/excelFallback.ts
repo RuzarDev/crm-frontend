@@ -8,8 +8,8 @@
 // PDF, только коды) — берутся товары Excel.
 import type { Import40Doc44ItemInput, Import40TransportMeans } from '@/types/api'
 import type { Import40ExtractionExtras, Import40ExtractionPreview } from '@/api/import40'
-import type { GoodsExcelRow } from '@/utils/goodsExcel'
-import { normalizeIncotermsPlace, packagingLine, packagingWord, vehiclePlatesFrom, type CountryOption } from '@/utils/importText'
+import type { GoodsExcelRow, GoodsSheetTotals } from '@/utils/goodsExcel'
+import { countryFromText, normalizeIncotermsPlace, packagingLine, packagingWord, vehiclePlatesFrom, type CountryOption } from '@/utils/importText'
 import { mergeImportDocs, type ImportConflict } from '@/views/broker/dt/goods/importMerge'
 import { fromExcelRow, fromExtraction, rowHasNumbers, type ImportDoc, type ImportRow } from '@/views/broker/dt/goods/importRows'
 
@@ -24,11 +24,18 @@ export interface ExcelDocHeader {
   /** Только пункт, заглавными (normalizeIncotermsPlace). */
   incotermsPlace: string | null
   sellerName: string | null
-  /** Адрес продавца — строки после «Address: / Адрес: / 地址» в ячейке продавца (гр. 2, №7). */
+  /** Адрес продавца — строки после «Address: / Адрес: / 地址» в ячейке продавца (гр. 2, №7); без метки — вторая строка. */
   sellerAddress: string | null
   buyerName: string | null
   buyerBin: string | null
+  /** Адрес покупателя/получателя из документа (запасной, если поиск по БИН не ответил). */
+  buyerAddress?: string | null
   currency: string | null
+  /** Контракт из шапки («CONTRACT NO: X date 02.02.2026») — гр. 44 03011 (Импорт 2.0, правка 2.8). */
+  contractNumber?: string | null
+  contractDate?: string | null
+  /** Страна происхождения документа текстом («MADE IN CHINA» под таблицей). */
+  originText?: string | null
 }
 
 export interface ExcelDoc {
@@ -41,6 +48,8 @@ export interface ExcelDoc {
   rows?: unknown[][]
   /** Подпись столбца мест («件数 Cartons») — подсказка вида упаковки. */
   placesHeader?: string | null
+  /** Строка-итог таблицы (места, веса, стоимость) — сверка мест по строкам с итогом документа (Импорт 2.0). */
+  totals?: GoodsSheetTotals | null
 }
 
 const INCOTERMS = 'EXW|FCA|FAS|FOB|CFR|CIF|CPT|CIP|DAP|DPU|DAT|DDP|DDU'
@@ -57,55 +66,186 @@ export function docKindOf(fileName: string, headerText: string): ExcelDocKind {
   return null
 }
 
-/** Ячейка стороны: строки после подписи («Продавец (Seller):», «Покупатель (Buyer):») — имя, адрес, БИН. */
-function partyCell(cells: readonly string[], label: RegExp): { name: string | null; address: string | null; bin: string | null } {
-  for (let i = 0; i < cells.length; i++) {
-    const lines = cells[i].split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-    const at = lines.findIndex((l) => label.test(l))
+// ───────────────────────── ячейки шапки с позицией ─────────────────────────
+
+/** Ячейка листа с текстом: строка, столбец, текст как есть (NFKC: «：» → «:», полноширинные цифры). */
+interface PosCell { r: number; c: number; text: string; lines: string[] }
+
+const posCells = (rows: readonly unknown[][]): PosCell[] =>
+  rows.flatMap((row, r) => (row ?? []).flatMap((v, c) => {
+    if (v == null || String(v).trim() === '') return []
+    // «①…» в тексте остаётся — по нему узнаём подпись графы; строки — NFKC («：» → «:»)
+    const text = String(v)
+    return [{ r, c, text, lines: text.normalize('NFKC').split(/\r?\n/).map((l) => l.trim()).filter(Boolean) }]
+  }))
+
+const SELLER_LABEL = /продавец|seller|shipper|экспорт[её]р|exporter|consignor|отправитель|卖方|发货人/i
+const BUYER_LABEL = /покупатель|buyer|consignee|получатель|импорт[её]р|importer|买方|收货人/i
+const INVOICE_LABEL = /invoice\s*(?:no\.?|number|nr\.?|#|№)(?:\s*(?:&|and|\/)\s*date)?|инвойс\s*(?:№|no\.?|номер)|номер\s+инвойса|发票号码?|发票编号/i
+const CONTRACT_LABEL = /(?:contract|контракт|договор|合同)\s*(?:no\.?|№|number|номер)?\s*[:：]?\s*/i
+/** Подпись графы бланка: «①Shipper/Exporter», «②Consignee», «⑧Invoice No& Date» (номер графы ①…⑳). */
+const CIRCLED = /^\s*[①-⑳]/
+const LABEL_WORDS = /^[\s\d/&().,:#№-]*(?:продавец|seller|shipper|exporter|consignor|buyer|consignee|notify\s+party|покупатель|получатель|отправитель|invoice\s*(?:no\.?|number)?(?:\s*(?:&|and)\s*date)?|date|дата|port\s+of\s+(?:loading|discharge)|carrier|payment\s+terms)[\s/&().,:#№-]*(?:(?:продавец|seller|shipper|exporter|buyer|consignee|покупатель|получатель|date|дата)[\s/&().,:#№-]*)*$/i
+
+/** Ячейка — подпись графы, а не значение («②Consignee», «Seller:»). */
+const isLabelCell = (cell: PosCell): boolean =>
+  CIRCLED.test(cell.text) || (cell.lines.length === 1 && LABEL_WORDS.test(cell.lines[0]))
+
+/**
+ * Значение подписи: текст после «:» в той же строке, строки ячейки ниже подписи, иначе соседняя ячейка справа (если она
+ * сама не подпись — «①Shipper/Exporter | ②Consignee» в одной строке, инвойс 39th), иначе ячейка под подписью.
+ */
+function valueOf(cells: readonly PosCell[], cell: PosCell, lineAt: number, label: RegExp): string[] | null {
+  const line = cell.lines[lineAt]
+  const m = label.exec(line)
+  const after = m ? line.slice(m.index + m[0].length).replace(/^[\s:：/)(-]+/, '').trim() : ''
+  if (after && !LABEL_WORDS.test(after)) return [after, ...cell.lines.slice(lineAt + 1)]
+  if (lineAt + 1 < cell.lines.length) return cell.lines.slice(lineAt + 1)
+  const right = cells.filter((x) => x.r === cell.r && x.c > cell.c && x.c <= cell.c + 8).sort((a, b) => a.c - b.c)[0]
+  if (right && !isLabelCell(right)) return right.lines
+  const below = cells.find((x) => x.r === cell.r + 1 && x.c === cell.c)
+  return below && !isLabelCell(below) ? below.lines : null
+}
+
+const ADDRESS_LINE = /^(?:address|add|адрес|地址)\s*[:：]?\s*/i
+const STOP_LINE = /^(?:tel|phone|fax|e-?mail|тел|телефон|whatsapp|wechat|电话)\b/i
+const BIN_RE = /(?:БИН|ИИН|BIN)[^0-9]{0,12}(\d{12})/i
+
+/** Сторона из ячейки: первая строка — имя, «БИН …» — БИН, «Address/Add/Адрес …» — адрес, без метки — строка после имени. */
+function partyOf(cells: readonly PosCell[], label: RegExp, unlabeledAddress: boolean): { name: string | null; address: string | null; bin: string | null } {
+  for (const cell of cells) {
+    const at = cell.lines.findIndex((l) => label.test(l) && (l.length <= 60 || /[:：]/.test(l)))
     if (at < 0) continue
-    const after = lines[at].split(/[:：]/).slice(1).join(':').trim()
-    const name = after || lines[at + 1] || (cells[i + 1]?.split(/\r?\n/)[0]?.trim() ?? null) || null
-    const addrLine = lines.find((l) => /^(address|адрес|地址)\s*[:：]/i.test(l))
-    const address = addrLine ? addrLine.replace(/^(address|адрес|地址)\s*[:：]\s*/i, '').trim() || null : null
-    const bin = /(?:БИН|ИИН|BIN)[^0-9]{0,12}(\d{12})/i.exec(lines.join('\n'))?.[1] ?? null
-    return { name, address, bin }
+    const lines = valueOf(cells, cell, at, label)
+    if (!lines?.length) continue
+    const name = lines[0].replace(/^компания\s+/i, '').trim() || null
+    const rest = lines.slice(1)
+    const bin = BIN_RE.exec(lines.join('\n'))?.[1] ?? null
+    const labeled = rest.find((l) => ADDRESS_LINE.test(l))
+    const plain = unlabeledAddress ? rest.find((l) => !BIN_RE.test(l) && !STOP_LINE.test(l)) : undefined
+    const address = (labeled ?? plain)?.replace(ADDRESS_LINE, '').trim() || null
+    if (name) return { name, address, bin }
   }
   return { name: null, address: null, bin: null }
 }
 
-/** Шапка документа над таблицей товаров (строки до заголовков) и сама строка заголовков (валюта столбцов). */
-export function docHeaderFrom(fileName: string, headerRows: readonly unknown[][], tableHeader: readonly unknown[]): ExcelDocHeader {
-  const cells = cellsText(headerRows)
-  const text = cells.join('\n')
+const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 }
+const iso = (y: number, m: number, d: number) =>
+  y > 1900 && m >= 1 && m <= 12 && d >= 1 && d <= 31 ? `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null
+
+/** Дата в тексте: «10.09.2026», «2026-09-10», «September,21, 2026», «21 Sep 2026» → 'YYYY-MM-DD'; нет — null. */
+export function dateInText(text: string): string | null {
+  const s = text.normalize('NFKC')
+  let m = /(?<!\d)(\d{1,2})[./-](\d{1,2})[./-](\d{4})(?!\d)/.exec(s)
+  if (m) return iso(+m[3], +m[2], +m[1])
+  m = /(?<!\d)(\d{4})[./-](\d{1,2})[./-](\d{1,2})(?!\d)/.exec(s)
+  if (m) return iso(+m[1], +m[2], +m[3])
+  m = /\b([A-Za-z]{3,9})\.?,?\s*(\d{1,2})(?:st|nd|rd|th)?\s*[.,]?\s*(\d{4})\b/.exec(s)
+  if (m && MONTHS[m[1].slice(0, 3).toLowerCase()]) return iso(+m[3], MONTHS[m[1].slice(0, 3).toLowerCase()], +m[2])
+  m = /\b(\d{1,2})(?:st|nd|rd|th)?[\s.-]*([A-Za-z]{3,9})\.?[\s,.-]*(\d{4})\b/.exec(s)
+  if (m && MONTHS[m[2].slice(0, 3).toLowerCase()]) return iso(+m[3], MONTHS[m[2].slice(0, 3).toLowerCase()], +m[1])
+  return null
+}
+
+/** Номер документа — первое слово, если в нём есть цифра («HZSN-PIT-CI-092101     September,21, 2026» → HZSN-PIT-CI-092101). */
+function docNumberIn(text: string): string | null {
+  const word = /^[\s:#№.]*([A-Za-zА-Яа-я0-9][\w\-/.]*)/.exec(text)?.[1]?.replace(/[.]+$/, '') ?? ''
+  return /\d/.test(word) ? word : null
+}
+
+/** Контракт «STCC-… date 02.02.2026», «№ 36/СМ от 26.01.2026» → номер и дата. */
+export function contractFrom(text: string): { number: string | null; date: string | null } {
+  const s = text.normalize('NFKC').replace(/^[\s:#№]+/, '').trim()
+  const [no, rest] = s.split(/\s+(?:от|from|dated|date|dd\.?)\s*[:.]?\s*(?=\d)/i)
+  const number = (no ?? '').replace(/^(?:no\.?|№)\s*/i, '').replace(/[\s.,;]+$/, '').trim() || null
+  return { number: number && /\d/.test(number) ? number : null, date: rest ? dateInText(rest) : null }
+}
+
+/** «MADE IN CHINA», «Страна происхождения: Китай» в строках документа → страна текстом. */
+function originIn(rows: readonly unknown[][]): string | null {
+  for (const t of cellsText(rows)) {
+    const m = /^\s*made\s+in\s+([A-Za-z .]{2,40}?)\s*\.?\s*$/i.exec(t) ?? /^\s*(?:страна\s+происхождения|country\s+of\s+origin)\s*[:：]\s*(.{2,40})$/i.exec(t)
+    if (m) return m[1].trim()
+  }
+  return null
+}
+
+/**
+ * Шапка документа над таблицей товаров (строки до заголовков), строка заголовков (валюта столбцов) и все строки листа —
+ * подписи под таблицей («⑫Work Term: FCA …», «MADE IN CHINA»; Импорт 2.0, 22.10.2026).
+ */
+export function docHeaderFrom(
+  fileName: string, headerRows: readonly unknown[][], tableHeader: readonly unknown[], allRows: readonly unknown[][] = [],
+): ExcelDocHeader {
+  const cells = posCells(headerRows)
+  const text = cellsText(headerRows).join('\n')
   const kind = docKindOf(fileName, text)
 
-  // «№ UR0910     Дата / 日期: 10.09.2026»
+  // «№ UR0910     Дата / 日期: 10.09.2026»; иначе подпись «⑧Invoice NO.&Date» и значение справа/ниже (инвойс 39th).
   const numDate = /№\s*([A-Za-zА-Яа-я0-9][\w\-/.]*)[\s\S]{0,60}?(\d{1,2})[./-](\d{1,2})[./-](\d{4})/.exec(text)
-  const number = numDate?.[1] ?? /№\s*([A-Za-zА-Яа-я0-9][\w\-/.]*)/.exec(text)?.[1] ?? null
-  const date = numDate ? `${numDate[4]}-${numDate[3].padStart(2, '0')}-${numDate[2].padStart(2, '0')}` : null
+  let number = numDate?.[1] ?? /№\s*([A-Za-zА-Яа-я0-9][\w\-/.]*)/.exec(text)?.[1] ?? null
+  let date = numDate ? `${numDate[4]}-${numDate[3].padStart(2, '0')}-${numDate[2].padStart(2, '0')}` : null
+  if (!number || !date) {
+    for (const cell of cells) {
+      const at = cell.lines.findIndex((l) => INVOICE_LABEL.test(l) && !CONTRACT_LABEL.test(l))
+      if (at < 0) continue
+      const v = valueOf(cells, cell, at, INVOICE_LABEL)?.join(' ') ?? ''
+      number ??= docNumberIn(v)
+      date ??= dateInText(v)
+      if (number) break
+    }
+  }
 
-  // «Условия поставки / 交货条件: CIF ALMATY, KAZAKHSTAN (Incoterms® 2020)» → CIF и «АЛМАТЫ» (№6).
-  const termsLine = text.split('\n').find((l) => new RegExp(`\\b(${INCOTERMS})\\b`).test(l)) ?? null
-  const incoterms = termsLine ? new RegExp(`\\b(${INCOTERMS})\\b`).exec(termsLine)![1].toUpperCase() : null
+  // Контракт: «CONTRACT NO: STCC-… date 02.02.2026».
+  let contract: { number: string | null; date: string | null } = { number: null, date: null }
+  for (const cell of cells) {
+    const at = cell.lines.findIndex((l) => CONTRACT_LABEL.test(l))
+    if (at < 0) continue
+    const v = valueOf(cells, cell, at, CONTRACT_LABEL)?.join(' ') ?? ''
+    contract = contractFrom(v)
+    if (contract.number) break
+  }
+
+  // «Условия поставки / 交货条件: CIF ALMATY, KAZAKHSTAN (Incoterms® 2020)» → CIF и «АЛМАТЫ» (№6); в шапке нет — подпись
+  // под таблицей со словом условий («⑫Work Term ：FCA 新疆霍尔果斯» → FCA и «ХОРГОС»).
+  const codeRe = new RegExp(`\\b(${INCOTERMS})\\b`)
+  const footer = cellsText(allRows.slice(headerRows.length + 1)).flatMap((c) => c.split(/\r?\n/))
+  const termsLine = text.split('\n').find((l) => codeRe.test(l))
+    ?? footer.find((l) => codeRe.test(l.normalize('NFKC')) && /term|услови|базис|инкотерм|incoterm|交货|贸易/i.test(l))
+    ?? null
+  const incoterms = termsLine ? codeRe.exec(termsLine.normalize('NFKC'))![1].toUpperCase() : null
   const incotermsPlace = termsLine ? normalizeIncotermsPlace(termsLine) : null
 
-  const seller = partyCell(cells, /продавец|seller|shipper|экспортер|exporter|卖方/i)
-  const buyer = partyCell(cells, /покупатель|buyer|consignee|получатель|импортер|importer|买方/i)
+  const seller = partyOf(cells, SELLER_LABEL, true)
+  const buyer = partyOf(cells, BUYER_LABEL, false)
 
   const headerLine = (tableHeader ?? []).map((c) => String(c ?? '')).join(' ').toUpperCase()
   const currency = CURRENCIES.find((c) => new RegExp(`\\b${c}\\b`).test(headerLine)) ?? null
 
   return {
     kind, number, date, incoterms, incotermsPlace, sellerName: seller.name, sellerAddress: seller.address,
-    buyerName: buyer.name?.replace(/^компания\s+/i, '') ?? null, buyerBin: buyer.bin, currency,
+    buyerName: buyer.name, buyerBin: buyer.bin, buyerAddress: buyer.address, currency,
+    contractNumber: contract.number, contractDate: contract.date,
+    originText: originIn(allRows.length ? allRows : headerRows),
   }
 }
 
-/** Документ Excel → документ импорта (подсказка упаковки — «Упаковка: …» под таблицей или подпись столбца мест). */
-export function excelImportDoc(d: ExcelDoc): ImportDoc {
+/**
+ * Документ Excel → документ импорта (подсказка упаковки — «Упаковка: …» под таблицей или подпись столбца мест). Страна
+ * происхождения документа («MADE IN CHINA» под таблицей) — строкам без своей страны (Импорт 2.0): это сведения документа,
+ * а не подстановка страны отправителя (та — только галочкой, В8).
+ */
+export function excelImportDoc(d: ExcelDoc, countries: readonly CountryOption[] = []): ImportDoc {
   const source = d.sheet ? `${d.fileName} · ${d.sheet}` : d.fileName
   const hint = (d.rows ? packagingLine(d.rows) : null) ?? (packagingWord(d.placesHeader) ? d.placesHeader! : null)
-  return { source, kind: d.header.kind, rows: d.goods.map((g) => fromExcelRow(g, source, hint)) }
+  const origin = countryFromText(d.header.originText, countries)
+  return {
+    source, kind: d.header.kind,
+    rows: d.goods.map((g) => {
+      const row = fromExcelRow(g, source, hint)
+      return origin && !row.countryCode ? { ...row, countryCode: origin, originText: null } : row
+    }),
+  }
 }
 
 /**
@@ -113,11 +253,15 @@ export function excelImportDoc(d: ExcelDoc): ImportDoc {
  * дополняются из следующих документов, одинаковые строки (№, код + артикул, артикул + наименование…) — один товар.
  */
 export function mergeExcelGoods(docs: readonly ExcelDoc[]): ImportRow[] {
-  return mergeImportDocs(docs.map(excelImportDoc)).rows
+  return mergeImportDocs(docs.map((d) => excelImportDoc(d))).rows
 }
 
-/** Код вида транспортного документа гр. 44 по виду транспорта заявки (как сервер Import40TransportModeMap.DefaultDoc44). */
-export function transportDocCode(mode: number | null | undefined): string {
+/**
+ * Код вида транспортного документа гр. 44 (как сервер Import40TransportModeMap.DefaultDoc44): по виду транспорта заявки, а
+ * если в документах есть номера машины — CMR 02015 (правка 2.8: «02011 Коносамент» при авто — ошибка).
+ */
+export function transportDocCode(mode: number | null | undefined, road = false): string {
+  if (road) return '02015'
   return mode === 0 ? '02013' : mode === 2 ? '02017' : mode === 3 ? '02011' : '02015'
 }
 
@@ -129,7 +273,17 @@ export interface DocumentsContext {
   /** У заявки выбран внешнеторговый контракт — гр. 44 03011 поставит сервер, из документов не пишем. */
   hasCaseContract?: boolean
   countries?: readonly CountryOption[]
+  /** Названия видов документов (классификатор 2009, код → наименование) — «Вид документа» строк гр. 44 (e2e-4). */
+  docKindNames?: ReadonlyMap<string, string> | null
+  /**
+   * В наборе есть CMR (документ заявки с видом «CMR» или «cmr» в имени файла) — транспорт автомобильный: гр. 44 02015,
+   * даже если номер CMR не распознан (скан; правка 2.8 — без «02011 Коносамент» при авто).
+   */
+  road?: boolean
 }
+
+/** Места по строкам против итога документа («共计19件. 19 мест»): сумма, итог, строк без однозначных мест. */
+export interface PlacesCheck { total: number; sum: number; unknown: number }
 
 export interface DocumentsResult {
   preview: Import40ExtractionPreview
@@ -143,23 +297,86 @@ export interface DocumentsResult {
   senderAddress: string | null
   /** БИН получателя из документов. */
   receiverBin: string | null
+  /** Адрес получателя из документов (запасной к поиску по БИН). */
+  receiverAddress: string | null
+  /** Итог мест документа не сошёлся со строками (или есть строки без однозначных мест); null — сошёлся или итога нет. */
+  placesCheck: PlacesCheck | null
 }
 
-const docLine = (code: string, number: string | null | undefined, date: string | null | undefined): Import40Doc44ItemInput => ({
-  docTypeCode: code, docTypeName: null, docNumber: number ?? null, docDate: date ?? null, goodsItemIndex: null, appliesToAll: true,
-  goodsItemIndexes: null, docStartDate: null, docValidityDate: null, issueCountryCode: null, presentKindCode: '0',
+/** Строка гр. 44 «для всех товаров»; вид документа — из классификатора 2009 (пусто — сервер дозаполнит по коду). */
+export const docLine = (
+  code: string, number: string | null | undefined, date: string | null | undefined, names?: ReadonlyMap<string, string> | null,
+): Import40Doc44ItemInput => ({
+  docTypeCode: code, docTypeName: names?.get(code) ?? null, docNumber: number ?? null, docDate: date ?? null, goodsItemIndex: null,
+  appliesToAll: true, goodsItemIndexes: null, docStartDate: null, docValidityDate: null, issueCountryCode: null, presentKindCode: '0',
 })
+
+/** «2Consignee», «⑧Invoice No& Date» — подпись графы, а не значение (старый разбор Zircon AI, правка 2.1). */
+export const looksLikeLabel = (v: string | null | undefined): boolean => !!v && (CIRCLED.test(v) || LABEL_WORDS.test(v.normalize('NFKC')))
+
+export interface HeaderDocsInput {
+  headers: readonly ExcelDocHeader[]
+  extras?: Import40ExtractionExtras | null
+  transportMode?: number | null
+  /** В документах есть номера машины или CMR — транспорт автомобильный (CMR 02015). */
+  road?: boolean
+  /** В наборе есть сам CMR (файл) — строка 02015 нужна и без распознанного номера. */
+  cmrInBatch?: boolean
+  hasCaseContract?: boolean
+  docKindNames?: ReadonlyMap<string, string> | null
+}
+
+/**
+ * Гр. 44 из шапок документов (правка 2.8): инвойс 04021 (номер и дата), упаковочный лист 04131 (свой номер, иначе номер
+ * инвойса или «Б/Н»; своя дата, иначе дата инвойса), транспортный документ с номером (CMR 02015 при авто), контракт 03011
+ * с датой (если у заявки нет своего контракта). Шапка Excel — первой (свой разбор файла), затем Zircon AI.
+ */
+export function headerDocs(i: HeaderDocsInput): Import40Doc44ItemInput[] {
+  const { headers, extras } = i
+  const names = i.docKindNames
+  const out: Import40Doc44ItemInput[] = []
+  const invoiceHeader = headers.find((h) => h.kind === 'invoice' && h.number)
+  const invoiceNo = invoiceHeader?.number ?? extras?.invoiceNumber ?? null
+  // Дата разбора Zircon AI — только если он прочитал тот же номер (иначе это дата другого документа).
+  const extrasDate = !invoiceHeader || extras?.invoiceNumber === invoiceNo ? extras?.invoiceDate ?? null : null
+  const invoiceDate = invoiceHeader?.date ?? extrasDate
+  if (invoiceNo) out.push(docLine('04021', invoiceNo, invoiceDate, names))
+  const packingHeader = headers.find((h) => h.kind === 'packing')
+  if (packingHeader) out.push(docLine('04131', packingHeader.number ?? invoiceNo ?? 'Б/Н', packingHeader.date ?? invoiceDate, names))
+  if (extras?.transportDocument) out.push(docLine(transportDocCode(i.transportMode, i.road), extras.transportDocument, null, names))
+  // CMR в наборе, а номер не распознан (скан без текста) — строка CMR без номера: декларант впишет номер, сервер не
+  // добавит транспортный документ по виду транспорта заявки.
+  else if (i.road && i.cmrInBatch) out.push(docLine('02015', null, null, names))
+  if (!i.hasCaseContract) {
+    const h = headers.find((x) => x.contractNumber)
+    const number = h?.contractNumber ?? extras?.contractNumber ?? null
+    const date = h?.contractNumber ? h.contractDate ?? null : extras?.contractDate ?? null
+    if (number) out.push(docLine('03011', number, date, names))
+  }
+  return out
+}
+
+/** Сверка мест: строки против итога документа (упаковочный лист — первым). */
+export function placesCheckOf(rows: readonly ImportRow[], docs: readonly ExcelDoc[]): PlacesCheck | null {
+  const withTotal = [...docs].sort((a, b) => Number(b.header.kind === 'packing') - Number(a.header.kind === 'packing'))
+    .find((d) => d.totals?.places != null)
+  const total = withTotal?.totals?.places
+  if (total == null) return null
+  const sum = rows.reduce((s, r) => s + (r.places != null && r.places > 0 ? Math.round(r.places) : 0), 0)
+  const unknown = rows.filter((r) => (r.places == null || r.places <= 0) && !!r.placesNote).length
+  return sum === Math.round(total) && !unknown ? null : { total: Math.round(total), sum, unknown }
+}
 
 /**
  * Дополнить предпросмотр распознавания тем, что прочитал наш разбор Excel: товары (правило выше), условия поставки (только
- * пункт), продавец с адресом, покупатель с БИН, валюта, итог стоимости, номера машины («АВТО: …»), документы гр. 44:
- * инвойс 04021, упаковочный лист 04131, транспортный документ (02015…) с номером, контракт 03011 (если у заявки нет
- * своего контракта). usedExcelGoods — товары взяты из Excel (экран говорит об этом).
+ * пункт), продавец с адресом, покупатель с БИН, валюта, итог стоимости, номера машины («АВТО: …»), документы гр. 44
+ * (headerDocs). usedExcelGoods — товары взяты из Excel (экран говорит об этом).
  */
 export function applyExcelFallback(preview: Import40ExtractionPreview, docs: readonly ExcelDoc[], ctx: DocumentsContext = {}): DocumentsResult {
   const extras = ctx.extras ?? null
-  const zirconRows = (preview.goodsItems ?? []).map((g, i) => fromExtraction(g, extras?.goods?.[i], 'Zircon AI', ctx.countries ?? []))
-  const excelDocs = docs.map(excelImportDoc)
+  const countries = ctx.countries ?? []
+  const zirconRows = (preview.goodsItems ?? []).map((g, i) => fromExtraction(g, extras?.goods?.[i], 'Zircon AI', countries))
+  const excelDocs = docs.map((d) => excelImportDoc(d, countries))
   const zirconHasNumbers = zirconRows.some(rowHasNumbers)
   let rows: ImportRow[] = zirconRows
   let conflicts: ImportConflict[] = []
@@ -184,12 +401,20 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
   const headers = docs.map((d) => d.header)
   const first = <K extends keyof ExcelDocHeader>(k: K) =>
     (headers.find((h) => h.kind === 'invoice' && h[k]) ?? headers.find((h) => h[k]))?.[k] ?? null
+  // Страна происхождения документа: «MADE IN CHINA» в Excel или страна разбора — строкам без своей.
+  const docOrigin = countryFromText(first('originText') as string | null, countries)
+    ?? countryFromText(preview.originCountryCode ?? null, countries)
+  if (docOrigin) rows = rows.map((r) => (r.countryCode ? r : { ...r, countryCode: docOrigin, originText: null }))
   const currency = preview.currency ?? first('currency')
-  const total = usedExcelGoods && rows.some((r) => r.value != null)
+  // Гр. 22 — сумма стоимости товаров документа (e2e-3: не ориентировочная сумма клиента из заявки и не итог, который
+  // разошёлся бы с гр. 42 с первой минуты).
+  const total = rows.some((r) => r.value != null)
     ? Math.round(rows.reduce((s, r) => s + (r.value ?? 0), 0) * 100) / 100
     : preview.totalInvoiceValue ?? null
-  const sellerName = preview.sender?.name || first('sellerName')
-  const buyerName = preview.receiver?.name || first('buyerName')
+  // Стороны: шапка Excel (свой разбор файла) — первой; «2Consignee» и прочие подписи граф — не имя (правка 2.1).
+  const okName = (v: string | null | undefined) => (v && !looksLikeLabel(v) ? v : null)
+  const sellerName = okName(first('sellerName') as string | null) ?? okName(preview.sender?.name)
+  const buyerName = okName(first('buyerName') as string | null) ?? okName(preview.receiver?.name)
 
   // Тягач и прицеп из подписи «АВТО:» Excel — если разбор их не нашёл (№8 при импорте; роли — как у сервера).
   let arrival = preview.arrivalTransportNumbers
@@ -203,16 +428,10 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
     }
   }
 
-  // Гр. 44: инвойс, упаковочный лист, транспортный документ, контракт.
-  const doc44Items: Import40Doc44ItemInput[] = []
-  const invoiceHeader = headers.find((h) => h.kind === 'invoice' && h.number)
-  const invoiceNo = extras?.invoiceNumber ?? invoiceHeader?.number ?? null
-  const invoiceDate = extras?.invoiceDate ?? invoiceHeader?.date ?? null
-  if (invoiceNo) doc44Items.push(docLine('04021', invoiceNo, invoiceDate))
-  const packingHeader = headers.find((h) => h.kind === 'packing')
-  if (packingHeader) doc44Items.push(docLine('04131', packingHeader.number ?? invoiceNo, packingHeader.date ?? invoiceDate))
-  if (extras?.transportDocument) doc44Items.push(docLine(transportDocCode(ctx.transportMode), extras.transportDocument, null))
-  if (extras?.contractNumber && !ctx.hasCaseContract) doc44Items.push(docLine('03011', extras.contractNumber, extras.contractDate ?? null))
+  const doc44Items = headerDocs({
+    headers, extras, transportMode: ctx.transportMode, road: !!arrival?.length || !!ctx.road, cmrInBatch: !!ctx.road,
+    hasCaseContract: ctx.hasCaseContract, docKindNames: ctx.docKindNames,
+  })
 
   return {
     preview: {
@@ -224,8 +443,9 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
       totalInvoiceValue: total,
       incoterms: preview.incoterms ?? first('incoterms'),
       incotermsPlace: normalizeIncotermsPlace(preview.incotermsPlace) ?? first('incotermsPlace'),
-      sender: sellerName ? { ...(preview.sender ?? {}), name: sellerName } : preview.sender,
-      receiver: buyerName ? { ...(preview.receiver ?? {}), name: buyerName } : preview.receiver,
+      originCountryCode: preview.originCountryCode ?? docOrigin ?? null,
+      sender: sellerName ? { ...(preview.sender ?? {}), name: sellerName } : (looksLikeLabel(preview.sender?.name) ? null : preview.sender),
+      receiver: buyerName ? { ...(preview.receiver ?? {}), name: buyerName } : (looksLikeLabel(preview.receiver?.name) ? null : preview.receiver),
       arrivalTransportNumbers: arrival,
       borderTransportNumbers: border,
     },
@@ -233,7 +453,9 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
     doc44Items,
     usedExcelGoods,
     conflicts,
-    senderAddress: extras?.senderAddress ?? first('sellerAddress'),
+    senderAddress: first('sellerAddress') as string | null ?? extras?.senderAddress ?? null,
     receiverBin: extras?.receiverBin ?? first('buyerBin'),
+    receiverAddress: first('buyerAddress') as string | null ?? extras?.receiverAddress ?? null,
+    placesCheck: placesCheckOf(rows, docs),
   }
 }

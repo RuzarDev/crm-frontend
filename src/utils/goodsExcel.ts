@@ -3,6 +3,7 @@
 // с предпросмотром). Строки добавляются в конец списка — это делает экран.
 import { loadXlsx } from '@/utils/xlsx'
 import { markFieldOf, type MarkField } from '@/utils/markColumns'
+import { placesFromText } from '@/utils/places'
 import { parseCodes } from '@/views/broker/dt/goods/editor/tradeCodes'
 import type { ReestrGoodsItemInput } from '@/types/api'
 
@@ -48,6 +49,11 @@ export interface GoodsExcelDetails {
   originText: string | null
   /** Единица количества взята из заголовка столбца количества («Кол-во (pcs)»), а не из своего столбца. */
   unitFromHeader?: boolean
+  /**
+   * Места текстом, которые однозначно не определить («50 коробок, 1 палета» — коробки на поддоне или отдельно; Импорт 2.0,
+   * правка 2.5): текст ячейки, места пусты — декларант укажет сам.
+   */
+  placesNote?: string | null
 }
 
 export interface GoodsExcelOptions {
@@ -83,7 +89,7 @@ export const GOODS_EXCEL_MESSAGES: Record<GoodsExcelProblem, string> = {
 // «КЕДЕН ШАПКА», но и инвойсы/спецификации поставщиков: шапка компании сверху, «Наименование» вместо «Коммерческое
 // описание», «ТН ВЭД» без «Код», английские заголовки (19.10.2026: декларант не смогла загрузить такой файл).
 // Поэтому заголовки матчим по нормализованной подстроке, а «=…» — только точным совпадением (короткие слова).
-type DetailField = Exclude<keyof GoodsExcelDetails, 'originText' | 'unitFromHeader'>
+type DetailField = Exclude<keyof GoodsExcelDetails, 'originText' | 'unitFromHeader' | 'placesNote'>
 type ExcelField =
   | 'tnvedCode' | 'description' | 'grossWeightKg' | 'netWeightKg' | 'quantity' | 'unit' | 'packagesCount'
   | 'customsValue' | 'countryOfOrigin' | 'ntins' | 'gtin' | 'unitPrice' | DetailField
@@ -108,7 +114,8 @@ const EXCEL_COLUMN_MATCHERS: { field: ExcelField; patterns: string[] }[] = [
   { field: 'unitPrice', patterns: ['ценазаединицу', 'ценазаед', '单价', 'unitprice', '=цена', '=price'] },
   { field: 'measureUnit', patterns: ['единицаизмерения', 'едизмерения', 'едизм', '=ед', 'uom', '=unit', 'unitofmeasure', '计量单位', '=单位'] },
   { field: 'rowName', patterns: ['наименованиехарактеристики', '=характеристика', 'характеристикатовара'] },
-  { field: 'manufacturerName', patterns: ['производитель', 'изготовитель', 'manufacturer', '生产商', '制造商'] },
+  // «Manufactured» (инвойс 39th, 22.10.2026, правка 2.3), 生产厂家 / 厂家 — тоже производитель.
+  { field: 'manufacturerName', patterns: ['производитель', 'изготовитель', 'manufacturer', 'manufactured', '生产商', '制造商', '生产厂家', '厂家'] },
   // Решение владельца 21.10.2026: «Brand / 品牌 / Бренд / Торговая марка» — товарный знак, «Марка» и «Марка товара» —
   // марка. Марку, знак и модель для заголовков со словом марки / знака / бренда решает общее с Zircon AI правило
   // markFieldOf (utils/markColumns): «Марка / 品牌» — марка, «Товарный знак / Марка» — знак, «Brand/Model» — модель.
@@ -155,6 +162,15 @@ const HEADER_SCAN_ROWS = 30
 /** Строки «Итого/Всего/Total» — не товары. */
 // «Итого», «合计 / TOTAL» — где угодно в начале слова (\b в JS не видит границу кириллического слова).
 export const TOTAL_ROW = /(^|[\s/|(])(итого|всего|total|subtotal|grand\s*total|合计|总计)(?=$|[\s:.,;/)])/i
+const TOTAL_ROW_START = /^[\s/|(]*(итого|всего|total|subtotal|grand\s*total|合计|总计|共计)(?=$|[\s:.,;/)])/i
+/**
+ * Текст строки-итога: «Итого / 合计 / TOTAL» в начале или короткая подпись с этим словом. Длинное описание товара со
+ * «всего» внутри («…95 метров в рулоне. Всего 6 рулонов…», упаковочный 39th) — не итог: иначе товар пропадал.
+ */
+const isTotalText = (t: string | null | undefined): boolean => {
+  const s = (t ?? '').trim()
+  return !!s && (TOTAL_ROW_START.test(s) || (s.length <= 40 && TOTAL_ROW.test(s)))
+}
 
 /**
  * Ячейка с кодами (NTIN/GTIN). Excel хранит код числом и теряет ведущий ноль: NTIN «0200…» (13 цифр) читается как
@@ -230,6 +246,13 @@ function excelCountry(v: unknown): string | null {
 function excelLineNo(v: unknown): number | null {
   const n = typeof v === 'number' ? v : excelToStr(v) && /^\d{1,5}\.?$/.test(excelToStr(v)!) ? parseInt(excelToStr(v)!, 10) : NaN
   return Number.isInteger(n) && n > 0 && n < 100000 ? n : null
+}
+
+/** Места: число или «1 044» — числом; текст со словами — placesFromText (правило одно с Zircon AI). */
+function excelPlaces(v: unknown): { value: number | null; ambiguous: boolean } {
+  if (v == null || v === '') return { value: null, ambiguous: false }
+  if (typeof v !== 'string' || /^[\d\s.,]+$/.test(v.trim())) return { value: excelToNum(v), ambiguous: false }
+  return placesFromText(v)
 }
 
 /**
@@ -418,7 +441,10 @@ export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = 
     const netWeightKg = excelToNum(cell(row, 'netWeightKg'))
     const quantity = excelToNum(cell(row, 'quantity'))
     const unit = excelToStr(cell(row, 'unit'))
-    const packagesCount = excelToNum(cell(row, 'packagesCount'))
+    // Места текстом — словами («Два деревянных ящика № 3 и № 4» → 2, а не 34 из всех цифр; Импорт 2.0, правка 2.5).
+    const placesCell = cell(row, 'packagesCount')
+    const places = excelPlaces(placesCell)
+    const packagesCount = places.value
     const customsValue = excelToNum(cell(row, 'customsValue'))
     // ДТ: страна текстом — резолвером страницы (буквенный, цифровой код или название); не узнана — в details.originText.
     const countryRaw = excelToStr(cell(row, 'countryOfOrigin'))
@@ -434,7 +460,7 @@ export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = 
 
     // «Итого» без кода — не товар (в инвойсах итог стоит в столбце описания или в первой ячейке).
     const firstText = row.find((c) => typeof c === 'string' && c.trim()) as string | undefined
-    if (!tnvedCode && (TOTAL_ROW.test(description ?? '') || TOTAL_ROW.test(firstText?.trim() ?? ''))) continue
+    if (!tnvedCode && (isTotalText(description) || isTotalText(firstText))) continue
     // Без кода и без наименования — не товар (итоги, подписи, «Всего мест» в объединённых ячейках).
     if (!tnvedCode && !description && (colIndex.tnvedCode != null || colIndex.description != null)) continue
 
@@ -469,6 +495,7 @@ export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = 
           packageQuantity: excelToNum(cell(row, 'packageQuantity')),
           lineNo: excelLineNo(cell(row, 'lineNo')),
           originText: countryRaw && !countryOfOrigin && opts.countryResolver ? countryRaw : null,
+          ...(places.ambiguous ? { placesNote: excelToStr(placesCell)?.replace(/\s+/g, ' ') ?? null } : {}),
         }
       : undefined
 
@@ -492,6 +519,37 @@ export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = 
     })
   }
   return goods
+}
+
+/** Итог таблицы — строка «Итого / Total / 合计» под товарами (Импорт 2.0: сверка мест по строкам с итогом документа). */
+export interface GoodsSheetTotals {
+  /** Места итога (текстом — словами: «共计19件. 19 мест» → 19). */
+  places: number | null
+  grossWeightKg: number | null
+  netWeightKg: number | null
+  value: number | null
+}
+
+/** Итог таблицы листа: первая строка-итог под шапкой; нет — null. */
+export function goodsSheetTotals(rows: unknown[][], opts: GoodsExcelOptions = {}): GoodsSheetTotals | null {
+  const header = findGoodsHeader(rows, opts)
+  if (!header) return null
+  const colIndex = headerColumns(rows[header.index] ?? [], opts, rows.slice(header.index + 1, header.index + 201))
+  for (let i = header.index + 1; i < rows.length; i++) {
+    const row = rows[i]
+    if (!row) continue
+    const at = (f: ExcelField) => (colIndex[f] != null ? row[colIndex[f]!] : null)
+    if (excelTnved(at('tnvedCode'))) continue
+    const firstText = row.find((c) => typeof c === 'string' && c.trim()) as string | undefined
+    if (!isTotalText(excelToStr(at('description'))) && !isTotalText(firstText)) continue
+    return {
+      places: excelPlaces(at('packagesCount')).value,
+      grossWeightKg: excelToNum(at('grossWeightKg')),
+      netWeightKg: excelToNum(at('netWeightKg')),
+      value: excelToNum(at('customsValue')),
+    }
+  }
+  return null
 }
 
 /**
@@ -518,6 +576,8 @@ export interface ExcelSheetDoc {
   tableHeader: unknown[]
   /** Все строки листа — подписи под таблицей («Упаковка / 包装: …», «АВТО: …»). */
   rows: unknown[][]
+  /** Строка-итог таблицы (места, веса, стоимость); нет — null. */
+  totals: GoodsSheetTotals | null
 }
 
 type SheetScan = { name: string; rows: unknown[][]; header: { index: number; score: number } | null }
@@ -551,8 +611,9 @@ async function scanWorkbook(file: Blob, opts: GoodsExcelOptions): Promise<{ shee
   return { sheets }
 }
 
-const sheetDoc = (x: SheetScan, goods: GoodsExcelRow[]): ExcelSheetDoc => ({
+const sheetDoc = (x: SheetScan, goods: GoodsExcelRow[], opts: GoodsExcelOptions): ExcelSheetDoc => ({
   sheet: x.name, goods, headerRows: x.rows.slice(0, x.header!.index), tableHeader: x.rows[x.header!.index] ?? [], rows: x.rows,
+  totals: goodsSheetTotals(x.rows, opts),
 })
 
 /**
@@ -569,7 +630,7 @@ export async function readExcelDocument(
   for (const x of scan.sheets) if (x.header && (!best || x.header.score > best.header!.score)) best = x
   const goods = best ? goodsFromSheetRows(best.rows, opts) : []
   if (!best || !goods.length) return { problem: 'noGoods' }
-  const doc = sheetDoc(best, goods)
+  const doc = sheetDoc(best, goods, opts)
   return { goods, headerRows: doc.headerRows, tableHeader: doc.tableHeader }
 }
 
@@ -586,7 +647,7 @@ export async function readExcelDocuments(
   const docs = scan.sheets.flatMap((x) => {
     if (!x.header) return []
     const goods = goodsFromSheetRows(x.rows, opts)
-    return goods.length ? [sheetDoc(x, goods)] : []
+    return goods.length ? [sheetDoc(x, goods, opts)] : []
   })
   return docs.length ? { docs } : { problem: 'noGoods' }
 }

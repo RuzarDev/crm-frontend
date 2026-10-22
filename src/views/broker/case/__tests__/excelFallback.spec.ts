@@ -30,10 +30,10 @@ const packing = doc('PACKING_LIST_UR0910.xlsx', PL_HEAD, [
 
 describe('excelFallback: инвойс и упаковочный лист поставщика', () => {
   it('шапка: вид, номер и дата, Инкотермс и только пункт (№6), продавец с адресом (№7), покупатель с БИН, валюта', () => {
-    expect(invoice.header).toEqual({
+    expect(invoice.header).toMatchObject({
       kind: 'invoice', number: 'UR0910', date: '2026-09-10', incoterms: 'CIF', incotermsPlace: 'АЛМАТЫ',
       sellerName: 'Yiwu Test Trading Firm', sellerAddress: 'Room 7, Block B, Jiang Street, Yiwu City, Zhejiang Province, China',
-      buyerName: 'ТОО "Test Distribution"', buyerBin: '220940001302', currency: 'USD',
+      buyerName: 'ТОО "Test Distribution"', buyerBin: '220940001302', currency: 'USD', contractNumber: null, originText: null,
     })
     expect(packing.header.kind).toBe('packing')
   })
@@ -83,7 +83,9 @@ describe('excelFallback: инвойс и упаковочный лист пос�
   it('контракт заявки есть — 03011 из документов не пишется (его поставит сервер); код транспортного документа по виду', () => {
     const r = applyExcelFallback({}, [invoice], { extras: { contractNumber: 'AKBT1' }, hasCaseContract: true })
     expect(r.doc44Items.map((d) => d.docTypeCode)).toEqual(['04021'])
-    expect([0, 1, 2, 3].map(transportDocCode)).toEqual(['02013', '02015', '02017', '02011'])
+    expect([0, 1, 2, 3].map((m) => transportDocCode(m))).toEqual(['02013', '02015', '02017', '02011'])
+    // номера машины или CMR в наборе — авто, даже если в заявке «Море» (правка 2.8)
+    expect(transportDocCode(3, true)).toBe('02015')
   })
 
   it('товары Zircon AI с числами — база, Excel дозаполняет пустое (нетто); без Excel — товары Zircon AI как есть', () => {
