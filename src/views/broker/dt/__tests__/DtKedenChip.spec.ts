@@ -13,6 +13,7 @@ vi.mock('@/ui/confirm', () => ({ useConfirm: () => ({ confirm: api.confirm }) })
 vi.mock('@/ui/message', () => ({ message: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
 
 import DtKedenChip from '../DtKedenChip.vue'
+import ZDate from '@/components/z/ZDate.vue'
 
 const link = (o: Partial<KedenLinkDto> = {}): KedenLinkDto => ({
   linked: true, kedenDeclarationId: 'k1', source: 'number', linkedAtUtc: '2026-10-17T08:00:00Z',
@@ -99,8 +100,11 @@ describe('DtKedenChip', () => {
     expect(w.get('[data-dt-keden-status]').text()).toBe('Выпущена')
   })
 
-  it('нет связи, а в КЕДЕН есть свободные ДТ того же поста и ±3 дня — кнопка «Найдено в КЕДЕН» открывает поиск', async () => {
-    api.candidates.mockResolvedValue([cand(), cand({ id: 'k8', linkedDeclarationId: 'other' }), cand({ id: 'k7', declarationType: 'PI' })])
+  it('нет связи, а в КЕДЕН есть свободные ДТ того же поста и ±3 дня — кнопка «Найдено в КЕДЕН» открывает поиск с тем же фильтром', async () => {
+    // Сервер: с подсказкой — найденные записи; без неё — 50 последних записей БИН клиента, где найденной может не быть.
+    const recent = Array.from({ length: 50 }, (_, i) => cand({ id: `r${i}`, registrationNumber: `55201/011126/${String(i).padStart(7, '0')}` }))
+    api.candidates.mockImplementation(async (_c: string, _d: string, query: { hint?: boolean }) =>
+      query.hint ? [cand(), cand({ id: 'k8', linkedDeclarationId: 'other' }), cand({ id: 'k7', declarationType: 'PI' })] : recent)
     mountWith({ keden: unlinked, post: '55302', submissionDate: '2026-10-20' })
     await flushPromises()
     expect(api.candidates).toHaveBeenCalledWith('c1', 'd1', { hint: true, post: '55302', from: '2026-10-17', to: '2026-10-23' })
@@ -108,7 +112,80 @@ describe('DtKedenChip', () => {
     expect(btn.text()).toContain('Найдено в КЕДЕН: 1')
     await btn.trigger('click')
     await flushPromises()
+    expect(api.candidates).toHaveBeenLastCalledWith('c1', 'd1', {
+      q: undefined, bin: undefined, from: '2026-10-17', to: '2026-10-23', post: '55302', hint: true,
+    })
     expect(q('[data-keden-candidate="k9"]')).not.toBeNull()
+    expect(q('[data-keden-search-hint]')!.textContent).toContain('Свободные ДТ поста 55302')
+    expect(q<HTMLInputElement>('input[data-keden-search-from]')!.value).toContain('17.10.2026')
+
+    // «Показать все» — обычный поиск по умолчанию, фильтр снят.
+    q<HTMLButtonElement>('[data-keden-search-hint-clear]')!.click()
+    await flushPromises()
+    expect(api.candidates).toHaveBeenLastCalledWith('c1', 'd1', { q: undefined, bin: undefined, from: undefined, to: undefined })
+    expect(q('[data-keden-search-hint]')).toBeNull()
+    expect(q('[data-keden-candidate="k9"]')).toBeNull()
+    expect(q('[data-keden-candidate="r0"]')).not.toBeNull()
+  })
+
+  it('плашка подсказки: даты стёрли или поменяли — текст по датам, ушедшим в запрос, а не «±3 дн. от гр. А»', async () => {
+    api.candidates.mockResolvedValue([cand()])
+    mountWith({ keden: unlinked, post: '55302', submissionDate: '2026-10-20' })
+    await flushPromises()
+    await w.get('[data-dt-keden-suggest]').trigger('click')
+    await flushPromises()
+    const banner = () => q('[data-keden-search-hint-text]')!.textContent ?? ''
+    expect(banner()).toContain('±3 дн. от гр. А')
+    const submit = async () => {
+      q('[data-keden-search-find]')!.closest('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
+      await flushPromises()
+    }
+
+    const [fromDate, toDate] = w.findAllComponents(ZDate)
+    fromDate.vm.$emit('update:value', null)
+    toDate.vm.$emit('update:value', null)
+    await nextTick()
+    expect(banner()).toContain('±3 дн. от гр. А') // список ещё по окну подсказки — «Найти» не нажимали
+    await submit()
+    expect(api.candidates).toHaveBeenLastCalledWith('c1', 'd1', {
+      q: undefined, bin: undefined, from: undefined, to: undefined, post: '55302', hint: true,
+    })
+    expect(banner()).not.toContain('±3')
+    expect(banner()).toContain('Свободные ДТ поста 55302')
+    expect(banner()).toContain('без ограничения по датам')
+
+    fromDate.vm.$emit('update:value', '2026-10-01')
+    toDate.vm.$emit('update:value', '2026-10-10')
+    await submit()
+    expect(api.candidates).toHaveBeenLastCalledWith('c1', 'd1', {
+      q: undefined, bin: undefined, from: '2026-10-01', to: '2026-10-10', post: '55302', hint: true,
+    })
+    expect(banner()).toContain('регистрация 01.10.2026 – 10.10.2026')
+    expect(banner()).not.toContain('±3')
+
+    toDate.vm.$emit('update:value', null)
+    await submit()
+    expect(banner()).toContain('регистрация с 01.10.2026')
+
+    // Вернули ровно окно подсказки — снова «±3 дн. от гр. А».
+    fromDate.vm.$emit('update:value', '2026-10-17')
+    toDate.vm.$emit('update:value', '2026-10-23')
+    await submit()
+    expect(banner()).toContain('±3 дн. от гр. А')
+  })
+
+  it('«Связать вручную» после подсказки — снова без фильтра подсказки', async () => {
+    api.candidates.mockResolvedValue([cand()])
+    mountWith({ keden: unlinked, post: '55302', submissionDate: '2026-10-20' })
+    await flushPromises()
+    await w.get('[data-dt-keden-suggest]').trigger('click')
+    await flushPromises()
+    expect(q('[data-keden-search-hint]')).not.toBeNull()
+    await openPanel()
+    q<HTMLButtonElement>('[data-dt-keden-link]')!.click()
+    await flushPromises()
+    expect(api.candidates).toHaveBeenLastCalledWith('c1', 'd1', { q: undefined, bin: undefined, from: undefined, to: undefined })
+    expect(q('[data-keden-search-hint]')).toBeNull()
   })
 
   it('кнопки-подсказки нет: связана, нет кандидатов, нет права, нет поста или даты', async () => {
@@ -159,6 +236,7 @@ describe('DtKedenChip', () => {
     q<HTMLButtonElement>('[data-dt-keden-unlink]')!.click()
     await flushPromises()
     expect(api.confirm.mock.calls[0][0].content).toContain('вернётся к введённому — 25831')
+    expect(api.confirm.mock.calls[0][0].content).toContain('Коридор и дата выпуска, полученные из КЕДЕН, будут сняты')
     expect(api.unlink).not.toHaveBeenCalled()
   })
 })

@@ -11,10 +11,10 @@ import en from '@/i18n/locales/en'
 
 const api = vi.hoisted(() => ({ listFiles: vi.fn(), uploadFile: vi.fn(), deleteFile: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
-const heic = vi.hoisted(() => ({ toJpeg: vi.fn() }))
+const heic = vi.hoisted(() => ({ forUpload: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
 vi.mock('@/ui/message', () => ({ message: msg }))
-vi.mock('@/utils/heic', async (orig) => ({ ...(await orig<object>()), heicToJpeg: heic.toJpeg }))
+vi.mock('@/utils/heic', async (orig) => ({ ...(await orig<object>()), heicForUpload: heic.forUpload }))
 
 import StepDocuments from '../StepDocuments.vue'
 import { useShipmentFiles, type ShipmentFilesApi } from '../useShipmentFiles'
@@ -240,11 +240,11 @@ describe('StepDocuments', () => {
     expect(err.text()).toContain('huge.pdf: больше 25 МБ')
   })
 
-  it('фото iPhone (HEIC) переводится в JPEG до загрузки; не перевелось — понятная ошибка в строке', async () => {
+  it('фото iPhone (HEIC): Safari переводит в JPEG до загрузки; иначе HEIC уходит на сервер; отказ сервера — ошибка в строке', async () => {
     await mountStep()
     expect(row('invoice').get('[data-doc-input]').attributes('accept')).toContain('.heic')
     let release!: () => void
-    heic.toJpeg.mockImplementationOnce((f: File) => new Promise<File>((r) => {
+    heic.forUpload.mockImplementationOnce((f: File) => new Promise<File>((r) => {
       release = () => r(new File(['jpg'], f.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' }))
     }))
     const input = row('invoice').get('[data-doc-input]')
@@ -262,11 +262,26 @@ describe('StepDocuments', () => {
     expect(lastFiles().map((f) => f.originalFileName)).toEqual(['IMG_0001.jpg'])
     expect(docs.busy.value).toBe(false)
 
-    heic.toJpeg.mockRejectedValueOnce(new Error('libheif'))
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    await pickFiles('packing', [new File(['x'], 'IMG_0002.heic', { type: 'image/heic' }), pdf('list.pdf')])
-    expect(row('packing').get('[data-doc-error]').text()).toContain('Не удалось перевести фото IMG_0002.heic из HEIC в JPEG')
-    expect(api.uploadFile).toHaveBeenCalledTimes(2) // PDF ушёл, HEIC — нет
-    expect(row('packing').find('[data-doc-uploading]').exists()).toBe(false)
+    // Chrome/Firefox: браузер HEIC не открыл — исходник уходит на сервер (проверка формата на клиенте его пропускает).
+    heic.forUpload.mockImplementation(async (f: File) => f)
+    const photo = new File(['x'], 'IMG_0002.heic', { type: 'image/heic' })
+    await pickFiles('packing', [photo, pdf('list.pdf')])
+    expect(api.uploadFile.mock.calls.slice(1).map((c) => c[2])).toEqual([photo, expect.objectContaining({ name: 'list.pdf' })])
+    expect(row('packing').find('[data-doc-error]').exists()).toBe(false)
+
+    // Сервер не перевёл (файл битый, 400 { code: 'heic' }) — понятная ошибка в строке, без «Повторить».
+    api.uploadFile.mockRejectedValueOnce({ response: { status: 400, data: { error: 'по-русски', code: 'heic', name: 'IMG_0003.heic' } } })
+    await pickFiles('contract', [new File(['x'], 'IMG_0003.heic', { type: 'image/heic' })])
+    expect(row('contract').get('[data-doc-error]').text()).toContain('Не удалось перевести фото IMG_0003.heic из HEIC в JPEG')
+    expect(row('contract').find('[data-doc-retry]').exists()).toBe(false)
+    expect(row('contract').find('[data-doc-uploading]').exists()).toBe(false)
+
+    // Служба перевода занята или недоступна (503) — «повторите позже» (не «сохраните в JPG») и тот же файл можно повторить.
+    api.uploadFile.mockRejectedValueOnce({ response: { status: 503, data: { error: 'по-русски', code: 'heic', reason: 'unavailable', name: 'IMG_0004.heic' } } })
+    await pickFiles('origin', [new File(['x'], 'IMG_0004.heic', { type: 'image/heic' })])
+    const busyText = row('origin').get('[data-doc-error]').text()
+    expect(busyText).toContain('Фото IMG_0004.heic не загружено: служба обработки фото сейчас занята или недоступна')
+    expect(busyText).not.toContain('Наиболее совместимый')
+    expect(row('origin').find('[data-doc-retry]').exists()).toBe(true)
   })
 })

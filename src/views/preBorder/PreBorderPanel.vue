@@ -9,6 +9,7 @@ import ZInput from '@/components/z/ZInput.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZUpload from '@/components/z/ZUpload.vue'
+import { extractServerText } from '@/api/client'
 import { import40Api } from '@/api/import40'
 import { preBorderApi, type PreBorder, type SerialNumber } from '@/api/preBorder'
 import { fieldErrors as serverFieldErrors } from '@/api/nationalLists'
@@ -81,8 +82,10 @@ const uploadPhotos = async (files: File[]) => {
         emit('changed', await preBorderApi.uploadPhoto(props.caseId, f))
         ok++
       } catch (e) {
-        const res = (e as { response?: { status?: number; data?: { error?: string } } })?.response
-        if (res?.status === 400) message.error(res.data?.error || t('preBorder.saveError'))
+        const res = (e as { response?: { status?: number; data?: unknown } })?.response
+        // 400 общий перехватчик не показывает (silentStatuses): текст — тот же, что у него, — отказ по фото HEIC
+        // ({ code: 'heic' }) на языке интерфейса, а не русский текст сервера (ревью 22.10).
+        if (res?.status === 400) message.error(extractServerText(res.data, 400) || t('preBorder.saveError'))
         else if (res?.status === 413) message.error(t('preBorder.photos.tooLarge', { name: f.name }))
         else if (!res) message.error(t('preBorder.photos.failed', { name: f.name }))
         if (res?.status === 400 || !res) break

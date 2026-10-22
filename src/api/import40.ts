@@ -4,6 +4,7 @@ import type { ConditionalReleaseDto } from './conditionalRelease'
 import type { KedenLinkDto } from './kedenLink'
 import type { ReworkItemDto } from './import40Rework'
 import { i18n } from '@/i18n'
+import { heicQueued, uploadTimeoutFor } from '@/utils/heic'
 import type {
   Import40TransportMeans,
   Import40GoodsPayment,
@@ -1260,10 +1261,10 @@ export const import40Api = {
       {
         headers: { 'Content-Type': 'multipart/form-data' },
         // apiClient's default 30s timeout is fine for ordinary requests but too short
-        // here: Aqniet runs OCR (PaddleOCR) over every scanned PDF in the batch, which
-        // for a handful of files can genuinely take a couple of minutes, especially on
-        // a cold model cache.
-        timeout: 180000,
+        // here: Zircon AI runs OCR over every scanned PDF and photo in the batch. Цепочка таймаутов (пакет «ocr»):
+        // Zircon AI заканчивает OCR пакета к 170 с → сервер CRM ждёт 200 с → nginx 210 с → здесь 220 с, чтобы
+        // ответ сервера (или его 504) пришёл раньше, чем браузер оборвёт запрос.
+        timeout: 220000,
       },
     )
     return response.data
@@ -1305,15 +1306,18 @@ export const import40Api = {
   ): Promise<Import40FileDto> => {
     const formData = new FormData()
     formData.append('file', file)
-    const response = await apiClient.post<Import40FileDto>(
+    // Исходник HEIC переводит сервер: по два за раз и с таймаутом 120 с (utils/heic.ts, ревью 22.10).
+    const timeout = uploadTimeoutFor(file)
+    const response = await heicQueued(file, () => apiClient.post<Import40FileDto>(
       `/import40/${encodeURIComponent(id)}/files`,
       formData,
       {
         params: kind ? { section, kind } : { section },
         headers: { 'Content-Type': 'multipart/form-data' },
+        ...(timeout ? { timeout } : {}),
         ...(opts?.silent ? { silent: true } : {}),
       },
-    )
+    ))
     return response.data
   },
 

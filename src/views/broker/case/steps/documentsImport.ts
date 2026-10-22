@@ -4,11 +4,14 @@
 //   2. resolveCodes — коды одним запросом (действующий 10-значный код, не номер инвойса/контракта/CMR; ДЕИ);
 //   3. buildGoods — товары ДТ по одним правилам (гр. 41 / строка гр. 31, упаковка, страна, заглавные);
 //   4. отправитель — из справочника сторон (точное совпадение названия) или разбором адреса из документа.
+import { companyLookupApi, isBinLike } from '@/api/companyLookup'
 import { partyRefsApi } from '@/api/partyRefs'
 import type { Import40DeclarationDto, Import40DeclarationUpsert, Import40ExtractionResult, Import40Party } from '@/api/import40'
 import type { ClassifierItem } from '@/types/api'
-import { countryFromText, hasHan, normPartyName, parseForeignAddress, upperRu } from '@/utils/importText'
+import { countryFromText, fixCyrillicLookalikes, hasHan, normPartyName, parseForeignAddress, upperRu, type CountryOption } from '@/utils/importText'
+import { parseKzAddress } from '@/utils/kzAddress'
 import { ensureOkeiUnits } from '@/views/broker/dt/goods/editor/okei'
+import { docDateConflicts } from '@/views/broker/dt/goods/goodsImport'
 import { buildGoods, noteCount, noteDetails, SENDER_AS_MANUFACTURER_DEFAULT } from '@/views/broker/dt/goods/importBuild'
 import { resolveCodes } from '@/views/broker/dt/goods/importResolve'
 import { previewToUpsert, type DocumentsBuilt } from '../declarations'
@@ -83,12 +86,78 @@ export async function resolveSender(name: string | null | undefined, address: st
   return { party, shortName: full.slice(0, SHORT_NAME_MAX), district: addr?.district ?? null, house: addr?.house ?? null, apt: addr?.apt ?? null }
 }
 
+/** Начало банковских реквизитов или контактов в адресе стороны (как normalize._BANK_TAIL Zircon AI). */
+const BANK_TAIL = /(?:^|[\s,;(])(?:ИИК|IBAN|БИК|БСК|SWIFT|банк(?!овск)[\p{L}]*|bank\b|р\/с|тел\b|тел\.|tel\b|tel\.|phone|e-?mail)|(?<![A-Z0-9])KZ\d{2}[0-9A-Z]{16}/iu
+
+/** Адрес без хвоста реквизитов: «…, УЛИЦА САРЫ-АРҚА, ИИК: KZ49… БИК: …» → «…, УЛИЦА САРЫ-АРҚА». */
+export function withoutBankTail(address: string): string {
+  const m = BANK_TAIL.exec(address)
+  return (m ? address.slice(0, m.index) : address).replace(/[\s,;]+$/, '').trim()
+}
+
+/**
+ * Адрес получателя созданной ДТ — не тот, что прислан (сервер взял адрес профиля компании клиента, В17): замечание «адрес
+ * по БИН из реестра» тогда неверно (ревью 22.10).
+ */
+export function receiverAddressReplaced(
+  sent: Pick<Import40DeclarationUpsert, 'receiver'>, created: Pick<Import40DeclarationDto, 'receiver'>,
+): boolean {
+  const n = (v: string | null | undefined) => (v ?? '').trim().toLocaleUpperCase('ru-RU')
+  const a = sent.receiver
+  const b = created.receiver
+  return !!a && !!b && (n(a.region) !== n(b.region) || n(a.city) !== n(b.city) || n(a.street) !== n(b.street))
+}
+
+/**
+ * Получатель гр. 8 по БИН из документов (правка 2.1, 22.10.2026): адрес — из ГБД ЮЛ (data.egov.kz, тот же поиск, что
+ * «Найти по БИН» на странице ДТ); реестр не ответил — разбор адреса из документа (латиница-двойник в русских словах
+ * «Kазаxстан», «Θтешкали» исправляется). Только адрес: имя — из документа (сервер заменит его профилем, если это
+ * компания клиента). КАТО по адресу не подбирается (несколько совпадений по названию — декларант выбирает сам).
+ */
+export async function resolveReceiverAddress(
+  bin: string | null | undefined, docAddress: string | null | undefined, notes: DocumentsNote[],
+): Promise<{ region: string | null; district: string | null; city: string | null; street: string | null; house: string | null; apt: string | null; nameFromRegistry: string | null } | null> {
+  let address: string | null = null
+  let nameFromRegistry: string | null = null
+  if (bin && isBinLike(bin)) {
+    try {
+      const c = await companyLookupApi.byBin(bin)
+      address = c.addressRu ?? c.addressKz ?? null
+      nameFromRegistry = upperRu(c.nameRu ?? c.nameKz ?? null)
+      if (address) notes.push({ key: 'receiverByBin', params: { bin } })
+    } catch { /* реестр недоступен или БИН не найден — адрес из документа */ }
+  }
+  // Адрес из документа: «…область г.Атырау» без запятой перед городом, «почтовый индекс 060000» — не часть адреса гр. 8,
+  // банковские реквизиты и контакты («ИИК: KZ…», «БИК», «Тел») — тоже (ревью 22.10: попадали в улицу гр. 8).
+  if (!address && docAddress) {
+    address = fixCyrillicLookalikes(withoutBankTail(docAddress))
+      .replace(/,?\s*(?:почтовый\s+)?индекс\s*:?\s*\d{6}/giu, '')
+      .replace(/([^,\s])\s+(?=(?:г\.|город\s))/giu, '$1, ')
+  }
+  if (!address) return nameFromRegistry ? { region: null, district: null, city: null, street: null, house: null, apt: null, nameFromRegistry } : null
+  const p = parseKzAddress(address)
+  return {
+    region: upperRu(p.region), district: upperRu(p.district), city: upperRu(p.city), street: upperRu(p.street),
+    house: upperRu(p.house), apt: upperRu(p.apt), nameFromRegistry,
+  }
+}
+
+export interface DocumentsExtra {
+  /** Названия видов документов (классификатор 2009) — «Вид документа» строк гр. 44. */
+  docKindNames?: ReadonlyMap<string, string> | null
+  countries?: readonly CountryOption[]
+  /** В наборе есть CMR — гр. 44 02015 (см. DocumentsContext.road). */
+  cmrInBatch?: boolean
+}
+
 export async function prepareDocumentsDeclaration(
   result: Import40ExtractionResult, docs: readonly ExcelDoc[], kase: DocumentsCase, packageKinds: readonly ClassifierItem[],
+  extra: DocumentsExtra = {},
 ): Promise<DocumentsDeclaration> {
   const extras = result.extras ?? null
   const excel = applyExcelFallback(result.declaration, docs, {
     extras, transportMode: kase.transportMode ?? null, hasCaseContract: !!kase.foreignContractId,
+    docKindNames: extra.docKindNames, countries: extra.countries, road: extra.cmrInBatch,
   })
   const invoiceNo = extras?.invoiceNumber ?? docs.find((d) => d.header.kind === 'invoice')?.header.number ?? null
   const [resolved] = await Promise.all([
@@ -114,6 +183,7 @@ export async function prepareDocumentsDeclaration(
   const counts: [string, number][] = [
     ['toRow', noteCount(built.notes, 'toRow')], ['noUnit', noteCount(built.notes, 'noUnit')],
     ['deiMismatch', noteCount(built.notes, 'deiMismatch')], ['han', noteCount(built.notes, 'han')],
+    ['hanDropped', noteCount(built.notes, 'hanDropped')], ['modelFromDescription', noteCount(built.notes, 'modelFromDescription')],
   ]
   for (const [key, n] of counts) if (n) notes.push({ key, params: { n } })
   const unknownUnits = noteDetails(built.notes, 'unknownUnit')
@@ -123,12 +193,41 @@ export async function prepareDocumentsDeclaration(
   const unknownPackaging = noteDetails(built.notes, 'unknownPackaging')
   if (unknownPackaging.length) notes.push({ key: 'unknownPackaging', params: { list: unknownPackaging.join(', ') } })
   if (excel.conflicts.length) notes.push({ key: 'docsConflicts', params: { n: excel.conflicts.length } })
+  // Места текстом неоднозначны (коробки на поддоне, несколько чисел) — пусто, декларант укажет; итог мест не сошёлся (2.5).
+  const ambiguous = noteDetails(built.notes, 'placesAmbiguous')
+  if (ambiguous.length) {
+    notes.push({ key: 'placesAmbiguous', params: { n: noteCount(built.notes, 'placesAmbiguous'), list: ambiguous.slice(0, 3).map((v) => `«${v}»`).join('; ') } })
+  }
+  if (excel.placesCheck) notes.push({ key: excel.placesCheck.unknown ? 'placesTotalUnknown' : 'placesTotal', params: { ...excel.placesCheck } })
+  // Один документ с разными датами (e2e-5).
+  for (const c of docDateConflicts(excel.rows, excel.doc44Items)) {
+    notes.push({ key: 'docDates', params: { code: c.code, number: c.number, dates: c.dates.map((d) => (d.date ? d.date.split('-').reverse().join('.') : '—')).join(', ') } })
+  }
 
-  const sender = await resolveSender(senderName, excel.senderAddress, notes)
-  // Получатель — ЗАГЛАВНЫМИ, как поля ДТ (совпал с компанией клиента — сервер возьмёт поля профиля).
-  const receiver = excel.preview.receiver?.name ? { ...excel.preview.receiver, name: upperRu(excel.preview.receiver.name) } : excel.preview.receiver
-  const body = previewToUpsert({ ...excel.preview, receiver }, {
+  const [sender, receiverAddr] = await Promise.all([
+    resolveSender(senderName, excel.senderAddress, notes),
+    resolveReceiverAddress(excel.receiverBin, excel.receiverAddress, notes),
+  ])
+  // Получатель — ЗАГЛАВНЫМИ, как поля ДТ (совпал с компанией клиента — сервер возьмёт поля профиля); адрес — по БИН.
+  const docReceiver = excel.preview.receiver
+  const receiverName = upperRu(docReceiver?.name) ?? receiverAddr?.nameFromRegistry ?? null
+  const receiver: Import40Party | null | undefined = receiverName || receiverAddr
+    ? {
+        ...(docReceiver ?? {}),
+        name: receiverName,
+        countryCode: docReceiver?.countryCode ?? (receiverAddr ? '398' : null),
+        region: docReceiver?.region ?? receiverAddr?.region ?? null,
+        city: docReceiver?.city ?? receiverAddr?.city ?? null,
+        street: docReceiver?.street ?? receiverAddr?.street ?? null,
+      }
+    : docReceiver
+  // Гр. 22 — сумма стоимости построенных товаров (e2e-3), а не ориентировочная сумма клиента из заявки.
+  const goodsTotal = built.goods.some((g) => g.customsValue != null)
+    ? Math.round(built.goods.reduce((s, g) => s + (g.customsValue ?? 0), 0) * 100) / 100
+    : null
+  const body = previewToUpsert({ ...excel.preview, receiver, totalInvoiceValue: goodsTotal ?? excel.preview.totalInvoiceValue ?? null }, {
     goods: built.goods, sender, receiverBin: excel.receiverBin, doc44Items: excel.doc44Items,
+    receiverExtra: receiverAddr ? { district: receiverAddr.district, house: receiverAddr.house, apt: receiverAddr.apt } : null,
   })
   return { body, notes, usedExcelGoods: excel.usedExcelGoods, receiverName: excel.preview.receiver?.name ?? null }
 }

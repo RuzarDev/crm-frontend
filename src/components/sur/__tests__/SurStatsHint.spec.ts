@@ -66,6 +66,46 @@ describe('SurStatsHint', () => {
     expect(w.get('[data-sur-low-price]').text()).toMatch(/Типичная — от 375/)
   })
 
+  it('client: says «мало данных» without numbers when the server hides n and total', async () => {
+    api.stats.mockResolvedValue({ data: STATS({ byCode: corridor({ n: null, total: null, enough: false, greenPct: null }) }) })
+    await mount()
+    expect(w.get('[data-sur-code="few"]').text()).toBe('Мало данных: по этому коду пока недостаточно ДТ разных импортёров.')
+  })
+
+  it('sends the goods position only together with the declaration', async () => {
+    api.stats.mockResolvedValue({ data: STATS() })
+    await mount({ declarationId: 'd1', goodsIndex: 2, valueKzt: 100, netKg: 1 })
+    expect(api.stats).toHaveBeenLastCalledWith(expect.objectContaining({ declarationId: 'd1', goodsIndex: 2 }))
+    w.unmount()
+    api.stats.mockClear()
+    await mount({ goodsIndex: 2 })
+    expect(api.stats.mock.calls[0][0].goodsIndex).toBeNull()
+  })
+
+  it('prefers the saved goods id over the position (equal SortOrder could reorder lines)', async () => {
+    api.stats.mockResolvedValue({ data: STATS() })
+    await mount({ declarationId: 'd1', goodsId: 'g-2', goodsIndex: 1 })
+    const q = api.stats.mock.calls[0][0]
+    expect(q.goodsId).toBe('g-2')
+    expect(q.goodsIndex).toBeNull()
+    w.unmount()
+    api.stats.mockClear()
+    // Без ДТ id товара не отправляется.
+    await mount({ goodsId: 'g-2' })
+    expect(api.stats.mock.calls[0][0].goodsId).toBeNull()
+  })
+
+  it('hides the whole block on 403 (role without access) and does not ask again for another code', async () => {
+    api.stats.mockRejectedValue({ response: { status: 403 } })
+    await mount()
+    expect(w.find('[data-sur-hint]').exists()).toBe(false)
+    expect(w.find('[data-sur-failed]').exists()).toBe(false)
+    await w.setProps({ code: '8471300000' })
+    await flushPromises()
+    expect(api.stats).toHaveBeenCalledTimes(1)
+    expect(w.find('[data-sur-hint]').exists()).toBe(false)
+  })
+
   it('renders nothing without a 10-digit code and shows a quiet failure line', async () => {
     await mount({ code: '8517' })
     expect(w.find('[data-sur-hint]').exists()).toBe(false)

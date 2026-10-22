@@ -116,7 +116,7 @@ export interface DocumentCheck {
 }
 
 /** Таймаут «Сверить заново» — как у extract-batch (import40.ts). */
-export const RECHECK_TIMEOUT_MS = 180000
+export const RECHECK_TIMEOUT_MS = 220000
 
 const base = (caseId: string) => `/import40/${encodeURIComponent(caseId)}/document-checks`
 

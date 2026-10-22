@@ -70,6 +70,10 @@ const LATIN_ALIASES: Record<string, string> = {
   PR: '715', PAIR: '715', PAIRS: '715', SET: '839', SETS: '839',
   // Частые русские краткие — и когда справочник ОКЕИ не загрузился (импорт из Excel, пакет 21.10).
   ШТ: '796', ПАР: '715', ПАРА: '715', ПАРЫ: '715', КГ: '166', Л: '112', М2: '055', М3: '113', КОМПЛ: '839', КОМПЛЕКТ: '839',
+  // Иероглифы китайских инвойсов (Импорт 2.0): 台/个/件/只/支/把/张 — штука, 双/对 — пара, 套 — комплект, 米 — метр,
+  // 千克/公斤 — кг, 吨 — тонна, 升 — литр, 平方米 — м², 立方米 — м³.
+  台: '796', 个: '796', 件: '796', 只: '796', 支: '796', 把: '796', 张: '796', 双: '715', 对: '715', 套: '839',
+  米: '006', 千克: '166', 公斤: '166', 吨: '168', 升: '112', 平方米: '055', 立方米: '113',
 }
 const LOOKALIKE: Record<string, string> = { A: 'А', B: 'В', C: 'С', E: 'Е', H: 'Н', K: 'К', M: 'М', O: 'О', P: 'Р', T: 'Т', X: 'Х', Y: 'У' }
 const unitKey = (s: string) => s.toLocaleUpperCase('ru-RU').replace(/[\s.]/g, '').replace(/²/g, '2').replace(/³/g, '3')
@@ -82,6 +86,21 @@ const cyr = (s: string) => s.replace(/[ABCEHKMOPTXY]/g, (ch) => LOOKALIKE[ch] ??
 export function okeiFromText(text: string | null | undefined): string | null {
   const raw = (text ?? '').trim()
   if (!raw) return null
+  const whole = okeiOne(raw)
+  if (whole) return whole
+  // Двуязычная единица «台 ⏎ шт», «件/pcs», «米 m» (инвойс 39th, 22.10.2026): целиком не узнана — каждая часть по
+  // отдельности («Квадратный метр» узнаётся целиком и на «метр» не распадается). Ревью 22.10: в ячейке с числом
+  // («1000 PCS», «10 шт» — количество, а не единица) и с «тыс.» («тыс. шт» — 798, а не 796) части не разбираются; части
+  // назвали разные единицы — не угадываем.
+  const parts = raw.split(/[\n\r/|]+|\s+/).map((p) => p.trim()).filter(Boolean)
+  if (parts.length < 2) return null
+  if (parts.some((p) => /^\d+(?:[.,]\d+)?$/.test(p) && Number(p.replace(',', '.')) !== 1)) return null
+  if (parts.some((p) => /^(?:тыс|thousands?|千|万|млн|mln)\.?$/i.test(p))) return null
+  const codes = new Set(parts.filter((p) => !/^\d+$/.test(p)).map(okeiOne).filter((c): c is string => !!c))
+  return codes.size === 1 ? [...codes][0] : null
+}
+
+function okeiOne(raw: string): string | null {
   const loaded = byCode.value.size > 0
   const known = (code: string) => (!loaded || byCode.value.has(code) ? code : null)
   if (/^\d{1,3}$/.test(raw)) return known(okeiCode(raw))

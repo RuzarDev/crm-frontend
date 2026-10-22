@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { PreBorder } from '@/api/preBorder'
+import { setLocale } from '@/i18n'
 
 const api = vi.hoisted(() => ({
   get: vi.fn(), save: vi.fn(), uploadPhoto: vi.fn(), deletePhoto: vi.fn(), serials: vi.fn(), saveSerials: vi.fn(), clearSerials: vi.fn(),
@@ -13,8 +14,8 @@ vi.mock('@/api/preBorder', async (orig) => ({ ...(await orig<typeof import('@/ap
 vi.mock('@/api/carriers', async (orig) => ({ ...(await orig<typeof import('@/api/carriers')>()), carriersApi: { caseCarriers: vi.fn().mockResolvedValue([]) } }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 vi.mock('@/ui/download', () => ({ saveBlob: vi.fn() }))
-const heic = vi.hoisted(() => ({ toJpeg: vi.fn() }))
-vi.mock('@/utils/heic', async (orig) => ({ ...(await orig<typeof import('@/utils/heic')>()), heicToJpeg: heic.toJpeg }))
+const heic = vi.hoisted(() => ({ forUpload: vi.fn() }))
+vi.mock('@/utils/heic', async (orig) => ({ ...(await orig<typeof import('@/utils/heic')>()), heicForUpload: heic.forUpload }))
 
 import PreBorderPanel from '../PreBorderPanel.vue'
 import FileTranslateButton from '../FileTranslateButton.vue'
@@ -71,19 +72,58 @@ describe('PreBorderPanel', () => {
     expect(msg.success).toHaveBeenCalledOnce()
   })
 
-  it('фото с iPhone (HEIC) переводятся в JPEG до загрузки', async () => {
+  it('фото с iPhone (HEIC): Safari переводит в JPEG сам, иначе исходник уходит на сервер', async () => {
     api.uploadPhoto.mockImplementation(async () => pb())
-    heic.toJpeg.mockImplementation(async (f: File) => new File(['j'], f.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' }))
+    heic.forUpload.mockImplementation(async (f: File) => new File(['j'], f.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' }))
     const w = mountWithI18n(PreBorderPanel, { props: { caseId: 'c1', data: pb(), state: 'ready', audience: 'staff' } })
     const input = w.find('[data-pb-photos] input[type="file"]')
     expect(input.attributes('accept')).toContain('.heic')
     Object.defineProperty(input.element, 'files', { value: [new File(['h'], 'IMG_0042.HEIC')], configurable: true })
     await input.trigger('change')
     await flushPromises()
-    expect(heic.toJpeg).toHaveBeenCalledOnce()
+    expect(heic.forUpload).toHaveBeenCalledOnce()
     const sent = api.uploadPhoto.mock.calls[0][1] as File
     expect(sent.name).toBe('IMG_0042.jpg')
     expect(sent.type).toBe('image/jpeg')
+
+    // Chrome/Firefox: браузер HEIC не открыл — уходит исходник (в JPEG переведёт сервер), без сообщения об ошибке.
+    heic.forUpload.mockImplementation(async (f: File) => f)
+    const original = new File(['h'], 'IMG_0043.HEIC')
+    Object.defineProperty(input.element, 'files', { value: [original], configurable: true })
+    await input.trigger('change')
+    await flushPromises()
+    expect(api.uploadPhoto.mock.calls[1][1]).toBe(original)
+    expect(msg.error).not.toHaveBeenCalled()
+  })
+
+  it('сервер не перевёл фото HEIC (400 { code: "heic" }) — текст на языке интерфейса, а не русский текст сервера', async () => {
+    // Сценарий e2e-1 (ревью 22.10): uploadPhoto глушит 400 у общего перехватчика, и панель показывала data.error как есть.
+    heic.forUpload.mockImplementation(async (f: File) => f)
+    api.uploadPhoto.mockRejectedValue({ response: { status: 400, data: {
+      error: 'Не удалось перевести фото «IMG_0001.HEIC» из HEIC в JPEG: файл повреждён', code: 'heic', reason: 'unreadable', name: 'IMG_0001.HEIC',
+    } } })
+    const w = mountWithI18n(PreBorderPanel, { props: { caseId: 'c1', data: pb(), state: 'ready', audience: 'client' } })
+    try {
+      await setLocale('en')
+      w.findComponent(ZUpload).vm.$emit('select', [new File(['h'], 'IMG_0001.HEIC')])
+      await flushPromises()
+      expect(msg.error).toHaveBeenLastCalledWith(expect.stringContaining('Could not convert the photo IMG_0001.HEIC from HEIC to JPEG'))
+
+      await setLocale('kk')
+      w.findComponent(ZUpload).vm.$emit('select', [new File(['h'], 'IMG_0001.HEIC')])
+      await flushPromises()
+      expect(msg.error).toHaveBeenLastCalledWith(expect.stringContaining('IMG_0001.HEIC фотосын HEIC-тен JPEG-ке айналдыру мүмкін болмады'))
+      expect(msg.error.mock.calls.flat().join(' ')).not.toContain('файл повреждён')
+
+      // Прочие отказы 400 — текст сервера, как раньше.
+      api.uploadPhoto.mockRejectedValue({ response: { status: 400, data: { error: 'Не больше 30 фото погрузки' } } })
+      w.findComponent(ZUpload).vm.$emit('select', [new File(['j'], 'a.jpg', { type: 'image/jpeg' })])
+      await flushPromises()
+      expect(msg.error).toHaveBeenLastCalledWith('Не больше 30 фото погрузки')
+    } finally {
+      await setLocale('ru')
+      w.unmount()
+    }
   })
 
   it('ошибка загрузки — «Повторить»', async () => {

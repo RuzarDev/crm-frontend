@@ -9,8 +9,10 @@
 //     документа («Cartons», «纸箱» → коробка); число упаковок — из столбца, иначе = мест при известном виде (В7).
 // №4  Страна происхождения — из файла; нет — опция defaultOriginCode (В8, по умолчанию выключено).
 // №9  Код — только действующий 10-значный, не номер документа; «Описание из ТН ВЭД» — название кода из справочника.
+// Импорт 2.0 (22.10.2026): описание из двуязычной ячейки — только русская часть (2.4); модель — из описания, если
+//     своего столбца нет (2.3); места текстом, которые однозначно не определить, — пусто с замечанием (2.5).
 import type { ClassifierItem, Import40GoodsItemInput } from '@/types/api'
-import { hasHan, packagingWord, upperRu } from '@/utils/importText'
+import { hasHan, modelFromText, packagingWord, russianPart, upperRu } from '@/utils/importText'
 import { blankCharacteristic } from './editor/characteristics'
 import { okeiFromText } from './editor/okei'
 import { netOverGross } from './goodsStatus'
@@ -45,6 +47,8 @@ export interface BuildCtx {
 export type BuildNoteKind =
   | 'invalidCode' | 'codesNotChecked' | 'toRow' | 'noUnit' | 'deiMismatch' | 'unknownUnit' | 'unknownPackaging'
   | 'unknownCountry' | 'packagingDefault' | 'netOverGross' | 'han' | 'placesRounded' | 'senderAsManufacturer' | 'defaultOrigin'
+  /** Импорт 2.0: из двуязычного описания взята русская часть; модель — из описания; места текстом неоднозначны. */
+  | 'hanDropped' | 'modelFromDescription' | 'placesAmbiguous'
 
 export interface BuildNote {
   /** Позиция строки (с 0). */
@@ -112,9 +116,11 @@ export function buildGoods(rows: readonly ImportRow[], ctx: BuildCtx): BuildResu
     }
     g.tnvedDescription = codeInfo?.valid ? codeInfo.name : null
 
-    // ---- описание ----
-    g.description = upperRu(r.description)
-    if (hasHan(r.description)) note('han')
+    // ---- описание: двуязычная ячейка — только русская часть (2.4); только китайский — как есть, с замечанием ----
+    const description = russianPart(r.description)
+    g.description = upperRu(description)
+    if (hasHan(description)) note('han')
+    else if (hasHan(r.description)) note('hanDropped')
 
     // ---- №2/5: строка характеристик гр. 31 ----
     const row = { ...blankCharacteristic() }
@@ -123,6 +129,11 @@ export function buildGoods(rows: readonly ImportRow[], ctx: BuildCtx): BuildResu
     row.tradeMarkName = upperRu(r.tradeMarkName)
     row.productMarkName = upperRu(r.productMarkName)
     row.productModelName = upperRu(r.productModelName)
+    if (!row.productModelName) {
+      // «Model "RC1001"», «Модель: "CD1"», «型号“RC1001”» в описании (2.3); нет — пусто, «ОТСУТСТВУЕТ» не выдумываем
+      row.productModelName = upperRu(modelFromText(r.description))
+      if (row.productModelName) note('modelFromDescription', row.productModelName)
+    }
     row.productArticle = upperRu(r.productArticle)
     row.standardName = upperRu(r.standardName)
     row.productSortName = upperRu(r.productSortName)
@@ -161,6 +172,7 @@ export function buildGoods(rows: readonly ImportRow[], ctx: BuildCtx): BuildResu
     if (netOverGross(g)) note('netOverGross')
     const places = r.places != null && r.places > 0 ? Math.round(r.places) : null
     if (places != null && places !== r.places) note('placesRounded', String(r.places))
+    if (places == null && r.placesNote) note('placesAmbiguous', r.placesNote)
     g.packagesCount = places
     g.cargoPlacesQuantity = places
 

@@ -191,6 +191,8 @@ export interface DocumentsBuilt {
     apt?: string | null
   } | null
   receiverBin?: string | null
+  /** Район, дом, помещение получателя (адрес по БИН из ГБД ЮЛ, Импорт 2.0). */
+  receiverExtra?: { district?: string | null; house?: string | null; apt?: string | null } | null
   doc44Items?: Import40Doc44ItemInput[]
 }
 
@@ -217,6 +219,9 @@ export const previewToUpsert = (preview: Import40ExtractionPreview, built: Docum
   ...(built.sender?.apt ? { senderApt: built.sender.apt } : {}),
   receiver: preview.receiver ?? null,
   ...(built.receiverBin ? { receiverBin: built.receiverBin } : {}),
+  ...(built.receiverExtra?.district ? { receiverDistrict: built.receiverExtra.district } : {}),
+  ...(built.receiverExtra?.house ? { receiverHouse: built.receiverExtra.house } : {}),
+  ...(built.receiverExtra?.apt ? { receiverApt: built.receiverExtra.apt } : {}),
   departureCountryCode: preview.departureCountryCode ?? null,
   destinationCountryCode: preview.destinationCountryCode ?? null,
   incoterms: preview.incoterms ?? null,

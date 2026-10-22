@@ -28,8 +28,8 @@ const uid = useId()
 const headingId = `wz-docs-${uid}`
 
 const { loadState, pending, errors, removing, attached, filesOf, load, upload, retry, canRetry, dismiss } = props.docs
-// Фото iPhone (HEIC) принимаем и переводим в JPEG (useShipmentFiles). На iOS HEIC в accept не пишем: без него Safari
-// сам отдаёт JPEG, с ним — отдал бы исходник.
+// Фото iPhone (HEIC) принимаем: в JPEG его переводит браузер (Safari) или сервер (useShipmentFiles). На iOS HEIC в accept
+// не пишем: без него Safari сам отдаёт JPEG, с ним — отдал бы исходник.
 const ACCEPT = (isIOS() ? DOC_ACCEPT : [...DOC_ACCEPT, ...HEIC_ACCEPT]).join(',')
 const otherFiles = computed(() => filesOf('other'))
 
@@ -40,6 +40,7 @@ const errorText = (e: RowError) => {
   if (e.code === 'type') return t('client.wizard.docs.wrongType', { name: e.name })
   if (e.code === 'size') return t('client.wizard.docs.tooBig', { name: e.name, mb: DOC_MAX_MB })
   if (e.code === 'heic') return t('z.heicFailed', { name: e.name })
+  if (e.code === 'heicUnavailable') return t('z.heicUnavailable', { name: e.name })
   if (e.reason && e.reason.includes(e.name)) return e.reason
   return t('client.wizard.docs.failed', { name: e.name, reason: e.reason || t('client.wizard.docs.failedGeneric') })
 }

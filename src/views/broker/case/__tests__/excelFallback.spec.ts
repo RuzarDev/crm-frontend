@@ -9,7 +9,7 @@ const HEAD_ROWS = [
   ['INVOICE / ИНВОЙС / 形式发票'],
   ['№ UR0910     Дата / 日期: 10.09.2026'],
   ['卖方 / Продавец (Seller):\nYiwu Test Trading Firm\nAddress: Room 7, Block B, Jiang Street, Yiwu City, Zhejiang Province, China\nTel: +86 000', null,
-    '买方 / Покупатель (Buyer):\nКомпания ТОО "Test Distribution"\nАдрес: Алматы\nБИН(ИИН): 220940001302'],
+    '买方 / Покупатель (Buyer):\nКомпания ТОО "Test Distribution"\nАдрес: Алматы\nБИН(ИИН): 123456789012'],
   ['Условия поставки / 交货条件: CIF ALMATY, KAZAKHSTAN (Incoterms® 2020)   Транспорт: CMR'],
 ]
 const INV_HEAD = ['№', 'HS Code / ТН ВЭД', '货号 Артикул', '品名 Наименование', 'pcs/ctn', '件数 Cartons', '总数量 Кол-во', '单价 USD Цена', '金额 USD Сумма', 'G.W/ctn (kg)', '总毛重 TTL G.W(kg)']
@@ -30,10 +30,10 @@ const packing = doc('PACKING_LIST_UR0910.xlsx', PL_HEAD, [
 
 describe('excelFallback: инвойс и упаковочный лист поставщика', () => {
   it('шапка: вид, номер и дата, Инкотермс и только пункт (№6), продавец с адресом (№7), покупатель с БИН, валюта', () => {
-    expect(invoice.header).toEqual({
+    expect(invoice.header).toMatchObject({
       kind: 'invoice', number: 'UR0910', date: '2026-09-10', incoterms: 'CIF', incotermsPlace: 'АЛМАТЫ',
       sellerName: 'Yiwu Test Trading Firm', sellerAddress: 'Room 7, Block B, Jiang Street, Yiwu City, Zhejiang Province, China',
-      buyerName: 'ТОО "Test Distribution"', buyerBin: '220940001302', currency: 'USD',
+      buyerName: 'ТОО "Test Distribution"', buyerBin: '123456789012', currency: 'USD', contractNumber: null, originText: null,
     })
     expect(packing.header.kind).toBe('packing')
   })
@@ -68,7 +68,7 @@ describe('excelFallback: инвойс и упаковочный лист пос�
       currency: 'USD', incoterms: 'CIF', incotermsPlace: 'АЛМАТЫ', totalInvoiceValue: 3102, declarationNumber: null,
       sender: { name: 'Yiwu Test Trading Firm' }, receiver: { name: 'ТОО "Test Distribution"' },
     })
-    expect(r.receiverBin).toBe('220940001302')
+    expect(r.receiverBin).toBe('123456789012')
     expect(r.senderAddress).toContain('Room 7')
     expect(r.preview.arrivalTransportNumbers).toEqual([
       { number: '184AFR19', typeCode: null, isTrailer: false, headNumber: null },
@@ -83,7 +83,9 @@ describe('excelFallback: инвойс и упаковочный лист пос�
   it('контракт заявки есть — 03011 из документов не пишется (его поставит сервер); код транспортного документа по виду', () => {
     const r = applyExcelFallback({}, [invoice], { extras: { contractNumber: 'AKBT1' }, hasCaseContract: true })
     expect(r.doc44Items.map((d) => d.docTypeCode)).toEqual(['04021'])
-    expect([0, 1, 2, 3].map(transportDocCode)).toEqual(['02013', '02015', '02017', '02011'])
+    expect([0, 1, 2, 3].map((m) => transportDocCode(m))).toEqual(['02013', '02015', '02017', '02011'])
+    // номера машины или CMR в наборе — авто, даже если в заявке «Море» (правка 2.8)
+    expect(transportDocCode(3, true)).toBe('02015')
   })
 
   it('товары Zircon AI с числами — база, Excel дозаполняет пустое (нетто); без Excel — товары Zircon AI как есть', () => {

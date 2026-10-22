@@ -5,12 +5,13 @@ import { PhUploadSimple } from '@phosphor-icons/vue'
 import { cn } from '@/ui/cn'
 import { message } from '@/ui/message'
 import { useFieldControl } from '@/ui/form'
-import { HEIC_ACCEPT, heicToJpeg, isHeic, isIOS } from '@/utils/heic'
+import { HEIC_ACCEPT, heicForUpload, isHeic, isIOS } from '@/utils/heic'
 import ZButton, { type ZButtonSize, type ZButtonVariant } from './ZButton.vue'
 
 // Замена a-upload / a-upload-dragger. Загрузка всегда ручная: компонент только выбирает файлы, проверяет
 // тип (accept) и размер (maxSizeMb), затем для каждого принятого файла зовёт beforeUpload (false — стоп)
-// и customRequest. convertHeic: фото HEIC/HEIF (iPhone) принимаются и переводятся в JPEG до select (сервер берёт JPG/PNG).
+// и customRequest. convertHeic: фото HEIC/HEIF (iPhone) принимаются; браузер, который открывает HEIC сам (Safari), переводит
+// его в JPEG до select, остальные отдают исходник — в JPEG его переводит сервер (22.10; хранятся только JPG/PNG).
 // Списка загруженных файлов нет — его рисуют экраны (поэтому и show-upload-list не нужен).
 // type="button": рисуется ZButton (слот — подпись, иначе z.uploadChoose; иконка — слот icon, по умолчанию PhUploadSimple).
 // type="drag": зона с role=button (слот — подсказка, иначе z.uploadDrop). Слот НЕ заменяет сам элемент управления:
@@ -40,7 +41,7 @@ const props = withDefaults(defineProps<{
   customRequest?: (options: CustomRequestOptions) => void
   buttonVariant?: ZButtonVariant
   buttonSize?: ZButtonSize
-  /** Принимать фото HEIC/HEIF и переводить их в JPEG в браузере (21.10). */
+  /** Принимать фото HEIC/HEIF: в JPEG их переводит браузер (Safari) или сервер (22.10). */
   convertHeic?: boolean
 }>(), { type: 'button', multiple: false, disabled: false, loading: false, buttonVariant: 'secondary', buttonSize: 'md', convertHeic: false })
 
@@ -109,13 +110,7 @@ const handle = async (list: File[]) => {
       }
       if (props.convertHeic && isHeic(f)) {
         converting.value = true
-        try {
-          f = await heicToJpeg(f)
-        } catch (error) {
-          console.error(error)
-          message.error(t('z.heicFailed', { name: original.name }))
-          continue
-        }
+        f = await heicForUpload(f)
       }
       if (props.maxSizeMb != null && f.size > props.maxSizeMb * 1024 * 1024) {
         message.error(t('z.uploadTooBig', { mb: props.maxSizeMb, name: f.name }))

@@ -66,7 +66,7 @@ export const CONFLICT_FIELDS = [
 export type ConflictField = (typeof CONFLICT_FIELDS)[number]
 
 const FILL_FIELDS = [
-  'lineNo', 'description', 'rowName', 'tnvedCode', 'quantity', 'unitText', 'places', 'grossWeightKg', 'netWeightKg', 'value',
+  'lineNo', 'description', 'rowName', 'tnvedCode', 'quantity', 'unitText', 'places', 'placesNote', 'grossWeightKg', 'netWeightKg', 'value',
   'currency', 'countryCode', 'originText', 'packageAvailabilityCode', 'packageKindText', 'packageQuantity', 'packagingHint',
   'manufacturerName', 'tradeMarkName', 'productMarkName', 'productModelName', 'productArticle', 'standardName',
   'productSortName', 'serialNumbers', 'cargoPartQuantity', 'individualPackages', 'gtin',
@@ -227,12 +227,16 @@ export function mergeImportDocs(docs: readonly ImportDoc[], opts: MergeOptions =
 
 // ───────────────────────── товары файла против товаров ДТ ─────────────────────────
 
-export type MatchBy = 'codeArticle' | 'codeDescription' | 'article' | 'description' | 'position'
+export type MatchBy = 'codeArticle' | 'articleDescription' | 'codeDescription' | 'article' | 'description' | 'position'
 export interface ExistingMatch { incoming: number; existing: number | null; by: MatchBy | null }
 
 const articleOf = (g: Goods): string => keyText((g.characteristics ?? []).map((r) => r.productArticle).find((a) => !blank(a)))
+// Артикул + описание — как rowKeys слияния файлов (сверка 22.10, import-2): артикулы 506/905 UR0910 повторяются с
+// одним кодом и разным наименованием («Полки для обуви 3 / 4 яруса») — без этого ключа при неравном числе товаров в ДТ
+// и в файле они не сопоставлялись и «Дополнить» добавлял их второй раз.
 const goodsKeys: { by: Exclude<MatchBy, 'position'>; key: (g: Goods) => string | null }[] = [
   { by: 'codeArticle', key: (g) => (keyCode(g.tnvedCode) && articleOf(g) ? `${keyCode(g.tnvedCode)}|${articleOf(g)}` : null) },
+  { by: 'articleDescription', key: (g) => (articleOf(g) && keyText(g.description) ? `${articleOf(g)}|${keyText(g.description)}` : null) },
   { by: 'codeDescription', key: (g) => (keyCode(g.tnvedCode) && keyText(g.description) ? `${keyCode(g.tnvedCode)}|${keyText(g.description)}` : null) },
   { by: 'article', key: (g) => articleOf(g) || null },
   { by: 'description', key: (g) => keyText(g.description) || null },

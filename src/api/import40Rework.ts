@@ -1,4 +1,5 @@
 import apiClient from './client'
+import { heicQueued, uploadTimeoutFor } from '@/utils/heic'
 import type { Import40CaseDto, Import40FileDto } from './import40'
 
 // Доработка заявки по чек-листу документов (17.10): пункты «что догрузить» при возврате заявки клиенту,
@@ -121,10 +122,12 @@ export const reworkApi = {
   uploadForItem: async (id: string, item: Pick<ReworkItemDto, 'id' | 'kind'>, file: File): Promise<Import40FileDto> => {
     const formData = new FormData()
     formData.append('file', file)
-    const r = await apiClient.post<Import40FileDto>(`${base(id)}/files`, formData, {
+    const timeout = uploadTimeoutFor(file) // исходник HEIC переводит сервер (utils/heic.ts)
+    const r = await heicQueued(file, () => apiClient.post<Import40FileDto>(`${base(id)}/files`, formData, {
       params: { section: 'documents', kind: item.kind, reworkItemId: item.id },
       headers: { 'Content-Type': 'multipart/form-data' },
-    })
+      ...(timeout ? { timeout } : {}),
+    }))
     return r.data
   },
 }

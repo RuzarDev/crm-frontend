@@ -3,7 +3,8 @@
 // - parseForeignAddress — адрес отправителя гр. 2 из строки инвойса: страна, область, город, район, улица, дом, офис (№7);
 // - countryFromText — страна происхождения текстом («CN», «156», «Китай», «China», «中国») → цифровой ОКСМ (№4);
 // - packagingWord — вид упаковки по словам («ctns», «纸箱», «картонные коробки») → коробка / мешок / поддон (№3);
-// - normPartyName — название стороны для сравнения со справочником сторон (без форм собственности и знаков).
+// - normPartyName — название стороны для сравнения со справочником сторон (без форм собственности и знаков);
+// - russianPart / modelFromText — описание гр. 31 из двуязычной ячейки и модель из описания (Импорт 2.0, 2.3/2.4).
 // Те же правила места поставки и стран — в Zircon AI (aqniet/normalize.py), там — для разбора «Из документов».
 
 const HAN_RE = /\p{Script=Han}/u
@@ -11,6 +12,8 @@ const HAN_ALL = /\p{Script=Han}+/gu
 
 /** Есть иероглифы (описание на китайском — нужен перевод, гр. 31 подаётся на русском). */
 export const hasHan = (s: string | null | undefined): boolean => HAN_RE.test(s ?? '')
+
+const CYR_RE = /[а-яё]/i
 
 /** ЗАГЛАВНЫМИ, как поля ДТ (правило UPPERCASE); пусто — null. */
 export function upperRu(s: string | null | undefined): string | null {
@@ -37,6 +40,21 @@ export const KZ_CITY_RU: Readonly<Record<string, string>> = {
   EKIBASTUZ: 'ЭКИБАСТУЗ', TEMIRTAU: 'ТЕМИРТАУ', KOKSHETAU: 'КОКШЕТАУ', ZHANAOZEN: 'ЖАНАОЗЕН', BAKHTY: 'БАХТЫ', MAIKAPCHAGAY: 'МАЙКАПЧАГАЙ',
 }
 
+/**
+ * Пункт поставки иероглифами («FCA 新疆霍尔果斯» — инвойс 39th, 22.10.2026) → как пишут в ДТ. Только погранпереходы с
+ * РК; одна таблица с Zircon AI (aqniet/normalize.py HAN_PLACES).
+ */
+export const HAN_PLACES: Readonly<Record<string, string>> = {
+  霍尔果斯: 'ХОРГОС', 阿拉山口: 'АЛАШАНЬКОУ', 巴克图: 'БАКТЫ', 吉木乃: 'МАЙКАПЧАГАЙ', 都拉塔: 'КОЛЬЖАТ', 木扎尔特: 'НАРЫНКОЛ',
+}
+
+/** Пункт в начале текста иероглифами — известный погранпереход по-русски, иначе null. */
+export function hanPlace(text: string | null | undefined): string | null {
+  const run = /^[\s:：,，.]*(\p{Script=Han}+)/u.exec(text ?? '')?.[1]
+  if (!run) return null
+  return Object.entries(HAN_PLACES).find(([han]) => run.includes(han))?.[1] ?? null
+}
+
 /** Только страна — не пункт поставки. */
 const COUNTRY_ONLY = /^(KAZAKHSTAN|REPUBLIC OF KAZAKHSTAN|КАЗАХСТАН|РЕСПУБЛИКА КАЗАХСТАН|РК|RK|CHINA|PRC|КИТАЙ|КНР)$/
 
@@ -48,7 +66,12 @@ const COUNTRY_ONLY = /^(KAZAKHSTAN|REPUBLIC OF KAZAKHSTAN|КАЗАХСТАН|Р�
  */
 export function normalizeIncotermsPlace(raw: string | null | undefined): string | null {
   if (!raw) return null
-  let s = raw.normalize('NFKC').replace(HAN_ALL, ' ').replace(/®/g, ' ')
+  const nf = raw.normalize('NFKC')
+  // «FCA 新疆霍尔果斯，…» — пункт иероглифами сразу после кода (или без кода): известный погранпереход по-русски.
+  const code = new RegExp(`(^|[^A-Za-z])(${INCOTERMS.join('|')})(?=$|[^A-Za-z])`, 'i').exec(nf)
+  const known = hanPlace(code ? nf.slice(code.index + code[0].length) : nf)
+  if (known) return known
+  let s = nf.replace(HAN_ALL, ' ').replace(/®/g, ' ')
   s = s.replace(/(условия\s+поставки|базис\s+поставки|delivery\s+terms?|terms\s+of\s+delivery|place\s+of\s+delivery|место\s+поставки)/giu, ' ')
   // Код Инкотермс: место — после него. Латиница или кириллица-двойник.
   const latin = new RegExp(`(^|[^A-Za-z])(${INCOTERMS.join('|')})(?=$|[^A-Za-z])`, 'i').exec(s)
@@ -170,7 +193,12 @@ export function parseForeignAddress(text: string | null | undefined): ForeignAdd
   const parts = s.split(/[,;\n，；]+/).map((p) => p.replace(/\s+/g, ' ').trim()).filter((p) => p && !/^[.\-–—]+$/.test(p))
   if (!parts.length) return null
   const out: ForeignAddress = { countryText: null, region: null, district: null, city: null, street: null, house: null, apt: null, clipped: false }
-  if (COUNTRY_PART.test(parts[parts.length - 1])) out.countryText = parts.pop()!
+  // «P.R. China.» — точка в конце адреса не мешает узнать страну (инвойс 39th)
+  const lastPart = parts[parts.length - 1].replace(/[.\s]+$/, '')
+  if (COUNTRY_PART.test(lastPart)) {
+    parts.pop()
+    out.countryText = lastPart
+  }
   const rest: string[] = []
   for (const p of parts) {
     if (!out.apt && APT_PART.test(p)) out.apt = p
@@ -218,6 +246,112 @@ export function normPartyName(s: string | null | undefined): string {
     .split(' ')
     .filter((w) => w && !PARTY_NOISE.has(w))
     .join(' ')
+}
+
+// ───────────────────────── Импорт 2.0: описание и модель (правки 2.3, 2.4) ─────────────────────────
+
+const LOOKALIKE_TO_CYR: Readonly<Record<string, string>> = {
+  A: 'А', a: 'а', B: 'В', C: 'С', c: 'с', E: 'Е', e: 'е', H: 'Н', K: 'К', k: 'к', M: 'М', O: 'О', o: 'о', P: 'Р', p: 'р',
+  T: 'Т', X: 'Х', x: 'х', Y: 'У', y: 'у', Θ: 'Ө', θ: 'ө',
+}
+
+/**
+ * Латиница и греческие буквы-двойники внутри русских слов → кириллица: «Kазаxстан» → «Казахстан», «Θтешкали» → «Өтешкали»
+ * (адрес получателя в инвойсе 39th). Слова без кириллицы не трогаются.
+ */
+export function fixCyrillicLookalikes(text: string): string {
+  return text.replace(/[\p{L}]+/gu, (w) => (/[а-яёәғқңөұүһі]/i.test(w) ? w.replace(/[AaBCcEeHKkMOoPpTXxYyΘθ]/g, (ch) => LOOKALIKE_TO_CYR[ch] ?? ch) : w))
+}
+
+/**
+ * Русский текст, а не отдельные буквы в китайском описании (ревью 22.10: «螺丝 M6 1000шт/箱», «… марка 201J2», «… 号 с»):
+ * хотя бы два русских слова от трёх букв и кириллица — не меньше 30% букв (иероглифы и кириллица).
+ */
+function hasRussianText(s: string): boolean {
+  const words = s.match(/[а-яёәғқңөұүһі]{3,}/giu) ?? []
+  const cyr = (s.match(/[а-яёәғқңөұүһі]/giu) ?? []).length
+  const han = (s.match(/\p{Script=Han}/gu) ?? []).length
+  return words.length >= 2 && cyr >= 0.3 * (cyr + han)
+}
+
+/**
+ * Описание гр. 31 из двуязычной ячейки (правка 2.4, 22.10.2026): есть и иероглифы, и русский текст — только русская часть.
+ * Строки с иероглифами без кириллицы выпадают; строка «中文。中文。 Русский текст» — без предложений с иероглифами;
+ * строки без букв обоих письменностей (латиница, числа) — только после первой русской («Model "RC1001"»). Только
+ * китайский или без иероглифов — как есть (перевода ИИ при импорте нет, решение владельца 21.10.2026).
+ */
+export function russianPart(text: string | null | undefined): string | null {
+  const src = (text ?? '').trim()
+  if (!src) return null
+  if (!hasHan(src) || !CYR_RE.test(src) || !hasRussianText(src)) return src
+  const kept: string[] = []
+  let ruStarted = false
+  const take = (piece: string) => {
+    const p = piece.trim()
+    if (!p) return
+    if (hasHan(p)) {
+      if (!CYR_RE.test(p)) return
+      // в одном предложении и иероглифы, и кириллица — иероглифы с их знаками прочь
+      const ru = p.replace(/[\p{Script=Han}。，、；：！？（）“”「」『』【】]+/gu, ' ').replace(/\s+/g, ' ').trim()
+      if (ru) {
+        kept.push(ru)
+        ruStarted = true
+      }
+      return
+    }
+    if (CYR_RE.test(p)) ruStarted = true
+    if (ruStarted) kept.push(p)
+  }
+  for (const line of src.split(/\r?\n/)) {
+    if (!hasHan(line)) {
+      take(line)
+      continue
+    }
+    if (!CYR_RE.test(line)) continue
+    // смешанная строка — по предложениям: «。», «；», «. » и широкие пробелы между частями
+    for (const piece of line.split(/(?<=[。；！？])|(?<=[.;!?])(?=\s)|\s{2,}/u)) take(piece)
+  }
+  const out = kept.join(' ').replace(/\s+/g, ' ').trim()
+  return out || src
+}
+
+const MODEL_QUOTED = '["“«„\'「『]([^"”»“\'」』\\n]{1,60})["”»“\'」』]'
+// Юникодный класс (ревью 22.10: `\w` в JS — только латиница, «ТП-100» обрезалось до «Т», «отсутствует» — до «о»).
+const MODEL_TOKEN = '([\\p{L}\\p{N}][\\p{L}\\p{N}_\\-./+]*)'
+const MODEL_RU_EN = new RegExp(`(?<![\\p{L}])(?:модель|model(?:\\s*no\\.?)?)(?![\\p{L}])\\s*[:：№#]?\\s*(?:${MODEL_QUOTED}|${MODEL_TOKEN})`, 'giu')
+const MODEL_HAN = new RegExp(`型号\\s*[:：]?\\s*(?:${MODEL_QUOTED}|${MODEL_TOKEN})`, 'gu')
+
+/**
+ * Модель без кавычек — только похожая на обозначение (ревью 22.10: «модель автомобиля» → «А», «Model year 2024» → «YEAR»,
+ * «модель 2024 года» → «2024»): с цифрой, но не год и не масштаб «1:24»; латиница с дефисом («YJJ-A»); «отсутствует» —
+ * как в документе (решение владельца 21.10.2026). Обычное слово — не модель.
+ */
+function plainModel(token: string, after: string): string | null {
+  const t = token.replace(/[.,;:/+-]+$/, '')
+  if (/^отсутствует$/iu.test(t)) return t
+  if (/\d/.test(t)) {
+    if (/^(?:19|20)\d{2}$/.test(t) || /^\s*:\s*\d/.test(after)) return null
+    return /^\d+$/.test(t) && t.length < 3 ? null : t
+  }
+  return /^[A-Za-z]+(?:[-/.+][A-Za-z0-9]+)+$/.test(t) ? t : null
+}
+
+/**
+ * Модель из описания (правка 2.3): «Model "RC1001"», «Модель: "CD1"», «"Модель YJJ-A-200"», «型号“RC1001”», «Модель ТП-100»
+ * → RC1001 / CD1 / YJJ-A-200 / ТП-100. Сначала русская и английская запись, затем 型号; первая подходящая. Нет — null
+ * («ОТСУТСТВУЕТ» не выдумывается: только если так написано в документе, решение владельца 21.10.2026).
+ */
+export function modelFromText(text: string | null | undefined): string | null {
+  const s = (text ?? '').normalize('NFKC')
+  for (const re of [MODEL_RU_EN, MODEL_HAN]) {
+    for (const m of s.matchAll(re)) {
+      const quoted = m[1]?.trim()
+      if (quoted) return quoted.replace(/[.,;:]+$/, '').trim() || null
+      const v = m[2] ? plainModel(m[2], s.slice((m.index ?? 0) + m[0].length)) : null
+      if (v) return v
+    }
+  }
+  return null
 }
 
 // ───────────────────────── №3. Вид упаковки словами ─────────────────────────

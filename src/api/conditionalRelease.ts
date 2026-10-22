@@ -1,4 +1,5 @@
 import apiClient from './client'
+import { heicQueued, uploadTimeoutFor } from '@/utils/heic'
 import { DOC_CHECKLIST, type DocKind } from '@/views/client/docKinds'
 
 // Условный выпуск ДТ (17.10): срок, недостающий документ, загрузка клиентом, закрытие декларантом.
@@ -59,9 +60,11 @@ export const conditionalReleaseApi = {
   upload: async (caseId: string, dtId: string, file: File): Promise<ConditionalReleaseDto> => {
     const form = new FormData()
     form.append('file', file)
-    return (await apiClient.post<ConditionalReleaseDto>(`${base(caseId, dtId)}/upload`, form, {
+    const timeout = uploadTimeoutFor(file) // исходник HEIC переводит сервер (utils/heic.ts)
+    return (await heicQueued(file, () => apiClient.post<ConditionalReleaseDto>(`${base(caseId, dtId)}/upload`, form, {
       headers: { 'Content-Type': 'multipart/form-data' },
-    })).data
+      ...(timeout ? { timeout } : {}),
+    }))).data
   },
   resolve: async (caseId: string, dtId: string): Promise<ConditionalReleaseDto> =>
     (await apiClient.post<ConditionalReleaseDto>(`${base(caseId, dtId)}/resolve`)).data,

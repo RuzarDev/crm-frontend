@@ -27,6 +27,8 @@ export interface ImportRow {
   /** Единица количества как в файле («шт», «PCS», «pairs») — столбец или заголовок количества. */
   unitText: string | null
   places: number | null
+  /** Места текстом, которые однозначно не определить (Импорт 2.0, правка 2.5): места пусты, текст — в замечание. */
+  placesNote: string | null
   grossWeightKg: number | null
   netWeightKg: number | null
   value: number | null
@@ -89,7 +91,7 @@ const declared = (v: string | null | undefined) => {
 }
 
 export const emptyImportRow = (source: string): ImportRow => ({
-  source, lineNo: null, description: null, rowName: null, tnvedCode: null, quantity: null, unitText: null, places: null,
+  source, lineNo: null, description: null, rowName: null, tnvedCode: null, quantity: null, unitText: null, places: null, placesNote: null,
   grossWeightKg: null, netWeightKg: null, value: null, currency: null, countryCode: null, originText: null,
   packageAvailabilityCode: null, packageKindText: null, packageQuantity: null, packagingHint: null, manufacturerName: null,
   tradeMarkName: null, productMarkName: null, productModelName: null, productArticle: null, standardName: null,
@@ -111,6 +113,7 @@ export function fromExcelRow(r: GoodsExcelRow, source: string, packagingHint: st
     quantity: r.quantity ?? null,
     unitText: d?.measureUnit ?? null,
     places: r.packagesCount ?? null,
+    placesNote: d?.placesNote ?? null,
     grossWeightKg: r.grossWeightKg ?? null,
     netWeightKg: r.netWeightKg ?? null,
     value: r.customsValue ?? null,

@@ -12,7 +12,8 @@ import { cn } from '@/ui/cn'
 
 // «Перевести (ИИ)» у файла заявки (очередь 4, задача 1): китайский или английский документ — на русский. Перевод
 // сохраняется рядом с файлом: уже переведённый открывается без модели. Скан без текста — честный отказ сервера
-// («нужен текстовый PDF или фото с распознаванием»), его текст и показываем — ничего не додумываем.
+// («нужен текстовый PDF…») — ничего не додумываем. Отказ показываем по коду ответа на языке интерфейса (translate.errors.*);
+// текст сервера (по-русски) — только для кода, которого фронт не знает.
 const props = withDefaults(defineProps<{
   caseId: string
   fileId: string
@@ -30,6 +31,9 @@ const busy = ref(false)
 const result = shallowRef<FileTranslation | null>(null)
 const error = ref('')
 
+/** Коды отказа сервера (Import40FileTranslator.Code*), у которых есть свой текст ru/kk/en. */
+const ERROR_CODES = new Set(['noText', 'unreadable', 'alreadyRussian', 'tooLarge', 'disabled', 'limit', 'rate', 'busy', 'modelError'])
+
 const run = async (force: boolean) => {
   busy.value = true
   error.value = ''
@@ -39,8 +43,11 @@ const run = async (force: boolean) => {
       : await translationApi.translate(props.caseId, props.fileId, force)
     emit('translated', props.fileId)
   } catch (e) {
-    const res = (e as { response?: { status?: number; data?: { error?: string } } })?.response
-    error.value = res?.data?.error || (res ? t('translate.failed') : t('translate.network'))
+    const res = (e as { response?: { status?: number; data?: { error?: string; code?: string } } })?.response
+    const code = res?.data?.code
+    error.value = code && ERROR_CODES.has(code)
+      ? t(`translate.errors.${code}`)
+      : res?.data?.error || (res ? t('translate.failed') : t('translate.network'))
   } finally {
     busy.value = false
   }
