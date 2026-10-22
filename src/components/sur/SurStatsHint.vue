@@ -9,7 +9,9 @@ import { formatMoneyIn } from '@/ui/number'
 // «По этому коду у нас N ДТ за 12 мес: зелёный X%, жёлтый Y%, красный Z%», отдельно по посту (если данных хватает),
 // при N < 10 — «мало данных»; «цена ниже типичной» — стоимость за единицу ниже 25-го перцентиля наших ДТ по коду и стране.
 // Только подсказка: ничего не блокирует, без «гарантий коридора». Сервер клиенту отдаёт только доли, N и признак;
-// «типичная от …» (p25Kzt) приходит только сотрудникам. Запрос — тихо, с задержкой на ввод; сбой — строка без тоста.
+// «типичная от …» (p25Kzt) приходит только сотрудникам. Запрос — тихо, с задержкой на ввод; сбой — строка без тоста;
+// 403 (роль без доступа к статистике, например МПП транзита без import40.read) — блока нет совсем: это не сбой.
+// Клиенту «ниже типичной» — только по своему товару своей ДТ (declarationId + goodsIndex): значения сервер берёт из ДТ.
 const props = withDefaults(defineProps<{
   code: string | null | undefined
   country?: string | null
@@ -19,10 +21,12 @@ const props = withDefaults(defineProps<{
   /** Гр. 41: количество в ДЕИ и код ОКЕИ. */
   quantity?: number | null
   unitCode?: string | null
-  /** ДТ (сотрудник): пост берётся из неё, сама ДТ в выборку не входит. */
+  /** ДТ: пост берётся из неё, сама ДТ в выборку не входит (сотрудник); клиенту — его ДТ для сравнения цены. */
   declarationId?: string | null
+  /** Позиция товара в ДТ (с 0) — клиенту сервер сравнивает цену этого товара (значения из ДТ, не из полей). */
+  goodsIndex?: number | null
   debounceMs?: number
-}>(), { country: null, valueKzt: null, netKg: null, quantity: null, unitCode: null, declarationId: null, debounceMs: 400 })
+}>(), { country: null, valueKzt: null, netKg: null, quantity: null, unitCode: null, declarationId: null, goodsIndex: null, debounceMs: 400 })
 
 const { t, locale } = useI18n()
 const ts = (key: string, p?: Record<string, unknown>) => t(`sur.${key}`, p ?? {})
@@ -33,6 +37,7 @@ const query = computed<SurStatsQuery>(() => ({
   code: code.value,
   country: props.country || null,
   declarationId: props.declarationId || null,
+  goodsIndex: props.declarationId && props.goodsIndex != null && props.goodsIndex >= 0 ? props.goodsIndex : null,
   valueKzt: props.valueKzt && props.valueKzt > 0 ? props.valueKzt : null,
   netKg: props.netKg && props.netKg > 0 ? props.netKg : null,
   quantity: props.quantity && props.quantity > 0 ? props.quantity : null,
@@ -41,6 +46,8 @@ const query = computed<SurStatsQuery>(() => ({
 
 const data = shallowRef<SurStatsDto | null>(null)
 const failed = ref(false)
+/** 403: статистика этой роли недоступна — блок не показываем (не «не удалось загрузить» на каждом коде). */
+const forbidden = ref(false)
 let seq = 0
 let timer: ReturnType<typeof setTimeout> | null = null
 
@@ -50,14 +57,19 @@ const load = async (q: SurStatsQuery) => {
   try {
     const { data: res } = await surApi.stats(q)
     if (my === seq) data.value = res
-  } catch {
-    if (my === seq) { data.value = null; failed.value = true }
+  } catch (e) {
+    if (my !== seq) return
+    data.value = null
+    if ((e as { response?: { status?: number } })?.response?.status === 403) forbidden.value = true
+    else failed.value = true
   }
 }
 
 watch(() => JSON.stringify(query.value), (_k, prev) => {
   if (timer) clearTimeout(timer)
   if (!valid.value) { seq += 1; data.value = null; failed.value = false; return }
+  // Роль без доступа не меняется от смены кода — повторно не спрашиваем.
+  if (forbidden.value) return
   // Другой код — прежняя статистика не про него: сразу убираем.
   if (data.value && data.value.code !== code.value) data.value = null
   const q = query.value
@@ -81,12 +93,13 @@ const codeLine = computed(() => {
   const d = data.value
   if (!d) return ''
   const s = d.byCode
-  if (s.enough) return ts('byCode', { n: s.n, total: s.total, months: d.months, shares: shares(s) })
-  return s.n >= d.minN ? ts('fewImporters') : ts('fewData', { n: s.n, total: s.total, months: d.months, min: d.minN })
+  if (s.enough) return ts('byCode', { n: s.n ?? 0, total: s.total ?? 0, months: d.months, shares: shares(s) })
+  // Клиенту при «мало данных» сервер числа не отдаёт (n = null) — без чисел.
+  return s.n == null || s.n >= d.minN ? ts('fewImporters') : ts('fewData', { n: s.n, total: s.total ?? 0, months: d.months, min: d.minN })
 })
 const postLine = computed(() => {
   const p = data.value?.byPost
-  return p?.enough ? ts('byPost', { post: p.postCode, n: p.n, total: p.total, shares: shares(p) }) : ''
+  return p?.enough ? ts('byPost', { post: p.postCode, n: p.n ?? 0, total: p.total ?? 0, shares: shares(p) }) : ''
 })
 const price = computed(() => (data.value?.price?.low ? data.value.price : null))
 const unitText = computed(() => (price.value?.basis === 'unit' ? ts('unitDei') : ts('unitKg')))
@@ -94,7 +107,7 @@ const money = (n: number) => formatMoneyIn(locale.value, n)
 </script>
 
 <template>
-  <div v-if="valid" class="flex flex-col gap-1.5 rounded-panel border border-line bg-canvas p-4 text-[13px]" data-sur-hint>
+  <div v-if="valid && !forbidden" class="flex flex-col gap-1.5 rounded-panel border border-line bg-canvas p-4 text-[13px]" data-sur-hint>
     <p class="m-0 text-sm font-semibold text-ink">{{ ts('title') }}</p>
     <p v-if="failed" class="m-0 text-ink-3" data-sur-failed>{{ ts('failed') }}</p>
     <p v-else-if="!data" class="m-0 text-muted" data-sur-loading>{{ ts('loading') }}</p>

@@ -13,6 +13,7 @@ vi.mock('@/api/references', () => ({ referencesApi: { listCountries: vi.fn().moc
 
 import TnvedCalculator from '../TnvedCalculator.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
+import SurStatsHint from '@/components/sur/SurStatsHint.vue'
 import { resetCurrenciesCache } from '../currency'
 import { measures7308 } from '@/components/__tests__/fixtures/ntm7308'
 
@@ -69,6 +70,19 @@ describe('TnvedCalculator', () => {
     await submit('25000')
     expect(api.calculate).toHaveBeenCalledWith(expect.objectContaining({ quantity: 120, customsValue: 25000 }), { silent: true })
     expect(w.get('[data-calc-disclaimer]').text()).toContain('Ставки — на выбранную дату')
+  })
+
+  it('подсказка СУР: клиенту — без стоимости и веса из калькулятора (только доли), сотруднику — с ними', async () => {
+    await mountCalc({})
+    await w.get('[data-calc-weight]').setValue('12')
+    await submit()
+    expect(w.getComponent(SurStatsHint).props()).toMatchObject({ code: '8703231981', valueKzt: null, netKg: null })
+    w.unmount()
+
+    await mountCalc({ extended: true })
+    await w.get('[data-calc-weight]').setValue('12')
+    await submit()
+    expect(w.getComponent(SurStatsHint).props()).toMatchObject({ valueKzt: 5_000_000, netKg: 12 })
   })
 
   it('варианты акциза и антидемпинга из ответа — выбор пересчитывает с exciseKind / antiDumpingKind', async () => {

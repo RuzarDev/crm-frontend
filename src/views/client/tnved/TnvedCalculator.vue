@@ -373,13 +373,14 @@ const dd = 'm-0 text-right tabular-nums text-ink'
         {{ extended ? t('broker.references.calc.disclaimer') : t('client.tnved.calc.disclaimer') }}
       </p>
 
-      <!-- Коридоры по нашим ДТ (СУР, очередь 4): доли и N; «цена ниже типичной» — по расчёту (стоимость ₸) и весу за кг.
-           Клиенту сервер отдаёт только агрегаты и признак — без чужих стоимостей. -->
+      <!-- Коридоры по нашим ДТ (СУР, очередь 4): доли и N. «Цена ниже типичной» по расчёту (стоимость ₸) и весу за кг —
+           только сотруднику (extended). Клиенту — только доли: признак сервер даёт лишь для товара его ДТ (аудит 22.10 —
+           произвольная стоимость из калькулятора позволяла перебором узнать порог по чужим ДТ). -->
       <SurStatsHint
         :code="code"
         :country="form.country"
-        :value-kzt="result && !stale ? result.customsValueKzt : null"
-        :net-kg="result && !stale ? form.weight : null"
+        :value-kzt="extended && result && !stale ? result.customsValueKzt : null"
+        :net-kg="extended && result && !stale ? form.weight : null"
       />
 
       <ul v-if="result && !extended && bans.length" role="list" class="m-0 flex list-none flex-col gap-2 p-0" data-calc-bans>
