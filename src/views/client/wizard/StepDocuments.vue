@@ -40,6 +40,7 @@ const errorText = (e: RowError) => {
   if (e.code === 'type') return t('client.wizard.docs.wrongType', { name: e.name })
   if (e.code === 'size') return t('client.wizard.docs.tooBig', { name: e.name, mb: DOC_MAX_MB })
   if (e.code === 'heic') return t('z.heicFailed', { name: e.name })
+  if (e.code === 'heicUnavailable') return t('z.heicUnavailable', { name: e.name })
   if (e.reason && e.reason.includes(e.name)) return e.reason
   return t('client.wizard.docs.failed', { name: e.name, reason: e.reason || t('client.wizard.docs.failedGeneric') })
 }

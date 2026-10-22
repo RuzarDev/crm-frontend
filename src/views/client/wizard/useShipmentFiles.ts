@@ -1,6 +1,6 @@
 import { computed, reactive, ref, type Ref } from 'vue'
 import { import40Api, type Import40FileDto } from '@/api/import40'
-import { heicErrorName, heicForUpload, isHeic } from '@/utils/heic'
+import { heicErrorName, heicForUpload, heicRetryable, isHeic } from '@/utils/heic'
 import { isDocKind, type DocKindDef } from '@/views/client/docKinds'
 
 // Документы черновика в мастере (шаг «Документы»): список файлов раздела documents, загрузки и удаления в пути,
@@ -22,13 +22,14 @@ export const rowOf = (f: Pick<Import40FileDto, 'docKind'>): RowKind => {
 
 /**
  * Ошибка в строке. type/size — проверка на клиенте (повтор не поможет), heic — сервер не перевёл фото iPhone в JPEG
- * (file есть, только если служба перевода была недоступна — тогда повтор может помочь), server — отказ или сбой сети:
- * file есть, «Повторить» шлёт тот же File. Текст собирает экран (на языке интерфейса).
+ * (не читается или слишком большое — «сохраните в JPG»), heicUnavailable — служба перевода занята или недоступна
+ * (file есть: «Повторить» через минуту поможет), server — отказ или сбой сети: file есть, «Повторить» шлёт тот же File.
+ * Текст собирает экран (на языке интерфейса).
  */
 export interface RowError {
   id: number
   name: string
-  code: 'type' | 'size' | 'heic' | 'server'
+  code: 'type' | 'size' | 'heic' | 'heicUnavailable' | 'server'
   reason: string | null
   file?: File
 }
@@ -153,8 +154,9 @@ export function useShipmentFiles(caseId: Ref<string | null>) {
         const response = (e as { response?: { status?: number, data?: unknown } })?.response
         const heicName = heicErrorName(response?.data)
         if (heicName !== null) {
-          // Сервер не перевёл фото iPhone: повтор имеет смысл, только если служба перевода была недоступна (503).
-          addErrors(kind, [{ name: heicName || f.name, code: 'heic', reason: null, file: response?.status === 503 ? f : undefined }])
+          // Сервер не перевёл фото iPhone: повтор имеет смысл, только если служба перевода была занята или недоступна (503).
+          const retry = heicRetryable(response?.data, response?.status)
+          addErrors(kind, [{ name: heicName || f.name, code: retry ? 'heicUnavailable' : 'heic', reason: null, file: retry ? f : undefined }])
         } else {
           addErrors(kind, [{ name: f.name, code: 'server', reason: serverReason(e), file: f }])
         }

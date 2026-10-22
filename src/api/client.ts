@@ -1,7 +1,7 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
 import { message } from '@/ui/message'
 import { i18n } from '@/i18n'
-import { heicErrorName } from '@/utils/heic'
+import { heicErrorKey, heicErrorName } from '@/utils/heic'
 
 // Флаг для отдельного запроса: перехватчик не покажет свой тост об ошибке —
 // экран сам рисует ошибку (свой Result/Alert, форма «ссылка недействительна» и т.п.).
@@ -75,10 +75,11 @@ const errorToast = (key: string, content: string) => {
 // и голой строкой (Results.BadRequest("...")). Общая фраза — только когда сервер
 // вообще ничего не прислал: раньше сюда протекало техническое «Request failed
 // with status code 400» из самого axios (аудит 2026-09-28, п.1.2/1.4).
-export const extractServerText = (data: unknown): string | null => {
-  // Фото HEIC не перевелось на сервере ({ code: 'heic', name }) — свой текст на языке интерфейса вместо русского сервера.
-  const heicName = heicErrorName(data)
-  if (heicName !== null) return i18n.global.t('z.heicFailed', { name: heicName })
+export const extractServerText = (data: unknown, status?: number): string | null => {
+  // Фото HEIC не перевелось на сервере ({ code: 'heic', reason, name }) — свой текст на языке интерфейса вместо русского
+  // сервера: служба недоступна (503) — «повторите позже», иначе — «сохраните в JPG».
+  const heicKey = heicErrorKey(data, status)
+  if (heicKey !== null) return i18n.global.t(heicKey, { name: heicErrorName(data) ?? '' })
   if (typeof data === 'string' && data.trim()) {
     return data
   }
@@ -144,7 +145,7 @@ apiClient.interceptors.response.use(
 
     if (error.response) {
       const status = error.response.status
-      const serverText = extractServerText(error.response.data)
+      const serverText = extractServerText(error.response.data, status)
       const requestUrl = error.config?.url || ''
       const isLoginRequest = requestUrl.includes('/auth/login')
 

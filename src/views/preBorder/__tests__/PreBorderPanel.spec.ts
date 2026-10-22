@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { PreBorder } from '@/api/preBorder'
+import { setLocale } from '@/i18n'
 
 const api = vi.hoisted(() => ({
   get: vi.fn(), save: vi.fn(), uploadPhoto: vi.fn(), deletePhoto: vi.fn(), serials: vi.fn(), saveSerials: vi.fn(), clearSerials: vi.fn(),
@@ -93,6 +94,36 @@ describe('PreBorderPanel', () => {
     await flushPromises()
     expect(api.uploadPhoto.mock.calls[1][1]).toBe(original)
     expect(msg.error).not.toHaveBeenCalled()
+  })
+
+  it('сервер не перевёл фото HEIC (400 { code: "heic" }) — текст на языке интерфейса, а не русский текст сервера', async () => {
+    // Сценарий e2e-1 (ревью 22.10): uploadPhoto глушит 400 у общего перехватчика, и панель показывала data.error как есть.
+    heic.forUpload.mockImplementation(async (f: File) => f)
+    api.uploadPhoto.mockRejectedValue({ response: { status: 400, data: {
+      error: 'Не удалось перевести фото «IMG_0001.HEIC» из HEIC в JPEG: файл повреждён', code: 'heic', reason: 'unreadable', name: 'IMG_0001.HEIC',
+    } } })
+    const w = mountWithI18n(PreBorderPanel, { props: { caseId: 'c1', data: pb(), state: 'ready', audience: 'client' } })
+    try {
+      await setLocale('en')
+      w.findComponent(ZUpload).vm.$emit('select', [new File(['h'], 'IMG_0001.HEIC')])
+      await flushPromises()
+      expect(msg.error).toHaveBeenLastCalledWith(expect.stringContaining('Could not convert the photo IMG_0001.HEIC from HEIC to JPEG'))
+
+      await setLocale('kk')
+      w.findComponent(ZUpload).vm.$emit('select', [new File(['h'], 'IMG_0001.HEIC')])
+      await flushPromises()
+      expect(msg.error).toHaveBeenLastCalledWith(expect.stringContaining('IMG_0001.HEIC фотосын HEIC-тен JPEG-ке айналдыру мүмкін болмады'))
+      expect(msg.error.mock.calls.flat().join(' ')).not.toContain('файл повреждён')
+
+      // Прочие отказы 400 — текст сервера, как раньше.
+      api.uploadPhoto.mockRejectedValue({ response: { status: 400, data: { error: 'Не больше 30 фото погрузки' } } })
+      w.findComponent(ZUpload).vm.$emit('select', [new File(['j'], 'a.jpg', { type: 'image/jpeg' })])
+      await flushPromises()
+      expect(msg.error).toHaveBeenLastCalledWith('Не больше 30 фото погрузки')
+    } finally {
+      await setLocale('ru')
+      w.unmount()
+    }
   })
 
   it('ошибка загрузки — «Повторить»', async () => {

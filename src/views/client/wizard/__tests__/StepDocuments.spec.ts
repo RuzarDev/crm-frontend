@@ -276,10 +276,12 @@ describe('StepDocuments', () => {
     expect(row('contract').find('[data-doc-retry]').exists()).toBe(false)
     expect(row('contract').find('[data-doc-uploading]').exists()).toBe(false)
 
-    // Служба перевода недоступна (503) — можно повторить тот же файл.
-    api.uploadFile.mockRejectedValueOnce({ response: { status: 503, data: { error: 'по-русски', code: 'heic', name: 'IMG_0004.heic' } } })
+    // Служба перевода занята или недоступна (503) — «повторите позже» (не «сохраните в JPG») и тот же файл можно повторить.
+    api.uploadFile.mockRejectedValueOnce({ response: { status: 503, data: { error: 'по-русски', code: 'heic', reason: 'unavailable', name: 'IMG_0004.heic' } } })
     await pickFiles('origin', [new File(['x'], 'IMG_0004.heic', { type: 'image/heic' })])
-    expect(row('origin').get('[data-doc-error]').text()).toContain('IMG_0004.heic')
+    const busyText = row('origin').get('[data-doc-error]').text()
+    expect(busyText).toContain('Фото IMG_0004.heic не загружено: служба обработки фото сейчас занята или недоступна')
+    expect(busyText).not.toContain('Наиболее совместимый')
     expect(row('origin').find('[data-doc-retry]').exists()).toBe(true)
   })
 })

@@ -53,6 +53,7 @@ export default {
     uploadWrongType: 'This file type is not allowed: {name}',
     uploadTooBig: 'File is larger than {mb} MB: {name}',
     heicFailed: 'Could not convert the photo {name} from HEIC to JPEG. Save it as JPG (on iPhone: Settings → Camera → Formats → “Most Compatible”) and upload it again.',
+    heicUnavailable: 'The photo {name} was not uploaded: the photo processing service is busy or unavailable right now. The photo itself is fine — upload it again in a minute.',
     breadcrumbs: 'Breadcrumb',
     progress: 'Progress',
   },
