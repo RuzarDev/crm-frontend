@@ -208,6 +208,7 @@ const goodsEditorContext = computed<GoodsPageContext>(() => ({
   declProcedure: form.procedureCode || null,
   containerIndicator: !!form.containerIndicator,
   declarationId: dtId,
+  savedGoodsIds: dt.lastServerDto.value?.goodsItems?.map((g) => g.id) ?? null,
   senderName: form.sender?.name || null,
   senderCountryCode: form.sender?.countryCode || null,
 }))

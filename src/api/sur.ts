@@ -3,7 +3,8 @@ import apiClient from './client'
 // Прогноз СУР (очередь 4, задача 4): статистика коридоров по нашим ДТ и «цена ниже типичной» (GET /api/sur/stats).
 // Статистика по нашим ДТ, не прогноз таможни. Клиенту сервер отдаёт только доли, N и признак low; p25Kzt — сотрудникам.
 // Клиенту (аудит 22.10): свои ДТ в выборку не входят; при «мало данных» n и total — null; признак low — только для своего
-// товара своей ДТ (declarationId + goodsIndex), стоимость и вес сервер берёт из ДТ, а valueKzt/netKg/quantity игнорирует.
+// товара своей ДТ (declarationId + goodsId, без id — goodsIndex), стоимость и вес сервер берёт из ДТ, а valueKzt/netKg/quantity
+// игнорирует.
 
 export interface SurCorridorStatsDto {
   postCode: string | null
@@ -43,7 +44,9 @@ export interface SurStatsQuery {
   country?: string | null
   post?: string | null
   declarationId?: string | null
-  /** Позиция товара в ДТ (с 0, по порядку товаров): клиенту — по ней сервер берёт стоимость и вес своего товара. */
+  /** Id сохранённого товара ДТ: клиенту — по нему сервер берёт стоимость и вес своего товара (важнее goodsIndex). */
+  goodsId?: string | null
+  /** Позиция товара в ДТ (с 0, по порядку товаров) — запасной путь, когда id товара не известен. */
   goodsIndex?: number | null
   valueKzt?: number | null
   netKg?: number | null

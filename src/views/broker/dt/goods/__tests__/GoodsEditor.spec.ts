@@ -42,6 +42,7 @@ vi.mock('@/api/trois', async (orig) => ({ ...(await orig<typeof import('@/api/tr
 vi.mock('@/api/kedenProcedureLists', async (orig) => ({ ...(await orig<typeof import('@/api/kedenProcedureLists')>()), kedenProcedureListsApi: { get: vi.fn(async () => ({})) } }))
 
 import SectionGoods from '../SectionGoods.vue'
+import SurStatsHint from '@/components/sur/SurStatsHint.vue'
 
 const item = (o: Partial<Import40GoodsItemInput> = {}): Import40GoodsItemInput => ({
   description: 'СУМКИ ДЛЯ НОУТБУКОВ', tnvedCode: '4202121900', tnvedDescription: 'ЧЕМОДАНЫ', countryOfOrigin: '156', quantity: 300,
@@ -141,6 +142,20 @@ describe('GoodsEditor: каркас и навигация', () => {
     for (const g of ['33', '31', '41', '35', '38', '42', '34', '45', '46']) expect(scope.querySelector(`[data-graph="${g}"]`), g).not.toBeNull()
     // Смонтирован только открытый товар.
     expect(document.querySelectorAll('[data-goods-section="code"]')).toHaveLength(1)
+  })
+
+  it('подсказка СУР получает id сохранённого товара открытой строки (клиенту сервер сравнивает его, а не номер строки)', async () => {
+    const prev = page.value
+    page.value = { ...prev, declarationId: 'd1', savedGoodsIds: ['g-a', 'g-b'] }
+    try {
+      await mount([item({ description: 'A' }), item({ description: 'B' })], { query: '&item=2' })
+      const hint = w.findComponent(SurStatsHint)
+      expect(hint.props('declarationId')).toBe('d1')
+      expect(hint.props('goodsId')).toBe('g-b')
+      expect(hint.props('goodsIndex')).toBe(1)
+    } finally {
+      page.value = prev
+    }
   })
 
   it('↑/↓ в шапке и Alt+↑/↓ — соседний товар; в поле ввода Alt+↓ не перехватывается; на краях кнопки недоступны', async () => {

@@ -82,6 +82,19 @@ describe('SurStatsHint', () => {
     expect(api.stats.mock.calls[0][0].goodsIndex).toBeNull()
   })
 
+  it('prefers the saved goods id over the position (equal SortOrder could reorder lines)', async () => {
+    api.stats.mockResolvedValue({ data: STATS() })
+    await mount({ declarationId: 'd1', goodsId: 'g-2', goodsIndex: 1 })
+    const q = api.stats.mock.calls[0][0]
+    expect(q.goodsId).toBe('g-2')
+    expect(q.goodsIndex).toBeNull()
+    w.unmount()
+    api.stats.mockClear()
+    // Без ДТ id товара не отправляется.
+    await mount({ goodsId: 'g-2' })
+    expect(api.stats.mock.calls[0][0].goodsId).toBeNull()
+  })
+
   it('hides the whole block on 403 (role without access) and does not ask again for another code', async () => {
     api.stats.mockRejectedValue({ response: { status: 403 } })
     await mount()

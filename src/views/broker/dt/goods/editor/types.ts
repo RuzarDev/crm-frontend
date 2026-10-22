@@ -33,6 +33,10 @@ export interface GoodsPageContext {
   containerIndicator: boolean
   /** Id открытой ДТ — подсказка СУР берёт из неё пост и не считает её саму. */
   declarationId?: string | null
+  /** Id товаров последней загрузки ДТ с сервера, по позиции (как form.goodsItems): клиенту подсказка СУР сравнивает цену
+   *  сохранённого товара по id, а не по номеру строки. После локальных правок сотрудника может разойтись — сервер для
+   *  сотрудника id не использует. */
+  savedGoodsIds?: readonly string[] | null
   /** Гр. 2: отправитель и его страна — галочки импорта «производитель = отправитель» (В9) и «страна происхождения» (В8). */
   senderName?: string | null
   senderCountryCode?: string | null

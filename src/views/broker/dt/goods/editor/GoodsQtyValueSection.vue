@@ -218,7 +218,7 @@ const autoTag = 'absolute top-1/2 right-2 -translate-y-1/2'
 
     <GoodsTariffHint :item="item" :index="index" :model="model" :readonly="readonly" :ctx="ctx" />
     <!-- Коридоры по нашим ДТ и «цена ниже типичной» (СУР, очередь 4): подсказка, ничего не блокирует. Клиенту сервер
-         сравнивает цену по сохранённому товару (ДТ + позиция), значения полей не берёт. -->
+         сравнивает цену по сохранённому товару (ДТ + id товара, без id — позиция), значения полей не берёт. -->
     <SurStatsHint
       :code="item.tnvedCode"
       :country="item.countryOfOrigin"
@@ -227,6 +227,7 @@ const autoTag = 'absolute top-1/2 right-2 -translate-y-1/2'
       :quantity="item.quantity"
       :unit-code="item.unitCode"
       :declaration-id="ctx.declarationId"
+      :goods-id="ctx.savedGoodsIds?.[index] ?? null"
       :goods-index="index"
     />
   </div>
