@@ -264,7 +264,18 @@ export function fixCyrillicLookalikes(text: string): string {
 }
 
 /**
- * Описание гр. 31 из двуязычной ячейки (правка 2.4, 22.10.2026): есть и иероглифы, и кириллица — только русская часть.
+ * Русский текст, а не отдельные буквы в китайском описании (ревью 22.10: «螺丝 M6 1000шт/箱», «… марка 201J2», «… 号 с»):
+ * хотя бы два русских слова от трёх букв и кириллица — не меньше 30% букв (иероглифы и кириллица).
+ */
+function hasRussianText(s: string): boolean {
+  const words = s.match(/[а-яёәғқңөұүһі]{3,}/giu) ?? []
+  const cyr = (s.match(/[а-яёәғқңөұүһі]/giu) ?? []).length
+  const han = (s.match(/\p{Script=Han}/gu) ?? []).length
+  return words.length >= 2 && cyr >= 0.3 * (cyr + han)
+}
+
+/**
+ * Описание гр. 31 из двуязычной ячейки (правка 2.4, 22.10.2026): есть и иероглифы, и русский текст — только русская часть.
  * Строки с иероглифами без кириллицы выпадают; строка «中文。中文。 Русский текст» — без предложений с иероглифами;
  * строки без букв обоих письменностей (латиница, числа) — только после первой русской («Model "RC1001"»). Только
  * китайский или без иероглифов — как есть (перевода ИИ при импорте нет, решение владельца 21.10.2026).
@@ -272,7 +283,7 @@ export function fixCyrillicLookalikes(text: string): string {
 export function russianPart(text: string | null | undefined): string | null {
   const src = (text ?? '').trim()
   if (!src) return null
-  if (!hasHan(src) || !CYR_RE.test(src)) return src
+  if (!hasHan(src) || !CYR_RE.test(src) || !hasRussianText(src)) return src
   const kept: string[] = []
   let ruStarted = false
   const take = (piece: string) => {
@@ -305,21 +316,40 @@ export function russianPart(text: string | null | undefined): string | null {
 }
 
 const MODEL_QUOTED = '["“«„\'「『]([^"”»“\'」』\\n]{1,60})["”»“\'」』]'
-const MODEL_TOKEN = '([A-Za-zА-Яа-яЁё0-9][\\w\\-./+]*)'
-const MODEL_RU_EN = new RegExp(`(?<![\\p{L}])(?:модель|model(?:\\s*no\\.?)?)(?![\\p{L}])\\s*[:：№#]?\\s*(?:${MODEL_QUOTED}|${MODEL_TOKEN})`, 'iu')
-const MODEL_HAN = new RegExp(`型号\\s*[:：]?\\s*(?:${MODEL_QUOTED}|${MODEL_TOKEN})`, 'u')
+// Юникодный класс (ревью 22.10: `\w` в JS — только латиница, «ТП-100» обрезалось до «Т», «отсутствует» — до «о»).
+const MODEL_TOKEN = '([\\p{L}\\p{N}][\\p{L}\\p{N}_\\-./+]*)'
+const MODEL_RU_EN = new RegExp(`(?<![\\p{L}])(?:модель|model(?:\\s*no\\.?)?)(?![\\p{L}])\\s*[:：№#]?\\s*(?:${MODEL_QUOTED}|${MODEL_TOKEN})`, 'giu')
+const MODEL_HAN = new RegExp(`型号\\s*[:：]?\\s*(?:${MODEL_QUOTED}|${MODEL_TOKEN})`, 'gu')
 
 /**
- * Модель из описания (правка 2.3): «Model "RC1001"», «Модель: "CD1"», «"Модель YJJ-A-200"», «型号“RC1001”» → RC1001 / CD1 /
- * YJJ-A-200. Сначала русская и английская запись, затем 型号. Нет — null («ОТСУТСТВУЕТ» не ставится — его ставит
- * только документ, решение владельца 21.10.2026).
+ * Модель без кавычек — только похожая на обозначение (ревью 22.10: «модель автомобиля» → «А», «Model year 2024» → «YEAR»,
+ * «модель 2024 года» → «2024»): с цифрой, но не год и не масштаб «1:24»; латиница с дефисом («YJJ-A»); «отсутствует» —
+ * как в документе (решение владельца 21.10.2026). Обычное слово — не модель.
+ */
+function plainModel(token: string, after: string): string | null {
+  const t = token.replace(/[.,;:/+-]+$/, '')
+  if (/^отсутствует$/iu.test(t)) return t
+  if (/\d/.test(t)) {
+    if (/^(?:19|20)\d{2}$/.test(t) || /^\s*:\s*\d/.test(after)) return null
+    return /^\d+$/.test(t) && t.length < 3 ? null : t
+  }
+  return /^[A-Za-z]+(?:[-/.+][A-Za-z0-9]+)+$/.test(t) ? t : null
+}
+
+/**
+ * Модель из описания (правка 2.3): «Model "RC1001"», «Модель: "CD1"», «"Модель YJJ-A-200"», «型号“RC1001”», «Модель ТП-100»
+ * → RC1001 / CD1 / YJJ-A-200 / ТП-100. Сначала русская и английская запись, затем 型号; первая подходящая. Нет — null
+ * («ОТСУТСТВУЕТ» не выдумывается: только если так написано в документе, решение владельца 21.10.2026).
  */
 export function modelFromText(text: string | null | undefined): string | null {
   const s = (text ?? '').normalize('NFKC')
   for (const re of [MODEL_RU_EN, MODEL_HAN]) {
-    const m = re.exec(s)
-    const v = (m?.[1] ?? m?.[2] ?? '').replace(/[.,;:]+$/, '').trim()
-    if (v) return v
+    for (const m of s.matchAll(re)) {
+      const quoted = m[1]?.trim()
+      if (quoted) return quoted.replace(/[.,;:]+$/, '').trim() || null
+      const v = m[2] ? plainModel(m[2], s.slice((m.index ?? 0) + m[0].length)) : null
+      if (v) return v
+    }
   }
   return null
 }

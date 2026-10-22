@@ -3,6 +3,7 @@
 // мест с итогом документа; «2Consignee» старого разбора Zircon AI — не имя (правка 2.1); гр. 22 — сумма товаров (e2e-3).
 import { describe, expect, it } from 'vitest'
 import { goodsFromSheetRows, goodsSheetTotals } from '@/utils/goodsExcel'
+import { receiverAddressReplaced, withoutBankTail } from '../steps/documentsImport'
 import { applyExcelFallback, contractFrom, dateInText, docHeaderFrom, headerDocs, looksLikeLabel, placesCheckOf, type ExcelDoc } from '../steps/excelFallback'
 
 const INVOICE_ROWS: unknown[][] = [
@@ -96,5 +97,85 @@ describe('«Из документов» на этом наборе', () => {
     expect(r.receiverAddress).toContain('Aтырауская')
     // «Море» в заявке без номеров машины и CMR — транспортный документ не добавляется из документов (номера нет)
     expect(r.doc44Items.map((d) => d.docTypeCode)).toEqual(['04021', '04131', '03011'])
+  })
+})
+
+// Ревью 22.10 (волна правок 2): «№» контракта над инвойсом, номер на кириллице, договорная дата, «Attn» не адрес,
+// своя нераспознанная страна строки, страна разбора не в товары, реквизиты банка не в адрес гр. 8.
+describe('ревью 22.10: номер и дата инвойса, контракт', () => {
+  const head: unknown[][] = [
+    ['INVOICE'],
+    ['Контракт № 36/СМ-П/2026 от 26.01.2026'],
+    ['Invoice No: INV-5', 'Date: 05.02.2026'],
+  ]
+
+  it('«№» строки контракта — не номер инвойса; подпись инвойса главнее, дата — из соседней ячейки', () => {
+    const h = docHeaderFrom('inv.xlsx', head, ['№', 'Description'])
+    expect(h).toMatchObject({ kind: 'invoice', number: 'INV-5', date: '2026-02-05', numberLabeled: true, contractNumber: '36/СМ-П/2026', contractDate: '2026-01-26' })
+    const docs = headerDocs({ headers: [h, { ...h, kind: 'packing', number: null, date: null }], extras: { invoiceNumber: 'INV-5', invoiceDate: '2026-02-05' } as never })
+    expect(docs.map((d) => [d.docTypeCode, d.docNumber, d.docDate])).toEqual([
+      ['04021', 'INV-5', '2026-02-05'], ['04131', 'INV-5', '2026-02-05'], ['03011', '36/СМ-П/2026', '2026-01-26'],
+    ])
+  })
+
+  it('номер с кириллицей — целиком; первый «№» шапки без подписи и не как у Zircon AI — Zircon AI первым, как до пакета', () => {
+    const h = docHeaderFrom('inv.xlsx', [['СЧЁТ'], ['№ АБ-12/С от 01.02.2026']], ['№', 'Description'])
+    expect([h.number, h.date, h.numberLabeled]).toEqual(['АБ-12/С', '2026-02-01', false])
+    const docs = headerDocs({ headers: [{ ...h, kind: 'invoice' }], extras: { invoiceNumber: 'INV-9', invoiceDate: '2026-02-03' } as never })
+    expect(docs.map((d) => [d.docTypeCode, d.docNumber, d.docDate])).toEqual([['04021', 'INV-9', '2026-02-03']])
+    // тот же номер у Zircon AI — шапка Excel
+    expect(headerDocs({ headers: [{ ...h, kind: 'invoice' }], extras: { invoiceNumber: 'аб-12/с', invoiceDate: null } as never })[0])
+      .toMatchObject({ docNumber: 'АБ-12/С', docDate: '2026-02-01' })
+  })
+
+  it('договорная форма даты: «№ 5 от «26» января 2026 г.»', () => {
+    expect(contractFrom('№ 5 от «26» января 2026 г.')).toEqual({ number: '5', date: '2026-01-26' })
+    expect(contractFrom('C-12 от "05" марта 2025')).toEqual({ number: 'C-12', date: '2025-03-05' })
+    expect(dateInText('«1» мая 2025 г.')).toBe('2025-05-01')
+    const h = docHeaderFrom('inv.xlsx', [['Contract No.', 'C-12 от «26» января 2026 г.']], ['№'])
+    expect([h.contractNumber, h.contractDate]).toEqual(['C-12', '2026-01-26'])
+  })
+})
+
+describe('ревью 22.10: стороны и страна', () => {
+  it('строка без «Address:» — адрес, только если похожа на адрес («Attn», «USCC» — нет)', () => {
+    const h = docHeaderFrom('inv.xlsx', [['Seller:\nACME TEST LTD\nAttn: Mr. Test\nUSCC 913300000000000000']], ['№'])
+    expect([h.sellerName, h.sellerAddress]).toEqual(['ACME TEST LTD', null])
+    const h2 = docHeaderFrom('inv.xlsx', [['Seller:\nACME TEST LTD\nNo.1 Test Rd, Ningbo city, Zhejiang Province, China']], ['№'])
+    expect(h2.sellerAddress).toBe('No.1 Test Rd, Ningbo city, Zhejiang Province, China')
+  })
+
+  it('«MADE IN CHINA» не перезаписывает свою нераспознанную страну строки; страна разбора Zircon AI в товары не идёт', () => {
+    const rows: unknown[][] = [
+      ['Commercial Invoice'],
+      ['№', 'HS Code', 'Description', 'Country of origin', 'Amount'],
+      [1, 8425110000, 'Таль', 'VIET NAM', 100],
+      [2, 8425110000, 'Таль ручная', null, 50],
+      ['MADE IN CHINA'],
+    ]
+    const doc: ExcelDoc = {
+      fileName: 'inv.xlsx', goods: goodsFromSheetRows(rows, { details: true, countryResolver: () => null }),
+      header: docHeaderFrom('inv.xlsx', rows.slice(0, 1), rows[1], rows), rows,
+    }
+    const r = applyExcelFallback({ goodsItems: [] }, [doc], {})
+    expect(r.rows.map((x) => [x.countryCode, x.originText])).toEqual([[null, 'VIET NAM'], ['156', null]])
+    // без «MADE IN» в файле: страна разбора — только гр. 16
+    const noMade = { ...doc, rows: rows.slice(0, 4), header: docHeaderFrom('inv.xlsx', rows.slice(0, 1), rows[1], rows.slice(0, 4)) }
+    const r2 = applyExcelFallback({ goodsItems: [], originCountryCode: '156' }, [noMade], {})
+    expect(r2.rows.map((x) => x.countryCode)).toEqual([null, null])
+    expect(r2.preview.originCountryCode).toBe('156')
+  })
+
+  it('адрес получателя из документа — без банковских реквизитов', () => {
+    expect(withoutBankTail('ТУЗДЫБАСТАУ, УЛИЦА САРЫ-АРҚА, ИИК (ШОТТЫҢ НӨМІРІ): KZ00000A000000000000 БАНКТІҢ БСК (БИК): TESTKZKX'))
+      .toBe('ТУЗДЫБАСТАУ, УЛИЦА САРЫ-АРҚА')
+    expect(withoutBankTail('г. Алматы, ул. Банковская, 5, тел. +7 700')).toBe('г. Алматы, ул. Банковская, 5')
+    expect(withoutBankTail('г. Атырау, ул. Примерная, 12')).toBe('г. Атырау, ул. Примерная, 12')
+  })
+
+  it('адрес получателя заменил сервер (профиль клиента) — видно по созданной ДТ', () => {
+    const sent = { receiver: { name: 'ТОО «Х»', countryCode: '398', region: 'АТЫРАУСКАЯ ОБЛАСТЬ', city: 'АТЫРАУ', street: 'УЛ. ПРИМЕРНАЯ' } }
+    expect(receiverAddressReplaced(sent, { receiver: { ...sent.receiver } })).toBe(false)
+    expect(receiverAddressReplaced(sent, { receiver: { ...sent.receiver, city: 'АЛМАТЫ', street: 'АБАЯ 1' } })).toBe(true)
   })
 })

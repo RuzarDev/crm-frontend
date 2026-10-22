@@ -7,7 +7,7 @@ import { goodsFromSheetRows, goodsSheetTotals } from '@/utils/goodsExcel'
 import { fixCyrillicLookalikes, hanPlace, modelFromText, normalizeIncotermsPlace, parseForeignAddress, russianPart } from '@/utils/importText'
 import { blankCharacteristic } from '../editor/characteristics'
 import { okeiFromText, resetOkeiUnits } from '../editor/okei'
-import { docDateConflicts, dtDocsFromRows, extraHeaderDocs } from '../goodsImport'
+import { docDateConflicts, dtDocsFromRows, extraHeaderDocs, headerDocsForDt } from '../goodsImport'
 import { buildGoods, noteCount, noteDetails } from '../importBuild'
 import { matchExisting } from '../importMerge'
 import { emptyImportRow, type ImportRow } from '../importRows'
@@ -147,5 +147,87 @@ describe('гр. 44 импорта (e2e-4, e2e-5)', () => {
     }])
     expect(docDateConflicts([rowsWithDocs[0]], [])).toEqual([])
     expect(extraHeaderDocs(rowsWithDocs, header).map((d) => d.docTypeCode)).toEqual(['04131'])
+  })
+})
+
+// Ревью 22.10 (волна правок 2): модель без кавычек, русская часть, единицы с числом, документы шапок в ДТ с товарами.
+describe('ревью 22.10: модель из описания', () => {
+  it('кириллическая модель — целиком; «Модель отсутствует» — как в документе', () => {
+    expect(modelFromText('Трансформатор. Модель: ТП-100')).toBe('ТП-100')
+    expect(modelFromText('Трансформатор, модель ТП-100/10.')).toBe('ТП-100/10')
+    expect(modelFromText('Модель отсутствует')).toBe('отсутствует')
+  })
+
+  it('обычное слово, год и масштаб после «модель» — не модель', () => {
+    expect(modelFromText('Model year 2024')).toBeNull()
+    expect(modelFromText('Компрессор, модель 2024 года')).toBeNull()
+    expect(modelFromText('Сборная модель самолета, пластик')).toBeNull()
+    expect(modelFromText('Игрушка: модель автомобиля масштаб 1:24')).toBeNull()
+    expect(modelFromText('Модель 1:24')).toBeNull()
+    // первое «модель» — слово, второе — обозначение
+    expect(modelFromText('Модель и цвет в ассортименте. Model RC-7')).toBe('RC-7')
+    expect(modelFromText('Таль. Model YJJ-A')).toBe('YJJ-A')
+  })
+
+  it('товар ДТ: «Модель отсутствует» → «ОТСУТСТВУЕТ», «модель автомобиля» → пусто', () => {
+    const b = buildGoods([
+      row({ description: 'Насос. Модель отсутствует', tnvedCode: '8413702100' }),
+      row({ description: 'Игрушка: модель автомобиля масштаб 1:24', tnvedCode: '9503007000' }),
+    ], { currency: 'USD', packageKinds: [], resolved: resolved({ '8413702100': '796', '9503007000': null }) })
+    expect(b.goods.map((g) => g.characteristics?.[0]?.productModelName ?? null)).toEqual(['ОТСУТСТВУЕТ', null])
+  })
+})
+
+describe('ревью 22.10: русская часть — только из русского текста', () => {
+  it('отдельные буквы и одно слово в китайском описании — описание как есть (с замечанием «нужен перевод»)', () => {
+    expect(russianPart('螺丝 M6 1000шт/箱')).toBe('螺丝 M6 1000шт/箱')
+    expect(russianPart('不锈钢板，冷轧。марка 201J2')).toBe('不锈钢板，冷轧。марка 201J2')
+    expect(russianPart('女士外套（面料：100%棉）规格 XL 号 с')).toBe('女士外套（面料：100%棉）规格 XL 号 с')
+    // русский текст есть — как раньше, только он
+    expect(russianPart('不锈钢板，冷轧。\nЛист стальной холоднокатаный, марка 201J2')).toBe('Лист стальной холоднокатаный, марка 201J2')
+  })
+})
+
+describe('ревью 22.10: единица из двуязычной ячейки', () => {
+  it('число и «тыс.» в ячейке — не единица; разные единицы в частях — не угадываем', () => {
+    expect(okeiFromText('1000 PCS')).toBeNull()
+    expect(okeiFromText('10 шт')).toBeNull()
+    expect(okeiFromText('100 шт')).toBeNull()
+    expect(okeiFromText('тыс. шт')).toBeNull()
+    expect(okeiFromText('台\nkg')).toBeNull()
+    expect(okeiFromText('米 m')).toBe('006')
+    expect(okeiFromText('1 шт')).toBe('796')
+    expect(okeiFromText('台\nшт')).toBe('796')
+  })
+})
+
+describe('ревью 22.10: документы шапок «Из Excel» в ДТ с товарами', () => {
+  const header = [
+    { docTypeCode: '04021', docNumber: 'INV-B', docDate: '2026-09-21', appliesToAll: true, goodsItemIndexes: null },
+    { docTypeCode: '04131', docNumber: 'INV-B', docDate: '2026-09-21', appliesToAll: true, goodsItemIndexes: null },
+    { docTypeCode: '03011', docNumber: 'C-1', docDate: '2026-02-02', appliesToAll: true, goodsItemIndexes: null },
+  ] as never[]
+
+  it('в ДТ был товар инвойса A, «Добавить» инвойс B — документы B привязаны к новым товарам, а не ко всем', () => {
+    const existing = [{ docTypeCode: '04021', docNumber: 'INV-A', docDate: '2026-09-01', appliesToAll: true, goodsItemIndexes: null }] as never[]
+    // товар 0 — из инвойса A; импорт добавил товары 1 и 2 (targetIndex applyMerge)
+    const docs = headerDocsForDt([row({}), row({})], header, existing, [1, 2])
+    expect(docs.map((d) => [d.docTypeCode, d.docNumber, d.appliesToAll, d.goodsItemIndexes])).toEqual([
+      ['04021', 'INV-B', false, '1,2'], ['04131', 'INV-B', false, '1,2'], ['03011', 'C-1', false, '1,2'],
+    ])
+  })
+
+  it('пустая ДТ — «для всех товаров», как раньше; контракт в ДТ уже есть — 03011 не пишется', () => {
+    expect(headerDocsForDt([row({})], header, [], null).map((d) => [d.docTypeCode, d.appliesToAll])).toEqual([
+      ['04021', true], ['04131', true], ['03011', true],
+    ])
+    const withContract = [{ docTypeCode: '03011', docNumber: 'C-0', docDate: null }] as never[]
+    expect(headerDocsForDt([row({})], header, withContract, null).map((d) => d.docTypeCode)).toEqual(['04021', '04131'])
+  })
+
+  it('тот же документ уже есть в ДТ с другой датой (старая строка) — без второй строки: товары дописываются к ней', () => {
+    const existing = [{ docTypeCode: '04131', docNumber: 'inv b', docDate: '2026-02-02', appliesToAll: false, goodsItemIndexes: '0' }] as never[]
+    const docs = headerDocsForDt([row({})], header, existing, [0, 1])
+    expect(docs.find((d) => d.docTypeCode === '04131')).toMatchObject({ docNumber: 'INV-B', docDate: '2026-02-02', goodsItemIndexes: '0,1' })
   })
 })

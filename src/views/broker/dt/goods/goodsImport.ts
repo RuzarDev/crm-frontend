@@ -143,6 +143,29 @@ export function extraHeaderDocs(rows: readonly ImportRow[], headerDocs: readonly
   return headerDocs.filter((d) => !inRows.has(docKey(d.docTypeCode, d.docNumber)))
 }
 
+/**
+ * Документы шапок файлов «Из Excel» → строки гр. 44 этой ДТ (ревью 22.10):
+ * - контракт 03011 — только если в ДТ контракта ещё нет (его ставит заявка);
+ * - документ с тем же кодом и номером уже есть в ДТ (дата любая — старые строки бывают без даты или с датой контракта) —
+ *   новая строка не добавляется: товары этого импорта дописываются к ней (appendDocs по коду, номеру и её дате);
+ * - в ДТ уже были товары (goods — позиции товаров этого импорта) — документы привязываются к ним, а не «ко всем товарам»:
+ *   инвойс B не попадёт в XML под товарами инвойса A. ДТ была пуста (goods = null) — «для всех товаров», как раньше.
+ */
+export function headerDocsForDt(
+  rows: readonly ImportRow[], headerDocs: readonly Import40Doc44ItemInput[], existing: readonly Import40Doc44ItemInput[],
+  goods: readonly number[] | null,
+): Import40Doc44ItemInput[] {
+  const hasContract = existing.some((d) => d.docTypeCode === '03011')
+  const indexes = goods ? [...new Set(goods)].sort((a, b) => a - b).join(',') : null
+  return extraHeaderDocs(rows, headerDocs)
+    .filter((d) => !(hasContract && d.docTypeCode === '03011'))
+    .map((d) => {
+      const own = indexes != null ? { ...d, appliesToAll: false, goodsItemIndex: null, goodsItemIndexes: indexes } : d
+      const same = existing.find((x) => docKey(x.docTypeCode, x.docNumber) === docKey(d.docTypeCode, d.docNumber))
+      return same ? { ...own, docDate: same.docDate ?? null } : own
+    })
+}
+
 export function excelPreview(rows: readonly ImportRow[], built: BuildResult, headerDocs: readonly Import40Doc44ItemInput[] = []): DtExcelPreview {
   const count = (pick: (r: ImportRow) => unknown) => rows.filter((r) => has(pick(r))).length
   const goods = built.goods

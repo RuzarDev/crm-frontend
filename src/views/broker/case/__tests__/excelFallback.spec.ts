@@ -9,7 +9,7 @@ const HEAD_ROWS = [
   ['INVOICE / ИНВОЙС / 形式发票'],
   ['№ UR0910     Дата / 日期: 10.09.2026'],
   ['卖方 / Продавец (Seller):\nYiwu Test Trading Firm\nAddress: Room 7, Block B, Jiang Street, Yiwu City, Zhejiang Province, China\nTel: +86 000', null,
-    '买方 / Покупатель (Buyer):\nКомпания ТОО "Test Distribution"\nАдрес: Алматы\nБИН(ИИН): 220940001302'],
+    '买方 / Покупатель (Buyer):\nКомпания ТОО "Test Distribution"\nАдрес: Алматы\nБИН(ИИН): 123456789012'],
   ['Условия поставки / 交货条件: CIF ALMATY, KAZAKHSTAN (Incoterms® 2020)   Транспорт: CMR'],
 ]
 const INV_HEAD = ['№', 'HS Code / ТН ВЭД', '货号 Артикул', '品名 Наименование', 'pcs/ctn', '件数 Cartons', '总数量 Кол-во', '单价 USD Цена', '金额 USD Сумма', 'G.W/ctn (kg)', '总毛重 TTL G.W(kg)']
@@ -33,7 +33,7 @@ describe('excelFallback: инвойс и упаковочный лист пос�
     expect(invoice.header).toMatchObject({
       kind: 'invoice', number: 'UR0910', date: '2026-09-10', incoterms: 'CIF', incotermsPlace: 'АЛМАТЫ',
       sellerName: 'Yiwu Test Trading Firm', sellerAddress: 'Room 7, Block B, Jiang Street, Yiwu City, Zhejiang Province, China',
-      buyerName: 'ТОО "Test Distribution"', buyerBin: '220940001302', currency: 'USD', contractNumber: null, originText: null,
+      buyerName: 'ТОО "Test Distribution"', buyerBin: '123456789012', currency: 'USD', contractNumber: null, originText: null,
     })
     expect(packing.header.kind).toBe('packing')
   })
@@ -68,7 +68,7 @@ describe('excelFallback: инвойс и упаковочный лист пос�
       currency: 'USD', incoterms: 'CIF', incotermsPlace: 'АЛМАТЫ', totalInvoiceValue: 3102, declarationNumber: null,
       sender: { name: 'Yiwu Test Trading Firm' }, receiver: { name: 'ТОО "Test Distribution"' },
     })
-    expect(r.receiverBin).toBe('220940001302')
+    expect(r.receiverBin).toBe('123456789012')
     expect(r.senderAddress).toContain('Room 7')
     expect(r.preview.arrivalTransportNumbers).toEqual([
       { number: '184AFR19', typeCode: null, isTrailer: false, headNumber: null },

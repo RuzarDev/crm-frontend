@@ -86,6 +86,28 @@ export async function resolveSender(name: string | null | undefined, address: st
   return { party, shortName: full.slice(0, SHORT_NAME_MAX), district: addr?.district ?? null, house: addr?.house ?? null, apt: addr?.apt ?? null }
 }
 
+/** Начало банковских реквизитов или контактов в адресе стороны (как normalize._BANK_TAIL Zircon AI). */
+const BANK_TAIL = /(?:^|[\s,;(])(?:ИИК|IBAN|БИК|БСК|SWIFT|банк(?!овск)[\p{L}]*|bank\b|р\/с|тел\b|тел\.|tel\b|tel\.|phone|e-?mail)|(?<![A-Z0-9])KZ\d{2}[0-9A-Z]{16}/iu
+
+/** Адрес без хвоста реквизитов: «…, УЛИЦА САРЫ-АРҚА, ИИК: KZ49… БИК: …» → «…, УЛИЦА САРЫ-АРҚА». */
+export function withoutBankTail(address: string): string {
+  const m = BANK_TAIL.exec(address)
+  return (m ? address.slice(0, m.index) : address).replace(/[\s,;]+$/, '').trim()
+}
+
+/**
+ * Адрес получателя созданной ДТ — не тот, что прислан (сервер взял адрес профиля компании клиента, В17): замечание «адрес
+ * по БИН из реестра» тогда неверно (ревью 22.10).
+ */
+export function receiverAddressReplaced(
+  sent: Pick<Import40DeclarationUpsert, 'receiver'>, created: Pick<Import40DeclarationDto, 'receiver'>,
+): boolean {
+  const n = (v: string | null | undefined) => (v ?? '').trim().toLocaleUpperCase('ru-RU')
+  const a = sent.receiver
+  const b = created.receiver
+  return !!a && !!b && (n(a.region) !== n(b.region) || n(a.city) !== n(b.city) || n(a.street) !== n(b.street))
+}
+
 /**
  * Получатель гр. 8 по БИН из документов (правка 2.1, 22.10.2026): адрес — из ГБД ЮЛ (data.egov.kz, тот же поиск, что
  * «Найти по БИН» на странице ДТ); реестр не ответил — разбор адреса из документа (латиница-двойник в русских словах
@@ -105,9 +127,10 @@ export async function resolveReceiverAddress(
       if (address) notes.push({ key: 'receiverByBin', params: { bin } })
     } catch { /* реестр недоступен или БИН не найден — адрес из документа */ }
   }
-  // Адрес из документа: «…область г.Атырау» без запятой перед городом, «почтовый индекс 060000» — не часть адреса гр. 8.
+  // Адрес из документа: «…область г.Атырау» без запятой перед городом, «почтовый индекс 060000» — не часть адреса гр. 8,
+  // банковские реквизиты и контакты («ИИК: KZ…», «БИК», «Тел») — тоже (ревью 22.10: попадали в улицу гр. 8).
   if (!address && docAddress) {
-    address = fixCyrillicLookalikes(docAddress)
+    address = fixCyrillicLookalikes(withoutBankTail(docAddress))
       .replace(/,?\s*(?:почтовый\s+)?индекс\s*:?\s*\d{6}/giu, '')
       .replace(/([^,\s])\s+(?=(?:г\.|город\s))/giu, '$1, ')
   }
@@ -170,7 +193,7 @@ export async function prepareDocumentsDeclaration(
   const unknownPackaging = noteDetails(built.notes, 'unknownPackaging')
   if (unknownPackaging.length) notes.push({ key: 'unknownPackaging', params: { list: unknownPackaging.join(', ') } })
   if (excel.conflicts.length) notes.push({ key: 'docsConflicts', params: { n: excel.conflicts.length } })
-  // Места текстом неоднозначны (коробки и поддон) — пусто, декларант укажет; итог мест документа не сошёлся (2.5).
+  // Места текстом неоднозначны (коробки на поддоне, несколько чисел) — пусто, декларант укажет; итог мест не сошёлся (2.5).
   const ambiguous = noteDetails(built.notes, 'placesAmbiguous')
   if (ambiguous.length) {
     notes.push({ key: 'placesAmbiguous', params: { n: noteCount(built.notes, 'placesAmbiguous'), list: ambiguous.slice(0, 3).map((v) => `«${v}»`).join('; ') } })

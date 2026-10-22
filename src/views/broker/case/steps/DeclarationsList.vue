@@ -28,7 +28,7 @@ import ExtractionIssuesModal from './ExtractionIssuesModal.vue'
 import ExtractDocsModal from './ExtractDocsModal.vue'
 import CopyDtModal from './CopyDtModal.vue'
 import { docHeaderFrom, type ExcelDoc } from './excelFallback'
-import { prepareDocumentsDeclaration, receiverIsClient, type DocumentsNote } from './documentsImport'
+import { prepareDocumentsDeclaration, receiverAddressReplaced, receiverIsClient, type DocumentsNote } from './documentsImport'
 import { goodsHeaderColumns, readExcelDocuments } from '@/utils/goodsExcel'
 import { countryFromText } from '@/utils/importText'
 import { useClassifiersStore } from '@/stores/classifiers'
@@ -285,10 +285,12 @@ const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
       || props.ctx.files.some((f) => fileIds.includes(f.id) && (f.docKind === 'cmr' || /cmr/i.test(f.originalFileName)))
     const prepared = await prepareDocumentsDeclaration(result, docs, kase.value, packageKinds, { docKindNames, cmrInBatch })
     usedExcel = prepared.usedExcelGoods
-    extraWarnings = prepared.notes.map(noteText)
     stage = 'create'
     const created = await import40Api.createDeclaration(caseId, prepared.body)
     createdId = created.id
+    // Сервер взял адрес получателя из профиля компании клиента — «адрес из реестра по БИН» не показываем (ревью 22.10).
+    const profileAddress = receiverAddressReplaced(prepared.body, created)
+    extraWarnings = prepared.notes.filter((n) => !(profileAddress && n.key === 'receiverByBin')).map(noteText)
     // Получатель из документов не совпал с компанией клиента — сервер не взял поля профиля (В17): предупредить. Тем же
     // правилом, что сервер (БИН, без БИН — название); нет профиля клиента — не с чем сравнить, без предупреждения.
     if (prepared.receiverName && receiverIsClient(created) === false) {

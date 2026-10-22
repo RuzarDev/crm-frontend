@@ -13,7 +13,9 @@
 // - поддон вместе с коробками (и другими) — неоднозначно (коробки могут стоять на поддоне): null и ambiguous —
 //   декларант укажет сам; одного вида — сумма («2 паллеты + 1 паллета» → 3);
 // - русская, китайская и английская части разбираются отдельно; разные числа — неоднозначно;
-// - текст без слов места — одно число («12», «12 ctns») или неоднозначно (несколько чисел, «1 партия»).
+// - текст без слов места: одно число — оно («12», «12 ctns», «120 рулонов», «12 шт» — как раньше excelToNum); несколько
+//   чисел, «№ 5» или «1 партия» — неоднозначно;
+// - числа с разрядами («1 044», «1,044», «共1,044箱») — одно число (ревью 22.10: пара брала последнюю группу — 44).
 
 export interface PlacesResult {
   /** Места; null — нет или неоднозначно. */
@@ -33,13 +35,14 @@ const RU_NUM: Record<string, number> = {
 }
 const HAN_DIGIT: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 }
 
+// сокращения упаковочных листов: «12 кор.», «15 ящ.», «10 палл.», «3 меш.», «5 уп.» (ревью 22.10)
 const RU_WORDS: [string, Kind][] = [
-  ['ящик[а-яё]*|короб[а-яё]*', 'box'],
-  ['палл?ет[а-яё]*|поддон[а-яё]*', 'pallet'],
-  ['меш(?:ок|к[а-яё]*)', 'bag'],
+  ['ящик[а-яё]*|короб[а-яё]*|кор\\.?|ящ\\.?', 'box'],
+  ['палл?ет[а-яё]*|поддон[а-яё]*|пал+\\.?', 'pallet'],
+  ['меш(?:ок|к[а-яё]*)|меш\\.?', 'bag'],
   ['мест(?:о|а|ах|ами)?', 'place'],
   ['тюк[а-яё]*|кип[а-яё]*|боч(?:ка|ки|ек|ку|ком|ками|ках)|бочон[а-яё]*|канистр[а-яё]*|связ(?:ка|ки|ок|ку)'
-    + '|пач(?:ка|ки|ек|ку)|упаков(?:ка|ки|ок|ку)|барабан[а-яё]*', 'other'],
+    + '|пач(?:ка|ки|ек|ку)|упаков(?:ка|ки|ок|ку)|уп\\.?|барабан[а-яё]*', 'other'],
 ]
 const EN_WORDS: [string, Kind][] = [
   ['cartons?|ctns?|box(?:es)?|cases?|crates?', 'box'],
@@ -107,19 +110,34 @@ function decide(pairs: Pair[]): PlacesResult {
   return { value: pairs.reduce((s, p) => s + p.n, 0), ambiguous: false }
 }
 
-/** Одно число, можно с латинской единицей («12 ctns»); русские слова — только парами («1 партия» — не место). */
-const NUM_ONLY = /^\s*(\d+(?:[.,]\d+)?)\s*[a-z.]{0,8}\s*$/i
+/** Одно число, можно с латинской единицей («12 ctns», «120 (CTNS)»); русские слова — парами или одним числом ниже. */
+const NUM_ONLY = /^\s*(\d+(?:[.,]\d+)?)\s*[([]?\s*[a-z.]{0,8}\s*[)\]]?\s*$/i
+/**
+ * «1 044», «1,044», «1 200 CTNS» — разряды одного числа: без этого пара «число + слово» брала последнюю группу
+ * («1 044 CTNS» → 44). Запятая с ровно тремя цифрами после — разряды (мест дробными не бывает); «1,044.00» → 1044.00.
+ */
+const GROUPED = /(?<![\d.,])\d{1,3}(?:[ \u00a0\u202f,]\d{3})+(?!\d|,\d)/g
+const ungroup = (s: string) => s.replace(GROUPED, (m) => m.replace(/[ \u00a0\u202f,]/g, ''))
+/** Число без слова места: «1 партия», «1 lot» — не место; «№ 5» (после NFKC — «No 5»), «# 5» — номер места. */
+const NUMBER = /(?<![A-Za-zА-Яа-яЁё\d.,])\d+(?:[.,]\d+)?(?!\d)/g
+const NOT_PLACES = /парти|\blots?\b|\bbatch|批|(?:[№#]|\bno\.?)\s*\d/i
 
 /** Места из ячейки: число как есть, текст — по правилу модуля. */
 export function placesFromText(v: unknown): PlacesResult {
   if (v == null || typeof v === 'boolean') return { value: null, ambiguous: false }
   if (typeof v === 'number') return { value: Number.isFinite(v) ? v : null, ambiguous: false }
-  const s = String(v).normalize('NFKC').replace(/ /g, ' ').trim()
+  const s = ungroup(String(v).normalize('NFKC').replace(/[\u00a0\u202f]/g, ' ').trim())
   if (!s) return { value: null, ambiguous: false }
   const num = NUM_ONLY.exec(s)
   if (num) return { value: parseFloat(num[1].replace(',', '.')), ambiguous: false }
   const results = [pairsRu(s), pairsHan(s), pairsEn(s)].filter((p) => p.length).map(decide)
-  if (!results.length) return { value: null, ambiguous: /\d/.test(s) }
+  if (!results.length) {
+    // слов места нет: одно число — оно («120 рулонов», «12 шт», «3 бухты» — как раньше excelToNum); несколько чисел,
+    // «№ 3 и № 4», «1 партия» — не угадываем
+    const nums = s.match(NUMBER) ?? []
+    if (nums.length === 1 && !NOT_PLACES.test(s)) return { value: parseFloat(nums[0].replace(',', '.')), ambiguous: false }
+    return { value: null, ambiguous: /\d/.test(s) }
+  }
   if (results.some((r) => r.ambiguous)) return { value: null, ambiguous: true }
   if (new Set(results.map((r) => r.value)).size > 1) return { value: null, ambiguous: true }
   return results[0]

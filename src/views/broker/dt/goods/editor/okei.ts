@@ -89,14 +89,15 @@ export function okeiFromText(text: string | null | undefined): string | null {
   const whole = okeiOne(raw)
   if (whole) return whole
   // Двуязычная единица «台 ⏎ шт», «件/pcs», «米 m» (инвойс 39th, 22.10.2026): целиком не узнана — каждая часть по
-  // отдельности, первая узнанная («Квадратный метр» узнаётся целиком и на «метр» не распадается).
+  // отдельности («Квадратный метр» узнаётся целиком и на «метр» не распадается). Ревью 22.10: в ячейке с числом
+  // («1000 PCS», «10 шт» — количество, а не единица) и с «тыс.» («тыс. шт» — 798, а не 796) части не разбираются; части
+  // назвали разные единицы — не угадываем.
   const parts = raw.split(/[\n\r/|]+|\s+/).map((p) => p.trim()).filter(Boolean)
   if (parts.length < 2) return null
-  for (const p of parts) {
-    const code = okeiOne(p)
-    if (code) return code
-  }
-  return null
+  if (parts.some((p) => /^\d+(?:[.,]\d+)?$/.test(p) && Number(p.replace(',', '.')) !== 1)) return null
+  if (parts.some((p) => /^(?:тыс|thousands?|千|万|млн|mln)\.?$/i.test(p))) return null
+  const codes = new Set(parts.filter((p) => !/^\d+$/.test(p)).map(okeiOne).filter((c): c is string => !!c))
+  return codes.size === 1 ? [...codes][0] : null
 }
 
 function okeiOne(raw: string): string | null {

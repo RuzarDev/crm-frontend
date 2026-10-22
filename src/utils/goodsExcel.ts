@@ -248,10 +248,13 @@ function excelLineNo(v: unknown): number | null {
   return Number.isInteger(n) && n > 0 && n < 100000 ? n : null
 }
 
-/** Места: число или «1 044» — числом; текст со словами — placesFromText (правило одно с Zircon AI). */
+/**
+ * Места: число из ячейки — как есть; текст — placesFromText (правило одно с Zircon AI): «1 044» и «1,044» — 1044 (мест
+ * дробными не бывает; excelToNum дал бы 1.044), «1 200 CTNS» — 1200, слова — по правилу модуля.
+ */
 function excelPlaces(v: unknown): { value: number | null; ambiguous: boolean } {
   if (v == null || v === '') return { value: null, ambiguous: false }
-  if (typeof v !== 'string' || /^[\d\s.,]+$/.test(v.trim())) return { value: excelToNum(v), ambiguous: false }
+  if (typeof v !== 'string') return { value: excelToNum(v), ambiguous: false }
   return placesFromText(v)
 }
 

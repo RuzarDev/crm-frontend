@@ -537,6 +537,10 @@ describe('DeclarationsList: «Из документов»', () => {
     mount(USERS.declarant)
     const files = await pick(['new.xlsx'], ['f1', 'f2'])
     expect(api.extractBatch).toHaveBeenCalledWith('c1', files, ['f1', 'f2'])
+    // .xlsx читается в браузере (настоящий импорт xlsx) — дождаться конца конвейера, иначе его проверка кодов попадёт в
+    // счётчики следующего теста (под нагрузкой).
+    await vi.waitFor(() => expect(api.createDeclaration).toHaveBeenCalled(), { timeout: 5000 })
+    await flushPromises()
   })
 
   it('без замечаний: извлечение, создание ДТ из предпросмотра, тост и сразу переход к ДТ', async () => {

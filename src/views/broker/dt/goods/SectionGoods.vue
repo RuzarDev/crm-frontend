@@ -24,7 +24,7 @@ import GoodsEditor from './editor/GoodsEditor.vue'
 import { emptyGoodsPageContext, type GoodsEditorContext, type GoodsPageContext, type GoodsSaveState } from './editor/types'
 import type { BulkPatch } from './goodsBulk'
 import { exportGoodsXlsx } from './goodsExport'
-import { dtDocsFromRows, extraHeaderDocs } from './goodsImport'
+import { dtDocsFromRows, headerDocsForDt } from './goodsImport'
 import { buildGoods, DEFAULT_ORIGIN_DEFAULT, SENDER_AS_MANUFACTURER_DEFAULT } from './importBuild'
 import { applyMerge, mergeImportDocs, planMerge, type MergeMode, type MergeResult } from './importMerge'
 import { resolveCodes, type ResolveResult } from './importResolve'
@@ -326,9 +326,9 @@ const applyImport = () => {
   const mode: MergeMode = items.value.length ? importMode.value : 'append'
   const snap = props.model.snapshot()
   const res = applyMerge(props.model, built.goods, plan, mode)
-  // Гр. 44: документы строк (шаблон) и шапок файлов; контракт из шапки — если в ДТ контракта ещё нет (его ставит заявка).
-  const hasContract = snap.doc44.some((d) => d.docTypeCode === '03011')
-  const fromHeaders = extraHeaderDocs(merged.rows, importHeaderDocs.value).filter((d) => !(hasContract && d.docTypeCode === '03011'))
+  // Гр. 44: документы строк (шаблон) и шапок файлов (headerDocsForDt): в ДТ с товарами — привязаны к товарам этого импорта,
+  // уже есть такой документ — без второй строки; контракт из шапки — если в ДТ контракта ещё нет (его ставит заявка).
+  const fromHeaders = headerDocsForDt(merged.rows, importHeaderDocs.value, snap.doc44, snap.objects.length ? res.targetIndex : null)
   const docs = props.model.appendDocs([...dtDocsFromRows(merged.rows, (i) => res.targetIndex[i], docKindNames.value), ...fromHeaders])
   excelOpen.value = false
   const content = res.updated

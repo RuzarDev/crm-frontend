@@ -36,6 +36,11 @@ export interface ExcelDocHeader {
   contractDate?: string | null
   /** Страна происхождения документа текстом («MADE IN CHINA» под таблицей). */
   originText?: string | null
+  /**
+   * Номер взят из ячейки с подписью инвойса («⑧Invoice NO.&Date», «Invoice No:»), а не из первого «№» шапки: только такой
+   * номер главнее разбора Zircon AI (ревью 22.10 — первый «№» шапки часто номер контракта).
+   */
+  numberLabeled?: boolean
 }
 
 export interface ExcelDoc {
@@ -108,7 +113,14 @@ function valueOf(cells: readonly PosCell[], cell: PosCell, lineAt: number, label
 }
 
 const ADDRESS_LINE = /^(?:address|add|адрес|地址)\s*[:：]?\s*/i
-const STOP_LINE = /^(?:tel|phone|fax|e-?mail|тел|телефон|whatsapp|wechat|电话)\b/i
+// Контакты и реквизиты — не адрес (ревью 22.10: «Attn: Mr. Wang», «USCC 9133…» становились адресом гр. 2). Как у Zircon AI
+// (generic._STOP_LINE).
+const STOP_LINE = /^(?:tel|phone|fax|e-?mail|тел|телефон|контакт|whatsapp|wechat|电话|contact|attn|attention|uscc|vat|tax\s*id|统一社会信用代码)(?![\p{L}])/iu
+/**
+ * Строка без метки «Address:» похожа на адрес: страна, город, провинция, улица, дом/офис (как generic._ADDRESS_LIKE Zircon
+ * AI). Иначе это не адрес — лучше пусто, чем «Attn: …» в гр. 2.
+ */
+const ADDRESS_LIKE = /\b(?:city|province|district|county|country|street|str|road|rd|avenue|ave|building|bldg|room|floor|zone|town|village|china|p\.?\s?r\.?\s?c|kazakhstan|uzbekistan|russia|turkey|korea|india|germany)\b|[省市区县路街号]|город|г\.|ул\.|улиц|област|район|проспект|пр-т|мкр|микрорайон|дом(?![а-яё])|казахстан|китай/iu
 const BIN_RE = /(?:БИН|ИИН|BIN)[^0-9]{0,12}(\d{12})/i
 
 /** Сторона из ячейки: первая строка — имя, «БИН …» — БИН, «Address/Add/Адрес …» — адрес, без метки — строка после имени. */
@@ -122,7 +134,8 @@ function partyOf(cells: readonly PosCell[], label: RegExp, unlabeledAddress: boo
     const rest = lines.slice(1)
     const bin = BIN_RE.exec(lines.join('\n'))?.[1] ?? null
     const labeled = rest.find((l) => ADDRESS_LINE.test(l))
-    const plain = unlabeledAddress ? rest.find((l) => !BIN_RE.test(l) && !STOP_LINE.test(l)) : undefined
+    const first = unlabeledAddress ? rest.find((l) => !BIN_RE.test(l)) : undefined
+    const plain = first && !STOP_LINE.test(first) && ADDRESS_LIKE.test(first) ? first : undefined
     const address = (labeled ?? plain)?.replace(ADDRESS_LINE, '').trim() || null
     if (name) return { name, address, bin }
   }
@@ -133,13 +146,22 @@ const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5,
 const iso = (y: number, m: number, d: number) =>
   y > 1900 && m >= 1 && m <= 12 && d >= 1 && d <= 31 ? `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null
 
-/** Дата в тексте: «10.09.2026», «2026-09-10», «September,21, 2026», «21 Sep 2026» → 'YYYY-MM-DD'; нет — null. */
+const RU_MONTHS: Record<string, number> = {
+  янв: 1, фев: 2, мар: 3, апр: 4, мая: 5, май: 5, июн: 6, июл: 7, авг: 8, сен: 9, окт: 10, ноя: 11, дек: 12,
+}
+
+/**
+ * Дата в тексте: «10.09.2026», «2026-09-10», ««26» января 2026 г.» (договорная форма, ревью 22.10), «September,21, 2026»,
+ * «21 Sep 2026» → 'YYYY-MM-DD'; нет — null. Как parse_date Zircon AI.
+ */
 export function dateInText(text: string): string | null {
   const s = text.normalize('NFKC')
   let m = /(?<!\d)(\d{1,2})[./-](\d{1,2})[./-](\d{4})(?!\d)/.exec(s)
   if (m) return iso(+m[3], +m[2], +m[1])
   m = /(?<!\d)(\d{4})[./-](\d{1,2})[./-](\d{1,2})(?!\d)/.exec(s)
   if (m) return iso(+m[1], +m[2], +m[3])
+  m = /(?<!\d)[«"“„']?\s*(\d{1,2})\s*[»"”“']?\s+(январ[а-яё]*|феврал[а-яё]*|март[а-яё]*|апрел[а-яё]*|ма[яй]|июн[а-яё]*|июл[а-яё]*|август[а-яё]*|сентябр[а-яё]*|октябр[а-яё]*|ноябр[а-яё]*|декабр[а-яё]*)\s+(\d{4})/iu.exec(s)
+  if (m) return iso(+m[3], RU_MONTHS[m[2].toLowerCase().slice(0, 3)], +m[1])
   m = /\b([A-Za-z]{3,9})\.?,?\s*(\d{1,2})(?:st|nd|rd|th)?\s*[.,]?\s*(\d{4})\b/.exec(s)
   if (m && MONTHS[m[1].slice(0, 3).toLowerCase()]) return iso(+m[3], MONTHS[m[1].slice(0, 3).toLowerCase()], +m[2])
   m = /\b(\d{1,2})(?:st|nd|rd|th)?[\s.-]*([A-Za-z]{3,9})\.?[\s,.-]*(\d{4})\b/.exec(s)
@@ -147,16 +169,23 @@ export function dateInText(text: string): string | null {
   return null
 }
 
+/** Номер документа: буквы любого алфавита, цифры, «-/._» (ревью 22.10: `\w` обрезал номер на первой кириллической букве). */
+const DOC_NO = '[\\p{L}\\p{N}][\\p{L}\\p{N}_\\-/.]*'
+
 /** Номер документа — первое слово, если в нём есть цифра («INV-0921     September,21, 2026» → INV-0921). */
 function docNumberIn(text: string): string | null {
-  const word = /^[\s:#№.]*([A-Za-zА-Яа-я0-9][\w\-/.]*)/.exec(text)?.[1]?.replace(/[.]+$/, '') ?? ''
+  const word = new RegExp(`^[\\s:#№.]*(${DOC_NO})`, 'u').exec(text)?.[1]?.replace(/[.]+$/, '') ?? ''
   return /\d/.test(word) ? word : null
 }
 
-/** Контракт «CTR-… date 02.02.2026», «№ 36/СМ от 26.01.2026» → номер и дата. */
+/**
+ * Контракт «CTR-… date 02.02.2026», «№ 36/СМ от 26.01.2026», «№ 5 от «26» января 2026 г.» → номер и дата. «от» делит
+ * всегда (ревью 22.10: дата договорной формы — в кавычках и словами), английские слова — только перед цифрой. Как
+ * parse_contract Zircon AI.
+ */
 export function contractFrom(text: string): { number: string | null; date: string | null } {
   const s = text.normalize('NFKC').replace(/^[\s:#№]+/, '').trim()
-  const [no, rest] = s.split(/\s+(?:от|from|dated|date|dd\.?)\s*[:.]?\s*(?=\d)/i)
+  const [no, rest] = s.split(/\s+от\s+|\s+(?:from|dated|date|dd\.?)\s*[:.]?\s*(?=\d)/i)
   const number = (no ?? '').replace(/^(?:no\.?|№)\s*/i, '').replace(/[\s.,;]+$/, '').trim() || null
   return { number: number && /\d/.test(number) ? number : null, date: rest ? dateInText(rest) : null }
 }
@@ -181,19 +210,29 @@ export function docHeaderFrom(
   const text = cellsText(headerRows).join('\n')
   const kind = docKindOf(fileName, text)
 
-  // «№ UR0910     Дата / 日期: 10.09.2026»; иначе подпись «⑧Invoice NO.&Date» и значение справа/ниже (инвойс 39th).
-  const numDate = /№\s*([A-Za-zА-Яа-я0-9][\w\-/.]*)[\s\S]{0,60}?(\d{1,2})[./-](\d{1,2})[./-](\d{4})/.exec(text)
-  let number = numDate?.[1] ?? /№\s*([A-Za-zА-Яа-я0-9][\w\-/.]*)/.exec(text)?.[1] ?? null
-  let date = numDate ? `${numDate[4]}-${numDate[3].padStart(2, '0')}-${numDate[2].padStart(2, '0')}` : null
+  // Номер и дата: сначала ячейка с подписью инвойса («⑧Invoice NO.&Date», «Invoice No: INV-5»; значение справа или ниже
+  // — инвойс 39th; дата — в значении или в соседней ячейке строки «Date: …»), затем «№ UR0910     Дата / 日期: 10.09.2026»
+  // в строках без контракта (ревью 22.10: первый «№» шапки часто — контракт, его номер и дата становились инвойсом).
+  let number: string | null = null
+  let date: string | null = null
+  let numberLabeled = false
+  const notContract = (x: PosCell) => !x.lines.some((l) => CONTRACT_LABEL.test(l))
+  for (const cell of cells) {
+    const at = cell.lines.findIndex((l) => INVOICE_LABEL.test(l) && !CONTRACT_LABEL.test(l))
+    if (at < 0) continue
+    const v = valueOf(cells, cell, at, INVOICE_LABEL)?.join(' ') ?? ''
+    const n = docNumberIn(v)
+    if (!n) continue
+    number = n
+    numberLabeled = true
+    date = dateInText(v) ?? dateInText(cells.filter((x) => x.r === cell.r && x !== cell && notContract(x)).map((x) => x.text).join('\n'))
+    break
+  }
   if (!number || !date) {
-    for (const cell of cells) {
-      const at = cell.lines.findIndex((l) => INVOICE_LABEL.test(l) && !CONTRACT_LABEL.test(l))
-      if (at < 0) continue
-      const v = valueOf(cells, cell, at, INVOICE_LABEL)?.join(' ') ?? ''
-      number ??= docNumberIn(v)
-      date ??= dateInText(v)
-      if (number) break
-    }
+    const plain = cells.flatMap((c) => c.text.split(/\r?\n/)).filter((l) => !CONTRACT_LABEL.test(l.normalize('NFKC'))).join('\n')
+    const numDate = new RegExp(`№\\s*(${DOC_NO})[\\s\\S]{0,60}?(\\d{1,2})[./-](\\d{1,2})[./-](\\d{4})`, 'u').exec(plain)
+    number ??= numDate?.[1] ?? new RegExp(`№\\s*(${DOC_NO})`, 'u').exec(plain)?.[1] ?? null
+    if (!date && numDate && numDate[1] === number) date = iso(+numDate[4], +numDate[3], +numDate[2])
   }
 
   // Контракт: «CONTRACT NO: CTR-… date 02.02.2026».
@@ -223,7 +262,7 @@ export function docHeaderFrom(
   const currency = CURRENCIES.find((c) => new RegExp(`\\b${c}\\b`).test(headerLine)) ?? null
 
   return {
-    kind, number, date, incoterms, incotermsPlace, sellerName: seller.name, sellerAddress: seller.address,
+    kind, number, date, numberLabeled, incoterms, incotermsPlace, sellerName: seller.name, sellerAddress: seller.address,
     buyerName: buyer.name, buyerBin: buyer.bin, buyerAddress: buyer.address, currency,
     contractNumber: contract.number, contractDate: contract.date,
     originText: originIn(allRows.length ? allRows : headerRows),
@@ -243,7 +282,8 @@ export function excelImportDoc(d: ExcelDoc, countries: readonly CountryOption[] 
     source, kind: d.header.kind,
     rows: d.goods.map((g) => {
       const row = fromExcelRow(g, source, hint)
-      return origin && !row.countryCode ? { ...row, countryCode: origin, originText: null } : row
+      // своя страна текстом, которую не узнали («VIET NAM»), — не перезаписывается: замечание «Страна не распознана» нужно
+      return origin && !row.countryCode && !row.originText ? { ...row, countryCode: origin } : row
     }),
   }
 }
@@ -311,6 +351,12 @@ export const docLine = (
   appliesToAll: true, goodsItemIndexes: null, docStartDate: null, docValidityDate: null, issueCountryCode: null, presentKindCode: '0',
 })
 
+/** Один номер документа: без регистра, пробелов и знаков («UR 0910» = «ur-0910»). */
+const sameDocNo = (a: string | null | undefined, b: string | null | undefined): boolean => {
+  const n = (v: string | null | undefined) => (v ?? '').toLocaleUpperCase('ru-RU').replace(/[^\p{L}\p{N}]/gu, '')
+  return !!n(a) && n(a) === n(b)
+}
+
 /** «2Consignee», «⑧Invoice No& Date» — подпись графы, а не значение (старый разбор Zircon AI, правка 2.1). */
 export const looksLikeLabel = (v: string | null | undefined): boolean => !!v && (CIRCLED.test(v) || LABEL_WORDS.test(v.normalize('NFKC')))
 
@@ -336,10 +382,17 @@ export function headerDocs(i: HeaderDocsInput): Import40Doc44ItemInput[] {
   const names = i.docKindNames
   const out: Import40Doc44ItemInput[] = []
   const invoiceHeader = headers.find((h) => h.kind === 'invoice' && h.number)
-  const invoiceNo = invoiceHeader?.number ?? extras?.invoiceNumber ?? null
-  // Дата разбора Zircon AI — только если он прочитал тот же номер (иначе это дата другого документа).
-  const extrasDate = !invoiceHeader || extras?.invoiceNumber === invoiceNo ? extras?.invoiceDate ?? null : null
-  const invoiceDate = invoiceHeader?.date ?? extrasDate
+  const excelNo = invoiceHeader?.number ?? null
+  const aiNo = extras?.invoiceNumber ?? null
+  const same = sameDocNo(excelNo, aiNo)
+  // Номер шапки Excel главнее разбора Zircon AI, только если он из подписи инвойса или совпал с Zircon AI; иначе — как до
+  // пакета: Zircon AI первым (ревью 22.10: первый «№» шапки — часто номер контракта). Дата другого разбора — только при
+  // том же номере (иначе это дата другого документа).
+  const excelFirst = !!excelNo && (!!invoiceHeader?.numberLabeled || !aiNo || same)
+  const invoiceNo = excelFirst ? excelNo : aiNo
+  const invoiceDate = excelFirst
+    ? invoiceHeader?.date ?? (same ? extras?.invoiceDate ?? null : null)
+    : extras?.invoiceDate ?? (same ? invoiceHeader?.date ?? null : null)
   if (invoiceNo) out.push(docLine('04021', invoiceNo, invoiceDate, names))
   const packingHeader = headers.find((h) => h.kind === 'packing')
   if (packingHeader) out.push(docLine('04131', packingHeader.number ?? invoiceNo ?? 'Б/Н', packingHeader.date ?? invoiceDate, names))
@@ -401,10 +454,11 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
   const headers = docs.map((d) => d.header)
   const first = <K extends keyof ExcelDocHeader>(k: K) =>
     (headers.find((h) => h.kind === 'invoice' && h[k]) ?? headers.find((h) => h[k]))?.[k] ?? null
-  // Страна происхождения документа: «MADE IN CHINA» в Excel или страна разбора — строкам без своей.
+  // Страна происхождения документа: «MADE IN CHINA» в Excel — строкам без своей страны (и без своей нераспознанной —
+  // «VIET NAM» остаётся с замечанием). Страна разбора Zircon AI (preview.originCountryCode) в товары не копируется: её
+  // бывает выводит сам разбор из стран части позиций (_infer_origin_country), это не сведения документа — только гр. 16.
   const docOrigin = countryFromText(first('originText') as string | null, countries)
-    ?? countryFromText(preview.originCountryCode ?? null, countries)
-  if (docOrigin) rows = rows.map((r) => (r.countryCode ? r : { ...r, countryCode: docOrigin, originText: null }))
+  if (docOrigin) rows = rows.map((r) => (r.countryCode || r.originText ? r : { ...r, countryCode: docOrigin }))
   const currency = preview.currency ?? first('currency')
   // Гр. 22 — сумма стоимости товаров документа (e2e-3: не ориентировочная сумма клиента из заявки и не итог, который
   // разошёлся бы с гр. 42 с первой минуты).
@@ -453,7 +507,10 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
     doc44Items,
     usedExcelGoods,
     conflicts,
-    senderAddress: first('sellerAddress') as string | null ?? extras?.senderAddress ?? null,
+    // Адрес отправителя: разбора Zircon AI — первым, как до пакета (ревью 22.10), если он прочитал отправителя, а не подпись
+    // графы («2Consignee» старого разбора); иначе шапка Excel.
+    senderAddress: (okName(preview.sender?.name) && extras?.senderAddress && !looksLikeLabel(extras.senderAddress) ? extras.senderAddress : null)
+      ?? first('sellerAddress') as string | null ?? extras?.senderAddress ?? null,
     receiverBin: extras?.receiverBin ?? first('buyerBin'),
     receiverAddress: first('buyerAddress') as string | null ?? extras?.receiverAddress ?? null,
     placesCheck: placesCheckOf(rows, docs),
