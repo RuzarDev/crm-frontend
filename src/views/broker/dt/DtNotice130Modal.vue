@@ -15,6 +15,7 @@ import { useConfirm } from '@/ui/confirm'
 import { saveBlob } from '@/ui/download'
 import { message } from '@/ui/message'
 import DtGoodsPickTable from './DtGoodsPickTable.vue'
+import { ensureOkeiUnits } from './goods/editor/okei'
 import {
   SUBITEM_ATTACH, SUBITEM_KEY, declarantText, dtFormFileName, loadNotice130Choice, notice130Forms, notice130Missing, pickRows,
   saveNotice130Choice, singleItemOverOne, todayIso, type Notice130Doc44Entry, type Notice130Letters,
@@ -61,6 +62,8 @@ const addDoc44 = ref(true)
 const busy = ref(false)
 
 const reset = () => {
+  // Краткие наименования ОКЕИ для колонки количества («45 ШТ»): раздел «Товары» мог ещё не открываться.
+  void ensureOkeiUnits()
   const saved = loadNotice130Choice(props.dtId, props.goods.length)
   selected.value = saved ? saved.selected : rows.value.map((r) => r.index)
   letters.value = saved ? { ...saved.letters } : {}
