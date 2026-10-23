@@ -3889,7 +3889,7 @@ export default {
         },
         list: {
           title: 'Декларациялар',
-          nothingFound: 'Мұндай нөмірлі ДТ жоқ',
+          nothingFound: 'Мұндай нөмірлі немесе атаулы ДТ жоқ',
           value: 'құны {value}',
           graphs: '{filled}/{total} баған',
           progress: '{total} бағанның {filled} толтырылды',

@@ -3893,7 +3893,7 @@ export default {
         },
         list: {
           title: 'Декларации',
-          nothingFound: 'ДТ с таким номером нет',
+          nothingFound: 'ДТ с таким номером или названием нет',
           value: 'стоимость {value}',
           graphs: '{filled}/{total} граф',
           progress: 'Заполнено {filled} из {total} граф',

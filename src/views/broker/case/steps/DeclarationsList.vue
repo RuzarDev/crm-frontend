@@ -104,11 +104,15 @@ const metaLine = (dt: Import40DeclarationDto, kind: DtListRow<Import40Declaratio
 // --- название ДТ (23.10.2026) ---
 const canRename = computed(() => props.ctx.perms.canManageDeclarations)
 const titleOf = (dt: Import40DeclarationDto) => dtTitleOf(dt, t)
-/** Своё название (null — вернуть автоназвание): без перечитывания заявки — ответ сервера сразу в строку. */
+/**
+ * Своё название (null — вернуть автоназвание): без перечитывания заявки — ответ сервера сразу в строку. Заявка у карточки —
+ * shallowRef (useCase): правка поля на месте строку не перерисует, поэтому новая заявка через ctx.setCase (23.10.2026).
+ */
 const rename = async (dt: Import40DeclarationDto, title: string | null): Promise<boolean> => {
   try {
     const res = await import40Api.setDeclarationTitle(kase.value.id, dt.id, title)
-    dt.title = res.title ?? null
+    const c = kase.value
+    props.ctx.setCase({ ...c, declarations: c.declarations.map((d) => (d.id === dt.id ? { ...d, title: res.title ?? null } : d)) })
     return true
   } catch {
     return false // текст ошибки показал общий перехватчик; поле остаётся открытым

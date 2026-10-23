@@ -3889,7 +3889,7 @@ export default {
         },
         list: {
           title: 'Declarations',
-          nothingFound: 'No DT with this number',
+          nothingFound: 'No DT with this number or title',
           value: 'value {value}',
           graphs: '{filled}/{total} boxes',
           progress: '{filled} of {total} boxes filled',

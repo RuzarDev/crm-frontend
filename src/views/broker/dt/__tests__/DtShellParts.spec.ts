@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { VueWrapper } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
@@ -177,6 +177,7 @@ describe('DtHeaderBar', () => {
       ...props,
     },
     global: { plugins: [router] },
+    attachTo: document.body,
   })
 
   it('крошки, номер, тег, «Сохранено в ЧЧ:ММ»', () => {
@@ -233,6 +234,42 @@ describe('DtHeaderBar', () => {
     await w.get('[data-dt-docs]').trigger('click')
     expect(w.emitted('print')).toHaveLength(1)
     expect(w.emitted('docs')).toHaveLength(1)
+  })
+
+  // Названия ДТ (23.10.2026): заголовок — название, рядом моно — номер или «ДТ i»; карандаш — при rename.
+  it('название заголовком (автоназвание — приглушённым), рядом номер; без названия — номер заголовком', async () => {
+    const rename = vi.fn(async () => true)
+    w = mountHeader({ title: null, autoTitle: 'Кушетка медицинская · ещё 1', shortId: 'ДТ 2', number: null, rename })
+    expect(w.get('h1').text()).toBe('Кушетка медицинская · ещё 1')
+    expect(w.get('h1').classes()).toContain('text-ink-2')
+    expect(w.get('[data-dt-number]').text()).toBe('ДТ 2')
+    await w.get('[data-dt-title-edit]').trigger('click')
+    await w.get('[data-dt-title-input]').setValue('Партия 2')
+    await w.get('[data-dt-title-input]').trigger('keydown', { key: 'Enter' })
+    expect(rename).toHaveBeenCalledWith('Партия 2')
+    w.unmount()
+    w = mountHeader({ title: 'Партия 2', autoTitle: 'Кушетка', rename: null })
+    expect(w.get('h1').text()).toBe('Партия 2')
+    expect(w.get('[data-dt-number]').text()).toBe('55302/091026/0001234')
+    expect(w.find('[data-dt-title-edit]').exists()).toBe(false)
+    w.unmount()
+    w = mountHeader({ title: null, autoTitle: null, rename: null })
+    expect(w.get('h1').text()).toBe('55302/091026/0001234')
+  })
+
+  it('«Ещё»: уведомление (Решение 130) и обязательство — только когда разрешены (forms)', async () => {
+    const labels = async () => {
+      await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
+      return [...document.body.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent?.trim())
+    }
+    w = mountHeader({ forms: { notice130: false, obligation: false } })
+    expect(await labels()).not.toContain('Уведомление (Решение 130)')
+    w.unmount()
+    document.body.innerHTML = ''
+    w = mountHeader({ forms: { notice130: true, obligation: true }, editable: false, split: { show: false, reason: '' } })
+    expect(await labels()).toEqual(expect.arrayContaining(['Уведомление (Решение 130)', 'Обязательство (условный выпуск)']))
+    ;([...document.body.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent?.includes('Обязательство')) as HTMLElement).click()
+    expect(w.emitted('obligation')).toHaveLength(1)
   })
 
   it('кнопка «До подачи» с числом пунктов (для экрана уже 1280)', async () => {
