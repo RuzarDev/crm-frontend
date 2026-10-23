@@ -2,8 +2,9 @@ import type { OrganizationSettings } from '@/api/billing'
 
 // Чистая логика страницы «Организация» (редизайн, волна 5б): форма, проверки, секции, подпись «Сохранено».
 
-export type SectionKey = 'company' | 'signers' | 'bank' | 'vat'
-export const SECTIONS: SectionKey[] = ['company', 'signers', 'bank', 'vat']
+// notify — почта для писем о смене статуса ДТ в КЕДЕН (23.10.2026).
+export type SectionKey = 'company' | 'signers' | 'bank' | 'vat' | 'notify'
+export const SECTIONS: SectionKey[] = ['company', 'signers', 'bank', 'vat', 'notify']
 
 export interface OrgForm {
   companyName: string
@@ -21,6 +22,8 @@ export interface OrgForm {
   kbe: string
   vatPayer: boolean
   vatRate: number | null
+  /** Адреса для писем КЕДЕН — в форме по одному на строку. */
+  kedenStatusEmails: string
 }
 export type FieldKey = keyof OrgForm
 
@@ -29,6 +32,7 @@ export const FIELD_SECTION: Record<FieldKey, SectionKey> = {
   directorName: 'signers', directorBasis: 'signers', accountantName: 'signers', phone: 'signers', email: 'signers',
   bank: 'bank', iik: 'bank', bik: 'bank', kbe: 'bank',
   vatPayer: 'vat', vatRate: 'vat',
+  kedenStatusEmails: 'notify',
 }
 
 /** Основания по умолчанию: попадают в документы по-русски как есть, поэтому не переводятся. */
@@ -36,6 +40,8 @@ export const BASIS_PRESETS = ['устава', 'доверенности'] as con
 export const VAT_MIN = 0
 export const VAT_MAX = 30
 export const DEFAULT_BASIS = 'устава'
+/** Сколько адресов КЕДЕН принимает сервер (больше — 400). */
+export const KEDEN_EMAILS_MAX = 20
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '')
 
@@ -43,6 +49,13 @@ const str = (v: unknown): string => (typeof v === 'string' ? v : '')
 export const compact = (v: string): string => v.replace(/\s+/g, '').toUpperCase()
 /** KZ72 722S 0000 1234 5678 — как печатают в банковских документах. */
 export const groupIik = (v: string): string => compact(v).replace(/(.{4})(?=.)/g, '$1 ')
+
+/**
+ * Адреса писем КЕДЕН (23.10.2026): разделители — запятая, точка с запятой, пробел, перевод строки (как на сервере);
+ * нижний регистр, без повторов, порядок ввода сохраняется. Сервер хранит так же, через запятую.
+ */
+export const splitEmails = (v: string): string[] =>
+  [...new Set(v.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter(Boolean))]
 
 /** Ответ сервера → форма (null и отсутствующее поле — пустая строка, ИИК — с группами). */
 export const toForm = (d: Partial<OrganizationSettings> | null | undefined): OrgForm => ({
@@ -52,12 +65,18 @@ export const toForm = (d: Partial<OrganizationSettings> | null | undefined): Org
   bank: str(d?.bank), iik: groupIik(str(d?.iik)), bik: compact(str(d?.bik)), kbe: str(d?.kbe),
   vatPayer: d?.vatPayer ?? true,
   vatRate: typeof d?.vatRate === 'number' ? d.vatRate : 16,
+  // Старый сервер поля не знает — пусто.
+  kedenStatusEmails: splitEmails(str(d?.kedenStatusEmails)).join('\n'),
 })
 
-/** Значение поля для сравнения «изменено ли»: пробелы по краям и регистр ИИК/БИК не считаются правкой. */
+/**
+ * Значение поля для сравнения «изменено ли»: пробелы по краям и регистр ИИК/БИК не считаются правкой;
+ * у адресов КЕДЕН — ни разделители, ни регистр, ни повторы.
+ */
 const comparable = (key: FieldKey, f: OrgForm): string | number | boolean | null => {
   const v = f[key]
   if (typeof v !== 'string') return v
+  if (key === 'kedenStatusEmails') return splitEmails(v).join(',')
   return key === 'iik' || key === 'bik' ? compact(v) : v.trim()
 }
 export const changedFields = (saved: OrgForm, draft: OrgForm): FieldKey[] =>
@@ -67,13 +86,16 @@ export const changedSections = (saved: OrgForm, draft: OrgForm): SectionKey[] =>
   return SECTIONS.filter((s) => hit.has(s))
 }
 
-export type OrgErrorCode = 'required' | 'bin' | 'iik' | 'bik' | 'kbe' | 'email' | 'basis' | 'vatRate'
+export type OrgErrorCode = 'required' | 'bin' | 'iik' | 'bik' | 'kbe' | 'email' | 'basis' | 'vatRate' | 'emails' | 'emailsLimit'
 const EMAIL = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/
+/** Первый неверный адрес КЕДЕН (для текста ошибки); все верные — null. */
+export const invalidEmail = (v: string): string | null => splitEmails(v).find((x) => !EMAIL.test(x)) ?? null
 
 /**
  * Проверки на месте. Обязательно одно полное наименование (оно печатается в счетах и актах);
  * остальные поля могут быть пустыми — свежая установка заполняется по частям, — но заполненные обязаны быть
  * в формате: БИН — 12 цифр, ИИК — KZ и 18 знаков, БИК — 8 латинских букв/цифр, Кбе — 2 цифры, email.
+ * Адреса КЕДЕН — не больше 20, каждый в формате email (сервер проверяет так же и отвечает 400).
  */
 export const validate = (f: OrgForm): Partial<Record<FieldKey, OrgErrorCode>> => {
   const e: Partial<Record<FieldKey, OrgErrorCode>> = {}
@@ -90,6 +112,9 @@ export const validate = (f: OrgForm): Partial<Record<FieldKey, OrgErrorCode>> =>
   if (email && !EMAIL.test(email)) e.email = 'email'
   if (!f.directorBasis.trim()) e.directorBasis = 'basis'
   if (f.vatPayer && (f.vatRate === null || f.vatRate < VAT_MIN || f.vatRate > VAT_MAX)) e.vatRate = 'vatRate'
+  const emails = splitEmails(f.kedenStatusEmails)
+  if (emails.length > KEDEN_EMAILS_MAX) e.kedenStatusEmails = 'emailsLimit'
+  else if (invalidEmail(f.kedenStatusEmails)) e.kedenStatusEmails = 'emails'
   return e
 }
 
@@ -100,6 +125,8 @@ export const toPayload = (f: OrgForm, base: Pick<OrganizationSettings, 'updatedA
   directorName: f.directorName.trim(), directorBasis: f.directorBasis.trim() || DEFAULT_BASIS,
   accountantName: f.accountantName.trim(), phone: f.phone.trim(), email: f.email.trim(),
   vatPayer: f.vatPayer, vatRate: f.vatRate ?? 16,
+  // Через запятую, как хранит сервер; пусто — '' (не null, как остальные строки).
+  kedenStatusEmails: splitEmails(f.kedenStatusEmails).join(','),
   updatedAtUtc: base?.updatedAtUtc ?? null,
 })
 

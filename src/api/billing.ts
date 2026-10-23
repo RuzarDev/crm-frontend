@@ -75,6 +75,11 @@ export interface OrganizationSettings {
   email: string
   vatPayer: boolean
   vatRate: number
+  /**
+   * Почта для писем о смене статуса ДТ в КЕДЕН (23.10.2026): через запятую, нижний регистр, без повторов.
+   * Старый сервер поля не отдаёт.
+   */
+  kedenStatusEmails?: string | null
   updatedAtUtc: string | null
   /** Кто сохранил в последний раз (имя сотрудника); старые сервера и пустая запись — без него. */
   updatedByName?: string | null
