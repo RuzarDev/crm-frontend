@@ -47,8 +47,11 @@ export interface ObligationFields {
   signerName: string | null
 }
 
-/** Лимиты сервера (иначе 400): строки — до 500 знаков, адрес — до 1000, инвойсов — до 20. */
-export const OBLIGATION_LIMITS = { text: 500, address: 1000, invoices: 20 } as const
+/**
+ * Лимиты сервера (иначе 400): строки — до 500 знаков, адрес — до 1000, инвойсов — до 20. Исх. № — до 50 (23.10.2026,
+ * ревью): он же уходит номером в строку гр. 44 08999, а номер документа ДТ — DocId Id50 (как поле номера в гр. 44).
+ */
+export const OBLIGATION_LIMITS = { text: 500, number: 50, address: 1000, invoices: 20 } as const
 
 export type DtFormResult = { blob: Blob } | { error: string; code: string | null }
 

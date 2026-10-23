@@ -137,7 +137,7 @@ const generate = async () => {
           <ZDate :value="fields.date || null" data-dt-obligation-date @update:value="fields.date = $event ?? ''" />
         </ZField>
         <ZField :label="tr('number')" :help="tr('numberHelp')">
-          <ZInput v-model:value="fields.number" :maxlength="MAX.text" mono :placeholder="OBLIGATION_DEFAULT_NUMBER" data-dt-obligation-number />
+          <ZInput v-model:value="fields.number" :maxlength="MAX.number" mono :placeholder="OBLIGATION_DEFAULT_NUMBER" data-dt-obligation-number />
         </ZField>
         <ZField :label="tr('consignee')" :help="tr('consigneeHelp')" class="sm:col-span-2">
           <ZInput v-model:value="fields.consigneeName" :maxlength="MAX.text" data-dt-obligation-consignee />

@@ -49,12 +49,12 @@ const clean = (v: string | null | undefined, max: number = OBLIGATION_LIMITS.tex
 
 /**
  * Тело POST — ровно то, что в окне: строки обрезаны по краям (пусто — null, в документе черта), инвойсы без номера и
- * даты убраны, не больше 20. Дата — как выбрана.
+ * даты убраны, не больше 20, исх. № — до 50 (номер строки гр. 44). Дата — как выбрана.
  */
 export function obligationBody(f: ObligationFields): ObligationFields {
   return {
     date: f.date,
-    number: clean(f.number),
+    number: clean(f.number, OBLIGATION_LIMITS.number),
     consigneeName: clean(f.consigneeName),
     invoices: f.invoices
       .map((i) => ({ number: clean(i.number), date: i.date || null }))
@@ -92,9 +92,47 @@ export const conditionalReleaseGoods = (goods: readonly Gr33Goods[]): number[] =
 
 const isObligationDoc = (d: Import40Doc44ItemInput) => (d.docTypeCode ?? '').trim() === OBLIGATION_DOC_CODE
 
-/** Первая строка гр. 44 08999; нет — null. */
-export const obligationDoc44 = (items: readonly Import40Doc44ItemInput[]): Import40Doc44ItemInput | null =>
-  items.find(isObligationDoc) ?? null
+const normNumber = (n: string | null | undefined) => (n ?? '').trim().toLocaleUpperCase('ru')
+
+const csvTokens = (d: Import40Doc44ItemInput) => (d.goodsItemIndexes ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+
+/** «На все товары»: appliesToAll или ни позиции, ни CSV (как KedenXmlExporter.DocAppliesToGood на сервере). */
+const appliesToAllGoods = (d: Import40Doc44ItemInput) => !!d.appliesToAll || (d.goodsItemIndex == null && !csvTokens(d).length)
+
+/** Строка явно привязана (позиция или CSV) хотя бы к одному из товаров; «на все товары» — не в счёт. */
+const boundToAny = (d: Import40Doc44ItemInput, goods: readonly number[]) => {
+  if (appliesToAllGoods(d)) return false
+  const have = new Set(csvTokens(d).map(Number))
+  if (d.goodsItemIndex != null) have.add(d.goodsItemIndex)
+  return goods.some((i) => have.has(i))
+}
+
+/** Документ гр. 44 относится к товару (позиция с 0) — та же семантика, что DocAppliesToGood сервера. */
+const appliesToGood = (d: Import40Doc44ItemInput, i: number) => appliesToAllGoods(d) || boundToAny(d, [i])
+
+/**
+ * Строка обязательства в гр. 44. 08999 — общий код («Иные документы…»): под ним может стоять и другой документ, поэтому
+ * не первую попавшуюся 08999 (ревью 23.10.2026 — правило привязывало D0122 к чужому письму, формирование перетирало его
+ * номер и дату):
+ * - sure — 08999 с номером «Б/Н» (так ставят правило D0122 и декларанты на проде) или с номером обязательства, уже
+ *   сформированного на этой странице (known);
+ * - иначе 08999, явно привязанная к товару с D0122 (condGoods): скорее всего обязательство, но это не точно (sure=false);
+ * - weak (только для формирования) — 08999 «на все товары»: могла остаться от прошлого обязательства без D0122 —
+ *   спросить, а не добавлять вторую. Автоправило такую строку не берёт: добавит свою.
+ * Нет подходящей — null: обязательство — отдельной строкой.
+ */
+export function findObligationDoc44(
+  items: readonly Import40Doc44ItemInput[],
+  condGoods: readonly number[],
+  opts: { known?: readonly string[]; weak?: boolean } = {},
+): { row: Import40Doc44ItemInput; sure: boolean } | null {
+  const docs = items.filter(isObligationDoc)
+  const sureNumbers = new Set([OBLIGATION_DEFAULT_NUMBER, ...(opts.known ?? [])].map(normNumber).filter(Boolean))
+  const sure = docs.find((d) => sureNumbers.has(normNumber(d.docNumber)))
+  if (sure) return { row: sure, sure: true }
+  const bound = docs.find((d) => boundToAny(d, condGoods)) ?? (opts.weak ? docs.find(appliesToAllGoods) : undefined)
+  return bound ? { row: bound, sure: false } : null
+}
 
 const csv = (indexes: Iterable<number>) => [...new Set(indexes)].sort((a, b) => a - b).join(',')
 
@@ -109,9 +147,8 @@ function newObligationRow(name: string, number: string | null, date: string | nu
 
 /** Дописать позиции товаров в привязку строки; строка «на все товары» (или без привязки — то же) не меняется. */
 function bindGoods(row: Import40Doc44ItemInput, goods: readonly number[]): boolean {
-  const tokens = (row.goodsItemIndexes ?? '').split(',').map((s) => s.trim()).filter(Boolean)
-  if (row.appliesToAll || (row.goodsItemIndex == null && !tokens.length)) return false
-  const have = new Set(tokens.map(Number).filter((n) => Number.isInteger(n)))
+  if (appliesToAllGoods(row)) return false
+  const have = new Set(csvTokens(row).map(Number).filter((n) => Number.isInteger(n)))
   if (row.goodsItemIndex != null) have.add(row.goodsItemIndex)
   const missing = goods.filter((i) => !have.has(i))
   if (!missing.length) return false
@@ -121,9 +158,11 @@ function bindGoods(row: Import40Doc44ItemInput, goods: readonly number[]): boole
 }
 
 /**
- * Автоправило формы ДТ: у товаров появился D0122 (added — их позиции) — в гр. 44 нужна строка 08999. Строки нет —
- * добавить: «Б/Н», дата гр. А, признак 1, привязка ко всем товарам с D0122 (all). Строка есть — её номер, дату, вид и
- * признак не трогать (декларант мог править), только дописать в привязку новые товары с D0122.
+ * Автоправило формы ДТ: у товаров появился D0122 (added — их позиции) — в гр. 44 нужна строка 08999. Строка обязательства
+ * (findObligationDoc44: «Б/Н» / номер обязательства / привязана к товару с D0122) есть — её номер, дату, вид и признак не
+ * трогать (декларант мог править), только дописать в привязку новые товары с D0122. Нет (в т. ч. 08999 есть, но это
+ * другой документ — привязан к товарам без D0122 или «на все товары» со своим номером) — добавить: «Б/Н», дата гр. А,
+ * признак 1, привязка ко всем товарам с D0122 (all). Чужую 08999 не трогаем.
  * 'added' — строка добавлена, 'bound' — дописана привязка, null — ничего не менялось.
  */
 export function ensureObligationDoc44(
@@ -131,44 +170,55 @@ export function ensureObligationDoc44(
   goods: { all: readonly number[]; added: readonly number[] },
   name: string,
   date: string | null,
+  known: readonly string[] = [],
 ): 'added' | 'bound' | null {
   if (!goods.added.length) return null
-  const row = obligationDoc44(items)
-  if (!row) {
+  const found = findObligationDoc44(items, goods.all, { known })
+  if (!found) {
     items.push(newObligationRow(name, OBLIGATION_DEFAULT_NUMBER, date, goods.all))
     return 'added'
   }
-  return bindGoods(row, goods.added) ? 'bound' : null
+  return bindGoods(found.row, goods.added) ? 'bound' : null
 }
 
 /**
- * После формирования обязательства: строка 08999 получает номер = исх. № и дату = дату обязательства (вид, признак и
- * привязку не трогаем). Строки нет — добавить (к товарам с D0122, без них — без привязки, т. е. на все товары).
+ * После формирования обязательства: строка обязательства получает номер = исх. № (пусто — «Б/Н»: в письме «исх. ____»,
+ * номер строки не стираем) и дату = дату обязательства; вид, признак и привязку не трогаем. Строки нет — добавить (к
+ * товарам с D0122, без них — без привязки, т. е. на все товары). Строка найдена не наверняка (sure=false: номер не «Б/Н»
+ * и не номер обязательства — может быть другим документом) — без ответа декларанта (choice) ничего не меняем и
+ * возвращаем 'ask' со строкой: 'overwrite' — это обязательство, записать в неё; 'add' — другой документ, обязательство —
+ * отдельной строкой.
  */
 export function applyObligationToDoc44(
   items: Import40Doc44ItemInput[],
   doc: { number: string | null; date: string },
   goods: readonly number[],
   name: string,
-): 'added' | 'updated' {
-  const row = obligationDoc44(items)
-  if (!row) {
-    items.push(newObligationRow(name, doc.number, doc.date, goods))
+  opts: { known?: readonly string[]; choice?: 'overwrite' | 'add' } = {},
+): 'added' | 'updated' | { ask: Import40Doc44ItemInput } {
+  const number = (doc.number ?? '').trim() || OBLIGATION_DEFAULT_NUMBER
+  const found = opts.choice === 'add' ? null : findObligationDoc44(items, goods, { known: opts.known, weak: true })
+  if (!found) {
+    items.push(newObligationRow(name, number, doc.date, goods))
     return 'added'
   }
-  row.docNumber = doc.number
-  row.docDate = doc.date
+  if (!found.sure && opts.choice !== 'overwrite') return { ask: found.row }
+  found.row.docNumber = number
+  found.row.docDate = doc.date
   return 'updated'
 }
 
+export type ObligationWarning = { kind: 'noDoc'; goodsIndex: number } | { kind: 'noCode' }
+
 /**
- * Предупреждения (не блок — в «До подачи»): 'noDoc' — D0122 есть, строки 08999 нет (удалили вручную); 'noCode' — строка
- * 08999 есть, а D0122 нет ни у одного товара (код убрали — строку сами не удаляем).
+ * Предупреждения (не блок — в «До подачи»), те же, что считает сервер (KedenXmlReadiness), но по несохранённой форме:
+ * 'noDoc' — у товара с D0122 нет ни одной строки 08999, относящейся к нему (удалили вручную или отвязали от товара; по
+ * товару, goodsIndex — позиция с 0); 'noCode' — строка 08999 есть, а D0122 нет ни у одного товара (код убрали — строку
+ * сами не удаляем).
  */
-export function obligationWarnings(goods: readonly Gr33Goods[], doc44: readonly Import40Doc44ItemInput[]): ('noDoc' | 'noCode')[] {
-  const code = goods.some(hasConditionalReleaseCode)
-  const doc = !!obligationDoc44(doc44)
-  if (code && !doc) return ['noDoc']
-  if (doc && !code) return ['noCode']
-  return []
+export function obligationWarnings(goods: readonly Gr33Goods[], doc44: readonly Import40Doc44ItemInput[]): ObligationWarning[] {
+  const docs = doc44.filter(isObligationDoc)
+  const cond = conditionalReleaseGoods(goods)
+  if (!cond.length) return docs.length ? [{ kind: 'noCode' }] : []
+  return cond.filter((i) => !docs.some((d) => appliesToGood(d, i))).map((goodsIndex) => ({ kind: 'noDoc', goodsIndex }))
 }

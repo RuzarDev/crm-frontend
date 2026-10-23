@@ -1465,9 +1465,14 @@ export default {
           addDoc44: 'Write the number and date to the box 44 line {code} (undertaking)',
           done: 'Undertaking generated',
           doc44Done: 'Box 44, line {code}: undertaking number and date written',
+          // 08999 — общий код: строка не наверняка обязательство — спросить (ревью 23.10.2026).
+          overwriteTitle: 'Is box 44 line {code} No. {number} the undertaking?',
+          overwriteText: '{code} is the generic “Other documents…” code, so it may hold another document. “Replace” writes the undertaking number and date into this line. “Add a separate line” leaves it as is and adds the undertaking as a new line.',
+          overwriteOk: 'Replace',
+          overwriteAdd: 'Add a separate line',
           // Связка D0122 (гр. 33) ↔ 08999 (гр. 44) — предупреждения «До подачи».
           warn: {
-            noDoc: 'D0122 requires the undertaking in box 44 (08999)',
+            noDoc: 'Item {n}: D0122 requires the undertaking in box 44 (08999)',
             noCode: 'There is a 08999 line (undertaking), but no goods item has D0122',
           },
         },

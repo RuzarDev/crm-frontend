@@ -32,8 +32,8 @@ import DtNotice130Modal from './DtNotice130Modal.vue'
 import DtObligationModal from './DtObligationModal.vue'
 import { NOTICE130_DOC_CODE, NOTICE130_DOC_NAME, upsertNotice130Doc44, type Notice130Doc44Entry } from './dtForms'
 import {
-  OBLIGATION_DOC_CODE, OBLIGATION_DOC_NAME, applyObligationToDoc44, conditionalReleaseGoods, ensureObligationDoc44,
-  hasConditionalReleaseCode, obligationWarnings,
+  OBLIGATION_DEFAULT_NUMBER, OBLIGATION_DOC_CODE, OBLIGATION_DOC_NAME, applyObligationToDoc44, conditionalReleaseGoods,
+  ensureObligationDoc44, hasConditionalReleaseCode, obligationWarnings,
 } from './dtObligation'
 import { dtLabel } from '@/views/broker/case/caseSteps'
 import { clipLabel, dtAutoTitle } from '@/views/broker/case/dtTitle'
@@ -327,11 +327,15 @@ const calcPayments = async () => {
 }
 
 const allItems = computed<DtReadinessItem[]>(() => [...readiness.items.value, ...(dts.items.value ?? [])])
-// Предупреждения «До подачи»: сервера и своё про D0122 ↔ 08999 (по несохранённой форме — свежее); если сервер считает то
-// же самое, его пункт (с обоими кодами в тексте) не дублируем.
-const obligationWarningItems = computed<DtReadinessItem[]>(() => obligationWarnings(form.goodsItems, form.doc44Items ?? []).map((k) => {
-  const text = t(`broker.dt.forms.obligation.warn.${k}`)
-  return { text, graph: '44', goodsIndex: null, section: sectionForReadinessItem({ text, graph: '44' }), fromXml: false }
+// Предупреждения «До подачи»: сервера и своё про D0122 ↔ 08999 — те же проверки, что у сервера (по товару: строка 08999,
+// относящаяся к товару с D0122; по ДТ: 08999 без D0122), но по несохранённой форме — свежее. Поэтому пункты сервера с
+// обоими кодами в тексте (и по товару, и по ДТ) не дублируем.
+const obligationWarningItems = computed<DtReadinessItem[]>(() => obligationWarnings(form.goodsItems, form.doc44Items ?? []).map((w) => {
+  const text = w.kind === 'noDoc'
+    ? t('broker.dt.forms.obligation.warn.noDoc', { n: w.goodsIndex + 1 })
+    : t('broker.dt.forms.obligation.warn.noCode')
+  const goodsIndex = w.kind === 'noDoc' ? w.goodsIndex : null
+  return { text, graph: '44', goodsIndex, section: sectionForReadinessItem({ text, graph: '44', goodsIndex }), fromXml: false }
 }))
 const panelWarnings = computed<DtReadinessItem[]>(() => [
   ...readiness.warnings.value.filter((i) => !(i.text.includes('D0122') && i.text.includes('08999'))),
@@ -648,10 +652,11 @@ const openDtForm = async (which: 'notice130' | 'obligation') => {
   if (which === 'notice130') notice130Open.value = true
   else obligationOpen.value = true
 }
-const formsDeclarant = computed(() => ({
-  name: form.declarantName || clientProfile.value?.companyName || null,
-  bin: form.declarantBin || clientProfile.value?.bin || null,
-}))
+// Как печатает сервер: наименование гр. 14 — с БИН гр. 14 (пустой — без БИН); гр. 14 пуста — наименование и БИН из
+// профиля клиента. Не смешивать поля из разных источников (ревью 23.10.2026).
+const formsDeclarant = computed(() => (form.declarantName?.trim()
+  ? { name: form.declarantName.trim(), bin: form.declarantBin?.trim() || null }
+  : { name: clientProfile.value?.companyName || null, bin: clientProfile.value?.bin || null }))
 const alpha2ByCode = computed(() => new Map(countryOptions.value.map((c) => [c.value, c.alpha2])))
 const countryOf = (code: string) => alpha2ByCode.value.get(code) ?? null
 /** Строки гр. 44 01416 после уведомления — в форму (сохранит автосейв); название вида — из классификатора 2009. */
@@ -663,22 +668,46 @@ const onNotice130Doc44 = async (entries: Notice130Doc44Entry[]) => {
   const { added, updated } = upsertNotice130Doc44(form.doc44Items, entries, name, form.goodsItems.length)
   message.info(t('broker.dt.forms.notice.doc44Done', { added, updated }))
 }
-/** Обязательство сформировано — строка гр. 44 08999: номер = исх. №, дата = дата обязательства (нет строки — добавить). */
+// Номера обязательств, сформированных на этой странице (страница — одна ДТ): строка 08999 с таким номером — точно
+// обязательство (повторное формирование её обновит, а не спросит и не добавит вторую).
+const obligationNumbers = new Set<string>()
+const knownObligationNumbers = () => [...obligationNumbers]
+/**
+ * Обязательство сформировано — строка обязательства в гр. 44: номер = исх. №, дата = дата обязательства (нет строки —
+ * добавить). 08999 — общий код: если строка похожа на обязательство не наверняка (не «Б/Н» и не номер обязательства),
+ * спросить — записать в неё или добавить отдельную строку (ревью 23.10.2026: иначе перетирался чужой документ).
+ */
 const onObligationDoc44 = async (doc: { number: string | null; date: string }) => {
   if (!editable.value) return
   const kinds = await classifiers.load('2009').catch(() => [])
   const name = kinds.find((k) => k.code === OBLIGATION_DOC_CODE)?.nameRu || OBLIGATION_DOC_NAME
-  form.doc44Items ??= []
-  applyObligationToDoc44(form.doc44Items, doc, conditionalReleaseGoods(form.goodsItems), name)
+  const known = knownObligationNumbers()
+  const apply = (choice?: 'overwrite' | 'add') =>
+    applyObligationToDoc44((form.doc44Items ??= []), doc, conditionalReleaseGoods(form.goodsItems), name, { known, choice })
+  const res = apply()
+  if (typeof res === 'object') {
+    const overwrite = await confirm({
+      title: t('broker.dt.forms.obligation.overwriteTitle', { code: OBLIGATION_DOC_CODE, number: res.ask.docNumber?.trim() || '—' }),
+      content: t('broker.dt.forms.obligation.overwriteText', { code: OBLIGATION_DOC_CODE }),
+      okText: t('broker.dt.forms.obligation.overwriteOk'),
+      cancelText: t('broker.dt.forms.obligation.overwriteAdd'),
+    })
+    // Пока спрашивали, ДТ могли закрыть для правки (сдача, смена версии) — тогда ничего.
+    if (!editable.value) return
+    apply(overwrite ? 'overwrite' : 'add')
+  }
+  obligationNumbers.add((doc.number ?? '').trim() || OBLIGATION_DEFAULT_NUMBER)
   message.info(t('broker.dt.forms.obligation.doc44Done', { code: OBLIGATION_DOC_CODE }))
 }
 
 // ---- 3б. D0122 (гр. 33) ↔ строка гр. 44 08999 (23.10.2026) ----
 // У товара появился D0122 (правка гр. 33, «Применить к выбранным», импорт, копия товара) — в гр. 44 строка 08999
 // (обязательство): нет — добавить («Б/Н», дата гр. А, признак 1, товары с D0122), есть — только дописать новые товары в
-// привязку (номер, дату и вид, которые декларант мог править, не трогаем). Срабатывает на ПОЯВЛЕНИЕ кода у товара (по
-// ключу товара keyOf — перестановка не в счёт): удалённую вручную строку правило не возвращает, а убранный у всех товаров
-// D0122 строку не удаляет — об обоих расхождениях предупреждение в «До подачи». Загрузка ДТ (applying) и просмотр — без правок.
+// привязку (номер, дату и вид, которые декларант мог править, не трогаем). Обязательство — не любая 08999 (общий код):
+// «Б/Н», номер сформированного обязательства или привязка к товару с D0122 (findObligationDoc44); чужую 08999 не трогаем
+// (ревью 23.10.2026). Срабатывает на ПОЯВЛЕНИЕ кода у товара (по ключу товара keyOf — перестановка не в счёт): удалённую
+// вручную строку правило не возвращает, а убранный у всех товаров D0122 строку не удаляет — об обоих расхождениях
+// предупреждение в «До подачи». Загрузка ДТ (applying) и просмотр — без правок.
 let condRelKeys = new Set<number>()
 watch(
   () => form.goodsItems.flatMap((g) => (hasConditionalReleaseCode(g) ? [keyOf(g)] : [])).join(','),
@@ -690,7 +719,7 @@ watch(
     if (!added.length) return
     const name = classifiers.cache['2009']?.find((k) => k.code === OBLIGATION_DOC_CODE)?.nameRu || OBLIGATION_DOC_NAME
     form.doc44Items ??= []
-    ensureObligationDoc44(form.doc44Items, { all: conditionalReleaseGoods(form.goodsItems), added }, name, form.submissionDate || null)
+    ensureObligationDoc44(form.doc44Items, { all: conditionalReleaseGoods(form.goodsItems), added }, name, form.submissionDate || null, knownObligationNumbers())
   },
   { immediate: true },
 )

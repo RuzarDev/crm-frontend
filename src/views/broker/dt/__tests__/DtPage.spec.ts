@@ -1814,6 +1814,44 @@ describe('DtPage: документы по ДТ (23.10.2026)', () => {
     expect(body.doc44Items.map((d) => d.docTypeCode)).toEqual(['04021', '08999'])
     expect(body.doc44Items[1]).toMatchObject({ docNumber: 'Б/Н', docDate: '2026-10-21', presentKindCode: '1' })
   })
+
+  it('«Обязательство»: 08999 со своим номером у товара с D0122 — вопрос; «Добавить отдельную строку» — та не меняется', async () => {
+    const letter = {
+      id: 'd2', sortOrder: 1, docTypeCode: '08999', docTypeName: 'ИНЫЕ', docNumber: '7', docDate: '2026-10-01',
+      goodsItemIndex: null, appliesToAll: false, goodsItemIndexes: '0', presentKindCode: '1',
+    }
+    const dto = fullDto({ splitRole: null, totalSheets: 1, goodsItems: [fullGoodsDto({ prohibitionCode: 'D0122' })] })
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [{ ...dto, doc44Items: [...dto.doc44Items, letter] }] })
+    forms.obligationDefaults.mockResolvedValue({ date: '2026-10-21', number: '15', consigneeName: 'ТОО «ТЕСТ»', invoices: [] })
+    forms.obligation.mockResolvedValue({ blob: new Blob(['docx']) })
+    await open()
+    ;(await moreItems()).find((i) => i.textContent?.includes('Обязательство (условный выпуск)'))!.click()
+    await settle()
+    bodyButton('Сформировать')!.click()
+    await settle()
+    // Пустой адрес — сначала «Не заполнены…».
+    confirmState.resolve(true)
+    await settle()
+    expect(confirmState.title).toBe('Строка гр. 44 08999 № 7 — это обязательство?')
+    expect(confirmState.cancelText).toBe('Добавить отдельную строку')
+    confirmState.resolve(false)
+    await settle()
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    const body = api.updateDeclaration.mock.calls.at(-1)![2] as { doc44Items: Record<string, unknown>[] }
+    expect(body.doc44Items.map((d) => [d.docTypeCode, d.docNumber])).toEqual([['04021', 'INV-1'], ['08999', '7'], ['08999', '15']])
+    expect(body.doc44Items[1]).toMatchObject({ docDate: '2026-10-01', goodsItemIndexes: '0' })
+    expect(body.doc44Items[2]).toMatchObject({ docDate: '2026-10-21', goodsItemIndexes: '0' })
+  })
+
+  it('«Декларант» в окне уведомления — как печатает сервер: гр. 14 со своим БИН, без БИН профиля', async () => {
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, declarantBin: null })] })
+    contract.getProfile.mockResolvedValue({ companyName: 'ТОО ТЕСТ', bin: '000000000000', directorName: null })
+    await open()
+    ;(await moreItems()).find((i) => i.textContent?.includes('Уведомление (Решение 130)'))!.click()
+    await settle()
+    expect(document.body.querySelector<HTMLInputElement>('[data-dt-notice-declarant]')!.value).toBe('ТОО ДЕКЛАРАНТ')
+  })
 })
 
 describe('DtPage: D0122 (гр. 33) ↔ строка гр. 44 08999 (23.10.2026)', () => {
@@ -1824,7 +1862,7 @@ describe('DtPage: D0122 (гр. 33) ↔ строка гр. 44 08999 (23.10.2026)'
     await settle()
     return (api.updateDeclaration.mock.calls.at(-1)![2] as { doc44Items: Record<string, unknown>[] }).doc44Items
   }
-  const NO_DOC = 'D0122 требует обязательство в гр. 44 (08999)'
+  const NO_DOC = 'Товар 1: D0122 требует обязательство в гр. 44 (08999)'
   const NO_CODE = 'Есть строка 08999 (обязательство), но ни у одного товара нет D0122'
 
   it('D0122 у товара — строка 08999 сама: «Б/Н», дата гр. А, признак 1, привязка к товару; повторно не дублируется', async () => {
@@ -1870,6 +1908,23 @@ describe('DtPage: D0122 (гр. 33) ↔ строка гр. 44 08999 (23.10.2026)'
     expect(api.updateDeclaration).not.toHaveBeenCalled()
     expect(warnings()).toEqual([NO_DOC])
     expect((await save()).map((d) => d.docTypeCode)).toEqual(['04021'])
+  })
+
+  it('08999 привязана не ко всем товарам с D0122 — предупреждение по товару; пункты сервера про D0122/08999 не дублируются', async () => {
+    const obligation = {
+      id: 'd2', sortOrder: 1, docTypeCode: '08999', docTypeName: 'ИНЫЕ', docNumber: 'Б/Н', docDate: '2026-10-05',
+      goodsItemIndex: null, appliesToAll: false, goodsItemIndexes: '0', presentKindCode: '1',
+    }
+    const dto = fullDto({
+      splitRole: null, totalSheets: 1,
+      goodsItems: [fullGoodsDto({ prohibitionCode: 'D0122' }), fullGoodsDto({ id: 'g2', sortOrder: 1, prohibitionCode: 'D0122' })],
+    })
+    server = caseDto({ status: 2, assignedDeclarantId: 'me', declarations: [{ ...dto, doc44Items: [...dto.doc44Items, obligation] }] })
+    api.kedenReadiness.mockResolvedValue(readinessDto({
+      warnings: [{ text: 'Товар 2: гр.33 D0122 требует обязательство в гр.44 (08999)', graph: '44', goodsIndex: 1 }],
+    } as never))
+    await open()
+    expect(warnings()).toEqual(['Товар 2: D0122 требует обязательство в гр. 44 (08999)'])
   })
 
   it('без права править ДТ — строку не добавляет', async () => {
