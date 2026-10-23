@@ -31,6 +31,7 @@ import DtSplitModal from './DtSplitModal.vue'
 import DtNotice130Modal from './DtNotice130Modal.vue'
 import DtObligationModal from './DtObligationModal.vue'
 import { NOTICE130_DOC_CODE, NOTICE130_DOC_NAME, upsertNotice130Doc44, type Notice130Doc44Entry } from './dtForms'
+import { OBLIGATION_DOC_CODE, OBLIGATION_DOC_NAME, applyObligationToDoc44, conditionalReleaseGoods } from './dtObligation'
 import { dtLabel } from '@/views/broker/case/caseSteps'
 import { clipLabel, dtAutoTitle } from '@/views/broker/case/dtTitle'
 import SectionClosing from './sections/SectionClosing.vue'
@@ -622,8 +623,9 @@ const onDocs = async () => {
 }
 
 // ---- Документы по ДТ: уведомление по Решению 130, обязательство при условном выпуске (23.10.2026) ----
-// Сервер строит документ по СОХРАНЁННОЙ ДТ (текст гр. 31 — из БД): перед окном — сохранение, как у печати; в просмотре —
-// без сохранения. Декларант — гр. 14, пустая — компания клиента (как на сервере); Ф.И.О. — руководитель из профиля.
+// Сервер строит документы по СОХРАНЁННОЙ ДТ (текст гр. 31, значения обязательства по умолчанию — из БД): перед окном —
+// сохранение, как у печати; в просмотре — без сохранения. Декларант — гр. 14, пустая — компания клиента (как на
+// сервере); Ф.И.О. — руководитель из профиля.
 const notice130Open = ref(false)
 const obligationOpen = ref(false)
 const openDtForm = async (which: 'notice130' | 'obligation') => {
@@ -645,6 +647,15 @@ const onNotice130Doc44 = async (entries: Notice130Doc44Entry[]) => {
   form.doc44Items ??= []
   const { added, updated } = upsertNotice130Doc44(form.doc44Items, entries, name, form.goodsItems.length)
   message.info(t('broker.dt.forms.notice.doc44Done', { added, updated }))
+}
+/** Обязательство сформировано — строка гр. 44 08999: номер = исх. №, дата = дата обязательства (нет строки — добавить). */
+const onObligationDoc44 = async (doc: { number: string | null; date: string }) => {
+  if (!editable.value) return
+  const kinds = await classifiers.load('2009').catch(() => [])
+  const name = kinds.find((k) => k.code === OBLIGATION_DOC_CODE)?.nameRu || OBLIGATION_DOC_NAME
+  form.doc44Items ??= []
+  applyObligationToDoc44(form.doc44Items, doc, conditionalReleaseGoods(form.goodsItems), name)
+  message.info(t('broker.dt.forms.obligation.doc44Done', { code: OBLIGATION_DOC_CODE }))
 }
 
 // ---- Разделение ЕТТ/ВТО ----
@@ -1119,13 +1130,9 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
           v-model:open="obligationOpen"
           :case-id="caseId"
           :dt-id="dtId"
-          :goods="form.goodsItems"
-          :currency="form.currency || null"
-          :declarant="formsDeclarant"
           :director-name="clientProfile?.directorName || null"
-          :country-of="countryOf"
-          :conditional-release="dtOfCase?.conditionalRelease ?? null"
-          :submission-date="form.submissionDate || null"
+          :can-add-doc44="editable"
+          @doc44="onObligationDoc44"
         />
       </template>
     </template>

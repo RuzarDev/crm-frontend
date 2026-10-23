@@ -77,4 +77,19 @@ describe('DtConditionalRelease', () => {
     expect(api.set).toHaveBeenCalledWith('c1', 'd1', { isConditionalRelease: false })
     expect(w.find('[data-condrel-none]').exists()).toBe(true)
   })
+
+  // 23.10.2026: «Сформировать обязательство» — право CanManageDeclarations (canObligation), и без отметки, и с ней.
+  it('«Сформировать обязательство» — только с правом; окно открывает страница (событие obligation)', async () => {
+    let w = mountWith({ canEdit: false })
+    expect(w.find('[data-condrel-obligation]').exists()).toBe(false)
+    w.unmount()
+    w = mountWith({ canEdit: false, canObligation: true })
+    expect(w.find('[data-condrel-mark]').exists()).toBe(false)
+    await w.get('[data-condrel-obligation]').trigger('click')
+    expect(w.emitted('obligation')).toHaveLength(1)
+    w.unmount()
+    w = mountWith({ canObligation: true, dt: { id: 'd1', conditionalRelease: cr() } })
+    expect(w.get('[data-condrel-obligation]').text()).toBe('Сформировать обязательство')
+    expect(w.find('[data-condrel-edit]').exists()).toBe(true)
+  })
 })

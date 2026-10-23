@@ -4,9 +4,9 @@ import { isBlankCharacteristic, rowMeasure } from './goods/editor/characteristic
 import { gr31Number, gr31Text } from './goods/editor/gr31Text'
 import { okeiCode, okeiShort } from './goods/editor/okei'
 
-// Окна «Уведомление (Решение 130)» и «Обязательство (условный выпуск)» на странице ДТ (23.10.2026): строки таблицы
-// товаров, группировка уведомлений по подпунктам, строки гр. 44 01416, имена файлов, сроки. Тексты самих документов
-// строит сервер; здесь — только то, что окно показывает и отправляет.
+// Окна документов по ДТ (23.10.2026): «Уведомление (Решение 130)» — строки таблицы товаров, группировка уведомлений по
+// подпунктам, строки гр. 44 01416; общее для него и «Обязательства» (dtObligation.ts) — даты и имена файлов. Тексты самих
+// документов строит сервер; здесь — только то, что окно показывает и отправляет.
 
 type T = (k: string, p?: Record<string, unknown>) => string
 
@@ -185,44 +185,6 @@ export function saveNotice130Choice(dtId: string, goodsCount: number, selected: 
   try {
     localStorage.setItem(choiceKey(dtId), JSON.stringify({ count: goodsCount, selected, letters }))
   } catch { /* приватный режим — без запоминания */ }
-}
-
-// ---- Обязательство при условном выпуске ----
-
-/** «Представить …» — варианты (в документ идут по-русски, падеж — винительный). */
-export const OBLIGATION_DOC_KINDS = [
-  'сертификат соответствия требованиям технического регламента ЕАЭС (ТС)',
-  'декларацию о соответствии требованиям технического регламента ЕАЭС (ТС)',
-  'сертификат соответствия (единая форма)',
-  'декларацию о соответствии (единая форма)',
-  'документ об оценке соответствия по законодательству Республики Казахстан',
-] as const
-export const OBLIGATION_DOC_KIND_MAX = 300
-/** Срок представления — 60 календарных дней с даты выпуска (Правила, п. 4). */
-export const OBLIGATION_DAYS = 60
-
-/**
- * Документ по умолчанию: условный выпуск отмечен с видом «соответствие» (conformity — «сертификат или декларация») —
- * по основанию: «декларац…» — декларация ТР, иначе сертификат ТР; иначе первый вариант.
- */
-export function defaultObligationDocKind(cr: { docKind?: string | null; note?: string | null } | null | undefined): string {
-  if (cr?.docKind === 'conformity' && /декларац/i.test(cr.note ?? '')) return OBLIGATION_DOC_KINDS[1]
-  return OBLIGATION_DOC_KINDS[0]
-}
-
-/** 'YYYY-MM-DD' + n дней. */
-export function addDays(iso: string, n: number): string {
-  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
-  const dt = new Date(Date.UTC(y, (m || 1) - 1, d || 1))
-  dt.setUTCDate(dt.getUTCDate() + n)
-  return dt.toISOString().slice(0, 10)
-}
-
-/** Срок по умолчанию: срок условного выпуска, если отмечен; иначе (дата подачи или сегодня) + 60 дней. */
-export function defaultObligationDeadline(crDeadline: string | null | undefined, submissionDate: string | null | undefined, today: string): string {
-  if (crDeadline) return crDeadline.slice(0, 10)
-  const from = (submissionDate ?? '').slice(0, 10)
-  return addDays(/^\d{4}-\d{2}-\d{2}$/.test(from) ? from : today, OBLIGATION_DAYS)
 }
 
 // ---- Общее ----

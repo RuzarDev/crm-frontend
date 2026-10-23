@@ -42,6 +42,11 @@ vi.mock('@/stores/classifiers', () => ({ useClassifiersStore: () => ({ loadMany:
 const brokerFirms = vi.hoisted(() => ({ listBrokerFirms: vi.fn(), getBrokerFirmByBin: vi.fn(), upsertBrokerFirm: vi.fn() }))
 vi.mock('@/api/brokerFirms', () => brokerFirms)
 vi.mock('@/api/kato', async (orig) => ({ ...(await orig<typeof import('@/api/kato')>()), katoApi: { search: vi.fn(async () => []), get: vi.fn(async () => null) } }))
+// Документы по ДТ (23.10.2026): уведомление по Решению 130 и обязательство — без сети, файл не скачивается.
+const forms = vi.hoisted(() => ({ notice130: vi.fn(), obligationDefaults: vi.fn(), obligation: vi.fn() }))
+vi.mock('@/api/dtForms', async (orig) => ({ ...(await orig<typeof import('@/api/dtForms')>()), dtFormsApi: forms }))
+const download = vi.hoisted(() => ({ saveBlob: vi.fn() }))
+vi.mock('@/ui/download', () => download)
 
 import DtPage from '../DtPage.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -1760,5 +1765,48 @@ describe('DtPage: раздел «Платежи» (волна 6в)', () => {
     expect(html.indexOf('data-payments-totals')).toBeLessThan(html.indexOf('data-dt-fact-payments'))
     // гр. 47 фикстуры: 1010 = 3 ₸, гр. В: 1010 = 20 000 ₸ — расходятся
     expect(section.get('[data-payments-diff-code="1010"]').text()).toMatch(/гр\. 47 — 3,00 ₸, гр\. В — 20\s000,00 ₸/)
+  })
+})
+
+describe('DtPage: документы по ДТ (23.10.2026)', () => {
+  const moreItems = async (): Promise<HTMLElement[]> => {
+    if (!w.find('[data-dt-more]').exists()) return []
+    await w.get('[data-dt-more]').trigger('keydown', { key: 'Enter' })
+    await settle()
+    return [...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')]
+  }
+  const bodyButton = (text: string) => [...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === text) as HTMLButtonElement | undefined
+
+  it('без права декларанта (CanManageDeclarations) в «Ещё» нет уведомления и обязательства', async () => {
+    as({ permissions: ['import40.read'] })
+    await open()
+    const labels = (await moreItems()).map((i) => i.textContent?.trim())
+    expect(labels).not.toContain('Уведомление (Решение 130)')
+    expect(labels).not.toContain('Обязательство (условный выпуск)')
+    expect(w.find('[data-dt-title-edit]').exists()).toBe(false)
+  })
+
+  it('«Обязательство» из «Ещё»: значения из ДТ, файл; номер и дата — в строку гр. 44 08999, она уходит в PUT', async () => {
+    forms.obligationDefaults.mockResolvedValue({
+      date: '2026-10-21', number: 'Б/Н', consigneeName: 'ТОО «ТЕСТ»', invoices: [{ number: 'INV-1', date: '2026-09-01' }],
+      countryFrom: 'Китая', postCode: '57505', postName: 'ТЕСТОВЫЙ ПОСТ', warehouseName: null,
+      address: 'РК, г. Астана', signerPosition: 'Директор', signerName: 'ИВАНОВ И.И.',
+    })
+    forms.obligation.mockResolvedValue({ blob: new Blob(['docx']) })
+    await open()
+    const item = (await moreItems()).find((i) => i.textContent?.includes('Обязательство (условный выпуск)'))!
+    item.click()
+    await settle()
+    expect(forms.obligationDefaults).toHaveBeenCalledWith('case1', 'dt1')
+    bodyButton('Сформировать')!.click()
+    await settle()
+    expect(forms.obligation).toHaveBeenCalledWith('case1', 'dt1', expect.objectContaining({ number: 'Б/Н', date: '2026-10-21', consigneeName: 'ТОО «ТЕСТ»' }))
+    expect(download.saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'Обязательство_ТОО_ТЕСТ_21.10.2026.docx')
+    expect(toast.info).toHaveBeenCalledWith('Гр. 44, строка 08999: номер и дата обязательства записаны')
+    key({ key: 's', code: 'KeyS', metaKey: true })
+    await settle()
+    const body = api.updateDeclaration.mock.calls.at(-1)![2] as { doc44Items: Record<string, unknown>[] }
+    expect(body.doc44Items.map((d) => d.docTypeCode)).toEqual(['04021', '08999'])
+    expect(body.doc44Items[1]).toMatchObject({ docNumber: 'Б/Н', docDate: '2026-10-21', presentKindCode: '1' })
   })
 })
