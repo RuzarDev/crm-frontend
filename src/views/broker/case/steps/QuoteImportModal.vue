@@ -13,6 +13,7 @@ import { message } from '@/ui/message'
 import type { CaseStepContext } from '../caseContext'
 import { dtLabel } from '../caseSteps'
 import { dtPath, hasSplitParts } from '../declarations'
+import { clipLabel } from '../dtTitle'
 
 // «Импорт из КП» (прежнее окно карточки): КП клиента этой заявки (GET quotes, с поиском), куда добавить товары —
 // новая ДТ или существующая. POST import-quote { quoteId, targetDeclarationId, force }; 409 (КП уже импортирован) —
@@ -57,7 +58,8 @@ const targetOptions = computed(() => [
   { value: 'new', label: t('import40Case.targetNew') },
   { value: 'existing', label: t('import40Case.targetExisting'), disabled: !hasDts.value },
 ])
-const dtOptions = computed(() => targets.value.map((d) => ({ value: d.id, label: dtLabel(props.ctx.kase, d.id, t) })))
+// Подпись ДТ — как в списке («ДТ 1 · название», 23.10.2026), длинное название — с обрезкой: выпадающий список узкий.
+const dtOptions = computed(() => targets.value.map((d) => ({ value: d.id, label: clipLabel(dtLabel(props.ctx.kase, d.id, t)) })))
 const canSubmit = computed(() => !!form.quoteId && (form.target === 'new' || !!form.declarationId))
 const importing = computed(() => props.ctx.actions.isPending(KEY))
 

@@ -12,7 +12,7 @@ import { mountStep } from './stepHarness'
 const api = vi.hoisted(() => ({
   createDeclaration: vi.fn(), deleteDeclaration: vi.fn(), downloadKedenXml: vi.fn(), downloadKedenBatch: vi.fn(), extractBatch: vi.fn(),
   caseQuotes: vi.fn(), importQuote: vi.fn(), kedenReadiness: vi.fn(), kedenReadinessSummary: vi.fn(), get: vi.fn(),
-  copySources: vi.fn(), copyDeclaration: vi.fn(),
+  copySources: vi.fn(), copyDeclaration: vi.fn(), setDeclarationTitle: vi.fn(),
 }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 const dl = vi.hoisted(() => ({ saveBlob: vi.fn() }))
@@ -188,7 +188,7 @@ describe('DeclarationsList: строки и готовность', () => {
     await w.get('[data-dt-search]').setValue('0012240')
     expect(w.findAll('[data-dt-row]').map((r) => r.attributes('data-dt-row'))).toEqual(['d2'])
     await w.get('[data-dt-search]').setValue('нет такой')
-    expect(w.get('[data-dt-nothing]').text()).toBe('ДТ с таким номером нет')
+    expect(w.get('[data-dt-nothing]').text()).toBe('ДТ с таким номером или названием нет')
   })
 
   // Ревью I3: вид строки — по полному списку. Раньше поиск по номеру исходной убирал её части, и исходная становилась
@@ -218,6 +218,65 @@ describe('DeclarationsList: строки и готовность', () => {
     mount(USERS.declarant)
     expect(w.get('[data-dt-empty]').text()).toContain('ДТ ещё не создана')
     expect(w.get('[data-dt-count]').text()).toBe('0')
+  })
+})
+
+// Названия ДТ (23.10.2026): «ДТ 1 · автоназвание», своё название, карандаш (CanManageDeclarations), поиск по названию.
+describe('DeclarationsList: названия ДТ', () => {
+  const named = [
+    declaration({ id: 'd1', goodsItems: [{ description: 'КУШЕТКА С ВИНТОВОЙ РЕГУЛИРОВКОЙ' }, { description: 'СТОЛ' }] as never }),
+    declaration({ id: 'd2', declarationNumber: '55210/031026/0012240', title: 'Партия из Шанхая' }),
+    declaration({ id: 'd3' }),
+  ]
+
+  it('«ДТ 1» ссылкой и автоназвание приглушённым; номер вместо «ДТ i»; своё — обычным цветом; без названия — как раньше', () => {
+    mount(USERS.declarant, { kase: { declarations: named } })
+    expect(row('d1').get('[data-dt-link]').text()).toBe('ДТ 1')
+    expect(row('d1').get('[data-dt-title]').text()).toBe('Кушетка с винтовой регулировкой · ещё 1')
+    expect(row('d1').get('[data-dt-title]').classes()).toContain('text-ink-2')
+    expect(row('d2').get('[data-dt-link]').text()).toBe('55210/031026/0012240')
+    expect(row('d2').get('[data-dt-title]').text()).toBe('Партия из Шанхая')
+    expect(row('d2').get('[data-dt-title]').classes()).toContain('text-ink')
+    expect(row('d3').get('[data-dt-link]').text()).toBe('ДТ 3')
+    expect(row('d3').find('[data-dt-title]').exists()).toBe(false)
+  })
+
+  it('карандаш — только с правом декларанта (CanManageDeclarations)', () => {
+    mount(USERS.kpp, { kase: { declarations: named } })
+    expect(w.find('[data-dt-title-edit]').exists()).toBe(false)
+    w.unmount()
+    mount(USERS.declarant, { kase: { declarations: named } })
+    expect(w.findAll('[data-dt-title-edit]')).toHaveLength(3)
+  })
+
+  it('переименование на месте — свой маршрут, строка сразу с новым названием; пусто — автоназвание', async () => {
+    api.setDeclarationTitle.mockResolvedValueOnce({ title: 'Медтехника' }).mockResolvedValueOnce({ title: null })
+    const { state } = mount(USERS.declarant, { kase: { declarations: named } })
+    await row('d1').get('[data-dt-title-edit]').trigger('click')
+    await flushPromises()
+    await row('d1').get('[data-dt-title-input]').setValue('Медтехника')
+    await row('d1').get('[data-dt-title-input]').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(api.setDeclarationTitle).toHaveBeenCalledWith('c1', 'd1', 'Медтехника')
+    expect(row('d1').get('[data-dt-title]').text()).toBe('Медтехника')
+    expect(state.kase.declarations.find((d) => d.id === 'd1')?.title).toBe('Медтехника')
+    expect(api.get).not.toHaveBeenCalled()
+    await row('d1').get('[data-dt-title-edit]').trigger('click')
+    await flushPromises()
+    await row('d1').get('[data-dt-title-input]').setValue('')
+    await row('d1').get('[data-dt-title-input]').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(api.setDeclarationTitle).toHaveBeenLastCalledWith('c1', 'd1', null)
+    expect(row('d1').get('[data-dt-title]').text()).toBe('Кушетка с винтовой регулировкой · ещё 1')
+  })
+
+  it('поиск — и по своему названию, и по автоназванию', async () => {
+    mount(USERS.declarant, { kase: { declarations: named } })
+    expect(w.get('[data-dt-search]').attributes('placeholder')).toBe('Поиск ДТ по номеру или названию')
+    await w.get('[data-dt-search]').setValue('шанха')
+    expect(w.findAll('[data-dt-row]').map((r) => r.attributes('data-dt-row'))).toEqual(['d2'])
+    await w.get('[data-dt-search]').setValue('кушетка')
+    expect(w.findAll('[data-dt-row]').map((r) => r.attributes('data-dt-row'))).toEqual(['d1'])
   })
 })
 

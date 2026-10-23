@@ -24,6 +24,7 @@ import {
 import { saveBlob } from '@/ui/download'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
+import { clipLabel } from './dtTitle'
 
 // Запросы таможни сотрудника (волна 17.10, задача 5) — карточка заявки и страница ДТ (там — запросы этой ДТ и всей
 // заявки). Ждёт клиента — красная плашка «Запрос таможни · N ч без ответа» с «Ответить таможне» и «Напомнить
@@ -33,7 +34,8 @@ const props = defineProps<{
   caseId: string
   status: number
   list: CustomsRequestDto[]
-  declarations: { id: string; declarationNumber?: string | null }[]
+  /** label — подпись ДТ из карточки заявки (номер или «ДТ i» и название, 23.10.2026); нет — номер. */
+  declarations: { id: string; declarationNumber?: string | null; label?: string | null }[]
   /** Страница ДТ: показываем запросы этой ДТ и всей заявки, новый — по этой ДТ. */
   declarationId?: string | null
   canManage: boolean
@@ -74,7 +76,7 @@ const stageOptions = computed(() => {
 })
 const dtOptions = computed(() => [
   { value: '', label: t('customsRequest.dtNone') },
-  ...props.declarations.map((d) => ({ value: d.id, label: d.declarationNumber || t('broker.dt.banners.noNumber') })),
+  ...props.declarations.map((d) => ({ value: d.id, label: clipLabel(d.label || d.declarationNumber || t('broker.dt.banners.noNumber')) })),
 ])
 const openCreate = () => {
   form.value = {

@@ -28,6 +28,15 @@ import type { KedenLinkDto } from '@/api/kedenLink'
 import DtReadinessPanel from './DtReadinessPanel.vue'
 import DtSectionNav from './DtSectionNav.vue'
 import DtSplitModal from './DtSplitModal.vue'
+import DtNotice130Modal from './DtNotice130Modal.vue'
+import DtObligationModal from './DtObligationModal.vue'
+import { NOTICE130_DOC_CODE, NOTICE130_DOC_NAME, upsertNotice130Doc44, type Notice130Doc44Entry } from './dtForms'
+import {
+  OBLIGATION_DEFAULT_NUMBER, OBLIGATION_DOC_CODE, OBLIGATION_DOC_NAME, applyObligationToDoc44, conditionalReleaseGoods,
+  ensureObligationDoc44, hasConditionalReleaseCode, obligationWarnings,
+} from './dtObligation'
+import { dtLabel } from '@/views/broker/case/caseSteps'
+import { clipLabel, dtAutoTitle } from '@/views/broker/case/dtTitle'
 import SectionClosing from './sections/SectionClosing.vue'
 import SectionCountries from './sections/SectionCountries.vue'
 import SectionCustoms from './sections/SectionCustoms.vue'
@@ -43,7 +52,7 @@ import PaymentsTotalsCard from './payments/PaymentsTotalsCard.vue'
 import SectionDts from './dts/SectionDts.vue'
 import { useDts } from './dts/useDts'
 import { saveFile } from './dtFiles'
-import { useDtGoods } from './goods/useDtGoods'
+import { keyOf, useDtGoods } from './goods/useDtGoods'
 import { formatItemNumbers } from './goods/goodsList'
 import { staleGoodsIndexes } from './payments/paymentsView'
 import { goodsFieldFromReadiness } from './goods/goodsFieldTarget'
@@ -55,7 +64,7 @@ import { syncLoadedParties } from './dtParties'
 import {
   adjacentSection, navMarks, paymentsStale, rateTag, readonlyReason, sectionFromQuery, splitChildren, visibleSections,
 } from './dtPageModel'
-import { DT_ROUTE, type DtSectionKey } from './dtSections'
+import { DT_ROUTE, sectionForReadinessItem, type DtSectionKey } from './dtSections'
 import { isDetachedSplitPart, isLiveSplitPart, splitExportWarning } from '@/views/broker/case/declarations'
 import { useDtForm } from './useDtForm'
 import { originForGoods, specialCountryKey } from './originCountry'
@@ -70,6 +79,9 @@ import { useDtReadiness, type DtReadinessItem } from './useDtReadiness'
 // payments/ (волна 6в: одно действие «Рассчитать» useDtPayments; правая колонка — «Итого по видам»); «ДТС» — dts/ (волна 6в, один загрузчик useDts; правой колонки
 // там нет). Логика — в composables: форма и сохранение (useDtForm), курсы (useDtRates), готовность (useDtReadiness),
 // расчёты (useDtPayments), ДТС (useDts).
+// 23.10.2026: название ДТ в шапке (своё или автоназвание, переименование на месте), «Уведомление (Решение 130)» и
+// «Обязательство (условный выпуск)» — окна DtNotice130Modal / DtObligationModal (из «Ещё», из блока условного выпуска и
+// у кода D0122 в гр. 33); D0122 у товара — строка гр. 44 08999 (обязательство) сама, расхождения — в «До подачи».
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -211,6 +223,7 @@ const goodsEditorContext = computed<GoodsPageContext>(() => ({
   savedGoodsIds: dt.lastServerDto.value?.goodsItems?.map((g) => g.id) ?? null,
   senderName: form.sender?.name || null,
   senderCountryCode: form.sender?.countryCode || null,
+  openObligation: canManage.value ? () => { void openDtForm('obligation') } : null,
 }))
 const goodsSaveState = computed<GoodsSaveState>(() => ({
   saving: dt.saving.value,
@@ -253,7 +266,40 @@ const onCustomsAutoOpened = () => {
 }
 const roReason = computed(() => readonlyReason(user.value, kase.value))
 const stage = computed(() => (kase.value ? statusLabel(kase.value.status) : ''))
-const split = computed(() => (splitReplaced.value ? splitChildren(kase.value, dtId) : null))
+// Части разделения в плашке — подписью как в списке ДТ (номер или «ДТ i» и название, 23.10.2026).
+const split = computed(() => {
+  if (!splitReplaced.value) return null
+  const c = kase.value
+  const parts = splitChildren(c, dtId)
+  const label = (p: typeof parts.ett) => (p && c ? { ...p, label: clipLabel(dtLabel(c, p.id, t)) } : p)
+  return { ett: label(parts.ett), vto: label(parts.vto) }
+})
+
+// ---- Название ДТ (23.10.2026) ----
+// Своё название — из ответа сервера (GET/PUT ДТ его отдают, PUT не меняет); после переименования — ответ маршрута title.
+// lastServerDto и заявка — shallowRef: своё значение держим в ref, иначе шапка не обновится.
+const ownTitle = ref<string | null>(null)
+watch(() => dt.lastServerDto.value, (s) => {
+  ownTitle.value = s && 'title' in s ? s.title ?? null : dtOfCase.value?.title ?? null
+}, { immediate: true })
+const autoTitle = computed(() => dtAutoTitle(form, t))
+/** Рядом с названием: номер или «ДТ i» (место в списке ДТ заявки, как в карточке заявки). */
+const shortId = computed(() => {
+  if (form.declarationNumber) return form.declarationNumber
+  const i = kase.value?.declarations.findIndex((d) => d.id === dtId) ?? -1
+  return i >= 0 ? t('import40Case.dtFallback', { n: i + 1 }) : null
+})
+const renameDt = async (title: string | null): Promise<boolean> => {
+  try {
+    const res = await import40Api.setDeclarationTitle(caseId, dtId, title)
+    ownTitle.value = res.title ?? null
+    if (dt.lastServerDto.value) dt.lastServerDto.value.title = res.title ?? null
+    if (dtOfCase.value) dtOfCase.value.title = res.title ?? null
+    return true
+  } catch {
+    return false // текст ошибки показал общий перехватчик
+  }
+}
 const tag = computed(() => rateTag(dt.lastServerDto.value))
 
 // ---- Разделы и ?s= ----
@@ -281,6 +327,20 @@ const calcPayments = async () => {
 }
 
 const allItems = computed<DtReadinessItem[]>(() => [...readiness.items.value, ...(dts.items.value ?? [])])
+// Предупреждения «До подачи»: сервера и своё про D0122 ↔ 08999 — те же проверки, что у сервера (по товару: строка 08999,
+// относящаяся к товару с D0122; по ДТ: 08999 без D0122), но по несохранённой форме — свежее. Поэтому пункты сервера с
+// обоими кодами в тексте (и по товару, и по ДТ) не дублируем.
+const obligationWarningItems = computed<DtReadinessItem[]>(() => obligationWarnings(form.goodsItems, form.doc44Items ?? []).map((w) => {
+  const text = w.kind === 'noDoc'
+    ? t('broker.dt.forms.obligation.warn.noDoc', { n: w.goodsIndex + 1 })
+    : t('broker.dt.forms.obligation.warn.noCode')
+  const goodsIndex = w.kind === 'noDoc' ? w.goodsIndex : null
+  return { text, graph: '44', goodsIndex, section: sectionForReadinessItem({ text, graph: '44', goodsIndex }), fromXml: false }
+}))
+const panelWarnings = computed<DtReadinessItem[]>(() => [
+  ...readiness.warnings.value.filter((i) => !(i.text.includes('D0122') && i.text.includes('08999'))),
+  ...obligationWarningItems.value,
+])
 const marks = computed(() => {
   const bySection: Partial<Record<DtSectionKey, number>> = {}
   for (const i of allItems.value) bySection[i.section] = (bySection[i.section] ?? 0) + 1
@@ -581,6 +641,89 @@ const onDocs = async () => {
   }
 }
 
+// ---- Документы по ДТ: уведомление по Решению 130, обязательство при условном выпуске (23.10.2026) ----
+// Сервер строит документы по СОХРАНЁННОЙ ДТ (текст гр. 31, значения обязательства по умолчанию — из БД): перед окном —
+// сохранение, как у печати; в просмотре — без сохранения. Декларант — гр. 14, пустая — компания клиента (как на
+// сервере); Ф.И.О. — руководитель из профиля.
+const notice130Open = ref(false)
+const obligationOpen = ref(false)
+const openDtForm = async (which: 'notice130' | 'obligation') => {
+  if (!(await dt.saveForAction(true))) return
+  if (which === 'notice130') notice130Open.value = true
+  else obligationOpen.value = true
+}
+// Как печатает сервер: наименование гр. 14 — с БИН гр. 14 (пустой — без БИН); гр. 14 пуста — наименование и БИН из
+// профиля клиента. Не смешивать поля из разных источников (ревью 23.10.2026).
+const formsDeclarant = computed(() => (form.declarantName?.trim()
+  ? { name: form.declarantName.trim(), bin: form.declarantBin?.trim() || null }
+  : { name: clientProfile.value?.companyName || null, bin: clientProfile.value?.bin || null }))
+const alpha2ByCode = computed(() => new Map(countryOptions.value.map((c) => [c.value, c.alpha2])))
+const countryOf = (code: string) => alpha2ByCode.value.get(code) ?? null
+/** Строки гр. 44 01416 после уведомления — в форму (сохранит автосейв); название вида — из классификатора 2009. */
+const onNotice130Doc44 = async (entries: Notice130Doc44Entry[]) => {
+  if (!editable.value || !entries.length) return
+  const kinds = await classifiers.load('2009').catch(() => [])
+  const name = kinds.find((k) => k.code === NOTICE130_DOC_CODE)?.nameRu || NOTICE130_DOC_NAME
+  form.doc44Items ??= []
+  const { added, updated } = upsertNotice130Doc44(form.doc44Items, entries, name, form.goodsItems.length)
+  message.info(t('broker.dt.forms.notice.doc44Done', { added, updated }))
+}
+// Номера обязательств, сформированных на этой странице (страница — одна ДТ): строка 08999 с таким номером — точно
+// обязательство (повторное формирование её обновит, а не спросит и не добавит вторую).
+const obligationNumbers = new Set<string>()
+const knownObligationNumbers = () => [...obligationNumbers]
+/**
+ * Обязательство сформировано — строка обязательства в гр. 44: номер = исх. №, дата = дата обязательства (нет строки —
+ * добавить). 08999 — общий код: если строка похожа на обязательство не наверняка (не «Б/Н» и не номер обязательства),
+ * спросить — записать в неё или добавить отдельную строку (ревью 23.10.2026: иначе перетирался чужой документ).
+ */
+const onObligationDoc44 = async (doc: { number: string | null; date: string }) => {
+  if (!editable.value) return
+  const kinds = await classifiers.load('2009').catch(() => [])
+  const name = kinds.find((k) => k.code === OBLIGATION_DOC_CODE)?.nameRu || OBLIGATION_DOC_NAME
+  const known = knownObligationNumbers()
+  const apply = (choice?: 'overwrite' | 'add') =>
+    applyObligationToDoc44((form.doc44Items ??= []), doc, conditionalReleaseGoods(form.goodsItems), name, { known, choice })
+  const res = apply()
+  if (typeof res === 'object') {
+    const overwrite = await confirm({
+      title: t('broker.dt.forms.obligation.overwriteTitle', { code: OBLIGATION_DOC_CODE, number: res.ask.docNumber?.trim() || '—' }),
+      content: t('broker.dt.forms.obligation.overwriteText', { code: OBLIGATION_DOC_CODE }),
+      okText: t('broker.dt.forms.obligation.overwriteOk'),
+      cancelText: t('broker.dt.forms.obligation.overwriteAdd'),
+    })
+    // Пока спрашивали, ДТ могли закрыть для правки (сдача, смена версии) — тогда ничего.
+    if (!editable.value) return
+    apply(overwrite ? 'overwrite' : 'add')
+  }
+  obligationNumbers.add((doc.number ?? '').trim() || OBLIGATION_DEFAULT_NUMBER)
+  message.info(t('broker.dt.forms.obligation.doc44Done', { code: OBLIGATION_DOC_CODE }))
+}
+
+// ---- 3б. D0122 (гр. 33) ↔ строка гр. 44 08999 (23.10.2026) ----
+// У товара появился D0122 (правка гр. 33, «Применить к выбранным», импорт, копия товара) — в гр. 44 строка 08999
+// (обязательство): нет — добавить («Б/Н», дата гр. А, признак 1, товары с D0122), есть — только дописать новые товары в
+// привязку (номер, дату и вид, которые декларант мог править, не трогаем). Обязательство — не любая 08999 (общий код):
+// «Б/Н», номер сформированного обязательства или привязка к товару с D0122 (findObligationDoc44); чужую 08999 не трогаем
+// (ревью 23.10.2026). Срабатывает на ПОЯВЛЕНИЕ кода у товара (по ключу товара keyOf — перестановка не в счёт): удалённую
+// вручную строку правило не возвращает, а убранный у всех товаров D0122 строку не удаляет — об обоих расхождениях
+// предупреждение в «До подачи». Загрузка ДТ (applying) и просмотр — без правок.
+let condRelKeys = new Set<number>()
+watch(
+  () => form.goodsItems.flatMap((g) => (hasConditionalReleaseCode(g) ? [keyOf(g)] : [])).join(','),
+  (key) => {
+    const before = condRelKeys
+    condRelKeys = new Set(key ? key.split(',').map(Number) : [])
+    if (dt.applying.value || !dt.editable.value) return
+    const added = form.goodsItems.flatMap((g, i) => (hasConditionalReleaseCode(g) && !before.has(keyOf(g)) ? [i] : []))
+    if (!added.length) return
+    const name = classifiers.cache['2009']?.find((k) => k.code === OBLIGATION_DOC_CODE)?.nameRu || OBLIGATION_DOC_NAME
+    form.doc44Items ??= []
+    ensureObligationDoc44(form.doc44Items, { all: conditionalReleaseGoods(form.goodsItems), added }, name, form.submissionDate || null, knownObligationNumbers())
+  },
+  { immediate: true },
+)
+
 // ---- Разделение ЕТТ/ВТО ----
 const splitOpen = ref(false)
 // Решение владельца 16.10.2026: часть разделения повторно не делится — «Измените разделение из исходной ДТ»; у исходной
@@ -651,6 +794,8 @@ const customsPostOptions = ref<{ value: string; label: string; parentCode?: stri
 const customsDgds = ref<{ code: string; name: string }[]>([])
 onMounted(async () => {
   classifiers.loadMany([...DT_CLASSIFIERS]).catch(() => message.warning(t('broker.dt.page.classifiersFailed')))
+  // Виды документов гр. 44 — название строки 08999, которую добавляет правило D0122 (без справочника — встроенное).
+  void classifiers.load('2009').catch(() => undefined)
   void rates.loadCurrencies()
   referencesApi.listCountries()
     // alpha2 — чтобы старый буквенный код стороны («KZ») показать и привести к цифровому ОКСМ (dtParties).
@@ -785,6 +930,11 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
         :case-number="kase?.number ?? null"
         :client-name="kase?.clientName ?? null"
         :number="form.declarationNumber || null"
+        :title="ownTitle"
+        :auto-title="autoTitle"
+        :short-id="shortId"
+        :rename="canManage ? renameDt : null"
+        :forms="{ notice130: canManage, obligation: canManage }"
         :tag="tag"
         :editable="editable"
         :can-xml="canManage"
@@ -805,6 +955,8 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
         @docs="onDocs"
         @split="onSplit"
         @open-panel="panelOpen = true"
+        @notice130="openDtForm('notice130')"
+        @obligation="openDtForm('obligation')"
       >
         <template #status>
           <DtKedenChip
@@ -879,6 +1031,8 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
             :dt="condRelDt"
             :case-status="kase.status"
             :can-edit="canEditDt(user, kase)"
+            :can-obligation="canManage"
+            @obligation="openDtForm('obligation')"
           />
 
           <div
@@ -994,7 +1148,7 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
             :enabled="readinessOn"
             :loaded="readiness.loaded.value"
             :items="allItems"
-            :warnings="readiness.warnings.value"
+            :warnings="panelWarnings"
             :blank="readiness.blank.value"
             :rates="panelRates"
             :rates-date="form.submissionDate ?? null"
@@ -1009,7 +1163,7 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
           :enabled="readinessOn"
           :loaded="readiness.loaded.value"
           :items="allItems"
-          :warnings="readiness.warnings.value"
+          :warnings="panelWarnings"
           :blank="readiness.blank.value"
           :rates="panelRates"
           :rates-date="form.submissionDate ?? null"
@@ -1027,6 +1181,28 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
         :save="saveBeforeSplit"
         @done="onSplitDone"
       />
+      <template v-if="canManage">
+        <DtNotice130Modal
+          v-model:open="notice130Open"
+          :case-id="caseId"
+          :dt-id="dtId"
+          :goods="form.goodsItems"
+          :currency="form.currency || null"
+          :declarant="formsDeclarant"
+          :director-name="clientProfile?.directorName || null"
+          :country-of="countryOf"
+          :can-add-doc44="editable"
+          @doc44="onNotice130Doc44"
+        />
+        <DtObligationModal
+          v-model:open="obligationOpen"
+          :case-id="caseId"
+          :dt-id="dtId"
+          :director-name="clientProfile?.directorName || null"
+          :can-add-doc44="editable"
+          @doc44="onObligationDoc44"
+        />
+      </template>
     </template>
   </div>
 </template>

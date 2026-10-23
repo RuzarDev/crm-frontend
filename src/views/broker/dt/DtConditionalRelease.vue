@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhDownloadSimple, PhUploadSimple, PhWarningCircle } from '@phosphor-icons/vue'
+import { PhDownloadSimple, PhFileDoc, PhUploadSimple, PhWarningCircle } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZDate from '@/components/z/ZDate.vue'
 import ZField from '@/components/z/ZField.vue'
@@ -21,6 +21,7 @@ import { briefOf, condRelKindName, isCondRelOpen } from '@/utils/conditionalRele
 // Блок «Условный выпуск» на странице ДТ (17.10): отметить (вид недостающего документа + основание + срок, по умолчанию
 // выпуск + 60 дней), изменить, снять, загрузить за клиента, подтвердить закрытие. Свои запросы, без автосейва ДТ:
 // сервер не меняет UpdatedAtUtc ДТ, поэтому открытый редактор не получает 409.
+// 23.10.2026: «Сформировать обязательство» (Word для подписи клиентом) — право CanManageDeclarations; окно — у страницы ДТ.
 const props = defineProps<{
   caseId: string
   dt: { id: string; declarationNumber?: string | null; conditionalRelease?: ConditionalReleaseDto | null }
@@ -28,7 +29,10 @@ const props = defineProps<{
   caseStatus: number
   /** Декларант заявки, руководитель или администратор. */
   canEdit: boolean
+  /** Кнопка «Сформировать обязательство» (CanManageDeclarations). */
+  canObligation?: boolean
 }>()
+const emit = defineEmits<{ obligation: [] }>()
 const { t } = useI18n()
 const { confirm } = useConfirm()
 const uid = useId()
@@ -196,8 +200,11 @@ const uploadBtn = 'max-sm:block max-sm:w-full max-sm:[&>button]:h-11 max-sm:[&>b
     <!-- Без отметки -->
     <template v-else-if="!cr">
       <p class="m-0 text-sm text-ink-3" data-condrel-none>{{ t('condRel.dt.none') }}</p>
-      <div v-if="canEdit">
-        <ZButton :class="btn" data-condrel-mark @click="startEdit(true)">{{ t('condRel.dt.mark') }}</ZButton>
+      <div v-if="canEdit || canObligation" class="flex flex-wrap gap-2">
+        <ZButton v-if="canEdit" :class="btn" data-condrel-mark @click="startEdit(true)">{{ t('condRel.dt.mark') }}</ZButton>
+        <ZButton v-if="canObligation" :class="btn" data-condrel-obligation @click="emit('obligation')">
+          <PhFileDoc :size="16" aria-hidden="true" />{{ t('condRel.dt.obligation') }}
+        </ZButton>
       </div>
     </template>
 
@@ -224,25 +231,30 @@ const uploadBtn = 'max-sm:block max-sm:w-full max-sm:[&>button]:h-11 max-sm:[&>b
         <span v-else-if="open" class="text-ink-3">{{ t('condRel.dt.notUploaded') }}</span>
         <span v-if="cr.resolvedAtUtc" class="font-medium text-tone-done-fg" data-condrel-resolved>{{ t('condRel.dt.resolved', { date: dayOf(cr.resolvedAtUtc) }) }}</span>
       </div>
-      <div v-if="canEdit" class="flex flex-wrap gap-2">
-        <template v-if="open">
-          <ZButton variant="primary" :loading="busy === 'resolve'" :disabled="!!busy && busy !== 'resolve'" :class="btn" data-condrel-resolve @click="resolve">{{ t('condRel.dt.resolve') }}</ZButton>
-          <ZUpload
-            :accept="ACCEPT"
-            :max-size-mb="25"
-            :loading="busy === 'upload'"
-            :disabled="!!busy && busy !== 'upload'"
-            :class="uploadBtn"
-            :custom-request="({ file }) => upload(file)"
-            data-condrel-upload
-          >
-            <template #icon><PhUploadSimple :size="16" aria-hidden="true" /></template>
-            {{ t('condRel.dt.uploadForClient') }}
-          </ZUpload>
-          <ZButton :disabled="!!busy" :class="btn" data-condrel-edit @click="startEdit(false)">{{ t('condRel.dt.edit') }}</ZButton>
+      <div v-if="canEdit || canObligation" class="flex flex-wrap gap-2">
+        <template v-if="canEdit">
+          <template v-if="open">
+            <ZButton variant="primary" :loading="busy === 'resolve'" :disabled="!!busy && busy !== 'resolve'" :class="btn" data-condrel-resolve @click="resolve">{{ t('condRel.dt.resolve') }}</ZButton>
+            <ZUpload
+              :accept="ACCEPT"
+              :max-size-mb="25"
+              :loading="busy === 'upload'"
+              :disabled="!!busy && busy !== 'upload'"
+              :class="uploadBtn"
+              :custom-request="({ file }) => upload(file)"
+              data-condrel-upload
+            >
+              <template #icon><PhUploadSimple :size="16" aria-hidden="true" /></template>
+              {{ t('condRel.dt.uploadForClient') }}
+            </ZUpload>
+            <ZButton :disabled="!!busy" :class="btn" data-condrel-edit @click="startEdit(false)">{{ t('condRel.dt.edit') }}</ZButton>
+          </template>
+          <ZButton v-else :disabled="!!busy" :class="btn" data-condrel-mark-again @click="startEdit(true)">{{ t('condRel.dt.markAgain') }}</ZButton>
+          <ZButton variant="danger-ghost" :loading="busy === 'remove'" :disabled="!!busy && busy !== 'remove'" :class="btn" data-condrel-remove @click="remove">{{ t('condRel.dt.remove') }}</ZButton>
         </template>
-        <ZButton v-else :disabled="!!busy" :class="btn" data-condrel-mark-again @click="startEdit(true)">{{ t('condRel.dt.markAgain') }}</ZButton>
-        <ZButton variant="danger-ghost" :loading="busy === 'remove'" :disabled="!!busy && busy !== 'remove'" :class="btn" data-condrel-remove @click="remove">{{ t('condRel.dt.remove') }}</ZButton>
+        <ZButton v-if="canObligation" :class="btn" data-condrel-obligation @click="emit('obligation')">
+          <PhFileDoc :size="16" aria-hidden="true" />{{ t('condRel.dt.obligation') }}
+        </ZButton>
       </div>
       <p v-if="open" class="m-0 text-xs text-ink-3">{{ t('condRel.dt.reminders') }}</p>
     </template>

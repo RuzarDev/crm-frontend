@@ -3,6 +3,7 @@ import type { Import40Doc44ItemInput, Import40GoodsItemInput } from '@/types/api
 import { normalizeIncotermsPlace } from '@/utils/importText'
 import type { CaseStepMode } from './caseContext'
 import { rowsFromLegacy } from '@/views/broker/dt/goods/editor/characteristics'
+import { clipLabel, dtAutoTitle, dtLabelOf, dtTitleOf, type DtTitleSource } from './dtTitle'
 
 // Список ДТ на шаге 3 карточки заявки (редизайн, волна 4а).
 
@@ -27,11 +28,15 @@ type T = (k: string, p?: Record<string, unknown>) => string
 /** Страница ДТ. */
 export const dtPath = (caseId: string, dtId: string): string => `/import-40/${caseId}/dt/${dtId}`
 
-/** Поиск ДТ по номеру (прежний dtSearch: по вхождению, без учёта регистра). */
-export function filterDeclarations<D extends { declarationNumber?: string | null }>(list: D[], query: string): D[] {
-  const q = query.trim().toLowerCase()
+/**
+ * Поиск ДТ (прежний dtSearch: по вхождению, без учёта регистра) — по номеру, а с 23.10.2026 и по названию: своему и
+ * автоназванию (t нужен для «ещё N» / «Инвойс № …»; без t — номер и своё название).
+ */
+export function filterDeclarations<D extends { declarationNumber?: string | null } & DtTitleSource>(list: D[], query: string, t?: T): D[] {
+  const q = query.trim().toLocaleLowerCase('ru')
   if (!q) return list
-  return list.filter((d) => (d.declarationNumber || '').toLowerCase().includes(q))
+  return list.filter((d) => [d.declarationNumber, d.title, t ? dtAutoTitle(d, t) : null]
+    .some((v) => (v || '').toLocaleLowerCase('ru').includes(q)))
 }
 
 /**
@@ -124,7 +129,7 @@ export const hasSplitParts = (dt: Pick<Import40DeclarationDto, 'id'>, all: reado
 export interface SplitTag { label: string; tone: 'neutral' | 'submitted' | 'info'; tip: string }
 export function splitTag(
   dt: Pick<Import40DeclarationDto, 'id' | 'splitRole' | 'rateType' | 'splitSourceDeclarationId'>,
-  all: Pick<Import40DeclarationDto, 'id' | 'declarationNumber' | 'splitSourceDeclarationId'>[],
+  all: (Pick<Import40DeclarationDto, 'id' | 'declarationNumber' | 'splitSourceDeclarationId'> & DtTitleSource)[],
   t: T,
 ): SplitTag | null {
   if (!isLiveSplitPart(dt, all) && hasSplitParts(dt, all)) {
@@ -136,7 +141,11 @@ export function splitTag(
   let tip = ''
   if (isLiveSplitPart(dt, all)) {
     const i = all.findIndex((d) => d.id === dt.splitSourceDeclarationId)
-    tip = t('import40Case.splitTooltip', { num: all[i].declarationNumber || t('import40Case.dtFallback', { n: i + 1 }) })
+    // Исходная — номером или «ДТ i» и названием (23.10.2026), длинное своё название — с обрезкой.
+    const src = all[i]
+    tip = t('import40Case.splitTooltip', {
+      num: clipLabel(dtLabelOf(src.declarationNumber || t('import40Case.dtFallback', { n: i + 1 }), dtTitleOf(src, t).text)),
+    })
   } else if (dt.splitRole || dt.splitSourceDeclarationId) {
     tip = t('import40Case.splitOrphanTooltip')
   }
