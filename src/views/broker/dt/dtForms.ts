@@ -120,13 +120,23 @@ export const NOTICE130_DOC_NAME = 'Уведомление о подтвержд�
 
 export interface Notice130Doc44Entry { number: string | null; date: string; indexes: number[] }
 
-const sameNumber = (a: string | null | undefined, b: string | null | undefined) =>
-  (a ?? '').trim().toLocaleUpperCase('ru') === (b ?? '').trim().toLocaleUpperCase('ru')
+const normNumber = (n: string | null | undefined) => (n ?? '').trim().toLocaleUpperCase('ru')
+const sameNumber = (a: string | null | undefined, b: string | null | undefined) => normNumber(a) === normNumber(b)
+
+/** Номер из той же серии уведомления: «N» или «N-k» (notice130Forms: одна форма — «N», несколько — «N-1», «N-2»…). */
+const inSeries = (n: string | null | undefined, base: string) => {
+  const v = normNumber(n)
+  const b = normNumber(base)
+  return !!b && (v === b || (v.startsWith(`${b}-`) && /^\d+$/.test(v.slice(b.length + 1))))
+}
 
 /**
  * Строки гр. 44 01416 после формирования уведомления (в форму ДТ — сохранит автосейв): по строке на форму. Строка 01416 с
- * тем же номером уже есть — обновить дату и товары (не дублировать); каждая строка обновляется одной формой. Товары —
- * отмеченные; все товары ДТ — «на все товары». Признак представления новой строки — «0», как у новой строки гр. 44.
+ * тем же номером уже есть — обновить дату и товары (не дублировать); каждая строка обновляется одной формой. Точного
+ * совпадения нет — взять строку 01416 той же серии номеров («N» ↔ «N-1», «N-2»: повторное формирование с другим числом
+ * форм) или без номера (прошлое формирование без номера) и записать в неё номер — иначе оставались дубли (ревью
+ * 23.10.2026). Товары — отмеченные; все товары ДТ — «на все товары». Признак представления новой строки — «0», как у
+ * новой строки гр. 44.
  */
 export function upsertNotice130Doc44(
   items: Import40Doc44ItemInput[],
@@ -134,28 +144,38 @@ export function upsertNotice130Doc44(
   name: string,
   goodsCount: number,
 ): { added: number; updated: number } {
+  const isNotice = (d: Import40Doc44ItemInput) => (d.docTypeCode ?? '').trim() === NOTICE130_DOC_CODE
   const used = new Set<Import40Doc44ItemInput>()
+  const take = (pred: (d: Import40Doc44ItemInput) => boolean) => {
+    const found = items.find((d) => !used.has(d) && isNotice(d) && pred(d))
+    if (found) used.add(found)
+    return found
+  }
+  // Сначала точные совпадения номеров у всех форм, потом — серия и строки без номера (чтобы «N-1» не занял строку «N-2»).
+  const exact = entries.map((e) => take((d) => sameNumber(d.docNumber, e.number)))
+  const first = (entries[0]?.number ?? '').trim()
+  const base = entries.length > 1 ? first.replace(/-\d+$/, '') : first
+  const target = entries.map((e, k) => exact[k]
+    ?? ((e.number ?? '').trim() ? take((d) => inSeries(d.docNumber, base)) ?? take((d) => !(d.docNumber ?? '').trim()) : undefined))
   let added = 0
   let updated = 0
-  for (const e of entries) {
+  entries.forEach((e, k) => {
     const all = goodsCount > 0 && e.indexes.length >= goodsCount
     const goods = { appliesToAll: all, goodsItemIndexes: all ? null : [...e.indexes].sort((a, b) => a - b).join(','), goodsItemIndex: null }
-    const found = items.find((d) => !used.has(d) && (d.docTypeCode ?? '').trim() === NOTICE130_DOC_CODE && sameNumber(d.docNumber, e.number))
+    const found = target[k]
     if (found) {
-      used.add(found)
       Object.assign(found, { docDate: e.date, ...goods })
+      if (!exact[k]) found.docNumber = e.number
       if (!(found.docTypeName ?? '').trim()) found.docTypeName = name
       updated++
-      continue
+      return
     }
-    const row: Import40Doc44ItemInput = {
+    items.push({
       docTypeCode: NOTICE130_DOC_CODE, docTypeName: name, docNumber: e.number, docDate: e.date,
       ...goods, docStartDate: null, docValidityDate: null, issueCountryCode: null, presentKindCode: '0',
-    }
-    items.push(row)
-    used.add(row)
+    })
     added++
-  }
+  })
   return { added, updated }
 }
 
@@ -163,27 +183,37 @@ export function upsertNotice130Doc44(
 
 const choiceKey = (dtId: string) => `zircon.dt.notice130.${dtId}`
 
-/** Сохранённый выбор, если число товаров ДТ то же; иначе null. */
-export function loadNotice130Choice(dtId: string, goodsCount: number): { selected: number[]; letters: Notice130Letters } | null {
+/**
+ * Отпечаток товара на позиции — код ТН ВЭД и начало описания. Выбор и буквы хранятся по позиции; после перестановки,
+ * удаления или замены товара на позиции другой товар — его выбор не восстанавливаем (ревью 23.10.2026: раньше сверялось
+ * только число товаров, и буквы переезжали на чужие товары).
+ */
+export const notice130GoodsKeys = (rows: readonly Pick<DtPickRow, 'tnvedCode' | 'description'>[]): string[] =>
+  rows.map((r) => `${r.tnvedCode ?? ''}|${r.description.slice(0, 60)}`)
+
+/** Сохранённый выбор — только для позиций, где тот же товар (отпечаток совпал); ничего не осталось — null. */
+export function loadNotice130Choice(dtId: string, keys: readonly string[]): { selected: number[]; letters: Notice130Letters } | null {
   try {
     const raw = localStorage.getItem(choiceKey(dtId))
     if (!raw) return null
-    const v = JSON.parse(raw) as { count?: unknown; selected?: unknown; letters?: unknown }
-    if (v.count !== goodsCount || !Array.isArray(v.selected) || typeof v.letters !== 'object' || !v.letters) return null
-    const ok = (i: unknown): i is number => Number.isInteger(i) && (i as number) >= 0 && (i as number) < goodsCount
+    const v = JSON.parse(raw) as { keys?: unknown; selected?: unknown; letters?: unknown }
+    if (!Array.isArray(v.keys) || !Array.isArray(v.selected) || typeof v.letters !== 'object' || !v.letters) return null
+    const saved = v.keys as unknown[]
+    const ok = (i: unknown): i is number => Number.isInteger(i) && (i as number) >= 0 && (i as number) < keys.length && saved[i as number] === keys[i as number]
     const letters: Notice130Letters = {}
     for (const [k, l] of Object.entries(v.letters as Record<string, unknown>)) {
       const i = Number(k)
       if (ok(i) && (NOTICE130_SUBITEMS as readonly unknown[]).includes(l)) letters[i] = l as Notice130Subitem
     }
-    return { selected: v.selected.filter(ok), letters }
+    const selected = v.selected.filter(ok)
+    return selected.length || Object.keys(letters).length ? { selected, letters } : null
   } catch {
     return null
   }
 }
-export function saveNotice130Choice(dtId: string, goodsCount: number, selected: readonly number[], letters: Notice130Letters): void {
+export function saveNotice130Choice(dtId: string, keys: readonly string[], selected: readonly number[], letters: Notice130Letters): void {
   try {
-    localStorage.setItem(choiceKey(dtId), JSON.stringify({ count: goodsCount, selected, letters }))
+    localStorage.setItem(choiceKey(dtId), JSON.stringify({ keys, selected, letters }))
   } catch { /* приватный режим — без запоминания */ }
 }
 

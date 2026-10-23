@@ -78,8 +78,20 @@ export const dtShortId = (c: Pick<Import40CaseDto, 'declarations'>, declarationI
   return dt?.declarationNumber || t('import40Case.dtFallback', { n: i >= 0 ? i + 1 : '?' })
 }
 
-/** Строка подписи: «ДТ 1 · Кушетка с винтовой регулировкой… · ещё 1»; без названия — «ДТ 1» или номер. */
-export const dtLabelOf = (shortId: string, title: string | null): string => (title ? `${shortId} · ${title}` : shortId)
+/** Разделитель идентификатора и названия в подписи ДТ. */
+const LABEL_SEP = ' · '
 
-/** Подпись для узких мест (выпадающие списки, запросы таможни): то же, своё длинное название — с обрезкой. */
-export const clipLabel = (label: string, max = 72): string => clipWords(label, max)
+/** Строка подписи: «ДТ 1 · Кушетка с винтовой регулировкой… · ещё 1»; без названия — «ДТ 1» или номер. */
+export const dtLabelOf = (shortId: string, title: string | null): string => (title ? `${shortId}${LABEL_SEP}${title}` : shortId)
+
+/**
+ * Подпись для узких мест (выпадающие списки, запросы таможни): то же, своё длинное название — с обрезкой. Режется только
+ * название, идентификатор до первого « · » — целиком (ревью 23.10.2026: обрезка всей строки по словам сводила «ДТ 1 ·
+ * длинное-название» к «ДТ…», и ДТ в списке было не различить). Места под название не остаётся — режем всю строку.
+ */
+export const clipLabel = (label: string, max = 72): string => {
+  const sep = label.indexOf(LABEL_SEP)
+  const room = max - sep - LABEL_SEP.length
+  if (sep <= 0 || room < 10) return clipWords(label, max)
+  return `${label.slice(0, sep)}${LABEL_SEP}${clipWords(label.slice(sep + LABEL_SEP.length), room)}`
+}

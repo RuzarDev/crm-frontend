@@ -3,7 +3,7 @@ import { createI18n } from 'vue-i18n'
 import ru from '@/i18n/locales/ru'
 import { dtLabel } from '../caseSteps'
 import { filterDeclarations, splitTag } from '../declarations'
-import { clipWords, dtAutoTitle, dtTitleOf } from '../dtTitle'
+import { clipLabel, clipWords, dtAutoTitle, dtLabelOf, dtTitleOf } from '../dtTitle'
 import { caseDto, declaration } from './caseFixture'
 
 // Названия ДТ (23.10.2026): автоназвание, подпись «ДТ 1 · …», поиск по названию.
@@ -65,6 +65,15 @@ describe('dtLabel', () => {
     expect(dtLabel(c, 'd1', t)).toBe('ДТ 1 · Кушетка · ещё 1')
     expect(dtLabel(c, 'd2', t)).toBe('55210/031026/0012240 · Партия из Шанхая')
     expect(dtLabel(c, 'd3', t)).toBe('ДТ 3')
+  })
+
+  it('обрезка подписи — только название, идентификатор целиком (ДТ в списке различимы)', () => {
+    const long = 'Оборудование-медицинское-диагностическое-ультразвуковое-портативное-с-принадлежностями'
+    expect(clipLabel(dtLabelOf('ДТ 1', long))).toBe(`ДТ 1 · ${long.slice(0, 65)}…`)
+    expect(clipLabel(dtLabelOf('ДТ 12', long))).toMatch(/^ДТ 12 · Оборудование/)
+    expect(clipLabel(dtLabelOf('ДТ 1', `Кушетка ${'очень '.repeat(15)}длинная`))).toMatch(/^ДТ 1 · Кушетка очень .*…$/)
+    expect(clipLabel(dtLabelOf('ДТ 1', 'Кушетка'))).toBe('ДТ 1 · Кушетка')
+    expect(clipLabel('ДТ 3')).toBe('ДТ 3')
   })
 
   it('подсказка части разделения — исходная с названием', () => {

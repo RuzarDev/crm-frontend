@@ -17,8 +17,8 @@ import { message } from '@/ui/message'
 import DtGoodsPickTable from './DtGoodsPickTable.vue'
 import { ensureOkeiUnits } from './goods/editor/okei'
 import {
-  SUBITEM_ATTACH, SUBITEM_KEY, declarantText, dtFormFileName, loadNotice130Choice, notice130Forms, notice130Missing, pickRows,
-  saveNotice130Choice, singleItemOverOne, todayIso, type Notice130Doc44Entry, type Notice130Letters,
+  SUBITEM_ATTACH, SUBITEM_KEY, declarantText, dtFormFileName, loadNotice130Choice, notice130Forms, notice130GoodsKeys,
+  notice130Missing, pickRows, saveNotice130Choice, singleItemOverOne, todayIso, type Notice130Doc44Entry, type Notice130Letters,
 } from './dtForms'
 
 // «Уведомление (Решение 130)» (23.10.2026, голосовое декларанта: как в их программе — выбрать товары и букву подпункта,
@@ -64,7 +64,7 @@ const busy = ref(false)
 const reset = () => {
   // Краткие наименования ОКЕИ для колонки количества («45 ШТ»): раздел «Товары» мог ещё не открываться.
   void ensureOkeiUnits()
-  const saved = loadNotice130Choice(props.dtId, props.goods.length)
+  const saved = loadNotice130Choice(props.dtId, notice130GoodsKeys(rows.value))
   selected.value = saved ? saved.selected : rows.value.map((r) => r.index)
   letters.value = saved ? { ...saved.letters } : {}
   bulk.value = null
@@ -128,7 +128,7 @@ const generate = async () => {
     }
     // Имя файла — по-русски, как сам документ.
     saveBlob(res.blob, dtFormFileName('Уведомление_130', props.declarant.name, day))
-    saveNotice130Choice(props.dtId, props.goods.length, selected.value, letters.value)
+    saveNotice130Choice(props.dtId, notice130GoodsKeys(rows.value), selected.value, letters.value)
     if (addDoc44.value && props.canAddDoc44) emit('doc44', plan.map((f) => ({ number: f.number, date: day, indexes: f.indexes })))
     message.success(plan.length > 1 ? tr('doneMany', { n: plan.length }) : tr('done'))
     close()

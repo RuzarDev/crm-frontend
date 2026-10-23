@@ -2,7 +2,8 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type { Import40Doc44ItemInput, Import40GoodsItemInput } from '@/types/api'
 import { ensureOkeiUnits } from '../goods/editor/okei'
 import {
-  dtFormFileName, notice130Forms, notice130Missing, pickRows, singleItemOverOne, upsertNotice130Doc44,
+  dtFormFileName, loadNotice130Choice, notice130Forms, notice130GoodsKeys, notice130Missing, pickRows, saveNotice130Choice,
+  singleItemOverOne, upsertNotice130Doc44,
 } from '../dtForms'
 
 // Окно «Уведомление (Решение 130)» (23.10.2026): строки таблицы, формы по подпунктам, строки гр. 44 01416, имя файла.
@@ -76,6 +77,51 @@ describe('upsertNotice130Doc44', () => {
     // Своё название и признак представления не перетираются.
     expect(items[0]).toMatchObject({ docTypeName: 'СВОЁ', docNumber: 'у-1-1', docDate: '2026-10-23', goodsItemIndexes: '1', presentKindCode: '1' })
     expect(items[1]).toMatchObject({ docNumber: 'У-1-2', goodsItemIndexes: '0' })
+  })
+
+  it('повторно с другим числом форм или с номером вместо пустого — строки той же серии / без номера, без дублей', () => {
+    const n = (o: Partial<Import40Doc44ItemInput>) => doc({ docTypeCode: '01416', docTypeName: 'УВЕДОМЛЕНИЕ', presentKindCode: '0', ...o })
+    // Была одна форма «5» — стало две «5-1», «5-2»: «5» становится «5-1», «5-2» добавляется.
+    const items = [n({ docNumber: '5', goodsItemIndexes: '0,1' }), n({ docNumber: '7', goodsItemIndexes: '2' })]
+    expect(upsertNotice130Doc44(items, [
+      { number: '5-1', date: '2026-10-23', indexes: [0] },
+      { number: '5-2', date: '2026-10-23', indexes: [1] },
+    ], 'УВЕДОМЛЕНИЕ', 3)).toEqual({ added: 1, updated: 1 })
+    expect(items.map((d) => [d.docNumber, d.goodsItemIndexes])).toEqual([['5-1', '0'], ['7', '2'], ['5-2', '1']])
+    // Было без номера — стало «15»: та же строка получает номер.
+    const draft = [n({ docNumber: null, goodsItemIndexes: '0' })]
+    expect(upsertNotice130Doc44(draft, [{ number: '15', date: '2026-10-23', indexes: [0, 1] }], 'УВЕДОМЛЕНИЕ', 3)).toEqual({ added: 0, updated: 1 })
+    expect(draft).toHaveLength(1)
+    expect(draft[0]).toMatchObject({ docNumber: '15', goodsItemIndexes: '0,1' })
+    // Номер другой серии («51» — не «5» и не «5-k») не берётся.
+    const other = [n({ docNumber: '51' })]
+    expect(upsertNotice130Doc44(other, [{ number: '5', date: '2026-10-23', indexes: [0] }], 'УВЕДОМЛЕНИЕ', 3)).toEqual({ added: 1, updated: 0 })
+    expect(other[0].docNumber).toBe('51')
+  })
+})
+
+describe('выбор в окне уведомления (localStorage)', () => {
+  const keysOf = (...g: [string, string][]) => notice130GoodsKeys(g.map(([tnvedCode, description]) => ({ tnvedCode, description })))
+  const was = keysOf(['9402900000', 'Кушетка'], ['9403200000', 'Стол'], ['9405110000', 'Лампа'])
+
+  it('тот же состав — выбор и буквы восстанавливаются', () => {
+    localStorage.clear()
+    saveNotice130Choice('d1', was, [0, 2], { 0: 'а', 2: 'л' })
+    expect(loadNotice130Choice('d1', was)).toEqual({ selected: [0, 2], letters: { 0: 'а', 2: 'л' } })
+    expect(loadNotice130Choice('d2', was)).toBeNull()
+  })
+
+  it('товары переставили или заменили — на чужой товар выбор и буква не переезжают', () => {
+    localStorage.clear()
+    saveNotice130Choice('d1', was, [0, 2], { 0: 'а', 2: 'л' })
+    // Лампа и стол поменялись местами: кушетка на месте, на позиции 2 теперь стол.
+    expect(loadNotice130Choice('d1', keysOf(['9402900000', 'Кушетка'], ['9405110000', 'Лампа'], ['9403200000', 'Стол'])))
+      .toEqual({ selected: [0], letters: { 0: 'а' } })
+    // Ни один товар не на своём месте — как без сохранённого выбора.
+    expect(loadNotice130Choice('d1', keysOf(['9403200000', 'Стол'], ['9402900000', 'Кушетка']))).toBeNull()
+    // Старый формат (только число товаров) — не используется.
+    localStorage.setItem('zircon.dt.notice130.d3', JSON.stringify({ count: 3, selected: [0], letters: { 0: 'а' } }))
+    expect(loadNotice130Choice('d3', was)).toBeNull()
   })
 })
 
