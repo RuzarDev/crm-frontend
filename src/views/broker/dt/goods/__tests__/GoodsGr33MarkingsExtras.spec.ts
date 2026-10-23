@@ -101,12 +101,12 @@ const settle = async () => {
     await nextTick()
   }
 }
-const mount = async (goods: Import40GoodsItemInput[], o: { readonly?: boolean; item?: number } = {}) => {
+const mount = async (goods: Import40GoodsItemInput[], o: { readonly?: boolean; item?: number; page?: Partial<GoodsPageContext> } = {}) => {
   form = reactive({ ...emptyDtForm(), currency: 'USD', goodsItems: goods }) as DtFormState
   canEdit.value = !o.readonly
   model = useDtGoods(form, { readiness: () => null, canEdit })
   const Page = defineComponent({
-    setup: () => () => h(SectionGoods, { model, currency: 'USD', readonly: !!o.readonly, countryOptions: [], editorContext: page, saveState: null }),
+    setup: () => () => h(SectionGoods, { model, currency: 'USD', readonly: !!o.readonly, countryOptions: [], editorContext: { ...page, ...o.page }, saveState: null }),
   })
   router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/import-40/:caseId/dt/:dtId', name: 'import-40-dt', component: Page }] })
   await router.push(`/import-40/c1/dt/d1?s=goods&item=${o.item ?? 1}`)
@@ -289,6 +289,22 @@ describe('Редактор товара: «Гр. 33» — коды запрет�
     await mount([item()])
     expect(q('[data-gr33-note]')!.textContent).toContain('при импорте КЕДЕН кодов гр. 33 не даёт')
     expect(qa('[data-gr33-chip]')).toHaveLength(0)
+  })
+
+  // 23.10.2026: D0122 (условный выпуск) — подсказка про обязательство; «Сформировать обязательство» — при праве страницы.
+  it('D0122 — подсказка про обязательство (гр. 44 — 08999) и «Сформировать обязательство», если страница даёт', async () => {
+    const openObligation = vi.fn()
+    await mount([item({ prohibitionCode: 'D0110' })], { page: { openObligation } })
+    expect(q('[data-gr33-condrel]')).toBeNull()
+    g0().prohibitionCode = 'D0110,D0122'
+    await settle()
+    expect(q('[data-gr33-condrel]')!.textContent).toContain('D0122 — условный выпуск')
+    await click('[data-gr33-condrel-obligation]')
+    expect(openObligation).toHaveBeenCalledTimes(1)
+    w.unmount()
+    await mount([item({ prohibitionCode: 'D0122' })], { readonly: true })
+    expect(q('[data-gr33-condrel]')).not.toBeNull()
+    expect(q('[data-gr33-condrel-obligation]')).toBeNull()
   })
 
   it('подсказки — из кэша: при переходе на товар с тем же кодом запроса нет', async () => {

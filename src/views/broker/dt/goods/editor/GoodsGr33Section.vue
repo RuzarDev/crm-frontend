@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhPlus } from '@phosphor-icons/vue'
+import ZAlert from '@/components/z/ZAlert.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZCombobox from '@/components/z/ZCombobox.vue'
 import ZField from '@/components/z/ZField.vue'
@@ -14,6 +15,7 @@ import { invalidFeatureCodes, joinFeatureCodes, splitFeatureCodes } from '@/util
 import type { ZOption, ZOptionValue } from '@/ui/options'
 import { cn } from '@/ui/cn'
 import { useGr33Suggest } from '../useGr33Suggest'
+import { CONDITIONAL_RELEASE_CODE } from '../../dtObligation'
 import { tradeMarksOf } from './characteristics'
 import type { GoodsSectionProps } from './types'
 
@@ -23,6 +25,8 @@ import type { GoodsSectionProps } from './types'
 // код по нажатию, «Добавить «не подпадает»» — все подсказанные XX00; признак ОИС по ТРОИС не ставится — только подсказка.
 // Сертификация (гр. 33, «; ») — в «Льготах и процедуре» рядом с процедурой, как в старой карточке.
 // Ни одно поле — не поле платежей: «Пересчитать» не ставят.
+// 23.10.2026: у кода D0122 (условный выпуск) — подсказка про обязательство (гр. 44 — 08999, строку добавляет страница) и
+// «Сформировать обязательство», если у страницы есть право (ctx.openObligation).
 const props = defineProps<GoodsSectionProps>()
 const { t } = useI18n()
 const tg = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.editor.gr33.${key}`, p ?? {})
@@ -138,6 +142,7 @@ const codesScope = computed(() => {
   if (gr33.byTnved.value) return gr33.visible.value.length ? tg('scopeTnved', { code: gr33.state.tnved }) : ''
   return gr33.referenceSize.value ? tg('scopeAll', { n: gr33.referenceSize.value }) : ''
 })
+const condRel = computed(() => codes.value.includes(CONDITIONAL_RELEASE_CODE))
 const codesEmptyText = computed(() => (gr33.byTnved.value
   ? tg(gr33.state.codes.length ? 'noImportCodes' : 'noCodes', { code: gr33.state.tnved })
   : undefined))
@@ -185,6 +190,12 @@ const chip = (on: boolean) => cn(
           <template #option="{ option }"><span class="font-mono">{{ option.value }}</span><span v-if="option.name" class="text-ink-3"> — {{ option.name }}</span></template>
         </ZSelect>
       </ZField>
+
+      <ZAlert v-if="condRel" type="info" :message="tg('condRelHint')" data-gr33-condrel>
+        <ZButton v-if="ctx.openObligation" size="sm" class="mt-2 max-sm:h-11" data-gr33-condrel-obligation @click="ctx.openObligation()">
+          {{ tg('condRelObligation') }}
+        </ZButton>
+      </ZAlert>
 
       <!-- Подсказки КЕДЕН по ТН ВЭД: добавляются только нажатием — коды выбирает декларант. -->
       <div v-if="!readonly && gr33.state.tnved" class="flex flex-wrap items-center gap-1.5 text-xs max-sm:gap-2" data-gr33-suggest>

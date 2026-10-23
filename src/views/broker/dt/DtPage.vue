@@ -31,7 +31,10 @@ import DtSplitModal from './DtSplitModal.vue'
 import DtNotice130Modal from './DtNotice130Modal.vue'
 import DtObligationModal from './DtObligationModal.vue'
 import { NOTICE130_DOC_CODE, NOTICE130_DOC_NAME, upsertNotice130Doc44, type Notice130Doc44Entry } from './dtForms'
-import { OBLIGATION_DOC_CODE, OBLIGATION_DOC_NAME, applyObligationToDoc44, conditionalReleaseGoods } from './dtObligation'
+import {
+  OBLIGATION_DOC_CODE, OBLIGATION_DOC_NAME, applyObligationToDoc44, conditionalReleaseGoods, ensureObligationDoc44,
+  hasConditionalReleaseCode, obligationWarnings,
+} from './dtObligation'
 import { dtLabel } from '@/views/broker/case/caseSteps'
 import { clipLabel, dtAutoTitle } from '@/views/broker/case/dtTitle'
 import SectionClosing from './sections/SectionClosing.vue'
@@ -49,7 +52,7 @@ import PaymentsTotalsCard from './payments/PaymentsTotalsCard.vue'
 import SectionDts from './dts/SectionDts.vue'
 import { useDts } from './dts/useDts'
 import { saveFile } from './dtFiles'
-import { useDtGoods } from './goods/useDtGoods'
+import { keyOf, useDtGoods } from './goods/useDtGoods'
 import { formatItemNumbers } from './goods/goodsList'
 import { staleGoodsIndexes } from './payments/paymentsView'
 import { goodsFieldFromReadiness } from './goods/goodsFieldTarget'
@@ -61,7 +64,7 @@ import { syncLoadedParties } from './dtParties'
 import {
   adjacentSection, navMarks, paymentsStale, rateTag, readonlyReason, sectionFromQuery, splitChildren, visibleSections,
 } from './dtPageModel'
-import { DT_ROUTE, type DtSectionKey } from './dtSections'
+import { DT_ROUTE, sectionForReadinessItem, type DtSectionKey } from './dtSections'
 import { isDetachedSplitPart, isLiveSplitPart, splitExportWarning } from '@/views/broker/case/declarations'
 import { useDtForm } from './useDtForm'
 import { originForGoods, specialCountryKey } from './originCountry'
@@ -77,7 +80,8 @@ import { useDtReadiness, type DtReadinessItem } from './useDtReadiness'
 // там нет). Логика — в composables: форма и сохранение (useDtForm), курсы (useDtRates), готовность (useDtReadiness),
 // расчёты (useDtPayments), ДТС (useDts).
 // 23.10.2026: название ДТ в шапке (своё или автоназвание, переименование на месте), «Уведомление (Решение 130)» и
-// «Обязательство (условный выпуск)» — окна DtNotice130Modal / DtObligationModal (из «Ещё» и из блока условного выпуска).
+// «Обязательство (условный выпуск)» — окна DtNotice130Modal / DtObligationModal (из «Ещё», из блока условного выпуска и
+// у кода D0122 в гр. 33); D0122 у товара — строка гр. 44 08999 (обязательство) сама, расхождения — в «До подачи».
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -219,6 +223,7 @@ const goodsEditorContext = computed<GoodsPageContext>(() => ({
   savedGoodsIds: dt.lastServerDto.value?.goodsItems?.map((g) => g.id) ?? null,
   senderName: form.sender?.name || null,
   senderCountryCode: form.sender?.countryCode || null,
+  openObligation: canManage.value ? () => { void openDtForm('obligation') } : null,
 }))
 const goodsSaveState = computed<GoodsSaveState>(() => ({
   saving: dt.saving.value,
@@ -322,6 +327,16 @@ const calcPayments = async () => {
 }
 
 const allItems = computed<DtReadinessItem[]>(() => [...readiness.items.value, ...(dts.items.value ?? [])])
+// Предупреждения «До подачи»: сервера и своё про D0122 ↔ 08999 (по несохранённой форме — свежее); если сервер считает то
+// же самое, его пункт (с обоими кодами в тексте) не дублируем.
+const obligationWarningItems = computed<DtReadinessItem[]>(() => obligationWarnings(form.goodsItems, form.doc44Items ?? []).map((k) => {
+  const text = t(`broker.dt.forms.obligation.warn.${k}`)
+  return { text, graph: '44', goodsIndex: null, section: sectionForReadinessItem({ text, graph: '44' }), fromXml: false }
+}))
+const panelWarnings = computed<DtReadinessItem[]>(() => [
+  ...readiness.warnings.value.filter((i) => !(i.text.includes('D0122') && i.text.includes('08999'))),
+  ...obligationWarningItems.value,
+])
 const marks = computed(() => {
   const bySection: Partial<Record<DtSectionKey, number>> = {}
   for (const i of allItems.value) bySection[i.section] = (bySection[i.section] ?? 0) + 1
@@ -658,6 +673,28 @@ const onObligationDoc44 = async (doc: { number: string | null; date: string }) =
   message.info(t('broker.dt.forms.obligation.doc44Done', { code: OBLIGATION_DOC_CODE }))
 }
 
+// ---- 3б. D0122 (гр. 33) ↔ строка гр. 44 08999 (23.10.2026) ----
+// У товара появился D0122 (правка гр. 33, «Применить к выбранным», импорт, копия товара) — в гр. 44 строка 08999
+// (обязательство): нет — добавить («Б/Н», дата гр. А, признак 1, товары с D0122), есть — только дописать новые товары в
+// привязку (номер, дату и вид, которые декларант мог править, не трогаем). Срабатывает на ПОЯВЛЕНИЕ кода у товара (по
+// ключу товара keyOf — перестановка не в счёт): удалённую вручную строку правило не возвращает, а убранный у всех товаров
+// D0122 строку не удаляет — об обоих расхождениях предупреждение в «До подачи». Загрузка ДТ (applying) и просмотр — без правок.
+let condRelKeys = new Set<number>()
+watch(
+  () => form.goodsItems.flatMap((g) => (hasConditionalReleaseCode(g) ? [keyOf(g)] : [])).join(','),
+  (key) => {
+    const before = condRelKeys
+    condRelKeys = new Set(key ? key.split(',').map(Number) : [])
+    if (dt.applying.value || !dt.editable.value) return
+    const added = form.goodsItems.flatMap((g, i) => (hasConditionalReleaseCode(g) && !before.has(keyOf(g)) ? [i] : []))
+    if (!added.length) return
+    const name = classifiers.cache['2009']?.find((k) => k.code === OBLIGATION_DOC_CODE)?.nameRu || OBLIGATION_DOC_NAME
+    form.doc44Items ??= []
+    ensureObligationDoc44(form.doc44Items, { all: conditionalReleaseGoods(form.goodsItems), added }, name, form.submissionDate || null)
+  },
+  { immediate: true },
+)
+
 // ---- Разделение ЕТТ/ВТО ----
 const splitOpen = ref(false)
 // Решение владельца 16.10.2026: часть разделения повторно не делится — «Измените разделение из исходной ДТ»; у исходной
@@ -728,6 +765,8 @@ const customsPostOptions = ref<{ value: string; label: string; parentCode?: stri
 const customsDgds = ref<{ code: string; name: string }[]>([])
 onMounted(async () => {
   classifiers.loadMany([...DT_CLASSIFIERS]).catch(() => message.warning(t('broker.dt.page.classifiersFailed')))
+  // Виды документов гр. 44 — название строки 08999, которую добавляет правило D0122 (без справочника — встроенное).
+  void classifiers.load('2009').catch(() => undefined)
   void rates.loadCurrencies()
   referencesApi.listCountries()
     // alpha2 — чтобы старый буквенный код стороны («KZ») показать и привести к цифровому ОКСМ (dtParties).
@@ -1080,7 +1119,7 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
             :enabled="readinessOn"
             :loaded="readiness.loaded.value"
             :items="allItems"
-            :warnings="readiness.warnings.value"
+            :warnings="panelWarnings"
             :blank="readiness.blank.value"
             :rates="panelRates"
             :rates-date="form.submissionDate ?? null"
@@ -1095,7 +1134,7 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
           :enabled="readinessOn"
           :loaded="readiness.loaded.value"
           :items="allItems"
-          :warnings="readiness.warnings.value"
+          :warnings="panelWarnings"
           :blank="readiness.blank.value"
           :rates="panelRates"
           :rates-date="form.submissionDate ?? null"

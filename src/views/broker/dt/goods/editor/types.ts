@@ -40,6 +40,8 @@ export interface GoodsPageContext {
   /** Гр. 2: отправитель и его страна — галочки импорта «производитель = отправитель» (В9) и «страна происхождения» (В8). */
   senderName?: string | null
   senderCountryCode?: string | null
+  /** Открыть «Обязательство (условный выпуск)» — у кода D0122 в гр. 33 (23.10.2026); null — нет права (CanManageDeclarations). */
+  openObligation?: (() => void) | null
 }
 
 export interface GoodsEditorContext extends GoodsPageContext {

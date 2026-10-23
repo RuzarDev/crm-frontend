@@ -1465,6 +1465,11 @@ export default {
           addDoc44: 'Write the number and date to the box 44 line {code} (undertaking)',
           done: 'Undertaking generated',
           doc44Done: 'Box 44, line {code}: undertaking number and date written',
+          // Связка D0122 (гр. 33) ↔ 08999 (гр. 44) — предупреждения «До подачи».
+          warn: {
+            noDoc: 'D0122 requires the undertaking in box 44 (08999)',
+            noCode: 'There is a 08999 line (undertaking), but no goods item has D0122',
+          },
         },
       },
       panel: {
@@ -2582,6 +2587,9 @@ export default {
             addNegative: 'Add “not subject”',
             addNegativeHint: 'Adds only the suggested XX00 codes (“not subject / not applicable”). The declarant chooses the codes: nothing is filled in automatically.',
             suggestStale: 'saved earlier — KEDEN is not responding now',
+            // 23.10.2026: D0122 — условный выпуск, обязательство в гр. 44 (08999).
+            condRelHint: 'D0122 — conditional release: the undertaking of the consignee is attached to the DT, box 44 line 08999.',
+            condRelObligation: 'Generate undertaking',
             suggestFailed: 'Suggestions unavailable (KEDEN is not responding) — pick codes from the reference',
           },
           tradeCodes: {

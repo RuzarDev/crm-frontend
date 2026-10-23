@@ -3,7 +3,8 @@ import type { Import40Doc44ItemInput, Import40GoodsItemInput } from '@/types/api
 import { splitFeatureCodes } from '@/utils/nonTariffCodes'
 
 // Обязательство при условном выпуске (23.10.2026, образец и голосовые декларантов): письмо в ДГД — поля окна и тело
-// запроса; строка гр. 44 08999 (обязательство) после формирования. Текст самого письма строит сервер.
+// запроса; связка кода гр. 33 D0122 (условный выпуск) со строкой гр. 44 08999 (обязательство) — автострока и
+// предупреждения в обе стороны. Текст самого письма строит сервер.
 
 /**
  * Вид документа гр. 44 для обязательства — 08999 «Иные документы, подтверждающие условия помещения товаров под заявленные
@@ -106,6 +107,40 @@ function newObligationRow(name: string, number: string | null, date: string | nu
   }
 }
 
+/** Дописать позиции товаров в привязку строки; строка «на все товары» (или без привязки — то же) не меняется. */
+function bindGoods(row: Import40Doc44ItemInput, goods: readonly number[]): boolean {
+  const tokens = (row.goodsItemIndexes ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+  if (row.appliesToAll || (row.goodsItemIndex == null && !tokens.length)) return false
+  const have = new Set(tokens.map(Number).filter((n) => Number.isInteger(n)))
+  if (row.goodsItemIndex != null) have.add(row.goodsItemIndex)
+  const missing = goods.filter((i) => !have.has(i))
+  if (!missing.length) return false
+  row.goodsItemIndexes = csv([...have, ...missing])
+  row.goodsItemIndex = null
+  return true
+}
+
+/**
+ * Автоправило формы ДТ: у товаров появился D0122 (added — их позиции) — в гр. 44 нужна строка 08999. Строки нет —
+ * добавить: «Б/Н», дата гр. А, признак 1, привязка ко всем товарам с D0122 (all). Строка есть — её номер, дату, вид и
+ * признак не трогать (декларант мог править), только дописать в привязку новые товары с D0122.
+ * 'added' — строка добавлена, 'bound' — дописана привязка, null — ничего не менялось.
+ */
+export function ensureObligationDoc44(
+  items: Import40Doc44ItemInput[],
+  goods: { all: readonly number[]; added: readonly number[] },
+  name: string,
+  date: string | null,
+): 'added' | 'bound' | null {
+  if (!goods.added.length) return null
+  const row = obligationDoc44(items)
+  if (!row) {
+    items.push(newObligationRow(name, OBLIGATION_DEFAULT_NUMBER, date, goods.all))
+    return 'added'
+  }
+  return bindGoods(row, goods.added) ? 'bound' : null
+}
+
 /**
  * После формирования обязательства: строка 08999 получает номер = исх. № и дату = дату обязательства (вид, признак и
  * привязку не трогаем). Строки нет — добавить (к товарам с D0122, без них — без привязки, т. е. на все товары).
@@ -124,4 +159,16 @@ export function applyObligationToDoc44(
   row.docNumber = doc.number
   row.docDate = doc.date
   return 'updated'
+}
+
+/**
+ * Предупреждения (не блок — в «До подачи»): 'noDoc' — D0122 есть, строки 08999 нет (удалили вручную); 'noCode' — строка
+ * 08999 есть, а D0122 нет ни у одного товара (код убрали — строку сами не удаляем).
+ */
+export function obligationWarnings(goods: readonly Gr33Goods[], doc44: readonly Import40Doc44ItemInput[]): ('noDoc' | 'noCode')[] {
+  const code = goods.some(hasConditionalReleaseCode)
+  const doc = !!obligationDoc44(doc44)
+  if (code && !doc) return ['noDoc']
+  if (doc && !code) return ['noCode']
+  return []
 }
