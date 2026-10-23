@@ -218,6 +218,8 @@ export interface CasePerms {
   /** Удалить ДТ (canDeleteCaseDt) и «нельзя — ДТ выпущена». */
   canDeleteDt: boolean
   dtDeleteBlockedByRelease: boolean
+  /** CanManageDeclarations (админ, РОП, право import40.declarant): переименовать ДТ (23.10.2026), XML, документы ДТ. */
+  canManageDeclarations: boolean
 }
 
 export function casePerms(a: CaseAuth, c: Import40CaseDto): CasePerms {
@@ -251,5 +253,6 @@ export function casePerms(a: CaseAuth, c: Import40CaseDto): CasePerms {
     dtEditHint: dtEditHint(a, c),
     canDeleteDt: canDeleteCaseDt(a, c),
     dtDeleteBlockedByRelease: dtDeleteBlockedByRelease(a, c),
+    canManageDeclarations: canManageDeclarations(dtUserFrom(a)),
   }
 }

@@ -214,6 +214,11 @@ export interface Import40DeclarationDto {
   /** Внешнеторговый контракт ДТ (17.10); null — как у заявки. */
   foreignContractId?: string | null
   declarationNumber: string
+  /**
+   * Своё название ДТ (23.10.2026); null — автоназвание (views/broker/case/dtTitle.ts). Меняется только
+   * setDeclarationTitle: в PUT ДТ не входит и замок редактора не двигает. Старый сервер — нет поля.
+   */
+  title?: string | null
   corridor: string
   procedureCode: string
   sender?: Import40Party | null
@@ -1122,6 +1127,16 @@ export const import40Api = {
     return response.data
   },
 
+  // Название ДТ (23.10.2026): свой маршрут — PUT ДТ название не трогает, замок редактора (updatedAtUtc) не двигается,
+  // поэтому переименование из списка заявки не мешает открытому редактору. null (и пустое) — вернуть автоназвание.
+  setDeclarationTitle: async (caseId: string, declarationId: string, title: string | null): Promise<{ title: string | null }> => {
+    const { data } = await apiClient.put<{ title: string | null }>(
+      `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}/title`,
+      { title },
+    )
+    return data
+  },
+
   deleteDeclaration: async (caseId: string, declarationId: string): Promise<void> => {
     await apiClient.delete(
       `/import40/${encodeURIComponent(caseId)}/declarations/${encodeURIComponent(declarationId)}`,
@@ -1411,6 +1426,8 @@ export interface Import40CopySource {
   senderName: string | null
   goodsCount: number
   firstGoodsDescription: string | null
+  /** Своё название ДТ (23.10.2026), если сервер его отдаёт. */
+  title?: string | null
   totalInvoiceValue: number | null
   currency: string | null
   updatedAtUtc: string

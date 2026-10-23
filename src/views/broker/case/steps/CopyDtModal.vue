@@ -10,9 +10,11 @@ import { cn } from '@/ui/cn'
 import { formatDateText } from '@/ui/date'
 import { formatMoney } from '@/ui/number'
 import { defaultCopySource, filterCopySources } from './copyDt'
+import { clipLabel } from '../dtTitle'
 
 // «Копировать ДТ» (20.10.2026, просьба декларанта): тот же груз по тому же контракту — новая ДТ по образцу ДТ этой или
 // прошлой заявки клиента. Список — с сервера при каждом открытии; товары копируются по галочке (по умолчанию да).
+// 23.10.2026: своё название ДТ рядом с номером (если сервер его отдаёт); копия название не наследует.
 const props = defineProps<{ open: boolean; caseId: string; busy?: boolean }>()
 const emit = defineEmits<{ 'update:open': [open: boolean]; submit: [payload: { sourceDeclarationId: string; includeGoods: boolean }] }>()
 const { t } = useI18n()
@@ -87,7 +89,10 @@ const submit = () => {
             >
               <input v-model="selected" type="radio" name="copy-dt-source" :value="r.id" class="mt-1 accent-zircon-ink" />
               <span class="min-w-0">
-                <span class="block font-mono text-sm font-medium text-ink">{{ r.declarationNumber || tx('noNumber') }}</span>
+                <span class="block text-sm font-medium text-ink [overflow-wrap:anywhere]">
+                  <span class="font-mono">{{ r.declarationNumber || tx('noNumber') }}</span>
+                  <span v-if="r.title" data-copy-title> · {{ clipLabel(r.title) }}</span>
+                </span>
                 <span class="block text-xs text-ink-3">{{ caseLine(r) }}</span>
                 <span v-if="metaLine(r)" class="block break-words text-xs text-muted">{{ metaLine(r) }}</span>
               </span>

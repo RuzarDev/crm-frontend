@@ -20,6 +20,8 @@ import { formatMoney } from '@/ui/number'
 import type { CaseStepProps } from '../caseContext'
 import { hintText } from '../casePermissions'
 import { dtLabel } from '../caseSteps'
+import { dtAutoTitle, dtShortId, dtTitleOf } from '../dtTitle'
+import DtTitleEdit from '@/views/broker/dt/DtTitleEdit.vue'
 import {
   dtListActive, dtPath, dtRowActions, filterDeclarations, groupDeclarations, hasSplitParts, isLiveSplitPart, missingPreview,
   splitBatchWarning, splitExportWarning, splitTag, type DtListRow,
@@ -48,6 +50,9 @@ import QuoteImportModal from './QuoteImportModal.vue'
 // (perms.canEditDt — правило страницы ДТ и сервера: админ, РОП, назначенный декларант; решения владельца 09.10),
 // остальным после шага 3 — «Открыть». «Заполнить» без права править — выключена с подсказкой (нет роли / ведёт коллега).
 // Запросы — те же, что у прежней карточки; всё под общим замком ctx.actions (повторно не нажать).
+// Названия ДТ (23.10.2026): «ДТ 1 · Кушетка с винтовой регулировкой… · ещё 1» — короткий идентификатор ссылкой, рядом
+// своё название (обычным цветом) или автоназвание (приглушённым); карандаш — переименовать на месте (CanManageDeclarations,
+// свой маршрут без замка ДТ — открытый редактор не затирает). Поиск — и по названию.
 const props = defineProps<CaseStepProps>()
 const { t } = useI18n()
 const router = useRouter()
@@ -73,7 +78,7 @@ const query = ref('')
 // Группы и вид строки — по ПОЛНОМУ списку, поиск — уже по строкам: иначе исходная ДТ, чьи части не подошли под поиск,
 // становилась обычной строкой с «Заполнить» и XML (выгрузка всех товаров второй раз).
 const rows = computed(() => {
-  const matched = new Set(filterDeclarations(all.value, query.value).map((d) => d.id))
+  const matched = new Set(filterDeclarations(all.value, query.value, t).map((d) => d.id))
   return groupDeclarations(all.value).filter((r) => matched.has(r.dt.id))
 })
 /** Строка только для просмотра (без «Заполнить», XML можно): исходная ДТ разделения или повторно разделённая часть. */
@@ -94,6 +99,20 @@ const metaLine = (dt: Import40DeclarationDto, kind: DtListRow<Import40Declaratio
   const parts = [kind === 'source' ? t('import40Case.splitSourceGoods', { n }) : t('import40Case.goodsCount', { n })]
   if (dt.totalInvoiceValue != null) parts.push(t('broker.case.declaring.list.value', { value: formatMoney(dt.totalInvoiceValue, dt.currency || '').trim() }))
   return parts.join(' · ')
+}
+
+// --- название ДТ (23.10.2026) ---
+const canRename = computed(() => props.ctx.perms.canManageDeclarations)
+const titleOf = (dt: Import40DeclarationDto) => dtTitleOf(dt, t)
+/** Своё название (null — вернуть автоназвание): без перечитывания заявки — ответ сервера сразу в строку. */
+const rename = async (dt: Import40DeclarationDto, title: string | null): Promise<boolean> => {
+  try {
+    const res = await import40Api.setDeclarationTitle(kase.value.id, dt.id, title)
+    dt.title = res.title ?? null
+    return true
+  } catch {
+    return false // текст ошибки показал общий перехватчик; поле остаётся открытым
+  }
 }
 
 // --- действия над ДТ ---
@@ -438,9 +457,20 @@ const openLink = 'inline-flex h-7 items-center rounded-field bg-sunken px-2.5 te
             <PhArrowElbowDownRight v-if="row.depth" :size="14" class="shrink-0 text-ink-3" aria-hidden="true" />
             <RouterLink
               :to="dtPath(kase.id, row.dt.id)"
-              class="rounded-[4px] font-mono text-sm font-medium text-ink no-underline outline-hidden hover:text-zircon-ink hover:underline focus-visible:shadow-focus"
+              class="shrink-0 rounded-[4px] font-mono text-sm font-medium text-ink no-underline outline-hidden hover:text-zircon-ink hover:underline focus-visible:shadow-focus"
               data-dt-link
-            >{{ dtLabel(kase, row.dt.id, t) }}</RouterLink>
+            >{{ dtShortId(kase, row.dt.id, t) }}</RouterLink>
+            <template v-if="titleOf(row.dt).text || canRename">
+              <span v-if="titleOf(row.dt).text" class="text-ink-3" aria-hidden="true">·</span>
+              <DtTitleEdit
+                :title="row.dt.title"
+                :auto-title="dtAutoTitle(row.dt, t)"
+                :can-edit="canRename"
+                :save="(v) => rename(row.dt, v)"
+                :to="dtPath(kase.id, row.dt.id)"
+                text-class="text-sm font-medium"
+              />
+            </template>
             <ZTooltip v-if="tags.get(row.dt.id)" :title="tags.get(row.dt.id)!.tip">
               <span class="inline-flex" :tabindex="tags.get(row.dt.id)!.tip ? 0 : undefined">
                 <ZTag :tone="tags.get(row.dt.id)!.tone" size="sm" data-dt-split>{{ tags.get(row.dt.id)!.label }}</ZTag>

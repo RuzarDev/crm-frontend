@@ -3,6 +3,7 @@ import type { DeclarationReadiness } from '@/types/api'
 import { formatMoney } from '@/ui/number'
 import { pluralForm } from '@/views/broker/list'
 import { TOTAL_STEPS, stepForStatus } from '@/utils/import40Steps'
+import { dtLabelOf, dtShortId, dtTitleOf } from './dtTitle'
 
 // Шаги карточки заявки (редизайн, волна 4а): состояния, исполнители, сводки пройденных шагов и «что осталось».
 // Статус → шаг — общий utils/import40Steps (зеркало Import40Steps.StepOf на сервере).
@@ -96,11 +97,13 @@ export type WhatsLeftItem =
   | { id: 'docs'; done: boolean; count: number }
   | { id: 'problem'; done: false }
 
-/** Подпись ДТ: номер или «ДТ i» (i — место в списке ДТ заявки). */
+/**
+ * Подпись ДТ: номер или «ДТ i» (i — место в списке ДТ заявки) и название (23.10.2026: своё или автоназвание —
+ * dtTitle.ts): «ДТ 1 · Кушетка с винтовой регулировкой… · ещё 1».
+ */
 export const dtLabel = (c: Import40CaseDto, declarationId: string, t: T): string => {
-  const i = c.declarations.findIndex((d) => d.id === declarationId)
-  const dt = i >= 0 ? c.declarations[i] : null
-  return dt?.declarationNumber || t('import40Case.dtFallback', { n: i >= 0 ? i + 1 : '?' })
+  const dt = c.declarations.find((d) => d.id === declarationId)
+  return dtLabelOf(dtShortId(c, declarationId, t), dt ? dtTitleOf(dt, t).text : null)
 }
 
 export function whatsLeft(c: Import40CaseDto, readiness: DeclarationReadiness[] | null, files: Import40FileDto[], t: T): WhatsLeftItem[] {

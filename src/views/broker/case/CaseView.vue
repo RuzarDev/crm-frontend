@@ -24,7 +24,7 @@ import StepAqniet from './steps/StepAqniet.vue'
 import StepSvh from './steps/StepSvh.vue'
 import StepSvhPayment from './steps/StepSvhPayment.vue'
 import { casePerms, readinessAvailable } from './casePermissions'
-import { STEP_EXECUTOR, STEP_NUMBERS, isCancelled, stepStateOf, stepSummary, type StepNo } from './caseSteps'
+import { STEP_EXECUTOR, STEP_NUMBERS, dtLabel, isCancelled, stepStateOf, stepSummary, type StepNo } from './caseSteps'
 import type { CaseStepContext, CaseStepInfo } from './caseContext'
 import { useCase } from './useCase'
 import { useCaseActions } from './useCaseActions'
@@ -78,6 +78,12 @@ provide(CASE_TRANSLATIONS, translations)
 
 // Запросы таможни (волна 17.10, задача 5): своя загрузка; красная метка на шаге 3 этапов, пока клиент не ответил.
 const customs = useCustomsRequests(() => kase.value?.id ?? null)
+// ДТ для запроса таможни — без заменённых разделением; подпись — как в списке ДТ (23.10.2026: номер или «ДТ i» и название).
+const customsDeclarations = computed(() => {
+  const c = kase.value
+  if (!c) return []
+  return (c.declarations ?? []).filter((d) => !d.isSplitReplaced).map((d) => ({ ...d, label: dtLabel(c, d.id, t) }))
+})
 const onCustomsChanged = async () => {
   await Promise.all([customs.reload(), reload()])
 }
@@ -176,7 +182,7 @@ const panel = 'rounded-panel border border-line bg-surface'
         :case-id="kase.id"
         :status="kase.status"
         :list="customs.list.value"
-        :declarations="(kase.declarations ?? []).filter((d) => !d.isSplitReplaced)"
+        :declarations="customsDeclarations"
         :can-manage="canManageCustoms(auth)"
         :can-remind="canRemindClient(auth)"
         :svh-check-missing="!files.some((f) => f.section === 'payment-check')"

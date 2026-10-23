@@ -28,6 +28,11 @@ import type { KedenLinkDto } from '@/api/kedenLink'
 import DtReadinessPanel from './DtReadinessPanel.vue'
 import DtSectionNav from './DtSectionNav.vue'
 import DtSplitModal from './DtSplitModal.vue'
+import DtNotice130Modal from './DtNotice130Modal.vue'
+import DtObligationModal from './DtObligationModal.vue'
+import { NOTICE130_DOC_CODE, NOTICE130_DOC_NAME, upsertNotice130Doc44, type Notice130Doc44Entry } from './dtForms'
+import { dtLabel } from '@/views/broker/case/caseSteps'
+import { clipLabel, dtAutoTitle } from '@/views/broker/case/dtTitle'
 import SectionClosing from './sections/SectionClosing.vue'
 import SectionCountries from './sections/SectionCountries.vue'
 import SectionCustoms from './sections/SectionCustoms.vue'
@@ -70,6 +75,8 @@ import { useDtReadiness, type DtReadinessItem } from './useDtReadiness'
 // payments/ (волна 6в: одно действие «Рассчитать» useDtPayments; правая колонка — «Итого по видам»); «ДТС» — dts/ (волна 6в, один загрузчик useDts; правой колонки
 // там нет). Логика — в composables: форма и сохранение (useDtForm), курсы (useDtRates), готовность (useDtReadiness),
 // расчёты (useDtPayments), ДТС (useDts).
+// 23.10.2026: название ДТ в шапке (своё или автоназвание, переименование на месте), «Уведомление (Решение 130)» и
+// «Обязательство (условный выпуск)» — окна DtNotice130Modal / DtObligationModal (из «Ещё» и из блока условного выпуска).
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -253,7 +260,40 @@ const onCustomsAutoOpened = () => {
 }
 const roReason = computed(() => readonlyReason(user.value, kase.value))
 const stage = computed(() => (kase.value ? statusLabel(kase.value.status) : ''))
-const split = computed(() => (splitReplaced.value ? splitChildren(kase.value, dtId) : null))
+// Части разделения в плашке — подписью как в списке ДТ (номер или «ДТ i» и название, 23.10.2026).
+const split = computed(() => {
+  if (!splitReplaced.value) return null
+  const c = kase.value
+  const parts = splitChildren(c, dtId)
+  const label = (p: typeof parts.ett) => (p && c ? { ...p, label: clipLabel(dtLabel(c, p.id, t)) } : p)
+  return { ett: label(parts.ett), vto: label(parts.vto) }
+})
+
+// ---- Название ДТ (23.10.2026) ----
+// Своё название — из ответа сервера (GET/PUT ДТ его отдают, PUT не меняет); после переименования — ответ маршрута title.
+// lastServerDto и заявка — shallowRef: своё значение держим в ref, иначе шапка не обновится.
+const ownTitle = ref<string | null>(null)
+watch(() => dt.lastServerDto.value, (s) => {
+  ownTitle.value = s && 'title' in s ? s.title ?? null : dtOfCase.value?.title ?? null
+}, { immediate: true })
+const autoTitle = computed(() => dtAutoTitle(form, t))
+/** Рядом с названием: номер или «ДТ i» (место в списке ДТ заявки, как в карточке заявки). */
+const shortId = computed(() => {
+  if (form.declarationNumber) return form.declarationNumber
+  const i = kase.value?.declarations.findIndex((d) => d.id === dtId) ?? -1
+  return i >= 0 ? t('import40Case.dtFallback', { n: i + 1 }) : null
+})
+const renameDt = async (title: string | null): Promise<boolean> => {
+  try {
+    const res = await import40Api.setDeclarationTitle(caseId, dtId, title)
+    ownTitle.value = res.title ?? null
+    if (dt.lastServerDto.value) dt.lastServerDto.value.title = res.title ?? null
+    if (dtOfCase.value) dtOfCase.value.title = res.title ?? null
+    return true
+  } catch {
+    return false // текст ошибки показал общий перехватчик
+  }
+}
 const tag = computed(() => rateTag(dt.lastServerDto.value))
 
 // ---- Разделы и ?s= ----
@@ -581,6 +621,32 @@ const onDocs = async () => {
   }
 }
 
+// ---- Документы по ДТ: уведомление по Решению 130, обязательство при условном выпуске (23.10.2026) ----
+// Сервер строит документ по СОХРАНЁННОЙ ДТ (текст гр. 31 — из БД): перед окном — сохранение, как у печати; в просмотре —
+// без сохранения. Декларант — гр. 14, пустая — компания клиента (как на сервере); Ф.И.О. — руководитель из профиля.
+const notice130Open = ref(false)
+const obligationOpen = ref(false)
+const openDtForm = async (which: 'notice130' | 'obligation') => {
+  if (!(await dt.saveForAction(true))) return
+  if (which === 'notice130') notice130Open.value = true
+  else obligationOpen.value = true
+}
+const formsDeclarant = computed(() => ({
+  name: form.declarantName || clientProfile.value?.companyName || null,
+  bin: form.declarantBin || clientProfile.value?.bin || null,
+}))
+const alpha2ByCode = computed(() => new Map(countryOptions.value.map((c) => [c.value, c.alpha2])))
+const countryOf = (code: string) => alpha2ByCode.value.get(code) ?? null
+/** Строки гр. 44 01416 после уведомления — в форму (сохранит автосейв); название вида — из классификатора 2009. */
+const onNotice130Doc44 = async (entries: Notice130Doc44Entry[]) => {
+  if (!editable.value || !entries.length) return
+  const kinds = await classifiers.load('2009').catch(() => [])
+  const name = kinds.find((k) => k.code === NOTICE130_DOC_CODE)?.nameRu || NOTICE130_DOC_NAME
+  form.doc44Items ??= []
+  const { added, updated } = upsertNotice130Doc44(form.doc44Items, entries, name, form.goodsItems.length)
+  message.info(t('broker.dt.forms.notice.doc44Done', { added, updated }))
+}
+
 // ---- Разделение ЕТТ/ВТО ----
 const splitOpen = ref(false)
 // Решение владельца 16.10.2026: часть разделения повторно не делится — «Измените разделение из исходной ДТ»; у исходной
@@ -785,6 +851,11 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
         :case-number="kase?.number ?? null"
         :client-name="kase?.clientName ?? null"
         :number="form.declarationNumber || null"
+        :title="ownTitle"
+        :auto-title="autoTitle"
+        :short-id="shortId"
+        :rename="canManage ? renameDt : null"
+        :forms="{ notice130: canManage, obligation: canManage }"
         :tag="tag"
         :editable="editable"
         :can-xml="canManage"
@@ -805,6 +876,8 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
         @docs="onDocs"
         @split="onSplit"
         @open-panel="panelOpen = true"
+        @notice130="openDtForm('notice130')"
+        @obligation="openDtForm('obligation')"
       >
         <template #status>
           <DtKedenChip
@@ -879,6 +952,8 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
             :dt="condRelDt"
             :case-status="kase.status"
             :can-edit="canEditDt(user, kase)"
+            :can-obligation="canManage"
+            @obligation="openDtForm('obligation')"
           />
 
           <div
@@ -1027,6 +1102,32 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
         :save="saveBeforeSplit"
         @done="onSplitDone"
       />
+      <template v-if="canManage">
+        <DtNotice130Modal
+          v-model:open="notice130Open"
+          :case-id="caseId"
+          :dt-id="dtId"
+          :goods="form.goodsItems"
+          :currency="form.currency || null"
+          :declarant="formsDeclarant"
+          :director-name="clientProfile?.directorName || null"
+          :country-of="countryOf"
+          :can-add-doc44="editable"
+          @doc44="onNotice130Doc44"
+        />
+        <DtObligationModal
+          v-model:open="obligationOpen"
+          :case-id="caseId"
+          :dt-id="dtId"
+          :goods="form.goodsItems"
+          :currency="form.currency || null"
+          :declarant="formsDeclarant"
+          :director-name="clientProfile?.directorName || null"
+          :country-of="countryOf"
+          :conditional-release="dtOfCase?.conditionalRelease ?? null"
+          :submission-date="form.submissionDate || null"
+        />
+      </template>
     </template>
   </div>
 </template>
