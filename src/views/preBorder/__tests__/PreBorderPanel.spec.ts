@@ -17,6 +17,10 @@ vi.mock('@/ui/download', () => ({ saveBlob: vi.fn() }))
 const heic = vi.hoisted(() => ({ forUpload: vi.fn() }))
 vi.mock('@/utils/heic', async (orig) => ({ ...(await orig<typeof import('@/utils/heic')>()), heicForUpload: heic.forUpload }))
 
+// «Перевести (ИИ)» скрыт флагом (23.10.2026); тесты кнопки — с включённым флагом.
+const feat = vi.hoisted(() => ({ FILE_TRANSLATE_ENABLED: true }))
+vi.mock('@/config/features', () => feat)
+
 import PreBorderPanel from '../PreBorderPanel.vue'
 import FileTranslateButton from '../FileTranslateButton.vue'
 import ZUpload from '@/components/z/ZUpload.vue'

@@ -11,6 +11,9 @@ const tr = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), translate: vi.fn() }
 vi.mock('@/api/preBorder', async (orig) => ({ ...(await orig<typeof import('@/api/preBorder')>()), translationApi: tr }))
 vi.mock('@/ui/message', () => ({ message: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() } }))
 vi.mock('@/ui/download', () => ({ saveBlob: vi.fn() }))
+// Кнопка скрыта флагом (@/config/features, 23.10.2026); здесь проверяется сама кнопка — флаг включён.
+const feat = vi.hoisted(() => ({ FILE_TRANSLATE_ENABLED: true }))
+vi.mock('@/config/features', () => feat)
 
 import FileTranslateButton from '../FileTranslateButton.vue'
 
@@ -64,5 +67,22 @@ describe('FileTranslateButton: отказ по коду', () => {
     expect(keys).toEqual(['alreadyRussian', 'busy', 'disabled', 'limit', 'modelError', 'noText', 'rate', 'tooLarge', 'unreadable'])
     expect(Object.keys(kk.translate.errors).sort()).toEqual(keys)
     expect(Object.keys(en.translate.errors).sort()).toEqual(keys)
+  })
+})
+
+describe('FileTranslateButton: флаг', () => {
+  it('по умолчанию перевод выключен — кнопки и окна нет', async () => {
+    const actual = await vi.importActual<typeof import('@/config/features')>('@/config/features')
+    expect(actual.FILE_TRANSLATE_ENABLED).toBe(false)
+    feat.FILE_TRANSLATE_ENABLED = false
+    try {
+      const i18n = createI18n({ legacy: false, locale: 'ru', messages: { ru, kk, en } })
+      const w = mount(FileTranslateButton, { props: { caseId: 'c1', fileId: 'f1', fileName: 'invoice.pdf', variant: 'icon' }, global: { plugins: [i18n] } })
+      expect(w.find('[data-file-translate]').exists()).toBe(false)
+      expect(w.html()).not.toContain('data-translate-modal')
+      w.unmount()
+    } finally {
+      feat.FILE_TRANSLATE_ENABLED = true
+    }
   })
 })

@@ -2342,8 +2342,6 @@ export default {
             unitLocked: 'The supplementary unit is defined by the HS code: it is set and removed together with the code',
             unitByTnved: 'by HS code',
             unitNone: 'no supplementary unit',
-            quantityType: 'Quantity type',
-            quantityTypePlaceholder: 'РК, РР…',
             quantityNoDei: 'The code has no supplementary unit: box 41 is not filled, quantity goes in the box 31 row.',
             moveToRow: 'Move to box 31',
             moveManyRows: 'Box 31 has several rows — move the quantity to the right row by hand.',

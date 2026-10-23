@@ -7,7 +7,7 @@ import ZInput from '@/components/z/ZInput.vue'
 import ZNumber from '@/components/z/ZNumber.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZTag from '@/components/z/ZTag.vue'
-import { OKEI_QUANTITY_TYPE_CODES, type Import40GoodsItemInput } from '@/types/api'
+import type { Import40GoodsItemInput } from '@/types/api'
 import type { ZOption, ZOptionValue } from '@/ui/options'
 import { placesOfGoods } from '@/utils/goodsPlaces'
 import { formatNumberIn } from '@/ui/number'
@@ -52,7 +52,6 @@ const unitText = computed(() => {
   return okeiLabel(props.item.unitCode, props.item.unit)
 })
 const unitHint = computed(() => (dei.value === undefined ? undefined : tq('unitByTnved')))
-const quantityTypes = OKEI_QUANTITY_TYPE_CODES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))
 
 // Сумма строк характеристик гр. 31 против гр. 41 / гр. 42 — предупреждение (не блок), как под таблицей строк.
 const totals = computed(() => characteristicTotals(props.item))
@@ -101,8 +100,8 @@ const takeFromRow = () => {
   r.quantity = null
   r.unitCode = null
 }
-// «Тип количества» гр. 41 нужен только при ДЕИ (в XML и печать не уходит, В19): у кода без ДЕИ скрыт, если пуст.
-const showQuantityType = computed(() => dei.value !== null || !!props.item.quantityTypeCode)
+// «Тип количества» гр. 41 скрыт (решение 23.10.2026 по просьбе декларантов): в XML и печать не уходит (В19). Сохранённое
+// значение не трогается — сервер получает его как было.
 
 // Одно правило со списком, итогами и статусом (goodsStatus.netOverGross).
 const netOverGross = computed(() => isNetOverGross(props.item))
@@ -196,9 +195,6 @@ const autoTag = 'absolute top-1/2 right-2 -translate-y-1/2'
           <ManualMark v-if="item.statisticValueUsdManual" :calc="usd(item.statisticValueUsdCalc)" :can-reset="!readonly" data-manual-of="46" @reset="resetStat" />
           <template v-else>{{ tq('statValueHint') }}</template>
         </template>
-      </ZField>
-      <ZField v-if="showQuantityType" graph="41" :label="tq('quantityType')" data-graph="41" data-goods-field="quantityTypeCode" :data-goods-index="index">
-        <ZSelect :value="item.quantityTypeCode || null" :options="quantityTypes" show-search allow-clear :disabled="readonly" :placeholder="tq('quantityTypePlaceholder')" popup-width="320px" class="max-sm:h-11" data-f="quantityTypeCode" @update:value="model.setField(item, 'quantityTypeCode', str($event))" />
       </ZField>
     </div>
 

@@ -9,6 +9,7 @@ import { translationApi, type FileTranslation } from '@/api/preBorder'
 import { saveBlob } from '@/ui/download'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
+import { FILE_TRANSLATE_ENABLED } from '@/config/features'
 
 // «Перевести (ИИ)» у файла заявки (очередь 4, задача 1): китайский или английский документ — на русский. Перевод
 // сохраняется рядом с файлом: уже переведённый открывается без модели. Скан без текста — честный отказ сервера
@@ -74,9 +75,12 @@ const download = () => {
 }
 
 const label = computed(() => (props.translated ? t('translate.open') : t('translate.action')))
+/** Кнопка скрыта целиком, пока перевод выключен (@/config/features). */
+const enabled = FILE_TRANSLATE_ENABLED
 </script>
 
 <template>
+  <template v-if="enabled">
   <button
     v-if="variant === 'icon'"
     type="button"
@@ -123,4 +127,5 @@ const label = computed(() => (props.translated ? t('translate.open') : t('transl
       </template>
     </div>
   </ZModal>
+  </template>
 </template>

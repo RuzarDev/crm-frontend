@@ -417,7 +417,7 @@ describe('GoodsEditor: пределы полей по структуре ДТ (�
   })
 })
 
-// №1 / №4 (пакет импорта 21.10.2026): гр. 41 — только при ДЕИ; «Тип количества» скрыт без ДЕИ.
+// №1 / №4 (пакет импорта 21.10.2026): гр. 41 — только при ДЕИ. «Тип количества» скрыт всегда (23.10.2026).
 describe('GoodsEditor: гр. 41 без ДЕИ', () => {
   beforeEach(() => {
     tnved.rates.mockImplementation(async (code: string) => ({
@@ -450,7 +450,7 @@ describe('GoodsEditor: гр. 41 без ДЕИ', () => {
     await click('[data-goods-qty-take-from-row]')
     expect(form.goodsItems[1]).toMatchObject({ quantity: 300, unitCode: '796' })
     expect(form.goodsItems[1].characteristics![0]).toMatchObject({ quantity: null, unitCode: null, tradeMarkName: 'X' })
-    expect(q('[data-goods-field="quantityTypeCode"]')).not.toBeNull()
+    expect(q('[data-goods-field="quantityTypeCode"]')).toBeNull()
   })
 })
 
@@ -752,7 +752,7 @@ describe('GoodsEditor: поля для перехода «к недостающ�
     expect(keys).toEqual(expect.arrayContaining([
       'tnvedCode', 'description', 'characteristics',
       'quantity', 'unitCode', 'grossWeightKg', 'netWeightKg', 'packagesCount', 'customsValue', 'currency', 'countryOfOrigin',
-      'customsValueKzt', 'statisticValueUsd', 'quantityTypeCode', 'exciseKind', 'antiDumpingKind', 'taxVolumeL', 'vatRatePreferential',
+      'customsValueKzt', 'statisticValueUsd', 'exciseKind', 'antiDumpingKind', 'taxVolumeL', 'vatRatePreferential',
     ]))
     for (const f of fields) {
       expect(f.dataset.graph, f.dataset.goodsField).toBeTruthy()
