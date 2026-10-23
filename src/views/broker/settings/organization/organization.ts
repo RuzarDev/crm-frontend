@@ -118,15 +118,24 @@ export const validate = (f: OrgForm): Partial<Record<FieldKey, OrgErrorCode>> =>
   return e
 }
 
-/** Весь DTO в PUT: строки обрезаны и никогда не null (сервер на null отвечает 500), updatedAtUtc — как пришёл. */
-export const toPayload = (f: OrgForm, base: Pick<OrganizationSettings, 'updatedAtUtc'> | null): OrganizationSettings => ({
+/**
+ * Весь DTO в PUT: строки обрезаны и никогда не null (сервер на null отвечает 500), updatedAtUtc — как пришёл.
+ * Исключение — адреса КЕДЕН: если передана сохранённая форма (saved) и список не менялся, уходит null — сервер
+ * его не трогает (23.10.2026, ревью: давно открытая вкладка при правке реквизитов молча стирала бы список,
+ * и письма о статусах ДТ переставали бы уходить; сервер версию записи не сверяет).
+ */
+export const toPayload = (
+  f: OrgForm, base: Pick<OrganizationSettings, 'updatedAtUtc'> | null, saved: OrgForm | null = null,
+): OrganizationSettings => ({
   companyName: f.companyName.trim(), shortName: f.shortName.trim(), bin: f.bin.trim(), legalAddress: f.legalAddress.trim(),
   bank: f.bank.trim(), iik: compact(f.iik), bik: compact(f.bik), kbe: f.kbe.trim(),
   directorName: f.directorName.trim(), directorBasis: f.directorBasis.trim() || DEFAULT_BASIS,
   accountantName: f.accountantName.trim(), phone: f.phone.trim(), email: f.email.trim(),
   vatPayer: f.vatPayer, vatRate: f.vatRate ?? 16,
-  // Через запятую, как хранит сервер; пусто — '' (не null, как остальные строки).
-  kedenStatusEmails: splitEmails(f.kedenStatusEmails).join(','),
+  // Через запятую, как хранит сервер; очистили намеренно — '' (сервер очищает список); не трогали — null.
+  kedenStatusEmails: saved && comparable('kedenStatusEmails', saved) === comparable('kedenStatusEmails', f)
+    ? null
+    : splitEmails(f.kedenStatusEmails).join(','),
   updatedAtUtc: base?.updatedAtUtc ?? null,
 })
 

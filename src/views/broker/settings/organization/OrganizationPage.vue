@@ -150,7 +150,8 @@ async function save() {
   saveError.value = null
   const emailsChanged = changed.value.has('kedenStatusEmails')
   try {
-    const res = await billingApi.saveOrganization(toPayload(draft, savedMeta.value), { silent: true })
+    // Адреса КЕДЕН уходят, только если их меняли в этом сохранении (иначе null — сервер список не трогает).
+    const res = await billingApi.saveOrganization(toPayload(draft, savedMeta.value, saved.value), { silent: true })
     apply(res)
     message.success(t('broker.settings.organization.saved'))
   } catch (e) {

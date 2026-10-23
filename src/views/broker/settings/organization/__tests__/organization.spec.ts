@@ -93,6 +93,18 @@ describe('organization: адреса КЕДЕН', () => {
     expect(toPayload({ ...base(), kedenStatusEmails: 'B@example.org\na@example.com, b@example.org' }, null).kedenStatusEmails).toBe('b@example.org,a@example.com')
     expect(toPayload({ ...base(), kedenStatusEmails: '  ' }, null).kedenStatusEmails).toBe('')
   })
+  it('PUT с сохранённой формой: адреса не менялись — null (сервер не трогает), менялись или очищены — список', () => {
+    const saved = { ...base(), kedenStatusEmails: 'a@example.com\nb@example.org' }
+    // Только реквизиты; разделители, регистр и повторы — не правка.
+    expect(toPayload({ ...saved, bank: 'Halyk' }, null, saved).kedenStatusEmails).toBeNull()
+    expect(toPayload({ ...saved, kedenStatusEmails: 'A@example.com, b@example.org, a@example.com' }, null, saved).kedenStatusEmails).toBeNull()
+    expect(toPayload({ ...saved, kedenStatusEmails: 'a@example.com' }, null, saved).kedenStatusEmails).toBe('a@example.com')
+    expect(toPayload({ ...saved, kedenStatusEmails: '' }, null, saved).kedenStatusEmails).toBe('')
+    // Пустой сохранённый список и пустое поле — тоже null: вкладка, открытая до того, как адреса добавили, их не сотрёт.
+    const empty = { ...base(), kedenStatusEmails: '' }
+    expect(toPayload({ ...empty, bank: 'Halyk' }, null, empty).kedenStatusEmails).toBeNull()
+    expect(toPayload({ ...empty, kedenStatusEmails: 'c@example.net' }, null, empty).kedenStatusEmails).toBe('c@example.net')
+  })
   it('неверный адрес — ошибка с этим адресом; больше 20 — ошибка лимита; пусто — без ошибки', () => {
     expect(validate({ ...base(), kedenStatusEmails: '' }).kedenStatusEmails).toBeUndefined()
     expect(validate({ ...base(), kedenStatusEmails: 'a@example.com\nb@example.org' }).kedenStatusEmails).toBeUndefined()

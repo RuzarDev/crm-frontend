@@ -256,7 +256,7 @@ describe('OrganizationPage: сохранение', () => {
     expect(w.get('[data-savebar-text]').text()).toBe('Есть несохранённые изменения · банк')
     expect(w.get('[data-savebar-text]').classes()).not.toContain('text-danger')
   })
-  it('отправляет весь DTO (строки без null, ИИК без пробелов, updatedAtUtc), обновляет «Сохранено», тост', async () => {
+  it('отправляет весь DTO (строки без null, ИИК без пробелов, updatedAtUtc; адреса КЕДЕН не трогали — null), обновляет «Сохранено», тост', async () => {
     await open()
     await type('bank', '  Halyk  ')
     await saveBtn().trigger('click')
@@ -268,7 +268,7 @@ describe('OrganizationPage: сохранение', () => {
       companyName: 'ТОО «AQNIET Customs»', shortName: 'AQNIET', bin: '180940012345', legalAddress: 'Алматы, пр. Абая 52, оф. 305',
       bank: 'Halyk', iik: 'KZ72722S000012345678', bik: 'CASPKZKA', kbe: '17',
       directorName: 'Ахметов К. С.', directorBasis: 'устава', accountantName: 'Жумабек А. Е.', phone: '+7 727 355 12 40', email: 'office@aqniet.kz',
-      vatPayer: true, vatRate: 16, kedenStatusEmails: '', updatedAtUtc: SAVED_AT,
+      vatPayer: true, vatRate: 16, kedenStatusEmails: null, updatedAtUtc: SAVED_AT,
     })
     expect(api.toast.success).toHaveBeenCalledTimes(1)
     expect(bar().exists()).toBe(false)
@@ -322,6 +322,19 @@ describe('OrganizationPage: почта для уведомлений КЕДЕН'
     expect(api.saveOrganization.mock.calls[0][0].kedenStatusEmails).toBe('chief@example.com,duty@example.org')
     expect(area().value).toBe('chief@example.com\nduty@example.org')
     expect(bar().exists()).toBe(false)
+  })
+
+  // Ревью 23.10.2026: давно открытая вкладка с пустым списком при правке реквизитов не должна стирать адреса,
+  // добавленные с тех пор в другой вкладке (сервер версию записи не сверяет; null — «не менять»).
+  it('правили только реквизиты — адреса не отправляются (null), список на сервере не трогается', async () => {
+    api.organization.mockResolvedValue(dto({ kedenStatusEmails: 'chief@example.com' }))
+    await open()
+    await type('bank', 'Halyk')
+    await type('kedenStatusEmails', 'Chief@Example.com;')
+    expect(w.get('[data-savebar-text]').text()).toBe('Есть несохранённые изменения · банк')
+    await saveBtn().trigger('click')
+    await flushPromises()
+    expect(api.saveOrganization.mock.calls[0][0].kedenStatusEmails).toBeNull()
   })
 
   it('очистили — уходит пустая строка', async () => {
