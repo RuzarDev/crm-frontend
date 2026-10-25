@@ -4,10 +4,10 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { mountWithI18n } from '@/test/mountWithI18n'
 
-const api = vi.hoisted(() => ({ list: vi.fn(), mine: vi.fn() }))
+const api = vi.hoisted(() => ({ list: vi.fn(), mine: vi.fn(), syncStatus: vi.fn() }))
 vi.mock('@/api/keden', async (orig) => ({
   ...(await orig<typeof import('@/api/keden')>()),
-  kedenApi: { list: api.list, mine: api.mine },
+  kedenApi: { list: api.list, mine: api.mine, syncStatus: api.syncStatus },
 }))
 
 import KedenDeclarationsView from '../KedenDeclarationsView.vue'
@@ -37,7 +37,11 @@ const MINE = [mi({ id: 'm1' }), mi({ id: 'm2', registrationNumber: '56000/081026
 
 let w: VueWrapper
 let router: Router
-const as = (role: string) => { useAuthStore().role = role }
+const as = (role: string, permissions: string[] = []) => {
+  const auth = useAuthStore()
+  auth.role = role
+  auth.permissions = permissions
+}
 const mountView = async (mode: 'all' | 'mine') => {
   w = mountWithI18n(KedenDeclarationsView, { attachTo: document.body, props: { mode }, global: { plugins: [router] } })
   await flushPromises()
@@ -51,6 +55,10 @@ beforeEach(async () => {
   await router.push('/keden')
   api.list.mockResolvedValue(LIST)
   api.mine.mockResolvedValue(MINE)
+  api.syncStatus.mockResolvedValue({
+    lastQuickPollAtUtc: new Date().toISOString(), lastFullSyncAtUtc: null, dtCount: 220, logins: 1, refreshes: 3,
+    lastLoginAtUtc: null, lastError: null, stale: false,
+  })
   as('administrator')
 })
 afterEach(() => {
@@ -260,5 +268,41 @@ describe('KedenDeclarationsView: mode=mine', () => {
     await flushPromises()
     expect(w.find('[data-keden-error]').exists()).toBe(true)
     expect(w.findAll('[data-keden-no]')).toHaveLength(0)
+  })
+})
+
+// Строка состояния kedenlogger (23.10.2026): тем, кто видит весь журнал; клиенту — нет.
+describe('KedenDeclarationsView: строка состояния kedenlogger', () => {
+  it('администратор в «all» — строка над списком, запрос sync-status', async () => {
+    await mountView('all')
+    expect(api.syncStatus).toHaveBeenCalledTimes(1)
+    expect(w.get('[data-keden-sync-text]').text()).toContain('КЕДЕН обновлён: только что · опрос каждые 3 мин')
+  })
+
+  it('stale — жёлтая плашка над списком', async () => {
+    api.syncStatus.mockResolvedValue({
+      lastQuickPollAtUtc: null, lastFullSyncAtUtc: null, dtCount: null, logins: 0, refreshes: 0,
+      lastLoginAtUtc: null, lastError: null, stale: true,
+    })
+    await mountView('all')
+    expect(w.get('[data-keden-sync-stale]').text()).toContain('больше 10 минут')
+  })
+
+  it('«mine»: сотрудник с import40.read или reestr.read — строка есть; клиент, экспедитор и сотрудник без права — нет и запроса нет', async () => {
+    for (const [role, perms] of [['importer', ['import40.read']], ['broker', ['reestr.read']]] as const) {
+      as(role, [...perms])
+      await mountView('mine')
+      expect(w.find('[data-keden-sync]').exists(), role).toBe(true)
+      w.unmount()
+    }
+    vi.clearAllMocks()
+
+    for (const [role, perms] of [['client', ['import40.read']], ['expeditor', ['reestr.read']], ['sales', ['sales.read']]] as const) {
+      as(role, [...perms])
+      await mountView('mine')
+      expect(w.find('[data-keden-sync]').exists(), role).toBe(false)
+      w.unmount()
+    }
+    expect(api.syncStatus).not.toHaveBeenCalled()
   })
 })

@@ -85,10 +85,10 @@ describe('OrganizationPage: состав', () => {
     expect(w.get('[data-org-hint]').text()).toBe('Реквизиты · попадают в счета, акты, договоры и доверенности')
     expect(w.get('[data-org-saved]').text()).not.toContain('·')
   })
-  it('четыре секции и поля с данными; ИИК показан группами', async () => {
+  it('пять секций и поля с данными; ИИК показан группами', async () => {
     await open()
-    expect(w.findAll('[data-org-section]').map((s) => s.attributes('data-org-section'))).toEqual(['company', 'signers', 'bank', 'vat'])
-    expect(w.findAll('h2').map((h) => h.text())).toEqual(['Компания', 'Подписанты', 'Банк', 'НДС'])
+    expect(w.findAll('[data-org-section]').map((s) => s.attributes('data-org-section'))).toEqual(['company', 'signers', 'bank', 'vat', 'notify'])
+    expect(w.findAll('h2').map((h) => h.text())).toEqual(['Компания', 'Подписанты', 'Банк', 'НДС', 'Уведомления'])
     expect(input('companyName').value).toBe('ТОО «AQNIET Customs»')
     expect(input('bin').value).toBe('180940012345')
     expect(input('iik').value).toBe('KZ72 722S 0000 1234 5678')
@@ -256,7 +256,7 @@ describe('OrganizationPage: сохранение', () => {
     expect(w.get('[data-savebar-text]').text()).toBe('Есть несохранённые изменения · банк')
     expect(w.get('[data-savebar-text]').classes()).not.toContain('text-danger')
   })
-  it('отправляет весь DTO (строки без null, ИИК без пробелов, updatedAtUtc), обновляет «Сохранено», тост', async () => {
+  it('отправляет весь DTO (строки без null, ИИК без пробелов, updatedAtUtc; адреса КЕДЕН не трогали — null), обновляет «Сохранено», тост', async () => {
     await open()
     await type('bank', '  Halyk  ')
     await saveBtn().trigger('click')
@@ -268,7 +268,7 @@ describe('OrganizationPage: сохранение', () => {
       companyName: 'ТОО «AQNIET Customs»', shortName: 'AQNIET', bin: '180940012345', legalAddress: 'Алматы, пр. Абая 52, оф. 305',
       bank: 'Halyk', iik: 'KZ72722S000012345678', bik: 'CASPKZKA', kbe: '17',
       directorName: 'Ахметов К. С.', directorBasis: 'устава', accountantName: 'Жумабек А. Е.', phone: '+7 727 355 12 40', email: 'office@aqniet.kz',
-      vatPayer: true, vatRate: 16, updatedAtUtc: SAVED_AT,
+      vatPayer: true, vatRate: 16, kedenStatusEmails: null, updatedAtUtc: SAVED_AT,
     })
     expect(api.toast.success).toHaveBeenCalledTimes(1)
     expect(bar().exists()).toBe(false)
@@ -293,6 +293,104 @@ describe('OrganizationPage: сохранение', () => {
     await saveBtn().trigger('click')
     await flushPromises()
     expect(w.get('[data-savebar-text]').text()).toBe('Не удалось сохранить реквизиты')
+  })
+})
+
+// Почта для писем о смене статуса ДТ в КЕДЕН (23.10.2026).
+describe('OrganizationPage: почта для уведомлений КЕДЕН', () => {
+  const area = () => field('kedenStatusEmails').element as HTMLTextAreaElement
+  const box = () => w.get('[data-org-section="notify"] [data-z-field]')
+
+  it('поле с подписью и подсказкой; адреса с сервера — по одному на строку', async () => {
+    api.organization.mockResolvedValue(dto({ kedenStatusEmails: 'chief@example.com,duty@example.org' }))
+    await open()
+    expect(field('kedenStatusEmails').element.tagName).toBe('TEXTAREA')
+    expect(box().text()).toContain('Почта для уведомлений КЕДЕН')
+    expect(box().text()).toContain('Письмо о любой смене статуса ДТ в КЕДЕН. Несколько адресов — через запятую или с новой строки')
+    expect(area().value).toBe('chief@example.com\nduty@example.org')
+    expect(bar().exists()).toBe(false)
+  })
+
+  it('сохраняется тем же «Сохранить»: адреса через запятую, нижний регистр, без повторов', async () => {
+    api.organization.mockResolvedValue(dto({ kedenStatusEmails: 'chief@example.com' }))
+    await open()
+    await type('kedenStatusEmails', 'chief@example.com\nDuty@Example.org; chief@example.com')
+    expect(w.get('[data-savebar-text]').text()).toBe('Есть несохранённые изменения · уведомления')
+    await saveBtn().trigger('click')
+    await flushPromises()
+    expect(api.saveOrganization).toHaveBeenCalledTimes(1)
+    expect(api.saveOrganization.mock.calls[0][0].kedenStatusEmails).toBe('chief@example.com,duty@example.org')
+    expect(area().value).toBe('chief@example.com\nduty@example.org')
+    expect(bar().exists()).toBe(false)
+  })
+
+  // Ревью 23.10.2026: давно открытая вкладка с пустым списком при правке реквизитов не должна стирать адреса,
+  // добавленные с тех пор в другой вкладке (сервер версию записи не сверяет; null — «не менять»).
+  it('правили только реквизиты — адреса не отправляются (null), список на сервере не трогается', async () => {
+    api.organization.mockResolvedValue(dto({ kedenStatusEmails: 'chief@example.com' }))
+    await open()
+    await type('bank', 'Halyk')
+    await type('kedenStatusEmails', 'Chief@Example.com;')
+    expect(w.get('[data-savebar-text]').text()).toBe('Есть несохранённые изменения · банк')
+    await saveBtn().trigger('click')
+    await flushPromises()
+    expect(api.saveOrganization.mock.calls[0][0].kedenStatusEmails).toBeNull()
+  })
+
+  it('очистили — уходит пустая строка', async () => {
+    api.organization.mockResolvedValue(dto({ kedenStatusEmails: 'chief@example.com' }))
+    await open()
+    await type('kedenStatusEmails', '')
+    await saveBtn().trigger('click')
+    await flushPromises()
+    expect(api.saveOrganization.mock.calls[0][0].kedenStatusEmails).toBe('')
+  })
+
+  it('неверный адрес — ошибка у поля с этим адресом, «Сохранить» недоступна', async () => {
+    await open()
+    await type('kedenStatusEmails', 'chief@example.com, chief-at-example.com')
+    expect(box().text()).toContain('Неверный адрес: chief-at-example.com')
+    expect(saveBtn().attributes('disabled')).toBeDefined()
+  })
+
+  it('больше 20 адресов — ошибка лимита', async () => {
+    await open()
+    await type('kedenStatusEmails', Array.from({ length: 21 }, (_, i) => `u${i}@example.com`).join('\n'))
+    expect(box().text()).toContain('Не больше 20 адресов')
+    expect(saveBtn().attributes('disabled')).toBeDefined()
+  })
+
+  it('400 сервера по адресам — текст у поля и в панели; правка адресов снимает ошибку у поля', async () => {
+    api.saveOrganization.mockRejectedValueOnce({
+      response: { status: 400, data: { error: 'Неверный адрес: duty@example', errors: { kedenStatusEmails: ['Неверный адрес: duty@example'] } } },
+    })
+    await open()
+    await type('kedenStatusEmails', 'duty@example.org')
+    await saveBtn().trigger('click')
+    await flushPromises()
+    expect(box().get('[data-z-status="error"]').text()).toBe('Неверный адрес: duty@example')
+    expect(area().getAttribute('aria-invalid')).toBe('true')
+    expect(w.get('[data-savebar-text]').text()).toBe('Неверный адрес: duty@example')
+    expect(api.toast.error).not.toHaveBeenCalled()
+    await type('kedenStatusEmails', 'duty@example.net')
+    expect(box().find('[data-z-status="error"]').exists()).toBe(false)
+    expect(w.get('[data-savebar-text]').text()).toBe('Есть несохранённые изменения · уведомления')
+  })
+
+  it('400 при неизменённых адресах — ошибка только в панели, поле не краснеет', async () => {
+    api.saveOrganization.mockRejectedValueOnce({ response: { status: 400, data: { error: 'Неверные данные' } } })
+    await open()
+    await type('bank', 'Halyk')
+    await saveBtn().trigger('click')
+    await flushPromises()
+    expect(w.get('[data-savebar-text]').text()).toBe('Неверные данные')
+    expect(box().find('[data-z-status="error"]').exists()).toBe(false)
+  })
+
+  it('только чтение — поле недоступно', async () => {
+    as('sales', ['finance.read'])
+    await open()
+    expect(area().disabled).toBe(true)
   })
 })
 

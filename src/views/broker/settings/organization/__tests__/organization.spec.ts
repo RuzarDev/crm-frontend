@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  changedSections, compact, formatSavedAt, groupIik, toForm, toPayload, validate, type OrgForm,
+  changedSections, compact, formatSavedAt, groupIik, invalidEmail, splitEmails, toForm, toPayload, validate, type OrgForm,
 } from '../organization'
 
 const base = (): OrgForm => toForm({
@@ -72,8 +72,53 @@ describe('organization: форма и секции', () => {
     expect(Object.values(p).includes(null as never)).toBe(false)
     expect(Object.keys(p).sort()).toEqual([
       'accountantName', 'bank', 'bik', 'bin', 'companyName', 'directorBasis', 'directorName', 'email', 'iik', 'kbe',
-      'legalAddress', 'phone', 'shortName', 'updatedAtUtc', 'vatPayer', 'vatRate',
+      'kedenStatusEmails', 'legalAddress', 'phone', 'shortName', 'updatedAtUtc', 'vatPayer', 'vatRate',
     ].sort())
+  })
+})
+
+// Почта для писем о смене статуса ДТ в КЕДЕН (23.10.2026).
+describe('organization: адреса КЕДЕН', () => {
+  it('разделители — запятая, точка с запятой, пробел, перевод строки; нижний регистр, без повторов', () => {
+    expect(splitEmails(' A@example.com, b@example.org;c@example.net\n\nd@example.com  a@EXAMPLE.COM ')).toEqual(['a@example.com', 'b@example.org', 'c@example.net', 'd@example.com'])
+    expect(splitEmails('')).toEqual([])
+    expect(splitEmails(' ,; \n')).toEqual([])
+  })
+  it('с сервера (через запятую) — в форме по одному на строку; старый сервер без поля — пусто', () => {
+    expect(toForm({ kedenStatusEmails: 'a@example.com,b@example.org' }).kedenStatusEmails).toBe('a@example.com\nb@example.org')
+    expect(toForm({}).kedenStatusEmails).toBe('')
+    expect(toForm({ kedenStatusEmails: null }).kedenStatusEmails).toBe('')
+  })
+  it('PUT — через запятую, нормализовано; пусто — пустая строка, не null', () => {
+    expect(toPayload({ ...base(), kedenStatusEmails: 'B@example.org\na@example.com, b@example.org' }, null).kedenStatusEmails).toBe('b@example.org,a@example.com')
+    expect(toPayload({ ...base(), kedenStatusEmails: '  ' }, null).kedenStatusEmails).toBe('')
+  })
+  it('PUT с сохранённой формой: адреса не менялись — null (сервер не трогает), менялись или очищены — список', () => {
+    const saved = { ...base(), kedenStatusEmails: 'a@example.com\nb@example.org' }
+    // Только реквизиты; разделители, регистр и повторы — не правка.
+    expect(toPayload({ ...saved, bank: 'Halyk' }, null, saved).kedenStatusEmails).toBeNull()
+    expect(toPayload({ ...saved, kedenStatusEmails: 'A@example.com, b@example.org, a@example.com' }, null, saved).kedenStatusEmails).toBeNull()
+    expect(toPayload({ ...saved, kedenStatusEmails: 'a@example.com' }, null, saved).kedenStatusEmails).toBe('a@example.com')
+    expect(toPayload({ ...saved, kedenStatusEmails: '' }, null, saved).kedenStatusEmails).toBe('')
+    // Пустой сохранённый список и пустое поле — тоже null: вкладка, открытая до того, как адреса добавили, их не сотрёт.
+    const empty = { ...base(), kedenStatusEmails: '' }
+    expect(toPayload({ ...empty, bank: 'Halyk' }, null, empty).kedenStatusEmails).toBeNull()
+    expect(toPayload({ ...empty, kedenStatusEmails: 'c@example.net' }, null, empty).kedenStatusEmails).toBe('c@example.net')
+  })
+  it('неверный адрес — ошибка с этим адресом; больше 20 — ошибка лимита; пусто — без ошибки', () => {
+    expect(validate({ ...base(), kedenStatusEmails: '' }).kedenStatusEmails).toBeUndefined()
+    expect(validate({ ...base(), kedenStatusEmails: 'a@example.com\nb@example.org' }).kedenStatusEmails).toBeUndefined()
+    expect(validate({ ...base(), kedenStatusEmails: 'a@example.com, broken@, c@example.net' }).kedenStatusEmails).toBe('emails')
+    expect(invalidEmail('a@example.com, broken@, c@example')).toBe('broken@')
+    expect(invalidEmail('a@example.com')).toBeNull()
+    const many = Array.from({ length: 21 }, (_, i) => `u${i}@example.com`).join(',')
+    expect(validate({ ...base(), kedenStatusEmails: many }).kedenStatusEmails).toBe('emailsLimit')
+    expect(validate({ ...base(), kedenStatusEmails: Array.from({ length: 20 }, (_, i) => `u${i}@example.com`).join(',') }).kedenStatusEmails).toBeUndefined()
+  })
+  it('секция «уведомления»; разделители, регистр и повторы — не правка', () => {
+    const a = { ...base(), kedenStatusEmails: 'a@example.com\nb@example.org' }
+    expect(changedSections(a, { ...a, kedenStatusEmails: 'A@example.com, b@example.org, a@example.com' })).toEqual([])
+    expect(changedSections(a, { ...a, kedenStatusEmails: 'a@example.com' })).toEqual(['notify'])
   })
 })
 

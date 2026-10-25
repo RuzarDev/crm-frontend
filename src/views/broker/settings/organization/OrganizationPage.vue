@@ -11,6 +11,7 @@ import ZPhone from '@/components/z/ZPhone.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZSwitch from '@/components/z/ZSwitch.vue'
+import ZTextarea from '@/components/z/ZTextarea.vue'
 import { billingApi, type OrganizationSettings } from '@/api/billing'
 import { extractServerText } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
@@ -19,8 +20,8 @@ import { message } from '@/ui/message'
 import { useConfirm } from '@/ui/confirm'
 import { calendarLocale } from '@/ui/date'
 import {
-  BASIS_PRESETS, DEFAULT_BASIS, VAT_MAX, VAT_MIN, changedFields, changedSections, compact, formatSavedAt, groupIik,
-  toForm, toPayload, validate, type FieldKey, type OrgForm,
+  BASIS_PRESETS, DEFAULT_BASIS, KEDEN_EMAILS_MAX, VAT_MAX, VAT_MIN, changedFields, changedSections, compact, formatSavedAt, groupIik,
+  invalidEmail, toForm, toPayload, validate, type FieldKey, type OrgForm,
 } from './organization'
 
 // «Организация» раздела «Настройки» (редизайн, волна 5б, доска Org): реквизиты, которые попадают в счета, акты,
@@ -28,6 +29,7 @@ import {
 // правки копятся в черновике, панель внизу называет изменённые секции («Отменить» / «Сохранить»), при уходе —
 // вопрос. Менять может finance.write | users.write | администратор (как сервер), остальным — только чтение.
 // Запросы silent: ошибка показывается на странице одним сообщением.
+// 23.10.2026: пятая секция «Уведомления» — почта для писем о смене статуса ДТ в КЕДЕН; 400 сервера по адресам — и у поля.
 const { t, locale } = useI18n()
 const auth = useAuthStore()
 const { confirm } = useConfirm()
@@ -41,6 +43,8 @@ const draft = reactive<OrgForm>(toForm(null))
 const touched = ref<Set<FieldKey>>(new Set())
 const saving = ref(false)
 const saveError = ref<string | null>(null)
+// Отказ сервера (400) по адресам КЕДЕН — показываем у поля, пока адреса не поправили.
+const emailsServerError = ref<string | null>(null)
 
 // Основание: «устава» / «доверенности» или свой текст (тогда рядом поле ввода).
 type BasisChoice = (typeof BASIS_PRESETS)[number] | 'custom'
@@ -58,12 +62,14 @@ const apply = (data: Partial<OrganizationSettings>) => {
   Object.assign(draft, toForm(data))
   touched.value = new Set()
   saveError.value = null
+  emailsServerError.value = null
   syncChoice()
 }
 watch(() => org.data, (d) => { if (d) apply(d) }, { immediate: true })
 onMounted(() => { void org.load() })
 // Новая правка — старая ошибка сохранения неактуальна.
 watch(draft, () => { saveError.value = null }, { deep: true })
+watch(() => draft.kedenStatusEmails, () => { emailsServerError.value = null })
 
 const changed = computed(() => new Set(changedFields(saved.value, draft)))
 const dirty = computed(() => changed.value.size > 0)
@@ -71,10 +77,12 @@ const errors = computed(() => validate(draft))
 const hasErrors = computed(() => Object.keys(errors.value).length > 0)
 // Ошибку показываем у тронутого (ушли из поля) поля, а при любых правках — у всех: «Сохранить» блокирует любая ошибка,
 // и скрытая (старые данные с неверным БИН, пустое наименование на новой установке) оставила бы тупик. Нетронутая форма не «краснеет».
+const errParams = () => ({ min: VAT_MIN, max: VAT_MAX, limit: KEDEN_EMAILS_MAX, address: invalidEmail(draft.kedenStatusEmails) ?? '' })
 const errorOf = (k: FieldKey): string | undefined => {
+  if (k === 'kedenStatusEmails' && emailsServerError.value) return emailsServerError.value
   const code = errors.value[k]
   if (!code || !(dirty.value || touched.value.has(k))) return undefined
-  return t(`broker.settings.organization.err.${code}`, { min: VAT_MIN, max: VAT_MAX })
+  return t(`broker.settings.organization.err.${code}`, errParams())
 }
 const touch = (k: FieldKey) => { touched.value = new Set(touched.value).add(k) }
 
@@ -122,7 +130,7 @@ const sectionNames = computed(() =>
   changedSections(saved.value, draft).map((s) => t(`broker.settings.organization.sections.${s}.title`).toLocaleLowerCase(locale.value)).join(', '))
 const firstError = computed(() => {
   const k = Object.keys(errors.value)[0] as FieldKey | undefined
-  return k ? t(`broker.settings.organization.err.${errors.value[k]}`, { min: VAT_MIN, max: VAT_MAX }) : ''
+  return k ? t(`broker.settings.organization.err.${errors.value[k]}`, errParams()) : ''
 })
 const barText = computed(() => hasErrors.value
   ? t('broker.settings.organization.bar.blocked', { error: firstError.value })
@@ -140,12 +148,23 @@ async function save() {
   if (!canSave.value) return
   saving.value = true
   saveError.value = null
+  const emailsChanged = changed.value.has('kedenStatusEmails')
   try {
-    const res = await billingApi.saveOrganization(toPayload(draft, savedMeta.value), { silent: true })
+    // Адреса КЕДЕН уходят, только если их меняли в этом сохранении (иначе null — сервер список не трогает).
+    const res = await billingApi.saveOrganization(toPayload(draft, savedMeta.value, saved.value), { silent: true })
     apply(res)
     message.success(t('broker.settings.organization.saved'))
   } catch (e) {
-    saveError.value = extractServerText((e as { response?: { data?: unknown } })?.response?.data) ?? t('broker.settings.organization.saveFailed')
+    const response = (e as { response?: { status?: number; data?: unknown } })?.response
+    const text = extractServerText(response?.data)
+    saveError.value = text ?? t('broker.settings.organization.saveFailed')
+    // Сервер отклонил адреса КЕДЕН (неверный или больше 20; в ответе errors.kedenStatusEmails) — текст с адресом
+    // и у поля, и в панели. Без errors — по тому, что адреса в этом сохранении менялись.
+    const fieldErrors = (response?.data as { errors?: Record<string, unknown> } | undefined)?.errors
+    if (response?.status === 400 && (fieldErrors?.kedenStatusEmails !== undefined || emailsChanged)) {
+      emailsServerError.value = saveError.value
+      touch('kedenStatusEmails')
+    }
   } finally {
     saving.value = false
   }
@@ -297,6 +316,31 @@ const gridClass = 'grid grid-cols-2 gap-x-3.5 gap-y-4 max-sm:grid-cols-1'
               data-org="vatRate"
               @update:value="set('vatRate', $event)"
               @blur="touch('vatRate')"
+            />
+          </ZField>
+        </div>
+      </section>
+
+      <section :class="sectionClass" data-org-section="notify">
+        <div class="min-w-0">
+          <h2 class="m-0 text-base font-semibold text-ink">{{ t('broker.settings.organization.sections.notify.title') }}</h2>
+          <p class="m-0 mt-1 text-sm text-muted">{{ t('broker.settings.organization.sections.notify.text') }}</p>
+        </div>
+        <div :class="gridClass">
+          <ZField
+            class="col-span-2 max-sm:col-span-1"
+            :label="t('broker.settings.organization.kedenStatusEmails')"
+            :help="t('broker.settings.organization.kedenStatusEmailsHint')"
+            :error="errorOf('kedenStatusEmails')"
+          >
+            <ZTextarea
+              v-bind="text('kedenStatusEmails')"
+              :rows="3"
+              auto-grow
+              :placeholder="t('broker.settings.organization.kedenStatusEmailsPlaceholder')"
+              autocomplete="off"
+              spellcheck="false"
+              inputmode="email"
             />
           </ZField>
         </div>

@@ -9,6 +9,8 @@ import ZTag from '@/components/z/ZTag.vue'
 import FilterChip from '@/components/broker/FilterChip.vue'
 import ListSearch from '@/components/broker/ListSearch.vue'
 import StatusDot from '@/components/broker/StatusDot.vue'
+import KedenSyncBar from './KedenSyncBar.vue'
+import { canSeeSync } from './kedenSync'
 import { KEDEN_DECLARATION_TYPES, kedenApi, kedenTypeLabelKey } from '@/api/keden'
 import { useAuthStore } from '@/stores/auth'
 import { useBlock } from '@/views/home/useBlock'
@@ -28,6 +30,9 @@ const auth = useAuthStore()
 
 const isAll = computed(() => props.mode === 'all')
 const isClient = computed(() => (auth.role ?? '').trim().toLowerCase() === 'client')
+// Строка состояния kedenlogger (23.10.2026) — сотрудникам, как на сервере (canSeeSync); клиенту и экспедитору — нет.
+// На 403 строка сама прячется и перестаёт спрашивать.
+const showSync = computed(() => canSeeSync(auth.role, auth.hasPermission))
 
 // ---- Данные ----
 const type = ref<string | null>(null)
@@ -122,6 +127,8 @@ const emptyHint = computed(() => (filtered.value ? t('broker.list.nothingFoundHi
         </ZButton>
       </div>
     </div>
+
+    <KedenSyncBar v-if="showSync" />
 
     <div class="flex flex-wrap items-center gap-2">
       <FilterChip

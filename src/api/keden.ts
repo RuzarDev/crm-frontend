@@ -38,6 +38,22 @@ export interface KedenDeclarationDetailDto {
   syncedAtUtc: string
 }
 
+/**
+ * Состояние kedenlogger (23.10.2026: постоянная сессия КЕДЕН, опрос ДТ каждые 3 минуты) — GET sync-status.
+ * Время — UTC; stale — последний опрос (быстрый или полный) старше 10 минут или его не было.
+ * logins/refreshes — входы через ЭЦП и продления сессии с запуска kedenlogger.
+ */
+export interface KedenSyncStatusDto {
+  lastQuickPollAtUtc: string | null
+  lastFullSyncAtUtc: string | null
+  dtCount: number | null
+  logins: number | null
+  refreshes: number | null
+  lastLoginAtUtc: string | null
+  lastError: string | null
+  stale: boolean
+}
+
 export const KEDEN_DECLARATION_TYPES = [
   { key: 'PI', label: 'Предварительное информирование' },
   { key: 'DT', label: 'Декларация на товары' },
@@ -65,6 +81,13 @@ export const kedenApi = {
       `/keden-declarations/${encodeURIComponent(id)}`,
       opts?.silent ? { silent: true } : undefined,
     )
+    return response.data
+  },
+
+  // Строка состояния над списком КЕДЕН (23.10.2026): опрашивается раз в минуту — всегда silent,
+  // ошибку (нет права, старый сервер без маршрута) экран обрабатывает сам, без тоста перехватчика.
+  syncStatus: async (): Promise<KedenSyncStatusDto> => {
+    const response = await apiClient.get<KedenSyncStatusDto>('/keden-declarations/sync-status', { silent: true })
     return response.data
   },
 
