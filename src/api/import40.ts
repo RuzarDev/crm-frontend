@@ -551,6 +551,30 @@ export interface Import40ExtractionExtras {
   receiverAddress?: string | null
   hintCodes?: string[]
   goods?: Import40ExtractionGoodsExtra[]
+  /**
+   * Перечень документов пакета для гр. 44 от Zircon AI (record.documents, 29.10.2026): по нему «Из документов» добавляет
+   * строки гр. 44 (views/broker/dt/goods/aiDoc44.ts). Нет или пусто (старый Zircon AI / старый сервер) — гр. 44 по-старому.
+   */
+  documents?: Import40ExtractionDocument[] | null
+}
+
+/**
+ * Документ пакета для гр. 44 (Zircon AI documents.py): code — код вида (классификатор 2009), null — вид не уточнён;
+ * forBox44 = false — в гр. 44 не идёт (снимок ИДК); flags — уровня документа: referenced_only (упомянут в другом
+ * документе, файла нет), number_from_invoice (упаковочный без своего номера), doc_code_to_verify…; sourceFiles — файлы.
+ */
+export interface Import40ExtractionDocument {
+  kind?: string | null
+  code?: string | null
+  codeName?: string | null
+  name?: string | null
+  codeToVerify?: boolean
+  forBox44?: boolean
+  number?: string | null
+  /** 'YYYY-MM-DD' */
+  date?: string | null
+  flags?: string[]
+  sourceFiles?: string[]
 }
 
 export interface Import40ExtractionPreview {

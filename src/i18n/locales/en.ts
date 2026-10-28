@@ -4022,6 +4022,10 @@ export default {
           placesTotalUnknown: 'Document total is {total} places, rows add up to {sum}, rows without places: {unknown}',
           docDates: 'Document {code} No. {number} has different dates: {dates} — check box 44',
           receiverByBin: 'Consignee address (box 8) taken from the legal entity register by BIN {bin} — please check',
+          // Box 44 from the Zircon AI document list (29.10.2026).
+          doc44NoCode: 'Box 44: no document code for “{name}” ({file}) — enter it manually',
+          doc44VerifyCode: 'Box 44: verify code {code} for “{name}”',
+          doc44NoScan: 'Box 44: {name} No. {number} is referenced in the documents, but there is no scan — request it from the client (KEDEN needs a scan for this line)',
         },
         quote: {
           retry: 'Retry',
