@@ -10,6 +10,7 @@ import type { Import40Doc44ItemInput, Import40TransportMeans } from '@/types/api
 import type { Import40ExtractionExtras, Import40ExtractionPreview } from '@/api/import40'
 import type { GoodsExcelRow, GoodsSheetTotals } from '@/utils/goodsExcel'
 import { countryFromText, normalizeIncotermsPlace, packagingLine, packagingWord, vehiclePlatesFrom, type CountryOption } from '@/utils/importText'
+import { doc44FromAiDocuments, DOC_NO_NUMBER, type AiDoc44Remark } from '@/views/broker/dt/goods/aiDoc44'
 import { mergeImportDocs, type ImportConflict } from '@/views/broker/dt/goods/importMerge'
 import { fromExcelRow, fromExtraction, rowHasNumbers, type ImportDoc, type ImportRow } from '@/views/broker/dt/goods/importRows'
 
@@ -330,6 +331,8 @@ export interface DocumentsResult {
   /** Строки товаров для importBuild. */
   rows: ImportRow[]
   doc44Items: Import40Doc44ItemInput[]
+  /** Замечания по гр. 44 из перечня документов Zircon AI (код не определён, сверить код, нет скана) — в окно замечаний. */
+  doc44Notes: AiDoc44Remark[]
   usedExcelGoods: boolean
   /** Разные значения в документах (инвойс / упаковочный / Zircon AI). */
   conflicts: ImportConflict[]
@@ -370,6 +373,11 @@ export interface HeaderDocsInput {
   cmrInBatch?: boolean
   hasCaseContract?: boolean
   docKindNames?: ReadonlyMap<string, string> | null
+  /**
+   * Упаковочный лист без своего номера (или с номером инвойса): 'invoice' — номер инвойса, как с правки 2.8; 'bn' — «Б/Н»
+   * (правило декларанта 29.10.2026, когда гр. 44 идёт по перечню документов Zircon AI — один номер с ним, без дублей).
+   */
+  packingWithoutNumber?: 'invoice' | 'bn'
 }
 
 /**
@@ -395,7 +403,10 @@ export function headerDocs(i: HeaderDocsInput): Import40Doc44ItemInput[] {
     : extras?.invoiceDate ?? (same ? invoiceHeader?.date ?? null : null)
   if (invoiceNo) out.push(docLine('04021', invoiceNo, invoiceDate, names))
   const packingHeader = headers.find((h) => h.kind === 'packing')
-  if (packingHeader) out.push(docLine('04131', packingHeader.number ?? invoiceNo ?? 'Б/Н', packingHeader.date ?? invoiceDate, names))
+  if (packingHeader) {
+    const own = i.packingWithoutNumber === 'bn' && sameDocNo(packingHeader.number, invoiceNo) ? null : packingHeader.number
+    out.push(docLine('04131', own ?? (i.packingWithoutNumber === 'bn' ? null : invoiceNo) ?? DOC_NO_NUMBER, packingHeader.date ?? invoiceDate, names))
+  }
   if (extras?.transportDocument) out.push(docLine(transportDocCode(i.transportMode, i.road), extras.transportDocument, null, names))
   // CMR в наборе, а номер не распознан (скан без текста) — строка CMR без номера: декларант впишет номер, сервер не
   // добавит транспортный документ по виду транспорта заявки.
@@ -482,10 +493,30 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
     }
   }
 
-  const doc44Items = headerDocs({
+  // Гр. 44 (29.10.2026): есть перечень документов Zircon AI — строки шапок (прежний путь) и перечень сливаются одной
+  // дедупликацией (doc44FromAiDocuments); перечня нет (старый Zircon AI) — как раньше.
+  const aiDocs = extras?.documents?.length ? extras.documents : null
+  const fromHeaders = headerDocs({
     headers, extras, transportMode: ctx.transportMode, road: !!arrival?.length || !!ctx.road, cmrInBatch: !!ctx.road,
-    hasCaseContract: ctx.hasCaseContract, docKindNames: ctx.docKindNames,
+    hasCaseContract: ctx.hasCaseContract, docKindNames: ctx.docKindNames, packingWithoutNumber: aiDocs ? 'bn' : 'invoice',
   })
+  let doc44Items = fromHeaders
+  let doc44Notes: AiDoc44Remark[] = []
+  if (aiDocs) {
+    // Номер инвойса шапки Excel главнее номера Zircon AI (headerDocs) — инвойс Zircon AI из того же файла с «его» номером
+    // — та же строка, а не второй инвойс.
+    const invoice = fromHeaders.find((d) => d.docTypeCode === '04021')
+    const aiNo = extras?.invoiceNumber ?? null
+    const excelDoc = docs.find((d) => d.header.kind === 'invoice' && sameDocNo(d.header.number, invoice?.docNumber))
+    const aliases = invoice?.docNumber && aiNo && !sameDocNo(invoice.docNumber, aiNo) && excelDoc
+      ? [{ code: '04021', from: aiNo, to: invoice.docNumber, files: [excelDoc.fileName] }]
+      : []
+    const merged = doc44FromAiDocuments(fromHeaders, aiDocs, {
+      docKindNames: ctx.docKindNames, hasCaseContract: ctx.hasCaseContract, invoiceDate: invoice?.docDate ?? null, aliases,
+    })
+    doc44Items = merged.rows
+    doc44Notes = merged.remarks
+  }
 
   return {
     preview: {
@@ -505,6 +536,7 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
     },
     rows,
     doc44Items,
+    doc44Notes,
     usedExcelGoods,
     conflicts,
     // Адрес отправителя: разбора Zircon AI — первым, как до пакета (ревью 22.10), если он прочитал отправителя, а не подпись

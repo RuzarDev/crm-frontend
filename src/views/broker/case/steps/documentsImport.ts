@@ -203,6 +203,8 @@ export async function prepareDocumentsDeclaration(
   for (const c of docDateConflicts(excel.rows, excel.doc44Items)) {
     notes.push({ key: 'docDates', params: { code: c.code, number: c.number, dates: c.dates.map((d) => (d.date ? d.date.split('-').reverse().join('.') : '—')).join(', ') } })
   }
+  // Гр. 44 из перечня документов Zircon AI (29.10.2026): код не определён, сверить код, нет скана.
+  notes.push(...excel.doc44Notes)
 
   const [sender, receiverAddr] = await Promise.all([
     resolveSender(senderName, excel.senderAddress, notes),

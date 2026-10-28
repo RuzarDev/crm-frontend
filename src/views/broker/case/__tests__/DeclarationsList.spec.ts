@@ -692,6 +692,36 @@ describe('DeclarationsList: «Из документов»', () => {
     expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n3')
   })
 
+  // Гр. 44 из перечня документов Zircon AI (29.10.2026): строки без дублей с прежним путём, замечания — в окне.
+  it('перечень документов Zircon AI — строки гр. 44 без дублей, замечания в окне', async () => {
+    const d = (o: Record<string, unknown>) => ({ codeToVerify: false, forBox44: true, date: null, flags: [], sourceFiles: ['inv.pdf'], ...o })
+    api.extractBatch.mockResolvedValue(result({
+      extras: {
+        invoiceNumber: 'TEST-INV-1', invoiceDate: '2026-03-01', hintCodes: [], goods: [],
+        documents: [
+          d({ kind: 'invoice', code: '04021', name: 'Инвойс', codeName: 'Счет-фактура (инвойс)', number: 'TEST-INV-1', date: '2026-03-01' }),
+          d({ kind: 'cmr', code: '02015', name: 'CMR', codeName: 'Международная накладная', number: 'TEST-CMR-5', sourceFiles: ['cmr.jpg'] }),
+          d({ kind: 'contract', code: '03011', name: 'Контракт', codeName: 'Контракт', number: 'TEST-CTR-9', flags: ['referenced_only'], sourceFiles: [] }),
+          d({ kind: 'origin_cert', code: null, name: 'Сертификат о происхождении', number: 'CO-1', sourceFiles: ['co.pdf'] }),
+        ],
+      },
+    }))
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n8' }))
+    mount(USERS.declarant)
+    await pick()
+    const body = api.createDeclaration.mock.calls[0][1]
+    // CMR в наборе (строка без номера) — дописан номер из перечня, второй строки нет
+    expect(body.doc44Items.map((x: { docTypeCode: string; docNumber: string | null }) => [x.docTypeCode, x.docNumber])).toEqual([
+      ['04021', 'TEST-INV-1'], ['02015', 'TEST-CMR-5'], ['03011', 'TEST-CTR-9'],
+    ])
+    const warnings = w.get('[data-issues-warnings]').text()
+    expect(warnings).toContain('Гр. 44: не определён код для «Сертификат о происхождении» (co.pdf) — укажите вручную')
+    expect(warnings).toContain('Гр. 44: Контракт № TEST-CTR-9 упомянут в документах, но скана нет')
+    await w.get('[data-issues-ok]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n8')
+  })
+
   // Ревью 21.10: «получатель не совпадает» — тем же правилом, что сервер (БИН, без БИН — название), а не по пустому адресу.
   it.each([
     // профиль с БИН, без города и улицы: сервер взял название и БИН из профиля, адрес пуст — это совпадение
