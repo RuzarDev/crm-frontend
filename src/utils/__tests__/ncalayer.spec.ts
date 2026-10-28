@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NcaLayerError, base64ToBytes, blobToBase64, parseReply, signWithNcaLayer } from '../ncalayer'
+import { NcaLayerError, base64ToBytes, blobToBase64, cmsToBytes, parseReply, signWithNcaLayer } from '../ncalayer'
 
 // Поддельный NCALayer: приветствие {result:{version}} при подключении, затем ответ по модулю запроса.
 const fakeWs = (reply: (req: { module: string; args: unknown }) => unknown, opts: { fail?: boolean } = {}) => {
@@ -55,5 +55,23 @@ describe('ncalayer', () => {
     const bytes = new Uint8Array([0, 1, 2, 250, 255])
     const b64 = await blobToBase64(new Blob([bytes]))
     expect(Array.from(base64ToBytes(b64))).toEqual(Array.from(bytes))
+  })
+})
+
+// 29.10.2026: подпись через NCALayer падала при разборе ответа в браузере — разбор терпим к PEM, переносам, URL-safe.
+describe('cmsToBytes', () => {
+  const bytes = new Uint8Array([0x30, 0x82, 0xfb, 0xff, 0x01, 0x02, 0x03])
+  const b64 = btoa(String.fromCharCode(...bytes))
+  it('обычный base64, с переносами, PEM, data:, URL-safe и без «=»', () => {
+    for (const v of [b64, b64.replace(/(.{4})/g, '$1\r\n'), `-----BEGIN CMS-----\n${b64}\n-----END CMS-----\n`,
+      `data:application/pkcs7-signature;base64,${b64}`, b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')]) {
+      expect(Array.from(cmsToBytes(v))).toEqual(Array.from(bytes))
+    }
+  })
+  it('не base64 или не строка — ошибка NCALayer с началом ответа, а не голая ошибка браузера', () => {
+    expect(() => cmsToBytes('<html>oops</html>')).toThrow(NcaLayerError)
+    expect(() => cmsToBytes('<html>oops</html>')).toThrow(/неожиданном формате.*<html>/)
+    expect(() => cmsToBytes({ cms: 'x' })).toThrow(NcaLayerError)
+    expect(() => cmsToBytes('')).toThrow(NcaLayerError)
   })
 })

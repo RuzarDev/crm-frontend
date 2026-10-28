@@ -13,7 +13,7 @@ import { message } from '@/ui/message'
 import { useConfirm } from '@/ui/confirm'
 import { saveBlob } from '@/ui/download'
 import { endOfDayUtc, isOpen, localDate, todayYmd, validDate } from '@/views/client/company/company'
-import { ncaErrorText, signDocumentWithNcaLayer } from '@/views/client/company/ncaSign'
+import { ncaSignErrorText, signDocumentWithNcaLayer } from '@/views/client/company/ncaSign'
 import { REVOKED, isExpired, multiBlocked, statusKey, statusTone, type DocKind, type SignSide } from './staffCompany'
 
 // Договор / доверенность клиента для сотрудника (волна 7, замена Import40DocumentStep): сформировать (разовый,
@@ -166,7 +166,7 @@ const signNca = async (doc: Import40DocumentDto, side: SignSide) => {
     message.success(t('broker.company.signedNca'))
     await refreshAfter()
   } catch (err) {
-    setDocError(doc.id, ncaErrorText(err, t) ?? errText(err, t('broker.company.fileUploadError')))
+    setDocError(doc.id, ncaSignErrorText(err, t, t('broker.company.fileUploadError')))
   } finally {
     ncaSigning.value = null
   }
