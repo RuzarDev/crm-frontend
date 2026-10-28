@@ -18,7 +18,7 @@ import {
   currentDoc, endOfDayUtc, historyDocs, historyStatus, isOpen, localDate, todayYmd, validDate,
   type DocKind, type HistoryStatus,
 } from './company'
-import { ncaErrorText, signDocumentWithNcaLayer } from './ncaSign'
+import { ncaSignErrorText, signDocumentWithNcaLayer } from './ncaSign'
 
 // Раздел «Договор» / «Доверенность» (доска Company): актуальный документ — номер, срок, «Скачать .docx» и
 // плашки подписи («Ваша подпись»: eGov по QR или загрузка .cms; «Подпись AQNIET» — только у договора).
@@ -129,7 +129,7 @@ const signNca = async () => {
     message.success(t('client.company.doc.signedNcaToast'))
     await refreshAfter()
   } catch (err) {
-    uploadError.value = ncaErrorText(err, t) ?? errText(err, t('client.company.doc.uploadError'))
+    uploadError.value = ncaSignErrorText(err, t, t('client.company.doc.uploadError'))
   } finally {
     ncaSigning.value = false
   }

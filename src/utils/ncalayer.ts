@@ -115,6 +115,30 @@ export const blobToBase64 = (blob: Blob): Promise<string> =>
     r.readAsDataURL(blob)
   })
 
+/**
+ * CMS из ответа NCALayer → байты (29.10.2026). Подпись через NCALayer на проде ни разу не дошла до сервера: ответ падал при
+ * разборе в браузере (atob) с непонятной ошибкой. Принимаем base64 в любом виде — с PEM-обёрткой «-----BEGIN …-----»,
+ * переносами строк, префиксом data:, URL-safe алфавитом, без «=» в конце. Не base64 — NcaLayerError с началом ответа.
+ */
+export function cmsToBytes(raw: unknown): Uint8Array {
+  const text = typeof raw === 'string' ? raw : ''
+  const b64 = text
+    .replace(/^data:[^,]*,/, '')
+    .replace(/-----(BEGIN|END)[^-]*-----/g, '')
+    .replace(/\s+/g, '')
+    .replace(/-/g, '+').replace(/_/g, '/')
+  const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
+  if (!b64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(padded)) {
+    const preview = text.slice(0, 40).replace(/[^\x20-\x7e]/g, '?')
+    throw new NcaLayerError('failed', `NCALayer вернул подпись в неожиданном формате (${typeof raw}: «${preview}»)`)
+  }
+  try {
+    return base64ToBytes(padded)
+  } catch (e) {
+    throw new NcaLayerError('failed', `не удалось разобрать подпись NCALayer (${(e as Error)?.name ?? 'Error'})`)
+  }
+}
+
 export function base64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64.replace(/\s+/g, ''))
   const out = new Uint8Array(bin.length)
