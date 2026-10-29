@@ -1936,3 +1936,29 @@ describe('DtPage: D0122 (гр. 33) ↔ строка гр. 44 08999 (23.10.2026)'
     expect(api.updateDeclaration).not.toHaveBeenCalled()
   })
 })
+
+describe('DtPage: «Из документов» в эту ДТ (29.10.2026)', () => {
+  const button = () => w.find('[data-goods-from-docs]')
+
+  it('декларант, ДТ правится — кнопка в «Товарах»', async () => {
+    await open('?s=goods', ['SectionGoods'])
+    expect(button().exists()).toBe(true)
+  })
+
+  it('выпущенная ДТ (статус заявки или дата выпуска) — кнопки нет, хотя править можно', async () => {
+    server = caseDto({ status: 4, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null })] })
+    await open('?s=goods', ['SectionGoods'])
+    expect(w.find('[data-goods-excel]').exists()).toBe(true)
+    expect(button().exists()).toBe(false)
+    w.unmount()
+    server = caseDto({ status: 3, assignedDeclarantId: 'me', declarations: [fullDto({ splitRole: null, releasedAtUtc: '2026-10-28T10:00:00Z' })] })
+    await open('?s=goods', ['SectionGoods'])
+    expect(button().exists()).toBe(false)
+  })
+
+  it('без права декларанта — кнопки нет', async () => {
+    as({ permissions: ['import40.read'] })
+    await open('?s=goods', ['SectionGoods'])
+    expect(button().exists()).toBe(false)
+  })
+})

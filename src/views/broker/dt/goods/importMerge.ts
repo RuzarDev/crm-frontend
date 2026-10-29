@@ -242,8 +242,13 @@ const goodsKeys: { by: Exclude<MatchBy, 'position'>; key: (g: Goods) => string |
   { by: 'description', key: (g) => keyText(g.description) || null },
 ]
 
+export interface MatchOptions {
+  /** Сопоставлять по порядку при равном числе товаров (по умолчанию да — «Из Excel»; «Из документов» в ДТ — нет). */
+  positional?: boolean
+}
+
 /** Для каждого товара файла — товар ДТ (позиция) или null; неоднозначное совпадение — следующий ключ, затем новый товар. */
-export function matchExisting(existing: readonly Goods[], incoming: readonly Goods[]): ExistingMatch[] {
+export function matchExisting(existing: readonly Goods[], incoming: readonly Goods[], opts: MatchOptions = {}): ExistingMatch[] {
   const taken = new Set<number>()
   const out: ExistingMatch[] = incoming.map((_, i) => ({ incoming: i, existing: null, by: null }))
   for (const { by, key } of goodsKeys) {
@@ -259,8 +264,10 @@ export function matchExisting(existing: readonly Goods[], incoming: readonly Goo
       taken.add(cands[0])
     })
   }
-  // По порядку — только при равном числе товаров и непротиворечивых кодах.
-  if (existing.length === incoming.length) {
+  // По порядку — только при равном числе товаров и непротиворечивых кодах; «Из документов» в уже созданную ДТ — без него
+  // (positional: false, 29.10.2026): дополнительный инвойс с тем же числом других товаров без артикулов и кодов сливался
+  // бы с чужими товарами ДТ.
+  if (opts.positional !== false && existing.length === incoming.length) {
     incoming.forEach((g, i) => {
       if (out[i].existing != null || taken.has(i)) return
       if (!compatible(keyCode(existing[i].tnvedCode), keyCode(g.tnvedCode))) return
@@ -294,11 +301,11 @@ const ROW_FIELDS = [
   'productArticle', 'standardName', 'productSortName', 'serialNumbers',
 ] as const satisfies readonly (keyof Import40GoodsCharacteristic)[]
 
-export function planMerge(existing: readonly Goods[], incoming: readonly Goods[], mode: MergeMode): MergePlan {
+export function planMerge(existing: readonly Goods[], incoming: readonly Goods[], mode: MergeMode, opts: MatchOptions = {}): MergePlan {
   if (mode === 'append' || !existing.length) {
     return { matches: incoming.map((_, i) => ({ incoming: i, existing: null, by: null })), conflicts: [], added: incoming.length, updated: 0 }
   }
-  const matches = matchExisting(existing, incoming)
+  const matches = matchExisting(existing, incoming, opts)
   const conflicts: ExistingConflict[] = []
   for (const m of matches) {
     if (m.existing == null) continue
@@ -373,6 +380,18 @@ function mergeInto(model: DtGoodsModel, e: Goods, g: Goods, mode: 'fill' | 'repl
     if (blank(row.unitCode)) row.unitCode = rowQuantity.unitCode
   }
   return { rowSkipped: false }
+}
+
+/**
+ * «Дополнить» что-нибудь изменит в товаре ДТ (29.10.2026, «Из документов» в ДТ: повторный разбор тех же документов —
+ * «применять нечего»): пробный прогон mergeInto на копии товара — те же правила, без своей копии условий.
+ */
+export function fillChanges(e: Goods, g: Goods): boolean {
+  const copy = JSON.parse(JSON.stringify(e)) as Goods
+  const before = JSON.stringify(copy)
+  const dry = { setField: (x: Goods, f: keyof Goods, v: unknown) => { (x as unknown as Record<string, unknown>)[f] = v } } as unknown as DtGoodsModel
+  mergeInto(dry, copy, g, 'fill')
+  return JSON.stringify(copy) !== before
 }
 
 export interface ApplyResult {

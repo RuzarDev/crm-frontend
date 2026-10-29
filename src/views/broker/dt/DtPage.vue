@@ -47,6 +47,10 @@ import SectionNumber from './sections/SectionNumber.vue'
 import SectionParties from './sections/SectionParties.vue'
 import SectionTransport from './sections/SectionTransport.vue'
 import SectionGoods from './goods/SectionGoods.vue'
+import DocsIntoDtModal from './goods/DocsIntoDtModal.vue'
+import ExtractDocsModal from '@/views/broker/case/steps/ExtractDocsModal.vue'
+import { canDocsIntoDt } from './goods/docsIntoDt'
+import { useDocsIntoDt } from './goods/useDocsIntoDt'
 import SectionPayments from './payments/SectionPayments.vue'
 import PaymentsTotalsCard from './payments/PaymentsTotalsCard.vue'
 import SectionDts from './dts/SectionDts.vue'
@@ -529,6 +533,26 @@ const onXml = async () => {
 // Выпущенная ДТ (и дальше по статусам) не пересчитывается перед печатью: расчёт переписал бы гр. 45/47/В
 // зарегистрированной декларации по сегодняшним ставкам (итоговое ревью пакета 7, M5), даже если править её ещё можно.
 const released = computed(() => (kase.value?.status ?? 0) >= RELEASED_STATUS)
+
+// «Из документов» в эту ДТ (29.10.2026): декларант, ДТ правится и не выпущена; не во время загрузки и не после 409.
+const docsIntoAllowed = computed(() => canDocsIntoDt({
+  canManage: canManage.value,
+  editable: editable.value,
+  caseStatus: kase.value?.status ?? null,
+  releasedAtUtc: dt.lastServerDto.value?.releasedAtUtc ?? null,
+}))
+const docsInto = useDocsIntoDt({
+  caseId,
+  dtId,
+  form,
+  goods,
+  kase: () => kase.value,
+  dto: () => dt.lastServerDto.value,
+  enabled: () => docsIntoAllowed.value && !dt.conflict.value && !dt.loading.value,
+  // 409 — текст плашки ДТ; иначе (перезагрузка, выпуск, нет права) — общий текст окна.
+  blockedReason: () => (dt.conflict.value ? t('broker.dt.banners.conflictText') : null),
+  save: () => dt.save(),
+})
 const paymentsQuestion = (): { live: boolean; stale: number[] } | null => {
   if (!editable.value || released.value || payments.busy.value) return null
   const live = payments.state.value === 'preview'
@@ -1104,7 +1128,10 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
                 :payments-loading="payments.loading.value"
                 :editor-context="goodsEditorContext"
                 :save-state="goodsSaveState"
+                :from-docs="docsIntoAllowed"
+                :from-docs-busy="docsInto.busy.value || docsInto.loadingFiles.value"
                 @calc-payments="calcPayments"
+                @from-docs="docsInto.open"
               />
               <SectionPayments
                 v-else-if="active === 'payments'"
@@ -1181,6 +1208,29 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
         :save="saveBeforeSplit"
         @done="onSplitDone"
       />
+      <template v-if="docsIntoAllowed">
+        <ExtractDocsModal
+          v-model:open="docsInto.pickOpen.value"
+          target="existing"
+          :files="docsInto.files.value"
+          :busy="docsInto.busy.value"
+          :default-ids="docsInto.defaults.value.ids"
+          :new-ids="docsInto.defaults.value.newIds"
+          :since-known="docsInto.defaults.value.known"
+          @submit="docsInto.submit"
+        />
+        <DocsIntoDtModal
+          :open="docsInto.summaryOpen.value"
+          :plan="docsInto.plan.value"
+          :remarks="docsInto.remarks.value"
+          :conflicts="docsInto.extractionConflicts.value"
+          :mode="docsInto.mode.value"
+          :existing-goods="form.goodsItems.length"
+          @update:mode="docsInto.setMode"
+          @update:open="(v: boolean) => { if (!v) docsInto.close() }"
+          @apply="docsInto.apply"
+        />
+      </template>
       <template v-if="canManage">
         <DtNotice130Modal
           v-model:open="notice130Open"

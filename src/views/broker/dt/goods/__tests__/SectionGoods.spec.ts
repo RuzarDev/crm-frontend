@@ -59,7 +59,7 @@ const settle = async () => {
     await nextTick()
   }
 }
-const mount = async (goods: Import40GoodsItemInput[], o: { readonly?: boolean; query?: string; currency?: string } = {}) => {
+const mount = async (goods: Import40GoodsItemInput[], o: { readonly?: boolean; query?: string; currency?: string; fromDocs?: boolean } = {}) => {
   form = reactive({ ...emptyDtForm(), currency: o.currency ?? 'USD', goodsItems: goods }) as DtFormState
   canEdit.value = !o.readonly
   model = useDtGoods(form, { readiness: () => readiness.value, canEdit })
@@ -70,7 +70,9 @@ const mount = async (goods: Import40GoodsItemInput[], o: { readonly?: boolean; q
       dtNumber: '55302/091026/0001234',
       readonly: !!o.readonly,
       countryOptions: [{ value: '156', label: '156 — КИТАЙ', alpha2: 'CN' }, { value: '458', label: '458 — МАЛАЙЗИЯ', alpha2: 'MY' }],
+      fromDocs: o.fromDocs,
       'onCalc-payments': () => emitted.push('calc-payments'),
+      'onFrom-docs': () => emitted.push('from-docs'),
     }),
   })
   router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/import-40/:caseId/dt/:dtId', name: 'import-40-dt', component: Page }] })
@@ -217,6 +219,30 @@ describe('SectionGoods: таблица', () => {
     expect(form.goodsItems).toHaveLength(1)
     expect(form.goodsItems[0].currency).toBe('USD')
     expect(router.currentRoute.value.query).toMatchObject({ s: 'goods', item: '1' })
+  })
+})
+
+describe('SectionGoods: «Из документов» в эту ДТ (29.10.2026)', () => {
+  it('кнопка — только когда страница разрешила (fromDocs) и ДТ правится; нажатие — событие странице', async () => {
+    await mount([item()], { fromDocs: true })
+    await w.get('[data-goods-from-docs]').trigger('click')
+    expect(emitted).toEqual(['from-docs'])
+    w.unmount()
+    // Без права (страница не разрешила: нет CanManageDeclarations, ДТ выпущена) — кнопки нет.
+    await mount([item()], { fromDocs: false })
+    expect(w.find('[data-goods-from-docs]').exists()).toBe(false)
+    w.unmount()
+    // Только для чтения — нет, даже если разрешено.
+    await mount([item()], { fromDocs: true, readonly: true })
+    expect(w.find('[data-goods-from-docs]').exists()).toBe(false)
+  })
+
+  it('пустая ДТ — «Из документов» и в пустом состоянии', async () => {
+    await mount([], { fromDocs: true })
+    expect(w.find('[data-goods-empty-from-docs]').exists()).toBe(true)
+    w.unmount()
+    await mount([], {})
+    expect(w.find('[data-goods-empty-from-docs]').exists()).toBe(false)
   })
 })
 

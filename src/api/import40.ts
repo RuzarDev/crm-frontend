@@ -219,6 +219,8 @@ export interface Import40DeclarationDto {
    * setDeclarationTitle: в PUT ДТ не входит и замок редактора не двигает. Старый сервер — нет поля.
    */
   title?: string | null
+  /** Когда ДТ создана (29.10.2026): «Из документов» в эту ДТ отмечает документы, загруженные после. Старый сервер — нет поля. */
+  createdAtUtc?: string | null
   corridor: string
   procedureCode: string
   sender?: Import40Party | null

@@ -268,3 +268,13 @@ describe('matchExisting / planMerge / applyMerge: повторный импор�
     expect(form.doc44Items.map((d) => d.goodsItemIndexes)).toEqual(['0'])
   })
 })
+
+describe('matchExisting: «по порядку» (ревью 29.10, M9)', () => {
+  const g = (o: Partial<Import40GoodsItemInput>): Import40GoodsItemInput => ({ ...newDtGoodsItem('USD'), ...o })
+  it('«Из Excel» — по порядку при равном числе и непротиворечивых кодах, даже с другим артикулом; «Из документов» — без него', () => {
+    const existing = [g({ description: 'СТУЛ', characteristics: [{ ...blankCharacteristic(), productArticle: 'A-1' }] })]
+    const incoming = [g({ description: 'CHAIR', characteristics: [{ ...blankCharacteristic(), productArticle: 'A-01' }] })]
+    expect(matchExisting(existing, incoming)).toEqual([{ incoming: 0, existing: 0, by: 'position' }])
+    expect(matchExisting(existing, incoming, { positional: false })).toEqual([{ incoming: 0, existing: null, by: null }])
+  })
+})

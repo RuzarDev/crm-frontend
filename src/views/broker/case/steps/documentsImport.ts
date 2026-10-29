@@ -7,7 +7,7 @@
 import { companyLookupApi, isBinLike } from '@/api/companyLookup'
 import { partyRefsApi } from '@/api/partyRefs'
 import type { Import40DeclarationDto, Import40DeclarationUpsert, Import40ExtractionResult, Import40Party } from '@/api/import40'
-import type { ClassifierItem } from '@/types/api'
+import type { ClassifierItem, Import40GoodsItemInput } from '@/types/api'
 import { countryFromText, fixCyrillicLookalikes, hasHan, normPartyName, parseForeignAddress, upperRu, type CountryOption } from '@/utils/importText'
 import { parseKzAddress } from '@/utils/kzAddress'
 import { ensureOkeiUnits } from '@/views/broker/dt/goods/editor/okei'
@@ -22,6 +22,11 @@ export interface DocumentsNote { key: string; params?: Record<string, unknown> }
 
 export interface DocumentsDeclaration {
   body: Import40DeclarationUpsert
+  /**
+   * Товары как в форме ДТ (стоимость — customsValue; в body — invoiceValue): «Из документов» в уже созданную ДТ сливает их
+   * с товарами ДТ правилами «Из Excel» (importMerge.planMerge / applyMerge, 29.10.2026).
+   */
+  goods: Import40GoodsItemInput[]
   notes: DocumentsNote[]
   usedExcelGoods: boolean
   /** Получатель из документов (имя) — после создания ДТ проверяется, совпал ли он с компанией клиента. */
@@ -231,5 +236,5 @@ export async function prepareDocumentsDeclaration(
     goods: built.goods, sender, receiverBin: excel.receiverBin, doc44Items: excel.doc44Items,
     receiverExtra: receiverAddr ? { district: receiverAddr.district, house: receiverAddr.house, apt: receiverAddr.apt } : null,
   })
-  return { body, notes, usedExcelGoods: excel.usedExcelGoods, receiverName: excel.preview.receiver?.name ?? null }
+  return { body, goods: built.goods, notes, usedExcelGoods: excel.usedExcelGoods, receiverName: excel.preview.receiver?.name ?? null }
 }
