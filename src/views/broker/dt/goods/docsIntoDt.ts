@@ -1,10 +1,12 @@
 // «Из документов» в уже созданную ДТ (29.10.2026, задача 5 запуска): клиент прислал ещё сканы или Excel — разбор тем же
 // конвейером, что новая ДТ (extract-batch → documentsImport.prepareDocumentsDeclaration), но вместо создания ДТ — слияние
 // в открытую ДТ, ничего не теряя:
-// - товары — правилами «Из Excel» (importMerge.planMerge / applyMerge, режим «Дополнить»): совпавшие дозаполняются только
-//   по пустым полям, расхождения — списком, новые — в конец; повторный разбор тех же документов дублей не плодит;
-// - гр. 44 — doc44FromAiDocuments с existing = строки ДТ: тот же код и номер — второй строки нет, «Б/Н», у строки того же
-//   кода без номера дописывается номер; новые строки при товарах в ДТ — к товарам этого разбора (как «Из Excel», ревью 22.10);
+// - товары — правилами «Из Excel» (importMerge.planMerge / applyMerge, режим «Дополнить» или «Добавить все как новые»), но
+//   без сопоставления «по порядку»: совпавшие по ключам дозаполняются только по пустым полям, расхождения — списком, новые —
+//   в конец; повторный разбор тех же документов дублей не плодит и «применять нечего»;
+// - гр. 44 — doc44FromAiDocuments с existing = строки ДТ: тот же код и номер — второй строки нет (к строке, привязанной к
+//   части товаров, дописываются товары разбора), «Б/Н»; при товарах в ДТ новые строки — к товарам этого разбора (как
+//   «Из Excel», ревью 22.10), пустая строка декларанта номером документа разбора не заполняется; в пустой ДТ — заполняется;
 // - шапка (стороны, транспорт, условия поставки, валюта) — только пустые графы; другое значение — замечание, графа ДТ
 //   не меняется. Сторона с другим названием (или БИН) — не дозаполняется вовсе: адрес чужой стороны не нужен.
 // Здесь — чистые функции (план и применение к форме); загрузка, окна и сохранение — useDocsIntoDt.
@@ -15,7 +17,7 @@ import { extractableCaseFiles, preselectedIds } from '@/views/broker/case/steps/
 import { RELEASED_STATUS } from '@/views/import40/dtAccess'
 import type { DtFormState } from '../dtPayload'
 import { doc44FromAiDocuments } from './aiDoc44'
-import { applyMerge, planMerge, sameValue, type ExistingConflict, type MergeMode, type MergePlan } from './importMerge'
+import { applyMerge, fillChanges, planMerge, sameValue, type ExistingConflict, type MergeMode, type MergePlan } from './importMerge'
 import type { DtGoodsModel, GoodsSnapshot } from './useDtGoods'
 
 type Goods = Import40GoodsItemInput
@@ -62,7 +64,10 @@ export function docsDefaults(files: readonly Import40FileDto[], dtCreatedAtUtc?:
 // ───────────────────────── план слияния ─────────────────────────
 
 /** Замечание слияния: ключ broker.dt.goods.docsInto.remark.* и параметры. */
-export interface DocsIntoRemark { key: 'headerDiffers' | 'transportDiffers' | 'totalDiffers'; params: Record<string, string | number> }
+export interface DocsIntoRemark {
+  key: 'headerDiffers' | 'transportDiffers' | 'totalDiffers' | 'totalCurrency'
+  params: Record<string, string | number>
+}
 
 /** Графы шапки, которые разбор может заполнить (подпись — broker.dt.goods.docsInto.field.*). */
 export type HeaderGroup = 'sender' | 'receiver' | 'incoterms' | 'incotermsPlace' | 'currency' | 'departure' | 'destination'
@@ -79,6 +84,8 @@ export interface DocsIntoDtPlan {
     /** Позиция товара ДТ для каждого товара разбора (сопоставленный или новый в конце). */
     targetIndex: number[]
     conflicts: ExistingConflict[]
+    /** Совпавших товаров, у которых «Дополнить» что-то заполнит (остальные совпали и уже полные). */
+    filled: number
   }
   doc44: {
     /** Строки гр. 44 после слияния: прежние (у пустого номера может появиться номер) и новые в конце. */
@@ -87,6 +94,8 @@ export interface DocsIntoDtPlan {
     added: number
     /** Прежних строк, у которых появился номер. */
     filled: number
+    /** Прежние строки (не «для всех товаров»), совпавшие с документом разбора: дописать к ним товары разбора (как «Из Excel»). */
+    extend: { index: number; goodsItemIndexes: string }[]
   }
   header: { fills: HeaderFill[]; groups: HeaderGroup[] }
   remarks: DocsIntoRemark[]
@@ -102,6 +111,11 @@ export interface DocsIntoDtInput {
 export interface DocsIntoDtOptions {
   /** Названия видов документов (классификатор 2009) для новых строк гр. 44. */
   docKindNames?: ReadonlyMap<string, string> | null
+  /**
+   * Товары: 'fill' — совпавшие дозаполнить (по умолчанию), 'append' — все товары разбора новыми (переключатель сводки:
+   * дополнительный инвойс, ключи которого совпали с чужими товарами).
+   */
+  mode?: 'fill' | 'append'
 }
 
 const blank = (v: unknown) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '')
@@ -119,26 +133,52 @@ const asDocuments = (rows: readonly Import40Doc44ItemInput[]): Import40Extractio
     number: r.docNumber ?? null, date: r.docDate ? r.docDate.slice(0, 10) : null,
   }))
 
-function planGoods(existing: readonly Goods[], incoming: readonly Goods[]): DocsIntoDtPlan['goods'] {
-  const mode: MergeMode = existing.length ? 'fill' : 'append'
-  const plan = planMerge(existing, incoming, mode)
+function planGoods(existing: readonly Goods[], incoming: readonly Goods[], wanted: 'fill' | 'append'): DocsIntoDtPlan['goods'] {
+  const mode: MergeMode = existing.length ? wanted : 'append'
+  // Без сопоставления «по порядку» (ревью 29.10, I1): в сканах артикулов и кодов часто нет — дополнительный инвойс с тем же
+  // числом товаров сливался бы с чужими товарами ДТ. Только по ключам (код, артикул, описание).
+  const plan = planMerge(existing, incoming, mode, { positional: false })
   let next = existing.length
   const targetIndex = plan.matches.map((m) => (mode === 'append' ? null : m.existing) ?? next++)
-  return { incoming: [...incoming], mode, plan, targetIndex, conflicts: plan.conflicts }
+  const filled = mode === 'append' ? 0
+    : plan.matches.filter((m) => m.existing != null && fillChanges(existing[m.existing], incoming[m.incoming])).length
+  return { incoming: [...incoming], mode, plan, targetIndex, conflicts: mode === 'append' ? [] : plan.conflicts, filled }
 }
+
+const goodsTokens = (r: Import40Doc44ItemInput): string[] => [
+  ...(r.goodsItemIndex != null ? [String(r.goodsItemIndex)] : []),
+  ...(r.goodsItemIndexes ?? '').split(',').map((x) => x.trim()).filter(Boolean),
+]
 
 function planDoc44(
   existing: readonly Import40Doc44ItemInput[], fresh: readonly Import40Doc44ItemInput[], bindTo: readonly number[] | null,
   opts: DocsIntoDtOptions,
 ): DocsIntoDtPlan['doc44'] {
-  const res = doc44FromAiDocuments(existing, asDocuments(fresh), { docKindNames: opts.docKindNames })
+  const matched = new Set<number>()
+  const bind = bindTo?.length ? [...new Set(bindTo)].sort((a, b) => a - b) : null
+  // ДТ уже с товарами: пустую строку декларанта (она привязана к прежним товарам) номером документа этого разбора не
+  // заполняем — документ встаёт новой строкой к товарам разбора (ревью 29.10, M2).
+  const res = doc44FromAiDocuments(existing, asDocuments(fresh), {
+    docKindNames: opts.docKindNames, fillEmpty: !bind, onMatch: (i) => matched.add(i),
+  })
   const kept = res.rows.slice(0, existing.length)
-  const indexes = bindTo?.length ? [...new Set(bindTo)].sort((a, b) => a - b).join(',') : null
-  // ДТ уже с товарами: новые документы — к товарам этого разбора, а не «ко всем» (инвойс B не встанет под товары инвойса A).
+  const indexes = bind ? bind.join(',') : null
+  // Новые документы — к товарам этого разбора, а не «ко всем» (инвойс B не встанет под товары инвойса A).
   const added = res.rows.slice(existing.length)
     .map((r) => (indexes != null ? { ...r, appliesToAll: false, goodsItemIndex: null, goodsItemIndexes: indexes } : r))
   const filled = kept.filter((r, i) => (r.docNumber ?? '') !== (existing[i].docNumber ?? '')).length
-  return { rows: [...kept, ...added], existing: existing.length, added: added.length, filled }
+  // Тот же документ уже в гр. 44 и привязан к части товаров — дописать к нему товары разбора (ревью 29.10, M4; как appendDocs).
+  const extend: DocsIntoDtPlan['doc44']['extend'] = []
+  if (bind) {
+    for (const i of [...matched].sort((a, b) => a - b)) {
+      const row = existing[i]
+      if (row.appliesToAll) continue
+      const have = goodsTokens(row)
+      const next = [...new Set([...have, ...bind.map(String)])].sort((a, b) => Number(a) - Number(b))
+      if (next.length !== have.length) extend.push({ index: i, goodsItemIndexes: next.join(',') })
+    }
+  }
+  return { rows: [...kept, ...added], existing: existing.length, added: added.length, filled, extend }
 }
 
 function planHeader(form: DtFormState, body: Import40DeclarationUpsert, out: DocsIntoDtPlan['header'], remarks: DocsIntoRemark[]) {
@@ -190,9 +230,21 @@ function planHeader(form: DtFormState, body: Import40DeclarationUpsert, out: Doc
   const transport = (group: 'arrival' | 'border', key: 'arrivalTransportNumbers' | 'borderTransportNumbers') => {
     const doc = (body[key] ?? []).filter((m) => !blank(m.number))
     if (!doc.length) return
-    const dt = (form[key] ?? []).filter((m: Import40TransportMeans) => !blank(m.number))
+    const all: Import40TransportMeans[] = form[key] ?? []
+    const dt = all.filter((m) => !blank(m.number))
     if (!dt.length) {
-      fill(group, key, doc.map((m) => ({ ...m })))
+      // Строки ДТ без номера (декларант указал вид, страну, прицеп) — не заменяем: номер и пустые поля по порядку, лишние
+      // строки документов — в конец (ревью 29.10, M3).
+      const merged = all.map((row, i) => {
+        const d = doc[i]
+        if (!d) return { ...row }
+        const out: Import40TransportMeans = { ...row }
+        for (const [k, v] of Object.entries(d) as [keyof Import40TransportMeans, unknown][]) {
+          if (blank(out[k]) && !blank(v)) (out as unknown as Record<string, unknown>)[k] = v
+        }
+        return out
+      })
+      fill(group, key, [...merged, ...doc.slice(all.length).map((m) => ({ ...m }))])
       return
     }
     const have = new Set(dt.map((m: Import40TransportMeans) => plateKey(m.number)))
@@ -210,7 +262,7 @@ function planHeader(form: DtFormState, body: Import40DeclarationUpsert, out: Doc
  */
 export function planDocsIntoDt(form: DtFormState, input: DocsIntoDtInput, opts: DocsIntoDtOptions = {}): DocsIntoDtPlan {
   const existingGoods = form.goodsItems
-  const goods = planGoods(existingGoods, input.goods)
+  const goods = planGoods(existingGoods, input.goods, opts.mode ?? 'fill')
   const bindTo = existingGoods.length && goods.incoming.length ? goods.targetIndex : null
   const doc44 = planDoc44(form.doc44Items ?? [], input.body.doc44Items ?? [], bindTo, opts)
   const header: DocsIntoDtPlan['header'] = { fills: [], groups: [] }
@@ -218,14 +270,21 @@ export function planDocsIntoDt(form: DtFormState, input: DocsIntoDtInput, opts: 
   planHeader(form, input.body, header, remarks)
 
   // Гр. 22: пустая — сумма стоимости товаров после слияния; заполненная и товары добавились — сверить с суммой.
-  const value = (i: number) => existingGoods[i]?.customsValue ?? null
-  const fromFile = new Map(goods.plan.matches.filter((m) => m.existing != null).map((m) => [m.existing!, goods.incoming[m.incoming].customsValue ?? null]))
-  const values = [
-    ...existingGoods.map((_, i) => value(i) ?? fromFile.get(i) ?? null),
-    ...goods.plan.matches.filter((m) => goods.mode === 'append' || m.existing == null).map((m) => goods.incoming[m.incoming].customsValue ?? null),
-  ].filter((v): v is number => v != null)
-  const sum = values.length ? Math.round(values.reduce((s, v) => s + v, 0) * 100) / 100 : null
-  if (sum != null) {
+  // Товары в разных валютах не складываем (ревью 29.10, M5): гр. 22 не трогаем и не сверяем, только замечание.
+  const fromFile = new Map(goods.plan.matches.filter((m) => m.existing != null).map((m) => [m.existing!, goods.incoming[m.incoming]]))
+  const after = [
+    ...existingGoods.map((e, i) => (e.customsValue == null && fromFile.get(i)?.customsValue != null ? fromFile.get(i)! : e)),
+    ...goods.plan.matches.filter((m) => goods.mode === 'append' || m.existing == null).map((m) => goods.incoming[m.incoming]),
+  ].filter((g) => g.customsValue != null)
+  const dtCurrency = (form.currency || input.body.currency || '').trim().toUpperCase()
+  const currencies = [...new Set(after.map((g) => (g.currency ?? '').trim().toUpperCase()).filter(Boolean))]
+  const foreign = currencies.filter((c) => c !== dtCurrency)
+  const sum = after.length ? Math.round(after.reduce((s, g) => s + (g.customsValue ?? 0), 0) * 100) / 100 : null
+  if (sum != null && (foreign.length || (!dtCurrency && currencies.length > 1))) {
+    if (goods.plan.added || form.totalInvoiceValue == null) {
+      remarks.push({ key: 'totalCurrency', params: { list: currencies.join(', '), currency: dtCurrency || '—' } })
+    }
+  } else if (sum != null) {
     if (form.totalInvoiceValue == null) {
       header.fills.push({ group: 'total', path: 'totalInvoiceValue', value: sum })
       header.groups.push('total')
@@ -238,7 +297,8 @@ export function planDocsIntoDt(form: DtFormState, input: DocsIntoDtInput, opts: 
 
 /** Есть что применить. */
 export const planHasChanges = (p: DocsIntoDtPlan): boolean =>
-  p.goods.plan.added > 0 || p.goods.plan.updated > 0 || p.doc44.added > 0 || p.doc44.filled > 0 || p.header.fills.length > 0
+  p.goods.plan.added > 0 || p.goods.filled > 0 || p.doc44.added > 0 || p.doc44.filled > 0 || p.doc44.extend.length > 0
+  || p.header.fills.length > 0
 
 // ───────────────────────── применение ─────────────────────────
 
@@ -260,7 +320,10 @@ const setPath = (form: DtFormState, path: string, value: unknown) => {
 
 export interface DocsIntoDtApplied {
   added: number
+  /** Совпавших товаров, у которых что-то дозаполнено. */
   updated: number
+  /** Товаров с 2+ строками гр. 31 без строки того же артикула — строки не тронуты (как «Из Excel»). */
+  rowsSkipped: number
   doc44Added: number
   doc44Filled: number
   headerFilled: number
@@ -289,10 +352,12 @@ export function applyDocsIntoDt(form: DtFormState, model: DtGoodsModel, plan: Do
       cur.docDate ??= r.docDate ?? null
     }
   })
+  for (const x of plan.doc44.extend) if (rows[x.index]) rows[x.index].goodsItemIndexes = x.goodsItemIndexes
   for (const f of plan.header.fills) setPath(form, f.path, f.value)
   return {
     added: res.added,
-    updated: res.updated,
+    updated: plan.goods.filled,
+    rowsSkipped: res.rowsSkipped,
     doc44Added: plan.doc44.added,
     doc44Filled: plan.doc44.filled,
     headerFilled: plan.header.fills.length,

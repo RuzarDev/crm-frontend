@@ -33,6 +33,13 @@ export interface AiDoc44Options {
    * `to` (её выбрал разбор шапки Excel). files — только для документов из этих файлов (пусто — для любых).
    */
   aliases?: readonly { code: string; from: string; to: string; files?: readonly string[] }[]
+  /**
+   * Дописывать номер в строку того же кода без номера (по умолчанию да). «Из документов» в ДТ с товарами — нет
+   * (29.10.2026): пустая строка декларанта привязана к прежним товарам, документ этого разбора — новой строкой.
+   */
+  fillEmpty?: boolean
+  /** Документ совпал со строкой existing (тот же код и номер — второй строки нет): её позиция. */
+  onMatch?: (index: number) => void
 }
 
 export interface AiDoc44Result {
@@ -115,9 +122,11 @@ export function doc44FromAiDocuments(
       // «Б/Н» — не номер: два упаковочных без номера к разным инвойсам — разные строки (по дате)
       return key !== NO_NUMBER_KEY || !r.docDate || !date || r.docDate.slice(0, 10) === date
     }
-    let inBox = rows.some(sameDoc)
+    const hit = rows.findIndex(sameDoc)
+    let inBox = hit >= 0
+    if (inBox && hit < existing.length) opts.onMatch?.(hit)
     if (!inBox) {
-      const empty = rows.find((r) => codeOf(r) === code && !trimmed(r.docNumber))
+      const empty = opts.fillEmpty === false ? undefined : rows.find((r) => codeOf(r) === code && !trimmed(r.docNumber))
       if (empty && number) {
         empty.docNumber = number
         empty.docDate ??= date

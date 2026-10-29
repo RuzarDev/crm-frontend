@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ZModal from '@/components/z/ZModal.vue'
+import ZRadioGroup from '@/components/z/ZRadioGroup.vue'
 import type { Import40ExtractionConflict } from '@/api/import40'
 import { formatQty } from '@/views/broker/transit/record/sections/goods'
 import { planHasChanges, type DocsIntoDtPlan } from './docsIntoDt'
@@ -13,13 +14,19 @@ const props = defineProps<{
   plan: DocsIntoDtPlan | null
   remarks: readonly string[]
   conflicts: readonly Import40ExtractionConflict[]
+  /** «Дополнить совпавшие» / «Добавить все как новые» (ревью 29.10, I1); выбор — только когда в ДТ уже есть товары. */
+  mode: 'fill' | 'append'
+  /** Товаров в ДТ сейчас. */
+  existingGoods: number
 }>()
-const emit = defineEmits<{ 'update:open': [open: boolean]; apply: [] }>()
+const emit = defineEmits<{ 'update:open': [open: boolean]; 'update:mode': [mode: 'fill' | 'append']; apply: [] }>()
 const { t, locale } = useI18n()
 const tx = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.docsInto.${key}`, p ?? {})
 
 const changes = computed(() => (props.plan ? planHasChanges(props.plan) : false))
 const goods = computed(() => props.plan?.goods.plan ?? null)
+const showMode = computed(() => props.existingGoods > 0 && (props.plan?.goods.incoming.length ?? 0) > 0)
+const modeOptions = computed(() => (['fill', 'append'] as const).map((m) => ({ value: m, label: tx(`mode.${m}`) })))
 const headerList = computed(() => (props.plan?.header.groups ?? []).map((g) => tx(`field.${g}`)).join(', '))
 
 // Поля сравнения товаров (importMerge.COMPARE_FIELDS) → подписи окна «Из Excel».
@@ -59,7 +66,7 @@ const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
         <li v-if="goods && !goods.added && !goods.updated" class="text-ink-3" data-docs-into-no-goods>{{ tx('noGoods') }}</li>
         <template v-else-if="goods">
           <li data-docs-into-added>{{ tx('added', { n: goods.added }) }}</li>
-          <li v-if="goods.updated" data-docs-into-updated>{{ tx('updated', { n: goods.updated }) }}</li>
+          <li v-if="goods.updated && plan.goods.mode === 'fill'" data-docs-into-updated>{{ tx('updated', { n: goods.updated, k: plan.goods.filled }) }}</li>
         </template>
         <li data-docs-into-doc44>
           {{ plan.doc44.added || plan.doc44.filled ? tx('doc44', { n: plan.doc44.added }) : tx('doc44None') }}
@@ -67,6 +74,11 @@ const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
         </li>
         <li data-docs-into-header>{{ headerList ? tx('header', { list: headerList }) : tx('headerNone') }}</li>
       </ul>
+
+      <div v-if="showMode" class="flex flex-col gap-1.5 rounded-row border border-line px-3 py-2.5" data-docs-into-mode>
+        <ZRadioGroup orientation="vertical" :value="mode" :options="modeOptions" @update:value="emit('update:mode', $event as 'fill' | 'append')" />
+        <p class="m-0 text-xs text-ink-3">{{ tx(`modeHint.${mode}`) }}</p>
+      </div>
 
       <p v-if="!changes" class="m-0 text-ink-3" data-docs-into-nothing>{{ tx('nothing') }}</p>
 

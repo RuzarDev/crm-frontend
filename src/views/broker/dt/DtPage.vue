@@ -549,6 +549,8 @@ const docsInto = useDocsIntoDt({
   kase: () => kase.value,
   dto: () => dt.lastServerDto.value,
   enabled: () => docsIntoAllowed.value && !dt.conflict.value && !dt.loading.value,
+  // 409 — текст плашки ДТ; иначе (перезагрузка, выпуск, нет права) — общий текст окна.
+  blockedReason: () => (dt.conflict.value ? t('broker.dt.banners.conflictText') : null),
   save: () => dt.save(),
 })
 const paymentsQuestion = (): { live: boolean; stale: number[] } | null => {
@@ -1222,6 +1224,9 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
           :plan="docsInto.plan.value"
           :remarks="docsInto.remarks.value"
           :conflicts="docsInto.extractionConflicts.value"
+          :mode="docsInto.mode.value"
+          :existing-goods="form.goodsItems.length"
+          @update:mode="docsInto.setMode"
           @update:open="(v: boolean) => { if (!v) docsInto.close() }"
           @apply="docsInto.apply"
         />

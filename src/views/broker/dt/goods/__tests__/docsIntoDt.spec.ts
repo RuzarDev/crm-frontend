@@ -95,17 +95,35 @@ describe('planDocsIntoDt / applyDocsIntoDt: товары', () => {
     const again = planDocsIntoDt(form, { goods: incoming(), body: body() })
     expect(again.goods.plan.added).toBe(0)
     expect(again.goods.plan.updated).toBe(2)
-    applyDocsIntoDt(form, model, again)
+    // Совпали, но дозаполнять нечего — «применять нечего» (ревью 29.10, M1).
+    expect(again.goods.filled).toBe(0)
+    expect(planHasChanges(again)).toBe(false)
+    const res = applyDocsIntoDt(form, model, again)
+    expect(res.updated).toBe(0)
     expect(form.goodsItems).toHaveLength(2)
   })
 
-  it('по порядку (равное число товаров) — только без противоречия кода и артикула: другой артикул — новый товар', () => {
-    const { form } = setup({ goodsItems: [goods({ tnvedCode: '9401790009', description: 'СТУЛ', article: 'A-1' })] })
-    const other = planDocsIntoDt(form, { goods: [goods({ tnvedCode: '9401790009', description: 'КРЕСЛО', article: 'C-3' })], body: body() })
-    expect(other.goods.plan).toMatchObject({ added: 1, updated: 0 })
-    // Описание декларант перевёл, артикул тот же — тот же товар.
-    const same = planDocsIntoDt(form, { goods: [goods({ tnvedCode: '9401790009', description: 'CHAIR', article: 'A-1' })], body: body() })
-    expect(same.goods.plan).toMatchObject({ added: 0, updated: 1 })
+  it('без сопоставления «по порядку»: равное число других товаров без кода и артикула — все новые (ревью 29.10, I1)', () => {
+    const { form, model } = setup({ goodsItems: [goods({ description: 'СТУЛ' }), goods({ description: 'СТОЛ' })] })
+    const plan = planDocsIntoDt(form, { goods: [goods({ description: 'ЛАМПА', grossWeightKg: 3 }), goods({ description: 'КОВЁР', grossWeightKg: 7 })], body: body() })
+    expect(plan.goods.plan).toMatchObject({ added: 2, updated: 0 })
+    applyDocsIntoDt(form, model, plan)
+    expect(form.goodsItems.map((g) => [g.description, g.grossWeightKg])).toEqual([['СТУЛ', null], ['СТОЛ', null], ['ЛАМПА', 3], ['КОВЁР', 7]])
+    // Описание декларант перевёл, артикул тот же — тот же товар (по ключу код + артикул).
+    const same = setup({ goodsItems: [goods({ tnvedCode: '9401790009', description: 'СТУЛ', article: 'A-1' })] })
+    const p2 = planDocsIntoDt(same.form, { goods: [goods({ tnvedCode: '9401790009', description: 'CHAIR', article: 'A-1' })], body: body() })
+    expect(p2.goods.plan).toMatchObject({ added: 0, updated: 1 })
+  })
+
+  it('«Добавить все как новые» — совпавшие тоже в конец, товары ДТ не меняются, расхождений нет', () => {
+    const { form, model } = setup({ goodsItems: [goods({ tnvedCode: '9401790009', description: 'СТУЛ', article: 'A-1', grossWeightKg: 10 })] })
+    const incoming = [goods({ tnvedCode: '9401790009', description: 'СТУЛ', article: 'A-1', grossWeightKg: 12, netWeightKg: 9 })]
+    expect(planDocsIntoDt(form, { goods: incoming, body: body() }).goods.plan).toMatchObject({ added: 0, updated: 1 })
+    const plan = planDocsIntoDt(form, { goods: incoming, body: body() }, { mode: 'append' })
+    expect(plan.goods.plan).toMatchObject({ added: 1, updated: 0 })
+    expect(plan.goods.conflicts).toEqual([])
+    applyDocsIntoDt(form, model, plan)
+    expect(form.goodsItems.map((g) => [g.grossWeightKg, g.netWeightKg])).toEqual([[10, null], [12, 9]])
   })
 
   it('пустая ДТ — все товары новые, гр. 22 — сумма товаров', () => {
@@ -124,30 +142,61 @@ describe('planDocsIntoDt / applyDocsIntoDt: товары', () => {
     expect(plan.header.groups).not.toContain('total')
     expect(plan.remarks).toContainEqual({ key: 'totalDiffers', params: { dt: 50, sum: 75 } })
   })
+
+  it('стоимость в разных валютах — гр. 22 не суммируется и не сверяется, замечание (ревью 29.10, M5)', () => {
+    const empty = setup({ currency: 'USD', goodsItems: [goods({ tnvedCode: '9401790009', description: 'СТУЛ', customsValue: 50, currency: 'USD' })] })
+    const plan = planDocsIntoDt(empty.form, { goods: [goods({ tnvedCode: '9403200009', description: 'СТОЛ', customsValue: 25, currency: 'EUR' })], body: body() })
+    expect(plan.header.groups).not.toContain('total')
+    expect(plan.remarks).toContainEqual({ key: 'totalCurrency', params: { list: 'USD, EUR', currency: 'USD' } })
+    expect(plan.remarks.some((r) => r.key === 'totalDiffers')).toBe(false)
+  })
 })
 
 describe('planDocsIntoDt: гр. 44 — doc44FromAiDocuments со строками ДТ', () => {
-  it('тот же документ — второй строки нет; «Б/Н» и CMR — новые строки к товарам этого разбора; у строки без номера — номер', () => {
+  it('тот же документ — второй строки нет; «Б/Н», CMR, сертификат — новые строки к товарам разбора; пустая строка декларанта не трогается', () => {
     const { form, model } = setup({
       goodsItems: [goods({ description: 'СТУЛ', article: 'A-1' })],
       doc44Items: [doc('04021', 'UR-0910', '2026-10-10T00:00:00'), doc('02015', null)],
     })
     const fresh = [doc('04021', 'ur0910', '2026-10-10'), doc('04131', 'Б/Н', '2026-10-10'), doc('02015', 'CMR 77'), doc('09023', 'SERT-5', '2026-10-01')]
     const plan = planDocsIntoDt(form, { goods: [goods({ description: 'СТОЛ', article: 'B-2' })], body: body({ doc44Items: fresh }) })
-    expect(plan.doc44.added).toBe(2) // 04131 Б/Н и сертификат; инвойс уже есть, CMR — в пустую строку 02015
-    expect(plan.doc44.filled).toBe(1)
+    // Инвойс уже есть. Пустая 02015 декларанта привязана к прежним товарам — CMR этого разбора не пишется в неё, а встаёт
+    // новой строкой к товарам разбора (ревью 29.10, M2).
+    expect(plan.doc44.added).toBe(3)
+    expect(plan.doc44.filled).toBe(0)
     applyDocsIntoDt(form, model, plan)
     expect(form.doc44Items.map((d) => [d.docTypeCode, d.docNumber])).toEqual([
-      ['04021', 'UR-0910'], ['02015', 'CMR 77'], ['04131', 'Б/Н'], ['09023', 'SERT-5'],
+      ['04021', 'UR-0910'], ['02015', null], ['04131', 'Б/Н'], ['02015', 'CMR 77'], ['09023', 'SERT-5'],
     ])
     // В ДТ уже были товары — новые документы привязаны к товарам этого разбора (новый товар — позиция 1), не «ко всем».
     expect(form.doc44Items[2]).toMatchObject({ appliesToAll: false, goodsItemIndexes: '1' })
+    expect(form.doc44Items[3]).toMatchObject({ appliesToAll: false, goodsItemIndexes: '1' })
     expect(form.doc44Items[0].docNumber).toBe('UR-0910') // строку декларанта не меняем
 
     // Ещё раз те же документы — гр. 44 без дублей.
     const again = planDocsIntoDt(form, { goods: [goods({ description: 'СТОЛ', article: 'B-2' })], body: body({ doc44Items: fresh }) })
     expect(again.doc44.added).toBe(0)
     expect(again.doc44.filled).toBe(0)
+  })
+
+  it('тот же документ привязан к части товаров — к нему дописываются товары разбора (ревью 29.10, M4)', () => {
+    const { form, model } = setup({
+      goodsItems: [goods({ description: 'СТУЛ', article: 'A-1' })],
+      doc44Items: [doc('04021', 'INV-1', '2026-10-10', { appliesToAll: false, goodsItemIndexes: '0' }), doc('04131', 'Б/Н', '2026-10-10')],
+    })
+    const fresh = [doc('04021', 'INV-1', '2026-10-10'), doc('04131', 'Б/Н', '2026-10-10')]
+    const plan = planDocsIntoDt(form, { goods: [goods({ description: 'СТОЛ', article: 'B-2' })], body: body({ doc44Items: fresh }) })
+    expect(plan.doc44).toMatchObject({ added: 0, extend: [{ index: 0, goodsItemIndexes: '0,1' }] })
+    expect(planHasChanges(plan)).toBe(true)
+    applyDocsIntoDt(form, model, plan)
+    expect(form.doc44Items[0].goodsItemIndexes).toBe('0,1')
+    expect(form.doc44Items[1]).toMatchObject({ appliesToAll: true, goodsItemIndexes: null }) // «для всех» — как было
+  })
+
+  it('ДТ без товаров — новые документы «для всех товаров», у пустой строки того же кода — номер', () => {
+    const { form } = setup({ doc44Items: [doc('02015', null)] })
+    const plan = planDocsIntoDt(form, { goods: [goods({ description: 'СТОЛ' })], body: body({ doc44Items: [doc('02015', 'CMR 77')] }) })
+    expect(plan.doc44).toMatchObject({ added: 0, filled: 1 })
   })
 
   it('ДТ без товаров — новые документы «для всех товаров»', () => {
@@ -198,6 +247,22 @@ describe('planDocsIntoDt: шапка — только пустые графы', 
     const p2 = planDocsIntoDt(other.form, { goods: [], body: body({ sender: { name: 'TEST TRADING CO LTD', city: 'URUMQI' } }) })
     expect(p2.header.fills).toEqual([])
     expect(p2.remarks).toEqual([{ key: 'headerDiffers', params: { field: 'sender', doc: 'TEST TRADING CO LTD', dt: 'ДРУГОЙ ПОСТАВЩИК' } }])
+  })
+
+  it('транспорт: строки ДТ без номера (вид, прицеп) не заменяются — номер и пустые поля по порядку (ревью 29.10, M3)', () => {
+    const { form, model } = setup({ arrivalTransportNumbers: [{ number: '', typeCode: '30', nationality: 'KZ', isTrailer: false }] })
+    const plan = planDocsIntoDt(form, {
+      goods: [],
+      body: body({ arrivalTransportNumbers: [
+        { number: '123ABC02', typeCode: null, isTrailer: false, headNumber: null },
+        { number: '45XYZ02', typeCode: null, isTrailer: true, headNumber: '123ABC02' },
+      ] }),
+    })
+    applyDocsIntoDt(form, model, plan)
+    expect(form.arrivalTransportNumbers).toEqual([
+      { number: '123ABC02', typeCode: '30', nationality: 'KZ', isTrailer: false },
+      { number: '45XYZ02', typeCode: null, isTrailer: true, headNumber: '123ABC02' },
+    ])
   })
 
   it('получатель: другой БИН — замечание; «совпадает с декларантом» — гр. 8 не трогается; транспорт другой — замечание', () => {

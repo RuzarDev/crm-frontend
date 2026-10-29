@@ -41,6 +41,7 @@ const result = (o: Partial<Import40ExtractionResult> = {}): Import40ExtractionRe
 
 let form: DtFormState
 let ctl: DocsIntoDt
+let enabled = true
 const save = vi.fn(async () => true)
 const mount = () => {
   form = reactive({
@@ -54,7 +55,8 @@ const mount = () => {
         caseId: 'c1', dtId: 'd1', form, goods,
         kase: () => ({ transportMode: 1, foreignContractId: null } as Import40CaseDto),
         dto: () => ({ createdAtUtc: '2026-10-28T12:00:00Z' } as Import40DeclarationDto),
-        enabled: () => true,
+        enabled: () => enabled,
+        blockedReason: () => (enabled ? null : 'ДТ изменена в другом окне'),
         save,
       })
       return () => h('div')
@@ -64,6 +66,7 @@ const mount = () => {
 }
 
 beforeEach(() => {
+  enabled = true
   setActivePinia(createPinia())
   api.listFiles.mockResolvedValue([file('old', '2026-10-27T09:00:00Z'), file('new', '2026-10-29T09:00:00Z')])
   api.extractBatch.mockResolvedValue(result())
@@ -100,6 +103,57 @@ describe('useDocsIntoDt', () => {
     expect(save).toHaveBeenCalledTimes(1)
     expect(ctl.summaryOpen.value).toBe(false)
     expect(msg.success).toHaveBeenCalledWith(expect.objectContaining({ action: expect.objectContaining({ label: 'Отменить' }) }))
+    // «Дозаполнено» — только товары, где что-то заполнилось (у «Ноутбука» — количество, стоимость, строка гр. 31).
+    expect(msg.success.mock.calls[0][0].content).toMatch(/^Из документов: товаров добавлено 1, дозаполнено 1;/)
+
+    // «Отменить» — форма как была, сверка снова без ДТ.
+    msg.success.mock.calls[0][0].action.onClick()
+    expect(form.goodsItems).toHaveLength(1)
+    expect(form.incoterms).toBe('')
+    expect(checks.link).toHaveBeenLastCalledWith('c1', 'chk1', null)
+    w.unmount()
+  })
+
+  it('переключатель «Добавить все как новые» пересчитывает сводку', async () => {
+    const w = mount()
+    await ctl.open()
+    await ctl.submit({ fileIds: ['new'], uploads: [] })
+    await flushPromises()
+    expect(ctl.plan.value!.goods.plan).toMatchObject({ added: 1, updated: 1 })
+    ctl.setMode('append')
+    expect(ctl.plan.value!.goods.plan).toMatchObject({ added: 2, updated: 0 })
+    await ctl.apply()
+    expect(form.goodsItems).toHaveLength(3)
+    w.unmount()
+  })
+
+  it('ДТ стала недоступна (409), пока открыта сводка — «Применить» закрывает сводку и говорит почему (M6)', async () => {
+    const w = mount()
+    await ctl.open()
+    await ctl.submit({ fileIds: ['new'], uploads: [] })
+    await flushPromises()
+    enabled = false
+    await ctl.apply()
+    expect(ctl.summaryOpen.value).toBe(false)
+    expect(msg.warning).toHaveBeenCalledWith('ДТ изменена в другом окне')
+    expect(form.goodsItems).toHaveLength(1)
+    expect(save).not.toHaveBeenCalled()
+    w.unmount()
+  })
+
+  it('ошибка после распознавания — свой текст; список файлов не загрузился — окно с объяснением (M8)', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const w = mount()
+    api.listFiles.mockRejectedValueOnce(new Error('500'))
+    await ctl.open()
+    expect(ctl.pickOpen.value).toBe(true)
+    expect(msg.warning).toHaveBeenCalledWith('Не удалось загрузить документы заявки — можно добавить файлы с компьютера')
+    tnved.checkCodes.mockRejectedValueOnce(new Error('boom'))
+    api.extractBatch.mockResolvedValueOnce(result({ declaration: null as never }))
+    await ctl.submit({ fileIds: [], uploads: [new File(['x'], 'a.pdf')] })
+    expect(msg.error).toHaveBeenCalledWith('Документы распознаны, но разобрать их в эту ДТ не удалось — попробуйте ещё раз')
+    expect(err).toHaveBeenCalled()
+    err.mockRestore()
     w.unmount()
   })
 
