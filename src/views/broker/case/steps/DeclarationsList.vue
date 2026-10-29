@@ -29,11 +29,8 @@ import {
 import ExtractionIssuesModal from './ExtractionIssuesModal.vue'
 import ExtractDocsModal from './ExtractDocsModal.vue'
 import CopyDtModal from './CopyDtModal.vue'
-import { docHeaderFrom, type ExcelDoc } from './excelFallback'
 import { prepareDocumentsDeclaration, receiverAddressReplaced, receiverIsClient, type DocumentsNote } from './documentsImport'
-import { goodsHeaderColumns, readExcelDocuments } from '@/utils/goodsExcel'
-import { countryFromText } from '@/utils/importText'
-import { useClassifiersStore } from '@/stores/classifiers'
+import { cmrInBatch, documentsNoteText, loadDocKindNames, loadPackageKinds, readExcelDocs } from './documentsSources'
 import CondRelTag from '@/components/condrel/CondRelTag.vue'
 import { briefOf } from '@/utils/conditionalRelease'
 import QuoteImportModal from './QuoteImportModal.vue'
@@ -224,68 +221,13 @@ const onPicked = async ({ fileIds, uploads }: { fileIds: string[]; uploads: File
   pickOpen.value = false
   await runBatch(uploads, fileIds)
 }
+/** Замечание конвейера импорта → текст окна замечаний (Excel набора и справочники — documentsSources, 29.10.2026). */
+const noteText = (n: DocumentsNote): string => documentsNoteText(n, t)
+
 /**
  * Разбор в новую ДТ: files — с диска (сохраняются в заявку), fileIds — уже загруженные документы заявки (выбранные в
  * окне или сканы с границы, StepDeclaring) — их сервер берёт из хранилища.
  */
-/**
- * Excel из набора — нашим разбором (excelFallback): файлы с компьютера как есть, документы заявки — скачиванием; .xlsx и
- * .xls (Zircon AI .xls не читает — пакет импорта 21.10), каждый лист с таблицей товаров — отдельный документ.
- * Ошибка чтения одного файла не мешает остальным (и самому распознаванию).
- */
-const readExcelDocs = async (caseId: string, files: File[], fileIds: readonly string[]): Promise<ExcelDoc[]> => {
-  const isExcel = (name: string) => /\.xlsx?$/i.test(name)
-  const sources: { name: string; load: () => Promise<Blob> }[] = [
-    ...files.filter((f) => isExcel(f.name)).map((f) => ({ name: f.name, load: async () => f as Blob })),
-    ...props.ctx.files.filter((f) => fileIds.includes(f.id) && isExcel(f.originalFileName))
-      .map((f) => ({ name: f.originalFileName, load: () => import40Api.downloadFile(caseId, f.id) })),
-  ]
-  const docs: ExcelDoc[] = []
-  for (const s of sources) {
-    try {
-      const res = await readExcelDocuments(await s.load(), { details: true, countryResolver: (text) => countryFromText(text) })
-      if ('problem' in res) continue
-      for (const d of res.docs) {
-        const cols = goodsHeaderColumns(d.tableHeader, { details: true }, d.rows.slice(1, 50))
-        docs.push({
-          fileName: s.name,
-          sheet: res.docs.length > 1 ? d.sheet : null,
-          goods: d.goods,
-          header: docHeaderFrom(`${s.name} ${d.sheet}`, d.headerRows, d.tableHeader, d.rows),
-          rows: d.rows,
-          placesHeader: cols.packagesCount != null ? String(d.tableHeader[cols.packagesCount] ?? '') : null,
-          totals: d.totals,
-        })
-      }
-    } catch { /* не прочитался — остаётся то, что распознал Zircon AI */ }
-  }
-  return docs
-}
-
-/** Виды упаковки (классификатор 2013) для товаров «Из документов»; не загрузились — без вида упаковки по словам. */
-const loadPackageKinds = async () => {
-  try {
-    return await useClassifiersStore().load('2013')
-  } catch {
-    return []
-  }
-}
-/** Названия видов документов (2009) для гр. 44 (e2e-4); не загрузились — сервер дозаполнит по коду. */
-const loadDocKindNames = async (): Promise<Map<string, string>> => {
-  try {
-    const items = await useClassifiersStore().load('2009')
-    return new Map(items.flatMap((k) => (k.nameRu ? [[k.code, k.nameRu.trim().toLocaleUpperCase('ru-RU')] as [string, string]] : [])))
-  } catch {
-    return new Map()
-  }
-}
-/** Замечание конвейера импорта → текст окна замечаний. */
-const noteText = (n: DocumentsNote): string => {
-  const p = { ...(n.params ?? {}) }
-  if (typeof p.reasonKey === 'string') p.reason = t(`broker.case.declaring.batch.reason.${p.reasonKey}`)
-  return t(`broker.case.declaring.batch.${n.key}`, p)
-}
-
 const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
   if ((!files.length && !fileIds.length) || busy()) return
   const caseId = kase.value.id
@@ -299,14 +241,14 @@ const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
     // Zircon AI + наш разбор Excel → товары ДТ по одним правилам с «Из Excel» (коды одним запросом, гр. 41 / гр. 31,
     // упаковка, страна, отправитель с адресом), гр. 44 инвойса, упаковочного и транспортного документа.
     const [docs, packageKinds, docKindNames] = await Promise.all([
-      readExcelDocs(caseId, files, fileIds),
+      readExcelDocs(caseId, files, fileIds, props.ctx.files),
       loadPackageKinds(),
       loadDocKindNames(),
     ])
     // CMR в наборе (вид документа «CMR» или «cmr» в имени) — гр. 44 02015, а не документ по виду транспорта заявки.
-    const cmrInBatch = files.some((f) => /cmr/i.test(f.name))
-      || props.ctx.files.some((f) => fileIds.includes(f.id) && (f.docKind === 'cmr' || /cmr/i.test(f.originalFileName)))
-    const prepared = await prepareDocumentsDeclaration(result, docs, kase.value, packageKinds, { docKindNames, cmrInBatch })
+    const prepared = await prepareDocumentsDeclaration(result, docs, kase.value, packageKinds, {
+      docKindNames, cmrInBatch: cmrInBatch(files, fileIds, props.ctx.files),
+    })
     usedExcel = prepared.usedExcelGoods
     stage = 'create'
     const created = await import40Api.createDeclaration(caseId, prepared.body)

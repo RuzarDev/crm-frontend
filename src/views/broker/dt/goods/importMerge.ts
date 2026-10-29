@@ -259,11 +259,14 @@ export function matchExisting(existing: readonly Goods[], incoming: readonly Goo
       taken.add(cands[0])
     })
   }
-  // По порядку — только при равном числе товаров и непротиворечивых кодах.
+  // По порядку — только при равном числе товаров и непротиворечивых кодах и артикулах (29.10.2026: «Из документов» в ДТ
+  // с одним товаром — новый инвойс с одним другим товаром того же кода дозаполнял бы чужой товар; артикул — как у № строки
+  // в слиянии файлов, описание не сравниваем — декларант мог его перевести).
   if (existing.length === incoming.length) {
     incoming.forEach((g, i) => {
       if (out[i].existing != null || taken.has(i)) return
       if (!compatible(keyCode(existing[i].tnvedCode), keyCode(g.tnvedCode))) return
+      if (!compatible(articleOf(existing[i]), articleOf(g))) return
       out[i] = { incoming: i, existing: i, by: 'position' }
       taken.add(i)
     })

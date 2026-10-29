@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhDownloadSimple, PhPlus, PhUploadSimple } from '@phosphor-icons/vue'
+import { PhDownloadSimple, PhPlus, PhSparkle, PhUploadSimple } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZKbd from '@/components/z/ZKbd.vue'
@@ -37,7 +37,8 @@ import { keyOf, type DtGoodsModel } from './useDtGoods'
 import { useGoodsItemRoute } from './useGoodsItemRoute'
 
 // Раздел «Товары» страницы ДТ (волна 6б, доска DtGoods): заголовок «Товары N · гр. 31–46», поиск (`/`), фильтры
-// «С ошибками · N» и «Пересчитать · N», «Из Excel» (с предпросмотром), «В Excel», «Добавить товар» (N); таблица
+// «С ошибками · N» и «Пересчитать · N», «Из Excel» (с предпросмотром), «Из документов» (в эту ДТ, 29.10.2026 — логика на
+// странице, useDocsIntoDt), «В Excel», «Добавить товар» (N); таблица
 // со статусами и выбором строк, тёмная панель массовых действий; итоги закреплены внизу раздела с «Рассчитать».
 // Товары правятся на месте через модель useDtGoods (одна на страницу); открытый товар — в адресе `?item=N`
 // (useGoodsItemRoute). Редактор товара — editor/GoodsEditor (панель справа; данные страницы — editorContext).
@@ -56,8 +57,15 @@ const props = defineProps<{
   editorContext?: GoodsPageContext
   /** Состояние сохранения ДТ — подвал редактора. */
   saveState?: GoodsSaveState | null
+  /**
+   * «Из документов» в эту ДТ (29.10.2026): показать кнопку — решает страница (docsIntoDt.canDocsIntoDt: декларант, ДТ
+   * правится, не выпущена). В просмотре кнопки нет в любом случае.
+   */
+  fromDocs?: boolean
+  /** Идёт выбор файлов или распознавание. */
+  fromDocsBusy?: boolean
 }>()
-const emit = defineEmits<{ 'calc-payments': [] }>()
+const emit = defineEmits<{ 'calc-payments': []; 'from-docs': [] }>()
 const { t } = useI18n()
 const tg = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.${key}`, p ?? {})
 const { confirm } = useConfirm()
@@ -65,6 +73,7 @@ const classifiers = useClassifiersStore()
 
 const items = computed(() => props.model.items.value)
 const editable = computed(() => !props.readonly)
+const showFromDocs = computed(() => editable.value && !!props.fromDocs)
 
 // ---- Коды ТН ВЭД: различные коды всех товаров проверяются сразу (кэш общий с редактором) ----
 // Код не из справочника виден в списке без открытия товара: статус «нет в справочнике», фильтр «С ошибками».
@@ -441,6 +450,10 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
           <template #icon><PhUploadSimple :size="16" aria-hidden="true" /></template>
           {{ tg('fromExcel') }}
         </ZButton>
+        <ZButton v-if="showFromDocs" variant="ghost" :loading="fromDocsBusy" :disabled="fromDocsBusy" class="max-sm:h-11" data-goods-from-docs @click="emit('from-docs')">
+          <template #icon><PhSparkle :size="16" aria-hidden="true" /></template>
+          {{ fromDocsBusy ? tg('fromDocsBusy') : tg('fromDocs') }}
+        </ZButton>
         <ZButton class="max-sm:h-11" data-goods-add @click="add">
           <template #icon><PhPlus :size="16" aria-hidden="true" /></template>
           {{ tg('add') }}
@@ -462,6 +475,10 @@ defineExpose({ openItem, closeItem, step: itemRoute.step, openIndex, focusSearch
           <ZButton class="max-sm:h-11" :loading="excelBusy" data-goods-empty-excel @click="pickExcel">
             <template #icon><PhUploadSimple :size="16" aria-hidden="true" /></template>
             {{ tg('fromExcel') }}
+          </ZButton>
+          <ZButton v-if="showFromDocs" class="max-sm:h-11" :loading="fromDocsBusy" :disabled="fromDocsBusy" data-goods-empty-from-docs @click="emit('from-docs')">
+            <template #icon><PhSparkle :size="16" aria-hidden="true" /></template>
+            {{ fromDocsBusy ? tg('fromDocsBusy') : tg('fromDocs') }}
           </ZButton>
         </div>
       </template>
