@@ -14,6 +14,10 @@ const notifApi = vi.hoisted(() => ({
 vi.mock('@/api/notifications', () => ({ notificationsApi: notifApi }))
 const profileGet = vi.hoisted(() => vi.fn())
 vi.mock('@/api/profile', () => ({ profileApi: { get: profileGet, update: vi.fn() } }))
+// Окно согласия на обработку ПДн (30.10.2026) в кабинете клиента — здесь согласие уже дано.
+vi.mock('@/api/privacy', () => ({
+  privacyApi: { status: vi.fn().mockResolvedValue({ version: '2026-10-30', required: false, acceptedVersion: '2026-10-30', acceptedAtUtc: null }), accept: vi.fn(), operator: vi.fn() },
+}))
 
 // Регистрация клиента — состояние задаёт тест; по умолчанию завершена.
 const reg = vi.hoisted(() => ({

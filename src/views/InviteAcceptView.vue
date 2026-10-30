@@ -8,6 +8,7 @@ import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
+import PrivacyConsentField from '@/components/auth/PrivacyConsentField.vue'
 import { clientsOnboardingApi, type InviteInfo } from '@/api/clientsOnboarding'
 import { useAuthStore } from '@/stores/auth'
 import type { ZRule } from '@/ui/validation'
@@ -28,7 +29,8 @@ const saving = ref(false)
 
 const uid = useId()
 const ids = { password: `${uid}-password`, confirm: `${uid}-confirm` }
-const form = reactive({ password: '', confirm: '' })
+// consent — согласие на обработку персональных данных (30.10.2026): без галочки кнопка неактивна, сервер тоже ответит 400.
+const form = reactive({ password: '', confirm: '', consent: false })
 const rules: Record<string, ZRule[]> = {
   password: [
     { required: true, message: () => t('invite.vPassword') },
@@ -38,6 +40,7 @@ const rules: Record<string, ZRule[]> = {
     { required: true, message: () => t('invite.vConfirm') },
     { validator: (_r, v) => (v && v !== form.password ? t('invite.mismatch') : undefined) },
   ],
+  consent: [{ validator: (_r, v) => (v === true ? undefined : t('privacy.vConsent')) }],
 }
 const formRef = ref<InstanceType<typeof ZForm>>()
 watch(() => form.password, () => {
@@ -83,9 +86,10 @@ onMounted(async () => {
 })
 
 const submit = async () => {
+  if (!form.consent) return
   saving.value = true
   try {
-    const response = await clientsOnboardingApi.acceptInvite(token, form.password)
+    const response = await clientsOnboardingApi.acceptInvite(token, form.password, true)
     // Аудит 5.22: пароль задан — сразу авто-вход, ведём на старт клиента, а не на форму логина.
     const loggedIn = authStore.loginFromResponse(response, email.value)
     if (loggedIn) await router.push('/import-40/company')
@@ -159,7 +163,8 @@ const submit = async () => {
           autocomplete="new-password"
         />
       </ZField>
-      <ZButton variant="primary" html-type="submit" size="lg" block :loading="saving">{{ t('invite.submit') }}</ZButton>
+      <PrivacyConsentField v-model:checked="form.consent" />
+      <ZButton variant="primary" html-type="submit" size="lg" block :loading="saving" :disabled="!form.consent">{{ t('invite.submit') }}</ZButton>
     </ZForm>
   </AuthLayout>
 </template>

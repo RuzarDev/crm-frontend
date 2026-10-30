@@ -22,6 +22,8 @@ export const AUDIT_ACTIONS = [
   'user.create', 'user.delete', 'client.invite', 'client.unblock', 'document.sign.upload', 'invoice.remind', 'organization.update',
   // S-27 (30.10.2026): отмена сделанного по заявке руководителем.
   'invoice.cancel', 'invoice.unmark_paid', 'import40.reopen',
+  // 30.10.2026: согласие клиента на обработку персональных данных (регистрация, приглашение, окно после входа).
+  'client.privacy_consent',
 ] as const
 
 /** Вид действия → тон точки: права/роли — фиолетовый, пароли — охра, отзыв/блокировка — красный, остальное — синий. */

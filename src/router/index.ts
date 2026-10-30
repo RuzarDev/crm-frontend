@@ -51,6 +51,13 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
+      // Политика конфиденциальности (30.10.2026) — без входа: ссылка с форм регистрации и приглашения.
+      path: '/privacy',
+      name: 'privacy',
+      component: () => import('@/views/PrivacyPolicyView.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
       path: '/',
       component: () => import('@/layouts/AppShell.vue'),
       meta: { requiresAuth: true },

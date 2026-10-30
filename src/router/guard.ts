@@ -26,6 +26,8 @@ export const MUST_CHANGE_PASSWORD_TARGET = '/profile?tab=password'
 export function guardRedirect(path: string, meta: Record<string, unknown>, a: GuardAuth, fullPath?: string): string | null {
   // Проверка подписей по QR (20.10.2026) — публичная для всех, даже при незаменённом временном пароле.
   if (path.startsWith('/verify/')) return null
+  // Политика конфиденциальности (30.10.2026) — тоже для всех: читать её должен и вошедший по временному паролю.
+  if (path === '/privacy') return null
   // Временный пароль (волна 5б): пока не сменён, всё, кроме профиля и входа, ведёт на смену пароля.
   if (a.mustChangePassword && a.isAuthenticated) {
     return path === '/profile' || path === '/login' ? null : MUST_CHANGE_PASSWORD_TARGET

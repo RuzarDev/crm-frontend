@@ -29,6 +29,12 @@ describe('guardRedirect', () => {
     expect(guardRedirect('/', {}, out, '/')).toBe('/login')
     expect(guardRedirect('/import-40/c1', {}, out)).toBe('/login')
   })
+  // 30.10.2026: политика конфиденциальности — без входа, с любым входом и при незаменённом временном пароле.
+  it('/privacy открывается всем', () => {
+    expect(guardRedirect('/privacy', { requiresAuth: false }, auth({ isAuthenticated: false }))).toBeNull()
+    expect(guardRedirect('/privacy', { requiresAuth: false }, auth({ role: 'client' }))).toBeNull()
+    expect(guardRedirect('/privacy', { requiresAuth: false }, auth({ role: 'client', mustChangePassword: true }))).toBeNull()
+  })
   it('вошедший на /login — на /', () => {
     expect(guardRedirect('/login', { requiresAuth: false }, auth())).toBe('/')
   })
