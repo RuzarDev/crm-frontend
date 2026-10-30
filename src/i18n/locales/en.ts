@@ -920,7 +920,7 @@ export default {
       subtitle: 'Assign a declarant and a checkpoint officer — the request lands in their “Mine”',
       clientDrafts: 'With clients — drafts: {n}',
       segmentsLabel: 'Which requests to show',
-      segment: { noDeclarant: 'No declarant', noKpp: 'No checkpoint', problem: 'With a problem', stale: 'Stalled', all: 'All active' },
+      segment: { unassigned: 'No assignee', noDeclarant: 'No declarant', noKpp: 'No checkpoint', problem: 'With a problem', stale: 'Stalled', all: 'All active' },
       search: 'Number, client, cargo, post',
       tableLabel: 'Request assignment',
       col: { request: 'Request', stage: 'Stage', declarant: 'Declarant', kpp: 'Checkpoint' },
@@ -936,6 +936,7 @@ export default {
       loadHint: 'active requests',
       role: { declarant: 'declarant', kpp: 'checkpoint' },
       empty: {
+        unassigned: 'Every request has a declarant and a checkpoint manager for its step',
         noDeclarant: 'Every request at the declarant step has a declarant',
         noKpp: 'Every request at the checkpoint step has a checkpoint officer',
         problem: 'No requests with a problem',

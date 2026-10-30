@@ -3,7 +3,6 @@ import type { ManageOverview } from '@/api/manage'
 import type { BrokerInvoice } from '@/api/billing'
 import type { Import40CaseDto } from '@/api/import40'
 import { stepForStatus } from '@/utils/import40Steps'
-import { segmentCounts } from '@/views/broker/requests/manage'
 
 export type AttentionTone = 'gold' | 'danger' | 'neutral'
 
@@ -31,10 +30,9 @@ export const buildAttention = (i: {
     cards.push({ key: 'awaitingMe', tone: 'gold', count: import40.awaitingMe, to: '/import-40?tab=my' })
   }
   // S-14/S-15 (30.10.2026): «Без исполнителя» = «Без декларанта» + «Без КПП» (сервер считает той же формулой), карточки
-  // ведут на свой сегмент «Распределения» (?segment=), а не на первый непустой.
+  // ведут на свой сегмент «Распределения» (?segment=), а не на первый непустой; число карточки = число сегмента.
   if (manage && manage.unassigned > 0) {
-    const seg = segmentCounts(manage.cases).noDeclarant > 0 ? 'noDeclarant' : 'noKpp'
-    cards.push({ key: 'unassigned', tone: 'gold', count: manage.unassigned, to: `/import-40/manage?segment=${seg}` })
+    cards.push({ key: 'unassigned', tone: 'gold', count: manage.unassigned, to: '/import-40/manage?segment=unassigned' })
   }
   // S-16/S-18: «Проблемные» — только заявки в работе; сотруднику — список «В работе» с фильтром «Проблема».
   const problems = manage ? manage.problems : import40?.problemCases ?? 0

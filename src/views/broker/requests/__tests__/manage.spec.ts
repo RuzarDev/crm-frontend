@@ -34,7 +34,7 @@ describe('сегменты', () => {
     expect(segmentOf(cases, 'all')).toHaveLength(7)
   })
   it('счётчики по всем сегментам', () => {
-    expect(segmentCounts(cases)).toEqual({ noDeclarant: 1, noKpp: 2, problem: 1, stale: 1, all: 7 })
+    expect(segmentCounts(cases)).toEqual({ unassigned: 3, noDeclarant: 1, noKpp: 2, problem: 1, stale: 1, all: 7 })
   })
   it('нужен декларант/КПП — по шагам, как на сервере', () => {
     expect([1, 2, 3, 4, 5, 6, 7].filter(needsDeclarant)).toEqual([2, 3])

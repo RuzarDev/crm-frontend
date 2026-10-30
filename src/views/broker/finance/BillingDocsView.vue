@@ -109,6 +109,14 @@ const statusOptions = computed(() => STATUS_FILTERS.map((s) => ({
 const resetFilters = () => { query.value = ''; kind.value = 'all'; status.value = 'all' }
 const page = ref(1)
 watch([query, kind, status], () => { page.value = 1 })
+// ?status= с Главной — только начальный фильтр (ревью 30.10.2026): сменили статус или «Сбросить фильтры» — параметр уходит
+// из адреса, иначе обновление страницы вернуло бы старый фильтр.
+watch(status, (s) => {
+  if (route.query.status !== undefined && route.query.status !== s) {
+    const { status: _drop, ...rest } = route.query
+    void router.replace({ query: rest })
+  }
+})
 
 // /billing?case=… (уведомление о чеке): только фильтр. Повторный клик на открытом экране — перечитать и отфильтровать.
 watchCaseQuery(() => route.query.case, async (caseId) => {

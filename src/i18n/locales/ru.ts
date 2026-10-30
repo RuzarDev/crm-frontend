@@ -924,7 +924,7 @@ export default {
       subtitle: 'Назначьте декларанта и КПП — заявка попадёт в их «Мои»',
       clientDrafts: 'У клиентов — черновиков: {n}',
       segmentsLabel: 'Какие заявки показать',
-      segment: { noDeclarant: 'Без декларанта', noKpp: 'Без КПП', problem: 'С проблемой', stale: 'Зависли', all: 'Все активные' },
+      segment: { unassigned: 'Без исполнителя', noDeclarant: 'Без декларанта', noKpp: 'Без КПП', problem: 'С проблемой', stale: 'Зависли', all: 'Все активные' },
       search: 'Номер, клиент, груз, пост',
       tableLabel: 'Распределение заявок',
       col: { request: 'Заявка', stage: 'Этап', declarant: 'Декларант', kpp: 'КПП' },
@@ -940,6 +940,7 @@ export default {
       loadHint: 'активных заявок',
       role: { declarant: 'декларант', kpp: 'КПП' },
       empty: {
+        unassigned: 'Всем заявкам назначены декларант и КПП на их шагах',
         noDeclarant: 'Всем заявкам на шаге декларанта назначен декларант',
         noKpp: 'Всем заявкам на шаге КПП назначен КПП',
         problem: 'Проблемных заявок нет',

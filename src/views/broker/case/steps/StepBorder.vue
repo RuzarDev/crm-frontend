@@ -33,7 +33,7 @@ const passKey = 'border-passed'
 const passing = computed(() => props.ctx.actions.isPending(passKey))
 const otherBusy = computed(() => props.ctx.actions.busy() && !passing.value)
 // S-24 (30.10.2026): «Граница пройдена» — то же правило, что «Машина прибыла» и контроли (canBorderWork, как сервер):
-// раньше декларант по праву import40.kpp проходил границу, не имея возможности отметить прибытие.
+// КПП не назначен — и декларант по праву import40.kpp (подстраховка), назначен — только он и руководитель.
 const passDisabled = computed(() => !props.ctx.perms.canBorderWork || otherBusy.value)
 const canReturn = computed(() => props.ctx.perms.can('kpp') || props.ctx.perms.can('declarant'))
 const returnHint = computed(() => (canReturn.value ? '' : hintText({ kind: 'role', role: 'kpp' }, t)))

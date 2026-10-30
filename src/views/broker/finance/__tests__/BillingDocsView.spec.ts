@@ -369,10 +369,15 @@ describe('«Счета и акты» (сотрудник)', () => {
     expect(modal.props('editing')).toBeNull()
   })
 
-  it('S-44: ?status=overdue — сразу фильтр «Просрочены»', async () => {
-    await router.push('/billing?status=overdue')
+  it('S-44: ?status=overdue — сразу фильтр «Просрочены»; «Сбросить фильтры» убирает параметр из адреса', async () => {
+    await router.push('/billing?status=overdue&x=1')
     await mountView()
     expect(docs()).toEqual(['Счёт № 0213/2026'])
+    await w.get('input[type="search"]').setValue('нет такого')
+    await w.get('[data-billing-reset]').trigger('click')
+    await flushPromises()
+    expect(docs()).toHaveLength(5)
+    expect(router.currentRoute.value.query).toEqual({ x: '1' })
   })
 
   it('S-40: выставленный акт — «Отметить подписанным» с вопросом про акт, на сервере та же отметка', async () => {

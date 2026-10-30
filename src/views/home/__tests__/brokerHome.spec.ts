@@ -38,13 +38,10 @@ describe('buildAttention', () => {
   it('awaitingMe = 0 не даёт карточку', () => {
     expect(buildAttention({ import40: dash({ awaitingMe: 0 }), manage: null, invoices: null, now: NOW })).toEqual([])
   })
-  it('unassigned (S-14/S-15): gold, на сегмент «Распределения» — «Без декларанта», если есть, иначе «Без КПП»', () => {
+  it('unassigned (S-14/S-15): gold, на сегмент «Без исполнителя» — то же число, что в сегменте', () => {
     expect(buildAttention({ import40: null, manage: manage({ unassigned: 2 }), invoices: null, now: NOW })).toEqual([
-      { key: 'unassigned', tone: 'gold', count: 2, to: '/import-40/manage?segment=noKpp' },
+      { key: 'unassigned', tone: 'gold', count: 2, to: '/import-40/manage?segment=unassigned' },
     ])
-    const mc = (status: number) => ({ status, isProblem: false, assignedDeclarantId: null, assignedKppId: null, daysSinceUpdate: 0 }) as ManageOverview['cases'][number]
-    expect(buildAttention({ import40: null, manage: manage({ unassigned: 2, cases: [mc(1), mc(2)] }), invoices: null, now: NOW })[0].to)
-      .toBe('/import-40/manage?segment=noDeclarant')
   })
   it('problems без manage (S-16) берёт problemCases и ведёт в список «В работе» с фильтром «Проблема»', () => {
     expect(buildAttention({ import40: dash({ problemCases: 4 }), manage: null, invoices: null, now: NOW })).toEqual([

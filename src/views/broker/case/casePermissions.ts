@@ -88,13 +88,14 @@ export function stepBlockedBy(a: CaseAuth, c: Import40CaseDto, role: StepRole): 
 }
 
 /**
- * Работа на границе (18.10: «Машина прибыла», контроли) — строже can('kpp'), как сервер: администратор, руководитель
- * (import40.assign), назначенный КПП; КПП не назначен — сотрудник с ролью «Менеджер КПП» (право import40.kpp есть и у декларанта).
+ * Работа на границе, шаг 2 целиком («Машина прибыла», контроли, сканы, «Граница пройдена») — одно правило, как сервер
+ * (CanBorderWork, 30.10.2026): администратор, руководитель (import40.assign), назначенный КПП; КПП не назначен — роль
+ * «Менеджер КПП» или право import40.kpp (подстраховка декларантом, решение владельца; ревью волны 2 I-2).
  */
 export function canBorderWork(a: CaseAuth, c: Import40CaseDto): boolean {
   if (canAssign(a)) return true
   const id = assignedIdOf(c, 'kpp')
-  return id ? id === a.userId : hasBiz(a, 'kpp')
+  return id ? id === a.userId : hasBiz(a, 'kpp') || hasPerm(a, 'import40.kpp')
 }
 /** Сканы с границы грузят и удаляют те же, кто работает на границе (canBorderWork), пока заявка в работе — как сервер. */
 export const canBorderScans = (a: CaseAuth, c: Import40CaseDto): boolean => c.status >= 1 && c.status < 8 && canBorderWork(a, c)
