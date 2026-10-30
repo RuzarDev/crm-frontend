@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import ZField from '@/components/z/ZField.vue'
 import ZModal from '@/components/z/ZModal.vue'
@@ -13,7 +14,7 @@ import type { CaseActions, ReasonKind } from './useCaseActions'
 // value — причина (возврат и заметка проблемы — как введены, остальные — без пробелов по краям);
 // у проблемы clientMessage — без пробелов по краям или null. Окно закрывается после успеха; при ошибке остаётся.
 // Возврат клиенту (17.10) — своё окно ReturnToClientModal: чек-лист документов, подсказки нетарифных мер, комментарий.
-const props = defineProps<{ kind: ReasonKind | null; actions: CaseActions; kase?: Import40CaseDto | null }>()
+const props = defineProps<{ kind: ReasonKind | null; actions: CaseActions; kase?: Import40CaseDto | null; canSeeBilling?: boolean }>()
 const emit = defineEmits<{ 'update:kind': [kind: ReasonKind | null] }>()
 const { t } = useI18n()
 
@@ -33,11 +34,22 @@ const CONF: Record<ReasonKind, Conf> = {
 const shown = ref<ReasonKind>('problem')
 const reason = ref('')
 const clientMessage = ref('')
+// E-7 (30.10.2026, живой прогон): «Шаг назад» с «Выполнено» — 409 «снимите отметку оплаты у счёта № …»; сервер
+// присылает счёт (invoiceId, invoiceNumber) — в окне ссылка на него (поиск «Счетов» по номеру, как ⌘K).
+const paidInvoice = ref<{ id: string; number: string } | null>(null)
+const paidInvoiceOf = (e: unknown): { id: string; number: string } | null => {
+  const res = (e as { response?: { status?: number; data?: { invoiceId?: unknown; invoiceNumber?: unknown } } })?.response
+  const d = res?.data
+  return res?.status === 409 && typeof d?.invoiceId === 'string' && typeof d.invoiceNumber === 'string'
+    ? { id: d.invoiceId, number: d.invoiceNumber } : null
+}
+const invoiceTo = computed(() => (paidInvoice.value ? { path: '/billing', query: { q: paidInvoice.value.number } } : null))
 watch(() => props.kind, (k) => {
   if (!k) return
   shown.value = k
   reason.value = ''
   clientMessage.value = ''
+  paidInvoice.value = null
 }, { immediate: true })
 
 const conf = computed(() => CONF[shown.value])
@@ -49,7 +61,9 @@ const submit = async () => {
   const c = conf.value
   const value = c.trim ? reason.value.trim() : reason.value
   const extra = shown.value === 'problem' ? { clientMessage: clientMessage.value.trim() || null } : undefined
-  const ok = await props.actions.run(c.action, { value, extra })
+  paidInvoice.value = null
+  const onError = shown.value === 'stepBack' ? (e: unknown) => { paidInvoice.value = paidInvoiceOf(e) } : undefined
+  const ok = await props.actions.run(c.action, onError ? { value, extra, onError } : { value, extra })
   if (ok && props.kind === shown.value) emit('update:kind', null)
 }
 </script>
@@ -87,6 +101,15 @@ const submit = async () => {
       <ZField v-if="shown === 'problem'" :label="t('import40Case.problemClientMessageLabel')">
         <ZTextarea v-model:value="clientMessage" :rows="3" :placeholder="t('import40Case.problemClientMessagePh')" data-reason-client />
       </ZField>
+      <p v-if="shown === 'stepBack' && paidInvoice" class="m-0 rounded-row bg-gold-soft px-3 py-2 text-sm text-ink" role="alert" data-step-back-invoice>
+        {{ t('import40Case.stepBackPaidInvoice', { n: paidInvoice.number }) }}
+        <RouterLink
+          v-if="canSeeBilling && invoiceTo"
+          :to="invoiceTo"
+          class="font-medium text-zircon-ink underline-offset-2 hover:underline focus-visible:shadow-focus"
+          data-step-back-invoice-link
+        >{{ t('import40Case.stepBackOpenInvoice', { n: paidInvoice.number }) }}</RouterLink>
+      </p>
     </div>
   </ZModal>
 </template>

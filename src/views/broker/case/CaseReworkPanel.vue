@@ -39,7 +39,9 @@ watch(() => `${props.kase.id}:${props.kase.updatedAtUtc}:${props.kase.status}`, 
 const sorted = computed(() => sortItems(items.value))
 const doneCount = computed(() => items.value.filter((x) => x.resolvedAtUtc).length)
 // Как сервер (Import40Rework.CanManage): kpp / declarant / rop по роли или праву матрицы, руководитель с import40.assign, админ.
-const canManage = computed(() => props.perms.can('kpp') || props.perms.can('declarant') || props.perms.canAssign)
+// E-6 (30.10.2026, живой прогон): у выполненной и отменённой заявки пункты — история, без «Закрыть» и «Удалить» (сервер отклоняет).
+const closed = computed(() => props.kase.status === 8 || props.kase.status === 9)
+const canManage = computed(() => !closed.value && (props.perms.can('kpp') || props.perms.can('declarant') || props.perms.canAssign))
 const titleOf = (x: ReworkItemDto) => reworkTitle(t, x)
 
 const resolutionText = (x: ReworkItemDto) => {

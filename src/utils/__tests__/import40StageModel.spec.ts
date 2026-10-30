@@ -213,6 +213,23 @@ describe('buildStageCards — клиент', () => {
     expect(check[4]!.result).toBe('Чек на проверке')
     expect(check[4]!.flag).toBeNull()
   })
+
+  // E-4 (30.10.2026, живой прогон): вернули с декларирования — граница пройдена, после отправки сразу шаг 3.
+  it('возврат с декларирования: шаг 2 пройден, под шагом 1 — «сразу к декларанту»', () => {
+    const kase = caseDto({ status: 0, returnReason: 'нет инвойса', returnedFromStatus: 2, borderArrivedAtUtc: local(2026, 10, 30, 9, 15), borderArrivalPost: 'Хоргос' })
+    const cards = buildStageCards({ audience: 'client', kase, stages: null, invoices: [], clientAsk: 'returned' }, t, te)
+    expect(cards.map((c) => c.state)).toEqual(['current', 'done', 'future', 'future', 'future', 'future'])
+    expect(cards[1]!.result).toBe('Граница пройдена')
+    expect(cards[1]!.detail).toContain('Хоргос')
+    expect(cards[0]!.detail).toBe('Граница уже пройдена — после отправки заявка сразу перейдёт к декларанту')
+    const staff = buildStageCards({ audience: 'staff', kase, stages: null, invoices: [] }, t, te)
+    expect(staff[1]!.state).toBe('done')
+    expect(staff[0]!.detail).toBe('После отправки — снова к декларанту')
+    // Вернули с границы — шаг 2 впереди, как раньше.
+    const fromBorder = buildStageCards({ audience: 'client', kase: caseDto({ status: 0, returnReason: 'нет CMR', returnedFromStatus: 1 }), stages: null, invoices: [] }, t, te)
+    expect(fromBorder[1]!.state).toBe('future')
+    expect(fromBorder[0]!.detail).toBe('')
+  })
 })
 
 describe('подэтапы шага 3', () => {

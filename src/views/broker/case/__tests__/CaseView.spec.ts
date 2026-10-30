@@ -170,6 +170,34 @@ describe('CaseView: поставка до границы', () => {
   })
 })
 
+describe('CaseView: поставка до границы после действий КПП', () => {
+  // E-2 (30.10.2026, живой прогон): после «Машина прибыла» в той же карточке «Прибытие на границу» оставалось «Ожидается».
+  it('«Машина прибыла» — блок «До границы» перечитывается, прибытие — пройдено со временем', async () => {
+    preBorder.get.mockImplementation(async () => ({
+      caseId: 'c1', started: true, canEdit: true, status: server.kase.status, transportMode: 1, supplierPaymentDeferred: true, payments: [],
+      availablePayments: [], loadingDate: '2026-10-10', loadingCity: 'Урумчи', loadingWarehouse: null, sealNumbers: null, photos: [], serialCount: 0,
+      imeiCount: 0, carrierId: null, carrierName: null, carrierArchived: false, vehicleNumber: '123', trailerNumber: '', containerNumber: null,
+      wagonNumber: '', expectedBorderDate: '2026-10-20', marks: [], borderArrivedAtUtc: server.kase.borderArrivedAtUtc ?? null,
+      borderArrivalPost: server.kase.borderArrivalPost ?? null, missing: [], updatedAtUtc: null,
+    }))
+    await mountCard(USERS.admin, { status: 1, post: 'Хоргос' })
+    expect(w.get('[data-stage-substeps] [data-sub="arrival"]').attributes('data-sub-state')).toBe('todo')
+    expect(w.get('[data-stage-substeps] [data-sub="arrival"]').text()).toContain('Ожидается')
+    expect(preBorder.get).toHaveBeenCalledTimes(1)
+
+    await w.get('[data-border-arrived]').trigger('click')
+    server.kase = caseDto({ status: 1, post: 'Хоргос', borderArrivedAtUtc: '2026-10-30T04:15:00Z', borderArrivalPost: 'Хоргос' })
+    await w.get('[data-border-arrival-modal] [data-ok]').trigger('click')
+    await flushPromises()
+    expect(api.action).toHaveBeenCalledWith('c1', 'border-arrived', undefined, expect.objectContaining({ post: 'Хоргос' }))
+    expect(preBorder.get).toHaveBeenCalledTimes(2)
+    const arrival = w.get('[data-stage-substeps] [data-sub="arrival"]')
+    expect(arrival.attributes('data-sub-state')).toBe('done')
+    expect(arrival.text()).toContain('Хоргос')
+    expect(w.get('[data-pb-arrived]').text()).toContain('Хоргос')
+  })
+})
+
 describe('CaseView: шапка и шаги', () => {
   // 30.10.2026, аудит S-6: контракт и перевозчик из заявки — с ?from= на заявку, «Назад» вернёт сюда.
   it('ссылки на контракт и перевозчика несут ?from= этой заявки', async () => {
@@ -372,6 +400,41 @@ describe('CaseView: действия', () => {
     expect(w.find('[data-case-header]').exists()).toBe(true)
     expect(w.find('[data-modal]').exists()).toBe(false)
     expect(api.action).not.toHaveBeenCalled()
+  })
+
+  // E-7 (30.10.2026, живой прогон): отказ «снимите отметку оплаты у счёта» — со ссылкой на сам счёт.
+  it('«Шаг назад» с «Выполнено» после оплаты счёта — в окне ссылка на счёт (по finance.read)', async () => {
+    const refusal = () => Object.assign(new Error('409'), {
+      response: { status: 409, data: { error: 'Заявка выполнена оплатой счёта AQNIET № 0214/2026 — снимите отметку оплаты у счёта, заявка вернётся сама.', invoiceId: 'inv1', invoiceNumber: '0214/2026' } },
+    })
+    await mountCard(USERS.rop, { status: 8 })
+    api.action.mockRejectedValueOnce(refusal())
+    await w.get('[data-menu-item="stepBack"]').trigger('click')
+    await w.get('[data-reason-input]').setValue('ошибка')
+    await w.get('[data-ok]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-modal]').exists()).toBe(true)
+    expect(w.get('[data-step-back-invoice]').text()).toContain('№ 0214/2026')
+    const link = w.get('[data-step-back-invoice-link]')
+    expect(link.text()).toBe('Открыть счёт № 0214/2026')
+    expect(link.attributes('href')).toBe('/billing?q=0214/2026')
+
+    // Иная ошибка — без плашки счёта; повторное открытие окна плашку сбрасывает.
+    api.action.mockRejectedValueOnce(Object.assign(new Error('409'), { response: { status: 409, data: { error: 'Заявку уже вернули в работу' } } }))
+    await w.get('[data-ok]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-step-back-invoice]').exists()).toBe(false)
+  })
+
+  it('«Шаг назад»: отказ по счёту без finance.read — текст без ссылки', async () => {
+    await mountCard({ ...USERS.rop, permissions: USERS.rop.permissions.filter((p) => !p.startsWith('finance.')) }, { status: 8 })
+    api.action.mockRejectedValueOnce(Object.assign(new Error('409'), { response: { status: 409, data: { error: 'x', invoiceId: 'inv1', invoiceNumber: '0214/2026' } } }))
+    await w.get('[data-menu-item="stepBack"]').trigger('click')
+    await w.get('[data-reason-input]').setValue('ошибка')
+    await w.get('[data-ok]').trigger('click')
+    await flushPromises()
+    expect(w.get('[data-step-back-invoice]').text()).toContain('0214/2026')
+    expect(w.find('[data-step-back-invoice-link]').exists()).toBe(false)
   })
 
   it('ошибка действия — окно остаётся, тоста успеха нет', async () => {

@@ -37,6 +37,8 @@ export interface ClientShipment {
   preBorderMissing?: PreBorderMissingKey[]
   /** КПП отметил «Машина прибыла» — тег «На границе», иначе «Отправлена» (30.10.2026, аудит C-27). */
   borderArrived?: boolean
+  /** Вернули на доработку с этого статуса (S-11); 2 — с декларирования, граница уже пройдена (E-4, 30.10.2026). */
+  returnedFromStatus?: number | null
   /** Счёт AQNIET за услуги выставлен или оплачен; false — «Ждём счёт AQNIET», нет поля (неизвестно) — «Оплата услуг» (C-27). */
   serviceInvoiceIssued?: boolean
 }

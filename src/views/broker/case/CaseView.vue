@@ -64,7 +64,8 @@ const perms = computed(() => (kase.value ? casePerms(auth, kase.value) : null))
 
 // Поставка до границы (очередь 4, задача 1): подшаги перед «Границей» в этапах и блок под текущим шагом. Необязательно:
 // у начатой или ещё не прошедшей границу заявки; ошибка загрузки — этапы без подшагов, блок с «Повторить».
-const preBorder = usePreBorder(() => kase.value?.id ?? '')
+// Статус и отметка прибытия (КПП) — блок «До границы» перечитывается после действий на границе (E-2, 30.10.2026).
+const preBorder = usePreBorder(() => kase.value?.id ?? '', () => (kase.value ? `${kase.value.status}|${kase.value.borderArrivedAtUtc ?? ''}` : ''))
 const preBorderVisible = computed(() =>
   showPreBorder(preBorder.data.value) || (preBorder.state.value === 'error' && (kase.value?.status ?? 9) <= 1))
 const onPreBorderChanged = (dto: PreBorder) => {
@@ -251,7 +252,7 @@ const panel = 'rounded-panel border border-line bg-surface'
         <CaseSide class="flex-[1_1_320px]" :kase="kase" :files="files" :perms="perms" :actions="actions" @edit="focusCurrent" />
       </div>
 
-      <CaseActionModals v-model:kind="reasonKind" :actions="actions" :kase="kase" />
+      <CaseActionModals v-model:kind="reasonKind" :actions="actions" :kase="kase" :can-see-billing="perms?.canSeeBilling" />
     </template>
   </div>
 </template>

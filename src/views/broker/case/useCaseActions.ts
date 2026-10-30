@@ -13,6 +13,8 @@ export interface RunOptions {
   extra?: Import40ActionExtra
   /** Ключ тоста успеха; по умолчанию broker.case.done.<действие>; false — без тоста. */
   done?: string | false
+  /** Ошибка сервера — до общего тоста (окно показывает подробности, например ссылку на счёт). */
+  onError?: (e: unknown) => void
 }
 
 export interface MutateOptions {
@@ -74,7 +76,14 @@ export function useCaseActions(caseId: () => string | null, reload: () => Promis
   const run: CaseActions['run'] = async (action, opts = {}) => {
     const id = caseId()
     if (!id) return false
-    return mutate(action, () => import40Api.action(id, action, opts.value ?? undefined, opts.extra), {
+    return mutate(action, async () => {
+      try {
+        return await import40Api.action(id, action, opts.value ?? undefined, opts.extra)
+      } catch (e) {
+        opts.onError?.(e)
+        throw e
+      }
+    }, {
       done: opts.done === undefined ? doneKey(action) : opts.done,
     })
   }

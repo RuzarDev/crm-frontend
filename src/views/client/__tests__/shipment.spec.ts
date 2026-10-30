@@ -79,6 +79,12 @@ describe('segments', () => {
   it('проблема на шаге 2 — второй красный', () => {
     expect(segments(ship({ status: 1, step: 2, isProblem: true }))).toEqual(['done', 'currentProblem', 'todo', 'todo', 'todo', 'todo'])
   })
+  // E-4 (30.10.2026): возврат с декларирования — граница уже пройдена.
+  it('возврат с декларирования — второй пройден, первый за клиентом', () => {
+    expect(segments(ship({ status: 0, step: 1, returnReason: 'нет инвойса', returnedFromStatus: 2 })))
+      .toEqual(['currentAsk', 'done', 'todo', 'todo', 'todo', 'todo'])
+    expect(segments(ship({ status: 0, step: 1, returnReason: 'нет CMR', returnedFromStatus: 1 }))[1]).toBe('todo')
+  })
   it('черновик без шага — первый за клиентом', () => {
     expect(segments(ship({ status: 0, step: 0 }))).toEqual(['currentAsk', 'todo', 'todo', 'todo', 'todo', 'todo'])
   })
