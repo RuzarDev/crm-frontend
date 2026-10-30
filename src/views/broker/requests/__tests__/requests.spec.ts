@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Import40BoardRow } from '@/api/import40Board'
 import {
   EXECUTOR_NONE, clientOptions, emptyFilters, executorInfo, executorOptions, executorText, filterRows, formatTnved,
-  hasFilters, inTab, needsDeclarant, needsKpp, parseTab, shortName, stageTone, tabCounts, tabOf,
+  hasFilters, inTab, isActiveProblem, needsDeclarant, needsKpp, parseTab, shortName, stageTone, tabCounts, tabOf,
 } from '../requests'
 
 const T: Record<string, string> = {
@@ -20,6 +20,28 @@ const row = (o: Partial<Import40BoardRow> = {}): Import40BoardRow => ({
   containerNumbers: [], declarationsCount: 0, tnvedCodes: [], customsPaymentsKzt: 0,
   createdAtUtc: '2026-10-01T08:00:00Z', updatedAtUtc: '2026-10-08T08:00:00Z',
   ...o,
+})
+
+describe('S-21/S-16/S-18 (30.10.2026)', () => {
+  it('возвращённый на доработку черновик — «Ждут клиента», не «Черновики»', () => {
+    const r = row({ status: 0, rework: true })
+    expect(tabOf(r)).toBe('waiting')
+    expect(inTab(r, 'waiting')).toBe(true)
+    expect(inTab(r, 'drafts')).toBe(false)
+    expect(inTab(r, 'active')).toBe(false)
+    expect(inTab(row({ status: 0 }), 'drafts')).toBe(true)
+  })
+  it('открытый запрос таможни без ответа — «Ждут клиента»', () => {
+    expect(inTab(row({ status: 3, openCustomsRequest: true }), 'waiting')).toBe(true)
+    expect(tabOf(row({ status: 1, openCustomsRequest: true }))).toBe('waiting')
+    expect(inTab(row({ status: 9, openCustomsRequest: true }), 'waiting')).toBe(false)
+  })
+  it('фильтр «Проблема» — только заявки в работе с флагом; выполненные с оставшимся флагом не считаются', () => {
+    const rows = [row({ id: 'a', status: 3, isProblem: true }), row({ id: 'b', status: 8, isProblem: true }), row({ id: 'c', status: 3 }), row({ id: 'd', status: 0, isProblem: true })]
+    expect(filterRows(rows, { ...emptyFilters(), problem: true }).map((r) => r.id)).toEqual(['a'])
+    expect(hasFilters({ ...emptyFilters(), problem: true })).toBe(true)
+    expect(isActiveProblem(row({ status: 8, isProblem: true }))).toBe(false)
+  })
 })
 
 describe('вкладки', () => {

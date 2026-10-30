@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { BrokerInvoice } from '@/api/billing'
 import {
   billingExcelRows, billingStats, docTitle, filterBilling, isOverdue, menuActions, overdueDays, pdfFileName,
-  primaryAction, statusCounts, statusTone,
+  parseStatusFilter, primaryAction, statusCounts, statusLabelKey, statusTone,
 } from '../billing'
 
 const inv = (o: Partial<BrokerInvoice>): BrokerInvoice => ({
@@ -16,10 +16,10 @@ const NOW = new Date(2026, 9, 15, 12, 0) // 15.10.2026, местное врем�
 const tr = (k: string, p?: Record<string, unknown>) => (p ? `${k}${JSON.stringify(p)}` : k)
 
 describe('billing: главная кнопка и меню', () => {
-  it('черновик — «Выставить»; меню: PDF и удаление', () => {
+  it('черновик — «Выставить»; меню: PDF, «Изменить» (S-39) и удаление', () => {
     const r = inv({ status: 0, number: '', issuedAtUtc: null })
     expect(primaryAction(r)).toBe('issue')
-    expect(menuActions(r, true)).toEqual(['pdf', 'delete'])
+    expect(menuActions(r, true)).toEqual(['pdf', 'edit', 'delete'])
   })
   it('выставленный счёт с чеком — «Отметить оплату»; в меню «Напомнить» и «Аннулировать»', () => {
     const r = inv({ paymentChecks: [check] })
@@ -31,10 +31,13 @@ describe('billing: главная кнопка и меню', () => {
     expect(primaryAction(r)).toBe('remind')
     expect(menuActions(r, true)).toEqual(['pdf', 'markPaid', 'cancel'])
   })
-  it('выставленный акт — «Отметить оплату», напоминания нет', () => {
+  it('выставленный акт (S-40) — «Отметить подписанным», ни оплаты, ни напоминания; подписанный акт — «Подписан»', () => {
     const r = inv({ kind: 'act' })
-    expect(primaryAction(r)).toBe('markPaid')
+    expect(primaryAction(r)).toBe('markSigned')
     expect(menuActions(r, true)).toEqual(['pdf', 'cancel'])
+    expect(statusLabelKey(2, 'act')).toBe('broker.billing.status.signed')
+    expect(statusLabelKey(2, 'invoice')).toBe('broker.billing.status.paid')
+    expect(statusLabelKey(1, 'act')).toBe('broker.billing.status.issued')
   })
   it('оплаченный — без главной, меню: PDF и «Аннулировать»; аннулированный — только PDF', () => {
     expect(primaryAction(inv({ status: 2 }))).toBeNull()
@@ -85,9 +88,18 @@ describe('billing: фильтры и счётчики', () => {
     expect(ids(filterBilling(rows, '', 'all', 'draft'))).toEqual(['2'])
   })
   it('счётчики статусов — по поиску и виду', () => {
-    expect(statusCounts(rows, '', 'all')).toEqual({ all: 4, draft: 1, issued: 1, paid: 1, cancelled: 1 })
-    expect(statusCounts(rows, '', 'invoice')).toEqual({ all: 3, draft: 1, issued: 1, paid: 0, cancelled: 1 })
-    expect(statusCounts(rows, 'altyn', 'all')).toEqual({ all: 2, draft: 0, issued: 1, paid: 1, cancelled: 0 })
+    expect(statusCounts(rows, '', 'all')).toEqual({ all: 4, draft: 1, issued: 1, overdue: 0, paid: 1, cancelled: 1 })
+    expect(statusCounts(rows, '', 'invoice')).toEqual({ all: 3, draft: 1, issued: 1, overdue: 0, paid: 0, cancelled: 1 })
+    expect(statusCounts(rows, 'altyn', 'all')).toEqual({ all: 2, draft: 0, issued: 1, overdue: 0, paid: 1, cancelled: 0 })
+  })
+  it('S-44: «Просрочены» — выставленные со сроком раньше сегодня; ?status= из адреса', () => {
+    const late = [...rows, inv({ id: '5', dueDateUtc: '2020-01-01T00:00:00Z' }), inv({ id: '6', status: 2, dueDateUtc: '2020-01-01T00:00:00Z' })]
+    expect(ids(filterBilling(late, '', 'all', 'overdue'))).toEqual(['5'])
+    expect(statusCounts(late, '', 'all').overdue).toBe(1)
+    expect(parseStatusFilter('overdue')).toBe('overdue')
+    expect(parseStatusFilter('paid')).toBe('paid')
+    expect(parseStatusFilter('nonsense')).toBeNull()
+    expect(parseStatusFilter(undefined)).toBeNull()
   })
 })
 

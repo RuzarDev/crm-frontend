@@ -14,29 +14,42 @@ export const EXECUTOR_NONE = 'none'
 
 type T = (key: string) => string
 
-/** Идёт работа: от «На границе» до «Ждёт оплаты услуг» (статусы 1–7). */
-const inWork = (s: number): boolean => s >= 1 && s <= 7
+/** Идёт работа: от «На границе» до «Ждёт оплаты услуг» (статусы 1–7). Та же формула — «В работе» на Главной и в карточке
+ * клиента (сервер Import40Metrics.InWork, S-17 30.10.2026). */
+export const inWork = (s: number): boolean => s >= 1 && s <= 7
 
-/** Ждёт клиента: «Счёт выставлен» (клиент оплачивает склад) или проблема с вопросом клиенту. Только среди идущих в работе. */
-const isWaiting = (r: Pick<Import40BoardRow, 'status' | 'isProblem' | 'hasClientMessage'>): boolean =>
-  inWork(r.status) && (r.status === 6 || (r.isProblem && r.hasClientMessage))
+type WaitRow = Pick<Import40BoardRow, 'status' | 'isProblem' | 'hasClientMessage' | 'rework' | 'openCustomsRequest'>
+
+/** Черновик, возвращённый клиенту на доработку (S-21): не «Черновик», а «Ждут клиента» с тегом «На доработке». */
+export const isRework = (r: Pick<Import40BoardRow, 'status' | 'rework'>): boolean => r.status === 0 && !!r.rework
+
+/**
+ * Ждёт клиента: заявка в работе со «Счёт выставлен» (клиент оплачивает склад), проблемой с вопросом клиенту или открытым
+ * запросом таможни без ответа (S-21); плюс черновик, возвращённый на доработку (S-21, 30.10.2026).
+ */
+const isWaiting = (r: WaitRow): boolean =>
+  isRework(r) || (inWork(r.status) && (r.status === 6 || (r.isProblem && r.hasClientMessage) || !!r.openCustomsRequest))
+
+/** «Проблемные» (S-16/S-18): флаг проблемы у заявки в работе — та же формула, что на Главной (Import40Metrics.ActiveProblem). */
+export const isActiveProblem = (r: Pick<Import40BoardRow, 'status' | 'isProblem'>): boolean => r.isProblem && inWork(r.status)
 
 /** Главная вкладка заявки из списка «все»: черновик, завершённая, «ждёт клиента», иначе «в работе». */
-export function tabOf(r: Pick<Import40BoardRow, 'status' | 'isProblem' | 'hasClientMessage'>): Exclude<RequestTab, 'my'> {
+export function tabOf(r: WaitRow): Exclude<RequestTab, 'my'> {
+  if (isRework(r)) return 'waiting'
   if (r.status === 0) return 'drafts'
   if (r.status >= 8) return 'done'
   return isWaiting(r) ? 'waiting' : 'active'
 }
 
 /**
- * Входит ли заявка во вкладку. «Ждут клиента» — подмножество «В работе» (счёт выставлен виден в обеих).
- * «Мои» считает сервер (view=my) — для этой вкладки любая строка ответа подходит.
+ * Входит ли заявка во вкладку. «Ждут клиента» среди идущих в работе — подмножество «В работе» (счёт выставлен виден
+ * в обеих); возвращённый на доработку черновик — только в «Ждут клиента». «Мои» считает сервер (view=my).
  */
-export function inTab(r: Pick<Import40BoardRow, 'status' | 'isProblem' | 'hasClientMessage'>, tab: RequestTab): boolean {
+export function inTab(r: WaitRow, tab: RequestTab): boolean {
   switch (tab) {
     case 'active': return inWork(r.status)
     case 'waiting': return isWaiting(r)
-    case 'drafts': return r.status === 0
+    case 'drafts': return r.status === 0 && !isRework(r)
     case 'done': return r.status === 8 || r.status === 9
     default: return true
   }
@@ -112,10 +125,12 @@ export interface RequestFilters {
   condRel?: CondRelFilter | null
   /** КЕДЕН (17.10): 'unlinked' — ДТ подана, а хотя бы одна ДТ не связана с журналом КЕДЕН; null — без фильтра. */
   keden?: 'unlinked' | null
+  /** Только проблемные заявки в работе (S-16, 30.10.2026; ?problem=1 — ссылка с Главной). */
+  problem?: boolean
 }
 
-export const emptyFilters = (): RequestFilters => ({ q: '', client: null, executor: null, stage: null, period: null, condRel: null, keden: null })
-export const hasFilters = (f: RequestFilters): boolean => !!(f.q.trim() || f.client || f.executor || f.stage || f.period || f.condRel || f.keden)
+export const emptyFilters = (): RequestFilters => ({ q: '', client: null, executor: null, stage: null, period: null, condRel: null, keden: null, problem: false })
+export const hasFilters = (f: RequestFilters): boolean => !!(f.q.trim() || f.client || f.executor || f.stage || f.period || f.condRel || f.keden || f.problem)
 
 /** Фильтры и поиск — все на клиенте, по загруженным строкам. */
 export function filterRows(rows: Import40BoardRow[], f: RequestFilters): Import40BoardRow[] {
@@ -131,6 +146,7 @@ export function filterRows(rows: Import40BoardRow[], f: RequestFilters): Import4
     if (!inPeriod(r.updatedAtUtc, f.period)) return false
     if (!matchesCondRel(r.conditionalRelease, f.condRel ?? null)) return false
     if (f.keden === 'unlinked' && !kedenUnlinked(r)) return false
+    if (f.problem && !isActiveProblem(r)) return false
     return matchesQuery(f.q, [r.number, r.clientName, r.cargo, r.post, ...r.tnvedCodes, ...r.containerNumbers])
   })
 }

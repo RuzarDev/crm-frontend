@@ -223,6 +223,20 @@ describe('KedenDeclarationsView: mode=mine', () => {
     expect(w.get('[data-keden-subtitle]').text()).toContain('ваших деклараций')
   })
 
+  it('S-30: сотрудник (import40.read) — тексты про весь журнал; строка со связанной ДТ ведёт на страницу ДТ', async () => {
+    as('importer', ['import40.read'])
+    api.mine.mockResolvedValue([mi({ id: 'm1', caseId: 'k1', declarationId: 'd1' }), mi({ id: 'm2', registrationNumber: '56000/081026/0099002' })])
+    await mountView('mine')
+    expect(w.get('[data-keden-subtitle]').text()).toContain('весь журнал')
+    expect(w.get('a[data-keden-dt]').attributes('href')).toBe('/import-40/k1/dt/d1')
+    expect(w.findAll('[data-keden-no]')).toHaveLength(1)
+    api.mine.mockResolvedValue([])
+    w.unmount()
+    await mountView('mine')
+    expect(w.text()).not.toContain('профиле компании')
+    expect(w.text()).toContain('Журнал КЕДЕН пока пуст')
+  })
+
   it('у клиента заголовок «Статусы деклараций»', async () => {
     as('client')
     await mountView('mine')

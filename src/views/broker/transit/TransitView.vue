@@ -64,7 +64,9 @@ const needsUploadClient = computed(() => !isClient.value)
 type Option = { value: string; label: string }
 const createClientOptions = ref<Option[]>([])
 const filterClientOptions = ref<Option[]>([])
-const toOptions = (list: { id: string; username: string }[]): Option[] => list.map((c) => ({ value: c.id, label: c.username }))
+// S-48 (30.10.2026): подпись — название компании (сервер отдаёт name), а не логин; старый ответ без name — логин.
+const toOptions = (list: { id: string; username: string; name?: string }[]): Option[] =>
+  list.map((c) => ({ value: c.id, label: c.name || c.username }))
 const loadCreateClients = async () => {
   if (!canWrite.value || isClient.value) return
   try {

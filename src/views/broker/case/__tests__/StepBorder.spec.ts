@@ -80,6 +80,13 @@ describe('StepBorder', () => {
     expect(tipOf('[data-border-return]')).toBe('Действие выполняет КПП')
   })
 
+  it('S-24: декларант (право import40.kpp, КПП не назначен) — «Граница пройдена» выключена, как и «Машина прибыла»', () => {
+    mount(USERS.declarant)
+    expect(w.get('[data-border-arrived]').attributes('disabled')).toBeDefined()
+    expect(w.get('[data-border-passed]').attributes('disabled')).toBeDefined()
+    expect(tipOf('[data-border-passed]')).toBe('Действие выполняет КПП')
+  })
+
   it('«Вернуть клиенту» открывает окно причины', async () => {
     const m = mount(USERS.kpp)
     await w.get('[data-border-return]').trigger('click')

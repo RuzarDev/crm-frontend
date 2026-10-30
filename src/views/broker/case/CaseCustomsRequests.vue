@@ -39,6 +39,8 @@ const props = defineProps<{
   /** Страница ДТ: показываем запросы этой ДТ и всей заявки, новый — по этой ДТ. */
   declarationId?: string | null
   canManage: boolean
+  /** Заводить и закрывать запрос на границе (S-23, 30.10.2026: и КПП); не передан — как canManage. */
+  canManageBorder?: boolean
   canRemind: boolean
   /** Открыть форму нового запроса сразу (кнопка «Завести запрос таможни» в уведомлении КЕДЕН, 17.10). */
   autoCreate?: boolean
@@ -54,7 +56,10 @@ const scoped = computed(() =>
   props.declarationId ? props.list.filter((r) => !r.declarationId || r.declarationId === props.declarationId) : props.list)
 const active = computed(() => scoped.value.filter(isActive))
 const closed = computed(() => scoped.value.filter((r) => !isActive(r)))
-const canCreate = computed(() => props.canManage && canCreateAtStatus(props.status))
+// Права по моменту запроса (S-23): на границе — canManageBorder, остальные — canManage.
+const manageAt = (stage: CustomsRequestStage): boolean => props.canManage || (stage === 'border' && !!props.canManageBorder)
+const creatableStages = computed(() => stagesAt(props.status).filter(manageAt))
+const canCreate = computed(() => canCreateAtStatus(props.status) && creatableStages.value.length > 0)
 // Отдельная «Напомнить клиенту» — когда ждём клиента не по запросу (черновик, счёт СВХ); у запроса — своя кнопка.
 const remindStandalone = computed(() =>
   props.canRemind && props.status < 8 && !active.value.some(isWaiting)
@@ -71,7 +76,7 @@ const form = ref({
 })
 // Все три момента видны, недоступные на этом статусе — выключены (как CanCreateAt на сервере).
 const stageOptions = computed(() => {
-  const allowed = stagesAt(props.status)
+  const allowed = creatableStages.value
   return STAGES.map((s) => ({ value: s, label: t(`customsRequest.stage.${s}`), disabled: !allowed.includes(s) }))
 })
 const dtOptions = computed(() => [
@@ -82,7 +87,7 @@ const openCreate = () => {
   form.value = {
     text: '', kinds: [], due: null, time: '',
     dt: props.declarationId ?? (props.declarations.length === 1 ? props.declarations[0].id : ''),
-    stage: defaultStage(props.status) ?? 'declaration',
+    stage: creatableStages.value[0] ?? defaultStage(props.status) ?? 'declaration',
   }
   createOpen.value = true
 }
@@ -235,9 +240,9 @@ const outlineBtn = 'bg-surface shadow-[inset_0_0_0_1px_var(--color-line-strong)]
         </ul>
       </div>
 
-      <div v-if="canManage || (canRemind && r.status === 'open')" class="flex flex-col gap-2 sm:ml-8 sm:flex-row sm:flex-wrap">
+      <div v-if="manageAt(stageOf(r)) || (canRemind && r.status === 'open')" class="flex flex-col gap-2 sm:ml-8 sm:flex-row sm:flex-wrap">
         <ZButton
-          v-if="canManage"
+          v-if="manageAt(stageOf(r))"
           size="sm"
           :variant="r.status === 'answered' ? 'primary' : 'secondary'"
           :class="cn(btn, r.status !== 'answered' && outlineBtn)"

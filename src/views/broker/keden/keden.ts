@@ -25,6 +25,9 @@ export interface KedenRow {
   /** Дата изменения статуса (ISO) и она же числом — для сортировки; пустая — в конец. */
   changedAt: string | null
   ts: number | null
+  /** Связанная ДТ платформы (S-30, 30.10.2026; только у сотрудника в «mine») — ссылка на страницу ДТ. */
+  caseId?: string | null
+  declarationId?: string | null
 }
 
 const stamp = (iso: string | null): number | null => {
@@ -59,6 +62,8 @@ export const rowFromMine = (i: KedenDeclarationStatus): KedenRow => ({
   declarantXin: i.declarantXin,
   changedAt: i.statusDateTimeUtc,
   ts: stamp(i.statusDateTimeUtc),
+  caseId: i.caseId ?? null,
+  declarationId: i.declarationId ?? null,
 })
 
 // statusName приходит из КЕДЕН как есть и всегда на русском (это значение внешней системы, а не текст интерфейса) —

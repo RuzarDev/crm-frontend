@@ -51,9 +51,9 @@ const SelectStub = {
 }
 
 let w: VueWrapper
-const mountView = async () => {
+const mountView = async (path = '/import-40/manage') => {
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:p(.*)*', component: { template: '<div/>' } }] })
-  await router.push('/import-40/manage')
+  await router.push(path)
   await router.isReady()
   w = mountWithI18n(BrokerManageView, { attachTo: document.body, global: { plugins: [router], stubs: { ZSelect: SelectStub } } })
   await flushPromises()
@@ -98,6 +98,12 @@ describe('BrokerManageView', () => {
     await w.get('[data-manage-search]').setValue('плитка')
     await flushPromises()
     expect(numbers()).toEqual(['ИМ-2026-0003'])
+  })
+
+  it('S-15: ?segment=stale — открывается сразу нужный сегмент (карточка Главной)', async () => {
+    await mountView('/import-40/manage?segment=stale')
+    expect(w.get('[data-manage-segments] [data-state="on"]').text()).toContain('Зависли')
+    expect(numbers()).toHaveLength(1)
   })
 
   it('если всё назначено — по умолчанию «Все активные»', async () => {

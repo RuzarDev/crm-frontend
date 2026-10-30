@@ -86,6 +86,29 @@ afterEach(() => {
 })
 
 describe('BrokerRequestsView', () => {
+  it('S-16: ?problem=1 — только проблемные в работе, фильтр виден и снимается', async () => {
+    await mountAt('/import-40?tab=active&problem=1')
+    expect(numbers()).toEqual(['ИМ-2026-0005'])
+    expect(w.find('[data-requests-problem]').exists()).toBe(true)
+  })
+
+  it('S-21/S-18: возвращённый на доработку черновик — во «Ждут клиента» с тегом «На доработке»; у выполненной нет тега проблемы', async () => {
+    api.board.mockImplementation(async (view: string) => ({
+      items: view === 'my' ? MINE : [...ALL, row({ id: 'r', number: 'ИМ-2026-0009', status: 0, rework: true, updatedAtUtc: '2026-10-03T08:00:00Z' }),
+        row({ id: 'p', number: 'ИМ-2026-0010', status: 8, isProblem: true, updatedAtUtc: '2026-10-02T08:00:00Z' })],
+      truncated: false,
+    }))
+    await mountAt('/import-40?tab=waiting')
+    expect(numbers()).toContain('ИМ-2026-0009')
+    expect(w.findAll('[data-request-rework]')).toHaveLength(1)
+    w.unmount()
+    await mountAt('/import-40?tab=drafts')
+    expect(numbers()).toEqual(['ИМ-2026-0003'])
+    w.unmount()
+    await mountAt('/import-40?tab=done')
+    expect(w.text()).not.toContain('проблема')
+  })
+
   it('при открытии уходят оба запроса, справочники окна создания не грузятся', async () => {
     await mountAt('/import-40?tab=active')
     expect(api.board).toHaveBeenCalledWith('all', { silent: true })

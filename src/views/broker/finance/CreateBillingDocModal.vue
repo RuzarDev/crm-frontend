@@ -10,7 +10,7 @@ import ZInput from '@/components/z/ZInput.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZNumber from '@/components/z/ZNumber.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
-import { billingApi, type BrokerInvoiceKind } from '@/api/billing'
+import { billingApi, type BrokerInvoice, type BrokerInvoiceKind } from '@/api/billing'
 import type { Import40CaseDto } from '@/api/import40'
 import type { SalesServiceItem } from '@/api/sales'
 import { formatMoney } from '@/ui/number'
@@ -20,6 +20,8 @@ import { message } from '@/ui/message'
 // Справочники (клиенты, заявки, прайс, ставка НДС организации) грузит экран и передаёт сюда.
 // preset — заявка и клиент из ?caseId= (кнопка «Выставить счёт» в карточке заявки).
 // Цены прайса — с НДС: сервер выделяет НДС из суммы по настройкам организации, ставку не отправляем.
+// editing — черновик для правки (S-39, 30.10.2026: раньше черновик с ошибкой можно было только удалить, хотя сервер правку
+// умеет). Вид и клиент черновика не меняются (сервер их не правит) — поля выключены; остальное — как при создании.
 export interface BillingDocPreset { caseId?: string; clientId?: string }
 
 const props = defineProps<{
@@ -30,8 +32,10 @@ const props = defineProps<{
   /** null — настройки организации ещё не пришли (подсказку НДС не показываем). */
   vatRate: number | null
   preset?: BillingDocPreset | null
+  editing?: BrokerInvoice | null
 }>()
 const emit = defineEmits<{ 'update:open': [open: boolean]; created: [] }>()
+const isEdit = computed(() => !!props.editing)
 const { t } = useI18n()
 
 // id — ключ строки в списке: при удалении строки из середины поля остальных не перепутываются (ключ-индекс
@@ -52,8 +56,21 @@ const saving = ref(false)
 
 // Каждое открытие — чистая форма, включая заявку (раньше заявка прошлого открытия уходила скрытым значением).
 // Новый preset при открытом окне (другой ?caseId=) — тоже чистая форма с новыми заявкой и клиентом.
-watch([() => props.open, () => props.preset], ([v]) => {
+watch([() => props.open, () => props.preset, () => props.editing], ([v]) => {
   if (!v) return
+  const e = props.editing
+  if (e) {
+    // Правка черновика: поля из документа, строки — по порядку.
+    draft.kind = e.kind
+    draft.clientId = e.clientId
+    draft.caseId = e.caseId
+    draft.dueDate = e.dueDateUtc ? e.dueDateUtc.slice(0, 10) : null
+    draft.note = e.note ?? ''
+    const lines = [...e.lines].sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((l) => ({ id: ++lineSeq, name: l.name, unit: l.unit, quantity: l.quantity, unitPrice: l.unitPrice }))
+    draft.lines = lines.length ? lines : [blankLine()]
+    return
+  }
   draft.kind = 'invoice'
   draft.clientId = props.preset?.clientId ?? null
   draft.caseId = props.preset?.caseId ?? null
@@ -107,7 +124,7 @@ const submit = async () => {
   if (!canSubmit.value || saving.value) return
   saving.value = true
   try {
-    await billingApi.create({
+    const body = {
       clientId: draft.clientId!,
       caseId: draft.caseId ?? null,
       kind: draft.kind,
@@ -116,9 +133,11 @@ const submit = async () => {
       lines: filledLines.value.map((l) => ({
         name: l.name.trim(), unit: l.unit, quantity: l.quantity || 1, unitPrice: l.unitPrice || 0,
       })),
-    })
+    }
+    if (props.editing) await billingApi.update(props.editing.id, body)
+    else await billingApi.create(body)
     emit('update:open', false)
-    message.success(t('billing.created'))
+    message.success(t(props.editing ? 'billing.saved' : 'billing.created'))
     emit('created')
   } catch (e: unknown) {
     // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай; окно остаётся.
@@ -132,9 +151,9 @@ const submit = async () => {
 <template>
   <ZModal
     :open="open"
-    :title="t('billing.newDoc')"
+    :title="t(isEdit ? 'billing.editDraft' : 'billing.newDoc')"
     :width="760"
-    :ok-text="t('billing.create')"
+    :ok-text="t(isEdit ? 'billing.save' : 'billing.create')"
     :cancel-text="t('common.cancel')"
     :confirm-loading="saving"
     :ok-button-props="{ disabled: !canSubmit }"
@@ -148,6 +167,7 @@ const submit = async () => {
           <ZSelect
             :value="draft.kind"
             :options="kindOptions"
+            :disabled="isEdit"
             data-create-kind
             @update:value="draft.kind = ($event as BrokerInvoiceKind)"
           />
@@ -158,6 +178,7 @@ const submit = async () => {
             :options="clients"
             show-search
             :placeholder="t('billing.clientPh')"
+            :disabled="isEdit"
             data-create-client
             @update:value="setClient($event as string | null)"
           />

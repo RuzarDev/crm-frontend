@@ -168,7 +168,7 @@ const link = 'shrink-0 rounded-[4px] text-[13px] font-medium text-zircon-ink no-
             v-if="tasks.data"
             class="rounded-pill bg-sunken px-2 py-px text-xs font-semibold tabular-nums text-tone-neutral-fg"
           ><span aria-hidden="true">{{ activeTasks }}</span><span class="sr-only">{{ t('home.tasks.countSr', { n: activeTasks }) }}</span></span>
-          <RouterLink to="/import-40?tab=my" :class="cn(link, 'ml-auto')">{{ t('home.tasks.all') }}</RouterLink>
+          <RouterLink to="/import-40?tab=my" :class="cn(link, 'ml-auto')" data-home-tasks-all>{{ t('home.tasks.all') }}</RouterLink>
         </div>
 
         <div class="p-1.5">
@@ -189,7 +189,8 @@ const link = 'shrink-0 rounded-[4px] text-[13px] font-medium text-zircon-ink no-
           </div>
           <ZEmpty v-else-if="!rows.length" :title="t('home.tasks.empty')">
             <template #action>
-              <RouterLink to="/import-40" :class="link">{{ t('home.tasks.emptyAction') }}</RouterLink>
+              <!-- S-19 (30.10.2026): «Открыть все заявки» — вкладка «В работе», а не снова пустые «Мои». -->
+              <RouterLink to="/import-40?tab=active" :class="link" data-home-tasks-empty-action>{{ t('home.tasks.emptyAction') }}</RouterLink>
             </template>
           </ZEmpty>
           <ul v-else class="m-0 list-none p-0">

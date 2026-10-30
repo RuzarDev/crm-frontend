@@ -3,7 +3,7 @@ import { canEditDt, canManageDeclarations, dtUserFrom } from '@/views/import40/d
 
 // Права карточки заявки сотрудника (редизайн, волна 4а) — чистые функции от (auth, заявка).
 // Перенос проверок прежней Import40CaseView один к одному (разбор §2), плюс согласованные с сервером правки:
-// - «Запрос таможни / проблема» доступен и по праву import40.problem (сервер его принимает);
+// - «Отметить проблему» (S-22, 30.10.2026: было «Запрос таможни / проблема») доступна и по праву import40.problem (сервер его принимает);
 // - администратор подтверждает оплату СВХ без чека (сервер разрешает);
 // - черновик ведут сотрудники с import40.declarant или import40.assign (Task 1 на сервере).
 
@@ -119,9 +119,9 @@ export function hintText(h: ActionHint, t: (k: string, p?: Record<string, unknow
   return t('import40Case.hintFor', { role: t(`enum.role.${h.role}`) })
 }
 
-/** «Запрос таможни / проблема» и «Снять проблему»: КПП, декларант или право import40.problem (как сервер). */
+/** «Отметить проблему» и «Снять проблему»: КПП, декларант или право import40.problem (как сервер). */
 export const canProblem = (a: CaseAuth): boolean => can(a, 'kpp') || can(a, 'declarant') || hasPerm(a, 'import40.problem')
-/** Пункт «Запрос таможни / проблема» в меню: заявка не в проблеме и не завершена/отменена. */
+/** Пункт «Отметить проблему» в меню (S-22: запрос таможни — отдельная панель): заявка не в проблеме и не завершена/отменена. */
 export const showProblemAction = (a: CaseAuth, c: Import40CaseDto): boolean => canProblem(a) && !c.isProblem && c.status < 8
 /**
  * Шаг назад: статус 1..8, администратор или import40.assign. S-27 (30.10.2026, решение владельца): и с «Выполнено» —

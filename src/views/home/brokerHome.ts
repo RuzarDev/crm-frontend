@@ -3,6 +3,7 @@ import type { ManageOverview } from '@/api/manage'
 import type { BrokerInvoice } from '@/api/billing'
 import type { Import40CaseDto } from '@/api/import40'
 import { stepForStatus } from '@/utils/import40Steps'
+import { segmentCounts } from '@/views/broker/requests/manage'
 
 export type AttentionTone = 'gold' | 'danger' | 'neutral'
 
@@ -29,15 +30,19 @@ export const buildAttention = (i: {
   if (import40 && !import40.isManagerView && import40.awaitingMe > 0) {
     cards.push({ key: 'awaitingMe', tone: 'gold', count: import40.awaitingMe, to: '/import-40?tab=my' })
   }
+  // S-14/S-15 (30.10.2026): «Без исполнителя» = «Без декларанта» + «Без КПП» (сервер считает той же формулой), карточки
+  // ведут на свой сегмент «Распределения» (?segment=), а не на первый непустой.
   if (manage && manage.unassigned > 0) {
-    cards.push({ key: 'unassigned', tone: 'gold', count: manage.unassigned, to: '/import-40/manage' })
+    const seg = segmentCounts(manage.cases).noDeclarant > 0 ? 'noDeclarant' : 'noKpp'
+    cards.push({ key: 'unassigned', tone: 'gold', count: manage.unassigned, to: `/import-40/manage?segment=${seg}` })
   }
+  // S-16/S-18: «Проблемные» — только заявки в работе; сотруднику — список «В работе» с фильтром «Проблема».
   const problems = manage ? manage.problems : import40?.problemCases ?? 0
   if (problems > 0) {
-    cards.push({ key: 'problems', tone: 'danger', count: problems, to: manage ? '/import-40/manage' : '/import-40' })
+    cards.push({ key: 'problems', tone: 'danger', count: problems, to: manage ? '/import-40/manage?segment=problem' : '/import-40?tab=active&problem=1' })
   }
   if (manage && manage.stale > 0) {
-    cards.push({ key: 'stale', tone: 'neutral', count: manage.stale, to: '/import-40/manage' })
+    cards.push({ key: 'stale', tone: 'neutral', count: manage.stale, to: '/import-40/manage?segment=stale' })
   }
   const overdue = (invoices ?? []).filter(
     (x) => x.kind === 'invoice' && x.status === 1 && x.dueDateUtc && new Date(x.dueDateUtc) < now,
@@ -48,7 +53,8 @@ export const buildAttention = (i: {
       tone: 'neutral',
       count: overdue.length,
       amount: overdue.reduce((s, x) => s + x.total, 0),
-      to: '/billing',
+      // S-44 (30.10.2026): сразу фильтр «Просрочены», а не весь список счетов.
+      to: '/billing?status=overdue',
     })
   }
   return cards.slice(0, MAX_ATTENTION)

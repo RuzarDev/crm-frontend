@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import ZAlert from '@/components/z/ZAlert.vue'
+import ZButton from '@/components/z/ZButton.vue'
 import ZField from '@/components/z/ZField.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
@@ -19,7 +21,7 @@ const { t } = useI18n()
 
 interface Conf { action: Import40Action; title: string; ok: string; hint?: string; ph: string; danger?: boolean; trim: boolean }
 const CONF: Record<ReasonKind, Conf> = {
-  problem: { action: 'set-problem', title: 'import40Case.problemTitle', ok: 'import40Case.problemOk', ph: 'import40Case.problemPh', trim: false },
+  problem: { action: 'set-problem', title: 'import40Case.problemBtn', ok: 'import40Case.problemOk', ph: 'import40Case.problemPh', trim: false },
   stepBack: { action: 'step-back', title: 'import40Case.stepBackTitle', ok: 'import40Case.stepBackOk', hint: 'import40Case.stepBackHint', ph: 'import40Case.stepBackPh', trim: true },
   cancel: { action: 'cancel', title: 'import40Case.cancelTitle', ok: 'import40Case.cancelOk', hint: 'import40Case.cancelHint', ph: 'import40Case.cancelPh', danger: true, trim: true },
   return: { action: 'return-to-client', title: 'import40Case.returnTitle', ok: 'import40Case.returnOk', ph: 'import40Case.returnPh', trim: false },
@@ -43,6 +45,11 @@ watch(() => props.kind, (k) => {
 const conf = computed(() => CONF[shown.value])
 const pending = computed(() => props.actions.isPending(conf.value.action))
 const close = () => { if (!pending.value) emit('update:kind', null) }
+
+// S-29 (30.10.2026): «Шаг назад» с «На границе» возвращает заявку клиенту в черновик — без причины для клиента и пунктов
+// доработки. Предупреждаем и предлагаем «Вернуть клиенту» (с причиной и чек-листом) вместо молчаливого возврата.
+const stepBackToDraft = computed(() => shown.value === 'stepBack' && props.kase?.status === 1)
+const switchToReturn = () => { if (!pending.value) emit('update:kind', 'return') }
 
 const submit = async () => {
   if (!reason.value.trim() || props.actions.busy()) return
@@ -74,6 +81,12 @@ const submit = async () => {
     @ok="submit"
   >
     <p v-if="conf.hint" class="m-0 mb-3 text-sm text-ink-3">{{ t(conf.hint) }}</p>
+    <ZAlert v-if="stepBackToDraft" type="warning" show-icon class="mb-3" data-stepback-draft-warning>
+      <div class="flex flex-col items-start gap-2">
+        <span>{{ t('import40Case.stepBackToDraftWarning') }}</span>
+        <ZButton size="sm" data-stepback-to-return @click="switchToReturn">{{ t('import40Case.stepBackUseReturn') }}</ZButton>
+      </div>
+    </ZAlert>
     <div class="flex flex-col gap-4">
       <ZField :label="shown === 'problem' ? t('import40Case.problemNoteLabel') : undefined" :required="shown === 'problem'">
         <ZTextarea

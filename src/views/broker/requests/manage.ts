@@ -45,11 +45,20 @@ export function segmentCounts(cases: CaseLike[]): Record<ManageSegment, number> 
   return out
 }
 
-/** Сегмент при открытии: первый непустой из четырёх рабочих, иначе «Все активные». */
-export function defaultSegment(cases: CaseLike[]): ManageSegment {
+/**
+ * Сегмент при открытии: из адреса (?segment=, S-15 30.10.2026 — карточки Главной ведут на нужный), иначе первый непустой
+ * из четырёх рабочих, иначе «Все активные».
+ */
+export function defaultSegment(cases: CaseLike[], fromQuery?: unknown): ManageSegment {
+  const asked = parseSegment(fromQuery)
+  if (asked) return asked
   const counts = segmentCounts(cases)
   return MANAGE_SEGMENTS.find((s) => s !== 'all' && counts[s] > 0) ?? 'all'
 }
+
+/** Сегмент из ?segment=: известное значение или null. */
+export const parseSegment = (v: unknown): ManageSegment | null =>
+  typeof v === 'string' && (MANAGE_SEGMENTS as string[]).includes(v) ? (v as ManageSegment) : null
 
 export interface StaffLoad {
   id: string

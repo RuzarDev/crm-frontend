@@ -49,6 +49,12 @@ describe('сегмент по умолчанию', () => {
     expect(defaultSegment([c({ status: 7, isProblem: true })])).toBe('problem')
     expect(defaultSegment([c({ status: 7, daysSinceUpdate: 9 })])).toBe('stale')
   })
+  it('S-15: сегмент из адреса (?segment=) важнее первого непустого; неизвестный — как без него', () => {
+    expect(defaultSegment([c({ status: 2 })], 'stale')).toBe('stale')
+    expect(defaultSegment([c({ status: 2 })], 'problem')).toBe('problem')
+    expect(defaultSegment([c({ status: 2 })], 'oops')).toBe('noDeclarant')
+    expect(defaultSegment([c({ status: 2 })], ['stale'])).toBe('noDeclarant')
+  })
   it('все назначены, проблем и зависших нет — «Все активные»; пусто — тоже', () => {
     expect(defaultSegment([c({ status: 2, assignedDeclarantId: 'd1' })])).toBe('all')
     expect(defaultSegment([])).toBe('all')
