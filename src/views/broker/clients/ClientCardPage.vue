@@ -20,6 +20,7 @@ import { billingApi, type BrokerInvoice } from '@/api/billing'
 import { foreignContractsApi } from '@/api/foreignContracts'
 import { clientCardApi, type ClientCard, type ClientCardCase, type ClientCardDoc } from '@/api/clientCard'
 import { canRenewContract, import40ContractApi } from '@/api/import40Contract'
+import { clientRegistryApi } from '@/api/clientRegistry'
 import { reestrApi } from '@/api/reestr'
 import type { ReestrEntry } from '@/types/api'
 import { useAuthStore } from '@/stores/auth'
@@ -39,8 +40,8 @@ import { validity, type Validity } from './clientDocs'
 import { REQUISITE_LABEL_KEY, isIndividualEntrepreneur, joinList, profileMissing, validDate } from '@/views/client/company/company'
 import { blankFileName, clientStatusLabelKey, clientStatusTone, docKindLabelKey, inviteUntil, signMethodLabelKey } from './clients'
 import {
-  accountStatusOf, availableTabs, awaitingAqniet, canRenewPoa, caseTone, cardTitle, contactRows, currentDocs, directorBasisOf, docTag, hasNextPoa, nextPoaOf,
-  invoicesOf, matchesCase, recentCases, resolveTab, transitQuery, unpaidOf, type ClientCardTab,
+  accountStatusOf, availableTabs, awaitingAqniet, canRenewPoa, caseTone, cardTitle, contactRows, currentDocs, directorBasisOf, docTag, docsTabCount, hasNextPoa, nextPoaOf,
+  invoicesOf, liveInvoicesCount, matchesCase, recentCases, resolveTab, transitQuery, unpaidOf, type ClientCardTab,
 } from './clientCard'
 import ClientRegistryPanel from '@/views/clientRegistry/ClientRegistryPanel.vue'
 import ContractsPanel from '@/views/foreignContracts/ContractsPanel.vue'
@@ -58,8 +59,10 @@ const auth = useAuthStore()
 const { statusLabel } = useImport40Status()
 
 // Права: заявки и мастер реквизитов — экран Импорта 40; «Транзит» и «Счета» — свои права.
-const canImport = computed(() => auth.hasPermission('import40.read'))
-const canReestr = computed(() => auth.hasPermission('reestr.read'))
+// 30.10.2026 (аудит S-10): бухгалтеру без операционных прав (isFinanceOnly) guard закрывает /import-40 и /reestr —
+// ссылки туда и вкладку «Транзит» не показываем (как на Главной), иначе клик уводит на /finance.
+const canImport = computed(() => auth.hasPermission('import40.read') && !auth.isFinanceOnly)
+const canReestr = computed(() => auth.hasPermission('reestr.read') && !auth.isFinanceOnly)
 const canFinance = computed(() => auth.hasPermission('finance.read'))
 // Подпись за AQNIET — администратор или руководитель отдела (как на сервере); мастер подписи — экран Импорта 40.
 const canSignProvider = computed(() => (auth.role || '').toLowerCase() === 'administrator' || auth.hasBusinessRole('rop'))
@@ -87,6 +90,8 @@ const billing = useBlock(canFinance.value, async () => {
 })
 // 30.10.2026: счётчик на вкладке «Контракты», как у соседних вкладок (действующие, без архива).
 const foreignContracts = useBlock(true, () => foreignContractsApi.list(id.value, { includeArchived: false, silent: true }))
+// 30.10.2026 (S-8): реестр документов клиента — для счётчика вкладки «Документы» (без архива, как в панели по умолчанию).
+const registryDocs = useBlock(true, () => clientRegistryApi.list(id.value, { includeArchived: false, silent: true }))
 
 const load = async () => {
   const clientId = id.value
@@ -96,9 +101,11 @@ const load = async () => {
   reestr.reset()
   billing.reset()
   foreignContracts.reset()
+  registryDocs.reset()
   void reestr.load()
   void billing.load()
   void foreignContracts.load()
+  void registryDocs.load()
   try {
     const c = await clientCardApi.card(clientId, { silent: true })
     if (my !== seq) return
@@ -128,8 +135,8 @@ const tabItems = computed<ZTabItem[]>(() => {
   const count: Partial<Record<ClientCardTab, number | undefined>> = {
     cases: c?.cases.length,
     transit: reestr.data?.totalCount,
-    docs: c?.documents.length,
-    invoices: billing.data?.length,
+    docs: docsTabCount(c?.documents.length, registryDocs.data?.length),
+    invoices: billing.data ? liveInvoicesCount(billing.data) : undefined,
     contracts: foreignContracts.data?.length,
   }
   return tabKeys.value.map((k) => ({ key: k, label: t(`broker.clientCard.tab.${k}`), count: count[k] }))

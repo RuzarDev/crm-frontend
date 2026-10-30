@@ -101,7 +101,8 @@ const as = (role: string, perms: string[], businessRoles: string[] = []) => {
   auth.permissions = perms
   auth.businessRoles = businessRoles
 }
-const ALL = ['clients.read', 'import40.read', 'reestr.read', 'finance.read']
+// import40.declarant — сотрудник с операционной работой (без него набор = «только финансы», S-10).
+const ALL = ['clients.read', 'import40.read', 'import40.declarant', 'reestr.read', 'finance.read']
 const mountAt = async (path = '/clients/c1') => {
   await router.push(path)
   await router.isReady()
@@ -300,6 +301,14 @@ describe('карточка клиента: вкладки и ?tab=', () => {
   it('вкладки по правам, со счётчиками', async () => {
     await mountAt()
     expect(tabs()).toEqual(['Обзор', 'Заявки 4', 'Транзит 8', 'Документы 3', 'Контракты', 'Счета 4'])
+  })
+
+  // 30.10.2026 (аудит S-8, S-9): «Документы» — договоры/доверенности + реестр документов; «Счета» — без аннулированных.
+  it('счётчики «Документы» и «Счета»: реестр документов входит, аннулированные — нет', async () => {
+    api.registry.mockResolvedValue([{ id: 'r1' }, { id: 'r2' }])
+    api.billing.mockResolvedValue([...INVOICES, invoice({ id: 'icancel', number: '0199', status: 3 })])
+    await mountAt()
+    expect(tabs()).toEqual(['Обзор', 'Заявки 4', 'Транзит 8', 'Документы 5', 'Контракты', 'Счета 4'])
   })
 
   it('без reestr.read нет «Транзита», без finance.read — «Счетов»', async () => {
@@ -556,6 +565,16 @@ describe('карточка клиента: вкладка «Заявки»', () 
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/clients/c1?tab=cases')
     expect(rows()[1].classes()).not.toContain('cursor-pointer')
+  })
+
+  // 30.10.2026 (аудит S-10): бухгалтеру без операционных прав guard закрывает /import-40 и /reestr — ссылок туда нет.
+  it('бухгалтер «только финансы»: заявки без ссылок, нет «Транзита» и «Изменить реквизиты»', async () => {
+    as('manager', ['clients.read', 'import40.read', 'reestr.read', 'finance.read'], ['accountant'])
+    await mountAt('/clients/c1?tab=cases')
+    expect(has('[data-case-open]')).toBe(false)
+    expect(rows()[1].classes()).not.toContain('cursor-pointer')
+    expect(tabs().map((x) => x.split(' ')[0])).toEqual(['Обзор', 'Заявки', 'Документы', 'Контракты', 'Счета'])
+    expect(w.text()).not.toContain('Изменить реквизиты')
   })
 })
 

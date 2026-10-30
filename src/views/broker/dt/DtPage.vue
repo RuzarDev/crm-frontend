@@ -848,7 +848,8 @@ onMounted(async () => {
 watch(dt.notFound, (nf) => {
   if (!nf) return
   message.error(t('broker.dt.page.notFound'))
-  void router.push('/import-40')
+  // S-31 (30.10.2026): ДТ нет (старая ссылка) — карточка её заявки, а не общий список; нет и заявки — карточка скажет сама.
+  void router.push(`/import-40/${encodeURIComponent(caseId)}`)
 })
 
 // Только что созданная ДТ ВТО (разделение): «Платежи» и сразу расчёт по ставкам ВТО (только при праве править).

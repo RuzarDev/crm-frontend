@@ -103,7 +103,8 @@ const pagination = computed(() => ({
   showTotal: (total: number, [from, to]: [number, number]) => t('broker.list.range', { from, to, total }),
 }))
 
-const openClient = (r: ClientDocumentRow) => { void router.push(`/clients/${r.clientId}`) }
+// 30.10.2026 (S-7): как в «Реестре документов» — сразу вкладка «Документы» карточки.
+const openClient = (r: ClientDocumentRow) => { void router.push({ path: `/clients/${r.clientId}`, query: { tab: 'docs' } }) }
 const customRow = (r: ClientDocumentRow) => ({
   class: 'cursor-pointer',
   onClick: (e: MouseEvent) => {

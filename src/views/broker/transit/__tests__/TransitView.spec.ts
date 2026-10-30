@@ -296,6 +296,36 @@ describe('TransitView: список и фильтры', () => {
     expect(lastList()).toMatchObject({ search: 'Поезд № 77', status: undefined, clientId: undefined })
   })
 
+  // S-50 (30.10.2026): Главная ведёт в «Транзит» с фильтром статуса (?status=N); прочие фильтры сбрасываются.
+  it('?status= с Главной — фильтр статуса, прочие фильтры сброшены; неизвестный статус не применяется', async () => {
+    const store = useReestrStore()
+    store.clientFilter = 'old'
+    store.searchQuery = 'старое'
+    await mountAt('/reestr?status=4')
+    expect(lastList()).toMatchObject({ search: '', status: 4, clientId: undefined, page: 1 })
+    w.unmount()
+    store.statusFilter = null
+    await mountAt('/reestr?status=99')
+    expect(lastList()).toMatchObject({ status: undefined })
+  })
+
+  // Ревью волны 2, A Minor 1 (30.10.2026): «Назад» на тот же адрес (запись истории с forward) — фильтры, выставленные
+  // после перехода, сохраняются; новый переход по ссылке — снова применяет адрес.
+  it('возврат «Назад» на применённый ?client= не сбрасывает выставленный статус', async () => {
+    const store = useReestrStore()
+    await mountAt('/reestr?client=c2')
+    store.statusFilter = 4
+    await router.push('/reestr/e1')
+    await router.push({ path: '/reestr', query: { client: 'c2' }, state: { forward: '/reestr/e1' } })
+    await flushPromises()
+    expect(store.statusFilter).toBe(4)
+    expect(store.clientFilter).toBe('c2')
+    await router.push('/reestr/e1')
+    await router.push('/reestr?client=c2')
+    await flushPromises()
+    expect(store.statusFilter).toBe(null)
+  })
+
   it('?q= другого экрана (уход со «Транзита») поиск не запускает', async () => {
     await mountAt('/reestr')
     const calls = api.getList.mock.calls.length

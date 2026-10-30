@@ -221,11 +221,12 @@ describe('DtPage: загрузка', () => {
     expect(api.get).toHaveBeenCalledTimes(2)
   })
 
-  it('ДТ не найдена — сообщение и переход к списку заявок', async () => {
+  // S-31 (30.10.2026): старая ссылка на ДТ ведёт в карточку её заявки, а не в общий список.
+  it('ДТ не найдена — сообщение и переход в карточку её заявки', async () => {
     server = caseDto({ declarations: [fullDto({ id: 'other' })] })
     await open()
     expect(toast.error).toHaveBeenCalledWith('Декларация не найдена')
-    expect(router.currentRoute.value.path).toBe('/import-40')
+    expect(router.currentRoute.value.path).toBe('/import-40/case1')
   })
 })
 

@@ -5,7 +5,7 @@ import type { ClientStatus } from '@/api/clientsOnboarding'
 import type { ReestrEntry } from '@/types/api'
 import { matchesQuery } from '@/views/broker/list'
 import { stageTone } from '@/views/broker/requests/requests'
-import { billingStats } from '@/views/broker/finance/billing'
+import { ST_CANCELLED, billingStats } from '@/views/broker/finance/billing'
 import { DATA_KEY } from '@/views/broker/transit/transit'
 import { IP_TALON_BASIS, isIndividualEntrepreneur } from '@/views/client/company/company'
 import { docStatusLabelKey, docStatusTone } from './clients'
@@ -115,6 +115,15 @@ export function transitQuery(e: Pick<ReestrEntry, 'data'>): string | null {
 // ---- Счета ----
 /** Счета именно этого клиента (на случай, если сервер фильтр по клиенту не применил). */
 export const invoicesOf = (clientId: string, rows: BrokerInvoice[]): BrokerInvoice[] => rows.filter((r) => r.clientId === clientId)
+
+// 30.10.2026 (аудит S-9): счётчик вкладки «Счета» — без аннулированных (как «действующие» на соседних вкладках);
+// в таблице аннулированные остаются для истории.
+export const liveInvoicesCount = (rows: Pick<BrokerInvoice, 'status'>[]): number => rows.filter((r) => r.status !== ST_CANCELLED).length
+
+// 30.10.2026 (аудит S-8): во вкладке «Документы» две таблицы — договор/доверенность и реестр документов клиента
+// (контракты, сертификаты…). Счётчик — их сумма; реестр не загрузился — только договоры и доверенности.
+export const docsTabCount = (contractDocs: number | undefined, registryDocs: number | undefined): number | undefined =>
+  contractDocs === undefined ? undefined : contractDocs + (registryDocs ?? 0)
 
 export interface Unpaid { sum: number; count: number; overdue: number }
 /** «Не оплачено»: выставленные счета (акты и черновики не считаются), из них просроченные. */

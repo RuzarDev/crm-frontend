@@ -3,7 +3,8 @@ import type { Import40DashboardDto } from '@/api/dashboard'
 import type { ManageOverview } from '@/api/manage'
 import type { BrokerInvoice } from '@/api/billing'
 import type { Import40CaseDto } from '@/api/import40'
-import { buildAttention, monthCaption, moneyForMonth, shortWhen, stageRows, stepTone, taskRows } from '../brokerHome'
+import type { DashboardDto } from '@/types/api'
+import { buildAttention, monthCaption, moneyForMonth, shortWhen, stageRows, stepTone, taskRows, transitStatusHref } from '../brokerHome'
 
 const dash = (o: Partial<Import40DashboardDto> = {}): Import40DashboardDto => ({
   totalCases: 0, casesThisMonth: 0, activeCases: 0, doneCases: 0, problemCases: 0, awaitingMe: 0, bySteps: [],
@@ -88,6 +89,24 @@ describe('buildAttention', () => {
       now: NOW,
     })
     expect(cards.map((c) => c.key)).toEqual(['unassigned', 'problems', 'stale', 'overdue'])
+  })
+  // S-50 (30.10.2026): МПП — проблемные записи транзита и поданные, ждущие выпуска; ссылки с фильтром статуса.
+  it('транзит: «Проблемные записи» (danger) и «поданы, ждут выпуска»; нули не показываются', () => {
+    const transit = (byStatus: DashboardDto['byStatus']): DashboardDto =>
+      ({ totalEntries: 0, entriesThisMonth: 0, totalWeightKg: 0, totalGrandTotal: 0, topClients: [], topCodes: [], byStatus })
+    expect(buildAttention({ import40: null, manage: null, invoices: null, transit: transit([{ status: 'Problematic', count: 2 }, { status: 'Submitted', count: 5 }]), now: NOW })).toEqual([
+      { key: 'transitProblems', tone: 'danger', count: 2, to: '/reestr?status=4' },
+      { key: 'transitSubmitted', tone: 'neutral', count: 5, to: '/reestr?status=1' },
+    ])
+    expect(buildAttention({ import40: null, manage: null, invoices: null, transit: transit([{ status: 'Problematic', count: 0 }, { status: 'Released', count: 9 }]), now: NOW })).toEqual([])
+  })
+})
+
+describe('transitStatusHref', () => {
+  it('имя статуса → /reestr?status=N; неизвестное — null', () => {
+    expect(transitStatusHref('InProgress')).toBe('/reestr?status=0')
+    expect(transitStatusHref('Archived')).toBe('/reestr?status=7')
+    expect(transitStatusHref('Нечто')).toBeNull()
   })
 })
 

@@ -32,7 +32,7 @@ import { cn } from '@/ui/cn'
 import type { ZColumn, ZKey } from '@/ui/table'
 import {
   DATA_KEY, OPTIONAL_COLUMNS, TRANSIT_COLUMNS, TRANSIT_STATUSES, cellText, formatAmount, formatContainer, formatQuantity,
-  pageTotals, readHiddenColumns, statusKey, statusTone, writeHiddenColumns, type TransitColumnId,
+  pageTotals, readHiddenColumns, statusKey, statusTone, transitAppliedQuery, transitRouteQuery, writeHiddenColumns, type TransitColumnId,
 } from './transit'
 
 // «Транзит» (редизайн, волна 3а, доска Transit): реестр транзитных записей с серверной пагинацией по 25.
@@ -140,19 +140,23 @@ const statusOptions = computed(() => TRANSIT_STATUSES.map((s) => ({ value: Strin
 // «Все записи клиента»). Показываем ровно это: прежние статус, клиент и период из стора сбрасываем (30.10.2026,
 // аудит S-4/S-49) — иначе нужные записи прятались за старыми фильтрами. Читается при открытии и пока экран открыт
 // (уход на другой экран с ?q= — не наш поиск: экран ещё жив во время перехода).
+// ?status= (30.10.2026, S-50) — Главная: «Проблемные записи» и строки статусов. Возврат «Назад» на уже применённый
+// адрес (у записи истории есть forward) фильтры не сбрасывает — их могли поменять после перехода (ревью волны 2, A Minor 1).
 const applyQuery = (query: Record<string, unknown>): boolean => {
-  const q = typeof query.q === 'string' ? query.q.trim() : ''
-  const client = typeof query.client === 'string' ? query.client.trim() : ''
-  if (!q && !client) return false
-  store.setSearch(q)
-  store.statusFilter = null
-  store.clientFilter = client || null
+  const p = transitRouteQuery(query)
+  if (!p) return false
+  const viaHistory = !!(router.options.history.state as { forward?: unknown } | null)?.forward
+  if (viaHistory && p.key === transitAppliedQuery.key) return false
+  transitAppliedQuery.key = p.key
+  store.setSearch(p.q)
+  store.statusFilter = p.status
+  store.clientFilter = p.client || null
   store.documentDateFrom = null
   store.documentDateTo = null
   selected.value = []
   return true
 }
-watch(() => `${route.query.q ?? ''}\u0000${route.query.client ?? ''}`, () => {
+watch(() => `${route.query.q ?? ''}\u0000${route.query.client ?? ''}\u0000${route.query.status ?? ''}`, () => {
   if (route.name === 'reestr' && applyQuery(route.query)) void load()
 })
 

@@ -146,11 +146,12 @@ export const canConfirmSvhWithoutCheck = (a: CaseAuth): boolean => isAdmin(a)
 /** Вести черновик за клиента (правка, документы, отправка): статус 0, import40.declarant или import40.assign. */
 export const canManageDraft = (a: CaseAuth, c: Import40CaseDto): boolean =>
   c.status === 0 && (hasPerm(a, 'import40.declarant') || hasPerm(a, 'import40.assign'))
-/** Сводку готовности ДТ грузим, как раньше: всем, кроме roleMode client/other. */
-export const readinessAvailable = (a: CaseAuth): boolean => {
-  const m = roleModeOf(a)
-  return m !== 'client' && m !== 'other'
-}
+/**
+ * Сводку готовности ДТ («Что осталось до подачи») грузим тем, кому её отдаёт сервер (CanManageDeclarations):
+ * администратор, import40.declarant или РОП среди ролей. S-34 (30.10.2026): раньше — по основной роли, и директор
+ * (основная accountant + rop) сводку не видел, а КПП получал 403.
+ */
+export const readinessAvailable = (a: CaseAuth): boolean => canManageDeclarations(dtUserFrom(a))
 /** Ссылка на карточку клиента — по праву clients.read. */
 export const canOpenClient = (a: CaseAuth): boolean => hasPerm(a, 'clients.read')
 

@@ -281,7 +281,8 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
       <FilterChip :label="t('broker.requests.filter.client')" :options="clientOptions" :value="filters.client" @update:value="patch({ client: $event })" />
       <FilterChip :label="t('broker.requests.filter.executor')" :options="executorOptions" :value="filters.executor" @update:value="patch({ executor: $event })" />
       <FilterChip :label="t('broker.requests.filter.stage')" :options="stageOptions" :value="filters.stage" @update:value="patch({ stage: $event })" />
-      <PeriodChip :label="t('broker.list.period')" :value="filters.period" @update:value="patch({ period: $event })" />
+      <!-- S-35 (30.10.2026): период — по дате обновления заявки, так и подписан. -->
+      <PeriodChip :label="t('broker.requests.filter.periodUpdated')" :value="filters.period" data-requests-period @update:value="patch({ period: $event })" />
       <FilterChip :label="t('condRel.filter.label')" :options="condRelOptions" :value="filters.condRel ?? null" data-requests-condrel @update:value="patch({ condRel: $event as CondRelFilter | null })" />
       <FilterChip :label="t('kedenLink.filter.label')" :options="kedenOptions" :value="filters.keden ?? null" data-requests-keden @update:value="patch({ keden: $event as 'unlinked' | null })" />
       <FilterChip :label="t('broker.requests.filter.problem')" :options="problemOptions" :value="filters.problem ? '1' : null" data-requests-problem @update:value="patch({ problem: $event === '1' })" />
@@ -349,7 +350,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
         </template>
       </ZTable>
 
-      <p v-if="source.data?.truncated" class="m-0 text-sm text-ink-3" data-requests-truncated>{{ t('broker.list.truncated', { n: source.data.items.length }) }}</p>
+      <p v-if="source.data?.truncated" class="m-0 text-sm text-ink-3" data-requests-truncated>{{ t('broker.requests.truncated', { n: source.data.items.length }) }}</p>
     </template>
 
     <SelectionBar :count="selected.length" class="sticky bottom-3 z-10 self-start" data-requests-selection @clear="selected = []">

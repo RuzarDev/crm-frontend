@@ -168,6 +168,13 @@ describe('«Аналитика»: последние события', () => {
     expect(w.findAll('[data-analytics-event-name]').map((n) => n.text())).toEqual(['ТОО «Клиент 1»', 'ТОО «Клиент 2»', 'ТОО «Клиент 3»'])
   })
 
+  // 30.10.2026 (аудит S-10): бухгалтер «только финансы» — import40.read есть, но guard заявки закрывает.
+  it('бухгалтер без операционных прав: ссылок на заявки нет', async () => {
+    as('manager', ['analytics.read', 'import40.read', 'finance.read'])
+    await mountView()
+    expect(has('[data-analytics-event-link]')).toBe(false)
+  })
+
   it('время: сегодня — часы и минуты, не сегодня — дата', async () => {
     api.get.mockResolvedValue({ ...DATA(), recentActivity: [ev(1, { atUtc: '2020-01-05T05:40:00Z' })] })
     await mountView()

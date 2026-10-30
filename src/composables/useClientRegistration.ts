@@ -102,6 +102,7 @@ export function useClientRegistration() {
   const blockReason = computed<RegistrationBlockCode | null>(() => blockReasonOf(state.value, contractAwaitingUs.value))
   const busyCaseId = computed(() => state.value?.busyCaseId ?? null)
   const busyCaseNumber = computed(() => state.value?.busyCaseNumber ?? null)
+  const busyCaseIsDraft = computed(() => state.value?.busyCaseIsDraft === true)
 
   return {
     isClient,
@@ -118,6 +119,7 @@ export function useClientRegistration() {
     blockReason,
     busyCaseId,
     busyCaseNumber,
+    busyCaseIsDraft,
     refresh,
     reset: resetClientRegistration,
   }

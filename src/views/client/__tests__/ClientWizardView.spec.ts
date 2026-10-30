@@ -26,6 +26,7 @@ const reg = vi.hoisted(() => ({
   blockReason: null as unknown as { value: string | null },
   busyCaseId: null as unknown as { value: string | null },
   busyCaseNumber: null as unknown as { value: string | null },
+  busyCaseIsDraft: null as unknown as { value: boolean },
   refresh: vi.fn(),
 }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
@@ -40,7 +41,7 @@ vi.mock('@/api/aiTnved', async (orig) => ({ ...(await orig<typeof import('@/api/
 vi.mock('@/composables/useClientRegistration', () => ({
   useClientRegistration: () => ({
     loaded: reg.loaded, complete: reg.complete, reason: reg.reason, needNew: reg.needNew,
-    blockReason: reg.blockReason, busyCaseId: reg.busyCaseId, busyCaseNumber: reg.busyCaseNumber, refresh: reg.refresh,
+    blockReason: reg.blockReason, busyCaseId: reg.busyCaseId, busyCaseNumber: reg.busyCaseNumber, busyCaseIsDraft: reg.busyCaseIsDraft, refresh: reg.refresh,
   }),
 }))
 
@@ -75,6 +76,7 @@ beforeEach(() => {
   reg.blockReason = ref(null)
   reg.busyCaseId = ref(null)
   reg.busyCaseNumber = ref(null)
+  reg.busyCaseIsDraft = ref(false)
   reg.refresh.mockResolvedValue(undefined)
   resetAiTnvedStatus()
   aiApi.status.mockResolvedValue({ available: false, configured: false, clientsEnabled: false, provider: 'Off', model: null })
@@ -124,7 +126,9 @@ describe('ClientWizardView', () => {
     expect(reg.refresh).toHaveBeenCalled()
     const gate = w.get('[data-wz-gate]')
     expect(gate.text()).toContain('Завершите регистрацию компании')
-    expect(gate.text()).toContain('Подпишите договор')
+    // M-8 (30.10.2026): текст из словаря на языке интерфейса, а не русская причина сервера.
+    expect(gate.text()).toContain('Оформить поставку можно после реквизитов, договора и доверенности.')
+    expect(gate.text()).not.toContain('Подпишите договор')
     expect(w.find('[data-step]').exists()).toBe(false)
     expect(w.find('[data-wz-next]').exists()).toBe(false)
 
@@ -159,6 +163,17 @@ describe('ClientWizardView', () => {
     expect(gate.text()).toContain('ИМ-2026-0009')
     expect(gate.text()).not.toContain('Завершите регистрацию')
     expect(gate.get('[data-wz-gate-busy]').attributes('href')).toBe('/import-40/c9')
+  })
+
+  // M-1 (30.10.2026): документ занят собственным черновиком клиента — ссылка ведёт в мастер, а не в карточку.
+  it('C-9: документ занят черновиком — «Открыть поставку» ведёт в мастер /import-40/new/:id', async () => {
+    reg.complete.value = false
+    reg.blockReason.value = 'busy'
+    reg.busyCaseId.value = 'c9'
+    reg.busyCaseNumber.value = 'ИМ-2026-0009'
+    reg.busyCaseIsDraft.value = true
+    await mountAt('/import-40/new')
+    expect(w.get('[data-wz-gate-busy]').attributes('href')).toBe('/import-40/new/c9')
   })
 
   it('C-9: договор ждёт подписи AQNIET — «Ждём подписи AQNIET», а не «Завершите регистрацию»', async () => {

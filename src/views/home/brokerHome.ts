@@ -2,12 +2,13 @@ import type { Import40DashboardDto } from '@/api/dashboard'
 import type { ManageOverview } from '@/api/manage'
 import type { BrokerInvoice } from '@/api/billing'
 import type { Import40CaseDto } from '@/api/import40'
+import type { DashboardDto } from '@/types/api'
 import { stepForStatus } from '@/utils/import40Steps'
 
 export type AttentionTone = 'gold' | 'danger' | 'neutral'
 
 export interface AttentionCard {
-  key: 'awaitingMe' | 'unassigned' | 'problems' | 'stale' | 'overdue'
+  key: 'awaitingMe' | 'unassigned' | 'problems' | 'stale' | 'overdue' | 'transitProblems' | 'transitSubmitted'
   tone: AttentionTone
   count: number
   amount?: number
@@ -21,9 +22,11 @@ export const buildAttention = (i: {
   import40: Import40DashboardDto | null
   manage: ManageOverview | null
   invoices: BrokerInvoice[] | null
+  /** Сводка транзита (/dashboard) — у кого reestr.read и не «только финансы». */
+  transit?: DashboardDto | null
   now: Date
 }): AttentionCard[] => {
-  const { import40, manage, invoices, now } = i
+  const { import40, manage, invoices, transit, now } = i
   const cards: AttentionCard[] = []
 
   if (import40 && !import40.isManagerView && import40.awaitingMe > 0) {
@@ -55,7 +58,26 @@ export const buildAttention = (i: {
       to: '/billing?status=overdue',
     })
   }
+  // S-50 (30.10.2026): МПП — «Требует внимания» по транзиту: проблемные записи и поданные, ждущие выпуска;
+  // карточка ведёт в «Транзит» с фильтром статуса (?status=N, номер — как ReestrEntryStatus).
+  const byStatus = (key: string) => transit?.byStatus.find((x) => x.status === key)?.count ?? 0
+  const transitProblems = byStatus('Problematic')
+  if (transitProblems > 0) {
+    cards.push({ key: 'transitProblems', tone: 'danger', count: transitProblems, to: transitStatusHref('Problematic')! })
+  }
+  const transitSubmitted = byStatus('Submitted')
+  if (transitSubmitted > 0) {
+    cards.push({ key: 'transitSubmitted', tone: 'neutral', count: transitSubmitted, to: transitStatusHref('Submitted')! })
+  }
   return cards.slice(0, MAX_ATTENTION)
+}
+
+// Порядок — как серверный ReestrEntryStatus (0..7) и STATUS_KEYS в transit.ts.
+const REESTR_STATUS_NAMES = ['InProgress', 'Submitted', 'Released', 'ConditionallyReleased', 'Problematic', 'Rejected', 'Withdrawn', 'Archived']
+/** «Транзит» с фильтром статуса по имени из сводки /dashboard (S-50); неизвестный статус — null. */
+export const transitStatusHref = (status: string): string | null => {
+  const n = REESTR_STATUS_NAMES.indexOf(status)
+  return n < 0 ? null : `/reestr?status=${n}`
 }
 
 export interface StageRow { step: number; count: number; color: string }
