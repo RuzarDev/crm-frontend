@@ -63,6 +63,8 @@ describe('фильтры оплаты', () => {
     expect(aqnietStageKey(draft)).toBe('broker.finance.stage.aqniet')
     expect(aqnietBillingHref(draft)).toBe('/billing?case=y')
     expect(aqnietBillingHref(ROWS[3])).toBe('/billing?caseId=d')
+    // I-2 ревью: все счета оплачены — «счёт оплачен», а не «ждёт оплаты счёта».
+    expect(aqnietStageKey(row({ status: 7, aqnietInvoiceIssued: true, aqnietInvoicePaid: true }))).toBe('broker.finance.stage.aqnietPaid')
   })
 })
 

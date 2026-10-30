@@ -3556,7 +3556,7 @@ export default {
       tableLabel: 'Finance by request',
       range: '{from}–{to} of {total}',
       col: { request: 'Request', stage: 'Stage', invoice: 'Warehouse invoice', payment: 'Payment', customs: 'Box B payments', files: 'Files', created: 'Created' },
-      stage: { aqniet: 'Awaiting AQNIET invoice', aqnietPay: 'Awaiting AQNIET invoice payment' },
+      stage: { aqniet: 'Awaiting AQNIET invoice', aqnietPay: 'Awaiting AQNIET invoice payment', aqnietPaid: 'AQNIET invoice paid' },
       pay: { paid: 'Paid', paidOn: 'Paid {date}', check: 'Receipt under review', wait: 'Awaiting payment' },
       invoiceNo: 'No. {number}',
       dtCount: '{n} DT',
@@ -4148,6 +4148,7 @@ export default {
         // S-25 (30.10.2026): step 6 text follows the actual AQNIET invoice.
         waitInvoice: 'The AQNIET invoice is not issued yet — the accountant issues it',
         issued: 'AQNIET invoice issued — waiting for payment, the accountant marks it',
+        paid: 'AQNIET invoice paid',
         draftExists: 'There is a draft AQNIET invoice — issue it in Invoices',
         openInvoice: 'Open invoice',
         openDraft: 'Open draft',

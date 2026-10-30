@@ -1,5 +1,5 @@
 import type { RegistrationStep } from '@/composables/useClientRegistration'
-import type { RegistrationBlockCode } from '@/api/import40'
+import type { Import40CanCreateDto, RegistrationBlockCode } from '@/api/import40'
 
 // Плашка регистрации клиента и одноразовый переход на шаги регистрации (перенос из прежней оболочки на AntD):
 // чистые функции от снимка useClientRegistration и текущего пути.
@@ -58,4 +58,17 @@ export function registrationBlock(code: RegistrationBlockCode | null): {
     default:
       return { title: 'client.wizard.gate.title', text: 'client.wizard.gate.text', tooltip: 'clientHome.newLocked', companyAction: false }
   }
+}
+
+/**
+ * Почему новую поставку оформить нельзя: код сервера; старый сервер кода не шлёт — выводим сами (C-9, 30.10.2026).
+ * I-1 ревью: «ждём AQNIET» — только когда со стороны клиента всё готово (доверенность действует); иначе — «missing»
+ * (кнопка ведёт на шаг доверенности по needNew).
+ */
+export function blockReasonOf(s: Import40CanCreateDto | null, contractAwaitingUs: boolean): RegistrationBlockCode | null {
+  if (!s || s.canCreate) return null
+  if (s.reasonCode) return s.reasonCode
+  if (!s.profileComplete) return 'profile'
+  if (contractAwaitingUs && s.poaOk) return 'awaitingAqniet'
+  return 'missing'
 }

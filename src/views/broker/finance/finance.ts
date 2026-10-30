@@ -25,9 +25,10 @@ export const isAwaitingAqniet = (r: FinanceRow): boolean => r.status === STATUS_
 export const aqnietBillingHref = (r: FinanceRow): string =>
   r.aqnietInvoiceDraft ? `/billing?case=${r.caseId}` : `/billing?caseId=${r.caseId}`
 
-/** Этап статуса 7: счёт AQNIET выставлен — «ждёт оплаты счёта», нет — «ждёт счёта». */
+/** Этап статуса 7: счета AQNIET оплачены — «счёт оплачен» (I-2 ревью), выставлен — «ждёт оплаты счёта», нет — «ждёт счёта». */
 export const aqnietStageKey = (r: FinanceRow): string =>
-  r.aqnietInvoiceIssued ? 'broker.finance.stage.aqnietPay' : 'broker.finance.stage.aqniet'
+  r.aqnietInvoicePaid ? 'broker.finance.stage.aqnietPaid'
+    : r.aqnietInvoiceIssued ? 'broker.finance.stage.aqnietPay' : 'broker.finance.stage.aqniet'
 
 /** Поиск: номер, клиент, груз (без учёта регистра и пробелов). */
 export const matchesFinance = (q: string, r: FinanceRow): boolean => matchesQuery(q, [r.number, r.clientName, r.cargo])

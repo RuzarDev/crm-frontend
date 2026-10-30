@@ -72,11 +72,12 @@ export const assignedNameOf = (c: Import40CaseDto, role: StepRole): string | nul
   (role === 'kpp' ? c.assignedKppName : c.assignedDeclarantName) || null
 
 /**
- * «Взять в работу»: не руководителю (у него назначение), исполнитель не назначен, и бизнес-роль шага — как сервер
- * (S-12, 30.10.2026): право import40.kpp есть и у декларанта, но строка КПП — очередь Менеджера КПП.
+ * «Взять в работу»: бизнес-роль шага и исполнитель не назначен — как сервер (S-12, 30.10.2026): право import40.kpp есть
+ * и у декларанта, но строка КПП — очередь Менеджера КПП. M-6 ревью: РОП с ролью декларанта (Ирина) берёт заявку сам —
+ * сервер это разрешает; «чистому» руководителю кнопка не нужна (у него назначение).
  */
 export const claimVisible = (a: CaseAuth, c: Import40CaseDto, role: StepRole): boolean =>
-  !canAssign(a) && hasBiz(a, role) && !assignedIdOf(c, role)
+  hasBiz(a, role) && !assignedIdOf(c, role)
 
 /** Шаг ведёт другой сотрудник: имя (null — имени нет, «назначен»). Руководитель не блокируется. */
 export function stepBlockedBy(a: CaseAuth, c: Import40CaseDto, role: StepRole): { name: string | null } | null {

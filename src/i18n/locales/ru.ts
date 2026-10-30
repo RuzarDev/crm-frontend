@@ -3560,7 +3560,7 @@ export default {
       tableLabel: 'Финансы по заявкам',
       range: '{from}–{to} из {total}',
       col: { request: 'Заявка', stage: 'Этап', invoice: 'Счёт СВХ', payment: 'Оплата', customs: 'Платежи гр. В', files: 'Файлы', created: 'Создана' },
-      stage: { aqniet: 'Ждёт счёта AQNIET', aqnietPay: 'Ждёт оплаты счёта AQNIET' },
+      stage: { aqniet: 'Ждёт счёта AQNIET', aqnietPay: 'Ждёт оплаты счёта AQNIET', aqnietPaid: 'Счёт AQNIET оплачен' },
       pay: { paid: 'Оплачено', paidOn: 'Оплачено {date}', check: 'Чек на проверке', wait: 'Ждёт оплаты' },
       invoiceNo: '№ {number}',
       dtCount: '{n} ДТ',
@@ -4152,6 +4152,7 @@ export default {
         // S-25 (30.10.2026): текст шага 6 — по факту счёта AQNIET.
         waitInvoice: 'Счёт AQNIET ещё не выставлен — выставляет бухгалтер',
         issued: 'Счёт AQNIET выставлен — ждём оплату, её отмечает бухгалтер',
+        paid: 'Счёт AQNIET оплачен',
         draftExists: 'Есть черновик счёта AQNIET — выставите его в «Счетах»',
         openInvoice: 'Открыть счёт',
         openDraft: 'Открыть черновик',

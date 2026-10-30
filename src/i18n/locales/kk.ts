@@ -3556,7 +3556,7 @@ export default {
       tableLabel: 'Өтінімдер бойынша қаржы',
       range: '{from}–{to} / {total}',
       col: { request: 'Өтінім', stage: 'Кезең', invoice: 'УҚҚ шоты', payment: 'Төлем', customs: 'В бағ. төлемдері', files: 'Файлдар', created: 'Жасалды' },
-      stage: { aqniet: 'AQNIET шотын күтуде', aqnietPay: 'AQNIET шотының төлемін күтуде' },
+      stage: { aqniet: 'AQNIET шотын күтуде', aqnietPay: 'AQNIET шотының төлемін күтуде', aqnietPaid: 'AQNIET шоты төленді' },
       pay: { paid: 'Төленді', paidOn: 'Төленді {date}', check: 'Чек тексерілуде', wait: 'Төлем күтуде' },
       invoiceNo: '№ {number}',
       dtCount: '{n} ТД',
@@ -4148,6 +4148,7 @@ export default {
         // S-25 (30.10.2026): 6-қадам мәтіні — AQNIET шотының бар-жоғына қарай.
         waitInvoice: 'AQNIET шоты әлі қойылмаған — оны бухгалтер қояды',
         issued: 'AQNIET шоты қойылды — төлемді күтеміз, оны бухгалтер белгілейді',
+        paid: 'AQNIET шоты төленді',
         draftExists: 'AQNIET шотының жобасы бар — оны «Шоттар» бөлімінде қойыңыз',
         openInvoice: 'Шотты ашу',
         openDraft: 'Жобаны ашу',

@@ -88,6 +88,10 @@ describe('casePermissions: роли', () => {
     expect(canStepBack(a, caseDto({ status: 9 }))).toBe(false)
     expect(casePerms(a, free).canUnmarkPaid).toBe(true)
     expect(canCompleteWithoutInvoice(a)).toBe(false)
+    // M-6 ревью: РОП с ролью декларанта (Ирина) видит «Взять в работу» в строке декларанта, но не КПП.
+    const irina = { ...a, businessRoles: ['rop', 'declarant'] }
+    expect(claimVisible(irina, free, 'declarant')).toBe(true)
+    expect(claimVisible(irina, caseDto({ status: 1 }), 'kpp')).toBe(false)
     expect(canManageDraft(a, caseDto({ status: 0 }))).toBe(true)
   })
 

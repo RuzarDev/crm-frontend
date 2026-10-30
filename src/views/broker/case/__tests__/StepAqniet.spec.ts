@@ -95,6 +95,10 @@ describe('StepAqniet', () => {
     w.unmount()
     mount(USERS.kpp, { invoices: [inv()] })
     expect(w.get('[data-aqniet-wait]').text()).toBe('Счёт AQNIET выставлен — ждём оплату, её отмечает бухгалтер')
+    // I-2 ревью: выставленный счёт оплачен, лишний аннулирован — «оплачен», а не «ждём оплату».
+    w.unmount()
+    mount(USERS.kpp, { invoices: [inv({ status: 2 }), inv({ id: 'i2', status: 3 })] })
+    expect(w.get('[data-aqniet-wait]').text()).toBe('Счёт AQNIET оплачен')
   })
 
   // S-25: при выставленном счёте «Выставить счёт AQNIET» скрыта (был риск дубля) — вместо неё «Открыть счёт» (только фильтр).

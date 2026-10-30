@@ -27,9 +27,13 @@ const router = useRouter()
 const perms = computed(() => props.ctx.perms)
 const caseId = computed(() => encodeURIComponent(props.ctx.kase.id))
 const aqnietInvoices = computed(() => props.ctx.invoices.filter((i) => i.kind === 'invoice'))
-/** issued — выставлен или оплачен (не аннулирован); draft — только черновик; none — счёта нет. */
-const invoiceState = computed<'issued' | 'draft' | 'none'>(() => {
-  if (aqnietInvoices.value.some((i) => i.status === 1 || i.status === 2)) return 'issued'
+/**
+ * paid — все выставленные (не аннулированные) счета оплачены (I-2 ревью); issued — есть выставленный неоплаченный;
+ * draft — только черновик; none — счёта нет.
+ */
+const invoiceState = computed<'paid' | 'issued' | 'draft' | 'none'>(() => {
+  const live = aqnietInvoices.value.filter((i) => i.status === 1 || i.status === 2)
+  if (live.length) return live.every((i) => i.status === 2) ? 'paid' : 'issued'
   return aqnietInvoices.value.some((i) => i.status === 0) ? 'draft' : 'none'
 })
 const canIssue = computed(() => perms.value.canIssueAqnietInvoice && invoiceState.value === 'none')
@@ -37,6 +41,7 @@ const canOpen = computed(() => perms.value.canSeeBilling && invoiceState.value !
 const issue = () => { void router.push(`/billing?caseId=${caseId.value}`) }
 const openInvoice = () => { void router.push(`/billing?case=${caseId.value}`) }
 const waitText = computed(() => {
+  if (invoiceState.value === 'paid') return t('broker.case.aqniet.paid')
   if (invoiceState.value === 'issued') return t('broker.case.aqniet.issued')
   if (invoiceState.value === 'draft') return t('broker.case.aqniet.draftExists')
   return perms.value.canIssueAqnietInvoice ? '' : t('broker.case.aqniet.waitInvoice')

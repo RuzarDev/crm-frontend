@@ -21,6 +21,8 @@ export interface FinanceRow {
   /** S-36 (30.10.2026): по заявке выставлен (или оплачен) не аннулированный счёт AQNIET; черновик — отдельно. */
   aqnietInvoiceIssued?: boolean
   aqnietInvoiceDraft?: boolean
+  /** I-2 ревью: все выставленные (не аннулированные) счета AQNIET оплачены. */
+  aqnietInvoicePaid?: boolean
 }
 export interface FinanceOverview {
   rows: FinanceRow[]; invoicedCount: number; awaitingPaymentCount: number; paidCount: number
