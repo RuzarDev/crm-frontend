@@ -33,6 +33,8 @@ export interface InviteClientResponse {
   invitePath: string
   expiresAtUtc: string
   reissued: boolean
+  /** Другие клиенты с этим БИН (C-25, раунд 1, 30.10.2026): приглашение разрешено, окно предупреждает. */
+  sameBinCompanies?: string[] | null
 }
 
 export interface InviteInfo {

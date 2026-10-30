@@ -1,26 +1,24 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhDownloadSimple } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSegmented from '@/components/z/ZSegmented.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ListSearch from '@/components/broker/ListSearch.vue'
-import { expeditorImport40Api, type ExpeditorClient, type ExpeditorContractFile, type ExpeditorShipment } from '@/api/expeditorImport40'
+import { expeditorImport40Api, type ExpeditorClient, type ExpeditorShipment } from '@/api/expeditorImport40'
 import { useBlock } from '@/views/home/useBlock'
 import { formatDay } from '@/views/broker/list'
 import { validDate } from '@/views/client/company/company'
-import { saveBlob } from '@/ui/download'
 import { cn } from '@/ui/cn'
 import {
   CONTRACT_TONE, contractState, filterCounts, filterShipments, shipmentTone, type ShipmentFilter,
 } from './expeditorImport40'
 
-// Логист (экспедитор), Импорт 40 своих клиентов — только чтение (17.10): статус груза по поставкам и договор каждого
-// клиента (скачать сформированный договор и подписанные файлы). Ни карточки заявки, ни денег — только то, что нужно
-// логисту, чтобы знать, где груз и можно ли везти.
+// Логист (экспедитор), Импорт 40 своих клиентов — только чтение (17.10): статус груза по поставкам и статус договора и
+// доверенности каждого клиента («действует до …»). Ни карточки заявки, ни денег, ни файлов договора (раунд 1, решение
+// владельца 30.10.2026) — только то, что нужно логисту, чтобы знать, где груз и можно ли везти.
 const { t } = useI18n()
 const block = useBlock(true, () => expeditorImport40Api.overview())
 void block.load()
@@ -50,27 +48,19 @@ const contractMeta = (c: ExpeditorClient): string[] => {
   return parts
 }
 
-const busy = ref<string | null>(null)
-const download = async (key: string, run: () => Promise<Blob>, name: string) => {
-  if (busy.value) return
-  busy.value = key
-  try {
-    saveBlob(await run(), name)
-  } catch {
-    // Текст ошибки показал общий перехватчик.
-  } finally {
-    busy.value = null
-  }
+// Доверенность (раунд 1, 30.10.2026): «Доверенность № … · действует до …», нет — «Доверенности нет».
+const poaLine = (c: ExpeditorClient): string => {
+  const p = c.poa
+  if (!p) return t('expeditor40.poa.none')
+  const no = t('expeditor40.poa.no', { no: `${p.number}/${p.year}` })
+  const state = contractState(p)
+  return state === 'active' && p.validUntilUtc
+    ? `${no} · ${t('expeditor40.contract.until', { date: validDate(p.validUntilUtc) })}`
+    : `${no} · ${t(`expeditor40.poa.state.${state}`)}`
 }
-const downloadContract = (c: ExpeditorClient) =>
-  download(`c-${c.clientId}`, () => expeditorImport40Api.downloadContract(c.clientId),
-    `${t('expeditor40.contract.file')}-${c.contract!.number}-${c.contract!.year}.docx`)
-const downloadSigned = (c: ExpeditorClient, f: ExpeditorContractFile) =>
-  download(`f-${f.id}`, () => expeditorImport40Api.downloadSignedFile(c.clientId, f.id), f.fileName)
 
 const card = 'rounded-panel border border-line bg-surface px-4 py-3.5 sm:px-5'
 const h2 = 'm-0 text-[17px] leading-6 font-semibold text-ink'
-const linkBtn = 'min-h-11 sm:min-h-8 max-sm:w-full'
 </script>
 
 <template>
@@ -149,25 +139,7 @@ const linkBtn = 'min-h-11 sm:min-h-8 max-sm:w-full'
             </div>
             <div class="text-sm text-ink" data-expeditor40-contract>{{ contractTitle(c) }}</div>
             <p v-if="contractMeta(c).length" class="m-0 text-xs text-ink-3">{{ contractMeta(c).join(' · ') }}</p>
-            <div v-if="c.contract" class="flex flex-wrap gap-2 max-sm:flex-col">
-              <ZButton size="sm" :class="linkBtn" :loading="busy === `c-${c.clientId}`" data-expeditor40-download @click="downloadContract(c)">
-                <template #icon><PhDownloadSimple :size="15" aria-hidden="true" /></template>
-                {{ t('expeditor40.contract.download') }}
-              </ZButton>
-              <ZButton
-                v-for="f in c.contract.signedFiles"
-                :key="f.id"
-                size="sm"
-                variant="ghost"
-                :class="linkBtn"
-                :loading="busy === `f-${f.id}`"
-                data-expeditor40-signed
-                @click="downloadSigned(c, f)"
-              >
-                <template #icon><PhDownloadSimple :size="15" aria-hidden="true" /></template>
-                {{ f.section === 'provider-signed' ? t('expeditor40.contract.providerFile') : t('expeditor40.contract.clientFile') }}
-              </ZButton>
-            </div>
+            <p class="m-0 text-sm text-ink" data-expeditor40-poa>{{ poaLine(c) }}</p>
           </li>
         </ul>
       </section>

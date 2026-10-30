@@ -3,10 +3,8 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { ExpeditorImport40, ExpeditorShipment } from '@/api/expeditorImport40'
 
-const api = vi.hoisted(() => ({ overview: vi.fn(), downloadContract: vi.fn(), downloadSignedFile: vi.fn() }))
-const dl = vi.hoisted(() => ({ saveBlob: vi.fn() }))
+const api = vi.hoisted(() => ({ overview: vi.fn() }))
 vi.mock('@/api/expeditorImport40', () => ({ expeditorImport40Api: api }))
-vi.mock('@/ui/download', () => dl)
 
 import ExpeditorImport40View from '../ExpeditorImport40View.vue'
 import { contractState, filterCounts, filterShipments, shipmentTone } from '../expeditorImport40'
@@ -22,7 +20,11 @@ const DATA: ExpeditorImport40 = {
       clientId: 'a', name: 'ТОО Альфа', innBin: '123456789012',
       contract: {
         id: 'k', number: '7', year: 2026, status: 2, clientSigned: true, providerSigned: false, validUntilUtc: null,
-        generatedAtUtc: '2026-10-01T00:00:00Z', signedFiles: [{ id: 'f1', section: 'client-signed', fileName: 'dogovor.pdf' }],
+        generatedAtUtc: '2026-10-01T00:00:00Z',
+      },
+      poa: {
+        id: 'p', number: '5', year: 2026, status: 2, clientSigned: true, providerSigned: false, validUntilUtc: '2026-12-31T23:59:59Z',
+        generatedAtUtc: '2026-10-02T00:00:00Z',
       },
     },
     { clientId: 'b', name: 'ТОО Бета', innBin: '', contract: null },
@@ -79,26 +81,25 @@ describe('ExpeditorImport40View', () => {
     expect(w.get('[data-expeditor40-released]').text()).toBe('Выпуск: 05.10.2026')
   })
 
-  it('договоры: состояние и подписи; скачать договор и подписанный файл', async () => {
+  // Раунд 1 (решение владельца 30.10.2026): только статус договора и доверенности, без скачивания.
+  it('документы: состояние договора и подписи, доверенность «действует до …»; скачивания нет', async () => {
     api.overview.mockResolvedValue(DATA)
-    api.downloadContract.mockResolvedValue(new Blob(['d']))
-    api.downloadSignedFile.mockResolvedValue(new Blob(['p']))
     await mountIt()
     const a = w.get('[data-expeditor40-client="a"]')
     expect(a.get('[data-expeditor40-contract-state]').text()).toBe('Действует')
     expect(a.get('[data-expeditor40-contract]').text()).toBe('Договор № 7/2026')
     expect(a.text()).toContain('клиент подписал · AQNIET не подписал')
-    await a.get('[data-expeditor40-download]').trigger('click')
-    await flushPromises()
-    expect(api.downloadContract).toHaveBeenCalledWith('a')
-    expect(dl.saveBlob).toHaveBeenLastCalledWith(expect.any(Blob), 'Договор-7-2026.docx')
-    await a.get('[data-expeditor40-signed]').trigger('click')
-    await flushPromises()
-    expect(api.downloadSignedFile).toHaveBeenCalledWith('a', 'f1')
-    expect(dl.saveBlob).toHaveBeenLastCalledWith(expect.any(Blob), 'dogovor.pdf')
+    expect(a.get('[data-expeditor40-poa]').text()).toBe('Доверенность № 5/2026 · действует до 31.12.2026')
+    expect(w.find('button[data-expeditor40-download], [data-expeditor40-signed]').exists()).toBe(false)
     const b = w.get('[data-expeditor40-client="b"]')
     expect(b.get('[data-expeditor40-contract-state]').text()).toBe('Нет договора')
-    expect(b.find('[data-expeditor40-download]').exists()).toBe(false)
+    expect(b.get('[data-expeditor40-poa]').text()).toBe('Доверенности нет')
+  })
+
+  it('доверенность ждёт подписи — так и написано', async () => {
+    api.overview.mockResolvedValue({ ...DATA, clients: [{ ...DATA.clients[0], poa: { ...DATA.clients[0].poa!, status: 1, validUntilUtc: null } }] })
+    await mountIt()
+    expect(w.get('[data-expeditor40-poa]').text()).toBe('Доверенность № 5/2026 · ждёт подписи клиента')
   })
 
   it('нет клиентов — пустое состояние; ошибка — «Повторить»', async () => {
