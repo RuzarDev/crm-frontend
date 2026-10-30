@@ -6,7 +6,7 @@ import type { CaseAuth } from '../casePermissions'
 import { USERS } from './caseFixture'
 import { mountStep } from './stepHarness'
 
-const api = vi.hoisted(() => ({ pdf: vi.fn() }))
+const api = vi.hoisted(() => ({ pdf: vi.fn(), unmarkPaid: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 const saved = vi.hoisted(() => ({ saveBlob: vi.fn() }))
 vi.mock('@/api/billing', () => ({ billingApi: api }))
@@ -86,11 +86,59 @@ describe('StepAqniet', () => {
     expect(router.currentRoute.value.fullPath).toBe('/billing?caseId=c1')
   })
 
-  it('КПП без finance.write: кнопки нет, текст «Ждём оплату — отмечает бухгалтер»', () => {
+  // S-25 (30.10.2026): текст — по факту счёта. Счёта нет — «ещё не выставлен» (раньше «Ждём оплату»).
+  it('КПП без finance.write: кнопки нет; счёта нет — «ещё не выставлен», выставлен — «ждём оплату»', () => {
     mount(USERS.kpp)
     expect(w.find('[data-aqniet-issue]').exists()).toBe(false)
     expect(w.find('[data-aqniet-complete]').exists()).toBe(false)
-    expect(w.get('[data-aqniet-wait]').text()).toBe('Ждём оплату — отмечает бухгалтер')
+    expect(w.get('[data-aqniet-wait]').text()).toBe('Счёт AQNIET ещё не выставлен — выставляет бухгалтер')
+    w.unmount()
+    mount(USERS.kpp, { invoices: [inv()] })
+    expect(w.get('[data-aqniet-wait]').text()).toBe('Счёт AQNIET выставлен — ждём оплату, её отмечает бухгалтер')
+  })
+
+  // S-25: при выставленном счёте «Выставить счёт AQNIET» скрыта (был риск дубля) — вместо неё «Открыть счёт» (только фильтр).
+  it('счёт уже выставлен — «Выставить» нет, «Открыть счёт» ведёт в «Счета» с фильтром по заявке', async () => {
+    mount(USERS.accountant, { invoices: [inv()] })
+    expect(w.find('[data-aqniet-issue]').exists()).toBe(false)
+    const open = w.get('[data-aqniet-open]')
+    expect(open.text()).toBe('Открыть счёт')
+    await open.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/billing?case=c1')
+  })
+
+  it('аннулированный счёт не в счёт — снова «Выставить счёт AQNIET»; черновик — «Открыть черновик»', () => {
+    mount(USERS.accountant, { invoices: [inv({ status: 3 })] })
+    expect(w.find('[data-aqniet-issue]').exists()).toBe(true)
+    w.unmount()
+    mount(USERS.accountant, { invoices: [inv({ status: 0, number: '' })] })
+    expect(w.find('[data-aqniet-issue]').exists()).toBe(false)
+    expect(w.get('[data-aqniet-open]').text()).toBe('Открыть черновик')
+  })
+
+  // S-27: руководитель снимает ошибочную отметку оплаты — с причиной; бухгалтеру кнопки нет.
+  it('руководитель: «Снять отметку оплаты» у оплаченного счёта выполненной заявки — с причиной', async () => {
+    api.unmarkPaid.mockResolvedValue({})
+    const m = mount(USERS.rop, { mode: 'done', kase: { status: 8 }, invoices: [inv({ status: 2 })] })
+    await w.get('[data-aqniet-unmark]').trigger('click')
+    await flushPromises()
+    const modal = document.body.querySelector('[data-aqniet-unmark-modal]')
+    expect(modal).not.toBeNull()
+    const textarea = document.body.querySelector<HTMLTextAreaElement>('[data-aqniet-unmark-reason] textarea, textarea[data-aqniet-unmark-reason]')!
+    textarea.value = 'оплата не поступила'
+    textarea.dispatchEvent(new Event('input'))
+    await flushPromises()
+    const ok = [...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Снять отметку')!
+    ok.click()
+    await flushPromises()
+    expect(api.unmarkPaid).toHaveBeenCalledWith('i1', 'оплата не поступила')
+    expect(m.reload).toHaveBeenCalled()
+  })
+
+  it('бухгалтер: «Снять отметку оплаты» нет', () => {
+    mount(USERS.accountant, { mode: 'done', kase: { status: 8 }, invoices: [inv({ status: 2 })] })
+    expect(w.find('[data-aqniet-unmark]').exists()).toBe(false)
   })
 
   it('администратор: «Завершить без счёта AQNIET» открывает окно причины', async () => {

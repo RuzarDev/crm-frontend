@@ -7,13 +7,13 @@ import { mountWithI18n } from '@/test/mountWithI18n'
 import type { ClientShipment } from '@/api/clientShipments'
 
 const api = vi.hoisted(() => ({ list: vi.fn() }))
-const reg = vi.hoisted(() => ({ loaded: null as unknown, complete: null as unknown }))
+const reg = vi.hoisted(() => ({ loaded: null as unknown, complete: null as unknown, blockReason: null as unknown, busyCaseNumber: null as unknown }))
 const cost = vi.hoisted(() => ({ xlsx: vi.fn(), saveBlob: vi.fn() }))
 vi.mock('@/api/clientShipments', () => ({ clientShipmentsApi: { list: api.list } }))
 vi.mock('@/api/shipmentCost', () => ({ shipmentCostApi: { xlsx: cost.xlsx } }))
 vi.mock('@/ui/download', () => ({ saveBlob: cost.saveBlob }))
 vi.mock('@/composables/useClientRegistration', () => ({
-  useClientRegistration: () => ({ loaded: reg.loaded, complete: reg.complete }),
+  useClientRegistration: () => ({ loaded: reg.loaded, complete: reg.complete, blockReason: reg.blockReason, busyCaseNumber: reg.busyCaseNumber }),
 }))
 
 import ClientShipmentsView from '../ClientShipmentsView.vue'
@@ -66,6 +66,8 @@ beforeEach(() => {
     ],
   })
   reg.loaded = ref(true)
+  reg.blockReason = ref(null)
+  reg.busyCaseNumber = ref(null)
   reg.complete = ref(true)
   const auth = useAuthStore()
   auth.role = 'Client'

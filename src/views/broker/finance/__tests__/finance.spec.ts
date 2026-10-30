@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { FinanceRow } from '@/api/manage'
 import ru from '@/i18n/locales/ru'
 import {
-  FINANCE_FILTERS, filterCounts, filterFinance, financeExcelRows, hasInvoice, isAwaitingAqniet, matchesFinance,
+  FINANCE_FILTERS, aqnietBillingHref, aqnietStageKey, filterCounts, filterFinance, financeExcelRows, hasInvoice, isAwaitingAqniet, matchesFinance,
   paymentLabel, paymentState, paymentTone, stageTone,
 } from '../finance'
 
@@ -27,10 +27,10 @@ describe('фильтры оплаты', () => {
   it('порядок сегментов', () => {
     expect(FINANCE_FILTERS).toEqual(['all', 'awaiting', 'paid', 'invoiced'])
   })
-  it('ждут оплаты — статус 6 без подтверждённой оплаты; оплачено — подтверждена; счёт выставлен — дата или статус от 6', () => {
+  it('ждут оплаты — статус 6 без подтверждённой оплаты; оплачено — подтверждена; счёт выставлен — дата или статус от 6, кроме отменённых', () => {
     expect(ids(filterFinance(ROWS, '', 'awaiting'))).toEqual(['a', 'b', 'f'])
     expect(ids(filterFinance(ROWS, '', 'paid'))).toEqual(['c', 'd'])
-    expect(ids(filterFinance(ROWS, '', 'invoiced'))).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
+    expect(ids(filterFinance(ROWS, '', 'invoiced'))).toEqual(['a', 'b', 'c', 'd', 'f'])
     expect(filterFinance(ROWS, '', 'all')).toHaveLength(6)
   })
   it('счёт выставлен: статус ниже 6 с датой выставления тоже подходит, без даты — нет', () => {
@@ -47,11 +47,22 @@ describe('фильтры оплаты', () => {
     expect(ids(filterFinance(ROWS, 'ткань', 'awaiting'))).toEqual(['f'])
   })
   it('счётчики учитывают поиск, но не сегмент', () => {
-    expect(filterCounts(ROWS, '')).toEqual({ all: 6, awaiting: 3, paid: 2, invoiced: 6 })
-    expect(filterCounts(ROWS, 'ткань')).toEqual({ all: 2, awaiting: 1, paid: 0, invoiced: 2 })
+    // S-37 (30.10.2026): отменённая «e» — не «счёт выставлен».
+    expect(filterCounts(ROWS, '')).toEqual({ all: 6, awaiting: 3, paid: 2, invoiced: 5 })
+    expect(filterCounts(ROWS, 'ткань')).toEqual({ all: 2, awaiting: 1, paid: 0, invoiced: 1 })
   })
   it('заявка ждёт счёта AQNIET — статус 7', () => {
     expect(ids(ROWS.filter(isAwaitingAqniet))).toEqual(['d'])
+  })
+  // S-36 (30.10.2026): счёт AQNIET уже выставлен — не «ждёт счёта» (риск второго счёта); этап — «ждёт оплаты счёта».
+  it('статус 7 с выставленным счётом AQNIET — не в «ждут счёта»; черновик — ссылка без окна нового счёта', () => {
+    const issued = row({ caseId: 'x', status: 7, aqnietInvoiceIssued: true })
+    const draft = row({ caseId: 'y', status: 7, aqnietInvoiceDraft: true })
+    expect(ids([issued, draft].filter(isAwaitingAqniet))).toEqual(['y'])
+    expect(aqnietStageKey(issued)).toBe('broker.finance.stage.aqnietPay')
+    expect(aqnietStageKey(draft)).toBe('broker.finance.stage.aqniet')
+    expect(aqnietBillingHref(draft)).toBe('/billing?case=y')
+    expect(aqnietBillingHref(ROWS[3])).toBe('/billing?caseId=d')
   })
 })
 

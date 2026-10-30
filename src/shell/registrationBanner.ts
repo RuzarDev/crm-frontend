@@ -1,4 +1,5 @@
 import type { RegistrationStep } from '@/composables/useClientRegistration'
+import type { RegistrationBlockCode } from '@/api/import40'
 
 // Плашка регистрации клиента и одноразовый переход на шаги регистрации (перенос из прежней оболочки на AntD):
 // чистые функции от снимка useClientRegistration и текущего пути.
@@ -37,3 +38,24 @@ export function registrationBannerState(reg: RegistrationSnapshot, path: string)
  */
 export const shouldRedirectToRegistration = (reg: RegistrationSnapshot, path: string, alreadyRedirected: boolean): boolean =>
   !alreadyRedirected && reg.isClient && reg.loaded && !reg.complete && !!reg.nextStep && path === '/home'
+
+/**
+ * Тексты блокировки новой поставки по причине (C-9, 30.10.2026): клиенту, который всё подписал и ждёт AQNIET, —
+ * «ждём», занятый разовый документ — с номером поставки, истёкший — «нужен новый». Ключи i18n: заголовок и текст
+ * экрана мастера, подсказка кнопки «Оформить новую поставку»; companyAction — кнопка ведёт в «Мою компанию» без
+ * «Завершить регистрацию» (регистрация уже пройдена).
+ */
+export function registrationBlock(code: RegistrationBlockCode | null): {
+  title: string; text: string; tooltip: string; companyAction: boolean
+} {
+  switch (code) {
+    case 'awaitingAqniet':
+      return { title: 'client.wizard.gate.awaitingAqniet.title', text: 'client.wizard.gate.awaitingAqniet.text', tooltip: 'clientHome.newLockedWait', companyAction: true }
+    case 'busy':
+      return { title: 'client.wizard.gate.busy.title', text: 'client.wizard.gate.busy.text', tooltip: 'clientHome.newLockedBusy', companyAction: true }
+    case 'renew':
+      return { title: 'client.wizard.gate.renew.title', text: 'client.wizard.gate.renew.text', tooltip: 'clientHome.newLockedRenew', companyAction: true }
+    default:
+      return { title: 'client.wizard.gate.title', text: 'client.wizard.gate.text', tooltip: 'clientHome.newLocked', companyAction: false }
+  }
+}

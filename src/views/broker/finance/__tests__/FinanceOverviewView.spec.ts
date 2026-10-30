@@ -135,13 +135,14 @@ describe('«Финансы»: обзор', () => {
 
   it('фильтры со счётчиками и поиск', async () => {
     await mountView()
-    expect(segments()).toEqual(['Все 7', 'Ждут оплаты 2', 'Оплачено 3', 'Счёт выставлен 6'])
+    // S-37/S-28 (30.10.2026): отменённая — не «счёт СВХ выставлен»; подпись — «Счёт СВХ выставлен».
+    expect(segments()).toEqual(['Все 7', 'Ждут оплаты 2', 'Оплачено 3', 'Счёт СВХ выставлен 5'])
     await w.findAll('[data-finance-filters] button')[1].trigger('click')
     await flushPromises()
     expect(numbers()).toEqual(['ИМ-2026-0170', 'ИМ-2026-0173'])
     await w.get('input[type="search"]').setValue('steppe')
     expect(numbers()).toEqual(['ИМ-2026-0173'])
-    expect(segments()).toEqual(['Все 1', 'Ждут оплаты 1', 'Оплачено 0', 'Счёт выставлен 1'])
+    expect(segments()).toEqual(['Все 1', 'Ждут оплаты 1', 'Оплачено 0', 'Счёт СВХ выставлен 1'])
     expect(api.overview).toHaveBeenCalledTimes(1)
   })
 

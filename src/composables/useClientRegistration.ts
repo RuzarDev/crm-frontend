@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { import40Api, type Import40CanCreateDto } from '@/api/import40'
+import { import40Api, type Import40CanCreateDto, type RegistrationBlockCode } from '@/api/import40'
 import { import40ContractApi, type Import40DocumentDto } from '@/api/import40Contract'
 
 // Регистрация клиента = три шага «Моей компании»: реквизиты → договор → доверенность.
@@ -97,6 +97,18 @@ export function useClientRegistration() {
 
   const doneCount = computed(() => [profileDone.value, contractDone.value, poaDone.value].filter(Boolean).length)
 
+  // C-9 (30.10.2026): почему новую поставку оформить нельзя — код сервера; старый сервер кода не шлёт — выводим сами.
+  const blockReason = computed<RegistrationBlockCode | null>(() => {
+    const s = state.value
+    if (!s || s.canCreate) return null
+    if (s.reasonCode) return s.reasonCode
+    if (!s.profileComplete) return 'profile'
+    if (contractAwaitingUs.value) return 'awaitingAqniet'
+    return 'missing'
+  })
+  const busyCaseId = computed(() => state.value?.busyCaseId ?? null)
+  const busyCaseNumber = computed(() => state.value?.busyCaseNumber ?? null)
+
   return {
     isClient,
     loaded,
@@ -109,6 +121,9 @@ export function useClientRegistration() {
     contractDone,
     poaDone,
     contractAwaitingUs,
+    blockReason,
+    busyCaseId,
+    busyCaseNumber,
     refresh,
     reset: resetClientRegistration,
   }

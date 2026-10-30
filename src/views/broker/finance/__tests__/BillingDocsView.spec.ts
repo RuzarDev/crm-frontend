@@ -93,6 +93,25 @@ afterEach(() => {
 })
 
 describe('«Счета и акты» (сотрудник)', () => {
+  // S-27 (30.10.2026): оплаченный счёт по заявке аннулируют с причиной (заявка, выполненная им, вернётся в работу).
+  it('аннулировать оплаченный счёт по заявке — окно причины, причина уходит на сервер', async () => {
+    api.list.mockResolvedValue([inv({ id: 'p', caseId: 'k9', caseNumber: 'ИМ-2026-0199', status: 2, number: '0300', paidAtUtc: '2026-10-20T05:00:00Z' })])
+    await mountView()
+    actionsOf(0).vm.$emit('action', 'cancel')
+    await flushPromises()
+    expect(confirmState.title).not.toBe('Аннулировать документ?')
+    const modal = document.body.querySelector('[data-billing-cancel-paid]')
+    expect(modal?.textContent).toContain('Аннулировать оплаченный счёт')
+    const area = document.body.querySelector<HTMLTextAreaElement>('textarea[data-billing-cancel-reason], [data-billing-cancel-reason] textarea')!
+    area.value = 'выставлен не тому клиенту'
+    area.dispatchEvent(new Event('input'))
+    await flushPromises()
+    const ok = [...document.body.querySelectorAll<HTMLButtonElement>('[data-billing-cancel-paid] button')].find((b) => b.textContent?.trim() === 'Аннулировать')!
+    ok.click()
+    await flushPromises()
+    expect(api.cancel).toHaveBeenCalledWith('p', 'выставлен не тому клиенту')
+  })
+
   it('один запрос списка (silent); заголовок, показатели — суммы по счетам, акты не входят', async () => {
     await mountView()
     expect(api.list).toHaveBeenCalledWith(undefined, { silent: true })

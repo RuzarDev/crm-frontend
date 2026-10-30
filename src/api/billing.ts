@@ -125,8 +125,13 @@ export const billingApi = {
   markPaid: async (id: string): Promise<BrokerInvoice> =>
     (await apiClient.post<BrokerInvoice>(`/billing/invoices/${id}/mark-paid`, {})).data,
 
-  cancel: async (id: string): Promise<BrokerInvoice> =>
-    (await apiClient.post<BrokerInvoice>(`/billing/invoices/${id}/cancel`, {})).data,
+  // reason — для оплаченного счёта выполненной заявки обязателен (S-27, 30.10.2026: заявка вернётся в работу).
+  cancel: async (id: string, reason?: string): Promise<BrokerInvoice> =>
+    (await apiClient.post<BrokerInvoice>(`/billing/invoices/${id}/cancel`, reason ? { reason } : {})).data,
+
+  // Снять ошибочную отметку оплаты (S-27): руководитель, с причиной; выполненная этой оплатой заявка вернётся в работу.
+  unmarkPaid: async (id: string, reason: string): Promise<BrokerInvoice> =>
+    (await apiClient.post<BrokerInvoice>(`/billing/invoices/${id}/unmark-paid`, { reason })).data,
 
   remove: async (id: string): Promise<void> => {
     await apiClient.delete(`/billing/invoices/${id}`)

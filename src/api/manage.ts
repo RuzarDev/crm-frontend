@@ -18,6 +18,9 @@ export interface FinanceRow {
   paymentConfirmed: boolean; paidAtUtc: string | null; hasPaymentCheck: boolean
   customsPaymentsKzt: number; declarationsCount: number; createdAtUtc: string; updatedAtUtc: string
   files: FinanceFile[]
+  /** S-36 (30.10.2026): по заявке выставлен (или оплачен) не аннулированный счёт AQNIET; черновик — отдельно. */
+  aqnietInvoiceIssued?: boolean
+  aqnietInvoiceDraft?: boolean
 }
 export interface FinanceOverview {
   rows: FinanceRow[]; invoicedCount: number; awaitingPaymentCount: number; paidCount: number
