@@ -1,6 +1,7 @@
 import type { ClientDocumentRow } from '@/api/clientCard'
 import { docStatusLabelKey } from './clients'
-import { formatDay, matchesQuery } from '@/views/broker/list'
+import { matchesQuery } from '@/views/broker/list'
+import { validDate } from '@/views/client/company/company'
 
 // Чистая логика реестра «Документы клиентов» (редизайн, волна 3б): фильтры, счётчики, срок действия, Excel.
 // Тоны и подписи статуса документа — те же, что у списка «Клиенты» (clients.ts).
@@ -71,7 +72,7 @@ export interface Validity {
  */
 export function validity(r: Pick<ClientDocumentRow, 'status' | 'validUntilUtc' | 'daysLeft' | 'expiringSoon'>): Validity {
   if (!r.validUntilUtc) return { date: '—', hint: r.status === 2 ? { kind: 'unlimited', n: 0, soon: false } : null }
-  const date = formatDay(r.validUntilUtc)
+  const date = validDate(r.validUntilUtc)
   if (r.daysLeft === null) return { date, hint: null }
   if (r.daysLeft < 0) return { date, hint: { kind: 'overdue', n: -r.daysLeft, soon: false } }
   return { date, hint: { kind: 'left', n: r.daysLeft, soon: r.expiringSoon } }
@@ -89,7 +90,7 @@ export function docExcelRows(rows: ClientDocumentRow[], t: (k: string) => string
     [t('broker.clientDocs.singleUse')]: yn(r.isSingleUse),
     [t('broker.clientDocs.xlsClientSigned')]: yn(r.clientSigned),
     [t('broker.clientDocs.xlsProviderSigned')]: yn(r.providerSigned),
-    [t('broker.clientDocs.xlsValidUntil')]: r.validUntilUtc ? formatDay(r.validUntilUtc) : '',
+    [t('broker.clientDocs.xlsValidUntil')]: r.validUntilUtc ? validDate(r.validUntilUtc) : '',
     [t('broker.clientDocs.xlsDaysLeft')]: r.daysLeft ?? '',
   }))
 }

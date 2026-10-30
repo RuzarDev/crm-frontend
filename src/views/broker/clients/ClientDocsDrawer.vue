@@ -11,6 +11,7 @@ import { import40ContractApi, type Import40DocumentDto, type Import40DocumentFil
 import type { ClientOnboardingRow } from '@/api/clientsOnboarding'
 import { saveBlob } from '@/ui/download'
 import { formatDay } from '@/views/broker/list'
+import { validDate } from '@/views/client/company/company'
 import { blankFileName, clientName, docKindLabelKey, docStatusLabelKey, docStatusTone, signMethodLabelKey } from './clients'
 
 // Документы клиента (договор и доверенность): статус, подписи сторон, бланк и подписанные файлы. Открывают только
@@ -101,7 +102,7 @@ const fileLink = 'inline-flex max-w-full min-h-8 cursor-pointer items-center gap
               v-if="d.validUntilUtc"
               :class="['text-xs', isExpired(d.validUntilUtc) ? 'text-tone-danger-fg' : 'text-muted']"
               data-doc-until
-            >{{ t('admin.doDate', { date: formatDay(d.validUntilUtc) }) }}</span>
+            >{{ t('admin.doDate', { date: validDate(d.validUntilUtc) }) }}</span>
             <ZTag v-if="d.isSingleUse" tone="accent" data-doc-single>{{ t('admin.razovyy') }}</ZTag>
           </div>
         </div>

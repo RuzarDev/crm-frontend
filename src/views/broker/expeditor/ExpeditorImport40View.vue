@@ -11,6 +11,7 @@ import ListSearch from '@/components/broker/ListSearch.vue'
 import { expeditorImport40Api, type ExpeditorClient, type ExpeditorContractFile, type ExpeditorShipment } from '@/api/expeditorImport40'
 import { useBlock } from '@/views/home/useBlock'
 import { formatDay } from '@/views/broker/list'
+import { validDate } from '@/views/client/company/company'
 import { saveBlob } from '@/ui/download'
 import { cn } from '@/ui/cn'
 import {
@@ -45,7 +46,7 @@ const contractMeta = (c: ExpeditorClient): string[] => {
   if (!k) return []
   const parts = [k.clientSigned ? t('expeditor40.contract.clientSigned') : t('expeditor40.contract.clientNotSigned'),
     k.providerSigned ? t('expeditor40.contract.providerSigned') : t('expeditor40.contract.providerNotSigned')]
-  if (k.validUntilUtc) parts.push(t('expeditor40.contract.until', { date: formatDay(k.validUntilUtc) }))
+  if (k.validUntilUtc) parts.push(t('expeditor40.contract.until', { date: validDate(k.validUntilUtc) }))
   return parts
 }
 

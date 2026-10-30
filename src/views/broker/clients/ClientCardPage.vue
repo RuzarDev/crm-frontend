@@ -17,6 +17,7 @@ import RowActions, { type RowPrimary } from '@/components/broker/RowActions.vue'
 import StatStrip, { type StatItem } from '@/components/broker/StatStrip.vue'
 import StatusDot from '@/components/broker/StatusDot.vue'
 import { billingApi, type BrokerInvoice } from '@/api/billing'
+import { foreignContractsApi } from '@/api/foreignContracts'
 import { clientCardApi, type ClientCard, type ClientCardCase, type ClientCardDoc } from '@/api/clientCard'
 import { import40ContractApi } from '@/api/import40Contract'
 import { reestrApi } from '@/api/reestr'
@@ -77,6 +78,8 @@ const billing = useBlock(canFinance.value, async () => {
   const clientId = id.value
   return invoicesOf(clientId, await billingApi.list({ clientId }, { silent: true }))
 })
+// 30.10.2026: счётчик на вкладке «Контракты», как у соседних вкладок (действующие, без архива).
+const foreignContracts = useBlock(true, () => foreignContractsApi.list(id.value, { includeArchived: false, silent: true }))
 
 const load = async () => {
   const clientId = id.value
@@ -85,8 +88,10 @@ const load = async () => {
   card.value = null
   reestr.reset()
   billing.reset()
+  foreignContracts.reset()
   void reestr.load()
   void billing.load()
+  void foreignContracts.load()
   try {
     const c = await clientCardApi.card(clientId, { silent: true })
     if (my !== seq) return
@@ -118,6 +123,7 @@ const tabItems = computed<ZTabItem[]>(() => {
     transit: reestr.data?.totalCount,
     docs: c?.documents.length,
     invoices: billing.data?.length,
+    contracts: foreignContracts.data?.length,
   }
   return tabKeys.value.map((k) => ({ key: k, label: t(`broker.clientCard.tab.${k}`), count: count[k] }))
 })
@@ -559,7 +565,7 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                         @click="downloadBlank(d)"
                       >
                         <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
-                        {{ t('broker.clientCard.doc.blank') }}
+                        {{ t(d.clientSigned || d.providerSigned ? 'broker.clientCard.doc.download' : 'broker.clientCard.doc.blank') }}
                       </ZButton>
                       <RouterLink
                         v-if="canImport && canRenewPoa(d)"
