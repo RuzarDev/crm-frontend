@@ -13,6 +13,7 @@ import ZTag from '@/components/z/ZTag.vue'
 import { SALES_QUOTE_STATUS_CODES, salesApi, type SalesQuoteDto, type SalesQuoteListItem } from '@/api/sales'
 import { formatMoney } from '@/ui/number'
 import { message } from '@/ui/message'
+import { useAuthStore } from '@/stores/auth'
 import { printQuote } from './printQuote'
 import { quoteStatusKey, quoteTone } from './sales'
 
@@ -20,6 +21,9 @@ import { quoteStatusKey, quoteTone } from './sales'
 // Статус меняется сразу (changeStatus, тост); при ошибке значение откатывается, тост показал перехватчик.
 // «Открыть в расчёте» с макета нет: КП не хранит исходные данные товаров (стоимость, валюту, страну).
 const props = defineProps<{ open: boolean; row: SalesQuoteListItem | null }>()
+// S-45 (30.10.2026): статус КП меняет только право sales.write («Создавать КП»), как на сервере.
+const auth = useAuthStore()
+const canWrite = computed(() => auth.hasPermission('sales.write'))
 const emit = defineEmits<{ 'update:open': [open: boolean]; changed: [] }>()
 const { t } = useI18n()
 
@@ -124,7 +128,7 @@ const print = () => { if (full.value) printQuote({ ...full.value, status: status
         <ZSelect
           :value="status"
           :options="statusOptions"
-          :disabled="changing"
+          :disabled="changing || !canWrite"
           :loading="changing"
           class="max-sm:h-11"
           data-quote-status

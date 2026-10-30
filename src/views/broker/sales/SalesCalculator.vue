@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useAuthStore } from '@/stores/auth'
 import { PhBookOpen, PhSparkle, PhCalculator, PhPlus, PhX } from '@phosphor-icons/vue'
 import AiTnvedModal from '@/components/aiTnved/AiTnvedModal.vue'
 import ZAlert from '@/components/z/ZAlert.vue'
@@ -199,7 +200,10 @@ const moneyText = (n: number) => formatMoney(n)
 
 // ---- Сохранение ----
 const saving = ref(false)
-const canSave = computed(() => !!clientName.value.trim() && !!result.value)
+// S-45 (30.10.2026): сохранить расчёт как КП — право sales.write («Создавать КП»); без него калькулятор только считает.
+const auth = useAuthStore()
+const canWrite = computed(() => auth.hasPermission('sales.write'))
+const canSave = computed(() => canWrite.value && !!clientName.value.trim() && !!result.value)
 const save = async () => {
   if (!canSave.value || saving.value) return
   saving.value = true
@@ -634,6 +638,7 @@ const h2 = 'm-0 text-[15px] leading-6 font-semibold text-ink'
           {{ t('sales.rasschitat') }}
         </ZButton>
         <ZButton
+          v-if="canWrite"
           :variant="result ? 'primary' : 'secondary'"
           block
           :disabled="!canSave"
@@ -642,7 +647,7 @@ const h2 = 'm-0 text-[15px] leading-6 font-semibold text-ink'
           data-sales-save
           @click="save"
         >{{ t('sales.sohranitKakKp') }}</ZButton>
-        <p v-if="result && !clientName.trim()" class="m-0 text-xs text-muted" data-sales-need-client>{{ t('broker.sales.needClient') }}</p>
+        <p v-if="canWrite && result && !clientName.trim()" class="m-0 text-xs text-muted" data-sales-need-client>{{ t('broker.sales.needClient') }}</p>
         <ZButton v-if="result" variant="ghost" block :loading="calculating" class="max-sm:h-11" data-sales-recalc @click="calculate">{{ t('broker.sales.recalc') }}</ZButton>
       </div>
     </aside>

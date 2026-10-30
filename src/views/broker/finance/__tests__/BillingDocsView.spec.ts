@@ -112,6 +112,15 @@ describe('«Счета и акты» (сотрудник)', () => {
     expect(api.cancel).toHaveBeenCalledWith('p', 'выставлен не тому клиенту')
   })
 
+  // S-41 (30.10.2026): оплаченный счёт без заявки — тоже окно причины, а не простое подтверждение.
+  it('аннулировать оплаченный счёт без заявки — окно причины', async () => {
+    api.list.mockResolvedValue([inv({ id: 'p', caseId: null, caseNumber: null, status: 2, number: '0301', paidAtUtc: '2026-10-20T05:00:00Z' })])
+    await mountView()
+    actionsOf(0).vm.$emit('action', 'cancel')
+    await flushPromises()
+    expect(document.body.querySelector('[data-billing-cancel-paid]')?.textContent).toContain('Аннулировать оплаченный счёт')
+  })
+
   it('один запрос списка (silent); заголовок, показатели — суммы по счетам, акты не входят', async () => {
     await mountView()
     expect(api.list).toHaveBeenCalledWith(undefined, { silent: true })
@@ -354,6 +363,10 @@ describe('«Счета и акты» (сотрудник)', () => {
     await mountView()
     expect(docs()).toEqual(['Счёт № 0213/2026'])
     expect(w.get('[data-billing-client]').text()).toContain('ТОО «Steppe Agro»')
+    // Ревью волны 2, A Minor 3 (30.10.2026): показатели — по выбранному клиенту.
+    const issued = w.findAll('[data-stat-cell]')[0]
+    expect(nb(issued.text())).toContain('72 000 ₸')
+    expect(nb(issued.text())).toContain('1 счёт')
     w.findComponent({ name: 'FilterChip' }).vm.$emit('update:value', null)
     await flushPromises()
     expect(router.currentRoute.value.query).toEqual({})
@@ -380,6 +393,16 @@ describe('«Счета и акты» (сотрудник)', () => {
     await router.push('/billing?q=0205/2026')
     await flushPromises()
     expect(docs()).toEqual(['Счёт № 0205/2026'])
+  })
+
+  // Ревью волны 2, A Minor 2 (30.10.2026): ушли с ?q= на /billing без него — поиск из адреса снимается.
+  it('переход с ?q= на /billing без него очищает строку поиска', async () => {
+    await router.push('/billing?q=0213/2026')
+    await mountView()
+    expect(docs()).toEqual(['Счёт № 0213/2026'])
+    await router.push('/billing')
+    await flushPromises()
+    expect(docs()).toHaveLength(5)
   })
 
   it('?caseId= — фильтр и окно с заявкой и клиентом; параметр убирается из адреса', async () => {

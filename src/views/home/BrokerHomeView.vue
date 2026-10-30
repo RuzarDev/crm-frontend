@@ -21,7 +21,7 @@ import { NAV_ICONS } from '@/components/shell/navIcons'
 import { formatMoney } from '@/ui/number'
 import { cn } from '@/ui/cn'
 import {
-  buildAttention, monthCaption, moneyForMonth, shortWhen, stageRows, stepTone, taskRows, type AttentionTone,
+  buildAttention, monthCaption, moneyForMonth, shortWhen, stageRows, stepTone, taskRows, transitStatusHref, type AttentionTone,
 } from '@/views/home/brokerHome'
 import { greetingKey, greetingName } from '@/views/home/greeting'
 import { useBlock } from '@/views/home/useBlock'
@@ -62,9 +62,9 @@ const newRequest = () => router.push('/import-40?new=1')
 
 // ---- Требует внимания ----
 const attention = computed(() =>
-  buildAttention({ import40: dash.data, manage: manage.data, invoices: invoices.data, now }))
+  buildAttention({ import40: dash.data, manage: manage.data, invoices: invoices.data, transit: transit.data, now }))
 // Пока грузятся блоки, из которых собираются карточки, место под них занято скелетоном — панели ниже не прыгают.
-const attentionLoading = computed(() => dash.loading || manage.loading || invoices.loading)
+const attentionLoading = computed(() => dash.loading || manage.loading || invoices.loading || transit.loading)
 // Бейдж у «Главной» в меню — когда отработали все блоки, из которых собираются карточки.
 watchEffect(() => {
   if (!attentionLoading.value) homeAttention.value = attention.value.length
@@ -301,8 +301,17 @@ const link = 'shrink-0 rounded-[4px] text-[13px] font-medium text-zircon-ink no-
             <dd class="m-0 text-right font-semibold tabular-nums">{{ transit.data.entriesThisMonth }}</dd>
             <dt class="text-ink-2">{{ t('home.transit.total') }}</dt>
             <dd class="m-0 text-right font-semibold tabular-nums">{{ transit.data.totalEntries }}</dd>
+            <!-- S-50 (30.10.2026): строка статуса — «Транзит» с этим фильтром. -->
             <template v-for="s in transitStatuses" :key="s.status">
-              <dt class="text-ink-2">{{ statusLabel(s.status) }}</dt>
+              <dt class="text-ink-2">
+                <RouterLink
+                  v-if="transitStatusHref(s.status)"
+                  :to="transitStatusHref(s.status)!"
+                  class="rounded-[4px] text-ink-2 no-underline outline-hidden hover:text-ink hover:underline focus-visible:shadow-focus"
+                  data-home-transit-status
+                >{{ statusLabel(s.status) }}</RouterLink>
+                <template v-else>{{ statusLabel(s.status) }}</template>
+              </dt>
               <dd class="m-0 text-right font-semibold tabular-nums">{{ s.count }}</dd>
             </template>
           </dl>

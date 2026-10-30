@@ -159,6 +159,8 @@ describe('BrokerHomeView', () => {
     expect(panel('Мои задачи')!.text()).toContain('И40-182')
     expect(panel('Деньги за месяц')!.text()).toContain(formatMoney(185000))
     expect(panel('Транзит')!.text()).toContain('Всего записей')
+    // S-50 (30.10.2026): строка статуса — «Транзит» с этим фильтром.
+    expect(panel('Транзит')!.get('[data-home-transit-status]').attributes('href')).toBe('/reestr?status=2')
     expect(api.overview).toHaveBeenCalledTimes(1)
     expect(api.import40).toHaveBeenCalledTimes(1)
 

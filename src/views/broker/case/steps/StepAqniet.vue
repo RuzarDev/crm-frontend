@@ -43,7 +43,8 @@ const openInvoice = () => { void router.push(`/billing?case=${caseId.value}`) }
 const waitText = computed(() => {
   if (invoiceState.value === 'paid') return t('broker.case.aqniet.paid')
   if (invoiceState.value === 'issued') return t('broker.case.aqniet.issued')
-  if (invoiceState.value === 'draft') return t('broker.case.aqniet.draftExists')
+  // M-7 (30.10.2026): «выставите его» — только тому, кто может выставить; остальным — «черновик у бухгалтера».
+  if (invoiceState.value === 'draft') return t(perms.value.canIssueAqnietInvoice ? 'broker.case.aqniet.draftExists' : 'broker.case.aqniet.draftAtAccountant')
   return perms.value.canIssueAqnietInvoice ? '' : t('broker.case.aqniet.waitInvoice')
 })
 

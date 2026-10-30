@@ -149,7 +149,13 @@ const emptyTitle = computed(() => (search.value.trim() ? t('broker.list.nothingF
         <p class="mt-1 mb-0 text-[13.5px] text-ink-3">{{ t('broker.manage.subtitle') }}</p>
       </div>
       <div class="flex flex-wrap items-center gap-x-3 gap-y-2 max-sm:w-full">
-        <span v-if="overview" class="text-sm text-muted" data-manage-drafts>{{ t('broker.manage.clientDrafts', { n: overview.clientDrafts }) }}</span>
+        <!-- S-32 (30.10.2026): «Черновики у клиентов» — ссылка во вкладку «Черновики» списка заявок. -->
+        <RouterLink
+          v-if="overview"
+          to="/import-40?tab=drafts"
+          class="rounded-field text-sm text-muted no-underline outline-hidden hover:text-ink hover:underline focus-visible:shadow-focus max-sm:inline-flex max-sm:min-h-11 max-sm:items-center"
+          data-manage-drafts
+        >{{ t('broker.manage.clientDrafts', { n: overview.clientDrafts }) }}</RouterLink>
         <ZButton variant="ghost" :loading="loading && !!overview" class="max-sm:h-11" data-manage-refresh @click="load">
           <template #icon><PhArrowClockwise :size="16" aria-hidden="true" /></template>
           {{ t('broker.list.refresh') }}

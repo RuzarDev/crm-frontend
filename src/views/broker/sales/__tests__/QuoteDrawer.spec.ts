@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { SalesQuoteDto, SalesQuoteListItem } from '@/api/sales'
 
@@ -16,6 +17,7 @@ vi.mock('../printQuote', () => ({ printQuote: api.printQuote }))
 
 import QuoteDrawer from '../QuoteDrawer.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
+import { useAuthStore } from '@/stores/auth'
 
 // Панель — заглушка: проверяется состав, а не механика Reka.
 const DrawerStub = {
@@ -47,6 +49,11 @@ const mountDrawer = async (row: SalesQuoteListItem | null = ROW) => {
 const statusSelect = () => w.findAllComponents(ZSelect).find((c) => c.find('[data-quote-status]').exists())!
 
 beforeEach(() => {
+  setActivePinia(createPinia())
+  // Менеджер продаж: sales.read + sales.write («Создавать КП»).
+  const auth = useAuthStore()
+  auth.role = 'manager'
+  auth.permissions = ['sales.read', 'sales.write']
   api.getQuote.mockResolvedValue(FULL)
   api.changeStatus.mockResolvedValue(undefined)
 })
@@ -162,5 +169,14 @@ describe('панель КП', () => {
     await flushPromises()
     expect(w.get('[data-quote-title]').text()).toBe('КП № 0036/КП/2026')
     expect(w.get('[data-quote-client]').text()).toBe('ТОО «Altyn Med»')
+  })
+})
+
+// S-45 (30.10.2026): без sales.write («Создавать КП») статус КП не меняется — как на сервере.
+describe('панель КП: право sales.write', () => {
+  it('только sales.read — статус для просмотра', async () => {
+    useAuthStore().permissions = ['sales.read']
+    await mountDrawer()
+    expect(statusSelect().props('disabled')).toBe(true)
   })
 })

@@ -1020,6 +1020,8 @@ export interface Import40CanCreateDto {
   /** Для busy — поставка, которая заняла разовый документ. */
   busyCaseId?: string | null
   busyCaseNumber?: string | null
+  /** M-1 (30.10.2026): занявшая документ поставка — неотправленный черновик (открывается в мастере). */
+  busyCaseIsDraft?: boolean
 }
 
 export type RegistrationBlockCode = 'profile' | 'awaitingAqniet' | 'busy' | 'renew' | 'missing'

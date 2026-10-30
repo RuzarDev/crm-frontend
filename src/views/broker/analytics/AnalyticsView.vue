@@ -29,7 +29,8 @@ const { t, te, locale } = useI18n()
 const auth = useAuthStore()
 
 // Строка события ведёт на заявку только тем, кто может её открыть (analytics.read ≠ import40.read).
-const canOpenCase = computed(() => auth.hasPermission('import40.read'))
+// 30.10.2026 (аудит S-10): бухгалтеру без операционных прав guard заявки закрывает — ссылку не даём (как в «Финансах»).
+const canOpenCase = computed(() => auth.hasPermission('import40.read') && !auth.isFinanceOnly)
 const isAdmin = computed(() => (auth.role || '').trim().toLowerCase() === 'administrator')
 
 const names = ref<Record<string, string>>({})

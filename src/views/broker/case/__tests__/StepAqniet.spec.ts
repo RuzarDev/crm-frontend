@@ -119,6 +119,13 @@ describe('StepAqniet', () => {
     mount(USERS.accountant, { invoices: [inv({ status: 0, number: '' })] })
     expect(w.find('[data-aqniet-issue]').exists()).toBe(false)
     expect(w.get('[data-aqniet-open]').text()).toBe('Открыть черновик')
+    expect(w.get('[data-aqniet-wait]').text()).toBe('Есть черновик счёта AQNIET — выставите его в «Счетах»')
+  })
+
+  // M-7 (30.10.2026): «выставите его» — только тому, кто выставляет; КПП — «черновик у бухгалтера».
+  it('черновик счёта: без finance.write — «черновик у бухгалтера»', () => {
+    mount(USERS.kpp, { invoices: [inv({ status: 0, number: '' })] })
+    expect(w.get('[data-aqniet-wait]').text()).toBe('Черновик счёта AQNIET у бухгалтера — ждём, когда он его выставит')
   })
 
   // S-27: руководитель снимает ошибочную отметку оплаты — с причиной; бухгалтеру кнопки нет.

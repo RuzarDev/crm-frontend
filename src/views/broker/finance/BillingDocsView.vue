@@ -164,7 +164,13 @@ const applySearch = (raw: unknown) => {
   const q = Array.isArray(raw) ? raw[0] : raw
   if (typeof q === 'string' && q.trim()) query.value = q.trim()
 }
-watch(() => route.query.q, (q) => { if (route.path === '/billing') applySearch(q) })
+// Ревью волны 2, A Minor 2 (30.10.2026): ушли с ?q= на /billing без него — строка поиска из адреса очищается
+// (если её не меняли руками), иначе список оставался отфильтрованным.
+watch(() => route.query.q, (q, prev) => {
+  if (route.path !== '/billing') return
+  if (typeof q === 'string' && q.trim()) applySearch(q)
+  else if (typeof prev === 'string' && prev.trim() && query.value === prev.trim()) query.value = ''
+})
 
 // /billing?caseId=… (карточка заявки, «Финансы»): фильтр по номеру заявки; при праве записи — окно нового
 // документа с заявкой и клиентом, после чего параметр убирается из адреса: «Назад» и обновление окно не открывают.
@@ -200,7 +206,8 @@ onMounted(async () => {
 
 // ---- Показатели (по всем строкам, без поиска и фильтров) ----
 const stats = computed<StatItem[]>(() => {
-  const d = board.data ? billingStats(rows.value) : null
+  // Ревью волны 2, A Minor 3 (30.10.2026): чип «Клиент» включён — показатели по этому клиенту, а не по всем.
+  const d = board.data ? billingStats(scoped.value) : null
   const invoices = (n: number) => t(`broker.billing.invoices.${pluralForm(n, locale.value)}`, { n })
   const awaitingHint = (s: NonNullable<typeof d>) => [
     invoices(s.awaitingCount),
@@ -352,7 +359,8 @@ const cancelPaidOpen = ref(false)
 const cancelReason = ref('')
 const cancelDoc = async (r: BrokerInvoice) => {
   if (isBusy()) return
-  if (r.status === ST_PAID && r.caseId) {
+  // S-41 (30.10.2026): оплаченный счёт и без заявки — тоже с причиной (сервер её требует).
+  if (r.status === ST_PAID && r.kind === 'invoice') {
     cancelPaid.value = r
     cancelReason.value = ''
     cancelPaidOpen.value = true

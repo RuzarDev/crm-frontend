@@ -235,15 +235,15 @@ describe('«Документы клиентов»: плашки', () => {
 })
 
 describe('«Документы клиентов»: переходы', () => {
-  it('строка и имя клиента ведут в /clients/<clientId>', async () => {
+  it('строка и имя клиента ведут в /clients/<clientId> на вкладку «Документы» (S-7)', async () => {
     await mountView()
     await bodyRows()[1].trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.fullPath).toBe('/clients/cb')
+    expect(router.currentRoute.value.fullPath).toBe('/clients/cb?tab=docs')
     await router.push('/client-documents')
     await w.findAll('[data-doc-client]')[2].trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.fullPath).toBe('/clients/cc')
+    expect(router.currentRoute.value.fullPath).toBe('/clients/cc?tab=docs')
   })
 
   it('«Подписать за AQNIET»: только у договоров, ждущих AQNIET; ведёт в мастер с client и step=contract', async () => {

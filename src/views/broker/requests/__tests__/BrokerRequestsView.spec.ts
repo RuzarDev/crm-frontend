@@ -271,10 +271,12 @@ describe('BrokerRequestsView', () => {
     expect(api.board).toHaveBeenCalledTimes(3)
   })
 
-  it('усечённый ответ — строка «Показаны последние …»', async () => {
+  // S-35 (30.10.2026): сервер отдаёт сначала все незавершённые — усечены только старые завершённые; период подписан «Обновлена».
+  it('усечённый ответ — «все в работе и последние завершённые»; период подписан «Обновлена»', async () => {
     api.board.mockImplementation(async (view: string) => ({ items: view === 'my' ? MINE : ALL, truncated: view !== 'my' }))
     await mountAt('/import-40?tab=active')
-    expect(w.get('[data-requests-truncated]').text()).toBe('Показаны последние 5 — уточните поиск')
+    expect(w.get('[data-requests-truncated]').text()).toBe('Показаны все заявки в работе и последние завершённые — всего 5')
+    expect(w.get('[data-requests-period]').text()).toContain('Обновлена')
   })
 
   it('«Excel» выгружает отфильтрованные строки текущей вкладки', async () => {

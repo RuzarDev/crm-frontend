@@ -82,13 +82,13 @@ const gateTarget = computed(() =>
 )
 // C-9: правдивая причина — ждём AQNIET / документ занят поставкой № … / нужен новый документ.
 const block = computed(() => registrationBlock(registration.blockReason.value))
-const gateDescription = computed(() => {
-  if (!block.value.companyAction) return registration.reason.value || t(block.value.text)
-  return t(block.value.text, { number: registration.busyCaseNumber.value ?? '' })
-})
+// M-8 (30.10.2026): текст только из словаря — серверная причина для profile/missing была всегда по-русски.
+const gateDescription = computed(() => t(block.value.text, { number: registration.busyCaseNumber.value ?? '' }))
+// M-1 (30.10.2026): занявший документ черновик дописывается в мастере, остальное — карточка поставки.
 const busyCaseLink = computed(() => {
   const id = registration.busyCaseId.value
-  return registration.blockReason.value === 'busy' && id ? `/import-40/${id}` : null
+  if (registration.blockReason.value !== 'busy' || !id) return null
+  return registration.busyCaseIsDraft.value ? `/import-40/new/${id}` : `/import-40/${id}`
 })
 const checkRegistration = async () => {
   if (routeId()) {

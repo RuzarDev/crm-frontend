@@ -21,6 +21,27 @@ export const statusTone = (s: ReestrEntryStatus): ZTone => STATUS_TONE[s] ?? 'ne
 
 /** Порядок статусов в фильтре и в окне смены статуса. */
 export const TRANSIT_STATUSES: ReestrEntryStatus[] = [0, 1, 2, 3, 4, 5, 6, 7]
+
+/**
+ * Параметры перехода в «Транзит» из контекста: ?q= (поиск, разбор поезда), ?client= (карточка клиента),
+ * ?status= (Главная, S-50). Нет ни одного — null.
+ */
+export interface TransitRouteQuery { q: string; client: string; status: ReestrEntryStatus | null; key: string }
+export function transitRouteQuery(query: Record<string, unknown>): TransitRouteQuery | null {
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+  const q = str(query.q)
+  const client = str(query.client)
+  const n = Number(str(query.status))
+  const status = str(query.status) !== '' && TRANSIT_STATUSES.includes(n as ReestrEntryStatus) ? (n as ReestrEntryStatus) : null
+  if (!q && !client && status === null) return null
+  return { q, client, status, key: [q, client, status ?? ''].join('\u0000') }
+}
+/**
+ * Какие параметры адреса уже применены (живёт, пока открыта вкладка браузера; перезагрузка — заново).
+ * Ревью волны 2, A Minor 1 (30.10.2026): вернулись «Назад» на тот же адрес — фильтры, выставленные после перехода,
+ * не сбрасываем.
+ */
+export const transitAppliedQuery = { key: '' }
 /** Ключ подписи статуса: t(`enum.reestrStatus.${statusKey(s)}`). */
 const STATUS_KEYS = ['InProgress', 'Submitted', 'Released', 'ConditionallyReleased', 'Problematic', 'Rejected', 'Withdrawn', 'Archived'] as const
 export const statusKey = (s: ReestrEntryStatus): string => STATUS_KEYS[s] ?? 'InProgress'

@@ -27,6 +27,7 @@ import SalesCalculator from '../SalesCalculator.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZNumber from '@/components/z/ZNumber.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const SERVICES = [
   { id: 's1', name: 'Оформление ДТ (ИМ 40)', unit: 'за ДТ', price: 45000, sortOrder: 1, isActive: true },
@@ -56,6 +57,10 @@ const btn = (attr: string) => w.get(`[${attr}]`)
 
 beforeEach(() => {
   setActivePinia(createPinia())
+  // Менеджер продаж: sales.read + sales.write («Создавать КП»).
+  const auth = useAuthStore()
+  auth.role = 'manager'
+  auth.permissions = ['sales.read', 'sales.write']
   api.listServices.mockResolvedValue(SERVICES)
   api.currencies.mockResolvedValue({ data: [{ codeLat: 'USD', name: 'Доллар', rate: 482.61, updatedAtUtc: '2026-10-08T03:00:00Z' }, { codeLat: 'EUR', name: 'Евро', rate: 560.1, updatedAtUtc: '2026-10-08T03:00:00Z' }] })
   api.listCountries.mockResolvedValue([{ code: '156', name: 'Китай' }])
@@ -313,5 +318,14 @@ describe('«Продажи»: расчёт', () => {
     code.vm.$emit('blur', new FocusEvent('blur'))
     await flushPromises()
     expect(api.node).toHaveBeenCalledTimes(1)
+  })
+})
+
+// S-45 (30.10.2026): без sales.write калькулятор только считает — «Сохранить как КП» нет.
+describe('калькулятор: право sales.write', () => {
+  it('только sales.read — кнопки сохранения нет', async () => {
+    useAuthStore().permissions = ['sales.read']
+    await mountCalc()
+    expect(w.find('[data-sales-save]').exists()).toBe(false)
   })
 })

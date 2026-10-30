@@ -73,6 +73,13 @@ describe('casePermissions: роли', () => {
     expect(canIssueAqnietInvoice(a)).toBe(false)
     expect(canManageDraft(a, caseDto({ status: 0 }))).toBe(false)
     expect(canConfirmSvhWithoutCheck(a)).toBe(false)
+    // S-34 (30.10.2026): сводку готовности сервер КПП не отдаёт (403) — и не запрашиваем.
+    expect(readinessAvailable(a)).toBe(false)
+  })
+
+  // S-34 (30.10.2026): директор — основная роль accountant, но среди ролей rop: сводка «Что осталось до подачи» грузится.
+  it('директор (accountant + rop + sales): сводка готовности ДТ доступна', () => {
+    const a = { ...USERS.rop, businessRole: 'accountant', businessRoles: ['accountant', 'rop', 'sales'] }
     expect(readinessAvailable(a)).toBe(true)
   })
 

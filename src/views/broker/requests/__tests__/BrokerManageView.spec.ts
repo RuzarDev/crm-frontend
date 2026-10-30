@@ -85,6 +85,8 @@ describe('BrokerManageView', () => {
     expect(w.get('h1').text()).toBe('Распределение')
     expect(w.text()).toContain('Назначьте декларанта и КПП — заявка попадёт в их «Мои»')
     expect(w.get('[data-manage-drafts]').text()).toBe('У клиентов — черновиков: 4')
+    // S-32 (30.10.2026): ссылка во вкладку «Черновики» списка заявок.
+    expect(w.get('[data-manage-drafts]').attributes('href')).toBe('/import-40?tab=drafts')
     expect(segments()).toEqual(['Без исполнителя 2', 'Без декларанта 1', 'Без КПП 1', 'С проблемой 1', 'Зависли 1', 'Все активные 4'])
   })
 
