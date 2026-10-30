@@ -100,7 +100,7 @@ describe('CompanyDocumentCard', () => {
   it('подсказка срока — по правилам сервера: многоразовый договор, разовый (в т.ч. принудительно), доверенность', async () => {
     const help = () => w.get('[data-doc-options] [data-z-field]').text()
     await mountCard({ docs: [] })
-    expect(help()).toContain('Необязательно — без даты договор действует год')
+    expect(help()).toContain('Необязательно — без даты договор действует до 31 декабря года подписания')
     await w.get('[data-opt-single]').trigger('click')
     expect(help()).toContain('Необязательно — без даты разовый договор действует до использования в поставке')
     w.unmount()
