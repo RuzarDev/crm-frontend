@@ -38,24 +38,24 @@ describe('buildAttention', () => {
   it('awaitingMe = 0 не даёт карточку', () => {
     expect(buildAttention({ import40: dash({ awaitingMe: 0 }), manage: null, invoices: null, now: NOW })).toEqual([])
   })
-  it('unassigned: gold, на управление', () => {
+  it('unassigned (S-14/S-15): gold, на сегмент «Без исполнителя» — то же число, что в сегменте', () => {
     expect(buildAttention({ import40: null, manage: manage({ unassigned: 2 }), invoices: null, now: NOW })).toEqual([
-      { key: 'unassigned', tone: 'gold', count: 2, to: '/import-40/manage' },
+      { key: 'unassigned', tone: 'gold', count: 2, to: '/import-40/manage?segment=unassigned' },
     ])
   })
-  it('problems без manage берёт problemCases и ведёт в список', () => {
+  it('problems без manage (S-16) берёт problemCases и ведёт в список «В работе» с фильтром «Проблема»', () => {
     expect(buildAttention({ import40: dash({ problemCases: 4 }), manage: null, invoices: null, now: NOW })).toEqual([
-      { key: 'problems', tone: 'danger', count: 4, to: '/import-40' },
+      { key: 'problems', tone: 'danger', count: 4, to: '/import-40?tab=active&problem=1' },
     ])
   })
-  it('problems с manage берёт manage.problems и ведёт на управление', () => {
+  it('problems с manage берёт manage.problems и ведёт на сегмент «С проблемой» (S-15)', () => {
     expect(buildAttention({ import40: dash({ problemCases: 4 }), manage: manage({ problems: 1 }), invoices: null, now: NOW })).toEqual([
-      { key: 'problems', tone: 'danger', count: 1, to: '/import-40/manage' },
+      { key: 'problems', tone: 'danger', count: 1, to: '/import-40/manage?segment=problem' },
     ])
   })
-  it('stale: neutral', () => {
+  it('stale: neutral, сегмент «Зависли» (S-15)', () => {
     expect(buildAttention({ import40: null, manage: manage({ stale: 5 }), invoices: null, now: NOW })).toEqual([
-      { key: 'stale', tone: 'neutral', count: 5, to: '/import-40/manage' },
+      { key: 'stale', tone: 'neutral', count: 5, to: '/import-40/manage?segment=stale' },
     ])
   })
   it('overdue: только выставленные счета с просроченным сроком, сумма и счёт', () => {
@@ -68,7 +68,7 @@ describe('buildAttention', () => {
       inv({ id: '6', status: 1, dueDateUtc: null, total: 999 }), // без срока
     ]
     expect(buildAttention({ import40: null, manage: null, invoices, now: NOW })).toEqual([
-      { key: 'overdue', tone: 'neutral', count: 2, amount: 350, to: '/billing' },
+      { key: 'overdue', tone: 'neutral', count: 2, amount: 350, to: '/billing?status=overdue' },
     ])
   })
   it('порядок фиксирован и не более 4 карточек', () => {

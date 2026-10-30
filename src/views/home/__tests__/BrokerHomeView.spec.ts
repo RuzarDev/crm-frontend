@@ -106,7 +106,8 @@ describe('BrokerHomeView', () => {
     // У просроченных — число в метке, как у остальных карточек, в тексте только сумма.
     expect(cards[3].find('span').text()).toBe('1')
     expect(cards[3].text()).toContain(`на сумму ${formatMoney(185000)}`)
-    expect(cards[3].attributes('href')).toBe('/billing')
+    // S-44: сразу фильтр «Просрочены».
+    expect(cards[3].attributes('href')).toBe('/billing?status=overdue')
     expect(homeAttention.value).toBe(4)
 
     const tasks = panel('Мои задачи')!
@@ -170,13 +171,15 @@ describe('BrokerHomeView', () => {
     expect(panel('Распределение')!.text()).not.toContain('Не удалось загрузить')
   })
 
-  it('пустые задачи — «Задач на вашем шаге нет» и ссылка на все заявки', async () => {
+  it('пустые задачи — «Задач на вашем шаге нет» и ссылка на все заявки «В работе» (S-19), шапка — «Мои заявки»', async () => {
     setRole('Administrator')
     api.myTasks.mockResolvedValue([])
     await mountIt()
     const tasks = panel('Мои задачи')!
     expect(tasks.text()).toContain('Задач на вашем шаге нет')
-    expect(tasks.find('a[href="/import-40"]').text()).toBe('Открыть все заявки')
+    expect(tasks.find('a[href="/import-40?tab=active"]').text()).toBe('Открыть все заявки')
+    expect(tasks.get('[data-home-tasks-all]').text()).toBe('Мои заявки')
+    expect(tasks.get('[data-home-tasks-all]').attributes('href')).toBe('/import-40?tab=my')
   })
 
   it('роль без блоков (только продажи) — ссылки на разделы вместо блоков', async () => {

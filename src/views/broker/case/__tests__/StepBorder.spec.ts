@@ -80,6 +80,17 @@ describe('StepBorder', () => {
     expect(tipOf('[data-border-return]')).toBe('Действие выполняет КПП')
   })
 
+  it('S-24 + ревью I-2: декларант (право import40.kpp) — весь шаг 2 одним правилом: без КПП доступен, при назначенном — нет', () => {
+    mount(USERS.declarant)
+    expect(w.get('[data-border-arrived]').attributes('disabled')).toBeUndefined()
+    expect(w.get('[data-border-passed]').attributes('disabled')).toBeUndefined()
+    w.unmount()
+    mount(USERS.declarant, { assignedKppId: 'k9', assignedKppName: 'Ерлан Б.' })
+    expect(w.get('[data-border-arrived]').attributes('disabled')).toBeDefined()
+    expect(w.get('[data-border-passed]').attributes('disabled')).toBeDefined()
+    expect(tipOf('[data-border-passed]')).toBe('Заявку ведёт Ерлан Б.')
+  })
+
   it('«Вернуть клиенту» открывает окно причины', async () => {
     const m = mount(USERS.kpp)
     await w.get('[data-border-return]').trigger('click')
@@ -194,8 +205,8 @@ describe('StepBorder', () => {
     expect(api.action).toHaveBeenCalledWith('c1', 'border-control-remove', 'bc1', undefined)
   })
 
-  it('декларант (право import40.kpp по умолчанию) не отмечает прибытие и не грузит сканы; КПП — грузит', () => {
-    mount(USERS.declarant)
+  it('декларант (право import40.kpp) при назначенном КПП не отмечает прибытие и не грузит сканы; КПП без назначения — грузит', () => {
+    mount(USERS.declarant, { assignedKppId: 'k9', assignedKppName: 'Ерлан Б.' })
     expect(w.get('[data-border-arrived]').attributes('disabled')).toBeDefined()
     expect(w.find('[data-control-mark]').exists()).toBe(false)
     expect(w.get('[data-docs-slot="border-scans"]').find('[data-slot-upload]').exists()).toBe(false)

@@ -4,6 +4,14 @@ import type { ZTone } from '@/components/z/ZTag.vue'
 // «Компания клиента» сотрудника (/import-40/company, редизайн, волна 7): чистые правила шагов, регистрации
 // и документов — как у прежнего Import40CompanyView + Import40DocumentStep, без Vue.
 
+/**
+ * Менять реквизиты клиента и выпускать договор/доверенность (S-5, решение владельца 30.10.2026) — как сервер
+ * (Import40ContractEndpoints.CanEditClientPapers): администратор, руководитель (rop) и декларант. Бухгалтер и продажи
+ * только смотрят.
+ */
+export const canEditClientPapers = (a: { role: string | null; hasBusinessRole: (r: string) => boolean }): boolean =>
+  (a.role ?? '').trim().toLowerCase() === 'administrator' || a.hasBusinessRole('rop') || a.hasBusinessRole('declarant')
+
 export type StaffStep = 'requisites' | 'contract' | 'poa'
 export const STAFF_STEPS: StaffStep[] = ['requisites', 'contract', 'poa']
 export type DocKind = 'contract' | 'poa'

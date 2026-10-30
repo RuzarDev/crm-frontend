@@ -29,7 +29,7 @@ import type { CaseStepContext, CaseStepInfo } from './caseContext'
 import { useCase } from './useCase'
 import { useCaseActions } from './useCaseActions'
 import { useCustomsRequests } from '@/composables/useCustomsRequests'
-import { canManageCustoms, canRemindClient } from '@/utils/customsRequests'
+import { canManageBorderCustoms, canManageCustoms, canRemindClient } from '@/utils/customsRequests'
 import { canManageDeclarations, dtUserFrom } from '@/views/import40/dtAccess'
 import PreBorderPanel from '@/views/preBorder/PreBorderPanel.vue'
 import { usePreBorder } from '@/composables/usePreBorder'
@@ -184,6 +184,7 @@ const panel = 'rounded-panel border border-line bg-surface'
         :list="customs.list.value"
         :declarations="customsDeclarations"
         :can-manage="canManageCustoms(auth)"
+        :can-manage-border="canManageBorderCustoms(auth)"
         :can-remind="canRemindClient(auth)"
         :svh-check-missing="!files.some((f) => f.section === 'payment-check')"
         @changed="onCustomsChanged"

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhArrowClockwise, PhFlag } from '@phosphor-icons/vue'
 import ZAvatar from '@/components/z/ZAvatar.vue'
@@ -31,6 +31,7 @@ import {
 // Один запрос — заявки, сотрудники и счётчик черновиков клиентов. Назначение — выбором в самой строке,
 // сохраняется сразу; строка и счётчики обновляются на месте, без перезагрузки.
 const { t } = useI18n()
+const route = useRoute()
 const { statusLabel } = useImport40Status()
 
 // Guid.Empty на сервере = «снять назначение».
@@ -52,7 +53,7 @@ const load = async () => {
     if (my !== seq) return
     overview.value = res
     // Сегмент по умолчанию выбираем один раз — дальше выбор за пользователем (после назначений он не прыгает).
-    if (first) { first = false; segment.value = defaultSegment(res.cases) }
+    if (first) { first = false; segment.value = defaultSegment(res.cases, route.query.segment) }
   } catch (e) {
     if (import.meta.env.DEV) console.error(e)
     if (my === seq) error.value = true

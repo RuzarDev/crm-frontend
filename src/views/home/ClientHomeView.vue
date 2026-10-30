@@ -167,7 +167,8 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
           </li>
         </ul>
         <div v-if="asks.length > MAX_ASKS" class="border-t border-gold-line px-4 py-2.5">
-          <RouterLink to="/import-40" :class="cn(link, 'text-gold-ink hover:text-ink')" data-client-asks-more>
+          <!-- C-12 (30.10.2026): «ещё N» — на вкладку «Ждут вас», где эти поставки и лежат. -->
+          <RouterLink to="/import-40?tab=waiting" :class="cn(link, 'text-gold-ink hover:text-ink')" data-client-asks-more>
             {{ t('clientHome.ask.more', { n: asks.length - MAX_ASKS }) }}
           </RouterLink>
         </div>

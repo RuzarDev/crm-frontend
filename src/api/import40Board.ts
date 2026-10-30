@@ -29,6 +29,10 @@ export interface Import40BoardRow {
   conditionalRelease?: ConditionalReleaseBrief | null
   /** ДТ заявки без связи с журналом КЕДЕН (17.10; исходная ДТ разделения с частями не считается). */
   kedenUnlinkedCount?: number
+  /** Черновик возвращён клиенту на доработку (S-21, 30.10.2026) — «Ждут клиента», тег «На доработке». */
+  rework?: boolean
+  /** Открытый запрос таможни без ответа клиента (S-21) — «Ждут клиента». */
+  openCustomsRequest?: boolean
   createdAtUtc: string
   updatedAtUtc: string
 }

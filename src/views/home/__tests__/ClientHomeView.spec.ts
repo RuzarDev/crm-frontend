@@ -213,7 +213,7 @@ describe('ClientHomeView', () => {
     expect(rows.map((r) => r.get('a').attributes('href'))).toEqual(['/import-40/p1', '/import-40/v1', '/import-40/new/d1'])
     const more = panel.get('[data-client-asks-more]')
     expect(more.text()).toBe('Ещё 2 — в списке поставок')
-    expect(more.attributes('href')).toBe('/import-40')
+    expect(more.attributes('href')).toBe('/import-40?tab=waiting')
     expect(homeAttention.value).toBe(5)
   })
 

@@ -34,7 +34,7 @@ describe('сегменты', () => {
     expect(segmentOf(cases, 'all')).toHaveLength(7)
   })
   it('счётчики по всем сегментам', () => {
-    expect(segmentCounts(cases)).toEqual({ noDeclarant: 1, noKpp: 2, problem: 1, stale: 1, all: 7 })
+    expect(segmentCounts(cases)).toEqual({ unassigned: 3, noDeclarant: 1, noKpp: 2, problem: 1, stale: 1, all: 7 })
   })
   it('нужен декларант/КПП — по шагам, как на сервере', () => {
     expect([1, 2, 3, 4, 5, 6, 7].filter(needsDeclarant)).toEqual([2, 3])
@@ -48,6 +48,12 @@ describe('сегмент по умолчанию', () => {
     expect(defaultSegment([c({ status: 1 })])).toBe('noKpp')
     expect(defaultSegment([c({ status: 7, isProblem: true })])).toBe('problem')
     expect(defaultSegment([c({ status: 7, daysSinceUpdate: 9 })])).toBe('stale')
+  })
+  it('S-15: сегмент из адреса (?segment=) важнее первого непустого; неизвестный — как без него', () => {
+    expect(defaultSegment([c({ status: 2 })], 'stale')).toBe('stale')
+    expect(defaultSegment([c({ status: 2 })], 'problem')).toBe('problem')
+    expect(defaultSegment([c({ status: 2 })], 'oops')).toBe('noDeclarant')
+    expect(defaultSegment([c({ status: 2 })], ['stale'])).toBe('noDeclarant')
   })
   it('все назначены, проблем и зависших нет — «Все активные»; пусто — тоже', () => {
     expect(defaultSegment([c({ status: 2, assignedDeclarantId: 'd1' })])).toBe('all')

@@ -145,6 +145,19 @@ describe('TransitView: роли', () => {
     expect(path()).toBe('/reestr/30?tab=documents')
   })
 
+  it('S-48: фильтр «Клиент» подписан названием компании, а не логином; без названия — логин', async () => {
+    as('importer', ['reestr.read'])
+    api.filterClients.mockResolvedValue([
+      { id: 'c1', username: 'alfa@test.kz', declarationCount: 0, name: 'ТОО «ТЕСТ»' },
+      { id: 'c2', username: 'beta@test.kz', declarationCount: 0 },
+    ])
+    await mountAt()
+    const chip = w.findAllComponents(FilterChip).find((c) => (c.props('options') as { value: string }[]).some((o) => o.value === 'c1'))!
+    expect(chip.props('options')).toEqual([
+      { value: 'c1', label: 'ТОО «ТЕСТ»' }, { value: 'c2', label: 'beta@test.kz' },
+    ])
+  })
+
   it('сотрудник только с reestr.read: «Документы» (страница на документах), без правки, выбора и создания', async () => {
     as('importer', ['reestr.read'])
     await mountAt()

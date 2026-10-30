@@ -19,7 +19,7 @@ const { t } = useI18n()
 
 interface Conf { action: Import40Action; title: string; ok: string; hint?: string; ph: string; danger?: boolean; trim: boolean }
 const CONF: Record<ReasonKind, Conf> = {
-  problem: { action: 'set-problem', title: 'import40Case.problemTitle', ok: 'import40Case.problemOk', ph: 'import40Case.problemPh', trim: false },
+  problem: { action: 'set-problem', title: 'import40Case.problemBtn', ok: 'import40Case.problemOk', ph: 'import40Case.problemPh', trim: false },
   stepBack: { action: 'step-back', title: 'import40Case.stepBackTitle', ok: 'import40Case.stepBackOk', hint: 'import40Case.stepBackHint', ph: 'import40Case.stepBackPh', trim: true },
   cancel: { action: 'cancel', title: 'import40Case.cancelTitle', ok: 'import40Case.cancelOk', hint: 'import40Case.cancelHint', ph: 'import40Case.cancelPh', danger: true, trim: true },
   return: { action: 'return-to-client', title: 'import40Case.returnTitle', ok: 'import40Case.returnOk', ph: 'import40Case.returnPh', trim: false },

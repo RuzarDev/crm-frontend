@@ -499,6 +499,8 @@ export interface ReestrClientOption {
   id: string
   username: string
   declarationCount: number
+  /** Название компании, без него — логин (S-48, 30.10.2026). */
+  name?: string
 }
 
 export interface ReestrStatusHistoryDto {
@@ -1768,4 +1770,7 @@ export interface KedenDeclarationStatus {
   customsPost: string | null
   declarantXin: string | null
   declarantName: string | null
+  /** Связанная ДТ платформы (S-30, 30.10.2026) — только сотруднику. */
+  caseId?: string | null
+  declarationId?: string | null
 }

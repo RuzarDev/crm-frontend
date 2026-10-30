@@ -27,6 +27,7 @@ import { useImport40Status } from '@/composables/useImport40Status'
 import { useBlock } from '@/views/home/useBlock'
 import { formatDay, pluralForm } from '@/views/broker/list'
 import { dueDay, docTitle, overdueDays, statusLabelKey as invoiceStatusKey, statusTone as invoiceStatusTone } from '@/views/broker/finance/billing'
+import { canEditClientPapers } from '@/views/broker/company/staffCompany'
 import { DATA_KEY, cellText, formatContainer, statusKey as reestrStatusKey, statusTone as reestrStatusTone } from '@/views/broker/transit/transit'
 import { formatMoney } from '@/ui/number'
 import { formatPhone } from '@/utils/phone'
@@ -63,6 +64,9 @@ const canFinance = computed(() => auth.hasPermission('finance.read'))
 // Подпись за AQNIET — администратор или руководитель отдела (как на сервере); мастер подписи — экран Импорта 40.
 const canSignProvider = computed(() => (auth.role || '').toLowerCase() === 'administrator' || auth.hasBusinessRole('rop'))
 const canOpenSigning = computed(() => canSignProvider.value && canImport.value)
+// S-5 (30.10.2026, решение владельца): менять реквизиты и выпускать договор/доверенность — администратор, руководитель,
+// декларант (как сервер); бухгалтер и продажи видят реквизиты только для просмотра.
+const canEditPapers = computed(() => canImport.value && canEditClientPapers(auth))
 
 const id = computed(() => String(route.params.id ?? ''))
 
@@ -259,7 +263,7 @@ const signs = (d: ClientCardDoc) => {
 }
 const canSignDoc = (d: ClientCardDoc) => canOpenSigning.value && awaitingAqniet(d)
 // «Выпустить новую» доверенность — не нужна, если следующая уже выпущена (с 1 декабря — автоматически).
-const canReissuePoa = (d: ClientCardDoc) => canImport.value && canRenewPoa(d) && !hasNextPoa(card.value?.documents ?? [], d)
+const canReissuePoa = (d: ClientCardDoc) => canEditPapers.value && canRenewPoa(d) && !hasNextPoa(card.value?.documents ?? [], d)
 
 // «Продлить» многоразовый договор (30.10.2026): до 31.12 следующего года; администратор или руководитель,
 // за 60 дней до конца срока и 30 после (как на сервере).
@@ -496,7 +500,7 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                 OUTLINE,
               ]"
               data-card-edit
-            >{{ t('broker.clientCard.editRequisites') }}</RouterLink>
+            >{{ t(canEditPapers ? 'broker.clientCard.editRequisites' : 'broker.company.step.requisites') }}</RouterLink>
             <ZDropdown :items="menu" @select="onMenu">
               <button
                 type="button"
@@ -556,7 +560,7 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                   <ZTag size="sm" :tone="card.profile.isComplete ? 'done' : 'wait'" data-card-complete>
                     {{ card.profile.isComplete ? t('broker.clientCard.req.complete') : t('broker.clientCard.req.incomplete') }}
                   </ZTag>
-                  <RouterLink v-if="canImport" :to="editRoute" :class="[link, 'ml-auto']" data-card-edit-requisites>{{ t('broker.clientCard.overview.edit') }}</RouterLink>
+                  <RouterLink v-if="canEditPapers" :to="editRoute" :class="[link, 'ml-auto']" data-card-edit-requisites>{{ t('broker.clientCard.overview.edit') }}</RouterLink>
                 </div>
                 <p v-if="missingReq" class="m-0 mb-2 text-[13px] text-gold-ink" data-card-missing>{{ t('broker.company.missingList', { list: missingReq }) }}</p>
                 <dl class="m-0">
@@ -821,7 +825,7 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                     <span class="block text-sm font-semibold text-ink" data-invoice-title>{{ docTitle(record, t) }}</span>
                     <span class="block truncate text-xs text-muted">{{ record.caseNumber ?? t('broker.billing.noCase') }}</span>
                   </span>
-                  <ZTag v-else-if="column.key === 'status'" :tone="invoiceStatusTone(record.status)" data-invoice-status>{{ t(invoiceStatusKey(record.status)) }}</ZTag>
+                  <ZTag v-else-if="column.key === 'status'" :tone="invoiceStatusTone(record.status)" data-invoice-status>{{ t(invoiceStatusKey(record.status, record.kind)) }}</ZTag>
                   <span v-else-if="column.key === 'total'" class="whitespace-nowrap text-sm font-medium tabular-nums text-ink">{{ formatMoney(record.total, '').trimEnd() }}</span>
                   <span v-else-if="column.key === 'dates'" class="block text-xs">
                     <span v-for="d in invoiceDates(record)" :key="d.key" :class="['block', d.bad ? 'font-semibold text-tone-danger-fg' : 'text-muted']">{{ d.text }}</span>

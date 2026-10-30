@@ -28,12 +28,16 @@ describe('SvhFactCard', () => {
     expect(w.get('[data-svh-fact-reason]').text()).toBe('Причина простоя: таможня')
   })
 
-  it('пусто — «Внести» у КПП; у клиента и декларанта без роли КПП кнопки нет', () => {
+  it('пусто — «Внести» у КПП; декларант подстраховывает, только пока КПП не назначен', () => {
     w = mountStep(SvhFactCard, { user: USERS.kpp, step: 2, kase: { status: 2 } }).w
     expect(w.find('[data-svh-fact-empty]').exists()).toBe(true)
     expect(w.get('[data-svh-fact-edit]').text()).toBe('Внести')
     w.unmount()
+    // 30.10.2026: подстраховка КПП декларантом (решение владельца) — без назначенного КПП кнопка есть, с назначенным — нет.
     w = mountStep(SvhFactCard, { user: USERS.declarant, step: 2, kase: { status: 2 } }).w
+    expect(w.find('[data-svh-fact-edit]').exists()).toBe(true)
+    w.unmount()
+    w = mountStep(SvhFactCard, { user: USERS.declarant, step: 2, kase: { status: 2, assignedKppId: 'k9', assignedKppName: 'Ерлан Б.' } }).w
     expect(w.find('[data-svh-fact-edit]').exists()).toBe(false)
   })
 

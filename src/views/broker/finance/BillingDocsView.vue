@@ -32,7 +32,7 @@ import type { ZColumn } from '@/ui/table'
 import CreateBillingDocModal, { type BillingDocPreset } from './CreateBillingDocModal.vue'
 import {
   KIND_FILTERS, STATUS_FILTERS, ST_CANCELLED, ST_DRAFT, ST_PAID, billingExcelRows, billingStats, docTitle, dueDay, filterBilling,
-  menuActions, overdueDays, pdfFileName, primaryAction, statusCounts, statusLabelKey, statusTone,
+  menuActions, overdueDays, parseStatusFilter, pdfFileName, primaryAction, statusCounts, statusLabelKey, statusTone,
   type BillingAction, type BillingKindFilter, type BillingStatusFilter,
 } from './billing'
 
@@ -78,13 +78,21 @@ const loadRefs = async () => {
 // ---- Окно создания ----
 const createOpen = ref(false)
 const createPreset = ref<BillingDocPreset | null>(null)
+// Черновик в правке (S-39, 30.10.2026) — то же окно в режиме «Изменить черновик».
+const editing = ref<BrokerInvoice | null>(null)
 const openCreate = (preset: BillingDocPreset | null = null) => {
+  editing.value = null
   createPreset.value = preset
+  createOpen.value = true
+}
+const openEdit = (r: BrokerInvoice) => {
+  createPreset.value = null
+  editing.value = r
   createOpen.value = true
 }
 const onCreateOpen = (v: boolean) => {
   createOpen.value = v
-  if (!v) createPreset.value = null
+  if (!v) { createPreset.value = null; editing.value = null }
 }
 
 // ---- Клиент (?client=): «Все счета» из карточки клиента — счета этого клиента (30.10.2026, аудит S-3/C-32).
@@ -106,7 +114,8 @@ const scoped = computed(() => (clientFilter.value ? rows.value.filter((r) => r.c
 // ---- Поиск, вид, статус ----
 const query = ref('')
 const kind = ref<BillingKindFilter>('all')
-const status = ref<BillingStatusFilter>('all')
+// ?status= (S-44, 30.10.2026): «Просроченные счета» с Главной открывают экран уже с фильтром «Просрочены».
+const status = ref<BillingStatusFilter>(parseStatusFilter(route.query.status) ?? 'all')
 const isFiltered = computed(() => !!query.value.trim() || kind.value !== 'all' || status.value !== 'all' || !!clientFilter.value)
 const items = computed(() => filterBilling(scoped.value, query.value, kind.value, status.value))
 const counts = computed(() => statusCounts(scoped.value, query.value, kind.value))
@@ -121,6 +130,14 @@ const resetFilters = () => {
 }
 const page = ref(1)
 watch([query, kind, status], () => { page.value = 1 })
+// ?status= с Главной — только начальный фильтр (ревью 30.10.2026): сменили статус или «Сбросить фильтры» — параметр уходит
+// из адреса, иначе обновление страницы вернуло бы старый фильтр.
+watch(status, (s) => {
+  if (route.query.status !== undefined && route.query.status !== s) {
+    const { status: _drop, ...rest } = route.query
+    void router.replace({ query: rest })
+  }
+})
 
 // /billing?case=… (уведомление о чеке и «Ждёт оплаты услуг AQNIET», «Счета и акты» из шапки заявки): только фильтр.
 // Счетов по заявке ещё нет — ищем по номеру заявки из справочника заявок, а не показываем весь список, и в пустом
@@ -233,6 +250,8 @@ const secondDate = (r: BrokerInvoice): { text: string; overdue: boolean } | null
 const ACTION_LABEL: Record<BillingAction, string> = {
   issue: 'broker.billing.action.issue',
   markPaid: 'broker.billing.action.markPaid',
+  markSigned: 'broker.billing.action.markSigned',
+  edit: 'broker.billing.action.edit',
   remind: 'broker.billing.action.remind',
   pdf: 'broker.billing.action.pdf',
   delete: 'broker.billing.action.delete',
@@ -301,6 +320,16 @@ const markPaid = async (r: BrokerInvoice) => {
     await board.load()
   })
 }
+// S-40 (30.10.2026): акт не оплачивают — «Отметить подписанным» (на сервере та же отметка mark-paid).
+const markSigned = async (r: BrokerInvoice) => {
+  if (isBusy()) return
+  if (!(await ask(t('billing.markSignedConfirm'), t('broker.billing.action.markSigned')))) return
+  await run(r, async () => {
+    await billingApi.markPaid(r.id)
+    message.success(t('broker.billing.signedOk'))
+    await board.load()
+  })
+}
 const remind = (r: BrokerInvoice) => run(r, async () => {
   const res = await billingApi.remind(r.id)
   // Письмо не ушло — не успех, а повод проверить email клиента и настройки почты.
@@ -366,6 +395,8 @@ const onAction = (r: BrokerInvoice, key: string) => {
   switch (key as BillingAction) {
     case 'issue': if (canWrite.value) void issue(r); break
     case 'markPaid': if (canWrite.value) void markPaid(r); break
+    case 'markSigned': if (canWrite.value) void markSigned(r); break
+    case 'edit': if (canWrite.value && r.status === ST_DRAFT) openEdit(r); break
     case 'remind': if (canWrite.value) void remind(r); break
     case 'delete': if (canWrite.value) void remove(r); break
     case 'cancel': if (canWrite.value) void cancelDoc(r); break
@@ -379,7 +410,7 @@ const exportExcel = async () => {
   if (exporting.value || !items.value.length) return
   exporting.value = true
   try {
-    await exportXlsx('billing', t('billing.title'), billingExcelRows(items.value, t, (s) => t(statusLabelKey(s))))
+    await exportXlsx('billing', t('billing.title'), billingExcelRows(items.value, t, (s, k) => t(statusLabelKey(s, k))))
   } catch {
     message.error(t('errors.generic'))
   } finally {
@@ -479,7 +510,7 @@ const exportExcel = async () => {
             <span class="block truncate font-mono text-xs text-muted" data-billing-case>{{ record.caseNumber || t('broker.billing.noCase') }}</span>
           </span>
           <ClientCell v-else-if="column.key === 'client'" :name="record.clientName" />
-          <ZTag v-else-if="column.key === 'status'" :tone="statusTone(record.status)" data-billing-status-tag>{{ t(statusLabelKey(record.status)) }}</ZTag>
+          <ZTag v-else-if="column.key === 'status'" :tone="statusTone(record.status)" data-billing-status-tag>{{ t(statusLabelKey(record.status, record.kind)) }}</ZTag>
           <span v-else-if="column.key === 'total'" class="block min-w-0 text-right">
             <span class="block text-sm font-semibold whitespace-nowrap text-ink tabular-nums" data-billing-total>{{ formatMoney(record.total) }}</span>
             <span class="block text-xs whitespace-nowrap text-muted tabular-nums" data-billing-vat>{{ vatLine(record) }}</span>
@@ -545,6 +576,7 @@ const exportExcel = async () => {
       :tariffs="tariffs"
       :vat-rate="vatRate"
       :preset="createPreset"
+      :editing="editing"
       @update:open="onCreateOpen"
       @created="board.load()"
     />

@@ -118,9 +118,9 @@ describe('casePermissions: роли', () => {
 
 describe('casePermissions: статусы', () => {
   // S-27 (30.10.2026): шаг назад и с «Выполнено» (руководитель возвращает выполненную заявку).
-  it('шаг назад — 1..8; отмена — до выполнения', () => {
+  it('шаг назад — 2..8 (с границы нельзя, S-29); отмена — до выполнения', () => {
     const a = USERS.admin
-    expect([0, 1, 7, 8, 9].map((status) => canStepBack(a, caseDto({ status })))).toEqual([false, true, true, true, false])
+    expect([0, 1, 2, 7, 8, 9].map((status) => canStepBack(a, caseDto({ status })))).toEqual([false, false, true, true, true, false])
     expect([0, 7, 8, 9].map((status) => canCancel(a, caseDto({ status })))).toEqual([true, true, false, false])
   })
 

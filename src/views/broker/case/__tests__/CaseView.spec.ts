@@ -320,11 +320,11 @@ describe('CaseView: действия', () => {
     expect(w.find('[data-clear-problem]').exists()).toBe(false)
   })
 
-  it('«Запрос таможни / проблема»: заметка обязательна, сообщение клиенту — без пробелов или null', async () => {
+  it('«Отметить проблему» (S-22): заметка обязательна, сообщение клиенту — без пробелов или null', async () => {
     await mountCard(USERS.declarant, { status: 2 })
     await w.get('[data-menu-item="problem"]').trigger('click')
     const modal = w.get('[data-modal]')
-    expect(modal.get('[data-modal-title]').text()).toBe('Запрос таможни / проблема')
+    expect(modal.get('[data-modal-title]').text()).toBe('Отметить проблему')
     expect(modal.get('[data-ok]').attributes('disabled')).toBeDefined()
     await modal.get('[data-reason-input]').setValue('Пост запросил сертификат')
     await modal.get('[data-reason-client]').setValue('  Нужен сертификат  ')
@@ -354,6 +354,12 @@ describe('CaseView: действия', () => {
     await w.get('[data-ok]').trigger('click')
     await flushPromises()
     expect(api.action).toHaveBeenLastCalledWith('c1', 'step-back', 'ошибка', undefined)
+  })
+
+  it('S-29 (решение владельца): с «На границе» «Шага назад» в меню нет, «Отменить» — есть', async () => {
+    await mountCard(USERS.admin, { status: 1 })
+    expect(w.find('[data-menu-item="stepBack"]').exists()).toBe(false)
+    expect(w.find('[data-menu-item="cancel"]').exists()).toBe(true)
   })
 
   it('смена заявки (назад/вперёд) закрывает окно причины — отмена не уйдёт на другую заявку', async () => {

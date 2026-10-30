@@ -4,8 +4,12 @@ import { needsDeclarant, needsKpp } from './requests'
 // Чистая логика «Распределения» (сегменты, загрузка сотрудников) — без Vue и запросов, чтобы проверять тестами.
 export { needsDeclarant, needsKpp }
 
-export type ManageSegment = 'noDeclarant' | 'noKpp' | 'problem' | 'stale' | 'all'
-export const MANAGE_SEGMENTS: ManageSegment[] = ['noDeclarant', 'noKpp', 'problem', 'stale', 'all']
+// «Без исполнителя» (30.10.2026, ревью волны 2) — «Без декларанта» и «Без КПП» вместе: туда ведёт одноимённая карточка
+// Главной, и число в ней совпадает с сегментом (сервер считает той же формулой, Import40Metrics.Unassigned).
+export type ManageSegment = 'unassigned' | 'noDeclarant' | 'noKpp' | 'problem' | 'stale' | 'all'
+export const MANAGE_SEGMENTS: ManageSegment[] = ['unassigned', 'noDeclarant', 'noKpp', 'problem', 'stale', 'all']
+/** Сегменты, из которых выбирается сегмент по умолчанию (как до 30.10: «Без исполнителя» их только объединяет). */
+const DEFAULT_ORDER: ManageSegment[] = ['noDeclarant', 'noKpp', 'problem', 'stale']
 
 /** Столько дней без движения — заявка «зависла» (то же число, что StaleDays на сервере). */
 export const STALE_DAYS = 5
@@ -22,6 +26,7 @@ export const isStale = (c: Pick<ManageCase, 'daysSinceUpdate'>): boolean => c.da
 /** Входит ли заявка в сегмент («Все активные» — любая: сервер уже убрал черновики, завершённые и отменённые). */
 export function inSegment(c: CaseLike, seg: ManageSegment): boolean {
   switch (seg) {
+    case 'unassigned': return lacksDeclarant(c) || lacksKpp(c)
     case 'noDeclarant': return lacksDeclarant(c)
     case 'noKpp': return lacksKpp(c)
     case 'problem': return c.isProblem
@@ -35,8 +40,9 @@ export const segmentOf = <T extends CaseLike>(cases: T[], seg: ManageSegment): T
 
 /** Счётчики всех сегментов (по всем активным, без поиска). */
 export function segmentCounts(cases: CaseLike[]): Record<ManageSegment, number> {
-  const out: Record<ManageSegment, number> = { noDeclarant: 0, noKpp: 0, problem: 0, stale: 0, all: cases.length }
+  const out: Record<ManageSegment, number> = { unassigned: 0, noDeclarant: 0, noKpp: 0, problem: 0, stale: 0, all: cases.length }
   for (const c of cases) {
+    if (lacksDeclarant(c) || lacksKpp(c)) out.unassigned++
     if (lacksDeclarant(c)) out.noDeclarant++
     if (lacksKpp(c)) out.noKpp++
     if (c.isProblem) out.problem++
@@ -45,11 +51,20 @@ export function segmentCounts(cases: CaseLike[]): Record<ManageSegment, number> 
   return out
 }
 
-/** Сегмент при открытии: первый непустой из четырёх рабочих, иначе «Все активные». */
-export function defaultSegment(cases: CaseLike[]): ManageSegment {
+/**
+ * Сегмент при открытии: из адреса (?segment=, S-15 30.10.2026 — карточки Главной ведут на нужный), иначе первый непустой
+ * из четырёх рабочих, иначе «Все активные».
+ */
+export function defaultSegment(cases: CaseLike[], fromQuery?: unknown): ManageSegment {
+  const asked = parseSegment(fromQuery)
+  if (asked) return asked
   const counts = segmentCounts(cases)
-  return MANAGE_SEGMENTS.find((s) => s !== 'all' && counts[s] > 0) ?? 'all'
+  return DEFAULT_ORDER.find((s) => counts[s] > 0) ?? 'all'
 }
+
+/** Сегмент из ?segment=: известное значение или null. */
+export const parseSegment = (v: unknown): ManageSegment | null =>
+  typeof v === 'string' && (MANAGE_SEGMENTS as string[]).includes(v) ? (v as ManageSegment) : null
 
 export interface StaffLoad {
   id: string

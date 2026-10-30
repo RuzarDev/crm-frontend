@@ -32,8 +32,9 @@ const cargo = computed(() => kase.value.cargo)
 const passKey = 'border-passed'
 const passing = computed(() => props.ctx.actions.isPending(passKey))
 const otherBusy = computed(() => props.ctx.actions.busy() && !passing.value)
-const passDisabled = computed(() => props.ctx.perms.actionDisabled('kpp') || otherBusy.value)
-const passHint = computed(() => hintText(props.ctx.perms.actionHint('kpp'), t))
+// S-24 (30.10.2026): «Граница пройдена» — то же правило, что «Машина прибыла» и контроли (canBorderWork, как сервер):
+// КПП не назначен — и декларант по праву import40.kpp (подстраховка), назначен — только он и руководитель.
+const passDisabled = computed(() => !props.ctx.perms.canBorderWork || otherBusy.value)
 const canReturn = computed(() => props.ctx.perms.can('kpp') || props.ctx.perms.can('declarant'))
 const returnHint = computed(() => (canReturn.value ? '' : hintText({ kind: 'role', role: 'kpp' }, t)))
 
@@ -124,8 +125,8 @@ const iconBtn = 'inline-flex size-9 shrink-0 cursor-pointer items-center justify
           </ZButton>
         </span>
       </ZTooltip>
-      <ZTooltip :title="passDisabled ? passHint : ''">
-        <span class="inline-flex max-sm:w-full" :tabindex="passDisabled && passHint ? 0 : undefined">
+      <ZTooltip :title="workHint">
+        <span class="inline-flex max-sm:w-full" :tabindex="workHint ? 0 : undefined">
           <ZButton variant="primary" :disabled="passDisabled" :loading="passing" class="max-sm:w-full" data-border-passed @click="pass">
             {{ t('import40Case.borderPassed') }}
           </ZButton>

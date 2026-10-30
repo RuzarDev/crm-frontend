@@ -32,7 +32,7 @@ import { formatDateText } from '@/ui/date'
 import type { ZColumn, ZKey } from '@/ui/table'
 import {
   REQUEST_TABS, clientOptions as buildClientOptions, emptyFilters, executorInfo, executorOptions as buildExecutorOptions,
-  executorText, filterRows, filtersFromQuery, filtersToQuery, formatTnved, hasFilters, inTab, parseTab, sameFilters, stageTone, tabCounts,
+  executorText, filterRows, filtersFromQuery, filtersToQuery, formatTnved, hasFilters, inTab, isActiveProblem, isRework, parseTab, sameFilters, stageTone, tabCounts,
   type RequestFilters, type RequestTab,
 } from './requests'
 
@@ -73,7 +73,7 @@ watch(() => route.query.new, (v) => {
 
 // ---- Фильтры (общие для вкладок) ----
 // Живут в адресе вместе с вкладкой (replace; 30.10.2026, аудит S-20): «Назад» браузера из заявки и крошка «Заявки»
-// (последний адрес списка) возвращают их. Адрес сменили извне (пункт меню «Заявки» без параметров) — фильтры из него.
+// (последний адрес списка) возвращают их. ?problem=1 (S-16) — карточка «Проблемные заявки» с Главной. Адрес сменили извне (пункт меню «Заявки» без параметров) — фильтры из него.
 const filters = ref<RequestFilters>(filtersFromQuery(route.query))
 const patch = (p: Partial<RequestFilters>) => { filters.value = { ...filters.value, ...p } }
 const filtered = computed(() => hasFilters(filters.value))
@@ -101,6 +101,7 @@ const clientOptions = computed(() => buildClientOptions(known.value))
 const executorOptions = computed(() => buildExecutorOptions(known.value, t))
 const stageOptions = computed(() => IMPORT40_STATUSES.map((s) => ({ value: String(s.id), label: statusLabel(s.id) })))
 const kedenOptions = computed(() => [{ value: 'unlinked', label: t('kedenLink.filter.unlinked') }])
+const problemOptions = computed(() => [{ value: '1', label: t('broker.requests.filter.problemOnly') }])
 const condRelOptions = computed(() => (['any', 'open', 'overdue', 'uploaded'] as const).map((k) => ({ value: k, label: t(`condRel.filter.${k}`) })))
 
 // Шапка — число заявок «В работе» без фильтров; счётчики вкладок — по найденному (видно, где совпадения).
@@ -283,6 +284,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
       <PeriodChip :label="t('broker.list.period')" :value="filters.period" @update:value="patch({ period: $event })" />
       <FilterChip :label="t('condRel.filter.label')" :options="condRelOptions" :value="filters.condRel ?? null" data-requests-condrel @update:value="patch({ condRel: $event as CondRelFilter | null })" />
       <FilterChip :label="t('kedenLink.filter.label')" :options="kedenOptions" :value="filters.keden ?? null" data-requests-keden @update:value="patch({ keden: $event as 'unlinked' | null })" />
+      <FilterChip :label="t('broker.requests.filter.problem')" :options="problemOptions" :value="filters.problem ? '1' : null" data-requests-problem @update:value="patch({ problem: $event === '1' })" />
     </div>
 
     <div v-if="source.error && !source.data" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-requests-error>
@@ -322,7 +324,10 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
           <span v-else-if="column.key === 'stage'" class="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
             <ZTag :tone="stageTone(record.status)">{{ statusLabel(record.status) }}</ZTag>
             <span v-if="record.status < 8" class="text-xs tabular-nums text-muted">{{ t('broker.requests.stepOf', { step: record.step, total: TOTAL_STEPS }) }}</span>
-            <ZTag v-if="record.isProblem" tone="danger">
+            <!-- S-21: возвращённый на доработку черновик — «На доработке» (ждёт клиента). -->
+            <ZTag v-if="isRework(record)" tone="wait" data-request-rework>{{ t('broker.requests.rework') }}</ZTag>
+            <!-- S-18: у выполненных и отменённых флаг проблемы не показываем — проблемой считается только заявка в работе. -->
+            <ZTag v-if="isActiveProblem(record)" tone="danger">
               <PhFlag :size="12" weight="fill" class="mr-1" aria-hidden="true" />{{ t('broker.requests.problem') }}
             </ZTag>
             <CondRelTag v-if="record.conditionalRelease" :brief="record.conditionalRelease" short />

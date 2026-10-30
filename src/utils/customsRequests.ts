@@ -62,6 +62,10 @@ const perm = (a: DtAccessSource, p: string) => isAdminOf(a) || a.permissions.inc
 export const canManageCustoms = (a: DtAccessSource): boolean =>
   canManageDeclarations(dtUserFrom(a)) || (!dtUserFrom(a).isClient && perm(a, 'import40.problem'))
 
+/** Запрос на границе заводит и закрывает ещё и КПП (S-23, 30.10.2026) — как сервер (CanManageAt): право import40.kpp. */
+export const canManageBorderCustoms = (a: DtAccessSource): boolean =>
+  canManageCustoms(a) || (!dtUserFrom(a).isClient && perm(a, 'import40.kpp'))
+
 /** «Напомнить клиенту» — как сервер (CanRemind): плюс КПП и руководитель (import40.assign). */
 export const canRemindClient = (a: DtAccessSource): boolean =>
   canManageCustoms(a) || (!dtUserFrom(a).isClient && (perm(a, 'import40.kpp') || perm(a, 'import40.assign')))

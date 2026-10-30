@@ -84,6 +84,17 @@ describe('CaseCustomsRequests', () => {
     }
   })
 
+  it('S-23: КПП (только canManageBorder) заводит и закрывает запрос на границе, но не при проверке ДТ', async () => {
+    mountIt({ status: 1, canManage: false, canManageBorder: true, list: [req({ stage: 'border' }), req({ id: 'r2', stage: 'declaration' })] })
+    expect(w.find('[data-customs-create]').exists()).toBe(true)
+    expect(w.find('[data-customs-request="open"] [data-customs-close]').exists()).toBe(true)
+    expect(w.findAll('[data-customs-close]')).toHaveLength(1)
+    w.unmount()
+    document.body.innerHTML = ''
+    mountIt({ status: 3, canManage: false, canManageBorder: true })
+    expect(w.find('[data-customs-create]').exists()).toBe(false)
+  })
+
   it('при проверке ДТ — подсказка о 4 часах до срока выпуска; срок со временем уходит моментом', async () => {
     // «Сегодня» зафиксировано: срок в прошлом форма не принимает.
     vi.useFakeTimers({ toFake: ['Date'] })

@@ -51,9 +51,9 @@ const SelectStub = {
 }
 
 let w: VueWrapper
-const mountView = async () => {
+const mountView = async (path = '/import-40/manage') => {
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:p(.*)*', component: { template: '<div/>' } }] })
-  await router.push('/import-40/manage')
+  await router.push(path)
   await router.isReady()
   w = mountWithI18n(BrokerManageView, { attachTo: document.body, global: { plugins: [router], stubs: { ZSelect: SelectStub } } })
   await flushPromises()
@@ -85,7 +85,7 @@ describe('BrokerManageView', () => {
     expect(w.get('h1').text()).toBe('Распределение')
     expect(w.text()).toContain('Назначьте декларанта и КПП — заявка попадёт в их «Мои»')
     expect(w.get('[data-manage-drafts]').text()).toBe('У клиентов — черновиков: 4')
-    expect(segments()).toEqual(['Без декларанта 1', 'Без КПП 1', 'С проблемой 1', 'Зависли 1', 'Все активные 4'])
+    expect(segments()).toEqual(['Без исполнителя 2', 'Без декларанта 1', 'Без КПП 1', 'С проблемой 1', 'Зависли 1', 'Все активные 4'])
   })
 
   it('сегмент по умолчанию — первый непустой; переключение и поиск', async () => {
@@ -98,6 +98,18 @@ describe('BrokerManageView', () => {
     await w.get('[data-manage-search]').setValue('плитка')
     await flushPromises()
     expect(numbers()).toEqual(['ИМ-2026-0003'])
+  })
+
+  it('ревью волны 2: ?segment=unassigned (карточка «Без исполнителя» Главной) — «Без декларанта» и «Без КПП» вместе', async () => {
+    await mountView('/import-40/manage?segment=unassigned')
+    expect(w.get('[data-manage-segments] [data-state="on"]').text()).toContain('Без исполнителя 2')
+    expect(numbers()).toHaveLength(2)
+  })
+
+  it('S-15: ?segment=stale — открывается сразу нужный сегмент (карточка Главной)', async () => {
+    await mountView('/import-40/manage?segment=stale')
+    expect(w.get('[data-manage-segments] [data-state="on"]').text()).toContain('Зависли')
+    expect(numbers()).toHaveLength(1)
   })
 
   it('если всё назначено — по умолчанию «Все активные»', async () => {
@@ -143,7 +155,7 @@ describe('BrokerManageView', () => {
     expect(api.update).toHaveBeenCalledWith('a', { assignedDeclarantId: 'd2' })
     expect(api.toast.success).toHaveBeenCalledWith('Назначение сохранено')
     expect(api.overview).toHaveBeenCalledTimes(1) // без перезагрузки
-    expect(segments()[0]).toBe('Без декларанта 0')
+    expect(segments()[1]).toBe('Без декларанта 0')
     expect(numbers()).toEqual([]) // назначенная заявка ушла из сегмента
     await pick('Все активные')
     expect(rowOf('ИМ-2026-0001').get('[data-manage-declarant]').attributes('data-value')).toBe('d2')
@@ -158,8 +170,8 @@ describe('BrokerManageView', () => {
     await rowOf('ИМ-2026-0003').get('[data-manage-kpp] [data-opt="k1"]').trigger('click')
     await flushPromises()
     expect(api.update).toHaveBeenCalledWith('e', { assignedKppId: 'k1' })
-    expect(segments()[1]).toBe('Без КПП 0')
-    expect(segments()[0]).toBe('Без декларанта 2') // у «b» декларанта сняли — а шаг его требует
+    expect(segments()[2]).toBe('Без КПП 0')
+    expect(segments()[1]).toBe('Без декларанта 2') // у «b» декларанта сняли — а шаг его требует
   })
 
   it('отказ сервера: назначение не меняется, тоста успеха нет', async () => {
@@ -168,7 +180,7 @@ describe('BrokerManageView', () => {
     await rowOf('ИМ-2026-0001').get('[data-manage-declarant] [data-opt="d1"]').trigger('click')
     await flushPromises()
     expect(api.toast.success).not.toHaveBeenCalled()
-    expect(segments()[0]).toBe('Без декларанта 1')
+    expect(segments()[1]).toBe('Без декларанта 1')
     expect(numbers()).toEqual(['ИМ-2026-0001'])
   })
 

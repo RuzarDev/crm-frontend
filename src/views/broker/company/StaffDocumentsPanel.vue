@@ -29,6 +29,8 @@ const props = defineProps<{
   isAdmin: boolean
   /** Подпись за AQNIET: администратор или руководитель отдела (как на сервере). */
   canSignProvider: boolean
+  /** Выпускать документ (S-5, 30.10.2026): администратор, руководитель, декларант; не передан — можно. */
+  canIssue?: boolean
   refresh: () => Promise<unknown>
 }>()
 const { t } = useI18n()
@@ -251,7 +253,7 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
     />
 
     <!-- Сформировать -->
-    <div class="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-row border border-dashed border-line px-4 py-3 max-sm:flex-col max-sm:items-stretch" data-generate-bar>
+    <div v-if="canIssue !== false" class="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-row border border-dashed border-line px-4 py-3 max-sm:flex-col max-sm:items-stretch" data-generate-bar>
       <ZCheckbox
         :checked="singleUse"
         :disabled="blocked"
@@ -283,7 +285,8 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
         <PhFilePlus :size="16" aria-hidden="true" />{{ t(singleUse ? 'broker.company.generateSingle' : 'broker.company.generate') }}
       </ZButton>
     </div>
-    <p v-if="!profileComplete" class="m-0 text-sm text-ink-3" data-fill-first>{{ t('broker.company.fillFirst') }}</p>
+    <p v-if="canIssue === false" class="m-0 text-sm text-ink-3" data-issue-readonly>{{ t('broker.company.readonlyHint') }}</p>
+    <p v-else-if="!profileComplete" class="m-0 text-sm text-ink-3" data-fill-first>{{ t('broker.company.fillFirst') }}</p>
     <ZAlert v-if="generateError" type="error" show-icon :message="generateError" data-generate-error />
 
     <!-- Документы -->

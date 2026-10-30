@@ -232,6 +232,27 @@ describe('StaffCompanyPage', () => {
     expect(msg.success).toHaveBeenCalledWith('Реквизиты сохранены')
   })
 
+  it('S-5 (решение владельца): бухгалтер и продажи — реквизиты и документы только для просмотра; декларант — правит', async () => {
+    for (const role of ['accountant', 'sales']) {
+      as('Importer', [role])
+      await mountAt('/import-40/company?client=c1&step=requisites')
+      expect(w.find('[data-req-readonly]').exists()).toBe(true)
+      expect(w.get('[data-req-fieldset]').attributes('disabled')).toBeDefined()
+      w.unmount()
+      await mountAt('/import-40/company?client=c1&step=poa')
+      expect(w.find('[data-doc-generate]').exists()).toBe(false)
+      expect(w.find('[data-issue-readonly]').exists()).toBe(true)
+      w.unmount()
+    }
+    as('Importer', ['declarant'])
+    await mountAt('/import-40/company?client=c1&step=requisites')
+    expect(w.find('[data-req-readonly]').exists()).toBe(false)
+    expect(w.get('[data-req-fieldset]').attributes('disabled')).toBeUndefined()
+    w.unmount()
+    await mountAt('/import-40/company?client=c1&step=poa')
+    expect(w.find('[data-doc-generate]').exists()).toBe(true)
+  })
+
   it('сформировать: разовый + «действует до» уходят в generateDocument, затем документы перечитываются', async () => {
     api.generateDocument.mockResolvedValue(doc({}))
     await mountAt('/import-40/company?step=poa')

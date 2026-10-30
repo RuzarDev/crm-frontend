@@ -4,8 +4,8 @@ import { mountWithI18n } from '@/test/mountWithI18n'
 import type { Import40CaseDto } from '@/api/import40'
 import type { SalesServiceItem } from '@/api/sales'
 
-const api = vi.hoisted(() => ({ create: vi.fn(), success: vi.fn(), error: vi.fn() }))
-vi.mock('@/api/billing', () => ({ billingApi: { create: api.create } }))
+const api = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), success: vi.fn(), error: vi.fn() }))
+vi.mock('@/api/billing', () => ({ billingApi: { create: api.create, update: api.update } }))
 vi.mock('@/ui/message', () => ({ message: { success: api.success, error: api.error, warning: vi.fn(), info: vi.fn() } }))
 
 import CreateBillingDocModal from '../CreateBillingDocModal.vue'
@@ -125,6 +125,36 @@ describe('CreateBillingDocModal', () => {
     expect(api.success).toHaveBeenCalledWith('Документ создан как черновик')
     expect(w.emitted('update:open')?.at(-1)).toEqual([false])
     expect(w.emitted('created')).toHaveLength(1)
+  })
+
+  it('S-39: правка черновика — поля из документа, вид и клиент выключены, «Сохранить» шлёт update', async () => {
+    api.update.mockResolvedValue({ id: 'd1' })
+    const editing = {
+      id: 'd1', clientId: 'c2', clientName: 'ТОО «Steppe Agro»', caseId: 'k2', caseNumber: 'ИМ-2026-0173', kind: 'invoice', status: 0,
+      number: '', year: 2026, issuedAtUtc: null, dueDateUtc: '2026-11-05T00:00:00Z', paidAtUtc: null, vatRate: 12, subtotal: 0,
+      vatAmount: 0, total: 0, note: 'старая', createdAtUtc: '2026-10-30T05:00:00Z', paymentChecks: [],
+      lines: [
+        { id: 'l2', sortOrder: 1, name: 'Вторая', unit: 'шт', quantity: 1, unitPrice: 500, amount: 500 },
+        { id: 'l1', sortOrder: 0, name: 'Первая', unit: 'ДТ', quantity: 2, unitPrice: 1000, amount: 2000 },
+      ],
+    }
+    mount({ editing })
+    await flushPromises()
+    expect((w.get('[data-create-client]').element as HTMLSelectElement).value).toBe('c2')
+    expect((w.get('[data-create-case]').element as HTMLSelectElement).value).toBe('k2')
+    expect(w.getComponent('[data-create-kind]').attributes('disabled')).toBeDefined()
+    expect(w.getComponent('[data-create-client]').attributes('disabled')).toBeDefined()
+    expect((w.get('[data-create-note]').element as HTMLInputElement).value).toBe('старая')
+    expect(w.findAll('input[data-create-service]').map((i) => (i.element as HTMLInputElement).value)).toEqual(['Первая', 'Вторая'])
+    await w.get('[data-create-note]').setValue('новая')
+    await w.get('[data-ok]').trigger('click')
+    await flushPromises()
+    expect(api.create).not.toHaveBeenCalled()
+    expect(api.update).toHaveBeenCalledWith('d1', {
+      clientId: 'c2', caseId: 'k2', kind: 'invoice', dueDateUtc: '2026-11-05T00:00:00Z', note: 'новая',
+      lines: [{ name: 'Первая', unit: 'ДТ', quantity: 2, unitPrice: 1000 }, { name: 'Вторая', unit: 'шт', quantity: 1, unitPrice: 500 }],
+    })
+    expect(api.success).toHaveBeenCalledWith('Черновик сохранён')
   })
 
   it('без срока и заметки — null; пустые кол-во и цена — 1 и 0', async () => {

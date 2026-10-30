@@ -14,12 +14,16 @@ export const ST_CANCELLED = 3
 export type BillingKindFilter = 'all' | BrokerInvoiceKind
 export const KIND_FILTERS: BillingKindFilter[] = ['all', 'invoice', 'act']
 
-export type BillingStatusFilter = 'all' | 'draft' | 'issued' | 'paid' | 'cancelled'
-/** Порядок сегментов статуса. Аннулированные раньше нельзя было отфильтровать. */
-export const STATUS_FILTERS: BillingStatusFilter[] = ['all', 'draft', 'issued', 'paid', 'cancelled']
-const STATUS_OF: Record<Exclude<BillingStatusFilter, 'all'>, number> = {
+export type BillingStatusFilter = 'all' | 'draft' | 'issued' | 'overdue' | 'paid' | 'cancelled'
+/** Порядок сегментов статуса. Аннулированные раньше нельзя было отфильтровать; «Просрочены» — S-44 (30.10.2026). */
+export const STATUS_FILTERS: BillingStatusFilter[] = ['all', 'draft', 'issued', 'overdue', 'paid', 'cancelled']
+const STATUS_OF: Record<Exclude<BillingStatusFilter, 'all' | 'overdue'>, number> = {
   draft: ST_DRAFT, issued: ST_ISSUED, paid: ST_PAID, cancelled: ST_CANCELLED,
 }
+
+/** Статус из ?status= (S-44: карточка «Просроченные счета» на Главной ведёт на ?status=overdue); иначе null. */
+export const parseStatusFilter = (v: unknown): BillingStatusFilter | null =>
+  typeof v === 'string' && (STATUS_FILTERS as string[]).includes(v) ? (v as BillingStatusFilter) : null
 
 /** «0214/2026»; у черновика номера нет — пустая строка. */
 export const docNumber = (r: Pick<BrokerInvoice, 'number' | 'year'>): string => (r.number ? `${r.number}/${r.year}` : '')
@@ -29,7 +33,8 @@ export const matchesBilling = (q: string, r: BrokerInvoice): boolean =>
   matchesQuery(q, [r.clientName, docNumber(r), r.caseNumber, r.note])
 
 export const inKind = (r: BrokerInvoice, k: BillingKindFilter): boolean => k === 'all' || r.kind === k
-export const inStatus = (r: BrokerInvoice, s: BillingStatusFilter): boolean => s === 'all' || r.status === STATUS_OF[s]
+export const inStatus = (r: BrokerInvoice, s: BillingStatusFilter, now: Date = new Date()): boolean =>
+  s === 'all' || (s === 'overdue' ? isOverdue(r, now) : r.status === STATUS_OF[s])
 
 export const filterBilling = (
   rows: BrokerInvoice[], q: string, kind: BillingKindFilter, status: BillingStatusFilter,
@@ -37,7 +42,7 @@ export const filterBilling = (
 
 /** Счётчики сегментов статуса: по найденному с учётом вида (сам сегмент статуса не учитывается). */
 export function statusCounts(rows: BrokerInvoice[], q: string, kind: BillingKindFilter): Record<BillingStatusFilter, number> {
-  const out: Record<BillingStatusFilter, number> = { all: 0, draft: 0, issued: 0, paid: 0, cancelled: 0 }
+  const out: Record<BillingStatusFilter, number> = { all: 0, draft: 0, issued: 0, overdue: 0, paid: 0, cancelled: 0 }
   for (const r of rows) {
     if (!inKind(r, kind) || !matchesBilling(q, r)) continue
     for (const s of STATUS_FILTERS) if (inStatus(r, s)) out[s]++
@@ -97,31 +102,33 @@ export function billingStats(rows: BrokerInvoice[], now: Date = new Date()): Bil
   return s
 }
 
-export type BillingAction = 'issue' | 'markPaid' | 'remind' | 'pdf' | 'delete' | 'cancel'
+export type BillingAction = 'issue' | 'markPaid' | 'markSigned' | 'remind' | 'pdf' | 'edit' | 'delete' | 'cancel'
 
 /**
  * Главная кнопка строки (только при праве записи — проверяет экран): черновик — «Выставить»; выставленный счёт
- * с чеком клиента — «Отметить оплату», без чека — «Напомнить»; выставленный акт — «Отметить оплату».
+ * с чеком клиента — «Отметить оплату», без чека — «Напомнить»; выставленный акт — «Отметить подписанным» (S-40,
+ * 30.10.2026: акт не оплачивают; на сервере это та же отметка mark-paid).
  */
-export function primaryAction(r: BrokerInvoice): 'issue' | 'markPaid' | 'remind' | null {
+export function primaryAction(r: BrokerInvoice): 'issue' | 'markPaid' | 'markSigned' | 'remind' | null {
   if (r.status === ST_DRAFT) return 'issue'
   if (r.status !== ST_ISSUED) return null
-  if (r.kind === 'act') return 'markPaid'
+  if (r.kind === 'act') return 'markSigned'
   return (r.paymentChecks ?? []).length ? 'markPaid' : 'remind'
 }
 
 /**
  * Пункты меню «⋯»: PDF — всем; остальное — при праве записи и тех же условиях, что раньше:
- * «Напомнить» — выставленный счёт (акт не оплачивают), «Отметить оплату» — выставленный документ,
- * «Удалить черновик» — черновик, «Аннулировать» — выставленный или оплаченный. Главная кнопка в меню не повторяется.
+ * «Напомнить» — выставленный счёт (акт не оплачивают), «Отметить оплату» — выставленный счёт,
+ * «Изменить» (S-39, 30.10.2026) и «Удалить черновик» — черновик, «Аннулировать» — выставленный или оплаченный.
+ * Главная кнопка в меню не повторяется.
  */
 export function menuActions(r: BrokerInvoice, canWrite: boolean): BillingAction[] {
   const out: BillingAction[] = ['pdf']
   if (!canWrite) return out
   const primary = primaryAction(r)
   if (r.status === ST_ISSUED && r.kind !== 'act' && primary !== 'remind') out.push('remind')
-  if (r.status === ST_ISSUED && primary !== 'markPaid') out.push('markPaid')
-  if (r.status === ST_DRAFT) out.push('delete')
+  if (r.status === ST_ISSUED && r.kind !== 'act' && primary !== 'markPaid') out.push('markPaid')
+  if (r.status === ST_DRAFT) out.push('edit', 'delete')
   if (r.status === ST_ISSUED || r.status === ST_PAID) out.push('cancel')
   return out
 }
@@ -130,7 +137,9 @@ const TONE: Record<number, ZTone> = { [ST_DRAFT]: 'neutral', [ST_ISSUED]: 'info'
 export const statusTone = (s: number): ZTone => TONE[s] ?? 'neutral'
 
 const STATUS_KEY: Record<number, string> = { [ST_DRAFT]: 'draft', [ST_ISSUED]: 'issued', [ST_PAID]: 'paid', [ST_CANCELLED]: 'cancelled' }
-export const statusLabelKey = (s: number): string => `broker.billing.status.${STATUS_KEY[s] ?? 'draft'}`
+/** Подпись статуса; «оплаченный» акт — «Подписан» (S-40: акт не оплачивают). */
+export const statusLabelKey = (s: number, kind?: BrokerInvoiceKind): string =>
+  kind === 'act' && s === ST_PAID ? 'broker.billing.status.signed' : `broker.billing.status.${STATUS_KEY[s] ?? 'draft'}`
 
 type T = (k: string, p?: Record<string, unknown>) => string
 
@@ -146,13 +155,13 @@ export const pdfFileName = (r: BrokerInvoice, t: T): string =>
   `${t(r.kind === 'act' ? 'broker.billing.file.act' : 'broker.billing.file.invoice')}-${r.number || t('broker.billing.file.draft')}.pdf`
 
 /** Excel: отфильтрованные строки; колонки и порядок — как раньше, заголовки из i18n. */
-export function billingExcelRows(rows: BrokerInvoice[], t: T, statusText: (s: number) => string): Record<string, unknown>[] {
+export function billingExcelRows(rows: BrokerInvoice[], t: T, statusText: (s: number, kind: BrokerInvoiceKind) => string): Record<string, unknown>[] {
   return rows.map((r) => ({
     [t('billing.colDoc')]: r.kind === 'act' ? t('billing.act') : t('billing.invoice'),
     [t('broker.billing.xls.number')]: docNumber(r),
     [t('billing.colClient')]: r.clientName,
     [t('billing.case')]: r.caseNumber ?? '',
-    [t('billing.colStatus')]: statusText(r.status),
+    [t('billing.colStatus')]: statusText(r.status, r.kind),
     [t('billing.colTotal')]: r.total,
     [t('billing.vat')]: r.vatAmount,
     [t('billing.issuedAtCol')]: r.issuedAtUtc ? formatDay(r.issuedAtUtc) : '',

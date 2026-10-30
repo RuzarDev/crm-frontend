@@ -101,9 +101,16 @@ const typeFull = (code: string) => {
 }
 
 const title = computed(() => (isClient.value ? t('broker.keden.clientTitle') : t('broker.keden.title')))
-const subtitle = computed(() => t(isAll.value ? 'transit.statusyDeklaraciySinhronizirovannyeS' : 'transit.statusyVashihDeklaraciyV'))
+// S-30 (30.10.2026): сотрудник (не клиент и не экспедитор — у них фильтр по БИН своих клиентов) в «mine» видит весь
+// журнал — тексты «ваших деклараций… по БИН» и «укажите БИН в профиле» ему не подходят.
+const staffMine = computed(() => !isAll.value && !isClient.value && (auth.role ?? '').trim().toLowerCase() !== 'expeditor'
+  && auth.hasPermission('import40.read'))
+const subtitle = computed(() => t(isAll.value ? 'transit.statusyDeklaraciySinhronizirovannyeS'
+  : staffMine.value ? 'broker.keden.staffSubtitle' : 'transit.statusyVashihDeklaraciyV'))
 const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound') : t('transit.deklaraciyPokaNet')))
-const emptyHint = computed(() => (filtered.value ? t('broker.list.nothingFoundHint') : (isAll.value ? undefined : t('broker.keden.mineHint'))))
+const emptyHint = computed(() => (filtered.value ? t('broker.list.nothingFoundHint')
+  : (isAll.value ? undefined : staffMine.value ? t('broker.keden.staffEmptyHint') : t('broker.keden.mineHint'))))
+const dtLink = (r: KedenRow) => (r.caseId && r.declarationId ? `/import-40/${r.caseId}/dt/${r.declarationId}` : null)
 </script>
 
 <template>
@@ -190,6 +197,13 @@ const emptyHint = computed(() => (filtered.value ? t('broker.list.nothingFoundHi
               class="inline-flex max-w-full items-center truncate rounded-field font-mono text-sm font-medium text-ink outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
               data-keden-open
             >{{ record.registrationNumber || record.kedenId }}</RouterLink>
+            <!-- S-30: у сотрудника строка со связанной ДТ ведёт на страницу ДТ платформы. -->
+            <RouterLink
+              v-else-if="dtLink(record)"
+              :to="dtLink(record)!"
+              class="inline-flex max-w-full items-center truncate rounded-field font-mono text-sm font-medium text-ink outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
+              data-keden-dt
+            >{{ record.registrationNumber || t('broker.keden.openDt') }}</RouterLink>
             <span v-else-if="record.registrationNumber" class="block truncate font-mono text-sm font-medium text-ink" data-keden-no>{{ record.registrationNumber }}</span>
             <span v-else class="text-muted">—</span>
           </template>
