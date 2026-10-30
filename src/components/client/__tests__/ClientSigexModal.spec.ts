@@ -65,6 +65,47 @@ describe('ClientSigexModal', () => {
     expect($('[data-sigex-error]')?.textContent).toBe('Подпись не принадлежит руководителю')
   })
 
+  it('C-18: QR истёк — «QR-код устарел» и «Новый QR» (новая сессия); до срока — обычное «ещё не подписан»', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-10-30T10:00:00Z'))
+      const expireAt = Date.now() + 60_000
+      api.sigexStartSigningDocument.mockResolvedValueOnce({ ...START, expireAt }).mockResolvedValueOnce({ ...START, qrId: 'q2', expireAt: Date.now() + 120_000 })
+      api.sigexPollDocument.mockResolvedValue({ pending: true, sign: null })
+      await mountModal()
+      $('[data-sigex-check]')!.click()
+      await flushPromises()
+      expect($('[data-sigex-pending]')?.textContent).toContain('Подпись ещё не получена')
+      expect($('[data-sigex-new-qr]')).toBeNull()
+
+      vi.advanceTimersByTime(61_000)
+      await flushPromises()
+      expect($('[data-sigex-pending]')?.textContent).toContain('QR-код устарел')
+      // Проверить по-прежнему можно (подписали в последний момент), ответ «ещё нет» не затирает «устарел».
+      $('[data-sigex-check]')!.click()
+      await flushPromises()
+      expect($('[data-sigex-pending]')?.textContent).toContain('QR-код устарел')
+
+      $('[data-sigex-new-qr]')!.click()
+      await flushPromises()
+      expect(api.sigexStartSigningDocument).toHaveBeenCalledTimes(2)
+      expect($('[data-sigex-new-qr]')).toBeNull()
+      $('[data-sigex-check]')!.click()
+      await flushPromises()
+      expect(api.sigexPollDocument).toHaveBeenLastCalledWith('cl1', 'd1', 'q2')
+      expect($('[data-sigex-pending]')?.textContent).toContain('Подпись ещё не получена')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('C-18: expireAt в секундах тоже понимается; уже истёкший QR — сразу «устарел»', async () => {
+    api.sigexStartSigningDocument.mockResolvedValue({ ...START, expireAt: Math.floor(Date.now() / 1000) - 5 })
+    await mountModal()
+    expect($('[data-sigex-pending]')?.textContent).toContain('QR-код устарел')
+    expect($('[data-sigex-new-qr]')).not.toBeNull()
+  })
+
   it('ошибка сессии — текст сервера и «Попробовать снова»', async () => {
     api.sigexStartSigningDocument
       .mockRejectedValueOnce({ response: { status: 502, data: { error: 'Sigex недоступен' } } })

@@ -240,6 +240,20 @@ describe('StaffCompanyPage', () => {
     expect(msg.success).toHaveBeenCalledWith('Доверенность сформирована')
   })
 
+  it('C-17: многоразовый договор — без даты (срок ставит сервер), разовый — с датой', async () => {
+    api.generateDocument.mockResolvedValue(doc({}))
+    await mountAt('/import-40/company?step=contract')
+    await vi.waitFor(() => w.get('[data-opt-contract-term]'))
+    expect(w.find('[data-opt-until]').exists()).toBe(false)
+    expect(w.get('[data-opt-contract-term]').text()).toContain('до 31 декабря года подписания')
+    await w.get('[data-doc-generate]').trigger('click')
+    await flushPromises()
+    expect(api.generateDocument.mock.calls[0][1]).toEqual({ kind: 'contract', isSingleUse: false, validUntilUtc: null })
+    await w.get('[data-opt-single]').trigger('click')
+    await vi.waitFor(() => w.get('[data-opt-until]'))
+    expect(w.find('[data-opt-contract-term]').exists()).toBe(false)
+  })
+
   it('сформировать недоступно без реквизитов — подсказка «Сначала заполните реквизиты»', async () => {
     api.getProfile.mockResolvedValue({ ...PROFILE, isComplete: false })
     await mountAt('/import-40/company?step=contract')

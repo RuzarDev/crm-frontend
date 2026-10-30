@@ -66,9 +66,13 @@ describe('CompanyDocumentCard', () => {
     const details = w.get('[data-doc-options]')
     ;(details.element as HTMLDetailsElement).open = true
     await details.trigger('toggle')
+    // C-17: у многоразового договора даты нет — только пояснение про 31 декабря; поле появляется у разового.
+    expect(w.find('[data-opt-until]').exists()).toBe(false)
+    expect(w.get('[data-opt-contract-term]').text()).toContain('до 31 декабря года подписания')
+    await w.get('[data-opt-single]').trigger('click')
     // Календарь подгружается лениво — только после раскрытия параметров.
     await vi.waitFor(() => w.get('[data-opt-until]'))
-    await w.get('[data-opt-single]').trigger('click')
+    expect(w.find('[data-opt-contract-term]').exists()).toBe(false)
     const date = w.get('[data-opt-until]')
     await date.setValue('31.12.2027')
     await date.trigger('keydown', { key: 'Enter' })
@@ -97,10 +101,11 @@ describe('CompanyDocumentCard', () => {
     expect(api.generateDocument).toHaveBeenCalledWith('cl1', { kind: 'contract', isSingleUse: true, validUntilUtc: null }, { silent: true })
   })
 
-  it('подсказка срока — по правилам сервера: многоразовый договор, разовый (в т.ч. принудительно), доверенность', async () => {
+  it('подсказка срока — по правилам сервера: многоразовый договор (без даты, C-17), разовый (в т.ч. принудительно), доверенность', async () => {
     const help = () => w.get('[data-doc-options] [data-z-field]').text()
     await mountCard({ docs: [] })
-    expect(help()).toContain('Необязательно — без даты договор действует до 31 декабря года подписания')
+    expect(w.find('[data-doc-options] [data-z-field]').exists()).toBe(false)
+    expect(w.get('[data-opt-contract-term]').text()).toBe('Многоразовый договор действует до 31 декабря года подписания, затем AQNIET продлевает его на следующий год — дату выбирать не нужно')
     await w.get('[data-opt-single]').trigger('click')
     expect(help()).toContain('Необязательно — без даты разовый договор действует до использования в поставке')
     w.unmount()

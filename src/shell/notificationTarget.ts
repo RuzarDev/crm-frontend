@@ -17,7 +17,7 @@ export const CLIENT_DOCUMENT = 'ClientDocument'
 // hasPermission (если передан): экран «Обновления ЕЭК» — по праву tnved.manage; без права (РОП получает уведомление,
 // но экран ему закрыт) клик только отмечает прочитанным, а не уводит guard'ом на главную.
 export function notificationTarget(
-  n: Pick<AppNotification, 'caseId' | 'reestrEntryId'> & Partial<Pick<AppNotification, 'type' | 'declarationId' | 'foreignContractId'>>,
+  n: Pick<AppNotification, 'caseId' | 'reestrEntryId'> & Partial<Pick<AppNotification, 'type' | 'declarationId' | 'foreignContractId' | 'brokerInvoiceId'>>,
   isFinanceOnly: boolean,
   hasPermission?: (p: string) => boolean,
   isClient?: boolean,
@@ -29,6 +29,8 @@ export function notificationTarget(
   if (n.type && n.type.toLowerCase() === EEC_TARIFF_UPDATE.toLowerCase()) {
     return !isFinanceOnly && (!hasPermission || hasPermission('tnved.manage')) ? EEC_UPDATES_PATH : null
   }
+  // Счёт или акт AQNIET (30.10.2026, аудит C-22): клиенту — сам счёт («Оплатить» в один клик), в том числе счёт без поставки.
+  if (isClient && n.brokerInvoiceId) return `/billing?id=${encodeURIComponent(n.brokerInvoiceId)}`
   // Срок внешнеторгового контракта (17.10): получает только клиент — его карточка контракта.
   if (n.foreignContractId) return `/contracts/${encodeURIComponent(n.foreignContractId)}`
   if (n.type === INVOICE_CHECK_UPLOADED) {

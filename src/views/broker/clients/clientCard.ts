@@ -76,9 +76,19 @@ export const canRenewPoa = (d: Pick<ClientCardDoc, 'kind' | 'status' | 'daysLeft
  * Следующая доверенность уже есть (30.10.2026): с 1 декабря система сама выпускает доверенность на следующий год —
  * многоразовая, ждёт подписи или действует, срок позже, чем у этой. Тогда «Выпустить новую» не нужна.
  */
-export const hasNextPoa = (docs: ClientCardDoc[], d: Pick<ClientCardDoc, 'id' | 'validUntilUtc'>): boolean =>
-  docs.some((x) => x.id !== d.id && x.kind === 'poa' && !x.isSingleUse && (x.status === 1 || x.status === 2)
-    && !!x.validUntilUtc && (!d.validUntilUtc || new Date(x.validUntilUtc).getTime() > new Date(d.validUntilUtc).getTime()))
+export const hasNextPoa = (docs: ClientCardDoc[], d: Pick<ClientCardDoc, 'id' | 'validUntilUtc'>): boolean => nextPoaOf(docs, d) !== null
+
+/**
+ * Следующая доверенность после этой (M-8, 30.10.2026): многоразовая, ждёт подписи (1) или действует (2), срок позже.
+ * На обзоре видна только текущая доверенность — без этой строки сотрудник не видел, что следующая ждёт подписи клиента,
+ * и не понимал, почему нет «Выпустить новую». Несколько — ближайшая по сроку.
+ */
+export function nextPoaOf(docs: ClientCardDoc[], d: Pick<ClientCardDoc, 'id' | 'validUntilUtc'>): ClientCardDoc | null {
+  const after = (x: ClientCardDoc) => !!x.validUntilUtc
+    && (!d.validUntilUtc || new Date(x.validUntilUtc).getTime() > new Date(d.validUntilUtc).getTime())
+  const next = docs.filter((x) => x.id !== d.id && x.kind === 'poa' && !x.isSingleUse && (x.status === 1 || x.status === 2) && after(x))
+  return next.reduce<ClientCardDoc | null>((best, x) => (!best || x.validUntilUtc! < best.validUntilUtc! ? x : best), null)
+}
 
 const RANK = (d: ClientCardDoc): number => (d.status === 2 && !(d.daysLeft !== null && d.daysLeft < 0) ? 0 : d.status === 1 ? 1 : 2)
 

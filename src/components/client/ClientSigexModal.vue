@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhArrowSquareOut, PhCheckCircle, PhDeviceMobile, PhWarningCircle } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -30,6 +30,16 @@ const qrId = ref('')
 const polling = ref(false)
 const pending = ref(false)
 const errorText = ref('')
+// C-18 (30.10.2026): QR живёт ограниченное время (expireAt из ответа Sigex). После него «Я подписал — проверить» вечно
+// отвечало «подпись ещё не получена» — теперь окно говорит, что QR устарел, и предлагает новый.
+const expired = ref(false)
+let expireTimer: ReturnType<typeof setTimeout> | undefined
+const clearExpireTimer = () => {
+  if (expireTimer !== undefined) clearTimeout(expireTimer)
+  expireTimer = undefined
+}
+/** expireAt Sigex — миллисекунды Unix; на случай секунд — переводим. 0/нет — срок неизвестен. */
+const expireMs = (v: number | undefined | null): number | null => (!v || v <= 0 ? null : v < 1e12 ? v * 1000 : v)
 let seq = 0
 
 const serverText = (e: unknown) =>
@@ -41,6 +51,8 @@ async function start() {
   qrCode.value = ''
   qrId.value = ''
   pending.value = false
+  expired.value = false
+  clearExpireTimer()
   if (!props.docId) {
     // Нечего подписывать (документ не выбран) — сразу ошибка, а не вечная загрузка.
     errorText.value = t('client.company.sigex.startError')
@@ -54,6 +66,12 @@ async function start() {
     mobileLink.value = data.eGovMobileLaunchLink
     businessLink.value = data.eGovBusinessLaunchLink
     qrId.value = data.qrId
+    const until = expireMs(data.expireAt)
+    if (until !== null) {
+      const left = until - Date.now()
+      if (left <= 0) expired.value = true
+      else expireTimer = setTimeout(() => { if (my === seq) expired.value = true }, Math.min(left, 2_147_483_647))
+    }
     step.value = 'qr'
   } catch (e) {
     if (my !== seq) return
@@ -71,6 +89,8 @@ async function check() {
     const result = await import40ContractApi.sigexPollDocument(props.clientId, props.docId, qrId.value)
     if (my !== seq) return
     if (result.pending) {
+      // Подписи нет, а QR уже истёк — ждать бессмысленно: «QR устарел» и «Новый QR».
+      if (expired.value) return
       pending.value = true
       return
     }
@@ -95,8 +115,10 @@ watch(() => props.open, (v) => {
   else {
     seq++
     polling.value = false
+    clearExpireTimer()
   }
 }, { immediate: true })
+onBeforeUnmount(clearExpireTimer)
 
 // Закрыли крестиком/Escape уже после успешной подписи — это тоже «подписано»: экран должен перечитать документ.
 const close = () => (step.value === 'success' ? emit('signed') : emit('update:open', false))
@@ -162,12 +184,23 @@ const appLink = 'inline-flex h-10 items-center justify-center gap-2 rounded-row 
         <p
           role="status"
           aria-live="polite"
-          :class="pending ? 'm-0 rounded-row bg-gold-soft px-3 py-2 text-center text-sm text-gold-ink' : 'sr-only'"
+          :class="pending || expired ? 'm-0 rounded-row bg-gold-soft px-3 py-2 text-center text-sm text-gold-ink' : 'sr-only'"
           data-sigex-pending
-        >{{ pending ? t('client.company.sigex.notYet') : '' }}</p>
-        <ZButton variant="primary" :loading="polling" class="h-10 self-center px-5 max-sm:h-11 max-sm:w-full" data-sigex-check @click="check">
-          {{ t('client.company.sigex.check') }}
-        </ZButton>
+        >{{ expired ? t('client.company.sigex.expired') : pending ? t('client.company.sigex.notYet') : '' }}</p>
+        <div class="flex flex-wrap justify-center gap-2 max-sm:flex-col">
+          <ZButton
+            :variant="expired ? 'secondary' : 'primary'"
+            :loading="polling"
+            class="h-10 px-5 max-sm:h-11 max-sm:w-full"
+            data-sigex-check
+            @click="check"
+          >
+            {{ t('client.company.sigex.check') }}
+          </ZButton>
+          <ZButton v-if="expired" variant="primary" class="h-10 px-5 max-sm:h-11 max-sm:w-full" data-sigex-new-qr @click="start">
+            {{ t('client.company.sigex.newQr') }}
+          </ZButton>
+        </div>
       </div>
     </div>
 

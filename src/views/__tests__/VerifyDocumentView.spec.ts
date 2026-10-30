@@ -47,6 +47,12 @@ describe('VerifyDocumentView', () => {
     expect(w.get('[data-verify-signature="provider"]').text()).toContain('данные сертификата не сохранялись')
   })
 
+  it('израсходованный разовый (C-20) — «Исполнен»', async () => {
+    api.get.mockResolvedValue({ ...DOC, status: 'consumed' })
+    await mount('/verify/tok')
+    expect(w.get('[data-verify-status]').text()).toBe('Исполнен')
+  })
+
   it('неверная ссылка — «Документ не найден»', async () => {
     api.get.mockRejectedValue({ response: { status: 404 } })
     await mount('/verify/nope')

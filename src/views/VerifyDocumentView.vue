@@ -31,7 +31,7 @@ onMounted(async () => {
   }
 })
 
-const STATUS_TONE: Record<VerifyDocument['status'], ZTone> = { active: 'done', awaiting: 'wait', expired: 'neutral', revoked: 'danger' }
+const STATUS_TONE: Record<VerifyDocument['status'], ZTone> = { active: 'done', awaiting: 'wait', expired: 'neutral', revoked: 'danger', consumed: 'neutral' }
 // Время — Астаны (как в отметке документа).
 const astana = (iso: string | null, withTime = true) => {
   if (!iso) return ''

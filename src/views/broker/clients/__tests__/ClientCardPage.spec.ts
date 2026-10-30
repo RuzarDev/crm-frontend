@@ -468,6 +468,16 @@ describe('карточка клиента: «Продлить» договор',
     }))
     await mountAt()
     expect(has('[data-doc-renew]')).toBe(false)
+    // M-8 (30.10.2026): на обзоре под текущей доверенностью — что следующая ждёт подписи клиента.
+    expect(w.get('[data-doc-card="poa"] [data-doc-next-poa]').text()).toBe('Следующая доверенность № 12/2026 до 31.12.2027 ждёт подписи клиента')
+  })
+
+  it('M-8: следующей доверенности нет — строки нет', async () => {
+    api.card.mockResolvedValue(card({
+      documents: [doc({ id: 'dp', kind: 'poa', number: '9', providerSigned: false, validUntilUtc: '2026-12-31T23:59:59Z', daysLeft: 11, expiringSoon: true })],
+    }))
+    await mountAt()
+    expect(has('[data-doc-next-poa]')).toBe(false)
   })
 
   it('ИП: «Руководитель» вместо «Директор», основание по умолчанию — талон; неполные реквизиты названы', async () => {

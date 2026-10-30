@@ -406,6 +406,43 @@ describe('ClientWizardView', () => {
     expect(w.find('[data-wz-returned]').exists()).toBe(false)
   })
 
+  // C-13 (30.10.2026): ненужный черновик отменяется прямо из мастера.
+  it('«Отменить черновик»: подтверждение → действие cancel с причиной, тост, «Мои поставки» без вопроса стража', async () => {
+    server = caseDto({ id: 'c1', number: 'ИМ-2026-0184', status: 0, cargo: 'Станки', returnReason: '' })
+    await mountAt('/import-40/new/c1')
+    await w.get('[data-wz-discard]').trigger('click')
+    await flushPromises()
+    expect(confirmState.open).toBe(true)
+    expect(confirmState.title).toBe('Отменить черновик ИМ-2026-0184?')
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(api.action).toHaveBeenCalledWith('c1', 'cancel', 'Черновик не нужен — отменён клиентом')
+    expect(msg.success).toHaveBeenCalledWith('Черновик ИМ-2026-0184 отменён')
+    expect(router.currentRoute.value.fullPath).toBe('/import-40')
+    expect(api.update).not.toHaveBeenCalled()
+  })
+
+  it('«Отменить черновик»: отказ в подтверждении — ничего не отменяется; возврат на доработку и новый мастер — кнопки нет', async () => {
+    server = caseDto({ id: 'c1', status: 0, cargo: 'Станки', returnReason: '' })
+    await mountAt('/import-40/new/c1')
+    expect(w.find('[data-wz-discard-phone]').exists()).toBe(true)
+    await w.get('[data-wz-discard]').trigger('click')
+    await flushPromises()
+    confirmState.resolve(false)
+    await flushPromises()
+    expect(api.action).not.toHaveBeenCalled()
+    expect(router.currentRoute.value.fullPath).toBe('/import-40/new/c1')
+    w.unmount()
+
+    server = caseDto({ id: 'c1', status: 0, cargo: 'Станки', returnReason: 'Приложите инвойс' })
+    await mountAt('/import-40/new/c1')
+    expect(w.find('[data-wz-discard]').exists()).toBe(false)
+    w.unmount()
+
+    await mountAt('/import-40/new')
+    expect(w.find('[data-wz-discard]').exists()).toBe(false)
+  })
+
   it('после размонтирования страж снят: переход ничего не сохраняет', async () => {
     server = caseDto({ id: 'c1', status: 0, cargo: 'Станки', clientSenderName: 'Lenovo', clientReceiverName: 'ТОО «Ромашка»' })
     await mountAt('/import-40/new/c1')

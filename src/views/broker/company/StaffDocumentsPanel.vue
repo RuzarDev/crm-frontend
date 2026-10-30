@@ -62,6 +62,8 @@ const singleUse = ref(false)
 watch(blocked, (v) => { if (v) singleUse.value = true }, { immediate: true })
 const generating = ref(false)
 const generateError = ref('')
+// C-17 (30.10.2026): у многоразового договора срок ставит сервер (до 31.12 года подписания) — дату не выбираем.
+const pickUntil = computed(() => props.kind === 'poa' || singleUse.value)
 const minDate = todayYmd()
 // Календарь (Reka DatePicker) — отдельным куском, как в кабинете клиента.
 const ZDate = defineAsyncComponent(() => import('@/components/z/ZDate.vue'))
@@ -75,7 +77,7 @@ const generate = async () => {
       kind: props.kind,
       isSingleUse: singleUse.value,
       // Конец выбранного дня по UTC — как сервер ставит сроки по умолчанию и как их показывает кабинет клиента.
-      validUntilUtc: validUntil.value ? endOfDayUtc(validUntil.value) : null,
+      validUntilUtc: pickUntil.value && validUntil.value ? endOfDayUtc(validUntil.value) : null,
     }, { silent: true })
     message.success(t(k('generated')))
     await refreshAfter()
@@ -261,7 +263,8 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
       >
         {{ t(k('singleUse')) }}
       </ZCheckbox>
-      <label class="flex flex-col gap-1 text-[13px] text-ink-3">
+      <p v-if="!pickUntil" class="m-0 max-w-[320px] text-[13px] text-ink-3" data-opt-contract-term>{{ t('client.company.doc.contractTerm') }}</p>
+      <label v-else class="flex flex-col gap-1 text-[13px] text-ink-3">
         {{ t('broker.company.validUntil') }}
         <ZDate
           v-model:value="validUntil"

@@ -38,7 +38,7 @@ import { validity, type Validity } from './clientDocs'
 import { REQUISITE_LABEL_KEY, isIndividualEntrepreneur, joinList, profileMissing, validDate } from '@/views/client/company/company'
 import { blankFileName, clientStatusLabelKey, clientStatusTone, docKindLabelKey, inviteUntil, signMethodLabelKey } from './clients'
 import {
-  accountStatusOf, availableTabs, awaitingAqniet, canRenewPoa, caseTone, cardTitle, contactRows, currentDocs, directorBasisOf, docTag, hasNextPoa,
+  accountStatusOf, availableTabs, awaitingAqniet, canRenewPoa, caseTone, cardTitle, contactRows, currentDocs, directorBasisOf, docTag, hasNextPoa, nextPoaOf,
   invoicesOf, matchesCase, recentCases, resolveTab, transitQuery, unpaidOf, type ClientCardTab,
 } from './clientCard'
 import ClientRegistryPanel from '@/views/clientRegistry/ClientRegistryPanel.vue'
@@ -258,6 +258,14 @@ const signs = (d: ClientCardDoc) => {
 }
 const canSignDoc = (d: ClientCardDoc) => canOpenSigning.value && awaitingAqniet(d)
 // «Выпустить новую» доверенность — не нужна, если следующая уже выпущена (с 1 декабря — автоматически).
+// M-8 (30.10.2026): под текущей доверенностью — следующая (на следующий год), если она уже выпущена.
+const nextPoaLine = (d: ClientCardDoc): string => {
+  if (d.kind !== 'poa') return ''
+  const n = nextPoaOf(card.value?.documents ?? [], d)
+  if (!n) return ''
+  const params = { number: `${n.number}/${n.year}`, date: validity(n).date }
+  return t(n.status === 1 ? 'broker.clientCard.doc.nextPoaAwaiting' : 'broker.clientCard.doc.nextPoaActive', params)
+}
 const canReissuePoa = (d: ClientCardDoc) => canImport.value && canRenewPoa(d) && !hasNextPoa(card.value?.documents ?? [], d)
 
 // «Продлить» многоразовый договор (30.10.2026): до 31.12 следующего года; администратор или руководитель,
@@ -584,6 +592,7 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                       <ZTag class="ml-auto" :tone="docTag(d).tone" data-doc-status>{{ t(docTag(d).labelKey) }}</ZTag>
                     </div>
                     <div v-if="docSub(d)" class="text-[12.5px] text-ink-3" data-doc-sub>{{ docSub(d) }}</div>
+                    <div v-if="nextPoaLine(d)" class="text-[12.5px] font-medium text-gold-ink" data-doc-next-poa>{{ nextPoaLine(d) }}</div>
                     <ul class="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-[13px]">
                       <li v-for="s in signs(d)" :key="s.key" :class="['inline-flex items-center gap-1.5', s.on ? 'text-ink-2' : 'text-muted']" :data-sign="s.key" :data-signed="s.on">
                         <PhCheck v-if="s.on" :size="14" weight="bold" class="shrink-0 text-tone-done-fg" aria-hidden="true" /><span v-else aria-hidden="true">—</span>
