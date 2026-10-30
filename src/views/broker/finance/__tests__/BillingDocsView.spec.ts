@@ -120,7 +120,7 @@ describe('«Счета и акты» (сотрудник)', () => {
     expect(r[4].get('[data-billing-vat]').text()).toBe('Без НДС')
     expect(r[4].classes()).toContain('opacity-60')
     expect(r[0].get('[data-billing-date1]').text()).toBe('выставлен 06.10.2026')
-    expect(r[1].get('[data-billing-date2]').text()).toMatch(/^просрочен \d+ дн\.$/)
+    expect(r[1].get('[data-billing-date2]').text()).toMatch(/^просрочен \d+\sдн\.$/)
     expect(r[1].get('[data-billing-date2]').classes()).toContain('text-tone-danger-fg')
     expect(r[2].get('[data-billing-date1]').text()).toBe('создан 05.10.2026')
     expect(r[3].get('[data-billing-date2]').text()).toBe('оплачен 27.09.2026')

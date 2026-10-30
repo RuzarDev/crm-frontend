@@ -3465,6 +3465,7 @@ export default {
         notSigned: '{who} · not signed',
         signed: '{who} · {method} · {date}',
         blank: 'Download form',
+        download: 'Download',
         sign: 'Sign for AQNIET',
         renew: 'Issue a new one',
         files: 'signed files: {n}',

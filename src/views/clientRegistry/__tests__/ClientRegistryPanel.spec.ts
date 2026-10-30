@@ -49,7 +49,7 @@ describe('ClientRegistryPanel', () => {
     const a = w.get('[data-registry-doc="a"]')
     expect(a.get('[data-registry-doc-title]').text()).toBe('Сертификат № KZ-1')
     expect(a.get('[data-registry-status]').text()).toBe('Истекает')
-    expect(a.get('[data-registry-hint]').text()).toBe('осталось 12 дн.')
+    expect(a.get('[data-registry-hint]').text()).toBe('осталось 12\u00a0дн.')
     expect(w.get('[data-registry-doc="c"] [data-registry-hint]').text()).toBe('истёк 4 дн. назад')
     expect(w.get('[data-registry-doc="d"] [data-registry-until]').text()).toBe('бессрочный')
     expect(w.get('[data-registry-doc="b"] [data-registry-added-by]').text()).toBe('добавил AQNIET')

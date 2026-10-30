@@ -3465,6 +3465,7 @@ export default {
         notSigned: '{who} · қол қойылмаған',
         signed: '{who} · {method} · {date}',
         blank: 'Бланкіні жүктеу',
+        download: 'Жүктеу',
         sign: 'AQNIET атынан қол қою',
         renew: 'Жаңасын шығару',
         files: 'қол қойылған файлдар: {n}',

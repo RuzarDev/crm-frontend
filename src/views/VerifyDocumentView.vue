@@ -9,6 +9,7 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import type { ZTone } from '@/components/z/ZTag.vue'
 import { documentVerifyApi, type VerifyDocument, type VerifySignature } from '@/api/documentVerify'
+import { validDate } from '@/views/client/company/company'
 
 // Проверка подписей по QR-коду из документа (20.10.2026): открывается без входа. Показывает, что за документ, его
 // статус и кто подписал — те же сведения, что напечатаны в отметке «Документ подписан ЭЦП». Сторона из QR (?s=client)
@@ -93,7 +94,7 @@ const rows = (s: VerifySignature) => [
             </template>
             <template v-if="doc.validUntilUtc">
               <dt class="text-ink-3">{{ tx('validUntil') }}</dt>
-              <dd class="m-0 text-ink tabular-nums">{{ astana(doc.validUntilUtc, false) }}</dd>
+              <dd class="m-0 text-ink tabular-nums">{{ validDate(doc.validUntilUtc) }}</dd>
             </template>
           </dl>
           <p v-if="doc.status === 'revoked'" class="m-0 rounded-row bg-tone-danger-bg px-3 py-2 text-sm text-tone-danger-fg">{{ tx('revokedText', { date: astana(doc.revokedAtUtc, false) }) }}</p>
