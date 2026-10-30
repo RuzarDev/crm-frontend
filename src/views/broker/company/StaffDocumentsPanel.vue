@@ -14,7 +14,7 @@ import { useConfirm } from '@/ui/confirm'
 import { saveBlob } from '@/ui/download'
 import { endOfDayUtc, isOpen, localDate, todayYmd, validDate } from '@/views/client/company/company'
 import { ncaSignErrorText, signDocumentWithNcaLayer } from '@/views/client/company/ncaSign'
-import { REVOKED, isExpired, multiBlocked, statusKey, statusTone, type DocKind, type SignSide } from './staffCompany'
+import { REVOKED, isExpired, multiBlocked, nextYearPoa, poaTargetYear, statusKey, statusTone, type DocKind, type SignSide } from './staffCompany'
 
 // Договор / доверенность клиента для сотрудника (волна 7, замена Import40DocumentStep): сформировать (разовый,
 // «действует до»), список документов со статусами, скачать .docx, отозвать (администратор), подписи клиента и
@@ -54,10 +54,12 @@ const refreshAfter = async () => {
 
 // ---- Сформировать ----
 const blockedBy = computed(() => multiBlocked(props.kind, props.docs))
-const blocked = computed(() => blockedBy.value !== null)
+const validUntil = ref<string | null>(null)
+// Доверенность на следующий год уже выпущена (раунд 1 ревью, M-7) — вторую многоразовую сервер не выпустит, только разовую.
+const nextPoa = computed(() => nextYearPoa(props.kind, props.docs, poaTargetYear(validUntil.value)))
+const blocked = computed(() => blockedBy.value !== null || nextPoa.value !== null)
 const singleUse = ref(false)
 watch(blocked, (v) => { if (v) singleUse.value = true }, { immediate: true })
-const validUntil = ref<string | null>(null)
 const generating = ref(false)
 const generateError = ref('')
 const minDate = todayYmd()
@@ -232,12 +234,20 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
 
     <!-- Многоразовый договор у клиента один: пока он действует, сервер второй не выпустит — только разовый. -->
     <ZAlert
-      v-if="blocked"
+      v-if="blockedBy"
       type="info"
       show-icon
       :message="t(blockedBy === 'awaiting' ? 'broker.company.alreadyAwaiting' : 'broker.company.alreadyActive')"
       :description="t(isAdmin ? 'broker.company.alreadyActiveAdmin' : 'broker.company.alreadyActiveStaff')"
       data-already-active
+    />
+    <ZAlert
+      v-else-if="nextPoa"
+      type="info"
+      show-icon
+      :message="t('broker.company.poaNextYearExists', { no: no(nextPoa), year: new Date(nextPoa.validUntilUtc!).getUTCFullYear() })"
+      :description="t('broker.company.poaNextYearHint')"
+      data-next-year-poa
     />
 
     <!-- Сформировать -->

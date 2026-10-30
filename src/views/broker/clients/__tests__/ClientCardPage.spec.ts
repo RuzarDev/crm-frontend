@@ -473,7 +473,8 @@ describe('карточка клиента: «Продлить» договор',
   it('ИП: «Руководитель» вместо «Директор», основание по умолчанию — талон; неполные реквизиты названы', async () => {
     const base = card().profile
     api.card.mockResolvedValue(card({
-      profile: { ...base, companyName: 'ИП ТЕСТОВ', ownershipType: 'ИП', directorBasis: '', bank: '', isComplete: false, missingFields: ['bank'] },
+      // «устава» — значение по умолчанию в базе (раунд 1 ревью, I-2): у ИП показываем талон.
+      profile: { ...base, companyName: 'ИП ТЕСТОВ', ownershipType: 'ИП', directorBasis: 'устава', bank: '', isComplete: false, missingFields: ['bank'] },
     }))
     await mountAt()
     expect(has('[data-req="director"]')).toBe(false)

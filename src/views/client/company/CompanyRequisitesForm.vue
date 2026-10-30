@@ -19,7 +19,7 @@ import type { ZOption, ZOptionValue } from '@/ui/options'
 import type { ZRule } from '@/ui/validation'
 import { message } from '@/ui/message'
 import { phoneField, phoneSelect } from '@/views/client/wizard/wizardUi'
-import { CHARTER_BASIS, IP_TALON_BASIS, REQUISITE_LABEL_KEY, isIndividualEntrepreneur, joinList, missingRequisites } from './company'
+import { CHARTER_BASIS, IP_TALON_BASIS, REQUISITE_LABEL_KEY, basisOrDefault, isIndividualEntrepreneur, joinList, missingRequisites } from './company'
 
 // Форма реквизитов компании клиента — все поля прежнего шага «Реквизиты» (Import40CompanyView), на ZForm.
 // Без наименования, БИН (12 цифр) и руководителя не сохранить. 30.10.2026 (аудит C-2): юр. адрес, банк, ИИК, БИК и КБе
@@ -42,7 +42,8 @@ const form = reactive({
   bin: p?.bin ?? '',
   directorName: p?.directorName ?? '',
   // 30.10.2026: у ИП основание по умолчанию — талон, а не устав.
-  directorBasis: p?.directorBasis || (isIndividualEntrepreneur(p) ? IP_TALON_BASIS : CHARTER_BASIS),
+  // Раунд 1 ревью (I-2): у ИП и «устава» (значение по умолчанию в базе) — талон; сохранится при «Сохранить».
+  directorBasis: basisOrDefault(p ?? {}),
   legalAddress: p?.legalAddress ?? '',
   bank: p?.bank ?? '',
   iik: p?.iik ?? '',

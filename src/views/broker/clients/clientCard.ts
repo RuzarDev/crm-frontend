@@ -17,7 +17,10 @@ import { docStatusLabelKey, docStatusTone } from './clients'
  * с основанием по умолчанию «устава» — это не данные клиента, показываем «—».
  */
 export const directorBasisOf = (p: Pick<ClientCardProfile, 'directorBasis' | 'updatedAtUtc'> & Partial<Pick<ClientCardProfile, 'ownershipType' | 'companyName'>>): string =>
-  p.updatedAtUtc == null ? '—' : p.directorBasis || (isIndividualEntrepreneur(p) ? IP_TALON_BASIS : '—')
+  // ИП: пусто или «устава» (значение по умолчанию в базе) — талон (раунд 1 ревью, I-2).
+  p.updatedAtUtc == null ? '—'
+    : isIndividualEntrepreneur(p) && (!p.directorBasis?.trim() || p.directorBasis.trim().toLowerCase() === 'устава') ? IP_TALON_BASIS
+    : p.directorBasis || '—'
 
 // ---- Вкладки ----
 export type ClientCardTab = 'overview' | 'cases' | 'transit' | 'docs' | 'contracts' | 'invoices'

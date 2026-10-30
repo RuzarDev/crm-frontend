@@ -155,6 +155,13 @@ describe('CompanyRequisitesForm', () => {
     w.unmount()
     await mountForm({ ...EMPTY, companyName: 'ИП ТЕСТОВ', ownershipType: 'ИП' })
     expect(basis()).toBe('уведомления о начале деятельности (талон)')
+    // Раунд 1 ревью (I-2): в базе у всех по умолчанию «устава» — у ИП это тоже значение по умолчанию, а не выбор.
+    w.unmount()
+    await mountForm({ ...EMPTY, companyName: 'ИП ТЕСТОВ', directorBasis: 'устава' })
+    expect(basis()).toBe('уведомления о начале деятельности (талон)')
+    w.unmount()
+    await mountForm({ ...EMPTY, companyName: 'ТОО ТЕСТ', directorBasis: 'устава' })
+    expect(basis()).toBe('устава')
   })
 
   it('БИН уходит без пробелов по краям (вставка из буфера)', async () => {

@@ -199,9 +199,12 @@ export function isIndividualEntrepreneur(p: { ownershipType?: string | null; com
   return looksIp(p?.ownershipType) || looksIp(p?.companyName)
 }
 
-/** Основание, как его показать: пусто у ИП — талон, пусто у остальных — устав. */
+/**
+ * Основание, как его показать и с чего начать форму: у ИП пусто или «устава» — талон (раунд 1 ревью, I-2: «устава» — значение
+ * по умолчанию в базе у всех профилей, у ИП устава не бывает); у остальных пусто — устав. Введённое вручную — как есть.
+ */
 export function basisOrDefault(p: { directorBasis?: string | null; ownershipType?: string | null; companyName?: string | null }): string {
   const b = (p.directorBasis ?? '').trim()
-  if (b) return b
-  return isIndividualEntrepreneur(p) ? IP_TALON_BASIS : CHARTER_BASIS
+  if (isIndividualEntrepreneur(p) && (!b || b.toLowerCase() === CHARTER_BASIS)) return IP_TALON_BASIS
+  return b || CHARTER_BASIS
 }

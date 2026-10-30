@@ -3392,6 +3392,8 @@ export default {
       renewError: 'Could not renew the contract',
       renewHint: 'The contract is valid until {date} — renew it for next year.',
       missingList: 'Missing: {list}',
+      poaNextYearExists: 'A power of attorney for {year} has already been issued — No. {no}',
+      poaNextYearHint: 'A second multi-use one for that year cannot be generated: the client should sign the issued one. Need a different one — revoke it or generate a one-time one.',
       revoked: 'Document revoked',
       revokeError: 'Could not revoke the document',
       sign: { client: 'Client signature', provider: 'AQNIET signature' },

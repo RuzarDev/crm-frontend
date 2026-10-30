@@ -429,6 +429,28 @@ describe('StaffCompanyPage', () => {
     expect(w.get('[data-req-missing]').text()).toBe('Не хватает: КБе')
   })
 
+  // Раунд 1 ревью (M-7): доверенность на следующий год уже выпущена — вторую многоразовую не сформировать, только разовую.
+  it('доверенность на следующий год уже есть: в декабре — плашка и только разовая; в октябре — без ограничений', async () => {
+    const auto = doc({ id: 'auto', kind: 'poa', number: '40', status: 1, validUntilUtc: '2027-12-31T23:59:59Z' })
+    const current = doc({ id: 'cur', kind: 'poa', number: '7', status: 2, clientSigned: true, validUntilUtc: '2026-12-31T23:59:59Z' })
+    setDocs('c1', [], [auto, current])
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-12-02T08:00:00Z'))
+      await mountAt('/import-40/company?step=poa')
+      expect(w.get('[data-next-year-poa]').text()).toContain('Доверенность на 2027 год уже выпущена — № 40/2026')
+      expect(w.get('[data-opt-single]').attributes('aria-checked')).toBe('true')
+      expect(w.get('[data-opt-single]').attributes('disabled')).toBeDefined()
+      w.unmount()
+      vi.setSystemTime(new Date('2026-10-30T08:00:00Z'))
+      await mountAt('/import-40/company?step=poa')
+      expect(w.find('[data-next-year-poa]').exists()).toBe(false)
+      expect(w.get('[data-opt-single]').attributes('aria-checked')).toBe('false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('подписано обеими сторонами — кнопок подписи нет', async () => {
     setDocs('c1', [ACTIVE_CONTRACT], [])
     await mountAt('/import-40/company?step=contract')

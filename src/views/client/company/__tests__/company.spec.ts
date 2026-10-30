@@ -95,6 +95,8 @@ describe('company helpers', () => {
     expect(basisOrDefault({ directorBasis: '', companyName: 'ИП Тестов' })).toBe('уведомления о начале деятельности (талон)')
     expect(basisOrDefault({ directorBasis: '', companyName: 'ТОО ТЕСТ' })).toBe('устава')
     expect(basisOrDefault({ directorBasis: 'доверенности', companyName: 'ИП Тестов' })).toBe('доверенности')
+    expect(basisOrDefault({ directorBasis: 'устава', companyName: 'ИП Тестов' })).toBe('уведомления о начале деятельности (талон)')
+    expect(basisOrDefault({ directorBasis: 'устава', companyName: 'ТОО ТЕСТ' })).toBe('устава')
   })
   it('перечисление на языке интерфейса', () => {
     expect(joinList(['a', 'b', 'c'], 'ru')).toBe('a, b и c')

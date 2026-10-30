@@ -83,3 +83,25 @@ export const isExpired = (d: Pick<Import40DocumentDto, 'validUntilUtc'>, now = D
 
 /** Подпись: клиент или AQNIET. */
 export type SignSide = 'client' | 'provider'
+
+/**
+ * Год, на который выйдет новая доверенность (как на сервере): выбранная дата, иначе — текущий год, а в декабре
+ * (по Астане, UTC+5) — следующий.
+ */
+export function poaTargetYear(validUntilYmd: string | null, now = Date.now()): number {
+  if (validUntilYmd) return Number(validUntilYmd.slice(0, 4))
+  const astana = new Date(now + 5 * 60 * 60 * 1000)
+  return astana.getUTCMonth() === 11 ? astana.getUTCFullYear() + 1 : astana.getUTCFullYear()
+}
+
+/**
+ * Доверенность на следующий год уже выпущена (раунд 1 ревью, M-7; с 1 декабря её выпускает система): многоразовая,
+ * черновик/ждёт подписи/действует, срок — в году новой доверенности или позже. Тогда вторую многоразовую сервер не выпустит
+ * (409) — остаётся разовая. На текущий год (новая доверенность не «на следующий») ограничения нет.
+ */
+export function nextYearPoa(kind: DocKind, docs: Import40DocumentDto[], targetYear: number, now = Date.now()): Import40DocumentDto | null {
+  const astanaYear = new Date(now + 5 * 60 * 60 * 1000).getUTCFullYear()
+  if (kind !== 'poa' || targetYear <= astanaYear) return null
+  return docs.find((d) => !d.isSingleUse && (d.status === 0 || d.status === 1 || d.status === 2)
+    && !!d.validUntilUtc && new Date(d.validUntilUtc).getUTCFullYear() >= targetYear) ?? null
+}
