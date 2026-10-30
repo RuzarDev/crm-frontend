@@ -247,13 +247,21 @@ describe('MemberDrawer: профиль декларанта', () => {
     expect(w.get('[data-profile-iin]').text()).toBe('900412450123')
   })
 
-  it('без роли declarant блока и запроса нет; поставили флажок — блок появляется', async () => {
-    await mountIt(member({ businessRoles: ['kpp'] }))
+  it('без ролей declarant и kpp блока и запроса нет; поставили флажок — блок появляется', async () => {
+    await mountIt(member({ businessRoles: ['rop'] }))
     expect(w.find('[data-member-profile]').exists()).toBe(false)
     expect(api.declarantProfile).not.toHaveBeenCalled()
     await click('[data-member-role="declarant"]')
     expect(w.find('[data-member-profile]').exists()).toBe(true)
     expect(api.declarantProfile).toHaveBeenCalledTimes(1)
+  })
+
+  it('КПП: профиль и переключатель представителя по доверенности есть (30.10.2026)', async () => {
+    await mountIt(member({ businessRoles: ['kpp'] }))
+    expect(w.find('[data-member-profile]').exists()).toBe(true)
+    await w.get('[data-member-poa]').trigger('click')
+    await flushPromises()
+    expect(api.setPoa).toHaveBeenCalledWith('m2', true, { silent: true })
   })
 })
 

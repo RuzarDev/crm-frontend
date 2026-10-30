@@ -25,8 +25,12 @@ describe('profileSections: какие карточки кому', () => {
     expect(s.cards).toEqual(['personal', 'declarant', 'language', 'password'])
   })
 
-  it('без права import40.declarant карточки декларанта нет', () => {
-    expect(profileSections(access({ permissions: ['import40.kpp'] })).cards).not.toContain('declarant')
+  it('без прав import40.declarant и import40.kpp карточки декларанта нет', () => {
+    expect(profileSections(access({ permissions: ['import40.read'] })).cards).not.toContain('declarant')
+  })
+
+  it('КПП: карточка есть — из неё берутся данные для доверенности (30.10.2026)', () => {
+    expect(profileSections(access({ permissions: ['import40.kpp'] })).cards).toEqual(['personal', 'declarant', 'language', 'password'])
   })
 
   it('брокер и экспедитор: в личных данных есть компания и БИН', () => {

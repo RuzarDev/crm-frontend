@@ -95,7 +95,8 @@ const toggleRole = (code: string, on: boolean) => {
 }
 
 // ---- Профиль декларанта ----
-const showProfile = computed(() => draftRoles.value.includes('declarant'))
+// 30.10.2026: КПП тоже бывает представителем по доверенности клиента.
+const showProfile = computed(() => draftRoles.value.includes('declarant') || draftRoles.value.includes('kpp'))
 const profile = ref<DeclarantProfileDto | null>(null)
 const profileState = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
 let profileFor: string | null = null

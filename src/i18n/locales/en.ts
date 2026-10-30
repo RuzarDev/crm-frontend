@@ -5905,6 +5905,7 @@ export default {
       },
       declarant: {
         title: 'Declarant profile · box 54',
+        titlePoa: 'Power of attorney details',
         hint: 'Fill it in once — the data goes into box 54 of the declaration with the “Fill from profile” button.',
         fullName: 'Full name',
         position: 'Position',

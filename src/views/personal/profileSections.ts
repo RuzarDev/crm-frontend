@@ -4,6 +4,8 @@
 //   company   — клиент Импорта 40: ссылка в /import-40/company вместо полей компании.
 //   declarant — «Профиль декларанта · графа 54»: по праву import40.declarant, а не по основной бизнес-роли
 //               (мультироли: «МПП + декларант» получает карточку через вторую роль). Клиенту — никогда.
+//               30.10.2026: и менеджеру КПП (право import40.kpp) — он тоже представитель по доверенности
+//               клиента, а ФИО/ИИН/удостоверение для доверенности берутся из этой карточки.
 //   telegram  — любому клиенту: привязка Telegram-бота (уведомления кабинета и команды), очередь 4, задача 3.
 //   language  — всем.
 //   password  — всем; при временном пароле идёт первой, остальные закрыты до смены.
@@ -37,7 +39,7 @@ export function profileSections(a: ProfileAccess): ProfileSections {
   if (!importClient) rest.push('personal')
   if (importClient) rest.push('company')
   if (isClient) rest.push('telegram')
-  if (!isClient && a.hasPermission('import40.declarant')) rest.push('declarant')
+  if (!isClient && (a.hasPermission('import40.declarant') || a.hasPermission('import40.kpp'))) rest.push('declarant')
   rest.push('language')
 
   return {
