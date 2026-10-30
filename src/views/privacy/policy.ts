@@ -120,6 +120,9 @@ const ru: PolicyText = {
           'разграничение доступа: клиент видит только свои данные, сотрудники AQNIET — данные в объёме, необходимом для их работы;',
           'журнал действий пользователей и резервное копирование.',
         ],
+        // 30.10.2026: требование Закона о хранении базы ПДн на территории РК — сервер у PS Internet Company (Алматы).
+        'База данных платформы, содержащая персональные данные, размещена на серверах на территории Республики Казахстан '
+        + '(хостинг-провайдер ТОО «PS Internet Company», г. Алматы).',
         'При нарушении безопасности персональных данных AQNIET принимает меры к устранению его последствий и уведомляет '
         + 'уполномоченный орган и субъектов персональных данных в случаях и порядке, установленных законодательством.',
       ],
@@ -337,6 +340,8 @@ const kk: PolicyText = {
           'қолжетімділікті ажырату: клиент тек өз деректерін көреді, AQNIET қызметкерлері — өз жұмысына қажетті көлемдегі деректерді;',
           'пайдаланушылар әрекеттерінің журналы және сақтық көшірме жасау.',
         ],
+        'Платформаның дербес деректер бар деректер базасы Қазақстан Республикасының аумағындағы серверлерде орналасқан '
+        + '(хостинг-провайдер — «PS Internet Company» ЖШС, Алматы қ.).',
         'Дербес деректердің қауіпсіздігі бұзылған кезде AQNIET оның салдарын жою шараларын қабылдайды және заңнамада '
         + 'белгіленген жағдайларда және тәртіппен уәкілетті органды және дербес деректер субъектілерін хабардар етеді.',
       ],
@@ -548,6 +553,8 @@ const en: PolicyText = {
           'access control: a client sees only its own data, AQNIET staff see data to the extent needed for their work;',
           'user activity logging and backups.',
         ],
+        'The platform database containing personal data is hosted on servers located in the Republic of Kazakhstan '
+        + '(hosting provider PS Internet Company LLP, Almaty).',
         'In the event of a personal data security breach AQNIET takes measures to remedy its consequences and notifies the '
         + 'competent authority and data subjects in the cases and manner established by law.',
       ],
