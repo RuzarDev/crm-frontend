@@ -129,7 +129,8 @@ beforeEach(async () => {
   api.reestr.mockResolvedValue({ items: ENTRIES, totalCount: 8, page: 1, pageSize: 25, totalPages: 1 })
   api.billing.mockResolvedValue(INVOICES)
   api.registry.mockResolvedValue([])
-  as('manager', ALL)
+  // S-5 (30.10.2026): реквизиты и документы правит декларант/РОП/админ — по умолчанию декларант.
+  as('manager', ALL, ['declarant'])
 })
 afterEach(() => {
   w?.unmount()
@@ -175,6 +176,20 @@ describe('карточка клиента: шапка', () => {
     expect(has('[data-card-edit]')).toBe(false)
     expect(has('[data-card-edit-requisites]')).toBe(false)
     expect(has('[data-doc-blank]')).toBe(false)
+  })
+
+  it('S-5 (решение владельца): бухгалтеру — «Реквизиты» для просмотра, без «Изменить» и «Выпустить новую»', async () => {
+    as('manager', ALL, ['accountant'])
+    await mountAt()
+    expect(w.get('[data-card-edit]').text()).toBe('Реквизиты')
+    expect(w.get('[data-card-edit]').attributes('href')).toBe('/import-40/company?client=c1')
+    expect(has('[data-card-edit-requisites]')).toBe(false)
+    expect(has('[data-doc-renew]')).toBe(false)
+    w.unmount()
+    as('manager', ALL, ['declarant'])
+    await mountAt()
+    expect(w.get('[data-card-edit]').text()).toBe('Изменить реквизиты')
+    expect(has('[data-card-edit-requisites]')).toBe(true)
   })
 
   it('телефон в шапке и в контакте — в едином виде «+7 700 000 00 00»', async () => {

@@ -343,18 +343,10 @@ describe('CaseView: действия', () => {
     expect(api.action).toHaveBeenLastCalledWith('c1', 'step-back', 'ошибка', undefined)
   })
 
-  it('S-29: «Шаг назад» с «На границе» предупреждает о возврате в черновик и предлагает «Вернуть клиенту»', async () => {
+  it('S-29 (решение владельца): с «На границе» «Шага назад» в меню нет, «Отменить» — есть', async () => {
     await mountCard(USERS.admin, { status: 1 })
-    await w.get('[data-menu-item="stepBack"]').trigger('click')
-    expect(w.get('[data-stepback-draft-warning]').text()).toContain('Заявка вернётся клиенту в черновик')
-    await w.get('[data-stepback-to-return]').trigger('click')
-    await flushPromises()
-    expect(w.find('[data-reason-modal="stepBack"]').exists()).toBe(false)
-    expect((w.findComponent({ name: 'ReturnToClientModal' }).props() as { open: boolean }).open).toBe(true)
-    w.unmount()
-    await mountCard(USERS.admin, { status: 3 })
-    await w.get('[data-menu-item="stepBack"]').trigger('click')
-    expect(w.find('[data-stepback-draft-warning]').exists()).toBe(false)
+    expect(w.find('[data-menu-item="stepBack"]').exists()).toBe(false)
+    expect(w.find('[data-menu-item="cancel"]').exists()).toBe(true)
   })
 
   it('смена заявки (назад/вперёд) закрывает окно причины — отмена не уйдёт на другую заявку', async () => {

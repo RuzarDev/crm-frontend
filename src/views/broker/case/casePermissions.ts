@@ -125,10 +125,12 @@ export const canProblem = (a: CaseAuth): boolean => can(a, 'kpp') || can(a, 'dec
 /** Пункт «Отметить проблему» в меню (S-22: запрос таможни — отдельная панель): заявка не в проблеме и не завершена/отменена. */
 export const showProblemAction = (a: CaseAuth, c: Import40CaseDto): boolean => canProblem(a) && !c.isProblem && c.status < 8
 /**
- * Шаг назад: статус 1..8, администратор или import40.assign. S-27 (30.10.2026, решение владельца): и с «Выполнено» —
+ * Шаг назад: статус 2..8 (с границы нельзя, S-29), администратор или import40.assign. S-27 (30.10.2026, решение владельца): и с «Выполнено» —
  * руководитель возвращает выполненную заявку (если она выполнена оплатой счёта AQNIET, сервер попросит снять отметку оплаты).
  */
-export const canStepBack = (a: CaseAuth, c: Import40CaseDto): boolean => c.status > 0 && c.status <= 8 && canAssign(a)
+// S-29 (30.10.2026, решение владельца): с «На границе» (1) назад нельзя — это молчаливый возврат клиенту в черновик;
+// для возврата — «Вернуть клиенту» с причиной (сервер отвечает 409).
+export const canStepBack = (a: CaseAuth, c: Import40CaseDto): boolean => c.status > 1 && c.status <= 8 && canAssign(a)
 /** Снять ошибочную отметку оплаты счёта AQNIET (S-27): руководитель (import40.assign) или администратор — как сервер. */
 export const canUnmarkPaid = (a: CaseAuth): boolean => canAssign(a)
 /** Отмена: незавершённая заявка, администратор или import40.assign. */

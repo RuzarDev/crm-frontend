@@ -20,7 +20,7 @@ import { useAuthStore } from '@/stores/auth'
 import { buildCountryOptions } from '@/utils/countries'
 import type { ZOption, ZOptionValue } from '@/ui/options'
 import { cn } from '@/ui/cn'
-import { STAFF_STEPS, defaultStep, missingOf, onboardingOf, parseStep, stepStates, type StaffStep } from './staffCompany'
+import { STAFF_STEPS, canEditClientPapers, defaultStep, missingOf, onboardingOf, parseStep, stepStates, type StaffStep } from './staffCompany'
 
 // «Компания клиента» для сотрудника (/import-40/company, редизайн, волна 7; замена Import40CompanyView):
 // выбор клиента (?client=), три шага (?step=requisites|contract|poa) — реквизиты (общая с кабинетом клиента
@@ -35,6 +35,8 @@ const uid = useId()
 const isAdmin = computed(() => (auth.role || '').toLowerCase() === 'administrator')
 // Подпись со стороны AQNIET — администратор или руководитель отдела (как на сервере).
 const canSignProvider = computed(() => isAdmin.value || auth.hasBusinessRole('rop'))
+// S-5 (30.10.2026, решение владельца): реквизиты и выпуск документов — администратор, руководитель, декларант.
+const canEditPapers = computed(() => canEditClientPapers(auth))
 
 // ---- Клиенты ----
 type ClientRow = { id: string; username: string; companyName?: string | null }
@@ -257,13 +259,17 @@ const circle = (s: StaffStep) => {
             </ZTag>
             <span v-if="missingReq" class="text-[13px] text-gold-ink" data-req-missing>{{ t('broker.company.missingList', { list: missingReq }) }}</span>
           </div>
-          <CompanyRequisitesForm
-            :key="clientId"
-            :client-id="clientId"
-            :profile="profile"
-            :country-options="countryOptions"
-            @saved="onSaved"
-          />
+          <p v-if="!canEditPapers" class="m-0 text-sm text-ink-3" data-req-readonly>{{ t('broker.company.readonlyHint') }}</p>
+          <!-- Без права — та же форма только для просмотра: fieldset выключает поля и «Сохранить». -->
+          <fieldset :disabled="!canEditPapers" class="m-0 min-w-0 border-0 p-0" data-req-fieldset>
+            <CompanyRequisitesForm
+              :key="clientId"
+              :client-id="clientId"
+              :profile="profile"
+              :country-options="countryOptions"
+              @saved="onSaved"
+            />
+          </fieldset>
         </template>
         <StaffDocumentsPanel
           v-else
@@ -274,6 +280,7 @@ const circle = (s: StaffStep) => {
           :profile-complete="profileComplete"
           :is-admin="isAdmin"
           :can-sign-provider="canSignProvider"
+          :can-issue="canEditPapers"
           :refresh="reloadDocs"
         />
 
