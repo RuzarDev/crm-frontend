@@ -51,10 +51,12 @@ const info = computed(() => {
 })
 
 // Внешнеторговый контракт заявки (17.10): менять — сотрудник Импорта 40; ссылка — карточка контракта в карточке клиента.
+// ?from= — «Назад» с карточки контракта/перевозчика возвращает в эту заявку (30.10.2026, аудит S-6).
 const auth = useAuthStore()
 const canImport = computed(() => auth.hasPermission('import40.read'))
-const contractHref = (id: string) => `/clients/${encodeURIComponent(props.kase.clientId)}/contracts/${encodeURIComponent(id)}`
-const carrierHref = (id: string) => `/clients/${encodeURIComponent(props.kase.clientId)}/carriers/${encodeURIComponent(id)}`
+const fromCase = computed(() => `?from=${encodeURIComponent(`/import-40/${props.kase.id}`)}`)
+const contractHref = (id: string) => `/clients/${encodeURIComponent(props.kase.clientId)}/contracts/${encodeURIComponent(id)}${fromCase.value}`
+const carrierHref = (id: string) => `/clients/${encodeURIComponent(props.kase.clientId)}/carriers/${encodeURIComponent(id)}${fromCase.value}`
 
 const fileCounts = computed(() => FILE_SECTIONS.map((key) => ({ key, n: props.files.filter((f) => sectionOf(f) === key).length })))
 const filesOpen = ref(false)

@@ -38,6 +38,8 @@ const translations = vi.hoisted(() => ({ list: vi.fn(async () => [] as unknown[]
 vi.mock('@/api/preBorder', async (orig) => ({ ...(await orig<typeof import('@/api/preBorder')>()), preBorderApi: preBorder, translationApi: translations }))
 
 import ClientShipmentView from '../ClientShipmentView.vue'
+import CaseContractBlock from '@/views/foreignContracts/CaseContractBlock.vue'
+import ShipmentTransportBlock from '@/views/carriers/ShipmentTransportBlock.vue'
 
 let w: VueWrapper
 const preBorderDto = (p: Record<string, unknown> = {}) => ({
@@ -96,6 +98,14 @@ afterEach(() => {
 })
 
 describe('ClientShipmentView', () => {
+  // 30.10.2026, аудит C-15: контракт и перевозчик из поставки — с ?from= на поставку, «Назад» вернёт сюда.
+  it('ссылки на контракт и перевозчика несут ?from= этой поставки', async () => {
+    await mountCard({ status: 2 })
+    const from = `?from=${encodeURIComponent('/import-40/c1')}`
+    expect((w.getComponent(CaseContractBlock).props('href') as (id: string) => string)('k1')).toBe(`/contracts/k1${from}`)
+    expect((w.getComponent(ShipmentTransportBlock).props('carrierHref') as (id: string) => string)('r1')).toBe(`/carriers/r1${from}`)
+  })
+
   it('поставка до границы: подшаги под «Границей», «нужно от вас» в теге и блоке; после границы не начатой — блока нет', async () => {
     preBorder.get.mockResolvedValue(preBorderDto({ loadingDate: '2026-10-10', loadingCity: 'Урумчи', missing: ['payment', 'transport', 'eta'] }))
     await mountCard({ status: 1 })

@@ -13,6 +13,7 @@ import ZTable from '@/components/z/ZTable.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import type { ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import ClientCell from '@/components/broker/ClientCell.vue'
+import FilterChip from '@/components/broker/FilterChip.vue'
 import ListSearch from '@/components/broker/ListSearch.vue'
 import RowActions, { type RowPrimary } from '@/components/broker/RowActions.vue'
 import StatStrip, { type StatItem } from '@/components/broker/StatStrip.vue'
@@ -21,7 +22,7 @@ import { import40Api, type Import40CaseDto } from '@/api/import40'
 import { salesApi, type SalesServiceItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { useBlock } from '@/views/home/useBlock'
-import { caseFilterSearch, watchCaseQuery } from '@/views/billingQuery'
+import { caseFilterSearch, clientFilterOptions, watchCaseQuery } from '@/views/billingQuery'
 import { exportXlsx, formatDay, pluralForm } from '@/views/broker/list'
 import { formatMoney } from '@/ui/number'
 import { saveBlob } from '@/ui/download'
@@ -86,26 +87,67 @@ const onCreateOpen = (v: boolean) => {
   if (!v) createPreset.value = null
 }
 
+// ---- Клиент (?client=): «Все счета» из карточки клиента — счета этого клиента (30.10.2026, аудит S-3/C-32).
+// Фильтр живёт в адресе (replace): «Назад» возвращает в карточку, чип «Клиент: … ×» его снимает.
+const clientFilter = computed(() => (typeof route.query.client === 'string' && route.query.client ? route.query.client : null))
+const clientOptions4Filter = computed(() => {
+  const list = clientFilterOptions(rows.value)
+  // У клиента из адреса ещё нет документов — подпись чипа из справочника клиентов, а не id.
+  const sel = clientFilter.value
+  const known = sel && !list.some((o) => o.value === sel) ? clientOptions.value.find((o) => o.value === sel) : null
+  return known ? [...list, known] : list
+})
+const setClientFilter = (v: string | null) => {
+  if (v === clientFilter.value) return
+  void router.replace({ query: { ...route.query, client: v ?? undefined } })
+}
+const scoped = computed(() => (clientFilter.value ? rows.value.filter((r) => r.clientId === clientFilter.value) : rows.value))
+
 // ---- Поиск, вид, статус ----
 const query = ref('')
 const kind = ref<BillingKindFilter>('all')
 const status = ref<BillingStatusFilter>('all')
-const isFiltered = computed(() => !!query.value.trim() || kind.value !== 'all' || status.value !== 'all')
-const items = computed(() => filterBilling(rows.value, query.value, kind.value, status.value))
-const counts = computed(() => statusCounts(rows.value, query.value, kind.value))
+const isFiltered = computed(() => !!query.value.trim() || kind.value !== 'all' || status.value !== 'all' || !!clientFilter.value)
+const items = computed(() => filterBilling(scoped.value, query.value, kind.value, status.value))
+const counts = computed(() => statusCounts(scoped.value, query.value, kind.value))
 const kindOptions = computed(() => KIND_FILTERS.map((k) => ({ value: k, label: t(`broker.billing.kind.${k}`) })))
 const statusOptions = computed(() => STATUS_FILTERS.map((s) => ({
   value: s, label: t(`broker.billing.filter.${s}`), count: ready.value ? counts.value[s] : undefined,
 })))
-const resetFilters = () => { query.value = ''; kind.value = 'all'; status.value = 'all' }
+const resetFilters = () => {
+  query.value = ''; kind.value = 'all'; status.value = 'all'
+  caseScope.value = null
+  setClientFilter(null)
+}
 const page = ref(1)
 watch([query, kind, status], () => { page.value = 1 })
 
-// /billing?case=… (уведомление о чеке): только фильтр. Повторный клик на открытом экране — перечитать и отфильтровать.
+// /billing?case=… (уведомление о чеке и «Ждёт оплаты услуг AQNIET», «Счета и акты» из шапки заявки): только фильтр.
+// Счетов по заявке ещё нет — ищем по номеру заявки из справочника заявок, а не показываем весь список, и в пустом
+// списке предлагаем выставить счёт по ней (30.10.2026, аудит S-26/S-38). Повторный клик на открытом экране —
+// перечитать и отфильтровать.
+const caseScope = ref<{ caseId: string; clientId?: string; number: string } | null>(null)
+const applyCase = (raw: unknown) => {
+  const caseId = Array.isArray(raw) ? raw[0] : raw
+  if (!caseId || typeof caseId !== 'string') { caseScope.value = null; return }
+  const number = caseFilterSearch(rows.value, caseId) || allCases.value.find((c) => c.id === caseId)?.number || ''
+  const target = allCases.value.find((c) => c.id === caseId)
+  caseScope.value = number ? { caseId, clientId: target?.clientId, number } : null
+  if (number) query.value = number
+}
 watchCaseQuery(() => route.query.case, async (caseId) => {
   await board.load()
-  query.value = caseFilterSearch(rows.value, caseId)
+  applyCase(caseId)
 })
+// Поиск сменили — заявка из адреса больше не задаёт список (кнопка «Выставить по заявке» не нужна).
+watch(query, (q) => { if (caseScope.value && q.trim() !== caseScope.value.number) caseScope.value = null })
+
+// /billing?q=… (сквозной поиск ⌘K → счёт, 30.10.2026, аудит S-54): строка поиска — номер документа.
+const applySearch = (raw: unknown) => {
+  const q = Array.isArray(raw) ? raw[0] : raw
+  if (typeof q === 'string' && q.trim()) query.value = q.trim()
+}
+watch(() => route.query.q, (q) => { if (route.path === '/billing') applySearch(q) })
 
 // /billing?caseId=… (карточка заявки, «Финансы»): фильтр по номеру заявки; при праве записи — окно нового
 // документа с заявкой и клиентом, после чего параметр убирается из адреса: «Назад» и обновление окно не открывают.
@@ -126,13 +168,16 @@ watch(() => route.query.caseId, (v) => { if (refsReady && v) applyCaseId(v) })
 let alive = true
 onBeforeUnmount(() => { alive = false })
 onMounted(async () => {
-  const { case: caseAtMount, caseId: caseIdAtMount } = route.query
+  const { case: caseAtMount, caseId: caseIdAtMount, q: qAtMount } = route.query
+  applySearch(qAtMount)
   await board.load()
   if (!alive) return
   const byCase = caseFilterSearch(rows.value, caseAtMount)
   if (byCase) query.value = byCase
   await loadRefs()
   if (!alive) return
+  // Справочник заявок загружен — номер заявки найдётся и без её счетов.
+  if (caseAtMount) applyCase(caseAtMount)
   applyCaseId(caseIdAtMount)
 })
 
@@ -382,6 +427,13 @@ const exportExcel = async () => {
 
     <div class="flex flex-wrap items-center gap-2">
       <ListSearch :value="query" :placeholder="t('broker.billing.search')" @update:value="query = $event" />
+      <FilterChip
+        :label="t('broker.billing.filterClient')"
+        :options="clientOptions4Filter"
+        :value="clientFilter"
+        data-billing-client
+        @update:value="setClientFilter"
+      />
       <ZSegmented
         :value="kind"
         :options="kindOptions"
@@ -471,6 +523,12 @@ const exportExcel = async () => {
             :hint="isFiltered ? t('broker.list.nothingFoundHint') : (canWrite ? t('broker.billing.emptyHint') : undefined)"
           >
             <template v-if="isFiltered || canWrite" #action>
+              <ZButton
+                v-if="caseScope && canWrite"
+                variant="primary"
+                data-billing-new-for-case
+                @click="openCreate({ caseId: caseScope.caseId, clientId: caseScope.clientId })"
+              >{{ t('broker.billing.newForCase', { number: caseScope.number }) }}</ZButton>
               <ZButton v-if="isFiltered" data-billing-reset @click="resetFilters">{{ t('broker.list.resetFilters') }}</ZButton>
               <ZButton v-else variant="primary" @click="openCreate()">{{ t('billing.newDoc') }}</ZButton>
             </template>

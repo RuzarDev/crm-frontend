@@ -189,6 +189,19 @@ describe('DtHeaderBar', () => {
     expect(w.get('[data-dt-save-state]').text()).toBe('Сохранено в 15:32')
   })
 
+  // 30.10.2026, аудит S-20: крошка «Заявки» — последний адрес списка (вкладка и фильтры), без него — /import-40.
+  it('крошка «Заявки» ведёт на последний адрес списка заявок', async () => {
+    const { rememberListPath, resetListPaths } = await import('@/shell/listReturn')
+    resetListPaths()
+    w = mountHeader()
+    expect(w.get('nav a').attributes('href')).toBe('/import-40')
+    w.unmount()
+    rememberListPath('requests', '/import-40?tab=active&client=k1')
+    w = mountHeader()
+    expect(w.get('nav a').attributes('href')).toBe('/import-40?tab=active&client=k1')
+    resetListPaths()
+  })
+
   it('шапка липкая только с 768px (на телефоне не занимает треть экрана)', () => {
     w = mountHeader()
     const cls = w.get('[data-dt-header]').classes()

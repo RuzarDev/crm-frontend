@@ -3,6 +3,7 @@ import { useProfileStore } from '@/stores/profile'
 import { resetClientRegistration } from '@/composables/useClientRegistration'
 import { homeAttention } from '@/shell/attention'
 import { useCommandPalette } from '@/shell/useCommandPalette'
+import { resetListPaths } from '@/shell/listReturn'
 
 /** Флаг ClientShell: клиента уже один раз увели на регистрацию в этой вкладке. */
 export const REG_REDIRECT_FLAG = 'zircon-reg-redirect'
@@ -19,5 +20,7 @@ export function resetSession(): void {
   homeAttention.value = null
   resetClientRegistration()
   useCommandPalette().hide()
+  // Последние адреса списков (30.10.2026, аудит S-20) — фильтры прежнего пользователя следующему не нужны.
+  resetListPaths()
   try { sessionStorage.removeItem(REG_REDIRECT_FLAG) } catch { /* приватный режим */ }
 }

@@ -265,6 +265,24 @@ describe('TransitView: список и фильтры', () => {
     expect((w.get('input[type="search"]').element as HTMLInputElement).value).toBe('MRSU4885849')
   })
 
+  // 30.10.2026, аудит S-4/S-49: переход из контекста (карточка клиента, разбор поезда, поиск) показывает ровно его —
+  // прежние статус, клиент и период из стора сбрасываются, иначе нужные записи прятались за старыми фильтрами.
+  it('?client= из карточки клиента и ?q= — сбрасывают прежние фильтры стора', async () => {
+    const store = useReestrStore()
+    store.statusFilter = 2
+    store.clientFilter = 'old'
+    store.documentDateFrom = '2026-01-01'
+    store.documentDateTo = '2026-01-31'
+    store.searchQuery = 'старое'
+    await mountAt('/reestr?client=c1')
+    expect(lastList()).toMatchObject({ search: '', status: undefined, clientId: 'c1', documentDateFrom: undefined, documentDateTo: undefined, page: 1 })
+    expect(w.findAllComponents(FilterChip)[1].props('value')).toBe('c1')
+    store.statusFilter = 4
+    await router.push('/reestr?q=Поезд № 77')
+    await flushPromises()
+    expect(lastList()).toMatchObject({ search: 'Поезд № 77', status: undefined, clientId: undefined })
+  })
+
   it('?q= другого экрана (уход со «Транзита») поиск не запускает', async () => {
     await mountAt('/reestr')
     const calls = api.getList.mock.calls.length

@@ -165,6 +165,8 @@ describe('WorkspacePage: «Сформировать строки реестра�
     expect(api.generateRows).toHaveBeenCalledWith('pkg1')
     expect(toast.success).toHaveBeenCalledWith('Создано строк: 3')
     expect(router.currentRoute.value.path).toBe('/reestr')
+    // 30.10.2026, аудит S-49: транзит — записи этого поезда (сервер пишет «Поезд № …» в «Отправку»).
+    expect(router.currentRoute.value.query).toEqual({ q: 'Поезд № 1234' })
   })
 
   it('0 — «Новых партий для формирования нет», пакет перечитывается (сервер ставит «Обработан»)', async () => {

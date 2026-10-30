@@ -258,3 +258,22 @@ it('все подписи меню есть в трёх словарях', () =>
     .flatMap((m) => [...m.groups.map((g) => g.labelKey).filter(Boolean) as string[], ...[...allSections(m), m.personal].flatMap((s) => [s.labelKey, ...s.pages.map((p) => p.labelKey)])])
   for (const d of [ru, kk, en]) for (const k of ks) expect(typeof get(d, k), k).toBe('string')
 })
+
+// 30.10.2026, аудит S-1/S-5: вкладки раздела — только на его страницах; «Компания клиента» из карточки — раздел «Клиенты».
+describe('isSectionPage / navPathOf', () => {
+  const m = buildBrokerNav(access({ role: 'administrator' }))
+  it('страницы-вкладки — да; карточки, заявки, ДТ — нет', async () => {
+    const { isSectionPage } = await import('@/shell/navModel')
+    for (const p of ['/clients', '/client-documents', '/import-40', '/import-40/manage', '/billing', '/finance', '/tnved/sync', '/home'])
+      expect(isSectionPage(m, p), p).toBe(true)
+    for (const p of ['/clients/c1', '/clients/c1/contracts/k1', '/import-40/c1', '/import-40/c1/dt/d1', '/import-40/company', '/keden/x'])
+      expect(isSectionPage(m, p), p).toBe(false)
+  })
+  it('/import-40/company?client= — путь карточки клиента; без ?client= и на других адресах — как есть', async () => {
+    const { navPathOf } = await import('@/shell/navModel')
+    expect(navPathOf('/import-40/company', { client: 'c 1' })).toBe('/clients/c%201')
+    expect(resolveActive(m, navPathOf('/import-40/company', { client: 'c1' }))?.section.key).toBe('clients')
+    expect(navPathOf('/import-40/company', {})).toBe('/import-40/company')
+    expect(navPathOf('/import-40/c1', { client: 'c1' })).toBe('/import-40/c1')
+  })
+})

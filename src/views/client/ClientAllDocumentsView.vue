@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhArrowRight, PhDownloadSimple, PhFileText } from '@phosphor-icons/vue'
@@ -15,7 +15,7 @@ import type { Import40DocumentDto } from '@/api/import40Contract'
 import { useAuthStore } from '@/stores/auth'
 import { localDate, validDate, type DocKind } from '@/views/client/company/company'
 import {
-  companyCard, FILE_FILTERS, fileKindKey, isFileFilter, normSearch, passesFilter, sortFiles,
+  companyCard, consumedStatus, FILE_FILTERS, fileKindKey, isFileFilter, normSearch, passesFilter, sortFiles,
   type CompanyCardReg, type CompanyCardStatus, type FileFilter,
 } from '@/views/client/documents/documents'
 import { useClientRegistration } from '@/composables/useClientRegistration'
@@ -42,7 +42,7 @@ const hasTransit = computed(() => auth.clientHasModule('transit'))
 // ---- Документы компании ----
 const COMPANY_KINDS: DocKind[] = ['contract', 'poa']
 const STATUS_TONE: Record<CompanyCardStatus, ZTone> = {
-  effective: 'done', awaiting: 'wait', consumed: 'neutral', expired: 'neutral', revoked: 'danger', none: 'neutral',
+  effective: 'done', awaiting: 'wait', consumed: 'neutral', expired: 'neutral', revoked: 'danger', none: 'neutral', busy: 'wait',
 }
 // «Готово» — по серверу (can-create, общее состояние с плашкой и шагами «Моей компании»; перечитывает оболочка),
 // иначе карточка «Действует» спорила бы с шагом «Нужна новая». Не загрузилось — судим по документам.
@@ -53,9 +53,25 @@ const regOf = (kind: DocKind): CompanyCardReg | null => {
     ? { done: registration.contractDone.value, awaitingUs: registration.contractAwaitingUs.value }
     : { done: registration.poaDone.value }
 }
+// Поставка, к которой привязан разовый документ (30.10.2026, аудит C-11): пока она не завершена — «Занят поставкой № …»
+// со ссылкой на неё. Статус и номер — тихим запросом поставки; не ответила — карточка как раньше («Использован»).
+const usedBy = reactive<Record<string, { number: string; status: number }>>({})
+watch(() => docs.data?.company, (list) => {
+  for (const d of list ?? []) {
+    const id = d.isSingleUse ? d.consumedByCaseId : null
+    if (!id || id in usedBy) continue
+    import40Api.get(id, { silent: true })
+      .then((c) => { usedBy[id] = { number: c.number, status: c.status } })
+      .catch(() => {})
+  }
+}, { immediate: true })
 const companyCards = computed(() => COMPANY_KINDS.map((kind) => {
   const card = companyCard((docs.data?.company ?? []).filter((d) => d.kind === kind), regOf(kind))
-  return { kind, ...card, title: cardTitle(kind, card.doc), meta: cardMeta(kind, card.doc) }
+  const caseId = card.doc?.consumedByCaseId ?? null
+  const used = caseId ? usedBy[caseId] : undefined
+  const status = consumedStatus(card.status, used?.status)
+  const busyCase = status === 'busy' && caseId && used ? { to: `/import-40/${encodeURIComponent(caseId)}`, number: used.number } : null
+  return { kind, ...card, status, busyCase, title: cardTitle(kind, card.doc), meta: cardMeta(kind, card.doc) }
 }))
 function cardTitle(kind: DocKind, d: Import40DocumentDto | null) {
   return d ? t(`client.documents.company.${kind}No`, { no: `${d.number}/${d.year}` }) : t(`client.documents.company.${kind}`)
@@ -203,32 +219,39 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
       <section aria-labelledby="docs-company" class="flex flex-col gap-2.5">
         <h2 id="docs-company" class="m-0 text-[13px] leading-5 font-semibold text-ink-2">{{ t('client.documents.company.title') }}</h2>
         <div class="grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-3">
-          <RouterLink
-            v-for="c in companyCards"
-            :key="c.kind"
-            :to="companyTo(c.kind)"
-            :class="cn(card, 'text-ink no-underline outline-hidden transition-colors duration-150 ease-out hover:border-line-strong hover:bg-canvas focus-visible:shadow-focus motion-reduce:transition-none')"
-            :data-company-card="c.kind"
-            :data-company-status="c.status"
-          >
-            <span
-              aria-hidden="true"
-              :class="cn(
-                'flex size-[38px] flex-none items-center justify-center rounded-row',
-                c.status === 'effective' || c.status === 'awaiting' ? 'bg-zircon-soft text-zircon-ink' : 'bg-sunken text-ink-2',
-              )"
-            ><PhFileText :size="18" /></span>
-            <span class="min-w-0 flex-1">
-              <span class="block text-[15px] leading-[22px] font-semibold">{{ c.title }}</span>
-              <span class="block text-[13.5px] leading-5 text-ink-3" data-company-meta>{{ c.meta }}</span>
+          <div v-for="c in companyCards" :key="c.kind" class="flex min-w-0 flex-col gap-1.5">
+            <RouterLink
+              :to="companyTo(c.kind)"
+              :class="cn(card, 'text-ink no-underline outline-hidden transition-colors duration-150 ease-out hover:border-line-strong hover:bg-canvas focus-visible:shadow-focus motion-reduce:transition-none')"
+              :data-company-card="c.kind"
+              :data-company-status="c.status"
+            >
               <span
-                v-if="c.newAwaiting"
-                class="mt-0.5 block text-[13px] leading-5 font-medium text-gold-ink"
-                data-company-new
-              >{{ t(`client.documents.company.newAwaiting.${c.kind}`) }}</span>
-            </span>
-            <ZTag :tone="STATUS_TONE[c.status]" class="flex-none" data-company-tag>{{ statusText(c.status) }}</ZTag>
-          </RouterLink>
+                aria-hidden="true"
+                :class="cn(
+                  'flex size-[38px] flex-none items-center justify-center rounded-row',
+                  c.status === 'effective' || c.status === 'awaiting' ? 'bg-zircon-soft text-zircon-ink' : 'bg-sunken text-ink-2',
+                )"
+              ><PhFileText :size="18" /></span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-[15px] leading-[22px] font-semibold">{{ c.title }}</span>
+                <span class="block text-[13.5px] leading-5 text-ink-3" data-company-meta>{{ c.meta }}</span>
+                <span
+                  v-if="c.newAwaiting"
+                  class="mt-0.5 block text-[13px] leading-5 font-medium text-gold-ink"
+                  data-company-new
+                >{{ t(`client.documents.company.newAwaiting.${c.kind}`) }}</span>
+              </span>
+              <ZTag :tone="STATUS_TONE[c.status]" class="flex-none" data-company-tag>{{ statusText(c.status) }}</ZTag>
+            </RouterLink>
+            <!-- Ссылка на поставку — рядом с карточкой, а не внутри (карточка сама ссылка) -->
+            <RouterLink
+              v-if="c.busyCase"
+              :to="c.busyCase.to"
+              class="w-fit rounded-[4px] px-1 text-[13px] font-medium text-zircon-ink no-underline outline-hidden hover:text-ink hover:underline focus-visible:shadow-focus max-sm:min-h-11 max-sm:content-center"
+              :data-company-busy-case="c.kind"
+            >{{ t('client.documents.company.busyCase', { number: c.busyCase.number }) }}</RouterLink>
+          </div>
         </div>
       </section>
 

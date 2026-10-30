@@ -24,6 +24,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useImport40Status } from '@/composables/useImport40Status'
 import { TOTAL_STEPS } from '@/utils/import40Steps'
 import { useBlock } from '@/views/home/useBlock'
+import { rememberListPath } from '@/shell/listReturn'
 import { exportXlsx, formatUpdated } from '@/views/broker/list'
 import { message } from '@/ui/message'
 import { formatMoney } from '@/ui/number'
@@ -31,7 +32,7 @@ import { formatDateText } from '@/ui/date'
 import type { ZColumn, ZKey } from '@/ui/table'
 import {
   REQUEST_TABS, clientOptions as buildClientOptions, emptyFilters, executorInfo, executorOptions as buildExecutorOptions,
-  executorText, filterRows, formatTnved, hasFilters, inTab, parseTab, stageTone, tabCounts,
+  executorText, filterRows, filtersFromQuery, filtersToQuery, formatTnved, hasFilters, inTab, parseTab, sameFilters, stageTone, tabCounts,
   type RequestFilters, type RequestTab,
 } from './requests'
 
@@ -71,10 +72,23 @@ watch(() => route.query.new, (v) => {
 }, { immediate: true })
 
 // ---- Фильтры (общие для вкладок) ----
-const filters = ref<RequestFilters>(emptyFilters())
+// Живут в адресе вместе с вкладкой (replace; 30.10.2026, аудит S-20): «Назад» браузера из заявки и крошка «Заявки»
+// (последний адрес списка) возвращают их. Адрес сменили извне (пункт меню «Заявки» без параметров) — фильтры из него.
+const filters = ref<RequestFilters>(filtersFromQuery(route.query))
 const patch = (p: Partial<RequestFilters>) => { filters.value = { ...filters.value, ...p } }
 const filtered = computed(() => hasFilters(filters.value))
 const resetFilters = () => { filters.value = emptyFilters() }
+const onList = () => route.path === '/import-40'
+watch(filters, (f) => {
+  if (!onList() || sameFilters(f, filtersFromQuery(route.query))) return
+  void router.replace({ query: { ...route.query, ...filtersToQuery(f) } })
+}, { deep: true })
+watch(() => route.query, (q) => {
+  if (!onList()) return
+  const f = filtersFromQuery(q)
+  if (!sameFilters(f, filters.value)) filters.value = f
+})
+watch(() => route.fullPath, (p) => { if (onList()) rememberListPath('requests', p) }, { immediate: true })
 
 const allRows = computed<Import40BoardRow[]>(() => board.data?.items ?? [])
 const myRows = computed<Import40BoardRow[]>(() => mine.data?.items ?? [])

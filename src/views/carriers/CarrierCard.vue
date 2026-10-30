@@ -31,10 +31,12 @@ const props = withDefaults(defineProps<{
   carrierId: string
   /** null — «Назад» по истории браузера. */
   backTo: string | null
+  /** Подпись ссылки «Назад» (по умолчанию «К перевозчикам»): из заявки — «К заявке» (30.10.2026, аудит S-6/C-15). */
+  backLabel?: string
   readonly?: boolean
   /** Ссылка на поставку: клиенту — /import-40/:id (его поставка), сотруднику — карточка заявки (тот же путь). */
   caseHref?: (caseId: string) => string
-}>(), { readonly: false, caseHref: (id: string) => `/import-40/${encodeURIComponent(id)}` })
+}>(), { backLabel: undefined, readonly: false, caseHref: (id: string) => `/import-40/${encodeURIComponent(id)}` })
 const { t, locale } = useI18n()
 const { confirm } = useConfirm()
 const router = useRouter()
@@ -171,7 +173,7 @@ const iconBtn = 'inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-cen
 <template>
   <div class="flex flex-col gap-4" data-carrier-card>
     <RouterLink v-if="backTo" :to="backTo" :class="backClass" data-carrier-back>
-      <PhArrowLeft :size="14" aria-hidden="true" />{{ t('carriers.back') }}
+      <PhArrowLeft :size="14" aria-hidden="true" />{{ backLabel ?? t('carriers.back') }}
     </RouterLink>
     <button v-else type="button" :class="[backClass, 'cursor-pointer border-0 bg-transparent p-0 font-sans']" data-carrier-back @click="router.back()">
       <PhArrowLeft :size="14" aria-hidden="true" />{{ t('carriers.backHistory') }}

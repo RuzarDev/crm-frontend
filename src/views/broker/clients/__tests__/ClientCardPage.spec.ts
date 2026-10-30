@@ -210,7 +210,9 @@ describe('карточка клиента: шапка', () => {
     expect(w.findAll('[data-menu-item]').map((b) => b.attributes('data-menu-item'))).toEqual(['docs', 'refresh'])
     await w.get('[data-menu-item="docs"]').trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.fullPath).toBe('/client-documents')
+    // 30.10.2026, аудит S-2: вкладка «Документы» этой карточки, а не общий реестр всех клиентов.
+    expect(router.currentRoute.value.fullPath).toBe('/clients/c1?tab=docs')
+    expect(has('[data-tab-panel="docs"]')).toBe(true)
     w.unmount()
 
     api.card.mockResolvedValue(card({ documents: [doc({ id: 'dw', status: 1, providerSigned: false, providerSignedAtUtc: null })] }))
@@ -533,7 +535,8 @@ describe('карточка клиента: вкладка «Заявки»', () 
 })
 
 describe('карточка клиента: вкладки «Транзит», «Документы», «Счета»', () => {
-  it('транзит: №, статус, контейнер, груз, дата; клик → /reestr?q=контейнер (или №)', async () => {
+  // 30.10.2026, аудит S-4: строка — страница записи /reestr/:id; «Все записи клиента» — список с фильтром по клиенту.
+  it('транзит: №, статус, контейнер, груз, дата; клик → /reestr/:id; «Все записи клиента» → /reestr?client=', async () => {
     await mountAt('/clients/c1?tab=transit')
     const rows = w.findAll('[data-transit-table] tbody tr')
     expect(rows).toHaveLength(3)
@@ -544,18 +547,20 @@ describe('карточка клиента: вкладки «Транзит», «
     expect(first).toContain('MRSU 488584 9')
     expect(first).toContain('ноутбуки')
     expect(w.get('[data-transit-shown]').text()).toBe('Показаны последние 3 из 8')
+    expect(w.get('[data-transit-all]').attributes('href')).toBe('/reestr?client=c1')
+    expect(w.get('[data-transit-open]').attributes('href')).toBe('/reestr/e1')
     await rows[0].trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.fullPath).toBe('/reestr?q=MRSU4885849')
+    expect(router.currentRoute.value.fullPath).toBe('/reestr/e1')
   })
 
-  it('транзит: без контейнера ищем по №; без обоих строка не кликается', async () => {
+  it('транзит: любая строка открывает свою запись — и без контейнера, и без №', async () => {
     await mountAt('/clients/c1?tab=transit')
     const rows = w.findAll('[data-transit-table] tbody tr')
-    expect(rows[2].classes()).not.toContain('cursor-pointer')
+    expect(rows[2].classes()).toContain('cursor-pointer')
     await rows[1].trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.fullPath).toBe('/reestr?q=11')
+    expect(router.currentRoute.value.fullPath).toBe('/reestr/e2')
   })
 
   it('транзит: ошибка — «Повторить» только для блока', async () => {
@@ -592,7 +597,8 @@ describe('карточка клиента: вкладки «Транзит», «
     expect(has('[data-row-primary]')).toBe(false)
   })
 
-  it('счета: только этого клиента; документ, статус, сумма, даты; «Все счета» → /billing', async () => {
+  // 30.10.2026, аудит S-3/C-32: «Все счета» — «Счета и акты» с фильтром по этому клиенту.
+  it('счета: только этого клиента; документ, статус, сумма, даты; «Все счета» → /billing?client=', async () => {
     await mountAt('/clients/c1?tab=invoices')
     const rows = w.findAll('[data-invoices-table] tbody tr')
     expect(rows).toHaveLength(4)
@@ -603,7 +609,7 @@ describe('карточка клиента: вкладки «Транзит», «
     expect(rows[2].text()).toContain('Оплачен')
     expect(rows[2].text()).toContain('оплачен 20.09.2026')
     expect(w.text()).not.toContain('777 000')
-    expect(w.get('[data-invoices-all]').attributes('href')).toBe('/billing')
+    expect(w.get('[data-invoices-all]').attributes('href')).toBe('/billing?client=c1')
   })
 
   it('счета: ошибка — «Повторить»', async () => {

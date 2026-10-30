@@ -71,6 +71,11 @@ export default {
     export: 'Export',
     loading: 'Loading…',
     clear: 'Clear',
+    // «Назад» туда, откуда пришли (?from=, 30.10.2026, аудит S-6/C-15).
+    back: 'Back',
+    backToCase: 'Back to request',
+    backToShipment: 'Back to shipment',
+    backToDt: 'Back to declaration',
   },
   registration: {
     title: 'Complete registration to submit requests',
@@ -3500,7 +3505,8 @@ export default {
         empty: 'This client has no transit records yet',
         loadError: 'Could not load transit records',
         shown: 'Showing the latest {n} of {total}',
-        open: 'Find in transit: {value}',
+        open: 'Open transit record {value}',
+        all: 'All client records',
       },
       invoices: {
         tableLabel: 'Client invoices',
@@ -3589,6 +3595,8 @@ export default {
       statusLabel: 'Document status',
       kind: { all: 'All', invoice: 'Invoices', act: 'Acts' },
       filter: { all: 'All', draft: 'Drafts', issued: 'Issued', paid: 'Paid', cancelled: 'Cancelled' },
+      filterClient: 'Client',
+      newForCase: 'Bill request {number}',
       stat: { issued: 'Issued', paid: 'Paid', awaiting: 'Awaiting payment', drafts: 'Drafts', draftsHint: 'not issued yet' },
       invoices: { one: '{n} invoice', few: '{n} invoices', many: '{n} invoices' },
       overdue: { one: '{n} overdue', few: '{n} overdue', many: '{n} overdue' },
@@ -5305,6 +5313,7 @@ export default {
         until: 'until {date}',
         none: 'None',
         newAwaiting: { contract: 'New one awaiting signature', poa: 'New one awaiting signature' },
+        busyCase: 'Shipment {number} →',
       },
       files: {
         title: 'By shipment',
@@ -5534,7 +5543,7 @@ export default {
         validUntilHelpContractSingle: 'Optional — without a date a one-time contract is valid until it is used for a shipment',
         validUntilHelpPoa: 'Optional — without a date the power of attorney is valid until the end of the year; one issued in December is valid until the end of the next year',
         history: 'Document history ({n})',
-        status: { effective: 'In force', awaiting: 'Awaiting signature', consumed: 'Used', expired: 'Expired', revoked: 'Revoked' },
+        status: { effective: 'In force', awaiting: 'Awaiting signature', consumed: 'Used', expired: 'Expired', revoked: 'Revoked', busy: 'Tied to a shipment' },
       },
       sigex: {
         title: 'Signing via eGov',

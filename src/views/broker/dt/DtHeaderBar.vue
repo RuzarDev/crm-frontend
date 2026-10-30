@@ -10,6 +10,7 @@ import { calendarLocale } from '@/ui/date'
 import { cn } from '@/ui/cn'
 import type { DtRateTag } from './dtPageModel'
 import DtTitleEdit from './DtTitleEdit.vue'
+import { listPath } from '@/shell/listReturn'
 
 // Закреплённая шапка ДТ (доски DtGeneral, DtReadonly): крошки «Заявки / № · клиент / ДТ», номер ДТ (моно),
 // тег ЕТТ/ВТО/«Разделена», состояние сохранения; справа — «Сохранить» (⌘S), «Рассчитать платежи»,
@@ -71,7 +72,8 @@ const emit = defineEmits<{
 const { t, locale } = useI18n()
 
 const crumbs = computed(() => [
-  { label: t('broker.dt.page.requests'), to: '/import-40' },
+  // Последний адрес списка заявок — с вкладкой и фильтрами (30.10.2026, аудит S-20).
+  { label: t('broker.dt.page.requests'), to: listPath('requests', '/import-40') },
   {
     label: props.caseNumber
       ? (props.clientName ? t('broker.dt.page.caseCrumb', { number: props.caseNumber, client: props.clientName }) : props.caseNumber)

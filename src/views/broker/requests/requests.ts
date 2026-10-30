@@ -117,6 +117,47 @@ export interface RequestFilters {
 export const emptyFilters = (): RequestFilters => ({ q: '', client: null, executor: null, stage: null, period: null, condRel: null, keden: null })
 export const hasFilters = (f: RequestFilters): boolean => !!(f.q.trim() || f.client || f.executor || f.stage || f.period || f.condRel || f.keden)
 
+// ---- Фильтры в адресе (30.10.2026, аудит S-20) ----
+// Вкладка уже была в ?tab=; теперь и фильтры: «Назад» браузера из заявки и крошка «Заявки» (последний адрес списка)
+// возвращают их, а не «Мои» с пустыми фильтрами. Поиск в адресе — как введён (без обрезки): иначе обратное чтение
+// съедало бы пробел в конце, пока его набирают.
+const CONDREL: CondRelFilter[] = ['any', 'open', 'overdue', 'uploaded']
+const DAY = /^\d{4}-\d{2}-\d{2}$/
+const one = (v: unknown): string => {
+  const x = Array.isArray(v) ? v[0] : v
+  return typeof x === 'string' ? x : ''
+}
+export function filtersFromQuery(q: Record<string, unknown>): RequestFilters {
+  const from = one(q.dateFrom)
+  const to = one(q.dateTo)
+  const condRel = one(q.condRel) as CondRelFilter
+  return {
+    q: one(q.q),
+    client: one(q.client) || null,
+    executor: one(q.executor) || null,
+    stage: /^\d+$/.test(one(q.stage)) ? one(q.stage) : null,
+    period: DAY.test(from) && DAY.test(to) ? [from, to] : null,
+    condRel: CONDREL.includes(condRel) ? condRel : null,
+    keden: one(q.keden) === 'unlinked' ? 'unlinked' : null,
+  }
+}
+/** Параметры адреса для фильтров; пустые — undefined (vue-router их убирает). */
+export function filtersToQuery(f: RequestFilters): Record<string, string | undefined> {
+  return {
+    q: f.q.trim() ? f.q : undefined,
+    client: f.client || undefined,
+    executor: f.executor || undefined,
+    stage: f.stage || undefined,
+    dateFrom: f.period?.[0] || undefined,
+    dateTo: f.period?.[1] || undefined,
+    condRel: f.condRel || undefined,
+    keden: f.keden || undefined,
+  }
+}
+/** Те же фильтры в терминах адреса (пробелы-only в поиске и порядок ключей не важны). */
+export const sameFilters = (a: RequestFilters, b: RequestFilters): boolean =>
+  JSON.stringify(filtersToQuery(a)) === JSON.stringify(filtersToQuery(b))
+
 /** Фильтры и поиск — все на клиенте, по загруженным строкам. */
 export function filterRows(rows: Import40BoardRow[], f: RequestFilters): Import40BoardRow[] {
   return rows.filter((r) => {

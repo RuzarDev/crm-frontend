@@ -21,6 +21,14 @@ describe('guardRedirect', () => {
     expect(guardRedirect('/home', {}, auth({ isAuthenticated: false }))).toBe('/login')
     expect(guardRedirect('/login', { requiresAuth: false }, auth({ isAuthenticated: false }))).toBeNull()
   })
+  // 30.10.2026, аудит C-5: адрес возврата — в ?next=; с Главной и без адреса — просто /login.
+  it('без входа с полным адресом — /login?next=<адрес>', () => {
+    const out = auth({ isAuthenticated: false })
+    expect(guardRedirect('/import-40/c1', {}, out, '/import-40/c1?tab=docs')).toBe('/login?next=%2Fimport-40%2Fc1%3Ftab%3Ddocs')
+    expect(guardRedirect('/home', {}, out, '/home')).toBe('/login')
+    expect(guardRedirect('/', {}, out, '/')).toBe('/login')
+    expect(guardRedirect('/import-40/c1', {}, out)).toBe('/login')
+  })
   it('вошедший на /login — на /', () => {
     expect(guardRedirect('/login', { requiresAuth: false }, auth())).toBe('/')
   })

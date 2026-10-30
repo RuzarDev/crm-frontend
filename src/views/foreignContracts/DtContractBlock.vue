@@ -78,8 +78,11 @@ const fill = () => {
   }))
   message.success(n ? t('foreignContracts.dt.filled', { n }) : t('foreignContracts.dt.alreadyFilled'))
 }
+// ?from= — «Назад» с карточки контракта возвращает на эту ДТ (30.10.2026, аудит S-6).
 const href = computed(() => (effective.value
-  ? `/clients/${encodeURIComponent(props.clientId)}/contracts/${encodeURIComponent(effective.value.id)}` : ''))
+  ? `/clients/${encodeURIComponent(props.clientId)}/contracts/${encodeURIComponent(effective.value.id)}`
+    + `?from=${encodeURIComponent(`/import-40/${props.caseId}/dt/${props.dtId}`)}`
+  : ''))
 </script>
 
 <template>

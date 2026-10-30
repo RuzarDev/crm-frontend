@@ -73,6 +73,11 @@ export default {
     export: 'Экспорт',
     loading: 'Загрузка…',
     clear: 'Очистить',
+    // «Назад» туда, откуда пришли (?from=, 30.10.2026, аудит S-6/C-15).
+    back: 'Назад',
+    backToCase: 'К заявке',
+    backToShipment: 'К поставке',
+    backToDt: 'К декларации',
   },
   registration: {
     title: 'Завершите регистрацию, чтобы подавать заявки',
@@ -3504,7 +3509,8 @@ export default {
         empty: 'У клиента пока нет записей транзита',
         loadError: 'Не удалось загрузить записи транзита',
         shown: 'Показаны последние {n} из {total}',
-        open: 'Найти в транзите: {value}',
+        open: 'Открыть запись транзита {value}',
+        all: 'Все записи клиента',
       },
       invoices: {
         tableLabel: 'Счета клиента',
@@ -3593,6 +3599,8 @@ export default {
       statusLabel: 'Статус документа',
       kind: { all: 'Все', invoice: 'Счета', act: 'Акты' },
       filter: { all: 'Все', draft: 'Черновики', issued: 'Выставлены', paid: 'Оплачены', cancelled: 'Аннулированы' },
+      filterClient: 'Клиент',
+      newForCase: 'Выставить по заявке {number}',
       stat: { issued: 'Выставлено', paid: 'Оплачено', awaiting: 'Ждёт оплаты', drafts: 'Черновики', draftsHint: 'не выставлены' },
       invoices: { one: '{n} счёт', few: '{n} счёта', many: '{n} счетов' },
       overdue: { one: '{n} просрочен', few: '{n} просрочено', many: '{n} просрочено' },
@@ -5308,6 +5316,7 @@ export default {
         until: 'до {date}',
         none: 'Нет',
         newAwaiting: { contract: 'Новый на подписи', poa: 'Новая на подписи' },
+        busyCase: 'Поставка {number} →',
       },
       files: {
         title: 'По поставкам',
@@ -5537,7 +5546,7 @@ export default {
         validUntilHelpContractSingle: 'Необязательно — без даты разовый договор действует до использования в поставке',
         validUntilHelpPoa: 'Необязательно — без даты доверенность действует до конца года, а выпущенная в декабре — до конца следующего',
         history: 'История документов ({n})',
-        status: { effective: 'Действует', awaiting: 'Ждёт подписи', consumed: 'Использован', expired: 'Истёк', revoked: 'Отозван' },
+        status: { effective: 'Действует', awaiting: 'Ждёт подписи', consumed: 'Использован', expired: 'Истёк', revoked: 'Отозван', busy: 'Занят поставкой' },
       },
       sigex: {
         title: 'Подписание через eGov',

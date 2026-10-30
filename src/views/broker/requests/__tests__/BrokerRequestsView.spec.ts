@@ -337,3 +337,30 @@ describe('BrokerRequestsView', () => {
     expect(api.staff).toHaveBeenCalledTimes(3)
   })
 })
+
+// 30.10.2026, аудит S-20: вкладка и фильтры — в адресе; возврат из заявки (крошка «Заявки», «Назад» браузера) их сохраняет.
+describe('BrokerRequestsView: фильтры в адресе', () => {
+  it('поиск и фильтр пишутся в адрес (replace), последний адрес списка запоминается для крошки', async () => {
+    const { listPath, resetListPaths } = await import('@/shell/listReturn')
+    resetListPaths()
+    await mountAt('/import-40?tab=active')
+    await w.get('input[type="search"]').setValue('0002')
+    await flushPromises()
+    expect(router.currentRoute.value.query).toEqual({ tab: 'active', q: '0002' })
+    expect(listPath('requests', '/import-40')).toBe('/import-40?tab=active&q=0002')
+  })
+
+  it('открытие по адресу с фильтрами — список уже отфильтрован, поле поиска заполнено', async () => {
+    await mountAt('/import-40?tab=active&q=0005&stage=3')
+    expect(numbers()).toEqual(['ИМ-2026-0005'])
+    expect((w.get('input[type="search"]').element as HTMLInputElement).value).toBe('0005')
+  })
+
+  it('пункт меню «Заявки» (адрес без параметров) сбрасывает фильтры на открытом списке', async () => {
+    await mountAt('/import-40?tab=active&q=0002')
+    expect(numbers()).toEqual(['ИМ-2026-0002'])
+    await router.push('/import-40?tab=active')
+    await flushPromises()
+    expect(numbers()).toEqual(['ИМ-2026-0001', 'ИМ-2026-0002', 'ИМ-2026-0005'])
+  })
+})

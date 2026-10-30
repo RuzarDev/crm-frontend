@@ -49,7 +49,16 @@ export const isFileFilter = (v: unknown): v is FileFilter => typeof v === 'strin
 export const passesFilter = (f: ClientCaseFile, filter: FileFilter) =>
   filter === 'all' || (filter === 'client' ? f.fromClient : !f.fromClient)
 
-export type CompanyCardStatus = HistoryStatus | 'none'
+export type CompanyCardStatus = HistoryStatus | 'none' | 'busy'
+
+/**
+ * Разовый документ, привязанный к ещё не завершённой поставке (статус 0–7), — «Занят поставкой», а не «Использован»:
+ * при отмене поставки он снова станет действующим (30.10.2026, аудит C-11). Статус поставки неизвестен (null) —
+ * как было.
+ */
+export function consumedStatus(status: CompanyCardStatus, caseStatus: number | null | undefined): CompanyCardStatus {
+  return status === 'consumed' && caseStatus != null && caseStatus >= 0 && caseStatus < 8 ? 'busy' : status
+}
 export interface CompanyCard {
   doc: Import40DocumentDto | null
   status: CompanyCardStatus

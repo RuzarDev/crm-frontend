@@ -16,7 +16,7 @@ import { useAuthStore } from '@/stores/auth'
 import { formatMoneyIn } from '@/ui/number'
 import { cn } from '@/ui/cn'
 import {
-  cleanName, codeDigits, formatTnvedCode, hitFromMatch, hitFromNode, httpStatus, isCodeLike, isRateLimited, MIN_QUERY, VAT_RATE,
+  cleanName, codeDigits, formatTnvedCode, shipmentCargo, hitFromMatch, hitFromNode, httpStatus, isCodeLike, isRateLimited, MIN_QUERY, VAT_RATE,
   type TnvedHit,
 } from '@/views/client/tnved/tnved'
 
@@ -186,6 +186,9 @@ watch(code, () => {
 }, { immediate: true })
 
 const cardName = computed(() => known[code.value]?.name || cleanName(rates.value?.treeName ?? calc.value?.codeName ?? ''))
+// «Оформить поставку с этим товаром» (30.10.2026, аудит C-14): мастер получает описание груза — что искал клиент
+// (или название позиции) и выбранный код; подставляется в шаг «Груз» новой поставки.
+const shipTo = computed(() => ({ path: '/import-40/new', query: { cargo: shipmentCargo(q.value, cardName.value, code.value) } }))
 const duty = computed(() => calc.value?.rateStr || rates.value?.rateStr || known[code.value]?.rateStr || null)
 const excise = computed(() => {
   const r = calc.value
@@ -374,7 +377,7 @@ const LIST_SKELETON = ['72%', '58%', '66%', '50%']
 
           <div v-if="canShip" class="flex flex-wrap items-center gap-3 border-t border-line pt-[18px]">
             <RouterLink
-              to="/import-40/new"
+              :to="shipTo"
               class="inline-flex h-[42px] items-center justify-center gap-2 rounded-row bg-navy px-[18px] text-[14.5px] font-semibold text-white no-underline outline-hidden transition-colors duration-150 ease-out hover:bg-navy-hover focus-visible:shadow-focus motion-reduce:transition-none max-sm:h-11 max-sm:w-full"
               data-tnved-ship
             >

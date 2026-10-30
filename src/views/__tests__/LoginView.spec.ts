@@ -75,6 +75,28 @@ describe('LoginView', () => {
     expect(push).toHaveBeenCalledWith('/')
   })
 
+  // 30.10.2026, аудит C-5: ссылка из письма/Telegram или истёкшая сессия — после входа туда же, откуда увела охрана.
+  it('?next= со своим путём — после входа туда; чужой адрес или вход — на главную', async () => {
+    vi.spyOn(useAuthStore(), 'login').mockResolvedValue(true)
+    const push = vi.spyOn(router, 'push')
+    for (const [next, expected] of [
+      ['/import-40/c1?tab=docs', '/import-40/c1?tab=docs'],
+      ['https://evil.example/import-40', '/'],
+      ['//evil.example/x', '/'],
+      ['/\\evil.example', '/'],
+      ['/login?next=/x', '/'],
+    ] as const) {
+      push.mockClear()
+      await router.replace({ path: '/login', query: { next } })
+      w = mountIt()
+      await userInput().setValue('aigerim.k')
+      await passInput().setValue('secret')
+      await submit()
+      expect(push, next).toHaveBeenCalledWith(expected)
+      w.unmount()
+    }
+  })
+
   it('пробелы по краям логина обрезаются, пароль — как есть', async () => {
     const login = vi.spyOn(useAuthStore(), 'login').mockResolvedValue(true)
     w = mountIt()

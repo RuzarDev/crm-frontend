@@ -220,6 +220,21 @@ export function resolveActive(m: NavModel, path: string): { section: NavSection;
   return best && !best.section.action ? { section: best.section, page: best.page } : null
 }
 
+// Страница-вкладка раздела (её адрес — ровно адрес вкладки), а не вложенная: карточка клиента /clients/:id,
+// заявка /import-40/:id, ДТ. На вложенных вкладки раздела не рисуем (30.10.2026, аудит S-1): «Документы» в шапке
+// карточки клиента выглядели вкладкой этой карточки, а вели в общий реестр всех клиентов.
+export function isSectionPage(m: NavModel, path: string): boolean {
+  return resolvable(m).some((s) => s.pages.some((pg) => (pg.match ?? [pathOf(pg.to)]).includes(path)))
+}
+
+// Путь для меню: «Компания клиента» сотрудника, открытая из карточки клиента (?client=), — часть раздела
+// «Клиенты», а не «Заявки» (префикс /import-40; 30.10.2026, аудит S-5).
+export function navPathOf(path: string, query: Record<string, unknown>): string {
+  const client = query.client
+  if (path === '/import-40/company' && typeof client === 'string' && client) return `/clients/${encodeURIComponent(client)}`
+  return path
+}
+
 export const navAccessFromStore = (auth: ReturnType<typeof useAuthStore>, registrationIncomplete: boolean): NavAccess => ({
   role: auth.role || '',
   hasPermission: (p) => auth.hasPermission(p),

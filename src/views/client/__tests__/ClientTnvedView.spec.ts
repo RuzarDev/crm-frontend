@@ -193,7 +193,10 @@ describe('ClientTnvedView', () => {
     expect(tile('duty')).toBe('0%')
     expect(tile('vat')).toBe('16%')
     expect(tile('excise')).toBe('—')
-    expect(w.get('[data-tnved-ship]').attributes('href')).toBe('/import-40/new')
+    // 30.10.2026, аудит C-14: мастер получает описание груза и код (запрос — код, поэтому название позиции).
+    const ship = router.resolve(w.get('[data-tnved-ship]').attributes('href')!)
+    expect(ship.path).toBe('/import-40/new')
+    expect(ship.query).toEqual({ cargo: 'Портативные компьютеры (ТН ВЭД 8471 30 000 0)' })
   })
 
   it('?code= без запроса — сразу карточка; код не найден (404) — пояснение без калькулятора', async () => {

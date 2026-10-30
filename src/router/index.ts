@@ -436,7 +436,7 @@ router.beforeEach((to, _from, next) => {
     canUseSales: authStore.canUseSales,
     isFinanceOnly: authStore.isFinanceOnly,
     mustChangePassword: authStore.mustChangePassword,
-  })
+  }, to.fullPath)
   if (target) next(target)
   else next()
 })

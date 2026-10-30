@@ -71,6 +71,11 @@ export default {
     export: 'Экспорт',
     loading: 'Жүктелуде…',
     clear: 'Тазалау',
+    // «Назад» туда, откуда пришли (?from=, 30.10.2026, аудит S-6/C-15).
+    back: 'Артқа',
+    backToCase: 'Өтінімге',
+    backToShipment: 'Жеткізілімге',
+    backToDt: 'Декларацияға',
   },
   registration: {
     title: 'Өтінім беру үшін тіркеуді аяқтаңыз',
@@ -3500,7 +3505,8 @@ export default {
         empty: 'Клиенттің транзит жазбалары әлі жоқ',
         loadError: 'Транзит жазбаларын жүктеу мүмкін болмады',
         shown: '{total} ішінен соңғы {n} көрсетілді',
-        open: 'Транзиттен табу: {value}',
+        open: 'Транзит жазбасын ашу {value}',
+        all: 'Клиенттің барлық жазбалары',
       },
       invoices: {
         tableLabel: 'Клиент шоттары',
@@ -3589,6 +3595,8 @@ export default {
       statusLabel: 'Құжат мәртебесі',
       kind: { all: 'Барлығы', invoice: 'Шоттар', act: 'Актілер' },
       filter: { all: 'Барлығы', draft: 'Жобалар', issued: 'Қойылғандар', paid: 'Төленгендер', cancelled: 'Күші жойылғандар' },
+      filterClient: 'Клиент',
+      newForCase: '{number} өтінімі бойынша шот қою',
       stat: { issued: 'Қойылды', paid: 'Төленді', awaiting: 'Төлем күтуде', drafts: 'Жобалар', draftsHint: 'қойылмаған' },
       invoices: { one: '{n} шот', few: '{n} шот', many: '{n} шот' },
       overdue: { one: '{n} мерзімі өтті', few: '{n} мерзімі өтті', many: '{n} мерзімі өтті' },
@@ -5304,6 +5312,7 @@ export default {
         until: '{date} дейін',
         none: 'Жоқ',
         newAwaiting: { contract: 'Жаңасы қол қоюда', poa: 'Жаңасы қол қоюда' },
+        busyCase: 'Жеткізілім {number} →',
       },
       files: {
         title: 'Жеткізілімдер бойынша',
@@ -5533,7 +5542,7 @@ export default {
         validUntilHelpContractSingle: 'Міндетті емес — күнсіз бір реттік шарт жеткізілімде пайдаланылғанға дейін күшінде болады',
         validUntilHelpPoa: 'Міндетті емес — күнсіз сенімхат жыл соңына дейін, ал желтоқсанда шығарылғаны келесі жылдың соңына дейін күшінде болады',
         history: 'Құжаттар тарихы ({n})',
-        status: { effective: 'Күшінде', awaiting: 'Қол қоюды күтуде', consumed: 'Пайдаланылды', expired: 'Мерзімі өтті', revoked: 'Кері қайтарылды' },
+        status: { effective: 'Күшінде', awaiting: 'Қол қоюды күтуде', consumed: 'Пайдаланылды', expired: 'Мерзімі өтті', revoked: 'Кері қайтарылды', busy: 'Жеткізілімге бекітілген' },
       },
       sigex: {
         title: 'eGov арқылы қол қою',

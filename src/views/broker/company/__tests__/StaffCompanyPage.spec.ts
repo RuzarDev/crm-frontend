@@ -122,6 +122,22 @@ describe('StaffCompanyPage', () => {
     expect(api.getProfile).toHaveBeenCalledWith('c1', { silent: true })
   })
 
+  // 30.10.2026, аудит S-5: из карточки клиента (?client=) — крошки назад в карточку; без ?client= или clients.read — нет.
+  it('крошки «Клиенты / компания / Компания клиента» при ?client=', async () => {
+    await mountAt('/import-40/company?client=c1&step=poa')
+    const links = w.findAll('[data-company-crumbs] a')
+    expect(links.map((a) => [a.text(), a.attributes('href')])).toEqual([['Клиенты', '/clients'], ['ТОО «Альфа»', '/clients/c1']])
+    expect(w.get('[data-company-crumbs]').text()).toContain('Компания клиента')
+    w.unmount()
+    await mountAt('/import-40/company')
+    expect(w.find('[data-company-crumbs]').exists()).toBe(false)
+    w.unmount()
+    as('declarant', ['declarant'])
+    useAuthStore().permissions = ['import40.read']
+    await mountAt('/import-40/company?client=c1')
+    expect(w.find('[data-company-crumbs]').exists()).toBe(false)
+  })
+
   it('без ?step= — первый незавершённый шаг', async () => {
     api.getProfile.mockResolvedValueOnce({ ...PROFILE, isComplete: false })
     await mountAt()

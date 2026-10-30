@@ -22,3 +22,13 @@ export const watchCaseQuery = (
   watch(getCase, (next, prev) => {
     if (next !== prev) void onChange(next)
   })
+
+// Варианты чипа «Клиент» в «Счетах и актах» (30.10.2026, аудит S-3/C-32): клиенты из всех загруженных документов
+// (не из отфильтрованных), по одному на id, по алфавиту.
+export const clientFilterOptions = (
+  rows: Pick<BrokerInvoice, 'clientId' | 'clientName'>[],
+): { value: string; label: string }[] => {
+  const seen = new Map<string, string>()
+  for (const r of rows) if (r.clientId && !seen.has(r.clientId)) seen.set(r.clientId, r.clientName || r.clientId)
+  return [...seen].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, 'ru'))
+}

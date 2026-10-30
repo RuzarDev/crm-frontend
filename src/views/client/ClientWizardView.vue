@@ -28,6 +28,7 @@ import { useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import type { ZOption } from '@/ui/options'
 import { cn } from '@/ui/cn'
+import { SHIPMENT_CARGO_MAX } from '@/views/client/tnved/tnved'
 
 // Мастер «Оформить поставку» клиента (/import-40/new, /import-40/new/:id; редизайн, волна 2a, доски Wizard и
 // WizardPhone). Логика — прежнего мастера из Import40ListView: черновик создаётся при уходе с шага «Груз»,
@@ -179,6 +180,10 @@ const open = async (id: string | null) => {
   void loadProfile()
   if (!id) {
     shipment.reset()
+    // ?cargo= — из «Подбора кода ТН ВЭД» («Оформить поставку с этим товаром», 30.10.2026, аудит C-14): описание
+    // и код товара сразу в шаге «Груз»; клиент может поправить. Черновик создаётся, как обычно, по «Далее».
+    const cargo = typeof route.query.cargo === 'string' ? route.query.cargo.trim().slice(0, SHIPMENT_CARGO_MAX) : ''
+    if (cargo) draft.cargo = cargo
     void shipment.loadCountries()
     step.value = 0
     reached.value = 0
