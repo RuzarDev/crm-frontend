@@ -5576,6 +5576,9 @@ export default {
         openCase: 'Open shipment {number}',
       },
       regError: 'Could not check your company registration',
+      // Round 2 (30.10.2026): submitting requires a valid power of attorney.
+      poaRequired: 'No valid power of attorney — AQNIET cannot file the request without it. Your draft is saved.',
+      poaRequiredLink: 'Sign the power of attorney',
       noClient: 'Could not identify your company — please sign in again',
       loadError: 'Could not load the draft',
       notFound: 'Draft not found',

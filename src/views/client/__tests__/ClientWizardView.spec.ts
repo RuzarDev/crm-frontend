@@ -491,6 +491,26 @@ describe('ClientWizardView', () => {
       expect(api.update).not.toHaveBeenCalled()
     })
 
+    // Раунд 2 (30.10.2026): сервер отказал — нет действующей доверенности: пояснение и ссылка на шаг доверенности.
+    it('нет действующей доверенности — пояснение и ссылка «Подписать доверенность», мастер остаётся', async () => {
+      server = fullDraft()
+      api.listFiles.mockResolvedValue(['invoice', 'transport', 'packing', 'contract'].map((k, i) =>
+        fileDto({ id: `f${i}`, docKind: k, originalFileName: `${k}.pdf` })))
+      api.action.mockRejectedValueOnce(Object.assign(new Error('400'), {
+        response: { status: 400, data: { error: 'Нет действующей доверенности — подпишите доверенность в «Моей компании».', code: 'poaRequired' } },
+      }))
+      await mountAt('/import-40/new/c1')
+      await w.get('[data-docs-resp]').trigger('click')
+      await submitBtn().trigger('click')
+      await flushPromises()
+      expect(api.action).toHaveBeenCalledWith('c1', 'submit-for-processing')
+      expect(router.currentRoute.value.fullPath).toBe('/import-40/new/c1')
+      const note = w.get('[data-wz-poa-required]')
+      expect(note.text()).toContain('Нет действующей доверенности')
+      expect(note.get('[data-wz-poa-link]').attributes('href')).toBe('/import-40/company?step=poa')
+      expect(msg.success).not.toHaveBeenCalled()
+    })
+
     it('возврат по чек-листу: незагруженные пункты — вопрос перед отправкой', async () => {
       server = { ...fullDraft(), returnReason: '', reworkRequested: true }
       api.listFiles.mockResolvedValue(['invoice', 'transport', 'packing', 'contract'].map((k, i) =>

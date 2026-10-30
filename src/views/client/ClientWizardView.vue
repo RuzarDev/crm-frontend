@@ -280,6 +280,8 @@ const nextLabel = computed(() => (step.value < LAST ? t(`client.wizard.next.${ST
 
 // ---- Отправка на оформление: сервер требует ≥ 1 файла; без обязательных по чек-листу — спрашиваем ----
 const submitting = ref(false)
+/** Сервер отказал в отправке: нет действующей доверенности (код poaRequired). */
+const poaRequired = ref(false)
 const submitBlock = computed(() => {
   if (step.value !== LAST) return ''
   if (docs.busy.value) return t('client.wizard.submitUploading')
@@ -334,8 +336,10 @@ const submit = async () => {
     // Переход сорвался (отменён другим переходом и т.п.) — мастер остаётся с закрытой отправкой и ссылкой
     // «Открыть поставку»; страж ухода не возвращаем: сохранять уже нечего.
     await router.push(`/import-40/${id}`)
-  } catch {
-    // Текст ошибки (в т.ч. «приложите хотя бы один документ») уже показал общий перехватчик.
+  } catch (e: unknown) {
+    // Текст ошибки (в т.ч. «приложите хотя бы один документ») уже показал общий перехватчик. Раунд 2 (30.10.2026):
+    // без действующей доверенности — ещё и пояснение со ссылкой на шаг доверенности (черновик при этом сохранён).
+    poaRequired.value = (e as { response?: { data?: { code?: string } } })?.response?.data?.code === 'poaRequired'
   } finally {
     submitting.value = false
   }
@@ -706,6 +710,19 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
               class="m-0 text-[12.5px] text-muted max-sm:text-center sm:text-right"
               data-wz-submit-why
             >{{ submitBlock }}</p>
+            <p
+              v-if="poaRequired && !submittedId"
+              role="alert"
+              class="m-0 text-[12.5px] text-ink-2 max-sm:text-center sm:text-right"
+              data-wz-poa-required
+            >
+              {{ t('client.wizard.poaRequired') }}
+              <RouterLink
+                to="/import-40/company?step=poa"
+                class="inline-flex min-h-11 items-center rounded-field px-1 font-semibold text-zircon-ink no-underline outline-hidden hover:text-ink focus-visible:shadow-focus sm:min-h-8"
+                data-wz-poa-link
+              >{{ t('client.wizard.poaRequiredLink') }}</RouterLink>
+            </p>
             <p v-if="saveState === 'failed'" class="m-0 flex items-center justify-center gap-1.5 text-[12.5px] text-ink-2 sm:hidden" data-wz-phone-failed>
               <PhWarningCircle :size="14" weight="bold" class="text-danger" aria-hidden="true" />
               {{ t('client.wizard.status.failed') }} —
