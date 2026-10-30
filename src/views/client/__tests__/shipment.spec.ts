@@ -44,9 +44,14 @@ describe('shipmentTag', () => {
     [{ status: 6 }, 'paySvh', 'wait'],
     [{ status: 6, paymentCheckUploaded: true }, 'checkReview', 'pay'],
     [{ status: 7 }, 'payService', 'pay'],
+    // C-27 (30.10.2026): счёта AQNIET нет — нейтральное «Ждём счёт»; выставлен — «Оплата услуг».
+    [{ status: 7, serviceInvoiceIssued: false }, 'waitInvoice', 'neutral'],
+    [{ status: 7, serviceInvoiceIssued: true }, 'payService', 'pay'],
     [{ status: 4 }, 'released', 'done'],
     [{ status: 5 }, 'released', 'done'],
-    [{ status: 1 }, 'inTransit', 'info'],
+    // C-27: до отметки КПП «Машина прибыла» — «Отправлена», после — «На границе».
+    [{ status: 1 }, 'sent', 'info'],
+    [{ status: 1, borderArrived: true }, 'atBorder', 'info'],
     [{ status: 2 }, 'processing', 'info'],
     [{ status: 3 }, 'processing', 'info'],
   ] as const)('%o → %s', (o, key, tone) => {
@@ -54,7 +59,7 @@ describe('shipmentTag', () => {
   })
 
   it('каждый ключ тега и вопроса есть в ru/kk/en', () => {
-    const keys = ['cancelled', 'done', 'needDoc', 'returned', 'draft', 'paySvh', 'checkReview', 'payService', 'released', 'inTransit', 'processing', 'customs', 'preBorder']
+    const keys = ['cancelled', 'done', 'needDoc', 'returned', 'draft', 'paySvh', 'checkReview', 'payService', 'waitInvoice', 'released', 'sent', 'atBorder', 'processing', 'customs', 'preBorder']
     for (const loc of [ru, kk, en]) {
       expect(Object.keys(loc.client.tag).sort()).toEqual([...keys].sort())
       for (const k of ['customs', 'problem', 'returned', 'draft', 'paySvh', 'preBorder'] as const) expect(loc.client.ask[k].title).toBeTruthy()
@@ -176,6 +181,14 @@ describe('toShipmentSummary', () => {
       estimatedValue: 120000, currencyCode: 'EUR', svhInvoiceNumber: '1187', declarationsCount: 2,
       assignedDeclarantName: 'Айгерим К.', paymentCheckUploaded: false,
     })
+  })
+
+  it('C-27: прибытие на границу и счёт AQNIET — как у лёгкой строки; счета не загрузились — без признака', () => {
+    expect(toShipmentSummary(caseDto({ status: 1, borderArrivedAtUtc: '2026-10-30T05:00:00Z' }), []).borderArrived).toBe(true)
+    expect(toShipmentSummary(caseDto({ status: 1 }), []).borderArrived).toBe(false)
+    expect(shipmentTag(toShipmentSummary(caseDto({ status: 7 }), [], [], [], false)).key).toBe('waitInvoice')
+    expect(shipmentTag(toShipmentSummary(caseDto({ status: 7 }), [], [], [], true)).key).toBe('payService')
+    expect(shipmentTag(toShipmentSummary(caseDto({ status: 7 }), [])).key).toBe('payService')
   })
 })
 

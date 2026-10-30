@@ -45,6 +45,13 @@ describe('VerifyDocumentView', () => {
     expect(client.classes()).toContain('border-zircon-ink')
     // подпись до 20.10 — без данных сертификата, с пояснением
     expect(w.get('[data-verify-signature="provider"]').text()).toContain('данные сертификата не сохранялись')
+    // C-33: зелёная отметка — только у проверенной; несверенная — нейтральная «Подписано ЭЦП».
+    expect(client.get('[data-verify-sign-state]').attributes('data-verify-sign-state')).toBe('verified')
+    expect(client.get('[data-verify-sign-state]').classes()).toContain('text-tone-done-fg')
+    const legacy = w.get('[data-verify-signature="provider"] [data-verify-sign-state]')
+    expect(legacy.attributes('data-verify-sign-state')).toBe('signed')
+    expect(legacy.text()).toBe('Подписано ЭЦП')
+    expect(legacy.classes()).not.toContain('text-tone-done-fg')
   })
 
   it('израсходованный разовый (C-20) — «Исполнен»', async () => {

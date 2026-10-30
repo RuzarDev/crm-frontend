@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { RouterLink } from 'vue-router'
 import { PhCheck, PhReceipt } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
@@ -139,7 +140,15 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
         <h2 :id="titleId" class="m-0 text-lg font-semibold tracking-[-0.01em] text-ink">{{ title }}</h2>
         <p class="m-0 mt-1 text-base text-ink-3">
           <template v-if="inv.caseNumber">
-            {{ t('client.invoices.subtitleCase') }} <span class="font-mono text-[13.5px] text-ink-2">{{ inv.caseNumber }}</span>
+            {{ t('client.invoices.subtitleCase') }}
+            <!-- Номер поставки — ссылка на её карточку (30.10.2026, аудит C-28); без caseId — просто текст. -->
+            <RouterLink
+              v-if="inv.caseId"
+              :to="`/import-40/${encodeURIComponent(inv.caseId)}`"
+              class="rounded-[4px] font-mono text-[13.5px] text-ink-2 underline decoration-line-strong underline-offset-2 outline-hidden hover:text-ink focus-visible:shadow-focus"
+              data-invoice-case-link
+            >{{ inv.caseNumber }}</RouterLink>
+            <span v-else class="font-mono text-[13.5px] text-ink-2">{{ inv.caseNumber }}</span>
           </template>
           <template v-else>{{ t('client.invoices.subtitleNoCase') }}</template>
         </p>

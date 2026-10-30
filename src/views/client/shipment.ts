@@ -61,9 +61,11 @@ export function shipmentTag(s: ClientShipment, ctx: ShipmentCtx = {}): { key: st
   // Файлы не загрузились — ни «Ждём оплату склада», ни «Чек на проверке»: нейтральное «Оформляем».
   if (s.status === 6 && ctx.filesUnknown) return { key: 'processing', tone: 'neutral' }
   if (s.status === 6) return { key: 'checkReview', tone: 'pay' } // чек загружен, ждём подтверждения
-  if (s.status === 7) return { key: 'payService', tone: 'pay' }
+  // Счёта AQNIET ещё нет — не «платёжный» тег, а нейтральное ожидание, как в уведомлении «Ожидайте счёт» (30.10.2026, аудит C-27).
+  if (s.status === 7) return s.serviceInvoiceIssued === false ? { key: 'waitInvoice', tone: 'neutral' } : { key: 'payService', tone: 'pay' }
   if (s.status >= 4) return { key: 'released', tone: 'done' }
-  if (s.status === 1) return { key: 'inTransit', tone: 'info' }
+  // Отправлена, но КПП ещё не отметил прибытие — не «В пути» (груз мог не выехать); после отметки — «На границе», как уведомление (C-27).
+  if (s.status === 1) return s.borderArrived ? { key: 'atBorder', tone: 'info' } : { key: 'sent', tone: 'info' }
   return { key: 'processing', tone: 'info' }
 }
 
@@ -113,6 +115,7 @@ export function toShipmentSummary(
   files: Pick<Import40FileDto, 'section'>[],
   customs: readonly Pick<CustomsRequestDto, 'status' | 'createdAtUtc' | 'stage'>[] = [],
   preBorderMissing: ClientShipment['preBorderMissing'] = [],
+  serviceInvoiceIssued?: boolean,
 ): ClientShipment {
   return {
     id: c.id,
@@ -140,6 +143,8 @@ export function toShipmentSummary(
     reworkOpen: c.openReworkItems ?? [],
     customsRequestSinceUtc: oldestWaiting(waitingForClient(customs, c.status))?.createdAtUtc ?? null,
     preBorderMissing,
+    borderArrived: !!c.borderArrivedAtUtc,
+    serviceInvoiceIssued,
   }
 }
 

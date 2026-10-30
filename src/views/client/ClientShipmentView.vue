@@ -157,7 +157,11 @@ const onPreBorderChanged = (dto: PreBorder) => {
 }
 // «Перевести (ИИ)» у документов: какие уже переведены.
 const translations = useTranslations(() => id.value)
-const summary = computed(() => (kase.value ? toShipmentSummary(kase.value, files.value, customs.list.value, preBorder.data.value?.missing ?? []) : null))
+const hasServiceInvoice = computed(() => invoices.value.some((i) => i.kind === 'invoice' && (i.status === 1 || i.status === 2)))
+// Счета не загрузились — про счёт AQNIET тег не гадает (прежнее «Оплата услуг», 30.10.2026, аудит C-27).
+const summary = computed(() => (kase.value
+  ? toShipmentSummary(kase.value, files.value, customs.list.value, preBorder.data.value?.missing ?? [], invoicesError.value ? undefined : hasServiceInvoice.value)
+  : null))
 // Файлы не загрузились — тег не гадает про чек («Ждём оплату склада» / «Чек на проверке»).
 const tag = computed(() => (summary.value ? shipmentTag(summary.value, { filesUnknown: filesError.value }) : null))
 const metaParts = computed(() => {
@@ -220,7 +224,6 @@ const downloadInvoicePdf = async (inv: Import40CaseInvoiceDto) => {
     pdfBusy.value = null
   }
 }
-const hasServiceInvoice = computed(() => invoices.value.some((i) => i.kind === 'invoice' && (i.status === 1 || i.status === 2)))
 
 const servicesId = `ship-services-${uid}`
 const card = 'rounded-panel border border-line px-[18px] py-4'

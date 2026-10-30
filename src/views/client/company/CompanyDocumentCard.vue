@@ -249,7 +249,8 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
             <ZButton variant="primary" :loading="refreshing && !uploading" :class="actionBtn" data-sign-egov @click="openSigex">
               {{ t('client.company.doc.signEgov') }}
             </ZButton>
-            <ZButton :loading="ncaSigning" :disabled="uploading" :class="cn(actionBtn, 'bg-surface font-medium enabled:hover:bg-line')" data-sign-nca @click="signNca">
+            <!-- На телефоне NCALayer не бывает — кнопку не показываем (30.10.2026, аудит C-29). -->
+            <ZButton :loading="ncaSigning" :disabled="uploading" :class="cn(actionBtn, 'bg-surface font-medium enabled:hover:bg-line max-sm:hidden')" data-sign-nca @click="signNca">
               {{ t('client.company.doc.signNca') }}
             </ZButton>
             <ZButton :loading="uploading" :disabled="ncaSigning" :class="cn(actionBtn, 'bg-surface font-medium enabled:hover:bg-line')" data-sign-upload @click="pickFile">
