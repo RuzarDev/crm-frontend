@@ -63,7 +63,7 @@ const submit = async () => {
 describe('RegisterView', () => {
   const fill = async (o: { confirm?: string } = {}) => {
     await field('Email').setValue('Office@Argyn.KZ ')
-    await field('БИН компании').setValue('123456789012')
+    await field('БИН / ИИН (для ИП)').setValue('123456789012')
     await field('Наименование компании').setValue('ТОО «Аргын»')
     await field('Пароль').setValue('secret123')
     await field('Повторите пароль').setValue(o.confirm ?? 'secret123')
@@ -89,7 +89,7 @@ describe('RegisterView', () => {
     await open(RegisterView, '/register')
     await submit()
     expect(described(field('Email'))).toContain('Введите email')
-    expect(described(field('БИН компании'))).toContain('Введите БИН')
+    expect(described(field('БИН / ИИН (для ИП)'))).toContain('Введите БИН или ИИН')
     expect(described(field('Наименование компании'))).toContain('Укажите наименование компании')
     expect(described(field('Пароль'))).toContain('Введите пароль')
     expect(described(field('Повторите пароль'))).toContain('Повторите пароль')
@@ -135,7 +135,7 @@ describe('RegisterView', () => {
     const find = w.findAll('button').find((b) => b.text() === 'Найти по БИН/ИИН')!
     expect(find.attributes('type')).toBe('button')
     expect(find.attributes('disabled')).toBeDefined()
-    await field('БИН компании').setValue('123456789012')
+    await field('БИН / ИИН (для ИП)').setValue('123456789012')
     expect(find.attributes('disabled')).toBeUndefined()
     await find.trigger('click')
     await flushPromises()

@@ -9,6 +9,7 @@ import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import HomePanel from '@/views/home/HomePanel.vue'
+import ExpeditorHomePanel from '@/views/broker/expeditor/ExpeditorHomePanel.vue'
 import { dashboardApi } from '@/api/dashboard'
 import { manageApi } from '@/api/manage'
 import { billingApi } from '@/api/billing'
@@ -37,7 +38,9 @@ const imp = auth.canUseImport40 && !auth.isFinanceOnly
 const mgr = auth.hasPermission('import40.assign') && !auth.isFinanceOnly
 const fin = auth.hasPermission('finance.read')
 const tr = !auth.isFinanceOnly && auth.hasPermission('reestr.read')
-const anyBlock = imp || mgr || fin || tr
+// Экспедитор: кроме транзита — сводка Импорта 40 его клиентов (30.10.2026, аудит C-35), как пункт меню.
+const exp40 = !auth.isFinanceOnly && (auth.role || '').trim().toLowerCase() === 'expeditor'
+const anyBlock = imp || mgr || fin || tr || exp40
 // «Новая заявка» — только тем, кому список заявок откроет создание (декларант, руководитель, админ).
 const canCreate = imp && auth.canCreateImport40
 
@@ -286,6 +289,8 @@ const link = 'shrink-0 rounded-[4px] text-[13px] font-medium text-zircon-ink no-
             <dd class="m-0 text-right font-semibold tabular-nums text-gold-ink">{{ formatMoney(money.awaiting) }}</dd>
           </dl>
         </HomePanel>
+
+        <ExpeditorHomePanel v-if="exp40" />
 
         <HomePanel
           v-if="tr"

@@ -197,6 +197,19 @@ describe('ClientInvoicesView', () => {
     expect(msg.error).toHaveBeenCalled()
   })
 
+  it('номер поставки в панели — ссылка на её карточку (C-28); без поставки — без ссылки', async () => {
+    await mountAt('/billing?id=i1')
+    const link = w.get('[data-invoice-case-link]')
+    expect(link.text()).toBe('ИМ-2026-0158')
+    expect(link.attributes('href')).toBe('/import-40/c1')
+    await link.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/import-40/c1')
+    w.unmount()
+    await mountAt('/billing?id=a1')
+    expect(w.find('[data-invoice-case-link]').exists()).toBe(false)
+  })
+
   it('акт — без загрузки чека и реквизитов, только PDF', async () => {
     billing.pdf.mockResolvedValue(new Blob(['%PDF']))
     URL.createObjectURL = vi.fn(() => 'blob:x')

@@ -35,6 +35,10 @@ export interface ClientShipment {
   customsRequestSinceUtc?: string | null
   /** Поставка до границы (очередь 4): чего не хватает до прибытия; пусто — ничего (не начато, заполнено, уже на границе). */
   preBorderMissing?: PreBorderMissingKey[]
+  /** КПП отметил «Машина прибыла» — тег «На границе», иначе «Отправлена» (30.10.2026, аудит C-27). */
+  borderArrived?: boolean
+  /** Счёт AQNIET за услуги выставлен или оплачен; false — «Ждём счёт AQNIET», нет поля (неизвестно) — «Оплата услуг» (C-27). */
+  serviceInvoiceIssued?: boolean
 }
 
 export const clientShipmentsApi = {

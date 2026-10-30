@@ -15,7 +15,9 @@ const api = vi.hoisted(() => ({
   overview: vi.fn(),
   invoices: vi.fn(),
   myTasks: vi.fn(),
+  expeditor40: vi.fn(),
 }))
+vi.mock('@/api/expeditorImport40', () => ({ expeditorImport40Api: { overview: api.expeditor40 } }))
 vi.mock('@/api/dashboard', () => ({ dashboardApi: { import40: api.import40, get: api.transit, client: vi.fn() } }))
 vi.mock('@/api/manage', () => ({ manageApi: { overview: api.overview } }))
 vi.mock('@/api/billing', () => ({ billingApi: { list: api.invoices } }))
@@ -194,6 +196,34 @@ describe('BrokerHomeView', () => {
     expect(go.findAll('a').some((a) => a.text() === 'Главная')).toBe(false)
     expect(Object.values(api).every((f) => f.mock.calls.length === 0)).toBe(true)
     expect(homeAttention.value).toBe(0)
+  })
+
+  it('экспедитор (C-35): кроме транзита — «Импорт 40 ваших клиентов» со ссылкой на экран логиста', async () => {
+    setRole('Expeditor', ['reestr.read'])
+    const ship = (id: string, status: number, customsRequestOpen = false) => ({
+      id, number: id, clientId: 'k', clientName: 'ТОО ТЕСТ', cargo: '', post: '', status, step: 1, declarationNumbers: [],
+      releasedAtUtc: null, customsRequestOpen, createdAtUtc: now.toISOString(), updatedAtUtc: now.toISOString(),
+    })
+    api.expeditor40.mockResolvedValue({
+      clients: [{ clientId: 'k', name: 'ТОО ТЕСТ', innBin: '000000000000', contract: null, poa: null }],
+      shipments: [ship('a', 1), ship('b', 3, true), ship('c', 8)],
+    })
+    await mountIt()
+    expect(panel('Транзит')).toBeDefined()
+    const p = w.get('[data-home-expeditor40]')
+    expect(p.get('h2').text()).toBe('Импорт 40 ваших клиентов')
+    expect(p.get('a').attributes('href')).toBe('/expeditor/import-40')
+    expect(p.get('[data-home-expeditor40-active]').text()).toBe('2')
+    expect(p.get('[data-home-expeditor40-customs]').text()).toBe('1')
+    expect(p.get('[data-home-expeditor40-clients]').text()).toBe('1')
+    expect(api.myTasks).not.toHaveBeenCalled()
+  })
+
+  it('сотрудник — без сводки экспедитора', async () => {
+    setRole('Administrator')
+    await mountIt()
+    expect(w.find('[data-home-expeditor40]').exists()).toBe(false)
+    expect(api.expeditor40).not.toHaveBeenCalled()
   })
 
   it('«Новая заявка» ведёт на /import-40?new=1', async () => {

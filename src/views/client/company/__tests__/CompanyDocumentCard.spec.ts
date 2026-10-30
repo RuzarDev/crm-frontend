@@ -214,6 +214,8 @@ describe('CompanyDocumentCard', () => {
     nca.sign.mockResolvedValue(btoa('cms-bytes'))
     api.signDocument.mockResolvedValue(doc({ clientSigned: true }))
     await mountCard({ docs: [doc({})] })
+    // На телефоне NCALayer не бывает — кнопка скрыта до sm (C-29).
+    expect(w.get('[data-sign-nca]').classes()).toContain('max-sm:hidden')
     await w.get('[data-sign-nca]').trigger('click')
     // FileReader (base64 документа) — не микрозадача: ждём загрузку подписи.
     await vi.waitFor(() => expect(refresh).toHaveBeenCalled())

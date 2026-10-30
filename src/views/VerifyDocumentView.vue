@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { PhCheckCircle, PhQrCode, PhWarningCircle } from '@phosphor-icons/vue'
+import { PhCheckCircle, PhQrCode, PhSignature, PhWarningCircle } from '@phosphor-icons/vue'
 import ZirconLogo from '@/components/shell/ZirconLogo.vue'
 import LangSegment from '@/components/auth/LangSegment.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
@@ -109,8 +109,13 @@ const rows = (s: VerifySignature) => [
         >
           <div class="flex flex-wrap items-center gap-2">
             <h2 class="m-0 flex-1 text-base font-semibold text-ink">{{ sideLabel(s) }}</h2>
-            <span class="inline-flex items-center gap-1.5 text-[13px] text-tone-done-fg">
-              <PhCheckCircle :size="16" weight="fill" aria-hidden="true" />{{ s.verified ? tx('verified') : tx('signedOk') }}
+            <!-- Зелёная галочка — только у подписи, проверенной НУЦ РК; старая (до 20.10, не сверялась) — нейтральная
+                 отметка «Подписано ЭЦП» (30.10.2026, аудит C-33). -->
+            <span v-if="s.verified" class="inline-flex items-center gap-1.5 text-[13px] text-tone-done-fg" data-verify-sign-state="verified">
+              <PhCheckCircle :size="16" weight="fill" aria-hidden="true" />{{ tx('verified') }}
+            </span>
+            <span v-else class="inline-flex items-center gap-1.5 text-[13px] text-ink-2" data-verify-sign-state="signed">
+              <PhSignature :size="16" aria-hidden="true" />{{ tx('signedOk') }}
             </span>
           </div>
           <dl class="m-0 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm max-sm:grid-cols-1">
