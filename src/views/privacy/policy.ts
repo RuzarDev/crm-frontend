@@ -6,7 +6,7 @@
 export const POLICY_VERSION = '2026-10-30'
 
 /** Реквизиты по умолчанию — если «Настройки → Организация» не ответили (страница открывается без входа). */
-export const OPERATOR_FALLBACK = { companyName: 'ТОО «AQNIET»', bin: '240640021012' }
+export const OPERATOR_FALLBACK = { companyName: 'ТОО «AQNIET trans group»', bin: '240640021012' }
 
 /** Абзац — строка, список — массив строк. */
 export type PolicyBlock = string | string[]
@@ -18,7 +18,7 @@ const ru: PolicyText = {
   title: 'Политика конфиденциальности и обработки персональных данных',
   edition: 'Редакция от 30 октября 2026 года',
   lead:
-    'Настоящая Политика определяет, какие персональные данные собирает и обрабатывает ТОО «AQNIET» при работе платформы '
+    'Настоящая Политика определяет, какие персональные данные собирает и обрабатывает ТОО «AQNIET trans group» при работе платформы '
     + 'таможенного оформления Zircon, для каких целей и на каком основании, кому они передаются, сколько хранятся и как '
     + 'субъект персональных данных может реализовать свои права. Политика разработана в соответствии с Законом Республики '
     + 'Казахстан от 21 мая 2013 года № 94-V «О персональных данных и их защите» (далее — Закон) и иными актами '
@@ -28,7 +28,7 @@ const ru: PolicyText = {
       id: 'general',
       title: '1. Общие положения',
       body: [
-        'Собственником и оператором базы, содержащей персональные данные, является ТОО «AQNIET» (далее — AQNIET, «мы»). '
+        'Собственником и оператором базы, содержащей персональные данные, является ТОО «AQNIET trans group» (далее — AQNIET, «мы»). '
         + 'Реквизиты и контакты AQNIET указаны в блоке «Оператор персональных данных» на этой странице.',
         'Политика применяется к персональным данным, которые AQNIET получает через платформу Zircon (сайт, личный кабинет, '
         + 'уведомления), а также при заключении и исполнении договора об оказании услуг таможенного представителя.',
@@ -237,7 +237,7 @@ const kk: PolicyText = {
   title: 'Құпиялылық және дербес деректерді өңдеу саясаты',
   edition: '2026 жылғы 30 қазандағы редакция',
   lead:
-    'Осы Саясат «AQNIET» ЖШС-нің Zircon кедендік ресімдеу платформасы жұмыс істеген кезде қандай дербес деректерді жинайтынын '
+    'Осы Саясат «AQNIET trans group» ЖШС-нің Zircon кедендік ресімдеу платформасы жұмыс істеген кезде қандай дербес деректерді жинайтынын '
     + 'және өңдейтінін, қандай мақсатпен және қандай негізде, оларды кімге беретінін, қанша уақыт сақтайтынын және дербес '
     + 'деректер субъектісі өз құқықтарын қалай іске асыра алатынын айқындайды. Саясат «Дербес деректер және оларды қорғау '
     + 'туралы» Қазақстан Республикасының 2013 жылғы 21 мамырдағы № 94-V Заңына (бұдан әрі — Заң) және Қазақстан '
@@ -247,7 +247,7 @@ const kk: PolicyText = {
       id: 'general',
       title: '1. Жалпы ережелер',
       body: [
-        'Дербес деректер қамтылған базаның меншік иесі және операторы — «AQNIET» ЖШС (бұдан әрі — AQNIET, «біз»). '
+        'Дербес деректер қамтылған базаның меншік иесі және операторы — «AQNIET trans group» ЖШС (бұдан әрі — AQNIET, «біз»). '
         + 'AQNIET деректемелері мен байланыс деректері осы беттегі «Дербес деректер операторы» блогында көрсетілген.',
         'Саясат AQNIET Zircon платформасы (сайт, жеке кабинет, хабарламалар) арқылы, сондай-ақ кеден өкілінің қызметтерін '
         + 'көрсету шартын жасасу және орындау кезінде алатын дербес деректерге қолданылады.',
@@ -456,7 +456,7 @@ const en: PolicyText = {
   title: 'Privacy and Personal Data Processing Policy',
   edition: 'Version of 30 October 2026',
   lead:
-    'This Policy describes which personal data AQNIET LLP collects and processes when operating the Zircon customs clearance '
+    'This Policy describes which personal data AQNIET trans group LLP collects and processes when operating the Zircon customs clearance '
     + 'platform, for what purposes and on what grounds, to whom the data is transferred, how long it is kept, and how data '
     + 'subjects can exercise their rights. The Policy has been prepared in accordance with the Law of the Republic of Kazakhstan '
     + 'No. 94-V of 21 May 2013 “On Personal Data and Their Protection” (the “Law”) and other legislation of the Republic of '
@@ -466,7 +466,7 @@ const en: PolicyText = {
       id: 'general',
       title: '1. General provisions',
       body: [
-        'The owner and operator of the database containing personal data is AQNIET LLP (“AQNIET”, “we”). AQNIET’s details and '
+        'The owner and operator of the database containing personal data is AQNIET trans group LLP (“AQNIET”, “we”). AQNIET’s details and '
         + 'contacts are shown in the “Personal data operator” block on this page.',
         'The Policy applies to personal data AQNIET receives through the Zircon platform (website, client account, notifications) '
         + 'and when concluding and performing a customs representative services agreement.',

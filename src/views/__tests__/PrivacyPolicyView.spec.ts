@@ -37,7 +37,7 @@ describe('PrivacyPolicyView', () => {
     w = mountWithI18n(PrivacyPolicyView)
     await flushPromises()
     const op = w.get('[data-privacy-operator]')
-    expect(op.text()).toContain('ТОО «AQNIET»')
+    expect(op.text()).toContain('ТОО «AQNIET trans group»')
     expect(op.text()).toContain('240640021012')
     expect(op.findAll('dt').map((d) => d.text())).toEqual(['БИН'])
   })

@@ -83,7 +83,7 @@ describe('RegisterView', () => {
     await open(RegisterView, '/register')
     await fill({ consent: false })
     expect(submitButton().attributes('disabled')).toBeDefined()
-    expect(w.text()).toContain('Я даю согласие ТОО «AQNIET» на сбор и обработку персональных данных, в том числе их трансграничную передачу')
+    expect(w.text()).toContain('Я даю согласие ТОО «AQNIET trans group» на сбор и обработку персональных данных, в том числе их трансграничную передачу')
     const link = w.get('[data-privacy-consent]').element.closest('label')!.querySelector('a')!
     expect(link.getAttribute('href')).toBe('/privacy')
     expect(link.getAttribute('target')).toBe('_blank')
