@@ -222,6 +222,17 @@ describe('CaseReworkPanel', () => {
     expect(rework.remove).toHaveBeenCalledWith('c1', 'r2')
   })
 
+  // E-6 (30.10.2026, живой прогон): у выполненной и отменённой заявки пункты — только просмотр.
+  it.each([8, 9])('заявка в статусе %i (выполнена / отменена) — пункты без «Закрыть» и «Удалить»', async (status) => {
+    const closed = caseDto({ status })
+    rework.list.mockResolvedValue({ comment: null, items: [item(), item({ id: 'r2', resolvedAtUtc: '2026-10-17T07:00:00Z' })] })
+    w = mountWithI18n(CaseReworkPanel, { props: { kase: closed, perms: casePerms(USERS.admin, closed), actions: fakeActions() } })
+    await flushPromises()
+    expect(w.findAll('[data-rework-item]')).toHaveLength(2)
+    expect(w.find('[data-rework-resolve]').exists()).toBe(false)
+    expect(w.find('[data-rework-remove-item]').exists()).toBe(false)
+  })
+
   it('бухгалтер видит пункты, но не управляет ими', async () => {
     await mountPanel([item()], USERS.accountant)
     expect(w.find('[data-rework-item]').exists()).toBe(true)

@@ -32,3 +32,10 @@ export const stepForStatus = (s: number): number =>
   : TOTAL_STEPS + 1 // выполнена: вне диапазона, поэтому все шаги рисуются как done
 
 export const isCompleted = (s: number): boolean => s >= 8
+
+/**
+ * E-4 (30.10.2026, живой прогон): заявку вернули на доработку с декларирования (ReturnedFromStatus = 2) — граница уже
+ * пройдена, после отправки заявка идёт сразу на шаг 3 (сервер, S-11). Шаг 2 в этом черновике — пройден, а не «впереди».
+ */
+export const borderPassedBeforeReturn = (status: number, returnedFromStatus: number | null | undefined): boolean =>
+  status === 0 && returnedFromStatus === 2

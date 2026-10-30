@@ -3,7 +3,7 @@ import type { CustomsRequestDto } from '@/api/customsRequests'
 import { oldestWaiting, waitingForClient, waitingLabel, waitingOfStage } from '@/utils/customsRequests'
 import type { CaseStages, CaseStageStep, StageEvent, StageEventKind, StageState } from '@/api/stages'
 import { formatMoney } from '@/ui/number'
-import { TOTAL_STEPS, stepForStatus } from '@/utils/import40Steps'
+import { TOTAL_STEPS, borderPassedBeforeReturn, stepForStatus } from '@/utils/import40Steps'
 import { pluralForm } from '@/views/broker/list'
 import { kedenCaseSummary, type KedenCaseSummary } from '@/utils/kedenLink'
 
@@ -165,10 +165,14 @@ export function buildStageCards(input: StageInput, t: T, te: Te): StageCard[] {
           // Возврат по чек-листу (ReworkRequested) — тоже доработка, даже без общей причины.
           const rework = s?.inRework || !!kase.reworkRequested || !!kase.returnReason
           result = rework ? k('s1Rework', 's1ReworkClient') : k('s1Draft', 's1DraftClient')
+          // Вернули с декларирования (E-4, 30.10.2026): после отправки — сразу к декларанту, граница не повторяется.
+          if (borderPassedBeforeReturn(status, kase.returnedFromStatus)) detail = k('s1NextDeclarant', 's1NextDeclarantClient')
         }
         break
       }
       case 2: {
+        // Возврат на доработку с декларирования: граница уже пройдена — шаг пройден, а не «впереди» (E-4, 30.10.2026).
+        if (state === 'future' && borderPassedBeforeReturn(status, kase.returnedFromStatus)) state = 'done'
         // «Машина прибыла» (КПП, 18.10): «Прибыла 18.10 в 14:20 · пост …» — видят все, и клиент.
         const arrivedAt = kase.borderArrivedAtUtc
         const arrival = arrivedAt

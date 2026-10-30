@@ -3,7 +3,7 @@ import type { Import40CaseDto, Import40FileDto } from '@/api/import40'
 import type { CustomsRequestDto } from '@/api/customsRequests'
 import { oldestWaiting, waitingForClient } from '@/utils/customsRequests'
 import type { ZTone } from '@/components/z/ZTag.vue'
-import { stepForStatus } from '@/utils/import40Steps'
+import { borderPassedBeforeReturn, stepForStatus } from '@/utils/import40Steps'
 import type { ConditionalReleaseBrief } from '@/api/conditionalRelease'
 import { briefOf } from '@/utils/conditionalRelease'
 
@@ -79,6 +79,8 @@ export function segments(s: ClientShipment, ctx: ShipmentCtx = {}): SegState[] {
   const step = s.status === 8 ? TOTAL_STEPS + 1 : s.step || 1
   return Array.from({ length: TOTAL_STEPS }, (_, i) => {
     if (i + 1 < step) return 'done'
+    // Возврат с декларирования: граница уже пройдена (E-4, 30.10.2026).
+    if (i + 1 === 2 && borderPassedBeforeReturn(s.status, s.returnedFromStatus)) return 'done'
     if (i + 1 > step) return 'todo'
     return s.isProblem ? 'currentProblem' : askFor(s, ctx) ? 'currentAsk' : 'current'
   })
@@ -144,6 +146,7 @@ export function toShipmentSummary(
     customsRequestSinceUtc: oldestWaiting(waitingForClient(customs, c.status))?.createdAtUtc ?? null,
     preBorderMissing,
     borderArrived: !!c.borderArrivedAtUtc,
+    returnedFromStatus: c.returnedFromStatus ?? null,
     serviceInvoiceIssued,
   }
 }

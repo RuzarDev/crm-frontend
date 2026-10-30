@@ -678,6 +678,8 @@ export interface Import40CaseDto {
   borderArrivedAtUtc?: string | null
   borderArrivalPost?: string | null
   borderArrivalNote?: string | null
+  /** Статус, с которого заявку вернули на доработку (S-11); null — не возвращали. 2 — с декларирования: граница пройдена (E-4, 30.10.2026). */
+  returnedFromStatus?: number | null
   /** Отметки контроля на границе (по времени). */
   borderControls?: Import40BorderControlDto[]
   /** Факт СВХ против ДТ и простой (21.10.2026); null — не вносили. */

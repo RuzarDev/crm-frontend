@@ -148,7 +148,8 @@ void referencesApi.listCountries({ silent: true }).then((r) => { countries.value
 
 // ---- Шапка ----
 // Поставка до границы (очередь 4): подшаги перед «Границей», «Нужно от вас» по недостающему до прибытия и свой блок.
-const preBorder = usePreBorder(() => id.value)
+// Статус и отметка прибытия (КПП) — перечитываем блок, когда заявку перечитали с новым шагом (E-2, 30.10.2026).
+const preBorder = usePreBorder(() => id.value, () => (kase.value ? `${kase.value.status}|${kase.value.borderArrivedAtUtc ?? ''}` : ''))
 const preBorderVisible = computed(() =>
   showPreBorder(preBorder.data.value) || (preBorder.state.value === 'error' && (kase.value?.status ?? 9) <= 1))
 const onPreBorderChanged = (dto: PreBorder) => {
