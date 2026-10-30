@@ -17,6 +17,9 @@ import { message } from '@/ui/message'
 import { declarantChanged, emptyDeclarant, iinError } from './profileForms'
 import ProfileCard from './ProfileCard.vue'
 
+// 30.10.2026: КПП без права декларанта видит карточку ради доверенности — заголовок без «графы 54».
+const props = defineProps<{ poaOnly?: boolean }>()
+
 // «Профиль декларанта · графа 54» (гр.54 ДТ и КЕДЕН-XML берут его отсюда). Грузится сама; не загрузился —
 // состояние ошибки с «Повторить», а не пустая форма: сохранение пустой формы стёрло бы настоящие данные.
 // Все поля профиля редактируются здесь (гр.54 и КЕДЕН-XML берут должность, «кем выдан», страну и телефон отсюда).
@@ -87,7 +90,7 @@ const save = async () => {
 
 <template>
   <ProfileCard
-    :title="t('personal.profile.declarant.title')"
+    :title="t(props.poaOnly ? 'personal.profile.declarant.titlePoa' : 'personal.profile.declarant.title')"
     :save-text="state === 'ready' ? t('personal.profile.declarant.save') : undefined"
     :can-save="dirty"
     :saving="saving"

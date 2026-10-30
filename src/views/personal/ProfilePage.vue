@@ -113,7 +113,7 @@ const cardTitle = (c: CardKey) => t(`personal.profile.${c}.title`)
         </div>
       </ProfileCard>
       <TelegramCard v-else-if="c === 'telegram'" />
-      <DeclarantCard v-else-if="c === 'declarant'" />
+      <DeclarantCard v-else-if="c === 'declarant'" :poa-only="!auth.hasPermission('import40.declarant')" />
       <ProfileCard v-else-if="c === 'language'" :title="cardTitle('language')" data-profile-card="language">
         <!-- Подпись слева, переключатель справа (на телефоне — под подписью): сегмент не растягивается на всю карточку. -->
         <ZField :label="t('personal.profile.language.label')" class="items-start sm:flex-row sm:items-center sm:gap-4 sm:[&>label]:shrink-0" data-language-field>

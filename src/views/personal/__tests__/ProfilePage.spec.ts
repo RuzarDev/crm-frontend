@@ -104,6 +104,14 @@ describe('ProfilePage: шапка и карточки', () => {
     expect(api.declGet).toHaveBeenCalledTimes(1)
   })
 
+  it('КПП без права декларанта: карточка «Данные для доверенности» (30.10.2026)', async () => {
+    as('importer', ['import40.kpp'], { businessRoles: ['kpp'] })
+    await open()
+    expect(cards()).toEqual(['personal', 'declarant', 'language', 'password'])
+    expect(card('declarant').text()).toContain('Данные для доверенности')
+    expect(card('declarant').text()).not.toContain('графа 54')
+  })
+
   it('клиент Импорта 40: «Компания» со ссылкой в /import-40/company, формы имени нет', async () => {
     as('client', [], { modules: ['import40'] })
     await open()
