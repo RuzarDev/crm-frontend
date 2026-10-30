@@ -32,6 +32,7 @@ const auditActionMap: Record<string, string> = {
   'client.invite': 'Пригласил клиента',
   'client.block': 'Заблокировал клиента',
   'client.unblock': 'Разблокировал клиента',
+  'client.privacy_consent': 'Дал согласие на обработку персональных данных',
   'document.revoke': 'Отозвал документ',
   'document.sign.upload': 'Загрузил подписанный документ',
   'invoice.remind': 'Напомнил об оплате счёта',

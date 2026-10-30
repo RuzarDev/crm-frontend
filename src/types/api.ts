@@ -12,6 +12,8 @@ export interface RegisterClientRequest {
   companyName?: string | null
   legalAddress?: string | null
   directorName?: string | null
+  /** Галочка согласия на обработку персональных данных (30.10.2026): без неё сервер отвечает 400. */
+  privacyConsent: boolean
 }
 
 export interface LoginResponse {

@@ -38,6 +38,11 @@ describe('AuthLayout', () => {
     expect(w.text()).toContain('Заявки и документы в одном окне')
     expect(w.findAll('li').map((li) => li.text())).toEqual(props.points)
     expect(w.text()).toContain(`© ${new Date().getFullYear()} Zircon · Астана`)
+    // 30.10.2026: политика конфиденциальности в подвале всех страниц входа — в новой вкладке.
+    const privacy = w.get('[data-privacy-link]')
+    expect(privacy.text()).toBe('Политика конфиденциальности')
+    expect(privacy.attributes('href')).toBe('/privacy')
+    expect(privacy.attributes('target')).toBe('_blank')
     expect(w.find('[data-t="form"]').exists()).toBe(true)
     expect(w.find('[data-t="footer"]').exists()).toBe(true)
   })

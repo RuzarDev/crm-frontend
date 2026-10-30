@@ -58,6 +58,7 @@ export const clientsOnboardingApi = {
   inviteInfo: async (token: string): Promise<InviteInfo> =>
     (await apiClient.get<InviteInfo>(`/auth/invite/${encodeURIComponent(token)}`, { silent: true })).data,
   // Аудит 5.22: бэк отдаёт тот же AuthResponse, что и логин — сразу авто-вход после установки пароля.
-  acceptInvite: async (token: string, password: string): Promise<LoginResponse> =>
-    (await apiClient.post<LoginResponse>('/auth/invite/accept', { token, password })).data,
+  // privacyConsent — галочка согласия на обработку персональных данных (30.10.2026): без неё сервер отвечает 400.
+  acceptInvite: async (token: string, password: string, privacyConsent: boolean): Promise<LoginResponse> =>
+    (await apiClient.post<LoginResponse>('/auth/invite/accept', { token, password, privacyConsent })).data,
 }

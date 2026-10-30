@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n'
 import ZirconLogo from '@/components/shell/ZirconLogo.vue'
 import LangSegment from '@/components/auth/LangSegment.vue'
+import { authLinkClass } from '@/components/auth/classes'
 
 // Каркас страниц входа/регистрации (макет Login.dc.html, спека §4 — здесь допустим «вкус лендинга»):
 // слева navy-панель героя (от lg), справа язык и колонка формы. Ниже lg от героя остаётся полоса с логотипом.
@@ -51,6 +52,11 @@ const year = new Date().getFullYear()
         <slot />
         <slot name="footer" />
       </div>
+      <!-- Политика конфиденциальности (30.10.2026) — в подвале всех страниц входа; в новой вкладке, чтобы не терять
+           заполненную форму. Обычная ссылка, не RouterLink: макет монтируется и без роутера. -->
+      <p class="m-0 text-center text-[13px] text-ink-3">
+        <a href="/privacy" target="_blank" rel="noopener" :class="[authLinkClass, 'underline underline-offset-2']" data-privacy-link>{{ t('privacy.link') }}</a>
+      </p>
     </main>
   </div>
 </template>

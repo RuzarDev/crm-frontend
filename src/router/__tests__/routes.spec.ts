@@ -79,3 +79,12 @@ describe('раздел «Настройки»: адреса и перенапр�
     expect(router.resolve('/settings/organization').meta.requiresAnyPermission).toEqual(['finance.read', 'finance.write', 'users.write'])
   })
 })
+
+// 30.10.2026: политика конфиденциальности — публичная страница (ссылка с регистрации и приглашения).
+describe('страница /privacy', () => {
+  it('открывается без входа', () => {
+    const r = router.resolve('/privacy')
+    expect(r.name).toBe('privacy')
+    expect(r.meta.requiresAuth).toBe(false)
+  })
+})

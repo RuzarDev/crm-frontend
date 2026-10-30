@@ -30,6 +30,8 @@ declare module 'vue' {
     NoticeBanner: typeof import('./src/components/broker/NoticeBanner.vue')['default']
     NotificationsBell: typeof import('./src/components/shell/NotificationsBell.vue')['default']
     PeriodChip: typeof import('./src/components/broker/PeriodChip.vue')['default']
+    PrivacyConsentField: typeof import('./src/components/auth/PrivacyConsentField.vue')['default']
+    PrivacyConsentPrompt: typeof import('./src/components/privacy/PrivacyConsentPrompt.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     RowActions: typeof import('./src/components/broker/RowActions.vue')['default']

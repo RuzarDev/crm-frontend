@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import ShellFrame from '@/components/shell/ShellFrame.vue'
 import ZAskBanner from '@/components/z/ZAskBanner.vue'
 import ZAlert from '@/components/z/ZAlert.vue'
+import PrivacyConsentPrompt from '@/components/privacy/PrivacyConsentPrompt.vue'
 import { buildClientNav, navAccessFromStore } from '@/shell/navModel'
 import { registrationBannerState, shouldRedirectToRegistration, type RegistrationSnapshot } from '@/shell/registrationBanner'
 import { useClientRegistration } from '@/composables/useClientRegistration'
@@ -74,4 +75,6 @@ watch(() => route.path, (path, prev) => {
       />
     </template>
   </ShellFrame>
+  <!-- Согласие на обработку ПДн для клиентов, зарегистрированных до 30.10.2026: окно после входа, пока не согласятся. -->
+  <PrivacyConsentPrompt />
 </template>

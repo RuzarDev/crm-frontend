@@ -59,15 +59,40 @@ const submit = async () => {
   await w.get('form').trigger('submit')
   await flushPromises()
 }
+/** Галочка согласия на обработку персональных данных (30.10.2026). */
+const consentBox = () => w.get('[data-privacy-consent][role="checkbox"]')
+const tickConsent = async () => {
+  await consentBox().trigger('click')
+  await flushPromises()
+}
+const submitButton = () => w.findAll('button').find((b) => b.attributes('type') === 'submit')!
 
 describe('RegisterView', () => {
-  const fill = async (o: { confirm?: string } = {}) => {
+  const fill = async (o: { confirm?: string; consent?: boolean } = {}) => {
     await field('Email').setValue('Office@Argyn.KZ ')
     await field('БИН / ИИН (для ИП)').setValue('123456789012')
     await field('Наименование компании').setValue('ТОО «Аргын»')
     await field('Пароль').setValue('secret123')
     await field('Повторите пароль').setValue(o.confirm ?? 'secret123')
+    if (o.consent !== false) await tickConsent()
   }
+
+  // 30.10.2026: без согласия на обработку ПДн кнопка неактивна, а отправка Enter'ом — ошибка под галочкой.
+  it('без галочки согласия кнопка неактивна, регистрация не вызывается', async () => {
+    const reg = vi.spyOn(useAuthStore(), 'registerClient').mockResolvedValue(true)
+    await open(RegisterView, '/register')
+    await fill({ consent: false })
+    expect(submitButton().attributes('disabled')).toBeDefined()
+    expect(w.text()).toContain('Я даю согласие ТОО «AQNIET» на сбор и обработку персональных данных, в том числе их трансграничную передачу')
+    const link = w.get('[data-privacy-consent]').element.closest('label')!.querySelector('a')!
+    expect(link.getAttribute('href')).toBe('/privacy')
+    expect(link.getAttribute('target')).toBe('_blank')
+    await submit()
+    expect(reg).not.toHaveBeenCalled()
+    expect(described(consentBox())).toContain('Без согласия на обработку персональных данных продолжить нельзя')
+    await tickConsent()
+    expect(submitButton().attributes('disabled')).toBeUndefined()
+  })
 
   it('пароли не совпадают — ошибка под полем повтора, регистрация не вызывается', async () => {
     const reg = vi.spyOn(useAuthStore(), 'registerClient').mockResolvedValue(true)
@@ -108,7 +133,7 @@ describe('RegisterView', () => {
     await submit()
     expect(reg).toHaveBeenCalledWith({
       email: 'office@argyn.kz', password: 'secret123', bin: '123456789012', phone: '+7 701 482 19 37',
-      companyName: 'ТОО «Аргын»', legalAddress: null, directorName: null,
+      companyName: 'ТОО «Аргын»', legalAddress: null, directorName: null, privacyConsent: true,
     })
     expect(msg.success).toHaveBeenCalledWith('Компания зарегистрирована. Осталось заполнить реквизиты, договор и доверенность')
     expect(push).toHaveBeenCalledWith('/import-40/company')
@@ -144,6 +169,7 @@ describe('RegisterView', () => {
     await field('Email').setValue('office@argyn.kz')
     await field('Пароль').setValue('secret123')
     await field('Повторите пароль').setValue('secret123')
+    await tickConsent()
     await submit()
     expect(reg).toHaveBeenCalledWith(expect.objectContaining({
       companyName: 'ТОО «Аргын Логистик»', legalAddress: 'Астана, Мәңгілік Ел 55', directorName: 'Сейтов А.', phone: null,
@@ -268,10 +294,28 @@ describe('InviteAcceptView', () => {
     expect(w.text()).toContain('Логин — office@argyn.kz.')
     await field('Пароль').setValue('secret123')
     await field('Повторите пароль').setValue('secret123')
+    await tickConsent()
     await submit()
-    expect(accept).toHaveBeenCalledWith('tok', 'secret123')
+    expect(accept).toHaveBeenCalledWith('tok', 'secret123', true)
     expect(loginFrom).toHaveBeenCalledWith(response, 'office@argyn.kz')
     expect(push).toHaveBeenCalledWith('/import-40/company')
+  })
+
+  // 30.10.2026: согласие на обработку ПДн обязательно и при принятии приглашения.
+  it('без галочки согласия кнопка неактивна, приглашение не принимается', async () => {
+    vi.spyOn(clientsOnboardingApi, 'inviteInfo').mockResolvedValue(info)
+    const accept = vi.spyOn(clientsOnboardingApi, 'acceptInvite').mockResolvedValue(response)
+    vi.spyOn(useAuthStore(), 'loginFromResponse').mockReturnValue(true)
+    await open(InviteAcceptView, '/invite/tok')
+    await field('Пароль').setValue('secret123')
+    await field('Повторите пароль').setValue('secret123')
+    expect(submitButton().attributes('disabled')).toBeDefined()
+    await submit()
+    expect(accept).not.toHaveBeenCalled()
+    await tickConsent()
+    expect(submitButton().attributes('disabled')).toBeUndefined()
+    await submit()
+    expect(accept).toHaveBeenCalledWith('tok', 'secret123', true)
   })
 
   it('несовпадение паролей — ошибка под повтором, приглашение не принимается', async () => {
@@ -292,6 +336,7 @@ describe('InviteAcceptView', () => {
     await open(InviteAcceptView, '/invite/tok')
     await field('Пароль').setValue('secret123')
     await field('Повторите пароль').setValue('secret123')
+    await tickConsent()
     await submit()
     expect(w.find('h2').text()).toBe('Пароль задан')
     expect(w.text()).toContain('Теперь войдите с логином office@argyn.kz.')

@@ -9,6 +9,7 @@ import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZPhone from '@/components/z/ZPhone.vue'
 import ZButton from '@/components/z/ZButton.vue'
+import PrivacyConsentField from '@/components/auth/PrivacyConsentField.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBinLookup } from '@/composables/useBinLookup'
 import { isBinLike, type CompanyLookupDto } from '@/api/companyLookup'
@@ -39,6 +40,8 @@ const form = reactive({
   confirmPassword: '',
   legalAddress: '' as string | null,
   directorName: '' as string | null,
+  // 30.10.2026: согласие на обработку персональных данных — без галочки кнопка неактивна, сервер тоже ответит 400.
+  consent: false,
 })
 
 const rules: Record<string, ZRule[]> = {
@@ -59,6 +62,7 @@ const rules: Record<string, ZRule[]> = {
     { required: true, message: () => t('register.vConfirm') },
     { validator: (_r, v) => (v && v !== form.password ? t('register.mismatch') : undefined) },
   ],
+  consent: [{ validator: (_r, v) => (v === true ? undefined : t('privacy.vConsent')) }],
 }
 
 const formRef = ref<InstanceType<typeof ZForm>>()
@@ -84,6 +88,7 @@ const onFind = async () => {
 
 const loading = ref(false)
 const onFinish = async () => {
+  if (!form.consent) return
   loading.value = true
   try {
     const success = await authStore.registerClient({
@@ -94,6 +99,7 @@ const onFinish = async () => {
       companyName: form.companyName.trim() || null,
       legalAddress: form.legalAddress || null,
       directorName: form.directorName || null,
+      privacyConsent: true,
     })
     // Аудит 5.22: бэк сразу отдаёт токен — не заставляем вводить только что придуманный пароль
     // ещё раз на странице входа, ведём сразу на старт нового клиента («Моя компания»).
@@ -196,7 +202,9 @@ onMounted(() => {
         />
       </ZField>
 
-      <ZButton variant="primary" html-type="submit" size="lg" block :loading="loading">{{ t('register.submit') }}</ZButton>
+      <PrivacyConsentField v-model:checked="form.consent" />
+
+      <ZButton variant="primary" html-type="submit" size="lg" block :loading="loading" :disabled="!form.consent">{{ t('register.submit') }}</ZButton>
     </ZForm>
 
     <template #footer>
