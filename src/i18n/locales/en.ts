@@ -5947,7 +5947,7 @@ export default {
   // Personal data processing consent and the /privacy page (30.10.2026).
   privacy: {
     link: 'Privacy Policy',
-    consent: 'I consent to AQNIET LLP collecting and processing personal data, including cross-border transfer, under the terms of the {link}',
+    consent: 'I consent to AQNIET trans group LLP collecting and processing personal data, including cross-border transfer, under the terms of the {link}',
     consentLink: 'Privacy Policy',
     vConsent: 'You cannot continue without consenting to personal data processing',
     operator: 'Personal data operator',
