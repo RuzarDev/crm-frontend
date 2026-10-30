@@ -25,6 +25,8 @@ export interface ClientCompanyProfileDto {
   contactEmail: string | null
   isComplete: boolean
   updatedAtUtc: string | null
+  /** 30.10.2026 (аудит C-2): коды обязательных реквизитов, которых не хватает (companyName, bin, directorName, legalAddress, bank, iik, bik, kbe). */
+  missingFields?: string[] | null
 }
 
 export type ClientCompanyProfileUpsert = Partial<
@@ -90,6 +92,20 @@ export const isDocumentActive = (doc: Import40DocumentDto | null | undefined): b
   if (doc.status !== 2) return false
   if (doc.validUntilUtc && new Date(doc.validUntilUtc).getTime() <= Date.now()) return false
   return true
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000
+/** «Продлить» многоразовый договор (30.10.2026): за 60 дней до конца срока и 30 дней после — как на сервере (Import40DocumentTerms.CanRenew). */
+export const RENEW_BEFORE_DAYS = 60
+export const RENEW_AFTER_DAYS = 30
+export const canRenewContract = (
+  d: Pick<Import40DocumentDto, 'kind' | 'isSingleUse' | 'status' | 'validUntilUtc'>,
+  now = Date.now(),
+): boolean => {
+  if (d.kind !== 'contract' || d.isSingleUse || d.status !== 2 || !d.validUntilUtc) return false
+  const until = new Date(d.validUntilUtc).getTime()
+  if (Number.isNaN(until)) return false
+  return now >= until - RENEW_BEFORE_DAYS * DAY_MS && now <= until + RENEW_AFTER_DAYS * DAY_MS
 }
 
 export const isDocumentEffective = (doc: Import40DocumentDto | null | undefined): boolean => {
@@ -170,6 +186,13 @@ export const import40ContractApi = {
   revokeDocument: async (clientId: string, docId: string, opts?: { silent?: boolean }): Promise<Import40DocumentDto> =>
     (await apiClient.post<Import40DocumentDto>(
       `${base(clientId)}/documents/${encodeURIComponent(docId)}/revoke`,
+      {},
+      opts?.silent ? { silent: true } : undefined,
+    )).data,
+  // «Продлить» многоразовый договор до 31.12 следующего года (администратор или руководитель, 30.10.2026).
+  renewDocument: async (clientId: string, docId: string, opts?: { silent?: boolean }): Promise<Import40DocumentDto> =>
+    (await apiClient.post<Import40DocumentDto>(
+      `${base(clientId)}/documents/${encodeURIComponent(docId)}/renew`,
       {},
       opts?.silent ? { silent: true } : undefined,
     )).data,

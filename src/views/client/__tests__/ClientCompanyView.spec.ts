@@ -148,6 +148,21 @@ describe('ClientCompanyView', () => {
     expect(refs.listCountries).toHaveBeenCalledWith({ silent: true })
   })
 
+  // 30.10.2026 (аудит C-2): сохранённые, но неполные реквизиты — названо, чего не хватает; новые — общая подсказка.
+  it('неполные сохранённые реквизиты: «Не хватает: …» по списку сервера; без профиля — подсказка со всеми обязательными', async () => {
+    imp.canCreate.mockResolvedValue(can({ profileComplete: false, needNew: null }))
+    api.getProfile.mockResolvedValue({ ...PROFILE, bank: '', kbe: '', isComplete: false, updatedAtUtc: '2026-10-30T08:00:00Z', missingFields: ['bank', 'kbe'] })
+    setDocs([], [])
+    await mountAt()
+    expect(w.get('[data-req-tag]').text()).toBe('Не заполнены')
+    expect(w.get('[data-req-missing]').text()).toBe('Не хватает для договора и доверенности: Банк и КБе.')
+    w.unmount()
+    api.getProfile.mockResolvedValue({ ...PROFILE, companyName: '', isComplete: false, updatedAtUtc: null })
+    await mountAt()
+    expect(w.find('[data-req-missing]').exists()).toBe(false)
+    expect(w.get('[data-company-requisites]').text()).toContain('Обязательны наименование, БИН, руководитель, юридический адрес, банк, ИИК, БИК и КБе.')
+  })
+
   it('договор ждёт только AQNIET → по умолчанию доверенность, и её карточка предлагает «Сформировать»', async () => {
     setDocs([doc({ clientSigned: true, clientSignedAtUtc: at(2026, 10, 8), clientSignMethod: 'egov' })], [])
     imp.canCreate.mockResolvedValue(can({ needNew: 'contract' }))

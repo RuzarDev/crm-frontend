@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhDownloadSimple, PhFilePlus, PhKey, PhQrCode, PhSealCheck, PhUploadSimple } from '@phosphor-icons/vue'
+import { PhArrowClockwise, PhDownloadSimple, PhFilePlus, PhKey, PhQrCode, PhSealCheck, PhUploadSimple } from '@phosphor-icons/vue'
 import ZAlert from '@/components/z/ZAlert.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZCheckbox from '@/components/z/ZCheckbox.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ClientSigexModal from '@/components/client/ClientSigexModal.vue'
-import { import40ContractApi, isDocumentEffective, type Import40DocumentDto } from '@/api/import40Contract'
+import { canRenewContract, import40ContractApi, isDocumentEffective, type Import40DocumentDto } from '@/api/import40Contract'
 import { extractServerText } from '@/api/client'
 import { message } from '@/ui/message'
 import { useConfirm } from '@/ui/confirm'
@@ -125,6 +125,31 @@ const revoke = async (d: Import40DocumentDto) => {
     setDocError(d.id, errText(e, t('broker.company.revokeError')))
   } finally {
     revokingId.value = null
+  }
+}
+
+// ---- Продлить многоразовый договор (30.10.2026): до 31.12 следующего года; администратор или руководитель ----
+// Кнопка — за 60 дней до конца срока и 30 дней после (как на сервере), иначе скрыта.
+const canRenew = (d: Import40DocumentDto) => props.canSignProvider && canRenewContract(d)
+const renewedUntil = (d: Import40DocumentDto) => `31.12.${new Date(d.validUntilUtc!).getUTCFullYear() + 1}`
+const renewingId = ref<string | null>(null)
+const renew = async (d: Import40DocumentDto) => {
+  if (renewingId.value || refreshing.value) return
+  const ok = await confirm({
+    title: t('broker.company.renewTitle', { no: no(d) }),
+    content: t('broker.company.renewConfirm', { date: renewedUntil(d) }),
+    okText: t('broker.company.renew'),
+  })
+  if (!ok) return
+  renewingId.value = d.id
+  try {
+    const renewed = await import40ContractApi.renewDocument(props.clientId, d.id, { silent: true })
+    message.success(t('broker.company.renewed', { date: validDate(renewed.validUntilUtc) }))
+    await refreshAfter()
+  } catch (e) {
+    setDocError(d.id, errText(e, t('broker.company.renewError')))
+  } finally {
+    renewingId.value = null
   }
 }
 
@@ -290,6 +315,16 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
             data-doc-verify
           ><PhQrCode :size="16" aria-hidden="true" />{{ t('broker.company.verifyLink') }}</a>
           <ZButton
+            v-if="canRenew(d)"
+            variant="primary"
+            :loading="renewingId === d.id"
+            :class="actionBtn"
+            data-doc-renew
+            @click="renew(d)"
+          >
+            <PhArrowClockwise :size="16" aria-hidden="true" />{{ t('broker.company.renew') }}
+          </ZButton>
+          <ZButton
             v-if="isAdmin && d.status !== REVOKED"
             variant="danger-ghost"
             :loading="revokingId === d.id"
@@ -300,6 +335,10 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
             {{ t('broker.company.revoke') }}
           </ZButton>
         </div>
+
+        <p v-if="canRenew(d)" class="m-0 text-[13px] text-gold-ink" data-renew-hint>
+          {{ t('broker.company.renewHint', { date: validDate(d.validUntilUtc) }) }}
+        </p>
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div

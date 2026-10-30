@@ -104,6 +104,59 @@ describe('CompanyRequisitesForm', () => {
     expect(msg.success).toHaveBeenCalledWith('Реквизиты сохранены')
   })
 
+  // 30.10.2026 (аудит C-2): обязательные поля формы = правило сервера; неполные сохраняются, но с предупреждением.
+  it('юр. адрес, банк, ИИК, БИК, КБе — со звёздочкой; подсказка называет недостающие; неполные сохраняются с предупреждением', async () => {
+    const star = (f: string) => w.get(`[data-f="${f}"] input, input[data-f="${f}"]`).element.closest('[data-z-field]')!.textContent!.includes('*')
+    await mountForm()
+    for (const f of ['companyName', 'bin', 'directorName', 'legalAddress', 'bank', 'iik', 'bik', 'kbe']) expect(star(f), f).toBe(true)
+    for (const f of ['okpo', 'phone', 'email', 'legalCity']) expect(star(f), f).toBe(false)
+    expect(w.get('[data-requisites-missing]').text()).toContain(
+      'Не заполнено: Наименование компании, БИН, ФИО руководителя, Юридический адрес, Банк, ИИК, БИК и КБе.')
+
+    api.saveProfile.mockResolvedValue({ ...EMPTY, companyName: 'ТОО «А»', bin: '123456789012', directorName: 'Иванов', bank: 'Халык', isComplete: false })
+    await setVal('companyName', 'ТОО «А»')
+    await setVal('bin', '123456789012')
+    await setVal('directorName', 'Иванов')
+    await setVal('bank', 'Халык')
+    expect(w.get('[data-requisites-missing]').text()).toContain('Не заполнено: Юридический адрес, ИИК, БИК и КБе.')
+    await submit()
+    expect(api.saveProfile).toHaveBeenCalledTimes(1)
+    expect(msg.success).not.toHaveBeenCalled()
+    expect(msg.warning).toHaveBeenCalledWith('Реквизиты сохранены, но для договора и доверенности не хватает: Юридический адрес, ИИК, БИК и КБе')
+
+    for (const [f, v] of [['legalAddress', 'г. Алматы'], ['iik', 'KZ1'], ['bik', 'HSBK'], ['kbe', '17']]) await setVal(f, v)
+    expect(w.find('[data-requisites-missing]').exists()).toBe(false)
+  })
+
+  it('ИП: основание по умолчанию — талон (название «ИП …» или поиск по ИИН); введённое вручную не меняется', async () => {
+    await mountForm()
+    const basis = () => (input('directorBasis').element as HTMLInputElement).value
+    expect(basis()).toBe('устава')
+    await setVal('companyName', 'ИП Тестов')
+    expect(basis()).toBe('уведомления о начале деятельности (талон)')
+    await setVal('companyName', 'ТОО ТЕСТ')
+    expect(basis()).toBe('устава')
+    await setVal('directorBasis', 'доверенности № 1')
+    await setVal('companyName', 'ИП Тестов')
+    expect(basis()).toBe('доверенности № 1')
+    w.unmount()
+
+    lookup.byBin.mockResolvedValue({
+      bin: '000000000000', nameRu: 'ТЕСТОВ ТЕСТ', nameKz: null, addressRu: null, addressKz: null, director: 'ТЕСТОВ ТЕСТ',
+      okedRu: null, statusRu: null, dateReg: null, source: 'kgd', fetchedAtUtc: '', kind: 'ip', isActive: true,
+    })
+    await mountForm()
+    await setVal('bin', '000000000000')
+    await w.get('[data-bin-find]').trigger('click')
+    await flushPromises()
+    expect((input('ownershipType').element as HTMLInputElement).value).toBe('ИП')
+    expect(basis()).toBe('уведомления о начале деятельности (талон)')
+    // Сохранённый профиль ИП без основания — талон сразу.
+    w.unmount()
+    await mountForm({ ...EMPTY, companyName: 'ИП ТЕСТОВ', ownershipType: 'ИП' })
+    expect(basis()).toBe('уведомления о начале деятельности (талон)')
+  })
+
   it('БИН уходит без пробелов по краям (вставка из буфера)', async () => {
     api.saveProfile.mockResolvedValue({ ...EMPTY, isComplete: true })
     await mountForm({ ...EMPTY, companyName: 'А', directorName: 'Б' })

@@ -9,7 +9,7 @@ import ZTag from '@/components/z/ZTag.vue'
 import CompanyDocumentCard from '@/views/client/company/CompanyDocumentCard.vue'
 import CompanyRequisitesForm from '@/views/client/company/CompanyRequisitesForm.vue'
 import {
-  COMPANY_STEPS, companySteps, isCompanyStep, joinList,
+  COMPANY_STEPS, REQUISITE_LABEL_KEY, companySteps, isCompanyStep, joinList, profileMissing,
   type CompanyStep, type RegistrationSnapshot, type StepState, type StepTone,
 } from '@/views/client/company/company'
 import { import40ContractApi, type ClientCompanyProfileDto, type Import40DocumentDto } from '@/api/import40Contract'
@@ -176,6 +176,10 @@ const onSaved = (p: ClientCompanyProfileDto) => {
   if (firstTime && step.value === 'profile') select('contract')
   return reload()
 }
+const missingReq = computed(() =>
+  profile.value?.updatedAtUtc && !profile.value.isComplete
+    ? joinList(profileMissing(profile.value).map((k) => t(REQUISITE_LABEL_KEY[k])), locale.value)
+    : '')
 const reqRows = computed(() => {
   const p = profile.value
   return [
@@ -317,7 +321,9 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
               {{ t('client.company.req.edit') }}
             </button>
           </div>
-          <p v-if="!profile?.isComplete" class="m-0 text-sm text-ink-3">{{ t('client.company.req.fillHint') }}</p>
+          <!-- 30.10.2026 (аудит C-2): у сохранённых, но неполных реквизитов — чего именно не хватает. -->
+          <p v-if="!profile?.isComplete && missingReq" class="m-0 text-sm text-gold-ink" data-req-missing>{{ t('client.company.req.missing', { list: missingReq }) }}</p>
+          <p v-else-if="!profile?.isComplete" class="m-0 text-sm text-ink-3">{{ t('client.company.req.fillHint') }}</p>
 
           <CompanyRequisitesForm
             v-if="showForm"

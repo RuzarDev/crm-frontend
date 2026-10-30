@@ -19,7 +19,7 @@ import StatusDot from '@/components/broker/StatusDot.vue'
 import { billingApi, type BrokerInvoice } from '@/api/billing'
 import { foreignContractsApi } from '@/api/foreignContracts'
 import { clientCardApi, type ClientCard, type ClientCardCase, type ClientCardDoc } from '@/api/clientCard'
-import { import40ContractApi } from '@/api/import40Contract'
+import { canRenewContract, import40ContractApi } from '@/api/import40Contract'
 import { reestrApi } from '@/api/reestr'
 import type { ReestrEntry } from '@/types/api'
 import { useAuthStore } from '@/stores/auth'
@@ -31,11 +31,14 @@ import { DATA_KEY, cellText, formatContainer, statusKey as reestrStatusKey, stat
 import { formatMoney } from '@/ui/number'
 import { formatPhone } from '@/utils/phone'
 import { saveBlob } from '@/ui/download'
+import { useConfirm } from '@/ui/confirm'
+import { message } from '@/ui/message'
 import type { ZColumn } from '@/ui/table'
 import { validity, type Validity } from './clientDocs'
+import { REQUISITE_LABEL_KEY, isIndividualEntrepreneur, joinList, profileMissing, validDate } from '@/views/client/company/company'
 import { blankFileName, clientStatusLabelKey, clientStatusTone, docKindLabelKey, inviteUntil, signMethodLabelKey } from './clients'
 import {
-  accountStatusOf, availableTabs, awaitingAqniet, canRenewPoa, caseTone, cardTitle, contactRows, currentDocs, directorBasisOf, docTag,
+  accountStatusOf, availableTabs, awaitingAqniet, canRenewPoa, caseTone, cardTitle, contactRows, currentDocs, directorBasisOf, docTag, hasNextPoa,
   invoicesOf, matchesCase, recentCases, resolveTab, transitQuery, unpaidOf, type ClientCardTab,
 } from './clientCard'
 import ClientRegistryPanel from '@/views/clientRegistry/ClientRegistryPanel.vue'
@@ -208,13 +211,20 @@ const requisites = computed(() => {
   return [
     { key: 'fullName', value: p.companyName || c.companyName || dash },
     { key: 'legalAddress', value: p.legalAddress || dash },
-    { key: 'director', value: director },
+    // 30.10.2026: у ИП — «Руководитель», а не «Директор».
+    { key: isIndividualEntrepreneur(p) ? 'directorIp' : 'director', value: director },
     { key: 'bank', value: bank },
     { key: 'iik', value: p.iik || dash, mono: true },
     { key: 'kbe', value: p.kbe || dash },
     { key: 'login', value: c.username || dash },
   ]
 })
+
+// Чего не хватает в реквизитах для договора и доверенности (30.10.2026, аудит C-2).
+const missingReq = computed(() =>
+  card.value && !card.value.profile.isComplete
+    ? joinList(profileMissing(card.value.profile).map((k) => t(REQUISITE_LABEL_KEY[k])), locale.value)
+    : '')
 
 // ---- Документы: подписи, срок, скачивание ----
 const kindLabel = (d: ClientCardDoc) => t(docKindLabelKey(d.kind))
@@ -247,6 +257,34 @@ const signs = (d: ClientCardDoc) => {
   ]
 }
 const canSignDoc = (d: ClientCardDoc) => canOpenSigning.value && awaitingAqniet(d)
+// «Выпустить новую» доверенность — не нужна, если следующая уже выпущена (с 1 декабря — автоматически).
+const canReissuePoa = (d: ClientCardDoc) => canImport.value && canRenewPoa(d) && !hasNextPoa(card.value?.documents ?? [], d)
+
+// «Продлить» многоразовый договор (30.10.2026): до 31.12 следующего года; администратор или руководитель,
+// за 60 дней до конца срока и 30 после (как на сервере).
+const { confirm } = useConfirm()
+const canExtend = (d: ClientCardDoc) => canSignProvider.value && canRenewContract(d)
+const extending = ref<string | null>(null)
+const extend = async (d: ClientCardDoc) => {
+  if (extending.value) return
+  const ok = await confirm({
+    title: t('broker.company.renewTitle', { no: `${d.number}/${d.year}` }),
+    content: t('broker.company.renewConfirm', { date: `31.12.${new Date(d.validUntilUtc!).getUTCFullYear() + 1}` }),
+    okText: t('broker.clientCard.doc.extend'),
+  })
+  if (!ok) return
+  extending.value = d.id
+  try {
+    const renewed = await import40ContractApi.renewDocument(id.value, d.id, { silent: true })
+    message.success(t('broker.clientCard.doc.extended', { date: validDate(renewed.validUntilUtc) }))
+    await load()
+  } catch (e) {
+    const data = (e as { response?: { data?: { error?: string } } })?.response?.data
+    message.error(data?.error || t('broker.clientCard.doc.extendError'))
+  } finally {
+    extending.value = null
+  }
+}
 
 // Бланк сервер собирает по данным клиента на момент запроса; ошибку показывает перехватчик.
 const downloading = ref<string | null>(null)
@@ -302,10 +340,13 @@ const docColumns = computed<ZColumn<ClientCardDoc>[]>(() => [
 const docPrimary = (d: ClientCardDoc): RowPrimary | null =>
   canSignDoc(d)
     ? { key: 'sign', label: t('broker.clientCard.doc.sign'), variant: 'primary' }
-    : canImport.value ? { key: 'blank', label: t('broker.clientCard.doc.blank'), variant: 'outline', loading: downloading.value === d.id } : null
-const docItems = (d: ClientCardDoc): ZDropdownItem[] => (canSignDoc(d) && canImport.value ? [{ key: 'blank', label: t('broker.clientCard.doc.blank') }] : [])
+    : canExtend(d)
+      ? { key: 'extend', label: t('broker.clientCard.doc.extend'), variant: 'primary', loading: extending.value === d.id }
+      : canImport.value ? { key: 'blank', label: t('broker.clientCard.doc.blank'), variant: 'outline', loading: downloading.value === d.id } : null
+const docItems = (d: ClientCardDoc): ZDropdownItem[] => ((canSignDoc(d) || canExtend(d)) && canImport.value ? [{ key: 'blank', label: t('broker.clientCard.doc.blank') }] : [])
 const onDocAction = (d: ClientCardDoc, key: string) => {
   if (key === 'sign') void router.push(signRoute.value)
+  else if (key === 'extend') void extend(d)
   else if (key === 'blank') void downloadBlank(d)
 }
 
@@ -516,6 +557,7 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                   </ZTag>
                   <RouterLink v-if="canImport" :to="editRoute" :class="[link, 'ml-auto']" data-card-edit-requisites>{{ t('broker.clientCard.overview.edit') }}</RouterLink>
                 </div>
+                <p v-if="missingReq" class="m-0 mb-2 text-[13px] text-gold-ink" data-card-missing>{{ t('broker.company.missingList', { list: missingReq }) }}</p>
                 <dl class="m-0">
                   <div
                     v-for="(r, i) in requisites"
@@ -548,7 +590,7 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                         <span>{{ s.text }}</span>
                       </li>
                     </ul>
-                    <div v-if="canImport || canSignDoc(d)" class="flex flex-wrap gap-2">
+                    <div v-if="canImport || canSignDoc(d) || canExtend(d)" class="flex flex-wrap gap-2">
                       <RouterLink
                         v-if="canSignDoc(d)"
                         :to="signRoute"
@@ -567,8 +609,17 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                         <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
                         {{ t(d.clientSigned || d.providerSigned ? 'broker.clientCard.doc.download' : 'broker.clientCard.doc.blank') }}
                       </ZButton>
+                      <ZButton
+                        v-if="canExtend(d)"
+                        size="sm"
+                        variant="primary"
+                        :loading="extending === d.id"
+                        class="max-sm:h-11 max-sm:px-4"
+                        data-doc-extend
+                        @click="extend(d)"
+                      >{{ t('broker.clientCard.doc.extend') }}</ZButton>
                       <RouterLink
-                        v-if="canImport && canRenewPoa(d)"
+                        v-if="canReissuePoa(d)"
                         :to="poaRoute"
                         :class="['inline-flex h-8 items-center rounded-field px-3 text-sm font-semibold text-ink no-underline outline-hidden focus-visible:shadow-focus max-sm:h-11 max-sm:px-4', OUTLINE]"
                         data-doc-renew
