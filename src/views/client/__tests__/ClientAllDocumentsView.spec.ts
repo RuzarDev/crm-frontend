@@ -7,7 +7,7 @@ import type { ClientCaseFile, ClientDocuments } from '@/api/clientDocuments'
 import type { Import40DocumentDto } from '@/api/import40Contract'
 
 const api = vi.hoisted(() => ({ list: vi.fn() }))
-const imp = vi.hoisted(() => ({ downloadFile: vi.fn(), canCreate: vi.fn() }))
+const imp = vi.hoisted(() => ({ downloadFile: vi.fn(), canCreate: vi.fn(), get: vi.fn() }))
 const save = vi.hoisted(() => ({ saveBlob: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/clientDocuments', () => ({ clientDocumentsApi: api }))
@@ -141,6 +141,32 @@ describe('ClientAllDocumentsView', () => {
     const c = company('contract')
     expect(c.attributes('data-company-status')).not.toBe('effective')
     expect(c.find('[data-company-new]').exists()).toBe(false)
+  })
+
+  // 30.10.2026, аудит C-11: разовый документ занят незавершённой поставкой — «Занят поставкой» и ссылка на неё;
+  // поставка выполнена — «Использован»; поставка не ответила — как раньше.
+  it('разовый договор, занятый поставкой в работе, — «Занят поставкой» и ссылка; выполненной — «Использован»', async () => {
+    api.list.mockResolvedValue(DATA({ company: [doc({ id: 'c1', status: 2, isSingleUse: true, consumedByCaseId: 'k1' })] }))
+    imp.get.mockResolvedValue({ id: 'k1', number: 'ИМ-2026-0190', status: 3 })
+    await mountAt('/documents')
+    expect(imp.get).toHaveBeenCalledWith('k1', { silent: true })
+    const c = company('contract')
+    expect(c.attributes('data-company-status')).toBe('busy')
+    expect(c.get('[data-company-tag]').text()).toBe('Занят поставкой')
+    const link = w.get('[data-company-busy-case="contract"]')
+    expect(link.attributes('href')).toBe('/import-40/k1')
+    expect(link.text()).toBe('Поставка ИМ-2026-0190 →')
+    w.unmount()
+
+    imp.get.mockResolvedValue({ id: 'k1', number: 'ИМ-2026-0190', status: 8 })
+    await mountAt('/documents')
+    expect(company('contract').get('[data-company-tag]').text()).toBe('Использован')
+    expect(w.find('[data-company-busy-case]').exists()).toBe(false)
+    w.unmount()
+
+    imp.get.mockRejectedValue(new Error('404'))
+    await mountAt('/documents')
+    expect(company('contract').get('[data-company-tag]').text()).toBe('Использован')
   })
 
   it('отозванный документ уступает свежему неотозванному: истёкшая доверенность — «Истёк»', async () => {

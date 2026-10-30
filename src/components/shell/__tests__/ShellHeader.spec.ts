@@ -158,14 +158,15 @@ describe('NotificationsBell', () => {
     expect(bodyButton('Повторить')).toBeUndefined()
   })
 
-  it('прочитанное с привязкой к реестру — без markRead, переход на /reestr', async () => {
+  // 30.10.2026, аудит S-53: на страницу записи, а не в общий список.
+  it('прочитанное с привязкой к реестру — без markRead, переход на страницу записи /reestr/:id', async () => {
     w = mountIt(NotificationsBell)
     await w.get('button').trigger('click')
     await settle()
     bodyButton('Счёт оплачен')!.click()
     await settle()
     expect(api.markRead).not.toHaveBeenCalled()
-    expect(router.currentRoute.value.fullPath).toBe('/reestr')
+    expect(router.currentRoute.value.fullPath).toBe('/reestr/r1')
   })
 
   it('«Прочитать все» — только при непрочитанных; вызывает markAllRead и пропадает', async () => {

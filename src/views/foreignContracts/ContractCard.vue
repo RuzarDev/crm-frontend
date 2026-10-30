@@ -29,10 +29,12 @@ const props = withDefaults(defineProps<{
   contractId: string
   /** null — «Назад» по истории браузера. */
   backTo: string | null
+  /** Подпись ссылки «Назад» (по умолчанию «Все контракты»): из заявки — «К заявке» (30.10.2026, аудит S-6/C-15). */
+  backLabel?: string
   readonly?: boolean
   /** Ссылка на ДТ (сотруднику); у клиента — только на поставку. */
   dtLinks?: boolean
-}>(), { readonly: false, dtLinks: false })
+}>(), { backLabel: undefined, readonly: false, dtLinks: false })
 const { t, locale } = useI18n()
 const { confirm } = useConfirm()
 const router = useRouter()
@@ -167,7 +169,7 @@ const h2 = 'm-0 text-md font-semibold text-ink'
 <template>
   <div class="flex flex-col gap-4" data-contract-card>
     <RouterLink v-if="backTo" :to="backTo" :class="backClass" data-contract-back>
-      <PhArrowLeft :size="14" aria-hidden="true" />{{ t('foreignContracts.back') }}
+      <PhArrowLeft :size="14" aria-hidden="true" />{{ backLabel ?? t('foreignContracts.back') }}
     </RouterLink>
     <button v-else type="button" :class="[backClass, 'cursor-pointer border-0 bg-transparent p-0 font-sans']" data-contract-back @click="router.back()">
       <PhArrowLeft :size="14" aria-hidden="true" />{{ t('foreignContracts.backHistory') }}

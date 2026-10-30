@@ -227,8 +227,10 @@ const card = 'rounded-panel border border-line px-[18px] py-4'
 // «Повторить» — sm на компьютере, на телефоне — палец (44px).
 const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
 const TIMELINE_SKELETON = [62, 48, 70, 54, 44, 58]
-const contractHref = (id: string) => `/contracts/${encodeURIComponent(id)}`
-const carrierHref = (id: string) => `/carriers/${encodeURIComponent(id)}`
+// ?from= — «Назад» с карточки контракта/перевозчика возвращает в эту поставку (30.10.2026, аудит C-15).
+const fromShipment = () => `?from=${encodeURIComponent(route.path)}`
+const contractHref = (id: string) => `/contracts/${encodeURIComponent(id)}${fromShipment()}`
+const carrierHref = (id: string) => `/carriers/${encodeURIComponent(id)}${fromShipment()}`
 </script>
 
 <template>

@@ -150,3 +150,13 @@ describe('useClientRegistration: сброс и ошибки', () => {
     expect(useClientRegistration().isClient.value).toBe(false)
   })
 })
+
+// 30.10.2026, аудит S-20: последние адреса списков (крошка «Заявки») следующему пользователю не достаются.
+describe('resetSession: адреса списков', () => {
+  it('забывает последний адрес списка заявок', async () => {
+    const { listPath, rememberListPath } = await import('@/shell/listReturn')
+    rememberListPath('requests', '/import-40?tab=active&client=k1')
+    resetSession()
+    expect(listPath('requests', '/import-40')).toBe('/import-40')
+  })
+})

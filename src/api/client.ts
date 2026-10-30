@@ -2,6 +2,7 @@ import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axio
 import { message } from '@/ui/message'
 import { i18n } from '@/i18n'
 import { heicErrorKey, heicErrorName } from '@/utils/heic'
+import { loginPath } from '@/router/safePath'
 
 // Флаг для отдельного запроса: перехватчик не покажет свой тост об ошибке —
 // экран сам рисует ошибку (свой Result/Alert, форма «ссылка недействительна» и т.п.).
@@ -177,7 +178,8 @@ apiClient.interceptors.response.use(
           localStorage.removeItem('username')
           localStorage.removeItem('mustChangePassword')
           if (!silent) errorToast('session-expired', t('errors.sessionExpired'))
-          window.location.href = '/login'
+          // Вернёмся после входа туда же, где оборвалась сессия (30.10.2026, аудит C-5).
+          window.location.href = loginPath(window.location.pathname + window.location.search + window.location.hash)
         }
       } else if (status === 403) {
         if (error.response.data?.title === MUST_CHANGE_PASSWORD) void goChangePassword()

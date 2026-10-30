@@ -755,6 +755,8 @@ export interface AppNotification {
   declarationId?: string | null
   /** Срок внешнеторгового контракта (17.10) — клиенту, клик открывает контракт. */
   foreignContractId?: string | null
+  /** Клиент (30.10.2026, аудит S-52): «Новый клиент зарегистрировался», договор/доверенность — клик открывает его карточку. */
+  clientId?: string | null
 }
 
 // ── TNVED extended types ──────────────────────────────────────────────────────

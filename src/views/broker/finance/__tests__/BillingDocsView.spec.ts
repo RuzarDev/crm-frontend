@@ -323,6 +323,63 @@ describe('«Счета и акты» (сотрудник)', () => {
     expect(docs()).toEqual(['Счёт № 0214/2026'])
   })
 
+  // 30.10.2026, аудит S-26/S-38: счетов по заявке ещё нет — не весь список, а пусто по номеру заявки
+  // и кнопка «Выставить по заявке …» (окно с заявкой и клиентом).
+  it('?case= без счетов по заявке — пусто по её номеру и «Выставить по заявке»', async () => {
+    await router.push('/billing?case=k9')
+    await mountView()
+    expect((w.get('input[type="search"]').element as HTMLInputElement).value).toBe('ИМ-2026-0199')
+    expect(docs()).toEqual([])
+    const btn = w.get('[data-billing-new-for-case]')
+    expect(btn.text()).toBe('Выставить по заявке ИМ-2026-0199')
+    await btn.trigger('click')
+    const modal = w.getComponent(CreateBillingDocModal)
+    expect(modal.props('open')).toBe(true)
+    expect(modal.props('preset')).toEqual({ caseId: 'k9', clientId: 'c2' })
+  })
+
+  it('?case= без права записи — кнопки «Выставить по заявке» нет', async () => {
+    as('kpp', ['finance.read'])
+    await router.push('/billing?case=k9')
+    await mountView()
+    expect(docs()).toEqual([])
+    expect(has('[data-billing-new-for-case]')).toBe(false)
+  })
+
+  // 30.10.2026, аудит S-3/C-32: «Все счета» из карточки клиента — ?client=, чип «Клиент: …» снимает фильтр.
+  it('?client= — документы только этого клиента, чип с названием; сброс убирает параметр', async () => {
+    await router.push('/billing?client=c2')
+    await mountView()
+    expect(docs()).toEqual(['Счёт № 0213/2026'])
+    expect(w.get('[data-billing-client]').text()).toContain('ТОО «Steppe Agro»')
+    w.findComponent({ name: 'FilterChip' }).vm.$emit('update:value', null)
+    await flushPromises()
+    expect(router.currentRoute.value.query).toEqual({})
+    expect(docs()).toHaveLength(5)
+  })
+
+  it('?client= клиента без документов — пусто, в чипе название из справочника, «Сбросить фильтры»', async () => {
+    await router.push('/billing?client=c9')
+    api.listClients.mockResolvedValue([{ id: 'c9', username: 'nine', companyName: 'ТОО ТЕСТ' }])
+    await mountView()
+    expect(docs()).toEqual([])
+    expect(w.get('[data-billing-client]').text()).toContain('ТОО ТЕСТ')
+    await w.get('[data-billing-reset]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.query).toEqual({})
+    expect(docs()).toHaveLength(5)
+  })
+
+  // 30.10.2026, аудит S-54: сквозной поиск ⌘K → счёт: /billing?q=N/ГГГГ.
+  it('?q= — поиск по номеру документа при открытии и на открытом экране', async () => {
+    await router.push('/billing?q=0213/2026')
+    await mountView()
+    expect(docs()).toEqual(['Счёт № 0213/2026'])
+    await router.push('/billing?q=0205/2026')
+    await flushPromises()
+    expect(docs()).toEqual(['Счёт № 0205/2026'])
+  })
+
   it('?caseId= — фильтр и окно с заявкой и клиентом; параметр убирается из адреса', async () => {
     await router.push('/billing?caseId=k9&x=1')
     await mountView()

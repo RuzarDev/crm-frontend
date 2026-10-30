@@ -210,7 +210,10 @@ const generate = async () => {
   if (created === null) return
   if (created > 0) {
     message.success(t('broker.packageWorkspace.generated', { n: created }))
-    await router.push('/reestr')
+    // Транзит — записи этого поезда (сервер пишет в «Отправку» «Поезд № …»), прежние фильтры списка сбрасываются
+    // (30.10.2026, аудит S-49). Номера поезда нет — просто список.
+    const train = p.trainNumber?.trim()
+    await router.push(train ? { path: '/reestr', query: { q: `Поезд № ${train}` } } : '/reestr')
   } else {
     message.info(t('broker.packageWorkspace.generatedNone'))
   }

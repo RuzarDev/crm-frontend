@@ -11,7 +11,7 @@ import NotificationsBell from '@/components/shell/NotificationsBell.vue'
 import LangMenu from '@/components/shell/LangMenu.vue'
 import UserMenu from '@/components/shell/UserMenu.vue'
 import CommandPalette from '@/components/shell/CommandPalette.vue'
-import { allSections, resolveActive, type NavModel } from '@/shell/navModel'
+import { allSections, isSectionPage, navPathOf, resolveActive, type NavModel } from '@/shell/navModel'
 import { homeAttention } from '@/shell/attention'
 import { installPaletteHotkey, useCommandPalette, type PaletteDestination } from '@/shell/useCommandPalette'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -45,11 +45,18 @@ const authStore = useAuthStore()
 const compact = computed(() => route.meta.shell === 'compact')
 
 // ---- Раздел и вкладки ----
-const active = computed(() => resolveActive(props.model, route.path))
+// Путь для меню (S-5): «Компания клиента» с ?client= — раздел «Клиенты»; нет такого раздела у роли — по адресу.
+const navPath = computed(() => {
+  const p = navPathOf(route.path, route.query)
+  return p !== route.path && !resolveActive(props.model, p) ? route.path : p
+})
+const active = computed(() => resolveActive(props.model, navPath.value))
 const tabsSection = computed(() => {
   const s = active.value?.section
   // Временный пароль: «Уведомления» закрыты до смены — вкладок личного раздела нет.
   if (s?.key === 'personal' && authStore.mustChangePassword) return null
+  // Вложенная страница (карточка, заявка, ДТ) — без вкладок раздела (30.10.2026, аудит S-1).
+  if (!isSectionPage(props.model, navPath.value)) return null
   return s && s.pages.length >= 2 ? s : null
 })
 
@@ -153,7 +160,7 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
     >
       <ShellSidebar
         :model="model"
-        :path="route.path"
+        :path="navPath"
         :attention="homeAttention"
         :comfortable="comfortable"
         :compact="compact"
@@ -248,7 +255,7 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
       <div class="-mx-6 -my-4 h-[calc(100%+2rem)]">
         <ShellSidebar
           :model="model"
-          :path="route.path"
+          :path="navPath"
           :attention="homeAttention"
           :comfortable="comfortable"
           :searchable="false"

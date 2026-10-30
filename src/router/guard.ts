@@ -1,3 +1,5 @@
+import { loginPath } from './safePath'
+
 // Решения beforeEach в чистой функции (редизайн, волна 1): логика перенесена из router/index.ts
 // без изменений — так её можно проверить тестами. Порядок проверок важен и сохранён.
 export interface GuardAuth {
@@ -19,7 +21,9 @@ const FINANCE_BLOCKED = ['/import-40', '/reestr', '/document-packages', '/keden'
 /** Куда перенаправить; `null` — пропустить как есть. */
 export const MUST_CHANGE_PASSWORD_TARGET = '/profile?tab=password'
 
-export function guardRedirect(path: string, meta: Record<string, unknown>, a: GuardAuth): string | null {
+// fullPath — полный адрес перехода: без входа ведём на «/login?next=…», после входа вернёмся туда
+// (ссылка из письма или Telegram, истёкшая сессия; 30.10.2026, аудит C-5).
+export function guardRedirect(path: string, meta: Record<string, unknown>, a: GuardAuth, fullPath?: string): string | null {
   // Проверка подписей по QR (20.10.2026) — публичная для всех, даже при незаменённом временном пароле.
   if (path.startsWith('/verify/')) return null
   // Временный пароль (волна 5б): пока не сменён, всё, кроме профиля и входа, ведёт на смену пароля.
@@ -42,7 +46,7 @@ export function guardRedirect(path: string, meta: Record<string, unknown>, a: Gu
   const normalizedRole = (a.role || '').trim().toLowerCase()
 
   if (requiresAuth && !a.isAuthenticated) {
-    return '/login'
+    return loginPath(fullPath ?? null)
   } else if (
     // Реестр (транзит) и страница записи /reestr/:id — по праву reestr.read; клиенту оставляем как было.
     (path === '/reestr' || path.startsWith('/reestr/')) && normalizedRole !== 'administrator' && normalizedRole !== 'client'

@@ -152,7 +152,8 @@ const menu = computed<ZDropdownItem[]>(() => [
 ])
 const onMenu = (key: string) => {
   if (key === 'sign') void router.push(signRoute.value)
-  else if (key === 'docs') void router.push('/client-documents')
+  // «Документы клиента» — вкладка этой карточки, а не общий реестр всех клиентов (30.10.2026, аудит S-2).
+  else if (key === 'docs') setTab('docs')
   else if (key === 'refresh') void load()
 }
 
@@ -358,10 +359,10 @@ const transitColumns = computed<ZColumn<ReestrEntry>[]>(() => [
   { key: 'cargo', title: t('broker.clientCard.transit.col.cargo'), width: 300 },
   { key: 'date', title: t('broker.clientCard.transit.col.date'), width: 120, align: 'right' },
 ])
-const transitTo = (e: ReestrEntry) => {
-  const q = transitQuery(e)
-  return q ? { path: '/reestr', query: { q } } : null
-}
+// Строка — страница записи /reestr/:id, а не поиск по контейнеру (30.10.2026, аудит S-4): поиск не сбрасывал
+// прежние фильтры транзита, и запись могла не найтись. «Все записи клиента» — список с фильтром по клиенту.
+const transitTo = (e: ReestrEntry) => (e.id ? `/reestr/${encodeURIComponent(e.id)}` : null)
+const transitAllTo = computed(() => ({ path: '/reestr', query: { client: id.value } }))
 const transitRow = (e: ReestrEntry) => {
   const to = transitTo(e)
   return to
@@ -715,7 +716,7 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                     <RouterLink
                       v-if="transitTo(record)"
                       :to="transitTo(record)!"
-                      :aria-label="t('broker.clientCard.transit.open', { value: transitQuery(record) })"
+                      :aria-label="t('broker.clientCard.transit.open', { value: transitQuery(record) || cellText(record, 'no') })"
                       class="rounded-[4px] font-mono text-sm text-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus"
                       data-transit-open
                     >{{ cellText(record, 'no') }}</RouterLink>
@@ -730,9 +731,12 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                   <ZEmpty :title="t('broker.clientCard.transit.empty')" />
                 </template>
               </ZTable>
-              <p v-if="reestr.data && reestr.data.totalCount > reestr.data.items.length" class="m-0 text-[13px] text-muted" data-transit-shown>
-                {{ t('broker.clientCard.transit.shown', { n: reestr.data.items.length, total: reestr.data.totalCount }) }}
-              </p>
+              <div v-if="reestr.data && reestr.data.totalCount > 0" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <p v-if="reestr.data.totalCount > reestr.data.items.length" class="m-0 text-[13px] text-muted" data-transit-shown>
+                  {{ t('broker.clientCard.transit.shown', { n: reestr.data.items.length, total: reestr.data.totalCount }) }}
+                </p>
+                <RouterLink :to="transitAllTo" :class="[link, 'ml-auto']" data-transit-all>{{ t('broker.clientCard.transit.all') }}</RouterLink>
+              </div>
             </template>
           </div>
 
@@ -799,7 +803,8 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
             </div>
             <template v-else>
               <div class="flex">
-                <RouterLink to="/billing" :class="[link, 'ml-auto']" data-invoices-all>{{ t('broker.clientCard.invoices.all') }}</RouterLink>
+                <!-- Все счета ЭТОГО клиента (30.10.2026, аудит S-3/C-32): «Счета и акты» с фильтром по клиенту. -->
+                <RouterLink :to="{ path: '/billing', query: { client: id } }" :class="[link, 'ml-auto']" data-invoices-all>{{ t('broker.clientCard.invoices.all') }}</RouterLink>
               </div>
               <ZTable
                 :columns="invoiceColumns"

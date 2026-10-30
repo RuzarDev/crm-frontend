@@ -23,9 +23,25 @@ describe('notificationTarget', () => {
     expect(notificationTarget({ caseId: 'a b/c', reestrEntryId: null }, false)).toBe('/import-40/a%20b%2Fc')
     expect(notificationTarget({ caseId: 'a b', reestrEntryId: null }, true)).toBe('/billing?case=a%20b')
   })
-  it('запись реестра — /reestr, без привязки — null', () => {
-    expect(notificationTarget({ caseId: null, reestrEntryId: 'r1' }, false)).toBe('/reestr')
+  // 30.10.2026, аудит S-53/C-23: страница записи, а не общий список; финансисту транзит закрыт — никуда.
+  it('запись реестра — её страница /reestr/:id; финансисту — null; без привязки — null', () => {
+    expect(notificationTarget({ caseId: null, reestrEntryId: 'r 1' }, false)).toBe('/reestr/r%201')
+    expect(notificationTarget({ caseId: null, reestrEntryId: 'r1' }, false, undefined, true)).toBe('/reestr/r1')
+    expect(notificationTarget({ caseId: null, reestrEntryId: 'r1' }, true)).toBeNull()
     expect(notificationTarget({ caseId: null, reestrEntryId: null }, true)).toBeNull()
+  })
+  // 30.10.2026, аудит S-52: новый клиент — его карточка; старые уведомления без clientId — список клиентов.
+  it('новый клиент: карточка клиента; без clientId — «Клиенты»; без clients.read и финансисту — null', () => {
+    const n = { caseId: null, reestrEntryId: null, type: 'ClientRegistered', clientId: 'k 1' }
+    expect(notificationTarget(n, false, (p) => p === 'clients.read')).toBe('/clients/k%201')
+    expect(notificationTarget({ ...n, clientId: null }, false, (p) => p === 'clients.read')).toBe('/clients')
+    expect(notificationTarget(n, false, () => false)).toBeNull()
+    expect(notificationTarget(n, true, () => true)).toBeNull()
+  })
+  it('договор/доверенность с clientId: сотруднику — вкладка «Документы» карточки клиента', () => {
+    const n = { caseId: null, reestrEntryId: null, type: 'ClientDocument', clientId: 'k1' }
+    expect(notificationTarget(n, false, (p) => p === 'clients.read', false)).toBe('/clients/k1?tab=docs')
+    expect(notificationTarget(n, false, () => false, true)).toBe('/import-40/company')
   })
   it('чек по счёту — «Счета и акты» для любого сотрудника, с фильтром по заявке', () => {
     const n = { type: 'InvoiceCheckUploaded', caseId: 'c1', reestrEntryId: null }

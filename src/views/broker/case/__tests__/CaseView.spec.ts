@@ -39,6 +39,8 @@ vi.mock('@/api/preBorder', async (orig) => ({
 vi.mock('@/api/documentChecks', () => ({ documentChecksApi: { list: vi.fn().mockResolvedValue([]), link: vi.fn(), recheck: vi.fn() } }))
 
 import CaseView from '../CaseView.vue'
+import CaseContractBlock from '@/views/foreignContracts/CaseContractBlock.vue'
+import ShipmentTransportBlock from '@/views/carriers/ShipmentTransportBlock.vue'
 
 // Reka-окна и меню — заглушки: проверяются состав карточки и запросы, а не механика всплывающих окон.
 const DropdownStub = {
@@ -169,6 +171,14 @@ describe('CaseView: поставка до границы', () => {
 })
 
 describe('CaseView: шапка и шаги', () => {
+  // 30.10.2026, аудит S-6: контракт и перевозчик из заявки — с ?from= на заявку, «Назад» вернёт сюда.
+  it('ссылки на контракт и перевозчика несут ?from= этой заявки', async () => {
+    await mountCard(USERS.rop)
+    const from = `?from=${encodeURIComponent('/import-40/c1')}`
+    expect((w.getComponent(CaseContractBlock).props('href') as (id: string) => string)('k1')).toBe(`/clients/cl1/contracts/k1${from}`)
+    expect((w.getComponent(ShipmentTransportBlock).props('carrierHref') as (id: string) => string)('r1')).toBe(`/clients/cl1/carriers/r1${from}`)
+  })
+
   it('крошки, груз, номер, клиент (ссылка по clients.read), пост, транспорт с прицепом, «Счета и акты»', async () => {
     await mountCard(USERS.rop)
     expect(w.get('[data-case-title]').text()).toBe('Ноутбуки и комплектующие')
@@ -176,7 +186,10 @@ describe('CaseView: шапка и шаги', () => {
     expect(w.get('a[data-case-client]').attributes('href')).toBe('/clients/cl1')
     expect(w.get('[data-case-post]').text()).toContain('Хоргос — ЦТО')
     expect(w.get('[data-case-transport]').text()).toContain('Авто · 777 KTA 02 / прицеп 12 KZ 3456')
-    expect(w.get('[data-case-billing]').attributes('href')).toBe('/billing?caseId=c1')
+    // 30.10.2026, аудит S-26: список с фильтром по заявке, а не сразу окно нового счёта.
+    expect(w.get('[data-case-billing]').attributes('href')).toBe('/billing?case=c1')
+    // Крошка «Заявки» — последний адрес списка (S-20); списка в этой вкладке не было — по умолчанию.
+    expect(w.get('[data-case-header] nav a').attributes('href')).toBe('/import-40')
   })
 
   it('без clients.read клиент — текстом; без finance.read — нет «Счетов и актов»', async () => {

@@ -213,3 +213,20 @@ describe('фильтр «Нет связи с КЕДЕН» (17.10)', () => {
     expect(hasFilters({ ...emptyFilters(), keden: 'unlinked' })).toBe(true)
   })
 })
+
+// 30.10.2026, аудит S-20: фильтры ↔ адрес.
+describe('filtersFromQuery / filtersToQuery', () => {
+  it('туда и обратно без потерь; пустые — без параметров', async () => {
+    const { emptyFilters, filtersFromQuery, filtersToQuery, sameFilters } = await import('../requests')
+    const f = { q: 'кофе ', client: 'c1', executor: 'none', stage: '3', period: ['2026-10-01', '2026-10-31'] as [string, string], condRel: 'open' as const, keden: 'unlinked' as const }
+    const q = filtersToQuery(f)
+    expect(q).toEqual({ q: 'кофе ', client: 'c1', executor: 'none', stage: '3', dateFrom: '2026-10-01', dateTo: '2026-10-31', condRel: 'open', keden: 'unlinked' })
+    expect(filtersFromQuery(q)).toEqual(f)
+    expect(Object.values(filtersToQuery(emptyFilters())).every((v) => v === undefined)).toBe(true)
+    expect(sameFilters({ ...emptyFilters(), q: '  ' }, emptyFilters())).toBe(true)
+  })
+  it('мусор в адресе — без фильтра', async () => {
+    const { emptyFilters, filtersFromQuery } = await import('../requests')
+    expect(filtersFromQuery({ stage: 'x', dateFrom: '2026-10-01', condRel: 'bad', keden: 'yes' })).toEqual(emptyFilters())
+  })
+})

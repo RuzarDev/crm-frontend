@@ -134,18 +134,28 @@ const resetFilters = () => {
 }
 const statusOptions = computed(() => TRANSIT_STATUSES.map((s) => ({ value: String(s), label: t(`enum.reestrStatus.${statusKey(s)}`) })))
 
-// Переход из сквозного поиска: ?q=контейнер. Читается при открытии и пока экран открыт (уход на другой
-// экран с ?q= — не наш поиск: экран ещё жив во время перехода).
-const applyQuery = (q: unknown): boolean => {
-  if (typeof q !== 'string' || !q.trim()) return false
-  store.setSearch(q.trim())
+// Переход из контекста: ?q= (сквозной поиск, «Сформировать записи» разбора поезда) и ?client= (карточка клиента →
+// «Все записи клиента»). Показываем ровно это: прежние статус, клиент и период из стора сбрасываем (30.10.2026,
+// аудит S-4/S-49) — иначе нужные записи прятались за старыми фильтрами. Читается при открытии и пока экран открыт
+// (уход на другой экран с ?q= — не наш поиск: экран ещё жив во время перехода).
+const applyQuery = (query: Record<string, unknown>): boolean => {
+  const q = typeof query.q === 'string' ? query.q.trim() : ''
+  const client = typeof query.client === 'string' ? query.client.trim() : ''
+  if (!q && !client) return false
+  store.setSearch(q)
+  store.statusFilter = null
+  store.clientFilter = client || null
+  store.documentDateFrom = null
+  store.documentDateTo = null
   selected.value = []
   return true
 }
-watch(() => route.query.q, (q) => { if (route.name === 'reestr' && applyQuery(q)) void load() })
+watch(() => `${route.query.q ?? ''}\u0000${route.query.client ?? ''}`, () => {
+  if (route.name === 'reestr' && applyQuery(route.query)) void load()
+})
 
 onMounted(() => {
-  applyQuery(route.query.q)
+  applyQuery(route.query)
   void load()
   void loadCreateClients()
   void loadFilterClients()

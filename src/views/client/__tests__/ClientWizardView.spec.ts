@@ -201,6 +201,19 @@ describe('ClientWizardView', () => {
     expect(api.get).not.toHaveBeenCalled()
   })
 
+  // 30.10.2026, аудит C-14: «Оформить поставку с этим товаром» из подбора ТН ВЭД — груз уже заполнен, черновик — по «Далее».
+  it('?cargo= из «Подбора кода ТН ВЭД» — груз заполнен, «Далее» доступна, черновик не создаётся сам', async () => {
+    await mountAt(`/import-40/new?cargo=${encodeURIComponent('Кофе в зёрнах (ТН ВЭД 0901 11 000 0)')}`)
+    expect((w.get('[data-wz-cargo]').element as HTMLTextAreaElement).value).toBe('Кофе в зёрнах (ТН ВЭД 0901 11 000 0)')
+    expect(w.get('[data-wz-next]').attributes('disabled')).toBeUndefined()
+    await flushPromises()
+    expect(api.create).not.toHaveBeenCalled()
+    await w.get('[data-wz-next]').trigger('click')
+    await flushPromises()
+    expect(api.create).toHaveBeenCalledWith(expect.objectContaining({ cargo: 'Кофе в зёрнах (ТН ВЭД 0901 11 000 0)' }))
+    expect(router.currentRoute.value.fullPath).toBe('/import-40/new/c1')
+  })
+
   it('шаг 1: пост найден по коду (правка №11) — в черновик уходит полное имя поста из справочника', async () => {
     await mountAt('/import-40/new')
     await w.get('[data-wz-cargo]').setValue('Ноутбуки')

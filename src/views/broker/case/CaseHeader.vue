@@ -9,14 +9,17 @@ import type { Import40CaseDto } from '@/api/import40'
 import type { CasePerms } from './casePermissions'
 import type { ReasonKind } from './useCaseActions'
 import { transportSummary } from './caseFormat'
+import { listPath } from '@/shell/listReturn'
 
 // Шапка карточки (доски Case/CaseSvh): крошки, груз + номер, клиент · пост · транспорт; справа «Счета и акты» и «⋯».
+// «Счета и акты» — список, отфильтрованный по заявке (?case=), а не сразу окно нового счёта (?caseId=; 30.10.2026,
+// аудит S-26): пустой список сам предлагает «Выставить по заявке». Крошка «Заявки» — последний адрес списка (S-20).
 const props = defineProps<{ kase: Import40CaseDto; perms: CasePerms }>()
 const emit = defineEmits<{ ask: [kind: ReasonKind] }>()
 const { t } = useI18n()
 
 const crumbs = computed(() => [
-  { label: t('broker.case.crumbs'), to: '/import-40' },
+  { label: t('broker.case.crumbs'), to: listPath('requests', '/import-40') },
   { label: props.kase.number },
 ])
 const TRANSPORT_ICON: Record<number, Component> = { 0: PhTrain, 1: PhTruck, 2: PhAirplane, 3: PhBoat }
@@ -72,7 +75,7 @@ const metaItem = 'inline-flex min-w-0 items-center gap-1.5'
       <div class="flex shrink-0 items-center gap-2">
         <RouterLink
           v-if="perms.canSeeBilling"
-          :to="{ path: '/billing', query: { caseId: kase.id } }"
+          :to="{ path: '/billing', query: { case: kase.id } }"
           class="inline-flex h-9 items-center rounded-field bg-sunken px-3.5 text-sm font-semibold whitespace-nowrap text-ink no-underline outline-hidden hover:bg-line-strong focus-visible:shadow-focus max-sm:h-11"
           data-case-billing
         >{{ t('import40Case.billingBtn') }}</RouterLink>

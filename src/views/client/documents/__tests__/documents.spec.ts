@@ -98,3 +98,16 @@ describe('fileKindKey', () => {
     expect(fileKindKey({ section: 'documents', docKind: 'invoice' })).toBe('client.docKind.invoice.name')
   })
 })
+
+// 30.10.2026, аудит C-11: «Занят поставкой» — пока поставка не завершена (0–7); выполнена (8) или неизвестна — как было.
+describe('consumedStatus', () => {
+  it('consumed + поставка в работе → busy; выполнена / неизвестна / другой статус — без изменений', async () => {
+    const { consumedStatus } = await import('../documents')
+    expect(consumedStatus('consumed', 0)).toBe('busy')
+    expect(consumedStatus('consumed', 7)).toBe('busy')
+    expect(consumedStatus('consumed', 8)).toBe('consumed')
+    expect(consumedStatus('consumed', null)).toBe('consumed')
+    expect(consumedStatus('consumed', undefined)).toBe('consumed')
+    expect(consumedStatus('effective', 3)).toBe('effective')
+  })
+})

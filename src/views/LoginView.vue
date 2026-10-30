@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, useId } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import ZForm from '@/components/z/ZForm.vue'
@@ -8,6 +8,7 @@ import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import { useAuthStore } from '@/stores/auth'
+import { afterLoginPath } from '@/router/safePath'
 import type { ZRule } from '@/ui/validation'
 import { authLabelClass as labelClass, authLinkClass as linkClass } from '@/components/auth/classes'
 
@@ -19,6 +20,7 @@ import { authLabelClass as labelClass, authLinkClass as linkClass } from '@/comp
 // ведёт сразу в пароль, а Enter после Tab не уводит со страницы.
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const { t } = useI18n()
 
@@ -37,7 +39,8 @@ const onFinish = async () => {
   try {
     // Пробелы по краям логина — от копирования; пароль передаём как есть.
     const ok = await authStore.login({ username: form.username.trim(), password: form.password })
-    if (ok) router.push('/')
+    // ?next= — адрес, с которого увела охрана или истёкшая сессия (письмо, Telegram); только свой путь (30.10.2026, аудит C-5).
+    if (ok) router.push(afterLoginPath(route.query.next))
   } finally {
     loading.value = false
   }

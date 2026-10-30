@@ -3,6 +3,7 @@ import { computed, ref, shallowRef, useId, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhCaretLeft, PhCaretRight, PhCheck } from '@phosphor-icons/vue'
+import ZBreadcrumbs from '@/components/z/ZBreadcrumbs.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZPage from '@/components/z/ZPage.vue'
@@ -49,6 +50,18 @@ const clientId = computed(() => {
   const list = clients.value
   if (!list.length) return ''
   return list.some((c) => c.id === queryClient.value) ? queryClient.value : list[0].id
+})
+// Пришли из карточки клиента или «Документов клиентов» (?client=): крошки «Клиенты / компания / Компания клиента»
+// ведут назад в карточку (30.10.2026, аудит S-5). Без права clients.read карточка закрыта — крошек нет.
+const crumbs = computed(() => {
+  if (!queryClient.value || !auth.hasPermission('clients.read')) return null
+  const c = clients.value.find((x) => x.id === queryClient.value)
+  if (!c) return null
+  return [
+    { label: t('broker.clientCard.crumbs'), to: '/clients' },
+    { label: c.companyName || c.username, to: `/clients/${encodeURIComponent(c.id)}` },
+    { label: t('broker.company.title') },
+  ]
 })
 const pickClient = (v: ZOptionValue | ZOptionValue[] | null) => {
   const id = typeof v === 'string' ? v : ''
@@ -170,6 +183,9 @@ const circle = (s: StaffStep) => {
 
 <template>
   <ZPage :title="t('broker.company.title')" :subtitle="t('broker.company.subtitle')" data-staff-company>
+    <template v-if="crumbs" #breadcrumbs>
+      <ZBreadcrumbs :items="crumbs" data-company-crumbs />
+    </template>
     <template v-if="status === 'ready'" #meta>
       <ZTag v-if="onboarding.complete" tone="done" data-onboarding="done">{{ t('broker.company.onboardingDone') }}</ZTag>
       <ZTooltip v-else :title="missingHint">
